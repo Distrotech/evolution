@@ -1,9 +1,14 @@
-2003-11-07  Dan Winship  <danw@ximian.com>
+2003-11-10  Jeffrey Stedfast  <fejj@ximian.com>
 
-	* message-list.c: Don't #include e-name-western.h, since the code
-	that uses it is commented out, and we want to remove the local
-	copy, but we don't want to make the mailer depend on the e-d-s
-	copy if it's not even going to be using it.
+	* mail-component.c: Ported to use EMFolderTree.
+
+	* mail-offline-handler.c (storage_go_online): Updated to not pass
+	a storage argument.
+
+	* mail-folder-cache.c: Removed storage stuff.
+
+	* mail-send-recv.c (receive_update_got_store): Don't do EStorage*
+	stuff anymore.
 
 2003-11-07  JP Rosevear <jpr@ximian.com>
 
