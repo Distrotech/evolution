@@ -77,7 +77,6 @@ enum {
 	CAL_ADDED,
 	OPENED,
 	REMOVED,
-	OBJ_UPDATED,
 	LAST_SIGNAL
 };
 static guint cal_backend_signals[LAST_SIGNAL];
@@ -232,15 +231,6 @@ cal_backend_class_init (CalBackendClass *class)
 			      g_cclosure_marshal_VOID__ENUM,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_INT);
-	cal_backend_signals[OBJ_UPDATED] =
-		g_signal_new ("obj_updated",
-			      G_TYPE_FROM_CLASS (class),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalBackendClass, obj_updated),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
 
 	class->last_client_gone = NULL;
 	class->opened = NULL;
@@ -264,11 +254,11 @@ cal_backend_class_init (CalBackendClass *class)
 	class->get_alarms_in_range = NULL;
 	class->get_alarms_for_object = NULL;
 	class->discard_alarm = NULL;
-	class->update_objects = NULL;
 	class->create_object = NULL;
 	class->modify_object = NULL;
 	class->remove_object = NULL;
-	class->send_object = NULL;
+	class->receive_objects = NULL;
+	class->send_objects = NULL;
 }
 
 /* Object initialization func for the calendar backend */
@@ -918,29 +908,6 @@ cal_backend_discard_alarm (CalBackend *backend, const char *uid, const char *aui
 	return (* CLASS (backend)->discard_alarm) (backend, uid, auid);
 }
 
-/**
- * cal_backend_update_objects:
- * @backend: A calendar backend.
- * @calobj: String representation of the new calendar object(s).
- * 
- * Updates an object in a calendar backend.  It will replace any existing
- * object that has the same UID as the specified one.  The backend will in
- * turn notify all of its clients about the change.
- * 
- * Return value: a #CalBackendResult value, which indicates the
- * result of the operation.
- **/
-CalBackendResult
-cal_backend_update_objects (CalBackend *backend, const char *calobj, CalObjModType mod)
-{
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (calobj != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
-
-	g_assert (CLASS (backend)->update_objects != NULL);
-	return (* CLASS (backend)->update_objects) (backend, calobj, mod);
-}
-
 void
 cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj)
 {
@@ -985,16 +952,26 @@ cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalOb
 	(* CLASS (backend)->remove_object) (backend, cal, uid, mod);
 }
 
-CalBackendSendResult
-cal_backend_send_object (CalBackend *backend, const char *calobj, char **new_calobj,
-			 GNOME_Evolution_Calendar_UserList **user_list, char error_msg[256])
+void
+cal_backend_receive_objects (CalBackend *backend, Cal *cal, const char *calobj)
 {
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_SEND_INVALID_OBJECT);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_SEND_INVALID_OBJECT);
-	g_return_val_if_fail (calobj != NULL, CAL_BACKEND_SEND_INVALID_OBJECT);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (calobj != NULL);
 
-	g_assert (CLASS (backend)->send_object != NULL);
-	return (* CLASS (backend)->send_object) (backend, calobj, new_calobj, user_list, error_msg);
+	g_assert (CLASS (backend)->receive_objects != NULL);
+	return (* CLASS (backend)->receive_objects) (backend, cal, calobj);
+}
+
+void
+cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (calobj != NULL);
+
+	g_assert (CLASS (backend)->send_objects != NULL);
+	return (* CLASS (backend)->send_objects) (backend, cal, calobj);
 }
 
 /**
@@ -1040,26 +1017,6 @@ cal_backend_removed (CalBackend *backend, int status)
 	g_signal_emit (G_OBJECT (backend), cal_backend_signals[REMOVED],
 		       0, status);
 }
-
-/**
- * cal_backend_obj_updated:
- * @backend: A calendar backend.
- * @uid: Unique identifier of the component that was updated.
- * 
- * Emits the "obj_updated" signal of a calendar backend.  This function is to be
- * used only by backend implementations.
- **/
-void
-cal_backend_obj_updated (CalBackend *backend, const char *uid)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (IS_CAL_BACKEND (backend));
-	g_return_if_fail (uid != NULL);
-
-	g_signal_emit (G_OBJECT (backend), cal_backend_signals[OBJ_UPDATED],
-		       0, uid);
-}
-
 
 /**
  * cal_backend_get_timezone:

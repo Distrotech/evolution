@@ -1,3 +1,73 @@
+2003-09-15    <jpr@ximian.com>
+
+	* conduits/todo/todo-conduit.c (replace_record): switch to modify
+	object
+	(add_record): switch to using create object
+
+	* conduits/calendar/calendar-conduit.c (process_multi_day): switch
+	to using create object
+	(add_record): switch to using create object
+	(replace_record): switch to modify object
+
+	* cal-client/cal-listener.h: add signals
+
+	* cal-client/cal-listener.c (impl_notifyObjectsReceived):
+	implement listener method
+	(build_object_list): ditto
+	(cal_listener_class_init): create receive_objects and send_objects
+	signals
+
+	* cal-client/cal-client.h: add, update protos
+
+	* cal-client/cal-client.c (cal_objects_received_cb):
+	receive_objects callback
+	(cal_objects_sent_cb): send_objects callback
+	(cal_client_init): listen for above signals
+	(cal_client_create_object): pass back uid
+	(cal_client_receive_objects): implement
+	(cal_client_send_objects): ditto
+
+	* idl/evolution-calendar.idl: add receive/send objects methods and
+	yank updateObjects
+
+	* pcs/cal.h: add protos
+
+	* pcs/cal.c (impl_Cal_receiveObjects): implement
+	(impl_Cal_sendObjects): ditto
+	(cal_class_init): add epv methods
+	(cal_notify_objects_received): notify of objects received call,
+	updating queries
+	(cal_notify_objects_sent): notify of objects sent
+
+	* pcs/cal-backend.h: remove proto
+
+	* pcs/cal-backend.c (cal_backend_class_init): remove obj_updated
+	signal
+	(cal_backend_class_init): init vmethods properly
+	(cal_backend_receive_objects): call through
+	(cal_backend_send_objects): ditto
+
+	* pcs/cal-backend-sync.h: add protos, vmethods
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_receive_objects): call
+	through
+	(cal_backend_sync_send_objects): ditto
+	(_cal_backend_receive_objects): call backend method and notify
+	(_cal_backend_send_objects): ditto
+	(cal_backend_sync_class_init): override send/receive object
+	vmethods
+
+	* pcs/cal-backend-file.c (cal_backend_file_class_init): set
+	remove/send objects sync vmethods
+	(cal_backend_file_create_object): remove call to dead method
+	(cal_backend_file_remove_object): ditto
+	(cal_backend_file_modify_object): ditto
+	(cancel_received_object): cancel an object
+	(check_tzids): check we have all the tzid's for the object
+	(cal_backend_file_receive_objects): receive a bunch of objects via
+	itip
+	(cal_backend_file_send_objects): skeleton implementation
+
 2003-09-15  Rodrigo Moya <rodrigo@ximian.com>
 
 	* idl/evolution-calendar.idl: added InvalidObject CallStatus.

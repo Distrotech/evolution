@@ -220,9 +220,8 @@ gboolean cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, C
 gboolean cal_client_remove_object (CalClient *client, const char *uid, GError **error);
 gboolean cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjModType mod, GError **error);
 
-CalClientSendResult cal_client_send_object (CalClient *client, icalcomponent *icalcomp, 
-					    icalcomponent **new_icalcomp, GList **users,
-					    char error_msg[256]);
+gboolean cal_client_receive_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
+gboolean cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
 
 gboolean cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GError **error);
 

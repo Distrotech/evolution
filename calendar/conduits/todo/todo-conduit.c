@@ -827,21 +827,6 @@ comp_from_remote_record (GnomePilotConduitSyncAbs *conduit,
 }
 
 static void
-update_comp (GnomePilotConduitSyncAbs *conduit, CalComponent *comp,
-	     EToDoConduitContext *ctxt) 
-{
-	CalClientResult success;
-
-	g_return_if_fail (conduit != NULL);
-	g_return_if_fail (comp != NULL);
-
-	success = cal_client_update_object (ctxt->client, comp);
-
-	if (success != CAL_CLIENT_RESULT_SUCCESS)
-		WARN (_("Error while communicating with calendar server"));
-}
-
-static void
 check_for_slow_setting (GnomePilotConduit *c, EToDoConduitContext *ctxt)
 {
 	GnomePilotConduitStandard *conduit = GNOME_PILOT_CONDUIT_STANDARD (c);
@@ -1200,7 +1185,9 @@ add_record (GnomePilotConduitSyncAbs *conduit,
 	uid = cal_component_gen_uid ();
 	cal_component_set_uid (comp, uid);
 
-	update_comp (conduit, comp, ctxt);
+	if (!cal_client_create_object (ctxt->client, cal_component_get_icalcomponent (comp), NULL, NULL))
+		return -1;
+
 	e_pilot_map_insert (ctxt->map, remote->ID, uid, FALSE);
 
 	g_object_unref (comp);
@@ -1225,7 +1212,10 @@ replace_record (GnomePilotConduitSyncAbs *conduit,
 	new_comp = comp_from_remote_record (conduit, remote, local->comp, ctxt->timezone);
 	g_object_unref (local->comp);
 	local->comp = new_comp;
-	update_comp (conduit, local->comp, ctxt);
+
+	if (!cal_client_modify_object (ctxt->client, cal_component_get_icalcomponent (new_comp), 
+				       CALOBJ_MOD_ALL, NULL))
+		return -1;
 
 	return retval;
 }

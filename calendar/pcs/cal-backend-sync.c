@@ -138,6 +138,28 @@ cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 }
 
 CalBackendSyncStatus
+cal_backend_sync_receive_objects (CalBackendSync *backend, Cal *cal, const char *calobj,
+				  GList **created, GList **modified, GList **removed)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->receive_objects_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->receive_objects_sync) (backend, cal, calobj, 
+									       created, modified, removed);
+}
+
+CalBackendSyncStatus
+cal_backend_sync_send_objects (CalBackendSync *backend, Cal *cal, const char *calobj)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->send_objects_sync);
+	
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->send_objects_sync) (backend, cal, calobj);
+}
+
+CalBackendSyncStatus
 cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects)
 {
 	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
@@ -267,6 +289,28 @@ _cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalO
 }
 
 static void
+_cal_backend_receive_objects (CalBackend *backend, Cal *cal, const char *calobj)
+{
+	CalBackendSyncStatus status;
+	GList *created = NULL, *modified = NULL, *removed = NULL;
+	
+	status = cal_backend_sync_receive_objects (CAL_BACKEND_SYNC (backend), cal, calobj, 
+						   &created, &modified, &removed);
+
+	cal_notify_objects_received (cal, status, created, modified, removed);
+}
+
+static void
+_cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj)
+{
+	CalBackendSyncStatus status;
+
+	status = cal_backend_sync_send_objects (CAL_BACKEND_SYNC (backend), cal, calobj);
+
+	cal_notify_objects_sent (cal, status);
+}
+
+static void
 _cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp)
 {
 	CalBackendSyncStatus status;
@@ -327,6 +371,8 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->create_object = _cal_backend_create_object;
 	backend_class->modify_object = _cal_backend_modify_object;
 	backend_class->remove_object = _cal_backend_remove_object;
+	backend_class->receive_objects = _cal_backend_receive_objects;
+	backend_class->send_objects = _cal_backend_send_objects;
 	backend_class->get_object_list = _cal_backend_get_object_list;
 
 	object_class->dispose = cal_backend_sync_dispose;

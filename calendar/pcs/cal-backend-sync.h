@@ -46,6 +46,9 @@ struct _CalBackendSyncClass {
 	CalBackendSyncStatus (*modify_object_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
 	CalBackendSyncStatus (*remove_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
 
+	CalBackendSyncStatus (*receive_objects_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, GList **created, GList **modified, GList **removed);
+	CalBackendSyncStatus (*send_objects_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj);
+
 	CalBackendSyncStatus (*get_object_list_sync)  (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
 	/* Padding for future expansion */
@@ -58,11 +61,10 @@ struct _CalBackendSyncClass {
 };
 
 typedef CalBackendSync * (*CalBackendSyncFactoryFn) (void);
-
 GType                cal_backend_sync_get_type                (void);
-CalBackendSyncStatus cal_backend_sync_is_read_only         (CalBackendSync  *backend,
-							    Cal             *cal,
-							    gboolean *read_only);
+CalBackendSyncStatus cal_backend_sync_is_read_only            (CalBackendSync  *backend,
+							       Cal             *cal,
+							       gboolean        *read_only);
 CalBackendSyncStatus cal_backend_sync_get_cal_address         (CalBackendSync  *backend,
 							       Cal             *cal,
 							       char           **address);
@@ -75,16 +77,38 @@ CalBackendSyncStatus cal_backend_sync_get_ldap_attribute      (CalBackendSync  *
 CalBackendSyncStatus cal_backend_sync_get_static_capabilities (CalBackendSync  *backend,
 							       Cal             *cal,
 							       char           **capabiliites);
+CalBackendSyncStatus cal_backend_sync_open                    (CalBackendSync  *backend,
+							       Cal             *cal,
+							       gboolean         only_if_exists);
+CalBackendSyncStatus cal_backend_sync_remove                  (CalBackendSync  *backend,
+							       Cal             *cal);
+CalBackendSyncStatus cal_backend_sync_create_object           (CalBackendSync  *backend,
+							       Cal             *cal,
+							       const char      *calobj,
+							       char           **uid);
+CalBackendSyncStatus cal_backend_sync_modify_object           (CalBackendSync  *backend,
+							       Cal             *cal,
+							       const char      *calobj,
+							       CalObjModType    mod,
+							       char           **old_object);
+CalBackendSyncStatus cal_backend_sync_remove_object           (CalBackendSync  *backend,
+							       Cal             *cal,
+							       const char      *uid,
+							       CalObjModType    mod);
+CalBackendSyncStatus cal_backend_sync_receive_objects         (CalBackendSync  *backend,
+							       Cal             *cal,
+							       const char      *calobj,
+							       GList          **created,
+							       GList          **modified,
+							       GList          **removed);
+CalBackendSyncStatus cal_backend_sync_send_objects            (CalBackendSync  *backend,
+							       Cal             *cal,
+							       const char      *calobj);
+CalBackendSyncStatus cal_backend_sync_get_object_list         (CalBackendSync  *backend,
+							       Cal             *cal,
+							       const char      *sexp,
+							       GList          **objects);
 
-CalBackendSyncStatus cal_backend_sync_open (CalBackendSync  *backend, Cal *cal, gboolean only_if_exists);
-CalBackendSyncStatus cal_backend_sync_remove (CalBackendSync  *backend, Cal *cal);
-
-
-CalBackendSyncStatus cal_backend_sync_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid);
-CalBackendSyncStatus cal_backend_sync_modify_object (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
-CalBackendSyncStatus cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
-
-CalBackendSyncStatus cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
 G_END_DECLS
 

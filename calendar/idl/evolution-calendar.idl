@@ -136,14 +136,15 @@ module Calendar {
 		RepositoryOffline,
 		PermissionDenied,
 		ObjectNotFound,
+		InvalidObject,
 		CardIdAlreadyExists,
 		AuthenticationFailed,
 		AuthenticationRequired,
 		UnsupportedField,
+		UnsupportedMethod,
 		UnsupportedAuthenticationMethod,
 		TLSNotAvailable,
 		NoSuchCal,
-		InvalidObject,
 
 		/* These can be returned for successful searches, but
 		   indicate the result set was truncated */
@@ -249,32 +250,17 @@ module Calendar {
 		void discardAlarm (in CalObjUID uid, in CalAlarmUID auid)
 			raises (NotFound);
 
-		/* Adds or updates one or more VEVENT/VTODO/VTIMEZONE
-		 * components. The calobj should be a string representation of
-		 * a complete VCALENDAR object (we also support single
-		 * VEVENT/VTODO strings, but that is deprecated).
-		 *
-		 * The VTIMEZONE data will be merged into the calendar,
-		 * possibly by renaming TZIDs (though not for builtin
-		 * VTIMEZONEs, which have unique TZIDs), so don't rely on the
-		 * TZIDs being the same in the new object on the server.
-		 *
-		 * The client should probably immediately free its copy of the
-		 * object after this call, and call getObject to get the
-		 * updated version.
-		 */
-		void updateObjects (in CalObj calobj, in CalObjModType mod)
-			raises (NotFound, InvalidObject, PermissionDenied);
 
-		/* Removes a component */
+		/* Methods for manipulating iCalendar objects */
 		oneway void createObject (in CalObj calobj);
 		oneway void modifyObject (in CalObj calobj, in CalObjModType mod);
 		oneway void removeObject (in CalObjUID uid, in CalObjModType mod);
 
-		/* Sends a component */
-		CalObj sendObject (in CalObj calobj, out UserList users)
-			raises (InvalidObject, PermissionDenied, Busy);
+		/* Methods for getting/sending iCalendar VCALENDARS via iTip/iMip */
+		oneway void receiveObjects (in CalObj calobj);
+		oneway void sendObjects (in CalObj calobj);
 
+		/* Query methods */
 		oneway void getQuery (in string sexp, in QueryListener ql)
 			raises (CouldNotCreate);
 	};
@@ -300,6 +286,9 @@ module Calendar {
 		oneway void notifyObjectCreated (in CallStatus status, in string uid);
 		oneway void notifyObjectModified (in CallStatus status);
 		oneway void notifyObjectRemoved (in CallStatus status);
+	
+		oneway void notifyObjectsReceived (in CallStatus status);
+		oneway void notifyObjectsSent (in CallStatus status);
 		
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 		oneway void notifyQuery (in CallStatus status, in Query query);

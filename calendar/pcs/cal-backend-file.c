@@ -116,14 +116,8 @@ static CalBackendResult cal_backend_file_discard_alarm (CalBackend *backend,
 							const char *uid,
 							const char *auid);
 
-static CalBackendResult cal_backend_file_update_objects (CalBackend *backend,
-							 const char *calobj,
-							 CalObjModType mod);
-
-static CalBackendSendResult cal_backend_file_send_object (CalBackend *backend, 
-							  const char *calobj, gchar **new_calobj,
-							  GNOME_Evolution_Calendar_UserList **user_list,
-							  char error_msg[256]);
+static CalBackendSyncStatus cal_backend_file_receive_objects (CalBackendSync *backend, Cal *cal, const char *calobj, GList **created, GList **modified, GList **removed);
+static CalBackendSyncStatus cal_backend_file_send_objects (CalBackendSync *backend, Cal *cal, const char *calobj);
 
 static icaltimezone* cal_backend_file_get_timezone (CalBackend *backend, const char *tzid);
 static icaltimezone* cal_backend_file_get_default_timezone (CalBackend *backend);
@@ -193,6 +187,8 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	sync_class->create_object_sync = cal_backend_file_create_object;
 	sync_class->modify_object_sync = cal_backend_file_modify_object;
 	sync_class->remove_object_sync = cal_backend_file_remove_object;
+	sync_class->receive_objects_sync = cal_backend_file_receive_objects;
+	sync_class->send_objects_sync = cal_backend_file_send_objects;
 	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
 
 	backend_class->is_loaded = cal_backend_file_is_loaded;
@@ -207,8 +203,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	backend_class->get_alarms_in_range = cal_backend_file_get_alarms_in_range;
 	backend_class->get_alarms_for_object = cal_backend_file_get_alarms_for_object;
 	backend_class->discard_alarm = cal_backend_file_discard_alarm;
-	backend_class->update_objects = cal_backend_file_update_objects;
-	backend_class->send_object = cal_backend_file_send_object;
 
 	backend_class->get_timezone = cal_backend_file_get_timezone;
 	backend_class->get_default_timezone = cal_backend_file_get_default_timezone;
@@ -1589,137 +1583,6 @@ cal_backend_file_update_object (CalBackendFile *cbfile,
 	return comp_uid;
 }
 
-static const char*
-cal_backend_file_cancel_object (CalBackendFile *cbfile,
-				icalcomponent *icalcomp)
-{
-	CalComponent *old_comp;
-	icalproperty *uid;
-	const char *comp_uid;
-
-	/* Get the UID, and check it isn't empty. */
-	uid = icalcomponent_get_first_property (icalcomp, ICAL_UID_PROPERTY);
-	if (!uid)
-		return NULL;
-	comp_uid = icalproperty_get_uid (uid);
-	if (!comp_uid || !comp_uid[0])
-		return NULL;
-
-	/* Find the old version of the component. */
-	old_comp = lookup_component (cbfile, comp_uid);
-	if (!old_comp)
-		return NULL;
-
-	/* And remove it */
-	remove_component (cbfile, old_comp);
-	return comp_uid;
-}
-
-/* Update_objects handler for the file backend. */
-static CalBackendResult
-cal_backend_file_update_objects (CalBackend *backend, const char *calobj, CalObjModType mod)
-{
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-	icalcomponent *toplevel_comp, *icalcomp = NULL;
-	icalcomponent_kind kind;
-	icalproperty_method method;
-	icalcomponent *subcomp;
-	CalBackendResult retval = CAL_BACKEND_RESULT_SUCCESS;
-	GList *updated_uids = NULL, *removed_uids = NULL, *elem;
-
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
-
-	g_return_val_if_fail (priv->icalcomp != NULL, CAL_BACKEND_RESULT_INVALID_OBJECT);
-
-	g_return_val_if_fail (calobj != NULL, CAL_BACKEND_RESULT_INVALID_OBJECT);
-
-	/* Pull the component from the string and ensure that it is sane */
-
-	toplevel_comp = icalparser_parse_string ((char *) calobj);
-
-	if (!toplevel_comp)
-		return CAL_BACKEND_RESULT_INVALID_OBJECT;
-
-	kind = icalcomponent_isa (toplevel_comp);
-
-	if (kind == ICAL_VEVENT_COMPONENT
-	    || kind == ICAL_VTODO_COMPONENT
-	    || kind == ICAL_VJOURNAL_COMPONENT) {
-		/* Create a temporary toplevel component and put the VEVENT
-		   or VTODO in it, to simplify the code below. */
-		icalcomp = toplevel_comp;
-		toplevel_comp = cal_util_new_top_level ();
-		icalcomponent_add_component (toplevel_comp, icalcomp);
-	} else if (kind != ICAL_VCALENDAR_COMPONENT) {
-		/* We don't support this type of component */
-		icalcomponent_free (toplevel_comp);
-		return CAL_BACKEND_RESULT_INVALID_OBJECT;
-	}
-
-	method = icalcomponent_get_method (toplevel_comp);
-
-	/* Step throught the VEVENT/VTODOs being added, create CalComponents
-	   for them, and add them to our cache. */
-	subcomp = icalcomponent_get_first_component (toplevel_comp,
-						     ICAL_ANY_COMPONENT);
-	while (subcomp) {
-		/* We ignore anything except VEVENT, VTODO and VJOURNAL
-		   components. */
-		icalcomponent_kind child_kind = icalcomponent_isa (subcomp);
-		if (child_kind == ICAL_VEVENT_COMPONENT
-		    || child_kind == ICAL_VTODO_COMPONENT
-		    || child_kind == ICAL_VJOURNAL_COMPONENT) {
-			const char *comp_uid;
-
-			if (method == ICAL_METHOD_CANCEL) {
-				comp_uid = cal_backend_file_cancel_object (cbfile, subcomp);
-				if (comp_uid) {
-					removed_uids = g_list_prepend (removed_uids,
-								       g_strdup (comp_uid));
-				} else
-					retval = CAL_BACKEND_RESULT_NOT_FOUND;
-			} else {
-				comp_uid = cal_backend_file_update_object (cbfile, subcomp);
-				if (comp_uid) {
-					updated_uids = g_list_prepend (updated_uids,
-								       g_strdup (comp_uid));
-				} else
-					retval = CAL_BACKEND_RESULT_INVALID_OBJECT;
-			}
-		}
-		subcomp = icalcomponent_get_next_component (toplevel_comp,
-							    ICAL_ANY_COMPONENT);
-	}
-
-	/* Merge the iCalendar components with our existing VCALENDAR,
-	   resolving any conflicting TZIDs. */
-	icalcomponent_merge_component (priv->icalcomp, toplevel_comp);
-
-	mark_dirty (cbfile);
-
-	/* Now emit notification signals for all of the added components.
-	   We do this after adding them all to make sure the calendar is in a
-	   stable state before emitting signals. */
-	for (elem = updated_uids; elem; elem = elem->next) {
-		char *comp_uid = elem->data;
-		cal_backend_obj_updated (backend, comp_uid);
-		g_free (comp_uid);
-	}
-	g_list_free (updated_uids);
-
-#if 0
-	/* FIXME Get rid of this for now, update_objects will go away */
-	for (elem = removed_uids; elem; elem = elem->next) {
-		char *comp_uid = elem->data;
-	}
-#endif
-	g_list_free (removed_uids);
-
-	return retval;
-}
-
 static CalBackendSyncStatus
 cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid)
 {
@@ -1758,7 +1621,6 @@ cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *c
 		return GNOME_Evolution_Calendar_OtherError;
 	}
 
-	cal_backend_obj_updated (backend, comp_uid);
 	mark_dirty (cbfile);
 
 	return GNOME_Evolution_Calendar_Success;
@@ -1803,7 +1665,6 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 		return GNOME_Evolution_Calendar_OtherError;
 	}
 
-	cal_backend_obj_updated (backend, comp_uid);
 	mark_dirty (cbfile);
 
 	return GNOME_Evolution_Calendar_Success;
@@ -1835,16 +1696,176 @@ cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 	return GNOME_Evolution_Calendar_Success;
 }
 
-static CalBackendSendResult
-cal_backend_file_send_object (CalBackend *backend, const char *calobj, char **new_calobj,
-			      GNOME_Evolution_Calendar_UserList **user_list, char error_msg[256])
+static gboolean
+cancel_received_object (CalBackendFile *cbfile, icalcomponent *icalcomp)
 {
-	*new_calobj = g_strdup (calobj);
-	
-	*user_list = GNOME_Evolution_Calendar_UserList__alloc ();
-	(*user_list)->_length = 0;
+	CalComponent *old_comp;
 
-	return CAL_BACKEND_SEND_SUCCESS;
+	/* Find the old version of the component. */
+	old_comp = lookup_component (cbfile, icalcomponent_get_uid (icalcomp));
+	if (!old_comp)
+		return FALSE;
+
+	/* And remove it */
+	remove_component (cbfile, old_comp);
+}
+
+typedef struct {
+	GHashTable *zones;
+	
+	gboolean found;
+} CalBackendFileTzidData;
+
+static void
+check_tzids (icalparameter *param, void *data)
+{
+	CalBackendFileTzidData *tzdata = data;
+	const char *tzid;
+	
+	tzid = icalparameter_get_tzid (param);
+	if (!tzid || g_hash_table_lookup (tzdata->zones, tzid))
+		tzdata->found = FALSE;
+}
+
+/* Update_objects handler for the file backend. */
+static CalBackendSyncStatus
+cal_backend_file_receive_objects (CalBackendSync *backend, Cal *cal, const char *calobj,
+				  GList **created, GList **modified, GList **removed)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+	icalcomponent *toplevel_comp, *icalcomp = NULL;
+	icalcomponent_kind kind;
+	icalproperty_method method;
+	icalcomponent *subcomp;
+	GList *comps, *l;
+	CalBackendFileTzidData tzdata;
+	CalBackendSyncStatus status = GNOME_Evolution_Calendar_Success;
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_InvalidObject);
+	g_return_val_if_fail (calobj != NULL, GNOME_Evolution_Calendar_InvalidObject);
+
+	/* Pull the component from the string and ensure that it is sane */
+	toplevel_comp = icalparser_parse_string ((char *) calobj);
+	if (!toplevel_comp)
+		return GNOME_Evolution_Calendar_InvalidObject;
+
+	kind = icalcomponent_isa (toplevel_comp);
+	if (kind != ICAL_VCALENDAR_COMPONENT) {
+		/* If its not a VCALENDAR, make it one to simplify below */
+		icalcomp = toplevel_comp;
+		toplevel_comp = cal_util_new_top_level ();
+		icalcomponent_add_component (toplevel_comp, icalcomp);	
+	}
+
+	method = icalcomponent_get_method (toplevel_comp);
+
+	*created = *modified = *removed = NULL;
+
+	/* Build a list of timezones so we can make sure all the objects have valid info */
+	tzdata.zones = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+
+	subcomp = icalcomponent_get_first_component (toplevel_comp, ICAL_VTIMEZONE_COMPONENT);
+	while (subcomp) {
+		icaltimezone *zone;
+		
+		zone = icaltimezone_new ();
+		if (icaltimezone_set_component (zone, subcomp))
+			g_hash_table_insert (tzdata.zones, g_strdup (icaltimezone_get_tzid (zone)), NULL);
+		
+		subcomp = icalcomponent_get_next_component (toplevel_comp, ICAL_VTIMEZONE_COMPONENT);
+	}	
+
+	/* First we make sure all the components are usuable */
+	comps = NULL;
+	subcomp = icalcomponent_get_first_component (toplevel_comp, ICAL_ANY_COMPONENT);
+	while (subcomp) {
+		/* We ignore anything except VEVENT, VTODO and VJOURNAL
+		   components. */
+		icalcomponent_kind child_kind = icalcomponent_isa (subcomp);
+
+		switch (child_kind) {
+		case ICAL_VEVENT_COMPONENT:
+		case ICAL_VTODO_COMPONENT:
+		case ICAL_VJOURNAL_COMPONENT:
+			tzdata.found = TRUE;
+			icalcomponent_foreach_tzid (subcomp, check_tzids, &tzdata);
+			
+			if (!tzdata.found) {
+				status = GNOME_Evolution_Calendar_InvalidObject;
+				goto error;
+			}
+
+			if (!icalcomponent_get_uid (subcomp)) {
+				status = GNOME_Evolution_Calendar_InvalidObject;
+				goto error;
+			}
+		
+			comps = g_list_prepend (comps, subcomp);
+			break;
+		default:
+			/* Ignore it */
+		}
+
+		subcomp = icalcomponent_get_next_component (toplevel_comp, ICAL_ANY_COMPONENT);
+	}
+
+	/* Now we manipulate the components we care about */
+	for (l = comps; l; l = l->next) {
+		subcomp = l->data;
+		
+		switch (method) {
+		case ICAL_METHOD_PUBLISH:
+		case ICAL_METHOD_REQUEST:
+			/* FIXME Need to see the new create/modify stuff before we set this up */
+			break;			
+		case ICAL_METHOD_REPLY:
+			/* FIXME Update the status of the user, if we are the organizer */
+			break;
+		case ICAL_METHOD_ADD:
+			/* FIXME This should be doable once all the recurid stuff is done */
+			break;
+		case ICAL_METHOD_COUNTER:
+			status = GNOME_Evolution_Calendar_UnsupportedMethod;
+			goto error;
+			break;			
+		case ICAL_METHOD_DECLINECOUNTER:			
+			status = GNOME_Evolution_Calendar_UnsupportedMethod;
+			goto error;
+			break;
+		case ICAL_METHOD_CANCEL:
+			/* FIXME Do we need to remove the subcomp so it isn't merged? */
+			if (cancel_received_object (cbfile, subcomp))
+				*removed = g_list_prepend (*removed, g_strdup (icalcomponent_get_uid (subcomp)));
+			break;
+		default:
+			status = GNOME_Evolution_Calendar_UnsupportedMethod;
+			goto error;
+		}
+	}
+	g_list_free (comps);
+	
+	/* Merge the iCalendar components with our existing VCALENDAR,
+	   resolving any conflicting TZIDs. */
+	icalcomponent_merge_component (priv->icalcomp, toplevel_comp);
+
+	mark_dirty (cbfile);
+
+	error:
+	g_hash_table_destroy (tzdata.zones);
+	
+	return status;
+}
+
+static CalBackendSyncStatus
+cal_backend_file_send_objects (CalBackendSync *backend, Cal *cal, const char *calobj)
+{
+	/* FIXME Put in a util routine to send stuff via email */
+	
+	return GNOME_Evolution_Calendar_Success;
 }
 
 static icaltimezone*

@@ -50,6 +50,8 @@ enum {
 	CREATE_OBJECT,
 	MODIFY_OBJECT,
 	REMOVE_OBJECT,
+	RECEIVE_OBJECTS,
+	SEND_OBJECTS,
 	OBJECT_LIST,
 	QUERY,
 	LAST_SIGNAL
@@ -258,6 +260,40 @@ impl_notifyObjectRemoved (PortableServer_Servant servant,
 		return;
 
 	g_signal_emit (G_OBJECT (listener), signals[REMOVE_OBJECT], 0, convert_status (status));
+}
+
+static void
+impl_notifyObjectsReceived (PortableServer_Servant servant,
+			    GNOME_Evolution_Calendar_CallStatus status,
+			    CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[RECEIVE_OBJECTS], 0, convert_status (status));
+}
+
+static void
+impl_notifyObjectsSent (PortableServer_Servant servant,
+			GNOME_Evolution_Calendar_CallStatus status,
+			CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[SEND_OBJECTS], 0, convert_status (status));
 }
 
 static GList *
@@ -536,6 +572,22 @@ cal_listener_class_init (CalListenerClass *klass)
 			      G_TYPE_FROM_CLASS (klass),
 			      G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (CalListenerClass, remove_object),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[RECEIVE_OBJECTS] =
+		g_signal_new ("receive_objects",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, receive_objects),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[SEND_OBJECTS] =
+		g_signal_new ("send_objects",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, send_objects),
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
 			      G_TYPE_NONE, 1, G_TYPE_INT);
