@@ -3,6 +3,8 @@
 #include <dirent.h>
 #include <string.h>
 
+#include <glib/gi18n.h>
+
 #include "e-plugin.h"
 
 /* plugin debug */
@@ -46,8 +48,8 @@ ep_construct(EPlugin *ep, xmlNodePtr root)
 	xmlNodePtr node;
 	int res = -1;
 
-	ep->description = e_plugin_xml_prop(root, "description");
-	ep->name = e_plugin_xml_prop(root, "name");
+	ep->domain = e_plugin_xml_prop(root, "domain");
+	ep->name = e_plugin_xml_prop_domain(root, "name", ep->domain);
 
 	printf("creating plugin '%s'\n", ep->name);
 
@@ -66,6 +68,8 @@ ep_construct(EPlugin *ep, xmlNodePtr root)
 				if (tmp)
 					xmlFree(tmp);
 			}
+		} else if (strcmp(node->name, "description") == 0) {
+			ep->description = e_plugin_xml_content_domain(node, ep->domain);
 		}
 		node = node->next;
 	}
@@ -81,6 +85,7 @@ ep_finalise(GObject *o)
 
 	g_free(ep->description);
 	g_free(ep->name);
+	g_free(ep->domain);
 
 	g_slist_foreach(ep->hooks, (GFunc)g_object_unref, NULL);
 	g_slist_free(ep->hooks);
@@ -342,6 +347,33 @@ e_plugin_xml_prop(xmlNodePtr node, const char *id)
 }
 
 /**
+ * e_plugin_xml_prop_domain:
+ * @node: An XML node.
+ * @id: The name of the property to retrieve.
+ * @domain: The translation domain for this string.
+ * 
+ * A static helper function to look up a property on an XML node, and
+ * translate it based on @domain.
+ * 
+ * Return value: The property, allocated in GLib memory, or NULL if no
+ * such property exists.
+ **/
+char *
+e_plugin_xml_prop_domain(xmlNodePtr node, const char *id, const char *domain)
+{
+	char *p, *out;
+
+	p = xmlGetProp(node, id);
+	if (p == NULL)
+		return NULL;
+
+	out = g_strdup(dgettext(domain, p));
+	xmlFree(p);
+
+	return out;
+}
+
+/**
  * e_plugin_xml_int:
  * @node: An XML node.
  * @id: The name of the property to retrieve.
@@ -389,6 +421,32 @@ e_plugin_xml_content(xmlNodePtr node)
 			xmlFree(p);
 		return out;
 	}
+}
+
+/**
+ * e_plugin_xml_content_domain:
+ * @node: 
+ * @domain:
+ * 
+ * A static helper function to retrieve the entire textual content of
+ * an XML node, and ensure it is allocated in GLib system memory.  If
+ * GLib isn't using the system malloc them it must copy the content.
+ * 
+ * Return value: The node content, allocated in GLib memory.
+ **/
+char *
+e_plugin_xml_content_domain(xmlNodePtr node, const char *domain)
+{
+	char *p, *out;
+
+	p = xmlNodeGetContent(node);
+	if (p == NULL)
+		return NULL;
+
+	out = g_strdup(dgettext(domain, p));
+	xmlFree(p);
+
+	return out;
 }
 
 /* ********************************************************************** */

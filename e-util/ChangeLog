@@ -1,3 +1,21 @@
+2004-08-25  Not Zed  <NotZed@Ximian.com>
+
+	* e-config.c (e_config_new): removed, this shouldn't be here for
+	an abstract class.
+	(*): Added doco.
+
+2004-08-24  Not Zed  <NotZed@Ximian.com>
+
+	* e-config.c (emph_construct_item): translate the label text.
+
+	* e-popup.c (emph_construct_item): translate the label text.
+
+	* e-plugin.c (e_plugin_xml_prop_domain): helper to get a property
+	translated.
+	(ep_construct): translate the name and description based on the
+	new domain tag.  get the description as tag content not property.
+	(e_plugin_xml_content_domain): similar for xml node content.
+
 2004-08-24  Not Zed  <NotZed@Ximian.com>
 
 	* e-account.c (init): setup some defaults for the account.

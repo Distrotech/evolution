@@ -19,6 +19,7 @@ typedef struct _EPluginClass EPluginClass;
  * @object: Superclass.
  * @description: A description of the plugin's purpose.
  * @name: The name of the plugin.
+ * @domain: The translation domain for this plugin.
  * @hooks: A list of the EPluginHooks this plugin requires.
  * 
  * The base EPlugin object is used to represent each plugin directly.
@@ -30,6 +31,7 @@ struct _EPlugin {
 
 	char *description;
 	char *name;
+	char *domain;
 	GSList *hooks;
 };
 
@@ -76,8 +78,10 @@ void *e_plugin_invoke(EPlugin *ep, const char *name, void *data);
 /* static helpers */
 /* maps prop or content to 'g memory' */
 char *e_plugin_xml_prop(xmlNodePtr node, const char *id);
+char *e_plugin_xml_prop_domain(xmlNodePtr node, const char *id, const char *domain);
 int e_plugin_xml_int(xmlNodePtr node, const char *id, int def);
 char *e_plugin_xml_content(xmlNodePtr node);
+char *e_plugin_xml_content_domain(xmlNodePtr node, const char *domain);
 
 /* ********************************************************************** */
 #include <gmodule.h>

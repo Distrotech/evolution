@@ -618,7 +618,7 @@ emph_construct_item(EPluginHook *eph, EPopupHookMenu *menu, xmlNodePtr root, EPo
 	    || item->item.type == E_POPUP_IMAGE)
 		goto error;
 	item->item.path = e_plugin_xml_prop(root, "path");
-	item->item.label = e_plugin_xml_prop(root, "label");
+	item->item.label = e_plugin_xml_prop_domain(root, "label", eph->plugin->domain);
 	item->item.image = e_plugin_xml_prop(root, "icon");
 	item->item.mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
 	item->activate = e_plugin_xml_prop(root, "activate");
