@@ -1043,7 +1043,7 @@ cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 
 		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
 
-		query_notify_objects_removed_1 (query, uids);
+		query_notify_objects_removed_1 (query, uid);
 
 		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
 
