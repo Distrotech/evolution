@@ -1,3 +1,8 @@
+2003-10-20  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (emc_popup_new_folder): pass the right object
+	to set_selected().  Fixes a new real bug.  Undid reformatting.
+
 2003-10-17  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* mail-component.c: General compile fixes.

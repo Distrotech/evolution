@@ -1197,9 +1197,9 @@ emc_popup_new_folder (GtkWidget *w, MailComponent *mc)
 	GtkWidget *dialog;
 
 	dialog = em_folder_selector_create_new(mc->priv->storage_set, 0, _("Create folder"), _("Specify where to create the folder:"));
-	em_folder_selector_set_selected((EMFolderSelector *)w, mc->priv->context_path);
-	g_signal_connect (dialog, "response", G_CALLBACK(emc_popup_new_folder_response), mc);
-	gtk_widget_show (dialog);
+	em_folder_selector_set_selected((EMFolderSelector *)dialog, mc->priv->context_path);
+	g_signal_connect(dialog, "response", G_CALLBACK(emc_popup_new_folder_response), mc);
+	gtk_widget_show(dialog);
 }
 
 static void
@@ -1402,17 +1402,17 @@ static EMPopupItem emc_popup_menu[] = {
 
 	{ EM_POPUP_BAR, "10.emc" },
 #endif
-	{ EM_POPUP_ITEM, "10.emc.00", N_("_Copy"), G_CALLBACK(emc_popup_copy), NULL, NULL, 0 },
-	{ EM_POPUP_ITEM, "10.emc.01", N_("_Move"), G_CALLBACK(emc_popup_move), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "10.emc.00", N_("_Copy"), G_CALLBACK(emc_popup_copy), NULL, "folder-copy-16.png", 0 },
+	{ EM_POPUP_ITEM, "10.emc.01", N_("_Move"), G_CALLBACK(emc_popup_move), NULL, "folder-move-16.png", 0 },
 
 	{ EM_POPUP_BAR, "20.emc" },
-	{ EM_POPUP_ITEM, "20.emc.00", N_("_New Folder..."), G_CALLBACK(emc_popup_new_folder), NULL, NULL, 0 },
-	{ EM_POPUP_ITEM, "20.emc.01", N_("_Delete"), G_CALLBACK(emc_popup_delete_folder), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "20.emc.00", N_("_New Folder..."), G_CALLBACK(emc_popup_new_folder), NULL, "folder-mini.png", 0 },
+	{ EM_POPUP_ITEM, "20.emc.01", N_("_Delete"), G_CALLBACK(emc_popup_delete_folder), NULL, "evolution-trash-mini.png", 0 },
 	{ EM_POPUP_ITEM, "20.emc.01", N_("_Rename"), G_CALLBACK(emc_popup_rename_folder), NULL, NULL, 0 },
 
 #if 0
 	{ EM_POPUP_BAR, "80.emc" },
-	{ EM_POPUP_ITEM, "80.emc.00", N_("_Properties..."), G_CALLBACK(emc_popup_properties), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "80.emc.00", N_("_Properties..."), G_CALLBACK(emc_popup_properties), NULL, "configure_16_folder.xpm", 0 },
 #endif
 };
 
