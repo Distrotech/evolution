@@ -1,3 +1,9 @@
+2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (ecm_append_row, ecm_get_color_for_component):
+	* gui/e-cal-model-tasks.c (ecmt_get_color_for_component): merged
+	missing bith from calendar-views-with-model branch.
+
 2003-08-13  JP Rosevear  <jpr@ximian.com>
 
 	* cal-client/cal-client.c (real_open_calendar): set the priv->cal
