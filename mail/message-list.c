@@ -1028,9 +1028,6 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 	regenerate_messagelist_data_t *data = (regenerate_messagelist_data_t *) op_data;
 
 	ETreeModel *etm;
-	int row = 0;
-
-	g_free (input->search);
 
 	etm = E_TREE_MODEL (input->ml->table_model);
 
@@ -1049,24 +1046,24 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 	e_tree_model_node_set_expanded (etm, input->ml->tree_root, TRUE);
 
 	if (threaded_view) {
-		struct _container *head;
-
-		head = thread_messages (input->ml->folder, data->uids);
-		build_tree (input->ml, input->ml->tree_root, head, &row);
-		thread_messages_free (head);
-	} else
+		mail_do_thread_messages (input->ml, data->uids, 
+					 (gboolean) !(input->search),
+					 build_tree);
+	} else {
 		build_flat (input->ml, input->ml->tree_root, data->uids);
 
-	if (input->search) {
-		g_strfreev ((char **)data->uids->pdata);
-		g_ptr_array_free (data->uids, FALSE);
-	} else {
-		camel_folder_free_uids (input->ml->folder, data->uids);
+		if (input->search) {
+			g_strfreev ((char **)data->uids->pdata);
+			g_ptr_array_free (data->uids, FALSE);
+		} else {
+			camel_folder_free_uids (input->ml->folder, data->uids);
+		}
 	}
 
 	e_table_model_changed (input->ml->table_model);
 	input->ml->rows_selected = 0;
 	select_msg (input->ml, 0);
+	g_free (input->search);
 	gtk_object_unref (GTK_OBJECT (input->ml));
 }
 

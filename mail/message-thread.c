@@ -31,9 +31,15 @@
 #include <ctype.h>
 
 #include "message-thread.h"
+#include "mail-tools.h"
+#include "mail-threads.h"
 
 #define d(x)
 
+static struct _container *thread_messages(CamelFolder *folder, GPtrArray *uids);
+static void thread_messages_free(struct _container *);
+
+/* for debug only */
 int dump_tree(struct _container *c, int depth);
 
 static void
@@ -331,7 +337,7 @@ dump_tree(struct _container *c, int depth)
 	return count;
 }
 
-void thread_messages_free(struct _container *c)
+static void thread_messages_free(struct _container *c)
 {
 	struct _container *n;
 
@@ -407,7 +413,7 @@ sort_thread(struct _container **cp)
 	*cp = head;
 }
 
-struct _container *
+static struct _container *
 thread_messages(CamelFolder *folder, GPtrArray *uids)
 {
 	GHashTable *id_table;
@@ -418,7 +424,9 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 	id_table = g_hash_table_new(g_str_hash, g_str_equal);
 	for (i=0;i<uids->len;i++) {
 		const CamelMessageInfo *mi;
+		mail_tool_camel_lock_up ();
 		mi = camel_folder_get_message_info (folder, uids->pdata[i]);
+		mail_tool_camel_lock_down ();
 		if (mi->message_id) {
 			d(printf("doing : %s\n", mi->message_id));
 			c = g_hash_table_lookup(id_table, mi->message_id);
@@ -487,6 +495,107 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 	sort_thread(&head);
 	return head;
 }
+
+/* ** THREAD MESSAGES ***************************************************** */
+
+typedef struct thread_messages_input_s {
+	MessageList *ml;
+	GPtrArray *uids;
+	gboolean use_camel_uidfree;
+	void (*build) (MessageList *, ETreePath *, 
+		       struct _container *, int *);
+} thread_messages_input_t;
+
+typedef struct thread_messages_data_s {
+	struct _container *container;
+	int row;
+} thread_messages_data_t;
+
+static void setup_thread_messages   (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_thread_messages      (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static void setup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	thread_messages_input_t *input = (thread_messages_input_t *) in_data;
+
+	if (!IS_MESSAGE_LIST (input->ml)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No messagelist to thread was provided to thread_messages");
+		return;
+	}
+
+	if (!input->uids) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No uids were provided to thread_messages");
+		return;
+	}
+
+	if (!input->build) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No build callback provided to thread_messages");
+		return;
+	}
+
+	gtk_object_ref (GTK_OBJECT (input->ml));
+}
+
+static void do_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	thread_messages_input_t *input = (thread_messages_input_t *) in_data;
+	thread_messages_data_t *data = (thread_messages_data_t *) op_data;
+
+	data->container = thread_messages (input->ml->folder, input->uids);
+}
+
+static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	thread_messages_input_t *input = (thread_messages_input_t *) in_data;
+	thread_messages_data_t *data = (thread_messages_data_t *) op_data;
+
+	(input->build) (input->ml, input->ml->tree_root, 
+			data->container, &(data->row));
+	thread_messages_free (data->container);
+
+	if (input->use_camel_uidfree) {
+		mail_tool_camel_lock_up ();
+		camel_folder_free_uids (input->ml->folder, input->uids);
+		mail_tool_camel_lock_down ();
+	} else {
+		g_strfreev ((char **)input->uids->pdata);
+		g_ptr_array_free (input->uids, FALSE);
+	}
+
+	gtk_object_unref (GTK_OBJECT (input->ml));
+}
+
+static const mail_operation_spec op_thread_messages =
+{
+	"Thread messages",
+	"Threading messages",
+	sizeof (thread_messages_data_t),
+	setup_thread_messages,
+	do_thread_messages,
+	cleanup_thread_messages
+};
+
+void mail_do_thread_messages (MessageList *ml, GPtrArray *uids, 
+			      gboolean use_camel_uidfree,
+			      void (*build) (MessageList *, ETreePath *,
+					     struct _container *, int *))
+{
+	thread_messages_input_t *input;
+
+	input = g_new (thread_messages_input_t, 1);
+	input->ml = ml;
+	input->uids = uids;
+	input->use_camel_uidfree = use_camel_uidfree;
+	input->build = build;
+
+	mail_operation_queue (&op_thread_messages, input, TRUE);
+}
+
+/* ************************************************************************ */
 
 #ifdef STANDALONE
 

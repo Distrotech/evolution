@@ -103,41 +103,7 @@ create_folder (EvolutionShellComponent *shell_component,
 	       const Evolution_ShellComponentListener listener,
 	       void *closure)
 {
-	CORBA_Environment ev;
-	CamelStore *store;
-	CamelFolder *folder;
-	CamelException ex;
-	Evolution_ShellComponentListener_Result result;
-
-	camel_exception_init (&ex);
-	if (strcmp (type, "mail") != 0)
-		result = Evolution_ShellComponentListener_UNSUPPORTED_TYPE;
-	else {
-		char *camel_url = g_strdup_printf ("mbox://%s", physical_uri);
-
-		store = camel_session_get_store (session, camel_url, &ex);
-		g_free (camel_url);
-		if (!camel_exception_is_set (&ex)) {
-			folder = camel_store_get_folder (store, "mbox",
-							 TRUE, &ex);
-			camel_object_unref (CAMEL_OBJECT (store));
-		} else {
-			folder = NULL;
-		}
-
-		if (!camel_exception_is_set (&ex)) {
-			camel_object_unref (CAMEL_OBJECT (folder));
-			result = Evolution_ShellComponentListener_OK;
-		} else {
-			result = Evolution_ShellComponentListener_INVALID_URI;
-		}
-	}
-
-	camel_exception_clear (&ex);
-
-	CORBA_exception_init (&ev);
-	Evolution_ShellComponentListener_report_result (listener, result, &ev);
-	CORBA_exception_free (&ev);
+	mail_do_create_folder (listener, physical_uri, type);
 }
 
 static void

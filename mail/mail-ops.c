@@ -956,3 +956,159 @@ void mail_do_load_folder (FolderBrowser *fb, const char *url)
 
 	mail_operation_queue (&op_load_folder, input, TRUE);
 }
+
+/* ** CREATE FOLDER ******************************************************* */
+
+typedef struct create_folder_input_s {
+	Evolution_ShellComponentListener listener;
+	char *uri;
+	char *type;
+} create_folder_input_t;
+
+typedef struct create_folder_data_s {
+	Evolution_ShellComponentListener_Result result;
+} create_folder_data_t;
+
+static void setup_create_folder   (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_create_folder      (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_create_folder (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static void setup_create_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	create_folder_input_t *input = (create_folder_input_t *) in_data;
+
+	if (input->listener == CORBA_OBJECT_NIL) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "Invalid listener passed to create_folder");
+		return;
+	}
+
+	if (input->uri == NULL) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "Invalid url passed to create_folder");
+		return;
+	}
+
+	if (input->type == NULL) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No type passed to create_folder");
+		return;
+	}
+
+	/* FIXME: reference listener somehow? */
+}
+
+static void do_create_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	create_folder_input_t *input = (create_folder_input_t *) in_data;
+	create_folder_data_t *data = (create_folder_data_t *) op_data;
+
+	CamelFolder *folder;
+	gchar *camel_url;
+
+        if (strcmp (input->type, "mail") != 0)
+                data->result = Evolution_ShellComponentListener_UNSUPPORTED_TYPE;
+        else {
+		camel_url = g_strdup_printf ("mbox://%s", input->uri);
+		folder = mail_tool_get_folder_from_urlname (camel_url,
+							    "mbox", ex);
+                g_free (camel_url);
+
+                if (!camel_exception_is_set (ex)) {
+                        camel_object_unref (CAMEL_OBJECT (folder));
+                        data->result = Evolution_ShellComponentListener_OK;
+                } else {
+                        data->result = Evolution_ShellComponentListener_INVALID_URI;
+                }
+        }
+}
+
+static void cleanup_create_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	create_folder_input_t *input = (create_folder_input_t *) in_data;
+	create_folder_data_t *data = (create_folder_data_t *) op_data;
+
+	CORBA_Environment ev;
+
+        CORBA_exception_init (&ev);
+        Evolution_ShellComponentListener_report_result (input->listener, 
+							data->result, 
+							&ev);
+	if (ev._major != CORBA_NO_EXCEPTION)
+		camel_exception_set (ex, CAMEL_EXCEPTION_SYSTEM,
+				     "Exception while reporting result to shell "
+				     "component listener.");
+        CORBA_exception_free (&ev);
+
+	/* FIXME: unref listener somehow? */
+
+	g_free (input->uri);
+	g_free (input->type);
+}	
+
+static const mail_operation_spec op_create_folder =
+{
+	"Create a folder",
+	"Creating a folder",
+	sizeof (create_folder_data_t),
+	setup_create_folder,
+	do_create_folder,
+	cleanup_create_folder
+};
+
+void mail_do_create_folder (const Evolution_ShellComponentListener listener,
+			    const char *uri, const char *type)
+{
+	create_folder_input_t *input;
+
+	input = g_new (create_folder_input_t, 1);
+	input->listener = listener;
+	input->uri = g_strdup (uri);
+	input->type = g_strdup (type);
+
+	mail_operation_queue (&op_create_folder, input, FALSE);
+}
+
+/* ** SYNC FOLDER ********************************************************* */
+
+static void setup_sync_folder   (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_sync_folder      (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_sync_folder (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static void setup_sync_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	if (!CAMEL_IS_FOLDER (in_data)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No folder is selected to be synced");
+		return;
+	}
+
+	camel_object_ref (CAMEL_OBJECT (in_data));
+}
+
+static void do_sync_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	mail_tool_camel_lock_up();
+	camel_folder_sync (CAMEL_FOLDER (in_data), FALSE, ex);
+	mail_tool_camel_lock_down();
+}
+
+static void cleanup_sync_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	camel_object_unref (CAMEL_OBJECT (in_data));
+}	
+
+static const mail_operation_spec op_sync_folder =
+{
+	"Sync a folder",
+	"Syncing a folder",
+	0,
+	setup_sync_folder,
+	do_sync_folder,
+	cleanup_sync_folder
+};
+
+void mail_do_sync_folder (CamelFolder *folder)
+{
+	mail_operation_queue (&op_sync_folder, folder, FALSE);
+}

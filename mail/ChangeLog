@@ -1,5 +1,23 @@
 2000-07-21  Peter Williams  <peterw@helixcode.com>
 
+	* message-thread.c (setup_thread_messages): New
+	operation: thread_messages, simple wrapper around
+	thread_messages () and thread_messages_free();
+
+	* message-list.c (cleanup_regenerate_messagelist): 
+	Use new thread_messages operation instead of just
+	calling ... thread_messages :-)
+
+	* folder-browser.c (folder_browser_destroy): Use new
+	sync_folder operation instead of calling camel_folder_sync
+	directly.
+
+	* component-factory.c (create_folder): Changed to use
+	new create_folder operation.
+
+	* mail-ops.c (mail_do_create_folder): New operation: create
+	folder. New operation: sync folder.
+
 	* mail-format.c (cmm_destroyed): Remove the url hashtable from
 	the larger hashtable when it gets destroyed.
 
