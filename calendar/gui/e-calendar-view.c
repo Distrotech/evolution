@@ -35,6 +35,7 @@
 #include "calendar-commands.h"
 #include "calendar-config.h"
 #include "comp-util.h"
+#include "e-cal-model-calendar.h"
 #include "e-cal-view.h"
 #include "itip-utils.h"
 #include "dialogs/delete-comp.h"
@@ -302,6 +303,8 @@ static void
 e_cal_view_init (ECalView *cal_view, ECalViewClass *klass)
 {
 	cal_view->priv = g_new0 (ECalViewPrivate, 1);
+
+	cal_view->priv->model = (ECalModel *) e_cal_model_calendar_new ();
 
 	/* Set up the invisible widget for the clipboard selections */
 	cal_view->priv->invisible = gtk_invisible_new ();

@@ -1399,6 +1399,7 @@ e_cal_model_create_component_with_defaults (ECalModel *model)
 	ECalModelPrivate *priv;
 	CalComponent *comp;
 	icalcomponent *icalcomp;
+	CalClient *client;
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 
@@ -1406,12 +1407,16 @@ e_cal_model_create_component_with_defaults (ECalModel *model)
 
 	g_return_val_if_fail (priv->clients != NULL, NULL);
 
+	client = e_cal_model_get_default_client (model);
+	if (!client)
+		return icalcomponent_new (priv->kind);
+
 	switch (priv->kind) {
 	case ICAL_VEVENT_COMPONENT :
-		comp = cal_comp_event_new_with_defaults ((CalClient *) priv->clients->data);
+		comp = cal_comp_event_new_with_defaults (client);
 		break;
 	case ICAL_VTODO_COMPONENT :
-		comp = cal_comp_task_new_with_defaults ((CalClient *) priv->clients->data);
+		comp = cal_comp_task_new_with_defaults (client);
 		break;
 	default:
 		return NULL;

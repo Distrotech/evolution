@@ -2298,8 +2298,7 @@ e_week_view_add_event (CalComponent *comp,
 	event.different_timezone = FALSE;
 	if (!cal_comp_util_compare_event_timezones (
 		    comp,
-		    event.comp_data ? event.comp_data->client
-		    : e_cal_model_get_default_client (e_cal_view_get_model (E_CAL_VIEW (add_event_data->week_view))),
+		    event.comp_data->client,
 		    e_cal_view_get_timezone (E_CAL_VIEW (add_event_data->week_view))))
 		event.different_timezone = TRUE;
 
