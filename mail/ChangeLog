@@ -1,5 +1,8 @@
 2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* mail-session.c (remove_timeout): Removed.
+	(register_timeout): Removed.
+
 	* em-format.c: Updated for new mime-parser changes made to HEAD.
 
 	* em-folder-view.c: Fixed some compiler warnings.
