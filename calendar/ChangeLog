@@ -1,5 +1,15 @@
 2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-day-view.c: adapted to changes in ECalViewEvent structure.
+	(e_day_view_update_query): no more query management here.
+	(query_obj_updated_cb, query_obj_removed_cb, query_query_done_cb,
+	query_eval_error_cb): removed query signals' callbacks.
+	(adjust_query_sexp): removed.
+	(process_component): new function to draw all components from
+	the model.
+
+2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-view.c (e_cal_view_destroy): disconnect from signals
 	on the model.
 	(e_cal_view_set_model): disconnect from signals on the old model

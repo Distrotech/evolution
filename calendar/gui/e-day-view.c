@@ -1425,176 +1425,6 @@ e_day_view_focus_out (GtkWidget *widget, GdkEventFocus *event)
 	return FALSE;
 }
 
-/* Callback used when a component is updated in the live query */
-static void
-query_obj_updated_cb (CalQuery *query, const char *uid,
-		      gboolean query_in_progress, int n_scanned, int total,
-		      gpointer data)
-{
-	EDayView *day_view;
-	EDayViewEvent *event;
-	CalComponent *comp;
-	icalcomponent *icalcomp;
-	CalClientGetStatus status;
-	gint day, event_num;
-
-	day_view = E_DAY_VIEW (data);
-
-	/* If our time hasn't been set yet, just return. */
-	if (day_view->lower == 0 && day_view->upper == 0)
-		return;
-
-	/* Get the event from the server. */
-	status = cal_client_get_object (e_cal_view_get_cal_client (E_CAL_VIEW (day_view)), uid, &icalcomp);
-
-	switch (status) {
-	case CAL_CLIENT_GET_SUCCESS:
-		comp = cal_component_new ();
-		if (!cal_component_set_icalcomponent (comp, icalcomp)) {
-			g_object_unref (comp);
-			icalcomponent_free (icalcomp);
-
-			g_message ("query_obj_updated_cb(): Invalid object %s", uid);
-			return;
-		}
-		break;
-
-	case CAL_CLIENT_GET_SYNTAX_ERROR:
-		g_message ("query_obj_updated_cb(): Syntax error when getting object `%s'", uid);
-		return;
-
-	case CAL_CLIENT_GET_NOT_FOUND:
-		/* The object is no longer in the server, so do nothing */
-		return;
-
-	default:
-		g_assert_not_reached ();
-		return;
-	}
-
-	/* If the event already exists and the dates didn't change, we can
-	   update the event fairly easily without changing the events arrays
-	   or computing a new layout. */
-	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
-		if (day == E_DAY_VIEW_LONG_EVENT)
-			event = &g_array_index (day_view->long_events,
-						EDayViewEvent, event_num);
-		else
-			event = &g_array_index (day_view->events[day],
-						EDayViewEvent, event_num);
-
-		if (!cal_component_has_recurrences (comp)
-		    && !cal_component_has_recurrences (event->comp)
-		    && cal_component_event_dates_match (comp, event->comp)) {
-#if 0
-			g_print ("updated object's dates unchanged\n");
-#endif
-			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp);
-			g_object_unref (comp);
-			gtk_widget_queue_draw (day_view->top_canvas);
-			gtk_widget_queue_draw (day_view->main_canvas);
-			return;
-		}
-
-		/* The dates have changed, so we need to remove the
-		   old occurrrences before adding the new ones. */
-#if 0
-		g_print ("dates changed - removing occurrences\n");
-#endif
-		e_day_view_foreach_event_with_uid (day_view, uid,
-						   e_day_view_remove_event_cb,
-						   NULL);
-	}
-
-	/* Add the occurrences of the event. */
-	cal_recur_generate_instances (comp, day_view->lower,
-				      day_view->upper,
-				      e_day_view_add_event, day_view,
-				      cal_client_resolve_tzid_cb,
-				      e_cal_view_get_cal_client (E_CAL_VIEW (day_view)),
-				      e_cal_view_get_timezone (E_CAL_VIEW (day_view)));
-	g_object_unref (comp);
-
-	e_day_view_queue_layout (day_view);
-}
-
-/* Callback used when a component is removed from the live query */
-static void
-query_obj_removed_cb (CalQuery *query, const char *uid, gpointer data)
-{
-	EDayView *day_view;
-
-	day_view = E_DAY_VIEW (data);
-
-	e_day_view_foreach_event_with_uid (day_view, uid,
-					   e_day_view_remove_event_cb, NULL);
-
-	e_day_view_check_layout (day_view);
-	gtk_widget_queue_draw (day_view->top_canvas);
-	gtk_widget_queue_draw (day_view->main_canvas);
-}
-
-/* Callback used when a query ends */
-static void
-query_query_done_cb (CalQuery *query, CalQueryDoneStatus status, const char *error_str, gpointer data)
-{
-	EDayView *day_view;
-
-	day_view = E_DAY_VIEW (data);
-
-	/* FIXME */
-
-	e_cal_view_set_status_message (E_CAL_VIEW (day_view), NULL);
-
-	if (status != CAL_QUERY_DONE_SUCCESS)
-		fprintf (stderr, "query done: %s\n", error_str);
-}
-
-/* Callback used when an evaluation error occurs when running a query */
-static void
-query_eval_error_cb (CalQuery *query, const char *error_str, gpointer data)
-{
-	EDayView *day_view;
-
-	day_view = E_DAY_VIEW (data);
-
-	/* FIXME */
-
-	e_cal_view_set_status_message (E_CAL_VIEW (day_view), NULL);
-
-	fprintf (stderr, "eval error: %s\n", error_str);
-}
-
-
-/* Builds a complete query sexp for the day view by adding the predicates to
- * filter only for VEVENTS that fit in the day view's time range.
- */
-static char *
-adjust_query_sexp (EDayView *day_view, const char *sexp)
-{
-	char *start, *end;
-	char *new_sexp;
-
-	/* If the dates have not been set yet, we just want an empty query. */
-	if (day_view->lower == 0 || day_view->upper == 0)
-		return NULL;
-
-	start = isodate_from_time_t (day_view->lower);
-	end = isodate_from_time_t (day_view->upper);
-
-	new_sexp = g_strdup_printf ("(and (= (get-vtype) \"VEVENT\")"
-				    "     (occur-in-time-range? (make-time \"%s\")"
-				    "                           (make-time \"%s\"))"
-				    "     %s)",
-				    start, end,
-				    sexp);
-
-	g_free (start);
-	g_free (end);
-
-	return new_sexp;
-}
-
 /**
  * e_day_view_set_default_category:
  * @day_view: A day view.
@@ -3395,12 +3225,83 @@ e_day_view_get_selected_events (ECalView *cal_view)
 	return list;
 }
 
+static void
+process_component (EDayView *day_view, ECalModelComponent *comp_data)
+{
+	EDayViewEvent *event;
+	CalComponent *comp;
+	icalcomponent *icalcomp;
+	CalClientGetStatus status;
+	gint day, event_num;
+	const char *uid;
+
+	/* If our time hasn't been set yet, just return. */
+	if (day_view->lower == 0 && day_view->upper == 0)
+		return;
+
+	comp = cal_component_new ();
+	icalcomp = icalcomponent_new_clone (comp_data->icalcomp);
+	if (!cal_component_set_icalcomponent (comp, icalcomp)) {
+		g_object_unref (comp);
+		icalcomponent_free (icalcomp);
+
+		g_message ("query_obj_updated_cb(): Invalid object");
+		return;
+	}
+
+	/* If the event already exists and the dates didn't change, we can
+	   update the event fairly easily without changing the events arrays
+	   or computing a new layout. */
+	cal_component_get_uid (comp, &uid);
+
+	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
+		if (day == E_DAY_VIEW_LONG_EVENT)
+			event = &g_array_index (day_view->long_events,
+						EDayViewEvent, event_num);
+		else
+			event = &g_array_index (day_view->events[day],
+						EDayViewEvent, event_num);
+
+		if (!cal_component_has_recurrences (comp)
+		    && !cal_component_has_recurrences (event->comp)
+		    && cal_component_event_dates_match (event->comp)) {
+#if 0
+			g_print ("updated object's dates unchanged\n");
+#endif
+			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp);
+			g_object_unref (comp);
+			gtk_widget_queue_draw (day_view->top_canvas);
+			gtk_widget_queue_draw (day_view->main_canvas);
+			return;
+		}
+
+		/* The dates have changed, so we need to remove the
+		   old occurrrences before adding the new ones. */
+#if 0
+		g_print ("dates changed - removing occurrences\n");
+#endif
+		e_day_view_foreach_event_with_uid (day_view, uid,
+						   e_day_view_remove_event_cb,
+						   NULL);
+	}
+
+	/* Add the occurrences of the event. */
+	cal_recur_generate_instances (comp, day_view->lower,
+				      day_view->upper,
+				      e_day_view_add_event, day_view,
+				      cal_client_resolve_tzid_cb,
+				      e_cal_view_get_cal_client (E_CAL_VIEW (day_view)),
+				      e_cal_view_get_timezone (E_CAL_VIEW (day_view)));
+	g_object_unref (comp);
+
+	e_day_view_queue_layout (day_view);
+}
+
 /* Restarts a query for the day view */
 static void
 e_day_view_update_query (EDayView *day_view)
 {
-	CalQuery *old_query;
-	char *real_sexp;
+	gint rows, r;
 
 	e_day_view_stop_editing_event (day_view);
 
@@ -3409,36 +3310,16 @@ e_day_view_update_query (EDayView *day_view)
 	e_day_view_free_events (day_view);
 	e_day_view_queue_layout (day_view);
 
-	old_query = day_view->query;
-	day_view->query = NULL;
-
-	if (old_query) {
-		g_signal_handlers_disconnect_matched (old_query, G_SIGNAL_MATCH_DATA,
-						      0, 0, NULL, NULL, day_view);
-		g_object_unref (old_query);
-	}
-
-	real_sexp = adjust_query_sexp (day_view, e_cal_view_get_query (E_CAL_VIEW (day_view)));
-	if (!real_sexp)
-		return; /* No time range is set, so don't start a query */
-
 	e_cal_view_set_status_message (E_CAL_VIEW (day_view), _("Searching"));
-	day_view->query = cal_client_get_query (e_cal_view_get_cal_client (E_CAL_VIEW (day_view)), real_sexp);
-	g_free (real_sexp);
 
-	if (!day_view->query) {
-		g_message ("e_day_view_update_query(): Could not create the query");
-		return;
+	rows = e_table_model_row_count (E_TABLE_VIEW (e_cal_view_get_model (E_CAL_VIEW (day_view))));
+	for (r = 0; r < rows; r++) {
+		ECalModelComponent *comp_data;
+
+		comp_data = e_cal_model_get_component_at (e_cal_view_get_model (E_CAL_VIEW (day_view)), r);
+		g_assert (comp_data != NULL);
+		process_component (day_view, comp_data);
 	}
-
-	g_signal_connect (day_view->query, "obj_updated",
-			  G_CALLBACK (query_obj_updated_cb), day_view);
-	g_signal_connect (day_view->query, "obj_removed",
-			  G_CALLBACK (query_obj_removed_cb), day_view);
-	g_signal_connect (day_view->query, "query_done",
-			  G_CALLBACK (query_query_done_cb), day_view);
-	g_signal_connect (day_view->query, "eval_error",
-			  G_CALLBACK (query_eval_error_cb), day_view);
 }
 
 static void
