@@ -1844,7 +1844,6 @@ display_view (GnomeCalendar *gcal, GnomeCalendarViewType view_type, gboolean gra
 	if (grab_focus)
 		focus_current_view (gcal);
 
-	gnome_calendar_set_activity_handler (gcal, priv->activity_handler);
 	gnome_calendar_set_pane_positions (gcal);
 
 	/* For the week & month views we want the selection in the date

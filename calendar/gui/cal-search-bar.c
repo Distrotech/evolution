@@ -48,9 +48,7 @@ static ESearchBarItem search_option_items[] = {
 	{ N_("Any field contains"), SEARCH_ANY_FIELD_CONTAINS, NULL },
 	{ N_("Summary contains"), SEARCH_SUMMARY_CONTAINS, NULL },
 	{ N_("Description contains"), SEARCH_DESCRIPTION_CONTAINS, NULL },
-#if 0
 	{ N_("Comment contains"), SEARCH_COMMENT_CONTAINS, NULL },
-#endif
 	{ N_("Location contains"), SEARCH_LOCATION_CONTAINS, NULL },
 	{ N_("Category is"), SEARCH_CATEGORY_IS, NULL },
 };

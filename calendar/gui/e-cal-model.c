@@ -1376,7 +1376,7 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 							      icalcomponent_get_uid (l->data));
 			if (!comp_data)
 				continue;
-
+	
 			if (comp_data->icalcomp)
 				icalcomponent_free (comp_data->icalcomp);
 			if (comp_data->dtstart) {

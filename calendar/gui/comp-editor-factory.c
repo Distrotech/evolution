@@ -245,8 +245,6 @@ edit_existing (OpenClient *oc, const char *uid)
 	icalcomponent *icalcomp;
 	CompEditor *editor;
 	ECalComponentVType vtype;
-	/* Presence of attendees indicates that component is a meeting */
-	GSList *attendees = NULL;
 
 	g_assert (oc->open);
 
