@@ -387,7 +387,8 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 			e_week_view_foreach_event_with_uid (week_view, uid,
 							    e_week_view_remove_event_cb,
 							    NULL);
-		}
+		} else
+			e_week_view_remove_event_cb (week_view, event_num, comp_data);
 
 		g_object_unref (tmp_comp);
 	}
@@ -461,48 +462,17 @@ model_rows_inserted_cb (ETableModel *etm, int row, int count, gpointer user_data
 	e_week_view_queue_layout (week_view);
 }
 
-static gboolean
-row_deleted_check_cb (EWeekView *week_view, gint event_num, gpointer data)
-{	
-	GHashTable *uids = data;
-	EWeekViewEvent *event;
-	ECalModel *model;
-	const char *uid;
-	
-	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
-	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
-	model = e_calendar_view_get_model (E_CALENDAR_VIEW (week_view));
-
-	if (!e_cal_model_get_component_for_uid (model, uid))
-		g_hash_table_insert (uids, (char *)uid, GINT_TO_POINTER (1));
-
-	return TRUE;
-}
-
-static void
-remove_uid_cb (gpointer key, gpointer value, gpointer data)
-{
-	EWeekView *week_view = data;
-	const char *uid = key;
-	
-	e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_remove_event_cb, NULL);
-}
-
 static void
 model_rows_deleted_cb (ETableModel *etm, int row, int count, gpointer user_data)
 {
 	EWeekView *week_view = E_WEEK_VIEW (user_data);
-	GHashTable *uids;
+	int i;
 	
 	/* FIXME Stop editing? */
-
-	uids = g_hash_table_new (g_str_hash, g_str_equal);
 	
-	e_week_view_foreach_event (week_view, row_deleted_check_cb, uids);
-	g_hash_table_foreach (uids, remove_uid_cb, week_view);
+	for (i = row + count; i > row; i--)
+		e_week_view_remove_event_cb (week_view, i - 1, NULL);
 
-	g_hash_table_destroy (uids);
-	
 	gtk_widget_queue_draw (week_view->main_canvas);
 	e_week_view_queue_layout (week_view);
 }

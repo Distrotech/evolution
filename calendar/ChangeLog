@@ -1,3 +1,15 @@
+2004-05-04  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-day-view.c (process_component): remove the detached instances
+	from the view on updates.
+
+	* gui/e-week-view.c (model_rows_deleted_cb): no need to iterate all
+	over the events, we've got the row index so can retrieve the rows
+	being removed.
+	(row_deleted_check_cb, remove_uid_cb): removed unneded functions.
+	(process_component): remove the detached instances from the view on
+	updates.
+
 2004-05-03  Rodney Dawes  <dobey@ximian.com>
 
 	* gui/dialogs/select-source-dialog.c (select_source_dialog):

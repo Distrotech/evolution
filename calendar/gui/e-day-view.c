@@ -570,7 +570,8 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 			e_day_view_foreach_event_with_uid (day_view, uid,
 							   e_day_view_remove_event_cb,
 							   NULL);
-		}
+		} else
+			e_day_view_remove_event_cb (day_view, day, event_num, NULL);
 
 		g_object_unref (tmp_comp);
 	}
