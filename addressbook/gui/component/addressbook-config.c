@@ -548,7 +548,7 @@ offline_status_changed_cb (GtkWidget *widget, AddressbookSourceDialog *sdialog)
 	if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget)))
 		e_source_set_property (sdialog->source, "offline_sync", "1");
 	else 
-		e_source_set_property (sdialog->source, "offline_sync", NULL);	
+		e_source_set_property (sdialog->source, "offline_sync", "0");	
 	    
 }
 
@@ -590,19 +590,22 @@ static GtkWidget *
 eabc_general_offline(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
 {
 	AddressbookSourceDialog *sdialog = data;
-	GtkCheckButton *offline_setting;
+	GtkWidget *offline_setting;
+	const char *offline_sync;
 	int row;
+
+	offline_sync =  e_source_get_property (sdialog->source, "offline_sync");
 	if (old)
-		return;
+		return old;
 	else {
 		row = ((GtkTable*)parent)->nrows;
-		offline_setting = gtk_check_button_new_with_label (N_("Sync conents locally for offline usage"));
+		offline_setting = gtk_check_button_new_with_label (N_("Copy book content locally for offline operation"));
 		gtk_widget_show (offline_setting);
-		gtk_container_add (parent, offline_setting);
+		gtk_container_add (GTK_CONTAINER (parent), offline_setting);
 		g_signal_connect (offline_setting, "toggled", G_CALLBACK (offline_status_changed_cb), sdialog);
 		
 	}
-	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (offline_setting), e_source_get_property (sdialog->source, "offline_sync") ? TRUE : FALSE);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (offline_setting), (offline_sync && g_str_equal (offline_sync, "1"))  ? TRUE : FALSE);
 	gtk_widget_show (offline_setting);
 	return offline_setting;
 

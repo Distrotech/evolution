@@ -1,3 +1,10 @@
+2004-11-22  Sivaiah Nallagatla <snallagatla@novell.com>
+
+	* gui/widgets/addresbook-config.c (eabc_general_offline) :
+	fix some compile warings
+	(offline_status_changed_cb) : set "0" instead of NULL
+	as e-source property when offline is not checked  
+		
 2004-11-21  Sivaiah Nallagatla <snallagatla@novell.com>
                                                                                                                              
         * gui/widgets/eab-gui-util.c (eab_load_error_dialog) :
