@@ -1,5 +1,9 @@
 2003-07-29  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-book-types.h: add EBookChangeType/EBookChange.
+
+2003-07-29  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/e-book-view-listener.c: track collapsing of
 	Addressbook::BookListenerCallStatus and
 	Addressbook::BookView::CallStatus enums into

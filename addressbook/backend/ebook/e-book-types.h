@@ -47,6 +47,17 @@ typedef enum {
 	E_BOOK_VIEW_STATUS_OTHER_ERROR
 } EBookViewStatus;
 
+typedef enum {
+	E_BOOK_CHANGE_CARD_ADDED,
+	E_BOOK_CHANGE_CARD_DELETED,
+	E_BOOK_CHANGE_CARD_MODIFIED
+} EBookChangeType;
+
+typedef struct {
+	EBookChangeType  change_type;
+	char            *vcard;
+} EBookChange;
+
 G_END_DECLS
 
 #endif /* ! __E_BOOK_TYPES_H__ */
