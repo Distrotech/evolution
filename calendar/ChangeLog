@@ -1,3 +1,7 @@
+2003-09-11    <jpr@ximian.com>
+
+	* gui/gnome-cal.c (update_query): fix c/p typo
+
 2003-09-11  JP Rosevear <jpr@ximian.com>
 
 	* gui/gnome-cal.c (update_query): start the query
