@@ -3,15 +3,24 @@
 #include "config.h"
 #endif
 
+#include <string.h>
+#include <stdio.h>
+
 #include <glib/gi18n.h>
+
+#include <gtk/gtktreeselection.h>
+#include <gtk/gtkwidget.h>
+#include <gtk/gtkscrolledwindow.h>
+#include <gtk/gtkcellrenderertext.h>
 
 #include <camel/camel-folder.h>
 
 #include <libxml/tree.h>
 
+#include "mail-config.h"
+
 #include "em-tree-view.h"
 #include "em-tree-store.h"
-
 
 struct _EMTreeViewPrivate {
 	/* for various state loading/saving */
@@ -19,11 +28,13 @@ struct _EMTreeViewPrivate {
 	char *expanded_filename;
 	FILE *expanded_file;
 	char *state_filename;
+
+	GtkCellRenderer *text_renderer;
 };
 
 #define _PRIVATE(x) (g_type_instance_get_private((GTypeInstance *)(x), em_tree_view_get_type()))
 
-static GtkVBoxClass *emtv_parent;
+static GtkTreeViewClass *emtv_parent;
 
 enum {
 	LAST_SIGNAL
@@ -31,14 +42,14 @@ enum {
 
 static guint emtv_signals[LAST_SIGNAL];
 
-static void emtv_selection_get(GtkWidget *widget, GtkSelectionData *data, guint info, guint time_stamp, EMTreeView *emtv);
-static void emtv_selection_clear_event(GtkWidget *widget, GdkEventSelection *event, EMTreeView *emtv);
-
 static void
 emtv_init(GObject *o)
 {
 	EMTreeView *emtv = (EMTreeView *)o;
 	struct _EMTreeViewPrivate *p = _PRIVATE(o);
+
+	p->text_renderer = gtk_cell_renderer_text_new();
+	emtv = emtv;
 }
 
 static void
@@ -47,7 +58,11 @@ emtv_finalise(GObject *o)
 	EMTreeView *emtv = (EMTreeView *)o;
 	struct _EMTreeViewPrivate *p = _PRIVATE(o);
 
+	g_object_unref(p->text_renderer);
+
 	((GObjectClass *)emtv_parent)->finalize(o);
+
+	emtv = emtv;
 }
 
 static void
@@ -55,6 +70,9 @@ emtv_destroy (GtkObject *o)
 {
 	EMTreeView *emtv = (EMTreeView *)o;
 	struct _EMTreeViewPrivate *p = _PRIVATE(o);
+
+	emtv = emtv;
+	p = p;
 
 	((GtkObjectClass *)emtv_parent)->destroy(o);
 }
@@ -91,20 +109,19 @@ em_tree_view_get_type(void)
 	return type;
 }
 
-GtkWidget *em_tree_view_new(void)
+EMTreeView *em_tree_view_new(void)
 {
 	EMTreeView *emtv = g_object_new(em_tree_view_get_type(), 0);
 
-	return (GtkWidget *)emtv;
+	return emtv;
 }
-
 
 static void emtv_column_notify(GObject *o, GParamSpec *spec, EMTreeView *emtv);
 
 static void
 emtv_cell_date(GtkTreeViewColumn *col, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, void *data)
 {
-	EMTreeView *emtv = data;
+	/*EMTreeView *emtv = data;*/
 	CamelMessageInfo *mi = NULL;
 	time_t nowdate = time(NULL);
 	struct tm then, now;
@@ -134,7 +151,7 @@ emtv_cell_date(GtkTreeViewColumn *col, GtkCellRenderer *cell, GtkTreeModel *mode
 static void
 emtv_cell_properties(GtkTreeViewColumn *col, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, void *data)
 {
-	EMTreeView *emtv = data;
+	/*EMTreeView *emtv = data;*/
 	CamelMessageInfo *mi = NULL;
 	PangoWeight weight = PANGO_WEIGHT_NORMAL;
 	const char *colour = NULL;
@@ -205,7 +222,7 @@ emtv_add_column(EMTreeView *emtv, int id, int width)
 	}
 
 	g_object_set(col, "sizing", GTK_TREE_VIEW_COLUMN_FIXED, "fixed_width", width, "resizable", TRUE, NULL);
-	g_object_set_data(col, "column-id", emts_column_info[id].id);
+	g_object_set_data((GObject *)col, "column-id", (void *)emts_column_info[id].id);
 	gtk_tree_view_append_column((GtkTreeView *)emtv, col);
 	if (id == EMTS_COL_SUBJECT)
 		gtk_tree_view_set_expander_column((GtkTreeView *)emtv, col);
@@ -254,7 +271,7 @@ emtv_load_state(EMTreeView *emtv)
 			} else
 				width = 150;
 
-			emtv_add_column(td, id, width);
+			emtv_add_column(emtv, id, width);
 		}
 		node = node->next;
 	}
@@ -269,8 +286,6 @@ fail:
 static void
 emtv_load_state_default(EMTreeView *emtv)
 {
-	GtkTreeViewColumn *col;
-
 	/* TODO: Remove columns? */
 
 	/* TODO: Base column sizes on window size */
@@ -319,7 +334,7 @@ emtv_save_state_timeout(void *data)
 		char num[16];
 
 		node = xmlNewChild(root, NULL, "column", NULL);
-		xmlSetProp(node, "id", g_object_get_data(col, "column-id"));
+		xmlSetProp(node, "id", g_object_get_data((GObject *)col, "column-id"));
 		sprintf(num, "%d", gtk_tree_view_column_get_width(col));
 		xmlSetProp(node, "width", num);
 	}
@@ -338,7 +353,7 @@ emtv_save_state_timeout(void *data)
 
 	/* TODO: not here */
 	p->expanded_file = fopen(p->expanded_filename, "w");
-	gtk_tree_view_map_expanded_rows((EMTreeView *)emtv, emtv_save_expanded_row, p);
+	gtk_tree_view_map_expanded_rows((GtkTreeView *)emtv, emtv_save_expanded_row, p);
 	fclose(p->expanded_file);
 
 	return FALSE;
@@ -381,9 +396,9 @@ emtv_load_expanded(EMTreeView *emtv)
 			if (em_tree_store_get_iter(model, &iter, line)) {
 				GtkTreePath *path;
 
-				path = gtk_tree_model_get_path(model, &iter);
+				path = gtk_tree_model_get_path((GtkTreeModel *)model, &iter);
 				if (path) {
-					gtk_tree_view_expand_row(tree, path, FALSE);
+					gtk_tree_view_expand_row((GtkTreeView *)emtv, path, FALSE);
 					gtk_tree_path_free(path);
 				}
 			}
@@ -397,7 +412,8 @@ static void
 emtv_rebuild_model(EMTreeView *emtv)
 {
 	struct _EMTreeViewPrivate *p = _PRIVATE(emtv);
-	EMTreeStore *model;
+	EMTreeStore *emts;
+	GList *columns, *l;
 
 	/* clear old data */
 
@@ -417,8 +433,8 @@ emtv_rebuild_model(EMTreeView *emtv)
 		return;
 
 	/* TODO: build flat model for unthreaded mode */
-	model = em_tree_store_new(emtv->folder);
-	gtk_tree_view_set_model((GtkTreeView *)emtv, model);
+	emts = em_tree_store_new(emtv->folder);
+	gtk_tree_view_set_model((GtkTreeView *)emtv, (GtkTreeModel *)emts);
 
 	p->expanded_filename = mail_config_folder_to_cachename(emtv->folder, "emt-expanded-");
 	p->expanded_filename = mail_config_folder_to_cachename(emtv->folder, "emt-state-");
@@ -428,7 +444,7 @@ emtv_rebuild_model(EMTreeView *emtv)
 
 	emtv_load_expanded(emtv);
 
-	/* TODO: Scroll to the right position in the list, should be stored in state */
+	/* TODO: Scroll to the right position in the list, should be stored in state? */
 }
 
 void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, const char *uri, em_tree_view_t type)
@@ -437,7 +453,8 @@ void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, cons
 		return;
 
 	if (emtv->folder) {
-		emtv_save_state(emtv);
+		/*emtv_save_state(emtv);*/
+		emtv_save_state_timeout(emtv);
 		camel_object_unref(emtv->folder);
 		emtv->folder = NULL;
 		g_free(emtv->folder_uri);
@@ -446,13 +463,10 @@ void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, cons
 
 	emtv->folder = folder;
 	emtv->folder_uri = g_strdup(uri);
-	if (folder) {
+	if (folder)
 		camel_object_ref(folder);
 
-		/* TODO: check defaults */
-
-		emtv_load_state(emtv);
-	}
+	emtv_rebuild_model(emtv);
 }
 
 GPtrArray *em_tree_view_get_selected(EMTreeView *emtv)
@@ -470,10 +484,10 @@ GPtrArray *em_tree_view_get_selected(EMTreeView *emtv)
 
 		if (gtk_tree_model_get_iter(model, &iter, path)) {
 			CamelMessageInfo *mi;
-			char *uri;
 			
-			gtk_tree_model_get(model, &iter, EMTV_COL_MESSAGEINFO, &mi, -1);
-			g_ptr_array_add(uids, g_strdup(camel_message_info_uid(mi)));
+			gtk_tree_model_get(model, &iter, EMTS_COL_MESSAGEINFO, &mi, -1);
+			if (mi)
+				g_ptr_array_add(uids, g_strdup(camel_message_info_uid(mi)));
 		}
 		gtk_tree_path_free(path);
 	}
@@ -527,7 +541,7 @@ void em_tree_view_set_search(EMTreeView *emtv, const char *search)
 		return;
 
 	g_free(emtv->search);
-	emtv->search = search;
+	emtv->search = g_strdup(search);
 
 	/* refresh, async? */
 }

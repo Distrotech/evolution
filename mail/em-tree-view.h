@@ -39,7 +39,7 @@ struct _EMTreeViewClass
 
 GType em_tree_view_get_type (void);
 
-EMTreeview *em_tree_view_new(void);
+EMTreeView *em_tree_view_new(void);
 
 void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, const char *uri, em_tree_view_t type);
 

@@ -1,9 +1,6 @@
 
 #include <glib-object.h>
 #include <gtk/gtktreemodel.h>
-#include <gtk/gtktreeselection.h>
-#include <gtk/gtkwidget.h>
-#include <gtk/gtkscrolledwindow.h>
 
 #include <glib/gi18n.h>
 
@@ -37,8 +34,6 @@ struct _EMTreeStorePrivate {
 	int update_id;
 	int changed_id;
 
-	int signals:1;		/* emit signals? */
-
 	EMemChunk *node_chunks;
 	EMemChunk *leaf_chunks;
 
@@ -49,6 +44,8 @@ struct _EMTreeStorePrivate {
 	GHashTable *uid_table;
 	GHashTable *id_table;
 };
+
+static GObjectClass *emts_parent;
 
 struct _emts_column_info emts_column_info[EMTS_COL_NUMBER] = {
 	{ G_TYPE_POINTER, "message-info", "<<invalid>>" },
@@ -356,9 +353,61 @@ emts_iter_parent(GtkTreeModel *tree_model, GtkTreeIter *iter, GtkTreeIter *child
 	return FALSE;
 }
 
+/* This only frees external references, the actual nodes are in the memchunks */
+static void
+emts_node_free_rec(struct _EMTreeStorePrivate *p, EMTreeNode *node)
+{
+	EMTreeNode *child, *nchild;
+
+	if (node_has_children(node)) {
+		child = (EMTreeNode *)node->children.head;
+		nchild = child->next;
+		while (nchild) {
+			emts_node_free_rec(p, child);
+			child = nchild;
+			nchild = nchild->next;
+		}
+	}
+
+	if (node->info)
+		camel_folder_free_message_info(p->folder, child->info);
+}
+
+static void
+emts_finalise(GObject *o)
+{
+	EMTreeStore *emts = (EMTreeStore *)o;
+	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
+	struct _emts_change *c;
+
+	if (p->update_id)
+		g_source_remove(p->update_id);
+
+	camel_object_remove_event(p->folder, p->changed_id);
+
+	pthread_mutex_destroy(&p->lock);
+
+	while ( ( c = (struct _emts_change *)e_dlist_remhead(&p->changes)) ) {
+		camel_folder_change_info_free(c->changes);
+		g_free(c);
+	}
+
+	emts_node_free_rec(p, emts->root);
+
+	e_memchunk_destroy(p->node_chunks);
+	e_memchunk_destroy(p->leaf_chunks);
+
+	g_hash_table_destroy(p->uid_table);
+	g_hash_table_destroy(p->id_table);
+
+	((GObjectClass *)emts_parent)->finalize(o);
+}
+
 static void
 emts_class_init(EMTreeStoreClass *klass)
 {
+	((GObjectClass *)klass)->finalize = emts_finalise;
+
 	g_type_class_add_private(klass, sizeof(struct _EMTreeStorePrivate));
 }
 
@@ -386,7 +435,6 @@ emts_init(EMTreeStore *emts)
 
 	pthread_mutex_init(&p->lock, NULL);
 	e_dlist_init(&p->changes);
-	e_dlist_init(&p->aux);
 
 	p->node_chunks = e_memchunk_new(64, sizeof(EMTreeNode));
 	p->leaf_chunks = e_memchunk_new(64, sizeof(EMTreeLeaf));
@@ -432,49 +480,13 @@ em_tree_store_get_type (void)
 			NULL
 		};
 
+		emts_parent = g_type_class_ref(G_TYPE_OBJECT);
 		tree_store_type = g_type_register_static(G_TYPE_OBJECT, "EMTreeStore", &tree_store_info, 0);
 
 		g_type_add_interface_static(tree_store_type, GTK_TYPE_TREE_MODEL, &tree_model_info);
 	}
 
 	return tree_store_type;
-}
-
-EMTreeStore *
-em_tree_store_new(CamelFolder *folder)
-{
-	EMTreeStore *emts = (EMTreeStore *)g_object_new(em_tree_store_get_type(), NULL);
-	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-
-	p->folder = folder;
-	camel_object_ref(folder);
-	p->changed_id = camel_object_hook_event(folder, "folder_changed", emts_folder_changed, emts);
-
-	summary = camel_folder_get_summary(folder);
-	for (i=0;i<summary->len;i++) {
-		CamelMessageInfo *mi = summary->pdata[i];
-
-		camel_folder_ref_message_info(folder, mi);
-		emts_insert_info_base(emts, mi);
-	}
-	camel_folder_free_summary(folder, summary);
-
-	emts_prune_empty(emts, (EMTreeNode *)emts->root->children.head);
-
-	/* TBD */
-	p->signals = TRUE;
-
-	return emts;
-}
-
-int em_tree_store_get_iter(EMTreeStore *emts, GtkTreeIter *iter, const char *uid)
-{
-	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-
-	iter->user_data = g_hash_table_lookup(p->uid_table, uid);
-	iter->stamp = emts->stamp;
-
-	return iter->user_data != NULL;
 }
 
 #if d(!)0
@@ -504,259 +516,6 @@ dump_info(EMTreeNode *root)
 	g_string_free(pre, TRUE);
 }
 #endif
-
-static void
-emts_insert_info_old(EMTreeStore *emts, CamelMessageInfo *mi)
-{
-	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-	EMTreeNode *c, *match, *node, *parent;
-	int j;
-	GtkTreeIter iter;
-	GtkTreePath *path;
-
-	if (mi->message_id.id.id) {
-		match = g_hash_table_lookup(p->id_table, &mi->message_id);
-	} else {
-		match = NULL;
-	}
-
-	if (mi->references) {
-		parent = emts->root;
-
-		/* FIXME: Going in this direction means that if a new parent is discovered
-		   for the parent, it isn't moved.  So it needs to create the node first,
-		   then go up the parents */
-
-		/* make sure the tree from root to the message exists */
-		for (j=mi->references->size-1;j>=0;j--) {
-			/* should never be empty, but just incase */
-			if (mi->references->references[j].id.id == 0)
-				continue;
-
-			node = g_hash_table_lookup(p->id_table, &mi->references->references[j]);
-			d(printf("looking up reference = %p\n", node));
-			if (node == parent || (node && node->parent == parent)) {
-				if (node == parent)
-					d(printf(" same as parent?\n"));
-				else
-					d(printf(" parent is same\n"));
-				parent = node;
-				continue;
-			}
-
-			if (node == NULL) {
-				/* need to make a place-holder parent node */
-
-				d(printf(" placeholder\n"));
-				node = emts_node_alloc(p);
-				g_hash_table_insert(p->id_table, &mi->references->references[j], node);
-			} else {
-				/* re-parent the node based on the updated information */
-
-				d(printf(" new parent\n"));
-
-				if (p->signals) {
-					iter.user_data = node;
-					iter.stamp = emts->stamp;
-					path = emts_get_path((GtkTreeModel *)emts, &iter);
-					e_dlist_remove((EDListNode *)node);
-					gtk_tree_model_row_deleted((GtkTreeModel *)emts, path);
-					gtk_tree_path_free(path);
-				} else {
-					e_dlist_remove((EDListNode *)node);
-				}
-
-				/* do we need to promote a leaf node to a full node? */
-				if (node->flags & EM_TREE_NODE_LEAF) {
-					g_hash_table_remove(p->id_table, &mi->references->references[j]);
-					c = emts_node_alloc(p);
-					c->info = node->info;
-					emts_node_free(p, node);
-					node = c;
-					g_hash_table_insert(p->id_table, &mi->references->references[j], node);
-					if (node->info)
-						g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(node->info), node);
-				}
-			}
-
-			d(printf("  insert placeholder %p parent %p\n", node, parent));
-
-			node->parent = parent;
-			e_dlist_addtail(&parent->children, (EDListNode *)node);
-			parent = node;
-
-			if (p->signals) {
-				iter.user_data = node;
-				iter.stamp = emts->stamp;
-				path = emts_get_path((GtkTreeModel *)emts, &iter);
-				gtk_tree_model_row_inserted((GtkTreeModel *)emts, path, &iter);
-				gtk_tree_path_free(path);
-			}
-		}
-	} else {
-		/* no references, must be a root node - for now */
-		parent = emts->root;
-	}
-
-	if (match && match->info == NULL) {
-		/* we're filling in a dummy node previously made */
-		c = match;
-	} else {
-		match = NULL;
-
-		/* else we're creating a new one */
-		c = emts_leaf_alloc(p);
-		if (mi->message_id.id.id)
-			g_hash_table_insert(p->id_table, &mi->message_id, c);
-
-		/* promote if need be */
-		if (parent->flags & EM_TREE_NODE_LEAF) {
-			node = emts_node_alloc(p);
-			node->next = parent->next;
-			node->prev = parent->prev;
-			node->info = parent->info;
-			node->next->prev = node;
-			node->prev->next = node;
-			emts_node_free(p, parent);
-			parent = node;
-			if (parent->info) {
-				if (parent->info->message_id.id.id)
-					g_hash_table_insert(p->id_table, &parent->info->message_id.id.id, parent);
-				g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(parent->info), parent);
-			}
-		}
-
-		c->parent = parent;
-		e_dlist_addtail(&parent->children, (EDListNode *)c);
-	}
-
-	d(printf("insert %p parent %p\n", c, parent));
-		
-	c->info = mi;
-	g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(mi), c);
-
-	if (!match && p->signals) {
-		iter.user_data = c;
-		iter.stamp = emts->stamp;
-		path = emts_get_path((GtkTreeModel *)emts, &iter);
-		gtk_tree_model_row_inserted((GtkTreeModel *)emts, path, &iter);
-		gtk_tree_path_free(path);
-	}
-}
-
-static void
-emts_reparent_empty(EMTreeNode *parent, EMTreeNode *node)
-{
-	GSList *l;
-
-	/* FIXME: need to know if child is still alive */
-	/* Refcount? */
-
-	printf(" reparenting children to '%s'\n", camel_message_info_subject(parent->info));
-	/* 'reparent' any awaiting children */
-	for (l = node->aux;l;l = g_slist_next(l)) {
-		EMTreeNode *child = l->data;
-		
-		if (child->info) {
-			printf("  %p: child '%s'\n", child, camel_message_info_subject(child->info));
-			e_dlist_remove((EDListNode *)node);
-			e_dlist_addtail(&parent->children, (EDListNode *)node);
-			node->parent = parent;
-		} else {
-			emts_reparent_empty(parent, child);
-		}
-	}
-
-	if (node == parent) {
-		g_slist_free(node->aux);
-		node->aux = NULL;
-	}
-}
-
-/* experimental one which is supposed to work incrementally all the time, but it doesn't */
-static void
-emts_insert_info_fails(EMTreeStore *emts, CamelMessageInfo *mi)
-{
-	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-	EMTreeNode *match;
-	int j;
-#if 0
-	GtkTreeIter iter;
-	GtkTreePath *path;
-#endif
-
-	printf("inserting message '%s'\n", camel_message_info_subject(mi));
-
-	if (mi->message_id.id.id
-	    && (match = g_hash_table_lookup(p->id_table, &mi->message_id))
-	    && match->info == NULL) {
-		/* We already have this node, just fill it in */
-		printf("%p: filling in node\n", match);
-		match->info = mi;
-		emts_reparent_empty(match, match);
-		e_dlist_remove((EDListNode *)match);
-		e_dlist_addtail(&match->parent->children, (EDListNode *)match);
-	} else {
-		/* Allocating a new node, always 'parent' to root to start with */
-		match = emts_node_alloc(p);
-		printf("%p: creating new root node\n", match);
-		match->info = mi;
-		if (mi->message_id.id.id)
-			g_hash_table_insert(p->id_table, &mi->message_id, match);
-		match->parent = emts->root;
-		e_dlist_addtail(&emts->root->children, (EDListNode *)match);
-	}
-
-	g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(mi), match);
-
-	/* FIXME: Need to emit appropriate signals
-	   This may be very difficult to calculate accurately and efficiently */
-
-	if (mi->references) {
-		EMTreeNode *node, *parent;
-
-		node = match;
-
-		/* make sure the tree from root to the message exists */
-		for (j=0;j<mi->references->size;j++) {
-			/* should never be empty, but just incase */
-			if (mi->references->references[j].id.id == 0)
-				continue;
-
-			parent = g_hash_table_lookup(p->id_table, &mi->references->references[j]);
-			if (parent == NULL || parent->info == NULL) {
-				/* create placeholder, it isn't in the tree */
-				if (parent == NULL) {
-					parent = emts_node_alloc(p);
-					printf("%p: creating placeholder\n", parent);
-					g_hash_table_insert(p->id_table, &mi->references->references[j], parent);
-					parent->parent = emts->root;
-					e_dlist_addtail(&p->aux, (EDListNode *)parent);
-				}
-				if (j == 0)
-					parent->aux = g_slist_append(parent->aux, node);
-			} else if (parent != node) {
-				printf("reparenting under %s\n", camel_message_info_subject(parent->info));
-				/* parent changed, then re-parent to the correct one */
-				if (node->parent != parent) {
-					node->parent = parent;
-					e_dlist_remove((EDListNode *)node);
-					e_dlist_addtail(&parent->children, (EDListNode *)node);
-				}
-				node = parent;
-			}
-		}
-	} else if (FALSE /* etms->thread_subject */) {
-#if 0
-		if (is_re(mi)) {
-			sub = strip_re(mi);
-			if (lookup(re_root)) {
-				reparent(match);
-			}
-		}
-#endif
-	}
-}
 
 /* This is used along with prune_empty to build the initial model, before the model is set on any tree
    It should match the old thread algorithm exactly */
@@ -829,9 +588,6 @@ emts_insert_info_incr(EMTreeStore *emts, CamelMessageInfo *mi)
 	int j;
 	GtkTreeIter iter;
 	GtkTreePath *path;
-
-	/* TODO: emit signals */
-
 	printf("inserting new: '%s'\n", camel_message_info_subject(mi));
 
 	/* Allocating a new node, always 'parent' to root to start with */
@@ -872,12 +628,14 @@ emts_insert_info_incr(EMTreeStore *emts, CamelMessageInfo *mi)
 	gtk_tree_path_free(path);
 }
 
+/* This removes all empty nodes */
 static void
 emts_prune_empty(EMTreeStore *emts, EMTreeNode *node)
 {
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 	EMTreeNode *child, *next, *save;
-	
+
+	/* FIXME: MUST MUST MUST - Must remove the ID hash table entries for these nodes too */
 	next = node->next;
 	while (next) {
 		if (node->info == NULL) {
@@ -996,8 +754,7 @@ emts_folder_changed_idle(void *data)
 			const char *uid = c->changes->uid_changed->pdata[i];
 			EMTreeNode *node;
 
-			if (p->signals
-			    && (node = g_hash_table_lookup(p->uid_table, uid))) {
+			if ((node = g_hash_table_lookup(p->uid_table, uid))) {
 				GtkTreeIter iter;
 				GtkTreePath *path;
 
@@ -1040,343 +797,38 @@ emts_folder_changed(CamelObject *o, void *event, void *data)
 	pthread_mutex_unlock(&p->lock);
 }
 
-struct _TreeData {
-	GtkTreeView *tree;
-
-	guint state_timeout;
-	char *state_filename;
-
-	GtkCellRenderer *text_renderer;
-
-	char *expanded_filename;
-	FILE *expanded_row_file; /* for i/o */
-};
-
-static void emtv_column_notify(GObject *o, GParamSpec *spec, struct _TreeData *td);
-
-static void
-emtv_cell_date(GtkTreeViewColumn *col, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, void *data)
+EMTreeStore *
+em_tree_store_new(CamelFolder *folder)
 {
-	struct _TreeData *td = data;
-	CamelMessageInfo *mi = NULL;
-	time_t nowdate = time(NULL);
-	struct tm then, now;
-	char buf[26];
-	PangoWeight weight = PANGO_WEIGHT_NORMAL;
-
-	gtk_tree_model_get(model, iter, EMTS_COL_MESSAGEINFO, &mi, -1);
-
-	if (mi) {
-		if ((mi->flags & CAMEL_MESSAGE_SEEN) ==0)
-			weight = PANGO_WEIGHT_BOLD;
-
-		localtime_r(&mi->date_received, &then);
-		localtime_r(&nowdate, &now);
-
-		if (then.tm_year == now.tm_year) {
-			e_utf8_strftime_fix_am_pm (buf, 26, _("%b %d %l:%M %p"), &then);
-		} else {
-			e_utf8_strftime_fix_am_pm (buf, 26, _("%b %d %Y"), &then);
-		}
-		g_object_set(cell, "text", buf, "weight", weight, NULL);
-	} else {
-		g_object_set(cell, "text", "???", "weight", weight, NULL);
-	}
-}
-
-static void
-emtv_cell_properties(GtkTreeViewColumn *col, GtkCellRenderer *cell, GtkTreeModel *model, GtkTreeIter *iter, void *data)
-{
-	struct _TreeData *td = data;
-	CamelMessageInfo *mi = NULL;
-	PangoWeight weight = PANGO_WEIGHT_NORMAL;
-	const char *colour = NULL;
-	gboolean strike = FALSE;
-
-	gtk_tree_model_get(model, iter, EMTS_COL_MESSAGEINFO, &mi, -1);
-
-	if (mi) {
-		if ((mi->flags & CAMEL_MESSAGE_SEEN) == 0)
-			weight = PANGO_WEIGHT_BOLD;
-		if ((mi->flags & (CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_JUNK)) != 0)
-			strike = TRUE;
-
-		/* Priority: colour tag; label tag; important flag; due-by tag */
-		
-		colour = camel_tag_get((CamelTag **)&mi->user_tags, "colour");
-		if (colour == NULL) {
-			const char *label;
-
-			if ((label = camel_tag_get((CamelTag **)&mi->user_tags, "label")) == NULL
-			    || (colour = mail_config_get_label_color_by_name(label)) == NULL) {
-				if (mi->flags & CAMEL_MESSAGE_FLAGGED) {
-					colour = "#A7453E";
-				} else {
-					const char *due, *completed;
-
-					due = camel_tag_get((CamelTag **)&mi->user_tags, "due-by");
-					completed = camel_tag_get((CamelTag **)&mi->user_tags, "completed-on");
-					if (due && due[0] && !(completed && completed[0])) {
-						time_t now = time (NULL);
-						time_t target;
-				
-						target = camel_header_decode_date(due, NULL);
-						if (now >= target)
-							colour = "#A7453E";
-					}
-				}
-			}
-		}
-
-		
-	}
-
-	g_object_set(cell, "weight", weight, "foreground", colour, "strikethrough", strike, NULL);
-}
-
-static GtkTreeViewColumn *
-emtv_add_column(struct _TreeData *td, int id, int width)
-{
-	GtkTreeViewColumn *col;
-
-	col = gtk_tree_view_column_new();
-	gtk_tree_view_column_set_title(col, _(emts_column_info[id].title));
-	switch (id) {
-	case EMTS_COL_SUBJECT:
-	case EMTS_COL_FROM:
-		gtk_tree_view_column_pack_start(col, td->text_renderer, TRUE);
-		gtk_tree_view_column_set_attributes(col, td->text_renderer, "text", id, NULL);
-		gtk_tree_view_column_set_cell_data_func(col, td->text_renderer, emtv_cell_properties, td, NULL);
-		break;
-	case EMTS_COL_DATE:
-		gtk_tree_view_column_pack_start(col, td->text_renderer, TRUE);
-		gtk_tree_view_column_set_cell_data_func(col, td->text_renderer, emtv_cell_date, td, NULL);
-		break;
-	default:
-		abort();
-	}
-
-	g_object_set(col, "sizing", GTK_TREE_VIEW_COLUMN_FIXED, "fixed_width", width, "resizable", TRUE, NULL);
-	g_object_set_data(col, "column-id", emts_column_info[id].id);
-	gtk_tree_view_append_column(td->tree, col);
-	if (id == EMTS_COL_SUBJECT)
-		gtk_tree_view_set_expander_column(td->tree, col);
-	g_signal_connect(col, "notify", G_CALLBACK(emtv_column_notify), td);
-
-	return col;
-}
-
-static int
-emtv_load_state(struct _TreeData *td)
-{
-	xmlDocPtr doc;
-	int res = -1;
-	xmlNodePtr node;
-
-	doc = xmlParseFile(td->state_filename);
-	if (doc == NULL)
-		return -1;
-
-	node = xmlDocGetRootElement(doc);
-	if (node == NULL
-	    || strcmp(node->name, "em-tree-state") != 0)
-		goto fail;
-
-	node = node->children;
-	while (node) {
-		if (!strcmp(node->name, "column")) {
-			char *tmp;
-			int id, width;
-
-			tmp = xmlGetProp(node, "id");
-			if (tmp == NULL)
-				goto fail;
-			for (id=0;id<EMTS_COL_NUMBER;id++)
-				if (!strcmp(emts_column_info[id].id, tmp))
-					break;
-			xmlFree(tmp);
-			if (id == EMTS_COL_NUMBER)
-				goto fail;
-
-			tmp = xmlGetProp(node, "width");
-			if (tmp) {
-				width = strtoul(tmp, NULL, 10);
-				xmlFree(tmp);
-			} else
-				width = 150;
-
-			emtv_add_column(td, id, width);
-		}
-		node = node->next;
-	}
-
-	res = 0;
-fail:
-	xmlFreeDoc(doc);
-
-	return res;
-}
-
-static void
-emtv_load_state_default(struct _TreeData *td)
-{
-	GtkTreeViewColumn *col;
-
-	/* TODO: Remove columns? */
-
-	/* TODO: Base column sizes on window size */
-
-	emtv_add_column(td, EMTS_COL_SUBJECT, 300);
-	emtv_add_column(td, EMTS_COL_FROM, 300);
-	emtv_add_column(td, EMTS_COL_DATE, 100);
-}
-
-static void
-emtv_save_expanded_row(GtkTreeView *tree, GtkTreePath *path, void *data)
-{
-	struct _TreeData *td = data;
-	GtkTreeModel *model;
-	GtkTreeIter iter;
-	const char *uid;
-	CamelMessageInfo *mi;
-
-	model = gtk_tree_view_get_model(tree);
-	gtk_tree_model_get_iter(model, &iter, path);
-	gtk_tree_model_get(model, &iter, EMTS_COL_MESSAGEINFO, &mi, -1);
-	if (mi && (uid = camel_message_info_uid(mi)))
-		fprintf(td->expanded_row_file, "%s\n", uid);
-}
-
-static gboolean
-emtv_save_state_timeout(struct _TreeData *td)
-{
-	xmlDocPtr doc;
-	xmlNodePtr node, root;
-	GList *columns, *l;
-	xmlChar *xmlbuf;
-	int size;
-
-	td->state_timeout = 0;
-
-	doc = xmlNewDoc("1.0");
-	root = xmlNewDocNode(doc, NULL, "em-tree-state", NULL);
-	xmlDocSetRootElement(doc, root);
-
-	columns = gtk_tree_view_get_columns(td->tree);
-	for (l=columns;l;l=g_list_next(l)) {
-		GtkTreeViewColumn *col = l->data;
-		char num[16];
-
-		node = xmlNewChild(root, NULL, "column", NULL);
-		xmlSetProp(node, "id", g_object_get_data(col, "column-id"));
-		sprintf(num, "%d", gtk_tree_view_column_get_width(col));
-		xmlSetProp(node, "width", num);
-	}
-	g_list_free(columns);
-
-	xmlDocDumpFormatMemory(doc, &xmlbuf, &size, TRUE);
-	if (size > 0) {
-		printf("Saving tree state:\n");
-		fwrite(xmlbuf, 1, size, stdout);
-		xmlFree(xmlbuf);
-	}
-
-	e_xml_save_file(td->state_filename, doc);
-
-	xmlFreeDoc(doc);
-
-	/* TODO: not here */
-	td->expanded_row_file = fopen(td->expanded_filename, "w");
-	gtk_tree_view_map_expanded_rows(td->tree, emtv_save_expanded_row, td);
-	fclose(td->expanded_row_file);
-
-	return FALSE;
-}
-
-static void
-emtv_column_notify(GObject *o, GParamSpec *spec, struct _TreeData *td)
-{
-	if (td->state_timeout)
-		g_source_remove(td->state_timeout);
-
-	td->state_timeout = g_timeout_add(500, emtv_save_state_timeout, td);
-}
-
-GtkWidget *
-em_tree_store_get_widget(CamelFolder *folder)
-{
-	GtkTreeSelection *selection;
-	GtkCellRenderer *renderer;
-	EMTreeStore *model;
-	GtkTreeView *tree;
-	GtkWidget *widget;
-	GtkTreeViewColumn *col;
-	struct _EMTreeStorePrivate *p;
+	EMTreeStore *emts = (EMTreeStore *)g_object_new(em_tree_store_get_type(), NULL);
+	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 	GPtrArray *summary;
 	int i;
-	struct _TreeData *td;
-	FILE *fp;
 
-	model = em_tree_store_new();
+	p->folder = folder;
+	camel_object_ref(folder);
+	p->changed_id = camel_object_hook_event(folder, "folder_changed", emts_folder_changed, emts);
 
-	d(dump_info(model->root));
+	summary = camel_folder_get_summary(folder);
+	for (i=0;i<summary->len;i++) {
+		CamelMessageInfo *mi = summary->pdata[i];
 
-	tree = (GtkTreeView *) gtk_tree_view_new_with_model ((GtkTreeModel *) model);
-	gtk_widget_show((GtkWidget *)tree);
-
-	widget = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (widget), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (widget), GTK_SHADOW_IN);
-	gtk_container_add((GtkContainer *)widget, (GtkWidget *)tree);
-	gtk_widget_show(widget);
-
-	td = g_malloc0(sizeof(*td));
-	td->tree = tree;
-	td->state_filename = "/home/notzed/.evolution/.emt-state";
-	td->expanded_filename = "/home/notzed/.evolution/.emt-expanded";
-	td->text_renderer = gtk_cell_renderer_text_new();
-
-	if (emtv_load_state(td) == -1)
-		emtv_load_state_default(td);
-
-	/* TODO: move to func */
-	fp = fopen(td->expanded_filename, "r");
-	if (fp) {
-		char line[1024], *p;
-
-		while (fgets(line, sizeof(line), fp)) {
-			GtkTreeIter iter;
-
-			p = strchr(line, '\n');
-			if (p)
-				*p = 0;
-
-			printf("setting expanded: %s\n", line);
-
-			if (em_tree_store_get_iter(model, &iter, line)) {
-				GtkTreePath *path;
-
-				path = gtk_tree_model_get_path(model, &iter);
-				if (path) {
-					gtk_tree_view_expand_row(tree, path, FALSE);
-					gtk_tree_path_free(path);
-				}
-			}
-		}
-
-		fclose(fp);
+		camel_folder_ref_message_info(folder, mi);
+		emts_insert_info_base(emts, mi);
 	}
+	camel_folder_free_summary(folder, summary);
 
-	return widget;
+	emts_prune_empty(emts, (EMTreeNode *)emts->root->children.head);
+
+	return emts;
 }
 
-void
-em_tree_store_test(CamelFolder *folder)
+int em_tree_store_get_iter(EMTreeStore *emts, GtkTreeIter *iter, const char *uid)
 {
-	GtkWidget *window, *emts;
+	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 
-	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	emts = em_tree_store_get_widget(folder);
-	gtk_container_add((GtkContainer *)window, emts);
-	gtk_widget_show_all(window);
+	iter->user_data = g_hash_table_lookup(p->uid_table, uid);
+	iter->stamp = emts->stamp;
+
+	return iter->user_data != NULL;
 }
