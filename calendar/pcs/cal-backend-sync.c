@@ -317,7 +317,7 @@ _cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal)
 
 	status = cal_backend_sync_get_cal_address (CAL_BACKEND_SYNC (backend), cal, &capabilities);
 
-	cal_notify_ldap_attribute (cal, status, capabilities);
+	cal_notify_static_capabilities (cal, status, capabilities);
 
 	g_free (capabilities);
 }
