@@ -634,6 +634,30 @@ update_query (GnomeCalendar *gcal)
 	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 }
 
+static void
+adjust_query_for_view (ECalView *cal_view, const char *sexp)
+{
+	char *real_sexp, *start, *end;
+	time_t ttstart, ttend;
+
+	e_cal_view_get_visible_time_range (cal_view, &ttstart, &ttend);
+
+	start = isodate_from_time_t (ttstart);
+	end = isodate_from_time_t (ttend);
+
+	real_sexp = g_strdup_printf (
+		"(and (occur-in-time-range? (make-time \"%s\")"
+		"                           (make-time \"%s\"))"
+		" %s)",
+		start, end, sexp);
+
+	e_cal_model_set_query (e_cal_view_get_model (cal_view), real_sexp);
+
+	g_free (start);
+	g_free (end);
+	g_free (real_sexp);
+}
+
 /**
  * gnome_calendar_set_query:
  * @gcal: A calendar.
@@ -662,11 +686,11 @@ gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp)
 
 	update_query (gcal);
 
-	/* Set the query on the main view */
-	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->day_view)), sexp);
-	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->work_week_view)), sexp);
-	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)), sexp);
-	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->month_view)), sexp);
+	/* Set the query on the views */
+	adjust_query_for_view (E_CAL_VIEW (priv->day_view), sexp);
+	adjust_query_for_view (E_CAL_VIEW (priv->work_week_view), sexp);
+	adjust_query_for_view (E_CAL_VIEW (priv->week_view), sexp);
+	adjust_query_for_view (E_CAL_VIEW (priv->month_view), sexp);
 
 	/* Set the query on the task pad */
 	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));

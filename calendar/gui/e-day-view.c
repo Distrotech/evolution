@@ -2112,28 +2112,6 @@ e_day_view_get_visible_time_range	(ECalView	*cal_view,
 }
 
 static void
-update_query (EDayView *day_view)
-{
-	ECalModel *model;
-	char *start, *end;
-	char *sexp;
-
-	start = isodate_from_time_t (day_view->lower);
-	end = isodate_from_time_t (day_view->upper);
-
-	sexp = g_strdup_printf ("(and (= (get-vtype) \"VEVENT\")"
-				"     (occur-in-time-range? (make-time \"%s\")"
-				"                           (make-time \"%s\")))",
-				start, end);
-	
-	g_free (start);
-	g_free (end);
-
-	model = e_cal_view_get_model (E_CAL_VIEW (day_view));
-	e_cal_model_set_query (model, sexp);
-}
-
-static void
 e_day_view_recalc_day_starts (EDayView *day_view,
 			      time_t start_time)
 {
@@ -2152,7 +2130,7 @@ e_day_view_recalc_day_starts (EDayView *day_view,
 	day_view->lower = start_time;
 	day_view->upper = day_view->day_starts[day_view->days_shown];
 
-	update_query (day_view);
+	e_day_view_update_query (day_view);
 }
 
 
@@ -3288,8 +3266,6 @@ e_day_view_update_query (ECalView *cal_view)
 	e_day_view_free_events (day_view);
 	e_day_view_queue_layout (day_view);
 
-	e_cal_view_set_status_message (E_CAL_VIEW (day_view), _("Searching"));
-
 	rows = e_table_model_row_count (E_TABLE_MODEL (e_cal_view_get_model (E_CAL_VIEW (day_view))));
 	for (r = 0; r < rows; r++) {
 		ECalModelComponent *comp_data;
@@ -3298,8 +3274,6 @@ e_day_view_update_query (ECalView *cal_view)
 		g_assert (comp_data != NULL);
 		process_component (day_view, comp_data);
 	}
-
-	e_cal_view_set_status_message (E_CAL_VIEW (day_view), NULL);
 }
 
 static void

@@ -1181,8 +1181,6 @@ e_week_view_update_query (ECalView *cal_view)
 	e_week_view_free_events (week_view);
 	e_week_view_queue_layout (week_view);
 
-	e_cal_view_set_status_message (E_CAL_VIEW (week_view), _("Searching"));
-
 	rows = e_table_model_row_count (E_TABLE_MODEL (e_cal_view_get_model (E_CAL_VIEW (week_view))));
 	for (r = 0; r < rows; r++) {
 		ECalModelComponent *comp_data;
@@ -1191,8 +1189,6 @@ e_week_view_update_query (ECalView *cal_view)
 		g_assert (comp_data != NULL);
 		process_component (week_view, comp_data);
 	}
-
-	e_cal_view_set_status_message (E_CAL_VIEW (week_view), NULL);
 }
 
 static void

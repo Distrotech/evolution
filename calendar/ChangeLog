@@ -1,5 +1,21 @@
 2003-10-14  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-day-view.c (e_day_view_update_query): dont set status
+	messages here, already set in e_cal_view_update_query.
+	(update_query): removed this function.
+	(e_day_view_recalc_day_starts): call e_day_view_update_query,
+	not update_query.
+
+	* gui/e-week-view.c (e_week_view_update_query): dont set status
+	messages here, already set in e_cal_view_update_query.
+
+	* gui/gnome-cal.c (adjust_query_for_view): new function to adjust
+	the query for the visible time range on a given view.
+	(gnome_calendar_set_query): call adjust_query_for_view for each
+	one of the views.
+
+2003-10-14  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-view.c (e_cal_view_init): connect to signals on the
 	model we create here, so that we get notifications for changes.
 
