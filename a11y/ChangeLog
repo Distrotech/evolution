@@ -1,0 +1,4 @@
+2003-06-26  Gilbert Fang  <gilbert.fang@sun.com>
+
+	* init.c: Initial new file for libevolution-a11y.so framework.
+	* Makefile.am: Initial new file  (bug #44592)
