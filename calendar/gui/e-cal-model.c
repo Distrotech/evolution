@@ -820,18 +820,16 @@ ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 	ECalModelPrivate *priv;
 	gint i, first_empty = 0;
 	static AssignedColorData assigned_colors[] = {
-		{ "#718DA9" /* 113 141 169 */, NULL },
-		{ "#C6E2E2" /* 198 226 226 */, NULL },
-		{ "#8DC671" /* 141 198 113 */, NULL },
-		{ "#C6E2A9" /* 198 226 169 */, NULL },
-		{ "#C6A971" /* 198 169 113 */, NULL },
-		{ "#FFE271" /* 255 226 113 */, NULL },
-		{ "#E27171" /* 226 113 113 */, NULL },
-		{ "#FFA9A9" /* 255 169 169 */, NULL },
-		{ "#C68DC6" /* 198 141 198 */, NULL },
-		{ "#E2C6E2" /* 226 198 226 */, NULL },
-		{ "#D6D684" /* 214 214 132 */, NULL },
-		{ "#5B5B84"  /* 91 91 132 */, NULL }
+		{ "#BECEDD", NULL }, /* 190 206 221     Blue */
+		{ "#E2F0EF", NULL }, /* 226 240 239     Light Blue */
+		{ "#C6E2B7", NULL }, /* 198 226 183     Green */
+		{ "#E2F0D3", NULL }, /* 226 240 211     Light Green */
+		{ "#E2D4B7", NULL }, /* 226 212 183     Khaki */
+		{ "#EAEAC1", NULL }, /* 234 234 193     Light Khaki */
+		{ "#F0B8B7", NULL }, /* 240 184 183     Pink */
+		{ "#FED4D3", NULL }, /* 254 212 211     Light Pink */
+		{ "#E2C6E1", NULL }, /* 226 198 225     Purple */
+		{ "#F0E2EF", NULL }  /* 240 226 239     Light Purple */
 	};
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
