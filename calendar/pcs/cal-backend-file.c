@@ -1010,7 +1010,25 @@ typedef struct {
 	const char *query;
 	CalBackendObjectSExp *obj_sexp;
 	CalBackend *backend;
+	icaltimezone *default_zone;
 } MatchObjectData;
+
+static void
+match_recurrence_sexp (CalComponent *comp,
+		       time_t instance_start,
+		       time_t instance_end,
+		       gpointer data)
+{
+	MatchObjectData *match_data = data;
+
+	if ((!match_data->search_needed) ||
+	    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, comp, match_data->backend))) {
+		match_data->obj_list = g_list_append (match_data->obj_list,
+						      cal_component_get_as_string (comp));
+	}
+
+	g_object_unref (comp);
+}
 
 static void
 match_object_sexp (gpointer key, gpointer value, gpointer data)
@@ -1019,12 +1037,19 @@ match_object_sexp (gpointer key, gpointer value, gpointer data)
 	MatchObjectData *match_data = data;
 
 	if (cal_component_has_recurrences (comp)) {
-		/* FIXME: expand recurrences */
+		/* FIXME: try to get time range from query */
+		cal_recur_generate_instances (comp, -1, -1,
+					      match_recurrence_sexp,
+					      match_data,
+					      resolve_tzid,
+					      cal_component_get_icalcomponent (comp),
+					      match_data->default_zone);
 	} else {
 		if ((!match_data->search_needed) ||
-		    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, comp, match_data->backend)))
+		    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, comp, match_data->backend))) {
 			match_data->obj_list = g_list_append (match_data->obj_list,
 							      cal_component_get_as_string (comp));
+		}
 	}
 }
 
@@ -1045,6 +1070,7 @@ cal_backend_file_get_object_list (CalBackend *backend, const char *query)
 	match_data.query = query;
 	match_data.obj_list = NULL;
 	match_data.backend = backend;
+	match_data.default_zone = priv->default_zone;
 
 	if (!strcmp (query, "#t"))
 		match_data.search_needed = FALSE;
