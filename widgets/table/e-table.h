@@ -276,30 +276,12 @@ ESelectionModel *e_table_get_selection_model       (ETable               *table)
 
 /* Drag & drop stuff. */
 /* Target */
-void             e_table_drag_get_data             (ETable               *table,
-						    int                   row,
-						    int                   col,
-						    GdkDragContext       *context,
-						    GdkAtom               target,
-						    guint32               time);
+/* There is no e_table_drag_get_data.  Just use gtk_drag_get_data. */
+
 void             e_table_drag_highlight            (ETable               *table,
 						    int                   row,
 						    int                   col); /* col == -1 to highlight entire row. */
 void             e_table_drag_unhighlight          (ETable               *table);
-void             e_table_drag_dest_set             (ETable               *table,
-						    GtkDestDefaults       flags,
-						    const GtkTargetEntry *targets,
-						    gint                  n_targets,
-						    GdkDragAction         actions);
-void             e_table_drag_dest_set_proxy       (ETable               *table,
-						    GdkWindow            *proxy_window,
-						    GdkDragProtocol       protocol,
-						    gboolean              use_coordinates);
-
-/* There probably should be functions for setting the targets
- * as a GtkTargetList
- */
-void             e_table_drag_dest_unset           (GtkWidget            *widget);
 
 /* Source side */
 void             e_table_drag_source_set           (ETable               *table,
