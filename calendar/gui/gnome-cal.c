@@ -1043,6 +1043,7 @@ setup_widgets (GnomeCalendar *gcal)
 
 	/* make sure we set the initial time ranges for the views */
 	update_view_times (gcal, time (NULL));
+	gnome_calendar_update_date_navigator (gcal);	
 }
 
 /* Object initialization function for the gnome calendar */
@@ -1505,6 +1506,8 @@ gnome_calendar_set_view (GnomeCalendar *gcal, GnomeCalendarViewType view_type,
 	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
 
 	set_view (gcal, view_type, range_selected, grab_focus);
+	gnome_calendar_update_date_navigator (gcal);
+	gnome_calendar_notify_dates_shown_changed (gcal);
 }
 
 /* Callback used when the view collection asks us to display a particular view */
@@ -2387,7 +2390,7 @@ gnome_calendar_update_date_navigator (GnomeCalendar *gcal)
 		return;
 
 	get_days_shown (gcal, &start_date, &days_shown);
-
+	g_message ("Days shown %d", days_shown);
 	end_date = start_date;
 	g_date_add_days (&end_date, days_shown - 1);
 
@@ -2448,15 +2451,12 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem    *calitem,
 					     (new_days_shown + 6) / 7);
 		e_week_view_set_first_day_shown (E_WEEK_VIEW (priv->month_view), &new_start_date);
 
-		set_view (gcal, GNOME_CAL_MONTH_VIEW, TRUE, FALSE);
-		gnome_calendar_update_date_navigator (gcal);
-		gnome_calendar_notify_dates_shown_changed (gcal);
+		gnome_calendar_set_view (gcal, GNOME_CAL_MONTH_VIEW, TRUE, FALSE);
+
 	} else if (new_days_shown == 7 && starts_on_week_start_day) {
 		e_week_view_set_first_day_shown (E_WEEK_VIEW (priv->week_view), &new_start_date);
 
-		set_view (gcal, GNOME_CAL_WEEK_VIEW, TRUE, FALSE);
-		gnome_calendar_update_date_navigator (gcal);
-		gnome_calendar_notify_dates_shown_changed (gcal);
+		gnome_calendar_set_view (gcal, GNOME_CAL_WEEK_VIEW, TRUE, FALSE);
 	} else {		
 		e_day_view_set_days_shown (E_DAY_VIEW (priv->day_view), new_days_shown);
 		
