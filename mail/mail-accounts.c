@@ -840,10 +840,10 @@ sig_load_preview (MailAccountsDialog *dialog, MailConfigSignature *sig)
 }
 
 static inline void
-sig_write_and_upadate_preview (MailAccountsDialog *dialog, MailConfigSignature *sig)
+sig_write_and_update_preview (MailAccountsDialog *dialog, MailConfigSignature *sig)
 {
 	sig_load_preview (dialog, sig);
-	mail_config_write_signature (sig);
+	mail_config_signature_write (sig);
 }
 
 static MailConfigSignature *
@@ -859,7 +859,7 @@ sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 	gchar *name [1];
 	gint row;
 
-	sig = mail_config_add_signature ();
+	sig = mail_config_signature_add ();
 
 	name [0] = sig->name;
 	row = gtk_clist_append (GTK_CLIST (dialog->sig_clist), name);
@@ -875,7 +875,7 @@ sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
 	MailConfigSignature *sig = sig_current_sig (dialog);
 
 	gtk_clist_remove (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
-	mail_config_delete_signature (sig);
+	mail_config_signature_delete (sig);
 	if (dialog->sig_row < GTK_CLIST (dialog->sig_clist)->rows)
 		gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0);
 	else if (dialog->sig_row)
@@ -991,7 +991,7 @@ sig_name_changed (GtkWidget *w, MailAccountsDialog *dialog)
 
 	gtk_clist_set_text (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0, sig->name);
 
-	sig_write_and_upadate_preview (dialog, sig);
+	sig_write_and_update_preview (dialog, sig);
 }
 
 static void
@@ -1002,9 +1002,9 @@ sig_random_toggled (GtkWidget *w, MailAccountsDialog *dialog)
 	if (dialog->sig_switch)
 		return;
 
-	sig->random = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (dialog->sig_random));
+	mail_config_signature_set_random (sig, gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (dialog->sig_random)));
 
-	sig_write_and_upadate_preview (dialog, sig);
+	sig_write_and_update_preview (dialog, sig);
 }
 
 static void
@@ -1017,7 +1017,7 @@ sig_html_toggled (GtkWidget *w, MailAccountsDialog *dialog)
 
 	sig->html = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (dialog->sig_html));
 
-	sig_write_and_upadate_preview (dialog, sig);
+	sig_write_and_update_preview (dialog, sig);
 }
 
 static void
@@ -1028,10 +1028,9 @@ sig_filename_changed (GtkWidget *w, MailAccountsDialog *dialog)
 	if (dialog->sig_switch)
 		return;
 
-	g_free (sig->filename);
-	sig->filename = g_strdup (gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_filename), FALSE));
-
-	sig_write_and_upadate_preview (dialog, sig);
+	mail_config_signature_set_filename (sig, gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_filename),
+										 FALSE));
+	sig_write_and_update_preview (dialog, sig);
 }
 
 static void
@@ -1045,7 +1044,7 @@ sig_script_changed (GtkWidget *w, MailAccountsDialog *dialog)
 	g_free (sig->script);
 	sig->script = g_strdup (gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_script), FALSE));
 
-	sig_write_and_upadate_preview (dialog, sig);
+	sig_write_and_update_preview (dialog, sig);
 }
 
 static void

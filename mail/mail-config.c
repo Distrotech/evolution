@@ -116,6 +116,7 @@ typedef struct {
 
 	GList *signature_list;
 	gint signatures;
+	gint signatures_random;
 } MailConfig;
 
 static MailConfig *config = NULL;
@@ -404,13 +405,19 @@ config_read_signature (gint i)
 static void
 config_read_signatures ()
 {
+	MailConfigSignature *sig;
 	gint i;
 
 	config->signature_list = NULL;
+	config->signatures_random = 0;
 	config->signatures = bonobo_config_get_long_with_default (config->db, "/Mail/Signatures/num", 0, NULL);
 
-	for (i = 0; i < config->signatures; i ++)
-		config->signature_list = g_list_append (config->signature_list, config_read_signature (i));
+	for (i = 0; i < config->signatures; i ++) {
+		sig = config_read_signature (i);
+		config->signature_list = g_list_append (config->signature_list, sig);
+		if (sig->random)
+			config->signatures_random ++;
+	}
 }
 
 static void
@@ -2694,7 +2701,7 @@ get_new_signature_filename ()
 }
 
 MailConfigSignature *
-mail_config_add_signature (void)
+mail_config_signature_add (void)
 {
 	MailConfigSignature *sig;
 
@@ -2739,7 +2746,7 @@ delete_unused_signature_file (const gchar *filename)
 }
 
 void
-mail_config_delete_signature (MailConfigSignature *sig)
+mail_config_signature_delete (MailConfigSignature *sig)
 {
 	GList *l, *next;
 	gboolean after = FALSE;
@@ -2754,6 +2761,8 @@ mail_config_delete_signature (MailConfigSignature *sig)
 			config->signature_list = g_list_remove_link (config->signature_list, l);
 			after = TRUE;
 			config->signatures --;
+			if (sig->random)
+				config->signatures_random --;
 		}
 	}
 	delete_unused_signature_file (sig->filename);
@@ -2763,7 +2772,32 @@ mail_config_delete_signature (MailConfigSignature *sig)
 }
 
 void
-mail_config_write_signature (MailConfigSignature *sig)
+mail_config_signature_write (MailConfigSignature *sig)
 {
 	config_write_signature (sig, sig->id);
+}
+
+void
+mail_config_signature_set_filename (MailConfigSignature *sig, const gchar *filename)
+{
+	gchar *old_filename = sig->filename;
+
+	sig->filename = g_strdup (filename);
+	if (old_filename) {
+		delete_unused_signature_file (old_filename);
+		g_free (old_filename);
+	}
+}
+
+void
+mail_config_signature_set_random (MailConfigSignature *sig, gboolean random)
+{
+	if (random != sig->random) {
+		if (random && !sig->random)
+			config->signatures_random ++;
+		else if (!random && sig->random)
+			config->signatures_random --;
+
+		sig->random = random;
+	}
 }
