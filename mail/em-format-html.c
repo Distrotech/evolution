@@ -69,7 +69,7 @@
 
 #include "mail-config.h"
 
-#define d(x) 
+#define d(x) x
 
 #define EFH_TABLE_OPEN "<table>"
 
@@ -92,11 +92,18 @@ struct _EMFormatHTMLJob {
 	EMFormatHTML *format;
 	CamelStream *estream;
 
+	/* We need to track the state of the visibility tree at
+	   the point this uri was generated */
+	struct _EMFormatPURITree *puri_level;
+	CamelURL *base;
+
 	void (*callback)(struct _EMFormatHTMLJob *job);
 	union {
 		char *uri;
 		CamelMedium *msg;
 		EMFormatPURI *puri;
+		struct _EMFromatPURITree *puri_level;
+		void *data;
 	} u;
 };
 
@@ -111,7 +118,7 @@ static void efh_format_attachment(EMFormat *, CamelStream *, CamelMimePart *, co
 
 static void efh_builtin_init(EMFormatHTMLClass *efhc);
 
-static void efh_write_data(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri);
+static void efh_write_image(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri);
 
 static EMFormatClass *efh_parent;
 static CamelDataCache *emfh_http_cache;
@@ -346,14 +353,14 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 {
 	CamelStream *cistream = NULL, *costream = NULL, *instream = NULL;
 	CamelURL *url;
-	ssize_t n;
+	ssize_t n, total = 0;
 	char buffer[1500];
 
 	d(printf(" running load uri task: %s\n", job->u.uri));
 
 	url = camel_url_new(job->u.uri, NULL);
 	if (url == NULL)
-		goto done;
+		goto badurl;
 
 	if (emfh_http_cache)
 		instream = cistream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
@@ -370,7 +377,10 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 
 		/* FIXME: proxy */
 		instream = camel_http_stream_new(CAMEL_HTTP_METHOD_GET, ((EMFormat *)job->format)->session, url);
-	}
+		camel_operation_start(NULL, _("Retrieving `%s'"), job->u.uri);
+	} else
+		camel_operation_start_transient(NULL, _("Retrieving `%s'"), job->u.uri);
+
 	camel_url_free(url);
 
 	if (instream == NULL)
@@ -380,9 +390,11 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 		costream = camel_data_cache_add(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
 
 	do {
-		/* FIXME: progress reporting */
+		/* FIXME: progress reporting in percentage, can we get the length always?  do we care? */
 		n = camel_stream_read(instream, buffer, 1500);
 		if (n > 0) {
+			camel_operation_progress_count(NULL, total);
+			total += n;
 			d(printf("  read %d bytes\n", n));
 			if (costream && camel_stream_write(costream, buffer, n) == -1) {
 				camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
@@ -407,7 +419,32 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 
 	camel_object_unref(instream);
 done:
+	camel_operation_end(NULL);
+badurl:
 	g_free(job->u.uri);
+}
+
+static struct _EMFormatHTMLJob *
+emfh_new_job(EMFormatHTML *emfh, void (*callback)(struct _EMFormatHTMLJob *job), void *data)
+{
+	struct _EMFormatHTMLJob *job = g_malloc0(sizeof(*job));
+
+	job->format = emfh;
+	job->puri_level = ((EMFormat *)emfh)->pending_uri_level;
+	job->callback = callback;
+	job->u.data = data;
+	if (((EMFormat *)emfh)->base)
+		job->base = camel_url_copy(((EMFormat *)emfh)->base);
+
+	return job;
+}
+
+static void
+emfh_queue_job(EMFormatHTML *emfh, struct _EMFormatHTMLJob *job)
+{
+	g_mutex_lock(emfh->priv->lock);
+	e_dlist_addtail(&emfh->priv->pending_jobs, (EDListNode *)job);
+	g_mutex_unlock(emfh->priv->lock);
 }
 
 /* ********************************************************************** */
@@ -418,33 +455,25 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 	EMFormatPURI *puri;
 	struct _EMFormatHTMLJob *job = NULL;
 
-	d(printf("url requested, html = %p, url '%s'\n", html, url));
+	(printf("url requested, html = %p, url '%s'\n", html, url));
 
 	puri = em_format_find_visible_puri((EMFormat *)efh, url);
 	if (puri) {
 		puri->use_count++;
 
 		d(printf(" adding puri job\n"));
-		job = g_malloc0(sizeof(*job));
-		job->u.puri = puri;
-		job->callback = emfh_getpuri;
+		job = emfh_new_job(efh, emfh_getpuri, puri);
 	} else if (g_ascii_strncasecmp(url, "http:", 5) == 0 || g_ascii_strncasecmp(url, "https:", 6) == 0) {
 		d(printf(" adding job, get %s\n", url));
-		job = g_malloc0(sizeof(*job));
-		job->callback = emfh_gethttp;
-		job->u.uri = g_strdup(url);
+		job = emfh_new_job(efh, emfh_gethttp, g_strdup(url));
 	} else {
 		d(printf("HTML Includes reference to unknown uri '%s'\n", url));
 		gtk_html_stream_close(handle, GTK_HTML_STREAM_ERROR);
 	}
 
 	if (job) {
-		job->format = efh;
 		job->estream = em_camel_stream_new(handle);
-
-		g_mutex_lock(efh->priv->lock);
-		e_dlist_addtail(&efh->priv->pending_jobs, (EDListNode *)job);
-		g_mutex_unlock(efh->priv->lock);
+		emfh_queue_job(efh, job);
 	}
 }
 
@@ -500,16 +529,12 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
 	camel_stream_filter_add(filtered_stream, html_filter);
 	camel_object_unref(html_filter);
-	camel_data_wrapper_decode_to_stream(camel_medium_get_content_object((CamelMedium *)part), (CamelStream *)filtered_stream);
+	
+	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, part);
+	camel_stream_flush((CamelStream *)filtered_stream);
 	camel_object_unref(filtered_stream);
 	
 	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
-}
-
-static void
-efh_write_wrapper(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
-{
-	em_format_format_content(emf, stream, puri->part);
 }
 
 static void
@@ -533,12 +558,18 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	filtered_stream = camel_stream_filter_new_with_stream( stream);
 	camel_stream_filter_add(filtered_stream, enriched);
 	camel_object_unref(enriched);
-	
+
 	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");	
-	camel_data_wrapper_decode_to_stream(dw, (CamelStream *)filtered_stream);
+	em_format_format_text((EMFormat *)efh, stream, part);
 	
 	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
 	camel_object_unref(filtered_stream);
+}
+
+static void
+efh_write_text_html(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
+{
+	em_format_format_text(emf, stream, puri->part);
 }
 
 static void
@@ -561,16 +592,17 @@ efh_text_html(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFor
 			base_url[len] = '\0';
 			base = base_url;
 		}
-		
+
+		/* FIXME: set base needs to go on the gtkhtml stream? */
 		gtk_html_set_base(efh->html, base);
 	}
 
-	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_wrapper);
+	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_text_html);
 	location = puri->uri?puri->uri:puri->cid;
 	d(printf("adding iframe, location %s\n", location));
-	camel_stream_printf ( stream,
-			     "<iframe src=\"%s\" frameborder=0 scrolling=no>could not get %s</iframe>",
-			      location, location);
+	camel_stream_printf(stream,
+			    "<iframe src=\"%s\" frameborder=0 scrolling=no>could not get %s</iframe>",
+			    location, location);
 }
 
 /* This is a lot of code for something useless ... */
@@ -663,6 +695,119 @@ fail:
 	camel_stream_printf(stream, _("Pointer to unknown external data (\"%s\" type)"), access_type);
 }
 
+static void
+emfh_write_related(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
+{
+	em_format_format_content(emf, stream, puri->part);
+	camel_stream_close(stream);
+}
+
+static void
+emfh_multipart_related_check(struct _EMFormatHTMLJob *job)
+{
+	struct _EMFormatPURITree *ptree;
+	EMFormatPURI *puri, *purin;
+
+	d(printf(" running multipart/related check task\n"));
+
+	ptree = job->puri_level;
+	puri = (EMFormatPURI *)ptree->uri_list.head;
+	purin = puri->next;
+	while (purin) {
+		if (purin->use_count == 0) {
+			(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
+			if (purin->func == emfh_write_related)
+				em_format_part((EMFormat *)job->format, (CamelStream *)job->estream, puri->part);
+			else
+				printf("unreferenced uri genreated by format code: %s\n", purin->uri?purin->uri:purin->cid);
+		}
+		puri = purin;
+		purin = purin->next;
+	}
+}
+
+/* RFC 2387 */
+static void
+efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
+{
+	CamelMultipart *mp = (CamelMultipart *)camel_medium_get_content_object((CamelMedium *)part);
+	CamelMimePart *body_part, *display_part = NULL;
+	CamelContentType *content_type;
+	const char *location, *start;
+	int i, nparts;
+	CamelURL *base_save = NULL;
+	EMFormatPURI *puri;
+	struct _EMFormatHTMLJob *job;
+
+	if (!CAMEL_IS_MULTIPART(mp)) {
+		em_format_format_source(emf, stream, part);
+		return;
+	}
+	
+	nparts = camel_multipart_get_number(mp);	
+	content_type = camel_mime_part_get_content_type(part);
+	start = header_content_type_param(content_type, "start");
+	if (start && strlen(start)>2) {
+		int len;
+		const char *cid;
+
+		/* strip <>'s */
+		len = strlen (start) - 2;
+		start++;
+		
+		for (i=0; i<nparts; i++) {
+			body_part = camel_multipart_get_part(mp, i);
+			cid = camel_mime_part_get_content_id(body_part);
+			
+			if (cid && !strncmp(cid, start, len) && strlen(cid) == len) {
+				display_part = body_part;
+				break;
+			}
+		}
+	} else {
+		display_part = camel_multipart_get_part(mp, 0);
+	}
+	
+	if (display_part == NULL) {
+		em_format_part_as(emf, stream, part, "multipart/mixed");
+		return;
+	}
+	
+	/* stack of present location and pending uri's */
+	location = camel_mime_part_get_content_location(part);
+	if (location) {
+		d(printf("setting content location %s\n", location));
+		base_save = emf->base;
+		emf->base = camel_url_new(location, NULL);
+	}
+	em_format_push_level(emf);
+
+	/* queue up the parts for possible inclusion */
+	for (i = 0; i < nparts; i++) {
+		body_part = camel_multipart_get_part(mp, i);
+		if (body_part != display_part) {
+			puri = em_format_add_puri(emf, sizeof(EMFormatPURI), NULL, body_part, emfh_write_related);
+			(printf(" part '%s' '%s' added\n", puri->uri?puri->uri:"", puri->cid));
+		}
+	}
+	
+	em_format_part(emf, stream, display_part);
+	camel_stream_flush(stream);
+
+	/* queue a job to check for un-referenced parts to add as attachments */
+	job = emfh_new_job((EMFormatHTML *)emf, emfh_multipart_related_check, NULL);
+	job->estream = stream;
+	camel_object_ref(stream);
+	emfh_queue_job((EMFormatHTML *)emf, job);
+
+	em_format_pull_level(emf);
+	
+	if (location) {
+		camel_url_free(emf->base);
+		emf->base = base_save;
+	}
+}
+
 static const struct {
 	const char *icon;
 	const char *text;
@@ -709,7 +854,7 @@ em_format_html_multipart_signed_sign(EMFormat *emf, CamelStream *stream, CamelMi
 	classid = g_strdup_printf("multipart-signed:///em-format-html/%p/icon/%d", part, iconid++);
 	iconpart = em_format_html_file_part((EMFormatHTML *)emf, "image/png", EVOLUTION_ICONSDIR, signed_table[good].icon);
 	if (iconpart) {
-		iconpuri = em_format_add_puri(emf, sizeof(*iconpuri), classid, iconpart, efh_write_data);
+		iconpuri = em_format_add_puri(emf, sizeof(*iconpuri), classid, iconpart, efh_write_image);
 		camel_object_unref(iconpart);
 	}
 
@@ -752,7 +897,7 @@ efh_multipart_signed(EMFormat *emf, CamelStream *stream, CamelMimePart *part, co
 }
 
 static void
-efh_write_data(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
+efh_write_image(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 {
 	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)puri->part);
 
@@ -767,7 +912,7 @@ efh_image(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFormatH
 	EMFormatPURI *puri;
 	const char *location;
 
-	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_data);
+	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_image);
 	location = puri->uri?puri->uri:puri->cid;
 	d(printf("adding image '%s'\n", location));
 	camel_stream_printf(stream, "<img hspace=10 vspace=10 src=\"%s\">", location);
@@ -795,6 +940,14 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "text/*", (EMFormatFunc)efh_text_enriched },
 	{ "message/external-body", (EMFormatFunc)efh_message_external },
 	{ "multipart/signed", (EMFormatFunc)efh_multipart_signed },
+	{ "multipart/related", (EMFormatFunc)efh_multipart_related },
+
+	/* This is where one adds those busted, non-registered types,
+	   that some idiot mailer writers out there decide to pull out
+	   of their proverbials at random. */
+
+	{ "image/jpg", (EMFormatFunc)efh_image },
+	{ "image/pjpeg", (EMFormatFunc)efh_image },
 };
 
 static void
@@ -827,8 +980,10 @@ static void efh_format_do(struct _mail_msg *mm)
 {
 	struct _format_msg *m = (struct _format_msg *)mm;
 	struct _EMFormatHTMLJob *job;
+	struct _EMFormatPURITree *puri_level;
 	int cancelled = FALSE;
-	
+	CamelURL *base;
+
 	/* <insert top-header stuff here> */
 
 	if (((EMFormat *)m->format)->mode == EM_FORMAT_SOURCE)
@@ -836,9 +991,9 @@ static void efh_format_do(struct _mail_msg *mm)
 	else
 		em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, m->message);
 	camel_stream_flush((CamelStream *)m->estream);
-	camel_stream_close((CamelStream *)m->estream);
-	camel_object_unref(m->estream);
-	m->estream = NULL;
+
+	puri_level = ((EMFormat *)m->format)->pending_uri_level;
+	base = ((EMFormat *)m->format)->base;
 
 	/* now dispatch any added tasks ... */
 	g_mutex_lock(m->format->priv->lock);
@@ -848,16 +1003,34 @@ static void efh_format_do(struct _mail_msg *mm)
 			cancelled = camel_operation_cancel_check(NULL);
 		if (!cancelled) {
 			d(printf("Performing job %p\n", job));
+			((EMFormat *)m->format)->pending_uri_level = job->puri_level;
+			if (job->base)
+				((EMFormat *)m->format)->base = job->base;
 			job->callback(job);
+			((EMFormat *)m->format)->base = base;
 		} else {
 			d(printf("Job cancelled %p\n", job));
 		}
+
+		/* clean up the job */
 		camel_object_unref(job->estream);
+		if (job->base)
+			camel_url_free(job->base);
 		g_free(job);
+
+		/* incase anything got added above, force it through */
+		camel_stream_flush((CamelStream *)m->estream);
+
 		g_mutex_lock(m->format->priv->lock);
 	}
 	g_mutex_unlock(m->format->priv->lock);
 	d(printf("out of jobs, done\n"));
+
+	camel_stream_close((CamelStream *)m->estream);
+	camel_object_unref(m->estream);
+	m->estream = NULL;
+
+	((EMFormat *)m->format)->pending_uri_level = puri_level;
 }
 
 static void efh_format_done(struct _mail_msg *mm)

@@ -121,8 +121,6 @@ emfhp_complete(EMFormatHTMLPrint *efhp, void *data)
 	struct footer_info info;
 	int res = GNOME_PRINT_OK;
 
-	printf("formatting complete, running print ...\n");
-
 	print_job = gnome_print_job_new(efhp->config);
 	print_context = gnome_print_job_get_context(print_job);
 
@@ -159,8 +157,6 @@ int em_format_html_print_print(EMFormatHTMLPrint *efhp, struct _CamelMedium *msg
 	((EMFormatHTML *)efhp)->load_http = source->load_http_now;
 
 	g_signal_connect(efhp, "complete", G_CALLBACK(emfhp_complete), efhp);
-
-	printf("running html print clone\n");
 
 	g_object_ref(efhp);
 	em_format_format_clone((EMFormat *)efhp, msg, (EMFormat *)source);

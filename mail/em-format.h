@@ -113,7 +113,8 @@ struct _EMFormat {
 	/* current level to search from */
 	struct _EMFormatPURITree *pending_uri_level;
 
-	em_format_mode_t mode;
+	em_format_mode_t mode;	/* source/headers/etc */
+	char *charset;		/* charset override */
 };
 
 struct _EMFormatClass {
@@ -141,6 +142,7 @@ struct _EMFormatClass {
 void em_format_set_session(EMFormat *emf, struct _CamelSession *s);
 
 void em_format_set_mode(EMFormat *emf, em_format_mode_t type);
+void em_format_set_charset(EMFormat *emf, const char *charset);
 
 void em_format_clear_headers(EMFormat *emf); /* also indicates to show all headers */
 void em_format_default_headers(EMFormat *emf);
@@ -179,9 +181,10 @@ void em_format_pull_level(EMFormat *emf);
 #define em_format_format_message(emf, stream, msg) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_message((emf), (stream), (msg))
 #define em_format_format_source(emf, stream, msg) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_source((emf), (stream), (msg))
 
-/* raw content, but also charset override where applicable */
-/* should this also be virtual? */
+/* raw content only */
 void em_format_format_content(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);
+/* raw content text parts - should this just be checked/done by above? */
+void em_format_format_text(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);
 
 void em_format_part_as(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part, const char *mime_type);
 void em_format_part(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);

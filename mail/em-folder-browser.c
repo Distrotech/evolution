@@ -361,7 +361,7 @@ emfb_tools_subscriptions(BonoboUIComponent *uid, void *data, const char *path)
 	GtkWidget *w;
 
 	/* FIXME: must stop multiple instances */
-	w = em_subscribe_editor_new();
+	w = (GtkWidget *)em_subscribe_editor_new();
 	gtk_widget_show(w);
 }
 

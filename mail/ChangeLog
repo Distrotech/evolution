@@ -1,3 +1,30 @@
+2003-08-21  Not Zed  <NotZed@Ximian.com>
+
+	* subscribe-dialog.glade: removed the text in the progress thing.
+	It never showed up anyway and caused weird resizing stuff when the
+	progress bar was active.
+
+	* em-subscribe-editor.c: Found the correct version of the new
+	subscribe code (on branch, duh!), and integrated it.
+	(sub_selection_changed): Sensitise buttons based on selection.
+
+	* em-format-html.c (efh_text_plain, efh_text_enriched)
+	(efh_write_text_html): Use format_text for text output.
+	(efh_write_image): use explicit image writer.
+	(emfh_gethttp): added some progress stuff.
+	(efh_format_do): maintain the accessible uri tree during jobs.
+	(efh_url_requested): store the current uri accessibility tree node
+	in the job, so it can be properly set for sub-jobs.
+	(emh_multipart_related): moved here, can't use super-class version
+	as it doesn't know about async jobs.
+	(type_buildin_table[]): Added image/jpg and image/jpeg for the
+	brokenmailers out there and to reduce the whinge.
+
+	* em-format.c (em_format_format_content): For text parts, perform
+	default charset/charset snooping/decoding.  No longer closes the
+	stream once complete.
+	(emf_write_related): close stream ourselves.
+
 2003-08-21  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-view.c (emfv_message_forward): Implemented.

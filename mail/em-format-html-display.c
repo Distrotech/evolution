@@ -842,7 +842,7 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 	camel_stream_write_string(stream, "</font></td></tr><tr></table>");
 
 	if (handle) {
-		printf("adding attachment content, type is '%s'\n", mime_type);
+		printf("adding attachment '%s' content, type is '%s'\n", classid, mime_type);
 		if (info->shown)
 			handle->handler(emf, stream, part, handle);
 		/*camel_stream_printf(stream, "<iframe src=\"%s\" marginheight=0 marginwidth=0>%s</iframe>\n", classid, _("Attachment content could not be loaded"));*/

@@ -32,6 +32,8 @@
 #include <libgnomevfs/gnome-vfs-mime.h>
 #include <libgnomevfs/gnome-vfs-mime-utils.h>
 
+#include <gconf/gconf-client.h>
+
 #include <e-util/e-msgport.h>
 #include <camel/camel-url.h>
 #include <camel/camel-stream.h>
@@ -39,10 +41,14 @@
 #include <camel/camel-multipart.h>
 #include <camel/camel-multipart-encrypted.h>
 #include <camel/camel-multipart-signed.h>
-#include <camel/camel-mime-message.h>
 #include <camel/camel-medium.h>
+#include <camel/camel-mime-message.h>
 #include <camel/camel-gpg-context.h>
 #include <camel/camel-string-utils.h>
+#include <camel/camel-stream-filter.h>
+#include <camel/camel-stream-null.h>
+#include <camel/camel-mime-filter-windows.h>
+#include <camel/camel-mime-filter-charset.h>
 
 #include "em-format.h"
 
@@ -83,6 +89,7 @@ emf_finalise(GObject *o)
 		g_hash_table_destroy(emf->inline_table);
 
 	em_format_clear_headers(emf);
+	g_free(emf->charset);
 
 	/* FIXME: check pending jobs */
 
@@ -300,6 +307,7 @@ em_format_push_level(EMFormat *emf)
 {
 	struct _EMFormatPURITree *purilist;
 
+	printf("em_format_push_level\n");
 	purilist = g_malloc0(sizeof(*purilist));
 	e_dlist_init(&purilist->children);
 	e_dlist_init(&purilist->uri_list);
@@ -322,6 +330,7 @@ em_format_push_level(EMFormat *emf)
 void
 em_format_pull_level(EMFormat *emf)
 {
+	printf("em_format_pull_level\n");
 	emf->pending_uri_level = emf->pending_uri_level->parent;
 }
 
@@ -341,13 +350,13 @@ em_format_find_visible_puri(EMFormat *emf, const char *uri)
 	EMFormatPURI *pw;
 	struct _EMFormatPURITree *ptree;
 
-	d(printf("checking for visible uri '%s'\n", uri));
+	(printf("checking for visible uri '%s'\n", uri));
 
 	ptree = emf->pending_uri_level;
 	while (ptree) {
 		pw = (EMFormatPURI *)ptree->uri_list.head;
 		while (pw->next) {
-			d(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
+			(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
 			if ((pw->uri && !strcmp(pw->uri, uri)) || !strcmp(pw->cid, uri))
 				return pw;
 			pw = pw->next;
@@ -420,7 +429,7 @@ emf_clear_puri_node(struct _EMFormatPURITree *node)
 void
 em_format_clear_puri_tree(EMFormat *emf)
 {
-	d(printf("clearing pending uri's\n"));
+	(printf("clearing pending uri's\n"));
 
 	if (emf->pending_uri_table) {
 		g_hash_table_destroy(emf->pending_uri_table);
@@ -484,14 +493,16 @@ emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
 {
 	em_format_clear_puri_tree(emf);
 
-	/* FIXME: clone headers shown */
-
 	if (emf != emfsource) {
 		g_hash_table_destroy(emf->inline_table);
 		emf->inline_table = g_hash_table_new(NULL, NULL);
 		if (emfsource) {
+			/* We clone the current state here */
 			g_hash_table_foreach(emfsource->inline_table, emf_clone_inlines, emf);
 			emf->mode = emfsource->mode;
+			g_free(emf->charset);
+			emf->charset = g_strdup(emfsource->charset);
+			/* FIXME: clone headers shown */
 		}
 	}
 
@@ -539,6 +550,14 @@ em_format_set_session(EMFormat *emf, struct _CamelSession *s)
 	emf->session = s;
 }
 
+/**
+ * em_format_set_mode:
+ * @emf: 
+ * @type: 
+ * 
+ * Set display mode, EM_FORMAT_SOURCE, EM_FORMAT_ALLHEADERS, or
+ * EM_FORMAT_NORMAL.
+ **/
 void
 em_format_set_mode(EMFormat *emf, em_format_mode_t type)
 {
@@ -548,6 +567,29 @@ em_format_set_mode(EMFormat *emf, em_format_mode_t type)
 	emf->mode = type;
 
 	/* force redraw if type changed afterwards */
+	if (emf->message)
+		em_format_format_clone(emf, emf->message, emf);
+}
+
+/**
+ * em_format_set_charset:
+ * @emf: 
+ * @charset: 
+ * 
+ * set override charset on formatter.  message will be redisplayed if
+ * required.
+ **/
+void
+em_format_set_charset(EMFormat *emf, const char *charset)
+{
+	if ((emf->charset && charset && g_ascii_strcasecmp(emf->charset, charset) == 0)
+	    || (emf->charset == NULL && charset == NULL)
+	    || (emf->charset == charset))
+		return;
+
+	g_free(emf->charset);
+	emf->charset = g_strdup(charset);
+
 	if (emf->message)
 		em_format_format_clone(emf, emf->message, emf);
 }
@@ -628,7 +670,7 @@ void em_format_add_header(EMFormat *emf, const char *name, guint32 flags)
  * 
  * Returns true if the part is an attachment.
  *
- * A part is not considered an attachment if it is a message, a
+ * A part is not considered an attachment if it is a
  * multipart, or a text part with no filename.  It is used
  * to determine if an attachment header should be displayed for
  * the part.
@@ -704,10 +746,77 @@ em_format_format_content(EMFormat *emf, CamelStream *stream, CamelMimePart *part
 {
 	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)part);
 
-	/* FIXME: textual part override charset handling? */
+	if (header_content_type_is(dw->mime_type, "text", "*"))
+		em_format_format_text(emf, stream, part);
+	else
+		camel_data_wrapper_decode_to_stream(dw, stream);
+}
 
-	camel_data_wrapper_decode_to_stream(dw, stream);
-	camel_stream_close(stream);
+/**
+ * em_format_format_content:
+ * @emf: 
+ * @stream: Where to write the converted text
+ * @part: Part whose container is to be formatted
+ * 
+ * Decode/output a part's content to @stream.
+ **/
+void
+em_format_format_text(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
+{
+	CamelDataWrapper *dw;
+	CamelStreamFilter *filter_stream;
+	CamelMimeFilterCharset *filter;
+	const char *charset;
+	char *fallback_charset = NULL;
+
+	dw = camel_medium_get_content_object((CamelMedium *)part);
+	
+	if (emf->charset) {
+		charset = emf->charset;
+	} else if (dw->mime_type
+		   && (charset = header_content_type_param(dw->mime_type, "charset"))
+		   && g_ascii_strncasecmp(charset, "iso-8859-", 9) == 0) {
+		CamelMimeFilterWindows *windows;
+		CamelStream *null;
+
+		/* Since a few Windows mailers like to claim they sent
+		 * out iso-8859-# encoded text when they really sent
+		 * out windows-cp125#, do some simple sanity checking
+		 * before we move on... */
+
+		null = camel_stream_null_new();
+		filter_stream = camel_stream_filter_new_with_stream(null);
+		camel_object_unref(null);
+		
+		windows = (CamelMimeFilterWindows *)camel_mime_filter_windows_new(charset);
+		camel_stream_filter_add(filter_stream, (CamelMimeFilter *)windows);
+		
+		camel_data_wrapper_decode_to_stream(dw, (CamelStream *)filter_stream);
+		camel_stream_flush((CamelStream *)filter_stream);
+		camel_object_unref(filter_stream);
+		
+		charset = fallback_charset = g_strdup(camel_mime_filter_windows_real_charset(windows));
+		camel_object_unref(windows);
+	} else {
+		/* FIXME: remove gconf query every time */
+		GConfClient *gconf = gconf_client_get_default();
+
+		charset = fallback_charset = gconf_client_get_string(gconf, "/apps/evolution/mail/format/charset", NULL);
+		g_object_unref(gconf);
+	}
+
+	filter_stream = camel_stream_filter_new_with_stream (stream);
+	
+	if ((filter = camel_mime_filter_charset_new_convert(charset, "UTF-8"))) {
+		camel_stream_filter_add(filter_stream, (CamelMimeFilter *) filter);
+		camel_object_unref(filter);
+	}
+	
+	g_free(fallback_charset);
+	
+	camel_data_wrapper_decode_to_stream(dw, (CamelStream *)filter_stream);
+	camel_stream_flush((CamelStream *)filter_stream);
+	camel_object_unref(filter_stream);
 }
 
 /**
@@ -908,6 +1017,7 @@ static void
 emf_write_related(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 {
 	em_format_format_content(emf, stream, puri->part);
+	camel_stream_close(stream);
 }
 
 /* RFC 2387 */
@@ -969,19 +1079,21 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	/* queue up the parts for possible inclusion */
 	for (i = 0; i < nparts; i++) {
 		body_part = camel_multipart_get_part(mp, i);
-		if (body_part != display_part)
-			em_format_add_puri(emf, sizeof(EMFormatPURI), NULL, body_part, emf_write_related);
+		if (body_part != display_part) {
+			puri = em_format_add_puri(emf, sizeof(EMFormatPURI), NULL, body_part, emf_write_related);
+			(printf(" part '%s' '%s' added\n", puri->uri?puri->uri:"", puri->cid));
+		}
 	}
 	
 	em_format_part(emf, stream, display_part);
 	camel_stream_flush(stream);
-
+	printf("flushing stream\n");
 	ptree = emf->pending_uri_level;
 	puri = (EMFormatPURI *)ptree->uri_list.head;
 	purin = puri->next;
 	while (purin) {
 		if (purin->use_count == 0) {
-			d(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
+			(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
 			if (purin->func == emf_write_related)
 				em_format_part(emf, stream, puri->part);
 			else
@@ -1070,7 +1182,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "multipart/encrypted", emf_multipart_encrypted },
 	{ "multipart/mixed", emf_multipart_mixed },
 	{ "multipart/signed", emf_multipart_signed },
-	{ "multipart/related", emf_multipart_related },
+	/*{ "multipart/related", emf_multipart_related },*/
 	{ "message/rfc822", emf_message_rfc822 },
 	{ "message/news", emf_message_rfc822 },
 	{ "message/*", emf_message_rfc822 },

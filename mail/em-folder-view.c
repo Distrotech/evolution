@@ -863,6 +863,8 @@ emfv_caret_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Eve
 static void
 emfv_charset_changed(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
 {
+	EMFolderView *emfv = data;
+
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
@@ -873,9 +875,7 @@ emfv_charset_changed(BonoboUIComponent *uic, const char *path, Bonobo_UIComponen
 		if (!strcmp(path, _("Default")))
 			path = NULL;
 
-		/* FIXME: Need to implement charset stuff in em-format(-html) */
-
-		printf("charset set to '%s'\n", path);
+		em_format_set_charset((EMFormat *)emfv->preview, path);
 	}
 }
 
