@@ -69,7 +69,6 @@ struct _ECard {
 
 	char            *caluri;        /* Calendar URI                     */
 	char            *fburl;         /* Free Busy URL                    */
-	char            *aim_name;      /* AOL Instant Messenger Name       */
 
 	gint             timezone;      /* number of minutes from UTC as an int */
 

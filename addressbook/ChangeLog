@@ -1,3 +1,19 @@
+2001-10-28  Joe Shaw  <joe@ximian.com>
+
+	* backend/ebook/e-card.[ch]: Removed aim_name stuff
+	* backend/ebook/e-card-simple.[ch]: Ditto.
+
+	* backend/ebook/test-card.c: Remove the AIM stuff, add in some
+	arbitrary stuff.
+
+	* gui/contact-editor/contact-editor.glade: Change the AIM entry to
+	use the arbitrary stuff.
+	* gui/contact-editor/e-contact-editor.c: Remove the aim_name
+	stuff.
+
+	* backend/pas/pas-backend-card-sexp.c (compare_arbitrary): Added.
+	(prop_info_table): Add a LIST_PROP for arbitrary fields.
+
 2001-10-28  Nat Friedman  <nat@ximian.com>
 
 	* backend/ebook/e-destination.c: Changed some gbooleans to guint
