@@ -35,6 +35,7 @@
 #include <glade/glade.h>
 #include <libgnomeui/gnome-stock-icons.h>
 #include <gal/util/e-util.h>
+#include <gal/e-table/e-table.h>
 #include <gal/widgets/e-unicode.h>
 #include <gal/widgets/e-popup-menu.h>
 #include <gal/widgets/e-gui-utils.h>

@@ -1,3 +1,7 @@
+2003-10-15  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* gui/dialogs/meeting-page.c: #include <gal/e-table/e-table.h>
+
 2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-meeting-list-view.c (start_addressbook_server):
