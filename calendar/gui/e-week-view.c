@@ -323,7 +323,10 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 	}
 
 	e_cal_component_get_uid (comp, &uid);
-	rid = e_cal_component_get_recurid_as_string (comp);
+	if (e_cal_component_is_instance (comp))
+		rid = e_cal_component_get_recurid_as_string (comp);
+	else
+		rid = NULL;
 
 	/* If the event already exists and the dates didn't change, we can
 	   update the event fairly easily without changing the events arrays

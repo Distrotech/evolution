@@ -356,22 +356,9 @@ get_dtstart (ECalModel *model, ECalModelComponent *comp_data)
 		icaltimezone *zone;
 		gboolean got_zone = FALSE;
 
-		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
-			prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY);
-			if (!prop) {
-				prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
-				if (!prop)
-					return NULL;
-
-				tt_start = icalproperty_get_dtstart (prop);
-			} else
-				tt_start = icalproperty_get_recurrenceid (prop);
-		} else {
-			prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
-			if (!prop)
-				return NULL;
-			tt_start = icalproperty_get_dtstart (prop);
-		}
+		prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
+		if (!prop)
+			return NULL;
 
 		tt_start = icalproperty_get_dtstart (prop);
 
@@ -1310,11 +1297,8 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 	ECalModel *model = (ECalModel *) user_data;
 	ECalModelPrivate *priv;
 	GList *l;
-	time_t start, end;
 
 	priv = model->priv;
-
-	e_cal_model_get_time_range (model, &start, &end);
 
 	for (l = objects; l; l = l->next) {
 		if ((priv->flags & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES) &&
@@ -1337,6 +1321,8 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 			comp_data = g_new0 (ECalModelComponent, 1);
 			comp_data->client = g_object_ref (e_cal_view_get_client (query));
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
+			comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
+			comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
 
 			g_ptr_array_add (priv->objects, comp_data);
 			e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
@@ -1383,7 +1369,7 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 							      icalcomponent_get_uid (l->data));
 			if (!comp_data)
 				continue;
-	
+
 			if (comp_data->icalcomp)
 				icalcomponent_free (comp_data->icalcomp);
 			if (comp_data->dtstart) {
@@ -1408,6 +1394,8 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 			}
 		     
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
+			comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
+			comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
 
 			e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
 		}
