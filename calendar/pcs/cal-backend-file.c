@@ -35,6 +35,12 @@
 
 
 
+/* Placeholder for each component and its recurrences */
+typedef struct {
+	CalComponent *full_object;
+	GHashTable *recurrences;
+} CalBackendFileObject;
+
 /* Private part of the CalBackendFile structure */
 struct _CalBackendFilePrivate {
 	/* URI where the calendar data is stored */
@@ -49,7 +55,7 @@ struct _CalBackendFilePrivate {
 	/* All the objects in the calendar, hashed by UID.  The
 	 * hash key *is* the uid returned by cal_component_get_uid(); it is not
 	 * copied, so don't free it when you remove an object from the hash
-	 * table.
+	 * table. Each item in the hash table is a CalBackendFileObject.
 	 */
 	GHashTable *comp_uid_hash;
 
@@ -82,9 +88,11 @@ static CalBackendSyncClass *parent_class;
 static void
 free_object (gpointer key, gpointer value, gpointer data)
 {
-	CalComponent *comp = value;
+	CalBackendFileObject *obj_data = value;
 
-	g_object_unref (comp);
+	g_object_unref (obj_data->full_object);
+	g_hash_table_foreach (obj_data->recurrences, (GHFunc) g_object_unref, NULL);
+	g_hash_table_destroy (obj_data->recurrences);
 }
 
 /* Saves the calendar data */
@@ -238,10 +246,13 @@ static CalComponent *
 lookup_component (CalBackendFile *cbfile, const char *uid)
 {
 	CalBackendFilePrivate *priv;
+	CalBackendFileObject *obj_data;
 
 	priv = cbfile->priv;
 
-	return g_hash_table_lookup (priv->comp_uid_hash, uid);
+	/* FIXME: search recurrences also */
+	obj_data = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	return obj_data ? obj_data->full_object : NULL;
 }
 
 
@@ -348,7 +359,7 @@ static void
 check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 {
 	CalBackendFilePrivate *priv;
-	CalComponent *existing_comp;
+	CalBackendFileObject *obj_data;
 	const char *uid;
 	char *new_uid;
 
@@ -356,8 +367,8 @@ check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 
 	cal_component_get_uid (comp, &uid);
 
-	existing_comp = g_hash_table_lookup (priv->comp_uid_hash, uid);
-	if (!existing_comp)
+	obj_data = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	if (!obj_data)
 		return; /* Everything is fine */
 
 	g_message ("check_dup_uid(): Got object with duplicated UID `%s', changing it...", uid);
@@ -397,10 +408,13 @@ static void
 add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_toplevel)
 {
 	CalBackendFilePrivate *priv;
+	CalBackendFileObject *obj_data;
 	const char *uid;
 	GSList *categories;
 
 	priv = cbfile->priv;
+
+	/* FIXME: check if it's an instance */
 
 	/* Ensure that the UID is unique; some broken implementations spit
 	 * components with duplicated UIDs.
@@ -408,7 +422,11 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	check_dup_uid (cbfile, comp);
 	cal_component_get_uid (comp, &uid);
 
-	g_hash_table_insert (priv->comp_uid_hash, (gpointer) uid, comp);
+	obj_data = g_new0 (CalBackendFileObject, 1);
+	obj_data->full_object = comp;
+	obj_data->recurrences = g_hash_table_new (g_str_hash, g_str_equal);
+
+	g_hash_table_insert (priv->comp_uid_hash, (gpointer) uid, obj_data);
 
 	priv->comp = g_list_prepend (priv->comp, comp);
 
@@ -441,6 +459,7 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	const char *uid;
 	GList *l;
 	GSList *categories;
+	CalBackendFileObject *obj_data;
 
 	priv = cbfile->priv;
 
@@ -454,6 +473,10 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	/* Remove it from our mapping */
 
 	cal_component_get_uid (comp, &uid);
+	obj_data = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	if (!obj_data)
+		return;
+
 	g_hash_table_remove (priv->comp_uid_hash, uid);
 
 	l = g_list_find (priv->comp, comp);
@@ -465,7 +488,7 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	cal_backend_unref_categories (CAL_BACKEND (cbfile), categories);
 	cal_component_free_categories_list (categories);
 
-	g_object_unref (comp);
+	free_object (uid, obj_data, NULL);
 }
 
 /* Scans the toplevel VCALENDAR component and stores the objects it finds */
@@ -867,13 +890,13 @@ typedef struct {
 static void
 match_object_sexp (gpointer key, gpointer value, gpointer data)
 {
-	CalComponent *comp = value;
+	CalBackendFileObject *obj_data = value;
 	MatchObjectData *match_data = data;
 
 	if ((!match_data->search_needed) ||
-	    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, comp, match_data->backend))) {
+	    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, obj_data->full_object, match_data->backend))) {
 		match_data->obj_list = g_list_append (match_data->obj_list,
-						      cal_component_get_as_string (comp));
+						      cal_component_get_as_string (obj_data->full_object));
 	}
 }
 
