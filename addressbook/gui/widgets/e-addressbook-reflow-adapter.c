@@ -24,7 +24,6 @@ struct _EAddressbookReflowAdapterPrivate {
 	gboolean loading;
 
 	int create_contact_id, remove_contact_id, modify_contact_id, model_changed_id;
-	int search_started_id, search_result_id;
 };
 
 #define PARENT_TYPE e_reflow_model_get_type()
@@ -64,19 +63,11 @@ unlink_model(EAddressbookReflowAdapter *adapter)
 	if (priv->model && priv->model_changed_id)
 		g_signal_handler_disconnect (priv->model,
 					     priv->model_changed_id);
-	if (priv->model && priv->search_started_id)
-		g_signal_handler_disconnect (priv->model,
-					     priv->search_started_id);
-	if (priv->model && priv->search_result_id)
-		g_signal_handler_disconnect (priv->model,
-					     priv->search_result_id);
 
 	priv->create_contact_id = 0;
 	priv->remove_contact_id = 0;
 	priv->modify_contact_id = 0;
 	priv->model_changed_id = 0;
-	priv->search_started_id = 0;
-	priv->search_result_id = 0;
 
 	if (priv->model)
 		g_object_unref (priv->model);
@@ -172,32 +163,27 @@ addressbook_compare (EReflowModel *erm, int n1, int n2)
 	EAddressbookReflowAdapterPrivate *priv = adapter->priv;
 	EContact *contact1, *contact2;
 
-	if (priv->loading) {
-		return n1-n2;
-	}
-	else {
-		contact1 = (EContact*)eab_model_contact_at (priv->model, n1);
-		contact2 = (EContact*)eab_model_contact_at (priv->model, n2);
+	contact1 = (EContact*)eab_model_contact_at (priv->model, n1);
+	contact2 = (EContact*)eab_model_contact_at (priv->model, n2);
 
-		if (contact1 && contact2) {
-			const char *file_as1, *file_as2;
-			file_as1 = e_contact_get_const (contact1, E_CONTACT_FILE_AS);
-			file_as2 = e_contact_get_const (contact2, E_CONTACT_FILE_AS);
-			if (file_as1 && file_as2)
-				return g_utf8_collate(file_as1, file_as2);
-			if (file_as1)
-				return -1;
-			if (file_as2)
-				return 1;
-			return strcmp(e_contact_get_const (contact1, E_CONTACT_UID),
-				      e_contact_get_const (contact2, E_CONTACT_UID));
-		}
-		if (contact1)
+	if (contact1 && contact2) {
+		const char *file_as1, *file_as2;
+		file_as1 = e_contact_get_const (contact1, E_CONTACT_FILE_AS);
+		file_as2 = e_contact_get_const (contact2, E_CONTACT_FILE_AS);
+		if (file_as1 && file_as2)
+			return g_utf8_collate(file_as1, file_as2);
+		if (file_as1)
 			return -1;
-		if (contact2)
+		if (file_as2)
 			return 1;
-		return 0;
+		return strcmp(e_contact_get_const (contact1, E_CONTACT_UID),
+			      e_contact_get_const (contact2, E_CONTACT_UID));
 	}
+	if (contact1)
+		return -1;
+	if (contact2)
+		return 1;
+	return 0;
 }
 
 static int
@@ -278,27 +264,6 @@ model_changed (EABModel *model,
 	       EAddressbookReflowAdapter *adapter)
 {
 	e_reflow_model_changed (E_REFLOW_MODEL (adapter));
-}
-
-static void
-search_started (EABModel *model,
-		EAddressbookReflowAdapter *adapter)
-{
-	EAddressbookReflowAdapterPrivate *priv = adapter->priv;
-
-	priv->loading = TRUE;
-}
-
-static void
-search_result (EABModel *model,
-	       EBookViewStatus status,
-	       EAddressbookReflowAdapter *adapter)
-{
-	EAddressbookReflowAdapterPrivate *priv = adapter->priv;
-
-	priv->loading = FALSE;
-
-	e_reflow_model_comparison_changed (E_REFLOW_MODEL (adapter));
 }
 
 static void
@@ -424,13 +389,10 @@ e_addressbook_reflow_adapter_init (GtkObject *object)
 
 	priv = adapter->priv = g_new0 (EAddressbookReflowAdapterPrivate, 1);
 
-	priv->loading = FALSE;
 	priv->create_contact_id = 0;
 	priv->remove_contact_id = 0;
 	priv->modify_contact_id = 0;
 	priv->model_changed_id = 0;
-	priv->search_started_id = 0;
-	priv->search_result_id = 0;
 }
 
 GType
@@ -481,14 +443,6 @@ e_addressbook_reflow_adapter_construct (EAddressbookReflowAdapter *adapter,
 	priv->model_changed_id = g_signal_connect(priv->model,
 						  "model_changed",
 						  G_CALLBACK(model_changed),
-						  adapter);
-	priv->search_started_id = g_signal_connect(priv->model,
-						   "search_started",
-						   G_CALLBACK(search_started),
-						   adapter);
-	priv->search_result_id = g_signal_connect(priv->model,
-						  "search_result",
-						  G_CALLBACK(search_result),
 						  adapter);
 }
 

@@ -1,3 +1,35 @@
+2004-08-02  Chris Toshok  <toshok@ximian.com>
+
+	* gui/widgets/eab-minicard-view.c
+	(eab_minicard_view_drag_data_get): port this from the old minicard
+	view.
+	(clear_drag_data): same.
+	(add_to_list): same.
+	(eab_minicard_view_get_card_list): same.
+	(eab_minicard_view_drag_begin): same.
+	(reflow_columns): priv->minicards is indexed via model index.
+	(model_changed): set the sorter array size here.
+	(selection_row_changed): priv->minicards is indexed via model
+	index.
+	(eab_minicard_view_init): init tooltip_shown/tooltip_timeout_id.
+	(_over_contact): clarify that this function returns the MODEL
+	index, not the view (sorted) index.
+	(eab_minicard_view_button_press): make this handle double clicks,
+	and add dnd support.  also fix the popup (right button) support.
+	(eab_minicard_view_motion): add dnd support here.
+	(eab_minicard_view_class_init): fill in drag_data_get.
+	(eab_minicard_view_class_init): fix c&p error - "column_width" ->
+	PROP_COLUMN_WIDTH, not PROP_EDITABLE.
+
+	* gui/widgets/e-addressbook-reflow-adapter.c (unlink_model): we
+	don't use search_started_id/search_result_id signals anymore.
+	(addressbook_compare): don't bother optimizing whether we're
+	loading or not.  just do the sort regardless.
+	(search_started/search_result): nuke.
+	(e_addressbook_reflow_adapter_init): remove initialization of
+	loading, search_started_id, and search_result_id.
+	(e_addressbook_reflow_adapter_construct): same.
+
 2004-07-07  Chris Toshok  <toshok@ximian.com>
 
 	* gui/widgets/gal-view-minicard.h (GalViewMinicard): column_width

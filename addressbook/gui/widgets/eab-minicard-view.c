@@ -20,11 +20,17 @@
  *
  */
 
+#include <string.h>
+
 #include "eab-marshal.h"
 #include "eab-minicard-view.h"
 #include "e-addressbook-reflow-adapter.h"
+#include "util/eab-book-util.h"
+
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-sorter-array.h>
+#include <gtk/gtkselection.h>
+#include <gtk/gtkdnd.h>
 
 #define PARENT_TYPE (gtk_widget_get_type ())
 static gpointer parent_class = NULL;
@@ -78,6 +84,9 @@ typedef struct {
 struct _EABMinicardViewPrivate {
 	EAddressbookReflowAdapter *adapter;
 
+	gboolean tooltip_shown;
+	int tooltip_timeout_id;
+
 	int writable_status_id;
 	int model_changed_id;
 	int comparison_changed_id;
@@ -98,7 +107,12 @@ struct _EABMinicardViewPrivate {
 	gboolean in_column_drag;
 	gint column_dragged;
 
-	gboolean button_down;
+	gboolean drag_button_down;
+	int button_x;
+	int button_y;
+
+	GList *drag_list;
+
 	gboolean column_cursor_shown;
 
 	GArray *column_starts;
@@ -114,6 +128,126 @@ struct _EABMinicardViewPrivate {
 
 	ESorterArray *sorter;
 };
+
+
+
+enum DndTargetType {
+	DND_TARGET_TYPE_VCARD_LIST,
+	DND_TARGET_TYPE_SOURCE_VCARD_LIST
+};
+#define VCARD_LIST_TYPE "text/x-vcard"
+#define SOURCE_VCARD_LIST_TYPE "text/x-source-vcard"
+static GtkTargetEntry drag_types[] = {
+	{ SOURCE_VCARD_LIST_TYPE, 0, DND_TARGET_TYPE_SOURCE_VCARD_LIST },
+	{ VCARD_LIST_TYPE, 0, DND_TARGET_TYPE_VCARD_LIST }
+};
+static gint num_drag_types = sizeof(drag_types) / sizeof(drag_types[0]);
+
+static void
+eab_minicard_view_drag_data_get(GtkWidget *widget,
+				GdkDragContext *context,
+				GtkSelectionData *selection_data,
+				guint info,
+				guint time)
+{
+	EABMinicardViewPrivate *priv;
+
+	if (!EAB_IS_MINICARD_VIEW(widget))
+		return;
+
+	priv = EAB_MINICARD_VIEW (widget)->priv;
+
+	switch (info) {
+	case DND_TARGET_TYPE_VCARD_LIST: {
+		char *value;
+		
+		value = eab_contact_list_to_string (priv->drag_list);
+
+		gtk_selection_data_set (selection_data,
+					selection_data->target,
+					8,
+					value, strlen (value));
+		break;
+	}
+	case DND_TARGET_TYPE_SOURCE_VCARD_LIST: {
+		EBook *book;
+		char *value;
+		
+		g_object_get (priv->adapter, "book", &book, NULL);
+		value = eab_book_and_contact_list_to_string (book, priv->drag_list);
+
+		gtk_selection_data_set (selection_data,
+					selection_data->target,
+					8,
+					value, strlen (value));
+		break;
+	}
+	}
+}
+
+static void
+clear_drag_data (EABMinicardView *view)
+{
+	EABMinicardViewPrivate *priv = view->priv;
+
+	g_list_foreach (priv->drag_list, (GFunc)g_object_unref, NULL);
+	g_list_free (priv->drag_list);
+	priv->drag_list = NULL;
+}
+
+
+typedef struct {
+	GList *list;
+	EAddressbookReflowAdapter *adapter;
+} ModelAndList;
+
+static void
+add_to_list (int index, gpointer closure)
+{
+	ModelAndList *mal = closure;
+	mal->list = g_list_prepend (mal->list, g_object_ref (e_addressbook_reflow_adapter_contact_at (mal->adapter, index)));
+}
+
+static GList *
+eab_minicard_view_get_card_list (EABMinicardView *view)
+{
+	EABMinicardViewPrivate *priv = view->priv;
+	ModelAndList mal;
+
+	mal.adapter = priv->adapter;
+	mal.list = NULL;
+
+	e_selection_model_foreach (priv->selection, add_to_list, &mal);
+
+	mal.list = g_list_reverse (mal.list);
+	return mal.list;
+}
+
+static int
+eab_minicard_view_drag_begin (EABMinicardView *view, GdkEvent *event)
+{
+	EABMinicardViewPrivate *priv = view->priv;
+	GdkDragContext *context;
+	GtkTargetList *target_list;
+	GdkDragAction actions = GDK_ACTION_MOVE | GDK_ACTION_COPY;
+
+	clear_drag_data (view);
+	
+	priv->drag_list = eab_minicard_view_get_card_list (view);
+
+	g_print ("dragging %d card(s)\n", g_list_length (priv->drag_list));
+
+	target_list = gtk_target_list_new (drag_types, num_drag_types);
+
+	context = gtk_drag_begin (GTK_WIDGET (view),
+				  target_list, actions, 1/*XXX*/, event);
+
+	gtk_drag_set_icon_default (context);
+
+	return TRUE;
+}
+
+
 
 static int
 text_height (PangoLayout *layout, const gchar *text)
@@ -309,9 +443,11 @@ reflow_columns (EABMinicardView *view, int from_column)
 	running_height = VBORDER;
 
 	count = priv->minicards->len - start;
+	g_array_append_val (priv->column_starts, start);
 	for (i = start; i < count; i++) {
-		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, i);
-		if (i != 0 && running_height + minicard->total_height + VBORDER > view->parent.allocation.height) {
+		int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
+		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, unsorted);
+		if (i != start && running_height + minicard->total_height + VBORDER > view->parent.allocation.height) {
 			g_array_append_val (priv->column_starts, i);
 			c ++;
 
@@ -319,8 +455,6 @@ reflow_columns (EABMinicardView *view, int from_column)
 		} else
 			running_height += minicard->total_height + VBORDER;
 	}
-
-	g_array_insert_val (priv->column_starts, start, column_start);
 
 	/* queue up a redraw for the columns we've reflowed */
 	if (priv->minicards->len) {
@@ -485,6 +619,7 @@ model_changed (EReflowModel *model, EABMinicardView *view)
 	}
 
 	g_array_set_size (priv->minicards, e_reflow_model_count (E_REFLOW_MODEL (priv->adapter)));
+	e_sorter_array_set_count (priv->sorter, priv->minicards->len);
 
 	for (i = 0; i < priv->minicards->len; i++) {
 		int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
@@ -549,10 +684,8 @@ selection_row_changed (ESelectionModel *selection, int row, EABMinicardView *vie
 {
 	EABMinicardViewPrivate *priv = view->priv;
 	EABMinicard *minicard;
-	int sorted;
 
-	sorted = e_sorter_model_to_sorted (E_SORTER (view->priv->sorter), row);
-	minicard = &g_array_index(priv->minicards, EABMinicard, sorted);
+	minicard = &g_array_index(priv->minicards, EABMinicard, row);
 
 	/* redraw the contact */
 	gtk_widget_queue_draw_area (GTK_WIDGET (view),
@@ -609,6 +742,9 @@ eab_minicard_view_init (GObject *object)
 	view->priv->cursor_changed_id = 
 		g_signal_connect(view->priv->selection, "cursor_changed",
 				 G_CALLBACK (cursor_changed), view);
+
+	view->priv->tooltip_shown = FALSE;
+	view->priv->tooltip_timeout_id = 0;
 }
 
 
@@ -929,12 +1065,13 @@ _over_column_handle (EABMinicardView *view,
 	return FALSE;
 }
 
+/* returns the MODEL index of the contact that contains (x,y) in its
+   rectangle */
 static int
 _over_contact (EABMinicardView *view,
 	       int x, int y)
 {
 	EABMinicardViewPrivate *priv = view->priv;
-
 	int col;
 
 	/* easy case - if we aren't in the correct Y range return immediately */
@@ -950,27 +1087,26 @@ _over_contact (EABMinicardView *view,
 			/* k, we're in this column (col).  find out if we're over one of the contacts in it */
 			int start_idx, end_idx;
 			int view_idx;
-			int current_y;
 
 			printf ("click in column %d\n", col);
 
 			start_idx = g_array_index (priv->column_starts, int, col);
+
 			if (col < priv->column_starts->len - 1)
 				end_idx = g_array_index (priv->column_starts, int, col+1);
 			else
 				end_idx = priv->minicards->len;
 
-			current_y = VBORDER;
+			printf ("extents in view indices [%d, %d]\n", start_idx, end_idx);
 
 			for (view_idx = start_idx; view_idx < end_idx; view_idx ++) {
-				EABMinicard *minicard = &g_array_index(priv->minicards, EABMinicard, view_idx);
+				int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), view_idx);
+				EABMinicard *minicard = &g_array_index(priv->minicards, EABMinicard, unsorted);
 
-				if (current_y <= y && y <= current_y + minicard->total_height) {
+				if (minicard->y <= y && y <= minicard->y + minicard->total_height) {
 					/* k, found the contact */
-					return view_idx;
+					return unsorted;
 				}
-
-				current_y += minicard->total_height + INTERCONTACT_SPACING;
 			}
 		}
 	}
@@ -990,37 +1126,44 @@ eab_minicard_view_button_press (GtkWidget      *widget,
 		int column_num;
 		gdk_window_get_pointer (widget->window, &x, &y, NULL);
 
-		printf ("button press at %d,%d\n", x, y);
-
-		if (_over_column_handle (view, x, &column_num)) {
-			/* start a column drag */
-			printf ("STARTING COLUMN_DRAG\n");
-			priv->in_column_drag = TRUE;
-			priv->column_dragged = column_num;
-
-			gdk_pointer_grab (widget->window,
-					  FALSE,
-					  GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK,
-					  NULL, NULL, GDK_CURRENT_TIME);
-
-			priv->orig_column_x = x;
-			priv->orig_column_width = priv->column_width;
+		if (event->type == GDK_2BUTTON_PRESS) {
+			printf ("double click at %d,%d\n", x, y);
 		}
 		else {
-			/* are we over a contact?  if so, select it */
-			int view_idx = _over_contact (view, x, y);
+			printf ("button press at %d,%d\n", x, y);
 
-			if (view_idx != -1) {
-				int model_idx = e_sorter_sorted_to_model (E_SORTER (priv->sorter), view_idx);
+			if (_over_column_handle (view, x, &column_num)) {
+				/* start a column drag */
+				printf ("STARTING COLUMN_DRAG\n");
+				priv->in_column_drag = TRUE;
+				priv->column_dragged = column_num;
 
-				printf (" + model_idx = %d\n", model_idx);
+				gdk_pointer_grab (widget->window,
+						  FALSE,
+						  GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK,
+						  NULL, NULL, GDK_CURRENT_TIME);
 
-				e_selection_model_maybe_do_something(priv->selection, model_idx, 0, event->state);
+				priv->orig_column_x = x;
+				priv->orig_column_width = priv->column_width;
+			}
+			else {
+				/* are we over a contact?  if so, select it */
+				int model_idx = _over_contact (view, x, y);
+
+				if (model_idx != -1) {
+					printf (" + model_idx = %d\n", model_idx);
+
+					e_selection_model_maybe_do_something(priv->selection, model_idx, 0, event->state);
+
+					priv->drag_button_down = TRUE;
+				}
 			}
 		}
 	}
 	else if (event->button == 3) {
-		g_signal_emit (view, signals[RIGHT_CLICK], 0, event);
+		int rv;
+		g_signal_emit (view, signals[RIGHT_CLICK], 0, event, &rv);
+		return rv;
 	}
 
 	return TRUE;
@@ -1038,6 +1181,9 @@ eab_minicard_view_button_release (GtkWidget *widget,
 			printf ("STOPPING COLUMN_DRAG\n");
 			gdk_display_pointer_ungrab (gdk_drawable_get_display (event->window), GDK_CURRENT_TIME);
 			priv->in_column_drag = FALSE;
+		}
+		else {
+			priv->drag_button_down = FALSE;
 		}
 	}
 
@@ -1069,15 +1215,25 @@ eab_minicard_view_motion (GtkWidget      *widget,
 			gtk_widget_queue_resize (widget);
 		}
 	}
-	else if (priv->button_down) {
+	else if (priv->drag_button_down && event->state & GDK_BUTTON1_MASK) {
+		if (MAX (abs (priv->button_x - x),
+			 abs (priv->button_y - y)) > 3) {
+			gint ret_val;
+
+			ret_val = eab_minicard_view_drag_begin(view, (GdkEvent*)event);
+
+			priv->drag_button_down = FALSE;
+
+			return ret_val;
+		}
 	}
 	else {
+		int view_idx;
 		gint column_num;
-		gboolean over_column = _over_column_handle (view, x, &column_num);
+		gboolean over_column;
 
-		/* figure out if we're over a column line, and change
-		   the cursor if we are. */
-		
+		/* if we're over a column line, change the cursor */
+		over_column = _over_column_handle (view, x, &column_num);
 		if (over_column ^ priv->column_cursor_shown) {
 			priv->column_cursor_shown = over_column;
 			gdk_window_set_cursor (widget->window,
@@ -1107,6 +1263,7 @@ eab_minicard_view_class_init (GObjectClass *object_class)
 	widget_class->realize         = eab_minicard_view_realize;
 	widget_class->size_request    = eab_minicard_view_size_request;
 	widget_class->size_allocate   = eab_minicard_view_size_allocate;
+	widget_class->drag_data_get   = eab_minicard_view_drag_data_get;
 
 	g_object_class_install_property (object_class, PROP_ADAPTER, 
 					 g_param_spec_object ("adapter",
@@ -1136,7 +1293,7 @@ eab_minicard_view_class_init (GObjectClass *object_class)
 							       FALSE,
 							       G_PARAM_READWRITE));
 
-	g_object_class_install_property (object_class, PROP_EDITABLE, 
+	g_object_class_install_property (object_class, PROP_COLUMN_WIDTH, 
 					 g_param_spec_int ("column_width",
 							   _("Column Width"),
 							   /*_( */"XXX blurb" /*)*/,
