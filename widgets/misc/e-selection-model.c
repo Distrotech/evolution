@@ -648,7 +648,7 @@ move_selection (ESelectionModel *selection,
  */
 gint
 e_selection_model_key_press      (ESelectionModel *selection,
-					GdkEventKey          *key)
+				  GdkEventKey          *key)
 {
 	switch (key->keyval) {
 	case GDK_Up:
@@ -852,4 +852,19 @@ e_selection_model_get_row_count (ESelectionModel *selection)
 		return ESM_CLASS(selection)->get_row_count (selection);
 	else
 		return 0;
+}
+
+void
+e_selection_model_change_cursor (ESelectionModel *selection, int row)
+{
+	g_return_if_fail(selection != NULL);
+	g_return_if_fail(E_IS_SELECTION_MODEL(selection));
+
+	selection->cursor_row = row;
+	if (row == -1)
+		selection->cursor_col = -1;
+	else if (selection->cursor_col == -1)
+		selection->cursor_col = 0;
+	gtk_signal_emit(GTK_OBJECT(selection),
+			e_selection_model_signals[CURSOR_CHANGED], selection->cursor_row, selection->cursor_col);
 }

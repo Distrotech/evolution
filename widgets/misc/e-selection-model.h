@@ -98,6 +98,8 @@ void      e_selection_model_move_row            (ESelectionModel *esm,
 void      e_selection_model_change_one_row      (ESelectionModel *esm,
 						 int              row,
 						 gboolean         on);
+void      e_selection_model_change_cursor       (ESelectionModel *esm,
+						 int              row);
 gboolean  e_selection_model_confirm_row_count   (ESelectionModel *esm);
 
 /* Virtual Function */

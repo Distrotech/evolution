@@ -44,20 +44,30 @@ free_key(gpointer key, gpointer value, gpointer closure)
 static void
 free_hash(ETableSelectionModel *etsm)
 {
-	g_hash_table_foreach(etsm->hash, free_key, NULL);
-	g_hash_table_destroy(etsm->hash);
-	etsm->hash = NULL;
+	if (etsm->hash) {
+		g_hash_table_foreach(etsm->hash, free_key, NULL);
+		g_hash_table_destroy(etsm->hash);
+		etsm->hash = NULL;
+	}
+	g_free(etsm->cursor_id);
+	etsm->cursor_id = NULL;
 }
 
 static void
 model_pre_change (ETableModel *etm, ETableSelectionModel *etsm)
 {
-	if (etsm->hash)
-		free_hash(etsm);
+	free_hash(etsm);
 
 	if (etsm->model && e_table_model_has_save_id(etsm->model)) {
+		gint cursor_row;
 		etsm->hash = g_hash_table_new(g_str_hash, g_str_equal);
 		e_selection_model_foreach(E_SELECTION_MODEL(etsm), save_to_hash, etsm);
+		gtk_object_get(GTK_OBJECT(etsm),
+			       "cursor_row", &cursor_row,
+			       NULL);
+		if (cursor_row != -1) {
+			etsm->cursor_id = e_table_model_get_save_id(etm, cursor_row);
+		}
 	}
 }
 
@@ -71,8 +81,15 @@ model_changed(ETableModel *etm, ETableSelectionModel *etsm)
 		int i;
 		if (e_selection_model_confirm_row_count(E_SELECTION_MODEL(etsm))) {
 			for (i = 0; i < row_count; i++) {
-				if (g_hash_table_lookup(etsm->hash, e_table_model_get_save_id(etm, i)))
+				char *save_id = e_table_model_get_save_id(etm, i);
+				if (g_hash_table_lookup(etsm->hash, save_id))
 					e_selection_model_change_one_row(E_SELECTION_MODEL(etsm), i, TRUE);
+				if (etsm->cursor_id && !strcmp(etsm->cursor_id, save_id)) {
+					e_selection_model_change_cursor(E_SELECTION_MODEL(etsm), i);
+					g_free(etsm->cursor_id);
+					etsm->cursor_id = NULL;
+				}
+				g_free(save_id);
 			}
 		}
 	}
@@ -177,6 +194,7 @@ etsm_destroy (GtkObject *object)
 	etsm = E_TABLE_SELECTION_MODEL (object);
 
 	drop_model(etsm);
+	free_hash(etsm);
 
 	if (GTK_OBJECT_CLASS(parent_class)->destroy)
 		GTK_OBJECT_CLASS(parent_class)->destroy (object);
@@ -212,6 +230,7 @@ e_table_selection_model_init (ETableSelectionModel *selection)
 {
 	selection->model = NULL;
 	selection->hash = NULL;
+	selection->cursor_id = NULL;
 }
 
 static void
