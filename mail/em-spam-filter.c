@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 
 #include <camel/camel-stream-fs.h>
 
@@ -50,10 +51,14 @@ static EMSpamPlugin spam_assassin_plugin =
 	NULL
 };
 
+static gboolean em_spam_sa_spamd_tested = FALSE;
+static gboolean em_spam_sa_use_spamc = FALSE;
+static gint em_spam_sa_spamd_port = -1;
+
 #define d(x) x
 
 static int
-pipe_to_sa (CamelMimeMessage *msg, int argc, gchar **argv)
+pipe_to_sa (CamelMimeMessage *msg, gchar *in, int argc, gchar **argv)
 {
 	CamelStream *stream;
 	int result, status;
@@ -112,6 +117,9 @@ pipe_to_sa (CamelMimeMessage *msg, int argc, gchar **argv)
 		camel_data_wrapper_write_to_stream (CAMEL_DATA_WRAPPER (msg), stream);
 		camel_stream_flush (stream);
 		camel_object_unref (CAMEL_OBJECT (stream));
+	} else if (in) {
+		write (in_fds [1], in, strlen (in));
+		close (in_fds [1]);
 	}
 
 	result = waitpid (pid, &status, 0);
@@ -136,21 +144,112 @@ pipe_to_sa (CamelMimeMessage *msg, int argc, gchar **argv)
 }
 
 
+#define NPORTS 1
+
+static gboolean
+em_spam_sa_test_spamd_running (gint port)
+{
+	static gchar *sac_args [3] = {
+		"/bin/sh",
+		"-c",
+		NULL
+	};
+	gboolean retval;
+
+	d(fprintf (stderr, "test if spamd is running (port %d)\n", port);)
+	sac_args [2] = port > 0  ? g_strdup_printf ("spamc -x -p %d", port) : g_strdup_printf ("spamc -x");
+
+	retval = pipe_to_sa (NULL, "From test@127.0.0.1", 3, sac_args) == 0;
+	g_free (sac_args [2]);
+
+	return retval;
+}
+
+static void
+em_spam_sa_test_spamd ()
+{
+	gint i, port = 7830;
+
+	em_spam_sa_use_spamc = FALSE;
+
+	/* if (em_spam_sa_test_spamd_running (-1)) {
+		em_spam_sa_use_spamc = TRUE;
+		em_spam_sa_spamd_port = -1;
+		} else { */
+		for (i = 0; i < NPORTS; i ++) {
+			if (em_spam_sa_test_spamd_running (port)) {
+				em_spam_sa_use_spamc = TRUE;
+				em_spam_sa_spamd_port = port;
+				break;
+			}
+			port ++;
+		}
+		/* } */
+
+	if (!em_spam_sa_use_spamc) {
+		static gchar *sad_args [3] = {
+			"/bin/sh",
+			"-c",
+			NULL
+		};
+		gint i, port = 7830;
+
+		d(fprintf (stderr, "looks like spamd is not running\n");)
+
+		for (i = 0; i < NPORTS; i ++) {
+			d(fprintf (stderr, "trying to run spamd at port %d\n", port));
+
+			sad_args [2] = g_strdup_printf ("spamd -p %d --local -d", port);
+			if (!pipe_to_sa (NULL, NULL, 3, sad_args)) {
+				g_free (sad_args [2]);
+				em_spam_sa_use_spamc = TRUE;
+				em_spam_sa_spamd_port = port;
+				d(fprintf (stderr, "success at port %d\n", port));
+				break;
+			}
+			g_free (sad_args [2]);
+			port ++;
+		}
+	}
+
+	d(fprintf (stderr, "use spamd %d at port %d\n", em_spam_sa_use_spamc, em_spam_sa_spamd_port);)
+
+	em_spam_sa_spamd_tested = TRUE;
+}
+
 static gboolean
 em_spam_sa_check_spam (CamelMimeMessage *msg)
 {
 	static gchar *args [3] = {
 		"/bin/sh",
 		"-c",
-		"spamassassin"
-		" --exit-code"         /* Exit with a non-zero exit code if the
-					 tested message was spam */
-		" --local"             /* Local tests only (no online tests) */
+		NULL
 	};
+	gint retval;
 
-	d(fprintf (stderr, "em_spam_sa_check_spam\n");)
+	d(fprintf (stderr, "em_spam_sa_check_spam\n"));
 
-	return pipe_to_sa (msg, 3, args) > 0;
+	/* FIXME: lock em_spam_sa_spamd_tested to avoid conflicts between threads */
+	if (!em_spam_sa_spamd_tested)
+		em_spam_sa_test_spamd ();
+
+	args [2] = em_spam_sa_use_spamc
+		? (em_spam_sa_spamd_port == -1
+		   ? g_strdup ("spamc -c")         /* Exit with a non-zero exit code if the
+						      tested message was spam */
+		   : g_strdup_printf ("spamc"
+				      " -c"        /* Exit with a non-zero exit code if the
+						      tested message was spam */
+				      " -p %d", em_spam_sa_spamd_port)
+)
+		: g_strdup ("spamassassin"
+			    " --exit-code"         /* Exit with a non-zero exit code if the
+						      tested message was spam */
+			    " --local");           /* Local tests only (no online tests) */
+
+	retval = pipe_to_sa (msg, NULL, 3, args);
+
+	return retval;
 }
 
 static void
@@ -168,7 +267,7 @@ em_spam_sa_report_spam (CamelMimeMessage *msg)
 
 	d(fprintf (stderr, "em_spam_sa_report_spam\n");)
 
-	pipe_to_sa (msg, 3, args) > 0;
+	pipe_to_sa (msg, NULL, 3, args) > 0;
 }
 
 static void
@@ -186,7 +285,7 @@ em_spam_sa_report_ham (CamelMimeMessage *msg)
 
 	d(fprintf (stderr, "em_spam_sa_report_ham\n");)
 
-	pipe_to_sa (msg, 3, args) > 0;
+	pipe_to_sa (msg, NULL, 3, args) > 0;
 }
 
 static void
@@ -202,7 +301,7 @@ em_spam_sa_commit_reports (void)
 
 	d(fprintf (stderr, "em_spam_sa_commit_reports\n");)
 
-	pipe_to_sa (NULL, 3, args) > 0;
+	pipe_to_sa (NULL, NULL, 3, args) > 0;
 }
 
 const EMSpamPlugin *
