@@ -59,6 +59,136 @@
 
 	* main.c (dump_todo): Add --todo flag to dump the todo contents.
 
+1999-07-19  Matt Martin <matt@abacusnet.net>
+
+	* timeutil.c (time_from_isodate): Handle the 'Z' parameter to the
+	ISO date format to convert from GMT time.
+
+1999-07-17  Nat Friedman  <nat@gnome-support.com>
+
+	* calendar.c (calendar_add_object): Copy the new UID into the
+ 	iCalObject structure.
+
+1999-07-16  Miguel de Icaza  <miguel@gnu.org>
+
+	* gnome-month-item.c (gnome_month_item_set_arg): Merge fix from
+	gnome-pim-1-0: Fixed cut&paste bug for day fontsets.
+
+1999-07-14  Miguel de Icaza  <miguel@gnu.org>
+
+	* calobj.c (ical_gen_uid): Returns a UID.
+	(ical_object_new): Use a UID when creating an event.  Should get
+	syncing done easier.
+
+1999-07-14  Nicholas J Kreucher <nick@poetic.com>
+
+	* calobj.c (skip_numbers): Actually skip over the numbers.
+	(ical_object_to_vobject): Test the proper variable for storing the
+	proper information.
+
+1999-07-14  Jean-Noel Guiheneuf <jean-noel.guiheneuf@wanadoo.fr>
+
+	* timeutil.c (time_add_month): Fixed the problem with next month
+	going from a 31-day to a 30-day by adjusting the date to the
+	closest day at the end of the month.
+
+1999-06-07  Mike McEwan  <mike@lotusland.demon.co.uk>
+
+        * timeutil.c (time_add_month): Tell ktime' that we don't know
+        about daylight saving time so that it does *not* make adjustments
+        when we traverse a DST boundary.
+        (time_year_begin): ditto.
+        (time_year_end): ditto.
+        (time_month_begin): ditto.
+        (time_month_end): ditto.
+
+1999-06-16  Anders Carlsson  <anders.carlsson@tordata.se>
+
+	* main.c (new_calendar): Realize the toplevel widget when
+	--hidden is passed to gnomecal. This fixes a segfault.
+
+1999-06-04  Robert Brady  <rwb197@ecs.soton.ac.uk>
+
+	* gnome-cal.h, gnome-cal.c: Fix abort() problem with the year view.
+	(Bug #1367). Thanks to Owen Cliffe <oc197@ecs.soton.ac.uk> for
+	helping track it down.
+
+1999-06-03  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* calobj.c (daynumberlist): One line bug fix from Sergey I Panov.
+
+1999-06-02  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* view-utils.c (nicetime): Use %H instead of %k, as %k is a GNU
+	extension, not available in other systems.
+
+1999-06-01  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* calobj.c (daynumberlist): Work around broken software that
+	writes a broken month-of-day as "zero".  Use the dtstart date for
+	this on this event.
+
+1999-05-28  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* Makefile.am (install-data-local): help files be gone.  They are
+	now installed from the Docbook stuff.
+
+1999-05-26  Russell Steinthal  <steintr@condor.penguinpowered.com>
+
+	* gncal-todo.c main.c main.h prop.c: Added support for priorities
+	for todo items.  Doesn't do much, but you can set them and sort by
+	them.  (Use the properties box to enable them; should they be on
+	by default?)
+
+1999-05-25  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* main.c (parse_an_arg): Added missing break here.  It was causing
+	core dumps when invoked with --userfile.
+
+	* gnome-cal.c (gnome_calendar_set_view): Add some assertions here,
+	to pin point the bug reported on gnome-list.
+
+	* calobj.c (load_recurrence): Make intervals always exist.  a 0
+	interval is wrong.
+
+1999-05-25  Federico Mena Quintero  <federico@nuclecu.unam.mx>
+
+	* year-view.c: Removed unused macro CALENDAR_HEIGHT.
+
+1999-05-25  Federico Mena Quintero  <federico@nuclecu.unam.mx>
+
+	* year-view.c (idle_handler): Set the canvas scroll region here,
+	not in size_allocate().  Also, use the correct width and height
+	based on the allocation and the precomputed minimum width/height
+	values.
+
+	* gnome-cal.c (setup_widgets): Set the scrollbar policy of the
+	scrolled window.
+
+	* main.c (setup_appbar): Use the correct type for the appbar.
+
+	* gncal-day-view.c: Removed unused function switch_to_day().
+
+	* gncal-day-panel.c (calendar_day_selected): Removed unused variable.
+
+1999-05-25  Nat Friedman  <nat@nat.org>
+
+	* doc/C/gnomecal.sgml: Fixed a typo.
+
+	* gnome-cal.c (setup_widgets): Added a scrolled window widget into
+ 	which the year view is placed.
+
+	* year-view.c (CALENDAR_HEIGHT): The height of the total year view
+ 	inside the scrolled window.
+	(idle_handler): Set the height of the year view to
+ 	CALENDAR_HEIGHT.
+	(year_view_size_allocate): Set the scroll region of the year view
+ 	canvas to allocation->width, CALENDAR_HEIGHT.
+
+1999-04-25  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* main.c (dump_todo): Add --todo flag to dump the todo contents.
+
 1999-04-19  Miguel de Icaza  <miguel@nuclecu.unam.mx>
 
 	* gncal-todo.c (add_activated): Use same hack used in edit_activated

@@ -10,9 +10,32 @@
 #include <string.h>
 #include <glib.h>
 #include <ctype.h>
+#include <unistd.h>
 #include "calobj.h"
 #include "timeutil.h"
 #include "../libversit/vcc.h"
+
+static char *
+ical_gen_uid (void)
+{
+	static char *domain;
+	time_t t = time (NULL);
+	
+	if (!domain){
+		char buffer [128];
+		
+		getdomainname (buffer, sizeof (buffer)-1);
+		domain = g_strdup (domain);
+	}
+
+	return g_strdup_printf (
+		"%s-%d-%d-%d@%s",
+		isodate_from_time_t (t),
+		getpid (),
+		getgid (),
+		getppid (),
+		domain);
+}
 
 iCalObject *
 ical_object_new (void)
@@ -23,7 +46,8 @@ ical_object_new (void)
 	
 	ico->seq = -1;
 	ico->dtstamp = time (NULL);
-
+	ico->uid = ical_gen_uid ();
+	
 	return ico;
 }
 
@@ -165,7 +189,7 @@ skip_numbers (char **str)
 		if (!isdigit (**str))
 			return;
 		while (**str && isdigit (**str))
-			;
+			(*str)++;
 	}
 }
 
@@ -300,6 +324,14 @@ daynumberlist (iCalObject *o, char **str)
 			(*str)++;
 		}
 		if (!first){
+			/*
+			 * Some broken applications set this to zero
+			 */
+			if (val == 0){
+				struct tm *day = localtime (&o->dtstart);
+				
+				val = day->tm_mday;
+			}
 			o->recur->u.month_day = val;
 			first = 1;
 			val = 0;
@@ -931,7 +963,7 @@ ical_object_to_vobject (iCalObject *ical)
 		store_list (o, VCCategoriesProp, ical->categories);
 
 	/* resources */
-	if (ical->categories)
+	if (ical->resources)
 		store_list (o, VCCategoriesProp, ical->resources);
 
 	/* priority */

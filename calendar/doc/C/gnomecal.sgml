@@ -6,7 +6,6 @@
     <title>GNOME calendar user's manual</title>
     <authorgroup>
       <author>
-      <author>
 	<firstname>Dave</firstname> <surname>Mason</surname>
 	<affiliation>
 	  <address>
@@ -14,6 +13,7 @@
 	  </address>
 	</affiliation>
       </author>
+      <author>
 	<firstname>Miguel</firstname> <surname>de Icaza
 	  Amozurrutia</surname>
 	<affiliation>

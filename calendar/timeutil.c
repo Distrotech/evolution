@@ -18,6 +18,9 @@ time_from_isodate (char *str)
 	struct tm my_tm;
 	time_t t;
 
+	if (strlen (str) < 14)
+		return -1;
+	
 	my_tm.tm_year = (digit_at (str, 0) * 1000 + digit_at (str, 1) * 100 +
 		digit_at (str, 2) * 10 + digit_at (str, 3)) - 1900;
 
@@ -29,6 +32,10 @@ time_from_isodate (char *str)
 	my_tm.tm_isdst = -1;
 	
 	t = mktime (&my_tm);
+
+	if (str [15] == 'Z')
+		t -= timezone;
+	    
 	return t;
 }
 
@@ -141,18 +148,25 @@ time_add_month (time_t time, int months)
 {
 	struct tm *tm = localtime (&time);
 	time_t new_time;
+	int mday;
 
-	/* FIXME: this will not work correctly when switching, say, from a 31-day month to a 30-day
-	 * month.  Figure out the number of days in the month and go to the nearest "limit" day.
-	 */
-
+	mday = tm->tm_mday;
+	
 	tm->tm_mon += months;
+	tm->tm_isdst = -1;
 	if ((new_time = mktime (tm)) == -1){
 		g_warning ("mktime could not handling adding a month with\n");
 		print_time_t (time);
 		return time;
 	}
-	return new_time;
+	tm = localtime (&new_time);
+	if (tm->tm_mday < mday){
+		tm->tm_mon--;
+		tm->tm_mday = time_days_in_month (tm->tm_year+1900, tm->tm_mon);
+		return new_time = mktime (tm);
+	}
+	else
+		return new_time;
 }
 
 time_t
@@ -232,6 +246,7 @@ time_year_begin (time_t t)
 	tm.tm_sec  = 0;
 	tm.tm_mon  = 0;
 	tm.tm_mday = 1;
+	tm.tm_isdst = -1;
 
 	return mktime (&tm);
 }
@@ -248,6 +263,7 @@ time_year_end (time_t t)
 	tm.tm_mon  = 0;
 	tm.tm_mday = 1;
 	tm.tm_year++;
+	tm.tm_isdst = -1;
 
 	return mktime (&tm);
 }
@@ -262,6 +278,7 @@ time_month_begin (time_t t)
 	tm.tm_min  = 0;
 	tm.tm_sec  = 0;
 	tm.tm_mday = 1;
+	tm.tm_isdst = -1;
 
 	return mktime (&tm);
 }
@@ -277,6 +294,7 @@ time_month_end (time_t t)
 	tm.tm_sec  = 0;
 	tm.tm_mday = 1;
 	tm.tm_mon++;
+	tm.tm_isdst = -1;
 
 	return mktime (&tm);
 }
