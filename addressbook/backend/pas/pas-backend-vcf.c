@@ -97,8 +97,9 @@ pas_backend_vcf_search (PASBackendVCF  	      *bvcf,
 {
 	gboolean search_needed;
 	const char *query = pas_book_view_get_card_query (book_view);
-	search_needed = TRUE;
 	VCFBackendSearchClosure *closure = g_new0 (VCFBackendSearchClosure, 1);
+
+	search_needed = TRUE;
 
 	if ( ! strcmp (query, "(contains \"x-evolution-any-field\" \"\")"))
 		search_needed = FALSE;

@@ -1,3 +1,8 @@
+2003-10-20  JP Rosevear <jpr@ximian.com>
+
+	* backend/pas/pas-backend-vcf.c (pas_backend_vcf_search): compiler
+	with non-c99 compilers
+
 2003-10-17  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-contact.c (fn_getter): new function, just return
