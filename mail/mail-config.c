@@ -426,6 +426,8 @@ config_write_signature (MailConfigSignature *sig, gint i)
 {
 	gchar *path;
 
+	printf ("config_write_signature i: %d id: %d\n", i, sig->id);
+
 	path = g_strdup_printf ("/Mail/Signatures/name_%d", i);
 	bonobo_config_set_string (config->db, path, sig->name ? sig->name : "", NULL);
 	g_free (path);
@@ -457,7 +459,7 @@ config_write_signatures ()
 	GList *l;
 	gint id;
 
-	for (id = 0, l = config->signature_list; l; l = l->next) {
+	for (id = 0, l = config->signature_list; l; l = l->next, id ++) {
 		config_write_signature ((MailConfigSignature *) l->data, id);
 	}
 
@@ -2855,9 +2857,10 @@ mail_config_signature_add (gboolean html)
 
 	sig = g_new0 (MailConfigSignature, 1);
 
+	/* printf ("mail_config_signature_add %d\n", config->signatures); */
+	sig->id = config->signatures;
 	sig->name = g_strdup (_("Unnamed"));
 	sig->filename = get_new_signature_filename ();
-	sig->id = config->signatures;
 	sig->html = html;
 
 	config->signature_list = g_list_append (config->signature_list, sig);
@@ -2867,6 +2870,7 @@ mail_config_signature_add (gboolean html)
 	config_write_signatures_num ();
 
 	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_ADDED, sig);
+	/* printf ("mail_config_signature_add end\n"); */
 
 	return sig;
 }
@@ -2931,7 +2935,7 @@ mail_config_signature_delete (MailConfigSignature *sig)
 
 	config_write_signatures ();
 	delete_unused_signature_file (sig->filename);
-	printf ("signatures: %d\n", config->signatures);
+	/* printf ("signatures: %d\n", config->signatures); */
 	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_DELETED, sig);
 	signature_destroy (sig);
 }

@@ -858,6 +858,18 @@ sig_current_sig (MailAccountsDialog *dialog)
 	return gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
 }
 
+static void
+sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig = sig_current_sig (dialog);
+
+	if (sig->filename && *sig->filename)
+		mail_signature_editor (sig->filename, sig->html);
+	else
+		e_notice (GTK_WINDOW (dialog), GNOME_MESSAGE_BOX_ERROR,
+			  _("Please specify signature filename\nin Andvanced section of signature settings."));
+}
+
 MailConfigSignature *
 mail_accounts_dialog_new_signature (MailAccountsDialog *dialog, gboolean html)
 {
@@ -872,6 +884,8 @@ mail_accounts_dialog_new_signature (MailAccountsDialog *dialog, gboolean html)
 	gtk_clist_set_row_data (GTK_CLIST (dialog->sig_clist), row, sig);
 	gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), row, 0);
 	gtk_widget_grab_focus (dialog->sig_name);
+
+	sig_edit (NULL, dialog);
 
 	return sig;
 }
@@ -894,22 +908,9 @@ sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
 }
 
 static void
-sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
-{
-	MailConfigSignature *sig = sig_current_sig (dialog);
-
-	if (sig->filename && *sig->filename)
-		mail_signature_editor (sig->filename, sig->html);
-	else
-		e_notice (GTK_WINDOW (dialog), GNOME_MESSAGE_BOX_ERROR,
-			  _("Please specify signature filename\nin Andvanced section of signature settings."));
-}
-
-static void
 sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 {
 	mail_accounts_dialog_new_signature (dialog, FALSE);
-	sig_edit (NULL, dialog);
 }
 
 static void
