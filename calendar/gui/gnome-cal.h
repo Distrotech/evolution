@@ -103,7 +103,8 @@ void gnome_calendar_set_ui_component (GnomeCalendar *cal,
 
 ECalendarTable *gnome_calendar_get_task_pad	(GnomeCalendar *gcal);
 
-CalClient *gnome_calendar_get_cal_client	(GnomeCalendar *gcal);
+ECalModel *gnome_calendar_get_calendar_model    (GnomeCalendar *gcal);
+CalClient *gnome_calendar_get_default_client    (GnomeCalendar *gcal);
 CalClient *gnome_calendar_get_task_pad_cal_client(GnomeCalendar *gcal);
 
 gboolean   gnome_calendar_open                  (GnomeCalendar *gcal, const char *str_uri);
@@ -138,8 +139,9 @@ void	   gnome_calendar_get_selected_time_range (GnomeCalendar *gcal,
 						   time_t	 *end_time);
 
 void       gnome_calendar_edit_object           (GnomeCalendar *gcal,
-						 CalComponent  *comp,
-						 gboolean meeting);
+						 CalClient     *client,
+						 icalcomponent *icalcomp,
+						 gboolean       meeting);
 
 void       gnome_calendar_new_appointment       (GnomeCalendar *gcal);
 void       gnome_calendar_new_appointment_for   (GnomeCalendar *cal,
