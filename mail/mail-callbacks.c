@@ -348,7 +348,8 @@ delete_msg (GtkWidget *button, gpointer user_data)
 
 	uids = g_ptr_array_new ();
 	message_list_foreach (ml, enumerate_msg, uids);
-	mail_do_flag_messages (ml->folder, uids, CAMEL_MESSAGE_DELETED);
+	mail_do_flag_messages (ml->folder, uids, 
+			       CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_DELETED);
 }
 
 void

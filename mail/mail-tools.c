@@ -247,14 +247,11 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelExc
 }
 
 void
-mail_tool_set_uid_flags (CamelFolder *folder, const char *uid, guint32 set)
+mail_tool_set_uid_flags (CamelFolder *folder, const char *uid, guint32 mask, guint32 set)
 {
-	guint32 flags;
-
 	mail_tool_camel_lock_up();
-	flags = camel_folder_get_message_flags (folder, uid);
 	camel_folder_set_message_flags (folder, uid,
-					set, ~flags);
+					mask, set);
 	mail_tool_camel_lock_down();
 }
 

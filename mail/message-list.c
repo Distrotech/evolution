@@ -180,7 +180,7 @@ mark_msg_seen (gpointer data)
 	uids = g_ptr_array_new ();
 	g_ptr_array_add (uids, g_strdup (ml->cursor_uid));
 	mail_do_flag_messages (ml->folder, uids,
-			       CAMEL_MESSAGE_SEEN);
+			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 	return FALSE;
 }
 
@@ -324,7 +324,7 @@ ml_tree_set_value_at (ETreeModel *etm, ETreePath *path, int col,
 	uids = g_ptr_array_new ();
 	g_ptr_array_add (uids, g_strdup (uid));
 	mail_do_flag_messages (message_list->folder, uids, 
-			       CAMEL_MESSAGE_SEEN);
+			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 
 	if (message_list->seen_id) {
 		gtk_timeout_remove (message_list->seen_id);

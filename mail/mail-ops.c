@@ -436,7 +436,8 @@ void mail_do_refile_messages (CamelFolder *source, GPtrArray *uids, gchar *dest_
 typedef struct flag_messages_input_s {
 	CamelFolder *source;
 	GPtrArray *uids;
-	guint32 flags;
+	guint32 mask;
+	guint32 set;
 } flag_messages_input_t;
 
 static void setup_flag_messages   (gpointer in_data, gpointer op_data, CamelException *ex);
@@ -468,7 +469,8 @@ static void do_flag_messages (gpointer in_data, gpointer op_data, CamelException
 	gint i;
 
 	for (i = 0; i < input->uids->len; i++) {
-		mail_tool_set_uid_flags (input->source, input->uids->pdata[i], input->flags);
+		mail_tool_set_uid_flags (input->source, input->uids->pdata[i], 
+					 input->mask, input->set);
 		g_free (input->uids->pdata[i]);
 	}
 }
@@ -491,15 +493,17 @@ static const mail_operation_spec op_flag_messages =
 	cleanup_flag_messages
 };
 
-void mail_do_flag_messages (CamelFolder *source, GPtrArray *uids, guint32 flags)
+void mail_do_flag_messages (CamelFolder *source, GPtrArray *uids, 
+			    guint32 mask, guint32 set)
 {
 	flag_messages_input_t *input;
 
 	input = g_new (flag_messages_input_t, 1);
 	input->source = source;
 	input->uids = uids;
-	input->flags = flags;
-	
+	input->mask = mask;
+	input->set = set;
+
 	mail_operation_queue (&op_flag_messages, input, TRUE);
 }
 

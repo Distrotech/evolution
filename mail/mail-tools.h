@@ -59,7 +59,7 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelExc
 
 /* Sets the flags on a message represented by a UID in a folder. */
 void
-mail_tool_set_uid_flags (CamelFolder *folder, const char *uid, guint32 set);
+mail_tool_set_uid_flags (CamelFolder *folder, const char *uid, guint32 mask, guint32 set);
 
 /* Generates the subject for a message forwarding @msg */
 gchar *

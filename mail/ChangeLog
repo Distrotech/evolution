@@ -1,5 +1,11 @@
 2000-07-24  Peter Williams  <peterw@helixcode.com>
 
+	* mail-tools.c (mail_tool_set_uid_flags): Change
+	function to faithfully pass parameters to
+	camel_folder_set_message_flags; this function is
+	somewhat useless now. Other files synced with
+	API change.
+
 	* mail-ops.c (op_display_message): Change "display
 	a message" into "retrieve a messsage" in the
 	description of mail_op_display_message.
