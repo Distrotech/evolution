@@ -240,7 +240,7 @@ real_fetch_mail (gpointer user_data)
 				goto cleanup;
 			}
 			
-			uids = camel_folder_get_uids (sourcefolder, ex);
+			uids = camel_folder_get_uids (sourcefolder);
 			printf("got %d messages in source\n", uids->len);
 			for (i = 0; i < uids->len; i++) {
 				CamelMimeMessage *msg;
@@ -263,7 +263,7 @@ real_fetch_mail (gpointer user_data)
 					goto cleanup;
 				}
 
-				camel_folder_delete_message (sourcefolder, uids->pdata[i], ex);
+				camel_folder_delete_message (sourcefolder, uids->pdata[i]);
 				gtk_object_unref (GTK_OBJECT (msg));
 			}
 			camel_folder_free_uids (sourcefolder, uids);
@@ -276,7 +276,7 @@ real_fetch_mail (gpointer user_data)
 		}
 	}
 
-	if (camel_folder_get_message_count (folder, ex) == 0) {
+	if (camel_folder_get_message_count (folder) == 0) {
 		gnome_ok_dialog ("No new messages.");
 		goto cleanup;
 	} else if (camel_exception_is_set (ex)) {
@@ -448,9 +448,9 @@ real_send_mail (gpointer user_data)
 			guint32 set;
 
 			set = camel_folder_get_message_flags (psd->folder,
-							      psd->uid, ex);
+							      psd->uid);
 			camel_folder_set_message_flags (psd->folder, psd->uid,
-							psd->flags, ~set, ex);
+							psd->flags, ~set);
 		}
 		info->ok = TRUE;
 
@@ -759,17 +759,13 @@ refile_msg (GtkWidget *button, gpointer user_data)
 static void
 real_delete_msg (MessageList *ml, const char *uid, gpointer user_data)
 {
-	CamelException *ex = user_data;
 	guint32 flags;
 
-	if (camel_exception_is_set (ex))
-		return;
-
 	/* Toggle the deleted flag without touching other flags. */
-	flags = camel_folder_get_message_flags (ml->folder, uid, ex);
+	flags = camel_folder_get_message_flags (ml->folder, uid);
 	camel_folder_set_message_flags (ml->folder, uid,
 					CAMEL_MESSAGE_DELETED,
-					~flags, ex);
+					~flags);
 }
 
 void
@@ -777,16 +773,8 @@ delete_msg (GtkWidget *button, gpointer user_data)
 {
 	FolderBrowser *fb = user_data;
 	MessageList *ml = fb->message_list;
-	CamelException ex;
 
-	camel_exception_init (&ex);
-	message_list_foreach (ml, real_delete_msg, &ex);
-	if (camel_exception_is_set (&ex)) {
-		mail_exception_dialog ("Could not toggle deleted flag",
-				       &ex, fb);
-		camel_exception_clear (&ex);
-		return;
-	}
+	message_list_foreach (ml, real_delete_msg, NULL);
 }
 
 static void real_expunge_folder (gpointer user_data)

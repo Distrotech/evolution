@@ -539,7 +539,7 @@ main (int argc, char**argv)
 	}
 #endif
 
-	summary = camel_folder_get_summary(folder, ex);
+	summary = camel_folder_get_summary(folder);
 	thread_messages((CamelMessageInfo **)summary->pdata, summary->len);
 
 	return 0;
