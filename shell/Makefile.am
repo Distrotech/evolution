@@ -117,6 +117,7 @@ eshellinclude_HEADERS = 			\
 	e-corba-storage.h			\
 	e-folder-dnd-bridge.h			\
 	e-folder-list.h				\
+	e-folder-selection-dialog.h		\
 	e-folder-tree.h				\
 	e-folder-type-registry.h		\
 	e-folder.h				\
@@ -147,6 +148,7 @@ libeshell_la_SOURCES = 				\
 	e-corba-storage.c			\
 	e-folder-dnd-bridge.c			\
 	e-folder-list.c				\
+	e-folder-selection-dialog.c		\
 	e-folder-tree.c				\
 	e-folder-type-registry.c		\
 	e-folder.c				\

@@ -1,3 +1,9 @@
+2003-09-29  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-folder-selection-dialog.c, e-folder-selection-dialog.h: New
+	files, based on e-shell-folder-selection-dialog.[ch].  These don't
+	require the shell, they just need an EStorageSet to work.
+
 2003-09-23  Charles Zhang  <charles.zhang@sun.com>
 
 	* e-shell-startup-wizard.c (e_shell_startup_wizard_create): connect
