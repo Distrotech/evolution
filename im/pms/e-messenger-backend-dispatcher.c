@@ -37,8 +37,17 @@ impl_MessengerBackendDispatcher_signon(
 		klass = E_MESSENGER_BACKEND_GET_CLASS(backend);
 
 		if (g_strcasecmp(backend->service_name, service_name) == 0) {
-			identity = g_strdup_printf(
-				"%s@%s", signon, backend->service_name);
+			identity = e_messenger_identity_create_string(
+				backend->service_name, signon, NULL);
+
+			if (backend->listener) {
+				g_warning("There is already a listener for "
+					  "backend %s (%p)",
+					  backend->service_name, backend);
+			}
+
+			backend->listener = bonobo_object_dup_ref(
+				listener, ev);
 	
 			err = (klass->signon)(
 				backend, signon, password, listener);

@@ -109,11 +109,6 @@ aol_toc_signon(EMessengerBackend *b, const char *name, const char *password,
 	TOCConnection *conn;
 	TOCConnectionStatus s;
 
-	if (b->listener)
-		g_warning("There is already a listener for backend %p\n", b);
-			  
-	b->listener = bonobo_object_dup_ref(listener, NULL);
-
 	conn = toc_connection_new();
 	gtk_object_set_user_data(GTK_OBJECT(conn), g_strdup(name));
 	gtk_signal_connect(
