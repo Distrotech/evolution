@@ -270,9 +270,8 @@ new_view_created_callback (EShell *shell,
 			   EShellView *view,
 			   void *data)
 {
-	gtk_signal_disconnect_by_func (GTK_OBJECT (shell),
-				       G_CALLBACK (new_view_created_callback),
-				       data);
+	g_signal_handlers_disconnect_by_func (
+			G_OBJECT (shell), G_CALLBACK (new_view_created_callback), data);
 
 	g_signal_connect (view, "map", G_CALLBACK (view_map_callback), NULL);
 }

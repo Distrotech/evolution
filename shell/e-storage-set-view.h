@@ -23,22 +23,19 @@
 #ifndef __E_STORAGE_SET_VIEW_H__
 #define __E_STORAGE_SET_VIEW_H__
 
-#include <gal/e-table/e-tree.h>
+#include <gtk/gtktreeview.h>
 #include <bonobo/bonobo-ui-container.h>
 #include "e-storage-set.h"
 
-#ifdef __cplusplus
-extern "C" {
-#pragma }
-#endif /* __cplusplus */
+G_BEGIN_DECLS
 
 #define E_TYPE_STORAGE_SET_VIEW			(e_storage_set_view_get_type ())
-#define E_STORAGE_SET_VIEW(obj)			(GTK_CHECK_CAST ((obj), E_TYPE_STORAGE_SET_VIEW, EStorageSetView))
-#define E_STORAGE_SET_VIEW_CLASS(klass)		(GTK_CHECK_CLASS_CAST ((klass), E_TYPE_STORAGE_SET_VIEW, EStorageSetViewClass))
-#define E_IS_STORAGE_SET_VIEW(obj)		(GTK_CHECK_TYPE ((obj), E_TYPE_STORAGE_SET_VIEW))
-#define E_IS_STORAGE_SET_VIEW_CLASS(klass)	(GTK_CHECK_CLASS_TYPE ((obj), E_TYPE_STORAGE_SET_VIEW))
+#define E_STORAGE_SET_VIEW(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_STORAGE_SET_VIEW, EStorageSetView))
+#define E_STORAGE_SET_VIEW_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_STORAGE_SET_VIEW, EStorageSetViewClass))
+#define E_IS_STORAGE_SET_VIEW(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_STORAGE_SET_VIEW))
+#define E_IS_STORAGE_SET_VIEW_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((obj), E_TYPE_STORAGE_SET_VIEW))
+#define E_STORAGE_SET_VIEW_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_STORAGE_SET_VIEW, EStorageSetViewClass))
 
-
 typedef gboolean (* EStorageSetViewHasCheckBoxFunc)  (EStorageSet *storage_set,
 						      const char  *path,
 						      void        *data);
@@ -48,13 +45,13 @@ typedef struct _EStorageSetViewPrivate EStorageSetViewPrivate;
 typedef struct _EStorageSetViewClass   EStorageSetViewClass;
 
 struct _EStorageSetView {
-	ETree parent;
+	GtkTreeView parent;
 
 	EStorageSetViewPrivate *priv;
 };
 
 struct _EStorageSetViewClass {
-	ETreeClass parent_class;
+	GtkTreeViewClass parent_class;
 
 	/* Signals.  */
 
@@ -76,7 +73,7 @@ struct _EStorageSetViewClass {
 };
 
 
-GtkType    e_storage_set_view_get_type          (void);
+GType      e_storage_set_view_get_type          (void);
 
 /* DON'T USE THIS. Use e_storage_set_new_view() instead. */
 GtkWidget *e_storage_set_view_new        (EStorageSet       *storage_set,
@@ -114,9 +111,11 @@ gboolean  e_storage_set_view_get_allow_dnd  (EStorageSetView *storage_set_view);
 						    
 const char *e_storage_set_view_get_right_click_path  (EStorageSetView *storage_set_view);
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+void e_storage_set_view_save_expanded_state (EStorageSetView *storage_set_view, 
+					     const gchar *filename);
+void e_storage_set_view_load_expanded_state (EStorageSetView *storage_set_view, 
+					     const gchar *filename);
 
+G_END_DECLS
 
 #endif /* __E_STORAGE_SET_VIEW_H__ */

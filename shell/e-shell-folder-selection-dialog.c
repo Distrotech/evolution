@@ -172,7 +172,7 @@ save_expanded_state (EShellFolderSelectionDialog *folder_selection_dialog)
 
 	filename = g_strdup_printf ("%s/config/storage-set-view-expanded:folder-selection-dialog",
 				    e_shell_get_local_directory (priv->shell));
-	e_tree_save_expanded_state (E_TREE (priv->storage_set_view), filename);
+	e_storage_set_view_save_expanded_state (E_STORAGE_SET_VIEW (priv->storage_set_view), filename);
 	g_free (filename);
 }
 
@@ -345,12 +345,10 @@ delete_event_cb (GtkWidget *w, GdkEvent *event, gpointer data)
 }
 
 static void
-double_click_cb (EStorageSetView *essv,
-		 int row,
-		 ETreePath path,
-		 int col,
-		 GdkEvent *event,
-		 EShellFolderSelectionDialog *folder_selection_dialog)
+row_activated_cb (EStorageSetView *essv, 
+		  GtkTreePath *path, 
+		  GtkTreeViewColumn *col, 
+		  EShellFolderSelectionDialog *folder_selection_dialog)
 {
 	g_return_if_fail (folder_selection_dialog != NULL);
 
@@ -445,12 +443,12 @@ e_shell_folder_selection_dialog_construct (EShellFolderSelectionDialog *folder_s
 	filename = g_strdup_printf ("%s/config/storage-set-view-expanded:folder-selection-dialog",
 				    e_shell_get_local_directory (priv->shell));
 
-	e_tree_load_expanded_state (E_TREE (priv->storage_set_view),
-				    filename);
+	e_storage_set_view_load_expanded_state (E_STORAGE_SET_VIEW (priv->storage_set_view),
+						filename);
 
 	g_free (filename);
 
-	g_signal_connect (priv->storage_set_view, "double_click", G_CALLBACK (double_click_cb), folder_selection_dialog);
+	g_signal_connect (priv->storage_set_view, "row_activated", G_CALLBACK (row_activated_cb), folder_selection_dialog);
 	g_signal_connect (priv->storage_set_view, "folder_selected", G_CALLBACK (folder_selected_cb), folder_selection_dialog);
 
 	g_assert (priv->allowed_types == NULL);
