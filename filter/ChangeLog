@@ -1,3 +1,7 @@
+2003-09-29  Ettore Perazzoli  <ettore@ximian.com>
+
+	* filter-folder.c (get_widget): Use an EMFolderSelectionButton.
+
 2003-09-22  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* filter-int.c (get_widget): Listen to the "value-changed" signal
