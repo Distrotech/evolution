@@ -268,7 +268,6 @@ emfp_dialog_got_folder (char *uri, CamelFolder *folder, void *data)
 					      NULL);
 	gtk_window_set_default_size ((GtkWindow *) dialog, 192, 160);
 	gtk_widget_ensure_style (dialog);
-	gtk_container_set_border_width ((GtkContainer *) ((GtkDialog *) dialog)->vbox, 0);
 	gtk_container_set_border_width ((GtkContainer *) ((GtkDialog *) dialog)->vbox, 12);
 
 	ec = em_config_new("com.novell.evolution.mail.folderConfig");
@@ -281,7 +280,6 @@ emfp_dialog_got_folder (char *uri, CamelFolder *folder, void *data)
 	target = em_config_target_new_folder(ec, folder, uri);
 	w = e_config_create_widget((EConfig *)ec, (EConfigTarget *)target);
 
-	gtk_container_set_border_width((GtkContainer *)w, 12);
 	gtk_box_pack_start ((GtkBox *) ((GtkDialog *) dialog)->vbox, w, TRUE, TRUE, 0);
 
 	/* we do 'apply on ok' ... since instant apply may apply some very long running tasks */

@@ -170,6 +170,8 @@ em_format_get_type(void)
 void
 em_format_class_add_handler(EMFormatClass *emfc, EMFormatHandler *info)
 {
+	printf("adding handler '%s'\n", info->mime_type);
+
 	g_hash_table_insert(emfc->type_handlers, info->mime_type, info);
 	/* FIXME: do we care?  This is really gui stuff */
 	/*
@@ -268,6 +270,8 @@ em_format_add_puri(EMFormat *emf, size_t size, const char *cid, CamelMimePart *p
 {
 	EMFormatPURI *puri;
 	const char *tmp;
+
+	printf("adding puri for part: %s\n", emf->part_id->str);
 
 	g_assert(size >= sizeof(*puri));
 	puri = g_malloc0(size);
@@ -382,13 +386,13 @@ em_format_find_visible_puri(EMFormat *emf, const char *uri)
 	EMFormatPURI *pw;
 	struct _EMFormatPURITree *ptree;
 
-	d(printf("checking for visible uri '%s'\n", uri));
+	(printf("checking for visible uri '%s'\n", uri));
 
 	ptree = emf->pending_uri_level;
 	while (ptree) {
 		pw = (EMFormatPURI *)ptree->uri_list.head;
 		while (pw->next) {
-			d(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
+			(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
 			if ((pw->uri && !strcmp(pw->uri, uri)) || !strcmp(pw->cid, uri))
 				return pw;
 			pw = pw->next;

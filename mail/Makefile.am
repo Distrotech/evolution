@@ -94,6 +94,8 @@ libevolution_mail_la_SOURCES =			\
 	em-folder-browser.h			\
 	em-format.c				\
 	em-format.h				\
+	em-format-hook.c			\
+	em-format-hook.h			\
 	em-format-html.c			\
 	em-format-html.h			\
 	em-format-html-display.c		\
