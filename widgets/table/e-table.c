@@ -1310,6 +1310,8 @@ e_table_get_state_object (ETable *e_table)
 	int i, j;
 
 	state = e_table_state_new();
+	if (state->sort_info)
+		gtk_object_unref (GTK_OBJECT (state->sort_info));
 	state->sort_info = e_table->sort_info;
 	gtk_object_ref(GTK_OBJECT(state->sort_info));
 
