@@ -35,6 +35,8 @@
 #include "widgets/misc/e-task-bar.h"
 #include "widgets/misc/e-info-label.h"
 
+#include "shell/e-component-view.h"
+
 #include <string.h>
 #include <bonobo/bonobo-i18n.h>
 #include <gtk/gtkimage.h>
@@ -56,25 +58,20 @@ struct _AddressbookComponentPrivate {
 
 /* Evolution::Component CORBA methods.  */
 
-static void
-impl_createControls (PortableServer_Servant servant,
-		     Bonobo_Control *corba_sidebar_control,
-		     Bonobo_Control *corba_view_control,
-		     Bonobo_Control *corba_statusbar_control,
-		     CORBA_Environment *ev)
+static GNOME_Evolution_ComponentView
+impl_createView (PortableServer_Servant servant,
+		 GNOME_Evolution_ShellView parent,
+		 CORBA_Environment *ev)
 {
 	AddressbookView *view = addressbook_view_new ();
-	BonoboControl *sidebar_control;
-	BonoboControl *view_control;
-	BonoboControl *statusbar_control;
+	EComponentView *component_view;
 
-	sidebar_control = bonobo_control_new (addressbook_view_peek_sidebar (view));
-	view_control = addressbook_view_peek_folder_view (view);
-	statusbar_control = bonobo_control_new (addressbook_view_peek_statusbar (view));
+	component_view = e_component_view_new_controls (parent, "contacts",
+							bonobo_control_new (addressbook_view_peek_sidebar (view)),
+							addressbook_view_peek_folder_view (view),
+							bonobo_control_new (addressbook_view_peek_statusbar (view)));
 
-	*corba_sidebar_control = CORBA_Object_duplicate (BONOBO_OBJREF (sidebar_control), ev);
-	*corba_view_control = CORBA_Object_duplicate (BONOBO_OBJREF (view_control), ev);
-	*corba_statusbar_control = CORBA_Object_duplicate (BONOBO_OBJREF (statusbar_control), ev);
+	return BONOBO_OBJREF(component_view);
 }
 
 static GNOME_Evolution_CreatableItemTypeList *
@@ -230,7 +227,7 @@ addressbook_component_class_init (AddressbookComponentClass *class)
 	POA_GNOME_Evolution_Component__epv *epv = &class->epv;
 	GObjectClass *object_class = G_OBJECT_CLASS (class);
 
-	epv->createControls          = impl_createControls;
+	epv->createView              = impl_createView;
 	epv->_get_userCreatableItems = impl__get_userCreatableItems;
 	epv->requestCreateItem       = impl_requestCreateItem;
 	epv->upgradeFromVersion      = impl_upgradeFromVersion;

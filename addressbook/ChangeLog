@@ -1,3 +1,8 @@
+2004-06-28  Not Zed  <NotZed@Ximian.com>
+
+	* gui/component/addressbook-component.c (impl_createView): changed
+	from createControls for new shell apis.
+
 2004-06-24  Hans Petter Jansson  <hpj@ximian.com>
 
 	* gui/contact-editor/e-contact-editor.c (address_labels): Add table.
