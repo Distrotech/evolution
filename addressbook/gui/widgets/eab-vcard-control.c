@@ -207,16 +207,13 @@ save_in_addressbook(GtkWidget *button, gpointer data)
 {
 	EABVCardControl *vcard_control = data;
 	GList *list, *p;
-	EBook *book;
-
-	book = e_book_new ();
 
 	list = g_list_copy (vcard_control->card_list);
 
 	for (p = list; p; p = p->next)
 		g_object_ref (p->data);
 
-	addressbook_load_default_book (book, book_open_cb, list);
+	addressbook_load_default_book (book_open_cb, list);
 }
 
 static void

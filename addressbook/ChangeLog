@@ -1,5 +1,15 @@
 2003-10-01  Chris Toshok  <toshok@ximian.com>
 
+	* gui/widgets/eab-contact-display.c (render_address): move the :'s
+	inside the <b>'s.  Thanks for pointing this out, guenther. :)
+	(eab_contact_display_render_normal): same.
+	(eab_contact_display_render_compact): same.
+
+	* gui/widgets/eab-vcard-control.c (save_in_addressbook): track
+	change to address_load_default_book.
+
+2003-10-01  Chris Toshok  <toshok@ximian.com>
+
 	* gui/component/Makefile.am: remove some commented out crap about
 	e-address-popup.[ch].
 

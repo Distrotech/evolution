@@ -88,7 +88,7 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 		char *html = e_text_to_html (label, E_TEXT_TO_HTML_CONVERT_NL);
 
 		gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
-		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>%s<br>", html_label, html);
+		gtk_html_stream_printf (html_stream, "<b>%s:</b>&nbsp;<td>%s<br>", html_label, html);
 
 		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">%s</a>", _("Map It"));
 		gtk_html_stream_printf (html_stream, "</td></tr></table>");
@@ -101,7 +101,7 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 	    (adr->po || adr->ext || adr->street || adr->locality || adr->region || adr->code || adr->country)) {
 
 		gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
-		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", html_label);
+		gtk_html_stream_printf (html_stream, "<b>%s:</b>&nbsp;<td>", html_label);
 
 		if (adr->po && *adr->po) gtk_html_stream_printf (html_stream, "%s<br>", adr->po);
 		if (adr->ext && *adr->ext) gtk_html_stream_printf (html_stream, "%s<br>", adr->ext);
@@ -168,7 +168,7 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 			GList *l;
 
 			gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
-			gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", _("List Members"));
+			gtk_html_stream_printf (html_stream, "<b>%s:</b>&nbsp;<td>", _("List Members"));
 
 			email_list = e_contact_get (contact, E_CONTACT_EMAIL);
 			for (l = email_list; l; l = l->next) {
@@ -187,26 +187,26 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 			str = e_contact_get_const (contact, E_CONTACT_TITLE);
 			if (str) {
 				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Job Title"), str);
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Job Title"), str);
 				g_free (html);
 			}
 
 			str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
 			if (str) {
 				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), html);
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Email"), html);
 				g_free (html);
 			}
 			str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
 			if (str) {
 				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Email"), str);
 				g_free (html);
 			}
 			str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
 			if (str) {
 				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Email"), str);
 				g_free (html);
 			}
 
@@ -220,7 +220,7 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 			str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
 			if (str) {
 				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
 							_("Home page"), html);
 				g_free (html);
 			}
@@ -228,7 +228,7 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 			str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
 			if (str) {
 				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
 							_("Blog"), html);
 			}
 		}
@@ -325,7 +325,7 @@ eab_contact_display_render_compact (EABContactDisplay *display, EContact *contac
 			GList *l;
 
 			gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
-			gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", _("List Members"));
+			gtk_html_stream_printf (html_stream, "<b>%s:</b>&nbsp;<td>", _("List Members"));
 
 			email_list = e_contact_get (contact, E_CONTACT_EMAIL);
 			for (l = email_list; l; l = l->next) {
@@ -345,11 +345,11 @@ eab_contact_display_render_compact (EABContactDisplay *display, EContact *contac
 			str = e_contact_get_const (contact, E_CONTACT_TITLE);
 			if (str) {
 				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Job Title"), str);
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Job Title"), str);
 				g_free (html);
 			}
 
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: ", _("Email"));
+			gtk_html_stream_printf (html_stream, "<b>%s:</b> ", _("Email"));
 			str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
 			if (str) {
 				html = e_text_to_html (str, 0);
@@ -375,7 +375,7 @@ eab_contact_display_render_compact (EABContactDisplay *display, EContact *contac
 			str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
 			if (str) {
 				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
 							_("Home page"), html);
 				g_free (html);
 			}
@@ -383,7 +383,7 @@ eab_contact_display_render_compact (EABContactDisplay *display, EContact *contac
 			str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
 			if (str) {
 				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
-				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
 							_("Blog"), html);
 			}
 		}
