@@ -58,6 +58,45 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 	}
 }
 
+static void
+render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_label, EContactField adr_field, EContactField label_field)
+{
+	EContactAddress *adr;
+	const char *label;
+
+	label = e_contact_get_const (contact, label_field);
+	if (label) {
+		gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
+		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td><pre>", html_label);
+		gtk_html_stream_write (html_stream, label, strlen (label));
+		gtk_html_stream_printf (html_stream, "</pre><br>");
+		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">Map It</a>");
+		gtk_html_stream_printf (html_stream, "</td></tr></table>");
+		return;
+	}
+
+	adr = e_contact_get (contact, adr_field);
+	if (adr &&
+	    (adr->po || adr->ext || adr->street || adr->locality || adr->region || adr->code || adr->country)) {
+
+		gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
+		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", html_label);
+
+		if (adr->po && *adr->po) gtk_html_stream_printf (html_stream, "%s<br>", adr->po);
+		if (adr->ext && *adr->ext) gtk_html_stream_printf (html_stream, "%s<br>", adr->ext);
+		if (adr->street && *adr->street) gtk_html_stream_printf (html_stream, "%s<br>", adr->street);
+		if (adr->locality && *adr->locality) gtk_html_stream_printf (html_stream, "%s<br>", adr->locality);
+		if (adr->region && *adr->region) gtk_html_stream_printf (html_stream, "%s<br>", adr->region);
+		if (adr->code && *adr->code) gtk_html_stream_printf (html_stream, "%s<br>", adr->code);
+		if (adr->country && *adr->country) gtk_html_stream_printf (html_stream, "%s<br>", adr->country);
+
+		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">Map It</a>");
+		gtk_html_stream_printf (html_stream, "</td></tr></table>");
+	}
+	if (adr)
+		e_contact_address_free (adr);
+}
+
 void
 eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 {
@@ -101,11 +140,31 @@ eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 		if (str)
 			gtk_html_stream_printf (html_stream, "<b>Job Title</b>: %s<br>", str);
 
+		str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
+		if (str)
+			gtk_html_stream_printf (html_stream, "<b>Email</b>: %s<br>", str);
+		str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
+		if (str)
+			gtk_html_stream_printf (html_stream, "<b>Email</b>: %s<br>", str);
+		str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
+		if (str)
+			gtk_html_stream_printf (html_stream, "<b>Email</b>: %s<br>", str);
+
+
+		render_address (html_stream, contact, "Home Address",  E_CONTACT_ADDRESS_HOME,  E_CONTACT_ADDRESS_LABEL_HOME);
+		render_address (html_stream, contact, "Work Address",  E_CONTACT_ADDRESS_WORK,  E_CONTACT_ADDRESS_LABEL_WORK);
+		render_address (html_stream, contact, "Other Address", E_CONTACT_ADDRESS_OTHER, E_CONTACT_ADDRESS_LABEL_OTHER);
+
 		gtk_html_stream_printf (html_stream, "<hr>");
 
 		str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
 		if (str)
 			gtk_html_stream_printf (html_stream, "<b>Home page</b>: <a href=\"%s\">%s</a><br>",
+						str, str);
+
+		str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
+		if (str)
+			gtk_html_stream_printf (html_stream, "<b>Blog</b>: <a href=\"%s\">%s</a><br>",
 						str, str);
 
 		gtk_html_stream_printf (html_stream, "</td></tr></table>\n");

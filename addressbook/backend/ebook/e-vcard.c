@@ -247,9 +247,9 @@ read_attribute_value (EVCardAttribute *attr, char **p, gboolean quoted_printable
 				g_warning ("invalid escape, passing it through");
 				str = g_string_append_c (str, '\\');
 				str = g_string_append_unichar (str, g_utf8_get_char(lp));
-				lp = g_utf8_next_char(lp);
 				break;
 			}
+			lp = g_utf8_next_char(lp);
 		}
 		else if (*lp == ';') {
 			e_vcard_attribute_add_value (attr, g_string_free (str, FALSE));

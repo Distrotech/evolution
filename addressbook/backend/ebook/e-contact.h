@@ -49,6 +49,11 @@ typedef enum {
 	E_CONTACT_ADDRESS_WORK,  /* synthetic structured field (EContactAddress) */
 	E_CONTACT_ADDRESS_OTHER, /* synthetic structured field (EContactAddress) */
 
+	/* Address Labels */
+	E_CONTACT_ADDRESS_LABEL_HOME,  /* synthetic string field */
+	E_CONTACT_ADDRESS_LABEL_WORK,  /* synthetic string field */
+	E_CONTACT_ADDRESS_LABEL_OTHER, /* synthetic string field */
+
 	/* Instant Messaging fields */
 	E_CONTACT_IM_AIM,     	 /* Multi-valued */
 	E_CONTACT_IM_JABBER,  	 /* Multi-valued */
@@ -67,6 +72,7 @@ typedef enum {
 
 	/* Web fields */
 	E_CONTACT_HOMEPAGE_URL,  /* string field */
+	E_CONTACT_BLOG_URL,      /* string field */
 
 	/* Photo/Logo */
 	E_CONTACT_PHOTO,       	 /* structured field (EContactPhoto) */
@@ -87,6 +93,19 @@ typedef struct {
 	int length;
 	char *data;
 } EContactPhoto;
+
+typedef struct {
+	char *address_format; /* the two letter country code that
+				 determines the format/meaning of the
+				 following fields */
+	char *po;
+	char *ext;
+	char *street;
+	char *locality;
+	char *region;
+	char *code;
+	char *country;
+} EContactAddress;
 
 struct _EContact {
 	EVCard parent;
@@ -119,6 +138,7 @@ void                    e_contact_set             (EContact *contact, EContactFi
 /* destructors for structured values */
 void                    e_contact_name_free       (EContactName *name);
 void                    e_contact_photo_free      (EContactPhoto *photo);
+void                    e_contact_address_free    (EContactAddress *address);
 
 
 const char*             e_contact_field_name      (EContactField field_id);

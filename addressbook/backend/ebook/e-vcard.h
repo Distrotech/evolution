@@ -33,6 +33,7 @@
 #define EVC_FBURL           "FBURL"
 #define EVC_FN              "FN"
 #define EVC_ICSCALENDAR     "ICSCALENDAR" /* XXX should this be X-EVOLUTION-ICSCALENDAR? */
+#define EVC_LABEL           "LABEL"
 #define EVC_NICKNAME        "NICKNAME"
 #define EVC_N               "N"
 #define EVC_NOTE            "NOTE"
@@ -53,6 +54,7 @@
 #define EVC_X_ANNIVERSARY   "X-EVOLUTION-ANNIVERSARY"
 #define EVC_X_ASSISTANT     "X-EVOLUTION-ASSISTANT"
 #define EVC_X_BIRTHDAY      "X-EVOLUTION-BIRTHDAY"
+#define EVC_X_BLOG_URL      "X-EVOLUTION-BLOG-URL"
 #define EVC_X_FILE_AS       "X-EVOLUTION-FILE-AS"
 #define EVC_X_ICQ           "X-ICQ"
 #define EVC_X_JABBER        "X-JABBER"

@@ -1,3 +1,28 @@
+2003-09-07  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/e-contact.c (e_contact_get_property): implement
+	getters for the address labels.  they aren't really synthetic, but
+	we can't handle them as normal strings because they switch off the
+	TYPE parameter, not the attribute name (go go vcard.)  Also add
+	getters for the structured address fields (ADR).  Also fix a spot
+	where we were using strcmp instead of strcasecmp.
+	(e_contact_address_free): new function.
+
+	* backend/ebook/e-contact.h: Add EContactAddress structure, which
+	will probably go away once i merge in my cool spiffy address
+	editor.  Add LABEL fields for the address labels, and add
+	prototype for e_contact_address_free.
+
+	* backend/ebook/e-vcard.h: add EVC_LABEL and EVC_X_BLOG_URL.
+
+	* backend/ebook/e-vcard.c (read_attribute_value): step to the next
+	character after unescaping \-escaped characters.  keeps commas
+	from multiplying.
+
+	* gui/widgets/eab-contact-display.c (render_address): new function
+	(eab_contact_display_render): display email, delivery addresses,
+	and the blog url.
+
 2003-09-06  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-contact.c (e_contact_set_property): implement

@@ -72,6 +72,10 @@ static EContactFieldInfo field_info[] = {
 	SYNTH_STRUCT_FIELD (E_CONTACT_ADDRESS_WORK,             "address_work",  N_("Work Address"),  FALSE),
 	SYNTH_STRUCT_FIELD (E_CONTACT_ADDRESS_OTHER,            "address_other", N_("Other Address"), FALSE),
 
+	SYNTH_STR_FIELD (E_CONTACT_ADDRESS_LABEL_HOME,          "address_label_home",  N_("Home Address Label"),  NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_ADDRESS_LABEL_WORK,          "address_label_work",  N_("Work Address Label"),  NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_ADDRESS_LABEL_OTHER,         "address_label_other", N_("Other Address Label"), NULL, FALSE),
+
 	/* Email fields */
 	GLIST_FIELD     (E_CONTACT_EMAIL,      EVC_EMAIL, "email",      N_("Email List"),       FALSE),
 	SYNTH_STR_FIELD (E_CONTACT_EMAIL_1,               "email_1",    N_("Email 1"),    NULL, FALSE),
@@ -95,7 +99,8 @@ static EContactFieldInfo field_info[] = {
 	STRING_FIELD    (E_CONTACT_ASSISTANT, EVC_X_MANAGER, "assistant", N_("Assistant"),           NULL, FALSE),
 
 	/* Web fields */
-	STRING_FIELD (E_CONTACT_HOMEPAGE_URL, EVC_URL, "homepage_url", N_("Homepage"), NULL, FALSE),
+	STRING_FIELD (E_CONTACT_HOMEPAGE_URL, EVC_URL,        "homepage_url", N_("Homepage URL"), NULL, FALSE),
+	STRING_FIELD (E_CONTACT_BLOG_URL,     EVC_X_BLOG_URL, "blog_url", N_("Weblog URL"),       NULL, FALSE),
 
 	/* Photo/Logo */
 	STRUCT_FIELD    (E_CONTACT_PHOTO,     EVC_PHOTO, "photo",      N_("Photo"),          FALSE),
@@ -462,6 +467,7 @@ e_contact_get_property (GObject *object,
 			g_list_foreach (emails, (GFunc)g_free, NULL);
 			g_list_free (emails);
 			break;
+		}
 		case E_CONTACT_GIVEN_NAME:
 		case E_CONTACT_FAMILY_NAME: {
 			EContactName *name = e_contact_get (contact, E_CONTACT_NAME);
@@ -497,6 +503,101 @@ e_contact_get_property (GObject *object,
 			g_value_set_string (value, uri);
 			break;
 		}
+		case E_CONTACT_ADDRESS_LABEL_HOME:
+		case E_CONTACT_ADDRESS_LABEL_WORK:
+		case E_CONTACT_ADDRESS_LABEL_OTHER: {
+			char *adr_types[3] = { "HOME", "WORK", "OTHER" };
+			char *type_needed = adr_types[info->field_id - E_CONTACT_ADDRESS_LABEL_HOME];
+			GList *l, *attrs;
+
+			attrs = e_vcard_get_attributes (E_VCARD (contact));
+
+			for (l = attrs; l; l = l->next) {
+				EVCardAttribute *attr = l->data;
+				const char *name, *group;
+
+				group = e_vcard_attribute_get_group (attr);
+				name = e_vcard_attribute_get_name (attr);
+
+				/* all the attributes we care about should be in group "" */
+				if ((!group || !*group) && !strcasecmp (name, EVC_LABEL)) {
+					GList *params;
+
+					for (params = e_vcard_attribute_get_params (attr);
+					     params;
+					     params = params->next) {
+						EVCardAttributeParam *param = params->data;
+						const char *name;
+
+						name = e_vcard_attribute_param_get_name (param);
+
+						if (!strcasecmp (name, EVC_TYPE)) {
+							GList *values = e_vcard_attribute_param_get_values (param);
+							if (values && values->data && strcasecmp ((char*)values->data, type_needed)) {
+								GList *p = e_vcard_attribute_get_values (attr);
+
+								g_value_set_string (value, p->data);
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			break;
+		}
+		case E_CONTACT_ADDRESS_HOME:
+		case E_CONTACT_ADDRESS_WORK:
+		case E_CONTACT_ADDRESS_OTHER: {
+			char *adr_types[3] = { "HOME", "WORK", "OTHER" };
+			char *type_needed = adr_types[info->field_id - E_CONTACT_ADDRESS_HOME];
+			EContactAddress *addr = g_new0 (EContactAddress, 1);
+			GList *l, *attrs;
+
+			attrs = e_vcard_get_attributes (E_VCARD (contact));
+
+			for (l = attrs; l; l = l->next) {
+				EVCardAttribute *attr = l->data;
+				const char *name, *group;
+
+				group = e_vcard_attribute_get_group (attr);
+				name = e_vcard_attribute_get_name (attr);
+
+				/* all the attributes we care about should be in group "" */
+				if ((!group || !*group) && !strcasecmp (name, EVC_ADR)) {
+					GList *params;
+
+					for (params = e_vcard_attribute_get_params (attr);
+					     params;
+					     params = params->next) {
+						EVCardAttributeParam *param = params->data;
+						const char *name;
+
+						name = e_vcard_attribute_param_get_name (param);
+
+						if (!strcasecmp (name, EVC_TYPE)) {
+							GList *values = e_vcard_attribute_param_get_values (param);
+							if (values && values->data && strcasecmp ((char*)values->data, type_needed)) {
+								GList *p = e_vcard_attribute_get_values (attr);
+
+								addr->po       = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+								addr->ext      = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+								addr->street   = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+								addr->locality = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+								addr->region   = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+								addr->code     = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+								addr->country  = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			g_value_set_pointer (value, addr);
+
+			break;
 		}
 		default:
 			g_warning ("unhandled synthetic field 0x%02x", info->field_id);
@@ -558,7 +659,7 @@ e_contact_get_property (GObject *object,
 			name = e_vcard_attribute_get_name (attr);
 
 			/* all the attributes we care about should be in group "" */
-			if ((!group || !*group) && !strcmp (name, info->vcard_field_name)) {
+			if ((!group || !*group) && !strcasecmp (name, info->vcard_field_name)) {
 
 				if (info->t & E_CONTACT_FIELD_TYPE_STRING) {
 					GList *v;
@@ -714,4 +815,19 @@ e_contact_photo_free (EContactPhoto *photo)
 {
 	g_free (photo->data);
 	g_free (photo);
+}
+
+void
+e_contact_address_free (EContactAddress *address)
+{
+	g_free (address->address_format);
+	g_free (address->po);
+	g_free (address->ext);
+	g_free (address->street);
+	g_free (address->locality);
+	g_free (address->region);
+	g_free (address->code);
+	g_free (address->country);
+
+	g_free (address);
 }
