@@ -13,10 +13,10 @@
 #define __PAS_BOOK_H__
 
 #include <pas/addressbook.h>
-#include <pas/pas-book-view.h>
+#include <bonobo/bonobo-object.h>
 #include "e-util/e-list.h"
 
-#include <pas/pas-backend.h>
+#include <pas/pas-types.h>
 
 #define PAS_TYPE_BOOK        (pas_book_get_type ())
 #define PAS_BOOK(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), PAS_TYPE_BOOK, PASBook))
@@ -25,7 +25,6 @@
 #define PAS_IS_BOOK_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), PAS_TYPE_BOOK))
 #define PAS_BOOK_GET_CLASS(k) (G_TYPE_INSTANCE_GET_CLASS ((obj), PAS_TYPE_BOOK, PASBookClass))
 
-typedef struct _PASBook        PASBook;
 typedef struct _PASBookPrivate PASBookPrivate;
 
 typedef enum {
@@ -114,7 +113,7 @@ struct _PASBook {
 	PASBookPrivate    *priv;
 };
 
-typedef struct {
+struct _PASBookClass {
 	BonoboObjectClass parent_class;
 
 	POA_GNOME_Evolution_Addressbook_Book__epv epv;
@@ -127,7 +126,7 @@ typedef struct {
 	void (*_pas_reserved2) (void);
 	void (*_pas_reserved3) (void);
 	void (*_pas_reserved4) (void);
-} PASBookClass;
+};
 
 
 PASBook                *pas_book_new                    (PASBackend                               *backend,

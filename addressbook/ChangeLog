@@ -1,5 +1,19 @@
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-book.c
+	(impl_GNOME_Evolution_Addressbook_Book_getBookView): spew.
+	(pas_book_respond_create): unifdef this.
+	(pas_book_respond_remove): same.
+	(pas_book_respond_modify): same.
+	(pas_book_respond_authenticate_user): same.
+	(pas_book_respond_get_supported_fields): unref the iterator.
+	(pas_book_respond_get_book_view): unifdef, and add spew.
+
+	* backend/pas/pas-book.h: make use of pas-types.h and remove some
+	typedefs.
+
+2003-07-23  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-types.h: new file, all the typedefs shared
 	between files here.
 

@@ -137,6 +137,8 @@ impl_GNOME_Evolution_Addressbook_Book_getBookView (PortableServer_Servant servan
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
 	PASRequest req;
 
+	printf ("impl_GNOME_Evolution_Addressbook_Book_getBookView\n");
+
 	req.op                     = GetBookView;
 	req.get_book_view.search   = search;
 	req.get_book_view.listener = listener;
@@ -236,14 +238,13 @@ pas_book_respond_create (PASBook                           *book,
 			 GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
 			 const char                        *id)
 {
-#if notyet
 	CORBA_Environment ev;
 
 	CORBA_exception_init (&ev);
 
 	
 	GNOME_Evolution_Addressbook_BookListener_notifyCardCreated (
-		book->priv->listener, 0 /* XXX */, status, (char *)id, &ev);
+		book->priv->listener, status, (char *)id, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_respond_create: Exception "
@@ -251,7 +252,6 @@ pas_book_respond_create (PASBook                           *book,
 	}
 
 	CORBA_exception_free (&ev);
-#endif
 }
 
 /**
@@ -261,13 +261,12 @@ void
 pas_book_respond_remove (PASBook                           *book,
 			 GNOME_Evolution_Addressbook_BookListenerCallStatus  status)
 {
-#if notyet
 	CORBA_Environment ev;
 
 	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookListener_notifyCardsRemoved (
-		book->priv->listener, 0 /* XXX */, status, &ev);
+		book->priv->listener, status, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_respond_remove: Exception "
@@ -275,7 +274,6 @@ pas_book_respond_remove (PASBook                           *book,
 	}
 
 	CORBA_exception_free (&ev);
-#endif
 }
 
 /**
@@ -285,13 +283,12 @@ void
 pas_book_respond_modify (PASBook                           *book,
 			 GNOME_Evolution_Addressbook_BookListenerCallStatus  status)
 {
-#if notyet
 	CORBA_Environment ev;
 
 	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookListener_notifyCardModified (
-		book->priv->listener, 0 /* XXX */, status, &ev);
+		book->priv->listener, status, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_respond_modify: Exception "
@@ -299,7 +296,6 @@ pas_book_respond_modify (PASBook                           *book,
 	}
 
 	CORBA_exception_free (&ev);
-#endif
 }
 
 /**
@@ -309,13 +305,12 @@ void
 pas_book_respond_authenticate_user (PASBook                           *book,
 				    GNOME_Evolution_Addressbook_BookListenerCallStatus  status)
 {
-#if notyet
 	CORBA_Environment ev;
 
 	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookListener_notifyAuthenticationResult (
-		book->priv->listener, 0 /* XXX */, status, &ev);
+		book->priv->listener, status, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_respond_authenticate_user: Exception "
@@ -323,7 +318,6 @@ pas_book_respond_authenticate_user (PASBook                           *book,
 	}
 
 	CORBA_exception_free (&ev);
-#endif
 }
 
 void
@@ -352,6 +346,7 @@ pas_book_respond_get_supported_fields (PASBook *book,
 		stringlist._buffer[i] = CORBA_string_dup (e_iterator_get(iter));
 	}
 
+	g_object_unref (iter);
 	g_object_unref (fields);
 
 	GNOME_Evolution_Addressbook_BookListener_notifySupportedFields (
@@ -412,16 +407,17 @@ pas_book_respond_get_book_view (PASBook                           *book,
 				GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
 				PASBookView                       *book_view)
 {
-#if notyet
 	CORBA_Environment ev;
 	CORBA_Object      object;
+
+	printf ("pas_book_respond_get_book_view\n");
 
 	CORBA_exception_init (&ev);
 	
 	object = bonobo_object_corba_objref(BONOBO_OBJECT(book_view));
 
 	GNOME_Evolution_Addressbook_BookListener_notifyViewRequested (
-		book->priv->listener, 0 /* XXX */, status, object, &ev);
+		book->priv->listener, status, object, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_respond_get_book_view: Exception "
@@ -429,7 +425,6 @@ pas_book_respond_get_book_view (PASBook                           *book,
 	}
 
 	CORBA_exception_free (&ev);
-#endif
 }
 
 /**
