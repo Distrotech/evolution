@@ -28,7 +28,8 @@
 #include "composer/e-msg-composer.h" /*EMsgComposer*/
 #include "message-list.h" /*MessageList*/
 
-void mail_do_fetch_mail (const gchar *source_url, CamelFolder *destination);
+void mail_do_fetch_mail (const gchar *source_url, CamelFolder *destination,
+			 gpointer hook_func, gpointer hook_data);
 void mail_do_send_mail (const char *xport_uri,
 			CamelMimeMessage *message,
 			CamelInternetAddress *from,
