@@ -1657,8 +1657,10 @@ mail_config_druid (void)
 	gtk_signal_connect (GTK_OBJECT (fpage), "finish",
 			    GTK_SIGNAL_FUNC (mail_druid_finish),
 			    dialog);
-
+	
+	GDK_THREADS_ENTER ();
 	gtk_main ();
+	GDK_THREADS_LEAVE ();
 }
 
 /* Main configuration dialog */
