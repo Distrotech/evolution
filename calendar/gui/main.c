@@ -155,9 +155,11 @@ factory (BonoboGenericFactory *factory,
 		initialized = TRUE;
 	}
 
-	if (strcmp (component_id, CALENDAR_COMPONENT_ID) == 0)
-		return BONOBO_OBJECT (calendar_component_peek ());
-	else if (strcmp (component_id, CALENDAR_CONTROL_ID) == 0)
+	if (strcmp (component_id, CALENDAR_COMPONENT_ID) == 0) {
+		BonoboObject *object = BONOBO_OBJECT (calendar_component_peek ());
+		bonobo_object_ref (object);
+		return object;
+	} else if (strcmp (component_id, CALENDAR_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (control_factory_new_control ());
 	else if (strcmp (component_id, TASKS_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (tasks_control_new ());

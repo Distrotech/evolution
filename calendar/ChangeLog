@@ -1,3 +1,8 @@
+2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
+
+	* gui/main.c (factory): Ref the object from
+	calendar_component_peek() before returning it.
+
 2003-08-17  Ettore Perazzoli  <ettore@ximian.com>
 
 	* gui/control-factory.h: #include <bonobo/bonobo-control.h>.
