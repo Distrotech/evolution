@@ -94,8 +94,6 @@ libevolution_mail_la_SOURCES =			\
 	$(EVOLUTION_IDL_GENERATED)		\
 	$(MAILER_IDL_GENERATED)			\
 	$(SPELL_IDL_GENERATED)			\
-	component-factory.c			\
-	component-factory.h			\
 	e-searching-tokenizer.c			\
 	e-searching-tokenizer.h			\
 	folder-browser.c			\
@@ -116,6 +114,7 @@ libevolution_mail_la_SOURCES =			\
 	mail-autofilter.h			\
 	mail-callbacks.c			\
 	mail-callbacks.h			\
+	mail-component-factory.c		\
 	mail-component.c			\
 	mail-component.h			\
 	mail-composer-prefs.c			\

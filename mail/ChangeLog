@@ -1,5 +1,16 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* mail-mt.c (do_op_status): Pass "evolution-mail" as the ID to
+	evolution_activity_client_new().  [This is just a temporary thing
+	to avoid the fact that we don't have component-factory.h anymore.
+	Eventually we'll just get rid of the activity client stuff.]
+
+	* mail-component-factory.c: Added to the build.  Also, finished
+	implementing and moving the factory over from component-factory.c.
+
+	* component-factory.c: Removed from the build.
+	* component-factory.h: Removed from the build.
+
 	* mail-component.c: Removed some debugging messages.
 
 2003-07-23  Ettore Perazzoli  <ettore@ximian.com>
