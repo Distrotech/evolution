@@ -1,3 +1,19 @@
+2003-08-26  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-backend-file.c (pas_backend_file_create_card,
+	pas_backend_file_remove_cards, pas_backend_file_modify_card,
+	pas_backend_file_get_vcard, pas_backend_file_get_card_list,
+	pas_backend_file_start_book_view, pas_backend_file_get_changes,
+	pas_backend_file_authenticate_user,
+	pas_backend_file_get_supported_fields): rename from
+	pas_backend_file_process_*
+	(pas_backend_file_load_uri): save off the dirname/summary
+	filename.
+	(pas_backend_file_remove): new function, unlink all the files we
+	know about.
+	(pas_backend_file_class_init): track changes to functions, and add
+	pas_backend_file_remove.
+
 2003-08-22  Chris Toshok  <toshok@ximian.com>
 
 	* backend/pas/pas-book.[ch]: switch from using the PASRequest

@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <errno.h>
 #include <db.h>
 #include <sys/stat.h>
 
@@ -49,7 +50,9 @@ typedef struct _PasBackendFileChangeContext PASBackendFileChangeContext;
 
 struct _PASBackendFilePrivate {
 	char     *uri;
+	char     *dirname;
 	char     *filename;
+	char     *summary_filename;
 	DB       *file_db;
 	PASBackendSummary *summary;
 };
@@ -455,10 +458,10 @@ do_create(PASBackendFile  *bf,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_create_card (PASBackendSync *backend,
-				      PASBook    *book,
-				      const char *vcard,
-				      char **id_out)
+pas_backend_file_create_card (PASBackendSync *backend,
+			      PASBook    *book,
+			      const char *vcard,
+			      char **id_out)
 {
 	char *id;
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
@@ -479,10 +482,10 @@ pas_backend_file_process_create_card (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_remove_cards (PASBackendSync *backend,
-				       PASBook    *book,
-				       GList *id_list,
-				       GList **ids)
+pas_backend_file_remove_cards (PASBackendSync *backend,
+			       PASBook    *book,
+			       GList *id_list,
+			       GList **ids)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
@@ -534,10 +537,10 @@ pas_backend_file_process_remove_cards (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_modify_card (PASBackendSync *backend,
-				      PASBook    *book,
-				      const char *vcard,
-				      char **old_vcard)
+pas_backend_file_modify_card (PASBackendSync *backend,
+			      PASBook    *book,
+			      const char *vcard,
+			      char **old_vcard)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
@@ -594,10 +597,10 @@ pas_backend_file_process_modify_card (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_get_vcard (PASBackendSync *backend,
-				    PASBook    *book,
-				    const char *id,
-				    char **vcard)
+pas_backend_file_get_vcard (PASBackendSync *backend,
+			    PASBook    *book,
+			    const char *id,
+			    char **vcard)
 {
 	PASBackendFile *bf;
 	DB             *db;
@@ -622,10 +625,10 @@ pas_backend_file_process_get_vcard (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_get_card_list (PASBackendSync *backend,
-					PASBook    *book,
-					const char *query,
-					GList **cards)
+pas_backend_file_get_card_list (PASBackendSync *backend,
+				PASBook    *book,
+				const char *query,
+				GList **cards)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
@@ -637,7 +640,7 @@ pas_backend_file_process_get_card_list (PASBackendSync *backend,
 	const char *search = query;
 	GList *card_list = NULL;
 
-	printf ("pas_backend_file_process_get_card_list (%s)\n", search);
+	printf ("pas_backend_file_get_card_list (%s)\n", search);
 
 	search_needed = TRUE;
 
@@ -689,52 +692,11 @@ pas_backend_file_start_book_view (PASBackend  *backend,
 	pas_backend_file_search (PAS_BACKEND_FILE (backend), book_view);
 }
 
-#if 0
-static void
-pas_backend_file_process_get_completion_view (PASBackendSync *backend,
-					      PASBook    *book,
-					      PASGetCompletionViewRequest *req)
-{
-	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-	PASBookView       *book_view;
-	PASBackendFileBookView view;
-	EIterator *iterator;
-
-	bonobo_object_ref(BONOBO_OBJECT(book));
-
-	book_view = pas_book_view_new (req->listener);
-
-	g_object_weak_ref (G_OBJECT (book_view), view_destroy, book);
-
-	view.book_view = book_view;
-	view.search = g_strdup (req->search);
-	view.card_sexp = NULL;
-	view.change_id = NULL;
-	view.change_context = NULL;	
-
-	e_list_append(bf->priv->book_views, &view);
-
-	pas_book_respond_get_completion_view (book,
-		   (book_view != NULL
-		    ? GNOME_Evolution_Addressbook_BookListener_Success 
-		    : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
-		   book_view);
-
-	if (!pas_backend_is_loaded (backend))
-		return;
-
-	iterator = e_list_get_iterator(bf->priv->book_views);
-	e_iterator_last(iterator);
-	pas_backend_file_search (bf, book, e_iterator_get(iterator), TRUE);
-	g_object_unref(iterator);
-}
-#endif
-
 static PASBackendSyncStatus
-pas_backend_file_process_get_changes (PASBackendSync *backend,
-				      PASBook    *book,
-				      const char *change_id,
-				      GList **changes_out)
+pas_backend_file_get_changes (PASBackendSync *backend,
+			      PASBook    *book,
+			      const char *change_id,
+			      GList **changes_out)
 {
 #if notyet
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
@@ -787,19 +749,19 @@ pas_backend_file_extract_path_from_uri (const char *uri)
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_authenticate_user (PASBackendSync *backend,
-					    PASBook    *book,
-					    const char *user,
-					    const char *passwd,
-					    const char *auth_method)
+pas_backend_file_authenticate_user (PASBackendSync *backend,
+				    PASBook    *book,
+				    const char *user,
+				    const char *passwd,
+				    const char *auth_method)
 {
 	return GNOME_Evolution_Addressbook_Success;
 }
 
 static PASBackendSyncStatus
-pas_backend_file_process_get_supported_fields (PASBackendSync *backend,
-					       PASBook    *book,
-					       GList **fields_out)
+pas_backend_file_get_supported_fields (PASBackendSync *backend,
+				       PASBook    *book,
+				       GList **fields_out)
 {
 	GList *fields = NULL;
 	int i;
@@ -963,7 +925,6 @@ pas_backend_file_load_uri (PASBackend             *backend,
 	int major, minor, patch;
 	time_t db_mtime;
 	struct stat sb;
-	char *summary_filename;
 
 	g_free(bf->priv->uri);
 	bf->priv->uri = g_strdup (uri);
@@ -1031,7 +992,9 @@ pas_backend_file_load_uri (PASBackend             *backend,
 		return GNOME_Evolution_Addressbook_OtherError;
 	}
 
+	g_free (bf->priv->dirname);
 	g_free (bf->priv->filename);
+	bf->priv->dirname = dirname;
 	bf->priv->filename = filename;
 
 	if (stat (bf->priv->filename, &sb) == -1) {
@@ -1041,9 +1004,9 @@ pas_backend_file_load_uri (PASBackend             *backend,
 	}
 	db_mtime = sb.st_mtime;
 
-	summary_filename = g_strconcat (bf->priv->filename, ".summary", NULL);
-	bf->priv->summary = pas_backend_summary_new (summary_filename, SUMMARY_FLUSH_TIMEOUT);
-	g_free (summary_filename);
+	g_free (bf->priv->summary_filename);
+	bf->priv->summary_filename = g_strconcat (bf->priv->filename, ".summary", NULL);
+	bf->priv->summary = pas_backend_summary_new (bf->priv->summary_filename, SUMMARY_FLUSH_TIMEOUT);
 
 	if (pas_backend_summary_is_up_to_date (bf->priv->summary, db_mtime) == FALSE
 	    || pas_backend_summary_load (bf->priv->summary) == FALSE ) {
@@ -1052,6 +1015,35 @@ pas_backend_file_load_uri (PASBackend             *backend,
 
 	pas_backend_set_is_loaded (backend, TRUE);
 	pas_backend_set_is_writable (backend, writable);
+	return GNOME_Evolution_Addressbook_Success;
+}
+
+static PASBackendSyncStatus
+pas_backend_file_remove (PASBackendSync *backend,
+			 PASBook        *book)
+{
+	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
+
+	if (-1 == unlink (bf->priv->filename)) {
+		if (errno == EACCES || errno == EPERM)
+			return GNOME_Evolution_Addressbook_PermissionDenied;
+		else
+			return GNOME_Evolution_Addressbook_OtherError;
+	}
+
+	/* unref the summary before we remove the file so it's not written out again */
+	g_object_unref (bf->priv->summary);
+	if (-1 == unlink (bf->priv->filename))
+		g_warning ("failed to remove summary file `%s`: %s", bf->priv->summary_filename, strerror (errno));
+
+	if (-1 == rmdir (bf->priv->dirname))
+		g_warning ("failed to remove directory `%s`: %s", bf->priv->dirname, strerror (errno));
+
+	/* we may not have actually succeeded in removing the
+	   backend's files/dirs, but there's nothing we can do about
+	   it here..  the only time we should return failure is if we
+	   failed to remove the actual data.  a failure should mean
+	   that the addressbook is still valid */
 	return GNOME_Evolution_Addressbook_Success;
 }
 
@@ -1110,6 +1102,8 @@ pas_backend_file_dispose (GObject *object)
 			g_object_unref(bf->priv->summary);
 		g_free (bf->priv->uri);
 		g_free (bf->priv->filename);
+		g_free (bf->priv->dirname);
+		g_free (bf->priv->summary_filename);
 
 		g_free (bf->priv);
 		bf->priv = NULL;
@@ -1136,14 +1130,15 @@ pas_backend_file_class_init (PASBackendFileClass *klass)
 	backend_class->start_book_view         = pas_backend_file_start_book_view;
 	backend_class->cancel_operation        = pas_backend_file_cancel_operation;
 
-	sync_class->create_card_sync           = pas_backend_file_process_create_card;
-	sync_class->remove_cards_sync          = pas_backend_file_process_remove_cards;
-	sync_class->modify_card_sync           = pas_backend_file_process_modify_card;
-	sync_class->get_vcard_sync             = pas_backend_file_process_get_vcard;
-	sync_class->get_card_list_sync         = pas_backend_file_process_get_card_list;
-	sync_class->get_changes_sync           = pas_backend_file_process_get_changes;
-	sync_class->authenticate_user_sync     = pas_backend_file_process_authenticate_user;
-	sync_class->get_supported_fields_sync  = pas_backend_file_process_get_supported_fields;
+	sync_class->remove_sync                = pas_backend_file_remove;
+	sync_class->create_card_sync           = pas_backend_file_create_card;
+	sync_class->remove_cards_sync          = pas_backend_file_remove_cards;
+	sync_class->modify_card_sync           = pas_backend_file_modify_card;
+	sync_class->get_vcard_sync             = pas_backend_file_get_vcard;
+	sync_class->get_card_list_sync         = pas_backend_file_get_card_list;
+	sync_class->get_changes_sync           = pas_backend_file_get_changes;
+	sync_class->authenticate_user_sync     = pas_backend_file_authenticate_user;
+	sync_class->get_supported_fields_sync  = pas_backend_file_get_supported_fields;
 
 	object_class->dispose = pas_backend_file_dispose;
 }
