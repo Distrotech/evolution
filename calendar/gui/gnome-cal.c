@@ -2087,13 +2087,20 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	g_signal_connect (G_OBJECT (client), "categories_changed", G_CALLBACK (client_categories_changed_cb), gcal);
 	g_signal_connect (G_OBJECT (client), "backend_died", G_CALLBACK (backend_died_cb), gcal);
 
+	if (!cal_client_open (client, FALSE, NULL)) {
+		g_hash_table_remove (priv->clients, str_uri);
+		g_object_unref (client);
+
+		return FALSE;
+	}
+
 	for (i = 0; i < GNOME_CAL_LAST_VIEW; i++) {
 		ECalModel *model;
 		
 		model = e_cal_view_get_model (priv->views[i]);
 		e_cal_model_add_client (model, client);
 	}
-	
+
 	if (g_hash_table_size (priv->clients) < 1) {
 		/* Open the appropriate Tasks folder to show in the TaskPad */
 		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
@@ -2106,7 +2113,7 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 			return FALSE;
 		}
 	}
-	
+
 	return TRUE;
 }
 

@@ -1,5 +1,8 @@
 2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/gnome-cal.c (gnome_calendar_open): added missing call to
+	cal_client_open().
+
 	* cal-client/cal-client.c (cal_client_new): fixed documentation
 	comments.
 	(cal_client_open): emit CAL_OPENED signal with appropriate status codes.
