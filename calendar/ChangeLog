@@ -1,3 +1,9 @@
+1999-09-27  Timur Bakeyev  <mc@bat.ru>
+
+	* timeutil.c (time_from_isodate): Use tm.gmtoff or timezone to get
+	correct offset from UTC, according to HAVE_TM_GMTOFF or HAVE_TIMEZONE.
+	See also 1999-07-19  Matt Martin <matt@abacusnet.net>
+
 1999-09-27  Miguel de Icaza  <miguel@nuclecu.unam.mx>
 
 	* month-view.c (add_event): ditto
