@@ -47,7 +47,7 @@ typedef struct {
 	GObjectClass parent_class;
 
 	/* Virtual methods */
-	GNOME_Evolution_Addressbook_BookListener_CallStatus (*load_uri) (PASBackend *backend, const char *uri);
+	GNOME_Evolution_Addressbook_BookListenerCallStatus (*load_uri) (PASBackend *backend, const char *uri);
 	const char *(* get_uri) (PASBackend *backend);
 	gboolean (*add_client) (PASBackend *backend, GNOME_Evolution_Addressbook_BookListener listener);
 	void (*remove_client) (PASBackend *backend, PASBook *book);
@@ -64,24 +64,37 @@ typedef struct {
 	void (*get_supported_fields) (PASBackend *backend, PASBook *book, PASGetSupportedFieldsRequest *req);
 	void (*get_supported_auth_methods) (PASBackend *backend, PASBook *book, PASGetSupportedAuthMethodsRequest *req);
 
+	gboolean (*is_threaded) (PASBackend *backend);
+	void (*start_threaded) (PASBackend *backend);
+
 	/* Notification signals */
 	void (* last_client_gone) (PASBackend *backend);
+
+	/* Padding for future expansion */
+	void (*_pas_reserved0) (void);
+	void (*_pas_reserved1) (void);
+	void (*_pas_reserved2) (void);
+	void (*_pas_reserved3) (void);
+	void (*_pas_reserved4) (void);
 } PASBackendClass;
 
 typedef PASBackend * (*PASBackendFactoryFn) (void);
 
 gboolean    pas_backend_construct                (PASBackend             *backend);
 
-GNOME_Evolution_Addressbook_BookListener_CallStatus
+GNOME_Evolution_Addressbook_BookListenerCallStatus
             pas_backend_load_uri                 (PASBackend             *backend,
 						  const char             *uri);
 const char *pas_backend_get_uri                  (PASBackend             *backend);
 
 gboolean    pas_backend_add_client               (PASBackend             *backend,
-						  GNOME_Evolution_Addressbook_BookListener  listener);
+						  GNOME_Evolution_Addressbook_BookListener listener);
 void        pas_backend_remove_client            (PASBackend             *backend,
 						  PASBook                *book);
 char       *pas_backend_get_static_capabilities  (PASBackend             *backend);
+
+gboolean    pas_backend_is_threaded              (PASBackend             *backend);
+void        pas_backend_start_threaded           (PASBackend             *backend);
 
 gboolean    pas_backend_is_loaded                (PASBackend             *backend);
 

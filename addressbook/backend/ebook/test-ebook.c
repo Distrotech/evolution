@@ -16,6 +16,28 @@ run_mainloop (void *data)
 }
 
 static void
+print_email (EContact *contact)
+{
+	char *file_as = e_contact_get (contact, E_CONTACT_FILE_AS);
+	GList *emails, *e;
+
+	printf ("Contact: %s\n", file_as);
+	printf ("Email addresses:\n");
+	emails = e_contact_get (contact, E_CONTACT_EMAIL);
+	for (e = emails; e; e = e->next) {
+		EVCardAttribute *attr = e->data;
+		GList *values = e_vcard_attribute_get_values (attr);
+		printf ("\t%s\n",  values && values->data ? (char*)values->data : "");
+		e_vcard_attribute_free (attr);
+	}
+	g_list_free (emails);
+
+	g_free (file_as);
+
+	printf ("\n");
+}
+
+static void
 print_all_emails (EBook *book)
 {
 	EBookQuery *query;
@@ -36,33 +58,36 @@ print_all_emails (EBook *book)
 	e_book_query_unref (query);
 
 	if (status != E_BOOK_STATUS_OK) {
-		printf ("error getting card list\n");
+		printf ("error %d getting card list\n", status);
 		exit(0);
 	}
 
 	for (c = cards; c; c = c->next) {
 		EContact *contact = E_CONTACT (c->data);
-		char *file_as = e_contact_get (contact, E_CONTACT_FILE_AS);
-		GList *emails, *e;
 
-		printf ("Contact: %s\n", file_as);
-		printf ("Email addresses:\n");
-		emails = e_contact_get (contact, E_CONTACT_EMAIL);
-		for (e = emails; e; e = e->next) {
-			EVCardAttribute *attr = e->data;
-			GList *values = e_vcard_attribute_get_values (attr);
-			printf ("\t%s\n",  values && values->data ? (char*)values->data : "");
-			e_vcard_attribute_free (attr);
-		}
-		g_list_free (emails);
-
-		g_free (file_as);
+		print_email (contact);
 
 		g_object_unref (contact);
-
-		printf ("\n");
 	}
 	g_list_free (cards);
+}
+
+static void
+print_one_email (EBook *book)
+{
+	EBookStatus status;
+	EContact *contact;
+
+	status = e_book_get_contact (book, "pas-id-0002023", &contact);
+
+	if (status != E_BOOK_STATUS_OK) {
+		printf ("error %d getting card\n", status);
+		return;
+	}
+
+	print_email (contact);
+
+	g_object_unref (contact);
 }
 
 int
@@ -85,14 +110,18 @@ main (int argc, char **argv)
 
 	book = e_book_new ();
 
+	printf ("loading addressbook\n");
 	status = e_book_load_local_addressbook (book);
 	if (status != E_BOOK_STATUS_OK) {
 		printf ("failed to open local addressbook\n");
 		exit(0);
 	}
 
-	print_all_emails (book);
+	printf ("printing one contact\n");
+	print_one_email (book);
 
+	printf ("printing all contacts\n");
+	print_all_emails (book);
 
 	g_object_unref (book);
 

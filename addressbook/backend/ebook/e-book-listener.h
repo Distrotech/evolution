@@ -69,8 +69,6 @@ typedef enum {
 struct _EBookListenerResponse {
 	EBookListenerOperation  op;
 
-	GNOME_Evolution_Addressbook_RequestId corba_id;
-
 	/* For most Response notifications */
 	EBookStatus             status;
 

@@ -12,7 +12,6 @@
 module GNOME {
 module Evolution {
 module Addressbook {
-	typedef long RequestId;
 	typedef string CardId;
 	typedef string VCard;
 	typedef sequence<VCard> VCardList;
@@ -50,40 +49,56 @@ module Addressbook {
 	interface BookView : Bonobo::Unknown {
 	};
 
+	enum BookListenerCallStatus {
+		Success,
+		RepositoryOffline,
+		PermissionDenied,
+		CardNotFound,
+		CardIdAlreadyExists,
+		AuthenticationFailed,
+		AuthenticationRequired,
+		UnsupportedField,
+		UnsupportedAuthenticationMethod,
+		TLSNotAvailable,
+		NoSuchBook,
+
+		OtherError
+	};
+
 	interface Book : Bonobo::Unknown {
 
 		/*
 		 * Fetching cards in the addresbook.
 		 */
-		RequestId getVCard (in CardId id);
+		oneway void getVCard (in CardId id);
 
-		RequestId authenticateUser (in string user, in string passwd,
-					    in string authMethod);
+		oneway void authenticateUser (in string user, in string passwd,
+					      in string authMethod);
 
 		/*
 		 * Adding and deleting cards in the book.
 		 */
-		RequestId addCard    (in VCard vcard);
-		RequestId removeCards (in CardIdList Id);
+		oneway void addCard    (in VCard vcard);
+		oneway void removeCards (in CardIdList Id);
 	        
 		/*
 		 * Modifying cards in the addressbook.
 		 */
-		RequestId modifyCard (in VCard vcard);
+		oneway void modifyCard (in VCard vcard);
 		
 		/*
 		 * These two functions return a book view to the book
 		 * listener.  This is for people who want a live view
 		 * of the addressbook.
 		 */
-		RequestId getBookView (in BookViewListener listener, in string query,
-				       in stringlist requested_fields, in long max_results);
+		oneway void getBookView (in BookViewListener listener, in string query,
+					 in stringlist requested_fields, in long max_results);
 
-		RequestId getChanges  (in BookViewListener listener, in string change_id);
+		oneway void getChanges  (in BookViewListener listener, in string change_id);
 
-		RequestId getCardList (in string query);
+		oneway void getCardList (in string query);
 
-		RequestId getSupportedFields ();
+		oneway void getSupportedFields ();
 
 		/*
 		 * This function returns a list of strings
@@ -107,71 +122,33 @@ module Addressbook {
 		 * as it will be passed unchanged to the backend auth
 		 * function (eg. ldap_sasl_bind)
 		 */
-		RequestId getSupportedAuthMethods ();
+		oneway void getSupportedAuthMethods ();
 
 		string getStaticCapabilities ();
 
 		string getName ();
 
 		/* cancels the currently running operation, whatever
-		   it is. 
-
-		   XXX the 'long' needs to be a better return code */
-		long cancelOperation (in RequestId reqid);
+		   it is. */
+		BookListenerCallStatus cancelOperation ();
 	};
 
 	interface BookListener : Bonobo::Unknown {
 
-		enum CallStatus {
-			Success,
-			RepositoryOffline,
-			PermissionDenied,
-			CardNotFound,
-			CardIdAlreadyExists,
-			AuthenticationFailed,
-			AuthenticationRequired,
-			UnsupportedField,
-			UnsupportedAuthenticationMethod,
-			TLSNotAvailable,
-			NoSuchBook,
+		oneway void notifyCardCreated          (in BookListenerCallStatus status, in CardId Id);
+		oneway void notifyCardsRemoved         (in BookListenerCallStatus status);
+		oneway void notifyCardModified         (in BookListenerCallStatus status);
+		oneway void notifyProgress             (in string status_message, in short precent);
+		oneway void notifyBookOpened           (in BookListenerCallStatus status, in Book book);
+		oneway void notifyCardRequested        (in BookListenerCallStatus status, in VCard card);
+		oneway void notifyCardListRequested    (in BookListenerCallStatus status, in stringlist cards);
+		oneway void notifyViewRequested        (in BookListenerCallStatus status, in BookView view);
+		oneway void notifyChangesRequested     (in BookListenerCallStatus status, in BookView view);
+		oneway void notifySupportedFields      (in BookListenerCallStatus status, in stringlist fields);
+		oneway void notifyAuthenticationResult (in BookListenerCallStatus status);
+		oneway void notifySupportedAuthMethods (in BookListenerCallStatus status, in stringlist auth_methods);
 
-			OtherError
-		};
-
-		oneway void notifyCardCreated          (in RequestId reqid, in CallStatus status, in CardId Id);
-
-		oneway void notifyCardsRemoved         (in RequestId reqid, in CallStatus status);
-
-		oneway void notifyCardModified         (in RequestId reqid, in CallStatus status);
-		
-		oneway void notifyProgress             (in RequestId reqid, in string status_message, in short percent);
-
-		oneway void notifyBookOpened           (in CallStatus status, in Book book);
-
-		oneway void notifyCardRequested        (in RequestId reqid, in CallStatus status, in VCard card);
-
-		oneway void notifyCardListRequested    (in RequestId reqid, in CallStatus status, in stringlist cards);
-
-		oneway void notifyViewRequested        (in RequestId reqid, in CallStatus status, in BookView view);
-
-		oneway void notifyChangesRequested     (in RequestId reqid, in CallStatus status, in BookView view);
-
-		oneway void notifySupportedFields      (in RequestId reqid, in CallStatus status, in stringlist fields);
-
-		oneway void notifyAuthenticationResult (in RequestId reqid, in CallStatus status);
-
-		oneway void notifySupportedAuthMethods (in RequestId reqid, in CallStatus status, in stringlist fields);
-
-		/**
-		 * Used to report whether or not a backend can write to a given
-		 * addressbook.  All books default to read-only, so unless you
-		 * receive a notification saying otherwise, treat the book as
-		 * read-only.  It is presumed that this notification will be
-		 * sent early (just after a connection is opened, usually), but
-		 * it may also be sent later, if/when the backend notices a
-		 * change.
-		 */
-		void notifyWritable (in boolean writable);
+		oneway void notifyWritable (in boolean writable);
 	};
 
 	interface BookFactory : Bonobo::Unknown {

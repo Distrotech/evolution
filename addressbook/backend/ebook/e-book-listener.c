@@ -15,7 +15,7 @@
 #include "e-book-listener.h"
 #include "e-book-marshal.h"
 
-static EBookStatus e_book_listener_convert_status (GNOME_Evolution_Addressbook_BookListener_CallStatus status);
+static EBookStatus e_book_listener_convert_status (GNOME_Evolution_Addressbook_BookListenerCallStatus status);
 
 enum {
 	RESPONSE,
@@ -87,7 +87,9 @@ e_book_listener_check_queue (EBookListener *listener)
 	listener->priv->timeout_lock = TRUE;
 
 	if (listener->priv->response_queue != NULL && !listener->priv->stopped) {
-		g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0); /* XXX */
+		EBookListenerResponse *resp = e_book_listener_pop_response (listener);
+		g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, resp);
+		/* XXX free it? */
 	}
 
 	if (listener->priv->response_queue == NULL || listener->priv->stopped) {
@@ -265,8 +267,7 @@ e_book_listener_queue_get_supported_auth_methods_response (EBookListener *listen
 
 static void
 impl_BookListener_respond_create_card (PortableServer_Servant                                    servant,
-				       const GNOME_Evolution_Addressbook_RequestId               reqid,
-				       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+				       const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 				       const CORBA_char*                                         id,
 				       CORBA_Environment                                        *ev)
 {
@@ -274,7 +275,6 @@ impl_BookListener_respond_create_card (PortableServer_Servant                   
 	EBookListenerResponse response;
 
 	response.op       = CreateCardResponse;
-	response.corba_id = reqid;
 	response.status   = status;
 	response.id       = g_strdup (id);
 
@@ -285,15 +285,13 @@ impl_BookListener_respond_create_card (PortableServer_Servant                   
 
 static void
 impl_BookListener_respond_remove_cards (PortableServer_Servant servant,
-					const GNOME_Evolution_Addressbook_RequestId               reqid,
-					const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+					const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 					CORBA_Environment *ev)
 {
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
 
 	response.op       = RemoveCardResponse;
-	response.corba_id = reqid;
 	response.status   = status;
 
 	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
@@ -301,15 +299,13 @@ impl_BookListener_respond_remove_cards (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_modify_card (PortableServer_Servant servant,
-				       const GNOME_Evolution_Addressbook_RequestId               reqid,
-				       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+				       const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 				       CORBA_Environment *ev)
 {
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
 
 	response.op       = ModifyCardResponse;
-	response.corba_id = reqid;
 	response.status   = status;
 
 	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
@@ -317,8 +313,7 @@ impl_BookListener_respond_modify_card (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_vcard (PortableServer_Servant servant,
-				     const GNOME_Evolution_Addressbook_RequestId               reqid,
-				     const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+				     const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 				     const CORBA_char* card,
 				     CORBA_Environment *ev)
 {
@@ -326,7 +321,6 @@ impl_BookListener_respond_get_vcard (PortableServer_Servant servant,
 	EBookListenerResponse response;
 
 	response.op       = GetCardResponse;
-	response.corba_id = reqid;
 	response.status   = status;
 	response.vcard    = g_strdup (card);
 
@@ -337,8 +331,7 @@ impl_BookListener_respond_get_vcard (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_card_list (PortableServer_Servant servant,
-					 const GNOME_Evolution_Addressbook_RequestId               reqid,
-					 const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+					 const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 					 const GNOME_Evolution_Addressbook_stringlist *cards,
 					 CORBA_Environment *ev)
 {
@@ -364,8 +357,7 @@ impl_BookListener_respond_get_card_list (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_view (PortableServer_Servant servant,
-				    const GNOME_Evolution_Addressbook_RequestId               reqid,
-				    const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+				    const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 				    const GNOME_Evolution_Addressbook_BookView book_view,
 				    CORBA_Environment *ev)
 {
@@ -387,8 +379,7 @@ impl_BookListener_respond_get_view (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_changes (PortableServer_Servant servant,
-				       const GNOME_Evolution_Addressbook_RequestId               reqid,
-				       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+				       const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 				       const GNOME_Evolution_Addressbook_BookView book_view,
 				       CORBA_Environment *ev)
 {
@@ -410,7 +401,7 @@ impl_BookListener_respond_get_changes (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_open_book (PortableServer_Servant servant,
-				     const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+				     const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 				     const GNOME_Evolution_Addressbook_Book book,
 				     CORBA_Environment *ev)
 {
@@ -434,8 +425,7 @@ impl_BookListener_respond_open_book (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_authentication_result (PortableServer_Servant servant,
-						 const GNOME_Evolution_Addressbook_RequestId               reqid,
-						 const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+						 const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 						 CORBA_Environment *ev)
 {
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
@@ -446,8 +436,7 @@ impl_BookListener_respond_authentication_result (PortableServer_Servant servant,
 
 static void
 impl_BookListener_response_get_supported_fields (PortableServer_Servant servant,
-						 const GNOME_Evolution_Addressbook_RequestId               reqid,
-						 const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+						 const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 						 const GNOME_Evolution_Addressbook_stringlist *fields,
 						 CORBA_Environment *ev)
 {
@@ -459,8 +448,7 @@ impl_BookListener_response_get_supported_fields (PortableServer_Servant servant,
 
 static void
 impl_BookListener_response_get_supported_auth_methods (PortableServer_Servant servant,
-						       const GNOME_Evolution_Addressbook_RequestId               reqid,
-						       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
+						       const GNOME_Evolution_Addressbook_BookListenerCallStatus status,
 						       const GNOME_Evolution_Addressbook_stringlist *auth_methods,
 						       CORBA_Environment *ev)
 {
@@ -475,16 +463,13 @@ impl_BookListener_report_writable (PortableServer_Servant servant,
 				   const CORBA_boolean writable,
 				   CORBA_Environment *ev)
 {
-#if notyet
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 
 	e_book_listener_queue_writable_status (listener, writable);
-#endif
 }
 
 static void
 impl_BookListener_respond_progress (PortableServer_Servant servant,
-				    const GNOME_Evolution_Addressbook_RequestId reqid,
 				    const CORBA_char * message,
 				    const CORBA_short percent,
 				    CORBA_Environment *ev)
@@ -539,28 +524,28 @@ e_book_listener_pop_response (EBookListener *listener)
 }
 
 static EBookStatus
-e_book_listener_convert_status (const GNOME_Evolution_Addressbook_BookListener_CallStatus status)
+e_book_listener_convert_status (const GNOME_Evolution_Addressbook_BookListenerCallStatus status)
 {
 	switch (status) {
-	case GNOME_Evolution_Addressbook_BookListener_Success:
+	case GNOME_Evolution_Addressbook_Success:
 		return E_BOOK_STATUS_OK;
-	case GNOME_Evolution_Addressbook_BookListener_RepositoryOffline:
+	case GNOME_Evolution_Addressbook_RepositoryOffline:
 		return E_BOOK_STATUS_REPOSITORY_OFFLINE;
-	case GNOME_Evolution_Addressbook_BookListener_PermissionDenied:
+	case GNOME_Evolution_Addressbook_PermissionDenied:
 		return E_BOOK_STATUS_PERMISSION_DENIED;
-	case GNOME_Evolution_Addressbook_BookListener_CardNotFound:
+	case GNOME_Evolution_Addressbook_CardNotFound:
 		return E_BOOK_STATUS_CARD_NOT_FOUND;
-	case GNOME_Evolution_Addressbook_BookListener_CardIdAlreadyExists:
+	case GNOME_Evolution_Addressbook_CardIdAlreadyExists:
 		return E_BOOK_STATUS_CARD_ID_ALREADY_EXISTS;
-	case GNOME_Evolution_Addressbook_BookListener_AuthenticationFailed:
+	case GNOME_Evolution_Addressbook_AuthenticationFailed:
 		return E_BOOK_STATUS_AUTHENTICATION_FAILED;
-	case GNOME_Evolution_Addressbook_BookListener_AuthenticationRequired:
+	case GNOME_Evolution_Addressbook_AuthenticationRequired:
 		return E_BOOK_STATUS_AUTHENTICATION_REQUIRED;
-	case GNOME_Evolution_Addressbook_BookListener_TLSNotAvailable:
+	case GNOME_Evolution_Addressbook_TLSNotAvailable:
 		return E_BOOK_STATUS_TLS_NOT_AVAILABLE;
-	case GNOME_Evolution_Addressbook_BookListener_NoSuchBook:
+	case GNOME_Evolution_Addressbook_NoSuchBook:
 		return E_BOOK_STATUS_NO_SUCH_BOOK;
-	case GNOME_Evolution_Addressbook_BookListener_OtherError:
+	case GNOME_Evolution_Addressbook_OtherError:
 	default:
 		return E_BOOK_STATUS_OTHER_ERROR;
 	}
@@ -586,9 +571,7 @@ e_book_listener_new ()
 	EBookListener *listener;
 
 	listener = g_object_new (E_TYPE_BOOK_LISTENER,
-#if notyet
-				 "poa", bonobo_poa_get_threaded (ORBIT_THREAD_HINT_PER_OBJECT, NULL),
-#endif
+				 "poa", bonobo_poa_get_threaded (ORBIT_THREAD_HINT_ALL_AT_IDLE, NULL),
 				 NULL);
 
 	e_book_listener_construct (listener);

@@ -48,11 +48,11 @@ libebook_static_la_DEPENDENCIES = libebook.la
 
 libebook_la_SOURCES =					\
 	$(CORBA_SOURCE)					\
-	e-book-listener.c				\
 	e-book-marshal.c				\
 	e-book-query.c					\
 	e-book-view-listener.c				\
 	e-book-view.c					\
+	e-book-listener.c				\
 	e-book.c					\
 	e-contact.c					\
 	e-card.c					\
@@ -68,11 +68,11 @@ libebook_la_LIBADD =					\
 libebookincludedir = $(privincludedir)/ebook
 
 libebookinclude_HEADERS =				\
-	e-book-listener.h				\
 	e-book-query.h					\
-	e-book-types.h					\
 	e-book-view-listener.h				\
 	e-book-view.h					\
+	e-book-types.h					\
+	e-book-listener.h				\
 	e-book.h					\
 	e-card-types.h					\
 	e-contact.h					\
