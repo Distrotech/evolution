@@ -807,7 +807,7 @@ impl_createControls (PortableServer_Servant servant,
 	  e_storage_set_view_set_allow_dnd ((EStorageSetView *) tree_widget, TRUE);*/
 	
 	g_signal_connect (tree_widget, "folder-dragged", G_CALLBACK (folder_dragged_cb), browser);
-	g_signal_connect (tree_widget, "folder-receive_drop", G_CALLBACK (folder_receive_drop_cb), browser);
+	g_signal_connect (tree_widget, "folder-receive-drop", G_CALLBACK (folder_receive_drop_cb), browser);
 	
 	gtk_widget_show (tree_widget);
 	gtk_widget_show (view_widget);
