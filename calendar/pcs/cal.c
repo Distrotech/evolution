@@ -588,6 +588,21 @@ impl_Cal_getTimezoneObject (PortableServer_Servant servant,
 	}
 }
 
+/* Cal::addTimezone method */
+static void
+impl_Cal_addTimezone (PortableServer_Servant servant,
+		      const CORBA_char *tz,
+		      CORBA_Environment *ev)
+{
+	Cal *cal;
+	CalPrivate *priv;
+
+	cal = CAL (bonobo_object_from_servant (servant));
+	priv = cal->priv;
+
+	cal_backend_add_timezone (cal, tz);
+}
+
 /**
  * cal_construct:
  * @cal: A calendar client interface.
@@ -723,6 +738,7 @@ cal_class_init (CalClass *klass)
 	epv->getObject = impl_Cal_getObject;
 	epv->setDefaultTimezone = impl_Cal_setDefaultTimezone;
 	epv->getTimezoneObject = impl_Cal_getTimezoneObject;
+	epv->addTimezone = impl_Cal_addTimezone;
 	epv->getObjectList = impl_Cal_getObjectList;
 	epv->getChanges = impl_Cal_getChanges;
 	epv->getFreeBusy = impl_Cal_getFreeBusy;

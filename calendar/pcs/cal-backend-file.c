@@ -1663,7 +1663,7 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 	}
 
 	if (old_object)
-		*old_object = cal_component_as_string (comp);
+		*old_object = cal_component_get_as_string (comp);
 
 	/* update the object */
 	comp_uid = cal_backend_file_update_object (cbfile, icalcomp);

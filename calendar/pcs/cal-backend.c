@@ -259,6 +259,8 @@ cal_backend_class_init (CalBackendClass *class)
 	class->remove_object = NULL;
 	class->receive_objects = NULL;
 	class->send_objects = NULL;
+	class->get_timezone_object = NULL;
+	class->add_timezone = NULL;
 }
 
 /* Object initialization func for the calendar backend */
@@ -1083,6 +1085,24 @@ cal_backend_set_default_timezone (CalBackend *backend, const char *tzid)
 	return (* CLASS (backend)->set_default_timezone) (backend, tzid);
 }
 
+/**
+ * cal_backend_add_timezone
+ * @backend: A calendar backend.
+ * @tzobj: The timezone object, in a string.
+ *
+ * Add a timezone object to the given backend.
+ *
+ * Returns: TRUE if successful, or FALSE if not.
+ */
+gboolean
+cal_backend_add_timezone (CalBackend *backend, const char *tzobj)
+{
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), FALSE);
+	g_return_val_if_fail (tzobj != NULL, FALSE);
+	g_return_val_if_fail (CLASS (backend)->add_timezone != NULL, FALSE);
+
+	return (* CLASS (backend)->add_timezone) (backend, tzobj);
+}
 
 /**
  * cal_backend_notify_mode:

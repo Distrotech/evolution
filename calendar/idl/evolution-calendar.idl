@@ -223,6 +223,8 @@ module Calendar {
 		CalTimezoneObj getTimezoneObject (in CalTimezoneObjUID tzid)
 			raises (NotFound);
 
+		oneway void addTimezone (in CalTimezoneObj tz);
+
 		/* Gets a list of components that changed based on object type */
 		CalObjChangeSeq getChanges (in CalObjType type, in string change_id);
 

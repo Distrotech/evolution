@@ -1,3 +1,19 @@
+2003-09-16  Rodrigo Moya <rodrigo@ximian.com>
+
+	* idl/evolution-calendar.idl: added addTimezone method.
+
+	* pcs/cal.c (impl_Cal_addTimezone): implemented new method.
+	(cal_class_init): set new method on the epv.
+
+	* pcs/cal-backend.[ch]: added 'add_timezone' virtual method.
+	(cal_backend_add_timezone): implemented new virtual method.
+
+	* pcs/cal-backend-file.c (cal_backend_file_modify_object): it's
+	cal_component_get_as_string, not cal_component_as_string.
+
+	* cal-client/cal-client.c (cal_client_ensure_timezone_on_server):
+	dont use anymore updateObjects method, use addTimezone instead.
+
 2003-09-15  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-file.c (cal_backend_file_create_object): return

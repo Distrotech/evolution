@@ -3373,9 +3373,8 @@ static gboolean
 cal_client_ensure_timezone_on_server (CalClient *client, icaltimezone *zone)
 {
 	CalClientPrivate *priv;
-	char *tzid, *obj_string;
+	char *tzid;
 	icaltimezone *tmp_zone;
-	GString *vcal_string;
 	gboolean retval = FALSE;
 	icalcomponent *vtimezone_comp;
 	char *vtimezone_as_string;
@@ -3401,34 +3400,20 @@ cal_client_ensure_timezone_on_server (CalClient *client, icaltimezone *zone)
 	/* Now we have to send it to the server, in case it doesn't already
 	   have it. */
 
-	vcal_string = g_string_new (NULL);
-	g_string_append (vcal_string,
-			 "BEGIN:VCALENDAR\n"
-			 "PRODID:-//Ximian//NONSGML Evolution Calendar//EN\n"
-			 "VERSION:2.0\n");
-
 	/* Convert the timezone to a string and add it. */
 	vtimezone_comp = icaltimezone_get_component (zone);
 	if (!vtimezone_comp) {
-		g_string_free (vcal_string, TRUE);
 		return FALSE;
 	}
 
 	/* We don't need to free this string as libical owns it. */
 	vtimezone_as_string = icalcomponent_as_ical_string (vtimezone_comp);
-	g_string_append (vcal_string, vtimezone_as_string);
-
-	g_string_append (vcal_string, "END:VCALENDAR\n");
-
-	obj_string = vcal_string->str;
-	g_string_free (vcal_string, FALSE);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Cal_updateObjects (priv->cal, obj_string, GNOME_Evolution_Calendar_MOD_ALL, &ev);
-	g_free (obj_string);
+	GNOME_Evolution_Calendar_Cal_addTimezone (priv->cal, vtimezone_as_string, &ev);
 	
 	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_InvalidObject))
-	    goto out;
+		goto out;
 	else if (BONOBO_EX (&ev)) {
 		g_message ("cal_client_ensure_timezone_on_server(): could not add the timezone to the server");
 		goto out;
