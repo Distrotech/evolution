@@ -457,7 +457,6 @@ get_times_for_views (GnomeCalendar *gcal, GnomeCalendarViewType view_type, time_
 	
 	priv = gcal->priv;
 	
-	/* FIXME In/out for start and end to normalize them? */
 	switch (view_type) {
 	case GNOME_CAL_DAY_VIEW:
 		days_shown  = e_day_view_get_days_shown (E_DAY_VIEW (priv->views[view_type]));
@@ -465,6 +464,7 @@ get_times_for_views (GnomeCalendar *gcal, GnomeCalendarViewType view_type, time_
 		*end_time = time_add_day_with_zone (*start_time, days_shown, priv->zone);
 		break;
 	case GNOME_CAL_WORK_WEEK_VIEW:
+		/* FIXME this should actually be the first working day */
 		*start_time = time_week_begin_with_zone (*start_time, priv->week_start, priv->zone);
 		*end_time = time_add_day_with_zone (*start_time, 5, priv->zone);
 		break;
@@ -1091,8 +1091,7 @@ gnome_calendar_init (GnomeCalendar *gcal)
 	setup_config (gcal);
 	setup_widgets (gcal);
 
-	priv->dn_queries = NULL;
-	priv->sexp = g_strdup ("#t"); /* Match all */
+	priv->dn_queries = NULL;	priv->sexp = g_strdup ("#t"); /* Match all */
 
 	priv->view_instance = NULL;
 	priv->view_menus = NULL;
@@ -1252,10 +1251,12 @@ gnome_calendar_goto_date (GnomeCalendar *gcal,
 		new_time = time_week_begin_with_zone (priv->base_view_time, priv->week_start, priv->zone);
 		if (priv->current_view_type == GNOME_CAL_DAY_VIEW ||
 		    priv->current_view_type == GNOME_CAL_WORK_WEEK_VIEW) {
+			/* FIXME Shouldn't hard code work week end */
 			/* goto Friday of this week */
 			new_time = time_add_day_with_zone (new_time, 4, priv->zone);
 		} else {
 			/* goto Sunday of this week */
+			/* FIXME Shouldn't hard code week end */
 			new_time = time_add_day_with_zone (new_time, 6, priv->zone);
 		}
 		need_updating = TRUE;
@@ -1283,16 +1284,14 @@ void
 gnome_calendar_goto (GnomeCalendar *gcal, time_t new_time)
 {
 	GnomeCalendarPrivate *priv;
-
+	
 	g_return_if_fail (gcal != NULL);
 	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
 	g_return_if_fail (new_time != -1);
 
 	priv = gcal->priv;
 
-	priv->base_view_time = time_day_begin_with_zone (new_time, priv->zone);
-
-	update_view_times (gcal, priv->base_view_time);
+	update_view_times (gcal, new_time);
 	gnome_calendar_update_date_navigator (gcal);
 	gnome_calendar_notify_dates_shown_changed (gcal);
 }
@@ -1434,7 +1433,7 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 	  gboolean range_selected, gboolean grab_focus)
 {
 	GnomeCalendarPrivate *priv;
-	gboolean round_selection;
+	gboolean preserve_day;
 	const char *view_id;
 	static gboolean updating = FALSE;
 
@@ -1443,7 +1442,7 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 
 	priv = gcal->priv;
 
-	round_selection = FALSE;
+	preserve_day = FALSE;
 
 	switch (view_type) {
 	case GNOME_CAL_DAY_VIEW:
@@ -1456,11 +1455,12 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 
 	case GNOME_CAL_WORK_WEEK_VIEW:
 		view_id = "Work_Week_View";
+		preserve_day = TRUE;
 		break;
 
 	case GNOME_CAL_WEEK_VIEW:
 		view_id = "Week_View";
-		round_selection = TRUE;
+		preserve_day = TRUE;
 		break;
 
 	case GNOME_CAL_MONTH_VIEW:
@@ -1469,7 +1469,7 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 		if (!range_selected)
 			e_week_view_set_weeks_shown (E_WEEK_VIEW (priv->month_view), 5);
 
-		round_selection = TRUE;
+		preserve_day = TRUE;
 		break;
 
 	case GNOME_CAL_LIST_VIEW:
@@ -1477,7 +1477,6 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 		break;
 
 	default:
-		g_warning ("A penguin is loose!");
 		g_assert_not_reached ();
 		return;
 	}
@@ -1494,7 +1493,7 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 	updating = FALSE;
 
 	if (grab_focus)
-		gtk_widget_grab_focus (GTK_WIDGET (priv->views[view_type]));
+		focus_current_view (gcal);
 
 	gnome_calendar_set_pane_positions (gcal);
 
@@ -1502,7 +1501,7 @@ set_view (GnomeCalendar	*gcal, GnomeCalendarViewType view_type,
 	   navigator to be rounded to the nearest week when the arrow buttons
 	   are pressed to move to the previous/next month. */
 	g_object_set (G_OBJECT (priv->date_navigator->calitem),
-		      "round_selection_when_moving", round_selection,
+		      "preserve_day_when_moving", preserve_day,
 		      NULL);
 }
 
@@ -2423,6 +2422,7 @@ static void
 gnome_calendar_on_date_navigator_selection_changed (ECalendarItem *calitem, GnomeCalendar *gcal)
 {
 	GnomeCalendarPrivate *priv;
+	GnomeCalendarViewType view_type;
 	GDate start_date, end_date, new_start_date, new_end_date;
 	gint days_shown, new_days_shown;
 	gboolean starts_on_week_start_day;
@@ -2451,7 +2451,7 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem *calitem, Gnom
 	   Note that if weekends are compressed and the week start day is set
 	   to Sunday we don't actually show complete weeks in the Week view,
 	   so this may need tweaking. */
-	if (g_date_weekday (&new_start_date) % 7 == calendar_config_get_week_start_day ())
+	if (g_date_weekday (&new_start_date) % 7 == priv->week_start)
 		starts_on_week_start_day = TRUE;
 
 	/* Update selection to be in the new time range */
@@ -2460,10 +2460,6 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem *calitem, Gnom
 	tt.month  = g_date_month (&new_start_date);
 	tt.day = g_date_day (&new_start_date);
 	new_time = icaltime_as_timet_with_zone (tt, priv->zone);
-
-	/* Make the views display things properly */
-	g_message ("Updating view times %d:%d:%d", tt.year, tt.month, tt.day);
-	update_view_times (gcal, new_time);
 	
 	/* Switch views as appropriate, and change the number of days or weeks
 	   shown. */
@@ -2471,24 +2467,26 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem *calitem, Gnom
 		e_week_view_set_weeks_shown (E_WEEK_VIEW (priv->month_view),
 					     (new_days_shown + 6) / 7);
 		e_week_view_set_first_day_shown (E_WEEK_VIEW (priv->month_view), &new_start_date);
-
-		gnome_calendar_set_view (gcal, GNOME_CAL_MONTH_VIEW, TRUE, FALSE);
-
+		view_type = GNOME_CAL_MONTH_VIEW;
 	} else if (new_days_shown == 7 && starts_on_week_start_day) {
 		e_week_view_set_first_day_shown (E_WEEK_VIEW (priv->week_view), &new_start_date);
-
-		gnome_calendar_set_view (gcal, GNOME_CAL_WEEK_VIEW, TRUE, FALSE);
+		view_type = GNOME_CAL_WEEK_VIEW;
 	} else {		
 		e_day_view_set_days_shown (E_DAY_VIEW (priv->day_view), new_days_shown);
 		
-		if (new_days_shown == 5 && priv->current_view_type == GNOME_CAL_WORK_WEEK_VIEW)
-			gnome_calendar_set_view (gcal, GNOME_CAL_WORK_WEEK_VIEW, TRUE, FALSE);
+		if (new_days_shown == 5 && starts_on_week_start_day 
+		    && priv->current_view_type == GNOME_CAL_WORK_WEEK_VIEW)
+			view_type = GNOME_CAL_WORK_WEEK_VIEW;
 		else
-			gnome_calendar_set_view (gcal, GNOME_CAL_DAY_VIEW, TRUE, FALSE);
-
+			view_type = GNOME_CAL_DAY_VIEW;
 	}
 
-	focus_current_view (gcal);
+	/* Make the views display things properly */
+	g_message ("Updating view times %d:%d:%d", tt.year, tt.month, tt.day);
+	update_view_times (gcal, new_time);
+
+	set_view (gcal, view_type, TRUE, TRUE);
+	gnome_calendar_notify_dates_shown_changed (gcal);
 }
 
 static void
