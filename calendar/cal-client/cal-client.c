@@ -3399,6 +3399,8 @@ cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GEr
 	status = our_op->status;
 	*query = our_op->query;
 
+	bonobo_object_unref (BONOBO_OBJECT (our_op->listener));
+	
 	e_calendar_remove_op (client, our_op);
 	e_mutex_unlock (our_op->mutex);
 	e_calendar_free_op (our_op);

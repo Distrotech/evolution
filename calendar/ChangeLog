@@ -1,3 +1,11 @@
+2003-09-23    <jpr@ximian.com>
+
+	* cal-client/cal-query.c (cal_query_finalize): disconnect the
+	signal handlers
+
+	* cal-client/cal-client.c (cal_client_get_query): unref the
+	listener when done
+
 2003-09-23  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-view.c (selection_received): add VTIMEZONE components

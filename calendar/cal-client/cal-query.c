@@ -206,7 +206,7 @@ cal_query_finalize (GObject *object)
 	priv = query->priv;
 
 	/* The server keeps a copy of the query listener, so we must unref it */
-	/* FIXME Disconnect from signals */
+	g_signal_handlers_disconnect_matched (priv->listener, G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, query);
 	bonobo_object_unref (BONOBO_OBJECT (priv->listener));
 
 	if (priv->query != CORBA_OBJECT_NIL)
