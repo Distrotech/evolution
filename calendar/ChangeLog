@@ -1,3 +1,8 @@
+2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/gnome-cal.h: added missing ',' in the GnomeCalendarViewType
+	enum.
+	
 2003-10-14  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-day-view.c (e_day_view_update_query): dont set status
