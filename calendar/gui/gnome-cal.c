@@ -68,9 +68,6 @@ struct _GnomeCalendarPrivate {
 	 * The Calendar Folder.
 	 */
 
-	/* The calendar client object we monitor */
-	CalClient *client;
-
 	/* Set of categories from the calendar client */
 	GPtrArray *cal_categories;
 
@@ -380,7 +377,7 @@ dn_query_obj_updated_cb (CalQuery *query, const char *uid,
 		return;
 	}
 
-	status = cal_client_get_object (priv->client, uid, &icalcomp);
+	status = cal_client_get_object (cal_query_get_client (query), uid, &icalcomp);
 
 	switch (status) {
 	case CAL_CLIENT_GET_SUCCESS:
@@ -405,7 +402,7 @@ dn_query_obj_updated_cb (CalQuery *query, const char *uid,
 		return;
 	}
 
-	tag_calendar_by_comp (priv->date_navigator, comp, priv->client, NULL,
+	tag_calendar_by_comp (priv->date_navigator, comp, cal_query_get_client (query), NULL,
 			      FALSE, TRUE);
 	g_object_unref (comp);
 }
@@ -1026,13 +1023,6 @@ gnome_calendar_destroy (GtkObject *object)
 		if (priv->query_timeout) {
 			g_source_remove (priv->query_timeout);
 			priv->query_timeout = 0;
-		}
-	
-		if (priv->client) {
-			g_signal_handlers_disconnect_matched (priv->client, G_SIGNAL_MATCH_DATA,
-							      0, 0, NULL, NULL, gcal);
-			g_object_unref (priv->client);
-			priv->client = NULL;
 		}
 
 		if (priv->task_pad_client) {
@@ -1676,11 +1666,6 @@ client_cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer da
 
 	switch (status) {
 	case CAL_CLIENT_OPEN_SUCCESS:
-		/* If this is the main CalClient, update the Date Navigator. */
-		if (client == priv->client) {
-			priv->query_timeout = g_timeout_add (100, update_query_timeout, gcal);
-		}
-
 		/* Set the client's default timezone, if we have one. */
 		if (priv->zone) {
 			cal_client_set_default_timezone (client, priv->zone);
@@ -1690,11 +1675,14 @@ client_cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer da
 		uristr = get_uri_without_password (cal_client_get_uri (client));
 		msg = g_strdup_printf (_("Adding alarms for %s"), uristr);
 		g_free (uristr);
-		if (client == priv->client) {
-			e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), msg);
-		}
-		else if (client == priv->task_pad_client) {
+		if (client == priv->task_pad_client) {
 			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), msg);
+			e_cal_model_add_client (e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo)),
+						priv->task_pad_client);
+		}
+		else {
+			e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), msg);
+			e_cal_model_add_client (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)), client);
 		}
 		g_free (msg);
 
@@ -1723,12 +1711,10 @@ client_cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer da
 		return;
 	}
 
-	if (client == priv->client) {
-		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
-	}
-	else if (client == priv->task_pad_client) {
+	if (client == priv->task_pad_client)
 		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), NULL);
-	}
+	else
+		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 }
 
 /* Duplicates an array of categories */
@@ -1831,14 +1817,13 @@ client_categories_changed_cb (CalClient *client, GPtrArray *categories, gpointer
 	gcal = GNOME_CALENDAR (data);
 	priv = gcal->priv;
 
-	if (client == priv->client) {
-		free_categories (priv->cal_categories);
-		priv->cal_categories = copy_categories (categories);
-	} else if (client == priv->task_pad_client) {
+	if (client == priv->task_pad_client) {
 		free_categories (priv->tasks_categories);
 		priv->tasks_categories = copy_categories (categories);
-	} else
-		g_assert_not_reached ();
+	} else {
+		free_categories (priv->cal_categories);
+		priv->cal_categories = copy_categories (categories);
+	}
 
 	merged = merge_categories (priv->cal_categories, priv->tasks_categories);
 	cal_search_bar_set_categories (CAL_SEARCH_BAR (priv->search_bar), merged);
@@ -1876,8 +1861,14 @@ backend_died_cb (CalClient *client, gpointer data)
 	gcal = GNOME_CALENDAR (data);
 	priv = gcal->priv;
 
-	uristr = get_uri_without_password (cal_client_get_uri (priv->client));
-	if (client == priv->client) {
+	uristr = get_uri_without_password (cal_client_get_uri (client));
+	if (client == priv->task_pad_client) {
+		message = g_strdup_printf (_("The task backend for\n%s\n has crashed. "
+					     "You will have to restart Evolution in order "
+					     "to use it again"),
+					   uristr);
+		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), NULL);
+	} else {
 		message = g_strdup_printf (_("The calendar backend for\n%s\n has crashed. "
 					     "You will have to restart Evolution in order "
 					     "to use it again"),
@@ -1886,15 +1877,6 @@ backend_died_cb (CalClient *client, gpointer data)
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->work_week_view), NULL);
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->month_view), NULL);
-	} else if (client == priv->task_pad_client) {
-		message = g_strdup_printf (_("The task backend for\n%s\n has crashed. "
-					     "You will have to restart Evolution in order "
-					     "to use it again"),
-					   uristr);
-		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), NULL);
-	} else {
-		message = NULL;
-		g_assert_not_reached ();
 	}
 
 	gnome_error_dialog_parented (message, GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (gcal))));
@@ -1917,21 +1899,14 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 	/*
 	 * Calendar Folder Client.
 	 */
-	g_signal_connect (priv->client, "cal_opened",
-			  G_CALLBACK (client_cal_opened_cb), gcal);
-	g_signal_connect (priv->client, "backend_error",
-			  G_CALLBACK (backend_error_cb), gcal);
-	g_signal_connect (priv->client, "categories_changed",
-			  G_CALLBACK (client_categories_changed_cb), gcal);
-	g_signal_connect (priv->client, "backend_died",
-			  G_CALLBACK (backend_died_cb), gcal);
-
 
 	model = e_cal_model_calendar_new ();
 	e_cal_view_set_model (E_CAL_VIEW (priv->day_view), model);
 	e_cal_view_set_model (E_CAL_VIEW (priv->work_week_view), model);
 	e_cal_view_set_model (E_CAL_VIEW (priv->week_view), model);
 	e_cal_view_set_model (E_CAL_VIEW (priv->month_view), model);
+
+	g_object_unref (model);
 
 	/*
 	 * TaskPad Folder Client.
@@ -1948,11 +1923,6 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 			  G_CALLBACK (client_categories_changed_cb), gcal);
 	g_signal_connect (priv->task_pad_client, "backend_died",
 			  G_CALLBACK (backend_died_cb), gcal);
-
-	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));
-	g_assert (model != NULL);
-
-	e_cal_model_add_client (model, priv->task_pad_client);
 
 	/* Get the default view to show. */
 	view_type = calendar_config_get_default_view ();
@@ -1991,15 +1961,15 @@ gnome_calendar_set_ui_component (GnomeCalendar *gcal,
 }
 
 /**
- * gnome_calendar_get_cal_client:
+ * gnome_calendar_get_calendar_model:
  * @gcal: A calendar view.
  *
- * Queries the calendar client interface object that a calendar view is using.
+ * Queries the calendar model object that a calendar view is using.
  *
  * Return value: A calendar client interface object.
  **/
-CalClient *
-gnome_calendar_get_cal_client (GnomeCalendar *gcal)
+ECalModel *
+gnome_calendar_get_calendar_model (GnomeCalendar *gcal)
 {
 	GnomeCalendarPrivate *priv;
 
@@ -2008,7 +1978,7 @@ gnome_calendar_get_cal_client (GnomeCalendar *gcal)
 
 	priv = gcal->priv;
 
-	return priv->client;
+	return e_cal_view_get_model (E_CAL_VIEW (priv->week_view));
 }
 
 /**
@@ -2089,16 +2059,13 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	char *message;
 	char *real_uri;
 	char *urinopwd;
+	CalClient *client;
 
 	g_return_val_if_fail (gcal != NULL, FALSE);
 	g_return_val_if_fail (GNOME_IS_CALENDAR (gcal), FALSE);
 	g_return_val_if_fail (str_uri != NULL, FALSE);
 
 	priv = gcal->priv;
-
-	g_return_val_if_fail (
-		cal_client_get_load_state (priv->client) == CAL_CLIENT_LOAD_NOT_LOADED,
-		FALSE);
 
 	g_return_val_if_fail (
 		cal_client_get_load_state (priv->task_pad_client) == CAL_CLIENT_LOAD_NOT_LOADED,
@@ -2116,7 +2083,13 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), message);
 	g_free (message);
 
-	if (!cal_client_open_calendar (priv->client, real_uri, FALSE)) {
+	client = cal_client_new ();
+	g_signal_connect (G_OBJECT (client), "cal_opened", G_CALLBACK (client_cal_opened_cb), gcal);
+	g_signal_connect (G_OBJECT (client), "backend_error", G_CALLBACK (backend_error_cb), gcal);
+	g_signal_connect (G_OBJECT (client), "categories_changed", G_CALLBACK (client_categories_changed_cb), gcal);
+	g_signal_connect (G_OBJECT (client), "backend_died", G_CALLBACK (backend_died_cb), gcal);
+
+	if (!cal_client_open_calendar (client, real_uri, FALSE)) {
 		g_message ("gnome_calendar_open(): Could not issue the request to open the calendar folder");
 		g_free (real_uri);
 		e_uri_free (uri);

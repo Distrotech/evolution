@@ -1,8 +1,22 @@
+2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/gnome-cal.c (dn_query_obj_updated_cb, gnome_calendar_destroy,
+	client_categories_changed_cb): removed the 'client' field from the
+	private structure, so don't use it anymore
+	(client_cal_opened_cb): if successful, add the CalClient to the
+	views' model.
+	(gnome_calendar_construct): don't add the client to the task model,
+	add it in client_cal_opened_cb().
+	(gnome_calendar_get_cal_client): removed.
+	(gnome_calendar_get_calendar_model): new function.
+	(gnome_calendar_open): create the CalClient here, to be added to the
+	views' model in client_cal_opened_cb().
+
 2003-08-09  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-view.[ch] (e_cal_view_get_cal_client,
-	 e_cal_view_set_cal_client, e_cal_view_get_query,
-	 e_cal_view_set_query): removed unneeded functions.
+	e_cal_view_set_cal_client, e_cal_view_get_query,
+	e_cal_view_set_query): removed unneeded functions.
 	(e_cal_view_get_model, e_cal_view_set_model): new functions.
 	(e_cal_view_destroy): free the model.
 	(e_cal_view_init): removed sexp initialization.
