@@ -34,6 +34,7 @@
 #include <camel/camel-store.h>
 #include <camel/camel-folder.h>
 
+#include "e-util/e-request.h"
 #include "e-util/e-dialog-utils.h"
 
 #include "mail-mt.h"
@@ -1265,7 +1266,7 @@ folder_subscribed_cb (CamelStore *store, void *event_data, EMFolderTree *emft)
 	/* append a new node */
 	gtk_tree_store_append ((GtkTreeStore *) model, &iter, &parent);
 	
-	tree_store_set_folder_info (model, &iter, emft->priv, si, fi);
+	tree_store_set_folder_info ((GtkTreeStore *) model, &iter, emft->priv, si, fi);
 }
 
 static void
