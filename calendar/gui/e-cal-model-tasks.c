@@ -24,6 +24,7 @@
 #include <gtk/gtkmessagedialog.h>
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-util.h>
+#include "calendar-config.h"
 #include "e-cal-model-tasks.h"
 #include "e-cell-date-edit-text.h"
 #include "misc.h"
@@ -57,6 +58,7 @@ ecmt_class_init (ECalModelTasksClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	ETableModelClass *etm_class = E_TABLE_MODEL_CLASS (klass);
+	ECalModelClass *model_class = E_CAL_MODEL_CLASS (klass);
 
 	parent_class = g_type_class_peek_parent (klass);
 
@@ -72,6 +74,8 @@ ecmt_class_init (ECalModelTasksClass *klass)
 	etm_class->initialize_value = ecmt_initialize_value;
 	etm_class->value_is_empty = ecmt_value_is_empty;
 	etm_class->value_to_string = ecmt_value_to_string;
+
+	model_class->get_color_for_component = ecmt_get_color_for_component;
 }
 
 static void
@@ -197,9 +201,61 @@ ensure_task_not_complete (ECalModelComponent *comp_data)
 static ECellDateEditValue *
 get_completed (ECalModelComponent *comp_data)
 {
-	/* FIXME */
+	struct icaltimetype tt_completed;
 
-	return NULL;
+	if (!comp_data->completed) {
+		icaltimezone *zone;
+		icalproperty *prop;
+
+		prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_COMPLETED_PROPERTY);
+		if (!prop)
+			return NULL;
+
+		tt_completed = icalproperty_get_completed (prop);
+		if (!icaltime_is_valid_time (tt_completed))
+			return NULL;
+
+		comp_data->completed = g_new0 (ECellDateEditValue, 1);
+		comp_data->completed->tt = tt_completed;
+
+		/* FIXME: handle errors */
+		cal_client_get_timezone (comp_data->client,
+					 icaltimezone_get_tzid (icaltimezone_get_builtin_timezone (tt_completed.zone)),
+					 &zone);
+		comp_data->completed->zone = zone;
+	}
+
+	return comp_data->completed;
+}
+
+static ECellDateEditValue *
+get_due (ECalModelComponent *comp_data)
+{
+	struct icaltimetype tt_due;
+
+	if (!comp_data->due) {
+		icaltimezone *zone;
+		icalproperty *prop;
+
+		prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DUE_PROPERTY);
+		if (!prop)
+			return NULL;
+
+		tt_due = icalproperty_get_due (prop);
+		if (!icaltime_is_valid_time (tt_due))
+			return NULL;
+
+		comp_data->due = g_new0 (ECellDateEditValue, 1);
+		comp_data->due->tt = tt_due;
+
+		/* FIXME: handle errors */
+		cal_client_get_timezone (comp_data->client,
+					 icaltimezone_get_tzid (icaltimezone_get_builtin_timezone (tt_due.zone)),
+					 &zone);
+		comp_data->due->zone = zone;
+	}
+
+	return comp_data->due;
 }
 
 static char *
@@ -403,8 +459,7 @@ ecmt_value_at (ETableModel *etm, int col, int row)
 	case E_CAL_MODEL_TASKS_FIELD_COMPLETE :
 		return GINT_TO_POINTER (is_complete (comp_data));
 	case E_CAL_MODEL_TASKS_FIELD_DUE :
-		/* FIXME */
-		break;
+		return get_due (comp_data);
 	case E_CAL_MODEL_TASKS_FIELD_GEO :
 		return get_geo (comp_data);
 	case E_CAL_MODEL_TASKS_FIELD_OVERDUE :

@@ -35,6 +35,8 @@ G_BEGIN_DECLS
 typedef struct _ECalModelTasksPrivate ECalModelTasksPrivate;
 
 typedef enum {
+	/* If you add new items here or reorder them, you have to update the
+	   .etspec files for the tables using this model */
 	E_CAL_MODEL_TASKS_FIELD_COMPLETED = E_CAL_MODEL_FIELD_LAST,
 	E_CAL_MODEL_TASKS_FIELD_COMPLETE,
 	E_CAL_MODEL_TASKS_FIELD_DUE,

@@ -1,5 +1,9 @@
 2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model-tasks.c (get_completed, get_due): added
+	missing implementation.
+	(ecmt_class_init): initialize missing virtual method.
+
 	* gui/gnome-cal.c (gnome_calendar_construct): fixed typo.
 
 2003-08-07  Rodrigo Moya <rodrigo@ximian.com>

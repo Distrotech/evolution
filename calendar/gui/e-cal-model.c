@@ -147,6 +147,16 @@ free_comp_data (ECalModelComponent *comp_data)
 		comp_data->dtend = NULL;
 	}
 
+	if (comp_data->due) {
+		g_free (comp_data->due);
+		comp_data->due = NULL;
+	}
+
+	if (comp_data->completed) {
+		g_free (comp_data->completed);
+		comp_data->completed = NULL;
+	}
+
 	g_free (comp_data);
 }
 
