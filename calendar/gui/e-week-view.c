@@ -1098,6 +1098,7 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 	CalComponent *comp = NULL;
 	AddEventData add_event_data;
 	const char *uid;
+	CalComponentDateTime dt_start, dt_end;
 
 	/* If we don't have a valid date set yet, just return. */
 	if (!g_date_valid (&week_view->first_day_shown))
@@ -1149,18 +1150,26 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 		g_object_unref (tmp_comp);
 	}
 
-	/* Add the occurrences of the event. */
+	/* Add the event if it's on the time range */
 	num_days = week_view->multi_week_view ? week_view->weeks_shown * 7 : 7;
 
-	add_event_data.week_view = week_view;
-	add_event_data.comp_data = comp_data;
-	cal_recur_generate_instances (comp,
-				      week_view->day_starts[0],
-				      week_view->day_starts[num_days],
-				      e_week_view_add_event, &add_event_data,
-				      cal_client_resolve_tzid_cb,
-				      comp_data->client,
-				      e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
+	cal_component_get_dtstart (comp, &dt_start);
+	cal_component_get_dtend (comp, &dt_end);
+
+	if (dt_start.value && dt_end.value) {
+		time_t tt_start, tt_end;
+
+		tt_start = icaltime_as_timet (*dt_start.value);
+		tt_end = icaltime_as_timet (*dt_end.value);
+
+		if ((tt_start >= week_view->day_starts[0] && tt_start <= week_view->day_starts[num_days])
+		    || (tt_end >= week_view->day_starts[0] && tt_end <= week_view->day_starts[num_days])
+		    || (tt_start <= week_view->day_starts[0] && tt_end >= week_view->day_starts[num_days])) {
+			add_event_data.week_view = week_view;
+			add_event_data.comp_data = comp_data;
+			e_week_view_add_event (comp, tt_start, tt_end, &add_event_data);
+		}
+	}
 
 	g_object_unref (comp);
 
@@ -3049,7 +3058,8 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	CalComponent *comp;
 	CalComponentText summary;
 	const char *uid;
-
+	gboolean on_server;
+	
 	/* Note: the item we are passed here isn't reliable, so we just stop
 	   the edit of whatever item was being edited. We also receive this
 	   event twice for some reason. */
@@ -3079,8 +3089,9 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	comp = cal_component_new ();
 	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 
-	if (string_is_empty (text) &&
-	    !cal_comp_is_on_server (comp, event->comp_data->client)) {
+	on_server = cal_comp_is_on_server (comp, event->comp_data->client);
+	
+	if (string_is_empty (text) && !on_server) {
 		const char *uid;
 		
 		cal_component_get_uid (comp, &uid);
@@ -3099,33 +3110,33 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 			e_week_view_reshape_event_span (week_view, event_num,
 							span_num);
 	} else if (summary.value || !string_is_empty (text)) {
+		icalcomponent *icalcomp = cal_component_get_icalcomponent (comp);
+		
 		summary.value = text;
 		summary.altrep = NULL;
 		cal_component_set_summary (comp, &summary);
-
-		if (cal_component_is_instance (comp)) {
-			CalObjModType mod;
-
-			if (recur_component_dialog (comp, &mod, NULL)) {
-				if (cal_client_update_object_with_mod (event->comp_data->client, comp, mod)
-				    == CAL_CLIENT_RESULT_SUCCESS) {
-					if (itip_organizer_is_user (comp, event->comp_data->client) 
-					    && send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (week_view)),
-								      event->comp_data->client, comp, FALSE))
-						itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
-								event->comp_data->client, NULL);
-				} else {
-					g_message ("e_week_view_on_editing_stopped(): Could not update the object!");
+		
+		if (!on_server) {
+			if (!cal_client_create_object (event->comp_data->client, icalcomp, NULL, NULL))
+				g_message (G_STRLOC ": Could not create the object!");
+		} else {
+			CalObjModType mod = CALOBJ_MOD_ALL;
+			GtkWindow *toplevel;
+			
+			if (cal_component_has_recurrences (comp)) {
+				if (!recur_component_dialog (comp, &mod, NULL)) {
+					goto out;
 				}
 			}
-		} else if (cal_client_update_object (event->comp_data->client, comp) == CAL_CLIENT_RESULT_SUCCESS) {
-			if (itip_organizer_is_user (comp, event->comp_data->client) &&
-			    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (week_view)),
-						   event->comp_data->client, comp, FALSE))
-				itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
-						event->comp_data->client, NULL);
-		} else {
-			g_message ("e_week_view_on_editing_stopped(): Could not update the object!");
+			
+			/* FIXME When sending here, what exactly should we send? */
+			toplevel = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (week_view)));
+			if (cal_client_modify_object (event->comp_data->client, icalcomp, mod, NULL)) {
+				if (itip_organizer_is_user (comp, event->comp_data->client) 
+				    && send_component_dialog (toplevel, event->comp_data->client, comp, FALSE))
+					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
+							event->comp_data->client, NULL);
+			}
 		}
 	}
 
@@ -3543,63 +3554,6 @@ e_week_view_popup_menu (GtkWidget *widget)
 	e_week_view_show_popup_menu (week_view, NULL,
 				     week_view->editing_event_num);
 	return TRUE;
-}
-
-void
-e_week_view_unrecur_appointment (EWeekView *week_view)
-{
-	EWeekViewEvent *event;
-	CalComponent *comp, *new_comp;
-	CalComponentDateTime date;
-	struct icaltimetype itt;
-
-	if (week_view->popup_event_num == -1)
-		return;
-
-	event = &g_array_index (week_view->events, EWeekViewEvent,
-				week_view->popup_event_num);
-
-	/* For the recurring object, we add a exception to get rid of the
-	   instance. */
-	comp = cal_component_new ();
-	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
-	cal_comp_util_add_exdate (comp, event->start, e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-
-	/* For the unrecurred instance we duplicate the original object,
-	   create a new uid for it, get rid of the recurrence rules, and set
-	   the start & end times to the instances times. */
-	new_comp = cal_component_new ();
-	cal_component_set_icalcomponent (new_comp, icalcomponent_new_clone (event->comp_data->icalcomp));
-	cal_component_set_uid (new_comp, cal_component_gen_uid ());
-	cal_component_set_rdate_list (new_comp, NULL);
-	cal_component_set_rrule_list (new_comp, NULL);
-	cal_component_set_exdate_list (new_comp, NULL);
-	cal_component_set_exrule_list (new_comp, NULL);
-
-	date.value = &itt;
-	date.tzid = icaltimezone_get_tzid (e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-
-	*date.value = icaltime_from_timet_with_zone (event->start, FALSE,
-						     e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-	cal_component_set_dtstart (new_comp, &date);
-	*date.value = icaltime_from_timet_with_zone (event->end, FALSE,
-						     e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-	cal_component_set_dtend (new_comp, &date);
-
-	/* Now update both CalComponents. Note that we do this last since at
-	   present the updates happen synchronously so our event may disappear.
-	*/
-	if (cal_client_update_object (event->comp_data->client, comp)
-	    != CAL_CLIENT_RESULT_SUCCESS)
-		g_message ("e_week_view_on_unrecur_appointment(): Could not update the object!");
-
-	g_object_unref (comp);
-
-	if (cal_client_update_object (event->comp_data->client, new_comp)
-	    != CAL_CLIENT_RESULT_SUCCESS)
-		g_message ("e_week_view_on_unrecur_appointment(): Could not update the object!");
-
-	g_object_unref (new_comp);
 }
 
 void

@@ -274,11 +274,9 @@ find_server (GPtrArray *servers, CalComponent *comp)
 	for (i = 0; i < servers->len; i++) {
 		CalClient *client;
 		icalcomponent *icalcomp;
-		CalClientGetStatus status;
 		
 		client = g_ptr_array_index (servers, i);
-		status = cal_client_get_object (client, uid, &icalcomp);
-		if (status == CAL_CLIENT_GET_SUCCESS) {
+		if (cal_client_get_object (client, uid, NULL, &icalcomp, NULL)) {
 			icalcomponent_free (icalcomp);
 			g_object_ref (client);
 
@@ -762,6 +760,7 @@ write_recurrence_piece (EItipControl *itip, CalComponent *comp,
 	} else if (!icaltime_is_null_time (r->until)) {
 		CalComponentDateTime dt;
 
+		/* FIXME This should get the tzid id, not the whole zone */
 		dt.value = &r->until;
 		dt.tzid = r->until.zone;
 
@@ -1220,7 +1219,7 @@ get_real_item (EItipControl *itip)
 	CalComponent *comp;
 	icalcomponent *icalcomp;
 	CalComponentVType type;
-	CalClientGetStatus status = CAL_CLIENT_GET_NOT_FOUND;
+	gboolean found = FALSE;
 	const char *uid;
 	
 	priv = itip->priv;
@@ -1231,17 +1230,17 @@ get_real_item (EItipControl *itip)
 	switch (type) {
 	case CAL_COMPONENT_EVENT:
 		if (priv->event_client != NULL)
-			status = cal_client_get_object (priv->event_client, uid, &icalcomp);
+			found = cal_client_get_object (priv->event_client, uid, NULL, &icalcomp, NULL);
 		break;
 	case CAL_COMPONENT_TODO:
 		if (priv->task_client != NULL)
-			status = cal_client_get_object (priv->task_client, uid, &icalcomp);
+			found = cal_client_get_object (priv->task_client, uid, NULL, &icalcomp, NULL);
 		break;
 	default:
-		status = CAL_CLIENT_GET_NOT_FOUND;
+		found = FALSE;
 	}
 
-	if (status != CAL_CLIENT_GET_SUCCESS)
+	if (!found)
 		return NULL;
 
 	comp = cal_component_new ();
@@ -1858,7 +1857,6 @@ update_item (EItipControl *itip)
 	CalClient *client;
 	CalComponentVType type;
 	GtkWidget *dialog;
-	CalClientResult result;
 
 	priv = itip->priv;
 
@@ -1886,32 +1884,18 @@ update_item (EItipControl *itip)
 	icalcomponent_add_component (priv->top_level, clone);
 	icalcomponent_set_method (priv->top_level, priv->method);
 
-	result = cal_client_update_objects (client, priv->top_level);
-	switch (result) {
-	case CAL_CLIENT_RESULT_INVALID_OBJECT :
-		dialog = gnome_warning_dialog (_("Object is invalid and cannot be updated\n"));
-		break;
-	case CAL_CLIENT_RESULT_CORBA_ERROR :
-		dialog = gnome_warning_dialog (_("There was an error on the CORBA system\n"));
-		break;
-	case CAL_CLIENT_RESULT_NOT_FOUND :
-		dialog = gnome_warning_dialog (_("Object could not be found\n"));
-		break;
-	case CAL_CLIENT_RESULT_PERMISSION_DENIED :
-		dialog = gnome_warning_dialog (_("You do not have the right permissions to update the calendar\n"));
-		break;
-	case CAL_CLIENT_RESULT_SUCCESS :
-		dialog = gnome_ok_dialog (_("Update complete\n"));
-		break;
-	default :
+	/* FIXME Better error dialog */
+	if (!cal_client_receive_objects (client, priv->top_level, NULL)) {
 		dialog = gnome_warning_dialog (_("Calendar file could not be updated!\n"));
-		break;
+	} else {
+		dialog = gnome_ok_dialog (_("Update complete\n"));
 	}
 	gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 
 	icalcomponent_remove_component (priv->top_level, clone);
 }
 
+#if 0
 static void
 update_attendee_status (EItipControl *itip)
 {
@@ -1941,7 +1925,7 @@ update_attendee_status (EItipControl *itip)
 	
 	/* Obtain our version */
 	cal_component_get_uid (priv->comp, &uid);
-	status = cal_client_get_object (client, uid, &icalcomp);
+	status = cal_client_get_object (client, uid, NULL, &icalcomp);
 
 	if (status == CAL_CLIENT_GET_SUCCESS) {
 		GSList *attendees;
@@ -2015,6 +1999,7 @@ update_attendee_status (EItipControl *itip)
 		g_object_unref (comp);
 	gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 }
+#endif
 
 static void
 remove_item (EItipControl *itip)
@@ -2024,7 +2009,7 @@ remove_item (EItipControl *itip)
 	CalComponentVType type;
 	const char *uid;
 	GtkWidget *dialog;
-	CalClientResult result;
+	GError *error = NULL;
 	
 	priv = itip->priv;
 
@@ -2038,13 +2023,15 @@ remove_item (EItipControl *itip)
 		return;
 	
 	cal_component_get_uid (priv->comp, &uid);
-	result = cal_client_remove_object (client, uid);
-	if (result == CAL_CLIENT_RESULT_SUCCESS || result == CAL_CLIENT_RESULT_NOT_FOUND) {
+	cal_client_remove_object (client, uid, &error);
+	if (!error || error->code == E_CALENDAR_STATUS_OBJECT_NOT_FOUND) {
 		dialog = gnome_ok_dialog (_("Removal Complete"));
 		gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 	} else {
-		delete_error_dialog (result, type);
-	}	
+		delete_error_dialog (error, type);
+	}
+	
+	g_clear_error (&error);
 }
 
 static void
@@ -2086,7 +2073,7 @@ send_freebusy (EItipControl *itip)
 	CalComponentDateTime datetime;
 	time_t start, end;
 	GtkWidget *dialog;
-	GList *comp_list;
+	GList *comp_list = NULL;
 	icaltimezone *zone;
 
 	priv = itip->priv;
@@ -2111,9 +2098,7 @@ send_freebusy (EItipControl *itip)
 	end = icaltime_as_timet_with_zone (*datetime.value, zone);
 	cal_component_free_datetime (&datetime);
 
-	comp_list = cal_client_get_free_busy (priv->event_client, NULL, start, end);
-
-	if (comp_list) {
+	if (cal_client_get_free_busy (priv->event_client, NULL, start, end, &comp_list, NULL)) {
 		GList *l;
 
 		for (l = comp_list; l; l = l->next) {
@@ -2337,7 +2322,8 @@ ok_clicked_cb (GtkHTML *html, const gchar *method, const gchar *url, const gchar
 				send_freebusy (itip);
 				break;
 			case 'R':
-				update_attendee_status (itip);
+				/* FIXME Make sure this does the right thing in the backend */
+				update_item (itip);
 				break;
 			case 'S':
 				send_item (itip);
