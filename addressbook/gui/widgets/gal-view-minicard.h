@@ -11,7 +11,7 @@
 #define _GAL_VIEW_MINICARD_H_
 
 #include <gal/menus/gal-view.h>
-#include <e-minicard-view-widget.h>
+#include <eab-minicard-view.h>
 
 #define GAL_TYPE_VIEW_MINICARD        (gal_view_minicard_get_type ())
 #define GAL_VIEW_MINICARD(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), GAL_TYPE_VIEW_MINICARD, GalViewMinicard))
@@ -25,8 +25,8 @@ typedef struct {
 	char                *title;
 	double               column_width;
 
-	EMinicardViewWidget *emvw;
-	guint                emvw_column_width_changed_id;
+	EABMinicardView     *emv;
+	guint                emv_column_width_changed_id;
 } GalViewMinicard;
 
 typedef struct {
@@ -39,7 +39,7 @@ GalView *gal_view_minicard_new        (const gchar         *title);
 GalView *gal_view_minicard_construct  (GalViewMinicard     *view,
 				       const gchar         *title);
 void     gal_view_minicard_attach     (GalViewMinicard     *view,
-				       EMinicardViewWidget *emvw);
+				       EABMinicardView     *emv);
 void     gal_view_minicard_detach     (GalViewMinicard     *view);
 
 #endif /* _GAL_VIEW_MINICARD_H_ */

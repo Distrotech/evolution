@@ -122,7 +122,7 @@ addressbook_count (EReflowModel *erm)
 
 /* This function returns the height of the minicontact in question */
 static int
-addressbook_height (EReflowModel *erm, int i, GnomeCanvasGroup *parent)
+addressbook_height (EReflowModel *erm, int i, GtkWidget *widget)
 {
 	EAddressbookReflowAdapter *adapter = E_ADDRESSBOOK_REFLOW_ADAPTER(erm);
 	EAddressbookReflowAdapterPrivate *priv = adapter->priv;
@@ -130,7 +130,7 @@ addressbook_height (EReflowModel *erm, int i, GnomeCanvasGroup *parent)
 	int count = 0;
 	char *string;
 	EContact *contact = (EContact*)eab_model_contact_at (priv->model, i);
-	PangoLayout *layout = gtk_widget_create_pango_layout (GTK_WIDGET (GNOME_CANVAS_ITEM (parent)->canvas), "");
+	PangoLayout *layout = gtk_widget_create_pango_layout (widget, "");
 	int height;
 
 	string = e_contact_get(contact, E_CONTACT_FILE_AS);
@@ -508,10 +508,10 @@ e_addressbook_reflow_adapter_new (EABModel *model)
 
 
 EContact *
-e_addressbook_reflow_adapter_get_contact (EAddressbookReflowAdapter *adapter,
-					  int index)
+e_addressbook_reflow_adapter_contact_at (EAddressbookReflowAdapter *adapter,
+					 int index)
 {
 	EAddressbookReflowAdapterPrivate *priv = adapter->priv;
 
-	return eab_model_get_contact (priv->model, index);
+	return (EContact*)eab_model_contact_at (priv->model, index);
 }

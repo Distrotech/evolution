@@ -703,7 +703,11 @@ eab_model_contact_count (EABModel *model)
 const EContact *
 eab_model_contact_at (EABModel *model, int index)
 {
-	return model->data[index];
+	if (model->data && 0 <= index && index < model->data_count) {
+		return model->data[index];
+	}
+
+	return NULL;
 }
 
 gboolean

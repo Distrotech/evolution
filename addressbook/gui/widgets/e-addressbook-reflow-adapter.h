@@ -38,7 +38,6 @@ void          e_addressbook_reflow_adapter_construct         (EAddressbookReflow
 							      EABModel         *model);
 EReflowModel *e_addressbook_reflow_adapter_new               (EABModel         *model);
 
-/* Returns object with ref count of 1. */
-EContact     *e_addressbook_reflow_adapter_get_contact       (EAddressbookReflowAdapter *adapter,
-							      int                        index);
+EContact     *e_addressbook_reflow_adapter_contact_at       (EAddressbookReflowAdapter *adapter,
+							     int                        index);
 #endif /* _E_ADDRESSBOOK_REFLOW_ADAPTER_H_ */

@@ -62,6 +62,7 @@
 #include "eab-gui-util.h"
 #include "util/eab-book-util.h"
 #include "e-addressbook-table-adapter.h"
+#include "e-addressbook-reflow-adapter.h"
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 #include "e-addressbook-treeview-adapter.h"
 #endif
@@ -598,7 +599,7 @@ display_view(GalViewInstance *instance,
 	}
 	else if (GAL_IS_VIEW_MINICARD(view)) {
 		change_view_type (address_view, EAB_VIEW_MINICARD);
-		gal_view_minicard_attach (GAL_VIEW_MINICARD (view), E_MINICARD_VIEW_WIDGET (address_view->object));
+		gal_view_minicard_attach (GAL_VIEW_MINICARD (view), EAB_MINICARD_VIEW (address_view->object));
 	}
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 	else if (GAL_IS_VIEW_TREEVIEW (view)) {
@@ -760,7 +761,7 @@ get_selection_model (EABView *view)
 	if (view->view_type == EAB_VIEW_TABLE)
 		return e_table_get_selection_model (e_table_scrolled_get_table (E_TABLE_SCROLLED(view->widget)));
 	else if (view->view_type == EAB_VIEW_MINICARD)
-		return e_minicard_view_widget_get_selection_model (E_MINICARD_VIEW_WIDGET(view->object));
+		return eab_minicard_view_get_selection_model (EAB_MINICARD_VIEW(view->object));
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 	else if (view->view_type == EAB_VIEW_TREEVIEW)
 		return e_treeview_get_selection_model (GTK_TREE_VIEW (view->object));
@@ -1351,7 +1352,7 @@ contact_removed (EABModel *model, gint index, EABView *eav)
 }
 
 static void
-minicard_right_click (EMinicardView *minicard_view_item, GdkEvent *event, EABView *view)
+minicard_right_click (EABMinicardView *minicard_view, GdkEvent *event, EABView *view)
 {
        do_popup_menu(view, event);
 }
@@ -1364,7 +1365,7 @@ create_minicard_view (EABView *view)
 	EAddressbookReflowAdapter *adapter;
 
 	adapter = E_ADDRESSBOOK_REFLOW_ADAPTER(e_addressbook_reflow_adapter_new (view->model));
-	minicard_view = e_minicard_view_widget_new(adapter);
+	minicard_view = eab_minicard_view_new_with_adapter (adapter);
 
 	g_signal_connect(minicard_view, "selection_change",
 			 G_CALLBACK(selection_changed), view);
@@ -1381,7 +1382,8 @@ create_minicard_view (EABView *view)
 	view->object = G_OBJECT(minicard_view);
 	view->widget = scrolled_window;
 
-	gtk_container_add (GTK_CONTAINER (scrolled_window), minicard_view);
+	gtk_scrolled_window_add_with_viewport (GTK_SCROLLED_WINDOW (scrolled_window), minicard_view);
+	/* XXX	gtk_container_add (GTK_CONTAINER (scrolled_window), minicard_view); */
 	gtk_widget_show (minicard_view);
 
 	gtk_widget_show_all( GTK_WIDGET(scrolled_window) );

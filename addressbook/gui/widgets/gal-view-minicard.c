@@ -123,8 +123,8 @@ gal_view_minicard_init      (GalViewMinicard *gvm)
 	gvm->title = NULL;
 	gvm->column_width = 150.0;
 
-	gvm->emvw = NULL;
-	gvm->emvw_column_width_changed_id = 0;
+	gvm->emv = NULL;
+	gvm->emv_column_width_changed_id = 0;
 }
 
 /**
@@ -185,7 +185,7 @@ gal_view_minicard_get_type        (void)
 }
 
 static void
-column_width_changed (EMinicardViewWidget *w, double width, GalViewMinicard *view)
+column_width_changed (EABMinicardView *w, double width, GalViewMinicard *view)
 {
 	d(g_print("%s: Old width = %f, New width = %f\n", G_GNUC_FUNCTION, view->column_width, width));
 	if (view->column_width != width) {
@@ -195,33 +195,33 @@ column_width_changed (EMinicardViewWidget *w, double width, GalViewMinicard *vie
 }
 
 void
-gal_view_minicard_attach (GalViewMinicard *view, EMinicardViewWidget *emvw)
+gal_view_minicard_attach (GalViewMinicard *view, EABMinicardView *emv)
 {
 	gal_view_minicard_detach (view);
 
-	view->emvw = emvw;
+	view->emv = emv;
 
-	g_object_ref (view->emvw);
+	g_object_ref (view->emv);
 
-	g_object_set (view->emvw,
+	g_object_set (view->emv,
 		      "column_width", view->column_width,
 		      NULL);
 
-	view->emvw_column_width_changed_id =
-		g_signal_connect(view->emvw, "column_width_changed",
+	view->emv_column_width_changed_id =
+		g_signal_connect(view->emv, "column_width_changed",
 				 G_CALLBACK (column_width_changed), view);
 }
 
 void
 gal_view_minicard_detach (GalViewMinicard *view)
 {
-	if (view->emvw == NULL)
+	if (view->emv == NULL)
 		return;
-	if (view->emvw_column_width_changed_id) {
-		g_signal_handler_disconnect (view->emvw,
-					     view->emvw_column_width_changed_id);
-		view->emvw_column_width_changed_id = 0;
+	if (view->emv_column_width_changed_id) {
+		g_signal_handler_disconnect (view->emv,
+					     view->emv_column_width_changed_id);
+		view->emv_column_width_changed_id = 0;
 	}
-	g_object_unref (view->emvw);
-	view->emvw = NULL;
+	g_object_unref (view->emv);
+	view->emv = NULL;
 }

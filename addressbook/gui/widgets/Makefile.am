@@ -44,18 +44,12 @@ libeabwidgets_la_SOURCES =			\
 	eab-contact-display.h			\
 	eab-gui-util.c				\
 	eab-gui-util.h				\
+	eab-minicard-view.c			\
+	eab-minicard-view.h			\
 	eab-popup-control.c			\
 	eab-popup-control.h			\
 	eab-vcard-control.c			\
 	eab-vcard-control.h			\
-	e-minicard.c				\
-	e-minicard.h				\
-	e-minicard-label.c			\
-	e-minicard-label.h			\
-	e-minicard-view.c			\
-	e-minicard-view.h			\
-	e-minicard-view-widget.c		\
-	e-minicard-view-widget.h		\
 	e-addressbook-reflow-adapter.c		\
 	e-addressbook-reflow-adapter.h		\
 	e-addressbook-table-adapter.c		\
