@@ -1,5 +1,12 @@
 2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-shell.c (e_shell_close_all_windows): Oops.  Traverse the
+	window list with a local "next" variable like we did in the
+	original code.  Otherwise, we crash because the list is being
+	modified at each gtk_widget_destroy().
+
+2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
+
 	* e-storage-browser.c (class_init): Set up "page_switched" signal.
 	(e_storage_browser_show_path): Emit "page_switched".
 

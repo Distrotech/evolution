@@ -807,8 +807,13 @@ e_shell_close_all_windows (EShell *shell)
 		e_shell_save_settings (shell); 
 
 	priv = shell->priv;
-	for (p = priv->windows; p != NULL; p = pnext)
+	for (p = priv->windows; p != NULL; p = pnext) {
+		pnext = p->next;
+
+		/* Note that this will also remove the window from the list... Hence the
+		   need for the pnext variable.  */
 		gtk_widget_destroy (GTK_WIDGET (p->data));
+	}
 }
 
 
