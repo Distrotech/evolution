@@ -62,8 +62,7 @@ GType      cal_query_get_type (void);
 
 CalQuery *cal_query_new (GNOME_Evolution_Calendar_Query corba_query, QueryListener *listener, CalClient *client);
 CalClient *cal_query_get_client (CalQuery *query);
-
-
+void cal_query_start (CalQuery *query);
 
 G_END_DECLS
 

@@ -352,3 +352,23 @@ cal_query_get_client (CalQuery *query)
 
 	return query->priv->client;
 }
+
+void
+cal_query_start (CalQuery *query)
+{
+	CalQueryPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (query != NULL);
+	g_return_if_fail (IS_CAL_QUERY (query));
+	
+	priv = query->priv;
+	
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Query_start (priv->query, &ev);
+	if (BONOBO_EX (&ev)) 
+		g_warning (G_STRLOC ": Unable to start query");
+
+	CORBA_exception_free (&ev);
+}

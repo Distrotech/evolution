@@ -1,4 +1,10 @@
-2003-09-11    <jpr@ximian.com>
+2003-09-11  JP Rosevear <jpr@ximian.com>
+
+	* cal-client/cal-query.h: add proto
+
+	* cal-client/cal-query.c (cal_query_start): start the query
+
+2003-09-11  JP Rosevear <jpr@ximian.com>
 
 	* gui/dialogs/delete-error.c (delete_error_dialog): accept GError
 	and base error messages on that
