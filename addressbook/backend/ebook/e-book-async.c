@@ -273,7 +273,8 @@ _get_fields_response_handler (EBookMsg *msg)
 	for (l = resp->fields; l; l = l->next)
 		e_list_append (fields, l->data);
 
-	resp->cb (resp->book, resp->status, fields, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, fields, resp->closure);
 
 	g_object_unref (fields);
 }
@@ -364,7 +365,8 @@ _get_methods_response_handler (EBookMsg *msg)
 	for (l = resp->methods; l; l = l->next)
 		e_list_append (methods, l->data);
 
-	resp->cb (resp->book, resp->status, methods, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, methods, resp->closure);
 
 	g_object_unref (methods);
 }
@@ -451,7 +453,8 @@ _auth_user_response_handler (EBookMsg *msg)
 {
 	AuthUserResponse *resp = (AuthUserResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->closure);
 }
 
 static void
@@ -549,7 +552,8 @@ _get_contact_response_handler (EBookMsg *msg)
 {
 	GetContactResponse *resp = (GetContactResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->contact, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->contact, resp->closure);
 }
 
 static void
@@ -666,7 +670,8 @@ _remove_contacts_response_handler (EBookMsg *msg)
 {
 	RemoveContactsResponse *resp = (RemoveContactsResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->closure);
 }
 
 static void
@@ -705,8 +710,8 @@ _remove_contacts_dtor (EBookMsg *msg)
 {
 	RemoveContactsMsg *remove_contacts_msg = (RemoveContactsMsg *)msg;
 
-	/* XXX ugh, free the list? */
-
+	g_list_foreach (remove_contacts_msg->id_list, (GFunc)g_free, NULL);
+	g_list_free (remove_contacts_msg->id_list);
 	g_free (remove_contacts_msg);
 }
 
@@ -717,14 +722,16 @@ e_book_async_remove_contacts (EBook                 *book,
 			   gpointer               closure)
 {
 	RemoveContactsMsg *msg;
-
+	GList *l;
 	init_async ();
 
 	msg = g_new (RemoveContactsMsg, 1);
 	e_book_msg_init ((EBookMsg*)msg, _remove_contacts_handler, _remove_contacts_dtor);
 
 	msg->book = g_object_ref (book);
-	msg->id_list = id_list;
+	msg->id_list = g_list_copy (id_list);
+	for (l = msg->id_list; l; l = l->next)
+		l->data = g_strdup (l->data);
 	msg->cb = cb;
 	msg->closure = closure;
 
@@ -760,7 +767,8 @@ _add_contact_response_handler (EBookMsg *msg)
 {
 	AddContactResponse *resp = (AddContactResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->id, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->id, resp->closure);
 }
 
 static void
@@ -857,7 +865,8 @@ _commit_contact_response_handler (EBookMsg *msg)
 {
 	CommitContactResponse *resp = (CommitContactResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->closure);
 }
 
 static void
@@ -950,7 +959,8 @@ _get_book_view_response_handler (EBookMsg *msg)
 {
 	GetBookViewResponse *resp = (GetBookViewResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->book_view, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->book_view, resp->closure);
 }
 
 static void
@@ -1042,7 +1052,8 @@ _get_contacts_response_handler (EBookMsg *msg)
 {
 	GetContactsResponse *resp = (GetContactsResponse*)msg;
 
-	resp->cb (resp->book, resp->status, resp->contacts, resp->closure);
+	if (resp->cb)
+		resp->cb (resp->book, resp->status, resp->contacts, resp->closure);
 }
 
 static void

@@ -91,6 +91,9 @@ struct _EBookPrivate {
 	char *cap;
 	gboolean cap_queried;
 
+	/* cached writable status */
+	gboolean writable;
+
 	EBookListener         *listener;
 	EComponentListener    *comp_listener;
 
@@ -1494,7 +1497,7 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		e_book_response_get_supported_auth_methods (book, resp->status, resp->list);
 		break;
 	case WritableStatusEvent:
-		printf ("emitting writable_status\n");
+		book->priv->writable = resp->writable;
 		g_signal_emit (book, e_book_signals [WRITABLE_STATUS], 0, resp->writable);
 		break;
 	default:
@@ -1530,6 +1533,9 @@ e_book_unload_uri (EBook   *book,
 
 	book->priv->listener   = NULL;
 	book->priv->load_state = E_BOOK_URI_NOT_LOADED;
+	g_free (book->priv->cap);
+	book->priv->cap = NULL;
+	book->priv->writable = FALSE;
 
 	return TRUE;
 }
@@ -1797,6 +1803,13 @@ e_book_check_static_capability (EBook *book,
 
 	return FALSE;
 }
+
+gboolean
+e_book_is_writable (EBook *book)
+{
+	return book->priv->writable;
+}
+
 
 
 

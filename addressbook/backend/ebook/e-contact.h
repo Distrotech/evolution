@@ -85,6 +85,11 @@ typedef enum {
 	/* Contact categories */
 	E_CONTACT_CATEGORIES,    /* string field */
 
+	/* Collaboration fields */
+	E_CONTACT_CALENDAR_URI,  /* string field */
+	E_CONTACT_FREEBUSY_URL,  /* string field */
+	E_CONTACT_ICS_CALENDAR,  /* string field */
+
 	/* misc fields */
 	E_CONTACT_SPOUSE,        /* string field */
 	E_CONTACT_NOTE,          /* string field */
@@ -170,23 +175,28 @@ struct _EContactClass {
 
 GType                   e_contact_get_type (void);
 
-EContact*               e_contact_new             (void);
-EContact*               e_contact_new_from_vcard  (const char *vcard);
+EContact*               e_contact_new              (void);
+EContact*               e_contact_new_from_vcard   (const char *vcard);
 
-EContact*               e_contact_duplicate       (EContact *contact);
+EContact*               e_contact_duplicate        (EContact *contact);
 
-gpointer                e_contact_get             (EContact *contact, EContactField field_id);
-const gpointer          e_contact_get_const       (EContact *contact, EContactField field_id);
-void                    e_contact_set             (EContact *contact, EContactField field_id, gpointer value);
+gpointer                e_contact_get              (EContact *contact, EContactField field_id);
+const gpointer          e_contact_get_const        (EContact *contact, EContactField field_id);
+void                    e_contact_set              (EContact *contact, EContactField field_id, gpointer value);
+
+/* misc functions for structured values */
+EContactName           *e_contact_name_new         (void);
+EContactName           *e_contact_name_from_string (const char *name_str);
+EContactName           *e_contact_name_copy        (EContactName *name);
 
 /* destructors for structured values */
-void                    e_contact_name_free       (EContactName *name);
-void                    e_contact_photo_free      (EContactPhoto *photo);
-void                    e_contact_address_free    (EContactAddress *address);
+void                    e_contact_name_free        (EContactName *name);
+void                    e_contact_photo_free       (EContactPhoto *photo);
+void                    e_contact_address_free     (EContactAddress *address);
 
 
-const char*             e_contact_field_name      (EContactField field_id);
-const char*             e_contact_pretty_name     (EContactField field_id);
-EContactField           e_contact_field_id        (const char *field_name);
+const char*             e_contact_field_name       (EContactField field_id);
+const char*             e_contact_pretty_name      (EContactField field_id);
+EContactField           e_contact_field_id         (const char *field_name);
 
 #endif /* __E_CONTACT_H__ */

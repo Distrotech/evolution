@@ -528,6 +528,8 @@ parse (EVCard *evc, const char *str)
 	if (!attr || attr->group || g_ascii_strcasecmp (attr->name, "end")) {
 		g_warning ("vcard ended without END:VCARD\n");
 	}
+
+	g_free (buf);
 }
 
 static char*
@@ -537,7 +539,7 @@ escape_string (const char *s)
 	const char *p;
 
 	/* Escape a string as described in RFC2426, section 5 */
-	for (p = s; *p; p++) {
+	for (p = s; p && *p; p++) {
 		switch (*p) {
 		case '\n':
 			str = g_string_append (str, "\\n");
@@ -787,11 +789,9 @@ e_vcard_attribute_free (EVCardAttribute *attr)
 	g_free (attr->group);
 	g_free (attr->name);
 
-	g_list_foreach (attr->values, (GFunc)g_free, NULL);
-	g_list_free (attr->values);
+	e_vcard_attribute_remove_values (attr);
 
-	g_list_foreach (attr->params, (GFunc)e_vcard_attribute_param_free, NULL);
-	g_list_free (attr->params);
+	e_vcard_attribute_remove_params (attr);
 
 	g_free (attr);
 }
@@ -835,6 +835,13 @@ e_vcard_remove_attributes (EVCard *evc, const char *attr_group, const char *attr
 
 		attr = next_attr;
 	}
+}
+
+void
+e_vcard_remove_attribute (EVCard *evc, EVCardAttribute *attr)
+{
+	evc->priv->attributes = g_list_remove (evc->priv->attributes, attr);
+	e_vcard_attribute_free (attr);
 }
 
 void
@@ -926,6 +933,14 @@ e_vcard_attribute_remove_values (EVCardAttribute *attr)
 	attr->values = NULL;
 }
 
+void
+e_vcard_attribute_remove_params (EVCardAttribute *attr)
+{
+	g_list_foreach (attr->params, (GFunc)e_vcard_attribute_param_free, NULL);
+	g_list_free (attr->params);
+	attr->params = NULL;
+}
+
 EVCardAttributeParam*
 e_vcard_attribute_param_new (const char *name)
 {
@@ -939,8 +954,9 @@ void
 e_vcard_attribute_param_free (EVCardAttributeParam *param)
 {
 	g_free (param->name);
-	g_list_foreach (param->values, (GFunc)g_free, NULL);
-	g_list_free (param->values);
+
+	e_vcard_attribute_param_remove_values (param);
+
 	g_free (param);
 }
 
@@ -1037,6 +1053,14 @@ e_vcard_attribute_add_param_with_values (EVCardAttribute *attr,
 	va_end (ap);
 
 	e_vcard_attribute_add_param (attr, param);
+}
+
+void
+e_vcard_attribute_param_remove_values (EVCardAttributeParam *param)
+{
+	g_list_foreach (param->values, (GFunc)g_free, NULL);
+	g_list_free (param->values);
+	param->values = NULL;
 }
 
 GList*

@@ -58,9 +58,7 @@
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 #include "e-addressbook-treeview-adapter.h"
 #endif
-#if notyet
-#include "e-card-merging.h"
-#endif
+#include "eab-contact-merging.h"
 
 #include "e-contact-editor.h"
 #include <gdk/gdkkeysyms.h>
@@ -731,7 +729,6 @@ cut (GtkWidget *widget, ContactAndBook *contact_and_book)
 static void
 delete (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
-#if notyet
 	if (e_contact_editor_confirm_delete(GTK_WINDOW(gtk_widget_get_toplevel(contact_and_book->view->widget)))) {
 		EBook *book;
 		GList *list = get_contact_list(contact_and_book);
@@ -750,30 +747,31 @@ delete (GtkWidget *widget, ContactAndBook *contact_and_book)
 
 			for (iterator = list; iterator; iterator = iterator->next) {
 				EContact *contact = iterator->data;
-				ids = g_list_prepend (ids, (char*)e_card_get_id (card));
+				ids = g_list_prepend (ids, (char*)e_contact_get_const (contact, E_CONTACT_UID));
 			}
 
 			/* Remove the cards all at once. */
-			e_book_remove_cards (book,
-					     ids,
-					     NULL,
-					     NULL);
+			/* XXX no callback specified... ugh */
+			e_book_async_remove_contacts (book,
+						      ids,
+						      NULL,
+						      NULL);
 			
 			g_list_free (ids);
 		}
 		else {
 			for (iterator = list; iterator; iterator = iterator->next) {
-				ECard *card = iterator->data;
+				EContact *contact = iterator->data;
 				/* Remove the card. */
-				e_book_remove_card (book,
-						    card,
-						    NULL,
-						    NULL);
+				/* XXX no callback specified... ugh */
+				e_book_async_remove_contact (book,
+							     e_contact_get_const (contact, E_CONTACT_UID),
+							     NULL,
+							     NULL);
 			}
 		}
 		e_free_object_list(list);
 	}
-#endif
 }
 
 static void
@@ -1505,7 +1503,6 @@ selection_received (GtkWidget *invisible,
 		    guint time,
 		    EABView *view)
 {
-#if notyet
 	if (selection_data->length < 0 || selection_data->type != GDK_SELECTION_TYPE_STRING) {
 		return;
 	}
@@ -1517,13 +1514,13 @@ selection_received (GtkWidget *invisible,
 		for (l = contact_list; l; l = l->next) {
 			EContact *contact = l->data;
 
-			e_card_merging_book_addl_contact (view->book, contact, NULL /* XXX */, NULL);
+			/* XXX NULL for a callback /sigh */
+			eab_merging_book_add_contact (view->book, contact, NULL /* XXX */, NULL);
 		}
 
 		g_list_foreach (contact_list, (GFunc)g_object_unref, NULL);
 		g_list_free (contact_list);
 	}
-#endif
 }
 
 static void

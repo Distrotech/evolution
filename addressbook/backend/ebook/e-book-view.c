@@ -39,26 +39,10 @@ enum {
 
 static guint e_book_view_signals [LAST_SIGNAL];
 
-#ifdef notyet
-static void
-add_book_iterator (gpointer data, gpointer closure)
-{
-	EContact *contact = E_CONTACT (data);
-	EBook *book = E_BOOK (closure);
-
-	e_contact_set_book (contact, book);
-}
-#endif
-
 static void
 e_book_view_do_added_event (EBookView                 *book_view,
 			    EBookViewListenerResponse *resp)
 {
-#ifdef notyet
-	if (book_view->priv->book)
-		g_list_foreach (resp->cards, add_book_iterator, book_view->priv->book);
-#endif
-
 	g_signal_emit (book_view, e_book_view_signals [CONTACTS_ADDED], 0,
 		       resp->contacts);
 
@@ -70,11 +54,6 @@ static void
 e_book_view_do_modified_event (EBookView                 *book_view,
 			       EBookViewListenerResponse *resp)
 {
-#ifdef notyet
-	if (book_view->priv->book)
-		g_list_foreach (resp->cards, add_book_iterator, book_view->priv->book);
-#endif
-
 	g_signal_emit (book_view, e_book_view_signals [CONTACTS_CHANGED], 0,
 		       resp->contacts);
 

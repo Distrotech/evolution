@@ -1,3 +1,114 @@
+2003-10-07  Chris Toshok  <toshok@ximian.com>
+
+	* gui/widgets/eab-vcard-control.c (book_open_cb): un-ifdef this.
+	(eab_vcard_control_new): put the buttons above the vcard so they
+	don't move when it's expanded.
+
+	* gui/widgets/eab-popup-control.h: remove prototypes for
+	eab_popup_control_set_name and eab_popup_control_set_email.
+
+	* gui/widgets/eab-popup-control.c (email_table_ok_cb): remove the
+	stupid idle function and do the work here.
+	(eab_popup_control_set_name): make this static - noone uses it.
+	(eab_popup_control_set_email): same.
+
+	* gui/widgets/eab-gui-util.c (eab_show_contact_editor):
+	e_contact_editor_new is what we use for the time being.
+
+	* gui/widgets/eab-contact-display.c (render_string): abstract this
+	code out.
+	(render_url): same.
+	(eab_contact_display_render_normal): make use of render_string and
+	render_url.
+
+	* gui/widgets/e-addressbook-view.c (delete): un-ifdef this and get
+	it working.
+	(selection_received): same.
+
+	* gui/widgets/e-addressbook-model.c (get_view): nuke some code
+	that was moved to another function.
+	(eab_model_set_property): get the writable state when we set the
+	book - don't rely on the timing of signals.
+
+	* gui/contact/editor/contact-editor.glade: add the blog field
+	below the homepage url field.
+	
+	* gui/contact/editor/e-contact-editor-address.[ch]: get this
+	building with the new stuff.
+	
+	* gui/contact/editor/e-contact-editor-fullname.[ch]: get this
+	building with the new stuff.
+	
+	* gui/contact-editor/e-contact-editor.[ch]: get this most of the
+	way there.
+	
+	* gui/contact-editor/e-contact-quick-add.[ch]: get this building
+	with the new stuff.
+
+	* gui/contact-editor/Makefile.am (libecontacteditor_la_SOURCES):
+	remove e-contact-save-as.[ch].  They're in
+	addressbook/widgets/eab-gui-util.[ch] now.
+
+	* gui/merging/Makefile.am: track all the naming changes.
+	
+	* gui/merging/*.glade: gratuitous renaming.
+	
+	* gui/merging/eab-contact-compare.[ch]: gratuitous renaming, and
+	move this from the old ebook/
+
+	* gui/merging/eab-contact-merging.[ch]: gratuitous renaming.
+
+	* backend/ebook/e-contact.[ch]: lots of overly complicated changes
+	for an overly complicated piece of code.
+
+	* backend/ebook/e-book-view.c (e_book_view_do_added_event): remove
+	some ifdef'ed code.
+	(e_book_view_do_modified_event): same.
+
+	* backend/ebook/e-vcard.c (parse): plug a memory leak.
+	(escape_string): deal with @s being NULL.
+	(e_vcard_remove_attribute): new function.
+	(e_vcard_attribute_remove_params): same.
+	(e_vcard_attribute_param_free): same.
+	(e_vcard_attribute_param_remove_values): same.
+
+	* backend/ebook/e-vcard.h: add prototypes for
+	e_vcard_remove_attribute, e_vcard_attribute_remove_params, and
+	e_vcard_attribute_param_remove_values.
+
+	* backend/ebook/e-book.c (e_book_handle_response): cache the
+	writable state of the ebook before generating the signal.
+	(e_book_unload_uri): initialize cap to NULL and writable to FALSE.
+
+	* backend/ebook/e-book.h: add prototype for e_book_is_writable.
+
+	* backend/ebook/e-book-async.c (_get_fields_response_handler):
+	don't call the callback if it's NULL.
+	(_get_methods_response_handler): same.
+	(_auth_user_response_handler): same.
+	(_get_contact_response_handler): same.
+	(_remove_contacts_response_handler): same.
+	(_add_contact_response_handler): same.
+	(_commit_contact_response_handler): same.
+	(_get_book_view_response_handler): same.
+	(_get_contacts_response_handler): same.
+	(_remove_contacts_dtor): free the list.
+	(e_book_async_remove_contacts): duplicate the list.
+
+	* backend/pas/pas-backend.c (pas_backend_open): if we successfully
+	load the uri, report the writable status back.
+
+	* backend/pas/pas-backend-sync.c (_pas_backend_remove_contacts):
+	free the list of ids.
+
+	* backend/pas/pas-backend-file.c (do_create): return the contact
+	we create here.
+	(pas_backend_file_create_contact): format the newly created
+	contact as a string to add to the summary.
+	(pas_backend_file_remove_contacts): don't free the list of removed
+	cards here - it happens in pas-backend-sync.
+	(pas_backend_file_load_uri): pass NULL for @contact to do_create.
+
 2003-10-01  Chris Toshok  <toshok@ximian.com>
 
 	* gui/widgets/eab-contact-display.c (render_address): move the :'s

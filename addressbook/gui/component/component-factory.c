@@ -26,7 +26,6 @@
 #include "addressbook.h"
 #include "addressbook-component.h"
 #include "addressbook-config.h"
-#include "e-address-widget.h"
 #include "eab-popup-control.h"
 #include "eab-vcard-control.h"
 #include "select-names/e-select-names-bonobo.h"
@@ -39,7 +38,6 @@
 #define VCARD_CONTROL_ID               "OAFIID:GNOME_Evolution_Addressbook_VCard_Control"
 #define ADDRESSBOOK_CONTROL_ID         "OAFIID:GNOME_Evolution_Addressbook_Control"
 #define SHELL_COMPONENT_ID             "OAFIID:GNOME_Evolution_Addressbook_ShellComponent"
-#define ADDRESS_WIDGET_ID              "OAFIID:GNOME_Evolution_Addressbook_AddressWidget"
 #define ADDRESS_POPUP_ID               "OAFIID:GNOME_Evolution_Addressbook_AddressPopup"
 #define SELECT_NAMES_ID                "OAFIID:GNOME_Evolution_Addressbook_SelectNames"
 #define LDAP_STORAGE_CONFIG_CONTROL_ID "OAFIID:GNOME_Evolution_LDAPStorage_ConfigControl"
@@ -58,8 +56,6 @@ factory (BonoboGenericFactory *factory,
 		return BONOBO_OBJECT (addressbook_new_control ());
 	if (strcmp (component_id, SHELL_COMPONENT_ID) == 0)
 		return addressbook_component_init ();
-	if (strcmp (component_id, ADDRESS_WIDGET_ID) == 0)
-		return BONOBO_OBJECT (e_address_widget_new_control ());
 	if (strcmp (component_id, ADDRESS_POPUP_ID) == 0)
 		return BONOBO_OBJECT (eab_popup_control_new ());
 	if (strcmp (component_id, LDAP_STORAGE_CONFIG_CONTROL_ID) == 0)

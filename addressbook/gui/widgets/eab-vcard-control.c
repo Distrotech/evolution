@@ -39,12 +39,8 @@
 #include <addressbook/backend/ebook/e-contact.h>
 #include <addressbook/util/eab-book-util.h>
 
-#include <gtkhtml/htmlengine.h>
-
 #include "eab-vcard-control.h"
-#if notyet
-#include "e-card-merging.h"
-#endif
+#include "eab-contact-merging.h"
 
 typedef struct {
 	EABContactDisplay *display;
@@ -188,18 +184,17 @@ pstream_get_content_types (BonoboPersistStream *ps, void *closure,
 static void
 book_open_cb (EBook *book, EBookStatus status, gpointer closure)
 {
-#if notyet
 	GList *list = closure;
-	if (status == E_BOOK_STATUS_SUCCESS) {
+	if (status == E_BOOK_ERROR_OK) {
 		GList *p;
 		for (p = list; p; p = p->next) {
-			e_card_merging_book_add_card(book, p->data, NULL, NULL);
+			/* XXX argh, more passing of NULL's for callbacks */
+			eab_merging_book_add_contact (book, E_CONTACT (p->data), NULL, NULL);
 		}
 	}
 	if (book)
 		g_object_unref (book);
 	e_free_object_list (list);
-#endif
 }
 
 static void
@@ -288,10 +283,10 @@ eab_vcard_control_new (void)
 	gtk_widget_show (button2);
 
 	table = gtk_table_new (6, 6, FALSE);
-	gtk_table_attach (GTK_TABLE (table), display, 0, 6, 0, 4, GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
-	gtk_table_attach (GTK_TABLE (table), label, 0, 3, 4, 5, GTK_FILL, 0, 0, 0);
-	gtk_table_attach (GTK_TABLE (table), button1, 0, 1, 5, 6, 0, 0, 0, 0);
-	gtk_table_attach (GTK_TABLE (table), button2, 1, 2, 5, 6, 0, 0, 0, 0);
+	gtk_table_attach (GTK_TABLE (table), display, 0, 6, 3, 6, GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
+	gtk_table_attach (GTK_TABLE (table), label, 0, 3, 2, 3, GTK_FILL, 0, 0, 0);
+	gtk_table_attach (GTK_TABLE (table), button1, 0, 1, 1, 2, 0, 0, 0, 0);
+	gtk_table_attach (GTK_TABLE (table), button2, 1, 2, 1, 2, 0, 0, 0, 0);
 	gtk_widget_show (table);
 
 	control = bonobo_control_new (table);

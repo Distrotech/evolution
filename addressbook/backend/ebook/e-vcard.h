@@ -53,6 +53,7 @@
 #define EVC_URL             "URL"
 #define EVC_VALUE           "VALUE"
 #define EVC_VERSION         "VERSION"
+
 #define EVC_X_AIM           "X-AIM"
 #define EVC_X_ANNIVERSARY   "X-EVOLUTION-ANNIVERSARY"
 #define EVC_X_ASSISTANT     "X-EVOLUTION-ASSISTANT"
@@ -61,15 +62,14 @@
 #define EVC_X_FILE_AS       "X-EVOLUTION-FILE-AS"
 #define EVC_X_ICQ           "X-ICQ"
 #define EVC_X_JABBER        "X-JABBER"
+#define EVC_X_LIST_SHOW_ADDRESSES "X-EVOLUTION-LIST-SHOW_ADDRESSES"
 #define EVC_X_LIST          "X-EVOLUTION-LIST"
 #define EVC_X_MANAGER       "X-EVOLUTION-MANAGER"
 #define EVC_X_MSN           "X-MSN"
 #define EVC_X_SPOUSE        "X-EVOLUTION-SPOUSE"
-#define EVC_X_YAHOO         "X-YAHOO"
-
 #define EVC_X_WANTS_HTML          "X-MOZILLA-HTML"
-#define EVC_X_LIST                "X-EVOLUTION-LIST"
-#define EVC_X_LIST_SHOW_ADDRESSES "X-EVOLUTION-LIST-SHOW_ADDRESSES"
+#define EVC_X_WANTS_HTML          "X-MOZILLA-HTML"
+#define EVC_X_YAHOO         "X-YAHOO"
 
 typedef enum {
 	EVC_FORMAT_VCARD_21,
@@ -123,6 +123,7 @@ EVCardAttribute *e_vcard_attribute_new               (const char *attr_group, co
 void             e_vcard_attribute_free              (EVCardAttribute *attr);
 EVCardAttribute *e_vcard_attribute_copy              (EVCardAttribute *attr);
 void             e_vcard_remove_attributes           (EVCard *evcard, const char *attr_group, const char *attr_name);
+void             e_vcard_remove_attribute            (EVCard *evcard, EVCardAttribute *attr);
 void             e_vcard_add_attribute               (EVCard *evcard, EVCardAttribute *attr);
 void             e_vcard_add_attribute_with_value    (EVCard *evcard, EVCardAttribute *attr, const char *value);
 void             e_vcard_add_attribute_with_values   (EVCard *evcard, EVCardAttribute *attr, ...);
@@ -130,6 +131,7 @@ void             e_vcard_attribute_add_value         (EVCardAttribute *attr, con
 void             e_vcard_attribute_add_value_decoded (EVCardAttribute *attr, const char *value, int len);
 void             e_vcard_attribute_add_values        (EVCardAttribute *attr, ...);
 void             e_vcard_attribute_remove_values     (EVCardAttribute *attr);
+void             e_vcard_attribute_remove_params     (EVCardAttribute *attr);
 
 /* attribute parameters */
 EVCardAttributeParam* e_vcard_attribute_param_new             (const char *param_name);
@@ -145,6 +147,7 @@ void                  e_vcard_attribute_param_add_value       (EVCardAttributePa
 							       const char *value);
 void                  e_vcard_attribute_param_add_values      (EVCardAttributeParam *param,
 							       ...);
+void                  e_vcard_attribute_param_remove_values   (EVCardAttributeParam *param);
 
 /* EVCard* accessors.  nothing returned from these functions should be
    freed by the caller. */

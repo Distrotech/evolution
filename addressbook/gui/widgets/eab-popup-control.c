@@ -45,6 +45,9 @@
 #include <addressbook/gui/widgets/eab-gui-util.h>
 #include "e-util/e-gui-utils.h"
 
+static void eab_popup_control_set_name (EABPopupControl *pop, const gchar *name);
+static void eab_popup_control_set_email (EABPopupControl *pop, const gchar *email);
+
 /*
  * Some general scaffolding for our widgets.  Think of this as a really, really
  * lame implementation of a wizard (...which is still somewhat more general that
@@ -386,18 +389,6 @@ email_table_save_contact_cb (EBook *book, EBookStatus status, gpointer closure)
 	g_object_unref (contact);
 }
 
-/*
- * We have to do this in an idle function because of what might be a
- * re-entrancy problems with EBook.
- */
-static gint
-add_contact_idle_cb (gpointer closure)
-{
-	addressbook_load_default_book (email_table_save_contact_cb, closure);
-
-	return 0;
-}
-
 static void
 email_table_ok_cb (MiniWizard *wiz, gpointer closure)
 {
@@ -406,7 +397,8 @@ email_table_ok_cb (MiniWizard *wiz, gpointer closure)
 	email_table_to_contact (et);
 
 	g_object_ref (et->contact);
-	g_idle_add (add_contact_idle_cb, et->contact);
+
+	addressbook_load_default_book (email_table_save_contact_cb, et->contact);
 
 	mini_wizard_destroy (wiz);
 }
@@ -824,7 +816,7 @@ eab_popup_control_set_free_form (EABPopupControl *pop, const gchar *txt)
 	return FALSE;
 }
 
-void
+static void
 eab_popup_control_set_name (EABPopupControl *pop, const gchar *name)
 {
 	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
@@ -842,7 +834,7 @@ eab_popup_control_set_name (EABPopupControl *pop, const gchar *name)
 	eab_popup_control_schedule_refresh (pop);
 }
 
-void
+static void
 eab_popup_control_set_email (EABPopupControl *pop, const gchar *email)
 {
 	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));

@@ -119,6 +119,33 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 }
 
 static void
+render_string (GtkHTMLStream *html_stream, EContact *contact, const char *html_label, EContactField field)
+{
+	const char *str;
+
+	str = e_contact_get_const (contact, field);
+
+	if (str && *str) {
+		char *html = e_text_to_html (str, 0);
+		gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", html_label, str);
+		g_free (html);
+	}
+}
+
+static void
+render_url (GtkHTMLStream *html_stream, EContact *contact, const char *html_label, EContactField field)
+{
+	const char *str;
+	str = e_contact_get_const (contact, field);
+	if (str && *str) {
+		char *html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
+		gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
+					html_label, html);
+		g_free (html);
+	}
+}
+
+static void
 eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact)
 {
 	GtkHTMLStream *html_stream;
@@ -184,31 +211,11 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 			gtk_html_stream_printf (html_stream, "</td></tr></table>");
 		}
 		else {
-			str = e_contact_get_const (contact, E_CONTACT_TITLE);
-			if (str) {
-				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Job Title"), str);
-				g_free (html);
-			}
+			render_string (html_stream, contact, _("Job Title"), E_CONTACT_TITLE);
 
-			str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
-			if (str) {
-				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Email"), html);
-				g_free (html);
-			}
-			str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
-			if (str) {
-				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Email"), str);
-				g_free (html);
-			}
-			str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
-			if (str) {
-				html = e_text_to_html (str, 0);
-				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>", _("Email"), str);
-				g_free (html);
-			}
+			render_string (html_stream, contact, _("Email"), E_CONTACT_EMAIL_1);
+			render_string (html_stream, contact, _("Email"), E_CONTACT_EMAIL_2);
+			render_string (html_stream, contact, _("Email"), E_CONTACT_EMAIL_3);
 
 
 			render_address (html_stream, contact, _("Home Address"),  E_CONTACT_ADDRESS_HOME,  E_CONTACT_ADDRESS_LABEL_HOME);
@@ -217,20 +224,9 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 
 			gtk_html_stream_printf (html_stream, "<hr>");
 
-			str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
-			if (str) {
-				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
-				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
-							_("Home page"), html);
-				g_free (html);
-			}
+			render_url (html_stream, contact, _("Home page"), E_CONTACT_HOMEPAGE_URL);
+			render_url (html_stream, contact, _("Home page"), E_CONTACT_HOMEPAGE_URL);
 
-			str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
-			if (str) {
-				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
-				gtk_html_stream_printf (html_stream, "<b>%s:</b> %s<br>",
-							_("Blog"), html);
-			}
 		}
 
 		gtk_html_stream_printf (html_stream, "</td></tr></table>\n");

@@ -52,7 +52,7 @@
 #include "addressbook-storage.h"
 #include "addressbook-component.h"
 #include "addressbook.h"
-#include "addressbook/gui/merging/e-card-merging.h"
+#include "addressbook/gui/merging/eab-contact-merging.h"
 #include "addressbook/gui/widgets/eab-gui-util.h"
 
 
@@ -467,7 +467,8 @@ dnd_drop_book_open_cb (EBook *book, EBookStatus status, GList *contact_list)
 	for (l = contact_list; l; l = l->next) {
 		EContact *contact = l->data;
 
-		e_card_merging_book_add_card (book, contact, NULL /* XXX */, NULL);
+		/* XXX argh.  why are we passing NULL for the callback here? */
+		eab_merging_book_add_contact (book, contact, NULL /* XXX */, NULL);
 	}
 }
 

@@ -261,7 +261,8 @@ pas_backend_file_search (PASBackendFile  	      *bf,
 
 static char *
 do_create(PASBackendFile  *bf,
-	  const char      *vcard_req)
+	  const char      *vcard_req,
+	  EContact        **new_contact)
 {
 	DB             *db = bf->priv->file_db;
 	DBT            id_dbt, vcard_dbt;
@@ -297,7 +298,10 @@ do_create(PASBackendFile  *bf,
 		ret_val = NULL;
 	}
 
-	g_object_unref(contact);
+	if (new_contact)
+		*new_contact = contact;
+	else
+		g_object_unref(contact);
 
 	return ret_val;
 }
@@ -310,12 +314,15 @@ pas_backend_file_create_contact (PASBackendSync *backend,
 {
 	char *id;
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
+	EContact *contact;
 
-	id = do_create(bf, vcard);
+	id = do_create(bf, vcard, &contact);
 	if (id) {
-		pas_backend_summary_add_contact (bf->priv->summary, vcard);
+		char *new_vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
+		pas_backend_summary_add_contact (bf->priv->summary, new_vcard);
 
 		*id_out = id;
+		g_free (new_vcard);
 		return GNOME_Evolution_Addressbook_Success;
 	}
 	else {
@@ -375,8 +382,6 @@ pas_backend_file_remove_contacts (PASBackendSync *backend,
 		char *id = l->data;
 		pas_backend_summary_remove_contact (bf->priv->summary, id);
 	}
-
-	g_list_free (removed_cards);
 
 	return rv;
 }
@@ -932,7 +937,7 @@ pas_backend_file_load_uri (PASBackend             *backend,
 
 			if (db_error == 0 && !only_if_exists) {
 				char *id;
-				id = do_create(bf, XIMIAN_VCARD);
+				id = do_create(bf, XIMIAN_VCARD, NULL);
 				g_free (id);
 				/* XXX check errors here */
 
@@ -975,6 +980,7 @@ pas_backend_file_load_uri (PASBackend             *backend,
 
 	pas_backend_set_is_loaded (backend, TRUE);
 	pas_backend_set_is_writable (backend, writable);
+
 	return GNOME_Evolution_Addressbook_Success;
 }
 

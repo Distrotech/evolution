@@ -75,9 +75,6 @@ struct _EABPopupControlClass {
 
 GType eab_popup_control_get_type (void);
 
-void eab_popup_control_set_name  (EABPopupControl *, const gchar *name);
-void eab_popup_control_set_email (EABPopupControl *, const gchar *email);
-
 void eab_popup_control_construct (EABPopupControl *);
 
 BonoboControl *eab_popup_control_new (void);

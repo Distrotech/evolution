@@ -514,45 +514,6 @@ get_view (EABModel *model)
 
 		g_free (query_string);
 	}
-
-#if 0
-	if (success) {
-		model->search_in_progress = TRUE;
-
-		model->create_contact_id = g_signal_connect(model->book_view,
-							    "contacts_added",
-							    G_CALLBACK (create_contact),
-							    model);
-		model->remove_contact_id = g_signal_connect(model->book_view,
-							    "contacts_removed",
-							    G_CALLBACK (remove_contact),
-							    model);
-		model->modify_contact_id = g_signal_connect(model->book_view,
-							    "contacts_changed",
-							    G_CALLBACK(modify_contact),
-							    model);
-		model->status_message_id = g_signal_connect(model->book_view,
-							    "status_message",
-							    G_CALLBACK(status_message),
-							    model);
-		model->sequence_complete_id = g_signal_connect(model->book_view,
-							       "sequence_complete",
-							       G_CALLBACK(sequence_complete),
-							       model);
-
-		g_signal_emit (model,
-			       eab_model_signals [MODEL_CHANGED], 0);
-		g_signal_emit (model,
-			       eab_model_signals [SEARCH_STARTED], 0);
-		g_signal_emit (model,
-			       eab_model_signals [STOP_STATE_CHANGED], 0);
-
-	}
-	else {
-		eab_error_dialog (_("Error getting book view"), error->code);
-		g_error_free (error);
-	}
-#endif
 }
 
 EContact *
@@ -589,6 +550,8 @@ eab_model_set_property (GObject *object, guint prop_id, const GValue *value, GPa
 		}
 		model->book = E_BOOK(g_value_get_object (value));
 		if (model->book) {
+			if (!model->editable_set)
+				model->editable = e_book_is_writable (model->book);
 			model->first_get_view = TRUE;
 			g_object_ref (model->book);
 			get_view (model);

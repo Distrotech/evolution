@@ -139,7 +139,7 @@ eab_show_contact_editor (EBook *book, EContact *contact,
 {
 	EABContactEditor *ce;
 
-	ce = eab_contact_editor_new (book, contact, is_new_contact, editable);
+	ce = e_contact_editor_new (book, contact, is_new_contact, editable);
 
 	g_signal_connect (ce, "contact_added",
 			  G_CALLBACK (added_cb), GINT_TO_POINTER (FALSE));

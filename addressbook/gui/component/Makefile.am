@@ -28,9 +28,6 @@ INCLUDES =									\
 
 component_LTLIBRARIES = libevolution-addressbook.la
 
-#	e-address-widget.h		\
-#	e-address-widget.c		\
-
 libevolution_addressbook_la_SOURCES = 	\
 	addressbook-component.c		\
 	addressbook-component.h		\
@@ -43,11 +40,11 @@ libevolution_addressbook_la_SOURCES = 	\
 	component-factory.c
 
 #	$(top_builddir)/addressbook/printing/libecontactprint.la			\
-#	$(top_builddir)/addressbook/gui/merging/libecardmerging.la			\
 
 libevolution_addressbook_la_LIBADD =							\
 	$(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
 	$(top_builddir)/shell/libeshell.la						\
+	$(top_builddir)/addressbook/gui/merging/libeabbookmerging.la			\
 	$(top_builddir)/addressbook/gui/widgets/libeabwidgets.la			\
 	$(top_builddir)/addressbook/gui/search/libeaddressbooksearch.la			\
 	$(top_builddir)/filter/libfilter.la						\

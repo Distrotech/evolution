@@ -94,8 +94,13 @@ pas_backend_open (PASBackend *backend,
 
 		pas_book_report_writable (book, backend->priv->writable);
 	} else {
-		pas_book_respond_open (
-		       book, pas_backend_load_uri (backend, pas_book_get_uri (book), only_if_exists));
+		GNOME_Evolution_Addressbook_CallStatus status =
+			pas_backend_load_uri (backend, pas_book_get_uri (book), only_if_exists);
+
+		pas_book_respond_open (book, status);
+
+		if (status == GNOME_Evolution_Addressbook_Success)
+			pas_book_report_writable (book, backend->priv->writable);
 	}
 
 	g_mutex_unlock (backend->priv->open_mutex);

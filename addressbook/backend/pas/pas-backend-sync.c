@@ -211,6 +211,8 @@ _pas_backend_remove_contacts (PASBackend *backend,
 	status = pas_backend_sync_remove_contacts (PAS_BACKEND_SYNC (backend), book, id_list, &ids);
 
 	pas_book_respond_remove_contacts (book, status, ids);
+
+	g_list_free (ids);
 }
 
 static void
