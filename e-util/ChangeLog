@@ -1,3 +1,13 @@
+2003-08-11  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-source-group.c: New file.
+	* e-source-group.h: New file.
+	* e-source-list.h: New file.
+	* e-source-list.c: New file.
+	* e-source.c: New file.
+	* e-source.h: New file.
+	* test-source-list.c: New file to test the above.
+
 2003-08-05  Dan Winship  <danw@ximian.com>
 
 	* e-html-utils.c (special_chars): add a flag for non-url chars
