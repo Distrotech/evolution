@@ -1,5 +1,13 @@
 2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.c (cal_client_new): fixed documentation
+	comments.
+	(cal_client_open): emit CAL_OPENED signal with appropriate status codes.
+	(open_sync): dont emit CAL_OPENED signal, it's already emitted in
+	cal_client_open().
+
+2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/comp-editor-factory.c (open_client):
 	* gui/gnome-cal.c (gnome_calendar_open, gnome_calendar_construct):
 	* gui/calendar-offline-handler.c (backend_go_offline, backend_go_online,

@@ -1259,7 +1259,7 @@ fetch_corba_cal (CalClient *client, const char *str_uri, CalObjType type)
  * cal_client_new:
  *
  * Creates a new calendar client.  It should be initialized by calling
- * cal_client_open_calendar().
+ * cal_client_open().
  *
  * Return value: A newly-created calendar client, or NULL if the client could
  * not be constructed because it could not contact the calendar server.
@@ -1309,7 +1309,7 @@ cal_client_set_auth_func (CalClient *client, CalClientAuthFunc func, gpointer da
 }
 
 /**
- * cal_client_open_calendar:
+ * cal_client_open
  * @client: A calendar client.
  * @str_uri: URI of calendar to open.
  * @only_if_exists: FALSE if the calendar should be opened even if there
@@ -1349,8 +1349,9 @@ cal_client_open (CalClient *client, gboolean only_if_exists, GError **error)
 
 	e_mutex_unlock (client->priv->mutex);
 
-
 	CORBA_exception_init (&ev);
+
+	priv->load_state = CAL_CLIENT_LOAD_LOADING;
 
 	GNOME_Evolution_Calendar_Cal_open (priv->cal, only_if_exists, &ev);
 	if (BONOBO_EX (&ev)) {
@@ -1362,6 +1363,8 @@ cal_client_open (CalClient *client, gboolean only_if_exists, GError **error)
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
+		g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_OPENED], 0,
+			       E_CALENDAR_STATUS_CORBA_EXCEPTION);
 		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
@@ -1377,6 +1380,12 @@ cal_client_open (CalClient *client, gboolean only_if_exists, GError **error)
 	e_mutex_unlock (our_op->mutex);
 	e_calendar_free_op (our_op);
 
+	if (status == E_CALENDAR_STATUS_OK)
+		priv->load_state = CAL_CLIENT_LOAD_LOADED;
+	else
+		priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
+
+	g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_OPENED], 0, status);
 	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
@@ -1391,10 +1400,9 @@ open_async (gpointer data)
 {
 	CalClientAsyncData *ccad = data;
 	GError *error = NULL;
-	
+
 	cal_client_open (ccad->client, ccad->exists, &error);
-	
-	g_signal_emit (G_OBJECT (ccad->client), cal_client_signals[CAL_OPENED], 0, error->code);
+
 	g_clear_error (&error);
 
 	g_object_unref (ccad);
