@@ -55,6 +55,7 @@
 #include "mail-folder-cache.h"
 
 #include "em-folder-browser.h"
+#include "em-format.h"
 
 #include "evolution-shell-component-utils.h"
 
@@ -189,6 +190,7 @@ folder_browser_factory_new_control (const char *uri,
 	fb = em_folder_browser_new();
 	gtk_widget_show (fb);
 	em_folder_view_set_folder((EMFolderView *)fb, uri);
+	em_format_set_session((EMFormat *)((EMFolderView *)fb)->preview, session);
 
 	control = bonobo_control_new (fb);
 	

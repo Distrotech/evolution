@@ -51,6 +51,8 @@ typedef gboolean (*EMFormatHTMLPObjectFunc)(EMFormatHTML *md, struct _GtkHTMLEmb
 struct _EMFormatHTMLPObject {
 	struct _EMFormatHTMLPObject *next, *prev;
 
+	struct _EMFormatHTML *format;
+
 	char *classid;
 
 	EMFormatHTMLPObjectFunc func;
@@ -62,6 +64,8 @@ struct _EMFormatHTMLPObject {
 
 struct _EMFormatHTML {
 	EMFormat format;
+
+	struct _EMFormatHTMLPrivate *priv;
 
 	struct _GtkHTML *html;
 
@@ -93,6 +97,7 @@ const char *em_format_html_add_pobject(EMFormatHTML *efh, const char *classid, E
 EMFormatHTMLPObject * em_format_html_find_pobject(EMFormatHTML *emf, const char *classid);
 EMFormatHTMLPObject *em_format_html_find_pobject_func(EMFormatHTML *emf, struct _CamelMimePart *part, EMFormatHTMLPObjectFunc func);
 void em_format_html_remove_pobject(EMFormatHTML *emf, EMFormatHTMLPObject *pobject);
+void em_format_html_clear_pobject(EMFormatHTML *emf);
 
 /* outputs a signature test */
 void em_format_html_multipart_signed_sign(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);

@@ -84,7 +84,6 @@ static void efhd_html_link_clicked (GtkHTML *html, const char *url, EMFormatHTML
 struct _attach_puri {
 	EMFormatPURI puri;
 
-	EMFormatHTMLDisplay *format;
 	const EMFormatHandler *handle;
 
 	/* for the > and V buttons */
@@ -355,42 +354,39 @@ efhd_html_link_clicked (GtkHTML *html, const char *url, EMFormatHTMLDisplay *efh
 
 /* ********************************************************************** */
 
-struct _signed_puri
-{
-	EMFormatPURI puri;
-
-	unsigned int shown:1;
-};
-
 static void
-efhd_signed_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *emfpuri)
+efhd_signature_check(GtkWidget *w, EMFormatHTMLPObject *pobject)
 {
-	struct _signed_puri *spuri = (struct _signed_puri *)emfpuri;
-	char *classid;
-	static int iconid;
-	CamelMimePart *part;
+	printf("insert signature check here ... redraw ?  or what ?\n");
+	/* blah, do the old way for now, force a complete re-draw */
+	em_format_set_inline((EMFormat *)pobject->format, pobject->part, TRUE);
+	em_format_format_clone((EMFormat *)pobject->format, ((EMFormat *)pobject->format)->message, (EMFormat *)pobject->format);
+}
 
-	classid = g_strdup_printf("multipart-signed:///icon/%d", iconid++);
+static gboolean
+efhd_signature_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *pobject)
+{
+	GtkWidget *icon, *button;
+	GdkPixbuf *pixbuf;
 
-	/* wtf is this so fugly? */
-	camel_stream_printf(stream,
-			    "<br><table cellspacing=0 cellpadding=0>"
-			    "<tr><td><table width=10 cellspacing=0 cellpadding=0>"
-			    "<tr><td></td></tr></table></td>"
-			    "<td><object classid=\"%s\"></object></td>"
-			    "<td><table width=3 cellspacing=0 cellpadding=0>"
-			    "<tr><td></td></tr></table></td>"
-			    "<td><font size=-1>%s</font></td></tr>"
-			    "<tr><td height=10>"
-			    "<table cellspacing=0 cellpadding=0><tr>"
-			    "<td height=10><a name=\"glue\"></td></tr>"
-			    "</table></td></tr></table>\n",
-			    classid,
-			    _("This message is digitally signed. Click the lock icon for more information."));
+	pixbuf = gdk_pixbuf_new_from_file(EVOLUTION_ICONSDIR "/pgp-signature-nokey.png", NULL);
+	if (pixbuf == NULL)
+		return FALSE;
 
-	g_free(classid);
+	/* wtf isn't this just scaled on disk? */
+	icon = gtk_image_new_from_pixbuf(gdk_pixbuf_scale_simple(pixbuf, 24, 24, GDK_INTERP_BILINEAR));
+	g_object_unref(pixbuf);
+	gtk_widget_show(icon);
 
-	camel_stream_close(stream);
+	button = gtk_button_new();
+	g_signal_connect(button, "clicked", G_CALLBACK (efhd_signature_check), pobject);
+	/*g_signal_connect (button, "key_press_event", G_CALLBACK (inline_button_press), part);*/
+
+	gtk_container_add((GtkContainer *)button, icon);
+	gtk_widget_show(button);
+	gtk_container_add((GtkContainer *)eb, button);
+
+	return TRUE;
 }
 
 static void
@@ -411,13 +407,29 @@ efhd_multipart_signed (EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 
 	em_format_part(emf, stream, cpart);
 
-	if (0) {
-		camel_stream_printf(stream, "inlined signature ...");
+	if (em_format_is_inline(emf, part)) {
+		camel_stream_printf(stream, "inlined signature ...<br>");
 		em_format_html_multipart_signed_sign(emf, stream, part);
 	} else {
-		classid = g_strdup_printf("multipart-signed:///em-format-html-display/%p/%d", part, signedid++);
-		puri = (struct _signed_puri *)em_format_add_puri(emf, sizeof(*puri), classid, part, efhd_signed_frame);
-		camel_stream_printf(stream, "<iframe src=\"%s\" frameborder=1 marginheight=0 marginwidth=0>%s</iframe>\n", classid, _("Signature verification could not be executed"));
+		classid = g_strdup_printf("multipart-signed:///icon/%d", signedid++);
+
+		/* wtf is this so fugly? */
+		camel_stream_printf(stream,
+				    "<br><table cellspacing=0 cellpadding=0>"
+				    "<tr><td><table width=10 cellspacing=0 cellpadding=0>"
+				    "<tr><td></td></tr></table></td>"
+				    "<td><object classid=\"%s\"></object></td>"
+				    "<td><table width=3 cellspacing=0 cellpadding=0>"
+				    "<tr><td></td></tr></table></td>"
+				    "<td><font size=-1>%s</font></td></tr>"
+				    "<tr><td height=10>"
+				    "<table cellspacing=0 cellpadding=0><tr>"
+				    "<td height=10><a name=\"glue\"></td></tr>"
+				    "</table></td></tr></table>\n",
+				    classid,
+				    _("This message is digitally signed. Click the lock icon for more information."));
+
+		em_format_html_add_pobject((EMFormatHTML *)emf, classid, efhd_signature_button, part);
 		g_free(classid);
 	}
 }
@@ -470,6 +482,11 @@ efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 {
 	printf("show attachment button called\n");
 
+	info->shown = ~info->shown;
+	em_format_set_inline(info->puri.format, info->puri.part, info->shown);
+	/* FIXME: do this in an idle handler */
+	em_format_format_clone(info->puri.format, info->puri.format->message, info->puri.format);
+#if 0
 	/* FIXME: track shown state in parent */
 
 	if (info->shown) {
@@ -489,14 +506,15 @@ efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 
 		/* have we decoded it yet? */
 		if (info->output) {
-			info->handle->handler((EMFormat *)info->format, info->output, info->puri.part, info->handle);
+			info->handle->handler(info->puri.format, info->output, info->puri.part, info->handle);
 			camel_stream_close(info->output);
 			camel_object_unref(info->output);
 			info->output = NULL;
 		}
 	}
 
-	em_format_set_inline((EMFormat *)info->format, info->puri.part, info->shown);
+	em_format_set_inline(info->puri.format, info->puri.part, info->shown);
+#endif
 }
 
 static gboolean
@@ -620,6 +638,7 @@ efhd_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 	struct _attach_puri *info = (struct _attach_puri *)puri;
 
 	if (info->shown) {
+		printf("writing to frame content, handler is '%s'\n", info->handle->mime_type);
 		info->handle->handler(emf, stream, info->puri.part, info->handle);
 		camel_stream_close(stream);
 	} else {
@@ -686,7 +705,7 @@ efhd_bonobo_object(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *
 	/* Write the data to a CamelStreamMem... */
 	cstream = (CamelStreamMem *)camel_stream_mem_new();
 	wrapper = camel_medium_get_content_object((CamelMedium *)pobject->part);
- 	camel_data_wrapper_write_to_stream(wrapper, (CamelStream *)cstream);
+ 	camel_data_wrapper_decode_to_stream(wrapper, (CamelStream *)cstream);
 	
 	/* ...convert the CamelStreamMem to a BonoboStreamMem... */
 	bstream = bonobo_stream_mem_create(cstream->buffer->data, cstream->buffer->len, TRUE, FALSE);
@@ -778,12 +797,10 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 	const char *text;
 	char *html;
 	GString *stext;
-	Bonobo_ServerInfo *component;
 
 	classid = g_strdup_printf("attachment:///em-format-html-display/%p", part);
 	info = (struct _attach_puri *)em_format_add_puri(emf, sizeof(*info), classid, part, efhd_attachment_frame);
 	em_format_html_add_pobject((EMFormatHTML *)emf, classid, efhd_attachment_button, part);
-	info->format = (EMFormatHTMLDisplay *)emf;
 	info->handle = handle;
 	info->shown = em_format_is_inline(emf, info->puri.part) && handle != NULL;
 
@@ -817,9 +834,10 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 
 	camel_stream_write_string(stream, "</font></td></tr><tr></table>");
 
-	if (handle)
+	if (handle) {
+		printf("adding attachment content, type is '%s'\n", mime_type);
 		camel_stream_printf(stream, "<iframe src=\"%s\" frameborder=1 marginheight=0 marginwidth=0>%s</iframe>\n", classid, _("Attachment content could not be loaded"));
-	else if (efhd_use_component(mime_type)) {
+	} else if (efhd_use_component(mime_type)) {
 		static int partid;
 
 		g_free(classid); /* messy */

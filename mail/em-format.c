@@ -212,6 +212,7 @@ em_format_add_puri(EMFormat *emf, size_t size, const char *cid, CamelMimePart *p
 	g_assert(size >= sizeof(*puri));
 	puri = g_malloc0(size);
 
+	puri->format = emf;
 	puri->func = func;
 	puri->use_count = 0;
 	puri->cid = g_strdup(cid);
@@ -409,9 +410,10 @@ em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const
 {
 	const EMFormatHandler *handle = NULL;
 
-	printf("formatting type as '%s'\n", mime_type?mime_type:"unknown");
-
 	if (mime_type != NULL) {
+		if (g_ascii_strcasecmp(mime_type, "application/octet-stream") == 0)
+			mime_type = snoop_part(part);
+
 		handle = em_format_find_handler(emf, mime_type);
 		if (handle == NULL)
 			handle = em_format_fallback_handler(emf, mime_type);
@@ -466,6 +468,8 @@ void
 em_format_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
 {
 	em_format_clear_puri_tree(emf);
+
+	/* FIXME: clone headers shown */
 
 	if (emf != emfsource) {
 		g_hash_table_destroy(emf->inline_table);
@@ -656,7 +660,7 @@ em_format_format_content(EMFormat *emf, CamelStream *stream, CamelMimePart *part
 
 	/* FIXME: textual part override charset handling? */
 
-	camel_data_wrapper_write_to_stream(dw, stream);
+	camel_data_wrapper_decode_to_stream(dw, stream);
 	camel_stream_close(stream);
 }
 
@@ -682,10 +686,12 @@ snoop_part(CamelMimePart *part)
 	if (!camel_data_wrapper_is_offline(dw)) {
 		CamelStreamMem *mem = (CamelStreamMem *)camel_stream_mem_new();
 
-		if (camel_data_wrapper_write_to_stream(dw, (CamelStream *)mem) > 0)
+		if (camel_data_wrapper_decode_to_stream(dw, (CamelStream *)mem) > 0)
 			magic_type = gnome_vfs_get_mime_type_for_data(mem->buffer->data, mem->buffer->len);
 		camel_object_unref(mem);
 	}
+
+	printf("snooped part, magic_type '%s' name_type '%s'\n", magic_type, name_type);
 
 	/* If GNOME-VFS doesn't recognize the data by magic, but it
 	 * contains English words, it will call it text/plain. If the
@@ -706,12 +712,6 @@ snoop_part(CamelMimePart *part)
 
 	/* We used to load parts to check their type, we dont anymore,
 	   see bug #11778 for some discussion */
-}
-
-static void
-emf_application_octet(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
-{
-	em_format_part_as(emf, stream, part, snoop_part(part));
 }
 
 /* RFC 1740 */
@@ -986,8 +986,6 @@ emf_message_rfc822(EMFormat *emf, CamelStream *stream, CamelMimePart *part, cons
 }
 
 static EMFormatHandler type_builtin_table[] = {
-	/* keep this first */
-	{ "application/octet-stream", emf_application_octet },
 	{ "multipart/alternative", emf_multipart_alternative },
 	{ "multipart/appledouble", emf_multipart_appledouble },
 	{ "multipart/encrypted", emf_multipart_encrypted },

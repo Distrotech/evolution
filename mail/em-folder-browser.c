@@ -63,6 +63,7 @@ emfb_init(GObject *o)
 {
 	EMFolderBrowser *emfb = (EMFolderBrowser *)o;
 	struct _EMFolderBrowserPrivate *p;
+	GConfClient *gconf = mail_config_get_gconf_client ();
 
 	p = emfb->priv = g_malloc0(sizeof(struct _EMFolderBrowserPrivate));
 
@@ -71,8 +72,10 @@ emfb_init(GObject *o)
 	/* FIXME: setup search bar */
 
 	emfb->vpane = gtk_vpaned_new();
+	gtk_paned_set_position((GtkPaned *)emfb->vpane, gconf_client_get_int(gconf, "/apps/evolution/mail/display/paned_size", NULL));
 	/*g_signal_connect(p->vpaned, "realize", G_CALLBACK(paned_realised), emfb);*/
 	gtk_widget_show(emfb->vpane);
+
 	gtk_box_pack_start_defaults((GtkBox *)emfb, emfb->vpane);
 	
 	gtk_paned_add1((GtkPaned *)emfb->vpane, (GtkWidget *)emfb->view.list);

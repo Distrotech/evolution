@@ -57,6 +57,8 @@ typedef void (*EMFormatPURIFunc)(EMFormat *md, struct _CamelStream *stream, EMFo
 struct _EMFormatPURI {
 	struct _EMFormatPURI *next, *prev;
 
+	struct _EMFormat *format;
+
 	char *uri;		/* will be the location of the part, may be empty */
 	char *cid;		/* will always be set, a fake one created if needed */
 

@@ -37,6 +37,7 @@
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-embedded.h>
 #include <gtkhtml/gtkhtml-stream.h>
+#include <gtkhtml/htmlengine.h>
 
 #include <libgnomevfs/gnome-vfs-utils.h>
 #include <libgnomevfs/gnome-vfs-mime-utils.h>
@@ -63,6 +64,10 @@
 
 #define EFH_TABLE_OPEN "<table>"
 
+struct _EMFormatHTMLPrivate {
+	struct _CamelMedium *last_part;	/* not reffed, DO NOT dereference */
+};
+
 static void efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTML *efh);
 static gboolean efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh);
 
@@ -82,6 +87,8 @@ static void
 efh_init(GObject *o)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)o;
+
+	efh->priv = g_malloc0(sizeof(*efh->priv));
 
 	e_dlist_init(&efh->pending_object_list);
 
@@ -106,10 +113,12 @@ efh_finalise(GObject *o)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)o;
 
-	/* check pending stuff */
+	em_format_html_clear_pobject(efh);
 
 	if (efh->html)
 		g_object_unref(efh->html);
+
+	g_free(efh->priv);
 
 	((GObjectClass *)efh_parent)->finalize(o);
 }
@@ -203,6 +212,7 @@ em_format_html_add_pobject(EMFormatHTML *efh, const char *classid, EMFormatHTMLP
 		pobj->classid = g_strdup_printf("e-object:///%u", uriid++);
 	}
 
+	pobj->format = efh;
 	pobj->func = func;
 	pobj->part = part;
 
@@ -249,6 +259,13 @@ em_format_html_remove_pobject(EMFormatHTML *emf, EMFormatHTMLPObject *pobject)
 	g_free(pobject);
 }
 
+void
+em_format_html_clear_pobject(EMFormatHTML *emf)
+{
+	while (!e_dlist_empty(&emf->pending_object_list))
+		em_format_html_remove_pobject(emf, (EMFormatHTMLPObject *)emf->pending_object_list.head);
+}
+
 /* ********************************************************************** */
 
 static void
@@ -286,11 +303,10 @@ efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh)
 
 	pobject = em_format_html_find_pobject(efh, eb->classid);
 	if (pobject) {
-		/* HACK: stop recursion */
+		/* This stops recursion of the part */
 		e_dlist_remove((EDListNode *)pobject);
 		res = pobject->func(efh, eb, pobject);
 		e_dlist_addhead(&efh->pending_object_list, (EDListNode *)pobject);
-		em_format_html_remove_pobject(efh, pobject);
 	} else {
 		printf("HTML Includes reference to unknown object '%s'\n", eb->classid);
 	}
@@ -328,7 +344,7 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
 	camel_stream_filter_add(filtered_stream, html_filter);
 	camel_object_unref(html_filter);
-	camel_data_wrapper_write_to_stream(camel_medium_get_content_object((CamelMedium *)part), (CamelStream *)filtered_stream);
+	camel_data_wrapper_decode_to_stream(camel_medium_get_content_object((CamelMedium *)part), (CamelStream *)filtered_stream);
 	camel_object_unref(filtered_stream);
 	
 	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
@@ -363,7 +379,7 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	camel_object_unref(enriched);
 	
 	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");	
-	camel_data_wrapper_write_to_stream(dw, (CamelStream *)filtered_stream);
+	camel_data_wrapper_decode_to_stream(dw, (CamelStream *)filtered_stream);
 	
 	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
 	camel_object_unref(filtered_stream);
@@ -490,8 +506,6 @@ fail:
 	camel_stream_printf(stream, _("Pointer to unknown external data (\"%s\" type)"), access_type);
 }
 
-#define EVOLUTION_ICONSDIR "/opt/gnome2/share/evolution/1.4/images"
-
 static const struct {
 	const char *icon;
 	const char *text;
@@ -584,7 +598,8 @@ efh_write_data(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 {
 	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)puri->part);
 
-	camel_data_wrapper_write_to_stream(dw, stream);
+	printf("writing image '%s'\n", puri->uri?puri->uri:puri->cid);
+	camel_data_wrapper_decode_to_stream(dw, stream);
 	camel_stream_close(stream);
 }
 
@@ -596,6 +611,7 @@ efh_image(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFormatH
 
 	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_data);
 	location = puri->uri?puri->uri:puri->cid;
+	printf("adding image '%s'\n", location);
 	camel_stream_printf(stream, "<img hspace=10 vspace=10 src=\"%s\">", location);
 }
 
@@ -638,10 +654,27 @@ static void efh_format(EMFormat *emf, CamelMedium *part)
 	GtkHTMLStream *hstream;
 	CamelStream *estream;
 
+	em_format_html_clear_pobject(efh);
+
+		if (efh->priv->last_part == part) {
+			printf("doing same page, turning off new page ...\n");
+			/* HACK: so we redraw in the same spot */
+			efh->html->engine->newPage = FALSE;
+		}
+
 	hstream = gtk_html_begin(efh->html);
 	estream = em_camel_stream_new(hstream);
 	if (part) {
-		/* top-header stuff here? */
+		if (efh->priv->last_part == part) {
+			printf("doing same page, turning off new page ...\n");
+			/* HACK: so we redraw in the same spot */
+			efh->html->engine->newPage = FALSE;
+		} else
+			efh->priv->last_part = part;
+
+		/* <insert top-header stuff here> */
+		/* How to sub-class ?  Might need to adjust api ... */
+
 		em_format_format_message(emf, estream, part);
 	}
 	camel_stream_close(estream);
