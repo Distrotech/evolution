@@ -1,3 +1,8 @@
+2003-09-23  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-view.c (selection_received): add VTIMEZONE components
+	contained in the clipboard data to the backend.
+
 2003-09-22  JP Rosevear <jpr@ximian.com>
 
 	* gui/dialogs/comp-editor.c (save_comp): modify and create instead

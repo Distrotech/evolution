@@ -266,6 +266,15 @@ selection_received (GtkWidget *invisible,
 			if (child_kind == ICAL_VEVENT_COMPONENT)
 				selection_received_add_event (cal_view, client, selected_time_start, 
 							      default_zone, subcomp);
+			else if (child_kind == ICAL_VTIMEZONE_COMPONENT) {
+				icaltimezone *zone;
+
+				zone = icaltimezone_new ();
+				icaltimezone_set_component (zone, subcomp);
+				cal_client_add_timezone (client, zone, NULL);
+
+				icaltimezone_free (zone, 1);
+			}
 			
 			subcomp = icalcomponent_get_next_component (
 				icalcomp, ICAL_ANY_COMPONENT);
