@@ -1386,7 +1386,7 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
 	*icalcomp = icalparser_parse_string (comp_str);
 	CORBA_free (comp_str);
 
-	if (!icalcomp) {
+	if (!*icalcomp) {
 		retval = CAL_CLIENT_GET_SYNTAX_ERROR;
 		goto out;
 	}
@@ -1400,7 +1400,7 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
 	   resize pending, which leads to an assert failure and an abort. */
 	cb_data.client = client;
 	cb_data.status = CAL_CLIENT_GET_SUCCESS;
-	icalcomponent_foreach_tzid (icalcomp,
+	icalcomponent_foreach_tzid (*icalcomp,
 				    cal_client_get_object_timezones_cb,
 				    &cb_data);
 

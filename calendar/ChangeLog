@@ -1,5 +1,8 @@
 2003-08-05  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client_/cal-client.c (cal_client_get_default_object): use
+	correctly the pointer to pointer.
+
 	* gui/e-week-view.c (query_obj_updated_cb): fixed the call to
 	cal_client_get_object().
 
