@@ -1,3 +1,4 @@
+
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-tree-sorted.c: a Tree Model implementation that the programmer builds in sorted.
@@ -36,7 +37,10 @@
 /* maximum insertions between an idle event that we will do without scheduling an idle sort */
 #define ETS_INSERT_MAX (4)
 
+#define TREEPATH_CHUNK_AREA_SIZE (30 * sizeof (ETreeSortedPath))
+
 static ETreeModel *parent_class;
+static GMemChunk  *node_chunk;
 
 typedef struct ETreeSortedPath ETreeSortedPath;
 
@@ -246,7 +250,7 @@ static void
 free_path (ETreeSortedPath *path)
 {
 	free_children(path);
-	g_free(path);
+	g_chunk_free(path, node_chunk);
 }
 
 static ETreeSortedPath *
@@ -254,7 +258,7 @@ new_path (ETreeSortedPath *parent, ETreePath corresponding)
 {
 	ETreeSortedPath *path;
 
-	path = g_new(ETreeSortedPath, 1);
+	path = g_chunk_new0 (ETreeSortedPath, node_chunk);
 
 	path->corresponding = corresponding;
 	path->parent = parent;
@@ -892,6 +896,8 @@ e_tree_sorted_class_init (GtkObjectClass *klass)
 	ETreeModelClass *tree_class      = (ETreeModelClass *) klass;
 
 	parent_class                     = gtk_type_class (PARENT_TYPE);
+
+	node_chunk                       = g_mem_chunk_create (ETreeSortedPath, TREEPATH_CHUNK_AREA_SIZE, G_ALLOC_AND_FREE);
 	
 	klass->destroy                   = ets_destroy;
 	klass->set_arg                   = ets_set_arg;
