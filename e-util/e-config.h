@@ -31,10 +31,7 @@ extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
-/* This is an abstract popup menu management/merging class.
-
-   To implement your own popup menu system, just create your own
-   target types and implement the target free method. */
+/* This is a config window management/merging class. */
 
 typedef struct _EConfig EConfig;
 typedef struct _EConfigClass EConfigClass;
@@ -45,12 +42,21 @@ typedef struct _EConfigTarget EConfigTarget;
 
 typedef void (*EConfigFactoryFunc)(EConfig *ec, EConfigTarget *t, void *data);
 
-typedef void (*EConfigCommitFunc)(EConfig *ec, void *data);
-typedef void (*EConfigDestroyFunc)(EConfig *ec, GSList *items, void *data);
+typedef void (*EConfigItemsFunc)(EConfig *ec, GSList *items, void *data);
 
-typedef struct _GtkWidget * (*EConfigItemFactoryFunc)(EConfig *ec, EConfigItem *, EConfigTarget *);
+typedef struct _GtkWidget * (*EConfigItemFactoryFunc)(EConfig *ec, EConfigItem *, struct _GtkWidget *parent, void *data);
+
+/* ok so this is all a bit bogussy
+   we need to map to glade stuff instead */
+
+/* Add types?
+   if no factory, setup appropriate container ?
+   if factory, then assume that returns the right sort of object?
+   what about pages ?
+*/
 
 enum _e_config_t {
+	E_CONFIG_BOOK,
 	E_CONFIG_PAGE,
 	E_CONFIG_SECTION,
 	E_CONFIG_ITEM,
@@ -84,6 +90,10 @@ struct _EConfig {
 	struct _EConfigPrivate *priv;
 
 	char *id;
+
+	EConfigTarget *target;
+
+	struct _GtkWidget *widget; /* the generated widget */
 };
 
 struct _EConfigClass {
@@ -103,11 +113,12 @@ void e_config_class_remove_factory(EConfigClass *klass, EConfigFactory *f);
 EConfig *e_config_construct(EConfig *, const char *menuid);
 EConfig *e_config_new(const char *menuid);
 
-void e_config_add_items(EConfig *, GSList *items, EConfigCommitFunc commitfunc, EConfigDestroyFunc freefunc, void *data);
+void e_config_add_items(EConfig *, GSList *items, EConfigItemsFunc commitfunc, EConfigItemsFunc abortfunc, EConfigItemsFunc freefunc, void *data);
 
-/* do not call e_config_create_menu, it can leak structures if not used right */
 struct _GtkWidget *e_config_create_widget(EConfig *, EConfigTarget *);
-struct _GtkWidget *e_config_create_widget_once(EConfig *emp, EConfigTarget *, guint32 hide_mask, guint32 disable_mask);
+
+void e_config_abort(EConfig *);
+void e_config_commit(EConfig *);
 
 void *e_config_target_new(EConfig *, int type, size_t size);
 void e_config_target_free(EConfig *, void *);

@@ -31,6 +31,7 @@
 
 #include <gtk/gtknotebook.h>
 #include <gtk/gtkvbox.h>
+#include <gtk/gtkhbox.h>
 #include <gtk/gtklabel.h>
 
 #include "e-config.h"
@@ -51,29 +52,22 @@ struct _menu_node {
 	struct _menu_node *next, *prev;
 
 	GSList *menu;
-	EConfigDestroyFunc free;
-	EConfigCommitFunc commit;
+	EConfigItemsFunc free;
+	EConfigItemsFunc abort;
+	EConfigItemsFunc commit;
 	void *data;
+};
+
+struct _widget_node {
+	struct _widget_node *next, *prev;
+
+	struct _menu_node *context;
+	EConfigItem *item;
+	struct _GtkWidget *widget; /* widget created by the factory, if any */
 };
 
 struct _EConfigPrivate {
 	EDList menus;
-};
-
-/* run-time data when the wisget is created */
-struct _widget_node {
-	struct _widget_node *next, *prev;
-
-	EConfigItem *item;
-
-	struct _GtkWidget *vbox; /* used during showing of the window, for page/section type */
-	struct _GtkWidget *widget; /* widget created by the factory, if any */
-};
-
-struct _EConfigData {
-	EConfig *config;
-	EConfigTarget *target;
-
 	EDList widgets;
 };
 
@@ -88,6 +82,7 @@ ep_init(GObject *o)
 	p = emp->priv = g_malloc0(sizeof(struct _EConfigPrivate));
 
 	e_dlist_init(&p->menus);
+	e_dlist_init(&p->widgets);
 }
 
 static void
@@ -96,6 +91,7 @@ ep_finalise(GObject *o)
 	EConfig *emp = (EConfig *)o;
 	struct _EConfigPrivate *p = emp->priv;
 	struct _menu_node *mnode;
+	struct _widget_node *wn;
 
 	g_free(emp->id);
 
@@ -104,6 +100,10 @@ ep_finalise(GObject *o)
 			mnode->free(emp, mnode->menu, mnode->data);
 
 		g_free(mnode);
+	}
+
+	while ( (wn = (struct _widget_node *)e_dlist_remhead(&p->widgets)) ) {
+		g_free(wn);
 	}
 
 	g_free(p);
@@ -178,7 +178,7 @@ EConfig *e_config_new(const char *id)
  * time.
  **/
 void
-e_config_add_items(EConfig *ec, GSList *items, EConfigCommitFunc commitfunc, EConfigDestroyFunc freefunc, void *data)
+e_config_add_items(EConfig *ec, GSList *items, EConfigItemsFunc commitfunc, EConfigItemsFunc abortfunc, EConfigItemsFunc freefunc, void *data)
 {
 	struct _menu_node *node;
 	GSList *l;
@@ -189,6 +189,7 @@ e_config_add_items(EConfig *ec, GSList *items, EConfigCommitFunc commitfunc, ECo
 	node = g_malloc(sizeof(*node));
 	node->menu = items;
 	node->commit = commitfunc;
+	node->abort = abortfunc;
 	node->free = freefunc;
 	node->data = data;
 	e_dlist_addtail(&ec->priv->menus, (EDListNode *)node);
@@ -213,26 +214,10 @@ e_config_add_static_items(EConfig *ec, EConfigTarget *t)
 static int
 ep_cmp(const void *ap, const void *bp)
 {
-	struct _EConfigItem *a = *((void **)ap);
-	struct _EConfigItem *b = *((void **)bp);
+	struct _widget_node *a = *((void **)ap);
+	struct _widget_node *b = *((void **)bp);
 
-	return strcmp(a->path, b->path);
-}
-
-static void
-ec_free_data(struct _EConfigData *data)
-{
-	struct _widget_node *wn;
-
-	while ( (wn = (struct _widget_node *)e_dlist_remhead(&data->widgets)) ) {
-		g_free(wn);
-	}
-
-	if (data->target)
-		e_config_target_free(data->config, data->target);
-
-	g_object_unref(data->config);
-	g_free(data);
+	return strcmp(a->item->path, b->item->path);
 }
 
 GtkWidget *
@@ -242,96 +227,143 @@ e_config_create_widget(EConfig *emp, EConfigTarget *target)
 	struct _menu_node *mnode;
 	GPtrArray *items = g_ptr_array_new();
 	GSList *l;
-	GString *ppath = g_string_new("");
-	GHashTable *item_hash = g_hash_table_new(g_str_hash, g_str_equal);
 	/*char *domain = NULL;*/
-	GtkNotebook *book;
-	struct _EConfigData *data;
+	GtkWidget *book = NULL, *page = NULL, *section = NULL;
+	int pageno = 0, sectionno = 0, itemno = 0;
 	int i;
 
+	emp->target = target;
 	e_config_add_static_items(emp, target);
 
 	/* FIXME: need to override old ones with new names */
 	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
-		for (l=mnode->menu; l; l = l->next)
-			g_ptr_array_add(items, l->data);
+		for (l=mnode->menu; l; l = l->next) {
+			struct _EConfigItem *item = l->data;
+			struct _widget_node *wn = g_malloc0(sizeof(*wn));
+
+			wn->item = item;
+			wn->context = mnode;
+			g_ptr_array_add(items, wn);
+		}
 
 	qsort(items->pdata, items->len, sizeof(items->pdata[0]), ep_cmp);
 
-	book = (GtkNotebook *)gtk_notebook_new();
-
-	data = g_malloc(sizeof(*data));
-	e_dlist_init(&data->widgets);
-	data->config = emp;
-	g_object_ref(emp);
-	data->target = target;
-
-	g_object_set_data_full((GObject *)book, "e-config-data", data, (GDestroyNotify)ec_free_data);
-
 	for (i=0;i<items->len;i++) {
-		struct _EConfigItem *item = items->pdata[i];
-		char *tmp;
-		struct _widget_node *wn, *container;
+		struct _widget_node *wn = items->pdata[i];
+		struct _EConfigItem *item = wn->item;
 		GtkWidget *w;
 
-		wn = g_malloc(sizeof(*wn));
-		wn->item = item;
-		e_dlist_addtail(&data->widgets, (EDListNode *)wn);
-
-		g_string_truncate(ppath, 0);
-		tmp = strrchr(item->path, '/');
-		if (tmp) {
-			g_string_append_len(ppath, item->path, tmp-item->path);
-			container = g_hash_table_lookup(item_hash, ppath->str);
-			g_assert(container != NULL);
-		} else {
-			container = NULL;
-		}
+		/* Not sure we need to keep this stuff */
+		e_dlist_addtail(&p->widgets, (EDListNode *)wn);
 
 		switch (item->type) {
+		case E_CONFIG_BOOK:
+			g_assert(book == NULL);
+			if (item->factory)
+				book = item->factory(emp, item, NULL, wn->context->data);
+			else {
+				book = gtk_notebook_new();
+				gtk_widget_show(book);
+			}
+			wn->widget = book;
+			break;
 		case E_CONFIG_PAGE:
-			w = gtk_label_new(item->label);
-			gtk_widget_show(w);
-			wn->vbox = gtk_vbox_new(FALSE, 6);
-			gtk_notebook_append_page(book, wn->vbox, w);
-
-			g_hash_table_insert(item_hash, item->path, wn);
-			container = wn;
+			if (item->factory) {
+				page = item->factory(emp, item, book, wn->context->data);
+			} else {
+				w = gtk_label_new(item->label);
+				gtk_widget_show(w);
+				page = gtk_vbox_new(FALSE, 12);
+				gtk_widget_show(page);
+				gtk_notebook_insert_page((GtkNotebook *)book, page, w, pageno);
+			}
+			pageno++;
+			sectionno = 0;
+			section = NULL;
+			wn->widget = page;
 			break;
 		case E_CONFIG_SECTION:
-			wn->vbox = gtk_vbox_new(FALSE, 3);
-			gtk_widget_show(wn->vbox);
+			if (item->factory) {
+				section = item->factory(emp, item, page, wn->context->data);
+			} else {
+				GtkWidget *frame = gtk_vbox_new(FALSE, 6);
 
-			if (item->label) {
-				char *txt;
+				gtk_widget_show(frame);
+				if (item->label) {
+					char *txt;
+					GtkWidget *hbox;
 
-				txt = alloca(strlen(item->label)+32);
-				sprintf(txt, "<span weight=\"bold\">%s</span>", item->label);
-				w = gtk_label_new(txt);
-				gtk_misc_set_alignment((GtkMisc *)w, 0.0, 0.5);
-				gtk_box_pack_start((GtkBox *)wn->vbox, w, FALSE, FALSE, 6);
+					w = gtk_label_new("");
+					gtk_widget_show(w);
+					txt = g_strdup_printf("<span weight=\"bold\">%s</span>", item->label);
+					gtk_label_set_markup((GtkLabel *)w, txt);
+					g_free(txt);
+					gtk_misc_set_alignment((GtkMisc *)w, 0.0, 0.5);
+					gtk_box_pack_start((GtkBox *)frame, w, FALSE, FALSE, 0);
+
+					hbox = gtk_hbox_new(FALSE, 12);
+					gtk_widget_show(hbox);
+					w = gtk_label_new("");
+					gtk_widget_show(w);
+					gtk_box_pack_start((GtkBox *)hbox, w, FALSE, FALSE, 0);
+					gtk_box_pack_start((GtkBox *)frame, hbox, FALSE, FALSE, 0);
+
+					section = gtk_vbox_new(FALSE, 6);
+					gtk_box_pack_start((GtkBox *)hbox, section, FALSE, FALSE, 0);
+					gtk_widget_show(section);
+				} else {
+					section = frame;
+				}
+
+				gtk_box_pack_start((GtkBox *)page, frame, FALSE, FALSE, 0);
 			}
-
-			gtk_box_pack_start((GtkBox *)container->vbox, wn->vbox, FALSE, FALSE, 6);
-
-			g_hash_table_insert(item_hash, item->path, wn);
-			container = wn;
+			sectionno++;
+			itemno = 0;
+			wn->widget = section;
 			break;
 		case E_CONFIG_ITEM:
+			if (item->factory) {
+				wn->widget = item->factory(emp, item, section, wn->context->data);
+			}
+			itemno++;
 			break;
-		}
-
-		if (item->factory) {
-			wn->widget = item->factory(emp, item, target);
-			gtk_box_pack_start((GtkBox *)container->vbox, wn->widget, FALSE, FALSE, 6);
 		}
 	}
 
-	g_string_free(ppath, TRUE);
 	g_ptr_array_free(items, TRUE);
-	g_hash_table_destroy(item_hash);
+
+	emp->widget = (GtkWidget *)book;
+
+	if (book) {
+		/* make this depend on flags?? */
+		if (gtk_notebook_get_n_pages((GtkNotebook *)book) == 1) {
+			gtk_notebook_set_show_tabs((GtkNotebook *)book, FALSE);
+			gtk_notebook_set_show_border((GtkNotebook *)book, FALSE);
+		}
+		g_object_set_data_full((GObject *)book, "e-config", emp, g_object_unref);
+	}
 
 	return (GtkWidget *)book;
+}
+
+void e_config_abort(EConfig *ec)
+{
+	struct _EConfigPrivate *p = ec->priv;
+	struct _menu_node *mnode;
+
+	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
+		if (mnode->abort)
+			mnode->abort(ec, mnode->menu, mnode->data);
+}
+
+void e_config_commit(EConfig *ec)
+{
+	struct _EConfigPrivate *p = ec->priv;
+	struct _menu_node *mnode;
+
+	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
+		if (mnode->commit)
+			mnode->commit(ec, mnode->menu, mnode->data);
 }
 
 /* ********************************************************************** */
@@ -487,11 +519,13 @@ emph_free_menu(struct _EConfigHookMenu *menu)
 }
 
 static struct _GtkWidget *
-ech_config_widget_factory(EConfig *ec, EConfigItem *item, EConfigTarget *target)
+ech_config_widget_factory(EConfig *ec, EConfigItem *item, GtkWidget *parent, void *data)
 {
 	EConfigHookItem *hitem = (EConfigHookItem *)item;
 
-	return (struct _GtkWidget *)e_plugin_invoke(hitem->hook->hook.plugin, hitem->factory, target);
+	/* FIXME: marshal args into a struct for plugin callback */
+
+	return (struct _GtkWidget *)e_plugin_invoke(hitem->hook->hook.plugin, hitem->factory, ec->target);
 }
 
 static struct _EConfigHookItem *
