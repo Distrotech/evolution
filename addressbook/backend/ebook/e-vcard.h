@@ -27,12 +27,17 @@
 #include <glib-object.h>
 
 #define EVC_ADR             "ADR"
+#define EVC_CALURI          "CALURI"
 #define EVC_EMAIL           "EMAIL"
 #define EVC_ENCODING        "ENCODING"
+#define EVC_FBURL           "FBURL"
 #define EVC_FN              "FN"
+#define EVC_ICSCALENDAR     "ICSCALENDAR" /* XXX should this be X-EVOLUTION-ICSCALENDAR? */
 #define EVC_NICKNAME        "NICKNAME"
 #define EVC_N               "N"
+#define EVC_NOTE            "NOTE"
 #define EVC_ORG             "ORG"
+#define EVC_PHOTO           "PHOTO"
 #define EVC_PRODID          "PRODID"
 #define EVC_QUOTEDPRINTABLE "QUOTED-PRINTABLE"
 #define EVC_REV             "REV"
@@ -44,13 +49,22 @@
 #define EVC_URL             "URL"
 #define EVC_VERSION         "VERSION"
 #define EVC_X_AIM           "X-AIM"
+#define EVC_X_ANNIVERSARY   "X-EVOLUTION-ANNIVERSARY"
 #define EVC_X_ASSISTANT     "X-EVOLUTION-ASSISTANT"
+#define EVC_X_BIRTHDAY      "X-EVOLUTION-BIRTHDAY"
 #define EVC_X_FILE_AS       "X-EVOLUTION-FILE-AS"
 #define EVC_X_ICQ           "X-ICQ"
 #define EVC_X_JABBER        "X-JABBER"
+#define EVC_X_LIST          "X-EVOLUTION-LIST"
 #define EVC_X_MANAGER       "X-EVOLUTION-MANAGER"
 #define EVC_X_MSN           "X-MSN"
+#define EVC_X_SPOUSE        "X-EVOLUTION-SPOUSE"
 #define EVC_X_YAHOO         "X-YAHOO"
+
+typedef enum {
+	EVC_FORMAT_VCARD_21,
+	EVC_FORMAT_VCARD_30
+} EVCardFormat;
 
 #define E_TYPE_VCARD            (e_vcard_get_type ())
 #define E_VCARD(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_VCARD, EVCard))
@@ -88,7 +102,8 @@ void    e_vcard_construct                    (EVCard *evc, const char *str);
 EVCard* e_vcard_new                          (void);
 EVCard* e_vcard_new_from_string              (const char *str);
 
-char*   e_vcard_to_string                    (EVCard *evc);
+char*   e_vcard_to_string                    (EVCard *evc, EVCardFormat format);
+
 /* mostly for debugging */
 void    e_vcard_dump_structure               (EVCard *evc);
 
@@ -103,6 +118,7 @@ void             e_vcard_add_attribute_with_value  (EVCard *evcard, EVCardAttrib
 void             e_vcard_add_attribute_with_values (EVCard *evcard, EVCardAttribute *attr, ...);
 void             e_vcard_attribute_add_value       (EVCardAttribute *attr, const char *value);
 void             e_vcard_attribute_add_values      (EVCardAttribute *attr, ...);
+void             e_vcard_attribute_remove_values   (EVCardAttribute *attr);
 
 /* attribute parameters */
 EVCardAttributeParam* e_vcard_attribute_param_new             (const char *param_name);
@@ -118,6 +134,9 @@ void                  e_vcard_attribute_param_add_value       (EVCardAttributePa
 							       const char *value);
 void                  e_vcard_attribute_param_add_values      (EVCardAttributeParam *param,
 							       ...);
+
+/* decode the 'b' encoding */
+void                  e_vcard_decode_b_encoding               (const char *data, void **p, int *len);
 
 /* EVCard* accessors.  nothing returned from these functions should be
    freed by the caller. */

@@ -1,5 +1,18 @@
 2003-08-07  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-vcard.c (e_vcard_to_string_vcard_21): new,
+	unimplemented, function.
+	(e_vcard_to_string_vcard_30): move the 3.0 vcard export code here.
+	(e_vcard_to_string): call e_vcard_to_string_vcard_21 or
+	e_vcard_to_string_vcard_30 based on @format.
+	(e_vcard_attribute_remove_values): new function.
+
+	* backend/ebook/e-vcard.h: add @format to e_vcard_to_string, and
+	add prototype for e_vcard_attribute_remove_values.  also, add
+	prototype for e_vcard_decode_b_encoding.
+
+2003-08-07  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/e-book-listener.c
 	(impl_BookListener_respond_open_book): remove the book arg.
 

@@ -608,8 +608,15 @@ e_vcard_new_from_string (const char *str)
 	return evc;
 }
 
-char*
-e_vcard_to_string (EVCard *evc)
+static char*
+e_vcard_to_string_vcard_21  (EVCard *evc)
+{
+	g_warning ("need to implement e_vcard_to_string_vcard_21");
+	return g_strdup ("");
+}
+
+static char*
+e_vcard_to_string_vcard_30 (EVCard *evc)
 {
 	GList *l;
 	GList *v;
@@ -691,6 +698,20 @@ e_vcard_to_string (EVCard *evc)
 	str = g_string_append (str, "END:vCard");
 
 	return g_string_free (str, FALSE);
+}
+
+char*
+e_vcard_to_string (EVCard *evc, EVCardFormat format)
+{
+	switch (format) {
+	case EVC_FORMAT_VCARD_21:
+		return e_vcard_to_string_vcard_21 (evc);
+	case EVC_FORMAT_VCARD_30:
+		return e_vcard_to_string_vcard_30 (evc);
+	default:
+		g_warning ("invalid format specifier passed to e_vcard_to_string");
+		return g_strdup ("");
+	}
 }
 
 void
@@ -833,6 +854,13 @@ e_vcard_attribute_add_values (EVCardAttribute *attr,
 	va_end (ap);
 }
 
+void
+e_vcard_attribute_remove_values (EVCardAttribute *attr)
+{
+	g_list_foreach (attr->values, (GFunc)g_free, NULL);
+	g_list_free (attr->values);
+	attr->values = NULL;
+}
 
 EVCardAttributeParam*
 e_vcard_attribute_param_new (const char *name)
