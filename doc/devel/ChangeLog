@@ -1,3 +1,9 @@
+2004-09-01  Not Zed  <NotZed@Ximian.com>
+
+	* images/*: added some image files.
+
+	* evolution-plugin-manual.xml: fix for some api changes.  Updates.
+
 2004-08-25  Not Zed  <NotZed@Ximian.com>
 
 	* evolution-plugin-manual.xml: Added the working plugin manual

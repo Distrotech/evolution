@@ -7,8 +7,14 @@
 <!ENTITY eclipse "<application>Eclipse</application>">
 <!ENTITY Camel "<application>Camel</application>">
 <!ENTITY EPlugin "<application>EPlugin</application>">
-<!ENTITY e-popup-reference SYSTEM "e-popup.sgml">
-<!ENTITY e-plugin-reference SYSTEM "e-plugin.sgml">
+<!ENTITY e-popup-reference SYSTEM "e-popup.xml">
+<!ENTITY e-menu-reference SYSTEM "e-menu.xml">
+<!ENTITY e-config-reference SYSTEM "e-config.xml">
+<!ENTITY e-event-reference SYSTEM "e-event.xml">
+<!ENTITY e-plugin-reference SYSTEM "e-plugin.xml">
+
+<!ENTITY em-popup-reference SYSTEM "em-popup.xml">
+
 ]>
 <?xml-stylesheet href="sdocbook.css" type="text/css"?>
 
@@ -51,6 +57,60 @@
       have bugs which duplicates some sections.  It is also ugly and difficult
       to navigate.
     </para>
+
+    <sect1>
+      <title>Conventions</title>
+      <para>
+	The following conventions are used in the manual ... (insert details
+	here).
+      </para>
+      <sect2>
+	<title>XML Annotation</title>
+	<para>
+	  XML definitions are annotated with BNF-style markers to indicate
+	  alternative (|), multiples (* or +), and optional (?) items.  If no
+	  annotation is present then the item must be present once.
+	</para>
+	<variablelist>
+	  <varlistentry>
+	    <!-- is symbol the right one here? -->
+	    <term><symbol>|</symbol></term>
+	    <listitem>
+	      <para>Indicates an alternative option.  Only one of the items
+		separated by <symbol>|</symbol> is to be chosen.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><symbol>*</symbol></term>
+	    <listitem>
+	      <para>Following an item, <symbol>*</symbol> indicates the item
+		may occur any number of times, including no times (0 or more
+		multiple).
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><symbol>+</symbol></term>
+	    <listitem>
+	      <para>Following an item, <symbol>+</symbol> indicates the item
+		must occur at least once, but may occur more than ones (1 or
+		more multiple).
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><symbol>?</symbol></term>
+	    <listitem>
+	      <para>Following an item, <symbol>?</symbol> indicates the item
+		may occur at most once, if present (0 or 1 times).
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	</variablelist>
+      </sect2>
+    </sect1>
+
   </preface>
 
   <part id="informational">
@@ -104,45 +164,37 @@
 	    <para>
 	      Provide a language independent invocation mechanism
 	    </para>
-
 	  </listitem>
 	  <listitem>
 	    <para>
 	      Allow extension of parts of the user interface and processing elements
 	    </para>
-
 	  </listitem>
 	  <listitem>
 	    <para>
 	      Require minimal extra or foreign code to implement in the core application
 	    </para>
-
 	  </listitem>
 	  <listitem>
 	    <para>
 	      Require minimal interface code to implement the extensions
 	    </para>
-
 	  </listitem>
 	  <listitem>
 	    <para>
 	      Not to impact performance or increase resource usage unduly
 	    </para>
-
 	  </listitem>
 	  <listitem>
 	    <para>
 	      Versioning
 	    </para>
-
 	  </listitem>
 	  <listitem>
 	    <para>
 	      Be able to be extended itself fairly easily.
 	    </para>
-
 	  </listitem>
-
 	</itemizedlist>
 	<para>
 	  EPlugin manages to fulfill these goals in most cases. EPlugin isn't a
@@ -197,7 +249,6 @@
 	  new hooks can be added transparently, and extend the plugin
 	  definition freely with any information they require.
 	</para>
-
       </sect1>
 
       <sect1>
@@ -220,7 +271,6 @@
 	  contextual information to build the interface or determine when they
 	  need to be invoked.
 	</para>
-
       </sect1>
 
       <sect1>
@@ -263,7 +313,6 @@
 	  perform mapping to the plugin. Items may be extended by code hooking
 	  into the implementation, either the plugin hooks, or the core code.
 	</para>
-
       </sect1>
 
       <sect1>
@@ -280,10 +329,7 @@
 	  that part. Targets are part of the manager implementation and are
 	  extended by subclassing the manager.
 	</para>
-
       </sect1>
-
-
     </chapter>
 
     <chapter>
@@ -294,6 +340,10 @@
 	This chapter will introduce the available plugin hook types. A given
 	plugin can hook into any of these hooks any number of times. Some refer
 	to specific instances of objects and others are implicitly defined.
+      </para>
+      <para>
+	By design, there is considerable similarity and orthogonality amongst
+	all of the various hook types and management objects.
       </para>
       <sect1>
 	<title>
@@ -321,17 +371,11 @@
 	  that they are pluggable is a free-bonus.
 	</para>
 	<sect2>
-	  <title>Defining a hook</title>
+	  <title>Defining a popup hook</title>
 	  <para>
 	    Not sure if this fits here as such.  Probably temporary placeholder.
 	  </para>
-	  <para>
-	    The following XML is annotated with BNF-style optons after each tag
-	    or parameter.  * means the preceeding item can occur 0 or many
-	    times, and ? means the preceeding item can occur 0 or 1 time.
-	    Unannotated items must be supplied once.
-
-	    <programlisting>
+	  <programlisting>
 	    <![CDATA[
 <hook class="com.ximian.evolution.mail.popup:1.0">
  <menu id="menuid" target="targettype">
@@ -341,87 +385,99 @@
    path="foo/bar"
    label="menu text"
    icon="icon name" ?
-   mask="target mask" ?
+   visible="target mask" ?
+   enable="target mask" ?
    activate="function spec"/> *
  </menu> *
 </hook>]]></programlisting>
-	    (insert explanation of hook element here, or drop it from above)
-
-	    <!-- this is all too bloody verbose, is there a better way? -->
-	    <variablelist>
-	      <varlistentry>
-		<term><parameter>type</parameter></term>
-		<listitem>
-		  <para>
-		    The menu item type.  The type maps directly to the
-		    EPopupItem types.
-		  </para>
-		</listitem>
-	      </varlistentry>
-	      <varlistentry>
-		<term><parameter>active</parameter></term>
-		<listitem>
-		  <para>
-		    If present, then radio or toggle menu items are active when
-		    first shown.  After the first instantiation, they will
-		    remember their active state.
-		  </para>
-		</listitem>
-	      </varlistentry>
-	      <varlistentry>
-		<term><parameter>path</parameter></term>
-		<listitem>
-		  <para>
-		    A '/' separated path used to position the item within menu
-		    and in the right submenu.  Each menu and plugin should
-		    define how its menu's are layed out so other plugins can
-		    determine what value to use here.
-		  </para>
-		</listitem>
-	      </varlistentry>
-	      <varlistentry>
-		<term><parameter>label</parameter></term>
-		<listitem>
-		  <para>
-		    The text to be displayed on the menu item.  This will be
-		    translated based on the plugin translation domain (FIXME:
-		    domain's are not yet available).
-		  </para>
-		</listitem>
-	      </varlistentry>
-	      <varlistentry>
-		<term><parameter>icon</parameter></term>
-		<listitem>
-		  <para>
-		    The name of a gnome-icon-theme standard icon, or the full
-		    path-name of an icon image to use as menu item icon.  This
-		    will be blank if not supplied.
-		  </para>
-		</listitem>
-	      </varlistentry>
-	      <varlistentry>
-		<term><parameter>mask</parameter></term>
-		<listitem>
-		  <para>
-		    A comma separated list of mask enumeration values used to
-		    define when this item is shown.  What values are valid
-		    depend on the menu hook class of the menu being hooked
-		    onto.
-		  </para>
-		</listitem>
-	      </varlistentry>
-	      <varlistentry>
-		<term><parameter>activate</parameter></term>
-		<listitem>
-		  <para>
-		    A plugin-type specific function specification.  This
-		    function will be resolved and called when the menu item is
-		    activated.
-		  </para>
-		</listitem>
-	      </varlistentry>
-	    </variablelist>
+	  <!-- this is all too bloody verbose, is there a better way? -->
+	  <para>
+	    <emphasis>Need to define menu tag</emphasis>
 	  </para>
+	  <variablelist>
+	    <varlistentry>
+	      <term><parameter>type</parameter></term>
+	      <listitem>
+		<para>
+		  The menu item type.  The type maps directly to the
+		  corresponding EPopupItem types.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>active</parameter></term>
+	      <listitem>
+		<para>
+		  If present, then radio or toggle menu items are active when
+		  first shown.  After the first instantiation, they will
+		  remember their active state.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>path</parameter></term>
+	      <listitem>
+		<para>
+		  A '/' separated path used to position the item within menu
+		  and in the right submenu.  Each menu and plugin should
+		  define how its menu's are layed out so other plugins can
+		  determine what value to use here.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>label</parameter></term>
+	      <listitem>
+		<para>
+		  The text to be displayed on the menu item.  This will be
+		  translated based on the plugin translation domain (FIXME:
+		  domain's are not yet available).
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>icon</parameter></term>
+	      <listitem>
+		<para>
+		  The name of a gnome-icon-theme standard icon, or the full
+		  path-name of an icon image to use as menu item icon.  This
+		  will be blank if not supplied.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>visible</parameter></term>
+	      <listitem>
+		<para>
+		  A comma separated list of mask enumeration values used to
+		  define when this item is shown.  What values are valid
+		  depend on the menu hook class of the menu being hooked
+		  onto.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>enable</parameter></term>
+	      <listitem>
+		<para>
+		  A comma separated list of mask enumeration values used to
+		  define when this item is enabled.  What values are valid
+		  depend on the menu hook class of the menu being hooked
+		  onto.  This is currently unimplemented.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>activate</parameter></term>
+	      <listitem>
+		<para>
+		  A plugin-type specific function specification.  This
+		  function will be resolved and called when the menu item is
+		  activated.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	  </variablelist>
 	</sect2>
       </sect1>
 
@@ -453,7 +509,100 @@
 	<para>
 	  Simple menu items and toggle menu items are supported currently.
 	</para>
-
+	<sect2>
+	  <title>Defining a menu hook</title>
+	  <para>
+	    Not sure if this fits here as such.  Probably temporary placeholder.
+	  </para>
+	  <programlisting>
+	    <![CDATA[
+<hook class="com.ximian.evolution.mail.bonoboMenu:1.0">
+ <menu id="menuid" target="targettype">
+  <item
+   type="item | toggle | radio"
+   active ?
+   path="/commands/FooBar"
+   verb="FooBar"
+   visible="target mask" ?
+   enable="target mask" ?
+   activate="function spec"/> *
+ </menu> *
+</hook>]]></programlisting>
+	  <para>
+	    <emphasis>Need to define menu tag</emphasis>
+	  </para>
+	  <variablelist>
+	    <varlistentry>
+	      <term><parameter>type</parameter></term>
+	      <listitem>
+		<para>
+		  The menu item type.  The type maps directly to the
+		  corresponding EMenuItem types.
+		  <parameter>radio</parameter> is currently not implemented.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>active</parameter></term>
+	      <listitem>
+		<para>
+		  If present, then radio or toggle menu items are active when
+		  first shown.  After the first instantiation, they will
+		  remember their active state.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>path</parameter></term>
+	      <listitem>
+		<para>
+		  The BonoboUI element path corresponding to this menu item.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>verb</parameter></term>
+	      <listitem>
+		<para>
+		  The BonoboUI verb corresponding to the item to be listened to.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>visible</parameter></term>
+	      <listitem>
+		<para>
+		  A comma separated list of mask enumeration values used to
+		  define when this item is shown.  What values are valid
+		  depend on the menu hook class of the menu being hooked
+		  onto.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>enable</parameter></term>
+	      <listitem>
+		<para>
+		  A comma separated list of mask enumeration values used to
+		  define when this item is sensitive.  What values are valid
+		  depend on the menu hook class of the menu being hooked
+		  onto.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>activate</parameter></term>
+	      <listitem>
+		<para>
+		  A plugin-type specific function specification.  This
+		  function will be resolved and called when the menu item is
+		  activated.  The funciton's parameters will depend on the type
+		  of menu item being invoked.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	  </variablelist>
+	</sect2>
       </sect1>
 
       <sect1>
@@ -463,10 +612,115 @@
 	<para>
 	  Configuration pages are somewhat more complex than any of the other
 	  types of hookable object. This is reflected in the complexity of the
-	  items and callbacks involved. Since it isn't completely defined yet,
-	  no more details will be forthcoming.
+	  items and callbacks involved.
 	</para>
+	<para>
+	  Essentially, the EConfig object is used in combination to both
+	  instrument existing windows and building new content.  Each
+	  configuration window comprises of several basic elements with some
+	  minor variations allowed.  It consists of a number of pages in a
+	  specific order, each containing a number of titled sections in a specific
+	  order, each containing a number of items.  The variations are that
+	  the top-level widget may be a GtkNotebook or a GnomeDruid; and each
+	  section may instrument a GtkBox, or a GtkTable.  The definition of
+	  the available hooks will define what form they take.
+	</para>
+	<para>
+	  The EConfig manager uses the description of all the items supplied to
+	  it to build the complete window.  It can also drive various aspects
+	  of the UI, such as navigating through a druid or handling
+	  instant-apply vs. modify-and-save dialogues.
+	</para>
+	<figure>
+	  <title>Event and Data Flow in EMConfig</title>
+	  <mediaobject>
+	    <imageobject>
+	      <imagedata fileref="images/e-config-flow.pic" format="PIC"/>
+	    </imageobject>
+	    <imageobject>
+	      <imagedata fileref="images/e-config-flow.png" format="PNG"/>
+	    </imageobject>
+	    <textobject>
+	      <phrase>A flow of information and control signals in the
+		configuration management object.</phrase>
+	    </textobject>
+	  </mediaobject>
+	</figure>
 
+	<sect2>
+	  <title>Defining a configuration page hook</title>
+	  <para>
+	    Not sure if this fits here as such.  Probably temporary placeholder.
+	  </para>
+	  <programlisting>
+	    <![CDATA[
+<hook class="com.ximian.evolution.mail.bonoboMenu:1.0">
+ <group
+  id="window id"
+  target="targettype"
+  commit="function spec"?
+  abort="function spec"?>
+  <item
+   type="book | druid | page | page_start | page_finish | section | section_table | item"
+   path="/absolute/path"
+   label="name" | factory="function  spec"
+  /> *
+ </menu> *
+</hook>]]></programlisting>
+	  <para>
+	    <emphasis>Need to define group tag</emphasis>
+	  </para>
+	  <variablelist>
+	    <varlistentry>
+	      <term><parameter>type</parameter></term>
+	      <listitem>
+		<para>
+		  The menu item type.  The type maps directly to the
+		  corresponding EConfigItem types.  Only one of
+		  <parameter>book</parameter> and <parameter>druid</parameter>
+		  may be supplied for the entire configuration page, and this
+		  will usually already be defined by the application.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>path</parameter></term>
+	      <listitem>
+		<para>
+		  The path to the configuration item in question.  This is a
+		  simple string that when sorted using an ASCII sort will place
+		  the items in the right order.  That is, sections before items
+		  before pages before the root object.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>label</parameter></term>
+	      <listitem>
+		<para>
+		  The textual label of this item.  This may only be supplied
+		  for the section and page types.  For sections it will be the
+		  section frame text.  For pages this will be the druid page
+		  title or the notebook tab text.  If a
+		  <parameter>factory</parameter>is supplied then this value is
+		  not used.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>factory</parameter></term>
+	      <listitem>
+		<para>
+		  If supplied, the factory method used to create the GtkWidget
+		  elements for this configuration item.  Factories may be
+		  supplied for any of the item types.  If no
+		  <parameter>label</parameter> is set then the
+		  <parameter>factory</parameter> must be set.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	  </variablelist>
+	</sect2>
       </sect1>
 
       <sect1>
@@ -492,7 +746,74 @@
 	  some level of complexity of event routing. This feature might not
 	  prove useful and may be removed in the future if it isn't.
 	</para>
+	<sect2>
+	  <title>Defining an event hook</title>
+	  <para>
+	    Not sure if this fits here as such.  Probably temporary placeholder.
+	  </para>
 
+	  <programlisting>
+	    <![CDATA[
+<hook class="com.ximian.evolution.mail.events:1.0">
+ <event
+   type="pass | sink"
+   priority="signed integer"
+   id="event name"
+   enable="target mask" ?
+   handle="function spec"/> *
+ </event> *
+</hook>]]></programlisting>
+	  <variablelist>
+	    <varlistentry>
+	      <term><parameter>type</parameter></term>
+	      <listitem>
+		<para>
+		  The event listener type.  The type maps directly to the corresponding
+		  corresponding EEventItem types.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>priority</parameter></term>
+	      <listitem>
+		<para>
+		  A signed integer specifying the priority of this event
+		  listener.  0 (zero) should be used normally, although positive
+		  and negative integers in the range -128 to 127 may aslo be
+		  used.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>id</parameter></term>
+	      <listitem>
+		<para>
+		  The name of the event to listen to.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>enable</parameter></term>
+	      <listitem>
+		<para>
+		  A comma separated list of mask enumeration values used to
+		  qualify when this event listener is invoked.  What values are valid
+		  depend on the event hook class.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	    <varlistentry>
+	      <term><parameter>handle</parameter></term>
+	      <listitem>
+		<para>
+		  A plugin-type specific function specification.  This
+		  function will be resolved and called when an event is routed to
+		  this listener.
+		</para>
+	      </listitem>
+	    </varlistentry>
+	  </variablelist>
+	</sect2>
       </sect1>
 
       <sect1>
@@ -519,13 +840,8 @@
 	  is provided by the mail component. It however demonstrates that the
 	  plugin system is extensible itself.
 	</para>
-
       </sect1>
-
-
     </chapter>
-
-
   </part>
 
   <part id="reference">
@@ -548,23 +864,34 @@
       <title>
 	EPlugin
       </title>
+      <para>
+	The EPlugin object manages the loading and invocation of physical
+	plugin definitions and plugin binaries.  The base EPlugin class is an
+	abstract class which loads plugin definitons, resolving hooks, and
+	provides an api for invoking callbacks.
+      </para>
+      <para>
+	The EPluginLib object is a concrete derived class of EPlugin which
+	handles loading shared libraries using the GModule interface.
+      </para>
       &e-plugin-reference;
-
-      <sect1>
-	<title>
-	  EPluginMono
-	</title>
-	<para>
-	  details
-	</para>
-      </sect1>
     </chapter>
 
     <chapter>
       <title>
 	EPopup
       </title>
-	&e-popup-reference;
+      <para>
+	The EPopup object manages a single popup menu.  It is used to
+	application code as a convenience function for building dynamic popup
+	menus based on a specific context.
+      </para>
+      <para>
+	The EPopupHook object is loaded by
+	the &EPlugin; system, and is used to provide dynamic extension to the
+	application context menus.
+      </para>
+      &e-popup-reference;
     </chapter>
 
     <chapter>
@@ -572,8 +899,37 @@
 	EMenu
       </title>
       <para>
-	Insert definition here.
+	The EMenu object manages the menus for a given view or component.  It
+	is used by application code to allow the plugin system an entry point
+	to current application view.  It may also be used by the application as
+	a convenience function to dynamically alter the menu system based on
+	user context.
       </para>
+      <para>
+	The EMenuHook object is loaded by the &EPlugin; system, and is used to
+	provide dynamic extension to the application menus.
+      </para>
+      &e-menu-reference;
+    </chapter>
+
+    <chapter>
+      <title>
+	EConfig
+      </title>
+      <para>
+	The EConfig object manages the building of dynamic configuration pages
+	to configure specific application objects.  The same basic object can
+	be used to fully drive a wizard-like druid object, or to drive a
+	note-book of configuration options.  It is used by application code to
+	provide the core controller in a model-view-controller implementation
+	of a UI window.
+      </para>
+      <para>
+	The EConfigHook object is loaded by the &EPlugin; system, and is used hook
+	in additional configuration items into configuration windows or druids
+	dynamically.
+      </para>
+      &e-config-reference;
     </chapter>
 
     <chapter>
@@ -581,26 +937,193 @@
 	EEvent
       </title>
       <para>
-	Insert definition here.
+	The EEvent object manages broadcast of events for a given component or
+	application.  It is used by application code to provide the plugin
+	system with an entry point for user and system state events.
       </para>
+      <para>
+	The EEventHook object is loaded by the &EPlugin; system, and is used hook
+	event listeners into dynamically loaded event handlers.
+      </para>
+      &e-event-reference;
     </chapter>
-
   </part>
 
   <part>
     <title>
-      Hook points
+      &Evolution; Hook Points.
     </title>
-    <para>
-      Mail
-    </para>
-    <para>
-      Popups
-    </para>
+    <partintro>
+      <para>
+	This section enumerates all of the published hook points and target types
+	available in each component in &Evolution;.
+      </para>
+    </partintro>
+    <chapter>
+      <title>
+	Mail Hooks
+      </title>
+      <para>
+	<emphasis>
+	  Need to find out the right docbook to mark-up most of this
+	  text.
+	</emphasis>
+      </para>
+      <sect1>
+	<title>Popup menus</title>
+	<para>
+	  The mail popup menu class is
+	  <interfacename>com.ximian.evolution.mail.popup:1.0</interfacename>.
+	  See the following reference section for the available targets.
+	</para>
 
+	<sect2>
+	  <title>Folder Tree Context Menu</title>
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody>
+		<row>
+		  <entry>Name</entry>
+		  <entry><interfacename>com.ximian.mail.storageset.popup.select</interfacename></entry>
+		</row>
+		<row>
+		  <entry>Target</entry>
+		  <entry><link linkend="API-struct--EMPopupTargetFolder">EMPopupTargetFolder</link></entry>
+		</row>
+		<row>
+		  <entry>Widget</entry>
+		  <entry>Unset</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	  <para>
+	    This is the context menu shown on the folder tree.
+	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Message List Context Menu</title>
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody>
+		<row>
+		  <entry>Name</entry>
+		  <entry><interfacename>com.ximian.mail.folderview.popup.select</interfacename></entry>
+		</row>
+		<row>
+		  <entry>Target</entry>
+		  <entry><link linkend="API-struct--EMPopupTargetSelect">EMPopupTargetSelect</link></entry>
+		</row>
+		<row>
+		  <entry>Widget</entry>
+		  <entry><link linkend="API-struct--EMFolderView">EMFolderView</link></entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	  <para>
+	    This is the context menu shown on the message list.
+	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Inline URI Context Menu</title>
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody>
+		<row>
+		  <entry>Name</entry>
+		  <entry><interfacename>com.ximian.mail.folderview.popup.uri</interfacename></entry>
+		</row>
+		<row>
+		  <entry>Target</entry>
+		  <entry><link linkend="API-struct--EMPopupTargetURI">EMPopupTargetURI</link></entry>
+		</row>
+		<row>
+		  <entry>Widget</entry>
+		  <entry>Unset</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	  <para>
+	    This is the context menu shown when clicking on inline URIs,
+	    including addresses or normal HTML links that are displayed inside
+	    the message view.
+	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Inline Content and Attachment Context Menu</title>
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody>
+		<row>
+		  <entry>Name</entry>
+		  <entry><interfacename>com.ximian.mail.formathtmldisplay.popup.part</interfacename></entry>
+		</row>
+		<row>
+		  <entry>Target</entry>
+		  <entry><link linkend="API-struct--EMPopupTargetPart">EMPopupTargetPart</link></entry>
+		</row>
+		<row>
+		  <entry>Widget</entry>
+		  <entry>An unspecified GtkWidget</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	  <para>
+	    This context menu is shown when right-clicking on inline images, or
+	    when clicking on the attachment expander button.
+	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Composer Attachment Bar Context Menu</title>
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody>
+		<row>
+		  <entry>Name</entry>
+		  <entry><interfacename>com.novell.evolution.mail.composer.attachmentBar</interfacename></entry>
+		</row>
+		<row>
+		  <entry>Target</entry>
+		  <entry><link linkend="API-struct--EMPopupTargetAttachments">EMPopupTargetAttachments</link></entry>
+		</row>
+		<row>
+		  <entry>Widget</entry>
+		  <entry><link linkend="API-struct--EMsgComposerAttachmentBar">EMsgComposerAttachmentBar</link></entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	  <para>
+	    This context menu is displayed when the user brings up a context
+	    menu on the attachment bar displayed in the composer.
+	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Internal popup menus</title>
+	  <para>
+	    The following popup menus are defined, but they are used with no
+	    target, and so provide no useful context if they were to be hooked
+	    onto.
+	  </para>
+	  <para>
+	    <interfacename>com.ximian.mail.messagelist.popup.drop</interfacename>
+	    is used for the ASK drop type on the message list.
+	  </para>
+	  <para>
+	    <interfacename>com.ximian.mail.storageset.popup.drop</interfacename>
+	    is used for the ASK drop type on the folder tree.
+	  </para>
+	</sect2>
+      </sect1>
+      &em-popup-reference;
+    </chapter>
   </part>
-
-
-
-
 </book>
