@@ -1,4 +1,9 @@
-2003-09-11    <jpr@ximian.com>
+2003-09-11  JP Rosevear <jpr@ximian.com>
+
+	* pcs/cal-backend-object-sexp.c (cal_backend_object_sexp_text):
+	return the base text
+
+2003-09-11  JP Rosevear <jpr@ximian.com>
 
 	* gui/gnome-cal.c (update_query): fix c/p typo
 

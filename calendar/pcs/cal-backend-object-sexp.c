@@ -33,6 +33,7 @@ typedef struct _SearchContext SearchContext;
 
 struct _CalBackendObjectSExpPrivate {
 	ESExp *search_sexp;
+	char *text;
 	SearchContext *search_context;
 };
 
@@ -869,6 +870,7 @@ cal_backend_object_sexp_new (const char *text)
 	int i;
 
 	sexp->priv->search_sexp = e_sexp_new();
+	sexp->priv->text = g_strdup (text);
 
 	for(i=0;i<sizeof(symbols)/sizeof(symbols[0]);i++) {
 		if (symbols[i].type == 1) {
@@ -891,6 +893,19 @@ cal_backend_object_sexp_new (const char *text)
 	return sexp;
 }
 
+const char *
+cal_backend_object_sexp_text (CalBackendObjectSExp *sexp)
+{
+	CalBackendObjectSExpPrivate *priv;
+	
+	g_return_val_if_fail (sexp != NULL, NULL);
+	g_return_val_if_fail (CAL_IS_BACKEND_OBJECT_SEXP (sexp), NULL);
+
+	priv = sexp->priv;
+
+	return priv->text;
+}
+
 static void
 cal_backend_object_sexp_dispose (GObject *object)
 {
@@ -898,6 +913,8 @@ cal_backend_object_sexp_dispose (GObject *object)
 
 	if (sexp->priv) {
 		e_sexp_unref(sexp->priv->search_sexp);
+
+		g_free (sexp->priv->text);
 
 		g_free (sexp->priv->search_context);
 		g_free (sexp->priv);
