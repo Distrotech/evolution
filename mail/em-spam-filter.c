@@ -199,7 +199,7 @@ em_spam_sa_test_spamd ()
 		for (i = 0; i < NPORTS; i ++) {
 			d(fprintf (stderr, "trying to run spamd at port %d\n", port));
 
-			sad_args [2] = g_strdup_printf ("spamd --port %d --local -d", port);
+			sad_args [2] = g_strdup_printf ("spamd --port %d --local --daemonize", port);
 			if (!pipe_to_sa (NULL, NULL, 3, sad_args)) {
 				g_free (sad_args [2]);
 				em_spam_sa_use_spamc = TRUE;
