@@ -124,6 +124,22 @@ get_message_uid (MessageList *message_list, int row)
 	return uid;
 }
 
+static gint 
+mark_msg_seen (gpointer data)
+{
+	MessageList *ml = data;
+	GPtrArray *uids;
+
+	if (!ml->cursor_uid) 
+		return FALSE;
+
+	uids = g_ptr_array_new ();
+	g_ptr_array_add (uids, g_strdup (ml->cursor_uid));
+	mail_do_flag_messages (ml->folder, uids, FALSE,
+			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+	return FALSE;
+}
+
 /**
  * message_list_select:
  * @message_list: a MessageList
@@ -155,33 +171,18 @@ message_list_select (MessageList *message_list, int base_row,
 		last = e_table_model_row_count (message_list->table_model);
 
 	vrow = e_table_model_to_view_row (ets->table, base_row);
-	while (vrow != last) {
-		vrow += direction;
+	while (vrow < last) {
 		mrow = e_table_view_to_model_row (ets->table, vrow);
 		info = get_message_info (message_list, mrow);
 		if (info && (info->flags & mask) == flags) {
 			e_table_scrolled_set_cursor_row (ets, mrow);
+			mail_do_display_message (message_list, info->uid, mark_msg_seen);
 			return;
 		}
+		vrow += direction;
 	}
 
 	mail_display_set_message (message_list->parent_folder_browser->mail_display, NULL);
-}
-
-static gint
-mark_msg_seen (gpointer data)
-{
-	MessageList *ml = data;
-	GPtrArray *uids;
-
-	if (!ml->cursor_uid)
-		return FALSE;
-
-	uids = g_ptr_array_new ();
-	g_ptr_array_add (uids, g_strdup (ml->cursor_uid));
-	mail_do_flag_messages (ml->folder, uids, FALSE,
-			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
-	return FALSE;
 }
 
 /* select a message and display it */
@@ -585,9 +586,11 @@ message_list_init (GtkObject *object)
 		       "drawgrid", FALSE,
 		       NULL);
 
-	gtk_signal_connect (GTK_OBJECT (message_list->etable), "realize",
-			    GTK_SIGNAL_FUNC (select_row), message_list);
-	
+	/*
+	 *gtk_signal_connect (GTK_OBJECT (message_list->etable), "realize",
+	 *		    GTK_SIGNAL_FUNC (select_row), message_list);
+	 */
+
 	gtk_signal_connect (GTK_OBJECT (message_list->etable), "cursor_change",
 			   GTK_SIGNAL_FUNC (on_cursor_change_cmd), message_list);
 
@@ -899,10 +902,13 @@ on_cursor_change_cmd (ETableScrolled *table, int row, gpointer user_data)
 static gint
 idle_select_row (gpointer user_data)
 {
-	ETableScrolled *ets = user_data;
-	int mrow = e_table_view_to_model_row (ets->table, 0);
+	MessageList *ml = MESSAGE_LIST (user_data);
+	ETableScrolled *ets = E_TABLE_SCROLLED (ml->etable);
+	int mrow;
 
-	e_table_scrolled_set_cursor_row (ets, mrow);
+	mrow = e_table_view_to_model_row (ets->table, 0);
+	message_list_select (ml, mrow, MESSAGE_LIST_SELECT_NEXT,
+			     0, CAMEL_MESSAGE_SEEN);
 	return FALSE;
 }
 
@@ -911,7 +917,7 @@ select_row (ETableScrolled *table, gpointer user_data)
 {
 	MessageList *message_list = user_data;
 
-	gtk_idle_add (idle_select_row, message_list->etable);
+	gtk_idle_add (idle_select_row, message_list);
 }
 
 
@@ -1075,7 +1081,7 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 	}
 
 	e_table_model_changed (input->ml->table_model);
-	select_msg (input->ml, 0);
+	select_row (NULL, input->ml);
 	g_free (input->search);
 	gtk_object_unref (GTK_OBJECT (input->ml));
 }
