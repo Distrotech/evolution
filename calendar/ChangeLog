@@ -1,3 +1,8 @@
+2003-08-05  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-week-view.c (query_obj_updated_cb): fixed the call to
+	cal_client_get_object().
+
 2003-08-04  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client.[ch] (cal_client_get_default_object):
