@@ -1,3 +1,11 @@
+2003-10-17  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-component.c: General compile fixes.
+	(emc_popup_new_folder): Fixed to not shadow a parameter. Fixes a
+	real bug.
+
+	* mail-component.h: Added some prototypes.
+
 2003-10-13  Not Zed  <NotZed@Ximian.com>
 
 	* em-popup.c (em_popup_create_menu_once): only hookup target free

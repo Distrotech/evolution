@@ -86,6 +86,9 @@ void         mail_component_storages_foreach   (MailComponent *component,
 						GHFunc         func,
 						void          *data);
 
+char *em_uri_from_camel (const char *curi);
+char *em_uri_to_camel (const char *euri);
+
 CamelFolder *mail_component_get_folder_from_evomail_uri  (MailComponent  *component,
 							  guint32         flags,
 							  const char     *evomail_uri,

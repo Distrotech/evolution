@@ -20,23 +20,33 @@
  * Author: Ettore Perazzoli <ettore@ximian.com>
  */
 
+
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif
+
+#include <string.h>
 
 #include "e-storage.h"
 #include "e-storage-set.h"
 #include "e-storage-browser.h"
+#include "e-storage-set-view.h"
 #include "em-folder-selector.h"
+#include "em-folder-selection.h"
 
 #include "folder-browser-factory.h"
 #include "mail-config.h"
 #include "mail-component.h"
 #include "mail-folder-cache.h"
+#include "mail-vfolder.h"
 #include "mail-mt.h"
 #include "mail-ops.h"
 #include "mail-send-recv.h"
 #include "mail-session.h"
 
 #include "em-popup.h"
+
+#include <gtk/gtklabel.h>
 
 #include <gal/e-table/e-tree.h>
 #include <gal/e-table/e-tree-memory.h>
@@ -45,10 +55,6 @@
 
 #include <bonobo/bonobo-control.h>
 #include <bonobo/bonobo-widget.h>
-
-#include <gtk/gtklabel.h>
-
-#include <string.h>
 
 
 #define PARENT_TYPE bonobo_object_get_type ()
@@ -232,17 +238,17 @@ setup_search_context (MailComponent *component)
 	MailComponentPrivate *priv = component->priv;
 	char *user = g_strdup_printf ("%s/evolution/searches.xml", g_get_home_dir ()); /* EPFIXME should be somewhere else. */
 	char *system = g_strdup (EVOLUTION_PRIVDATADIR "/vfoldertypes.xml");
-		
+	
 	priv->search_context = rule_context_new ();
 	g_object_set_data_full (G_OBJECT (priv->search_context), "user", user, g_free);
 	g_object_set_data_full (G_OBJECT (priv->search_context), "system", system, g_free);
-		
+	
 	rule_context_add_part_set (priv->search_context, "partset", filter_part_get_type (),
 				   rule_context_add_part, rule_context_next_part);
-		
+	
 	rule_context_add_rule_set (priv->search_context, "ruleset", filter_rule_get_type (),
 				   rule_context_add_rule, rule_context_next_rule);
-		
+	
 	rule_context_load (priv->search_context, system, user);
 }
 
@@ -271,8 +277,8 @@ static void
 setup_local_store(MailComponent *component)
 {
 	MailComponentPrivate *p = component->priv;
+	CamelException ex;
 	char *store_uri;
-	CamelException *ex = camel_exception_new();
 	int i;
 
 	g_assert(p->local_store == NULL);
@@ -281,16 +287,17 @@ setup_local_store(MailComponent *component)
 	store_uri = g_strconcat("mbox:", g_get_home_dir(), "/.evolution/mail/local", NULL);
 	p->local_store = mail_component_load_storage_by_uri(component, store_uri, _("On this Computer"));
 	camel_object_ref(p->local_store);
-
+	
+	camel_exception_init (&ex);
 	for (i=0;i<sizeof(default_folders)/sizeof(default_folders[0]);i++) {
 		/* FIXME: should this uri be account relative? */
 		*default_folders[i].uri = g_strdup_printf("%s#%s", store_uri, default_folders[i].base);
-		*default_folders[i].folder = camel_store_get_folder(p->local_store, default_folders[i].base, CAMEL_STORE_FOLDER_CREATE, ex);
-		camel_exception_clear(ex);
+		*default_folders[i].folder = camel_store_get_folder(p->local_store, default_folders[i].base,
+								    CAMEL_STORE_FOLDER_CREATE, &ex);
+		camel_exception_clear(&ex);
 	}
 
 	g_free(store_uri);
-	camel_exception_free(ex);
 }
 
 /* EStorageBrowser callbacks.  */
@@ -376,7 +383,6 @@ browser_page_switched_callback (EStorageBrowser *browser,
 	}
 }
 
-
 /* GObject methods.  */
 
 static void
@@ -450,7 +456,7 @@ impl_createControls (PortableServer_Servant servant,
 
 	tree_widget = e_storage_browser_peek_tree_widget (browser);
 	view_widget = e_storage_browser_peek_view_widget (browser);
-
+	
 	gtk_widget_show (tree_widget);
 	gtk_widget_show (view_widget);
 
@@ -814,7 +820,7 @@ char *em_uri_from_camel(const char *curi)
 char *em_uri_to_camel(const char *euri)
 {
 	EAccountList *accounts;
-	EAccount *account;
+	const EAccount *account;
 	EAccountService *service;
 	CamelProvider *provider;
 	CamelURL *eurl, *curl;
@@ -921,7 +927,7 @@ mail_component_get_folder_from_evomail_uri (MailComponent *component,
 		if (provider == NULL)
 			goto fail;
 
-		store = camel_session_get_service (session, service->url, CAMEL_PROVIDER_STORE, &local_ex);
+		store = (CamelStore *) camel_session_get_service (session, service->url, CAMEL_PROVIDER_STORE, &local_ex);
 		if (store == NULL)
 			goto fail;
 
@@ -1186,14 +1192,14 @@ emc_popup_new_folder_response(EMFolderSelector *emfs, guint response, MailCompon
 }
 
 static void
-emc_popup_new_folder(GtkWidget *w, MailComponent *mc)
+emc_popup_new_folder (GtkWidget *w, MailComponent *mc)
 {
-	GtkWidget *w;
+	GtkWidget *dialog;
 
-	w = em_folder_selector_create_new(mc->priv->storage_set, 0, _("Create folder"), _("Specify where to create the folder:"));
+	dialog = em_folder_selector_create_new(mc->priv->storage_set, 0, _("Create folder"), _("Specify where to create the folder:"));
 	em_folder_selector_set_selected((EMFolderSelector *)w, mc->priv->context_path);
-	g_signal_connect(w, "response", G_CALLBACK(emc_popup_new_folder_response), mc);
-	gtk_widget_show(w);
+	g_signal_connect (dialog, "response", G_CALLBACK(emc_popup_new_folder_response), mc);
+	gtk_widget_show (dialog);
 }
 
 static void
