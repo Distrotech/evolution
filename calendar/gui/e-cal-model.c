@@ -1212,10 +1212,11 @@ add_instance_to_model (ECalComponent *comp, time_t start, time_t end, gpointer u
 	comp_data->instance_start = start;
 	comp_data->instance_end = end;
 	if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
-		if (!icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY)) {
-			struct icaltimetype itt;
+		struct icaltimetype itt;
 
-			itt = icalcomponent_get_dtstart (comp_data->icalcomp);
+		itt = icalcomponent_get_dtstart (comp_data->icalcomp);
+
+		if (!icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY)) {
 			icalcomponent_set_recurrenceid (comp_data->icalcomp,
 							icaltime_from_timet (start, itt.is_date));
 		}
@@ -1282,8 +1283,6 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 		ECalModelComponent *comp_data;
 		int pos;
 
-		e_table_model_pre_change (E_TABLE_MODEL (model));
-
 		if (e_cal_util_component_is_instance (l->data)) {
 			const char *rid;
 
@@ -1291,6 +1290,8 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 			comp_data = search_instance (model->priv, e_cal_view_get_client (query),
 						     icalcomponent_get_uid (l->data), rid);
 			if (comp_data) {
+				e_table_model_pre_change (E_TABLE_MODEL (model));
+
 				if (comp_data->icalcomp)
 					icalcomponent_free (comp_data->icalcomp);
 				if (comp_data->dtstart) {
@@ -1323,7 +1324,8 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 			GList sl;
 
 			/* remove all objects with this UID */
-			while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {		
+			while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {
+				e_table_model_pre_change (E_TABLE_MODEL (model));
 				pos = get_position_in_array (priv->objects, comp_data);
 		
 				g_ptr_array_remove (priv->objects, comp_data);
