@@ -1,3 +1,32 @@
+2003-08-13  Ettore Perazzoli  <ettore@ximian.com>
+
+	Fix up the semantics of "changed" signals on GConf changes.
+
+	* e-source-group.c (e_source_group_update_from_xmldoc): Added new
+	member ignore_source_changed in struct _ESourceGroupPrivate.
+	(e_source_group_update_from_xmldoc): Increment
+	ignore_source_changed before calling
+	e_source_update_from_xml_node(), decrement afterwards.
+	(source_changed_callback): Only emit "changed" if
+	ignore_source_changed is zero.
+	(e_source_group_update_from_xmldoc): Properly emit the "changed"
+	signal when the base_uri or the name change.
+
+	* e-source-list.c: Changed type of sync_idle_id from gboolean (!)
+	to int and added new member ignore_group_changed in struct
+	_ESourceListPrivate.
+	(load_from_gconf): Increment ignore_group_changed before calling
+	e_source_group_update_from_xmldoc() and decrement it afterwards.
+	(group_changed_callback): Only emit the signal if
+	ignore_group_changed is zero.
+
+	* e-source.c (e_source_update_from_xml_node): Removed arg
+	emit_signals.  Always emit signals.
+
+	* e-source-group.c (e_source_group_update_from_xmldoc): Removed
+	arg emit_signals.  Always emit signals.
+	(e_source_group_update_from_xml): Likewise.
+
 2003-08-11  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-source.c (e_source_set_group): Weak_unref the current group if
