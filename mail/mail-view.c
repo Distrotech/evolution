@@ -26,11 +26,11 @@
 static void
 on_close (GtkWidget *menuitem, gpointer user_data)
 {
-	GtkWidget *view;
-	
-	view = gtk_widget_get_toplevel (menuitem);
-	
-	gtk_widget_destroy (view);
+	GtkWidget *view_window;
+
+	view_window = gtk_object_get_data (GTK_OBJECT (menuitem), "view-window");
+	g_return_if_fail (view_window);
+	gtk_widget_destroy (GTK_WIDGET (view_window));
 }
 
 static GnomeUIInfo mail_view_toolbar [] = {
@@ -100,7 +100,7 @@ mail_view_create (CamelMimeMessage *msg, FolderBrowser *folder_browser)
 	gnome_app_fill_toolbar_with_data (GTK_TOOLBAR (toolbar),
 					  mail_view_toolbar,
 					  NULL, folder_browser);
-	
+
 	gnome_app_set_toolbar (GNOME_APP (window), GTK_TOOLBAR (toolbar));
 	
 	gnome_app_create_menus (GNOME_APP (window), mail_view_menubar);
@@ -111,6 +111,7 @@ mail_view_create (CamelMimeMessage *msg, FolderBrowser *folder_browser)
 				  (GtkDestroyNotify) gtk_widget_unref);
 	
 	gtk_widget_ref (file_menu[0].widget);
+	gtk_object_set_data (GTK_OBJECT (file_menu[0].widget), "view-window", window);
 	gtk_object_set_data_full (GTK_OBJECT (window), "close",
 				  file_menu[0].widget,
 				  (GtkDestroyNotify) gtk_widget_unref);

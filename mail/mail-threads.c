@@ -181,6 +181,7 @@ static gboolean ready_may_proceed = FALSE;
  **/
 
 static void create_queue_window (void);
+static void destroy_queue_window (void);
 static void *dispatch (void * data);
 static void check_dispatcher (void);
 static void check_compipes (void);
@@ -198,7 +199,6 @@ static void get_password_clicked (GnomeDialog * dialog, gint button,
 static gboolean progress_timeout (gpointer data);
 static void timeout_toggle (gboolean active);
 static gboolean display_timeout (gpointer data);
-static gboolean hide_queue_window (gpointer data);
 static closure_t *new_closure (const mail_operation_spec * spec, gpointer input,
 			       gboolean free_in_data);
 static void free_closure (closure_t *clur);
@@ -653,6 +653,18 @@ create_queue_window (void)
 			    NULL);
 }
 
+static void destroy_queue_window (void)
+{
+	g_return_if_fail (queue_window);
+
+	gtk_widget_destroy (queue_window);
+
+	queue_window = NULL;
+	queue_window_progress = NULL;
+	queue_window_pending = NULL;
+	queue_window_message = NULL;
+}
+
 /**
  * check_compipes:
  *
@@ -907,8 +919,9 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 			 * here... perhaps because we're in a gsource handler,
 			 * not a GTK event handler? Anyway, we defer the hiding
 			 * til an idle. */
-			gtk_idle_add (hide_queue_window, NULL);
+			/*gtk_idle_add (hide_queue_window, NULL);*/
 			/*gtk_widget_hide (queue_window); */
+			destroy_queue_window ();
 		} else {
 			g_print ("\tOperation(s) left.\n");
 
@@ -1115,6 +1128,12 @@ progress_timeout (gpointer data)
 	gfloat new_val;
 	GtkAdjustment *adj;
 
+	if (queue_window == NULL) {
+		gtk_timeout_remove (progress_timeout_handle);
+		progress_timeout_handle = -1;
+		return FALSE;
+	}
+		
 	adj = GTK_PROGRESS (data)->adjustment;
 
 	new_val = adj->value + 1;
@@ -1137,6 +1156,9 @@ progress_timeout (gpointer data)
 static void
 timeout_toggle (gboolean active)
 {
+	if (!queue_window)
+		return;
+
 	if ((GTK_PROGRESS (queue_window_progress))->activity_mode == 0)
 		return;
 
@@ -1163,7 +1185,7 @@ timeout_toggle (gboolean active)
 static gboolean
 display_timeout (gpointer data)
 {
-	if (queue_len > 0) {
+	if (queue_len > 0 && queue_window) {
 		gtk_widget_show (queue_window);
 		gnome_win_hints_set_layer (queue_window, WIN_LAYER_ONTOP);
 		gnome_win_hints_set_state (queue_window,
@@ -1177,14 +1199,6 @@ display_timeout (gpointer data)
 			gtk_widget_hide (queue_window_pending);
 	}
 
-	return FALSE;
-}
-
-static gboolean
-hide_queue_window (gpointer data)
-{
-	timeout_toggle (FALSE);
-	gtk_widget_hide (queue_window);
 	return FALSE;
 }
 

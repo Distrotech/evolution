@@ -1,3 +1,11 @@
+2000-08-09  Peter Williams  <peterw@helixcode.com>
+
+	* mail-view.c (mail_view_create): Save the top window so that on_close
+	can find it [with set_data].
+	(on_close): Recover the top window.
+	
+	* mail-threads.c (read_msg): Destroy the window instead of hiding it.
+
 2000-08-09  Not Zed  <NotZed@HelixCode.com>
 
 	* mail-autofilter.c (filter_gui_add_from_message): Helper function to add with confirm.
