@@ -220,12 +220,13 @@ xml_decode (FilterElement *fe, xmlNodePtr node)
 }
 
 static void
-folder_selected (EMFolderSelectionButton *button,
-		 CamelFolder *folder,
-		 FilterFolder *ff)
+folder_selected(EMFolderSelectionButton *button, FilterFolder *ff)
 {
-	g_free (ff->uri);
-	ff->uri = mail_component_evomail_uri_from_folder (mail_component_peek (), folder);
+	const char *uri;
+
+	uri = em_folder_selection_button_get_selection(button);
+	g_free(ff->uri);
+	ff->uri = uri!=NULL?em_uri_from_camel(uri):NULL;
 	
 	gdk_window_raise (GTK_WIDGET (gtk_widget_get_ancestor (GTK_WIDGET (button), GTK_TYPE_WINDOW))->window);
 }
@@ -234,14 +235,13 @@ static GtkWidget *
 get_widget (FilterElement *fe)
 {
 	FilterFolder *ff = (FilterFolder *)fe;
-	CamelFolder *folder;
 	GtkWidget *button;
+	char *uri;
 
-	folder = mail_component_get_folder_from_evomail_uri (mail_component_peek (), 0, ff->uri, NULL);
-
+	uri = em_uri_to_camel(ff->uri);
 	button = em_folder_selection_button_new (_("Select Folder"), NULL);
-	em_folder_selection_button_set_selection (EM_FOLDER_SELECTION_BUTTON (button), folder);
-	camel_object_unref (CAMEL_OBJECT (folder));
+	em_folder_selection_button_set_selection(EM_FOLDER_SELECTION_BUTTON(button), uri);
+	g_free(uri);
 	
 	gtk_widget_show (button);
 	g_signal_connect (button, "selected", G_CALLBACK (folder_selected), ff);
