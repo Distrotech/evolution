@@ -124,33 +124,25 @@ static void
 set_contents (EMFolderSelectionButton *button)
 {
 	struct _EMFolderSelectionButtonPrivate *priv = button->priv;
-	char *path, *tmp, *label;
+	const char *path;
+	CamelURL *url;
 	
-	if (priv->uri == NULL)
-		goto unset;
+	if (priv->uri == NULL) {
+		set_contents_unselected (button);
+		return;
+	}
 	
-	/* We set the button name directly from the storage set path, which is /accountname/path/foldername */
-	path = e_storage_set_get_path_for_physical_uri(mail_component_peek_storage_set(mail_component_peek()), priv->uri);
+	url = camel_url_new (uri, NULL);
+	path = url->fragment ? url->fragment : url->path;
 	
-	if (path == NULL)
-		goto unknown;
+	if (path == NULL) {
+		camel_url_free (url);
+		set_contents_unselected (button);
+		return;
+	}
 	
-	tmp = strchr(path+1, '/');
-	if (tmp == NULL)
-		goto unknown;
-	*tmp++ = 0;
-	
-	label = g_strdup_printf (_("\"%s\" in \"%s\""), tmp, path+1);
-	gtk_label_set_text (GTK_LABEL (priv->label), label);
-	g_free (label);
-	
-	g_free (path);
-	return;
-	
-unknown:
-	g_free (path);
-unset:
-	set_contents_unselected (button);
+	gtk_label_set_text (GTK_LABEL (priv->label), path);
+	camel_url_free (url);
 }
 
 static void

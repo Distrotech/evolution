@@ -1,5 +1,8 @@
 2003-11-10  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-folder-selection-button.c (set_contents): Don't use e_storage
+	stuff.
+
 	* mail-component.c: Ported to use EMFolderTree.
 
 	* mail-offline-handler.c (storage_go_online): Updated to not pass
