@@ -32,6 +32,9 @@ typedef struct {
 	void        (*set_value_at)     (ETableModel *etm, int col, int row, const void *value);
 	gboolean    (*is_cell_editable) (ETableModel *etm, int col, int row);
 
+	char       *(*row_save_id)      (ETableModel *etm, int row);
+	gboolean    (*has_save_id)      (ETableModel *etm);
+
 	/* Allocate a copy of the given value. */
 	void       *(*duplicate_value)  (ETableModel *etm, int col, const void *value);
 	/* Free an allocated value. */
@@ -42,6 +45,7 @@ typedef struct {
 	gboolean    (*value_is_empty)   (ETableModel *etm, int col, const void *value);
 	/* Return an allocated string. */
 	char       *(*value_to_string)  (ETableModel *etm, int col, const void *value);
+
 	
 	/*
 	 * Signals
@@ -74,6 +78,10 @@ void        e_table_model_append_row       (ETableModel *e_table_model, ETableMo
 void       *e_table_model_value_at         (ETableModel *e_table_model, int col, int row);
 void        e_table_model_set_value_at     (ETableModel *e_table_model, int col, int row, const void *value);
 gboolean    e_table_model_is_cell_editable (ETableModel *e_table_model, int col, int row);
+
+char       *e_table_model_row_save_id      (ETableModel *etm, int row);
+gboolean    e_table_model_has_save_id      (ETableModel *etm);
+
 
 void       *e_table_model_duplicate_value  (ETableModel *e_table_model, int col, const void *value);
 void        e_table_model_free_value       (ETableModel *e_table_model, int col, void *value);

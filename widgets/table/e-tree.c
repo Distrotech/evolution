@@ -1430,15 +1430,33 @@ e_tree_drag_begin (ETree            *tree,
 			      event);
 }
 
-static void
-e_tree_compute_location (ETree *tree, GtkWidget *widget,
-			 int x, int y, int *row, int *col)
+/**
+ * e_tree_get_cell_at:
+ * @tree: An ETree widget
+ * @x: X coordinate for the pixel
+ * @y: Y coordinate for the pixel
+ * @row_return: Pointer to return the row value
+ * @col_return: Pointer to return the column value
+ * 
+ * Return the row and column for the cell in which the pixel at (@x, @y) is
+ * contained.
+ **/
+void
+e_tree_get_cell_at (ETree *tree,
+		     int x, int y,
+		     int *row_return, int *col_return)
 {
-	if (!(row || col))
-		return;
+	g_return_if_fail (tree != NULL);
+	g_return_if_fail (E_IS_TREE (tree));
+	g_return_if_fail (row_return != NULL);
+	g_return_if_fail (col_return != NULL);
+
+	/* FIXME it would be nice if it could handle a NULL row_return or
+	 * col_return gracefully.  */
+
 	x += GTK_LAYOUT(tree->table_canvas)->hadjustment->value;
 	y += GTK_LAYOUT(tree->table_canvas)->vadjustment->value;
-	e_table_item_compute_location(E_TABLE_ITEM(tree->item), &x, &y, row, col);
+	e_table_item_compute_location(E_TABLE_ITEM(tree->item), &x, &y, row_return, col_return);
 }
 
 static void
@@ -1527,12 +1545,11 @@ et_drag_motion(GtkWidget *widget,
 	gboolean ret_val;
 	int row, col;
 	ETreePath path;
-	e_tree_compute_location(et,
-				 widget,
-				 x,
-				 y,
-				 &row,
-				 &col);
+	e_tree_get_cell_at (et,
+			    x,
+			    y,
+			    &row,
+			    &col);
 	if (et->drop_row >= 0 && et->drop_col >= 0 &&
 	    row != et->drop_row && col != et->drop_row) {
 		gtk_signal_emit (GTK_OBJECT (et),
@@ -1574,12 +1591,11 @@ et_drag_drop(GtkWidget *widget,
 	gboolean ret_val;
 	int row, col;
 	ETreePath path;
-	e_tree_compute_location(et,
-				 widget,
-				 x,
-				 y,
-				 &row,
-				 &col);
+	e_tree_get_cell_at(et,
+			   x,
+			   y,
+			   &row,
+			   &col);
 	path = e_tree_table_adapter_node_at_row(et->etta, row);
 
 	if (et->drop_row >= 0 && et->drop_col >= 0 &&
@@ -1635,12 +1651,11 @@ et_drag_data_received(GtkWidget *widget,
 {
 	int row, col;
 	ETreePath path;
-	e_tree_compute_location(et,
-				 widget,
-				 x,
-				 y,
-				 &row,
-				 &col);
+	e_tree_get_cell_at(et,
+			   x,
+			   y,
+			   &row,
+			   &col);
 	path = e_tree_table_adapter_node_at_row(et->etta, row);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [TREE_DRAG_DATA_RECEIVED],
@@ -1667,7 +1682,7 @@ e_tree_drag_source_event_cb (GtkWidget      *widget,
 	case GDK_BUTTON_PRESS:
 		if ((GDK_BUTTON1_MASK << (event->button.button - 1)) & site->start_button_mask) {
 			int row, col;
-			e_tree_compute_location(tree, widget, event->button.x, event->button.y, &row, &col);
+			e_tree_get_cell_at(tree, event->button.x, event->button.y, &row, &col);
 			if (row >= 0 && col >= 0) {
 				site->state |= (GDK_BUTTON1_MASK << (event->button.button - 1));
 				site->x = event->button.x;

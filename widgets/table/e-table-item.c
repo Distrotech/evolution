@@ -509,6 +509,7 @@ eti_get_height (ETableItem *eti)
 	const int rows = eti->rows;
 	int row;
 	int height;
+	int height_extra = eti->draw_grid ? 1 : 0;
 
 	if (rows == 0)
 		return 0;
@@ -520,25 +521,25 @@ eti_get_height (ETableItem *eti)
 				height = 0;
 				for (row = 0; row < rows; row++) {
 					if (eti->height_cache[row] == -1) {
-						height += (row_height + 1) * (rows - row);
+						height += (row_height + height_extra) * (rows - row);
 						break;
 					}
 					else
-						height += eti->height_cache[row] + 1;
+						height += eti->height_cache[row] + height_extra;
 				}
 			} else
-				height = (eti_row_height (eti, 0) + 1) * rows;
+				height = (eti_row_height (eti, 0) + height_extra) * rows;
 
 			/*
 			 * 1 pixel at the top
 			 */
-			return height + 1;
+			return height + height_extra;
 		}
 	}
 
-	height = 1;
+	height = height_extra;
 	for (row = 0; row < rows; row++)
-		height += eti_row_height (eti, row) + 1;
+		height += eti_row_height (eti, row) + height_extra;
 
 	return height;
 }
@@ -1206,6 +1207,7 @@ eti_draw (GnomeCanvasItem *item, GdkDrawable *drawable, int x, int y, int width,
 	ArtPoint eti_base, eti_base_item, lower_right;
 	GtkWidget *canvas = GTK_WIDGET(item->canvas);
 	GdkColor *background;
+	int height_extra = eti->draw_grid ? 1 : 0;
 	
 	/*
 	 * Clear the background
@@ -1261,10 +1263,10 @@ eti_draw (GnomeCanvasItem *item, GdkDrawable *drawable, int x, int y, int width,
 	 */
 	first_row = -1;
 	y_offset = 0;
-	y1 = y2 = floor (eti_base.y) + 1;
+	y1 = y2 = floor (eti_base.y) + height_extra;
 	for (row = 0; row < rows; row++, y1 = y2){
 
-		y2 += ETI_ROW_HEIGHT (eti, row) + 1;
+		y2 += ETI_ROW_HEIGHT (eti, row) + height_extra;
 
 		if (y1 > y + height)
 			break;
@@ -1294,7 +1296,8 @@ eti_draw (GnomeCanvasItem *item, GdkDrawable *drawable, int x, int y, int width,
 			drawable, eti->grid_gc,
 				eti_base.x - x, yd, eti_base.x + eti->width - x, yd);
 	}
-	yd++;
+
+	yd += height_extra;
 	
 	for (row = first_row; row < last_row; row++){
 		int xd, height;
@@ -1397,11 +1400,13 @@ eti_draw (GnomeCanvasItem *item, GdkDrawable *drawable, int x, int y, int width,
 		}
 		yd += height;
 
-		if (eti->draw_grid)
+		if (eti->draw_grid) {
 			gdk_draw_line (
 				drawable, eti->grid_gc,
 				eti_base.x - x, yd, eti_base.x + eti->width - x, yd);
-		yd++;
+
+			yd++;
+		}
 	}
 
 	if (eti->draw_grid){
@@ -1448,6 +1453,8 @@ find_cell (ETableItem *eti, double x, double y, int *col_res, int *row_res, doub
 	const int rows = eti->rows;
 	gdouble x1, y1, x2, y2;
 	int col, row;
+
+	int height_extra = eti->draw_grid ? 1 : 0;
 	
 	/* FIXME: this routine is inneficient, fix later */
 
@@ -1483,7 +1490,7 @@ find_cell (ETableItem *eti, double x, double y, int *col_res, int *row_res, doub
 		if (y < y1)
 			return FALSE;
 		
-		y2 += ETI_ROW_HEIGHT (eti, row) + 1;
+		y2 += ETI_ROW_HEIGHT (eti, row) + height_extra;
 
 		if (y <= y2)
 			break;
@@ -1577,7 +1584,7 @@ _do_tooltip (ETableItem *eti)
 	eti->tooltip->x = x;
 
 	for (i = 0; i < eti->tooltip->row; i++)
-		y += (ETI_ROW_HEIGHT (eti, i) + 1);
+		y += (ETI_ROW_HEIGHT (eti, i) + height_extra);
 	eti->tooltip->y = y;
 	eti->tooltip->row_height = ETI_ROW_HEIGHT (eti, i);
 	

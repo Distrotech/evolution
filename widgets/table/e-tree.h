@@ -209,7 +209,9 @@ gint            e_tree_model_to_view_row         (ETree               *e_tree,
 						  gint                  model_row);
 gint            e_tree_view_to_model_row         (ETree               *e_tree,
 						  gint                  view_row);
-
+void            e_tree_get_cell_at               (ETree *tree,
+						  int x, int y,
+						  int *row_return, int *col_return);
 
 /* Drag & drop stuff. */
 /* Target */
