@@ -88,6 +88,22 @@ struct _MailAccountsDialog {
 	GtkToggleButton *prompt_bcc_only;
 	GtkToggleButton *prompt_unwanted_html;
 	
+	/* Signatures page */
+	GtkWidget *sig_clist;
+
+	GtkWidget *sig_name;
+	GtkWidget *sig_random;
+	GtkWidget *sig_filename;
+	GtkWidget *sig_script;
+
+	GtkWidget *sig_add;
+	GtkWidget *sig_delete;
+	GtkWidget *sig_edit;
+
+	GtkWidget *sig_simple;
+	GtkWidget *sig_advanced;
+	GtkWidget *sig_advanced_table;
+
 	/* Other page */
 	GtkToggleButton *empty_trash;
 	GtkToggleButton *filter_log;

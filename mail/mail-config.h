@@ -32,12 +32,19 @@ extern "C" {
 #endif /* __cplusplus */
 
 typedef struct {
+	gint id;
+	gchar *name;
+	gchar *filename;
+	gchar *script;
+	gboolean random;
+} MailConfigSignature;
+
+typedef struct {
 	char *name;
 	char *address;
 	char *organization;
-	char *signature;
-	char *html_signature;
-	gboolean has_html_signature;
+	MailConfigSignature *text_signature;
+	MailConfigSignature *html_signature;
 } MailConfigIdentity;
 
 typedef struct {
@@ -97,6 +104,10 @@ typedef enum {
 	MAIL_CONFIG_NOTIFY_BEEP,
 	MAIL_CONFIG_NOTIFY_PLAY_SOUND,
 } MailConfigNewMailNotify;
+
+/* signatures */
+MailConfigSignature *signature_copy (const MailConfigSignature *sig);
+void                 signature_destroy (MailConfigSignature *sig);
 
 /* Identities */
 MailConfigIdentity *identity_copy (const MailConfigIdentity *id);

@@ -113,6 +113,9 @@ typedef struct {
 	char *notify_filename;
 	
 	char *last_filesel_dir;
+
+	GList *signature_list;
+	gint signatures;
 } MailConfig;
 
 static MailConfig *config = NULL;
@@ -123,6 +126,33 @@ static MailConfig *config = NULL;
 static void config_read (void);
 static void mail_config_set_default_account_num (int new_default);
 
+/* signatures */
+MailConfigSignature *
+signature_copy (const MailConfigSignature *sig)
+{
+	MailConfigSignature *ns;
+
+	g_return_val_if_fail (sig != NULL, NULL);
+	
+	ns = g_new (MailConfigSignature, 1);
+
+	ns->id = sig->id;
+	ns->name = g_strdup (sig->name);
+	ns->filename = g_strdup (sig->filename);
+	ns->script = g_strdup (sig->script);
+	ns->random = sig->random;
+
+	return ns;
+}
+
+void
+signature_destroy (MailConfigSignature *sig)
+{
+	g_free (sig->name);
+	g_free (sig->filename);
+	g_free (sig->script);
+	g_free (sig);
+}
 
 /* Identity */
 MailConfigIdentity *
@@ -136,9 +166,8 @@ identity_copy (const MailConfigIdentity *id)
 	new->name = g_strdup (id->name);
 	new->address = g_strdup (id->address);
 	new->organization = g_strdup (id->organization);
-	new->signature = g_strdup (id->signature);
-	new->html_signature = g_strdup (id->html_signature);
-	new->has_html_signature = id->has_html_signature;
+	new->text_signature = signature_copy (id->text_signature);
+	new->html_signature = signature_copy (id->html_signature);
 	
 	return new;
 }
@@ -152,8 +181,8 @@ identity_destroy (MailConfigIdentity *id)
 	g_free (id->name);
 	g_free (id->address);
 	g_free (id->organization);
-	g_free (id->signature);
-	g_free (id->html_signature);
+	signature_destroy (id->text_signature);
+	signature_destroy (id->html_signature);
 	
 	g_free (id);
 }
@@ -328,12 +357,104 @@ mail_config_clear (void)
 	config->last_filesel_dir = NULL;
 }
 
+static MailConfigSignature *
+config_read_signature (gint i)
+{
+	MailConfigSignature *sig;
+	gchar *path, *val;
+
+	sig = g_new0 (MailConfigSignature, 1);
+
+	sig->id = i;
+	
+	path = g_strdup_printf ("/Mail/Signatures/name_%d", i);
+	val = bonobo_config_get_string (config->db, path, NULL);
+	g_free (path);
+	if (val && *val)
+		sig->name = val;
+	else
+		g_free (val);
+
+	path = g_strdup_printf ("/Mail/Signatures/filename_%d", i);
+	val = bonobo_config_get_string (config->db, path, NULL);
+	g_free (path);
+	if (val && *val)
+		sig->filename = val;
+	else
+		g_free (val);
+
+	path = g_strdup_printf ("/Mail/Signatures/script_%d", i);
+	val = bonobo_config_get_string (config->db, path, NULL);
+	g_free (path);
+	if (val && *val)
+		sig->script = val;
+	else
+		g_free (val);
+
+	path = g_strdup_printf ("/Mail/Signatures/random_%d", i);
+	sig->random = bonobo_config_get_boolean_with_default (config->db, path, FALSE, NULL);
+
+	return sig;
+}
+
+static void
+config_read_signatures ()
+{
+	gint i;
+
+	config->signature_list = NULL;
+	config->signatures = bonobo_config_get_long_with_default (config->db, "/Mail/Signatures/num", 0, NULL);
+
+	for (i = 0; i < config->signatures; i ++)
+		config->signature_list = g_list_append (config->signature_list, config_read_signature (i));
+}
+
+static void
+config_write_signature (MailConfigSignature *sig, gint i)
+{
+	gchar *path;
+
+	path = g_strdup_printf ("/Mail/Signatures/name_%d", i);
+	bonobo_config_set_string (config->db, path, sig->name, NULL);
+	g_free (path);
+
+	path = g_strdup_printf ("/Mail/Signatures/filename_%d", i);
+	bonobo_config_set_string (config->db, path, sig->filename, NULL);
+	g_free (path);
+
+	path = g_strdup_printf ("/Mail/Signatures/script_%d", i);
+	bonobo_config_set_string (config->db, path, sig->script, NULL);
+	g_free (path);
+
+	path = g_strdup_printf ("/Mail/Signatures/random_%d", i);
+	bonobo_config_set_boolean (config->db, path, sig->random, NULL);
+}
+
+static void
+config_write_signatures ()
+{
+	GList *l, *next;
+	gint id;
+
+	for (id = 0, l = config->signature_list; l; l = next) {
+		next = l->next;
+		if (l->data) {
+			config_write_signature ((MailConfigSignature *) l->data, id);
+			id ++;
+		}
+	}
+
+	bonobo_config_set_long (config->db, "/Mail/Signatures/num", id, NULL);
+}
+
 static void
 config_read (void)
 {
 	int len, i, default_num;
 	
 	mail_config_clear ();
+
+	config_read_signatures ();
 	
 	len = bonobo_config_get_long_with_default (config->db, 
 	        "/Mail/Accounts/num", 0, NULL);
@@ -467,7 +588,7 @@ config_read (void)
 		id->organization = bonobo_config_get_string (config->db, path, NULL);
 		g_free (path);
 		
-		path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
+		/* FIXME path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
 		id->signature = bonobo_config_get_string (config->db, path, NULL);
 		g_free (path);
 		path = g_strdup_printf ("/Mail/Accounts/identity_html_signature_%d", i);
@@ -476,7 +597,7 @@ config_read (void)
 		path = g_strdup_printf ("/Mail/Accounts/identity_has_html_signature_%d", i);
 		id->has_html_signature = bonobo_config_get_boolean_with_default (
 			config->db, path, FALSE, NULL);
-		g_free (path);
+			g_free (path); */
 		
 		/* get the source */
 		source = g_new0 (MailConfigService, 1);
@@ -705,6 +826,8 @@ mail_config_write (void)
 	CORBA_exception_init (&ev);
 	Bonobo_ConfigDatabase_sync (config->db, &ev);
 	
+	config_write_signatures ();
+
 	len = g_slist_length (config->accounts);
 	bonobo_config_set_long (config->db,
 				"/Mail/Accounts/num", len, NULL);
@@ -802,7 +925,7 @@ mail_config_write (void)
 		bonobo_config_set_string_wrapper (config->db, path, account->id->organization, NULL);
 		g_free (path);
 		
-		path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
+		/* FIXME path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
 		bonobo_config_set_string_wrapper (config->db, path, account->id->signature, NULL);
 		g_free (path);
 		
@@ -812,7 +935,7 @@ mail_config_write (void)
 		
 		path = g_strdup_printf ("/Mail/Accounts/identity_has_html_signature_%d", i);
 		bonobo_config_set_boolean (config->db, path, account->id->has_html_signature, NULL);
-		g_free (path);
+		g_free (path); */
 		
 		/* source info */
 		path = g_strdup_printf ("/Mail/Accounts/source_url_%d", i);
@@ -2438,9 +2561,9 @@ impl_GNOME_Evolution_MailConfig_addAccount (PortableServer_Servant servant,
 	mail_id->name = g_strdup (id.name);
 	mail_id->address = g_strdup (id.address);
 	mail_id->organization = g_strdup (id.organization);
-	mail_id->signature = g_strdup (id.signature);
-	mail_id->html_signature = g_strdup (id.html_signature);
-	mail_id->has_html_signature = id.has_html_signature;
+	/* FIXME mail_id->signature = g_strdup (id.signature);
+	   mail_id->html_signature = g_strdup (id.html_signature);
+	   mail_id->has_html_signature = id.has_html_signature; */
 	
 	mail_account->id = mail_id;
 	

@@ -803,6 +803,68 @@ dialog_destroy (GtkWidget *dialog, gpointer user_data)
 }
 
 static void
+sig_add (GtkWidget *w, MailAccountsDialog *dialog)
+{
+}
+
+static void
+sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
+{
+}
+
+static void
+sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
+{
+}
+
+static void
+sig_advanced (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	printf ("sig_advanced\n");
+
+	gtk_widget_hide (dialog->sig_advanced);
+	gtk_widget_show (dialog->sig_simple);
+	gtk_widget_show (dialog->sig_advanced_table);
+}
+
+static void
+sig_simple (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	printf ("sig_simple\n");
+
+	gtk_widget_hide (dialog->sig_simple);
+	gtk_widget_show (dialog->sig_advanced);
+	gtk_widget_hide (dialog->sig_advanced_table);
+}
+
+static void
+signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
+{
+	printf ("signatures_page_construct\n");
+
+	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-add");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_add), dialog);
+
+	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-delete");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_delete), dialog);
+
+	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-edit");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_edit), dialog);
+
+	dialog->sig_advanced = glade_xml_get_widget (gui, "button-sig-advanced");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_advanced), dialog);
+
+	dialog->sig_simple = glade_xml_get_widget (gui, "button-sig-simple");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_simple), "clicked", GTK_SIGNAL_FUNC (sig_simple), dialog);
+
+	dialog->sig_clist = glade_xml_get_widget (gui, "clist-sig");
+	dialog->sig_name = glade_xml_get_widget (gui, "entry-sig-name");
+	dialog->sig_filename = glade_xml_get_widget (gui, "entry-sig-filename");
+	dialog->sig_script = glade_xml_get_widget (gui, "entry-sig-script");
+	dialog->sig_advanced_table = glade_xml_get_widget (gui, "table-sig-advanced");
+}
+
+static void
 construct (MailAccountsDialog *dialog)
 {
 	GladeXML *gui;
@@ -944,6 +1006,9 @@ construct (MailAccountsDialog *dialog)
 	gtk_toggle_button_set_active (dialog->prompt_unwanted_html, mail_config_get_confirm_unwanted_html ());
 	gtk_signal_connect (GTK_OBJECT (dialog->prompt_unwanted_html), "toggled",
 			    GTK_SIGNAL_FUNC (prompt_unwanted_html_toggled), dialog);
+
+	/* Signatures page */
+	signatures_page_construct (dialog, gui);
 	
 	/* Other page */
 	dialog->pgp_path = GNOME_FILE_ENTRY (glade_xml_get_widget (gui, "filePgpPath"));
