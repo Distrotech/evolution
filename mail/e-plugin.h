@@ -14,6 +14,14 @@ typedef struct _EPluginClass EPluginClass;
 
 #define E_PLUGIN_CLASSID "com.ximian.evolution.plugin"
 
+/* Idea: callbacks are actually data + callback, to allow implementations to hook from C to xxx */
+/* Problem: then we need to precisely specify the interface the callback implements? */
+/*          == marshalling == skads of code */
+struct _EPluginCallback {
+	void *func;
+	/* implementation fields follow */
+};
+
 struct _EPlugin {
 	GObject object;
 
