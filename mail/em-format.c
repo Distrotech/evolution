@@ -47,6 +47,7 @@
 #include "em-format.h"
 
 static void emf_builtin_init(EMFormatClass *);
+static const char *emf_snoop_part(CamelMimePart *part);
 
 static GObjectClass *emf_parent;
 
@@ -227,7 +228,9 @@ em_format_add_puri(EMFormat *emf, size_t size, const char *cid, CamelMimePart *p
 		if (tmp)
 			puri->cid = g_strdup_printf("cid:%s", tmp);
 		else
-			puri->cid = g_strdup_printf("cid:///e-no-cid/%u", uriid++);
+			puri->cid = g_strdup_printf("em-no-cid-%u", uriid++);
+
+		printf("built cid '%s'\n", puri->cid);
 
 		/* not quite same as old behaviour, it also put in the relative uri and a fallback for no parent uri */
 		tmp = camel_mime_part_get_content_location(part);
@@ -316,11 +319,15 @@ em_format_find_visible_puri(EMFormat *emf, const char *uri)
 {
 	EMFormatPURI *pw;
 	struct _EMFormatPURITree *ptree;
+	int nocid;
+
+	printf("checking for visible uri '%s'\n", uri);
 
 	ptree = emf->pending_uri_level;
 	while (ptree) {
 		pw = (EMFormatPURI *)ptree->uri_list.head;
 		while (pw->next) {
+			printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid);
 			if ((pw->uri && !strcmp(pw->uri, uri)) || !strcmp(pw->cid, uri))
 				return pw;
 			pw = pw->next;
@@ -350,7 +357,6 @@ em_format_find_puri(EMFormat *emf, const char *uri)
 static void
 emf_clear_puri_node(struct _EMFormatPURITree *node)
 {
-
 	{
 		EMFormatPURI *pw, *pn;
 
@@ -394,6 +400,8 @@ emf_clear_puri_node(struct _EMFormatPURITree *node)
 void
 em_format_clear_puri_tree(EMFormat *emf)
 {
+	printf("clearing pending uri's\n");
+
 	if (emf->pending_uri_table) {
 		g_hash_table_destroy(emf->pending_uri_table);
 		emf_clear_puri_node(emf->pending_uri_tree);
@@ -412,7 +420,7 @@ em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const
 
 	if (mime_type != NULL) {
 		if (g_ascii_strcasecmp(mime_type, "application/octet-stream") == 0)
-			mime_type = snoop_part(part);
+			mime_type = emf_snoop_part(part);
 
 		handle = em_format_find_handler(emf, mime_type);
 		if (handle == NULL)
@@ -424,6 +432,7 @@ em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const
 			handle->handler(emf, stream, part, handle);
 			return;
 		}
+		printf("this type is an attachment? '%s'\n", mime_type);
 	} else {
 		mime_type = "application/octet-stream";
 	}
@@ -595,11 +604,13 @@ void em_format_add_header(EMFormat *emf, const char *name, guint32 flags)
  **/
 int em_format_is_attachment(EMFormat *emf, CamelMimePart *part)
 {
-	CamelContentType *ct = camel_mime_part_get_content_type(part);
+	/*CamelContentType *ct = camel_mime_part_get_content_type(part);*/
+	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)part);
 
-	return !(header_content_type_is(ct, "message", "*")
-		 || header_content_type_is(ct, "multipart", "*")
-		 || (header_content_type_is(ct, "text", "*")
+	/*printf("checking is attachment %s/%s\n", ct->type, ct->subtype);*/
+	return !(/*header_content_type_is(ct, "message", "*")
+		   ||*/ header_content_type_is(dw->mime_type, "multipart", "*")
+		 || (header_content_type_is(dw->mime_type, "text", "*")
 		     && camel_mime_part_get_filename(part) == NULL));
 
 }
@@ -664,11 +675,43 @@ em_format_format_content(EMFormat *emf, CamelStream *stream, CamelMimePart *part
 	camel_stream_close(stream);
 }
 
+/**
+ * em_format_describe_part:
+ * @part: 
+ * @mimetype: 
+ * 
+ * Generate a simple textual description of a part, @mime_type represents the
+ * the content.
+ * 
+ * Return value: 
+ **/
+char *
+em_format_describe_part(CamelMimePart *part, const char *mime_type)
+{
+	GString *stext;
+	const char *text;
+	char *out;
+
+	stext = g_string_new("");
+	text = gnome_vfs_mime_get_description(mime_type);
+	g_string_append_printf(stext, _("%s attachment"), text?text:mime_type);
+	if ((text = camel_mime_part_get_filename (part)))
+		g_string_append_printf(stext, " (%s)", text);
+	if ((text = camel_mime_part_get_description(part)))
+		g_string_append_printf(stext, ", \"%s\"", text);
+
+	out = stext->str;
+	g_string_free(stext, FALSE);
+
+	return out;
+}
+
+
 /* ********************************************************************** */
 
 /* originally from mail-identify.c */
 static const char *
-snoop_part(CamelMimePart *part)
+emf_snoop_part(CamelMimePart *part)
 {
 	const char *filename, *name_type = NULL, *magic_type = NULL;
 	CamelDataWrapper *dw;
@@ -883,6 +926,7 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	/* stack of present location and pending uri's */
 	location = camel_mime_part_get_content_location(part);
 	if (location) {
+		printf("setting content location %s\n", location);
 		base_save = emf->base;
 		emf->base = camel_url_new(location, NULL);
 	}
@@ -903,10 +947,11 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	purin = puri->next;
 	while (purin) {
 		if (purin->use_count == 0) {
+			printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count);
 			if (purin->func == emf_write_related)
 				em_format_part(emf, stream, puri->part);
 			else
-				g_warning("unreferenced uri genreated by format code: %s", purin->uri?purin->uri:purin->cid);
+				printf("unreferenced uri genreated by format code: %s\n", purin->uri?purin->uri:purin->cid);
 		}
 		puri = purin;
 		purin = purin->next;

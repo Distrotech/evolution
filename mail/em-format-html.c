@@ -56,8 +56,12 @@
 #include <camel/camel-url.h>
 #include <camel/camel-stream-fs.h>
 #include <camel/camel-string-utils.h>
+#include <camel/camel-http-stream.h>
+#include <camel/camel-data-cache.h>
+#include <camel/camel-file-utils.h>
 
 #include <e-util/e-msgport.h>
+#include "mail-mt.h"
 
 #include "em-format-html.h"
 #include "em-camel-stream.h"
@@ -66,7 +70,28 @@
 
 struct _EMFormatHTMLPrivate {
 	struct _CamelMedium *last_part;	/* not reffed, DO NOT dereference */
+	int format_id;		/* format thread id */
+	EDList pending_jobs;
+	GMutex *lock;
 };
+
+/* To simplify threading and contention, all pending tasks are serialised
+   into a single execution queue, run from a single thread instance which lasts
+   as long as there is work to do and then quits */
+struct _EMFormatHTMLJob {
+	struct _EMFormatHTMLJob *next, *prev;
+
+	EMFormatHTML *format;
+	CamelStream *estream;
+
+	void (*callback)(struct _EMFormatHTMLJob *job);
+	union {
+		char *uri;
+		CamelMedium *msg;
+		EMFormatPURI *puri;
+	} u;
+};
+
 
 static void efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTML *efh);
 static gboolean efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh);
@@ -82,6 +107,9 @@ static void efh_builtin_init(EMFormatHTMLClass *efhc);
 static void efh_write_data(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri);
 
 static EMFormatClass *efh_parent;
+static CamelDataCache *emfh_http_cache;
+
+#define EMFH_HTTP_CACHE_PATH "http"
 
 static void
 efh_init(GObject *o)
@@ -91,6 +119,9 @@ efh_init(GObject *o)
 	efh->priv = g_malloc0(sizeof(*efh->priv));
 
 	e_dlist_init(&efh->pending_object_list);
+	e_dlist_init(&efh->priv->pending_jobs);
+	efh->priv->lock = g_mutex_new();
+	efh->priv->format_id = -1;
 
 	efh->html = (GtkHTML *)gtk_html_new();
 	g_object_ref(efh->html);
@@ -151,8 +182,18 @@ em_format_html_get_type(void)
 			sizeof(EMFormatHTML), 0,
 			(GInstanceInitFunc)efh_init
 		};
+		extern char *evolution_dir;
+		char *path;
+
 		efh_parent = g_type_class_ref(em_format_get_type());
 		type = g_type_register_static(em_format_get_type(), "EMFormatHTML", &info, 0);
+
+		/* cache expiry - 2 hour access, 1 day max */
+		path = alloca(strlen(evolution_dir)+16);
+		sprintf(path, "%s/cache", evolution_dir);
+		emfh_http_cache = camel_data_cache_new(path, 0, NULL);
+		camel_data_cache_set_expire_age(emfh_http_cache, 24*60*60);
+		camel_data_cache_set_expire_access(emfh_http_cache, 2*60*60);
 	}
 
 	return type;
@@ -262,8 +303,75 @@ em_format_html_remove_pobject(EMFormatHTML *emf, EMFormatHTMLPObject *pobject)
 void
 em_format_html_clear_pobject(EMFormatHTML *emf)
 {
+	printf("clearing pending objects\n");
 	while (!e_dlist_empty(&emf->pending_object_list))
 		em_format_html_remove_pobject(emf, (EMFormatHTMLPObject *)emf->pending_object_list.head);
+}
+
+/* ********************************************************************** */
+
+static void emfh_getpuri(struct _EMFormatHTMLJob *job)
+{
+	printf(" running getpuri task\n");
+	job->u.puri->func((EMFormat *)job->format, job->estream, job->u.puri);
+}
+
+static void emfh_gethttp(struct _EMFormatHTMLJob *job)
+{
+	CamelStream *cistream = NULL, *costream = NULL, *instream = NULL;
+	CamelURL *url;
+	ssize_t n;
+	char buffer[1500];
+
+	printf(" running load uri task: %s\n", job->u.uri);
+
+	url = camel_url_new(job->u.uri, NULL);
+	if (url == NULL)
+		goto done;
+
+	if (emfh_http_cache)
+		instream = cistream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
+
+	/* FIXME: proxy */
+	if (instream == NULL)
+		instream = camel_http_stream_new(CAMEL_HTTP_METHOD_GET, ((EMFormat *)job->format)->session, url);
+	camel_url_free(url);
+
+	if (instream == NULL)
+		goto done;
+
+	if (emfh_http_cache != NULL && cistream == NULL)
+		costream = camel_data_cache_add(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
+
+	do {
+		/* FIXME: progress reporting */
+		n = camel_stream_read(instream, buffer, 1500);
+		if (n > 0) {
+			printf("  read %d bytes\n", n);
+			if (costream && camel_stream_write(costream, buffer, n) == -1) {
+				camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
+				camel_object_unref(costream);
+				costream = NULL;
+			}
+
+			camel_stream_write(job->estream, buffer, n);
+		} else if (n < 0 && costream) {
+			camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
+			camel_object_unref(costream);
+			costream = NULL;			
+		}
+	} while (n>0);
+
+	/* indicates success */
+	if (n == 0)
+		camel_stream_close(job->estream);
+
+	if (costream)
+		camel_object_unref(costream);
+
+	camel_object_unref(instream);
+done:
+	g_free(job->u.uri);
 }
 
 /* ********************************************************************** */
@@ -272,23 +380,35 @@ static void
 efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTML *efh)
 {
 	EMFormatPURI *puri;
+	struct _EMFormatHTMLJob *job = NULL;
 
-	printf("url requested, html = %p\n", html);
+	printf("url requested, html = %p, url '%s'\n", html, url);
 
 	puri = em_format_find_visible_puri((EMFormat *)efh, url);
 	if (puri) {
-		CamelStream *estream = em_camel_stream_new(handle);
-
-		/* how to stop recursion? e_dlist_remove((EDListNode *)puri);*/
 		puri->use_count++;
-		puri->func((EMFormat *)efh, estream, puri);
-		camel_object_unref(estream);
+
+		printf(" adding puri job\n");
+		job = g_malloc0(sizeof(*job));
+		job->u.puri = puri;
+		job->callback = emfh_getpuri;
 	} else if (g_ascii_strncasecmp(url, "http:", 5) == 0 || g_ascii_strncasecmp(url, "https:", 6) == 0) {
-		/* FIXME: download stuff */
-		gtk_html_stream_close(handle, GTK_HTML_STREAM_ERROR);
+		printf(" adding job, get %s\n", url);
+		job = g_malloc0(sizeof(*job));
+		job->callback = emfh_gethttp;
+		job->u.uri = g_strdup(url);
 	} else {
 		printf("HTML Includes reference to unknown uri '%s'\n", url);
 		gtk_html_stream_close(handle, GTK_HTML_STREAM_ERROR);
+	}
+
+	if (job) {
+		job->format = efh;
+		job->estream = em_camel_stream_new(handle);
+
+		g_mutex_lock(efh->priv->lock);
+		e_dlist_addtail(&efh->priv->pending_jobs, (EDListNode *)job);
+		g_mutex_unlock(efh->priv->lock);
 	}
 }
 
@@ -411,6 +531,7 @@ efh_text_html(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFor
 
 	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_wrapper);
 	location = puri->uri?puri->uri:puri->cid;
+	printf("adding iframe, location %s\n", location);
 	camel_stream_printf ( stream,
 			     "<iframe src=\"%s\" frameborder=0 scrolling=no>could not get %s</iframe>",
 			      location, location);
@@ -648,37 +769,129 @@ efh_builtin_init(EMFormatHTMLClass *efhc)
 		em_format_class_add_handler((EMFormatClass *)efhc, &type_builtin_table[i]);
 }
 
+/* ********************************************************************** */
+
+/* Sigh, this is so we have a cancellable, async rendering thread */
+/* Issue: How to sequence operations */
+/* Issue: How to handle reset */
+struct _format_msg {
+	struct _mail_msg msg;
+
+	EMFormatHTML *format;
+	EMCamelStream *estream;
+	CamelMedium *message;
+};
+
+static char *efh_format_desc(struct _mail_msg *mm, int done)
+{
+	return g_strdup(_("Formatting message"));
+}
+
+static void efh_format_do(struct _mail_msg *mm)
+{
+	struct _format_msg *m = (struct _format_msg *)mm;
+	struct _EMFormatHTMLJob *job;
+	int cancelled = FALSE;
+
+	em_format_html_clear_pobject(m->format);
+	
+	/* <insert top-header stuff here> */
+	/* How to sub-class ?  Might need to adjust api ... */
+	
+	em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, m->message);
+	camel_stream_flush((CamelStream *)m->estream);
+	camel_stream_close((CamelStream *)m->estream);
+	camel_object_unref(m->estream);
+	m->estream = NULL;
+
+	/* now dispatch any added tasks ... */
+	g_mutex_lock(m->format->priv->lock);
+	while ((job = (struct _EMFormatHTMLJob *)e_dlist_remhead(&m->format->priv->pending_jobs))) {
+		g_mutex_unlock(m->format->priv->lock);
+		if (!cancelled)
+			cancelled = camel_operation_cancel_check(NULL);
+		if (!cancelled) {
+			printf("Performing job %p\n", job);
+			job->callback(job);
+		} else {
+			printf("Job cancelled %p\n", job);
+		}
+		camel_object_unref(job->estream);
+		g_free(job);
+		g_mutex_lock(m->format->priv->lock);
+	}
+	g_mutex_unlock(m->format->priv->lock);
+	printf("out of jobs, done\n");
+}
+
+static void efh_format_done(struct _mail_msg *mm)
+{
+	struct _format_msg *m = (struct _format_msg *)mm;
+
+	printf("formatting finished\n");
+	/* noop? */m = m;
+}
+
+static void efh_format_free(struct _mail_msg *mm)
+{
+	struct _format_msg *m = (struct _format_msg *)mm;
+
+	printf("formatter freed\n");
+
+	g_object_unref(m->format);
+	if (m->estream) {
+		camel_stream_close((CamelStream *)m->estream);
+		camel_object_unref(m->estream);
+	}
+	camel_object_unref(m->message);
+}
+
+static struct _mail_msg_op efh_format_op = {
+	efh_format_desc,
+	efh_format_do,
+	efh_format_done,
+	efh_format_free,
+};
+
 static void efh_format(EMFormat *emf, CamelMedium *part)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)emf;
 	GtkHTMLStream *hstream;
-	CamelStream *estream;
+	struct _format_msg *m;
 
-	em_format_html_clear_pobject(efh);
-
-		if (efh->priv->last_part == part) {
-			printf("doing same page, turning off new page ...\n");
-			/* HACK: so we redraw in the same spot */
-			efh->html->engine->newPage = FALSE;
-		}
-
-	hstream = gtk_html_begin(efh->html);
-	estream = em_camel_stream_new(hstream);
-	if (part) {
-		if (efh->priv->last_part == part) {
-			printf("doing same page, turning off new page ...\n");
-			/* HACK: so we redraw in the same spot */
-			efh->html->engine->newPage = FALSE;
-		} else
-			efh->priv->last_part = part;
-
-		/* <insert top-header stuff here> */
-		/* How to sub-class ?  Might need to adjust api ... */
-
-		em_format_format_message(emf, estream, part);
+	if (efh->priv->format_id != -1) {
+		mail_msg_cancel(efh->priv->format_id);
+		mail_msg_wait(efh->priv->format_id);
+		efh->priv->format_id = -1;
 	}
-	camel_stream_close(estream);
-	camel_object_unref(estream);
+
+	g_assert(e_dlist_empty(&efh->priv->pending_jobs));
+
+	/* FIXME: what happens if we have a render in progress!? */
+
+	if (part == NULL) {
+		hstream = gtk_html_begin(efh->html);
+		gtk_html_stream_close(hstream, GTK_HTML_STREAM_OK);
+		return;
+	}
+
+	m = mail_msg_new(&efh_format_op, NULL, sizeof(*m));
+	m->format = (EMFormatHTML *)emf;
+	g_object_ref(emf);
+	m->message = part;
+	camel_object_ref(part);
+	hstream = gtk_html_begin(efh->html);
+	m->estream = (EMCamelStream *)em_camel_stream_new(hstream);
+
+	if (efh->priv->last_part == part) {
+		/* HACK: so we redraw in the same spot */
+		efh->html->engine->newPage = FALSE;
+	} else
+		efh->priv->last_part = part;
+
+	efh->priv->format_id = m->msg.seq;
+
+	e_thread_put(mail_thread_new, (EMsg *)m);
 }
 
 static void efh_format_error(EMFormat *emf, CamelStream *stream, const char *txt)
@@ -850,9 +1063,7 @@ static void efh_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart 
 static void
 efh_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const char *mime_type, const EMFormatHandler *handle)
 {
-	const char *text;
-	char *html;
-	GString *stext;
+	char *text, *html;
 
 	/* we display all inlined attachments only */
 
@@ -865,18 +1076,11 @@ efh_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 				  "<tr><td></td></tr></table></td><td><font size=-1>");
 
 	/* output some info about it */
-	stext = g_string_new("");
-	text = gnome_vfs_mime_get_description(mime_type);
-	g_string_append_printf(stext, _("%s attachment"), text?text:mime_type);
-	if ((text = camel_mime_part_get_filename (part)))
-		g_string_append_printf(stext, " (%s)", text);
-	if ((text = camel_mime_part_get_description(part)))
-		g_string_append_printf(stext, ", \"%s\"", text);
-
-	html = camel_text_to_html(stext->str, ((EMFormatHTML *)emf)->text_html_flags & CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
+	text = em_format_describe_part(part, mime_type);
+	html = camel_text_to_html(text, ((EMFormatHTML *)emf)->text_html_flags & CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
 	camel_stream_write_string(stream, html);
 	g_free(html);
-	g_string_free(stext, TRUE);
+	g_free(text);
 
 	camel_stream_write_string(stream, "</font></td></tr><tr></table>");
 

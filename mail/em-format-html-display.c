@@ -318,8 +318,6 @@ em_format_html_display_zoom_reset (EMFormatHTMLDisplay *efhd)
 static void
 efhd_iframe_created(GtkHTML *html, GtkHTML *iframe, EMFormatHTMLDisplay *efh)
 {
-	const char *url;
-
 	printf("Iframe created %p ... \n", iframe);
 
 	g_signal_connect(iframe, "button_press_event", G_CALLBACK (efhd_html_button_press_event), efh);
@@ -412,7 +410,6 @@ static void
 efhd_multipart_signed (EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
 {
 	char *classid;
-	struct _signed_puri *puri;
 	static int signedid;
 	CamelMultipartSigned *mps;
 	CamelMimePart *cpart;
@@ -811,13 +808,10 @@ type_ok:
 static void
 efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const char *mime_type, const EMFormatHandler *handle)
 {
-	char *classid;
+	char *classid, *text, *html;
 	struct _attach_puri *info;
-	const char *text;
-	char *html;
-	GString *stext;
 
-	classid = g_strdup_printf("attachment:///em-format-html-display/%p", part);
+	classid = g_strdup_printf("attachment-%p", part);
 	info = (struct _attach_puri *)em_format_add_puri(emf, sizeof(*info), classid, part, efhd_attachment_frame);
 	em_format_html_add_pobject((EMFormatHTML *)emf, classid, efhd_attachment_button, part);
 	info->handle = handle;
@@ -835,27 +829,20 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 				  "<tr><td></td></tr></table></td><td><font size=-1>");
 
 	/* output some info about it */
-	/* NB: copied from em-format-html */
-	/* FIXME: put this in em-format */
 	/* FIXME: should we look up mime_type from object again? */
-	stext = g_string_new("");
-	text = gnome_vfs_mime_get_description(mime_type);
-	g_string_append_printf(stext, _("%s attachment"), text?text:mime_type);
-	if ((text = camel_mime_part_get_filename (part)))
-		g_string_append_printf(stext, " (%s)", text);
-	if ((text = camel_mime_part_get_description(part)))
-		g_string_append_printf(stext, ", \"%s\"", text);
-
-	html = camel_text_to_html(stext->str, ((EMFormatHTML *)emf)->text_html_flags & CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
+	text = em_format_describe_part(part, mime_type);
+	html = camel_text_to_html(text, ((EMFormatHTML *)emf)->text_html_flags & CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
 	camel_stream_write_string(stream, html);
 	g_free(html);
-	g_string_free(stext, TRUE);
+	g_free(text);
 
 	camel_stream_write_string(stream, "</font></td></tr><tr></table>");
 
 	if (handle) {
 		printf("adding attachment content, type is '%s'\n", mime_type);
-		camel_stream_printf(stream, "<iframe src=\"%s\" frameborder=1 marginheight=0 marginwidth=0>%s</iframe>\n", classid, _("Attachment content could not be loaded"));
+		if (info->shown)
+			handle->handler(emf, stream, part, handle);
+		/*camel_stream_printf(stream, "<iframe src=\"%s\" marginheight=0 marginwidth=0>%s</iframe>\n", classid, _("Attachment content could not be loaded"));*/
 	} else if (efhd_use_component(mime_type)) {
 		static int partid;
 

@@ -38,15 +38,14 @@ struct _GtkHTMLStream;
 
 #include <camel/camel-stream.h>
 
-/*
- FIXME:
-   This Stream, being a camel stream, must be callable from other threads.
-   NB, this makes doing asynchronous update a lot simpler anyway.
-*/
 typedef struct _EMCamelStream {
 	CamelStream parent_stream;
 	
 	struct _GtkHTMLStream *html_stream;
+
+	struct _EMsgPort *data_port, *reply_port;
+	struct _GIOChannel *gui_channel;
+	guint gui_watch;
 } EMCamelStream;
 
 typedef struct {

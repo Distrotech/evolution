@@ -1,3 +1,7 @@
+2003-08-18  Not Zed  <NotZed@Ximian.com>
+
+	* em-*.c: more updates, incl threaded formatting queue.
+
 2003-08-18  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-format-html-display.c (em_format_html_display_zoom_in): New

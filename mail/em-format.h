@@ -143,6 +143,7 @@ int em_format_is_attachment(EMFormat *emf, struct _CamelMimePart *part);
 int em_format_is_inline(EMFormat *emf, struct _CamelMimePart *part);
 /* FIXME: not sure about this api */
 void em_format_set_inline(EMFormat *emf, struct _CamelMimePart *part, int state);
+char *em_format_describe_part(struct _CamelMimePart *part, const char *mimetype);
 
 /* for implementers */
 GType em_format_get_type(void);
