@@ -1408,7 +1408,7 @@ handle_multipart_encrypted (CamelMimePart *part, const char *mime_type,
 	gboolean handled;
 	
 	/* Currently we only handle RFC2015-style PGP encryption. */
-	protocol = header_content_type_param (part->content_type, "protocol");
+	protocol = header_content_type_param (((CamelDataWrapper *) part)->mime_type, "protocol");
 	if (!protocol || strcmp (protocol, "application/pgp-encrypted") != 0)
 		return handle_multipart_mixed (part, mime_type, md, stream);
 	

@@ -941,7 +941,7 @@ drag_data_get_cb (GtkWidget *widget,
 		g_object_set_data_full ((GObject *) widget, "uri-list", uri_list, g_free);		
 		break;
 	case DND_TARGET_TYPE_PART_MIME_TYPE:
-		if (header_content_type_is (part->content_type, "text", "*")) {
+		if (header_content_type_is (((CamelDataWrapper *) part)->mime_type, "text", "*")) {
 		        GByteArray *ba;
 			
 			ba = mail_format_get_data_wrapper_text ((CamelDataWrapper *) part, NULL);
@@ -952,16 +952,16 @@ drag_data_get_cb (GtkWidget *widget,
 			}
 		} else {
 			CamelDataWrapper *wrapper;
-			CamelStreamMem *cstream;
+			CamelStreamMem *mem;
 			
-			cstream = (CamelStreamMem *) camel_stream_mem_new ();
+			mem = (CamelStreamMem *) camel_stream_mem_new ();
 			wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (part));
-			camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *)cstream);
+			camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *) mem);
 			
 			gtk_selection_data_set (selection_data, selection_data->target, 8,
-						cstream->buffer->data, cstream->buffer->len);
+						mem->buffer->data, mem->buffer->len);
 			
-			camel_object_unref (cstream);
+			camel_object_unref (mem);
 		}
 		break;
 	default:
@@ -1027,7 +1027,7 @@ do_attachment_header (GtkHTML *html, GtkHTMLEmbedded *eb,
 	}
 	
 	/* Drag & Drop */
-	drag_types[DND_TARGET_TYPE_PART_MIME_TYPE].target = header_content_type_simple (part->content_type);
+	drag_types[DND_TARGET_TYPE_PART_MIME_TYPE].target = header_content_type_simple (((CamelDataWrapper *) part)->mime_type);
 	camel_strdown (drag_types[DND_TARGET_TYPE_PART_MIME_TYPE].target);
 	
 	gtk_drag_source_set (button, GDK_BUTTON1_MASK,
