@@ -1,5 +1,14 @@
 2000-08-08  Peter Williams  <peterw@helixcode.com>
 
+	* mail-ops.c (do_flag_messages): Allow specification of whether
+	to set the flags unconditionally or toggle their current state.
+
+	* message-list.c (ml_tree_set_value_at): Toggle the seen status;
+	don't set it unconditionally.
+
+	* mail-callbacks.c (delete_msg): Toggle the deletion status;
+	don't set it unconditionally.
+
 	* mail-tools.c (mail_tool_do_movemail): Fix for undeclared tmpfd.
 
 	* mail-local.c (local_reconfigure_folder): Big rewrite; make into

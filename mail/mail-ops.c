@@ -536,6 +536,7 @@ typedef struct flag_messages_input_s
 {
 	CamelFolder *source;
 	GPtrArray *uids;
+	gboolean invert;
 	guint32 mask;
 	guint32 set;
 }
@@ -591,8 +592,19 @@ do_flag_messages (gpointer in_data, gpointer op_data, CamelException * ex)
 	gint i;
 
 	for (i = 0; i < input->uids->len; i++) {
-		mail_tool_set_uid_flags (input->source, input->uids->pdata[i],
-					 input->mask, input->set);
+		if (input->invert) {
+			CamelMessageInfo *info;
+
+			mail_tool_camel_lock_up ();
+			info = camel_folder_get_message_info (input->source, input->uids->pdata[i]);
+			camel_folder_set_message_flags (input->source, input->uids->pdata[i],
+							input->mask, ~info->flags);
+			mail_tool_camel_lock_down ();
+		} else {
+			mail_tool_set_uid_flags (input->source, input->uids->pdata[i],
+						 input->mask, input->set);
+		}
+
 		g_free (input->uids->pdata[i]);
 	}
 }
@@ -617,6 +629,7 @@ static const mail_operation_spec op_flag_messages = {
 
 void
 mail_do_flag_messages (CamelFolder * source, GPtrArray * uids,
+		       gboolean invert,
 		       guint32 mask, guint32 set)
 {
 	flag_messages_input_t *input;
@@ -624,6 +637,7 @@ mail_do_flag_messages (CamelFolder * source, GPtrArray * uids,
 	input = g_new (flag_messages_input_t, 1);
 	input->source = source;
 	input->uids = uids;
+	input->invert = invert;
 	input->mask = mask;
 	input->set = set;
 

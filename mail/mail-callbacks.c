@@ -384,8 +384,8 @@ mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path)
         GPtrArray *uids;
 
         uids = camel_folder_get_uids (ml->folder);
-	mail_do_flag_messages (ml->folder, uids, CAMEL_MESSAGE_SEEN,
-			       CAMEL_MESSAGE_SEEN);
+	mail_do_flag_messages (ml->folder, uids, FALSE,
+			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 }
 
 void
@@ -420,7 +420,7 @@ delete_msg (GtkWidget *button, gpointer user_data)
 
 	uids = g_ptr_array_new ();
 	message_list_foreach (ml, enumerate_msg, uids);
-	mail_do_flag_messages (ml->folder, uids, 
+	mail_do_flag_messages (ml->folder, uids, TRUE,
 			       CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_DELETED);
 }
 

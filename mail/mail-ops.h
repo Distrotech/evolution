@@ -42,6 +42,7 @@ void mail_do_refile_messages (CamelFolder * source, GPtrArray * uids,
 
 			      gchar * dest_uri);
 void mail_do_flag_messages (CamelFolder * source, GPtrArray * uids,
+			    gboolean invert,
 			    guint32 mask, guint32 set);
 void mail_do_scan_subfolders (const gchar * source_uri, gboolean add_INBOX,
 			      EvolutionStorage * storage);
