@@ -60,7 +60,8 @@ eabm_target_free(EMenu *ep, EMenuTarget *t)
 		for (i=0;i<s->cards->len;i++)
 			g_object_unref(s->cards->pdata[i]);
 		g_ptr_array_free(s->cards, TRUE);
-		g_object_unref(s->book);
+		if (s->book)
+			g_object_unref(s->book);
 		break; }
 	}
 
@@ -176,13 +177,13 @@ eabm_standard_menu_factory(EMenu *emp, void *data)
 
 /*
 <e-plugin
-  class="com.ximian.mail.plugin.popup:1.0"
-  id="com.ximian.mail.plugin.popup.item:1.0"
+  class="org.gnome.mail.plugin.popup:1.0"
+  id="org.gnome.mail.plugin.popup.item:1.0"
   type="shlib"
   location="/opt/gnome2/lib/camel/1.0/libcamelimap.so"
   name="imap"
   description="IMAP4 and IMAP4v1 mail store">
-  <hook class="com.ximian.mail.popupMenu:1.0"
+  <hook class="org.gnome.mail.popupMenu:1.0"
         handler="HandlePopup">
   <menu id="any" target="select">
    <item
@@ -229,7 +230,7 @@ eabmph_class_init(EPluginHookClass *klass)
 	int i;
 
 	((GObjectClass *)klass)->finalize = eabmph_finalise;
-	((EPluginHookClass *)klass)->id = "com.novell.evolution.addressbook.bonobomenu:1.0";
+	((EPluginHookClass *)klass)->id = "org.gnome.evolution.addressbook.bonobomenu:1.0";
 
 	for (i=0;eabmph_targets[i].type;i++)
 		e_menu_hook_class_add_target_map((EMenuHookClass *)klass, &eabmph_targets[i]);

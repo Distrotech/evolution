@@ -1,3 +1,67 @@
+2004-10-21  Harish Krishnaswamy  <kharish@novell.com>
+
+	* gui/e-cal-popup.[ch]: (e_cal_popup_target_new_source):
+	Add status bits to denote if the calendar source is available offline
+	so that plugins to calendar popups can use the status qualifier to denote 
+	their visibility preferences. 
+
+2004-10-21  Rodrigo Moya <rodrigo@novell.com>
+
+	Fixes #62113
+
+	* gui/e-itip-control.c (update_attendee_status): deal correctly
+	with cancellation of individual occurrences.
+
+	* gui/e-calendar-view.c (e_calendar_view_delete_selected_occurrence):
+	make sure the object we send contains the correct recurrence-ID, so
+	that cancellations can be done only on the selected occurrence.
+
+2004-10-21  Rodrigo Moya <rodrigo@novell.com>
+
+	* gui/dialogs/select-source-dialog.c: use the new source selector
+	dialog in libedataserverui.
+
+2004-10-20  JP Rosevear  <jpr@novell.com>
+
+	* gui/calendar-component.c: put an icon on the properties menu item
+
+	* gui/tasks-component.c: ditto
+	
+	* gui/main.c (initialize): register plugin hooks for tasks and
+	calendar
+
+2004-10-20  JP Rosevear  <jpr@novell.com>
+	
+	* gui/e-cal-popup.c (ecalph_class_init): correct classid
+
+2004-10-19  JP Rosevear  <jpr@novell.com>
+
+	* gui/calendar-component.c, gui/e-cal-menu.c, gui/e-cal-popup.c,
+	gui/e-calendar-table.c, gui/e-calendar-view.c, gui/gnome-cal.c,
+	gui/tasks-component.c, gui/alarm-notify/alarm-queue.c,
+	gui/dialogs/meeting-page.c: convert to org.gnome hook names
+
+2004-10-19  Harish Krishnaswamy  <kharish@novell.com>
+
+	* gui/comp-editor-factory.c: (edit_existing):
+	Use e_cal_component_has_attendees to test if it is a meeting.
+	* gui/dialogs/event-editor.c: (event_editor_init):
+	By default, the event is not a meeting.
+	(event_editor_construct): Do not add the invitation, scheduling pages
+	to the editor if it is not a meeting. 
+	* gui/e-day-view.c: (e_day_view_on_event_double_click):
+	check the icalproperty to test if the event is a meeting.
+	
+2004-10-19  JP Rosevear  <jpr@novell.com>
+
+	* gui/gnome-cal.c (connect_list_view_focus): listen to the canvas
+	for focus events
+	(setup_widgets): listen for listen view selection changes
+
+	* gui/e-cal-list-view.c (setup_e_table): listen for the cursor to
+	move
+	(e_cal_list_view_cursor_change_cb): indicate the selection changed
+
 2004-10-19  Harish Krishnaswamy  <kharish@novell.com>
 
 	* gui/calendar-component.c (create_new_event):

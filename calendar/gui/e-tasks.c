@@ -990,6 +990,7 @@ e_tasks_remove_todo_source (ETasks *tasks, ESource *source)
 
 	g_hash_table_remove (priv->clients, uid);
        
+
 	gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SOURCE_REMOVED], source);
 
 	return TRUE;

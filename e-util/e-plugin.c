@@ -15,22 +15,22 @@
 
 /*
 <camel-plugin
-  class="com.ximian.camel.plugin.provider:1.0"
-  id="com.ximian.camel.provider.imap:1.0"
+  class="org.gnome.camel.plugin.provider:1.0"
+  id="org.gnome.camel.provider.imap:1.0"
   type="shlib"
   location="/opt/gnome2/lib/camel/1.0/libcamelimap.so"
   factory="camel_imap_provider_new">
  <name>imap</name>
  <description>IMAP4 and IMAP4v1 mail store</description>
- <class-data class="com.ximian.camel.plugin.provider:1.0"
+ <class-data class="org.gnome.camel.plugin.provider:1.0"
    protocol="imap"
    domain="mail"
    flags="remote,source,storage,ssl"/>
 </camel-plugin>
 
 <camel-plugin
-  class="com.ximian.camel.plugin.sasl:1.0"
-  id="com.ximian.camel.sasl.plain:1.0"
+  class="org.gnome.camel.plugin.sasl:1.0"
+  id="org.gnome.camel.sasl.plain:1.0"
   type="shlib"
   location="/opt/gnome2/lib/camel/1.0/libcamelsasl.so"
   factory="camel_sasl_plain_new">
@@ -187,7 +187,7 @@ e_plugin_get_type(void)
 			/* Add the global path */
 			e_plugin_add_load_path(EVOLUTION_PLUGINDIR);
 
-			path = g_build_filename(g_get_home_dir(), ".eplug", NULL);
+			path = g_build_filename(g_get_home_dir(), ".eplugins", NULL);
 		}
 		
 		p = path;
@@ -343,8 +343,9 @@ ep_load_pending(EPlugin *ep, EPluginHookClass *type)
  * @path: The path to add to search for plugins.
  * 
  * Add a path to be searched when e_plugin_load_plugins() is called.
- * By default ~/.eplug is used as the search path unless overriden by
- * the environmental variable %EVOLUTION_PLUGIN_PATH.
+ * By default the system plugin directory and ~/.eplugins is used as
+ * the search path unless overriden by the environmental variable
+ * %EVOLUTION_PLUGIN_PATH.
  *
  * %EVOLUTION_PLUGIN_PATH is a : separated list of paths to search for
  * plugin definitions in order.

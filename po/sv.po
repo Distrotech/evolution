@@ -10,7 +10,7 @@
 # appointment = möte
 # meeting = sammanträde
 #
-# $Id: sv.po,v 1.193.4.11 2004/10/19 12:19:21 rodrigo Exp $
+# $Id: sv.po,v 1.193.4.12 2004/10/22 15:17:06 rodrigo Exp $
 #
 msgid ""
 msgstr ""

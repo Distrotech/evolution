@@ -21,7 +21,9 @@
  * Author: Chris Toshok (toshok@ximian.com)
  */
 
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif
 
 #include <string.h>
 #include <glib.h>
@@ -752,9 +754,10 @@ primary_source_selection_changed_callback (ESourceSelector *selector,
 }
 
 static EPopupItem abv_source_popups[] = {
-	{ E_POPUP_ITEM, "10.new", N_("New Address Book"), new_addressbook_cb, NULL, NULL, 0, 0 },
+	{ E_POPUP_ITEM, "10.new", N_("New Address Book"), new_addressbook_cb, NULL, "stock_contact", 0, 0 },
 	{ E_POPUP_ITEM, "20.delete", N_("Delete"), delete_addressbook_cb, NULL, "stock_delete", 0, EAB_POPUP_SOURCE_USER|EAB_POPUP_SOURCE_PRIMARY },
-	{ E_POPUP_ITEM, "30.properties", N_("Properties..."), edit_addressbook_cb, NULL, NULL, 0, EAB_POPUP_SOURCE_PRIMARY },
+	{ E_POPUP_BAR,  "30.bar"},
+	{ E_POPUP_ITEM, "30.properties", N_("Properties..."), edit_addressbook_cb, NULL,"stock_folder-properties", 0, EAB_POPUP_SOURCE_PRIMARY },
 };
 
 static void
@@ -772,7 +775,7 @@ popup_event_callback(ESourceSelector *selector, ESource *source, GdkEventButton 
 	int i;
 	GtkMenu *menu;
 
-	ep = eab_popup_new("com.novell.evolution.addressbook.source.popup");
+	ep = eab_popup_new("org.gnome.evolution.addressbook.source.popup");
 	t = eab_popup_target_new_source(ep, selector);
 	t->target.widget = (GtkWidget *)view->priv->notebook;
 
@@ -1098,7 +1101,7 @@ addressbook_view_init (AddressbookView *view)
 			  G_CALLBACK (source_list_changed_cb), view);
 
 	priv->creatable_items_handler = e_user_creatable_items_handler_new ("contacts", NULL, NULL);
-	priv->menu = eab_menu_new("com.novell.evolution.addressbook.view");
+	priv->menu = eab_menu_new("org.gnome.evolution.addressbook.view");
 
 	g_signal_connect (priv->folder_view_control, "activate",
 			  G_CALLBACK (control_activate_cb), view);

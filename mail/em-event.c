@@ -68,6 +68,13 @@ eme_target_free(EEvent *ep, EEventTarget *t)
 
 		g_free(s->uri);
 		break; }
+	case EM_EVENT_TARGET_MESSAGE: {
+		EMEventTargetMessage *s = (EMEventTargetMessage *)t;
+
+		camel_object_unref(s->folder);
+		camel_object_unref(s->message);
+		g_free(s->uid);
+		break; }
 	}
 
 	((EEventClass *)eme_parent)->target_free(ep, t);
@@ -113,7 +120,7 @@ EMEvent *em_event_peek(void)
 {
 	if (em_event == NULL) {
 		em_event = g_object_new(em_event_get_type(), 0);
-		e_event_construct(&em_event->popup, "com.ximian.evolution.mail.events");
+		e_event_construct(&em_event->popup, "org.gnome.evolution.mail.events");
 	}
 
 	return em_event;
@@ -130,6 +137,21 @@ em_event_target_new_folder (EMEvent *eme, const char *uri, guint32 flags)
 	return t;
 }
 
+EMEventTargetMessage *
+em_event_target_new_message(EMEvent *eme, CamelFolder *folder, CamelMimeMessage *message, const char *uid, guint32 flags)
+{
+	EMEventTargetMessage *t = e_event_target_new(&eme->popup, EM_EVENT_TARGET_MESSAGE, sizeof(*t));
+
+	t->uid = g_strdup (uid);
+	t->folder = folder;
+	camel_object_ref(folder);
+	t->message = message;
+	camel_object_ref(message);
+	t->target.mask = ~flags;
+
+	return t;
+}
+
 /* ********************************************************************** */
 
 static void *emeh_parent_class;
@@ -139,8 +161,16 @@ static const EEventHookTargetMask emeh_folder_masks[] = {
 	{ "newmail", EM_EVENT_FOLDER_NEWMAIL },
 	{ 0 }
 };
+
+
+static const EEventHookTargetMask emeh_message_masks[] = {
+	{ "replyall", EM_EVENT_MESSAGE_REPLY_ALL },
+	{ 0 }
+};
+
 static const EEventHookTargetMap emeh_targets[] = {
 	{ "folder", EM_EVENT_TARGET_FOLDER, emeh_folder_masks },
+	{ "message", EM_EVENT_TARGET_MESSAGE, emeh_message_masks },
 	{ 0 }
 };
 
@@ -158,7 +188,7 @@ emeh_class_init(EPluginHookClass *klass)
 	int i;
 
 	((GObjectClass *)klass)->finalize = emeh_finalise;
-	((EPluginHookClass *)klass)->id = "com.ximian.evolution.mail.events:1.0";
+	((EPluginHookClass *)klass)->id = "org.gnome.evolution.mail.events:1.0";
 
 	for (i=0;emeh_targets[i].type;i++)
 		e_event_hook_class_add_target_map((EEventHookClass *)klass, &emeh_targets[i]);

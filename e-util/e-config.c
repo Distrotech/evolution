@@ -707,6 +707,26 @@ ec_rebuild(EConfig *emp)
 		}
 	}
 
+	/* If the last section doesn't contain anything, hide it */
+	if (sectionnode != NULL) {
+		if ( (sectionnode->empty = itemno == 0) ) {
+			gtk_widget_hide(sectionnode->frame);
+			sectionno--;
+		} else
+			gtk_widget_show(sectionnode->frame);
+		printf("%s section '%s' [sections=%d]\n", sectionnode->empty?"hiding":"showing", sectionnode->item->path, sectionno);
+	}
+
+	/* If the last page doesn't contain anything, hide it */
+	if (pagenode != NULL) {
+		if ( (pagenode->empty = sectionno == 0) ) {
+			gtk_widget_hide(pagenode->frame);
+			pageno--;
+		} else
+			gtk_widget_show(pagenode->frame);
+		printf("%s page '%s' [section=%d]\n", pagenode->empty?"hiding":"showing", pagenode->item->path, pageno);
+	}
+
 	if (book) {
 		/* make this depend on flags?? */
 		if (gtk_notebook_get_n_pages((GtkNotebook *)book) == 1) {
@@ -1140,13 +1160,13 @@ e_config_target_free(EConfig *ep, void *o)
 
 /*
 <e-plugin
-  class="com.ximian.mail.plugin.config:1.0"
-  id="com.ximian.mail.plugin.config.item:1.0"
+  class="org.gnome.mail.plugin.config:1.0"
+  id="org.gnome.mail.plugin.config.item:1.0"
   type="shlib"
   location="/opt/gnome2/lib/camel/1.0/libcamelimap.so"
   name="imap"
   description="IMAP4 and IMAP4v1 mail store">
-  <hook class="com.ximian.mail.configMenu:1.0"
+  <hook class="org.gnome.mail.configMenu:1.0"
         handler="HandleConfig">
   <menu id="any" target="select">
    <item
@@ -1383,7 +1403,7 @@ emph_class_init(EPluginHookClass *klass)
 	klass->construct = emph_construct;
 
 	/* this is actually an abstract implementation but list it anyway */
-	klass->id = "com.ximian.evolution.config:1.0";
+	klass->id = "org.gnome.evolution.config:1.0";
 
 	printf("EConfigHook: init class %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type));
 

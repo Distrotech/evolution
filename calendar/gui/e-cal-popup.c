@@ -197,6 +197,7 @@ e_cal_popup_target_new_source(ECalPopup *eabp, ESourceSelector *selector)
 	guint32 mask = ~0;
 	const char *source_uri;
 	ESource *source;
+	const char *offline = NULL;
 
 	/* TODO: this is duplicated for addressbook too */
 
@@ -215,6 +216,19 @@ e_cal_popup_target_new_source(ECalPopup *eabp, ESourceSelector *selector)
 	else
 		mask &= ~E_CAL_POPUP_SOURCE_USER;
 
+
+	source = e_source_selector_peek_primary_selection (selector);
+	/* check for e_target_selector's offline_status property here */
+	offline = e_source_get_property (source, "offline");
+
+	if (offline  && strcmp (offline,"1") == 0) { 
+		/* set the menu item to Mark Offline - */
+		mask &= ~E_CAL_POPUP_SOURCE_NO_OFFLINE;
+	}
+	else {
+		mask &= ~E_CAL_POPUP_SOURCE_OFFLINE;
+	}
+
 	t->target.mask = mask;
 
 	return t;
@@ -225,13 +239,13 @@ e_cal_popup_target_new_source(ECalPopup *eabp, ESourceSelector *selector)
 
 /*
 <e-plugin
-  class="com.ximian.mail.plugin.popup:1.0"
-  id="com.ximian.mail.plugin.popup.iteab:1.0"
+  class="org.gnome.mail.plugin.popup:1.0"
+  id="org.gnome.mail.plugin.popup.iteab:1.0"
   type="shlib"
   location="/opt/gnome2/lib/camel/1.0/libcamelimap.so"
   name="imap"
   description="IMAP4 and IMAP4v1 mail store">
-  <hook class="com.ximian.mail.popupMenu:1.0"
+  <hook class="org.gnome.mail.popupMenu:1.0"
         handler="HandlePopup">
   <menu id="any" target="select">
    <iteab
@@ -269,6 +283,8 @@ static const EPopupHookTargetMask ecalph_source_masks[] = {
 	{ "primary", E_CAL_POPUP_SOURCE_PRIMARY },
 	{ "system", E_CAL_POPUP_SOURCE_SYSTEM },
 	{ "user", E_CAL_POPUP_SOURCE_USER },
+	{ "offline", E_CAL_POPUP_SOURCE_OFFLINE},
+	{ "no-offline", E_CAL_POPUP_SOURCE_NO_OFFLINE},	
 	{ 0 }
 };
 
@@ -292,7 +308,7 @@ ecalph_class_init(EPluginHookClass *klass)
 	int i;
 
 	((GObjectClass *)klass)->finalize = ecalph_finalise;
-	((EPluginHookClass *)klass)->id = "com.ximian.evolution.addressbook.popup:1.0";
+	((EPluginHookClass *)klass)->id = "org.gnome.evolution.calendar.popup:1.0";
 
 	for (i=0;ecalph_targets[i].type;i++)
 		e_popup_hook_class_add_target_map((EPopupHookClass *)klass, &ecalph_targets[i]);

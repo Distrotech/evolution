@@ -86,6 +86,7 @@ static gboolean  e_cal_list_view_on_table_double_click   (GtkWidget *table, gint
 							 GdkEvent *event, gpointer data);
 static gboolean  e_cal_list_view_on_table_right_click   (GtkWidget *table, gint row, gint col,
 							 GdkEvent *event, gpointer data);
+static void e_cal_list_view_cursor_change_cb (ETable *etable, gint row, gpointer data);
 
 G_DEFINE_TYPE (ECalListView, e_cal_list_view, E_TYPE_CALENDAR_VIEW);
 
@@ -284,6 +285,8 @@ setup_e_table (ECalListView *cal_list_view)
 			  "double_click", G_CALLBACK (e_cal_list_view_on_table_double_click), cal_list_view);
 	g_signal_connect (e_table_scrolled_get_table (cal_list_view->table_scrolled),
 			  "right-click", G_CALLBACK (e_cal_list_view_on_table_right_click), cal_list_view);
+	g_signal_connect_after (e_table_scrolled_get_table (cal_list_view->table_scrolled), 
+				"cursor_change", G_CALLBACK (e_cal_list_view_cursor_change_cb), cal_list_view);
 
 	/* Attach and show widget */
 
@@ -313,6 +316,7 @@ e_cal_list_view_new (void)
 	ECalModel *model;
 	
 	model = E_CAL_MODEL (e_cal_model_calendar_new ());
+	e_cal_model_set_flags (model, E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES);
 
 	cal_list_view = g_object_new (e_cal_list_view_get_type (), "model", model, NULL);
 	if (!e_cal_list_view_construct (cal_list_view)) {
@@ -398,6 +402,14 @@ e_cal_list_view_on_table_right_click (GtkWidget *table, gint row, gint col, GdkE
 
 	e_cal_list_view_show_popup_menu (cal_list_view, row, event);
 	return TRUE;
+}
+
+static void
+e_cal_list_view_cursor_change_cb (ETable *etable, gint row, gpointer data)
+{
+	ECalListView *cal_list_view = E_CAL_LIST_VIEW (data);
+
+	g_signal_emit_by_name (cal_list_view, "selection_changed");
 }
 
 static gboolean

@@ -935,9 +935,13 @@ connect_week_view_focus (GnomeCalendar *gcal, EWeekView *wv)
 static void
 connect_list_view_focus (GnomeCalendar *gcal, ECalListView *lv)
 {
-	g_signal_connect (lv, "focus_in_event",
+	ETable *etable;
+	
+	etable = e_table_scrolled_get_table (lv->table_scrolled);
+	
+	g_signal_connect (etable->table_canvas, "focus_in_event",
 			  G_CALLBACK (calendar_focus_change_cb), gcal);
-	g_signal_connect (lv, "focus_out_event",
+	g_signal_connect (etable->table_canvas, "focus_out_event",
 			  G_CALLBACK (calendar_focus_change_cb), gcal);
 }
 
@@ -1318,6 +1322,8 @@ setup_widgets (GnomeCalendar *gcal)
 
 	e_calendar_view_set_calendar (E_CALENDAR_VIEW (priv->list_view), gcal);
 	e_calendar_view_set_timezone (E_CALENDAR_VIEW (priv->list_view), priv->zone);
+	g_signal_connect (priv->list_view, "selection_changed",
+			  G_CALLBACK (view_selection_changed_cb), gcal);
 
 	connect_list_view_focus (gcal, E_CAL_LIST_VIEW (priv->list_view));
 
@@ -1366,8 +1372,8 @@ gnome_calendar_init (GnomeCalendar *gcal)
 	setup_config (gcal);
 	setup_widgets (gcal);
 
-	priv->calendar_menu = e_cal_menu_new("com.novell.evolution.calendar.view");
-	priv->taskpad_menu = e_cal_menu_new("com.novell.evolution.calendar.taskpad");
+	priv->calendar_menu = e_cal_menu_new("org.gnome.evolution.calendar.view");
+	priv->taskpad_menu = e_cal_menu_new("org.gnome.evolution.calendar.taskpad");
 
 	priv->dn_queries = NULL;	
 	priv->sexp = g_strdup ("#t"); /* Match all */
