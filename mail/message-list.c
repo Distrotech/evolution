@@ -9,18 +9,24 @@
  *
  * (C) 2000 Helix Code, Inc.
  */
+
 #include <config.h>
 #include <gnome.h>
 #include <bonobo/bonobo-main.h>
-#include "e-util/e-util.h"
-#include "e-util/e-gui-utils.h"
-#include "camel/camel-exception.h"
+#include <e-util/e-util.h>
+#include <e-util/e-gui-utils.h>
+#include <e-util/e-popup-menu.h>
+#include <camel/camel-exception.h>
 #include <camel/camel-folder.h>
 #include "message-list.h"
 #include "message-thread.h"
 #include "mail-threads.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
+#include "mail-config.h"
+#include "mail-vfolder.h"
+#include "mail-autofilter.h"
+#include "mail.h"
 #include "Mail.h"
 #include "widgets/e-table/e-table-header-item.h"
 #include "widgets/e-table/e-table-item.h"
@@ -61,6 +67,8 @@ static POA_Evolution_MessageList__vepv evolution_message_list_vepv;
 
 static void on_cursor_change_cmd (ETableScrolled *table, int row, gpointer user_data);
 static void select_row (ETableScrolled *table, gpointer user_data);
+static gint on_right_click (ETableScrolled *table, gint row, gint col, GdkEvent *event, MessageList *list);
+static void on_double_click (ETableScrolled *table, gint row, MessageList *list);
 static void select_msg (MessageList *message_list, gint row);
 static char *filter_date (const void *data);
 
@@ -594,6 +602,12 @@ message_list_init (GtkObject *object)
 	gtk_signal_connect (GTK_OBJECT (message_list->etable), "cursor_change",
 			   GTK_SIGNAL_FUNC (on_cursor_change_cmd), message_list);
 
+	gtk_signal_connect (GTK_OBJECT (message_list->etable), "right_click",
+			    GTK_SIGNAL_FUNC (on_right_click), message_list);
+	
+	gtk_signal_connect (GTK_OBJECT (message_list->etable), "double_click",
+			    GTK_SIGNAL_FUNC (on_double_click), message_list);
+	
 	gtk_widget_show (message_list->etable);
 	
 	gtk_object_ref (GTK_OBJECT (message_list->table_model));
@@ -920,6 +934,89 @@ select_row (ETableScrolled *table, gpointer user_data)
 	gtk_idle_add (idle_select_row, message_list);
 }
 
+static void
+vfolder_subject(GtkWidget *w, FolderBrowser *fb)
+{
+	vfolder_gui_add_from_message(fb->mail_display->current_message, AUTO_SUBJECT,
+				     fb->uri);
+}
+
+static void
+vfolder_sender(GtkWidget *w, FolderBrowser *fb)
+{
+	vfolder_gui_add_from_message(fb->mail_display->current_message, AUTO_FROM,
+				     fb->uri);
+}
+
+static void
+vfolder_recipient(GtkWidget *w, FolderBrowser *fb)
+{
+	vfolder_gui_add_from_message(fb->mail_display->current_message, AUTO_TO,
+				     fb->uri);
+}
+
+static void
+filter_subject(GtkWidget *w, FolderBrowser *fb)
+{
+	filter_gui_add_from_message(fb->mail_display->current_message, AUTO_SUBJECT);
+}
+
+static void
+filter_sender(GtkWidget *w, FolderBrowser *fb)
+{
+	filter_gui_add_from_message(fb->mail_display->current_message, AUTO_FROM);
+}
+
+static void
+filter_recipient(GtkWidget *w, FolderBrowser *fb)
+{
+	filter_gui_add_from_message(fb->mail_display->current_message, AUTO_TO);
+}
+
+static gint
+on_right_click (ETableScrolled *table, gint row, gint col, GdkEvent *event, MessageList *list)
+{
+	FolderBrowser *fb = list->parent_folder_browser;
+	extern CamelFolder *drafts_folder;
+	int enable_mask = 0;
+	EPopupMenu menu[] = {
+		{ "Open in New Window", NULL, GTK_SIGNAL_FUNC (view_msg),        0 },
+		{ "Edit Message",       NULL, GTK_SIGNAL_FUNC (edit_msg),        1 },
+		{ "Print Message",      NULL, GTK_SIGNAL_FUNC (print_msg),       0 },
+		{ "",                   NULL, GTK_SIGNAL_FUNC (NULL),            0 },
+		{ "Reply to Sender",    NULL, GTK_SIGNAL_FUNC (reply_to_sender), 0 },
+		{ "Reply to All",       NULL, GTK_SIGNAL_FUNC (reply_to_all),    0 },
+		{ "Forward Message",    NULL, GTK_SIGNAL_FUNC (forward_msg),     0 },
+		{ "",                   NULL, GTK_SIGNAL_FUNC (NULL),            0 },
+		{ "Delete Message",     NULL, GTK_SIGNAL_FUNC (delete_msg),      0 },
+		{ "Move Message",       NULL, GTK_SIGNAL_FUNC (move_msg),        0 },
+		{ "",                   NULL, GTK_SIGNAL_FUNC (NULL),            0 },
+		{ "Vfolder from Subject",       NULL, GTK_SIGNAL_FUNC (vfolder_subject),        2 },
+		{ "Vfolder from Sender",       NULL, GTK_SIGNAL_FUNC (vfolder_sender),        2 },
+		{ "Vfolder from Recipients",       NULL, GTK_SIGNAL_FUNC (vfolder_recipient),        2 },
+		{ "Filter from Subject",       NULL, GTK_SIGNAL_FUNC (filter_subject),        2 },
+		{ "Filter from Sender",       NULL, GTK_SIGNAL_FUNC (filter_sender),        2 },
+		{ "Filter from Recipients",       NULL, GTK_SIGNAL_FUNC (filter_recipient),        2 },
+		{ NULL,                 NULL, NULL,                              0 }
+	};
+
+	if (fb->folder != drafts_folder)
+		enable_mask |= 1;
+	if (fb->mail_display->current_message == NULL)
+		enable_mask |= 2;
+
+	e_popup_menu_run (menu, (GdkEventButton *)event, enable_mask, 0, fb);
+	
+	return TRUE;
+}
+
+static void
+on_double_click (ETableScrolled *table, gint row, MessageList *list)
+{
+	FolderBrowser *fb = list->parent_folder_browser;
+	
+	view_msg (NULL, fb);
+}
 
 struct message_list_foreach_data {
 	MessageList *message_list;
@@ -955,15 +1052,13 @@ message_list_foreach (MessageList *message_list,
 					       mlfe_callback, &mlfe_data);
 }
 
-gboolean threaded_view = TRUE;
-
 void
 message_list_toggle_threads (BonoboUIHandler *uih, void *user_data,
 			     const char *path)
 {
 	MessageList *ml = user_data;
 
-	threaded_view = bonobo_ui_handler_menu_get_toggle_state (uih, path);
+	mail_config_set_thread_list (bonobo_ui_handler_menu_get_toggle_state (uih, path));
 	mail_do_regenerate_messagelist (ml, ml->search);
 }
 
@@ -1062,7 +1157,7 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 		e_tree_model_node_insert(etm, NULL, 0, input->ml);
 	e_tree_model_node_set_expanded (etm, input->ml->tree_root, TRUE);
 
-	if (threaded_view) {
+	if (mail_config_thread_list()) {
 		mail_do_thread_messages (input->ml, data->uids, 
 					 (gboolean) !(input->search),
 					 build_tree);

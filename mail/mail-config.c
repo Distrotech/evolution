@@ -86,6 +86,7 @@ service_copy (MailConfigService *source)
 	
 	newsource = g_new0 (MailConfigService, 1);
 	newsource->url = g_strdup (source->url);
+	newsource->keep_on_server = source->keep_on_server;
 	
 	return newsource;
 }
@@ -202,6 +203,9 @@ mail_config_read ()
 		path = g_strdup_printf ("url_%d", i);
 		s->url = gnome_config_get_string (path);
 		g_free (path);
+		path = g_strdup_printf ("keep_on_server_%d", i);
+		s->keep_on_server = gnome_config_get_bool (path);
+		g_free (path);
 		
 		config->sources = g_slist_append (config->sources, s);
 	}
@@ -239,7 +243,19 @@ mail_config_read ()
 			       evolution_dir);
 	config->send_html = gnome_config_get_bool (str);
 	g_free (str);
-	
+
+	/* Show Messages Threaded */
+	str = g_strdup_printf ("=%s/config/Mail=/Display/thread_list", 
+			       evolution_dir);
+	config->thread_list = gnome_config_get_bool (str);
+	g_free (str);
+
+	/* Size of vpaned in mail view */
+	str = g_strdup_printf ("=%s/config/Mail=/Display/paned_size=200", 
+			       evolution_dir);
+	config->paned_size = gnome_config_get_int (str);
+	g_free (str);
+
 	gnome_config_sync ();
 }
 
@@ -299,6 +315,9 @@ mail_config_write ()
 		path = g_strdup_printf ("url_%d", i);
 		gnome_config_set_string (path, s->url);
 		g_free (path);
+		path = g_strdup_printf ("keep_on_server_%d", i);
+		gnome_config_set_bool (path, s->keep_on_server);
+		g_free (path);
 	}
 	gnome_config_pop_prefix ();
 
@@ -332,7 +351,27 @@ mail_config_write ()
 			       evolution_dir);
 	gnome_config_set_bool (str, config->send_html);
 	g_free (str);
-	
+
+	gnome_config_sync ();
+}
+
+void
+mail_config_write_on_exit ()
+{
+	gchar *str;
+
+	/* Show Messages Threaded */
+	str = g_strdup_printf ("=%s/config/Mail=/Display/thread_list", 
+			       evolution_dir);
+	gnome_config_set_bool (str, config->thread_list);
+	g_free (str);
+
+	/* Size of vpaned in mail view */
+	str = g_strdup_printf ("=%s/config/Mail=/Display/paned_size", 
+			       evolution_dir);
+	gnome_config_set_int (str, config->paned_size);
+	g_free (str);
+
 	gnome_config_sync ();
 }
 
@@ -371,6 +410,30 @@ gboolean
 mail_config_send_html ()
 {
 	return config->send_html;
+}
+
+gboolean
+mail_config_thread_list ()
+{
+	return config->thread_list;
+}
+
+void
+mail_config_set_thread_list (gboolean value)
+{
+	config->thread_list = value;
+}
+
+gint
+mail_config_paned_size ()
+{
+	return config->paned_size;
+}
+
+void
+mail_config_set_paned_size (gint value)
+{
+	config->paned_size = value;
 }
 
 MailConfig *

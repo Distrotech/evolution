@@ -1,3 +1,58 @@
+2000-08-09  Nat Friedman  <nat@helixcode.com>
+
+	* ename/e-name-western-tables.h: Added some military prefixes.
+
+2000-08-09  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/component/addressbook.c: Fixed a warning.
+
+2000-08-09  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* gui/component/addressbook.c (control_activate): Add the stock
+	print icon to the print item.
+
+2000-08-09  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* gui/component/addressbook.c (control_activate): Put the print
+	item in the right placeholder so that it gets the right position
+	in the "File" menu.
+	(control_deactivate): Updated accordingly.
+
+2000-08-09  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/component/addressbook.c, gui/minicard/e-minicard.c: Changed
+	e_popup_menu_run call to match the new arguments.
+
+	* gui/component/addressbook.oafinfo: Fixed this file to work
+	properly.
+
+	* gui/minicard/e-minicard-control.c: Use the correct oafinfo ID
+	here.  Also cleaned up the code a bit with the help of Michael
+	Meeks.
+
+2000-08-08  Chris Toshok  <toshok@helixcode.com>
+
+	* gui/component/e-addressbook-model.c (e_addressbook_model_init):
+	use x-evolution-any-field.
+
+	* gui/component/addressbook.c (search_entry_activated): use
+	x-evolution-any-field.
+	(change_view_type): same.
+
+	* gui/minicard/e-minicard-view.c (e_minicard_view_init): set query
+	to x-evolution-any-field.
+
+	* backend/pas/pas-backend-ldap.c (func_contains): support
+	x-evolution-any-field for matching any evolution supported field.
+
+	* backend/pas/pas-backend-file.c (compare_email): switch to using
+	ECardSimple calls.
+	(compare_phone): same.
+	(compare_address): same.
+	(entry_compare): switch to using ECardSimple calls, and support a
+	'x-evolution-any-field' wildcard field.
+	(vcard_matches_search): use an ECardSimple.
+
 2000-08-07  Christopher James Lahey  <clahey@helixcode.com>
 
 	* contact-editor/e-contact-editor.c: Removed the next and prev

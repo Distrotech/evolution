@@ -25,6 +25,7 @@
  */
 
 #include <config.h>
+#include <ctype.h>
 #include <errno.h>
 #include "camel/camel.h"
 #include "camel/providers/vee/camel-vee-folder.h"
@@ -203,8 +204,9 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 }
 
 void
-mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelException *ex)
+mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, gboolean use_cache, CamelException *ex)
 {
+	CamelUIDCache *cache;
 	GPtrArray *uids;
 	int i;
 
@@ -218,12 +220,50 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelExc
 	uids = camel_folder_get_uids (source);
 	printf ("mail_tool_move_folder: got %d messages in source\n", uids->len);
 
+	/* If we're using the cache, ... use it */
+
+	if (use_cache) {
+		GPtrArray *new_uids;
+		char *url, *p, *filename;
+
+		url = camel_url_to_string (
+			CAMEL_SERVICE (source->parent_store)->url, FALSE);
+		for (p = url; *p; p++) {
+			if (!isascii ((unsigned char)*p) ||
+			    strchr (" /'\"`&();|<>${}!", *p))
+				*p = '_';
+		}
+		filename = g_strdup_printf ("%s/config/cache-%s",
+					    evolution_dir, url);
+		g_free (url);
+
+		cache = camel_uid_cache_new (filename);
+
+		if (cache) {
+			new_uids = camel_uid_cache_get_new_uids (cache, uids);
+			camel_folder_free_uids (source, uids);
+			uids = new_uids;
+		} else {
+			camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
+					      "Could not read UID "
+					      "cache file \"%s\". You may "
+					      "receive duplicate "
+					      "messages.", filename);
+		}
+
+		g_free (filename);
+	} else
+		cache = NULL;
+
+	printf ("mail_tool_move_folder: %d of those messages are new\n", uids->len);
+
 	/* Copy the messages */
 
 	for (i = 0; i < uids->len; i++) {
 		CamelMimeMessage *msg;
 		
 		/* Get the message */
+
 		msg = camel_folder_get_message (source, uids->pdata[i], ex);
 		if (camel_exception_is_set (ex)) {
 			camel_object_unref (CAMEL_OBJECT (msg));
@@ -238,15 +278,24 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelExc
 			goto cleanup;
 		}
 
-		/* Get rid of the message */
+		/* (Maybe) get rid of the message */
 
 		camel_object_unref (CAMEL_OBJECT (msg));
-		camel_folder_delete_message (source, uids->pdata[i]);
+		if (!use_cache)
+			camel_folder_delete_message (source, uids->pdata[i]);
 	}
 
 	/* All done. Sync n' free. */
 
-	camel_folder_free_uids (source, uids);
+	if (cache) {
+		camel_uid_cache_free_uids (uids);
+		
+		if (!camel_exception_is_set (ex))
+			camel_uid_cache_save (cache);
+		camel_uid_cache_destroy (cache);
+	} else
+		camel_folder_free_uids (source, uids);
+
 	camel_folder_sync (source, TRUE, ex);
 
  cleanup:
@@ -348,7 +397,7 @@ mail_tool_make_message_attachment (CamelMimeMessage *message)
 }
 
 CamelFolder *
-mail_tool_fetch_mail_into_searchable (const char *source_url, CamelException *ex)
+mail_tool_fetch_mail_into_searchable (const char *source_url, gboolean keep_on_server, CamelException *ex)
 {
 	CamelFolder *search_folder = NULL;
 	CamelFolder *spool_folder = NULL;
@@ -385,7 +434,7 @@ mail_tool_fetch_mail_into_searchable (const char *source_url, CamelException *ex
 		if (camel_exception_is_set (ex))
 			goto cleanup;
 
-		mail_tool_move_folder_contents (spool_folder, search_folder, ex);
+		mail_tool_move_folder_contents (spool_folder, search_folder, keep_on_server, ex);
 		if (camel_exception_is_set (ex))
 			goto cleanup;
 

@@ -20,6 +20,7 @@
 #include "folder-browser.h"
 #include "mail-vfolder.h"
 #include "mail-tools.h"
+#include "mail-autofilter.h"
 
 #include "camel/camel.h"
 
@@ -180,7 +181,6 @@ vfolder_uri_to_folder(const char *uri, CamelException *ex)
 	struct _vfolder_info *info;
 	char *storeuri, *foldername;
 	VfolderRule *rule;
-	CamelStore *store = NULL;
 	CamelFolder *folder = NULL, *sourcefolder;
 	const char *sourceuri;
 	int sources;
@@ -229,7 +229,7 @@ vfolder_uri_to_folder(const char *uri, CamelException *ex)
 			mail_tool_camel_lock_down ();
 		}
 	}
-cleanup:
+
 	g_free(foldername);
 	g_free(storeuri);
 
@@ -302,3 +302,13 @@ vfolder_gui_add_rule(VfolderRule *rule)
 	gtk_signal_connect((GtkObject *)gd, "clicked", new_rule_clicked, NULL);
 	gtk_widget_show((GtkWidget *)gd);
 }
+
+void
+vfolder_gui_add_from_message(CamelMimeMessage *msg, int flags, const char *source)
+{
+	VfolderRule *rule;
+
+	rule = (VfolderRule*)vfolder_rule_from_message(context, msg, flags, source);
+	vfolder_gui_add_rule(rule);
+}
+

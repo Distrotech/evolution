@@ -4,6 +4,7 @@
 /* 
  * Author : 
  *  Dan Winship <danw@helixcode.com>
+ *  Peter Williams <peterw@helixcode.com>
  *
  * Copyright 2000 Helix Code, Inc. (http://www.helixcode.com)
  *
@@ -107,7 +108,7 @@ fetch_mail (GtkWidget *button, gpointer user_data)
 		return;
 	}
 
-	mail_do_fetch_mail (url, NULL, select_first_unread, user_data);
+	mail_do_fetch_mail (url, source->keep_on_server, NULL, select_first_unread, user_data);
 }
 
 static gboolean
@@ -299,13 +300,13 @@ reply (FolderBrowser *fb, gboolean to_all)
 }
 
 void
-reply_to_sender (GtkWidget *button, gpointer user_data)
+reply_to_sender (GtkWidget *widget, gpointer user_data)
 {
 	reply (FOLDER_BROWSER (user_data), FALSE);
 }
 
 void
-reply_to_all (GtkWidget *button, gpointer user_data)
+reply_to_all (GtkWidget *widget, gpointer user_data)
 {
 	reply (FOLDER_BROWSER (user_data), TRUE);
 }
@@ -318,7 +319,7 @@ enumerate_msg (MessageList *ml, const char *uid, gpointer data)
 
 
 void
-forward_msg (GtkWidget *button, gpointer user_data)
+forward_msg (GtkWidget *widget, gpointer user_data)
 {
 	FolderBrowser *fb = FOLDER_BROWSER (user_data);
 	EMsgComposer *composer;
@@ -344,7 +345,7 @@ forward_msg (GtkWidget *button, gpointer user_data)
 }
 
 void
-move_msg (GtkWidget *button, gpointer user_data)
+move_msg (GtkWidget *widget, gpointer user_data)
 {
 	FolderBrowser *fb = user_data;
 	MessageList *ml = fb->message_list;
@@ -382,13 +383,16 @@ mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path)
         MessageList *ml = fb->message_list;
         GPtrArray *uids;
 
+	if (ml->folder == NULL)
+		return;
+
         uids = camel_folder_get_uids (ml->folder);
 	mail_do_flag_messages (ml->folder, uids, FALSE,
 			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 }
 
 void
-edit_message (BonoboUIHandler *uih, void *user_data, const char *path)
+edit_msg (GtkWidget *widget, gpointer user_data)
 {
 	FolderBrowser *fb = FOLDER_BROWSER (user_data);
 	GPtrArray *uids;
@@ -541,12 +545,29 @@ configure_folder(BonoboUIHandler *uih, void *user_data, const char *path)
 }
 
 void
-view_message (BonoboUIHandler *uih, void *user_data, const char *path)
+view_msg (GtkWidget *widget, gpointer user_data)
 {
 	FolderBrowser *fb = user_data;
 	GPtrArray *uids;
+
+	if (!fb->folder)
+		return;
 
 	uids = g_ptr_array_new ();
 	message_list_foreach (fb->message_list, enumerate_msg, uids);
 	mail_do_view_messages (fb->folder, uids, fb);
 }
+
+void
+view_message (BonoboUIHandler *uih, void *user_data, const char *path)
+{
+        view_msg (NULL, user_data);
+}
+
+void
+edit_message (BonoboUIHandler *uih, void *user_data, const char *path)
+{
+        edit_msg (NULL, user_data);
+}
+
+

@@ -101,7 +101,7 @@ static char *
 make_safe_filename (const char *prefix, CamelMimePart *part)
 {
 	GMimeContentField *type;
-	const char *name;
+	const char *name = NULL;
 	char *safe, *p;
 
 	type = camel_mime_part_get_content_type (part);
@@ -127,7 +127,7 @@ make_safe_filename (const char *prefix, CamelMimePart *part)
 	return safe;
 }
 
-CamelMimePart *
+static CamelMimePart *
 part_for_url (const char *url, CamelMimeMessage *message)
 {
 	GHashTable *urls;

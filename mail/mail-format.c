@@ -446,46 +446,11 @@ write_field_to_stream (const char *description, const char *value,
 }
 
 static void
-write_recipients_to_stream (const gchar *recipient_type,
-			    const CamelInternetAddress *recipients,
-			    gboolean optional, gboolean bold,
-			    GtkHTML *html, GtkHTMLStream *stream)
-{
-	int i;
-	char *recipients_string = NULL;
-	const char *name, *addr;
-
-	i = 0;
-	while (camel_internet_address_get (recipients, i++, &name, &addr)) {
-		char *old_string = recipients_string;
-
-		if (*name) {
-			recipients_string = g_strdup_printf (
-				"%s%s\"%s\" <%s>",
-				old_string ? old_string : "",
-				old_string ? ", " : "",
-				name, addr);
-		} else {
-			recipients_string = g_strdup_printf (
-				"%s%s%s", old_string ? old_string : "",
-				old_string ? ", " : "", addr);
-		}
-		g_free (old_string);
-	}
-
-	if (recipients_string || !optional) {
-		write_field_to_stream (recipient_type, recipients_string,
-				       bold, html, stream);
-	}
-	g_free (recipients_string);
-}
-
-
-
-static void
 write_headers (CamelMimeMessage *message, struct mail_format_data *mfd)
 {
 	const CamelInternetAddress *recipients;
+	const char *reply_to;
+	char *string;
 
 	mail_html_write (mfd->html, mfd->stream,
 			 "<table bgcolor=\"#EEEEEE\" width=\"100%%\" "
@@ -496,24 +461,34 @@ write_headers (CamelMimeMessage *message, struct mail_format_data *mfd)
 			       camel_mime_message_get_from (message),
 			       TRUE, mfd->html, mfd->stream);
 
-	if (camel_mime_message_get_reply_to (message)) {
-		write_field_to_stream ("Reply-To:",
-				       camel_mime_message_get_reply_to (message),
-				       FALSE, mfd->html, mfd->stream);
+	reply_to = camel_mime_message_get_reply_to (message);
+	if (reply_to) {
+		write_field_to_stream ("Reply-To:", reply_to, FALSE,
+				       mfd->html, mfd->stream);
 	}
 
-	write_recipients_to_stream ("To:",
-				    camel_mime_message_get_recipients (message, CAMEL_RECIPIENT_TYPE_TO),
-				    FALSE, TRUE, mfd->html, mfd->stream);
+	recipients = camel_mime_message_get_recipients (
+		message, CAMEL_RECIPIENT_TYPE_TO);
+	string = camel_address_encode (CAMEL_ADDRESS (recipients));
+	write_field_to_stream ("To:", string ? string : "", TRUE,
+			       mfd->html, mfd->stream);
+	g_free (string);
 
-	recipients = camel_mime_message_get_recipients (message, CAMEL_RECIPIENT_TYPE_CC);
-	write_recipients_to_stream ("Cc:", recipients, TRUE, TRUE,
-				    mfd->html, mfd->stream);
-	write_field_to_stream ("Subject: ",
+	recipients = camel_mime_message_get_recipients (
+		message, CAMEL_RECIPIENT_TYPE_CC);
+	string = camel_address_encode (CAMEL_ADDRESS (recipients));
+	if (string) {
+		write_field_to_stream ("Cc:", string, TRUE,
+				       mfd->html, mfd->stream);
+	}
+	g_free (string);
+
+	write_field_to_stream ("Subject:",
 			       camel_mime_message_get_subject (message),
 			       TRUE, mfd->html, mfd->stream);
 
-	mail_html_write (mfd->html, mfd->stream, "</table></td></tr></table></center><p>");
+	mail_html_write (mfd->html, mfd->stream,
+			 "</table></td></tr></table></center><p>");
 }
 
 
@@ -1090,7 +1065,8 @@ handle_multipart_encrypted (CamelMimePart *part, const char *mime_type,
 	CamelDataWrapper *wrapper =
 		camel_medium_get_content_object (CAMEL_MEDIUM (part));
 	CamelMultipart *mp;
-	char *ciphertext, *passphrase, *plaintext;
+	char *ciphertext, *passphrase;
+	char *plaintext = NULL;
 	CamelException ex;
 
 	g_return_val_if_fail (CAMEL_IS_MULTIPART (wrapper), FALSE);
@@ -1747,7 +1723,11 @@ mail_generate_reply (CamelMimeMessage *message, gboolean to_all)
 		i = 0;
 		cc = NULL;
 		while (camel_internet_address_get (recip, i++, &name, &addr)) {
-			fulladdr = g_strdup_printf ("%s <%s>", name, addr);
+			if (*name) {
+				fulladdr = g_strdup_printf ("\"%s\" <%s>",
+							    name, addr);
+			} else
+				fulladdr = g_strdup (addr);
 			cc = g_list_append (cc, fulladdr);
 		}
 
@@ -1755,7 +1735,11 @@ mail_generate_reply (CamelMimeMessage *message, gboolean to_all)
 			CAMEL_RECIPIENT_TYPE_CC);
 		i = 0;
 		while (camel_internet_address_get (recip, i++, &name, &addr)) {
-			fulladdr = g_strdup_printf ("%s <%s>", name, addr);
+			if (*name) {
+				fulladdr = g_strdup_printf ("\"%s\" <%s>",
+							    name, addr);
+			} else
+				fulladdr = g_strdup (addr);
 			cc = g_list_append (cc, fulladdr);
 		}
 	} else

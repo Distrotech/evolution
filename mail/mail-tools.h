@@ -55,7 +55,7 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex);
 /* Transfers all the messages from source into dest;
  * source is emptied and synced. */
 void
-mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelException *ex);
+mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, gboolean use_cache, CamelException *ex);
 
 /* Sets the flags on a message represented by a UID in a folder. */
 void
@@ -76,7 +76,7 @@ mail_tool_make_message_attachment (CamelMimeMessage *message);
 /* Fetch mail from the source URL's inbox into a searchable folder.
  * (not guaranteed to be local). Returns the searchable folder. */
 CamelFolder *
-mail_tool_fetch_mail_into_searchable (const char *source_url, CamelException *ex);
+mail_tool_fetch_mail_into_searchable (const char *source_url, gboolean keep_on_server, CamelException *ex);
 
 /* Filter source into dest using the default filters. */
 void

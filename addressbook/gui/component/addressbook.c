@@ -79,7 +79,8 @@ static void
 control_deactivate (BonoboControl *control, BonoboUIHandler *uih)
 {
 	/* how to remove a menu item */
-	bonobo_ui_handler_menu_remove (uih, "/File/Print");
+	bonobo_ui_handler_menu_remove (uih, "/File/<Print Placeholder>/Print contacts...");
+	bonobo_ui_handler_menu_remove (uih, "/File/<Print Placeholder>/separator1");
 	bonobo_ui_handler_menu_remove (uih, "/File/TestSelectNames");
 	bonobo_ui_handler_menu_remove (uih, "/View/<sep>");
 	bonobo_ui_handler_menu_remove (uih, "/View/Toggle View"); 
@@ -438,8 +439,8 @@ search_entry_activated (GtkWidget* widget, gpointer user_data)
 
 	if (search_word && strlen (search_word))
 		search_query = g_strdup_printf (
-			"(or (contains \"full_name\" \"%s\") (contains \"org\" \"%s\"))",
-			search_word, search_word);
+			"(contains \"x-evolution-any-field\" \"%s\")",
+			search_word);
 	else
 		search_query = g_strdup (
 			"(contains \"full_name\" \"\")");
@@ -489,12 +490,15 @@ control_activate (BonoboControl *control, BonoboUIHandler *uih,
 
 	bonobo_ui_handler_menu_new_separator (uih, "/View/<sep>", -1);
 
-	bonobo_ui_handler_menu_new_item (uih, "/File/Print",
-					 N_("Print"),
+	bonobo_ui_handler_menu_new_item (uih, "/File/<Print Placeholder>/Print contacts...",
+					 N_("_Print Contacts..."),
 					 NULL, -1,
-					 BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_PRINT,
 					 0, 0, print_cb,
 					 (gpointer) view);
+
+	bonobo_ui_handler_menu_new_separator (uih, "/File/<Print Placeholder>/separator1", -1);
 
 	bonobo_ui_handler_menu_new_item (uih, "/View/Toggle View",
 					 N_("As _Table"),
@@ -945,7 +949,7 @@ table_right_click(ETableScrolled *table, gint row, gint col, GdkEvent *event, Ad
 	ECard *card = e_addressbook_model_get_card(E_ADDRESSBOOK_MODEL(view->model), row);
 	EPopupMenu menu[] = { {"Save as VCard", NULL, GTK_SIGNAL_FUNC(save_as), 0}, {NULL, NULL, NULL, 0} };
 
-	e_popup_menu_run (menu, (GdkEventButton *)event, 0, card);
+	e_popup_menu_run (menu, (GdkEventButton *)event, 0, 0, card);
 
 	return TRUE;
 }
@@ -1023,7 +1027,7 @@ change_view_type (AddressbookView *view, AddressbookViewType view_type)
 	if (view->view_type != ADDRESSBOOK_VIEW_NONE)
 		query = get_query(view);
 	else
-		query = g_strdup("(contains \"full_name\" \"\")");
+		query = g_strdup("(contains \"x-evolution-any-field\" \"\")");
 
 
 	switch (view_type) {

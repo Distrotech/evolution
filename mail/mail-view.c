@@ -52,11 +52,11 @@ static GnomeUIInfo mail_view_toolbar [] = {
 	
 	GNOMEUIINFO_ITEM_STOCK (N_("Delete"), N_("Delete this message"), delete_msg, GNOME_STOCK_PIXMAP_TRASH),
 	
-	GNOMEUIINFO_SEPARATOR,
+	/*GNOMEUIINFO_SEPARATOR,*/
 	
 	/*GNOMEUIINFO_ITEM_STOCK (N_("Next"), N_("Next message"), mail_view_next_msg, GNOME_STOCK_PIXMAP_NEXT),
 	
-	  GNOMEUIINFO_ITEM_STOCK (N_("Previous"), N_("Previous message"), mail_view_prev__msg, GNOME_STOCK_PIXMAP_PREVIOUS),*/
+	  GNOMEUIINFO_ITEM_STOCK (N_("Previous"), N_("Previous message"), mail_view_prev_msg, GNOME_STOCK_PIXMAP_PREVIOUS),*/
 	
 	GNOMEUIINFO_END
 };
@@ -94,6 +94,7 @@ mail_view_create (CamelMimeMessage *msg, FolderBrowser *folder_browser)
 		subject = "";
 	
 	window = gnome_app_new ("Evolution", subject);
+	
 	toolbar = gtk_toolbar_new (GTK_ORIENTATION_HORIZONTAL, GTK_TOOLBAR_BOTH);
 	
 	gnome_app_fill_toolbar_with_data (GTK_TOOLBAR (toolbar),

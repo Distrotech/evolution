@@ -21,6 +21,8 @@
 #ifndef _MAIL_CONFIG_H
 #define _MAIL_CONFIG_H
 
+
+
 #include <glib.h>
 
 typedef struct 
@@ -34,6 +36,7 @@ typedef struct
 typedef struct
 {
 	gchar *url;
+	gboolean keep_on_server;
 } MailConfigService;
 
 typedef struct 
@@ -44,6 +47,8 @@ typedef struct
 	GSList *news;
 	MailConfigService *transport;
 	gboolean send_html;
+	gboolean thread_list;
+	gint paned_size;
 } MailConfig;
 
 /* Identities */
@@ -61,14 +66,18 @@ void mail_config_init (void);
 void mail_config_clear (void);
 void mail_config_read (void);
 void mail_config_write (void);
+void mail_config_write_on_exit (void);
 
 /* Accessor functions */
-gboolean mail_config_is_configured ();
+gboolean mail_config_is_configured (void);
 MailConfigIdentity *mail_config_get_default_identity (void);
 MailConfigService *mail_config_get_default_source (void);
 MailConfigService *mail_config_get_transport (void);
-gboolean mail_config_send_html ();
-
+gboolean mail_config_send_html (void);
+gboolean mail_config_thread_list (void);
+gint mail_config_paned_size (void);
+void mail_config_set_thread_list (gboolean value);
+void mail_config_set_paned_size (gint size);
 MailConfig *mail_config_fetch (void);
 
 #endif

@@ -341,7 +341,7 @@ do_reconfigure_folder(gpointer in_data, gpointer op_data, CamelException *ex)
 		goto cleanup;
 	}
 
-	mail_tool_move_folder_contents (fromfolder, tofolder, ex);
+	mail_tool_move_folder_contents (fromfolder, tofolder, FALSE, ex);
 
 	printf("delete old mbox ...\n");
 	camel_store_delete_folder(fromstore, tmpname, ex);

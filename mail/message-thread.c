@@ -430,7 +430,7 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 		mail_tool_camel_lock_down ();
 
 		if (mi == NULL) {
-			g_warning("Folder doesn't contain uid %s", uids->pdata[i]);
+			g_warning("Folder doesn't contain uid %s", (char *)uids->pdata[i]);
 			continue;
 		}
 
@@ -449,7 +449,7 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 		} else {
 			d(printf("doing : (no message id)\n"));
 			c = g_malloc0(sizeof(*c));
-			g_hash_table_insert(no_id_table, mi, c);
+			g_hash_table_insert(no_id_table, (void *)mi, c);
 		}
 
 		c->message = mi;

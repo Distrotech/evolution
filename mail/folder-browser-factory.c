@@ -18,6 +18,7 @@
 #include "folder-browser.h"
 #include "mail.h"
 #include "shell/Evolution.h"
+#include "mail-config.h"
 
 static GnomeUIInfo gnome_toolbar [] = {
 	GNOMEUIINFO_ITEM_STOCK (N_("Get mail"), N_("Check for new mail"), fetch_mail, GNOME_STOCK_PIXMAP_MAIL_RCV),
@@ -60,12 +61,21 @@ control_activate (BonoboControl *control, BonoboUIHandler *uih,
 					       _("_Threaded Message List"),
 					       NULL, -1, 0, 0, NULL, NULL);
 	bonobo_ui_handler_menu_set_toggle_state (uih, "/View/Threaded",
-						 threaded_view);
+						 mail_config_thread_list());
 	bonobo_ui_handler_menu_set_callback (uih, "/View/Threaded",
 					     message_list_toggle_threads,
 					     FOLDER_BROWSER (folder_browser)->message_list,
 					     NULL);
 	
+	bonobo_ui_handler_menu_new_item (uih, "/File/<Print Placeholder>/Print message...",
+					 _("_Print message"),
+					 NULL, -1,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_PRINT,
+					 0, 0, (void *) print_msg, folder_browser);
+
+	bonobo_ui_handler_menu_new_separator (uih, "/File/<Print Placeholder>/separator1", -1);
+
 	bonobo_ui_handler_menu_new_item (uih, "/Actions/Mark all seen",
 					 _("_Mark all messages seen"),
 					 NULL, -1,
@@ -152,6 +162,9 @@ control_deactivate (BonoboControl *control, BonoboUIHandler *uih,
 		    FolderBrowser *fb)
 {
 	char *toolbar_name = g_strdup_printf ("/Toolbar%d", fb->serial);
+
+	bonobo_ui_handler_menu_remove (uih, "/File/<Print Placeholder>/separator1");
+	bonobo_ui_handler_menu_remove (uih, "/File/<Print Placeholder>/Print message...");
 
 	bonobo_ui_handler_menu_remove (uih, "/View/Threaded");
 	bonobo_ui_handler_menu_remove (uih, "/Actions/Mark all seen");
