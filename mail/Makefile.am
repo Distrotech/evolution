@@ -106,6 +106,8 @@ libevolution_mail_la_SOURCES =		\
 	em-icon-stream.h		\
 	em-html-stream.c		\
 	em-html-stream.h		\
+	em-spam-filter.c		\
+	em-spam-filter.h		\
 	folder-browser-factory.c	\
 	folder-browser-factory.h	\
 	folder-info.c			\

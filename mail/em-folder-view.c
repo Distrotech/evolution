@@ -262,7 +262,9 @@ GtkWidget *em_folder_view_new(void)
 int
 em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 {
+	CamelSpamPlugin *csp = NULL;
 	GPtrArray *uids;
+	gboolean commit_reports = FALSE;
 	int i;
 
 	if (emfv->folder == NULL)
@@ -271,8 +273,31 @@ em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 	uids = message_list_get_selected(emfv->list);
 	camel_folder_freeze(emfv->folder);
 
-	for (i=0; i<uids->len; i++)
+	for (i=0; i<uids->len; i++) {
+		if (mask & CAMEL_MESSAGE_SPAM) {
+			guint32 flags;
+
+			flags = camel_folder_get_message_flags (emfv->folder, uids->pdata[i]);
+			if ((flags & CAMEL_MESSAGE_SPAM) != (set & CAMEL_MESSAGE_SPAM)) {
+				CamelMimeMessage *msg = camel_folder_get_message (emfv->folder, uids->pdata[i], NULL);
+
+				if (msg) {
+					csp = CAMEL_SERVICE (emfv->folder->parent_store)->session->spam_plugin;
+					if (set & CAMEL_MESSAGE_SPAM)
+						camel_spam_plugin_report_spam (csp, msg);
+					else
+						camel_spam_plugin_report_ham (csp, msg);
+
+					commit_reports = TRUE;
+					camel_object_unref (msg);
+				}
+			}
+		}
 		camel_folder_set_message_flags(emfv->folder, uids->pdata[i], mask, set);
+	}
+
+	if (commit_reports)
+		camel_spam_plugin_commit_reports (csp);
 
 	message_list_free_uids(emfv->list, uids);
 	camel_folder_thaw(emfv->folder);
