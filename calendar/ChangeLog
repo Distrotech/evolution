@@ -1,3 +1,9 @@
+Thu Dec 16 12:27:42 1999  Changwoo Ryu  <cwryu@adam.kaist.ac.kr>
+
+	* quick-view.c (QUICK_VIEW_FONTSET): Changed the default Korean
+	font.
+	* mark.h (HEADING_FONTSET, ...): Likewise.
+
 1999-12-02  Russell Steinthal  <rms39@columbia.edu>
 
 	* alarm.c: Enhanced debug support: can be toggled on and off with
