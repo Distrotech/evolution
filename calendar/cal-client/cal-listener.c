@@ -53,6 +53,8 @@ enum {
 	DISCARD_ALARM,
 	RECEIVE_OBJECTS,
 	SEND_OBJECTS,
+	DEFAULT_OBJECT,
+	OBJECT,
 	OBJECT_LIST,
 	GET_TIMEZONE,
 	ADD_TIMEZONE,
@@ -319,6 +321,42 @@ impl_notifyObjectsSent (PortableServer_Servant servant,
 	g_signal_emit (G_OBJECT (listener), signals[SEND_OBJECTS], 0, convert_status (status));
 }
 
+static void 
+impl_notifyDefaultObjectRequested (PortableServer_Servant servant,
+				   const GNOME_Evolution_Calendar_CallStatus status,
+				   const CORBA_char *object,
+				   CORBA_Environment *ev) 
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[DEFAULT_OBJECT], 0, convert_status (status), object);
+}
+
+static void 
+impl_notifyObjectRequested (PortableServer_Servant servant,
+			    const GNOME_Evolution_Calendar_CallStatus status,
+			    const CORBA_char *object,
+			    CORBA_Environment *ev) 
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[OBJECT], 0, convert_status (status), object);
+}
+
 static GList *
 build_object_list (const GNOME_Evolution_Calendar_stringlist *seq)
 {
@@ -566,6 +604,8 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyAlarmDiscarded = impl_notifyAlarmDiscarded;
 	klass->epv.notifyObjectsReceived = impl_notifyObjectsReceived;
 	klass->epv.notifyObjectsSent = impl_notifyObjectsSent;
+	klass->epv.notifyDefaultObjectRequested = impl_notifyDefaultObjectRequested;
+	klass->epv.notifyObjectRequested = impl_notifyObjectRequested;
 	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
 	klass->epv.notifyTimezoneRequested = impl_notifyTimezoneRequested;
 	klass->epv.notifyTimezoneAdded = impl_notifyTimezoneAdded;
@@ -681,6 +721,22 @@ cal_listener_class_init (CalListenerClass *klass)
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
 			      G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[DEFAULT_OBJECT] =
+		g_signal_new ("default_object",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, default_object),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
+	signals[OBJECT] =
+		g_signal_new ("object",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, object),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
 	signals[OBJECT_LIST] =
 		g_signal_new ("object_list",
 			      G_TYPE_FROM_CLASS (klass),

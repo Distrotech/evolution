@@ -99,7 +99,9 @@ struct _CalBackendClass {
 
 	void (* receive_objects) (CalBackend *backend, Cal *cal, const char *calobj);
 	void (* send_objects) (CalBackend *backend, Cal *cal, const char *calobj);
-	
+
+	void (* get_default_object) (CalBackend *backend, Cal *cal, CalObjType type);
+	void (* get_object) (CalBackend *backend, Cal *cal, const char *uid, const char *rid);	
 	void (* get_object_list) (CalBackend *backend, Cal *cal, const char *sexp);
 
 	/* Timezone related virtual methods */
@@ -111,13 +113,7 @@ struct _CalBackendClass {
 
 	/* Mode relate virtual methods */
 	CalMode (* get_mode) (CalBackend *backend);
-	void    (* set_mode) (CalBackend *backend, CalMode mode);	
-
-	/* General object acquirement and information related virtual methods */
-	char *(* get_default_object) (CalBackend *backend, CalObjType type);
-	char *(* get_object) (CalBackend *backend, const char *uid, const char *rid);
-	CalComponent *(* get_object_component) (CalBackend *backend, const char *uid, const char *rid);
-
+	void    (* set_mode) (CalBackend *backend, CalMode mode);
 
 	GList *(* get_free_busy) (CalBackend *backend, GList *users, time_t start, time_t end);
 
@@ -153,6 +149,8 @@ void cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, 
 void cal_backend_receive_objects (CalBackend *backend, Cal *cal, const char *calobj);
 void cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj);
 
+void cal_backend_get_default_object (CalBackend *backend, Cal *cal, CalObjType type);
+void cal_backend_get_object (CalBackend *backend, Cal *cal, const char *uid, const char *rid);
 void cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp);
 
 gboolean cal_backend_is_loaded (CalBackend *backend);
@@ -164,20 +162,12 @@ EList *cal_backend_get_queries (CalBackend *backend);
 CalMode cal_backend_get_mode (CalBackend *backend);
 void cal_backend_set_mode (CalBackend *backend, CalMode mode);
 
-char *cal_backend_get_default_object (CalBackend *backend, CalObjType type);
-
-char *cal_backend_get_object (CalBackend *backend, const char *uid, const char *rid);
-
-CalComponent *cal_backend_get_object_component (CalBackend *backend, const char *uid, const char *rid);
-
 void cal_backend_get_timezone (CalBackend *backend, Cal *cal, const char *tzid);
 void cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *object);
 void cal_backend_set_default_timezone (CalBackend *backend, Cal *cal, const char *tzid);
 
 icaltimezone* cal_backend_internal_get_default_timezone (CalBackend *backend);
 icaltimezone* cal_backend_internal_get_timezone (CalBackend *backend, const char *tzid);
-
-CalObjType cal_backend_get_type_by_uid (CalBackend *backend, const char *uid);
 
 GList *cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
 

@@ -69,6 +69,8 @@ typedef struct {
  	void (*receive_objects) (CalListener *listener, ECalendarStatus status);
  	void (*send_objects) (CalListener *listener, ECalendarStatus status);
 
+	void (*default_object) (CalListener *listener, ECalendarStatus status, const char *object);
+	void (*object) (CalListener *listener, ECalendarStatus status, const char *object);
 	void (*object_list) (CalListener *listener, ECalendarStatus status, GList **objects);
 
 	void (*get_timezone) (CalListener *listener, ECalendarStatus status, const char *object);

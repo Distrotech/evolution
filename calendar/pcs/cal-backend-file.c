@@ -705,19 +705,19 @@ cal_backend_file_set_mode (CalBackend *backend, CalMode mode)
 	
 }
 
-static char *
-cal_backend_file_get_default_object (CalBackend *backend, CalObjType type)
+static CalBackendSyncStatus
+cal_backend_file_get_default_object (CalBackendSync *backend, Cal *cal, CalObjType type, char **object)
 {
  	CalBackendFile *cbfile;
  	CalBackendFilePrivate *priv;
  	CalComponent *comp;
- 	char *calobj;
  	
  	cbfile = CAL_BACKEND_FILE (backend);
  	priv = cbfile->priv;
  
  	comp = cal_component_new ();
- 	
+
+ 	/* FIXME Do we really need to pass the type? The backends are typed now */
  	switch (type) {
  	case CALOBJ_TYPE_EVENT:
  		cal_component_set_new_vtype (comp, CAL_COMPONENT_EVENT);
@@ -730,18 +730,18 @@ cal_backend_file_get_default_object (CalBackend *backend, CalObjType type)
  		break;
  	default:
  		g_object_unref (comp);
- 		return NULL;
+		return GNOME_Evolution_Calendar_ObjectNotFound;
  	}
  	
- 	calobj = cal_component_get_as_string (comp);
+ 	*object = cal_component_get_as_string (comp);
  	g_object_unref (comp);
  
- 	return calobj;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Get_object_component handler for the file backend */
-static CalComponent *
-cal_backend_file_get_object_component (CalBackend *backend, const char *uid, const char *rid)
+static CalBackendSyncStatus
+cal_backend_file_get_object (CalBackendSync *backend, Cal *cal, const char *uid, const char *rid, char **object)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -750,21 +750,21 @@ cal_backend_file_get_object_component (CalBackend *backend, const char *uid, con
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_return_val_if_fail (uid != NULL, NULL);
-
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_InvalidObject);
+	g_return_val_if_fail (uid != NULL, GNOME_Evolution_Calendar_ObjectNotFound);
 	g_assert (priv->comp_uid_hash != NULL);
 
 	comp = lookup_component (cbfile, uid);
 	if (!comp)
-		return NULL;
+		return GNOME_Evolution_Calendar_ObjectNotFound;
 
 	if (rid && *rid) {
-		
-	} else
-		return comp;
+		/* FIXME How to retrieve instance */
+	}
+	
+	*object = cal_component_get_as_string (comp);
 
-	return NULL;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Get_timezone_object handler for the file backend */
@@ -1144,9 +1144,9 @@ static void
 cal_backend_file_compute_changes_foreach_key (const char *key, gpointer data)
 {
 	CalBackendFileComputeChangesData *be_data = data;
-	char *calobj = cal_backend_get_object (be_data->backend, key, NULL);
+	CalComponent *comp = lookup_component (CAL_BACKEND_FILE (be_data->backend), key);
 	
-	if (calobj == NULL) {
+	if (comp == NULL) {
 		CalComponent *comp;
 		GNOME_Evolution_Calendar_CalObjChange *coc;
 		char *calobj;
@@ -1427,8 +1427,8 @@ cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_return_val_if_fail (priv->icalcomp != NULL, CAL_BACKEND_RESULT_INVALID_OBJECT);
-	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+	g_return_val_if_fail (uid != NULL, GNOME_Evolution_Calendar_ObjectNotFound);
 
 	/* FIXME we need to handle mod types here */
 
@@ -1706,6 +1706,8 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	sync_class->discard_alarm_sync = cal_backend_file_discard_alarm;
 	sync_class->receive_objects_sync = cal_backend_file_receive_objects;
 	sync_class->send_objects_sync = cal_backend_file_send_objects;
+ 	sync_class->get_default_object_sync = cal_backend_file_get_default_object;
+	sync_class->get_object_sync = cal_backend_file_get_object;
 	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
 	sync_class->get_timezone_sync = cal_backend_file_get_timezone;
 	sync_class->add_timezone_sync = cal_backend_file_add_timezone;
@@ -1714,9 +1716,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->start_query = cal_backend_file_start_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
-	backend_class->set_mode = cal_backend_file_set_mode;	
- 	backend_class->get_default_object = cal_backend_file_get_default_object;
-	backend_class->get_object_component = cal_backend_file_get_object_component;
+	backend_class->set_mode = cal_backend_file_set_mode;
 	backend_class->get_free_busy = cal_backend_file_get_free_busy;
 	backend_class->get_changes = cal_backend_file_get_changes;
 

@@ -1434,7 +1434,6 @@ obj_updated_cb (CalClient *client, const char *uid, gpointer data)
 	CompEditor *editor = COMP_EDITOR (data);
 	CompEditorPrivate *priv;
 	CalComponent *comp = NULL;
-	CalClientGetStatus status;
 	const char *edit_uid;
 
 	priv = editor->priv;
@@ -1445,8 +1444,7 @@ obj_updated_cb (CalClient *client, const char *uid, gpointer data)
 		if (changed_component_dialog ((GtkWindow *) editor, priv->comp, FALSE, priv->changed)) {
 			icalcomponent *icalcomp;
 
-			status = cal_client_get_object (priv->client, uid, NULL, &icalcomp);
-			if (status == CAL_CLIENT_GET_SUCCESS) {
+			if (!cal_client_get_object (priv->client, uid, NULL, &icalcomp, NULL)) {
 				comp = cal_component_new ();
 				if (cal_component_set_icalcomponent (comp, icalcomp))
 					comp_editor_edit_comp (editor, comp);

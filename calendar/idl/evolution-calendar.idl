@@ -71,14 +71,6 @@ module Calendar {
 	const CalObjChangeType ADDED = 1 << 0;
 	const CalObjChangeType MODIFIED = 1 << 1;
 	const CalObjChangeType DELETED = 1 << 2;
-	
-	/* Types of alarms */
-	enum AlarmType {
-		MAIL,
-		PROGRAM,
-		DISPLAY,
-		AUDIO
-	};
 
 	/* Used to store a time_t */
 	typedef unsigned long Time_t;
@@ -176,11 +168,10 @@ module Calendar {
 		void setMode (in CalMode mode);
 
 		/* Get a default object of a given type */
-		CalObj getDefaultObject (in CalObjType type);
+		oneway void getDefaultObject (in CalObjType type);
 		
 		/* Gets a component based on its URI */
-		CalObj getObject (in CalObjUID uid, in CalRecurID rid)
-			raises (NotFound);
+		oneway void getObject (in CalObjUID uid, in CalRecurID rid);
 
 		oneway void getObjectList (in string query);		
 
@@ -240,6 +231,8 @@ module Calendar {
 		oneway void notifyObjectsReceived (in CallStatus status);
 		oneway void notifyObjectsSent (in CallStatus status);
 		
+		oneway void notifyDefaultObjectRequested (in CallStatus status, in CalObj object);
+		oneway void notifyObjectRequested (in CallStatus status, in CalObj object);
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 		oneway void notifyQuery (in CallStatus status, in Query query);
 

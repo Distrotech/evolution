@@ -182,12 +182,12 @@ prepare_tasks (icalcomponent *icalcomp, GList *vtodos)
 static CalClientResult
 update_single_object (CalClient *client, icalcomponent *icalcomp)
 {
-	char *uid;
+	const char *uid;
 	icalcomponent *tmp_icalcomp;
 
 	uid = icalcomponent_get_uid (icalcomp);
-
-	if (cal_client_get_object (client, uid, NULL, &tmp_icalcomp) == CAL_CLIENT_RESULT_SUCCESS)
+	
+	if (cal_client_get_object (client, uid, NULL, &tmp_icalcomp, NULL))
 		return cal_client_modify_object (client, icalcomp, CALOBJ_MOD_ALL, NULL)
 			? CAL_CLIENT_RESULT_SUCCESS : CAL_CLIENT_RESULT_CORBA_ERROR;
 

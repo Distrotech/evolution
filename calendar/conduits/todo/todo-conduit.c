@@ -679,13 +679,11 @@ local_record_from_uid (EToDoLocalRecord *local,
 {
 	CalComponent *comp;
 	icalcomponent *icalcomp;
-	CalClientGetStatus status;
+	GError *error = NULL;
 
 	g_assert(local!=NULL);
 
-	status = cal_client_get_object (ctxt->client, uid, NULL, &icalcomp);
-
-	if (status == CAL_CLIENT_GET_SUCCESS) {
+	if (cal_client_get_object (ctxt->client, uid, NULL, &icalcomp, &error)) {
 		comp = cal_component_new ();
 		if (!cal_component_set_icalcomponent (comp, icalcomp)) {
 			g_object_unref (comp);
@@ -695,7 +693,7 @@ local_record_from_uid (EToDoLocalRecord *local,
 
 		local_record_from_comp (local, comp, ctxt);
 		g_object_unref (comp);
-	} else if (status == CAL_CLIENT_GET_NOT_FOUND) {
+	} else if (error->code == E_CALENDAR_STATUS_OBJECT_NOT_FOUND) {
 		comp = cal_component_new ();
 		cal_component_set_new_vtype (comp, CAL_COMPONENT_TODO);
 		cal_component_set_uid (comp, uid);
@@ -705,7 +703,7 @@ local_record_from_uid (EToDoLocalRecord *local,
 		INFO ("Object did not exist");
 	}
 
-
+	g_clear_error (&error);
 }
 
 
@@ -896,7 +894,7 @@ pre_sync (GnomePilotConduit *conduit,
 	}
 
 	/* Get the default component */
-	if (cal_client_get_default_object (ctxt->client, CALOBJ_TYPE_TODO, &icalcomp) != CAL_CLIENT_GET_SUCCESS)
+	if (!cal_client_get_default_object (ctxt->client, CALOBJ_TYPE_TODO, &icalcomp, NULL))
 		return -1;
 
 	ctxt->default_comp = cal_component_new ();

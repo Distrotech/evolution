@@ -148,14 +148,15 @@ gboolean cal_client_get_static_capability (CalClient *client, const char *cap);
 
 gboolean cal_client_set_mode (CalClient *client, CalMode mode);
 
-CalClientGetStatus cal_client_get_default_object (CalClient *client,
-						  CalObjType type,
-						  icalcomponent **icalcomp);
+gboolean cal_client_get_default_object (CalClient *client,
+					CalObjType type,
+					icalcomponent **icalcomp, GError **error);
 
-CalClientGetStatus cal_client_get_object (CalClient *client,
-					  const char *uid,
-					  const char *rid,
-					  icalcomponent **icalcomp);
+gboolean cal_client_get_object (CalClient *client,
+				const char *uid,
+				const char *rid,
+				icalcomponent **icalcomp,
+				GError **error);
 
 GList *cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id);
 

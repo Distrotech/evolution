@@ -171,6 +171,28 @@ cal_backend_sync_send_objects (CalBackendSync *backend, Cal *cal, const char *ca
 }
 
 CalBackendSyncStatus
+cal_backend_sync_get_default_object (CalBackendSync *backend, Cal *cal, CalObjType type, char **object)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+	g_return_val_if_fail (object, GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->get_default_object_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_default_object_sync) (backend, cal, type, object);
+}
+
+CalBackendSyncStatus
+cal_backend_sync_get_object (CalBackendSync *backend, Cal *cal, const char *uid, const char *rid, char **object)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+	g_return_val_if_fail (object, GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->get_object_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_object_sync) (backend, cal, uid, rid, object);
+}
+
+CalBackendSyncStatus
 cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects)
 {
 	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
@@ -337,7 +359,7 @@ _cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, cons
 	
 	status = cal_backend_sync_discard_alarm (CAL_BACKEND_SYNC (backend), cal, uid, auid);
 
-	cal_notify_alarm_discarded (cal, status, uid, auid);
+	cal_notify_alarm_discarded (cal, status);
 }
 
 static void
@@ -360,6 +382,32 @@ _cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj)
 	status = cal_backend_sync_send_objects (CAL_BACKEND_SYNC (backend), cal, calobj);
 
 	cal_notify_objects_sent (cal, status);
+}
+
+static void
+_cal_backend_get_default_object (CalBackend *backend, Cal *cal, CalObjType type)
+{
+	CalBackendSyncStatus status;
+	char *object = NULL;
+
+	status = cal_backend_sync_get_default_object (CAL_BACKEND_SYNC (backend), cal, type, &object);
+
+	cal_notify_default_object (cal, status, object);
+
+	g_free (object);
+}
+
+static void
+_cal_backend_get_object (CalBackend *backend, Cal *cal, const char *uid, const char *rid)
+{
+	CalBackendSyncStatus status;
+	char *object = NULL;
+
+	status = cal_backend_sync_get_object (CAL_BACKEND_SYNC (backend), cal, uid, rid, &object);
+
+	cal_notify_object (cal, status, object);
+	
+	g_free (object);
 }
 
 static void
@@ -457,6 +505,8 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->discard_alarm = _cal_backend_discard_alarm;
 	backend_class->receive_objects = _cal_backend_receive_objects;
 	backend_class->send_objects = _cal_backend_send_objects;
+	backend_class->get_default_object = _cal_backend_get_default_object;
+	backend_class->get_object = _cal_backend_get_object;
 	backend_class->get_object_list = _cal_backend_get_object_list;
 	backend_class->get_timezone = _cal_backend_get_timezone;
 	backend_class->add_timezone = _cal_backend_add_timezone;

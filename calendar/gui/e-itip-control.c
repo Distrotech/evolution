@@ -305,11 +305,9 @@ find_server (GPtrArray *servers, CalComponent *comp)
 	for (i = 0; i < servers->len; i++) {
 		CalClient *client;
 		icalcomponent *icalcomp;
-		CalClientGetStatus status;
 		
 		client = g_ptr_array_index (servers, i);
-		status = cal_client_get_object (client, uid, NULL, &icalcomp);
-		if (status == CAL_CLIENT_GET_SUCCESS) {
+		if (cal_client_get_object (client, uid, NULL, &icalcomp, NULL)) {
 			icalcomponent_free (icalcomp);
 			g_object_ref (client);
 
@@ -1250,7 +1248,7 @@ get_real_item (EItipControl *itip)
 	CalComponent *comp;
 	icalcomponent *icalcomp;
 	CalComponentVType type;
-	CalClientGetStatus status = CAL_CLIENT_GET_NOT_FOUND;
+	gboolean found = FALSE;
 	const char *uid;
 	
 	priv = itip->priv;
@@ -1261,17 +1259,17 @@ get_real_item (EItipControl *itip)
 	switch (type) {
 	case CAL_COMPONENT_EVENT:
 		if (priv->event_client != NULL)
-			status = cal_client_get_object (priv->event_client, uid, NULL, &icalcomp);
+			found = cal_client_get_object (priv->event_client, uid, NULL, &icalcomp, NULL);
 		break;
 	case CAL_COMPONENT_TODO:
 		if (priv->task_client != NULL)
-			status = cal_client_get_object (priv->task_client, uid, NULL, &icalcomp);
+			found = cal_client_get_object (priv->task_client, uid, NULL, &icalcomp, NULL);
 		break;
 	default:
-		status = CAL_CLIENT_GET_NOT_FOUND;
+		found = FALSE;
 	}
 
-	if (status != CAL_CLIENT_GET_SUCCESS)
+	if (!found)
 		return NULL;
 
 	comp = cal_component_new ();

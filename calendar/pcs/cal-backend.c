@@ -85,8 +85,6 @@ static void cal_backend_class_init (CalBackendClass *class);
 static void cal_backend_init (CalBackend *backend);
 static void cal_backend_finalize (GObject *object);
 
-static char *get_object (CalBackend *backend, const char *uid, const char *rid);
-
 static void notify_categories_changed (CalBackend *backend);
 
 #define CLASS(backend) (CAL_BACKEND_CLASS (G_OBJECT_GET_CLASS (backend)))
@@ -245,8 +243,8 @@ cal_backend_class_init (CalBackendClass *class)
 	class->start_query = NULL;
 	class->get_mode = NULL;
 	class->set_mode = NULL;	
-	class->get_object = get_object;
-	class->get_object_component = NULL;
+	class->get_object = NULL;
+	class->get_default_object = NULL;
 	class->get_object_list = NULL;
 	class->get_free_busy = NULL;
 	class->get_changes = NULL;
@@ -607,27 +605,14 @@ cal_backend_set_mode (CalBackend *backend, CalMode mode)
 	(* CLASS (backend)->set_mode) (backend, mode);
 }
 
-/* Default cal_backend_get_object implementation */
-static char *
-get_object (CalBackend *backend, const char *uid, const char *rid)
+void
+cal_backend_get_default_object (CalBackend *backend, Cal *cal, CalObjType type)
 {
-	CalComponent *comp;
-
-	comp = cal_backend_get_object_component (backend, uid, rid);
-	if (!comp)
-		return NULL;
-
-	return cal_component_get_as_string (comp);
-}
-
-char *
-cal_backend_get_default_object (CalBackend *backend, CalObjType type)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_default_object != NULL);
-	return (* CLASS (backend)->get_default_object) (backend, type);
+	(* CLASS (backend)->get_default_object) (backend, cal, type);
 }
 
 /**
@@ -642,84 +627,15 @@ cal_backend_get_default_object (CalBackend *backend, CalObjType type)
  * Return value: The string representation of a complete calendar wrapping the
  * the sought object, or NULL if no object had the specified UID.
  **/
-char *
-cal_backend_get_object (CalBackend *backend, const char *uid, const char *rid)
+void
+cal_backend_get_object (CalBackend *backend, Cal *cal, const char *uid, const char *rid)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (uid != NULL, NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (uid != NULL);
 
 	g_assert (CLASS (backend)->get_object != NULL);
-	return (* CLASS (backend)->get_object) (backend, uid, rid);
-}
-
-/**
- * cal_backend_get_object_component:
- * @backend: A calendar backend.
- * @uid: Unique identifier for a calendar object.
- * @rid: ID for the object's recurrence to get.
- *
- * Queries a calendar backend for a calendar object based on its unique
- * identifier and its recurrence ID (if a recurrent appointment). It
- * returns the CalComponent rather than the string representation.
- *
- * Return value: The CalComponent of the sought object, or NULL if no object
- * had the specified UID.
- **/
-CalComponent *
-cal_backend_get_object_component (CalBackend *backend, const char *uid, const char *rid)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (uid != NULL, NULL);
-
-	g_assert (CLASS (backend)->get_object_component != NULL);
-	return (* CLASS (backend)->get_object_component) (backend, uid, rid);
-}
-
-/**
- * cal_backend_get_type_by_uid
- * @backend: A calendar backend.
- * @uid: Unique identifier for a Calendar object.
- *
- * Returns the type of the object identified by the @uid argument
- */
-CalObjType
-cal_backend_get_type_by_uid (CalBackend *backend, const char *uid)
-{
-	icalcomponent *icalcomp;
-	char *comp_str;
-	CalObjType type = CAL_COMPONENT_NO_TYPE;
-
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_COMPONENT_NO_TYPE);
-	g_return_val_if_fail (uid != NULL, CAL_COMPONENT_NO_TYPE);
-
-	comp_str = cal_backend_get_object (backend, uid, NULL);
-	if (!comp_str)
-		return CAL_COMPONENT_NO_TYPE;
-
-	icalcomp = icalparser_parse_string (comp_str);
-	if (icalcomp) {
-		switch (icalcomponent_isa (icalcomp)) {
-		case ICAL_VEVENT_COMPONENT :
-			type = CALOBJ_TYPE_EVENT;
-			break;
-		case ICAL_VTODO_COMPONENT :
-			type = CALOBJ_TYPE_TODO;
-			break;
-		case ICAL_VJOURNAL_COMPONENT :
-			type = CALOBJ_TYPE_JOURNAL;
-			break;
-		default :
-			type = CAL_COMPONENT_NO_TYPE;
-		}
-
-		icalcomponent_free (icalcomp);
-	}
-
-	g_free (comp_str);
-
-	return type;
+	(* CLASS (backend)->get_object) (backend, cal, uid, rid);
 }
 
 /**

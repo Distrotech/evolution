@@ -1,4 +1,82 @@
-2003-09-25    <jpr@ximian.com>
+2003-09-25  JP Rosevear <jpr@ximian.com>
+
+	* gui/comp-editor-factory.c (edit_existing): convert to api
+	changes
+
+	* conduits/todo/todo-conduit.c (local_record_from_uid): ditto
+	(pre_sync): ditto
+
+	* conduits/calendar/calendar-conduit.c (local_record_from_uid):
+	ditto
+	(pre_sync): ditto
+
+	* importers/icalendar-importer.c (update_single_object): ditto
+
+	* gui/dialogs/comp-editor.c (obj_updated_cb): ditto
+
+	* gui/e-itip-control.c (get_real_item): ditto
+	(find_server): ditto
+
+	* gui/comp-util.c (cal_comp_is_on_server): ditto
+	(cal_comp_event_new_with_defaults): ditto
+	(cal_comp_task_new_with_defaults): ditto
+
+	* cal-client/cal-listener.h: add signals
+
+	* cal-client/cal-listener.c (impl_notifyDefaultObjectRequested):
+	implement
+	(impl_notifyObjectRequested): ditto
+	(cal_listener_class_init): set above epv implementations, add signals
+
+	* cal-client/cal-client.h: update protos
+
+	* cal-client/cal-client.c (cal_default_object_requested_cb): get
+	default object callback
+	(cal_object_requested_cb): get object callback
+	(cal_client_init): listen for get and get default object signals
+	(cal_client_get_default_object): convert to new sync api
+	(cal_client_get_object): ditto
+
+	* pcs/cal.h: add protos
+
+	* pcs/cal.c (impl_Cal_getDefaultObject): just call the backend, it
+	does the notification now
+	(impl_Cal_getObject): ditto
+	(cal_notify_default_object): do getDefaultObject response
+	(cal_notify_object): do getObject response
+
+	* pcs/cal-backend.h: remove vmethods, protos
+
+	* pcs/cal-backend.c: remove a couple of dead functions
+	(cal_backend_class_init): get_object_component is no longer a
+	vmethod
+	(cal_backend_get_default_object): call through
+	(cal_backend_get_object): ditto
+
+	* pcs/cal-backend-sync.h: add protos, vmethods
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_get_default_object):
+	call through
+	(cal_backend_sync_get_object): ditto
+	(_cal_backend_discard_alarm): pass correct params to
+	cal_notify_discard_alarm
+	(_cal_backend_get_default_object): call through and notify
+	(_cal_backend_get_object): ditto
+	(cal_backend_sync_class_init): set backend implementations
+
+	* pcs/cal-backend-file.c (cal_backend_file_get_default_object):
+	convert to sync backend method
+	(cal_backend_file_get_object): ditto
+	(cal_backend_file_compute_changes_foreach_key): just look up the
+	component rather than using the backend vmethod
+	(cal_backend_file_remove_object): return valid sync status codes
+	(cal_backend_file_class_init): move get_object, get_default_object
+	to sync class
+
+	* idl/evolution-calendar.idl: convert getObject and
+	getDefaultObject to new async idl
+
+2003-09-25  JP Rosevear  <jpr@ximian.com>
 
 	* pcs/cal.c (impl_Cal_discardAlarm): just call the backend
 	function, it does the notification

@@ -205,7 +205,6 @@ gboolean
 cal_comp_is_on_server (CalComponent *comp, CalClient *client)
 {
 	const char *uid;
-	CalClientGetStatus status;
 	icalcomponent *icalcomp;
 
 	g_return_val_if_fail (comp != NULL, FALSE);
@@ -221,24 +220,9 @@ cal_comp_is_on_server (CalComponent *comp, CalClient *client)
 	 */
 	cal_component_get_uid (comp, &uid);
 
-	status = cal_client_get_object (client, uid, NULL, &icalcomp);
-
-	switch (status) {
-	case CAL_CLIENT_GET_SUCCESS:
-		icalcomponent_free (icalcomp);
-		return TRUE;
-
-	case CAL_CLIENT_GET_SYNTAX_ERROR:
-		g_message ("confirm_delete_empty_appointment(): Syntax error when getting "
-			   "object `%s'",
-			   uid);
-		return TRUE;
-
-	case CAL_CLIENT_GET_NOT_FOUND:
+	if (!cal_client_get_object (client, uid, NULL, &icalcomp, NULL)) {
+		/* FIXME Better error handling */
 		return FALSE;
-
-	default:
-		g_assert_not_reached ();
 	}
 	
 	return FALSE;
@@ -263,7 +247,7 @@ cal_comp_event_new_with_defaults (CalClient *client)
 	icalproperty *icalprop;
 	CalAlarmTrigger trigger;
 
-	if (cal_client_get_default_object (client, CALOBJ_TYPE_EVENT, &icalcomp) != CAL_CLIENT_GET_SUCCESS)
+	if (!cal_client_get_default_object (client, CALOBJ_TYPE_EVENT, &icalcomp, NULL))
 		return NULL;
 
 	comp = cal_component_new ();
@@ -329,7 +313,7 @@ cal_comp_task_new_with_defaults (CalClient *client)
 	CalComponent *comp;
 	icalcomponent *icalcomp;
 
-	if (cal_client_get_default_object (client, CALOBJ_TYPE_TODO, &icalcomp) != CAL_CLIENT_GET_SUCCESS)
+	if (!cal_client_get_default_object (client, CALOBJ_TYPE_TODO, &icalcomp, NULL))
 		return NULL;
 
 	comp = cal_component_new ();

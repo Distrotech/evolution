@@ -635,6 +635,52 @@ cal_objects_sent_cb (CalListener *listener, ECalendarStatus status, gpointer dat
 }
 
 static void
+cal_default_object_requested_cb (CalListener *listener, ECalendarStatus status, const char *object, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (object);
+	
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_object_requested_cb (CalListener *listener, ECalendarStatus status, const char *object, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (object);
+	
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
 cal_object_list_cb (CalListener *listener, ECalendarStatus status, GList *objects, gpointer data)
 {
 	CalClient *client = data;
@@ -924,6 +970,8 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "discard_alarm", G_CALLBACK (cal_alarm_discarded_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "receive_objects", G_CALLBACK (cal_objects_received_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "send_objects", G_CALLBACK (cal_objects_sent_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "default_object", G_CALLBACK (cal_default_object_requested_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "object", G_CALLBACK (cal_object_requested_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "get_timezone", G_CALLBACK (cal_get_timezone_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "add_timezone", G_CALLBACK (cal_add_timezone_cb), client);
@@ -1940,64 +1988,88 @@ struct _CalClientGetTimezonesData {
 	ECalendarStatus status;
 };
 
-CalClientGetStatus 
-cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent **icalcomp)
+gboolean
+cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent **icalcomp, GError **error)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalObj comp_str;
-	CalClientGetStatus retval;
-	CalClientGetTimezonesData cb_data;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 
-	g_return_val_if_fail (client != NULL, CAL_CLIENT_GET_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_GET_NOT_FOUND);
-	g_return_val_if_fail (icalcomp != NULL, CAL_CLIENT_GET_NOT_FOUND);
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, CAL_CLIENT_GET_NOT_FOUND);
 
+	e_mutex_lock (client->priv->mutex);
 
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
 
-	retval = CAL_CLIENT_GET_NOT_FOUND;
-	*icalcomp = NULL;
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
 
 	CORBA_exception_init (&ev);
-	comp_str = GNOME_Evolution_Calendar_Cal_getDefaultObject (priv->cal, type, &ev);
 
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		goto out;
-	else if (BONOBO_EX (&ev)) {		
-		g_message ("cal_client_get_default_object(): could not get the object");
-		goto out;
+	GNOME_Evolution_Calendar_Cal_getDefaultObject (priv->cal, type, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
-
-	*icalcomp = icalparser_parse_string (comp_str);
-	CORBA_free (comp_str);
-
-	if (!*icalcomp) {
-		retval = CAL_CLIENT_GET_SYNTAX_ERROR;
-		goto out;
-	}
-
-	/* Now make sure we have all timezones needed for this object.
-	   We do this to try to avoid any problems caused by getting a timezone
-	   in the middle of other code. Any calls to ORBit result in a 
-	   recursive call of the GTK+ main loop, which can cause problems for
-	   code that doesn't expect it. Currently GnomeCanvas has problems if
-	   we try to get a timezone in the middle of a redraw, and there is a
-	   resize pending, which leads to an assert failure and an abort. */
-	cb_data.client = client;
-	cb_data.status = E_CALENDAR_STATUS_OK;
-	icalcomponent_foreach_tzid (*icalcomp,
-				    cal_client_get_object_timezones_cb,
-				    &cb_data);
-
-	retval = cb_data.status;
-
- out:
 
 	CORBA_exception_free (&ev);
-	return retval;
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*icalcomp = icalparser_parse_string (our_op->string);
+	g_free (our_op->string);
+
+	if (!*icalcomp) {
+		status = E_CALENDAR_STATUS_INVALID_OBJECT;
+	} else {
+		CalClientGetTimezonesData cb_data;
+		
+		/* Now make sure we have all timezones needed for this object.
+		   We do this to try to avoid any problems caused by getting a timezone
+		   in the middle of other code. Any calls to ORBit result in a 
+		   recursive call of the GTK+ main loop, which can cause problems for
+		   code that doesn't expect it. Currently GnomeCanvas has problems if
+		   we try to get a timezone in the middle of a redraw, and there is a
+		   resize pending, which leads to an assert failure and an abort. */
+		cb_data.client = client;
+		cb_data.status = E_CALENDAR_STATUS_OK;
+		icalcomponent_foreach_tzid (*icalcomp,
+					    cal_client_get_object_timezones_cb,
+					    &cb_data);
+		
+		status = cb_data.status;
+	}
+
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 /**
@@ -2011,69 +2083,89 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
  *
  * Return value: Result code based on the status of the operation.
  **/
-CalClientGetStatus
-cal_client_get_object (CalClient *client, const char *uid, const char *rid, icalcomponent **icalcomp)
+gboolean
+cal_client_get_object (CalClient *client, const char *uid, const char *rid, icalcomponent **icalcomp, GError **error)
 {
+
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalObj comp_str;
-	CalClientGetStatus retval;
-	CalClientGetTimezonesData cb_data;
-	gchar *real_rid;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 
-	g_return_val_if_fail (client != NULL, CAL_CLIENT_GET_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_GET_NOT_FOUND);
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, CAL_CLIENT_GET_NOT_FOUND);
 
-	g_return_val_if_fail (uid != NULL, CAL_CLIENT_GET_NOT_FOUND);
-	g_return_val_if_fail (icalcomp != NULL, CAL_CLIENT_GET_NOT_FOUND);
+	e_mutex_lock (client->priv->mutex);
 
-	retval = CAL_CLIENT_GET_NOT_FOUND;
-	*icalcomp = NULL;
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
 
-	real_rid = g_strdup (rid ? rid : "");
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
 
 	CORBA_exception_init (&ev);
-	comp_str = GNOME_Evolution_Calendar_Cal_getObject (priv->cal, (char *) uid, (char *) real_rid, &ev);
 
-	g_free (real_rid);
+	GNOME_Evolution_Calendar_Cal_getObject (priv->cal, uid, rid ? rid : "", &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
 
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		goto out;
-	else if (BONOBO_EX (&ev)) {		
-		g_message ("cal_client_get_object(): could not get the object");
-		goto out;
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
-
-	*icalcomp = icalparser_parse_string (comp_str);
-	CORBA_free (comp_str);
-
-	if (!*icalcomp) {
-		retval = CAL_CLIENT_GET_SYNTAX_ERROR;
-		goto out;
-	}
-
-	/* Now make sure we have all timezones needed for this object.
-	   We do this to try to avoid any problems caused by getting a timezone
-	   in the middle of other code. Any calls to ORBit result in a 
-	   recursive call of the GLib main loop, which can cause problems for
-	   code that doesn't expect it. Currently GnomeCanvas has problems if
-	   we try to get a timezone in the middle of a redraw, and there is a
-	   resize pending, which leads to an assert failure and an abort. */
-	cb_data.client = client;
-	cb_data.status = E_CALENDAR_STATUS_OK;
-	icalcomponent_foreach_tzid (*icalcomp,
-				    cal_client_get_object_timezones_cb,
-				    &cb_data);
-
-	retval = cb_data.status;
-
- out:
 
 	CORBA_exception_free (&ev);
-	return retval;
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*icalcomp = icalparser_parse_string (our_op->string);
+	g_free (our_op->string);
+
+	if (!*icalcomp) {
+		status = E_CALENDAR_STATUS_INVALID_OBJECT;
+	} else {
+		CalClientGetTimezonesData cb_data;
+		
+		/* Now make sure we have all timezones needed for this object.
+		   We do this to try to avoid any problems caused by getting a timezone
+		   in the middle of other code. Any calls to ORBit result in a 
+		   recursive call of the GTK+ main loop, which can cause problems for
+		   code that doesn't expect it. Currently GnomeCanvas has problems if
+		   we try to get a timezone in the middle of a redraw, and there is a
+		   resize pending, which leads to an assert failure and an abort. */
+		cb_data.client = client;
+		cb_data.status = E_CALENDAR_STATUS_OK;
+		icalcomponent_foreach_tzid (*icalcomp,
+					    cal_client_get_object_timezones_cb,
+					    &cb_data);
+		
+		status = cb_data.status;
+	}
+
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 
@@ -2657,7 +2749,7 @@ cal_client_get_alarms_for_object (CalClient *client, const char *uid,
 
 	*alarms = NULL;
 
-	if (!cal_client_get_object (client, uid, NULL, &icalcomp))
+	if (!cal_client_get_object (client, uid, NULL, &icalcomp, NULL))
 		return FALSE;
 	if (!icalcomp)
 		return FALSE;
