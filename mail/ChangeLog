@@ -1,5 +1,8 @@
 2000-08-08  Peter Williams  <peterw@helixcode.com>
 
+	* mail-threads.c (remove_next_pending): Sanity check for
+	job queue, which seems to have some issues.
+
 	* mail-callbacks.c (fetch_mail): Fix erroneous free.
 
 	* mail-config-gui.c (mail_config_druid): Wrap the gtk_main call.

@@ -909,6 +909,11 @@ remove_next_pending (void)
 	children = g_list_first (children);
 	children = g_list_next (children);
 
+	if (!children) {
+		g_warning ("Mistake in queue window!");
+		return;
+	}
+
 	/* Nuke the one on top */
 	gtk_container_remove (GTK_CONTAINER (queue_window_pending),
 			      GTK_WIDGET (children->data));
