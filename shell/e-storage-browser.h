@@ -56,15 +56,19 @@ struct _EStorageBrowserClass {
 	GObjectClass parent_class;
 
 	void (* widgets_gone) (EStorageBrowser *browser);
+
+	void (* page_switched) (EStorageBrowser *browser,
+				GtkWidget *old_page,
+				GtkWidget *new_page);
 };
 
 
 GType    e_storage_browser_get_type (void);
 
-EStorageBrowser *e_storage_browser_new  (EStorageSet                *storage_set,
-					 const char                 *starting_path,
+EStorageBrowser *e_storage_browser_new  (EStorageSet                       *storage_set,
+					 const char                        *starting_path,
 					 EStorageBrowserCreateViewCallback  create_view_callback,
-					 void                       *create_view_callback_data);
+					 void                              *create_view_callback_data);
 
 GtkWidget   *e_storage_browser_peek_tree_widget  (EStorageBrowser *browser);
 GtkWidget   *e_storage_browser_peek_view_widget  (EStorageBrowser *browser);

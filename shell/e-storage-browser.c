@@ -65,6 +65,7 @@ struct _EStorageBrowserPrivate {
 
 enum {
 	WIDGETS_GONE,
+	PAGE_SWITCHED,
 	NUM_SIGNALS
 };
 
@@ -172,6 +173,16 @@ class_init (EStorageBrowserClass *class)
 				NULL, NULL,
 				e_shell_marshal_NONE__NONE,
 				G_TYPE_NONE, 0);
+
+	signals[PAGE_SWITCHED]
+		= g_signal_new ("page_switched",
+				G_OBJECT_CLASS_TYPE (object_class),
+				G_SIGNAL_RUN_LAST,
+				G_STRUCT_OFFSET (EStorageBrowserClass, page_switched),
+				NULL, NULL,
+				e_shell_marshal_NONE__POINTER_POINTER,
+				G_TYPE_NONE, 2,
+				G_TYPE_POINTER, G_TYPE_POINTER);
 }
 
 static void
@@ -249,19 +260,25 @@ e_storage_browser_peek_storage_set (EStorageBrowser *browser)
 }
 
 gboolean
-e_storage_browser_show_path  (EStorageBrowser   *browser,
+e_storage_browser_show_path  (EStorageBrowser *browser,
 			      const char *path)
 {
 	EStorageBrowserPrivate *priv = browser->priv;
+	GtkWidget *current_view;
 	GtkWidget *existing_view;
 	GtkWidget *new_view;
 	GtkNotebook *notebook;
 
 	notebook = GTK_NOTEBOOK (priv->view_notebook);
 
+	current_view = gtk_notebook_get_nth_page (GTK_NOTEBOOK (priv->view_notebook),
+						  gtk_notebook_get_current_page (GTK_NOTEBOOK (priv->view_notebook)));
+
 	existing_view = g_hash_table_lookup (priv->path_to_view, path);
 	if (existing_view != NULL) {
 		gtk_notebook_set_current_page (notebook, gtk_notebook_page_num (notebook, existing_view));
+		g_print ("page switched\n");
+		g_signal_emit (browser, signals[PAGE_SWITCHED], 0, current_view, existing_view);
 		return TRUE;
 	}
 
@@ -272,6 +289,9 @@ e_storage_browser_show_path  (EStorageBrowser   *browser,
 	gtk_widget_show (new_view);
 	gtk_notebook_append_page (notebook, new_view, NULL);
 	gtk_notebook_set_current_page (notebook, gtk_notebook_page_num (notebook, new_view));
+
+	g_print ("page switched\n");
+	g_signal_emit (browser, signals[PAGE_SWITCHED], 0, current_view, new_view);
 
 	g_hash_table_insert (priv->path_to_view, g_strdup (path), new_view);
 

@@ -1,5 +1,12 @@
 2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-storage-browser.c (class_init): Set up "page_switched" signal.
+	(e_storage_browser_show_path): Emit "page_switched".
+
+	* e-storage-browser.h: New signal "page_switched".
+
+2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
+
 	* e-shell-window.c: Removed member ui_container from
 	EShellWindowPrivate.
 	(e_shell_window_peek_shell): New.
