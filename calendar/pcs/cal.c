@@ -1104,7 +1104,7 @@ cal_notify_timezone_requested (Cal *cal, GNOME_Evolution_Calendar_CallStatus sta
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyTimezoneRequested (priv->listener, status, object, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyTimezoneRequested (priv->listener, status, object ? object : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_warning (G_STRLOC ": could not notify the listener of timezone requested");

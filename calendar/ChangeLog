@@ -1,5 +1,8 @@
 2003-10-14  Rodrigo Moya <rodrigo@ximian.com>
 
+	* pcs/cal.c (cal_notify_timezone_requested): never send NULL
+	strings to ORBit.
+
 	* gui/e-cal-view.c (e_cal_view_create_popup_menu): removed
 	unneeded variables. Also, fixed a typo that was making the
 	menu options be disabled when they should be enabled.
