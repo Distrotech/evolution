@@ -1,3 +1,17 @@
+2003-08-22  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-book.[ch]: switch from using the PASRequest
+	union and a central PASBackend dispatch function.  just call the
+	pas_backend methods directly and expand the args out.
+
+	* backend/pas/pas-backend.[ch]: same.
+	
+	* backend/pas/pas-backend-sync.[ch]: same.
+
+	* backend/pas/pas-backend-vcf.c, backend/pas/pas-backend-file.c,
+	backend/pas/pas-backend-ldap.c: same, and get these all compiling
+	against the rest of the current pas/ebook code.	
+
 2003-08-21  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/test-ebook.c: track GError case.

@@ -76,11 +76,10 @@ pas_backend_get_uri (PASBackend *backend)
 void
 pas_backend_open (PASBackend *backend,
 		  PASBook    *book,
-		  PASOpenRequest *req)
+		  gboolean    only_if_exists)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req);
 
 	g_mutex_lock (backend->priv->open_mutex);
 
@@ -91,7 +90,7 @@ pas_backend_open (PASBackend *backend,
 		pas_book_report_writable (book, backend->priv->writable);
 	} else {
 		pas_book_respond_open (
-		       book, pas_backend_load_uri (backend, pas_book_get_uri (book), req->only_if_exists));
+		       book, pas_backend_load_uri (backend, pas_book_get_uri (book), only_if_exists));
 	}
 
 	g_mutex_unlock (backend->priv->open_mutex);
@@ -100,71 +99,71 @@ pas_backend_open (PASBackend *backend,
 void
 pas_backend_create_card (PASBackend *backend,
 			 PASBook    *book,
-			 PASCreateCardRequest *req)
+			 const char *vcard)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->vcard);
+	g_return_if_fail (vcard);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->create_card);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->create_card) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->create_card) (backend, book, vcard);
 }
 
 void
 pas_backend_remove_cards (PASBackend *backend,
 			  PASBook *book,
-			  PASRemoveCardsRequest *req)
+			  GList *id_list)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->ids);
+	g_return_if_fail (id_list);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->remove_cards);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->remove_cards) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->remove_cards) (backend, book, id_list);
 }
 
 void
 pas_backend_modify_card (PASBackend *backend,
 			 PASBook *book,
-			 PASModifyCardRequest *req)
+			 const char *vcard)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->vcard);
+	g_return_if_fail (vcard);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->modify_card);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->modify_card) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->modify_card) (backend, book, vcard);
 }
 
 void
 pas_backend_get_vcard (PASBackend *backend,
 		       PASBook *book,
-		       PASGetVCardRequest *req)
+		       const char *id)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->id);
+	g_return_if_fail (id);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_vcard);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_vcard) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_vcard) (backend, book, id);
 }
 
 void
 pas_backend_get_card_list (PASBackend *backend,
 			   PASBook *book,
-			   PASGetCardListRequest *req)
+			   const char *query)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->query);
+	g_return_if_fail (query);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_card_list);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_card_list) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_card_list) (backend, book, query);
 }
 
 void
@@ -182,120 +181,68 @@ pas_backend_start_book_view (PASBackend *backend,
 void
 pas_backend_get_changes (PASBackend *backend,
 			 PASBook *book,
-			 PASGetChangesRequest *req)
+			 const char *change_id)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
+	g_return_if_fail (change_id);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_changes);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_changes) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_changes) (backend, book, change_id);
 }
 
 void
 pas_backend_authenticate_user (PASBackend *backend,
 			       PASBook *book,
-			       PASAuthenticateUserRequest *req)
+			       const char *user,
+			       const char *passwd,
+			       const char *auth_method)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req);
+	g_return_if_fail (user && passwd && auth_method);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->authenticate_user);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->authenticate_user) (backend, book, user, passwd, auth_method);
 }
 
 void
 pas_backend_get_supported_fields (PASBackend *backend,
-				  PASBook *book,
-				  PASGetSupportedFieldsRequest *req)
+				  PASBook *book)
+
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_supported_fields);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_supported_fields) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_supported_fields) (backend, book);
 }
 
 void
 pas_backend_get_supported_auth_methods (PASBackend *backend,
-					PASBook *book,
-					PASGetSupportedAuthMethodsRequest *req)
+					PASBook *book)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_supported_auth_methods);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_supported_auth_methods) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_supported_auth_methods) (backend, book);
 }
 
 GNOME_Evolution_Addressbook_CallStatus
 pas_backend_cancel_operation (PASBackend *backend,
-			      PASBook *book,
-			      PASCancelOperationRequest *req)
+			      PASBook *book)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->cancel_operation);
 
-	return (* PAS_BACKEND_GET_CLASS (backend)->cancel_operation) (backend, book, req);
-}
-
-void
-pas_backend_handle_request (PASBackend *backend, PASBook *book, PASRequest *req)
-{
-	switch (req->op) {
-	case Open:
-		pas_backend_open (backend, book, &req->open);
-		break;
-
-	case CreateCard:
-		pas_backend_create_card (backend, book, &req->create);
-		break;
-
-	case RemoveCards:
-		pas_backend_remove_cards (backend, book, &req->remove);
-		break;
-
-	case ModifyCard:
-		pas_backend_modify_card (backend, book, &req->modify);
-		break;
-
-	case GetVCard:
-		pas_backend_get_vcard (backend, book, &req->get_vcard);
-		break;
-
-	case GetCardList:
-		pas_backend_get_card_list (backend, book, &req->get_card_list);
-		break;
-
-	case GetChanges:
-		pas_backend_get_changes (backend, book, &req->get_changes);
-		break;
-
-	case AuthenticateUser:
-		pas_backend_authenticate_user (backend, book, &req->auth_user);
-		break;
-
-	case GetSupportedFields:
-		pas_backend_get_supported_fields (backend, book, &req->get_supported_fields);
-		break;
-
-	case GetSupportedAuthMethods:
-		pas_backend_get_supported_auth_methods (backend, book, &req->get_supported_auth_methods);
-		break;
-
-	case CancelOperation:
-		pas_backend_cancel_operation (backend, book, &req->cancel_operation);
-		break;
-	}
+	return (* PAS_BACKEND_GET_CLASS (backend)->cancel_operation) (backend, book);
 }
 
 static void

@@ -276,13 +276,13 @@ do_create(PASBackendVCF  *bvcf,
 static PASBackendSyncStatus
 pas_backend_vcf_process_create_card (PASBackendSync *backend,
 				     PASBook    *book,
-				     PASCreateCardRequest *req,
+				     const char *vcard,
 				     char **id_out)
 {
 	char *id;
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 
-	id = do_create(bvcf, req->vcard, TRUE);
+	id = do_create(bvcf, vcard, TRUE);
 	if (id) {
 		*id_out = id;
 		return GNOME_Evolution_Addressbook_Success;
@@ -298,12 +298,12 @@ pas_backend_vcf_process_create_card (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_vcf_process_remove_cards (PASBackendSync *backend,
 				      PASBook    *book,
-				      PASRemoveCardsRequest *req,
+				      GList *id_list,
 				      GList **ids)
 {
 	/* FIXME: make this handle bulk deletes like the file backend does */
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
-	char *id = req->ids->data;
+	char *id = id_list->data;
 
 	if (!g_hash_table_remove (bvcf->priv->contacts, id)) {
 		return GNOME_Evolution_Addressbook_CardNotFound;
@@ -323,7 +323,7 @@ pas_backend_vcf_process_remove_cards (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 				     PASBook    *book,
-				     PASModifyCardRequest *req,
+				     const char *vcard,
 				     char **old_vcard)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
@@ -332,7 +332,7 @@ pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 	char          *id;
 
 	/* create a new ecard from the request data */
-	contact = e_contact_new_from_vcard (req->vcard);
+	contact = e_contact_new_from_vcard (vcard);
 	id = e_contact_get (contact, E_CONTACT_UID);
 
 	g_object_unref (contact);
@@ -345,7 +345,7 @@ pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 		*old_vcard = g_strdup (old_vcard_string);
 
 		g_hash_table_remove (bvcf->priv->contacts, id);
-		g_hash_table_insert (bvcf->priv->contacts, id, g_strdup (req->vcard));
+		g_hash_table_insert (bvcf->priv->contacts, id, g_strdup (vcard));
 
 		g_free (old_vcard_string);
 
@@ -356,13 +356,13 @@ pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_vcf_process_get_vcard (PASBackendSync *backend,
 				   PASBook    *book,
-				   PASGetVCardRequest *req,
+				   const char *id,
 				   char **vcard)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	char *v;
 
-	v = g_hash_table_lookup (bvcf->priv->contacts, req->id);
+	v = g_hash_table_lookup (bvcf->priv->contacts, id);
 
 	if (v) {
 		*vcard = g_strdup (v);
@@ -392,11 +392,11 @@ foreach_get_card_compare (char *id, char *vcard_string, GetCardListClosure *clos
 static PASBackendSyncStatus
 pas_backend_vcf_process_get_card_list (PASBackendSync *backend,
 				       PASBook    *book,
-				       PASGetCardListRequest *req,
+				       const char *query,
 				       GList **cards)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
-	const char *search = req->query;
+	const char *search = query;
 	GetCardListClosure closure;
 
 	closure.bvcf = bvcf;
@@ -429,8 +429,10 @@ pas_backend_vcf_extract_path_from_uri (const char *uri)
 
 static PASBackendSyncStatus
 pas_backend_vcf_process_authenticate_user (PASBackendSync *backend,
-					    PASBook    *book,
-					    PASAuthenticateUserRequest *req)
+					   PASBook    *book,
+					   const char *user,
+					   const char *passwd,
+					   const char *auth_method)
 {
 	return GNOME_Evolution_Addressbook_Success;
 }
@@ -438,7 +440,6 @@ pas_backend_vcf_process_authenticate_user (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_vcf_process_get_supported_fields (PASBackendSync *backend,
 					      PASBook    *book,
-					      PASGetSupportedFieldsRequest *req,
 					      GList **fields_out)
 {
 	GList *fields = NULL;
@@ -528,7 +529,7 @@ pas_backend_vcf_get_static_capabilities (PASBackend *backend)
 }
 
 static GNOME_Evolution_Addressbook_CallStatus
-pas_backend_vcf_cancel_operation (PASBackend *backend, PASBook *book, PASCancelOperationRequest *req)
+pas_backend_vcf_cancel_operation (PASBackend *backend, PASBook *book)
 {
 	return GNOME_Evolution_Addressbook_CouldNotCancel;
 }

@@ -31,24 +31,24 @@ struct _PASBackendSyncClass {
 
 	/* Virtual methods */
 	PASBackendSyncStatus (*create_card_sync)  (PASBackendSync *backend, PASBook *book,
-						   PASCreateCardRequest *req, char **id);
+						   const char *vcard, char **id);
 	PASBackendSyncStatus (*remove_cards_sync) (PASBackendSync *backend, PASBook *book,
-						   PASRemoveCardsRequest *req, GList **ids);
+						   GList *id_list, GList **removed_ids);
 	PASBackendSyncStatus (*modify_card_sync)  (PASBackendSync *backend, PASBook *book,
-						   PASModifyCardRequest *req, char **old_vcard);
+						   const char *vcard, char **old_vcard);
 	PASBackendSyncStatus (*get_vcard_sync) (PASBackendSync *backend, PASBook *book,
-						PASGetVCardRequest *req, char **vcard);
+						const char *id, char **vcard);
 	PASBackendSyncStatus (*get_card_list_sync) (PASBackendSync *backend, PASBook *book,
-						    PASGetCardListRequest *req, GList **cards);
+						    const char *query, GList **cards);
 	PASBackendSyncStatus (*get_changes_sync) (PASBackendSync *backend, PASBook *book,
-						  PASGetChangesRequest *req, GList **changes);
+						  const char *change_id, GList **changes);
 	PASBackendSyncStatus (*authenticate_user_sync) (PASBackendSync *backend, PASBook *book,
-							PASAuthenticateUserRequest *req);
+							const char *user,
+							const char *passwd,
+							const char *auth_method);
 	PASBackendSyncStatus (*get_supported_fields_sync) (PASBackendSync *backend, PASBook *book,
-							   PASGetSupportedFieldsRequest *req,
 							   GList **fields);
 	PASBackendSyncStatus (*get_supported_auth_methods_sync) (PASBackendSync *backend, PASBook *book,
-								 PASGetSupportedAuthMethodsRequest *req,
 								 GList **methods);
 
 	/* Padding for future expansion */
@@ -66,14 +66,14 @@ gboolean    pas_backend_sync_construct                (PASBackendSync           
 
 GType       pas_backend_sync_get_type                 (void);
 
-PASBackendSyncStatus pas_backend_sync_create_card  (PASBackendSync *backend, PASBook *book, PASCreateCardRequest *req, char **id);
-PASBackendSyncStatus pas_backend_sync_remove_cards (PASBackendSync *backend, PASBook *book, PASRemoveCardsRequest *req, GList **ids);
-PASBackendSyncStatus pas_backend_sync_modify_card  (PASBackendSync *backend, PASBook *book, PASModifyCardRequest *req, char **old_vcard);
-PASBackendSyncStatus pas_backend_sync_get_vcard (PASBackendSync *backend, PASBook *book, PASGetVCardRequest *req, char **vcard);
-PASBackendSyncStatus pas_backend_sync_get_card_list (PASBackendSync *backend, PASBook *book, PASGetCardListRequest *req, GList **cards);
-PASBackendSyncStatus pas_backend_sync_get_changes (PASBackendSync *backend, PASBook *book, PASGetChangesRequest *req, GList **changes);
-PASBackendSyncStatus pas_backend_sync_authenticate_user (PASBackendSync *backend, PASBook *book, PASAuthenticateUserRequest *req);
-PASBackendSyncStatus pas_backend_sync_get_supported_fields (PASBackendSync *backend, PASBook *book, PASGetSupportedFieldsRequest *req, GList **fields);
-PASBackendSyncStatus pas_backend_sync_get_supported_auth_methods (PASBackendSync *backend, PASBook *book, PASGetSupportedAuthMethodsRequest *req, GList **methods);
+PASBackendSyncStatus pas_backend_sync_create_card  (PASBackendSync *backend, PASBook *book, const char *vcard, char **id);
+PASBackendSyncStatus pas_backend_sync_remove_cards (PASBackendSync *backend, PASBook *book, GList *id_list, GList **removed_ids);
+PASBackendSyncStatus pas_backend_sync_modify_card  (PASBackendSync *backend, PASBook *book, const char *vcard, char **old_vcard);
+PASBackendSyncStatus pas_backend_sync_get_vcard (PASBackendSync *backend, PASBook *book, const char *id, char **vcard);
+PASBackendSyncStatus pas_backend_sync_get_card_list (PASBackendSync *backend, PASBook *book, const char *query, GList **cards);
+PASBackendSyncStatus pas_backend_sync_get_changes (PASBackendSync *backend, PASBook *book, const char *change_id, GList **changes);
+PASBackendSyncStatus pas_backend_sync_authenticate_user (PASBackendSync *backend, PASBook *book, const char *user, const char *passwd, const char *auth_method);
+PASBackendSyncStatus pas_backend_sync_get_supported_fields (PASBackendSync *backend, PASBook *book, GList **fields);
+PASBackendSyncStatus pas_backend_sync_get_supported_auth_methods (PASBackendSync *backend, PASBook *book, GList **methods);
 
 #endif /* ! __PAS_BACKEND_SYNC_H__ */

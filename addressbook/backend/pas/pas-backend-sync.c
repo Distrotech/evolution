@@ -25,155 +25,154 @@ pas_backend_sync_construct (PASBackendSync *backend)
 PASBackendSyncStatus
 pas_backend_sync_create_card (PASBackendSync *backend,
 			      PASBook    *book,
-			      PASCreateCardRequest *req,
+			      const char *vcard,
 			      char **id)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->vcard, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (id, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->create_card_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->create_card_sync) (backend, book, req, id);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->create_card_sync) (backend, book, vcard, id);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_remove_cards (PASBackendSync *backend,
 			       PASBook *book,
-			       PASRemoveCardsRequest *req,
-			       GList **ids)
+			       GList *id_list,
+			       GList **removed_ids)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->ids, GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (ids, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (id_list, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (removed_ids, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync) (backend, book, req, ids);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync) (backend, book, id_list, removed_ids);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_modify_card (PASBackendSync *backend,
 			      PASBook *book,
-			      PASModifyCardRequest *req,
+			      const char *vcard,
 			      char **old_vcard)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->vcard, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (old_vcard, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync) (backend, book, req, old_vcard);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync) (backend, book, vcard, old_vcard);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_get_vcard (PASBackendSync *backend,
 			    PASBook *book,
-			    PASGetVCardRequest *req,
+			    const char *id,
 			    char **vcard)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->id, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (id, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_vcard_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_vcard_sync) (backend, book, req, vcard);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_vcard_sync) (backend, book, id, vcard);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_get_card_list (PASBackendSync *backend,
 				PASBook *book,
-				PASGetCardListRequest *req,
+				const char *query,
 				GList **cards)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->query, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (query, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (cards, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_card_list_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_card_list_sync) (backend, book, req, cards);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_card_list_sync) (backend, book, query, cards);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_get_changes (PASBackendSync *backend,
 			      PASBook *book,
-			      PASGetChangesRequest *req,
+			      const char *change_id,
 			      GList **changes)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (change_id, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (changes, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync) (backend, book, req, changes);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync) (backend, book, change_id, changes);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_authenticate_user (PASBackendSync *backend,
 				    PASBook *book,
-				    PASAuthenticateUserRequest *req)
+				    const char *user,
+				    const char *passwd,
+				    const char *auth_method)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (user && passwd && auth_method, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync) (backend, book, req);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->authenticate_user_sync) (backend, book, user, passwd, auth_method);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_get_supported_fields (PASBackendSync *backend,
 				       PASBook *book,
-				       PASGetSupportedFieldsRequest *req,
 				       GList **fields)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (fields, GNOME_Evolution_Addressbook_OtherError);
 	
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_fields_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_fields_sync) (backend, book, req, fields);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_fields_sync) (backend, book, fields);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_get_supported_auth_methods (PASBackendSync *backend,
 					     PASBook *book,
-					     PASGetSupportedAuthMethodsRequest *req,
 					     GList **methods)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (methods, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_auth_methods_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_auth_methods_sync) (backend, book, req, methods);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_auth_methods_sync) (backend, book, methods);
 }
 
 static void
 _pas_backend_create_card (PASBackend *backend,
 			  PASBook    *book,
-			  PASCreateCardRequest *req)
+			  const char *vcard)
 {
 	PASBackendSyncStatus status;
 	char *id;
 
-	status = pas_backend_sync_create_card (PAS_BACKEND_SYNC (backend), book, req, &id);
+	status = pas_backend_sync_create_card (PAS_BACKEND_SYNC (backend), book, vcard, &id);
 
-	pas_book_respond_create (book, status, id, req->vcard);
+	pas_book_respond_create (book, status, id, vcard);
 
 	g_free (id);
 }
@@ -181,12 +180,12 @@ _pas_backend_create_card (PASBackend *backend,
 static void
 _pas_backend_remove_cards (PASBackend *backend,
 			   PASBook    *book,
-			   PASRemoveCardsRequest *req)
+			   GList      *id_list)
 {
 	PASBackendSyncStatus status;
 	GList *ids = NULL;
 
-	status = pas_backend_sync_remove_cards (PAS_BACKEND_SYNC (backend), book, req, &ids);
+	status = pas_backend_sync_remove_cards (PAS_BACKEND_SYNC (backend), book, id_list, &ids);
 
 	pas_book_respond_remove (book, status, ids);
 }
@@ -194,25 +193,25 @@ _pas_backend_remove_cards (PASBackend *backend,
 static void
 _pas_backend_modify_card (PASBackend *backend,
 			  PASBook    *book,
-			  PASModifyCardRequest *req)
+			  const char *vcard)
 {
 	PASBackendSyncStatus status;
 	char *old_vcard;
 
-	status = pas_backend_sync_modify_card (PAS_BACKEND_SYNC (backend), book, req, &old_vcard);
+	status = pas_backend_sync_modify_card (PAS_BACKEND_SYNC (backend), book, vcard, &old_vcard);
 
-	pas_book_respond_modify (book, status, old_vcard, req->vcard);
+	pas_book_respond_modify (book, status, old_vcard, vcard);
 }
 
 static void
 _pas_backend_get_vcard (PASBackend *backend,
 			PASBook    *book,
-			PASGetVCardRequest *req)
+			const char *id)
 {
 	PASBackendSyncStatus status;
 	char *vcard;
 
-	status = pas_backend_sync_get_vcard (PAS_BACKEND_SYNC (backend), book, req, &vcard);
+	status = pas_backend_sync_get_vcard (PAS_BACKEND_SYNC (backend), book, id, &vcard);
 
 	pas_book_respond_get_vcard (book, status, vcard);
 
@@ -222,12 +221,12 @@ _pas_backend_get_vcard (PASBackend *backend,
 static void
 _pas_backend_get_card_list (PASBackend *backend,
 			    PASBook    *book,
-			    PASGetCardListRequest *req)
+			    const char *query)
 {
 	PASBackendSyncStatus status;
 	GList *cards = NULL;
 
-	status = pas_backend_sync_get_card_list (PAS_BACKEND_SYNC (backend), book, req, &cards);
+	status = pas_backend_sync_get_card_list (PAS_BACKEND_SYNC (backend), book, query, &cards);
 
 	pas_book_respond_get_card_list (book, status, cards);
 }
@@ -235,12 +234,12 @@ _pas_backend_get_card_list (PASBackend *backend,
 static void
 _pas_backend_get_changes (PASBackend *backend,
 			  PASBook    *book,
-			  PASGetChangesRequest *req)
+			  const char *change_id)
 {
 	PASBackendSyncStatus status;
 	GList *changes = NULL;
 
-	status = pas_backend_sync_get_changes (PAS_BACKEND_SYNC (backend), book, req, &changes);
+	status = pas_backend_sync_get_changes (PAS_BACKEND_SYNC (backend), book, change_id, &changes);
 
 	pas_book_respond_get_changes (book, status, changes);
 
@@ -250,24 +249,25 @@ _pas_backend_get_changes (PASBackend *backend,
 static void
 _pas_backend_authenticate_user (PASBackend *backend,
 				PASBook    *book,
-				PASAuthenticateUserRequest *req)
+				const char *user,
+				const char *passwd,
+				const char *auth_method)
 {
 	PASBackendSyncStatus status;
 
-	status = pas_backend_sync_authenticate_user (PAS_BACKEND_SYNC (backend), book, req);
+	status = pas_backend_sync_authenticate_user (PAS_BACKEND_SYNC (backend), book, user, passwd, auth_method);
 
 	pas_book_respond_authenticate_user (book, status);
 }
 
 static void
 _pas_backend_get_supported_fields (PASBackend *backend,
-				   PASBook    *book,
-				   PASGetSupportedFieldsRequest *req)
+				   PASBook    *book)
 {
 	PASBackendSyncStatus status;
 	GList *fields = NULL;
 
-	status = pas_backend_sync_get_supported_fields (PAS_BACKEND_SYNC (backend), book, req, &fields);
+	status = pas_backend_sync_get_supported_fields (PAS_BACKEND_SYNC (backend), book, &fields);
 
 	pas_book_respond_get_supported_fields (book, status, fields);
 
@@ -277,13 +277,12 @@ _pas_backend_get_supported_fields (PASBackend *backend,
 
 static void
 _pas_backend_get_supported_auth_methods (PASBackend *backend,
-					 PASBook    *book,
-					 PASGetSupportedAuthMethodsRequest *req)
+					 PASBook    *book)
 {
 	PASBackendSyncStatus status;
 	GList *methods = NULL;
 
-	status = pas_backend_sync_get_supported_auth_methods (PAS_BACKEND_SYNC (backend), book, req, &methods);
+	status = pas_backend_sync_get_supported_auth_methods (PAS_BACKEND_SYNC (backend), book, &methods);
 
 	pas_book_respond_get_supported_auth_methods (book, status, methods);
 

@@ -30,14 +30,10 @@ impl_GNOME_Evolution_Addressbook_Book_open (PortableServer_Servant servant,
 					    CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
 	printf ("impl_GNOME_Evolution_Addressbook_Book_open\n");
 
-	req.op                  = Open;
-	req.open.only_if_exists = only_if_exists;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_open (pas_book_get_backend (book), book, only_if_exists);
 }
 
 static void
@@ -46,14 +42,10 @@ impl_GNOME_Evolution_Addressbook_Book_getVCard (PortableServer_Servant servant,
 						CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
 	printf ("impl_GNOME_Evolution_Addressbook_Book_getVCard\n");
 
-	req.op              = GetVCard;
-	req.get_vcard.id    = id;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_get_vcard (pas_book_get_backend (book), book, id);
 }
 
 static void
@@ -62,14 +54,10 @@ impl_GNOME_Evolution_Addressbook_Book_getCardList (PortableServer_Servant servan
 						   CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
 	printf ("impl_GNOME_Evolution_Addressbook_Book_getCardList\n");
 
-	req.op                  = GetCardList;
-	req.get_card_list.query = g_strdup (query);
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_get_card_list (pas_book_get_backend (book), book, query);
 }
 
 static void
@@ -80,14 +68,9 @@ impl_GNOME_Evolution_Addressbook_Book_authenticateUser (PortableServer_Servant s
 							CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op                    = AuthenticateUser;
-	req.auth_user.user        = user;
-	req.auth_user.passwd      = passwd;
-	req.auth_user.auth_method = auth_method;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_authenticate_user (pas_book_get_backend (book), book,
+				       user, passwd, auth_method);
 }
 
 static void
@@ -96,12 +79,8 @@ impl_GNOME_Evolution_Addressbook_Book_addCard (PortableServer_Servant servant,
 					       CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op           = CreateCard;
-	req.create.vcard = vcard;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_create_card (pas_book_get_backend (book), book, vcard);
 }
 
 static void
@@ -110,19 +89,15 @@ impl_GNOME_Evolution_Addressbook_Book_removeCards (PortableServer_Servant servan
 						   CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 	int i;
+	GList *id_list = NULL;
 	
-	req.op           = RemoveCards;
-	req.remove.ids   = NULL;
+	for (i = 0; i < ids->_length; i ++)
+		id_list = g_list_append (id_list, ids->_buffer[i]);
 
-	for (i = 0; i < ids->_length; i ++) {
-		req.remove.ids = g_list_append (req.remove.ids, ids->_buffer[i]);
-	}
+	pas_backend_remove_cards (pas_book_get_backend (book), book, id_list);
 
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
-
-	g_list_free (req.remove.ids);
+	g_list_free (id_list);
 }
 
 static void
@@ -131,12 +106,8 @@ impl_GNOME_Evolution_Addressbook_Book_modifyCard (PortableServer_Servant servant
 						  CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op           = ModifyCard;
-	req.modify.vcard = vcard;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_modify_card (pas_book_get_backend (book), book, vcard);
 }
 
 static void
@@ -188,12 +159,8 @@ impl_GNOME_Evolution_Addressbook_Book_getChanges (PortableServer_Servant servant
 				 CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op                    = GetChanges;
-	req.get_changes.change_id = change_id;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_get_changes (pas_book_get_backend (book), book, change_id);
 }
 
 static char *
@@ -215,11 +182,8 @@ impl_GNOME_Evolution_Addressbook_Book_getSupportedFields (PortableServer_Servant
 							  CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op                         = GetSupportedFields;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_get_supported_fields (pas_book_get_backend (book), book);
 }
 
 static void
@@ -227,11 +191,8 @@ impl_GNOME_Evolution_Addressbook_Book_getSupportedAuthMethods (PortableServer_Se
 							       CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op                               = GetSupportedAuthMethods;
-
-	pas_backend_handle_request (pas_book_get_backend (book), book, &req);
+	pas_backend_get_supported_auth_methods (pas_book_get_backend (book), book);
 }
 
 static GNOME_Evolution_Addressbook_CallStatus
@@ -239,11 +200,8 @@ impl_GNOME_Evolution_Addressbook_Book_cancelOperation (PortableServer_Servant se
 						       CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
-	PASRequest req;
 
-	req.op                               = CancelOperation;
-
-	return pas_backend_cancel_operation (pas_book_get_backend (book), book, &req.cancel_operation);
+	return pas_backend_cancel_operation (pas_book_get_backend (book), book);
 }
 
 /**
