@@ -65,8 +65,7 @@ static guint termination_handler_id;
 static gboolean
 termination_handler (gpointer data)
 {
-	if (
-//	    cal_factory_get_n_backends (cal_factory) == 0 &&
+	if (cal_factory_get_n_backends (cal_factory) == 0 &&
 	    pas_book_factory_get_n_backends (pas_book_factory) == 0) {
 		fprintf (stderr, "termination_handler(): Terminating the Wombat.  Have a nice day.\n");
 		bonobo_main_quit ();
