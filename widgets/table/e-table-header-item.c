@@ -821,7 +821,7 @@ ethi_draw (GnomeCanvasItem *item, GdkDrawable *drawable, int x, int y, int width
 		if (x2 < x)
 			continue;
 		
-		gc = GTK_WIDGET (canvas)->style->bg_gc [GTK_STATE_ACTIVE];
+		gc = GTK_WIDGET (canvas)->style->bg_gc [GTK_STATE_NORMAL];
 
 		draw_button (ethi, ecol, drawable, gc,
 			     GTK_WIDGET (canvas)->style,
@@ -1236,8 +1236,11 @@ ethi_event (GnomeCanvasItem *item, GdkEvent *e)
 		break;
 		
 	case GDK_BUTTON_PRESS:
-		convert (canvas, e->button.x, e->button.y, &x, &y);
+		if (e->button.button > 3)
+			return FALSE;
 
+		convert (canvas, e->button.x, e->button.y, &x, &y);
+		    
 		if (is_pointer_on_division (ethi, x, &start, &col) && e->button.button == 1){
 			ETableCol *ecol;
 				
