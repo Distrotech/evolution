@@ -1,0 +1,7 @@
+.deps
+Makefile
+Makefile.in
+Messenger-common.c
+Messenger-skels.c
+Messenger-stubs.c
+Messenger.h
