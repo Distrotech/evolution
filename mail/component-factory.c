@@ -115,6 +115,7 @@ owner_set_cb (EvolutionShellComponent *shell_component,
 static void
 owner_unset_cb (EvolutionShellComponent *shell_component, gpointer user_data)
 {
+	mail_operation_wait_for_finish ();
 	gtk_main_quit ();
 }
 

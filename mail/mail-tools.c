@@ -29,6 +29,11 @@
 #include "camel/camel.h"
 #include "camel/providers/vee/camel-vee-folder.h"
 #include "e-util/e-setup.h"
+#include "mail-vfolder.h"
+#include "filter/vfolder-rule.h"
+#include "filter/vfolder-context.h"
+#include "filter/filter-option.h"
+#include "filter/filter-input.h"
 #include "filter/filter-driver.h"
 #include "mail.h" /*session*/
 #include "mail-tools.h"
@@ -143,6 +148,7 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 	gchar *dest_path;
 	int tmpfd;
 	const gchar *source;
+	CamelFolder *ret;
 
 	g_return_val_if_fail (strncmp (source_url, "mbox:", 5) == 0, NULL);
 
@@ -153,6 +159,7 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 
 	/* Create a new movemail mailbox file of 0 size */
 
+#ifndef MOVEMAIL_PATH
 	tmpfd = open (dest_path, O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);
 
 	if (tmpfd == -1) {
@@ -165,6 +172,7 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 	}
 
 	close (tmpfd);
+#endif
 
 	/* Skip over "mbox:" plus host part (if any) of url. */
 
@@ -185,11 +193,11 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 		return NULL;
 	}
 
-	g_free (dest_path);
-
 	/* Get the CamelFolder for our dest_path. */
 
-	return mail_tool_get_folder_from_urlname (dest_url, "movemail", ex);
+	ret = mail_tool_get_folder_from_urlname (dest_url, "movemail", ex);
+	g_free (dest_url);
+	return ret;
 }
 
 void
@@ -465,37 +473,7 @@ mail_tool_uri_to_folder (const char *uri, CamelException *ex)
 	char *store_uri;
 
 	if (!strncmp (uri, "vfolder:", 8)) {
-		char *query, *newquery;
-
-		store_uri = g_strdup (uri);
-		query = strchr (store_uri, '?');
-		if (query) {
-			*query++ = 0;
-		} else {
-			query = "";
-		}
-		newquery = g_strdup_printf("mbox?%s", query);
-
-		mail_tool_camel_lock_up();
-		store = camel_session_get_store (session, store_uri, ex);
-
-		if (store) {
-			char *source_uri;
-
-			folder = camel_store_get_folder (store, newquery, TRUE, ex);
-			/* FIXME: do this properly rather than hardcoding */
-			/* FIXME: Now we REALLY need to do this properly... */
-#warning "Find a way not to hardcode vfolder source"
-
-			source_uri = g_strdup_printf ("file://%s/local/Inbox", evolution_dir);
-			camel_vee_folder_add_folder (CAMEL_VEE_FOLDER (folder), 
-						     mail_tool_uri_to_folder (source_uri, ex));
-		}
-
-		mail_tool_camel_lock_down();
-		g_free (newquery);
-		g_free (store_uri);
-
+		folder = vfolder_uri_to_folder (uri, ex);
 	} else if (!strncmp (uri, "imap:", 5)) {
 		char *service, *ptr;
 		

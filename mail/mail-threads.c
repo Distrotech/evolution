@@ -158,7 +158,7 @@ static void check_cond (void);
 static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer userdata);
 static void remove_next_pending (void);
 static void show_error (com_msg_t *msg);
-static void show_error_clicked (void);
+static void show_error_clicked (GtkObject *obj);
 static void get_password (com_msg_t *msg);
 static void get_password_cb (gchar *string, gpointer data);
 static void get_password_clicked (GnomeDialog *dialog, gint button, gpointer user_data);
@@ -460,6 +460,7 @@ void mail_operation_wait_for_finish (void)
 	while (mail_operation_in_progress) {
 		while (gtk_events_pending ())
 			gtk_main_iteration ();
+		GDK_THREADS_LEAVE();
 	}
 }
 
@@ -849,11 +850,17 @@ static void remove_next_pending (void)
 static void show_error (com_msg_t *msg)
 {
 	GtkWidget *err_dialog;
+	gchar *old_message;
 
 	err_dialog = gnome_error_dialog (msg->message);
 	gnome_dialog_set_close (GNOME_DIALOG(err_dialog), TRUE);
 	gtk_signal_connect (GTK_OBJECT (err_dialog), "clicked", (GtkSignalFunc) show_error_clicked, NULL);
 	g_free (msg->message);
+
+	/* Save the old message, but display a new one right now */
+	gtk_label_get (GTK_LABEL (queue_window_message), &old_message);
+	gtk_object_set_data (GTK_OBJECT (err_dialog), "old_message", old_message);
+	gtk_label_set_text (GTK_LABEL (queue_window_message), _("Waiting for user to close error dialog"));
 
 	G_LOCK (modal_lock);
 
@@ -877,8 +884,11 @@ static void show_error (com_msg_t *msg)
  * the dispatch thread is allowed to continue.
  **/
 
-static void show_error_clicked (void)
+static void show_error_clicked (GtkObject *obj)
 {
+	/* Restore the old message */
+	gtk_label_set_text (GTK_LABEL (queue_window_message), gtk_object_get_data (obj, "old_message"));
+
 	modal_may_proceed = TRUE;
 	timeout_toggle (TRUE);
 	g_cond_signal (modal_cond);
@@ -894,12 +904,19 @@ static void show_error_clicked (void)
 static void get_password (com_msg_t *msg)
 {
 	GtkWidget *dialog;
+	gchar *old_message;
 
 	dialog = gnome_request_dialog (msg->secret, msg->message, NULL,
 				       0, get_password_cb, msg,
 				       NULL);
 	gnome_dialog_set_close (GNOME_DIALOG(dialog), TRUE);
 	gtk_signal_connect (GTK_OBJECT(dialog), "clicked", get_password_clicked, msg);
+
+	/* Save the old message, but display a new one right now */
+	gtk_label_get (GTK_LABEL (queue_window_message), &old_message);
+	gtk_object_set_data (GTK_OBJECT (dialog), "old_message", 
+			     old_message);
+	gtk_label_set_text (GTK_LABEL (queue_window_message), _("Waiting for user to enter data"));
 
 	G_LOCK (modal_lock);
 
@@ -939,6 +956,10 @@ static void get_password_cb (gchar *string, gpointer data)
 static void get_password_clicked (GnomeDialog *dialog, gint button, gpointer user_data)
 {
 	com_msg_t *msg = (com_msg_t *) user_data;
+
+	/* Restore the old message */
+	gtk_label_set_text (GTK_LABEL (queue_window_message), 
+			    gtk_object_get_data (GTK_OBJECT (dialog), "old_message"));
 
 	if (button == 1 || *(msg->reply) == NULL) {
 		*(msg->success) = FALSE;

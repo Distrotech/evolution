@@ -29,6 +29,7 @@
 #include <libgnomeprint/gnome-print-master.h>
 #include <libgnomeprint/gnome-print-master-preview.h>
 #include "mail.h"
+#include "mail-config.h"
 #include "mail-threads.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
@@ -58,20 +59,17 @@ struct post_send_data {
 static gboolean
 check_configured (void)
 {
-	char *path;
-	gboolean configured;
+	const MailConfig *config;
 
-	path = g_strdup_printf ("=%s/config=/mail/configured", evolution_dir);
-	if (gnome_config_get_bool (path)) {
-		g_free (path);
+	config = mail_config_fetch ();
+	if (config->configured)
 		return TRUE;
-	}
 
 	mail_config_druid ();
 
-	configured = gnome_config_get_bool (path);
-	g_free (path);
-	return configured;
+	config = mail_config_fetch ();
+
+	return config->configured;
 }
 
 static void
@@ -86,20 +84,30 @@ select_first_unread (CamelFolder *folder, gpointer event_data, gpointer data)
 void
 fetch_mail (GtkWidget *button, gpointer user_data)
 {
-	char *path, *url = NULL;
+	const MailConfig *config;
+	const MailConfigService *source;
+	char *url = NULL;
 
-	if (!check_configured ())
+	if (!check_configured ()) {
+		GtkWidget *win = gtk_widget_get_ancestor (GTK_WIDGET (user_data),
+							  GTK_TYPE_WINDOW);
+
+		gnome_error_dialog_parented ("You have no mail sources "
+					     "configured", GTK_WINDOW (win));
 		return;
+	}
 
-	path = g_strdup_printf ("=%s/config=/mail/source", evolution_dir);
-	url = gnome_config_get_string (path);
-	g_free (path);
+	config = mail_config_fetch ();
+	if (config->sources) {
+		source = (MailConfigService *) config->sources->data;
+		url = source->url;
+	}
 
 	if (!url) {
 		GtkWidget *win = gtk_widget_get_ancestor (GTK_WIDGET (user_data),
 							  GTK_TYPE_WINDOW);
 
-		gnome_error_dialog_parented ("You have no remote mail source "
+		gnome_error_dialog_parented ("You have no mail sources "
 					     "configured", GTK_WINDOW (win));
 		return;
 	}
@@ -131,46 +139,48 @@ static void
 composer_send_cb (EMsgComposer *composer, gpointer data)
 {
 	static CamelInternetAddress *ciaddr = NULL;
-	static char *xport_url = NULL;
+	const MailConfig *config = NULL;
+	const MailConfigIdentity *id = NULL;
 	CamelMimeMessage *message;
 	const char *subject;
 
 	struct post_send_data *psd = data;
 
+	config = mail_config_fetch ();
+
+	/* Check for an identity */
+
+	if (!check_configured || !config->ids || !config->ids->data) {
+		GtkWidget *message;
+
+		message = gnome_warning_dialog_parented (_("You need to configure an identity\n"
+							   "before you can send mail."),
+							 GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (composer),
+										  GTK_TYPE_WINDOW)));
+		gnome_dialog_run_and_close (GNOME_DIALOG (message));
+		return;
+	}
+
+	/* Check for a transport */
+
+	if (!config->transport || !config->transport->url) {
+		GtkWidget *message;
+
+		message = gnome_warning_dialog_parented (_("You need to configure a mail transport\n"
+							   "before you can send mail."),
+							 GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (composer),
+										  GTK_TYPE_WINDOW)));
+		gnome_dialog_run_and_close (GNOME_DIALOG (message));
+		return;
+	}
+
 	/* Generate our from address if nonexistant */
 
 	if (!ciaddr) {
-		char *path;
-		char *name;
-		char *addr;
-
-		path = g_strdup_printf ("=%s/config=/mail/id_name", evolution_dir);
-		name = gnome_config_get_string (path);
-		g_assert (name);
-		g_free (path);
-
-		path = g_strdup_printf ("=%s/config=/mail/id_addr", evolution_dir);
-		addr = gnome_config_get_string (path);
-		g_assert (addr);
-		g_free (path);
+		id = (MailConfigIdentity *) config->ids->data;
 
 		ciaddr = camel_internet_address_new ();
-		camel_internet_address_add (ciaddr, name, addr);
-
-		g_free (name);
-		g_free (addr);
-	}
-
-	/* Get our transport URL if unspecified */
-
-	if (!xport_url) {
-		gchar *path;
-
-		path = g_strdup_printf ("=%s/config=/mail/transport",
-					evolution_dir);
-		xport_url = gnome_config_get_string (path);
-		g_assert (xport_url);
-		g_free (path);
+		camel_internet_address_add (ciaddr, id->name, id->address);
 	}
 
 	/* Get the message */
@@ -188,11 +198,11 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 	}
 
 	if (psd) {
-		mail_do_send_mail (xport_url, message, ciaddr,
+		mail_do_send_mail (config->transport->url, message, ciaddr,
 				   psd->folder, psd->uid, psd->flags, 
 				   GTK_WIDGET (composer));
 	} else {
-		mail_do_send_mail (xport_url, message, ciaddr,
+		mail_do_send_mail (config->transport->url, message, ciaddr,
 				   NULL, NULL, 0,
 				   GTK_WIDGET (composer));
 	}
@@ -207,6 +217,33 @@ free_psd (GtkWidget *composer, gpointer user_data)
 	g_free (psd);
 }
 
+
+static GtkWidget *
+create_msg_composer (const char *url)
+{
+       const MailConfig *config;
+       gchar *sig_file = NULL;
+       GtkWidget *composer_widget;
+
+       config = mail_config_fetch ();
+       if (config->ids) {
+               const MailConfigIdentity *id;
+               
+               id = (MailConfigIdentity *)config->ids->data;
+               sig_file = id->sig;
+       }
+       
+       if (url != NULL)
+               composer_widget = e_msg_composer_new_from_url (url);
+       else
+               composer_widget = e_msg_composer_new_with_sig_file (sig_file);
+
+       e_msg_composer_set_send_html (E_MSG_COMPOSER (composer_widget), 
+                                     config->send_html);
+
+       return composer_widget;
+}
+
 void
 compose_msg (GtkWidget *widget, gpointer user_data)
 {
@@ -215,7 +252,7 @@ compose_msg (GtkWidget *widget, gpointer user_data)
 	if (!check_configured ())
 		return;
 
-	composer = e_msg_composer_new ();
+	composer = create_msg_composer (NULL);
 
 	gtk_signal_connect (GTK_OBJECT (composer), "send",
 			    GTK_SIGNAL_FUNC (composer_send_cb), NULL);
@@ -231,7 +268,7 @@ send_to_url (const char *url)
 	if (!check_configured ())
 		return;
 
-	composer = e_msg_composer_new_from_url (url);
+	composer = create_msg_composer (url);
 
 	gtk_signal_connect (GTK_OBJECT (composer), "send",
 			    GTK_SIGNAL_FUNC (composer_send_cb), NULL);
@@ -244,7 +281,8 @@ reply (FolderBrowser *fb, gboolean to_all)
 	EMsgComposer *composer;
 	struct post_send_data *psd;
 
-	if (!check_configured () || !fb->message_list->cursor_uid)
+	if (!check_configured () || !fb->message_list->cursor_uid ||
+	    !fb->mail_display->current_message)
 		return;
 
 	psd = g_new (struct post_send_data, 1);
@@ -281,6 +319,7 @@ enumerate_msg (MessageList *ml, const char *uid, gpointer data)
 	g_ptr_array_add ((GPtrArray *) data, g_strdup (uid));
 }
 
+
 void
 forward_msg (GtkWidget *button, gpointer user_data)
 {
@@ -315,6 +354,7 @@ move_msg (GtkWidget *button, gpointer user_data)
 	GPtrArray *uids;
 	char *uri, *physical, *path;
 	const char *allowed_types[] = { "mail", NULL };
+
 	extern EvolutionShellClient *global_shell_client;
 	static char *last;
 
@@ -340,6 +380,18 @@ move_msg (GtkWidget *button, gpointer user_data)
 }
 
 void
+mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path)
+{
+        FolderBrowser *fb = FOLDER_BROWSER(user_data);
+        MessageList *ml = fb->message_list;
+        GPtrArray *uids;
+
+        uids = camel_folder_get_uids (ml->folder);
+	mail_do_flag_messages (ml->folder, uids, CAMEL_MESSAGE_SEEN,
+			       CAMEL_MESSAGE_SEEN);
+}
+
+void
 delete_msg (GtkWidget *button, gpointer user_data)
 {
 	FolderBrowser *fb = user_data;
@@ -353,21 +405,11 @@ delete_msg (GtkWidget *button, gpointer user_data)
 }
 
 void
-mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path)
-{
-        FolderBrowser *fb = FOLDER_BROWSER(user_data);
-        MessageList *ml = fb->message_list;
-        GPtrArray *uids;
-
-        uids = camel_folder_get_uids (ml->folder);
-	mail_do_flag_messages (ml->folder, uids, CAMEL_MESSAGE_SEEN,
-			       CAMEL_MESSAGE_SEEN);
-}
-
-void
 expunge_folder (BonoboUIHandler *uih, void *user_data, const char *path)
 {
 	FolderBrowser *fb = FOLDER_BROWSER(user_data);
+
+	e_table_model_pre_change (fb->message_list->table_model);
 
 	if (fb->message_list->folder)
 		mail_do_expunge_folder (fb->message_list->folder);

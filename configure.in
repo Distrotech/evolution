@@ -520,7 +520,27 @@ else
 	;;
     esac
 fi
-    
+
+dnl **********
+dnl GPGPGPGPGP
+dnl **********
+AC_PATH_PROG(GPG, gpg)
+if test -n "$GPG"; then
+	AC_DEFINE_UNQUOTED(GPG_PATH, "$GPG")
+	AC_DEFINE(PGP_PROGRAM, "GPG")
+else
+	AC_PATH_PROG(PGP5, pgp5)
+	if test -n "$PGP5"; then
+		AC_DEFINE_UNQUOTED(PGP5_PATH, "$PGP5")
+		AC_DEFINE(PGP_PROGRAM, "PGP")
+	else
+		AC_PATH_PROG(PGP, pgp)
+		if test -n "$PGP"; then
+			AC_DEFINE_UNQUOTED(PGP_PATH, "$PGP")
+			AC_DEFINE(PGP_PROGRAM, "PGP")
+		fi
+	fi
+fi
 
 dnl ******************************
 dnl Makefiles
@@ -576,8 +596,6 @@ data/Makefile
 libversit/Makefile
 libibex/Makefile
 calendar/Makefile
-calendar/doc/Makefile
-calendar/doc/C/Makefile
 calendar/idl/Makefile
 calendar/cal-util/Makefile
 calendar/cal-client/Makefile

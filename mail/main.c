@@ -51,9 +51,9 @@ main (int argc, char *argv [])
 
 	component_factory_init ();
 
-	/*GDK_THREADS_ENTER ();*/
+	GDK_THREADS_ENTER ();
 	bonobo_main ();
-	/*GDK_THREADS_LEAVE ();*/
+	GDK_THREADS_LEAVE ();
 
 	return 0;
 }

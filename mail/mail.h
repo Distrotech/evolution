@@ -32,6 +32,12 @@ BonoboControl *folder_browser_factory_new_control  (const char *uri);
 /* mail-config */
 void mail_config_druid (void);
 
+/* mail-crypto */
+char *mail_crypto_openpgp_decrypt (const char *ciphertext,
+				   const char *passphrase,
+				   CamelException *ex);
+/* FIXME: add encryption & signing functions */
+
 /* mail-format */
 void mail_format_mime_message (CamelMimeMessage *mime_message,
 				   GtkHTML *html, GtkHTMLStream *stream,
@@ -62,5 +68,6 @@ void providers_config (BonoboUIHandler *uih, void *user_data, const char *path);
 
 /* session */
 void session_init (void);
+char *mail_request_dialog (const char *prompt, gboolean secret, const char *key);
 void forget_passwords (BonoboUIHandler *uih, void *user_data, const char *path);
 extern CamelSession *session;

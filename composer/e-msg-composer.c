@@ -304,7 +304,7 @@ build_message (EMsgComposer *composer)
 }
 
 static char *
-get_signature (char *sigfile)
+get_signature (const char *sigfile)
 {
 	char *rawsig;
 	static char *htmlsig = NULL;
@@ -354,7 +354,7 @@ get_signature (char *sigfile)
 }
 
 static void
-set_editor_text (BonoboWidget *editor, char *sig_file, const char *text)
+set_editor_text (BonoboWidget *editor, const char *sig_file, const char *text)
 {
 	Bonobo_PersistStream persist;
 	BonoboStream *stream;
@@ -363,7 +363,7 @@ set_editor_text (BonoboWidget *editor, char *sig_file, const char *text)
 
 	sig = get_signature (sig_file);
 	if (sig) {
-		if (!strncmp ("--\n", sig, sizeof ("--\n")))
+		if (!strncmp ("--\n", sig, 3))
 			fulltext = g_strdup_printf ("%s<BR>\n<PRE>\n%s</PRE>",
 						    text, sig);
 		else
@@ -1229,7 +1229,7 @@ e_msg_composer_new (void)
  * Return value: A pointer to the newly created widget
  **/
 GtkWidget *
-e_msg_composer_new_with_sig_file (char *sig_file)
+e_msg_composer_new_with_sig_file (const char *sig_file)
 {
 	GtkWidget *new;
 

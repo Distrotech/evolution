@@ -34,13 +34,15 @@ SUBDIRS =			\
         libical                 \
         libversit               \
         addressbook             \
-        calendar                \
         wombat                  \
         art                     \
         default_user            \
         tools                   \
         po                      \
         doc
+
+#missing file breaks build
+#        calendar                \
 
 dist-hook: evolution.spec
 	cp evolution.spec $(distdir)
