@@ -22,18 +22,10 @@
 
 #include "ibex.h"
 
-#define IBEX_VERSION "ibex1"
+#define IBEX_VERSION "ibex2"
 
 struct ibex {
 	char *path;
-	GTree *files;
-	GHashTable *words;
-	GPtrArray *oldfiles;
-	gboolean dirty;
+	DB *words;
+	DB *names;
 };
-
-struct ibex_file {
-	char *name;
-	long index;
-};
-typedef struct ibex_file ibex_file;
