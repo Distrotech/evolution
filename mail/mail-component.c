@@ -429,7 +429,6 @@ mail_component_init (MailComponent *component)
 
 	/* EPFIXME: Move to a private directory.  */
 	priv->base_directory = g_build_filename (g_get_home_dir (), "evolution", NULL);
-	g_print ("base directory %s\n", priv->base_directory);
 
 	/* EPFIXME: Turn into an object?  */
 	mail_session_init (priv->base_directory);

@@ -905,7 +905,7 @@ mail_note_store(CamelStore *store, CamelOperation *op, EStorage *storage,
 	const char *buf;
 	guint timeout;
 
-	g_return_if_fail (E_IS_STORAGE (storage));
+	g_return_if_fail (storage == NULL || E_IS_STORAGE (storage));
 	
 	g_assert(CAMEL_IS_STORE(store));
 	g_assert(pthread_self() == mail_gui_thread);

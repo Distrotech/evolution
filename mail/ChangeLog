@@ -1,3 +1,11 @@
+2003-09-08  Ettore Perazzoli  <ettore@ximian.com>
+
+	* mail-folder-cache.c (mail_note_store): Allow NULL storage in
+	precondition.
+
+	* mail-component.c (mail_component_init): Remove debugging
+	message.
+
 2003-08-22  Not Zed  <NotZed@Ximian.com>
 
 	* mail-format.c (write_date): translate the local time format.
