@@ -183,5 +183,4 @@ addressbook_component_peek (void)
 	return component;
 }
 
-
 BONOBO_TYPE_FUNC_FULL (AddressbookComponent, GNOME_Evolution_Component, PARENT_TYPE, addressbook_component)
