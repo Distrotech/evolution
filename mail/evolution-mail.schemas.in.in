@@ -360,20 +360,6 @@
     </schema>
 
     <schema>
-      <key>/schemas/apps/evolution/mail/display/show_wide</key>
-      <applyto>/apps/evolution/mail/display/show_wide</applyto>
-      <owner>evolution-mail</owner>
-      <type>bool</type>
-      <default>false</default>
-      <locale name="C">
-         <short>Use side-by-side or vertical layout</short>
-         <long>
-	  If the &quot;Preview&quot; pane is on, then show it side-by-side rather than vertically.
-         </long>
-      </locale>
-    </schema>
-
-    <schema>
       <key>/schemas/apps/evolution/mail/display/fonts/variable</key>
       <applyto>/apps/evolution/mail/display/fonts/variable</applyto>
       <owner>evolution-mail</owner>
