@@ -1,5 +1,12 @@
 2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-meeting-list-view.c (start_addressbook_server):
+	updated to new addressbook API.
+	(book_open_cb): removed unneeded function, since we load
+	the local addressbook synchronously.
+
+2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
+
 	* pcs/Makefile.am: added missing header directories.
 
 	* pcs/cal-factory.h: include <libical/ical.h>, not <ical.h>.
