@@ -1,3 +1,19 @@
+2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.h: added 'instance_start' and 'instance_end' fields
+	to ECalModelComponent, so that we can keep the start and end times of
+	instances.
+
+	* gui/e-cal-model.c (add_instance_to_model): set the start and end
+	fields. Set the recurrence ID on the instance if its not set.
+
+	* gui/e-day-view.c (e_day_view_add_event): no need anymore to set the
+	recurrence ID here, it should be set in the model.
+	(process_component): dont expand recurrences here.
+
+	* gui/e-week-view.c (e_week_view_add_event, process_component): same
+	as e-day-week.c.
+
 2004-04-26  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (e_cal_view_objects_added_cb):

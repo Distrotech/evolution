@@ -1147,7 +1147,7 @@ typedef struct {
 	ECalModel *model;
 } AddInstanceData;
 
-static void
+static gboolean
 add_instance_to_model (ECalComponent *comp, time_t start, time_t end, gpointer user_data)
 {
 	ECalModelComponent *comp_data;
@@ -1159,10 +1159,23 @@ add_instance_to_model (ECalComponent *comp, time_t start, time_t end, gpointer u
 	comp_data = g_new0 (ECalModelComponent, 1);
 	comp_data->client = g_object_ref (aid->client);
 	comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
+	comp_data->instance_start = start;
+	comp_data->instance_end = end;
+	if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
+		if (!icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY)) {
+			struct icaltimetype itt;
+
+			itt = icalcomponent_get_dtstart (comp_data->icalcomp);
+			icalcomponent_set_recurrenceid (comp_data->icalcomp,
+							icaltime_from_timet (start, itt.is_date));
+		}
+	}
 
 	g_ptr_array_add (priv->objects, comp_data);
 
 	e_table_model_row_inserted (E_TABLE_MODEL (aid->model), priv->objects->len - 1);
+
+	return TRUE;
 }
 
 static void

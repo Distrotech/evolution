@@ -55,6 +55,7 @@ typedef enum {
 typedef struct {
 	ECal *client;
 	icalcomponent *icalcomp;
+	time_t instance_start, instance_end;
 
 	/* private data */
 	ECellDateEditValue *dtstart;

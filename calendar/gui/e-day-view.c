@@ -570,14 +570,10 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 		g_object_unref (tmp_comp);
 	}
 
-	/* Add the occurrences of the event */
+	/* Add the object */
 	add_event_data.day_view = day_view;
 	add_event_data.comp_data = comp_data;
-	e_cal_generate_instances_for_object (comp_data->client,
-					     e_cal_component_get_icalcomponent (comp),
-					     day_view->lower,
-					     day_view->upper,
-					     e_day_view_add_event, &add_event_data);
+	e_day_view_add_event (comp, comp_data->instance_start, comp_data->instance_end, &add_event_data);
 
 	g_object_unref (comp);
 }
@@ -4132,14 +4128,6 @@ e_day_view_add_event (ECalComponent *comp,
 	event.start = start;
 	event.end = end;
 	event.canvas_item = NULL;
-
-	/* set recurrence ID */
-	if (e_cal_component_has_recurrences (comp)) {
-		if (!(icalcomponent_get_first_property (event.comp_data->icalcomp,
-							ICAL_RECURRENCEID_PROPERTY))) {
-			icalcomponent_set_recurrenceid (event.comp_data->icalcomp, start_tt);
-		}
-	}
 
 	/* Calculate the start & end minute, relative to the top of the
 	   display. */
