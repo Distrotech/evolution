@@ -85,7 +85,7 @@ struct _CalBackendClass {
 	void (* receive_objects) (CalBackend *backend, Cal *cal, const char *calobj);
 	void (* send_objects) (CalBackend *backend, Cal *cal, const char *calobj);
 
-	void (* get_default_object) (CalBackend *backend, Cal *cal, CalObjType type);
+	void (* get_default_object) (CalBackend *backend, Cal *cal);
 	void (* get_object) (CalBackend *backend, Cal *cal, const char *uid, const char *rid);	
 	void (* get_object_list) (CalBackend *backend, Cal *cal, const char *sexp);
 
@@ -137,7 +137,7 @@ void cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, 
 void cal_backend_receive_objects (CalBackend *backend, Cal *cal, const char *calobj);
 void cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj);
 
-void cal_backend_get_default_object (CalBackend *backend, Cal *cal, CalObjType type);
+void cal_backend_get_default_object (CalBackend *backend, Cal *cal);
 void cal_backend_get_object (CalBackend *backend, Cal *cal, const char *uid, const char *rid);
 void cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp);
 

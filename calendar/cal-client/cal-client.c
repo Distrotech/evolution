@@ -2015,7 +2015,7 @@ struct _CalClientGetTimezonesData {
 };
 
 gboolean
-cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent **icalcomp, GError **error)
+cal_client_get_default_object (CalClient *client, icalcomponent **icalcomp, GError **error)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
@@ -2047,7 +2047,7 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Calendar_Cal_getDefaultObject (priv->cal, type, &ev);
+	GNOME_Evolution_Calendar_Cal_getDefaultObject (priv->cal, &ev);
 	if (BONOBO_EX (&ev)) {
 		e_calendar_remove_op (client, our_op);
 		e_mutex_unlock (our_op->mutex);

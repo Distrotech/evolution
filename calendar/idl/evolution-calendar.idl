@@ -166,8 +166,8 @@ module Calendar {
 		/* For going online/offline */
 		void setMode (in CalMode mode);
 
-		/* Get a default object of a given type */
-		oneway void getDefaultObject (in CalObjType type);
+		/* Get a default object of the backend's type */
+		oneway void getDefaultObject ();
 		
 		/* Gets a component based on its URI */
 		oneway void getObject (in CalObjUID uid, in CalRecurID rid);

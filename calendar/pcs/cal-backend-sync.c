@@ -171,14 +171,14 @@ cal_backend_sync_send_objects (CalBackendSync *backend, Cal *cal, const char *ca
 }
 
 CalBackendSyncStatus
-cal_backend_sync_get_default_object (CalBackendSync *backend, Cal *cal, CalObjType type, char **object)
+cal_backend_sync_get_default_object (CalBackendSync *backend, Cal *cal, char **object)
 {
 	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
 	g_return_val_if_fail (object, GNOME_Evolution_Calendar_OtherError);
 
 	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->get_default_object_sync);
 
-	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_default_object_sync) (backend, cal, type, object);
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_default_object_sync) (backend, cal, object);
 }
 
 CalBackendSyncStatus
@@ -412,12 +412,12 @@ _cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj)
 }
 
 static void
-_cal_backend_get_default_object (CalBackend *backend, Cal *cal, CalObjType type)
+_cal_backend_get_default_object (CalBackend *backend, Cal *cal)
 {
 	CalBackendSyncStatus status;
 	char *object = NULL;
 
-	status = cal_backend_sync_get_default_object (CAL_BACKEND_SYNC (backend), cal, type, &object);
+	status = cal_backend_sync_get_default_object (CAL_BACKEND_SYNC (backend), cal, &object);
 
 	cal_notify_default_object (cal, status, object);
 

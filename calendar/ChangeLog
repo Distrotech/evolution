@@ -1,5 +1,25 @@
 2003-10-07  Dan Winship  <danw@ximian.com>
 
+	* idl/evolution-calendar.idl (getDefaultObject): Remove the "type"
+	arg; the backend knows what type it is
+
+	* pcs/cal.c (impl_Cal_getDefaultObject): Likewise
+
+	* pcs/cal-backend.c (cal_backend_get_default_object): Likewise
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_get_default_object,
+	_cal_backend_get_default_object): Likewise
+
+	* pcs/cal-backend-file.c (cal_backend_file_get_default_object):
+	Likewise. (Use cal_backend_get_kind() instead.)
+
+	* cal-client/cal-client.c (cal_client_get_default_object):
+	Likewise
+
+	* gui/comp-util.c (cal_comp_event_new_with_defaults,
+	cal_comp_task_new_with_defaults): Update calls to
+	cal_client_get_default_object().
+
 	* pcs/cal-backend-sync.c (_cal_backend_get_static_capabilities):
 	Use the right cal notification
 

@@ -250,7 +250,7 @@ cal_comp_event_new_with_defaults (CalClient *client)
 	icalproperty *icalprop;
 	CalAlarmTrigger trigger;
 
-	if (!cal_client_get_default_object (client, CALOBJ_TYPE_EVENT, &icalcomp, NULL))
+	if (!cal_client_get_default_object (client, &icalcomp, NULL))
 		return NULL;
 
 	comp = cal_component_new ();
@@ -316,7 +316,7 @@ cal_comp_task_new_with_defaults (CalClient *client)
 	CalComponent *comp;
 	icalcomponent *icalcomp;
 
-	if (!cal_client_get_default_object (client, CALOBJ_TYPE_TODO, &icalcomp, NULL))
+	if (!cal_client_get_default_object (client, &icalcomp, NULL))
 		return NULL;
 
 	comp = cal_component_new ();

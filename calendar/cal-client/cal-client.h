@@ -147,7 +147,6 @@ gboolean cal_client_get_static_capability (CalClient *client, const char *cap);
 gboolean cal_client_set_mode (CalClient *client, CalMode mode);
 
 gboolean cal_client_get_default_object (CalClient *client,
-					CalObjType type,
 					icalcomponent **icalcomp, GError **error);
 
 gboolean cal_client_get_object (CalClient *client,

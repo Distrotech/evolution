@@ -51,7 +51,7 @@ struct _CalBackendSyncClass {
 	CalBackendSyncStatus (*receive_objects_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, GList **created, GList **modified, GList **removed);
 	CalBackendSyncStatus (*send_objects_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj);
 
-	CalBackendSyncStatus (*get_default_object_sync)  (CalBackendSync *backend, Cal *cal, CalObjType type, char **object);
+	CalBackendSyncStatus (*get_default_object_sync)  (CalBackendSync *backend, Cal *cal, char **object);
 	CalBackendSyncStatus (*get_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, const char *rid, char **object);
 	CalBackendSyncStatus (*get_object_list_sync)  (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
@@ -120,7 +120,6 @@ CalBackendSyncStatus cal_backend_sync_send_objects            (CalBackendSync  *
 							       const char      *calobj);
 CalBackendSyncStatus cal_backend_sync_get_default_object         (CalBackendSync  *backend,
 								 Cal             *cal,
-								 CalObjType type,
 								 char           **object);
 
 CalBackendSyncStatus cal_backend_sync_get_object         (CalBackendSync  *backend,

@@ -706,26 +706,20 @@ cal_backend_file_set_mode (CalBackend *backend, CalMode mode)
 }
 
 static CalBackendSyncStatus
-cal_backend_file_get_default_object (CalBackendSync *backend, Cal *cal, CalObjType type, char **object)
+cal_backend_file_get_default_object (CalBackendSync *backend, Cal *cal, char **object)
 {
- 	CalBackendFile *cbfile;
- 	CalBackendFilePrivate *priv;
  	CalComponent *comp;
  	
- 	cbfile = CAL_BACKEND_FILE (backend);
- 	priv = cbfile->priv;
- 
  	comp = cal_component_new ();
 
- 	/* FIXME Do we really need to pass the type? The backends are typed now */
- 	switch (type) {
- 	case CALOBJ_TYPE_EVENT:
+ 	switch (cal_backend_get_kind (CAL_BACKEND (backend))) {
+ 	case ICAL_VEVENT_COMPONENT:
  		cal_component_set_new_vtype (comp, CAL_COMPONENT_EVENT);
  		break;
- 	case CALOBJ_TYPE_TODO:
+ 	case ICAL_VTODO_COMPONENT:
  		cal_component_set_new_vtype (comp, CAL_COMPONENT_TODO);
  		break;
- 	case CALOBJ_TYPE_JOURNAL:
+ 	case ICAL_VJOURNAL_COMPONENT:
  		cal_component_set_new_vtype (comp, CAL_COMPONENT_JOURNAL);
  		break;
  	default:
@@ -1485,6 +1479,7 @@ cal_backend_file_receive_objects (CalBackendSync *backend, Cal *cal, const char 
 			break;
 		default:
 			/* Ignore it */
+			break;
 		}
 
 		subcomp = icalcomponent_get_next_component (toplevel_comp, ICAL_ANY_COMPONENT);

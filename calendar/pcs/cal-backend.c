@@ -632,13 +632,13 @@ cal_backend_set_mode (CalBackend *backend, CalMode mode)
 }
 
 void
-cal_backend_get_default_object (CalBackend *backend, Cal *cal, CalObjType type)
+cal_backend_get_default_object (CalBackend *backend, Cal *cal)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_default_object != NULL);
-	(* CLASS (backend)->get_default_object) (backend, cal, type);
+	(* CLASS (backend)->get_default_object) (backend, cal);
 }
 
 /**
