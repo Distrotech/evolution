@@ -32,7 +32,13 @@
 #include <gtk/gtknotebook.h>
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkhbox.h>
+#include <gtk/gtktable.h>
 #include <gtk/gtklabel.h>
+#include <gtk/gtkframe.h>
+#include <gtk/gtkalignment.h>
+
+#include <libgnomeui/gnome-druid.h>
+#include <libgnomeui/gnome-druid-page-standard.h>
 
 #include "e-config.h"
 
@@ -64,11 +70,21 @@ struct _widget_node {
 	struct _menu_node *context;
 	EConfigItem *item;
 	struct _GtkWidget *widget; /* widget created by the factory, if any */
+	struct _GtkWidget *frame; /* if created by us */
+};
+
+struct _check_node {
+	struct _check_node *next, *prev;
+
+	char *pageid;
+	EConfigCheckFunc check;
+	void *data;
 };
 
 struct _EConfigPrivate {
 	EDList menus;
 	EDList widgets;
+	EDList checks;
 };
 
 static GObjectClass *ep_parent;
@@ -83,6 +99,7 @@ ep_init(GObject *o)
 
 	e_dlist_init(&p->menus);
 	e_dlist_init(&p->widgets);
+	e_dlist_init(&p->checks);
 }
 
 static void
@@ -92,6 +109,7 @@ ep_finalise(GObject *o)
 	struct _EConfigPrivate *p = emp->priv;
 	struct _menu_node *mnode;
 	struct _widget_node *wn;
+	struct _check_node *cn;
 
 	g_free(emp->id);
 
@@ -104,6 +122,11 @@ ep_finalise(GObject *o)
 
 	while ( (wn = (struct _widget_node *)e_dlist_remhead(&p->widgets)) ) {
 		g_free(wn);
+	}
+
+	while ( (cn = (struct _check_node *)e_dlist_remhead(&p->widgets)) ) {
+		g_free(cn->pageid);
+		g_free(cn);
 	}
 
 	g_free(p);
@@ -153,18 +176,21 @@ e_config_get_type(void)
 	return type;
 }
 
-EConfig *e_config_construct(EConfig *ep, const char *id)
+EConfig *e_config_construct(EConfig *ep, int type, const char *id)
 {
+	g_assert(type == E_CONFIG_BOOK || type == E_CONFIG_DRUID);
+
+	ep->type = type;
 	ep->id = g_strdup(id);
 
 	return ep;
 }
 
-EConfig *e_config_new(const char *id)
+EConfig *e_config_new(int type, const char *id)
 {
 	EConfig *ec = g_object_new(e_config_get_type(), NULL);
 
-	return e_config_construct(ec, id);
+	return e_config_construct(ec, type, id);
 }
 
 /**
@@ -193,6 +219,34 @@ e_config_add_items(EConfig *ec, GSList *items, EConfigItemsFunc commitfunc, ECon
 	node->free = freefunc;
 	node->data = data;
 	e_dlist_addtail(&ec->priv->menus, (EDListNode *)node);
+}
+
+/**
+ * e_config_add_page_check:
+ * @ec: 
+ * @pageid: pageid to check.
+ * @check: checking callback.
+ * @data: user-data for the callback.
+ * 
+ * Add a page-checking function callback.  It will be called to validate the
+ * data in the given page or pages.  If @pageid is NULL then it will be called
+ * to validate every page, or the whole configuration window.
+ *
+ * In the latter case, the pageid in the callback will be either the
+ * specific page being checked, or NULL when the whole config window
+ * is being checked.
+ **/
+void
+e_config_add_page_check(EConfig *ec, const char *pageid, EConfigCheckFunc check, void *data)
+{
+	struct _check_node *cn;
+
+	cn = g_malloc0(sizeof(*cn));
+	cn->pageid = g_strdup(pageid);
+	cn->check = check;
+	cn->data = data;
+
+	e_dlist_addtail(&ec->priv->checks, (EDListNode *)cn);
 }
 
 static void
@@ -228,8 +282,6 @@ e_config_create_widget(EConfig *emp, EConfigTarget *target)
 	GPtrArray *items = g_ptr_array_new();
 	GSList *l;
 	/*char *domain = NULL;*/
-	GtkWidget *book = NULL, *page = NULL, *section = NULL;
-	int pageno = 0, sectionno = 0, itemno = 0;
 	int i;
 
 	emp->target = target;
@@ -250,90 +302,190 @@ e_config_create_widget(EConfig *emp, EConfigTarget *target)
 
 	for (i=0;i<items->len;i++) {
 		struct _widget_node *wn = items->pdata[i];
-		struct _EConfigItem *item = wn->item;
-		GtkWidget *w;
 
-		/* Not sure we need to keep this stuff */
 		e_dlist_addtail(&p->widgets, (EDListNode *)wn);
-
-		switch (item->type) {
-		case E_CONFIG_BOOK:
-			g_assert(book == NULL);
-			if (item->factory)
-				book = item->factory(emp, item, NULL, wn->context->data);
-			else {
-				book = gtk_notebook_new();
-				gtk_widget_show(book);
-			}
-			wn->widget = book;
-			break;
-		case E_CONFIG_PAGE:
-			if (item->factory) {
-				page = item->factory(emp, item, book, wn->context->data);
-			} else {
-				w = gtk_label_new(item->label);
-				gtk_widget_show(w);
-				page = gtk_vbox_new(FALSE, 12);
-				gtk_container_set_border_width((GtkContainer *)page, 12);
-				gtk_widget_show(page);
-				gtk_notebook_insert_page((GtkNotebook *)book, page, w, pageno);
-			}
-			pageno++;
-			sectionno = 0;
-			section = NULL;
-			wn->widget = page;
-			break;
-		case E_CONFIG_SECTION:
-			if (item->factory) {
-				section = item->factory(emp, item, page, wn->context->data);
-			} else {
-				GtkWidget *frame = gtk_vbox_new(FALSE, 6);
-
-				gtk_widget_show(frame);
-				if (item->label) {
-					char *txt;
-					GtkWidget *hbox;
-
-					w = gtk_label_new("");
-					gtk_widget_show(w);
-					txt = g_strdup_printf("<span weight=\"bold\">%s</span>", item->label);
-					gtk_label_set_markup((GtkLabel *)w, txt);
-					g_free(txt);
-					gtk_misc_set_alignment((GtkMisc *)w, 0.0, 0.5);
-					gtk_box_pack_start((GtkBox *)frame, w, FALSE, FALSE, 0);
-
-					hbox = gtk_hbox_new(FALSE, 12);
-					gtk_widget_show(hbox);
-					w = gtk_label_new("");
-					gtk_widget_show(w);
-					gtk_box_pack_start((GtkBox *)hbox, w, FALSE, FALSE, 0);
-					gtk_box_pack_start((GtkBox *)frame, hbox, FALSE, FALSE, 0);
-
-					section = gtk_vbox_new(FALSE, 6);
-					gtk_box_pack_start((GtkBox *)hbox, section, FALSE, FALSE, 0);
-					gtk_widget_show(section);
-				} else {
-					section = frame;
-				}
-
-				gtk_box_pack_start((GtkBox *)page, frame, FALSE, FALSE, 0);
-			}
-			sectionno++;
-			itemno = 0;
-			wn->widget = section;
-			break;
-		case E_CONFIG_ITEM:
-			if (item->factory) {
-				wn->widget = item->factory(emp, item, section, wn->context->data);
-			}
-			itemno++;
-			break;
-		}
 	}
 
 	g_ptr_array_free(items, TRUE);
 
-	emp->widget = (GtkWidget *)book;
+	e_config_target_changed(emp);
+
+	return emp->widget;
+}
+
+void e_config_target_changed(EConfig *emp)
+{
+	struct _EConfigPrivate *p = emp->priv;
+	struct _widget_node *wn, *sectionnode = NULL, *pagenode = NULL;
+	GtkWidget *book = NULL, *page = NULL, *section = NULL, *root = NULL, *druid = NULL;
+	int pageno = 0, sectionno = 0, itemno = 0;
+
+	printf("target changed, rebuilding:\n");
+
+	for (wn = (struct _widget_node *)p->widgets.head;wn->next;wn=wn->next) {
+		struct _EConfigItem *item = wn->item;
+		GtkWidget *w;
+
+		printf(" '%s'\n", item->path);
+
+		switch (item->type) {
+		case E_CONFIG_BOOK:
+		case E_CONFIG_DRUID:
+			g_assert(root == NULL);
+			if (wn->widget == NULL) {
+				g_assert(item->type == emp->type);
+				if (item->factory) {
+					root = item->factory(emp, item, NULL, wn->widget, wn->context->data);
+				} else if (item->type == E_CONFIG_BOOK) {
+					root = book = gtk_notebook_new();
+				} else if (item->type == E_CONFIG_DRUID) {
+					root = druid = gnome_druid_new();
+				} else
+					abort();
+
+				emp->widget = root;
+				wn->widget = root;
+
+				g_object_set_data_full((GObject *)root, "e-config", emp, g_object_unref);
+			} else {
+				root = wn->widget;
+			}
+
+			if (item->type == E_CONFIG_BOOK)
+				book = root;
+			else
+				druid = root;
+
+			page = NULL;
+			pagenode = NULL;
+			section = NULL;
+			sectionnode = NULL;
+			pageno = 0;
+			sectionno = 0;
+			break;
+		case E_CONFIG_PAGE:
+			if (pagenode != NULL && sectionno == 0) {
+				printf("hiding empty page\n");
+				if (sectionno == 0)
+					gtk_widget_hide(pagenode->frame);
+				else
+					gtk_widget_show(pagenode->frame);
+			}
+
+			if (sectionnode != NULL) {
+				printf("%sing empty section 0\n", itemno==0?"hid":"show");
+				if (itemno == 0)
+					gtk_widget_hide(sectionnode->frame);
+				else
+					gtk_widget_show(sectionnode->frame);
+			}
+
+			sectionno = 0;
+			if (item->factory) {
+				page = item->factory(emp, item, root, wn->widget, wn->context->data);
+				wn->frame = page;
+				sectionno = 1;
+			} else if (wn->widget == NULL) {
+				if (book) {
+					w = gtk_label_new(item->label);
+					gtk_widget_show(w);
+					page = gtk_vbox_new(FALSE, 12);
+					gtk_container_set_border_width((GtkContainer *)page, 12);
+					gtk_widget_show(page);
+					gtk_notebook_insert_page((GtkNotebook *)book, page, w, pageno);
+					wn->frame = page;
+				} else {
+					w = gnome_druid_page_standard_new();
+					gtk_widget_show(w);
+					gnome_druid_page_standard_set_title((GnomeDruidPageStandard *)w, item->label);
+					wn->frame = w;
+					page = ((GnomeDruidPageStandard *)w)->vbox;
+				}
+			} else
+				page = wn->widget;
+
+			if (wn->widget && wn->widget != page)
+				gtk_widget_destroy(wn->widget);
+
+			pageno++;
+			pagenode = wn;
+			section = NULL;
+			sectionnode = NULL;
+			wn->widget = page;
+			break;
+		case E_CONFIG_SECTION:
+		case E_CONFIG_SECTION_TABLE:
+			if (sectionnode != NULL) {
+				printf("%sing empty section 1\n", itemno==0?"hid":"show");
+				if (itemno == 0)
+					gtk_widget_hide(sectionnode->frame);
+				else
+					gtk_widget_show(sectionnode->frame);
+			}
+
+			itemno = 0;
+			if (item->factory) {
+				section = item->factory(emp, item, page, wn->widget, wn->context->data);
+				itemno = 1;
+			} else if (wn->widget == NULL) {
+				GtkWidget *frame;
+				GtkWidget *label = NULL;
+
+				if (item->label) {
+					char *txt = g_strdup_printf("<span weight=\"bold\">%s</span>", item->label);
+
+					label = g_object_new(gtk_label_get_type(),
+							     "label", txt,
+							     "use_markup", TRUE,
+							     "xalign", 0.0, NULL);
+					g_free(txt);
+				}
+
+				if (item->type == E_CONFIG_SECTION)
+					section = gtk_vbox_new(FALSE, 6);
+				else
+					section = gtk_table_new(1, 1, FALSE);
+
+				frame = g_object_new(gtk_frame_get_type(),
+						     "shadow_type", GTK_SHADOW_NONE, 
+						     "label_widget", label,
+						     "child", g_object_new(gtk_alignment_get_type(),
+									   "left_padding", 12,
+									   "top_padding", 6,
+									   "child", section, NULL),
+						     NULL);
+				gtk_widget_show_all(frame);
+				gtk_box_pack_start((GtkBox *)page, frame, FALSE, FALSE, 0);
+				wn->frame = frame;
+				sectionnode = wn;
+			} else {
+				sectionnode = wn;
+				section = wn->widget;
+			}
+
+			if (wn->widget && wn->widget != section)
+				gtk_widget_destroy(wn->widget);
+
+			sectionno++;
+			wn->widget = section;
+			break;
+		case E_CONFIG_ITEM:
+			if (item->factory)
+				w = item->factory(emp, item, section, wn->widget, wn->context->data);
+			else
+				w = NULL;
+
+			printf("item %d:%s widget %p\n", itemno, item->path, w);
+
+			if (wn->widget && wn->widget != w)
+				gtk_widget_destroy(wn->widget);
+
+			wn->widget = w;
+			if (w)
+				itemno++;
+			break;
+		}
+	}
 
 	if (book) {
 		/* make this depend on flags?? */
@@ -341,10 +493,7 @@ e_config_create_widget(EConfig *emp, EConfigTarget *target)
 			gtk_notebook_set_show_tabs((GtkNotebook *)book, FALSE);
 			gtk_notebook_set_show_border((GtkNotebook *)book, FALSE);
 		}
-		g_object_set_data_full((GObject *)book, "e-config", emp, g_object_unref);
 	}
-
-	return (GtkWidget *)book;
 }
 
 void e_config_abort(EConfig *ec)
@@ -365,6 +514,78 @@ void e_config_commit(EConfig *ec)
 	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
 		if (mnode->commit)
 			mnode->commit(ec, mnode->menu, mnode->data);
+}
+
+/**
+ * e_config_page_check:
+ * @ec: 
+ * @pageid: 
+ * 
+ * Check that a given page is complete.  If @pageid is NULL, then check
+ * the whole config.
+ * 
+ * Return value: FALSE if the data is inconsistent/incomplete.
+ **/
+gboolean e_config_page_check(EConfig *ec, const char *pageid)
+{
+	struct _EConfigPrivate *p = ec->priv;
+	struct _check_node *mnode;
+
+	for (mnode = (struct _check_node *)p->menus.head;mnode->next;mnode=mnode->next)
+		if ((pageid == NULL
+		     || mnode->pageid == NULL
+		     || strcmp(mnode->pageid, pageid) == 0)
+		    && !mnode->check(ec, pageid, mnode->data))
+			return FALSE;
+
+	return TRUE;
+}
+
+/* druid related stuff; perhaps it should be a sub-class */
+GtkWidget *e_config_page_get(EConfig *ec, const char *pageid)
+{
+	struct _widget_node *wn;
+
+	for (wn = (struct _widget_node *)ec->priv->widgets.head;wn->next;wn=wn->next)
+		if (wn->item->type == E_CONFIG_PAGE
+		    && !strcmp(wn->item->path, pageid))
+			return wn->frame;
+
+	return NULL;
+}
+
+const char *e_config_page_next(EConfig *ec, const char *pageid)
+{
+	struct _widget_node *wn;
+	int found;
+
+	found = pageid == NULL ? 1:0;
+	for (wn = (struct _widget_node *)ec->priv->widgets.head;wn->next;wn=wn->next)
+		if (wn->item->type == E_CONFIG_PAGE) {
+			if (found)
+				return wn->item->path;
+			else if (strcmp(wn->item->path, pageid) == 0)
+				found = 1;
+		}
+
+	return NULL;
+}
+
+const char *e_config_page_prev(EConfig *ec, const char *pageid)
+{
+	struct _widget_node *wn;
+	int found;
+
+	found = pageid == NULL ? 1:0;
+	for (wn = (struct _widget_node *)ec->priv->widgets.tail;wn->prev;wn=wn->prev)
+		if (wn->item->type == E_CONFIG_PAGE) {
+			if (found)
+				return wn->item->path;
+			else if (strcmp(wn->item->path, pageid) == 0)
+				found = 1;
+		}
+
+	return NULL;
 }
 
 /* ********************************************************************** */
@@ -538,7 +759,7 @@ emph_free_menu(struct _EConfigHookGroup *menu)
 }
 
 static struct _GtkWidget *
-ech_config_widget_factory(EConfig *ec, EConfigItem *item, GtkWidget *parent, void *data)
+ech_config_widget_factory(EConfig *ec, EConfigItem *item, GtkWidget *parent, GtkWidget *old, void *data)
 {
 	EConfigHookItem *hitem = (EConfigHookItem *)item;
 	EConfigHookItemFactoryData hdata;
@@ -546,6 +767,7 @@ ech_config_widget_factory(EConfig *ec, EConfigItem *item, GtkWidget *parent, voi
 	hdata.item = item;
 	hdata.target = ec->target;
 	hdata.parent = parent;
+	hdata.old = old;
 
 	return (struct _GtkWidget *)e_plugin_invoke(hitem->hook->hook.plugin, hitem->factory, &hdata);
 }
@@ -601,7 +823,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 	menu->id = e_plugin_xml_prop(root, "id");
 	menu->commit = e_plugin_xml_prop(root, "commit");
 	menu->abort = e_plugin_xml_prop(root, "abort");
-	menu->hook = eph;
+	menu->hook = (EConfigHook *)eph;
 	node = root->children;
 	while (node) {
 		if (0 == strcmp(node->name, "item")) {

@@ -38,6 +38,7 @@
 
 static GObjectClass *ep_parent_class;
 static GHashTable *ep_types;
+static GSList *ep_path;
 
 static int
 ep_construct(EPlugin *ep, xmlNodePtr root)
@@ -100,6 +101,8 @@ e_plugin_get_type(void)
 	static GType type = 0;
 	
 	if (!type) {
+		char *path, *col, *p;
+
 		static const GTypeInfo info = {
 			sizeof(EPluginClass), NULL, NULL, (GClassInitFunc) ep_class_init, NULL, NULL,
 			sizeof(EPlugin), 0, (GInstanceInitFunc) NULL,
@@ -107,6 +110,18 @@ e_plugin_get_type(void)
 
 		ep_parent_class = g_type_class_ref(G_TYPE_OBJECT);
 		type = g_type_register_static(G_TYPE_OBJECT, "EPlugin", &info, 0);
+
+		path = g_strdup(getenv("EVOLUTION_PLUGIN_PATH"));
+		if (path == NULL)
+			path = g_build_filename(g_get_home_dir(), ".eplug", NULL);
+		p = path;
+		while ((col = strchr(p, ':'))) {
+			*col++ = 0;
+			e_plugin_add_load_path(p);
+			p = col;
+		}
+		e_plugin_add_load_path(p);
+		g_free(path);
 	}
 	
 	return type;
@@ -165,36 +180,48 @@ fail:
 	return res;
 }
 
-int
-e_plugin_load_plugins(const char *path)
+void
+e_plugin_add_load_path(const char *path)
 {
-	DIR *dir;
-	struct dirent *d;
+	ep_path = g_slist_append(ep_path, g_strdup(path));
+}
+
+int
+e_plugin_load_plugins(void)
+{
+	GSList *l;
 
 	if (ep_types == NULL) {
 		g_warning("no plugin types defined");
 		return 0;
 	}
 
-	printf("scanning plugin dir '%s'\n", path);
 
-	dir = opendir(path);
-	if (dir == NULL) {
-		g_warning("Could not find plugin path: %s", path);
-		return -1;
-	}
+	for (l = ep_path;l;l = g_slist_next(l)) {
+		DIR *dir;
+		struct dirent *d;
+		char *path = l->data;
 
-	while ( (d = readdir(dir)) ) {
-		if (strlen(d->d_name) > 6
-		    && !strcmp(d->d_name + strlen(d->d_name) - 6, ".eplug")) {
-			char * name = g_build_filename(path, d->d_name, NULL);
+		printf("scanning plugin dir '%s'\n", path);
 
-			ep_load(name);
-			g_free(name);
+		dir = opendir(path);
+		if (dir == NULL) {
+			g_warning("Could not find plugin path: %s", path);
+			return -1;
 		}
-	}
 
-	closedir(dir);
+		while ( (d = readdir(dir)) ) {
+			if (strlen(d->d_name) > 6
+			    && !strcmp(d->d_name + strlen(d->d_name) - 6, ".eplug")) {
+				char * name = g_build_filename(path, d->d_name, NULL);
+
+				ep_load(name);
+				g_free(name);
+			}
+		}
+
+		closedir(dir);
+	}
 
 	return 0;
 }
@@ -241,6 +268,17 @@ e_plugin_xml_prop(xmlNodePtr node, const char *id)
 			xmlFree(p);
 		return out;
 	}
+}
+
+int
+e_plugin_xml_int(xmlNodePtr node, const char *id, int def)
+{
+	char *p = xmlGetProp(node, id);
+
+	if (p)
+		return atoi(p);
+	else
+		return def;
 }
 
 char *

@@ -42,9 +42,11 @@ typedef struct _EConfigTarget EConfigTarget;
 
 typedef void (*EConfigFactoryFunc)(EConfig *ec, EConfigTarget *t, void *data);
 
+typedef gboolean (*EConfigCheckFunc)(EConfig *ec, const char *pageid, void *data);
+
 typedef void (*EConfigItemsFunc)(EConfig *ec, GSList *items, void *data);
 
-typedef struct _GtkWidget * (*EConfigItemFactoryFunc)(EConfig *ec, EConfigItem *, struct _GtkWidget *parent, void *data);
+typedef struct _GtkWidget * (*EConfigItemFactoryFunc)(EConfig *ec, EConfigItem *, struct _GtkWidget *parent, struct _GtkWidget *old, void *data);
 
 /* ok so this is all a bit bogussy
    we need to map to glade stuff instead */
@@ -56,9 +58,13 @@ typedef struct _GtkWidget * (*EConfigItemFactoryFunc)(EConfig *ec, EConfigItem *
 */
 
 enum _e_config_t {
+	/* use one and only one of these for any given config-window id */
 	E_CONFIG_BOOK,
+	E_CONFIG_DRUID,
+
 	E_CONFIG_PAGE,
 	E_CONFIG_SECTION,
+	E_CONFIG_SECTION_TABLE,
 	E_CONFIG_ITEM,
 };
 
@@ -66,7 +72,7 @@ enum _e_config_t {
    it is up to the caller to setup the items so once sorted, a page preceeds a section preceeds any items. */
 struct _EConfigItem {
 	enum _e_config_t type;
-	char *path;		/* absolute path, must sort asci-lexographically into the right spot */
+	char *path;		/* absolute path, must sort ascii-lexographically into the right spot */
 	char *label;
 	EConfigItemFactoryFunc factory;
 	void *user_data;
@@ -89,6 +95,8 @@ struct _EConfig {
 
 	struct _EConfigPrivate *priv;
 
+	int type;		/* E_CONFIG_BOOK or E_CONFIG_DRUID */
+
 	char *id;
 
 	EConfigTarget *target;
@@ -110,12 +118,21 @@ GType e_config_get_type(void);
 EConfigFactory *e_config_class_add_factory(EConfigClass *klass, const char *menuid, EConfigFactoryFunc func, void *data);
 void e_config_class_remove_factory(EConfigClass *klass, EConfigFactory *f);
 
-EConfig *e_config_construct(EConfig *, const char *menuid);
-EConfig *e_config_new(const char *menuid);
+EConfig *e_config_construct(EConfig *, int type, const char *menuid);
+EConfig *e_config_new(int type, const char *menuid);
 
 void e_config_add_items(EConfig *, GSList *items, EConfigItemsFunc commitfunc, EConfigItemsFunc abortfunc, EConfigItemsFunc freefunc, void *data);
+void e_config_add_page_check(EConfig *, const char *pageid, EConfigCheckFunc, void *data);
 
 struct _GtkWidget *e_config_create_widget(EConfig *, EConfigTarget *);
+
+void e_config_target_changed(EConfig *);
+
+gboolean e_config_page_check(EConfig *, const char *);
+
+GtkWidget *e_config_page_get(EConfig *ec, const char *pageid);
+const char *e_config_page_next(EConfig *ec, const char *pageid);
+const char *e_config_page_prev(EConfig *ec, const char *pageid);
 
 void e_config_abort(EConfig *);
 void e_config_commit(EConfig *);
@@ -149,6 +166,7 @@ struct _EConfigHookItemFactoryData {
 	EConfigItem *item;
 	EConfigTarget *target;
 	struct _GtkWidget *parent;
+	struct _GtkWidget *old;
 };
 
 struct _EConfigHookItem {

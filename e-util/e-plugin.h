@@ -33,7 +33,9 @@ struct _EPluginClass {
 GType e_plugin_get_type(void);
 
 int e_plugin_construct(EPlugin *ep, xmlNodePtr root);
-int e_plugin_load_plugins(const char *path);
+void e_plugin_add_load_path(const char *);
+int e_plugin_load_plugins(void);
+
 void e_plugin_register_type(GType type);
 
 void *e_plugin_invoke(EPlugin *ep, const char *name, void *data);
@@ -41,6 +43,7 @@ void *e_plugin_invoke(EPlugin *ep, const char *name, void *data);
 /* static helpers */
 /* maps prop or content to 'g memory' */
 char *e_plugin_xml_prop(xmlNodePtr node, const char *id);
+int e_plugin_xml_int(xmlNodePtr node, const char *id, int def);
 char *e_plugin_xml_content(xmlNodePtr node);
 
 /* ********************************************************************** */

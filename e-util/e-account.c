@@ -37,6 +37,13 @@
 #define PARENT_TYPE G_TYPE_OBJECT
 static GObjectClass *parent_class = NULL;
 
+enum {
+	CHANGED,
+	LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL];
+
 /*
 lock mail accounts	Relatively difficult -- involves redesign of the XML blobs which describe accounts
 disable adding mail accounts	Simple -- can be done with just a Gconf key and some UI work to make assoc. widgets unavailable
@@ -81,6 +88,16 @@ class_init (GObjectClass *object_class)
 
 	/* virtual method override */
 	object_class->finalize = finalize;
+
+	signals[CHANGED] =
+		g_signal_new("changed",
+			     G_OBJECT_CLASS_TYPE (object_class),
+			     G_SIGNAL_RUN_LAST,
+			     G_STRUCT_OFFSET (EAccountClass, changed),
+			     NULL, NULL,
+			     g_cclosure_marshal_VOID__INT,
+			     G_TYPE_NONE, 1,
+			     G_TYPE_INT);
 }
 
 static void
@@ -414,7 +431,6 @@ e_account_set_from_xml (EAccount *account, const char *xml)
 
 	return changed;
 }
-
 
 /**
  * e_account_import:
@@ -793,6 +809,17 @@ gboolean e_account_get_bool(EAccount *ea, e_account_item_t type)
 	return *((gboolean *)addr(ea, type));
 }
 
+static void
+dump_account(EAccount *ea)
+{
+	char *xml;
+
+	printf("Account changed\n");
+	xml = e_account_to_xml(ea);
+	printf(" ->\n%s\n", xml);
+	g_free(xml);
+}
+
 /* TODO: should it return true if it changed? */
 void e_account_set_string(EAccount *ea, e_account_item_t type, const char *val)
 {
@@ -802,9 +829,13 @@ void e_account_set_string(EAccount *ea, e_account_item_t type, const char *val)
 		g_warning("Trying to set non-writable option account value");
 	} else {
 		p = (char **)addr(ea, type);
-		if (*p != val) {
+		if (*p != val
+		    && (*p == NULL || val == NULL || strcmp(*p, val) != 0)) {
 			g_free(*p);
 			*p = g_strdup(val);
+
+			dump_account(ea);
+			g_signal_emit(ea, signals[CHANGED], 0, type);
 		}
 	}
 }
@@ -814,7 +845,13 @@ void e_account_set_int(EAccount *ea, e_account_item_t type, int val)
 	if (!e_account_writable(ea, type)) {
 		g_warning("Trying to set non-writable option account value");
 	} else {
-		*((int *)addr(ea, type)) = val;
+		int *p = (int *)addr(ea, type);
+
+		if (*p != val) {
+			*p = val;
+			dump_account(ea);
+			g_signal_emit(ea, signals[CHANGED], 0, type);
+		}
 	}
 }
 
@@ -824,6 +861,8 @@ void e_account_set_bool(EAccount *ea, e_account_item_t type, gboolean val)
 		g_warning("Trying to set non-writable option account value");
 	} else {
 		*((gboolean *)addr(ea, type)) = val;
+		dump_account(ea);
+		g_signal_emit(ea, signals[CHANGED], 0, type);
 	}
 }
 

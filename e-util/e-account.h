@@ -125,6 +125,7 @@ typedef struct _EAccount {
 typedef struct {
 	GObjectClass parent_class;
 
+	void (*changed)(EAccount *, int field);
 } EAccountClass;
 
 
