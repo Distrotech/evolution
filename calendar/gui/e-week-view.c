@@ -380,7 +380,7 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 
 	add_event_data.week_view = week_view;
 	add_event_data.comp_data = comp_data;
-	e_week_view_add_event (comp, comp_data->instance_start, comp_data->instance_end, &add_event_data);
+	e_week_view_add_event (comp, comp_data->instance_start, comp_data->instance_end, FALSE, &add_event_data);
 
 	g_object_unref (comp);
 }
