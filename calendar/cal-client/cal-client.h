@@ -223,6 +223,8 @@ gboolean cal_client_remove_object_with_mod (CalClient *client, const char *uid, 
 gboolean cal_client_receive_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
 gboolean cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
 
+gboolean cal_client_add_timezone (CalClient *client, icaltimezone *izone, GError **error);
+
 gboolean cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GError **error);
 
 /* Resolves TZIDs for the recurrence generator. */

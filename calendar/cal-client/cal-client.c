@@ -3293,6 +3293,82 @@ cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **er
 }
 
 /**
+ * cal_client_add_timezone
+ * @client: A calendar client.
+ * @izone: The timezone to add.
+ * @error: Placeholder for error information.
+ *
+ * Add a VTIMEZONE object to the given calendar.
+ *
+ * Returns: TRUE if successful, FALSE otherwise.
+ */
+gboolean
+cal_client_add_timezone (CalClient *client, icaltimezone *izone, GError **error)
+{
+	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
+	const char *tzobj;
+
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
+	g_return_val_if_fail (izone != NULL, FALSE);
+
+	priv = client->priv;
+
+	e_mutex_lock (priv->mutex);
+
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (priv->mutex);
+
+	/* convert icaltimezone into a string */
+	tzobj = icalcomponent_as_ical_string (icaltimezone_get_component (izone));
+
+	/* call the backend */
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_addTimezone (priv->cal, tzobj, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return FALSE;
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
+}
+
+/**
  * cal_client_get_query:
  * @client: A calendar client.
  * @sexp: S-expression representing the query.

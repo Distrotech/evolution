@@ -1,5 +1,9 @@
 2003-09-18  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.[ch] (cal_client_add_timezone): new function.
+
+2003-09-18  Rodrigo Moya <rodrigo@ximian.com>
+
 	* idl/evolution-calendar.idl: added 'notifyTimezoneAdded' method
 	to the Calendar::Listener interface.
 
