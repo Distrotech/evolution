@@ -1,3 +1,8 @@
+2003-10-21  Not Zed  <NotZed@Ximian.com>
+
+	* e-storage-browser.c (e_storage_browser_show_path): ref the view
+	since removing it from the hashtable will unref it.
+
 2003-10-09  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* Makefile.am: INCLUDE path fixes for changes made to libical

@@ -293,6 +293,7 @@ e_storage_browser_show_path  (EStorageBrowser *browser,
 	g_print ("page switched\n");
 	g_signal_emit (browser, signals[PAGE_SWITCHED], 0, current_view, new_view);
 
+	g_object_ref(new_view);
 	g_hash_table_insert (priv->path_to_view, g_strdup (path), new_view);
 
 	g_free (priv->current_path);
