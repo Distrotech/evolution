@@ -1,3 +1,10 @@
+2004-12-16  Chenthill Palanisamy  <pchenthill@novell.com>
+	
+	* e-send-options.glade: interface for send options dialog
+	* e-send-options.[ch]: the necessary files for send options
+	dialog.
+	* Makefile.am: add the there files for compilation.
+
 2004-12-14  Rodney Dawes  <dobey@novell.com>
 
 	* e-calendar-item.c (e_calendar_item_draw): Use gtk_paint_foo instead
