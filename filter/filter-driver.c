@@ -364,7 +364,7 @@ close_folder (void *key, void *value, void *data)
 	camel_folder_sync (folder, FALSE, p->ex);
 	camel_folder_thaw (folder);
 	mail_tool_camel_lock_down ();
-	gtk_object_unref (GTK_OBJECT (folder));
+	camel_object_unref (CAMEL_OBJECT (folder));
 }
 
 /* flush/close all folders */
@@ -612,26 +612,3 @@ cleanup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	if (input->self_destruct)
 		gtk_object_unref (GTK_OBJECT (input->driver));
 }
-
-#if 0
-static const mail_operation_spec op_fetch_mail =
-{
-	"Fetch email",
-	"Fetching email",
-	0,
-	setup_fetch_mail,
-	do_fetch_mail,
-	cleanup_fetch_mail
-};
-
-void mail_do_fetch_mail (const gchar *source_url, CamelFolder *destination)
-{
-	fetch_mail_input_t *input;
-
-	input = g_new (fetch_mail_input_t, 1);
-	input->source_url = g_strdup (source_url);
-	input->destination = destination;
-
-	mail_operation_queue (&op_fetch_mail, input, TRUE);
-}
-#endif

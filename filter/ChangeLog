@@ -1,3 +1,8 @@
+2000-08-08  Peter Williams  <peterw@helixcode.com>
+
+	* filter-driver.c (close_folder): Fix an accidental GTK unref
+	of a CamelObject.
+
 2000-08-03  Ettore Perazzoli  <ettore@helixcode.com>
 
 	* filter-folder.c (button_clicked): Use the base name of the
