@@ -1,3 +1,50 @@
+2003-09-24  JP Rosevear <jpr@ximian.com>
+
+	* pcs/cal.h: new protos
+
+	* pcs/cal.c (impl_Cal_getTimezone): call backend implementation
+	(impl_Cal_addTimezone): ditto
+	(impl_Cal_setDefaultTimezone): ditto
+	(cal_class_init): set epv implementations of timezone functions
+	(cal_notify_timezone_requested): notify of get timezone response
+	(cal_notify_default_timezone_set): notify of default timezone
+	being set
+
+	* pcs/cal-backend.h: new vmethods, protos
+
+	* pcs/cal-backend.c (cal_backend_class_init): init new timezone
+	vmethods
+	(cal_backend_get_timezone): call through
+	(cal_backend_set_default_timezone): ditto
+	(cal_backend_add_timezone): ditto
+	(cal_backend_internal_get_default_timezone): ditto
+	(cal_backend_internal_get_timezone): ditto
+
+	* pcs/cal-backend-sync.h: add vmethods, protos
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_get_timezone): call
+	through
+	(cal_backend_sync_set_default_timezone): ditto
+	(_cal_backend_set_default_timezone): call through and notify
+	(_cal_backend_get_timezone): ditto
+	(cal_backend_sync_class_init): set backend implementations for new
+	funcs
+
+	* pcs/cal-backend-object-sexp.c (func_occur_in_time_range): get
+	time_t values based on the zone
+
+	* pcs/cal-backend-file.c: reorg so we don't have to prototype
+	everything
+	(cal_backend_file_get_timezone): implement the sync backend way
+	(cal_backend_file_add_timezone): ditto
+	(cal_backend_file_set_default_timezone): ditto
+	(cal_backend_file_internal_get_default_timezone): internal method,
+	for sexp comparison
+	(cal_backend_file_internal_get_timezone): ditto
+
+	* idl/evolution-calendar.idl: convert timezone routines to async
+	api
+
 2003-09-23  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-object-sexp.c (func_occur_in_time_range): dont expand

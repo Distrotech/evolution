@@ -468,51 +468,20 @@ impl_Cal_getQuery (PortableServer_Servant servant,
 	g_object_unref (query);
 }
 
-/* Cal::setDefaultTimezone method */
+
+/* Cal::getTimezone method */
 static void
-impl_Cal_setDefaultTimezone (PortableServer_Servant servant,
-			     const CORBA_char *tzid,
-			     CORBA_Environment *ev)
+impl_Cal_getTimezone (PortableServer_Servant servant,
+		      const CORBA_char *tzid,
+		      CORBA_Environment *ev)
 {
 	Cal *cal;
 	CalPrivate *priv;
-	gboolean zone_set;
 
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	zone_set = cal_backend_set_default_timezone (priv->backend, tzid);
-
-	if (!zone_set) {
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
-	}
-}
-
-/* Cal::getTimezoneObject method */
-static GNOME_Evolution_Calendar_CalObj
-impl_Cal_getTimezoneObject (PortableServer_Servant servant,
-			    const CORBA_char *tzid,
-			    CORBA_Environment *ev)
-{
-	Cal *cal;
-	CalPrivate *priv;
-	char *calobj;
-
-	cal = CAL (bonobo_object_from_servant (servant));
-	priv = cal->priv;
-
-	calobj = cal_backend_get_timezone_object (priv->backend, tzid);
-
-	if (calobj) {
-		CORBA_char *calobj_copy;
-
-		calobj_copy = CORBA_string_dup (calobj);
-		g_free (calobj);
-		return calobj_copy;
-	} else {
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
-		return NULL;
-	}
+	cal_backend_get_timezone (priv->backend, cal, tzid);
 }
 
 /* Cal::addTimezone method */
@@ -528,6 +497,21 @@ impl_Cal_addTimezone (PortableServer_Servant servant,
 	priv = cal->priv;
 
 	cal_backend_add_timezone (priv->backend, cal, tz);
+}
+
+/* Cal::setDefaultTimezone method */
+static void
+impl_Cal_setDefaultTimezone (PortableServer_Servant servant,
+			     const CORBA_char *tzid,
+			     CORBA_Environment *ev)
+{
+	Cal *cal;
+	CalPrivate *priv;
+
+	cal = CAL (bonobo_object_from_servant (servant));
+	priv = cal->priv;
+
+	cal_backend_set_default_timezone (priv->backend, cal, tzid);
 }
 
 /**
@@ -663,9 +647,9 @@ cal_class_init (CalClass *klass)
 	epv->setMode = impl_Cal_setMode;
 	epv->getDefaultObject = impl_Cal_getDefaultObject;
 	epv->getObject = impl_Cal_getObject;
-	epv->setDefaultTimezone = impl_Cal_setDefaultTimezone;
-	epv->getTimezoneObject = impl_Cal_getTimezoneObject;
+	epv->getTimezone = impl_Cal_getTimezone;
 	epv->addTimezone = impl_Cal_addTimezone;
+	epv->setDefaultTimezone = impl_Cal_setDefaultTimezone;
 	epv->getObjectList = impl_Cal_getObjectList;
 	epv->getChanges = impl_Cal_getChanges;
 	epv->getFreeBusy = impl_Cal_getFreeBusy;
@@ -1108,6 +1092,26 @@ cal_notify_query (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, Query *q
 }
 
 void
+cal_notify_timezone_requested (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *object)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyTimezoneRequested (priv->listener, status, object, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_warning (G_STRLOC ": could not notify the listener of timezone requested");
+
+	CORBA_exception_free (&ev);
+}
+
+void
 cal_notify_timezone_added (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *tzid)
 {
 	CalPrivate *priv;
@@ -1122,7 +1126,27 @@ cal_notify_timezone_added (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 	GNOME_Evolution_Calendar_Listener_notifyTimezoneAdded (priv->listener, status, tzid, &ev);
 
 	if (BONOBO_EX (&ev))
-		g_message (G_STRLOC ": could not notify the listener of timezone added");
+		g_warning (G_STRLOC ": could not notify the listener of timezone added");
+
+	CORBA_exception_free (&ev);
+}
+
+void
+cal_notify_default_timezone_set (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyDefaultTimezoneSet (priv->listener, status, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_warning (G_STRLOC ": could not notify the listener of default timezone set");
 
 	CORBA_exception_free (&ev);
 }

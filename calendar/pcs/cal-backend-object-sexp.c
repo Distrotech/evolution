@@ -297,16 +297,28 @@ func_occur_in_time_range (ESExp *esexp, int argc, ESExpResult **argv, void *data
 
 	/* See if the object occurs in the specified time range */
 	occurs = FALSE;
-
+	
 	cal_component_get_dtstart (ctx->comp, &dt);
 	if (dt.value) {
-		tt = icaltime_as_timet (*dt.value);
+		icaltimezone *zone;
+
+		if (dt.tzid)
+			zone = cal_backend_internal_get_timezone (ctx->backend, dt.tzid);
+		else
+			zone = cal_backend_internal_get_default_timezone (ctx->backend);
+		
+		tt = icaltime_as_timet_with_zone (*dt.value, zone);
 		if (tt >= start && tt <= end)
 			occurs = TRUE;
 		else {
 			cal_component_get_dtend (ctx->comp, &dt);
 			if (dt.value) {
-				tt = icaltime_as_timet (*dt.value);
+				if (dt.tzid)
+					zone = cal_backend_internal_get_timezone (ctx->backend, dt.tzid);
+				else
+					zone = cal_backend_internal_get_default_timezone (ctx->backend);
+
+				tt = icaltime_as_timet_with_zone (*dt.value, zone);
 				if (tt >= start && tt <= end)
 					occurs = TRUE;
 			}

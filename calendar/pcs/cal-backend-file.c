@@ -71,187 +71,12 @@ struct _CalBackendFilePrivate {
 
 
 
-static void cal_backend_file_class_init (CalBackendFileClass *class);
-static void cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *class);
 static void cal_backend_file_dispose (GObject *object);
 static void cal_backend_file_finalize (GObject *object);
-
-static CalBackendSyncStatus cal_backend_file_is_read_only (CalBackendSync *backend, Cal *cal, gboolean *read_only);
-static CalBackendSyncStatus cal_backend_file_get_cal_address (CalBackendSync *backend, Cal *cal, char **address);
-static CalBackendSyncStatus cal_backend_file_get_alarm_email_address (CalBackendSync *backend, Cal *cal, char **address);
-static CalBackendSyncStatus cal_backend_file_get_ldap_attribute (CalBackendSync *backend, Cal *cal, char **attribute);
-static CalBackendSyncStatus cal_backend_file_get_static_capabilities (CalBackendSync *backend, Cal *cal, char **capabilities);
-
-static CalBackendSyncStatus cal_backend_file_open (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
-static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Cal *cal);
-
-static CalBackendSyncStatus cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid);
-static CalBackendSyncStatus cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
-
-static CalBackendSyncStatus cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod, char **object);
-
-static CalBackendSyncStatus cal_backend_file_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
-
-static gboolean cal_backend_file_is_loaded (CalBackend *backend);
-static void cal_backend_file_start_query (CalBackend *backend, Query *query);
-
-static CalMode cal_backend_file_get_mode (CalBackend *backend);
-static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
-
-static char *cal_backend_file_get_default_object (CalBackend *backend, CalObjType type);
-static CalComponent *cal_backend_file_get_object_component (CalBackend *backend, const char *uid, const char *rid);
-static char *cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid);
-static CalBackendSyncStatus cal_backend_file_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj);
-static GList *cal_backend_file_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
-static GNOME_Evolution_Calendar_CalObjChangeSeq *cal_backend_file_get_changes (
-	CalBackend *backend, CalObjType type, const char *change_id);
-
-static CalBackendResult cal_backend_file_discard_alarm (CalBackend *backend,
-							const char *uid,
-							const char *auid);
-
-static CalBackendSyncStatus cal_backend_file_receive_objects (CalBackendSync *backend, Cal *cal, const char *calobj, GList **created, GList **modified, GList **removed);
-static CalBackendSyncStatus cal_backend_file_send_objects (CalBackendSync *backend, Cal *cal, const char *calobj);
-
-static icaltimezone* cal_backend_file_get_timezone (CalBackend *backend, const char *tzid);
-static icaltimezone* cal_backend_file_get_default_timezone (CalBackend *backend);
-static gboolean cal_backend_file_set_default_timezone (CalBackend *backend,
-						       const char *tzid);
 
 static CalBackendSyncClass *parent_class;
 
 
-
-/**
- * cal_backend_file_get_type:
- * @void: 
- * 
- * Registers the #CalBackendFile class if necessary, and returns the type ID
- * associated to it.
- * 
- * Return value: The type ID of the #CalBackendFile class.
- **/
-GType
-cal_backend_file_get_type (void)
-{
-	static GType cal_backend_file_type = 0;
-
-	if (!cal_backend_file_type) {
-		static GTypeInfo info = {
-                        sizeof (CalBackendFileClass),
-                        (GBaseInitFunc) NULL,
-                        (GBaseFinalizeFunc) NULL,
-                        (GClassInitFunc) cal_backend_file_class_init,
-                        NULL, NULL,
-                        sizeof (CalBackendFile),
-                        0,
-                        (GInstanceInitFunc) cal_backend_file_init
-                };
-		cal_backend_file_type = g_type_register_static (CAL_TYPE_BACKEND_SYNC,
-								"CalBackendFile", &info, 0);
-	}
-
-	return cal_backend_file_type;
-}
-
-/* Class initialization function for the file backend */
-static void
-cal_backend_file_class_init (CalBackendFileClass *class)
-{
-	GObjectClass *object_class;
-	CalBackendClass *backend_class;
-	CalBackendSyncClass *sync_class;
-
-	object_class = (GObjectClass *) class;
-	backend_class = (CalBackendClass *) class;
-	sync_class = (CalBackendSyncClass *) class;
-
-	parent_class = (CalBackendSyncClass *) g_type_class_peek_parent (class);
-
-	object_class->dispose = cal_backend_file_dispose;
-	object_class->finalize = cal_backend_file_finalize;
-
-	sync_class->is_read_only_sync = cal_backend_file_is_read_only;
-	sync_class->get_cal_address_sync = cal_backend_file_get_cal_address;
- 	sync_class->get_alarm_email_address_sync = cal_backend_file_get_alarm_email_address;
- 	sync_class->get_ldap_attribute_sync = cal_backend_file_get_ldap_attribute;
- 	sync_class->get_static_capabilities_sync = cal_backend_file_get_static_capabilities;
-	sync_class->open_sync = cal_backend_file_open;
-	sync_class->remove_sync = cal_backend_file_remove;
-	sync_class->create_object_sync = cal_backend_file_create_object;
-	sync_class->modify_object_sync = cal_backend_file_modify_object;
-	sync_class->remove_object_sync = cal_backend_file_remove_object;
-	sync_class->receive_objects_sync = cal_backend_file_receive_objects;
-	sync_class->send_objects_sync = cal_backend_file_send_objects;
-	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
-	sync_class->add_timezone_sync = cal_backend_file_add_timezone;
-
-	backend_class->is_loaded = cal_backend_file_is_loaded;
-	backend_class->start_query = cal_backend_file_start_query;
-	backend_class->get_mode = cal_backend_file_get_mode;
-	backend_class->set_mode = cal_backend_file_set_mode;	
- 	backend_class->get_default_object = cal_backend_file_get_default_object;
-	backend_class->get_object_component = cal_backend_file_get_object_component;
-	backend_class->get_timezone_object = cal_backend_file_get_timezone_object;
-	backend_class->get_free_busy = cal_backend_file_get_free_busy;
-	backend_class->get_changes = cal_backend_file_get_changes;
-	backend_class->discard_alarm = cal_backend_file_discard_alarm;
-
-	backend_class->get_timezone = cal_backend_file_get_timezone;
-	backend_class->get_default_timezone = cal_backend_file_get_default_timezone;
-	backend_class->set_default_timezone = cal_backend_file_set_default_timezone;
-}
-
-/* Object initialization function for the file backend */
-static void
-cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *class)
-{
-	CalBackendFilePrivate *priv;
-
-	priv = g_new0 (CalBackendFilePrivate, 1);
-	cbfile->priv = priv;
-
-	priv->uri = NULL;
-	priv->file_name = g_strdup ("calendar.ics");
-	priv->icalcomp = NULL;
-	priv->comp_uid_hash = NULL;
-	priv->comp = NULL;
-
-	/* The timezone defaults to UTC. */
-	priv->default_zone = icaltimezone_get_utc_timezone ();
-
-	priv->config_listener = e_config_listener_new ();
-}
-
-void
-cal_backend_file_set_file_name (CalBackendFile *cbfile, const char *file_name)
-{
-	CalBackendFilePrivate *priv;
-	
-	g_return_if_fail (cbfile != NULL);
-	g_return_if_fail (IS_CAL_BACKEND_FILE (cbfile));
-	g_return_if_fail (file_name != NULL);
-
-	priv = cbfile->priv;
-	
-	if (priv->file_name)
-		g_free (priv->file_name);
-	
-	priv->file_name = g_strdup (file_name);
-}
-
-const char *
-cal_backend_file_get_file_name (CalBackendFile *cbfile)
-{
-	CalBackendFilePrivate *priv;
-
-	g_return_val_if_fail (cbfile != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND_FILE (cbfile), NULL);
-
-	priv = cbfile->priv;	
-
-	return priv->file_name;
-}
 
 /* g_hash_table_foreach() callback to destroy a CalComponent */
 static void
@@ -943,40 +768,38 @@ cal_backend_file_get_object_component (CalBackend *backend, const char *uid, con
 }
 
 /* Get_timezone_object handler for the file backend */
-static char *
-cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid)
+static CalBackendSyncStatus
+cal_backend_file_get_timezone (CalBackendSync *backend, Cal *cal, const char *tzid, char **object)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
 	icaltimezone *zone;
 	icalcomponent *icalcomp;
-	char *ical_string;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_return_val_if_fail (tzid != NULL, NULL);
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+	g_return_val_if_fail (tzid != NULL, GNOME_Evolution_Calendar_ObjectNotFound);
 
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
-	g_assert (priv->comp_uid_hash != NULL);
-
-	zone = icalcomponent_get_timezone (priv->icalcomp, tzid);
-	if (!zone) {
-		zone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
-		if (!zone)
-			return NULL;
+	if (!strcmp (tzid, "UTC")) {
+		zone = icaltimezone_get_utc_timezone ();
+	} else {
+		zone = icalcomponent_get_timezone (priv->icalcomp, tzid);
+		if (!zone) {
+			zone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
+			if (!zone)
+				return GNOME_Evolution_Calendar_ObjectNotFound;
+		}
 	}
-
+	
 	icalcomp = icaltimezone_get_component (zone);
 	if (!icalcomp)
-		return NULL;
+		return GNOME_Evolution_Calendar_InvalidObject;
 
-	ical_string = icalcomponent_as_ical_string (icalcomp);
-	/* We dup the string; libical owns that memory. */
-	if (ical_string)
-		return g_strdup (ical_string);
-	else
-		return NULL;
+	*object = g_strdup (icalcomponent_as_ical_string (icalcomp));
+
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Add_timezone handler for the file backend */
@@ -1010,6 +833,30 @@ cal_backend_file_add_timezone (CalBackendSync *backend, Cal *cal, const char *tz
 
 		icaltimezone_free (zone, 1);
 	}
+
+	return GNOME_Evolution_Calendar_Success;
+}
+
+
+static CalBackendSyncStatus
+cal_backend_file_set_default_timezone (CalBackendSync *backend, Cal *cal, const char *tzid)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+	icaltimezone *zone;
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+
+	/* Look up the VTIMEZONE in our icalcomponent. */
+	zone = icalcomponent_get_timezone (priv->icalcomp, tzid);
+	if (!zone)
+		return GNOME_Evolution_Calendar_ObjectNotFound;
+
+	/* Set the default timezone to it. */
+	priv->default_zone = zone;
 
 	return GNOME_Evolution_Calendar_Success;
 }
@@ -1772,8 +1619,22 @@ cal_backend_file_send_objects (CalBackendSync *backend, Cal *cal, const char *ca
 	return GNOME_Evolution_Calendar_Success;
 }
 
-static icaltimezone*
-cal_backend_file_get_timezone (CalBackend *backend, const char *tzid)
+static icaltimezone *
+cal_backend_file_internal_get_default_timezone (CalBackend *backend)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
+
+	return priv->default_zone;
+}
+
+static icaltimezone *
+cal_backend_file_internal_get_timezone (CalBackend *backend, const char *tzid)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -1795,43 +1656,134 @@ cal_backend_file_get_timezone (CalBackend *backend, const char *tzid)
 	return zone;
 }
 
-
-static icaltimezone*
-cal_backend_file_get_default_timezone (CalBackend *backend)
+/* Object initialization function for the file backend */
+static void
+cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *class)
 {
-	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
 
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
+	priv = g_new0 (CalBackendFilePrivate, 1);
+	cbfile->priv = priv;
 
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
+	priv->uri = NULL;
+	priv->file_name = g_strdup ("calendar.ics");
+	priv->icalcomp = NULL;
+	priv->comp_uid_hash = NULL;
+	priv->comp = NULL;
 
-	return priv->default_zone;
+	/* The timezone defaults to UTC. */
+	priv->default_zone = icaltimezone_get_utc_timezone ();
+
+	priv->config_listener = e_config_listener_new ();
+}
+
+/* Class initialization function for the file backend */
+static void
+cal_backend_file_class_init (CalBackendFileClass *class)
+{
+	GObjectClass *object_class;
+	CalBackendClass *backend_class;
+	CalBackendSyncClass *sync_class;
+
+	object_class = (GObjectClass *) class;
+	backend_class = (CalBackendClass *) class;
+	sync_class = (CalBackendSyncClass *) class;
+
+	parent_class = (CalBackendSyncClass *) g_type_class_peek_parent (class);
+
+	object_class->dispose = cal_backend_file_dispose;
+	object_class->finalize = cal_backend_file_finalize;
+
+	sync_class->is_read_only_sync = cal_backend_file_is_read_only;
+	sync_class->get_cal_address_sync = cal_backend_file_get_cal_address;
+ 	sync_class->get_alarm_email_address_sync = cal_backend_file_get_alarm_email_address;
+ 	sync_class->get_ldap_attribute_sync = cal_backend_file_get_ldap_attribute;
+ 	sync_class->get_static_capabilities_sync = cal_backend_file_get_static_capabilities;
+	sync_class->open_sync = cal_backend_file_open;
+	sync_class->remove_sync = cal_backend_file_remove;
+	sync_class->create_object_sync = cal_backend_file_create_object;
+	sync_class->modify_object_sync = cal_backend_file_modify_object;
+	sync_class->remove_object_sync = cal_backend_file_remove_object;
+	sync_class->receive_objects_sync = cal_backend_file_receive_objects;
+	sync_class->send_objects_sync = cal_backend_file_send_objects;
+	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
+	sync_class->get_timezone_sync = cal_backend_file_get_timezone;
+	sync_class->add_timezone_sync = cal_backend_file_add_timezone;
+	sync_class->set_default_timezone_sync = cal_backend_file_set_default_timezone;
+
+	backend_class->is_loaded = cal_backend_file_is_loaded;
+	backend_class->start_query = cal_backend_file_start_query;
+	backend_class->get_mode = cal_backend_file_get_mode;
+	backend_class->set_mode = cal_backend_file_set_mode;	
+ 	backend_class->get_default_object = cal_backend_file_get_default_object;
+	backend_class->get_object_component = cal_backend_file_get_object_component;
+	backend_class->get_free_busy = cal_backend_file_get_free_busy;
+	backend_class->get_changes = cal_backend_file_get_changes;
+	backend_class->discard_alarm = cal_backend_file_discard_alarm;
+
+	backend_class->internal_get_default_timezone = cal_backend_file_internal_get_default_timezone;
+	backend_class->internal_get_timezone = cal_backend_file_internal_get_timezone;
 }
 
 
-static gboolean
-cal_backend_file_set_default_timezone (CalBackend *backend,
-				       const char *tzid)
+/**
+ * cal_backend_file_get_type:
+ * @void: 
+ * 
+ * Registers the #CalBackendFile class if necessary, and returns the type ID
+ * associated to it.
+ * 
+ * Return value: The type ID of the #CalBackendFile class.
+ **/
+GType
+cal_backend_file_get_type (void)
 {
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-	icaltimezone *zone;
+	static GType cal_backend_file_type = 0;
 
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
+	if (!cal_backend_file_type) {
+		static GTypeInfo info = {
+                        sizeof (CalBackendFileClass),
+                        (GBaseInitFunc) NULL,
+                        (GBaseFinalizeFunc) NULL,
+                        (GClassInitFunc) cal_backend_file_class_init,
+                        NULL, NULL,
+                        sizeof (CalBackendFile),
+                        0,
+                        (GInstanceInitFunc) cal_backend_file_init
+                };
+		cal_backend_file_type = g_type_register_static (CAL_TYPE_BACKEND_SYNC,
+								"CalBackendFile", &info, 0);
+	}
 
-	g_return_val_if_fail (priv->icalcomp != NULL, FALSE);
-
-	/* Look up the VTIMEZONE in our icalcomponent. */
-	zone = icalcomponent_get_timezone (priv->icalcomp, tzid);
-	if (!zone)
-		return FALSE;
-
-	/* Set the default timezone to it. */
-	priv->default_zone = zone;
-
-	return TRUE;
+	return cal_backend_file_type;
 }
 
+void
+cal_backend_file_set_file_name (CalBackendFile *cbfile, const char *file_name)
+{
+	CalBackendFilePrivate *priv;
+	
+	g_return_if_fail (cbfile != NULL);
+	g_return_if_fail (IS_CAL_BACKEND_FILE (cbfile));
+	g_return_if_fail (file_name != NULL);
+
+	priv = cbfile->priv;
+	
+	if (priv->file_name)
+		g_free (priv->file_name);
+	
+	priv->file_name = g_strdup (file_name);
+}
+
+const char *
+cal_backend_file_get_file_name (CalBackendFile *cbfile)
+{
+	CalBackendFilePrivate *priv;
+
+	g_return_val_if_fail (cbfile != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_BACKEND_FILE (cbfile), NULL);
+
+	priv = cbfile->priv;	
+
+	return priv->file_name;
+}

@@ -247,7 +247,6 @@ cal_backend_class_init (CalBackendClass *class)
 	class->set_mode = NULL;	
 	class->get_object = get_object;
 	class->get_object_component = NULL;
-	class->get_timezone_object = NULL;
 	class->get_object_list = NULL;
 	class->get_free_busy = NULL;
 	class->get_changes = NULL;
@@ -257,8 +256,9 @@ cal_backend_class_init (CalBackendClass *class)
 	class->remove_object = NULL;
 	class->receive_objects = NULL;
 	class->send_objects = NULL;
-	class->get_timezone_object = NULL;
+	class->get_timezone = NULL;
 	class->add_timezone = NULL;
+	class->set_default_timezone = NULL;
 }
 
 /* Object initialization func for the calendar backend */
@@ -678,28 +678,6 @@ cal_backend_get_object_component (CalBackend *backend, const char *uid, const ch
 }
 
 /**
- * cal_backend_get_timezone_object:
- * @backend: A calendar backend.
- * @tzid: Unique identifier for a calendar VTIMEZONE object.
- *
- * Queries a calendar backend for a VTIMEZONE calendar object based on its
- * unique TZID identifier.
- *
- * Return value: The string representation of a VTIMEZONE component, or NULL
- * if no VTIMEZONE object had the specified TZID.
- **/
-char *
-cal_backend_get_timezone_object (CalBackend *backend, const char *tzid)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (tzid != NULL, NULL);
-
-	g_assert (CLASS (backend)->get_timezone_object != NULL);
-	return (* CLASS (backend)->get_timezone_object) (backend, tzid);
-}
-
-/**
  * cal_backend_get_type_by_uid
  * @backend: A calendar backend.
  * @uid: Unique identifier for a Calendar object.
@@ -953,37 +931,16 @@ cal_backend_removed (CalBackend *backend, int status)
  * 
  * Returns: The icaltimezone* corresponding to the given TZID, or NULL.
  **/
-icaltimezone*
-cal_backend_get_timezone (CalBackend *backend, const char *tzid)
+void
+cal_backend_get_timezone (CalBackend *backend, Cal *cal, const char *tzid)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (tzid != NULL, NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (tzid != NULL);
 
 	g_assert (CLASS (backend)->get_timezone != NULL);
-	return (* CLASS (backend)->get_timezone) (backend, tzid);
+	(* CLASS (backend)->get_timezone) (backend, cal, tzid);
 }
-
-
-/**
- * cal_backend_get_default_timezone:
- * @backend: A calendar backend.
- * 
- * Returns the default timezone for the calendar, which is used to resolve
- * DATE and floating DATE-TIME values.
- * 
- * Returns: The default icaltimezone* for the calendar.
- **/
-icaltimezone*
-cal_backend_get_default_timezone (CalBackend *backend)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-
-	g_assert (CLASS (backend)->get_default_timezone != NULL);
-	return (* CLASS (backend)->get_default_timezone) (backend);
-}
-
 
 /**
  * cal_backend_set_default_timezone:
@@ -996,15 +953,15 @@ cal_backend_get_default_timezone (CalBackend *backend)
  * Returns: TRUE if the VTIMEZONE data for the timezone was found, or FALSE if
  * not.
  **/
-gboolean
-cal_backend_set_default_timezone (CalBackend *backend, const char *tzid)
+void
+cal_backend_set_default_timezone (CalBackend *backend, Cal *cal, const char *tzid)
 {
-	g_return_val_if_fail (backend != NULL, FALSE);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), FALSE);
-	g_return_val_if_fail (tzid != NULL, FALSE);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (tzid != NULL);
 
 	g_assert (CLASS (backend)->set_default_timezone != NULL);
-	return (* CLASS (backend)->set_default_timezone) (backend, tzid);
+	(* CLASS (backend)->set_default_timezone) (backend, cal, tzid);
 }
 
 /**
@@ -1024,6 +981,25 @@ cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj)
 	g_return_if_fail (CLASS (backend)->add_timezone != NULL);
 
 	(* CLASS (backend)->add_timezone) (backend, cal, tzobj);
+}
+
+icaltimezone *
+cal_backend_internal_get_default_timezone (CalBackend *backend)
+{
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_val_if_fail (CLASS (backend)->internal_get_default_timezone != NULL, NULL);
+
+	return (* CLASS (backend)->internal_get_default_timezone) (backend);
+}
+
+icaltimezone *
+cal_backend_internal_get_timezone (CalBackend *backend, const char *tzid)
+{
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_val_if_fail (tzid != NULL, NULL);
+	g_return_val_if_fail (CLASS (backend)->internal_get_timezone != NULL, NULL);
+
+	return (* CLASS (backend)->internal_get_timezone) (backend, tzid);
 }
 
 /**

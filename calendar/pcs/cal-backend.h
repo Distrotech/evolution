@@ -73,6 +73,8 @@ struct _CalBackendClass {
 	void (* last_client_gone) (CalBackend *backend);
 	void (* cal_added) (CalBackend *backend, Cal *cal);
 
+	gboolean (* is_loaded) (CalBackend *backend);
+
 	/* FIXME What to pass back here */
 	void (* opened) (CalBackend *backend, int status);
 	void (* removed) (CalBackend *backend, int status);
@@ -88,6 +90,7 @@ struct _CalBackendClass {
 	void (* open) (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 	void (* remove) (CalBackend *backend, Cal *cal);
 
+	/* Object related virtual methods */
 	void (* create_object) (CalBackend *backend, Cal *cal, const char *calobj);
 	void (* modify_object) (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
 	void (* remove_object) (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
@@ -97,7 +100,10 @@ struct _CalBackendClass {
 	
 	void (* get_object_list) (CalBackend *backend, Cal *cal, const char *sexp);
 
-	gboolean (* is_loaded) (CalBackend *backend);
+	/* Timezone related virtual methods */
+	void (* get_timezone) (CalBackend *backend, Cal *cal, const char *tzid);
+	void (* add_timezone) (CalBackend *backend, Cal *cal, const char *object);
+	void (* set_default_timezone) (CalBackend *backend, Cal *cal, const char *tzid);
 
 	void (* start_query) (CalBackend *backend, Query *query);
 
@@ -109,7 +115,7 @@ struct _CalBackendClass {
 	char *(* get_default_object) (CalBackend *backend, CalObjType type);
 	char *(* get_object) (CalBackend *backend, const char *uid, const char *rid);
 	CalComponent *(* get_object_component) (CalBackend *backend, const char *uid, const char *rid);
-	char *(* get_timezone_object) (CalBackend *backend, const char *tzid);
+
 
 	GList *(* get_free_busy) (CalBackend *backend, GList *users, time_t start, time_t end);
 
@@ -120,11 +126,9 @@ struct _CalBackendClass {
 	/* Alarm related virtual methods */
 	CalBackendResult (* discard_alarm) (CalBackend *backend, const char *uid, const char *auid);
 
-	/* Timezone related virtual methods */
-	icaltimezone *(* get_timezone) (CalBackend *backend, const char *tzid);
-	icaltimezone *(* get_default_timezone) (CalBackend *backend);
-	gboolean (* set_default_timezone) (CalBackend *backend, const char *tzid);
-	void (* add_timezone) (CalBackend *backend, Cal *cal, const char *tzobj);
+	/* Internal methods for use only in the pcs */
+	icaltimezone *(* internal_get_default_timezone) (CalBackend *backend);
+	icaltimezone *(* internal_get_timezone) (CalBackend *backend, const char *tzid);
 };
 
 GType cal_backend_get_type (void);
@@ -165,11 +169,12 @@ char *cal_backend_get_object (CalBackend *backend, const char *uid, const char *
 
 CalComponent *cal_backend_get_object_component (CalBackend *backend, const char *uid, const char *rid);
 
-gboolean cal_backend_set_default_timezone (CalBackend *backend, const char *tzid);
+void cal_backend_get_timezone (CalBackend *backend, Cal *cal, const char *tzid);
+void cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *object);
+void cal_backend_set_default_timezone (CalBackend *backend, Cal *cal, const char *tzid);
 
-void cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj);
-
-char *cal_backend_get_timezone_object (CalBackend *backend, const char *tzid);
+icaltimezone* cal_backend_internal_get_default_timezone (CalBackend *backend);
+icaltimezone* cal_backend_internal_get_timezone (CalBackend *backend, const char *tzid);
 
 CalObjType cal_backend_get_type_by_uid (CalBackend *backend, const char *uid);
 
@@ -179,9 +184,6 @@ GNOME_Evolution_Calendar_CalObjChangeSeq * cal_backend_get_changes (
 	CalBackend *backend, CalObjType type, const char *change_id);
 
 CalBackendResult cal_backend_discard_alarm (CalBackend *backend, const char *uid, const char *auid);
-
-icaltimezone* cal_backend_get_timezone (CalBackend *backend, const char *tzid);
-icaltimezone* cal_backend_get_default_timezone (CalBackend *backend);
 
 void cal_backend_add_cal (CalBackend *backend, Cal *cal);
 

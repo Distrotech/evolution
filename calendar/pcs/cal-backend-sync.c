@@ -172,6 +172,16 @@ cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char 
 }
 
 CalBackendSyncStatus
+cal_backend_sync_get_timezone (CalBackendSync *backend, Cal *cal, const char *tzid, char **object)
+{
+	g_return_val_if_fail (CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->get_timezone_sync != NULL);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_timezone_sync) (backend, cal, tzid, object);
+}
+
+CalBackendSyncStatus
 cal_backend_sync_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj)
 {
 	g_return_val_if_fail (CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
@@ -179,6 +189,16 @@ cal_backend_sync_add_timezone (CalBackendSync *backend, Cal *cal, const char *tz
 	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->add_timezone_sync != NULL);
 
 	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->add_timezone_sync) (backend, cal, tzobj);
+}
+
+CalBackendSyncStatus
+cal_backend_sync_set_default_timezone (CalBackendSync *backend, Cal *cal, const char *tzid)
+{
+	g_return_val_if_fail (CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->set_default_timezone_sync != NULL);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->set_default_timezone_sync) (backend, cal, tzid);
 }
 
 static void
@@ -338,6 +358,17 @@ _cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp)
 }
 
 static void
+_cal_backend_get_timezone (CalBackend *backend, Cal *cal, const char *tzid)
+{
+	CalBackendSyncStatus status;
+	char *object = NULL;
+	
+	status = cal_backend_sync_get_timezone (CAL_BACKEND_SYNC (backend), cal, tzid, &object);
+
+	cal_notify_timezone_requested (cal, status, object);
+}
+
+static void
 _cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj)
 {
 	CalBackendSyncStatus status;
@@ -345,6 +376,16 @@ _cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj)
 	status = cal_backend_sync_add_timezone (CAL_BACKEND_SYNC (backend), cal, tzobj);
 
 	cal_notify_timezone_added (cal, status, tzobj);
+}
+
+static void
+_cal_backend_set_default_timezone (CalBackend *backend, Cal *cal, const char *tzid)
+{
+	CalBackendSyncStatus status;
+
+	status = cal_backend_sync_set_default_timezone (CAL_BACKEND_SYNC (backend), cal, tzid);
+
+	cal_notify_default_timezone_set (cal, status);
 }
 
 static void
@@ -396,7 +437,9 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->receive_objects = _cal_backend_receive_objects;
 	backend_class->send_objects = _cal_backend_send_objects;
 	backend_class->get_object_list = _cal_backend_get_object_list;
+	backend_class->get_timezone = _cal_backend_get_timezone;
 	backend_class->add_timezone = _cal_backend_add_timezone;
+	backend_class->set_default_timezone = _cal_backend_set_default_timezone;
 
 	object_class->dispose = cal_backend_sync_dispose;
 }

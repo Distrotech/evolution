@@ -85,7 +85,9 @@ void cal_notify_object_list (Cal *cal, GNOME_Evolution_Calendar_CallStatus statu
 
 void cal_notify_query (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, Query *query);
 
+void cal_notify_timezone_requested (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *object);
 void cal_notify_timezone_added (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *tzid);
+void cal_notify_default_timezone_set (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
 
 void cal_notify_mode (Cal *cal, 
 		      GNOME_Evolution_Calendar_Listener_SetModeStatus status, 

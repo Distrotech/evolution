@@ -212,18 +212,13 @@ module Calendar {
 		CalObj getObject (in CalObjUID uid, in CalRecurID rid)
 			raises (NotFound);
 
-		oneway void getObjectList (in string query);
-		
-		/* Sets the default timezone to be used for resolving DATE
-		   and floating DATE-TIME values. */
-		void setDefaultTimezone (in CalTimezoneObjUID tzid)
-			raises (NotFound);
+		oneway void getObjectList (in string query);		
 
-		/* Gets a VTIMEZONE component based on its TZID */
-		CalTimezoneObj getTimezoneObject (in CalTimezoneObjUID tzid)
-			raises (NotFound);
-
+		/* Methods for manipulating timezones */
+		oneway void getTimezone (in CalTimezoneObjUID tzid);
 		oneway void addTimezone (in CalTimezoneObj tz);
+		/* The timezone used to resolve DATE and floating DATE-TIME values. */
+		oneway void setDefaultTimezone (in CalTimezoneObjUID tzid);
 
 		/* Gets a list of components that changed based on object type */
 		CalObjChangeSeq getChanges (in CalObjType type, in string change_id);
@@ -279,7 +274,9 @@ module Calendar {
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 		oneway void notifyQuery (in CallStatus status, in Query query);
 
+		oneway void notifyTimezoneRequested (in CallStatus status, in CalTimezoneObj tz);
 		oneway void notifyTimezoneAdded (in CallStatus status, in CalTimezoneObjUID tzid);
+		oneway void notifyDefaultTimezoneSet (in CallStatus status);
 
                 /* Called from a Calendar when the mode is changed */
 		oneway void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		
