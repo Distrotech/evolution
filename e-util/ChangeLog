@@ -1,3 +1,37 @@
+2004-08-30  Not Zed  <NotZed@Ximian.com>
+
+	* e-popup.c (emph_construct_item): just build a popupitem
+	directly, use user_data to pass the activate method name.
+
+	* e-popup.h: removed epopuphookitem.
+
+	* e-popup.c (emph_construct_item): dont set hook on hookitem
+	anymore, dont need to set user_data either.
+
+	* e-popup.h: no longer pass parent pointer in EPopupHookItem, its
+	handled by add_items's data now.
+
+	* e-popup.c (ep_finalise): re-arrange and call freefunc with the
+	new args.
+	(e_popup_create_menu): change the activate data so we can pass the
+	new api arguments.
+	(ep_activate): changes for api changes.
+	(emph_popup_factory): no longer takes target arg, taken from the
+	popup, pass the popuphook to the add_items call.
+	(emph_popup_activate): changed for new argument types.
+
+	* e-popup.h: removed popup from epopupitem.
+
+	* e-popup.c (e_popup_add_static_items): make private/rename to
+	ep_add_static_items.
+	(ep_add_static_items): dont pass target, it is set on the epopup
+	structure.
+	(e_popup_add_items): change the freefunc to be an EPopupItemsFunc
+	and add a user-data field, and track the parent epopup.
+
+	* e-popup.h: change the activatefunc to pass the target and data
+	supplied to add_items.
+
 2004-08-25  Not Zed  <NotZed@Ximian.com>
 
 	* e-config.c (e_config_new): removed, this shouldn't be here for

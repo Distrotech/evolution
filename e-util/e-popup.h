@@ -43,8 +43,9 @@ typedef struct _EPopupItem EPopupItem;
 typedef struct _EPopupFactory EPopupFactory; /* anonymous type */
 typedef struct _EPopupTarget EPopupTarget;
 
-typedef void (*EPopupActivateFunc)(EPopupItem *item, void *data);
-typedef void (*EPopupFactoryFunc)(EPopup *emp, EPopupTarget *target, void *data);
+typedef void (*EPopupActivateFunc)(EPopup *ep, EPopupItem *item, void *data);
+typedef void (*EPopupFactoryFunc)(EPopup *emp, void *data);
+typedef void (*EPopupItemsFunc)(EPopup *ep, GSList *items, void *data);
 
 /**
  * enum _e_popup_t - Popup item type enumeration.
@@ -88,8 +89,8 @@ enum _e_popup_t {
  * @label: The text of the menyu item.
  * @activate: A function conforming to &EPopupActivateFunc which will
  * be called when the menu item is activated.
- * @activate_data: Extra per-item user-data available to the
- * application.
+ * @user_data: Extra per-item user-data available to the
+ * application.  This is not passed to the @data field of @activate.
  * @image: For most types, the name of the icon in the icon theme to
  * display next to the menu item, if required.  For the %E_POPUP_IMAGE
  * type, it is a pointer to the &GtkWidget instead.
@@ -111,12 +112,11 @@ struct _EPopupItem {
 	enum _e_popup_t type;
 	char *path;		/* absolute path! must sort ascii-lexographically into the right spot */
 	char *label;
-	GCallback activate;	/* EPopupActivateFunc */
-	void *activate_data;
+	EPopupActivateFunc activate;
+	void *user_data;	/* user data, not passed directly to @activate */
 	void *image;		/* char* for item type, GtkWidget * for image type */
 	guint32 mask;		/* visibility mask */
 	guint32 enable;		/* sensitivity mask, unimplemented */
-	EPopup *popup;		/* parent, set by epopup */
 };
 
 /**
@@ -198,7 +198,7 @@ void e_popup_class_remove_factory(EPopupClass *klass, EPopupFactory *f);
 
 EPopup *e_popup_construct(EPopup *, const char *menuid);
 
-void e_popup_add_items(EPopup *, GSList *items, GDestroyNotify freefunc);
+void e_popup_add_items(EPopup *, GSList *items, EPopupItemsFunc freefunc, void *data);
 void e_popup_add_static_items(EPopup *emp, EPopupTarget *target);
 /* do not call e_popup_create_menu, it can leak structures if not used right */
 struct _GtkMenu *e_popup_create_menu(EPopup *, EPopupTarget *, guint32 hide_mask, guint32 disable_mask);
@@ -216,7 +216,6 @@ void e_popup_target_free(EPopup *, void *);
 
 #include "e-util/e-plugin.h"
 
-typedef struct _EPopupHookItem EPopupHookItem;
 typedef struct _EPopupHookMenu EPopupHookMenu;
 typedef struct _EPopupHook EPopupHook;
 typedef struct _EPopupHookClass EPopupHookClass;
@@ -227,33 +226,13 @@ typedef struct _EPluginHookTargetKey EPopupHookTargetMask;
 typedef void (*EPopupHookFunc)(struct _EPlugin *plugin, EPopupTarget *target);
 
 /**
- * struct _EPopupHookItem - 
- * 
- * @item: Superclass.
- * @hook: Parent pointer.
- * @activate: Name of the hook to invoke.  This will be plugin type
- * dependent.
- * 
- * The structure used to track the menu items that plugins are hooked
- * into.  This is the base EPopupItem object extended with extra
- * fields required to perform interfacing from the EPopup manager to
- * the plugin callback.
- */
-struct _EPopupHookItem {
-	EPopupItem item;
-
-	struct _EPopupHook *hook; /* parent pointer */
-	char *activate;		/* activate handler */
-};
-
-/**
  * struct _EPopupHookMenu - 
  * 
  * @hook: Parent pointer.
  * @id: The identifier of the menu to which these items belong.
  * @target_type: The target number of the type of target these menu
  * items expect. It will generally also be defined by the menu id.
- * @items: A list of PopupHookItem's.
+ * @items: A list of EPopupItem's.
  * 
  * The structure used to keep track of all of the items that a plugin
  * wishes to add to a given menu. This is used internally by a factory

@@ -52,11 +52,25 @@ struct _EPopupFactory {
 	void *factory_data;
 };
 
+/* Used for the "activate" signal callback data to re-map to the api */
+struct _item_node {
+	struct _item_node *next;
+
+	EPopupItem *item;
+	struct _menu_node *menu;
+};
+
+/* Stores all the items added */
 struct _menu_node {
 	struct _menu_node *next, *prev;
 
+	EPopup *popup;
+
 	GSList *menu;
-	GDestroyNotify freefunc;
+	EPopupItemsFunc freefunc;
+	void *data;
+
+	struct _item_node *items;
 };
 
 struct _EPopupPrivate {
@@ -83,21 +97,32 @@ ep_finalise(GObject *o)
 	struct _EPopupPrivate *p = emp->priv;
 	struct _menu_node *mnode, *nnode;
 
-	if (emp->target)
-		e_popup_target_free(emp, emp->target);
-
-	g_free(emp->menuid);
-
 	mnode = (struct _menu_node *)p->menus.head;
 	nnode = mnode->next;
 	while (nnode) {
+		struct _item_node *inode;
+
 		if (mnode->freefunc)
-			mnode->freefunc(mnode->menu);
+			mnode->freefunc(emp, mnode->menu, mnode->data);
+
+		/* free item activate callback data */
+		inode = mnode->items;
+		while (inode) {
+			struct _item_node *nnode = inode->next;
+
+			g_free(inode);
+			inode = nnode;
+		}
 
 		g_free(mnode);
 		mnode = nnode;
 		nnode = nnode->next;
 	}
+
+	if (emp->target)
+		e_popup_target_free(emp, emp->target);
+
+	g_free(emp->menuid);
 
 	g_free(p);
 
@@ -175,6 +200,8 @@ EPopup *e_popup_construct(EPopup *ep, const char *menuid)
  * @items: A list of EPopupItem's to add to the current popup menu.
  * @freefunc: A function which will be called when the items are no
  * longer needed.
+ * @data: user-data passed to @freefunc, and passed to all activate
+ * methods.
  * 
  * Add new EPopupItems to the menus.  Any with the same path
  * will override previously defined menu items, at menu building
@@ -182,41 +209,26 @@ EPopup *e_popup_construct(EPopup *ep, const char *menuid)
  * built to create a complex heirarchy of menus.
  **/
 void
-e_popup_add_items(EPopup *emp, GSList *items, GDestroyNotify freefunc)
+e_popup_add_items(EPopup *emp, GSList *items, EPopupItemsFunc freefunc, void *data)
 {
 	struct _menu_node *node;
-	GSList *l;
 
-	for (l=items;l;l=g_slist_next(l))
-		((EPopupItem *)l->data)->popup = emp;
-
-	node = g_malloc(sizeof(*node));
+	node = g_malloc0(sizeof(*node));
 	node->menu = items;
 	node->freefunc = freefunc;
+	node->data = data;
+	node->popup = emp;
+
 	e_dlist_addtail(&emp->priv->menus, (EDListNode *)node);
 }
 
-/**
- * e_popup_add_static_items:
- * @emp: An EPopup derived object.
- * @target: Target of this menu.
- * 
- * Will call all of the factorys' registered for the menu @emp.  They
- * are free to do nothing, or will usually call e_popup_add_items() as
- * appropriate to register menu items.
- *
- * Note that this function will be called automatically if a @target
- * is supplied to the menu creation functions.  It will not normally
- * be called directly.
- *
- **/
-void
-e_popup_add_static_items(EPopup *emp, EPopupTarget *target)
+static void
+ep_add_static_items(EPopup *emp)
 {
 	struct _EPopupFactory *f;
 	EPopupClass *klass = (EPopupClass *)G_OBJECT_GET_CLASS(emp);
 
-	if (emp->menuid == NULL || target == NULL)
+	if (emp->menuid == NULL || emp->target == NULL)
 		return;
 
 	/* setup the menu itself */
@@ -224,7 +236,7 @@ e_popup_add_static_items(EPopup *emp, EPopupTarget *target)
 	while (f->next) {
 		if (f->menuid == NULL
 		    || !strcmp(f->menuid, emp->menuid)) {
-			f->factory(emp, target, f->factory_data);
+			f->factory(emp, f->factory_data);
 		}
 		f = f->next;
 	}
@@ -233,16 +245,16 @@ e_popup_add_static_items(EPopup *emp, EPopupTarget *target)
 static int
 ep_cmp(const void *ap, const void *bp)
 {
-	struct _EPopupItem *a = *((void **)ap);
-	struct _EPopupItem *b = *((void **)bp);
+	struct _item_node *a = *((void **)ap);
+	struct _item_node *b = *((void **)bp);
 
-	return strcmp(a->path, b->path);
+	return strcmp(a->item->path, b->item->path);
 }
 
 static void
-ep_activate(GtkWidget *w, EPopupItem *item)
+ep_activate(GtkWidget *w, struct _item_node *inode)
 {
-	((EPopupActivateFunc)item->activate)(item, item->activate_data);
+	inode->item->activate(inode->menu->popup, inode->item, inode->menu->data);
 }
 
 /**
@@ -271,20 +283,25 @@ e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint3
 	GtkMenu *topmenu;
 	GHashTable *menu_hash = g_hash_table_new(g_str_hash, g_str_equal),
 		*group_hash = g_hash_table_new(g_str_hash, g_str_equal);
-	/*char *domain = NULL;*/
 	int i;
 
-	if (target)
-		e_popup_add_static_items(emp, target);
-
 	emp->target = target;
+	ep_add_static_items(emp);
 
 	/* FIXME: need to override old ones with new names */
 	mnode = (struct _menu_node *)p->menus.head;
 	nnode = mnode->next;
 	while (nnode) {
-		for (l=mnode->menu; l; l = l->next)
-			g_ptr_array_add(items, l->data);
+		for (l=mnode->menu; l; l = l->next) {
+			struct _item_node *inode = g_malloc0(sizeof(*inode));
+
+			inode->item = l->data;
+			inode->menu = mnode;
+			inode->next = mnode->items;
+			mnode->items = inode;
+
+			g_ptr_array_add(items, inode);
+		}
 		mnode = nnode;
 		nnode = nnode->next;
 	}
@@ -294,7 +311,8 @@ e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint3
 	topmenu = (GtkMenu *)gtk_menu_new();
 	for (i=0;i<items->len;i++) {
 		GtkWidget *label;
-		struct _EPopupItem *item = items->pdata[i];
+		struct _item_node *inode = items->pdata[i];
+		struct _EPopupItem *item = inode->item;
 		GtkMenu *thismenu;
 		GtkMenuItem *menuitem;
 		char *tmp;
@@ -372,7 +390,7 @@ e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint3
 		}
 
 		if (item->activate)
-			g_signal_connect(menuitem, "activate", G_CALLBACK(ep_activate), item);
+			g_signal_connect(menuitem, "activate", G_CALLBACK(ep_activate), inode);
 
 		gtk_menu_shell_append((GtkMenuShell *)thismenu, (GtkWidget *)menuitem);
 
@@ -564,36 +582,35 @@ static const EPluginHookTargetKey emph_item_types[] = {
 	{ 0 }
 };
 
-/* FIXME: fix for activate api changes */
 static void
-emph_popup_activate(void *widget, void *data)
+emph_popup_activate(EPopup *ep, EPopupItem *item, void *data)
 {
-	struct _EPopupHookItem *item = data;
+	EPopupHook *hook = data;
 
-	e_plugin_invoke(item->hook->hook.plugin, item->activate, item->item.popup->target);
+	e_plugin_invoke(hook->hook.plugin, (char *)item->user_data, ep->target);
 }
 
 static void
-emph_popup_factory(EPopup *emp, EPopupTarget *target, void *data)
+emph_popup_factory(EPopup *emp, void *data)
 {
 	struct _EPopupHookMenu *menu = data;
 
-	printf("popup factory called %s mask %08x\n", menu->id?menu->id:"all menus", target->mask);
+	printf("popup factory called %s mask %08x\n", menu->id?menu->id:"all menus", emp->target->mask);
 
-	if (target->type != menu->target_type)
+	if (emp->target->type != menu->target_type)
 		return;
 
 	if (menu->items)
-		e_popup_add_items(emp, menu->items, NULL);
+		e_popup_add_items(emp, menu->items, NULL, menu->hook);
 }
 
 static void
-emph_free_item(struct _EPopupHookItem *item)
+emph_free_item(struct _EPopupItem *item)
 {
-	g_free(item->item.path);
-	g_free(item->item.label);
-	g_free(item->item.image);
-	g_free(item->activate);
+	g_free(item->path);
+	g_free(item->label);
+	g_free(item->image);
+	g_free(item->user_data);
 	g_free(item);
 }
 
@@ -607,28 +624,29 @@ emph_free_menu(struct _EPopupHookMenu *menu)
 	g_free(menu);
 }
 
-static struct _EPopupHookItem *
+static struct _EPopupItem *
 emph_construct_item(EPluginHook *eph, EPopupHookMenu *menu, xmlNodePtr root, EPopupHookTargetMap *map)
 {
-	struct _EPopupHookItem *item;
+	struct _EPopupItem *item;
 
 	printf("  loading menu item\n");
 	item = g_malloc0(sizeof(*item));
-	if ((item->item.type = e_plugin_hook_id(root, emph_item_types, "type")) == -1
-	    || item->item.type == E_POPUP_IMAGE)
+	if ((item->type = e_plugin_hook_id(root, emph_item_types, "type")) == -1
+	    || item->type == E_POPUP_IMAGE)
 		goto error;
-	item->item.path = e_plugin_xml_prop(root, "path");
-	item->item.label = e_plugin_xml_prop_domain(root, "label", eph->plugin->domain);
-	item->item.image = e_plugin_xml_prop(root, "icon");
-	item->item.mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
-	item->activate = e_plugin_xml_prop(root, "activate");
+	item->path = e_plugin_xml_prop(root, "path");
+	item->label = e_plugin_xml_prop_domain(root, "label", eph->plugin->domain);
+	item->image = e_plugin_xml_prop(root, "icon");
+	item->mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
+	item->user_data = e_plugin_xml_prop(root, "activate");
 
-	item->item.activate = G_CALLBACK(emph_popup_activate);
-	item->item.activate_data = item;
-	item->hook = emph;
+	item->activate = emph_popup_activate;
 
-	printf("   path=%s\n", item->item.path);
-	printf("   label=%s\n", item->item.label);
+	if (item->user_data == NULL)
+		goto error;
+
+	printf("   path=%s\n", item->path);
+	printf("   label=%s\n", item->label);
 
 	return item;
 error:
@@ -662,7 +680,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 	node = root->children;
 	while (node) {
 		if (0 == strcmp(node->name, "item")) {
-			struct _EPopupHookItem *item;
+			struct _EPopupItem *item;
 
 			item = emph_construct_item(eph, menu, node, map);
 			if (item)
