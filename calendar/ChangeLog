@@ -651,7 +651,6 @@
 	* cal-client/cal-client-multi.[ch]:
 	* cal-client/Makefile.am: removed obsolete code.
 
-<<<<<<< ChangeLog
 2003-07-30  Ettore Perazzoli  <ettore@ximian.com>
 
 	* gui/main.c (factory): Do not depend on global_shell_client being
@@ -673,8 +672,6 @@
 	(owner_set_cb): Don't set global_shell_client.
 	(owner_unset_cb): Don't set it here either.
 
-=======
->>>>>>> 1.1866
 2003-07-29  Rodrigo Moya <rodrigo@ximian.com>
 
 	Fixes all "alarm daemon doesn't start with session"

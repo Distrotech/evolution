@@ -29,6 +29,7 @@ SUBDIRS = 			\
         e-util                  \
 	libical			\
 	libversit		\
+	a11y			\
         widgets                 \
         shell                   \
 	camel			\

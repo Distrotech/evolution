@@ -1,3 +1,29 @@
+2003-09-04  Dan Winship  <danw@ximian.com>
+
+	* camel.pc.in (Requires): 
+	* evolution-addressbook.pc.in (Requires): 
+	* evolution-calendar.pc.in (Requires): 
+	* evolution-shell.pc.in (Requires): Require gal-2.2
+
+2003-08-27  Bolian Yin <bolian.yin@sun.com>
+
+	* configure.in: add a11y/widgets/Makefile
+	* Makefile.am: move a11y directory before widgets directory.
+
+2003-08-21  Not Zed  <NotZed@Ximian.com>
+
+	* HACKING: Wrote one.
+
+2003-08-20  Bolian Yin <bolian.yin@sun.com>
+
+	* configure.in: Add a11y checking, and a11y Makefiles
+	* Makefile.am: add a11y subdirectory
+
+2003-08-13  Mike Kestner  <mkestner@ximian.com>
+
+	* configure.in: don't make 1.5 the default version (ie LN_S)
+	update to use gal-2.2
+
 2003-08-01  Not Zed  <NotZed@Ximian.com>
 
 	* configure.in: Add option for '--enable-imapp', for 'new' imap
