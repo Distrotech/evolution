@@ -26,6 +26,7 @@
 #include "eab-minicard-view.h"
 #include "e-addressbook-reflow-adapter.h"
 #include "util/eab-book-util.h"
+#include "eab-gui-util.h"
 
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-sorter-array.h>
@@ -73,6 +74,7 @@ static guint signals [LAST_SIGNAL] = {0, };
 #define MAX_MINICARD_FIELDS 5
 typedef struct {
 	EContact *contact;
+	EABEditor *editor;
 	int x, y;
 	int total_height;
 	int num_fields;
@@ -195,6 +197,12 @@ clear_drag_data (EABMinicardView *view)
 	priv->drag_list = NULL;
 }
 
+static void
+eab_minicard_free (EABMinicard *minicard)
+{
+	g_object_unref (minicard->editor);
+	g_object_unref (minicard->contact);
+}
 
 typedef struct {
 	GList *list;
@@ -542,6 +550,7 @@ item_removed (EReflowModel *model, int i, EABMinicardView *view)
 		}
 	}
 
+	eab_minicard_free ((EABMinicard*)&g_array_index (priv->minicards, EABMinicard, i));
 	g_array_remove_index (priv->minicards, i);
 
 	reflow_columns (view, from_column);
@@ -568,7 +577,7 @@ items_inserted (EReflowModel *model, int position, int count, EABMinicardView *v
 	oldcolumncount = priv->column_starts->len;
 	oldcount = priv->minicards->len;
 
-	values = g_new (EABMinicard, count);
+	values = g_new0 (EABMinicard, count);
 
 	for (i = 0; i < count; i ++) {
 		values[i].contact = g_object_ref (e_addressbook_reflow_adapter_contact_at (priv->adapter, position + i));
@@ -615,7 +624,7 @@ model_changed (EReflowModel *model, EABMinicardView *view)
 
 	for (i = 0; i < priv->minicards->len; i ++) {
 		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, i);
-		g_object_unref (minicard->contact);
+		eab_minicard_free (minicard);
 	}
 
 	g_array_set_size (priv->minicards, e_reflow_model_count (E_REFLOW_MODEL (priv->adapter)));
@@ -1114,6 +1123,58 @@ _over_contact (EABMinicardView *view,
 	return -1;
 }
 
+static void
+editor_closed_cb (GObject *editor, gpointer data)
+{
+	EABMinicard *minicard = data;
+	g_object_unref (editor);
+	minicard->editor = NULL;
+}
+
+static gboolean
+activate_editor(EABMinicardView *view, EABMinicard *minicard)
+{
+	EABMinicardViewPrivate *priv = view->priv;
+	gboolean editable;
+	EBook *book;
+
+	g_object_get (priv->adapter, "book", &book, NULL);
+	g_object_get(priv->adapter, "editable", &editable, NULL);
+
+	if (minicard) {
+		if (minicard->editor) {
+			eab_editor_raise (minicard->editor);
+		}
+		else {
+			if (book) {
+				if (e_contact_get (minicard->contact, E_CONTACT_IS_LIST)) {
+					minicard->editor = EAB_EDITOR (eab_show_contact_list_editor (book, minicard->contact,
+												     FALSE, editable));
+				}
+				else {
+					minicard->editor = EAB_EDITOR (eab_show_contact_editor (book, minicard->contact,
+												FALSE, editable));
+				}
+
+				g_object_ref (minicard->editor);
+				g_signal_connect (minicard->editor, "editor_closed",
+						  G_CALLBACK (editor_closed_cb), minicard);
+
+			}
+		}
+	}
+	else {
+		if (editable && book) {
+			eab_show_contact_editor (book, e_contact_new(), TRUE, editable);
+		}
+	}
+
+	if (book)
+		g_object_unref (book);
+
+	return TRUE;
+}
+
 static gboolean
 eab_minicard_view_button_press (GtkWidget      *widget,
 				GdkEventButton *event)
@@ -1127,7 +1188,16 @@ eab_minicard_view_button_press (GtkWidget      *widget,
 		gdk_window_get_pointer (widget->window, &x, &y, NULL);
 
 		if (event->type == GDK_2BUTTON_PRESS) {
+			int model_idx;
+			EABMinicard *minicard = NULL;
+
 			printf ("double click at %d,%d\n", x, y);
+
+			model_idx = _over_contact (view, x, y);
+			if (model_idx != -1)
+				minicard = &g_array_index(priv->minicards, EABMinicard, model_idx);
+
+			return activate_editor (view, minicard);
 		}
 		else {
 			printf ("button press at %d,%d\n", x, y);

@@ -1,3 +1,14 @@
+2004-08-06  Chris Toshok  <toshok@ximian.com>
+
+	* gui/widgets/eab-minicard-view.c (eab_minicard_free): doesn't
+	really free the minicard, but its internals.
+	(items_inserted): g_new0, not g_new, so the minicards are zeroed.
+	(model_changed): call eab_minicard_free.
+	(item_removed): same.
+	(editor_closed_cb): copied from e-minicard.c
+	(activate_editor): same, with some coming from e-minicard-view.c.
+	(eab_minicard_view_button_press): handle double clicks correctly.
+
 2004-08-02  Chris Toshok  <toshok@ximian.com>
 
 	* gui/widgets/eab-minicard-view.c
