@@ -250,13 +250,19 @@ e_week_view_class_init (EWeekViewClass *class)
 }
 
 static void
+time_range_changed_cb (ECalModel *model, time_t start, time_t end, gpointer user_data)
+{
+	e_week_view_set_selected_time_range (E_CALENDAR_VIEW (user_data), start, end);
+}
+
+static void
 timezone_changed_cb (ECalendarView *cal_view, icaltimezone *old_zone,
 		     icaltimezone *new_zone, gpointer user_data)
 {
 	struct icaltimetype tt = icaltime_null_time ();
 	time_t lower;
 	EWeekView *week_view = (EWeekView *) cal_view;
-
+	
 	g_return_if_fail (E_IS_WEEK_VIEW (week_view));
 
 	/* If we don't have a valid date set yet, just return. */
@@ -281,6 +287,7 @@ e_week_view_init (EWeekView *week_view)
 	GnomeCanvasGroup *canvas_group;
 	GtkObject *adjustment;
 	GdkPixbuf *pixbuf;
+	ECalModel *model;
 	gint i;
 
 	GTK_WIDGET_SET_FLAGS (week_view, GTK_CAN_FOCUS);
@@ -415,6 +422,14 @@ e_week_view_init (EWeekView *week_view)
 	week_view->resize_width_cursor = gdk_cursor_new (GDK_SB_H_DOUBLE_ARROW);
 	week_view->last_cursor_set = NULL;
 
+	/* Set the default model */
+	model = E_CAL_MODEL (e_cal_model_calendar_new ());
+	e_calendar_view_set_model (E_CALENDAR_VIEW (week_view), model);
+
+	/* connect to ECalModel's signals */
+	g_signal_connect (G_OBJECT (model), "time_range_changed",
+			  G_CALLBACK (time_range_changed_cb), week_view);
+
 	/* connect to ECalendarView's signals */
 	g_signal_connect (G_OBJECT (week_view), "timezone_changed",
 			  G_CALLBACK (timezone_changed_cb), NULL);
@@ -431,13 +446,8 @@ GtkWidget *
 e_week_view_new (void)
 {
 	GtkWidget *week_view;
-	ECalModel *model;
 	
-	model = E_CAL_MODEL (e_cal_model_calendar_new ());
-
-	week_view = GTK_WIDGET (g_object_new (e_week_view_get_type (), "model", model, NULL));
-
-	g_object_unref (model);
+	week_view = GTK_WIDGET (g_object_new (e_week_view_get_type (), NULL));
 	
 	return week_view;
 }

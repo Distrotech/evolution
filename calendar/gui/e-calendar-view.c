@@ -173,8 +173,7 @@ e_calendar_view_class_init (ECalendarViewClass *klass)
 
 	g_object_class_install_property (gobject_class, PROP_MODEL, 
 					 g_param_spec_object ("model", NULL, NULL, E_TYPE_CAL_MODEL,
-							      G_PARAM_READABLE | G_PARAM_WRITABLE
-							      | G_PARAM_CONSTRUCT));
+							      G_PARAM_READABLE | G_PARAM_WRITABLE));
 
 	/* Create class' signals */
 	e_calendar_view_signals[SELECTION_CHANGED] =

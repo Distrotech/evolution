@@ -488,6 +488,12 @@ e_day_view_class_init (EDayViewClass *class)
 }
 
 static void
+time_range_changed_cb (ECalModel *model, time_t start, time_t end, gpointer user_data)
+{
+	e_day_view_set_selected_time_range (E_CALENDAR_VIEW (user_data), start, end);
+}
+
+static void
 timezone_changed_cb (ECalendarView *cal_view, icaltimezone *old_zone,
 		     icaltimezone *new_zone, gpointer user_data)
 {
@@ -517,10 +523,9 @@ e_day_view_init (EDayView *day_view)
 {
 	gint day;
 	GnomeCanvasGroup *canvas_group;
-
+	ECalModel *model;
+	
 	GTK_WIDGET_SET_FLAGS (day_view, GTK_CAN_FOCUS);
-
-	day_view->query = NULL;
 
 	day_view->long_events = g_array_new (FALSE, FALSE,
 					     sizeof (EDayViewEvent));
@@ -827,6 +832,14 @@ e_day_view_init (EDayView *day_view)
 			   target_table, n_targets,
 			   GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_ASK);
 
+	/* Set the default model */
+	model = E_CAL_MODEL (e_cal_model_calendar_new ());
+	e_calendar_view_set_model (E_CALENDAR_VIEW (day_view), model);
+
+	/* connect to ECalModel's signals */
+	g_signal_connect (G_OBJECT (model), "time_range_changed",
+			  G_CALLBACK (time_range_changed_cb), day_view);
+
 	/* connect to ECalendarView's signals */
 	g_signal_connect (G_OBJECT (day_view), "timezone_changed",
 			  G_CALLBACK (timezone_changed_cb), NULL);
@@ -853,18 +866,12 @@ e_day_view_on_canvas_realized (GtkWidget *widget,
 GtkWidget *
 e_day_view_new (void)
 {
-	GtkWidget *day_view;
-	ECalModel *model;
-	
-	model = E_CAL_MODEL (e_cal_model_calendar_new ());
+	GObject *day_view;
 
-	day_view = GTK_WIDGET (g_object_new (e_day_view_get_type (), "model", model, NULL));
-
-	g_object_unref (model);
+	day_view = g_object_new (e_day_view_get_type (), NULL);
 	
-	return day_view;
+	return GTK_WIDGET (day_view);
 }
-
 
 static void
 e_day_view_destroy (GtkObject *object)
@@ -877,13 +884,6 @@ e_day_view_destroy (GtkObject *object)
 	e_day_view_cancel_layout (day_view);
 
 	e_day_view_stop_auto_scroll (day_view);
-
-	if (day_view->query) {
-		g_signal_handlers_disconnect_matched (day_view->query, G_SIGNAL_MATCH_DATA,
-						      0, 0, NULL, NULL, day_view);
-		g_object_unref (day_view->query);
-		day_view->query = NULL;
-	}
 
 	if (day_view->large_font_desc) {
 		pango_font_description_free (day_view->large_font_desc);
@@ -1827,6 +1827,8 @@ e_day_view_set_selected_time_range	(ECalendarView	*cal_view,
 	EDayView *day_view = E_DAY_VIEW (cal_view);
 
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
+
+	g_message ("Day view range set to %lu:%lu", start_time, end_time);
 
 	/* Calculate the first day that should be shown, based on start_time
 	   and the days_shown setting. If we are showing 1 day it is just the
