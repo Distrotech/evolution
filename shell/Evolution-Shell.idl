@@ -12,6 +12,12 @@
 
 module GNOME {
 module Evolution {
+
+	interface ShellView : Bonobo::Unknown {
+		void setTitle(in string title);
+		void setComponent(in string component);
+	};
+
 	interface Shell : Bonobo::Unknown {
 		exception Busy {};
 		exception ComponentNotFound {};
@@ -26,7 +32,7 @@ module Evolution {
 		 * @component_id: id or alias of the component to display in the new window.
 		 *
 		 */
-		void createNewWindow (in string component_id)
+		ShellView createNewWindow (in string component_id)
 			raises (NotReady, ComponentNotFound, UnsupportedSchema, InternalError);
 
 		/**

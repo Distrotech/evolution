@@ -30,6 +30,12 @@ module Evolution {
 	};
 	typedef sequence <CreatableItemType> CreatableItemTypeList;
 
+	interface ComponentView : Bonobo::Unknown {
+		void getControls (out Bonobo::Control sidebar_control,
+				  out Bonobo::Control view_control,
+				  out Bonobo::Control statusbar_control);
+	};
+
 	interface Component : Bonobo::Unknown {
 		exception Failed {};
 		exception UnknownType {};
@@ -48,11 +54,15 @@ module Evolution {
 
 		/*** Basic functionality.  ***/
 
+		ComponentView createView(in ShellView parent)
+			raises (Failed);
+
+
 		/* Create the controls for embedding in the shell.  */
-		void createControls (out Bonobo::Control sidebar_control,
+		/*void createControls (out Bonobo::Control sidebar_control,
 				     out Bonobo::Control view_control,
 				     out Bonobo::Control statusbar_control)
-			raises (Failed);
+				     raises (Failed);*/
 
 		/* Check if the component can quit.
 		   Do not perform any quit-related tasks however.
