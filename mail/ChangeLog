@@ -1,5 +1,10 @@
 2000-08-04  Peter Williams  <peterw@helixcode.com>
 
+	* message-thread.c (do_thread_messages): Uninitialized variable
+	fix.
+
+	* mail-threads.c (read_msg): Small leak fix.
+
 	* component-factory.c (owner_unset_cb): Use mail_operations_
 	terminate() instead of wait_for_finish().
 

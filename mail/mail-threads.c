@@ -785,6 +785,7 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 				    msg->message);
 		gtk_progress_bar_update (GTK_PROGRESS_BAR
 					 (queue_window_progress), 0.0);
+		g_free (msg->message);
 		g_free (msg);
 		break;
 	case PERCENTAGE:

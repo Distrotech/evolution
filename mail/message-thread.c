@@ -567,6 +567,7 @@ static void do_thread_messages (gpointer in_data, gpointer op_data, CamelExcepti
 	thread_messages_data_t *data = (thread_messages_data_t *) op_data;
 
 	data->container = thread_messages (input->ml->folder, input->uids);
+	data->row = 0;
 }
 
 static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
