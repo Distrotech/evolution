@@ -941,6 +941,8 @@ ecmt_value_to_string (ETableModel *etm, int col, const void *value)
 	return NULL;
 }
 
+/* ECalModel class methods */
+
 static const char *
 ecmt_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 {

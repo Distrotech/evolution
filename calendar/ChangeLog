@@ -1,5 +1,11 @@
 2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model-calendar.c (ecmc_fill_component_from_model):
+	implemented new virtual method.
+	(ecmc_class_init): initialize new virtual method.
+
+2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
+
 	* cal-client/cal-client.c (cal_client_update_object_with_mod):
 	cal_client_get_component_as_string_internal expects now a
 	icalcomponent, not a CalComponent.

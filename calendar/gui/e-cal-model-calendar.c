@@ -43,6 +43,9 @@ static void *ecmc_initialize_value (ETableModel *etm, int col);
 static gboolean ecmc_value_is_empty (ETableModel *etm, int col, const void *value);
 static char *ecmc_value_to_string (ETableModel *etm, int col, const void *value);
 
+static void ecmc_fill_component_from_model (ECalModel *model, ECalModelComponent *comp_data,
+					    ECalModel *source_model, gint row);
+
 static GObjectClass *parent_class = NULL;
 
 E_MAKE_TYPE (e_cal_model_calendar, "ECalModelCalendar", ECalModelCalendar, ecmc_class_init,
@@ -53,6 +56,7 @@ ecmc_class_init (ECalModelCalendarClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	ETableModelClass *etm_class = E_TABLE_MODEL_CLASS (klass);
+	ECalModelClass *model_class = E_CAL_MODEL_CLASS (klass);
 
 	parent_class = g_type_class_peek_parent (klass);
 
@@ -67,6 +71,8 @@ ecmc_class_init (ECalModelCalendarClass *klass)
 	etm_class->initialize_value = ecmc_initialize_value;
 	etm_class->value_is_empty = ecmc_value_is_empty;
 	etm_class->value_to_string = ecmc_value_to_string;
+
+	model_class->fill_component_from_model = ecmc_fill_component_from_model;
 }
 
 static void
@@ -423,6 +429,24 @@ ecmc_value_to_string (ETableModel *etm, int col, const void *value)
 	}
 
 	return NULL;
+}
+
+/* ECalModel class methods */
+
+static void
+ecmc_fill_component_from_model (ECalModel *model, ECalModelComponent *comp_data,
+				ECalModel *source_model, gint row)
+{
+	g_return_if_fail (E_IS_CAL_MODEL_CALENDAR (model));
+	g_return_if_fail (comp_data != NULL);
+	g_return_if_fail (E_IS_CAL_MODEL_CALENDAR (source_model));
+
+	set_dtend (comp_data,
+		   e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_CALENDAR_FIELD_DTEND, row));
+	set_location (comp_data,
+		      e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_CALENDAR_FIELD_LOCATION, row));
+	set_transparency (comp_data,
+			  e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_CALENDAR_FIELD_TRANSPARENCY, row));
 }
 
 /**
