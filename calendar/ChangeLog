@@ -1,3 +1,8 @@
+2004-05-03  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (e_cal_view_objects_modified_cb): make sure old
+	objects are not re-added.
+
 2004-04-30  Rodney Dawes  <dobey@ximian.com>
 
 	* gui/alarm-notify/alarm-notify-dialog.c (alarm_notify_dialog):
