@@ -70,12 +70,15 @@
 #include <camel/camel-gpg-context.h>
 
 #include <e-util/e-msgport.h>
+#include <e-util/e-gui-utils.h>
+#include <e-util/e-dialog-utils.h>
 
 #include "mail-config.h"
 
 #include "em-format-html-display.h"
 #include "em-marshal.h"
 #include "e-searching-tokenizer.h"
+#include "em-icon-stream.h"
 #include "em-utils.h"
 #include "em-popup.h"
 
@@ -594,7 +597,6 @@ efhd_multipart_signed (EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 	em_format_part(emf, stream, cpart);
 
 	if (em_format_is_inline(emf, part)) {
-		camel_stream_printf(stream, "inlined signature ...<br>");
 		em_format_html_multipart_signed_sign(emf, stream, part);
 	} else {
 		classid = g_strdup_printf("multipart-signed:///icon/%d", signedid++);
@@ -814,8 +816,10 @@ static EMPopupItem efhd_menu_items[] = {
 static EMPopupItem efhd_menu_apps_bar = { EM_POPUP_BAR, "99.display" };
 
 static void
-efhd_popup_place_widget(GtkMenu *menu, int *x, int *y, gboolean *push_in, GtkWidget *w)
+efhd_popup_place_widget(GtkMenu *menu, int *x, int *y, gboolean *push_in, gpointer user_data)
 {
+	GtkWidget *w = user_data;
+	
 	gdk_window_get_origin(gtk_widget_get_parent_window(w), x, y);
 	*x += w->allocation.x + w->allocation.width;
 	*y += w->allocation.y;
@@ -913,6 +917,7 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 
 	return TRUE;
 }
+
 static gboolean
 efhd_attachment_popup_menu(GtkWidget *w, struct _attach_puri *info)
 {

@@ -1,3 +1,9 @@
+2003-09-03  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format-html-display.c: Fixed some compiler warnings by adding
+	appropriate includes.
+	(efhd_multipart_signed): Don't write "inlined signature...".
+
 2003-09-03  Not Zed  <NotZed@Ximian.com>
 
 	* em-icon-stream.[ch]: New subclass of emsyncstream, write camel
