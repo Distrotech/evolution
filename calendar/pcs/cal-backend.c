@@ -772,14 +772,14 @@ cal_backend_get_type_by_uid (CalBackend *backend, const char *uid)
  * 
  * Return value: 
  **/
-GList *
-cal_backend_get_object_list (CalBackend *backend, const char *query)
+void
+cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_object_list != NULL);
-	return (* CLASS (backend)->get_object_list) (backend, query);
+	return (* CLASS (backend)->get_object_list) (backend, cal, sexp);
 }
 
 /**

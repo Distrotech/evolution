@@ -82,9 +82,11 @@ static CalBackendSyncStatus cal_backend_file_get_static_capabilities (CalBackend
 static CalBackendSyncStatus cal_backend_file_open (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
 static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Cal *cal);
 
+static CalBackendSyncStatus cal_backend_file_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
+
 static gboolean cal_backend_file_is_loaded (CalBackend *backend);
 static void cal_backend_file_start_query (CalBackend *backend, Query *query);
-static GList *cal_backend_file_get_object_list (CalBackend *backend, const char *query);
+
 static CalMode cal_backend_file_get_mode (CalBackend *backend);
 static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
 
@@ -181,6 +183,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	sync_class->get_static_capabilities_sync = cal_backend_file_get_static_capabilities;
 	sync_class->open_sync = cal_backend_file_open;
 	sync_class->remove_sync = cal_backend_file_remove;
+	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->start_query = cal_backend_file_start_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
@@ -188,7 +191,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	backend_class->get_default_object = cal_backend_file_get_default_object;
 	backend_class->get_object_component = cal_backend_file_get_object_component;
 	backend_class->get_timezone_object = cal_backend_file_get_timezone_object;
-	backend_class->get_object_list = cal_backend_file_get_object_list;
 	backend_class->get_free_busy = cal_backend_file_get_free_busy;
 	backend_class->get_changes = cal_backend_file_get_changes;
 	backend_class->get_alarms_in_range = cal_backend_file_get_alarms_in_range;
@@ -1034,8 +1036,8 @@ match_object_sexp (gpointer key, gpointer value, gpointer data)
 }
 
 /* Get_objects_in_range handler for the file backend */
-static GList *
-cal_backend_file_get_object_list (CalBackend *backend, const char *query)
+static CalBackendSyncStatus
+cal_backend_file_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -1044,26 +1046,26 @@ cal_backend_file_get_object_list (CalBackend *backend, const char *query)
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_message (G_STRLOC ": Getting object list (%s)", query);
+	g_message (G_STRLOC ": Getting object list (%s)", sexp);
 
 	match_data.search_needed = TRUE;
-	match_data.query = query;
+	match_data.query = sexp;
 	match_data.obj_list = NULL;
-	match_data.backend = backend;
+	match_data.backend = CAL_BACKEND (backend);
 	match_data.default_zone = priv->default_zone;
 
-	if (!strcmp (query, "#t"))
+	if (!strcmp (sexp, "#t"))
 		match_data.search_needed = FALSE;
 
-	match_data.obj_sexp = cal_backend_object_sexp_new (query);
-	if (!match_data.obj_sexp) {
-		/* FIXME this needs to be an invalid query error of some sort*/
-		return NULL;
-	}
+	match_data.obj_sexp = cal_backend_object_sexp_new (sexp);
+	if (!match_data.obj_sexp)
+		return GNOME_Evolution_Calendar_InvalidQuery;
 
 	g_hash_table_foreach (priv->comp_uid_hash, (GHFunc) match_object_sexp, &match_data);
 
-	return match_data.obj_list;
+	*objects = match_data.obj_list;
+	
+	return GNOME_Evolution_Calendar_Success;	
 }
 
 /* get_query handler for the file backend */

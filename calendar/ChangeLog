@@ -1,5 +1,30 @@
 2003-09-10  JP Rosevear  <jpr@ximian.com>
 
+	* pcs/cal.h: update proto
+
+	* pcs/cal.c (impl_Cal_getObjectList): just call the backend, it
+	will do the notification now
+	(cal_notify_object_list): the list is a list of strings
+
+	* pcs/cal-backend.h: update vmethod, proto
+
+	* pcs/cal-backend.c (cal_backend_get_object_list): call through
+
+	* pcs/cal-backend-sync.h: add proto, vmethod
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_get_object_list): call
+	through
+	(_cal_backend_get_object_list): get the list of objects from the
+	sync backend and do the notification
+	(cal_backend_sync_class_init): set vmethod implementation
+
+	* pcs/cal-backend-file.c (cal_backend_file_class_init): the get
+	object list call is now part of the sync backend
+	(cal_backend_file_get_object_list): return a status and put the
+	object list in the passed in param
+
+2003-09-10  JP Rosevear  <jpr@ximian.com>
+
 	* pcs/cal-backend.c (cal_backend_finalize): unref the elist
 	(cal_backend_init): init the query elist
 

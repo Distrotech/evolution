@@ -38,8 +38,11 @@ struct _CalBackendSyncClass {
 	CalBackendSyncStatus (*get_alarm_email_address_sync)  (CalBackendSync *backend, Cal *cal, char **address);
 	CalBackendSyncStatus (*get_ldap_attribute_sync)  (CalBackendSync *backend, Cal *cal, char **attribute);
 	CalBackendSyncStatus (*get_static_capabilities_sync)  (CalBackendSync *backend, Cal *cal, char **capabilities);
+
 	CalBackendSyncStatus (*open_sync)  (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
 	CalBackendSyncStatus (*remove_sync)  (CalBackendSync *backend, Cal *cal);
+
+	CalBackendSyncStatus (*get_object_list_sync)  (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
 	/* Padding for future expansion */
 	void (*_cal_reserved0) (void);
@@ -71,6 +74,8 @@ CalBackendSyncStatus cal_backend_sync_get_static_capabilities (CalBackendSync  *
 
 CalBackendSyncStatus cal_backend_sync_open (CalBackendSync  *backend, Cal *cal, gboolean only_if_exists);
 CalBackendSyncStatus cal_backend_sync_remove (CalBackendSync  *backend, Cal *cal);
+
+CalBackendSyncStatus cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
 G_END_DECLS
 

@@ -96,6 +96,8 @@ struct _CalBackendClass {
 	void (* open) (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 	void (* remove) (CalBackend *backend, Cal *cal);
 
+	void (* get_object_list) (CalBackend *backend, Cal *cal, const char *sexp);
+
 	gboolean (* is_loaded) (CalBackend *backend);
 
 	void (* start_query) (CalBackend *backend, Query *query);
@@ -109,7 +111,7 @@ struct _CalBackendClass {
 	char *(* get_object) (CalBackend *backend, const char *uid, const char *rid);
 	CalComponent *(* get_object_component) (CalBackend *backend, const char *uid, const char *rid);
 	char *(* get_timezone_object) (CalBackend *backend, const char *tzid);
-	GList *(* get_object_list) (CalBackend *backend, const char *query);
+
 	GList *(* get_free_busy) (CalBackend *backend, GList *users, time_t start, time_t end);
 
 	/* Change related virtual methods */
@@ -152,6 +154,8 @@ void cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal);
 void  cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 void cal_backend_remove (CalBackend *backend, Cal *cal);
 
+void cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp);
+
 gboolean cal_backend_is_loaded (CalBackend *backend);
 
 void cal_backend_start_query (CalBackend *backend, Query *query);
@@ -172,8 +176,6 @@ gboolean cal_backend_set_default_timezone (CalBackend *backend, const char *tzid
 char *cal_backend_get_timezone_object (CalBackend *backend, const char *tzid);
 
 CalObjType cal_backend_get_type_by_uid (CalBackend *backend, const char *uid);
-
-GList *cal_backend_get_object_list (CalBackend *backend, const char *query);
 
 GList *cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
 

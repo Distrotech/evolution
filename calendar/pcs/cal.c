@@ -240,29 +240,11 @@ impl_Cal_getObjectList (PortableServer_Servant servant,
 {
 	Cal *cal;
 	CalPrivate *priv;
-	GList *objects, *l;
-	GNOME_Evolution_Calendar_stringlist *seq;
-	int i;
 	
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	objects = cal_backend_get_object_list (priv->backend, query);
-	
-	seq = GNOME_Evolution_Calendar_stringlist__alloc ();
-	seq->_maximum = g_list_length (objects);
-	seq->_length = 0;
-	seq->_buffer = GNOME_Evolution_Calendar_stringlist_allocbuf (seq->_maximum);
-
-	for (l = objects, i = 0; l; l = l->next, i++) {
-		seq->_buffer[i] = CORBA_string_dup (l->data);
-		seq->_length++;
-
-		g_free (l->data);
-	}
-	g_list_free (objects);
-	
-	cal_notify_object_list (cal, GNOME_Evolution_Calendar_Success, seq);
+	cal_backend_get_object_list (priv->backend, cal, query);
 }
 
 /* Cal::getChanges method */
@@ -958,13 +940,14 @@ cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
 }
 
 void
-cal_notify_object_list (Cal *cal,
-			GNOME_Evolution_Calendar_CallStatus status,
-			GNOME_Evolution_Calendar_stringlist *objects)
+cal_notify_object_list (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, GList *objects)
 {
 	CalPrivate *priv;
 	CORBA_Environment ev;
-
+	GNOME_Evolution_Calendar_stringlist seq;
+	GList *l;
+	int i;
+	
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (IS_CAL (cal));
 
@@ -972,12 +955,24 @@ cal_notify_object_list (Cal *cal,
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyObjectListRequested (priv->listener, status, objects, &ev);
+
+	seq._maximum = g_list_length (objects);
+	seq._length = 0;
+	seq._buffer = GNOME_Evolution_Calendar_stringlist_allocbuf (seq._maximum);
+
+	for (l = objects, i = 0; l; l = l->next, i++) {
+		seq._buffer[i] = CORBA_string_dup (l->data);
+		seq._length++;
+	}
+
+	GNOME_Evolution_Calendar_Listener_notifyObjectListRequested (priv->listener, status, &seq, &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of object list");
 
 	CORBA_exception_free (&ev);	
+
+	CORBA_free(seq._buffer);
 }
 
 void
