@@ -455,124 +455,128 @@ tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *path, 
 
 #if 0
 static void
-emc_popup_view(GtkWidget *w, MailComponent *mc)
+emft_popup_view (GtkWidget *item, EMFolderTree *emft)
 {
 
 }
 
 static void
-emc_popup_open_new(GtkWidget *w, MailComponent *mc)
+emft_popup_open_new (GtkWidget *item, EMFolderTree *emft)
 {
 }
 #endif
 
 /* FIXME: This must be done in another thread */
 static void
-em_copy_folders(CamelStore *tostore, const char *tobase, CamelStore *fromstore, const char *frombase, int delete)
+em_copy_folders (CamelStore *tostore, const char *tobase, CamelStore *fromstore, const char *frombase, int delete)
 {
 	GString *toname, *fromname;
 	CamelFolderInfo *fi;
 	GList *pending = NULL, *deleting = NULL, *l;
 	guint32 flags = CAMEL_STORE_FOLDER_INFO_RECURSIVE;
-	CamelException *ex = camel_exception_new();
+	CamelException ex;
 	int fromlen;
 	const char *tmp;
-
-	if (camel_store_supports_subscriptions(fromstore))
+	
+	camel_exception_init (&ex);
+	
+	if (camel_store_supports_subscriptions (fromstore))
 		flags |= CAMEL_STORE_FOLDER_INFO_SUBSCRIBED;
-
-	fi = camel_store_get_folder_info(fromstore, frombase, flags, ex);
-	if (camel_exception_is_set(ex))
+	
+	fi = camel_store_get_folder_info (fromstore, frombase, flags, &ex);
+	if (camel_exception_is_set (&ex))
 		goto done;
-
-	pending = g_list_append(pending, fi);
-
-	toname = g_string_new("");
-	fromname = g_string_new("");
-
-	tmp = strrchr(frombase, '/');
+	
+	pending = g_list_append (pending, fi);
+	
+	toname = g_string_new ("");
+	fromname = g_string_new ("");
+	
+	tmp = strrchr (frombase, '/');
 	if (tmp == NULL)
 		fromlen = 0;
 	else
-		fromlen = tmp-frombase+1;
-
-	printf("top name is '%s'\n", fi->full_name);
-
+		fromlen = tmp - frombase + 1;
+	
+	d(printf ("top name is '%s'\n", fi->full_name));
+	
 	while (pending) {
 		CamelFolderInfo *info = pending->data;
-
-		pending = g_list_remove_link(pending, pending);
+		
+		pending = g_list_remove_link (pending, pending);
 		while (info) {
 			CamelFolder *fromfolder, *tofolder;
 			GPtrArray *uids;
-
+			
 			if (info->child)
-				pending = g_list_append(pending, info->child);
+				pending = g_list_append (pending, info->child);
 			if (tobase[0])
-				g_string_printf(toname, "%s/%s", tobase, info->full_name + fromlen);
+				g_string_printf (toname, "%s/%s", tobase, info->full_name + fromlen);
 			else
-				g_string_printf(toname, "%s", info->full_name + fromlen);
-
-			printf("Copying from '%s' to '%s'\n", info->full_name, toname->str);
-
+				g_string_printf (toname, "%s", info->full_name + fromlen);
+			
+			d(printf ("Copying from '%s' to '%s'\n", info->full_name, toname->str));
+			
 			/* This makes sure we create the same tree, e.g. from a nonselectable source */
 			/* Not sure if this is really the 'right thing', e.g. for spool stores, but it makes the ui work */
 			if ((info->flags & CAMEL_FOLDER_NOSELECT) == 0) {
-				printf("this folder is selectable\n");
-				fromfolder = camel_store_get_folder(fromstore, info->full_name, 0, ex);
+				d(printf ("this folder is selectable\n"));
+				fromfolder = camel_store_get_folder (fromstore, info->full_name, 0, &ex);
 				if (fromfolder == NULL)
 					goto exception;
-
-				tofolder = camel_store_get_folder(tostore, toname->str, CAMEL_STORE_FOLDER_CREATE, ex);
+				
+				tofolder = camel_store_get_folder (tostore, toname->str, CAMEL_STORE_FOLDER_CREATE, &ex);
 				if (tofolder == NULL) {
-					camel_object_unref(fromfolder);
+					camel_object_unref (fromfolder);
 					goto exception;
 				}
-
-				if (camel_store_supports_subscriptions(tostore)
-				    && !camel_store_folder_subscribed(tostore, toname->str))
-					camel_store_subscribe_folder(tostore, toname->str, NULL);
-
-				uids = camel_folder_get_uids(fromfolder);
-				camel_folder_transfer_messages_to(fromfolder, uids, tofolder, NULL, delete, ex);
-				camel_folder_free_uids(fromfolder, uids);
-
-				camel_object_unref(fromfolder);
-				camel_object_unref(tofolder);
+				
+				if (camel_store_supports_subscriptions (tostore)
+				    && !camel_store_folder_subscribed (tostore, toname->str))
+					camel_store_subscribe_folder (tostore, toname->str, NULL);
+				
+				uids = camel_folder_get_uids (fromfolder);
+				camel_folder_transfer_messages_to (fromfolder, uids, tofolder, NULL, delete, ex);
+				camel_folder_free_uids (fromfolder, uids);
+				
+				camel_object_unref (fromfolder);
+				camel_object_unref (tofolder);
 			}
-
-			if (camel_exception_is_set(ex))
+			
+			if (camel_exception_is_set (&ex))
 				goto exception;
 			else if (delete)
-				deleting = g_list_prepend(deleting, info);
-
+				deleting = g_list_prepend (deleting, info);
+			
 			info = info->sibling;
 		}
 	}
-
+	
 	/* delete the folders in reverse order from how we copyied them, if we are deleting any */
 	l = deleting;
 	while (l) {
 		CamelFolderInfo *info = l->data;
-
-		printf("deleting folder '%s'\n", info->full_name);
-
-		if (camel_store_supports_subscriptions(fromstore))
-			camel_store_unsubscribe_folder(fromstore, info->full_name, NULL);
-
-		camel_store_delete_folder(fromstore, info->full_name, NULL);
+		
+		d(printf ("deleting folder '%s'\n", info->full_name));
+		
+		if (camel_store_supports_subscriptions (fromstore))
+			camel_store_unsubscribe_folder (fromstore, info->full_name, NULL);
+		
+		camel_store_delete_folder (fromstore, info->full_name, NULL);
 		l = l->next;
 	}
-
+	
 exception:
-	camel_store_free_folder_info(fromstore, fi);
-	g_list_free(deleting);
-
-	g_string_free(toname, TRUE);
-	g_string_free(fromname, TRUE);
+	
+	camel_store_free_folder_info (fromstore, fi);
+	g_list_free (deleting);
+	
+	g_string_free (toname, TRUE);
+	g_string_free (fromname, TRUE);
 done:
-	printf("exception: %s\n", ex->desc?ex->desc:"<none>");
-	camel_exception_free(ex);
+	
+	d(printf ("exception: %s\n", ex.desc ? ex.desc : "<none>"));
+	camel_exception_clear (&ex);
 }
 
 struct _copy_folder_data {
