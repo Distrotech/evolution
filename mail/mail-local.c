@@ -80,7 +80,7 @@ typedef struct {
 	CamelStoreClass parent_class;
 } MailLocalStoreClass;
 
-CamelType mail_local_store_get_type (void);
+static CamelType mail_local_store_get_type (void);
 
 /* ** MailLocalFolder ** (protos) ************************************************* */
 
@@ -108,21 +108,7 @@ typedef struct {
 	CamelFolderClass parent_class;
 } MailLocalFolderClass;
 
-CamelType        mail_local_folder_get_type       (void);
-MailLocalFolder *mail_local_folder_construct      (MailLocalFolder *mlf,
-						   MailLocalStore  *parent_store,
-						   const char      *full_name,
-						   const char      *file_path);
-
-gboolean         mail_local_folder_set_folder     (MailLocalFolder *mlf, 
-						   guint32          flags, 
-						   CamelException  *ex);
-
-CamelStore      *mail_local_folder_get_real_store (MailLocalFolder *mlf);
-
-gboolean         mail_local_folder_reconfigure    (MailLocalFolder *mlf, 
-						   const char      *new_format, 
-						   CamelException  *ex);
+static CamelType mail_local_folder_get_type (void);
 
 #ifdef ENABLE_THREADS
 #define LOCAL_FOLDER_LOCK(folder)   (g_mutex_lock   (((MailLocalFolder *)folder)->real_folder_lock))
@@ -131,10 +117,6 @@ gboolean         mail_local_folder_reconfigure    (MailLocalFolder *mlf,
 #define LOCAL_FOLDER_LOCK(folder)
 #define LOCAL_FOLDER_UNLOCK(folder)
 #endif
-
-/* ** Misc ************************************************************************ */
-
-void mail_local_provider_init (void);
 
 /* ** MailLocalFolder ************************************************************* */
 
@@ -448,7 +430,7 @@ mlf_finalize (CamelObject *obj)
 #endif
 }
 
-CamelType
+static CamelType
 mail_local_folder_get_type (void)
 {
 	static CamelType mail_local_folder_type = CAMEL_INVALID_TYPE;
@@ -479,7 +461,7 @@ mlf_set_url (MailLocalFolder *mlf)
 				    mlf->store_name);
 }
 
-MailLocalFolder *
+static MailLocalFolder *
 mail_local_folder_construct (MailLocalFolder *mlf,
 			     MailLocalStore  *parent_store,
 			     const char      *full_name,
@@ -516,7 +498,7 @@ mail_local_folder_construct (MailLocalFolder *mlf,
 	return mlf;
 }
 
-gboolean
+static gboolean
 mail_local_folder_set_folder (MailLocalFolder *mlf, guint32 flags, CamelException *ex)
 {
 	gboolean ret;
@@ -527,7 +509,7 @@ mail_local_folder_set_folder (MailLocalFolder *mlf, guint32 flags, CamelExceptio
 	return ret;
 }
 
-CamelStore *
+static CamelStore *
 mail_local_folder_get_real_store (MailLocalFolder *mlf)
 {
 	CamelStore *store;
@@ -546,7 +528,7 @@ mail_local_folder_get_real_store (MailLocalFolder *mlf)
 	return store;
 }
 
-gboolean
+static gboolean
 mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, CamelException *ex)
 {
 	CamelStore *fromstore = NULL;
@@ -797,7 +779,7 @@ mls_class_init (CamelObjectClass *camel_object_class)
 	local_store_parent_class = camel_type_get_global_classfuncs (CAMEL_STORE_TYPE);
 }
 
-CamelType
+static CamelType
 mail_local_store_get_type (void)
 {
 	static CamelType mail_local_store_type = CAMEL_INVALID_TYPE;
@@ -837,7 +819,7 @@ non_equal (gconstpointer a, gconstpointer b)
 	return TRUE;
 }
 
-void
+static void
 mail_local_provider_init (void)
 {
 	/* Register with Camel to handle file: URLs */
