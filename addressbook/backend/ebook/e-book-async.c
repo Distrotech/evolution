@@ -324,35 +324,28 @@ typedef struct {
 	EBookMsg msg;
 
 	EBook *book;
-	EBookAuthMethodsCallback cb;
+	char *user;
+	char *passwd;
+	char *auth_method;
+	EBookCallback cb;
 	gpointer closure;
-} GetMethodsMsg;
+} AuthUserMsg;
 
 typedef struct {
 	EBookMsg msg;
 
 	EBook *book;
 	EBookStatus status;
-	GList *methods;
-	EBookAuthMethodsCallback cb;
+	EBookCallback cb;
 	gpointer closure;
-} GetMethodsResponse;
+} AuthUserResponse;
 
 static void
-_get_methods_response_handler (EBookMsg *msg)
+_auth_user_response_handler (EBookMsg *msg)
 {
-	GetMethodsResponse *resp = (GetMethodsResponse*)msg;
-	GList *l;
-	EList *methods = e_list_new ((EListCopyFunc) g_strdup, 
-				    (EListFreeFunc) g_free,
-				    NULL);
+	AuthUserResponse *resp = (AuthUserResponse*)msg;
 
-	for (l = resp->methods; l; l = l->next)
-		e_list_append (methods, l->data);
-
-	resp->cb (resp->book, resp->status, methods, resp->closure);
-
-	g_object_unref (methods);
+	resp->cb (resp->book, resp->status, resp->closure);
 }
 
 static void
@@ -367,16 +360,16 @@ _auth_user_response_dtor (EBookMsg *msg)
 static void
 _auth_user_handler (EBookMsg *msg)
 {
-	GetMethodsMsg *methods_msg = (GetMethodsMsg *)msg;
-	GetMethodsResponse *response;
+	AuthUserMsg *auth_msg = (AuthUserMsg *)msg;
+	AuthUserResponse *response;
 
-	response = g_new (GetMethodsResponse, 1);
-	e_book_msg_init ((EBookMsg*)response, _get_methods_response_handler, _get_methods_response_dtor);
+	response = g_new (AuthUserResponse, 1);
+	e_book_msg_init ((EBookMsg*)response, _auth_user_response_handler, _auth_user_response_dtor);
 
-	response->status = e_book_get_supported_auth_methods (methods_msg->book, &response->methods);
-	response->book = methods_msg->book;
-	response->cb = methods_msg->cb;
-	response->closure = methods_msg->closure;
+	response->status = e_book_authenticate_user (auth_msg->book, auth_msg->user, auth_msg->passwd, auth_msg->auth_method);
+	response->book = auth_msg->book;
+	response->cb = auth_msg->cb;
+	response->closure = auth_msg->closure;
 
 	g_async_queue_push (from_worker_queue, response);
 }
@@ -402,7 +395,86 @@ e_book_async_authenticate_user (EBook                 *book,
 				EBookCallback         cb,
 				gpointer              closure)
 {
+	AuthUserMsg *msg;
+
 	init_async ();
+
+	msg = g_new (AuthUserMsg, 1);
+	e_book_msg_init ((EBookMsg*)msg, _auth_user_handler, _auth_user_dtor);
+
+	msg->book = g_object_ref (book);
+	msg->user = g_strdup (user);
+	msg->passwd = g_strdup (passwd);
+	msg->auth_method = g_strdup (auth_method);
+	msg->cb = cb;
+	msg->closure = closure;
+
+	g_async_queue_push (to_worker_queue, msg);
+}
+
+
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	char *id;
+	EBookCardCallback cb;
+	gpointer closure;
+} GetCardMsg;
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	EContact *contact;
+	EBookStatus status;
+	EBookCardCallback cb;
+	gpointer closure;
+} GetCardResponse;
+
+static void
+_get_card_response_handler (EBookMsg *msg)
+{
+	GetCardResponse *resp = (GetCardResponse*)msg;
+
+	resp->cb (resp->book, resp->status, resp->contact, resp->closure);
+}
+
+static void
+_get_card_response_dtor (EBookMsg *msg)
+{
+	GetCardResponse *resp = (GetCardResponse*)msg;
+
+	g_object_unref (resp->contact);
+	g_object_unref (resp->book);
+	g_free (resp);
+}
+
+static void
+_get_card_handler (EBookMsg *msg)
+{
+	GetCardMsg *get_card_msg = (GetCardMsg *)msg;
+	GetCardResponse *response;
+
+	response = g_new (GetCardResponse, 1);
+	e_book_msg_init ((EBookMsg*)response, _get_card_response_handler, _get_card_response_dtor);
+
+	response->status = e_book_get_contact (get_card_msg->book, get_card_msg->id, &response->contact);
+	response->book = get_card_msg->book;
+	response->cb = get_card_msg->cb;
+	response->closure = get_card_msg->closure;
+
+	g_async_queue_push (from_worker_queue, response);
+}
+
+static void
+_get_card_dtor (EBookMsg *msg)
+{
+	GetCardMsg *get_card_msg = (GetCardMsg *)msg;
+
+	g_free (get_card_msg->id);
+	g_free (get_card_msg);
 }
 
 /* Fetching cards. */
@@ -412,8 +484,24 @@ e_book_async_get_card (EBook                 *book,
 		       EBookCardCallback      cb,
 		       gpointer               closure)
 {
+	GetCardMsg *msg;
+
 	init_async ();
+
+	msg = g_new (GetCardMsg, 1);
+	e_book_msg_init ((EBookMsg*)msg, _get_card_handler, _get_card_dtor);
+
+	msg->book = g_object_ref (book);
+	msg->id = g_strdup (id);
+	msg->cb = cb;
+	msg->closure = closure;
+
+	g_async_queue_push (to_worker_queue, msg);
+
+	return 0;
 }
+
+
 
 /* Deleting cards. */
 gboolean
@@ -422,7 +510,9 @@ e_book_async_remove_card (EBook                 *book,
 			  EBookCallback          cb,
 			  gpointer               closure)
 {
-	init_async ();
+	const char *id = e_card_get_id (card);
+
+	return e_book_async_remove_card_by_id (book, id, cb, closure);
 }
 
 gboolean
@@ -431,7 +521,72 @@ e_book_async_remove_card_by_id (EBook                 *book,
 				EBookCallback          cb,
 				gpointer               closure)
 {
-	init_async ();
+	GList *list = g_list_append (NULL, g_strdup (id));
+
+	return e_book_async_remove_cards (book, list, cb, closure);
+}
+
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	GList *id_list;
+	EBookCallback cb;
+	gpointer closure;
+} RemoveCardsMsg;
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	EBookStatus status;
+	EBookCallback cb;
+	gpointer closure;
+} RemoveCardsResponse;
+
+static void
+_remove_cards_response_handler (EBookMsg *msg)
+{
+	RemoveCardsResponse *resp = (RemoveCardsResponse*)msg;
+
+	resp->cb (resp->book, resp->status, resp->closure);
+}
+
+static void
+_remove_cards_response_dtor (EBookMsg *msg)
+{
+	RemoveCardsResponse *resp = (RemoveCardsResponse*)msg;
+
+	g_object_unref (resp->book);
+	g_free (resp);
+}
+
+static void
+_remove_cards_handler (EBookMsg *msg)
+{
+	RemoveCardsMsg *remove_cards_msg = (RemoveCardsMsg *)msg;
+	RemoveCardsResponse *response;
+
+	response = g_new (RemoveCardsResponse, 1);
+	e_book_msg_init ((EBookMsg*)response, _remove_cards_response_handler, _remove_cards_response_dtor);
+
+	response->status = e_book_remove_contacts (remove_cards_msg->book, remove_cards_msg->id_list);
+	response->book = remove_cards_msg->book;
+	response->cb = remove_cards_msg->cb;
+	response->closure = remove_cards_msg->closure;
+
+	g_async_queue_push (from_worker_queue, response);
+}
+
+static void
+_remove_cards_dtor (EBookMsg *msg)
+{
+	RemoveCardsMsg *remove_cards_msg = (RemoveCardsMsg *)msg;
+
+	/* XXX ugh, free the list? */
+
+	g_free (remove_cards_msg);
 }
 
 gboolean
@@ -440,8 +595,24 @@ e_book_async_remove_cards (EBook                 *book,
 			   EBookCallback          cb,
 			   gpointer               closure)
 {
+	RemoveCardsMsg *msg;
+
 	init_async ();
+
+	msg = g_new (RemoveCardsMsg, 1);
+	e_book_msg_init ((EBookMsg*)msg, _remove_cards_handler, _remove_cards_dtor);
+
+	msg->book = g_object_ref (book);
+	msg->id_list = id_list;
+	msg->cb = cb;
+	msg->closure = closure;
+
+	g_async_queue_push (to_worker_queue, msg);
+
+	return 0;
 }
+
+
 
 /* Adding cards. */
 gboolean
@@ -450,7 +621,81 @@ e_book_async_add_card (EBook                 *book,
 		       EBookIdCallback        cb,
 		       gpointer               closure)
 {
-	init_async ();
+	gboolean rv;
+
+	char *vcard = e_card_get_vcard_assume_utf8 (card);
+
+	rv = e_book_async_add_vcard (book, vcard, cb, closure);
+
+	g_free (vcard);
+
+	return rv;
+}
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	char *vcard;
+	EBookIdCallback cb;
+	gpointer closure;
+} AddVCardMsg;
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	char *id;
+	EBookStatus status;
+	EBookIdCallback cb;
+	gpointer closure;
+} AddVCardResponse;
+
+static void
+_add_vcard_response_handler (EBookMsg *msg)
+{
+	AddVCardResponse *resp = (AddVCardResponse*)msg;
+
+	resp->cb (resp->book, resp->status, resp->id, resp->closure);
+}
+
+static void
+_add_vcard_response_dtor (EBookMsg *msg)
+{
+	AddVCardResponse *resp = (AddVCardResponse*)msg;
+
+	g_object_unref (resp->book);
+	g_free (resp->id);
+	g_free (resp);
+}
+
+static void
+_add_vcard_handler (EBookMsg *msg)
+{
+	AddVCardMsg *add_vcard_msg = (AddVCardMsg *)msg;
+	AddVCardResponse *response;
+	EContact *contact;
+
+	response = g_new (AddVCardResponse, 1);
+	e_book_msg_init ((EBookMsg*)response, _add_vcard_response_handler, _add_vcard_response_dtor);
+
+	contact = e_contact_new_from_vcard (add_vcard_msg->vcard);
+	response->status = e_book_add_contact (add_vcard_msg->book, contact);
+	response->book = add_vcard_msg->book;
+	response->cb = add_vcard_msg->cb;
+	response->closure = add_vcard_msg->closure;
+
+	g_object_unref (contact);
+	g_async_queue_push (from_worker_queue, response);
+}
+
+static void
+_add_vcard_dtor (EBookMsg *msg)
+{
+	AddVCardMsg *add_vcard_msg = (AddVCardMsg *)msg;
+
+	g_free (add_vcard_msg->vcard);
+	g_free (add_vcard_msg);
 }
 
 gboolean
@@ -459,8 +704,24 @@ e_book_async_add_vcard (EBook                 *book,
 			EBookIdCallback        cb,
 			gpointer               closure)
 {
+	AddVCardMsg *msg;
+
 	init_async ();
+
+	msg = g_new (AddVCardMsg, 1);
+	e_book_msg_init ((EBookMsg*)msg, _add_vcard_handler, _add_vcard_dtor);
+
+	msg->book = g_object_ref (book);
+	msg->vcard = g_strdup (vcard);
+	msg->cb = cb;
+	msg->closure = closure;
+
+	g_async_queue_push (to_worker_queue, msg);
+
+	return TRUE;
 }
+
+
 
 /* Modifying cards. */
 gboolean
@@ -469,8 +730,81 @@ e_book_async_commit_card (EBook                 *book,
 			  EBookCallback          cb,
 			  gpointer               closure)
 {
-	init_async ();
+	gboolean rv;
+
+	char *vcard = e_card_get_vcard_assume_utf8 (card);
+
+	rv = e_book_async_commit_vcard (book, vcard, cb, closure);
+
+	g_free (vcard);
+
+	return rv;
 }
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	char *vcard;
+	EBookCallback cb;
+	gpointer closure;
+} CommitVCardMsg;
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	EBookStatus status;
+	EBookCallback cb;
+	gpointer closure;
+} CommitVCardResponse;
+
+static void
+_commit_vcard_response_handler (EBookMsg *msg)
+{
+	CommitVCardResponse *resp = (CommitVCardResponse*)msg;
+
+	resp->cb (resp->book, resp->status, resp->closure);
+}
+
+static void
+_commit_vcard_response_dtor (EBookMsg *msg)
+{
+	CommitVCardResponse *resp = (CommitVCardResponse*)msg;
+
+	g_object_unref (resp->book);
+	g_free (resp);
+}
+
+static void
+_commit_vcard_handler (EBookMsg *msg)
+{
+	CommitVCardMsg *commit_vcard_msg = (CommitVCardMsg *)msg;
+	CommitVCardResponse *response;
+	EContact *contact;
+
+	response = g_new (CommitVCardResponse, 1);
+	e_book_msg_init ((EBookMsg*)response, _commit_vcard_response_handler, _commit_vcard_response_dtor);
+
+	contact = e_contact_new_from_vcard (commit_vcard_msg->vcard);
+	response->status = e_book_commit_contact (commit_vcard_msg->book, contact);
+	response->book = commit_vcard_msg->book;
+	response->cb = commit_vcard_msg->cb;
+	response->closure = commit_vcard_msg->closure;
+
+	g_object_unref (contact);
+	g_async_queue_push (from_worker_queue, response);
+}
+
+static void
+_commit_vcard_dtor (EBookMsg *msg)
+{
+	CommitVCardMsg *commit_vcard_msg = (CommitVCardMsg *)msg;
+
+	g_free (commit_vcard_msg->vcard);
+	g_free (commit_vcard_msg);
+}
+
 
 gboolean
 e_book_async_commit_vcard (EBook                 *book,
@@ -478,7 +812,21 @@ e_book_async_commit_vcard (EBook                 *book,
 			   EBookCallback          cb,
 			   gpointer               closure)
 {
+	CommitVCardMsg *msg;
+
 	init_async ();
+
+	msg = g_new (CommitVCardMsg, 1);
+	e_book_msg_init ((EBookMsg*)msg, _commit_vcard_handler, _commit_vcard_dtor);
+
+	msg->book = g_object_ref (book);
+	msg->vcard = g_strdup (vcard);
+	msg->cb = cb;
+	msg->closure = closure;
+
+	g_async_queue_push (to_worker_queue, msg);
+
+	return TRUE;
 }
 
 typedef struct {
