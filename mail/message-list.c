@@ -636,7 +636,7 @@ message_list_select_thread (MessageList *message_list)
 	tsi.ml = message_list;
 	tsi.paths = g_ptr_array_new ();
 	
-	etsm = e_tree_get_selection_model (message_list->tree);
+	etsm = (ETreeSelectionModel *) e_tree_get_selection_model (message_list->tree);
 	
 	e_tree_selected_path_foreach (message_list->tree, thread_select_foreach, &tsi);
 	
@@ -658,7 +658,7 @@ message_list_invert_selection (MessageList *message_list)
 {
 	ESelectionModel *etsm;
 	
-	etsm = e_tree_get_selection_model (fb->message_list->tree);
+	etsm = e_tree_get_selection_model (message_list->tree);
 	
 	e_selection_model_invert_selection (etsm);
 }
@@ -1550,6 +1550,14 @@ message_list_construct (MessageList *message_list)
 
 }
 
+
+/**
+ * message_list_new:
+ *
+ * Creates a new message-list widget.
+ *
+ * Returns a new message-list widget.
+ **/
 GtkWidget *
 message_list_new (void)
 {
@@ -2230,17 +2238,27 @@ message_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	mail_async_event_emit(ml->async_event, MAIL_ASYNC_GUI, (MailAsyncFunc)main_folder_changed, o, changes, user_data);
 }
 
+
+/**
+ * message_list_set_folder:
+ * @message_list: Message List widget
+ * @folder: folder backend to be set
+ * @outgoing: whether this is an outgoing folder
+ *
+ * Sets @folder to be the backend folder for @message_list. If
+ * @outgoing is %TRUE, then the message-list UI changes to default to
+ * the "Outgoing folder" column view.
+ **/
 void
-message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder, gboolean outgoing)
+message_list_set_folder (MessageList *message_list, CamelFolder *folder, gboolean outgoing)
 {
 	gboolean hide_deleted;
 	GConfClient *gconf;
 	CamelException ex;
 	
-	g_return_if_fail (message_list != NULL);
 	g_return_if_fail (IS_MESSAGE_LIST (message_list));
 	
-	if (message_list->folder == camel_folder)
+	if (message_list->folder == folder)
 		return;
 	
 	camel_exception_init (&ex);
@@ -2274,7 +2292,7 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder, g
 		message_list->thread_tree = NULL;
 	}
 	
-	message_list->folder = camel_folder;
+	message_list->folder = folder;
 	
 	if (message_list->cursor_uid) {
 		g_free(message_list->cursor_uid);
@@ -2282,9 +2300,9 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder, g
 		g_signal_emit(message_list, message_list_signals[MESSAGE_SELECTED], 0, NULL);
 	}
 	
-	if (camel_folder) {
+	if (folder) {
 		/* Setup the strikeout effect for non-trash folders */
-		if (!(camel_folder->folder_flags & CAMEL_FOLDER_IS_TRASH)) {
+		if (!(folder->folder_flags & CAMEL_FOLDER_IS_TRASH)) {
 			ECell *cell;
 			
 			cell = e_table_extras_get_cell (message_list->extras, "render_date");
@@ -2306,16 +2324,16 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder, g
 		/* Build the etree suitable for this folder */
 		message_list_setup_etree (message_list, outgoing);
 		
-		camel_object_hook_event (camel_folder, "folder_changed",
+		camel_object_hook_event (folder, "folder_changed",
 					 folder_changed, message_list);
-		camel_object_hook_event (camel_folder, "message_changed",
+		camel_object_hook_event (folder, "message_changed",
 					 message_changed, message_list);
 		
-		camel_object_ref (camel_folder);
+		camel_object_ref (folder);
 		
 		gconf = mail_config_get_gconf_client ();
 		hide_deleted = !gconf_client_get_bool (gconf, "/apps/evolution/mail/display/show_deleted", NULL);
-		message_list->hidedeleted = hide_deleted && !(camel_folder->folder_flags & CAMEL_FOLDER_IS_TRASH);
+		message_list->hidedeleted = hide_deleted && !(folder->folder_flags & CAMEL_FOLDER_IS_TRASH);
 		
 		hide_load_state (message_list);
 		mail_regen_list (message_list, message_list->search, NULL, NULL);
