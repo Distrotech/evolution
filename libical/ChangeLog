@@ -1,8 +1,6 @@
 2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
 
-	* src/libicalss/icalgauge.h: added missing header.
-
-	* src/libicalss/icalssyacc.y: removed ical.h header.
+	* src/libical/ical.h: added from HEAD.
 
 2003-10-09  Jeffrey Stedfast  <fejj@ximian.com>
 
