@@ -1,5 +1,11 @@
 2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.c (e_cal_view_objects_added_cb): only expand
+	recurrences for events, for tasks, add them to the model with no
+	further processing.
+
+2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-day-view.c (process_component): deal correctly with recurrences.
 	(e_day_view_find_event_from_uid): added 'rid' argument.
 

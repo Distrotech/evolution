@@ -1194,6 +1194,7 @@ static void
 e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data)
 {
 	ECalModel *model = (ECalModel *) user_data;
+	ECalModelComponent *comp_data;
 	ECalModelPrivate *priv;
 	GList *l;
 	time_t start, end;
@@ -1207,11 +1208,26 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 
 		e_table_model_pre_change (E_TABLE_MODEL (model));
 
-		aid.client = e_cal_view_get_client (query);
-		aid.model = model;
-		e_cal_generate_instances_for_object (e_cal_view_get_client (query),
-						     l->data, start, end,
-						     add_instance_to_model, &aid);
+		switch (icalcomponent_isa (l->data)) {
+		case ICAL_VEVENT_COMPONENT :
+			aid.client = e_cal_view_get_client (query);
+			aid.model = model;
+			e_cal_generate_instances_for_object (e_cal_view_get_client (query),
+							     l->data, start, end,
+							     add_instance_to_model, &aid);
+			break;
+		case ICAL_VTODO_COMPONENT :
+			comp_data = g_new0 (ECalModelComponent, 1);
+			comp_data->client = g_object_ref (e_cal_view_get_client (query));
+			comp_data->icalcomp = icalcomponent_new_clone (l->data);
+			comp_data->instance_start = start;
+			comp_data->instance_end = end;
+
+			g_ptr_array_add (priv->objects, comp_data);
+			e_table_model_row_inserted (E_TABLE_MODEL (model),
+						    priv->objects->len - 1);
+			break;
+		}
 	}
 }
 
