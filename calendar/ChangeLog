@@ -1,3 +1,20 @@
+2003-10-23  JP Rosevear <jpr@ximian.com>
+
+	* pcs/cal.c (cal_notify_object_modified): guard against irrelevant
+	args (ie if there was an error) 
+	(cal_notify_object_removed): ditto
+	(cal_notify_timezone_added): ditto
+
+	* pcs/cal-backend-sync.c (_cal_backend_is_read_only): init value
+	to something known
+	(_cal_backend_get_cal_address): ditto
+	(_cal_backend_get_alarm_email_address): ditto
+	(_cal_backend_get_ldap_attribute): ditto
+	(_cal_backend_get_static_capabilities): ditto
+	(_cal_backend_modify_object): ditto
+	(_cal_backend_remove_object): ditto
+	(_cal_backend_get_object_list): ditto
+
 2003-10-22  JP Rosevear <jpr@ximian.com>
 
 	* gui/e-cal-list-view.c (e_cal_list_view_new): create a model and
