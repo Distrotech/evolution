@@ -1,3 +1,11 @@
+2004-07-28  Not Zed  <NotZed@Ximian.com>
+
+	* em-format.h (struct _EMFormatPURI): add a free function
+	callback.
+
+	* em-format.c (emf_clear_puri_node): if the free function is set,
+	call it.
+
 2004-07-01  Rodney Dawes  <dobey@novell.com>
 
 	* Makefile.am (BUILT_SOURCES): Remove $(error_i18n)

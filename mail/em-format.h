@@ -72,6 +72,7 @@ typedef void (*EMFormatPURIFunc)(EMFormat *md, struct _CamelStream *stream, EMFo
 struct _EMFormatPURI {
 	struct _EMFormatPURI *next, *prev;
 
+	void (*free)(struct _EMFormatPURI *p); /* optional callback for freeing user-fields */
 	struct _EMFormat *format;
 
 	char *uri;		/* will be the location of the part, may be empty */
