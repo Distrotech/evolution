@@ -44,6 +44,7 @@ SUBDIRS = 			\
 	views			\
 	wombat			\
 	tools			\
+	a11y			\
 	help			\
 	po
 
