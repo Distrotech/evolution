@@ -497,7 +497,6 @@ mail_component_init (MailComponent *component)
 #if 0				/* EPFIXME TODO somehow */
 	for (i = 0; i < sizeof (standard_folders) / sizeof (standard_folders[0]); i++)
 		*standard_folders[i].uri = g_strdup_printf ("file://%s/local/%s", evolution_dir, standard_folders[i].name);
-	vfolder_load_storage();
 #endif
 	setup_local_store (component);
 
@@ -551,8 +550,13 @@ mail_component_peek (void)
 {
 	static MailComponent *component = NULL;
 
-	if (component == NULL)
+	if (component == NULL) {
 		component = g_object_new (mail_component_get_type (), NULL);
+
+		/* FIXME: this should all be initialised in a starutp routine, not from the peek function,
+		   this covers much of the ::init method's content too */
+		vfolder_load_storage();
+	}
 
 	return component;
 }

@@ -1,5 +1,11 @@
 2003-10-08  Not Zed  <NotZed@Ximian.com>
 
+	* mail-component.c (mail_component_peek): setup vfolders once we
+	hve the component, since its setup will call mail_component_peek,
+	fun recursion.
+
+2003-10-08  Not Zed  <NotZed@Ximian.com>
+
 	* mail-component.c (setup_local_folder): removed.
 	(setup_local_store): setup various needed globals properly.
 	(setup_account_storages): renamed to load_accounts.
