@@ -473,8 +473,6 @@ row_deleted_check_cb (EWeekView *week_view, gint event_num, gpointer data)
 	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (week_view));
 
-	g_message ("Checking %d (%s)", event_num, uid);
-
 	if (!e_cal_model_get_component_for_uid (model, uid))
 		g_hash_table_insert (uids, (char *)uid, GINT_TO_POINTER (1));
 
