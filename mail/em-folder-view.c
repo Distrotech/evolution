@@ -248,8 +248,12 @@ em_folder_view_open_selected(EMFolderView *emfv)
 static void
 emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 {
-	/* FIXME: outgoing folder type? */
-	message_list_set_folder(emfv->list, folder, uri, FALSE);
+	int isout = (folder && uri
+		     && (em_utils_folder_is_drafts(folder, uri)
+			 || em_utils_folder_is_sent(folder, uri)
+			 || em_utils_folder_is_outbox(folder, uri)));
+
+	message_list_set_folder(emfv->list, folder, uri, isout);
 	g_free(emfv->folder_uri);
 	emfv->folder_uri = g_strdup(uri);
 	if (folder)
@@ -411,31 +415,13 @@ static void
 emfv_message_forward (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GConfClient *gconf;
 	GPtrArray *uids;
-	int mode;
-	
+
 	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
-	
-	gconf = mail_config_get_gconf_client ();
-	mode = gconf_client_get_int (gconf, "/apps/evolution/mail/format/forward_style", NULL);
-	
-	uids = message_list_get_selected (emfv->list);
-	
-	switch (mode) {
-	case MAIL_CONFIG_FORWARD_ATTACHED:
-		em_utils_forward_attached ((GtkWidget *) emfv, emfv->folder, uids);
-		break;
-	case MAIL_CONFIG_FORWARD_INLINE:
-		em_utils_forward_inline ((GtkWidget *) emfv, emfv->folder, uids);
-		break;
-	case MAIL_CONFIG_FORWARD_QUOTED:
-		em_utils_forward_quoted ((GtkWidget *) emfv, emfv->folder, uids);
-		break;
-	default:
-		break;
-	}
+
+	uids = message_list_get_selected(emfv->list);
+	em_utils_forward_messages((GtkWidget *)emfv, emfv->folder, uids);
 }
 
 static void

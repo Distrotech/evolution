@@ -78,6 +78,8 @@
 struct _EMFolderBrowserPrivate {
 	GtkWidget *preview;	/* container for message display */
 
+	GtkWidget *subscribe_editor;
+
 	int show_preview:1;
 	int show_list:1;
 };
@@ -390,9 +392,10 @@ emfb_folder_properties(BonoboUIComponent *uid, void *data, const char *path)
 static void
 emfb_folder_expunge(BonoboUIComponent *uid, void *data, const char *path)
 {
-	/* FIXME: This is a lot trickier than it should be ... */
 	EMFolderBrowser *emfb = data;
-	emfb = emfb;
+
+	/* TODO: The old code did a LOT more than this, but was it reqiured? */
+	mail_expunge_folder(emfb->view.folder, NULL, NULL);
 }
 
 static void
@@ -490,13 +493,24 @@ emfb_tools_filters(BonoboUIComponent *uid, void *data, const char *path)
 }
 
 static void
+emfb_subscribe_editor_destroy(GtkWidget *w, EMFolderBrowser *emfb)
+{
+	emfb->priv->subscribe_editor = NULL;
+}
+
+static void
 emfb_tools_subscriptions(BonoboUIComponent *uid, void *data, const char *path)
 {
-	GtkWidget *w;
+	EMFolderBrowser *emfb = data;
 
-	/* FIXME: must stop multiple instances */
-	w = (GtkWidget *)em_subscribe_editor_new();
-	gtk_widget_show(w);
+	if (emfb->priv->subscribe_editor) {
+		gdk_window_show(emfb->priv->subscribe_editor->window);
+	} else {
+		emfb->priv->subscribe_editor = (GtkWidget *)em_subscribe_editor_new();
+		e_dialog_set_transient_for((GtkWindow *)emfb->priv->subscribe_editor, (GtkWidget *)emfb);
+		g_signal_connect(emfb->priv->subscribe_editor, "destroy", G_CALLBACK(emfb_subscribe_editor_destroy), emfb);
+		gtk_widget_show(emfb->priv->subscribe_editor);
+	}
 }
 
 static void

@@ -1,3 +1,53 @@
+2003-08-30  Not Zed  <NotZed@Ximian.com>
+
+	* mail-search.glade: forgot to add this yesterday.
+
+	* em-utils.h: don't include stuff we dont need to.
+
+	* em-folder-view.c (emfv_message_forward): just call
+	em_utils_forward_messages.
+	
+	* em-format-html-display.c (em_format_html_display_search):
+	removed unused.
+	(efhd_drag_data_get): cleanup, use em_utils_temp_save_part.
+	(efhd_attachment_popup): quick hack, setup a bunch more menu
+	items, for forwarding inline messages, hook up saving parts, and
+	messages, and hook up the 'open in' menu.
+	(efhd_open_in): implement.
+
+	* em-utils.c (em_utils_save_message): Renamed to
+	em_utils_save_part.
+	(em_utils_filesel_prompt): removed, it just makes things more
+	complex than having a single response handler.
+	(em_utils_save_part): move dialog stuff here, it also creates a
+	name based on the type of part its given.
+	(emu_get_save_filesel): new method to create a fileselector with
+	standard options.
+	(emu_save_part_response): handle file selector response for save
+	part.
+	(can_save): renamed to emu_can_save
+	(em_utils_save_messages): use get_save_filesel
+	(emu_can_save): handle the path="" case
+	(em_utils_save_part): Add a prompt argument.
+	(filesel_ok_cb): removed.
+	(emu_update_save_path): update the gconf save_dir setting.
+	(em_utils_forward_messages): helper to forward using default
+	style.
+	(forward_non_attached): remove uids argument.
+	(em_utils_forward_message): helper to forward a message using the
+	default forward style.
+	(forward_non_attached): removed folder argument.
+	(em_utils_temp_save_part): helper to save a part to a temporary
+	file, e.g. for dnd, app launch, etc.
+
+2003-08-29  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.c: set 'outgoing' properly.
+
+	* em-folder-browser.c (emfb_tools_subscriptions): enforce a single
+	instance of the subscribe editor.
+	(emfb_subscribe_editor_destroy): clear subscribe editor handle.
+
 2003-08-29  Not Zed  <NotZed@Ximian.com>
 
 	* em-camel-stream.c (em_camel_stream_new): Added some optional

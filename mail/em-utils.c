@@ -49,9 +49,7 @@
 #include "em-utils.h"
 #include "em-composer-utils.h"
 
-
 static EAccount *guess_account (CamelMimeMessage *message);
-
 
 /* FIXME: move me somewhere else... */
 static gboolean
@@ -111,7 +109,6 @@ em_utils_uids_free (GPtrArray *uids)
 	g_ptr_array_free (uids, TRUE);
 }
 
-
 static void
 druid_destroy_cb (gpointer user_data, GObject *deadbeef)
 {
@@ -151,7 +148,6 @@ em_utils_check_user_can_send_mail (GtkWidget *parent)
 	
 	return TRUE;
 }
-
 
 /* Editing Filters/vFolders... */
 
@@ -218,7 +214,6 @@ em_utils_edit_filters (GtkWidget *parent)
 	gtk_widget_show (GTK_WIDGET (filter_editor));
 }
 
-
 /* Composing messages... */
 
 static EMsgComposer *
@@ -284,7 +279,6 @@ em_utils_post_to_url (GtkWidget *parent, const char *url)
 	
 	gtk_widget_show ((GtkWidget *) composer);
 }
-
 
 /* Editing messages... */
 
@@ -362,9 +356,8 @@ em_utils_forward_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *ui
 	mail_build_attachment (folder, uids, forward_attached, parent);
 }
 
-
 static void
-forward_non_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, int style)
+forward_non_attached (GtkWidget *parent, GPtrArray *messages, int style)
 {
 	CamelMimeMessage *message;
 	CamelDataWrapper *wrapper;
@@ -404,7 +397,7 @@ forward_non_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids, G
 static void
 forward_inline (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void *user_data)
 {
-	forward_non_attached ((GtkWidget *) user_data, folder, uids, messages, MAIL_CONFIG_FORWARD_INLINE);
+	forward_non_attached ((GtkWidget *) user_data, messages, MAIL_CONFIG_FORWARD_INLINE);
 }
 
 void
@@ -419,7 +412,7 @@ em_utils_forward_inline (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids
 static void
 forward_quoted (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void *user_data)
 {
-	forward_non_attached ((GtkWidget *) user_data, folder, uids, messages, MAIL_CONFIG_FORWARD_QUOTED);
+	forward_non_attached ((GtkWidget *) user_data, messages, MAIL_CONFIG_FORWARD_QUOTED);
 }
 
 void
@@ -431,6 +424,62 @@ em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids
 	mail_get_messages (folder, uids, forward_quoted, parent);
 }
 
+void
+em_utils_forward_message(GtkWidget *parent, CamelMimeMessage *message)
+{
+	GConfClient *gconf;
+	int mode;
+	GPtrArray *messages;
+
+	messages = g_ptr_array_new();
+	g_ptr_array_add(messages, message);
+
+	gconf = mail_config_get_gconf_client ();
+	mode = gconf_client_get_int (gconf, "/apps/evolution/mail/format/forward_style", NULL);
+
+	switch (mode) {
+	case MAIL_CONFIG_FORWARD_ATTACHED:
+	default: {
+		CamelMimePart *part = mail_tool_make_message_attachment(message);
+		char *subject = mail_tool_generate_forward_subject(message);
+
+		forward_attached(NULL, messages, part, subject, parent);
+		g_free(subject);
+		camel_object_unref(part);
+		break; }
+	case MAIL_CONFIG_FORWARD_INLINE:
+		forward_non_attached(parent, messages, MAIL_CONFIG_FORWARD_INLINE);
+		break;
+	case MAIL_CONFIG_FORWARD_QUOTED:
+		forward_non_attached(parent, messages, MAIL_CONFIG_FORWARD_QUOTED);
+		break;
+	}
+
+	g_ptr_array_free(messages, TRUE);
+}
+
+void
+em_utils_forward_messages(GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
+{
+	GConfClient *gconf;
+	int mode;
+	
+	gconf = mail_config_get_gconf_client ();
+	mode = gconf_client_get_int (gconf, "/apps/evolution/mail/format/forward_style", NULL);
+	
+	switch (mode) {
+	case MAIL_CONFIG_FORWARD_ATTACHED:
+	default:
+		em_utils_forward_attached(parent, folder, uids);
+		break;
+	case MAIL_CONFIG_FORWARD_INLINE:
+		em_utils_forward_inline(parent, folder, uids);
+		break;
+	case MAIL_CONFIG_FORWARD_QUOTED:
+		em_utils_forward_quoted(parent, folder, uids);
+		break;
+	}
+}
 
 /* Redirecting messages... */
 
@@ -494,7 +543,6 @@ em_utils_redirect_message_by_uid (GtkWidget *parent, CamelFolder *folder, const 
 	
 	mail_get_message (folder, uid, redirect_msg, parent, mail_thread_new);
 }
-
 
 /* Replying to messages... */
 
@@ -950,7 +998,6 @@ em_utils_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const 
 	mail_get_message (folder, uid, reply_to_message, rtm, mail_thread_new);
 }
 
-
 /* Posting replies... */
 
 static void
@@ -1040,53 +1087,63 @@ em_utils_post_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, c
 	mail_get_message (folder, uid, post_reply_to_message, parent, mail_thread_new);
 }
 
-
 /* Saving messages... */
 
-typedef void (* OKCallback) (GtkFileSelection *filesel, gpointer user_data);
-
-static void
-filesel_ok_cb (GtkWidget *ok_button, gpointer user_data)
-{
-	GtkFileSelection *filesel = user_data;
-	OKCallback ok_cb;
-	
-	user_data = g_object_get_data ((GObject *) filesel, "user_data");
-	ok_cb = g_object_get_data ((GObject *) filesel, "ok_cb");
-	
-	ok_cb (filesel, user_data);
-}
-
-static void
-em_utils_filesel_prompt (GtkWidget *parent, const char *title, const char *default_path,
-			 OKCallback ok_cb, GWeakNotify destroy_cb, gpointer user_data)
+static GtkFileSelection *
+emu_get_save_filesel(GtkWidget *parent, const char *title, const char *name)
 {
 	GtkFileSelection *filesel;
-	
-	filesel = (GtkFileSelection *) gtk_file_selection_new (title);
-	gtk_file_selection_set_filename (filesel, default_path);
-	
-	if (parent != NULL)
-		e_dialog_set_transient_for ((GtkWindow *) filesel, parent);
-	
-	g_object_set_data ((GObject *) filesel, "ok_cb", ok_cb);
-	g_object_set_data ((GObject *) filesel, "user_data", user_data);
-	
-	g_object_weak_ref ((GObject *) filesel, destroy_cb, user_data);
-	
-	g_signal_connect (filesel->ok_button, "clicked", G_CALLBACK (filesel_ok_cb), filesel);
-	g_signal_connect_swapped (filesel->cancel_button, "clicked",
-				  G_CALLBACK (gtk_widget_destroy), filesel);
-	
-	gtk_widget_show (GTK_WIDGET (filesel));
+	char *gdir;
+	const char *dir;
+	GConfClient *gconf;
+
+	filesel = (GtkFileSelection *)gtk_file_selection_new(title);
+	if (parent)
+		e_dialog_set_transient_for((GtkWindow *)filesel, parent);
+
+	gconf = gconf_client_get_default();
+	dir = gdir = gconf_client_get_string(gconf, "/apps/evolution/mail/save_dir", NULL);
+	g_object_unref(gconf);
+	if (dir == NULL)
+		dir = g_get_home_dir();
+
+	if (name) {
+		char *mname = g_strdup(name);
+		char *filename;
+
+		e_filename_make_safe(mname);
+		filename = g_build_filename(dir, mname, NULL);
+		gtk_file_selection_set_filename(filesel, filename);
+		g_free(filename);
+		g_free(mname);
+	} else {
+		gtk_file_selection_set_filename(filesel, dir);
+	}
+
+	g_free (gdir);
+
+	return filesel;
 }
 
+static void
+emu_update_save_path(const char *filename)
+{
+	char *dir = g_path_get_dirname(filename);
+	GConfClient *gconf = gconf_client_get_default();
+
+	gconf_client_set_string(gconf, "/apps/evolution/mail/save_dir", dir, NULL);
+	g_object_unref(gconf);
+	g_free(dir);
+}
 
 static gboolean
-can_save (GtkWindow *parent, const char *path)
+emu_can_save(GtkWindow *parent, const char *path)
 {
 	struct stat st;
 	
+	if (path[0] == 0)
+		return FALSE;
+
 	/* make sure we can actually save to it... */
 	if (stat (path, &st) != -1 && !S_ISREG (st.st_mode))
 		return FALSE;
@@ -1106,37 +1163,44 @@ can_save (GtkWindow *parent, const char *path)
 }
 
 static void
-save_message_ok (GtkFileSelection *filesel, gpointer user_data)
+emu_save_part_response(GtkFileSelection *filesel, int response, CamelMimePart *part)
 {
-	CamelMimeMessage *message = user_data;
-	CamelStream *stream;
-	const char *path;
-	
-	path = gtk_file_selection_get_filename (filesel);
-	if (path[0] == '\0')
-		return;
-	
-	if (!can_save (GTK_WINDOW (filesel), path))
-		return;
-	
-	stream = camel_stream_fs_new_with_name (path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-	camel_data_wrapper_write_to_stream ((CamelDataWrapper *) message, stream);
-	camel_stream_flush (stream);
-	camel_object_unref (stream);
-	
-	gtk_widget_destroy (GTK_WIDGET (filesel));
+	if (response == GTK_RESPONSE_OK) {
+		const char *path = gtk_file_selection_get_filename(filesel);
+
+		if (!emu_can_save((GtkWindow *)filesel, path))
+			return;
+
+		emu_update_save_path(path);
+		/* FIXME: popup error if it fails? */
+		mail_save_part(part, path, NULL, NULL);
+	}
+
+	gtk_widget_destroy((GtkWidget *)filesel);
+	camel_object_unref(part);
 }
 
 void
-em_utils_save_message (GtkWidget *parent, CamelMimeMessage *message)
+em_utils_save_part(GtkWidget *parent, const char *prompt, CamelMimePart *part)
 {
-	char *path;
-	
-	camel_object_ref (message);
-	path = g_strdup_printf ("%s/", g_get_home_dir ());
-	em_utils_filesel_prompt (parent, _("Save Message..."), path, save_message_ok,
-				 (GWeakNotify) camel_object_unref, message);
-	g_free (path);
+	const char *name;
+	GtkFileSelection *filesel;
+
+	name = camel_mime_part_get_filename(part);
+	if (name == NULL) {
+		if (CAMEL_IS_MIME_MESSAGE(part)) {
+			name = camel_mime_message_get_subject((CamelMimeMessage *)part);
+			if (name == NULL)
+				name = _("message");
+		} else {
+			name = _("attachment");
+		}
+	}
+
+	filesel = emu_get_save_filesel(parent, prompt, name);
+	camel_object_ref(part);
+	g_signal_connect(filesel, "response", G_CALLBACK(emu_save_part_response), part);
+	gtk_widget_show((GtkWidget *)filesel);
 }
 
 
@@ -1146,55 +1210,45 @@ struct _save_messages_data {
 };
 
 static void
-save_messages_ok (GtkFileSelection *filesel, gpointer user_data)
+emu_save_messages_response(GtkFileSelection *filesel, int response, struct _save_messages_data *data)
 {
-	struct _save_messages_data *data = user_data;
-	const char *path;
-	
-	path = gtk_file_selection_get_filename (filesel);
-	if (path[0] == '\0')
-		return;
-	
-	if (can_save (GTK_WINDOW (filesel), path)) {
-		mail_save_messages (data->folder, data->uids, path, NULL, NULL);
-		data->uids = NULL;
-		
-		gtk_widget_destroy (GTK_WIDGET (filesel));
-	}
-}
+	if (response == GTK_RESPONSE_OK) {
+		const char *path = gtk_file_selection_get_filename(filesel);
 
-static void
-save_messages_destroy (gpointer user_data, GObject *deadbeef)
-{
-	struct _save_messages_data *data = user_data;
-	
-	camel_object_unref (data->folder);
+		if (!emu_can_save((GtkWindow *)filesel, path))
+			return;
+
+		emu_update_save_path(path);
+		mail_save_messages(data->folder, data->uids, path, NULL, NULL);
+		data->uids = NULL;
+	}
+
+	camel_object_unref(data->folder);
 	if (data->uids)
-		em_utils_uids_free (data->uids);
-	g_free (data);
+		em_utils_uids_free(data->uids);
+	g_free(data);
+	gtk_widget_destroy((GtkWidget *)filesel);
 }
 
 void
 em_utils_save_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	struct _save_messages_data *data;
-	char *path;
-	
+	GtkFileSelection *filesel;
+
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
+
+	filesel = emu_get_save_filesel(parent, _("Save Message..."), NULL);
+	camel_object_ref(folder);
 	
-	camel_object_ref (folder);
-	
-	data = g_malloc (sizeof (struct _save_messages_data));
+	data = g_malloc(sizeof(struct _save_messages_data));
 	data->folder = folder;
 	data->uids = uids;
-	
-	path = g_strdup_printf ("%s/", g_get_home_dir ());
-	em_utils_filesel_prompt (parent, _("Save Message..."), path, save_messages_ok,
-				 (GWeakNotify) save_messages_destroy, data);
-	g_free (path);
-}
 
+	g_signal_connect(filesel, "response", G_CALLBACK(emu_save_messages_response), data);
+	gtk_widget_show((GtkWidget *)filesel);
+}
 
 /* Flag-for-Followup... */
 
@@ -1391,6 +1445,7 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 {
 	CamelException *ex = camel_exception_new();
 	CamelMimeParser *mp = camel_mime_parser_new();
+	int res = -1;
 
 	camel_mime_parser_scan_from(mp, TRUE);
 	camel_mime_parser_init_with_stream(mp, stream);
@@ -1416,7 +1471,11 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 	}
 	
 	camel_object_unref(mp);
+	if (!camel_exception_is_set(ex))
+		res = 0;
 	camel_exception_free(ex);
+
+	return res;
 }
 
 /**
@@ -1589,6 +1648,63 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 
 		camel_object_unref(fstream);
 	}
+}
+
+static void
+emu_save_part_done(CamelMimePart *part, char *name, int done, void *data)
+{
+	((int *)data)[0] = done;
+}
+
+/**
+ * em_utils_temp_save_part:
+ * @parent: 
+ * @part: 
+ * 
+ * Save a part's content to a temporary file, and return the
+ * filename.
+ * 
+ * Return value: NULL if anything failed.
+ **/
+char *
+em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
+{
+	const char *tmpdir, *filename;
+	char *mfilename, *path;
+	int done;
+
+	tmpdir = e_mkdtemp("evolution-tmp-XXXXXX");
+	if (tmpdir == NULL) {
+		e_notice(parent, GTK_MESSAGE_ERROR,
+			 _("Could not create temporary directory: %s"),
+			 g_strerror (errno));
+
+		return NULL;
+	}
+
+	mfilename = filename = camel_mime_part_get_filename(part);
+	if (filename == NULL) {
+		/* This is the default filename used for temporary file creation */
+		filename = _("Unknown");
+	} else {
+		mfilename = g_strdup(filename);
+		e_filename_make_safe(mfilename);
+		filename = mfilename;
+	}
+
+	path = g_build_filename(tmpdir, filename, NULL);
+	g_free(mfilename);
+
+	/* FIXME: This doesn't handle default charsets */
+	mail_msg_wait(mail_save_part(part, path, emu_save_part_done, &done));
+
+	if (!done) {
+		/* mail_save_part should popup an error box automagically */
+		g_free(path);
+		path = NULL;
+	}
+
+	return path;
 }
 
 extern CamelFolder *drafts_folder, *sent_folder, *outbox_folder;

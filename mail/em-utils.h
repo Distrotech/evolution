@@ -24,38 +24,44 @@
 #ifndef __EM_UTILS_H__
 #define __EM_UTILS_H__
 
-#include <gtk/gtk.h>
-
-#include <camel/camel-folder.h>
+#include <glib.h>
 
 #ifdef __cplusplus
 extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
+struct _GtkWidget;
+struct _CamelFolder;
+struct _CamelMimeMessage;
+struct _GtkSelectionData;
+
 GPtrArray *em_utils_uids_copy (GPtrArray *uids);
 void em_utils_uids_free (GPtrArray *uids);
 
-gboolean em_utils_configure_account (GtkWidget *parent);
-gboolean em_utils_check_user_can_send_mail (GtkWidget *parent);
+gboolean em_utils_configure_account (struct _GtkWidget *parent);
+gboolean em_utils_check_user_can_send_mail (struct _GtkWidget *parent);
 
-void em_utils_edit_filters (GtkWidget *parent);
-void em_utils_edit_vfolders (GtkWidget *parent);
+void em_utils_edit_filters (struct _GtkWidget *parent);
+void em_utils_edit_vfolders (struct _GtkWidget *parent);
 
-void em_utils_compose_new_message (GtkWidget *parent);
-void em_utils_compose_new_message_with_mailto (GtkWidget *parent, const char *url);
+void em_utils_compose_new_message (struct _GtkWidget *parent);
+void em_utils_compose_new_message_with_mailto (struct _GtkWidget *parent, const char *url);
 
-void em_utils_post_to_url (GtkWidget *parent, const char *url);
+void em_utils_post_to_url (struct _GtkWidget *parent, const char *url);
 
-void em_utils_edit_message (GtkWidget *parent, CamelMimeMessage *message);
-void em_utils_edit_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_edit_message (struct _GtkWidget *parent, struct _CamelMimeMessage *message);
+void em_utils_edit_messages (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
 
-void em_utils_forward_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_forward_inline (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_forward_attached (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
+void em_utils_forward_inline (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
+void em_utils_forward_quoted (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
 
-void em_utils_redirect_message (GtkWidget *parent, CamelMimeMessage *message);
-void em_utils_redirect_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid);
+void em_utils_forward_message(struct _GtkWidget *parent, struct _CamelMimeMessage *msg);
+void em_utils_forward_messages(struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
+
+void em_utils_redirect_message (struct _GtkWidget *parent, struct _CamelMimeMessage *message);
+void em_utils_redirect_message_by_uid (struct _GtkWidget *parent, struct _CamelFolder *folder, const char *uid);
 
 enum {
 	REPLY_MODE_SENDER,
@@ -63,28 +69,30 @@ enum {
 	REPLY_MODE_LIST
 };
 
-void em_utils_reply_to_message (GtkWidget *parent, CamelMimeMessage *message, int mode);
-void em_utils_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid, int mode);
+void em_utils_reply_to_message (struct _GtkWidget *parent, struct _CamelMimeMessage *message, int mode);
+void em_utils_reply_to_message_by_uid (struct _GtkWidget *parent, struct _CamelFolder *folder, const char *uid, int mode);
 
-void em_utils_post_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid);
+void em_utils_post_reply_to_message_by_uid (struct _GtkWidget *parent, struct _CamelFolder *folder, const char *uid);
 
-void em_utils_save_message (GtkWidget *parent, CamelMimeMessage *message);
-void em_utils_save_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_save_part(struct _GtkWidget *parent, const char *prompt, struct _CamelMimePart *part);
+void em_utils_save_messages (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
 
-void em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup_clear (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup_completed (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
 
-void em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids);
-void em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder);
-/* FIXME: be nice if these also worked on CamelFolder's, no easy way to get uri from folder yet tho */
-void em_utils_selection_set_uidlist(GtkSelectionData *data, const char *uri, GPtrArray *uids);
-int  em_utils_selection_get_uidlist(GtkSelectionData *data, char **uri, GPtrArray **uidsp);
-void em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids);
+void em_utils_selection_set_mailbox(struct _GtkSelectionData *data, struct _CamelFolder *folder, GPtrArray *uids);
+void em_utils_selection_get_mailbox(struct _GtkSelectionData *data, struct _CamelFolder *folder);
+/* FIXME: be nice if these also worked on struct _CamelFolder's, no easy way to get uri from folder yet tho */
+void em_utils_selection_set_uidlist(struct _GtkSelectionData *data, const char *uri, GPtrArray *uids);
+int  em_utils_selection_get_uidlist(struct _GtkSelectionData *data, char **uri, GPtrArray **uidsp);
+void em_utils_selection_set_urilist(struct _GtkSelectionData *data, struct _CamelFolder *folder, GPtrArray *uids);
 
-gboolean em_utils_folder_is_drafts(CamelFolder *folder, const char *uri);
-gboolean em_utils_folder_is_sent(CamelFolder *folder, const char *uri);
-gboolean em_utils_folder_is_outbox(CamelFolder *folder, const char *uri);
+char *em_utils_temp_save_part(struct _GtkWidget *parent, struct _CamelMimePart *part);
+
+gboolean em_utils_folder_is_drafts(struct _CamelFolder *folder, const char *uri);
+gboolean em_utils_folder_is_sent(struct _CamelFolder *folder, const char *uri);
+gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder, const char *uri);
 
 #ifdef __cplusplus
 }

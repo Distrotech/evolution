@@ -76,6 +76,7 @@
 #include "em-format-html-display.h"
 #include "em-marshal.h"
 #include "e-searching-tokenizer.h"
+#include "em-utils.h"
 
 #define d(x)
 
@@ -404,7 +405,6 @@ em_format_html_display_search(EMFormatHTMLDisplay *efhd)
 {
 	struct _EMFormatHTMLDisplayPrivate *p = efhd->priv;
 	GladeXML *xml;
-	GtkWidget *w;
 
 	if (p->search_dialog) {
 		gdk_window_raise(((GtkWidget *)p->search_dialog)->window);
@@ -659,6 +659,52 @@ static void efhd_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart
 
 /* ********************************************************************** */
 
+/* TODO: I think all of this could probably be moved to EMFolderView, which
+   also has more context information and might want to add it's own menu's */
+
+static void
+efhd_save_attachment(GtkWidget *w, struct _attach_puri *info)
+{
+	em_utils_save_part((GtkWidget *)((EMFormatHTML *)info->puri.format)->html, _("Save Attachment..."), info->puri.part);
+}
+
+static void
+efhd_save_message(GtkWidget *w, struct _attach_puri *info)
+{
+	em_utils_save_part((GtkWidget *)((EMFormatHTML *)info->puri.format)->html, _("Save Message..."), info->puri.part);
+}
+
+static void
+efhd_popup_reply_sender(GtkWidget *w, struct _attach_puri *info)
+{
+	em_utils_reply_to_message((GtkWidget *)((EMFormatHTML *)info->puri.format)->html,
+				  (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)info->puri.part),
+				  REPLY_MODE_SENDER);
+}
+
+static void
+efhd_popup_reply_list(GtkWidget *w, struct _attach_puri *info)
+{
+	em_utils_reply_to_message((GtkWidget *)((EMFormatHTML *)info->puri.format)->html,
+				  (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)info->puri.part),
+				  REPLY_MODE_LIST);
+}
+
+static void
+efhd_popup_reply_all(GtkWidget *w, struct _attach_puri *info)
+{
+	em_utils_reply_to_message((GtkWidget *)((EMFormatHTML *)info->puri.format)->html,
+				  (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)info->puri.part),
+				  REPLY_MODE_ALL);
+}
+
+static void
+efhd_popup_forward(GtkWidget *w, struct _attach_puri *info)
+{
+	em_utils_forward_message((GtkWidget *)((EMFormatHTML *)info->puri.format)->html,
+				 (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)info->puri.part));
+}
+
 /* if it hasn't been processed yet, format the attachment */
 static void
 efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
@@ -700,11 +746,36 @@ efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 #endif
 }
 
+static void
+efhd_open_in(GtkWidget *w, struct _attach_puri *info)
+{
+	GnomeVFSMimeApplication *app = g_object_get_data((GObject *)w, "app");
+	char *path;
+
+	g_return_if_fail(app != NULL);
+
+	printf("running '%s' on part\n", app->name);
+
+	path = em_utils_temp_save_part((GtkWidget *)((EMFormatHTML *)info->puri.format)->html, info->puri.part);
+	if (path) {
+		char *command;
+
+		command = g_strdup_printf(app->expects_uris == GNOME_VFS_MIME_APPLICATION_ARGUMENT_TYPE_URIS
+					  ?"%s %s &":"%s file://%s &",
+					  app->command, path);
+		/* FIXME: Do not use system here */
+		system(command);
+		g_free(command);
+		g_free(path);
+	}
+}
+
 static gboolean
 efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *info)
 {
 	GtkMenu *menu;
 	GtkWidget *item;
+	CamelDataWrapper *dw;
 
 	/* FIXME FIXME
 	   How can i do this with plugins!?
@@ -719,8 +790,37 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 		return FALSE;
 	}
 
+	dw = camel_medium_get_content_object((CamelMedium *)info->puri.part);
+
 	menu = (GtkMenu *)gtk_menu_new();
-	item = gtk_menu_item_new_with_mnemonic(_("Save Attachment..."));
+	if (CAMEL_IS_MIME_MESSAGE(dw)) {
+		/* FIXME: temprary hack ... */
+		item = gtk_menu_item_new_with_mnemonic(_("Save Message..."));
+		g_signal_connect(item, "activate", G_CALLBACK(efhd_save_message), info);
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+
+		item = gtk_separator_menu_item_new();
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+
+		item = gtk_menu_item_new_with_mnemonic(_("_Reply to Sender"));
+		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_reply_sender), info);
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+		item = gtk_menu_item_new_with_mnemonic(_("Reply to _List"));
+		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_reply_list), info);
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+		item = gtk_menu_item_new_with_mnemonic(_("Reply to _All"));
+		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_reply_all), info);
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+		item = gtk_menu_item_new_with_mnemonic(_("_Forward"));
+		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_forward), info);
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+	} else {
+		item = gtk_menu_item_new_with_mnemonic(_("Save Attachment..."));
+		g_signal_connect(item, "activate", G_CALLBACK(efhd_save_attachment), info);
+		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+	}
+
+	item = gtk_separator_menu_item_new();
 	gtk_menu_shell_append((GtkMenuShell *)menu, item);
 
 	/* FIXME: bonobo component handlers? */
@@ -740,11 +840,16 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 			GList *l = apps;
 			GString *label = g_string_new("");
 
+			item = gtk_separator_menu_item_new();
+			gtk_menu_shell_append((GtkMenuShell *)menu, item);
+
 			while (l) {
 				GnomeVFSMimeApplication *app = l->data;
 			
 				g_string_printf(label, _("Open in %s..."), app->name);
 				item = gtk_menu_item_new_with_label(label->str);
+				g_object_set_data((GObject *)item, "app", app);
+				g_signal_connect(item, "activate", G_CALLBACK(efhd_open_in), info);
 				gtk_menu_shell_append((GtkMenuShell *)menu, item);
 				l = l->next;
 			}
@@ -760,14 +865,14 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	return TRUE;
 }
 
+/* ********************************************************************** */
+
 static void
 efhd_drag_data_get(GtkWidget *w, GdkDragContext *drag, GtkSelectionData *data, guint info, guint time, EMFormatHTMLPObject *pobject)
 {
-	const char *filename, *tmpdir;
 	CamelMimePart *part = pobject->part;
-	char *uri;
+	char *uri, *path;
 	CamelStream *stream;
-	int fd;
 
 	switch (info) {
 	case 0: /* mime/type request */
@@ -796,34 +901,14 @@ efhd_drag_data_get(GtkWidget *w, GdkDragContext *drag, GtkSelectionData *data, g
 			return;
 		}
 
-		/* TODO: any way to make this more re-usable */
-		/* FIXME: needs some error boxes - but not in this copy ... */
-		tmpdir = e_mkdtemp("drag-n-drop-XXXXXX");
-		if (tmpdir == NULL)
+		path = em_utils_temp_save_part(w, part);
+		if (path == NULL)
 			return;
 
-		filename = camel_mime_part_get_filename(part);
-		/* This is the default filename used for dnd temporary target of attachment */
-		if (filename == NULL)
-			filename = _("Unknown");
-
-		uri = g_strdup_printf("file:///%s/%s", tmpdir, filename);
-
-		printf("dnd uri '%s'\n", uri);
-
-		fd = open(uri + 7, O_WRONLY | O_CREAT | O_EXCL, 0666);
-		if (fd == -1)
-			return;
-
-		stream = camel_stream_fs_new_with_fd(fd);
-		if (stream) {
-			em_format_format_content((EMFormat *)pobject->format, stream, part);
-			camel_object_unref(stream);
-			gtk_selection_data_set(data, data->target, 8, uri, strlen(uri));
-			g_object_set_data_full((GObject *)w, "e-drag-uri", uri, g_free);
-		} else
-			g_free(uri);
-
+		uri = g_strdup_printf("file://%s", path);
+		g_free(path);
+		gtk_selection_data_set(data, data->target, 8, uri, strlen(uri));
+		g_object_set_data_full((GObject *)w, "e-drag-uri", uri, g_free);
 		break;
 	default:
 		abort();
