@@ -41,6 +41,7 @@
 #include <e-util/e-dialog-utils.h>
 #include <evolution-shell-component-utils.h>
 #include "../print.h"
+#include "../comp-util.h"
 #include "save-comp.h"
 #include "delete-comp.h"
 #include "send-comp.h"
@@ -294,7 +295,7 @@ save_comp (CompEditor *editor)
 	CompEditorPrivate *priv;
 	CalComponent *clone;
 	GList *l;
-	CalClientResult result;
+	gboolean result;
 
 	priv = editor->priv;
 
@@ -321,28 +322,19 @@ save_comp (CompEditor *editor)
 
 	priv->updating = TRUE;
 
-	if (cal_component_is_instance (priv->comp))
-		result = cal_client_update_object_with_mod (priv->client, priv->comp, priv->mod);
-	else
-		result = cal_client_update_object (priv->client, priv->comp);
-	if (result != CAL_CLIENT_RESULT_SUCCESS) {
+	if (!cal_comp_is_on_server (priv->comp, priv->client)) {
+		/* FIXME Better error handling */
+		result = cal_client_create_object (priv->client, cal_component_get_icalcomponent (priv->comp), NULL, NULL);
+	} else {
+		/* FIXME Better error handling */
+		result = cal_client_modify_object (priv->client, cal_component_get_icalcomponent (priv->comp), priv->mod, NULL);
+	}	
+	
+	if (!result) {
 		GtkWidget *dlg;
 		char *msg;
 
-		switch (result) {
-		case CAL_CLIENT_RESULT_INVALID_OBJECT :
-			msg = g_strdup (_("Could not update invalid object"));
-			break;
-		case CAL_CLIENT_RESULT_NOT_FOUND :
-			msg = g_strdup (_("Object not found, not updated"));
-			break;
-		case CAL_CLIENT_RESULT_PERMISSION_DENIED :
-			msg = g_strdup (_("You don't have permissions to update this object"));
-			break;
-		default :
-			msg = g_strdup (_("Could not update object"));
-			break;
-		}
+		msg = g_strdup (_("Could not update object"));
 
 		dlg = gnome_error_dialog (msg);
 		gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
