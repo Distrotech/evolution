@@ -350,7 +350,7 @@ ibex_block_cache_open(const char *name, int flags, int mode)
 	struct _root *root;
 	struct _memcache *block_cache = g_malloc0(sizeof(*block_cache));
 
-	printf("opening ibex file: %s", name);
+	d(printf("opening ibex file: %s", name));
 
 	/* setup cache */
 	ibex_list_new(&block_cache->nodes);
@@ -461,7 +461,7 @@ ibex_block_get(struct _memcache *block_cache)
 	if (root->free) {
 		head = root->free;
 		block = ibex_block_read(block_cache, head);
-		root->free = block->next;
+		root->free = block_location(block->next);
 	} else {
 		/* TODO: check the block will fit first */
 		/* TODO: no need to read this block, can allocate it manually (saves a syscall/read) */

@@ -1,3 +1,11 @@
+2000-09-19  Not Zed  <NotZed@HelixCode.com>
+
+	* block.h: Changed block to use only 24 bits for next and 8 for
+	used, and fixed all relevant code.  Some cleanup.
+	
+	* disktail.c (tail_get): If we use an empty tail node, then make
+	sure we make it dirty.
+
 2000-09-15  Not Zed  <NotZed@HelixCode.com>
 
 	* wordindex.c (word_close): Free hashtable on exit too.

@@ -27,25 +27,13 @@ struct _root {
 	blockid_t names;	/* root of names index */
 };
 
-/* key data for each index entry */
-struct _idx_key {
-	blockid_t root;
-	int keyoffset;
-};
-
-/* disk structure for blocks */
+/* basic disk structure for (data) blocks */
 struct _block {
-	blockid_t next;		/* next block */
-	guint32 used;		/* number of elements used */
-	union {
-		struct _idx_key keys[(BLOCK_SIZE-8)/sizeof(struct _idx_key)];
-		char keydata[BLOCK_SIZE-8]; /* key data */
-		nameid_t data[(BLOCK_SIZE-8)/4]; /* references */
-	} block_u;
+	unsigned int next:32-BLOCK_BITS;	/* next block */
+	unsigned int used:BLOCK_BITS;		/* number of elements used */
+
+	nameid_t bl_data[(BLOCK_SIZE-4)/4];	/* references */
 };
-#define bl_data block_u.data
-#define bl_keys block_u.keys
-#define bl_keydata block_u.keydata
 
 /* custom list structure, for a simple/efficient cache */
 struct _listnode {
@@ -107,5 +95,8 @@ blockid_t ibex_block_get(struct _memcache *block_cache);
 void ibex_block_free(struct _memcache *block_cache, blockid_t blockid);
 void ibex_block_dirty(struct _block *block);
 struct _block *ibex_block_read(struct _memcache *block_cache, blockid_t blockid);
+
+#define block_number(x) ((x)>>BLOCK_BITS)
+#define block_location(x) ((x)<<BLOCK_BITS)
 
 #endif /* ! _BLOCK_H */

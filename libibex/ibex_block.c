@@ -215,6 +215,7 @@ ibex_index_buffer (ibex *ib, char *name, char *buffer, size_t len, size_t *unrea
 		p = q;
 	}
 done:
+	d(printf("name %s count %d size %d\n", name, wordlist->len, len));
 	ib->words->klass->add_list(ib->words, name, wordlist);
 	ret = 0;
 error:

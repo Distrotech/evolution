@@ -32,6 +32,8 @@
 #include <glib.h>
 #include <string.h>
 
+#include <stdio.h>
+
 #include "block.h"
 #include "index.h"
 
@@ -42,13 +44,13 @@
 #define BLOCK_ONE (1<<BLOCK_BITS)
 
 /* tail blocks only contain tail data ... */
-/* and we pack it in, similar to the key data */
+/* and we pack it in, similar to the key data, only more compact */
 struct _tailblock {
 	unsigned int next:32-BLOCK_BITS; /* only needs to point to block numbers */
 	unsigned int used:BLOCK_BITS; /* how many entries are used */
 	union {
-		unsigned char offset[BLOCK_SIZE-8]; /* works upto blocksize of 1024 bytes */
-		nameid_t data[(BLOCK_SIZE-8)/4];
+		unsigned char offset[BLOCK_SIZE-4]; /* works upto blocksize of 1024 bytes */
+		nameid_t data[(BLOCK_SIZE-4)/4];
 	} tailblock_u;
 };
 #define tb_offset tailblock_u.offset
@@ -196,6 +198,19 @@ tail_space(struct _tailblock *tail)
 		- (blockid_t *)&tail->tb_offset[tail->used];
 }
 
+static void
+tail_dump(struct _memcache *blocks, blockid_t tailid)
+{
+	int i;
+	struct _tailblock *tail = (struct _tailblock *)ibex_block_read(blocks, TAIL_BLOCK(tailid));
+
+	printf("Block %d, used %d\n", tailid, tail->used);
+	for (i=0;i<sizeof(struct _tailblock)/sizeof(unsigned int);i++) {
+		printf(" %08x", ((unsigned int *)tail)[i]);
+	}
+	printf("\n");
+}
+
 static blockid_t
 tail_get(struct _memcache *blocks, int size)
 {
@@ -221,6 +236,8 @@ tail_get(struct _memcache *blocks, int size)
 			/* assume its big enough ... */
 			tail->used = 1;
 			tail->tb_offset[0] = sizeof(tail->tb_data)/sizeof(tail->tb_data[0]) - size;
+			d(printf("allocated %d (%d), used %d\n", tailid, tailid, tail->used));
+			ibex_block_dirty((struct _block *)tail);
 			return tailid;
 		}
 
@@ -255,10 +272,11 @@ tail_get(struct _memcache *blocks, int size)
 			}
 			tail_compress(tail, freeindex, size);
 			ibex_block_dirty((struct _block *)tail);
+			d(printf("allocated %d (%d), used %d\n", tailid, TAIL_KEY(tailid, freeindex), tail->used));
 			return TAIL_KEY(tailid, freeindex);
 		}
 		count++;
-		tailid = tail->next << BLOCK_BITS;
+		tailid = block_location(tail->next);
 	}
 
 	d(printf("allocating new data node for tail data\n"));
@@ -266,11 +284,12 @@ tail_get(struct _memcache *blocks, int size)
 	root = (struct _root *)ibex_block_read(blocks, 0);
 	tailid = ibex_block_get(blocks);
 	tail = (struct _tailblock *)ibex_block_read(blocks, tailid);
-	tail->next = root->tail >> BLOCK_BITS;
+	tail->next = block_number(root->tail);
 	root->tail = tailid;
 	tail->used = 1;
 	tail->tb_offset[0] = sizeof(tail->tb_data)/sizeof(tail->tb_data[0]) - size;
 	ibex_block_dirty((struct _block *)tail);
+	d(printf("allocated %d (%d), used %d\n", tailid, TAIL_KEY(tailid, 0), tail->used));
 	return TAIL_KEY(tailid, 0);
 }
 
@@ -285,6 +304,7 @@ tail_free(struct _memcache *blocks, blockid_t tailid)
 		return;
 
 	tail = (struct _tailblock *)ibex_block_read(blocks, TAIL_BLOCK(tailid));
+	d(printf("  tail %d used %d\n", tailid, tail->used));
 	g_assert(tail->used);
 	if (TAIL_INDEX(tailid)  == tail->used - 1) {
 		tail->used --;
@@ -334,7 +354,7 @@ disk_add(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, namei
 	d(printf("adding record %d to block %d (next = %d)\n", data, head, block->next));
 
 	if (block->used < sizeof(block->bl_data)/sizeof(block->bl_data[0])) {
-		d(printf("adding record into block %d  %d\n", head, data));
+		(printf("adding record into block %d  %d\n", head, data));
 		block->bl_data[block->used] = data;
 		block->used++;
 		ibex_block_dirty(block);
@@ -342,7 +362,7 @@ disk_add(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, namei
 	} else {
 		new = ibex_block_get(store->blocks);
 		newblock = ibex_block_read(store->blocks, new);
-		newblock->next = head;
+		newblock->next = block_number(head);
 		newblock->bl_data[0] = data;
 		newblock->used = 1;
 		d(printf("adding record into new %d  %d, next =%d\n", new, data, newblock->next));
@@ -396,7 +416,7 @@ disk_add_blocks_internal(struct _IBEXStore *store, blockid_t *headptr, blockid_t
 		} else {
 			new = ibex_block_get(store->blocks);
 			newblock = (struct _block *)ibex_block_read(store->blocks, new);
-			newblock->next = head;
+			newblock->next = block_number(head);
 			tocopy = MIN(left, sizeof(block->bl_data)/sizeof(block->bl_data[0]));
 			d(printf("storing %d items in own block\n", tocopy));
 			memcpy(newblock->bl_data, &g_array_index(data, blockid_t, copied), tocopy*sizeof(blockid_t));
@@ -407,6 +427,7 @@ disk_add_blocks_internal(struct _IBEXStore *store, blockid_t *headptr, blockid_t
 		}
 		copied += tocopy;
 	}
+
 	*headptr = head;
 	return head;
 }
@@ -436,7 +457,7 @@ disk_add_list(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, 
 	int len;
 	GArray *tmpdata = NULL;
 
-	d(printf("adding %d items\n", data->len));
+	d(printf("adding %d items head=%d tail=%d\n", data->len, head, tail));
 	if (data->len == 0)
 		return head;
 
@@ -469,6 +490,7 @@ disk_add_list(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, 
 				memcpy(&tailnew->tb_data[tailnew->tb_offset[TAIL_INDEX(new)]],
 				       data->data, data->len*sizeof(blockid_t));
 				*tailptr = new;
+				ibex_block_dirty((struct _block *)tailnew);
 			}
 		} else {
 			tailblock = (struct _tailblock *)ibex_block_read(store->blocks, TAIL_BLOCK(tail));
@@ -501,6 +523,7 @@ disk_add_list(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, 
 				memcpy(&tailnew->tb_data[tailnew->tb_offset[TAIL_INDEX(new)]+len],
 				       data->data, data->len*sizeof(blockid_t));
 				tail_free(store->blocks, tail);
+				ibex_block_dirty((struct _block *)tailnew);
 				*tailptr = new;
 			}
 		}
@@ -550,6 +573,8 @@ disk_remove(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, na
 			if (block->bl_data[i] == data) {
 				struct _block *start = ibex_block_read(store->blocks, head);
 
+				d(printf("removing data from block %d\n ", head));
+
 				start->used--;
 				block->bl_data[i] = start->bl_data[start->used];
 				if (start->used == 0) {
@@ -557,8 +582,8 @@ disk_remove(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, na
 					blockid_t new;
 
 					d(printf("dropping block %d, new head = %d\n", head, start->next));
-					new = start->next;
-					start->next = root->free;
+					new = block_location(start->next);
+					start->next = block_number(root->free);
 					root->free = head;
 					head = new;
 					ibex_block_dirty((struct _block *)root);
@@ -569,7 +594,7 @@ disk_remove(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, na
 				return head;
 			}
 		}
-		node = block->next;
+		node = block_location(block->next);
 	}
 
 	if (tail) {
@@ -585,6 +610,8 @@ disk_remove(struct _IBEXStore *store, blockid_t *headptr, blockid_t *tailptr, na
 				if (len == 1)
 					*tailptr = 0;
 				if (len == 1 && (tailblock->used-1) == TAIL_INDEX(tail)) {
+					d(printf("dropping/unlinking tailblock %d (%d) used = %d\n",
+						 TAIL_BLOCK(tail), tail, tailblock->used));
 					tailblock->used--;
 					/* drop/unlink block? */
 					ibex_block_dirty((struct _block *)tailblock);
@@ -610,13 +637,15 @@ static void disk_free(struct _IBEXStore *store, blockid_t head, blockid_t tail)
 		return;
 
 	while (head) {
+		d(printf("freeing block %d\n", head));
 		block = ibex_block_read(store->blocks, head);
-		next = block->next;
+		next = block_location(block->next);
 		ibex_block_free(store->blocks, head);
 		head = next;
 	}
 	if (tail) {
 		struct _tailblock *tailblock = (struct _tailblock *)ibex_block_read(store->blocks, TAIL_BLOCK(tail));
+		d(printf("freeing tail block %d (%d)\n", TAIL_BLOCK(tail), tail));
 		tail_compress(tailblock, TAIL_INDEX(tail), 0);
 		ibex_block_dirty((struct _block *)tailblock);
 	}
@@ -642,7 +671,7 @@ disk_find(struct _IBEXStore *store, blockid_t head, blockid_t tail, nameid_t dat
 				return TRUE;
 			}
 		}
-		node = block->next;
+		node = block_location(block->next);
 	}
 
 	/* then check tail */
@@ -677,7 +706,7 @@ disk_get(struct _IBEXStore *store, blockid_t head, blockid_t tail)
 		d(printf("getting data from block %d\n", head));
 
 		g_array_append_vals(result, block->bl_data, block->used);
-		head = block->next;
+		head = block_location(block->next);
 		d(printf("next = %d\n", head));
 	}
 
@@ -714,7 +743,7 @@ ibex_diskarray_dump(struct _memcache *blocks, blockid_t head, blockid_t tail)
 			printf(" %d", block->bl_data[i]);
 		}
 		printf("\n");
-		node = block->next;
+		node = block_location(block->next);
 	}
 
 	printf("tail: ");

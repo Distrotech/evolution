@@ -45,7 +45,7 @@ of words, and could then be discarded (:flush()).
 #define d(x)
 
 /*#define WORDCACHE_SIZE (256)*/
-#define WORDCACHE_SIZE (4096)
+#define WORDCACHE_SIZE (10240)
 
 extern struct _IBEXStoreClass ibex_diskarray_class;
 extern struct _IBEXIndexClass ibex_hash_class;
@@ -121,6 +121,7 @@ ibex_create_word_index(struct _memcache *bc, blockid_t *wordroot, blockid_t *nam
 	return idx;
 }
 
+#if 0
 static void
 cache_sanity(struct _wordcache *head)
 {
@@ -130,6 +131,7 @@ cache_sanity(struct _wordcache *head)
 		head = head->next;
 	}
 }
+#endif
 
 /* unindex all entries for name */
 static void unindex_name(struct _IBEXWord *idx, const char *name)
@@ -262,7 +264,7 @@ sync_cache_entry(struct _IBEXWord *idx, struct _wordcache *cache)
 {
 	GArray array; /* just use this as a header */
 	blockid_t oldblock, oldtail;
-
+	
 	d(printf("syncing cache entry '%s'\n", cache->word));
 	array.data = (char *)cache->files;
 	array.len = cache->filecount;
@@ -373,6 +375,8 @@ static void add_list(struct _IBEXWord *idx, const char *name, GPtrArray *words)
 	nameid_t nameid;
 	struct _wordcache *cache;
 
+	d(printf("Adding words to name %s\n", name));
+
 	d(cache_sanity((struct _wordcache *)idx->wordnodes.head));
 
 	/* get the nameid and block start for this name */
@@ -426,6 +430,10 @@ static void add_list(struct _IBEXWord *idx, const char *name, GPtrArray *words)
 static int
 word_sync(struct _IBEXWord *idx)
 {
+	/* we just flush also, save memory */
+	word_flush(idx);
+
+#if 0
 	struct _wordcache *cache = (struct _wordcache *)idx->wordnodes.head;
 
 	while (cache->next) {
@@ -435,7 +443,7 @@ word_sync(struct _IBEXWord *idx)
 
 	/*ibex_hash_dump(idx->wordindex);*/
 	/*ibex_hash_dump(idx->nameindex);*/
-
+#endif
 	return 0;
 }
 

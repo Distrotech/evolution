@@ -76,11 +76,11 @@ struct _hashkey {
 };
 
 struct _hashblock {
-	blockid_t next;		/* all key blocks linked together? */
+	/*blockid_t next;*/		/* all key blocks linked together? */
 	guint32 used;		/* elements used */
 	union {
-		struct _hashkey keys[(BLOCK_SIZE-8)/sizeof(struct _hashkey)];
-		char keydata[BLOCK_SIZE-8];
+		struct _hashkey keys[(BLOCK_SIZE-4)/sizeof(struct _hashkey)];
+		char keydata[BLOCK_SIZE-4];
 	} hashblock_u;
 };
 #define hb_keys hashblock_u.keys
