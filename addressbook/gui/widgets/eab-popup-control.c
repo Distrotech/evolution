@@ -1,11 +1,12 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 /*
- * e-address-popup.c
+ * eab-popup-control.c
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 2001-2003, Ximian, Inc.
  *
- * Developed by Jon Trowbridge <trow@ximian.com>
+ * Authors: Jon Trowbridge <trow@ximian.com>
+ *          Chris Toshok <toshok@ximian.com>
  */
 
 /*
@@ -31,16 +32,16 @@
 #include <config.h>
 #include <string.h>
 #include "addressbook.h"
-#include "e-address-popup.h"
+#include "eab-popup-control.h"
 #include <bonobo/bonobo-control.h>
 #include <bonobo/bonobo-property-bag.h>
 #include <bonobo/bonobo-generic-factory.h>
 #include <gal/widgets/e-popup-menu.h>
 #include <addressbook/backend/ebook/e-book-async.h>
-#include <addressbook/backend/ebook/e-book-util.h>
+#include <addressbook/util/eab-book-util.h>
 #include <addressbook/gui/contact-editor/e-contact-editor.h>
 #include <addressbook/gui/contact-editor/e-contact-quick-add.h>
-#include <addressbook/gui/widgets/e-minicard-widget.h>
+#include <addressbook/gui/widgets/eab-contact-display.h>
 #include <addressbook/gui/widgets/eab-gui-util.h>
 #include "e-util/e-gui-utils.h"
 
@@ -178,7 +179,7 @@ mini_wizard_new (void)
 /*
  * This is the code for the UI thingie that lets you manipulate the e-mail
  * addresses (and *only* the e-mail addresses) associated with an existing
- * card.
+ * contact.
  */
 
 #define EMPTY_ENTRY N_("(none)")
@@ -225,20 +226,18 @@ menu_activate_cb (GtkWidget *w, gpointer closure)
 }
 
 static void
-email_menu_add_option (EMailMenu *menu, const gchar *addr)
+email_menu_add_option (EMailMenu *menu, char *addr)
 {
 	GtkWidget *menu_item;
-	gchar *addr_cpy;
 
 	g_return_if_fail (menu != NULL);
 	if (addr == NULL)
 		return;
 
-	addr_cpy = g_strdup (addr);
-	menu->options = g_list_append (menu->options, addr_cpy);
+	menu->options = g_list_append (menu->options, addr);
 
 	menu_item = gtk_menu_item_new_with_label (addr);
-	g_object_set_data (G_OBJECT (menu_item), "addr", addr_cpy);
+	g_object_set_data (G_OBJECT (menu_item), "addr", addr);
 	gtk_widget_show_all (menu_item);
 	gtk_menu_shell_append (GTK_MENU_SHELL (gtk_option_menu_get_menu (GTK_OPTION_MENU (menu->option_menu))), menu_item);
 
@@ -249,23 +248,17 @@ email_menu_add_option (EMailMenu *menu, const gchar *addr)
 }
 
 static void
-email_menu_add_options_from_card (EMailMenu *menu, ECard *card, const gchar *extra_addr)
+email_menu_add_options_from_contact (EMailMenu *menu, EContact *contact, const gchar *extra_addr)
 {
-	ECardSimple *simple;
-
-	g_return_if_fail (card && E_IS_CARD (card));
-
-	simple = e_card_simple_new (card);
+	g_return_if_fail (contact && E_IS_CONTACT (contact));
 
 	/* If any of these three e-mail fields are NULL, email_menu_add_option will just
 	   return without doing anything. */
-	email_menu_add_option (menu, e_card_simple_get_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL));
-	email_menu_add_option (menu, e_card_simple_get_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL_2));
-	email_menu_add_option (menu, e_card_simple_get_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL_3));
-	email_menu_add_option (menu, extra_addr);
+	email_menu_add_option (menu, e_contact_get (contact, E_CONTACT_EMAIL_1));
+	email_menu_add_option (menu, e_contact_get (contact, E_CONTACT_EMAIL_2));
+	email_menu_add_option (menu, e_contact_get (contact, E_CONTACT_EMAIL_3));
+	email_menu_add_option (menu, g_strdup (extra_addr));
 	email_menu_add_option (menu, EMPTY_ENTRY);
-
-	g_object_unref (simple);
 }
 
 static void
@@ -325,7 +318,7 @@ email_menu_unset_option (EMailMenu *menu, const gchar *addr)
 typedef struct _EMailTable EMailTable;
 struct _EMailTable {
 	GtkWidget *table;
-	ECard *card;
+	EContact *contact;
 	EMailMenu *primary;
 	EMailMenu *email2;
 	EMailMenu *email3;
@@ -339,7 +332,7 @@ email_table_cleanup_cb (gpointer closure)
 	if (et == NULL)
 		return;
 
-	g_object_unref (et->card);
+	g_object_unref (et->contact);
 	email_menu_free (et->primary);
 	email_menu_free (et->email2);
 	email_menu_free (et->email3);
@@ -348,59 +341,49 @@ email_table_cleanup_cb (gpointer closure)
 }
 
 static void
-email_table_from_card (EMailTable *et)
+email_table_from_contact (EMailTable *et)
 {
-	ECardSimple *simple;
-	
 	g_return_if_fail (et != NULL);
 
-	simple = e_card_simple_new (et->card);
-	email_menu_set_option (et->primary, e_card_simple_get_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL));
-	email_menu_set_option (et->email2,  e_card_simple_get_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL_2));
-	email_menu_set_option (et->email3,  e_card_simple_get_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL_3));
-	g_object_unref (simple);
+	email_menu_set_option (et->primary, e_contact_get_const (et->contact, E_CONTACT_EMAIL_1));
+	email_menu_set_option (et->email2,  e_contact_get_const (et->contact, E_CONTACT_EMAIL_2));
+	email_menu_set_option (et->email3,  e_contact_get_const (et->contact, E_CONTACT_EMAIL_3));
 }
 
 static void
-email_table_to_card (EMailTable *et)
+email_table_to_contact (EMailTable *et)
 {
-	ECardSimple *simple;
 	gchar *curr;
 
 	g_return_if_fail (et != NULL);
 
-	simple = e_card_simple_new (et->card);
-
 	curr = et->primary->current_selection;
 	if (curr && !strcmp (curr, _(EMPTY_ENTRY)))
 		curr = NULL;
-	e_card_simple_set_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL, curr);
+	e_contact_set (et->contact, E_CONTACT_EMAIL_1, curr);
 
 	curr = et->email2->current_selection;
 	if (curr && !strcmp (curr, _(EMPTY_ENTRY)))
 		curr = NULL;
-	e_card_simple_set_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL_2, curr);
+	e_contact_set (et->contact, E_CONTACT_EMAIL_2, curr);
 
 	curr = et->email3->current_selection;
 	if (curr && !strcmp (curr, _(EMPTY_ENTRY)))
 		curr = NULL;
-	e_card_simple_set_email (simple, E_CARD_SIMPLE_EMAIL_ID_EMAIL_3, curr);
-
-	e_card_simple_sync_card (simple);
-	g_object_unref (simple);
+	e_contact_set (et->contact, E_CONTACT_EMAIL_3, curr);
 }
 
 static void
-email_table_save_card_cb (EBook *book, EBookStatus status, gpointer closure)
+email_table_save_contact_cb (EBook *book, EBookStatus status, gpointer closure)
 {
-	ECard *card = E_CARD (closure);
+	EContact *contact = E_CONTACT (closure);
 
-	if (status == E_BOOK_STATUS_SUCCESS) {
-		e_book_commit_card (book, card, NULL, NULL);
+	if (status == E_BOOK_ERROR_OK) {
+		e_book_async_commit_contact (book, contact, NULL, NULL);
 	}
 	if (book)
 		g_object_unref (book);
-	g_object_unref (card);
+	g_object_unref (contact);
 }
 
 /*
@@ -408,12 +391,9 @@ email_table_save_card_cb (EBook *book, EBookStatus status, gpointer closure)
  * re-entrancy problems with EBook.
  */
 static gint
-add_card_idle_cb (gpointer closure)
+add_contact_idle_cb (gpointer closure)
 {
-	EBook *book;
-
-	book = e_book_new ();
-	addressbook_load_default_book (book, email_table_save_card_cb, closure);
+	addressbook_load_default_book (email_table_save_contact_cb, closure);
 
 	return 0;
 }
@@ -423,16 +403,16 @@ email_table_ok_cb (MiniWizard *wiz, gpointer closure)
 {
 	EMailTable *et = (EMailTable *) closure;
 
-	email_table_to_card (et);
+	email_table_to_contact (et);
 
-	g_object_ref (et->card);
-	gtk_idle_add (add_card_idle_cb, et->card);
+	g_object_ref (et->contact);
+	g_idle_add (add_contact_idle_cb, et->contact);
 
 	mini_wizard_destroy (wiz);
 }
 
 static void
-email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
+email_table_init (MiniWizard *wiz, EContact *contact, const gchar *extra_address)
 {
 	EMailTable *et;
 
@@ -441,12 +421,12 @@ email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
 	GtkAttachOptions label_x_opts, label_y_opts;
 	GtkAttachOptions menu_x_opts, menu_y_opts;
 
-	g_return_if_fail (card && E_IS_CARD (card));
+	g_return_if_fail (contact && E_IS_CONTACT (contact));
 
 	et = g_new (EMailTable, 1);
 
-	et->card = card;
-	g_object_ref (et->card);
+	et->contact = contact;
+	g_object_ref (et->contact);
 
 	et->table = gtk_table_new (4, 2, FALSE);
 
@@ -454,11 +434,11 @@ email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
 	et->email2  = email_menu_new ();
 	et->email3  = email_menu_new ();
 
-	email_menu_add_options_from_card (et->primary, et->card, extra_address);
-	email_menu_add_options_from_card (et->email2,  et->card, extra_address);
-	email_menu_add_options_from_card (et->email3,  et->card, extra_address);
+	email_menu_add_options_from_contact (et->primary, et->contact, extra_address);
+	email_menu_add_options_from_contact (et->email2,  et->contact, extra_address);
+	email_menu_add_options_from_contact (et->email3,  et->contact, extra_address);
 
-	email_table_from_card (et);
+	email_table_from_contact (et);
 
 	label_x_opts = GTK_FILL;
 	label_y_opts = GTK_FILL;
@@ -467,7 +447,7 @@ email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
 	xpad = 3;
 	ypad = 3;
 
-	name_str = e_card_name_to_string (et->card->name);
+	name_str = e_contact_get (et->contact, E_CONTACT_FULL_NAME);
 	gtk_table_attach (GTK_TABLE (et->table),
 			  gtk_label_new (name_str),
 			  0, 2, 0, 1, 
@@ -516,32 +496,32 @@ email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
 }
 
 /*
- * This code is for the little UI thing that lets you pick from a set of cards
+ * This code is for the little UI thing that lets you pick from a set of contacts
  * and decide which one you want to add the e-mail address to.
  */
 
-typedef struct _CardPicker CardPicker;
-struct _CardPicker {
+typedef struct _ContactPicker ContactPicker;
+struct _ContactPicker {
 	GtkWidget *body;
 	GtkWidget *list;
 	GtkListStore *model;
-	GList *cards;
+	GList *contacts;
 	gchar *new_name;
 	gchar *new_email;
 
-	ECard *current_card;
+	EContact *current_contact;
 };
 
 enum {
 	COLUMN_ACTION,
-	COLUMN_CARD
+	COLUMN_CONTACT
 };
 
 static void
-card_picker_selection_changed (GtkTreeSelection *selection, gpointer closure)
+contact_picker_selection_changed (GtkTreeSelection *selection, gpointer closure)
 {
 	MiniWizard *wiz = (MiniWizard *) closure;
-	CardPicker *pick = (CardPicker *) wiz->closure;
+	ContactPicker *pick = (ContactPicker *) wiz->closure;
 	gboolean selected;
 	GtkTreeIter iter;
 
@@ -551,34 +531,34 @@ card_picker_selection_changed (GtkTreeSelection *selection, gpointer closure)
 
 	if (selected) {
 		gtk_tree_model_get (GTK_TREE_MODEL (pick->model), &iter,
-				    COLUMN_CARD, &pick->current_card,
+				    COLUMN_CONTACT, &pick->current_contact,
 				    -1);
 	}
 	else {
-		pick->current_card = NULL;
+		pick->current_contact = NULL;
 	}
 }
 
 static void
-card_picker_ok_cb (MiniWizard *wiz, gpointer closure)
+contact_picker_ok_cb (MiniWizard *wiz, gpointer closure)
 {
-	CardPicker *pick = (CardPicker *) closure;
+	ContactPicker *pick = (ContactPicker *) closure;
 
-	if (pick->current_card == NULL) {
+	if (pick->current_contact == NULL) {
 		e_contact_quick_add (pick->new_name, pick->new_email, NULL, NULL);
 		mini_wizard_destroy (wiz);
 	} else {
-		email_table_init (wiz, pick->current_card, pick->new_email);
+		email_table_init (wiz, pick->current_contact, pick->new_email);
 	}
 }
 
 static void
-card_picker_cleanup_cb (gpointer closure)
+contact_picker_cleanup_cb (gpointer closure)
 {
-	CardPicker *pick = (CardPicker *) closure;
+	ContactPicker *pick = (ContactPicker *) closure;
 
-	g_list_foreach (pick->cards, (GFunc) g_object_unref, NULL);
-	g_list_free (pick->cards);
+	g_list_foreach (pick->contacts, (GFunc) g_object_unref, NULL);
+	g_list_free (pick->contacts);
 
 	g_free (pick->new_name);
 	g_free (pick->new_email);
@@ -592,14 +572,14 @@ free_str (gpointer      data,
 }
 
 static void
-card_picker_init (MiniWizard *wiz, const GList *cards, const gchar *new_name, const gchar *new_email)
+contact_picker_init (MiniWizard *wiz, const GList *contacts, const gchar *new_name, const gchar *new_email)
 {
-	CardPicker *pick;
+	ContactPicker *pick;
 	gchar *str;
 	GtkWidget *w;
 	GtkTreeIter iter;
 
-	pick = g_new (CardPicker, 1);
+	pick = g_new (ContactPicker, 1);
 
 	pick->body  = gtk_vbox_new (FALSE, 2);
 
@@ -623,44 +603,44 @@ card_picker_init (MiniWizard *wiz, const GList *cards, const gchar *new_name, co
 	gtk_list_store_append (pick->model, &iter);
 	gtk_list_store_set (pick->model, &iter,
 			    COLUMN_ACTION, str,
-			    COLUMN_CARD, NULL,
+			    COLUMN_CONTACT, NULL,
 			    -1);
 	g_object_weak_ref (G_OBJECT (pick->model), free_str, str);
 
-	pick->cards = NULL;
-	while (cards) {
-		ECard *card = (ECard *) cards->data;
-		gchar *name_str = e_card_name_to_string (card->name);
+	pick->contacts = NULL;
+	while (contacts) {
+		EContact *contact = (EContact *) contacts->data;
+		gchar *name_str = e_contact_get (contact, E_CONTACT_FULL_NAME);
 
-		pick->cards = g_list_append (pick->cards, card);
-		g_object_ref (card);
+		pick->contacts = g_list_append (pick->contacts, contact);
+		g_object_ref (contact);
 
 		str = g_strdup_printf (_("Add address to existing contact \"%s\""), name_str);
 		gtk_list_store_append (pick->model, &iter);
 		gtk_list_store_set (pick->model, &iter,
 				    COLUMN_ACTION, str,
-				    COLUMN_CARD, card,
+				    COLUMN_CONTACT, contact,
 				    -1);
 		g_free (name_str);
 
 		g_object_weak_ref (G_OBJECT (pick->model), free_str, str);
 
-		cards = g_list_next (cards);
+		contacts = g_list_next (contacts);
 	}
 
 	pick->new_name  = g_strdup (new_name);
 	pick->new_email = g_strdup (new_email);
 
-	pick->current_card = NULL;
+	pick->current_contact = NULL;
 	gtk_widget_set_sensitive (wiz->ok_button, FALSE);
 
 	/* Connect some signals & callbacks */
 
-	wiz->ok_cb      = card_picker_ok_cb;
-	wiz->cleanup_cb = card_picker_cleanup_cb;
+	wiz->ok_cb      = contact_picker_ok_cb;
+	wiz->cleanup_cb = contact_picker_cleanup_cb;
 
 	g_signal_connect (gtk_tree_view_get_selection (GTK_TREE_VIEW (pick->list)),
-			  "changed", G_CALLBACK (card_picker_selection_changed),
+			  "changed", G_CALLBACK (contact_picker_selection_changed),
 			  wiz);
 
 	/* Build our widget */
@@ -681,7 +661,7 @@ card_picker_init (MiniWizard *wiz, const GList *cards, const gchar *new_name, co
 /* ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** */
 
 /*
- * The code for the actual EAddressPopup widget begins here.
+ * The code for the actual EABPopupControl widget begins here.
  */
 
 /* ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** */
@@ -689,41 +669,43 @@ card_picker_init (MiniWizard *wiz, const GList *cards, const gchar *new_name, co
 
 static GtkObjectClass *parent_class;
 
-static void e_address_popup_dispose (GObject *);
-static void e_address_popup_query   (EAddressPopup *);
+static void eab_popup_control_dispose (GObject *);
+static void eab_popup_control_query   (EABPopupControl *);
 
 
 static void
-e_address_popup_class_init (EAddressPopupClass *klass)
+eab_popup_control_class_init (EABPopupControlClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
 	parent_class = g_type_class_peek_parent (klass);
 
-	object_class->dispose = e_address_popup_dispose;
+	object_class->dispose = eab_popup_control_dispose;
 }
 
 static void
-e_address_popup_init (EAddressPopup *pop)
+eab_popup_control_init (EABPopupControl *pop)
 {
 	pop->transitory = TRUE;
 }
 
 static void
-e_address_popup_cleanup (EAddressPopup *pop)
+eab_popup_control_cleanup (EABPopupControl *pop)
 {
-	if (pop->card) {
-		g_object_unref (pop->card);
-		pop->card = NULL;
+	if (pop->contact) {
+		g_object_unref (pop->contact);
+		pop->contact = NULL;
 	}
 
 	if (pop->scheduled_refresh) {
-		gtk_timeout_remove (pop->scheduled_refresh);
+		g_source_remove (pop->scheduled_refresh);
 		pop->scheduled_refresh = 0;
 	}
 
 	if (pop->query_tag) {
+#if notyet
 		e_book_simple_query_cancel (pop->book, pop->query_tag);
+#endif
 		pop->query_tag = 0;
 	}
 
@@ -740,42 +722,42 @@ e_address_popup_cleanup (EAddressPopup *pop)
 }
 
 static void
-e_address_popup_dispose (GObject *obj)
+eab_popup_control_dispose (GObject *obj)
 {
-	EAddressPopup *pop = E_ADDRESS_POPUP (obj);
+	EABPopupControl *pop = EAB_POPUP_CONTROL (obj);
 
-	e_address_popup_cleanup (pop);
+	eab_popup_control_cleanup (pop);
 
 	if (G_OBJECT_CLASS (parent_class)->dispose)
 		G_OBJECT_CLASS (parent_class)->dispose (obj);
 }
 
 GType
-e_address_popup_get_type (void)
+eab_popup_control_get_type (void)
 {
 	static GType pop_type = 0;
 
 	if (!pop_type) {
 		static const GTypeInfo pop_info =  {
-			sizeof (EAddressPopupClass),
+			sizeof (EABPopupControlClass),
 			NULL,           /* base_init */
 			NULL,           /* base_finalize */
-			(GClassInitFunc) e_address_popup_class_init,
+			(GClassInitFunc) eab_popup_control_class_init,
 			NULL,           /* class_finalize */
 			NULL,           /* class_data */
-			sizeof (EAddressPopup),
+			sizeof (EABPopupControl),
 			0,             /* n_preallocs */
-			(GInstanceInitFunc) e_address_popup_init,
+			(GInstanceInitFunc) eab_popup_control_init,
 		};
 
-		pop_type = g_type_register_static (gtk_event_box_get_type (), "EAddressPopup", &pop_info, 0);
+		pop_type = g_type_register_static (gtk_event_box_get_type (), "EABPopupControl", &pop_info, 0);
 	}
 
 	return pop_type;
 }
 
 static void
-e_address_popup_refresh_names (EAddressPopup *pop)
+eab_popup_control_refresh_names (EABPopupControl *pop)
 {
 	if (pop->name_widget) {
 		if (pop->name && *pop->name) {
@@ -795,33 +777,33 @@ e_address_popup_refresh_names (EAddressPopup *pop)
 		}
 	}
 
-	e_address_popup_query (pop);
+	eab_popup_control_query (pop);
 }
 
 static gint
 refresh_timeout_cb (gpointer ptr)
 {
-	EAddressPopup *pop = E_ADDRESS_POPUP (ptr);
-	e_address_popup_refresh_names (pop);
+	EABPopupControl *pop = EAB_POPUP_CONTROL (ptr);
+	eab_popup_control_refresh_names (pop);
 	pop->scheduled_refresh = 0;
 	return 0;
 }
 
 static void
-e_address_popup_schedule_refresh (EAddressPopup *pop)
+eab_popup_control_schedule_refresh (EABPopupControl *pop)
 {
 	if (pop->scheduled_refresh == 0)
-		pop->scheduled_refresh = gtk_timeout_add (20, refresh_timeout_cb, pop);
+		pop->scheduled_refresh = g_timeout_add (20, refresh_timeout_cb, pop);
 }
 
 /* If we are handed something of the form "Foo <bar@bar.com>",
    do the right thing. */
 static gboolean
-e_address_popup_set_free_form (EAddressPopup *pop, const gchar *txt)
+eab_popup_control_set_free_form (EABPopupControl *pop, const gchar *txt)
 {
 	gchar *lt, *gt = NULL;
 
-	g_return_val_if_fail (pop && E_IS_ADDRESS_POPUP (pop), FALSE);
+	g_return_val_if_fail (pop && EAB_IS_POPUP_CONTROL (pop), FALSE);
 
 	if (txt == NULL)
 		return FALSE;
@@ -833,8 +815,8 @@ e_address_popup_set_free_form (EAddressPopup *pop, const gchar *txt)
 	if (lt && gt && lt+1 < gt) {
 		gchar *name  = g_strndup (txt,  lt-txt);
 		gchar *email = g_strndup (lt+1, gt-lt-1);
-		e_address_popup_set_name (pop, name);
-		e_address_popup_set_email (pop, email);
+		eab_popup_control_set_name (pop, name);
+		eab_popup_control_set_email (pop, email);
 
 		return TRUE;
 	}
@@ -843,48 +825,48 @@ e_address_popup_set_free_form (EAddressPopup *pop, const gchar *txt)
 }
 
 void
-e_address_popup_set_name (EAddressPopup *pop, const gchar *name)
+eab_popup_control_set_name (EABPopupControl *pop, const gchar *name)
 {
-	g_return_if_fail (pop && E_IS_ADDRESS_POPUP (pop));
+	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
 
 	/* We only allow the name to be set once. */
 	if (pop->name)
 		return;
 
-	if (!e_address_popup_set_free_form (pop, name)) {
+	if (!eab_popup_control_set_free_form (pop, name)) {
 		pop->name = g_strdup (name);
 		if (pop->name)
 			g_strstrip (pop->name);
 	}
 
-	e_address_popup_schedule_refresh (pop);
+	eab_popup_control_schedule_refresh (pop);
 }
 
 void
-e_address_popup_set_email (EAddressPopup *pop, const gchar *email)
+eab_popup_control_set_email (EABPopupControl *pop, const gchar *email)
 {
-	g_return_if_fail (pop && E_IS_ADDRESS_POPUP (pop));
+	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
 
 	/* We only allow the e-mail to be set once. */
 	if (pop->email)
 		return;
 
-	if (!e_address_popup_set_free_form (pop, email)) {
+	if (!eab_popup_control_set_free_form (pop, email)) {
 		pop->email = g_strdup (email);
 		if (pop->email)
 			g_strstrip (pop->email);
 	}
 
-	e_address_popup_schedule_refresh (pop);
+	eab_popup_control_schedule_refresh (pop);
 }
 
 void
-e_address_popup_construct (EAddressPopup *pop)
+eab_popup_control_construct (EABPopupControl *pop)
 {
 	GtkWidget *vbox, *name_holder;
 	GdkColor color = { 0x0, 0xffff, 0xffff, 0xffff };
 
-	g_return_if_fail (pop && E_IS_ADDRESS_POPUP (pop));
+	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
 
 	pop->main_vbox = gtk_vbox_new (FALSE, 0);
 
@@ -915,9 +897,9 @@ e_address_popup_construct (EAddressPopup *pop)
 	gtk_box_pack_start (GTK_BOX (pop->main_vbox), pop->query_msg, TRUE, TRUE, 0);
 	gtk_widget_show (pop->query_msg);
 
-	/* Build Minicard View */
-	pop->minicard_view = e_minicard_widget_new ();
-	gtk_box_pack_start (GTK_BOX (pop->main_vbox), pop->minicard_view, TRUE, TRUE, 0);
+	/* Build ContactDisplay */
+	pop->contact_display = eab_contact_display_new ();
+	gtk_box_pack_start (GTK_BOX (pop->main_vbox), pop->contact_display, TRUE, TRUE, 0);
 
 
 	/* Final assembly */
@@ -929,16 +911,16 @@ e_address_popup_construct (EAddressPopup *pop)
 	gtk_container_set_border_width (GTK_CONTAINER (pop), 2);
 }
 
-GtkWidget *
-e_address_popup_new (void)
+static GtkWidget *
+eab_popup_new (void)
 {
-	EAddressPopup *pop = g_object_new (E_TYPE_ADDRESS_POPUP, NULL);
-	e_address_popup_construct (pop);
+	EABPopupControl *pop = g_object_new (EAB_TYPE_POPUP_CONTROL, NULL);
+	eab_popup_control_construct (pop);
 	return GTK_WIDGET (pop);
 }
 
 static void
-emit_event (EAddressPopup *pop, const char *event)
+emit_event (EABPopupControl *pop, const char *event)
 {
 	if (pop->es) {
 		BonoboArg *arg;
@@ -957,10 +939,10 @@ emit_event (EAddressPopup *pop, const char *event)
 static void
 contact_editor_cb (EBook *book, EBookStatus status, gpointer closure)
 {
-	if (status == E_BOOK_STATUS_SUCCESS) {
-		EAddressPopup *pop = E_ADDRESS_POPUP (closure);
-		EContactEditor *ce = e_addressbook_show_contact_editor (book, pop->card, FALSE, TRUE);
-		e_address_popup_cleanup (pop);
+	if (status == E_BOOK_ERROR_OK) {
+		EABPopupControl *pop = EAB_POPUP_CONTROL (closure);
+		EContactEditor *ce = eab_show_contact_editor (book, pop->contact, FALSE, TRUE);
+		eab_popup_control_cleanup (pop);
 		emit_event (pop, "Destroy");
 		e_contact_editor_raise (ce);
 	}
@@ -970,29 +952,29 @@ contact_editor_cb (EBook *book, EBookStatus status, gpointer closure)
 }
 
 static void
-edit_contact_info_cb (GtkWidget *button, EAddressPopup *pop)
+edit_contact_info_cb (GtkWidget *button, EABPopupControl *pop)
 {
-	EBook *book;
 	emit_event (pop, "Hide");
 
-	book = e_book_new ();
-	addressbook_load_default_book (book, contact_editor_cb, pop);
+	addressbook_load_default_book (contact_editor_cb, pop);
 }
 
 static void
-e_address_popup_cardify (EAddressPopup *pop, ECard *card)
+eab_popup_control_display_contact (EABPopupControl *pop, EContact *contact)
 {
 	GtkWidget *b;
 
-	g_return_if_fail (pop && E_IS_ADDRESS_POPUP (pop));
-	g_return_if_fail (card && E_IS_CARD (card));
-	g_return_if_fail (pop->card == NULL);
+	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
+	g_return_if_fail (contact && E_IS_CONTACT (contact));
+	g_return_if_fail (pop->contact == NULL);
 
-	pop->card = card;
-	g_object_ref (pop->card);
+	pop->contact = contact;
+	g_object_ref (pop->contact);
 
-	e_minicard_widget_set_card (E_MINICARD_WIDGET (pop->minicard_view), card);
-	gtk_widget_show (pop->minicard_view);
+	eab_contact_display_render (EAB_CONTACT_DISPLAY (pop->contact_display),
+				    contact,
+				    EAB_CONTACT_DISPLAY_RENDER_COMPACT);
+	gtk_widget_show (pop->contact_display);
 	gtk_widget_hide (pop->generic_view);
 
 	b = gtk_button_new_with_label (_("Edit Contact Info"));
@@ -1005,7 +987,7 @@ e_address_popup_cardify (EAddressPopup *pop, ECard *card)
 }
 
 static void
-add_contacts_cb (GtkWidget *button, EAddressPopup *pop)
+add_contacts_cb (GtkWidget *button, EABPopupControl *pop)
 {
 	if (pop->email && *pop->email) {
 		if (pop->name && *pop->name)
@@ -1014,16 +996,16 @@ add_contacts_cb (GtkWidget *button, EAddressPopup *pop)
 			e_contact_quick_add_free_form (pop->email, NULL, NULL);
 
 	}
-	e_address_popup_cleanup (pop);
+	eab_popup_control_cleanup (pop);
 	emit_event (pop, "Destroy");
 }
 
 static void
-e_address_popup_no_matches (EAddressPopup *pop)
+eab_popup_control_no_matches (EABPopupControl *pop)
 {
 	GtkWidget *b;
 
-	g_return_if_fail (pop && E_IS_ADDRESS_POPUP (pop));
+	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
 
 	b = e_button_new_with_stock_icon (_("Add to Contacts"), "gtk-add");
 
@@ -1042,7 +1024,7 @@ wizard_destroy_cb (MiniWizard *wiz, gpointer closure)
 }
 
 static void
-e_address_popup_ambiguous_email_add (EAddressPopup *pop, const GList *cards)
+eab_popup_control_ambiguous_email_add (EABPopupControl *pop, const GList *contacts)
 {
 	MiniWizard *wiz = mini_wizard_new ();
 	GtkWidget *win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
@@ -1053,9 +1035,9 @@ e_address_popup_ambiguous_email_add (EAddressPopup *pop, const GList *cards)
 	gtk_window_set_title (GTK_WINDOW (win),  _("Merge E-Mail Address"));
 	gtk_window_set_position (GTK_WINDOW (win), GTK_WIN_POS_MOUSE);
 
-	card_picker_init (wiz, cards, pop->name, pop->email);
+	contact_picker_init (wiz, contacts, pop->name, pop->email);
 
-	e_address_popup_cleanup (pop);
+	eab_popup_control_cleanup (pop);
 	emit_event (pop, "Destroy");
 
 	gtk_container_add (GTK_CONTAINER (win), wiz->body);
@@ -1063,11 +1045,11 @@ e_address_popup_ambiguous_email_add (EAddressPopup *pop, const GList *cards)
 }
 
 static void
-e_address_popup_multiple_matches (EAddressPopup *pop, const GList *cards)
+eab_popup_control_multiple_matches (EABPopupControl *pop, const GList *contacts)
 {
 	pop->multiple_matches = TRUE;
 
-	e_address_popup_ambiguous_email_add (pop, cards);
+	eab_popup_control_ambiguous_email_add (pop, contacts);
 }
 
 /** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **/
@@ -1077,71 +1059,78 @@ e_address_popup_multiple_matches (EAddressPopup *pop, const GList *cards)
  */
 
 static void
-name_only_query_cb (EBook *book, EBookSimpleQueryStatus status, const GList *cards, gpointer closure)
+name_only_query_cb (EBook *book, EBookStatus status, GList *contacts, gpointer closure)
 {
-	EAddressPopup *pop;
+	EABPopupControl *pop;
 
-	if (status != E_BOOK_SIMPLE_QUERY_STATUS_SUCCESS)
+	if (status != E_BOOK_ERROR_OK)
 		return;
 
-	pop = E_ADDRESS_POPUP (closure);
+	pop = EAB_POPUP_CONTROL (closure);
 
 	pop->query_tag = 0;
 
-	if (cards == NULL) {
-		e_address_popup_no_matches (pop);
+	if (contacts == NULL) {
+		eab_popup_control_no_matches (pop);
 	} else {
-		e_address_popup_ambiguous_email_add (pop, cards);
+		eab_popup_control_ambiguous_email_add (pop, contacts);
+		g_list_foreach (contacts, (GFunc)g_object_unref, NULL);
+		g_list_free (contacts);
 	}
 }
 
 static void
-query_cb (EBook *book, EBookSimpleQueryStatus status, const GList *cards, gpointer closure)
+query_cb (EBook *book, EBookStatus status, GList *contacts, gpointer closure)
 {
-	EAddressPopup *pop;
+	EABPopupControl *pop;
 
-	if (status != E_BOOK_SIMPLE_QUERY_STATUS_SUCCESS)
+	if (status != E_BOOK_ERROR_OK)
 		return;
 
-	pop = E_ADDRESS_POPUP (closure);
+	pop = EAB_POPUP_CONTROL (closure);
 
 	pop->query_tag = 0;
 	gtk_widget_hide (pop->query_msg);
 
-	if (cards == NULL) {
+	if (contacts == NULL) {
 		
 		/* Do a name-only query if:
 		   (1) The name is non-empty.
 		   (2) The e-mail is also non-empty (so that the query we just did wasn't actually a name-only query.
 		*/
 		if (pop->name && *pop->name && pop->email && *pop->email) {
-			pop->query_tag = e_book_name_and_email_query (book, pop->name, NULL, name_only_query_cb, pop);
+			pop->query_tag = eab_name_and_email_query (book, pop->name, NULL, name_only_query_cb, pop);
 		} else {
-			e_address_popup_no_matches (pop);
+			eab_popup_control_no_matches (pop);
 		}
 		
 	} else {
-		if (g_list_length ((GList *) cards) == 1)
-			e_address_popup_cardify (pop, E_CARD (cards->data));
+		if (g_list_length ((GList *) contacts) == 1)
+			eab_popup_control_display_contact (pop, E_CONTACT (contacts->data));
 		else
-			e_address_popup_multiple_matches (pop, cards);
+			eab_popup_control_multiple_matches (pop, contacts);
+
+		g_list_foreach (contacts, (GFunc)g_object_unref, NULL);
+		g_list_free (contacts);
 	}
 }
 
 static void
 start_query (EBook *book, EBookStatus status, gpointer closure)
 {
-	EAddressPopup *pop = E_ADDRESS_POPUP (closure);
+	EABPopupControl *pop = EAB_POPUP_CONTROL (closure);
 
-	if (status != E_BOOK_STATUS_SUCCESS) {
-		e_address_popup_no_matches (pop);
+	if (status != E_BOOK_ERROR_OK) {
+		eab_popup_control_no_matches (pop);
 		if (book)
 			g_object_unref (book);
 		return;
 	}
 	
+#if notyet
 	if (pop->query_tag)
 		e_book_simple_query_cancel (book, pop->query_tag);
+#endif
 
 	if (pop->book != book) {
 		g_object_ref (book);
@@ -1150,22 +1139,19 @@ start_query (EBook *book, EBookStatus status, gpointer closure)
 		pop->book = book;
 	}
 		
-	pop->query_tag = e_book_name_and_email_query (book, pop->name, pop->email, query_cb, pop);
+	pop->query_tag = eab_name_and_email_query (book, pop->name, pop->email, query_cb, pop);
 
 	g_object_unref (pop);
 }
 
 static void
-e_address_popup_query (EAddressPopup *pop)
+eab_popup_control_query (EABPopupControl *pop)
 {
-	EBook *book;
+	g_return_if_fail (pop && EAB_IS_POPUP_CONTROL (pop));
 
-	g_return_if_fail (pop && E_IS_ADDRESS_POPUP (pop));
-
-	book = e_book_new ();
 	g_object_ref (pop);
 
-	addressbook_load_default_book (book, start_query, pop);
+	addressbook_load_default_book (start_query, pop);
 }
 
 /** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** **/
@@ -1179,16 +1165,16 @@ enum {
 static void
 set_prop (BonoboPropertyBag *bag, const BonoboArg *arg, guint arg_id, CORBA_Environment *ev, gpointer user_data)
 {
-	EAddressPopup *pop = E_ADDRESS_POPUP (user_data);
+	EABPopupControl *pop = EAB_POPUP_CONTROL (user_data);
 
 	switch (arg_id) {
 
 	case PROPERTY_NAME:
-		e_address_popup_set_name (pop, BONOBO_ARG_GET_STRING (arg));
+		eab_popup_control_set_name (pop, BONOBO_ARG_GET_STRING (arg));
 		break;
 
 	case PROPERTY_EMAIL:
-		e_address_popup_set_email (pop, BONOBO_ARG_GET_STRING (arg));
+		eab_popup_control_set_email (pop, BONOBO_ARG_GET_STRING (arg));
 		break;
 
 	default:
@@ -1199,7 +1185,7 @@ set_prop (BonoboPropertyBag *bag, const BonoboArg *arg, guint arg_id, CORBA_Envi
 static void
 get_prop (BonoboPropertyBag *bag, BonoboArg *arg, guint arg_id, CORBA_Environment *ev, gpointer user_data)
 {
-	EAddressPopup *pop = E_ADDRESS_POPUP (user_data);
+	EABPopupControl *pop = EAB_POPUP_CONTROL (user_data);
 
 	switch (arg_id) {
 
@@ -1221,15 +1207,15 @@ get_prop (BonoboPropertyBag *bag, BonoboArg *arg, guint arg_id, CORBA_Environmen
 }
 
 BonoboControl *
-e_address_popup_new_control (void)
+eab_popup_control_new (void)
 {
         BonoboControl *control;
         BonoboPropertyBag *bag;
-	EAddressPopup *addy;
+	EABPopupControl *addy;
 	GtkWidget *w;
 
-	w = e_address_popup_new ();
-	addy = E_ADDRESS_POPUP (w);
+	w = eab_popup_new ();
+	addy = EAB_POPUP_CONTROL (w);
 
 	control = bonobo_control_new (w);
 	gtk_widget_show (w);

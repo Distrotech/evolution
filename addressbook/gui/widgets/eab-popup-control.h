@@ -1,11 +1,12 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 /*
- * e-address-popup.h
+ * eab-popup-control.h
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 2001-2003, Ximian, Inc.
  *
- * Developed by Jon Trowbridge <trow@ximian.com>
+ * Authors: Jon Trowbridge <trow@ximian.com>
+ *          Chris Toshok <toshok@ximian.com>
  */
 
 /*
@@ -24,8 +25,8 @@
  * USA.
  */
 
-#ifndef __E_ADDRESS_POPUP_H__
-#define __E_ADDRESS_POPUP_H__
+#ifndef __EAB_POPUP_CONTROL_H__
+#define __EAB_POPUP_CONTROL_H__
 
 #include <gtk/gtk.h>
 #include <addressbook/backend/ebook/e-book-async.h>
@@ -34,16 +35,16 @@
 
 G_BEGIN_DECLS
 
-#define E_TYPE_ADDRESS_POPUP        (e_address_popup_get_type ())
-#define E_ADDRESS_POPUP(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_ADDRESS_POPUP, EAddressPopup))
-#define E_ADDRESS_POPUP_CLASS(k)    (G_TYPE_CHECK_CLASS_CAST ((k), E_TYPE_ADDRESS_POPUP, EAddressPopupClass))
-#define E_IS_ADDRESS_POPUP(o)       (G_TYPE_CHECK_INSTANCE_TYPE ((o), E_TYPE_ADDRESS_POPUP))
-#define E_IS_ADDRESS_POPUP_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_ADDRESS_POPUP))
+#define EAB_TYPE_POPUP_CONTROL        (eab_popup_control_get_type ())
+#define EAB_POPUP_CONTROL(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), EAB_TYPE_POPUP_CONTROL, EABPopupControl))
+#define EAB_POPUP_CONTROL_CLASS(k)    (G_TYPE_CHECK_CLASS_CAST ((k), EAB_TYPE_POPUP_CONTROL, EABPopupControlClass))
+#define EAB_IS_POPUP_CONTROL(o)       (G_TYPE_CHECK_INSTANCE_TYPE ((o), EAB_TYPE_POPUP_CONTROL))
+#define EAB_IS_POPUP_CONTROL_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), EAB_TYPE_POPUP_CONTROL))
 
-typedef struct _EAddressPopup EAddressPopup;
-typedef struct _EAddressPopupClass EAddressPopupClass;
+typedef struct _EABPopupControl EABPopupControl;
+typedef struct _EABPopupControlClass EABPopupControlClass;
 
-struct _EAddressPopup {
+struct _EABPopupControl {
 	GtkEventBox parent;
 
 	gchar *name;
@@ -55,7 +56,7 @@ struct _EAddressPopup {
 	
 	GtkWidget *main_vbox;
 	GtkWidget *generic_view;
-	GtkWidget *minicard_view;
+	GtkWidget *contact_display;
 
 	gboolean transitory;
 
@@ -68,21 +69,20 @@ struct _EAddressPopup {
 	BonoboEventSource *es;
 };
 
-struct _EAddressPopupClass {
+struct _EABPopupControlClass {
 	GtkEventBoxClass parent_class;
 };
 
-GType e_address_popup_get_type (void);
+GType eab_popup_control_get_type (void);
 
-void e_address_popup_set_name  (EAddressPopup *, const gchar *name);
-void e_address_popup_set_email (EAddressPopup *, const gchar *email);
+void eab_popup_control_set_name  (EABPopupControl *, const gchar *name);
+void eab_popup_control_set_email (EABPopupControl *, const gchar *email);
 
-void e_address_popup_construct (EAddressPopup *);
-GtkWidget *e_address_popup_new (void);
+void eab_popup_control_construct (EABPopupControl *);
 
-BonoboControl *e_address_popup_new_control (void);
+BonoboControl *eab_popup_control_new (void);
 
 G_END_DECLS
 
-#endif /* __E_ADDRESS_POPUP_H__ */
+#endif /* __EAB_POPUP_CONTROL_H__ */
 

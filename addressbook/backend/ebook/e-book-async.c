@@ -151,10 +151,94 @@ e_book_async_load_uri (EBook                 *book,
 	g_async_queue_push (to_worker_queue, msg);
 }
 
+
 void
 e_book_async_unload_uri (EBook                 *book)
 {
 	e_book_unload_uri (book, NULL);
+}
+
+
+
+
+typedef struct {
+	EBookMsg msg;
+
+	EBookCallback open_response;
+	gpointer closure;
+} DefaultBookMsg;
+
+typedef struct {
+	EBookMsg msg;
+
+	EBook *book;
+	EBookStatus status;
+	EBookCallback open_response;
+	gpointer closure;
+} DefaultBookResponse;
+
+static void
+_default_book_response_handler (EBookMsg *msg)
+{
+	LoadUriResponse *resp = (LoadUriResponse*)msg;
+
+	resp->open_response (resp->book, resp->status, resp->closure);
+}
+
+static void
+_default_book_response_dtor (EBookMsg *msg)
+{
+	LoadUriResponse *resp = (LoadUriResponse*)msg;
+
+	g_object_unref (resp->book);
+	g_free (resp);
+}
+
+static void
+_default_book_handler (EBookMsg *msg)
+{
+	DefaultBookMsg *dfb_msg = (DefaultBookMsg *)msg;
+	DefaultBookResponse *response;
+	GError *error = NULL;
+
+	response = g_new (DefaultBookResponse, 1);
+	e_book_msg_init ((EBookMsg*)response, _default_book_response_handler, _default_book_response_dtor);
+
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_get_default_addressbook (&response->book, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
+
+	response->open_response = dfb_msg->open_response;
+	response->closure = dfb_msg->closure;
+
+	g_async_queue_push (from_worker_queue, response);
+}
+
+static void
+_default_book_dtor (EBookMsg *msg)
+{
+	DefaultBookMsg *dfb_msg = (DefaultBookMsg *)msg;
+	
+	g_free (dfb_msg);
+}
+
+void
+e_book_async_get_default_addressbook (EBookCallback open_response,
+				      gpointer      closure)
+{
+	DefaultBookMsg *msg;
+
+	init_async ();
+
+	msg = g_new (DefaultBookMsg, 1);
+	e_book_msg_init ((EBookMsg*)msg, _default_book_handler, _default_book_dtor);
+
+	msg->open_response = open_response;
+	msg->closure = closure;
+
+	g_async_queue_push (to_worker_queue, msg);
 }
 
 

@@ -44,6 +44,10 @@ libeabwidgets_la_SOURCES =			\
 	eab-contact-display.h			\
 	eab-gui-util.c				\
 	eab-gui-util.h				\
+	eab-popup-control.c			\
+	eab-popup-control.h			\
+	eab-vcard-control.c			\
+	eab-vcard-control.h			\
 	e-addressbook-marshal.c			\
 	e-addressbook-table-adapter.c		\
 	e-addressbook-table-adapter.h		\

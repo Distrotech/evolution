@@ -30,8 +30,6 @@ component_LTLIBRARIES = libevolution-addressbook.la
 
 #	e-address-widget.h		\
 #	e-address-widget.c		\
-#	e-address-popup.h		\
-#	e-address-popup.c
 
 libevolution_addressbook_la_SOURCES = 	\
 	addressbook-component.c		\

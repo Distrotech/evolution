@@ -724,14 +724,14 @@ addressbook_load_uri (EBook *book, const char *uri,
 }
 
 void
-addressbook_load_default_book (EBook *book, EBookCallback cb, gpointer closure)
+addressbook_load_default_book (EBookCallback cb, gpointer closure)
 {
 	LoadUriData *load_uri_data = g_new (LoadUriData, 1);
 
 	load_uri_data->cb = cb;
 	load_uri_data->closure = closure;
 
-	e_book_load_default_book (book, load_uri_cb, load_uri_data);
+	e_book_async_get_default_addressbook (load_uri_cb, load_uri_data);
 }
 
 static void

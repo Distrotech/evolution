@@ -1,5 +1,38 @@
 2003-10-01  Chris Toshok  <toshok@ximian.com>
 
+	* gui/component/Makefile.am: remove some commented out crap about
+	e-address-popup.[ch].
+
+	* gui/component/component-factory.c (factory): use
+	eab_popup_control_new for the AddressPopup iid.
+
+	* gui/widgets/Makefile.am (libeabwidgets_la_SOURCES): add
+	eab-popup-control.[ch].
+
+	* backend/ebook/e-book.c (e_book_get_default_addressbook): hack
+	this so it at least sorta works - hardcode the
+	~/evolution/local/Contacts uri for now.
+
+	* gui/component/addressbook.[ch] (addressbook_load_default_book):
+	remove the EBook argument, and call
+	e_book_async_get_default_addressbook.
+
+	* gui/component/e-address-popup.[ch]: nuke.
+	
+	* gui/widgets/eab-popup-control.c: rename
+	gui/component/e-address-popup.c to this.
+
+	* gui/widgets/eab-popup-control.h: rename
+	gui/component/e-address-popup.h to this.
+
+	* backend/ebook/e-book-async.h: add prototype for
+	e_book_async_get_default_addressbook.
+	
+	* backend/ebook/e-book-async.c
+	(e_book_async_get_default_addressbook): new function.
+
+2003-10-01  Chris Toshok  <toshok@ximian.com>
+
 	* gui/widgets/e-addressbook-view.c (eab_view_new): create the
 	scrolled window to embed the EABContactDisplay widget inside of.
 

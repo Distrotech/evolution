@@ -26,8 +26,8 @@
 #include "addressbook.h"
 #include "addressbook-component.h"
 #include "addressbook-config.h"
-#include "e-address-popup.h"
 #include "e-address-widget.h"
+#include "eab-popup-control.h"
 #include "eab-vcard-control.h"
 #include "select-names/e-select-names-bonobo.h"
 
@@ -61,7 +61,7 @@ factory (BonoboGenericFactory *factory,
 	if (strcmp (component_id, ADDRESS_WIDGET_ID) == 0)
 		return BONOBO_OBJECT (e_address_widget_new_control ());
 	if (strcmp (component_id, ADDRESS_POPUP_ID) == 0)
-		return BONOBO_OBJECT (e_address_popup_new_control ());
+		return BONOBO_OBJECT (eab_popup_control_new ());
 	if (strcmp (component_id, LDAP_STORAGE_CONFIG_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (addressbook_config_control_new ());
 	if (strcmp (component_id, SELECT_NAMES_ID) == 0)

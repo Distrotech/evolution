@@ -1494,6 +1494,7 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		e_book_response_get_supported_auth_methods (book, resp->status, resp->list);
 		break;
 	case WritableStatusEvent:
+		printf ("emitting writable_status\n");
 		g_signal_emit (book, e_book_signals [WRITABLE_STATUS], 0, resp->writable);
 		break;
 	default:
@@ -1845,6 +1846,28 @@ e_book_set_self (EBook *book, const char *id, GError **error)
 gboolean
 e_book_get_default_addressbook (EBook **book, GError **error)
 {
+	/* XXX for now just load the local ~/evolution/local/Contacts */
+	char *path, *uri;
+	gboolean rv;
+
+	*book = e_book_new ();
+
+	path = g_build_filename (g_get_home_dir (),
+				 "evolution/local/Contacts",
+				 NULL);
+	uri = g_strdup_printf ("file://%s", path);
+	g_free (path);
+
+	rv = e_book_load_uri (*book, uri, FALSE, error);
+
+	g_free (uri);
+
+	if (!rv) {
+		g_object_unref (*book);
+		*book = NULL;
+	}
+
+	return rv;
 #if notyet
 	EConfigListener *listener = e_config_listener_new ();
 	ESourceList *sources = ...;
