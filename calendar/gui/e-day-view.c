@@ -5682,7 +5682,7 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 			stop_emission = FALSE;
 			break;
 		}
-	} else {
+	} else if (!(event->state & GDK_MOD1_MASK)) {
 		switch (keyval) {
 		case GDK_Up:
 			e_day_view_cursor_key_up (day_view, event);
@@ -5707,6 +5707,8 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 			break;
 		}
 	}
+	else
+		stop_emission = FALSE;
 	if (stop_emission)
 		return TRUE;
 
