@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
+#include <gdk/gdk-pixbuf.h>
 
 #include "em-marshal.h"
 #include "em-folder-tree.h"
@@ -198,7 +199,7 @@ render_pixbuf (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 	}
 	
 	gtk_tree_model_get (model, iter, COL_STRING_FOLDER_PATH, &path,
-			    COL_BOO_IS_STORE, &is_store, -1);
+			    COL_BOOL_IS_STORE, &is_store, -1);
 	
 	if (!is_store) {
 		if (!strcasecmp (name, "/Inbox"))
@@ -223,7 +224,7 @@ render_display_name (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 	char *name;
 	
 	gtk_tree_model_get (model, iter, COL_STRING_DISPLAY_NAME, &name,
-			    COL_BOO_IS_STORE, &is_store,
+			    COL_BOOL_IS_STORE, &is_store,
 			    COL_UINT_UNREAD, &unread, -1);
 	
 	if (!(bold = is_store || unread)) {
@@ -376,7 +377,7 @@ em_folder_tree_new (void)
 
 static void
 tree_store_set_folder_info (GtkTreeStore *model, GtkTreeIter *iter,
-			    struct EMFolderTreePrivate *priv,
+			    struct _EMFolderTreePrivate *priv,
 			    struct _emft_store_info *si,
 			    CamelFolderInfo *fi)
 {
@@ -385,7 +386,7 @@ tree_store_set_folder_info (GtkTreeStore *model, GtkTreeIter *iter,
 	
 	load = (fi->flags & CAMEL_FOLDER_CHILDREN) && !(fi->flags & CAMEL_FOLDER_NOINFERIORS);
 	
-	path = gtk_tree_model_get_path (model, iter);
+	path = gtk_tree_model_get_path ((GtkTreeModel *) model, iter);
 	g_hash_table_insert (priv->uri_hash, g_strdup (fi->url), path);
 	g_hash_table_insert (si->path_hash, g_strdup (fi->path), path);
 	
@@ -401,11 +402,12 @@ tree_store_set_folder_info (GtkTreeStore *model, GtkTreeIter *iter,
 }
 
 static void
-tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *path, EMFolderTree *emft)
+tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *tree_path, EMFolderTree *emft)
 {
 	struct _emft_store_info *si;
 	CamelFolderInfo *fi, *child;
 	CamelStore *store;
+	CamelException ex;
 	GtkTreeStore *model;
 	GtkTreeIter iter;
 	gboolean load;
