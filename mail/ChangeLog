@@ -1,3 +1,15 @@
+2003-10-08  Chris Toshok  <toshok@ximian.com>
+
+	* em-utils.c (em_utils_camel_address_to_destination): EDestination
+	=> EABDestination, and e_destination => eab_destination.
+	(reply_get_composer): same.
+	(post_reply_to_message): same.
+
+	* em-composer-utils.c (ask_confirm_for_unwanted_html_mail)
+	EDestination => EABDestination, and e_destination =>
+	eab_destination.
+	(composer_get_message):same.
+
 2003-10-08  Not Zed  <NotZed@Ximian.com>
 
 	* mail-component.c (mail_component_peek): setup vfolders once we

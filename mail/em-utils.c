@@ -774,10 +774,10 @@ generate_account_hash (void)
 	return account_hash;
 }
 
-static EDestination **
+static EABDestination **
 em_utils_camel_address_to_destination (CamelInternetAddress *iaddr)
 {
-	EDestination *dest, **destv;
+	EABDestination *dest, **destv;
 	int n, i, j;
 	
 	if (iaddr == NULL)
@@ -786,14 +786,14 @@ em_utils_camel_address_to_destination (CamelInternetAddress *iaddr)
 	if ((n = camel_address_length ((CamelAddress *) iaddr)) == 0)
 		return NULL;
 	
-	destv = g_malloc (sizeof (EDestination *) * (n + 1));
+	destv = g_malloc (sizeof (EABDestination *) * (n + 1));
 	for (i = 0, j = 0; i < n; i++) {
 		const char *name, *addr;
 		
 		if (camel_internet_address_get (iaddr, i, &name, &addr)) {
-			dest = e_destination_new ();
-			e_destination_set_name (dest, name);
-			e_destination_set_email (dest, addr);
+			dest = eab_destination_new ();
+			eab_destination_set_name (dest, name);
+			eab_destination_set_email (dest, addr);
 			
 			destv[j++] = dest;
 		}
@@ -814,7 +814,7 @@ reply_get_composer (GtkWidget *parent, CamelMimeMessage *message, EAccount *acco
 		    CamelInternetAddress *to, CamelInternetAddress *cc)
 {
 	const char *message_id, *references;
-	EDestination **tov, **ccv;
+	EABDestination **tov, **ccv;
 	EMsgComposer *composer;
 	char *subject;
 	
@@ -1212,7 +1212,7 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	const char *message_id, *references;
 	CamelInternetAddress *to = NULL;
 	GtkWidget *parent = user_data;
-	EDestination **tov = NULL;
+	EABDestination **tov = NULL;
 	EMsgComposer *composer;
 	char *subject, *url;
 	EAccount *account;
