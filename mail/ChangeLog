@@ -1,3 +1,52 @@
+2003-08-21  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-view.c (emfv_message_forward): Implemented.
+	(emfv_message_forward_attached): Implemented.
+	(emfv_message_forward_inline): Implemented.
+	(emfv_message_forward_quoted): Implemented.
+	(emfv_message_redirect): Implemented.
+	(emfv_message_post_reply): Implemented.
+	(emfv_message_reply_all): Implemented.
+	(emfv_message_reply_list): Implemented.
+	(emfv_message_reply_sender): Implemented.
+	(emfv_message_resend): Implemented.
+	(emfv_message_saveas): Implemented.
+
+	* em-composer-utils.c: New source file containing all the composer
+	send/draft callback mess.
+
+	* em-utils.c (em_utils_uids_copy): New convenience function to
+	copy a list of uids.
+	(em_utils_uids_free): New convenience function to free a list of
+	uids.
+	(em_utils_save_message): New function to save a CamelMimeMessage
+	(prompts the user for a location to save).
+	(em_utils_save_messages): New function to save a list of messages
+	(given a folder and list of uids).
+	(em_utils_configure_account): Configure a new account...
+	(em_utils_check_user_can_send_mail): Make sure the user has a
+	transport setup.
+	(em_utils_edit_message): New function to edit a message object.
+	(em_utils_edit_messages): New function to open a composer to edit
+	each message.
+	(em_utils_forward_attached): New function to forward messages as
+	an attachment,
+	(em_utils_forward_inline): Forward a bunch of messages inline.
+	(em_utils_forward_quoted): Forward a bunch of messages quoted.
+	(em_utils_redirect_message): Redirect a message object.
+	(em_utils_redirect_message_by_uid): Redirect a message given a
+	folder and uid.
+	(em_utils_reply_to_message): Reply to a message object.
+	(em_utils_reply_to_message_by_uid): Reply to a message given a
+	folder and uid.
+	(em_utils_post_reply_to_message_by_uid): Post a reply to a message
+	given a folder and uid.
+
+	* mail-ops.c (filter_folder_free): Use em_utils_uids_free().
+	(transfer_messages_free): Same.
+	(get_messages_free): Here too.
+	(save_messages_free): Same.
+
 2003-08-20  Not Zed  <NotZed@Ximian.com>
 
 	* em-subscribe-editor.[ch]: new widget, a dialog for editing

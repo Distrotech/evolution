@@ -57,9 +57,11 @@
 #include "em-folder-view.h"
 #include "em-message-browser.h"
 #include "message-list.h"
+#include "em-utils.h"
 
 #include "mail-mt.h"
 #include "mail-ops.h"
+#include "mail-config.h"
 
 #include "mail-config.h"	/* hrm, pity we need this ... */
 
@@ -249,6 +251,14 @@ emfv_set_message(EMFolderView *emfv, const char *uid)
 
 /* ********************************************************************** */
 
+static GtkWindow *
+emfv_get_parent_window (EMFolderView *emfv)
+{
+	/* FIXME: return our parent window... */
+	return NULL;
+}
+
+
 static void
 emfv_mail_next(BonoboUIComponent *uid, void *data, const char *path)
 {
@@ -309,69 +319,195 @@ static void
 emfv_add_sender_addressbook(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
 	emfv = emfv;
+	/* FIXME: need to find out what the new addressbook API is for this... */
 }
 
 static void
 emfv_message_apply_filters(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GPtrArray *uids;
+	
+	uids = message_list_get_selected (emfv->list);
+	mail_filter_on_demand (emfv->folder, uids);
 }
 
 static void
 emfv_message_copy(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
 	emfv = emfv;
+	/* FIXME: Shell API has changed, find out how to implement me */
 }
 
 static void
-emfv_message_delete(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_move(BonoboUIComponent *uic, void *data, const char *path)
 {
-	/* FIXME: make a 'mark messages' function? */
 	EMFolderView *emfv = data;
-
-	printf("messagedelete\n");
-
-	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED);
-
-	/* FIXME: select the next message if we just deleted 1 message */
+	
+	emfv = emfv;
+	/* FIXME: Shell API has changed, find out how to implement me */
 }
 
 static void
-emfv_message_forward(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_forward (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GConfClient *gconf;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	int mode;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	gconf = mail_config_get_gconf_client ();
+	mode = gconf_client_get_int (gconf, "/apps/evolution/mail/format/forward_style", NULL);
+	
+	uids = message_list_get_selected (emfv->list);
+	
+	switch (mode) {
+	case MAIL_CONFIG_FORWARD_ATTACHED:
+		em_utils_forward_attached (parent, emfv->folder, uids);
+		break;
+	case MAIL_CONFIG_FORWARD_INLINE:
+		em_utils_forward_inline (parent, emfv->folder, uids);
+		break;
+	case MAIL_CONFIG_FORWARD_QUOTED:
+		em_utils_forward_quoted (parent, emfv->folder, uids);
+		break;
+	default:
+		break;
+	}
 }
 
 static void
-emfv_message_forward_attached(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_forward_attached (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_forward_attached (parent, emfv->folder, uids);
 }
 
 static void
-emfv_message_forward_inline(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_forward_inline (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_forward_inline (parent, emfv->folder, uids);
 }
 
 static void
-emfv_message_forward_quoted(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_forward_quoted (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_forward_quoted (parent, emfv->folder, uids);
 }
 
 static void
-emfv_message_redirect(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_redirect (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GtkWindow *parent;
+	
+	if (emfv->list->cursor_uid == NULL)
+		return;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	em_utils_redirect_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid);
+}
+
+static void
+emfv_message_post_reply (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	
+	if (emfv->list->cursor_uid == NULL)
+		return;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	em_utils_post_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid);
+}
+
+static void
+emfv_message_reply_all (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	
+	if (emfv->list->cursor_uid == NULL)
+		return;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	em_utils_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_ALL);
+}
+
+static void
+emfv_message_reply_list (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	
+	if (emfv->list->cursor_uid == NULL)
+		return;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	em_utils_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_LIST);
+}
+
+static void
+emfv_message_reply_sender (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	
+	if (emfv->list->cursor_uid == NULL)
+		return;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	em_utils_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_SENDER);
 }
 
 static void
@@ -409,19 +545,33 @@ emfv_message_mark_unimportant(BonoboUIComponent *uic, void *data, const char *pa
 }
 
 static void
-emfv_message_followup_flag(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_delete(BonoboUIComponent *uic, void *data, const char *path)
 {
+	/* FIXME: make a 'mark messages' function? */
 	EMFolderView *emfv = data;
-	emfv = emfv;
 
-	/* FIXME: code needs refactoring to use here, maybe some helper class methods */
+	printf("messagedelete\n");
+
+	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED);
+
+	/* FIXME: select the next message if we just deleted 1 message */
 }
 
 static void
-emfv_message_move(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_undelete(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+
+	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_DELETED, 0);
+}
+
+static void
+emfv_message_followup_flag(BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	
 	emfv = emfv;
+	/* FIXME: code needs refactoring to use here, maybe some helper class methods */
 }
 
 static void
@@ -431,47 +581,30 @@ emfv_message_open(BonoboUIComponent *uic, void *data, const char *path)
 }
 
 static void
-emfv_message_post_reply(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_resend (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	if (!em_utils_check_user_can_send_mail (parent))
+		return;
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_edit_messages (parent, emfv->folder, uids);
 }
 
 static void
-emfv_message_reply_all(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_saveas (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
-}
-
-static void
-emfv_message_reply_list(BonoboUIComponent *uic, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-	emfv = emfv;
-}
-
-static void
-emfv_message_reply_sender(BonoboUIComponent *uic, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-	emfv = emfv;
-}
-
-static void
-emfv_message_resend(BonoboUIComponent *uic, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-	emfv = emfv;
-}
-
-static void
-emfv_message_saveas(BonoboUIComponent *uic, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-	emfv = emfv;
-
-	/* FIXME: needs code refactor */
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	uids = message_list_get_selected (emfv->list);
+	em_utils_save_messages (parent, emfv->folder, uids);
 }
 
 static void
@@ -479,16 +612,8 @@ emfv_message_search(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	emfv = emfv;
-
+	
 	/* FIXME: new search code in formathtmldisplay ? */
-}
-
-static void
-emfv_message_undelete(BonoboUIComponent *uic, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-
-	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_DELETED, 0);
 }
 
 static void

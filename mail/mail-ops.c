@@ -50,6 +50,8 @@
 #include "mail-mt.h"
 #include "mail-folder-cache.h"
 
+#include "em-utils.h"
+
 #define w(x)
 #define d(x) 
 
@@ -150,17 +152,12 @@ static void
 filter_folder_free (struct _mail_msg *mm)
 {
 	struct _filter_mail_msg *m = (struct _filter_mail_msg *)mm;
-	int i;
 	
 	if (m->source_folder)
 		camel_object_unref (m->source_folder);
 	
-	if (m->source_uids) {
-		for (i = 0; i < m->source_uids->len; i++)
-			g_free (m->source_uids->pdata[i]);
-		
-		g_ptr_array_free (m->source_uids, TRUE);
-	}
+	if (m->source_uids)
+		em_utils_uids_free (m->source_uids);
 	
 	if (m->cancel)
 		camel_operation_unref (m->cancel);
@@ -977,14 +974,10 @@ static void
 transfer_messages_free (struct _mail_msg *mm)
 {
 	struct _transfer_msg *m = (struct _transfer_msg *)mm;
-	int i;
-
+	
 	camel_object_unref (m->source);
 	g_free (m->dest_uri);
-	for (i = 0; i < m->uids->len; i++)
-		g_free (m->uids->pdata[i]);
-	g_ptr_array_free (m->uids, TRUE);
-
+	em_utils_uids_free (m->uids);
 }
 
 static struct _mail_msg_op transfer_messages_op = {
@@ -1830,10 +1823,8 @@ static void get_messages_free(struct _mail_msg *mm)
 {
 	struct _get_messages_msg *m = (struct _get_messages_msg *)mm;
 	int i;
-
-	for (i=0;i<m->uids->len;i++)
-		g_free(m->uids->pdata[i]);
-	g_ptr_array_free(m->uids, TRUE);
+	
+	em_utils_uids_free (m->uids);
 	for (i=0;i<m->messages->len;i++) {
 		if (m->messages->pdata[i])
 			camel_object_unref(m->messages->pdata[i]);
@@ -1983,11 +1974,8 @@ static void save_messages_saved(struct _mail_msg *mm)
 static void save_messages_free(struct _mail_msg *mm)
 {
 	struct _save_messages_msg *m = (struct _save_messages_msg *)mm;
-	int i;
-
-	for (i=0;i<m->uids->len;i++)
-		g_free(m->uids->pdata[i]);
-	g_ptr_array_free(m->uids, TRUE);
+	
+	em_utils_uids_free (m->uids);
 	camel_object_unref(m->folder);
 	g_free(m->path);
 }
