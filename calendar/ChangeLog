@@ -14,7 +14,9 @@
 2003-10-17  Jeffrey Stedfast <fejj@ximian.com>
 	
 	* conduits/calendar/Makefile.am: Fixed for libical build changes.
-	
+
+	* conduits/todo/Makefile.am: Same.
+
 2003-10-17  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-view.c (on_print): call
