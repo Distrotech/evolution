@@ -35,7 +35,6 @@
 #include <errno.h>
 #include <glib.h>
 
-#include "e-util/e-path.h"
 
 #include "camel-groupwise-store.h"
 #include "camel-groupwise-summary.h"
@@ -49,6 +48,7 @@
 #include "camel-types.h"
 #include "camel-folder.h" 
 #include "camel-private.h"
+#include <e-util/e-path.h>
 
 #define d(x) printf(x);
 
@@ -360,6 +360,70 @@ groupwise_can_work_offline (CamelDiscoStore *disco_store)
 
 
 static gboolean
+groupwise_auth_loop (CamelService *service, CamelException *ex)
+{
+	CamelGroupwiseStore *groupwise_store = CAMEL_GROUPWISE_STORE (service);
+	CamelSession *session = camel_service_get_session (service);
+	CamelGroupwiseStorePrivate *priv = groupwise_store->priv;
+	char *errbuf = NULL;
+	gboolean authenticated = FALSE;
+	const char *auth_domain;
+	char *uri;
+
+	CAMEL_SERVICE_ASSERT_LOCKED (groupwise_store, connect_lock);
+	auth_domain = camel_url_get_param (service->url, "auth-domain");
+	if (priv->use_ssl) 
+		uri = g_strconcat ("https://", priv->server_name, ":", priv->port, "/soap", NULL);
+	else 
+		uri = g_strconcat ("http://", priv->server_name, ":", priv->port, "/soap", NULL);
+	service->url->passwd = NULL;
+	while (!authenticated) {
+		if (errbuf) {
+			/* We need to un-cache the password before prompting again */
+			camel_session_forget_password (session, service, auth_domain, "password", ex);
+			g_free (service->url->passwd);
+			service->url->passwd = NULL;
+		}
+		
+		if (!service->url->passwd) {
+			char *prompt;
+			
+			prompt = g_strdup_printf (_("%sPlease enter the Groupwise "
+						    "password for %s@%s"),
+						  errbuf ? errbuf : "",
+						  service->url->user,
+						  service->url->host);
+			service->url->passwd =
+				camel_session_get_password (session, service, auth_domain,
+							    prompt, "password", CAMEL_SESSION_PASSWORD_SECRET, ex);
+			g_free (prompt);
+			g_free (errbuf);
+			errbuf = NULL;
+			
+			if (!service->url->passwd) {
+				camel_exception_set (ex, CAMEL_EXCEPTION_USER_CANCEL,
+						     _("You didn't enter a password."));
+				return FALSE;
+			}
+		}
+		
+		
+				
+		priv->cnc = e_gw_connection_new (uri, priv->user, service->url->passwd);
+		if (!priv->cnc) {
+			errbuf = g_strdup_printf (_("Unable to authenticate "
+					    "to GroupWise server."));
+						  
+			camel_exception_clear (ex);
+		} else 
+			authenticated = TRUE;
+		
+	}
+	
+	return TRUE;
+}
+
+static gboolean
 groupwise_connect_online (CamelService *service, CamelException *ex)
 {
 	CamelGroupwiseStore *groupwise_store = CAMEL_GROUPWISE_STORE (service);
@@ -375,27 +439,14 @@ groupwise_connect_online (CamelService *service, CamelException *ex)
 		CAMEL_SERVICE_UNLOCK (service, connect_lock);
 		return TRUE;
 	}
-	if (priv->use_ssl) 
-		uri = g_strconcat ("https://", priv->server_name, ":", priv->port, "/soap", NULL);
-	else 
-		uri = g_strconcat ("http://", priv->server_name, ":", priv->port, "/soap", NULL);
 	
-	prompt = g_strdup_printf (_("Please enter the Groupwise password for %s@%s"),
-				  service->url->user,
-				  service->url->host);
-	
-	service->url->passwd = camel_session_get_password (session, service, "Groupwise",
-							   prompt, "password", CAMEL_SESSION_PASSWORD_SECRET, ex);
-	if (!service->url->passwd) {/* user has presses cancel in password dialog*/
+	if (!groupwise_auth_loop (service, ex)) {
 		CAMEL_SERVICE_UNLOCK (service, connect_lock);
-		return FALSE ;
+		camel_service_disconnect (service, TRUE, NULL);
+		return FALSE;
 	}
-	g_free(prompt) ;
-	//When do we free service->url->passwd??
 	
-	priv->cnc = e_gw_connection_new (uri, priv->user, service->url->passwd);
-	
-	service->url->passwd = NULL;
+
 	path = g_strdup_printf ("%s/journal", priv->storage_path);
 	disco_store->diary = camel_disco_diary_new (disco_store, path, ex);
 	g_free (path);
