@@ -54,7 +54,10 @@ GType  e_shell_window_get_type  (void);
 
 GtkWidget *e_shell_window_new  (EShell *shell);
 
-void e_shell_window_save_defaults (EShellWindow *window);
+EShell            *e_shell_window_peek_shell                (EShellWindow *window);
+BonoboUIComponent *e_shell_window_peek_bonobo_ui_component  (EShellWindow *window);
 
+void  e_shell_window_save_defaults  (EShellWindow *window);
+void  e_shell_window_show_settings  (EShellWindow *window);
 
 #endif /* _E_SHELL_WINDOW_H_ */

@@ -28,7 +28,11 @@
 
 #include <config.h>
 
+#include "e-shell-window.h"
+
 #include "Evolution.h"
+
+#include "e-shell-window-commands.h"
 
 #include <gal/util/e-util.h>
 
@@ -43,8 +47,6 @@
 #include <bonobo/bonobo-widget.h>
 
 #include <string.h>
-
-#include "e-shell-window.h"
 
 
 #define PARENT_TYPE gtk_window_get_type ()
@@ -80,7 +82,6 @@ struct _EShellWindowPrivate {
 
 	/* Bonobo foo.  */
 	BonoboUIComponent *ui_component;
-	BonoboUIContainer *ui_container;
 };
 
 
@@ -302,6 +303,11 @@ impl_dispose (GObject *object)
 		priv->shell = NULL;
 	}
 
+	if (priv->ui_component != NULL) {
+		bonobo_object_unref (BONOBO_OBJECT (priv->ui_component));
+		priv->ui_component = NULL;
+	}
+
 	(* G_OBJECT_CLASS (parent_class)->dispose) (object);
 }
 
@@ -335,9 +341,7 @@ class_init (EShellWindowClass *class)
 static void
 init (EShellWindow *shell_window)
 {
-	EShellWindowPrivate *priv;
-
-	priv = g_new0 (EShellWindowPrivate, 1);
+	EShellWindowPrivate *priv = g_new0 (EShellWindowPrivate, 1);
 
 	shell_window->priv = priv;
 }
@@ -350,6 +354,7 @@ e_shell_window_new (EShell *shell)
 {
 	EShellWindow *window = g_object_new (e_shell_window_get_type (), NULL);
 	EShellWindowPrivate *priv = window->priv;
+	BonoboUIContainer *ui_container;
 
 	if (bonobo_window_construct (BONOBO_WINDOW (window),
 				     bonobo_ui_container_new (),
@@ -358,14 +363,17 @@ e_shell_window_new (EShell *shell)
 		return NULL;
 	}
 
+	window->priv->shell = shell;
+	g_object_add_weak_pointer (G_OBJECT (shell), (void **) &window->priv->shell);
+
 	/* FIXME TODO: Add system_exception signal handling and all the other
 	   stuff from e_shell_view_construct().  */
 
-	priv->ui_container = bonobo_window_get_ui_container (BONOBO_WINDOW (window));
+	ui_container = bonobo_window_get_ui_container (BONOBO_WINDOW (window));
 
 	priv->ui_component = bonobo_ui_component_new ("evolution");
 	bonobo_ui_component_set_container (priv->ui_component,
-					   bonobo_object_corba_objref (BONOBO_OBJECT (priv->ui_container)),
+					   bonobo_object_corba_objref (BONOBO_OBJECT (ui_container)),
 					   NULL);
 
 	bonobo_ui_util_set_ui (priv->ui_component,
@@ -373,8 +381,7 @@ e_shell_window_new (EShell *shell)
 			       EVOLUTION_UIDIR "/evolution.xml",
 			       "evolution-1.4", NULL);
 
-	window->priv->shell = shell;
-	g_object_add_weak_pointer (G_OBJECT (shell), (void **) &window->priv->shell);
+	e_shell_window_commands_setup (window);
 
 	setup_widgets (window);
 
@@ -383,11 +390,33 @@ e_shell_window_new (EShell *shell)
 	return GTK_WIDGET (window);
 }
 
+
+EShell *
+e_shell_window_peek_shell (EShellWindow *window)
+{
+	return window->priv->shell;
+}
+
+
+BonoboUIComponent *
+e_shell_window_peek_bonobo_ui_component (EShellWindow *window)
+{
+	return window->priv->ui_component;
+}
+
 void
 e_shell_window_save_defaults (EShellWindow *window)
 {
 	/* FIXME */
 	g_warning ("e_shell_window_save_defaults() unimplemented");
+}
+
+void
+e_shell_window_show_settings (EShellWindow *window)
+{
+	g_return_if_fail (E_IS_SHELL_WINDOW (window));
+
+	e_shell_show_settings (window->priv->shell, NULL, window);
 }
 
 

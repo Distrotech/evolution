@@ -110,7 +110,7 @@ EUriSchemaRegistry  *e_shell_get_uri_schema_registry   (EShell          *shell);
 
 gboolean             e_shell_save_settings             (EShell          *shell);
 
-void                 e_shell_destroy_all_windows       (EShell          *shell);
+void                 e_shell_close_all_windows         (EShell          *shell);
 
 void                 e_shell_unregister_all            (EShell          *shell);
 

@@ -789,13 +789,13 @@ e_shell_save_settings (EShell *shell)
 }
 
 /**
- * e_shell_destroy_all_windows:
+ * e_shell_close_all_windows:
  * @shell: 
  * 
  * Destroy all the windows in @shell.
  **/
 void
-e_shell_destroy_all_windows (EShell *shell)
+e_shell_close_all_windows (EShell *shell)
 {
 	EShellPrivate *priv;
 	GList *p, *pnext;

@@ -211,6 +211,8 @@ evolution_SOURCES =				\
 	e-shell-startup-wizard.h		\
 	e-shell-utils.c				\
 	e-shell-utils.h				\
+	e-shell-window-commands.c		\
+	e-shell-window-commands.h		\
 	e-shell-window.c			\
 	e-shell-window.h			\
 	e-shell.c				\

@@ -1,7 +1,27 @@
-2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-shell-window.c: Removed member ui_container from
+	EShellWindowPrivate.
+	(e_shell_window_peek_shell): New.
+	(e_shell_window_peek_bonobo_ui_component): New.
+	(e_shell_window_new): Don't set the ui_container anymore, just get
+	it ourselves.  Also call e_shell_window_commands_setup().
+
+	* e-shell-window-commands.c, e-shell-window-commands.h: New files
+	implementing the commands for the shell windows.
+
+	* e-shell.c (e_shell_close_all_windows): Renamed from
+	e_shell_destroy_all_windows().
 
 	* main.c (idle_cb): Create a new window using
 	e_shell_create_window().
+
+	* e-shell-importer.h: Define _E_SHELL_IMPORTER_H_ to prevent
+	multiple inclusion, instead of __IMPORTER_H__.  Also, do not
+	#include <bonobo/bonobo-ui-component.h>.
+
+	* e-shell-importer.c (e_shell_importer_start_import): Renamed from
+	show_import_wizard().  Don't get any args.
 
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
