@@ -1,5 +1,14 @@
 2004-06-25  Not Zed  <NotZed@Ximian.com>
 
+	** See bug #60354.
+
+	* mail-component.c (view_changed_cb): set the shell window title
+	as well.
+	(impl_createView): renamed from createControls, just return a
+	EComponentView instead.
+
+2004-06-25  Not Zed  <NotZed@Ximian.com>
+
 	* em-folder-tree.c (folder_tree_new): set search column.  #60152.
 
 2004-06-24  Rodney Dawes  <dobey@novell.com>
