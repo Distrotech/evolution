@@ -1,5 +1,8 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * Copyright 2000, Ximian, Inc.
+ * Author:
+ *   Chris Toshok (toshok@ximian.com)
+ * Copyright (C) 2003, Ximian, Inc.
  */
 
 #ifndef __PAS_BACKEND_VCF_H__

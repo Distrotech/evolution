@@ -1,5 +1,37 @@
 2003-08-06  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-backend-vcf.c (pas_backend_vcf_book_view_copy):
+	nuke.
+	(pas_backend_vcf_book_view_free): same.
+	(view_destroy): same.
+	(insert_contact): new function, insert the contact into our hash
+	table.
+	(load_file): reimplement without the e_card stuff.
+	(foreach_build_list): e_card -> e_contact.
+	(save_file): mostly reimplement in terms of e-contact.  more error
+	case work needs doing.
+	(do_create): e-card -> e-contact.
+	(pas_backend_vcf_process_create_card): remove the view handling
+	from here.
+	(pas_backend_vcf_process_remove_cards): implement this, just
+	remove it from the hash table and set ourselves to dirty.
+	(pas_backend_vcf_process_modify_card): remove the view handling
+	from here.
+	(pas_backend_vcf_process_get_book_view): nuke.
+	(pas_backend_vcf_process_get_supported_fields): reimplement in
+	terms of e-contact.
+	(INITIAL_VCARD): add in a FN attribute, and remove the quoted
+	printable encoding.
+	(pas_backend_vcf_cancel_operation): implement, just always return
+	CouldNotCancel.
+	(pas_backend_vcf_class_init): fill in cancel_operation, and remove
+	get_book_view_sync.
+	(pas_backend_vcf_init): remove book_views handling.
+
+	* backend/pas/pas-backend-vcf.h: update copyright.
+
+2003-08-06  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-backend-sync.c (pas_backend_sync_remove_cards):
 	add out param @ids, so we can call pas_book_respond_remove
 	properly.

@@ -1,9 +1,9 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * Author:
- *   Nat Friedman (nat@ximian.com)
+ *   Chris Toshok (toshok@ximian.com)
  *
- * Copyright 2000, Ximian, Inc.
+ * Copyright (C) 2003, Ximian, Inc.
  */
 
 #include "config.h"  
@@ -23,7 +23,7 @@
 #include <gal/util/e-util.h>
 #include <gal/widgets/e-unicode.h>
 
-#include <ebook/e-card-simple.h>
+#include <ebook/e-contact.h>
 #include <libgnome/gnome-i18n.h>
 
 #define PAS_ID_PREFIX "pas-id-"
@@ -36,58 +36,10 @@ typedef struct _PASBackendVCFSearchContext PASBackendVCFSearchContext;
 struct _PASBackendVCFPrivate {
 	char       *uri;
 	char       *filename;
-	EList      *book_views;
 	GHashTable *contacts;
 	gboolean    dirty;
 	int         flush_timeout_tag;
 };
-
-struct _PASBackendVCFBookView {
-	PASBookView                 *book_view;
-	gchar                       *search;
-};
-
-static PASBackendVCFBookView *
-pas_backend_vcf_book_view_copy(const PASBackendVCFBookView *book_view, void *closure)
-{
-	PASBackendVCFBookView *new_book_view = g_new (PASBackendVCFBookView, 1);
-	new_book_view->book_view = book_view->book_view;
-
-	new_book_view->search = g_strdup(book_view->search);
-	
-	return new_book_view;
-}
-
-static void
-pas_backend_vcf_book_view_free(PASBackendVCFBookView *book_view, void *closure)
-{
-	g_free(book_view->search);
-	g_free(book_view);
-}
-
-static void
-view_destroy(gpointer data, GObject *where_object_was)
-{
-	PASBook           *book = (PASBook *)data;
-	PASBackendVCF    *bvcf;
-	EIterator         *iterator;
-	gboolean success = FALSE;
-
-	bvcf = PAS_BACKEND_VCF(pas_book_get_backend(book));
-	for (iterator = e_list_get_iterator(bvcf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-		const PASBackendVCFBookView *view = e_iterator_get(iterator);
-		if (view->book_view == (PASBookView*)where_object_was) {
-			e_iterator_delete(iterator);
-			success = TRUE;
-			break;
-		}
-	}
-	if (!success)
-		g_warning ("Failed to remove from book_views list");
-	g_object_unref(iterator);
-
-	bonobo_object_unref(BONOBO_OBJECT(book));
-}
 
 static char *
 pas_backend_vcf_create_unique_id ()
@@ -131,7 +83,7 @@ pas_backend_vcf_search_timeout (gpointer data)
 			      (GHFunc)foreach_search_compare,
 			      closure);
 
-	pas_book_view_notify_complete (closure->view, GNOME_Evolution_Addressbook_BookViewListener_Success);
+	pas_book_view_notify_complete (closure->view, GNOME_Evolution_Addressbook_Success);
 
 	free_search_closure (closure);
 
@@ -164,62 +116,107 @@ pas_backend_vcf_search (PASBackendVCF  	      *bvcf,
 }
 
 static void
+insert_contact (PASBackendVCF *vcf, char *vcard)
+{
+	EContact *contact = e_contact_new_from_vcard (vcard);
+	char *id;
+
+	id = e_contact_get (contact, E_CONTACT_UID);
+	if (id)
+		g_hash_table_insert (vcf->priv->contacts,
+				     id,
+				     e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30));
+}
+
+static void
 load_file (PASBackendVCF *vcf)
 {
-	GList *cards = e_card_load_cards_from_file (vcf->priv->filename);
-	GList *l;
+	FILE *fp;
+	GString *str;
+	char buf[1024];
 
-	for (l = cards; l; l = l->next) {
-		ECard *card = E_CARD (l->data);
-
-		g_hash_table_insert (vcf->priv->contacts,
-				     g_strdup (e_card_get_id (card)),
-				     e_card_get_vcard (card));
-
-		g_object_unref (card);
+	fp = fopen (vcf->priv->filename, "r");
+	if (!fp) {
+		g_warning ("failed to open `%s' for reading", vcf->priv->filename);
+		return;
 	}
-	g_list_free (cards);
+
+	str = g_string_new ("");
+
+	while (fgets (buf, sizeof (buf), fp)) {
+		if (!strcmp (buf, "\r\n")) {
+			/* if the string has accumulated some stuff, create a contact for it and start over */
+			if (str->len) {
+				insert_contact (vcf, str->str);
+				g_string_assign (str, "");
+			}
+		}
+		else {
+			g_string_append (str, buf);
+		}
+	}
+	if (str->len) {
+		insert_contact (vcf, str->str);
+	}
+
+	g_string_free (str, TRUE);
+
+	fclose (fp);
 }
 
 static void
 foreach_build_list (char *id, char *vcard_string, GList **list)
 {
-	*list = g_list_append (*list, e_card_new (vcard_string));
+	*list = g_list_append (*list, e_contact_new_from_vcard (vcard_string));
 }
 
 static gboolean
 save_file (PASBackendVCF *vcf)
 {
-	GList *cards = NULL;
-	char *string;
+	GList *contacts = NULL;
+	GList *l;
 	char *new_path;
 	int fd, rv;
 
-	g_hash_table_foreach (vcf->priv->contacts, (GHFunc)foreach_build_list, &cards);
-
-	string = e_card_list_get_vcard (cards);
+	g_hash_table_foreach (vcf->priv->contacts, (GHFunc)foreach_build_list, &contacts);
 
 	new_path = g_strdup_printf ("%s.new", vcf->priv->filename);
 
 	fd = open (new_path, O_CREAT | O_TRUNC | O_WRONLY, 0666);
 
-	rv = write (fd, string, strlen (string));
+	for (l = contacts; l; l = l->next) {
+		EContact *contact = l->data;
+		char *vcard_str = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
+		int len = strlen (vcard_str);
 
-	if (0 > rv) {
-		g_error ("Failed to write new %s: %s\n", new_path, strerror(errno));
-		unlink (new_path);
-		return FALSE;
-	}
-	else {
-		if (0 > rename (new_path, vcf->priv->filename)) {
-			g_error ("Failed to rename %s: %s\n", vcf->priv->filename, strerror(errno));
+		rv = write (fd, vcard_str, len);
+		g_free (vcard_str);
+		if (rv < len) {
+			/* XXX */
+			g_warning ("write failed.  we need to handle short writes\n");
+			close (fd);
+			unlink (new_path);
+			return FALSE;
+		}
+
+		rv = write (fd, "\r\n", 2);
+		if (rv < 2) {
+			/* XXX */
+			g_warning ("write failed.  we need to handle short writes\n");
+			close (fd);
 			unlink (new_path);
 			return FALSE;
 		}
 	}
 
-	g_list_free (cards);
-	g_free (string);
+	if (0 > rename (new_path, vcf->priv->filename)) {
+		g_warning ("Failed to rename %s: %s\n", vcf->priv->filename, strerror(errno));
+		unlink (new_path);
+		return FALSE;
+	}
+
+	g_list_foreach (contacts, (GFunc)g_object_unref, NULL);
+	g_list_free (contacts);
 	g_free (new_path);
 
 	vcf->priv->dirty = FALSE;
@@ -249,20 +246,19 @@ vcf_flush_file (gpointer data)
 static char *
 do_create(PASBackendVCF  *bvcf,
 	  const char     *vcard_req,
-	  char          **vcard_ptr,
 	  gboolean        dirty_the_file)
 {
 	char           *id;
-	ECard          *card;
+	EContact       *contact;
 	char           *vcard;
 
 	id = pas_backend_vcf_create_unique_id ();
 
-	card = e_card_new((char*)vcard_req);
-	e_card_set_id(card, id);
-	vcard = e_card_get_vcard_assume_utf8(card);
+	contact = e_contact_new_from_vcard (vcard_req);
+	e_contact_set(contact, E_CONTACT_UID, id);
+	vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
-	g_hash_table_insert (bvcf->priv->contacts, g_strdup (id), g_strdup (vcard));
+	g_hash_table_insert (bvcf->priv->contacts, g_strdup (id), vcard);
 
 	if (dirty_the_file) {
 		bvcf->priv->dirty = TRUE;
@@ -272,12 +268,7 @@ do_create(PASBackendVCF  *bvcf,
 								       vcf_flush_file, bvcf);
 	}
 
-	g_object_unref(card);
-
-	if (vcard_ptr)
-		*vcard_ptr = vcard;
-	else
-		g_free (vcard);
+	g_object_unref(contact);
 
 	return id;
 }
@@ -289,25 +280,10 @@ pas_backend_vcf_process_create_card (PASBackendSync *backend,
 				     char **id_out)
 {
 	char *id;
-	char *vcard;
-	EIterator *iterator;
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 
-	id = do_create(bvcf, req->vcard, &vcard, TRUE);
+	id = do_create(bvcf, req->vcard, TRUE);
 	if (id) {
-		for (iterator = e_list_get_iterator(bvcf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-			const PASBackendVCFBookView *view = e_iterator_get(iterator);
-			if (pas_book_view_vcard_matches (view->book_view, vcard)) {
-				bonobo_object_ref (BONOBO_OBJECT (view->book_view));
-				pas_book_view_notify_add_1 (view->book_view, vcard);
-				pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-				bonobo_object_unref (BONOBO_OBJECT (view->book_view));
-			}
-		}
-		g_object_unref(iterator);
-		
-		g_free(vcard);
-
 		*id_out = id;
 		return GNOME_Evolution_Addressbook_Success;
 	}
@@ -322,7 +298,8 @@ pas_backend_vcf_process_create_card (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_vcf_process_remove_cards (PASBackendSync *backend,
 				      PASBook    *book,
-				      PASRemoveCardsRequest *req)
+				      PASRemoveCardsRequest *req,
+				      GList **ids)
 {
 	/* FIXME: make this handle bulk deletes like the file backend does */
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
@@ -337,133 +314,38 @@ pas_backend_vcf_process_remove_cards (PASBackendSync *backend,
 			bvcf->priv->flush_timeout_tag = g_timeout_add (FILE_FLUSH_TIMEOUT,
 								       vcf_flush_file, bvcf);
 
+		*ids = g_list_append (*ids, id);
+
 		return GNOME_Evolution_Addressbook_Success;
 	}
-
-#if 0
-	DB             *db = bvcf->priv->file_db;
-	DBT            id_dbt, vcard_dbt;
-	int            db_error;
-	EIterator     *iterator;
-	const char    *id;
-	GList         *l;
-	GList         *removed_cards = NULL;
-	GNOME_Evolution_Addressbook_BookListenerCallStatus rv = GNOME_Evolution_Addressbook_Success;
-
-	for (l = req->ids; l; l = l->next) {
-		id = l->data;
-
-		string_to_dbt (id, &id_dbt);
-		memset (&vcard_dbt, 0, sizeof (vcard_dbt));
-
-		db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
-		if (0 != db_error) {
-			rv = GNOME_Evolution_Addressbook_CardNotFound;
-			continue;
-		}
-	
-		db_error = db->del (db, NULL, &id_dbt, 0);
-		if (0 != db_error) {
-			rv = ;
-			continue;
-		}
-
-		removed_cards = g_list_prepend (removed_cards, e_card_new (vcard_dbt.data));
-	}
-
-	/* if we actually removed some, try to sync */
-	if (removed_cards) {
-		db_error = db->sync (db, 0);
-		if (db_error != 0)
-			g_warning ("db->sync failed.\n");
-	}
-
-	for (iterator = e_list_get_iterator (bvcf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-		const PASBackendVCFBookView *view = e_iterator_get(iterator);
-		GList *view_removed = NULL;
-		for (l = removed_cards; l; l = l->next) {
-			ECard *removed_card = l->data;
-			char *vcard = e_card_get_vcard (removed_card);
-
-			if (pas_book_view_vcard_matches (view->book_view, vcard))
-				view_removed = g_list_prepend (view_removed, (char*)e_card_get_id (removed_card));
-
-			g_free (vcard);
-		}
-		if (view_removed) {
-			bonobo_object_ref (BONOBO_OBJECT (view->book_view));
-			pas_book_view_notify_remove (view->book_view, view_removed);
-			pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-			bonobo_object_unref (BONOBO_OBJECT (view->book_view));
-			g_list_free (view_removed);
-		}
-	}
-	g_object_unref(iterator);
-	
-	for (l = removed_cards; l; l = l->next) {
-		ECard *c = l->data;
-		g_object_unref (c);
-	}
-
-	g_list_free (removed_cards);
-
-	return rv;
-#endif
 }
 
 static PASBackendSyncStatus
 pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 				     PASBook    *book,
-				     PASModifyCardRequest *req)
+				     PASModifyCardRequest *req,
+				     char **old_vcard)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	char          *old_vcard_string, *old_id;
-	ECard         *card;
-	const char    *id;
-	EIterator     *iterator;
+	EContact      *contact;
+	char          *id;
 
 	/* create a new ecard from the request data */
-	card = e_card_new((char*)req->vcard);
-	id = e_card_get_id(card);
+	contact = e_contact_new_from_vcard (req->vcard);
+	id = e_contact_get (contact, E_CONTACT_UID);
+
+	g_object_unref (contact);
 
 	if (!g_hash_table_lookup_extended (bvcf->priv->contacts, id, (gpointer)&old_id, (gpointer)&old_vcard_string)) {
-		g_object_unref (card);
+		g_free (id);
 		return GNOME_Evolution_Addressbook_CardNotFound;
 	}
 	else {
-		old_vcard_string = g_strdup (old_vcard_string);
+		*old_vcard = g_strdup (old_vcard_string);
 
 		g_hash_table_remove (bvcf->priv->contacts, id);
-		g_hash_table_insert (bvcf->priv->contacts, g_strdup (id), g_strdup (req->vcard));
-
-		for (iterator = e_list_get_iterator(bvcf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-			CORBA_Environment ev;
-			const PASBackendVCFBookView *view = e_iterator_get(iterator);
-			gboolean old_match, new_match;
-
-			CORBA_exception_init(&ev);
-
-			bonobo_object_dup_ref(bonobo_object_corba_objref(BONOBO_OBJECT(view->book_view)), &ev);
-
-			old_match = pas_book_view_vcard_matches (view->book_view, old_vcard_string);
-			new_match = pas_book_view_vcard_matches (view->book_view, req->vcard);
-			if (old_match && new_match)
-				pas_book_view_notify_change_1 (view->book_view, req->vcard);
-			else if (new_match)
-				pas_book_view_notify_add_1 (view->book_view, req->vcard);
-			else /* if (old_match) */
-				pas_book_view_notify_remove_1 (view->book_view, id);
-
-			pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-
-			bonobo_object_release_unref(bonobo_object_corba_objref(BONOBO_OBJECT(view->book_view)), &ev);
-
-			CORBA_exception_free (&ev);
-		}
-
-		g_object_unref(iterator);
-
-		g_object_unref (card);
+		g_hash_table_insert (bvcf->priv->contacts, id, g_strdup (req->vcard));
 
 		g_free (old_vcard_string);
 
@@ -530,58 +412,6 @@ pas_backend_vcf_process_get_card_list (PASBackendSync *backend,
 	return GNOME_Evolution_Addressbook_Success;
 }
 
-static PASBackendSyncStatus
-pas_backend_vcf_process_get_book_view (PASBackendSync *backend,
-					PASBook        *book,
-					PASGetBookViewRequest *req,
-					PASBookView   **view_out)
-{
-	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
-	PASBookView       *book_view;
-	PASBackendVCFBookView view;
-	PASBackendCardSExp *card_sexp;
-	bonobo_object_ref(BONOBO_OBJECT(book));
-
-	printf ("pas_backend_vcf_process_get_book_view (%s)\n", req->search);
-
-	card_sexp = pas_backend_card_sexp_new (req->search);
-	if (!card_sexp) {
-		*view_out = NULL;
-		/* XXX this needs to be an invalid query error of some sort*/
-		return GNOME_Evolution_Addressbook_CardNotFound;
-	}
-
-	printf ("pas_book_view_new\n");
-	book_view = pas_book_view_new (PAS_BACKEND (backend), req->listener, req->search, card_sexp);
-	printf ("done\n");
-	if (!book_view) {
-		g_object_unref (card_sexp);
-		*view_out = NULL;
-		
-		/* XXX this needs to be something else */
-		return GNOME_Evolution_Addressbook_CardNotFound;
-	}
-
-	g_object_weak_ref (G_OBJECT (book_view), view_destroy, book);
-
-	view.book_view = book_view;
-	view.search = g_strdup (req->search);
-
-	e_list_append(bvcf->priv->book_views, &view);
-
-#if 0
-	iterator = e_list_get_iterator(bvcf->priv->book_views);
-	e_iterator_last(iterator);
-	printf ("calling pas_backend_vcf_search\n");
-	pas_backend_vcf_search (bvcf, book, e_iterator_get(iterator));
-	g_object_unref(iterator);
-#endif
-
-	*view_out = book_view;
-
-	return GNOME_Evolution_Addressbook_Success;
-}
-
 static void
 pas_backend_vcf_start_book_view (PASBackend  *backend,
 				 PASBookView *book_view)
@@ -607,26 +437,17 @@ pas_backend_vcf_process_authenticate_user (PASBackendSync *backend,
 
 static PASBackendSyncStatus
 pas_backend_vcf_process_get_supported_fields (PASBackendSync *backend,
-					       PASBook    *book,
-					       PASGetSupportedFieldsRequest *req,
-					       GList **fields_out)
+					      PASBook    *book,
+					      PASGetSupportedFieldsRequest *req,
+					      GList **fields_out)
 {
 	GList *fields = NULL;
-	ECardSimple *simple;
-	ECard *card;
 	int i;
 
-	/* we support everything, so instantiate an e-card, and loop
-           through all fields, adding their ecard_fields. */
-
-	card = e_card_new ("");
-	simple = e_card_simple_new (card);
-
-	for (i = 0; i < E_CARD_SIMPLE_FIELD_LAST; i ++)
-		fields = g_list_append (fields, (char*)e_card_simple_get_ecard_field (simple, i));
-
-	g_object_unref (card);
-	g_object_unref (simple);
+	/* XXX we need a way to say "we support everything", since the
+	   vcf backend does */
+	for (i = 0; i < E_CONTACT_FIELD_LAST; i ++)
+		fields = g_list_append (fields, (char*)e_contact_field_name (i));		
 
 	*fields_out = fields;
 	return GNOME_Evolution_Addressbook_Success;
@@ -634,7 +455,8 @@ pas_backend_vcf_process_get_supported_fields (PASBackendSync *backend,
 
 #define INITIAL_VCARD "BEGIN:VCARD\n\
 X-EVOLUTION-FILE-AS:Ximian, Inc.\n\
-LABEL;WORK;QUOTED-PRINTABLE:401 Park Drive  3 West=0ABoston, MA 02215=0AUSA\n\
+FN:Ximian, Inc.\n\
+LABEL;WORK:401 Park Drive  3 West\\nBoston, MA 02215\\nUSA\n\
 TEL;WORK;VOICE:(617) 375-3800\n\
 TEL;WORK;FAX:(617) 236-8630\n\
 EMAIL;INTERNET:hello@ximian.com\n\
@@ -643,7 +465,7 @@ ORG:Ximian, Inc.;\n\
 NOTE:Welcome to the Ximian Addressbook.\n\
 END:VCARD"
 
-static GNOME_Evolution_Addressbook_BookListenerCallStatus
+static GNOME_Evolution_Addressbook_CallStatus
 pas_backend_vcf_load_uri (PASBackend             *backend,
 			   const char             *uri)
 {
@@ -679,7 +501,7 @@ pas_backend_vcf_load_uri (PASBackend             *backend,
 
 				if (g_file_test(create_initial_vcf, G_FILE_TEST_EXISTS)) {
 					char *id;
-					id = do_create(bvcf, INITIAL_VCARD, NULL, FALSE);
+					id = do_create(bvcf, INITIAL_VCARD, FALSE);
 					save_file (bvcf);
 					g_free (id);
 				}
@@ -711,6 +533,12 @@ static char *
 pas_backend_vcf_get_static_capabilities (PASBackend *backend)
 {
 	return g_strdup("local,do-initial-query");
+}
+
+static GNOME_Evolution_Addressbook_CallStatus
+pas_backend_vcf_cancel_operation (PASBackend *backend, PASBook *book, PASCancelOperationRequest *req)
+{
+	return GNOME_Evolution_Addressbook_CouldNotCancel;
 }
 
 static gboolean
@@ -761,7 +589,6 @@ pas_backend_vcf_dispose (GObject *object)
 			bvcf->priv->flush_timeout_tag = 0;
 		}
 
-		g_object_unref(bvcf->priv->book_views);
 		g_free (bvcf->priv->uri);
 		g_free (bvcf->priv->filename);
 
@@ -788,13 +615,13 @@ pas_backend_vcf_class_init (PASBackendVCFClass *klass)
 	backend_class->load_uri                = pas_backend_vcf_load_uri;
 	backend_class->get_static_capabilities = pas_backend_vcf_get_static_capabilities;
 	backend_class->start_book_view         = pas_backend_vcf_start_book_view;
+	backend_class->cancel_operation        = pas_backend_vcf_cancel_operation;
 
 	sync_class->create_card_sync           = pas_backend_vcf_process_create_card;
 	sync_class->remove_cards_sync          = pas_backend_vcf_process_remove_cards;
 	sync_class->modify_card_sync           = pas_backend_vcf_process_modify_card;
 	sync_class->get_vcard_sync             = pas_backend_vcf_process_get_vcard;
 	sync_class->get_card_list_sync         = pas_backend_vcf_process_get_card_list;
-	sync_class->get_book_view_sync         = pas_backend_vcf_process_get_book_view;
 	sync_class->authenticate_user_sync     = pas_backend_vcf_process_authenticate_user;
 	sync_class->get_supported_fields_sync  = pas_backend_vcf_process_get_supported_fields;
 
@@ -807,7 +634,6 @@ pas_backend_vcf_init (PASBackendVCF *backend)
 	PASBackendVCFPrivate *priv;
 
 	priv             = g_new0 (PASBackendVCFPrivate, 1);
-	priv->book_views = e_list_new((EListCopyFunc) pas_backend_vcf_book_view_copy, (EListFreeFunc) pas_backend_vcf_book_view_free, NULL);
 	priv->uri        = NULL;
 
 	backend->priv = priv;
