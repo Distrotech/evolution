@@ -1,3 +1,8 @@
+2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
+
+	* e-summary-calendar.c:
+	* e-summary-tasks.c: adapted to changes in cal_client_get_object.
+
 2003-07-23  Dan Winship  <danw@ximian.com>
 
 	* e-summary-factory.c (e_summary_factory_new_control): Fix a
