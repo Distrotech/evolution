@@ -62,7 +62,7 @@ struct _CamelGroupwiseSummaryClass {
 } ;
 
 
-CamelType camel_gw_summary_get_type (void) ;
+CamelType camel_groupwise_summary_get_type (void) ;
 
 CamelFolderSummary *camel_groupwise_summary_new (struct _CamelFolder *folder, const char *filename) ;
 

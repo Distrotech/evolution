@@ -49,6 +49,8 @@ static gboolean groupwise_send_to (CamelTransport *transport,
 
 static gboolean groupwise_connect (CamelService *service, CamelException *ex) ;
 static char *groupwise_transport_get_name (CamelService *service, gboolean brief) ;
+static void groupwise_transport_construct (CamelService *service, CamelSession *session,
+					   CamelProvider *provider, CamelURL *url, CamelException *ex) ;
 
 
 static CamelTransportClass *parent_class = NULL ;
@@ -64,8 +66,11 @@ camel_groupwise_transport_class_init (CamelGroupwiseTransportClass *camel_groupw
 	CamelServiceClass *camel_service_class =
 		CAMEL_SERVICE_CLASS (camel_groupwise_transport_class);
 	
+	parent_class = CAMEL_TRANSPORT_CLASS (camel_type_get_global_classfuncs (camel_transport_get_type ()));
+	
 	camel_service_class->connect = groupwise_connect ;
 	camel_service_class->get_name = groupwise_transport_get_name ;
+	camel_service_class->construct = groupwise_transport_construct ;
 	
 	/* virtual method overload */
 	camel_transport_class->send_to = groupwise_send_to ;
@@ -74,7 +79,17 @@ camel_groupwise_transport_class_init (CamelGroupwiseTransportClass *camel_groupw
 static void
 camel_groupwise_transport_init (CamelTransport *transport)
 {
-	CamelGroupwiseTransport *gw_transport = CAMEL_GROUPWISE_TRANSPORT (transport) ;
+	return ;
+}
+
+static void
+groupwise_transport_construct (CamelService *service, CamelSession *session,
+		CamelProvider *provider, CamelURL *url,
+		CamelException *ex)
+{
+	CAMEL_SERVICE_CLASS (parent_class)->construct (service, session, provider, url, ex);
+	if (camel_exception_is_set (ex))
+		return;
 }
 
 CamelType
@@ -111,8 +126,6 @@ static char *groupwise_transport_get_name (CamelService *service, gboolean brief
 static gboolean
 groupwise_connect (CamelService *service, CamelException *ex)
 {
-	CamelGroupwiseTransport *gw_transport = CAMEL_GROUPWISE_TRANSPORT (service) ;
-
 	return TRUE ;
 
 }
@@ -123,8 +136,6 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 		  CamelAddress *from, CamelAddress *recipients,
 		  CamelException *ex)
 {
-	CamelMultipart *multipart ;
-	CamelGroupwiseTransport *gw_transport = CAMEL_GROUPWISE_TRANSPORT (transport) ;
 	CamelService *service = CAMEL_SERVICE(transport) ;
 
 	CamelStore *store =  NULL ;
@@ -134,25 +145,20 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 	
 	CamelStreamMem *content ;
 	
-	gboolean has_8bit_parts ;
 	EGwItem *item ;
 	EGwConnection *cnc = NULL;
 	EGwConnectionStatus status ;
 	EGwItemRecipient *recipient ;
 	
-	CamelInternetAddress *to_addr ;
-	CamelInternetAddress *cc_addr ;
-	CamelInternetAddress *bcc_addr ;
 	int total_add ;
 
 	CamelDataWrapper *dw ;
-	CamelStream *stream ;
 	CamelMimePart *mime_part = CAMEL_MIME_PART(message) ;
 	
 	guint part_count ;
-	char buffer[23] = {0};
 	GSList *list = NULL, *recipient_list = NULL ;
 	char *url = NULL ;
+	char *buffer = NULL ;
 	int i ;
 
 	item = e_gw_item_new_empty () ;
@@ -161,7 +167,7 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 			 CAMEL_URL_HIDE_PARAMS|
 			 CAMEL_URL_HIDE_AUTH) );
 	
-	g_print ("||||||| Works Dude :%s||\n", url) ;
+	camel_operation_start (NULL, _("Sending message")) ;
 
 	/* Get a pointer to the store and the CNC. The idea is to get the session information,
 	 * so that we neednt make a connection again.
@@ -175,7 +181,8 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 
 	cnc = cnc_lookup (priv) ;
 	if (!cnc) {
-		g_print ("||| Eh!!! Failure |||\n") ;		
+		g_print ("||| Eh!!! Failure |||\n") ;
+		camel_operation_end (NULL) ;
 		return FALSE ;
 	}
 
@@ -185,6 +192,7 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 	dw = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
 	if(!dw) {
 		g_print ("ERROR: Could not get Datawrapper") ;
+		camel_operation_end (NULL) ;
 		return FALSE ;
 	}
 
@@ -195,17 +203,28 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 		part_count = camel_multipart_get_number (CAMEL_MULTIPART(dw)) ;
 		g_print ("Multipart message : %d\n",part_count) ;
 		for (i=0 ; i<part_count ; i++) {
-			CamelMimePart *part = camel_multipart_get_part (CAMEL_MULTIPART(dw),i) ; 
 			CamelContentType *type  ;
-			
-			type = camel_mime_part_get_content_type(CAMEL_MULTIPART(dw)) ;
+			CamelMimePart *part ;
+			CamelStreamMem *content = (CamelStreamMem *)camel_stream_mem_new();
+			const char *disposition, *filename ; 
+		
+			part = camel_multipart_get_part (CAMEL_MULTIPART(dw), i) ;
+
+			camel_data_wrapper_decode_to_stream(CAMEL_DATA_WRAPPER(part), (CamelStream *)content);
+			type = camel_mime_part_get_content_type(part) ;
+			filename = camel_mime_part_get_filename (part) ;
+			disposition = camel_mime_part_get_disposition (part) ;
+	
+			g_free ((char *)filename) ;
+			g_free ((char *)disposition) ;
+			camel_content_type_unref (type) ;
+			camel_object_unref (content) ;
 		}
 
 	} else {
 		CamelContentType *type  ;
 		CamelStream *stream = camel_stream_mem_new () ;
-		int count, c1 ;
-		char *buff = NULL ;
+		int count ;
 		
 		type = camel_data_wrapper_get_mime_type_field(dw) ;
 		g_print ("Does not contain multiple parts : %s\n",type->type) ;
@@ -216,11 +235,11 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 	}
 
 	/*Populate the item structure to send it to the GW server*/
-	g_print ("|| SUbject : %s |||\n", camel_mime_message_get_subject (message)) ;
+	g_print ("|| Subject : %s |||\n", camel_mime_message_get_subject (message)) ;
 	total_add = camel_address_length (recipients) ;
 	for (i=0 ; i<total_add ; i++) {
-		char *name = NULL, *addr = NULL ;
-		if(camel_internet_address_get (recipients, i , &name, &addr )) {
+		const char *name = NULL, *addr = NULL ;
+		if(camel_internet_address_get ((CamelInternetAddress *)recipients, i , &name, &addr )) {
 			
 			recipient = g_new0 (EGwItemRecipient, 1);
 		
@@ -236,9 +255,10 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 
 	e_gw_item_set_item_type (item, E_GW_ITEM_TYPE_MAIL) ;
 	e_gw_item_set_subject (item, camel_mime_message_get_subject(message)) ;
-
 	
-	e_gw_item_set_message (item, content->buffer->data);
+	buffer = g_malloc0 (content->buffer->len+1) ;
+	buffer = memcpy (buffer, content->buffer->data, content->buffer->len) ;
+	e_gw_item_set_message (item, buffer);
 
 
 	
@@ -246,32 +266,23 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 	status = e_gw_connection_send_item (cnc, item, &list) ;
 	if (status != E_GW_CONNECTION_STATUS_OK) {
 		g_print (" Error Sending mail") ;
+		camel_operation_end (NULL) ;
+		g_free (buffer) ;
 		return FALSE ;
 	}
 	
 	g_object_unref (item) ;
 	g_slist_free (list) ;
 	g_slist_free (recipient_list) ;
+
+	camel_object_unref(content) ;
+	
+	camel_operation_end (NULL) ;
+
+	g_free (buffer) ;
+
 	return TRUE;
 }
 	
 
 
-/**********************************
-	dw = camel_data_wrapper_new ();
-	stream = camel_stream_mem_new () ;
-
-	mime_part = (CamelMimePart *)message ;
-	dw = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part)) ;
-
-	count = camel_data_wrapper_write_to_stream (dw, stream) ;
-		
-	camel_stream_read (stream, buffer, count) ;
-	if (!buffer) {
-		g_print ("Error: Could not get buffer\n") ;
-		return FALSE ;
-	}
-		
-	g_print ("Buffer : \n %s \n", buffer) ;
-
-	*********************************/

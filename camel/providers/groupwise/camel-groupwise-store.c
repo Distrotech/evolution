@@ -103,7 +103,6 @@ static  GList *groupwise_store_query_auth_types (CamelService *service, CamelExc
 
 static CamelFolderInfo *groupwise_build_folder_info(CamelGroupwiseStore *gw_store, const char *parent_name, const char *folder_name) ;
 
-static GPtrArray *get_folders (CamelStore *store, const char *top, guint32 flags, CamelException *ex) ;
 
 static CamelFolderInfo *groupwise_get_folder_info_online (CamelStore *store, const char *top, guint32 flags, CamelException *ex) ;
 
@@ -129,6 +128,7 @@ static gboolean  groupwise_can_work_offline (CamelDiscoStore *disco_store);
 
 static void free_hash (gpointer key, gpointer value, gpointer data) ;
 	
+static void update_folder_counts (CamelGroupwiseStore *gw_store, CamelFolderInfo *fi, CamelException *ex) ;
 
 /*End of prototypes*/
 
@@ -428,10 +428,7 @@ groupwise_connect_online (CamelService *service, CamelException *ex)
 {
 	CamelGroupwiseStore *groupwise_store = CAMEL_GROUPWISE_STORE (service);
 	CamelGroupwiseStorePrivate *priv = groupwise_store->priv;
-	CamelSession *session = camel_service_get_session (service);
 	CamelDiscoStore *disco_store = CAMEL_DISCO_STORE (service);
-	char *uri;
-	char *prompt;
 	char *path;
 	d("in groupwise store connect\n");
 	CAMEL_SERVICE_LOCK (service, connect_lock);
@@ -537,6 +534,7 @@ groupwise_get_folder_online( CamelStore *store,
 	EGwConnectionStatus status ;
 	GList *list = NULL ;
 
+	g_print ("||GW:Get folder online\n") ;
 	temp_name = folder_name ;
 	temp_str = strrchr(folder_name,'/') ;
 	if(temp_str == NULL) {
@@ -552,6 +550,8 @@ groupwise_get_folder_online( CamelStore *store,
 	status = e_gw_connection_get_items (priv->cnc, container_id, "attachments", NULL, &list) ;
 	if (status != E_GW_CONNECTION_STATUS_OK) {
 		camel_exception_set (ex, CAMEL_EXCEPTION_SERVICE_INVALID, _("Authentication failed"));
+		g_free (container_id) ;
+		camel_operation_end (NULL);
 		return NULL;
 	}
 	storage_path = g_strdup_printf("%s/folders", priv->storage_path);
@@ -570,7 +570,6 @@ groupwise_get_folder_online( CamelStore *store,
 		
 		/*gw_folder_selected() ;*/
 		
-		count = camel_folder_summary_count (folder->summary) ;
 		gw_update_summary (folder, list,  ex) ;
 
 		count = camel_folder_summary_count (folder->summary) ;
@@ -658,22 +657,7 @@ groupwise_build_folder_info(CamelGroupwiseStore *gw_store, const char *parent_na
 }
 
 
-static GPtrArray *
-get_folders (CamelStore *store, const char *top, guint32 flags, CamelException *ex)
-{
-	return NULL ;
-}
-
-
-
-static void 
-print_entry (gpointer key, gpointer data, gpointer user_data)
-{
-	g_print ("|| key :%-10s || == || value: %-10s ||\n",(gchar*)key, (gchar*)data ) ;
-	//	g_print ("|| value: %-10s ||\n", (gchar*)data ) ;
-}
-
-static 	CamelFolderInfo *
+CamelFolderInfo *
 groupwise_get_folder_info_online (CamelStore *store,
 				       const char *top,
 				       guint32 flags,
@@ -685,9 +669,10 @@ groupwise_get_folder_info_online (CamelStore *store,
 	GPtrArray *folders;
 	GList *folder_list = NULL, *temp_list = NULL ;
 	const char *url, *top_folder;
-	char *temp_str ;
+	char *temp_str = NULL;
 	CamelFolderInfo *info = NULL ;
 
+	g_print ("||GW:Get folder info online\n") ;
 	if (!E_IS_GW_CONNECTION( priv->cnc)) {
 		if (!groupwise_connect_online (CAMEL_SERVICE(store), ex)) {
 			camel_exception_set (ex, CAMEL_EXCEPTION_SERVICE_CANT_AUTHENTICATE, _("Authentication failed"));
@@ -708,12 +693,12 @@ groupwise_get_folder_info_online (CamelStore *store,
 
 	
 	status = e_gw_connection_get_container_list (priv->cnc, top_folder, &folder_list);
-	if (status != E_GW_CONNECTION_STATUS_OK) {
+	if (status != E_GW_CONNECTION_STATUS_OK ) {
 		/*FIX ME set the camel exception id*/
 		return NULL;
 	}
 	status = e_gw_connection_get_container_list (priv->cnc, top_folder, &temp_list);
-	if (status != E_GW_CONNECTION_STATUS_OK) {
+	if (status != E_GW_CONNECTION_STATUS_OK ) {
 		/*FIX ME set the camel exception id*/
 		return NULL;
 	}
@@ -751,7 +736,7 @@ groupwise_get_folder_info_online (CamelStore *store,
 
 	for (; folder_list != NULL; folder_list = g_list_next(folder_list)) {
 		CamelFolderInfo *fi;
-		const char *parent,  *orig_key ;
+		const char *parent ;
 		gchar *par_name = NULL;
 		
 		if (e_gw_container_is_root (E_GW_CONTAINER(folder_list->data))) 
@@ -796,12 +781,7 @@ groupwise_get_folder_info_online (CamelStore *store,
 		}
 		
 		g_ptr_array_add (folders, fi);
-
 		
-		//g_free (parent) ;
-		//g_free (par_name) ;
-		//fi = parent = par_name = NULL ;
-		//fi = NULL ;
 		
 	}
 	if ( (top != NULL) && (folders->len == 0)) {
@@ -814,6 +794,11 @@ groupwise_get_folder_info_online (CamelStore *store,
 	info = camel_folder_info_build (folders, NULL, '/', FALSE) ;
 	g_ptr_array_free (folders, TRUE) ;
 
+	/*Now update the folder counts, the idea is taken from the imap provider implementation*/
+	if (!(flags & CAMEL_STORE_FOLDER_INFO_FAST))
+		update_folder_counts (groupwise_store, info, ex) ;
+
+	//	camel_store_summary_save ((CamelStoreSummary *)groupwise_store->summary) ;
 	return info ;
 }
 
@@ -955,7 +940,6 @@ groupwise_rename_folder(CamelStore *store,
 					  const char *new_name,
 					  CamelException *ex)
 {
-	CamelGroupwiseStore *groupwise_store = CAMEL_GROUPWISE_STORE (store);
 	/*	CamelGroupwiseStorePrivate  *priv = groupwise_store->priv;
 		char *oldpath, *newpath, *storepath, *newname ;*/
 
@@ -984,7 +968,6 @@ groupwise_forget_folder (CamelGroupwiseStore *gw_store, const char *folder_name,
 	/**** IMPLEMENT MESSAGE CACHE *****/
 	CamelFolderSummary *summary;
 	CamelGroupwiseStorePrivate *priv = gw_store->priv ;
-	CamelGroupwiseMessageCache *cache ;
 	char *summary_file, *state_file;
 	char *folder_dir, *storage_path;
 	CamelFolderInfo *fi;
@@ -1082,4 +1065,72 @@ free_hash (gpointer key, gpointer value, gpointer data)
 		g_free (value) ;
 	if (key)
 		g_free (key) ;
+}
+
+
+/*This should be called with connect_lock
+ *
+ * This function is an implementation based on 'get_folder_counts' in the IMAP
+ * provider.
+ */
+static void
+update_folder_counts (CamelGroupwiseStore *gw_store, CamelFolderInfo *fi, CamelException *ex)
+{
+	GSList *q ;
+	CamelFolder *folder ;
+
+	/*non-recursive breadth first search*/
+	q = g_slist_append (NULL, fi) ;
+
+	while (q) {
+		fi = q->data ;
+		q = g_slist_remove_link (q, q) ;
+
+		while (fi) {
+
+			if ( (fi->flags & CAMEL_FOLDER_NOSELECT) == 0) {
+				
+				/*Update the counts for the selected folder*/
+				if (gw_store->current_folder &&
+				    strcmp (gw_store->current_folder->full_name, fi->full_name) == 0) {
+
+					CAMEL_FOLDER_CLASS (CAMEL_OBJECT_GET_CLASS(gw_store->current_folder))->refresh_info(gw_store->current_folder, ex);
+					fi->unread = camel_folder_get_unread_message_count (gw_store->current_folder);
+					fi->total = camel_folder_get_message_count(gw_store->current_folder);
+				} else {
+					/*Update the counts for all the other folders*/
+					g_print ("|| GW:Other folder:%s||\n", fi->full_name) ;
+					/*TODO: We have to somehow get the folder counts*/
+					folder = camel_object_bag_peek(CAMEL_STORE(gw_store)->folders, fi->full_name);
+					if (folder) {
+						if (fi->unread != camel_folder_get_unread_message_count(folder)) {
+							CAMEL_FOLDER_CLASS (CAMEL_OBJECT_GET_CLASS(folder))->refresh_info(folder, ex);
+							fi->unread = camel_folder_get_unread_message_count(folder);
+							fi->total = camel_folder_get_message_count(folder);
+						}
+						camel_object_unref(folder);
+					}
+
+				}
+			} else {
+				fi->unread = -1;
+				fi->total = -1;
+				folder = camel_object_bag_peek(CAMEL_STORE(gw_store)->folders, fi->full_name);
+				if (folder) {
+					if ((fi->flags & CAMEL_STORE_FOLDER_INFO_FAST) == 0)
+						/* we use connect lock for everything, so this should be safe */
+						CAMEL_FOLDER_CLASS (CAMEL_OBJECT_GET_CLASS(folder))->refresh_info(folder, NULL);
+					fi->unread = camel_folder_get_unread_message_count(folder);
+					fi->total = camel_folder_get_message_count(folder);
+					camel_object_unref(folder);
+				} else {
+					g_print ("||| GW: Have to implement store summary|||\n") ;
+				}
+
+			}
+			if (fi->child)
+				q = g_slist_append (q, fi->child) ;
+			fi = fi->next ;
+		}
+	}
 }

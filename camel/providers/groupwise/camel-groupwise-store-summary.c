@@ -47,12 +47,6 @@
 static int summary_header_load(CamelStoreSummary *, FILE *);
 static int summary_header_save(CamelStoreSummary *, FILE *);
 
-static CamelStoreInfo * store_info_load(CamelStoreSummary *, FILE *);
-static int               store_info_save(CamelStoreSummary *, FILE *, CamelStoreInfo *);
-static void              store_info_free(CamelStoreSummary *, CamelStoreInfo *);
-
-static const char *store_info_string(CamelStoreSummary *, const CamelStoreInfo *, int);
-static void store_info_set_string(CamelStoreSummary *, CamelStoreInfo *, int, const char *);
 
 static void camel_groupwise_store_summary_class_init (CamelGroupwiseStoreSummaryClass *klass);
 static void camel_groupwise_store_summary_init       (CamelGroupwiseStoreSummary *obj);
@@ -118,12 +112,14 @@ camel_groupwise_store_summary_new (void)
 static int
 summary_header_load(CamelStoreSummary *s, FILE *in)
 {
+	return 0 ;
 }
 
 
 static int
 summary_header_save(CamelStoreSummary *s, FILE *out)
 {
+	return 0 ;
 }
 
 
