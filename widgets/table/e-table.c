@@ -40,11 +40,21 @@
 static GtkObjectClass *e_table_parent_class;
 
 enum {
-	ROW_SELECTION,
 	CURSOR_CHANGE,
 	DOUBLE_CLICK,
 	RIGHT_CLICK,
 	KEY_PRESS,
+
+	TABLE_DRAG_BEGIN,
+	TABLE_DRAG_END,
+	TABLE_DRAG_DATA_GET,
+	TABLE_DRAG_DATA_DELETE,
+
+	TABLE_DRAG_LEAVE,
+	TABLE_DRAG_MOTION,
+	TABLE_DRAG_DROP,
+	TABLE_DRAG_DATA_RECEIVED,
+
 	LAST_SIGNAL
 };
 
@@ -61,6 +71,47 @@ static gint et_signals [LAST_SIGNAL] = { 0, };
 
 static void e_table_fill_table (ETable *e_table, ETableModel *model);
 static gboolean changed_idle (gpointer data);
+
+static void et_drag_begin (GtkWidget *widget,
+			   GdkDragContext *context,
+			   ETable *et);
+static void et_drag_end (GtkWidget *widget,
+			 GdkDragContext *context,
+			 ETable *et);
+static void et_drag_data_get(GtkWidget *widget,
+			     GdkDragContext *context,
+			     GtkSelectionData *selection_data,
+			     guint info,
+			     guint time,
+			     ETable *et);
+static void et_drag_data_delete(GtkWidget *widget,
+				GdkDragContext *context,
+				ETable *et);
+
+static void et_drag_leave(GtkWidget *widget,
+			  GdkDragContext *context,
+			  guint time,
+			  ETable *et);
+static gboolean et_drag_motion(GtkWidget *widget,
+			       GdkDragContext *context,
+			       gint x,
+			       gint y,
+			       guint time,
+			       ETable *et);
+static gboolean et_drag_drop(GtkWidget *widget,
+			     GdkDragContext *context,
+			     gint x,
+			     gint y,
+			     guint time,
+			     ETable *et);
+static void et_drag_data_received(GtkWidget *widget,
+				  GdkDragContext *context,
+				  gint x,
+				  gint y,
+				  GtkSelectionData *selection_data,
+				  guint info,
+				  guint time,
+				  ETable *et);
 
 static void
 et_destroy (GtkObject *object)
@@ -124,6 +175,16 @@ e_table_init (GtkObject *object)
 	e_table->rebuild_idle_id = 0;
 	
 	e_table->click_to_add_message = NULL;
+
+	e_table->drag_get_data_row = -1;
+	e_table->drag_get_data_col = -1;
+	e_table->drag_row = -1;
+	e_table->drag_col = -1;
+	e_table->drop_row = -1;
+	e_table->drop_col = -1;
+
+	e_table->selection = e_table_selection_model_new();
+	e_table->cursor_loc = E_TABLE_CURSOR_LOC_NONE;
 }
 
 static void
@@ -211,20 +272,21 @@ table_canvas_reflow (GnomeCanvas *canvas, ETable *e_table)
 }
 
 static void
-group_row_selection (ETableGroup *etg, int row, gboolean selected, ETable *et)
+click_to_add_cursor_change (ETableClickToAdd *etcta, int row, int col, ETable *et)
 {
-	gtk_signal_emit (GTK_OBJECT (et),
-			 et_signals [ROW_SELECTION],
-			 row, selected);
-	if (et->row_selection_active && selected) {
-		e_table_click_to_add_commit (E_TABLE_CLICK_TO_ADD(et->click_to_add));
-		et->row_selection_active = FALSE;
+	if (et->cursor_loc == E_TABLE_CURSOR_LOC_TABLE) {
+		e_table_selection_model_clear(et->selection);
 	}
+	et->cursor_loc = E_TABLE_CURSOR_LOC_ETCTA;
 }
 
 static void
 group_cursor_change (ETableGroup *etg, int row, ETable *et)
 {
+	if (et->cursor_loc == E_TABLE_CURSOR_LOC_ETCTA && et->click_to_add) {
+		e_table_click_to_add_commit(E_TABLE_CLICK_TO_ADD(et->click_to_add));
+	}
+	et->cursor_loc = E_TABLE_CURSOR_LOC_TABLE;
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [CURSOR_CHANGE],
 			 row);
@@ -277,9 +339,8 @@ changed_idle (gpointer data)
 				      "drawfocus", et->draw_focus,
 				      "cursor_mode", et->cursor_mode,
 				      "length_threshold", et->length_threshold,
+				      "table_selection_model", et->selection,
 				      NULL);
-		gtk_signal_connect (GTK_OBJECT (et->group), "row_selection",
-				    GTK_SIGNAL_FUNC (group_row_selection), et);
 		gtk_signal_connect (GTK_OBJECT (et->group), "cursor_change",
 				    GTK_SIGNAL_FUNC (group_cursor_change), et);
 		gtk_signal_connect (GTK_OBJECT (et->group), "double_click",
@@ -341,14 +402,6 @@ et_table_row_deleted (ETableModel *table_model, int row, ETable *et)
 }
 
 static void
-click_to_add_row_selection (ETableClickToAdd *etcta, int row, gboolean selected, ETable *et)
-{
-	if ((!et->row_selection_active) && selected) {
-		et->row_selection_active = TRUE;
-	}
-}
-
-static void
 e_table_setup_table (ETable *e_table, ETableHeader *full_header, ETableHeader *header,
 		     ETableModel *model)
 {
@@ -356,6 +409,31 @@ e_table_setup_table (ETable *e_table, ETableHeader *full_header, ETableHeader *h
 	gtk_signal_connect (
 		GTK_OBJECT (e_table->table_canvas), "size_allocate",
 		GTK_SIGNAL_FUNC (table_canvas_size_allocate), e_table);
+
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_begin",
+		GTK_SIGNAL_FUNC (et_drag_begin), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_end",
+		GTK_SIGNAL_FUNC (et_drag_end), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_data_get",
+		GTK_SIGNAL_FUNC (et_drag_data_get), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_data_delete",
+		GTK_SIGNAL_FUNC (et_drag_data_delete), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_motion",
+		GTK_SIGNAL_FUNC (et_drag_motion), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_leave",
+		GTK_SIGNAL_FUNC (et_drag_leave), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_drop",
+		GTK_SIGNAL_FUNC (et_drag_drop), e_table);
+	gtk_signal_connect (
+		GTK_OBJECT (e_table->table_canvas), "drag_data_received",
+		GTK_SIGNAL_FUNC (et_drag_data_received), e_table);
 	
 	gtk_signal_connect (GTK_OBJECT(e_table->table_canvas), "reflow",
 			    GTK_SIGNAL_FUNC (table_canvas_reflow), e_table);
@@ -376,10 +454,9 @@ e_table_setup_table (ETable *e_table, ETableHeader *full_header, ETableHeader *h
 							       "message", e_table->click_to_add_message,
 							       NULL);
 		
-		gtk_signal_connect(GTK_OBJECT(e_table->click_to_add), "row_selection",
-				   GTK_SIGNAL_FUNC(click_to_add_row_selection), e_table);				   
-		
 		e_canvas_vbox_add_item(E_CANVAS_VBOX(e_table->canvas_vbox), e_table->click_to_add);
+		gtk_signal_connect(GTK_OBJECT (e_table->click_to_add), "cursor_change",
+				   GTK_SIGNAL_FUNC(click_to_add_cursor_change), e_table);
 	}
 
 	e_table->group = e_table_group_new (
@@ -393,10 +470,9 @@ e_table_setup_table (ETable *e_table, ETableHeader *full_header, ETableHeader *h
 			      "drawfocus", e_table->draw_focus,
 			      "cursor_mode", e_table->cursor_mode,
 			      "length_threshold", e_table->length_threshold,
+			      "table_selection_model", e_table->selection,
 			      NULL);
 
-	gtk_signal_connect (GTK_OBJECT (e_table->group), "row_selection",
-			    GTK_SIGNAL_FUNC(group_row_selection), e_table);
 	gtk_signal_connect (GTK_OBJECT (e_table->group), "cursor_change",
 			    GTK_SIGNAL_FUNC(group_cursor_change), e_table);
 	gtk_signal_connect (GTK_OBJECT (e_table->group), "double_click",
@@ -523,6 +599,9 @@ et_real_construct (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
 
 	e_table->model = etm;
 	gtk_object_ref (GTK_OBJECT (etm));
+	gtk_object_set (GTK_OBJECT (e_table->selection),
+			"model", etm,
+			NULL);
 
 	gtk_widget_push_visual (gdk_rgb_get_visual ());
 	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
@@ -728,9 +807,9 @@ e_table_selected_row_foreach     (ETable *e_table,
 				  ETableForeachFunc callback,
 				  gpointer closure)
 {
-	e_table_group_selected_row_foreach(e_table->group,
-					   callback,
-					   closure);
+	e_table_selection_model_foreach(e_table->selection,
+					callback,
+					closure);
 }
 
 
@@ -836,6 +915,314 @@ set_scroll_adjustments   (ETable *table,
 				    hadjustment);
 }
 
+/* Drag & drop stuff. */
+/* Target */
+void e_table_drag_get_data (ETable         *table,
+			    int             row,
+			    int             col,
+			    GdkDragContext *context,
+			    GdkAtom         target,
+			    guint32         time)
+{
+	table->drag_get_data_row = row;
+	table->drag_get_data_col = col;
+	gtk_drag_get_data(GTK_WIDGET(table),
+			  context,
+			  target,
+			  time);
+	
+}
+
+void e_table_drag_highlight   (ETable     *table,
+			       int         row,
+			       int         col) /* col == -1 to highlight entire row. */
+{
+}
+
+void e_table_drag_unhighlight (ETable     *table)
+{
+}
+
+void e_table_drag_dest_set   (ETable               *table,
+			      GtkDestDefaults       flags,
+			      const GtkTargetEntry *targets,
+			      gint                  n_targets,
+			      GdkDragAction         actions)
+{
+	gtk_drag_dest_set(GTK_WIDGET(table),
+			  flags,
+			  targets,
+			  n_targets,
+			  actions);
+}
+
+void e_table_drag_dest_set_proxy (ETable         *table,
+				  GdkWindow      *proxy_window,
+				  GdkDragProtocol protocol,
+				  gboolean        use_coordinates)
+{
+	gtk_drag_dest_set_proxy(GTK_WIDGET(table),
+				proxy_window,
+				protocol,
+				use_coordinates);
+}
+
+/* There probably should be functions for setting the targets
+ * as a GtkTargetList
+ */
+
+void e_table_drag_dest_unset (GtkWidget          *widget)
+{
+	gtk_drag_dest_unset(widget);
+}
+
+/* Source side */
+
+void e_table_drag_source_set  (ETable               *table,
+			       GdkModifierType       start_button_mask,
+			       const GtkTargetEntry *targets,
+			       gint                  n_targets,
+			       GdkDragAction         actions)
+{
+	gtk_drag_source_set(GTK_WIDGET(table),
+			    start_button_mask,
+			    targets,
+			    n_targets,
+			    actions);
+}
+
+void e_table_drag_source_unset (ETable        *table)
+{
+	gtk_drag_source_unset(GTK_WIDGET(table));
+}
+
+/* There probably should be functions for setting the targets
+ * as a GtkTargetList
+ */
+
+GdkDragContext *
+e_table_drag_begin (ETable            *table,
+		    int     	       row,
+		    int     	       col,
+		    GtkTargetList     *targets,
+		    GdkDragAction      actions,
+		    gint               button,
+		    GdkEvent          *event)
+{
+	table->drag_row = row;
+	table->drag_col = col;
+
+	return gtk_drag_begin(GTK_WIDGET(table),
+			      targets,
+			      actions,
+			      button,
+			      event);
+}
+
+static void
+e_table_compute_location(ETable *table,
+			 GtkWidget *widget,
+			 int x,
+			 int y,
+			 int *row,
+			 int *col)
+{
+	if (!(row || col))
+		return;
+	if (row)
+		*row = 0;
+	if (col)
+		*col = 0;
+}
+
+static void
+et_drag_begin (GtkWidget *widget,
+	       GdkDragContext *context,
+	       ETable *et)
+{
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_BEGIN],
+			 et->drag_row,
+			 et->drag_col,
+			 context);
+}
+
+static void
+et_drag_end (GtkWidget *widget,
+	     GdkDragContext *context,
+	     ETable *et)
+{
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_END],
+			 et->drag_row,
+			 et->drag_col,
+			 context);
+}
+
+static void 
+et_drag_data_get(GtkWidget *widget,
+		 GdkDragContext *context,
+		 GtkSelectionData *selection_data,
+		 guint info,
+		 guint time,
+		 ETable *et)
+{
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_DATA_GET],
+			 et->drag_row,
+			 et->drag_col,
+			 context,
+			 selection_data,
+			 info,
+			 time);
+}
+
+static void 
+et_drag_data_delete(GtkWidget *widget,
+		    GdkDragContext *context,
+		    ETable *et)
+{
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_DATA_DELETE],
+			 et->drag_row,
+			 et->drag_col,
+			 context);
+}
+
+static void 
+et_drag_leave(GtkWidget *widget,
+	      GdkDragContext *context,
+	      guint time,
+	      ETable *et)
+{
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_LEAVE],
+			 et->drop_row,
+			 et->drop_col,
+			 context,
+			 time);
+	et->drop_row = -1;
+	et->drop_col = -1;
+}
+
+static gboolean
+et_drag_motion(GtkWidget *widget,
+	       GdkDragContext *context,
+	       gint x,
+	       gint y,
+	       guint time,
+	       ETable *et)
+{
+	gboolean ret_val;
+	int row, col;
+	e_table_compute_location(et,
+				 widget,
+				 x,
+				 y,
+				 &row,
+				 &col);
+	if (et->drop_row >= 0 && et->drop_col >= 0 &&
+	    row != et->drop_row && col != et->drop_row) {
+		gtk_signal_emit (GTK_OBJECT (et),
+				 et_signals [TABLE_DRAG_LEAVE],
+				 et->drop_row,
+				 et->drop_col,
+				 context,
+				 time);
+	}
+	et->drop_row = row;
+	et->drop_col = col;
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_MOTION],
+			 et->drop_row,
+			 et->drop_col,
+			 context,
+			 x,
+			 y,
+			 time,
+			 &ret_val);
+	return ret_val;
+}
+
+static gboolean
+et_drag_drop(GtkWidget *widget,
+	     GdkDragContext *context,
+	     gint x,
+	     gint y,
+	     guint time,
+	     ETable *et)
+{
+	gboolean ret_val;
+	int row, col;
+	e_table_compute_location(et,
+				 widget,
+				 x,
+				 y,
+				 &row,
+				 &col);
+	if (et->drop_row >= 0 && et->drop_col >= 0 &&
+	    row != et->drop_row && col != et->drop_row) {
+		gtk_signal_emit (GTK_OBJECT (et),
+				 et_signals [TABLE_DRAG_LEAVE],
+				 et->drop_row,
+				 et->drop_col,
+				 context,
+				 time);
+		gtk_signal_emit (GTK_OBJECT (et),
+				 et_signals [TABLE_DRAG_MOTION],
+				 row,
+				 col,
+				 context,
+				 x,
+				 y,
+				 time,
+				 &ret_val);
+	}
+	et->drop_row = row;
+	et->drop_col = col;
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_DROP],
+			 et->drop_row,
+			 et->drop_col,
+			 context,
+			 x,
+			 y,
+			 time,
+			 &ret_val);
+	et->drop_row = -1;
+	et->drop_col = -1;
+	return ret_val;
+}
+
+static void
+et_drag_data_received(GtkWidget *widget,
+		      GdkDragContext *context,
+		      gint x,
+		      gint y,
+		      GtkSelectionData *selection_data,
+		      guint info,
+		      guint time,
+		      ETable *et)
+{
+	int row, col;
+	e_table_compute_location(et,
+				 widget,
+				 x,
+				 y,
+				 &row,
+				 &col);
+	gtk_signal_emit (GTK_OBJECT (et),
+			 et_signals [TABLE_DRAG_MOTION],
+			 row,
+			 col,
+			 context,
+			 x,
+			 y,
+			 selection_data,
+			 info,
+			 time);
+}
+
 static void
 e_table_class_init (GtkObjectClass *object_class)
 {
@@ -844,23 +1231,24 @@ e_table_class_init (GtkObjectClass *object_class)
 
 	e_table_parent_class = gtk_type_class (PARENT_TYPE);
 
-	object_class->destroy = et_destroy;
-	object_class->set_arg = et_set_arg;
-	object_class->get_arg = et_get_arg;
-	
-	klass->row_selection = NULL;
-	klass->cursor_change = NULL;
-	klass->double_click = NULL;
-	klass->right_click = NULL;
-	klass->key_press = NULL;
+	object_class->destroy   	 = et_destroy;
+	object_class->set_arg   	 = et_set_arg;
+	object_class->get_arg   	 = et_get_arg;
 
-	et_signals [ROW_SELECTION] =
-		gtk_signal_new ("row_selection",
-				GTK_RUN_LAST,
-				object_class->type,
-				GTK_SIGNAL_OFFSET (ETableClass, row_selection),
-				gtk_marshal_NONE__INT_INT,
-				GTK_TYPE_NONE, 2, GTK_TYPE_INT, GTK_TYPE_INT);
+	klass->cursor_change    	 = NULL;
+	klass->double_click     	 = NULL;
+	klass->right_click      	 = NULL;
+	klass->key_press        	 = NULL;
+
+	klass->table_drag_begin           	 = NULL;
+	klass->table_drag_end             	 = NULL;
+	klass->table_drag_data_get        	 = NULL;
+	klass->table_drag_data_delete     	 = NULL;
+
+	klass->table_drag_leave                = NULL;
+	klass->table_drag_motion               = NULL;
+	klass->table_drag_drop                 = NULL;
+	klass->table_drag_data_received        = NULL;
 
 	et_signals [CURSOR_CHANGE] =
 		gtk_signal_new ("cursor_change",
@@ -894,6 +1282,103 @@ e_table_class_init (GtkObjectClass *object_class)
 				e_marshal_INT__INT_INT_POINTER,
 				GTK_TYPE_INT, 3, GTK_TYPE_INT, GTK_TYPE_INT, GTK_TYPE_POINTER);
 
+	et_signals[TABLE_DRAG_BEGIN] =
+		gtk_signal_new ("table_drag_begin",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_begin),
+				gtk_marshal_NONE__INT_INT_POINTER,
+				GTK_TYPE_NONE, 3,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT);
+	et_signals[TABLE_DRAG_END] =
+		gtk_signal_new ("table_drag_end",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_end),
+				gtk_marshal_NONE__INT_INT_POINTER,
+				GTK_TYPE_NONE, 3,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT);
+	et_signals[TABLE_DRAG_DATA_GET] =
+		gtk_signal_new ("table_drag_data_get",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_data_get),
+				e_marshal_NONE__INT_INT_POINTER_POINTER_UINT_UINT,
+				GTK_TYPE_NONE, 6,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT,
+				GTK_TYPE_SELECTION_DATA,
+				GTK_TYPE_UINT,
+				GTK_TYPE_UINT);
+	et_signals[TABLE_DRAG_DATA_DELETE] =
+		gtk_signal_new ("table_drag_data_delete",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_data_delete),
+				gtk_marshal_NONE__INT_INT_POINTER,
+				GTK_TYPE_NONE, 3,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT);
+
+	et_signals[TABLE_DRAG_LEAVE] =
+		gtk_signal_new ("table_drag_leave",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_leave),
+				e_marshal_NONE__INT_INT_POINTER_UINT,
+				GTK_TYPE_NONE, 4,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT,
+				GTK_TYPE_UINT);
+	et_signals[TABLE_DRAG_MOTION] =
+		gtk_signal_new ("table_drag_motion",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_motion),
+				e_marshal_BOOL__INT_INT_POINTER_INT_INT_UINT,
+				GTK_TYPE_BOOL, 6,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_UINT);
+	et_signals[TABLE_DRAG_DROP] =
+		gtk_signal_new ("table_drag_drop",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_drop),
+				e_marshal_BOOL__INT_INT_POINTER_INT_INT_UINT,
+				GTK_TYPE_BOOL, 6,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_UINT);
+	et_signals[TABLE_DRAG_DATA_RECEIVED] =
+		gtk_signal_new ("table_drag_data_received",
+				GTK_RUN_LAST,
+				object_class->type,
+				GTK_SIGNAL_OFFSET (ETableClass, table_drag_data_received),
+				e_marshal_NONE__INT_INT_POINTER_INT_INT_POINTER_UINT_UINT,
+				GTK_TYPE_NONE, 8,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_GDK_DRAG_CONTEXT,
+				GTK_TYPE_INT,
+				GTK_TYPE_INT,
+				GTK_TYPE_SELECTION_DATA,
+				GTK_TYPE_UINT,
+				GTK_TYPE_UINT);
+	
 	gtk_object_class_add_signals (object_class, et_signals, LAST_SIGNAL);
 
 	klass->set_scroll_adjustments = set_scroll_adjustments;
