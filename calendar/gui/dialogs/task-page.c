@@ -882,7 +882,7 @@ send_options_clicked_cb (GtkWidget *button, gpointer data)
 		priv->options_data = send_options_new ();
 
 	toplevel = gtk_widget_get_toplevel (priv->main);
-	result = send_options_run_dialog (toplevel, COMP_EDITOR_PAGE (tpage)->client, priv->options_data, TRUE);
+	result = send_options_run_dialog (toplevel, COMP_EDITOR_PAGE (tpage)->client, priv->options_data, FALSE);
 	priv->options_data->initialized = TRUE;
 	
 }

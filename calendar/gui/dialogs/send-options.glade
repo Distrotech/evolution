@@ -933,7 +933,7 @@ Mail Receipt
 			  <child>
 			    <widget class="GtkLabel" id="label108">
 			      <property name="visible">True</property>
-			      <property name="label" translatable="yes">When dele_ted:    </property>
+			      <property name="label" translatable="yes">When decli_ned:    </property>
 			      <property name="use_underline">True</property>
 			      <property name="use_markup">False</property>
 			      <property name="justify">GTK_JUSTIFY_LEFT</property>
@@ -973,7 +973,8 @@ Mail Receipt</property>
 			  <child>
 			    <widget class="GtkComboBox" id="complete-combo">
 			      <property name="visible">True</property>
-			      <property name="items" translatable="yes">None</property>
+			      <property name="items" translatable="yes">None
+Mail Receipt</property>
 			    </widget>
 			    <packing>
 			      <property name="left_attach">1</property>
@@ -1035,7 +1036,8 @@ Mail Receipt</property>
 			  <child>
 			    <widget class="GtkComboBox" id="open-combo">
 			      <property name="visible">True</property>
-			      <property name="items" translatable="yes">None</property>
+			      <property name="items" translatable="yes">None
+Mail Receipt</property>
 			    </widget>
 			    <packing>
 			      <property name="left_attach">1</property>
