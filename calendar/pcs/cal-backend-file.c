@@ -1623,6 +1623,9 @@ cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *c
 
 	mark_dirty (cbfile);
 
+	if (uid)
+		*uid = g_strdup (comp_uid);
+
 	return GNOME_Evolution_Calendar_Success;
 }
 
@@ -1635,6 +1638,7 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 	icalcomponent *icalcomp;
 	icalcomponent_kind kind;
 	const char *comp_uid;
+	CalComponent *comp;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
@@ -1653,10 +1657,13 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 	}
 
 	/* get the object from our cache */
-	if (!lookup_component (cbfile, icalcomponent_get_uid (icalcomp))) {
+	if (!(comp = lookup_component (cbfile, icalcomponent_get_uid (icalcomp)))) {
 		icalcomponent_free (icalcomp);
 		return GNOME_Evolution_Calendar_ObjectNotFound;
 	}
+
+	if (old_object)
+		*old_object = cal_component_as_string (comp);
 
 	/* update the object */
 	comp_uid = cal_backend_file_update_object (cbfile, icalcomp);

@@ -1,3 +1,9 @@
+2003-09-15  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c (cal_backend_file_create_object): return
+	the UID of the added object.
+	(cal_backend_file_remove_object): ditto for old_object.
+
 2003-09-15    <jpr@ximian.com>
 
 	* conduits/todo/todo-conduit.c (replace_record): switch to modify
