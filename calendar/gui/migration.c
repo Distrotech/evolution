@@ -34,6 +34,8 @@ process_calendar_dir (ESourceGroup *source_group, const char *path,
 	GnomeVFSURI *from, *to;
 	GnomeVFSResult vres;
 	ESource *source;
+	GDir *dir;
+	gboolean retval = TRUE;
 
 	s = g_build_filename (path, "calendar.ics", NULL);
 	if (!g_file_test (s, G_FILE_TEST_EXISTS)) {
@@ -77,9 +79,27 @@ process_calendar_dir (ESourceGroup *source_group, const char *path,
 	source = e_source_new (name, base_uri);
 	e_source_group_add_source (source_group, source, -1);
 
-	/* FIXME: process subfolders */
+	/* process subfolders */
+	s = g_build_filename (path, "subfolders", NULL);
+	dir = g_dir_open (s, 0, NULL);
+	if (dir) {
+		const char *name, *tmp_s;
 
-	return TRUE;
+		while ((name = g_dir_read_name (dir))) {
+			tmp_s = g_build_filename (s, name, NULL);
+			if (g_file_test (tmp_s, G_FILE_TEST_IS_DIR)) {
+				retval = process_calendar_dir (source_group, tmp_s, name, name);
+			}
+
+			g_free (tmp_s);
+		}
+
+		g_dir_close (dir);
+	}
+
+	g_free (s);
+
+	return retval;
 }
 
 gboolean
