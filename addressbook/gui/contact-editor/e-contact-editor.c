@@ -95,11 +95,14 @@ static void e_contact_editor_dispose (GObject *object);
 
 static void e_contact_editor_raise 	    (EABEditor *editor);
 static void e_contact_editor_show  	    (EABEditor *editor);
+static void e_contact_editor_save_contact   (EABEditor *editor, gboolean should_close);
 static void e_contact_editor_close 	    (EABEditor *editor);
 static gboolean e_contact_editor_is_valid   (EABEditor *editor);
 static gboolean e_contact_editor_is_changed (EABEditor *editor);
 static GtkWindow* e_contact_editor_get_window (EABEditor *editor);
 
+static void save_contact (EContactEditor *ce, gboolean should_close);
+static void entry_activated (EContactEditor *editor);
 static void enable_writable_fields(EContactEditor *editor);
 static void set_editable(EContactEditor *editor);
 static void fill_in_info(EContactEditor *editor);
@@ -234,6 +237,7 @@ e_contact_editor_class_init (EContactEditorClass *klass)
 	editor_class->show = e_contact_editor_show;
 	editor_class->close = e_contact_editor_close;
 	editor_class->is_valid = e_contact_editor_is_valid;
+	editor_class->save_contact = e_contact_editor_save_contact;
 	editor_class->is_changed = e_contact_editor_is_changed;
 	editor_class->get_window = e_contact_editor_get_window;
 
@@ -306,6 +310,7 @@ init_email_record_location (EContactEditor *editor, gint record)
 
 	g_signal_connect (location_option_menu, "changed", G_CALLBACK (widget_changed), editor);
 	g_signal_connect (email_entry, "changed", G_CALLBACK (widget_changed), editor);
+	g_signal_connect_swapped (email_entry, "activate", G_CALLBACK (entry_activated), editor);
 
 	location_menu = gtk_menu_new ();
 
@@ -812,6 +817,7 @@ init_phone_record_type (EContactEditor *editor, gint record)
 
 	g_signal_connect (phone_type_option_menu, "changed", G_CALLBACK (widget_changed), editor);
 	g_signal_connect (phone_entry, "changed", G_CALLBACK (widget_changed), editor);
+	g_signal_connect_swapped (phone_entry, "activate", G_CALLBACK (entry_activated), editor);
 
 	phone_type_menu = gtk_menu_new ();
 
@@ -854,6 +860,7 @@ init_im_record_location (EContactEditor *editor, gint record)
 
 	g_signal_connect (location_option_menu, "changed", G_CALLBACK (widget_changed), editor);
 	g_signal_connect (name_entry, "changed", G_CALLBACK (widget_changed), editor);
+	g_signal_connect_swapped (name_entry, "activate", G_CALLBACK (entry_activated), editor);
 
 	location_menu = gtk_menu_new ();
 
@@ -1071,6 +1078,7 @@ init_address_field (EContactEditor *editor, gint record, const gchar *widget_fie
 	g_free (entry_name);
 
 	g_signal_connect (entry, "changed", G_CALLBACK (widget_changed), editor);
+	g_signal_connect_swapped (entry, "activate", G_CALLBACK (entry_activated), editor);
 }
 
 static void
@@ -1488,87 +1496,107 @@ widget_changed (GtkWidget *widget, EContactEditor *editor)
 }
 
 static void
-set_entry_changed_signal_field(EContactEditor *editor, char *id)
+set_entry_changed_signal_field (EContactEditor *editor, char *id)
 {
 	GtkWidget *widget = glade_xml_get_widget(editor->gui, id);
-	if (widget && GTK_IS_ENTRY(widget))
-		g_signal_connect(widget, "changed",
-				 G_CALLBACK (field_changed), editor);
+
+	g_signal_connect (widget, "changed", G_CALLBACK (field_changed), editor);
 }
 
 static void
 set_urlentry_changed_signal_field (EContactEditor *editor, char *id)
 {
-	GtkWidget *widget = glade_xml_get_widget(editor->gui, id);
-	if (widget && E_IS_URL_ENTRY(widget)) {
-		GtkWidget *entry = e_url_entry_get_entry (E_URL_ENTRY (widget));
-		g_signal_connect (entry, "changed",
-				  G_CALLBACK (field_changed), editor);
-	}
+	GtkWidget *widget = glade_xml_get_widget (editor->gui, id);
+	GtkWidget *entry  = e_url_entry_get_entry (E_URL_ENTRY (widget));
+
+	g_signal_connect (entry, "changed", G_CALLBACK (field_changed), editor);
 }
 
 static void
-set_entry_changed_signals(EContactEditor *editor)
+entry_activated (EContactEditor *editor)
+{
+	save_contact (editor, TRUE);
+}
+
+static void
+set_entry_activate_signal_field (EContactEditor *editor, char *id)
+{
+	GtkWidget *widget = glade_xml_get_widget(editor->gui, id);
+
+	g_signal_connect_swapped (widget, "activate", G_CALLBACK (entry_activated), editor);
+}
+
+static void
+set_urlentry_activate_signal_field (EContactEditor *editor, char *id)
+{
+	GtkWidget *widget = glade_xml_get_widget (editor->gui, id);
+	GtkWidget *entry  = e_url_entry_get_entry (E_URL_ENTRY (widget));
+
+	g_signal_connect_swapped (entry, "activate", G_CALLBACK (entry_activated), editor);
+}
+
+/* This sort of sucks. We should really maintain a list of general entry widgets
+ * and special case just the ones that don't fit the pattern */
+
+static void
+set_entry_activate_signals (EContactEditor *editor)
+{
+	set_urlentry_activate_signal_field (editor, "entry-blog");
+	set_urlentry_activate_signal_field (editor, "entry-caluri");
+	set_urlentry_activate_signal_field (editor, "entry-fburl");
+	set_urlentry_activate_signal_field (editor, "entry-videourl");
+
+	set_entry_activate_signal_field (editor, "entry-fullname");
+	set_entry_activate_signal_field (editor, "entry-company");
+	set_entry_activate_signal_field (editor, "entry-categories");
+	set_entry_activate_signal_field (editor, "entry-jobtitle");
+	set_entry_activate_signal_field (editor, "entry-manager");
+	set_entry_activate_signal_field (editor, "entry-assistant");
+	set_entry_activate_signal_field (editor, "entry-department");
+	set_entry_activate_signal_field (editor, "entry-profession");
+	set_entry_activate_signal_field (editor, "entry-nickname");
+}
+
+static void
+set_entry_changed_signals (EContactEditor *editor)
 {
 	GtkWidget *widget;
 
-	widget = glade_xml_get_widget(editor->gui, "entry-fullname");
-	if (widget && GTK_IS_ENTRY(widget)) {
-		g_signal_connect (widget, "changed",
-				  G_CALLBACK (name_entry_changed), editor);
-	}
-
-	widget = glade_xml_get_widget(editor->gui, "entry-file-as");
-	if (widget && GTK_IS_ENTRY(widget)) {
-		g_signal_connect (widget, "changed",
-				  G_CALLBACK (file_as_entry_changed), editor);
-	}
-
-	widget = glade_xml_get_widget(editor->gui, "entry-company");
-	if (widget && GTK_IS_ENTRY(widget)) {
-		g_signal_connect (widget, "changed",
-				  G_CALLBACK (company_entry_changed), editor);
-	}
+	widget = glade_xml_get_widget (editor->gui, "entry-fullname");
+	g_signal_connect (widget, "changed", G_CALLBACK (name_entry_changed), editor);
+	widget = glade_xml_get_widget (editor->gui, "entry-file-as");
+	g_signal_connect (widget, "changed", G_CALLBACK (file_as_entry_changed), editor);
+	widget = glade_xml_get_widget (editor->gui, "entry-company");
+	g_signal_connect (widget, "changed", G_CALLBACK (company_entry_changed), editor);
 
 	set_urlentry_changed_signal_field (editor, "entry-blog");
 	set_urlentry_changed_signal_field (editor, "entry-caluri");
 	set_urlentry_changed_signal_field (editor, "entry-fburl");
 	set_urlentry_changed_signal_field (editor, "entry-videourl");
 
-	set_entry_changed_signal_field(editor, "entry-categories");
-	set_entry_changed_signal_field(editor, "entry-jobtitle");
-	set_entry_changed_signal_field(editor, "entry-manager");
-	set_entry_changed_signal_field(editor, "entry-assistant");
-	set_entry_changed_signal_field(editor, "entry-department");
-	set_entry_changed_signal_field(editor, "entry-profession");
-	set_entry_changed_signal_field(editor, "entry-nickname");
+	set_entry_changed_signal_field (editor, "entry-categories");
+	set_entry_changed_signal_field (editor, "entry-jobtitle");
+	set_entry_changed_signal_field (editor, "entry-manager");
+	set_entry_changed_signal_field (editor, "entry-assistant");
+	set_entry_changed_signal_field (editor, "entry-department");
+	set_entry_changed_signal_field (editor, "entry-profession");
+	set_entry_changed_signal_field (editor, "entry-nickname");
 
 	widget = glade_xml_get_widget(editor->gui, "text-comments");
-	if (widget && GTK_IS_TEXT_VIEW(widget)) {
+	{
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (widget));
-		g_signal_connect (buffer, "changed",
-				  G_CALLBACK (widget_changed), editor);
+		g_signal_connect (buffer, "changed", G_CALLBACK (widget_changed), editor);
 	}
-	widget = glade_xml_get_widget(editor->gui, "dateedit-birthday");
-	if (widget && E_IS_DATE_EDIT(widget)) {
-		g_signal_connect (widget, "changed",
-				  G_CALLBACK (widget_changed), editor);
-	}
-	widget = glade_xml_get_widget(editor->gui, "dateedit-anniversary");
-	if (widget && E_IS_DATE_EDIT(widget)) {
-		g_signal_connect (widget, "changed",
-				  G_CALLBACK (widget_changed), editor);
-	}
-
+	widget = glade_xml_get_widget (editor->gui, "dateedit-birthday");
+	g_signal_connect (widget, "changed", G_CALLBACK (widget_changed), editor);
+	widget = glade_xml_get_widget (editor->gui, "dateedit-anniversary");
+	g_signal_connect (widget, "changed", G_CALLBACK (widget_changed), editor);
 	widget = glade_xml_get_widget (editor->gui, "image-chooser");
-	if (widget && E_IS_IMAGE_CHOOSER (widget)) {
-		g_signal_connect (widget, "changed",
-				  G_CALLBACK (image_chooser_changed), editor);
-	}
+	g_signal_connect (widget, "changed", G_CALLBACK (image_chooser_changed), editor);
 }
 
 static void
-full_name_clicked(GtkWidget *button, EContactEditor *editor)
+full_name_clicked (GtkWidget *button, EContactEditor *editor)
 {
 	GtkDialog *dialog = GTK_DIALOG(e_contact_editor_fullname_new(editor->name));
 	int result;
@@ -1576,7 +1604,7 @@ full_name_clicked(GtkWidget *button, EContactEditor *editor)
 	g_object_set (dialog,
 		      "editable", editor->fullname_editable,
 		      NULL);
-	gtk_widget_show(GTK_WIDGET(dialog));
+	gtk_widget_show (GTK_WIDGET(dialog));
 	result = gtk_dialog_run (dialog);
 	gtk_widget_hide (GTK_WIDGET (dialog));
 
@@ -1607,7 +1635,7 @@ full_name_clicked(GtkWidget *button, EContactEditor *editor)
 }
 
 static void
-categories_clicked(GtkWidget *button, EContactEditor *editor)
+categories_clicked (GtkWidget *button, EContactEditor *editor)
 {
 	char *categories = NULL;
 	GtkDialog *dialog;
@@ -1788,6 +1816,12 @@ save_contact (EContactEditor *ce, gboolean should_close)
 	}
 }
 
+static void
+e_contact_editor_save_contact (EABEditor *editor, gboolean should_close)
+{
+	save_contact (E_CONTACT_EDITOR (editor), should_close);
+}
+
 /* Closes the dialog box and emits the appropriate signals */
 static void
 e_contact_editor_close (EABEditor *editor)
@@ -1922,7 +1956,8 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 
 	e_contact_editor->app = glade_xml_get_widget (gui, "contact editor");
 
-	set_entry_changed_signals(e_contact_editor);
+	set_entry_changed_signals  (e_contact_editor);
+	set_entry_activate_signals (e_contact_editor);
 
 	init_email (e_contact_editor);
 	init_phone (e_contact_editor);
@@ -1930,27 +1965,15 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 	init_address (e_contact_editor);
 
 	wants_html = glade_xml_get_widget(e_contact_editor->gui, "checkbutton-htmlmail");
-	if (wants_html && GTK_IS_TOGGLE_BUTTON(wants_html))
-		g_signal_connect (wants_html, "toggled",
-				  G_CALLBACK (wants_html_changed), e_contact_editor);
-
+	g_signal_connect (wants_html, "toggled", G_CALLBACK (wants_html_changed), e_contact_editor);
 	widget = glade_xml_get_widget(e_contact_editor->gui, "button-fullname");
-	if (widget && GTK_IS_BUTTON(widget))
-		g_signal_connect (widget, "clicked",
-				  G_CALLBACK (full_name_clicked), e_contact_editor);
-
+	g_signal_connect (widget, "clicked", G_CALLBACK (full_name_clicked), e_contact_editor);
 	widget = glade_xml_get_widget(e_contact_editor->gui, "button-categories");
-	if (widget && GTK_IS_BUTTON(widget))
-		g_signal_connect (widget, "clicked",
-				  G_CALLBACK (categories_clicked), e_contact_editor);
+	g_signal_connect (widget, "clicked", G_CALLBACK (categories_clicked), e_contact_editor);
 	widget = glade_xml_get_widget (e_contact_editor->gui, "source-option-menu-source");
-	if (widget && E_IS_SOURCE_OPTION_MENU (widget))
-		g_signal_connect (widget, "source_selected",
-				  G_CALLBACK (source_selected), e_contact_editor);
-
+	g_signal_connect (widget, "source_selected", G_CALLBACK (source_selected), e_contact_editor);
 	widget = glade_xml_get_widget (e_contact_editor->gui, "button-ok");
 	g_signal_connect (widget, "clicked", G_CALLBACK (file_save_and_close_cb), e_contact_editor);
-
 	widget = glade_xml_get_widget (e_contact_editor->gui, "button-cancel");
 	g_signal_connect (widget, "clicked", G_CALLBACK (file_cancel_cb), e_contact_editor);
 

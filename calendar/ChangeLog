@@ -3,6 +3,26 @@
 	* gui/e-calendar-view.c (e_calendar_view_delete_selected_occurrence):
 	use the correct start time to get the recurrence-ID.
 
+2004-04-23  Rodney Dawes  <dobey@ximian.com>
+
+	* gui/alarm-notify/notify-main.c (main): Call e_icon_factory_init ()
+
+	Fixes #57497
+
+2004-04-22  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* conduits/calendar/calendar-conduit.c (start_calendar_server):
+	Use e_cal_open_default() instead of e_cal_open().
+	(map_name): Changed the path for the pilot map filename.
+	(pre_sync): Changed the query to "#t" instead of "(#t)" and
+	removed a duplicate block of code (seems to have been a paste-o?).
+
+	* conduits/todo/todo-conduit.c (start_calendar_server): Use
+	e_cal_open_default() instead of e_cal_open().
+	(map_name): Changed the path for the pilot map filename.
+	(pre_sync): Changed the query to "#t" instead of "(#t)" and
+	removed a duplicate block of code (seems to have been a paste-o?).
+
 2004-04-22  JP Rosevear  <jpr@ximian.com>
 
 	Fixes #56092
