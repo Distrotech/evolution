@@ -1388,12 +1388,183 @@ emc_popup_rename_folder(GtkWidget *w, MailComponent *mc)
 	}
 }
 
-#if 0
+struct _prop_data {
+	void *object;
+	CamelArgV *argv;
+	GtkWidget **widgets;
+};
+
+static void
+emc_popup_properties_response(GtkWidget *dialog, int response, struct _prop_data *prop_data)
+{
+	int i;
+	CamelArgV *argv = prop_data->argv;
+
+	if (response != GTK_RESPONSE_OK) {
+		gtk_widget_destroy(dialog);
+		return;
+	}
+
+	for (i=0;i<argv->argc;i++) {
+		CamelArg *arg = &argv->argv[i];
+
+		switch (arg->tag & CAMEL_ARG_TYPE) {
+		case CAMEL_ARG_BOO:
+			arg->ca_int = gtk_toggle_button_get_active(prop_data->widgets[i]);
+			break;
+		case CAMEL_ARG_STR:
+			g_free(arg->ca_str);
+			arg->ca_str = gtk_entry_get_text(prop_data->widgets[i]);
+			break;
+		default:
+			printf("unknown property type set\n");
+		}
+	}
+
+	camel_object_setv(prop_data->object, NULL, argv);
+	gtk_widget_destroy(dialog);
+}
+
+static void
+emc_popup_properties_free(void *data)
+{
+	struct _prop_data *prop_data = data;
+	int i;
+
+	for (i=0; i<prop_data->argv->argc; i++) {
+		if ((prop_data->argv->argv[i].tag & CAMEL_ARG_TYPE) == CAMEL_ARG_STR)
+			g_free(prop_data->argv->argv[i].ca_str);
+	}
+	camel_object_unref(prop_data->object);
+	g_free(prop_data->argv);
+	g_free(prop_data);
+}
+
+static void
+emc_popup_properties_got_folder(const char *uri, CamelFolder *folder, void *data)
+{
+	MailComponent *mc = data;
+
+	if (folder) {
+		GtkWidget *dialog, *w, *table, *label;
+		GSList *list, *l;
+		char *name, *txt;
+		int row = 1;
+		gint32 count, i;
+		struct _prop_data *prop_data;
+		CamelArgV *argv;
+		CamelArgGetV *arggetv;
+
+		camel_object_get(folder, NULL, CAMEL_FOLDER_PROPERTIES, &list, CAMEL_FOLDER_NAME, &name, NULL);
+
+		dialog = gtk_dialog_new_with_buttons(_("Folder properties"),
+						     NULL,
+						     GTK_DIALOG_DESTROY_WITH_PARENT,
+						     GTK_STOCK_OK,
+						     GTK_RESPONSE_OK,
+						     NULL);
+
+		/* TODO: maybe we want some basic properties here, like message counts/approximate size/etc */
+		w = gtk_frame_new(_("Properties"));
+		gtk_box_pack_start(((GtkDialog *)dialog)->vbox, w, TRUE, TRUE, 6);
+		table = gtk_table_new(g_slist_length(list)+1, 2, FALSE);
+		gtk_container_add((GtkContainer *)w, table);
+		label = gtk_label_new(_("Folder Name"));
+		gtk_misc_set_alignment(label, 1.0, 0.5);
+		gtk_table_attach(table, label, 0, 1, 0, 1, GTK_FILL|GTK_EXPAND, 0, 3, 0);
+		label = gtk_label_new(name);
+		gtk_misc_set_alignment(label, 0.0, 0.5);
+		gtk_table_attach(table, label, 1, 2, 0, 1, GTK_FILL|GTK_EXPAND, 0, 3, 0);
+
+		/* build an arggetv/argv to retrieve/store the results */
+		count = g_slist_length(list);
+		arggetv = g_malloc0(sizeof(*arggetv) + (count - CAMEL_ARGV_MAX) * sizeof(arggetv->argv[0]));
+		arggetv->argc = count;
+		argv = g_malloc0(sizeof(*argv) + (count - CAMEL_ARGV_MAX) * sizeof(argv->argv[0]));
+		argv->argc = count;
+		i = 0;
+		l = list;
+		while (l) {
+			CamelProperty *prop = l->data;
+
+			argv->argv[i].tag = prop->tag;
+			arggetv->argv[i].tag = prop->tag;
+			arggetv->argv[i].ca_ptr = &argv->argv[i].ca_ptr;
+
+			l = l->next;
+			i++;
+		}
+		camel_object_getv(folder, NULL, arggetv);
+		g_free(arggetv);
+
+		prop_data = g_malloc0(sizeof(*prop_data));
+		prop_data->widgets = g_malloc0(sizeof(prop_data->widgets[0]) * count);
+		prop_data->argv = argv;
+
+		/* setup the ui with the values retrieved */
+		l = list;
+		i = 0;
+		while (l) {
+			CamelProperty *prop = l->data;
+
+			switch (prop->tag & CAMEL_ARG_TYPE) {
+			case CAMEL_ARG_BOO:
+				w = gtk_check_button_new_with_label(prop->description);
+				gtk_toggle_button_set_active((GtkToggleButton *)w, argv->argv[i].ca_int != 0);
+				gtk_table_attach(table, w, 0, 2, row, row+1, 0, 0, 3, 3);
+				prop_data->widgets[i] = w;
+				break;
+			case CAMEL_ARG_STR:
+				label = gtk_label_new(prop->description);
+				gtk_misc_set_alignment(label, 1.0, 0.5);
+				gtk_table_attach(table, label, 0, 1, row, row+1, GTK_FILL|GTK_EXPAND, 0, 3, 3);
+
+				w = gtk_entry_new();
+				if (argv->argv[i].ca_str) {
+					gtk_entry_set_text((GtkEntry *)w, txt);
+					camel_object_free(folder, argv->argv[i].tag, argv->argv[i].ca_str);
+					argv->argv[i].ca_str = NULL;
+				}
+				gtk_table_attach(table, w, 1, 2, row, row+1, GTK_FILL, 0, 3, 3);
+				prop_data->widgets[i] = w;
+				break;
+			default:
+				w = gtk_label_new("CamelFolder error: unsupported propery type");
+				gtk_table_attach(table, w, 0, 2, row, row+1, 0, 0, 3, 3);
+				break;
+			}
+
+			row++;
+			l = l->next;
+		}
+
+		prop_data->object = folder;
+		camel_object_ref(folder);
+
+		camel_object_free(folder, CAMEL_FOLDER_PROPERTIES, list);
+		camel_object_free(folder, CAMEL_FOLDER_NAME, name);
+
+		/* we do 'apply on ok' ... since instant apply may apply some very long running tasks */
+
+		g_signal_connect(dialog, "response", G_CALLBACK(emc_popup_properties_response), prop_data);
+		g_object_set_data_full((GObject *)dialog, "e-prop-data", prop_data, emc_popup_properties_free);
+		gtk_widget_show_all(dialog);
+	}
+}
+
 static void
 emc_popup_properties(GtkWidget *w, MailComponent *mc)
 {
+	EFolder *efolder;
+
+	/* TODO: Make sure we only have one dialog open for any given folder */
+
+	efolder = e_storage_set_get_folder(mc->priv->storage_set, mc->priv->context_path);
+	if (efolder == NULL)
+		return;
+
+	mail_get_folder(e_folder_get_physical_uri(efolder), 0, emc_popup_properties_got_folder, mc, mail_thread_new);
 }
-#endif
 
 static EMPopupItem emc_popup_menu[] = {
 #if 0
@@ -1410,10 +1581,8 @@ static EMPopupItem emc_popup_menu[] = {
 	{ EM_POPUP_ITEM, "20.emc.01", N_("_Delete"), G_CALLBACK(emc_popup_delete_folder), NULL, "evolution-trash-mini.png", 0 },
 	{ EM_POPUP_ITEM, "20.emc.01", N_("_Rename"), G_CALLBACK(emc_popup_rename_folder), NULL, NULL, 0 },
 
-#if 0
 	{ EM_POPUP_BAR, "80.emc" },
 	{ EM_POPUP_ITEM, "80.emc.00", N_("_Properties..."), G_CALLBACK(emc_popup_properties), NULL, "configure_16_folder.xpm", 0 },
-#endif
 };
 
 

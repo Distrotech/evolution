@@ -1,3 +1,15 @@
+2003-10-21  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (emc_popup_properties): implement.
+	(emc_popup_properties_got_folder): builds dynamic
+	folder-properties dialogue.
+	(emc_popup_properties_response): set the properties on the folder
+	on an ok response.
+	(emc_popup_properties_free): free the properties working data.
+
+	* mail-folder-cache.c (unset_folder_info): unhook from the right
+	function for message_changed.
+
 2003-10-20  Not Zed  <NotZed@Ximian.com>
 
 	* mail-component.c (emc_popup_new_folder): pass the right object

@@ -107,7 +107,7 @@ struct _store_info {
 static void folder_changed(CamelObject *o, gpointer event_data, gpointer user_data);
 static void folder_renamed(CamelObject *o, gpointer event_data, gpointer user_data);
 static void folder_finalised(CamelObject *o, gpointer event_data, gpointer user_data);
-
+static void message_changed (CamelObject *o, gpointer event_data, gpointer user_data);
 
 static guint ping_id = 0;
 static gboolean ping_cb (gpointer user_data);
@@ -305,7 +305,7 @@ unset_folder_info(struct _folder_info *mfi, int delete, int unsub)
 		CamelFolder *folder = mfi->folder;
 
 		camel_object_unhook_event(folder, "folder_changed", folder_changed, mfi);
-		camel_object_unhook_event(folder, "message_changed", folder_changed, mfi);
+		camel_object_unhook_event(folder, "message_changed", message_changed, mfi);
 		camel_object_unhook_event(folder, "renamed", folder_renamed, mfi);
 		camel_object_unhook_event(folder, "finalize", folder_finalised, mfi);
 	}
