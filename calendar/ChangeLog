@@ -1,3 +1,10 @@
+2003-09-26  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/comp-editor-factory.c (resolve_pending_requests): removed
+	the g_assert on 'oc->pending != NULL', since there are now cases
+	(local calendar) where we get to call this function (cal_opened_cb)
+	with no pending requests yet.
+
 2003-09-25  JP Rosevear <jpr@ximian.com>
 
 	* gui/calendar-commands.c (publish_freebusy_cmd): adapt to new

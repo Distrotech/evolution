@@ -393,7 +393,8 @@ resolve_pending_requests (OpenClient *oc)
 	factory = oc->factory;
 	priv = factory->priv;
 
-	g_assert (oc->pending != NULL);
+	if (!oc->pending)
+		return;
 
 	/* Set the default timezone in the backend. */
 	location = calendar_config_get_timezone ();
