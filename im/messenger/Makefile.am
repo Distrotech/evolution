@@ -20,6 +20,7 @@ noinst_LIBRARIES =		\
 libemessenger_a_SOURCES =	\
 	e-messenger.c		\
 	e-messenger.h		\
+	e-messenger-types.c	\
 	e-messenger-types.h	\
 	e-messenger-listener.c  \
 	e-messenger-listener.h  \

@@ -1,3 +1,54 @@
+2001-10-29  Nat Friedman  <nat@ximian.com>
+
+	* e-messenger.c: Made it include local header files properly.
+	(EMessengerConnection): Renamed EMessengerIdentitySignon to this
+	throughout.
+	(messenger_backend_signon): New function.
+	(messenger_backend_signoff): Likewise.
+	(messenger_connection_create): Likewise.
+	(messenger_add_active_connection): Likewise.
+	(messenger_remove_active_connection): Likewise.
+	(messenger_add_pending_connection): Likewise.
+	(messenger_find_pending_connection): Likewise.
+	(messenger_find_active_connection): Likewise.
+	(messenger_handle_message_signon_response): Handle defunct
+	connections.
+	(messenger_activate_dispatcher): Made this actually work by using
+	simpler oaf semantics.
+	(e_messenger_signon): Handle defunct connections.  Connect to
+	"messages_queued" on the EMessengerListener, not "message_queued".
+	Make a local copy of the identity.
+	(messenger_signoff_active_connection): New function.
+	(messenger_signoff_pending_connection): Likewise.
+	(e_messenger_signoff): Likewise.
+	(gtk_marshal_NONE__POINTER_POINTER_BOOL_INT): New marshaler.
+
+	* e-messenger-identity.c (e_messenger_identity_copy): New
+	function.
+	(e_messenger_identity_create_from_me_and_username): Added consts
+	to parameters.
+	(e_messenger_identity_to_string): Likewise.
+	(e_messenger_identity_to_string): Made it not include the
+	password.
+	(e_messenger_identity_is_equal): Likewise.
+	(e_messenger_identity_get_service_type): Added consts to
+	parameters.
+	(e_messenger_identity_get_username): Likewise.
+	(e_messenger_identity_check_invariants): New function for testing.
+
+	* e-messenger-identity.h: Updated to reflect new functions and
+	consts in parameters.
+
+	* e-messenger-types.c: New file to hold some EMessenger
+	type-handling convenience functions.
+
+	* e-messenger-types.h (EMessengerSignonError): Added PMS_FAILURE
+	and DEFUNCT_CONNECTION errors.  Added prototype for
+	e_messenger_signon_error_to_string.
+	
+	* Makefile.am (libemessenger_a_SOURCES): Added
+	e-messenger-types.c.
+
 2001-10-27  Nat Friedman  <nat@ximian.com>
 
 	* e-messenger-identity.c (e_messenger_identity_create_string): New

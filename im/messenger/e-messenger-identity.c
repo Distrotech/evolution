@@ -9,10 +9,14 @@
  * Copyright 2001, Ximian, Inc.
  */
 
-#include <e-messenger-identity.h>
 #include <glib.h>
 #include <string.h>
 
+#include "e-messenger-identity.h"
+
+/*
+ * FIXME: This file lacks preconditions.
+ */
 
 /**
  * e_messenger_identity_create:
@@ -39,7 +43,6 @@ e_messenger_identity_create (const char *service_type,
 	g_return_val_if_fail (username != NULL,     NULL);
 
 	emi = g_new0 (EMessengerIdentity, 1);
-
 	
 	*emi = g_strdup_printf ("%s:%s:%s",
 				service_type,
@@ -47,6 +50,21 @@ e_messenger_identity_create (const char *service_type,
 				password == NULL ? "" : password);
 
 	return emi;
+}
+
+EMessengerIdentity *
+e_messenger_identity_copy (const EMessengerIdentity *emi)
+{
+	EMessengerIdentity *emi_copy;
+
+	g_return_val_if_fail (emi != NULL,                                 NULL);
+	g_return_val_if_fail (e_messenger_identity_check_invariants (emi), NULL);
+
+	emi_copy = g_new0 (EMessengerIdentity, 1);
+
+	*emi_copy = g_strdup (*emi);
+
+	return emi_copy;
 }
 
 char *
@@ -81,11 +99,14 @@ e_messenger_identity_create_from_string (const char *id_string)
 }
 
 EMessengerIdentity *
-e_messenger_identity_create_from_me_and_username (EMessengerIdentity *me,
+e_messenger_identity_create_from_me_and_username (const EMessengerIdentity *me,
 						  const char         *username)
 {
 	EMessengerIdentity *emi;
 	char               *service_type;
+
+	g_return_val_if_fail (me != NULL,       NULL);
+	g_return_val_if_fail (username != NULL, NULL);
 
 	service_type = e_messenger_identity_get_service_type (me);
 
@@ -97,19 +118,48 @@ e_messenger_identity_create_from_me_and_username (EMessengerIdentity *me,
 }
 
 char *
-e_messenger_identity_to_string (EMessengerIdentity *emi)
+e_messenger_identity_to_string (const EMessengerIdentity *emi)
 {
-	return g_strdup ((char *) *emi);
+	char *service_type;
+	char *username;
+	char *emi_string;
+
+	g_return_val_if_fail (emi != NULL, NULL);
+
+	service_type = e_messenger_identity_get_service_type (emi);
+	username     = e_messenger_identity_get_username (emi);
+
+	emi_string = g_strdup_printf ("%s:%s:", service_type, username);
+
+	g_free (service_type);
+	g_free (username);
+
+	return emi_string;
 }
 
+/**
+ * e_messenger_identity_is_equal:
+ *
+ * Does not compare passwords.
+ */
 gboolean
-e_messenger_identity_is_equal (EMessengerIdentity *emi1,
-			       EMessengerIdentity *emi2)
+e_messenger_identity_is_equal (const EMessengerIdentity *emi1,
+			       const EMessengerIdentity *emi2)
 {
 	char *emi1_username,     *emi2_username;
 	char *emi1_password,     *emi2_password;
 	char *emi1_service_type, *emi2_service_type;
 	gboolean equivalent;
+
+	/*
+	 * FIXME: Is this the correct way to handle NULL args?
+	 */
+	if ((emi1 == emi2) && (emi1 == NULL))
+		return TRUE;
+
+	if ((emi1 == NULL || emi2 == NULL) && (emi1 != emi2))
+		return FALSE;
+
 
 	emi1_username     = e_messenger_identity_get_username (emi1);
 	emi1_password     = e_messenger_identity_get_password (emi1);
@@ -126,14 +176,6 @@ e_messenger_identity_is_equal (EMessengerIdentity *emi1,
 			equivalent = FALSE;
 	} else {
 		if (emi1_username != emi2_username)
-			equivalent = FALSE;
-	}
-	
-	if (emi1_password != NULL && emi2_password != NULL) {
-		if (strcmp (emi1_password, emi2_password))
-			equivalent = FALSE;
-	} else {
-		if (emi1_password != emi2_password)
 			equivalent = FALSE;
 	}
 
@@ -156,7 +198,7 @@ e_messenger_identity_is_equal (EMessengerIdentity *emi1,
 }
 
 char *
-e_messenger_identity_get_service_type (EMessengerIdentity *emi)
+e_messenger_identity_get_service_type (const EMessengerIdentity *emi)
 {
 	char *service_type;
 	char *p;
@@ -180,7 +222,7 @@ e_messenger_identity_get_service_type (EMessengerIdentity *emi)
 }
 
 char *
-e_messenger_identity_get_username (EMessengerIdentity *emi)
+e_messenger_identity_get_username (const EMessengerIdentity *emi)
 {
 	char *username;
 	char *p;
@@ -213,7 +255,7 @@ e_messenger_identity_get_username (EMessengerIdentity *emi)
 }
 
 char *
-e_messenger_identity_get_password (EMessengerIdentity *emi)
+e_messenger_identity_get_password (const EMessengerIdentity *emi)
 {
 	char *password;
 	char *p;
@@ -243,6 +285,93 @@ e_messenger_identity_get_password (EMessengerIdentity *emi)
 	password = g_strdup (p);
 
 	return password;
+}
+
+gboolean
+e_messenger_identity_check_invariants (const EMessengerIdentity *emi)
+{
+	char *service_type;
+	char *username;
+	char *password;
+	char *p;
+
+	/*
+	 * A NULL EMI is a valid EMI.
+	 */
+	if (emi == NULL)
+		return TRUE;
+
+	if (*emi == NULL)
+		return FALSE;
+
+	/*
+	 * Verify that the string is of the form:
+	 *     "service_type:username:password"
+	 */
+	p = strchr ((char *) *emi, ':');
+	if (p == NULL)
+		return FALSE;
+
+	p ++;
+	if (*p == '\0')
+		return FALSE;
+
+	p = strchr (p, ':');
+	if (p == NULL)
+		return FALSE;
+
+	p ++;
+	if (*p == '\0')
+		return FALSE;
+
+	/*
+	 * Verify that we can extract the pieces of the identity and
+	 * that they are valid.
+	 */
+
+	/*
+	 * Service type.
+	 */
+	service_type = e_messenger_identity_get_service_type (emi);
+
+	if (service_type == NULL)
+		return FALSE;
+
+	if (strlen (service_type) == 0) {
+		g_free (service_type);
+		return FALSE;
+	}
+
+	g_free (service_type); 
+
+	/*
+	 * Username.
+	 */
+	username = e_messenger_identity_get_username (emi);
+
+	if (username == NULL)
+		return FALSE;
+
+	if (strlen (username) == 0) {
+		g_free (username);
+		return FALSE;
+	}
+
+	g_free (username);
+
+	/*
+	 * Password.
+	 */
+	password = e_messenger_identity_get_password (emi);
+
+	if ((password != NULL) && strlen (password) == 0) {
+		g_free (password);
+		return FALSE;
+	}
+
+	g_free (password);
+
+	return TRUE;
 }
 
 void

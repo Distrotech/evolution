@@ -2,27 +2,27 @@
 #include <gtk/gtkmarshal.h>
 #include <gtk/gtksignal.h>
 
-#include <Messenger.h>
-#include <e-messenger.h>
-#include <e-messenger-listener.h>
+#include "../Messenger.h"
+#include "e-messenger.h"
+#include "e-messenger-listener.h"
 
 GtkObjectClass *e_messenger_parent_class;
 
-typedef struct _EMessengerIdentitySignon EMessengerIdentitySignon;
+typedef struct _EMessengerConnection EMessengerConnection;
 
 struct _EMessengerPrivate {
 	/*
-	 * This is a list of EMessengerIdentitySignon structures which
+	 * This is a list of EMessengerConnection structures which
 	 * represents all the instant messaging services the user is
 	 * signed onto.
 	 */
-	GList *active_signons;
+	GList *active_connections;
 
 	/*
-	 * This is a list of EMessengerIdentitySignon structures, one
+	 * This is a list of EMessengerConnection structures, one
 	 * for each signon operation which is currently underway.
 	 */
-	GList *pending_signons;
+	GList *pending_connections;
 
 	/*
 	 * The listener object we use to receive notifications and
@@ -32,7 +32,7 @@ struct _EMessengerPrivate {
 
 	/*
 	 * The CORBA reference to the BackendDispatcher which is used to
-	 * create new signons.
+	 * create new connections.
 	 */
 	GNOME_Evolution_Messenger_BackendDispatcher dispatcher;
 };
@@ -45,105 +45,243 @@ enum {
 
 static guint e_messenger_signals [LAST_SIGNAL];
 
-struct _EMessengerIdentitySignon {
+struct _EMessengerConnection {
 	EMessengerIdentity               *identity;
 
 	/*
-	 * Used for pending signons.
+	 * Used for pending connections.
 	 */
-	EMessengerSignonCallback          callback;
-	gpointer                          closure;
+	EMessengerSignonCallback      callback;
+	gpointer                      closure;
 
 	/*
-	 * Used only for active signons.
+	 * Used only for pending connections, this flag is set if this
+	 * connection has been closed by the user, but we have not yet
+	 * received an SignonResult response from the PMS.
 	 */
-	GNOME_Evolution_Messenger_Backend  corba_backend;
+	gboolean                      defunct;
+
+	/*
+	 * Used only for active connections.
+	 */
+	GNOME_Evolution_Messenger_Backend  backend;
 };
 
-static EMessengerIdentitySignon *
-messenger_identity_signon_create (EMessengerIdentity       *id,
-				  EMessengerSignonCallback  callback,
-				  gpointer                  closure)
+static gboolean
+messenger_backend_signon (EMessenger         *messenger,
+			  EMessengerIdentity *identity)
 {
-	EMessengerIdentitySignon *emis;
+	CORBA_Environment  ev;
+	char              *service_type;
+	char              *username;
+	char              *password;
 
-	emis = g_new0 (EMessengerIdentitySignon, 1);
-	emis->identity = id;
-	emis->callback = callback;
-	emis->closure  = closure;
+	service_type = e_messenger_identity_get_service_type (identity);
+	username     = e_messenger_identity_get_username (identity);
+	password     = e_messenger_identity_get_password (identity);
 
-	return emis;
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Messenger_BackendDispatcher_signon (
+		messenger->priv->dispatcher,
+		service_type,
+		username,
+		password,
+		BONOBO_OBJREF (messenger->priv->listener),
+		&ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		CORBA_exception_free (&ev);
+
+		/* FIXME: Check the exception type. */
+		g_warning ("Exception signing on with BackendDispatcher.");
+
+		return FALSE;
+	}
+
+	CORBA_exception_free (&ev);
+
+	return TRUE;
+}
+
+static gboolean
+messenger_backend_signoff (EMessenger           *messenger,
+			   EMessengerConnection *connection)
+{
+	CORBA_Environment  ev;
+	char              *signon_string;
+
+	signon_string = e_messenger_identity_to_string (connection->identity);
+	g_return_val_if_fail (signon_string != NULL, FALSE);
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Messenger_Backend_signoff (connection->backend, signon_string, &ev);
+
+	g_free (signon_string);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		CORBA_exception_free (&ev);
+
+		/* FIXME: Check the exception type. */
+		g_warning ("Exception signing off with the PMS.");
+
+
+		return FALSE;
+	}
+
+	CORBA_exception_free (&ev);
+
+	return TRUE;
+}
+
+static EMessengerConnection *
+messenger_connection_create (EMessengerIdentity           *id,
+				      EMessengerSignonCallback  callback,
+				      gpointer                      closure)
+{
+	EMessengerConnection *connection;
+
+	connection = g_new0 (EMessengerConnection, 1);
+	connection->identity = id;
+	connection->callback = callback;
+	connection->closure  = closure;
+
+	return connection;
 }
 
 static void
-messenger_identity_signon_free (EMessengerIdentitySignon *signon)
+messenger_connection_free (EMessengerConnection *connection)
 {
 
-	e_messenger_identity_free (signon->identity);
+	e_messenger_identity_free (connection->identity);
 
-	if (signon->corba_backend != CORBA_OBJECT_NIL) {
+	if (connection->backend != CORBA_OBJECT_NIL) {
 		CORBA_Environment ev;
 
 		CORBA_exception_init (&ev);
 
-		bonobo_object_release_unref (signon->corba_backend, &ev);
+		bonobo_object_release_unref (connection->backend, &ev);
 
 		if (BONOBO_EX (&ev)) {
-			g_warning ("Could not release IdentitySignon CORBA backend reference.");
+			g_warning ("Could not release IdentityConnection CORBA backend reference.");
 		}
 
 		CORBA_exception_free (&ev);
 	}
 
-	g_free (signon);
+	g_free (connection);
 }
 
 static void
-messenger_add_active_signon (EMessenger               *messenger,
-			     EMessengerIdentitySignon *signon)
+messenger_add_active_connection (EMessenger           *messenger,
+				 EMessengerConnection *connection)
 {
-	messenger->priv->active_signons = g_list_prepend (
-		messenger->priv->active_signons, signon);
+	messenger->priv->active_connections = g_list_prepend (
+		messenger->priv->active_connections, connection);
+}
+
+/**
+ * messenger_remove_active_connection (INTERNAL):
+ * @messenger: The #EMessenger object which currently has this
+ * connection listed among its active connections.
+ * @connection: The signon to be removed.
+ *
+ * This function is called after the PMS has been notified to signoff
+ * this connection.
+ */
+static void
+messenger_remove_active_connection (EMessenger           *messenger,
+				    EMessengerConnection *connection)
+{
+	messenger->priv->active_connections =
+		g_list_remove (messenger->priv->active_connections, connection);
 }
 
 static void
-messenger_add_pending_signon (EMessenger               *messenger,
-			      EMessengerIdentitySignon *signon)
+messenger_remove_pending_connection (EMessenger           *messenger,
+				     EMessengerConnection *connection)
 {
-	messenger->priv->pending_signons = g_list_prepend (
-		messenger->priv->pending_signons, signon);
+	messenger->priv->pending_connections =
+		g_list_remove (messenger->priv->pending_connections, connection);
+}
+
+static void
+messenger_add_pending_connection (EMessenger           *messenger,
+				  EMessengerConnection *connection)
+{
+	messenger->priv->pending_connections = g_list_prepend (
+		messenger->priv->pending_connections, connection);
+}
+
+static EMessengerConnection *
+messenger_find_pending_connection (EMessenger         *messenger,
+				   EMessengerIdentity *identity)
+{
+	GList *l;
+
+	for (l = messenger->priv->pending_connections; l != NULL; l = l->next) {
+		EMessengerConnection *connection = l->data;
+
+		if (e_messenger_identity_is_equal (identity, connection->identity))
+			return connection;
+	}
+
+	return NULL;
+}
+
+static EMessengerConnection *
+messenger_find_active_connection (EMessenger         *messenger,
+				  EMessengerIdentity *identity)
+{
+	GList *l;
+
+	for (l = messenger->priv->active_connections; l != NULL; l = l->next) {
+		EMessengerConnection *connection = l->data;
+
+		if (e_messenger_identity_is_equal (identity, connection->identity))
+			return connection;
+	}
+
+	return NULL;
 }
 
 static gboolean
 messenger_identity_is_active (EMessenger         *messenger,
 			      EMessengerIdentity *identity)
 {
-	GList *l;
+	EMessengerConnection *conn;
 
-	for (l = messenger->priv->active_signons; l != NULL; l = l->next) {
-		EMessengerIdentitySignon *emis = l->data;
+	conn = messenger_find_active_connection (messenger, identity);
 
-		if (e_messenger_identity_is_equal (identity, emis->identity))
-			return TRUE;
-	}
+	if (conn == NULL)
+		return FALSE;
 
-	return FALSE;
+	return TRUE;
 }
 
 static gboolean
 messenger_identity_is_pending (EMessenger         *messenger,
 			       EMessengerIdentity *identity)
 {
-	GList *l;
+	EMessengerConnection *conn;
 
-	for (l = messenger->priv->pending_signons; l != NULL; l = l->next) {
-		EMessengerIdentitySignon *emis = l->data;
+	conn = messenger_find_pending_connection (messenger, identity);
 
-		if (e_messenger_identity_is_equal (identity, emis->identity))
-			return TRUE;
-	}
+	if (conn == NULL)
+		return FALSE;
 
-	return FALSE;
+	return TRUE;
+}
+
+static void
+messenger_signoff_defunct_connection (EMessenger           *messenger,
+				      EMessengerConnection *connection)
+{
+	messenger_backend_signoff (messenger, connection);
+
+	messenger_remove_pending_connection (messenger, connection);
+	messenger_connection_free (connection);
 }
 
 static void
@@ -154,33 +292,41 @@ messenger_handle_message_signon_response (EMessenger                *messenger,
 
 	match = NULL;
 
-	for (l = messenger->priv->pending_signons; l != NULL; l = l->next) {
-		EMessengerIdentitySignon *emis = l->data;
+	for (l = messenger->priv->pending_connections; l != NULL; l = l->next) {
+		EMessengerConnection *connection = l->data;
 
-		g_assert (emis != NULL);
-		
-		if (e_messenger_identity_is_equal (emis->identity, message->id)) {
+		g_assert (connection != NULL);
+
+		if (e_messenger_identity_is_equal (connection->identity, message->id)) {
 			match = l;
 
-			emis->callback (messenger, (const EMessengerIdentity *) emis->identity, message->signon_error, emis->closure);
+			if (connection->defunct) {
+				messenger_signoff_defunct_connection (messenger, connection);
+				break;
+			}
+		
+			connection->callback (
+				messenger,
+				connection->identity,
+				message->signon_error,
+				connection->closure);
+
+			messenger_remove_pending_connection (messenger, connection);
 
 			if (message->signon_error == E_MESSENGER_SIGNON_ERROR_NONE) {
-				messenger_add_active_signon (messenger, emis);
+				messenger_add_active_connection (messenger, connection);
 			} else {
-				messenger_identity_signon_free (emis);
+				messenger_connection_free (connection);
 			}
-			
+
 			break;
 		}
 	}
 
 	e_messenger_identity_free (message->id);
 
-	if (match != NULL) {
-		l = g_list_remove (l, match->data);
-	} else {
-		g_error ("Signon response for unknown signon received from PMS!");
-	}
+	if (match == NULL)
+		g_error ("Connection response for unknown connection received from PMS!");
 }
 
 
@@ -247,117 +393,71 @@ messenger_check_listener_queue (EMessengerListener *listener,
 static gboolean
 messenger_activate_dispatcher (EMessenger *messenger)
 {
+	Bonobo_Unknown                               corba_object;
 	GNOME_Evolution_Messenger_BackendDispatcher  dispatcher;
-	OAF_ServerInfoList       		    *info_list;
-	const OAF_ServerInfo     		    *info;
-	char                     		    *query;
 	CORBA_Environment        		     ev;
 
 	/*
-	 * Check to see if the dispatcher has already been activated.  */
+	 * Check to see if the dispatcher has already been activated.
+	 */
 	if (messenger->priv->dispatcher != CORBA_OBJECT_NIL)
 		return TRUE;
 
 	CORBA_exception_init (&ev);
 
-	/*
-	 * Query for the PMS.
-	 */
-	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/IM/BackendDispatcher:1.0')");
+	corba_object = oaf_activate_from_id ("OAFIID:GNOME_Evolution_Messenger_BackendDispatcher", 0, NULL, &ev);
 
-	info_list = oaf_query (query, NULL, &ev);
-
-	g_free (query);
-
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning ("Failed performing OAF query for Evolution Personal Messaging Server.");
-		return FALSE;
-	}
-
-	if (info_list->_length == 0) {
-		g_warning ("Could not find Evolution Personal Messaging Server installed.");
+	if (BONOBO_EX (&ev)) {
+		g_warning ("Exception performing OAF query for Evolution Personal Messaging Server.");
 		CORBA_exception_free (&ev);
 		return FALSE;
 	}
 
-	CORBA_exception_free (&ev);
+	dispatcher = Bonobo_Unknown_queryInterface (
+		corba_object, 
+		"IDL:GNOME/Evolution/Messenger/BackendDispatcher:1.0", &ev);
 
-	if (info_list->_length > 1) {
-		g_warning ("Found multiple Evolution Personal Messaging Servers in OAF query; "
-			   "using the first one in the list.");
+	if (BONOBO_EX (&ev)) {
+		g_warning ("Exception querying for the BackendDispatcher interface.");
+		CORBA_exception_free (&ev);
+		return FALSE;
 	}
-
-	/*
-	 * Now activate it.
-	 */
-	info = info_list->_buffer;
-
-	dispatcher = oaf_activate_from_id (info->iid, 0, NULL, NULL);
 	
-	if (dispatcher == CORBA_OBJECT_NIL) {
-		g_warning ("Could not activate Evolution Personal Messaging Server with "
-			   "OAF IID: %s\n", info->iid);
-	} else {
-		messenger->priv->dispatcher = dispatcher;
-	}
-
-	CORBA_free (info_list);
-
-	if (dispatcher == CORBA_OBJECT_NIL)
-		return FALSE;
-
-	return TRUE;
-}
-
-static gboolean
-messenger_signon (EMessenger         *messenger,
-		  EMessengerIdentity *identity)
-{
-	CORBA_Environment  ev;
-	char              *service_type;
-	char              *username;
-	char              *password;
-
-	service_type = e_messenger_identity_get_service_type (identity);
-	username     = e_messenger_identity_get_username (identity);
-	password     = e_messenger_identity_get_password (identity);
-
-	CORBA_exception_init (&ev);
-
-	GNOME_Evolution_Messenger_BackendDispatcher_signon (
-		messenger->priv->dispatcher,
-		service_type,
-		username,
-		password,
-		BONOBO_OBJREF (messenger->priv->listener),
-		&ev);
-
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		CORBA_exception_free (&ev);
-
-		/* FIXME: Check the exception type. */
-		g_warning ("Exception signing on with BackendDispatcher.");
-
-		return FALSE;
-	}
 
 	CORBA_exception_free (&ev);
 
+	if (dispatcher == CORBA_OBJECT_NIL) {
+		g_warning ("Got NIL CORBA object querying for BackendDispatcher interface.");
+		return FALSE;
+	}
+	
+	messenger->priv->dispatcher = dispatcher;
+
 	return TRUE;
 }
 
+/**
+ * e_messenger_signon:
+ *
+ * FIXME
+ *
+ * Note about how a copy is created.
+ * Note about how signon callback may be passed a copy.
+ */
 gboolean
 e_messenger_signon (EMessenger               *messenger,
 		    EMessengerIdentity       *identity,
 		    EMessengerSignonCallback  signon_callback,
 		    gpointer                  closure)
 {
-	EMessengerIdentitySignon *emis;
+	EMessengerConnection *connection;
+	EMessengerIdentity   *id;
 
-	g_return_val_if_fail (messenger != NULL,          FALSE);
-	g_return_val_if_fail (E_IS_MESSENGER (messenger), FALSE);
-	g_return_val_if_fail (identity != NULL,           FALSE);
-	g_return_val_if_fail (signon_callback != NULL,    FALSE);
+	g_return_val_if_fail (messenger != NULL,                                FALSE);
+	g_return_val_if_fail (E_IS_MESSENGER (messenger),                       FALSE);
+	g_return_val_if_fail (identity != NULL,                                 FALSE);
+	g_return_val_if_fail (e_messenger_identity_check_invariants (identity), FALSE);
+	g_return_val_if_fail (signon_callback != NULL,                          FALSE);
 	
 	if (messenger_identity_is_active (messenger, identity)) {
 		g_warning ("Attempt to signon with already active identity.");
@@ -365,7 +465,16 @@ e_messenger_signon (EMessenger               *messenger,
 	}
 
 	if (messenger_identity_is_pending (messenger, identity)) {
-		g_warning ("Attempt to signon with pending identity.");
+		EMessengerConnection *connection;
+
+		connection = messenger_find_pending_connection (messenger, identity);
+
+		if (connection->defunct) {
+			g_warning ("Attempt to signon with defunct pending identity.");
+			signon_callback (messenger, identity, E_MESSENGER_SIGNON_ERROR_DEFUNCT_CONNECTION, closure);
+		} else
+			g_warning ("Attempt to signon with pending identity.");
+
 		return FALSE;
 	}
 
@@ -373,7 +482,7 @@ e_messenger_signon (EMessenger               *messenger,
 	 * Activate the dispatcher, if it is not already active.
 	 */
 	if (! messenger_activate_dispatcher (messenger)) {
-		signon_callback (messenger, identity, E_MESSENGER_SIGNON_ERROR_UNKNOWN_FAILURE, closure);
+		signon_callback (messenger, identity, E_MESSENGER_SIGNON_ERROR_PMS_FAILURE, closure);
 		return FALSE;
 	}
 
@@ -390,25 +499,124 @@ e_messenger_signon (EMessenger               *messenger,
 			return FALSE;
 		}
 
-		gtk_signal_connect (GTK_OBJECT (messenger->priv->listener),
-				    "message_queued",
-				    messenger_check_listener_queue, messenger);
+		if (! gtk_signal_connect (GTK_OBJECT (messenger->priv->listener),
+					  "messages_queued",
+					  messenger_check_listener_queue, messenger)) {
+			g_warning ("Could not connect to EMessengerListener messages_queued signal.");
+			return FALSE;
+		}
 	}
+
+	id = e_messenger_identity_copy (identity);
 
 	/*
 	 * Ask the BackendDispatcher to perform the signon.
 	 */
-	if (! messenger_signon (messenger, identity))
+	if (! messenger_backend_signon (messenger, id))
 		return FALSE;
 
 	/*
-	 * Add this signon to the list of pending signons.
+	 * Add this connection to the list of pending connections.
 	 */
-	emis = messenger_identity_signon_create (
-		identity, signon_callback, closure);
-	messenger_add_pending_signon (messenger, emis);
+	connection = messenger_connection_create (id, signon_callback, closure);
+	messenger_add_pending_connection (messenger, connection);
 
 	return TRUE;
+}
+
+static gboolean
+messenger_signoff_active_connection (EMessenger         *messenger,
+				     EMessengerIdentity *identity)
+{
+	
+	EMessengerConnection *connection;
+
+	connection = messenger_find_active_connection (messenger, identity);
+	g_assert (connection != NULL);
+
+	/*
+	 * Ask the Backend to perform the signoff.
+	 */
+	if (! messenger_backend_signoff (messenger, connection))
+		return FALSE;
+
+	/*
+	 * FIXME: Remove any ancillary data associated with
+	 * this connection (e.g. buddy lists, etc).
+	 */
+
+	/*
+	 * Remove the connection from the active connection list.
+	 */
+	messenger_remove_active_connection (messenger, connection);
+	messenger_connection_free (connection);
+
+	return TRUE;
+}
+
+/**
+ * messenger_signoff_pending_connnection (INTERNAL)
+ * @messenger: The #EMessenger object.
+ * @identity: The identity for the connection which is to be closed.
+ *
+ * This function is called when the programmer asks for a pending
+ * connection to be closed.  Because we have not yet received a signon
+ * response for the connection from the PMS, we cannot destroy the
+ * connection yet.  Instead, we mark the connection as 'defunct' so
+ * that it can be removed later, once the PMS has responded.
+ *
+ * The application-specified signon callback will not get invoked
+ * if the pending connection is closed before it's established.
+ *
+ * If the user requests to create a new connection for a pending,
+ * defunct identity, e_messenger_signon will return FALSE and invoke
+ * the user's signon callback with an error of
+ * E_MESSENGER_SIGNON_ERROR_DEFUNCT_CONNECTION.  The application must
+ * wait until the connection is no longer defunct to attempt to sign
+ * on again.
+ */
+static gboolean
+messenger_signoff_pending_connection (EMessenger         *messenger,
+				      EMessengerIdentity *identity)
+{
+	
+	EMessengerConnection *connection;
+
+	connection = messenger_find_pending_connection (messenger, identity);
+	g_assert (connection != NULL);
+
+	connection->defunct = TRUE;
+
+	return TRUE;
+}
+
+/**
+ * e_messenger_signoff:
+ *
+ * FIXME
+ */
+gboolean
+e_messenger_signoff (EMessenger               *messenger,
+		     EMessengerIdentity       *identity)
+{
+	gboolean identity_is_active;
+
+	g_return_val_if_fail (messenger != NULL,                                FALSE);
+	g_return_val_if_fail (E_IS_MESSENGER (messenger),                       FALSE);
+	g_return_val_if_fail (identity != NULL,                                 FALSE);
+	g_return_val_if_fail (e_messenger_identity_check_invariants (identity), FALSE);
+
+	identity_is_active = messenger_identity_is_active (messenger, identity);
+
+	if (! identity_is_active || ! messenger_identity_is_pending (messenger, identity)) {
+		g_warning ("Attempt to signoff an ID which isn't signed on or being signed in.");
+		return FALSE;
+	}
+
+	if (identity_is_active)
+		return messenger_signoff_active_connection (messenger, identity);
+	else
+		return messenger_signoff_pending_connection (messenger, identity);
 }
 
 static gboolean
@@ -440,7 +648,9 @@ e_messenger_init (EMessenger *messenger)
 {
 	messenger->priv = g_new0 (EMessengerPrivate, 1);
 
-	
+	/*
+	 * FIXME: Init priv.
+	 */
 }
 
 static void
@@ -478,12 +688,13 @@ void gtk_marshal_NONE__POINTER_POINTER_POINTER_BOOL (GtkObject    *object,
 		   func_data);
 }
 
-typedef void (*GtkSignal_NONE__POINTER_POINTER_BOOL_INT) (GtkObject *object, 
-gpointer arg1,
-gpointer arg2,
-gboolean arg3,
-gint     arg4,							 
-gpointer user_data);
+typedef void (*GtkSignal_NONE__POINTER_POINTER_BOOL_INT) (GtkObject *object,
+							  gpointer arg1,
+							  gpointer arg2,
+							  gboolean arg3,
+							  gint     arg4,
+							  gpointer user_data);
+
 void gtk_marshal_NONE__POINTER_POINTER_BOOL_INT (GtkObject    *object,
 						 GtkSignalFunc func,
 						 gpointer      func_data,

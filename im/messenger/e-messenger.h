@@ -53,18 +53,22 @@ struct _EMessengerClass {
 	
 };
 
-
 typedef void (*EMessengerSignonCallback) (EMessenger               *messenger,
 					  const EMessengerIdentity *identity,
 					  EMessengerSignonError     error,
 					  gpointer                  closure);
 
-
 EMessenger *e_messenger_new       (void);
+
+/*
+ * Connection management.
+ */
 gboolean    e_messenger_signon    (EMessenger               *messenger,
 				   EMessengerIdentity       *id,
 				   EMessengerSignonCallback  signon_callback,
 				   gpointer                  closure);
+gboolean    e_messenger_signoff   (EMessenger               *messenger,
+				   EMessengerIdentity       *id);
 
 /* Gtk Type System Stuff */
 GtkType     e_messenger_get_type  (void);

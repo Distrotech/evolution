@@ -13,7 +13,15 @@ INCLUDES = 								\
 	-DEVOLUTION_GLADEDIR=\"$(datadir)/evolution/glade\"		\
 	-DG_LOG_DOMAIN=\"evolution-messenger\"
 
-noinst_PROGRAMS = test-e-messenger-identity
+noinst_PROGRAMS = test-e-messenger-identity test-e-messenger-signon-signoff
+
+test_e_messenger_signon_signoff_SOURCES = \
+	test-e-messenger-signon-signoff.c
+
+test_e_messenger_signon_signoff_LDADD = \
+	../libemessenger.a		\
+	../../libMessenger.a		\
+	$(BONOBO_GNOME_LIBS)
 
 test_e_messenger_identity_SOURCES = \
 	test-e-messenger-identity.c
