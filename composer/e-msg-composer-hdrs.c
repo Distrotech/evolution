@@ -36,6 +36,9 @@
 
 #include "e-msg-composer-address-entry.h"
 #include "e-msg-composer-hdrs.h"
+#include "widgets/e-text/e-entry.h"
+
+#include "mail/mail-config.h"
 
 
 #define SELECT_NAMES_OAFID "OAFIID:addressbook:select-names:39301deb-174b-40d1-8a6e-5edc300f7b61"
@@ -50,6 +53,7 @@ struct _EMsgComposerHdrsPrivate {
 	GtkTooltips *tooltips;
 
 	/* Standard headers.  */
+	GtkWidget *from_entry;
 	GtkWidget *to_entry;
 	GtkWidget *cc_entry;
 	GtkWidget *bcc_entry;
@@ -62,6 +66,12 @@ static GtkTableClass *parent_class = NULL;
 enum {
 	SHOW_ADDRESS_DIALOG,
 	LAST_SIGNAL
+};
+
+enum {
+	HEADER_ADDRBOOK,
+	HEADER_COMBOBOX,
+	HEADER_ENTRYBOX
 };
 
 static gint signals[LAST_SIGNAL];
@@ -115,6 +125,65 @@ address_button_clicked_cb (GtkButton *button,
 }
 
 static GtkWidget *
+create_dropdown_entry (EMsgComposerHdrs *hdrs,
+		       const char *name)
+{
+	GtkWidget *combo;
+	GList *values = NULL;
+	
+	combo = gtk_combo_new ();
+	gtk_combo_set_use_arrows (GTK_COMBO (combo), TRUE);
+	gtk_combo_set_case_sensitive (GTK_COMBO (combo), FALSE);
+	if (!strcmp (name, _("From:"))) {
+		CamelInternetAddress *ciaddr;
+		GSList *ids, *stmp;
+		GList *tmp;
+		MailConfigIdentity *id;
+		char *val;
+		
+		ids = mail_config_get_identities ();
+		stmp = ids;
+		while (stmp) {
+			char *address;
+			
+			id = stmp->data;
+			g_assert (id);			
+			g_assert (id->name);
+			g_assert (id->address);
+			
+			ciaddr = camel_internet_address_new ();
+			camel_internet_address_add (ciaddr, id->name, id->address);
+			address = camel_address_encode (CAMEL_ADDRESS (ciaddr));
+			values = g_list_append (values, address);
+			stmp = stmp->next;
+		}
+		
+		gtk_combo_set_popdown_strings (GTK_COMBO (combo), values);
+
+		tmp = values;
+		while (tmp) {
+			g_free (tmp->data);
+			tmp = tmp->next;
+		}
+		g_list_free (values);
+
+		id = mail_config_get_default_identity ();
+		g_assert (id);			
+		g_assert (id->name);
+		g_assert (id->address);
+		
+		ciaddr = camel_internet_address_new ();
+		camel_internet_address_add (ciaddr, id->name, id->address);
+		val = camel_address_encode (CAMEL_ADDRESS (ciaddr));
+		
+		gtk_entry_set_text (GTK_ENTRY (GTK_COMBO (combo)->entry), val);
+		g_free (val);
+	}
+	
+	return combo;
+}
+
+static GtkWidget *
 create_addressbook_entry (EMsgComposerHdrs *hdrs,
 			  const char *name)
 {
@@ -154,16 +223,16 @@ add_header (EMsgComposerHdrs *hdrs,
 	    const gchar *name,
 	    const gchar *tip,
 	    const gchar *tip_private,
-	    gboolean is_addrbook)
+	    int type)
 {
 	EMsgComposerHdrsPrivate *priv;
 	GtkWidget *label;
 	GtkWidget *entry;
 	guint pad;
-
+	
 	priv = hdrs->priv;
-
-	if (is_addrbook) {
+	
+	if (type == HEADER_ADDRBOOK) {
 		label = gtk_button_new_with_label (name);
 		GTK_OBJECT_UNSET_FLAGS(label, GTK_CAN_FOCUS);
 		gtk_signal_connect (GTK_OBJECT (label), "clicked",
@@ -177,31 +246,41 @@ add_header (EMsgComposerHdrs *hdrs,
 		label = gtk_label_new (name);
 		pad = GNOME_PAD;
 	}
-
+	
 	gtk_table_attach (GTK_TABLE (hdrs), label,
 			  0, 1, priv->num_hdrs, priv->num_hdrs + 1,
 			  GTK_FILL, GTK_FILL,
 			  pad, pad);
 	gtk_widget_show (label);
-
-	if (is_addrbook)
+	
+	switch (type) {
+	case HEADER_ADDRBOOK:
 		entry = create_addressbook_entry (hdrs, name);
-	else
-		entry = gtk_entry_new ();
+		break;
+	case HEADER_COMBOBOX:
+		entry = create_dropdown_entry (hdrs, name);
+		break;
+	default:
+		entry = e_entry_new ();
+		gtk_object_set(GTK_OBJECT(entry),
+			       "editable", TRUE,
+			       "use_ellipsis", TRUE,
+			       NULL);
+	}
 
 	if (entry != NULL) {
 		gtk_widget_show (entry);
-
+		
 		gtk_table_attach (GTK_TABLE (hdrs), entry,
 				  1, 2, priv->num_hdrs, priv->num_hdrs + 1,
-				  GTK_FILL | GTK_EXPAND, GTK_FILL,
+				  GTK_FILL | GTK_EXPAND, 0,
 				  2, 2);
-
+		
 		gtk_tooltips_set_tip (hdrs->priv->tooltips, entry, tip, tip_private);
 	}
-
+	
 	priv->num_hdrs++;
-
+	
 	return entry;
 }
 
@@ -211,30 +290,35 @@ setup_headers (EMsgComposerHdrs *hdrs)
 	EMsgComposerHdrsPrivate *priv;
 
 	priv = hdrs->priv;
-
+	
+	priv->from_entry = add_header
+		(hdrs, _("From:"), 
+		 _("Enter the identitiy you wish to send this message from"),
+		 NULL,
+		 HEADER_COMBOBOX);
 	priv->to_entry = add_header
 		(hdrs, _("To:"), 
 		 _("Enter the recipients of the message"),
 		 NULL,
-		 TRUE);
+		 HEADER_ADDRBOOK);
 	priv->cc_entry = add_header
 		(hdrs, _("Cc:"),
 		 _("Enter the addresses that will receive a carbon copy of "
 		   "the message"),
 		 NULL,
-		 TRUE);
+		 HEADER_ADDRBOOK);
 	priv->bcc_entry = add_header
 		(hdrs, _("Bcc:"),
 		 _("Enter the addresses that will receive a carbon copy of "
 		   "the message without appearing in the recipient list of "
 		   "the message."),
 		 NULL,
-		 TRUE);
+		 HEADER_ADDRBOOK);
 	priv->subject_entry = add_header
 		(hdrs, _("Subject:"),
 		 _("Enter the subject of the mail"),
 		 NULL,
-		 FALSE);
+		 HEADER_ENTRYBOX);
 }
 
 
@@ -295,6 +379,7 @@ init (EMsgComposerHdrs *hdrs)
 
 	priv->corba_select_names = CORBA_OBJECT_NIL;
 
+	priv->from_entry    = NULL;
 	priv->to_entry      = NULL;
 	priv->cc_entry      = NULL;
 	priv->bcc_entry     = NULL;
@@ -336,15 +421,15 @@ e_msg_composer_hdrs_new (void)
 {
 	EMsgComposerHdrs *new;
 	EMsgComposerHdrsPrivate *priv;
-
+	
 	new = gtk_type_new (e_msg_composer_hdrs_get_type ());
 	priv = new->priv;
-
+	
 	if (! setup_corba (new)) {
 		gtk_widget_destroy (GTK_WIDGET (new));
 		return NULL;
 	}
-
+	
 	setup_headers (new);
 
 	return GTK_WIDGET (new);
@@ -439,7 +524,9 @@ e_msg_composer_hdrs_to_message (EMsgComposerHdrs *hdrs,
 	g_return_if_fail (msg != NULL);
 	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (msg));
 
-	s = gtk_entry_get_text (GTK_ENTRY (hdrs->priv->subject_entry));
+	gtk_object_get(GTK_OBJECT(hdrs->priv->subject_entry),
+		       "text", &s,
+		       NULL);
 	camel_mime_message_set_subject (msg, g_strdup (s));
 
 	set_recipients (msg, hdrs->priv->to_entry, CAMEL_RECIPIENT_TYPE_TO);
@@ -465,6 +552,19 @@ set_entry (BonoboWidget *bonobo_widget,
 	bonobo_widget_set_property (BONOBO_WIDGET (bonobo_widget), "text", string->str, NULL);
 
 	g_string_free (string, TRUE);
+}
+
+void
+e_msg_composer_hdrs_set_from (EMsgComposerHdrs *hdrs,
+			      const char *from)
+{
+	GtkEntry *entry;
+	
+	g_return_if_fail (hdrs != NULL);
+	g_return_if_fail (E_IS_MSG_COMPOSER_HDRS (hdrs));
+
+	entry = GTK_ENTRY (GTK_COMBO (hdrs->priv->from_entry)->entry);
+	gtk_entry_set_text (entry, from);
 }
 
 void
@@ -501,17 +601,25 @@ void
 e_msg_composer_hdrs_set_subject (EMsgComposerHdrs *hdrs,
 				 const char *subject)
 {
-	GtkEntry *entry;
-
 	g_return_if_fail (hdrs != NULL);
 	g_return_if_fail (E_IS_MSG_COMPOSER_HDRS (hdrs));
 	g_return_if_fail (subject != NULL);
 
-	entry = GTK_ENTRY (hdrs->priv->subject_entry);
-	gtk_entry_set_text (entry, subject);
+	gtk_object_set(GTK_OBJECT(hdrs->priv->subject_entry),
+		       "text", subject,
+		       NULL);
 }
 
 
+char *
+e_msg_composer_hdrs_get_from (EMsgComposerHdrs *hdrs)
+{
+	g_return_val_if_fail (hdrs != NULL, NULL);
+	g_return_val_if_fail (E_IS_MSG_COMPOSER_HDRS (hdrs), NULL);
+	
+	return gtk_entry_get_text (GTK_ENTRY (GTK_COMBO (hdrs->priv->from_entry)->entry));
+}
+
 /* FIXME this is currently unused and broken.  */
 GList *
 e_msg_composer_hdrs_get_to (EMsgComposerHdrs *hdrs)
@@ -551,11 +659,16 @@ e_msg_composer_hdrs_get_bcc (EMsgComposerHdrs *hdrs)
 const char *
 e_msg_composer_hdrs_get_subject (EMsgComposerHdrs *hdrs)
 {
+	gchar *subject;
+
 	g_return_val_if_fail (hdrs != NULL, NULL);
 	g_return_val_if_fail (E_IS_MSG_COMPOSER_HDRS (hdrs), NULL);
 
-	return gtk_entry_get_text
-		(GTK_ENTRY (hdrs->priv->subject_entry));
+	gtk_object_get(GTK_OBJECT(hdrs->priv->subject_entry),
+		       "text", &subject,
+		       NULL);
+	
+	return subject;
 }
 
 

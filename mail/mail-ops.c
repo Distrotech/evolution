@@ -163,7 +163,7 @@ typedef struct send_mail_input_s
 {
 	gchar *xport_uri;
 	CamelMimeMessage *message;
-	CamelInternetAddress *from;
+	gchar *from;
 
 	/* If done_folder != NULL, will add done_flags to
 	 * the flags of the message done_uid in done_folder. */
@@ -268,12 +268,9 @@ do_send_mail (gpointer in_data, gpointer op_data, CamelException * ex)
 {
 	send_mail_input_t *input = (send_mail_input_t *) in_data;
 	CamelTransport *xport;
-	char *from_str;
 
 	mail_tool_camel_lock_up ();
-	from_str = camel_address_encode (CAMEL_ADDRESS (input->from));
-	camel_mime_message_set_from (input->message, from_str);
-	g_free (from_str);
+	camel_mime_message_set_from (input->message, input->from);
 
 	camel_medium_add_header (CAMEL_MEDIUM (input->message), "X-Mailer",
 				 "Evolution (Developer Preview)");
@@ -313,6 +310,7 @@ cleanup_send_mail (gpointer in_data, gpointer op_data, CamelException * ex)
 	if (input->done_folder)
 		camel_object_unref (CAMEL_OBJECT (input->done_folder));
 
+	g_free (input->from);
 	g_free (input->xport_uri);
 	g_free (input->done_uid);
 
@@ -333,7 +331,7 @@ static const mail_operation_spec op_send_mail = {
 void
 mail_do_send_mail (const char *xport_uri,
 		   CamelMimeMessage * message,
-		   CamelInternetAddress * from,
+		   const char * from,
 		   CamelFolder * done_folder,
 		   const char *done_uid,
 		   guint32 done_flags, GtkWidget * composer)
@@ -343,7 +341,7 @@ mail_do_send_mail (const char *xport_uri,
 	input = g_new (send_mail_input_t, 1);
 	input->xport_uri = g_strdup (xport_uri);
 	input->message = message;
-	input->from = from;
+	input->from = g_strdup (from);
 	input->done_folder = done_folder;
 	input->done_uid = g_strdup (done_uid);
 	input->done_flags = done_flags;

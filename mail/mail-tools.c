@@ -261,7 +261,7 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, gboolean
 
 	for (i = 0; i < uids->len; i++) {
 		CamelMimeMessage *msg;
-		
+		const CamelMessageInfo *info;
 		/* Get the message */
 
 		msg = camel_folder_get_message (source, uids->pdata[i], ex);
@@ -272,7 +272,8 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, gboolean
 		
 		/* Append it to dest */
 
-		camel_folder_append_message (dest, msg, 0, ex);
+		info = camel_folder_get_message_info (source, uids->pdata[i]);
+		camel_folder_append_message (dest, msg, info, ex);
 		if (camel_exception_is_set (ex)) {
 			camel_object_unref (CAMEL_OBJECT (msg));
 			goto cleanup;

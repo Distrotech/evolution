@@ -135,7 +135,7 @@ ask_confirm_for_empty_subject (EMsgComposer *composer)
 void
 composer_send_cb (EMsgComposer *composer, gpointer data)
 {
-	static CamelInternetAddress *ciaddr = NULL;
+	gchar *from = NULL;
 	const MailConfigIdentity *id = NULL;
 	MailConfigService *xport = NULL;
 	CamelMimeMessage *message;
@@ -175,11 +175,16 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 		return;
 	}
 
-	/* Generate our from address if nonexistant */
+	/* Generate our from address */
 
-	if (!ciaddr) {
+	from = g_strdup (e_msg_composer_hdrs_get_from (E_MSG_COMPOSER_HDRS (composer->hdrs)));
+	if (!from) {
+		CamelInternetAddress *ciaddr;
+
 		ciaddr = camel_internet_address_new ();
 		camel_internet_address_add (ciaddr, id->name, id->address);
+		from = camel_address_encode (CAMEL_ADDRESS (ciaddr));
+		camel_object_unref (ciaddr);
 	}
 
 	/* Get the message */
@@ -197,12 +202,12 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 	}
 
 	if (psd) {
-		mail_do_send_mail (xport->url, message, ciaddr,
+		mail_do_send_mail (xport->url, message, from,
 				   psd->folder, psd->uid, psd->flags, 
 				   GTK_WIDGET (composer));
 		g_free (psd->uid);
 	} else {
-		mail_do_send_mail (xport->url, message, ciaddr,
+		mail_do_send_mail (xport->url, message, from,
 				   NULL, NULL, 0,
 				   GTK_WIDGET (composer));
 	}

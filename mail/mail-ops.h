@@ -33,7 +33,7 @@ void mail_do_fetch_mail (const gchar * source_url, gboolean keep_on_server,
 			 gpointer hook_func, gpointer hook_data);
 void mail_do_send_mail (const char *xport_uri,
 			CamelMimeMessage * message,
-			CamelInternetAddress * from,
+			const char * from,
 			CamelFolder * done_folder,
 			const char *done_uid,
 

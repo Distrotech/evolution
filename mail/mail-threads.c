@@ -657,6 +657,7 @@ static void destroy_queue_window (void)
 {
 	g_return_if_fail (queue_window);
 
+	timeout_toggle (FALSE);
 	gtk_widget_destroy (queue_window);
 
 	queue_window = NULL;
@@ -1163,10 +1164,17 @@ timeout_toggle (gboolean active)
 		return;
 
 	if (active) {
-		if (progress_timeout_handle < 0)
+		/* We do this in case queue_window_progress gets reset */
+		if (progress_timeout_handle < 0) {
 			progress_timeout_handle =
 				gtk_timeout_add (80, progress_timeout,
 						 queue_window_progress);
+		} else {
+			gtk_timeout_remove (progress_timeout_handle);
+			progress_timeout_handle =
+				gtk_timeout_add (80, progress_timeout,
+						 queue_window_progress);
+		}
 	} else {
 		if (progress_timeout_handle >= 0) {
 			gtk_timeout_remove (progress_timeout_handle);

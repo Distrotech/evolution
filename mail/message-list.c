@@ -281,6 +281,9 @@ ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 
 	case COL_UNREAD:
 		return GINT_TO_POINTER(!(msg_info->flags & CAMEL_MESSAGE_SEEN));
+
+	case COL_COLOUR:
+		return camel_tag_get(&msg_info->user_tags, "colour");
 	}
 
 	g_assert_not_reached ();
@@ -293,6 +296,7 @@ ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 	case COL_PRIORITY:
 	case COL_ATTACHMENT:
 	case COL_DELETED:
+	case COL_COLOUR:
 	case COL_UNREAD:
 	case COL_SENT:
 	case COL_RECEIVED:
@@ -406,6 +410,9 @@ message_list_init_renderers (MessageList *message_list)
 	gtk_object_set(GTK_OBJECT(message_list->render_text),
 		       "bold_column", COL_UNREAD,
 		       NULL);
+	gtk_object_set(GTK_OBJECT(message_list->render_text),
+		       "color_column", COL_COLOUR,
+		       NULL);
 
 	message_list->render_date = e_cell_text_new (
 		message_list->table_model,
@@ -419,6 +426,9 @@ message_list_init_renderers (MessageList *message_list)
 		       NULL);
 	gtk_object_set(GTK_OBJECT(message_list->render_date),
 		       "bold_column", COL_UNREAD,
+		       NULL);
+	gtk_object_set(GTK_OBJECT(message_list->render_date),
+		       "color_column", COL_COLOUR,
 		       NULL);
 
 	message_list->render_online_status = e_cell_checkbox_new ();
@@ -982,24 +992,25 @@ on_right_click (ETableScrolled *table, gint row, gint col, GdkEvent *event, Mess
 	extern CamelFolder *drafts_folder;
 	int enable_mask = 0;
 	EPopupMenu menu[] = {
-		{ "Open in New Window", NULL, GTK_SIGNAL_FUNC (view_msg),        0 },
-		{ "Edit Message",       NULL, GTK_SIGNAL_FUNC (edit_msg),        1 },
-		{ "Print Message",      NULL, GTK_SIGNAL_FUNC (print_msg),       0 },
-		{ "",                   NULL, GTK_SIGNAL_FUNC (NULL),            0 },
-		{ "Reply to Sender",    NULL, GTK_SIGNAL_FUNC (reply_to_sender), 0 },
-		{ "Reply to All",       NULL, GTK_SIGNAL_FUNC (reply_to_all),    0 },
-		{ "Forward Message",    NULL, GTK_SIGNAL_FUNC (forward_msg),     0 },
-		{ "",                   NULL, GTK_SIGNAL_FUNC (NULL),            0 },
-		{ "Delete Message",     NULL, GTK_SIGNAL_FUNC (delete_msg),      0 },
-		{ "Move Message",       NULL, GTK_SIGNAL_FUNC (move_msg),        0 },
-		{ "",                   NULL, GTK_SIGNAL_FUNC (NULL),            0 },
-		{ "Vfolder from Subject",       NULL, GTK_SIGNAL_FUNC (vfolder_subject),        2 },
-		{ "Vfolder from Sender",       NULL, GTK_SIGNAL_FUNC (vfolder_sender),        2 },
-		{ "Vfolder from Recipients",       NULL, GTK_SIGNAL_FUNC (vfolder_recipient),        2 },
-		{ "Filter from Subject",       NULL, GTK_SIGNAL_FUNC (filter_subject),        2 },
-		{ "Filter from Sender",       NULL, GTK_SIGNAL_FUNC (filter_sender),        2 },
-		{ "Filter from Recipients",       NULL, GTK_SIGNAL_FUNC (filter_recipient),        2 },
-		{ NULL,                 NULL, NULL,                              0 }
+		{ "Open in New Window",      NULL, GTK_SIGNAL_FUNC (view_msg),          0 },
+		{ "Edit Message",            NULL, GTK_SIGNAL_FUNC (edit_msg),          1 },
+		{ "Print Message",           NULL, GTK_SIGNAL_FUNC (print_msg),         0 },
+		{ "",                        NULL, GTK_SIGNAL_FUNC (NULL),              0 },
+		{ "Reply to Sender",         NULL, GTK_SIGNAL_FUNC (reply_to_sender),   0 },
+		{ "Reply to All",            NULL, GTK_SIGNAL_FUNC (reply_to_all),      0 },
+		{ "Forward Message",         NULL, GTK_SIGNAL_FUNC (forward_msg),       0 },
+		{ "",                        NULL, GTK_SIGNAL_FUNC (NULL),              0 },
+		{ "Delete Message",          NULL, GTK_SIGNAL_FUNC (delete_msg),        0 },
+		{ "Move Message",            NULL, GTK_SIGNAL_FUNC (move_msg),          0 },
+		{ "",                        NULL, GTK_SIGNAL_FUNC (NULL),              0 },
+		{ "VFolder on Subject",      NULL, GTK_SIGNAL_FUNC (vfolder_subject),   2 },
+		{ "VFolder on Sender",       NULL, GTK_SIGNAL_FUNC (vfolder_sender),    2 },
+		{ "VFolder on Recipients",   NULL, GTK_SIGNAL_FUNC (vfolder_recipient), 2 },
+		{ "",                        NULL, GTK_SIGNAL_FUNC (NULL),              0 },
+		{ "Filter on Subject",       NULL, GTK_SIGNAL_FUNC (filter_subject),    2 },
+		{ "Filter on Sender",        NULL, GTK_SIGNAL_FUNC (filter_sender),     2 },
+		{ "Filter on Recipients",    NULL, GTK_SIGNAL_FUNC (filter_recipient),  2 },
+		{ NULL,                      NULL, NULL,                                0 }
 	};
 
 	if (fb->folder != drafts_folder)
@@ -1167,11 +1178,7 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 		build_flat (input->ml, input->ml->tree_root, data->uids);
 
 		if (input->search) {
-			int i;
-
-			for (i = 0; i < data->uids->len; i++)
-				g_free (data->uids->pdata[i]);
-			g_ptr_array_free (data->uids, FALSE);
+			camel_folder_search_free (input->ml->folder, data->uids);
 		} else {
 			camel_folder_free_uids (input->ml->folder, data->uids);
 		}

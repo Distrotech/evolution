@@ -181,6 +181,7 @@ mail_view_create (CamelFolder *source, const char *uid, CamelMimeMessage *msg)
 	GtkWidget *window;
 	GtkWidget *toolbar;
 	GtkWidget *mail_display;
+	GnomeDockItemBehavior behavior;
 	char *subject;
 	mail_view_data *data;
 
@@ -198,7 +199,15 @@ mail_view_create (CamelFolder *source, const char *uid, CamelMimeMessage *msg)
 					  mail_view_toolbar,
 					  NULL, data);
 
-	gnome_app_set_toolbar (GNOME_APP (window), GTK_TOOLBAR (toolbar));
+	behavior = GNOME_DOCK_ITEM_BEH_NORMAL;
+	if (!gnome_preferences_get_toolbar_detachable ())
+		behavior |= GNOME_DOCK_ITEM_BEH_LOCKED;
+
+	gnome_app_add_toolbar (GNOME_APP (window), 
+			       GTK_TOOLBAR (toolbar),
+			       GNOME_APP_TOOLBAR_NAME,
+			       behavior,
+			       GNOME_DOCK_TOP, 1, 0, 0);
 	
 	gnome_app_create_menus (GNOME_APP (window), mail_view_menubar);
 
