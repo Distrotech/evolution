@@ -141,16 +141,13 @@ test7 (void)
 	char               *str;
 
 	emi = e_messenger_identity_create (NULL, "natfriedman", "sekret");
-	g_assert (emi != NULL);
+	g_assert (emi == NULL);
 
-	emi2 = e_messenger_identity_create_from_me_and_username (emi, "eojwahs");
-	g_assert (emi2 != NULL);
+	emi2 = e_messenger_identity_create_from_me_and_username (NULL, "eojwahs");
+	g_assert (emi2 == NULL);
 
-	str = e_messenger_identity_get_service_type (emi2);
+	str = e_messenger_identity_get_service_type (NULL);
 	g_assert (str == NULL);
-
-	e_messenger_identity_free (emi);
-	e_messenger_identity_free (emi2);
 }
 
 int

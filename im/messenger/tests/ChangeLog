@@ -1,0 +1,5 @@
+2001-10-27  Nat Friedman  <nat@ximian.com>
+
+	* test-e-messenger-identity.c (test7): Fixed this test to have the
+	right assertions.
+
