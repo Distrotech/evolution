@@ -802,6 +802,48 @@ dialog_destroy (GtkWidget *dialog, gpointer user_data)
 #endif
 }
 
+/* Signatures */
+
+static void
+sig_load_preview (MailAccountsDialog *dialog, MailConfigSignature *sig)
+{
+	gchar *str;
+
+	if (!sig) {
+		gtk_html_load_from_string (GTK_HTML (dialog->sig_gtk_html), " ", 1);
+		return;
+	}
+
+	str = e_msg_composer_get_sig_file_content (sig->filename, sig->html);
+	if (!str)
+		str = g_strdup (" ");
+
+	/* printf ("HTML: %s\n", str); */
+	if (sig->html)
+		gtk_html_load_from_string (GTK_HTML (dialog->sig_gtk_html), str, strlen (str));
+	else {
+		GtkHTMLStream *stream;
+		gint len;
+
+		len = strlen (str);
+		stream = gtk_html_begin (GTK_HTML (dialog->sig_gtk_html));
+		gtk_html_write (GTK_HTML (dialog->sig_gtk_html), stream, "<PRE>", 5);
+		if (len)
+			gtk_html_write (GTK_HTML (dialog->sig_gtk_html), stream, str, len);
+		gtk_html_write (GTK_HTML (dialog->sig_gtk_html), stream, "</PRE>", 6);
+		gtk_html_end (GTK_HTML (dialog->sig_gtk_html), stream, GTK_HTML_STREAM_OK);
+	}
+
+	g_free (str);
+}
+
+static inline void
+sig_write_and_upadate_preview (MailAccountsDialog *dialog, MailConfigSignature *sig)
+{
+	sig_load_preview (dialog, sig);
+	mail_config_write_signature (sig);
+}
+
 static void
 sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 {
@@ -818,6 +860,12 @@ sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 static void
 sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
 {
+	MailConfigSignature *sig;
+
+	sig = mail_config_add_signature ();
+
+	gtk_clist_remove (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
+	mail_config_delete_signature (sig);
 }
 
 static void
@@ -830,6 +878,7 @@ sig_advanced (GtkWidget *w, MailAccountsDialog *dialog)
 {
 	gtk_widget_hide (dialog->sig_advanced);
 	gtk_widget_show (dialog->sig_simple);
+	gtk_widget_hide (dialog->sig_preview);
 	gtk_widget_show (dialog->sig_advanced_table);
 }
 
@@ -839,6 +888,7 @@ sig_simple (GtkWidget *w, MailAccountsDialog *dialog)
 	gtk_widget_hide (dialog->sig_simple);
 	gtk_widget_show (dialog->sig_advanced);
 	gtk_widget_hide (dialog->sig_advanced_table);
+	gtk_widget_show (dialog->sig_preview);
 }
 
 static void
@@ -869,6 +919,8 @@ sig_row_select (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsD
 	}
 	dialog->sig_switch = FALSE;
 	dialog->sig_row = row;
+
+	sig_load_preview (dialog, sig);
 }
 
 static void
@@ -914,7 +966,6 @@ static void
 sig_name_changed (GtkWidget *w, MailAccountsDialog *dialog)
 {
 	MailConfigSignature *sig = sig_current_sig (dialog);
-	gchar *name [1];
 
 	if (dialog->sig_switch)
 		return;
@@ -922,11 +973,9 @@ sig_name_changed (GtkWidget *w, MailAccountsDialog *dialog)
 	g_free (sig->name);
 	sig->name = g_strdup (gtk_entry_get_text (GTK_ENTRY (dialog->sig_name)));
 
-	name [0] = sig->name;
-
 	gtk_clist_set_text (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0, sig->name);
 
-	mail_config_write_signature (sig);
+	sig_write_and_upadate_preview (dialog, sig);
 }
 
 static void
@@ -939,7 +988,20 @@ sig_random_toggled (GtkWidget *w, MailAccountsDialog *dialog)
 
 	sig->random = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (dialog->sig_random));
 
-	mail_config_write_signature (sig);
+	sig_write_and_upadate_preview (dialog, sig);
+}
+
+static void
+sig_html_toggled (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig = sig_current_sig (dialog);
+
+	if (dialog->sig_switch)
+		return;
+
+	sig->html = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (dialog->sig_html));
+
+	sig_write_and_upadate_preview (dialog, sig);
 }
 
 static void
@@ -953,7 +1015,7 @@ sig_filename_changed (GtkWidget *w, MailAccountsDialog *dialog)
 	g_free (sig->filename);
 	sig->filename = g_strdup (gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_filename), FALSE));
 
-	mail_config_write_signature (sig);
+	sig_write_and_upadate_preview (dialog, sig);
 }
 
 static void
@@ -967,7 +1029,33 @@ sig_script_changed (GtkWidget *w, MailAccountsDialog *dialog)
 	g_free (sig->script);
 	sig->script = g_strdup (gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_script), FALSE));
 
-	mail_config_write_signature (sig);
+	sig_write_and_upadate_preview (dialog, sig);
+}
+
+static void
+url_requested (GtkHTML *html, const gchar *url, GtkHTMLStream *handle)
+{
+	GtkHTMLStreamStatus status;
+	gint fd;
+
+	if (!strncmp (url, "file:", 5))
+		url += 5;
+
+	fd = open (url, O_RDONLY);
+	status = GTK_HTML_STREAM_OK;
+	if (fd != -1) {
+		ssize_t size;
+		void *buf = alloca (1 << 7);
+		while ((size = read (fd, buf, 1 << 7))) {
+			if (size == -1) {
+				status = GTK_HTML_STREAM_ERROR;
+				break;
+			} else
+				gtk_html_write (html, handle, (const gchar *) buf, size);
+		}
+	} else
+		status = GTK_HTML_STREAM_ERROR;
+	gtk_html_end (html, handle, status);
 }
 
 static void
@@ -996,6 +1084,9 @@ signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 	dialog->sig_name = glade_xml_get_widget (gui, "entry-sig-name");
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_name), "changed", GTK_SIGNAL_FUNC (sig_name_changed), dialog);
 
+	dialog->sig_html = glade_xml_get_widget (gui, "check-sig-html");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_html), "toggled", GTK_SIGNAL_FUNC (sig_html_toggled), dialog);
+
 	dialog->sig_random = glade_xml_get_widget (gui, "check-sig-random");
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_random), "toggled", GTK_SIGNAL_FUNC (sig_random_toggled), dialog);
 
@@ -1008,8 +1099,17 @@ signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 			    "changed", GTK_SIGNAL_FUNC (sig_script_changed), dialog);
 
 	dialog->sig_advanced_table = glade_xml_get_widget (gui, "table-sig-advanced");
+	dialog->sig_preview = glade_xml_get_widget (gui, "frame-sig-preview");
 
 	/* preview GtkHTML widget */
+	dialog->sig_scrolled = glade_xml_get_widget (gui, "scrolled-sig");
+	dialog->sig_gtk_html = gtk_html_new ();
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_gtk_html), "url_requested", GTK_SIGNAL_FUNC (url_requested), NULL);
+	gtk_widget_show (dialog->sig_gtk_html);
+	gtk_container_add (GTK_CONTAINER (dialog->sig_scrolled), dialog->sig_gtk_html);
+
+	if (GTK_CLIST (dialog->sig_clist)->rows)
+		gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), 0, 0);
 }
 
 static void

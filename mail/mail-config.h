@@ -37,6 +37,7 @@ typedef struct {
 	gchar *filename;
 	gchar *script;
 	gboolean random;
+	gboolean html;
 } MailConfigSignature;
 
 typedef struct {

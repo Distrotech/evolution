@@ -95,6 +95,10 @@ struct _MailAccountsDialog {
 	GtkWidget *sig_random;
 	GtkWidget *sig_filename;
 	GtkWidget *sig_script;
+	GtkWidget *sig_html;
+	GtkWidget *sig_scrolled;
+	GtkWidget *sig_gtk_html;
+	GtkWidget *sig_preview;
 
 	GtkWidget *sig_add;
 	GtkWidget *sig_delete;

@@ -141,6 +141,7 @@ signature_copy (const MailConfigSignature *sig)
 	ns->filename = g_strdup (sig->filename);
 	ns->script = g_strdup (sig->script);
 	ns->random = sig->random;
+	ns->html = sig->html;
 
 	return ns;
 }
@@ -394,6 +395,9 @@ config_read_signature (gint i)
 	path = g_strdup_printf ("/Mail/Signatures/random_%d", i);
 	sig->random = bonobo_config_get_boolean_with_default (config->db, path, FALSE, NULL);
 
+	path = g_strdup_printf ("/Mail/Signatures/html_%d", i);
+	sig->html = bonobo_config_get_boolean_with_default (config->db, path, FALSE, NULL);
+
 	return sig;
 }
 
@@ -415,19 +419,22 @@ config_write_signature (MailConfigSignature *sig, gint i)
 	gchar *path;
 
 	path = g_strdup_printf ("/Mail/Signatures/name_%d", i);
-	bonobo_config_set_string (config->db, path, sig->name, NULL);
+	bonobo_config_set_string (config->db, path, sig->name ? sig->name : "", NULL);
 	g_free (path);
 
 	path = g_strdup_printf ("/Mail/Signatures/filename_%d", i);
-	bonobo_config_set_string (config->db, path, sig->filename, NULL);
+	bonobo_config_set_string (config->db, path, sig->filename ? sig->filename : "", NULL);
 	g_free (path);
 
 	path = g_strdup_printf ("/Mail/Signatures/script_%d", i);
-	bonobo_config_set_string (config->db, path, sig->script, NULL);
+	bonobo_config_set_string (config->db, path, sig->script ? sig->script : "", NULL);
 	g_free (path);
 
 	path = g_strdup_printf ("/Mail/Signatures/random_%d", i);
 	bonobo_config_set_boolean (config->db, path, sig->random, NULL);
+
+	path = g_strdup_printf ("/Mail/Signatures/html_%d", i);
+	bonobo_config_set_boolean (config->db, path, sig->html, NULL);
 }
 
 static void
@@ -2658,6 +2665,22 @@ mail_config_get_signature_list (void)
 	return config->signature_list;
 }
 
+static gchar *
+get_new_signature_filename ()
+{
+	struct stat st_buf;
+	gchar *filename;
+	gint i;
+
+	for (i = 0; ; i ++) {
+		filename = g_strdup_printf ("%s/signatures/signature-%d", evolution_dir, i);
+		if (lstat (filename, &st_buf) == - 1 && errno == ENOENT) {
+			return filename;
+		}
+		g_free (filename);
+	}
+}
+
 MailConfigSignature *
 mail_config_add_signature (void)
 {
@@ -2666,7 +2689,7 @@ mail_config_add_signature (void)
 	sig = g_new0 (MailConfigSignature, 1);
 
 	sig->name = _("Unnamed");
-	sig->filename = g_strdup_printf ("FIXME");
+	sig->filename = get_new_signature_filename ();
 	sig->id = config->signatures;
 
 	config->signature_list = g_list_append (config->signature_list, sig);
@@ -2678,9 +2701,52 @@ mail_config_add_signature (void)
 	return sig;
 }
 
+static void
+delete_unused_signature_file (const gchar *filename)
+{
+	gint len;
+
+	/* remove signature file if it's in evolution dir and no other signature uses it */
+	len = strlen (evolution_dir);
+	if (filename && !strncmp (filename, evolution_dir, len)) {
+		GList *l;
+		gboolean only_one = TRUE;
+
+		for (l = config->signature_list; l; l = l->next) {
+			if (((MailConfigSignature *)l->data)->filename
+			    && !strcmp (filename, ((MailConfigSignature *)l->data)->filename)) {
+				only_one = FALSE;
+				break;
+			}
+		}
+
+		if (only_one) {
+			unlink (filename);
+		}
+	}
+}
+
 void
 mail_config_delete_signature (MailConfigSignature *sig)
 {
+	GList *l, *next;
+	gboolean after = FALSE;
+
+	delete_unused_signature_file (sig->filename);
+
+	/* FIXME remove it from all accounts */
+
+	for (l = config->signature_list; l; l = next) {
+		next = l->next;
+		if (after)
+			((MailConfigSignature *) l->data)->id --;
+		else if (l->data == sig) {
+			config->signature_list = g_list_remove_link (config->signature_list, l);
+			after = TRUE;
+			config->signatures --;
+		}
+	}
+	signature_destroy (sig);
 }
 
 void
