@@ -1236,6 +1236,27 @@ update_query_for_client (ECalModel *model, ECalModelClient *client_data)
 }
 
 static void
+backend_died_cb (CalClient *client, gpointer user_data)
+{
+	ECalModel *model;
+
+	model = E_CAL_MODEL (user_data);
+
+	e_cal_model_remove_client (model, client);
+}
+
+static void
+cal_removed_cb (CalClient *client, CalClientRemoveStatus status, gpointer user_data)
+{
+	ECalModel *model;
+
+	model = E_CAL_MODEL (user_data);
+
+	if (status == CAL_CLIENT_REMOVE_SUCCESS)
+		e_cal_model_remove_client (model, client);
+}
+
+static void
 add_new_client (ECalModel *model, CalClient *client)
 {
 	ECalModelPrivate *priv;
@@ -1249,6 +1270,11 @@ add_new_client (ECalModel *model, CalClient *client)
 	g_object_ref (client_data->client);
 
 	priv->clients = g_list_append (priv->clients, client_data);
+
+	g_signal_connect (G_OBJECT (client_data->client), "cal_removed",
+			  G_CALLBACK (cal_removed_cb), model);
+	g_signal_connect (G_OBJECT (client_data->client), "backend_died",
+			  G_CALLBACK (backend_died_cb), model);
 
 	update_query_for_client (model, client_data);
 }
