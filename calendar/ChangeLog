@@ -1,3 +1,14 @@
+2003-08-18  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-day-view.c: fixed the problem with a new event being
+	created for each keystroke.
+	(e_day_view_add_event): don't create a new default component, use
+	the one we get as parameter.
+	(e_day_view_do_key_press): get the UID from the icalcomponent.
+
+	* gui/e-week-view.c (e_week_view_add_event, e_week_view_do_key_press):
+	same as e-day-view.c
+
 2003-08-15  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (ecm_get_color_for_component): use tigert's

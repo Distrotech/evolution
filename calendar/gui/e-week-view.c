@@ -2282,8 +2282,8 @@ e_week_view_add_event (CalComponent *comp,
 		event.allocated_comp_data = TRUE;
 
 		event.comp_data->client = e_cal_model_get_default_client (e_cal_view_get_model (E_CAL_VIEW (add_event_data->week_view)));
-		event.comp_data->icalcomp = e_cal_model_create_component_with_defaults (
-			e_cal_view_get_model (E_CAL_VIEW (add_event_data->week_view)));
+		cal_component_commit_sequence (comp);
+		event.comp_data->icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
 	}
 	event.start = start;
 	event.end = end;
@@ -3233,6 +3233,8 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 
 	/* Add a new event covering the selected range. */
 	icalcomp = e_cal_model_create_component_with_defaults (e_cal_view_get_model (E_CAL_VIEW (week_view)));
+	uid = icalcomponent_get_uid (icalcomp);
+
 	comp = cal_component_new ();
 	cal_component_set_icalcomponent (comp, icalcomp);
 
@@ -3263,7 +3265,6 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	e_week_view_check_layout (week_view);
 	gtk_widget_queue_draw (week_view->main_canvas);
 
-	cal_component_get_uid (comp, &uid);
 	if (e_week_view_find_event_from_uid (week_view, uid, &event_num)) {
 		e_week_view_start_editing_event (week_view, event_num, 0,
 						 initial_text);

@@ -4095,8 +4095,8 @@ e_day_view_add_event (CalComponent *comp,
 		event.allocated_comp_data = TRUE;
 
 		event.comp_data->client = e_cal_model_get_default_client (e_cal_view_get_model (E_CAL_VIEW (add_event_data->day_view)));
-		event.comp_data->icalcomp = e_cal_model_create_component_with_defaults (
-			e_cal_view_get_model (E_CAL_VIEW (add_event_data->day_view)));
+		cal_component_commit_sequence (comp);
+		event.comp_data->icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
 	}
 
 	event.start = start;
@@ -4628,7 +4628,7 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	time_t dtstart, dtend;
 	CalComponentDateTime start_dt, end_dt;
 	struct icaltimetype start_tt, end_tt;
-	const char *uid;
+        const char *uid;
 	AddEventData add_event_data;
 
 	g_return_val_if_fail (widget != NULL, FALSE);
@@ -4737,6 +4737,8 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	/* Add a new event covering the selected range */
 
 	icalcomp = e_cal_model_create_component_with_defaults (e_cal_view_get_model (E_CAL_VIEW (day_view)));
+	uid = icalcomponent_get_uid (icalcomp);
+
 	comp = cal_component_new ();
 	cal_component_set_icalcomponent (comp, icalcomp);
 
@@ -4773,7 +4775,6 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	gtk_widget_queue_draw (day_view->top_canvas);
 	gtk_widget_queue_draw (day_view->main_canvas);
 
-	cal_component_get_uid (comp, &uid);
 	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
 		e_day_view_start_editing_event (day_view, day, event_num,
 						initial_text);
