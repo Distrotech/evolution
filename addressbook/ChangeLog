@@ -1,5 +1,10 @@
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-types.h: new file, all the typedefs shared
+	between files here.
+
+2003-07-23  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-book-view.c (send_pending_adds): abstract all
 	the aggregating code to the book view.  backends just call
 	notify_card_added and the superclass does all the aggregating.
