@@ -1773,11 +1773,7 @@ e_week_view_update_event_cb (EWeekView *week_view,
 			text = icalcomponent_get_summary (comp_data->icalcomp);
 			gnome_canvas_item_set (span->text_item,
 					       "text", text ? text : "",
-					       NULL);
-
-			text = e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (week_view)), comp_data);
-			gnome_canvas_item_set (span->text_item, "background", text ? text : "", NULL);
-								    
+					       NULL);	    
 
 			e_week_view_reshape_event_span (week_view, event_num,
 							span_num);

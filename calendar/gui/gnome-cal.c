@@ -604,6 +604,8 @@ update_query (GnomeCalendar *gcal)
 
 	e_calendar_item_clear_marks (priv->date_navigator->calitem);
 
+	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), _("Searching"));
+
 	/* free the previous queries */
 	for (l = priv->dn_queries; l != NULL; l = l->next) {
 		old_query = l->data;
@@ -621,8 +623,10 @@ update_query (GnomeCalendar *gcal)
 	g_assert (priv->sexp != NULL);
 
 	real_sexp = adjust_query_sexp (gcal, priv->sexp);
-	if (!real_sexp)
+	if (!real_sexp) {
+		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 		return; /* No time range is set, so don't start a query */
+	}
 
 	/* create queries for each loaded client */
 	client_list = e_cal_model_get_client_list (e_cal_view_get_model (E_CAL_VIEW (priv->day_view)));
@@ -647,6 +651,8 @@ update_query (GnomeCalendar *gcal)
 
 	g_list_free (client_list);
 	g_free (real_sexp);
+
+	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 }
 
 /**
@@ -682,7 +688,6 @@ gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp)
 	e_cal_model_set_query (model, sexp);
 
 	/* Set the query on the task pad */
-
 	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));
 	e_cal_model_set_query (model, sexp);
 }
@@ -1661,20 +1666,20 @@ permission_error (GnomeCalendar *gcal, const char *uri)
 }
 
 /* Callback from the calendar client when a calendar is loaded */
-/* static gboolean */
-/* update_query_timeout (gpointer data) */
-/* { */
-/* 	GnomeCalendar *gcal = data; */
-/* 	GnomeCalendarPrivate *priv; */
+static gboolean
+update_query_timeout (gpointer data)
+{
+	GnomeCalendar *gcal = data;
+	GnomeCalendarPrivate *priv;
 
-/* 	gcal = GNOME_CALENDAR (data); */
-/* 	priv = gcal->priv; */
+	gcal = GNOME_CALENDAR (data);
+	priv = gcal->priv;
 
-/* 	update_query (gcal); */
-/* 	priv->query_timeout = 0; */
+	update_query (gcal);
+	priv->query_timeout = 0;
 
-/* 	return FALSE; */
-/* } */
+	return FALSE;
+}
 
 static void
 client_cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
@@ -1706,6 +1711,8 @@ client_cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer da
 		else {
 			e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), msg);
 			e_cal_model_add_client (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)), client);
+
+			priv->query_timeout = g_timeout_add (100, update_query_timeout, gcal);
 		}
 		g_free (msg);
 
@@ -2126,6 +2133,7 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	if (!cal_client_open_calendar (client, real_uri, FALSE)) {
 		g_message ("gnome_calendar_open(): Could not issue the request to open the calendar folder");
 		g_free (real_uri);
+		g_object_unref (client);
 		e_uri_free (uri);
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 
@@ -2268,10 +2276,10 @@ gnome_calendar_update_config_settings (GnomeCalendar *gcal,
 		GList *l;
 
 		for (l = client_list; l != NULL; l = l->next) {
-			if (l->data &&
-			    cal_client_get_load_state ((CalClient *) l->data) == CAL_CLIENT_LOAD_LOADED) {
-				cal_client_set_default_timezone ((CalClient *) l->data, priv->zone);
-			}
+			CalClient *client = l->data;
+
+			if (cal_client_get_load_state (client) == CAL_CLIENT_LOAD_LOADED)
+				cal_client_set_default_timezone (client, priv->zone);
 		}
 
 		g_list_free (client_list);

@@ -236,6 +236,7 @@ e_week_view_event_item_draw (GnomeCanvasItem  *canvas_item,
 	gboolean draw_start, draw_end;
 	gboolean draw_start_triangle = FALSE, draw_end_triangle = FALSE;
 	GdkRectangle clip_rect;
+	GdkColor bg_color;
 
 #if 0
 	g_print ("In e_week_view_event_item_draw %i,%i %ix%i\n",
@@ -354,7 +355,18 @@ e_week_view_event_item_draw (GnomeCanvasItem  *canvas_item,
 			rect_w -= 2;
 		}
 
-		gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BACKGROUND]);
+		if (gdk_color_parse (e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (week_view)),
+									  event->comp_data),
+				     &bg_color)) {
+			GdkColormap *colormap;
+
+			colormap = gtk_widget_get_colormap (GTK_WIDGET (week_view));
+			if (gdk_colormap_alloc_color (colormap, &bg_color, TRUE, TRUE))
+				gdk_gc_set_foreground (gc, &bg_color);
+			else
+				gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BACKGROUND]);
+		} else
+			gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BACKGROUND]);
 		gdk_draw_rectangle (drawable, gc, TRUE,
 				    rect_x, y1 + 1, rect_w, y2 - y1 - 1);
 

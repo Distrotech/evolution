@@ -1,3 +1,18 @@
+2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/gnome-cal.c (gnome_calendar_open): unref the client if there
+	is an error.
+	(update_query): set status bar messages for progress.
+	(update_query_timeout): re-enabled.
+	(client_cal_opened_cb): install timeout handler for the query updates.
+
+	* gui/e-cal-view.c (e_cal_view_set_model): connect to all appropriate
+	signals on the model, to be called for every change.
+	(model_row_changed_cb, model_rows_changed_cb): new model callbacks.
+
+	* gui/e-week-view-event-item.c (e_week_view_event_item_draw): colorize
+	the background for multiple days events.
+
 2003-08-12  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-day-view.c (e_day_view_update_query):
