@@ -1,3 +1,9 @@
+2003-08-19  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/gnome-cal.c (gnome_calendar_purge): don't leak the client list.
+	(gnome_calendar_destroy): disconnect from all callbacks on all
+	loaded clients.
+
 2003-08-18  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-day-view.c: fixed the problem with a new event being

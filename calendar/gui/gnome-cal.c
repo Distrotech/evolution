@@ -1012,20 +1012,29 @@ gnome_calendar_destroy (GtkObject *object)
 	priv = gcal->priv;
 
 	if (priv) {
+		GList *l, *client_list;
+
 		free_categories (priv->cal_categories);
 		priv->cal_categories = NULL;
 
 		free_categories (priv->tasks_categories);
 		priv->tasks_categories = NULL;
 
+		/* disconnect from signals on all the clients */
+		client_list = e_cal_model_get_client_list (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)));
+		for (l = client_list; l != NULL; l = l->next) {
+			g_signal_handlers_disconnect_matched ((CalClient *) l->data, G_SIGNAL_MATCH_DATA,
+							      0, 0, NULL, NULL, gcal);
+		}
+
+		g_list_free (client_list);
+		
 		/* Save the TaskPad layout. */
 		filename = g_strdup_printf ("%s/config/TaskPad", evolution_dir);
 		e_calendar_table_save_state (E_CALENDAR_TABLE (priv->todo), filename);
 		g_free (filename);
 
 		if (priv->dn_queries) {
-			GList *l;
-
 			for (l = priv->dn_queries; l != NULL; l = l->next) {
 				g_signal_handlers_disconnect_matched ((CalQuery *) l->data, G_SIGNAL_MATCH_DATA,
 								      0, 0, NULL, NULL, gcal);
@@ -3119,6 +3128,7 @@ gnome_calendar_purge (GnomeCalendar *gcal, time_t older_than)
 		priv->exp_queries = g_list_append (priv->exp_queries, exp_query);
 	}
 
+	g_list_free (client_list);
 	g_free (sexp);
 	g_free (start);
 	g_free (end);
