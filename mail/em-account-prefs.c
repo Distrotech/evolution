@@ -39,7 +39,6 @@
 #include "e-util/e-account-list.h"
 
 #include "em-account-prefs.h"
-#include <e-util/e-icon-factory.h>
 
 static void em_account_prefs_class_init (EMAccountPrefsClass *class);
 static void em_account_prefs_init       (EMAccountPrefs *prefs);
@@ -48,8 +47,6 @@ static void em_account_prefs_destroy    (GtkObject *object);
 
 static void mail_accounts_load (EMAccountPrefs *prefs);
 
-static GdkPixbuf *disabled_pixbuf = NULL;
-static GdkPixbuf *enabled_pixbuf = NULL;
 
 static GtkVBoxClass *parent_class = NULL;
 
@@ -90,10 +87,6 @@ em_account_prefs_class_init (EMAccountPrefsClass *klass)
 	gtk_object_class->destroy = em_account_prefs_destroy;
 	
 	object_class->finalize = em_account_prefs_finalise;
-	
-	/* setup static data */
-	disabled_pixbuf = NULL;
-	enabled_pixbuf = e_icon_factory_get_icon ("stock_mark", 16);
 }
 
 static void
@@ -101,8 +94,6 @@ em_account_prefs_init (EMAccountPrefs *prefs)
 {
 	prefs->druid = NULL;
 	prefs->editor = NULL;
-	
-	prefs->mark_pixbuf = g_object_ref (enabled_pixbuf);
 }
 
 static void
@@ -121,7 +112,6 @@ em_account_prefs_finalise (GObject *obj)
 	EMAccountPrefs *prefs = (EMAccountPrefs *) obj;
 	
 	g_object_unref (prefs->gui);
-	g_object_unref (prefs->mark_pixbuf);
 	
         G_OBJECT_CLASS (parent_class)->finalize (obj);
 }

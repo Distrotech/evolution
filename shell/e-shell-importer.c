@@ -53,6 +53,7 @@
 
 #include <e-util/e-gtk-utils.h>
 #include <e-util/e-dialog-utils.h>
+#include <e-util/e-icon-factory.h>
 
 #include "e-shell-importer.h"
 #include "importer/GNOME_Evolution_Importer.h"
@@ -1147,8 +1148,8 @@ e_shell_importer_start_import (EShellWindow *shell_window)
 		return;
 	}
 	
-	icon = e_icon_factory_get_icon ("stock_import", 48);
-
+	icon = e_icon_factory_get_icon ("stock_import", E_ICON_SIZE_DIALOG);
+	
 	dialog_open = TRUE;
 	data->window = shell_window;
 	data->shell = e_shell_window_peek_shell (data->window);

@@ -297,7 +297,7 @@ em_format_html_file_part(EMFormatHTML *efh, const char *mime_type, const char *f
 	CamelMimePart *part;
 	CamelStream *stream;
 	CamelDataWrapper *dw;
-	gchar *basename;
+	char *basename;
 
 	stream = camel_stream_fs_new_with_name(filename, O_RDONLY, 0);
 	if (stream == NULL)
@@ -596,7 +596,7 @@ efh_format_secure(EMFormat *emf, CamelStream *stream, CamelMimePart *part, Camel
 	    && (valid->encrypt.status != CAMEL_CIPHER_VALIDITY_ENCRYPT_NONE
 		|| valid->sign.status != CAMEL_CIPHER_VALIDITY_SIGN_NONE)) {
 		char *classid;
-		gchar *iconpath;
+		char *iconpath;
 		CamelMimePart *iconpart;
 
 		camel_stream_printf(stream, "<table border=0 width=\"100%%\" cellpadding=3 cellspacing=0 bgcolor=%s><tr>",
@@ -604,7 +604,7 @@ efh_format_secure(EMFormat *emf, CamelStream *stream, CamelMimePart *part, Camel
 
 		classid = g_strdup_printf("smime:///em-format-html/%s/icon/signed", emf->part_id->str);
 		camel_stream_printf(stream, "<td valign=\"top\"><img src=\"%s\"></td><td valign=\"top\" width=\"100%%\">", classid);
-		iconpath = e_icon_factory_get_icon_filename (smime_sign_table[valid->sign.status].icon, 48);
+		iconpath = e_icon_factory_get_icon_filename (smime_sign_table[valid->sign.status].icon, E_ICON_SIZE_DIALOG);
 		iconpart = em_format_html_file_part((EMFormatHTML *)emf, "image/png", iconpath);
 		if (iconpart) {
 			(void)em_format_add_puri(emf, sizeof(EMFormatPURI), classid, iconpart, efh_write_image);

@@ -1,3 +1,58 @@
+2004-04-21  Not Zed  <NotZed@Ximian.com>
+
+	* em-inline-filter.c (emif_scan): use a better test for non-full
+	lines.
+
+	* em-folder-browser.c (emfb_activate): dont desensitise
+	HideDeleted just 'cause we have no folder, it needs to depend on
+	Trash folder only.
+	(emfb_set_folder): set the hidedeleted sensitivity based on
+	whether we have a trash folder or not.  Fixed #57226.
+
+	* em-folder-view.c (emfv_class_init): use the right signal
+	callback for the changed signal.  Fixes #57246.
+
+	* mail-component.c (impl_createControls): fix for
+	e_user_creatable_items api changes.
+	(create_item): split out the code to create the item.
+	(create_local_item_cb): new callback for local item creation.
+	(impl_requestCreateItem): call create_item to do the work.
+
+2004-04-19  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-browser.c: Use E_ICON_SIZE_* enums for the menu icon
+	sizes.
+
+	* em-folder-view.c: Use E_ICON_SIZE_* enums for the menu/toolbar
+	icon sizes.
+
+	* message-tag-followup.c (construct): Same.
+
+	* message-list.c (message_list_init_images): Same.
+
+	* mail-send-recv.c (build_dialog): Same.
+
+	* mail-mt.c (do_op_status): Same.
+
+	* mail-config-druid.c (evolution_mail_config_wizard_new): Same.
+
+	* em-popup.c (em_popup_create_menu): Same.
+
+	* em-format-html-display.c (efhd_format_prefix): Same.
+
+	* em-format-html.c (efh_format_secure): Same as below.
+
+	* em-folder-tree.c (render_pixbuf): Don't use absolute icon sizes,
+	use the e-icon-factory enums.
+
+2004-04-19  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-composer-prefs.h: Removed variables that got re-added with
+	the icon-theme patch somehow.
+
+	* em-account-prefs.c: Don't bother keeping global references to
+	the enable_pixbuf anymore, since it's unnecessary.
+
 2004-04-19  Michael Terry  <mike@mterry.name>
 
 	* GNOME_Evolution_Mail.server.in.in:

@@ -157,14 +157,14 @@ enum {
 static guint message_list_signals [LAST_SIGNAL] = {0, };
 
 static struct {
-	gchar *icon_name;
+	char *icon_name;
 	GdkPixbuf  *pixbuf;
 } states_pixmaps [] = {
 	{ "stock_mail-unread",			NULL },
 	{ "stock_mail-open",			NULL },
 	{ "stock_mail-replied",			NULL },
-    { "stock_mail-unread-multiple",	NULL },
-    { "stock_mail-open-multiple",	NULL },
+	{ "stock_mail-unread-multiple",	NULL },
+	{ "stock_mail-open-multiple",	NULL },
 	{ "",					NULL },
 	{ "stock_attach",			NULL },
 	{ "stock_mail-priority-high",	NULL },
@@ -1227,9 +1227,8 @@ message_list_init_images (void)
 	if (states_pixmaps [0].pixbuf)
 		return;
 	
-	for (i = 0; states_pixmaps [i].icon_name; i++){
-		states_pixmaps [i].pixbuf = e_icon_factory_get_icon (states_pixmaps [i].icon_name, 16);
-	}
+	for (i = 0; states_pixmaps[i].icon_name; i++)
+		states_pixmaps[i].pixbuf = e_icon_factory_get_icon (states_pixmaps[i].icon_name, E_ICON_SIZE_MENU);
 }
 
 static char *
