@@ -48,8 +48,7 @@ struct _PASBackendClass {
 
 	/* Virtual methods */
 	GNOME_Evolution_Addressbook_CallStatus (*load_uri) (PASBackend *backend, const char *uri, gboolean only_if_exists);
-	gboolean (*add_client) (PASBackend *backend, PASBook *book);
-	void (*remove_client) (PASBackend *backend, PASBook *book);
+	void (*remove) (PASBackend *backend, PASBook *book);
         char *(*get_static_capabilities) (PASBackend *backend);
 
 	void (*create_card)  (PASBackend *backend, PASBook *book, const char *vcard);
@@ -63,9 +62,6 @@ struct _PASBackendClass {
 	void (*get_supported_fields) (PASBackend *backend, PASBook *book);
 	void (*get_supported_auth_methods) (PASBackend *backend, PASBook *book);
 	GNOME_Evolution_Addressbook_CallStatus (*cancel_operation) (PASBackend *backend, PASBook *book);
-
-	gboolean (*is_threaded) (PASBackend *backend);
-	void (*start_threaded) (PASBackend *backend);
 
 	/* Notification signals */
 	void (* last_client_gone) (PASBackend *backend);
@@ -98,10 +94,13 @@ gboolean    pas_backend_is_loaded                (PASBackend             *backen
 
 gboolean    pas_backend_is_writable              (PASBackend             *backend);
 
+gboolean    pas_backend_is_removed               (PASBackend             *backend);
 
 void        pas_backend_open                     (PASBackend             *backend,
 						  PASBook                *book,
 						  gboolean                only_if_exists);
+void        pas_backend_remove                   (PASBackend *backend,
+						  PASBook    *book);
 void        pas_backend_create_card              (PASBackend             *backend,
 						  PASBook                *book,
 						  const char             *vcard);
@@ -135,6 +134,9 @@ GNOME_Evolution_Addressbook_CallStatus pas_backend_cancel_operation (PASBackend 
 void        pas_backend_start_book_view            (PASBackend             *backend,
 						    PASBookView            *view);
 
+void        pas_backend_add_book_view              (PASBackend             *backend,
+						    PASBookView            *view);
+
 EList      *pas_backend_get_book_views             (PASBackend *backend);
 
 GType       pas_backend_get_type                 (void);
@@ -145,6 +147,8 @@ void        pas_backend_set_is_loaded            (PASBackend             *backen
 						  gboolean                is_loaded);
 void        pas_backend_set_is_writable          (PASBackend             *backend,
 						  gboolean                is_writable);
+void        pas_backend_set_is_removed           (PASBackend             *backend,
+						  gboolean                is_removed);
 
 #endif /* ! __PAS_BACKEND_H__ */
 

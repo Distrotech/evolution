@@ -39,6 +39,18 @@ pas_backend_sync_create_card (PASBackendSync *backend,
 }
 
 PASBackendSyncStatus
+pas_backend_sync_remove (PASBackendSync *backend,
+			 PASBook *book)
+{
+	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
+
+	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_sync);
+
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_sync) (backend, book);
+}
+
+PASBackendSyncStatus
 pas_backend_sync_remove_cards (PASBackendSync *backend,
 			       PASBook *book,
 			       GList *id_list,
@@ -163,6 +175,17 @@ pas_backend_sync_get_supported_auth_methods (PASBackendSync *backend,
 }
 
 static void
+_pas_backend_remove (PASBackend *backend,
+		     PASBook    *book)
+{
+	PASBackendSyncStatus status;
+
+	status = pas_backend_sync_remove (PAS_BACKEND_SYNC (backend), book);
+
+	pas_book_respond_remove (book, status);
+}
+
+static void
 _pas_backend_create_card (PASBackend *backend,
 			  PASBook    *book,
 			  const char *vcard)
@@ -187,7 +210,7 @@ _pas_backend_remove_cards (PASBackend *backend,
 
 	status = pas_backend_sync_remove_cards (PAS_BACKEND_SYNC (backend), book, id_list, &ids);
 
-	pas_book_respond_remove (book, status, ids);
+	pas_book_respond_remove_cards (book, status, ids);
 }
 
 static void
@@ -326,6 +349,7 @@ pas_backend_sync_class_init (PASBackendSyncClass *klass)
 
 	object_class = (GObjectClass *) klass;
 
+	backend_class->remove = _pas_backend_remove;
 	backend_class->create_card = _pas_backend_create_card;
 	backend_class->remove_cards = _pas_backend_remove_cards;
 	backend_class->modify_card = _pas_backend_modify_card;

@@ -13,11 +13,16 @@
 #include "pas-marshal.h"
 
 struct _PASBackendPrivate {
-	GList *clients;
-	char *uri;
-	gboolean loaded, writable;
-	EList *views;
 	GMutex *open_mutex;
+
+	GMutex *clients_mutex;
+	GList *clients;
+
+	char *uri;
+	gboolean loaded, writable, removed;
+
+	GMutex *views_mutex;
+	EList *views;
 };
 
 /* Signal IDs */
@@ -94,6 +99,18 @@ pas_backend_open (PASBackend *backend,
 	}
 
 	g_mutex_unlock (backend->priv->open_mutex);
+}
+
+void
+pas_backend_remove (PASBackend *backend,
+		    PASBook    *book)
+{
+	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
+	g_return_if_fail (book && PAS_IS_BOOK (book));
+
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->remove);
+
+	(* PAS_BACKEND_GET_CLASS (backend)->remove) (backend, book);
 }
 
 void
@@ -267,41 +284,23 @@ last_client_gone (PASBackend *backend)
 	g_signal_emit (backend, pas_backend_signals[LAST_CLIENT_GONE], 0);
 }
 
-static gboolean
-real_add_client (PASBackend      *backend,
-		 PASBook         *book)
-{
-	bonobo_object_set_immortal (BONOBO_OBJECT (book), TRUE);
-
-	g_object_weak_ref (G_OBJECT (book), book_destroy_cb, backend);
-
-	ORBit_small_listen_for_broken (pas_book_get_listener (book), G_CALLBACK (listener_died_cb), book);
-
-	backend->priv->clients = g_list_prepend (backend->priv->clients, book);
-
-	return TRUE;
-}
-
-static void
-real_remove_client (PASBackend *backend,
-		    PASBook    *book)
-{
-	/* Disconnect */
-	backend->priv->clients = g_list_remove (backend->priv->clients, book);
-
-	/* When all clients go away, notify the parent factory about it so that
-	 * it may decide whether to kill the backend or not.
-	 */
-	if (!backend->priv->clients)
-		last_client_gone (backend);
-}
-
 EList*
 pas_backend_get_book_views (PASBackend *backend)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
 
 	return g_object_ref (backend->priv->views);
+}
+
+void
+pas_backend_add_book_view (PASBackend *backend,
+			   PASBookView *view)
+{
+	g_mutex_lock (backend->priv->views_mutex);
+
+	e_list_append (backend->priv->views, view);
+
+	g_mutex_unlock (backend->priv->views_mutex);
 }
 
 /**
@@ -320,21 +319,40 @@ pas_backend_add_client (PASBackend      *backend,
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), FALSE);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->add_client);
+	bonobo_object_set_immortal (BONOBO_OBJECT (book), TRUE);
 
-	return PAS_BACKEND_GET_CLASS (backend)->add_client (backend, book);
+	g_object_weak_ref (G_OBJECT (book), book_destroy_cb, backend);
+
+	ORBit_small_listen_for_broken (pas_book_get_listener (book), G_CALLBACK (listener_died_cb), book);
+
+	g_mutex_lock (backend->priv->clients_mutex);
+	backend->priv->clients = g_list_prepend (backend->priv->clients, book);
+	g_mutex_unlock (backend->priv->clients_mutex);
+
+	return TRUE;
 }
 
 void
 pas_backend_remove_client (PASBackend *backend,
 			   PASBook    *book)
 {
+	/* XXX this needs a bit more thinking wrt the mutex - we
+	   should be holding it when we check to see if clients is
+	   NULL */
+
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->remove_client);
 
-	PAS_BACKEND_GET_CLASS (backend)->remove_client (backend, book);
+	/* Disconnect */
+	g_mutex_lock (backend->priv->clients_mutex);
+	backend->priv->clients = g_list_remove (backend->priv->clients, book);
+	g_mutex_unlock (backend->priv->clients_mutex);
+
+	/* When all clients go away, notify the parent factory about it so that
+	 * it may decide whether to kill the backend or not.
+	 */
+	if (!backend->priv->clients)
+		last_client_gone (backend);
 }
 
 char *
@@ -379,6 +397,22 @@ pas_backend_set_is_writable (PASBackend *backend, gboolean is_writable)
 	backend->priv->writable = is_writable;
 }
 
+gboolean
+pas_backend_is_removed (PASBackend *backend)
+{
+	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
+	
+	return backend->priv->removed;
+}
+
+void
+pas_backend_set_is_removed (PASBackend *backend, gboolean is_removed)
+{
+	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
+	
+	backend->priv->removed = is_removed;
+}
+
 static void
 pas_backend_init (PASBackend *backend)
 {
@@ -389,6 +423,8 @@ pas_backend_init (PASBackend *backend)
 	priv->clients = NULL;
 	priv->views   = e_list_new((EListCopyFunc) g_object_ref, (EListFreeFunc) g_object_unref, NULL);
 	priv->open_mutex = g_mutex_new ();
+	priv->clients_mutex = g_mutex_new ();
+	priv->views_mutex = g_mutex_new ();
 
 	backend->priv = priv;
 }
@@ -412,6 +448,8 @@ pas_backend_dispose (GObject *object)
 		}
 
 		g_mutex_free (backend->priv->open_mutex);
+		g_mutex_free (backend->priv->clients_mutex);
+		g_mutex_free (backend->priv->views_mutex);
 
 		g_free (backend->priv);
 		backend->priv = NULL;
@@ -428,9 +466,6 @@ pas_backend_class_init (PASBackendClass *klass)
 	parent_class = g_type_class_peek_parent (klass);
 
 	object_class = (GObjectClass *) klass;
-
-	klass->add_client = real_add_client;
-	klass->remove_client = real_remove_client;
 
 	object_class->dispose = pas_backend_dispose;
 

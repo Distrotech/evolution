@@ -55,11 +55,13 @@ const char             *pas_book_get_uri                (PASBook                
 
 void                    pas_book_respond_open           (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status);
+void                    pas_book_respond_remove         (PASBook                                *book,
+							 GNOME_Evolution_Addressbook_CallStatus  status);
 void                    pas_book_respond_create         (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 const char                             *id,
 							 const char                             *vcard);
-void                    pas_book_respond_remove         (PASBook                                *book,
+void                    pas_book_respond_remove_cards   (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 GList                                  *ids);
 void                    pas_book_respond_modify         (PASBook                                *book,

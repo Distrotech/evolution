@@ -30,6 +30,7 @@ struct _PASBackendSyncClass {
 	PASBackendClass parent_class;
 
 	/* Virtual methods */
+	PASBackendSyncStatus (*remove_sync) (PASBackendSync *backend, PASBook *book);
 	PASBackendSyncStatus (*create_card_sync)  (PASBackendSync *backend, PASBook *book,
 						   const char *vcard, char **id);
 	PASBackendSyncStatus (*remove_cards_sync) (PASBackendSync *backend, PASBook *book,
@@ -66,6 +67,7 @@ gboolean    pas_backend_sync_construct                (PASBackendSync           
 
 GType       pas_backend_sync_get_type                 (void);
 
+PASBackendSyncStatus pas_backend_sync_remove  (PASBackendSync *backend, PASBook *book);
 PASBackendSyncStatus pas_backend_sync_create_card  (PASBackendSync *backend, PASBook *book, const char *vcard, char **id);
 PASBackendSyncStatus pas_backend_sync_remove_cards (PASBackendSync *backend, PASBook *book, GList *id_list, GList **removed_ids);
 PASBackendSyncStatus pas_backend_sync_modify_card  (PASBackendSync *backend, PASBook *book, const char *vcard, char **old_vcard);

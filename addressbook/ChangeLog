@@ -1,5 +1,37 @@
 2003-08-26  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-backend.h: remove the vtable entries for
+	add/remove_client, since these are fully handled in PASBackend.
+	Add prototypes for
+	pas_backend_is_removed/pas_backend_add_book_view/pas_backend_set_is_removed.
+
+	* backend/pas/pas-book.c
+	(impl_GNOME_Evolution_Addressbook_Book_remove): new function.
+	(impl_GNOME_Evolution_Addressbook_Book_getBookView): clean things
+	up a bit, and don't use pas_backend_get_book_views as it can't
+	lock the list of views.
+	(pas_book_respond_get_supported_auth_methods): remove the extra
+	unnecessary arg from the corba call.
+	(pas_book_respond_get_changes): same.
+	(pas_book_class_init): fill in epv "remove" slot.
+
+	* backend/pas/pas-book.h: rename pas_book_respond_remove to
+	pas_book_respond_remove_cards, and add a new
+	pas_book_respond_remove for use with removing books.
+
+	* backend/pas/pas-backend-sync.c (pas_backend_sync_remove): new
+	function.
+	(_pas_backend_remove): new function.
+	(pas_backend_sync_class_init): fill in the "remove" vtable entry.
+	(_pas_backend_remove_cards): track change to
+	pas_book_respond_remove_cards (pas_book_respond_remove is used for
+	removing the book, not the cards.)
+
+	* backend/pas/pas-backend-sync.h: add pas_backend_sync_remove
+	prototype and add remove_sync virtual function.
+
+2003-08-26  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-backend-file.c (pas_backend_file_create_card,
 	pas_backend_file_remove_cards, pas_backend_file_modify_card,
 	pas_backend_file_get_vcard, pas_backend_file_get_card_list,
