@@ -1,5 +1,28 @@
 2003-08-04  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.[ch] (cal_client_get_default_object):
+	(cal_client_get_object): use icalcomponent instead of CalComponent.
+
+	* gui/e-cal-model.c (get_dtstart): implemented.
+	(query_obj_updated_cb):
+	(query_obj_removed_cb):
+	(query_done_cb):
+	(query_eval_error_cb): implemented missing functions.
+
+	* gui/calendar-model.c:
+	* gui/comp-editor-factory.c:
+	* gui/comp-util.c:
+	* gui/e-day-view.c:
+	* gui/e-itip-control.c:
+	* gui/e-week-view.c:
+	* gui/gnome-cal.c:
+	* gui/dialogs/comp-editor.c:
+	* conduits/todo/todo-conduit.c:
+	* conduits/calendar/calendar-conduit.c: adapted to changes
+	in CalClient API.
+
+2003-08-04  Rodrigo Moya <rodrigo@ximian.com>
+
 	* cal-client/cal-query.[ch] (cal_query_new): added a 'CalClient'
 	argument to this function.
 	(cal_query_get_client): new function.

@@ -20,12 +20,12 @@
  */
 
 #include <string.h>
+#include <glib/garray.h>
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-util.h>
 #include <e-util/e-time-utils.h>
 #include <cal-util/timeutil.h>
 #include "e-cal-model.h"
-#include "e-cell-date-edit-text.h"
 #include "misc.h"
 
 typedef struct {
@@ -109,6 +109,26 @@ e_cal_model_init (ECalModel *model, ECalModelClass *klass)
 }
 
 static void
+free_comp_data (ECalModelComponent *comp_data)
+{
+	g_return_if_fail (comp_data != NULL);
+
+	comp_data->client = NULL;
+
+	if (comp_data->icalcomp) {
+		icalcomponent_free (comp_data->icalcomp);
+		comp_data->icalcomp = NULL;
+	}
+
+	if (comp_data->dtstart) {
+		g_free (comp_data->dtstart);
+		comp_data->dtstart = NULL;
+	}
+
+	g_free (comp_data);
+}
+
+static void
 clear_objects_array (ECalModelPrivate *priv)
 {
 	gint i;
@@ -118,10 +138,7 @@ clear_objects_array (ECalModelPrivate *priv)
 
 		comp_data = g_ptr_array_index (priv->objects, i);
 		g_assert (comp_data != NULL);
-
-		comp_data->client = NULL;
-		icalcomponent_free (comp_data->icalcomp);
-		g_free (comp_data);
+		free_comp_data (comp_data);
 	}
 
 	
@@ -237,15 +254,31 @@ get_description (ECalModelComponent *comp_data)
 }
 
 static ECellDateEditValue*
-get_dtstart (ECalModel *model, ECalModelComponent *comp_data, int col, int row)
+get_dtstart (ECalModel *model, ECalModelComponent *comp_data)
 {
 	ECalModelPrivate *priv;
+        struct icaltimetype tt_start;
 
 	priv = model->priv;
 
-	/* FIXME: */
+	if (!comp_data->dtstart) {
+		icaltimezone *zone;
 
-	return NULL;
+		tt_start = icalcomponent_get_dtstart (comp_data->icalcomp);
+		if (!icaltime_is_valid_time (tt_start))
+			return NULL;
+
+		comp_data->dtstart = g_new0 (ECellDateEditValue, 1);
+		comp_data->dtstart->tt = tt_start;
+
+		/* FIXME: handle errors */
+		cal_client_get_timezone (comp_data->client,
+					 icaltimezone_get_tzid (icaltimezone_get_builtin_timezone (tt_start.zone)),
+					 &zone);
+		comp_data->dtstart->zone = zone;
+	}
+
+	return comp_data->dtstart;
 }
 
 static char *
@@ -295,7 +328,7 @@ ecm_value_at (ETableModel *etm, int col, int row)
 	case E_CAL_MODEL_FIELD_DESCRIPTION :
 		return get_description (comp_data);
 	case E_CAL_MODEL_FIELD_DTSTART :
-		return get_dtstart (model, comp_data, col, row);
+		return get_dtstart (model, comp_data);
 	case E_CAL_MODEL_FIELD_HAS_ALARMS :
 		return GINT_TO_POINTER ((icalcomponent_get_first_component (comp_data->icalcomp,
 									    ICAL_VALARM_COMPONENT) != NULL));
@@ -683,27 +716,143 @@ e_cal_model_set_timezone (ECalModel *model, icaltimezone *zone)
 	}
 }
 
+static ECalModelComponent *
+search_by_uid_and_client (ECalModelPrivate *priv, CalClient *client, const char *uid)
+{
+	gint i;
+
+	for (i = 0; i < priv->objects->len; i++) {
+		ECalModelComponent *comp_data = g_ptr_array_index (priv->objects, i);
+
+		if (comp_data) {
+			const char *tmp_uid;
+
+			tmp_uid = icalcomponent_get_uid (comp_data->icalcomp);
+			if (tmp_uid && *tmp_uid) {
+				if (comp_data->client == client && !strcmp (uid, tmp_uid))
+					return comp_data;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+static gint
+get_position_in_array (GPtrArray *objects, gpointer item)
+{
+	gint i;
+
+	for (i = 0; i < objects->len; i++) {
+		if (g_ptr_array_index (objects, i) == item)
+			return i;
+	}
+
+	return -1;
+}
+
 static void
 query_obj_updated_cb (CalQuery *query, const char *uid,
 		      gboolean query_in_progress,
 		      int n_scanned, int total,
 		      gpointer user_data)
 {
+	ECalModelPrivate *priv;
+	icalcomponent *new_icalcomp;
+	CalClientGetStatus status;
+	ECalModelComponent *comp_data;
+	gint pos;
+	ECalModel *model = (ECalModel *) user_data;
+
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	priv = model->priv;
+
+	e_table_model_pre_change (E_TABLE_MODEL (model));
+
+	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), uid);
+	status = cal_client_get_object (cal_query_get_client (query), uid, &new_icalcomp);
+	switch (status) {
+	case CAL_CLIENT_GET_SUCCESS :
+		if (comp_data) {
+			if (comp_data->icalcomp)
+				icalcomponent_free (comp_data->icalcomp);
+			comp_data->icalcomp = new_icalcomp;
+
+			e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
+		} else {
+			comp_data = g_new0 (ECalModelComponent, 1);
+			comp_data->client = cal_query_get_client (query);
+			comp_data->icalcomp = new_icalcomp;
+
+			g_ptr_array_add (priv->objects, comp_data);
+			e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
+		}
+		break;
+	case CAL_CLIENT_GET_NOT_FOUND :
+	case CAL_CLIENT_GET_SYNTAX_ERROR :
+		if (comp_data) {
+			/* Nothing; the object may have been removed from the server. We just
+			   notify that the old object was deleted.
+			*/
+			pos = get_position_in_array (priv->objects, comp_data);
+
+			g_ptr_array_remove (priv->objects, comp_data);
+			free_comp_data (comp_data);
+
+			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+		} else
+			e_table_model_no_change (E_TABLE_MODEL (model));
+		break;
+	default :
+		g_assert_not_reached ();
+	}
 }
 
 static void
 query_obj_removed_cb (CalQuery *query, const char *uid, gpointer user_data)
 {
+	ECalModelComponent *comp_data;
+	ECalModelPrivate *priv;
+	ECalModel *model = (ECalModel *) user_data;
+
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	priv = model->priv;
+
+	e_table_model_pre_change (E_TABLE_MODEL (model));
+
+	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), uid);
+	if (comp_data) {
+		gint pos = get_position_in_array (priv->objects, comp_data);
+
+		g_ptr_array_remove (priv->objects, comp_data);
+		free_comp_data (comp_data);
+
+		e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+	} else
+		e_table_model_no_change (E_TABLE_MODEL (model));
 }
 
 static void
 query_done_cb (CalQuery *query, CalQueryDoneStatus status, const char *error_str, gpointer user_data)
 {
+	ECalModel *model = (ECalModel *) user_data;
+
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	if (status != CAL_QUERY_DONE_SUCCESS)
+		g_warning ("query done: %s\n", error_str);
 }
 
 static void
 query_eval_error_cb (CalQuery *query, const char *error_str, gpointer user_data)
 {
+	ECalModel *model = (ECalModel *) user_data;
+
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	g_warning ("eval error: %s\n", error_str);
 }
 
 /* Builds a complete query sexp for the calendar model by adding the predicates

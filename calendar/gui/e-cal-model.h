@@ -24,6 +24,7 @@
 
 #include <gal/e-table/e-table-model.h>
 #include <cal-client/cal-client.h>
+#include "e-cell-date-edit-text.h"
 
 G_BEGIN_DECLS
 
@@ -52,6 +53,9 @@ typedef enum {
 typedef struct {
 	CalClient *client;
 	icalcomponent *icalcomp;
+
+	/* private data */
+	ECellDateEditValue *dtstart;
 } ECalModelComponent;
 
 typedef struct {

@@ -168,11 +168,11 @@ int cal_client_get_n_objects (CalClient *client, CalObjType type);
 
 CalClientGetStatus cal_client_get_default_object (CalClient *client,
 						  CalObjType type,
-						  CalComponent **comp);
+						  icalcomponent **icalcomp);
 
 CalClientGetStatus cal_client_get_object (CalClient *client,
 					  const char *uid,
-					  CalComponent **comp);
+					  icalcomponent **icalcomp);
 
 CalClientGetStatus cal_client_get_timezone (CalClient *client,
 					    const char *tzid,
