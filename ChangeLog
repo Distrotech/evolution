@@ -1,3 +1,7 @@
+2004-06-25  JP Rosevear  <jpr@ximian.com>
+
+	* configure.in: bump version, requirements
+
 2004-06-24  Pablo Saratxaga  <pablo@mandrakesoft.com>
 
 	* configure.in: Added Walloon (wa) to ALL_LINGUAS.
