@@ -847,6 +847,8 @@ void         e_tree_table_adapter_root_node_set_visible (ETreeTableAdapter *etta
 	if (etta->priv->root_visible == visible)
 		return;
 
+	e_table_model_pre_change (E_TABLE_MODEL(etta));
+
 	etta->priv->root_visible = visible;
 	if (!visible) {
 		ETreePath root = e_tree_model_get_root(etta->priv->source);
@@ -865,6 +867,8 @@ void         e_tree_table_adapter_node_set_expanded (ETreeTableAdapter *etta, ET
 	row = find_row_num(etta, path);
 
 	if (expanded != node->expanded) {
+		e_table_model_pre_change (E_TABLE_MODEL(etta));
+
 		node->expanded = expanded;
 		
 		if (row != -1) {
