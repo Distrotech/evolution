@@ -995,7 +995,8 @@ on_edit_appointment (EPopup *ep, EPopupItem *pitem, void *data)
 
 		if (event)
 			e_calendar_view_edit_appointment (cal_view, event->comp_data->client,
-						     event->comp_data->icalcomp, FALSE);
+						     event->comp_data->icalcomp, 
+						     icalcomponent_get_first_property(event->comp_data->icalcomp, ICAL_ATTENDEE_PROPERTY));
 
 		g_list_free (selected);
 	}
@@ -1252,6 +1253,7 @@ on_unrecur_appointment (EPopup *ep, EPopupItem *pitem, void *data)
 	ECalComponentDateTime date;
 	struct icaltimetype itt;
 	GList *selected;
+	ECal *client;
 	char *new_uid;
 
 	selected = e_calendar_view_get_selected_events (cal_view);
@@ -1259,6 +1261,7 @@ on_unrecur_appointment (EPopup *ep, EPopupItem *pitem, void *data)
 		return;
 
 	event = (ECalendarViewEvent *) selected->data;
+	client = g_object_ref (event->comp_data->client);
 
 	date.value = &itt;
 	date.tzid = NULL;
@@ -1298,17 +1301,18 @@ on_unrecur_appointment (EPopup *ep, EPopupItem *pitem, void *data)
 	/* Now update both ECalComponents. Note that we do this last since at
 	 * present the updates happen synchronously so our event may disappear.
 	 */
-	if (!e_cal_modify_object (event->comp_data->client, e_cal_component_get_icalcomponent (comp), CALOBJ_MOD_THIS, NULL))
+	if (!e_cal_modify_object (client, e_cal_component_get_icalcomponent (comp), CALOBJ_MOD_THIS, NULL))
 		g_message ("e_day_view_on_unrecur_appointment(): Could not update the object!");
 
 	g_object_unref (comp);
 
-	if (!e_cal_create_object (event->comp_data->client, e_cal_component_get_icalcomponent (new_comp), &new_uid, NULL))
+	if (!e_cal_create_object (client, e_cal_component_get_icalcomponent (new_comp), &new_uid, NULL))
 		g_message ("e_day_view_on_unrecur_appointment(): Could not update the object!");
 	else
 		g_free (new_uid);
 
 	g_object_unref (new_comp);
+	g_object_unref (client);
 	g_list_free (selected);
 }
 
