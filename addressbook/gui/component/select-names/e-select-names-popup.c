@@ -229,13 +229,14 @@ popup_menu_card (PopupInfo *info)
 	GnomeUIInfo radioinfo[ARBITRARY_UIINFO_LIMIT];
 	gboolean using_radio = FALSE;
 	ECard *card;
+	EList *email_list;
 	gint i=0;
 	GtkWidget *pop;
 	EIterator *iterator;
 	gint html_toggle;
 	gint mail_label = -1;
 	const gchar *mail_label_str = NULL;
-
+	
 	/*
 	 * Build up our GnomeUIInfo array.
 	 */
@@ -255,14 +256,18 @@ popup_menu_card (PopupInfo *info)
 	uiinfo[i].type = GNOME_APP_UI_SEPARATOR;
 	++i;
 
-	if (card->email) {
+	g_object_get (card,
+		      "email", &email_list,
+		      NULL);
+
+	if (email_list) {
 		
-		if (e_list_length (card->email) > 1) {
+		if (e_list_length (email_list) > 1) {
 			gint j = 0;
 
 			using_radio = TRUE;
 
-			iterator = e_list_get_iterator (card->email);
+			iterator = e_list_get_iterator (email_list);
 			for (e_iterator_reset (iterator); e_iterator_is_valid (iterator); e_iterator_next (iterator)) {
 				gchar *label = (gchar *)e_iterator_get (iterator);
 				if (label && *label) {
@@ -329,7 +334,7 @@ popup_menu_card (PopupInfo *info)
 	if (using_radio) {
 		gint n = e_destination_get_email_num (info->dest);
 		gint j = 0;
-		iterator = e_list_get_iterator (card->email);
+		iterator = e_list_get_iterator (email_list);
 		for (e_iterator_reset (iterator); e_iterator_is_valid (iterator); e_iterator_next (iterator)) {
 			gchar *label = (gchar *)e_iterator_get (iterator);
 			if (label && *label) {
@@ -358,6 +363,7 @@ popup_menu_list (PopupInfo *info)
 	gchar *gs;
 	gint i = 0, subcount = 0, max_subcount = 10;
 	ECard *card;
+	EList *email_list;
 	EIterator *iterator;
 
 	memset (uiinfo, 0, sizeof (uiinfo));
@@ -371,9 +377,13 @@ popup_menu_list (PopupInfo *info)
 
 	card = e_destination_get_card (info->dest);
 
-	if (card->email) {
+	g_object_get (card,
+		      "email", &email_list,
+		      NULL);
+
+	if (email_list) {
 		
-		iterator = e_list_get_iterator (card->email);
+		iterator = e_list_get_iterator (email_list);
 		for (e_iterator_reset (iterator); e_iterator_is_valid (iterator) && subcount < max_subcount; e_iterator_next (iterator)) {
 			gchar *label = (gchar *) e_iterator_get (iterator);
 			if (label && *label) {
@@ -417,9 +427,9 @@ popup_menu_list (PopupInfo *info)
 		str = _("Unnamed Contact List");
 	set_uiinfo_label (&(uiinfo[0]), str);
 
-	if (card->email) {
+	if (email_list) {
 		
-		iterator = e_list_get_iterator (card->email);
+		iterator = e_list_get_iterator (email_list);
 		i = 2;
 		for (e_iterator_reset (iterator); e_iterator_is_valid (iterator) && subcount < max_subcount; e_iterator_next (iterator)) {
 			gchar *label = (gchar *) e_iterator_get (iterator);
@@ -431,7 +441,7 @@ popup_menu_list (PopupInfo *info)
 			}
 		}
 		if (e_iterator_is_valid (iterator)) {
-			gs = g_strdup_printf (N_("(%d not shown)"), e_list_length (card->email) - max_subcount);
+			gs = g_strdup_printf (N_("(%d not shown)"), e_list_length (email_list) - max_subcount);
 			set_uiinfo_label (&(uiinfo[i]), gs);
 			g_free (gs);
 		}
