@@ -246,7 +246,7 @@ em_folder_selector_set_selected (EMFolderSelector *emfs, const char *uri)
 }
 
 const char *
-em_folder_selector_get_selected (EMFolderSelector *emfs)
+em_folder_selector_get_selected_uri (EMFolderSelector *emfs)
 {
 	const char *uri;
 	
@@ -275,3 +275,4 @@ em_folder_selector_get_selected (EMFolderSelector *emfs)
 
 	return path;
 }
+

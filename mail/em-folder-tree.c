@@ -63,6 +63,8 @@ struct _emft_store_info {
 	GtkTreePath *path;
 	GHashTable *path_hash;  /* maps CamelFolderInfo::path's to GtkTreePath's */
 	
+	char *display_name;
+	
 	unsigned int created_id;
 	unsigned int deleted_id;
 	unsigned int renamed_id;
@@ -77,6 +79,7 @@ struct _EMFolderTreePrivate {
 	GHashTable *uri_hash;    /* maps URI's to GtkTreePath's */
 	
 	char *selected_uri;
+	char *selected_path;
 };
 
 enum {
@@ -278,6 +281,7 @@ em_folder_tree_init (EMFolderTree *emft)
 	priv->store_hash = g_hash_table_new (g_direct_hash, g_direct_equal);
 	priv->uri_hash = g_hash_table_new (g_str_hash, g_str_equal);
 	priv->selected_uri = NULL;
+	priv->selected_path = NULL;
 	emft->priv = priv;
 	
 	scrolled = gtk_scrolled_window_new (NULL, NULL);
@@ -316,6 +320,7 @@ store_info_free (struct _emft_store_info *si)
 	camel_object_remove_event (si->store, si->subscribed_id);
 	camel_object_remove_event (si->store, si->unsubscribed_id);
 	
+	g_free (si->display_name);
 	camel_object_unref (si->store);
 	gtk_tree_path_free (si->path);
 	g_hash_table_foreach (si->path_hash, path_hash_free, NULL);
@@ -349,6 +354,7 @@ em_folder_tree_finalize (GObject *obj)
 	g_hash_table_destroy (emft->priv->uri_hash);
 	
 	g_free (emft->priv->selected_uri);
+	g_free (emft->priv->selected_path);
 	g_free (emft->priv);
 	
 	G_OBJECT_CLASS (parent_class)->finalize (obj);
@@ -642,35 +648,43 @@ emc_popup_new_folder_create(EStorageSet *ess, EStorageResult result, void *data)
 }
 
 static void
-emc_popup_new_folder_response (EMFolderSelector *emfs, guint response, MailComponent *mc)
+emc_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTree *emft)
 {
-	/* FIXME: port this too :\ */
+	/* FIXME: ugh, kludge-a-licious: EMFolderSelector uses EMFolderTree so we can poke emfs->emft internals */
+	struct _EMFolderTreePrivate *priv = emfs->emft->priv;
+	GtkTreePath *tree_path;
+	GtkTreeModel *model;
+	CamelStore *store;
+	CamelException ex;
+	GtkTreeIter iter;
+	char *uri, *path;
+	
 	if (response == GTK_RESPONSE_OK) {
-		char *path, *tmp, *name, *full;
-		EStorage *storage;
-		CamelStore *store;
-		CamelException *ex;
-
-		printf("Creating folder: %s (%s)\n", em_folder_selector_get_selected(emfs),
-		       em_folder_selector_get_selected_uri(emfs));
-
-		path = g_strdup(em_folder_selector_get_selected(emfs));
-		tmp = strchr(path+1, '/');
-		*tmp++ = 0;
+		uri = em_folder_selector_get_selected (emfs);
+		d(printf ("Creating folder: %s (%s)\n", uri));
+		
+		model = gtk_tree_view_get_model (priv->treeview);
+		
+		
+		
+		path = g_strdup (em_folder_selector_get_selected_path (emfs));
+		tmp = strchr (path + 1, '/');
+		*tmp++ = '\0';
+		
 		/* FIXME: camel_store_create_folder should just take full path names */
-		full = g_strdup(tmp);
-		name = strrchr(tmp, '/');
+		full = g_strdup (tmp);
+		name = strrchr (tmp, '/');
 		if (name == NULL) {
 			name = tmp;
 			tmp = "";
 		} else
-			*name++  = 0;
-
+			*name++ = '\0';
+		
 		storage = e_storage_set_get_storage(mc->priv->storage_set, path+1);
 		store = g_object_get_data((GObject *)storage, "em-store");
-
+		
 		printf("creating folder '%s' / '%s' on '%s'\n", tmp, name, path+1);
-
+		
 		ex = camel_exception_new();
 		camel_store_create_folder(store, tmp, name, ex);
 		if (camel_exception_is_set(ex)) {
@@ -691,31 +705,45 @@ emc_popup_new_folder_response (EMFolderSelector *emfs, guint response, MailCompo
 		/*e_storage_set_async_create_folder(mc->priv->storage_set, path, "mail", "", emc_popup_new_folder_create, mc);*/
 	}
 	
-	gtk_widget_destroy ((GtkWidget *) emfs);
+	gtk_widget_destroy (dialog);
 }
 
 static void
-emc_popup_new_folder (GtkWidget *w, EMFolderTree *emft)
+store_hash_add_store (gpointer key, gpointer value, gpointer user_data)
 {
+	struct _emft_store_info *si = value;
+	EMFolderTree *emft = user_data;
+	
+	em_folder_tree_add_store (emft, store, si->display_name);
+}
+
+static void
+emft_popup_new_folder (GtkWidget *item, EMFolderTree *emft)
+{
+	EMFolderTree *folder_tree;
 	GtkWidget *dialog;
 	
-	/* FIXME: ugh, need to port this (and em_folder_selector*) to use EMFolderTree I guess */
-	dialog = em_folder_selector_create_new (mc->priv->storage_set, 0, _("Create folder"), _("Specify where to create the folder:"));
-	em_folder_selector_set_selected ((EMFolderSelector *) dialog, mc->priv->context_path);
-	g_signal_connect (dialog, "response", G_CALLBACK (emc_popup_new_folder_response), mc);
+	folder_tree = em_folder_tree_new ();
+	g_hash_table_foreach (emft->priv->store_hash, store_hash_add_store, folder_tree);
+	
+	dialog = em_folder_selector_create_new (folder_tree, 0, _("Create folder"), _("Specify where to create the folder:"));
+	em_folder_selector_set_selected ((EMFolderSelector *) dialog, emft->priv->selected_uri);
+	g_signal_connect (dialog, "response", G_CALLBACK (emft_popup_new_folder_response), emft);
 	gtk_widget_show (dialog);
 }
 
 static void
-em_delete_rec (CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
+emft_popup_delete_rec (CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
 {
 	while (fi) {
 		CamelFolder *folder;
 		
-		if (fi->child)
-			em_delete_rec (store, fi->child, ex);
-		if (camel_exception_is_set (ex))
-			return;
+		if (fi->child) {
+			emft_popup_delete_rec (store, fi->child, ex);
+			
+			if (camel_exception_is_set (ex))
+				return;
+		}
 		
 		d(printf ("deleting folder '%s'\n", fi->full_name));
 		
@@ -745,7 +773,7 @@ em_delete_rec (CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
 }
 
 static void
-em_delete_folders (CamelStore *store, const char *base, CamelException *ex)
+emft_popup_delete_folders (CamelStore *store, const char *base, CamelException *ex)
 {
 	guint32 flags = CAMEL_STORE_FOLDER_INFO_RECURSIVE;
 	CamelFolderInfo *fi;
@@ -757,12 +785,12 @@ em_delete_folders (CamelStore *store, const char *base, CamelException *ex)
 	if (camel_exception_is_set (ex))
 		return;
 	
-	em_delete_rec (store, fi, ex);
+	emft_popup_delete_rec (store, fi, ex);
 	camel_store_free_folder_info (store, fi);
 }
 
 static void
-emc_popup_delete_response (GtkWidget *dialog, guint response, EMFolderTree *emft)
+emft_popup_delete_response (GtkWidget *dialog, guint response, EMFolderTree *emft)
 {
 	struct _EMFolderTreePrivate *priv = emft->priv;
 	GtkTreeSelection *selection;
@@ -781,9 +809,8 @@ emc_popup_delete_response (GtkWidget *dialog, guint response, EMFolderTree *emft
 	gtk_tree_model_get (model, &iter, COL_STRING_FOLDER_PATH, &path,
 			    COL_POINTER_CAMEL_STORE, &store, -1);
 	
-	/* FIXME: need to hook onto store changed event and delete view as well, somewhere else tho */
 	camel_exception_init (&ex);
-	em_delete_folders (store, path, &ex);
+	emft_popup_delete_folders (store, path, &ex);
 	if (camel_exception_is_set (&ex)) {
 		e_notice (NULL, GTK_MESSAGE_ERROR, _("Could not delete folder: %s"), ex.desc);
 		camel_exception_clear (&ex);
@@ -791,7 +818,7 @@ emc_popup_delete_response (GtkWidget *dialog, guint response, EMFolderTree *emft
 }
 
 static void
-emc_popup_delete_folder (GtkWidget *item, EMFolderTree *emft)
+emft_popup_delete_folder (GtkWidget *item, EMFolderTree *emft)
 {
 	struct _EMFolderTreePrivate *priv = emft->priv;
 	GtkTreeSelection *selection;
@@ -820,12 +847,12 @@ emc_popup_delete_folder (GtkWidget *item, EMFolderTree *emft)
 	gtk_window_set_title ((GtkWindow *) dialog, title);
 	g_free (title);
 	
-	g_signal_connect (dialog, "response", G_CALLBACK (emc_popup_delete_response), emft);
+	g_signal_connect (dialog, "response", G_CALLBACK (emft_popup_delete_response), emft);
 	gtk_widget_show (dialog);
 }
 
 static void
-emc_popup_rename_folder (GtkWidget *item, EMFolderTree *emft)
+emft_popup_rename_folder (GtkWidget *item, EMFolderTree *emft)
 {
 	struct _EMFolderTreePrivate *priv = emft->priv;
 	char *prompt, *folder_path, *name, *new_name, *uri;
@@ -872,7 +899,7 @@ emc_popup_rename_folder (GtkWidget *item, EMFolderTree *emft)
 				oldpath = folder_path + 1;
 				newpath = path + 1;
 				
-				printf ("renaming %s to %s\n", oldpath, newpath);
+				d(printf ("renaming %s to %s\n", oldpath, newpath));
 				
 				camel_exception_clear (&ex);
 				camel_store_rename_folder (store, oldpath, newpath, &ex);
@@ -899,7 +926,7 @@ struct _prop_data {
 };
 
 static void
-emc_popup_properties_response (GtkWidget *dialog, int response, struct _prop_data *prop_data)
+emft_popup_properties_response (GtkWidget *dialog, int response, struct _prop_data *prop_data)
 {
 	CamelArgV *argv = prop_data->argv;
 	int i;
@@ -931,7 +958,7 @@ emc_popup_properties_response (GtkWidget *dialog, int response, struct _prop_dat
 }
 
 static void
-emc_popup_properties_free (void *data)
+emft_popup_properties_free (void *data)
 {
 	struct _prop_data *prop_data = data;
 	int i;
@@ -947,7 +974,7 @@ emc_popup_properties_free (void *data)
 }
 
 static void
-emc_popup_properties_got_folder (char *uri, CamelFolder *folder, void *data)
+emft_popup_properties_got_folder (char *uri, CamelFolder *folder, void *data)
 {
 	GtkWidget *dialog, *w, *table, *label;
 	struct _prop_data *prop_data;
@@ -1061,13 +1088,13 @@ emc_popup_properties_got_folder (char *uri, CamelFolder *folder, void *data)
 	
 	/* we do 'apply on ok' ... since instant apply may apply some very long running tasks */
 	
-	g_signal_connect (dialog, "response", G_CALLBACK (emc_popup_properties_response), prop_data);
-	g_object_set_data_full ((GObject *) dialog, "e-prop-data", prop_data, emc_popup_properties_free);
+	g_signal_connect (dialog, "response", G_CALLBACK (emft_popup_properties_response), prop_data);
+	g_object_set_data_full ((GObject *) dialog, "e-prop-data", prop_data, emft_popup_properties_free);
 	gtk_widget_show (dialog);
 }
 
 static void
-emc_popup_properties (GtkWidget *item, EMFolderTree *emft)
+emft_popup_properties (GtkWidget *item, EMFolderTree *emft)
 {
 	struct _EMFolderTreePrivate *priv = emft->priv;
 	GtkTreeSelection *selection;
@@ -1079,26 +1106,26 @@ emc_popup_properties (GtkWidget *item, EMFolderTree *emft)
 	gtk_tree_selection_get_selected (selection, &model, &iter);
 	gtk_tree_model_get (model, &iter, COL_STRING_URI, &uri, -1);
 	
-	mail_get_folder (uri, 0, emc_popup_properties_got_folder, emft, mail_thread_new);
+	mail_get_folder (uri, 0, emft_popup_properties_got_folder, emft, mail_thread_new);
 }
 
-static EMPopupItem emc_popup_menu[] = {
+static EMPopupItem emft_popup_menu[] = {
 #if 0
-	{ EM_POPUP_ITEM, "00.emc.00", N_("_View"), G_CALLBACK (emc_popup_view), NULL, NULL, 0 },
-	{ EM_POPUP_ITEM, "00.emc.01", N_("Open in _New Window"), G_CALLBACK (emc_popup_open_new), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "00.emc.00", N_("_View"), G_CALLBACK (emft_popup_view), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "00.emc.01", N_("Open in _New Window"), G_CALLBACK (emft_popup_open_new), NULL, NULL, 0 },
 
 	{ EM_POPUP_BAR, "10.emc" },
 #endif
-	{ EM_POPUP_ITEM, "10.emc.00", N_("_Copy"), G_CALLBACK (emc_popup_copy), NULL, "folder-copy-16.png", 0 },
-	{ EM_POPUP_ITEM, "10.emc.01", N_("_Move"), G_CALLBACK (emc_popup_move), NULL, "folder-move-16.png", 0 },
-
+	{ EM_POPUP_ITEM, "10.emc.00", N_("_Copy"), G_CALLBACK (emft_popup_copy), NULL, "folder-copy-16.png", 0 },
+	{ EM_POPUP_ITEM, "10.emc.01", N_("_Move"), G_CALLBACK (emft_popup_move), NULL, "folder-move-16.png", 0 },
+	
 	{ EM_POPUP_BAR, "20.emc" },
-	{ EM_POPUP_ITEM, "20.emc.00", N_("_New Folder..."), G_CALLBACK (emc_popup_new_folder), NULL, "folder-mini.png", 0 },
-	{ EM_POPUP_ITEM, "20.emc.01", N_("_Delete"), G_CALLBACK (emc_popup_delete_folder), NULL, "evolution-trash-mini.png", 0 },
-	{ EM_POPUP_ITEM, "20.emc.01", N_("_Rename"), G_CALLBACK (emc_popup_rename_folder), NULL, NULL, 0 },
-
+	{ EM_POPUP_ITEM, "20.emc.00", N_("_New Folder..."), G_CALLBACK (emft_popup_new_folder), NULL, "folder-mini.png", 0 },
+	{ EM_POPUP_ITEM, "20.emc.01", N_("_Delete"), G_CALLBACK (emft_popup_delete_folder), NULL, "evolution-trash-mini.png", 0 },
+	{ EM_POPUP_ITEM, "20.emc.01", N_("_Rename"), G_CALLBACK (emft_popup_rename_folder), NULL, NULL, 0 },
+	
 	{ EM_POPUP_BAR, "80.emc" },
-	{ EM_POPUP_ITEM, "80.emc.00", N_("_Properties..."), G_CALLBACK (emc_popup_properties), NULL, "configure_16_folder.xpm", 0 },
+	{ EM_POPUP_ITEM, "80.emc.00", N_("_Properties..."), G_CALLBACK (emft_popup_properties), NULL, "configure_16_folder.xpm", 0 },
 };
 
 static gboolean
@@ -1115,8 +1142,8 @@ tree_button_press (GtkWidget *treeview, GdkEventButton *event, EMFolderTree *emf
 	/* handle right-click by opening a context menu */
 	emp = em_popup_new ("com.ximian.mail.storageset.popup.select");
 	
-	for (i = 0; i < sizeof (emc_popup_menu) / sizeof (emc_popup_menu[0]); i++) {
-		EMPopupItem *item = &emc_popup_menu[i];
+	for (i = 0; i < sizeof (emft_popup_menu) / sizeof (emft_popup_menu[0]); i++) {
+		EMPopupItem *item = &emft_popup_menu[i];
 		
 		item->activate_data = emft;
 		menus = g_slist_prepend (menus, item);
@@ -1153,6 +1180,9 @@ tree_selection_changed (GtkTreeSelection *selection, EMFolderTree *emft)
 	
 	g_free (priv->selected_uri);
 	priv->selected_uri = g_strdup (uri);
+	
+	g_free (priv->selected_path);
+	priv->selected_path = g_strdup (path);
 	
 	g_signal_emit (emft, signals[FOLDER_SELECTED], 0, path, uri);
 }
@@ -1336,6 +1366,7 @@ em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *dis
 	
 	path = gtk_tree_model_get_path ((GtkTreeModel *) model, &iter);
 	si = g_new (struct _emft_store_info, 1);
+	si->display_name = g_strdup (display_name);
 	camel_object_ref (store);
 	si->store = store;
 	si->path = path;
@@ -1393,6 +1424,8 @@ em_folder_tree_remove_store (EMFolderTree *emft, CamelStore *store)
 void
 em_folder_tree_set_selected (EMFolderTree *emft, const char *uri)
 {
+	g_return_if_fail (EM_IS_FOLDER_TREE (emft));
+	
 	/* FIXME: implement me */
 }
 
@@ -1400,5 +1433,16 @@ em_folder_tree_set_selected (EMFolderTree *emft, const char *uri)
 const char *
 em_folder_tree_get_selected (EMFolderTree *emft)
 {
+	g_return_val_if_fail (EM_IS_FOLDER_TREE (emft), NULL);
+	
 	return emft->priv->selected_uri;
+}
+
+
+const char *
+em_folder_tree_get_selected_path (EMFolderTree *emft)
+{
+	g_return_val_if_fail (EM_IS_FOLDER_TREE (emft), NULL);
+	
+	return emft->priv->selected_path;
 }
