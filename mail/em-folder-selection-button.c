@@ -202,7 +202,7 @@ static void
 emfsb_selector_response (EMFolderSelector *emfs, int response, EMFolderSelectionButton *button)
 {
 	if (response == GTK_RESPONSE_OK) {
-		const char *uri = em_folder_selector_get_selected (emfs);
+		const char *uri = em_folder_selector_get_selected_uri (emfs);
 		
 		em_folder_selection_button_set_selection (button, uri);
 		g_signal_emit (button, signals[SELECTED], 0);
@@ -215,17 +215,16 @@ static void
 em_folder_selection_button_clicked (GtkButton *button)
 {
 	struct _EMFolderSelectionButtonPrivate *priv = EM_FOLDER_SELECTION_BUTTON (button)->priv;
-	GtkWidget *toplevel, *dialog;
-	EStorageSet *ess;
+	EMFolderTree *emft;
+	GtkWidget *dialog;
 	
 	if (GTK_BUTTON_CLASS (parent_class)->clicked != NULL)
 		(* GTK_BUTTON_CLASS (parent_class)->clicked) (button);
 	
-	toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
+	/* FIXME: need to create an em-folder-tree with all the store's... */
+	/*emft = mail_component_clone_folder_tree (mail_component_peek ());*/
 	
-	ess = mail_component_peek_storage_set(mail_component_peek());
-	
-	dialog = em_folder_selector_new (ess, EM_FOLDER_SELECTOR_CAN_CREATE, priv->title, priv->caption);
+	dialog = em_folder_selector_new (emft, EM_FOLDER_SELECTOR_CAN_CREATE, priv->title, priv->caption);
 	em_folder_selector_set_selected ((EMFolderSelector *) dialog, priv->uri);
 	g_signal_connect (dialog, "response", G_CALLBACK (emfsb_selector_response), button);
 	gtk_widget_show (dialog);

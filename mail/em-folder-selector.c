@@ -116,14 +116,13 @@ em_folder_selector_finalize (GObject *obj)
 }
 
 static void
-em_folder_selector_response (GtkDialog *dialog, int response)
+em_folder_selector_response (GtkDialog *dialog, int response, gpointer user_data)
 {
 	EMFolderSelector *emfs = (EMFolderSelector *) dialog;
 	
 	switch (response) {
 	case EM_FOLDER_SELECTOR_RESPONSE_NEW:
 		/* FIXME: implement me */
-		printf ("create new folder, default parent '%s'\n", path);
 		break;
 	}
 }

@@ -51,7 +51,7 @@ enum {
 static GType col_types[] = {
 	G_TYPE_STRING,   /* display name */
 	G_TYPE_POINTER,  /* store object */
-	G_TYPE_STRING,   /* full_name */
+	G_TYPE_STRING,   /* path */
 	G_TYPE_STRING,   /* uri */
 	G_TYPE_UINT,     /* unread count */
 	G_TYPE_BOOLEAN,  /* is a store node */
@@ -566,14 +566,15 @@ em_copy_folders (CamelStore *tostore, const char *tobase, CamelStore *fromstore,
 		l = l->next;
 	}
 	
-exception:
+ exception:
 	
 	camel_store_free_folder_info (fromstore, fi);
 	g_list_free (deleting);
 	
 	g_string_free (toname, TRUE);
 	g_string_free (fromname, TRUE);
-done:
+	
+ done:
 	
 	d(printf ("exception: %s\n", ex.desc ? ex.desc : "<none>"));
 	camel_exception_clear (&ex);
