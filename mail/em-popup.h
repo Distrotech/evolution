@@ -168,6 +168,46 @@ EMPopupTarget *em_popup_target_new_part(struct _CamelMimePart *part, const char 
 EMPopupTarget *em_popup_target_new_folder(const char *uri, guint32 info_flags, guint32 popup_flags);
 void em_popup_target_free(EMPopupTarget *target);
 
+/* ********************************************************************** */
+
+/* Implement an em popup target - this is temporary, this should all go into an e-popup? */
+
+#include "e-util/e-plugin.h"
+
+typedef struct _EMPopupHookItem EMPopupHookItem;
+typedef struct _EMPopupHookMenu EMPopupHookMenu;
+typedef struct _EMPopupHook EMPopupHook;
+typedef struct _EMPopupHookClass EMPopupHookClass;
+
+typedef void (*EMPopupHookFunc)(struct _EPlugin *plugin, EMPopupTarget *target);
+
+struct _EMPopupHookItem {
+	EMPopupItem item;
+
+	struct _EMPopupHook *hook; /* parent pointer */
+	char *activate;		/* activate handler */
+
+	struct _EMPopupTarget *target; /* to save the target during menu popup */
+};
+
+struct _EMPopupHookMenu {
+	struct _EMPopupHook *hook; /* parent pointer */
+	char *id;		/* target menu id for these menu items */
+	int target_type;	/* target type of this menu */
+	GSList *items;		/* items to add to menu */
+};
+
+struct _EMPopupHook {
+	EPluginHook hook;
+
+	GSList *menus;
+};
+
+struct _EMPopupHookClass {
+	EPluginHookClass hook_class;};
+
+GType em_popup_hook_get_type(void);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -315,6 +315,14 @@ mc_startup(MailComponent *mc)
 	mc_setup_local_store(mc);
 	load_accounts(mc, mail_config_get_accounts());
 	vfolder_load_storage();
+
+#ifdef ENABLE_MONO
+	e_plugin_register_type(e_plugin_mono_get_type());
+#endif
+	e_plugin_register_type(e_plugin_lib_get_type());
+	e_plugin_hook_register_type(em_popup_hook_get_type());
+
+	e_plugin_load_plugins("/home/notzed/src/mono-plugin");
 }
 
 static void

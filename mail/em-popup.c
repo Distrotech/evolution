@@ -1016,3 +1016,311 @@ emp_standard_menu_factory(EMPopup *emp, EMPopupTarget *target, void *data)
 	if (menus)
 		em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
 }
+
+/* ********************************************************************** */
+
+/* Popup menu plugin handler */
+
+/*
+<e-plugin
+  class="com.ximian.mail.plugin.popup:1.0"
+  id="com.ximian.mail.plugin.popup.item:1.0"
+  type="shlib"
+  location="/opt/gnome2/lib/camel/1.0/libcamelimap.so"
+  name="imap"
+  description="IMAP4 and IMAP4v1 mail store">
+  <hook class="com.ximian.mail.popupMenu:1.0"
+        handler="HandlePopup">
+  <menu id="any" target="select">
+   <item
+    type="item|toggle|radio|image|submenu|bar"
+    active
+    path="foo/bar"
+    label="label"
+    icon="foo"
+    mask="select_one"
+    activate="emp_view_emacs"/>
+  </menu>
+  </extension>
+
+*/
+
+static char *
+get_xml_prop(xmlNodePtr node, const char *id)
+{
+	char *p = xmlGetProp(node, id);
+	char *out = NULL;
+
+	if (p) {
+		out = g_strdup(p);
+		xmlFree(p);
+	}
+
+	return out;
+}
+
+static void *emph_parent_class;
+#define emph ((EMPopupHook *)eph)
+
+/* must have 1:1 correspondence with em-popup types */
+static const char * emph_item_types[] = { "item", "toggle", "radio", "image", "submenu", "bar", NULL };
+static const char * emph_target_types[] = { "select", "uri", "part", "folder", NULL };
+static const char * emph_select_mask[] = {
+	"dummy",
+	"one", "many", "mark_read", "mark_unread",
+	"delete", "undelete", "mailing_list",
+	"resend", "mark_important", "mark_unimportant",
+	"flag_followup", "flag_completed", "flag_clear",
+	"add_sender", "mark_junk", "mark_nojunk", "folder", NULL
+};
+static const char * emph_uri_mask[] = { "http", "mailto", "notmailto", NULL };
+static const char * emph_part_mask[] = { "message", "image", NULL };
+static const char * emph_folder_mask[] = { "folder", "store", "inferiors", "delete", "select", NULL };
+static const char ** emph_masks[] = { emph_select_mask, emph_uri_mask, emph_part_mask, emph_folder_mask };
+
+static guint32
+emph_mask(xmlNodePtr root, const char **vals, const char *prop)
+{
+	char *val, *p, *start, c;
+	guint32 mask = 0;
+
+	val = xmlGetProp(root, prop);
+	if (val == NULL)
+		return 0;
+
+	printf(" mask '%s' = ", val);
+
+	p = val;
+	do {
+		start = p;
+		while (*p && *p != ',')
+			p++;
+		c = *p;
+		*p = 0;
+		if (start != p) {
+			int i;
+
+			for (i=0;vals[i];i++) {
+				if (!strcmp(vals[i], start)) {
+					mask |= (1<<i);
+					break;
+				}
+			}
+		}
+		*p++ = c;
+	} while (c);
+
+	xmlFree(val);
+
+	printf("%08x\n", mask);
+
+	return mask;
+}
+
+static int
+emph_index(xmlNodePtr root, const char **vals, const char *prop)
+{
+	int i = 0;
+	char *val;
+
+	val = xmlGetProp(root, prop);
+	if (val == NULL) {
+		printf(" can't find prop '%s'\n", prop);
+		return -1;
+	}
+
+	printf("looking up index of '%s'", val);
+
+	while (vals[i]) {
+		if (!strcmp(vals[i], val)) {
+			printf(" = %d\n", i);
+			xmlFree(val);
+			return i;
+		}
+		i++;
+	}
+
+	printf(" not found\n");
+
+	xmlFree(val);
+	return -1;
+}
+
+static void
+emph_popup_activate(void *widget, void *data)
+{
+	struct _EMPopupHookItem *item = data;
+
+	e_plugin_invoke(item->hook->hook.plugin, item->activate, item->target);
+}
+
+static void
+emph_popup_factory(EMPopup *emp, EMPopupTarget *target, void *data)
+{
+	struct _EMPopupHookMenu *menu = data;
+	GSList *l, *menus = NULL;
+
+	printf("popup factory called %s mask %08x\n", menu->id?menu->id:"all menus", target->mask);
+
+	if (target->type != menu->target_type)
+		return;
+
+	l = menu->items;
+	while (l) {
+		struct _EMPopupHookItem *item = l->data;
+
+		item->target = target;
+		printf("  adding menyu item '%s' %08x\n", item->item.label, item->item.mask);
+		menus = g_slist_prepend(menus, item);
+		l = l->next;
+	}
+
+	if (menus)
+		em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+}
+
+static void
+emph_free_item(struct _EMPopupHookItem *item)
+{
+	g_free(item->item.path);
+	g_free(item->item.label);
+	g_free(item->item.image);
+	g_free(item->activate);
+	g_free(item);
+}
+
+static void
+emph_free_menu(struct _EMPopupHookMenu *menu)
+{
+	g_slist_foreach(menu->items, (GFunc)emph_free_item, NULL);
+	g_slist_free(menu->items);
+
+	g_free(menu->id);
+	g_free(menu);
+}
+
+static struct _EMPopupHookItem *
+emph_construct_item(EPluginHook *eph, EMPopupHookMenu *menu, xmlNodePtr root)
+{
+	struct _EMPopupHookItem *item;
+
+	printf("  loading menu item\n");
+	item = g_malloc0(sizeof(*item));
+	if ((item->item.type = emph_index(root, emph_item_types, "type")) == -1
+	    || item->item.type == EM_POPUP_IMAGE)
+		goto error;
+	item->item.path = get_xml_prop(root, "path");
+	item->item.label = get_xml_prop(root, "label");
+	item->item.image = get_xml_prop(root, "icon");
+	item->item.mask = emph_mask(root, emph_masks[menu->target_type], "mask");
+	item->activate = get_xml_prop(root, "activate");
+
+	item->item.activate = G_CALLBACK(emph_popup_activate);
+	item->item.activate_data = item;
+	item->hook = emph;
+
+	printf("   path=%s\n", item->item.path);
+	printf("   label=%s\n", item->item.label);
+
+	return item;
+error:
+	printf("error!\n");
+	emph_free_item(item);
+	return NULL;
+}
+
+static struct _EMPopupHookMenu *
+emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
+{
+	struct _EMPopupHookMenu *menu;
+	xmlNodePtr node;
+
+	printf(" loading menu\n");
+	menu = g_malloc0(sizeof(*menu));
+	if ((menu->target_type = emph_index(root, emph_target_types, "target")) == -1)
+		goto error;
+	menu->id = get_xml_prop(root, "id");
+	node = root->children;
+	while (node) {
+		if (0 == strcmp(node->name, "item")) {
+			struct _EMPopupHookItem *item;
+
+			item = emph_construct_item(eph, menu, node);
+			if (item)
+				menu->items = g_slist_append(menu->items, item);
+		}
+		node = node->next;
+	}
+
+	return menu;
+error:
+	emph_free_menu(menu);
+	return NULL;
+}
+
+static int
+emph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
+{
+	xmlNodePtr node;
+
+	printf("loading popup hook\n");
+
+	if (((EPluginHookClass *)emph_parent_class)->construct(eph, ep, root) == -1)
+		return -1;
+
+	node = root->children;
+	while (node) {
+		if (strcmp(node->name, "menu") == 0) {
+			struct _EMPopupHookMenu *menu;
+
+			menu = emph_construct_menu(eph, node);
+			if (menu) {
+				em_popup_static_add_factory(menu->id, emph_popup_factory, menu);
+				emph->menus = g_slist_append(emph->menus, menu);
+			}
+		}
+		node = node->next;
+	}
+
+	eph->plugin = ep;
+
+	return 0;
+}
+
+static void
+emph_finalise(GObject *o)
+{
+	EPluginHook *eph = (EPluginHook *)o;
+
+	g_slist_foreach(emph->menus, (GFunc)emph_free_menu, NULL);
+	g_slist_free(emph->menus);
+
+	((GObjectClass *)emph_parent_class)->finalize(o);
+}
+
+static void
+emph_class_init(EPluginHookClass *klass)
+{
+	((GObjectClass *)klass)->finalize = emph_finalise;
+	klass->construct = emph_construct;
+
+	klass->id = "com.ximian.evolution.mail.popup:1.0";
+}
+
+GType
+em_popup_hook_get_type(void)
+{
+	static GType type = 0;
+	
+	if (!type) {
+		static const GTypeInfo info = {
+			sizeof(EMPopupHookClass), NULL, NULL, (GClassInitFunc) emph_class_init, NULL, NULL,
+			sizeof(EMPopupHook), 0, (GInstanceInitFunc) NULL,
+		};
+
+		emph_parent_class = g_type_class_ref(e_plugin_hook_get_type());
+		type = g_type_register_static(e_plugin_hook_get_type(), "EMPopupHook", &info, 0);
+	}
+	
+	return type;
+}
