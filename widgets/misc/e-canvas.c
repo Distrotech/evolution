@@ -121,6 +121,8 @@ e_canvas_destroy (GtkObject *object)
 	ECanvas *canvas = E_CANVAS(object);
 	if (canvas->idle_id)
 		g_source_remove(canvas->idle_id);
+	if ((GTK_OBJECT_CLASS (parent_class))->destroy)
+		(*(GTK_OBJECT_CLASS (parent_class))->destroy) (object);
 }
 
 GtkWidget *
@@ -147,7 +149,7 @@ is_descendant (GnomeCanvasItem *item, GnomeCanvasItem *parent)
 static int
 emit_event (GnomeCanvas *canvas, GdkEvent *event)
 {
-	GdkEvent ev;
+	/*GdkEvent ev;*/
 	gint finished;
 	GnomeCanvasItem *item;
 	GnomeCanvasItem *parent;
@@ -203,14 +205,16 @@ emit_event (GnomeCanvas *canvas, GdkEvent *event)
 	 * offsets of the fields in the event structures.
 	 */
 
-	ev = *event;
+	/*ev = *event;*/
 
-	switch (ev.type) {
+	switch (event->type) {
 	case GDK_ENTER_NOTIFY:
 	case GDK_LEAVE_NOTIFY:
 		gnome_canvas_window_to_world (canvas,
-					      ev.crossing.x, ev.crossing.y,
-					      &ev.crossing.x, &ev.crossing.y);
+					      event->crossing.x, 
+					      event->crossing.y,
+					      &(event->crossing.x), 
+					      &(event->crossing.y));
 		break;
 
 	case GDK_MOTION_NOTIFY:
@@ -219,8 +223,10 @@ emit_event (GnomeCanvas *canvas, GdkEvent *event)
 	case GDK_3BUTTON_PRESS:
 	case GDK_BUTTON_RELEASE:
 		gnome_canvas_window_to_world (canvas,
-					      ev.motion.x, ev.motion.y,
-					      &ev.motion.x, &ev.motion.y);
+					      event->motion.x, 
+					      event->motion.y,
+					      &(event->motion.x), 
+					      &(event->motion.y));
 		break;
 
 	default:
@@ -246,7 +252,7 @@ emit_event (GnomeCanvas *canvas, GdkEvent *event)
 		gtk_object_ref (GTK_OBJECT (item));
 
 		gtk_signal_emit_by_name (GTK_OBJECT (item), "event",
-					 &ev,
+					 event,
 					 &finished);
 
 		if (GTK_OBJECT_DESTROYED (item))
@@ -348,12 +354,15 @@ static gint
 e_canvas_focus_out (GtkWidget *widget, GdkEventFocus *event)
 {
 	GnomeCanvas *canvas;
+	ECanvas *ecanvas;
 
 	canvas = GNOME_CANVAS (widget);
+	ecanvas = E_CANVAS (widget);
 
 	GTK_WIDGET_UNSET_FLAGS (widget, GTK_HAS_FOCUS);
 
-	gdk_im_end ();
+	if (ecanvas->ic)
+		gdk_im_end ();
 
 	if (canvas->focused_item)
 		return emit_event (canvas, (GdkEvent *) event);
@@ -410,6 +419,8 @@ e_canvas_unrealize (GtkWidget *widget)
 		gdk_ic_attr_destroy (ecanvas->ic_attr);
 		ecanvas->ic_attr = NULL;
 	}
+	if (GTK_WIDGET_CLASS (parent_class)->unrealize)
+		(* GTK_WIDGET_CLASS (parent_class)->unrealize) (widget);
 }
 
 static void
@@ -550,6 +561,9 @@ e_canvas_item_set_cursor (GnomeCanvasItem *item, gpointer id)
 		func = gtk_object_get_data(GTK_OBJECT(info->item), "ECanvasItem::selection_callback");
 		if (func)
 			func(info->item, flags, info->id);
+		g_message ("ECANVAS: free info (2): item %p, id %p",
+			   info->item, info->id);
+		gtk_object_unref (GTK_OBJECT (info->item));
 		g_free(info);
 	}
 	g_list_free(canvas->selection);
@@ -560,7 +574,9 @@ e_canvas_item_set_cursor (GnomeCanvasItem *item, gpointer id)
 
 	info = g_new(ECanvasSelectionInfo, 1);
 	info->item = item;
+	gtk_object_ref (GTK_OBJECT (info->item));
 	info->id = id;
+	g_message ("ECANVAS: new info item %p, id %p", item, id);
 
 	flags = E_CANVAS_ITEM_SELECTION_SELECT | E_CANVAS_ITEM_SELECTION_CURSOR;
 	func = gtk_object_get_data(GTK_OBJECT(item), "ECanvasItem::selection_callback");
@@ -623,7 +639,9 @@ e_canvas_item_add_selection (GnomeCanvasItem *item, gpointer id)
 
 	info = g_new(ECanvasSelectionInfo, 1);
 	info->item = item;
+	gtk_object_ref (GTK_OBJECT (info->item));
 	info->id = id;
+	g_message ("ECANVAS: new info (2): item %p, id %p", item, id);
 
 	func = gtk_object_get_data(GTK_OBJECT(item), "ECanvasItem::selection_callback");
 	if (func)
@@ -666,6 +684,9 @@ e_canvas_item_remove_selection (GnomeCanvasItem *item, gpointer id)
 				if (canvas->cursor == info)
 					canvas->cursor = NULL;
 
+				g_message ("ECANVAS: removing info: item %p, info %p",
+					   info->item, info->id);
+				gtk_object_unref (GTK_OBJECT (info->item));
 				g_free(info);
 				g_list_free_1(list);
 				break;
