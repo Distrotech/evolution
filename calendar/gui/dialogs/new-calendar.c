@@ -57,6 +57,7 @@ new_calendar_dialog (GtkWindow *parent)
 
 	if (dialog && cal_group && cal_name) {
 		GSList *groups, *sl;
+		gboolean retry = TRUE;
 
 		/* set up widgets */
 		gconf_client = gconf_client_get_default ();
@@ -79,9 +80,48 @@ new_calendar_dialog (GtkWindow *parent)
 			gtk_menu_shell_append (GTK_MENU_SHELL (menu), menu_item);
 		}
 
+		if (groups)
+			gtk_option_menu_set_history (GTK_OPTION_MENU (cal_group), 0);
+
 		/* run the dialog */
-		if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK) {
-		}
+		do {
+			if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK) {
+				ESourceGroup *group;
+				ESource *source;
+				char *name;
+
+				name = gtk_entry_get_text (GTK_ENTRY (cal_name));
+				sl = g_slist_nth (groups, gtk_option_menu_get_history (GTK_OPTION_MENU (cal_group)));
+				if (sl) {
+					char *rel_uri;
+
+					group = sl->data;
+
+					if (e_source_group_peek_source_by_name (group, name)) {
+						e_notice (dialog, GTK_MESSAGE_ERROR,
+							  _("Source with name '%s' already exists in this group"),
+							  name);
+						continue;
+					}
+
+					/* create the new source */
+					source = e_source_new ();
+					e_source_set_group (source, group);
+					e_source_set_name (source, name);
+
+					rel_uri = g_strdup_printf ("Calendar/%s", name);
+					e_source_set_relative_uri (source, rel_uri);
+					g_free (rel_uri);
+
+					e_source_group_add_source (group, source, -1);
+
+					retry = FALSE;
+				} else {
+					e_notice (dialog, GTK_MESSAGE_ERROR, _("A group must be selected"));
+					continue;
+				}
+			}
+		} while (retry);
 
 		/* free memory */
 		g_object_unref (gconf_client);
