@@ -22,6 +22,7 @@
  *   Ettore Perazzoli (ettore@ximian.com)
  *   Jeffrey Stedfast (fejj@ximian.com)
  *   Miguel de Icaza  (miguel@ximian.com)
+ *   Radek Doulik     (rodo@ximian.com)
  * 
  */
 
@@ -47,9 +48,11 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <gal/unicode/gunicode.h>
 #include <libgnome/gnome-defs.h>
+#include <libgnome/gnome-exec.h>
 #include <libgnomeui/gnome-app.h>
 #include <libgnomeui/gnome-uidefs.h>
 #include <libgnomeui/gnome-dialog.h>
@@ -807,15 +810,57 @@ static gchar *
 get_signature_html (EMsgComposer *composer)
 {
 	gboolean format_html = FALSE;
-	char *text, *html = NULL, *sig_file = NULL;
+	char *text, *html = NULL, *sig_file = NULL, *script = NULL;
+	static gboolean random_initialized = FALSE;
 	
 	if (composer->signature) {
 		sig_file = composer->signature->filename;
 		format_html = composer->signature->html;
+		script = composer->signature->script;
+	} else if (composer->random_signature) {
+		GList *l;
+		gint pos;
+
+		if (!random_initialized) {
+			printf ("initialize random generator\n");
+			srand (time (NULL));
+			random_initialized = TRUE;
+		}
+		pos = (int) (((gdouble) mail_config_get_signatures_random ())*rand()/(RAND_MAX+1.0));
+		printf ("using %d sig\n", pos);
+
+		for (l = mail_config_get_signature_list (); l; l = l->next) {
+			MailConfigSignature *sig = (MailConfigSignature *) l->data;
+
+			if (sig->random) {
+				if (pos == 0) {
+					printf ("using %s\n", sig->name);
+					sig_file = sig->filename;
+					script = sig->script;
+					format_html = sig->html;
+					break;
+				}
+				pos --;
+			}
+		}
 	}
 	if (!sig_file)
 		return NULL;
 	printf ("sig file: %s\n", sig_file);
+
+	if (script) {
+		gchar *argv[2];
+		gint pid, status;
+
+		printf ("running script %s\n", script);
+		argv [0] = script;
+		argv [1] = NULL;
+		pid = gnome_execute_async (NULL, 1, argv);
+		if (pid < 0)
+			gnome_error_dialog (_("Cannot execute signature script"));
+		else
+			waitpid (pid, &status, 0);
+	}
 	text = e_msg_composer_get_sig_file_content (sig_file, format_html);
 	/* printf ("text: %s\n", text); */
 	if (text) {
@@ -1671,6 +1716,14 @@ static EPixmap pixcache [] = {
 };
 
 static void
+signature_regenerate_cb (BonoboUIComponent *uic, gpointer user_data, const char *path)
+{
+	printf ("signature_regenerate_cb: %s\n", path);
+
+	e_msg_composer_show_sig_file (E_MSG_COMPOSER (user_data));
+}
+
+static void
 signature_cb (BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type,
 	      const char *state, gpointer user_data)
 {
@@ -1687,14 +1740,15 @@ signature_cb (BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Event
 			old_random = composer->random_signature;
 
 			printf ("I'm going to set signature (%d)\n", atoi (path + 9));
-			if (path [10] == 'N') {
+			if (path [9] == 'N') {
 				composer->signature = NULL;
 				composer->random_signature = FALSE;
-			} else if (path [10] == 'R') {
+			} else if (path [9] == 'R') {
 				composer->signature = NULL;
 				composer->random_signature = TRUE;
 			} else {
 				composer->signature = g_list_nth_data (mail_config_get_signature_list (), atoi (path + 9));
+				composer->random_signature = FALSE;
 			}
 			if (old_sig != composer->signature || old_random != composer->random_signature)
 				e_msg_composer_show_sig_file (composer);
@@ -1713,6 +1767,8 @@ remove_signature_list (EMsgComposer *composer)
 	gint len = g_list_length (mail_config_get_signature_list ());
 
 	bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SeparatorList", NULL);
+	bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SeparatorRegenerate", NULL);
+	bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SignatureRegenerate", NULL);
 	for (; len; len --) {
 		g_snprintf (path, 64, "/menu/Edit/EditMisc/EditSignaturesSubmenu/Signature%d", len - 1);
 		bonobo_ui_component_rm (composer->uic, path, NULL);
@@ -1780,6 +1836,11 @@ setup_signatures_menu (EMsgComposer *composer)
 			g_free (line);
 		}
 	}
+
+	g_string_append (str,
+			 "<separator name=\"SeparatorRegenerate\"/>\n"
+			 "<menuitem name=\"SignatureRegenerate\" _label=\"_Regenerate\""
+			 " verb=\"SignatureRegenerate\" accel=\"*Ctrl**Shift*G\"/>");
 	g_string_append (str, "</submenu>\n");
 
 	bonobo_ui_component_set_translate (composer->uic, "/menu/Edit/EditMisc/", str->str, NULL);
@@ -1787,6 +1848,7 @@ setup_signatures_menu (EMsgComposer *composer)
 
 	bonobo_ui_component_add_listener (composer->uic, "SignatureNone", signature_cb, composer);
 	bonobo_ui_component_add_listener (composer->uic, "SignatureRandom", signature_cb, composer);
+	bonobo_ui_component_add_verb (composer->uic, "SignatureRegenerate", signature_regenerate_cb, composer);
 
 	for (i = 0; i < len; i ++) {
 		g_string_sprintf (str, "Signature%d", i + 1);
