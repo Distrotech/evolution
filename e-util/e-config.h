@@ -57,12 +57,31 @@ typedef struct _GtkWidget * (*EConfigItemFactoryFunc)(EConfig *ec, EConfigItem *
    what about pages ?
 */
 
+/**
+ * enum _e_config_target_changed_t - Target changed mode.
+ * 
+ * @E_CONFIG_TARGET_CHANGED_STATE: A state of the target has changed.
+ * @E_CONFIG_TARGET_CHANGED_REBUILD: A state of the target has
+ * changed, and the UI must be reconfigured as a result.
+ * 
+ * How the target has changed.  If @E_CONFIG_TARGET_CHANGED_REBUILD then a
+ * widget reconfigure is necessary, otherwise it is used to check if
+ * the widget is complete yet.
+ **/
+typedef
+enum _e_config_target_change_t {
+	E_CONFIG_TARGET_CHANGED_STATE,
+	E_CONFIG_TARGET_CHANGED_REBUILD,
+} e_config_target_change_t;
+
 enum _e_config_t {
 	/* use one and only one of these for any given config-window id */
 	E_CONFIG_BOOK,
 	E_CONFIG_DRUID,
 
 	E_CONFIG_PAGE,
+	E_CONFIG_PAGE_START,	/* only allowed in druid types */
+	E_CONFIG_PAGE_FINISH,	/* only allowed in druid types */
 	E_CONFIG_SECTION,
 	E_CONFIG_SECTION_TABLE,
 	E_CONFIG_ITEM,
@@ -101,13 +120,16 @@ struct _EConfig {
 
 	EConfigTarget *target;
 
-	struct _GtkWidget *widget; /* the generated widget */
+	struct _GtkWidget *widget; /* the generated internal */
+	struct _GtkWidget *window; /* the window widget, GtkWindow or GtkDialog */
 };
 
 struct _EConfigClass {
 	GObjectClass object_class;
 
 	EDList factories;
+
+	void (*set_target)(EConfig *ep, EConfigTarget *t);
 
 	void (*target_free)(EConfig *ep, EConfigTarget *t);
 };
@@ -124,9 +146,11 @@ EConfig *e_config_new(int type, const char *menuid);
 void e_config_add_items(EConfig *, GSList *items, EConfigItemsFunc commitfunc, EConfigItemsFunc abortfunc, EConfigItemsFunc freefunc, void *data);
 void e_config_add_page_check(EConfig *, const char *pageid, EConfigCheckFunc, void *data);
 
-struct _GtkWidget *e_config_create_widget(EConfig *, EConfigTarget *);
+void e_config_set_target(EConfig *emp, EConfigTarget *target);
+struct _GtkWidget *e_config_create_widget(EConfig *);
+GtkWidget *e_config_create_window(EConfig *emp, struct _GtkWindow *parent, const char *title);
 
-void e_config_target_changed(EConfig *);
+void e_config_target_changed(EConfig *emp, e_config_target_change_t how);
 
 gboolean e_config_page_check(EConfig *, const char *);
 

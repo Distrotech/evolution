@@ -106,6 +106,9 @@ init (EAccount *account)
 	account->id = g_new0 (EAccountIdentity, 1);
 	account->source = g_new0 (EAccountService, 1);
 	account->transport = g_new0 (EAccountService, 1);
+
+	account->source->auto_check = FALSE;
+	account->source->auto_check_time = 10;
 }
 
 static void
@@ -860,9 +863,13 @@ void e_account_set_bool(EAccount *ea, e_account_item_t type, gboolean val)
 	if (!e_account_writable(ea, type)) {
 		g_warning("Trying to set non-writable option account value");
 	} else {
-		*((gboolean *)addr(ea, type)) = val;
-		dump_account(ea);
-		g_signal_emit(ea, signals[CHANGED], 0, type);
+		gboolean *p = (gboolean *)addr(ea, type);
+
+		if (*p != val) {
+			*p = val;
+			dump_account(ea);
+			g_signal_emit(ea, signals[CHANGED], 0, type);
+		}
 	}
 }
 

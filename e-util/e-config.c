@@ -39,6 +39,7 @@
 
 #include <libgnomeui/gnome-druid.h>
 #include <libgnomeui/gnome-druid-page-standard.h>
+#include <libgnomeui/gnome-druid-page-edge.h>
 
 #include "e-config.h"
 
@@ -67,10 +68,14 @@ struct _menu_node {
 struct _widget_node {
 	struct _widget_node *next, *prev;
 
+	EConfig *config;
+
 	struct _menu_node *context;
 	EConfigItem *item;
 	struct _GtkWidget *widget; /* widget created by the factory, if any */
 	struct _GtkWidget *frame; /* if created by us */
+
+	int empty:1;		/* set if empty (i.e. hidden) */
 };
 
 struct _check_node {
@@ -85,6 +90,8 @@ struct _EConfigPrivate {
 	EDList menus;
 	EDList widgets;
 	EDList checks;
+
+	struct _widget_node *druid_page; /* current druid page if using the druid */
 };
 
 static GObjectClass *ep_parent;
@@ -135,10 +142,19 @@ ep_finalise(GObject *o)
 }
 
 static void
-ep_target_free(EConfig *ep, EConfigTarget *t)
+ec_target_free(EConfig *ep, EConfigTarget *t)
 {
 	g_free(t);
 	g_object_unref(ep);
+}
+
+static void
+ec_set_target(EConfig *emp, EConfigTarget *target)
+{
+	if (emp->target)
+		e_config_target_free(emp, target);
+
+	emp->target = target;
 }
 
 static void
@@ -147,7 +163,8 @@ ep_class_init(GObjectClass *klass)
 	printf("EConfig class init %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type));
 
 	klass->finalize = ep_finalise;
-	((EConfigClass *)klass)->target_free = ep_target_free;
+	((EConfigClass *)klass)->set_target = ec_set_target;
+	((EConfigClass *)klass)->target_free = ec_target_free;
 }
 
 static void
@@ -250,7 +267,7 @@ e_config_add_page_check(EConfig *ec, const char *pageid, EConfigCheckFunc check,
 }
 
 static void
-e_config_add_static_items(EConfig *ec, EConfigTarget *t)
+ec_add_static_items(EConfig *ec, EConfigTarget *t)
 {
 	struct _EConfigFactory *f;
 	EConfigClass *klass = (EConfigClass *)G_OBJECT_GET_CLASS(ec);
@@ -274,46 +291,105 @@ ep_cmp(const void *ap, const void *bp)
 	return strcmp(a->item->path, b->item->path);
 }
 
-GtkWidget *
-e_config_create_widget(EConfig *emp, EConfigTarget *target)
+static void
+ec_druid_check_current(EConfig *ec)
 {
-	struct _EConfigPrivate *p = emp->priv;
-	struct _menu_node *mnode;
-	GPtrArray *items = g_ptr_array_new();
-	GSList *l;
-	/*char *domain = NULL;*/
-	int i;
+	g_return_if_fail(ec->priv->druid_page != NULL);
 
-	emp->target = target;
-	e_config_add_static_items(emp, target);
-
-	/* FIXME: need to override old ones with new names */
-	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
-		for (l=mnode->menu; l; l = l->next) {
-			struct _EConfigItem *item = l->data;
-			struct _widget_node *wn = g_malloc0(sizeof(*wn));
-
-			wn->item = item;
-			wn->context = mnode;
-			g_ptr_array_add(items, wn);
-		}
-
-	qsort(items->pdata, items->len, sizeof(items->pdata[0]), ep_cmp);
-
-	for (i=0;i<items->len;i++) {
-		struct _widget_node *wn = items->pdata[i];
-
-		e_dlist_addtail(&p->widgets, (EDListNode *)wn);
+	if (e_config_page_check(ec, ec->priv->druid_page->item->path)) {
+		gtk_widget_set_sensitive(((GnomeDruid *)ec->widget)->next, TRUE);
+	} else {
+		gtk_widget_set_sensitive(((GnomeDruid *)ec->widget)->next, FALSE);
 	}
-
-	g_ptr_array_free(items, TRUE);
-
-	e_config_target_changed(emp);
-
-	return emp->widget;
 }
 
-void e_config_target_changed(EConfig *emp)
+static void
+ec_druid_cancel(GnomeDruid *druid, struct _widget_node *wn)
+{
+	printf("finishing druid, calling abort\n");
+	e_config_abort(wn->config);
+
+	if (wn->config->window)
+		gtk_widget_destroy(wn->config->window);
+}
+
+static void
+ec_druid_finish(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
+{
+	printf("finishing druid, calling commit\n");
+	e_config_commit(wn->config);
+
+	/* TODO: allow the commit to fail?  Do we care? */
+	if (wn->config->window)
+		gtk_widget_destroy(wn->config->window);
+}
+
+static void
+ec_druid_prepare(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
+{
+	printf("prepare page '%s'\n", wn->item->path);
+	wn->config->priv->druid_page = wn;
+	ec_druid_check_current(wn->config);
+}
+
+static gboolean
+ec_druid_prev(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
+{
+	EConfig *ec = wn->config;
+
+	printf("prev page from '%s'\n", wn->item->path);
+	if (wn->prev) {
+		for (wn = wn->prev;wn->prev;wn=wn->prev) {
+			if (!wn->empty
+			    && (wn->item->type == E_CONFIG_PAGE
+				|| wn->item->type == E_CONFIG_PAGE_START
+				|| wn->item->type == E_CONFIG_PAGE_FINISH))
+				break;
+		}
+	}
+
+	if (wn->prev) {
+		printf(" is %s\n",wn->item->path);
+		gnome_druid_set_page((GnomeDruid *)ec->widget, (GnomeDruidPage *)wn->frame);
+		ec->priv->druid_page = wn;
+	} else {
+		/* do we need to indicate first? */
+		ec->priv->druid_page = NULL;
+	}
+
+	return wn->prev != NULL;
+}
+
+static gboolean
+ec_druid_next(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
+{
+	EConfig *ec = wn->config;
+
+	printf("next page from '%s'\n", wn->item->path);
+	if (wn->next) {
+		for (wn = wn->next;wn->next;wn=wn->next) {
+			if (!wn->empty
+			    && (wn->item->type == E_CONFIG_PAGE
+				|| wn->item->type == E_CONFIG_PAGE_START
+				|| wn->item->type == E_CONFIG_PAGE_FINISH))
+				break;
+		}
+	}
+
+	if (wn->next) {
+		printf(" is %s\n",wn->item->path);
+		gnome_druid_set_page((GnomeDruid *)ec->widget, (GnomeDruidPage *)wn->frame);
+		ec->priv->druid_page = wn;
+	} else {
+		/* do we need to indicate last? */
+		ec->priv->druid_page = NULL;
+	}
+
+	return wn->next != NULL;
+}
+
+static void
+ec_rebuild(EConfig *emp)
 {
 	struct _EConfigPrivate *p = emp->priv;
 	struct _widget_node *wn, *sectionnode = NULL, *pagenode = NULL;
@@ -327,12 +403,45 @@ void e_config_target_changed(EConfig *emp)
 	 * external sources - plugins, 	it shouldn't abort in the long
 	 * term, merely display warnings */
 
+	/* TODO: This code is pretty complex, and will probably just
+	 * become more complex with time.  I don't know how to fix
+	 * this issue. */
+
 	for (wn = (struct _widget_node *)p->widgets.head;wn->next;wn=wn->next) {
 		struct _EConfigItem *item = wn->item;
 		GtkWidget *w;
 
 		printf(" '%s'\n", item->path);
 
+		/* If the last section doesn't contain anything, hide it */
+		if (sectionnode != NULL
+		    && (item->type == E_CONFIG_PAGE_START
+			|| item->type == E_CONFIG_PAGE_FINISH
+			|| item->type == E_CONFIG_PAGE
+			|| item->type == E_CONFIG_SECTION
+			|| item->type == E_CONFIG_SECTION_TABLE)) {
+			if ( (sectionnode->empty = itemno == 0) ) {
+				gtk_widget_hide(sectionnode->frame);
+				sectionno--;
+			} else
+				gtk_widget_show(sectionnode->frame);
+			printf("%s section '%s' [sections=%d]\n", sectionnode->empty?"hiding":"showing", sectionnode->item->path, sectionno);
+		}
+
+		/* If the last page doesn't contain anything, hide it */
+		if (pagenode != NULL
+		    && (item->type == E_CONFIG_PAGE_START
+			|| item->type == E_CONFIG_PAGE_FINISH
+			|| item->type == E_CONFIG_PAGE)) {
+			if ( (pagenode->empty = sectionno == 0) ) {
+				gtk_widget_hide(pagenode->frame);
+				pageno--;
+			} else
+				gtk_widget_show(pagenode->frame);
+			printf("%s page '%s' [section=%d]\n", pagenode->empty?"hiding":"showing", pagenode->item->path, pageno);
+		}
+
+		/* Now process the item */
 		switch (item->type) {
 		case E_CONFIG_BOOK:
 		case E_CONFIG_DRUID:
@@ -342,7 +451,6 @@ void e_config_target_changed(EConfig *emp)
 			   cross-checked with the code's defined
 			   type. */
 			g_assert(root == NULL);
-
 			if (wn->widget == NULL) {
 				g_assert(item->type == emp->type);
 				if (item->factory) {
@@ -353,6 +461,9 @@ void e_config_target_changed(EConfig *emp)
 					root = druid = gnome_druid_new();
 				} else
 					abort();
+
+				if (item->type == E_CONFIG_DRUID)
+					g_signal_connect(root, "cancel", G_CALLBACK(ec_druid_cancel), wn);
 
 				emp->widget = root;
 				wn->widget = root;
@@ -374,6 +485,34 @@ void e_config_target_changed(EConfig *emp)
 			pageno = 0;
 			sectionno = 0;
 			break;
+		case E_CONFIG_PAGE_START:
+		case E_CONFIG_PAGE_FINISH:
+			g_assert(emp->type == E_CONFIG_DRUID);
+			g_assert(root != NULL);
+			if (wn->widget == NULL) {
+				if (item->factory) {
+					page = item->factory(emp, item, root, wn->frame, wn->context->data);
+				} else {
+					page = gnome_druid_page_edge_new(item->type == E_CONFIG_PAGE_START?GNOME_EDGE_START:GNOME_EDGE_FINISH);
+					gtk_widget_show(page);
+					gnome_druid_page_edge_set_title((GnomeDruidPageEdge *)page, item->label);
+					gnome_druid_insert_page((GnomeDruid *)druid, pagenode?(GnomeDruidPage *)pagenode->frame:NULL, (GnomeDruidPage *)page);
+				}
+				if (item->type == E_CONFIG_PAGE_FINISH) {
+					g_signal_connect(page, "back", G_CALLBACK(ec_druid_prev), wn);
+					g_signal_connect(page, "finish", G_CALLBACK(ec_druid_finish), wn);
+				} else
+					g_signal_connect(page, "next", G_CALLBACK(ec_druid_next), wn);
+				wn->frame = page;
+				wn->widget = page;
+			}
+			pageno++;
+			page = NULL;
+			pagenode = wn; /* need this for previous page linking */
+			section = NULL;
+			sectionnode = NULL;
+			sectionno = 1; /* never want to hide these */
+			break;
 		case E_CONFIG_PAGE:
 			/* CONFIG_PAGEs depend on the config type.
 			   E_CONFIG_BOOK:
@@ -382,34 +521,36 @@ void e_config_target_changed(EConfig *emp)
 			   	The page is a GnomeDruidPageStandard,
 				any sections automatically added are added to
 				the vbox inside it. */
-
 			g_assert(root != NULL);
-
-			if (pagenode != NULL && sectionno == 0) {
-				printf("hiding empty page\n");
-				if (sectionno == 0)
-					gtk_widget_hide(pagenode->frame);
-				else
-					gtk_widget_show(pagenode->frame);
-			}
-
-			if (sectionnode != NULL) {
-				printf("%sing empty section 0\n", itemno==0?"hid":"show");
-				if (itemno == 0)
-					gtk_widget_hide(sectionnode->frame);
-				else
-					gtk_widget_show(sectionnode->frame);
-			}
-
 			sectionno = 0;
 			if (item->factory) {
-				page = item->factory(emp, item, root, wn->widget, wn->context->data);
-				wn->frame = page;
-				if (emp->type == E_CONFIG_DRUID)
-					page = ((GnomeDruidPageStandard *)page)->vbox;
-				sectionno = 1;
+				if (emp->type == E_CONFIG_DRUID) {
+					page = item->factory(emp, item, root, wn->frame, wn->context->data);
+					if (wn->frame != page && page) {
+						g_signal_connect(page, "next", G_CALLBACK(ec_druid_next), wn);
+						g_signal_connect(page, "back", G_CALLBACK(ec_druid_prev), wn);
+						/* GnomeDruid bug, need to connect_after */
+						g_signal_connect_after(page, "prepare", G_CALLBACK(ec_druid_prepare), wn);
+					}
+					g_assert(page == NULL || GNOME_IS_DRUID_PAGE_STANDARD(page));
+					wn->frame = page;
+					if (page)
+						page = ((GnomeDruidPageStandard *)page)->vbox;
+				} else {
+					page = item->factory(emp, item, root, wn->widget, wn->context->data);
+					wn->frame = page;
+				}
+				if (page)
+					sectionno = 1;
 			} else if (wn->widget == NULL) {
-				if (book) {
+				if (emp->type == E_CONFIG_DRUID) {
+					w = gnome_druid_page_standard_new();
+					gtk_widget_show(w);
+					gnome_druid_page_standard_set_title((GnomeDruidPageStandard *)w, item->label);
+					gnome_druid_insert_page((GnomeDruid *)druid, pagenode?(GnomeDruidPage *)pagenode->frame:NULL, (GnomeDruidPage *)w);
+					wn->frame = w;
+					page = ((GnomeDruidPageStandard *)w)->vbox;
+				} else {
 					w = gtk_label_new(item->label);
 					gtk_widget_show(w);
 					page = gtk_vbox_new(FALSE, 12);
@@ -417,18 +558,14 @@ void e_config_target_changed(EConfig *emp)
 					gtk_widget_show(page);
 					gtk_notebook_insert_page((GtkNotebook *)book, page, w, pageno);
 					wn->frame = page;
-				} else {
-					w = gnome_druid_page_standard_new();
-					gtk_widget_show(w);
-					gnome_druid_page_standard_set_title((GnomeDruidPageStandard *)w, item->label);
-					wn->frame = w;
-					page = ((GnomeDruidPageStandard *)w)->vbox;
 				}
 			} else
 				page = wn->widget;
 
-			if (wn->widget && wn->widget != page)
+			if (wn->widget && wn->widget != page) {
+				printf("destroy old widget for page '%s'\n", item->path);
 				gtk_widget_destroy(wn->widget);
+			}
 
 			pageno++;
 			pagenode = wn;
@@ -443,18 +580,15 @@ void e_config_target_changed(EConfig *emp)
 			   pages. */
 			g_assert(page != NULL);
 
-			if (sectionnode != NULL) {
-				printf("%sing empty section 1\n", itemno==0?"hid":"show");
-				if (itemno == 0)
-					gtk_widget_hide(sectionnode->frame);
-				else
-					gtk_widget_show(sectionnode->frame);
-			}
-
 			itemno = 0;
 			if (item->factory) {
 				section = item->factory(emp, item, page, wn->widget, wn->context->data);
+				wn->frame = section;
 				itemno = 1;
+
+				g_assert(section == NULL
+					 || (item->type == E_CONFIG_SECTION && GTK_IS_BOX(section))
+					 || (item->type == E_CONFIG_SECTION_TABLE && GTK_IS_TABLE(section)));
 			} else if (wn->widget == NULL) {
 				GtkWidget *frame;
 				GtkWidget *label = NULL;
@@ -491,11 +625,14 @@ void e_config_target_changed(EConfig *emp)
 				section = wn->widget;
 			}
 
-			if (wn->widget && wn->widget != section)
+			if (wn->widget && wn->widget != section) {
+				printf("destroy old widget for section '%s'\n", item->path);
 				gtk_widget_destroy(wn->widget);
+			}
 
 			sectionno++;
 			wn->widget = section;
+			sectionnode = wn;
 			break;
 		case E_CONFIG_ITEM:
 			/* ITEMs are called with the section parent.
@@ -510,8 +647,10 @@ void e_config_target_changed(EConfig *emp)
 
 			printf("item %d:%s widget %p\n", itemno, item->path, w);
 
-			if (wn->widget && wn->widget != w)
+			if (wn->widget && wn->widget != w) {
+				printf("destroy old widget for item '%s'\n", item->path);
 				gtk_widget_destroy(wn->widget);
+			}
 
 			wn->widget = w;
 			if (w)
@@ -529,10 +668,156 @@ void e_config_target_changed(EConfig *emp)
 	}
 }
 
+void
+e_config_set_target(EConfig *emp, EConfigTarget *target)
+{
+	if (emp->target != target)
+		((EConfigClass *)G_OBJECT_GET_CLASS(emp))->set_target(emp, target);
+}
+
+/**
+ * e_config_create_widget:
+ * @emp: An initialised EConfig object.
+ * 
+ * Create the widget described by @emp.  Only the core widget
+ * appropriate for the given type is created, i.e. a GtkNotebook for
+ * the E_CONFIG_BOOK type and a GnomeDruid for the E_CONFIG_DRUID
+ * type.
+ * 
+ * This object will be self-driving, but will not close itself onces
+ * complete.
+ *
+ * Return value: The widget, also available in @emp.widget
+ **/
+GtkWidget *
+e_config_create_widget(EConfig *emp)
+{
+	struct _EConfigPrivate *p = emp->priv;
+	struct _menu_node *mnode;
+	GPtrArray *items = g_ptr_array_new();
+	GSList *l;
+	/*char *domain = NULL;*/
+	int i;
+
+	g_assert(emp->target != NULL);
+
+	ec_add_static_items(emp, emp->target);
+
+	/* FIXME: need to override old ones with new names */
+	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
+		for (l=mnode->menu; l; l = l->next) {
+			struct _EConfigItem *item = l->data;
+			struct _widget_node *wn = g_malloc0(sizeof(*wn));
+
+			wn->item = item;
+			wn->context = mnode;
+			wn->config = emp;
+			g_ptr_array_add(items, wn);
+		}
+
+	qsort(items->pdata, items->len, sizeof(items->pdata[0]), ep_cmp);
+
+	for (i=0;i<items->len;i++) {
+		struct _widget_node *wn = items->pdata[i];
+
+		e_dlist_addtail(&p->widgets, (EDListNode *)wn);
+	}
+
+	g_ptr_array_free(items, TRUE);
+
+	ec_rebuild(emp);
+
+	return emp->widget;
+}
+
+static void
+ec_dialog_response(GtkWidget *d, int id, EConfig *ec)
+{
+	if (id == GTK_RESPONSE_OK)
+		e_config_commit(ec);
+	else
+		e_config_abort(ec);
+
+	gtk_widget_destroy(d);
+}
+
+/**
+ * e_config_create_window:
+ * @emp: 
+ * @parent: 
+ * @title: 
+ * 
+ * Create a managed GtkWindow object from @emp.  This window will be
+ * fully driven by the EConfig @emp.
+ * 
+ * Return value: 
+ **/
+GtkWidget *
+e_config_create_window(EConfig *emp, struct _GtkWindow *parent, const char *title)
+{
+	GtkWidget *w;
+
+	e_config_create_widget(emp);
+
+	if (emp->type == E_CONFIG_BOOK) {
+		w = gtk_dialog_new_with_buttons(title, parent, GTK_DIALOG_DESTROY_WITH_PARENT,
+						GTK_STOCK_CLOSE, GTK_RESPONSE_CANCEL,
+						GTK_STOCK_OK, GTK_RESPONSE_OK,
+						NULL);
+		g_signal_connect(w, "response", G_CALLBACK(ec_dialog_response), emp);
+		gtk_box_pack_start((GtkBox *)((GtkDialog *)w)->vbox, emp->widget, TRUE, TRUE, 0);
+	} else {
+		/* response is handled directly by the druid stuff */
+		w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+		gtk_container_add((GtkContainer *)w, emp->widget);
+	}
+
+	emp->window = w;
+	gtk_widget_show(w);
+
+	return w;
+}
+
+/**
+ * e_config_target_changed:
+ * @emp: 
+ * @how: 
+ * 
+ * Indicate that the target has changed.  This may be called by the
+ * self-aware target itself, or by the driving code.  If @how is
+ * %E_CONFIG_TARGET_CHANGED_REBUILD, then the entire configuration
+ * widget may be recreated based on the changed target.
+ *
+ * This is used to sensitise Druid next/back buttons and the Apply
+ * button for the Notebook mode.
+ **/
+void e_config_target_changed(EConfig *emp, e_config_target_change_t how)
+{
+	if (how == E_CONFIG_TARGET_CHANGED_REBUILD)
+		ec_rebuild(emp);
+
+	if (emp->type == E_CONFIG_DRUID) {
+		if (emp->priv->druid_page)
+			ec_druid_check_current(emp);
+	} else {
+		if (emp->window) {
+			if (e_config_page_check(emp, NULL)) {
+				gtk_dialog_set_response_sensitive((GtkDialog *)emp->window, GTK_RESPONSE_OK, TRUE);
+			} else {
+				gtk_dialog_set_response_sensitive((GtkDialog *)emp->window, GTK_RESPONSE_OK, FALSE);
+			}
+		}
+	}
+
+	/* virtual method/signal? */
+}
+
 void e_config_abort(EConfig *ec)
 {
 	struct _EConfigPrivate *p = ec->priv;
 	struct _menu_node *mnode;
+
+	/* TODO: should these just be signals? */
 
 	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
 		if (mnode->abort)
@@ -543,6 +828,8 @@ void e_config_commit(EConfig *ec)
 {
 	struct _EConfigPrivate *p = ec->priv;
 	struct _menu_node *mnode;
+
+	/* TODO: should these just be signals? */
 
 	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
 		if (mnode->commit)
@@ -580,7 +867,10 @@ GtkWidget *e_config_page_get(EConfig *ec, const char *pageid)
 	struct _widget_node *wn;
 
 	for (wn = (struct _widget_node *)ec->priv->widgets.head;wn->next;wn=wn->next)
-		if (wn->item->type == E_CONFIG_PAGE
+		if (!wn->empty
+		    && (wn->item->type == E_CONFIG_PAGE
+			|| wn->item->type == E_CONFIG_PAGE_START
+			|| wn->item->type == E_CONFIG_PAGE_FINISH)
 		    && !strcmp(wn->item->path, pageid))
 			return wn->frame;
 
@@ -594,7 +884,10 @@ const char *e_config_page_next(EConfig *ec, const char *pageid)
 
 	found = pageid == NULL ? 1:0;
 	for (wn = (struct _widget_node *)ec->priv->widgets.head;wn->next;wn=wn->next)
-		if (wn->item->type == E_CONFIG_PAGE) {
+		if (!wn->empty
+		    && (wn->item->type == E_CONFIG_PAGE
+			|| wn->item->type == E_CONFIG_PAGE_START
+			|| wn->item->type == E_CONFIG_PAGE_FINISH)) {
 			if (found)
 				return wn->item->path;
 			else if (strcmp(wn->item->path, pageid) == 0)
@@ -610,8 +903,11 @@ const char *e_config_page_prev(EConfig *ec, const char *pageid)
 	int found;
 
 	found = pageid == NULL ? 1:0;
-	for (wn = (struct _widget_node *)ec->priv->widgets.tail;wn->prev;wn=wn->prev)
-		if (wn->item->type == E_CONFIG_PAGE) {
+	for (wn = (struct _widget_node *)ec->priv->widgets.tailpred;wn->prev;wn=wn->prev)
+		if (!wn->empty
+		    && (wn->item->type == E_CONFIG_PAGE
+			|| wn->item->type == E_CONFIG_PAGE_START
+			|| wn->item->type == E_CONFIG_PAGE_FINISH)) {
 			if (found)
 				return wn->item->path;
 			else if (strcmp(wn->item->path, pageid) == 0)

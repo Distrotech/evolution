@@ -1,3 +1,28 @@
+2004-08-24  Not Zed  <NotZed@Ximian.com>
+
+	* e-account.c (init): setup some defaults for the account.
+
+	* e-config.c (e_config_create_widget): remove target arg actually.
+	(ec_rebuild): add druid page start/end pages.  fixes.
+	(ec_druid_finish, ec_druid_cancel): handle finishing the druid.
+
+2004-08-23  Not Zed  <NotZed@Ximian.com>
+
+	* e-config.c (ec_druid_prepare, ec_druid_prev, ec_druid_next):
+	handle druid navigation.
+
+2004-08-20  Not Zed  <NotZed@Ximian.com>
+
+	* e-config.c (e_config_target_changed): add 'how' changed arg.
+	(e_config_create_widget): dont take target anymore, set that
+	separately.
+	(e_config_set_target): new virtual method to set the target.
+	(ec_set_target): implementation.
+
+2004-08-19  Not Zed  <NotZed@Ximian.com>
+
+	* e-account.c (e_account_set_bool): only emit changed if it did.
+
 2004-08-17  Not Zed  <NotZed@Ximian.com>
 
 	* e-config.c (e_config_page_check): fix a past-o.
