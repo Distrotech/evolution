@@ -164,6 +164,8 @@ static void get_password_cb (gchar *string, gpointer data);
 static void get_password_clicked (GnomeDialog *dialog, gint button, gpointer user_data);
 static gboolean progress_timeout (gpointer data);
 static void timeout_toggle (gboolean active);
+static gboolean display_timeout (gpointer data);
+static gboolean hide_queue_window (gpointer data);
 
 /* Pthread code */
 /* FIXME: support other thread types!!!! */
@@ -237,7 +239,7 @@ mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean 
 			gnome_dialog_set_close (GNOME_DIALOG (err_dialog), TRUE);
 			/*gnome_dialog_run_and_close (GNOME_DIALOG (err_dialog));*/
 			/*gtk_widget_destroy (err_dialog);*/
-			gtk_widget_show (GTK_WIDGET (err_dialog));
+			gtk_widget_show_all (GTK_WIDGET (err_dialog));
 
 			g_warning ("Setup failed for `%s': %s", spec->infinitive,
 				   camel_exception_get_description (clur->ex));
@@ -261,16 +263,8 @@ mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean 
 
 		check_compipe ();
 		create_queue_window ();
-		gtk_widget_show_all (queue_window);
-		gnome_win_hints_set_layer (queue_window, 
-					   WIN_LAYER_ONTOP);
-		gnome_win_hints_set_state (queue_window, 
-					   WIN_STATE_ARRANGE_IGNORE);
-		gnome_win_hints_set_hints (queue_window, 
-					   WIN_HINTS_SKIP_FOCUS |
-					   WIN_HINTS_SKIP_WINLIST |
-					   WIN_HINTS_SKIP_TASKBAR);
-		gtk_widget_hide (queue_window_pending);
+		/*gtk_widget_show_all (queue_window);*/
+		gtk_timeout_add (1000, display_timeout, NULL);
 
 		dispatch (clur);
 	} else {
@@ -484,6 +478,26 @@ gboolean mail_operations_are_executing (void)
  * current operation.
  */
 
+static void print_hide (GtkWidget *wid)
+{
+	g_message ("$$$ hide signal emitted");
+}
+
+static void print_unmap (GtkWidget *wid)
+{
+	g_message ("$$$ unmap signal emitted");
+}
+
+static void print_map (GtkWidget *wid)
+{
+	g_message ("$$$ map signal emitted");
+}
+
+static void print_show (GtkWidget *wid)
+{
+	g_message ("$$$ show signal emitted");
+}
+
 static void
 create_queue_window (void)
 {
@@ -528,6 +542,11 @@ create_queue_window (void)
 			    FALSE, TRUE, 4);
 
 	gtk_container_add (GTK_CONTAINER (queue_window), vbox);
+
+	gtk_signal_connect (GTK_OBJECT (queue_window), "hide", print_hide, NULL);
+	gtk_signal_connect (GTK_OBJECT (queue_window), "unmap", print_unmap, NULL);
+	gtk_signal_connect (GTK_OBJECT (queue_window), "show", print_show, NULL);
+	gtk_signal_connect (GTK_OBJECT (queue_window), "map", print_map, NULL);
 }
 
 /**
@@ -661,7 +680,7 @@ static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer u
 
 	switch (msg->type) {
 	case STARTING:
-		DEBUG (("*** Message -- STARTING\n"));
+		DEBUG (("*** Message -- STARTING %s\n", msg->message));
 		gtk_label_set_text (GTK_LABEL (queue_window_message), msg->message);
 		gtk_progress_bar_update (GTK_PROGRESS_BAR (queue_window_progress), 0.0);
 		g_free (msg);
@@ -708,7 +727,7 @@ static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer u
 		 */
 
 	case FINISHED:
-		DEBUG (("*** Message -- FINISH\n"));
+		DEBUG (("*** Message -- FINISH %s\n", msg->clur->spec->gerund));
 
 		if (msg->clur->spec->cleanup)
 			(msg->clur->spec->cleanup) (msg->clur->in_data,
@@ -731,7 +750,12 @@ static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer u
 		if (op_queue == NULL) {
 			g_print ("\tNo more ops -- hide %p.\n", queue_window);
 			/* All done! */
-			gtk_widget_hide (queue_window);
+			/* gtk_widget_hide seems to have problems sometimes 
+			 * here... perhaps because we're in a gsource handler,
+			 * not a GTK event handler? Anyway, we defer the hiding
+			 * til an idle. */
+			gtk_idle_add (hide_queue_window, NULL);
+			/*gtk_widget_hide (queue_window);*/
 			mail_operation_in_progress = FALSE;
 		} else {
 			g_print ("\tOperation(s) left.\n");
@@ -785,7 +809,7 @@ static void remove_next_pending (void)
 
 	/* Hide it? */
 	if (g_list_next(children) == NULL)
-		gtk_widget_hide (queue_window_pending);
+		gtk_widget_hide_all (queue_window_pending);
 }
 
 /**
@@ -807,7 +831,7 @@ static void show_error (com_msg_t *msg)
 
 	timeout_toggle (FALSE);
 	modal_may_proceed = FALSE;
-	gtk_widget_show (GTK_WIDGET (err_dialog));
+	gtk_widget_show_all (GTK_WIDGET (err_dialog));
 	gnome_win_hints_set_layer (err_dialog, 
 				   WIN_LAYER_ONTOP);
 	gnome_win_hints_set_state (err_dialog, 
@@ -862,7 +886,7 @@ static void get_password (com_msg_t *msg)
 	} else {
 		*(msg->reply) = NULL;
 		timeout_toggle (FALSE);
-		gtk_widget_show (GTK_WIDGET (dialog));
+		gtk_widget_show_all (GTK_WIDGET (dialog));
 		gnome_win_hints_set_layer (dialog, 
 					   WIN_LAYER_ONTOP);
 		gnome_win_hints_set_state (dialog, 
@@ -943,4 +967,38 @@ timeout_toggle (gboolean active)
 			progress_timeout_handle = -1;
 		}
 	}
+}
+
+/* This can theoretically run into problems where if a short operation starts
+ * and finishes, then another short operation starts and finishes a second
+ * later, we will see the window prematurely. My response: oh noooooo!
+ *
+ * Solution: keep the timeout's handle and remove the timeout upon reception
+ * of FINISH, and zero out the handle in this function. Whatever.
+ */
+static gboolean display_timeout (gpointer data)
+{
+	if (mail_operation_in_progress) {
+		gtk_widget_show_all (queue_window);
+		gnome_win_hints_set_layer (queue_window, 
+					   WIN_LAYER_ONTOP);
+		gnome_win_hints_set_state (queue_window, 
+					   WIN_STATE_ARRANGE_IGNORE);
+		gnome_win_hints_set_hints (queue_window, 
+					   WIN_HINTS_SKIP_FOCUS |
+					   WIN_HINTS_SKIP_WINLIST |
+					   WIN_HINTS_SKIP_TASKBAR);
+
+		if (op_queue == NULL)
+			gtk_widget_hide_all (queue_window_pending);
+	}
+
+	return FALSE;
+}
+
+static gboolean hide_queue_window (gpointer data)
+{
+	timeout_toggle (FALSE);
+	gtk_widget_hide_all (queue_window);
+	return FALSE;
 }

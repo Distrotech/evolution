@@ -50,6 +50,8 @@ void mail_do_load_folder (FolderBrowser *fb, const char *url);
 void mail_do_create_folder (const Evolution_ShellComponentListener listener,
 			    const char *uri, const char *type);
 void mail_do_sync_folder (CamelFolder *folder);
+void mail_do_display_message (MessageList *ml, const char *uid,
+			      gint (*timeout) (gpointer));
 
 /* This actually lives in message-list.c */
 void mail_do_regenerate_messagelist (MessageList *list, const gchar *search);

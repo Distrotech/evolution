@@ -104,6 +104,28 @@ get_message_info (MessageList *message_list, int row)
 	return camel_folder_get_message_info (message_list->folder, uid);
 }
 
+/* Gets the uid of the message displayed at a given view row */
+static const char *
+get_message_uid (MessageList *message_list, int row)
+{
+	ETreeModel *model = (ETreeModel *)message_list->table_model;
+	ETreePath *node;
+	const char *uid;
+
+	if (row >= e_table_model_row_count (message_list->table_model))
+		return NULL;
+
+	node = e_tree_model_node_at_row (model, row);
+	g_return_val_if_fail (node != NULL, NULL);
+	uid = e_tree_model_node_get_data (model, node);
+
+	if (strncmp (uid, "uid:", 4) != 0)
+		return NULL;
+	uid += 4;
+
+	return uid;
+}
+
 /**
  * message_list_select:
  * @message_list: a MessageList
@@ -166,33 +188,10 @@ mark_msg_seen (gpointer data)
 static void
 select_msg (MessageList *message_list, gint row)
 {
-	CamelException ex;
-	CamelMimeMessage *message;
-	const CamelMessageInfo *msg_info;
-	MailDisplay *md = message_list->parent_folder_browser->mail_display;
+	const char *uid;
 
-	camel_exception_init (&ex);
-
-	msg_info = get_message_info (message_list, row);
-	if (msg_info) {
-		message = camel_folder_get_message (message_list->folder, 
-						    msg_info->uid, &ex);
-		if (camel_exception_get_id (&ex)) {
-			printf ("Unable to get message: %s\n",
-				ex.desc?ex.desc:"unknown_reason");
-			return;
-		}
-
-		if (message_list->seen_id)
-			gtk_timeout_remove (message_list->seen_id);
-
-		mail_display_set_message (md, CAMEL_MEDIUM (message));
-		camel_object_unref (CAMEL_OBJECT (message));
-
-		message_list->seen_id =
-			gtk_timeout_add (1500, mark_msg_seen, message_list);
-	} else
-		mail_display_set_message (md, NULL);
+	uid = get_message_uid (message_list, row);
+	mail_do_display_message (message_list, uid, mark_msg_seen);
 }
 
 
@@ -876,13 +875,13 @@ static void
 on_cursor_change_cmd (ETableScrolled *table, int row, gpointer user_data)
 {
 	MessageList *message_list;
-	const CamelMessageInfo *info;
+	const char *uid;
 	
 	message_list = MESSAGE_LIST (user_data);
 	
 	message_list->cursor_row = row;
-	info = get_message_info (message_list, row);
-	message_list->cursor_uid = info ? info->uid : NULL;
+	uid = get_message_uid (message_list, row);
+	message_list->cursor_uid = uid; /*NULL ok*/
 
 	if (!message_list->idle_id)
 		message_list->idle_id = g_idle_add_full (G_PRIORITY_LOW, on_cursor_change_idle, message_list, NULL);
@@ -928,12 +927,12 @@ static void
 mlfe_callback (int row, gpointer user_data)
 {
 	struct message_list_foreach_data *mlfe_data = user_data;
-	const CamelMessageInfo *info;
+	const char *uid;
 
-	info = get_message_info (mlfe_data->message_list, row);
-	if (info) {
+	uid = get_message_uid (mlfe_data->message_list, row);
+	if (uid) {
 		mlfe_data->callback (mlfe_data->message_list,
-				     info->uid,
+				     uid,
 				     mlfe_data->user_data);
 	}
 }

@@ -1,3 +1,24 @@
+2000-07-24  Peter Williams  <peterw@helixcode.com>
+
+	* mail-ops.c (op_display_message): Change "display
+	a message" into "retrieve a messsage" in the
+	description of mail_op_display_message.
+
+	* mail-threads.c (display_timeout): New function.
+	Only display the progress dialog if the operation
+	takes more than a second to perform.
+	(hide_queue_window): New function. Hide the queue
+	window as an idle function... I'm thinking maybe
+	the problem with hiding it was due to us not
+	being in a GTK event sequence? Perhaps it's only
+	the timeout, which was not being cancelled, which
+	is now.
+	
+	* message-list.c (get_message_uid): New function,
+	copy of get_message_info, except gets only the
+	UID, as that's all that most functions want, and
+	we avoid a Camel call.
+
 2000-07-21  Peter Williams  <peterw@helixcode.com>
 
 	* message-thread.c (setup_thread_messages): New

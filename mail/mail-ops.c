@@ -1112,3 +1112,100 @@ void mail_do_sync_folder (CamelFolder *folder)
 {
 	mail_operation_queue (&op_sync_folder, folder, FALSE);
 }
+
+/* ** DISPLAY MESSAGE ***************************************************** */
+
+typedef struct display_message_input_s {
+	MessageList *ml;
+	gchar *uid;
+	gint (*timeout) (gpointer);
+} display_message_input_t;
+
+typedef struct display_message_data_s {
+	CamelMimeMessage *msg;
+} display_message_data_t;
+
+static void setup_display_message   (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_display_message      (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_display_message (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static void setup_display_message (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	display_message_input_t *input = (display_message_input_t *) in_data;
+	display_message_data_t *data = (display_message_data_t *) op_data;
+
+	if (!IS_MESSAGE_LIST (input->ml)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "Invalid message list passed to display_message");
+		return;
+	}
+
+	if (!input->timeout) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No timeout callback passed to display_message");
+		return;
+	}
+
+	data->msg = NULL;
+	gtk_object_ref (GTK_OBJECT (input->ml));
+}
+
+static void do_display_message (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	display_message_input_t *input = (display_message_input_t *) in_data;
+	display_message_data_t *data = (display_message_data_t *) op_data;
+
+	if (input->uid == NULL)
+		return;
+	
+	data->msg = camel_folder_get_message (input->ml->folder,
+					     input->uid, ex);
+}
+
+static void cleanup_display_message (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	display_message_input_t *input = (display_message_input_t *) in_data;
+	display_message_data_t *data = (display_message_data_t *) op_data;
+	
+	MailDisplay *md = input->ml->parent_folder_browser->mail_display;
+
+	if (data->msg == NULL) {
+		mail_display_set_message (md, NULL);
+	} else {
+		if (input->ml->seen_id)
+			gtk_timeout_remove (input->ml->seen_id);
+
+		mail_display_set_message (md, CAMEL_MEDIUM (data->msg));
+		camel_object_unref (CAMEL_OBJECT (data->msg));
+
+		input->ml->seen_id = 
+			gtk_timeout_add (1500, input->timeout, input->ml);
+	}
+
+	if (input->uid)
+		g_free (input->uid);
+	gtk_object_unref (GTK_OBJECT (input->ml));
+}	
+
+static const mail_operation_spec op_display_message =
+{
+	"Retrieve a message",
+	"Retrieving a message",
+	sizeof (display_message_data_t),
+	setup_display_message,
+	do_display_message,
+	cleanup_display_message
+};
+
+void mail_do_display_message (MessageList *ml, const char *uid,
+			      gint (*timeout) (gpointer))
+{
+	display_message_input_t *input;
+
+	input = g_new (display_message_input_t, 1);
+	input->ml = ml;
+	input->uid = g_strdup (uid);
+	input->timeout = timeout;
+
+	mail_operation_queue (&op_display_message, input, FALSE);
+}
