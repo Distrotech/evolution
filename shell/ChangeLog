@@ -1,3 +1,9 @@
+2004-11-21  Sivaiah Nallaagatla <snallagatla@novell.com>
+
+	* e-shell.c (e_shell_go_offline) 
+	(e_shell_go_online) : set start_offline gconf key
+	when ever offline state is changed 
+	 
 2004-11-02  mengjie yu  <meng-jie.yu@sun.com>
 
 	* evolution-startup-wizard.glade:remove the hard line breaks.
