@@ -22,7 +22,6 @@
 #include <libgnome/gnome-i18n.h>
 #include <e-util/e-sexp.h>
 #include <gal/widgets/e-unicode.h>
-#include <cal-util/cal-recur.h>
 #include <cal-util/timeutil.h>
 
 #include "cal-backend-object-sexp.h"
@@ -258,35 +257,6 @@ func_get_vtype (ESExp *esexp, int argc, ESExpResult **argv, void *data)
 	return result;
 }
 
-/* Sets a boolean value in the data to TRUE; called from
- * cal_recur_generate_instances() to indicate that at least one instance occurs
- * in the sought time range.  We always return FALSE because we want the
- * recurrence engine to finish as soon as possible.
- */
-static gboolean
-instance_occur_cb (CalComponent *comp, time_t start, time_t end, gpointer data)
-{
-	gboolean *occurs;
-
-	occurs = data;
-	*occurs = TRUE;
-
-	return FALSE;
-}
-
-/* Call the backend function to get a timezone from a TZID. */
-static icaltimezone*
-resolve_tzid (const char *tzid, gpointer data)
-{
-	SearchContext *ctx = data;
-
-	if (!tzid || !tzid[0])
-		return NULL;
-	else
-		return cal_backend_get_timezone (ctx->backend, tzid);
-}
-
-
 /* (occur-in-time-range? START END)
  *
  * START - time_t, start of the time range
@@ -299,9 +269,10 @@ static ESExpResult *
 func_occur_in_time_range (ESExp *esexp, int argc, ESExpResult **argv, void *data)
 {
 	SearchContext *ctx = data;
-	time_t start, end;
+	time_t start, end, tt;
 	gboolean occurs;
 	ESExpResult *result;
+	CalComponentDateTime dt;
 
 	/* Check argument types */
 
@@ -324,14 +295,23 @@ func_occur_in_time_range (ESExp *esexp, int argc, ESExpResult **argv, void *data
 	}
 	end = argv[1]->value.time;
 
-	/* See if there is at least one instance in that range */
-
+	/* See if the object occurs in the specified time range */
 	occurs = FALSE;
 
-	cal_recur_generate_instances (ctx->comp, start, end,
-				      instance_occur_cb, &occurs,
-				      resolve_tzid, ctx, 
-				      cal_backend_get_default_timezone (ctx->backend));
+	cal_component_get_dtstart (ctx->comp, &dt);
+	if (dt.value) {
+		tt = icaltime_as_timet (*dt.value);
+		if (tt >= start && tt <= end)
+			occurs = TRUE;
+		else {
+			cal_component_get_dtend (ctx->comp, &dt);
+			if (dt.value) {
+				tt = icaltime_as_timet (*dt.value);
+				if (tt >= start && tt <= end)
+					occurs = TRUE;
+			}
+		}
+	}
 
 	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
 	result->value.bool = occurs;

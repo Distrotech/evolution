@@ -1,5 +1,9 @@
 2003-09-23  Rodrigo Moya <rodrigo@ximian.com>
 
+	* pcs/cal-backend-object-sexp.c (func_occur_in_time_range): dont expand
+	recurrences, since they are supposed to be expanded in the backends.
+	(instance_occur_cb, resolve_tzid): removed unneeded functions.
+
 	* pcs/cal-backend-file.c (cal_backend_file_add_timezone): guard against
 	adding the timezone if it's already there.
 
