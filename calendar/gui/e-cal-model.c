@@ -1304,7 +1304,7 @@ set_instance_times (ECalModelComponent *comp_data, icaltimezone *zone)
 		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
 			icaltimezone_convert_time (&recur_time, icaltimezone_get_utc_timezone (), zone);
 			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, zone);
-			icaltimezone_convert_time (&comp_data->instance_start, icaltimezone_get_utc_timezone (), zone);
+
 			comp_data->instance_end = comp_data->instance_start +
 				(icaltime_as_timet_with_zone (end_time, zone) -
 				 icaltime_as_timet_with_zone (start_time, zone));
