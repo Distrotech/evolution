@@ -565,9 +565,12 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 #if 0
 		g_print ("dates changed - removing occurrences\n");
 #endif
-		e_day_view_foreach_event_with_uid (day_view, uid,
-						   e_day_view_remove_event_cb,
-						   NULL);
+		if (!e_cal_component_is_instance (comp)) {
+			/* if it's the top-level object, remove all instances */
+			e_day_view_foreach_event_with_uid (day_view, uid,
+							   e_day_view_remove_event_cb,
+							   NULL);
+		}
 
 		g_object_unref (tmp_comp);
 	}

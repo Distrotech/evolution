@@ -1,3 +1,9 @@
+2004-04-29  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-day-view.c (process_component):
+	* gui/e-week-view.c (process_component): only remove all objects with the
+	given UID when it's not an recurrence.
+
 2004-04-29  Not Zed  <NotZed@Ximian.com>
 
 	* gui/e-itip-control.c (e_itip_control_set_data): check we find
