@@ -34,6 +34,7 @@ SUBDIRS = 			\
 	filter			\
 	libwombat		\
 	addressbook		\
+	a11y			\
 	calendar		\
 	my-evolution		\
         art                     \
@@ -44,7 +45,6 @@ SUBDIRS = 			\
 	views			\
 	wombat			\
 	tools			\
-	a11y			\
 	help			\
 	po
 
