@@ -2602,7 +2602,7 @@ cal_client_get_alarms_in_range (CalClient *client, time_t start, time_t end)
 {
 	CalClientPrivate *priv;
 	GSList *alarms;
-	char *sexp, *ss_start, *ss_end;
+	char *sexp;
 	GList *object_list = NULL;
 
 	g_return_val_if_fail (client != NULL, NULL);
@@ -2615,15 +2615,7 @@ cal_client_get_alarms_in_range (CalClient *client, time_t start, time_t end)
 	g_return_val_if_fail (start <= end, NULL);
 
 	/* build the query string */
-	ss_start = isodate_from_time_t (start);
-	ss_end = isodate_from_time_t (end);
-	/* FIXME: no function to query for alarms */
-	sexp = g_strdup_printf ("(and (has-alarms-in-range? (make-time \"%s\")"
-				"                           (make-time \"%s\")))",
-				ss_start, ss_end);
-
-	g_free (ss_start);
-	g_free (ss_end);
+	sexp = g_strdup ("(and (has-alarms? #t))");
 
 	/* execute the query on the server */
 	if (!cal_client_get_object_list (client, sexp, &object_list, NULL)) {
