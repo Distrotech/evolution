@@ -6,7 +6,7 @@
   
   DESCRIPTION:
   
-  $Id: icalssyacc.y,v 1.1.1.2.40.4 2003/10/15 11:10:05 rodrigo Exp $
+  $Id: icalssyacc.y,v 1.1.1.2.40.5 2003/10/15 11:13:27 rodrigo Exp $
   $Locker:  $
 
 (C) COPYRIGHT 2000, Eric Busboom, http://www.softwarestudio.org
@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <string.h> /* for strdup() */
 #include <limits.h> /* for SHRT_MAX*/
-#include <ical.h>
+#include <libical/ical.h>
 #include "icalgauge.h"
 #include "icalgaugeimpl.h"
 

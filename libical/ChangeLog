@@ -1,5 +1,7 @@
 2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
 
+	* src/libicalss/icalssyacc.y: re-added missing header.
+
 	* src/libical/ical.h: added from HEAD.
 
 2003-10-09  Jeffrey Stedfast  <fejj@ximian.com>
