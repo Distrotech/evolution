@@ -73,6 +73,8 @@
 #include "mail-mt.h"
 #include "mail-ops.h"
 #include "mail-config.h"	/* hrm, pity we need this ... */
+#include "mail-autofilter.h"
+#include "mail-vfolder.h"
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
@@ -209,7 +211,7 @@ int
 em_folder_view_open_selected(EMFolderView *emfv)
 {
 	GPtrArray *uids;
-	int i;
+	int i = 0;
 
 	/* FIXME: handle editing message?  Should be a different method? editing handled by 'Resend' method already */
 
@@ -540,6 +542,7 @@ emfv_message_reply(EMFolderView *emfv, int mode)
 
 		header = ((CamelMimePart *)src)->headers;
 		while (header) {
+			/* FIXME: shouldn't we strip out *all* Content-* headers? */
 			if (g_ascii_strcasecmp(header->name, "content-type") != 0)
 				camel_medium_add_header((CamelMedium *)msg, header->name, header->value);
 			header = header->next;
@@ -599,10 +602,13 @@ static void
 emfv_message_mark_unread(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-
+	
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, 0);
-
-	/* FIXME: mark-as-read timer */
+	
+	if (emfv->priv->seen_id) {
+		gtk_timeout_remove (emfv->priv->seen_id);
+		emfv->priv->seen_id = 0;
+	}
 }
 
 static void
@@ -755,13 +761,76 @@ emfv_text_zoom_reset(BonoboUIComponent *uic, void *data, const char *path)
 		em_format_html_display_zoom_reset(emfv->preview);
 }
 
+
+struct _filter_data {
+	CamelFolder *folder;
+	const char *source;
+	char *uid;
+	int type;
+	char *uri;
+	char *mlist;
+};
+
+static void
+filter_data_free (struct _filter_data *fdata)
+{
+	g_free (fdata->uid);
+	g_free (fdata->uri);
+	if (fdata->folder)
+		camel_object_unref (fdata->folder);
+	g_free (fdata->mlist);
+	g_free (fdata);
+}
+
+static void
+filter_type_got_message (CamelFolder *folder, const char *uid, CamelMimeMessage *msg, void *user_data)
+{
+	struct _filter_data *data = user_data;
+	
+	if (msg)
+		filter_gui_add_from_message (msg, data->source, data->type);
+	
+	filter_data_free (data);
+}
+
+static void
+filter_type_uid (CamelFolder *folder, const char *uid, const char *source, int type)
+{
+	struct _filter_data *data;
+	
+	data = g_malloc0 (sizeof (*data));
+	data->type = type;
+	data->source = source;
+	
+	mail_get_message (folder, uid, filter_type_got_message, data, mail_thread_new);
+}
+
+static void
+filter_type_current (EMFolderView *emfv, int type)
+{
+	const char *source;
+	GPtrArray *uids;
+	
+	if (em_utils_folder_is_sent (emfv->folder, emfv->folder_uri) ||
+	    em_utils_folder_is_outbox (emfv->folder, emfv->folder_uri))
+		source = FILTER_SOURCE_OUTGOING;
+	else
+		source = FILTER_SOURCE_INCOMING;
+	
+	uids = message_list_get_selected (emfv->list);
+	
+	if (uids->len == 1)
+		filter_type_uid (emfv->folder, (char *) uids->pdata[0], source, type);
+	
+	em_utils_uids_free (uids);
+}
+
 static void
 emfv_tools_filter_mlist(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	filter_type_current (emfv, AUTO_MLIST);
 }
 
 static void
@@ -769,8 +838,7 @@ emfv_tools_filter_recipient(BonoboUIComponent *uic, void *data, const char *path
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	filter_type_current (emfv, AUTO_TO);
 }
 
 static void
@@ -778,8 +846,7 @@ emfv_tools_filter_sender(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	filter_type_current (emfv, AUTO_FROM);
 }
 
 static void
@@ -787,8 +854,44 @@ emfv_tools_filter_subject(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	filter_type_current (emfv, AUTO_SUBJECT);
+}
+
+
+static void
+vfolder_type_got_message (CamelFolder *folder, const char *uid, CamelMimeMessage *msg, void *user_data)
+{
+	struct _filter_data *data = user_data;
+	
+	if (msg)
+		vfolder_gui_add_from_message (msg, data->type, data->uri);
+	
+	filter_data_free (data);
+}
+
+static void
+vfolder_type_uid (CamelFolder *folder, const char *uid, const char *uri, int type)
+{
+	struct _filter_data *data;
+	
+	data = g_malloc0 (sizeof (*data));
+	data->type = type;
+	data->uri = g_strdup (uri);
+	
+	mail_get_message (folder, uid, vfolder_type_got_message, data, mail_thread_new);
+}
+
+static void
+vfolder_type_current (EMFolderView *emfv, int type)
+{
+	GPtrArray *uids;
+	
+	uids = message_list_get_selected (emfv->list);
+	
+	if (uids->len == 1)
+		vfolder_type_uid (emfv->folder, (char *) uids->pdata[0], emfv->folder_uri, type);
+	
+	em_utils_uids_free (uids);
 }
 
 static void
@@ -796,8 +899,7 @@ emfv_tools_vfolder_mlist(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	vfolder_type_current (emfv, AUTO_MLIST);
 }
 
 static void
@@ -805,8 +907,7 @@ emfv_tools_vfolder_recipient(BonoboUIComponent *uic, void *data, const char *pat
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	vfolder_type_current (emfv, AUTO_TO);
 }
 
 static void
@@ -814,8 +915,7 @@ emfv_tools_vfolder_sender(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	vfolder_type_current (emfv, AUTO_FROM);
 }
 
 static void
@@ -823,8 +923,7 @@ emfv_tools_vfolder_subject(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	/* FIXME: implement me */
-	emfv = emfv;
+	vfolder_type_current (emfv, AUTO_SUBJECT);
 }
 
 static void

@@ -1,3 +1,16 @@
+2003-08-29  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-view.c (emfv_message_mark_unread): If there is a
+	mark-as-read timeout handler registered, unregister it here.
+	(emfv_tools_filter_mlist): Implemented.
+	(emfv_tools_filter_recipient): Implemented.
+	(emfv_tools_filter_sender): Implemented.
+	(emfv_tools_filter_subject): Implemented.
+	(emfv_tools_vfolder_mlist): Implemented.
+	(emfv_tools_vfolder_recipient): Implemented.
+	(emfv_tools_vfolder_sender): Implemented.
+	(emfv_tools_vfolder_subject): Implemented.
+
 2003-08-28  Not Zed  <NotZed@Ximian.com>
 
 	* em-folder-browser.c (emfb_search_menu_activated)
