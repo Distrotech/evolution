@@ -131,7 +131,7 @@ add_storage (MailComponent *component, const char *name, CamelService *store, Ca
 {
 	camel_object_ref (store);
 	g_hash_table_insert (component->priv->store_hash, store, g_strdup (name));
-	em_folder_tree_add_store (component->priv->emft, store, name);
+	em_folder_tree_add_store (component->priv->emft, (CamelStore *) store, name);
 	mail_note_store ((CamelStore *) store, NULL, NULL, NULL);
 }
 
@@ -190,7 +190,7 @@ storage_go_online (gpointer key, gpointer value, gpointer data)
 	     && camel_disco_store_status (CAMEL_DISCO_STORE (service)) == CAMEL_DISCO_STORE_OFFLINE)
 	    || service->status != CAMEL_SERVICE_DISCONNECTED) {
 		mail_store_set_offline (store, FALSE, NULL, NULL);
-		mail_note_store (store, NULL, NULL, NULL, NULL);
+		mail_note_store (store, NULL, NULL, NULL);
 	}
 }
 
@@ -284,7 +284,7 @@ create_noselect_control (void)
 static GtkWidget *
 create_view_callback (EStorageBrowser *browser, const char *path, void *unused_data)
 {
-	EMFolderBrowser *emft = e_storage_browser_peek_tree_widget (browser);
+	EMFolderTree *emft = e_storage_browser_peek_tree_widget (browser);
 	BonoboControl *control;
 	const char *noselect;
 	const char *uri;
@@ -324,7 +324,7 @@ drag_text_uri_list (EMFolderTree *emft, const char *path, const char *uri, GtkSe
 	camel_exception_init (&ex);
 	
 	if (!(src = mail_tool_uri_to_folder (uri, 0, &ex))) {
-		dialog = gtk_message_dialog_new ((GtkWindow *) view, GTK_DIALOG_DESTROY_WITH_PARENT,
+		dialog = gtk_message_dialog_new ((GtkWindow *) emft, GTK_DIALOG_DESTROY_WITH_PARENT,
 						 GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
 						 _("Could not open source folder: %s"),
 						 camel_exception_get_description (&ex));
@@ -338,7 +338,7 @@ drag_text_uri_list (EMFolderTree *emft, const char *path, const char *uri, GtkSe
 	}
 	
 	if (!(tmpdir = e_mkdtemp ("drag-n-drop-XXXXXX"))) {
-		dialog = gtk_message_dialog_new ((GtkWindow *) view, GTK_DIALOG_DESTROY_WITH_PARENT,
+		dialog = gtk_message_dialog_new ((GtkWindow *) emft, GTK_DIALOG_DESTROY_WITH_PARENT,
 						 GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
 						 _("Could not create temporary directory: %s"),
 						 g_strerror (errno));
@@ -390,7 +390,7 @@ drag_text_uri_list (EMFolderTree *emft, const char *path, const char *uri, GtkSe
 	
 	camel_folder_transfer_messages_to (src, uids, dest, NULL, FALSE, &ex);
 	if (camel_exception_is_set (&ex)) {
-		dialog = gtk_message_dialog_new ((GtkWindow *) view, GTK_DIALOG_DESTROY_WITH_PARENT,
+		dialog = gtk_message_dialog_new ((GtkWindow *) emft, GTK_DIALOG_DESTROY_WITH_PARENT,
 						 GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
 						 _("Could not copy messages to temporary mbox folder: %s"),
 						 camel_exception_get_description (&ex));
@@ -413,8 +413,7 @@ drag_text_uri_list (EMFolderTree *emft, const char *path, const char *uri, GtkSe
 	
 	memcpy (url, "file", 4);
 	
-	gtk_selection_data_set (selection, selection->target, 8,
-				url, strlen (url));
+	gtk_selection_data_set (selection, selection->target, 8, url, strlen (url));
 	
 	g_free (url);
 }
