@@ -1,5 +1,9 @@
 2003-09-26  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/comp-util.c (cal_comp_is_on_server): free the icalcomponent
+	returned from cal_client_get_object, and return TRUE if we find
+	the component on the backend.
+
 	* gui/e-day-view.c (process_component):
 	* gui/e-week-view.c (process_component): added missing case, so that
 	we also display recurrent meetings starting before the time range and

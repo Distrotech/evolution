@@ -220,10 +220,12 @@ cal_comp_is_on_server (CalComponent *comp, CalClient *client)
 	 */
 	cal_component_get_uid (comp, &uid);
 
-	if (!cal_client_get_object (client, uid, NULL, &icalcomp, NULL)) {
-		/* FIXME Better error handling */
-		return FALSE;
+	if (cal_client_get_object (client, uid, NULL, &icalcomp, NULL)) {
+		icalcomponent_free (icalcomp);
+		return TRUE;
 	}
+
+	/* FIXME Better error handling */
 	
 	return FALSE;
 }
