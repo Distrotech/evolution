@@ -1,3 +1,9 @@
+2003-09-10  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-account-gui.c (mail_account_gui_save): Allow the user to
+	select any fodler for his/her Drafts and Sent folders. Fixes bug
+	#45412.
+
 2003-09-09  Not Zed  <NotZed@Ximian.com>
 
 	* em-utils.c (forward_non_attached): implement forward quoted.
@@ -106,9 +112,12 @@
 	* em-folder-view.c (emfv_list_done_message_selected): dont lookup
 	gconf values every time.  use g_timeout_add rather than
 	gtk_timeout, remove fixme's.
-	(emfv_setting_notify): listner for gconf changes, reflect internally.
-	(emfv_setting_setup): setup listner for gconf, and read initial settings.
-	(emfv_activate): use local copy of settings rather than snooping gconf.
+	(emfv_setting_notify): listner for gconf changes, reflect
+	internally.
+	(emfv_setting_setup): setup listner for gconf, and read initial
+	settings.
+	(emfv_activate): use local copy of settings rather than snooping
+	gconf.
 	(emfv_caret_mode): propagate caret-mode to display
 
 	* em-format-html-quote.c (efhq_format_message): remove gconf
@@ -146,8 +155,8 @@
 	... moved to em-popup.
 	(em_folder_view_get_popup_target): new method, get the selection
 	target for the folder view.
-	(emfv_html_popup_saveas, emfv_html_popup_link_open) 
-	(emfv_html_popup_link_copy, emfv_html_popup_address_send) 
+	(emfv_html_popup_saveas, emfv_html_popup_link_open)
+	(emfv_html_popup_link_copy, emfv_html_popup_address_send)
 	(emfv_html_popup_address_add, emfv_format_popup_free_items): moved
 	to em-popup.c
 	(emfv_format_popup_event): use new popup stuff.
