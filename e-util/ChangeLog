@@ -1,3 +1,8 @@
+2003-09-15  Larry Ewing  <lewing@ximian.com>
+
+	* e-source.c (e_source_dump_to_xml_node): make sure declarations
+	precede the body.
+
 2003-08-28  Hans Petter Jansson  <hpj@ximian.com>
 
 	* eggtrayicon.[ch]: Added for tray icon support. To be removed when
