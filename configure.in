@@ -1051,6 +1051,13 @@ dnl *************************
 
 GNOME_COMPILE_WARNINGS(yes)
 CFLAGS="$CFLAGS $WARN_CFLAGS"
+case $CFLAGS in
+*-Wall*)
+	# Turn off the annoying "comparison between signed and unsigned"
+	# warning in gcc 3.3
+	CFLAGS="$CFLAGS -Wno-sign-compare"
+	;;
+esac
 
 AM_PATH_ORBIT2
 
