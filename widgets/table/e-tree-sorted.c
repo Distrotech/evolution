@@ -1,4 +1,3 @@
-
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-tree-sorted.c: a Tree Model implementation that the programmer builds in sorted.
@@ -38,6 +37,8 @@
 #define ETS_INSERT_MAX (4)
 
 #define TREEPATH_CHUNK_AREA_SIZE (30 * sizeof (ETreeSortedPath))
+
+#define d(x)
 
 static ETreeModel *parent_class;
 static GMemChunk  *node_chunk;
@@ -356,18 +357,22 @@ resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_childr
 		needs_resort = path->needs_resort;
 		if (path->needs_resort) {
 			int i;
+			d(g_print("Start sort of node %p\n", path));
 			if (path->needs_regen_to_sort)
 				generate_children(ets, path, FALSE);
+			d(g_print("Regened sort of node %p\n", path));
 			if (path->num_children > 0) {
 				e_table_sorting_utils_tree_sort (E_TREE_MODEL(ets),
 								 ets->priv->sort_info,
 								 ets->priv->full_header,
 								 (ETreePath *) path->children,
 								 path->num_children);
+				d(g_print("Renumbering sort of node %p\n", path));
 				for (i = 0; i < path->num_children; i++) {
 					path->children[i]->position = i;
 				}
 			}
+			d(g_print("End sort of node %p\n", path));
 		}
 		if (path->resort_all_children)
 			resort_all_children = TRUE;

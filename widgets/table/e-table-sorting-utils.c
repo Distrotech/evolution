@@ -40,16 +40,15 @@ etsu_compare(ETableModel *source, ETableSortInfo *sort_info, ETableHeader *full_
 }
 
 typedef struct {
-	ETableSortInfo *sort_info;
-	void **vals;
 	int cols;
+	void **vals;
 	int *ascending;
 	GCompareFunc *compare;
 } ETableSortClosure;
 
 typedef struct {
-	ETableSortInfo *sort_info;
 	ETreeModel *tree;
+	ETableSortInfo *sort_info;
 	ETableHeader *full_header;
 } ETreeSortClosure;
 
@@ -62,7 +61,7 @@ e_sort_callback(const void *data1, const void *data2, gpointer user_data)
 	gint row2 = *(int *)data2;
 	ETableSortClosure *closure = user_data;
 	int j;
-	int sort_count = e_table_sort_info_sorting_get_count(closure->sort_info);
+	int sort_count = closure->cols;
 	int comp_val = 0;
 	int ascending = 1;
 	for (j = 0; j < sort_count; j++) {
@@ -101,10 +100,11 @@ e_table_sorting_utils_sort(ETableModel *source, ETableSortInfo *sort_info, ETabl
 	total_rows = e_table_model_row_count(source);
 	cols = e_table_sort_info_sorting_get_count(sort_info);
 	closure.cols = cols;
+
 	closure.vals = g_new(void *, total_rows * cols);
-	closure.sort_info = sort_info;
 	closure.ascending = g_new(int, cols);
 	closure.compare = g_new(GCompareFunc, cols);
+
 	for (j = 0; j < cols; j++) {
 		ETableSortColumn column = e_table_sort_info_sorting_get_nth(sort_info, j);
 		ETableCol *col;
@@ -222,8 +222,8 @@ etsu_tree_compare(ETreeModel *source, ETableSortInfo *sort_info, ETableHeader *f
 static int
 e_sort_tree_callback(const void *data1, const void *data2, gpointer user_data)
 {
-	ETreePath path1 = *(ETreePath *)data1;
-	ETreePath path2 = *(ETreePath *)data2;
+	ETreePath *path1 = *(ETreePath *)data1;
+	ETreePath *path2 = *(ETreePath *)data2;
 	ETreeSortClosure *closure = user_data;
 
 	return etsu_tree_compare(closure->tree, closure->sort_info, closure->full_header, path1, path2);
@@ -232,7 +232,11 @@ e_sort_tree_callback(const void *data1, const void *data2, gpointer user_data)
 void
 e_table_sorting_utils_tree_sort(ETreeModel *source, ETableSortInfo *sort_info, ETableHeader *full_header, ETreePath *map_table, int count)
 {
-	ETreeSortClosure closure;
+	ETableSortClosure closure;
+	int cols;
+	int i, j;
+	int *map;
+	ETreePath *map_copy;
 	g_return_if_fail(source != NULL);
 	g_return_if_fail(E_IS_TREE_MODEL(source));
 	g_return_if_fail(sort_info != NULL);
@@ -240,11 +244,49 @@ e_table_sorting_utils_tree_sort(ETreeModel *source, ETableSortInfo *sort_info, E
 	g_return_if_fail(full_header != NULL);
 	g_return_if_fail(E_IS_TABLE_HEADER(full_header));
 
-	closure.tree = source;
-	closure.sort_info = sort_info;
-	closure.full_header = full_header;
+	cols = e_table_sort_info_sorting_get_count(sort_info);
+	closure.cols = cols;
 
-	e_sort(map_table, count, sizeof(ETreePath), e_sort_tree_callback, &closure);
+	closure.vals = g_new(void *, count * cols);
+	closure.ascending = g_new(int, cols);
+	closure.compare = g_new(GCompareFunc, cols);
+
+	for (j = 0; j < cols; j++) {
+		ETableSortColumn column = e_table_sort_info_sorting_get_nth(sort_info, j);
+		ETableCol *col;
+
+		col = e_table_header_get_column_by_col_idx(full_header, column.column);
+		if (col == NULL)
+			col = e_table_header_get_column (full_header, e_table_header_count (full_header) - 1);
+
+		for (i = 0; i < count; i++) {
+			closure.vals[i * cols + j] = e_tree_model_value_at (source, map_table[i], col->col_idx);
+		}
+		closure.ascending[j] = column.ascending;
+		closure.compare[j] = col->compare;
+	}
+
+	map = g_new(int, count);
+	for (i = 0; i < count; i++) {
+		map[i] = i;
+	}
+
+	e_sort(map, count, sizeof(int), e_sort_callback, &closure);
+
+	map_copy = g_new(ETreePath, count);
+	for (i = 0; i < count; i++) {
+		map_copy[i] = map_table[i];
+	}
+	for (i = 0; i < count; i++) {
+		map_table[i] = map_copy[map[i]];
+	}
+
+	g_free(map);
+	g_free(map_copy);
+
+	g_free(closure.vals);
+	g_free(closure.ascending);
+	g_free(closure.compare);
 }
 
 /* FIXME: This could be done in time log n instead of time n with a binary search. */
