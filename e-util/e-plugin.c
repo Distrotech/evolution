@@ -94,6 +94,14 @@ ep_finalise(GObject *o)
 }
 
 static void
+ep_init(GObject *o)
+{
+	EPlugin *ep = (EPlugin *)o;
+
+	ep->enabled = TRUE;
+}
+
+static void
 ep_class_init(EPluginClass *klass)
 {
 	((GObjectClass *)klass)->finalize = ep_finalise;
@@ -117,8 +125,8 @@ e_plugin_get_type(void)
 		char *path, *col, *p;
 
 		static const GTypeInfo info = {
-			sizeof(EPluginClass), NULL, NULL, (GClassInitFunc) ep_class_init, NULL, NULL,
-			sizeof(EPlugin), 0, (GInstanceInitFunc) NULL,
+			sizeof(EPluginClass), NULL, NULL, (GClassInitFunc)ep_class_init, NULL, NULL,
+			sizeof(EPlugin), 0, (GInstanceInitFunc)ep_init,
 		};
 
 		ep_parent_class = g_type_class_ref(G_TYPE_OBJECT);
@@ -163,7 +171,6 @@ ep_load(const char *filename)
 			char *prop;
 			EPluginClass *klass;
 
-			/* we only support type=shlib anyway */
 			prop = xmlGetProp(root, "type");
 			if (prop == NULL)
 				goto fail;
@@ -315,7 +322,35 @@ e_plugin_construct(EPlugin *ep, xmlNodePtr root)
 void *
 e_plugin_invoke(EPlugin *ep, const char *name, void *data)
 {
+	if (!ep->enabled)
+		g_warning("Invoking method on disabled plugin");
+
 	return ((EPluginClass *)G_OBJECT_GET_CLASS(ep))->invoke(ep, name, data);
+}
+
+/**
+ * e_plugin_enable:
+ * @ep: 
+ * @state: 
+ * 
+ * Set the enable state of a plugin.
+ *
+ * THIS IS NOT FULLY IMPLEMENTED YET
+ **/
+void
+e_plugin_enable(EPlugin *ep, int state)
+{
+	GSList *l;
+
+	if ((ep->enabled == 0) == (state == 0))
+		return;
+
+	ep->enabled = state;
+	for (l=ep->hooks;l;l = g_slist_next(l)) {
+		EPluginHook *eph = l->data;
+
+		e_plugin_hook_enable(eph, state);
+	}
 }
 
 /**
@@ -558,6 +593,12 @@ eph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 }
 
 static void
+eph_enable(EPluginHook *eph, int state)
+{
+	/* NOOP */
+}
+
+static void
 eph_finalise(GObject *o)
 {
 	((GObjectClass *)eph_parent_class)->finalize((GObject *)o);
@@ -568,6 +609,7 @@ eph_class_init(EPluginHookClass *klass)
 {
 	((GObjectClass *)klass)->finalize = eph_finalise;
 	klass->construct = eph_construct;
+	klass->enable = eph_enable;
 }
 
 /**
@@ -614,6 +656,8 @@ e_plugin_hook_new(EPlugin *ep, xmlNodePtr root)
 	char *class;
 	EPluginHook *hook;
 
+	/* FIXME: Keep a list of all plugin hooks */
+
 	if (eph_types == NULL)
 		return NULL;
 
@@ -633,6 +677,22 @@ e_plugin_hook_new(EPlugin *ep, xmlNodePtr root)
 	}
 
 	return hook;
+}
+
+/**
+ * e_plugin_hook_enable: Set hook enabled state.
+ * @eph: 
+ * @state: 
+ * 
+ * Set the enabled state of the plugin hook.  This is called by the
+ * plugin code.
+ *
+ * THIS IS NOT FULY IMEPLEMENTED YET
+ **/
+void
+e_plugin_hook_enable(EPluginHook *eph, int state)
+{
+	((EPluginHookClass *)G_OBJECT_GET_CLASS(eph))->enable(eph, state);
 }
 
 /**

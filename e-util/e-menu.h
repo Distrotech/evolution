@@ -40,13 +40,16 @@ typedef struct _EMenu EMenu;
 typedef struct _EMenuClass EMenuClass;
 
 typedef struct _EMenuItem EMenuItem;
+typedef struct _EMenuUIFile EMenuUIFile;
+typedef struct _EMenuPixmap EMenuPixmap;
+
 typedef struct _EMenuFactory EMenuFactory; /* anonymous type */
 typedef struct _EMenuTarget EMenuTarget;
 
 typedef void (*EMenuFactoryFunc)(EMenu *emp, void *data);
 typedef void (*EMenuActivateFunc)(EMenu *, EMenuItem *, void *data);
 typedef void (*EMenuToggleActivateFunc)(EMenu *, EMenuItem *, int state, void *data);
-typedef void (*EMenuItemsFunc)(EMenu *, GSList *items, void *data);
+typedef void (*EMenuItemsFunc)(EMenu *, GSList *items, GSList *uifiles, GSList *pixmaps, void *data);
 
 /**
  * enum _e_menu_t - Menu item type.
@@ -92,6 +95,42 @@ struct _EMenuItem {
 	void *user_data;	/* up to caller to use */
 	guint32 visible;	/* is visible mask */
 	guint32 enable;		/* is enable mask */
+};
+
+/**
+ * struct _EMenuPixmap - A menu icon holder.
+ * 
+ * @command: The path to the command or verb to which this pixmap belongs.
+ * @name: The name of the icon.  Either an icon-theme name or the full
+ * pathname of the icon.
+ * @size: The e-icon-factory icon size.
+ * @pixmap: The pixmap converted to XML format.  If not set, then EMenu will
+ * create it as required.  This must be freed if set in the free function.
+ *
+ * Used to track all pixmap items used in menus.  These need to be
+ * supplied separately from the menu definition.
+ **/
+struct _EMenuPixmap {
+	char *command;
+	char *name;
+	int size;
+	char *pixmap;
+};
+
+/**
+ * struct _EMenuUIFile - A meu UI file holder.
+ * 
+ * @appdir: TODO; should this be handled internally.
+ * @appname: TODO; should this be handled internally.
+ * @filename: The filename of the BonoboUI XML menu definition.
+ * 
+ * These values are passed directly to bonobo_ui_util_set_ui() when
+ * the menu is activated.
+ **/
+struct _EMenuUIFile {
+	char *appdir;
+	char *appname;
+	char *filename;
 };
 
 /**
@@ -176,7 +215,8 @@ EMenu *e_menu_construct(EMenu *menu, const char *menuid);
 void e_menu_add_ui(EMenu *, const char *appdir, const char *appname, const char *filename);
 void e_menu_add_pixmap(EMenu *, const char *cmd, const char *name, int size);
 
-void e_menu_add_items(EMenu *, GSList *items, EMenuItemsFunc freefunc, void *data);
+void *e_menu_add_items(EMenu *emp, GSList *items, GSList *uifiles, GSList *pixmaps, EMenuItemsFunc freefunc, void *data);
+void e_menu_remove_items(EMenu *emp, void *handle);
 
 void e_menu_activate(EMenu *, struct _BonoboUIComponent *uic, int act);
 void e_menu_update_target(EMenu *, void *);
@@ -202,23 +242,6 @@ typedef struct _EPluginHookTargetMap EMenuHookTargetMap;
 typedef struct _EPluginHookTargetKey EMenuHookTargetMask;
 
 typedef void (*EMenuHookFunc)(struct _EPlugin *plugin, EMenuTarget *target);
-
-/**
- * struct _EMenuHookPixmap - A menu icon holder.
- * 
- * @command: The path to the command or verb to which this pixmap belongs.
- * @name: The name of the icon.  Either an icon-theme name or the full
- * pathname of the icon.
- * @size: The e-icon-factory icon size.
- *
- * Used to track all pixmap items used in menus.  These need to be
- * supplied separately from the menu definition.
- **/
-struct _EMenuHookPixmap {
-	char *command;
-	char *name;
-	int size;
-};
 
 /**
  * struct _EMenuHookMenu - A group of items targetting a specific menu.

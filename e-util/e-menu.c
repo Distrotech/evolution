@@ -56,34 +56,20 @@ struct _menu_node {
 
 	EMenu *parent;
 
-	GSList *menu;
+	GSList *items;
+	GSList *uis;
+	GSList *pixmaps;
+
 	EMenuItemsFunc freefunc;
 	void *data;
 
-	struct _item_node *items;
-};
-
-struct _pixmap_node {
-	struct _pixmap_node *next;
-	struct _pixmap_node *prev;
-
-	char *cmd;
-	char *pixmap;
-};
-
-struct _ui_node {
-	struct _ui_node *next;
-	struct _ui_node *prev;
-
-	char *appdir;
-	char *appname;
-	char *filename;
+	/* a copy of items wrapped in an item_node, for bonobo
+	 * callback mapping */
+	struct _item_node *menu;
 };
 
 struct _EMenuPrivate {
 	EDList menus;
-	EDList pixmaps;
-	EDList uis;
 };
 
 static GObjectClass *em_parent;
@@ -97,8 +83,6 @@ em_init(GObject *o)
 	p = emp->priv = g_malloc0(sizeof(struct _EMenuPrivate));
 
 	e_dlist_init(&p->menus);
-	e_dlist_init(&p->pixmaps);
-	e_dlist_init(&p->uis);
 }
 
 static void
@@ -107,8 +91,6 @@ em_finalise(GObject *o)
 	EMenu *em = (EMenu *)o;
 	struct _EMenuPrivate *p = em->priv;
 	struct _menu_node *mnode;
-	struct _ui_node *unode;
-	struct _pixmap_node *pnode;
 
 	if (em->target)
 		e_menu_target_free(em, em->target);
@@ -118,9 +100,9 @@ em_finalise(GObject *o)
 		struct _item_node *inode;
 
 		if (mnode->freefunc)
-			mnode->freefunc(em, mnode->menu, mnode->data);
+			mnode->freefunc(em, mnode->items, mnode->uis, mnode->pixmaps, mnode->data);
 
-		inode = mnode->items;
+		inode = mnode->menu;
 		while (inode) {
 			struct _item_node *nnode = inode->next;
 
@@ -129,19 +111,6 @@ em_finalise(GObject *o)
 		}
 
 		g_free(mnode);
-	}
-
-	while ((pnode = (struct _pixmap_node *)e_dlist_remhead(&p->pixmaps))) {
-		g_free(pnode->cmd);
-		g_free(pnode->pixmap);
-		g_free(pnode);
-	}
-
-	while ((unode = (struct _ui_node *)e_dlist_remhead(&p->menus))) {
-		g_free(unode->appdir);
-		g_free(unode->appname);
-		g_free(unode->filename);
-		g_free(unode);
 	}
 
 	g_free(p);
@@ -244,86 +213,34 @@ EMenu *e_menu_construct(EMenu *em, const char *menuid)
 }
 
 /**
- * e_menu_add_ui:
- * @em: An initialised EMenu.
- * @appdir: Application directory passed eo bonobo_ui_util_set_ui().
- * @appname: Application name passed to bonobo_ui_util_set_ui().
- * @filename: Filename of BonoboUI XML file, passed to
- * bonobo_ui_util_set_ui().
- * 
- * Add a BonoboUI file to the list which will be loaded when the
- * parent control is activated.  @appdir, @appname and @filename will
- * be passed unaltered to bonobo_ui_util_set_ui().
- **/
-void
-e_menu_add_ui(EMenu *em, const char *appdir, const char *appname, const char *filename)
-{
-	struct _EMenuPrivate *p = em->priv;
-	struct _ui_node *ap = g_malloc0(sizeof(*ap));
-
-	ap->appdir = g_strdup(appdir);
-	ap->appname = g_strdup(appname);
-	ap->filename = g_strdup(filename);
-
-	e_dlist_addtail(&p->uis, (EDListNode*)ap);
-}
-
-/**
- * e_menu_add_pixmap:
- * @em: An initialised EMenu.
- * @cmd: The command to which this pixmap should be associated.
- * @name: The name of the pixmap, an icon theme name or stock icon
- * name or full pathname of an icon file.
- * @size: The e-icon-factory icon size.
- * 
- * Adds a pixmap descriptor to the menu @em.  The icon @name will be
- * converted to an xml string and set on the UIComponent when the view
- * is activated.  This is used to allow stock pixmap names to be used
- * in the UI files.
- **/
-void
-e_menu_add_pixmap(EMenu *em, const char *cmd, const char *name, int size)
-{
-	struct _EMenuPrivate *p = em->priv;
-	struct _pixmap_node *pn;
-	GdkPixbuf *pixbuf;
-
-	pixbuf = e_icon_factory_get_icon(name, size);
-	if (pixbuf == NULL) {
-		g_warning("Unable to load icon '%s'", name);
-		return;
-	}
-
-	pn = g_malloc0(sizeof(*pn));
-	pn->pixmap = bonobo_ui_util_pixbuf_to_xml(pixbuf);
-	pn->cmd = g_strdup(cmd);
-
-	g_object_unref(pixbuf);
-
-	e_dlist_addtail(&p->pixmaps, (EDListNode *)pn);
-}
-
-/**
  * e_menu_add_items:
  * @emp: An initialised EMenu.
  * @items: A list of EMenuItems or derived structures defining a group
  * of menu items for this menu.
+ * @uifiles: A list of EMenuUIFile objects describing all ui files
+ * associated with the items.
+ * @pixmaps: A list of EMenuPixmap objects describing all pixmaps
+ * associated with the menus.
  * @freefunc: If supplied, called when the menu items are no longer needed.
  * @data: user-data passed to @freefunc and activate callbacks.
  * 
  * Add new EMenuItems to the menu's.  This may be called any number of
  * times before the menu is first activated to hook onto any of the
  * menu items defined for that view.
+ *
+ * Return value: A handle that can be passed to remove_items as required.
  **/
-void
-e_menu_add_items(EMenu *emp, GSList *items, EMenuItemsFunc freefunc, void *data)
+void *
+e_menu_add_items(EMenu *emp, GSList *items, GSList *uifiles, GSList *pixmaps, EMenuItemsFunc freefunc, void *data)
 {
 	struct _menu_node *node;
 	GSList *l;
 
 	node = g_malloc(sizeof(*node));
 	node->parent = emp;
-	node->menu = items;
+	node->items = items;
+	node->uis = uifiles;
+	node->pixmaps = pixmaps;
 	node->freefunc = freefunc;
 	node->data = data;
 
@@ -333,11 +250,69 @@ e_menu_add_items(EMenu *emp, GSList *items, EMenuItemsFunc freefunc, void *data)
 
 		inode->item = item;
 		inode->menu = node;
-		inode->next = node->items;
-		node->items = inode;
+		inode->next = node->menu;
+		node->menu = inode;
+	}
+
+	for (l=pixmaps;l;l=g_slist_next(l)) {
+		EMenuPixmap *pixmap = l->data;
+
+		if (pixmap->pixmap == NULL) {
+			GdkPixbuf *pixbuf;
+
+			pixbuf = e_icon_factory_get_icon(pixmap->name, pixmap->size);
+			if (pixbuf == NULL) {
+				g_warning("Unable to load icon '%s'", pixmap->name);
+			} else {
+				pixmap->pixmap = bonobo_ui_util_pixbuf_to_xml(pixbuf);
+				g_object_unref(pixbuf);
+			}
+		}
 	}
 
 	e_dlist_addtail(&emp->priv->menus, (EDListNode *)node);
+
+	/* FIXME: add the menu's to a running menu if it is there? */
+
+	return (void *)node;
+}
+
+/**
+ * e_menu_remove_items:
+ * @emp: 
+ * @handle: 
+ * 
+ * Remove menu items previously added.
+ **/
+void
+e_menu_remove_items(EMenu *emp, void *handle)
+{
+	struct _menu_node *node = handle;
+	struct _item_node *inode;
+	GSList *l;
+
+	e_dlist_remove((EDListNode *)node);
+
+	if (emp->uic) {
+		for (l = node->items;l;l=g_slist_next(l)) {
+			EMenuItem *item = l->data;
+		
+			bonobo_ui_component_remove_verb(emp->uic, item->verb);
+		}
+	}
+
+	if (node->freefunc)
+		node->freefunc(emp, node->items, node->uis, node->pixmaps, node->data);
+
+	inode = node->menu;
+	while (inode) {
+		struct _item_node *nnode = inode->next;
+
+		g_free(inode);
+		inode = nnode;
+	}
+
+	g_free(node);
 }
 
 static void
@@ -382,21 +357,27 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 	if (act) {
 		GArray *verbs;
 		int i;
-		struct _ui_node *ui;
-		struct _pixmap_node *pn;
 
 		em->uic = uic;
-
-		for (ui = (struct _ui_node *)p->uis.head;ui->next;ui=ui->next) {
-			printf("loading ui file '%s'\n", ui->filename);
-			bonobo_ui_util_set_ui(uic, ui->appdir, ui->filename, ui->appname, NULL);
-		}
 
 		verbs = g_array_new(TRUE, FALSE, sizeof(BonoboUIVerb));
 		for (mw = (struct _menu_node *)p->menus.head;mw->next;mw=mw->next) {
 			struct _item_node *inode;
 
-			for (inode = mw->items; inode; inode=inode->next) {
+			for (l = mw->uis; l ; l = g_slist_next(l)) {
+				EMenuUIFile *ui = l->data;
+
+				bonobo_ui_util_set_ui(uic, ui->appdir, ui->filename, ui->appname, NULL);
+			}
+
+			for (l = mw->pixmaps; l ; l = g_slist_next(l)) {
+				EMenuPixmap *pm = l->data;
+
+				if (pm->pixmap)
+					bonobo_ui_component_set_prop(uic, pm->command, "pixmap", pm->pixmap, NULL);
+			}
+
+			for (inode = mw->menu; inode; inode=inode->next) {
 				EMenuItem *item = inode->item;
 				BonoboUIVerb *verb;
 
@@ -424,13 +405,9 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 			bonobo_ui_component_add_verb_list(uic, (BonoboUIVerb *)verbs->data);
 
 		g_array_free(verbs, TRUE);
-
-		/* TODO: maybe we only need to do this once? */
-		for (pn = (struct _pixmap_node *)p->pixmaps.head;pn->next;pn=pn->next)
-			bonobo_ui_component_set_prop(uic, pn->cmd, "pixmap", pn->pixmap, NULL);
 	} else {
 		for (mw = (struct _menu_node *)p->menus.head;mw->next;mw=mw->next) {
-			for (l = mw->menu;l;l=g_slist_next(l)) {
+			for (l = mw->items;l;l=g_slist_next(l)) {
 				EMenuItem *item = l->data;
 
 				bonobo_ui_component_remove_verb(uic, item->verb);
@@ -476,7 +453,7 @@ void e_menu_update_target(EMenu *em, void *tp)
 		return;
 
 	for (mw = (struct _menu_node *)p->menus.head;mw->next;mw=mw->next) {
-		for (l = mw->menu;l;l=g_slist_next(l)) {
+		for (l = mw->items;l;l=g_slist_next(l)) {
 			EMenuItem *item = l->data;
 			int state;
 
@@ -666,17 +643,11 @@ static void
 emph_menu_factory(EMenu *emp, void *data)
 {
 	struct _EMenuHookMenu *menu = data;
-	GSList *l;
 
 	printf("menu factory, adding %d items\n", g_slist_length(menu->items));
 
 	if (menu->items)
-		e_menu_add_items(emp, menu->items, NULL, menu->hook);
-
-	for (l = menu->uis;l;l=g_slist_next(l))
-		e_menu_add_ui(emp, "/tmp", "evolution-mail", (char *)l->data);
-
-	/* FIXME: pixmaps? */
+		e_menu_add_items(emp, menu->items, menu->uis, menu->pixmaps, NULL, menu->hook);
 }
 
 static void
@@ -689,10 +660,19 @@ emph_free_item(struct _EMenuItem *item)
 }
 
 static void
-emph_free_pixmap(struct _EMenuHookPixmap *pixmap)
+emph_free_ui(struct _EMenuUIFile *ui)
+{
+	g_free(ui->appdir);
+	g_free(ui->appname);
+	g_free(ui->filename);
+}
+
+static void
+emph_free_pixmap(struct _EMenuPixmap *pixmap)
 {
 	g_free(pixmap->command);
 	g_free(pixmap->name);
+	g_free(pixmap->pixmap);
 	g_free(pixmap);
 }
 
@@ -701,6 +681,10 @@ emph_free_menu(struct _EMenuHookMenu *menu)
 {
 	g_slist_foreach(menu->items, (GFunc)emph_free_item, NULL);
 	g_slist_free(menu->items);
+	g_slist_foreach(menu->uis, (GFunc)emph_free_ui, NULL);
+	g_slist_free(menu->uis);
+	g_slist_foreach(menu->pixmaps, (GFunc)emph_free_pixmap, NULL);
+	g_slist_free(menu->pixmaps);
 
 	g_free(menu->id);
 	g_free(menu);
@@ -737,10 +721,10 @@ error:
 	return NULL;
 }
 
-static struct _EMenuHookPixmap *
+static struct _EMenuPixmap *
 emph_construct_pixmap(EPluginHook *eph, EMenuHookMenu *menu, xmlNodePtr root)
 {
-	struct _EMenuHookPixmap *pixmap;
+	struct _EMenuPixmap *pixmap;
 
 	printf("  loading menu pixmap\n");
 	pixmap = g_malloc0(sizeof(*pixmap));
@@ -769,6 +753,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 
 	printf(" loading menu\n");
 	menu = g_malloc0(sizeof(*menu));
+	menu->hook = (EMenuHook *)eph;
 
 	tmp = xmlGetProp(root, "target");
 	if (tmp == NULL)
@@ -791,11 +776,15 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 		} else if (0 == strcmp(node->name, "ui")) {
 			tmp = xmlGetProp(node, "file");
 			if (tmp) {
-				menu->uis = g_slist_append(menu->uis, g_strdup(tmp));
-				g_free(tmp);
+				EMenuUIFile *ui = g_malloc0(sizeof(*ui));
+
+				ui->filename = tmp;
+				ui->appdir = g_strdup("/tmp");
+				ui->appname = g_strdup("Evolution");
+				menu->uis = g_slist_append(menu->uis, ui);
 			}
 		} else if (0 == strcmp(node->name, "pixmap")) {
-			struct _EMenuHookPixmap *pixmap;
+			struct _EMenuPixmap *pixmap;
 
 			pixmap = emph_construct_pixmap(eph, menu, node);
 			if (pixmap)

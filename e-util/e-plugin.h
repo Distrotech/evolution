@@ -21,6 +21,8 @@ typedef struct _EPluginClass EPluginClass;
  * @name: The name of the plugin.
  * @domain: The translation domain for this plugin.
  * @hooks: A list of the EPluginHooks this plugin requires.
+ * @enabled: Whether the plugin is enabled or not.  This is not fully
+ * implemented.
  * 
  * The base EPlugin object is used to represent each plugin directly.
  * All of the plugin's hooks are loaded and managed through this
@@ -33,6 +35,8 @@ struct _EPlugin {
 	char *name;
 	char *domain;
 	GSList *hooks;
+
+	int enabled:1;
 };
 
 /**
@@ -74,6 +78,7 @@ int e_plugin_load_plugins(void);
 void e_plugin_register_type(GType type);
 
 void *e_plugin_invoke(EPlugin *ep, const char *name, void *data);
+void e_plugin_enable(EPlugin *eph, int state);
 
 /* static helpers */
 /* maps prop or content to 'g memory' */
@@ -162,7 +167,7 @@ struct _EPluginHookTargetMap {
 };
 
 /**
- * struct _EPluginHook - 
+ * struct _EPluginHook - A plugin hook.
  * 
  * @object: Superclass.
  * @plugin: The parent object.
@@ -185,7 +190,9 @@ struct _EPluginHook {
  * should contain a globally unique name followed by a : and a version
  * specification.  This is to ensure plugins only hook into hooks with
  * the right API.
- * @construct: Virtual method used to initialise the object when loaded.
+ * @construct: Virtual method used to initialise the object when
+ * loaded.
+ * @enable: Virtual method used to enable or disable the hook.
  * 
  * The EPluginHookClass represents each hook type.  The type of the
  * class is registered in a global table and is used to instantiate a
@@ -197,6 +204,7 @@ struct _EPluginHookClass {
 	const char *id;
 
 	int (*construct)(EPluginHook *eph, EPlugin *ep, xmlNodePtr root);
+	void (*enable)(EPluginHook *eph, int state);
 };
 
 GType e_plugin_hook_get_type(void);
@@ -204,6 +212,7 @@ GType e_plugin_hook_get_type(void);
 void e_plugin_hook_register_type(GType type);
 
 EPluginHook * e_plugin_hook_new(EPlugin *ep, xmlNodePtr root);
+void e_plugin_hook_enable(EPluginHook *eph, int state);
 
 /* static methods */
 guint32 e_plugin_hook_mask(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop);

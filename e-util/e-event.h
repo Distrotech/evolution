@@ -158,7 +158,8 @@ GType e_event_get_type(void);
 
 EEvent *e_event_construct(EEvent *, const char *id);
 
-void e_event_add_items(EEvent *emp, GSList *items, EEventItemsFunc freefunc, void *data);
+void *e_event_add_items(EEvent *emp, GSList *items, EEventItemsFunc freefunc, void *data);
+void e_event_remove_items(EEvent *emp, void *handle);
 
 void e_event_emit(EEvent *, const char *id, EEventTarget *);
 

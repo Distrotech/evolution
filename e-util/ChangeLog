@@ -1,3 +1,30 @@
+2004-09-10  Not Zed  <NotZed@Ximian.com>
+
+	* e-popup.c (emph_construct_menu): duh, setup the hook pointer.
+
+	* e-menu.c (e_menu_add_items): pass pixmaps and ui files to this
+	function now.
+	(e_menu_add_pixmap): removed, covered by above.
+	(e_menu_add_ui): removed, covered by above.
+	(emph_construct_menu): setup the hook pointer properly.
+
+	* e-menu.h: moved the pixmap and ui file structures to be public,
+	removed hte hook equivalents.
+
+2004-09-09  Not Zed  <NotZed@Ximian.com>
+
+	* e-event.c (e_event_remove_items): implement a remove function.
+	(e_event_add_items): return a handle to pass to above.
+	(emph_event_handle): noop if we're disabled.
+
+	* e-popup.c (emph_popup_factory): noop if the
+	plugin is disabled.
+
+	* e-plugin.c (ep_init): setup an enabled bit for the plugin.
+	Preliminary work on being able to manage plugins.
+	(e_plugin_hook_enable): set hook enable state.
+	(e_plugin_enable): set plugin enable state.
+
 2004-09-07  Not Zed  <NotZed@Ximian.com>
 
 	* e-config.c (ec_rebuild): pass the right old widget to the page

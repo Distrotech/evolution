@@ -597,7 +597,9 @@ emph_popup_factory(EPopup *emp, void *data)
 
 	printf("popup factory called %s mask %08x\n", menu->id?menu->id:"all menus", emp->target->mask);
 
-	if (emp->target->type != menu->target_type)
+	/* If we're disabled, then don't add the menu's. */
+	if (emp->target->type != menu->target_type
+	    || !menu->hook->hook.plugin->enabled)
 		return;
 
 	if (menu->items)
@@ -667,6 +669,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 
 	printf(" loading menu\n");
 	menu = g_malloc0(sizeof(*menu));
+	menu->hook = (EPopupHook *)eph;
 
 	tmp = xmlGetProp(root, "target");
 	if (tmp == NULL)

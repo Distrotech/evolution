@@ -121,7 +121,7 @@ epm_invoke(EPlugin *ep, const char *name, void *data)
 
 	if (res) {
 		void **p = mono_object_unbox(res);
-		printf("mono method returned '%p' %ld\n", *p, *p);
+		printf("mono method returned '%p' %ld\n", *p, (long int)*p);
 		return *p;
 	} else
 		return NULL;

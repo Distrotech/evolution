@@ -178,8 +178,10 @@ EEvent *e_event_construct(EEvent *ep, const char *id)
  * @data: callback data for @freefunc and for item event handlers.
  * 
  * Adds @items to the list of events listened to on the event manager @emp.
+ *
+ * Return value: An opaque key which can later be passed to remove_items.
  **/
-void
+void *
 e_event_add_items(EEvent *emp, GSList *items, EEventItemsFunc freefunc, void *data)
 {
 	struct _event_node *node;
@@ -195,6 +197,33 @@ e_event_add_items(EEvent *emp, GSList *items, EEventItemsFunc freefunc, void *da
 		g_slist_free(emp->priv->sorted);
 		emp->priv->sorted = NULL;
 	}
+
+	return (void *)node;
+}
+
+/**
+ * e_event_remove_items:
+ * @emp: 
+ * @handle: 
+ * 
+ * Remove items previously added.  They MUST have been previously
+ * added, and may only be removed once.
+ **/
+void
+e_event_remove_items(EEvent *emp, void *handle)
+{
+	struct _event_node *node = handle;
+
+	e_dlist_remove((EDListNode *)node);
+	if (node->freefunc)
+		node->freefunc(emp, node->events, node->data);
+	g_free(node);
+
+	if (emp->priv->sorted) {
+		g_slist_foreach(emp->priv->sorted, (GFunc)g_free, NULL);
+		g_slist_free(emp->priv->sorted);
+		emp->priv->sorted = NULL;
+	}	
 }
 
 static int
@@ -367,6 +396,10 @@ static void
 emph_event_handle(EEvent *ee, EEventItem *item, void *data)
 {
 	struct _EEventHook *hook = data;
+
+	/* FIXME: we could/should just remove the items we added to the event handler */
+	if (!hook->hook.plugin->enabled)
+		return;
 
 	e_plugin_invoke(hook->hook.plugin, (char *)item->user_data, ee->target);
 }
