@@ -33,6 +33,7 @@
 #include <camel/camel-pgp-context.h>
 
 #include <gal/widgets/e-unicode.h>
+#include <gal/widgets/e-gui-utils.h>
 
 #include "widgets/misc/e-charset-picker.h"
 
@@ -46,6 +47,7 @@
 #endif
 #include "mail-send-recv.h"
 #include "mail-session.h"
+#include "mail-signature-editor.h"
 
 #include "art/mark.xpm"
 
@@ -844,17 +846,25 @@ sig_write_and_upadate_preview (MailAccountsDialog *dialog, MailConfigSignature *
 	mail_config_write_signature (sig);
 }
 
+static MailConfigSignature *
+sig_current_sig (MailAccountsDialog *dialog)
+{
+	return gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
+}
+
 static void
 sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 {
 	MailConfigSignature *sig;
 	gchar *name [1];
+	gint row;
 
 	sig = mail_config_add_signature ();
 
 	name [0] = sig->name;
-	gtk_clist_select_row (GTK_CLIST (dialog->sig_clist),
-			      gtk_clist_append (GTK_CLIST (dialog->sig_clist), name), 0);
+	row = gtk_clist_append (GTK_CLIST (dialog->sig_clist), name);
+	gtk_clist_set_row_data (GTK_CLIST (dialog->sig_clist), row, sig);
+	gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), row, 0);
 }
 
 static void
@@ -864,6 +874,7 @@ sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
 
 	sig = mail_config_add_signature ();
 
+	gtk_clist_unselect_row (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0);
 	gtk_clist_remove (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
 	mail_config_delete_signature (sig);
 }
@@ -871,24 +882,24 @@ sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
 static void
 sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
 {
+	MailConfigSignature *sig = sig_current_sig (dialog);
+
+	if (sig->filename && *sig->filename)
+		mail_signature_editor (sig->filename, sig->html);
+	else
+		e_notice (GTK_WINDOW (dialog), GNOME_MESSAGE_BOX_ERROR,
+			  _("Please specify signature filename\nin Andvanced section of signature settings."));
 }
 
 static void
-sig_advanced (GtkWidget *w, MailAccountsDialog *dialog)
+sig_level (GtkWidget *w, MailAccountsDialog *dialog)
 {
-	gtk_widget_hide (dialog->sig_advanced);
-	gtk_widget_show (dialog->sig_simple);
-	gtk_widget_hide (dialog->sig_preview);
-	gtk_widget_show (dialog->sig_advanced_table);
-}
+	dialog->sig_level = 1 - dialog->sig_level;
 
-static void
-sig_simple (GtkWidget *w, MailAccountsDialog *dialog)
-{
-	gtk_widget_hide (dialog->sig_simple);
-	gtk_widget_show (dialog->sig_advanced);
-	gtk_widget_hide (dialog->sig_advanced_table);
-	gtk_widget_show (dialog->sig_preview);
+	gtk_label_set_text (GTK_LABEL (GTK_BIN (dialog->sig_level_button)->child),
+			    dialog->sig_level ? _("Simple") : _("Advanced"));
+	dialog->sig_level ? gtk_widget_hide (dialog->sig_preview) : gtk_widget_show (dialog->sig_preview);
+	dialog->sig_level ? gtk_widget_show (dialog->sig_advanced_table) : gtk_widget_hide (dialog->sig_advanced_table);
 }
 
 static void
@@ -910,6 +921,7 @@ sig_row_select (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsD
 		if (sig->name)
 			gtk_entry_set_text (GTK_ENTRY (dialog->sig_name), sig->name);
 		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dialog->sig_random), sig->random);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dialog->sig_html), sig->html);
 		if (sig->filename)
 			gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_filename))),
 					    sig->filename);
@@ -954,12 +966,6 @@ sig_fill_clist (GtkWidget *clist)
 		row = gtk_clist_append (GTK_CLIST (clist), name);
 		gtk_clist_set_row_data (GTK_CLIST (clist), row, l->data);
 	}
-}
-
-static MailConfigSignature *
-sig_current_sig (MailAccountsDialog *dialog)
-{
-	return gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
 }
 
 static void
@@ -1070,11 +1076,8 @@ signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 	dialog->sig_edit = glade_xml_get_widget (gui, "button-sig-edit");
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_edit), "clicked", GTK_SIGNAL_FUNC (sig_edit), dialog);
 
-	dialog->sig_advanced = glade_xml_get_widget (gui, "button-sig-advanced");
-	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_advanced), dialog);
-
-	dialog->sig_simple = glade_xml_get_widget (gui, "button-sig-simple");
-	gtk_signal_connect (GTK_OBJECT (dialog->sig_simple), "clicked", GTK_SIGNAL_FUNC (sig_simple), dialog);
+	dialog->sig_level_button = glade_xml_get_widget (gui, "button-sig-level");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_level_button), "clicked", GTK_SIGNAL_FUNC (sig_level), dialog);
 
 	dialog->sig_clist = glade_xml_get_widget (gui, "clist-sig");
 	sig_fill_clist (dialog->sig_clist);

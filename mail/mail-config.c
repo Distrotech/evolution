@@ -2672,6 +2672,16 @@ get_new_signature_filename ()
 	gchar *filename;
 	gint i;
 
+	filename = g_strconcat (evolution_dir, "/signatures", NULL);
+	if (lstat (filename, &st_buf)) {
+		if (errno == ENOENT) {
+			if (mkdir (filename, 0700))
+				g_warning ("Fatal problem creating %s/signatures directory.", evolution_dir);
+		} else
+			g_warning ("Fatal problem with %s/signatures directory.", evolution_dir);
+	}
+	g_free (filename);
+
 	for (i = 0; ; i ++) {
 		filename = g_strdup_printf ("%s/signatures/signature-%d", evolution_dir, i);
 		if (lstat (filename, &st_buf) == - 1 && errno == ENOENT) {
@@ -2679,6 +2689,8 @@ get_new_signature_filename ()
 		}
 		g_free (filename);
 	}
+
+	return NULL;
 }
 
 MailConfigSignature *
@@ -2688,7 +2700,7 @@ mail_config_add_signature (void)
 
 	sig = g_new0 (MailConfigSignature, 1);
 
-	sig->name = _("Unnamed");
+	sig->name = g_strdup (_("Unnamed"));
 	sig->filename = get_new_signature_filename ();
 	sig->id = config->signatures;
 
@@ -2732,8 +2744,6 @@ mail_config_delete_signature (MailConfigSignature *sig)
 	GList *l, *next;
 	gboolean after = FALSE;
 
-	delete_unused_signature_file (sig->filename);
-
 	/* FIXME remove it from all accounts */
 
 	for (l = config->signature_list; l; l = next) {
@@ -2746,7 +2756,9 @@ mail_config_delete_signature (MailConfigSignature *sig)
 			config->signatures --;
 		}
 	}
+	delete_unused_signature_file (sig->filename);
 	signature_destroy (sig);
+	config_write_signatures ();
 }
 
 void

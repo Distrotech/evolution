@@ -3434,7 +3434,7 @@ Quoted
 	  <class>GtkCheckButton</class>
 	  <name>check-sig-html</name>
 	  <can_focus>True</can_focus>
-	  <label>use HTML for this signature</label>
+	  <label>use _HTML for this signature</label>
 	  <active>False</active>
 	  <draw_indicator>True</draw_indicator>
 	  <child>
@@ -3455,6 +3455,42 @@ Quoted
       </widget>
 
       <widget>
+	<class>GtkFrame</class>
+	<name>frame-sig-preview</name>
+	<border_width>4</border_width>
+	<height>90</height>
+	<label_xalign>0</label_xalign>
+	<shadow_type>GTK_SHADOW_IN</shadow_type>
+	<child>
+	  <left_attach>0</left_attach>
+	  <right_attach>1</right_attach>
+	  <top_attach>3</top_attach>
+	  <bottom_attach>4</bottom_attach>
+	  <xpad>0</xpad>
+	  <ypad>0</ypad>
+	  <xexpand>False</xexpand>
+	  <yexpand>False</yexpand>
+	  <xshrink>False</xshrink>
+	  <yshrink>False</yshrink>
+	  <xfill>True</xfill>
+	  <yfill>True</yfill>
+	</child>
+
+	<widget>
+	  <class>GtkScrolledWindow</class>
+	  <name>scrolled-sig</name>
+	  <hscrollbar_policy>GTK_POLICY_AUTOMATIC</hscrollbar_policy>
+	  <vscrollbar_policy>GTK_POLICY_AUTOMATIC</vscrollbar_policy>
+	  <hupdate_policy>GTK_UPDATE_CONTINUOUS</hupdate_policy>
+	  <vupdate_policy>GTK_UPDATE_CONTINUOUS</vupdate_policy>
+
+	  <widget>
+	    <class>Placeholder</class>
+	  </widget>
+	</widget>
+      </widget>
+
+      <widget>
 	<class>GtkVButtonBox</class>
 	<name>vbuttonbox4</name>
 	<layout_style>GTK_BUTTONBOX_START</layout_style>
@@ -3467,7 +3503,7 @@ Quoted
 	  <left_attach>1</left_attach>
 	  <right_attach>2</right_attach>
 	  <top_attach>0</top_attach>
-	  <bottom_attach>4</bottom_attach>
+	  <bottom_attach>1</bottom_attach>
 	  <xpad>0</xpad>
 	  <ypad>0</ypad>
 	  <xexpand>False</xexpand>
@@ -3512,49 +3548,30 @@ Quoted
 
 	<widget>
 	  <class>GtkLabel</class>
-	  <name>label65</name>
+	  <name>label66</name>
 	  <label>                   </label>
 	  <justify>GTK_JUSTIFY_CENTER</justify>
 	  <wrap>False</wrap>
-	  <xalign>0</xalign>
+	  <xalign>0.5</xalign>
 	  <yalign>0.5</yalign>
 	  <xpad>0</xpad>
 	  <ypad>0</ypad>
 	</widget>
-
-	<widget>
-	  <class>GtkButton</class>
-	  <name>button-sig-advanced</name>
-	  <tooltip>Show advanced signature options</tooltip>
-	  <can_default>True</can_default>
-	  <can_focus>True</can_focus>
-	  <label>Ad_vanced</label>
-	  <relief>GTK_RELIEF_NORMAL</relief>
-	</widget>
-
-	<widget>
-	  <class>GtkButton</class>
-	  <name>button-sig-simple</name>
-	  <visible>False</visible>
-	  <tooltip>Hide advanced signature options</tooltip>
-	  <can_default>True</can_default>
-	  <can_focus>True</can_focus>
-	  <label>_Simple</label>
-	  <relief>GTK_RELIEF_NORMAL</relief>
-	</widget>
       </widget>
 
       <widget>
-	<class>GtkFrame</class>
-	<name>frame-sig-preview</name>
-	<border_width>4</border_width>
-	<height>90</height>
-	<label_xalign>0</label_xalign>
-	<shadow_type>GTK_SHADOW_IN</shadow_type>
+	<class>GtkVButtonBox</class>
+	<name>vbuttonbox5</name>
+	<layout_style>GTK_BUTTONBOX_START</layout_style>
+	<spacing>0</spacing>
+	<child_min_width>85</child_min_width>
+	<child_min_height>27</child_min_height>
+	<child_ipad_x>7</child_ipad_x>
+	<child_ipad_y>0</child_ipad_y>
 	<child>
-	  <left_attach>0</left_attach>
-	  <right_attach>1</right_attach>
-	  <top_attach>3</top_attach>
+	  <left_attach>1</left_attach>
+	  <right_attach>2</right_attach>
+	  <top_attach>1</top_attach>
 	  <bottom_attach>4</bottom_attach>
 	  <xpad>0</xpad>
 	  <ypad>0</ypad>
@@ -3567,16 +3584,24 @@ Quoted
 	</child>
 
 	<widget>
-	  <class>GtkScrolledWindow</class>
-	  <name>scrolled-sig</name>
-	  <hscrollbar_policy>GTK_POLICY_AUTOMATIC</hscrollbar_policy>
-	  <vscrollbar_policy>GTK_POLICY_AUTOMATIC</vscrollbar_policy>
-	  <hupdate_policy>GTK_UPDATE_CONTINUOUS</hupdate_policy>
-	  <vupdate_policy>GTK_UPDATE_CONTINUOUS</vupdate_policy>
+	  <class>GtkButton</class>
+	  <name>button-sig-level</name>
+	  <can_default>True</can_default>
+	  <can_focus>True</can_focus>
+	  <label>Advanced</label>
+	  <relief>GTK_RELIEF_NORMAL</relief>
+	</widget>
 
-	  <widget>
-	    <class>Placeholder</class>
-	  </widget>
+	<widget>
+	  <class>GtkLabel</class>
+	  <name>label65</name>
+	  <label>                   </label>
+	  <justify>GTK_JUSTIFY_CENTER</justify>
+	  <wrap>False</wrap>
+	  <xalign>0.5</xalign>
+	  <yalign>0.5</yalign>
+	  <xpad>0</xpad>
+	  <ypad>0</ypad>
 	</widget>
       </widget>
     </widget>
