@@ -113,8 +113,6 @@ groupwise_connect (CamelService *service, CamelException *ex)
 {
 	CamelGroupwiseTransport *gw_transport = CAMEL_GROUPWISE_TRANSPORT (service) ;
 
-	g_print ("|||in groupwise connect ||\n") ;
-
 	return TRUE ;
 
 }
@@ -193,9 +191,6 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 	content = (CamelStreamMem *)camel_stream_mem_new();
 	camel_data_wrapper_decode_to_stream(dw, (CamelStream *)content);
 
-	g_print ("Content Length : %d \n", content->buffer->len) ;
-	g_print ("Content : \n%s \n", content->buffer->data) ;
-
 	if (CAMEL_IS_MULTIPART (dw)) {
 		part_count = camel_multipart_get_number (CAMEL_MULTIPART(dw)) ;
 		g_print ("Multipart message : %d\n",part_count) ;
@@ -233,7 +228,6 @@ groupwise_send_to (CamelTransport *transport, CamelMimeMessage *message,
 			recipient->display_name = g_strdup (name) ;
 			recipient->type = E_GW_ITEM_RECIPIENT_TO;
 			recipient->status = E_GW_ITEM_STAT_NONE ;
-			g_print ("|| Name: %s || addr: %s ||\n", name, addr) ;
 			recipient_list= g_slist_append (recipient_list, recipient) ;	
 		}
 	}

@@ -30,7 +30,7 @@
 #endif
 #include <errno.h>
 #include <time.h>
-#include <e-util/e-msgport.h>
+#include <libedataserver/e-msgport.h>
 #include "camel-groupwise-folder.h"
 #include "camel-groupwise-store.h"
 #include "camel-folder.h"
@@ -40,6 +40,7 @@
 #include "camel-i18n.h" 
 #include "camel-private.h"
 #include "camel-groupwise-private.h"
+#include "camel-stream-mem.h"
 #include <e-gw-connection.h>
 #include <e-gw-item.h>
 
@@ -60,8 +61,8 @@ struct _CamelGroupwiseFolderPrivate {
 
 #define d(x) x
 
-static CamelMimeMessage 
-*groupwise_folder_get_message( CamelFolder *folder,
+static CamelMimeMessage *
+groupwise_folder_get_message( CamelFolder *folder,
 			       const char *uid,
 			       CamelException *ex )
 {
@@ -89,7 +90,7 @@ static CamelMimeMessage
 	/* see if it is there in cache */
 	CAMEL_SERVICE_LOCK (folder->parent_store, connect_lock);
 
-	mi = (CamelMessageInfo *) camel_folder_summary_uid (folder->summary, uid);
+	mi = (CamelGroupwiseMessageInfo *) camel_folder_summary_uid (folder->summary, uid);
 	if (mi == NULL) {
 		camel_exception_setv(ex, CAMEL_EXCEPTION_FOLDER_INVALID_UID,
 				     _("Cannot get message: %s\n  %s"), uid, _("No such message"));
@@ -247,7 +248,7 @@ static CamelMimeMessage
 
 		for (al = attach_list ; al != NULL ; al = al->next) {
 			EGwItemAttachment *attach = (EGwItemAttachment *)al->data ;
-			char *attachment ;
+			const char *attachment ;
 			int len ;
 			CamelMimePart *part ;
 

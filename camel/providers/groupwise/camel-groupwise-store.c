@@ -48,7 +48,7 @@
 #include "camel-types.h"
 #include "camel-folder.h" 
 #include "camel-private.h"
-#include <e-util/e-path.h>
+#include <libedataserver/e-path.h>
 
 #define d(x) printf(x);
 
@@ -661,6 +661,7 @@ groupwise_build_folder_info(CamelGroupwiseStore *gw_store, const char *parent_na
 static GPtrArray *
 get_folders (CamelStore *store, const char *top, guint32 flags, CamelException *ex)
 {
+	return NULL ;
 }
 
 
