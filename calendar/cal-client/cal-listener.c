@@ -47,6 +47,8 @@ enum {
 	STATIC_CAPABILITIES,
 	OPEN,
 	REMOVE,
+	CREATE_OBJECT,
+	MODIFY_OBJECT,
 	REMOVE_OBJECT,
 	OBJECT_LIST,
 	QUERY,
@@ -204,6 +206,41 @@ impl_notifyCalRemoved (PortableServer_Servant servant,
 		return;
 
 	g_signal_emit (G_OBJECT (listener), signals[REMOVE], 0, convert_status (status));
+}
+
+static void
+impl_notifyObjectCreated (PortableServer_Servant servant,
+			  GNOME_Evolution_Calendar_CallStatus status,
+			  const CORBA_char *uid,
+			  CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[CREATE_OBJECT], 0, convert_status (status), uid);
+}
+
+static void
+impl_notifyObjectModified (PortableServer_Servant servant,
+			   GNOME_Evolution_Calendar_CallStatus status,
+			   CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[MODIFY_OBJECT], 0, convert_status (status));
 }
 
 static void
@@ -411,6 +448,8 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyStaticCapabilities = impl_notifyStaticCapabilities;
 	klass->epv.notifyCalOpened = impl_notifyCalOpened;
 	klass->epv.notifyCalRemoved = impl_notifyCalRemoved;
+	klass->epv.notifyObjectCreated = impl_notifyObjectCreated;
+	klass->epv.notifyObjectModified = impl_notifyObjectModified;
 	klass->epv.notifyObjectRemoved = impl_notifyObjectRemoved;
 	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
 	klass->epv.notifyQuery = impl_notifyQuery;
@@ -475,6 +514,22 @@ cal_listener_class_init (CalListenerClass *klass)
 			      G_STRUCT_OFFSET (CalListenerClass, remove),
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[CREATE_OBJECT] =
+		g_signal_new ("create_object",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, create_object),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
+	signals[MODIFY_OBJECT] =
+		g_signal_new ("modify_object",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, modify_object),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
 			      G_TYPE_NONE, 1, G_TYPE_INT);	
 	signals[REMOVE_OBJECT] =
 		g_signal_new ("remove_object",
@@ -483,7 +538,7 @@ cal_listener_class_init (CalListenerClass *klass)
 			      G_STRUCT_OFFSET (CalListenerClass, remove_object),
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
-			      G_TYPE_NONE, 1, G_TYPE_INT);	
+			      G_TYPE_NONE, 1, G_TYPE_INT);
 	signals[OBJECT_LIST] =
 		g_signal_new ("object_list",
 			      G_TYPE_FROM_CLASS (klass),

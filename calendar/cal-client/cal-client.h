@@ -215,6 +215,8 @@ CalClientResult cal_client_update_object_with_mod (CalClient *client, CalCompone
 /* Add or update multiple objects, possibly including VTIMEZONE data. */
 CalClientResult cal_client_update_objects (CalClient *client, icalcomponent *icalcomp);
 
+gboolean cal_client_create_object (CalClient *client, icalcomponent *icalcomp, char **uid, GError **error);
+gboolean cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModType mod, GError **error);
 gboolean cal_client_remove_object (CalClient *client, const char *uid, GError **error);
 gboolean cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjModType mod, GError **error);
 

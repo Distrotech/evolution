@@ -1,4 +1,29 @@
-2003-09-12    <jpr@ximian.com>
+2003-09-12  JP Rosevear <jpr@ximian.com>
+
+	* cal-client/client-test.c (cal_opened_cb): listen for other query
+	signals
+
+	* cal-client/cal-listener.h: add signals
+
+	* cal-client/cal-listener.c (impl_notifyObjectCreated): implement
+	(impl_notifyObjectModified): implement
+	(cal_listener_class_init): assign epv implementations
+	(cal_listener_class_init): add create/modify object signals
+
+	* cal-client/cal-client.h: add protos
+
+	* cal-client/cal-client.c (cal_object_created_cb): object created
+	callback
+	(cal_object_modified_cb): object modified callback
+	(cal_client_init): listen for create/modify object signals from
+	the listener
+	(cal_client_create_object): call the create object method
+	(cal_client_modify_object): call the modify object method
+
+	* cal-client/client-test.c (cal_opened_cb): listen for all the
+	query signals, tidy
+
+2003-09-12  JP Rosevear <jpr@ximian.com>
 
 	* pcs/cal.c (impl_Cal_createObject): implement
 	(impl_Cal_modifyObject): ditto

@@ -55,6 +55,24 @@ objects_added_cb (GObject *object, GList *objects, gpointer data)
 }
 
 static void
+objects_modified_cb (GObject *object, GList *objects, gpointer data)
+{
+	GList *l;
+	
+	for (l = objects; l; l = l->next)
+		cl_printf (data, "Object modified %s\n", icalcomponent_get_uid (l->data));
+}
+
+static void
+objects_removed_cb (GObject *object, GList *objects, gpointer data)
+{
+	GList *l;
+	
+	for (l = objects; l; l = l->next)
+		cl_printf (data, "Object removed %s\n", icalcomponent_get_uid (l->data));
+}
+
+static void
 query_done_cb (GObject *object, ECalendarStatus status, gpointer data)
 {
 	cl_printf (data, "Query done\n");
@@ -117,32 +135,17 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 		    "unknown status value"));
 
 	if (status == CAL_CLIENT_OPEN_SUCCESS) {
-		GList *comp_list;
-
-#if 0
-		/* get free/busy information */
-		comp_list = cal_client_get_free_busy (client, NULL, 0, time (NULL));
-		if (comp_list) {
-			GList *l;
-
-			for (l = comp_list; l; l = l->next) {
-				char *comp_str;
-
-				comp_str = cal_component_get_as_string (CAL_COMPONENT (l->data));
-				g_object_unref (l->data);
-				cl_printf (client, "Free/Busy -> %s\n", comp_str);
-				g_free (comp_str);
-			}
-			g_list_free (comp_list);
-		}
-
-		g_message ("Idling");
-#endif		
 		if (!cal_client_get_query (client, "(contains? \"any\" \"Test4\")", &query, NULL))
 			g_warning (G_STRLOC ": Unable to obtain query");
 
-		g_signal_connect (G_OBJECT (query), "objects_added", objects_added_cb, client);
-		g_signal_connect (G_OBJECT (query), "query_done", query_done_cb, client);
+		g_signal_connect (G_OBJECT (query), "objects_added", 
+				  G_CALLBACK (objects_added_cb), client);
+		g_signal_connect (G_OBJECT (query), "objects_modified", 
+				  G_CALLBACK (objects_modified_cb), client);
+		g_signal_connect (G_OBJECT (query), "objects_removed", 
+				  G_CALLBACK (objects_removed_cb), client);
+		g_signal_connect (G_OBJECT (query), "query_done",
+				  G_CALLBACK (query_done_cb), client);
 
 		cal_query_start (query);
 		
