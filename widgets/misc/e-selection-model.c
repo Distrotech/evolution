@@ -116,20 +116,26 @@ e_selection_model_delete_row_real(ESelectionModel *esm, int row)
 		esm->cursor_row --;
 }
 
+/* FIXME : Improve efficiency here. */
 void
-e_selection_model_delete_row(ESelectionModel *esm, int row)
+e_selection_model_delete_rows(ESelectionModel *esm, int row, int count)
 {
-	e_selection_model_delete_row_real(esm, row);
+	int i;
+	for (i = 0; i < count; i++)
+		e_selection_model_delete_row_real(esm, row);
 	gtk_signal_emit(GTK_OBJECT(esm),
 			e_selection_model_signals [SELECTION_CHANGED]);
 	gtk_signal_emit(GTK_OBJECT(esm),
 			e_selection_model_signals [CURSOR_CHANGED], esm->cursor_row, esm->cursor_col);
 }
 
+/* FIXME : Improve efficiency here. */
 void
-e_selection_model_insert_row(ESelectionModel *esm, int row)
+e_selection_model_insert_rows(ESelectionModel *esm, int row, int count)
 {
-	e_selection_model_insert_row_real(esm, row);
+	int i;
+	for (i = 0; i < count; i++)
+		e_selection_model_insert_row_real(esm, row);
 	gtk_signal_emit(GTK_OBJECT(esm),
 			e_selection_model_signals [SELECTION_CHANGED]);
 	gtk_signal_emit(GTK_OBJECT(esm),

@@ -549,14 +549,12 @@ etta_proxy_node_inserted (ETreeModel *etm, ETreePath parent, ETreePath child, ET
 		fill_array_from_path(etta, etta->priv->map_table + row, child);
 		etta_update_parent_child_counts(etta, child, size);
 
-		if (size > 1)
-			e_table_model_changed(E_TABLE_MODEL(etta));
-		else {
-			if (etta->priv->root_visible)
-				e_table_model_row_inserted(E_TABLE_MODEL(etta), row);
-			else if (row != 0)
-				e_table_model_row_inserted(E_TABLE_MODEL(etta), row - 1);
-		}
+		if (etta->priv->root_visible)
+			e_table_model_rows_inserted(E_TABLE_MODEL(etta), row, size);
+		else if (row != 0)
+			e_table_model_rows_inserted(E_TABLE_MODEL(etta), row - 1, size);
+		else
+			e_table_model_rows_inserted(E_TABLE_MODEL(etta), 0, size - 1);
 	}
 }
 
@@ -588,14 +586,12 @@ etta_proxy_node_removed (ETableModel *etm, ETreePath parent, ETreePath child, ET
 		if (parent)
 			etta_update_parent_child_counts(etta, parent, - to_remove);
 
-		if (to_remove > 1) {
-			e_table_model_changed(E_TABLE_MODEL(etta));
-		} else {
-			if (etta->priv->root_visible)
-				e_table_model_row_deleted(E_TABLE_MODEL(etta), row);
-			else if (row != 0)
-				e_table_model_row_deleted(E_TABLE_MODEL(etta), row - 1);
-		}
+		if (etta->priv->root_visible)
+			e_table_model_rows_deleted(E_TABLE_MODEL(etta), row, to_remove);
+		else if (row != 0)
+			e_table_model_rows_deleted(E_TABLE_MODEL(etta), row - 1, to_remove);
+		else
+			e_table_model_rows_deleted(E_TABLE_MODEL(etta), 0, to_remove - 1);
 	}
 }
 
@@ -684,18 +680,11 @@ void         e_tree_table_adapter_node_set_expanded (ETreeTableAdapter *etta, ET
 					(etta->priv->n_map - row - 1) * sizeof (ETreePath));
 				fill_array_from_path(etta, etta->priv->map_table + row, path);
 				etta_update_parent_child_counts(etta, path, num_children);
-				switch (num_children) {
-				case 0:
-					break;
-				case 1:
+				if (num_children != 0) {
 					if (etta->priv->root_visible)
-						e_table_model_row_inserted(E_TABLE_MODEL(etta), row + 1);
+						e_table_model_rows_inserted(E_TABLE_MODEL(etta), row + 1, num_children);
 					else
-						e_table_model_row_inserted(E_TABLE_MODEL(etta), row);
-					break;
-				default:
-					e_table_model_changed(E_TABLE_MODEL(etta));
-					break;
+						e_table_model_rows_inserted(E_TABLE_MODEL(etta), row, num_children);
 				}
 			} else {
 				int num_children = node->num_visible_children;
@@ -704,18 +693,11 @@ void         e_tree_table_adapter_node_set_expanded (ETreeTableAdapter *etta, ET
 					(etta->priv->n_map - row - 1 - num_children) * sizeof (ETreePath));
 				node->num_visible_children = 0;
 				etta_update_parent_child_counts(etta, path, - num_children);
-				switch (num_children) {
-				case 0:
-					break;
-				case 1:
+				if (num_children != 0) {
 					if (etta->priv->root_visible)
-						e_table_model_row_deleted(E_TABLE_MODEL(etta), row + 1);
+						e_table_model_rows_deleted(E_TABLE_MODEL(etta), row + 1, num_children);
 					else
-						e_table_model_row_deleted(E_TABLE_MODEL(etta), row);
-					break;
-				default:
-					e_table_model_changed(E_TABLE_MODEL(etta));
-					break;
+						e_table_model_rows_deleted(E_TABLE_MODEL(etta), row, num_children);
 				}
 			}
 		}

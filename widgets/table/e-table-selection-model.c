@@ -34,27 +34,27 @@ model_changed(ETableModel *etm, ETableSelectionModel *etsm)
 
 #if 1
 static void
-model_row_inserted(ETableModel *etm, int row, ETableSelectionModel *etsm)
+model_rows_inserted(ETableModel *etm, int row, int count, ETableSelectionModel *etsm)
 {
-	e_selection_model_insert_row(E_SELECTION_MODEL(etsm), row);
+	e_selection_model_insert_rows(E_SELECTION_MODEL(etsm), row, count);
 }
 
 static void
-model_row_deleted(ETableModel *etm, int row, ETableSelectionModel *etsm)
+model_rows_deleted(ETableModel *etm, int row, int count, ETableSelectionModel *etsm)
 {
-	e_selection_model_delete_row(E_SELECTION_MODEL(etsm), row);
+	e_selection_model_delete_rows(E_SELECTION_MODEL(etsm), row, count);
 }
 
 #else
 
 static void
-model_row_inserted(ETableModel *etm, int row, ETableSelectionModel *etsm)
+model_rows_inserted(ETableModel *etm, int row, int count, ETableSelectionModel *etsm)
 {
 	model_changed(etm, etsm);
 }
 
 static void
-model_row_deleted(ETableModel *etm, int row, ETableSelectionModel *etsm)
+model_rows_deleted(ETableModel *etm, int row, int count, ETableSelectionModel *etsm)
 {
 	model_changed(etm, etsm);
 }
@@ -68,10 +68,10 @@ add_model(ETableSelectionModel *etsm, ETableModel *model)
 		gtk_object_ref(GTK_OBJECT(model));
 		etsm->model_changed_id = gtk_signal_connect(GTK_OBJECT(model), "model_changed",
 							    GTK_SIGNAL_FUNC(model_changed), etsm);
-		etsm->model_row_inserted_id = gtk_signal_connect(GTK_OBJECT(model), "model_row_inserted",
-								 GTK_SIGNAL_FUNC(model_row_inserted), etsm);
-		etsm->model_row_deleted_id = gtk_signal_connect(GTK_OBJECT(model), "model_row_deleted",
-								GTK_SIGNAL_FUNC(model_row_deleted), etsm);
+		etsm->model_rows_inserted_id = gtk_signal_connect(GTK_OBJECT(model), "model_rows_inserted",
+								  GTK_SIGNAL_FUNC(model_rows_inserted), etsm);
+		etsm->model_rows_deleted_id = gtk_signal_connect(GTK_OBJECT(model), "model_rows_deleted",
+								 GTK_SIGNAL_FUNC(model_rows_deleted), etsm);
 	}
 }
 
@@ -82,9 +82,9 @@ drop_model(ETableSelectionModel *etsm)
 		gtk_signal_disconnect(GTK_OBJECT(etsm->model),
 				      etsm->model_changed_id);
 		gtk_signal_disconnect(GTK_OBJECT(etsm->model),
-				      etsm->model_row_inserted_id);
+				      etsm->model_rows_inserted_id);
 		gtk_signal_disconnect(GTK_OBJECT(etsm->model),
-				      etsm->model_row_deleted_id);
+				      etsm->model_rows_deleted_id);
 		gtk_object_unref(GTK_OBJECT(etsm->model));
 	}
 	etsm->model = NULL;

@@ -135,18 +135,18 @@ et_disconnect_model (ETable *et)
 	if (et->table_cell_change_id != 0)
 		gtk_signal_disconnect (GTK_OBJECT (et->model),
 				       et->table_cell_change_id);
-	if (et->table_row_inserted_id != 0)
+	if (et->table_rows_inserted_id != 0)
 		gtk_signal_disconnect (GTK_OBJECT (et->model),
-				       et->table_row_inserted_id);
-	if (et->table_row_deleted_id != 0)
+				       et->table_rows_inserted_id);
+	if (et->table_rows_deleted_id != 0)
 		gtk_signal_disconnect (GTK_OBJECT (et->model),
-				       et->table_row_deleted_id);
+				       et->table_rows_deleted_id);
 
 	et->table_model_change_id = 0;
 	et->table_row_change_id = 0;
 	et->table_cell_change_id = 0;
-	et->table_row_inserted_id = 0;
-	et->table_row_deleted_id = 0;
+	et->table_rows_inserted_id = 0;
+	et->table_rows_deleted_id = 0;
 }
 
 static void
@@ -516,27 +516,31 @@ et_table_cell_changed (ETableModel *table_model, int view_col, int row, ETable *
 }
 
 static void
-et_table_row_inserted (ETableModel *table_model, int row, ETable *et)
+et_table_rows_inserted (ETableModel *table_model, int row, int count, ETable *et)
 {
 	/* This number has already been decremented. */
 	int row_count = e_table_model_row_count(table_model);
 	if (!et->need_rebuild) {
-		if (row != row_count - 1)
-			e_table_group_increment(et->group, row, 1);
-		e_table_group_add (et->group, row);
+		int i;
+		if (row != row_count - count)
+			e_table_group_increment(et->group, row, count);
+		for (i = 0; i < count; i++)
+			e_table_group_add (et->group, row);
 		if (et->horizontal_scrolling)
 			e_table_header_update_horizontal(et->header);
 	}
 }
 
 static void
-et_table_row_deleted (ETableModel *table_model, int row, ETable *et)
+et_table_rows_deleted (ETableModel *table_model, int row, int count, ETable *et)
 {
 	int row_count = e_table_model_row_count(table_model);
 	if (!et->need_rebuild) {
-		e_table_group_remove (et->group, row);
+		int i;
+		for (i = 0; i < count; i++)
+			e_table_group_remove (et->group, row);
 		if (row != row_count)
-			e_table_group_decrement(et->group, row, 1);
+			e_table_group_decrement(et->group, row, count);
 		if (et->horizontal_scrolling)
 			e_table_header_update_horizontal(et->header);
 	}
@@ -591,11 +595,11 @@ et_build_groups (ETable *et)
 		et->table_cell_change_id = gtk_signal_connect (GTK_OBJECT (et->model), "model_cell_changed",
 							       GTK_SIGNAL_FUNC (et_table_cell_changed), et);
 
-		et->table_row_inserted_id = gtk_signal_connect (GTK_OBJECT (et->model), "model_row_inserted",
-								GTK_SIGNAL_FUNC (et_table_row_inserted), et);
+		et->table_rows_inserted_id = gtk_signal_connect (GTK_OBJECT (et->model), "model_rows_inserted",
+								GTK_SIGNAL_FUNC (et_table_rows_inserted), et);
 
-		et->table_row_deleted_id = gtk_signal_connect (GTK_OBJECT (et->model), "model_row_deleted",
-							       GTK_SIGNAL_FUNC (et_table_row_deleted), et);
+		et->table_rows_deleted_id = gtk_signal_connect (GTK_OBJECT (et->model), "model_rows_deleted",
+							       GTK_SIGNAL_FUNC (et_table_rows_deleted), et);
 
 	}
 

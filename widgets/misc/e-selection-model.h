@@ -87,10 +87,12 @@ void      e_selection_model_select_all          (ESelectionModel *selection);
 void      e_selection_model_invert_selection    (ESelectionModel *selection);
 
 /* Private Functions */
-void      e_selection_model_insert_row          (ESelectionModel *esm,
-						 int              row);
-void      e_selection_model_delete_row          (ESelectionModel *esm,
-						 int              row);
+void      e_selection_model_insert_rows         (ESelectionModel *esm,
+						 int              row,
+						 int              count);
+void      e_selection_model_delete_rows         (ESelectionModel *esm,
+						 int              row,
+						 int              count);
 void      e_selection_model_move_row            (ESelectionModel *esm,
 						 int              old_row,
 						 int              new_row);

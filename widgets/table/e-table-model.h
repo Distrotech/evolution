@@ -59,13 +59,13 @@ typedef struct {
 	 * A row inserted: row_inserted
 	 * A row deleted: row_deleted
 	 */
-	void        (*model_pre_change)   (ETableModel *etm);
+	void        (*model_pre_change)    (ETableModel *etm);
 
-	void        (*model_changed)      (ETableModel *etm);
-	void        (*model_row_changed)  (ETableModel *etm, int row);
-	void        (*model_cell_changed) (ETableModel *etm, int col, int row);
-	void        (*model_row_inserted) (ETableModel *etm, int row);
-	void        (*model_row_deleted)  (ETableModel *etm, int row);
+	void        (*model_changed)       (ETableModel *etm);
+	void        (*model_row_changed)   (ETableModel *etm, int row);
+	void        (*model_cell_changed)  (ETableModel *etm, int col, int row);
+	void        (*model_rows_inserted) (ETableModel *etm, int row, int count);
+	void        (*model_rows_deleted)  (ETableModel *etm, int row, int count);
 } ETableModelClass;
 
 GtkType     e_table_model_get_type (void);
@@ -96,6 +96,9 @@ void        e_table_model_pre_change       (ETableModel *e_table_model);
 void        e_table_model_changed          (ETableModel *e_table_model);
 void        e_table_model_row_changed      (ETableModel *e_table_model, int row);
 void        e_table_model_cell_changed     (ETableModel *e_table_model, int col, int row);
+void        e_table_model_rows_inserted    (ETableModel *e_table_model, int row, int count);
+void        e_table_model_rows_deleted     (ETableModel *e_table_model, int row, int count);
+
 void        e_table_model_row_inserted     (ETableModel *e_table_model, int row);
 void        e_table_model_row_deleted      (ETableModel *e_table_model, int row);
 

@@ -319,9 +319,9 @@ eti_remove_table_model (ETableItem *eti)
 	gtk_signal_disconnect (GTK_OBJECT (eti->table_model),
 			       eti->table_model_cell_change_id);
 	gtk_signal_disconnect (GTK_OBJECT (eti->table_model),
-			       eti->table_model_row_inserted_id);
+			       eti->table_model_rows_inserted_id);
 	gtk_signal_disconnect (GTK_OBJECT (eti->table_model),
-			       eti->table_model_row_deleted_id);
+			       eti->table_model_rows_deleted_id);
 	gtk_object_unref (GTK_OBJECT (eti->table_model));
 	if (eti->source_model)
 		gtk_object_unref (GTK_OBJECT (eti->source_model));
@@ -330,8 +330,8 @@ eti_remove_table_model (ETableItem *eti)
 	eti->table_model_change_id = 0;
 	eti->table_model_row_change_id = 0;
 	eti->table_model_cell_change_id = 0;
-	eti->table_model_row_inserted_id = 0;
-	eti->table_model_row_deleted_id = 0;
+	eti->table_model_rows_inserted_id = 0;
+	eti->table_model_rows_deleted_id = 0;
 	eti->table_model = NULL;
 	eti->source_model = NULL;
 	eti->uses_source_model = 0;
@@ -717,14 +717,16 @@ eti_table_model_cell_changed (ETableModel *table_model, int col, int row, ETable
 }
 
 static void
-eti_table_model_row_inserted (ETableModel *table_model, int row, ETableItem *eti)
+eti_table_model_rows_inserted (ETableModel *table_model, int row, int count, ETableItem *eti)
 {
 	eti->rows = e_table_model_row_count (eti->table_model);
 
 	if (eti->height_cache) {
+		int i;
 		eti->height_cache = g_renew(int, eti->height_cache, eti->rows);
-		memmove(eti->height_cache + row + 1, eti->height_cache + row, (eti->rows - 1 - row) * sizeof(int));
-		eti->height_cache[row] = -1;
+		memmove(eti->height_cache + row + count, eti->height_cache + row, (eti->rows - count - row) * sizeof(int));
+		for (i = row; i < row + count; i++)
+			eti->height_cache[i] = -1;
 	}
 
 	eti->needs_compute_height = 1;
@@ -734,12 +736,12 @@ eti_table_model_row_inserted (ETableModel *table_model, int row, ETableItem *eti
 }
 
 static void
-eti_table_model_row_deleted (ETableModel *table_model, int row, ETableItem *eti)
+eti_table_model_rows_deleted (ETableModel *table_model, int row, int count, ETableItem *eti)
 {
 	eti->rows = e_table_model_row_count (eti->table_model);
 
 	if (eti->height_cache)
-		memmove(eti->height_cache + row, eti->height_cache + row + 1, (eti->rows - row) * sizeof(int));
+		memmove(eti->height_cache + row, eti->height_cache + row + count, (eti->rows - row) * sizeof(int));
 
 	eti->needs_compute_height = 1;
 	e_canvas_item_request_reflow (GNOME_CANVAS_ITEM (eti));
@@ -809,13 +811,13 @@ eti_add_table_model (ETableItem *eti, ETableModel *table_model)
 		GTK_OBJECT (table_model), "model_cell_changed",
 		GTK_SIGNAL_FUNC (eti_table_model_cell_changed), eti);
 
-	eti->table_model_row_inserted_id = gtk_signal_connect (
-		GTK_OBJECT (table_model), "model_row_inserted",
-		GTK_SIGNAL_FUNC (eti_table_model_row_inserted), eti);
+	eti->table_model_rows_inserted_id = gtk_signal_connect (
+		GTK_OBJECT (table_model), "model_rows_inserted",
+		GTK_SIGNAL_FUNC (eti_table_model_rows_inserted), eti);
 
-	eti->table_model_row_deleted_id = gtk_signal_connect (
-		GTK_OBJECT (table_model), "model_row_deleted",
-		GTK_SIGNAL_FUNC (eti_table_model_row_deleted), eti);
+	eti->table_model_rows_deleted_id = gtk_signal_connect (
+		GTK_OBJECT (table_model), "model_rows_deleted",
+		GTK_SIGNAL_FUNC (eti_table_model_rows_deleted), eti);
 
 	if (eti->header) {
 		eti_detach_cell_views (eti);
