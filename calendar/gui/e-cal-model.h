@@ -83,6 +83,8 @@ void                e_cal_model_add_client (ECalModel *model, CalClient *client)
 void                e_cal_model_remove_client (ECalModel *model, CalClient *client);
 void                e_cal_model_remove_all_clients (ECalModel *model);
 
+void                e_cal_model_set_query (ECalModel *model, const gchar *sexp);
+
 ECalModelComponent *e_cal_model_get_component_at (ECalModel *model, gint row);
 
 gchar              *e_cal_model_date_value_to_string (ECalModel *model, const void *value);

@@ -1,5 +1,12 @@
 2003-08-06  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.[ch] (e_cal_model_set_query): new function.
+	(e_cal_model_remove_all_clients): implemented.
+	(remove_client): also remove all objects belonging to the
+	client being removed.
+
+2003-08-06  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model.c (get_dtstart, set_dtstart): implemented.
 	(ecm_value_at, ecm_set_value_at, ecm_duplicate_value,
 	 ecm_free_value, ecm_value_to_string): added case for DTSTART

@@ -25,6 +25,7 @@
 #include <gal/util/e-util.h>
 #include <e-util/e-time-utils.h>
 #include <cal-util/timeutil.h>
+#include "calendar-config.h"
 #include "e-cal-model.h"
 #include "itip-utils.h"
 #include "misc.h"
@@ -354,7 +355,7 @@ ecm_value_at (ETableModel *etm, int col, int row)
 	case E_CAL_MODEL_FIELD_CLASSIFICATION :
 		return get_classification (comp_data);
 	case E_CAL_MODEL_FIELD_COLOR :
-		return GPOINTER_TO_INT (get_color (model, comp_data));
+		return GINT_TO_POINTER (get_color (model, comp_data));
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		return comp_data->icalcomp;
 	case E_CAL_MODEL_FIELD_DESCRIPTION :
@@ -737,7 +738,7 @@ ecm_value_to_string (ETableModel *etm, int col, const void *value)
 	case E_CAL_MODEL_FIELD_SUMMARY :
 		return g_strdup (value);
 	case E_CAL_MODEL_FIELD_DTSTART :
-		return e_cal_model_date_value_to_string (etm, value);
+		return e_cal_model_date_value_to_string (E_CAL_MODEL (etm), value);
 	case E_CAL_MODEL_FIELD_ICON :
 		if (GPOINTER_TO_INT (value) == 0)
 			return _("Normal");
@@ -1067,6 +1068,37 @@ e_cal_model_add_client (ECalModel *model, CalClient *client)
 		g_signal_connect (client, "cal_opened", G_CALLBACK (cal_opened_cb), model);
 }
 
+static void
+remove_client (ECalModel *model, ECalModelClient *client_data)
+{
+	gint i;
+
+	g_signal_handlers_disconnect_matched (client_data->client, G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, model);
+	g_signal_handlers_disconnect_matched (client_data->query, G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, model);
+
+	model->priv->clients = g_list_remove (model->priv->clients, client_data);
+
+	/* remove all objects belonging to this client */
+	e_table_model_pre_change (E_TABLE_MODEL (model));
+	for (i = 0; i < model->priv->objects->len; i++) {
+		ECalModelComponent *comp_data = (ECalModelComponent *) g_ptr_array_index (model->priv->objects, i);
+
+		g_assert (comp_data != NULL);
+
+		if (comp_data->client == client_data->client) {
+			g_ptr_array_remove (model->priv->objects, comp_data);
+			free_comp_data (comp_data);
+		}
+	}
+	e_table_model_changed (E_TABLE_MODEL (model));
+
+	/* free all remaining memory */
+	g_object_unref (client_data->client);
+	g_object_unref (client_data->query);
+	g_free (client_data);
+
+}
+
 /**
  * e_cal_model_remove_client
  */
@@ -1084,15 +1116,7 @@ e_cal_model_remove_client (ECalModel *model, CalClient *client)
 		ECalModelClient *client_data = (ECalModelClient *) l->data;
 
 		if (client_data->client == client) {
-			g_signal_handlers_disconnect_matched (client_data->client, G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, model);
-			g_signal_handlers_disconnect_matched (client_data->query, G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, model);
-
-			priv->clients = g_list_remove (priv->clients, client_data);
-
-			g_object_unref (client_data->client);
-			g_object_unref (client_data->query);
-			g_free (client_data);
-
+			remove_client (model, client_data);
 			break;
 		}
 	}
@@ -1104,7 +1128,48 @@ e_cal_model_remove_client (ECalModel *model, CalClient *client)
 void
 e_cal_model_remove_all_clients (ECalModel *model)
 {
+	ECalModelPrivate *priv;
+
 	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	priv = model->priv;
+	while (priv->clients != NULL) {
+		ECalModelClient *client_data = (ECalModelClient *) priv->clients->data;
+		remove_client (model, client_data);
+	}
+}
+
+/**
+ * e_cal_model_set_query
+ */
+void
+e_cal_model_set_query (ECalModel *model, const char *sexp)
+{
+	ECalModelPrivate *priv;
+	GList *l;
+
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+	g_return_if_fail (sexp != NULL);
+
+	priv = model->priv;
+
+	if (priv->sexp)
+		g_free (priv->sexp);
+
+	priv->sexp = g_strdup (sexp);
+
+	/* clean up the current contents */
+	e_table_model_pre_change (E_TABLE_MODEL (model));
+	clear_objects_array (priv);
+	e_table_model_changed (E_TABLE_MODEL (model));
+
+	/* update the query for all clients */
+	for (l = priv->clients; l != NULL; l = l->next) {
+		ECalModelClient *client_data;
+
+		client_data = (ECalModelClient *) l->data;
+		update_query_for_client (model, client_data);
+	}
 }
 
 /**
