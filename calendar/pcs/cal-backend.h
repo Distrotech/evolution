@@ -113,6 +113,12 @@ GType cal_backend_get_type (void);
 const char *cal_backend_get_uri (CalBackend *backend);
 icalcomponent_kind cal_backend_get_kind (CalBackend *backend);
 
+void cal_backend_add_client (CalBackend *backend, Cal *cal);
+void cal_backend_remove_client (CalBackend *backend, Cal *cal);
+
+void cal_backend_add_query (CalBackend *backend, Query *query);
+EList *cal_backend_get_queries (CalBackend *backend);
+
 void cal_backend_is_read_only (CalBackend *backend, Cal *cal);
 void cal_backend_get_cal_address (CalBackend *backend, Cal *cal);
 void cal_backend_get_alarm_email_address (CalBackend *backend, Cal *cal);
@@ -138,8 +144,6 @@ void cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sex
 gboolean cal_backend_is_loaded (CalBackend *backend);
 
 void cal_backend_start_query (CalBackend *backend, Query *query);
-void cal_backend_add_query (CalBackend *backend, Query *query);
-EList *cal_backend_get_queries (CalBackend *backend);
 
 CalMode cal_backend_get_mode (CalBackend *backend);
 void cal_backend_set_mode (CalBackend *backend, CalMode mode);
@@ -153,8 +157,6 @@ void cal_backend_get_free_busy (CalBackend *backend, Cal *cal, GList *users, tim
 
 icaltimezone* cal_backend_internal_get_default_timezone (CalBackend *backend);
 icaltimezone* cal_backend_internal_get_timezone (CalBackend *backend, const char *tzid);
-
-void cal_backend_add_cal (CalBackend *backend, Cal *cal);
 
 void cal_backend_last_client_gone (CalBackend *backend);
 

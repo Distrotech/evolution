@@ -61,6 +61,9 @@ Cal *cal_construct (Cal *cal,
 
 Cal *cal_new (CalBackend *backend, const char *uri, GNOME_Evolution_Calendar_Listener listener);
 
+CalBackend *cal_get_backend (Cal *cal);
+GNOME_Evolution_Calendar_Listener cal_get_listener (Cal *cal);
+
 void cal_notify_read_only (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, gboolean read_only);
 void cal_notify_cal_address (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *address);
 void cal_notify_alarm_email_address (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *address);

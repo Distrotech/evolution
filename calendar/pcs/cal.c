@@ -509,6 +509,24 @@ cal_new (CalBackend *backend, const char *uri, GNOME_Evolution_Calendar_Listener
 	return retval;
 }
 
+CalBackend *
+cal_get_backend (Cal *cal)
+{
+	g_return_val_if_fail (cal != NULL, NULL);
+	g_return_val_if_fail (IS_CAL (cal), NULL);
+
+	return cal->priv->backend;
+}
+
+GNOME_Evolution_Calendar_Listener
+cal_get_listener (Cal *cal)
+{
+	g_return_val_if_fail (cal != NULL, NULL);
+	g_return_val_if_fail (IS_CAL (cal), NULL);
+
+	return cal->priv->listener;
+}
+
 /* Destroy handler for the calendar */
 static void
 cal_finalize (GObject *object)

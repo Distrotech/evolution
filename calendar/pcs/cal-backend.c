@@ -49,7 +49,8 @@ struct _CalBackendPrivate {
 	/* The kind of components for this backend */
 	icalcomponent_kind kind;
 	
-	/* List of Cal objects with their listeners */
+	/* List of Cal objects */
+	GMutex *clients_mutex;
 	GList *clients;
 
 	GMutex *queries_mutex;
@@ -268,6 +269,9 @@ cal_backend_init (CalBackend *backend)
 	priv = g_new0 (CalBackendPrivate, 1);
 	backend->priv = priv;
 
+	priv->clients = NULL;
+	priv->clients_mutex = g_mutex_new ();
+
 	/* FIXME bonobo_object_ref/unref? */
 	priv->queries = e_list_new((EListCopyFunc) g_object_ref, (EListFreeFunc) g_object_unref, NULL);
 	priv->queries_mutex = g_mutex_new ();
@@ -314,6 +318,7 @@ cal_backend_finalize (GObject *object)
 	g_hash_table_foreach (priv->categories, free_category_cb, NULL);
 	g_hash_table_destroy (priv->categories);
 
+	g_mutex_free (priv->clients_mutex);
 	g_mutex_free (priv->queries_mutex);
 
 	if (priv->category_idle_id)
@@ -360,6 +365,107 @@ cal_backend_get_kind (CalBackend *backend)
 	
 	return priv->kind;
 }
+
+static void
+cal_destroy_cb (gpointer data, GObject *where_cal_was)
+{
+	CalBackend *backend = CAL_BACKEND (data);
+
+	cal_backend_remove_client (backend, (Cal *)where_cal_was);
+}
+
+static void
+listener_died_cb (gpointer cnx, gpointer data)
+{
+	Cal *cal = CAL (data);
+
+	cal_backend_remove_client (cal_get_backend (cal), cal);
+}
+
+static void
+last_client_gone (CalBackend *backend)
+{
+	g_signal_emit (backend, cal_backend_signals[LAST_CLIENT_GONE], 0);
+}
+
+void
+cal_backend_add_client (CalBackend *backend, Cal *cal)
+{
+	CalBackendPrivate *priv;
+	
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = backend->priv;
+	
+	bonobo_object_set_immortal (BONOBO_OBJECT (cal), TRUE);
+
+	g_object_weak_ref (G_OBJECT (cal), cal_destroy_cb, backend);
+
+	ORBit_small_listen_for_broken (cal_get_listener (cal), G_CALLBACK (listener_died_cb), cal);
+
+	g_mutex_lock (priv->clients_mutex);
+	priv->clients = g_list_append (priv->clients, cal);
+	g_mutex_unlock (priv->clients_mutex);
+
+	/* Tell the new client about the list of categories.
+	 * (Ends up telling all the other clients too, but *shrug*.)
+	 */
+	/* FIXME This doesn't seem right at all */
+	notify_categories_changed (backend);
+}
+
+void
+cal_backend_remove_client (CalBackend *backend, Cal *cal)
+{
+	CalBackendPrivate *priv;
+	
+	/* XXX this needs a bit more thinking wrt the mutex - we
+	   should be holding it when we check to see if clients is
+	   NULL */
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = backend->priv;
+
+	/* Disconnect */
+	g_mutex_lock (priv->clients_mutex);
+	priv->clients = g_list_remove (priv->clients, cal);
+	g_mutex_unlock (priv->clients_mutex);
+
+	/* When all clients go away, notify the parent factory about it so that
+	 * it may decide whether to kill the backend or not.
+	 */
+	if (!priv->clients)
+		last_client_gone (backend);
+}
+
+void
+cal_backend_add_query (CalBackend *backend, Query *query)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+
+	g_mutex_lock (backend->priv->queries_mutex);
+
+	e_list_append (backend->priv->queries, query);
+	
+	g_mutex_unlock (backend->priv->queries_mutex);
+}
+
+EList *
+cal_backend_get_queries (CalBackend *backend)
+{
+	g_return_val_if_fail (backend != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+
+	return g_object_ref (backend->priv->queries);
+}
+
 
 /**
  * cal_backend_get_cal_address:
@@ -408,54 +514,6 @@ cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal)
 
 	g_assert (CLASS (backend)->get_static_capabilities != NULL);
 	(* CLASS (backend)->get_static_capabilities) (backend, cal);
-}
-
-/* Callback used when a Cal is destroyed */
-static void
-cal_destroy_cb (gpointer data, GObject *where_cal_was)
-{
-	CalBackend *backend = CAL_BACKEND (data);
-	CalBackendPrivate *priv = backend->priv;
-
-	priv->clients = g_list_remove (priv->clients, where_cal_was);
-
-	/* When all clients go away, notify the parent factory about it so that
-	 * it may decide whether to kill the backend or not.
-	 */
-	if (!priv->clients)
-		cal_backend_last_client_gone (backend);
-}
-
-/**
- * cal_backend_add_cal:
- * @backend: A calendar backend.
- * @cal: A calendar client interface object.
- *
- * Adds a calendar client interface object to a calendar @backend.
- * The calendar backend must already have an open calendar.
- **/
-void
-cal_backend_add_cal (CalBackend *backend, Cal *cal)
-{
-	CalBackendPrivate *priv = backend->priv;
-
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (IS_CAL_BACKEND (backend));
-	g_return_if_fail (IS_CAL (cal));
-
-	/* we do not keep a (strong) reference to the Cal since the
-	 * Calendar user agent owns it */
-	g_object_weak_ref (G_OBJECT (cal), cal_destroy_cb, backend);
-
-	priv->clients = g_list_prepend (priv->clients, cal);
-
-	/* Tell the new client about the list of categories.
-	 * (Ends up telling all the other clients too, but *shrug*.)
-	 */
-	notify_categories_changed (backend);
-
-	/* notify backend that a new Cal has been added */
-	g_signal_emit (backend, cal_backend_signals[CAL_ADDED], 0, cal);
 }
 
 /**
@@ -540,28 +598,6 @@ cal_backend_start_query (CalBackend *backend, Query *query)
 
 	g_assert (CLASS (backend)->start_query != NULL);
 	(* CLASS (backend)->start_query) (backend, query);
-}
-
-void
-cal_backend_add_query (CalBackend *backend, Query *query)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (IS_CAL_BACKEND (backend));
-
-	g_mutex_lock (backend->priv->queries_mutex);
-
-	e_list_append (backend->priv->queries, query);
-	
-	g_mutex_unlock (backend->priv->queries_mutex);
-}
-
-EList *
-cal_backend_get_queries (CalBackend *backend)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-
-	return g_object_ref (backend->priv->queries);
 }
 
 /**

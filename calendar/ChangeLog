@@ -1,3 +1,25 @@
+2003-09-26  JP Rosevear <jpr@ximian.com>
+
+	* pcs/cal.h: add protos
+
+	* pcs/cal.c (cal_get_backend): accessor
+	(cal_get_listener): ditto
+
+	* pcs/cal-factory.c (impl_CalFactory_getCal): update to new
+	routine name
+
+	* pcs/cal-backend.h: add protos
+	
+	* pcs/cal-backend.c (cal_backend_init): init client mutex
+	(cal_backend_finalize): destroy client mutex
+	(cal_destroy_cb): just remove the client
+	(listener_died_cb): remove the client, the listener died so it
+	can't really do anything
+	(last_client_gone): signal the last client gone
+	(cal_backend_add_client): add a client with locking and listen for
+	the death of the listener
+	(cal_backend_remove_client): remove client
+
 2003-09-26  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-sync.c (_cal_backend_create_object): only free the

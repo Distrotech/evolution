@@ -224,7 +224,7 @@ impl_CalFactory_getCal (PortableServer_Servant servant,
 	}
 
 	/* Let the backend know about its clients corba clients */
-	cal_backend_add_cal (backend, cal);
+	cal_backend_add_client (backend, cal);
 	
  cleanup:
 	e_uri_free (uri);
