@@ -63,6 +63,8 @@ libcal_dialogs_la_SOURCES =	\
 	event-page.h		\
 	meeting-page.c		\
 	meeting-page.h		\
+	new-calendar.c		\
+	new-calendar.h		\
 	recurrence-page.c	\
 	recurrence-page.h	\
 	recur-comp.c		\
@@ -87,6 +89,7 @@ glade_DATA =				\
 	e-delegate-dialog.glade		\
 	event-page.glade		\
 	meeting-page.glade		\
+	new-calendar.glade		\
 	recurrence-page.glade		\
 	schedule-page.glade		\
 	task-details-page.glade		\

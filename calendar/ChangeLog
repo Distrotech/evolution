@@ -1,5 +1,17 @@
 2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/dialogs/new-calendar.[ch]: added new widget, which implements
+	the dialog to create new calendars.
+
+	* gui/dialogs/new-calendar.glade: basic mockup of the dialog.
+
+	* gui/dialogs/Makefile.am: added new files.
+
+	* gui/calendar-commands.c (file_new_calendar_cb): open the new calendar
+	dialog to allow user to create a new cal.
+
+2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/control-factory.c (calendar_properties_init): pass the
 	BonoboControl to get_prop/set_prop.
 	(get_prop): obtain the GnomeCalendar from the control.

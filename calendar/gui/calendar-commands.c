@@ -59,6 +59,7 @@
 #include "goto.h"
 #include "print.h"
 #include "dialogs/cal-prefs-dialog.h"
+#include "dialogs/new-calendar.h"
 #include "itip-utils.h"
 #include "evolution-shell-component-utils.h"
 
@@ -80,7 +81,7 @@ file_new_calendar_cb (BonoboUIComponent *uic, gpointer data, const char *path)
 
 	gcal = GNOME_CALENDAR (data);
 
-	/* FIXME: open dialog for creating a new calendar */
+	new_calendar_dialog (GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (gcal))));
 }
 
 static void
