@@ -1547,7 +1547,7 @@ mail_do_display_message (MessageList * ml, const char *uid,
 	mail_operation_queue (&op_display_message, input, FALSE);
 }
 
-/* ** EDITS MESSAGES ****************************************************** */
+/* ** EDIT MESSAGES ******************************************************* */
 
 typedef struct edit_messages_input_s {
 	CamelFolder *folder;
@@ -1675,3 +1675,191 @@ mail_do_edit_messages (CamelFolder * folder, GPtrArray *uids,
 
 	mail_operation_queue (&op_edit_messages, input, TRUE);
 }
+
+/* ** SETUP DRAFTBOX ****************************************************** */
+
+static gchar *describe_setup_draftbox (gpointer in_data, gboolean gerund);
+static void noop_setup_draftbox (gpointer in_data, gpointer op_data,
+				  CamelException * ex);
+static void do_setup_draftbox (gpointer in_data, gpointer op_data,
+			       CamelException * ex);
+
+static gchar *
+describe_setup_draftbox (gpointer in_data, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup_printf ("Loading Draftbox");
+	else
+		return g_strdup_printf ("Load Draftbox");
+}
+
+static void
+noop_setup_draftbox (gpointer in_data, gpointer op_data, CamelException * ex)
+{
+}
+
+static void
+do_setup_draftbox (gpointer in_data, gpointer op_data, CamelException * ex)
+{
+	extern CamelFolder *drafts_folder;
+	gchar *url;
+
+	url = g_strdup_printf ("mbox://%s/local/Drafts", evolution_dir);
+	drafts_folder = mail_tool_get_folder_from_urlname (url, "mbox", ex);
+	g_free (url);
+}
+
+/*
+ *static void
+ *cleanup_setup_draftbox (gpointer in_data, gpointer op_data,
+ *			CamelException * ex)
+ *{
+ *}
+ */
+
+static const mail_operation_spec op_setup_draftbox = {
+	describe_setup_draftbox,
+	0,
+	noop_setup_draftbox,
+	do_setup_draftbox,
+	noop_setup_draftbox
+};
+
+void
+mail_do_setup_draftbox (void)
+{
+	mail_operation_queue (&op_setup_draftbox, NULL, FALSE);
+}
+
+/* ** VIEW MESSAGES ******************************************************* */
+
+typedef struct view_messages_input_s {
+	CamelFolder *folder;
+	GPtrArray *uids;
+	FolderBrowser *fb;
+} view_messages_input_t;
+
+typedef struct view_messages_data_s {
+	GPtrArray *messages;
+} view_messages_data_t;
+
+static gchar *describe_view_messages (gpointer in_data, gboolean gerund);
+static void setup_view_messages (gpointer in_data, gpointer op_data,
+				  CamelException * ex);
+static void do_view_messages (gpointer in_data, gpointer op_data,
+			       CamelException * ex);
+static void cleanup_view_messages (gpointer in_data, gpointer op_data,
+				    CamelException * ex);
+
+static gchar *
+describe_view_messages (gpointer in_data, gboolean gerund)
+{
+	view_messages_input_t *input = (view_messages_input_t *) in_data;
+
+	if (gerund)
+		return g_strdup_printf
+			("Viewing messages from folder \"%s\"",
+			 input->folder->full_name);
+	else
+		return g_strdup_printf ("View messages from \"%s\"",
+					input->folder->full_name);
+}
+
+static void
+setup_view_messages (gpointer in_data, gpointer op_data, CamelException * ex)
+{
+	view_messages_input_t *input = (view_messages_input_t *) in_data;
+
+	if (!input->uids) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No UIDs specified to view.");
+		return;
+	}
+
+	if (!CAMEL_IS_FOLDER (input->folder)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No folder to fetch the messages from specified.");
+		return;
+	}
+
+	if (!IS_FOLDER_BROWSER (input->fb)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No folder browser was specified.");
+		return;
+	}
+
+
+	camel_object_ref (CAMEL_OBJECT (input->folder));
+	gtk_object_ref (GTK_OBJECT (input->fb));
+}
+
+static void
+do_view_messages (gpointer in_data, gpointer op_data, CamelException * ex)
+{
+	view_messages_input_t *input = (view_messages_input_t *) in_data;
+	view_messages_data_t *data = (view_messages_data_t *) op_data;
+
+	int i;
+
+	data->messages = g_ptr_array_new ();
+
+	for (i = 0; i < input->uids->len; i++) {
+		CamelMimeMessage *message;
+
+		mail_tool_camel_lock_up ();
+		message = camel_folder_get_message (input->folder, input->uids->pdata[i], ex);
+		mail_tool_camel_lock_down ();
+
+		if (message)
+			g_ptr_array_add (data->messages, message);
+
+		g_free (input->uids->pdata[i]);
+	}
+}
+
+static void
+cleanup_view_messages (gpointer in_data, gpointer op_data,
+		       CamelException * ex)
+{
+	view_messages_input_t *input = (view_messages_input_t *) in_data;
+	view_messages_data_t *data = (view_messages_data_t *) op_data;
+
+	int i;
+
+	for (i = 0; i < data->messages->len; i++) {
+		GtkWidget *view;
+
+		view = mail_view_create (data->messages->pdata[i], input->fb);
+		gtk_widget_show (view);
+		camel_object_unref (CAMEL_OBJECT (data->messages->pdata[i]));
+	}
+
+	g_ptr_array_free (input->uids, TRUE);
+	g_ptr_array_free (data->messages, TRUE);
+	camel_object_unref (CAMEL_OBJECT (input->folder));
+	gtk_object_unref (GTK_OBJECT (input->fb));
+}
+
+static const mail_operation_spec op_view_messages = {
+	describe_view_messages,
+	sizeof (view_messages_data_t),
+	setup_view_messages,
+	do_view_messages,
+	cleanup_view_messages
+};
+
+void
+mail_do_view_messages (CamelFolder * folder, GPtrArray *uids,
+		       FolderBrowser *fb)
+{
+	view_messages_input_t *input;
+
+	input = g_new (view_messages_input_t, 1);
+	input->folder = folder;
+	input->uids = uids;
+	input->fb = fb;
+
+	mail_operation_queue (&op_view_messages, input, TRUE);
+}
+
+

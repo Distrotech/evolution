@@ -33,6 +33,7 @@
 #include "mail-threads.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
+#include "mail-local.h"
 #include "folder-browser.h"
 #include "e-util/e-setup.h"
 #include "filter/filter-editor.h"
@@ -59,33 +60,30 @@ struct post_send_data {
 static gboolean
 check_configured (void)
 {
-	const MailConfig *config;
-
-	config = mail_config_fetch ();
-	if (config->configured)
+	if (mail_config_is_configured ())
 		return TRUE;
 
 	mail_config_druid ();
 
-	config = mail_config_fetch ();
-
-	return config->configured;
+	return mail_config_is_configured ();
 }
 
 static void
 select_first_unread (CamelFolder *folder, gpointer event_data, gpointer data)
 {
 	FolderBrowser *fb = FOLDER_BROWSER (data);
-
-	message_list_select (fb->message_list, 0, MESSAGE_LIST_SELECT_NEXT,
-			     0, CAMEL_MESSAGE_SEEN);
+	ETable *table = E_TABLE_SCROLLED (fb->message_list->etable)->table;
+	int mrow;
+  
+	mrow = e_table_view_to_model_row (table, 0);
+	message_list_select (fb->message_list, mrow, MESSAGE_LIST_SELECT_NEXT,
+  			     0, CAMEL_MESSAGE_SEEN);
 }
 
 void
 fetch_mail (GtkWidget *button, gpointer user_data)
 {
-	const MailConfig *config;
-	const MailConfigService *source;
+	MailConfigService *source;
 	char *url = NULL;
 
 	if (!check_configured ()) {
@@ -97,11 +95,8 @@ fetch_mail (GtkWidget *button, gpointer user_data)
 		return;
 	}
 
-	config = mail_config_fetch ();
-	if (config->sources) {
-		source = (MailConfigService *) config->sources->data;
-		url = source->url;
-	}
+	source = mail_config_get_default_source ();
+	url = source->url;
 
 	if (!url) {
 		GtkWidget *win = gtk_widget_get_ancestor (GTK_WIDGET (user_data),
@@ -127,7 +122,9 @@ ask_confirm_for_empty_subject (EMsgComposer *composer)
 					     GNOME_STOCK_BUTTON_YES, GNOME_STOCK_BUTTON_NO,
 					     NULL);
 
+	GDK_THREADS_ENTER ();
 	button = gnome_dialog_run_and_close (GNOME_DIALOG (message_box));
+	GDK_THREADS_LEAVE ();
 
 	if (button == 0)
 		return TRUE;
@@ -139,46 +136,48 @@ static void
 composer_send_cb (EMsgComposer *composer, gpointer data)
 {
 	static CamelInternetAddress *ciaddr = NULL;
-	const MailConfig *config = NULL;
 	const MailConfigIdentity *id = NULL;
+	MailConfigService *xport = NULL;
 	CamelMimeMessage *message;
 	const char *subject;
 
 	struct post_send_data *psd = data;
 
-	config = mail_config_fetch ();
-
 	/* Check for an identity */
 
-	if (!check_configured || !config->ids || !config->ids->data) {
+	id = mail_config_get_default_identity ();
+	if (!check_configured () || !id) {
 		GtkWidget *message;
 
 		message = gnome_warning_dialog_parented (_("You need to configure an identity\n"
 							   "before you can send mail."),
 							 GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (composer),
 										  GTK_TYPE_WINDOW)));
+		GDK_THREADS_ENTER ();
 		gnome_dialog_run_and_close (GNOME_DIALOG (message));
+		GDK_THREADS_LEAVE ();
 		return;
 	}
 
 	/* Check for a transport */
 
-	if (!config->transport || !config->transport->url) {
+	xport = mail_config_get_transport ();
+	if (!xport || !xport->url) {
 		GtkWidget *message;
 
 		message = gnome_warning_dialog_parented (_("You need to configure a mail transport\n"
 							   "before you can send mail."),
 							 GTK_WINDOW (gtk_widget_get_ancestor (GTK_WIDGET (composer),
 										  GTK_TYPE_WINDOW)));
+		GDK_THREADS_ENTER ();
 		gnome_dialog_run_and_close (GNOME_DIALOG (message));
+		GDK_THREADS_LEAVE ();
 		return;
 	}
 
 	/* Generate our from address if nonexistant */
 
 	if (!ciaddr) {
-		id = (MailConfigIdentity *) config->ids->data;
-
 		ciaddr = camel_internet_address_new ();
 		camel_internet_address_add (ciaddr, id->name, id->address);
 	}
@@ -198,11 +197,11 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 	}
 
 	if (psd) {
-		mail_do_send_mail (config->transport->url, message, ciaddr,
+		mail_do_send_mail (xport->url, message, ciaddr,
 				   psd->folder, psd->uid, psd->flags, 
 				   GTK_WIDGET (composer));
 	} else {
-		mail_do_send_mail (config->transport->url, message, ciaddr,
+		mail_do_send_mail (xport->url, message, ciaddr,
 				   NULL, NULL, 0,
 				   GTK_WIDGET (composer));
 	}
@@ -221,17 +220,16 @@ free_psd (GtkWidget *composer, gpointer user_data)
 static GtkWidget *
 create_msg_composer (const char *url)
 {
-       const MailConfig *config;
+       MailConfigIdentity *id;
+       gboolean send_html;
        gchar *sig_file = NULL;
        GtkWidget *composer_widget;
 
-       config = mail_config_fetch ();
-       if (config->ids) {
-               const MailConfigIdentity *id;
-               
-               id = (MailConfigIdentity *)config->ids->data;
+       id = mail_config_get_default_identity ();
+       send_html = mail_config_send_html ();
+
+       if (id)
                sig_file = id->sig;
-       }
        
        if (url != NULL)
                composer_widget = e_msg_composer_new_from_url (url);
@@ -239,7 +237,7 @@ create_msg_composer (const char *url)
                composer_widget = e_msg_composer_new_with_sig_file (sig_file);
 
        e_msg_composer_set_send_html (E_MSG_COMPOSER (composer_widget), 
-                                     config->send_html);
+                                     send_html);
 
        return composer_widget;
 }
@@ -402,7 +400,9 @@ edit_message (BonoboUIHandler *uih, void *user_data, const char *path)
 
 		message = gnome_warning_dialog (_("You may only edit messages saved\n"
 							   "in the Drafts folder."));
+		GDK_THREADS_ENTER ();
 		gnome_dialog_run_and_close (GNOME_DIALOG (message));
+		GDK_THREADS_LEAVE ();
 		return;
 	}
 
@@ -531,4 +531,23 @@ print_msg (GtkWidget *button, gpointer user_data)
 	gtk_widget_show (preview);
 
 	gtk_object_unref (GTK_OBJECT (print_master));
+}
+
+void
+configure_folder(BonoboUIHandler *uih, void *user_data, const char *path)
+{
+	FolderBrowser *fb = FOLDER_BROWSER(user_data);
+
+	local_reconfigure_folder(fb);
+}
+
+void
+view_message (BonoboUIHandler *uih, void *user_data, const char *path)
+{
+	FolderBrowser *fb = user_data;
+	GPtrArray *uids;
+
+	uids = g_ptr_array_new ();
+	message_list_foreach (fb->message_list, enumerate_msg, uids);
+	mail_do_view_messages (fb->folder, uids, fb);
 }

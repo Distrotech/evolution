@@ -37,6 +37,7 @@
 #include "filter/filter-driver.h"
 #include "mail.h" /*session*/
 #include "mail-tools.h"
+#include "mail-local.h"
 
 /* **************************************** */
 
@@ -146,7 +147,6 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 {
 	gchar *dest_url;
 	gchar *dest_path;
-	int tmpfd;
 	const gchar *source;
 	CamelFolder *ret;
 
@@ -276,8 +276,6 @@ mail_tool_generate_forward_subject (CamelMimeMessage *msg)
 
 	if (from) {
 		if (subject && *subject) {
-			while (*subject == ' ')
-				subject++;
 			fwd_subj = g_strdup_printf ("[%s] %s", from, subject);
 		} else {
 			fwd_subj = g_strdup_printf ("[%s] (forwarded message)",
@@ -470,7 +468,6 @@ mail_tool_uri_to_folder (const char *uri, CamelException *ex)
 {
 	CamelStore *store = NULL;
 	CamelFolder *folder = NULL;
-	char *store_uri;
 
 	if (!strncmp (uri, "vfolder:", 8)) {
 		folder = vfolder_uri_to_folder (uri, ex);
@@ -522,13 +519,7 @@ mail_tool_uri_to_folder (const char *uri, CamelException *ex)
 		mail_tool_camel_lock_down();
 
 	} else if (!strncmp (uri, "file:", 5)) {
-		/* Change "file:" to "mbox:". */
-		store_uri = g_strdup_printf ("mbox:%s", uri + 5);
-		store = camel_session_get_store (session, store_uri, ex);
-		g_free (store_uri);
-		if (store) {
-			folder = camel_store_get_folder (store, "mbox", FALSE, ex);
-		}
+		folder = mail_tool_local_uri_to_folder (uri, ex);
 	} else {
 		camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
 				      "Don't know protocol to open URI `%s'", uri);

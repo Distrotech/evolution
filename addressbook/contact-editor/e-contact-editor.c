@@ -853,12 +853,14 @@ static GnomeUIInfo toolbar[] = {
 				N_("Delete this item"), delete_cb,
 				GNOME_STOCK_PIXMAP_TRASH),
 	GNOMEUIINFO_SEPARATOR,
+#if 0
 	GNOMEUIINFO_ITEM_STOCK (N_("FIXME: Previous"),
 				N_("Go to the previous item"), NULL,
 				GNOME_STOCK_PIXMAP_BACK),
 	GNOMEUIINFO_ITEM_STOCK (N_("FIXME: Next"),
 				N_("Go to the next item"), NULL,
 				GNOME_STOCK_PIXMAP_FORWARD),
+#endif
 	GNOMEUIINFO_ITEM_STOCK (N_("FIXME: Help"),
 				N_("See online help"), NULL, GNOME_STOCK_PIXMAP_HELP),
 	GNOMEUIINFO_END
@@ -901,6 +903,44 @@ app_delete_event_cb (GtkWidget *widget, GdkEvent *event, gpointer data)
 	return TRUE;
 }
 
+static GList *
+add_to_tab_order(GList *list, GladeXML *gui, char *name)
+{
+	GtkWidget *widget = glade_xml_get_widget(gui, name);
+	return g_list_prepend(list, widget);
+}
+
+static void
+setup_tab_order(GladeXML *gui)
+{
+	GtkWidget *container;
+	GList *list = NULL;
+
+	container = glade_xml_get_widget(gui, "table-contact-editor-general");
+
+	if (container) {
+		list = add_to_tab_order(list, gui, "entry-fullname");
+		list = add_to_tab_order(list, gui, "entry-jobtitle");
+		list = add_to_tab_order(list, gui, "entry-company");
+		list = add_to_tab_order(list, gui, "combo-file-as");
+		list = add_to_tab_order(list, gui, "entry-phone1");
+		list = add_to_tab_order(list, gui, "entry-phone2");
+		list = add_to_tab_order(list, gui, "entry-phone3");
+		list = add_to_tab_order(list, gui, "entry-phone4");
+		list = g_list_reverse(list);
+		e_container_change_tab_order(GTK_CONTAINER(container), list);
+		g_list_free(list);
+
+		list = NULL;
+		list = add_to_tab_order(list, gui, "entry-email1");
+		list = add_to_tab_order(list, gui, "entry-web");
+		list = add_to_tab_order(list, gui, "text-address");
+		list = add_to_tab_order(list, gui, "alignment-contacts");
+		list = g_list_reverse(list);
+		e_container_change_tab_order(GTK_CONTAINER(container), list);
+	}
+}
+
 static void
 e_contact_editor_init (EContactEditor *e_contact_editor)
 {
@@ -934,6 +974,8 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 
 	gui = glade_xml_new (EVOLUTION_GLADEDIR "/contact-editor.glade", NULL);
 	e_contact_editor->gui = gui;
+
+	setup_tab_order(gui);
 
 	e_contact_editor->app = glade_xml_get_widget (gui, "contact editor");
 

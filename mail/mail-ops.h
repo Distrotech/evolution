@@ -58,6 +58,9 @@ void mail_do_display_message (MessageList * ml, const char *uid,
 			      gint (*timeout) (gpointer));
 void mail_do_edit_messages (CamelFolder * folder, GPtrArray *uids,
 			    GtkSignalFunc signal);
+void mail_do_setup_draftbox (void);
+void mail_do_view_messages (CamelFolder * folder, GPtrArray *uids,
+			    FolderBrowser *fb);
 
 /* This actually lives in message-list.c */
 void mail_do_regenerate_messagelist (MessageList * list,

@@ -1,10 +1,126 @@
+2000-08-08  Peter Williams  <peterw@helixcode.com>
+
+	* mail-local.c (local_reconfigure_folder): Big rewrite; make into
+	an asynchronous operation. Use some mail tools to make life easy.
+
+2000-08-08  Dan Winship  <danw@helixcode.com>
+
+	* main.c (main): Move mail_config_init after session_init, since
+	it depends on evolution_dir being set.
+
+2000-08-08  JP Rosevear  <jpr@helixcode.com>
+
+	* mail-ops.c (check_configured): Use config accessors
+	(fetch_mail): ditto
+	(composer_send_cb): ditto
+	(create_msg_composer): ditto
+
+	* mail-config-gui.h: Update API
+
+	* mail-config.h: Update API
+
+	* mail-config.c: Add accessor functions
+	(mail_config_is_configured): accessor function
+	(mail_config_get_default_identity): ditto
+	(mail_config_get_default_source): ditto
+	(mail_config_get_transport): ditto
+	(mail_config_send_html): ditto
+	(identity_copy): Make public
+	(identity_destroy): ditto
+	(identity_destroy_each): ditto
+	(service_copy): ditto
+	(service_destroy): ditto
+	(service_destroy_each): ditto
+	(mail_config_init): Rename from init_config and make public
+	(mail_config_clear): Rename from clear_config and make public
+	(mail_config_read): Rename from read_config and make public
+	(mail_config_write): Reanme from write_config and make public
+
+	* main.c (main): Call mail_config_init.
+
+	* mail.h: Include mail-config-gui.h
+
+	* mail-config-gui.c: Move config gui stuff here.
+	(source_dialog): Kill memory leak from debug leftovers.
+	Make sure returned source is NULL by default
+
+2000-08-07  Not Zed  <NotZed@HelixCode.com>
+
+	* mail-local.c (local_reconfigure_folder): Redone to show a
+	dialogue first, and show progress of whats happening as its done.
+
+	* Makefile.am (glade_DATA): Added local-config.glade, for mailbox
+	reconfig dialogue.
+
+2000-08-04  Not Zed  <NotZed@HelixCode.com>
+
+	* folder-browser.c (mail_uri_to_folder): Use local_uri_to_folder()
+	for local uri's (file://).
+
+	* mail-local.c (local_uri_to_folder): Handle looking up folder
+	storage type before opening the store/folder.
+	(local_reconfigure_folder): Function to reconfigure the format of
+	a local mailbox into another storage format.
+
+	* Makefile.am (evolution_mail_SOURCES): Added mail-local.c and
+	missing mail-vfolder.h.
+
+2000-08-07  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* Makefile.am: Added mail-view.c
+	
+	* folder-browser-factory.c (control_activate): Adda menu item for
+	viewing the message
+
+	* mail-view.c: New file containing methods for viewing messages in
+	separate windows
+
+	* mail-ops.c (view_message): New callback for viewing messages in
+	a new window.
+
+2000-08-07  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* component-factory.c (real_create_generic_storage): New function
+	to replace real_create_imap_storage and real_create_news_storage
+	(create_imap_storage): Updated.
+	(create_news_storage): Updated.
+
 2000-08-07  Peter Williams  <peterw@helixcode.com>
 
 	* mail-ops.c (cleanup_edit_messages): New operation: edit_messages
 	For continuing draft messages.
 	(attach_messages): Fix accidental 0 datasize.
+	(do_setup_draftbox): New operation: setup_draftbox. Soooo hacky.
 
 	* mail-callbacks.c: Move fejj's edit message to the async home.
+
+	* component-factory.c (owner_set_cb): Use mail_do_setup_draftbox.
+
+
+2000-08-07  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-display.c:
+	* component-factory.c: s/strncasecmp/g_strncasecmp
+
+	* mail-format.c (write_headers): Get rid of kludge around subject
+	beginning with spaces.
+	(mail_generate_reply): Get rid of kludge around subject beginning
+	with spaces and also use g_strncasecmp instead of strncasecmp for
+	portability
+
+	* mail-ops.c (forward_msg): Get rid of kludges around subject
+	beginning with spaces.
+
+2000-08-07  Dan Winship  <danw@helixcode.com>
+
+	* message-list.c (message_list_select): Clarify that the input row
+	is a model row, and swap it to a view row when finding the
+	next/previous row.
+	(idle_select_row): Select view row 0, not model row 0.
+
+	* mail-ops.c (select_first_unread): Start from view row 0, not
+	model row 0.
+
 2000-08-07  Jeffrey Stedfast  <fejj@helixcode.com>
 
 	* mail-format.c (mail_get_message_body): Renamed from reply_body()

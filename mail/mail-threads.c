@@ -271,7 +271,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 						TRUE);
 			/*gnome_dialog_run_and_close (GNOME_DIALOG (err_dialog)); */
 			/*gtk_widget_destroy (err_dialog); */
-			gtk_widget_show_all (GTK_WIDGET (err_dialog));
+			gtk_widget_show (GTK_WIDGET (err_dialog));
 
 			g_warning ("Setup failed for `%s': %s",
 				   clur->infinitive,
@@ -305,7 +305,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 		/* If we want the next op to be on the bottom, uncomment this */
 		/* 1 = first on list always (0-based) */
 		/* gtk_box_reorder_child( GTK_BOX( queue_window_pending ), label, 1 ); */
-		gtk_widget_show_all (queue_window_pending);
+		gtk_widget_show (queue_window_pending);
 	}
 
 	write (DISPATCH_WRITER, clur, sizeof (closure_t));
@@ -615,6 +615,12 @@ create_queue_window (void)
 
 	gtk_container_add (GTK_CONTAINER (queue_window), vbox);
 
+	gtk_widget_show (GTK_WIDGET (progress_bar));
+	gtk_widget_show (GTK_WIDGET (progress_lb));
+	gtk_widget_show (GTK_WIDGET (pending_lb));
+	gtk_widget_show (GTK_WIDGET (pending_vb));
+	gtk_widget_show (GTK_WIDGET (vbox));
+
 	gtk_signal_connect (GTK_OBJECT (queue_window), "hide", print_hide,
 			    NULL);
 	gtk_signal_connect (GTK_OBJECT (queue_window), "unmap", print_unmap,
@@ -909,7 +915,7 @@ remove_next_pending (void)
 
 	/* Hide it? */
 	if (g_list_next (children) == NULL)
-		gtk_widget_hide_all (queue_window_pending);
+		gtk_widget_hide (queue_window_pending);
 }
 
 /**
@@ -1114,7 +1120,7 @@ static gboolean
 display_timeout (gpointer data)
 {
 	if (queue_len > 0) {
-		gtk_widget_show_all (queue_window);
+		gtk_widget_show (queue_window);
 		gnome_win_hints_set_layer (queue_window, WIN_LAYER_ONTOP);
 		gnome_win_hints_set_state (queue_window,
 					   WIN_STATE_ARRANGE_IGNORE);
@@ -1124,7 +1130,7 @@ display_timeout (gpointer data)
 					   WIN_HINTS_SKIP_TASKBAR);
 
 		if (queue_len == 1)
-			gtk_widget_hide_all (queue_window_pending);
+			gtk_widget_hide (queue_window_pending);
 	}
 
 	return FALSE;
@@ -1134,7 +1140,7 @@ static gboolean
 hide_queue_window (gpointer data)
 {
 	timeout_toggle (FALSE);
-	gtk_widget_hide_all (queue_window);
+	gtk_widget_hide (queue_window);
 	return FALSE;
 }
 

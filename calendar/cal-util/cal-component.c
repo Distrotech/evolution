@@ -338,6 +338,39 @@ cal_component_new (void)
 	return CAL_COMPONENT (gtk_type_new (CAL_COMPONENT_TYPE));
 }
 
+/**
+ * cal_component_clone:
+ * @comp: A calendar component object.
+ * 
+ * Creates a new calendar component object by copying the information from
+ * another one.
+ * 
+ * Return value: A newly-created calendar component with the same values as the
+ * original one.
+ **/
+CalComponent *
+cal_component_clone (CalComponent *comp)
+{
+	CalComponentPrivate *priv;
+	CalComponent *new_comp;
+	icalcomponent *new_icalcomp;
+
+	g_return_val_if_fail (comp != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_COMPONENT (comp), NULL);
+
+	priv = comp->priv;
+	g_return_val_if_fail (priv->need_sequence_inc == FALSE, NULL);
+
+	new_comp = cal_component_new ();
+
+	if (priv->icalcomp) {
+		new_icalcomp = icalcomponent_new_clone (priv->icalcomp);
+		cal_component_set_icalcomponent (new_comp, new_icalcomp);
+	}
+
+	return new_comp;
+}
+
 /* Scans the categories property */
 static void
 scan_categories (CalComponent *comp, icalproperty *prop)
@@ -715,6 +748,8 @@ cal_component_get_icalcomponent (CalComponent *comp)
 	g_return_val_if_fail (IS_CAL_COMPONENT (comp), NULL);
 
 	priv = comp->priv;
+	g_return_val_if_fail (priv->need_sequence_inc == FALSE, NULL);
+
 	return priv->icalcomp;
 }
 
@@ -766,7 +801,9 @@ cal_component_get_vtype (CalComponent *comp)
  * cal_component_get_as_string:
  * @comp: A calendar component.
  *
- * Gets the iCalendar string representation of a calendar component.
+ * Gets the iCalendar string representation of a calendar component.  You should
+ * call cal_component_commit_sequence() before this function to ensure that the
+ * component's sequence number is consistent with the state of the object.
  *
  * Return value: String representation of the calendar component according to
  * RFC 2445.
@@ -783,17 +820,61 @@ cal_component_get_as_string (CalComponent *comp)
 	priv = comp->priv;
 	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
 
-	/* Sigh, we dup and dup and dup and dup because of g_malloc() versus malloc()... */
+	/* Ensure that the user has committed the new SEQUENCE */
+	g_return_val_if_fail (priv->need_sequence_inc == FALSE, NULL);
+
+	/* We dup the string; libical owns that memory */
 
 	str = icalcomponent_as_ical_string (priv->icalcomp);
 
-	if (str) {
+	if (str)
 		buf = g_strdup (str);
-		free (str);
-	} else
+	else
 		buf = NULL;
 
 	return buf;
+}
+
+/**
+ * cal_component_commit_sequence:
+ * @comp: 
+ * 
+ * Increments the sequence number property in a calendar component object if it
+ * needs it.  This needs to be done when any of a number of properties listed in
+ * RFC 2445 change values, such as the start and end dates of a component.
+ *
+ * This function must be called before calling cal_component_get_as_string() to
+ * ensure that the component is fully consistent.
+ **/
+void
+cal_component_commit_sequence (CalComponent *comp)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	if (!priv->need_sequence_inc)
+		return;
+
+	if (priv->sequence) {
+		int seq;
+
+		seq = icalproperty_get_sequence (priv->sequence);
+		icalproperty_set_sequence (priv->sequence, seq + 1);
+	} else {
+		/* The component had no SEQUENCE property, so assume that the
+		 * default would have been zero.  Since it needed incrementing
+		 * anyways, we use a value of 1 here.
+		 */
+		priv->sequence = icalproperty_new_sequence (1);
+		icalcomponent_add_property (priv->icalcomp, priv->sequence);
+	}
+
+	priv->need_sequence_inc = FALSE;
 }
 
 /**

@@ -26,6 +26,8 @@
 #include "filter/filter-option.h"
 #include "filter/filter-input.h"
 
+#include "mail-local.h"
+
 #define PARENT_TYPE (gtk_table_get_type ())
 
 static GtkObjectClass *folder_browser_parent_class;

@@ -105,27 +105,12 @@ owner_set_cb (EvolutionShellComponent *shell_component,
 	      EvolutionShellClient *shell_client,
 	      gpointer user_data)
 {
-	CamelException *ex;
-	CamelStore *store;
-	char *url;
-	
 	g_print ("evolution-mail: Yeeeh! We have an owner!\n");	/* FIXME */
 	
 	/* GROSS HACK */
 	/*global_shell_client = shell_client;*/
 	
-	ex = camel_exception_new ();
-	url = g_strdup_printf ("mbox://%s/local/Drafts", evolution_dir);
-	store = camel_session_get_store (session, url, ex);
-	g_free (url);
-	if (!camel_exception_is_set (ex)) {
-		drafts_folder = camel_store_get_folder (store, "mbox", TRUE, ex);
-		gtk_object_unref (GTK_OBJECT (store));
-	} else {
-		drafts_folder = NULL;
-	}
-	camel_exception_free (ex);
-	
+	mail_do_setup_draftbox ();
 	create_vfolder_storage (shell_component);
 	create_imap_storage (shell_component);
 	create_news_storage (shell_component);
@@ -219,7 +204,7 @@ create_imap_storage (EvolutionShellComponent *shell_component)
 		source = s->url;
 	}
 
-	if (!source || strncasecmp (source, "imap://", 7))
+	if (!source || g_strncasecmp (source, "imap://", 7))
 		return;
 	
 	shell_client = evolution_shell_component_get_owner (shell_component);
@@ -227,9 +212,9 @@ create_imap_storage (EvolutionShellComponent *shell_component)
 		g_warning ("We have no shell!?");
 		return;
 	}
-
+	
 	corba_shell = bonobo_object_corba_objref (BONOBO_OBJECT (shell_client));
-
+	
 	if (!(server = strchr (source, '@'))) {
 		g_free (source);
 		return;
@@ -268,7 +253,7 @@ create_news_storage (EvolutionShellComponent *shell_component)
 		source = s->url;
 	}
 
-	if (!source || strncasecmp (source, "news://", 7))
+	if (!source || g_strncasecmp (source, "news://", 7))
 		return;
 	
 	shell_client = evolution_shell_component_get_owner (shell_component);
