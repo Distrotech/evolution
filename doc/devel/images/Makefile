@@ -3,7 +3,7 @@
 
 # you need ps2eps, groff, pnmutils, and ghostscript installed
 
-PICS=e-config-flow.pic
+PICS=e-config-flow.pic e-popup-merge-1.pic e-popup-merge-2.pic
 EPS=$(PICS:.pic=.eps)
 PNG=$(PICS:.pic=.png)
 

@@ -1,3 +1,9 @@
+2004-09-09  Not Zed  <NotZed@Ximian.com>
+
+	* evolution-plugin-manual.xml: updates.  some not very readable, sigh.
+
+	* images: Added e-popup-merge-[12].pic.
+
 2004-09-04  Not Zed  <NotZed@Ximian.com>
 
 	* images/Makefile: add a temporary makefile to build images from

@@ -1,0 +1,62 @@
+
+.PS 5
+space=0.7
+itemht=space/3 ; itemwid = space*1.8
+down
+
+define item {
+	[ right ; box $1 $2
+	box invis $3 ljust with .c at last box.e ]
+}
+
+Menus: [
+Mail: [
+	boxht = itemht; boxwid = itemwid
+	box invis "Builtin Items"
+
+	Open: item("Open", "", "00.emfv.00")
+	Save: item("Save As...", "", "00.emfv.01")
+	Print: item("Print", "one", "00.emfv.02")
+	ForwardBar: item("-----", "one,many", "10.emfv")
+	Forward: item("Forward", "many", "10.emfv.00")
+	Reply: item("Reply", "one", "10.emfv.01")
+	MarkBar: item("-----", "mark_read,mark_unread", "20.emfv")
+	Markread: item("Mark Read", "mark_read", "20.emfv.01")
+	Markunread: item("Mark Unread", "mark_unread", "20.emfv.02")
+]
+Plugin: [
+	boxht = itemht; boxwid = itemwid
+	box invis "InlinePGP Plugin Items"
+
+	ViewInlineBar: item("-----", "one", "05.plugin")
+	ViewInline: item("View Inline PGP", "one", "05.plugin.01")
+] at Mail + (0,-space*2.5)
+]
+
+Merged: [
+	boxht = itemht; boxwid = itemwid
+	box invis "Merged Items" "one,mark_read"
+	Open: box "Open"
+	Save: box "Save As..."
+	Print: box "Print"
+	ViewInlineBar: box "-----"
+	ViewInline: box "View Inline PGP"
+	ForwardBar: box "-----"
+	Reply: box "Reply"
+	MarkBar: box "-----"
+	Markread: box "Mark Read"
+] at Menus + (space*3.5, 0)
+
+box invis "Select" "Sort" "Merge"  at Menus + (space*2,0)
+
+line -> from Menus.Mail.Open.e to Merged.Open.w
+line -> from Menus.Mail.Save.e to Merged.Save.w
+line -> from Menus.Mail.Print.e to Merged.Print.w
+line -> from Menus.Plugin.ViewInlineBar.e to Merged.ViewInlineBar.w
+line -> from Menus.Plugin.ViewInline.e to Merged.ViewInline.w
+line -> from Menus.Mail.ForwardBar.e to Merged.ForwardBar.w
+line -> from Menus.Mail.Reply.e to Merged.Reply.w
+line -> from Menus.Mail.MarkBar.e to Merged.MarkBar.w
+line -> from Menus.Mail.Markread.e to Merged.Markread.w
+
+.PE

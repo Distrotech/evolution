@@ -76,35 +76,35 @@
 	    <!-- is symbol the right one here? -->
 	    <term><symbol>|</symbol></term>
 	    <listitem>
-	      <para>Indicates an alternative option.  Only one of the items
+	      <simpara>Indicates an alternative option.  Only one of the items
 		separated by <symbol>|</symbol> is to be chosen.
-	      </para>
+	      </simpara>
 	    </listitem>
 	  </varlistentry>
 	  <varlistentry>
 	    <term><symbol>*</symbol></term>
 	    <listitem>
-	      <para>Following an item, <symbol>*</symbol> indicates the item
+	      <simpara>Following an item, <symbol>*</symbol> indicates the item
 		may occur any number of times, including no times (0 or more
 		multiple).
-	      </para>
+	      </simpara>
 	    </listitem>
 	  </varlistentry>
 	  <varlistentry>
 	    <term><symbol>+</symbol></term>
 	    <listitem>
-	      <para>Following an item, <symbol>+</symbol> indicates the item
+	      <simpara>Following an item, <symbol>+</symbol> indicates the item
 		must occur at least once, but may occur more than ones (1 or
 		more multiple).
-	      </para>
+	      </simpara>
 	    </listitem>
 	  </varlistentry>
 	  <varlistentry>
 	    <term><symbol>?</symbol></term>
 	    <listitem>
-	      <para>Following an item, <symbol>?</symbol> indicates the item
+	      <simpara>Following an item, <symbol>?</symbol> indicates the item
 		may occur at most once, if present (0 or 1 times).
-	      </para>
+	      </simpara>
 	    </listitem>
 	  </varlistentry>
 	</variablelist>
@@ -407,60 +407,60 @@
 	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The type name of the plugin loader.  Currently <link
 		    linkend="plugin-loaders-lib">shlib</link> and <link
 		    linkend="plugin-loaders-mono">mono</link> are the only
 		  supported values.  If no known handler is registered for this
 		  type, the plugin definition is silently ignored.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>domain</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The translation domain for this plugin, as passed to the
 		  <function>dcgettext</function> call of the gettext package.
 		  If not supplied then the default application domain is used
 		  (i.e. &quot;evolution&quot;).  This is used to translate
 		  translatable strings for display.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>name</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A short name for the plugin.  &quot;Bob's Wonder
 		  Extender&quot; might be suitable.  This value will be
 		  translated.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>description</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A longer description of the plugin's purpose. This value will be
 		  translated.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>hook</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  This is a list of all of the hooks that this plugin wishes to
 		  hook into.  See the <link linkend="plugin-hooks">Plugin
 		    Hooks</link> section for the details of the basic hook
 		  types defined.
-		</para>
-		<para>
+		</simpara>
+		<simpara>
 		  The hook <parameter>class</parameter> is resolved using the
 		  registered hook types, and if none can be found, or a version
 		  mismatch occurs, then the hook is silently ignored.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
@@ -499,19 +499,19 @@
 	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The type name of the shared library plugin is
 		  <constant>shlib</constant>.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>location</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The location parameter contains
 		  the full path-name of a shared object to load.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
@@ -538,35 +538,35 @@
 	      <varlistentry>
 		<term><function>function</function></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    The callback function.
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	      <varlistentry>
 		<term><parameter>ep</parameter></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    The container EPlugin representing this plugin.
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	      <varlistentry>
 		<term><parameter>data</parameter></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    Hook context data.  It is part of the hook's api to specify
 		    the type of this pointer.
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	      <varlistentry>
 		<term><returnvalue>return value</returnvalue></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    Return data.  It is part of the hook's api to specify the
 		    type of this pointer.
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	    </variablelist>
@@ -606,35 +606,35 @@
 	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The type name of a mono assembly plugin is
 		  <constant>mono</constant>.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>location</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The location parameter contains
 		  the full path-name of an assembly to load.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>handler</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  If supplied, the handler contains the fully qualified name of
 		  the class which handles all callbacks for this plugin.  If a
 		  handling class is used, then the function specifications
 		  become relative to this class.
-		</para>
-		<para>
+		</simpara>
+		<simpara>
 		  This class will be
 		  instantiated once upon the first callback invocation, and
 		  remain active for the life of the plugin (or application).
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
@@ -669,30 +669,30 @@
 	      <varlistentry>
 		<term><function>function</function></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    The callback method.
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	      <varlistentry>
 		<term><parameter>data</parameter></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    The hook context data.  This is a pointer to unmanaged data, and it is up-to the plugin to interpret this
 		    data right now, although some helper binding classes are
 		    planned.  FIXME: hook-up when they and doco are done.
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	      <varlistentry>
 		<term><returnvalue>return value</returnvalue></term>
 		<listitem>
-		  <para>
+		  <simpara>
 		    The callback return data.  It is up to the hook's api to
 		    define the type of this pointer.  It may be a simple boxed
 		    value type, or a memory pointer allocated in unmanaged memory (e.g. a
 		    GObject handle or a CamelObject cobject value).
-		  </para>
+		  </simpara>
 		</listitem>
 	      </varlistentry>
 	    </variablelist>
@@ -768,86 +768,191 @@
 	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The menu item type.  The type maps directly to the
 		  corresponding EPopupItem types.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>active</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  If present, then radio or toggle menu items are active when
 		  first shown.  After the first instantiation, they will
 		  remember their active state.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>path</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A '/' separated path used to position the item within menu
 		  and in the right submenu.  Each menu and plugin should
 		  define how its menu's are layed out so other plugins can
 		  determine what value to use here.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>label</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The text to be displayed on the menu item.  This will be
 		  translated based on the plugin translation domain (FIXME:
 		  domain's are not yet available).
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>icon</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The name of a gnome-icon-theme standard icon, or the full
 		  path-name of an icon image to use as menu item icon.  This
 		  will be blank if not supplied.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>visible</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A comma separated list of mask enumeration values used to
 		  define when this item is shown.  What values are valid
 		  depend on the menu hook class of the menu being hooked
 		  onto.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>enable</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A comma separated list of mask enumeration values used to
 		  define when this item is enabled.  What values are valid
 		  depend on the menu hook class of the menu being hooked
 		  onto.  This is currently unimplemented.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>activate</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A plugin-type specific function specification.  This
 		  function will be resolved and called when the menu item is
 		  activated.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
+	</sect2>
+	<sect2>
+	  <title>Merging Plugin Items</title>
+	  <para>
+	    A very simple algorithm is used to form the menu by merging the
+	    plugin's menu items with the system menu items for a given menu.
+	    What follows is a simple example of how this is done.  It will be
+	    demonstrated using a simplified menu from the message-list, as used
+	    in the &Evolution; Mail component, and a simple plugin which adds a
+	    single menu item and menu separator into the middle of the menu,
+	    when appropriate.
+	  </para>
+	  <para>
+	    When the application wishes to show a specific popup menu, it
+	    creates a new EPopup object with a unique menu id to manage it.  It
+	    adds all of the items it wishes to add to the menu (see "Builtin
+	    Items" in the following diagrams).  The application then asks for
+	    the menu to be created.  The menu building
+	    process adds all of the menu items from all plugins that target
+	    this specific menu into a flat list, discarding those which don't
+	    match the current Target qualifications.  The result is then
+	    sorted using a simple ASCII sort, and then a menu built from the
+	    remaining items.  This is probably best described by some diagrams.
+	  </para>
+	  <para>
+	    The following two diagrams show how a popup menu is automatically
+	    customised depending on the context.  On the left of each diagram
+	    are all of the menu items which apply to the example menu.  The
+	    menu label, with the qualifiers listed underneath, with the menu
+	    item path along-side.  On the right-hand side of each diagram is
+	    the result of:
+	  </para>
+	  <itemizedlist>
+	    <listitem><simpara>Selecting items based on the target
+		qualifiers</simpara></listitem>
+	    <listitem><simpara>Sorting the remaining items based on their
+		path.</simpara></listitem>
+	    <listitem><simpara>Building this sorted list into a
+		menu.</simpara></listitem>
+	  </itemizedlist>
+
+	  <para>
+	    The actual list of target qualifiers are defined by the application
+	    itself.  Generally a specific menu will have only one possible
+	    target, and a list of matching target qualifiers.  The example
+	    shows how a plugin can insert a menu item anwhere it wishes in the
+	    menu system.  Submenus are also supported, and they work in exactly
+	    the same manner, with / characters used to separate submenu paths.
+	    A submenu must sort into the position immediately before the
+	    definition of its items.
+	  </para>
+
+	  <figure id="e-popup-merge-1">
+	    <title>Merging a menu with many items selected.</title>
+	    <mediaobject>
+	      <imageobject>
+		<imagedata fileref="images/e-popup-merge-1.pic" format="PIC" />
+	      </imageobject>
+	      <imageobject>
+		<imagedata fileref="images/e-popup-merge-1.eps" format="EPS"/>
+	      </imageobject>
+	      <imageobject>
+		<imagedata fileref="images/e-popup-merge-1.png" format="PNG"/>
+	      </imageobject>
+	      <textobject>
+		<phrase>Showing how a display list of menu items is selected
+		  and then sorted for display.</phrase>
+	      </textobject>
+	    </mediaobject>
+	  </figure>
+
+	  <para>
+	    The first diagram shows when the target qualifiers are
+	    <parameter>many</parameter>, and
+	    <parameter>mark_unread</parameter>.  The menu items which operate
+	    on only one selected message are not shown.  Similarly for those
+	    able to be marked as unread (i.e. they are currently read).
+	  </para>
+
+	  <figure id="e-popup-merge-2">
+	    <title>Merging a menu with one item selected.</title>
+	    <mediaobject>
+	      <imageobject>
+		<imagedata fileref="images/e-popup-merge-2.pic" format="PIC"/>
+	      </imageobject>
+	      <imageobject>
+		<imagedata fileref="images/e-popup-merge-2.eps" format="EPS"/>
+	      </imageobject>
+	      <imageobject>
+		<imagedata fileref="images/e-popup-merge-2.png" format="PNG"/>
+	      </imageobject>
+	      <textobject>
+		<phrase>Showing how a display list of menu items is selected
+		  and then sorted for display with different qualifiers.</phrase>
+	      </textobject>
+	    </mediaobject>
+	  </figure>
+
+	  <para>
+	    This diagram shows when the target qualifiers are
+	    <parameter>one</parameter>, and
+	    <parameter>mark_read</parameter>.  The menu items which operate
+	    on only many selected messages are not shown.  Similarly for those
+	    able to be marked as read.
+	  </para>
 	</sect2>
       </sect1>
 
@@ -878,6 +983,8 @@
 	</para>
 	<para>
 	  Simple menu items and toggle menu items are supported currently.
+	  Also, because actual menu display is driven by BonoboUI, then toolbar
+	  items can also be added using this mechanism.
 	</para>
 	<sect2>
 	  <title>Defining a menu hook</title>
@@ -887,7 +994,8 @@
 	  <programlisting>
 	    <![CDATA[
 <hook class="com.ximian.evolution.mail.bonoboMenu:1.0">
- <menu id="menuid" target="targettype">
+ <menu id="menuid" target="targettype"
+  <ui file="/path/to/bonobo-ui-menu-definition.xml"> +
   <item
    type="item | toggle | radio"
    active ?
@@ -903,75 +1011,94 @@
 	  </para>
 	  <variablelist>
 	    <varlistentry>
+	      <term><parameter>ui</parameter></term>
+	      <listitem>
+		<simpara>
+		  The <parameter>ui</parameter> element contains a filename of the
+		  BonoboUI XML menu definition to load when the view is activated.  Any number of
+		  <parameter>ui</parameter> elements may be defined, and they
+		  are all loaded.
+		</simpara>
+	      </listitem>
+	    </varlistentry>
+
+	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The menu item type.  The type maps directly to the
 		  corresponding EMenuItem types.
 		  <parameter>radio</parameter> is currently not implemented.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>active</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  If present, then radio or toggle menu items are active when
 		  first shown.  After the first instantiation, they will
 		  remember their active state.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>path</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The BonoboUI element path corresponding to this menu item.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>verb</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The BonoboUI verb corresponding to the item to be listened to.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>visible</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A comma separated list of mask enumeration values used to
 		  define when this item is shown.  What values are valid
 		  depend on the menu hook class of the menu being hooked
 		  onto.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>enable</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A comma separated list of mask enumeration values used to
 		  define when this item is sensitive.  What values are valid
 		  depend on the menu hook class of the menu being hooked
 		  onto.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>activate</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A plugin-type specific function specification.  This
 		  function will be resolved and called when the menu item is
 		  activated.  The funciton's parameters will depend on the type
 		  of menu item being invoked.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
+	</sect2>
+	<sect2>
+	  <title>Merging Plugin Items</title>
+	  <para>
+	    Merging is performed by BonoboUI, and the source of the menu data
+	    is defined by the <parameter>ui</parameter> file.
+	  </para>
 	</sect2>
       </sect1>
 
@@ -1014,7 +1141,7 @@
 	      <imagedata fileref="images/e-config-flow.png" format="PNG"/>
 	    </imageobject>
 	    <textobject>
-	      <phrase>A flow of information and control signals in the
+	      <phrase>The flow of information and control signals in the
 		configuration management object.</phrase>
 	    </textobject>
 	  </mediaobject>
@@ -1047,52 +1174,67 @@
 	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The menu item type.  The type maps directly to the
 		  corresponding EConfigItem types.  Only one of
 		  <parameter>book</parameter> and <parameter>druid</parameter>
 		  may be supplied for the entire configuration page, and this
 		  will usually already be defined by the application.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>path</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The path to the configuration item in question.  This is a
 		  simple string that when sorted using an ASCII sort will place
 		  the items in the right order.  That is, sections before items
 		  before pages before the root object.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>label</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The textual label of this item.  This may only be supplied
 		  for the section and page types.  For sections it will be the
 		  section frame text.  For pages this will be the druid page
 		  title or the notebook tab text.  If a
 		  <parameter>factory</parameter>is supplied then this value is
 		  not used.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>factory</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  If supplied, the factory method used to create the GtkWidget
 		  elements for this configuration item.  Factories may be
 		  supplied for any of the item types.  If no
 		  <parameter>label</parameter> is set then the
 		  <parameter>factory</parameter> must be set.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
+	</sect2>
+	<sect2>
+	  <title>Merging Plugin Items</title>
+	  <para>
+	    Configuration items essentially spam 3 dimensions, but are
+	    merged in a similar fashion to the way Popup items are merged.  The
+	    main difference is that there are no target qualifiers used to
+	    select which items are shown, it is up to the item factory to
+	    either create or not create the item as it sees fit.  The EConfig
+	    manager takes care of the rest, including removing un-used sections
+	    or pages.
+	  </para>
+	  <para>
+	    <emphasis>Insert screen-shot example here</emphasis>
+	  </para>
 	</sect2>
       </sect1>
 
@@ -1140,49 +1282,49 @@
 	    <varlistentry>
 	      <term><parameter>type</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The event listener type.  The type maps directly to the corresponding
 		  corresponding EEventItem types.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>priority</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A signed integer specifying the priority of this event
 		  listener.  0 (zero) should be used normally, although positive
 		  and negative integers in the range -128 to 127 may aslo be
 		  used.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>id</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  The name of the event to listen to.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>enable</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A comma separated list of mask enumeration values used to
 		  qualify when this event listener is invoked.  What values are valid
 		  depend on the event hook class.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	    <varlistentry>
 	      <term><parameter>handle</parameter></term>
 	      <listitem>
-		<para>
+		<simpara>
 		  A plugin-type specific function specification.  This
 		  function will be resolved and called when an event is routed to
 		  this listener.
-		</para>
+		</simpara>
 	      </listitem>
 	    </varlistentry>
 	  </variablelist>
