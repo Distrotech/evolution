@@ -63,7 +63,6 @@ enum {
 
 
 static int eti_get_height (ETableItem *eti);
-static int eti_get_minimum_width (ETableItem *eti);
 static int eti_row_height (ETableItem *eti, int row);
 static void e_table_item_focus (ETableItem *eti, int col, int row, GdkModifierType state);
 static void eti_cursor_change (ETableSelectionModel *selection, int row, int col, ETableItem *eti);
@@ -260,8 +259,7 @@ eti_reflow (GnomeCanvasItem *item, gint flags)
 		eti->needs_compute_height = 0;
 	}
 	if (eti->needs_compute_width) {
-		int new_width = eti_get_minimum_width (eti);
-		new_width = MAX(new_width, eti->minimum_width);
+		int new_width = e_table_header_total_width(eti->header);
 		if (new_width != eti->width) {
 			eti->width = new_width;
 			e_canvas_item_request_parent_reflow (GNOME_CANVAS_ITEM (eti));
@@ -555,19 +553,6 @@ eti_get_height (ETableItem *eti)
 		height += eti_row_height (eti, row) + height_extra;
 
 	return height;
-}
-
-static int
-eti_get_minimum_width (ETableItem *eti)
-{
-	int width = 0;
-	int col;
-	for (col = 0; col < eti->cols; col++){
-		ETableCol *ecol = e_table_header_get_column (eti->header, col);
-		
-		width += ecol->min_width;
-	}
-	return width;
 }
 
 static void
@@ -876,7 +861,6 @@ static void
 eti_header_structure_changed (ETableHeader *eth, ETableItem *eti)
 {
 	eti->cols = e_table_header_count (eti->header);
-	eti->width = e_table_header_total_width (eti->header);
 
 	/*
 	 * There should be at least one column
@@ -1013,11 +997,12 @@ eti_set_arg (GtkObject *o, GtkArg *arg, guint arg_id)
 
 	case ARG_MINIMUM_WIDTH:
 	case ARG_WIDTH:
-		if (eti->minimum_width == eti->width && GTK_VALUE_DOUBLE (*arg) > eti->width)
-			e_canvas_item_request_reflow (GNOME_CANVAS_ITEM (eti));
+		if ((eti->minimum_width == eti->width && GTK_VALUE_DOUBLE (*arg) > eti->width) ||
+		    GTK_VALUE_DOUBLE (*arg) < eti->width) {
+			eti->needs_compute_width = 1;
+			e_canvas_item_request_reflow (GNOME_CANVAS_ITEM(eti));
+		}
 		eti->minimum_width = GTK_VALUE_DOUBLE (*arg);
-		if (eti->minimum_width < eti->width)
-			e_canvas_item_request_reflow (GNOME_CANVAS_ITEM (eti));
 		break;
 	case ARG_CURSOR_ROW:
 		gtk_object_get(GTK_OBJECT(eti->selection),
@@ -1177,6 +1162,7 @@ eti_realize (GnomeCanvasItem *item)
 	eti_realize_cell_views (eti);
 
 	eti->needs_compute_height = 1;
+	eti->needs_compute_width = 1;
 	e_canvas_item_request_reflow (GNOME_CANVAS_ITEM (eti));
 	eti->needs_redraw = 1;
 	gnome_canvas_item_request_update (GNOME_CANVAS_ITEM (eti));

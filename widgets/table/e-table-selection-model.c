@@ -26,6 +26,7 @@ enum {
 	ARG_MODEL,
 };
 
+#if 0
 static void
 save_to_hash(int model_row, gpointer closure)
 {
@@ -34,6 +35,7 @@ save_to_hash(int model_row, gpointer closure)
 
 	g_hash_table_insert(etsm->hash, key, key);
 }
+#endif
 
 static void
 free_key(gpointer key, gpointer value, gpointer closure)
@@ -58,6 +60,7 @@ model_pre_change (ETableModel *etm, ETableSelectionModel *etsm)
 {
 	free_hash(etsm);
 
+#if 0
 	if (etsm->model && e_table_model_has_save_id(etsm->model)) {
 		gint cursor_row;
 		etsm->hash = g_hash_table_new(g_str_hash, g_str_equal);
@@ -69,6 +72,7 @@ model_pre_change (ETableModel *etm, ETableSelectionModel *etsm)
 			etsm->cursor_id = e_table_model_get_save_id(etm, cursor_row);
 		}
 	}
+#endif
 }
 
 static void
@@ -76,6 +80,7 @@ model_changed(ETableModel *etm, ETableSelectionModel *etsm)
 {
 	e_selection_model_clear(E_SELECTION_MODEL(etsm));
 
+#if 0
 	if (etm && e_table_model_has_save_id(etm)) {
 		int row_count = e_table_model_row_count(etm);
 		int i;
@@ -93,6 +98,7 @@ model_changed(ETableModel *etm, ETableSelectionModel *etsm)
 			}
 		}
 	}
+#endif
 
 	if (etsm->hash)
 		free_hash(etsm);

@@ -756,6 +756,10 @@ e_table_set_state_object(ETable *e_table, ETableState *state)
 	if (e_table->header)
 		gtk_object_ref(GTK_OBJECT(e_table->header));
 
+	gtk_object_set (GTK_OBJECT (e_table->header),
+			"width", (double) (GTK_WIDGET(e_table->table_canvas)->allocation.width),
+			NULL);
+
 	if (e_table->sort_info) {
 		if (e_table->group_info_change_id)
 			gtk_signal_disconnect (GTK_OBJECT (e_table->sort_info),
