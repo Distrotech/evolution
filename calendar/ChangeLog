@@ -1,5 +1,17 @@
 2003-08-12  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-util/cal-util.[ch] (cal_util_component_has_alarms): new function.
+
+	* gui/gnome-cal.[ch]:
+	* gui/goto.c:
+	* gui/itip-bonobo-control.c:
+	* gui/print.c:
+	* gui/e-week-view.[ch]:
+	* gui/e-day-view.[ch]: lots of fixes to make all compile with no
+	warnings.
+
+2003-08-12  Rodrigo Moya <rodrigo@ximian.com>
+
 	* cal-util/cal-util.[ch] (cal_util_component_has_organizer):
 	new function.
 

@@ -674,6 +674,17 @@ cal_util_component_is_instance (icalcomponent *icalcomp)
 }
 
 gboolean
+cal_util_component_has_alarms (icalcomponent *icalcomp)
+{
+	icalcomponent *alarm;
+
+	g_return_val_if_fail (icalcomp != NULL, FALSE);
+
+	alarm = icalcomponent_get_first_component (icalcomp, ICAL_VALARM_COMPONENT);
+	return alarm ? TRUE : FALSE;
+}
+
+gboolean
 cal_util_component_has_organizer (icalcomponent *icalcomp)
 {
 	icalproperty *prop;

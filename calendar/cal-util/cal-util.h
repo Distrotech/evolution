@@ -100,6 +100,7 @@ void cal_util_add_timezones_from_component (icalcomponent *vcal_comp,
 					    icalcomponent *icalcomp);
 
 gboolean cal_util_component_is_instance (icalcomponent *icalcomp);
+gboolean cal_util_component_has_alarms (icalcomponent *icalcomp);
 gboolean cal_util_component_has_organizer (icalcomponent *icalcomp);
 gboolean cal_util_component_has_recurrences (icalcomponent *icalcomp);
 gboolean cal_util_component_has_rdates (icalcomponent *icalcomp);
