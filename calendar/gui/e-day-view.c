@@ -565,6 +565,16 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 		e_day_view_remove_event_cb (day_view, day, event_num, NULL);
 
 		g_object_unref (tmp_comp);
+	} else {
+		if (rid && e_day_view_find_event_from_uid (day_view, uid, NULL, &day, &event_num)) {
+			if (day == E_DAY_VIEW_LONG_EVENT)
+				event = &g_array_index (day_view->long_events, EDayViewEvent, event_num);
+			else
+				event = &g_array_index (day_view->events[day], EDayViewEvent, event_num);
+
+			if (!e_cal_util_component_is_instance (event->comp_data->icalcomp))
+				e_day_view_remove_event_cb (day_view, day, event_num, NULL);
+		}
 	}
 
 	/* Add the object */
