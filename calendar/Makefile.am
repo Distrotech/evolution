@@ -68,11 +68,12 @@ gnome_cal_server_SOURCES =	\
 	server-auth.c		\
 	server-commands.c	\
 	server-io.c		\
-	server-main.c
+	server-main.c		\
+	server-utils.c
 
 gnome_cal_server_LDADD =	\
 	$(GNOME_LIBDIR) 	\
-	$(GLIB_LIBS) 		\
+	$(GNOME_LIBS) 		\
 	../libversit/libversit.a
 
 LINK_FLAGS = \

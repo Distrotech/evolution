@@ -122,36 +122,6 @@ cs_connection_process(gpointer data, GIOCondition cond,
 }
 
 static void
-cs_connection_process_line(CSConnection *cnx, char *l)
-{
-  char *ctmp;
-  char *cmd_id, *cmd_name;
-
-  ctmp = l;
-
-  cmd_id = ctmp;
-  ctmp = strchr(ctmp, ' ');
-  g_return_if_fail(ctmp);
-  *ctmp = '\0';
-  ctmp++;
-
-  cmd_name = ctmp;
-  ctmp = strchr(ctmp, ' ');
-  if(ctmp) {
-    *ctmp = '\0';
-    ctmp++;
-  }
-
-  cs_connection_process_command(cnx, cmd_id, cmd_name, ctmp);
-}
-
-static void
-cs_connection_process_literal(CSConnection *cnx, char *l)
-{
-  g_error("NYI");
-}
-
-static void
 cs_connection_greet(CSConnection *cnx)
 {
 #define CS_greeting "* OK "CS_capabilities" It is actually quite an aweful day today.\n"
@@ -203,5 +173,7 @@ cs_connection_destroy(CSConnection *cnx)
   g_io_channel_unref(cnx->gioc);
   g_string_free(cnx->rdbuf, TRUE);
   g_free(cnx->authid);
+  if(cnx->active_cal)
+    backend_close_calendar(cnx->active_cal);
   g_free(cnx);
 }     
