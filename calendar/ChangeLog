@@ -1,3 +1,12 @@
+2003-09-17  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c (cal_backend_add_timezone): added new
+	virtual method implementation.
+
+	* pcs/cal.c (impl_Cal_addTimezone): check return value from
+	cal_backend_add_timezone, and set an exception if an error is
+	returned.
+
 2003-09-16  Rodrigo Moya <rodrigo@ximian.com>
 
 	* idl/evolution-calendar.idl: added addTimezone method.

@@ -600,7 +600,8 @@ impl_Cal_addTimezone (PortableServer_Servant servant,
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	cal_backend_add_timezone (cal, tz);
+	if (!cal_backend_add_timezone (cal, tz))
+		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidObject);
 }
 
 /**
