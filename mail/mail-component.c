@@ -508,14 +508,14 @@ view_changed_cb(EMFolderView *emfv, EComponentView *component_view)
 		e_info_label_set_info(el, name, tmp->str);
 
 		title = g_strdup_printf("%s, %s", name, tmp->str);
-		GNOME_Evolution_ShellView_setTitle(component_view->shell_view, title, &ev);
+		e_component_view_set_title(component_view, title);
 		g_free(title);
 
 		g_string_free(tmp, TRUE);
 		camel_object_free(emfv->folder, CAMEL_FOLDER_NAME, name);
 	} else {
 		e_info_label_set_info(el, _("Mail"), "");
-		GNOME_Evolution_ShellView_setTitle(component_view->shell_view, _("Mail"), &ev);
+		e_component_view_set_title(component_view, _("Mail"));
 	}
 
 	CORBA_exception_free(&ev);
@@ -573,7 +573,7 @@ impl_createView (PortableServer_Servant servant,
 	gtk_widget_show(info);
 	gtk_widget_show(vbox);
 
-	component_view = e_component_view_new(parent, vbox, view_widget, statusbar_widget);
+	component_view = e_component_view_new(parent, "mail", vbox, view_widget, statusbar_widget);
 
 	g_object_set_data((GObject *)component_view, "info-label", info);
 
