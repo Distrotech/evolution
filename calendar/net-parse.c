@@ -13,7 +13,7 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 {
   gboolean found_something, is_eol;
   int itmp;
-  char *ctmp;
+  char *ctmp, *ctmpp, *ctmps, *ctmpnl, *ctmpcr;
   
   found_something = FALSE;
 
@@ -67,21 +67,30 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 
       switch(*parse->rdbuf->str) {
       case '(': /* open list */
-	parse->curarg = cs_cmdarg_new(NULL, parse->curarg);
-	if (!parse->curcmd.args)
-		parse->curcmd.args = parse->curarg;
+	parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
+	if (parse->setptr) {
+	  *parse->setptr = parse->curarg;  parse->setptr = NULL;
+	}
 	parse->curarg->type = ITEM_SUBLIST;
 	g_string_erase(parse->rdbuf, 0, 1);
 	found_something = TRUE;
+	parse->setptr = &parse->curarg->data;
+	parse->upargs = g_slist_prepend(parse->upargs, parse->curarg);
+	parse->curarg = NULL;
 	break;
       case ')': /* close list */
-	if(!parse->curarg) {
+	g_string_erase(parse->rdbuf, 0, 1);
+	if(parse->upargs) {
+	  parse->curarg = parse->upargs->data;
+	  parse->upargs = g_slist_remove(parse->upargs, parse->curarg);
+	} else {
 	  *error = TRUE;
 	  *cont = FALSE;
 	  g_warning("Too many close parens. zonk.");
 	  return FALSE;
 	}
-	parse->curarg = parse->curarg->up;
+	parse->setptr = NULL;
+	found_something = TRUE;
 	break;
       case '{': /* literal */
 	ctmp = strchr(parse->rdbuf->str + 1, '}');
@@ -102,60 +111,52 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 	if(!ctmp) break;
 	found_something = TRUE;
 	parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	if(!parse->curcmd.args)
-	  parse->curcmd.args = parse->curarg;
+	if (parse->setptr) {
+	  parse->setptr = NULL;
+	  *parse->setptr = parse->curarg;
+	}
 	parse->curarg->type = ITEM_STRING;
 	parse->curarg->data = g_strndup(parse->rdbuf->str + 1, ctmp - parse->rdbuf->str - 1);
 	g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
 	break;
       case ' ':
+	g_string_erase(parse->rdbuf, 0, 1);
 	found_something = parse->rdbuf->len;
 	parse->in_literal = parse->literal_left = parse->in_quoted = 0;
-	g_string_erase(parse->rdbuf, 0, 1);
 	break;
       case '\r':
-	if(parse->rdbuf->len > 2) {
-	  parse->rs = RS_DONE;
-	  g_string_erase(parse->rdbuf, 0, 2);
-	}
+      case '\n':
+	parse->rs = RS_DONE;
+	g_string_erase(parse->rdbuf, 0,
+		       (*parse->rdbuf->str == '\r')?2:1);
 	break;
       default: /* warning, massive code duplication */
 	/* it is a parse->rdbuf */
-	ctmp = strchr(parse->rdbuf->str, ' ');
-	if(ctmp) {
-	  found_something = TRUE;
-	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	  if(!parse->curcmd.args)
-	    parse->curcmd.args = parse->curarg;
-	  parse->curarg->type = ITEM_STRING;
-	  parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
-	  g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
-	  break;
+	ctmps = strchr(parse->rdbuf->str, ' ');
+	ctmpp = strchr(parse->rdbuf->str, ')');
+	ctmpcr = strchr(parse->rdbuf->str, '\r');
+	ctmpnl = strchr(parse->rdbuf->str, '\n');
+
+	if(ctmps) ctmp = ctmps;
+	else if(ctmpp) ctmp = ctmpp;
+	else if(ctmpcr) ctmp = ctmpcr;
+	else if(ctmpnl) ctmp = ctmpnl;
+	else break;
+
+	if(ctmps) ctmp = MIN(ctmp, ctmps);
+	if(ctmpp) ctmp = MIN(ctmp, ctmpp);
+	if(ctmpnl) ctmp = MIN(ctmp, ctmpnl);
+	if(ctmpcr) ctmp = MIN(ctmp, ctmpcr);
+
+	found_something = TRUE;
+	parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
+	if (parse->setptr) {
+	  *parse->setptr = parse->curarg; parse->setptr = NULL;
 	}
-	ctmp = strchr(parse->rdbuf->str, ')');
-	if(ctmp) {
-	  found_something = TRUE;
-	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	  if(!parse->curcmd.args)
-	    parse->curcmd.args = parse->curarg;
-	  parse->curarg->type = ITEM_STRING;
-	  parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
-	  parse->curarg = parse->curarg->up;
-	  g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
-	  break;
-	}
-	ctmp = strchr(parse->rdbuf->str, '\r');
-	if(ctmp) {
-	  found_something = TRUE;
-	  parse->rs = RS_DONE;
-	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	  if(!parse->curcmd.args)
-	    parse->curcmd.args = parse->curarg;
-	  parse->curarg->type = ITEM_STRING;
-	  parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
-	  g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str + 2);
-	  break;
-	}
+	parse->curarg->type = ITEM_STRING;
+	parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
+	g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
+
 	break;
       }
       break;
@@ -254,4 +255,33 @@ parse_time_range(CSCmdArg *arg, time_t *end_time)
   }
 
   return retval;
+}
+
+void
+cs_cmdarg_dump(CSCmdArg *arg, int indent_level)
+{
+  int i;
+
+  if(!arg) return;
+
+  for(i = 0; i < indent_level; i++)
+    g_print(" ");
+
+  switch(arg->type) {
+  case ITEM_SUBLIST:
+    g_print("(\n");
+    cs_cmdarg_dump((CSCmdArg *)arg->data, indent_level + 2);
+    for(i = 0; i < indent_level; i++)
+      g_print(" ");
+    g_print(")\n");
+    break;
+  case ITEM_STRING:
+    g_print("\"%s\"\n", (char *)arg->data);
+    break;
+  default:
+    g_print("!!!! ITEM_UNKNOWN\n");
+  }
+
+  if(arg->next)
+    cs_cmdarg_dump(arg->next, indent_level);
 }

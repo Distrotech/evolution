@@ -462,6 +462,11 @@ cs_connection_process_command(CSConnection *cnx)
   int i, j;
   CSCmdArg *arg;
 
+  g_print("Command %s ID %s:\n",
+	  cnx->parse.curcmd.name,
+	  cnx->parse.curcmd.id);
+  cs_cmdarg_dump(cnx->parse.curcmd.args, 0);
+
   for(i = 0; commands[i].name; i++) {
     if(!strcasecmp(commands[i].name, cnx->parse.curcmd.name)) {
       /* check args */
@@ -476,10 +481,9 @@ cs_connection_process_command(CSConnection *cnx)
 
       /* do it */
       commands[i].handler(cnx, &cnx->parse.curcmd);
+      return;
     }
   }
-
-  return;
 
  errout:
   g_warning("Unknown command %s", cnx->parse.curcmd.name);

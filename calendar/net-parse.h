@@ -14,6 +14,7 @@ struct _CSCmdArg {
 CSCmdArg *cs_cmdarg_new     (CSCmdArg *prev, CSCmdArg *parent);
 gint      cs_cmdarg_nargs   (CSCmdArg *arglist);
 void      cs_cmdarg_destroy (CSCmdArg *arg);
+void      cs_cmdarg_dump    (CSCmdArg *arg, int indent_level);
 
 typedef struct {
   char *id;
@@ -35,7 +36,8 @@ typedef struct {
 	gint in_literal;
 	gint literal_left;
 	gint in_quoted; /* 0 if not currently reading */
-	CSCmdArg *curarg;
+	CSCmdArg *curarg, **setptr;
+        GSList *upargs;
 	CSCmdInfo curcmd;
 } StreamParse;
 
@@ -44,3 +46,4 @@ int try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont
 /* Pass in NULL for end_time if you don't want it back (e.g. for
    parsing a simple time */
 time_t parse_time_range(CSCmdArg *arg, time_t *end_time);
+

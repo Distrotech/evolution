@@ -114,6 +114,8 @@ cs_connection_process(gpointer data, GIOCondition cond,
         cs_connection_process_command(cnx);
         cs_cmdarg_destroy(cnx->parse.curcmd.args);
 	cnx->parse.curcmd.args = NULL;
+	cnx->parse.setptr = &cnx->parse.curcmd.args;
+
         g_free(cnx->parse.curcmd.id);
         g_free(cnx->parse.curcmd.name);
         cnx->parse.rs = RS_ID; /* Next? */
@@ -153,6 +155,7 @@ void cs_connection_accept(gpointer data, GIOCondition cond,
 
   cnx = g_new0(CSConnection, 1);
   cnx->parse.rdbuf = g_string_new(NULL);
+  cnx->parse.setptr = &cnx->parse.curcmd.args;
   cnx->serv = server;
   cnx->fd = fd;
   fcntl(cnx->fd, F_GETFL, &itmp);
