@@ -125,25 +125,20 @@ identity_changed (GtkWidget *widget, gpointer data)
 	next_sensitive = mail_account_gui_identity_complete (mcw->gui, &incomplete);
 	
 	config_wizard_set_buttons_sensitive (mcw, TRUE, next_sensitive);
-	
-	if (!next_sensitive)
-		gtk_widget_grab_focus (incomplete);
 }
 
 static void
 identity_prepare (MailConfigWizard *mcw)
 {
-	const char *name;
-	
 	mcw->page = MAIL_CONFIG_WIZARD_PAGE_IDENTITY;
 	
-	name = gtk_entry_get_text (mcw->gui->full_name);
-	if (!name) {
-		name = g_get_real_name ();
-		gtk_entry_set_text (mcw->gui->full_name, name ? name : "");
-		gtk_editable_select_region (GTK_EDITABLE (mcw->gui->full_name), 0, -1);
+	if (!gtk_entry_get_text (mcw->gui->full_name)) {
+		char *uname;
+		
+		uname = g_locale_to_utf8 (g_get_real_name (), -1, NULL, NULL, NULL);
+		gtk_entry_set_text (mcw->gui->full_name, uname ? uname : "");
+		g_free (uname);
 	}
-	gtk_widget_grab_focus (GTK_WIDGET (mcw->gui->full_name));
 	identity_changed (NULL, mcw);
 }
 
@@ -193,9 +188,6 @@ source_changed (GtkWidget *widget, gpointer data)
 	next_sensitive = mail_account_gui_source_complete (mcw->gui, &incomplete);
 	
 	config_wizard_set_buttons_sensitive (mcw, TRUE, next_sensitive);
-	
-	if (!next_sensitive)
-		gtk_widget_grab_focus (incomplete);
 }
 
 static void
@@ -271,9 +263,6 @@ transport_changed (GtkWidget *widget, gpointer data)
 	next_sensitive = mail_account_gui_transport_complete (mcw->gui, &incomplete);
 	
 	config_wizard_set_buttons_sensitive (mcw, TRUE, next_sensitive);
-	
-	if (!next_sensitive)
-		gtk_widget_grab_focus (incomplete);
 }
 
 static void
@@ -354,8 +343,6 @@ management_changed (GtkWidget *widget, gpointer data)
 		return;
 	
 	management_check (mcw);
-	
-	gtk_widget_grab_focus (GTK_WIDGET (mcw->gui->account_name));
 }
 
 static void
@@ -478,7 +465,7 @@ static MailConfigWizard *
 config_wizard_new (void)
 {
 	MailConfigWizard *mcw;
-	const char *name, *user;
+	const char *user;
 	EAccountService *xport;
 	struct utsname uts;
 	EAccount *account;
@@ -487,8 +474,7 @@ config_wizard_new (void)
 	account = e_account_new ();
 	account->enabled = TRUE;
 	
-	name = g_get_real_name ();
-	account->id->name = g_strdup (name);
+	account->id->name = g_locale_to_utf8 (g_get_real_name (), -1, NULL, NULL, NULL);
 	user = g_get_user_name ();
 	if (user && !uname (&uts) && strchr (uts.nodename, '.'))
 		account->id->address = g_strdup_printf ("%s@%s", user, uts.nodename);

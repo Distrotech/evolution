@@ -707,6 +707,8 @@ emfb_list_built(MessageList *ml, EMFolderBrowser *emfb)
 	g_signal_handler_disconnect(ml, emfb->priv->list_built_id);
 	emfb->priv->list_built_id = 0;
 	
+	/* FIXME: if the 1st message in the list is unread, this will actually select the second unread msg */
+	/* FIXME: this usually happens "too soon" and so the toolbar/menu-items remain desensitised even tho with the message selected they should be sensitive */
 	if (((EMFolderView *)emfb)->list->cursor_uid == NULL)
 		message_list_select(((EMFolderView *)emfb)->list,
 				    MESSAGE_LIST_SELECT_NEXT, 0, CAMEL_MESSAGE_SEEN, TRUE);
@@ -725,11 +727,13 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 			em_folder_browser_show_preview((EMFolderBrowser *)emfv, sstate[0] != '0');
 
 		if ((sstate = camel_object_meta_get(folder, "evolution:thread_list")))
-			message_list_set_threaded(emfv->list, sstate[0] == '1');
-
+			message_list_set_threaded(emfv->list, sstate[0] != '0');
+		
+#if 0
 		if (emfv->list->cursor_uid == NULL && ((EMFolderBrowser *)emfv)->priv->list_built_id == 0)
 			((EMFolderBrowser *)emfv)->priv->list_built_id =
 				g_signal_connect(emfv->list, "message_list_built", G_CALLBACK(emfb_list_built), emfv);
+#endif
 	}
 
 	emfb_parent->set_folder(emfv, folder, uri);

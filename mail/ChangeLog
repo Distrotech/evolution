@@ -44,6 +44,18 @@
 	* mail-component-factory.c (factory): removed some fixme's, and
 	re-hookedup the composer.
 
+2003-10-09  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* em-icon-stream.c: (emis_sync_close):
+        Use gnome-thumbnail_scale_down_pixbuf if available,
+        for better performance.
+
+2003-10-08  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-view.c: Add a hide_mask to the
+	create-rule-from-message bars so that we don't segfault when we
+	right click with a multi-selection.
+
 2003-10-08  Chris Toshok  <toshok@ximian.com>
 
 	* em-utils.c (em_utils_camel_address_to_destination): EDestination
@@ -76,6 +88,24 @@
 
 	* mail-component.[ch]: Fix copyrights.
 
+2003-10-06  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-config-druid.c (identity_prepare): Fixed.
+
+	* mail-ops.c (fetch_mail_fetch): Always save the uid cache no
+	matter what.
+
+2003-10-03  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* mail-config-druid.c (identity_prepare), (config_wizard_new):
+	Convert real name to UTF-8 if needed.
+
+2003-10-03  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-browser.c (emfb_set_folder): Disable the selection of
+	the first unread message for now. This is actually annoying the
+	fuck out of me, Radek, and a few other people.
+
 2003-10-02  Not Zed  <NotZed@Ximian.com>
 
 	* mail-component.c (add_storage): Add the storage to the hash
@@ -91,6 +121,79 @@
 	mbox:///path - the mbox code is 'wrong', but this is easier to
 	fix.  fixes local unread counts.  maybe the provider url-compare
 	should address this too.
+
+2003-10-02  Suresh Chandrasekharan <suresh.chandrasekharan@sun.com>
+
+	* mail-config-druid.c: Fix for 40917 "Backspace shouldn't
+	highlight the whole remaining string in Setup Assistant".
+	(identity_changed): Removed repeated focussing per keystroke.
+	functions
+	(source_changed): Same.
+	(transport_changed): Here too.
+	(management_changed): And here.
+	(identity_prepare): Removed the initial highlighting for Full
+	Name, also the unneeded intial grab_focus.
+
+2003-10-02  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html.c (efh_format_timeout): zero out last_part if
+	we're clearing.  Uh, this fixes, but shouldn't, part of #49034.
+	The problem is the 'last part' logic is based on the address,
+	which can quite easily be repeated for different messages.
+
+	* em-folder-view.c (emfv_list_message_selected): reverted jeff's
+	patch for #48618, use a much simpler method.
+
+	* em-message-browser.c (emmb_destroy): hook onto destroy handler,
+	we need to destroy the messagelist ourselves, since we dont attach
+	it to any parent window.
+
+2003-10-01  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html.c (efh_init): turn off blocking writes.
+	(efh_format_timeout): don't do a htmlbegin on the page yet, it'll
+	be handled by em-html-stream when it has data, to reduce flicker.
+	(efh_format_do): close the main gtkhtml stream as soon as we're
+	done writing the body.  any sub-jobs should be using frames etc.
+	(efh_text_plain): dont write a table around the text, try to
+	reduce flickering.  layout may be out now though.
+
+	* em-html-stream.c (emhs_sync_write): if we have no html_stream
+	yet, begin a new one.
+
+2003-09-30  Rodney Dawes  <dobey@ximian.com>
+
+	* em-format-html-print.c: Use "Sans Regular" instead of "Helvetica"
+	Fixes bug #47878
+	
+2003-09-30  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html.c (efh_init): remove gconf stuff.
+	(em_format_html_set_xmailer_mask): new method to set the xmailer mask.
+
+	* em-folder-view.c (emfv_display_keys[]): Added charset key to
+	monitor/retrieve, and xmailer_mask.
+	(emfv_setting_notify): Monitor charset setting, pass onto the
+	formatter, as well as xmailer_mask.
+
+	* mail-preferences.c (mail_preferences_construct): use the new
+	charset key.
+	(mail_preferences_apply): use the new charset key.
+
+	* evolution-mail.schemas: Moved the mail/format/charset to
+	mail/display/charset.  1. it makes more sense, and 2. it makes
+	notification update easier in em-folder-view.c
+
+	* em-format.c (emf_init): remove the gconf charset stuff, for bug
+	#48791, and also actually fixes the fixme that jeff thought he
+	fixed.
+	(em_format_format_text): use default charset as fallback.
+	(em_format_set_default_charset): New method to set the default charset.
+	(gconf_charset_changed): removed.
+
+2003-09-29  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format.c (emf_init): Oops, put the arguments in the right order.
 
 2003-09-29  Ettore Perazzoli  <ettore@ximian.com>
 

@@ -106,9 +106,8 @@ static const EMFolderViewEnable emfv_enable_map[];
 struct _EMFolderViewPrivate {
 	guint seen_id;
 	guint setting_notify_id;
-	
-	char *loaded_uid;
-	char *loading_uid;
+
+	char *displayed_uid;	/* only used to stop re-loads, don't use it to represent any selection state */
 	
 	CamelObjectHookID folder_changed_id;
 
@@ -179,10 +178,7 @@ emfv_finalise(GObject *o)
 
 	g_slist_free(emfv->ui_files);
 	g_slist_free(emfv->enable_map);
-	
-	g_free (p->loaded_uid);
-	g_free (p->loading_uid);
-	
+
 	g_free(p);
 
 	((GObjectClass *)emfv_parent)->finalize(o);
@@ -691,13 +687,13 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_IMAGE, "60.label.00/00.label", N_("None"), G_CALLBACK(emfv_popup_label_clear) },
 	{ EM_POPUP_BAR, "60.label.00/00.label.00" },
 
-	{ EM_POPUP_BAR, "70.emfv", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_ADD_SENDER },	
+	{ EM_POPUP_BAR, "70.emfv", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },	
 	{ EM_POPUP_ITEM, "70.emfv.00", N_("Add Sender to Address_book"), G_CALLBACK(emfv_popup_add_sender), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_ADD_SENDER },
 
 	{ EM_POPUP_BAR, "80.emfv" },	
 	{ EM_POPUP_ITEM, "80.emfv.00", N_("Appl_y Filters"), G_CALLBACK(emfv_popup_apply_filters) },
 
-	{ EM_POPUP_BAR, "90.filter" },
+	{ EM_POPUP_BAR, "90.filter", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_SUBMENU, "90.filter.00", N_("Crea_te Rule From Message"), NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/00.00", N_("VFolder on _Subject"), G_CALLBACK(emfv_popup_vfolder_subject), NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/00.01", N_("VFolder on Se_nder"), G_CALLBACK(emfv_popup_vfolder_sender), NULL, NULL, EM_POPUP_SELECT_ONE },
@@ -705,7 +701,7 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM, "90.filter.00/00.03", N_("VFolder on Mailing _List"),
 	  G_CALLBACK(emfv_popup_vfolder_mlist), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
 
-	{ EM_POPUP_BAR, "90.filter.00/10" },
+	{ EM_POPUP_BAR, "90.filter.00/10", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/10.00", N_("Filter on Sub_ject"), G_CALLBACK(emfv_popup_filter_subject), NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/10.01", N_("Filter on Sen_der"), G_CALLBACK(emfv_popup_filter_sender), NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/10.02", N_("Filter on Re_cipients"), G_CALLBACK(emfv_popup_filter_recipients),  NULL, NULL, EM_POPUP_SELECT_ONE },
@@ -1624,16 +1620,8 @@ static void
 emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeMessage *msg, void *data)
 {
 	EMFolderView *emfv = data;
-	
-	g_free (emfv->priv->loaded_uid);
-	if (emfv->priv->loading_uid && !strcmp (emfv->priv->loading_uid, uid)) {
-		emfv->priv->loaded_uid = emfv->priv->loading_uid;
-		emfv->priv->loading_uid = NULL;
-	} else {
-		emfv->priv->loaded_uid = g_strdup (uid);
-	}
-	
-	em_format_format((EMFormat *) emfv->preview, (struct _CamelMedium *)msg);
+
+	em_format_format((EMFormat *)emfv->preview, (struct _CamelMedium *)msg);
 	
 	if (emfv->priv->seen_id)
 		g_source_remove(emfv->priv->seen_id);
@@ -1641,11 +1629,11 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	if (msg && emfv->mark_seen) {
 		if (emfv->mark_seen_timeout > 0) {
 			struct mst_t *mst;
-			
+		
 			mst = g_new (struct mst_t, 1);
 			mst->emfv = emfv;
 			mst->uid = g_strdup (uid);
-			
+		
 			emfv->priv->seen_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, emfv->mark_seen_timeout,
 								 (GSourceFunc)do_mark_seen, mst, (GDestroyNotify)mst_free);
 		} else {
@@ -1658,35 +1646,19 @@ static void
 emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv)
 {
 	/* FIXME: ui stuff based on messageinfo, if available */
+
 	if (emfv->preview_active) {
-		if (uid != NULL) {
-			if (emfv->priv->loading_uid != NULL) {
-				if (!strcmp (emfv->priv->loading_uid, uid))
-					return;
-			} else if (emfv->priv->loaded_uid != NULL) {
-				if (!strcmp (emfv->priv->loaded_uid, uid))
-					return;
+		if (uid) {
+			if (emfv->priv->displayed_uid == NULL || strcmp(emfv->priv->displayed_uid, uid) != 0) {
+				g_free(emfv->priv->displayed_uid);
+				emfv->priv->displayed_uid = g_strdup(uid);
+				mail_get_message(emfv->folder, uid, emfv_list_done_message_selected, emfv, mail_thread_new);
 			}
-			
-			g_free (emfv->priv->loading_uid);
-			emfv->priv->loading_uid = g_strdup (uid);
-			
-			mail_get_message(emfv->folder, uid, emfv_list_done_message_selected, emfv, mail_thread_new);
 		} else {
-			g_free (emfv->priv->loaded_uid);
-			emfv->priv->loaded_uid = NULL;
-			
-			g_free (emfv->priv->loading_uid);
-			emfv->priv->loading_uid = NULL;
-			
+			g_free(emfv->priv->displayed_uid);
+			emfv->priv->displayed_uid = NULL;
 			em_format_format((EMFormat *)emfv->preview, NULL);
 		}
-	} else {
-		g_free (emfv->priv->loaded_uid);
-		emfv->priv->loaded_uid = NULL;
-		
-		g_free (emfv->priv->loading_uid);
-		emfv->priv->loading_uid = NULL;
 	}
 
 	emfv_enable_menus(emfv);
@@ -1880,6 +1852,7 @@ emfv_folder_changed(CamelFolder *folder, CamelFolderChangeInfo *changes, EMFolde
 /* keep these two tables in sync */
 enum {
 	EMFV_ANIMATE_IMAGES = 1,
+	EMFV_CHARSET,
 	EMFV_CITATION_COLOUR,
 	EMFV_CITATION_MARK,
 	EMFV_CARET_MODE,
@@ -1887,19 +1860,22 @@ enum {
 	EMFV_MARK_SEEN,
 	EMFV_MARK_SEEN_TIMEOUT,
 	EMFV_LOAD_HTTP,
+	EMFV_XMAILER_MASK,
 	EMFV_SETTINGS		/* last, for loop count */
 };
 
 /* IF these get too long, update key field */
 static const char * const emfv_display_keys[] = {
 	"animate_images",
+	"charset",
 	"citation_colour",
 	"mark_citations",
 	"caret_mode",
 	"message_style",
 	"mark_seen",
 	"mark_seen_timeout",
-	"load_http_images"
+	"load_http_images",
+	"xmailer_mask",
 };
 
 static GHashTable *emfv_setting_key;
@@ -1914,10 +1890,13 @@ emfv_setting_notify(GConfClient *gconf, guint cnxn_id, GConfEntry *entry, EMFold
 	
 	tkey = strrchr(entry->key, '/');
 	g_return_if_fail (tkey != NULL);
-
+	
 	switch(GPOINTER_TO_INT(g_hash_table_lookup(emfv_setting_key, tkey+1))) {
 	case EMFV_ANIMATE_IMAGES:
 		em_format_html_display_set_animate(emfv->preview, gconf_value_get_bool(gconf_entry_get_value(entry)));
+		break;
+	case EMFV_CHARSET:
+		em_format_set_default_charset((EMFormat *)emfv->preview, gconf_value_get_string(gconf_entry_get_value(entry)));
 		break;
 	case EMFV_CITATION_COLOUR: {
 		const char *s;
@@ -1957,6 +1936,9 @@ emfv_setting_notify(GConfClient *gconf, guint cnxn_id, GConfEntry *entry, EMFold
 		/* FIXME: this doesn't handle the 'sometimes' case, only the always case */
 		em_format_html_set_load_http((EMFormatHTML *)emfv->preview, style == 2);
 		break; }
+	case EMFV_XMAILER_MASK:
+		em_format_html_set_xmailer_mask((EMFormatHTML *)emfv->preview, gconf_value_get_int(gconf_entry_get_value(entry)));
+		break;
 	}
 }
 

@@ -40,8 +40,6 @@
 #include <gtkhtml/gtkhtml-stream.h>
 #include <gtkhtml/htmlengine.h>
 
-#include <gconf/gconf-client.h>
-
 #include <libgnomevfs/gnome-vfs-utils.h>
 #include <libgnomevfs/gnome-vfs-mime-utils.h>
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
@@ -113,7 +111,6 @@ static void
 efh_init(GObject *o)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)o;
-	GConfClient *gconf;
 
 	efh->priv = g_malloc0(sizeof(*efh->priv));
 
@@ -124,7 +121,7 @@ efh_init(GObject *o)
 	efh->priv->text_inline_parts = g_hash_table_new(NULL, NULL);
 
 	efh->html = (GtkHTML *)gtk_html_new();
-	gtk_html_set_blocking (efh->html, TRUE);
+	gtk_html_set_blocking(efh->html, FALSE);
 	g_object_ref(efh->html);
 	gtk_object_sink((GtkObject *)efh->html);
 
@@ -139,11 +136,6 @@ efh_init(GObject *o)
 	efh->text_colour = 0;
 	efh->text_html_flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
 		| CAMEL_MIME_FILTER_TOHTML_MARK_CITATION;
-
-	/* TODO: should this be here?   wont track changes ... */
-	gconf = gconf_client_get_default();
-	efh->xmailer_mask = gconf_client_get_int(gconf, "/apps/evolution/mail/display/xmailer_mask", NULL);
-	g_object_unref(gconf);
 }
 
 static void
@@ -277,6 +269,15 @@ em_format_html_set_mark_citations(EMFormatHTML *emfh, int state, guint32 citatio
 	if (emfh->mark_citations ^ state || emfh->citation_colour != citation_colour) {
 		emfh->mark_citations = state;
 		emfh->citation_colour = citation_colour;
+		em_format_format_clone((EMFormat *)emfh, emfh->format.message, (EMFormat *)emfh);
+	}
+}
+
+void
+em_format_html_set_xmailer_mask(EMFormatHTML *emfh, unsigned int xmailer_mask)
+{
+	if (emfh->xmailer_mask ^ xmailer_mask) {
+		emfh->xmailer_mask = xmailer_mask;
 		em_format_format_clone((EMFormat *)emfh, emfh->format.message, (EMFormat *)emfh);
 	}
 }
@@ -610,10 +611,10 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 
 		type = camel_mime_part_get_content_type(newpart);
 		if (camel_content_type_is (type, "text", "plain")) {
-			camel_stream_write_string(stream, "<table><tr><td><tt>\n");
+			camel_stream_write_string(stream, "<tt>\n");
 			em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, camel_medium_get_content_object((CamelMedium *)newpart));
 			camel_stream_flush((CamelStream *)filtered_stream);
-			camel_stream_write_string(stream, "</tt></td></tr></table>\n");
+			camel_stream_write_string(stream, "</tt>\n");
 		} else {
 			em_format_part((EMFormat *)efh, stream, newpart);
 		}
@@ -1087,7 +1088,11 @@ static void efh_format_do(struct _mail_msg *mm)
 		em_format_format_source((EMFormat *)m->format, (CamelStream *)m->estream, (CamelMimePart *)m->message);
 	else
 		em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, m->message);
-	camel_stream_flush((CamelStream *)m->estream);
+
+	camel_stream_write_string((CamelStream *)m->estream, "</body>\n</html>\n");
+	camel_stream_close((CamelStream *)m->estream);
+	camel_object_unref(m->estream);
+	m->estream = NULL;
 
 	puri_level = ((EMFormat *)m->format)->pending_uri_level;
 	base = ((EMFormat *)m->format)->base;
@@ -1118,19 +1123,10 @@ static void efh_format_do(struct _mail_msg *mm)
 			camel_url_free(job->base);
 		g_free(job);
 
-		/* incase anything got added above, force it through */
-		camel_stream_flush((CamelStream *)m->estream);
-
 		g_mutex_lock(m->format->priv->lock);
 	}
 	g_mutex_unlock(m->format->priv->lock);
 	d(printf("out of jobs, done\n"));
-
-	camel_stream_write_string((CamelStream *)m->estream, "</body>\n</html>\n");
-
-	camel_stream_close((CamelStream *)m->estream);
-	camel_object_unref(m->estream);
-	m->estream = NULL;
 
 	((EMFormat *)m->format)->pending_uri_level = puri_level;
 }
@@ -1198,8 +1194,10 @@ efh_format_timeout(struct _format_msg *m)
 		hstream = gtk_html_begin(efh->html);
 		gtk_html_stream_close(hstream, GTK_HTML_STREAM_OK);
 		mail_msg_free(m);
+		p->last_part = NULL;
 	} else {
-		hstream = gtk_html_begin(efh->html);
+		/*hstream = gtk_html_begin(efh->html);*/
+		hstream = NULL;
 		m->estream = (EMHTMLStream *)em_html_stream_new(efh->html, hstream);
 
 		if (p->last_part == m->message) {
