@@ -1,5 +1,13 @@
 2003-09-11  JP Rosevear <jpr@ximian.com>
 
+	* gui/gnome-cal.c (update_query): start the query
+
+	* gui/e-cal-model.c (update_query_for_client): ditto
+
+	* cal-client/client-test.c (cal_opened_cb): ditto
+	
+2003-09-11  JP Rosevear <jpr@ximian.com>
+
 	* cal-client/cal-query.h: add proto
 
 	* cal-client/cal-query.c (cal_query_start): start the query

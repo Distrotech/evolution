@@ -133,6 +133,8 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 			g_warning (G_STRLOC ": Unable to obtain query");
 
 		g_signal_connect (G_OBJECT (query), "query_done", query_done_cb, client);
+
+		cal_query_start (query);
 		
 		g_idle_add (list_uids, client);
 	}

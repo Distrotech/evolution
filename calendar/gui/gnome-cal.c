@@ -616,6 +616,8 @@ update_query (GnomeCalendar *gcal)
 				  G_CALLBACK (dn_query_done_cb), gcal);
 
 		priv->dn_queries = g_list_append (priv->dn_queries, old_query);
+
+		cal_query_start (client_data->query);
 	}
 
 	g_list_free (client_list);

@@ -1230,6 +1230,8 @@ update_query_for_client (ECalModel *model, ECalModelClient *client_data)
 	g_signal_connect (client_data->query, "objects_removed", G_CALLBACK (query_objects_removed_cb), model);
 	g_signal_connect (client_data->query, "query_progress", G_CALLBACK (query_progress_cb), model);
 	g_signal_connect (client_data->query, "query_done", G_CALLBACK (query_done_cb), model);
+
+	cal_query_start (client_data->query);
 }
 
 static void
