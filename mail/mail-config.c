@@ -2758,6 +2758,7 @@ mail_config_delete_signature (MailConfigSignature *sig)
 	}
 	delete_unused_signature_file (sig->filename);
 	signature_destroy (sig);
+	printf ("signatures: %d\n", config->signatures);
 	config_write_signatures ();
 }
 

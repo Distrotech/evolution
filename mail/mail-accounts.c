@@ -867,16 +867,21 @@ sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 	gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), row, 0);
 }
 
+static void sig_row_unselect (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog);
+
 static void
 sig_delete (GtkWidget *w, MailAccountsDialog *dialog)
 {
-	MailConfigSignature *sig;
+	MailConfigSignature *sig = sig_current_sig (dialog);
 
-	sig = mail_config_add_signature ();
-
-	gtk_clist_unselect_row (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0);
 	gtk_clist_remove (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
 	mail_config_delete_signature (sig);
+	if (dialog->sig_row < GTK_CLIST (dialog->sig_clist)->rows)
+		gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0);
+	else if (dialog->sig_row)
+		gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), dialog->sig_row - 1, 0);
+	else
+		sig_row_unselect (dialog->sig_clist, dialog->sig_row, 0, NULL, dialog);
 }
 
 static void
@@ -907,6 +912,7 @@ sig_row_select (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsD
 {
 	MailConfigSignature *sig;
 
+	printf ("sig_row_select\n");
 	gtk_widget_set_sensitive (dialog->sig_add, TRUE);
 	gtk_widget_set_sensitive (dialog->sig_delete, TRUE);
 	gtk_widget_set_sensitive (dialog->sig_edit, TRUE);
@@ -914,6 +920,7 @@ sig_row_select (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsD
 	gtk_widget_set_sensitive (dialog->sig_random, TRUE);
 	gtk_widget_set_sensitive (dialog->sig_filename, TRUE);
 	gtk_widget_set_sensitive (dialog->sig_script, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_html, TRUE);
 
 	dialog->sig_switch = TRUE;
 	sig = gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), row);
@@ -938,6 +945,7 @@ sig_row_select (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsD
 static void
 sig_row_unselect (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog)
 {
+	printf ("sig_row_unselect\n");
 	gtk_widget_set_sensitive (dialog->sig_add, FALSE);
 	gtk_widget_set_sensitive (dialog->sig_delete, FALSE);
 	gtk_widget_set_sensitive (dialog->sig_edit, FALSE);
@@ -961,11 +969,13 @@ sig_fill_clist (GtkWidget *clist)
 	gchar *name [1];
 	gint row;
 
+	gtk_clist_freeze (GTK_CLIST (clist));
 	for (l = mail_config_get_signature_list (); l; l = l->next) {
 		name [0] = ((MailConfigSignature *) l->data)->name;
 		row = gtk_clist_append (GTK_CLIST (clist), name);
 		gtk_clist_set_row_data (GTK_CLIST (clist), row, l->data);
 	}
+	gtk_clist_thaw (GTK_CLIST (clist));
 }
 
 static void
