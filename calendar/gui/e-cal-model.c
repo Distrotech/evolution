@@ -756,7 +756,20 @@ ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 	ECalModelPrivate *priv;
 	gint i, pos;
 	GList *l;
-	gchar *colors[] = { "gray", "green", "darkblue" };
+	gchar *colors[] = {
+		"rgb:71/8D/A9", /* 113 141 169 */
+		"rgb:C6/E2/E2", /* 198 226 226 */
+		"rgb:8D/C6/71", /* 141 198 113 */
+		"rgb:C6/E2/A9", /* 198 226 169 */
+		"rgb:C6/A9/71", /* 198 169 113 */
+		"rgb:FF/E2/71", /* 255 226 113 */
+		"rgb:E2/71/71", /* 226 113 113 */
+		"rgb:FF/A9/A9", /* 255 169 169 */
+		"rgb:C6/8D/C6", /* 198 141 198 */
+		"rgb:E2/C6/E2", /* 226 198 226 */
+		"rgb:D6/D6/84", /* 214 214 132 */
+		"rgb:5B/5B/84"  /* 91 91 132 */
+	};
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 	g_return_val_if_fail (comp_data != NULL, NULL);
