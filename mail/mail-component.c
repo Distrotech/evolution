@@ -275,7 +275,7 @@ create_view_callback (EStorageBrowser *browser,
 		if (noselect && !strcasecmp (noselect, "yes")) {
 			control = create_noselect_control ();
 		} else {
-			/* FIXME: We are passing a CORBA_OBJECT_NIL where it expects a non-null shell
+			/* EPFIXME: We are passing a CORBA_OBJECT_NIL where it expects a non-null shell
 			   objref...  When we refactor FolderBrowser it should be able to do without
 			   the shell.  */
 			control = folder_browser_factory_new_control (physical_uri, CORBA_OBJECT_NIL);
@@ -292,7 +292,7 @@ create_view_callback (EStorageBrowser *browser,
 	if (!control)
 		return NULL;
 
-	/* FIXME: This leaks the control.  */
+	/* EPFIXME: This leaks the control.  */
 	return bonobo_widget_new_control_from_objref (BONOBO_OBJREF (control), CORBA_OBJECT_NIL);
 }
 
@@ -357,7 +357,7 @@ impl_finalize (GObject *object)
 
 	mail_async_event_destroy (priv->async_event);
 
-	g_hash_table_destroy (priv->storages_hash); /* FIXME free the data within? */
+	g_hash_table_destroy (priv->storages_hash); /* EPFIXME free the data within? */
 
 	if (mail_async_event_destroy (priv->async_event) == -1) {
 		g_warning("Cannot destroy async event: would deadlock");
@@ -455,7 +455,7 @@ mail_component_init (MailComponent *component)
 	setup_account_storages (component, accounts);
 	
 #if 0
-	/* FIXME?  */
+	/* EPFIXME?  */
 	mail_local_storage_startup (shell_client, evolution_dir);
 	mail_importer_init (shell_client);
 
@@ -465,12 +465,12 @@ mail_component_init (MailComponent *component)
 	}
 #endif
 	
-	/* mail_autoreceive_setup (); FIXME keep it off for testing */
+	/* mail_autoreceive_setup (); EPFIXME keep it off for testing */
 
 	setup_search_context (component);
 
 #if 0
-	/* FIXME this shouldn't be here.  */
+	/* EPFIXME this shouldn't be here.  */
 	if (mail_config_is_corrupt ()) {
 		GtkWidget *dialog;
 		
@@ -483,13 +483,13 @@ mail_component_init (MailComponent *component)
 #endif
 
 #if 0
-	/* FIXME if we nuke the summary this is not necessary anymore.  */
+	/* EPFIXME if we nuke the summary this is not necessary anymore.  */
 
 	/* Everything should be ready now */
 	evolution_folder_info_notify_ready ();
 #endif
 
-	/* FIXME not sure about this.  */
+	/* EPFIXME not sure about this.  */
 	go_online (component);
 }
 
@@ -563,7 +563,7 @@ mail_component_load_storage_by_uri (MailComponent *component,
 	
 	prov = camel_session_get_provider (session, uri, &ex);
 	if (prov == NULL) {
-		/* FIXME: real error dialog */
+		/* EPFIXME: real error dialog */
 		g_warning ("couldn't get service %s: %s\n", uri,
 			   camel_exception_get_description (&ex));
 		camel_exception_clear (&ex);
@@ -576,7 +576,7 @@ mail_component_load_storage_by_uri (MailComponent *component,
 	
 	store = camel_session_get_service (session, uri, CAMEL_PROVIDER_STORE, &ex);
 	if (store == NULL) {
-		/* FIXME: real error dialog */
+		/* EPFIXME: real error dialog */
 		g_warning ("couldn't get service %s: %s\n", uri,
 			   camel_exception_get_description (&ex));
 		camel_exception_clear (&ex);
@@ -594,7 +594,7 @@ mail_component_load_storage_by_uri (MailComponent *component,
 	}
 	
 	if (camel_exception_is_set (&ex)) {
-		/* FIXME: real error dialog */
+		/* EPFIXME: real error dialog */
 		g_warning ("Cannot load storage: %s",
 			   camel_exception_get_description (&ex));
 		camel_exception_clear (&ex);
