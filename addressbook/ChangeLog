@@ -1,3 +1,8 @@
+2004-11-15  Not Zed  <NotZed@Ximian.com>
+
+	* *.c: Moved various things from e-util to libedataserver, where
+	appropriate.
+
 2004-11-08  Andre Klapper  <a901600@gmx.de>
 
 	Fixes bug #61966.
