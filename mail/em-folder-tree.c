@@ -576,136 +576,141 @@ done:
 }
 
 struct _copy_folder_data {
-	MailComponent *mc;
-	int delete;
+	EMFolderTree *emft;
+	gboolean delete;
 };
 
 static void
-emc_popup_copy_folder_selected(const char *uri, void *data)
+emft_popup_copy_folder_selected (const char *uri, void *data)
 {
-	struct _copy_folder_data *d = data;
-
+	struct _copy_folder_data *cfd = data;
+	struct _EMFolderTreePrivate *priv;
+	CamelStore *fromstore, *tostore;
+	char *tobase, *frombase;
+	CamelException ex;
+	CamelURL *url;
+	
 	if (uri == NULL) {
-		g_free(d);
+		g_free (cfd);
 		return;
 	}
-
-	if (uri) {
-		EFolder *folder = e_storage_set_get_folder(d->mc->priv->storage_set, d->mc->priv->context_path);
-		CamelException *ex = camel_exception_new();
-		CamelStore *fromstore, *tostore;
-		char *tobase, *frombase;
-		CamelURL *url;
-
-		printf("copying folder '%s' to '%s'\n", d->mc->priv->context_path, uri);
-
-		fromstore = camel_session_get_store(session, e_folder_get_physical_uri(folder), ex);
-		frombase = strchr(d->mc->priv->context_path+1, '/')+1;
-
-		tostore = camel_session_get_store(session, uri, ex);
-		url = camel_url_new(uri, NULL);
-		if (url->fragment)
-			tobase = url->fragment;
-		else if (url->path && url->path[0])
-			tobase = url->path+1;
-		else
-			tobase = "";
-
-		em_copy_folders(tostore, tobase, fromstore, frombase, d->delete);
-
-		camel_url_free(url);
-		camel_exception_free(ex);
+	
+	priv = cfd->emft->priv;
+	
+	d(printf ("copying folder '%s' to '%s'\n", priv->selected_path, uri));
+	
+	camel_exception_init (&ex);
+	if (!(fromstore = camel_session_get_store (session, priv->selected_uri, &ex))) {
+		/* FIXME: error dialog? */
+		camel_exception_clear (&ex);
+		return;
 	}
-	g_free(d);
+	
+	frombase = priv->selected_path + 1;
+	
+	if (!(tostore = camel_session_get_store (session, uri, &ex))) {
+		/* FIXME: error dialog? */
+		camel_object_unref (fromstore);
+		camel_exception_clear (&ex);
+		return;
+	}
+	
+	url = camel_url_new (uri, NULL);
+	if (url->fragment)
+		tobase = url->fragment;
+	else if (url->path && url->path[0])
+		tobase = url->path+1;
+	else
+		tobase = "";
+	
+	em_copy_folders (tostore, tobase, fromstore, frombase, d->delete);
+	
+	camel_url_free (url);
+	g_free (cfd);
 }
 
 static void
-emc_popup_copy(GtkWidget *w, MailComponent *mc)
+emft_popup_copy (GtkWidget *item, EMFolderTree *emft)
 {
-	struct _copy_folder_data *d;
-
-	d = g_malloc(sizeof(*d));
-	d->mc = mc;
-	d->delete = 0;
-	em_select_folder(NULL, _("Select folder"), _("Select destination to copy folder into"), NULL, emc_popup_copy_folder_selected, d);
+	struct _copy_folder_data *cfd;
+	
+	cfd = g_malloc (sizeof (*cfd));
+	cfd->emft = emft;
+	cfd->delete = FALSE;
+	
+	em_select_folder (NULL, _("Select folder"),
+			  _("Select destination to copy folder into"),
+			  NULL, emft_popup_copy_folder_selected, cfd);
 }
 
 static void
-emc_popup_move(GtkWidget *w, MailComponent *mc)
+emft_popup_move (GtkWidget *item, EMFolderTree *emft)
 {
-	struct _copy_folder_data *d;
-
-	d = g_malloc(sizeof(*d));
-	d->mc = mc;
-	d->delete = 1;
-	em_select_folder(NULL, _("Select folder"), _("Select destination to move folder into"), NULL, emc_popup_copy_folder_selected, d);
+	struct _copy_folder_data *cfd;
+	
+	cfd = g_malloc (sizeof (*cfd));
+	cfd->emft = emft;
+	cfd->delete = TRUE;
+	
+	em_select_folder (NULL, _("Select folder"),
+			  _("Select destination to move folder into"),
+			  NULL, emft_popup_copy_folder_selected, cfd);
 }
 
 static void
-emc_popup_new_folder_create(EStorageSet *ess, EStorageResult result, void *data)
-{
-	d(printf ("folder created %s\n", result == E_STORAGE_OK ? "ok" : "failed"));
-}
-
-static void
-emc_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTree *emft)
+emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTree *emft)
 {
 	/* FIXME: ugh, kludge-a-licious: EMFolderSelector uses EMFolderTree so we can poke emfs->emft internals */
 	struct _EMFolderTreePrivate *priv = emfs->emft->priv;
-	GtkTreePath *tree_path;
-	GtkTreeModel *model;
+	char *uri, *path, *name, *parent;
+	struct _emft_store_info *si;
 	CamelStore *store;
 	CamelException ex;
-	GtkTreeIter iter;
-	char *uri, *path;
 	
-	if (response == GTK_RESPONSE_OK) {
-		uri = em_folder_selector_get_selected (emfs);
-		d(printf ("Creating folder: %s (%s)\n", uri));
-		
-		model = gtk_tree_view_get_model (priv->treeview);
-		
-		
-		
-		path = g_strdup (em_folder_selector_get_selected_path (emfs));
-		tmp = strchr (path + 1, '/');
-		*tmp++ = '\0';
-		
-		/* FIXME: camel_store_create_folder should just take full path names */
-		full = g_strdup (tmp);
-		name = strrchr (tmp, '/');
-		if (name == NULL) {
-			name = tmp;
-			tmp = "";
-		} else
-			*name++ = '\0';
-		
-		storage = e_storage_set_get_storage(mc->priv->storage_set, path+1);
-		store = g_object_get_data((GObject *)storage, "em-store");
-		
-		printf("creating folder '%s' / '%s' on '%s'\n", tmp, name, path+1);
-		
-		ex = camel_exception_new();
-		camel_store_create_folder(store, tmp, name, ex);
-		if (camel_exception_is_set(ex)) {
-			printf("Create failed: %s\n", ex->desc);
-		} else if (camel_store_supports_subscriptions(store)) {
-			camel_store_subscribe_folder(store, full, ex);
-			if (camel_exception_is_set(ex)) {
-				printf("Subscribe failed: %s\n", ex->desc);
-			}
-		}
-		
-		camel_exception_free (ex);
-		
-		g_free (full);
-		g_free (path);
-		
-		/* Blah, this should just use camel, we get better error reporting if we do too */
-		/*e_storage_set_async_create_folder(mc->priv->storage_set, path, "mail", "", emc_popup_new_folder_create, mc);*/
+	if (response != GTK_RESPONSE_OK) {
+		gtk_widget_destroy ((GtkWidget *) emfs);
+		return;
 	}
 	
-	gtk_widget_destroy (dialog);
+	uri = em_folder_selector_get_selected (emfs);
+	path = em_folder_selector_get_selected_path (emfs);
+	d(printf ("Creating folder: %s (%s)\n", path, uri));
+	
+	if (!(si = g_hash_table_lookup (priv->store_hash, uri)))
+		goto done;
+	
+	/* FIXME: camel_store_create_folder should just take full path names */
+	if (!(name = strrchr (path, '/'))) {
+		name = path;
+		parent = "";
+	} else {
+		*name++ = '\0';
+		parent = path;
+	}
+	
+	d(printf ("creating folder name='%s' path='%s'\n", name, path));
+	
+	camel_exception_init (&ex);
+	camel_store_create_folder (si->store, parent, name, &ex);
+	if (camel_exception_is_set (&ex)) {
+		d(printf ("Create failed: %s\n", ex.desc));
+		/* FIXME: error dialog? */
+	} else if (camel_store_supports_subscriptions (si->store)) {
+		camel_store_subscribe_folder (si->store, path, &ex);
+		if (camel_exception_is_set (&ex)) {
+			d(printf ("Subscribe failed: %s\n", ex.desc));
+			/* FIXME: error dialog? */
+		}
+	}
+	
+	camel_exception_clear (&ex);
+	
+ done:
+	
+	g_free (uri);
+	g_free (path);
+	
+	gtk_widget_destroy ((GtkWidget *) emfs);
 }
 
 static void
