@@ -58,13 +58,6 @@ typedef enum {
 	CAL_BACKEND_SEND_PERMISSION_DENIED,
 } CalBackendSendResult;
 
-/* Result codes for ::get_alarms_in_range() */
-typedef enum {
-	CAL_BACKEND_GET_ALARMS_SUCCESS,
-	CAL_BACKEND_GET_ALARMS_NOT_FOUND,
-	CAL_BACKEND_GET_ALARMS_INVALID_RANGE
-} CalBackendGetAlarmsForObjectResult;
-
 typedef struct _CalBackendPrivate CalBackendPrivate;
 
 struct _CalBackend {
@@ -125,11 +118,6 @@ struct _CalBackendClass {
 		CalBackend *backend, CalObjType type, const char *change_id);
 
 	/* Alarm related virtual methods */
-	GNOME_Evolution_Calendar_CalComponentAlarmsSeq *(* get_alarms_in_range) (
-		CalBackend *backend, time_t start, time_t end);
-	GNOME_Evolution_Calendar_CalComponentAlarms *(* get_alarms_for_object) (
-		CalBackend *backend, const char *uid,
-		time_t start, time_t end, gboolean *object_found);
 	CalBackendResult (* discard_alarm) (CalBackend *backend, const char *uid, const char *auid);
 
 	/* Timezone related virtual methods */
@@ -189,14 +177,6 @@ GList *cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t star
 
 GNOME_Evolution_Calendar_CalObjChangeSeq * cal_backend_get_changes (
 	CalBackend *backend, CalObjType type, const char *change_id);
-
-GNOME_Evolution_Calendar_CalComponentAlarmsSeq *cal_backend_get_alarms_in_range (
-	CalBackend *backend, time_t start, time_t end, gboolean *valid_range);
-
-GNOME_Evolution_Calendar_CalComponentAlarms *cal_backend_get_alarms_for_object (
-	CalBackend *backend, const char *uid,
-	time_t start, time_t end,
-	CalBackendGetAlarmsForObjectResult *result);
 
 CalBackendResult cal_backend_discard_alarm (CalBackend *backend, const char *uid, const char *auid);
 

@@ -338,79 +338,6 @@ impl_Cal_getFreeBusy (PortableServer_Servant servant,
         return seq;
 }
 
-/* Cal::getAlarmsInRange method */
-static GNOME_Evolution_Calendar_CalComponentAlarmsSeq *
-impl_Cal_getAlarmsInRange (PortableServer_Servant servant,
-			   GNOME_Evolution_Calendar_Time_t start,
-			   GNOME_Evolution_Calendar_Time_t end,
-			   CORBA_Environment *ev)
-{
-	Cal *cal;
-	CalPrivate *priv;
-	time_t t_start, t_end;
-	gboolean valid_range;
-	GNOME_Evolution_Calendar_CalComponentAlarmsSeq *seq;
-
-	cal = CAL (bonobo_object_from_servant (servant));
-	priv = cal->priv;
-
-	t_start = (time_t) start;
-	t_end = (time_t) end;
-
-	seq = cal_backend_get_alarms_in_range (priv->backend, t_start, t_end, &valid_range);
-	if (!valid_range) {
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidRange);
-		return NULL;
-	}
-
-	if (!seq) {
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
-		return NULL;
-	}
-
-	return seq;
-}
-
-/* Cal::getAlarmsForObject method */
-static GNOME_Evolution_Calendar_CalComponentAlarms *
-impl_Cal_getAlarmsForObject (PortableServer_Servant servant,
-			     const CORBA_char *uid,
-			     GNOME_Evolution_Calendar_Time_t start,
-			     GNOME_Evolution_Calendar_Time_t end,
-			     CORBA_Environment * ev)
-{
-	Cal *cal;
-	CalPrivate *priv;
-	time_t t_start, t_end;
-	GNOME_Evolution_Calendar_CalComponentAlarms *alarms;
-	CalBackendGetAlarmsForObjectResult result;
-
-	cal = CAL (bonobo_object_from_servant (servant));
-	priv = cal->priv;
-
-	t_start = (time_t) start;
-	t_end = (time_t) end;
-
-	alarms = cal_backend_get_alarms_for_object (priv->backend, uid, t_start, t_end, &result);
-
-	switch (result) {
-	case CAL_BACKEND_GET_ALARMS_SUCCESS:
-		return alarms;
-
-	case CAL_BACKEND_GET_ALARMS_NOT_FOUND:
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
-		return NULL;
-
-	case CAL_BACKEND_GET_ALARMS_INVALID_RANGE:
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidRange);
-		return NULL;
-
-	default:
-		g_assert_not_reached ();
-		return NULL;
-	}
-}
-
 /* Cal::discardAlarm method */
 static void
 impl_Cal_discardAlarm (PortableServer_Servant servant,
@@ -743,8 +670,6 @@ cal_class_init (CalClass *klass)
 	epv->getObjectList = impl_Cal_getObjectList;
 	epv->getChanges = impl_Cal_getChanges;
 	epv->getFreeBusy = impl_Cal_getFreeBusy;
-	epv->getAlarmsInRange = impl_Cal_getAlarmsInRange;
-	epv->getAlarmsForObject = impl_Cal_getAlarmsForObject;
 	epv->discardAlarm = impl_Cal_discardAlarm;
 	epv->createObject = impl_Cal_createObject;
 	epv->modifyObject = impl_Cal_modifyObject;

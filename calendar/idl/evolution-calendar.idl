@@ -228,25 +228,9 @@ module Calendar {
 		/* Gets a list of components that changed based on object type */
 		CalObjChangeSeq getChanges (in CalObjType type, in string change_id);
 
-
-		/* Gets a list of the components that have alarms that trigger
-		 * in the specified range of time, and the trigger/occurrence
-		 * structures themselves.  
-		 */
-		CalComponentAlarmsSeq getAlarmsInRange (in Time_t start, in Time_t end)
-			raises (NotFound, InvalidRange);
-
 		/* Returns free/busy objects for the given interval */
 		CalObjSeq getFreeBusy (in UserList users, in Time_t start, in Time_t end)
 			raises (NotFound, InvalidRange);
-
-		/* Gets the alarms for the specified component that trigger in
-		 * the specified time range.  
-		 */
-		CalComponentAlarms getAlarmsForObject (in CalObjUID uid,
-						       in Time_t start, in Time_t end)
-			raises (NotFound, InvalidRange);
-
 
 		/* Discards an alarm from a given component */
 		void discardAlarm (in CalObjUID uid, in CalAlarmUID auid)

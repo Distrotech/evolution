@@ -106,13 +106,6 @@ static GList *cal_backend_file_get_free_busy (CalBackend *backend, GList *users,
 static GNOME_Evolution_Calendar_CalObjChangeSeq *cal_backend_file_get_changes (
 	CalBackend *backend, CalObjType type, const char *change_id);
 
-static GNOME_Evolution_Calendar_CalComponentAlarmsSeq *cal_backend_file_get_alarms_in_range (
-	CalBackend *backend, time_t start, time_t end);
-
-static GNOME_Evolution_Calendar_CalComponentAlarms *cal_backend_file_get_alarms_for_object (
-	CalBackend *backend, const char *uid,
-	time_t start, time_t end, gboolean *object_found);
-
 static CalBackendResult cal_backend_file_discard_alarm (CalBackend *backend,
 							const char *uid,
 							const char *auid);
@@ -202,8 +195,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	backend_class->get_timezone_object = cal_backend_file_get_timezone_object;
 	backend_class->get_free_busy = cal_backend_file_get_free_busy;
 	backend_class->get_changes = cal_backend_file_get_changes;
-	backend_class->get_alarms_in_range = cal_backend_file_get_alarms_in_range;
-	backend_class->get_alarms_for_object = cal_backend_file_get_alarms_for_object;
 	backend_class->discard_alarm = cal_backend_file_discard_alarm;
 
 	backend_class->get_timezone = cal_backend_file_get_timezone;
@@ -1438,110 +1429,6 @@ cal_backend_file_get_changes (CalBackend *backend, CalObjType type, const char *
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
 
 	return cal_backend_file_compute_changes (backend, type, change_id);
-}
-
-/* Get_alarms_in_range handler for the file backend */
-static GNOME_Evolution_Calendar_CalComponentAlarmsSeq *
-cal_backend_file_get_alarms_in_range (CalBackend *backend,
-				      time_t start, time_t end)
-{
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-	int n_comp_alarms;
-	GSList *comp_alarms;
-	GSList *l;
-	int i;
-	CalAlarmAction omit[] = {-1};
-	
-	GNOME_Evolution_Calendar_CalComponentAlarmsSeq *seq;
-
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
-
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
-
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
-
-	/* Per RFC 2445, only VEVENTs and VTODOs can have alarms */
-	comp_alarms = NULL;
-	n_comp_alarms = cal_util_generate_alarms_for_list (priv->comp, start, end, omit,
-							    &comp_alarms, resolve_tzid,
-							    priv->icalcomp,
-							    priv->default_zone);
-
-	seq = GNOME_Evolution_Calendar_CalComponentAlarmsSeq__alloc ();
-	CORBA_sequence_set_release (seq, TRUE);
-	seq->_length = n_comp_alarms;
-	seq->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalComponentAlarms_allocbuf (
-		n_comp_alarms);
-
-	for (l = comp_alarms, i = 0; l; l = l->next, i++) {
-		CalComponentAlarms *alarms;
-		char *comp_str;
-
-		alarms = l->data;
-
-		comp_str = cal_component_get_as_string (alarms->comp);
-		seq->_buffer[i].calobj = CORBA_string_dup (comp_str);
-		g_free (comp_str);
-
-		cal_backend_util_fill_alarm_instances_seq (&seq->_buffer[i].alarms, alarms->alarms);
-
-		cal_component_alarms_free (alarms);
-	}
-
-	g_slist_free (comp_alarms);
-
-	return seq;
-}
-
-/* Get_alarms_for_object handler for the file backend */
-static GNOME_Evolution_Calendar_CalComponentAlarms *
-cal_backend_file_get_alarms_for_object (CalBackend *backend, const char *uid,
-					time_t start, time_t end,
-					gboolean *object_found)
-{
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-	CalComponent *comp;
-	char *comp_str;
-	GNOME_Evolution_Calendar_CalComponentAlarms *corba_alarms;
-	CalComponentAlarms *alarms;
-	CalAlarmAction omit[] = {-1};
-
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
-
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
-
-	g_return_val_if_fail (uid != NULL, NULL);
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
-	g_return_val_if_fail (object_found != NULL, NULL);
-
-	comp = lookup_component (cbfile, uid);
-	if (!comp) {
-		*object_found = FALSE;
-		return NULL;
-	}
-
-	*object_found = TRUE;
-
-	comp_str = cal_component_get_as_string (comp);
-	corba_alarms = GNOME_Evolution_Calendar_CalComponentAlarms__alloc ();
-
-	corba_alarms->calobj = CORBA_string_dup (comp_str);
-	g_free (comp_str);
-
-	alarms = cal_util_generate_alarms_for_comp (comp, start, end, omit, resolve_tzid, priv->icalcomp, priv->default_zone);
-	if (alarms) {
-		cal_backend_util_fill_alarm_instances_seq (&corba_alarms->alarms, alarms->alarms);
-		cal_component_alarms_free (alarms);
-	} else
-		cal_backend_util_fill_alarm_instances_seq (&corba_alarms->alarms, NULL);
-
-	return corba_alarms;
 }
 
 /* Discard_alarm handler for the file backend */

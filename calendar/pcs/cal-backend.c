@@ -251,8 +251,6 @@ cal_backend_class_init (CalBackendClass *class)
 	class->get_object_list = NULL;
 	class->get_free_busy = NULL;
 	class->get_changes = NULL;
-	class->get_alarms_in_range = NULL;
-	class->get_alarms_for_object = NULL;
 	class->discard_alarm = NULL;
 	class->create_object = NULL;
 	class->modify_object = NULL;
@@ -808,82 +806,6 @@ cal_backend_get_changes (CalBackend *backend, CalObjType type, const char *chang
 
 	g_assert (CLASS (backend)->get_changes != NULL);
 	return (* CLASS (backend)->get_changes) (backend, type, change_id);
-}
-
-/**
- * cal_backend_get_alarms_in_range:
- * @backend: A calendar backend.
- * @start: Start time for query.
- * @end: End time for query.
- * @valid_range: Return value that says whether the range is valid or not.
- * 
- * Builds a sorted list of the alarms that trigger in the specified time range.
- * 
- * Return value: A sequence of component alarm instances structures, or NULL
- * if @valid_range returns FALSE.
- **/
-GNOME_Evolution_Calendar_CalComponentAlarmsSeq *
-cal_backend_get_alarms_in_range (CalBackend *backend, time_t start, time_t end,
-				 gboolean *valid_range)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (valid_range != NULL, NULL);
-
-	g_assert (CLASS (backend)->get_alarms_in_range != NULL);
-
-	if (!(start != -1 && end != -1 && start <= end)) {
-		*valid_range = FALSE;
-		return NULL;
-	} else {
-		*valid_range = TRUE;
-		return (* CLASS (backend)->get_alarms_in_range) (backend, start, end);
-	}
-}
-
-/**
- * cal_backend_get_alarms_for_object:
- * @backend: A calendar backend.
- * @uid: Unique identifier for a calendar object.
- * @start: Start time for query.
- * @end: End time for query.
- * @result: Return value for the result code for the operation.
- * 
- * Builds a sorted list of the alarms of the specified event that trigger in a
- * particular time range.
- * 
- * Return value: A structure of the component's alarm instances, or NULL if @result
- * returns something other than #CAL_BACKEND_GET_ALARMS_SUCCESS.
- **/
-GNOME_Evolution_Calendar_CalComponentAlarms *
-cal_backend_get_alarms_for_object (CalBackend *backend, const char *uid,
-				   time_t start, time_t end,
-				   CalBackendGetAlarmsForObjectResult *result)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (uid != NULL, NULL);
-	g_return_val_if_fail (result != NULL, NULL);
-
-	g_assert (CLASS (backend)->get_alarms_for_object != NULL);
-
-	if (!(start != -1 && end != -1 && start <= end)) {
-		*result = CAL_BACKEND_GET_ALARMS_INVALID_RANGE;
-		return NULL;
-	} else {
-		gboolean object_found;
-		GNOME_Evolution_Calendar_CalComponentAlarms *alarms;
-
-		alarms = (* CLASS (backend)->get_alarms_for_object) (backend, uid, start, end,
-								     &object_found);
-
-		if (object_found)
-			*result = CAL_BACKEND_GET_ALARMS_SUCCESS;
-		else
-			*result = CAL_BACKEND_GET_ALARMS_NOT_FOUND;
-
-		return alarms;
-	}
 }
 
 /**
