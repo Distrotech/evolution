@@ -1,9 +1,32 @@
 2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
 
-	* em-format-html-display.c: Fixed some compiler warnings.
+	* mail-session.c: Synced up with HEAD.
 
-	* mail-session.c (remove_timeout): Removed.
-	(register_timeout): Removed.
+	* component-factory.c:
+
+	* mail-folder-cache.[c,h]:
+
+	* mail-tools.h:
+
+	* mail-ops.[c,h]:
+
+	* mail-send-recv.c:
+
+	* mail-format.[c,h]:
+
+	* mail-display.c:
+
+	* mail-account-gui.c:
+
+	* mail-local.c:
+
+	* mail-offline-handler.c:
+
+	* subscribe-dialog.c:
+
+2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format-html-display.c: Fixed some compiler warnings.
 
 	* em-format.c: Updated for new mime-parser changes made to HEAD.
 

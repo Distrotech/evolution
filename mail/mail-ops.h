@@ -30,8 +30,8 @@ extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
-#include "camel/camel-folder.h"
 #include "camel/camel-store.h"
+#include "camel/camel-folder.h"
 #include "camel/camel-filter-driver.h"
 #include "camel/camel-mime-message.h"
 #include "camel/camel-operation.h"
@@ -69,7 +69,7 @@ int mail_get_folder (const char *uri, guint32 flags,
 		     EThread *thread);
 
 /* and for a store */
-int mail_get_store (const char *uri,
+int mail_get_store (const char *uri, CamelOperation *op,
 		    void (*done) (char *uri, CamelStore *store, void *data), void *data);
 
 /* build an attachment */
@@ -95,7 +95,7 @@ void mail_empty_trash (EAccount *account,
 		       void *data);
 
 /* get folder info asynchronously */
-int mail_get_folderinfo (CamelStore *store,
+int mail_get_folderinfo (CamelStore *store, CamelOperation *op,
 			 void (*done)(CamelStore *store, CamelFolderInfo *info, void *data),
 			 void *data);
 
