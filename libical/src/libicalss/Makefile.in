@@ -70,6 +70,7 @@ MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
+PERL = @PERL@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 YACC = @YACC@
@@ -85,12 +86,12 @@ INCLUDES =  	-I$(top_builddir)		-I$(top_srcdir)/src		-I$(top_builddir)/src		-I$(
 
 libicalss_la_LDFLAGS = -version-info 0:0:0
 
-libicalss_la_SOURCES =  	icalclassify.c			icaldirset.c			icaldirsetimpl.h		icalfileset.c			icalfilesetimpl.h		icalgauge.c			icalgaugeimpl.h			icalset.c			icalsslexer.l			icalssutil.c			icalssyacc.h			icalssyacc.y			icalspanlist.c			icalmessage.c			icalcstp.c
+libicalss_la_SOURCES =  	icalclassify.c			icalgauge.c			icalgaugeimpl.h			icaldirset.c			icaldirsetimpl.h		icalfileset.c			icalfilesetimpl.h		icalset.c			icalsslexer.l			icalssutil.c			icalssyacc.h			icalssyacc.y			icalspanlist.c			icalmessage.c			icalcstp.c
 
 
 libicalssincludedir = $(includedir)
 
-COMBINEDHEADERS =          icalset.h         icalfileset.h         icaldirset.h         icalcalendar.h          icalgauge.h         icalssutil.h         icalclassify.h 	icalspanlist.h		icalmessage.h 	icalcstp.h
+COMBINEDHEADERS =          icalgauge.h         icalset.h         icalfileset.h         icaldirset.h         icalcalendar.h          icalssutil.h         icalclassify.h 	icalspanlist.h		icalmessage.h 	icalcstp.h
 
 
 libicalssinclude_HEADERS = icalss.h
@@ -108,8 +109,8 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libicalss_la_LIBADD = 
-libicalss_la_OBJECTS =  icalclassify.lo icaldirset.lo icalfileset.lo \
-icalgauge.lo icalset.lo icalsslexer.lo icalssutil.lo icalssyacc.lo \
+libicalss_la_OBJECTS =  icalclassify.lo icalgauge.lo icaldirset.lo \
+icalfileset.lo icalset.lo icalsslexer.lo icalssutil.lo icalssyacc.lo \
 icalspanlist.lo icalmessage.lo icalcstp.lo
 LEXLIB = @LEXLIB@
 CFLAGS = @CFLAGS@
@@ -274,6 +275,37 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
+icalclassify.lo icalclassify.o : icalclassify.c ../../config.h \
+	../../src/libical/ical.h icalclassify.h icalset.h \
+	../../src/libical/icalerror.h ../../src/libical/icalmemory.h
+icalcstp.lo icalcstp.o : icalcstp.c ../../config.h \
+	../../src/libical/ical.h icalcstp.h ../../src/libical/pvl.h
+icaldirset.lo icaldirset.o : icaldirset.c ../../config.h \
+	../../src/libical/ical.h icaldirset.h ../../src/libical/pvl.h \
+	../../src/libical/icalerror.h ../../src/libical/icalparser.h \
+	icalfileset.h icalgauge.h icalfilesetimpl.h icaldirsetimpl.h
+icalfileset.lo icalfileset.o : icalfileset.c ../../config.h \
+	icalfileset.h ../../src/libical/ical.h icalgauge.h \
+	icalfilesetimpl.h
+icalgauge.lo icalgauge.o : icalgauge.c ../../src/libical/ical.h \
+	../../config.h icalgauge.h icalgaugeimpl.h \
+	../../src/libical/pvl.h
+icalmessage.lo icalmessage.o : icalmessage.c ../../config.h \
+	icalmessage.h ../../src/libical/ical.h \
+	../../src/libical/icalenums.h
+icalset.lo icalset.o : icalset.c ../../src/libical/ical.h ../../config.h \
+	icalset.h ../../src/libical/icalerror.h icalfileset.h \
+	icalgauge.h icalfilesetimpl.h icaldirset.h icaldirsetimpl.h
+icalspanlist.lo icalspanlist.o : icalspanlist.c ../../config.h \
+	../../src/libical/ical.h icalspanlist.h icalset.h \
+	../../src/libical/icalerror.h ../../src/libical/pvl.h
+icalsslexer.lo icalsslexer.o : icalsslexer.c icalssyacc.h \
+	icalgaugeimpl.h ../../src/libical/ical.h ../../config.h \
+	../../src/libical/pvl.h
+icalssutil.lo icalssutil.o : icalssutil.c ../../config.h
+icalssyacc.lo icalssyacc.o : icalssyacc.c ../../src/libical/ical.h \
+	../../config.h ../../src/libical/pvl.h icalgauge.h \
+	icalgaugeimpl.h
 
 info-am:
 info: info-am
