@@ -461,7 +461,7 @@ etta_proxy_node_changed (ETreeModel *etm, ETreePath path, ETreeTableAdapter *ett
 
 		size = array_size_from_path(etta, path);
 		node = find_or_create_node(etta, path);
-		old_size = node->num_visible_children;
+		old_size = node->num_visible_children + 1;
 
 		etta_expand_to(etta, etta->priv->n_map + size - old_size);
 

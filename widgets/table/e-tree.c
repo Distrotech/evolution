@@ -576,6 +576,11 @@ e_tree_set_state_object(ETree *e_tree, ETableState *state)
 		gtk_object_set(GTK_OBJECT(e_tree->item),
 			       "ETableHeader", e_tree->header,
 			       NULL);
+
+	if (e_tree->sorted)
+		gtk_object_set(GTK_OBJECT(e_tree->sorted),
+			       "sort_info", e_tree->sort_info,
+			       NULL);
 }
 
 /**

@@ -878,3 +878,94 @@ e_create_directory (gchar *directory)
 
 	return (return_value);
 }
+
+
+/* Perform a binary search for key in base which has nmemb elements
+   of size bytes each.  The comparisons are done by (*compare)().  */
+void      e_bsearch                                                        (const void       *key,
+									    const void       *base,
+									    size_t            nmemb,
+									    size_t            size,
+									    ESortCompareFunc  compare,
+									    gpointer          closure,
+									    size_t	     *start,
+									    size_t	     *end)
+{
+	size_t l, u, idx;
+	const void *p;
+	int comparison;
+	if (!(start || end))
+		return;
+
+	l = 0;
+	u = nmemb;
+	while (l < u) {
+		idx = (l + u) / 2;
+		p = (void *) (((const char *) base) + (idx * size));
+		comparison = (*compare) (key, p, closure);
+		if (comparison < 0)
+			u = idx;
+		else if (comparison > 0)
+			l = idx + 1;
+		else {
+			size_t lsave, usave;
+			lsave = l;
+			usave = u;
+			if (start) {
+				while (l < u) {
+					idx = (l + u) / 2;
+					p = (void *) (((const char *) base) + (idx * size));
+					comparison = (*compare) (key, p, closure);
+					if (comparison <= 0)
+						u = idx;
+					else
+						l = idx + 1;
+				}
+				*start = l;
+				
+				l = lsave;
+				u = usave;
+			}
+			if (end) {
+				while (l < u) {
+					idx = (l + u) / 2;
+					p = (void *) (((const char *) base) + (idx * size));
+					comparison = (*compare) (key, p, closure);
+					if (comparison < 0)
+						u = idx;
+					else
+						l = idx + 1;
+				}
+				*end = l;
+			}
+			return;
+		}
+	}
+
+	if (start)
+		*start = l;
+	if (end)
+		*end = l;
+}
+
+/* FIXME: This is ~ n log_2 n compares and 1/2 * size * n^2 byte copies.  I think it could be more efficient. */
+void
+e_sort (void             *base,
+	size_t            nmemb,
+	size_t            size,
+	ESortCompareFunc  compare,
+	gpointer          closure)
+{
+	void *base_copy;
+	int i;
+	base_copy = g_malloc(nmemb * size);
+
+	for (i = 0; i < nmemb; i++) {
+		int position;
+		e_bsearch(base + (i * size), base_copy, i, size, compare, closure, NULL, &position);
+		memmove(base_copy + (position + 1) * size, base_copy + position * size, (i - position) * size);
+		memcpy(base_copy + position * size, base + i * size, size);
+	}
+	memcpy(base, base_copy, nmemb * size);
+	g_free(base_copy);
+}
