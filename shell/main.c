@@ -92,8 +92,6 @@ static gboolean killev = FALSE;
 
 extern char *evolution_debug_log;
 
-#define GNOME_ACCESSIBILITY_ENV "GNOME_ACCESSIBILITY"
-#define GNOME_ACCESSIBILITY_KEY "/desktop/gnome/interface/accessibility"
 
 
 static GtkWidget *
@@ -538,111 +536,6 @@ setup_segv_redirect (void)
 	g_static_mutex_lock (&segv_mutex);
 }
 
-static char *
-find_a11y_module (GnomeProgram *program, const char *libname)
-{
-	char *sub;
-	char *path;
-	char *fname;
-	char *retval;
-
-	fname = g_strconcat (libname, "." G_MODULE_SUFFIX, NULL);
-	sub = g_build_filename ("gtk-2.0","modules", fname, NULL);
-
-	path = gnome_program_locate_file (
-		program, GNOME_FILE_DOMAIN_LIBDIR, sub, TRUE, NULL);
-
-	g_free (sub);
-
-	if (path)
-		retval = path;
-	else {
-		sub = g_build_filename ("evolution", BASE_VERSION, fname, NULL);
-		path = gnome_program_locate_file (
-		       program, GNOME_FILE_DOMAIN_LIBDIR, sub, TRUE, NULL);
-		g_free (sub);
-
-		if (path)
-			retval = path;
-		else
-			retval = gnome_program_locate_file (
-				 program, GNOME_FILE_DOMAIN_LIBDIR, fname, TRUE, NULL);
-	}
-	g_free (fname);
-
-	return retval;
-}
-
-
-static gboolean
-invoke_a11y_module (GnomeProgram *program,
-			     const char   *libname,
-			     gboolean      init)
-{
-	GModule    *handle;
-	void      (*invoke_fn) (void);
-	const char *method;
-	gboolean    retval = FALSE;
-	char       *module_name;
-
-	if (init)
-		method = "gnome_accessibility_module_init";
-	else
-		method = "gnome_accessibility_module_shutdown";
-
-	module_name = find_a11y_module (program, libname);
-
-	if (!module_name) {
-		g_warning ("Accessibility: failed to find module '%s' which "
-			   "is needed to make this application accessible",
-			   libname);
-
-	} else if (!(handle = g_module_open (module_name, G_MODULE_BIND_LAZY))) {
-		g_warning ("Accessibility: failed to load module '%s': '%s'",
-			   libname, g_module_error ());
-
-	} else if (!g_module_symbol (handle, method, (gpointer *)&invoke_fn)) {
-		g_warning ("Accessibility: error library '%s' does not include "
-			   "method '%s' required for accessibility support",
-			   libname, method);
-		g_module_close (handle);
-
-	} else {
-		retval = TRUE;
-		invoke_fn ();
-	}
-
-	g_free (module_name);
-
-	return retval;
-}
-
-static void
-init_a11y (GnomeProgram *program)
-{
-	gboolean do_init;
-	const char *env_var;
-	GConfClient *gconf;
-	
-	do_init = FALSE;
-
-	env_var = g_getenv (GNOME_ACCESSIBILITY_ENV);
-	if (env_var) {
-		do_init = atoi (env_var);
-	}
-	else {
-		gconf = gconf_client_get_default (),
-		do_init = gconf_client_get_bool ( gconf, GNOME_ACCESSIBILITY_KEY, NULL);
-		g_object_unref (G_OBJECT(gconf));
-	}
-
-	if (do_init) {
-		invoke_a11y_module (program, "libgal-a11y-2.0", TRUE);
-		invoke_a11y_module (program, "libevolution-a11y", TRUE);
-	}
-}
-
-
 int
 main (int argc, char **argv)
 {
@@ -682,9 +575,6 @@ main (int argc, char **argv)
 				      GNOME_PARAM_POPT_TABLE, options,
 				      GNOME_PARAM_HUMAN_READABLE_NAME, _("Evolution"),
 				      NULL);
-	/* the old method will be removed 
-	init_a11y (program);
-	*/
 
 	if (start_online && start_offline) {
 		fprintf (stderr, _("%s: --online and --offline cannot be used together.\n  Use %s --help for more information.\n"),
