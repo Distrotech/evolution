@@ -3268,7 +3268,7 @@ cal_client_remove_object (CalClient *client, const char *uid, GError **error)
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
-	return cal_client_remove_object_with_mod (client, uid, CALOBJ_MOD_ALL, error);
+	return cal_client_remove_object_with_mod (client, uid, NULL, CALOBJ_MOD_ALL, error);
 }
 
 gboolean

@@ -1,5 +1,11 @@
 2003-10-09  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-view.c (e_cal_view_delete_selected_occurrence):
+	* cal-client/cal-client.c (cal_client_remove_object): added missing
+	argument when calling cal_client_remove_object_with_mod().
+
+2003-10-09  Rodrigo Moya <rodrigo@ximian.com>
+
 	* idl/evolution-calendar.idl: added missing 'rid' argument to the
 	removeObject method.
 
