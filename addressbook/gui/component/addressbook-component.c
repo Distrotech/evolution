@@ -46,7 +46,7 @@
 
 #include "ebook/e-book-async.h"
 #include "ebook/e-contact.h"
-#include "ebook/e-book-util.h"
+#include "addressbook/util/eab-book-util.h"
 
 #include "addressbook-config.h"
 #include "addressbook-storage.h"
@@ -404,17 +404,17 @@ owner_unset_cb (EvolutionShellComponent *shell_component,
 
 /* FIXME We should perhaps take the time to figure out if the book is editable. */
 static void
-new_item_cb (EBook *book, gpointer closure)
+new_item_cb (EBook *book, EBookStatus status, gpointer closure)
 {
-#if notyet
 	gboolean is_list = GPOINTER_TO_INT (closure);
-	if (book == NULL)
+	if (status != E_BOOK_ERROR_OK)
 		return;
+#if notyet
 	if (is_list)
 		e_addressbook_show_contact_list_editor (book, e_card_new(""), TRUE, TRUE);
 	else
-		e_addressbook_show_contact_editor (book, e_card_new(""), TRUE, TRUE);
 #endif
+		e_addressbook_show_contact_editor (book, e_contact_new(), TRUE, TRUE);
 }
 
 static void
@@ -424,6 +424,7 @@ user_create_new_item_cb (EvolutionShellComponent *shell_component,
 			 const char *parent_folder_type,
 			 gpointer data)
 {
+	EBook *book;
 	gboolean is_contact_list;
 	if (!strcmp (id, "contact")) {
 		is_contact_list = FALSE;
@@ -433,11 +434,15 @@ user_create_new_item_cb (EvolutionShellComponent *shell_component,
 		g_warning ("Don't know how to create item of type \"%s\"", id);
 		return;
 	}
+
 	if (IS_CONTACT_TYPE (parent_folder_type)) {
-		e_book_use_address_book_by_uri (parent_folder_physical_uri,
-						new_item_cb, GINT_TO_POINTER (is_contact_list));
+		book = e_book_new();
+		e_book_async_load_uri (book, parent_folder_physical_uri,
+				       new_item_cb, GINT_TO_POINTER (is_contact_list));
 	} else {
+#if notyet
 		e_book_use_default_book (new_item_cb, GINT_TO_POINTER (is_contact_list));
+#endif
 	}
 }
 
@@ -597,7 +602,7 @@ ensure_completion_uris_exist()
 	EConfigListener *db;
 	char *val;
 
-	db = e_book_get_config_database ();
+	db = eab_get_config_database ();
 		
 	val = e_config_listener_get_string (db, "/apps/evolution/addressbook/completion/uris");
 

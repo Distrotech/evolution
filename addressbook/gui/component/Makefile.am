@@ -1,4 +1,4 @@
-#SUBDIRS	= select-names
+SUBDIRS	= select-names
 
 INCLUDES =									\
 	-DG_LOG_DOMAIN=\"evolution-addressbook\"		\
@@ -45,16 +45,17 @@ libevolution_addressbook_la_SOURCES = 	\
 	addressbook.h			\
 	component-factory.c
 
-# 	select-names/libeselectnames.la							\
 #	$(top_builddir)/addressbook/printing/libecontactprint.la			\
 #	$(top_builddir)/addressbook/gui/merging/libecardmerging.la			\
 #	$(top_builddir)/addressbook/gui/contact-list-editor/libecontactlisteditor.la	\
 
 libevolution_addressbook_la_LIBADD =							\
+	$(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
 	$(top_builddir)/shell/libeshell.la						\
 	$(top_builddir)/addressbook/gui/widgets/libeminicard.la				\
 	$(top_builddir)/addressbook/gui/search/libeaddressbooksearch.la			\
 	$(top_builddir)/filter/libfilter.la						\
+	$(top_builddir)/addressbook/util/libeabutil.la					\
 	$(top_builddir)/addressbook/backend/ebook/libebook.la				\
 	$(top_builddir)/addressbook/gui/contact-editor/libecontacteditor.la		\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la					\

@@ -31,7 +31,7 @@
 #include <gtk/gtkhbox.h>
 #include <gtk/gtkobject.h>
 #include <gtk/gtkwidget.h>
-#include <addressbook/backend/ebook/e-book-util.h>
+#include "addressbook/util/eab-book-util.h"
 #include <addressbook/backend/ebook/e-contact.h>
 
 G_BEGIN_DECLS

@@ -1,5 +1,23 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* gui/component/addressbook.c: e-book-util.h -> eab-book-util.h
+
+	* gui/component/addressbook-component.c: e-book-util.h ->
+	eab-book-util.h.
+	(new_item_cb): enable the contact editor portion of this.
+	(user_create_new_item_cb): convert to async_load_uri api, and
+	ifdef the _use_default_book crap.
+	(ensure_completion_uris_exist): e_book_get_config_database ->
+	eab_get_config_database.
+
+	* gui/component/e-address-widget.h: e-book-util.h ->
+	eab-book-util.h.
+
+	* gui/component/Makefile.am (libevolution_addressbook_la_LIBADD):
+	add selectnames back in, and add util/libeabutil.la.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/e-contact.c: my head explodes from so many
 	changes.
 

@@ -52,9 +52,9 @@
 #include "addressbook/gui/widgets/e-addressbook-view.h"
 #include "addressbook/gui/widgets/e-addressbook-util.h"
 #include "addressbook/printing/e-contact-print.h"
+#include "addressbook/util/eab-book-util.h"
 
 #include <ebook/e-book-async.h>
-#include <ebook/e-book-util.h>
 #include <widgets/misc/e-search-bar.h>
 #include <widgets/misc/e-filter-bar.h>
 
