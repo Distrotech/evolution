@@ -480,12 +480,10 @@ mail_op_error (gchar * fmt, ...)
 void
 mail_operation_wait_for_finish (void)
 {
-	while (queue_len) {
-		while (gtk_events_pending ())
-			gtk_main_iteration ();
-		/* Sigh. Otherwise we deadlock upon exit. */
-		GDK_THREADS_LEAVE ();
-	}
+	while (queue_len)
+		gtk_main_iteration ();
+	/* Sigh. Otherwise we deadlock upon exit. */
+	GDK_THREADS_LEAVE ();
 }
 
 /**
