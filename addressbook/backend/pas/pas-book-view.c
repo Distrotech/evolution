@@ -48,8 +48,10 @@ send_pending_adds (PASBookView *book_view)
 	card_sequence._maximum = card_count;
 	card_sequence._length = card_count;
 
-	for ( i = 0; cards; cards = g_list_next(cards), i++ )
+	for ( i = 0; cards; cards = g_list_next(cards), i++ ) {
+		printf ("%s\n", (char*)cards->data);
 		card_sequence._buffer[i] = CORBA_string_dup((char *) cards->data);
+	}
 
 	CORBA_exception_init (&ev);
 

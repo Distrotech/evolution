@@ -1,5 +1,16 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-book.c (pas_book_respond_get_supported_fields):
+	don't free the fields here - the backends hold onto them.
+	(pas_book_respond_get_supported_auth_methods): don't free the
+	auth_methods here - the backends hold onto them.
+
+	* backend/pas/pas-backend-file.c
+	(pas_backend_file_get_supported_fields): fields go from 1 to
+	E_CONTACT_FIELD_LAST, not 0.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* gui/component/addressbook.c: e-book-util.h -> eab-book-util.h
 
 	* gui/component/addressbook-component.c: e-book-util.h ->

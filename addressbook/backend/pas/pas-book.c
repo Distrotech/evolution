@@ -483,8 +483,7 @@ pas_book_respond_get_supported_fields (PASBook *book,
 		stringlist._buffer[i] = CORBA_string_dup ((char*)iter->data);
 	}
 
-	g_list_foreach (fields, (GFunc)g_free, NULL);
-	g_list_free (fields);
+	printf ("calling GNOME_Evolution_Addressbook_BookListener_notifySupportedFields\n");
 
 	GNOME_Evolution_Addressbook_BookListener_notifySupportedFields (
 			book->priv->listener, status,
@@ -518,9 +517,6 @@ pas_book_respond_get_supported_auth_methods (PASBook *book,
 	for (i = 0, iter = auth_methods; iter; iter = iter->next, i ++) {
 		stringlist._buffer[i] = CORBA_string_dup ((char*)iter->data);
 	}
-
-	g_list_foreach (auth_methods, (GFunc)g_free, NULL);
-	g_list_free (auth_methods);
 
 	GNOME_Evolution_Addressbook_BookListener_notifySupportedAuthMethods (
 			book->priv->listener, status,

@@ -724,7 +724,7 @@ pas_backend_file_get_supported_fields (PASBackendSync *backend,
 
 	/* XXX we need a way to say "we support everything", since the
 	   file backend does */
-	for (i = 0; i < E_CONTACT_FIELD_LAST; i ++)
+	for (i = 1; i < E_CONTACT_FIELD_LAST; i ++)
 		fields = g_list_append (fields, g_strdup (e_contact_field_name (i)));
 
 	*fields_out = fields;
