@@ -1,3 +1,8 @@
+2003-06-26  Gilbert Fang  <gilbert.fang@sun.com>
+
+	* configure.in: Added a11y support.
+	* Makefile.am: Added a11y subdir. (bug #44592)
+
 2003-06-17  Not Zed  <NotZed@Ximian.com>
 
 	* NEWS: Updated for current mail stuff.
