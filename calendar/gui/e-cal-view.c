@@ -179,6 +179,45 @@ selection_clear_event (GtkWidget *invisible,
 }
 
 static void
+selection_received_add_event (ECalView *cal_view, CalClient *client, time_t selected_time_start, 
+			      icaltimezone *default_zone, icalcomponent *icalcomp) 
+{
+	CalComponent *comp;
+	struct icaltimetype itime;
+	time_t tt_start, tt_end;
+	struct icaldurationtype ic_dur;
+	char *uid;
+
+	tt_start = icaltime_as_timet (icalcomponent_get_dtstart (icalcomp));
+	tt_end = icaltime_as_timet (icalcomponent_get_dtend (icalcomp));
+	ic_dur = icaldurationtype_from_int (tt_end - tt_start);
+	itime = icaltime_from_timet_with_zone (selected_time_start, FALSE, default_zone);
+
+	icalcomponent_set_dtstart (icalcomp, itime);
+	itime = icaltime_add (itime, ic_dur);
+	icalcomponent_set_dtend (icalcomp, itime);
+
+	/* FIXME The new uid stuff can go away once we actually set it in the backend */
+	uid = cal_component_gen_uid ();
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (
+		comp, icalcomponent_new_clone (icalcomp));
+	cal_component_set_uid (comp, uid);
+
+	/* FIXME Error handling */
+	cal_client_create_object (client, cal_component_get_icalcomponent (comp), NULL, NULL);
+	if (itip_organizer_is_user (comp, client) &&
+	    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (cal_view)),
+				   client, comp, TRUE)) {
+		itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
+				client, NULL);
+	}
+
+	free (uid);
+	g_object_unref (comp);
+}
+
+static void
 selection_received (GtkWidget *invisible,
 		    GtkSelectionData *selection_data,
 		    guint time,
@@ -187,12 +226,7 @@ selection_received (GtkWidget *invisible,
 	char *comp_str, *default_tzid;
 	icalcomponent *icalcomp;
 	icalcomponent_kind kind;
-	CalComponent *comp;
 	time_t selected_time_start, selected_time_end;
-	struct icaltimetype itime;
-	time_t tt_start, tt_end;
-	struct icaldurationtype ic_dur;
-	char *uid;
 	icaltimezone *default_zone;
 	CalClient *client;
 
@@ -213,17 +247,15 @@ selection_received (GtkWidget *invisible,
 	cal_client_get_timezone (client, default_tzid, &default_zone);
 
 	/* check the type of the component */
+	/* FIXME An error dialog if we return? */
 	kind = icalcomponent_isa (icalcomp);
-	if (kind != ICAL_VCALENDAR_COMPONENT &&
-	    kind != ICAL_VEVENT_COMPONENT &&
-	    kind != ICAL_VTODO_COMPONENT &&
-	    kind != ICAL_VJOURNAL_COMPONENT) {
+	if (kind != ICAL_VCALENDAR_COMPONENT && kind != ICAL_VEVENT_COMPONENT)
 		return;
-	}
 
 	e_cal_view_set_status_message (cal_view, _("Updating objects"));
 	e_cal_view_get_selected_time_range (cal_view, &selected_time_start, &selected_time_end);
 
+	/* FIXME Timezone handling */
 	if (kind == ICAL_VCALENDAR_COMPONENT) {
 		icalcomponent_kind child_kind;
 		icalcomponent *subcomp;
@@ -231,69 +263,18 @@ selection_received (GtkWidget *invisible,
 		subcomp = icalcomponent_get_first_component (icalcomp, ICAL_ANY_COMPONENT);
 		while (subcomp) {
 			child_kind = icalcomponent_isa (subcomp);
-			if (child_kind == ICAL_VEVENT_COMPONENT ||
-			    child_kind == ICAL_VTODO_COMPONENT ||
-			    child_kind == ICAL_VJOURNAL_COMPONENT) {
-				tt_start = icaltime_as_timet (icalcomponent_get_dtstart (subcomp));
-				tt_end = icaltime_as_timet (icalcomponent_get_dtend (subcomp));
-				ic_dur = icaldurationtype_from_int (tt_end - tt_start);
-				itime = icaltime_from_timet_with_zone (selected_time_start,
-								       FALSE, default_zone);
-
-				icalcomponent_set_dtstart (subcomp, itime);
-				itime = icaltime_add (itime, ic_dur);
-				icalcomponent_set_dtend (subcomp, itime);
-
-				uid = cal_component_gen_uid ();
-				comp = cal_component_new ();
-				cal_component_set_icalcomponent (
-					comp, icalcomponent_new_clone (subcomp));
-				cal_component_set_uid (comp, uid);
-
-				cal_client_update_object (client, comp);
-				if (itip_organizer_is_user (comp, client) &&
-				    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (cal_view)),
-							   client, comp, TRUE)) {
-					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
-							client, NULL);
-				}
-
-				free (uid);
-				g_object_unref (comp);
-			}
+			if (child_kind == ICAL_VEVENT_COMPONENT)
+				selection_received_add_event (cal_view, client, selected_time_start, 
+							      default_zone, subcomp);
+			
 			subcomp = icalcomponent_get_next_component (
 				icalcomp, ICAL_ANY_COMPONENT);
 		}
 
 		icalcomponent_free (icalcomp);
 
-	}
-	else {
-		tt_start = icaltime_as_timet (icalcomponent_get_dtstart (icalcomp));
-		tt_end = icaltime_as_timet (icalcomponent_get_dtend (icalcomp));
-		ic_dur = icaldurationtype_from_int (tt_end - tt_start);
-		itime = icaltime_from_timet_with_zone (selected_time_start, FALSE, default_zone);
-
-		icalcomponent_set_dtstart (icalcomp, itime);
-		itime = icaltime_add (itime, ic_dur);
-		icalcomponent_set_dtend (icalcomp, itime);
-
-		uid = cal_component_gen_uid ();
-		comp = cal_component_new ();
-		cal_component_set_icalcomponent (
-			comp, icalcomponent_new_clone (icalcomp));
-		cal_component_set_uid (comp, uid);
-
-		cal_client_update_object (client, comp);
-		if (itip_organizer_is_user (comp, client) &&
-		    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (cal_view)),
-					   client, comp, TRUE)) {
-			itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
-					client, NULL);
-		}
-
-		free (uid);
-		g_object_unref (comp);
+	} else {
+		selection_received_add_event (cal_view, client, selected_time_start, default_zone, icalcomp);
 	}
 
 	e_cal_view_set_status_message (cal_view, NULL);
@@ -688,37 +669,20 @@ e_cal_view_delete_selected_occurrence (ECalView *cal_view)
 {
 	ECalViewEvent *event;
 	GList *selected;
-
+	const char *uid;
+	GError *error = NULL;
+		
 	selected = e_cal_view_get_selected_events (cal_view);
 	if (!selected)
 		return;
 
 	event = (ECalViewEvent *) selected->data;
 
-	if (cal_util_component_is_instance (event->comp_data->icalcomp)) {
-		const char *uid;
-		GError *error = NULL;
-		
-		uid = icalcomponent_get_uid (event->comp_data->icalcomp);
+	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
+	cal_client_remove_object_with_mod (event->comp_data->client, uid, CALOBJ_MOD_THIS, &error);
 
-		cal_client_remove_object_with_mod (event->comp_data->client, uid, CALOBJ_MOD_THIS, &error);
-		delete_error_dialog (error, CAL_COMPONENT_EVENT);
-		g_clear_error (&error);
-	} else {
-		CalComponent *comp;
-
-		/* we must duplicate the CalComponent, or we won't know it has changed
-		   when we get the "update_event" signal */
-		comp = cal_component_new ();
-		cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
-		cal_comp_util_add_exdate (comp, event->start, cal_view->priv->zone);
-
-		if (cal_client_update_object (event->comp_data->client, comp)
-		    != CAL_CLIENT_RESULT_SUCCESS)
-			g_message ("e_cal_view_delete_selected_occurrence(): Could not update the object!");
-
-		g_object_unref (comp);
-	}
+	delete_error_dialog (error, CAL_COMPONENT_EVENT);
+	g_clear_error (&error);
 
 	/* free memory */
 	g_list_free (selected);

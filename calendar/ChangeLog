@@ -1,3 +1,27 @@
+2003-09-22  JP Rosevear <jpr@ximian.com>
+
+	* gui/e-itip-control.c (update_attendee_status): ifdef out, leave
+	temporarily for reference, but otherwise it shouldn't be needed
+	(update_item): switch to using receive objects
+	(ok_clicked_cb): update item when receiving a reply
+
+	* gui/e-calendar-table.c (selection_received): switch to using
+	create object from update_objects
+
+	* gui/e-cal-view.c (selection_received_add_event): util routine to
+	prevent duplication
+	(selection_received): use above
+
+	* gui/e-cal-model.c (ecm_set_value_at): switch to using modify
+	object from update_objects
+	(ecm_append_row): switch to using create object from
+	update_objects
+
+	* gui/e-cal-model-calendar.c (ecmc_set_value_at): switch to using
+	modify object from update_objects
+
+	* gui/e-cal-model-tasks.c (ecmt_set_value_at): ditto
+	
 2003-09-19  Rodrigo Moya <rodrigo@ximian.com>
 
 	* idl/evolution-calendar.idl: removed getAlarmsInRange and

@@ -1883,7 +1883,6 @@ update_item (EItipControl *itip)
 	CalClient *client;
 	CalComponentVType type;
 	GtkWidget *dialog;
-	CalClientResult result;
 
 	priv = itip->priv;
 
@@ -1911,32 +1910,18 @@ update_item (EItipControl *itip)
 	icalcomponent_add_component (priv->top_level, clone);
 	icalcomponent_set_method (priv->top_level, priv->method);
 
-	result = cal_client_update_objects (client, priv->top_level);
-	switch (result) {
-	case CAL_CLIENT_RESULT_INVALID_OBJECT :
-		dialog = gnome_warning_dialog (_("Object is invalid and cannot be updated\n"));
-		break;
-	case CAL_CLIENT_RESULT_CORBA_ERROR :
-		dialog = gnome_warning_dialog (_("There was an error on the CORBA system\n"));
-		break;
-	case CAL_CLIENT_RESULT_NOT_FOUND :
-		dialog = gnome_warning_dialog (_("Object could not be found\n"));
-		break;
-	case CAL_CLIENT_RESULT_PERMISSION_DENIED :
-		dialog = gnome_warning_dialog (_("You do not have the right permissions to update the calendar\n"));
-		break;
-	case CAL_CLIENT_RESULT_SUCCESS :
-		dialog = gnome_ok_dialog (_("Update complete\n"));
-		break;
-	default :
+	/* FIXME Better error dialog */
+	if (!cal_client_receive_objects (client, priv->top_level, NULL)) {
 		dialog = gnome_warning_dialog (_("Calendar file could not be updated!\n"));
-		break;
+	} else {
+		dialog = gnome_ok_dialog (_("Update complete\n"));
 	}
 	gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 
 	icalcomponent_remove_component (priv->top_level, clone);
 }
 
+#if 0
 static void
 update_attendee_status (EItipControl *itip)
 {
@@ -2040,6 +2025,7 @@ update_attendee_status (EItipControl *itip)
 		g_object_unref (comp);
 	gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 }
+#endif
 
 static void
 remove_item (EItipControl *itip)
@@ -2303,7 +2289,8 @@ ok_clicked_cb (GtkHTML *html, const gchar *method, const gchar *url, const gchar
 				send_freebusy (itip);
 				break;
 			case 'R':
-				update_attendee_status (itip);
+				/* FIXME Make sure this does the right thing in the backend */
+				update_item (itip);
 				break;
 			case 'S':
 				send_item (itip);

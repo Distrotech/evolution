@@ -1288,6 +1288,7 @@ selection_received (GtkWidget *invisible,
 	icalcomponent *icalcomp;
 	char *uid;
 	CalComponent *comp;
+	CalClient *client;
 	icalcomponent_kind kind;
 
 	g_return_if_fail (E_IS_CALENDAR_TABLE (cal_table));
@@ -1311,6 +1312,8 @@ selection_received (GtkWidget *invisible,
 		return;
 	}
 
+	client = e_cal_model_get_default_client (cal_table->model);
+	
 	e_calendar_table_set_status_message (cal_table, _("Updating objects"));
 
 	if (kind == ICAL_VCALENDAR_COMPONENT) {
@@ -1333,11 +1336,12 @@ selection_received (GtkWidget *invisible,
 				cal_component_set_icalcomponent (
 					tmp_comp, icalcomponent_new_clone (subcomp));
 				cal_component_set_uid (tmp_comp, uid);
-
-				cal_client_update_object (
-					e_cal_model_get_default_client (cal_table->model),
-					tmp_comp);
 				free (uid);
+
+				/* FIXME should we convert start/due/complete times? */
+				/* FIXME Error handling */
+				cal_client_create_object (client, cal_component_get_icalcomponent (tmp_comp), NULL, NULL);
+
 				g_object_unref (tmp_comp);
 			}
 			subcomp = icalcomponent_get_next_component (
@@ -1351,9 +1355,8 @@ selection_received (GtkWidget *invisible,
 		cal_component_set_uid (comp, (const char *) uid);
 		free (uid);
 
-		cal_client_update_object (
-			e_cal_model_get_default_client (cal_table->model),
-			comp);
+		cal_client_create_object (client, cal_component_get_icalcomponent (comp), NULL, NULL);
+
 		g_object_unref (comp);
 	}
 

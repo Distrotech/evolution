@@ -306,8 +306,12 @@ ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value)
 		break;
 	}
 
-	if (cal_client_update_objects (comp_data->client, comp_data->icalcomp) != CAL_CLIENT_RESULT_SUCCESS)
-		g_message ("ecmc_set_value_at(): Could not update the object!");
+	/* FIXME ask about mod type */
+	if (!cal_client_modify_object (comp_data->client, comp_data->icalcomp, CALOBJ_MOD_ALL, NULL)) {
+		g_warning (G_STRLOC ": Could not modify the object!");
+		
+		/* FIXME Show error dialog */
+	}
 }
 
 static gboolean

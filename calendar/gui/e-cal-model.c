@@ -578,8 +578,12 @@ ecm_set_value_at (ETableModel *etm, int col, int row, const void *value)
 		set_summary (comp_data, value);
 	}
 
-	if (cal_client_update_objects (comp_data->client, comp_data->icalcomp) != CAL_CLIENT_RESULT_SUCCESS)
-		g_message ("ecm_set_value_at(): Could not update the object!");
+	/* FIXME ask about mod type */
+	if (!cal_client_modify_object (comp_data->client, comp_data->icalcomp, CALOBJ_MOD_ALL, NULL)) {
+		g_warning (G_STRLOC ": Could not modify the object!");
+		
+		/* FIXME Show error dialog */
+	}
 }
 
 static gboolean
@@ -642,7 +646,10 @@ ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 		model_class->fill_component_from_model (model, &comp_data, source_model, row);
 	}
 
-	if (cal_client_update_objects (comp_data.client, comp_data.icalcomp) != CAL_CLIENT_RESULT_SUCCESS) {
+
+	if (!cal_client_create_object (comp_data.client, comp_data.icalcomp, NULL, NULL)) {
+		g_warning (G_STRLOC ": Could not create the object!");
+
 		/* FIXME: show error dialog */
 	}
 
