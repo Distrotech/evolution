@@ -83,6 +83,9 @@ ep_finalise(GObject *o)
 	struct _EPopupPrivate *p = emp->priv;
 	struct _menu_node *mnode, *nnode;
 
+	if (emp->target)
+		e_popup_target_free(emp, emp->target);
+
 	g_free(emp->menuid);
 
 	mnode = (struct _menu_node *)p->menus.head;
@@ -105,15 +108,22 @@ static void
 ep_target_free(EPopup *ep, EPopupTarget *t)
 {
 	g_free(t);
-	/* look funny but t has a reference to us */
 	g_object_unref(ep);
 }
 
 static void
 ep_class_init(GObjectClass *klass)
 {
+	printf("EPopup class init %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type));
+
 	klass->finalize = ep_finalise;
 	((EPopupClass *)klass)->target_free = ep_target_free;
+}
+
+static void
+ep_base_init(GObjectClass *klass)
+{
+	e_dlist_init(&((EPopupClass *)klass)->factories);
 }
 
 GType
@@ -124,9 +134,8 @@ e_popup_get_type(void)
 	if (type == 0) {
 		static const GTypeInfo info = {
 			sizeof(EPopupClass),
-			NULL, NULL,
-			(GClassInitFunc)ep_class_init,
-			NULL, NULL,
+			(GBaseInitFunc)ep_base_init, NULL,
+			(GClassInitFunc)ep_class_init, NULL, NULL,
 			sizeof(EPopup), 0,
 			(GInstanceInitFunc)ep_init
 		};
@@ -158,6 +167,10 @@ void
 e_popup_add_items(EPopup *emp, GSList *items, GDestroyNotify freefunc)
 {
 	struct _menu_node *node;
+	GSList *l;
+
+	for (l=items;l;l=g_slist_next(l))
+		((EPopupItem *)l->data)->popup = emp;
 
 	node = g_malloc(sizeof(*node));
 	node->menu = items;
@@ -204,15 +217,21 @@ ep_cmp(const void *ap, const void *bp)
 	return strcmp(a->path, b->path);
 }
 
+static void
+ep_activate(GtkWidget *w, EPopupItem *item)
+{
+	((EPopupActivateFunc)item->activate)(item, item->activate_data);
+}
+
 /**
  * e_popup_create:
  * @menuitems: 
+ * @target: popup target, if set, then factories will be invoked.
+ * This is then owned by the menu.
  * @hide_mask: used to hide menu items, not sure of it's utility,
  * since you could just 'not add them' in the first place.  Saves
  * copying logic anyway.
  * @disable_mask: used to disable menu items.
- * 
- * TEMPORARY code to create a menu from a list of items.
  * 
  * The menu items are merged based on their path element, and
  * built into a menu tree.
@@ -220,7 +239,7 @@ ep_cmp(const void *ap, const void *bp)
  * Return value: 
  **/
 GtkMenu *
-e_popup_create_menu(EPopup *emp, guint32 hide_mask, guint32 disable_mask)
+e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint32 disable_mask)
 {
 	struct _EPopupPrivate *p = emp->priv;
 	struct _menu_node *mnode, *nnode;
@@ -232,6 +251,11 @@ e_popup_create_menu(EPopup *emp, guint32 hide_mask, guint32 disable_mask)
 		*group_hash = g_hash_table_new(g_str_hash, g_str_equal);
 	/*char *domain = NULL;*/
 	int i;
+
+	if (target)
+		e_popup_add_static_items(emp, target);
+
+	emp->target = target;
 
 	/* FIXME: need to override old ones with new names */
 	mnode = (struct _menu_node *)p->menus.head;
@@ -325,7 +349,7 @@ e_popup_create_menu(EPopup *emp, guint32 hide_mask, guint32 disable_mask)
 		}
 
 		if (item->activate)
-			g_signal_connect(menuitem, "activate", item->activate, item->activate_data);
+			g_signal_connect(menuitem, "activate", G_CALLBACK(ep_activate), item);
 
 		gtk_menu_shell_append((GtkMenuShell *)thismenu, (GtkWidget *)menuitem);
 
@@ -347,13 +371,11 @@ static void
 ep_popup_done(GtkWidget *w, EPopup *emp)
 {
 	gtk_widget_destroy(w);
+	if (emp->target) {
+		e_popup_target_free(emp, emp->target);
+		emp->target = NULL;
+	}
 	g_object_unref(emp);
-}
-
-static void
-ep_target_destroy(EPopupTarget *t)
-{
-	e_popup_target_free(t->popup, t);
 }
 
 /**
@@ -376,13 +398,8 @@ e_popup_create_menu_once(EPopup *emp, EPopupTarget *target, guint32 hide_mask, g
 {
 	GtkMenu *menu;
 
-	if (target)
-		e_popup_add_static_items(emp, target);
+	menu = e_popup_create_menu(emp, target, hide_mask, disable_mask);
 
-	menu = e_popup_create_menu(emp, hide_mask, disable_mask);
-
-	if (target)
-		g_signal_connect_swapped(menu, "selection_done", G_CALLBACK(ep_target_destroy), target);
 	g_signal_connect(menu, "selection_done", G_CALLBACK(ep_popup_done), emp);
 
 	return menu;
@@ -511,7 +528,6 @@ get_xml_prop(xmlNodePtr node, const char *id)
 }
 
 static void *emph_parent_class;
-static void *emph_popup_class;
 #define emph ((EPopupHook *)eph)
 
 /* must have 1:1 correspondence with e-popup types in order */
@@ -590,32 +606,21 @@ emph_popup_activate(void *widget, void *data)
 {
 	struct _EPopupHookItem *item = data;
 
-	e_plugin_invoke(item->hook->hook.plugin, item->activate, item->target);
+	e_plugin_invoke(item->hook->hook.plugin, item->activate, item->item.popup->target);
 }
 
 static void
 emph_popup_factory(EPopup *emp, EPopupTarget *target, void *data)
 {
 	struct _EPopupHookMenu *menu = data;
-	GSList *l, *menus = NULL;
 
 	printf("popup factory called %s mask %08x\n", menu->id?menu->id:"all menus", target->mask);
 
 	if (target->type != menu->target_type)
 		return;
 
-	l = menu->items;
-	while (l) {
-		struct _EPopupHookItem *item = l->data;
-
-		item->target = target;
-		printf("  adding menyu item '%s' %08x\n", item->item.label, item->item.mask);
-		menus = g_slist_prepend(menus, item);
-		l = l->next;
-	}
-
-	if (menus)
-		e_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+	if (menu->items)
+		e_popup_add_items(emp, menu->items, NULL);
 }
 
 static void
@@ -712,11 +717,14 @@ static int
 emph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 {
 	xmlNodePtr node;
+	EPopupClass *klass;
 
 	printf("loading popup hook\n");
 
 	if (((EPluginHookClass *)emph_parent_class)->construct(eph, ep, root) == -1)
 		return -1;
+
+	klass = ((EPopupHookClass *)G_OBJECT_GET_CLASS(eph))->popup_class;
 
 	node = root->children;
 	while (node) {
@@ -725,7 +733,7 @@ emph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 
 			menu = emph_construct_menu(eph, node);
 			if (menu) {
-				e_popup_class_add_factory(emph_popup_class, menu->id, emph_popup_factory, menu);
+				e_popup_class_add_factory(klass, menu->id, emph_popup_factory, menu);
 				emph->menus = g_slist_append(emph->menus, menu);
 			}
 		}
@@ -757,7 +765,10 @@ emph_class_init(EPluginHookClass *klass)
 	/* this is actually an abstract implementation but list it anyway */
 	klass->id = "com.ximian.evolution.popup:1.0";
 
+	printf("EPopupHook: init class %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type));
+
 	((EPopupHookClass *)klass)->target_map = g_hash_table_new(g_str_hash, g_str_equal);
+	((EPopupHookClass *)klass)->popup_class = g_type_class_ref(e_popup_get_type());
 }
 
 GType
@@ -772,7 +783,6 @@ e_popup_hook_get_type(void)
 		};
 
 		emph_parent_class = g_type_class_ref(e_plugin_hook_get_type());
-		emph_popup_class = g_type_class_ref(e_popup_get_type());
 		type = g_type_register_static(e_plugin_hook_get_type(), "EPopupHook", &info, 0);
 	}
 	

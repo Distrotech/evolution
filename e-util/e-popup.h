@@ -31,6 +31,11 @@ extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
+/* This is an abstract popup menu management/merging class.
+
+   To implement your own popup menu system, just create your own
+   target types and implement the target free method. */
+
 typedef struct _EPopup EPopup;
 typedef struct _EPopupClass EPopupClass;
 
@@ -38,6 +43,7 @@ typedef struct _EPopupItem EPopupItem;
 typedef struct _EPopupFactory EPopupFactory; /* anonymous type */
 typedef struct _EPopupTarget EPopupTarget;
 
+typedef void (*EPopupActivateFunc)(EPopupItem *item, void *data);
 typedef void (*EPopupFactoryFunc)(EPopup *emp, EPopupTarget *target, void *data);
 
 /* Menu item descriptions */
@@ -58,10 +64,12 @@ struct _EPopupItem {
 	enum _e_popup_t type;
 	char *path;		/* absolute path! must sort ascii-lexographically into the right spot */
 	char *label;
-	GCallback activate;
+	GCallback activate;	/* EPopupActivateFunc */
 	void *activate_data;
 	void *image;		/* char* for item type, GtkWidget * for image type */
-	guint32 mask;
+	guint32 mask;		/* visibility mask */
+	guint32 enable;		/* sensitivity mask, unimplemented */
+	EPopup *popup;		/* parent, set by epopup */
 };
 
 /* base popup target type */
@@ -70,8 +78,9 @@ struct _EPopupTarget {
 
 	struct _GtkWidget *widget;	/* used if you need a parent toplevel, if available */
 	guint32 type;		/* targe type, for implementors */
+
 	guint32 mask;		/* depends on type, visibility mask */
-	
+
 	/* implementation fields follow */
 };
 
@@ -82,6 +91,8 @@ struct _EPopup {
 	struct _EPopupPrivate *priv;
 
 	char *menuid;
+
+	EPopupTarget *target;
 };
 
 struct _EPopupClass {
@@ -102,7 +113,8 @@ EPopup *e_popup_construct(EPopup *, const char *menuid);
 
 void e_popup_add_items(EPopup *, GSList *items, GDestroyNotify freefunc);
 void e_popup_add_static_items(EPopup *emp, EPopupTarget *target);
-struct _GtkMenu *e_popup_create_menu(EPopup *, guint32 hide_mask, guint32 disable_mask);
+/* do not call e_popup_create_menu, it can leak structures if not used right */
+struct _GtkMenu *e_popup_create_menu(EPopup *, EPopupTarget *, guint32 hide_mask, guint32 disable_mask);
 struct _GtkMenu *e_popup_create_menu_once(EPopup *emp, EPopupTarget *, guint32 hide_mask, guint32 disable_mask);
 
 void *e_popup_target_new(EPopup *, int type, size_t size);
@@ -111,6 +123,9 @@ void e_popup_target_free(EPopup *, void *);
 /* ********************************************************************** */
 
 /* popup plugin target, they are closely integrated */
+
+/* To implement a basic popup menu plugin, you just need to subclass
+   this and initialise the class target type tables */
 
 #include "e-util/e-plugin.h"
 
@@ -129,8 +144,6 @@ struct _EPopupHookItem {
 
 	struct _EPopupHook *hook; /* parent pointer */
 	char *activate;		/* activate handler */
-
-	struct _EPopupTarget *target; /* to save the target during menu popup */
 };
 
 struct _EPopupHookMenu {
@@ -165,6 +178,8 @@ struct _EPopupHookClass {
 
 	/* EPopupHookTargetMap by .type */
 	GHashTable *target_map;
+	/* the popup class these popups's belong to */
+	EPopupClass *popup_class;
 };
 
 GType e_popup_hook_get_type(void);

@@ -39,6 +39,7 @@ eutilinclude_HEADERS = 				\
 	e-list-iterator.h			\
 	e-list.h				\
 	e-memory.h				\
+	e-menu.h				\
 	e-mktemp.h				\
 	e-msgport.h				\
 	e-passwords.h				\
@@ -80,6 +81,7 @@ libeutil_la_SOURCES =				\
 	e-list-iterator.c			\
 	e-list.c				\
 	e-memory.c				\
+	e-menu.c				\
 	e-mktemp.c				\
 	e-msgport.c				\
 	e-passwords.c				\

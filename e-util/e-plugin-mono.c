@@ -76,6 +76,7 @@ epm_invoke(EPlugin *ep, const char *name, void *data)
 	m = g_hash_table_lookup(p->methods, name);
 	if (m == NULL) {
 		if (p->klass) {
+			printf("looking up method '%s' in class\n", name);
 			/* class method */
 			d = mono_method_desc_new(name, FALSE);
 			if (d == NULL) {
@@ -89,6 +90,7 @@ epm_invoke(EPlugin *ep, const char *name, void *data)
 				return NULL;
 			}
 		} else {
+			printf("looking up static method '%s'\n", name);
 			/* static method */
 			d = mono_method_desc_new(name, FALSE);
 			if (d == NULL) {
