@@ -126,6 +126,14 @@ e_cal_view_class_init (ECalViewClass *klass)
 }
 
 static void
+model_changed_cb (ETableModel *etm, gpointer user_data)
+{
+	ECalView *cal_view = E_CAL_VIEW (user_data);
+
+	e_cal_view_update_query (cal_view);
+}
+
+static void
 selection_get (GtkWidget *invisible,
 	       GtkSelectionData *selection_data,
 	       guint info,
@@ -301,6 +309,7 @@ e_cal_view_destroy (GtkObject *object)
 
 	if (cal_view->priv) {
 		if (cal_view->priv->model) {
+			g_signal_handlers_disconnect_by_func (cal_view->priv->model, model_changed_cb, cal_view);
 			g_object_unref (cal_view->priv->model);
 			cal_view->priv->model = NULL;
 		}
@@ -361,11 +370,14 @@ e_cal_view_set_model (ECalView *cal_view, ECalModel *model)
 	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
 	g_return_if_fail (E_IS_CAL_MODEL (model));
 
-	if (cal_view->priv->model)
+	if (cal_view->priv->model) {
+		g_signal_handlers_disconnect_by_func (cal_view->priv->model, model_changed_cb, cal_view);
 		g_object_unref (cal_view->priv->model);
+	}
 
 	cal_view->priv->model = model;
 	g_object_ref (cal_view->priv->model);
+	g_signal_connect (G_OBJECT (cal_view->priv->model), "model_changed", G_CALLBACK (model_changed_cb), cal_view);
 
 	e_cal_view_update_query (cal_view);
 }

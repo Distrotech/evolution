@@ -1,5 +1,11 @@
 2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-view.c (e_cal_view_destroy): disconnect from signals
+	on the model.
+	(e_cal_view_set_model): disconnect from signals on the old model
+	and connect on the new one.
+	(model_changed_cb): tell the views to redraw when the model changes.
+
 	* gui/gnome-cal.c (dn_query_obj_updated_cb, gnome_calendar_destroy,
 	client_categories_changed_cb): removed the 'client' field from the
 	private structure, so don't use it anymore
