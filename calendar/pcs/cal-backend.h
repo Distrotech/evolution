@@ -43,21 +43,6 @@ G_BEGIN_DECLS
 #define IS_CAL_BACKEND(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), CAL_BACKEND_TYPE))
 #define IS_CAL_BACKEND_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), CAL_BACKEND_TYPE))
 
-typedef enum {
-	CAL_BACKEND_RESULT_SUCCESS,
-	CAL_BACKEND_RESULT_INVALID_OBJECT,
-	CAL_BACKEND_RESULT_NOT_FOUND,
-	CAL_BACKEND_RESULT_PERMISSION_DENIED
-} CalBackendResult;
-
-/* Send result values */
-typedef enum {
-	CAL_BACKEND_SEND_SUCCESS,
-	CAL_BACKEND_SEND_INVALID_OBJECT,
-	CAL_BACKEND_SEND_BUSY,
-	CAL_BACKEND_SEND_PERMISSION_DENIED,
-} CalBackendSendResult;
-
 typedef struct _CalBackendPrivate CalBackendPrivate;
 
 struct _CalBackend {
@@ -137,7 +122,7 @@ void cal_backend_get_alarm_email_address (CalBackend *backend, Cal *cal);
 void cal_backend_get_ldap_attribute (CalBackend *backend, Cal *cal);
 void cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal);
 
-void  cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists);
+void cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 void cal_backend_remove (CalBackend *backend, Cal *cal);
 
 void cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj);

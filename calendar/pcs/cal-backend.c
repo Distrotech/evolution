@@ -711,8 +711,6 @@ cal_backend_get_changes (CalBackend *backend, CalObjType type, const char *chang
  * Discards an alarm from the given component. This allows the specific backend
  * to do whatever is needed to really discard the alarm.
  *
- * Return value: a #CalBackendResult value, which indicates the
- * result of the operation.
  **/
 void
 cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, const char *auid)
@@ -756,8 +754,6 @@ cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, Ca
  * Removes an object in a calendar backend.  The backend will notify all of its
  * clients about the change.
  * 
- * Return value: a #CalBackendResult value, which indicates the
- * result of the operation.
  **/
 void
 cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod)

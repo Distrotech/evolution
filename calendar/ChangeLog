@@ -1,3 +1,11 @@
+2003-09-25  JP Rosevear  <jpr@ximian.com>
+
+	* pcs/cal-backend.h: remove dead result enums
+
+	* pcs/cal-backend.c: fix comments
+
+	* idl/evolution-calendar.idl: remove dead exceptions
+
 2003-09-25  JP Rosevear <jpr@ximian.com>
 
 	* pcs/cal.c (cal_notify_default_object): send back the empty

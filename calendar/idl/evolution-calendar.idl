@@ -141,8 +141,6 @@ module Calendar {
 	interface Cal : Bonobo::Unknown {
 		exception NotFound {};
 		exception InvalidRange {};
-		exception InvalidURI {};
-		exception PermissionDenied {};
 		
 		/* A calendar is identified by its URI */
 		readonly attribute string uri;
