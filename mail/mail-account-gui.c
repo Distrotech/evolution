@@ -1005,7 +1005,7 @@ sig_select_text_sig (MailAccountGui *gui)
 static void
 sig_select_html_sig (MailAccountGui *gui)
 {
-	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_gui_index (gui, FALSE));
+	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_gui_index (gui, FALSE));
 }
 
 static void
