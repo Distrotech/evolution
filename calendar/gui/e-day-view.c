@@ -3234,7 +3234,8 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 		tt_end = icaltime_as_timet (*dt_end.value);
 
 		if ((tt_start >= day_view->lower && tt_start <= day_view->upper)
-		    || (tt_end >= day_view->lower && tt_end <= day_view->upper)) {
+		    || (tt_end >= day_view->lower && tt_end <= day_view->upper)
+		    || (tt_start <= day_view->lower && tt_end >= day_view->upper)) {
 			add_event_data.day_view = day_view;
 			add_event_data.comp_data = comp_data;
 			e_day_view_add_event (comp, tt_start, tt_end, &add_event_data);

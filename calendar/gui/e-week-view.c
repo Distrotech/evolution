@@ -1128,7 +1128,8 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 		tt_end = icaltime_as_timet (*dt_end.value);
 
 		if ((tt_start >= week_view->day_starts[0] && tt_start <= week_view->day_starts[num_days])
-		    || (tt_end >= week_view->day_starts[0] && tt_end <= week_view->day_starts[num_days])) {
+		    || (tt_end >= week_view->day_starts[0] && tt_end <= week_view->day_starts[num_days])
+		    || (tt_start <= week_view->day_starts[0] && tt_end >= week_view->day_starts[num_days])) {
 			add_event_data.week_view = week_view;
 			add_event_data.comp_data = comp_data;
 			e_week_view_add_event (comp, tt_start, tt_end, &add_event_data);

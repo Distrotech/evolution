@@ -1,5 +1,10 @@
 2003-09-26  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-day-view.c (process_component):
+	* gui/e-week-view.c (process_component): added missing case, so that
+	we also display recurrent meetings starting before the time range and
+	ending after the time range.
+
 	* cal-client/cal-listener.c (impl_notifyReadOnly): pass the
 	'read_only' argument to the signal callback correctly (a gboolean
 	not a 'gboolean *').
