@@ -30,8 +30,10 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk-pixbuf.h>
 
+#include "em-popup.h"
 #include "em-marshal.h"
 #include "em-folder-tree.h"
+#include "em-folder-selector.h"
 
 
 enum {
@@ -726,7 +728,7 @@ store_hash_add_store (gpointer key, gpointer value, gpointer user_data)
 	struct _emft_store_info *si = value;
 	EMFolderTree *emft = user_data;
 	
-	em_folder_tree_add_store (emft, store, si->display_name);
+	em_folder_tree_add_store (emft, si->store, si->display_name);
 }
 
 static void
@@ -878,7 +880,7 @@ emft_popup_rename_folder (GtkWidget *item, EMFolderTree *emft)
 	gtk_tree_selection_get_selected (selection, &model, &iter);
 	gtk_tree_model_get (model, &iter, COL_STRING_FOLDER_PATH, &folder_path,
 			    COL_STRING_DISPLAY_NAME, &name,
-			    COL_POINTER_STORE, &store,
+			    COL_POINTER_CAMEL_STORE, &store,
 			    COL_STRING_URI, &uri, -1);
 	
 	prompt = g_strdup_printf (_("Rename the \"%s\" folder to:"), name);
