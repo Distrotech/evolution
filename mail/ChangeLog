@@ -1,5 +1,8 @@
 2000-07-20  Peter Williams  <peterw@helixcode.com>
 
+	* mail-ops-new.c (cleanup_send_mail): Fix evil mistaken
+	unref.
+
 	* test-thread.c: Fit the new mail_operation_spec prototype.
 
 	* mail-callbacks.c (composer_send_cb): Hide the composer upon

@@ -251,8 +251,6 @@ cleanup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	g_free (input->xport_uri);
 	g_free (input->done_uid);
 
-	gtk_object_unref (input->composer);
-
 	if (!camel_exception_is_set (ex))
 		gtk_widget_destroy (input->composer);
 	else
