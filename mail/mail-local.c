@@ -549,7 +549,6 @@ mail_local_folder_get_real_store (MailLocalFolder *mlf)
 gboolean
 mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, CamelException *ex)
 {
-	CamelException local_ex;
 	CamelStore *fromstore = NULL;
 	CamelFolder *fromfolder = NULL;
 	gchar *oldformat = NULL;
@@ -559,19 +558,19 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, Cam
 
 	/* first things first */
 
+	g_assert (ex);
 	LOCAL_FOLDER_LOCK (mlf);
-	camel_exception_init (&local_ex);
 
 	/* first, 'close' the old folder */
 
 	if (mlf->real_folder) {
-		camel_folder_sync (mlf->real_folder, FALSE, &local_ex);
-		if (camel_exception_is_set (&local_ex))
+		camel_folder_sync (mlf->real_folder, FALSE, ex);
+		if (camel_exception_is_set (ex))
 			goto cleanup;
 		mlf_unset_folder (mlf);
 	}
 
-	fromstore = camel_session_get_store (session, mlf->url, &local_ex);
+	fromstore = camel_session_get_store (session, mlf->url, ex);
 	if (fromstore == NULL)
 		goto cleanup;
 
@@ -583,29 +582,29 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, Cam
 	tmpname = g_strdup_printf ("%s_reconfig", mlf->store_name);
 	d(printf("renaming %s to %s, and opening it\n", mlf->store_name, tmpname));
 	
-	camel_store_rename_folder (fromstore, mlf->store_name, tmpname, &local_ex);
-	if (camel_exception_is_set (&local_ex)) {
+	camel_store_rename_folder (fromstore, mlf->store_name, tmpname, ex);
+	if (camel_exception_is_set (ex)) {
 		goto cleanup;
 	}
 	
 	/* we dont need to set the create flag ... or need an index if it has one */
-	fromfolder = camel_store_get_folder (fromstore, tmpname, 0, &local_ex);
-	if (fromfolder == NULL || camel_exception_is_set (&local_ex)) {
+	fromfolder = camel_store_get_folder (fromstore, tmpname, 0, ex);
+	if (fromfolder == NULL || camel_exception_is_set (ex)) {
 		/* try and recover ... */
-		camel_exception_clear (&local_ex);
-		camel_store_rename_folder (fromstore, tmpname, mlf->store_name, &local_ex);
+		camel_exception_clear (ex);
+		camel_store_rename_folder (fromstore, tmpname, mlf->store_name, ex);
 		goto cleanup;
 	}
 	
 	/* create a new mbox */
 	d(printf("Creating the destination mbox\n"));
 
-	mlf_set_folder (mlf, CAMEL_STORE_FOLDER_CREATE, &local_ex);
-	if (camel_exception_is_set (&local_ex)) {
+	mlf_set_folder (mlf, CAMEL_STORE_FOLDER_CREATE, ex);
+	if (camel_exception_is_set (ex)) {
 		d(printf("cannot open destination folder\n"));
 		/* try and recover ... */
-		camel_exception_clear (&local_ex);
-		camel_store_rename_folder (fromstore, tmpname, mlf->store_name, &local_ex);
+		camel_exception_clear (ex);
+		camel_store_rename_folder (fromstore, tmpname, mlf->store_name, ex);
 		goto cleanup;
 	}
 
@@ -613,23 +612,23 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, Cam
 	camel_folder_freeze (mlf->real_folder);
 
 	uids = camel_folder_get_uids (fromfolder);
-	camel_folder_move_messages_to (fromfolder, uids, mlf->real_folder, &local_ex);
+	camel_folder_move_messages_to (fromfolder, uids, mlf->real_folder, ex);
 	camel_folder_free_uids (fromfolder, uids);
-	if (camel_exception_is_set (&local_ex))
+	if (camel_exception_is_set (ex))
 		goto cleanup;
 	
-	camel_folder_expunge (fromfolder, &local_ex);
+	camel_folder_expunge (fromfolder, ex);
 	
 	d(printf("delete old mbox ...\n"));
 	camel_object_unref (CAMEL_OBJECT (fromfolder));
 	fromfolder = NULL;
-	camel_store_delete_folder (fromstore, tmpname, &local_ex);
+	camel_store_delete_folder (fromstore, tmpname, ex);
 	
 	/* switch format */
 	g_free (oldformat);
 	oldformat = NULL;
 	if (mlf_save_metainfo (mlf) == FALSE) {
-		camel_exception_setv (&local_ex, CAMEL_EXCEPTION_SYSTEM,
+		camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
 				      _("Cannot save folder metainfo; "
 					"you'll probably find you can't\n"
 					"open this folder anymore: %s"),
@@ -643,7 +642,7 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, Cam
 		mlf_set_url (mlf);
 	}
 	if (mlf->real_folder == NULL)
-		mlf_set_folder (mlf, CAMEL_STORE_FOLDER_CREATE, &local_ex);
+		mlf_set_folder (mlf, CAMEL_STORE_FOLDER_CREATE, ex);
 	if (fromfolder)
 		camel_object_unref (CAMEL_OBJECT (fromfolder));
 	if (fromstore)
@@ -654,10 +653,8 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, Cam
 	if (real_folder_frozen)
 		camel_folder_thaw (mlf->real_folder);
 
-	if (camel_exception_is_set (&local_ex)) {
-		camel_exception_xfer (ex, &local_ex);
+	if (camel_exception_is_set (ex))
 		return FALSE;
-	}
 	
 	return TRUE;
 }

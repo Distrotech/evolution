@@ -2,6 +2,8 @@
 
 	* mail-local.c (mlf_init): Remove accidentally left-in "choke on this"
 	preprocessor thingie.
+	(mail_local_folder_reconfigure): Instead of creating our own local
+	exception, just assert that ex != NULL.
 
 2001-08-31  Peter Williams  <peterw@ximian.com>
 
