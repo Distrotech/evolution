@@ -134,8 +134,8 @@ typedef struct _EPopupHookMenu EPopupHookMenu;
 typedef struct _EPopupHook EPopupHook;
 typedef struct _EPopupHookClass EPopupHookClass;
 
-typedef struct _EPopupHookTargetMap EPopupHookTargetMap;
-typedef struct _EPopupHookTargetMask EPopupHookTargetMask;
+typedef struct _EPluginHookTargetMap EPopupHookTargetMap;
+typedef struct _EPluginHookTargetKey EPopupHookTargetMask;
 
 typedef void (*EPopupHookFunc)(struct _EPlugin *plugin, EPopupTarget *target);
 
@@ -151,20 +151,6 @@ struct _EPopupHookMenu {
 	char *id;		/* target menu id for these menu items */
 	int target_type;	/* target type of this menu */
 	GSList *items;		/* items to add to menu */
-};
-
-/* target map, maps target types to possible values for it */
-struct _EPopupHookTargetMap {
-	char *type;
-	int id;
-	/* null terminated array of EPopupHookTargetMask's */
-	struct _EPopupHookTargetMask *mask_bits;
-};
-
-/* maps a mask name in xml to bit(s) */
-struct _EPopupHookTargetMask {
-	char *key;
-	guint32 mask;
 };
 
 struct _EPopupHook {
@@ -185,7 +171,7 @@ struct _EPopupHookClass {
 GType e_popup_hook_get_type(void);
 
 /* for implementors */
-void e_popup_hook_class_add_target_map(EPopupHookClass *klass, EPopupHookTargetMap *);
+void e_popup_hook_class_add_target_map(EPopupHookClass *klass, const EPopupHookTargetMap *);
 
 #ifdef __cplusplus
 }

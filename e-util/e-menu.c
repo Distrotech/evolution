@@ -512,95 +512,30 @@ e_menu_target_free(EMenu *ep, void *o)
 
 */
 
-static char *
-get_xml_prop(xmlNodePtr node, const char *id)
-{
-	char *p = xmlGetProp(node, id);
-	char *out = NULL;
-
-	if (p) {
-		out = g_strdup(p);
-		xmlFree(p);
-	}
-
-	return out;
-}
-
 static void *emph_parent_class;
 #define emph ((EMenuHook *)eph)
 
-/* must have 1:1 correspondence with e-popup types in order */
-static const char * emph_item_types[] = { "item", "toggle", "radio", "image", "submenu", "bar", NULL };
+/* must have 1:1 correspondence with e-menu types in order */
+static const EPluginHookTargetKey emph_item_types[] = {
+	{ "item", E_MENU_ITEM },
+	{ "toggle", E_MENU_TOGGLE },
+	{ "radio", E_MENU_RADIO },
+	{ "image", E_MENU_IMAGE },
+	{ "submenu", E_MENU_SUBMENU },
+	{ "bar", E_MENU_BAR },
+	{ 0 }
+};
+
 /* 1:1 with e-icon-factory sizes */
-static const char * emph_pixmap_sizes[] = { "menu", "button", "small_toolbar", "large_toolbar", "dnd", "dialog", NULL };
-
-static guint32
-emph_mask(xmlNodePtr root, struct _EMenuHookTargetMap *map, const char *prop)
-{
-	char *val, *p, *start, c;
-	guint32 mask = 0;
-
-	val = xmlGetProp(root, prop);
-	if (val == NULL)
-		return 0;
-
-	printf(" mask '%s' = ", val);
-
-	p = val;
-	do {
-		start = p;
-		while (*p && *p != ',')
-			p++;
-		c = *p;
-		*p = 0;
-		if (start != p) {
-			int i;
-
-			for (i=0;map->mask_bits[i].key;i++) {
-				if (!strcmp(map->mask_bits[i].key, start)) {
-					mask |= map->mask_bits[i].mask;
-					break;
-				}
-			}
-		}
-		*p++ = c;
-	} while (c);
-
-	xmlFree(val);
-
-	printf("%08x\n", mask);
-
-	return mask;
-}
-
-static int
-emph_index(xmlNodePtr root, const char **vals, const char *prop)
-{
-	int i = 0;
-	char *val;
-
-	val = xmlGetProp(root, prop);
-	if (val == NULL) {
-		printf(" can't find prop '%s'\n", prop);
-		return -1;
-	}
-
-	printf("looking up index of '%s'", val);
-
-	while (vals[i]) {
-		if (!strcmp(vals[i], val)) {
-			printf(" = %d\n", i);
-			xmlFree(val);
-			return i;
-		}
-		i++;
-	}
-
-	printf(" not found\n");
-
-	xmlFree(val);
-	return -1;
-}
+static const EPluginHookTargetKey emph_pixmap_sizes[] = {
+	{ "menu", 0 },
+	{ "button", 1},
+	{ "small_toolbar", 2},
+	{ "large_toolbar", 3},
+	{ "dnd", 4},
+	{ "dialog", 5},
+	{ 0 }
+};
 
 static void
 emph_menu_activate(void *widget, void *data)
@@ -658,20 +593,20 @@ emph_free_menu(struct _EMenuHookMenu *menu)
 }
 
 static struct _EMenuHookItem *
-emph_construct_item(EPluginHook *eph, EMenuHookMenu *menu, xmlNodePtr root, struct _EMenuHookTargetMap *map)
+emph_construct_item(EPluginHook *eph, EMenuHookMenu *menu, xmlNodePtr root, EMenuHookTargetMap *map)
 {
 	struct _EMenuHookItem *item;
 
 	printf("  loading menu item\n");
 	item = g_malloc0(sizeof(*item));
-	if ((item->item.type = emph_index(root, emph_item_types, "type")) == -1
+	if ((item->item.type = e_plugin_hook_id(root, emph_item_types, "type")) == -1
 	    || item->item.type == E_MENU_IMAGE)
 		goto error;
-	item->item.path = get_xml_prop(root, "path");
-	item->item.verb = get_xml_prop(root, "verb");
-	item->item.mask = emph_mask(root, map, "mask");
-	item->item.enable = emph_mask(root, map, "enable");
-	item->activate = get_xml_prop(root, "activate");
+	item->item.path = e_plugin_xml_prop(root, "path");
+	item->item.verb = e_plugin_xml_prop(root, "verb");
+	item->item.mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
+	item->item.enable = e_plugin_hook_mask(root, map->mask_bits, "enable");
+	item->activate = e_plugin_xml_prop(root, "activate");
 
 	item->item.activate = G_CALLBACK(emph_menu_activate);
 	item->item.activate_data = item;
@@ -694,9 +629,9 @@ emph_construct_pixmap(EPluginHook *eph, EMenuHookMenu *menu, xmlNodePtr root)
 
 	printf("  loading menu pixmap\n");
 	pixmap = g_malloc0(sizeof(*pixmap));
-	pixmap->command = get_xml_prop(root, "command");
-	pixmap->name = get_xml_prop(root, "pixmap");
-	pixmap->size = emph_index(root, emph_pixmap_sizes, "size");
+	pixmap->command = e_plugin_xml_prop(root, "command");
+	pixmap->name = e_plugin_xml_prop(root, "pixmap");
+	pixmap->size = e_plugin_hook_id(root, emph_pixmap_sizes, "size");
 
 	if (pixmap->command == NULL || pixmap->name == NULL || pixmap->size == -1)
 		goto error;
@@ -713,7 +648,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 {
 	struct _EMenuHookMenu *menu;
 	xmlNodePtr node;
-	struct _EMenuHookTargetMap *map;
+	EMenuHookTargetMap *map;
 	EMenuHookClass *klass = (EMenuHookClass *)G_OBJECT_GET_CLASS(eph);
 	char *tmp;
 
@@ -729,7 +664,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 		goto error;
 
 	menu->target_type = map->id;
-	menu->id = get_xml_prop(root, "id");
+	menu->id = e_plugin_xml_prop(root, "id");
 	node = root->children;
 	while (node) {
 		if (0 == strcmp(node->name, "item")) {
@@ -839,7 +774,7 @@ e_menu_hook_get_type(void)
 	return type;
 }
 
-void e_menu_hook_class_add_target_map(EMenuHookClass *klass, EMenuHookTargetMap *map)
+void e_menu_hook_class_add_target_map(EMenuHookClass *klass, const EMenuHookTargetMap *map)
 {
-	g_hash_table_insert(klass->target_map, map->type, map);
+	g_hash_table_insert(klass->target_map, (void *)map->type, (void *)map);
 }

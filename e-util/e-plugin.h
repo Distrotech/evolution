@@ -38,6 +38,11 @@ void e_plugin_register_type(GType type);
 
 void *e_plugin_invoke(EPlugin *ep, const char *name, void *data);
 
+/* static helpers */
+/* maps prop or content to 'g memory' */
+char *e_plugin_xml_prop(xmlNodePtr node, const char *id);
+char *e_plugin_xml_content(xmlNodePtr node);
+
 /* ********************************************************************** */
 #include <gmodule.h>
 
@@ -62,6 +67,22 @@ GType e_plugin_lib_get_type(void);
 typedef struct _EPluginHook EPluginHook;
 typedef struct _EPluginHookClass EPluginHookClass;
 
+/* utilities for subclasses to use */
+typedef struct _EPluginHookTargetMap EPluginHookTargetMap;
+typedef struct _EPluginHookTargetKey EPluginHookTargetKey;
+
+struct _EPluginHookTargetMap {
+	const char *type;
+	int id;
+	const struct _EPluginHookTargetKey *mask_bits;	/* null terminated array */
+};
+
+/* maps a field name in xml to bit(s) or id */
+struct _EPluginHookTargetKey {
+	const char *key;
+	guint32 value;
+};
+
 struct _EPluginHook {
 	GObject object;
 
@@ -81,5 +102,9 @@ GType e_plugin_hook_get_type(void);
 void e_plugin_hook_register_type(GType type);
 
 EPluginHook * e_plugin_hook_new(EPlugin *ep, xmlNodePtr root);
+
+/* static methods */
+guint32 e_plugin_hook_mask(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop);
+guint32 e_plugin_hook_id(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop);
 
 #endif /* ! _E_PLUGIN_H */

@@ -39,42 +39,14 @@
 static GObjectClass *ep_parent_class;
 static GHashTable *ep_types;
 
-static char *
-get_xml_prop(xmlNodePtr node, const char *id)
-{
-	char *p = xmlGetProp(node, id);
-	char *out = NULL;
-
-	if (p) {
-		out = g_strdup(p);
-		xmlFree(p);
-	}
-
-	return out;
-}
-
-static char *
-get_xml_content(xmlNodePtr node)
-{
-	char *p = xmlNodeGetContent(node);
-	char *out = NULL;
-
-	if (p) {
-		out = g_strdup(p);
-		xmlFree(p);
-	}
-
-	return out;
-}
-
 static int
 ep_construct(EPlugin *ep, xmlNodePtr root)
 {
 	xmlNodePtr node;
 	int res = -1;
 
-	ep->description = get_xml_prop(root, "description");
-	ep->name = get_xml_prop(root, "name");
+	ep->description = e_plugin_xml_prop(root, "description");
+	ep->name = e_plugin_xml_prop(root, "name");
 
 	printf("creating plugin '%s'\n", ep->name);
 
@@ -249,6 +221,39 @@ e_plugin_invoke(EPlugin *ep, const char *name, void *data)
 	return ((EPluginClass *)G_OBJECT_GET_CLASS(ep))->invoke(ep, name, data);
 }
 
+/* crappy utils to map between xml and 'system' memory */
+char *
+e_plugin_xml_prop(xmlNodePtr node, const char *id)
+{
+	char *p = xmlGetProp(node, id);
+
+	if (g_mem_is_system_malloc()) {
+		return p;
+	} else {
+		char * out = g_strdup(p);
+
+		if (p)
+			xmlFree(p);
+		return out;
+	}
+}
+
+char *
+e_plugin_xml_content(xmlNodePtr node)
+{
+	char *p = xmlNodeGetContent(node);
+
+	if (g_mem_is_system_malloc()) {
+		return p;
+	} else {
+		char * out = g_strdup(p);
+
+		if (p)
+			xmlFree(p);
+		return out;
+	}
+}
+
 /* ********************************************************************** */
 static void *epl_parent_class;
 
@@ -277,7 +282,7 @@ epl_construct(EPlugin *ep, xmlNodePtr root)
 	if (((EPluginClass *)epl_parent_class)->construct(ep, root) == -1)
 		return -1;
 
-	epl->location = get_xml_prop(root, "location");
+	epl->location = e_plugin_xml_prop(root, "location");
 
 	if (epl->location == NULL)
 		return -1;
@@ -409,6 +414,63 @@ e_plugin_hook_register_type(GType type)
 	phd(printf("register plugin hook type '%s'\n", klass->id));
 
 	g_hash_table_insert(eph_types, (void *)klass->id, klass);
+}
+
+guint32
+e_plugin_hook_mask(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop)
+{
+	char *val, *p, *start, c;
+	guint32 mask = 0;
+
+	val = xmlGetProp(root, prop);
+	if (val == NULL)
+		return 0;
+
+	p = val;
+	do {
+		start = p;
+		while (*p && *p != ',')
+			p++;
+		c = *p;
+		*p = 0;
+		if (start != p) {
+			int i;
+
+			for (i=0;map[i].key;i++) {
+				if (!strcmp(map[i].key, start)) {
+					mask |= map[i].value;
+					break;
+				}
+			}
+		}
+		*p++ = c;
+	} while (c);
+
+	xmlFree(val);
+
+	return mask;
+}
+
+guint32
+e_plugin_hook_id(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop)
+{
+	char *val;
+	int i;
+
+	val = xmlGetProp(root, prop);
+	if (val == NULL)
+		return ~0;
+
+	for (i=0;map[i].key;i++) {
+		if (!strcmp(map[i].key, val)) {
+			xmlFree(val);
+			return map[i].value;
+		}
+	}
+
+	xmlFree(val);
+
+	return ~0;
 }
 
 #if 0

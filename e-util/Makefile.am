@@ -24,6 +24,7 @@ eutilinclude_HEADERS = 				\
 	e-categories-config.h			\
 	e-categories-master-list-wombat.h	\
 	e-component-listener.h			\
+	e-config.h				\
 	e-config-listener.h			\
 	e-corba-utils.h				\
 	e-dialog-utils.h			\
@@ -66,6 +67,7 @@ libeutil_la_SOURCES =				\
 	e-categories-config.c			\
 	e-categories-master-list-wombat.c	\
 	e-component-listener.c			\
+	e-config.c				\
 	e-config-listener.c			\
 	e-corba-utils.c				\
 	e-dialog-utils.c			\

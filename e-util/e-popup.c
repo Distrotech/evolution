@@ -319,6 +319,7 @@ e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint3
 			break;
 		case E_POPUP_RADIO:
 			menuitem = (GtkMenuItem *)gtk_radio_menu_item_new(g_hash_table_lookup(group_hash, ppath->str));
+			/* FIXME: need to strdup the string */
 			g_hash_table_insert(group_hash, ppath->str, gtk_radio_menu_item_get_group((GtkRadioMenuItem *)menuitem));
 			gtk_check_menu_item_set_active((GtkCheckMenuItem *)menuitem, item->type & E_POPUP_ACTIVE);
 			break;
@@ -513,94 +514,21 @@ e_popup_target_free(EPopup *ep, void *o)
 
 */
 
-static char *
-get_xml_prop(xmlNodePtr node, const char *id)
-{
-	char *p = xmlGetProp(node, id);
-	char *out = NULL;
-
-	if (p) {
-		out = g_strdup(p);
-		xmlFree(p);
-	}
-
-	return out;
-}
-
 static void *emph_parent_class;
 #define emph ((EPopupHook *)eph)
 
 /* must have 1:1 correspondence with e-popup types in order */
-static const char * emph_item_types[] = { "item", "toggle", "radio", "image", "submenu", "bar", NULL };
+static const EPluginHookTargetKey emph_item_types[] = {
+	{ "item", E_POPUP_ITEM },
+	{ "toggle", E_POPUP_TOGGLE },
+	{ "radio", E_POPUP_RADIO },
+	{ "image", E_POPUP_IMAGE },
+	{ "submenu", E_POPUP_SUBMENU },
+	{ "bar", E_POPUP_BAR },
+	{ 0 }
+};
 
-static guint32
-emph_mask(xmlNodePtr root, struct _EPopupHookTargetMap *map, const char *prop)
-{
-	char *val, *p, *start, c;
-	guint32 mask = 0;
-
-	val = xmlGetProp(root, prop);
-	if (val == NULL)
-		return 0;
-
-	printf(" mask '%s' = ", val);
-
-	p = val;
-	do {
-		start = p;
-		while (*p && *p != ',')
-			p++;
-		c = *p;
-		*p = 0;
-		if (start != p) {
-			int i;
-
-			for (i=0;map->mask_bits[i].key;i++) {
-				if (!strcmp(map->mask_bits[i].key, start)) {
-					mask |= map->mask_bits[i].mask;
-					break;
-				}
-			}
-		}
-		*p++ = c;
-	} while (c);
-
-	xmlFree(val);
-
-	printf("%08x\n", mask);
-
-	return mask;
-}
-
-static int
-emph_index(xmlNodePtr root, const char **vals, const char *prop)
-{
-	int i = 0;
-	char *val;
-
-	val = xmlGetProp(root, prop);
-	if (val == NULL) {
-		printf(" can't find prop '%s'\n", prop);
-		return -1;
-	}
-
-	printf("looking up index of '%s'", val);
-
-	while (vals[i]) {
-		if (!strcmp(vals[i], val)) {
-			printf(" = %d\n", i);
-			xmlFree(val);
-			return i;
-		}
-		i++;
-	}
-
-	printf(" not found\n");
-
-	xmlFree(val);
-	return -1;
-}
-
+/* FIXME: fix for activate api changes */
 static void
 emph_popup_activate(void *widget, void *data)
 {
@@ -644,20 +572,20 @@ emph_free_menu(struct _EPopupHookMenu *menu)
 }
 
 static struct _EPopupHookItem *
-emph_construct_item(EPluginHook *eph, EPopupHookMenu *menu, xmlNodePtr root, struct _EPopupHookTargetMap *map)
+emph_construct_item(EPluginHook *eph, EPopupHookMenu *menu, xmlNodePtr root, EPopupHookTargetMap *map)
 {
 	struct _EPopupHookItem *item;
 
 	printf("  loading menu item\n");
 	item = g_malloc0(sizeof(*item));
-	if ((item->item.type = emph_index(root, emph_item_types, "type")) == -1
+	if ((item->item.type = e_plugin_hook_id(root, emph_item_types, "type")) == -1
 	    || item->item.type == E_POPUP_IMAGE)
 		goto error;
-	item->item.path = get_xml_prop(root, "path");
-	item->item.label = get_xml_prop(root, "label");
-	item->item.image = get_xml_prop(root, "icon");
-	item->item.mask = emph_mask(root, map, "mask");
-	item->activate = get_xml_prop(root, "activate");
+	item->item.path = e_plugin_xml_prop(root, "path");
+	item->item.label = e_plugin_xml_prop(root, "label");
+	item->item.image = e_plugin_xml_prop(root, "icon");
+	item->item.mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
+	item->activate = e_plugin_xml_prop(root, "activate");
 
 	item->item.activate = G_CALLBACK(emph_popup_activate);
 	item->item.activate_data = item;
@@ -678,7 +606,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 {
 	struct _EPopupHookMenu *menu;
 	xmlNodePtr node;
-	struct _EPopupHookTargetMap *map;
+	EPopupHookTargetMap *map;
 	EPopupHookClass *klass = (EPopupHookClass *)G_OBJECT_GET_CLASS(eph);
 	char *tmp;
 
@@ -694,7 +622,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 		goto error;
 
 	menu->target_type = map->id;
-	menu->id = get_xml_prop(root, "id");
+	menu->id = e_plugin_xml_prop(root, "id");
 	node = root->children;
 	while (node) {
 		if (0 == strcmp(node->name, "item")) {
@@ -789,7 +717,7 @@ e_popup_hook_get_type(void)
 	return type;
 }
 
-void e_popup_hook_class_add_target_map(EPopupHookClass *klass, EPopupHookTargetMap *map)
+void e_popup_hook_class_add_target_map(EPopupHookClass *klass, const EPopupHookTargetMap *map)
 {
-	g_hash_table_insert(klass->target_map, map->type, map);
+	g_hash_table_insert(klass->target_map, (void *)map->type, (void *)map);
 }

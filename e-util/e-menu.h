@@ -136,8 +136,8 @@ typedef struct _EMenuHookMenu EMenuHookMenu;
 typedef struct _EMenuHook EMenuHook;
 typedef struct _EMenuHookClass EMenuHookClass;
 
-typedef struct _EMenuHookTargetMap EMenuHookTargetMap;
-typedef struct _EMenuHookTargetMask EMenuHookTargetMask;
+typedef struct _EPluginHookTargetMap EMenuHookTargetMap;
+typedef struct _EPluginHookTargetKey EMenuHookTargetMask;
 
 typedef void (*EMenuHookFunc)(struct _EPlugin *plugin, EMenuTarget *target);
 
@@ -163,23 +163,6 @@ struct _EMenuHookMenu {
 	GSList *pixmaps;	/* pixmap descriptors */
 };
 
-/* target map, maps target types to possible values for it */
-/* only one of these should be setup for each menu plugin class, or bad things could happen */
-/* its done like this to make it work the same as popup stuff */
-/* TODO: merge the code? */
-struct _EMenuHookTargetMap {
-	char *type;
-	int id;
-	/* null terminated array of EMenuHookTargetMask's */
-	struct _EMenuHookTargetMask *mask_bits;
-};
-
-/* maps a mask name in xml to bit(s) */
-struct _EMenuHookTargetMask {
-	char *key;
-	guint32 mask;
-};
-
 struct _EMenuHook {
 	EPluginHook hook;
 
@@ -198,7 +181,7 @@ struct _EMenuHookClass {
 GType e_menu_hook_get_type(void);
 
 /* for implementors */
-void e_menu_hook_class_add_target_map(EMenuHookClass *klass, EMenuHookTargetMap *);
+void e_menu_hook_class_add_target_map(EMenuHookClass *klass, const EMenuHookTargetMap *);
 
 #ifdef __cplusplus
 }
