@@ -192,7 +192,7 @@ e_messenger_backend_event_receive_message(EMessengerBackend *backend,
 		backend->listener, CORBA_string_dup(identity), contact,
 		autoresponse, message, &ev);
 
-	e_messenger_identity_free(identity);
+	g_free(identity);
 
 	if (BONOBO_EX(&ev)) {
 		g_warning("Unable to notify listeners of received message");
@@ -219,7 +219,7 @@ e_messenger_backend_event_user_info(EMessengerBackend *backend, char *signon,
 	GNOME_Evolution_Messenger_Listener_contactInfo(
 		backend->listener, CORBA_string_dup(identity), info, &ev);
 	
-	e_messenger_identity_free(identity);
+	g_free(identity);
 
 	if (BONOBO_EX(&ev)) {
 		g_warning("Unable to notify listeners of event");
