@@ -36,15 +36,24 @@ void mail_config_druid (void);
 char *mail_crypto_openpgp_decrypt (const char *ciphertext,
 				   const char *passphrase,
 				   CamelException *ex);
+
+char *mail_crypto_openpgp_encrypt (const char *plaintext,
+				   const GPtrArray *recipients,
+				   const char *passphrase,
+				   gboolean sign,
+				   CamelException *ex);
 /* FIXME: add encryption & signing functions */
 
 /* mail-format */
 void mail_format_mime_message (CamelMimeMessage *mime_message,
-				   GtkHTML *html, GtkHTMLStream *stream,
-				   CamelMimeMessage *root_message);
+			       GtkHTML *html, GtkHTMLStream *stream,
+			       CamelMimeMessage *root_message);
 
 EMsgComposer *mail_generate_reply (CamelMimeMessage *mime_message,
 				   gboolean to_all);
+
+char *mail_get_message_body (CamelDataWrapper *data, gboolean want_plain,
+			     gboolean *is_html);
 
 /* mail-identify */
 char *mail_identify_mime_part (CamelMimePart *part);
@@ -61,6 +70,7 @@ void move_msg (GtkWidget *button, gpointer user_data);
 void print_msg (GtkWidget *button, gpointer user_data);
 
 void mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path);
+void edit_message (BonoboUIHandler *uih, void *user_data, const char *path);
 void expunge_folder (BonoboUIHandler *uih, void *user_data, const char *path);
 void filter_edit (BonoboUIHandler *uih, void *user_data, const char *path);
 void vfolder_edit_vfolders (BonoboUIHandler *uih, void *user_data, const char *path);

@@ -42,6 +42,8 @@
 
 #include "component-factory.h"
 
+CamelFolder *drafts_folder = NULL;
+
 static void create_vfolder_storage (EvolutionShellComponent *shell_component);
 static void create_imap_storage (EvolutionShellComponent *shell_component);
 static void create_news_storage (EvolutionShellComponent *shell_component);
@@ -103,11 +105,27 @@ owner_set_cb (EvolutionShellComponent *shell_component,
 	      EvolutionShellClient *shell_client,
 	      gpointer user_data)
 {
+	CamelException *ex;
+	CamelStore *store;
+	char *url;
+	
 	g_print ("evolution-mail: Yeeeh! We have an owner!\n");	/* FIXME */
-
+	
 	/* GROSS HACK */
 	/*global_shell_client = shell_client;*/
-
+	
+	ex = camel_exception_new ();
+	url = g_strdup_printf ("mbox://%s/local/Drafts", evolution_dir);
+	store = camel_session_get_store (session, url, ex);
+	g_free (url);
+	if (!camel_exception_is_set (ex)) {
+		drafts_folder = camel_store_get_folder (store, "mbox", TRUE, ex);
+		gtk_object_unref (GTK_OBJECT (store));
+	} else {
+		drafts_folder = NULL;
+	}
+	camel_exception_free (ex);
+	
 	create_vfolder_storage (shell_component);
 	create_imap_storage (shell_component);
 	create_news_storage (shell_component);
@@ -192,7 +210,7 @@ create_imap_storage (EvolutionShellComponent *shell_component)
 	EvolutionShellClient *shell_client;
 	Evolution_Shell corba_shell;
 	EvolutionStorage *storage;
-	char *source=NULL, *server, *p;
+	char *source = NULL, *server, *p;
 
 	config = mail_config_fetch ();
 	if (config->sources) {

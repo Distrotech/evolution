@@ -1,3 +1,41 @@
+2000-08-05  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table.c, e-table.h: Added functions to convert from view row
+	to model row or from model row to view row.  Also changed
+	e_table_set_cursor_row and e_table_get_cursor_row to take a model
+	row as this works better with the rest of the model.  Changed the
+	name of e_table_get_next_row_sorted and
+	e_table_get_prev_row_sorted.  (Dropped the _sorted.)
+
+2000-08-05  Dan Winship  <danw@helixcode.com>
+
+	* e-table.c (e_table_get_{next,prev}_row_sorted): fix
+
+2000-08-05  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table.c: Added a function to get the next row with sorting
+	taken into account.
+
+2000-08-05  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-sorter.c: Made it so that selection ranges work even if
+	the table is using grouping.
+
+2000-08-05  Christopher James Lahey  <clahey@helixcode.com>
+
+	* Makefile.am, e-table-selection-model.c,
+	e-table-selection-model.h, e-table.c, e-table.h: Made selection
+	ranges work even if the table is sorted.
+
+	* e-table-sorter.c, e-table-sorter.h: New files to help with
+	making selection ranges work even if sorted.
+
+2000-08-04  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table.c, e-table.h: Built code to have autodrags only work
+	from within the table and to report the row dragged from
+	automatically.
+
 2000-08-04  Christopher James Lahey  <clahey@helixcode.com>
 
 	* e-table-group-container.c, e-table-group-leaf.c,

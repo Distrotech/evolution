@@ -391,6 +391,27 @@ mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path)
 }
 
 void
+edit_message (BonoboUIHandler *uih, void *user_data, const char *path)
+{
+	FolderBrowser *fb = FOLDER_BROWSER (user_data);
+	GPtrArray *uids;
+	extern CamelFolder *drafts_folder;
+
+	if (fb->folder != drafts_folder) {
+		GtkWidget *message;
+
+		message = gnome_warning_dialog (_("You may only edit messages saved\n"
+							   "in the Drafts folder."));
+		gnome_dialog_run_and_close (GNOME_DIALOG (message));
+		return;
+	}
+
+	uids = g_ptr_array_new();
+	message_list_foreach (fb->message_list, enumerate_msg, uids);
+	mail_do_edit_messages (fb->folder, uids, (GtkSignalFunc) composer_send_cb);
+}
+
+void
 delete_msg (GtkWidget *button, gpointer user_data)
 {
 	FolderBrowser *fb = user_data;

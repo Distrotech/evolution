@@ -31,6 +31,7 @@
 #include "mail-tools.h"
 #include "mail-ops.h"
 #include "e-util/e-setup.h"
+#include "composer/e-msg-composer.h"
 
 /* ** FETCH MAIL ********************************************************** */
 
@@ -902,7 +903,7 @@ cleanup_attach_message (gpointer in_data, gpointer op_data,
 
 static const mail_operation_spec op_attach_message = {
 	describe_attach_message,
-	0,
+	sizeof (attach_message_data_t),
 	setup_attach_message,
 	do_attach_message,
 	cleanup_attach_message
@@ -1544,4 +1545,133 @@ mail_do_display_message (MessageList * ml, const char *uid,
 	input->timeout = timeout;
 
 	mail_operation_queue (&op_display_message, input, FALSE);
+}
+
+/* ** EDITS MESSAGES ****************************************************** */
+
+typedef struct edit_messages_input_s {
+	CamelFolder *folder;
+	GPtrArray *uids;
+	GtkSignalFunc signal;
+} edit_messages_input_t;
+
+typedef struct edit_messages_data_s {
+	GPtrArray *messages;
+} edit_messages_data_t;
+
+static gchar *describe_edit_messages (gpointer in_data, gboolean gerund);
+static void setup_edit_messages (gpointer in_data, gpointer op_data,
+				  CamelException * ex);
+static void do_edit_messages (gpointer in_data, gpointer op_data,
+			       CamelException * ex);
+static void cleanup_edit_messages (gpointer in_data, gpointer op_data,
+				    CamelException * ex);
+
+static gchar *
+describe_edit_messages (gpointer in_data, gboolean gerund)
+{
+	edit_messages_input_t *input = (edit_messages_input_t *) in_data;
+
+	if (gerund)
+		return g_strdup_printf
+			("Opening messages from folder \"%s\"",
+			 input->folder->full_name);
+	else
+		return g_strdup_printf ("Open messages from \"%s\"",
+					input->folder->full_name);
+}
+
+static void
+setup_edit_messages (gpointer in_data, gpointer op_data, CamelException * ex)
+{
+	edit_messages_input_t *input = (edit_messages_input_t *) in_data;
+
+	if (!input->uids) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No UIDs specified to edit.");
+		return;
+	}
+
+	if (!CAMEL_IS_FOLDER (input->folder)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No folder to fetch the messages from specified.");
+		return;
+	}
+
+	camel_object_ref (CAMEL_OBJECT (input->folder));
+}
+
+static void
+do_edit_messages (gpointer in_data, gpointer op_data, CamelException * ex)
+{
+	edit_messages_input_t *input = (edit_messages_input_t *) in_data;
+	edit_messages_data_t *data = (edit_messages_data_t *) op_data;
+
+	int i;
+
+	data->messages = g_ptr_array_new ();
+
+	for (i = 0; i < input->uids->len; i++) {
+		CamelMimeMessage *message;
+
+		mail_tool_camel_lock_up ();
+		message = camel_folder_get_message (input->folder, input->uids->pdata[i], ex);
+		mail_tool_camel_lock_down ();
+
+		if (message)
+			g_ptr_array_add (data->messages, message);
+
+		g_free (input->uids->pdata[i]);
+	}
+}
+
+static void
+cleanup_edit_messages (gpointer in_data, gpointer op_data,
+			CamelException * ex)
+{
+	edit_messages_input_t *input = (edit_messages_input_t *) in_data;
+	edit_messages_data_t *data = (edit_messages_data_t *) op_data;
+
+	int i;
+
+	for (i = 0; i < data->messages->len; i++) {
+		GtkWidget *composer;
+
+		composer = e_msg_composer_new_with_message (data->messages->pdata[i]);
+
+		if (input->signal)
+			gtk_signal_connect (GTK_OBJECT (composer), "send", 
+					    input->signal, NULL);
+
+		gtk_widget_show (composer);
+
+		camel_object_unref (CAMEL_OBJECT (data->messages->pdata[i]));
+	}
+
+	g_ptr_array_free (input->uids, TRUE);
+	g_ptr_array_free (data->messages, TRUE);
+	camel_object_unref (CAMEL_OBJECT (input->folder));
+
+}
+
+static const mail_operation_spec op_edit_messages = {
+	describe_edit_messages,
+	sizeof (edit_messages_data_t),
+	setup_edit_messages,
+	do_edit_messages,
+	cleanup_edit_messages
+};
+
+void
+mail_do_edit_messages (CamelFolder * folder, GPtrArray *uids,
+		       GtkSignalFunc signal)
+{
+	edit_messages_input_t *input;
+
+	input = g_new (edit_messages_input_t, 1);
+	input->folder = folder;
+	input->uids = uids;
+	input->signal = signal;
+
+	mail_operation_queue (&op_edit_messages, input, TRUE);
 }

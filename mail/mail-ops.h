@@ -56,8 +56,9 @@ void mail_do_create_folder (const Evolution_ShellComponentListener listener,
 void mail_do_sync_folder (CamelFolder * folder);
 void mail_do_display_message (MessageList * ml, const char *uid,
 			      gint (*timeout) (gpointer));
+void mail_do_edit_messages (CamelFolder * folder, GPtrArray *uids,
+			    GtkSignalFunc signal);
 
 /* This actually lives in message-list.c */
 void mail_do_regenerate_messagelist (MessageList * list,
-
 				     const gchar * search);

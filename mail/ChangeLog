@@ -1,3 +1,59 @@
+2000-08-07  Peter Williams  <peterw@helixcode.com>
+
+	* mail-ops.c (cleanup_edit_messages): New operation: edit_messages
+	For continuing draft messages.
+	(attach_messages): Fix accidental 0 datasize.
+
+	* mail-callbacks.c: Move fejj's edit message to the async home.
+2000-08-07  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-format.c (mail_get_message_body): Renamed from reply_body()
+	so other functions can use it
+	(mail_generate_reply): Updated to reflect function name changes
+
+	* mail-ops.c (real_edit_msg): Attach a callback to the send signal
+
+2000-08-07  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* folder-browser-factory.c (control_activate): New menu item under
+	Actions to allow editing of messages.
+
+	* mail-ops.c (edit_message): New function for editing messages.
+
+	* component-factory.c (owner_set_cb): Create a global reference to
+	the Drafts mbox folder for the Composer to use
+
+2000-08-06  JP Rosevear  <jpr@helixcode.com>
+
+	* mail-config.c (ndialog_page_undone): Desensitize ok button
+	(sdialog_page_undone): ditto
+	(iddialog_page_undone): ditto
+	(news_page_new): Typo - news, not mail
+	(transport_page_new): Typo - transport, not source
+	(identity_dialog): Set undone callback
+	(source_dialog): ditto
+	(news_dialog): ditto
+	(mail_druid_identity_undone): Desensitize next button and
+	mark done flag as false
+	(mail_druid_source_undone): ditto
+	(mail_druid_transport_undone): ditto
+	(mail_druid_identity_done): Mark done flag as true
+	(mail_druid_source_done): ditto
+	(mail_druid_transport_done): ditto
+	(mail_druid_prepare): Use done flag to set next button 
+	sensitivity, fixes #467
+
+2000-08-06  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-crypto.c (mail_crypto_openpgp_encrypt): Added support for
+	encrypting with GnuPG.  Support for PGP5 and PGP2 are still in
+	progress.
+
+2000-08-05  Dan Winship  <danw@helixcode.com>
+
+	* folder-browser-factory.c (control_activate): Remove bonobo 0.15
+	vs 0.15-and-a-half ifdef, since we require post-0.16 now.
+
 2000-08-04  Dan Winship  <danw@helixcode.com>
 
 	* mail-threads.c (mail_operation_wait_for_finish): Don't use
