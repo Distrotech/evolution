@@ -49,7 +49,7 @@ static char *list [] = {
 				 * well, and there is no way for us to use the
 				 * same value as it's not exported.  */
 
-#define ETREE_SPEC "<ETableSpecification no-headers=\"true\" selection-mode=\"single\" cursor-mode=\"line\" draw-grid=\"true\" horizontal-scrolling=\"true\"> \
+#define ETREE_SPEC "<ETableSpecification no-headers=\"true\" selection-mode=\"single\" cursor-mode=\"line\" draw-grid=\"false\" horizontal-scrolling=\"true\"> \
   <ETableColumn model_col=\"0\" _title=\"Folder\" expansion=\"1.0\" minimum_width=\"20\" resizable=\"true\" cell=\"render_tree\" compare=\"string\"/> \
 	<ETableState>                   			       \
 		<column source=\"0\"/>     			       \
