@@ -1,5 +1,49 @@
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-book-view.c (send_pending_adds): abstract all
+	the aggregating code to the book view.  backends just call
+	notify_card_added and the superclass does all the aggregating.
+	(pas_book_view_notify_change): if there are pending adds, send
+	them before we send the change.
+	(pas_book_view_notify_remove): same.
+	(pas_book_view_notify_add): the other part of the aggregating
+	code.
+	(pas_book_view_notify_complete): send pending adds if there are
+	any.
+	(impl_GNOME_Evolution_Addressbook_BookView_start): new function,
+	call pas_backend_start_book_view.
+	(pas_book_view_get_card_query): new function.
+	(pas_book_view_get_card_sexp): new function.
+	(pas_book_view_get_backend): new function.
+
+	* backend/pas/pas-book-view.h: add a PASBackend arg to the
+	constructor, as well as the char* query and PASBackendCardSExp
+	form.  also add accessors for card_query, card_sexp, and backend.
+
+	* backend/idl/addressbook.idl
+	(GNOME::Evolution::Addressbook::BookView): add start() method.
+	(GNOME::Evolution::Addressbook::BookListener): remove the oneway
+	tag from notifyBookOpened, notifyViewRequested, and
+	notifyChangesRequested so the call doesn't return until the remote
+	object has gotten the method call.
+
+	* backend/pas/pas-backend.c (pas_backend_load_uri): fill in the
+	uri slot if the load was successful.
+	(pas_backend_get_uri): return the uri, remove the virtual method
+	call.
+	(pas_backend_start_book_view): new function.
+	(process_client_request): ifdef out the threaded foo, since i'm
+	not certain it's at all necessary.
+	(real_add_client): remove the bonobo_object_unref of the book,
+	since it's immortal.
+	(pas_backend_dispose): free the uri.
+
+	* backend/pas/pas-backend.h: remove the get_uri virtual method,
+	and add the start_book_view virtual method and
+	pas_backend_start_book_view prototype.
+
+2003-07-23  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/Makefile.am (libpasvcf_a_SOURCES): new.
 	(noinst_LIBRARIES): add libpasvcf.a
 

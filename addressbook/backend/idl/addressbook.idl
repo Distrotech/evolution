@@ -47,6 +47,7 @@ module Addressbook {
 	};
 	
 	interface BookView : Bonobo::Unknown {
+		oneway void start ();
 	};
 
 	enum BookListenerCallStatus {
@@ -139,11 +140,11 @@ module Addressbook {
 		oneway void notifyCardsRemoved         (in BookListenerCallStatus status);
 		oneway void notifyCardModified         (in BookListenerCallStatus status);
 		oneway void notifyProgress             (in string status_message, in short precent);
-		oneway void notifyBookOpened           (in BookListenerCallStatus status, in Book book);
+		void notifyBookOpened                  (in BookListenerCallStatus status, in Book book);
+		void notifyViewRequested               (in BookListenerCallStatus status, in BookView view);
+		void notifyChangesRequested            (in BookListenerCallStatus status, in BookView view);
 		oneway void notifyCardRequested        (in BookListenerCallStatus status, in VCard card);
 		oneway void notifyCardListRequested    (in BookListenerCallStatus status, in stringlist cards);
-		oneway void notifyViewRequested        (in BookListenerCallStatus status, in BookView view);
-		oneway void notifyChangesRequested     (in BookListenerCallStatus status, in BookView view);
 		oneway void notifySupportedFields      (in BookListenerCallStatus status, in stringlist fields);
 		oneway void notifyAuthenticationResult (in BookListenerCallStatus status);
 		oneway void notifySupportedAuthMethods (in BookListenerCallStatus status, in stringlist auth_methods);

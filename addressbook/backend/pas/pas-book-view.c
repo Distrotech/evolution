@@ -8,13 +8,63 @@
 #include <config.h>
 #include <glib.h>
 #include <bonobo/bonobo-main.h>
+#include "pas-backend.h"
+#include "pas-backend-card-sexp.h"
 #include "pas-book-view.h"
 
 static BonoboObjectClass *pas_book_view_parent_class;
 
 struct _PASBookViewPrivate {
 	GNOME_Evolution_Addressbook_BookViewListener  listener;
+
+#define INITIAL_THRESHOLD 20
+	int    card_count;
+	int    card_threshold;
+	int    card_threshold_max;
+	GList  *cards;
+
+	PASBackend *backend;
+	char *card_query;
+	PASBackendCardSExp *card_sexp;
 };
+
+static void
+send_pending_adds (PASBookView *book_view)
+{
+	CORBA_Environment ev;
+	gint i;
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard card_sequence;
+	GList *cards = book_view->priv->cards;
+	int card_count = book_view->priv->card_count;
+
+	printf ("send_pending_adds (%d cards)\n", card_count);
+
+	book_view->priv->cards = NULL;
+	book_view->priv->card_count = 0;
+	book_view->priv->card_threshold = INITIAL_THRESHOLD;
+
+	card_sequence._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_VCard_allocbuf(card_count);
+	card_sequence._maximum = card_count;
+	card_sequence._length = card_count;
+
+	for ( i = 0; cards; cards = g_list_next(cards), i++ )
+		card_sequence._buffer[i] = CORBA_string_dup((char *) cards->data);
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Addressbook_BookViewListener_notifyCardAdded (
+		book_view->priv->listener, &card_sequence, &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		g_warning ("send_pending_adds: Exception signaling BookViewListener!\n");
+	}
+
+	CORBA_exception_free (&ev);
+
+	CORBA_free(card_sequence._buffer);
+	g_list_foreach (cards, (GFunc)g_free, NULL);
+	g_list_free (cards);
+}
 
 /**
  * pas_book_view_notify_change:
@@ -27,15 +77,17 @@ pas_book_view_notify_change (PASBookView                *book_view,
 	gint i, length;
 	CORBA_sequence_GNOME_Evolution_Addressbook_VCard card_sequence;
 
+	if (book_view->priv->cards)
+		send_pending_adds (book_view);
+
 	length = g_list_length((GList *) cards);
 
 	card_sequence._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_VCard_allocbuf(length);
 	card_sequence._maximum = length;
 	card_sequence._length = length;
 
-	for ( i = 0; cards; cards = g_list_next(cards), i++ ) {
+	for ( i = 0; cards; cards = g_list_next(cards), i++ )
 		card_sequence._buffer[i] = CORBA_string_dup((char *) cards->data);
-	}
 
 	CORBA_exception_init (&ev);
 
@@ -64,19 +116,6 @@ pas_book_view_notify_change_1 (PASBookView *book_view,
  * pas_book_view_notify_remove:
  */
 void
-pas_book_view_notify_remove_1 (PASBookView                *book_view,
-			       const char                 *id)
-{
-	GList *ids = NULL;
-
-	ids = g_list_prepend (ids, (char*)id);
-
-	pas_book_view_notify_remove (book_view, ids);
-
-	g_list_free (ids);
-}
-
-void
 pas_book_view_notify_remove (PASBookView  *book_view,
 			     const GList  *ids)
 {
@@ -85,16 +124,18 @@ pas_book_view_notify_remove (PASBookView  *book_view,
 	const GList *l;
 	int num_ids, i;
 
-	CORBA_exception_init (&ev);
+	if (book_view->priv->cards)
+		send_pending_adds (book_view);
 
 	num_ids = g_list_length ((GList*)ids);
 	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_CardId_allocbuf (num_ids);
 	idlist._maximum = num_ids;
 	idlist._length = num_ids;
 
-	for (l = ids, i = 0; l; l=l->next, i ++) {
+	for (l = ids, i = 0; l; l=l->next, i ++)
 		idlist._buffer[i] = CORBA_string_dup (l->data);
-	}
+
+	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookViewListener_notifyCardsRemoved (
 		book_view->priv->listener, &idlist, &ev);
@@ -108,39 +149,39 @@ pas_book_view_notify_remove (PASBookView  *book_view,
 	CORBA_exception_free (&ev);
 }
 
+void
+pas_book_view_notify_remove_1 (PASBookView                *book_view,
+			       const char                 *id)
+{
+	GList *ids = NULL;
+
+	ids = g_list_prepend (ids, (char*)id);
+
+	pas_book_view_notify_remove (book_view, ids);
+
+	g_list_free (ids);
+}
+
 /**
  * pas_book_view_notify_add:
  */
 void
-pas_book_view_notify_add (PASBookView                *book_view,
-			  const GList                *cards)
+pas_book_view_notify_add (PASBookView          *book_view,
+			  GList                *cards)
 {
-	CORBA_Environment ev;
-	gint i, length;
-	CORBA_sequence_GNOME_Evolution_Addressbook_VCard card_sequence;
+	PASBookViewPrivate *priv = book_view->priv;
 
-	length = g_list_length((GList *)cards);
+	priv->card_count += g_list_length (cards);
+	priv->cards = g_list_concat (cards, priv->cards);
 
-	card_sequence._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_VCard_allocbuf(length);
-	card_sequence._maximum = length;
-	card_sequence._length = length;
+	/* If we've accumulated a number of cards, actually send them to the client */
+	if (priv->card_count >= priv->card_threshold) {
+		send_pending_adds (book_view);
 
-	for ( i = 0; cards; cards = g_list_next(cards), i++ ) {
-		card_sequence._buffer[i] = CORBA_string_dup((char *) cards->data);
+		/* Yeah, this scheme is overly complicated.  But I like it. */
+		if (priv->card_threshold < priv->card_threshold_max)
+			priv->card_threshold = MIN (2*priv->card_threshold, priv->card_threshold_max);
 	}
-
-	CORBA_exception_init (&ev);
-
-	GNOME_Evolution_Addressbook_BookViewListener_notifyCardAdded (
-		book_view->priv->listener, &card_sequence, &ev);
-
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning ("pas_book_view_notify_add: Exception signaling BookViewListener!\n");
-	}
-
-	CORBA_exception_free (&ev);
-
-	CORBA_free(card_sequence._buffer);
 }
 
 void
@@ -149,7 +190,6 @@ pas_book_view_notify_add_1 (PASBookView *book_view,
 {
 	GList *list = g_list_append(NULL, (char *) card);
 	pas_book_view_notify_add(book_view, list);
-	g_list_free(list);
 }
 
 void
@@ -157,6 +197,9 @@ pas_book_view_notify_complete (PASBookView *book_view,
 			       GNOME_Evolution_Addressbook_BookViewListener_CallStatus status)
 {
 	CORBA_Environment ev;
+
+	if (book_view->priv->cards)
+		send_pending_adds (book_view);
 
 	CORBA_exception_init (&ev);
 
@@ -188,9 +231,22 @@ pas_book_view_notify_status_message (PASBookView *book_view,
 	CORBA_exception_free (&ev);
 }
 
+gboolean
+pas_book_view_vcard_matches (PASBookView *book_view,
+			     const char  *vcard)
+{
+	if (book_view->priv->card_sexp == NULL)
+		return FALSE;
+
+	return pas_backend_card_sexp_match_vcard (book_view->priv->card_sexp, vcard);
+}
+
 static void
 pas_book_view_construct (PASBookView                *book_view,
-			 GNOME_Evolution_Addressbook_BookViewListener  listener)
+			 PASBackend                 *backend,
+			 GNOME_Evolution_Addressbook_BookViewListener  listener,
+			 const char                 *card_query,
+			 PASBackendCardSExp         *card_sexp)
 {
 	PASBookViewPrivate *priv;
 	CORBA_Environment ev;
@@ -211,20 +267,65 @@ pas_book_view_construct (PASBookView                *book_view,
 
 	CORBA_exception_free (&ev);
 
+	priv->backend = backend;
 	priv->listener  = listener;
+	priv->cards = NULL;
+	priv->card_threshold = INITIAL_THRESHOLD;
+	priv->card_threshold_max = 3000;
+	priv->card_query = g_strdup (card_query);
+	priv->card_sexp = card_sexp;
+}
+
+/**
+ * pas_book_view_new:
+ */
+static void
+impl_GNOME_Evolution_Addressbook_BookView_start (PortableServer_Servant servant,
+						 CORBA_Environment *ev)
+{
+	PASBookView *view = PAS_BOOK_VIEW (bonobo_object (servant));
+
+	pas_backend_start_book_view (pas_book_view_get_backend (view), view);
+}
+
+/**
+ * pas_book_view_get_card_query
+ */
+const char*
+pas_book_view_get_card_query (PASBookView *book_view)
+{
+	return book_view->priv->card_query;
+}
+
+/**
+ * pas_book_view_get_card_sexp
+ */
+PASBackendCardSExp*
+pas_book_view_get_card_sexp (PASBookView *book_view)
+{
+	return book_view->priv->card_sexp;
+}
+
+PASBackend*
+pas_book_view_get_backend (PASBookView *book_view)
+{
+	return book_view->priv->backend;
 }
 
 /**
  * pas_book_view_new:
  */
 PASBookView *
-pas_book_view_new (GNOME_Evolution_Addressbook_BookViewListener  listener)
+pas_book_view_new (PASBackend *backend,
+		   GNOME_Evolution_Addressbook_BookViewListener  listener,
+		   const char *card_query,
+		   PASBackendCardSExp *card_sexp)
 {
 	PASBookView *book_view;
 
 	book_view = g_object_new (PAS_TYPE_BOOK_VIEW, NULL);
 	
-	pas_book_view_construct (book_view, listener);
+	pas_book_view_construct (book_view, backend, listener, card_query, card_sexp);
 
 	return book_view;
 }
@@ -236,6 +337,12 @@ pas_book_view_dispose (GObject *object)
 
 	if (book_view->priv) {
 		bonobo_object_release_unref (book_view->priv->listener, NULL);
+
+		g_list_foreach (book_view->priv->cards, (GFunc)g_free, NULL);
+		g_list_free (book_view->priv->cards);
+
+		g_free (book_view->priv->card_query);
+		g_object_unref (book_view->priv->card_sexp);
 
 		g_free (book_view->priv);
 		book_view->priv = NULL;
@@ -249,10 +356,16 @@ static void
 pas_book_view_class_init (PASBookViewClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
+	POA_GNOME_Evolution_Addressbook_BookView__epv *epv;
 
 	pas_book_view_parent_class = g_type_class_peek_parent (klass);
 
 	object_class->dispose = pas_book_view_dispose;
+
+	epv = &klass->epv;
+
+	epv->start                = impl_GNOME_Evolution_Addressbook_BookView_start;
+
 }
 
 static void

@@ -25,6 +25,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <pas/addressbook.h>
+#include <pas/pas-types.h>
 
 #define PAS_TYPE_BACKEND         (pas_backend_get_type ())
 #define PAS_BACKEND(o)           (G_TYPE_CHECK_INSTANCE_CAST ((o), PAS_TYPE_BACKEND, PASBackend))
@@ -33,7 +34,6 @@
 #define PAS_IS_BACKEND_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE ((k), PAS_TYPE_BACKEND))
 #define PAS_BACKEND_GET_CLASS(k) (G_TYPE_INSTANCE_GET_CLASS ((k), PAS_TYPE_BACKEND, PASBackendClass))
 
-typedef struct _PASBackend        PASBackend;
 typedef struct _PASBackendPrivate PASBackendPrivate;
 
 #include <pas/pas-book.h>
@@ -43,12 +43,11 @@ struct _PASBackend {
 	PASBackendPrivate *priv;
 };
 
-typedef struct {
+struct _PASBackendClass {
 	GObjectClass parent_class;
 
 	/* Virtual methods */
 	GNOME_Evolution_Addressbook_BookListenerCallStatus (*load_uri) (PASBackend *backend, const char *uri);
-	const char *(* get_uri) (PASBackend *backend);
 	gboolean (*add_client) (PASBackend *backend, GNOME_Evolution_Addressbook_BookListener listener);
 	void (*remove_client) (PASBackend *backend, PASBook *book);
         char *(*get_static_capabilities) (PASBackend *backend);
@@ -59,6 +58,7 @@ typedef struct {
 	void (*get_vcard) (PASBackend *backend, PASBook *book, PASGetVCardRequest *req);
 	void (*get_card_list) (PASBackend *backend, PASBook *book, PASGetCardListRequest *req);
 	void (*get_book_view) (PASBackend *backend, PASBook *book, PASGetBookViewRequest *req);
+	void (*start_book_view) (PASBackend *backend, PASBookView *book_view);
 	void (*get_changes) (PASBackend *backend, PASBook *book, PASGetChangesRequest *req);
 	void (*authenticate_user) (PASBackend *backend, PASBook *book, PASAuthenticateUserRequest *req);
 	void (*get_supported_fields) (PASBackend *backend, PASBook *book, PASGetSupportedFieldsRequest *req);
@@ -76,7 +76,7 @@ typedef struct {
 	void (*_pas_reserved2) (void);
 	void (*_pas_reserved3) (void);
 	void (*_pas_reserved4) (void);
-} PASBackendClass;
+};
 
 typedef PASBackend * (*PASBackendFactoryFn) (void);
 
@@ -131,6 +131,8 @@ void        pas_backend_get_supported_auth_methods (PASBackend             *back
 						    PASBook                *book,
 						    PASGetSupportedAuthMethodsRequest *req);
 
+void        pas_backend_start_book_view            (PASBackend             *backend,
+						    PASBookView            *view);
 
 GType       pas_backend_get_type                 (void);
 

@@ -8,11 +8,13 @@
 
 #include <config.h>
 #include <pthread.h>
+#include "pas-book-view.h"
 #include "pas-backend.h"
 #include "pas-marshal.h"
 
 struct _PASBackendPrivate {
 	GList *clients;
+	char *uri;
 	gboolean loaded, writable;
 };
 
@@ -36,13 +38,20 @@ GNOME_Evolution_Addressbook_BookListenerCallStatus
 pas_backend_load_uri (PASBackend             *backend,
 		      const char             *uri)
 {
+	GNOME_Evolution_Addressbook_BookListenerCallStatus status;
+
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
 	g_return_val_if_fail (uri, FALSE);
 	g_return_val_if_fail (backend->priv->loaded == FALSE, FALSE);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->load_uri);
 
-	return (* PAS_BACKEND_GET_CLASS (backend)->load_uri) (backend, uri);
+	status = (* PAS_BACKEND_GET_CLASS (backend)->load_uri) (backend, uri);
+
+	if (status == GNOME_Evolution_Addressbook_Success)
+		backend->priv->uri = g_strdup (uri);
+
+	return status;
 }
 
 /**
@@ -58,9 +67,7 @@ pas_backend_get_uri (PASBackend *backend)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), NULL);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_uri);
-
-	return (* PAS_BACKEND_GET_CLASS (backend)->get_uri) (backend);
+	return backend->priv->uri;
 }
 
 
@@ -146,6 +153,18 @@ pas_backend_get_book_view (PASBackend *backend,
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_book_view);
 
 	(* PAS_BACKEND_GET_CLASS (backend)->get_book_view) (backend, book, req);
+}
+
+void
+pas_backend_start_book_view (PASBackend *backend,
+			     PASBookView *book_view)
+{
+	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
+	g_return_if_fail (book_view && PAS_IS_BOOK_VIEW (book_view));
+
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->start_book_view);
+
+	(* PAS_BACKEND_GET_CLASS (backend)->start_book_view) (backend, book_view);
 }
 
 void
@@ -275,7 +294,11 @@ process_client_request (PASBook *book, PASRequest *req, gpointer user_data)
 	s->req     = req;
 	s->backend = pas_book_get_backend (book);
 
+#if 0
 	pthread_create(&thread, NULL, threaded_process_client_request, s);
+#else
+	threaded_process_client_request (s);
+#endif
 }
 
 static void
@@ -334,8 +357,6 @@ real_add_client (PASBackend      *backend,
 	}
 
 	pas_book_report_writable (book, backend->priv->writable);
-
-	bonobo_object_unref (BONOBO_OBJECT (book));
 
 	return TRUE;
 }
@@ -467,6 +488,7 @@ pas_backend_init (PASBackend *backend)
 	PASBackendPrivate *priv;
 
 	priv          = g_new0 (PASBackendPrivate, 1);
+	priv->uri     = NULL;
 	priv->clients = NULL;
 
 	backend->priv = priv;
@@ -481,8 +503,11 @@ pas_backend_dispose (GObject *object)
 
 	if (backend->priv) {
 		g_list_free (backend->priv->clients);
-		g_free (backend->priv);
 
+		if (backend->priv->uri)
+			g_free (backend->priv->uri);
+
+		g_free (backend->priv);
 		backend->priv = NULL;
 	}
 
