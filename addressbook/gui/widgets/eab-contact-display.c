@@ -2,7 +2,7 @@
 /*
  *  Authors: Chris Toshok <toshok@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 2003 Ximian, Inc. (www.ximian.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -208,7 +208,7 @@ eab_contact_display_new (void)
 	GtkWidget *scroll;
 	GtkHTML *html;
 
-	display = g_object_new (E_TYPE_AB_CONTACT_DISPLAY, NULL);
+	display = g_object_new (EAB_TYPE_CONTACT_DISPLAY, NULL);
 	
 	display->priv = g_new0 (EABContactDisplayPrivate, 1);
 

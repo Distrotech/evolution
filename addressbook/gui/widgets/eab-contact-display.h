@@ -26,11 +26,11 @@
 #include <gtk/gtkvbox.h>
 #include <ebook/e-contact.h>
 
-#define E_TYPE_AB_CONTACT_DISPLAY       (eab_contact_display_get_type ())
-#define EAB_CONTACT_DISPLAY(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_AB_CONTACT_DISPLAY, EABContactDisplay))
-#define EAB_CONTACT_DISPLAY_CLASS(k)    (G_TYPE_CHECK_CLASS_CAST ((k), E_TYPE_AB_CONTACT_DISPLAY, EABContactDisplayClass))
-#define IS_EAB_CONTACT_DISPLAY(o)       (G_TYPE_CHECK_INSTANCE_TYPE ((o), E_TYPE_AB_CONTACT_DISPLAY))
-#define IS_EAB_CONTACT_DISPLAY_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_AB_CONTACT_DISPLAY))
+#define EAB_TYPE_CONTACT_DISPLAY        (eab_contact_display_get_type ())
+#define EAB_CONTACT_DISPLAY(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), EAB_TYPE_CONTACT_DISPLAY, EABContactDisplay))
+#define EAB_CONTACT_DISPLAY_CLASS(k)    (G_TYPE_CHECK_CLASS_CAST ((k), EAB_TYPE_CONTACT_DISPLAY, EABContactDisplayClass))
+#define IS_EAB_CONTACT_DISPLAY(o)       (G_TYPE_CHECK_INSTANCE_TYPE ((o), EAB_TYPE_CONTACT_DISPLAY))
+#define IS_EAB_CONTACT_DISPLAY_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), EAB_TYPE_CONTACT_DISPLAY))
 
 typedef struct _EABContactDisplay EABContactDisplay;
 typedef struct _EABContactDisplayPrivate EABContactDisplayPrivate;

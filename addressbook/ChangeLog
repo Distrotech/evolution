@@ -1,5 +1,14 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* gui/widgets/eab-contact-display.c (eab_contact_display_new):
+	track change from E_TYPE_AB_CONTACT_DISPLAY to
+	EAB_TYPE_CONTACT_DISPLAY.
+
+	* gui/widgets/eab-contact-display.h: change from E_* type foo to
+	EAB_* type foo.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* gui/search/e-addressbook-search-dialog.[ch]: convert everything
 	from e_addressbook_search_dialog to eab_search_dialog, and
 	EAddressbookSearchDialog to EABSearchDialog.
