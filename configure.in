@@ -1109,6 +1109,8 @@ help/C/Makefile
 help/no/Makefile
 im/Makefile
 im/pms/Makefile
+im/messenger/Makefile
+im/messenger/tests/Makefile
 importers/Makefile
 intl/Makefile
 libibex/Makefile
