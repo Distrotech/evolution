@@ -1,3 +1,9 @@
+2003-10-16  Rodrigo Moya <rodrigo@ximian.com>
+
+	* e-source-list.c (e_source_list_sync): use gconf_client_notify_remove
+	instead of g_source_remove for GConf notification IDs.
+	(impl_finalize): remove the GConf notification also here.
+
 2003-10-13  Rodrigo Moya <rodrigo@ximian.com>
 
 	* e-source-group.[ch] (e_source_group_peek_source_by_name): added
