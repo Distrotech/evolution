@@ -25,6 +25,7 @@
 #define _EM_FOLDER_VIEW_H
 
 #include <gtk/gtkvbox.h>
+#include "em-popup.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,22 +43,9 @@ typedef struct _EMFolderViewClass EMFolderViewClass;
 typedef struct _EMFolderViewEnable EMFolderViewEnable;
 
 enum {
-	EM_FOLDER_VIEW_CAN_SELECT_ONE		    = 1<<1,
-	EM_FOLDER_VIEW_CAN_SELECT_MANY		    = 1<<2,
-	EM_FOLDER_VIEW_CAN_MARK_READ              = 1<<3,
-	EM_FOLDER_VIEW_CAN_MARK_UNREAD            = 1<<4,
-	EM_FOLDER_VIEW_CAN_DELETE                 = 1<<5,
-	EM_FOLDER_VIEW_CAN_UNDELETE               = 1<<6,
-	EM_FOLDER_VIEW_CAN_MAILING_LIST            = 1<<7,
-	EM_FOLDER_VIEW_CAN_RESEND                 = 1<<8,
-	EM_FOLDER_VIEW_CAN_MARK_IMPORTANT         = 1<<9,
-	EM_FOLDER_VIEW_CAN_MARK_UNIMPORTANT       = 1<<10,
-	EM_FOLDER_VIEW_CAN_FLAG_FOLLOWUP      = 1<<11,
-	EM_FOLDER_VIEW_CAN_FLAG_COMPLETED         = 1<<12,
-	EM_FOLDER_VIEW_CAN_FLAG_CLEAR             = 1<<13,
-	EM_FOLDER_VIEW_CAN_ADD_SENDER             = 1<<14,
-	EM_FOLDER_VIEW_CAN_THREADED = 1<<15,
-	EM_FOLDER_VIEW_CAN_HIDDEN = 1<<16,
+	EM_FOLDER_VIEW_SELECT_THREADED = EM_POPUP_SELECT_LAST,
+	EM_FOLDER_VIEW_SELECT_HIDDEN = EM_POPUP_SELECT_LAST<<1,
+	EM_FOLDER_VIEW_SELECT_LAST = EM_POPUP_SELECT_LAST<<2,
 };
 
 struct _EMFolderViewEnable {
@@ -108,6 +96,8 @@ GtkWidget *em_folder_view_new(void);
 #define em_folder_view_set_folder(emfv, folder, uri) ((EMFolderViewClass *)G_OBJECT_GET_CLASS(emfv))->set_folder((emfv), (folder), (uri))
 #define em_folder_view_set_folder_uri(emfv, uri) ((EMFolderViewClass *)G_OBJECT_GET_CLASS(emfv))->set_folder_uri((emfv), (uri))
 #define em_folder_view_set_message(emfv, uid) ((EMFolderViewClass *)G_OBJECT_GET_CLASS(emfv))->set_message((emfv), (uid))
+
+struct _EMPopupTarget *em_folder_view_get_popup_target(EMFolderView *emfv);
 
 int em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set);
 int em_folder_view_open_selected(EMFolderView *emfv);

@@ -1,3 +1,64 @@
+2003-09-04  Not Zed  <NotZed@Ximian.com>
+
+	* em-utils.c (confirm_expunge): rename it to emu_confirm_expunge
+	and remove leading whitespace before function.
+	(em_utils_expunge_folder): we want to expunge the folder, not
+	empty the trash.  Jeff didn't even run this once ...
+
+	* em-popup.c: Lots of new features, 'global' popup menu's on a
+	per-selection type, via factories, popup selections (targets), a
+	standard factory for many menu items.
+	(emp_apps_open_in): duh, fix uri using logic
+	(emp_standard_menu_factory): only add apps to app list if
+	!requires_terminal.
+
+	* em-format-html-display.c (efhd_open_in, efhd_popup_free_items):
+	moved to em-popup.c
+	(efhd_popup_save_attachment, efhd_popup_save_message) 
+	(efhd_popup_reply_sender, efhd_popup_reply_list) 
+	(efhd_popup_reply_all, efhd_popup_forward): (re)moved to em-popup.c
+	(efhd_attachment_popup): use enew popu stuff.
+	(efhd_attachment_button): Scale the icons for mime-type icons.
+
+	* em-folder-view.c (em_folder_view_disable_mask): removed
+	... moved to em-popup.
+	(em_folder_view_get_popup_target): new method, get the selection
+	target for the folder view.
+	(emfv_html_popup_saveas, emfv_html_popup_link_open) 
+	(emfv_html_popup_link_copy, emfv_html_popup_address_send) 
+	(emfv_html_popup_address_add, emfv_format_popup_free_items): moved
+	to em-popup.c
+	(emfv_format_popup_event): use new popup stuff.
+	(emfv_popup): use new popup stuff, but still just use all local
+	menu's.
+
+2003-09-03  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.c (emfv_format_popup_event): implement, a popup
+	menu for right-clicking on links and images.
+	(emfv_html_popup_link_copy): implement.
+	(emfv_init): setup an invisible for selection stuff.
+	(emfv_destroy): free invisible
+
+	* em-utils.c (em_utils_get_proxy_uri): utility to get the current
+	system proxy setting.
+	(emu_set_proxy): implementation.
+
+	* em-camel-stream.[ch]: removed.
+
+	* em-format-html.c (efh_url_requested, efh_format_timeout): use
+	em_html_stream rather than em_camel_stream.
+	(emfh_gethttp): set the system proxy on the new stream.
+	(emfh_multipart_related_check): use puri rather than purin inside
+	the loop - duh.
+	(emfh_multipart_related_check): removed 'unrelated part' warning,
+	they can be (and normally are) added by the callbacks.
+
+	* em-format-html.h (EMFormatHTMLJob): s/estream/stream/
+
+	* em-html-stream.[ch]: New subclass of emsyncstream, replacement
+	for em-camel-stream.
+
 2003-09-04  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-browser.c (emfb_folder_expunge): Call

@@ -53,7 +53,7 @@ struct _EMFormatHTMLJob {
 	struct _EMFormatHTMLJob *next, *prev;
 
 	EMFormatHTML *format;
-	struct _CamelStream *estream;
+	struct _CamelStream *stream;
 
 	/* We need to track the state of the visibility tree at
 	   the point this uri was generated */

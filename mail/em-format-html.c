@@ -63,11 +63,11 @@
 
 #include <e-util/e-msgport.h>
 #include "mail-mt.h"
-/* FIXME: how to remove depency on mail-config */
 #include "mail-config.h"
 
 #include "em-format-html.h"
-#include "em-camel-stream.h"
+#include "em-html-stream.h"
+#include "em-utils.h"
 
 #include "mail-config.h"
 
@@ -362,7 +362,7 @@ static void emfh_getpuri(struct _EMFormatHTMLJob *job, int cancelled)
 {
 	d(printf(" running getpuri task\n"));
 	if (!cancelled)
-		job->u.puri->func((EMFormat *)job->format, job->estream, job->u.puri);
+		job->u.puri->func((EMFormat *)job->format, job->stream, job->u.puri);
 }
 
 static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
@@ -382,6 +382,8 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 		instream = cistream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
 
 	if (instream == NULL) {
+		char *proxy;
+
 		if (!job->format->load_http_now) {
 			/* TODO: Ideally we would put the http requests into another queue and only send them out
 			   if the user selects 'load images', when they do.  The problem is how to maintain this
@@ -391,8 +393,10 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 			goto done;
 		}
 
-		/* FIXME: proxy */
 		instream = camel_http_stream_new(CAMEL_HTTP_METHOD_GET, ((EMFormat *)job->format)->session, url);
+		proxy = em_utils_get_proxy_uri();
+		camel_http_stream_set_proxy((CamelHttpStream *)instream, proxy);
+		g_free(proxy);
 		camel_operation_start(NULL, _("Retrieving `%s'"), job->u.uri);
 	} else
 		camel_operation_start_transient(NULL, _("Retrieving `%s'"), job->u.uri);
@@ -418,7 +422,7 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 				costream = NULL;
 			}
 
-			camel_stream_write(job->estream, buffer, n);
+			camel_stream_write(job->stream, buffer, n);
 		} else if (n < 0 && costream) {
 			camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
 			camel_object_unref(costream);
@@ -428,7 +432,7 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 
 	/* indicates success */
 	if (n == 0)
-		camel_stream_close(job->estream);
+		camel_stream_close(job->stream);
 
 	if (costream)
 		camel_object_unref(costream);
@@ -465,7 +469,7 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 	}
 
 	if (job) {
-		job->estream = em_camel_stream_new(html, handle);
+		job->stream = em_html_stream_new(html, handle);
 		em_format_html_job_queue(efh, job);
 	}
 }
@@ -706,12 +710,11 @@ emfh_multipart_related_check(struct _EMFormatHTMLJob *job, int cancelled)
 	puri = (EMFormatPURI *)ptree->uri_list.head;
 	purin = puri->next;
 	while (purin) {
-		if (purin->use_count == 0) {
-			d(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
-			if (purin->func == emfh_write_related)
-				em_format_part((EMFormat *)job->format, (CamelStream *)job->estream, puri->part);
-			else
-				printf("unreferenced uri genreated by format code: %s\n", purin->uri?purin->uri:purin->cid);
+		if (puri->use_count == 0) {
+			d(printf("part '%s' '%s' used '%d'\n", puri->uri?puri->uri:"", puri->cid, puri->use_count));
+			if (puri->func == emfh_write_related)
+				em_format_part((EMFormat *)job->format, (CamelStream *)job->stream, puri->part);
+			/* else it was probably added by a previous format this loop */
 		}
 		puri = purin;
 		purin = purin->next;
@@ -788,7 +791,7 @@ efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 
 	/* queue a job to check for un-referenced parts to add as attachments */
 	job = em_format_html_job_new((EMFormatHTML *)emf, emfh_multipart_related_check, NULL);
-	job->estream = stream;
+	job->stream = stream;
 	camel_object_ref(stream);
 	em_format_html_job_queue((EMFormatHTML *)emf, job);
 
@@ -959,7 +962,7 @@ struct _format_msg {
 
 	EMFormatHTML *format;
 	EMFormat *format_source;
-	EMCamelStream *estream;
+	EMHTMLStream *estream;
 	CamelMedium *message;
 };
 
@@ -1011,7 +1014,7 @@ static void efh_format_do(struct _mail_msg *mm)
 		((EMFormat *)m->format)->base = base;
 
 		/* clean up the job */
-		camel_object_unref(job->estream);
+		camel_object_unref(job->stream);
 		if (job->base)
 			camel_url_free(job->base);
 		g_free(job);
@@ -1097,7 +1100,7 @@ efh_format_timeout(struct _format_msg *m)
 		mail_msg_free(m);
 	} else {
 		hstream = gtk_html_begin(efh->html);
-		m->estream = (EMCamelStream *)em_camel_stream_new(efh->html, hstream);
+		m->estream = (EMHTMLStream *)em_html_stream_new(efh->html, hstream);
 
 		if (efh->priv->last_part == m->message) {
 			/* HACK: so we redraw in the same spot */

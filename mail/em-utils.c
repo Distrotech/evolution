@@ -2118,6 +2118,75 @@ em_utils_adjustment_page(GtkAdjustment *adj, gboolean down)
 	gtk_adjustment_value_changed(adj);
 }
 
+/* ********************************************************************** */
+static char *emu_proxy_uri;
+
+static void
+emu_set_proxy(GConfClient *client)
+{
+	char *server;
+	int port;
+
+	if (!gconf_client_get_bool(client, "/system/http_proxy/use_http_proxy", NULL)) {
+		g_free(emu_proxy_uri);
+		emu_proxy_uri = NULL;
+
+		return;
+	}
+
+	/* TODO: Should lock ... */
+
+	server = gconf_client_get_string(client, "/system/http_proxy/host", NULL);
+	port = gconf_client_get_int(client, "/system/http_proxy/port", NULL);
+
+	if (server && server[0]) {
+		g_free(emu_proxy_uri);
+
+		if (gconf_client_get_bool(client, "/system/http_proxy/use_authentication", NULL)) {
+			char *user = gconf_client_get_string(client, "/system/http_proxy/authentication_user", NULL);
+			char *pass = gconf_client_get_string(client, "/system/http_proxy/authentication_password", NULL);
+
+			emu_proxy_uri = g_strdup_printf("http://%s:%s@%s:%d", user, pass, server, port);
+			g_free(user);
+			g_free(pass);
+		} else {
+			emu_proxy_uri = g_strdup_printf("http://%s:%d", server, port);
+		}
+	}
+
+	g_free(server);
+}
+
+static void
+emu_proxy_changed(GConfClient *client, guint32 cnxn_id, GConfEntry *entry, gpointer user_data)
+{
+	emu_set_proxy(client);
+}
+
+/**
+ * em_utils_get_proxy_uri:
+ * 
+ * Get the system proxy uri.
+ * 
+ * Return value: Must be freed when finished with.
+ **/
+char *
+em_utils_get_proxy_uri(void)
+{
+	static int init;
+
+	if (!init) {
+		GConfClient *client = gconf_client_get_default();
+
+		gconf_client_add_dir(client, "/system/http_proxy", GCONF_CLIENT_PRELOAD_ONELEVEL, NULL);
+		gconf_client_notify_add(client, "/system/http_proxy", emu_proxy_changed, NULL, NULL, NULL);
+		emu_set_proxy(client);
+		g_object_unref(client);
+		init = TRUE;
+	}
+
+	return g_strdup(emu_proxy_uri);
+}
 
 /**
  * em_utils_quote_message:
@@ -2153,9 +2222,10 @@ em_utils_quote_message (CamelMimeMessage *message, const char *credits)
 	return text;
 }
 
+/* ********************************************************************** */
 
 static gboolean
-confirm_expunge (GtkWidget *parent)
+emu_confirm_expunge (GtkWidget *parent)
 {
 	gboolean res, show_again;
 	GConfClient *gconf;
@@ -2177,7 +2247,6 @@ confirm_expunge (GtkWidget *parent)
 	return res;
 }
 
-
 /**
  * em_utils_expunge_folder:
  * @parent: parent window
@@ -2188,12 +2257,11 @@ confirm_expunge (GtkWidget *parent)
 void
 em_utils_expunge_folder (GtkWidget *parent, CamelFolder *folder)
 {
-	if (!confirm_expunge (parent))
+	if (!emu_confirm_expunge(parent))
 		return;
 	
-	mail_empty_trash (folder, NULL, NULL);
+	mail_expunge_folder(folder, NULL, NULL);
 }
-
 
 /**
  * em_utils_empty_trash:
@@ -2211,7 +2279,7 @@ em_utils_empty_trash (GtkWidget *parent)
 	EIterator *iter;
 	CamelException ex;
 	
-	if (!confirm_expunge (parent))
+	if (!emu_confirm_expunge (parent))
 		return;
 	
 	camel_exception_init (&ex);

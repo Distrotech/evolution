@@ -71,8 +71,6 @@ libevolution_mail_la_SOURCES =		\
 	component-factory.h		\
 	e-searching-tokenizer.c		\
 	e-searching-tokenizer.h		\
-	em-camel-stream.c		\
-	em-camel-stream.h		\
 	em-folder-view.c		\
 	em-folder-view.h		\
 	em-folder-browser.c		\
@@ -103,6 +101,8 @@ libevolution_mail_la_SOURCES =		\
 	em-sync-stream.h		\
 	em-icon-stream.c		\
 	em-icon-stream.h		\
+	em-html-stream.c		\
+	em-html-stream.h		\
 	folder-browser.c		\
 	folder-browser.h		\
 	folder-browser-factory.c	\

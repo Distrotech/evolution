@@ -85,6 +85,8 @@ void em_utils_flag_for_followup (struct _GtkWidget *parent, struct _CamelFolder 
 void em_utils_flag_for_followup_clear (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
 void em_utils_flag_for_followup_completed (struct _GtkWidget *parent, struct _CamelFolder *folder, GPtrArray *uids);
 
+/* This stuff that follows probably doesn't belong here, then again, the stuff above probably belongs elsewhere */
+
 void em_utils_selection_set_mailbox(struct _GtkSelectionData *data, struct _CamelFolder *folder, GPtrArray *uids);
 void em_utils_selection_get_mailbox(struct _GtkSelectionData *data, struct _CamelFolder *folder);
 /* FIXME: be nice if these also worked on struct _CamelFolder's, no easy way to get uri from folder yet tho */
@@ -100,10 +102,9 @@ gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder, const char *uri)
 
 void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 
+char *em_utils_get_proxy_uri(void);
 
 char *em_utils_quote_message (struct _CamelMimeMessage *message, const char *credits);
-
-
 void em_utils_expunge_folder (struct _GtkWidget *parent, struct _CamelFolder *folder);
 void em_utils_empty_trash (struct _GtkWidget *parent);
 

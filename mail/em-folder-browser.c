@@ -75,12 +75,15 @@
 #include <gal/menus/gal-view-factory-etable.h>
 #include "widgets/menus/gal-view-menus.h"
 
+#include "e-util/e-dialog-utils.h"
 #include "em-utils.h"
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
 #include "em-folder-browser.h"
 #include "em-subscribe-editor.h"
 #include "message-list.h"
+
+#include "mail-ops.h"
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
@@ -603,9 +606,9 @@ static EPixmap emfb_pixmaps[] = {
 };
 
 static const EMFolderViewEnable emfb_enable_map[] = {
-	{ "EditSelectThread", EM_FOLDER_VIEW_CAN_THREADED },
-	{ "ViewHideSelected", EM_FOLDER_VIEW_CAN_SELECT_MANY },
-	{ "ViewShowAll", EM_FOLDER_VIEW_CAN_HIDDEN },
+	{ "EditSelectThread", EM_FOLDER_VIEW_SELECT_THREADED },
+	{ "ViewHideSelected", EM_POPUP_SELECT_MANY },
+	{ "ViewShowAll", EM_FOLDER_VIEW_SELECT_HIDDEN },
 	{ NULL },
 };
 
