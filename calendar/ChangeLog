@@ -1,4 +1,10 @@
 2004-11-09  Chenthill Palanisamy  <pchenthill@novell.com>
+
+	* gui/dialogs/event-page.glade:
+	  Added the button "Advanced send options" inside a new frame. 
+	  Missed to commit this.
+
+2004-11-09  Chenthill Palanisamy  <pchenthill@novell.com>
 	
 	* gui/dialogs/MakeFile.am
 	 Added three new files for the Send-options GUI send-options.c,
