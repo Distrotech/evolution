@@ -1,3 +1,58 @@
+2003-08-14  Ettore Perazzoli  <ettore@ximian.com>
+
+	Add UIDs to ESource* items so we can distinguish renames from
+	removals/additions.
+
+	* test-source-list.c: Made --source and --group get UIDs instead
+	of names.
+	(on_idle_do_stuff): Updated behavior accordingly.
+	(dump_list): Print "(No items)" if there are no groups.
+	(dump_group): Print the UID of the group.
+	(dump_source): Print the UID of the source.
+
+	* e-source-list.c (load_from_gconf): Match with group UIDs instead
+	of group names.
+	(e_source_list_peek_source_by_uid): New.
+	(e_source_list_peek_source_by_name): Removed.
+	(e_source_list_peek_group_by_uid): New.
+	(e_source_list_peek_group_by_name): Removed.
+	(e_source_list_remove_group_by_uid): New.
+	(e_source_list_remove_group_by_name): Removed.
+	(e_source_list_remove_source_by_uid): New.
+	(e_source_list_remove_source_by_name): Removed.
+
+	* e-source-group.c: New member uid in struct ESourceGroupPrivate.
+	(impl_finalize): Free it.
+	(e_source_group_new): Set the uid member using e_uid_new().
+	(e_source_group_peek_source_by_uid): New.
+	(e_source_group_peek_source_by_name): Removed.
+	(e_source_group_add_source): Check that the UID is unique, instead
+	of the name.
+	(e_source_group_remove_source_by_uid): New.
+	(e_source_group_remove_source_by_name): Removed.
+	(e_source_group_update_from_xmldoc): Use the UID to figure out
+	which source has changed, instead of the name.
+	(e_source_group_uid_from_xmldoc): New.
+	(e_source_group_name_from_xmldoc): Removed.
+	(e_source_group_new_from_xmldoc): Set the UID in the new group
+	from the XML.
+	(e_source_group_to_xml): Set a UID property in the XML.
+
+	* e-source.c: New member uid in struct ESourcePrivate.
+	(e_source_new): Initialize using e_uid_new().
+	(impl_finalize): Free.
+	(e_source_peek_uid): New.
+	(e_source_new_from_xml_node): Set the UID from the XML node.
+	(e_source_name_from_xml_node): Removed.
+	(e_source_uid_from_xml_node): New.
+	(e_source_dump_to_xml_node): Set the "uid" property on the XML
+	node.
+
+	* e-account.c (e_account_gen_uid): Removed.
+	(e_account_new): Use e_uid_new() instead of e_account_gen_uid().
+
+	* e-uid.c (e_uid_new): New file, new function.
+
 2003-08-13  Ettore Perazzoli  <ettore@ximian.com>
 
 	Fix up the semantics of "changed" signals on GConf changes.
