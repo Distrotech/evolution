@@ -25,8 +25,7 @@ backend_open_calendar (char *username)
 	
 	fullname = g_concat_dir_and_file (base_directory, username);
 
-	cal = calendar_new ("");
-	calendar_load (cal, fullname);
+	cal = calendar_get (fullname);
 	
 	g_free (fullname);
 
@@ -39,7 +38,7 @@ backend_close_calendar (Calendar *calendar)
 	g_return_if_fail (calendar != NULL);
 	
 	calendar_save (calendar, NULL);
-	calendar_destroy (calendar);
+	calendar_unref (calendar);
 }
 
 /**
@@ -76,3 +75,19 @@ backend_list_users (void)
 	closedir (dir);
 }
 
+/**
+ * backend_add_object:
+ * @calendar: Our calendar;
+ * @object: a calendar object we received from the CUA
+ *
+ * Add an object that has been received from the Calendar User Agent
+ * into the database.
+ *
+ * If the list of attendees is not empty, we have to schedule appointments
+ * for all those people. 
+ */
+void
+backend_add_object (Calendar *calendar, iCalObject *object)
+{
+	
+}

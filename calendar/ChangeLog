@@ -1,3 +1,10 @@
+1998-12-17  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* calendar.c: Implement refcounting on the calendars (for the
+	server).
+
+	* backend.c: New file, implements the calendar server backend.
+
 1998-12-16  Miguel de Icaza  <miguel@nuclecu.unam.mx>
 
 	Rewrote the old and broken alarm system.  It never actually

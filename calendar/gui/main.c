@@ -584,7 +584,7 @@ dump_events (void)
 		printf ("  %s\n", co->ico->summary);
 	}
 	calendar_destroy_event_list (l);
-	calendar_destroy (cal);
+	calendar_unref (cal);
 	exit (0);
 }
 

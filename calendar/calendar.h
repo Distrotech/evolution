@@ -6,6 +6,7 @@
 BEGIN_GNOME_DECLS
 
 typedef struct {
+	int     ref_count;
 	/* This calendar's title */
 	char    *title;
 
@@ -39,7 +40,9 @@ char     *calendar_load                 (Calendar *cal, char *fname);
 void      calendar_save                 (Calendar *cal, char *fname);
 void      calendar_add_object           (Calendar *cal, iCalObject *obj);
 void      calendar_remove_object        (Calendar *cal, iCalObject *obj);
-void      calendar_destroy              (Calendar *cal);
+void      calendar_unref                (Calendar *cal);
+Calendar *calendar_ref                  (Calendar *cal);
+Calendar *calendar_get                  (char *fname);
 GList    *calendar_get_objects_in_range (GList *objects, time_t start, time_t end, GCompareFunc sort_func);
 GList    *calendar_get_todo_in_range    (Calendar *cal, time_t start, time_t end, GCompareFunc sort_func);
 GList    *calendar_get_journal_in_range (Calendar *cal, time_t start, time_t end, GCompareFunc sort_func);

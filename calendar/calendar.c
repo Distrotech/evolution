@@ -22,6 +22,14 @@
 /* Our day range */
 time_t calendar_day_begin, calendar_day_end;
 
+static GHashTable *all_calendars;
+
+static void
+calendar_init (void)
+{
+	all_calendars = g_hash_table_new (g_str_hash, g_str_equal);
+}
+
 Calendar *
 calendar_new (char *title)
 {
@@ -29,7 +37,8 @@ calendar_new (char *title)
 
 	cal = g_new0 (Calendar, 1);
 	cal->title = g_strdup (title);
-
+	cal->ref_count = 1;
+	
 	return cal;
 }
 
@@ -91,7 +100,7 @@ calendar_remove_object (Calendar *cal, iCalObject *obj)
 	cal->modified = TRUE;
 }
 
-void
+static void
 calendar_destroy (Calendar *cal)
 {
 	g_list_foreach (cal->events, (GFunc) ical_object_destroy, NULL);
@@ -109,6 +118,28 @@ calendar_destroy (Calendar *cal)
 		g_free (cal->filename);
 	
 	g_free (cal);
+}
+
+void
+calendar_unref (Calendar *cal)
+{
+	g_return_if_fail (cal != NULL);
+	
+	cal->ref_count--;
+	if (cal->ref_count > 0)
+		return;
+
+	calendar_destroy (cal);
+	return;
+}
+
+Calendar *
+calendar_ref (Calendar *cal)
+{
+	g_return_val_if_fail (cal != NULL, NULL);
+	
+	cal->ref_count++;
+	return cal;
 }
 
 static char *
@@ -252,6 +283,23 @@ calendar_load (Calendar *cal, char *fname)
 	cleanVObject (vcal);
 	cleanStrTbl ();
 	return NULL;
+}
+
+Calendar *
+calendar_get (char *fname)
+{
+	Calendar *cal;
+	
+	if (!all_calendars)
+		calendar_init();
+
+	cal = g_hash_table_lookup (all_calendars, fname);
+	if (cal)
+		return calendar_ref (cal);
+	cal = calendar_new ("");
+	calendar_load (cal, fname);
+
+	return cal;
 }
 
 void
