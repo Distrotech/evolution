@@ -34,6 +34,7 @@
 #include <gal/util/e-util.h>
 
 #include "mail-component.h"
+#include "em-folder-tree.h"
 #include "em-folder-selector.h"
 
 #include "em-folder-selection-button.h"
