@@ -1,5 +1,10 @@
 2004-08-24  JP Rosevear  <jpr@novell.com>
 
+	* configure.in (plugindir): set a plugin dir so we can easily
+	install to the same place everywhere
+	
+2004-08-24  JP Rosevear  <jpr@novell.com>
+
 	* configure.in: Check for mono support properly
 
 2004-07-05  Not Zed  <NotZed@Ximian.com>

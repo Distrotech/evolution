@@ -1191,6 +1191,9 @@ AC_SUBST(camel_providerdir)
 componentdir="$privlibdir/components"
 AC_SUBST(componentdir)
 
+plugindir="$privlibdir/plugins"
+AC_SUBST(plugindir)
+
 idldir="$datadir/idl/evolution-$BASE_VERSION"
 AC_SUBST(idldir)
 
