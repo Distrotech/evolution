@@ -1,3 +1,10 @@
+2003-07-31  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.[ch]: new class, based on CalendarModel to be
+	an abstract class for calendar models.
+
+	* gui/Makefile.am: added new files to build.
+
 2003-07-30  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client-multi.[ch]:
