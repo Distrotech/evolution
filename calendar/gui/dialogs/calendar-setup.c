@@ -397,8 +397,11 @@ calendar_setup_edit_calendar (struct _GtkWindow *parent, ESource *source, ESourc
 	target = e_cal_config_target_new_source (ec, sdialog->source);
 	e_config_set_target ((EConfig *) ec, (EConfigTarget *) target);
 
-	sdialog->window = e_config_create_window ((EConfig *)ec, NULL, _("Calendar Properties"));
-
+	if (source)
+		sdialog->window = e_config_create_window ((EConfig *)ec, NULL, _("Calendar Properties"));
+	else
+		sdialog->window = e_config_create_window ((EConfig *)ec, NULL, _("New Calendar"));
+		
 	/* forces initial validation */
 	if (!sdialog->original_source)
 		e_config_target_changed ((EConfig *)ec, E_CONFIG_TARGET_CHANGED_STATE);

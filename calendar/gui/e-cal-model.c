@@ -368,8 +368,8 @@ get_dtstart (ECalModel *model, ECalModelComponent *comp_data)
 
 		if (got_zone) {
 			tt_start = icaltime_from_timet_with_zone (comp_data->instance_start, tt_start.is_date, zone);
-			if (priv->zone)
-				icaltimezone_convert_time (&tt_start, zone, priv->zone);
+			//if (priv->zone)
+			//	icaltimezone_convert_time (&tt_start, zone, priv->zone);
 		} else
 			tt_start = icaltime_from_timet (comp_data->instance_start, tt_start.is_date);
 
