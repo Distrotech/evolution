@@ -813,10 +813,28 @@ e_vcard_attribute_copy (EVCardAttribute *attr)
 }
 
 void
-e_vcard_remove_attribute (EVCard *evc, const char *attr_group, const char *attr_value)
+e_vcard_remove_attributes (EVCard *evc, const char *attr_group, const char *attr_name)
 {
-	/* XXX need to write this */
-	g_assert_not_reached ();
+	GList *attr;
+
+	attr = evc->priv->attributes;
+	while (attr) {
+		GList *next_attr;
+		EVCardAttribute *a = attr->data;
+
+		next_attr = attr->next;
+
+		if (((!attr_group && !a->group) || !g_ascii_strcasecmp (attr_group, a->group)) &&
+		    ((!attr_name && !a->name) || !g_ascii_strcasecmp (attr_name, a->name))) {
+
+			/* matches, remove/delete the attribute */
+			evc->priv->attributes = g_list_remove_link (evc->priv->attributes, attr);
+
+			e_vcard_attribute_free (a);
+		}
+
+		attr = next_attr;
+	}
 }
 
 void
@@ -947,16 +965,16 @@ e_vcard_attribute_add_param (EVCardAttribute *attr,
 
 	/* we handle our special encoding stuff here */
 
-	if (!strcasecmp (param->name, EVC_ENCODING)) {
+	if (!g_ascii_strcasecmp (param->name, EVC_ENCODING)) {
 		if (attr->encoding_set) {
 			g_warning ("ENCODING specified twice");
 			return;
 		}
 
 		if (param->values && param->values->data) {
-			if (!strcasecmp ((char*)param->values->data, "b"))
+			if (!g_ascii_strcasecmp ((char*)param->values->data, "b"))
 				attr->encoding = EVC_ENCODING_BASE64;
-			else if (!strcasecmp ((char*)param->values->data, EVC_QUOTEDPRINTABLE))
+			else if (!g_ascii_strcasecmp ((char*)param->values->data, EVC_QUOTEDPRINTABLE))
 				attr->encoding = EVC_ENCODING_QP;
 			else {
 				g_warning ("Unknown value `%s' for ENCODING parameter.  values will be treated as raw",

@@ -3,3 +3,4 @@ Makefile.in
 test-ebook
 test-changes
 test-photo
+test-string

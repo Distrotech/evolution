@@ -295,11 +295,13 @@ impl_BookListener_report_writable (PortableServer_Servant servant,
 				   const CORBA_boolean writable,
 				   CORBA_Environment *ev)
 {
-#if notyet
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
+	EBookListenerResponse response;
 
-	e_book_listener_queue_writable_status (listener, writable);
-#endif
+	response.op       = WritableStatusEvent;
+	response.writable = writable;
+
+	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
 }
 
 static void

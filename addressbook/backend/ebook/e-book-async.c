@@ -702,7 +702,11 @@ _add_contact_handler (EBookMsg *msg)
 	response->status = E_BOOK_ERROR_OK;
 	if (!e_book_add_contact (add_contact_msg->book, add_contact_msg->contact, &error)) {
 		response->status = error->code;
+		response->id = NULL;
 		g_error_free (error);
+	}
+	else {
+		response->id = e_contact_get (add_contact_msg->contact, E_CONTACT_UID);
 	}
 	response->book = add_contact_msg->book;
 	response->cb = add_contact_msg->cb;

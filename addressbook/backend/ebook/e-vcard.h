@@ -122,7 +122,7 @@ void    e_vcard_dump_structure               (EVCard *evc);
 EVCardAttribute *e_vcard_attribute_new               (const char *attr_group, const char *attr_name);
 void             e_vcard_attribute_free              (EVCardAttribute *attr);
 EVCardAttribute *e_vcard_attribute_copy              (EVCardAttribute *attr);
-void             e_vcard_remove_attribute            (EVCard *evcard, const char *attr_group, const char *attr_name);
+void             e_vcard_remove_attributes           (EVCard *evcard, const char *attr_group, const char *attr_name);
 void             e_vcard_add_attribute               (EVCard *evcard, EVCardAttribute *attr);
 void             e_vcard_add_attribute_with_value    (EVCard *evcard, EVCardAttribute *attr, const char *value);
 void             e_vcard_add_attribute_with_values   (EVCard *evcard, EVCardAttribute *attr, ...);

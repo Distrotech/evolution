@@ -25,6 +25,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <libgnome/gnome-i18n.h>
+#include <libgnomevfs/gnome-vfs-mime-utils.h>
 #include "e-contact.h"
 #include "e-book.h"
 
@@ -317,18 +318,33 @@ static void
 photo_setter (EContact *contact, EVCardAttribute *attr, void *data)
 {
 	EContactPhoto *photo = data;
+	const char *mime_type;
+	char *image_type = "X-EVOLUTION-UNKNOWN";
 
 	e_vcard_attribute_add_param_with_value (attr,
 						e_vcard_attribute_param_new (EVC_ENCODING),
 						"b");
 
-	/* XXX we need to do some detection
-	   here, it might not be jpeg data */
+	mime_type = gnome_vfs_get_mime_type_for_data (photo->data, photo->length);
+	if (!strcmp (mime_type, "image/gif"))
+		image_type = "GIF";
+	else if (!strcmp (mime_type, "image/jpeg"))
+		image_type = "JPEG";
+	else if (!strcmp (mime_type, "image/png"))
+		image_type = "PNG";
+	else if (!strcmp (mime_type, "image/tiff"))
+		image_type = "TIFF";
+	/* i have no idea what these last 2 are.. :) */
+	else if (!strcmp (mime_type, "image/ief"))
+		image_type = "IEF";
+	else if (!strcmp (mime_type, "image/cgm"))
+		image_type = "CGM";
+
 	e_vcard_attribute_add_param_with_value (attr,
 						e_vcard_attribute_param_new (EVC_TYPE),
-						"JPEG");
+						image_type);
 
-	printf ("adding photo of length %d\n", photo->length);
+	printf ("adding photo of type `%s' of length %d\n", image_type, photo->length);
 	e_vcard_attribute_add_value_decoded (attr, photo->data, photo->length);
 }
 
@@ -422,7 +438,21 @@ e_contact_set_property (GObject *object,
 		return;
 	}
 
-	if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
+	if (info->t & E_CONTACT_FIELD_TYPE_MULTI) {
+		GList *new_values = g_value_get_pointer (value);
+		GList *l;
+
+		/* first we remove all attributes of the type we're
+		   adding, then add new ones based on the values that
+		   are passed in */
+		e_vcard_remove_attributes (E_VCARD (contact), NULL, info->vcard_field_name);
+
+		for (l = new_values; l; l = l->next)
+			e_vcard_add_attribute_with_value (E_VCARD (contact),
+							  e_vcard_attribute_new (NULL, info->vcard_field_name),
+							  (char*)l->data);
+	}
+	else if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
 		if (info->t & E_CONTACT_FIELD_TYPE_MULTI_ELEM) {
 			/* XXX this is kinda broken - we don't insert
 			   insert padding elements if, e.g. the user
@@ -552,6 +582,9 @@ e_contact_set_property (GObject *object,
 		}
 
 		info->struct_setter (contact, attr, data);
+	}
+	else {
+		g_warning ("unhandled attribute `%s'", info->vcard_field_name);
 	}
 }
 
@@ -716,20 +749,28 @@ e_contact_get_property (GObject *object,
 	}
 	else if (info->t & E_CONTACT_FIELD_TYPE_ATTR_TYPE) {
 		EVCardAttribute *attr = e_contact_find_attribute_with_type (contact, info->vcard_field_name, info->attr_type);
-		void *rv = NULL;
 
-		if (attr) {
-			if (info->t & E_CONTACT_FIELD_TYPE_STRING) {
+		if (info->t & E_CONTACT_FIELD_TYPE_STRING) {
+			if (attr) {
 				GList *p = e_vcard_attribute_get_values (attr);
+				char *rv = p->data;
 
-				rv = p->data;
+				g_value_set_string (value, rv);
 			}
-			else { /* struct */
-				rv = info->struct_getter (contact, attr);
+			else {
+				g_value_set_string (value, NULL);
 			}
 		}
+		else { /* struct */
+			if (attr) {
+				gpointer rv = info->struct_getter (contact, attr);
 
-		g_value_set_pointer (value, rv);
+				g_value_set_pointer (value, rv);
+			}
+			else {
+				g_value_set_pointer (value, NULL);
+			}
+		}
 
 	}
 	else if (info->t & E_CONTACT_FIELD_TYPE_STRUCT) {

@@ -280,7 +280,7 @@ e_book_response_add_contact (EBook       *book,
 	e_mutex_lock (op->mutex);
 
 	op->status = status;
-	op->id = id;
+	op->id = g_strdup (id);
 
 	pthread_cond_signal (&op->cond);
 
@@ -1494,9 +1494,7 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		e_book_response_get_supported_auth_methods (book, resp->status, resp->list);
 		break;
 	case WritableStatusEvent:
-#if notyet
-		e_book_do_writable_event (book, resp);
-#endif
+		g_signal_emit (book, e_book_signals [WRITABLE_STATUS], 0, resp->writable);
 		break;
 	default:
 		g_error ("EBook: Unknown response code %d!\n",

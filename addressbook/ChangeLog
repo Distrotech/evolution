@@ -1,3 +1,37 @@
+2003-09-30  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/tests/ebook/Makefile.am (noinst_PROGRAMS): add
+	test-string.
+
+	* backend/ebook/tests/ebook/test-string.c: test setting/getting a
+	string attribute.
+
+	* backend/ebook/e-contact.c (photo_setter): do gnome-vfs mime type
+	sniffing before we set the attribute value.
+	(e_contact_set_property): implement setting of MULTI list
+	attributes (like MAIL).
+	(e_contact_get_property): rework the ATTR_TYPE attribute handling
+	so we aren't calling g_value_set_pointer on a value that holds a
+	string (and vice versa).
+
+	* backend/ebook/e-vcard.c (e_vcard_remove_attributes): implement.
+	(e_vcard_attribute_add_param): use g_ascii_strcasecmp.
+
+	* backend/ebook/e-vcard.h: rename e_vcard_remove_attribute to
+	e_vcard_remove_attributes, since it removes all matching
+	attributes.
+
+	* backend/ebook/e-book.c (e_book_response_add_contact): we need to
+	strdup the id here since the listener frees it.
+	(e_book_handle_response): implement the WritableStatusEvent part
+	of the switch.
+
+	* backend/ebook/e-book-listener.c
+	(impl_BookListener_report_writable): un-"#if notyet" this.
+
+	* backend/ebook/e-book-async.c (_add_contact_handler): fill in
+	response->id.
+
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
 	* printing/e-contact-print-envelope.c: card -> contact.
