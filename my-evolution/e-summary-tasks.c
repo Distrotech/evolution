@@ -154,6 +154,7 @@ sort_uids (gconstpointer a,
 	   gconstpointer b,
 	   gpointer user_data)
 {
+	icalcomponent *icalcomp;
 	CalComponent *comp_a, *comp_b;
 	CalClient *client = user_data;
 	CalClientGetStatus status;
@@ -163,13 +164,17 @@ sort_uids (gconstpointer a,
 
 	/* a after b then return > 0 */
 
-	status = cal_client_get_object (client, a, &comp_a);
+	status = cal_client_get_object (client, a, &icalcomp);
 	if (status != CAL_CLIENT_GET_SUCCESS)
 		return -1;
+	comp_a = cal_component_new ();
+	cal_component_set_icalcomponent (comp_a, icalcomp);
 
-	status = cal_client_get_object (client, b, &comp_b);
+	status = cal_client_get_object (client, b, &icalcomp);
 	if (status != CAL_CLIENT_GET_SUCCESS)
 		return 1;
+	comp_b = cal_component_new ();
+	cal_component_set_icalcomponent (comp_b, icalcomp);
 
 	cal_component_get_priority (comp_a, &pri_a);
 	cal_component_get_priority (comp_b, &pri_b);
@@ -194,6 +199,9 @@ sort_uids (gconstpointer a,
 	if (pri_b != &lowest)
 		cal_component_free_priority (pri_b);
 
+	g_object_unref (comp_a);
+	g_object_unref (comp_b);
+
 	return rv;
 }
 
@@ -211,6 +219,7 @@ get_todays_uids (ESummary *summary,
 
 	for (p = uids; p; p = p->next) {
 		char *uid;
+		icalcomponent *icalcomp;
 		CalComponent *comp;
 		CalClientGetStatus status;
 		CalComponentDateTime due;
@@ -218,10 +227,13 @@ get_todays_uids (ESummary *summary,
 		time_t endt;
 
 		uid = p->data;
-		status = cal_client_get_object (client, uid, &comp);
+		status = cal_client_get_object (client, uid, &icalcomp);
 		if (status != CAL_CLIENT_GET_SUCCESS) {
 			continue;
 		}
+
+		comp = cal_component_new ();
+		cal_component_set_icalcomponent (comp, icalcomp);
 
 		cal_component_get_due (comp, &due);
 
@@ -236,6 +248,7 @@ get_todays_uids (ESummary *summary,
 		}
 		
 		cal_component_free_datetime (&due);
+		g_object_unref (comp);
 	}
 
 	if (today == NULL) {
@@ -251,6 +264,7 @@ get_task_colour (ESummary *summary,
 		 CalClient *client,
 		 const char *uid)
 {
+	icalcomponent *icalcomp;
 	CalComponent *comp;
 	CalClientGetStatus status;
 	CalComponentDateTime due;
@@ -262,10 +276,13 @@ get_task_colour (ESummary *summary,
 	todays_start = time_day_begin_with_zone (t, summary->tz);
 	todays_end = time_day_end_with_zone (t, summary->tz);
 
-	status = cal_client_get_object (client, uid, &comp);
+	status = cal_client_get_object (client, uid, &icalcomp);
 	if (status != CAL_CLIENT_GET_SUCCESS) {
 		return "black";
 	}
+
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomp);
 
 	cal_component_get_due (comp, &due);
 
@@ -286,6 +303,7 @@ get_task_colour (ESummary *summary,
 	}
 
 	cal_component_free_datetime (&due);
+	g_object_unref (comp);
 
 	return (const char *)ret;
 }
@@ -340,6 +358,7 @@ generate_html (gpointer data)
 
 		for (l = uids; l; l = l->next) {
 			char *uid;
+			icalcomponent *icalcomp;
 			CalComponent *comp;
 			CalComponentText text;
 			CalClientGetStatus status;
@@ -347,11 +366,13 @@ generate_html (gpointer data)
 			const char *colour;
 			
 			uid = l->data;
-			status = cal_client_get_object (tasks->client, uid, &comp);
+			status = cal_client_get_object (tasks->client, uid, &icalcomp);
 			if (status != CAL_CLIENT_GET_SUCCESS) {
 				continue;
 			}
 
+			comp = cal_component_new ();
+			cal_component_set_icalcomponent (comp, icalcomp);
 			cal_component_get_summary (comp, &text);
 			cal_component_get_completed (comp, &completed);
 

@@ -279,7 +279,7 @@ uids_to_array (ESummary *summary,
 		}
 
 		event->comp = cal_component_new ();
-		cal_component_set_icalcomponent (comp, icalcomp);
+		cal_component_set_icalcomponent (event->comp, icalcomp);
 
 		if (cal_component_has_recurrences (event->comp) == TRUE) {
 			struct _RecurData *recur;
