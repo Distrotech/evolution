@@ -741,7 +741,6 @@ e_book_response_get_contact (EBook       *book,
 			     EBookStatus  status,
 			     EContact    *contact)
 {
-
 	EBookOp *op;
 
 	printf ("e_book_response_get_contact\n");
@@ -749,7 +748,7 @@ e_book_response_get_contact (EBook       *book,
 	op = e_book_get_op (book);
 
 	if (op == NULL) {
-	  g_warning ("e_book_response_get_card: Cannot find operation ");
+	  g_warning ("e_book_response_get_contact: Cannot find operation ");
 	  return;
 	}
 
@@ -1804,6 +1803,56 @@ e_book_check_static_capability (EBook *book,
 
 	return FALSE;
 }
+
+
+
+gboolean
+e_book_get_self (EContact **contact, EBook **book, GError **error)
+{
+#if notyet
+	EBook *b;
+	char *self_uri, *self_uid;
+
+	/* XXX get the setting for the self book and self uid from gconf */
+
+	b = e_book_new();
+	if (! e_book_load_uri (b, self_uri, TRUE, error)) {
+		g_object_unref (b);
+		return FALSE;
+	}
+
+	if (! e_book_get_contact (b, self_uid,
+				  contact, error)) {
+		g_object_unref (b);
+		return FALSE;
+	}
+
+	if (book)
+		*book = b;
+	else
+		g_object_unref (b);
+	return TRUE;
+#endif
+}
+
+gboolean
+e_book_set_self (EBook *book, const char *id, GError **error)
+{
+}
+
+
+
+#if notyet
+char*
+e_book_get_default_addressbook (GError **error)
+{
+}
+
+ESourceList*
+e_book_get_addressbooks (GError **error)
+{
+}
+#endif
 
 
 static void*

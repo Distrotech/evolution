@@ -145,6 +145,17 @@ gboolean    e_book_check_static_capability (EBook       *book,
 gboolean    e_book_cancel                  (EBook   *book,
 					    GError **error);
 
+/* Identity */
+gboolean    e_book_get_self                (EContact **contact, EBook **book, GError **error);
+gboolean    e_book_set_self                (EBook   *book, const char *id, GError **error);
+
+/* Addressbook Discovery */
+
+#if notyet
+char*        e_book_get_default_addressbook (GError **error);
+ESourceList* e_book_get_addressbooks        (GError **error);
+#endif
+
 GType     e_book_get_type                  (void);
 
 G_END_DECLS
