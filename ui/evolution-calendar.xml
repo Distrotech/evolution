@@ -1,5 +1,6 @@
 <Root>
   <commands>
+    <cmd name="NewCalendar" _tip="Create a new calendar" pixtype="stock" pixname="gtk-new"/>
     <cmd name="CalendarPrint" _tip="Print this calendar" pixtype="stock" pixname="gtk-print"
 	 accel="*Control*p"/>
     <cmd name="CalendarPrintPreview" _tip="Previews the calendar to be printed" pixtype="stock" pixname="gtk-print-preview"/>
@@ -28,7 +29,12 @@
 
   <menu>
     <submenu name="File">
-
+      <placeholder name="ComponentItems">
+        <submenu name="New">
+	  <menuitem name="NewCalendar" verb="NewFolder" _label="New _Calendar"
+	            _tip="Create a new calendar""/>
+	</submenu>
+      </placeholder>
       <placeholder name="Print">
 	<menuitem name="PrintPreview" verb="CalendarPrintPreview"
 		  _label="Print Pre_view"/>

@@ -1,3 +1,7 @@
+2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
+
+	* evolution-calendar.xml: added 'New Calendar' menu item.
+
 2003-08-27  Not Zed  <NotZed@Ximian.com>
 
 	* evolution-mail-message.xml: Moved EditCopy EditPaste, and
