@@ -158,14 +158,14 @@ gboolean cal_client_get_object (CalClient *client,
 				icalcomponent **icalcomp,
 				GError **error);
 
-GList *cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id);
+gboolean cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id, GList **changes, GError **error);
 
 gboolean cal_client_get_object_list (CalClient *client, const char *query, GList **objects, GError **error);
 gboolean cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects, GError **error);
 void cal_client_free_object_list (GList *objects);
 
-GList *cal_client_get_free_busy (CalClient *client, GList *users,
-				 time_t start, time_t end);
+gboolean cal_client_get_free_busy (CalClient *client, GList *users, time_t start, time_t end, 
+				   GList **freebusy, GError **error);
 
 void cal_client_generate_instances (CalClient *client, CalObjType type,
 				    time_t start, time_t end,

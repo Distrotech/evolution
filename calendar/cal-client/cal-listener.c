@@ -59,6 +59,8 @@ enum {
 	GET_TIMEZONE,
 	ADD_TIMEZONE,
 	SET_DEFAULT_TIMEZONE,
+	GET_CHANGES,
+	GET_FREE_BUSY,
 	QUERY,
 	LAST_SIGNAL
 };
@@ -455,6 +457,125 @@ impl_notifyDefaultTimezoneSet (PortableServer_Servant servant,
 	g_signal_emit (G_OBJECT (listener), signals[SET_DEFAULT_TIMEZONE], 0, convert_status (status));
 }
 
+static GList *
+build_change_list (const GNOME_Evolution_Calendar_CalObjChangeSeq *seq)
+{
+	GList *list = NULL;
+	icalcomponent *icalcomp;
+	int i;
+
+	/* Create the list in reverse order */
+	for (i = 0; i < seq->_length; i++) {
+		GNOME_Evolution_Calendar_CalObjChange *corba_coc;
+		CalClientChange *ccc;
+
+		corba_coc = &seq->_buffer[i];
+		ccc = g_new (CalClientChange, 1);
+
+		icalcomp = icalparser_parse_string (corba_coc->calobj);
+		if (!icalcomp)
+			continue;
+
+		ccc->comp = cal_component_new ();
+		if (!cal_component_set_icalcomponent (ccc->comp, icalcomp)) {
+			icalcomponent_free (icalcomp);
+			g_object_unref (G_OBJECT (ccc->comp));
+			continue;
+		}
+		ccc->type = corba_coc->type;
+
+		list = g_list_prepend (list, ccc);
+	}
+
+	list = g_list_reverse (list);
+
+	return list;
+}
+
+static void
+impl_notifyChanges (PortableServer_Servant servant,
+		    const GNOME_Evolution_Calendar_CallStatus status,
+		    const GNOME_Evolution_Calendar_CalObjChangeSeq *seq,
+		    CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	GList *changes, *l;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+	
+	changes = build_change_list (seq);
+	
+	g_signal_emit (G_OBJECT (listener), signals[GET_CHANGES], 0, convert_status (status), changes);
+
+	for (l = changes; l; l = l->next)
+		g_free (l->data);
+	g_list_free (changes);
+}
+
+static GList *
+build_free_busy_list (const GNOME_Evolution_Calendar_CalObjSeq *seq)
+{
+	GList *list = NULL;
+	int i;
+
+	/* Create the list in reverse order */
+	for (i = 0; i < seq->_length; i++) {
+		CalComponent *comp;
+		icalcomponent *icalcomp;
+		icalcomponent_kind kind;
+
+		icalcomp = icalcomponent_new_from_string (seq->_buffer[i]);
+		if (!icalcomp)
+			continue;
+
+		kind = icalcomponent_isa (icalcomp);
+		if (kind == ICAL_VFREEBUSY_COMPONENT) {
+			comp = cal_component_new ();
+			if (!cal_component_set_icalcomponent (comp, icalcomp)) {
+				icalcomponent_free (icalcomp);
+				g_object_unref (G_OBJECT (comp));
+				continue;
+			}
+			
+			list = g_list_append (list, comp);
+		} else {
+			icalcomponent_free (icalcomp);
+		}
+	}
+
+	return list;
+}
+
+static void
+impl_notifyFreeBusy (PortableServer_Servant servant,
+		     const GNOME_Evolution_Calendar_CallStatus status,
+		     const GNOME_Evolution_Calendar_CalObjSeq *seq,
+		     CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	GList *freebusy, *l;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+	
+	freebusy = build_free_busy_list (seq);
+	
+	g_signal_emit (G_OBJECT (listener), signals[GET_FREE_BUSY], 0, convert_status (status), freebusy);
+
+	for (l = freebusy; l; l = l->next)
+		g_free (l->data);
+	g_list_free (freebusy);
+}
+
 static void 
 impl_notifyQuery (PortableServer_Servant servant,
 		  const GNOME_Evolution_Calendar_CallStatus status,
@@ -610,6 +731,8 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyTimezoneRequested = impl_notifyTimezoneRequested;
 	klass->epv.notifyTimezoneAdded = impl_notifyTimezoneAdded;
 	klass->epv.notifyDefaultTimezoneSet = impl_notifyDefaultTimezoneSet;
+	klass->epv.notifyChanges = impl_notifyChanges;
+	klass->epv.notifyFreeBusy = impl_notifyFreeBusy;
 	klass->epv.notifyQuery = impl_notifyQuery;
 	klass->epv.notifyCalSetMode = impl_notifyCalSetMode;
 	klass->epv.notifyErrorOccurred = impl_notifyErrorOccurred;
@@ -769,6 +892,22 @@ cal_listener_class_init (CalListenerClass *klass)
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
 			      G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[GET_CHANGES] =
+		g_signal_new ("get_changes",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, get_changes),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_POINTER,
+			      G_TYPE_NONE, 1, G_TYPE_INT, G_TYPE_POINTER);
+	signals[GET_FREE_BUSY] =
+		g_signal_new ("get_free_busy",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, get_free_busy),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_POINTER,
+			      G_TYPE_NONE, 1, G_TYPE_INT, G_TYPE_POINTER);
 	signals[QUERY] =
 		g_signal_new ("query",
 			      G_TYPE_FROM_CLASS (klass),

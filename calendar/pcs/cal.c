@@ -156,17 +156,6 @@ impl_Cal_getStaticCapabilities (PortableServer_Servant servant,
 	cal_backend_get_static_capabilities (priv->backend, cal);
 }
 
-/* Converts a calendar object type from its CORBA representation to our own
- * representation.
- */
-static CalObjType
-uncorba_obj_type (GNOME_Evolution_Calendar_CalObjType type)
-{
-	return (((type & GNOME_Evolution_Calendar_TYPE_EVENT) ? CALOBJ_TYPE_EVENT : 0)
-		| ((type & GNOME_Evolution_Calendar_TYPE_TODO) ? CALOBJ_TYPE_TODO : 0)
-		| ((type & GNOME_Evolution_Calendar_TYPE_JOURNAL) ? CALOBJ_TYPE_JOURNAL : 0));
-}
-
 /* Cal::setMode method */
 static void
 impl_Cal_setMode (PortableServer_Servant servant,
@@ -228,53 +217,23 @@ impl_Cal_getObjectList (PortableServer_Servant servant,
 }
 
 /* Cal::getChanges method */
-static GNOME_Evolution_Calendar_CalObjChangeSeq *
+static void
 impl_Cal_getChanges (PortableServer_Servant servant,
-                    GNOME_Evolution_Calendar_CalObjType type,
-                    const CORBA_char *change_id,
-                    CORBA_Environment *ev)
+		     GNOME_Evolution_Calendar_CalObjType type,
+		     const CORBA_char *change_id,
+		     CORBA_Environment *ev)
 {
        Cal *cal;
        CalPrivate *priv;
-       int t;
 
        cal = CAL (bonobo_object_from_servant (servant));
        priv = cal->priv;
 
-       t = uncorba_obj_type (type);
-
-       return cal_backend_get_changes (priv->backend, t, change_id);
-}
-
-static GNOME_Evolution_Calendar_CalObjSeq *
-build_fb_seq (GList *obj_list)
-{
-	GNOME_Evolution_Calendar_CalObjSeq *seq;
-	GList *l;
-	int n, i;
-
-	n = g_list_length (obj_list);
-
-	seq = GNOME_Evolution_Calendar_CalObjSeq__alloc ();
-	CORBA_sequence_set_release (seq, TRUE);
-	seq->_maximum = n;
-	seq->_length = n;
-	seq->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObj_allocbuf (n);
-
-	/* Fill the sequence */
-
-	for (i = 0, l = obj_list; l; i++, l = l->next) {
-		char *calobj;
-
-		calobj = l->data;
-		seq->_buffer[i] = CORBA_string_dup (calobj);
-	}
-
-	return seq;
+       cal_backend_get_changes (priv->backend, cal, type, change_id);
 }
 
 /* Cal::getFreeBusy method */
-static GNOME_Evolution_Calendar_CalObjSeq *
+static void
 impl_Cal_getFreeBusy (PortableServer_Servant servant,
 		      const GNOME_Evolution_Calendar_UserList *user_list,
 		      const GNOME_Evolution_Calendar_Time_t start,
@@ -283,21 +242,10 @@ impl_Cal_getFreeBusy (PortableServer_Servant servant,
 {
 	Cal *cal;
 	CalPrivate *priv;
-	time_t t_start, t_end;
 	GList *users = NULL;
-	GList *obj_list;
-	GNOME_Evolution_Calendar_CalObjSeq *seq;
 
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
-
-	t_start = (time_t) start;
-	t_end = (time_t) end;
-
-	if (t_start > t_end || t_start == -1 || t_end == -1) {
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidRange);
-		return build_fb_seq (NULL);
-	}
 
 	/* convert the CORBA user list to a GList */
 	if (user_list) {
@@ -308,14 +256,7 @@ impl_Cal_getFreeBusy (PortableServer_Servant servant,
 	}
 
 	/* call the backend's get_free_busy method */
-	obj_list = cal_backend_get_free_busy (priv->backend, users, t_start, t_end);
-	seq = build_fb_seq (obj_list);	
-	g_list_free (users);
-
-        if (obj_list == NULL)
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
-
-        return seq;
+	cal_backend_get_free_busy (priv->backend, cal, users, start, end);
 }
 
 /* Cal::discardAlarm method */
@@ -1189,6 +1130,92 @@ cal_notify_default_timezone_set (Cal *cal, GNOME_Evolution_Calendar_CallStatus s
 
 	if (BONOBO_EX (&ev))
 		g_warning (G_STRLOC ": could not notify the listener of default timezone set");
+
+	CORBA_exception_free (&ev);
+}
+
+void
+cal_notify_changes (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, 
+		    GList *adds, GList *modifies, GList *deletes)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+	GNOME_Evolution_Calendar_CalObjChangeSeq seq;
+	GList *l;	
+	int n, i;
+
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	n = g_list_length (adds) + g_list_length (modifies) + g_list_length (deletes);
+	seq._maximum = n;
+	seq._length = n;
+	seq._buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObjChange_allocbuf (n);
+
+	i = 0;
+	for (l = adds; l; i++, l = l->next) {
+		GNOME_Evolution_Calendar_CalObjChange *change = &seq._buffer[i];
+		
+		change->calobj = CORBA_string_dup (l->data);
+		change->type = GNOME_Evolution_Calendar_ADDED;
+	}
+
+	for (l = modifies; l; i++, l = l->next) {
+		GNOME_Evolution_Calendar_CalObjChange *change = &seq._buffer[i];
+
+		change->calobj = CORBA_string_dup (l->data);
+		change->type = GNOME_Evolution_Calendar_MODIFIED;
+	}
+
+	for (l = deletes; l; i++, l = l->next) {
+		GNOME_Evolution_Calendar_CalObjChange *change = &seq._buffer[i];
+
+		change->calobj = CORBA_string_dup (l->data);
+		change->type = GNOME_Evolution_Calendar_DELETED;
+	}
+	
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyDefaultTimezoneSet (priv->listener, status, &ev);
+
+	CORBA_free (seq._buffer);
+
+	if (BONOBO_EX (&ev))
+		g_warning (G_STRLOC ": could not notify the listener of default timezone set");
+
+	CORBA_exception_free (&ev);
+}
+
+void
+cal_notify_free_busy (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, GList *freebusy)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+	GNOME_Evolution_Calendar_CalObjSeq seq;
+	GList *l;
+	int n, i;
+	
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	n = g_list_length (freebusy);
+	seq._maximum = n;
+	seq._length = n;
+	seq._buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObj_allocbuf (n);
+
+	for (i = 0, l = freebusy; l; i++, l = l->next)
+		seq._buffer[i] = CORBA_string_dup (l->data);
+	
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyDefaultTimezoneSet (priv->listener, status, &ev);
+
+	CORBA_free (seq._buffer);
+
+	if (BONOBO_EX (&ev))
+		g_warning (G_STRLOC ": could not notify the listener of freebusy");
 
 	CORBA_exception_free (&ev);
 }

@@ -1385,7 +1385,7 @@ refresh_busy_periods (gpointer data)
 	
 	/* Check the server for free busy data */	
 	if (priv->client) {
-		GList *fb_data, *users = NULL;
+		GList *fb_data = NULL, *users = NULL;
 		struct icaltimetype itt;
 		time_t startt, endt;
 		const char *user;
@@ -1408,7 +1408,9 @@ refresh_busy_periods (gpointer data)
 
 		user = itip_strip_mailto (e_meeting_attendee_get_address (ia));
 		users = g_list_append (users, g_strdup (user));
-		fb_data = cal_client_get_free_busy (priv->client, users, startt, endt);
+
+		/* FIXME Error checking */
+		cal_client_get_free_busy (priv->client, users, startt, endt, &fb_data, NULL);
 
 		g_list_foreach (users, (GFunc)g_free, NULL);
 		g_list_free (users);

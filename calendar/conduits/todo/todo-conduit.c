@@ -915,7 +915,8 @@ pre_sync (GnomePilotConduit *conduit,
 
 	/* Count and hash the changes */
 	change_id = g_strdup_printf ("pilot-sync-evolution-todo-%d", ctxt->cfg->pilot_id);
-	ctxt->changed = cal_client_get_changes (ctxt->client, CALOBJ_TYPE_TODO, change_id);
+	if (!cal_client_get_changes (ctxt->client, CALOBJ_TYPE_TODO, change_id, &ctxt->changed, NULL))
+		return -1;
 	ctxt->changed_hash = g_hash_table_new (g_str_hash, g_str_equal);
 	g_free (change_id);
 	
@@ -995,8 +996,8 @@ post_sync (GnomePilotConduit *conduit,
 	 * a race condition if anyone changes a record elsewhere during sycnc
          */
 	change_id = g_strdup_printf ("pilot-sync-evolution-todo-%d", ctxt->cfg->pilot_id);
-	changed = cal_client_get_changes (ctxt->client, CALOBJ_TYPE_TODO, change_id);
-	cal_client_change_list_free (changed);
+	if (cal_client_get_changes (ctxt->client, CALOBJ_TYPE_TODO, change_id, &changed, NULL))
+		cal_client_change_list_free (changed);
 	g_free (change_id);
 	
 	LOG (g_message ( "---------------------------------------------------------\n" ));

@@ -107,6 +107,7 @@ module Calendar {
 		Success,
 		RepositoryOffline,
 		PermissionDenied,
+		InvalidRange,
 		ObjectNotFound,
 		InvalidObject,
 		CardIdAlreadyExists,
@@ -180,11 +181,10 @@ module Calendar {
 		oneway void setDefaultTimezone (in CalTimezoneObjUID tzid);
 
 		/* Gets a list of components that changed based on object type */
-		CalObjChangeSeq getChanges (in CalObjType type, in string change_id);
+		oneway void getChanges (in CalObjType type, in string change_id);
 
 		/* Returns free/busy objects for the given interval */
-		CalObjSeq getFreeBusy (in UserList users, in Time_t start, in Time_t end)
-			raises (NotFound, InvalidRange);
+		oneway void getFreeBusy (in UserList users, in Time_t start, in Time_t end);
 
 		/* Discards an alarm from a given component */
 		oneway void discardAlarm (in CalObjUID uid, in CalAlarmUID auid);
@@ -237,6 +237,9 @@ module Calendar {
 		oneway void notifyTimezoneRequested (in CallStatus status, in CalTimezoneObj tz);
 		oneway void notifyTimezoneAdded (in CallStatus status, in CalTimezoneObjUID tzid);
 		oneway void notifyDefaultTimezoneSet (in CallStatus status);
+
+		oneway void notifyChanges (in CallStatus status, in CalObjChangeSeq changes);
+		oneway void notifyFreeBusy (in CallStatus status, in CalObjSeq freebusy);
 
                 /* Called from a Calendar when the mode is changed */
 		oneway void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		

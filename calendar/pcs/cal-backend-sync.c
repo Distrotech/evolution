@@ -233,6 +233,32 @@ cal_backend_sync_set_default_timezone (CalBackendSync *backend, Cal *cal, const 
 	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->set_default_timezone_sync) (backend, cal, tzid);
 }
 
+
+CalBackendSyncStatus
+cal_backend_sync_get_changes (CalBackendSync *backend, Cal *cal, CalObjType type, const char *change_id,
+			      GList **adds, GList **modifies, GList **deletes)
+{
+	g_return_val_if_fail (CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync != NULL);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync) (backend, cal, type, change_id, 
+									   adds, modifies, deletes);
+}
+
+CalBackendSyncStatus
+cal_backend_sync_get_free_busy (CalBackendSync *backend, Cal *cal, GList *users, 
+				time_t start, time_t end, GList **freebusy)
+{
+	g_return_val_if_fail (CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->get_freebusy_sync != NULL);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_freebusy_sync) (backend, cal, users, 
+									    start, end, freebusy);
+}
+
+
 static void
 _cal_backend_is_read_only (CalBackend *backend, Cal *cal)
 {
@@ -457,6 +483,45 @@ _cal_backend_set_default_timezone (CalBackend *backend, Cal *cal, const char *tz
 }
 
 static void
+_cal_backend_get_changes (CalBackend *backend, Cal *cal, CalObjType type, const char *change_id)
+{
+	CalBackendSyncStatus status;
+	GList *adds = NULL, *modifies = NULL, *deletes = NULL, *l;
+	
+	status = cal_backend_sync_get_changes (CAL_BACKEND_SYNC (backend), cal, type, change_id, 
+					       &adds, &modifies, &deletes);
+
+	cal_notify_changes (cal, status, adds, modifies, deletes);
+
+	for (l = adds; l; l = l->next)
+		g_free (l->data);
+	g_list_free (adds);
+
+	for (l = modifies; l; l = l->next)
+		g_free (l->data);
+	g_list_free (modifies);
+
+	for (l = deletes; l; l = l->next)
+		g_free (l->data);
+	g_list_free (deletes);
+}
+
+static void
+_cal_backend_get_free_busy (CalBackend *backend, Cal *cal, GList *users, time_t start, time_t end)
+{
+	CalBackendSyncStatus status;
+	GList *freebusy = NULL, *l;
+	
+	status = cal_backend_sync_get_free_busy (CAL_BACKEND_SYNC (backend), cal, users, start, end, &freebusy);
+
+	cal_notify_free_busy (cal, status, freebusy);
+
+	for (l = freebusy; l; l = l->next)
+		g_free (l->data);
+	g_list_free (freebusy);
+}
+
+static void
 cal_backend_sync_init (CalBackendSync *backend)
 {
 	CalBackendSyncPrivate *priv;
@@ -511,6 +576,8 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->get_timezone = _cal_backend_get_timezone;
 	backend_class->add_timezone = _cal_backend_add_timezone;
 	backend_class->set_default_timezone = _cal_backend_set_default_timezone;
+ 	backend_class->get_changes = _cal_backend_get_changes;
+ 	backend_class->get_free_busy = _cal_backend_get_free_busy;
 
 	object_class->dispose = cal_backend_sync_dispose;
 }

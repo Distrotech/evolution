@@ -2097,7 +2097,7 @@ send_freebusy (EItipControl *itip)
 	CalComponentDateTime datetime;
 	time_t start, end;
 	GtkWidget *dialog;
-	GList *comp_list;
+	GList *comp_list = NULL;
 	icaltimezone *zone;
 
 	priv = itip->priv;
@@ -2122,9 +2122,7 @@ send_freebusy (EItipControl *itip)
 	end = icaltime_as_timet_with_zone (*datetime.value, zone);
 	cal_component_free_datetime (&datetime);
 
-	comp_list = cal_client_get_free_busy (priv->event_client, NULL, start, end);
-
-	if (comp_list) {
+	if (cal_client_get_free_busy (priv->event_client, NULL, start, end, &comp_list, NULL)) {
 		GList *l;
 
 		for (l = comp_list; l; l = l->next) {

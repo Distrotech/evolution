@@ -1089,29 +1089,31 @@ create_user_free_busy (CalBackendFile *cbfile, const char *address, const char *
 }
 
 /* Get_free_busy handler for the file backend */
-static GList *
-cal_backend_file_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end)
+static CalBackendSyncStatus
+cal_backend_file_get_free_busy (CalBackendSync *backend, Cal *cal, GList *users,
+				time_t start, time_t end, GList **freebusy)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
 	gchar *address, *name;	
 	icalcomponent *vfb;
 	char *calobj;
-	GList *obj_list = NULL;
 	GList *l;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+	g_return_val_if_fail (start != -1 && end != -1, GNOME_Evolution_Calendar_InvalidRange);
+	g_return_val_if_fail (start <= end, GNOME_Evolution_Calendar_InvalidRange);
 
+	*freebusy = NULL;
+	
 	if (users == NULL) {
 		if (cal_backend_mail_account_get_default (priv->config_listener, &address, &name)) {
 			vfb = create_user_free_busy (cbfile, address, name, start, end);
 			calobj = icalcomponent_as_ical_string (vfb);
-			obj_list = g_list_append (obj_list, g_strdup (calobj));
+			*freebusy = g_list_append (*freebusy, g_strdup (calobj));
 			icalcomponent_free (vfb);
 			g_free (address);
 			g_free (name);
@@ -1122,34 +1124,31 @@ cal_backend_file_get_free_busy (CalBackend *backend, GList *users, time_t start,
 			if (cal_backend_mail_account_is_valid (priv->config_listener, address, &name)) {
 				vfb = create_user_free_busy (cbfile, address, name, start, end);
 				calobj = icalcomponent_as_ical_string (vfb);
-				obj_list = g_list_append (obj_list, g_strdup (calobj));
+				*freebusy = g_list_append (*freebusy, g_strdup (calobj));
 				icalcomponent_free (vfb);
 				g_free (name);
 			}
 		}		
 	}
 
-	return obj_list;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 typedef struct 
 {
-	CalBackend *backend;
+	CalBackendFile *backend;
 	CalObjType type;	
-	GList *changes;
-	GList *change_ids;
+	GList *deletes;
+	EXmlHash *ehash;
 } CalBackendFileComputeChangesData;
 
 static void
 cal_backend_file_compute_changes_foreach_key (const char *key, gpointer data)
 {
 	CalBackendFileComputeChangesData *be_data = data;
-	CalComponent *comp = lookup_component (CAL_BACKEND_FILE (be_data->backend), key);
 	
-	if (comp == NULL) {
+	if (!lookup_component (be_data->backend, key)) {
 		CalComponent *comp;
-		GNOME_Evolution_Calendar_CalObjChange *coc;
-		char *calobj;
 
 		comp = cal_component_new ();
 		if (be_data->type == GNOME_Evolution_Calendar_TYPE_TODO)
@@ -1158,46 +1157,31 @@ cal_backend_file_compute_changes_foreach_key (const char *key, gpointer data)
 			cal_component_set_new_vtype (comp, CAL_COMPONENT_EVENT);
 
 		cal_component_set_uid (comp, key);
-		calobj = cal_component_get_as_string (comp);
+		be_data->deletes = g_list_prepend (be_data->deletes, cal_component_get_as_string (comp));
 
-		coc = GNOME_Evolution_Calendar_CalObjChange__alloc ();
-		coc->calobj =  CORBA_string_dup (calobj);
-		coc->type = GNOME_Evolution_Calendar_DELETED;
-		be_data->changes = g_list_prepend (be_data->changes, coc);
-		be_data->change_ids = g_list_prepend (be_data->change_ids, g_strdup (key));
-
-		g_free (calobj);
-		g_object_unref (comp);
+		e_xmlhash_remove (be_data->ehash, key);
  	}
 }
 
-static GNOME_Evolution_Calendar_CalObjChangeSeq *
-cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const char *change_id)
+static CalBackendSyncStatus
+cal_backend_file_compute_changes (CalBackendFile *cbfile, CalObjType type, const char *change_id,
+				  GList **adds, GList **modifies, GList **deletes)
 {
-	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
 	char    *filename;
 	EXmlHash *ehash;
 	CalBackendFileComputeChangesData be_data;
-	GNOME_Evolution_Calendar_CalObjChangeSeq *seq;
-	GList *changes = NULL, *change_ids = NULL;
-	GList *i, *j;
-	int n;	
+	GList *i;
 
-	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	/* Find the changed ids - FIX ME, path should not be hard coded */
-	if (type == GNOME_Evolution_Calendar_TYPE_TODO)
-		filename = g_strdup_printf ("%s/evolution/local/Tasks/%s.db", g_get_home_dir (), change_id);
-	else 
-		filename = g_strdup_printf ("%s/evolution/local/Calendar/%s.db", g_get_home_dir (), change_id);
+	/* FIXME Will this always work? */
+	filename = g_strdup_printf ("%s/%s.db", priv->uri, change_id);
 	ehash = e_xmlhash_new (filename);
 	g_free (filename);
 	
 	/* Calculate adds and modifies */
 	for (i = priv->comp; i != NULL; i = i->next) {
-		GNOME_Evolution_Calendar_CalObjChange *coc;
 		const char *uid;
 		char *calobj;
 
@@ -1211,18 +1195,12 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 		case E_XMLHASH_STATUS_SAME:
 			break;
 		case E_XMLHASH_STATUS_NOT_FOUND:
-			coc = GNOME_Evolution_Calendar_CalObjChange__alloc ();
-			coc->calobj =  CORBA_string_dup (calobj);
-			coc->type = GNOME_Evolution_Calendar_ADDED;
-			changes = g_list_prepend (changes, coc);
-			change_ids = g_list_prepend (change_ids, g_strdup (uid));
+			*adds = g_list_prepend (*adds, g_strdup (calobj));
+			e_xmlhash_add (ehash, uid, calobj);
 			break;
 		case E_XMLHASH_STATUS_DIFFERENT:
-			coc = GNOME_Evolution_Calendar_CalObjChange__alloc ();
-			coc->calobj =  CORBA_string_dup (calobj);
-			coc->type = GNOME_Evolution_Calendar_MODIFIED;
-			changes = g_list_prepend (changes, coc);
-			change_ids = g_list_prepend (change_ids, g_strdup (uid));
+			*modifies = g_list_prepend (*modifies, g_strdup (calobj));
+			e_xmlhash_add (ehash, uid, calobj);
 			break;
 		}
 
@@ -1230,60 +1208,35 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 	}
 
 	/* Calculate deletions */
-	be_data.backend = backend;
+	be_data.backend = cbfile;
 	be_data.type = type;	
-	be_data.changes = changes;
-	be_data.change_ids = change_ids;
+	be_data.deletes = NULL;
+	be_data.ehash = ehash;
    	e_xmlhash_foreach_key (ehash, (EXmlHashFunc)cal_backend_file_compute_changes_foreach_key, &be_data);
-	changes = be_data.changes;
-	change_ids = be_data.change_ids;
-	
-	/* Build the sequence and update the hash */
-	n = g_list_length (changes);
 
-	seq = GNOME_Evolution_Calendar_CalObjChangeSeq__alloc ();
-	seq->_length = n;
-	seq->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObjChange_allocbuf (n);
-	CORBA_sequence_set_release (seq, TRUE);
+	*deletes = be_data.deletes;
 
-	for (i = changes, j = change_ids, n = 0; i != NULL; i = i->next, j = j->next, n++) {
-		GNOME_Evolution_Calendar_CalObjChange *coc = i->data;
-		GNOME_Evolution_Calendar_CalObjChange *seq_coc;
-		char *uid = j->data;
-
-		/* sequence building */
-		seq_coc = &seq->_buffer[n];
-		seq_coc->calobj = CORBA_string_dup (coc->calobj);
-		seq_coc->type = coc->type;
-
-		/* hash updating */
-		if (coc->type == GNOME_Evolution_Calendar_ADDED 
-		    || coc->type == GNOME_Evolution_Calendar_MODIFIED) {
-			e_xmlhash_add (ehash, uid, coc->calobj);
-		} else {
-			e_xmlhash_remove (ehash, uid);
-		}		
-
-		CORBA_free (coc);
-		g_free (uid);
-	}	
 	e_xmlhash_write (ehash);
   	e_xmlhash_destroy (ehash);
-
-	g_list_free (change_ids);
-	g_list_free (changes);
 	
-	return seq;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Get_changes handler for the file backend */
-static GNOME_Evolution_Calendar_CalObjChangeSeq *
-cal_backend_file_get_changes (CalBackend *backend, CalObjType type, const char *change_id)
+static CalBackendSyncStatus
+cal_backend_file_get_changes (CalBackendSync *backend, Cal *cal, CalObjType type, const char *change_id,
+			      GList **adds, GList **modifies, GList **deletes)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
 
-	return cal_backend_file_compute_changes (backend, type, change_id);
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+	g_return_val_if_fail (change_id != NULL, GNOME_Evolution_Calendar_ObjectNotFound);
+
+	return cal_backend_file_compute_changes (cbfile, type, change_id, adds, modifies, deletes);
 }
 
 /* Discard_alarm handler for the file backend */
@@ -1712,14 +1665,13 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	sync_class->get_timezone_sync = cal_backend_file_get_timezone;
 	sync_class->add_timezone_sync = cal_backend_file_add_timezone;
 	sync_class->set_default_timezone_sync = cal_backend_file_set_default_timezone;
+	sync_class->get_freebusy_sync = cal_backend_file_get_free_busy;
+	sync_class->get_changes_sync = cal_backend_file_get_changes;
 
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->start_query = cal_backend_file_start_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
 	backend_class->set_mode = cal_backend_file_set_mode;
-	backend_class->get_free_busy = cal_backend_file_get_free_busy;
-	backend_class->get_changes = cal_backend_file_get_changes;
-
 
 	backend_class->internal_get_default_timezone = cal_backend_file_internal_get_default_timezone;
 	backend_class->internal_get_timezone = cal_backend_file_internal_get_timezone;

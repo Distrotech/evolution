@@ -668,16 +668,16 @@ cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp)
  * 
  * Return value: a list of CalObj's
  **/
-GList *
-cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end)
+void
+cal_backend_get_free_busy (CalBackend *backend, Cal *cal, GList *users, time_t start, time_t end)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (start != -1 && end != -1);
+	g_return_if_fail (start <= end);
 
 	g_assert (CLASS (backend)->get_free_busy != NULL);
-	return (* CLASS (backend)->get_free_busy) (backend, users, start, end);
+	(* CLASS (backend)->get_free_busy) (backend, cal, users, start, end);
 }
 
 /**
@@ -691,15 +691,15 @@ cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t start, time
  * 
  * Return value: A list of the objects that changed and the type of change
  **/
-GNOME_Evolution_Calendar_CalObjChangeSeq *
-cal_backend_get_changes (CalBackend *backend, CalObjType type, const char *change_id) 
+void
+cal_backend_get_changes (CalBackend *backend, Cal *cal, CalObjType type, const char *change_id) 
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (change_id != NULL, NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (change_id != NULL);
 
 	g_assert (CLASS (backend)->get_changes != NULL);
-	return (* CLASS (backend)->get_changes) (backend, type, change_id);
+	(* CLASS (backend)->get_changes) (backend, cal, type, change_id);
 }
 
 /**

@@ -778,6 +778,67 @@ cal_set_default_timezone_cb (CalListener *listener, ECalendarStatus status, gpoi
 }
 
 static void
+cal_get_changes_cb (CalListener *listener, ECalendarStatus status, GList *changes, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+	GList *l;
+	
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->list = g_list_copy (changes);
+
+	for (l = op->list; l; l = l->next) {
+		CalClientChange *ccc = l->data, *new_ccc;
+
+		new_ccc = g_new (CalClientChange, 1);
+		new_ccc->comp = cal_component_clone (ccc->comp);
+		new_ccc->type = ccc->type;
+		
+		l->data = new_ccc;
+	}
+	
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_get_free_busy_cb (CalListener *listener, ECalendarStatus status, GList *freebusy, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+	GList *l;
+	
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->list = g_list_copy (freebusy);
+
+	for (l = op->list; l; l = l->next)
+		l->data = cal_component_clone (l->data);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
 cal_query_cb (CalListener *listener, ECalendarStatus status, GNOME_Evolution_Calendar_Query query, gpointer data)
 {
 	CalClient *client = data;
@@ -976,6 +1037,8 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "get_timezone", G_CALLBACK (cal_get_timezone_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "add_timezone", G_CALLBACK (cal_add_timezone_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "set_default_timezone", G_CALLBACK (cal_set_default_timezone_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "get_changes", G_CALLBACK (cal_get_changes_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "get_free_busy", G_CALLBACK (cal_get_free_busy_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "query", G_CALLBACK (cal_query_cb), client);
 }
 
@@ -1943,15 +2006,6 @@ cal_client_get_save_schedules (CalClient *client)
 	return check_capability (client, CAL_STATIC_CAPABILITY_SAVE_SCHEDULES);
 }
 
-/* Converts our representation of a calendar component type into its CORBA representation */
-static GNOME_Evolution_Calendar_CalObjType
-corba_obj_type (CalObjType type)
-{
-	return (((type & CALOBJ_TYPE_EVENT) ? GNOME_Evolution_Calendar_TYPE_EVENT : 0)
-		| ((type & CALOBJ_TYPE_TODO) ? GNOME_Evolution_Calendar_TYPE_TODO : 0)
-		| ((type & CALOBJ_TYPE_JOURNAL) ? GNOME_Evolution_Calendar_TYPE_JOURNAL : 0));
-}
-
 gboolean
 cal_client_set_mode (CalClient *client, CalMode mode)
 {
@@ -2208,73 +2262,65 @@ cal_client_resolve_tzid_cb (const char *tzid, gpointer data)
 	return zone;
 }
 
-/* Builds a GList of CalClientChange structures from the CORBA sequence */
-static GList *
-build_change_list (GNOME_Evolution_Calendar_CalObjChangeSeq *seq)
+gboolean
+cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id, GList **changes, GError **error)
 {
-	GList *list = NULL;
-	icalcomponent *icalcomp;
-	int i;
+	CORBA_Environment ev;
+	ECalendarOp *our_op;
+	ECalendarStatus status;
 
-	/* Create the list in reverse order */
-	for (i = 0; i < seq->_length; i++) {
-		GNOME_Evolution_Calendar_CalObjChange *corba_coc;
-		CalClientChange *ccc;
+	g_return_val_if_fail (client != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (change_id != NULL, E_CALENDAR_STATUS_INVALID_ARG);
 
-		corba_coc = &seq->_buffer[i];
-		ccc = g_new (CalClientChange, 1);
+	e_mutex_lock (client->priv->mutex);
 
-		icalcomp = icalparser_parse_string (corba_coc->calobj);
-		if (!icalcomp)
-			continue;
-
-		ccc->comp = cal_component_new ();
-		if (!cal_component_set_icalcomponent (ccc->comp, icalcomp)) {
-			icalcomponent_free (icalcomp);
-			g_object_unref (G_OBJECT (ccc->comp));
-			continue;
-		}
-		ccc->type = corba_coc->type;
-
-		list = g_list_prepend (list, ccc);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
-	list = g_list_reverse (list);
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
 
-	return list;
-}
+	our_op = e_calendar_new_op (client);
 
-GList *
-cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id)
-{
-	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalObjChangeSeq *seq;
-	int t;
-	GList *changes;
+	e_mutex_lock (our_op->mutex);
 
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	e_mutex_unlock (client->priv->mutex);
 
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
-
-	t = corba_obj_type (type);
 	CORBA_exception_init (&ev);
 
-	seq = GNOME_Evolution_Calendar_Cal_getChanges (priv->cal, t, change_id, &ev);
-	if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_changes(): could not get the list of changes");
-		CORBA_exception_free (&ev);
-		return NULL;
-	}
+	GNOME_Evolution_Calendar_Cal_getChanges (client->priv->cal, type, change_id, &ev);
 
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
+	
 	CORBA_exception_free (&ev);
 
-	changes = build_change_list (seq);
-	CORBA_free (seq);
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
-	return changes;
+	status = our_op->status;
+	*changes = our_op->list;
+
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 
@@ -2399,57 +2445,80 @@ cal_client_free_object_list (GList *objects)
  *
  * Returns: a GList of VFREEBUSY CalComponents
  */
-GList *
-cal_client_get_free_busy (CalClient *client, GList *users,
-			  time_t start, time_t end)
+gboolean
+cal_client_get_free_busy (CalClient *client, GList *users, time_t start, time_t end,
+			  GList **freebusy, GError **error)
 {
-	CalClientPrivate *priv;
 	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_UserList *corba_list;
-	GNOME_Evolution_Calendar_CalObjSeq *calobj_list;
+	ECalendarOp *our_op;
+	ECalendarStatus status;
+	GNOME_Evolution_Calendar_UserList corba_users;
 	GList *l;
-	GList *comp_list = NULL;
-	int len, i;
+	int i, len;
+	
+	g_return_val_if_fail (client != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), E_CALENDAR_STATUS_INVALID_ARG);
 
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	e_mutex_lock (client->priv->mutex);
 
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
 
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
 
 	/* create the CORBA user list to be passed to the backend */
 	len = g_list_length (users);
 
-	corba_list = GNOME_Evolution_Calendar_UserList__alloc ();
-	CORBA_sequence_set_release (corba_list, TRUE);
-	corba_list->_length = len;
-	corba_list->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_User_allocbuf (len);
+	corba_users._length = len;
+	corba_users._buffer = CORBA_sequence_GNOME_Evolution_Calendar_User_allocbuf (len);
 
-	for (l = g_list_first (users), i = 0; l; l = l->next, i++)
-		corba_list->_buffer[i] = CORBA_string_dup ((CORBA_char *) l->data);
+	for (l = users, i = 0; l; l = l->next, i++)
+		corba_users._buffer[i] = CORBA_string_dup (l->data);
 
-	/* call the method on the backend */
 	CORBA_exception_init (&ev);
 
-	calobj_list = GNOME_Evolution_Calendar_Cal_getFreeBusy (priv->cal, corba_list,
-								start, end, &ev);
-	CORBA_free (corba_list);
-	if (BONOBO_EX (&ev) || !calobj_list) {
-		if (!BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-			g_message ("cal_client_get_free_busy(): could not get the objects");
-		CORBA_exception_free (&ev);
-		return NULL;
-	}
+	GNOME_Evolution_Calendar_Cal_getFreeBusy (client->priv->cal, &corba_users, start, end, &ev);
 
-	for (i = 0; i < calobj_list->_length; i++) {
+	CORBA_free (corba_users._buffer);
+	
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
+	
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+
+	*freebusy = NULL;
+	for (l = our_op->list; l; l = l->next) {
 		CalComponent *comp;
 		icalcomponent *icalcomp;
 		icalcomponent_kind kind;
 
-		icalcomp = icalparser_parse_string (calobj_list->_buffer[i]);
+		icalcomp = icalparser_parse_string (l->data);
 		if (!icalcomp)
 			continue;
 
@@ -2462,16 +2531,17 @@ cal_client_get_free_busy (CalClient *client, GList *users,
 				continue;
 			}
 
-			comp_list = g_list_append (comp_list, comp);
+			*freebusy = g_list_append (*freebusy, comp);
 		}
 		else
 			icalcomponent_free (icalcomp);
 	}
 
-	CORBA_exception_free (&ev);
-	CORBA_free (calobj_list);
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
 
-	return comp_list;
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 struct comp_instance {

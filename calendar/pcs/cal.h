@@ -92,6 +92,9 @@ void cal_notify_timezone_requested (Cal *cal, GNOME_Evolution_Calendar_CallStatu
 void cal_notify_timezone_added (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *tzid);
 void cal_notify_default_timezone_set (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
 
+void cal_notify_changes (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, GList *adds, GList *modifies, GList *deletes);
+void cal_notify_free_busy (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, GList *freebusy);
+
 void cal_notify_mode (Cal *cal, 
 		      GNOME_Evolution_Calendar_Listener_SetModeStatus status, 
 		      GNOME_Evolution_Calendar_CalMode mode);

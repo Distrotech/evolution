@@ -907,7 +907,7 @@ on_publish (GtkWidget *widget, gpointer user_data)
 	ECalView *cal_view;
 	icaltimezone *utc;
 	time_t start = time (NULL), end;
-	GList *comp_list, *client_list, *cl;
+	GList *comp_list = NULL, *client_list, *cl;
 
 	cal_view = E_CAL_VIEW (user_data);
 
@@ -917,8 +917,7 @@ on_publish (GtkWidget *widget, gpointer user_data)
 
 	client_list = e_cal_model_get_client_list (cal_view->priv->model);
 	for (cl = client_list; cl != NULL; cl = cl->next) {
-		comp_list = cal_client_get_free_busy ((CalClient *) cl->data, NULL, start, end);
-		if (comp_list) {
+		if (cal_client_get_free_busy ((CalClient *) cl->data, NULL, start, end, &comp_list, NULL)) {
 			GList *l;
 
 			for (l = comp_list; l; l = l->next) {

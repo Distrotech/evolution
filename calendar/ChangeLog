@@ -1,3 +1,76 @@
+2003-09-25  JP Rosevear <jpr@ximian.com>
+
+	* gui/calendar-commands.c (publish_freebusy_cmd): adapt to new
+	get_free_busy api
+
+	* conduits/calendar/calendar-conduit.c (post_sync): ditto
+	(pre_sync): ditto
+
+	* conduits/todo/todo-conduit.c (pre_sync): ditto
+	(post_sync): ditto
+
+	* gui/e-meeting-model.c (refresh_busy_periods): ditto
+
+	* gui/e-itip-control.c (send_freebusy): ditto
+
+	* gui/e-cal-view.c (on_publish): ditto
+
+	* cal-client/cal-listener.h: add signals
+
+	* cal-client/cal-listener.c (build_change_list): move here from
+	cal-client.c
+	(impl_notifyChanges): implement
+	(build_free_busy_list): util to create the GList of free busy
+	objects
+	(impl_notifyFreeBusy): implement
+	(cal_listener_class_init): set free busy and changes epv methods,
+	add signals
+
+	* cal-client/cal-client.h: update protos
+
+	* cal-client/cal-client.c (cal_get_changes_cb): get changes call
+	back
+	(cal_get_free_busy_cb): get free busy call back
+	(cal_client_init): listen for free busy and changes signals
+	(cal_client_get_changes): convert to new threaded sync api
+	(cal_client_get_free_busy): ditto
+
+	* pcs/cal.h: add protos
+
+	* pcs/cal.c: remove dead type conversion function
+	(impl_Cal_getChanges): implement by just calling, no return stuff
+	(impl_Cal_getFreeBusy): ditto
+	(cal_notify_changes): do getChanges callback
+	(cal_notify_free_busy): do getFreeBusy callback
+
+	* pcs/cal-backend.h: update protos, vmethods
+	
+	* pcs/cal-backend.c (cal_backend_get_free_busy): call through
+	(cal_backend_get_changes): ditto
+
+	* pcs/cal-backend-sync.h: add vmethods, protos
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_get_changes): call
+	through
+	(cal_backend_sync_get_free_busy): ditto
+	(_cal_backend_get_changes): backend implementation, notify
+	(_cal_backend_get_free_busy): ditto
+	(cal_backend_sync_class_init): set free busy and changes
+	implementations
+
+	* pcs/cal-backend-file.c (cal_backend_file_get_free_busy): convert
+	to sync backend method
+	(cal_backend_file_compute_changes_foreach_key): remove from the
+	hash here
+	(cal_backend_file_compute_changes): no need to build the sequence
+	here
+	(cal_backend_file_get_changes): convert to sync backend method
+	(cal_backend_file_class_init): set sync backend methods for free
+	busy and changes
+
+	* idl/evolution-calendar.idl: convert getChanges and getFreeBusy
+	to new async api
+
 2003-09-25  JP Rosevear  <jpr@ximian.com>
 
 	* pcs/cal-backend.h: remove dead result enums

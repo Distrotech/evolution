@@ -59,6 +59,9 @@ struct _CalBackendSyncClass {
 	CalBackendSyncStatus (*add_timezone_sync) (CalBackendSync *backend, Cal *cal, const char *tzobj);
 	CalBackendSyncStatus (*set_default_timezone_sync) (CalBackendSync *backend, Cal *cal, const char *tzid);
 
+	CalBackendSyncStatus (*get_changes_sync) (CalBackendSync *backend, Cal *cal, CalObjType type, const char *change_id, GList **adds, GList **modifies, GList **deletes);
+	CalBackendSyncStatus (*get_freebusy_sync) (CalBackendSync *backend, Cal *cal, GList *users, time_t start, time_t end, GList **freebusy);
+
 	/* Padding for future expansion */
 	void (*_cal_reserved0) (void);
 	void (*_cal_reserved1) (void);
@@ -134,6 +137,9 @@ CalBackendSyncStatus cal_backend_sync_get_object_list         (CalBackendSync  *
 CalBackendSyncStatus cal_backend_sync_get_timezone (CalBackendSync *backend, Cal *cal, const char *tzid, char **object);
 CalBackendSyncStatus cal_backend_sync_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj);
 CalBackendSyncStatus cal_backend_sync_set_default_timezone (CalBackendSync *backend, Cal *cal, const char *tzid);
+
+CalBackendSyncStatus cal_backend_sync_get_changes (CalBackendSync *backend, Cal *cal, CalObjType type, const char *change_id, GList **adds, GList **modifies, GList **deletes);
+CalBackendSyncStatus cal_backend_sync_get_free_busy (CalBackendSync *backend, Cal *cal, GList *users, time_t start, time_t end, GList **freebusy);
 
 G_END_DECLS
 

@@ -325,12 +325,10 @@ publish_freebusy_cmd (BonoboUIComponent *uic, gpointer data, const gchar *path)
 	start = time_day_begin_with_zone (start, utc);
 	end = time_add_week_with_zone (start, 6, utc);
 
+	/* FIXME Should we aggregate the data? */
 	client_list = e_cal_model_get_client_list (gnome_calendar_get_calendar_model (gcal));
 	for (cl = client_list; cl != NULL; cl = cl->next) {
-		GList *tmp_comp_list;
-
-		tmp_comp_list = cal_client_get_free_busy ((CalClient *) cl->data, NULL, start, end);
-		if (tmp_comp_list) {
+		if (cal_client_get_free_busy ((CalClient *) cl->data, NULL, start, end, &comp_list, NULL)) {
 			GList *l;
 
 			for (l = comp_list; l; l = l->next) {
