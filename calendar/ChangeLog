@@ -1,3 +1,12 @@
+2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/calendar-commands.c (file_new_calendar_cb,
+	file_new_appointment_cb, file_new_event_cb, file_new_meeting_cb,
+	file_new_task_cb): callbacks for "New..." verbs.
+	(sensitize_calendar_commands): sensitize new verbs, and made it
+	sensitize correctly based on the set of clients currently loaded.
+	(sensitize_taskpad_commands): likewise.
+
 2003-10-09  Hans Petter Jansson  <hpj@ximian.com>
 
 	* gui/e-cal-model.c (get_classification): Adapt to libical API changes.
