@@ -1,4 +1,12 @@
-2003-07-17  Michel DÃ¤nzer  <michel@daenzer.net>
+2003-07-16  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* e-msg-composer-attachment-bar.c (attach_to_multipart): don't set
+	the rawtext bit anymore.
+
+	* e-msg-composer.c (build_message): Convert the plain part's
+	content stream from UTF-8 to whatever charset we want.
+
+2003-07-17  Michel Daenzer  <michel@daenzer.net>
 
 	* e-msg-composer.c (autosave_manager_query_load_orphans): Set
 	default answer of dialog to 'yes' to try and prevent autosaved
