@@ -826,6 +826,7 @@ setup_widgets (GnomeCalendar *gcal)
 	GtkWidget *w;
 	gchar *filename;
 	ETable *etable;
+	ECalModel *model;
 
 	priv = gcal->priv;
 
@@ -947,6 +948,14 @@ setup_widgets (GnomeCalendar *gcal)
 			  G_CALLBACK (view_selection_changed_cb), gcal);
 
 	connect_week_view_focus (gcal, E_WEEK_VIEW (priv->month_view));
+
+	model = (ECalModel *) e_cal_model_calendar_new ();
+	e_cal_view_set_model (E_CAL_VIEW (priv->day_view), model);
+	e_cal_view_set_model (E_CAL_VIEW (priv->work_week_view), model);
+	e_cal_view_set_model (E_CAL_VIEW (priv->week_view), model);
+	e_cal_view_set_model (E_CAL_VIEW (priv->month_view), model);
+
+	g_object_unref (model);
 
 	gnome_calendar_update_config_settings (gcal, TRUE);
 }
@@ -1928,24 +1937,11 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 {
 	GnomeCalendarPrivate *priv;
 	GnomeCalendarViewType view_type;
-	ECalModel *model;
 
 	g_return_val_if_fail (gcal != NULL, NULL);
 	g_return_val_if_fail (GNOME_IS_CALENDAR (gcal), NULL);
 
 	priv = gcal->priv;
-
-	/*
-	 * Calendar Folder Client.
-	 */
-
-	model = (ECalModel *) e_cal_model_calendar_new ();
-	e_cal_view_set_model (E_CAL_VIEW (priv->day_view), model);
-	e_cal_view_set_model (E_CAL_VIEW (priv->work_week_view), model);
-	e_cal_view_set_model (E_CAL_VIEW (priv->week_view), model);
-	e_cal_view_set_model (E_CAL_VIEW (priv->month_view), model);
-
-	g_object_unref (model);
 
 	/*
 	 * TaskPad Folder Client.
