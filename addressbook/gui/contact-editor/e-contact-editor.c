@@ -160,7 +160,7 @@ phones [] = {
 };
 
 /* Defaults from the table above */
-gint phones_default [] = { 1, 6, 2, 9 };
+gint phones_default [] = { 1, 6, 9, 2 };
 
 static EContactField addresses[] = {
 	E_CONTACT_ADDRESS_WORK,
@@ -188,16 +188,22 @@ im_service [] =
 	{ E_CONTACT_IM_GROUPWISE, N_ ("GroupWise") }
 };
 
+/* Defaults from the table above */
+gint im_service_default [] = { 0, 2, 3 };
+
 static struct {
 	gchar *name;
 	gchar *pretty_name;
 }
-im_location [] =
+common_location [] =
 {
 	{ "WORK",  N_ ("Work")  },
 	{ "HOME",  N_ ("Home")  },
 	{ "OTHER", N_ ("Other") }
 };
+
+/* Default from the table above */
+gint email_default [] = { 0, 1, 2, 2 };
 
 #define nonempty(x) ((x) && *(x))
 
@@ -318,10 +324,10 @@ init_email_record_location (EContactEditor *editor, gint record)
 
 	location_menu = gtk_menu_new ();
 
-	for (i = 0; i < G_N_ELEMENTS (im_location); i++) {
+	for (i = 0; i < G_N_ELEMENTS (common_location); i++) {
 		GtkWidget *item;
 
-		item = gtk_menu_item_new_with_label (im_location [i].pretty_name);
+		item = gtk_menu_item_new_with_label (common_location [i].pretty_name);
 		gtk_menu_shell_append (GTK_MENU_SHELL (location_menu), item);
 	}
 
@@ -354,7 +360,7 @@ fill_in_email_record (EContactEditor *editor, gint record, const gchar *address,
 	g_free (widget_name);
 
 	gtk_option_menu_set_history (GTK_OPTION_MENU (location_option_menu),
-				     location >= 0 ? location : 0);
+				     location >= 0 ? location : email_default [record - 1]);
 	set_entry_text (editor, GTK_ENTRY (email_entry), address ? address : "");
 }
 
@@ -380,13 +386,13 @@ extract_email_record (EContactEditor *editor, gint record, gchar **address, gint
 static const gchar *
 email_index_to_location (gint index)
 {
-	return im_location [index].name;
+	return common_location [index].name;
 }
 
 static const gchar *
 im_index_to_location (gint index)
 {
-	return im_location [index].name;
+	return common_location [index].name;
 }
 
 static void
@@ -401,8 +407,8 @@ get_email_location (EVCardAttribute *attr)
 {
 	gint i;
 
-	for (i = 0; i < G_N_ELEMENTS (im_location); i++) {
-		if (e_vcard_attribute_has_type (attr, im_location [i].name))
+	for (i = 0; i < G_N_ELEMENTS (common_location); i++) {
+		if (e_vcard_attribute_has_type (attr, common_location [i].name))
 			return i;
 	}
 
@@ -414,8 +420,8 @@ get_im_location (EVCardAttribute *attr)
 {
 	gint i;
 
-	for (i = 0; i < G_N_ELEMENTS (im_location); i++) {
-		if (e_vcard_attribute_has_type (attr, im_location [i].name))
+	for (i = 0; i < G_N_ELEMENTS (common_location); i++) {
+		if (e_vcard_attribute_has_type (attr, common_location [i].name))
 			return i;
 	}
 
@@ -869,10 +875,10 @@ init_im_record_location (EContactEditor *editor, gint record)
 
 	location_menu = gtk_menu_new ();
 
-	for (i = 0; i < G_N_ELEMENTS (im_location); i++) {
+	for (i = 0; i < G_N_ELEMENTS (common_location); i++) {
 		GtkWidget *item;
 
-		item = gtk_menu_item_new_with_label (im_location [i].pretty_name);
+		item = gtk_menu_item_new_with_label (common_location [i].pretty_name);
 		gtk_menu_shell_append (GTK_MENU_SHELL (location_menu), item);
 	}
 
@@ -941,7 +947,7 @@ fill_in_im_record (EContactEditor *editor, gint record, gint service, const gcha
 	gtk_option_menu_set_history (GTK_OPTION_MENU (location_option_menu),
 				     location >= 0 ? location : 0);
 	gtk_option_menu_set_history (GTK_OPTION_MENU (service_option_menu),
-				     service >= 0 ? service : 0);
+				     service >= 0 ? service : im_service_default [record - 1]);
 	set_entry_text (editor, GTK_ENTRY (name_entry), name ? name : "");
 }
 
@@ -1073,6 +1079,21 @@ extract_im (EContactEditor *editor)
 }
 
 static void
+init_address_textview (EContactEditor *editor, gint record)
+{
+	gchar         *textview_name;
+	GtkWidget     *textview;
+	GtkTextBuffer *text_buffer;
+
+	textview_name = g_strdup_printf ("textview-%s-address", address_name [record]);
+	textview = glade_xml_get_widget (editor->gui, textview_name);
+	g_free (textview_name);
+
+	text_buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview));
+	g_signal_connect (text_buffer, "changed", G_CALLBACK (widget_changed), editor);
+}
+
+static void
 init_address_field (EContactEditor *editor, gint record, const gchar *widget_field_name)
 {
 	gchar     *entry_name;
@@ -1089,8 +1110,7 @@ init_address_field (EContactEditor *editor, gint record, const gchar *widget_fie
 static void
 init_address_record (EContactEditor *editor, gint record)
 {
-	init_address_field (editor, record, "address-1");
-	init_address_field (editor, record, "address-2");
+	init_address_textview (editor, record);
 	init_address_field (editor, record, "city");
 	init_address_field (editor, record, "state");
 	init_address_field (editor, record, "zip");
@@ -1104,6 +1124,25 @@ init_address (EContactEditor *editor)
 
 	for (i = 0; i < ADDRESS_SLOTS; i++)
 		init_address_record (editor, i);
+}
+
+static void
+fill_in_address_textview (EContactEditor *editor, gint record, EContactAddress *address)
+{
+	gchar         *textview_name;
+	GtkWidget     *textview;
+	GtkTextBuffer *text_buffer;
+	GtkTextIter    iter;
+
+	textview_name = g_strdup_printf ("textview-%s-address", address_name [record]);
+	textview = glade_xml_get_widget (editor->gui, textview_name);
+	g_free (textview_name);
+
+	text_buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview));
+	gtk_text_buffer_set_text (text_buffer, address->street ? address->street : "", -1);
+
+	gtk_text_buffer_get_end_iter (text_buffer, &iter);
+	gtk_text_buffer_insert (text_buffer, &iter, address->ext ? address->ext : "", -1);
 }
 
 static void
@@ -1129,8 +1168,7 @@ fill_in_address_record (EContactEditor *editor, gint record)
 	if (!address)
 		return;
 
-	fill_in_address_field (editor, record, "address-1", address->street);
-	fill_in_address_field (editor, record, "address-2", address->ext);
+	fill_in_address_textview (editor, record, address);
 	fill_in_address_field (editor, record, "city", address->locality);
 	fill_in_address_field (editor, record, "state", address->region);
 	fill_in_address_field (editor, record, "zip", address->code);
@@ -1146,6 +1184,45 @@ fill_in_address (EContactEditor *editor)
 
 	for (i = 0; i < ADDRESS_SLOTS; i++)
 		fill_in_address_record (editor, i);
+}
+
+static void
+extract_address_textview (EContactEditor *editor, gint record, EContactAddress *address)
+{
+	gchar         *textview_name;
+	GtkWidget     *textview;
+	GtkTextBuffer *text_buffer;
+	GtkTextIter    iter_1, iter_2;
+
+	textview_name = g_strdup_printf ("textview-%s-address", address_name [record]);
+	textview = glade_xml_get_widget (editor->gui, textview_name);
+	g_free (textview_name);
+
+	text_buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview));
+	gtk_text_buffer_get_start_iter (text_buffer, &iter_1);
+
+	/* Skip blank lines */
+	while (gtk_text_iter_get_chars_in_line (&iter_1) < 1 &&
+	       !gtk_text_iter_is_end (&iter_1))
+		gtk_text_iter_forward_line (&iter_1);
+
+	if (gtk_text_iter_is_end (&iter_1))
+		return;
+
+	iter_2 = iter_1;
+	gtk_text_iter_forward_line (&iter_2);
+
+	/* Extract street (first line of text) */
+	address->street = gtk_text_iter_get_text (&iter_1, &iter_2);
+
+	iter_1 = iter_2;
+	if (gtk_text_iter_is_end (&iter_1))
+		return;
+
+	gtk_text_iter_forward_to_end (&iter_2);
+
+	/* Extract extended address (remaining lines of text) */
+	address->ext = gtk_text_iter_get_text (&iter_1, &iter_2);
 }
 
 static gchar *
@@ -1168,8 +1245,7 @@ extract_address_record (EContactEditor *editor, gint record)
 
 	address = g_new0 (EContactAddress, 1);
 
-	address->street   = extract_address_field (editor, record, "address-1");
-	address->ext      = extract_address_field (editor, record, "address-2");
+	extract_address_textview (editor, record, address);
 	address->locality = extract_address_field (editor, record, "city");
 	address->region   = extract_address_field (editor, record, "state");
 	address->code     = extract_address_field (editor, record, "zip");
@@ -1546,7 +1622,7 @@ set_urlentry_activate_signal_field (EContactEditor *editor, char *id)
 static void
 set_entry_activate_signals (EContactEditor *editor)
 {
-	set_urlentry_activate_signal_field (editor, "entry-blog");
+	set_urlentry_activate_signal_field (editor, "entry-homepage");
 	set_urlentry_activate_signal_field (editor, "entry-caluri");
 	set_urlentry_activate_signal_field (editor, "entry-fburl");
 	set_urlentry_activate_signal_field (editor, "entry-videourl");
@@ -1574,7 +1650,7 @@ set_entry_changed_signals (EContactEditor *editor)
 	widget = glade_xml_get_widget (editor->gui, "entry-company");
 	g_signal_connect (widget, "changed", G_CALLBACK (company_entry_changed), editor);
 
-	set_urlentry_changed_signal_field (editor, "entry-blog");
+	set_urlentry_changed_signal_field (editor, "entry-homepage");
 	set_urlentry_changed_signal_field (editor, "entry-caluri");
 	set_urlentry_changed_signal_field (editor, "entry-fburl");
 	set_urlentry_changed_signal_field (editor, "entry-videourl");
@@ -1938,7 +2014,7 @@ setup_tab_order(GladeXML *gui)
 		list = add_to_tab_order(list, gui, "entry-email1");
 		list = add_to_tab_order(list, gui, "alignment-htmlmail");
 		list = add_to_tab_order(list, gui, "entry-web");
-		list = add_to_tab_order(list, gui, "entry-blog");
+		list = add_to_tab_order(list, gui, "entry-homepage");
 		list = add_to_tab_order(list, gui, "button-fulladdr");
 		list = add_to_tab_order(list, gui, "text-address");
 		list = g_list_reverse(list);
@@ -2353,7 +2429,7 @@ static struct {
 	EContactField field;
 } field_mapping [] = {
 	{ "entry-fullname", E_CONTACT_FULL_NAME },
-	{ "entry-blog", E_CONTACT_BLOG_URL },
+	{ "entry-homepage", E_CONTACT_HOMEPAGE_URL },
 	{ "entry-company", E_CONTACT_ORG },
 	{ "entry-department", E_CONTACT_ORG_UNIT },
 	{ "entry-jobtitle", E_CONTACT_TITLE },
@@ -2404,8 +2480,8 @@ static struct {
 	EContactField field_id;
 	gboolean desensitize_for_read_only;
 } widget_field_mappings[] = {
-	{ "entry-blog", E_CONTACT_BLOG_URL, TRUE },
-	{ "accellabel-blog", E_CONTACT_BLOG_URL },
+	{ "entry-homepage", E_CONTACT_HOMEPAGE_URL, TRUE },
+	{ "accellabel-homepage", E_CONTACT_HOMEPAGE_URL },
 
 	{ "entry-jobtitle", E_CONTACT_TITLE, TRUE },
 	{ "label-jobtitle", E_CONTACT_TITLE },
