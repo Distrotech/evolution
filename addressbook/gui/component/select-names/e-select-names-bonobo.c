@@ -25,7 +25,6 @@
 #endif
 
 #include "e-select-names-bonobo.h"
-#include "e-simple-card-bonobo.h"
 
 #include <bonobo-activation/bonobo-activation-activate.h>
 
@@ -63,7 +62,9 @@ enum _EntryPropertyID {
 	ENTRY_PROPERTY_ID_TEXT,
 	ENTRY_PROPERTY_ID_ADDRESSES,
 	ENTRY_PROPERTY_ID_DESTINATIONS,
+#if notyet
 	ENTRY_PROPERTY_ID_SIMPLE_CARD_LIST,
+#endif
 	ENTRY_PROPERTY_ID_ALLOW_CONTACT_LISTS,
 	ENTRY_PROPERTY_ID_ENTRY_CHANGED
 };
@@ -122,6 +123,7 @@ entry_get_property_fn (BonoboPropertyBag *bag,
 		}
 		break;
 
+#if notyet
 	case ENTRY_PROPERTY_ID_SIMPLE_CARD_LIST:
 		{
 			ESelectNamesModel *model;
@@ -140,8 +142,8 @@ entry_get_property_fn (BonoboPropertyBag *bag,
 			card_list->_length = count;
 
 			for (i = 0; i < count; i++) {
-				const EDestination *destination = e_select_names_model_get_destination (model, i);
-				const ECard *card = e_destination_get_card (destination);
+				const EABDestination *destination = e_select_names_model_get_destination (model, i);
+				const ECard *card = eab_destination_get_card (destination);
 				ECardSimple *simple = e_card_simple_new ((ECard *) card);
 				ESimpleCardBonobo *simple_card = e_simple_card_bonobo_new (simple);
 				g_object_unref (simple);
@@ -154,6 +156,7 @@ entry_get_property_fn (BonoboPropertyBag *bag,
 		}
 		break;
 
+#endif
 	case ENTRY_PROPERTY_ID_ALLOW_CONTACT_LISTS:
 		{
 			ESelectNamesCompletion *comp;
@@ -195,7 +198,7 @@ entry_set_property_fn (BonoboPropertyBag *bag,
 			g_assert (model != NULL);
 			
 			e_entry_set_text (E_ENTRY (w), BONOBO_ARG_GET_STRING (arg));
-			e_select_names_model_cardify_all (model, NULL, 0);
+			e_select_names_model_load_all_contacts (model, NULL);
 			break;
 		}
 
@@ -206,7 +209,7 @@ entry_set_property_fn (BonoboPropertyBag *bag,
 			g_assert (model != NULL);
 
 			e_select_names_model_import_destinationv (model, BONOBO_ARG_GET_STRING (arg));
-			e_select_names_model_cardify_all (model, NULL, 0);
+			e_select_names_model_load_all_contacts (model, NULL);
 			break;
 		}
 
@@ -499,9 +502,11 @@ impl_SelectNames_get_entry_for_section (PortableServer_Servant servant,
 	bonobo_property_bag_add (property_bag, "destinations", ENTRY_PROPERTY_ID_DESTINATIONS,
 				 BONOBO_ARG_STRING, NULL, NULL,
 				 BONOBO_PROPERTY_READABLE | BONOBO_PROPERTY_WRITEABLE);
+#if notyet
 	bonobo_property_bag_add (property_bag, "simple_card_list", ENTRY_PROPERTY_ID_SIMPLE_CARD_LIST,
 				 TC_GNOME_Evolution_Addressbook_SimpleCardList, NULL, NULL,
 				 BONOBO_PROPERTY_READABLE);
+#endif
 	bonobo_property_bag_add (property_bag, "allow_contact_lists", ENTRY_PROPERTY_ID_ALLOW_CONTACT_LISTS,
 				 BONOBO_ARG_BOOLEAN, NULL, NULL,
 				 BONOBO_PROPERTY_READABLE | BONOBO_PROPERTY_WRITEABLE);
