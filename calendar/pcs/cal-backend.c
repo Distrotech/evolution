@@ -75,7 +75,6 @@ enum props {
 /* Signal IDs */
 enum {
 	LAST_CLIENT_GONE,
-	CAL_ADDED,
 	OPENED,
 	REMOVED,
 	LAST_SIGNAL
@@ -203,15 +202,6 @@ cal_backend_class_init (CalBackendClass *class)
 			      NULL, NULL,
 			      g_cclosure_marshal_VOID__VOID,
 			      G_TYPE_NONE, 0);
-	cal_backend_signals[CAL_ADDED] =
-		g_signal_new ("cal_added",
-			      G_TYPE_FROM_CLASS (class),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalBackendClass, cal_added),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__POINTER,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_POINTER);
 	cal_backend_signals[OPENED] =
 		g_signal_new ("opened",
 			      G_TYPE_FROM_CLASS (class),
@@ -822,22 +812,6 @@ cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj)
 
 	g_assert (CLASS (backend)->send_objects != NULL);
 	return (* CLASS (backend)->send_objects) (backend, cal, calobj);
-}
-
-/**
- * cal_backend_last_client_gone:
- * @backend: A calendar backend.
- * 
- * Emits the "last_client_gone" signal of a calendar backend.  This function is
- * to be used only by backend implementations.
- **/
-void
-cal_backend_last_client_gone (CalBackend *backend)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (IS_CAL_BACKEND (backend));
-
-	g_signal_emit (G_OBJECT (backend), cal_backend_signals[LAST_CLIENT_GONE], 0);
 }
 
 /**

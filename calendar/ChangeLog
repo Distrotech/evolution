@@ -1,5 +1,10 @@
 2003-09-26  JP Rosevear <jpr@ximian.com>
 
+	* pcs/cal-backend.c (cal_backend_class_init): remove cal_added
+	signal
+
+2003-09-26  JP Rosevear <jpr@ximian.com>
+
 	* pcs/cal.h: add protos
 
 	* pcs/cal.c (cal_get_backend): accessor
