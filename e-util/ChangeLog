@@ -1,3 +1,7 @@
+2003-08-17  Ettore Perazzoli  <ettore@ximian.com>
+
+	* test-source-list.c: No short letter for --key.
+
 2003-08-15  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-uid.c: #include <glib/gstrfuncs.h>
