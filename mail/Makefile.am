@@ -4,7 +4,6 @@ INCLUDES =						\
 	-I$(top_srcdir)/widgets				\
 	-I$(top_srcdir)/widgets/e-text			\
 	-I$(top_srcdir)/widgets/misc			\
-	-I$(top_srcdir)/camel				\
 	-I$(top_srcdir)					\
 	-I$(top_srcdir)/composer			\
 	-I$(top_builddir)/composer			\
@@ -190,8 +189,6 @@ endif
 libevolution_mail_la_LIBADD =					\
 	$(top_builddir)/shell/importer/libevolution-importer.la	\
 	$(top_builddir)/mail/importers/libevolution-mail-importers.la\
-	$(top_builddir)/camel/libcamel.la			\
-	$(top_builddir)/camel/libcamel-provider.la		\
 	$(top_builddir)/e-util/libeutil.la			\
 	$(top_builddir)/shell/libeshell.la			\
 	$(top_builddir)/composer/libcomposer.la			\
