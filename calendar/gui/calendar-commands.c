@@ -313,6 +313,16 @@ show_month_view_clicked (BonoboUIComponent *uic, gpointer data, const char *path
 }
 
 
+static void
+show_list_view_clicked (BonoboUIComponent *uic, gpointer data, const char *path)
+{
+	GnomeCalendar *gcal;
+
+	gcal = GNOME_CALENDAR (data);
+
+	gnome_calendar_set_view (gcal, GNOME_CAL_LIST_VIEW, FALSE, TRUE);
+}
+
 
 static void
 cut_cmd (BonoboUIComponent *uic, gpointer data, const gchar *path)
@@ -551,13 +561,18 @@ calendar_get_text_for_folder_bar_label (GnomeCalendar *gcal)
 		}
 		break;
 	case GNOME_CAL_MONTH_VIEW:
+	case GNOME_CAL_LIST_VIEW:
 		if (start_tm.tm_year == end_tm.tm_year) {
 			if (start_tm.tm_mon == end_tm.tm_mon) {
-				e_utf8_strftime (buffer, sizeof (buffer),
-					  "%d", &start_tm);
+				if (start_tm.tm_mday == end_tm.tm_mday) {
+					buffer [0] = '\0';
+				} else {
+					e_utf8_strftime (buffer, sizeof (buffer),
+							 "%d", &start_tm);
+					strcat (buffer, " - ");
+				}
 				e_utf8_strftime (end_buffer, sizeof (end_buffer),
 					  _("%d %B %Y"), &end_tm);
-				strcat (buffer, " - ");
 				strcat (buffer, end_buffer);
 			} else {
 				e_utf8_strftime (buffer, sizeof (buffer),
@@ -872,6 +887,7 @@ static BonoboUIVerb verbs [] = {
 	BONOBO_UI_VERB ("ShowWorkWeekView", show_work_week_view_clicked),
 	BONOBO_UI_VERB ("ShowWeekView", show_week_view_clicked),
 	BONOBO_UI_VERB ("ShowMonthView", show_month_view_clicked),
+	BONOBO_UI_VERB ("ShowListView", show_list_view_clicked),
 
 	BONOBO_UI_VERB ("PublishFreeBusy", publish_freebusy_cmd),
 	BONOBO_UI_VERB ("CalendarPurge", purge_cmd),
@@ -885,10 +901,11 @@ static EPixmap pixmaps [] =
 	E_PIXMAP ("/commands/NewAllDayEvent", "new_all_day_event.png"),
 	E_PIXMAP ("/commands/NewMeeting",     "meeting-request-16.png"),
 	E_PIXMAP ("/commands/NewTask",        "new_task-16.png"),
-	E_PIXMAP ("/Toolbar/DayView",         "buttons/dayview.xpm"),
+	E_PIXMAP ("/Toolbar/DayView",	      "buttons/dayview.xpm"),
 	E_PIXMAP ("/Toolbar/WorkWeekView",    "buttons/workweekview.xpm"),
-	E_PIXMAP ("/Toolbar/WeekView",        "buttons/weekview.xpm"),
-	E_PIXMAP ("/Toolbar/MonthView",       "buttons/monthview.xpm"),
+	E_PIXMAP ("/Toolbar/WeekView",	      "buttons/weekview.xpm"),
+	E_PIXMAP ("/Toolbar/MonthView",	      "buttons/monthview.xpm"),
+	E_PIXMAP ("/Toolbar/ListView",	      "buttons/listview.xpm"),
 
 	E_PIXMAP_END
 };

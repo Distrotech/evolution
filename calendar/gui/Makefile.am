@@ -52,8 +52,7 @@ INCLUDES =						\
 	-I$(top_srcdir)/calendar			\
 	-I$(top_srcdir)/calendar/cal-client		\
 	-I$(top_builddir)/calendar/cal-client		\
-	-I$(top_srcdir)/libical/src/libical		\
-	-I$(top_builddir)/libical/src/libical		\
+	-I$(top_srcdir)/libical/src			\
 	-I$(top_srcdir)/addressbook/backend		\
 	-I$(top_builddir)/addressbook/backend		\
 	-I$(top_srcdir)/widgets				\
@@ -71,7 +70,10 @@ glade_DATA = 					\
 	e-itip-control.glade			\
 	goto-dialog.glade
 
-etspec_DATA = e-calendar-table.etspec e-meeting-time-sel.etspec
+etspec_DATA =				\
+	e-calendar-table.etspec		\
+	e-meeting-time-sel.etspec	\
+	e-cal-list-view.etspec
 
 libevolution_calendar_la_SOURCES =		\
 	$(IDL_GENERATED)			\
@@ -105,6 +107,8 @@ libevolution_calendar_la_SOURCES =		\
 	e-cal-model.h				\
 	e-cal-view.c				\
 	e-cal-view.h				\
+	e-cal-list-view.c			\
+	e-cal-list-view.h			\
 	e-calendar-table.h			\
 	e-calendar-table.c			\
 	e-cell-date-edit-text.h			\
@@ -127,8 +131,10 @@ libevolution_calendar_la_SOURCES =		\
 	e-itip-control.c			\
 	e-meeting-attendee.c			\
 	e-meeting-attendee.h			\
-	e-meeting-model.c			\
-	e-meeting-model.h			\
+	e-meeting-list-view.c			\
+	e-meeting-list-view.h			\
+	e-meeting-store.c			\
+	e-meeting-store.h			\
 	e-meeting-time-sel.c			\
 	e-meeting-time-sel.h			\
 	e-meeting-time-sel-item.c		\
@@ -136,6 +142,10 @@ libevolution_calendar_la_SOURCES =		\
 	e-meeting-types.h			\
 	e-meeting-utils.c			\
 	e-meeting-utils.h			\
+	e-select-names-editable.c		\
+	e-select-names-editable.h		\
+	e-select-names-renderer.c		\
+	e-select-names-renderer.h		\
 	e-week-view-event-item.c		\
 	e-week-view-event-item.h		\
 	e-week-view-layout.c			\

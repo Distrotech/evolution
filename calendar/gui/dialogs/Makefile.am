@@ -17,8 +17,7 @@ INCLUDES = 								\
 	-I$(top_srcdir)/calendar					\
 	-I$(top_srcdir)/calendar/cal-client				\
 	-I$(top_builddir)/calendar/cal-client				\
-	-I$(top_srcdir)/libical/src/libical				\
-	-I$(top_builddir)/libical/src/libical				\
+	-I$(top_srcdir)/libical/src					\
 	-I$(top_builddir)/shell						\
 	-I$(top_srcdir)/shell						\
 	-I$(top_srcdir)/addressbook/backend				\
@@ -26,7 +25,6 @@ INCLUDES = 								\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"				\
 	-DEVOLUTION_GLADEDIR=\""$(gladedir)"\"				\
 	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"			\
-	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"			\
 	-DEVOLUTION_UIDIR=\""$(evolutionuidir)"\"			\
 	-DPREFIX=\""$(prefix)"\"					\
 	$(EVOLUTION_CALENDAR_CFLAGS)
@@ -95,7 +93,6 @@ glade_DATA =				\
 	task-details-page.glade		\
 	task-page.glade
 
-etspec_DATA = meeting-page.etspec
 
 CLEANFILES = $(BUILT_SOURCES)
 
@@ -103,5 +100,4 @@ dist-hook:
 	cd $(distdir); rm -f $(BUILT_SOURCES)
 
 EXTRA_DIST =			\
-	$(glade_DATA)		\
-	$(etspec_DATA)
+	$(glade_DATA)
