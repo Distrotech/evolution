@@ -327,6 +327,27 @@ gnome_calendar_class_init (GnomeCalendarClass *class)
 				      "goto_date", 1,
 				      G_TYPE_ENUM,
 				      GNOME_CAL_GOTO_LAST_DAY_OF_WEEK);
+
+        /*Alt+Left/Right, go to the same day of the previous/next week*/
+        gtk_binding_entry_add_signal (binding_set,GDK_Left,
+                                      GDK_MOD1_MASK,
+                                      "goto_date",1,
+                                      G_TYPE_ENUM,
+                                      GNOME_CAL_GOTO_SAME_DAY_OF_PREVIOUS_WEEK);        gtk_binding_entry_add_signal (binding_set,GDK_KP_Left,
+                                      GDK_MOD1_MASK,
+                                      "goto_date",1,
+                                      G_TYPE_ENUM,
+                                      GNOME_CAL_GOTO_SAME_DAY_OF_PREVIOUS_WEEK);        gtk_binding_entry_add_signal (binding_set,GDK_Right,
+                                      GDK_MOD1_MASK,
+                                      "goto_date",1,
+                                      G_TYPE_ENUM,
+                                      GNOME_CAL_GOTO_SAME_DAY_OF_NEXT_WEEK);
+        gtk_binding_entry_add_signal (binding_set,GDK_KP_Right,
+                                      GDK_MOD1_MASK,
+                                      "goto_date",1,
+                                      G_TYPE_ENUM,
+                                      GNOME_CAL_GOTO_SAME_DAY_OF_NEXT_WEEK);
+
         /* init the accessibility support for gnome_calendar */
 	gnome_calendar_a11y_init ();
 }
@@ -1124,6 +1145,21 @@ gnome_calendar_goto_date (GnomeCalendar *gcal,
 						1, priv->zone);
 		need_updating = TRUE;
 		break;
+	case GNOME_CAL_GOTO_SAME_DAY_OF_PREVIOUS_WEEK:
+		priv->selection_start_time = time_add_day_with_zone (start_time,
+								     -7, priv->zone);
+		priv->selection_end_time = time_add_day_with_zone (end_time,
+								   -7,priv->zone);
+		need_updating = TRUE;
+		break;
+	case GNOME_CAL_GOTO_SAME_DAY_OF_NEXT_WEEK:
+		priv->selection_start_time = time_add_day_with_zone (start_time,
+								     7, priv->zone);
+		priv->selection_end_time = time_add_day_with_zone (end_time,
+								   7,priv->zone);
+		need_updating = TRUE;
+		break;
+
 	default:
 		break;
 	}
