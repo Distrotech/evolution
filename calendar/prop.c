@@ -615,10 +615,10 @@ create_todo_page (void)
 	GtkWidget *hbox;
 
 
-	frame = gtk_frame_new (_("Todo List Properties"));
+	frame = gtk_frame_new (_("To Do List Properties"));
 	gtk_container_set_border_width (GTK_CONTAINER (frame), GNOME_PAD_SMALL);
 	gnome_property_box_append_page (GNOME_PROPERTY_BOX (prop_win), frame,
-					gtk_label_new (_("Todo List")));
+					gtk_label_new (_("To Do List")));
 
 	/* first vbox*/
 	main_box = gtk_vbox_new(FALSE, GNOME_PAD);
