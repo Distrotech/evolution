@@ -136,7 +136,7 @@ folder_selected_cb (EMFolderTree *emft, const char *path, const char *uri, EMFol
 }
 
 void
-em_folder_selector_construct (EMFolderSelector *emfs, EMFolderTree *tree, guint32 flags, const char *title, const char *text)
+em_folder_selector_construct (EMFolderSelector *emfs, EMFolderTree *emft, guint32 flags, const char *title, const char *text)
 {
 	GtkWidget *scrolled_window;
 	GtkWidget *label;
