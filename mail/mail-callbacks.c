@@ -3021,10 +3021,12 @@ local_configure_done(const char *uri, CamelFolder *folder, void *data)
 		return;
 	}
 
-	if (folder == NULL)
+	if (folder == NULL) {
 		folder = fb->folder;
+		uri = fb->uri;
+	}
 
-	message_list_set_folder(fb->message_list, folder, FALSE);
+	message_list_set_folder(fb->message_list, folder, uri, FALSE);
 	g_object_unref(fb);
 }
 
@@ -3040,7 +3042,7 @@ configure_folder (BonoboUIComponent *uih, void *user_data, const char *path)
 		if (strncmp (fb->uri, "vfolder:", 8) == 0) {
 			vfolder_edit_rule (fb->uri);
 		} else {
-			message_list_set_folder(fb->message_list, NULL, FALSE);
+			message_list_set_folder(fb->message_list, NULL, NULL, FALSE);
 			g_object_ref((GtkObject *)fb);
 			mail_local_reconfigure_folder(fb->uri, local_configure_done, fb);
 		}

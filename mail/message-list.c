@@ -715,6 +715,14 @@ message_list_has_primary_selection(MessageList *ml)
 	return ml->priv->primary_uids != NULL;
 }
 
+void
+message_list_paste(MessageList *ml)
+{
+	gtk_selection_convert(ml->priv->invisible, GDK_SELECTION_CLIPBOARD,
+			      gdk_atom_intern("x-evolution-message", FALSE),
+			      GDK_CURRENT_TIME);
+}
+
 /*
  * SimpleTableModel::col_count
  */
@@ -1421,9 +1429,11 @@ ml_selection_get(GtkWidget *widget, GtkSelectionData *data, guint info, guint ti
 	if (info & 2) {
 		/* text_plain */
 		printf("setting text/plain selection for uids\n");
+		em_utils_selection_set_mailbox(data, ml->folder, uids);
 	} else {
 		/* x-evolution-message */
 		printf("setting x-evolution-message selection for uids\n");
+		em_utils_selection_set_uidlist(data, ml->folder_uri, uids);
 	}
 }
 
@@ -1443,6 +1453,35 @@ ml_selection_clear_event(GtkWidget *widget, GdkEventSelection *event, MessageLis
 			p->clipboard_uids = NULL;
 		}
 	}
+}
+
+static void
+ml_selection_received(GtkWidget *widget, GtkSelectionData *data, guint time, MessageList *ml)
+{
+	CamelFolder *folder;
+	GPtrArray *uids;
+	char *uri;
+
+	if (data->target != gdk_atom_intern("x-evolution-message", FALSE)) {
+		printf("Unknown selection received by message-list\n");
+
+		return;
+	}
+
+	if (em_utils_selection_get_uidlist(data, &uri, &uids) == 0)
+		return;
+
+	folder = mail_tool_uri_to_folder(uri, 0, NULL);
+	if (folder) {
+		mail_transfer_messages(folder, uids, FALSE, ml->folder_uri, 0, NULL, NULL);
+		camel_object_unref(folder);
+	} else {
+		/* FIXME: error box? */
+		g_warning("could not open paste source uri '%s'", uri);
+		em_utils_uids_free(uids);
+	}
+
+	g_free(uri);
 }
 
 /*
@@ -1485,7 +1524,7 @@ message_list_init (GtkObject *object)
 
 	g_signal_connect(p->invisible, "selection_get", G_CALLBACK(ml_selection_get), message_list);
 	g_signal_connect(p->invisible, "selection_clear_event", G_CALLBACK(ml_selection_clear_event), message_list);
-	/*g_signal_connect(p->invisible, "selection_received", G_CALLBACK(ml_selection_received), message_list);*/
+	g_signal_connect(p->invisible, "selection_received", G_CALLBACK(ml_selection_received), message_list);
 }
 
 static void
@@ -1572,6 +1611,9 @@ message_list_finalise (GObject *object)
 	g_free(message_list->cursor_uid);
 
 	g_mutex_free(message_list->hide_lock);
+
+	g_free(message_list->folder_uri);
+	message_list->folder_uri = NULL;
 
 	if (p->primary_uids)
 		message_list_free_uids(message_list, p->primary_uids);
@@ -2366,6 +2408,7 @@ message_changed (CamelObject *o, gpointer event_data, gpointer user_data)
  * message_list_set_folder:
  * @message_list: Message List widget
  * @folder: folder backend to be set
+ * @uri: uri of @folder.
  * @outgoing: whether this is an outgoing folder
  *
  * Sets @folder to be the backend folder for @message_list. If
@@ -2373,7 +2416,7 @@ message_changed (CamelObject *o, gpointer event_data, gpointer user_data)
  * the "Outgoing folder" column view.
  **/
 void
-message_list_set_folder (MessageList *message_list, CamelFolder *folder, gboolean outgoing)
+message_list_set_folder (MessageList *message_list, CamelFolder *folder, const char *uri, gboolean outgoing)
 {
 	gboolean hide_deleted;
 	GConfClient *gconf;
@@ -2414,8 +2457,12 @@ message_list_set_folder (MessageList *message_list, CamelFolder *folder, gboolea
 		camel_folder_thread_messages_unref(message_list->thread_tree);
 		message_list->thread_tree = NULL;
 	}
-	
-	message_list->folder = folder;
+
+	if (message_list->folder_uri != uri) {
+		g_free(message_list->folder_uri);
+		message_list->folder_uri = g_strdup(uri);
+		message_list->folder = folder;
+	}
 	
 	if (message_list->cursor_uid) {
 		g_free(message_list->cursor_uid);

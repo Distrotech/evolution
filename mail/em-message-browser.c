@@ -167,4 +167,7 @@ static void
 emmb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 {
 	emmb_parent->activate(emfv, uic, state);
+
+	if (state)
+		bonobo_ui_component_set_prop(uic, "/commands/EditPaste", "sensitive", "0", NULL);
 }

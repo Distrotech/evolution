@@ -1,5 +1,23 @@
 2003-08-27  Not Zed  <NotZed@Ximian.com>
 
+	* em-message-browser.c (emmb_activate): disable Edit->Paste menu always.
+
+	* em-folder-browser.c (emfb_edit_paste): do a message-list paste,
+	not a html one.
+	(emfb_edit_cut, emfb_edit_copy, emfb_edit_paste): Moved to folder-view.
+
+	* message-list.c (message_list_paste): trigger a paste action.
+	(message_list_set_folder): added a uri argument, and save it
+	internally, fixed all callers.
+	(message_list_finalise): free the folder uri.
+
+	* em-utils.c (em_utils_selection_set_mailbox): New helper to set
+	the current selection as text in a berkely mailbox format.
+	(em_utils_write_messages): helper to write stuff to a stream in
+	mbox format.
+
+2003-08-27  Not Zed  <NotZed@Ximian.com>
+
 	* message-list.c (on_selection_changed_cmd): own/deown the primary
 	selection when it changes.
 	(message_list_init): init private data and invisible for

@@ -1296,3 +1296,200 @@ em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GP
 	
 	em_utils_uids_free (uids);
 }
+
+
+#include "camel/camel-stream-mem.h"
+#include "camel/camel-stream-filter.h"
+#include "camel/camel-mime-filter-from.h"
+
+/* This kind of sucks, because for various reasons most callers need to run synchronously
+   in the gui thread, however this could take a long, blocking time, to run */
+static int
+em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStream *stream)
+{
+	CamelStreamFilter *filtered_stream;
+	CamelMimeFilterFrom *from_filter;
+	int i, res = 0;
+
+	from_filter = camel_mime_filter_from_new();
+	filtered_stream = camel_stream_filter_new_with_stream(stream);
+	camel_stream_filter_add(filtered_stream, (CamelMimeFilter *)from_filter);
+	camel_object_unref(from_filter);
+	
+	for (i=0; i<uids->len; i++) {
+		CamelMimeMessage *message;
+		char *from;
+
+		message = camel_folder_get_message(folder, uids->pdata[i], NULL);
+		if (message == NULL) {
+			res = -1;
+			break;
+		}
+
+		/* we need to flush after each stream write since we are writing to the same stream */
+		from = camel_mime_message_build_mbox_from(message);
+
+		if (camel_stream_write_string(stream, from) == -1
+		    || camel_stream_flush(stream) == -1
+		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, (CamelStream *)filtered_stream) == -1
+		    || camel_stream_flush((CamelStream *)filtered_stream) == -1)
+			res = -1;
+		
+		g_free(from);
+		camel_object_unref(message);
+
+		if (res == -1)
+			break;
+	}
+
+	camel_object_unref(filtered_stream);
+
+	return res;
+}
+
+/**
+ * em_utils_selection_set_mailbox:
+ * @data: 
+ * @folder: 
+ * @uids: 
+ * 
+ * Creates a mailbox-format selection.
+ * Warning: Could be BIG!
+ * Warning: This could block the ui for an extended period.
+ **/
+void
+em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids)
+{
+	CamelStream *stream;
+
+	stream = camel_stream_mem_new();
+	if (em_utils_write_messages_to_stream(folder, uids, stream) == 0)
+		gtk_selection_data_set(data, data->target, 8,
+				       ((CamelStreamMem *)stream)->buffer->data,
+				       ((CamelStreamMem *)stream)->buffer->len);
+
+	camel_object_unref(stream);
+}
+
+/**
+ * em_utils_selection_set_uidlist:
+ * @data: 
+ * @uri:
+ * @uids: 
+ * 
+ * Sets a "x-evolution-message" format selection data.
+ *
+ * FIXME: be nice if this could take a folder argument rather than uri
+ **/
+void
+em_utils_selection_set_uidlist(GtkSelectionData *data, const char *uri, GPtrArray *uids)
+{
+	GByteArray *array = g_byte_array_new();
+	int i;
+
+	/* format: "uri\0uid1\0uid2\0uid3\0...\0uidn\0" */
+	/* NB: original form missed trailing \0 */
+
+	g_byte_array_append(array, uri, strlen(uri)+1);
+
+	for (i=0; i<uids->len; i++)
+		g_byte_array_append(array, uids->pdata[i], strlen(uids->pdata[i])+1);
+		
+	gtk_selection_data_set(data, data->target, 8, array->data, array->len);
+	g_byte_array_free(array, TRUE);
+}
+
+/**
+ * em_utils_selection_get_uidlist:
+ * @data: 
+ * @urip: Pointer to uri string, to be free'd by caller
+ * @uidsp: Pointer to an array of uid's.
+ * 
+ * Convert an x-evolution-message type to a uri and a uid list.
+ * 
+ * Return value: The number of uid's found.  If 0, then @urip and
+ * @uidsp will be empty.
+ **/
+int
+em_utils_selection_get_uidlist(GtkSelectionData *data, char **urip, GPtrArray **uidsp)
+{
+	/* format: "uri\0uid1\0uid2\0uid3\0...\0uidn" */
+	char *inptr, *inend;
+	GPtrArray *uids;
+	int res;
+
+	*urip = NULL;
+	*uidsp = NULL;
+
+	if (data == NULL || data->data == NULL || data->length == -1)
+		return 0;
+	
+	uids = g_ptr_array_new();
+
+	inptr = data->data;
+	inend = data->data + data->length;
+	while (inptr < inend) {
+		char *start = inptr;
+
+		while (inptr < inend && *inptr)
+			inptr++;
+
+		if (start > (char *)data->data)
+			g_ptr_array_add(uids, g_strndup(start, inptr-start));
+
+		inptr++;
+	}
+
+	if (uids->len == 0) {
+		g_ptr_array_free(uids, TRUE);
+		res = 0;
+	} else {
+		*urip = g_strdup(data->data);
+		*uidsp = uids;
+		res = uids->len;
+	}
+
+	return res;
+}
+
+/**
+ * em_utils_selection_set_urilist:
+ * @data: 
+ * @folder: 
+ * @uids: 
+ * 
+ * Set the selection data @data to a uri which points to a file, which is
+ * a berkely mailbox format mailbox.  The file is automatically cleaned
+ * up when the application quits.
+ **/
+void
+em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids)
+{
+	const char *tmpdir;
+	CamelStream *fstream;
+	char *uri;
+	int fd;
+
+	tmpdir = e_mkdtemp("drag-n-drop-XXXXXX");
+	if (tmpdir == NULL)
+		return;
+
+	/* FIXME: this used to save a single message with the subject
+	   as the filename but it was unsafe, and makes this messier,
+	   the pain */
+
+	uri = alloca(strlen(tmpdir)+16);
+	sprintf(uri, "file:///%s/mbox", tmpdir);
+	
+	fd = open(uri + 7, O_WRONLY | O_CREAT | O_EXCL, 0666);
+	if (fd == -1)
+		return;
+		
+	fstream = camel_stream_fs_new_with_fd(fd);
+	if (fstream) {
+		if (em_utils_write_messages_to_stream(folder, uids, fstream) == 0)
+			gtk_selection_data_set(data, data->target, 8, uri, strlen(uri));
+
+		camel_object_unref(fstream);
+	}
+}

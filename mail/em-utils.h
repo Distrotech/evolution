@@ -75,6 +75,12 @@ void em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArr
 void em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
 void em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
 
+void em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids);
+/* FIXME: be nice if these also worked on CamelFolder's, no easy way to get uri from folder yet tho */
+void em_utils_selection_set_uidlist(GtkSelectionData *data, const char *uri, GPtrArray *uids);
+int  em_utils_selection_get_uidlist(GtkSelectionData *data, char **uri, GPtrArray **uidsp);
+void em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

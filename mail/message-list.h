@@ -90,8 +90,9 @@ struct _MessageList {
 	ETreePath     tree_root;
 	ETableExtras *extras;
 
-	/* The folder */
+	/* The folder & matching uri */
 	CamelFolder  *folder;
+	char *folder_uri;
 
 	GHashTable *uid_nodemap; /* uid (from info) -> tree node mapping */
 	
@@ -156,9 +157,7 @@ typedef enum {
 
 GtkType        message_list_get_type   (void);
 GtkWidget     *message_list_new        (void);
-void           message_list_set_folder (MessageList *message_list,
-					CamelFolder *camel_folder,
-					gboolean outgoing);
+void           message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder, const char *uri, gboolean outgoing);
 
 void           message_list_foreach    (MessageList *message_list,
 					MessageListForeachFunc callback,

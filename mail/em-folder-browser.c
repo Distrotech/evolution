@@ -209,38 +209,6 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 /* ********************************************************************** */
 
 static void
-emfb_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-
-	printf("editcut\n");
-	if (message_list_has_primary_selection(emfv->list))
-		message_list_copy(emfv->list, TRUE);
-	else
-		em_format_html_display_cut(emfv->preview);
-}
-
-static void
-emfb_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-
-	printf("editcopy\n");
-	if (message_list_has_primary_selection(emfv->list))
-		message_list_copy(emfv->list, FALSE);
-	else
-		em_format_html_display_copy(emfv->preview);
-}
-
-static void
-emfb_edit_paste(BonoboUIComponent *uid, void *data, const char *path)
-{
-	EMFolderView *emfv = data;
-	
-	em_format_html_display_paste (emfv->preview);
-}
-
-static void
 emfb_edit_invert_selection(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
@@ -395,9 +363,6 @@ emfb_tools_vfolders(BonoboUIComponent *uid, void *data, const char *path)
 }
 
 static BonoboUIVerb emfb_verbs[] = {
-	BONOBO_UI_UNSAFE_VERB ("EditCut", emfb_edit_cut),
-	BONOBO_UI_UNSAFE_VERB ("EditCopy", emfb_edit_copy),
-	BONOBO_UI_UNSAFE_VERB ("EditPaste", emfb_edit_paste),
 	BONOBO_UI_UNSAFE_VERB ("EditInvertSelection", emfb_edit_invert_selection),
 	BONOBO_UI_UNSAFE_VERB ("EditSelectAll", emfb_edit_select_all),
         BONOBO_UI_UNSAFE_VERB ("EditSelectThread", emfb_edit_select_thread),
@@ -429,10 +394,6 @@ static EPixmap emfb_pixmaps[] = {
 	E_PIXMAP ("/commands/ViewHideSelected", "hide_selected_messages.xpm"),
 	E_PIXMAP ("/commands/ViewShowAll", "show_all_messages.xpm"),
 	
-	E_PIXMAP ("/commands/EditCut", "16_cut.png"),
-	E_PIXMAP ("/commands/EditCopy", "16_copy.png"),
-	E_PIXMAP ("/commands/EditPaste", "16_paste.png"),
-
 	E_PIXMAP ("/commands/MailCompose", "new-message.xpm"),
 
 	E_PIXMAP_END

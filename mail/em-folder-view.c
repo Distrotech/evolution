@@ -214,7 +214,7 @@ static void
 emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 {
 	/* FIXME: outgoing folder type? */
-	message_list_set_folder(emfv->list, folder, FALSE);
+	message_list_set_folder(emfv->list, folder, uri, FALSE);
 	g_free(emfv->folder_uri);
 	emfv->folder_uri = g_strdup(uri);
 	if (folder)
@@ -249,6 +249,39 @@ emfv_set_message(EMFolderView *emfv, const char *uid)
 }
 
 /* ********************************************************************** */
+
+static void
+emfv_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	printf("editcut\n");
+	if (message_list_has_primary_selection(emfv->list))
+		message_list_copy(emfv->list, TRUE);
+	else
+		em_format_html_display_cut(emfv->preview);
+}
+
+static void
+emfv_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	printf("editcopy\n");
+	if (message_list_has_primary_selection(emfv->list))
+		message_list_copy(emfv->list, FALSE);
+	else
+		em_format_html_display_copy(emfv->preview);
+}
+
+static void
+emfv_edit_paste(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	message_list_paste(emfv->list);
+	/*em_format_html_display_paste (emfv->preview);*/
+}
 
 static void
 emfv_mail_next(BonoboUIComponent *uid, void *data, const char *path)
@@ -733,6 +766,10 @@ emfv_view_load_images(BonoboUIComponent *uic, void *data, const char *path)
 }
 
 static BonoboUIVerb emfv_message_verbs[] = {
+	BONOBO_UI_UNSAFE_VERB ("EditCut", emfv_edit_cut),
+	BONOBO_UI_UNSAFE_VERB ("EditCopy", emfv_edit_copy),
+	BONOBO_UI_UNSAFE_VERB ("EditPaste", emfv_edit_paste),
+
 	BONOBO_UI_UNSAFE_VERB ("MailNext", emfv_mail_next),
 	BONOBO_UI_UNSAFE_VERB ("MailNextFlagged", emfv_mail_next_flagged),
 	BONOBO_UI_UNSAFE_VERB ("MailNextUnread", emfv_mail_next_unread),
@@ -786,6 +823,10 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_VERB_END
 };
 static EPixmap emfv_message_pixmaps[] = {
+	E_PIXMAP ("/commands/EditCut", "16_cut.png"),
+	E_PIXMAP ("/commands/EditCopy", "16_copy.png"),
+	E_PIXMAP ("/commands/EditPaste", "16_paste.png"),
+
 	E_PIXMAP ("/commands/PrintMessage", "print.xpm"),
 	E_PIXMAP ("/commands/PrintPreviewMessage", "print-preview.xpm"),
 	E_PIXMAP ("/commands/MessageDelete", "evolution-trash-mini.png"),

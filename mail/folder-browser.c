@@ -924,7 +924,7 @@ got_folder (char *uri, CamelFolder *folder, void *user_data)
 
 	
 	gtk_widget_set_sensitive (GTK_WIDGET (fb->search), camel_folder_has_search_capability (folder));
-	message_list_set_folder (fb->message_list, folder,
+	message_list_set_folder (fb->message_list, folder, fb->uri,
 				 folder_browser_is_drafts (fb) ||
 				 folder_browser_is_sent (fb) ||
 				 folder_browser_is_outbox (fb));
