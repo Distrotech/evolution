@@ -1,3 +1,10 @@
+1999-12-02  Russell Steinthal  <rms39@columbia.edu>
+
+	* alarm.c: Enhanced debug support: can be toggled on and off with
+	SIGUSR1, reports alarms which could not be added
+
+	* alarm.c (alarm_init): Initialize flags to 0 as in HEAD
+
 1999-11-11  Russell Steinthal  <rms39@columbia.edu>
  
  	* calendar.c (calendar_day_change): Add call to
