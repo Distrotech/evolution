@@ -40,7 +40,6 @@
 #include "e-shell-offline-handler.h"
 #include "e-shell-settings-dialog.h"
 #include "e-shell-startup-wizard.h"
-#include "e-shell-view.h"
 #include "e-shortcuts.h"
 #include "e-splash.h"
 #include "e-storage-set.h"
@@ -90,7 +89,7 @@ struct _EShellPrivate {
 
 	char *local_directory;
 
-	GList *views;
+	GList *windows;
 
 	EStorageSet *storage_set;
 	ELocalStorage *local_storage;
@@ -101,8 +100,6 @@ struct _EShellPrivate {
 	EUriSchemaRegistry *uri_schema_registry;
 
 	EComponentRegistry *component_registry;
-
-	EShellUserCreatableItemsHandler *user_creatable_items_handler;
 
 	/* ::StorageRegistry interface handler.  */
 	ECorbaStorageRegistry *corba_storage_registry; /* <aggregate> */
@@ -148,9 +145,9 @@ struct _EShellPrivate {
 
 
 enum {
-	NO_VIEWS_LEFT,
+	NO_WINDOWS_LEFT,
 	LINE_STATUS_CHANGED,
-	NEW_VIEW_CREATED,
+	NEW_WINDOW_CREATED,
 	LAST_SIGNAL
 };
 
@@ -199,7 +196,7 @@ set_interactive (EShell *shell,
 {
 	EShellPrivate *priv;
 	GList *id_list, *p;
-	Window new_view_xid;
+	Window new_window_xid;
 
 	priv = shell->priv;
 
@@ -209,14 +206,14 @@ set_interactive (EShell *shell,
 	priv->is_interactive = interactive;
 
 	if (interactive) {
-		GtkWidget *new_view;
+		GtkWidget *new_window;
 
-		g_return_if_fail (priv->views && priv->views->data);
-		new_view = priv->views->data;
+		g_return_if_fail (priv->windows && priv->windows->data);
+		new_window = priv->windows->data;
 
-		new_view_xid = GDK_WINDOW_XWINDOW (new_view->window);
+		new_window_xid = GDK_WINDOW_XWINDOW (new_window->window);
 	} else
-		new_view_xid = None;
+		new_window_xid = None;
 
 	id_list = e_component_registry_get_id_list (priv->component_registry);
 	for (p = id_list; p != NULL; p = p->next) {
@@ -231,7 +228,7 @@ set_interactive (EShell *shell,
 
 		CORBA_exception_init (&ev);
 
-		GNOME_Evolution_ShellComponent_interactive (shell_component_objref, interactive, new_view_xid, &ev);
+		GNOME_Evolution_ShellComponent_interactive (shell_component_objref, interactive, new_window_xid, &ev);
 		if (ev._major != CORBA_NO_EXCEPTION)
 			g_warning ("Error changing interactive status of component %s to %s -- %s\n",
 				   id, interactive ? "TRUE" : "FALSE", BONOBO_EX_REPOID (&ev));
@@ -267,9 +264,15 @@ impl_Shell_createNewView (PortableServer_Servant servant,
 			  const CORBA_char *uri,
 			  CORBA_Environment *ev)
 {
+	CORBA_exception_set (ev, CORBA_USER_EXCEPTION,
+			     ex_GNOME_Evolution_Shell_InternalError, NULL);
+
+	return CORBA_OBJECT_NIL;
+
+#if 0				/* FIXME */
 	BonoboObject *bonobo_object;
 	EShell *shell;
-	EShellView *shell_view;
+	EShellWindow *shell_window;
 	GNOME_Evolution_ShellView shell_view_interface;
 
 	if (raise_exception_if_not_ready (servant, ev))
@@ -285,22 +288,23 @@ impl_Shell_createNewView (PortableServer_Servant servant,
 		return CORBA_OBJECT_NIL;
 	}
 
-	shell_view = e_shell_create_view (shell, uri, NULL);
-	if (shell_view == NULL) {
+	shell_window = e_shell_create_window (shell, uri, NULL);
+	if (shell_window == NULL) {
 		CORBA_exception_set (ev, CORBA_USER_EXCEPTION,
 				     ex_GNOME_Evolution_Shell_NotFound, NULL);
 		return CORBA_OBJECT_NIL;
 	}
 
-	shell_view_interface = e_shell_view_get_corba_interface (shell_view);
-	if (shell_view_interface == CORBA_OBJECT_NIL) {
+	shell_window_interface = e_shell_window_get_corba_interface (shell_window);
+	if (shell_window_interface == CORBA_OBJECT_NIL) {
 		CORBA_exception_set (ev, CORBA_USER_EXCEPTION,
 				     ex_GNOME_Evolution_Shell_InternalError, NULL);
 		return CORBA_OBJECT_NIL;
 	}
 
-	Bonobo_Unknown_ref (shell_view_interface, ev);
-	return CORBA_Object_duplicate ((CORBA_Object) shell_view_interface, ev);
+	Bonobo_Unknown_ref (shell_window_interface, ev);
+	return CORBA_Object_duplicate ((CORBA_Object) shell_window_interface, ev);
+#endif
 }
 
 static void
@@ -322,7 +326,7 @@ impl_Shell_handleURI (PortableServer_Servant servant,
 
 	if (strncmp (uri, E_SHELL_URI_PREFIX, E_SHELL_URI_PREFIX_LEN) == 0
 	    || strncmp (uri, E_SHELL_DEFAULTURI_PREFIX, E_SHELL_DEFAULTURI_PREFIX_LEN) == 0) {
-		e_shell_create_view (shell, uri, NULL);
+		e_shell_create_window (shell, NULL);
 		return;
 	}
 
@@ -456,28 +460,6 @@ setup_local_storage (EShell *shell)
 
 /* Initialization of the components.  */
 
-static char *
-get_icon_path_for_component_info (const Bonobo_ServerInfo *info)
-{
-	Bonobo_ActivationProperty *property;
-	const char *shell_component_icon_value;
-
-	property = bonobo_server_info_prop_find ((Bonobo_ServerInfo *) info,
-						 "evolution:shell_component_icon");
-
-	if (property == NULL || property->v._d != Bonobo_ACTIVATION_P_STRING)
-		return gnome_program_locate_file (NULL, GNOME_FILE_DOMAIN_PIXMAP, "gnome-question.png",
-						  TRUE, NULL);
-
-	shell_component_icon_value = property->v._u.value_string;
-
-	if (g_path_is_absolute (shell_component_icon_value))
-		return g_strdup (shell_component_icon_value);
-
-	else
-		return g_build_filename (EVOLUTION_IMAGES, shell_component_icon_value, NULL);
-}
-
 static void
 setup_components (EShell *shell,
 		  ESplash *splash)
@@ -532,14 +514,8 @@ setup_components (EShell *shell,
 
 		CORBA_exception_init (&ev);
 
-		if (! e_component_registry_register_component (priv->component_registry, info->iid, &ev)) {
+		if (! e_component_registry_register_component (priv->component_registry, info->iid, &ev))
 			pop_up_activation_error_dialog (splash, info->iid, &ev);
-		} else {
-			e_shell_user_creatable_items_handler_add_component
-				(priv->user_creatable_items_handler,
-				 info->iid,
-				 e_component_registry_get_component_by_id (priv->component_registry, info->iid));
-		}
 
 		CORBA_exception_free (&ev);
 
@@ -640,23 +616,23 @@ storage_set_moved_folder_callback (EStorageSet *storage_set,
 }
 
 
-/* EShellView handling and bookkeeping.  */
+/* EShellWindow handling and bookkeeping.  */
 
 static int
-view_delete_event_cb (GtkWidget *widget,
+window_delete_event_cb (GtkWidget *widget,
 		      GdkEventAny *ev,
 		      void *data)
 {
 	EShell *shell;
 
-	g_assert (E_IS_SHELL_VIEW (widget));
+	g_assert (E_IS_SHELL_WINDOW (widget));
 	shell = E_SHELL (data);
 
-	return ! e_shell_request_close_view (shell, E_SHELL_VIEW (widget));
+	return ! e_shell_request_close_window (shell, E_SHELL_WINDOW (widget));
 }
 
 static gboolean
-notify_no_views_left_idle_cb (void *data)
+notify_no_windows_left_idle_cb (void *data)
 {
 	EShell *shell;
 
@@ -664,7 +640,7 @@ notify_no_views_left_idle_cb (void *data)
 
 	set_interactive (shell, FALSE);
 
-	g_signal_emit (shell, signals [NO_VIEWS_LEFT], 0);
+	g_signal_emit (shell, signals [NO_WINDOWS_LEFT], 0);
 
 	bonobo_object_unref (BONOBO_OBJECT (shell));
 
@@ -672,63 +648,49 @@ notify_no_views_left_idle_cb (void *data)
 }
 
 static void
-view_weak_notify (void *data,
-		  GObject *where_the_object_was)
+window_weak_notify (void *data,
+		    GObject *where_the_object_was)
 {
 	EShell *shell;
-	int num_views;
+	int num_windows;
 
 	shell = E_SHELL (data);
 
-	num_views = g_list_length (shell->priv->views);
+	num_windows = g_list_length (shell->priv->windows);
 
-	/* If this is our last view, save settings now because in the callback
-	   for no_views_left shell->priv->views will be NULL and settings won't
+	/* If this is our last window, save settings now because in the callback
+	   for no_windows_left shell->priv->windows will be NULL and settings won't
 	   be saved because of that.  */
-	if (num_views == 1)
+	if (num_windows == 1)
 		e_shell_save_settings (shell);
 
-	shell->priv->views = g_list_remove (shell->priv->views, where_the_object_was);
+	shell->priv->windows = g_list_remove (shell->priv->windows, where_the_object_was);
 
-	if (shell->priv->views == NULL) {
+	if (shell->priv->windows == NULL) {
 		bonobo_object_ref (BONOBO_OBJECT (shell));
-		g_idle_add (notify_no_views_left_idle_cb, shell);
+		g_idle_add (notify_no_windows_left_idle_cb, shell);
 	}
 }
 
-static EShellView *
-create_view (EShell *shell,
-	     const char *uri,
-	     EShellView *template_view)
+static EShellWindow *
+create_window (EShell *shell,
+	       EShellWindow *template_window)
 {
 	EShellPrivate *priv;
-	EShellView *view;
-	ETaskBar *task_bar;
+	EShellWindow *window;
 
 	priv = shell->priv;
 
-	view = e_shell_view_new (shell, uri);
+	window = e_shell_window_new (shell);
 
-	g_signal_connect (view, "delete_event",
-			  G_CALLBACK (view_delete_event_cb), shell);
+	g_signal_connect (window, "delete_event", G_CALLBACK (window_delete_event_cb), shell);
+	g_object_weak_ref (G_OBJECT (window), window_weak_notify, shell);
 
-	g_object_weak_ref (G_OBJECT (view), view_weak_notify, shell);
+	shell->priv->windows = g_list_prepend (shell->priv->windows, window);
 
-	if (uri != NULL)
-		e_shell_view_display_uri (E_SHELL_VIEW (view), uri, TRUE);
+	g_signal_emit (shell, signals[NEW_WINDOW_CREATED], 0, window);
 
-	shell->priv->views = g_list_prepend (shell->priv->views, view);
-
-	task_bar = e_shell_view_get_task_bar (view);
-
-	if (template_view != NULL) {
-		e_shell_view_show_folder_bar (view, e_shell_view_folder_bar_shown (template_view));
-		e_shell_view_show_shortcut_bar (view, e_shell_view_shortcut_bar_shown (template_view));
-	}
-
-	g_signal_emit (shell, signals[NEW_VIEW_CREATED], 0, view);
-
-	return view;
+	return window;
 }
 
 
@@ -781,25 +743,19 @@ impl_dispose (GObject *object)
 		priv->component_registry = NULL;
 	}
 
-	if (priv->user_creatable_items_handler != NULL) {
-		g_object_unref (priv->user_creatable_items_handler);
-		priv->user_creatable_items_handler = NULL;
+	for (p = priv->windows; p != NULL; p = p->next) {
+		EShellWindow *window;
+
+		window = E_SHELL_WINDOW (p->data);
+
+		g_signal_handlers_disconnect_by_func (window, G_CALLBACK (window_delete_event_cb), shell);
+		g_object_weak_unref (G_OBJECT (window), window_weak_notify, shell);
+
+		gtk_object_destroy (GTK_OBJECT (window));
 	}
 
-	for (p = priv->views; p != NULL; p = p->next) {
-		EShellView *view;
-
-		view = E_SHELL_VIEW (p->data);
-
-		g_signal_handlers_disconnect_by_func (view, G_CALLBACK (view_delete_event_cb), shell);
-
-		g_object_weak_unref (G_OBJECT (view), view_weak_notify, shell);
-
-		gtk_object_destroy (GTK_OBJECT (view));
-	}
-
-	g_list_free (priv->views);
-	priv->views = NULL;
+	g_list_free (priv->windows);
+	priv->windows = NULL;
 
 	/* No unreffing for these as they are aggregate.  */
 	/* bonobo_object_unref (BONOBO_OBJECT (priv->corba_storage_registry)); */
@@ -856,11 +812,11 @@ e_shell_class_init (EShellClass *klass)
 	object_class->dispose  = impl_dispose;
 	object_class->finalize = impl_finalize;
 
-	signals[NO_VIEWS_LEFT] =
-		g_signal_new ("no_views_left",
+	signals[NO_WINDOWS_LEFT] =
+		g_signal_new ("no_windows_left",
 			      G_OBJECT_CLASS_TYPE (object_class),
 			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EShellClass, no_views_left),
+			      G_STRUCT_OFFSET (EShellClass, no_windows_left),
 			      NULL, NULL,
 			      e_shell_marshal_NONE__NONE,
 			      G_TYPE_NONE, 0);
@@ -875,11 +831,11 @@ e_shell_class_init (EShellClass *klass)
 			      G_TYPE_NONE, 1,
 			      G_TYPE_INT);
 
-	signals[NEW_VIEW_CREATED] =
-		g_signal_new ("new_view_created",
+	signals[NEW_WINDOW_CREATED] =
+		g_signal_new ("new_window_created",
 			      G_OBJECT_CLASS_TYPE (object_class),
 			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EShellClass, new_view_created),
+			      G_STRUCT_OFFSET (EShellClass, new_window_created),
 			      NULL, NULL,
 			      e_shell_marshal_NONE__POINTER,
 			      G_TYPE_NONE, 1,
@@ -898,7 +854,7 @@ e_shell_init (EShell *shell)
 
 	priv = g_new (EShellPrivate, 1);
 
-	priv->views = NULL;
+	priv->windows = NULL;
 
 	priv->iid                          = NULL;
 	priv->local_directory              = NULL;
@@ -907,7 +863,6 @@ e_shell_init (EShell *shell)
 	priv->summary_storage              = NULL;
 	priv->shortcuts                    = NULL;
 	priv->component_registry           = NULL;
-	priv->user_creatable_items_handler = NULL;
 	priv->folder_type_registry         = NULL;
 	priv->uri_schema_registry          = NULL;
 	priv->corba_storage_registry       = NULL;
@@ -1004,8 +959,6 @@ e_shell_construct (EShell *shell,
 
 	while (gtk_events_pending ())
 		gtk_main_iteration ();
-	
-	priv->user_creatable_items_handler = e_shell_user_creatable_items_handler_new ();
 	
 	setup_components (shell, (ESplash *)splash);
 	
@@ -1119,58 +1072,58 @@ e_shell_new (const char *local_directory,
 
 
 /**
- * e_shell_create_view:
- * @shell: The shell for which to create a new view.
- * @uri: URI for the new view.
- * @template_view: Window from which to copy the view settings (can be %NULL).
+ * e_shell_create_window:
+ * @shell: The shell for which to create a new window.
+ * @template_window: Window from which to copy the window settings (can be %NULL).
  * 
- * Create a new view for @uri.
+ * Create a new window for @uri.
  * 
- * Return value: The new view.
+ * Return value: The new window.
  **/
-EShellView *
-e_shell_create_view (EShell *shell,
-		     const char *uri,
-		     EShellView *template_view)
+EShellWindow *
+e_shell_create_window (EShell *shell,
+		       EShellWindow *template_window)
 {
-	EShellView *view;
+	EShellWindow *window;
 	EShellPrivate *priv;
+
+	/* FIXME need to actually copy settings from template_window.  */
 
 	g_return_val_if_fail (shell != NULL, NULL);
 	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
 
 	priv = shell->priv;
 
-	view = create_view (shell, uri, template_view);
+	window = create_window (shell, template_window);
 
-	gtk_widget_show (GTK_WIDGET (view));
+	gtk_widget_show (GTK_WIDGET (window));
 
 	set_interactive (shell, TRUE);
 
-	return view;
+	return window;
 }
 
 gboolean
-e_shell_request_close_view (EShell *shell,
-			    EShellView *shell_view)
+e_shell_request_close_window (EShell *shell,
+			      EShellWindow *shell_window)
 {
 	g_return_val_if_fail (E_IS_SHELL (shell), FALSE);
-	g_return_val_if_fail (E_IS_SHELL_VIEW (shell_view), FALSE);
+	g_return_val_if_fail (E_IS_SHELL_WINDOW (shell_window), FALSE);
 
 	e_shell_save_settings (shell);
 
-	if (g_list_length (shell->priv->views) != 1) {
-		/* Not the last view.  */
+	if (g_list_length (shell->priv->windows) != 1) {
+		/* Not the last window.  */
 		return TRUE;
 	}
 
 	if (shell->priv->preparing_to_quit)
 		return FALSE;
 
-	/* If it's the last view, save settings and ask for confirmation before
+	/* If it's the last window, save settings and ask for confirmation before
 	   quitting. */
 
-	e_shell_view_save_defaults (shell_view);
+	e_shell_window_save_defaults (shell_window);
 
 	if (e_shell_prepare_for_quit (shell))
 		return TRUE;
@@ -1377,7 +1330,7 @@ save_misc_settings (EShell *shell)
  * Save the settings for this shell.
  * 
  * Return value: %TRUE if it worked, %FALSE otherwise.  Even if %FALSE is
- * returned, it is possible that at least part of the settings for the views
+ * returned, it is possible that at least part of the settings for the windows
  * have been saved.
  **/
 gboolean
@@ -1396,13 +1349,13 @@ e_shell_save_settings (EShell *shell)
 }
 
 /**
- * e_shell_destroy_all_views:
+ * e_shell_destroy_all_windows:
  * @shell: 
  * 
- * Destroy all the views in @shell.
+ * Destroy all the windows in @shell.
  **/
 void
-e_shell_destroy_all_views (EShell *shell)
+e_shell_destroy_all_windows (EShell *shell)
 {
 	EShellPrivate *priv;
 	GList *p, *pnext;
@@ -1410,19 +1363,12 @@ e_shell_destroy_all_views (EShell *shell)
 	g_return_if_fail (shell != NULL);
 	g_return_if_fail (E_IS_SHELL (shell));
 
-	if (shell->priv->views)
+	if (shell->priv->windows)
 		e_shell_save_settings (shell); 
 
 	priv = shell->priv;
-
-	for (p = priv->views; p != NULL; p = pnext) {
-		EShellView *shell_view;
-
-		pnext = p->next;
-
-		shell_view = E_SHELL_VIEW (p->data);
-		gtk_widget_destroy (GTK_WIDGET (shell_view));
-	}
+	for (p = priv->windows; p != NULL; p = pnext)
+		gtk_widget_destroy (GTK_WIDGET (p->data));
 }
 
 
@@ -1431,28 +1377,26 @@ e_shell_destroy_all_views (EShell *shell)
  * @shell: A pointer to an EShell object
  * @uri: URI that caused the crash
  * @type_name: The type of the folder that caused the crash
- * @shell_view: Pointer to the EShellView over which we want the modal dialog
+ * @shell_window: Pointer to the EShellWindow over which we want the modal dialog
  * to appear.
  * 
  * Report that a maybe crash happened when trying to display a folder of type
  * @type_name.  The shell will pop up a crash dialog whose parent will be the
- * @shell_view.
+ * @shell_window.
  **/
 void
 e_shell_component_maybe_crashed   (EShell *shell,
 				   const char *uri,
 				   const char *type_name,
-				   EShellView *shell_view)
+				   EShellWindow *shell_window)
 {
 	EShellPrivate *priv;
 	EvolutionShellComponentClient *component;
 	GList *p;
 
-	g_return_if_fail (shell != NULL);
 	g_return_if_fail (E_IS_SHELL (shell));
 	g_return_if_fail (type_name != NULL);
-	g_return_if_fail (shell_view != NULL);
-	g_return_if_fail (E_IS_SHELL_VIEW (shell_view));
+	g_return_if_fail (E_IS_SHELL_WINDOW (shell_window));
 
 	priv = shell->priv;
 
@@ -1485,14 +1429,14 @@ e_shell_component_maybe_crashed   (EShell *shell,
 
 	priv->crash_type_names = g_list_prepend (priv->crash_type_names, g_strdup (type_name));
 
-	e_notice (shell_view, GTK_MESSAGE_ERROR,
+	e_notice (shell_window, GTK_MESSAGE_ERROR,
 		  _("The Evolution component that handles folders of type \"%s\"\n"
 		    "has unexpectedly quit. You will need to quit Evolution and restart\n"
 		    "in order to access that data again."),
 		  type_name);
 
-	if (shell_view)
-		bonobo_ui_engine_deregister_dead_components (bonobo_window_get_ui_engine (BONOBO_WINDOW (shell_view)));
+	if (shell_window)
+		bonobo_ui_engine_deregister_dead_components (bonobo_window_get_ui_engine (BONOBO_WINDOW (shell_window)));
 
 	/* FIXME: we should probably re-start the component here */
 }
@@ -1556,20 +1500,20 @@ e_shell_get_line_status (EShell *shell)
 /**
  * e_shell_go_offline:
  * @shell: 
- * @action_view: 
+ * @action_window: 
  * 
  * Make the shell go into off-line mode.
  **/
 void
 e_shell_go_offline (EShell *shell,
-		    EShellView *action_view)
+		    EShellWindow *action_window)
 {
 	EShellPrivate *priv;
 
 	g_return_if_fail (shell != NULL);
 	g_return_if_fail (E_IS_SHELL (shell));
-	g_return_if_fail (action_view != NULL);
-	g_return_if_fail (action_view == NULL || E_IS_SHELL_VIEW (action_view));
+	g_return_if_fail (action_window != NULL);
+	g_return_if_fail (action_window == NULL || E_IS_SHELL_WINDOW (action_window));
 
 	priv = shell->priv;
 
@@ -1585,19 +1529,19 @@ e_shell_go_offline (EShell *shell,
 	g_signal_connect (priv->offline_handler, "offline_procedure_finished",
 			  G_CALLBACK (offline_procedure_finished_cb), shell);
 
-	e_shell_offline_handler_put_components_offline (priv->offline_handler, action_view);
+	e_shell_offline_handler_put_components_offline (priv->offline_handler, GTK_WINDOW (action_window));
 }
 
 /**
  * e_shell_go_online:
  * @shell: 
- * @action_view: 
+ * @action_window: 
  * 
  * Make the shell go into on-line mode.
  **/
 void
 e_shell_go_online (EShell *shell,
-		   EShellView *action_view)
+		   EShellWindow *action_window)
 {
 	EShellPrivate *priv;
 	GList *component_ids;
@@ -1605,7 +1549,7 @@ e_shell_go_online (EShell *shell,
 
 	g_return_if_fail (shell != NULL);
 	g_return_if_fail (E_IS_SHELL (shell));
-	g_return_if_fail (action_view == NULL || E_IS_SHELL_VIEW (action_view));
+	g_return_if_fail (action_window == NULL || E_IS_SHELL_WINDOW (action_window));
 
 	priv = shell->priv;
 
@@ -1679,7 +1623,9 @@ e_shell_send_receive (EShell *shell)
 }
 
 void
-e_shell_show_settings (EShell *shell, const char *type, EShellView *shell_view)
+e_shell_show_settings (EShell *shell,
+		       const char *type,
+		       EShellWindow *shell_window)
 {
 	EShellPrivate *priv;
 	
@@ -1717,10 +1663,8 @@ e_shell_get_component_registry (EShell *shell)
 EShellUserCreatableItemsHandler *
 e_shell_get_user_creatable_items_handler (EShell *shell)
 {
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->user_creatable_items_handler;
+	g_assert_not_reached (); /* FIXME */
+	return NULL;
 }
 
 
@@ -1788,9 +1732,9 @@ e_shell_prepare_for_quit (EShell *shell)
 	priv = shell->priv;
 	priv->preparing_to_quit = TRUE;
 
-	/* Make all the views insensitive so we have some modal-like
+	/* Make all the windows insensitive so we have some modal-like
 	   behavior.  */
-	for (p = priv->views; p != NULL; p = p->next)
+	for (p = priv->windows; p != NULL; p = p->next)
 		gtk_widget_set_sensitive (GTK_WIDGET (p->data), FALSE);
 
 	component_ids = e_component_registry_get_id_list (priv->component_registry);
@@ -1819,8 +1763,8 @@ e_shell_prepare_for_quit (EShell *shell)
 	retval = TRUE;
 
  end:
-	/* Restore all the views to be sensitive.  */
-	for (p = priv->views; p != NULL; p = p->next)
+	/* Restore all the windows to be sensitive.  */
+	for (p = priv->windows; p != NULL; p = p->next)
 		gtk_widget_set_sensitive (GTK_WIDGET (p->data), TRUE);
 	priv->preparing_to_quit = FALSE;
 

@@ -377,5 +377,12 @@ e_shell_window_new (EShell *shell)
 	return GTK_WIDGET (window);
 }
 
+void
+e_shell_window_save_defaults (EShellWindow *window)
+{
+	/* FIXME */
+	g_warning ("e_shell_window_save_defaults() unimplemented");
+}
+
 
 E_MAKE_TYPE (e_shell_window, "EShellWindow", EShellWindow, class_init, init, BONOBO_TYPE_WINDOW)

@@ -217,34 +217,22 @@ evolution_SOURCES =				\
 	e-shell-config-folder-settings.c	\
 	e-shell-config-folder-settings.h	\
 	e-shell-constants.h			\
-	e-shell-folder-commands.c		\
-	e-shell-folder-commands.h		\
 	e-shell-folder-creation-dialog.c	\
 	e-shell-folder-creation-dialog.h	\
 	e-shell-folder-selection-dialog.c	\
 	e-shell-folder-selection-dialog.h	\
 	e-shell-folder-title-bar.c		\
 	e-shell-folder-title-bar.h		\
-	e-shell-importer.c			\
-	e-shell-importer.h			\
 	e-shell-offline-handler.c		\
 	e-shell-offline-handler.h		\
 	e-shell-offline-sync.c			\
 	e-shell-offline-sync.h			\
 	e-shell-settings-dialog.c		\
 	e-shell-settings-dialog.h		\
-	e-shell-shared-folder-picker-dialog.c 	\
-	e-shell-shared-folder-picker-dialog.h 	\
 	e-shell-startup-wizard.c		\
 	e-shell-startup-wizard.h		\
-	e-shell-user-creatable-items-handler.c	\
-	e-shell-user-creatable-items-handler.h	\
 	e-shell-utils.c				\
 	e-shell-utils.h				\
-	e-shell-view-menu.c			\
-	e-shell-view-menu.h			\
-	e-shell-view.c				\
-	e-shell-view.h				\
 	e-shell-window.c			\
 	e-shell-window.h			\
 	e-shell.c				\

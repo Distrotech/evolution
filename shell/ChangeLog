@@ -1,5 +1,61 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-shell.c: Renamed signal "new_view_created" to
+	"new_window_created".  Renamed "no_views_left" to
+	"no_windows_left". Renamed EShellPrivate member "views" to
+	"windows".  Removed member user_creatable_items_handler.
+	(notify_no_windows_left_idle_cb): Renamed from
+	notify_no_views_left_idle_cb.  Emit "no_windows_left".
+	(impl_Shell_createNewView): Raise an InternalError exception.
+	(window_delete_event_cb): Renamed from view_delete_event_cb.
+	(window_weak_notify): Renamed from view_weak_notify.
+	(create_view): Removed.
+	(create_window): New.  Creates a new EShellWindow.
+	(e_shell_create_view): Removed.
+	(e_shell_create_window): New.
+	(e_shell_request_close_view): Removed.
+	(e_shell_request_close_window): New.
+	(e_shell_destroy_all_windows): Renamed from
+	e_shell_destroy_all_views.
+	(e_shell_component_maybe_crashed): Get an EShellWindow parameter,
+	instead of an EShellView.
+	(e_shell_go_offline): Likewise.
+	(e_shell_go_online): Likewise.
+	(e_shell_show_settings): Likewise.
+	(get_icon_path_for_component_info): Removed.
+	(setup_components): Do not do the user_creatable_items_handler
+	stuff here.
+	(e_shell_construct): Don't create the EUserCreatableItemsHandler
+	here.
+	(e_shell_get_user_creatable_items_handler): Crash when you get
+	here.
+
+	* e-shell-user-creatable-items-handler.c: Removed.
+	* e-shell-user-creatable-items-handler.h: Removed.
+	* e-shell-shared-folder-picker-dialog.c: Removed.
+	* e-shell-shared-folder-picker-dialog.h: Removed.
+	* e-shell-view.c, e-shell-view.h: Removed.
+	* e-shell-view-menu.c, e-shell-view-menu.h: Removed.
+	* e-shell-folder-commands.c, e-shell-folder-commands.h: Removed.
+	* e-shell-importer.c, e-shell-importer.h: Removed.
+
+	* main.c (new_window_created_callback): Renamed from
+	new_view_created_callback.
+	(window_map_callback): Renamed from view_map_callback.
+	(idle_cb): Connect to "new_window_created" instead of
+	"new_view_created".
+	(no_windows_left_cb): Renamed from no_views_left_cb.
+	(idle_cb): Connect to "no_windows_left" instead of
+	"no_views_left".
+
+	* e-shell-offline-handler.c: Changed the type of the
+	parent_shell_view member of EShellOfflineHandlerPrivate to
+	GtkWindow and renamed it to parent_window.
+	(e_shell_offline_handler_put_components_offline): Just get a
+	GtkWindow arg instead of an EShellView arg.
+
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
 	* evolution-shell-client.c
 	(evolution_shell_client_create_storage_set_view): Just crash when
 	you get here.

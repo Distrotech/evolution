@@ -142,7 +142,7 @@ quit_box_new (void)
 }
 
 static void
-no_views_left_cb (EShell *shell, gpointer data)
+no_windows_left_cb (EShell *shell, gpointer data)
 {
 	GtkWidget *quit_box;
 
@@ -324,22 +324,22 @@ show_development_warning (GtkWindow *parent)
    soon as the first view is created.  */
 
 static void
-view_map_callback (GtkWidget *widget,
-		   void *data)
+window_map_callback (GtkWidget *widget,
+		     void *data)
 {
-	g_signal_handlers_disconnect_by_func (widget, G_CALLBACK (view_map_callback), data);
+	g_signal_handlers_disconnect_by_func (widget, G_CALLBACK (window_map_callback), data);
 
 	show_development_warning (GTK_WINDOW (widget));
 }
 
 static void
-new_view_created_callback (EShell *shell,
-			   EShellView *view,
-			   void *data)
+new_window_created_callback (EShell *shell,
+			     EShellWindow *window,
+			     void *data)
 {
-	g_signal_handlers_disconnect_by_func (shell, G_CALLBACK (new_view_created_callback), data);
+	g_signal_handlers_disconnect_by_func (shell, G_CALLBACK (new_window_created_callback), data);
 
-	g_signal_connect (view, "map", G_CALLBACK (view_map_callback), NULL);
+	g_signal_connect (window, "map", G_CALLBACK (window_map_callback), NULL);
 }
 
 #endif /* DEVELOPMENT_WARNING */
@@ -382,13 +382,13 @@ idle_cb (void *data)
 	case E_SHELL_CONSTRUCT_RESULT_OK:
 		e_shell_config_factory_register (shell);
 
-		g_signal_connect (shell, "no_views_left", G_CALLBACK (no_views_left_cb), NULL);
+		g_signal_connect (shell, "no_windows_left", G_CALLBACK (no_windows_left_cb), NULL);
 		g_object_weak_ref (G_OBJECT (shell), shell_weak_notify, NULL);
 
 #ifdef DEVELOPMENT_WARNING
 		if (!getenv ("EVOLVE_ME_HARDER"))
-			g_signal_connect (shell, "new_view_created",
-					  G_CALLBACK (new_view_created_callback), NULL);
+			g_signal_connect (shell, "new_window_created",
+					  G_CALLBACK (new_window_created_callback), NULL);
 #endif
 
 		corba_shell = bonobo_object_corba_objref (BONOBO_OBJECT (shell));
