@@ -82,6 +82,9 @@ struct _EShellWindowPrivate {
 
 	/* Bonobo foo.  */
 	BonoboUIComponent *ui_component;
+
+	/* The current view (can be NULL initially).  */
+	ComponentView *current_view;
 };
 
 
@@ -104,6 +107,38 @@ component_view_free (ComponentView *view)
 	g_free (view->component_id);
 	bonobo_object_release_unref (view->component_iface, NULL);
 	g_free (view);
+}
+
+static void
+component_view_deactivate (ComponentView *view)
+{
+	BonoboControlFrame *view_control_frame;
+	BonoboControlFrame *sidebar_control_frame;
+
+	g_return_if_fail (view->sidebar_widget != NULL);
+	g_return_if_fail (view->view_widget != NULL);
+
+	view_control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (view->view_widget));
+	bonobo_control_frame_control_deactivate (view_control_frame);
+
+	sidebar_control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (view->sidebar_widget));
+	bonobo_control_frame_control_deactivate (sidebar_control_frame);
+}
+
+static void
+component_view_activate (ComponentView *view)
+{
+	BonoboControlFrame *view_control_frame;
+	BonoboControlFrame *sidebar_control_frame;
+
+	g_return_if_fail (view->sidebar_widget != NULL);
+	g_return_if_fail (view->view_widget != NULL);
+
+	view_control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (view->view_widget));
+	bonobo_control_frame_control_activate (view_control_frame);
+
+	sidebar_control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (view->sidebar_widget));
+	bonobo_control_frame_control_activate (sidebar_control_frame);
 }
 
 
@@ -172,6 +207,16 @@ init_view (EShellWindow *window,
 	g_assert (sidebar_notebook_page_num == view_notebook_page_num);
 
 	view->notebook_page_num = view_notebook_page_num;
+
+	/* 3. Switch to the new page.  */
+
+	gtk_notebook_set_current_page (GTK_NOTEBOOK (priv->view_notebook), view_notebook_page_num);
+	gtk_notebook_set_current_page (GTK_NOTEBOOK (priv->sidebar_notebook), view_notebook_page_num);
+
+	if (priv->current_view != NULL)
+		component_view_deactivate (priv->current_view);
+	priv->current_view = view;
+	component_view_activate (view);
 }
 
 
@@ -189,6 +234,11 @@ component_button_clicked_callback (GtkButton *button,
 	if (component_view->sidebar_widget == NULL) {
 		init_view (window, component_view);
 	} else {
+		if (priv->current_view != NULL)
+			component_view_deactivate (priv->current_view);
+		priv->current_view = component_view;
+		component_view_activate (component_view);
+
 		gtk_notebook_set_current_page (GTK_NOTEBOOK (priv->view_notebook), component_view->notebook_page_num);
 		gtk_notebook_set_current_page (GTK_NOTEBOOK (priv->sidebar_notebook), component_view->notebook_page_num);
 	}

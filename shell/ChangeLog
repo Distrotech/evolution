@@ -1,3 +1,16 @@
+2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-shell-window.c: New member current_view in struct
+	EShellWindowPrivate.
+	(init_view): Set it to the newly added view.  Also, switch the
+	notebooks to the new page.
+	(component_button_clicked_callback): Set current_view here as
+	well, for existing views.
+	(component_view_activate): New.
+	(component_view_deactivate): New.
+	(init_view): Deactivate existing view, activate new selected view.
+	(component_button_clicked_callback): Likewise.
+
 2003-08-17  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-shell-window.c (setup_widgets): Pass TRUE for @resize to
