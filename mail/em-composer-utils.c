@@ -36,6 +36,7 @@
 
 #include <e-util/e-dialog-utils.h>  /* e_notice */
 
+#include "em-utils.h"
 #include "em-composer-utils.h"
 
 
@@ -104,37 +105,6 @@ composer_destroy_cb (gpointer user_data, GObject *deadbeef)
 	emcs_unref (user_data);
 }
 
-/* FIXME: move me somewhere else... */
-static gboolean
-e_question (GtkWindow *parent, int def, gboolean *again, const char *fmt, ...)
-{
-	GtkWidget *mbox, *check = NULL;
-	va_list ap;
-	int button;
-	char *str;
-	
-	va_start (ap, fmt);
-	str = g_strdup_vprintf (fmt, ap);
-	va_end (ap);
-	mbox = gtk_message_dialog_new (parent, GTK_DIALOG_DESTROY_WITH_PARENT,
-				       GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
-				       "%s", str);
-	g_free (str);
-	gtk_dialog_set_default_response ((GtkDialog *) mbox, def);
-	if (again) {
-		check = gtk_check_button_new_with_label (_("Don't show this message again."));
-		gtk_box_pack_start ((GtkBox *)((GtkDialog *) mbox)->vbox, check, TRUE, TRUE, 10);
-		gtk_widget_show (check);
-	}
-	
-	button = gtk_dialog_run ((GtkDialog *) mbox);
-	if (again)
-		*again = !gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (check));
-	gtk_widget_destroy (mbox);
-	
-	return button == GTK_RESPONSE_YES;
-}
-
 static gboolean
 ask_confirm_for_unwanted_html_mail (EMsgComposer *composer, EDestination **recipients)
 {
@@ -162,7 +132,7 @@ ask_confirm_for_unwanted_html_mail (EMsgComposer *composer, EDestination **recip
 	}
 	
 	g_string_append (str, _("Send anyway?"));
-	res = e_question ((GtkWindow *) composer, GTK_RESPONSE_YES, &show_again, "%s", str->str);
+	res = em_utils_prompt_user ((GtkWindow *) composer, GTK_RESPONSE_YES, &show_again, "%s", str->str);
 	g_string_free (str, TRUE);
 	
 	gconf_client_set_bool (gconf, "/apps/evolution/mail/prompts/unwanted_html", show_again, NULL);
@@ -181,8 +151,8 @@ ask_confirm_for_empty_subject (EMsgComposer *composer)
 	if (!gconf_client_get_bool (gconf, "/apps/evolution/mail/prompts/empty_subject", NULL))
 		return TRUE;
 	
-	res = e_question ((GtkWindow *) composer, GTK_RESPONSE_YES, &show_again,
-			  _("This message has no subject.\nReally send?"));
+	res = em_utils_prompt_user ((GtkWindow *) composer, GTK_RESPONSE_YES, &show_again,
+				    _("This message has no subject.\nReally send?"));
 	
 	gconf_client_set_bool (gconf, "/apps/evolution/mail/prompts/empty_subject", show_again, NULL);
 	
@@ -215,10 +185,10 @@ ask_confirm_for_only_bcc (EMsgComposer *composer, gboolean hidden_list_case)
 		first_text = _("This message contains only Bcc recipients.");
 	}
 	
-	res = e_question ((GtkWindow *) composer, GTK_RESPONSE_YES, &show_again,
-			  "%s\n%s", first_text,
-			  _("It is possible that the mail server may reveal the recipients "
-			    "by adding an Apparently-To header.\nSend anyway?"));
+	res = em_utils_prompt_user ((GtkWindow *) composer, GTK_RESPONSE_YES, &show_again,
+				    "%s\n%s", first_text,
+				    _("It is possible that the mail server may reveal the recipients "
+				      "by adding an Apparently-To header.\nSend anyway?"));
 	
 	gconf_client_set_bool (gconf, "/apps/evolution/mail/prompts/only_bcc", show_again, NULL);
 	
@@ -597,9 +567,9 @@ composer_save_draft_cb (EMsgComposer *composer, int quit, gpointer user_data)
 		mail_msg_wait (id);
 		
 		if (!folder) {
-			if (!e_question ((GtkWindow *) composer, GTK_RESPONSE_YES, NULL,
-					 _("Unable to open the drafts folder for this account.\n"
-					   "Would you like to use the default drafts folder?")))
+			if (!em_utils_prompt_user ((GtkWindow *) composer, GTK_RESPONSE_YES, NULL,
+						   _("Unable to open the drafts folder for this account.\n"
+						     "Would you like to use the default drafts folder?")))
 				return;
 			
 			folder = drafts_folder;

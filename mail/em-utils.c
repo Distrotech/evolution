@@ -53,9 +53,24 @@
 
 static EAccount *guess_account (CamelMimeMessage *message);
 
-/* FIXME: move me somewhere else... */
-static gboolean
-e_question (GtkWindow *parent, int def, gboolean *again, const char *fmt, ...)
+
+/**
+ * em_utils_prompt_user:
+ * @parent: parent window
+ * @def: default response
+ * @again: continue prompting the user in the future
+ * @fmt: prompt format
+ * @Varargs: varargs
+ *
+ * Convenience function to query the user with a Yes/No dialog and a
+ * "Don't show this dialog again" checkbox. If the user checks that
+ * checkbox, then @again is set to %FALSE, otherwise it is set to
+ * %TRUE.
+ *
+ * Returns %TRUE if the user clicks Yes or %FALSE otherwise.
+ **/
+gboolean
+em_utils_prompt_user (GtkWindow *parent, int def, gboolean *again, const char *fmt, ...)
 {
 	GtkWidget *mbox, *check = NULL;
 	va_list ap;
@@ -1365,8 +1380,8 @@ emu_can_save(GtkWindow *parent, const char *path)
 			return FALSE;
 		}
 		
-		return e_question (parent, GTK_RESPONSE_NO, NULL,
-				   _("`%s' already exists.\nOverwrite it?"), path);
+		return em_utils_prompt_user (parent, GTK_RESPONSE_NO, NULL,
+					     _("`%s' already exists.\nOverwrite it?"), path);
 	}
 	
 	return TRUE;
@@ -2136,4 +2151,88 @@ em_utils_quote_message (CamelMimeMessage *message, const char *credits)
 	g_byte_array_free (buf, FALSE);
 	
 	return text;
+}
+
+
+/**
+ * em_utils_confirm_expunge:
+ * @parent: parent window
+ *
+ * Confirm that the user wishes to expunge.
+ *
+ * Returns %TRUE if the user really means it or %FALSE otherwise.
+ **/
+gboolean
+em_utils_confirm_expunge (GtkWidget *parent)
+{
+	gboolean res, show_again;
+	GConfClient *gconf;
+	
+	gconf = mail_config_get_gconf_client ();
+	
+	if (!gconf_client_get_bool (gconf, "/apps/evolution/mail/prompts/expunge", NULL))
+		return TRUE;
+	
+	/* FIXME: we need to get the parent GtkWindow from @parent... */
+	
+	res = em_utils_prompt_user (NULL, GTK_RESPONSE_NO, &show_again,
+				    _("This operation will permanently erase all messages marked as\n"
+				      "deleted. If you continue, you will not be able to recover these messages.\n"
+				      "\nReally erase these messages?"));
+	
+	gconf_client_set_bool (gconf, "/apps/evolution/mail/prompts/expunge", show_again, NULL);
+	
+	return res;
+}
+
+
+/**
+ * em_utils_empty_trash:
+ * @parent: parent window
+ *
+ * Empties all Trash folders.
+ **/
+void
+em_utils_empty_trash (GtkWidget *parent)
+{
+	extern CamelSession *session;
+	CamelProvider *provider;
+	EAccountList *accounts;
+	EAccount *account;
+	EIterator *iter;
+	CamelException ex;
+	
+	if (!em_utils_confirm_expunge (parent))
+		return;
+	
+	camel_exception_init (&ex);
+	
+	/* expunge all remote stores */
+	accounts = mail_config_get_accounts ();
+	iter = e_list_get_iterator ((EList *) accounts);
+	while (e_iterator_is_valid (iter)) {
+		account = (EAccount *) e_iterator_get (iter);
+		
+		/* make sure this is a valid source */
+		if (account->enabled && account->source->url) {
+			provider = camel_session_get_provider (session, account->source->url, &ex);
+			if (provider) {
+				/* make sure this store is a remote store */
+				if (provider->flags & CAMEL_PROVIDER_IS_STORAGE &&
+				    provider->flags & CAMEL_PROVIDER_IS_REMOTE) {
+					mail_empty_trash (account, NULL, NULL);
+				}
+			}
+			
+			/* clear the exception for the next round */
+			camel_exception_clear (&ex);
+		}
+		
+		e_iterator_next (iter);
+	}
+	
+	g_object_unref (iter);
+	
+	/* Now empty the local trash folder */
+	mail_empty_trash (NULL, NULL, NULL);
 }

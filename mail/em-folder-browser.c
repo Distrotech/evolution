@@ -38,6 +38,7 @@
 #include <libgnomeprintui/gnome-print-dialog.h>
 
 #include "mail-mt.h"
+#include "mail-ops.h"
 #include "mail-tools.h"
 #include "mail-config.h"
 
@@ -62,6 +63,7 @@
 #include <bonobo/bonobo-ui-util.h>
 
 /* for efilterbar stuff */
+#include <e-util/e-sexp.h>
 #include "mail-vfolder.h"
 #include "filter/vfolder-rule.h"
 #include <widgets/misc/e-filter-bar.h>
@@ -437,7 +439,10 @@ static void
 emfb_folder_expunge(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
-
+	
+	if (!em_utils_confirm_expunge ((GtkWidget *) emfb))
+		return;
+	
 	/* TODO: The old code did a LOT more than this, but was it reqiured? */
 	mail_expunge_folder(emfb->view.folder, NULL, NULL);
 }
@@ -493,8 +498,8 @@ static void
 emfb_empty_trash(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
-	/* FIXME: rename/refactor empty_trash to empty_trash(parent window) */
+	
+	em_utils_empty_trash ((GtkWidget *) emfv);
 }
 
 static void

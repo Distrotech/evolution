@@ -1,5 +1,18 @@
 2003-09-04  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-folder-browser.c (emfb_folder_expunge): Confirm hat the user
+	wants to expunge.
+	(emfb_empty_trash): Implemented.
+
+	* em-utils.c (em_utils_prompt_user): Make public (used to be
+	e_question).
+	(em_utils_confirm_expunge): New function to confirm that the user
+	wants to expunge.
+	(em_utils_empty_trash): New function to empty all Trash folders.
+
+	* em-composer-utils.c: Get rid of e_question and use em-utils'
+	em_utils_prompt_user() function instead.
+
 	* em-format-html-quote.[c,h]: New formatter for quoting
 	replies/forwards/etc.
 

@@ -32,10 +32,13 @@ extern "C" {
 #endif /* __cplusplus */
 
 struct _GtkWidget;
+struct _GtkWindow;
 struct _CamelFolder;
 struct _CamelMimeMessage;
 struct _GtkSelectionData;
 struct _GtkAdjustment;
+
+gboolean em_utils_prompt_user (struct _GtkWindow *parent, int def, gboolean *again, const char *fmt, ...);
 
 GPtrArray *em_utils_uids_copy (GPtrArray *uids);
 void em_utils_uids_free (GPtrArray *uids);
@@ -98,7 +101,12 @@ gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder, const char *uri)
 void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 
 
-char *em_utils_quote_message (CamelMimeMessage *message, const char *credits);
+char *em_utils_quote_message (struct _CamelMimeMessage *message, const char *credits);
+
+
+gboolean em_utils_confirm_expunge (struct _GtkWidget *parent);
+
+void em_utils_empty_trash (struct _GtkWidget *parent);
 
 #ifdef __cplusplus
 }
