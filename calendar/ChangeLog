@@ -1,5 +1,8 @@
 1998-12-17  Miguel de Icaza  <miguel@nuclecu.unam.mx>
 
+	* frontend.c (calendar_get_id): Provide a way to return unique IDs
+	from the client side.  Has the hook for the server. 
+
 	* calendar.c: Implement refcounting on the calendars (for the
 	server).
 

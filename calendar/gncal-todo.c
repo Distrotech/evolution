@@ -153,7 +153,7 @@ add_todo (GncalTodo *todo)
 {
 	iCalObject *ico;
 
-	ico = ical_new ("", user_name, "");
+	ico = ical_new (todo->calendar->cal, "", user_name, "");
 	ico->type = ICAL_TODO;
 	ico->new = TRUE;
 

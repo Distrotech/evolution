@@ -38,7 +38,7 @@ day_view_range_activated (GncalFullDay *fullday, GncalDayPanel *dpanel)
 {
 	iCalObject *ical;
 
-	ical = ical_new ("", user_name, "");
+	ical = ical_new (fullday->calendar->cal, "", user_name, "");
 	ical->new = 1;
 
 	gncal_full_day_selection_range (fullday, &ical->dtstart, &ical->dtend);

@@ -1475,7 +1475,7 @@ event_editor_new (GnomeCalendar *gcal, iCalObject *ical)
 	ee = EVENT_EDITOR (retval);
 	
 	if (ical == 0){
-		ical = ical_new ("", user_name, "");
+		ical = ical_new (gcal->cal, "", user_name, "");
 		ical->new     = 1;
 	}
 
@@ -1498,7 +1498,7 @@ event_editor_new_whole_day (GnomeCalendar *owner, time_t day)
 	g_return_if_fail (owner != NULL);
 	g_return_if_fail (GNOME_IS_CALENDAR (owner));
 
-	ico = ical_new ("", user_name, "");
+	ico = ical_new (owner->cal, "", user_name, "");
 	ico->new = TRUE;
 
 	tm = *localtime (&day);

@@ -187,7 +187,7 @@ display_objedit (GtkWidget *widget, GnomeCalendar *gcal)
 	iCalObject *ico;
 
 	/* Default to the day the user is looking at */
-	ico = ical_new ("", user_name, "");
+	ico = ical_new (gcal->cal, "", user_name, "");
 	ico->new = 1;
 	ico->dtstart = time_add_minutes (gcal->current_display, day_begin * 60);
 	ico->dtend   = time_add_minutes (ico->dtstart, day_begin * 60 + 30 );

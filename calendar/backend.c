@@ -15,6 +15,16 @@ backend_init (char *base_directory)
 	base_directory = base_directory;
 }
 
+int
+calendar_get_id (Calendar *cal)
+{
+	static int id;
+
+	
+	g_warning ("This is broken.  We need to get id from a file on the disk (relative to %s)\n", base_directory);
+	return id++;
+}
+
 Calendar *
 backend_open_calendar (char *username)
 {
@@ -73,6 +83,8 @@ backend_list_users (void)
 	}
 	
 	closedir (dir);
+
+	return list;
 }
 
 /**

@@ -115,7 +115,7 @@ new_appointment (GtkWidget *widget, gpointer data)
 	GtkWidget *ee;
 	struct tm tm;
 	
-	ico = ical_new ("", user_name, "");
+	ico = ical_new (dayview->calendar->cal, "", user_name, "");
 	ico->new = 1;
 
 	tm = *localtime (&dayview->lower);

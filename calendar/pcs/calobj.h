@@ -177,8 +177,8 @@ typedef struct {
 /* The callback for the recurrence generator */
 typedef int (*calendarfn) (iCalObject *, time_t, time_t, void *);
 
-iCalObject *ical_new                        (char *comment, char *organizer, char *summary);
-iCalObject *ical_object_new                 (void);
+iCalObject *ical_new                        (void *calendar, char *comment, char *organizer, char *summary);
+iCalObject *ical_object_new                 (void *calendar);
 void        ical_object_destroy             (iCalObject *ico);
 iCalObject *ical_object_create_from_vobject (VObject *obj, const char *object_name);
 VObject    *ical_object_to_vobject          (iCalObject *ical);

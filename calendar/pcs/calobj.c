@@ -10,17 +10,19 @@
 #include <glib.h>
 #include <ctype.h>
 #include "calobj.h"
+#include "calendar.h"
 #include "timeutil.h"
 #include "../libversit/vcc.h"
 
 iCalObject *
-ical_object_new (void)
+ical_object_new (void *_calendar)
 {
 	iCalObject *ico;
-
+	Calendar *cal = _calendar;
+	
 	ico = g_new0 (iCalObject, 1);
 	
-	ico->seq = -1;
+	ico->seq = calendar_get_id (cal);
 	ico->dtstamp = time (NULL);
 
 	return ico;
@@ -46,12 +48,19 @@ default_alarm (iCalObject *ical, CalendarAlarm *alarm, char *def_mail, enum Alar
 		alarm->data = g_strdup ("");
 }
 
+/**
+ * ical_new:
+ * @calendar: the calendar we are bound to
+ * @comment:   a comment
+ * @organizer: who created this event
+ * @summary:   summary description
+ */
 iCalObject *
-ical_new (char *comment, char *organizer, char *summary)
+ical_new (void *calendar, char *comment, char *organizer, char *summary)
 {
 	iCalObject *ico;
 
-	ico = ical_object_new ();
+	ico = ical_object_new (calendar);
 
 	ico->comment   = g_strdup (comment);
 	ico->organizer = g_strdup (organizer);

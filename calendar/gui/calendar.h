@@ -6,6 +6,11 @@
 BEGIN_GNOME_DECLS
 
 typedef struct {
+	char *server_path;
+	int  socket_connection;
+} CalendarServer;
+
+typedef struct {
 	int     ref_count;
 	/* This calendar's title */
 	char    *title;
@@ -24,6 +29,8 @@ typedef struct {
 	/* If the calendar was last modified */
 	int     modified;
 	void    *temp;
+
+	CalendarServer *server;
 } Calendar;
 
 /* This is only used by the calendar_get_events_in_range routine to get
@@ -65,6 +72,8 @@ void      calendar_object_changed   (Calendar *cal, iCalObject *obj, int flags);
 void      calendar_notify           (time_t time, CalendarAlarm *which, void *data);
 
 void      ical_object_try_alarms    (iCalObject *obj);
+
+int       calendar_get_id           (Calendar *cal);
 
 extern time_t calendar_day_begin, calendar_day_end;
 

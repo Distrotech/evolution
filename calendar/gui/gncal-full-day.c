@@ -402,7 +402,7 @@ new_appointment (GtkWidget *widget, gpointer data)
 	
 	fullday = GNCAL_FULL_DAY (data);
 
-	ico = ical_new ("", user_name, "");
+	ico = ical_new (fullday->calendar->cal, "", user_name, "");
 	ico->new = 1;
 	
 	gncal_full_day_selection_range (fullday, &ico->dtstart, &ico->dtend);
