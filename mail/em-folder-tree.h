@@ -27,6 +27,8 @@
 #include <gtk/gtkvbox.h>
 #include <camel/camel-store.h>
 
+#include "em-folder-tree-model.h"
+
 #ifdef __cplusplus
 extern "C" {
 #pragma }
@@ -53,18 +55,13 @@ struct _EMFolderTreeClass {
 	
 	/* signals */
 	void (* folder_selected) (EMFolderTree *emft, const char *path, const char *uri);
-	void (* folder_dragged) (EMFolderTree *emft, const char *path, const char *uri,
-				 GdkDragContext *context, GtkSelectionData *selection,
-				 guint info, guint time);
-	void (* folder_receive_drop) (EMFolderTree *emft, const char *path, const char *uri,
-				      GdkDragContext *context, GtkSelectionData *selection,
-				      guint info, guint time);
 };
 
 
 GType em_folder_tree_get_type (void);
 
 GtkWidget *em_folder_tree_new (void);
+GtkWidget *em_folder_tree_new_with_model (EMFolderTreeModel *model);
 
 void em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *display_name);
 void em_folder_tree_remove_store (EMFolderTree *emft, CamelStore *store);
