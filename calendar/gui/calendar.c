@@ -173,10 +173,10 @@ char *
 ice (time_t t)
 {
 	static char buffer [100];
-	struct tm *tm;
+	struct tm tm;
 
-	tm = localtime (&t);
-	sprintf (buffer, "%d/%d/%d", tm->tm_mday, tm->tm_mon, tm->tm_year);
+	tm = *localtime (&t);
+	sprintf (buffer, "%d/%d/%d", tm.tm_mday, tm.tm_mon, tm.tm_year);
 	return buffer;
 }
 
@@ -330,18 +330,18 @@ calendar_save (Calendar *cal, char *fname)
 	GList   *l;
 	time_t  now = time (NULL);
 	struct  stat s;
-	struct tm *tm;
+	struct tm tm;
 	
 	if (fname == NULL)
 		fname = cal->filename;
 
-	/* WE call localtime for the side effect of setting tzname */
-	tm = localtime (&now);
+	/* We call localtime for the side effect of setting tzname */
+	tm = *localtime (&now);
 	
 	vcal = newVObject (VCCalProp);
 	addPropValue (vcal, VCProdIdProp, "-//GNOME//NONSGML GnomeCalendar//EN");
 #if defined(HAVE_TM_ZONE)
-	addPropValue (vcal, VCTimeZoneProp, tm->tm_zone);
+	addPropValue (vcal, VCTimeZoneProp, tm.tm_zone);
 #elif defined(HAVE_TZNAME)
 	addPropValue (vcal, VCTimeZoneProp, tzname[0]);
 #endif

@@ -223,9 +223,9 @@ weekdaylist (iCalObject *o, char **str)
 	} while (isalpha (**str));
 	
 	if (o->recur->weekday == 0){
-		struct tm *tm = localtime (&o->dtstart);
+		struct tm tm = *localtime (&o->dtstart);
 
-		o->recur->weekday = 1 << tm->tm_wday;
+		o->recur->weekday = 1 << tm.tm_wday;
 	}
 }
 
@@ -328,9 +328,9 @@ daynumberlist (iCalObject *o, char **str)
 			 * Some broken applications set this to zero
 			 */
 			if (val == 0){
-				struct tm *day = localtime (&o->dtstart);
+				struct tm day = *localtime (&o->dtstart);
 				
-				val = day->tm_mday;
+				val = day.tm_mday;
 			}
 			o->recur->u.month_day = val;
 			first = 1;
@@ -855,27 +855,27 @@ static VObject *
 save_alarm (VObject *o, CalendarAlarm *alarm, iCalObject *ical)
 {
 	VObject *alarm_object;
-	struct tm *tm;
+	struct tm tm;
 	time_t alarm_time;
 	
 	if (!alarm->enabled)
 		return NULL;
-	tm = localtime (&ical->dtstart);
+	tm = *localtime (&ical->dtstart);
 	switch (alarm->units){
 	case ALARM_MINUTES:
-		tm->tm_min -= alarm->count;
+		tm.tm_min -= alarm->count;
 		break;
 		
 	case ALARM_HOURS:
-		tm->tm_hour -= alarm->count;
+		tm.tm_hour -= alarm->count;
 		break;
 		
 	case ALARM_DAYS:
-		tm->tm_mday -= alarm->count;
+		tm.tm_mday -= alarm->count;
 		break;
 	}
 	
-	alarm_time = mktime (tm);
+	alarm_time = mktime (&tm);
 	alarm_object = addProp (o, alarm_names [alarm->type]);
 	addPropValue (alarm_object, VCRunTimeProp, isodate_from_time_t (alarm_time));
 
@@ -1061,15 +1061,15 @@ ical_foreach (GList *events, calendarfn fn, void *closure)
 static int
 is_date_in_list (GList *list, struct tm *date)
 {
-	struct tm *tm;
+	struct tm tm;
 	
 	for (; list; list = list->next){
 		time_t *timep = list->data;
 		
-		tm = localtime (timep);
-		if (date->tm_mday == tm->tm_mday &&
-		    date->tm_mon  == tm->tm_mon &&
-		    date->tm_year == tm->tm_year){
+		tm = *localtime (timep);
+		if (date->tm_mday == tm.tm_mday &&
+		    date->tm_mon  == tm.tm_mon &&
+		    date->tm_year == tm.tm_year){
 			return 1;
 		}
 	}
@@ -1199,13 +1199,13 @@ ical_object_generate_events (iCalObject *ico, time_t start, time_t end, calendar
 		
 	case RECUR_WEEKLY:
 		do {
-			struct tm *tm;
+			struct tm tm;
 
-			tm = localtime (&current);
+			tm = *localtime (&current);
 
 			if (time_in_range (current, start, end) && recur_in_range (current, ico->recur)) {
 				/* Weekdays to recur on are specified as a bitmask */
-			  if (ico->recur->weekday & (1 << tm->tm_wday)) {
+			  if (ico->recur->weekday & (1 << tm.tm_wday)) {
 					if (!generate (ico, current, cb, closure))
 						return;
 			  }
@@ -1213,7 +1213,7 @@ ical_object_generate_events (iCalObject *ico, time_t start, time_t end, calendar
 
 			/* Advance by day for scanning the week or by interval at week end */
 
-			if (tm->tm_wday == 6)
+			if (tm.tm_wday == 6)
 				current = time_add_day (current, (ico->recur->interval - 1) * 7 + 1);
 			else
 				current = time_add_day (current, 1);
@@ -1332,24 +1332,24 @@ ical_object_generate_events (iCalObject *ico, time_t start, time_t end, calendar
 
 	case RECUR_MONTHLY_BY_DAY:
 		do {
-			struct tm *tm;
+			struct tm tm;
 			time_t t;
 			int    p;
 
-			tm = localtime (&current);
+			tm = *localtime (&current);
 
-			p = tm->tm_mday;
-			tm->tm_mday = ico->recur->u.month_day;
-			t = mktime (tm);
+			p = tm.tm_mday;
+			tm.tm_mday = ico->recur->u.month_day;
+			t = mktime (&tm);
 			if (time_in_range (t, start, end) && recur_in_range (current, ico->recur))
 				if (!generate (ico, t, cb, closure))
 					return;
 
 			/* Advance by the appropriate number of months */
 
-			tm->tm_mday = p;
-			tm->tm_mon += ico->recur->interval;
-			current = mktime (tm);
+			tm.tm_mday = p;
+			tm.tm_mon += ico->recur->interval;
+			current = mktime (&tm);
 
 			if (current == -1) {
 				g_warning ("RECUR_MONTHLY_BY_DAY: mktime error\n");
@@ -1382,9 +1382,9 @@ static int
 duration_callback (iCalObject *ico, time_t start, time_t end, void *closure)
 {
 	int *count = closure;
-	struct tm *tm;
+	struct tm tm;
 
-	tm = localtime (&start);
+	tm = *localtime (&start);
 
 	(*count)++;
 	if (ico->recur->duration == *count) {
