@@ -16,6 +16,7 @@
 #include <glib-object.h>
 #include <stdio.h>
 #include <ebook/e-card-types.h>
+#include <ebook/e-book-types.h>
 #include <e-util/e-list.h>
 
 #define E_TYPE_CARD            (e_card_get_type ())
@@ -197,11 +198,9 @@ GList                *e_card_load_cards_from_string_with_default_charset  (const
 void                  e_card_free_empty_lists                             (ECard                      *card);
 
 /* Getting ECards via their URIs */
-typedef void (*ECardCallback) (ECard *card, gpointer closure);
-void                  e_card_load_uri                       (const gchar                *book_uri,
+EBookStatus           e_card_load_uri                       (const gchar                *book_uri,
 							     const gchar                *uid,
-							     ECardCallback               cb,
-							     gpointer                    closure);
+							     ECard                      **card);
 
 
 GType               e_card_get_type                         (void);

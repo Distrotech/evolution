@@ -19,7 +19,7 @@
 static EBookViewStatus e_book_view_listener_convert_status (GNOME_Evolution_Addressbook_BookViewListener_CallStatus status);
 
 enum {
-	RESPONSES_QUEUED,
+	RESPONSE,
 	LAST_SIGNAL
 };
 
@@ -44,7 +44,7 @@ e_book_view_listener_check_queue (EBookViewListener *listener)
 	listener->priv->timeout_lock = TRUE;
 
 	if (listener->priv->response_queue != NULL && !listener->priv->stopped) {
-		g_signal_emit (listener, e_book_view_listener_signals [RESPONSES_QUEUED], 0);
+		g_signal_emit (listener, e_book_view_listener_signals [RESPONSE], 0);
 	}
 
 	if (listener->priv->response_queue == NULL || listener->priv->stopped) {
@@ -147,7 +147,7 @@ e_book_view_listener_queue_idlist_event (EBookViewListener          *listener,
 	resp = g_new0 (EBookViewListenerResponse, 1);
 
 	resp->op        = op;
-	resp->status    = E_BOOK_VIEW_STATUS_SUCCESS;
+	resp->status    = E_BOOK_VIEW_STATUS_OK;
 	resp->ids       = NULL;
 	resp->cards     = NULL;
 	resp->message   = NULL;
@@ -174,7 +174,7 @@ e_book_view_listener_queue_sequence_event (EBookViewListener          *listener,
 	resp = g_new0 (EBookViewListenerResponse, 1);
 
 	resp->op        = op;
-	resp->status    = E_BOOK_VIEW_STATUS_SUCCESS;
+	resp->status    = E_BOOK_VIEW_STATUS_OK;
 	resp->ids       = NULL;
 	resp->cards     = NULL;
 	resp->message   = NULL;
@@ -200,7 +200,7 @@ e_book_view_listener_queue_message_event (EBookViewListener          *listener,
 	resp = g_new0 (EBookViewListenerResponse, 1);
 
 	resp->op        = op;
-	resp->status    = E_BOOK_VIEW_STATUS_SUCCESS;
+	resp->status    = E_BOOK_VIEW_STATUS_OK;
 	resp->ids       = NULL;
 	resp->cards     = NULL;
 	resp->message   = g_strdup(message);
@@ -252,9 +252,10 @@ impl_BookViewListener_notify_sequence_complete (PortableServer_Servant servant,
 }
 
 static void
-impl_BookViewListener_notify_status_message (PortableServer_Servant  servant,
-					     const char             *message,
-					     CORBA_Environment      *ev)
+impl_BookViewListener_notify_progress (PortableServer_Servant  servant,
+				       const char             *message,
+				       const CORBA_short       percent,
+				       CORBA_Environment      *ev)
 {
 	EBookViewListener *listener = E_BOOK_VIEW_LISTENER (bonobo_object (servant));
 
@@ -313,7 +314,7 @@ e_book_view_listener_convert_status (const GNOME_Evolution_Addressbook_BookViewL
 {
 	switch (status) {
 	case GNOME_Evolution_Addressbook_BookViewListener_Success:
-		return E_BOOK_VIEW_STATUS_SUCCESS;
+		return E_BOOK_VIEW_STATUS_OK;
 	case GNOME_Evolution_Addressbook_BookViewListener_SearchTimeLimitExceeded:
 		return E_BOOK_VIEW_STATUS_TIME_LIMIT_EXCEEDED;
 	case GNOME_Evolution_Addressbook_BookViewListener_SearchSizeLimitExceeded:
@@ -323,12 +324,8 @@ e_book_view_listener_convert_status (const GNOME_Evolution_Addressbook_BookViewL
 	case GNOME_Evolution_Addressbook_BookViewListener_QueryRefused:
 		return E_BOOK_VIEW_STATUS_QUERY_REFUSED;
 	case GNOME_Evolution_Addressbook_BookViewListener_OtherError:
-		return E_BOOK_VIEW_STATUS_OTHER_ERROR;
 	default:
-		g_warning ("e_book_view_listener_convert_status: Unknown status "
-			   "from card server: %d\n", (int) status);
-		return E_BOOK_VIEW_STATUS_UNKNOWN;
-
+		return E_BOOK_VIEW_STATUS_OTHER_ERROR;
 	}
 }
 
@@ -423,14 +420,15 @@ e_book_view_listener_class_init (EBookViewListenerClass *klass)
 
 	parent_class = g_type_class_ref (BONOBO_TYPE_OBJECT);
 
-	e_book_view_listener_signals [RESPONSES_QUEUED] =
-		g_signal_new ("responses_queued",
+	e_book_view_listener_signals [RESPONSE] =
+		g_signal_new ("response",
 			      G_OBJECT_CLASS_TYPE (object_class),
 			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EBookViewListenerClass, responses_queued),
+			      G_STRUCT_OFFSET (EBookViewListenerClass, response),
 			      NULL, NULL,
-			      e_book_marshal_NONE__NONE,
-			      G_TYPE_NONE, 0);
+			      e_book_marshal_NONE__POINTER,
+			      G_TYPE_NONE,
+			      1, G_TYPE_POINTER);
 
 	object_class->dispose = e_book_view_listener_dispose;
 
@@ -439,7 +437,7 @@ e_book_view_listener_class_init (EBookViewListenerClass *klass)
 	epv->notifyCardsRemoved     = impl_BookViewListener_notify_cards_removed;
 	epv->notifyCardAdded        = impl_BookViewListener_notify_card_added;
 	epv->notifySequenceComplete = impl_BookViewListener_notify_sequence_complete;
-	epv->notifyStatusMessage    = impl_BookViewListener_notify_status_message;
+	epv->notifyProgress         = impl_BookViewListener_notify_progress;
 }
 
 BONOBO_TYPE_FUNC_FULL (

@@ -29,6 +29,7 @@ G_BEGIN_DECLS
 typedef struct _EBookListener EBookListener;
 typedef struct _EBookListenerClass EBookListenerClass;
 typedef struct _EBookListenerPrivate EBookListenerPrivate;
+typedef struct _EBookListenerResponse  EBookListenerResponse;
 
 struct _EBookListener {
 	BonoboObject           parent;
@@ -42,7 +43,7 @@ struct _EBookListenerClass {
 	/*
 	 * Signals
 	 */
-	void (*responses_queued) (void);
+	void (*response) (EBookListener *listener, EBookListenerResponse *response);
 };
 
 typedef enum {
@@ -52,7 +53,7 @@ typedef enum {
 	RemoveCardResponse,
 	ModifyCardResponse,
 	GetCardResponse,
-	GetCursorResponse,
+	GetCardListResponse,
 	GetBookViewResponse,
 	GetChangesResponse,
 	AuthenticationResponse,
@@ -62,11 +63,13 @@ typedef enum {
 	/* Async events */
 	LinkStatusEvent,
 	WritableStatusEvent,
-	OpenProgressEvent,
+	ProgressEvent,
 } EBookListenerOperation;
 
-typedef struct {
+struct _EBookListenerResponse {
 	EBookListenerOperation  op;
+
+	GNOME_Evolution_Addressbook_RequestId corba_id;
 
 	/* For most Response notifications */
 	EBookStatus             status;
@@ -74,16 +77,13 @@ typedef struct {
 	/* For OpenBookResponse */
 	GNOME_Evolution_Addressbook_Book          book;
 
-	/* For GetCursorResponse */
-	GNOME_Evolution_Addressbook_CardCursor    cursor;
-
 	/* For GetBookViewReponse */
 	GNOME_Evolution_Addressbook_BookView      book_view;
 
 	/* For GetSupportedFields/GetSupportedAuthMethods */
 	EList                                    *list;
 
-	/* For OpenProgressEvent */
+	/* For ProgressEvent */
 	char                   *msg;
 	short                   percent;
 
@@ -96,7 +96,7 @@ typedef struct {
 	/* For Card[Added|Removed|Modified]Event */
 	char                   *id;
 	char                   *vcard;
-} EBookListenerResponse;
+};
 
 
 EBookListener         *e_book_listener_new            (void);

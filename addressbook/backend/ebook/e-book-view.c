@@ -11,7 +11,6 @@
 #include <config.h>
 
 #include "addressbook.h"
-#include "e-card-cursor.h"
 #include "e-book-view-listener.h"
 #include "e-book-view.h"
 #include "e-book.h"

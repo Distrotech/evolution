@@ -14,8 +14,9 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <e-util/e-list.h>
 #include <ebook/e-card.h>
-#include <ebook/e-card-cursor.h>
+#include <ebook/e-book-query.h>
 #include <ebook/e-book-view.h>
 #include <ebook/e-book-types.h>
 
@@ -43,127 +44,78 @@ struct _EBookClass {
 	/*
 	 * Signals.
 	 */
-	void (* open_progress)   (EBook *book, const char *msg, short percent);
-	void (* link_status)     (EBook *book, gboolean connected);
 	void (* writable_status) (EBook *book, gboolean writable);
 	void (* backend_died)    (EBook *book);
 };
 
-/* Callbacks for asynchronous functions. */
-typedef void (*EBookCallback) (EBook *book, EBookStatus status, gpointer closure);
-typedef void (*EBookOpenProgressCallback)     (EBook          *book,
-					       const char     *status_message,
-					       short           percent,
-					       gpointer        closure);
-typedef void (*EBookIdCallback)       (EBook *book, EBookStatus status, const char *id, gpointer closure);
-typedef void (*EBookCardCallback)     (EBook *book, EBookStatus status, ECard *card, gpointer closure);
-typedef void (*EBookCursorCallback)   (EBook *book, EBookStatus status, ECardCursor *cursor, gpointer closure);
-typedef void (*EBookBookViewCallback) (EBook *book, EBookStatus status, EBookView *book_view, gpointer closure);
-typedef void (*EBookFieldsCallback)   (EBook *book, EBookStatus status, EList *fields, gpointer closure);
-typedef void (*EBookAuthMethodsCallback) (EBook *book, EBookStatus status, EList *auth_methods, gpointer closure);
-
 /* Creating a new addressbook. */
-EBook    *e_book_new                      (void);
+EBook      *e_book_new                   (void);
 
-void      e_book_load_uri                 (EBook                 *book,
-					   const char            *uri,
-					   EBookCallback          open_response,
-					   gpointer               closure);
-void      e_book_unload_uri               (EBook                 *book);
+/* loading arbitrary addressbooks */
+EBookStatus e_book_load_uri              (EBook       *book,
+					  const char  *uri);
 
-const char *e_book_get_uri                (EBook                 *book);
+EBookStatus e_book_unload_uri            (EBook       *book);
 
-char     *e_book_get_static_capabilities  (EBook                 *book);
-gboolean  e_book_check_static_capability  (EBook                 *book, const char *cap);
+/* convenience function for loading the "local" contact folder */
+EBookStatus e_book_load_local_addressbook (EBook *book);
 
-guint     e_book_get_supported_fields     (EBook                 *book,
-					   EBookFieldsCallback    cb,
-					   gpointer               closure);
+EBookStatus e_book_get_supported_fields  (EBook       *book,
+					  EList      **fields);
 
-guint     e_book_get_supported_auth_methods (EBook                    *book,
-					     EBookAuthMethodsCallback  cb,
-					     gpointer                  closure);
+EBookStatus e_book_get_supported_auth_methods (EBook       *book,
+					       EList      **auth_methods);
 
 /* User authentication. */
-void      e_book_authenticate_user        (EBook                 *book,
-					   const char            *user,
-					   const char            *passwd,
-					   const char            *auth_method,
-					   EBookCallback         cb,
-					   gpointer              closure);
+EBookStatus e_book_authenticate_user     (EBook       *book,
+					  const char  *user,
+					  const char  *passwd,
+					  const char  *auth_method);
 
 /* Fetching cards. */
-guint     e_book_get_card                 (EBook                 *book,
-					   const char            *id,
-					   EBookCardCallback      cb,
-					   gpointer               closure);
+EBookStatus e_book_get_card              (EBook       *book,
+					  const char  *id,
+					  ECard      **card);
 
 /* Deleting cards. */
-gboolean  e_book_remove_card              (EBook                 *book,
-					   ECard                 *card,
-					   EBookCallback          cb,
-					   gpointer               closure);
-gboolean  e_book_remove_card_by_id        (EBook                 *book,
-					   const char            *id,
-					   EBookCallback          cb,
-					   gpointer               closure);
+EBookStatus e_book_remove_card           (EBook       *book,
+					  const char  *id);
 
-gboolean e_book_remove_cards              (EBook                 *book,
-					   GList                 *id_list,
-					   EBookCallback          cb,
-					   gpointer               closure);
+EBookStatus e_book_remove_cards          (EBook       *book,
+					  EList       *id_list);
 
 /* Adding cards. */
-gboolean  e_book_add_card                 (EBook                 *book,
-					   ECard                 *card,
-					   EBookIdCallback        cb,
-					   gpointer               closure);
-gboolean  e_book_add_vcard                (EBook                 *book,
-					   const char            *vcard,
-					   EBookIdCallback        cb,
-					   gpointer               closure);
+EBookStatus e_book_add_card              (EBook       *book,
+					  ECard       *card);
 
 /* Modifying cards. */
-gboolean  e_book_commit_card              (EBook                 *book,
-					   ECard                 *card,
-					   EBookCallback          cb,
-					   gpointer               closure);
-gboolean  e_book_commit_vcard             (EBook                 *book,
-					   const char            *vcard,
-					   EBookCallback          cb,
-					   gpointer               closure);
+EBookStatus e_book_commit_card           (EBook       *book,
+					  ECard       *card);
 
-/* Checking to see if we're connected to the card repository. */
-gboolean  e_book_check_connection         (EBook                 *book);
-guint     e_book_get_cursor               (EBook                 *book,
-					   char                  *query,
-					   EBookCursorCallback    cb,
-					   gpointer               closure);
+EBookStatus e_book_get_book_view         (EBook       *book,
+					  EBookQuery  *query,
+					  EList       *requested_fields,
+					  int          max_results,
+					  EBookView  **book_view);
 
-guint     e_book_get_book_view            (EBook                 *book,
-					   const gchar           *query,
-					   EBookBookViewCallback  cb,
-					   gpointer               closure);
+EBookStatus e_book_get_card_list         (EBook       *book,
+					  EBookQuery  *query,
+					  EList       **cards);
 
-guint     e_book_get_completion_view      (EBook                 *book,
-					   const gchar           *query,
-					   EBookBookViewCallback  cb,
-					   gpointer               closure);
+EBookStatus e_book_get_changes           (EBook       *book,
+					  char        *changeid,
+					  EBookView  **book_view);
 
-guint     e_book_get_changes              (EBook                 *book,
-					   char                  *changeid,
-					   EBookBookViewCallback  cb,
-					   gpointer               closure);
+const char *e_book_get_uri               (EBook       *book);
+
+const char *e_book_get_static_capabilities (EBook       *book);
+gboolean    e_book_check_static_capability (EBook       *book,
+					    const char  *cap);
 
 /* Cancel a pending operation. */
-void      e_book_cancel                   (EBook                 *book,
-					   guint                  tag);
+EBookStatus e_book_cancel                  (EBook *book);
 
-
-/* Getting the name of the repository. */
-char     *e_book_get_name                 (EBook                 *book);
-
-GType     e_book_get_type                 (void);
+GType     e_book_get_type                (void);
 
 G_END_DECLS
 

@@ -1,13 +1,4 @@
-noinst_PROGRAMS = test-card test-client test-client-list
-
-privlibexec_PROGRAMS =				\
-	evolution-vcard-importer		\
-	evolution-ldif-importer
-
-toolsdir = $(privlibexecdir)/
-tools_PROGRAMS =				\
-	load-pine-addressbook			\
-	load-gnomecard-addressbook
+noinst_PROGRAMS = test-ebook
 
 # CORBA stuff
 
@@ -59,15 +50,13 @@ libebook_la_SOURCES =					\
 	$(CORBA_SOURCE)					\
 	e-book-listener.c				\
 	e-book-marshal.c				\
+	e-book-query.c					\
 	e-book-view-listener.c				\
 	e-book-view.c					\
 	e-book.c					\
-	e-book-util.c					\
-	e-card-cursor.c					\
 	e-card-simple.c					\
 	e-card.c					\
-	e-card-compare.c				\
-	e-destination.c
+	e-vcard.c
 
 libebook_la_LIBADD =					\
 	$(top_builddir)/libversit/libversit.la		\
@@ -79,17 +68,15 @@ libebookincludedir = $(privincludedir)/ebook
 
 libebookinclude_HEADERS =				\
 	e-book-listener.h				\
+	e-book-query.h					\
 	e-book-types.h					\
 	e-book-view-listener.h				\
 	e-book-view.h					\
 	e-book.h					\
-	e-book-util.h					\
-	e-card-cursor.h					\
 	e-card-simple.h					\
 	e-card-types.h					\
 	e-card.h					\
-	e-card-compare.h				\
-	e-destination.h					\
+	e-vcard.h					\
 	addressbook.h
 
 
@@ -111,76 +98,18 @@ e-book-marshal.c: e-book-marshal.h
 	&& mv e-book-marshal.c.tmp e-book-marshal.c ) \
 	|| ( rm -f e-book-marshal.c.tmp && exit 1 )
 
+test_ebook_SOURCES =					\
+	test-ebook.c
+
+test_ebook_LDADD =					\
+	libebook.la					\
+	$(EVOLUTION_ADDRESSBOOK_LIBS)
+
 MARSHAL_GENERATED = e-book-marshal.c e-book-marshal.h
 
-test_client_SOURCES =					\
-	test-client.c
 
-test_client_LDADD =					\
-	libebook.la					\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
-test_client_list_SOURCES =				\
-	test-client-list.c
-
-test_client_list_LDADD =				\
-	libebook.la					\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
-test_card_SOURCES =					\
-	test-card.c
-
-test_card_LDADD =					\
-	libebook.la					\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
-evolution_vcard_importer_SOURCES = \
-	evolution-vcard-importer.c
-
-evolution_vcard_importer_LDADD =				\
-	libebook.la						\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)				\
-	$(top_builddir)/shell/importer/libevolution-importer.la \
-	$(DB3_LDADD)
-
-evolution_ldif_importer_SOURCES = \
-	evolution-ldif-importer.c
-
-evolution_ldif_importer_LDADD =					\
-	libebook.la						\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)				\
-	$(top_builddir)/shell/importer/libevolution-importer.la \
-	$(DB3_LDADD)
-
-load_pine_addressbook_SOURCES =				\
-	load-pine-addressbook.c
-
-load_pine_addressbook_LDADD =				\
-	libebook.la					\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
-load_gnomecard_addressbook_SOURCES =			\
-	load-gnomecard-addressbook.c
-
-load_gnomecard_addressbook_LDADD =			\
-	libebook.la					\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
-
-BUILT_SOURCES = $(CORBA_SOURCE) $(MARSHAL_GENERATED) $(server_DATA)
+BUILT_SOURCES = $(CORBA_SOURCE) $(MARSHAL_GENERATED)
 CLEANFILES    = $(BUILT_SOURCES)
 
 dist-hook:
 	cd $(distdir); rm -f $(BUILT_SOURCES)
-
-server_in_files = GNOME_Evolution_Addressbook_VCard_Importer.server.in.in \
-		  GNOME_Evolution_Addressbook_LDIF_Importer.server.in.in
-
-server_DATA = $(server_in_files:.server.in.in=.server)
-%.server.in: %.server.in.in
-	sed -e "s|\@LIBEXECDIR\@|$(privlibexecdir)|" $< > $@
-
-
-@INTLTOOL_SERVER_RULE@
-
-EXTRA_DIST = $(server_in_files) $(server_DATA) e-book-marshal.list

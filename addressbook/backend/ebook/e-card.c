@@ -2748,54 +2748,20 @@ e_card_evolution_list_show_addresses (ECard *card)
 	return card->list_show_addresses;
 }
 
-typedef struct _CardLoadData CardLoadData;
-struct _CardLoadData {
-	gchar *card_id;
-	ECardCallback cb;
-	gpointer closure;
-};
-
-static void
-get_card_cb (EBook *book, EBookStatus status, ECard *card, gpointer closure)
+EBookStatus
+e_card_load_uri (const gchar *book_uri, const gchar *uid, ECard **card)
 {
-	CardLoadData *data = (CardLoadData *) closure;
+	EBook *book = e_book_new ();
+	EBookStatus status;
 
-	if (data->cb != NULL) {
-		if (status == E_BOOK_STATUS_SUCCESS)
-			data->cb (card, data->closure);
-		else
-			data->cb (NULL, data->closure);
+	status = e_book_load_uri (book, book_uri);
+	if (status != E_BOOK_STATUS_OK) {
+		g_object_unref (book);
+		return status;
 	}
 
-	g_free (data->card_id);
-	g_free (data);
-}
+	status = e_book_get_card (book, uid, card);
 
-static void
-card_load_cb (EBook *book, EBookStatus status, gpointer closure)
-{
-	CardLoadData *data = (CardLoadData *) closure;
-
-	if (status == E_BOOK_STATUS_SUCCESS)
-		e_book_get_card (book, data->card_id, get_card_cb, closure);
-	else {
-		data->cb (NULL, data->closure);
-		g_free (data->card_id);
-		g_free (data);
-	}
-}
-
-void
-e_card_load_uri (const gchar *book_uri, const gchar *uid, ECardCallback cb, gpointer closure)
-{
-	CardLoadData *data;
-	EBook *book;
-	
-	data          = g_new (CardLoadData, 1);
-	data->card_id = g_strdup (uid);
-	data->cb      = cb;
-	data->closure = closure;
-
-	book = e_book_new ();
-	e_book_load_uri (book, book_uri, card_load_cb, data);
+	g_object_unref (book);
+	return status;
 }

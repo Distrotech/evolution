@@ -29,6 +29,8 @@ typedef struct _EBookViewListener EBookViewListener;
 typedef struct _EBookViewListenerClass EBookViewListenerClass;
 typedef struct _EBookViewListenerPrivate EBookViewListenerPrivate;
 
+typedef struct _EBookViewListenerResponse EBookViewListenerResponse;
+
 struct _EBookViewListener {
 	BonoboObject           parent;
 	EBookViewListenerPrivate *priv;
@@ -42,7 +44,7 @@ struct _EBookViewListenerClass {
 	/*
 	 * Signals
 	 */
-	void (*responses_queued) (void);
+	void (*response) (EBookViewListener *listener, EBookViewListenerResponse *response);
 };
 
 typedef enum {
@@ -54,7 +56,7 @@ typedef enum {
 	StatusMessageEvent,
 } EBookViewListenerOperation;
 
-typedef struct {
+struct _EBookViewListenerResponse {
 	EBookViewListenerOperation  op;
 
 	/* For SequenceComplete */
@@ -69,7 +71,7 @@ typedef struct {
 	/* For StatusMessageEvent */
 	char                   *message;
 	
-} EBookViewListenerResponse;
+};
 
 EBookViewListener         *e_book_view_listener_new            (void);
 int                        e_book_view_listener_check_pending  (EBookViewListener *listener);
