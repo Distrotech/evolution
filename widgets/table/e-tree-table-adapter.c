@@ -583,8 +583,10 @@ etta_proxy_node_removed (ETableModel *etm, ETreePath parent, ETreePath child, ET
 			etta->priv->map_table + row + to_remove,
 			(etta->priv->n_map - row - to_remove) * sizeof (ETreePath));
 
-		parent_node->num_visible_children -= to_remove;
-		etta_update_parent_child_counts(etta, parent, - to_remove);
+		if (parent_node)
+			parent_node->num_visible_children -= to_remove;
+		if (parent)
+			etta_update_parent_child_counts(etta, parent, - to_remove);
 
 		if (to_remove > 1) {
 			e_table_model_changed(E_TABLE_MODEL(etta));
