@@ -42,6 +42,7 @@ enum _em_popup_target_t {
 	EM_POPUP_TARGET_URI,
 	EM_POPUP_TARGET_PART,
 	EM_POPUP_TARGET_FOLDER,
+	EM_POPUP_TARGET_ATTACHMENTS,
 };
 
 /* Flags that describe a TARGET_SELECT */
@@ -88,10 +89,17 @@ enum {
 	EM_POPUP_FOLDER_SELECT = 1<<4, /* folder can be selected/opened */
 };
 
+/* Flags that describe TARGET_ATTACHMENTS */
+enum {
+	EM_POPUP_ATTACHMENTS_ONE = 1<<0, /* only 1 selected */
+	EM_POPUP_ATTACHMENTS_MANY = 1<<1, /* one or more selected */
+};
+
 typedef struct _EMPopupTargetSelect EMPopupTargetSelect;
 typedef struct _EMPopupTargetURI EMPopupTargetURI;
 typedef struct _EMPopupTargetPart EMPopupTargetPart;
 typedef struct _EMPopupTargetFolder EMPopupTargetFolder;
+typedef struct _EMPopupTargetAttachments EMPopupTargetAttachments;
 
 struct _EMPopupTargetURI {
 	EPopupTarget target;
@@ -116,6 +124,11 @@ struct _EMPopupTargetFolder {
 	char *uri;
 };
 
+struct _EMPopupTargetAttachments {
+	EPopupTarget target;
+	GSList *attachments;
+};
+
 typedef struct _EPopupItem EMPopupItem;
 
 /* The object */
@@ -137,6 +150,7 @@ EMPopupTargetURI *em_popup_target_new_uri(EMPopup *emp, const char *uri);
 EMPopupTargetSelect *em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char *folder_uri, GPtrArray *uids);
 EMPopupTargetPart *em_popup_target_new_part(EMPopup *emp, struct _CamelMimePart *part, const char *mime_type);
 EMPopupTargetFolder *em_popup_target_new_folder(EMPopup *emp, const char *uri, guint32 info_flags, guint32 popup_flags);
+EMPopupTargetAttachments *em_popup_target_new_attachments(EMPopup *emp, GSList *attachments);
 
 /* ********************************************************************** */
 

@@ -63,7 +63,7 @@
 
 #include <gal/util/e-util.h>
 
-static void emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data);
+static void emp_standard_menu_factory(EPopup *emp, void *data);
 
 static GObjectClass *emp_parent;
 
@@ -108,6 +108,12 @@ emp_target_free(EPopup *ep, EPopupTarget *t)
 
 		g_free(s->uri);
 		break; }
+	case EM_POPUP_TARGET_ATTACHMENTS: {
+		EMPopupTargetAttachments *s = (EMPopupTargetAttachments *)t;
+
+		g_slist_foreach(s->attachments, (GFunc)g_object_unref, NULL);
+		g_slist_free(s->attachments);
+		break; }
 	}
 
 	((EPopupClass *)emp_parent)->target_free(ep, t);
@@ -119,7 +125,7 @@ emp_class_init(GObjectClass *klass)
 	klass->finalize = emp_finalise;
 	((EPopupClass *)klass)->target_free = emp_target_free;
 
-	e_popup_class_add_factory((EPopupClass *)klass, NULL, (EPopupFactoryFunc)emp_standard_menu_factory, NULL);
+	e_popup_class_add_factory((EPopupClass *)klass, NULL, emp_standard_menu_factory, NULL);
 }
 
 GType
@@ -340,49 +346,47 @@ done:
 	return t;
 }
 
-/* ********************************************************************** */
-
-#if 0
-/* TODO: flesh these out where possible */
-static void
-emp_popup_open(GtkWidget *w, EMFolderView *emfv)
+/**
+ * em_popup_target_new_attachments:
+ * @emp: 
+ * @attachments: A list of EMsgComposerAttachment objects, reffed for
+ * the list.  Will be unreff'd once finished with.
+ * 
+ * Owns the list @attachments and their items after they're passed in.
+ * 
+ * Return value: 
+ **/
+EMPopupTargetAttachments *
+em_popup_target_new_attachments(EMPopup *emp, GSList *attachments)
 {
-	em_folder_view_open_selected(emfv);
-}
+	EMPopupTargetAttachments *t = e_popup_target_new(&emp->popup, EM_POPUP_TARGET_ATTACHMENTS, sizeof(*t));
+	guint32 mask = ~0;
+	int len = g_slist_length(attachments);
 
-static void
-emp_popup_edit (GtkWidget *w, EMPopupTarget *t)
-{
-	if (!em_utils_check_user_can_send_mail(t->widget))
-		return;
-	
-	em_utils_edit_messages(t->widget, t->data.select.folder, em_utils_uids_copy(t->data.select.uids), FALSE);
-}
+	t->attachments = attachments;
+	if (len > 0)
+		mask &= ~ EM_POPUP_ATTACHMENTS_MANY;
+	if (len == 1)
+		mask &= ~ EM_POPUP_ATTACHMENTS_ONE;
+	t->target.mask = mask;
 
-static void
-emp_popup_saveas(GtkWidget *w, EMPopupTarget *t)
-{
-	em_utils_save_messages(t->widget, t->data.select.folder, em_utils_uids_copy(t->data.select.uids));
+	return t;
 }
-
-static EPopupItem emp_standard_select_popups[] = {
-	/*{ E_POPUP_ITEM, "00.select.00", N_("_Open"), G_CALLBACK(emp_popup_open), NULL, NULL, 0 },*/
-	{ E_POPUP_ITEM, "00.select.01", N_("_Edit as New Message..."), G_CALLBACK(emp_popup_edit), NULL, NULL, EM_POPUP_SELECT_EDIT },
-	{ E_POPUP_ITEM, "00.select.02", N_("_Save As..."), G_CALLBACK(emp_popup_saveas), NULL, "stock_save-as", 0 },	
-};
-#endif
 
 /* ********************************************************************** */
 
 static void
-emp_part_popup_saveas(GtkWidget *w, EMPopupTargetPart *t)
+emp_part_popup_saveas(EPopup *ep, EPopupItem *item, void *data)
 {
-	em_utils_save_part(w, _("Save As..."), t->part);
+	EMPopupTargetPart *t = (EMPopupTargetPart *)ep->target;
+
+	em_utils_save_part(ep->target->widget, _("Save As..."), t->part);
 }
 
 static void
-emp_part_popup_set_background(GtkWidget *w, EMPopupTargetPart *t)
+emp_part_popup_set_background(EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetPart *t = (EMPopupTargetPart *)ep->target;
 	GConfClient *gconf;
 	char *str, *filename, *path, *extension;
 	unsigned int i=1;
@@ -417,7 +421,7 @@ emp_part_popup_set_background(GtkWidget *w, EMPopupTargetPart *t)
 	
 	g_free(filename);
 	
-	if (em_utils_save_part_to_file(w, path, t->part)) {
+	if (em_utils_save_part_to_file(ep->target->widget, path, t->part)) {
 		gconf = gconf_client_get_default();
 		
 		/* if the filename hasn't changed, blank the filename before 
@@ -447,52 +451,55 @@ emp_part_popup_set_background(GtkWidget *w, EMPopupTargetPart *t)
 }
 
 static void
-emp_part_popup_reply_sender (GtkWidget *w, EMPopupTargetPart *t)
+emp_part_popup_reply_sender(EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetPart *t = (EMPopupTargetPart *)ep->target;
 	CamelMimeMessage *message;
 	
-	message = (CamelMimeMessage *) camel_medium_get_content_object ((CamelMedium *) t->part);
-	em_utils_reply_to_message (message, REPLY_MODE_SENDER);
+	message = (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)t->part);
+	em_utils_reply_to_message(message, REPLY_MODE_SENDER);
 }
 
 static void
-emp_part_popup_reply_list (GtkWidget *w, EMPopupTargetPart *t)
+emp_part_popup_reply_list (EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetPart *t = (EMPopupTargetPart *)ep->target;
 	CamelMimeMessage *message;
 	
-	message = (CamelMimeMessage *) camel_medium_get_content_object ((CamelMedium *) t->part);
-	em_utils_reply_to_message (message, REPLY_MODE_LIST);
+	message = (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)t->part);
+	em_utils_reply_to_message(message, REPLY_MODE_LIST);
 }
 
 static void
-emp_part_popup_reply_all (GtkWidget *w, EMPopupTargetPart *t)
+emp_part_popup_reply_all (EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetPart *t = (EMPopupTargetPart *)ep->target;
 	CamelMimeMessage *message;
 	
-	message = (CamelMimeMessage *) camel_medium_get_content_object ((CamelMedium *) t->part);
-	em_utils_reply_to_message (message, REPLY_MODE_ALL);
+	message = (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *)t->part);
+	em_utils_reply_to_message(message, REPLY_MODE_ALL);
 }
 
 static void
-emp_part_popup_forward (GtkWidget *w, EMPopupTargetPart *t)
+emp_part_popup_forward (EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetPart *t = (EMPopupTargetPart *)ep->target;
 	CamelMimeMessage *message;
 
 	/* TODO: have a emfv specific override so we can get the parent folder uri */
-	message = (CamelMimeMessage *) camel_medium_get_content_object ((CamelMedium *) t->part);
-	em_utils_forward_message (message, NULL);
+	message = (CamelMimeMessage *)camel_medium_get_content_object((CamelMedium *) t->part);
+	em_utils_forward_message(message, NULL);
 }
 
 static EPopupItem emp_standard_object_popups[] = {
-	{ E_POPUP_ITEM, "00.part.00", N_("_Save As..."), G_CALLBACK(emp_part_popup_saveas), NULL, "stock_save-as", 0 },
-	{ E_POPUP_ITEM, "00.part.10", N_("Set as _Background"), G_CALLBACK(emp_part_popup_set_background), NULL, NULL, EM_POPUP_PART_IMAGE },
+	{ E_POPUP_ITEM, "00.part.00", N_("_Save As..."), emp_part_popup_saveas, NULL, "stock_save-as", 0 },
+	{ E_POPUP_ITEM, "00.part.10", N_("Set as _Background"), emp_part_popup_set_background, NULL, NULL, EM_POPUP_PART_IMAGE },
 	{ E_POPUP_BAR, "10.part", NULL, NULL, NULL, NULL, EM_POPUP_PART_MESSAGE },
-	{ E_POPUP_ITEM, "10.part.00", N_("_Reply to sender"), G_CALLBACK(emp_part_popup_reply_sender), NULL, "stock_mail-reply" , EM_POPUP_PART_MESSAGE },
-	{ E_POPUP_ITEM, "10.part.01", N_("Reply to _List"), G_CALLBACK(emp_part_popup_reply_list), NULL, NULL, EM_POPUP_PART_MESSAGE},
-	{ E_POPUP_ITEM, "10.part.03", N_("Reply to _All"), G_CALLBACK(emp_part_popup_reply_all), NULL, "stock_mail-reply_to_all", EM_POPUP_PART_MESSAGE},
+	{ E_POPUP_ITEM, "10.part.00", N_("_Reply to sender"), emp_part_popup_reply_sender, NULL, "stock_mail-reply" , EM_POPUP_PART_MESSAGE },
+	{ E_POPUP_ITEM, "10.part.01", N_("Reply to _List"), emp_part_popup_reply_list, NULL, NULL, EM_POPUP_PART_MESSAGE},
+	{ E_POPUP_ITEM, "10.part.03", N_("Reply to _All"), emp_part_popup_reply_all, NULL, "stock_mail-reply_to_all", EM_POPUP_PART_MESSAGE},
 	{ E_POPUP_BAR, "20.part", NULL, NULL, NULL, NULL, EM_POPUP_PART_MESSAGE },
-	{ E_POPUP_ITEM, "20.part.00", N_("_Forward"), G_CALLBACK(emp_part_popup_forward), NULL, "stock_mail-forward", EM_POPUP_PART_MESSAGE },
-
+	{ E_POPUP_ITEM, "20.part.00", N_("_Forward"), emp_part_popup_forward, NULL, "stock_mail-forward", EM_POPUP_PART_MESSAGE },
 };
 
 static const EPopupItem emp_standard_part_apps_bar = { E_POPUP_BAR, "99.object" };
@@ -500,8 +507,9 @@ static const EPopupItem emp_standard_part_apps_bar = { E_POPUP_BAR, "99.object" 
 /* ********************************************************************** */
 
 static void
-emp_uri_popup_link_open(GtkWidget *w, EMPopupTargetURI *t)
+emp_uri_popup_link_open(EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetURI *t = (EMPopupTargetURI *)ep->target;
 	GError *err = NULL;
 		
 	gnome_url_show(t->uri, &err);
@@ -512,15 +520,18 @@ emp_uri_popup_link_open(GtkWidget *w, EMPopupTargetURI *t)
 }
 
 static void
-emp_uri_popup_address_send (GtkWidget *w, EMPopupTargetURI *t)
+emp_uri_popup_address_send(EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetURI *t = (EMPopupTargetURI *)ep->target;
+
 	/* TODO: have an emfv specific override to get the from uri */
-	em_utils_compose_new_message_with_mailto (t->uri, NULL);
+	em_utils_compose_new_message_with_mailto(t->uri, NULL);
 }
 
 static void
-emp_uri_popup_address_add(GtkWidget *w, EMPopupTargetURI *t)
+emp_uri_popup_address_add(EPopup *ep, EPopupItem *item, void *data)
 {
+	EMPopupTargetURI *t = (EMPopupTargetURI *)ep->target;
 	CamelURL *url;
 
 	url = camel_url_new(t->uri, NULL);
@@ -530,15 +541,15 @@ emp_uri_popup_address_add(GtkWidget *w, EMPopupTargetURI *t)
 	}
 
 	if (url->path && url->path[0])
-		em_utils_add_address(w, url->path);
+		em_utils_add_address(ep->target->widget, url->path);
 
 	camel_url_free(url);
 }
 
 static EPopupItem emp_standard_uri_popups[] = {
-	{ E_POPUP_ITEM, "00.uri.00", N_("_Open Link in Browser"), G_CALLBACK(emp_uri_popup_link_open), NULL, NULL, EM_POPUP_URI_NOT_MAILTO },
-	{ E_POPUP_ITEM, "00.uri.10", N_("Se_nd message to..."), G_CALLBACK(emp_uri_popup_address_send), NULL, NULL, EM_POPUP_URI_MAILTO },
-	{ E_POPUP_ITEM, "00.uri.20", N_("_Add to Addressbook"), G_CALLBACK(emp_uri_popup_address_add), NULL, NULL, EM_POPUP_URI_MAILTO },
+	{ E_POPUP_ITEM, "00.uri.00", N_("_Open Link in Browser"), emp_uri_popup_link_open, NULL, NULL, EM_POPUP_URI_NOT_MAILTO },
+	{ E_POPUP_ITEM, "00.uri.10", N_("Se_nd message to..."), emp_uri_popup_address_send, NULL, NULL, EM_POPUP_URI_MAILTO },
+	{ E_POPUP_ITEM, "00.uri.20", N_("_Add to Addressbook"), emp_uri_popup_address_add, NULL, NULL, EM_POPUP_URI_MAILTO },
 };
 
 /* ********************************************************************** */
@@ -547,23 +558,21 @@ static EPopupItem emp_standard_uri_popups[] = {
 
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
 
-struct _open_in_item {
-	EPopupItem item;
 	EMPopupTargetPart *target;
-	GnomeVFSMimeApplication *app;
-};
 
 static void
-emp_apps_open_in(GtkWidget *w, struct _open_in_item *item)
+emp_apps_open_in(EPopup *ep, EPopupItem *item, void *data)
 {
 	char *path;
+	EMPopupTargetPart *target = (EMPopupTargetPart *)ep->target;
 
-	path = em_utils_temp_save_part(item->target->target.widget, item->target->part);
+	path = em_utils_temp_save_part(target->target.widget, target->part);
 	if (path) {
-		int douri = (item->app->expects_uris == GNOME_VFS_MIME_APPLICATION_ARGUMENT_TYPE_URIS);
+		GnomeVFSMimeApplication *app = item->user_data;
+		int douri = (app->expects_uris == GNOME_VFS_MIME_APPLICATION_ARGUMENT_TYPE_URIS);
 		char *command;
 		
-		if (item->app->requires_terminal) {
+		if (app->requires_terminal) {
 			char *term, *args = NULL;
 			GConfClient *gconf;
 			
@@ -576,11 +585,11 @@ emp_apps_open_in(GtkWidget *w, struct _open_in_item *item)
 				return;
 			
 			command = g_strdup_printf ("%s%s%s %s %s%s &", term, args ? " " : "", args ? args : "",
-						   item->app->command, douri ? "file://" : "", path);
+						   app->command, douri ? "file://" : "", path);
 			g_free (term);
 			g_free (args);
 		} else {
-			command = g_strdup_printf ("%s %s%s &", item->app->command, douri ? "file://" : "", path);
+			command = g_strdup_printf ("%s %s%s &", app->command, douri ? "file://" : "", path);
 		}
 		
 		/* FIXME: Do not use system here */
@@ -591,14 +600,14 @@ emp_apps_open_in(GtkWidget *w, struct _open_in_item *item)
 }
 
 static void
-emp_apps_popup_free(GSList *free_list)
+emp_apps_popup_free(EPopup *ep, GSList *free_list, void *data)
 {
 	while (free_list) {
 		GSList *n = free_list->next;
-		struct _open_in_item *item = free_list->data;
+		EPopupItem *item = free_list->data;
 
-		g_free(item->item.path);
-		g_free(item->item.label);
+		g_free(item->path);
+		g_free(item->label);
 		g_free(item);
 		g_slist_free_1(free_list);
 
@@ -607,13 +616,19 @@ emp_apps_popup_free(GSList *free_list)
 }
 
 static void
-emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data)
+emp_standard_items_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
+}
+
+static void
+emp_standard_menu_factory(EPopup *emp, void *data)
 {
 	int i, len;
 	EPopupItem *items;
 	GSList *menus = NULL;
 
-	switch (target->type) {
+	switch (emp->target->type) {
 #if 0
 	case EM_POPUP_TARGET_SELECT:
 		return;
@@ -628,7 +643,7 @@ emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data)
 		len = LEN(emp_standard_uri_popups);
 		break; }
 	case EM_POPUP_TARGET_PART: {
-		EMPopupTargetPart *t = (EMPopupTargetPart *)target;
+		EMPopupTargetPart *t = (EMPopupTargetPart *)emp->target;
 		GList *apps = gnome_vfs_mime_get_short_list_applications(t->mime_type);
 
 		/* FIXME: use the snoop_part stuff from em-format.c */
@@ -657,25 +672,23 @@ emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data)
 
 			for (l = apps, i = 0; l; l = l->next, i++) {
 				GnomeVFSMimeApplication *app = l->data;
-				struct _open_in_item *item;
+				EPopupItem *item;
 
 				if (app->requires_terminal)
 					continue;
 
 				item = g_malloc0(sizeof(*item));
-				item->item.type = E_POPUP_ITEM;
-				item->item.path = g_strdup_printf("99.object.%02d", i);
-				item->item.label = g_strdup_printf(_("Open in %s..."), app->name);
-				item->item.activate = G_CALLBACK(emp_apps_open_in);
-				item->item.activate_data = item;
-				item->target = t;
-				item->app = app;
+				item->type = E_POPUP_ITEM;
+				item->path = g_strdup_printf("99.object.%02d", i);
+				item->label = g_strdup_printf(_("Open in %s..."), app->name);
+				item->activate = emp_apps_open_in;
+				item->user_data = app;
 
 				open_menus = g_slist_prepend(open_menus, item);
 			}
 
 			if (open_menus)
-				e_popup_add_items(emp, open_menus, (GDestroyNotify)emp_apps_popup_free);
+				e_popup_add_items(emp, open_menus, emp_apps_popup_free, NULL);
 
 			g_string_free(label, TRUE);
 			g_list_free(apps);
@@ -690,14 +703,12 @@ emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data)
 	}
 
 	for (i=0;i<len;i++) {
-		if ((items[i].mask & target->mask) == 0) {
-			items[i].activate_data = target;
+		if ((items[i].mask & emp->target->mask) == 0)
 			menus = g_slist_prepend(menus, &items[i]);
-		}
 	}
 
 	if (menus)
-		e_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+		e_popup_add_items(emp, menus, emp_standard_items_free, NULL);
 }
 
 /* ********************************************************************** */
@@ -773,11 +784,19 @@ static const EPopupHookTargetMask emph_folder_masks[] = {
 	{ "select", EM_POPUP_FOLDER_SELECT },
 	{ 0 }
 };
+
+static const EPopupHookTargetMask emph_attachments_masks[] = {
+	{ "one", EM_POPUP_ATTACHMENTS_ONE },
+	{ "many", EM_POPUP_ATTACHMENTS_MANY },
+	{ 0 }
+};
+
 static const EPopupHookTargetMap emph_targets[] = {
 	{ "select", EM_POPUP_TARGET_SELECT, emph_select_masks },
 	{ "uri", EM_POPUP_TARGET_URI, emph_uri_masks },
 	{ "part", EM_POPUP_TARGET_PART, emph_part_masks },
 	{ "folder", EM_POPUP_TARGET_FOLDER, emph_folder_masks },
+	{ "attachments", EM_POPUP_TARGET_ATTACHMENTS, emph_attachments_masks },
 	{ 0 }
 };
 

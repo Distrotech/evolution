@@ -1041,8 +1041,10 @@ static void efhd_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart
 
 /* if it hasn't been processed yet, format the attachment */
 static void
-efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
+efhd_attachment_show(EPopup *ep, EPopupItem *item, void *data)
 {
+	struct _attach_puri *info = data;
+
 	d(printf("show attachment button called\n"));
 
 	info->shown = ~info->shown;
@@ -1082,9 +1084,15 @@ efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 
 static EPopupItem efhd_menu_items[] = {
 	{ E_POPUP_BAR, "05.display", },
-	{ E_POPUP_ITEM, "05.display.00", N_("_View Inline"), G_CALLBACK(efhd_attachment_show) },
-	{ E_POPUP_ITEM, "05.display.00", N_("_Hide"), G_CALLBACK(efhd_attachment_show) },
+	{ E_POPUP_ITEM, "05.display.00", N_("_View Inline"), efhd_attachment_show },
+	{ E_POPUP_ITEM, "05.display.00", N_("_Hide"), efhd_attachment_show },
 };
+
+static void
+efhd_menu_items_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
+}
 
 static void
 efhd_popup_place_widget(GtkMenu *menu, int *x, int *y, gboolean *push_in, gpointer user_data)
@@ -1119,14 +1127,12 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	/* add our local menus */
 	if (info->handle) {
 		/* show/hide menus, only if we have an inline handler */
-		efhd_menu_items[0].activate_data = info;
 		menus = g_slist_prepend(menus, &efhd_menu_items[0]);
 		item = &efhd_menu_items[info->shown?2:1];
-		item->activate_data = info;
 		menus = g_slist_prepend(menus, item);
 	}
 
-	e_popup_add_items((EPopup *)emp, menus, (GDestroyNotify)g_slist_free);
+	e_popup_add_items((EPopup *)emp, menus, efhd_menu_items_free, info);
 
 	menu = e_popup_create_menu_once((EPopup *)emp, (EPopupTarget *)target, target->target.mask, target->target.mask);
 	if (event)

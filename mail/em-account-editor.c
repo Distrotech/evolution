@@ -3169,6 +3169,19 @@ section:
 		case CAMEL_PROVIDER_CONF_SECTION_END:
 			break;
 		case CAMEL_PROVIDER_CONF_LABEL:
+			/* FIXME: This is a hack for exchange connector, labels should be removed from conf */
+			if (!strcmp(entries[i].name, "hostname"))
+				l = glade_xml_get_widget(emae->priv->xml, "source_host_label");
+			else if (!strcmp(entries[i].name, "username"))
+				l = glade_xml_get_widget(emae->priv->xml,"source_user_label");
+			else
+				l = NULL;
+
+			if (l) {
+				gtk_label_set_text_with_mnemonic((GtkLabel *)l, entries[i].text);
+				if (depw)
+					depl = g_slist_prepend(depl, l);
+			}
 			break;
 		case CAMEL_PROVIDER_CONF_CHECKBOX:
 			w = emae_option_toggle(service, entries[i].text, entries[i].name, atoi(entries[i].value));

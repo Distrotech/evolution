@@ -1,3 +1,29 @@
+2004-08-30  Not Zed  <NotZed@Ximian.com>
+
+	* em-popup.c (emp_standard_menu_factory): changed args.
+	(struct _open_in_item): removed, use user data instead.
+	(*): fix callbacks for new apis.
+	(emp_popup_open): Removed some dead popup callbacks never invoked.
+	(em_popup_target_new_attachments): new target type for attachment
+	bar in composer.
+
+	* em-folder-tree.c (emft_popup*): convert to new e-popup apis.
+
+	* em-folder-view.c: emfv_popup_*: convert to new e-poup callback
+	signatures.
+	(EMFV_MAP_CALLBACK): fix for e-popup callback change.
+	(EMFV_POPUP_AUTO_TYPE): same.
+	(emfv_popup): dont bother setting item callback data.
+	(emfv_popup_labels_free): api changes.
+	(emfv_popup_items_free): new free method.
+	(EMFVPopupItem): No longer needed.
+	(emfv_uri_popup_free): api changes.
+	(emfv_format_popup_event): new api's == simpler code.
+
+	* em-account-editor.c (emae_receive_options_extra_item): add a
+	hack for the label item, which is only used by connector to
+	override the hostname and username labels.
+
 2004-08-24  Not Zed  <NotZed@Ximian.com>
 
 	* em-account-editor.c (em_account_editor_construct): create the
