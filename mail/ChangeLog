@@ -1,3 +1,13 @@
+2000-11-02  Not Zed  <NotZed@HelixCode.com>
+
+	* message-list.c (get_message_info): Call get_message_uid to get
+	the uid, save some duplicated code.
+	(folder_changed): Handle the case of a NULL changes input.
+
+	* message-thread.c (thread_messages): Removed pointless
+	variable/assignment 'container'.
+	(thread_messages): Try and cope with duplicate message id's.
+
 2000-11-01  Not Zed  <NotZed@HelixCode.com>
 
 	* mail-callbacks.c (main_select_first_unread): Changed to use 0 as

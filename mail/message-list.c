@@ -245,29 +245,6 @@ subject_compare (gconstpointer subject1, gconstpointer subject2)
 	return g_strcasecmp (sub1, sub2);
 }
 
-/* Gets the CamelMessageInfo for the message displayed at the given
- * view row.
- */
-static const CamelMessageInfo *
-get_message_info (MessageList *message_list, int row)
-{
-	ETreeModel *model = (ETreeModel *)message_list->table_model;
-	ETreePath *node;
-	char *uid;
-	
-	if (row >= e_table_model_row_count (message_list->table_model))
-		return NULL;
-	
-	node = e_tree_model_node_at_row (model, row);
-	g_return_val_if_fail (node != NULL, NULL);
-	uid = e_tree_model_node_get_data (model, node);
-	
-	if (!id_is_uid(uid))
-		return NULL;
-
-	return camel_folder_get_message_info (message_list->folder, id_uid(uid));
-}
-
 /* Gets the uid of the message displayed at a given view row */
 static const char *
 get_message_uid (MessageList *message_list, int row)
@@ -288,6 +265,22 @@ get_message_uid (MessageList *message_list, int row)
 
 	return id_uid(uid);
 }
+
+/* Gets the CamelMessageInfo for the message displayed at the given
+ * view row.
+ */
+static const CamelMessageInfo *
+get_message_info (MessageList *message_list, int row)
+{
+	const char *uid;
+	
+	uid = get_message_uid(message_list, row);
+	if (uid)
+		return camel_folder_get_message_info(message_list->folder, uid);
+
+	return NULL;
+}
+
 
 static gint 
 mark_msg_seen (gpointer data)
@@ -1822,6 +1815,8 @@ main_folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	MessageList *ml = MESSAGE_LIST (user_data);
 	CamelFolderChangeInfo *changes = (CamelFolderChangeInfo *)event_data;
 
+	printf("folder changed event, changes = %p\n", changes);
+
 	mail_do_regenerate_messagelist(ml, ml->search, changes);
 }
 
@@ -1830,9 +1825,14 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
 	/* similarly to message_changed, copy the change list and propagate it to
 	   the main thread and free it */
-	CamelFolderChangeInfo *changes = camel_folder_change_info_new();
+	CamelFolderChangeInfo *changes;
 
-	camel_folder_change_info_cat(changes, (CamelFolderChangeInfo *)event_data);
+	if (event_data) {
+		changes = camel_folder_change_info_new();
+		camel_folder_change_info_cat(changes, (CamelFolderChangeInfo *)event_data);
+	} else {
+		changes = NULL;
+	}
 	mail_op_forward_event (main_folder_changed, o, changes, user_data);
 }
 

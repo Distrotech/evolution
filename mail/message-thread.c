@@ -430,7 +430,7 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 {
 	GHashTable *id_table, *no_id_table;
 	int i;
-	struct _container *c, *p, *child, *head, *container;
+	struct _container *c, *p, *child, *head;
 	struct _header_references *ref;
 	struct _thread_messages *thread;
 
@@ -453,9 +453,16 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 		}
 
 		if (mi->message_id) {
-			d(printf("doing : %s\n", mi->message_id));
 			c = g_hash_table_lookup(id_table, mi->message_id);
-			if (!c) {
+			/* check for duplicate messages */
+			if (c) {
+				/* if duplicate, just make out it is a no-id message,  but try and insert it
+				   into the right spot in the tree */
+				d(printf("doing: (duplicate message id)\n"));
+				c = g_malloc0(sizeof(*c));
+				g_hash_table_insert(no_id_table, (void *)mi, c);
+			} else {
+				d(printf("doing : %s\n", mi->message_id));
 				c = g_malloc0(sizeof(*c));
 				g_hash_table_insert(id_table, mi->message_id, c);
 			}
@@ -467,10 +474,9 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 
 		c->message = mi;
 		c->order = i;
-		container = c;
+		child = c;
 		ref = mi->references;
 		p = NULL;
-		child = container;
 		head = NULL;
 		d(printf("references:\n"));
 		while (ref) {
