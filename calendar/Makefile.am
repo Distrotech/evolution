@@ -1,3 +1,5 @@
+SUBDIRS = doc
+
 help_base = $(datadir)/gnome/help/cal
 
 CFLAGS += -Wall
@@ -67,8 +69,6 @@ gnomecal_LDADD = $(LINK_FLAGS)
 
 EXTRA_DIST = \
 	gncal.desktop	\
-	topic.dat	\
-	gnome-cal.html	\
 	bell.xpm	\
 	recur.xpm
 
@@ -78,7 +78,6 @@ Productivitydir = $(datadir)/gnome/apps/Applications
 Productivity_DATA = gncal.desktop
 
 install-data-local:
-	$(mkinstalldirs) $(help_base)/C
-	$(INSTALL_DATA)  $(srcdir)/topic.dat $(help_base)/C/topic.dat
-	$(INSTALL_DATA)  $(srcdir)/gnome-cal.html $(help_base)/C/gnome-cal.html
-	cd $(help_base)/C; rm -f index.html ; $(LN_S) gnome-cal.html index.html	
+	$(mkinstalldirs) $(DESTDIR)$(help_base)/C
+	$(INSTALL_DATA)  $(srcdir)/gnome-cal.html $(DESTDIR)$(help_base)/C/gnome-cal.html
+	cd $(DESTDIR)$(help_base)/C; rm -f index.html ; $(LN_S) gnome-cal.html index.html	

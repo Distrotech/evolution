@@ -148,6 +148,7 @@ init_calendar (void)
 	
 	todo_current_sort_type = gnome_config_get_int("/calendar/Todo/sort_type");
 	
+	todo_show_priority = gnome_config_get_bool("/calendar/Todo/show_priority");
 
 	/* Done */
 
@@ -489,7 +490,7 @@ static GnomeUIInfo gnome_cal_edit_menu [] = {
 };
 
 static GnomeUIInfo gnome_cal_help_menu [] = {
-	GNOMEUIINFO_HELP ("cal"),
+	GNOMEUIINFO_HELP ("gnomecal"),
 
 	GNOMEUIINFO_MENU_ABOUT_ITEM(about_calendar_cmd, NULL),
 
@@ -537,10 +538,10 @@ setup_menu (GtkWidget *gcal)
 static void
 setup_appbar (GtkWidget *gcal)
 {
-        GnomeAppBar *appbar;
-	
+        GtkWidget *appbar;
+
         appbar = gnome_appbar_new (FALSE, TRUE, GNOME_PREFERENCES_USER);
-	gnome_app_set_statusbar (GNOME_APP (gcal), GTK_WIDGET(appbar));
+	gnome_app_set_statusbar (GNOME_APP (gcal), GTK_WIDGET (appbar));
 }
 
 static gint
@@ -566,9 +567,15 @@ new_calendar (char *full_name, char *calendar_file, char *geometry, char *page, 
 	if (gnome_parse_geometry (geometry, &xpos, &ypos, &width, &height)){
 		if (xpos != -1)
 			gtk_widget_set_uposition (toplevel, xpos, ypos);
-		if (width != -1)
-			gtk_widget_set_usize (toplevel, width, height);
+#if 0
+	if (width != -1)
+		gtk_widget_set_usize (toplevel, width, 600);
+#endif
 	}
+#if 0
+ 	gtk_widget_set_usize (toplevel, width, 600); 
+#endif
+
 	setup_appbar (toplevel);
 	setup_menu (toplevel);
 
@@ -733,7 +740,8 @@ parse_an_arg (poptContext ctx,
 		 */
 		arg = COOKIE_USER_HOME_DIR;
 		/* fall through */
-
+		break;
+		
 	case VIEW_KEY:
 		start_views = g_list_append (start_views, arg);
 		break;
