@@ -114,6 +114,9 @@
      accel="*Control**Shift*v"
      pixtype="pixbuf"/>
 
+    <cmd name="MessageEdit"
+     _tip="Open the selected message in the composer for editing"/>
+
     <cmd name="MessageOpen"
      _tip="Open the selected message in a new window"
      accel="*Control*o"/>
@@ -140,23 +143,20 @@
      accel="*Control*r"
      pixtype="pixbuf"/>
 
-    <cmd name="MessageResend"
-     _tip="Open the selected message in the composer to re-send it"/>
-
     <cmd name="MessageSaveAs"
      _tip="Save the message as a text file"
      accel="*Control**Alt*s"
-     pixtype="pixbuf"/>
+     pixtype="stock" pixname="gtk-save-as"/>
 
     <cmd name="MessageSearch"
      _tip="Search for text in the body of the displayed message"
      accel="*Control*s"
-     pixtype="pixbuf"/>
+     pixtype="stock" pixname="gtk-find"/>
 
     <cmd name="MessageUndelete"
      _tip="Un-delete the selected messages"
      accel="*Control*u"
-     pixtype="pixbuf"/>
+     pixtype="stock" pixname="gtk-undelete"/>
 
     <cmd name="PrintMessage"
      _tip="Print this message"
@@ -336,7 +336,7 @@
 
           <menuitem name="MessagePostReply" verb="" _label="Post a Repl_y"/>
 
-          <menuitem name="MessageResend" verb="" _label="_Resend..."/>
+          <menuitem name="MessageEdit" verb="" _label="_Edit as New Message..."/>
 
 	  <separator f="" name="emaillist3"/>
 

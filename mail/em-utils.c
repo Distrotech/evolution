@@ -35,18 +35,22 @@
 #include <camel/camel-url-scanner.h>
 #include <camel/camel-file-utils.h>
 
-#include <filter/filter-editor.h>
+#include "em-filter-editor.h"
 
 #include <bonobo/bonobo-listener.h>
 #include <bonobo/bonobo-widget.h>
 #include <bonobo/bonobo-event-source.h>
+
+#include <libgnomevfs/gnome-vfs-mime.h>
+#include <libgnomevfs/gnome-vfs-mime-utils.h>
+#include <libgnomevfs/gnome-vfs-mime-handlers.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "mail-component.h"
 #include "mail-mt.h"
 #include "mail-ops.h"
 #include "mail-tools.h"
 #include "mail-config.h"
-#include "mail-config-druid.h"
 #include "message-tag-followup.h"
 
 #include <e-util/e-mktemp.h>
@@ -59,8 +63,11 @@
 #include "em-utils.h"
 #include "em-composer-utils.h"
 #include "em-format-quote.h"
+#include "em-account-editor.h"
 
 static void emu_save_part_done (CamelMimePart *part, char *name, int done, void *data);
+
+extern struct _CamelSession *session;
 
 #define d(x)
 
@@ -172,19 +179,18 @@ druid_destroy_cb (gpointer user_data, GObject *deadbeef)
 gboolean
 em_utils_configure_account (GtkWidget *parent)
 {
-	MailConfigDruid *druid;
-	
-	druid = mail_config_druid_new ();
-	
+	EMAccountEditor *emae;
+
+	emae = em_account_editor_new(NULL, EMAE_DRUID);
 	if (parent != NULL)
-		e_dialog_set_transient_for ((GtkWindow *) druid, parent);
+		e_dialog_set_transient_for((GtkWindow *)emae->editor, parent);
+
+	g_object_weak_ref((GObject *)emae->editor, (GWeakNotify) druid_destroy_cb, NULL);
+	gtk_widget_show(emae->editor);
+	gtk_grab_add(emae->editor);
+	gtk_main();
 	
-	g_object_weak_ref ((GObject *) druid, (GWeakNotify) druid_destroy_cb, NULL);
-	gtk_widget_show ((GtkWidget *) druid);
-	gtk_grab_add ((GtkWidget *) druid);
-	gtk_main ();
-	
-	return mail_config_is_configured ();
+	return mail_config_is_configured();
 }
 
 /**
@@ -225,9 +231,9 @@ em_utils_check_user_can_send_mail (GtkWidget *parent)
 static GtkWidget *filter_editor = NULL;
 
 static void
-filter_editor_response (GtkWidget *dialog, int button, gpointer user_data)
+em_filter_editor_response (GtkWidget *dialog, int button, gpointer user_data)
 {
-	FilterContext *fc;
+	EMFilterContext *fc;
 	
 	if (button == GTK_RESPONSE_OK) {
 		char *user;
@@ -244,7 +250,7 @@ filter_editor_response (GtkWidget *dialog, int button, gpointer user_data)
 	filter_editor = NULL;
 }
 
-static const char *filter_source_names[] = {
+static const char *em_filter_source_element_names[] = {
 	"incoming",
 	"outgoing",
 	NULL,
@@ -263,14 +269,14 @@ em_utils_edit_filters (GtkWidget *parent)
 {
 	const char *base_directory = mail_component_peek_base_directory (mail_component_peek ());
 	char *user, *system;
-	FilterContext *fc;
+	EMFilterContext *fc;
 	
 	if (filter_editor) {
 		gdk_window_raise (GTK_WIDGET (filter_editor)->window);
 		return;
 	}
 	
-	fc = filter_context_new ();
+	fc = em_filter_context_new ();
 	user = g_strdup_printf ("%s/mail/filters.xml", base_directory);
 	system = EVOLUTION_PRIVDATADIR "/filtertypes.xml";
 	rule_context_load ((RuleContext *) fc, system, user);
@@ -281,47 +287,67 @@ em_utils_edit_filters (GtkWidget *parent)
 		return;
 	}
 	
-	filter_editor = (GtkWidget *) filter_editor_new (fc, filter_source_names);
+	filter_editor = (GtkWidget *) em_filter_editor_new (fc, em_filter_source_element_names);
 	if (parent != NULL)
 		e_dialog_set_transient_for ((GtkWindow *) filter_editor, parent);
 	
 	gtk_window_set_title (GTK_WINDOW (filter_editor), _("Filters"));
 	g_object_set_data_full ((GObject *) filter_editor, "context", fc, (GtkDestroyNotify) g_object_unref);
-	g_signal_connect (filter_editor, "response", G_CALLBACK (filter_editor_response), NULL);
+	g_signal_connect (filter_editor, "response", G_CALLBACK (em_filter_editor_response), NULL);
 	gtk_widget_show (GTK_WIDGET (filter_editor));
 }
 
 /* Saving messages... */
 
-static GtkFileSelection *
+static GtkWidget *
 emu_get_save_filesel (GtkWidget *parent, const char *title, const char *name)
 {
-	GtkFileSelection *filesel;
-	char *gdir, *mname = NULL, *filename;
-	const char *realname, *dir;
+	GtkWidget *filesel;
+	const char *dir;
+	char *realname, *filename, *gdir;
 	GConfClient *gconf;
 
-	filesel = (GtkFileSelection *)gtk_file_selection_new(title);
+#ifdef USE_GTKFILECHOOSER
+	filesel = gtk_file_chooser_dialog_new (title,
+					       NULL,
+					       GTK_FILE_CHOOSER_ACTION_SAVE,
+					       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+					       GTK_STOCK_SAVE, GTK_RESPONSE_OK,
+					       NULL);
+	gtk_dialog_set_default_response (GTK_DIALOG (filesel), GTK_RESPONSE_OK);
+#else
+	filesel = gtk_file_selection_new (title);
+#endif
+	
 	if (parent)
 		e_dialog_set_transient_for((GtkWindow *)filesel, parent);
 
 	gconf = gconf_client_get_default();
 	dir = gdir = gconf_client_get_string(gconf, "/apps/evolution/mail/save_dir", NULL);
 	g_object_unref(gconf);
+
 	if (dir == NULL)
 		dir = g_get_home_dir();
 
 	if (name && name[0]) {
-		realname = mname = g_strdup(name);
-		e_filename_make_safe(mname);
+		realname = g_strdup (name);
+		e_filename_make_safe (realname);
 	} else {
-		realname = "/";
+		realname = NULL;
 	}
 
-	filename = g_build_filename(dir, realname, NULL);
-	gtk_file_selection_set_filename(filesel, filename);
-	g_free(filename);
-	g_free(mname);
+#ifdef USE_GTKFILECHOOSER
+	gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (filesel), dir);
+	
+	if (realname)
+		gtk_file_chooser_set_current_name (GTK_FILE_CHOOSER (filesel), realname);
+#else
+	filename = g_build_filename (dir, G_DIR_SEPARATOR_S, realname, NULL);
+	gtk_file_selection_set_filename (GTK_FILE_SELECTION (filesel), filename);
+	g_free (filename);
+#endif
+	
+	g_free (realname);
 	g_free (gdir);
 
 	return filesel;
@@ -343,7 +369,7 @@ emu_can_save(GtkWindow *parent, const char *path)
 {
 	struct stat st;
 	
-	if (path[0] == 0)
+	if (!path || path[0] == 0)
 		return FALSE;
 
 	/* make sure we can actually save to it... */
@@ -363,11 +389,17 @@ emu_can_save(GtkWindow *parent, const char *path)
 }
 
 static void
-emu_save_part_response(GtkFileSelection *filesel, int response, CamelMimePart *part)
+emu_save_part_response(GtkWidget *filesel, int response, CamelMimePart *part)
 {
+	const char *path;
+	
 	if (response == GTK_RESPONSE_OK) {
-		const char *path = gtk_file_selection_get_filename(filesel);
-
+#ifdef USE_GTKFILECHOOSER
+		path = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (filesel));
+#else
+		path = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#endif
+		
 		if (!emu_can_save((GtkWindow *)filesel, path))
 			return;
 
@@ -392,7 +424,7 @@ void
 em_utils_save_part(GtkWidget *parent, const char *prompt, CamelMimePart *part)
 {
 	const char *name;
-	GtkFileSelection *filesel;
+	GtkWidget *filesel;
 
 	name = camel_mime_part_get_filename(part);
 	if (name == NULL) {
@@ -407,8 +439,8 @@ em_utils_save_part(GtkWidget *parent, const char *prompt, CamelMimePart *part)
 
 	filesel = emu_get_save_filesel(parent, prompt, name);
 	camel_object_ref(part);
-	g_signal_connect(filesel, "response", G_CALLBACK(emu_save_part_response), part);
-	gtk_widget_show((GtkWidget *)filesel);
+	g_signal_connect (filesel, "response", G_CALLBACK (emu_save_part_response), part);
+	gtk_widget_show (filesel);
 }
 
 /**
@@ -448,7 +480,7 @@ em_utils_save_part_to_file(GtkWidget *parent, const char *filename, CamelMimePar
 	}
 	
 	if (stat(filename, &st) != -1 && !S_ISREG(st.st_mode)) {
-		e_error_run((GtkWindow *)parent, "no-write-path-notfile", filename, NULL);
+		e_error_run((GtkWindow *)parent, "mail:no-write-path-notfile", filename, NULL);
 		return FALSE;
 	}
 	
@@ -464,10 +496,16 @@ struct _save_messages_data {
 };
 
 static void
-emu_save_messages_response(GtkFileSelection *filesel, int response, struct _save_messages_data *data)
+emu_save_messages_response(GtkWidget *filesel, int response, struct _save_messages_data *data)
 {
+	const char *path;
+	
 	if (response == GTK_RESPONSE_OK) {
-		const char *path = gtk_file_selection_get_filename(filesel);
+#ifdef USE_GTKFILECHOOSER
+		path = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (filesel));
+#else
+		path = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#endif
 
 		if (!emu_can_save((GtkWindow *)filesel, path))
 			return;
@@ -497,7 +535,7 @@ void
 em_utils_save_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	struct _save_messages_data *data;
-	GtkFileSelection *filesel;
+	GtkWidget *filesel;
 
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
@@ -552,7 +590,10 @@ void em_utils_add_address(struct _GtkWidget *parent, const char *email)
 	
 	win = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title((GtkWindow *)win, _("Add address"));
-	
+	gtk_window_set_transient_for((GtkWindow *)win, ((GtkWindow *)parent));
+	gtk_window_set_position((GtkWindow *)win, GTK_WIN_POS_CENTER_ON_PARENT);
+	gtk_window_set_type_hint((GtkWindow *)win, GDK_WINDOW_TYPE_HINT_DIALOG);
+
 	control = bonobo_widget_new_control("OAFIID:GNOME_Evolution_Addressbook_AddressPopup:" BASE_VERSION, CORBA_OBJECT_NIL);
 	bonobo_widget_set_property((BonoboWidget *)control, "email", TC_CORBA_string, buf, NULL);
 	g_free (buf);
@@ -793,7 +834,6 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 
 	camel_mime_parser_scan_from(mp, TRUE);
 	camel_mime_parser_init_with_stream(mp, stream);
-	camel_object_unref(stream);
 
 	while (camel_mime_parser_step(mp, 0, 0) == CAMEL_MIME_PARSER_STATE_FROM) {
 		CamelMimeMessage *msg;
@@ -872,6 +912,33 @@ em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder)
 }
 
 /**
+ * em_utils_selection_get_message:
+ * @data: 
+ * @folder: 
+ * 
+ * get a message/rfc822 data.
+ **/
+void
+em_utils_selection_get_message(GtkSelectionData *data, CamelFolder *folder)
+{
+	CamelStream *stream;
+	CamelException *ex;
+	CamelMimeMessage *msg;
+
+	if (data->data == NULL || data->length == -1)
+		return;
+
+	ex = camel_exception_new();
+	stream = camel_stream_mem_new_with_buffer(data->data, data->length);
+	msg = camel_mime_message_new();
+	if (camel_data_wrapper_construct_from_stream((CamelDataWrapper *)msg, stream) == 0)
+		camel_folder_append_message(folder, msg, NULL, NULL, ex);
+	camel_object_unref(msg);
+	camel_object_unref(stream);
+	camel_exception_free(ex);
+}
+
+/**
  * em_utils_selection_set_uidlist:
  * @data: selection data
  * @uri:
@@ -901,27 +968,22 @@ em_utils_selection_set_uidlist(GtkSelectionData *data, const char *uri, GPtrArra
 /**
  * em_utils_selection_get_uidlist:
  * @data: selection data
- * @urip: Pointer to uri string, to be free'd by caller
- * @uidsp: Pointer to an array of uid's.
+ * @move: do we delete the messages.
  * 
- * Convert an x-uid-list type to a uri and a uid list.
+ * Convert a uid list into a copy/move operation.
  * 
- * Return value: The number of uid's found.  If 0, then @urip and
- * @uidsp will be empty.
+ * Warning: Could take some time to run.
  **/
-int
-em_utils_selection_get_uidlist(GtkSelectionData *data, char **urip, GPtrArray **uidsp)
+void
+em_utils_selection_get_uidlist(GtkSelectionData *data, CamelFolder *dest, int move, CamelException *ex)
 {
 	/* format: "uri\0uid1\0uid2\0uid3\0...\0uidn" */
 	char *inptr, *inend;
 	GPtrArray *uids;
-	int res;
-
-	*urip = NULL;
-	*uidsp = NULL;
+	CamelFolder *folder;
 
 	if (data == NULL || data->data == NULL || data->length == -1)
-		return 0;
+		return;
 	
 	uids = g_ptr_array_new();
 
@@ -941,14 +1003,16 @@ em_utils_selection_get_uidlist(GtkSelectionData *data, char **urip, GPtrArray **
 
 	if (uids->len == 0) {
 		g_ptr_array_free(uids, TRUE);
-		res = 0;
-	} else {
-		*urip = g_strdup(data->data);
-		*uidsp = uids;
-		res = uids->len;
+		return;
 	}
 
-	return res;
+	folder = mail_tool_uri_to_folder(data->data, 0, ex);
+	if (folder) {
+		camel_folder_transfer_messages_to(folder, uids, dest, NULL, move, ex);
+		camel_object_unref(folder);
+	}
+
+	em_utils_uids_free(uids);
 }
 
 /**
@@ -964,7 +1028,7 @@ em_utils_selection_get_uidlist(GtkSelectionData *data, char **urip, GPtrArray **
 void
 em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids)
 {
-	const char *tmpdir;
+	char *tmpdir;
 	CamelStream *fstream;
 	char *uri, *p, *file = NULL;
 	int fd;
@@ -993,6 +1057,7 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 
 	p = uri = g_alloca (strlen (tmpdir) + strlen(file) + 16);
 	p += sprintf (uri, "file:///%s/%s", tmpdir, file);
+	g_free(tmpdir);
 	g_free(file);
 	
 	fd = open(uri + 7, O_WRONLY | O_CREAT | O_EXCL, 0666);
@@ -1009,6 +1074,50 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 
 		camel_object_unref(fstream);
 	}
+}
+
+/**
+ * em_utils_selection_set_urilist:
+ * @data: 
+ * @folder: 
+ * @uids: 
+ * 
+ * Get the selection data @data from a uri list which points to a
+ * file, which is a berkely mailbox format mailbox.  The file is
+ * automatically cleaned up when the application quits.
+ **/
+void
+em_utils_selection_get_urilist(GtkSelectionData *data, CamelFolder *folder)
+{
+	CamelStream *stream;
+	CamelURL *url;
+	int fd, i, res = 0;
+	char *tmp, **uris;
+
+	d(printf(" * drop uri list\n"));
+
+	tmp = g_strndup(data->data, data->length);
+	uris = g_strsplit(tmp, "\n", 0);
+	g_free(tmp);
+	for (i=0;res == 0 && uris[i];i++) {
+		g_strstrip(uris[i]);
+		if (uris[i][0] == '#')
+			continue;
+
+		url = camel_url_new(uris[i], NULL);
+		if (url == NULL)
+			continue;
+
+		if (strcmp(url->protocol, "file") == 0
+		    && (fd = open(url->path, O_RDONLY)) != -1) {
+			stream = camel_stream_fs_new_with_fd(fd);
+			res = em_utils_read_messages_from_stream(folder, stream);
+			camel_object_unref(stream);
+		}
+		camel_url_free(url);
+	}
+
+	g_strfreev(uris);
 }
 
 static void
@@ -1030,8 +1139,8 @@ emu_save_part_done(CamelMimePart *part, char *name, int done, void *data)
 char *
 em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 {
-	const char *tmpdir, *filename;
-	char *path, *mfilename = NULL;
+	const char *filename;
+	char *tmpdir, *path, *mfilename = NULL;
 	int done;
 
 	tmpdir = e_mkdtemp("evolution-tmp-XXXXXX");
@@ -1051,6 +1160,7 @@ em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 	}
 
 	path = g_build_filename(tmpdir, filename, NULL);
+	g_free(tmpdir);
 	g_free(mfilename);
 
 	/* FIXME: This doesn't handle default charsets */
@@ -1287,7 +1397,7 @@ em_utils_get_proxy_uri(void)
  * Return Value: The part in displayable html format.
  **/
 char *
-em_utils_part_to_html(CamelMimePart *part)
+em_utils_part_to_html(CamelMimePart *part, ssize_t *len, EMFormat *source)
 {
 	EMFormatQuote *emfq;
 	CamelStreamMem *mem;
@@ -1299,23 +1409,35 @@ em_utils_part_to_html(CamelMimePart *part)
 	camel_stream_mem_set_byte_array (mem, buf);
 	
 	emfq = em_format_quote_new(NULL, (CamelStream *)mem, 0);
-	em_format_part((EMFormat *) emfq, (CamelStream *) mem, part);
-	g_object_unref (emfq);
-	
-	camel_stream_write ((CamelStream *) mem, "", 1);
-	camel_object_unref (mem);
-	
+	em_format_set_session((EMFormat *)emfq, session);
+	if (source) {
+		/* copy over things we can, other things are internal, perhaps need different api than 'clone' */
+		if (source->default_charset)
+			em_format_set_default_charset((EMFormat *)emfq, source->default_charset);
+		if (source->charset)
+			em_format_set_default_charset((EMFormat *)emfq, source->charset);
+	}
+	em_format_part((EMFormat *) emfq, (CamelStream *)mem, part);
+	g_object_unref(emfq);
+
+	camel_stream_write((CamelStream *) mem, "", 1);
+	camel_object_unref(mem);
+
 	text = buf->data;
+	if (len)
+		*len = buf->len-1;
 	g_byte_array_free (buf, FALSE);
-	
+
 	return text;
 }
 
 /**
  * em_utils_message_to_html:
- * @message: 
+ * @message:
  * @credits: 
  * @flags: EMFormatQuote flags
+ * @len:
+ * @source:
  *
  * Convert a message to html, quoting if the @credits attribution
  * string is given.
@@ -1323,27 +1445,43 @@ em_utils_part_to_html(CamelMimePart *part)
  * Return value: The html version.
  **/
 char *
-em_utils_message_to_html(CamelMimeMessage *message, const char *credits, guint32 flags)
+em_utils_message_to_html(CamelMimeMessage *message, const char *credits, guint32 flags, ssize_t *len, EMFormat *source)
 {
 	EMFormatQuote *emfq;
 	CamelStreamMem *mem;
 	GByteArray *buf;
 	char *text;
-	
+
 	buf = g_byte_array_new ();
 	mem = (CamelStreamMem *) camel_stream_mem_new ();
 	camel_stream_mem_set_byte_array (mem, buf);
-	
+
 	emfq = em_format_quote_new(credits, (CamelStream *)mem, flags);
-	em_format_format((EMFormat *)emfq, NULL, NULL, message);
+	em_format_set_session((EMFormat *)emfq, session);
+	
+	if (!source) {
+		GConfClient *gconf;
+		char *charset;
+		
+		/* FIXME: we should be getting this from the current view, not the global setting. */
+		gconf = gconf_client_get_default ();
+		charset = gconf_client_get_string (gconf, "/apps/evolution/mail/display/charset", NULL);
+		em_format_set_default_charset ((EMFormat *) emfq, charset);
+		g_object_unref (gconf);
+		g_free (charset);
+	}
+	
+	em_format_format_clone((EMFormat *)emfq, NULL, NULL, message, source);
 	g_object_unref (emfq);
-	
-	camel_stream_write ((CamelStream *) mem, "", 1);
-	camel_object_unref (mem);
-	
+
+	camel_stream_write((CamelStream *)mem, "", 1);
+	camel_object_unref(mem);
+
 	text = buf->data;
-	g_byte_array_free (buf, FALSE);
-	
+	if (len)
+		*len = buf->len-1;
+	g_byte_array_free(buf, FALSE);
+
 	return text;
 }
 
@@ -1444,8 +1582,6 @@ em_utils_folder_name_from_uri (const char *uri)
 	return folder_name;
 }
 
-extern struct _CamelSession *session;
-
 /* email: uri's are based on the account, with special cases for local
  * stores, vfolder and local mail.
  * e.g.
@@ -1461,18 +1597,22 @@ char *em_uri_from_camel(const char *curi)
 	const char *uid, *path;
 	char *euri, *tmp;
 	CamelProvider *provider;
+	CamelException ex;
 
 	/* Easiest solution to code that shouldnt be calling us */
 	if (!strncmp(curi, "email:", 6))
 		return g_strdup(curi);
 
-	provider = camel_provider_get(curi, NULL);
+	camel_exception_init(&ex);
+	provider = camel_provider_get(curi, &ex);
 	if (provider == NULL) {
+		camel_exception_clear(&ex);
 		d(printf("em uri from camel failed '%s'\n", curi));
 		return g_strdup(curi);
 	}
 
-	curl = camel_url_new(curi, NULL);
+	curl = camel_url_new(curi, &ex);
+	camel_exception_clear(&ex);
 	if (curl == NULL)
 		return g_strdup(curi);
 
@@ -1483,12 +1623,16 @@ char *em_uri_from_camel(const char *curi)
 	else
 		uid = account->uid;
 	path = (provider->url_flags & CAMEL_URL_FRAGMENT_IS_PATH)?curl->fragment:curl->path;
-	if (path[0] == '/')
-		path++;
+	if (path) {
+		if (path[0] == '/')
+			path++;
 
-	tmp = camel_url_encode(path, ";?");
-	euri = g_strdup_printf("email://%s/%s", uid, tmp);
-	g_free(tmp);
+		tmp = camel_url_encode(path, ";?");
+		euri = g_strdup_printf("email://%s/%s", uid, tmp);
+		g_free(tmp);
+	} else {
+		euri = g_strdup_printf("email://%s/", uid);
+	}
 	
 	d(printf("em uri from camel '%s' -> '%s'\n", curi, euri));
 
@@ -1586,42 +1730,41 @@ struct _addr_node {
 
 #define EMU_ADDR_CACHE_TIME (60*30) /* in seconds */
 
-static GSList *emu_addr_sources;
+static pthread_mutex_t emu_addr_lock = PTHREAD_MUTEX_INITIALIZER;
+static ESourceList *emu_addr_list;
 static GHashTable *emu_addr_cache;
 
-static void
-emu_addr_sources_refresh(void)
+/* runs sync, in main thread */
+static void *
+emu_addr_setup(void *dummy)
 {
 	GError *err = NULL;
-	ESourceList *list;
-	GSList *g, *s, *groups, *sources;
 
-	g_slist_foreach(emu_addr_sources, (GFunc)g_object_unref, NULL);
-	g_slist_free(emu_addr_sources);
-	emu_addr_sources = NULL;
+	emu_addr_cache = g_hash_table_new(g_str_hash, g_str_equal);
 
-	if (!e_book_get_addressbooks(&list, &err)) {
+	if (!e_book_get_addressbooks(&emu_addr_list, &err))
 		g_error_free(err);
-		return;
-	}
 
-	groups = e_source_list_peek_groups(list);
-	for (g=groups;g;g=g_slist_next(g)) {
-		sources = e_source_group_peek_sources((ESourceGroup *)g->data);
-		for (s=sources;s;s=g_slist_next(s)) {
-			emu_addr_sources = g_slist_prepend(emu_addr_sources, g_object_ref(s->data));
-		}
-	}
+	return NULL;
+}
 
-	g_object_unref(list);
+static void
+emu_addr_cancel_book(void *data)
+{
+	EBook *book = data;
+	GError *err = NULL;
+
+	/* we dunna care if this fails, its just the best we can try */
+	e_book_cancel(book, &err);
+	g_clear_error(&err);
 }
 
 gboolean
 em_utils_in_addressbook(CamelInternetAddress *iaddr)
 {
 	GError *err = NULL;
-	GSList *s;
-	int found = FALSE;
+	GSList *s, *g, *addr_sources = NULL;
+	int stop = FALSE, found = FALSE;
 	EBookQuery *query;
 	const char *addr;
 	struct _addr_node *node;
@@ -1631,68 +1774,161 @@ em_utils_in_addressbook(CamelInternetAddress *iaddr)
 	if (!camel_internet_address_get(iaddr, 0, NULL, &addr))
 		return FALSE;
 
+	pthread_mutex_lock(&emu_addr_lock);
+
 	if (emu_addr_cache == NULL) {
-		emu_addr_cache = g_hash_table_new(g_str_hash, g_str_equal);
-		emu_addr_sources_refresh();
+		mail_call_main(MAIL_CALL_p_p, emu_addr_setup, NULL);
+	}
+
+	if (emu_addr_list == NULL) {
+		pthread_mutex_unlock(&emu_addr_lock);
+		return FALSE;
 	}
 
 	now = time(0);
 
-	printf("Checking '%s' is in addressbook", addr);
+	d(printf("Checking '%s' is in addressbook", addr));
 
 	node = g_hash_table_lookup(emu_addr_cache, addr);
 	if (node) {
-		printf(" -> cached, found %s\n", node->found?"yes":"no");
-		if (node->stamp + EMU_ADDR_CACHE_TIME > now)
-			return node->found;
-		printf("    but expired!\n");
+		d(printf(" -> cached, found %s\n", node->found?"yes":"no"));
+		if (node->stamp + EMU_ADDR_CACHE_TIME > now) {
+			found = node->found;
+			pthread_mutex_unlock(&emu_addr_lock);
+			return found;
+		}
+		d(printf("    but expired!\n"));
 	} else {
-		printf(" -> not found in cache\n");
+		d(printf(" -> not found in cache\n"));
 		node = g_malloc0(sizeof(*node));
 		node->addr = g_strdup(addr);
+		g_hash_table_insert(emu_addr_cache, node->addr, node);
 	}
 
 	query = e_book_query_field_test(E_CONTACT_EMAIL, E_BOOK_QUERY_IS, addr);
 
-	for (s = emu_addr_sources;!found && s;s=g_slist_next(s)) {
+	/* FIXME: this aint threadsafe by any measure, but what can you do eh??? */
+
+	for (g = e_source_list_peek_groups(emu_addr_list);g;g=g_slist_next(g)) {
+		for (s = e_source_group_peek_sources((ESourceGroup *)g->data);s;s=g_slist_next(s)) {
+			ESource *src = s->data;
+			const char *completion = e_source_get_property (src, "completion");
+
+			if (completion && !g_ascii_strcasecmp (completion, "true")) {
+				addr_sources = g_slist_prepend(addr_sources, src);
+				g_object_ref(src);
+			}
+		}
+	}
+
+	for (s = addr_sources;!stop && !found && s;s=g_slist_next(s)) {
 		ESource *source = s->data;
 		GList *contacts;
 		EBook *book;
+		void *hook;
 
-		book = e_book_new();
+		d(printf(" checking '%s'\n", e_source_get_uri(source)));
 
-		printf(" checking '%s'\n", e_source_get_uri(source));
+		/* could this take a while?  no way to cancel it? */
+		book = e_book_new(source, &err);
 
-		if (!e_book_load_source(book, source, TRUE, &err)) {
-			printf("couldn't load source?\n");
+		if (book == NULL) {
+			g_warning("Unable to create addressbook: %s", err->message);
 			g_clear_error(&err);
-			g_object_unref(book);
 			continue;
 		}
 
-		if (!e_book_get_contacts(book, query, &contacts, &err)) {
-			printf("Can't get contacts?\n");
-			g_clear_error(&err);
+		hook = mail_cancel_hook_add(emu_addr_cancel_book, book);
+
+		/* ignore errors, but cancellation errors we don't try to go further either */
+		if (!e_book_open(book, TRUE, &err)
+		    || !e_book_get_contacts(book, query, &contacts, &err)) {
+			stop = err->domain == E_BOOK_ERROR && err->code == E_BOOK_ERROR_CANCELLED;
+			mail_cancel_hook_remove(hook);
 			g_object_unref(book);
+			g_warning("Can't get contacts: %s", err->message);
+			g_clear_error(&err);
 			continue;
 		}
 
-		found = contacts != NULL;
+		mail_cancel_hook_remove(hook);
 
-		printf(" %s\n", found?"found":"not found");
+		if (contacts != NULL) {
+			found = TRUE;
+			g_list_foreach(contacts, (GFunc)g_object_unref, NULL);
+			g_list_free(contacts);
+		}
 
-		g_list_foreach(contacts, (GFunc)g_object_unref, NULL);
-		g_list_free(contacts);
+		d(printf(" %s\n", stop?"found":"not found"));
 
 		g_object_unref(book);
 	}
 
+	g_slist_free(addr_sources);
+
+	if (!stop) {
+		node->found = found;
+		node->stamp = now;
+	}
+
 	e_book_query_unref(query);
 
-	node->found = found;
-	node->stamp = now;
-
-	g_hash_table_insert(emu_addr_cache, node->addr, node);
+	pthread_mutex_unlock(&emu_addr_lock);
 
 	return found;
+}
+
+/**
+ * em_utils_snoop_type:
+ * @part: 
+ * 
+ * Tries to snoop the mime type of a part.
+ * 
+ * Return value: NULL if unknown (more likely application/octet-stream).
+ **/
+const char *
+em_utils_snoop_type(CamelMimePart *part)
+{
+	const char *filename, *name_type = NULL, *magic_type = NULL;
+	CamelDataWrapper *dw;
+	
+	filename = camel_mime_part_get_filename (part);
+	if (filename) {
+		/* GNOME-VFS will misidentify TNEF attachments as MPEG */
+		if (!strcmp (filename, "winmail.dat"))
+			return "application/vnd.ms-tnef";
+		
+		name_type = gnome_vfs_mime_type_from_name(filename);
+	}
+	
+	dw = camel_medium_get_content_object((CamelMedium *)part);
+	if (!camel_data_wrapper_is_offline(dw)) {
+		CamelStreamMem *mem = (CamelStreamMem *)camel_stream_mem_new();
+
+		if (camel_data_wrapper_decode_to_stream(dw, (CamelStream *)mem) > 0)
+			magic_type = gnome_vfs_get_mime_type_for_data(mem->buffer->data, mem->buffer->len);
+		camel_object_unref(mem);
+	}
+
+	d(printf("snooped part, magic_type '%s' name_type '%s'\n", magic_type, name_type));
+
+	/* If GNOME-VFS doesn't recognize the data by magic, but it
+	 * contains English words, it will call it text/plain. If the
+	 * filename-based check came up with something different, use
+	 * that instead and if it returns "application/octet-stream"
+	 * try to do better with the filename check.
+	 */
+	
+	if (magic_type) {
+		if (name_type
+		    && (!strcmp(magic_type, "text/plain")
+			|| !strcmp(magic_type, "application/octet-stream")))
+			return name_type;
+		else
+			return magic_type;
+	} else
+		return name_type;
+
+	/* We used to load parts to check their type, we dont anymore,
+	   see bug #11778 for some discussion */
 }

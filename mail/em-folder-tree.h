@@ -61,8 +61,8 @@ struct _EMFolderTreeClass {
 	GtkVBoxClass parent_class;
 	
 	/* signals */
-	void (* folder_activated) (EMFolderTree *emft, const char *path, const char *uri);
-	void (* folder_selected) (EMFolderTree *emft, const char *path, const char *uri, guint32 flags);
+	void (* folder_activated) (EMFolderTree *emft, const char *full_name, const char *uri);
+	void (* folder_selected) (EMFolderTree *emft, const char *full_name, const char *uri, guint32 flags);
 };
 
 GType em_folder_tree_get_type (void);
@@ -80,12 +80,12 @@ GList *em_folder_tree_get_selected_uris (EMFolderTree *emft);
 GList *em_folder_tree_get_selected_paths (EMFolderTree *emft);
 
 void em_folder_tree_set_selected (EMFolderTree *emft, const char *uri);
-const char *em_folder_tree_get_selected_uri (EMFolderTree *emft);
-const char *em_folder_tree_get_selected_path (EMFolderTree *emft);
+char *em_folder_tree_get_selected_uri (EMFolderTree *emft);
+char *em_folder_tree_get_selected_path (EMFolderTree *emft);
 
 EMFolderTreeModel *em_folder_tree_get_model (EMFolderTree *emft);
 
-gboolean em_folder_tree_create_folder (EMFolderTree *emft, const char *path, const char *uri);
+gboolean em_folder_tree_create_folder (EMFolderTree *emft, const char *full_name, const char *uri);
 
 #ifdef __cplusplus
 }

@@ -52,12 +52,7 @@
 #include <glade/glade.h>
 
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
-
-#if 0
-#include <libgnomevfs/gnome-vfs-utils.h>
-#include <libgnomevfs/gnome-vfs-mime-utils.h>
-#include <libgnomevfs/gnome-vfs-mime.h>
-#endif
+#include <libgnome/gnome-i18n.h>
 
 #include <bonobo/bonobo-control-frame.h>
 #include <bonobo/bonobo-stream-memory.h>
@@ -242,7 +237,7 @@ efhd_init(GObject *o)
 	html_engine_set_tokenizer(efh->html->engine, (HTMLTokenizer *)efhd->search_tok);
 
 	g_signal_connect(efh->html, "realize", G_CALLBACK(efhd_gtkhtml_realise), o);
-
+	
 	/* we want to convert url's etc */
 	efh->text_html_flags |= CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS | CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES;
 #undef efh
@@ -423,9 +418,6 @@ efhd_update_search(EMFormatHTMLDisplay *efhd)
 	GSList *words = NULL;
 	int flags = 0;
 
-	if (p->search_text == NULL)
-		return;
-
 	if (!gtk_toggle_button_get_active((GtkToggleButton *)p->search_case_check))
 		flags = EM_FORMAT_HTML_DISPLAY_SEARCH_ICASE | EM_FORMAT_HTML_DISPLAY_SEARCH_PRIMARY;
 	else
@@ -465,8 +457,8 @@ efhd_search_response(GtkWidget *w, int button, EMFormatHTMLDisplay *efhd)
 		g_free(p->search_text);
 		p->search_text = NULL;
 		gtk_widget_destroy((GtkWidget *)p->search_dialog);
-		e_searching_tokenizer_reset (efhd->search_tok);
 		p->search_dialog = NULL;
+		em_format_html_display_set_search(efhd, EM_FORMAT_HTML_DISPLAY_SEARCH_PRIMARY, NULL);
 	}
 }
 
@@ -503,7 +495,7 @@ em_format_html_display_search(EMFormatHTMLDisplay *efhd)
 		return;
 	}
 
-	xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-search.glade", "search_message_dialog", NULL);
+	xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-dialogs.glade", "search_message_dialog", NULL);
 	if (xml == NULL) {
 		g_warning("Cannot open search dialog glade file");
 		/* ?? */
@@ -520,6 +512,8 @@ em_format_html_display_search(EMFormatHTMLDisplay *efhd)
 	p->search_wrap = FALSE;
 
 	gtk_dialog_set_default_response((GtkDialog *)p->search_dialog, GTK_RESPONSE_ACCEPT);
+	e_dialog_set_transient_for ((GtkWindow *) p->search_dialog, (GtkWidget *) ((EMFormatHTML *) efhd)->html);
+	gtk_window_set_destroy_with_parent ((GtkWindow *) p->search_dialog, TRUE);
 	efhd_update_matches(efhd);
 
 	g_signal_connect(p->search_entry, "activate", G_CALLBACK(efhd_search_entry_activate), efhd);
@@ -584,30 +578,29 @@ efhd_html_button_press_event (GtkWidget *widget, GdkEventButton *event, EMFormat
 	const char *url;
 	gboolean res = FALSE;
 	gint offset;
+	EMFormatPURI *puri = NULL;
+	char *uri = NULL;
 
 	if (event->button != 3)
 		return FALSE;
 
 	e = ((GtkHTML *)widget)->engine;
 	obj = html_engine_get_object_at(e, event->x, event->y, &offset, FALSE);
-	if (obj == NULL)
-		return FALSE;
 
 	d(printf("popup button pressed\n"));
 
-	if ( (url = html_object_get_src(obj)) != NULL
-	     || (url = html_object_get_url(obj, offset)) != NULL) {
-		EMFormatPURI *puri;
-		char *uri;
-
+	if ( obj != NULL
+	     && ((url = html_object_get_src(obj)) != NULL
+		 || (url = html_object_get_url(obj, offset)) != NULL)) {
 		uri = gtk_html_get_url_object_relative((GtkHTML *)widget, obj, url);
 		puri = em_format_find_puri((EMFormat *)efhd, uri);
 
 		d(printf("poup event, uri = '%s' part = '%p'\n", uri, puri?puri->part:NULL));
-
-		g_signal_emit((GtkObject *)efhd, efhd_signals[EFHD_POPUP_EVENT], 0, event, uri, puri?puri->part:NULL, &res);
-		g_free(uri);
 	}
+
+	g_signal_emit((GtkObject *)efhd, efhd_signals[EFHD_POPUP_EVENT], 0, event, uri, puri?puri->part:NULL, &res);
+
+	g_free(uri);
 
 	return res;
 }
@@ -639,11 +632,10 @@ efhd_complete(EMFormat *emf)
 
 /* TODO: move the dialogue elsehwere */
 /* FIXME: also in em-format-html.c */
-/* FIXME: stock_signature-nokey is not in the icon theme yet */
 static const struct {
 	const char *icon, *shortdesc, *description;
 } smime_sign_table[4] = {
-	{ "stock_signature-nokey", N_("Unsigned"), N_("This message is not signed. There is no guarantee that this message is authentic.") },
+	{ "stock_signature-bad", N_("Unsigned"), N_("This message is not signed. There is no guarantee that this message is authentic.") },
 	{ "stock_signature-ok", N_("Valid signature"), N_("This message is signed and is valid meaning that it is very likely that this message is authentic.") },
 	{ "stock_signature-bad", N_("Invalid signature"), N_("The signature of this message cannot be verified, it may have been altered in transit.") },
 	{ "stock_signature", N_("Valid signature, cannot verify sender"), N_("This message is signed with a valid signature, but the sender of the message cannot be verified.") },
@@ -652,10 +644,14 @@ static const struct {
 static const struct {
 	const char *icon, *shortdesc, *description;
 } smime_encrypt_table[4] = {
-	{ "stock_signature-nokey", N_("Unencrypted"), N_("This message is not encrypted.  Its content may be viewed in transit across The Internet.") },
+	{ "stock_lock-broken", N_("Unencrypted"), N_("This message is not encrypted.  Its content may be viewed in transit across the Internet.") },
 	{ "stock_lock-ok", N_("Encrypted, weak"), N_("This message is encrypted, but with a weak encryption algorithm.  It would be difficult, but not impossible for an outsider to view the content of this message in a practical amount of time.") },
 	{ "stock_lock-ok", N_("Encrypted"), N_("This message is encrypted.  It would be difficult for an outsider to view the content of this message.") },
 	{ "stock_lock-ok", N_("Encrypted, strong"), N_("This message is encrypted, with a strong encryption algorithm.  It would be very difficult for an outsider to view the content of this message in a practical amount of time.") },
+};
+
+static const char *smime_sign_colour[4] = {
+	"", " bgcolor=\"#88bb88\"", " bgcolor=\"#bb8888\"", " bgcolor=\"#e8d122\""
 };
 
 struct _smime_pobject {
@@ -790,7 +786,7 @@ efhd_xpkcs7mime_validity_clicked(GtkWidget *button, EMFormatHTMLPObject *pobject
 		/* FIXME: window raise? */
 		return;
 
-	xml = glade_xml_new(EVOLUTION_GLADEDIR "/mail-security.glade", "message_security_dialog", NULL);
+	xml = glade_xml_new(EVOLUTION_GLADEDIR "/mail-dialogs.glade", "message_security_dialog", NULL);
 	po->widget = glade_xml_get_widget(xml, "message_security_dialog");
 
 	vbox = glade_xml_get_widget(xml, "signature_vbox");
@@ -842,7 +838,10 @@ efhd_xpkcs7mime_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	const char *name;
 
 	/* FIXME: need to have it based on encryption and signing too */
-	name = smime_sign_table[po->valid->sign.status].icon;
+	if (po->valid->sign.status != 0)
+		name = smime_sign_table[po->valid->sign.status].icon;
+	else
+		name = smime_encrypt_table[po->valid->encrypt.status].icon;
 
 	pixbuf = e_icon_factory_get_icon (name, E_ICON_SIZE_LARGE_TOOLBAR);
 	
@@ -871,10 +870,10 @@ efhd_format_secure(EMFormat *emf, CamelStream *stream, CamelMimePart *part, Came
 		|| valid->sign.status != CAMEL_CIPHER_VALIDITY_SIGN_NONE)) {
 		char *classid;
 		struct _smime_pobject *pobj;
-
-		camel_stream_printf(stream, "<table border=0 width=\"100%%\" cellpadding=3 cellspacing=0 bgcolor=%s><tr>",
-				    valid->sign.status == CAMEL_CIPHER_VALIDITY_SIGN_GOOD?"#88bb88":"#bb8888");
-
+		
+		camel_stream_printf (stream, "<table border=0 width=\"100%%\" cellpadding=3 cellspacing=0%s><tr>",
+				     smime_sign_colour[valid->sign.status]);
+		
 		classid = g_strdup_printf("smime:///em-format-html/%s/icon/signed", emf->part_id->str);
 		pobj = (struct _smime_pobject *)em_format_html_add_pobject((EMFormatHTML *)emf, sizeof(*pobj), classid, part, efhd_xpkcs7mime_button);
 		pobj->valid = camel_cipher_validity_clone(valid);
@@ -926,19 +925,17 @@ static const EMFormatHandler *efhd_find_handler(EMFormat *emf, const char *mime_
 {
 	const EMFormatHandler *handle;
 
-	if (efhd_use_component(mime_type)) {
-		if ((handle = g_hash_table_lookup(efhd_bonobo_handlers, mime_type)) == NULL) {
-			EMFormatHandler *h = g_malloc0(sizeof(*h));
+	if ( (handle = ((EMFormatClass *)efhd_parent)->find_handler(emf, mime_type)) == NULL
+	     && efhd_use_component(mime_type)
+	     && (handle = g_hash_table_lookup(efhd_bonobo_handlers, mime_type)) == NULL) {
+		EMFormatHandler *h = g_malloc0(sizeof(*h));
 
-			h->mime_type = g_strdup(mime_type);
-			h->handler = efhd_bonobo_unknown;
-			h->flags = EM_FORMAT_HANDLER_INLINE_DISPOSITION;
-			g_hash_table_insert(efhd_bonobo_handlers, h->mime_type, h);
+		h->mime_type = g_strdup(mime_type);
+		h->handler = efhd_bonobo_unknown;
+		h->flags = EM_FORMAT_HANDLER_INLINE_DISPOSITION;
+		g_hash_table_insert(efhd_bonobo_handlers, h->mime_type, h);
 
-			handle = h;
-		}
-	} else {
-		handle = ((EMFormatClass *)efhd_parent)->find_handler(emf, mime_type);
+		handle = h;
 	}
 
 	return handle;
@@ -955,7 +952,7 @@ efhd_write_image(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)puri->part);
 
 	/* TODO: identical to efh_write_image */
-	d(printf("writing image '%s'\n", puri->uri?puri->uri:puri->cid));
+	d(printf("writing image '%s'\n", puri->cid));
 	camel_data_wrapper_decode_to_stream(dw, stream);
 	camel_stream_close(stream);
 }
@@ -1039,50 +1036,33 @@ static void efhd_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart
 
 /* if it hasn't been processed yet, format the attachment */
 static void
-efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
+efhd_attachment_show(EPopup *ep, EPopupItem *item, void *data)
 {
+	struct _attach_puri *info = data;
+
 	d(printf("show attachment button called\n"));
 
 	info->shown = ~info->shown;
-	em_format_set_inline(info->puri.format, info->puri.part, info->shown);
-	/* FIXME: do this in an idle handler */
-	em_format_redraw(info->puri.format);
-#if 0
-	/* FIXME: track shown state in parent */
-
-	if (info->shown) {
-		d(printf("hiding\n"));
-		info->shown = FALSE;
-		if (info->frame)
-			gtk_widget_hide((GtkWidget *)info->frame);
-		gtk_widget_show(info->forward);
-		gtk_widget_hide(info->down);
-	} else {
-		d(printf("showing\n"));
-		info->shown = TRUE;
-		if (info->frame)
-			gtk_widget_show((GtkWidget *)info->frame);
-		gtk_widget_hide(info->forward);
-		gtk_widget_show(info->down);
-
-		/* have we decoded it yet? */
-		if (info->output) {
-			info->handle->handler(info->puri.format, info->output, info->puri.part, info->handle);
-			camel_stream_close(info->output);
-			camel_object_unref(info->output);
-			info->output = NULL;
-		}
-	}
-
-	em_format_set_inline(info->puri.format, info->puri.part, info->shown);
-#endif
+	em_format_set_inline(info->puri.format, info->puri.part_id, info->shown);
 }
 
-static EMPopupItem efhd_menu_items[] = {
-	{ EM_POPUP_BAR, "05.display", },
-	{ EM_POPUP_ITEM, "05.display.00", N_("_View Inline"), G_CALLBACK(efhd_attachment_show) },
-	{ EM_POPUP_ITEM, "05.display.00", N_("_Hide"), G_CALLBACK(efhd_attachment_show) },
+static void
+efhd_attachment_button_show(GtkWidget *w, void *data)
+{
+	efhd_attachment_show(NULL, NULL, data);
+}
+
+static EPopupItem efhd_menu_items[] = {
+	{ E_POPUP_BAR, "05.display", },
+	{ E_POPUP_ITEM, "05.display.00", N_("_View Inline"), efhd_attachment_show },
+	{ E_POPUP_ITEM, "05.display.00", N_("_Hide"), efhd_attachment_show },
 };
+
+static void
+efhd_menu_items_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
+}
 
 static void
 efhd_popup_place_widget(GtkMenu *menu, int *x, int *y, gboolean *push_in, gpointer user_data)
@@ -1100,8 +1080,8 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	GtkMenu *menu;
 	GSList *menus = NULL;
 	EMPopup *emp;
-	EMPopupTarget *target;
-	EMPopupItem *item;
+	EMPopupTargetPart *target;
+	EPopupItem *item;
 
 	d(printf("attachment popup, button %d\n", event->button));
 
@@ -1111,22 +1091,20 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	}
 
 	emp = em_popup_new("com.ximian.mail.formathtmldisplay.popup.part");
-	target = em_popup_target_new_part(info->puri.part, info->handle?info->handle->mime_type:NULL);
-	target->widget = w;
+	target = em_popup_target_new_part(emp, info->puri.part, info->handle?info->handle->mime_type:NULL);
+	target->target.widget = w;
 
 	/* add our local menus */
 	if (info->handle) {
 		/* show/hide menus, only if we have an inline handler */
-		efhd_menu_items[0].activate_data = info;
 		menus = g_slist_prepend(menus, &efhd_menu_items[0]);
 		item = &efhd_menu_items[info->shown?2:1];
-		item->activate_data = info;
 		menus = g_slist_prepend(menus, item);
 	}
 
-	em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+	e_popup_add_items((EPopup *)emp, menus, efhd_menu_items_free, info);
 
-	menu = em_popup_create_menu_once(emp, target, target->mask, target->mask);
+	menu = e_popup_create_menu_once((EPopup *)emp, (EPopupTarget *)target, 0);
 	if (event)
 		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button, event->time);
 	else
@@ -1244,7 +1222,7 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	button = gtk_button_new();
 
 	if (info->handle)
-		g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_show), info);
+		g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_button_show), info);
 	else {
 		gtk_widget_set_sensitive(button, FALSE);
 		GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);
@@ -1402,7 +1380,13 @@ efhd_bonobo_object(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *
 	/* Write the data to a CamelStreamMem... */
 	cstream = (CamelStreamMem *)camel_stream_mem_new();
 	wrapper = camel_medium_get_content_object((CamelMedium *)pobject->part);
- 	camel_data_wrapper_decode_to_stream(wrapper, (CamelStream *)cstream);
+	if (FALSE && !g_ascii_strncasecmp (eb->type, "text/", 5)) {
+		/* do charset conversion, etc */
+		printf ("performing charset conversion for %s component\n", eb->type);
+		em_format_format_text ((EMFormat *) efh, (CamelStream *) cstream, wrapper);
+	} else {
+		camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *) cstream);
+	}
 	
 	/* ...convert the CamelStreamMem to a BonoboStreamMem... */
 	bstream = bonobo_stream_mem_create(cstream->buffer->data, cstream->buffer->len, TRUE, FALSE);
@@ -1496,7 +1480,7 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 	info = (struct _attach_puri *)em_format_add_puri(emf, sizeof(*info), classid, part, efhd_attachment_frame);
 	em_format_html_add_pobject((EMFormatHTML *)emf, sizeof(EMFormatHTMLPObject), classid, part, efhd_attachment_button);
 	info->handle = handle;
-	info->shown = em_format_is_inline(emf, info->puri.part, handle);
+	info->shown = em_format_is_inline(emf, info->puri.part_id, info->puri.part, handle);
 	info->snoop_mime_type = emf->snoop_mime_type;
 
 	camel_stream_write_string(stream,

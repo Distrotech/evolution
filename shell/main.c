@@ -27,6 +27,7 @@
 #include "e-util/e-dialog-utils.h"
 #include "e-util/e-gtk-utils.h"
 #include "e-util/e-bconf-map.h"
+#include "e-util/e-passwords.h"
 
 #include <e-util/e-icon-factory.h>
 #include "e-shell-constants.h"
@@ -40,7 +41,7 @@
 #include <gconf/gconf-client.h>
 
 #include <gtk/gtkalignment.h>
-#include <gtk/gtkbox.h>
+#include <gtk/gtkvbox.h>
 #include <gtk/gtkframe.h>
 #include <gtk/gtklabel.h>
 #include <gtk/gtkmain.h>
@@ -54,6 +55,7 @@
 
 #include <libgnome/gnome-i18n.h>
 #include <libgnome/gnome-util.h>
+#include <libgnome/gnome-sound.h>
 #include <libgnomeui/gnome-ui-init.h>
 
 #include <bonobo/bonobo-main.h>
@@ -68,6 +70,7 @@
 #include "Evolution-DataServer.h"
 
 #include <gal/widgets/e-cursors.h>
+#include "widgets/misc/e-error.h"
 
 #include <fcntl.h>
 #include <signal.h>
@@ -78,6 +81,10 @@
 
 #include <pthread.h>
 
+#include "e-util/e-plugin.h"
+#ifdef ENABLE_MONO
+#include "e-util/e-plugin-mono.h"
+#endif
 
 #define DEVELOPMENT
 
@@ -92,6 +99,12 @@ static gboolean killev = FALSE;
 #ifdef DEVELOPMENT
 static gboolean force_migrate = FALSE;
 #endif
+#ifdef ENABLE_MONO
+static gboolean disable_mono = FALSE;
+#endif
+static gboolean disable_eplugin = FALSE;
+
+static gint idle_cb (void *data);
 
 static char *default_component_id = NULL;
 static char *evolution_debug_log = NULL;
@@ -186,33 +199,24 @@ warning_dialog_response_callback (GtkDialog *dialog,
 	g_object_unref (client);
 
 	gtk_widget_destroy (GTK_WIDGET (dialog));
+
+	idle_cb(NULL);
 }
 
 static void
-show_development_warning (GtkWindow *parent)
+show_development_warning(void)
 {
 	GtkWidget *vbox;
 	GtkWidget *label;
 	GtkWidget *warning_dialog;
 	GtkWidget *dont_bother_me_again_checkbox;
 	GtkWidget *alignment;
-	GConfClient *client;
 	char *text;
 
-	client = gconf_client_get_default ();
-
-	if (gconf_client_get_bool (client, "/apps/evolution/shell/skip_warning_dialog", NULL)) {
-		g_object_unref (client);
-		return;
-	}
-
-	g_object_unref (client);
-
 	warning_dialog = gtk_dialog_new ();
-	gtk_window_set_title (GTK_WINDOW (warning_dialog), "Ximian Evolution " VERSION);
+	gtk_window_set_title (GTK_WINDOW (warning_dialog), "Evolution " VERSION);
 	gtk_window_set_modal (GTK_WINDOW (warning_dialog), TRUE);
 	gtk_dialog_add_button (GTK_DIALOG (warning_dialog), GTK_STOCK_OK, GTK_RESPONSE_OK);
-	e_dialog_set_transient_for (GTK_WINDOW (warning_dialog), GTK_WIDGET (parent));
 
 	gtk_dialog_set_has_separator (GTK_DIALOG (warning_dialog), FALSE);
 
@@ -228,9 +232,9 @@ show_development_warning (GtkWindow *parent)
 		/* xgettext:no-c-format */
 		/* Preview/Alpha/Beta version warning message */
 		_("Hi.  Thanks for taking the time to download this preview release\n"
-		  "of the Ximian Evolution groupware suite.\n"
+		  "of the Evolution groupware suite.\n"
 		  "\n"
-		  "This version of Ximian Evolution is not yet complete. It is getting close,\n"
+		  "This version of Evolution is not yet complete. It is getting close,\n"
 		  "but some features are either unfinished or do not work properly.\n"
 		  "\n"
 		  "If you want a stable version of Evolution, we urge you to uninstall\n"
@@ -252,7 +256,7 @@ show_development_warning (GtkWindow *parent)
 	gtk_box_pack_start (GTK_BOX (vbox), label, TRUE, TRUE, 0);
 
 	label = gtk_label_new (_("Thanks\n"
-				 "The Ximian Evolution Team\n"));
+				 "The Evolution Team\n"));
 	gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_RIGHT);
 	gtk_misc_set_alignment(GTK_MISC(label), 1, .5);
 
@@ -270,28 +274,6 @@ show_development_warning (GtkWindow *parent)
 	g_signal_connect (warning_dialog, "response",
 			  G_CALLBACK (warning_dialog_response_callback),
 			  dont_bother_me_again_checkbox);
-}
-
-/* The following signal handlers are used to display the development warning as
-   soon as the first view is created.  */
-
-static void
-window_map_callback (GtkWidget *widget,
-		     void *data)
-{
-	g_signal_handlers_disconnect_by_func (widget, G_CALLBACK (window_map_callback), data);
-
-	show_development_warning (GTK_WINDOW (widget));
-}
-
-static void
-new_window_created_callback (EShell *shell,
-			     EShellWindow *window,
-			     void *data)
-{
-	g_signal_handlers_disconnect_by_func (shell, G_CALLBACK (new_window_created_callback), data);
-
-	g_signal_connect (window, "map", G_CALLBACK (window_map_callback), NULL);
 }
 
 static void
@@ -373,13 +355,6 @@ idle_cb (void *data)
 	case E_SHELL_CONSTRUCT_RESULT_OK:
 		g_signal_connect (shell, "no_windows_left", G_CALLBACK (no_windows_left_cb), NULL);
 		g_object_weak_ref (G_OBJECT (shell), shell_weak_notify, NULL);
-
-#ifdef DEVELOPMENT
-		if (!getenv ("EVOLVE_ME_HARDER"))
-			g_signal_connect (shell, "new_window_created",
-					  G_CALLBACK (new_window_created_callback), NULL);
-#endif
-
 		corba_shell = bonobo_object_corba_objref (BONOBO_OBJECT (shell));
 		corba_shell = CORBA_Object_duplicate (corba_shell, &ev);
 		break;
@@ -387,8 +362,7 @@ idle_cb (void *data)
 	case E_SHELL_CONSTRUCT_RESULT_CANNOTREGISTER:
 		corba_shell = bonobo_activation_activate_from_id (E_SHELL_OAFIID, 0, NULL, &ev);
 		if (ev._major != CORBA_NO_EXCEPTION || corba_shell == CORBA_OBJECT_NIL) {
-			e_notice (NULL, GTK_MESSAGE_ERROR,
-				  _("Cannot register the Ximian Evolution shell."));
+			e_error_run(NULL, "shell:noshell", NULL);
 			CORBA_exception_free (&ev);
 			bonobo_main_quit ();
 			return FALSE;
@@ -396,9 +370,8 @@ idle_cb (void *data)
 		break;
 
 	default:
-		e_notice (NULL, GTK_MESSAGE_ERROR,
-			  _("Cannot initialize the Ximian Evolution shell: %s"),
-			  e_shell_construct_result_to_string (result));
+		e_error_run(NULL, "shell:noshell-reason",
+			    e_shell_construct_result_to_string(result), NULL);
 		CORBA_exception_free (&ev);
 		bonobo_main_quit ();
 		return FALSE;
@@ -509,11 +482,20 @@ main (int argc, char **argv)
 #endif
 		{ "debug", '\0', POPT_ARG_STRING, &evolution_debug_log, 0, 
 		  N_("Send the debugging output of all components to a file."), NULL },
+#ifdef ENABLE_MONO
+		{ "disable-mono", '\0', POPT_ARG_NONE, &disable_mono, 0, 
+		  N_("Disable the mono plugin environment."), NULL },
+#endif
+		{ "disable-eplugin", '\0', POPT_ARG_NONE, &disable_eplugin, 0, 
+		  N_("Disable loading of any plugins."), NULL },
 		{ "setup-only", '\0', POPT_ARG_NONE | POPT_ARGFLAG_DOC_HIDDEN,
 		  &setup_only, 0, NULL, NULL },
-		POPT_AUTOHELP
 		{ NULL, '\0', 0, NULL, 0, NULL, NULL }
 	};
+#ifdef DEVELOPMENT
+	GConfClient *client;
+	gboolean skip_warning_dialog;
+#endif
 	GSList *uri_list;
 	GValue popt_context_value = { 0, };
 	GnomeProgram *program;
@@ -570,6 +552,7 @@ main (int argc, char **argv)
 	glade_init ();
 	e_cursors_init ();
 	e_icon_factory_init ();
+	e_passwords_init();
 
 	icon_list = e_icon_factory_get_icon_list ("stock_mail");
 	if (icon_list) {
@@ -600,9 +583,34 @@ main (int argc, char **argv)
 	uri_list = g_slist_reverse (uri_list);
 	g_value_unset (&popt_context_value);
 
-	g_idle_add (idle_cb, uri_list);
+	gnome_sound_init ("localhost");
 
+	if (!disable_eplugin) {
+#ifdef ENABLE_MONO
+		if (!disable_mono && getenv("EVOLUTION_DISABLE_MONO") == NULL)
+			e_plugin_register_type(e_plugin_mono_get_type());
+#endif
+		e_plugin_register_type(e_plugin_lib_get_type());
+		e_plugin_load_plugins();
+	}
+
+#ifdef DEVELOPMENT
+	client = gconf_client_get_default ();
+	skip_warning_dialog = gconf_client_get_bool (client, "/apps/evolution/shell/skip_warning_dialog", NULL);
+	g_object_unref (client);
+
+	if (!skip_warning_dialog && !getenv ("EVOLVE_ME_HARDER"))
+		show_development_warning();
+	else
+#endif
+		g_idle_add (idle_cb, uri_list);	
+	
 	bonobo_main ();
-
+	
+	e_icon_factory_shutdown ();
+	g_object_unref (program);
+	gnome_sound_shutdown ();
+	e_cursors_shutdown ();
+	
 	return 0;
 }

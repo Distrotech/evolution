@@ -280,6 +280,7 @@ switch_view (EShellWindow *window, ComponentView *component_view)
 	GConfClient *gconf_client = gconf_client_get_default ();
 	EComponentRegistry *registry = e_shell_peek_component_registry (window->priv->shell);
 	EComponentInfo *info = e_component_registry_peek_info (registry,
+							       ECR_FIELD_ID,
 							       component_view->component_id);
 	char *title;
 
@@ -333,20 +334,20 @@ update_offline_toggle_status (EShellWindow *window)
 		icon_pixmap = online_pixmap;
 		icon_mask   = online_mask;
 		sensitive   = TRUE;
-		tooltip     = _("Ximian Evolution is currently online.  "
+		tooltip     = _("Evolution is currently online.  "
 				"Click on this button to work offline.");
 		break;
 	case E_SHELL_LINE_STATUS_GOING_OFFLINE:
 		icon_pixmap = online_pixmap;
 		icon_mask   = online_mask;
 		sensitive   = FALSE;
-		tooltip     = _("Ximian Evolution is in the process of going offline.");
+		tooltip     = _("Evolution is in the process of going offline.");
 		break;
 	case E_SHELL_LINE_STATUS_OFFLINE:
 		icon_pixmap = offline_pixmap;
 		icon_mask   = offline_mask;
 		sensitive   = TRUE;
-		tooltip     = _("Ximian Evolution is currently offline.  "
+		tooltip     = _("Evolution is currently offline.  "
 				"Click on this button to work online.");
 		break;
 	default:
@@ -552,6 +553,18 @@ setup_status_bar (EShellWindow *window)
 }
 
 static void
+menu_component_selected (BonoboUIComponent *uic,
+			 EShellWindow *window,
+			 const char *path)
+{
+	char *component_id;
+
+	component_id = strchr(path, '-');
+	if (component_id)
+		e_shell_window_switch_to_component (window, component_id+1);
+}
+
+static void
 setup_widgets (EShellWindow *window)
 {
 	EShellWindowPrivate *priv = window->priv;
@@ -559,7 +572,9 @@ setup_widgets (EShellWindow *window)
 	GConfClient *gconf_client = gconf_client_get_default ();
 	GtkWidget *contents_vbox;
 	GSList *p;
+	GString *xml;
 	int button_id;
+	gboolean toolbar_visible;
 
 	priv->paned = gtk_hpaned_new ();
 
@@ -581,16 +596,62 @@ setup_widgets (EShellWindow *window)
 	gtk_paned_set_position (GTK_PANED (priv->paned),
 				gconf_client_get_int (gconf_client, "/apps/evolution/shell/view_defaults/folder_bar/width", NULL));
 
+	toolbar_visible = gconf_client_get_bool (gconf_client,
+						 "/apps/evolution/shell/view_defaults/toolbar_visible",
+						 NULL);
+	bonobo_ui_component_set_prop (e_shell_window_peek_bonobo_ui_component (window),
+				      "/commands/ViewToolbar",
+				      "state",
+				      toolbar_visible ? "1" : "0",
+				      NULL);
+	bonobo_ui_component_set_prop (e_shell_window_peek_bonobo_ui_component (window),
+				      "/Toolbar",
+				      "hidden",
+				      toolbar_visible ? "0" : "1",
+				      NULL);
+
 	button_id = 0;
+	xml = g_string_new("");
 	for (p = e_component_registry_peek_list (registry); p != NULL; p = p->next) {
+		char *tmp;
 		EComponentInfo *info = p->data;
 		ComponentView *view = component_view_new (info->id, info->alias, button_id);
 
 		window->priv->component_views = g_slist_prepend (window->priv->component_views, view);
 		e_sidebar_add_button (E_SIDEBAR (priv->sidebar), info->button_label, info->button_icon, button_id);
 
+		g_string_printf(xml, "SwitchComponent-%s", info->alias);
+		bonobo_ui_component_add_verb (e_shell_window_peek_bonobo_ui_component (window),
+					      xml->str,
+					      (BonoboUIVerbFn)menu_component_selected,
+					      window);
+
+		g_string_printf(xml, "<submenu name=\"View\">"
+				"<submenu name=\"Window\">"
+				"<placeholder name=\"WindowComponent\">"
+				"<menuitem name=\"SwitchComponent-%s\" "
+				"verb=\"\" label=\"%s\" accel=\"%s\" tip=\"",
+				info->alias,
+				info->menu_label,
+				info->menu_accelerator);
+		g_string_append_printf(xml, _("Switch to %s"), info->button_label);
+		tmp = bonobo_ui_util_pixbuf_to_xml (info->menu_icon),
+		g_string_append_printf(xml, "\" pixtype=\"pixbuf\" pixname=\"%s\"/>"
+				       "</placeholder></submenu></submenu>\n",
+				       tmp);
+		g_free(tmp);
+		bonobo_ui_component_set_translate (e_shell_window_peek_bonobo_ui_component (window),
+						   "/menu",
+						   xml->str,
+						   NULL);
+		g_string_printf(xml, "<cmd name=\"SwitchComponent-%s\"/>\n", info->alias);
+		bonobo_ui_component_set_translate (e_shell_window_peek_bonobo_ui_component (window),
+						   "/commands",
+						   xml->str,
+						   NULL);
 		button_id ++;
 	}
+	g_string_free(xml, TRUE);
 
 	setup_status_bar (window);
 
@@ -690,10 +751,11 @@ e_shell_window_new (EShell *shell,
 	EShellWindowPrivate *priv = window->priv;
 	GConfClient *gconf_client = gconf_client_get_default ();
 	BonoboUIContainer *ui_container;
+	char *default_component_id = NULL;
 
 	if (bonobo_window_construct (BONOBO_WINDOW (window),
 				     bonobo_ui_container_new (),
-				     "evolution", "Ximian Evolution") == NULL) {
+				     "evolution", "Evolution") == NULL) {
 		g_object_unref (window);
 		g_object_unref (gconf_client);
 		return NULL;
@@ -725,23 +787,18 @@ e_shell_window_new (EShell *shell,
 
 	gtk_window_set_default_size (GTK_WINDOW (window), 640, 480);
 
-	if (component_id != NULL) {
-		e_shell_window_switch_to_component (window, component_id);
-	} else {
-		char *default_component_id;
-
-		default_component_id = gconf_client_get_string (gconf_client,
-								"/apps/evolution/shell/view_defaults/component_id",
-								NULL);
-		g_object_unref (gconf_client);
-
-		if (default_component_id == NULL) {
-			e_shell_window_switch_to_component (window, "mail");
-		} else {
-			e_shell_window_switch_to_component (window, default_component_id);
-			g_free (default_component_id);
-		}
+	if (component_id == NULL) {
+		component_id = default_component_id =
+			gconf_client_get_string (gconf_client,
+						 "/apps/evolution/shell/view_defaults/component_id",
+						 NULL);
+		if (component_id == NULL)
+			component_id = "mail";
 	}
+
+	e_shell_window_switch_to_component (window, component_id);
+	g_free(default_component_id);
+	g_object_unref (gconf_client);
 
 	gtk_window_set_default_size (GTK_WINDOW (window),
 				     gconf_client_get_int (gconf_client, "/apps/evolution/shell/view_defaults/width", NULL),
@@ -816,6 +873,8 @@ void
 e_shell_window_save_defaults (EShellWindow *window)
 {
 	GConfClient *client = gconf_client_get_default ();
+	char *prop;
+	gboolean toolbar_visible;
 
 	gconf_client_set_int (client, "/apps/evolution/shell/view_defaults/width",
 			      GTK_WIDGET (window)->allocation.width, NULL);
@@ -824,6 +883,19 @@ e_shell_window_save_defaults (EShellWindow *window)
 
 	gconf_client_set_int (client, "/apps/evolution/shell/view_defaults/folder_bar/width",
 			      gtk_paned_get_position (GTK_PANED (window->priv->paned)), NULL);
+
+	prop = bonobo_ui_component_get_prop (e_shell_window_peek_bonobo_ui_component (window),
+					     "/commands/ViewToolbar",
+					     "state",
+					     NULL);
+	if (prop) {
+		toolbar_visible = prop[0] == '1';
+		gconf_client_set_bool (client,
+				       "/apps/evolution/shell/view_defaults/toolbar_visible",
+				       toolbar_visible,
+				       NULL);
+		g_free (prop);
+	}
 
 	g_object_unref (client);
 }

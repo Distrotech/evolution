@@ -569,7 +569,9 @@ prepare_importer_page (GnomeDruidPage *page,
 	dialog = gtk_message_dialog_new (NULL, 0, GTK_MESSAGE_INFO,
 					 GTK_BUTTONS_NONE,
 					 _("Please wait...\nScanning for existing setups"));
+#if !GTK_CHECK_VERSION (2,4,0)
 	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
+#endif
 	e_make_widget_backing_stored (dialog);
 
 	gtk_window_set_title (GTK_WINDOW (dialog), _("Starting import"));
@@ -736,7 +738,7 @@ make_importer_page (SWData *data)
 	page->page = glade_xml_get_widget (data->wizard, "import-page");
 	g_return_val_if_fail (page->page != NULL, NULL);
 
-	pixbuf = e_icon_factory_get_icon ("stock_mail-import", 48);
+	pixbuf = e_icon_factory_get_icon ("stock_mail-import", E_ICON_SIZE_DIALOG);
 	gnome_druid_page_standard_set_logo (GNOME_DRUID_PAGE_STANDARD (page->page), pixbuf);
 	g_object_unref (pixbuf);
 

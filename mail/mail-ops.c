@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <libgnome/gnome-exec.h>
 #include <gal/util/e-util.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <camel/camel-mime-filter-from.h>
 #include <camel/camel-stream-filter.h>
@@ -56,10 +57,9 @@
 #include "mail-session.h"
 #include "composer/e-msg-composer.h"
 
-#include "filter/filter-filter.h"
+#include "em-filter-rule.h"
 
 #include "mail-mt.h"
-#include "mail-folder-cache.h"
 
 #include "em-utils.h"
 
@@ -94,7 +94,7 @@ struct _fetch_mail_msg {
 };
 
 static char *
-filter_folder_describe (struct _mail_msg *mm, int complete)
+em_filter_folder_element_describe (struct _mail_msg *mm, int complete)
 {
 	return g_strdup (_("Filtering Folder"));
 }
@@ -102,7 +102,7 @@ filter_folder_describe (struct _mail_msg *mm, int complete)
 /* filter a folder, or a subset thereof, uses source_folder/source_uids */
 /* this is shared with fetch_mail */
 static void
-filter_folder_filter (struct _mail_msg *mm)
+em_filter_folder_element_filter (struct _mail_msg *mm)
 {
 	struct _filter_mail_msg *m = (struct _filter_mail_msg *)mm;
 	CamelFolder *folder;
@@ -155,12 +155,12 @@ filter_folder_filter (struct _mail_msg *mm)
 }
 
 static void
-filter_folder_filtered (struct _mail_msg *mm)
+em_filter_folder_element_filtered (struct _mail_msg *mm)
 {
 }
 
 static void
-filter_folder_free (struct _mail_msg *mm)
+em_filter_folder_element_free (struct _mail_msg *mm)
 {
 	struct _filter_mail_msg *m = (struct _filter_mail_msg *)mm;
 	
@@ -182,11 +182,11 @@ filter_folder_free (struct _mail_msg *mm)
 	mail_session_flush_filter_log ();
 }
 
-static struct _mail_msg_op filter_folder_op = {
-	filter_folder_describe,  /* we do our own progress reporting? */
-	filter_folder_filter,
-	filter_folder_filtered,
-	filter_folder_free,
+static struct _mail_msg_op em_filter_folder_element_op = {
+	em_filter_folder_element_describe,  /* we do our own progress reporting? */
+	em_filter_folder_element_filter,
+	em_filter_folder_element_filtered,
+	em_filter_folder_element_free,
 };
 
 void
@@ -196,7 +196,7 @@ mail_filter_folder (CamelFolder *source_folder, GPtrArray *uids,
 {
 	struct _filter_mail_msg *m;
 	
-	m = mail_msg_new (&filter_folder_op, NULL, sizeof (*m));
+	m = mail_msg_new (&em_filter_folder_element_op, NULL, sizeof (*m));
 	m->source_folder = source_folder;
 	camel_object_ref (source_folder);
 	m->source_uids = uids;
@@ -316,22 +316,33 @@ fetch_mail_fetch (struct _mail_msg *mm)
 					camel_uid_cache_free_uids (cache_uids);
 					
 					fm->cache = cache;
-					filter_folder_filter (mm);
+					em_filter_folder_element_filter (mm);
 					
-					/* save the cache of uids that we've just downloaded */
-					camel_uid_cache_save (cache);
-
-					/* if we don't do this, no operations on the folder will work */
+					/* need to uncancel so writes/etc. don't fail */
 					if (mm->ex.id == CAMEL_EXCEPTION_USER_CANCEL)
 						camel_operation_uncancel(NULL);
 
+					/* save the cache of uids that we've just downloaded */
+					camel_uid_cache_save (cache);
+				}
+
+				if (fm->delete && mm->ex.id == CAMEL_EXCEPTION_NONE) {
+					/* not keep on server - just delete all the actual messages on the server */
+					for (i=0;i<folder_uids->len;i++) {
+						d(printf("force delete uid '%s'\n", (char *)folder_uids->pdata[i]));
+						camel_folder_delete_message(folder, folder_uids->pdata[i]);
+					}
+				}
+
+				if (fm->delete || cache_uids) {
 					/* expunge messages (downloaded so far) */
 					camel_folder_sync(folder, fm->delete, NULL);
 				}
+
 				camel_uid_cache_destroy (cache);
 				camel_folder_free_uids (folder, folder_uids);
 			} else {
-				filter_folder_filter (mm);
+				em_filter_folder_element_filter (mm);
 			}
 			
 			/* we unref the source folder here since we
@@ -372,7 +383,7 @@ fetch_mail_free (struct _mail_msg *mm)
 	if (m->cancel)
 		camel_operation_unref (m->cancel);
 
-	filter_folder_free (mm);
+	em_filter_folder_element_free (mm);
 }
 
 static struct _mail_msg_op fetch_mail_op = {
@@ -447,7 +458,7 @@ mail_send_message (CamelMimeMessage *message, const char *destination,
 	int i;
 	
 	camel_medium_set_header (CAMEL_MEDIUM (message), "X-Mailer",
-				 "Ximian Evolution " VERSION SUB_VERSION " " VERSION_COMMENT);
+				 "Evolution " VERSION SUB_VERSION " " VERSION_COMMENT);
 	
 	xev = mail_tool_remove_xevolution_headers (message);
 	
@@ -680,7 +691,7 @@ send_queue_send(struct _mail_msg *mm)
 		
 		mail_send_message (message, m->destination, m->driver, &ex);
 		if (!camel_exception_is_set (&ex)) {
-			camel_folder_set_message_flags (m->queue, send_uids->pdata[i], CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_DELETED);
+			camel_folder_set_message_flags (m->queue, send_uids->pdata[i], CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
 		} else if (ex.id != CAMEL_EXCEPTION_USER_CANCEL) {
 			/* merge exceptions into one */
 			if (camel_exception_is_set (&mm->ex))
@@ -852,7 +863,7 @@ mail_append_mail (CamelFolder *folder, CamelMimeMessage *message, CamelMessageIn
 	
 	if (!camel_medium_get_header (CAMEL_MEDIUM (message), "X-Mailer"))
 		camel_medium_set_header (CAMEL_MEDIUM (message), "X-Mailer",
-					 "Ximian Evolution " VERSION SUB_VERSION " " VERSION_COMMENT);
+					 "Evolution " VERSION SUB_VERSION " " VERSION_COMMENT);
 
 	m = mail_msg_new (&append_mail_op, NULL, sizeof (*m));
 	m->folder = folder;
@@ -2003,50 +2014,25 @@ static void
 save_part_save (struct _mail_msg *mm)
 {
 	struct _save_part_msg *m = (struct _save_part_msg *)mm;
-	CamelMimeFilterCharset *charsetfilter;
-	CamelContentType *content_type;
-	CamelStream *filtered_stream;
-	CamelStream *stream_fs;
-	CamelDataWrapper *data;
-	const char *charset;
+	CamelDataWrapper *content;
+	CamelStream *stream;
 	
-	stream_fs = camel_stream_fs_new_with_name (m->path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-	if (stream_fs == NULL) {
+	if (!(stream = camel_stream_fs_new_with_name (m->path, O_WRONLY | O_CREAT | O_TRUNC, 0666))) {
 		camel_exception_setv (&mm->ex, CAMEL_EXCEPTION_SYSTEM,
 				      _("Cannot create output file: %s:\n %s"),
 				      m->path, g_strerror (errno));
 		return;
 	}
 	
-	/* we only convert text/ parts, and we only convert if we have to
-	   null charset param == us-ascii == utf8 always, and utf8 == utf8 obviously */
-	/* this will also let "us-ascii that isn't really" parts pass out in
-	   proper format, without us trying to treat it as what it isn't, which is
-	   the same algorithm camel uses */
+	content = camel_medium_get_content_object (CAMEL_MEDIUM (m->part));
 	
-	data = camel_medium_get_content_object (CAMEL_MEDIUM (m->part));
-	content_type = camel_mime_part_get_content_type (m->part);
-	if (camel_content_type_is (content_type, "text", "*")
-	    && (charset = camel_content_type_param (content_type, "charset"))
-	    && strcasecmp (charset, "utf-8") != 0) {
-		charsetfilter = camel_mime_filter_charset_new_convert ("utf-8", charset);
-		filtered_stream = (CamelStream *) camel_stream_filter_new_with_stream (stream_fs);
-		camel_object_unref (CAMEL_OBJECT (stream_fs));
-		if (charsetfilter) {
-			camel_stream_filter_add (CAMEL_STREAM_FILTER (filtered_stream), CAMEL_MIME_FILTER (charsetfilter));
-			camel_object_unref (charsetfilter);
-		}
-	} else {
-		filtered_stream = stream_fs;
-	}
-	
-	if (camel_data_wrapper_decode_to_stream (data, filtered_stream) == -1
-	    || camel_stream_flush (filtered_stream) == -1)
+	if (camel_data_wrapper_decode_to_stream (content, stream) == -1
+	    || camel_stream_flush (stream) == -1)
 		camel_exception_setv (&mm->ex, CAMEL_EXCEPTION_SYSTEM,
 				      _("Could not write data: %s"),
 				      g_strerror (errno));
 	
-	camel_object_unref (filtered_stream);
+	camel_object_unref (stream);
 }
 
 static void
@@ -2278,4 +2264,81 @@ mail_execute_shell_command (CamelFilterDriver *driver, int argc, char **argv, vo
 		return;
 	
 	gnome_execute_async_fds (NULL, argc, argv, TRUE);
+}
+
+/* Async service-checking/authtype-lookup code. */
+struct _check_msg {
+	struct _mail_msg msg;
+
+	char *url;
+	CamelProviderType type;
+	GList *authtypes;
+
+	void (*done)(const char *url, CamelProviderType type, GList *types, void *data);
+	void *data;
+};
+
+static char *
+check_service_describe(struct _mail_msg *mm, int complete)
+{
+	return g_strdup(_("Checking Service"));
+}
+
+static void
+check_service_check(struct _mail_msg *mm)
+{
+	struct _check_msg *m = (struct _check_msg *)mm;
+	CamelService *service;
+
+	service = camel_session_get_service(session, m->url, m->type, &mm->ex);
+	if (!service) {
+		camel_operation_unregister(mm->cancel);
+		return;
+	}
+
+	m->authtypes = camel_service_query_auth_types(service, &mm->ex);
+	camel_object_unref(service);
+}
+
+static void
+check_service_done(struct _mail_msg *mm)
+{
+	struct _check_msg *m = (struct _check_msg *)mm;
+
+	if (m->done)
+		m->done(m->url, m->type, m->authtypes, m->data);
+}
+
+static void
+check_service_free(struct _mail_msg *mm)
+{
+	struct _check_msg *m = (struct _check_msg *)mm;
+
+	g_free(m->url);
+	g_list_free(m->authtypes);
+}
+
+static struct _mail_msg_op check_service_op = {
+	check_service_describe,
+	check_service_check,
+	check_service_done,
+	check_service_free,
+};
+
+int
+mail_check_service(const char *url, CamelProviderType type, void (*done)(const char *url, CamelProviderType type, GList *authtypes, void *data), void *data)
+{
+	struct _check_msg *m;
+	int id;
+	
+	m = mail_msg_new (&check_service_op, NULL, sizeof(*m));
+	m->url = g_strdup(url);
+	m->type = type;
+	m->done = done;
+	m->data = data;
+	
+	id = m->msg.seq;
+	e_thread_put(mail_thread_new, (EMsg *)m);
+
+	return id;
 }

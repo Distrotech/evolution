@@ -128,7 +128,7 @@ typedef struct _SelectedImporterData{
 
 #define IMPORTER_REPO_ID_QUERY "repo_ids.has ('IDL:GNOME/Evolution/Importer:" BASE_VERSION "')"
 #define IMPORTER_INTEL_REPO_ID_QUERY "repo_ids.has ('IDL:GNOME/Evolution/IntelligentImporter:" BASE_VERSION "')"
-#define IMPORTER_DEBUG
+/*#define IMPORTER_DEBUG*/
 
 #ifdef IMPORTER_DEBUG
 #define IN g_print ("=====> %s (%d)\n", G_GNUC_FUNCTION, __LINE__)
@@ -214,22 +214,26 @@ import_cb (EvolutionImporterListener *listener,
 	IN;
 	if (icd->stop != TRUE) {
 		if (result == EVOLUTION_IMPORTER_NOT_READY) {
-			gtk_timeout_add (500, importer_timeout_fn, data);
+			g_timeout_add (500, importer_timeout_fn, data);
 			OUT;
 			return;
 		}
 		
 		if (result == EVOLUTION_IMPORTER_BUSY) {
-			gtk_timeout_add (500, importer_timeout_fn, data);
+			g_timeout_add (500, importer_timeout_fn, data);
 			OUT;
 			return;
 		}
 
 		if (more_items) {
+			char *utf8_filename;
+
+			utf8_filename = g_filename_to_utf8 (icd->filename, -1, NULL, NULL, NULL);
 			label = g_strdup_printf (_("Importing %s\nImporting item %d."),
-						 icd->filename, ++(icd->item));
+						 utf8_filename, ++(icd->item));
 			gtk_label_set_text (GTK_LABEL (icd->contents), label);
 			g_free (label);
+			g_free (utf8_filename);
 			while (gtk_events_pending ())
 				gtk_main_iteration ();
 			
@@ -254,13 +258,16 @@ static gboolean
 importer_timeout_fn (gpointer data)
 {
 	ImporterComponentData *icd = (ImporterComponentData *) data;
-	char *label;
+	char *label, *utf8_filename;
 
 	IN;
+
+	utf8_filename = g_filename_to_utf8 (icd->filename, -1, NULL, NULL, NULL);
 	label = g_strdup_printf (_("Importing %s\nImporting item %d."),
-				 icd->filename, icd->item);
+				 utf8_filename, icd->item);
 	gtk_label_set_text (GTK_LABEL (icd->contents), label);
 	g_free (label);
+	g_free (utf8_filename);
 	while (gtk_events_pending ())
 		gtk_main_iteration ();
 	
@@ -446,10 +453,13 @@ start_import (gpointer parent, const char *filename, EvolutionImporterClient *cl
 {
 	ImporterComponentData *icd;
 	char *label;
+	char *utf8_filename;
 	
+	utf8_filename = g_filename_to_utf8 (filename, -1, NULL, NULL, NULL);
 	if (!g_file_test (filename, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)) {
-		e_notice (parent, GTK_MESSAGE_ERROR, _("File %s does not exist"), filename);
 
+		e_notice (parent, GTK_MESSAGE_ERROR, _("File %s does not exist"), utf8_filename);
+		g_free (utf8_filename);
 		return;
 	}
 
@@ -464,7 +474,7 @@ start_import (gpointer parent, const char *filename, EvolutionImporterClient *cl
 
 	g_object_weak_ref (G_OBJECT(icd->dialog), dialog_destroy_notify, icd);
 
-	label = g_strdup_printf (_("Importing %s.\n"), filename);
+	label = g_strdup_printf (_("Importing %s.\n"), utf8_filename);
 	icd->contents = gtk_label_new (label);
 	g_free (label);
 	
@@ -474,7 +484,7 @@ start_import (gpointer parent, const char *filename, EvolutionImporterClient *cl
 		gtk_main_iteration ();
 
 	if (evolution_importer_client_load_file (icd->client, filename) == FALSE) {
-		label = g_strdup_printf (_("Error loading %s"), filename);
+		label = g_strdup_printf (_("Error loading %s"), utf8_filename);
 		e_notice (icd->dialog, GTK_MESSAGE_ERROR, _("Error loading %s"), filename);
 
 		gtk_label_set_text (GTK_LABEL (icd->contents), label);
@@ -486,6 +496,7 @@ start_import (gpointer parent, const char *filename, EvolutionImporterClient *cl
 		if (icd->dialog)
 			gtk_widget_destroy (GTK_WIDGET (icd->dialog));
 		g_free (icd);
+		g_free (utf8_filename);
 		return;
 	}
 
@@ -493,9 +504,10 @@ start_import (gpointer parent, const char *filename, EvolutionImporterClient *cl
 	icd->item = 1;
 	
 	label = g_strdup_printf (_("Importing %s\nImporting item 1."),
-				 filename);
+				 utf8_filename);
 	gtk_label_set_text (GTK_LABEL (icd->contents), label);
 	g_free (label);
+	g_free (utf8_filename);
 	while (gtk_events_pending ())
 		gtk_main_iteration ();
 
@@ -536,6 +548,27 @@ item_selected (GtkWidget *item,
 		data->choosen_iid = g_strdup (iid);
 }
 
+static int
+compare_info_name (const void *data1, const void  *data2)
+{
+	const Bonobo_ServerInfo *info1 = (Bonobo_ServerInfo *)data1;
+	const Bonobo_ServerInfo *info2 = (Bonobo_ServerInfo *)data2;
+	const char *name1 = get_name_from_component_info (info1);
+	const char *name2 = get_name_from_component_info (info2);
+
+	/* If we can't find a name for a plug-in, its iid will be used
+	 * for display. Put such plug-ins at the end of the list since
+	 * their displayed name won't be really user-friendly
+	 */
+	if (name1 == NULL) {
+		return -1;
+	}
+	if (name2 == NULL) {
+		return 1;
+	}
+	return g_utf8_collate (name1, name2);
+}
+
 static GtkWidget *
 create_plugin_menu (ImportData *data)
 {
@@ -552,6 +585,13 @@ create_plugin_menu (ImportData *data)
 
 	CORBA_exception_init (&ev);
 	info_list = bonobo_activation_query (IMPORTER_REPO_ID_QUERY, NULL, &ev);
+	/* Sort info list to get a consistent ordering of the items in the
+	 * combo box from one run of evolution to another.
+	 */
+	qsort (info_list->_buffer, info_list->_length, 
+	       sizeof (Bonobo_ServerInfo),
+	       compare_info_name);
+
 	for (i = 0; i < info_list->_length; i++) {
 		const Bonobo_ServerInfo *info;
 		char *name = NULL;
@@ -581,7 +621,7 @@ static ImportDialogFilePage *
 importer_file_page_new (ImportData *data)
 {
 	ImportDialogFilePage *page;
-	GtkWidget *table, *label;
+	GtkWidget *table, *label, *entry;
 	int row = 0;
 
 	page = g_new0 (ImportDialogFilePage, 1);
@@ -595,14 +635,16 @@ importer_file_page_new (ImportData *data)
 	gtk_container_set_border_width (GTK_CONTAINER (table), 8);
 	gtk_box_pack_start (GTK_BOX (page->vbox), table, TRUE, TRUE, 0);
 
-	label = gtk_label_new_with_mnemonic (_("_Filename:"));
+	label = gtk_label_new_with_mnemonic (_("F_ilename:"));
 	gtk_table_attach (GTK_TABLE (table), label, 0, 1, row, row + 1, 
 			  GTK_FILL, 0, 0, 0);
 	gtk_misc_set_alignment (GTK_MISC (label), 1, 0.5);
 
 	page->filename = gnome_file_entry_new ("Evolution_Importer_FileName", _("Select a file"));
-	g_signal_connect (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (page->filename)), "changed",
-			  G_CALLBACK (filename_changed), data);
+	g_object_set (G_OBJECT (page->filename), "use_filechooser", TRUE, NULL);
+	entry = gnome_file_entry_gtk_entry((GnomeFileEntry *)page->filename);
+	g_signal_connect (entry, "changed", G_CALLBACK (filename_changed), data);
+	gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
 
 	gtk_table_attach (GTK_TABLE (table), page->filename, 1, 2, 
 			  row, row + 1, GTK_EXPAND | GTK_FILL, 0, 0, 0);
@@ -722,7 +764,10 @@ prepare_intelligent_page (GnomeDruidPage *page,
 	dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_INFO, GTK_BUTTONS_NONE, "%s",
 					_("Please wait...\nScanning for existing setups"));
 	e_make_widget_backing_stored (dialog);
+#if !GTK_CHECK_VERSION(2,4,0)
+	/* not needed for message_dialog with GTK+ 2.4 */
 	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
+#endif
 
 	gtk_window_set_title (GTK_WINDOW (dialog), _("Starting Intelligent Importers"));
 	gtk_widget_show_all (dialog);
@@ -1016,16 +1061,18 @@ next_file_page (GnomeDruidPage *page,
 		ImportData *data)
 {
 	char *real_iid = NULL;
+	char *utf8_filename;
 
 	/* Get and test the file name */
 	if (data->filename)
 		g_free (data->filename);
-	data->filename = gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (data->filepage->filename), FALSE);
+	utf8_filename = gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (data->filepage->filename), FALSE);
+	data->filename = g_filename_from_utf8 (utf8_filename, -1, NULL, NULL, NULL);
 	
 	if (!g_file_test (data->filename, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)) {
-		e_notice (druid, GTK_MESSAGE_ERROR, _("File %s does not exist"), data->filename);
+		e_notice (druid, GTK_MESSAGE_ERROR, _("File %s does not exist"), utf8_filename);
 		gnome_druid_set_page (druid, GNOME_DRUID_PAGE (data->filedialog));
-
+		g_free (utf8_filename);
 		return TRUE;
 	}
 
@@ -1034,6 +1081,7 @@ next_file_page (GnomeDruidPage *page,
 		if (!get_iid_for_filetype (data->filename, &real_iid)) {
 			gnome_druid_set_page (druid, GNOME_DRUID_PAGE (data->filedialog));
 
+			g_free (utf8_filename);
 			return TRUE;			
 		}	
 	} else {
@@ -1041,9 +1089,10 @@ next_file_page (GnomeDruidPage *page,
 	}
 
 	if (!real_iid) {
-		e_notice (druid, GTK_MESSAGE_ERROR, _("No importer available for file %s"), data->filename);
+		e_notice (druid, GTK_MESSAGE_ERROR, _("No importer available for file %s"), utf8_filename);
 		gnome_druid_set_page (druid, GNOME_DRUID_PAGE (data->filedialog));
 
+		g_free (utf8_filename);
 		return TRUE;
 	}
 
@@ -1051,6 +1100,7 @@ next_file_page (GnomeDruidPage *page,
 		g_object_unref (data->client);
 	data->client = evolution_importer_client_new_from_id (real_iid);
 	g_free (real_iid);
+	g_free (utf8_filename);
 
 	if (!data->client) {
 		e_notice (druid, GTK_MESSAGE_ERROR, _("Unable to execute importer"));
@@ -1071,7 +1121,7 @@ prepare_dest_page (GnomeDruidPage *page,
 	if (data->control)
 		gtk_container_remove (GTK_CONTAINER (data->destpage->vbox), data->control);
 	data->control = evolution_importer_client_create_control (data->client);
-	gtk_container_add (GTK_CONTAINER (data->destpage->vbox), data->control);
+	gtk_box_pack_start((GtkBox *)data->destpage->vbox, data->control, FALSE, FALSE, 0);
 	gtk_widget_show_all (data->destpage->vbox);
 
 	return FALSE;
@@ -1148,7 +1198,7 @@ e_shell_importer_start_import (EShellWindow *shell_window)
 		return;
 	}
 	
-	icon = e_icon_factory_get_icon ("stock_import", E_ICON_SIZE_DIALOG);
+	icon = e_icon_factory_get_icon ("stock_mail-import", E_ICON_SIZE_DIALOG);
 	
 	dialog_open = TRUE;
 	data->window = shell_window;
@@ -1156,6 +1206,7 @@ e_shell_importer_start_import (EShellWindow *shell_window)
 
 	data->wizard = glade_xml_new (EVOLUTION_GLADEDIR "/import.glade", NULL, NULL);
 	data->dialog = glade_xml_get_widget (data->wizard, "importwizard");
+	gtk_window_set_default_size (GTK_WINDOW (data->dialog), 480, 320);
 	gtk_window_set_wmclass (GTK_WINDOW (data->dialog), "importdruid",
 				"Evolution:shell");
 	e_dialog_set_transient_for (GTK_WINDOW (data->dialog), GTK_WIDGET (shell_window));
@@ -1207,7 +1258,6 @@ e_shell_importer_start_import (EShellWindow *shell_window)
 			  G_CALLBACK (prepare_file_page), data);
 	g_signal_connect (data->filedialog, "next",
 			  G_CALLBACK (next_file_page), data);
-	gnome_druid_page_edge_set_logo (data->finish, icon);
 	data->filepage = importer_file_page_new (data);
 
 	html = create_help ("file_html");
@@ -1229,6 +1279,7 @@ e_shell_importer_start_import (EShellWindow *shell_window)
 
 	/* Finish page */
 	data->finish = GNOME_DRUID_PAGE_EDGE (glade_xml_get_widget (data->wizard, "page4"));
+	gnome_druid_page_edge_set_logo (data->finish, icon);
 	g_signal_connect (data->finish, "back",
 			  G_CALLBACK (back_finish_page), data);
 

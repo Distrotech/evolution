@@ -62,7 +62,7 @@
 /* for efilterbar stuff */
 #include <e-util/e-sexp.h>
 #include "mail-vfolder.h"
-#include "filter/vfolder-rule.h"
+#include "em-vfolder-rule.h"
 #include <widgets/misc/e-filter-bar.h>
 #include <camel/camel-search-private.h>
 
@@ -74,6 +74,7 @@
 #include "em-folder-browser.h"
 #include "em-folder-properties.h"
 #include "em-subscribe-editor.h"
+#include "em-menu.h"
 #include "message-list.h"
 
 #include "mail-component.h"
@@ -100,6 +101,8 @@ struct _EMFolderBrowserPrivate {
 	guint list_built_id;	/* hook onto list-built for delayed 'select first unread' stuff */
 	
 	char *select_uid;
+
+	EMMenu *menu;		/* toplevel menu manager */
 };
 
 static void emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
@@ -284,6 +287,8 @@ GtkWidget *em_folder_browser_new(void)
 {
 	EMFolderBrowser *emfb = g_object_new(em_folder_browser_get_type(), 0);
 
+	((EMFolderView *)emfb)->menu = em_menu_new("com.novell.evolution.mail.browser");
+
 	return (GtkWidget *)emfb;
 }
 
@@ -309,7 +314,7 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 			char *uid = g_alloca(strlen(emfb->view.list->cursor_uid)+1);
 
 			strcpy(uid, emfb->view.list->cursor_uid);
-			em_folder_view_set_message(&emfb->view, uid, TRUE);
+			em_folder_view_set_message(&emfb->view, uid, FALSE);
 		}
 
 		/* need to load/show the current message? */
@@ -356,8 +361,8 @@ emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser *emfb)
 			g_free (name);
 			
 			filter_rule_set_source(rule, FILTER_SOURCE_INCOMING);
-			vfolder_rule_add_source((VfolderRule *)rule, emfb->view.folder_uri);
-			vfolder_gui_add_rule((VfolderRule *)rule);
+			em_vfolder_rule_add_source((EMVFolderRule *)rule, emfb->view.folder_uri);
+			vfolder_gui_add_rule((EMVFolderRule *)rule);
 		}
 		break;
 	}
@@ -556,8 +561,9 @@ static void
 emfb_folder_expunge(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
-	
-	em_utils_expunge_folder(gtk_widget_get_toplevel((GtkWidget *)emfb), emfb->view.folder);
+
+	if (emfb->view.folder)
+		em_utils_expunge_folder(gtk_widget_get_toplevel((GtkWidget *)emfb), emfb->view.folder);
 }
 
 static void
@@ -632,7 +638,7 @@ emfb_mail_compose(BonoboUIComponent *uid, void *data, const char *path)
 static void
 emfb_mail_stop(BonoboUIComponent *uid, void *data, const char *path)
 {
-	camel_operation_cancel(NULL);
+	mail_cancel_all();
 }
 
 static void
@@ -722,6 +728,7 @@ static const EMFolderViewEnable emfb_enable_map[] = {
 	{ "EditInvertSelection", EM_POPUP_SELECT_FOLDER },
 	{ "EditSelectAll", EM_POPUP_SELECT_FOLDER },
 	{ "EditSelectThread", EM_FOLDER_VIEW_SELECT_THREADED },
+	{ "FolderExpunge", EM_POPUP_SELECT_FOLDER },
 	{ "MailPost", EM_POPUP_SELECT_FOLDER },
 	{ "MessageMarkAllAsRead", EM_POPUP_SELECT_FOLDER },
 	{ "ViewHideSelected", EM_POPUP_SELECT_MANY },

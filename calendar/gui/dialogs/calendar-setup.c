@@ -612,13 +612,11 @@ dialog_hide_unused_options (SourceDialog *source_dialog)
 }
 
 static void
-source_group_changed_sensitive (SourceDialog *source_dialog)
+general_test_uri (SourceDialog *source_dialog)
 {
-	source_dialog->source_group =
-		g_slist_nth (e_source_list_peek_groups (source_dialog->source_list),
-			     gtk_option_menu_get_history (GTK_OPTION_MENU (source_dialog->group_optionmenu)))->data;
-
-	general_update_dialog (source_dialog);
+	/* FIXME this should do something more specific that just showing the uri */
+	gnome_url_show (gtk_entry_get_text (GTK_ENTRY (source_dialog->uri_entry)),
+			NULL);
 }
 
 static gboolean
@@ -630,14 +628,6 @@ key_press_event (GtkWidget *widget, GdkEventKey *event)
 	}
 
 	return FALSE;
-}
-
-static void
-general_test_uri (SourceDialog *source_dialog)
-{
-	/* FIXME this should do something more specific that just showing the uri */
-	gnome_url_show (gtk_entry_get_text (GTK_ENTRY (source_dialog->uri_entry)),
-			NULL);
 }
 
 static void

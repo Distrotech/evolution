@@ -40,7 +40,7 @@
 
 #include "e-mktemp.h"
 
-#define d(x) x
+#define d(x)
 
 /* define to put temporary files in ~/evolution/cache/tmp */
 #define TEMP_HOME (1)
@@ -60,7 +60,7 @@ expire_dir_rec(const char *base, time_t now)
 	struct stat st;
 	int count = 0;
 
-	printf("expire dir '%s'\n", base);
+	d(printf("expire dir '%s'\n", base));
 
 	dir = opendir(base);
 	if (dir == NULL)
@@ -82,16 +82,16 @@ expire_dir_rec(const char *base, time_t now)
 		    && st.st_atime + TEMP_EXPIRE < now) {
 			if (S_ISDIR(st.st_mode)) {
 				if (expire_dir_rec(path->str, now) == 0) {
-					printf("Removing dir '%s'\n", path->str);
+					d(printf("Removing dir '%s'\n", path->str));
 					rmdir(path->str);
 				} else {
 					count++;
 				}
 			} else if (unlink(path->str) == -1) {
-				printf("expiry failed: %s\n", strerror(errno));
+				d(printf("expiry failed: %s\n", strerror(errno)));
 				count++;
 			} else {
-				printf("expired %s\n", path->str);
+				d(printf("expired %s\n", path->str));
 			}
 		} else {
 			count++;
@@ -100,7 +100,7 @@ expire_dir_rec(const char *base, time_t now)
 	g_string_free(path, TRUE);
 	closedir(dir);
 
-	printf("expire dir '%s' %d remaining files\n", base, count);
+	d(printf("expire dir '%s' %d remaining files\n", base, count));
 
 	return count;
 }
@@ -153,8 +153,7 @@ get_dir (gboolean make)
 	}
 #endif	
 
-	if (path)
-		printf("temp dir '%s'\n", path->str);
+	d(printf("temp dir '%s'\n", path ? path->str : "(null)"));
 
 	/* fire off an expirey attempt no more often than TEMP_SCAN seconds */
 	if (path && (last+TEMP_SCAN) < now) {
@@ -165,7 +164,7 @@ get_dir (gboolean make)
 	return path;
 }
 
-const char *
+char *
 e_mktemp (const char *template)
 {
 	GString *path;
@@ -211,7 +210,7 @@ e_mkstemp (const char *template)
 }
 
 
-const char *
+char *
 e_mkdtemp (const char *template)
 {
 	GString *path;

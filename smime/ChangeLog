@@ -1,3 +1,120 @@
+2004-10-13  JP Rosevear  <jpr@novell.com>
+
+	* gui/e-cert-selector.c: update to use G_DEFINE_TYPE
+
+2004-10-11  Not Zed  <NotZed@Ximian.com>
+
+	* gui/e-cert-selector.c (e_cert_selector_new): dont try to
+	deference NULL nickname or emailAddr on the cert.
+
+2004-09-03  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #64420.
+
+	* lib/e-pkcs12.c (prompt_for_password): set the outptr after we've
+	actually got a pointer for it allocated.
+
+2004-08-16  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #62963.
+
+	* gui/cert-trust-dialog.c (ctd_response): fix c99 syntax. Spotted
+	by Vincent Noel <vnoel@cox.net>
+
+2004-08-12  Carlos Garnacho Parro  <carlosg@gnome.org>
+
+	* gui/certificate-manager.c: Optionally use GtkFileChooser if
+	compiled against Gtk+ >= 2.4.0
+
+2004-08-10  Not Zed  <NotZed@Ximian.com>
+
+	* gui/component.c (smime_pk11_passwd, smime_pk11_change_passwd): 
+	* lib/e-pkcs12.c (prompt_for_password): api change in e_passwords.
+
+2004-08-02  Jeffrey Stedfast  <fejj@novell.com>
+
+	* lib/e-pkcs12.c (prompt_for_password): Fixed to work for both LE
+	and BE architectures.
+
+2004-07-16  Chris Toshok  <toshok@ximian.com>
+
+	[ fixes #61490 ]
+	
+	* lib/e-cert-db.c (e_cert_db_import_pkcs12_file): un-ifdef this,
+	as it's working..
+	(e_cert_db_export_pkcs12_file): and ifdef this one, since it's the
+	function i meant to ifdef in the first place.
+
+2004-06-17  JP Rosevear  <jpr@novell.com>
+
+	Fixes #56458
+	
+	* gui/smime-ui.glade: make the buttons vertical
+
+2004-06-17  Not Zed  <NotZed@Ximian.com>
+
+	** See #59885.
+
+	* lib/e-cert-db.c (e_cert_db_import_pkcs12_file): move the #if
+	notyet stuff inside the function so the symbol is defined, since
+	we call it eslewhere.  i dunno if it actually works yet.
+
+2004-06-15  Jeffrey Stedfast  <fejj@novell.com>
+
+	* lib/Makefile.am: Added smime-marshal.list to EXTRA_DIST
+
+2004-06-08  Chris Toshok  <toshok@ximian.com>
+
+	* lib/e-cert-db.[ch]: quiet the compiler, and dobey.
+
+2004-05-28  Not Zed  <NotZed@Ximian.com>
+
+	* gui/certificate-manager.c (initialize_yourcerts_ui): set some
+	columns resizable.
+	(initialize_contactcerts_ui): same.
+
+	** See bugs #52061 & #52669.
+
+	* gui/smime-ui.glade: added cert-trust-dialog and tweaked the
+	ca-trust-dialog.
+
+	* gui/ca-trust-dialog.c (ca_trust_dialog_show): Fix the %s in the
+	label.  Slack.
+	(ca_trust_dialog_show): slight rearrangement.
+
+	* gui/certificate-manager.c (add_contact_cert): fill out fields.
+
+	* lib/e-cert.c (e_cert_get_usage): helper to get the usage of a
+	cert.
+
+	* gui/certificate-manager.c (edit_ca): use the right certdb, not
+	the e-one.
+	(add_user_cert): fill out missing columns.
+
+	* lib/e-cert.c (e_cert_get_ca_cert): new method to find the ca
+	cert of a cert.
+
+	* gui/cert-trust-dialog.[ch]: peer cert trust editor.
+
+	* gui/certificate-manager.c (edit_contact): implement.
+
+2004-05-17  Jon Oberheide  <jon@focalhost.com>
+
+	* gui/e-cert-selector.c (e_cert_selector_new): add "Select
+	certificate" title to the previously untitled dialog.
+
+2004-05-19  James Willcox  <jwillcox@gnome.org>
+
+	* lib/e-cert-db.c: (pk11_password):
+
+	Don't crash when the user presses 'cancel'.  Fixes #58733.
+
+2004-05-13  Not Zed  <NotZed@Ximian.com>
+
+	* lib/e-cert-db.c (e_cert_db_login_to_slot): call SetPasswordFunc
+	before calling authenticate - some nss calls can overwrite the
+	setting.  #52820.
+
 2004-04-30  Chris Toshok  <toshok@ximian.com>
 
 	[ fixes bug #52724 ]

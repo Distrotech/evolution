@@ -26,24 +26,28 @@
 
 #include "e-shell-window-commands.h"
 
-#include "e-shell-about-box.h"
 #include "e-shell-importer.h"
 #include "e-shell-window.h"
 
 #include "evolution-shell-component-utils.h"
 
+#include "e-util/e-icon-factory.h"
 #include "e-util/e-dialog-utils.h"
 #include "e-util/e-passwords.h"
+
+#include <glib/gprintf.h>
 
 #include <libgnome/gnome-exec.h>
 #include <libgnome/gnome-url.h>
 #include <libgnome/gnome-i18n.h>
+#include <libgnomeui/gnome-about.h>
 
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
 #include <libgnomevfs/gnome-vfs-mime-utils.h>
 
 #include <bonobo/bonobo-ui-component.h>
 
+#include <string.h>
 
 /* Utility functions.  */
 
@@ -128,15 +132,319 @@ command_submit_bug (BonoboUIComponent *uih,
                 e_notice (NULL, GTK_MESSAGE_ERROR, _("Bug buddy could not be run."));
 }
 
-static int
-about_box_event_callback (GtkWidget *widget,
-			  GdkEvent *event,
-			  GtkWidget **widget_pointer)
-{
-	gtk_widget_destroy (GTK_WIDGET (*widget_pointer));
-	*widget_pointer = NULL;
+/* must be in utf8, the weird breaking of escaped strings
+   is so the hex escape strings dont swallow too many chars */
+static const char *authors[] = {
+	"Aaron Weber",
+	"Abel Cheung",
+	"Adam Weinberger",
+	"Akira TAGOH",
+	"Alastair McKinstry",
+	"Alex Graveley",
+	"Alex Jiang",
+	"Alfred Peng",
+	"Almer S. Tigelaar",
+	"Anders Carlsson",
+	"Andre Klapper",
+	"Andreas Hyden",
+	"Andrew T. Veliath",
+	"Andrew Wu",
+	"Ankit Patel",
+	"Anna Marie Dirks",
+	"Antonio Xu",
+	"Arafat Medini",
+	"Ariel Rios",
+	"Arik Devens",
+	"Arturo Espinosa Aldama",
+	"Bastien Nocera",
+	"Benjamin Kahn",
+	"Bertrand Guiheneuf",
+	"Bill Zhu",
+	"Bjorn Torkelsson"
+	"Bob Doan",
+	"Bolian Yin",
+	"Bruce Tao",
+	"Calvin Liu",
+	"Cantona Su",
+	"Carl Sun",
+	"Carlos Garnacho Parro",
+	"Carlos Perell\xC3\xB3" " Mar\xC3\xAD" "n",
+	"Carsten Schaar",
+	"Changwoo Ryu",
+	"Charles Zhang",
+	"Chema Celorio",
+	"Chenthill Palanisamy",
+	"Chris Lahey",
+	"Chris Toshok",
+	"Christian Hammond",
+	"Christian Kellner",
+	"Christian Kreibich",
+	"Christian Neumair",
+	"Christophe Fergeau",
+	"Christophe Merlet",
+	"Christopher Blizzard",
+	"Christopher J. Lahey",
+	"Clifford R. Conover",
+	"Cody Russell",
+	"Craig Small",
+	"Damon Chaplin",
+	"Dan Berger",
+	"Dan Winship",
+	"Danilo \xC5\xA0" "egan",
+	"Darin Adler",
+	"Dave Camp",
+	"Dave Fallon",
+	"Dave West",
+	"David Malcolm",
+	"David Moore",
+	"David Trowbridge",
+	"David Woodhouse",
+	"Dietmar Maurer",
+	"Duarte Loreto",
+	"Duncan Mak",
+	"ERDI Gergo",
+	"Ed Catmur",
+	"Edd Dumbill",
+	"Edgar Luna Díaz",
+	"Elliot Lee",
+	"Elliot Turner",
+	"Eneko Lacunza",
+	"Enver ALTIN",
+	"Eric Zhao",
+	"Eskil Heyn Olsen",
+	"Ettore Perazzoli",
+	"Fatih Demir",
+	"Federico Mena Quintero",
+	"Fernando Herrera",
+	"Francisco Javier F. Serrador",
+	"Frank Belew",
+	"Frederic Crozat",
+	"Gary Ekker",
+	"Gediminas Paulauskas",
+	"Gerardo Marin",
+	"Gil Osher",
+	"Gilbert Fang",
+	"Grahame Bowland",
+	"Greg Hudson",
+	"Gregory McLean",
+	"Grzegorz Goawski",
+	"Gustavo Maciel Dias Vieira",
+	"H P Nadig",
+	"H\xC3\xA9" "ctor Garc\xC3\xAD" "a \xC3\x81" "lvarez",
+	"Hans Petter Jansson",
+	"Hao Sheng",
+	"Hari Prasad Nadig",
+	"Harish Krishnaswamy",
+	"Harry Lu",
+	"Hasbullah Bin Pit",
+	"Havoc Pennington",
+	"Heath Harrelson",
+	"Herbert V. Riedel",
+	"Iain Holmes",
+	"Ian Campbell",
+	"Ismael Olea",
+	"Israel Escalante",
+	"J.H.M. Dassen (Ray)",
+	"JP Rosevear",
+	"Jack Jia",
+	"Jacob Berkman",
+	"Jaka Mocnik",
+	"Jakub Steiner",
+	"James Henstridge",
+	"James Willcox",
+	"Jan Arne Petersen",
+	"Jason Leach",
+	"Jason Tackaberry",
+	"Jean-Noel Guiheneuf",
+	"Jeff Garzik",
+	"Jeffrey Stedfast",
+	"Jeremy Katz",
+	"Jeremy Wise",
+	"Jerome Lacoste",
+	"Jes\xC3\xBA" "s Bravo \xC3\x81" "lvarez",
+	"Jesse Pavel",
+	"Ji Lee",
+	"Jody Goldberg",
+	"Joe Shaw",
+	"Jon K Hellan",
+	"Jon Oberheide",
+	"Jon Trowbridge",
+	"Jonas Borgstr",
+	"Jonathan Blandford",
+	"Jos Dehaes",
+	"Jukka Zitting",
+	"J\xC3\xBC" "rg Billeter",
+	"Karl Eichwalder",
+	"Karsten Br\xC3\xA4" "ckelmann",
+	"Kenneth Christiansen",
+	"Kenny Graunke",
+	"Kevin Breit",
+	"Kidd Wang",
+	"Kjartan Maraas",
+	"Larry Ewing",
+	"Laurent Dhima",
+	"Lauris Kaplinski",
+	"Leon Zhang",
+	"Lorenzo Gil Sanchez",
+	"Luis Villa",
+	"Maciej Stachowiak",
+	"Malcolm Tredinnick",
+	"Marius Andreiana",
+	"Marius Vollmer",
+	"Mark Crichton",
+	"Mark Gordon",
+	"Martha Burke",
+	"Martin Baulig",
+	"Martin Hicks",
+	"Martin Norb\xC3\xA4" "ck",
+	"Martyn Russell",
+	"Mathieu Lacage",
+	"Matt Bissiri",
+	"Matt Martin",
+	"Matt Wilson",
+	"Matthew Loper",
+	"Matthew Wilson",
+	"Max Horn",
+	"Maxx Cao",
+	"Meilof Veeningen",
+	"Michael M. Morrison",
+	"Michael MacDonald",
+	"Michael Meeks",
+	"Michael Terry",
+	"Michael Zucchi",
+	"Michel Daenzer",
+	"Miguel de Icaza",
+	"Mikael Hallendal",
+	"Mike Castle",
+	"Mike Kestner",
+	"Mike McEwan",
+	"Miles Lane",
+	"Nat Friedman",
+	"Nicel KM",
+	"Nicholas J Kreucher",
+	"Nike Gerdts",
+	"Nuno Ferreira",
+	"P Chenthill",
+	"Pablo Gonzalo del Campo",
+	"Pablo Saratxaga",
+	"Paolo Molaro",
+	"Parthasarathi S A",
+	"Pavel Cisler",
+	"Pavel Roskin",
+	"Peter Pouliot",
+	"Peter Teichman",
+	"Peter Williams",
+	"Petta Pietikainen",
+	"Philip Zhao",
+	"Pratik V. Parikh",
+	"Priit Laes",
+	"Priyanshu Raj",
+	"Radek Doul\xC3\xADk",
+	"Raja R Harinath",
+	"Ray Strode",
+	"Richard Boulton",
+	"Richard Hult",
+	"Richard Li",
+	"Robert Brady",
+	"Robert Sedak",
+	"Rodney Dawes",
+	"Rodrigo Moya",
+	"Ronald Kuetemeier",
+	"Roozbeh Pournader",
+	"Ross Burton",
+	"Russell Steinthal",
+	"Ryan P. Skadberg",
+	"S N Tejasvi",
+	"Sam Creasey",
+	"Sam\xC3\xBA" "el J\xC3\xB3" "n Gunnarsson",
+	"Sanlig Badral",
+	"Sanshao Jiang",
+	"Sarfraaz Ahmed",
+	"Sean Atkinson",
+	"Sean Gao",
+	"Sebastian Rittau",
+	"Sebastian Wilhelmi",
+	"Sergey Panov",
+	"Seth Alves",
+	"Sivaiah Nallagatla",
+	"Stanislav Brabec",
+	"Stanislav Visnovsky",
+	"Steve Murphy",
+	"Stuart Parmenter",
+	"Suresh Chandrasekharan",
+	"Sushma Rai",
+	"Szabolcs BAN",
+	"T\xC3\xB5" "ivo Leedj\xC3\xA4" "rv",
+	"Taylor Hayward",
+	"Tim Wo",
+	"Timo Sirainen",
+	"Timothy Lee",
+	"Timur Bakeyev",
+	"Tom Tromey",
+	"Tomas Ogren",
+	"Tomislav Vujec",
+	"Trent Lloyd",
+	"Tuomas J. Lukka",
+	"Tuomas Kuosmanen",
+	"Umesh Tiwari",
+	"Umeshtej",
+	"V Ravi Kumar Raju",
+	"Vadim Strizhevsky",
+	"Valek Filippov",
+	"Vardhman Jain",
+	"Vladimir Vukicevic",
+	"Wang Jian",
+	"Wayne Davis",
+	"William Jon McCann",
+	"Xan Lopez",
+	"Yanko Kaneti",
+	"Yong Sun",
+	"Yuedong Du",
+	"Yukihiro Nakai",
+	"Yuri Syrota",
+	"Zbigniew Chyla",
+	NULL
+};
+static const char *documentors[] = { 
+	"Aaron Weber",
+	"David Trowbridge",
+	NULL
+};
 
-	return TRUE;
+static GtkWidget *
+about_box_new (void)
+{
+	GtkWidget *about_box = NULL;
+	GdkPixbuf *pixbuf = NULL;
+	char copyright[1024];
+	char *filename = NULL;
+
+	/* The translator-credits string is for translators to list
+	 * per language credits for translation, displayed in the
+	 * about box*/
+	char *translator_credits = _("translator-credits");
+	
+	g_sprintf (copyright, "Copyright \xC2\xA9 1999 - 2004 Novell, Inc. and Others");
+                                                                                
+	filename = g_build_filename (EVOLUTION_DATADIR, "pixmaps",
+				     "evolution-1.5.png", NULL);
+	if (filename != NULL) {
+		pixbuf = gdk_pixbuf_new_from_file (filename, NULL);
+		g_free (filename);
+	}
+                                                                                
+	about_box = gnome_about_new ("Evolution",
+				     VERSION,
+				     copyright,
+				     _("Groupware Suite"),
+				     authors, documentors,
+				     strcmp (translator_credits, "translator-credits") ? translator_credits : NULL,
+				     pixbuf);
+	
+        if (pixbuf != NULL)
+                g_object_unref (pixbuf);
+
+	return GTK_WIDGET (about_box);
 }
 
 static void
@@ -145,30 +453,19 @@ command_about_box (BonoboUIComponent *uih,
 		   const char *path)
 {
 	static GtkWidget *about_box_window = NULL;
-	GtkWidget *about_box;
 
 	if (about_box_window != NULL) {
 		gdk_window_raise (about_box_window->window);
 		return;
 	}
 
-	about_box = e_shell_about_box_new ();
-	gtk_widget_show (about_box);
-
-	about_box_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_type_hint (GTK_WINDOW (about_box_window), GDK_WINDOW_TYPE_HINT_DIALOG);
+	about_box_window = about_box_new ();
 	
-	gtk_window_set_resizable (GTK_WINDOW (about_box_window), FALSE);
-	g_signal_connect (about_box_window, "key_press_event",
-			  G_CALLBACK (about_box_event_callback), &about_box_window);
-	g_signal_connect (about_box_window, "button_press_event",
-			  G_CALLBACK (about_box_event_callback), &about_box_window);
-	g_signal_connect (about_box_window, "delete_event",
-			  G_CALLBACK (about_box_event_callback), &about_box_window);
+	g_signal_connect (G_OBJECT (about_box_window), "destroy",
+			  G_CALLBACK (gtk_widget_destroyed), &about_box_window);
 
 	gtk_window_set_transient_for (GTK_WINDOW (about_box_window), GTK_WINDOW (window));
-	gtk_window_set_title (GTK_WINDOW (about_box_window), _("About Ximian Evolution"));
-	gtk_container_add (GTK_CONTAINER (about_box_window), about_box);
+
 	gtk_widget_show (about_box_window);
 }
 
@@ -177,7 +474,9 @@ command_help_faq (BonoboUIComponent *uih,
 		  EShellWindow *window,
 		  const char *path)
 {
-	gnome_url_show ("http://www.ximian.com/apps/evolution-faq.html", NULL);	/* FIXME use the error */
+	/* FIXME Show when we have a faq */
+	/* FIXME use the error */
+	gnome_url_show ("http://gnome.org/projects/evolution/faq.shtml", NULL);	
 }
 
 static void
@@ -335,7 +634,6 @@ static BonoboUIVerb tools_verbs[] = {
 };
 
 static BonoboUIVerb help_verbs [] = {
-	BONOBO_UI_VERB ("HelpFAQ", (BonoboUIVerbFn) command_help_faq),
 	BONOBO_UI_VERB ("QuickReference", (BonoboUIVerbFn) command_quick_reference),
 	BONOBO_UI_VERB ("HelpSubmitBug", (BonoboUIVerbFn) command_submit_bug),
 	BONOBO_UI_VERB ("HelpAbout", (BonoboUIVerbFn) command_about_box),
@@ -344,22 +642,22 @@ static BonoboUIVerb help_verbs [] = {
 };
 
 static EPixmap pixmaps [] = {
-	E_PIXMAP ("/commands/SendReceive", "stock_mail-send-receive", 16),
-	E_PIXMAP ("/Toolbar/SendReceive", "stock_mail-send-receive", 24),
-	E_PIXMAP ("/menu/File/FileImporter", "stock_mail-import", 16),
-	E_PIXMAP ("/menu/File/ToggleOffline", "stock_disconnect", 16),
-	E_PIXMAP ("/menu/Tools/Settings", "gnome-settings", 16),
-
+	E_PIXMAP ("/commands/SendReceive", "stock_mail-send-receive", E_ICON_SIZE_MENU),
+	E_PIXMAP ("/Toolbar/SendReceive", "stock_mail-send-receive", E_ICON_SIZE_LARGE_TOOLBAR),
+	E_PIXMAP ("/menu/File/FileImporter", "stock_mail-import", E_ICON_SIZE_MENU),
+	E_PIXMAP ("/menu/File/ToggleOffline", "stock_disconnect", E_ICON_SIZE_MENU),
+	E_PIXMAP ("/menu/Tools/Settings", "gnome-settings", E_ICON_SIZE_MENU),
+	
 	E_PIXMAP_END
 };
 
 static EPixmap offline_pixmaps [] = {
-	E_PIXMAP ("/menu/File/ToggleOffline", "stock_disconnect", 16),
+	E_PIXMAP ("/menu/File/ToggleOffline", "stock_disconnect", E_ICON_SIZE_MENU),
 	E_PIXMAP_END
 };
 
 static EPixmap online_pixmaps [] = {
-	E_PIXMAP ("/menu/File/ToggleOffline", "stock_connect", 16),
+	E_PIXMAP ("/menu/File/ToggleOffline", "stock_connect", E_ICON_SIZE_MENU),
 	E_PIXMAP_END
 };
 
@@ -427,6 +725,21 @@ shell_line_status_changed_cb (EShell *shell,
 	update_offline_menu_item (shell_window, new_status);
 }
 
+static void
+view_toolbar_item_toggled_handler (BonoboUIComponent           *ui_component,
+				   const char                  *path,
+				   Bonobo_UIComponent_EventType type,
+				   const char                  *state,
+				   EShellWindow                *shell_window)
+{
+	gboolean is_visible;
+
+	is_visible = state[0] == '1';
+
+	bonobo_ui_component_set_prop (ui_component, "/Toolbar",
+				      "hidden", is_visible ? "0" : "1", NULL);
+}
+
 
 /* Public API.  */
 
@@ -447,6 +760,9 @@ e_shell_window_commands_setup (EShellWindow *shell_window)
 	bonobo_ui_component_add_verb_list_with_data (uic, actions_verbs, shell_window);
 	bonobo_ui_component_add_verb_list_with_data (uic, tools_verbs, shell_window);
 	bonobo_ui_component_add_verb_list_with_data (uic, help_verbs, shell_window);
+	bonobo_ui_component_add_listener (uic, "ViewToolbar",
+					  (BonoboUIListenerFn)view_toolbar_item_toggled_handler,
+					  (gpointer)shell_window);
 
 	e_pixmaps_update (uic, pixmaps);
 

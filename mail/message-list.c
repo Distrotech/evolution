@@ -39,6 +39,7 @@
 
 #include <gtk/gtkmain.h>
 #include <gtk/gtkinvisible.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <gal/util/e-util.h>
 #include <gal/widgets/e-gui-utils.h>
@@ -65,9 +66,12 @@
 #include "mail-mt.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
+#include "em-popup.h"
 
 #include "em-utils.h"
 #include <e-util/e-icon-factory.h>
+
+#include "art/empty.xpm"
 
 /*#define TIMEIT */
 
@@ -89,6 +93,35 @@ struct _MessageListPrivate {
 	GtkWidget *invisible;	/* 4 selection */
 
 	struct _MLSelection clipboard;
+};
+
+static struct {
+	char *target;
+	GdkAtom atom;
+	guint32 actions;
+} ml_drag_info[] = {
+	{ "x-uid-list", 0, GDK_ACTION_ASK|GDK_ACTION_MOVE|GDK_ACTION_COPY },
+	{ "message/rfc822", 0, GDK_ACTION_COPY },
+	{ "text/uri-list", 0, GDK_ACTION_COPY },
+};
+
+enum {
+	DND_X_UID_LIST,		/* x-uid-list */
+	DND_MESSAGE_RFC822,	/* message/rfc822 */
+	DND_TEXT_URI_LIST,	/* text/uri-list */
+};
+
+/* What we send */
+static GtkTargetEntry ml_drag_types[] = {
+	{ "x-uid-list", 0, DND_X_UID_LIST },
+	{ "text/uri-list", 0, DND_TEXT_URI_LIST },
+};
+
+/* What we accept */
+static GtkTargetEntry ml_drop_types[] = {
+	{ "x-uid-list", 0, DND_X_UID_LIST },
+	{ "message/rfc822", 0, DND_MESSAGE_RFC822 },
+	{ "text/uri-list", 0, DND_TEXT_URI_LIST },
 };
 
 /*
@@ -149,6 +182,7 @@ static void load_hide_state(MessageList *ml);
 /* note: @changes is owned/freed by the caller */
 /*static void mail_do_regenerate_messagelist (MessageList *list, const char *search, const char *hideexpr, CamelFolderChangeInfo *changes);*/
 static void mail_regen_list(MessageList *ml, const char *search, const char *hideexpr, CamelFolderChangeInfo *changes);
+static void mail_regen_cancel(MessageList *ml);
 
 static void clear_info(char *key, ETreePath *node, MessageList *ml);
 
@@ -164,25 +198,24 @@ static guint message_list_signals [LAST_SIGNAL] = {0, };
 static struct {
 	char *icon_name;
 	GdkPixbuf  *pixbuf;
-} states_pixmaps [] = {
-	{ "stock_mail-unread",			NULL },
-	{ "stock_mail-open",			NULL },
-	{ "stock_mail-replied",			NULL },
-	{ "stock_mail-unread-multiple",	NULL },
-	{ "stock_mail-open-multiple",	NULL },
-	{ "",					NULL },
-	{ "stock_attach",			NULL },
-	{ "stock_mail-priority-high",	NULL },
-	{ "stock_score-lowest",			NULL },
-	{ "stock_score-lower",			NULL },
-	{ "stock_score-low",			NULL },
-	{ "stock_score-normal",			NULL },
-	{ "stock_score-high",			NULL },
-	{ "stock_score-higher",			NULL },
-	{ "stock_score-highest",		NULL },
-	{ "stock_mail-flag-for-followup",	NULL },
-	{ "stock_mail-flag-for-followup-done",	NULL },
-	{ NULL,					NULL }
+} states_pixmaps[] = {
+	{ "stock_mail-unread",                 NULL },
+	{ "stock_mail-open",                   NULL },
+	{ "stock_mail-replied",                NULL },
+	{ "stock_mail-unread-multiple",        NULL },
+	{ "stock_mail-open-multiple",          NULL },
+	{ NULL,                                NULL },
+	{ "stock_attach",                      NULL },
+	{ "stock_mail-priority-high",          NULL },
+	{ "stock_score-lowest",                NULL },
+	{ "stock_score-lower",                 NULL },
+	{ "stock_score-low",                   NULL },
+	{ "stock_score-normal",                NULL },
+	{ "stock_score-high",                  NULL },
+	{ "stock_score-higher",                NULL },
+	{ "stock_score-highest",               NULL },
+	{ "stock_mail-flag-for-followup",      NULL },
+	{ "stock_mail-flag-for-followup-done", NULL },
 };
 
 /* FIXME: junk prefs */
@@ -429,34 +462,6 @@ get_normalised_string (MessageList *message_list, CamelMessageInfo *info, int co
 	return e_poolv_get (poolv, index);
 }
 
-struct search_func_data {
-	MessageList *message_list;
-	guint32 flags;
-	guint32 mask;
-};
-
-static gboolean
-search_func (ETreeModel *model, ETreePath path, struct search_func_data *data)
-{
-	CamelMessageInfo *info;
-
-	if (e_tree_model_node_is_root (data->message_list->model, path))
-		return FALSE;
-
-	info = get_message_info (data->message_list, path);
-	
-	if (info && (info->flags & data->mask) == data->flags) {
-		if (data->message_list->cursor_uid) {
-			g_free (data->message_list->cursor_uid);
-			data->message_list->cursor_uid = g_strdup (camel_message_info_uid (info));
-		}
-		g_signal_emit (GTK_OBJECT (data->message_list), message_list_signals[MESSAGE_SELECTED], 0,
-			       camel_message_info_uid (info));
-		return TRUE;
-	}
-	return FALSE;
-}
-
 static void
 clear_selection(MessageList *ml, struct _MLSelection *selection)
 {
@@ -472,6 +477,88 @@ clear_selection(MessageList *ml, struct _MLSelection *selection)
 	selection->folder_uri = NULL;
 }
 
+static ETreePath
+ml_search_forward(MessageList *ml, int start, int end, guint32 flags, guint32 mask)
+{
+	ETreePath path;
+	int row;
+	CamelMessageInfo *info;
+	ETreeTableAdapter *etta = e_tree_get_table_adapter(ml->tree);
+
+	for (row = start; row <= end; row ++) {
+		path = e_tree_table_adapter_node_at_row(etta, row);
+		if (path
+		    && (info = get_message_info(ml, path))
+		    && (info->flags & mask) == flags)
+			return path;
+	}
+
+	return NULL;
+}
+
+static ETreePath
+ml_search_backward(MessageList *ml, int start, int end, guint32 flags, guint32 mask)
+{
+	ETreePath path;
+	int row;
+	CamelMessageInfo *info;
+	ETreeTableAdapter *etta = e_tree_get_table_adapter(ml->tree);
+
+	for (row = start; row >= end; row --) {
+		path = e_tree_table_adapter_node_at_row(etta, row);
+		if (path
+		    && (info = get_message_info(ml, path))
+		    && (info->flags & mask) == flags)
+			return path;
+	}
+
+	return NULL;
+}
+
+static ETreePath
+ml_search_path(MessageList *ml, MessageListSelectDirection direction, guint32 flags, guint32 mask)
+{
+	ETreePath node;
+	int row, count;
+	ETreeTableAdapter *etta = e_tree_get_table_adapter(ml->tree);
+
+	if (ml->cursor_uid == NULL
+	    || (node = g_hash_table_lookup(ml->uid_nodemap, ml->cursor_uid)) == NULL)
+		return NULL;
+
+	row = e_tree_table_adapter_row_of_node(etta, node);
+	if (row == -1)
+		return NULL;
+	count = e_table_model_row_count((ETableModel *)etta);
+
+	if ((direction & MESSAGE_LIST_SELECT_DIRECTION) == MESSAGE_LIST_SELECT_NEXT)
+		node = ml_search_forward(ml, row + 1, count - 1, flags, mask);
+	else
+		node = ml_search_backward(ml, row-1, 0, flags, mask);
+
+	if (node == NULL && (direction & MESSAGE_LIST_SELECT_WRAP)) {
+		if ((direction & MESSAGE_LIST_SELECT_DIRECTION) == MESSAGE_LIST_SELECT_NEXT)
+			node = ml_search_forward(ml, 0, row, flags, mask);
+		else
+			node = ml_search_backward(ml, count-1, row, flags, mask);
+	}
+
+	return node;
+}
+
+static void
+select_path(MessageList *ml, ETreePath path)
+{
+	ETreeSelectionModel *etsm = (ETreeSelectionModel *)e_tree_get_selection_model(ml->tree);
+
+	g_free(ml->cursor_uid);
+	ml->cursor_uid = NULL;
+
+	e_tree_table_adapter_show_node(e_tree_get_table_adapter(ml->tree), path);
+	e_tree_set_cursor(ml->tree, path);
+	e_tree_selection_model_select_single_path(etsm, path);
+}
+
 /**
  * message_list_select:
  * @message_list: a MessageList
@@ -479,8 +566,6 @@ clear_selection(MessageList *ml, struct _MLSelection *selection)
  * @direction: the direction to search in
  * @flags: a set of flag values
  * @mask: a mask for comparing against @flags
- * @wraparound: if %TRUE, go back to the beginning for 
- *     the next match if necessary.
  *
  * This moves the message list selection to a suitable row. @base_row
  * lists the first (model) row to try, but as a special case, model
@@ -488,36 +573,43 @@ clear_selection(MessageList *ml, struct _MLSelection *selection)
  * what constitutes a suitable row. @direction is
  * %MESSAGE_LIST_SELECT_NEXT if it should find the next matching
  * message, or %MESSAGE_LIST_SELECT_PREVIOUS if it should find the
- * previous. If no suitable row is found, the selection will be
+ * previous. %MESSAGE_LIST_SELECT_WRAP is an option bit which specifies the
+ * search should wrap.
+ *
+ * If no suitable row is found, the selection will be
  * unchanged.
  *
  * Returns %TRUE if a new message has been selected or %FALSE otherwise.
  **/
 gboolean
-message_list_select (MessageList               *message_list,
-		     MessageListSelectDirection direction,
-		     guint32                    flags,
-		     guint32                    mask,
-		     gboolean                   wraparound)
+message_list_select(MessageList *ml, MessageListSelectDirection direction, guint32 flags, guint32 mask)
 {
-	struct search_func_data data;
-	ETreeFindNextParams params = 0;
-	
-	data.message_list = message_list;
-	data.flags = flags;
-	data.mask = mask;
-	
-	if (direction == MESSAGE_LIST_SELECT_NEXT)
-		params |= E_TREE_FIND_NEXT_FORWARD;
-	else
-		params |= E_TREE_FIND_NEXT_BACKWARD;
-	
-	if (wraparound)
-		params |= E_TREE_FIND_NEXT_WRAP;
-	
-	return e_tree_find_next (message_list->tree, params, (ETreePathFunc) search_func, &data);
+	ETreePath path;
+
+	path = ml_search_path(ml, direction, flags, mask);
+	if (path) {
+		select_path(ml, path);
+		return TRUE;
+	} else
+		return FALSE;
 }
 
+/**
+ * message_list_can_select:
+ * @ml: 
+ * @direction: 
+ * @flags: 
+ * @mask: 
+ * 
+ * Returns true if the selection specified is possible with the current view.
+ * 
+ * Return value: 
+ **/
+gboolean
+message_list_can_select(MessageList *ml, MessageListSelectDirection direction, guint32 flags, guint32 mask)
+{
+	return ml_search_path(ml, direction, flags, mask) != NULL;
+}
 
 /**
  * message_list_select_uid:
@@ -534,7 +626,7 @@ message_list_select_uid (MessageList *message_list, const char *uid)
 	if (message_list->folder == NULL)
 		return;
 
-	if (message_list->regen) {
+	if (message_list->regen || message_list->regen_timeout_id) {
 		g_free(message_list->pending_select_uid);
 		message_list->pending_select_uid = g_strdup(uid);
 	}
@@ -554,39 +646,32 @@ message_list_select_uid (MessageList *message_list, const char *uid)
 	}
 }
 
-
 void
-message_list_select_next_thread (MessageList *message_list)
+message_list_select_next_thread (MessageList *ml)
 {
-	ETreePath node, last;
-	
-	if (!message_list->cursor_uid)
+	ETreePath node;
+	ETreeTableAdapter *etta = e_tree_get_table_adapter(ml->tree);
+	int i, count, row;
+
+	if (!ml->cursor_uid
+	    || (node = g_hash_table_lookup(ml->uid_nodemap, ml->cursor_uid)) == NULL)
 		return;
-	
-	/* get the thread parent node */
-	last = node = g_hash_table_lookup (message_list->uid_nodemap, message_list->cursor_uid);
-	while (!e_tree_model_node_is_root (message_list->model, node)) {
-		last = node;
-		node = e_tree_model_node_get_parent (message_list->model, node);
-	}
-	
-	/* get the next toplevel node */
-	node = e_tree_model_node_get_next (message_list->model, last);
-	
-	if (node) {
-		CamelMessageInfo *info;
-		
-		info = get_message_info (message_list, node);
-		e_tree_set_cursor (message_list->tree, node);
-		
-		g_free (message_list->cursor_uid);
-		message_list->cursor_uid = g_strdup (camel_message_info_uid (info));
-		
-		g_signal_emit (GTK_OBJECT (message_list), message_list_signals[MESSAGE_SELECTED], 0,
-			       camel_message_info_uid (info));
+
+	row = e_tree_table_adapter_row_of_node(etta, node);
+	if (row == -1)
+		return;
+	count = e_table_model_row_count((ETableModel *)etta);
+
+	/* find the next node which has a root parent (i.e. toplevel node) */
+	for (i=row+1;i<count-1;i++) {
+		node = e_tree_table_adapter_node_at_row(etta, i);
+		if (node
+		    && e_tree_model_node_is_root(ml->model, e_tree_model_node_get_parent(ml->model, node))) {
+			select_path(ml, node);
+			return;
+		}
 	}
 }
-
 
 /**
  * message_list_select_all:
@@ -696,7 +781,7 @@ message_list_copy(MessageList *ml, gboolean cut)
 	GPtrArray *uids;
 
 	clear_selection(ml, &p->clipboard);
-		
+	
 	uids = message_list_get_selected(ml);
 
 	if (uids->len > 0) {
@@ -1229,11 +1314,15 @@ message_list_init_images (void)
 	/*
 	 * Only load once, and share
 	 */
-	if (states_pixmaps [0].pixbuf)
+	if (states_pixmaps[0].pixbuf)
 		return;
 	
-	for (i = 0; states_pixmaps[i].icon_name; i++)
-		states_pixmaps[i].pixbuf = e_icon_factory_get_icon (states_pixmaps[i].icon_name, E_ICON_SIZE_MENU);
+	for (i = 0; i < G_N_ELEMENTS (states_pixmaps); i++) {
+		if (states_pixmaps[i].icon_name)
+			states_pixmaps[i].pixbuf = e_icon_factory_get_icon (states_pixmaps[i].icon_name, E_ICON_SIZE_MENU);
+		else
+			states_pixmaps[i].pixbuf = gdk_pixbuf_new_from_xpm_data ((const char **) empty_xpm);
+	}
 }
 
 static char *
@@ -1462,29 +1551,6 @@ ml_selection_clear_event(GtkWidget *widget, GdkEventSelection *event, MessageLis
 }
 
 static void
-ml_selection_received_uidlist(MessageList *ml, GtkSelectionData *data)
-{
-	CamelFolder *folder;
-	GPtrArray *uids;
-	char *uri;
-
-	if (em_utils_selection_get_uidlist(data, &uri, &uids) == 0)
-		return;
-
-	folder = mail_tool_uri_to_folder(uri, 0, NULL);
-	if (folder) {
-		mail_transfer_messages(folder, uids, FALSE, ml->folder_uri, 0, NULL, NULL);
-		camel_object_unref(folder);
-	} else {
-		/* FIXME: error box? */
-		g_warning("could not open paste source uri '%s'", uri);
-		em_utils_uids_free(uids);
-	}
-
-	g_free(uri);
-}
-
-static void
 ml_selection_received(GtkWidget *widget, GtkSelectionData *data, guint time, MessageList *ml)
 {
 	if (data->target != gdk_atom_intern ("x-uid-list", FALSE)) {
@@ -1493,15 +1559,8 @@ ml_selection_received(GtkWidget *widget, GtkSelectionData *data, guint time, Mes
 		return;
 	}
 
-	ml_selection_received_uidlist(ml, data);
+	em_utils_selection_get_uidlist(data, ml->folder, FALSE, NULL);
 }
-
-static GtkTargetEntry ml_drag_types[] = {
-	{ "x-uid-list", 0, 0 },
-	{ "message/rfc822", 0, 1 },
-	/* not included in dest types */
-	{ "text/uri-list", 0, 2 },
-};
 
 static void
 ml_tree_drag_data_get (ETree *tree, int row, ETreePath path, int col,
@@ -1514,13 +1573,10 @@ ml_tree_drag_data_get (ETree *tree, int row, ETreePath path, int col,
 
 	if (uids->len > 0) {
 		switch (info) {
-		case 0 /* DND_TARGET_TYPE_X_UID_LIST */:
+		case DND_X_UID_LIST:
 			em_utils_selection_set_uidlist(data, ml->folder_uri, uids);
 			break;
-		case 1 /* DND_TARGET_TYPE_MESSAGE_RFC822 */:
-			em_utils_selection_set_mailbox(data, ml->folder, uids);
-			break;
-		case 2 /* DND_TARGET_TYPE_TEXT_URI_LIST */:
+		case DND_TEXT_URI_LIST:
 			em_utils_selection_set_urilist(data, ml->folder, uids);
 			break;
 		}
@@ -1529,29 +1585,211 @@ ml_tree_drag_data_get (ETree *tree, int row, ETreePath path, int col,
 	message_list_free_uids(ml, uids);
 }
 
+/* TODO: merge this with the folder tree stuff via empopup targets */
+/* Drop handling */
+struct _drop_msg {
+	struct _mail_msg msg;
+	
+	GdkDragContext *context;
+
+	/* Only selection->data and selection->length are valid */
+	GtkSelectionData *selection;
+
+	CamelFolder *folder;
+
+	guint32 action;
+	guint info;
+	
+	unsigned int move:1;
+	unsigned int moved:1;
+	unsigned int aborted:1;
+};
+
+static char *
+ml_drop_async_desc (struct _mail_msg *mm, int done)
+{
+	struct _drop_msg *m = (struct _drop_msg *) mm;
+
+	if (m->move)
+		return g_strdup_printf(_("Moving messages into folder %s"), m->folder->full_name);
+	else
+		return g_strdup_printf(_("Copying messages into folder %s"), m->folder->full_name);
+}
+
+static void
+ml_drop_async_drop(struct _mail_msg *mm)
+{
+	struct _drop_msg *m = (struct _drop_msg *)mm;
+
+	switch (m->info) {
+	case DND_X_UID_LIST:
+		em_utils_selection_get_uidlist(m->selection, m->folder, m->action == GDK_ACTION_MOVE, &mm->ex);
+		break;
+	case DND_MESSAGE_RFC822:
+		em_utils_selection_get_message(m->selection, m->folder);
+		break;
+	case DND_TEXT_URI_LIST:
+		em_utils_selection_get_urilist(m->selection, m->folder);
+		break;
+	}
+}
+
+static void
+ml_drop_async_done(struct _mail_msg *mm)
+{
+	struct _drop_msg *m = (struct _drop_msg *)mm;
+	gboolean success, delete;
+	
+	/* ?? */
+	if (m->aborted) {
+		success = FALSE;
+		delete = FALSE;
+	} else {
+		success = !camel_exception_is_set (&mm->ex);
+		delete = success && m->move && !m->moved;
+	}
+
+	gtk_drag_finish(m->context, success, delete, GDK_CURRENT_TIME);
+}
+
+static void
+ml_drop_async_free(struct _mail_msg *mm)
+{
+	struct _drop_msg *m = (struct _drop_msg *)mm;
+	
+	g_object_unref(m->context);
+	camel_object_unref(m->folder);
+
+	g_free(m->selection->data);
+	g_free(m->selection);
+}
+
+static struct _mail_msg_op ml_drop_async_op = {
+	ml_drop_async_desc,
+	ml_drop_async_drop,
+	ml_drop_async_done,
+	ml_drop_async_free,
+};
+
+static void
+ml_drop_action(struct _drop_msg *m)
+{
+	m->move = m->action == GDK_ACTION_MOVE;
+	e_thread_put (mail_thread_new, (EMsg *) m);
+}
+
+static void
+ml_drop_popup_copy(EPopup *ep, EPopupItem *item, void *data)
+{
+	struct _drop_msg *m = data;
+
+	m->action = GDK_ACTION_COPY;
+	ml_drop_action(m);
+}
+
+static void
+ml_drop_popup_move(EPopup *ep, EPopupItem *item, void *data)
+{
+	struct _drop_msg *m = data;
+
+	m->action = GDK_ACTION_MOVE;
+	ml_drop_action(m);
+}
+
+static void
+ml_drop_popup_cancel(EPopup *ep, EPopupItem *item, void *data)
+{
+	struct _drop_msg *m = data;
+
+	m->aborted = TRUE;
+	mail_msg_free(&m->msg);
+}
+
+static EPopupItem ml_drop_popup_menu[] = {
+	{ E_POPUP_ITEM, "00.emc.02", N_("_Copy"), ml_drop_popup_copy, NULL, "stock_folder-copy", 0 },
+	{ E_POPUP_ITEM, "00.emc.03", N_("_Move"), ml_drop_popup_move, NULL, "stock_folder-move", 0 },
+	{ E_POPUP_BAR, "10.emc" },
+	{ E_POPUP_ITEM, "99.emc.00", N_("Cancel _Drag"), ml_drop_popup_cancel, NULL, NULL, 0 },
+};
+
+static void
+ml_drop_popup_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
+
+	/* FIXME: free data if no item was selected? */
+}
+
 static void
 ml_tree_drag_data_received (ETree *tree, int row, ETreePath path, int col,
 			    GdkDragContext *context, gint x, gint y,
 			    GtkSelectionData *data, guint info,
 			    guint time, MessageList *ml)
 {
+	struct _drop_msg *m;
+
 	/* this means we are receiving no data */
 	if (data->data == NULL || data->length == -1)
 		return;
 
-	/* Note: we don't receive text/uri-list, since we have no
-	   guarantee on what the content would be */
-	
-	switch (info) {
-	case 1 /* DND_TARGET_TYPE_MESSAGE_RFC822 */:
-		em_utils_selection_get_mailbox(data, ml->folder);
-		break;
-	case 0 /* DND_TARGET_TYPE_X_UID_LIST */:
-		ml_selection_received_uidlist(ml, data);
-		break;
+	m = mail_msg_new(&ml_drop_async_op, NULL, sizeof(*m));
+	m->context = context;
+	g_object_ref(context);
+	m->folder = ml->folder;
+	camel_object_ref(m->folder);
+	m->action = context->action;
+	m->info = info;
+
+	/* need to copy, goes away once we exit */
+	m->selection = g_malloc0(sizeof(*m->selection));
+	m->selection->data = g_malloc(data->length);
+	memcpy(m->selection->data, data->data, data->length);
+	m->selection->length = data->length;
+
+	if (context->action == GDK_ACTION_ASK) {
+		EMPopup *emp;
+		GSList *menus = NULL;
+		GtkMenu *menu;
+		int i;
+
+		emp = em_popup_new("com.ximian.mail.messagelist.popup.drop");
+		for (i=0;i<sizeof(ml_drop_popup_menu)/sizeof(ml_drop_popup_menu[0]);i++)
+			menus = g_slist_append(menus, &ml_drop_popup_menu[i]);
+
+		e_popup_add_items((EPopup *)emp, menus, ml_drop_popup_free, m);
+		menu = e_popup_create_menu_once((EPopup *)emp, NULL, 0);
+		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, 0, gtk_get_current_event_time());
+	} else {
+		ml_drop_action(m);
 	}
-	
-	gtk_drag_finish(context, TRUE, TRUE, time);
+}
+
+static gboolean
+ml_tree_drag_motion(ETree *tree, GdkDragContext *context, gint x, gint y, guint time, MessageList *ml)
+{
+	GList *targets;
+	GdkDragAction action, actions = 0;
+
+	for (targets = context->targets; targets; targets = targets->next) {
+		int i;
+
+		printf("atom drop '%s'\n", gdk_atom_name(targets->data));
+		for (i=0;i<sizeof(ml_drag_info)/sizeof(ml_drag_info[0]);i++)
+			if (targets->data == (void *)ml_drag_info[i].atom)
+				actions |= ml_drag_info[i].actions;
+	}
+	printf("\n");
+
+	actions &= context->actions;
+	action = context->suggested_action;
+	if (action == GDK_ACTION_COPY && (actions & GDK_ACTION_MOVE))
+		action = GDK_ACTION_MOVE;
+	else if (action == GDK_ACTION_ASK && (actions & (GDK_ACTION_MOVE|GDK_ACTION_COPY)) != (GDK_ACTION_MOVE|GDK_ACTION_COPY))
+		action = GDK_ACTION_MOVE;
+
+	gdk_drag_status(context, action, time);
+
+	return action != 0;
 }
 
 static void
@@ -1622,12 +1860,14 @@ message_list_destroy(GtkObject *object)
 		mail_async_event_destroy(message_list->async_event);
 		message_list->async_event = NULL;
 	}
-	
+
 	if (message_list->folder) {
 		/* need to do this before removing folder, folderinfo's might not exist after */
 		save_tree_state(message_list);
 		save_hide_state(message_list);
-		
+
+		mail_regen_cancel(message_list);
+
 		if (message_list->uid_nodemap) {
 			g_hash_table_foreach(message_list->uid_nodemap, (GHFunc)clear_info, message_list);
 			g_hash_table_destroy (message_list->uid_nodemap);
@@ -1663,7 +1903,7 @@ message_list_destroy(GtkObject *object)
 		g_source_remove (message_list->seen_id);
 		message_list->seen_id = 0;
 	}
-	
+
 	message_list->destroyed = TRUE;
 	
 	GTK_OBJECT_CLASS (message_list_parent_class)->destroy(object);
@@ -1709,7 +1949,12 @@ message_list_finalise (GObject *object)
 static void
 message_list_class_init (GObjectClass *object_class)
 {
+	int i;
+
 	message_list_parent_class = g_type_class_ref(PARENT_TYPE);
+
+	for (i=0;i<sizeof(ml_drag_info)/sizeof(ml_drag_info[0]);i++)
+		ml_drag_info[i].atom = gdk_atom_intern(ml_drag_info[i].target, FALSE);
 
 	object_class->finalize = message_list_finalise;
 	((GtkObjectClass *)object_class)->destroy = message_list_destroy;
@@ -1804,18 +2049,18 @@ message_list_construct (MessageList *message_list)
 
 	e_tree_drag_source_set(message_list->tree, GDK_BUTTON1_MASK,
 			       ml_drag_types, sizeof(ml_drag_types)/sizeof(ml_drag_types[0]),
-			       GDK_ACTION_MOVE|GDK_ACTION_COPY);
+			       GDK_ACTION_MOVE|GDK_ACTION_COPY|GDK_ACTION_ASK);
 	
 	g_signal_connect(message_list->tree, "tree_drag_data_get",
 			 G_CALLBACK(ml_tree_drag_data_get), message_list);
 
-	/* note, we only include 2 types, we don't include text/uri-list as a receiver */
 	e_tree_drag_dest_set(message_list->tree, GTK_DEST_DEFAULT_ALL,
-			     ml_drag_types, 2,
-			     GDK_ACTION_MOVE|GDK_ACTION_COPY);
+			     ml_drop_types, sizeof(ml_drop_types)/sizeof(ml_drop_types[0]),
+			     GDK_ACTION_MOVE|GDK_ACTION_COPY|GDK_ACTION_ASK);
 	
 	g_signal_connect(message_list->tree, "tree_drag_data_received",
 			 G_CALLBACK(ml_tree_drag_data_received), message_list);
+	g_signal_connect(message_list->tree, "drag-motion", G_CALLBACK(ml_tree_drag_motion), message_list);
 }
 
 /**
@@ -1934,6 +2179,9 @@ find_next_undeleted (MessageList *ml)
 
 /* only call if we have a tree model */
 /* builds the tree structure */
+
+#define BROKEN_ETREE	/* avoid some broken code in etree(?) by not using the incremental update */
+
 static void build_subtree (MessageList *ml, ETreePath parent, CamelFolderThreadNode *c, int *row);
 
 static void build_subtree_diff (MessageList *ml, ETreePath parent, ETreePath path, CamelFolderThreadNode *c, int *row);
@@ -1945,7 +2193,9 @@ build_tree (MessageList *ml, CamelFolderThread *thread, CamelFolderChangeInfo *c
 	ETreeModel *etm = ml->model;
 	ETreePath *top;
 	char *saveuid = NULL;
-
+#ifdef BROKEN_ETREE
+	GPtrArray *selected;
+#endif
 #ifdef TIMEIT
 	struct timeval start, end;
 	unsigned long diff;
@@ -1968,19 +2218,21 @@ build_tree (MessageList *ml, CamelFolderThread *thread, CamelFolderChangeInfo *c
 	if (ml->cursor_uid)
 		saveuid = find_next_undeleted(ml);
 
-#define BROKEN_ETREE	/* avoid some broken code in etree(?) by not using the incremental update */
-
 	top = e_tree_model_node_get_first_child(etm, ml->tree_root);
 #ifndef BROKEN_ETREE
 	if (top == NULL || changes == NULL) {
+#else
+		selected = message_list_get_selected(ml);
 #endif
 		e_tree_memory_freeze(E_TREE_MEMORY(etm));
 		clear_tree (ml);
 
 		build_subtree(ml, ml->tree_root, thread->tree, &row);
-
 		e_tree_memory_thaw(E_TREE_MEMORY(etm));
-#ifndef BROKEN_ETREE
+#ifdef BROKEN_ETREE
+		message_list_set_selected(ml, selected);
+		message_list_free_uids(ml, selected);
+#else
 	} else {
 		static int tree_equal(ETreeModel *etm, ETreePath ap, CamelFolderThreadNode *bp);
 
@@ -1989,7 +2241,6 @@ build_tree (MessageList *ml, CamelFolderThread *thread, CamelFolderChangeInfo *c
 		tree_equal(ml->model, top, thread->tree);
 	}
 #endif
-
 	if (saveuid) {
 		ETreePath *node = g_hash_table_lookup (ml->uid_nodemap, saveuid);
 		if (node == NULL) {
@@ -2005,7 +2256,7 @@ build_tree (MessageList *ml, CamelFolderThread *thread, CamelFolderChangeInfo *c
 		ml->cursor_uid = NULL;
 		g_signal_emit (ml, message_list_signals[MESSAGE_SELECTED], 0, NULL);
 	}
-	
+
 #ifdef TIMEIT
 	gettimeofday(&end, NULL);
 	diff = end.tv_sec * 1000 + end.tv_usec/1000;
@@ -2270,7 +2521,9 @@ build_flat (MessageList *ml, GPtrArray *summary, CamelFolderChangeInfo *changes)
 	ETreePath node;
 	char *saveuid = NULL;
 	int i;
-
+#ifdef BROKEN_ETREE
+	GPtrArray *selected;
+#endif
 #ifdef TIMEIT
 	struct timeval start, end;
 	unsigned long diff;
@@ -2286,6 +2539,8 @@ build_flat (MessageList *ml, GPtrArray *summary, CamelFolderChangeInfo *changes)
 	if (changes) {
 		build_flat_diff(ml, changes);
 	} else {
+#else
+		selected = message_list_get_selected(ml);
 #endif
 		e_tree_memory_freeze(E_TREE_MEMORY(etm));
 		clear_tree (ml);
@@ -2297,8 +2552,10 @@ build_flat (MessageList *ml, GPtrArray *summary, CamelFolderChangeInfo *changes)
 			camel_folder_ref_message_info(ml->folder, info);
 		}
 		e_tree_memory_thaw(E_TREE_MEMORY(etm));
-
-#ifndef BROKEN_ETREE
+#ifdef BROKEN_ETREE
+		message_list_set_selected(ml, selected);
+		message_list_free_uids(ml, selected);
+#else
 	}
 #endif
 
@@ -2444,6 +2701,10 @@ main_folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	CamelFolderChangeInfo *changes = (CamelFolderChangeInfo *)event_data;
 	CamelFolder *folder = (CamelFolder *)o;
 	int i;
+
+	/* may be NULL if we're in the process of being destroyed */
+	if (ml->async_event == NULL)
+		return;
 	
 	d(printf("folder changed event, changes = %p\n", changes));
 	if (changes) {
@@ -2489,7 +2750,7 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
 	CamelFolderChangeInfo *changes;
 	MessageList *ml = MESSAGE_LIST (user_data);
-	
+
 	if (event_data) {
 		changes = camel_folder_change_info_new();
 		camel_folder_change_info_cat(changes, (CamelFolderChangeInfo *)event_data);
@@ -2530,19 +2791,8 @@ message_list_set_folder (MessageList *message_list, CamelFolder *folder, const c
 		g_source_remove (message_list->idle_id);
 		message_list->idle_id = 0;
 	}
-	
-	/* cancel any outstanding regeneration requests */
-	if (message_list->regen) {
-		GList *l = message_list->regen;
-		
-		while (l) {
-			struct _mail_msg *mm = l->data;
-			
-			if (mm->cancel)
-				camel_operation_cancel(mm->cancel);
-			l = l->next;
-		}
-	}
+
+	mail_regen_cancel(message_list);
 	
 	if (message_list->folder != NULL) {
 		save_tree_state (message_list);
@@ -2671,7 +2921,10 @@ on_selection_changed_cmd(ETree *tree, MessageList *ml)
 	else
 		newuid = NULL;
 
-	if ((newuid == NULL && ml->cursor_uid == NULL)
+	/* If the selection isn't empty, then we ignore the no-uid check, since this event
+	   is also used for other updating.  If it is empty, it might just be a setup event
+	   from etree which we do need to ignore */
+	if ((newuid == NULL && ml->cursor_uid == NULL && uids->len == 0)
 	    || (newuid != NULL && ml->cursor_uid != NULL && !strcmp(ml->cursor_uid, newuid))) {
 		/* noop */
 	} else {
@@ -2775,7 +3028,7 @@ ml_getselected_cb(ETreePath path, void *user_data)
 
 	if (e_tree_model_node_is_root (data->ml->model, path))
 		return;
-	
+
 	uid = get_message_uid(data->ml, path);
 	g_assert(uid != NULL);
 	g_ptr_array_add(data->uids, g_strdup(uid));
@@ -2792,6 +3045,25 @@ message_list_get_selected(MessageList *ml)
 	e_tree_selected_path_foreach(ml->tree, ml_getselected_cb, &data);
 
 	return data.uids;
+}
+
+void
+message_list_set_selected(MessageList *ml, GPtrArray *uids)
+{
+	int i;
+	ETreeSelectionModel *etsm;
+	ETreePath node;
+	GPtrArray *paths = g_ptr_array_new();
+
+	etsm = (ETreeSelectionModel *)e_tree_get_selection_model(ml->tree);
+	for (i=0; i<uids->len; i++) {
+		node = g_hash_table_lookup(ml->uid_nodemap, uids->pdata[i]);
+		if (node)
+			g_ptr_array_add(paths, node);
+	}
+
+	e_tree_selection_model_select_paths(etsm, paths);
+	g_ptr_array_free(paths, TRUE);
 }
 
 void
@@ -3315,6 +3587,20 @@ regen_list_regened (struct _mail_msg *mm)
 	} else
 		build_flat (m->ml, m->summary, m->changes);
 
+        if (m->ml->search && m->ml->search != m->search)
+                g_free (m->ml->search);
+	m->ml->search = m->search;
+
+	m->ml->regen = g_list_remove(m->ml->regen, m);
+
+	if (m->ml->regen == NULL && m->ml->pending_select_uid) {
+		char *uid = m->ml->pending_select_uid;
+
+		m->ml->pending_select_uid = NULL;
+		message_list_select_uid(m->ml, uid);
+		g_free(uid);
+	}
+
 	g_signal_emit (m->ml, message_list_signals[MESSAGE_LIST_BUILT], 0);
 }
 
@@ -3333,10 +3619,6 @@ regen_list_free (struct _mail_msg *mm)
 	if (m->tree)
 		camel_folder_thread_messages_unref (m->tree);
 	
-        if (m->ml->search && m->ml->search != m->search)
-                g_free (m->ml->search);
-	m->ml->search = m->search;
-	
 	g_free (m->hideexpr);
 	
 	camel_object_unref (m->folder);
@@ -3344,17 +3626,8 @@ regen_list_free (struct _mail_msg *mm)
 	if (m->changes)
 		camel_folder_change_info_free (m->changes);
 
-	/* This should probably lock the list.
-	   However, since we have a received function, this will always be called in gui thread */
+	/* we have to poke this here as well since we might've been cancelled and regened wont get called */
 	m->ml->regen = g_list_remove(m->ml->regen, m);
-
-	if (m->ml->regen == NULL && m->ml->pending_select_uid) {
-		char *uid = m->ml->pending_select_uid;
-
-		m->ml->pending_select_uid = NULL;
-		message_list_select_uid(m->ml, uid);
-		g_free(uid);
-	}
 
 	g_object_unref(m->ml);
 }
@@ -3366,6 +3639,44 @@ static struct _mail_msg_op regen_list_op = {
 	regen_list_free,
 };
 
+static gboolean
+ml_regen_timeout(struct _regen_list_msg *m)
+{
+	m->ml->regen = g_list_prepend(m->ml->regen, m);
+	/* TODO: we should manage our own thread stuff, would make cancelling outstanding stuff easier */
+	e_thread_put (mail_thread_queued, (EMsg *)m);
+
+	m->ml->regen_timeout_msg = NULL;
+	m->ml->regen_timeout_id = 0;
+
+	return FALSE;
+}
+
+static void
+mail_regen_cancel(MessageList *ml)
+{
+	/* cancel any outstanding regeneration requests, not we don't clear, they clear themselves */
+	if (ml->regen) {
+		GList *l = ml->regen;
+		
+		while (l) {
+			struct _mail_msg *mm = l->data;
+			
+			if (mm->cancel)
+				camel_operation_cancel(mm->cancel);
+			l = l->next;
+		}
+	}
+
+	/* including unqueued ones */
+	if (ml->regen_timeout_id) {
+		g_source_remove(ml->regen_timeout_id);
+		ml->regen_timeout_id = 0;
+		mail_msg_free((struct _mail_msg *)ml->regen_timeout_msg);
+		ml->regen_timeout_msg = NULL;
+	}
+}
+
 static void
 mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, CamelFolderChangeInfo *changes)
 {
@@ -3375,19 +3686,8 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 	if (ml->folder == NULL)
 		return;
 
-	/* cancel any outstanding regeneration requests, we rebuild from scratch anyway */
-	if (ml->regen) {
-		GList *l = ml->regen;
+	mail_regen_cancel(ml);
 
-		while (l) {
-			struct _mail_msg *mm = l->data;
-
-			if (mm->cancel)
-				camel_operation_cancel(mm->cancel);
-			l = l->next;
-		}
-	}
-	
 	gconf = mail_config_get_gconf_client ();
 	
 #ifndef BROKEN_ETREE
@@ -3423,10 +3723,13 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 		camel_folder_thread_messages_ref(m->tree);
 	}
 
-	ml->regen = g_list_prepend(ml->regen, m);
-
-	/* TODO: we should manage our own thread stuff, would make cancelling outstanding stuff easier */
-	e_thread_put (mail_thread_queued, (EMsg *)m);
+	/* if we're busy already kick off timeout processing, so normal updates are immediate */
+	if (ml->regen == NULL)
+		ml_regen_timeout(m);
+	else {
+		ml->regen_timeout_msg = m;
+		ml->regen_timeout_id = g_timeout_add(500, (GSourceFunc)ml_regen_timeout, m);
+	}
 }
 
 

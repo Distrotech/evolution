@@ -1361,6 +1361,7 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 							     &rdata);
 		} else {
 			ECalModelComponent *comp_data;
+
 			e_table_model_pre_change (E_TABLE_MODEL (model));
 
 			comp_data = g_new0 (ECalModelComponent, 1);
@@ -1400,7 +1401,7 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 				pos = get_position_in_array (priv->objects, comp_data);
 		
 				g_ptr_array_remove (priv->objects, comp_data);
-				free_comp_data (comp_data);
+				e_cal_model_free_component_data (comp_data);
 		
 				e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
 			}

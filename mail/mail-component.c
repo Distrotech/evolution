@@ -36,11 +36,13 @@
 #include <errno.h>
 
 #include "em-popup.h"
+#include "em-menu.h"
 #include "em-utils.h"
 #include "em-composer-utils.h"
 #include "em-format.h"
 #include "em-folder-tree.h"
 #include "em-folder-browser.h"
+#include "em-message-browser.h"
 #include "em-folder-selector.h"
 #include "em-folder-selection.h"
 #include "em-migrate.h"
@@ -48,7 +50,7 @@
 #include "widgets/misc/e-info-label.h"
 #include "widgets/misc/e-error.h"
 
-#include "filter/rule-context.h"
+#include "em-search-context.h"
 #include "mail-config.h"
 #include "mail-component.h"
 #include "mail-folder-cache.h"
@@ -74,6 +76,7 @@
 
 #include <gal/e-table/e-tree.h>
 #include <gal/e-table/e-tree-memory.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <camel/camel-file-utils.h>
 #include <camel/camel-vtrash-folder.h>
@@ -105,6 +108,7 @@ struct _MailComponentPrivate {
 	/* states/data used during shutdown */
 	enum { MC_QUIT_START, MC_QUIT_SYNC } quit_state;
 	int quit_count;
+	int quit_expunge;	/* expunge on quit this time around? */
 
 	char *base_directory;
 	
@@ -128,10 +132,11 @@ static struct {
 	char *uri;
 	CamelFolder *folder;
 } mc_default_folders[] = {
-	{ "Inbox", },
-	{ "Drafts", },
-	{ "Outbox", },
-	{ "Sent", },
+	/* translators: standard local mailbox names */
+	{ N_("Inbox"), },
+	{ N_("Drafts"), },
+	{ N_("Outbox"), },
+	{ N_("Sent"), },
 	{ "Inbox", },		/* 'always local' inbox */
 };
 
@@ -147,8 +152,12 @@ store_info_new(CamelStore *store, const char *name)
 		si->name = g_strdup(name);
 	si->store = store;
 	camel_object_ref(store);
-	si->vtrash = camel_store_get_trash(store, NULL);
-	si->vjunk = camel_store_get_junk(store, NULL);
+	/* If these are vfolders then they need to be opened now,
+	 * otherwise they wont keep track of all folders */
+	if ((store->flags & CAMEL_STORE_VTRASH) != 0)
+		si->vtrash = camel_store_get_trash(store, NULL);
+	if ((store->flags & CAMEL_STORE_VJUNK) != 0)
+		si->vjunk = camel_store_get_junk(store, NULL);
 
 	return si;
 }
@@ -170,7 +179,7 @@ static void
 mc_add_store(MailComponent *component, CamelStore *store, const char *name, void (*done)(CamelStore *store, CamelFolderInfo *info, void *data))
 {
 	struct _store_info *si;
-
+	
 	MAIL_COMPONENT_DEFAULT(component);
 
 	si = store_info_new(store, name);
@@ -293,17 +302,10 @@ setup_search_context (MailComponent *component)
 	if (priv->search_context == NULL) {
 		char *user = g_build_filename(component->priv->base_directory, "mail/searches.xml", NULL);
 		char *system = g_strdup (EVOLUTION_PRIVDATADIR "/searchtypes.xml");
-	
-		priv->search_context = rule_context_new ();
+		
+		priv->search_context = (RuleContext *)em_search_context_new ();
 		g_object_set_data_full (G_OBJECT (priv->search_context), "user", user, g_free);
 		g_object_set_data_full (G_OBJECT (priv->search_context), "system", system, g_free);
-	
-		rule_context_add_part_set (priv->search_context, "partset", filter_part_get_type (),
-					   rule_context_add_part, rule_context_next_part);
-		
-		rule_context_add_rule_set (priv->search_context, "ruleset", filter_rule_get_type (),
-					   rule_context_add_rule, rule_context_next_rule);
-		
 		rule_context_load (priv->search_context, system, user);
 	}
 }
@@ -320,50 +322,32 @@ mc_startup(MailComponent *mc)
 	mc_setup_local_store(mc);
 	load_accounts(mc, mail_config_get_accounts());
 	vfolder_load_storage();
+
+	e_plugin_hook_register_type(em_popup_hook_get_type());
+	e_plugin_hook_register_type(em_menu_hook_get_type());
+	e_plugin_hook_register_type(em_config_hook_get_type());
+
+	em_format_hook_register_type(em_format_get_type());
+	em_format_hook_register_type(em_format_html_get_type());
+	em_format_hook_register_type(em_format_html_display_get_type());
+	e_plugin_hook_register_type(em_format_hook_get_type());
+
+	e_plugin_hook_register_type(em_event_hook_get_type());
 }
 
 static void
 folder_selected_cb (EMFolderTree *emft, const char *path, const char *uri, guint32 flags, EMFolderView *view)
 {
-	if ((flags & CAMEL_FOLDER_NOSELECT) || !path || !strcmp (path, "/"))
+	EMFolderTreeModel *model;
+	
+	if ((flags & CAMEL_FOLDER_NOSELECT) || !path) {
 		em_folder_view_set_folder (view, NULL, NULL);
-	else
+	} else {
+		model = em_folder_tree_get_model (emft);
+		em_folder_tree_model_set_selected (model, uri);
+		em_folder_tree_model_save_state (model);
+		
 		em_folder_view_set_folder_uri (view, uri);
-}
-
-#define PROPERTY_FOLDER_URI          "folder_uri"
-#define PROPERTY_FOLDER_URI_IDX      1
-
-static void
-set_prop(BonoboPropertyBag *bag, const BonoboArg *arg, guint arg_id, CORBA_Environment *ev, gpointer user_data)
-{
-	EMFolderView *view  = (EMFolderView *)bonobo_control_get_widget (user_data);
-
-	switch (arg_id) {
-	case PROPERTY_FOLDER_URI_IDX:
-		em_folder_view_set_folder_uri (view, BONOBO_ARG_GET_STRING (arg));
-		break;
-	default:
-		g_warning ("Unhandled arg %d\n", arg_id);
-		break;
-	}
-}
-
-static void
-get_prop(BonoboPropertyBag *bag, BonoboArg *arg, guint arg_id, CORBA_Environment *ev, gpointer user_data)
-{
-	GtkWidget *widget = bonobo_control_get_widget (user_data);
-	EMFolderView *view = (EMFolderView *)widget;
-
-	switch (arg_id) {
-	case PROPERTY_FOLDER_URI_IDX:
-		if (view->folder_uri)
-			BONOBO_ARG_SET_STRING (arg, view->folder_uri);
-		else 
-			BONOBO_ARG_SET_STRING (arg, "");
-		break;
-	default:
-		g_warning ("Unhandled arg %d\n", arg_id);
 	}
 }
 
@@ -490,9 +474,9 @@ view_changed_cb(EMFolderView *emfv, EInfoLabel *el)
 
 		if (CAMEL_IS_VTRASH_FOLDER(emfv->folder)) {
 			if (((CamelVTrashFolder *)emfv->folder)->type == CAMEL_VTRASH_FOLDER_TRASH)
-				g_string_append_printf(tmp, _("%d deleted"), deleted);
+				g_string_append_printf(tmp, ngettext ("%d deleted", "%d deleted", deleted), deleted);
 			else
-				g_string_append_printf(tmp, _("%d junk"), junked);
+				g_string_append_printf(tmp, ngettext ("%d junk", "%d junk", junked), junked);
 		} else {
 			int bits = 0;
 			GPtrArray *selected;
@@ -515,21 +499,21 @@ view_changed_cb(EMFolderView *emfv, EInfoLabel *el)
 				bits |= 8;
 
 			if (bits == 1)
-				g_string_append_printf(tmp, _("%d drafts"), visible);
+				g_string_append_printf(tmp, ngettext ("%d draft", "%d drafts", visible), visible);
 			else if (bits == 2)
-				g_string_append_printf(tmp, _("%d sent"), visible);
+				g_string_append_printf(tmp, ngettext ("%d sent", "%d sent", visible), visible);
 			else if (bits == 4)
-				g_string_append_printf(tmp, _("%d unsent"), visible);
+				g_string_append_printf(tmp, ngettext ("%d unsent", "%d unsent", visible), visible);
 			else {
 				if (!emfv->hide_deleted)
 					visible += deleted;
-				g_string_append_printf(tmp, _("%d total"), visible);
+				g_string_append_printf(tmp, ngettext ("%d total", "%d total", visible), visible);
 				if (unread && selected->len <=1)
-					g_string_append_printf(tmp, _(", %d unread"), unread);
+					g_string_append_printf(tmp, ngettext (", %d unread", ", %d unread", unread), unread);
 			}
 
 			if (selected->len > 1)
-				g_string_append_printf(tmp, _(", %d selected"), selected->len);
+				g_string_append_printf(tmp, ngettext (", %d selected", ", %d selected", selected->len), selected->len);
 			message_list_free_uids(emfv->list, selected);
 		}
 
@@ -558,16 +542,24 @@ impl_createControls (PortableServer_Servant servant,
 	GtkWidget *tree_widget, *vbox, *info;
 	GtkWidget *view_widget;
 	GtkWidget *statusbar_widget;
-
+	char *uri;
+	
 	mail_session_set_interactive(TRUE);
 	mc_startup(mail_component);
 
 	view_widget = em_folder_browser_new ();
+	
 	tree_widget = (GtkWidget *) em_folder_tree_new_with_model (priv->model);
 	em_folder_tree_set_excluded ((EMFolderTree *) tree_widget, 0);
 	em_folder_tree_enable_drag_and_drop ((EMFolderTree *) tree_widget);
+	
+	if ((uri = em_folder_tree_model_get_selected (priv->model))) {
+		em_folder_tree_set_selected ((EMFolderTree *) tree_widget, uri);
+		g_free (uri);
+	}
+	
 	em_format_set_session ((EMFormat *) ((EMFolderView *) view_widget)->preview, session);
-
+	
 	g_signal_connect (view_widget, "on-url", G_CALLBACK (view_on_url), mail_component);
 	em_folder_view_set_statusbar ((EMFolderView*)view_widget, FALSE);
 	
@@ -636,19 +628,8 @@ mc_quit_sync_done(CamelStore *store, void *data)
 static void
 mc_quit_sync(CamelStore *store, struct _store_info *si, MailComponent *mc)
 {
-	GConfClient *gconf = mail_config_get_gconf_client();
-	gboolean expunge;
-	int now = time(NULL)/60/60/24, days;
-
-	expunge = gconf_client_get_bool(gconf, "/apps/evolution/mail/trash/empty_on_exit", NULL)
-		&& ((days = gconf_client_get_int(gconf, "/apps/evolution/mail/trash/empty_on_exit_days", NULL)) == 0
-		     || (days + gconf_client_get_int(gconf, "/apps/evolution/mail/trash/empty_date", NULL)) <= now);
-
 	mc->priv->quit_count++;
-	mail_sync_store(store, expunge, mc_quit_sync_done, mc);
-
-	if (expunge)
-		gconf_client_set_int(gconf, "/apps/evolution/mail/trash/empty_date", now, NULL);
+	mail_sync_store(store, mc->priv->quit_expunge, mc_quit_sync_done, mc);
 }
 
 static CORBA_boolean
@@ -657,9 +638,21 @@ impl_quit(PortableServer_Servant servant, CORBA_Environment *ev)
 	MailComponent *mc = MAIL_COMPONENT(bonobo_object_from_servant(servant));
 
 	switch (mc->priv->quit_state) {
-	case MC_QUIT_START:
+	case MC_QUIT_START: {
+		int now = time(NULL)/60/60/24, days;
+		GConfClient *gconf = mail_config_get_gconf_client();
+
+		mc->priv->quit_expunge = gconf_client_get_bool(gconf, "/apps/evolution/mail/trash/empty_on_exit", NULL)
+			&& ((days = gconf_client_get_int(gconf, "/apps/evolution/mail/trash/empty_on_exit_days", NULL)) == 0
+			    || (days + gconf_client_get_int(gconf, "/apps/evolution/mail/trash/empty_date", NULL)) <= now);
+
 		g_hash_table_foreach(mc->priv->store_hash, (GHFunc)mc_quit_sync, mc);
+
+		if (mc->priv->quit_expunge)
+			gconf_client_set_int(gconf, "/apps/evolution/mail/trash/empty_date", now, NULL);
+
 		mc->priv->quit_state = MC_QUIT_SYNC;
+	}
 		/* Falls through */
 	case MC_QUIT_SYNC:
 		return mc->priv->quit_count == 0;
@@ -762,6 +755,26 @@ impl_requestCreateItem (PortableServer_Servant servant,
 }
 
 static void
+handleuri_got_folder(char *uri, CamelFolder *folder, void *data)
+{
+	CamelURL *url = data;
+	EMMessageBrowser *emmb;
+
+	if (folder != NULL) {
+		emmb = (EMMessageBrowser *)em_message_browser_window_new();
+		/*message_list_set_threaded(((EMFolderView *)emmb)->list, emfv->list->threaded);*/
+		/* FIXME: session needs to be passed easier than this */
+		em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, session);
+		em_folder_view_set_folder((EMFolderView *)emmb, folder, uri);
+		em_folder_view_set_message((EMFolderView *)emmb, camel_url_get_param(url, "uid"), FALSE);
+		gtk_widget_show(emmb->window);
+	} else {
+		g_warning("Couldn't open folder '%s'", uri);
+	}
+	camel_url_free(url);
+}
+
+static void
 impl_handleURI (PortableServer_Servant servant, const char *uri, CORBA_Environment *ev)
 {
 	if (!strncmp (uri, "mailto:", 7)) {
@@ -769,6 +782,18 @@ impl_handleURI (PortableServer_Servant servant, const char *uri, CORBA_Environme
 			return;
 
 		em_utils_compose_new_message_with_mailto (uri, NULL);
+	} else if (!strncmp(uri, "email:", 6)) {
+		CamelURL *url = camel_url_new(uri, NULL);
+
+		if (camel_url_get_param(url, "uid") != NULL) {
+			char *curi = em_uri_to_camel(uri);
+
+			mail_get_folder(curi, 0, handleuri_got_folder, url, mail_thread_new);
+			g_free(curi);
+		} else {
+			g_warning("email uri's must include a uid parameter");
+			camel_url_free(url);
+		}
 	}
 }
 
@@ -778,22 +803,25 @@ impl_sendAndReceive (PortableServer_Servant servant, CORBA_Environment *ev)
 	mail_send_receive ();
 }
 
-static CORBA_boolean
+static void
 impl_upgradeFromVersion (PortableServer_Servant servant, const short major, const short minor, const short revision, CORBA_Environment *ev)
 {
 	MailComponent *component;
 	CamelException ex;
-	int ok;
 
 	component = mail_component_peek ();
 	
 	camel_exception_init (&ex);
-	ok = em_migrate (component->priv->base_directory, major, minor, revision, &ex) != -1;
+	if (em_migrate (component->priv->base_directory, major, minor, revision, &ex) == -1) {
+		GNOME_Evolution_Component_UpgradeFailed *failedex;
 
-	/* FIXME: report errors? */
+		failedex = GNOME_Evolution_Component_UpgradeFailed__alloc();
+		failedex->what = CORBA_string_dup(_("Failed upgrading Mail settings or folders."));
+		failedex->why = CORBA_string_dup(ex.desc);
+		CORBA_exception_set(ev, CORBA_USER_EXCEPTION, ex_GNOME_Evolution_Component_UpgradeFailed, failedex);
+	}
+
 	camel_exception_clear (&ex);
-
-	return ok;
 }
 
 /* Initialization.  */
@@ -843,45 +871,13 @@ mail_component_init (MailComponent *component)
 	priv->async_event = mail_async_event_new();
 	priv->store_hash = g_hash_table_new (NULL, NULL);
 	
-	mail_autoreceive_setup();
+	mail_autoreceive_init();
 	
 	offline = mail_offline_handler_new();
 	bonobo_object_add_interface((BonoboObject *)component, (BonoboObject *)offline);
 }
 
 /* Public API.  */
-BonoboControl *
-mail_control_new (void) 
-{
-	BonoboControl *view_control;
-	GtkWidget *view_widget;
-	BonoboPropertyBag *pbag;
-
-	view_widget = em_folder_browser_new ();
-	em_folder_view_set_statusbar ((EMFolderView *) view_widget, FALSE);
-	gtk_widget_show (view_widget);
-	
-	view_control = bonobo_control_new (view_widget);
-	pbag = bonobo_property_bag_new (get_prop, set_prop, view_control);
-  
-	bonobo_property_bag_add (pbag,
-				 PROPERTY_FOLDER_URI, 
-				 PROPERTY_FOLDER_URI_IDX,
-				 BONOBO_ARG_STRING,
-				 NULL,
-				 _("URI of the mail source that the view will display"),
-				 0);
-	
-	bonobo_control_set_properties (view_control,
-				       bonobo_object_corba_objref (BONOBO_OBJECT (pbag)),
-				       NULL);
-	bonobo_object_unref (BONOBO_OBJECT (pbag));
-	
-	g_signal_connect (view_control, "activate", G_CALLBACK (view_control_activate_cb), view_widget);
-	
-	return view_control;
-}
-
 MailComponent *
 mail_component_peek (void)
 {

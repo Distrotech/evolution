@@ -35,7 +35,9 @@
 #include <camel/camel-url.h>
 
 #include <gal/util/e-iconv.h>
+#include <libgnome/gnome-i18n.h>
 
+#include "em-stripsig-filter.h"
 #include "em-format-quote.h"
 
 struct _EMFormatQuotePrivate {
@@ -208,14 +210,17 @@ emfq_format_address (GString *out, struct _camel_header_address *a)
 		case CAMEL_HEADER_ADDRESS_NAME:
 			if (name && *name) {
 				char *real, *mailaddr;
-
+				
 				g_string_append_printf (out, "%s &lt;", name);
 				/* rfc2368 for mailto syntax and url encoding extras */
-				real = camel_header_encode_phrase (a->name);
-				mailaddr = g_strdup_printf ("%s <%s>", real, a->v.addr);
-				g_free (real);
-				mailto = camel_url_encode (mailaddr, "?=&()");
-				g_free (mailaddr);
+				if ((real = camel_header_encode_phrase (a->name))) {
+					mailaddr = g_strdup_printf ("%s <%s>", real, a->v.addr);
+					g_free (real);
+					mailto = camel_url_encode (mailaddr, "?=&()");
+					g_free (mailaddr);
+				} else {
+					mailto = camel_url_encode (a->v.addr, "?=&()");
+				}
 			} else {
 				mailto = camel_url_encode (a->v.addr, "?=&()");
 			}
@@ -305,6 +310,8 @@ emfq_format_header (EMFormat *emf, CamelStream *stream, CamelMedium *part, const
 			if (!(txt = camel_medium_get_header (part, "user-agent")))
 				return;
 		
+		txt = value = camel_header_format_ctext (txt, charset);
+		
 		label = _("Mailer");
 		flags |= EM_FORMAT_HEADER_BOLD;
 	} else if (!strcmp (name, "date") || !strcmp (name, "resent-date")) {
@@ -393,7 +400,7 @@ emfq_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
 static void
 emfq_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const char *mime_type, const EMFormatHandler *handle)
 {
-	if (handle && em_format_is_inline(emf, part, handle)) {
+	if (handle && em_format_is_inline(emf, emf->part_id->str, part, handle)) {
 		char *text, *html;
 
 		camel_stream_write_string(stream,
@@ -422,10 +429,11 @@ emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, E
 {
 	CamelStreamFilter *filtered_stream;
 	CamelMimeFilter *html_filter;
+	CamelMimeFilter *sig_strip;
 	CamelContentType *type;
 	const char *format;
 	guint32 rgb = 0x737373, flags;
-
+	
 	flags = emfq->text_html_flags;
 	
 	/* Check for RFC 2646 flowed text. */
@@ -435,8 +443,15 @@ emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, E
 	    && !g_ascii_strcasecmp(format, "flowed"))
 		flags |= CAMEL_MIME_FILTER_TOHTML_FORMAT_FLOWED;
 	
-	html_filter = camel_mime_filter_tohtml_new(flags, rgb);
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
+	
+	if (emfq->flags != 0) {
+		sig_strip = em_stripsig_filter_new ();
+		camel_stream_filter_add (filtered_stream, sig_strip);
+		camel_object_unref (sig_strip);
+	}
+	
+	html_filter = camel_mime_filter_tohtml_new(flags, rgb);
 	camel_stream_filter_add(filtered_stream, html_filter);
 	camel_object_unref(html_filter);
 	
@@ -457,9 +472,9 @@ emfq_text_enriched(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part
 	
 	if (!strcmp(info->mime_type, "text/richtext")) {
 		flags = CAMEL_MIME_FILTER_ENRICHED_IS_RICHTEXT;
-		camel_stream_write_string( stream, "\n<!-- text/richtext -->\n");
+		camel_stream_write_string(stream, "\n<!-- text/richtext -->\n");
 	} else {
-		camel_stream_write_string( stream, "\n<!-- text/enriched -->\n");
+		camel_stream_write_string(stream, "\n<!-- text/enriched -->\n");
 	}
 	
 	enriched = camel_mime_filter_enriched_new(flags);
@@ -479,10 +494,11 @@ emfq_text_html(EMFormat *emf, CamelStream *stream, CamelMimePart *part, EMFormat
 	em_format_format_text(emf, stream, camel_medium_get_content_object((CamelMedium *)part));
 }
 
-static const char *type_remove_table[] = {
-	"message/external-body",
-	"multipart/appledouble",
-};
+static void
+emfq_ignore(EMFormat *emf, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
+{
+	/* NOOP */
+}
 
 static EMFormatHandler type_builtin_table[] = {
 	{ "text/plain",(EMFormatFunc)emfq_text_plain },
@@ -490,6 +506,8 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "text/richtext",(EMFormatFunc)emfq_text_enriched },
 	{ "text/html",(EMFormatFunc)emfq_text_html },
 /*	{ "multipart/related",(EMFormatFunc)emfq_multipart_related },*/
+	{ "message/external-body", (EMFormatFunc)emfq_ignore },
+	{ "multipart/appledouble", (EMFormatFunc)emfq_ignore },
 };
 
 static void
@@ -497,9 +515,6 @@ emfq_builtin_init(EMFormatQuoteClass *efhc)
 {
 	int i;
 	
-	for (i = 0; i < sizeof(type_remove_table) / sizeof(type_remove_table[0]); i++)
-		em_format_class_remove_handler((EMFormatClass *) efhc, type_remove_table[i]);
-
 	for (i=0;i<sizeof(type_builtin_table)/sizeof(type_builtin_table[0]);i++)
 		em_format_class_add_handler((EMFormatClass *)efhc, &type_builtin_table[i]);
 }

@@ -1,3 +1,52 @@
+2004-06-22  V Ravi Kumar Raju <vravikr@yahoo.co.uk>
+
+	* evolution-addressbook.xml: Remove the Menu Seperator in View
+	Menu when in the contacts view.
+
+2004-06-05  Christian Neumair  <chris@gnome-de.org>
+
+	* evolution-mail-list.xml: Remove trailing "..." from folder
+	properties menuitem.
+
+2004-06-01  William Jon McCann  <mccann@jhu.edu>
+
+	* evolution.xml: Add toolbar visibility toggle to View menu.
+
+2004-05-28  JP Rosevear  <jpr@novell.com>
+
+	* evolution.xml: changed to About Evolution; comment out FAQ
+
+2004-05-25  William Jon McCann  <mccann@jhu.edu>
+
+	* evolution-message-composer.xml: 
+	* evolution-composer-entries.xml: 
+	* evolution-contact-list-editor.xml: 
+	* evolution-contact-editor.xml: 
+	* evolution.xml: 
+	* evolution-mail-message.xml: 
+	* evolution-mail-list.xml: 
+	* evolution-mail-global.xml: 
+	* evolution-addressbook.xml: use stock icons where possible.
+	Calendar and tasks already use stock icons.
+
+	* evolution-tasks.xml: swap positions of delete and print icons
+	to be consistent with the other components.
+
+2004-05-19  Not Zed  <NotZed@Ximian.com>
+
+	* evolution.xml: Added View->Window menu.
+
+2004-05-18  Jerome Lacoste  <jerome@coffeebreaks.org>
+
+	Fixes bug #57940
+
+	* evolution-addressbook.xml: "Save as VCard" -> "Save as VCard..."
+
+2004-05-14  Jeffrey Stedfast  <fejj@novell.com>
+
+	* evolution-mail-message.xml: Rename MessageResend to MessageEdit
+	since that's actually what it does.
+
 2004-05-06  Rodney Dawes  <dobey@ximian.com>
 
 	* evolution-mail-message.xml: Make some more toolbar and menu items

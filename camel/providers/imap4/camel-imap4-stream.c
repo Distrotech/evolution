@@ -91,6 +91,7 @@ camel_imap4_stream_init (CamelIMAP4Stream *imap4, CamelIMAP4StreamClass *klass)
 	
 	imap4->mode = CAMEL_IMAP4_STREAM_MODE_TOKEN;
 	imap4->disconnected = FALSE;
+	imap4->have_unget = FALSE;
 	imap4->eol = FALSE;
 	
 	imap4->literal = 0;
@@ -102,8 +103,6 @@ camel_imap4_stream_init (CamelIMAP4Stream *imap4, CamelIMAP4StreamClass *klass)
 	imap4->tokenbuf = g_malloc (IMAP4_TOKEN_LEN);
 	imap4->tokenptr = imap4->tokenbuf;
 	imap4->tokenleft = IMAP4_TOKEN_LEN;
-	
-	imap4->unget = NULL;
 }
 
 static void
@@ -115,7 +114,6 @@ camel_imap4_stream_finalize (CamelObject *object)
 		camel_object_unref (imap4->stream);
 	
 	g_free (imap4->tokenbuf);
-	g_free (imap4->unget);
 }
 
 
@@ -340,10 +338,9 @@ camel_imap4_stream_next_token (CamelIMAP4Stream *stream, camel_imap4_token_t *to
 	g_return_val_if_fail (stream->mode != CAMEL_IMAP4_STREAM_MODE_LITERAL, -1);
 	g_return_val_if_fail (token != NULL, -1);
 	
-	if (stream->unget) {
-		memcpy (token, stream->unget, sizeof (camel_imap4_token_t));
-		g_free (stream->unget);
-		stream->unget = NULL;
+	if (stream->have_unget) {
+		memcpy (token, &stream->unget, sizeof (camel_imap4_token_t));
+		stream->have_unget = FALSE;
 		return 0;
 	}
 	
@@ -594,14 +591,12 @@ camel_imap4_stream_next_token (CamelIMAP4Stream *stream, camel_imap4_token_t *to
 int
 camel_imap4_stream_unget_token (CamelIMAP4Stream *stream, camel_imap4_token_t *token)
 {
-	camel_imap4_token_t *unget;
-	
-	if (stream->unget)
+	if (stream->have_unget)
 		return -1;
 	
 	if (token->token != CAMEL_IMAP4_TOKEN_NO_DATA) {
-		stream->unget = unget = g_new (camel_imap4_token_t, 1);
-		memcpy (unget, token, sizeof (camel_imap4_token_t));
+		memcpy (&stream->unget, token, sizeof (camel_imap4_token_t));
+		stream->have_unget = TRUE;
 	}
 	
 	return 0;
@@ -609,7 +604,7 @@ camel_imap4_stream_unget_token (CamelIMAP4Stream *stream, camel_imap4_token_t *t
 
 
 /**
- * camel_imap4_stream_readline:
+ * camel_imap4_stream_line:
  * @stream: imap4 stream
  * @line: line pointer
  * @len: line length
@@ -666,6 +661,19 @@ camel_imap4_stream_line (CamelIMAP4Stream *stream, unsigned char **line, size_t 
 }
 
 
+/**
+ * camel_imap4_stream_literal:
+ * @stream: IMAP stream
+ * @literal: literal pointer
+ * @len: literal length
+ *
+ * Sets @literal to the beginning of the next chunk of the literal
+ * buffer from the IMAP stream and sets @len to the length of the
+ * @literal buffer.
+ *
+ * Returns >0 if more literal data exists, 0 if the end of the literal
+ * has been reached or -1 on fail.
+ **/
 int
 camel_imap4_stream_literal (CamelIMAP4Stream *stream, unsigned char **literal, size_t *len)
 {

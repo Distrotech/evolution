@@ -85,6 +85,8 @@ typedef struct {
 	
 	gboolean corrupt;
 	
+	char *gtkrc;
+	
 	EAccountList *accounts;
 	ESignatureList *signatures;
 	
@@ -95,7 +97,7 @@ typedef struct {
 	guint spell_notify_id;
 	guint mark_citations__notify_id;
 	guint citation_colour_notify_id;
-
+	
 	GPtrArray *mime_types;
 	guint mime_types_notify_id;
 } MailConfig;
@@ -103,8 +105,6 @@ typedef struct {
 static MailConfig *config = NULL;
 static guint config_write_timeout = 0;
 
-#define MAIL_CONFIG_RC "/gtkrc-mail-fonts"
-#define MAIL_CONFIG_RC_DIR ".evolution/mail/config"
 
 void
 mail_config_save_accounts (void)
@@ -244,34 +244,18 @@ config_cache_mime_types (void)
 static void
 config_write_style (void)
 {
+	int red = 0xffff, green = 0, blue = 0;
 	GConfValue *val;
-	char *filename;
-	FILE *rc;
 	gboolean custom;
 	char *fix_font;
 	char *var_font;
-	gint red = 0xffff, green = 0, blue = 0;
+	FILE *rc;
 	
-	/*
-	 * This is the wrong way to get the path but it needs to 
-	 * always be the same as the gtk_rc_parse call and evolution_dir 
-	 * may not have been set yet
-	 *
-	 * filename = g_build_filename (evolution_dir, MAIL_CONFIG_RC, NULL);
-	 *
-	 * EPFIXME this kludge needs to go away.
-	 */
-	filename = g_build_filename (g_get_home_dir (), MAIL_CONFIG_RC_DIR, MAIL_CONFIG_RC, NULL);
-
-	rc = fopen (filename, "w");
-
-	if (!rc) {
-		g_warning ("unable to open %s", filename);
-		g_free (filename);
+	if (!(rc = fopen (config->gtkrc, "wt"))) {
+		g_warning ("unable to open %s", config->gtkrc);
 		return;
 	}
-	g_free (filename);
-
+	
 	custom = gconf_client_get_bool (config->gconf, "/apps/evolution/mail/display/fonts/use_custom", NULL);
 	var_font = gconf_client_get_string (config->gconf, "/apps/evolution/mail/display/fonts/variable", NULL);
 	fix_font = gconf_client_get_string (config->gconf, "/apps/evolution/mail/display/fonts/monospace", NULL);
@@ -294,16 +278,17 @@ config_write_style (void)
 			 "        font_name = \"%s\"\n",
 			 fix_font, var_font); 
 	}
-	fprintf (rc, "}\n\n"); 
+	fprintf (rc, "}\n\n");
 	
 	fprintf (rc, "widget \"*.EMFolderView.*.GtkHTML\" style \"evolution-mail-custom-fonts\"\n");
 	fprintf (rc, "widget \"*.EMFolderBrowser.*.GtkHTML\" style \"evolution-mail-custom-fonts\"\n");
 	fprintf (rc, "widget \"*.EMMessageBrowser.*.GtkHTML\" style \"evolution-mail-custom-fonts\"\n");
 	fprintf (rc, "widget \"*.BonoboPlug.*.GtkHTML\" style \"evolution-mail-custom-fonts\"\n");
 	fprintf (rc, "widget \"*.EvolutionMailPrintHTMLWidget\" style \"evolution-mail-custom-fonts\"\n");
-
-	if (fclose (rc) == 0)
-		gtk_rc_reparse_all ();
+	fflush (rc);
+	fclose (rc);
+	
+	gtk_rc_reparse_all ();
 }
 
 static void
@@ -333,20 +318,17 @@ gconf_mime_types_changed (GConfClient *client, guint cnxn_id,
 void
 mail_config_init (void)
 {
-	char *filename;
-	
 	if (config)
 		return;
 	
 	config = g_new0 (MailConfig, 1);
 	config->gconf = gconf_client_get_default ();
 	config->mime_types = g_ptr_array_new ();
+	config->gtkrc = g_build_filename (g_get_home_dir (), ".evolution", "mail", "config", "gtkrc-mail-fonts", NULL);
 	
 	mail_config_clear ();
 	
-	filename = g_build_filename (g_get_home_dir (), MAIL_CONFIG_RC_DIR, MAIL_CONFIG_RC, NULL);
-	gtk_rc_parse (filename);
-	g_free (filename);
+	gtk_rc_parse (config->gtkrc);
 	
 	gconf_client_add_dir (config->gconf, "/apps/evolution/mail/display",
 			      GCONF_CLIENT_PRELOAD_ONELEVEL, NULL);
@@ -458,7 +440,7 @@ mail_config_write_on_exit (void)
 	g_object_unref (iter);
 	
 	/* then we clear out our component passwords */
-	e_passwords_clear_component_passwords ("Mail");
+	e_passwords_clear_passwords ("Mail");
 	
 	/* then we remember them */
 	iter = e_list_get_iterator ((EList *) config->accounts);
@@ -479,6 +461,8 @@ mail_config_write_on_exit (void)
 	
 	g_object_unref (config->gconf);
 	g_ptr_array_free (config->mime_types, TRUE);
+	
+	g_free (config->gtkrc);
 	
 	g_free (config);
 }
@@ -892,116 +876,6 @@ mail_config_folder_to_cachename (CamelFolder *folder, const char *prefix)
 	g_free (url);
 	
 	return filename;
-}
-
-
-/* Async service-checking/authtype-lookup code. */
-struct _check_msg {
-	struct _mail_msg msg;
-
-	const char *url;
-	CamelProviderType type;
-	GList **authtypes;
-	gboolean *success;
-};
-
-static char *
-check_service_describe (struct _mail_msg *mm, int complete)
-{
-	return g_strdup (_("Checking Service"));
-}
-
-static void
-check_service_check (struct _mail_msg *mm)
-{
-	struct _check_msg *m = (struct _check_msg *)mm;
-	CamelService *service = NULL;
-
-	camel_operation_register(mm->cancel);
-
-	service = camel_session_get_service (session, m->url, m->type, &mm->ex);
-	if (!service) {
-		camel_operation_unregister(mm->cancel);
-		return;
-	}
-
-	if (m->authtypes)
-		*m->authtypes = camel_service_query_auth_types (service, &mm->ex);
-	else
-		camel_service_connect (service, &mm->ex);
-
-	camel_object_unref (service);
-	*m->success = !camel_exception_is_set(&mm->ex);
-
-	camel_operation_unregister(mm->cancel);
-}
-
-static struct _mail_msg_op check_service_op = {
-	check_service_describe,
-	check_service_check,
-	NULL,
-	NULL
-};
-
-static void
-check_response (GtkDialog *dialog, int button, gpointer data)
-{
-	int *msg_id = data;
-
-	mail_msg_cancel (*msg_id);
-}
-
-/**
- * mail_config_check_service:
- * @url: service url
- * @type: provider type
- * @authtypes: set to list of supported authtypes on return if non-%NULL.
- *
- * Checks the service for validity. If @authtypes is non-%NULL, it will
- * be filled in with a list of supported authtypes.
- *
- * Return value: %TRUE on success or %FALSE on error.
- **/
-gboolean
-mail_config_check_service (const char *url, CamelProviderType type, GList **authtypes, GtkWindow *window)
-{
-	static GtkWidget *dialog = NULL;
-	gboolean ret = FALSE;
-	struct _check_msg *m;
-	GtkWidget *label;
-	int id;
-	
-	if (dialog) {
-		gdk_window_raise (dialog->window);
-		*authtypes = NULL;
-		return FALSE;
-	}
-	
-	m = mail_msg_new (&check_service_op, NULL, sizeof(*m));
-	m->url = url;
-	m->type = type;
-	m->authtypes = authtypes;
-	m->success = &ret;
-	
-	id = m->msg.seq;
-	e_thread_put(mail_thread_new, (EMsg *)m);
-
-	dialog = gtk_dialog_new_with_buttons(_("Connecting to server..."), window,
-					     GTK_DIALOG_DESTROY_WITH_PARENT,
-					     GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-					     NULL);
-	label = gtk_label_new (_("Connecting to server..."));
-	gtk_box_pack_start (GTK_BOX(GTK_DIALOG (dialog)->vbox),
-			    label, TRUE, TRUE, 10);
-	g_signal_connect(dialog, "response", G_CALLBACK (check_response), &id);
-	gtk_widget_show_all (dialog);
-	
-	mail_msg_wait(id);
-	
-	gtk_widget_destroy (dialog);
-	dialog = NULL;
-	
-	return ret;
 }
 
 ESignatureList *

@@ -41,6 +41,7 @@
 
 #include "em-format-html-display.h"
 #include "em-message-browser.h"
+#include "em-menu.h"
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
@@ -175,6 +176,8 @@ GtkWidget *em_message_browser_new(void)
 {
 	EMMessageBrowser *emmb = g_object_new(em_message_browser_get_type(), 0);
 
+	((EMFolderView *)emmb)->menu = em_menu_new("com.novell.evolution.mail.messagebrowser");
+
 	return (GtkWidget *)emmb;
 }
 
@@ -187,7 +190,7 @@ GtkWidget *em_message_browser_window_new(void)
 	emmb = (EMMessageBrowser *)em_message_browser_new();
 	gtk_widget_show((GtkWidget *)emmb);
 	/* FIXME: title set elsewhere? */
-	emmb->window = g_object_new(bonobo_window_get_type(), "title", "Ximian Evolution", NULL);
+	emmb->window = g_object_new(bonobo_window_get_type(), "title", "Evolution", NULL);
 	bonobo_window_set_contents((BonoboWindow *)emmb->window, (GtkWidget *)emmb);
 
 	uicont = bonobo_window_get_ui_container((BonoboWindow *)emmb->window);
@@ -237,8 +240,10 @@ emmb_set_message(EMFolderView *emfv, const char *uid, int nomarkseen)
 	
 	emmb_parent->set_message(emfv, uid, nomarkseen);
 	
-	if (uid == NULL)
+	if (uid == NULL) {
+		gtk_widget_destroy((GtkWidget *)emfv);
 		return;
+	}
 	
 	if ((info = camel_folder_get_message_info (emfv->folder, uid))) {
 		gtk_window_set_title ((GtkWindow *) emmb->window, camel_message_info_subject (info));

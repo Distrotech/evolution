@@ -77,11 +77,13 @@
 #include "em-utils.h"
 #include "em-composer-utils.h"
 #include "em-marshal.h"
+#include "em-menu.h"
 
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/htmlobject.h>
 #include <gtkhtml/htmlengine.h>
 #include <gtkhtml/htmlengine-save.h>
+#include <gtkhtml/htmlengine-edit-cut-and-paste.h>
 
 #include "mail-mt.h"
 #include "mail-ops.h"
@@ -98,6 +100,7 @@ static void emfv_list_message_selected(MessageList *ml, const char *uid, EMFolde
 static int emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv);
 static void emfv_list_double_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv);
 static int emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderView *emfv);
+static void emfv_list_selection_change(ETree *tree, EMFolderView *emfv);
 
 static void emfv_format_link_clicked(EMFormatHTMLDisplay *efhd, const char *uri, EMFolderView *);
 static int emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const char *uri, CamelMimePart *part, EMFolderView *);
@@ -118,12 +121,15 @@ static void emfv_setting_setup(EMFolderView *emfv);
 static void emfv_on_url_cb(GObject *emitter, const char *url, EMFolderView *emfv);
 static void emfv_on_url(EMFolderView *emfv, const char *uri, const char *nice_uri);
 
+static gboolean emfv_popup_menu (GtkWidget *widget);
+
 static const EMFolderViewEnable emfv_enable_map[];
 
 struct _EMFolderViewPrivate {
 	guint seen_id;
 	guint setting_notify_id;
 	int nomarkseen:1;
+	int destroyed:1;
 
 	CamelObjectHookID folder_changed_id;
 
@@ -174,6 +180,7 @@ emfv_init(GObject *o)
 	g_signal_connect(emfv->list->tree, "right_click", G_CALLBACK(emfv_list_right_click), emfv);
 	g_signal_connect(emfv->list->tree, "double_click", G_CALLBACK(emfv_list_double_click), emfv);
 	g_signal_connect(emfv->list->tree, "key_press", G_CALLBACK(emfv_list_key_press), emfv);
+	g_signal_connect(emfv->list->tree, "selection_change", G_CALLBACK(emfv_list_selection_change), emfv);
 
 	emfv->preview = (EMFormatHTMLDisplay *)em_format_html_display_new();
 	/* FIXME: set_session should NOT be called here.  Should it be a constructor attribute? */
@@ -183,12 +190,10 @@ emfv_init(GObject *o)
 	g_signal_connect (emfv->preview, "on_url", G_CALLBACK (emfv_on_url_cb), emfv);
 
 	p->invisible = gtk_invisible_new();
-	g_object_ref(p->invisible);
-	gtk_object_sink((GtkObject *)p->invisible);
 	g_signal_connect(p->invisible, "selection_get", G_CALLBACK(emfv_selection_get), emfv);
 	g_signal_connect(p->invisible, "selection_clear_event", G_CALLBACK(emfv_selection_clear_event), emfv);
 	gtk_selection_add_target(p->invisible, GDK_SELECTION_PRIMARY, GDK_SELECTION_TYPE_STRING, 0);
-	gtk_selection_add_target(p->invisible, GDK_SELECTION_PRIMARY, GDK_SELECTION_TYPE_STRING, 1);
+	gtk_selection_add_target(p->invisible, GDK_SELECTION_CLIPBOARD, GDK_SELECTION_TYPE_STRING, 1);
 
 	emfv->async = mail_async_event_new();
 
@@ -200,16 +205,6 @@ emfv_finalise(GObject *o)
 {
 	EMFolderView *emfv = (EMFolderView *)o;
 	struct _EMFolderViewPrivate *p = emfv->priv;
-
-	if (emfv->async)
-		mail_async_event_destroy(emfv->async);
-
-	if (emfv->folder) {
-		if (p->folder_changed_id)
-			camel_object_remove_event(emfv->folder, p->folder_changed_id);
-		camel_object_unref(emfv->folder);
-		g_free(emfv->folder_uri);
-	}
 
 	g_slist_free(emfv->ui_files);
 	g_slist_free(emfv->enable_map);
@@ -225,6 +220,8 @@ emfv_destroy (GtkObject *o)
 	EMFolderView *emfv = (EMFolderView *) o;
 	struct _EMFolderViewPrivate *p = emfv->priv;
 
+	p->destroyed = TRUE;
+
 	if (p->seen_id) {
 		g_source_remove(p->seen_id);
 		p->seen_id = 0;
@@ -238,8 +235,22 @@ emfv_destroy (GtkObject *o)
 		g_object_unref(gconf);
 	}
 
+	if (emfv->folder) {
+		if (p->folder_changed_id)
+			camel_object_remove_event(emfv->folder, p->folder_changed_id);
+		camel_object_unref(emfv->folder);
+		g_free(emfv->folder_uri);
+		emfv->folder = NULL;
+		emfv->folder_uri = NULL;
+	}
+
+	if (emfv->async) {
+		mail_async_event_destroy(emfv->async);
+		emfv->async = NULL;
+	}
+
 	if (p->invisible) {
-		g_object_unref(p->invisible);
+		gtk_object_destroy(p->invisible);
 		p->invisible = NULL;
 	}
 
@@ -257,6 +268,8 @@ emfv_class_init(GObjectClass *klass)
 	klass->finalize = emfv_finalise;
 	
 	((GtkObjectClass *) klass)->destroy = emfv_destroy;
+	
+	((GtkWidgetClass *) klass)->popup_menu = emfv_popup_menu;
 	
 	((EMFolderViewClass *) klass)->update_message_style = TRUE;
 	
@@ -352,24 +365,23 @@ em_folder_view_open_selected(EMFolderView *emfv)
 {
 	GPtrArray *uids;
 	int i = 0;
-
-	/* FIXME: handle editing message?  Should be a different method? editing handled by 'Resend' method already */
-
+	
 	uids = message_list_get_selected(emfv->list);
-
+	
 	if (em_utils_folder_is_drafts(emfv->folder, emfv->folder_uri)
 	    || em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri)) {
-		em_utils_edit_messages (emfv->folder, uids);
+		em_utils_edit_messages (emfv->folder, uids, TRUE);
 	} else {
 		/* TODO: have an em_utils_open_messages call? */
-
+		
 		/* FIXME: 'are you sure' for > 10 messages; is this even necessary? */
-
+		
 		for (i=0; i<uids->len; i++) {
 			EMMessageBrowser *emmb;
 
 			emmb = (EMMessageBrowser *)em_message_browser_window_new();
 			message_list_set_threaded(((EMFolderView *)emmb)->list, emfv->list->threaded);
+			em_folder_view_set_hide_deleted((EMFolderView *)emmb, emfv->hide_deleted);
 			/* FIXME: session needs to be passed easier than this */
 			em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, ((EMFormat *)emfv->preview)->session);
 			em_folder_view_set_folder((EMFolderView *)emmb, emfv->folder, emfv->folder_uri);
@@ -584,34 +596,30 @@ emfv_selection_clear_event(GtkWidget *widget, GdkEventSelection *event, EMFolder
 /* Popup menu
    In many cases these are the functions called by the bonobo callbacks too */
 
-struct _emfv_label_item {
-	EMPopupItem item;
-
-	EMFolderView *emfv;
-	const char *label;
-};
-
 static void
-emfv_popup_open(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_open(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_open_selected(emfv);
 }
 
 static void
-emfv_popup_resend(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_edit (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 
 	if (!em_utils_check_user_can_send_mail((GtkWidget *)emfv))
 		return;
 	
 	uids = message_list_get_selected(emfv->list);
-	em_utils_edit_messages (emfv->folder, uids);
+	em_utils_edit_messages (emfv->folder, uids, FALSE);
 }
 
 static void
-emfv_popup_saveas(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_saveas(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 	
 	uids = message_list_get_selected(emfv->list);
@@ -619,32 +627,37 @@ emfv_popup_saveas(GtkWidget *w, EMFolderView *emfv)
 }
 
 static void
-emfv_popup_print(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_print(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_print(emfv, FALSE);
 }
 
 static void
-emfv_popup_reply_sender(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_reply_sender(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	emfv_message_reply(emfv, REPLY_MODE_SENDER);
 }
 
 static void
-emfv_popup_reply_list(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_reply_list(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	emfv_message_reply(emfv, REPLY_MODE_LIST);
 }
 
 static void
-emfv_popup_reply_all(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_reply_all(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	emfv_message_reply(emfv, REPLY_MODE_ALL);
 }
 
 static void
-emfv_popup_forward(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_forward(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 
 	if (!em_utils_check_user_can_send_mail((GtkWidget *)emfv))
@@ -655,16 +668,18 @@ emfv_popup_forward(GtkWidget *w, EMFolderView *emfv)
 }
 
 static void
-emfv_popup_flag_followup(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_flag_followup(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids = message_list_get_selected(emfv->list);
 
 	em_utils_flag_for_followup((GtkWidget *)emfv, emfv->folder, uids);
 }
 
 static void
-emfv_popup_flag_completed(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_flag_completed(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 	
 	uids = message_list_get_selected(emfv->list);
@@ -672,22 +687,25 @@ emfv_popup_flag_completed(GtkWidget *w, EMFolderView *emfv)
 }
 
 static void
-emfv_popup_flag_clear(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_flag_clear(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids = message_list_get_selected(emfv->list);
 
 	em_utils_flag_for_followup_clear((GtkWidget *)emfv, emfv->folder, uids);
 }
 
 static void
-emfv_popup_mark_read(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_mark_read(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 }
 
 static void
-emfv_popup_mark_unread(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_mark_unread(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, 0);
 	
 	if (emfv->priv->seen_id) {
@@ -697,20 +715,23 @@ emfv_popup_mark_unread(GtkWidget *w, EMFolderView *emfv)
 }
 
 static void
-emfv_popup_mark_important(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_mark_important(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_FLAGGED|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_FLAGGED);
 }
 
 static void
-emfv_popup_mark_unimportant(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_mark_unimportant(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_FLAGGED, 0);
 }
 
 static void
-emfv_popup_mark_junk (GtkWidget *w, EMFolderView *emfv)
+emfv_popup_mark_junk (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 	
 	uids = message_list_get_selected(emfv->list);
@@ -718,14 +739,15 @@ emfv_popup_mark_junk (GtkWidget *w, EMFolderView *emfv)
 				     CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_JUNK|CAMEL_MESSAGE_JUNK_LEARN,
 				     CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_JUNK|CAMEL_MESSAGE_JUNK_LEARN);
 	if (uids->len == 1)
-		message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0, FALSE);
+		message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0);
 
 	message_list_free_uids(emfv->list, uids);
 }
 
 static void
-emfv_popup_mark_nojunk (GtkWidget *w, EMFolderView *emfv)
+emfv_popup_mark_nojunk (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 	
 	uids = message_list_get_selected(emfv->list);
@@ -733,29 +755,31 @@ emfv_popup_mark_nojunk (GtkWidget *w, EMFolderView *emfv)
 				     CAMEL_MESSAGE_JUNK|CAMEL_MESSAGE_JUNK_LEARN,
 				     CAMEL_MESSAGE_JUNK_LEARN);
 	if (uids->len == 1)
-		message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0, FALSE);
+		message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0);
 
 	message_list_free_uids(emfv->list, uids);
 }
 
 static void
-emfv_popup_delete(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_delete(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids;
 	
 	uids = message_list_get_selected(emfv->list);
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED);
 	
 	if (uids->len == 1) {
-		if (!message_list_select (emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0, FALSE) && emfv->hide_deleted)
-			message_list_select (emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, 0, 0, FALSE);
+		if (!message_list_select (emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0) && emfv->hide_deleted)
+			message_list_select (emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, 0, 0);
 	}
 	em_utils_uids_free(uids);
 }
 
 static void
-emfv_popup_undelete(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_undelete(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_DELETED, 0);
 }
 
@@ -784,8 +808,9 @@ emfv_popup_move_cb(const char *uri, void *data)
 }
 
 static void
-emfv_popup_move(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_move(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	struct _move_data *d;
 	
 	d = g_malloc(sizeof(*d));
@@ -794,12 +819,13 @@ emfv_popup_move(GtkWidget *w, EMFolderView *emfv)
 	d->uids = message_list_get_selected(emfv->list);
 	d->delete = TRUE;
 	
-	em_select_folder ((GtkWindow *) emfv, _("Select folder"), default_xfer_messages_uri, emfv_popup_move_cb, d);
+	em_select_folder ((GtkWindow *) emfv, _("Select folder"), _("_Move"), default_xfer_messages_uri, emfv_popup_move_cb, d);
 }
 
 static void
-emfv_popup_copy(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_copy(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	struct _move_data *d;
 	
 	d = g_malloc(sizeof(*d));
@@ -808,7 +834,7 @@ emfv_popup_copy(GtkWidget *w, EMFolderView *emfv)
 	d->uids = message_list_get_selected(emfv->list);
 	d->delete = FALSE;
 	
-	em_select_folder ((GtkWindow *) emfv, _("Select folder"), default_xfer_messages_uri, emfv_popup_move_cb, d);
+	em_select_folder ((GtkWindow *) emfv, _("Select folder"), _("C_opy"), default_xfer_messages_uri, emfv_popup_move_cb, d);
 }
 
 static void
@@ -824,20 +850,24 @@ emfv_set_label(EMFolderView *emfv, const char *label)
 }
 
 static void
-emfv_popup_label_clear(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_label_clear(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	emfv_set_label(emfv, NULL);
 }
 
 static void
-emfv_popup_label_set(GtkWidget *w, struct _emfv_label_item *item)
+emfv_popup_label_set(EPopup *ep, EPopupItem *pitem, void *data)
 {
-	emfv_set_label(item->emfv, item->label);
+	EMFolderView *emfv = data;
+
+	emfv_set_label(emfv, pitem->user_data);
 }
 
 static void
-emfv_popup_add_sender(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_add_sender(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids = message_list_get_selected(emfv->list);
 	CamelMessageInfo *info;
 	const char *addr;
@@ -852,16 +882,18 @@ emfv_popup_add_sender(GtkWidget *w, EMFolderView *emfv)
 }
 
 static void
-emfv_popup_apply_filters(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_apply_filters(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids = message_list_get_selected(emfv->list);
 
 	mail_filter_on_demand(emfv->folder, uids);
 }
 
 static void
-emfv_popup_filter_junk(GtkWidget *w, EMFolderView *emfv)
+emfv_popup_filter_junk(EPopup *ep, EPopupItem *pitem, void *data)
 {
+	EMFolderView *emfv = data;
 	GPtrArray *uids = message_list_get_selected(emfv->list);
 
 	mail_filter_junk(emfv->folder, uids);
@@ -872,8 +904,9 @@ emfv_popup_filter_junk(GtkWidget *w, EMFolderView *emfv)
 
 #define EMFV_POPUP_AUTO_TYPE(autotype, name, type)	\
 static void						\
-name(GtkWidget *w, EMFolderView *emfv)			\
+name(EPopup *ep, EPopupItem *item, void *data)		\
 {							\
+	EMFolderView *emfv = data;			\
 	autotype(emfv, type);				\
 }
 
@@ -889,82 +922,86 @@ EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_mlist, AUTO_MLIST)
 
 /* TODO: Move some of these to be 'standard' menu's */
 
-static EMPopupItem emfv_popup_menu[] = {
-	{ EM_POPUP_ITEM, "00.emfv.00", N_("_Open"), G_CALLBACK(emfv_popup_open), NULL, NULL, 0 },
-	{ EM_POPUP_ITEM, "00.emfv.01", N_("_Edit as New Message..."), G_CALLBACK(emfv_popup_resend), NULL, NULL, EM_POPUP_SELECT_RESEND },
-	{ EM_POPUP_ITEM, "00.emfv.02", N_("_Save As..."), G_CALLBACK(emfv_popup_saveas), NULL, "stock_save_as", 0 },
-	{ EM_POPUP_ITEM, "00.emfv.03", N_("_Print"), G_CALLBACK(emfv_popup_print), NULL, "stock_print", 0 },
+static EPopupItem emfv_popup_items[] = {
+	{ E_POPUP_ITEM, "00.emfv.00", N_("_Open"), emfv_popup_open, NULL, NULL, 0 },
+	{ E_POPUP_ITEM, "00.emfv.01", N_("_Edit as New Message..."), emfv_popup_edit, NULL, NULL, EM_POPUP_SELECT_EDIT },
+	{ E_POPUP_ITEM, "00.emfv.02", N_("_Save As..."), emfv_popup_saveas, NULL, "stock_save-as", 0 },
+	{ E_POPUP_ITEM, "00.emfv.03", N_("_Print"), emfv_popup_print, NULL, "stock_print", 0 },
 
-	{ EM_POPUP_BAR, "10.emfv" },
-	{ EM_POPUP_ITEM, "10.emfv.00", N_("_Reply to Sender"), G_CALLBACK(emfv_popup_reply_sender), NULL, "stock_mail-reply", EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "10.emfv.01", N_("Reply to _List"), G_CALLBACK(emfv_popup_reply_list), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
-	{ EM_POPUP_ITEM, "10.emfv.02", N_("Reply to _All"), G_CALLBACK(emfv_popup_reply_all), NULL, "stock_mail-reply-to-all", EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "10.emfv.03", N_("_Forward"), G_CALLBACK(emfv_popup_forward), NULL, "stock_mail-forward", EM_POPUP_SELECT_MANY },
+	{ E_POPUP_BAR, "10.emfv" },
+	{ E_POPUP_ITEM, "10.emfv.00", N_("_Reply to Sender"), emfv_popup_reply_sender, NULL, "stock_mail-reply", EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "10.emfv.01", N_("Reply to _List"), emfv_popup_reply_list, NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
+	{ E_POPUP_ITEM, "10.emfv.02", N_("Reply to _All"), emfv_popup_reply_all, NULL, "stock_mail-reply-to-all", EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "10.emfv.03", N_("_Forward"), emfv_popup_forward, NULL, "stock_mail-forward", EM_POPUP_SELECT_MANY },
 
-	{ EM_POPUP_BAR, "20.emfv", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_FLAG_FOLLOWUP|EM_POPUP_SELECT_FLAG_COMPLETED|EM_POPUP_SELECT_FLAG_CLEAR },
-	{ EM_POPUP_ITEM, "20.emfv.00", N_("Follo_w Up..."), G_CALLBACK(emfv_popup_flag_followup), NULL, "stock_mail-flag-for-followup",  EM_POPUP_SELECT_FLAG_FOLLOWUP },
-	{ EM_POPUP_ITEM, "20.emfv.01", N_("Fla_g Completed"), G_CALLBACK(emfv_popup_flag_completed), NULL, NULL, EM_POPUP_SELECT_FLAG_COMPLETED },
-	{ EM_POPUP_ITEM, "20.emfv.02", N_("Cl_ear Flag"), G_CALLBACK(emfv_popup_flag_clear), NULL, NULL, EM_POPUP_SELECT_FLAG_CLEAR },
+	{ E_POPUP_BAR, "20.emfv", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_FLAG_FOLLOWUP|EM_POPUP_SELECT_FLAG_COMPLETED|EM_POPUP_SELECT_FLAG_CLEAR },
+	{ E_POPUP_ITEM, "20.emfv.00", N_("Follo_w Up..."), emfv_popup_flag_followup, NULL, "stock_mail-flag-for-followup",  EM_POPUP_SELECT_FLAG_FOLLOWUP },
+	{ E_POPUP_ITEM, "20.emfv.01", N_("Fla_g Completed"), emfv_popup_flag_completed, NULL, NULL, EM_POPUP_SELECT_FLAG_COMPLETED },
+	{ E_POPUP_ITEM, "20.emfv.02", N_("Cl_ear Flag"), emfv_popup_flag_clear, NULL, NULL, EM_POPUP_SELECT_FLAG_CLEAR },
 	
-	{ EM_POPUP_BAR, "30.emfv" },
-	{ EM_POPUP_ITEM, "30.emfv.00", N_("Mar_k as Read"), G_CALLBACK(emfv_popup_mark_read), NULL, "stock_mail-open", EM_POPUP_SELECT_MARK_READ },
-	{ EM_POPUP_ITEM,  "30.emfv.01", N_("Mark as _Unread"), G_CALLBACK(emfv_popup_mark_unread), NULL, "stock_mail-unread", EM_POPUP_SELECT_MARK_UNREAD },
-	{ EM_POPUP_ITEM, "30.emfv.02", N_("Mark as _Important"), G_CALLBACK(emfv_popup_mark_important), NULL, "stock_mail-priority-high", EM_POPUP_SELECT_MARK_IMPORTANT },
-	{ EM_POPUP_ITEM, "30.emfv.03", N_("_Mark as Unimportant"), G_CALLBACK(emfv_popup_mark_unimportant), NULL, NULL, EM_POPUP_SELECT_MARK_UNIMPORTANT },
-	{ EM_POPUP_ITEM, "30.emfv.04", N_("Mark as _Junk"), G_CALLBACK(emfv_popup_mark_junk), NULL, "stock_spam", EM_POPUP_SELECT_MARK_JUNK },
-	{ EM_POPUP_ITEM, "30.emfv.05", N_("Mark as _Not Junk"), G_CALLBACK(emfv_popup_mark_nojunk), NULL, "stock_not-spam", EM_POPUP_SELECT_MARK_NOJUNK },
+	{ E_POPUP_BAR, "30.emfv" },
+	{ E_POPUP_ITEM, "30.emfv.00", N_("Mar_k as Read"), emfv_popup_mark_read, NULL, "stock_mail-open", EM_POPUP_SELECT_MARK_READ },
+	{ E_POPUP_ITEM,  "30.emfv.01", N_("Mark as _Unread"), emfv_popup_mark_unread, NULL, "stock_mail-unread", EM_POPUP_SELECT_MARK_UNREAD },
+	{ E_POPUP_ITEM, "30.emfv.02", N_("Mark as _Important"), emfv_popup_mark_important, NULL, "stock_mail-priority-high", EM_POPUP_SELECT_MARK_IMPORTANT },
+	{ E_POPUP_ITEM, "30.emfv.03", N_("_Mark as Unimportant"), emfv_popup_mark_unimportant, NULL, NULL, EM_POPUP_SELECT_MARK_UNIMPORTANT },
+	{ E_POPUP_ITEM, "30.emfv.04", N_("Mark as _Junk"), emfv_popup_mark_junk, NULL, "stock_spam", EM_POPUP_SELECT_MARK_JUNK },
+	{ E_POPUP_ITEM, "30.emfv.05", N_("Mark as _Not Junk"), emfv_popup_mark_nojunk, NULL, "stock_not-spam", EM_POPUP_SELECT_MARK_NOJUNK },
 	
-	{ EM_POPUP_BAR, "40.emfv" },
-	{ EM_POPUP_ITEM, "40.emfv.00", N_("_Delete"), G_CALLBACK(emfv_popup_delete), NULL, "stock_delete", EM_POPUP_SELECT_DELETE },
-	{ EM_POPUP_ITEM, "40.emfv.01", N_("U_ndelete"), G_CALLBACK(emfv_popup_undelete), NULL, "stock_undelete", EM_POPUP_SELECT_UNDELETE },
+	{ E_POPUP_BAR, "40.emfv" },
+	{ E_POPUP_ITEM, "40.emfv.00", N_("_Delete"), emfv_popup_delete, NULL, "stock_delete", EM_POPUP_SELECT_DELETE },
+	{ E_POPUP_ITEM, "40.emfv.01", N_("U_ndelete"), emfv_popup_undelete, NULL, "stock_undelete", EM_POPUP_SELECT_UNDELETE },
 
-	{ EM_POPUP_BAR, "50.emfv" },
-	{ EM_POPUP_ITEM, "50.emfv.00", N_("Mo_ve to Folder..."), G_CALLBACK(emfv_popup_move) },
-	{ EM_POPUP_ITEM, "50.emfv.01", N_("_Copy to Folder..."), G_CALLBACK(emfv_popup_copy) },
+	{ E_POPUP_BAR, "50.emfv" },
+	{ E_POPUP_ITEM, "50.emfv.00", N_("Mo_ve to Folder..."), emfv_popup_move },
+	{ E_POPUP_ITEM, "50.emfv.01", N_("_Copy to Folder..."), emfv_popup_copy },
 
-	{ EM_POPUP_BAR, "60.label" },
-	{ EM_POPUP_SUBMENU, "60.label.00", N_("Label") },
-	{ EM_POPUP_IMAGE, "60.label.00/00.label", N_("None"), G_CALLBACK(emfv_popup_label_clear) },
-	{ EM_POPUP_BAR, "60.label.00/00.label.00" },
+	{ E_POPUP_BAR, "60.label" },
+	{ E_POPUP_SUBMENU, "60.label.00", N_("Label") },
+	{ E_POPUP_IMAGE, "60.label.00/00.label", N_("None"), emfv_popup_label_clear },
+	{ E_POPUP_BAR, "60.label.00/00.label.00" },
 
-	{ EM_POPUP_BAR, "70.emfv", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },	
-	{ EM_POPUP_ITEM, "70.emfv.00", N_("Add Sender to Address_book"), G_CALLBACK(emfv_popup_add_sender), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_ADD_SENDER },
+	{ E_POPUP_BAR, "70.emfv", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ADD_SENDER },
+	{ E_POPUP_ITEM, "70.emfv.00", N_("Add Sender to Address_book"), emfv_popup_add_sender, NULL, NULL, EM_POPUP_SELECT_ADD_SENDER },
 
-	{ EM_POPUP_BAR, "80.emfv" },	
-	{ EM_POPUP_ITEM, "80.emfv.00", N_("Appl_y Filters"), G_CALLBACK(emfv_popup_apply_filters), NULL, "stock_mail-filters-apply" },
-	{ EM_POPUP_ITEM, "80.emfv.01", N_("F_ilter Junk"), G_CALLBACK(emfv_popup_filter_junk), NULL, "stock_spam" },
+	{ E_POPUP_BAR, "80.emfv" },	
+	{ E_POPUP_ITEM, "80.emfv.00", N_("Appl_y Filters"), emfv_popup_apply_filters, NULL, "stock_mail-filters-apply" },
+	{ E_POPUP_ITEM, "80.emfv.01", N_("F_ilter Junk"), emfv_popup_filter_junk, NULL, "stock_spam" },
 
-	{ EM_POPUP_BAR, "90.filter", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_SUBMENU, "90.filter.00", N_("Crea_te Rule From Message"), NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.00", N_("VFolder on _Subject"), G_CALLBACK(emfv_popup_vfolder_subject), NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.01", N_("VFolder on Se_nder"), G_CALLBACK(emfv_popup_vfolder_sender), NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.02", N_("VFolder on _Recipients"), G_CALLBACK(emfv_popup_vfolder_recipients), NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.03", N_("VFolder on Mailing _List"),
-	  G_CALLBACK(emfv_popup_vfolder_mlist), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
+	{ E_POPUP_BAR, "90.filter", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_SUBMENU, "90.filter.00", N_("Crea_te Rule From Message"), NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/00.00", N_("VFolder on _Subject"), emfv_popup_vfolder_subject, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/00.01", N_("VFolder on Se_nder"), emfv_popup_vfolder_sender, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/00.02", N_("VFolder on _Recipients"), emfv_popup_vfolder_recipients, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/00.03", N_("VFolder on Mailing _List"),
+	  emfv_popup_vfolder_mlist, NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
 	
-	{ EM_POPUP_BAR, "90.filter.00/10", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/10.00", N_("Filter on Sub_ject"), G_CALLBACK(emfv_popup_filter_subject), NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/10.01", N_("Filter on Sen_der"), G_CALLBACK(emfv_popup_filter_sender), NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/10.02", N_("Filter on Re_cipients"), G_CALLBACK(emfv_popup_filter_recipients),  NULL, NULL, EM_POPUP_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/10.03", N_("Filter on _Mailing List"),
-	  G_CALLBACK(emfv_popup_filter_mlist), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
+	{ E_POPUP_BAR, "90.filter.00/10", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/10.00", N_("Filter on Sub_ject"), emfv_popup_filter_subject, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/10.01", N_("Filter on Sen_der"), emfv_popup_filter_sender, NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/10.02", N_("Filter on Re_cipients"), emfv_popup_filter_recipients,  NULL, NULL, EM_POPUP_SELECT_ONE },
+	{ E_POPUP_ITEM, "90.filter.00/10.03", N_("Filter on _Mailing List"),
+	  emfv_popup_filter_mlist, NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
 };
 
 static void
-emfv_popup_labels_free(void *data)
+emfv_popup_labels_free(EPopup *ep, GSList *l, void *data)
 {
-	GSList *l = data;
-
 	while (l) {
 		GSList *n = l->next;
-		struct _emfv_label_item *item = l->data;
+		EPopupItem *item = l->data;
 
-		g_free(item->item.path);
+		g_free(item->path);
 		g_free(item);
 
 		g_slist_free_1(l);
 		l = n;
 	}
+}
+
+static void
+emfv_popup_items_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
 }
        
 static void
@@ -973,37 +1010,31 @@ emfv_popup(EMFolderView *emfv, GdkEvent *event)
 	GSList *menus = NULL, *l, *label_list = NULL;
 	GtkMenu *menu;
 	EMPopup *emp;
-	EMPopupTarget *target;
+	EMPopupTargetSelect *target;
 	int i;
 
 	emp = em_popup_new("com.ximian.mail.folderview.popup.select");
-	target = em_folder_view_get_popup_target(emfv);
+	target = em_folder_view_get_popup_target(emfv, emp);
 
-	for (i=0;i<sizeof(emfv_popup_menu)/sizeof(emfv_popup_menu[0]);i++) {
-		EMPopupItem *item = &emfv_popup_menu[i];
+	for (i=0;i<sizeof(emfv_popup_items)/sizeof(emfv_popup_items[0]);i++)
+		menus = g_slist_prepend(menus, &emfv_popup_items[i]);
 
-		item->activate_data = emfv;
-		menus = g_slist_prepend(menus, item);
-	}
-
-	em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+	e_popup_add_items((EPopup *)emp, menus, emfv_popup_items_free, emfv);
 
 	i = 1;
 	for (l = mail_config_get_labels(); l; l = l->next) {
-		struct _emfv_label_item *item;
+		EPopupItem *item;
 		MailConfigLabel *label = l->data;
 		GdkPixmap *pixmap;
 		GdkColor colour;
 		GdkGC *gc;
 		
 		item = g_malloc0(sizeof(*item));
-		item->item.type = EM_POPUP_IMAGE;
-		item->item.path = g_strdup_printf("60.label.00/00.label.%02d", i++);
-		item->item.label = label->name;
-		item->item.activate = G_CALLBACK(emfv_popup_label_set);
-		item->item.activate_data = item;
-		item->emfv = emfv;
-		item->label = label->tag;
+		item->type = E_POPUP_IMAGE;
+		item->path = g_strdup_printf("60.label.00/00.label.%02d", i++);
+		item->label = label->name;
+		item->activate = emfv_popup_label_set;
+		item->user_data = label->tag;
 
 		gdk_color_parse(label->colour, &colour);
 		gdk_color_alloc(gdk_colormap_get_system(), &colour);
@@ -1014,19 +1045,19 @@ emfv_popup(EMFolderView *emfv, GdkEvent *event)
 		gdk_draw_rectangle(pixmap, gc, TRUE, 0, 0, 16, 16);
 		gdk_gc_unref(gc);
 
-		item->item.image = gtk_image_new_from_pixmap(pixmap, NULL);
-		gtk_widget_show(item->item.image);
+		item->image = gtk_image_new_from_pixmap(pixmap, NULL);
+		gtk_widget_show(item->image);
 
 		label_list = g_slist_prepend(label_list, item);
 	}
 
-	em_popup_add_items(emp, label_list, emfv_popup_labels_free);
+	e_popup_add_items((EPopup *)emp, label_list, emfv_popup_labels_free, emfv);
 
-	menu = em_popup_create_menu_once(emp, target, target->mask, target->mask);
+	menu = e_popup_create_menu_once((EPopup *)emp, (EPopupTarget *)target, 0);
 
 	if (event == NULL || event->type == GDK_KEY_PRESS) {
 		/* FIXME: menu pos function */
-		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, 0, event ? event->key.time : time (NULL));
+		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, 0, event ? event->key.time : gtk_get_current_event_time());
 	} else {
 		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button.button, event->button.time);
 	}
@@ -1041,7 +1072,7 @@ emfv_popup(EMFolderView *emfv, GdkEvent *event)
 static void							\
 from(BonoboUIComponent *uid, void *data, const char *path)	\
 {								\
-	to(NULL, (EMFolderView *)data);				\
+	to(NULL, NULL, data);					\
 }
 
 EMFV_MAP_CALLBACK(emfv_add_sender_addressbook, emfv_popup_add_sender)
@@ -1065,7 +1096,7 @@ EMFV_MAP_CALLBACK(emfv_message_followup_flag, emfv_popup_flag_followup)
 /*EMFV_MAP_CALLBACK(emfv_message_followup_clear, emfv_popup_flag_clear)
   EMFV_MAP_CALLBACK(emfv_message_followup_completed, emfv_popup_flag_completed)*/
 EMFV_MAP_CALLBACK(emfv_message_open, emfv_popup_open)
-EMFV_MAP_CALLBACK(emfv_message_resend, emfv_popup_resend)
+EMFV_MAP_CALLBACK(emfv_message_edit, emfv_popup_edit)
 EMFV_MAP_CALLBACK(emfv_message_saveas, emfv_popup_saveas)
 EMFV_MAP_CALLBACK(emfv_print_message, emfv_popup_print)
 
@@ -1104,7 +1135,7 @@ emfv_mail_next(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0, FALSE);
+	message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0);
 }
 
 static void
@@ -1112,7 +1143,7 @@ emfv_mail_next_flagged(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, CAMEL_MESSAGE_FLAGGED, CAMEL_MESSAGE_FLAGGED, TRUE);
+	message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT|MESSAGE_LIST_SELECT_WRAP, CAMEL_MESSAGE_FLAGGED, CAMEL_MESSAGE_FLAGGED);
 }
 
 static void
@@ -1120,7 +1151,7 @@ emfv_mail_next_unread(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, CAMEL_MESSAGE_SEEN, TRUE);
+	message_list_select(emfv->list, MESSAGE_LIST_SELECT_NEXT|MESSAGE_LIST_SELECT_WRAP, 0, CAMEL_MESSAGE_SEEN);
 }
 
 static void
@@ -1136,7 +1167,7 @@ emfv_mail_previous(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	message_list_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, 0, 0, FALSE);
+	message_list_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, 0, 0);
 }
 
 static void
@@ -1144,7 +1175,7 @@ emfv_mail_previous_flagged(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	message_list_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, CAMEL_MESSAGE_FLAGGED, CAMEL_MESSAGE_FLAGGED, TRUE);
+	message_list_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS|MESSAGE_LIST_SELECT_WRAP, CAMEL_MESSAGE_FLAGGED, CAMEL_MESSAGE_FLAGGED);
 }
 
 static void
@@ -1152,7 +1183,7 @@ emfv_mail_previous_unread(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	message_list_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, 0, CAMEL_MESSAGE_SEEN, TRUE);
+	message_list_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS|MESSAGE_LIST_SELECT_WRAP, 0, CAMEL_MESSAGE_SEEN);
 }
 
 static void
@@ -1225,58 +1256,51 @@ emfv_message_post_reply (BonoboUIComponent *uic, void *data, const char *path)
 static void
 emfv_message_reply(EMFolderView *emfv, int mode)
 {
-	/* GtkClipboard *clip; */
-
+	HTMLObject *selection;
+	guint len;
+	
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
 	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
-
-	/*  Look away!  Look away! */
-
-	/* HACK: Nasty internal gtkhtml poking going on here */
-
-	/* Disabled since there's no simple way to find out if
-	   gtkhtml has the primary selection right now */
-
-	/* Ugh, to use the clipboard we need to request the selection
-	   and have an async callback - painful to deal with */
-
-	/*clip = gtk_clipboard_get(GDK_SELECTION_PRIMARY);*/
-	if (FALSE /*gtk_clipboard_get_owner(clip) == (GObject *)emfv->preview*/
-	    && ((EMFormatHTML *)emfv->preview)->html->engine->primary) {
-		CamelMimeMessage *msg, *src;
-		struct _camel_header_raw *header;
+	
+	html_engine_copy_object (((EMFormatHTML *)emfv->preview)->html->engine, &selection, &len);
+	if (selection != NULL) {
 		HTMLEngineSaveState *state;
+		
+		state = html_engine_save_buffer_new(((EMFormatHTML *)emfv->preview)->html->engine, TRUE);
+		html_object_save (selection, state);
+		html_object_destroy (selection);
+		if (state->user_data && ((GString *)state->user_data)->len) {
+			CamelMimeMessage *msg, *src;
+			struct _camel_header_raw *header;
 
-		src = (CamelMimeMessage *)((EMFormat *)emfv->preview)->message;
-		msg = camel_mime_message_new();
+			src = (CamelMimeMessage *)((EMFormat *)emfv->preview)->message;
+			msg = camel_mime_message_new();
 
-		header = ((CamelMimePart *)src)->headers;
-		while (header) {
-			/* FIXME: shouldn't we strip out *all* Content-* headers? */
-			if (g_ascii_strcasecmp(header->name, "content-type") != 0)
-				camel_medium_add_header((CamelMedium *)msg, header->name, header->value);
-			header = header->next;
+			/* need to strip content- headers */
+			header = ((CamelMimePart *)src)->headers;
+			while (header) {
+				if (g_ascii_strncasecmp(header->name, "content-", 8) != 0)
+					camel_medium_add_header((CamelMedium *)msg, header->name, header->value);
+				header = header->next;
+			}
+			camel_mime_part_set_encoding((CamelMimePart *)msg, CAMEL_TRANSFER_ENCODING_8BIT);
+			camel_mime_part_set_content((CamelMimePart *)msg,
+						    ((GString *)state->user_data)->str,
+						    ((GString *)state->user_data)->len,
+						    "text/html");
+			em_utils_reply_to_message (emfv->folder, emfv->list->cursor_uid, msg, mode, NULL);
+			camel_object_unref(msg);
+		} else {
+			em_utils_reply_to_message (emfv->folder, emfv->list->cursor_uid, NULL, mode, (EMFormat *)emfv->preview);
 		}
 
-		state = html_engine_save_buffer_new(((EMFormatHTML *)emfv->preview)->html->engine, TRUE);
-		html_object_save(((EMFormatHTML *)emfv->preview)->html->engine->primary, state);
-		camel_mime_part_set_content((CamelMimePart *)msg,
-					    ((GString *)state->user_data)->str,
-					    ((GString *)state->user_data)->len,
-					    "text/html");
-
 		html_engine_save_buffer_free(state);
-
-		em_utils_reply_to_message (msg, mode);
-		camel_object_unref(msg);
 	} else {
-		em_utils_reply_to_message_by_uid (emfv->folder, emfv->list->cursor_uid, mode);
+		em_utils_reply_to_message(emfv->folder, emfv->list->cursor_uid, NULL, mode, (EMFormat *)emfv->preview);
 	}
-
-	/*g_object_unref(clip);*/
 }
 
 static void
@@ -1474,7 +1498,7 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("MessageReplyAll", emfv_message_reply_all),
 	BONOBO_UI_UNSAFE_VERB ("MessageReplyList", emfv_message_reply_list),
 	BONOBO_UI_UNSAFE_VERB ("MessageReplySender", emfv_message_reply_sender),
-	BONOBO_UI_UNSAFE_VERB ("MessageResend", emfv_message_resend),
+	BONOBO_UI_UNSAFE_VERB ("MessageEdit", emfv_message_edit),
 	BONOBO_UI_UNSAFE_VERB ("MessageSaveAs", emfv_message_saveas),
 	BONOBO_UI_UNSAFE_VERB ("MessageSearch", emfv_message_search),
 	BONOBO_UI_UNSAFE_VERB ("MessageUndelete", emfv_message_undelete),
@@ -1519,7 +1543,7 @@ static EPixmap emfv_message_pixmaps[] = {
 	E_PIXMAP ("/commands/MessageApplyFilters", "stock_mail-filters-apply", E_ICON_SIZE_MENU),
 	E_PIXMAP ("/commands/MessageFilterJunk", "stock_spam", E_ICON_SIZE_MENU),
 	E_PIXMAP ("/commands/MessageSearch", "stock_search", E_ICON_SIZE_MENU),
-	E_PIXMAP ("/commands/MessageSaveAs", "stock_save_as", E_ICON_SIZE_MENU),
+	E_PIXMAP ("/commands/MessageSaveAs", "stock_save-as", E_ICON_SIZE_MENU),
 	E_PIXMAP ("/commands/MessageMarkAsRead", "stock_mail-open", E_ICON_SIZE_MENU),
 	E_PIXMAP ("/commands/MessageMarkAsUnRead", "stock_mail-unread", E_ICON_SIZE_MENU),
 	E_PIXMAP ("/commands/MessageMarkAsImportant", "stock_mail-priority-high", E_ICON_SIZE_MENU),
@@ -1550,11 +1574,11 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "EditPaste",                EM_POPUP_SELECT_FOLDER },
 
 	/* FIXME: should these be single-selection? */
-	{ "MailNext",                 EM_POPUP_SELECT_MANY },
+	{ "MailNext",                 EM_POPUP_SELECT_MANY|EM_FOLDER_VIEW_SELECT_NEXT_MSG },
 	{ "MailNextFlagged",          EM_POPUP_SELECT_MANY },
 	{ "MailNextUnread",           EM_POPUP_SELECT_MANY },
 	{ "MailNextThread",           EM_POPUP_SELECT_MANY },
-	{ "MailPrevious",             EM_POPUP_SELECT_MANY },
+	{ "MailPrevious",             EM_POPUP_SELECT_MANY|EM_FOLDER_VIEW_SELECT_PREV_MSG },
 	{ "MailPreviousFlagged",      EM_POPUP_SELECT_MANY },
 	{ "MailPreviousUnread",       EM_POPUP_SELECT_MANY },
 
@@ -1582,7 +1606,7 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "MessageReplyAll",          EM_POPUP_SELECT_ONE },
 	{ "MessageReplyList",         EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
 	{ "MessageReplySender",       EM_POPUP_SELECT_ONE },
-	{ "MessageResend",            EM_POPUP_SELECT_RESEND },
+	{ "MessageEdit",              EM_POPUP_SELECT_EDIT },
 	{ "MessageSaveAs",            EM_POPUP_SELECT_MANY },
 	{ "MessageSearch",            EM_POPUP_SELECT_ONE },
 	{ "MessageUndelete",          EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_UNDELETE },
@@ -1620,20 +1644,31 @@ emfv_enable_menus(EMFolderView *emfv)
 	guint32 disable_mask;
 	GString *name;
 	GSList *l;
-	EMPopupTarget *t;
 
 	if (emfv->uic == NULL)
 		return;
 
+	{
+		if (emfv->menu) {
+			if (emfv->folder) {
+				EMMenuTargetSelect *t;
+
+				t = em_menu_target_new_select(emfv->menu, emfv->folder, emfv->folder_uri, message_list_get_selected(emfv->list));
+				e_menu_update_target((EMenu *)emfv->menu, t);
+			} else {
+				e_menu_update_target((EMenu *)emfv->menu, NULL);
+			}
+		}
+	}
+
 	if (emfv->folder) {
-		t = em_folder_view_get_popup_target(emfv);
-		disable_mask = t->mask;
-		em_popup_target_free(t);
-		
-		/* always allow deleting of already-deleted messages
-		 * from the main menus/toolbar */
-		if (!emfv->hide_deleted)
-			disable_mask &= ~EM_POPUP_SELECT_DELETE;
+		EMPopup *emp = em_popup_new("dummy");
+		EMPopupTargetSelect *t;
+
+		t = em_folder_view_get_popup_target(emfv, emp);
+		disable_mask = t->target.mask;
+		e_popup_target_free((EPopup *)emp, t);
+		g_object_unref(emp);
 	} else {
 		disable_mask = ~0;
 	}
@@ -1726,6 +1761,9 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 {
 	struct _EMFolderViewPrivate *p = emfv->priv;
 
+	if (emfv->menu)
+		e_menu_activate((EMenu *)emfv->menu, uic, act);
+
 	if (act) {
 		em_format_mode_t style;
 		gboolean state;
@@ -1749,10 +1787,10 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 		bonobo_ui_component_add_listener(uic, "ViewFullHeaders", emfv_view_mode, emfv);
 		bonobo_ui_component_add_listener(uic, "ViewSource", emfv_view_mode, emfv);
 		em_format_set_mode((EMFormat *)emfv->preview, style);
-
+		
 		if (emfv->folder && !em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
-			bonobo_ui_component_set_prop(uic, "/commands/MessageResend", "sensitive", "0", NULL);
-
+			bonobo_ui_component_set_prop(uic, "/commands/MessageEdit", "sensitive", "0", NULL);
+		
 		/* default charset used in mail view */
 		e_charset_picker_bonobo_ui_populate (uic, "/menu/View", _("Default"), emfv_charset_changed, emfv);
 
@@ -1787,66 +1825,104 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 	}
 }
 
-int em_folder_view_print(EMFolderView *emfv, int preview)
+struct _print_data {
+	EMFolderView *emfv;
+
+	int preview;
+	CamelFolder *folder;
+	char *uid;
+};
+
+static void
+emfv_print_response(GtkWidget *w, int resp, struct _print_data *data)
 {
-	/*struct _EMFolderViewPrivate *p = emfv->priv;*/
 	EMFormatHTMLPrint *print;
 	GnomePrintConfig *config = NULL;
-	int res;
-	struct _CamelMimeMessage *msg;
 
-	/* FIXME: need to load the message first */
-	if (!emfv->preview_active)
+	switch (resp) {
+	case GNOME_PRINT_DIALOG_RESPONSE_PREVIEW:
+		data->preview = TRUE;
+	case GNOME_PRINT_DIALOG_RESPONSE_PRINT:
+		if (w)
+			config = gnome_print_dialog_get_config((GnomePrintDialog *)w);
+		print = em_format_html_print_new();
+		em_format_set_session((EMFormat *)print, ((EMFormat *)data->emfv->preview)->session);
+		em_format_html_print_message(print, (EMFormatHTML *)data->emfv->preview, config, data->folder, data->uid, data->preview);
+		g_object_unref(print);
+		if (config)
+			g_object_unref(config);
+		break;
+	}
+
+	if (w)
+		gtk_widget_destroy(w);
+
+	g_object_unref(data->emfv);
+	camel_object_unref(data->folder);
+	g_free(data->uid);
+	g_free(data);
+}
+
+int em_folder_view_print(EMFolderView *emfv, int preview)
+{
+	struct _print_data *data;
+	GPtrArray *uids;
+
+	if (emfv->folder == NULL)
 		return 0;
 
-	msg = emfv->preview->formathtml.format.message;
-	if (msg == NULL)
+	uids = message_list_get_selected(emfv->list);
+	if (uids->len != 1) {
+		message_list_free_uids(emfv->list, uids);
 		return 0;
-	
-	if (!preview) {
+	}
+
+	data = g_malloc0(sizeof(*data));
+	data->emfv = emfv;
+	g_object_ref(emfv);
+	data->preview = preview;
+	data->folder = emfv->folder;
+	camel_object_ref(data->folder);
+	data->uid = g_strdup(uids->pdata[0]);
+	message_list_free_uids(emfv->list, uids);
+
+	if (preview) {
+		emfv_print_response(NULL, GNOME_PRINT_DIALOG_RESPONSE_PREVIEW, data);
+	} else {
 		GtkDialog *dialog = (GtkDialog *)gnome_print_dialog_new(NULL, _("Print Message"), GNOME_PRINT_DIALOG_COPIES);
 
 		gtk_dialog_set_default_response(dialog, GNOME_PRINT_DIALOG_RESPONSE_PRINT);
 		e_dialog_set_transient_for ((GtkWindow *) dialog, (GtkWidget *) emfv);
-		
-		switch (gtk_dialog_run(dialog)) {
-		case GNOME_PRINT_DIALOG_RESPONSE_PRINT:
-			break;
-		case GNOME_PRINT_DIALOG_RESPONSE_PREVIEW:
-			preview = TRUE;
-			break;
-		default:
-			gtk_widget_destroy((GtkWidget *)dialog);
-			return 0;
-		}
-		
-		config = gnome_print_dialog_get_config((GnomePrintDialog *)dialog);
-		gtk_widget_destroy((GtkWidget *)dialog);
+		g_signal_connect(dialog, "response", G_CALLBACK(emfv_print_response), data);
+		gtk_widget_show((GtkWidget *)dialog);
 	}
 
-	print = em_format_html_print_new();
-	em_format_set_session((EMFormat *)print, ((EMFormat *)emfv->preview)->session);
-	res = em_format_html_print_print(print, (EMFormatHTML *)emfv->preview, config, preview);
-	g_object_unref(print);
-	if (config)
-		g_object_unref(config);
-
-	return res;
+	return 0;
 }
 
-EMPopupTarget *
-em_folder_view_get_popup_target(EMFolderView *emfv)
+EMPopupTargetSelect *
+em_folder_view_get_popup_target(EMFolderView *emfv, EMPopup *emp)
 {
-	EMPopupTarget *t;
+	EMPopupTargetSelect *t;
 
-	t = em_popup_target_new_select(emfv->folder, emfv->folder_uri, message_list_get_selected(emfv->list));
-	t->widget = (GtkWidget *)emfv;
+	t = em_popup_target_new_select(emp, emfv->folder, emfv->folder_uri, message_list_get_selected(emfv->list));
+	t->target.widget = (GtkWidget *)emfv;
 
 	if (emfv->list->threaded)
-		t->mask &= ~EM_FOLDER_VIEW_SELECT_THREADED;
+		t->target.mask &= ~EM_FOLDER_VIEW_SELECT_THREADED;
 
 	if (message_list_hidden(emfv->list) != 0)
-		t->mask &= ~EM_FOLDER_VIEW_SELECT_HIDDEN;
+		t->target.mask &= ~EM_FOLDER_VIEW_SELECT_HIDDEN;
+
+	if (message_list_can_select(emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0))
+		t->target.mask &= ~EM_FOLDER_VIEW_SELECT_NEXT_MSG;
+
+	if (message_list_can_select(emfv->list, MESSAGE_LIST_SELECT_PREVIOUS, 0, 0))
+		t->target.mask &= ~EM_FOLDER_VIEW_SELECT_PREV_MSG;
+
+	/* See bug #54770 */
+	if (!emfv->hide_deleted)
+		t->target.mask &= ~EM_POPUP_SELECT_DELETE;
 	
 	return t;
 }
@@ -1914,6 +1990,7 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	if (emfv->preview == NULL) {
 		emfv->priv->nomarkseen = FALSE;
 		g_object_unref (emfv);
+		emfv_enable_menus(emfv);
 		return;
 	}
 	
@@ -1939,6 +2016,8 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	
 	g_object_unref (emfv);
 	emfv->priv->nomarkseen = FALSE;
+
+	emfv_enable_menus(emfv);
 }
 
 static void
@@ -2000,10 +2079,6 @@ emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev,
 	case GDK_ISO_Enter:
 		em_folder_view_open_selected(emfv);
 		break;
-	case GDK_Menu:
-		/* FIXME: location of popup */
-		emfv_popup(emfv, NULL);
-		break;
 	case '!':
 		uids = message_list_get_selected(emfv->list);
 
@@ -2024,6 +2099,24 @@ emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev,
 	}
 	
 	return TRUE;
+}
+
+static gboolean
+emfv_popup_menu (GtkWidget *widget)
+{
+	EMFolderView *emfv = (EMFolderView *)widget;
+
+	emfv_popup (emfv, NULL);
+
+	return TRUE;
+}
+
+static void
+emfv_list_selection_change(ETree *tree, EMFolderView *emfv)
+{
+	/* we can't just listen to the message-list message selected thing, since we dont get them
+	   in all cases.  blah */
+	g_signal_emit(emfv, signals[EMFV_CHANGED], 0);
 }
 
 static void
@@ -2049,38 +2142,32 @@ emfv_format_link_clicked(EMFormatHTMLDisplay *efhd, const char *uri, EMFolderVie
 	}
 }
 
-struct _EMFVPopupItem {
-	EMPopupItem item;
-
-	EMFolderView *emfv;
-	char *uri;
-};
-
 static void
-emp_uri_popup_link_copy(GtkWidget *w, struct _EMFVPopupItem *item)
+emp_uri_popup_link_copy(EPopup *ep, EPopupItem *pitem, void *data)
 {
-	struct _EMFolderViewPrivate *p = item->emfv->priv;
+	EMFolderView *emfv = data;
+	struct _EMFolderViewPrivate *p = emfv->priv;
 
 	g_free(p->selection_uri);
-	p->selection_uri = g_strdup(item->uri);
+	p->selection_uri = g_strdup(pitem->user_data);
 
 	gtk_selection_owner_set(p->invisible, GDK_SELECTION_PRIMARY, gtk_get_current_event_time());
 	gtk_selection_owner_set(p->invisible, GDK_SELECTION_CLIPBOARD, gtk_get_current_event_time());
 }
 
-static struct _EMFVPopupItem emfv_uri_popups[] = {
-	{ { EM_POPUP_ITEM, "00.uri.01", N_("_Copy Link Location"), G_CALLBACK(emp_uri_popup_link_copy), NULL, NULL, EM_POPUP_URI_NOT_MAILTO }, },
+static EPopupItem emfv_uri_popups[] = {
+	{ E_POPUP_ITEM, "00.uri.01", N_("_Copy Link Location"), emp_uri_popup_link_copy, NULL, NULL, EM_POPUP_URI_NOT_MAILTO },
 };
 
 static void
-emfv_uri_popup_free(GSList *list)
+emfv_uri_popup_free(EPopup *ep, GSList *list, void *data)
 {
 	while (list) {
 		GSList *n = list->next;
-		struct _EMFVPopupItem *item = list->data;
+		struct _EPopupItem *item = list->data;
 
-		g_free(item->uri);
-		g_object_unref(item->emfv);
+		g_free(item->user_data);
+		item->user_data = NULL;
 		g_slist_free_1(list);
 
 		list = n;
@@ -2091,32 +2178,42 @@ static int
 emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const char *uri, CamelMimePart *part, EMFolderView *emfv)
 {
 	EMPopup *emp;
-	EMPopupTarget *target;
+	EPopupTarget *target;
 	GtkMenu *menu;
+
+	if (uri == NULL && part == NULL) {
+		/* So we don't try and popup with nothing selected - rather odd result! */
+		GPtrArray *uids = message_list_get_selected(emfv->list);
+		int doit = uids->len > 0;
+
+		message_list_free_uids(emfv->list, uids);
+		if (doit)
+			emfv_popup(emfv, (GdkEvent *)event);
+		return doit;
+	}
 
 	/* FIXME: this maybe should just fit on em-html-display, it has access to the
 	   snooped part type */
 
 	emp = em_popup_new("com.ximian.mail.folderview.popup.uri");
 	if (part)
-		target = em_popup_target_new_part(part, NULL);
+		target = (EPopupTarget *)em_popup_target_new_part(emp, part, NULL);
 	else {
 		GSList *menus = NULL;
 		int i;
+		EMPopupTargetURI *t;
 
-		target = em_popup_target_new_uri(uri);
+		t = em_popup_target_new_uri(emp, uri);
+		target = (EPopupTarget *)t;
 
 		for (i=0;i<sizeof(emfv_uri_popups)/sizeof(emfv_uri_popups[0]);i++) {
-			emfv_uri_popups[i].item.activate_data = &emfv_uri_popups[i];
-			emfv_uri_popups[i].emfv = emfv;
-			g_object_ref(emfv);
-			emfv_uri_popups[i].uri = g_strdup(target->data.uri);
+			emfv_uri_popups[i].user_data = g_strdup(t->uri);
 			menus = g_slist_prepend(menus, &emfv_uri_popups[i]);
 		}
-		em_popup_add_items(emp, menus, (GDestroyNotify)emfv_uri_popup_free);
+		e_popup_add_items((EPopup *)emp, menus, emfv_uri_popup_free, emfv);
 	}
 
-	menu = em_popup_create_menu_once(emp, target, target->mask, target->mask);
+	menu = e_popup_create_menu_once((EPopup *)emp, target, 0);
 	gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button, event->time);
 
 	return TRUE;
@@ -2125,9 +2222,10 @@ emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const 
 static void
 emfv_gui_folder_changed(CamelFolder *folder, void *dummy, EMFolderView *emfv)
 {
-	emfv_enable_menus(emfv);
-
-	g_signal_emit(emfv, signals[EMFV_LOADED], 0);
+	if (!emfv->priv->destroyed) {
+		emfv_enable_menus(emfv);
+		g_signal_emit(emfv, signals[EMFV_LOADED], 0);
+	}
 	g_object_unref(emfv);
 }
 

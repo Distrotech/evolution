@@ -1300,17 +1300,6 @@ needs_send_cb (GtkObject *obj, gpointer data)
 	comp_editor_set_needs_send (editor, TRUE);
 }
 
-static void
-needs_send_cb (GtkObject *obj, gpointer data)
-{
-	CompEditor *editor = COMP_EDITOR (data);
-	CompEditorPrivate *priv;
-
-	priv = editor->priv;
-
-	comp_editor_set_needs_send (editor, TRUE);
-}
-
 /* Page signal callbacks */
 static void
 page_summary_changed_cb (GtkObject *obj, const char *summary, gpointer data)

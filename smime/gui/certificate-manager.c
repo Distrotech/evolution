@@ -34,10 +34,12 @@
 #include <glade/glade.h>
 #include "evolution-config-control.h"
 #include "ca-trust-dialog.h"
+#include "cert-trust-dialog.h"
 #include "certificate-manager.h"
 #include "certificate-viewer.h"
 
 #include "e-cert.h"
+#include "e-cert-trust.h"
 #include "e-cert-db.h"
 
 #include "nss.h"
@@ -125,10 +127,28 @@ handle_selection_changed (GtkTreeSelection *selection,
 static void
 import_your (GtkWidget *widget, CertificateManagerData *cfm)
 {
-	GtkWidget *filesel = gtk_file_selection_new (_("Select a cert to import..."));
+	GtkWidget *filesel;
+	const char *filename;
+
+#ifdef USE_GTKFILECHOOSER
+	filesel = gtk_file_chooser_dialog_new (_("Select a cert to import..."),
+					       NULL,
+					       GTK_FILE_CHOOSER_ACTION_OPEN,
+					       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+					       GTK_STOCK_OPEN, GTK_RESPONSE_OK,
+					       NULL);
+	gtk_dialog_set_default_response (GTK_DIALOG (filesel), GTK_RESPONSE_OK);
+#else
+	filesel = gtk_file_selection_new (_("Select a cert to import..."));
+#endif
 
 	if (GTK_RESPONSE_OK == gtk_dialog_run (GTK_DIALOG (filesel))) {
-		const char *filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#ifdef USE_GTKFILECHOOSER
+		filename = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (filesel));
+#else
+		filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#endif
+		
 		if (e_cert_db_import_pkcs12_file (e_cert_db_peek (),
 						  filename, NULL /* XXX */)) {
 			/* there's no telling how many certificates were added during the import,
@@ -244,6 +264,7 @@ initialize_yourcerts_ui (CertificateManagerData *cfm)
 							   cell,
 							   "text", 0,
 							   NULL);
+	gtk_tree_view_column_set_resizable(column, TRUE);
 	gtk_tree_view_append_column (GTK_TREE_VIEW (cfm->yourcerts_treeview),
 				     column);
 	gtk_tree_view_column_set_sort_column_id (column, 0);
@@ -252,6 +273,7 @@ initialize_yourcerts_ui (CertificateManagerData *cfm)
 							   cell,
 							   "text", 1,
 							   NULL);
+	gtk_tree_view_column_set_resizable(column, TRUE);
 	gtk_tree_view_append_column (GTK_TREE_VIEW (cfm->yourcerts_treeview),
 				     column);
 	gtk_tree_view_column_set_sort_column_id (column, 1);
@@ -320,12 +342,53 @@ view_contact (GtkWidget *widget, CertificateManagerData *cfm)
 }
 
 static void
+edit_contact (GtkWidget *widget, CertificateManagerData *cfm)
+{
+	GtkTreeIter iter;
+
+	if (gtk_tree_selection_get_selected (gtk_tree_view_get_selection (GTK_TREE_VIEW(cfm->contactcerts_treeview)),
+					     NULL,
+					     &iter)) {
+		ECert *cert;
+
+		gtk_tree_model_get (GTK_TREE_MODEL (cfm->contactcerts_streemodel),
+				    &iter,
+				    3, &cert,
+				    -1);
+
+		if (cert) {
+			GtkWidget *dialog = cert_trust_dialog_show (cert);
+			g_signal_connect (dialog, "response",
+					  G_CALLBACK (gtk_widget_destroy), NULL);
+			gtk_widget_show (dialog);
+		}
+	}
+}
+
+static void
 import_contact (GtkWidget *widget, CertificateManagerData *cfm)
 {
-	GtkWidget *filesel = gtk_file_selection_new (_("Select a cert to import..."));
+	GtkWidget *filesel;
+	const char *filename;
+
+#ifdef USE_GTKFILECHOOSER
+	filesel = gtk_file_chooser_dialog_new (_("Select a cert to import..."),
+					       NULL,
+					       GTK_FILE_CHOOSER_ACTION_OPEN,
+					       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+					       GTK_STOCK_OPEN, GTK_RESPONSE_OK,
+					       NULL);
+	gtk_dialog_set_default_response (GTK_DIALOG (filesel), GTK_RESPONSE_OK);
+#else
+	filesel = gtk_file_selection_new (_("Select a cert to import..."));
+#endif
 
 	if (GTK_RESPONSE_OK == gtk_dialog_run (GTK_DIALOG (filesel))) {
-		const char *filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#ifdef USE_GTKFILECHOOSER
+		filename = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (filesel));
+#else
+		filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#endif
 
 		if (e_cert_db_import_certs_from_file (e_cert_db_peek (),
 						      filename,
@@ -410,6 +473,7 @@ initialize_contactcerts_ui (CertificateManagerData *cfm)
 							   cell,
 							   "text", 0,
 							   NULL);
+	gtk_tree_view_column_set_resizable(column, TRUE);
 	gtk_tree_view_append_column (GTK_TREE_VIEW (cfm->contactcerts_treeview),
 				     column);
 	gtk_tree_view_column_set_sort_column_id (column, 0);
@@ -418,6 +482,7 @@ initialize_contactcerts_ui (CertificateManagerData *cfm)
 							   cell,
 							   "text", 1,
 							   NULL);
+	gtk_tree_view_column_set_resizable(column, TRUE);
 	gtk_tree_view_append_column (GTK_TREE_VIEW (cfm->contactcerts_treeview),
 				     column);
 	gtk_tree_view_column_set_sort_column_id (column, 1);
@@ -426,6 +491,7 @@ initialize_contactcerts_ui (CertificateManagerData *cfm)
 							   cell,
 							   "text", 2,
 							   NULL);
+	gtk_tree_view_column_set_resizable(column, TRUE);
 	gtk_tree_view_append_column (GTK_TREE_VIEW (cfm->contactcerts_treeview),
 				     column);
 	gtk_tree_view_column_set_sort_column_id (column, 2);
@@ -437,6 +503,9 @@ initialize_contactcerts_ui (CertificateManagerData *cfm)
 
 	if (cfm->view_contact_button)
 		g_signal_connect (cfm->view_contact_button, "clicked", G_CALLBACK (view_contact), cfm);
+
+	if (cfm->edit_contact_button)
+		g_signal_connect (cfm->edit_contact_button, "clicked", G_CALLBACK (edit_contact), cfm);
 
 	if (cfm->import_contact_button)
 		g_signal_connect (cfm->import_contact_button, "clicked", G_CALLBACK (import_contact), cfm);
@@ -508,7 +577,7 @@ edit_ca (GtkWidget *widget, CertificateManagerData *cfm)
 							   trust_email,
 							   trust_objsign);
 				
-				CERT_ChangeCertTrust (e_cert_db_peek (), icert, &trust);
+				CERT_ChangeCertTrust (CERT_GetDefaultCertDB(), icert, &trust);
 			}
 
 			gtk_widget_destroy (dialog);
@@ -519,10 +588,27 @@ edit_ca (GtkWidget *widget, CertificateManagerData *cfm)
 static void
 import_ca (GtkWidget *widget, CertificateManagerData *cfm)
 {
-	GtkWidget *filesel = gtk_file_selection_new (_("Select a cert to import..."));
+	GtkWidget *filesel;
+	const char *filename;
+
+#ifdef USE_GTKFILECHOOSER
+	filesel = gtk_file_chooser_dialog_new (_("Select a cert to import..."),
+					       NULL,
+					       GTK_FILE_CHOOSER_ACTION_OPEN,
+					       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+					       GTK_STOCK_OPEN, GTK_RESPONSE_OK,
+					       NULL);
+	gtk_dialog_set_default_response (GTK_DIALOG (filesel), GTK_RESPONSE_OK);
+#else
+	filesel = gtk_file_selection_new (_("Select a cert to import..."));
+#endif
 
 	if (GTK_RESPONSE_OK == gtk_dialog_run (GTK_DIALOG (filesel))) {
-		const char *filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#ifdef USE_GTKFILECHOOSER
+		filename = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (filesel));
+#else
+		filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (filesel));
+#endif
 
 		if (e_cert_db_import_certs_from_file (e_cert_db_peek (),
 						      filename,
@@ -654,11 +740,17 @@ add_user_cert (CertificateManagerData *cfm, ECert *cert)
 	if (e_cert_get_cn (cert))
 		gtk_tree_store_set (GTK_TREE_STORE (model), &iter,
 				    0, e_cert_get_cn (cert),
+				    1, e_cert_get_usage(cert),
+				    2, e_cert_get_serial_number(cert),
+				    3, e_cert_get_expires_on(cert),
 				    4, cert,
 				    -1);
 	else
 		gtk_tree_store_set (GTK_TREE_STORE (model), &iter,
 				    0, e_cert_get_nickname (cert),
+				    1, e_cert_get_usage(cert),
+				    2, e_cert_get_serial_number(cert),
+				    3, e_cert_get_expires_on(cert),
 				    4, cert,
 				    -1);
 }
@@ -693,12 +785,14 @@ add_contact_cert (CertificateManagerData *cfm, ECert *cert)
 		gtk_tree_store_set (GTK_TREE_STORE (model), &iter,
 				    0, e_cert_get_cn (cert),
 				    1, e_cert_get_email (cert),
+				    2, e_cert_get_usage(cert),
 				    3, cert,
 				    -1);
 	else
 		gtk_tree_store_set (GTK_TREE_STORE (model), &iter,
 				    0, e_cert_get_nickname (cert),
 				    1, e_cert_get_email (cert),
+				    2, e_cert_get_usage(cert),
 				    3, cert,
 				    -1);
 }

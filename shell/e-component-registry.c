@@ -45,6 +45,8 @@ static GObjectClass *parent_class = NULL;
 
 struct _EComponentRegistryPrivate {
 	GSList *infos;
+
+	int init:1;
 };
 
 
@@ -52,21 +54,32 @@ struct _EComponentRegistryPrivate {
 
 static EComponentInfo *
 component_info_new (const char *id,
+		    GNOME_Evolution_Component iface,
 		    const char *alias,
 		    const char *button_label,
+		    const char *menu_label,
+		    const char *menu_accelerator,
 		    int sort_order,
-		    GdkPixbuf *button_icon)
+		    GdkPixbuf *button_icon,
+		    GdkPixbuf *menu_icon)
 {
 	EComponentInfo *info = g_new0 (EComponentInfo, 1);
 
 	info->id = g_strdup (id);
+	info->iface = bonobo_object_dup_ref(iface, NULL);
 	info->alias = g_strdup (alias);
 	info->button_label = g_strdup (button_label);
+	info->menu_label = g_strdup (menu_label);
+	info->menu_accelerator = g_strdup (menu_accelerator);
 	info->sort_order = sort_order;
 
 	info->button_icon = button_icon;
 	if (info->button_icon)
 		g_object_ref (info->button_icon);
+
+	info->menu_icon = menu_icon;
+	if (info->menu_icon)
+		g_object_ref (info->menu_icon);
 
 	return info;
 }
@@ -77,9 +90,14 @@ component_info_free (EComponentInfo *info)
 	g_free (info->id);
 	g_free (info->alias);
 	g_free (info->button_label);
+	g_free (info->menu_label);
+	g_free (info->menu_accelerator);
 
 	if (info->button_icon)
 		g_object_unref (info->button_icon);
+
+	if (info->menu_icon)
+		g_object_unref (info->menu_icon);
 
 	if (info->iface != NULL)
 		bonobo_object_release_unref (info->iface, NULL);
@@ -137,6 +155,11 @@ query_components (EComponentRegistry *registry)
 	char *query;
 	int i;
 
+	if (registry->priv->init)
+		return;
+
+	registry->priv->init = TRUE;
+
 	CORBA_exception_init (&ev);
 	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/Component:%s')", BASE_VERSION);
 	info_list = bonobo_activation_query (query, NULL, &ev);
@@ -157,25 +180,44 @@ query_components (EComponentRegistry *registry)
 	for (i = 0; i < info_list->_length; i++) {
 		const char *id;
 		const char *label;
+		const char *menu_label;
+		const char *menu_accelerator;
 		const char *alias;
 		const char *icon_name;
 		const char *sort_order_string;
-		GdkPixbuf *icon;
+		GdkPixbuf *icon = NULL, *menuicon = NULL;
 		EComponentInfo *info;
 		int sort_order;
+		GNOME_Evolution_Component iface;
 
 		id = info_list->_buffer[i].iid;
+		iface = bonobo_activation_activate_from_id (id, 0, NULL, &ev);
+		if (BONOBO_EX (&ev) || iface == CORBA_OBJECT_NIL) {
+			char *ex_text = bonobo_exception_get_text (&ev);
+
+			g_warning("Cannot activate '%s': %s\n", id, ex_text);
+			g_free(ex_text);
+			CORBA_exception_free(&ev);
+			CORBA_exception_init(&ev);
+			continue;
+		}
+
 		label = bonobo_server_info_prop_lookup (& info_list->_buffer[i], "evolution:button_label", language_list);
 		if (label == NULL)
 			label = g_strdup (_("Unknown"));
 
+		menu_label = bonobo_server_info_prop_lookup (& info_list->_buffer[i], "evolution:menu_label", language_list);
+		if (menu_label == NULL)
+			menu_label = g_strdup (_("Unknown"));
+
+		menu_accelerator = bonobo_server_info_prop_lookup (& info_list->_buffer[i], "evolution:menu_accelerator", language_list);
+
 		alias = bonobo_server_info_prop_lookup (& info_list->_buffer[i], "evolution:component_alias", NULL);
 
 		icon_name = bonobo_server_info_prop_lookup (& info_list->_buffer[i], "evolution:button_icon", NULL);
-		if (icon_name == NULL) {
-			icon = NULL;
-		} else {
+		if (icon_name) {
 			icon = e_icon_factory_get_icon (icon_name, E_ICON_SIZE_LARGE_TOOLBAR);
+			menuicon = e_icon_factory_get_icon (icon_name, E_ICON_SIZE_MENU);
 		}
 
 		sort_order_string = bonobo_server_info_prop_lookup (& info_list->_buffer[i],
@@ -185,13 +227,15 @@ query_components (EComponentRegistry *registry)
 		else
 			sort_order = atoi (sort_order_string);
 
-		info = component_info_new (id, alias, label, sort_order, icon);
+		info = component_info_new (id, iface, alias, label, menu_label,
+					   menu_accelerator, sort_order, icon, menuicon);
 		set_schemas (info, & info_list->_buffer [i]);
 
 		registry->priv->infos = g_slist_prepend (registry->priv->infos, info);
 
 		if (icon != NULL)
 			g_object_unref (icon);
+		bonobo_object_release_unref(iface, NULL);
 	}
 	g_slist_free(language_list);
 
@@ -237,8 +281,6 @@ static void
 init (EComponentRegistry *registry)
 {
 	registry->priv = g_new0 (EComponentRegistryPrivate, 1);
-
-	query_components (registry);
 }
 
 
@@ -254,49 +296,45 @@ e_component_registry_peek_list (EComponentRegistry *registry)
 {
 	g_return_val_if_fail (E_IS_COMPONENT_REGISTRY (registry), NULL);
 
+	query_components(registry);
+
 	return registry->priv->infos;
 }
 
 
 EComponentInfo *
 e_component_registry_peek_info (EComponentRegistry *registry,
-				const char *id)
-{
-	GSList *p;
-
-	g_return_val_if_fail (E_IS_COMPONENT_REGISTRY (registry), NULL);
-
-	for (p = registry->priv->infos; p != NULL; p = p->next) {
-		EComponentInfo *info = p->data;
-
-		if (strcmp (info->id, id) == 0)
-			return info;
-	}
-
-	return NULL;
-}
-
-
-EComponentInfo *
-e_component_registry_peek_info_for_uri_schema  (EComponentRegistry *registry,
-						const char *requested_schema)
+				enum _EComponentRegistryField field,
+				const char *key)
 {
 	GSList *p, *q;
 
+	g_return_val_if_fail (E_IS_COMPONENT_REGISTRY (registry), NULL);
+
+	query_components(registry);
+
 	for (p = registry->priv->infos; p != NULL; p = p->next) {
 		EComponentInfo *info = p->data;
 
-		for (q = info->uri_schemas; q != NULL; q = q->next) {
-			const char *schema = q->data;
-
-			if (strcmp (schema, requested_schema) == 0)
+		switch (field) {
+		case ECR_FIELD_ID:
+			if (strcmp (info->id, key) == 0)
 				return info;
+			break;
+		case ECR_FIELD_ALIAS:
+			if (strcmp (info->alias, key) == 0)
+				return info;
+			break;
+		case ECR_FIELD_SCHEMA:
+			for (q = info->uri_schemas; q != NULL; q = q->next)
+				if (strcmp((char *)q->data, key) == 0)
+					return info;
+			break;
 		}
 	}
 
 	return NULL;
 }
-
 
 GNOME_Evolution_Component
 e_component_registry_activate (EComponentRegistry *registry,
@@ -307,21 +345,13 @@ e_component_registry_activate (EComponentRegistry *registry,
 
 	g_return_val_if_fail (E_IS_COMPONENT_REGISTRY (registry), CORBA_OBJECT_NIL);
 
-	info = e_component_registry_peek_info (registry, id);
+	info = e_component_registry_peek_info (registry, ECR_FIELD_ID, id);
 	if (info == NULL) {
 		g_warning (G_GNUC_FUNCTION " - Unknown id \"%s\"", id);
 		return CORBA_OBJECT_NIL;
 	}
 
-	if (info->iface != CORBA_OBJECT_NIL)
-		return bonobo_object_dup_ref (info->iface, NULL);
-
-	info->iface = bonobo_activation_activate_from_id (info->id, 0, NULL, ev);
-	if (BONOBO_EX (ev) || info->iface == CORBA_OBJECT_NIL) {
-		info->iface = CORBA_OBJECT_NIL;
-		return CORBA_OBJECT_NIL;
-	}
-
+	/* it isn't in the registry unless it is already activated */
 	return bonobo_object_dup_ref (info->iface, NULL);
 }
 

@@ -28,6 +28,7 @@
 #include <gtk/gtkdialog.h>
 
 #include <gal/util/e-util.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "mail-mt.h"
 #include "mail-ops.h"
@@ -629,7 +630,9 @@ create_new_composer (const char *subject, const char *fromuri)
 	EAccount *account = NULL;
 
 	composer = e_msg_composer_new ();
-	
+	if (composer == NULL)
+		return NULL;
+
 	if (fromuri)
 		account = mail_config_get_account_by_source_url(fromuri);
 
@@ -652,6 +655,8 @@ em_utils_compose_new_message (const char *fromuri)
 	GtkWidget *composer;
 
 	composer = (GtkWidget *) create_new_composer ("", fromuri);
+	if (composer == NULL)
+		return;
 
 	e_msg_composer_unset_changed ((EMsgComposer *)composer);
 	e_msg_composer_drop_editor_undo ((EMsgComposer *)composer);
@@ -682,7 +687,7 @@ em_utils_compose_new_message_with_mailto (const char *url, const char *fromuri)
 
 	if (fromuri
 	    && (account = mail_config_get_account_by_source_url(fromuri)))
-		e_msg_composer_set_headers (composer, account->name, NULL, NULL, NULL, "");
+		e_msg_composer_hdrs_set_from_account((EMsgComposerHdrs *)composer->hdrs, account->name);
 
 	e_msg_composer_unset_changed (composer);
 	e_msg_composer_drop_editor_undo (composer);
@@ -717,7 +722,7 @@ em_utils_post_to_folder (CamelFolder *folder)
 		g_free (url);
 		
 		if (account)
-			e_msg_composer_set_headers (composer, account->name, NULL, NULL, NULL, "");
+			e_msg_composer_hdrs_set_from_account ((EMsgComposerHdrs *) ((EMsgComposer *) composer)->hdrs, account->name);
 	}
 	
 	em_composer_utils_setup_default_callbacks (composer);
@@ -787,6 +792,7 @@ em_utils_edit_message (CamelMimeMessage *message)
 static void
 edit_messages (CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *user_data)
 {
+	gboolean replace = GPOINTER_TO_INT (user_data);
 	int i;
 	
 	if (msgs == NULL)
@@ -795,7 +801,10 @@ edit_messages (CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *user
 	for (i = 0; i < msgs->len; i++) {
 		camel_medium_remove_header (CAMEL_MEDIUM (msgs->pdata[i]), "X-Mailer");
 		
-		edit_message (msgs->pdata[i], folder, uids->pdata[i]);
+		if (replace)
+			edit_message (msgs->pdata[i], folder, uids->pdata[i]);
+		else
+			edit_message (msgs->pdata[i], NULL, NULL);
 	}
 }
 
@@ -803,16 +812,17 @@ edit_messages (CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *user
  * em_utils_edit_messages:
  * @folder: folder containing messages to edit
  * @uids: uids of messages to edit
+ * @replace: replace the existing message(s) when sent or saved.
  *
  * Opens a composer for each message to be edited.
  **/
 void
-em_utils_edit_messages (CamelFolder *folder, GPtrArray *uids)
+em_utils_edit_messages (CamelFolder *folder, GPtrArray *uids, gboolean replace)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
 	
-	mail_get_messages (folder, uids, edit_messages, NULL);
+	mail_get_messages (folder, uids, edit_messages, GINT_TO_POINTER (replace));
 }
 
 /* Forwarding messages... */
@@ -822,8 +832,10 @@ forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part,
 	EMsgComposer *composer;
 	
 	composer = create_new_composer (subject, fromuri);
+	if (composer == NULL)
+		return;
+
 	e_msg_composer_attach (composer, part);
-	
 	e_msg_composer_unset_changed (composer);
 	e_msg_composer_drop_editor_undo (composer);
 	
@@ -863,7 +875,6 @@ static void
 forward_non_attached (GPtrArray *messages, int style, const char *fromuri)
 {
 	CamelMimeMessage *message;
-	CamelDataWrapper *wrapper;
 	EMsgComposer *composer;
 	char *subject, *text;
 	int i;
@@ -877,25 +888,26 @@ forward_non_attached (GPtrArray *messages, int style, const char *fromuri)
 		flags |= EM_FORMAT_QUOTE_CITE;
 
 	for (i = 0; i < messages->len; i++) {
+		ssize_t len;
+
 		message = messages->pdata[i];
 		subject = mail_tool_generate_forward_subject (message);
 		
-		text = em_utils_message_to_html (message, _("-------- Forwarded Message --------"), flags);
+		text = em_utils_message_to_html (message, _("-------- Forwarded Message --------"), flags, &len, NULL);
 		
 		if (text) {
 			composer = create_new_composer (subject, fromuri);
 
-			wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (message));
-			if (CAMEL_IS_MULTIPART (wrapper))
-				e_msg_composer_add_message_attachments (composer, message, FALSE);
+			if (composer) {
+				if (CAMEL_IS_MULTIPART(camel_medium_get_content_object((CamelMedium *)message)))
+					e_msg_composer_add_message_attachments(composer, message, FALSE);
 
-			e_msg_composer_set_body_text (composer, text);
-						
-			e_msg_composer_unset_changed (composer);
-			e_msg_composer_drop_editor_undo (composer);
+				e_msg_composer_set_body_text (composer, text, len);
+				e_msg_composer_unset_changed (composer);
+				e_msg_composer_drop_editor_undo (composer);
 			
-			gtk_widget_show (GTK_WIDGET (composer));
-			
+				gtk_widget_show (GTK_WIDGET (composer));
+			}
 			g_free (text);
 		}
 		
@@ -1457,20 +1469,213 @@ get_reply_all (CamelMimeMessage *message, CamelInternetAddress **to, CamelIntern
 		camel_internet_address_add (*to, name, addr);
 		camel_address_remove ((CamelAddress *) *cc, 0);
 	}
+
+	/* if To: is still empty, may we removed duplicates (i.e. ourself), so add the original To if it was set */
+	if (camel_address_length((CamelAddress *)*to) == 0
+	    && (camel_internet_address_get(to_addrs, 0, &name, &addr)
+		|| camel_internet_address_get(cc_addrs, 0, &name, &addr))) {
+		camel_internet_address_add(*to, name, addr);
+	}
 	
 	g_hash_table_destroy (rcpt_hash);
 }
 
+enum {
+	ATTRIB_UNKNOWN,
+	ATTRIB_CUSTOM,
+	ATTRIB_TIMEZONE,
+	ATTRIB_STRFTIME,
+	ATTRIB_TM_SEC,
+	ATTRIB_TM_MIN,
+	ATTRIB_TM_24HOUR,
+	ATTRIB_TM_12HOUR,
+	ATTRIB_TM_MDAY,
+	ATTRIB_TM_MON,
+	ATTRIB_TM_YEAR,
+	ATTRIB_TM_2YEAR,
+	ATTRIB_TM_WDAY, /* not actually used */
+	ATTRIB_TM_YDAY,
+};
+
+typedef void (* AttribFormatter) (GString *str, const char *attr, CamelMimeMessage *message);
+
 static void
-composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
+format_sender (GString *str, const char *attr, CamelMimeMessage *message)
 {
 	const CamelInternetAddress *sender;
-	char *text, *credits, format[256];
 	const char *name, *addr;
+	
+	sender = camel_mime_message_get_from (message);
+	if (sender != NULL && camel_address_length (CAMEL_ADDRESS (sender)) > 0) {
+		camel_internet_address_get (sender, 0, &name, &addr);
+	} else {
+		name = _("an unknown sender");
+	}
+	
+	if (name && !strcmp (attr, "{SenderName}")) {
+		g_string_append (str, name);
+	} else if (addr && !strcmp (attr, "{SenderEMail}")) {
+		g_string_append (str, addr);
+	} else if (name && *name) {
+		g_string_append (str, name);
+	} else if (addr) {
+		g_string_append (str, addr);
+	}
+}
+
+static struct {
+	const char *name;
+	int type;
+	struct {
+		const char *format;         /* strftime or printf format */
+		AttribFormatter formatter;  /* custom formatter */
+	} v;
+} attribvars[] = {
+	{ "{Sender}",            ATTRIB_CUSTOM,    { NULL,    format_sender  } },
+	{ "{SenderName}",        ATTRIB_CUSTOM,    { NULL,    format_sender  } },
+	{ "{SenderEMail}",       ATTRIB_CUSTOM,    { NULL,    format_sender  } },
+	{ "{AbbrevWeekdayName}", ATTRIB_STRFTIME,  { "%a",    NULL           } },
+	{ "{WeekdayName}",       ATTRIB_STRFTIME,  { "%A",    NULL           } },
+	{ "{AbbrevMonthName}",   ATTRIB_STRFTIME,  { "%b",    NULL           } },
+	{ "{MonthName}",         ATTRIB_STRFTIME,  { "%B",    NULL           } },
+	{ "{AmPmUpper}",         ATTRIB_STRFTIME,  { "%p",    NULL           } },
+	{ "{AmPmLower}",         ATTRIB_STRFTIME,  { "%P",    NULL           } },
+	{ "{Day}",               ATTRIB_TM_MDAY,   { "%02d",  NULL           } },  /* %d  01-31 */
+	{ "{ Day}",              ATTRIB_TM_MDAY,   { "% 2d",  NULL           } },  /* %e   1-31 */
+	{ "{24Hour}",            ATTRIB_TM_24HOUR, { "%02d",  NULL           } },  /* %H  00-23 */
+	{ "{12Hour}",            ATTRIB_TM_12HOUR, { "%02d",  NULL           } },  /* %I  00-12 */
+	{ "{DayOfYear}",         ATTRIB_TM_YDAY,   { "%d",    NULL           } },  /* %j  1-366 */
+	{ "{Month}",             ATTRIB_TM_MON,    { "%02d",  NULL           } },  /* %m  01-12 */
+	{ "{Minute}",            ATTRIB_TM_MIN,    { "%02d",  NULL           } },  /* %M  00-59 */
+	{ "{Seconds}",           ATTRIB_TM_SEC,    { "%02d",  NULL           } },  /* %S  00-61 */
+	{ "{2DigitYear}",        ATTRIB_TM_2YEAR,  { "%02d",  NULL           } },  /* %y */
+	{ "{Year}",              ATTRIB_TM_YEAR,   { "%04d",  NULL           } },  /* %Y */
+	{ "{TimeZone}",          ATTRIB_TIMEZONE,  { "%+05d", NULL           } }
+};
+
+/* Note to translators: this is the attribution string used when quoting messages.
+ * each ${Variable} gets replaced with a value. To see a full list of available
+ * variables, see em-composer-utils.c:1514 */
+#define ATTRIBUTION _("On ${AbbrevWeekdayName}, ${Year}-${Month}-${Day} at ${24Hour}:${Minute} ${TimeZone}, ${Sender} wrote:")
+
+static char *
+attribution_format (const char *format, CamelMimeMessage *message)
+{
+	register const char *inptr;
+	const char *start;
+	int tzone, len, i;
+	char buf[64], *s;
+	GString *str;
+	struct tm tm;
+	time_t date;
+	int type;
+	
+	str = g_string_new ("");
+	
+	date = camel_mime_message_get_date (message, &tzone);
+	/* Convert to UTC */
+	date += (tzone / 100) * 60 * 60;
+	date += (tzone % 100) * 60;
+	
+#ifdef HAVE_GMTIME_R
+	gmtime_r (&date, &tm);
+#else
+	memcpy (&tm, gmtime (&date), sizeof (struct tm));
+#endif
+	
+	start = inptr = format;
+	while (*inptr != '\0') {
+		start = inptr;
+		while (*inptr && strncmp (inptr, "${", 2) != 0)
+			inptr++;
+		
+		g_string_append_len (str, start, inptr - start);
+		
+		if (*inptr == '\0')
+			break;
+		
+		start = ++inptr;
+		while (*inptr && *inptr != '}')
+			inptr++;
+		
+		if (*inptr != '}') {
+			/* broken translation */
+			g_string_append_len (str, "${", 2);
+			inptr = start + 1;
+			continue;
+		}
+		
+		inptr++;
+		len = inptr - start;
+		type = ATTRIB_UNKNOWN;
+		for (i = 0; i < G_N_ELEMENTS (attribvars); i++) {
+			if (!strncmp (attribvars[i].name, start, len)) {
+				type = attribvars[i].type;
+				break;
+			}
+		}
+		
+		switch (type) {
+		case ATTRIB_CUSTOM:
+			attribvars[i].v.formatter (str, attribvars[i].name, message);
+			break;
+		case ATTRIB_TIMEZONE:
+			g_string_append_printf (str, attribvars[i].v.format, tzone);
+			break;
+		case ATTRIB_STRFTIME:
+			e_utf8_strftime (buf, sizeof (buf), attribvars[i].v.format, &tm);
+			g_string_append (str, buf);
+			break;
+		case ATTRIB_TM_SEC:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_sec);
+			break;
+		case ATTRIB_TM_MIN:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_min);
+			break;
+		case ATTRIB_TM_24HOUR:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_hour);
+			break;
+		case ATTRIB_TM_12HOUR:
+			g_string_append_printf (str, attribvars[i].v.format, (tm.tm_hour + 1) % 13);
+			break;
+		case ATTRIB_TM_MDAY:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_mday);
+			break;
+		case ATTRIB_TM_MON:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_mon + 1);
+			break;
+		case ATTRIB_TM_YEAR:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_year + 1900);
+			break;
+		case ATTRIB_TM_2YEAR:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_year % 100);
+			break;
+		case ATTRIB_TM_WDAY:
+			/* not actually used */
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_wday);
+			break;
+		case ATTRIB_TM_YDAY:
+			g_string_append_printf (str, attribvars[i].v.format, tm.tm_yday + 1);
+			break;
+		default:
+			/* mis-spelled variable? drop the format argument and continue */
+			break;
+		}
+	}
+	
+	s = str->str;
+	g_string_free (str, FALSE);
+	
+	return s;
+}
+
+static void
+composer_set_body (EMsgComposer *composer, CamelMimeMessage *message, EMFormat *source)
+{
+	char *text, *credits;
 	CamelMimePart *part;
 	GConfClient *gconf;
-	time_t date;
-	int date_offset;
+	ssize_t len;
 	
 	gconf = mail_config_get_gconf_client ();
 	
@@ -1487,25 +1692,10 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 	case MAIL_CONFIG_REPLY_QUOTED:
 	default:
 		/* do what any sane user would want when replying... */
-		sender = camel_mime_message_get_from (message);
-		if (sender != NULL && camel_address_length (CAMEL_ADDRESS (sender)) > 0) {
-			camel_internet_address_get (sender, 0, &name, &addr);
-		} else {
-			name = _("an unknown sender");
-		}
-
-		date = camel_mime_message_get_date(message, &date_offset);
-		/* Convert to UTC */
-		date += (date_offset / 100) * 60 * 60;
-		date += (date_offset % 100) * 60;
-
-		/* translators: attribution string used when quoting messages,
-		   it must contain a single single %%+05d followed by a single '%%s' */
-		e_utf8_strftime(format, sizeof(format), _("On %a, %Y-%m-%d at %H:%M %%+05d, %%s wrote:"), gmtime(&date));
-		credits = g_strdup_printf(format, date_offset, name && *name ? name : addr);
-		text = em_utils_message_to_html(message, credits, EM_FORMAT_QUOTE_CITE);
+		credits = attribution_format (ATTRIBUTION, message);
+		text = em_utils_message_to_html(message, credits, EM_FORMAT_QUOTE_CITE, &len, source);
 		g_free (credits);
-		e_msg_composer_set_body_text(composer, text);
+		e_msg_composer_set_body_text(composer, text, len);
 		g_free (text);
 		break;
 	}
@@ -1513,72 +1703,71 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 	e_msg_composer_drop_editor_undo (composer);
 }
 
-/**
- * em_utils_reply_to_message:
- * @message: message to reply to
- * @mode: reply mode
- *
- * Creates a new composer ready to reply to @message.
- **/
-void
-em_utils_reply_to_message (CamelMimeMessage *message, int mode)
-{
-	CamelInternetAddress *to = NULL, *cc = NULL;
-	EMsgComposer *composer;
-	EAccount *account;
-	
-	account = guess_account (message, NULL);
-	
-	switch (mode) {
-	case REPLY_MODE_SENDER:
-		get_reply_sender (message, &to, NULL);
-		break;
-	case REPLY_MODE_LIST:
-		if (get_reply_list (message, &to))
-			break;
-	case REPLY_MODE_ALL:
-		get_reply_all (message, &to, &cc, NULL);
-		break;
-	}
-	
-	composer = reply_get_composer (message, account, to, cc, NULL, NULL);
-	e_msg_composer_add_message_attachments (composer, message, TRUE);
-	
-	if (to != NULL)
-		camel_object_unref (to);
-	
-	if (cc != NULL)
-		camel_object_unref (cc);
-	
-	composer_set_body (composer, message);
-	
-	em_composer_utils_setup_default_callbacks (composer);
-	
-	gtk_widget_show (GTK_WIDGET (composer));
-	e_msg_composer_unset_changed (composer);
-}
+struct _reply_data {
+	EMFormat *source;
+	int mode;
+};
 
 static void
-reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *message, void *user_data)
+reply_to_message(CamelFolder *folder, const char *uid, CamelMimeMessage *message, void *user_data)
+{
+	struct _reply_data *rd = user_data;
+
+	if (message != NULL)
+		em_utils_reply_to_message(folder, uid, message, rd->mode, rd->source);
+
+	g_object_unref(rd->source);
+	g_free(rd);
+}
+
+/**
+ * em_utils_reply_to_message:
+ * @folder: optional folder
+ * @uid: optional uid
+ * @message: message to reply to, optional
+ * @mode: reply mode
+ * @source: source to inherit view settings from
+ *
+ * Creates a new composer ready to reply to @message.
+ *
+ * If @message is NULL then @folder and @uid must be set to the
+ * message to be replied to, it will be loaded asynchronously.
+ *
+ * If @message is non null, then it is used directly, @folder and @uid
+ * may be supplied in order to update the message flags once it has
+ * been replied to.
+ **/
+void
+em_utils_reply_to_message(CamelFolder *folder, const char *uid, CamelMimeMessage *message, int mode, EMFormat *source)
 {
 	CamelInternetAddress *to = NULL, *cc = NULL;
-	const char *postto = NULL;
 	EMsgComposer *composer;
 	EAccount *account;
+	const char *postto = NULL;
 	guint32 flags;
-	int mode;
-	
-	if (message == NULL)
-		return;
-	
-	mode = GPOINTER_TO_INT (user_data);
 
+	if (folder && uid && message == NULL) {
+		struct _reply_data *rd = g_malloc0(sizeof(*rd));
+
+		rd->mode = mode;
+		rd->source = source;
+		g_object_ref(rd->source);
+		mail_get_message(folder, uid, reply_to_message, rd, mail_thread_new);
+
+		return;
+	}
+
+	g_return_if_fail(message != NULL);
+	
 	account = guess_account (message, folder);
 	flags = CAMEL_MESSAGE_ANSWERED | CAMEL_MESSAGE_SEEN;
 	
 	switch (mode) {
 	case REPLY_MODE_SENDER:
-		get_reply_sender (message, &to, &postto);
+		if (folder)
+			get_reply_sender (message, &to, &postto);
+		else
+			get_reply_sender (message, &to, NULL);
 		break;
 	case REPLY_MODE_LIST:
 		flags |= CAMEL_MESSAGE_ANSWERED_ALL;
@@ -1586,7 +1775,10 @@ reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *messag
 			break;
 	case REPLY_MODE_ALL:
 		flags |= CAMEL_MESSAGE_ANSWERED_ALL;
-		get_reply_all (message, &to, &cc, &postto);
+		if (folder)
+			get_reply_all (message, &to, &cc, &postto);
+		else
+			get_reply_all (message, &to, &cc, NULL);
 		break;
 	}
 	
@@ -1599,30 +1791,12 @@ reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *messag
 	if (cc != NULL)
 		camel_object_unref (cc);
 	
-	composer_set_body (composer, message);
+	composer_set_body (composer, message, source);
 	
 	em_composer_utils_setup_callbacks (composer, folder, uid, flags, flags, NULL, NULL);
 	
 	gtk_widget_show (GTK_WIDGET (composer));
 	e_msg_composer_unset_changed (composer);
-}
-
-/**
- * em_utils_reply_to_message_by_uid:
- * @folder: folder containing message to reply to
- * @uid: message uid
- * @mode: reply mode
- *
- * Creates a new composer ready to reply to the message referenced by
- * @folder and @uid.
- **/
-void
-em_utils_reply_to_message_by_uid (CamelFolder *folder, const char *uid, int mode)
-{
-	g_return_if_fail (CAMEL_IS_FOLDER (folder));
-	g_return_if_fail (uid != NULL);
-	
-	mail_get_message (folder, uid, reply_to_message, GINT_TO_POINTER (mode), mail_thread_new);
 }
 
 /* Posting replies... */
@@ -1696,7 +1870,7 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	if (to != NULL)
 		camel_object_unref (to);
 	
-	composer_set_body (composer, message);
+	composer_set_body (composer, message, NULL);
 	
 	em_composer_utils_setup_callbacks (composer, folder, uid, flags, flags, NULL, NULL);
 	

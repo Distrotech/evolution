@@ -1,3 +1,45 @@
+2004-09-13  Rodney Dawes  <dobey@novell.com>
+
+	* e-timezone-dialog/e-timezone-dialog.c (get_widgets):
+	(on_map_motion, on_map_leave, e_timezone_dialog_set_timezone):
+	* e-timezone-dialog/e-timezone-dialog.glade:
+	Add the label back for previewing the timezone name, and set the
+	label appropriately
+
+	Fixes #64800
+
+2004-08-17  Rodney Dawes  <dobey@novell.com>
+
+	* e-timezone-dialog/e-timezone-dialog.c (e_timezone_dialog_construct):
+	Connect to the "changed" signal instead of "activate"
+
+	Fixes #62970
+
+2004-06-22  Hans Petter Jansson  <hpj@ximian.com>
+
+	* misc/e-source-selector.c (e_source_selector_peek_primary_selection):
+	Add preconditions. Make sure garbage or NULL data doesn't get used.
+
+2004-06-11  Larry Ewing  <lewing@ximian.com>
+
+	* misc/e-source-selector.c: make the source selector use a colock
+	block instead of setting the foreground to indicate the source
+	color.
+	(pixbuf_cell_data_func): actually initialize the pixbuf (bad larry).
+	(pixbuf_cell_data_func): clean up warnings.  (double bad larry).
+	(pixbuf_cell_data_func): fix the appearance a little.
+
+2004-05-20  Rodney Dawes  <dobey@ximian.com>
+
+	* e-timezone-dialog/e-timezone-dialog.c (e_timezone_dialog_construct):
+	Use the activate signal, instead of changed, for the combo box
+	(on_map_motion): Set the text in the combo's entry when we mouse over
+	one of the points on the map, as a preview for the timezone
+	(on_map_leave): Reset the combo's entry to the timezone we started with
+	when we leave the map
+
+	Fixes #57122
+
 2004-04-09  Rodney Dawes  <dobey@ximian.com>
 
 	* e-timezone-dialog/e-timezone-dialog.c

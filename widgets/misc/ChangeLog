@@ -1,3 +1,195 @@
+2004-10-14  JP Rosevear  <jpr@novell.com>
+
+	* e-pilot-settings.c: fix e-source-option-menu include
+
+2004-10-13  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: don't build source selector or source option menu
+	or test programs any more
+
+2004-10-08  Harry Lu  <harry.lu@sun.com>
+
+	* e-source-selector.c: (e_source_selector_popup_menu),
+	(class_init): implement popup_menu so that popup menu can
+	be shown with Shift+F10.
+
+2004-10-06  JP Rosevear  <jpr@novell.com>
+ 
+ 	Fixes #66164
+ 	
+ 	* e-cell-date-edit.c (e_cell_date_edit_get_popup_pos): replicate
+ 	fix to e-cell-combo.c by NotZed
+	
+2004-10-01  Not Zed  <NotZed@Ximian.com>
+
+	* e-util-marshal.list: added boolean object boxed.
+
+	* e-source-selector.c (class_init): add new 'popup event' signal,
+	to replace fill_popup_menu.
+	(selector_button_press_event): emit a POPUP_EVENT rather than a
+	FILL_POPUP_MENU.
+
+2004-09-13  Rodney Dawes  <dobey@novell.com>
+
+	* e-multi-config-dialog.c (impl_response):
+	Point at "config-prefs" instead of "config" for the help section
+
+2004-08-03  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: Really dist the pilot sources this time
+
+2004-08-03  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: Dist the pilot sources
+
+2004-08-01  JP Rosevear  <jpr@novell.com>
+
+	* e-pilot-settings.c (e_pilot_settings_get_source): accessor
+	(e_pilot_settings_set_source): ditto
+	(build_ui): show the source option menu
+	(e_pilot_settings_new): use above
+
+	* e-pilot-settings.h: add prototypes
+
+2004-07-20  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: build pilot setting
+
+2004-07-26  JP Rosevear  <jpr@novell.com>
+ 
+ 	* e-search-bar.c (setup_bonobo_menus): use ctrl-shift-q to clear
+ 	search bar
+	
+2004-07-20  Not Zed  <NotZed@Ximian.com>
+
+	* e-error.c: include config.h.  See #61395.
+
+2004-07-20  JP Rosevear  <jpr@novell.com>
+
+	* e-source-selector.h: remove proto
+
+	* e-source-selector.c (selection_func): don't force the item to be
+	checked
+	(cell_toggled_callback): allow the cell to be untoggled even if
+	its primary
+	(init): set the pixbuf renderable
+	(e_source_selector_set_toggle_selection): no longer necessary
+
+2004-07-16  Chris Toshok  <toshok@ximian.com>
+
+	* e-clipped-label.c (e_clipped_label_recalc_chars_displayed):
+	remove debug spew and fix the display when
+	pango_layout_line_x_to_index returns FALSE (before we were drawing
+	both the ellipses and the text).
+
+2004-07-12  Jeffrey Stedfast  <fejj@novell.com>
+
+	* e-charset-picker.c: s/GB-2312/GB2312/ - fixes bug #61385.
+
+2004-06-24  Rodney Dawes  <dobey@novell.com>
+
+	* e-error.c (e_error_newv): Fix alignment of the icon to be 0x0
+
+	Fixes #60493
+
+2004-06-24  Rodney Dawes  <dobey@novell.com>
+
+	* e-source-selector.[ch]: Add new "select_new" property to
+	private structure of the ESourceSelector
+	(rebuild_cb): Add code to select the new source, and cause the
+	selection_changed signal to get emitted, if we select new sources
+	(init): Don't select new sources by default
+	(e_source_selector_set_select_new): Add function to set whether or not
+	we want to select new sources when we add them
+
+2004-06-16  Not Zed  <NotZed@Ximian.com>
+
+	* e-source-selector.c (cell_toggled_callback): fix a path leak and
+	maek the code more structured.
+	(e_source_selector_set_toggle_selection): set the mode on whether
+	you can toggle the currnet selection or not.
+	(cell_toggled_callback): implement set_toggle_selection behaviour.
+
+2004-06-03  William Jon McCann  <mccann@jhu.edu>
+
+	* e-error.c (e_error_newv): Add HIG border width for dialog window.
+
+2004-06-01  Christian Neumair  <chris@gnome-de.org>
+
+	* Makefile.am (test_error_LDADD): Link test-error against libeutil.
+
+2004-06-01  Anders Carlsson  <andersca@gnome.org>
+
+	* e-expander.c (e_expander_expose): Don't propagate the expose
+	to the label widget, the parent expose handler does that.
+
+2004-05-28  Anders Carlsson  <andersca@gnome.org>
+
+	* e-error.c (e_error_newv): Use the constructed title string.
+
+2004-05-27  Rodney Dawes  <dobey@novell.com>
+
+	* Makefile.am (EXTRA_DIST): Add $(error_i18n)
+
+2004-05-21  Not Zed  <NotZed@Ximian.com>
+
+	* e-error.c (e_error_default_parent): set a default error parent
+	fallback.
+	(e_error_newv): if parent is null, see if we have a default still
+	alive, and use that.  warn if not.
+	(e_error_default_parent): uh, fix the sense of the
+	if-we-dont-have-it test.
+
+2004-05-20  JP Rosevear  <jpr@novell.com>
+
+	* e-task-widget.c (e_task_widget_construct): only unref the mask
+	if there is one
+
+2004-05-19  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: don't dist the error .h file
+
+2004-05-18  Not Zed  <NotZed@Ximian.com>
+
+	* e-error.c (ee_load): load the <help> tag if present.
+	(ee_response): handle the help response and swallow the signal.
+	(e_error_newv): setup help button if we have a help uri.
+
+2004-05-17  Jeffrey Stedfast  <fejj@novell.com>
+
+	* e-url-entry.c (init): Use E_ICON_SIZE_BUTTON for the icon size
+	in the e_icon_factory_get_icon() call.
+
+	* e-combo-button.c (create_empty_image_widget): Don't hard-code
+	the size of the icon in pixels, instead use the appropriate
+	E_ICON_SIZE_ enum.
+
+2004-05-17  JP Rosevear  <jpr@novell.com>
+
+	Fixes #58460
+	
+	* e-task-widget.c (e_task_widget_construct): bitmap_unref the
+	mask, don't object_unref it
+
+2004-05-12  Not Zed  <NotZed@Ximian.com>
+
+	* e-error.c (ee_load): duh, use the right node pointer for title
+	and secondary text.
+
+	* e-system-errors.xml: make the Because cases the same.
+
+	* e-system-errors.xml.h: add for translators.
+
+	* e-error.c (ee_load): just use _() to do i18n rather than the
+	nasty lang stuff.
+	(find_node): no longer needed.
+
+	* Makefile.am (%.xml.h): setup the build rules for the i18n file
+	for the errors.
+
+	* e-system-errors.xml.in: Removed, renamed to .xml and removed the
+	_ stuff.
+
 2004-05-04  Xan Lopez  <xan@gnome.org>
 
 	* Makefile.am:
@@ -123,7 +315,7 @@
 	Fix for bug #55267.
 
 	* e-filter-bar.c (set_property): Use efb->setquery properly (set
-	to TRUE before calling set_item_id and FLASE afterwards). Also
+	to TRUE before calling set_item_id and FALSE afterwards). Also
 	setquery to TRUE before emitting the "search-activated" signal so
 	that we don't run the callback for the signal we are emitting.
 

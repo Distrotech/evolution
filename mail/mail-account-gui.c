@@ -30,6 +30,7 @@
 
 #include <string.h>
 #include <stdarg.h>
+#include <sys/stat.h>
 
 #include <gconf/gconf-client.h>
 
@@ -44,6 +45,12 @@
 #include <gtk/gtknotebook.h>
 #include <gtk/gtkhbox.h>
 #include <gtk/gtkdialog.h>
+#include <libgnome/gnome-i18n.h>
+#ifdef USE_GTKFILECHOOSER
+#include <gtk/gtkfilechooser.h>
+#include <gtk/gtkradiobutton.h>
+#include <libgnomeui/gnome-file-entry.h>
+#endif
 
 #include <e-util/e-account-list.h>
 #include <e-util/e-signature-list.h>
@@ -225,7 +232,7 @@ display_license (CamelProvider *prov)
 	char *label_text, *dialog_title;
 	gboolean status;
 	
-	xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-license.glade", "lic_dialog", NULL);
+	xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-dialogs.glade", "lic_dialog", NULL);
 	
 	top_widget = glade_xml_get_widget (xml, "lic_dialog");
 	text_entry = GTK_TEXT_VIEW (glade_xml_get_widget (xml, "textview1"));
@@ -917,19 +924,22 @@ toggle_sensitivity (GtkToggleButton *toggle, GtkWidget *widget)
 	gtk_widget_set_sensitive (widget, gtk_toggle_button_get_active (toggle));
 }
 
-static void
+/* Returns true if the widget is enabled */
+static gboolean
 setup_toggle (GtkWidget *widget, const char *depname, MailAccountGui *gui)
 {
 	GtkToggleButton *toggle;
 	
 	if (!strcmp (depname, "UNIMPLEMENTED")) {
 		gtk_widget_set_sensitive (widget, FALSE);
-		return;
+		return FALSE;
 	}
 	
 	toggle = g_hash_table_lookup (gui->extra_config, depname);
 	g_signal_connect (toggle, "toggled", G_CALLBACK (toggle_sensitivity), widget);
 	toggle_sensitivity (toggle, widget);
+
+	return gtk_toggle_button_get_active(toggle);
 }
 
 void
@@ -1019,6 +1029,7 @@ mail_account_gui_build_extra_conf (MailAccountGui *gui, const char *url_string)
 	rows = main_table->nrows;
 	for (i = 0; ; i++) {
 		GtkWidget *enable_widget = NULL;
+		int enabled = TRUE;
 		
 		switch (entries[i].type) {
 		case CAMEL_PROVIDER_CONF_SECTION_START:
@@ -1107,8 +1118,8 @@ mail_account_gui_build_extra_conf (MailAccountGui *gui, const char *url_string)
 			rows++;
 			g_hash_table_insert (gui->extra_config, entries[i].name, checkbox);
 			if (entries[i].depname)
-				setup_toggle (checkbox, entries[i].depname, gui);
-			
+				enabled = setup_toggle(checkbox, entries[i].depname, gui);
+
 			enable_widget = checkbox;
 			break;
 		}
@@ -1153,7 +1164,7 @@ mail_account_gui_build_extra_conf (MailAccountGui *gui, const char *url_string)
 			
 			if (entries[i].depname) {
 				setup_toggle (entry, entries[i].depname, gui);
-				setup_toggle (label, entries[i].depname, gui);
+				enabled = setup_toggle (label, entries[i].depname, gui);
 			}
 			
 			g_hash_table_insert (gui->extra_config, entries[i].name, entry);
@@ -1220,18 +1231,21 @@ mail_account_gui_build_extra_conf (MailAccountGui *gui, const char *url_string)
 			if (entries[i].depname) {
 				setup_toggle (checkbox, entries[i].depname, gui);
 				setup_toggle (spin, entries[i].depname, gui);
-				setup_toggle (label, entries[i].depname, gui);
+				enabled = setup_toggle (label, entries[i].depname, gui);
 			}
 			
 			enable_widget = hbox;
 			break;
 		}
-		
+
+		case CAMEL_PROVIDER_CONF_HIDDEN:
+			break;
+
 		case CAMEL_PROVIDER_CONF_END:
 			goto done;
 		}
 		
-		if (enable_widget)
+		if (enabled && enable_widget)
 			gtk_widget_set_sensitive(enable_widget, e_account_writable_option(gui->account, gui->source.provider->protocol, entries[i].name));
 	}
 	
@@ -1290,7 +1304,12 @@ extract_values (MailAccountGuiService *source, GHashTable *extra_config, CamelUR
 			camel_url_set_param (url, entries[i].name, name);
 			g_free (name);
 			break;
-			
+
+		case CAMEL_PROVIDER_CONF_HIDDEN:
+			if (entries[i].value)
+				camel_url_set_param (url, entries[i].name, entries[i].value);
+			break;
+
 		case CAMEL_PROVIDER_CONF_END:
 			return;
 			
@@ -1558,6 +1577,7 @@ sig_fill_menu (MailAccountGui *gui)
 	
 	item = gtk_menu_item_new_with_label (_("None"));
 	gtk_widget_show (item);
+	g_signal_connect (item, "activate", G_CALLBACK (sig_activate), gui);
 	gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
 	
 	signatures = mail_config_get_signatures ();
@@ -1606,7 +1626,7 @@ sig_add_new_signature (GtkWidget *w, MailAccountGui *gui)
 	parent = gtk_widget_get_toplevel (w);
 	parent = GTK_WIDGET_TOPLEVEL (parent) ? parent : NULL;
 	
-	em_composer_prefs_new_signature ((GtkWindow *) parent, send_html, NULL);
+	em_composer_prefs_new_signature ((GtkWindow *) parent, send_html);
 }
 
 static void
@@ -1740,10 +1760,49 @@ smime_encrypt_key_clear(GtkWidget *w, MailAccountGui *gui)
 }
 #endif
 
+#ifdef USE_GTKFILECHOOSER
+static void
+select_file_toggled (GtkToggleButton *toggle, GtkFileChooser *chooser)
+{
+	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
+	
+	if (gtk_toggle_button_get_active (toggle))
+		action = GTK_FILE_CHOOSER_ACTION_OPEN;
+	
+	gtk_file_chooser_set_action (chooser, action);
+}
+
+static void
+browse_clicked (GnomeFileEntry *fentry, MailAccountGui *gui)
+{
+	GtkWidget *check;
+	struct stat st;
+	char *path;
+	
+	if (GTK_IS_FILE_CHOOSER (fentry->fsw)) {
+		check = gtk_check_button_new_with_label (_("Select a file"));
+		g_signal_connect (check, "toggled", G_CALLBACK (select_file_toggled), fentry->fsw);
+		gtk_widget_show (check);
+		gtk_file_chooser_set_extra_widget (GTK_FILE_CHOOSER (fentry->fsw), check);
+		
+		path = gnome_file_entry_get_full_path (fentry, TRUE);
+		if (path && stat (path, &st) == 0 && S_ISREG (st.st_mode))
+			gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check), TRUE);
+		else
+			gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (check), FALSE);
+		gtk_toggle_button_toggled (GTK_TOGGLE_BUTTON (check));
+		g_free (path);
+	}
+	
+	g_signal_handlers_disconnect_by_func (fentry, G_CALLBACK (fentry), gui);
+}
+#endif /* USE_GTKFILECHOOSER */
+
 MailAccountGui *
 mail_account_gui_new (EAccount *account, EMAccountPrefs *dialog)
 {
 	MailAccountGui *gui;
+	GtkWidget *fileentry;
 	
 	g_object_ref (account);
 	
@@ -1751,6 +1810,15 @@ mail_account_gui_new (EAccount *account, EMAccountPrefs *dialog)
 	gui->account = account;
 	gui->dialog = dialog;
 	gui->xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-config.glade", NULL, NULL);
+	
+#ifdef USE_GTKFILECHOOSER
+	/* KLUDGE: If this Evolution was built with GtkFileChooser support, the user
+	 * won't be able to create some types of local accounts because GtkFileChooser
+	 * must be set to allow selection of one or the other of file vs folder.
+	 * However, some providers allow the selection of files *or* folders. */
+	fileentry = glade_xml_get_widget (gui->xml, "source_path_entry");
+	g_signal_connect_after (fileentry, "browse-clicked", G_CALLBACK (browse_clicked), gui);
+#endif
 	
 	/* Management */
 	gui->account_name = GTK_ENTRY (glade_xml_get_widget (gui->xml, "management_name"));
@@ -1924,7 +1992,7 @@ mail_account_gui_new (EAccount *account, EMAccountPrefs *dialog)
 void
 mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top)
 {
-	GtkWidget *stores, *transports, *item;
+	GtkWidget *stores, *transports, *item, *none;
 	GtkWidget *fstore = NULL, *ftransport = NULL;
 	int si = 0, hstore = 0, ti = 0, htransport = 0;
 	int max_width = 0;
@@ -1950,6 +2018,15 @@ mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top)
 	/* Construct source/transport option menus */
 	stores = gtk_menu_new ();
 	transports = gtk_menu_new ();
+
+	/* add a "None" option to the stores menu */
+	none = item = gtk_menu_item_new_with_label (_("None"));
+	g_object_set_data ((GObject *) item, "provider", NULL);
+	g_signal_connect (item, "activate", G_CALLBACK (source_type_changed), gui);
+	gtk_menu_shell_append(GTK_MENU_SHELL(stores), item);
+	gtk_widget_show (item);
+	si++;
+
 	providers = camel_provider_list(TRUE);
 	
 	/* sort the providers, remote first */
@@ -2000,7 +2077,8 @@ mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top)
 			if (CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (provider))
 				gtk_widget_set_sensitive (item, FALSE);
 			
-			if (!ftransport) {
+			if (!ftransport
+			    && !CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (provider)) {
 				ftransport = item;
 				htransport = ti;
 			}
@@ -2035,18 +2113,9 @@ mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top)
 	}
 	g_list_free (providers);
 	
-	/* add a "None" option to the stores menu */
-	item = gtk_menu_item_new_with_label (_("None"));
-	g_object_set_data ((GObject *) item, "provider", NULL);
-	g_signal_connect (item, "activate", G_CALLBACK (source_type_changed), gui);
-	
-	gtk_menu_shell_append(GTK_MENU_SHELL(stores), item);
-	
-	gtk_widget_show (item);
-	
 	if (!fstore || !source_proto) {
-		fstore = item;
-		hstore = si;
+		fstore = none;
+		hstore = 0;
 	}
 	
 	/* set the menus on the optionmenus */
@@ -2373,8 +2442,6 @@ mail_account_gui_save (MailAccountGui *gui)
 		mail_config_set_default_account (account);
 	
 	mail_config_save_accounts ();
-	
-	mail_autoreceive_setup ();
 	
 	return TRUE;
 }

@@ -1,3 +1,1109 @@
+2004-10-17  Nikos Charonitakis  <charosn@her.forthnet.gr>
+
+	* el.po: Updated Greek translation.
+
+2004-10-15  Hasbullah Bin Pit  <sebol@my-penguin.org>
+
+	* ms.po: Updated Malay translation.
+
+2004-10-15  Alexander Shopov  <ash@contact.bg>
+
+	* bg.po: Updated Bulgarian translation by
+	Vladimir Petkov <vpetkov@i-space.org>
+
+2004-10-12  Meelad Zakaria  <meelad@bamdad.org>
+
+	* fa.po: Updated Persian translation.
+
+2004-10-12  Hasbullah Bin Pit  <sebol@my-penguin.org>
+
+	* ms.po: Updated Malay translation.
+
+2004-10-12  Roozbeh Pournader  <roozbeh@farsiweb.info>
+
+	* fa.po: Updated Persian translation by Meelad Zakaria
+	<meelad@bamdad.org>.
+
+2004-10-12  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-10-12  Åsmund Skjæveland  <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation.
+
+2004-10-10  Nikos Charonitakis  <charosn@her.forthnet.gr>
+
+	* el.po: Updated Greek translation.
+
+2004-10-09  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-10-08  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-10-07  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-10-06  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Updated Catalan translation by
+	Xavier Conde Rueda <xaviconde@eresmas.com>.
+
+2004-10-06  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated.
+
+2004-10-05  Roozbeh Pournader  <roozbeh@farsiweb.info>
+
+	* fa.po: Updated Persian translation by Meelad Zakaria
+	<meelad@bamdad.org>.
+
+2004-10-05  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Michel Klijmij.
+
+2004-10-04  Roozbeh Pournader  <roozbeh@farsiweb.info>
+
+	* fa.po: Updated Persian translation by Meelad Zakaria
+	<meelad@bamdad.org>.
+
+2004-10-02  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Tino Meinen.
+
+2004-10-02  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-10-1  Mugurel Tudor  <mugurelu@go.ro>
+
+	* ro.po: Updated Romanian translation
+
+2004-09-30  Marco Ciampa  <ciampix@libero.it>
+
+        * it.po: updated italian translation.
+
+2004-09-30  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-09-30  Sebastien Bacher  <seb128@debian.org>
+
+	* fr.po: Fix in the French translation.
+
+2004-09-29  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-09-29  Marco Ciampa  <ciampix@libero.it>
+
+        * it.po: italian translation, locale and hotkey trim
+
+2004-09-28  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated.
+
+2004-09-27  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Reinout van Schouwen.
+
+2004-09-26  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-09-26  Roozbeh Pournader  <roozbeh@farsiweb.info>
+
+	* fa.po: Updated Persian translation by Meelad Zakaria
+	<meelad@bamdad.org>.
+
+2004-09-24  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-09-24  Christophe Merlet  <redfox@redfoxcenter.org>
+
+        * fr.po: Updated French translation.
+
+2004-09-23  Marco Ciampa  <ciampix@libero.it>
+
+        * it.po: updated italian translation.
+
+2004-09-23  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-09-22  Christophe Merlet  <redfox@redfoxcenter.org>
+
+        * fr.po: Updated French translation from
+	Craig Jeffares <cjeffares@novell.com>.
+
+2004-09-22  Craig Jeffares  <cjeffares@novell.com>
+
+        * it.po & zh_TW.po: Updated Italian & Chinese Trad translation.
+
+
+2004-09-21  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-09-21  Roozbeh Pournader  <roozbeh@sharif.edu>
+
+	* fa.po: Updated Persian translation by Meelad Zakaria
+	<meelad@bamdad.org>.
+
+2004-09-18  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-09-19  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-09-14  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-09-13  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-09-13  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated (unfinished).
+
+2004-09-12  Mugurel Tudor  <mugurelu@go.ro>
+
+	* ro.po: Updated Romanian translation
+
+2004-09-12  Hasbullah Bin Pit <sebol@my-penguin.org>
+
+        * ms.po: Updated Malay Translation.
+
+2004-09-11  Mugurel Tudor  <mugurelu@go.ro>
+
+	* ro.po: Updated Romanian translation
+
+2004-09-10  Akagic Amila  <bono@linux.org.ba>
+
+	* bs.po: Added Bosnian translation.
+
+2004-09-10  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-09-10  Raphael Higino  <raphaelh@cvs.gnome.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation.
+
+2004-09-09  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated (unfinished).
+
+2004-09-09  Nikos Charonitakis  <charosn@her.forthnet.gr>
+
+	* el.po: Updated Greek translation.
+
+2004-09-09  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-09-08  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated.
+
+2004-09-07  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-09-06  David Lodge <dave@cirt.net>
+
+	* en_GB.po: Updated British translation.
+
+2004-09-06  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-09-06  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Daniel van Eeden.
+
+2004-09-05  Åsmund Skjæveland <aasmunds@fys.uio.no>
+	
+	* nn.po: Updated Norwegian Nynorsk translation:
+       	         Merged translations from gnome-2-8 branch.
+
+2004-09-04  Christophe Merlet  <redfox@redfoxcenter.org>
+
+        * fr.po: Updated French translation.
+
+2004-09-03  JP Rosevear  <jpr@novell.com>
+
+	Fixes #65030
+	
+	* en_GB.po: Correct typo
+
+2004-09-03  Baris Cicek <baris@teamforce.name.tr>
+
+	* tr.po: Updated Turkish Translation
+
+2004-09-02  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation
+
+2004-09-02  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation
+
+2004-09-01  Leonid Kanter <leon@asplinux.ru>
+
+	* ru.po: Updated Russian translation
+
+2004-09-01  Guntupalli Karunakar  <karunakar@freedomink.org>
+
+	* hi.po: Updated Hindi translation by
+	Rajesh Ranjan <rranjan@redhat.com>
+		
+2004-08-30  Åsmund Skjæveland <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation: 
+       	         Merged translations from gnome-2-8 branch.
+
+2004-08-28  Ales Nyakhaychyk  <nab@mail.by>
+	
+	* be.po: Updated Belarusian translation.
+
+2004-08-29  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-08-28  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-28  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-08-28  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-28  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-08-26  Gustavo Maciel Dias Vieira  <gustavo@sagui.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation done by
+	Gustavo Maciel Dias Vieira <gustavo@sagui.org>.
+
+2004-08-26  Nikos Charonitakis  <charosn@her.forthnet.gr>
+
+	* el.po: Updated Greek translation.
+
+2004-08-26  Christophe Merlet  <redfox@redfoxcenter.org>
+
+        * fr.po: Updated French translation from
+	Sebastien Bacher <seb128@debian.org>.
+
+2004-08-25  Hasbullah Bin Pit <sebol@imy-penguin.org>
+                                                                                
+        * ms.po: Updated Malay Translation.
+
+2004-08-25  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-24  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-23  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation.
+
+2004-08-23  Nikos Charonitakis  <charosn@her.forthnet.gr>
+
+	* el.po: Updated Greek translation.
+
+2004-08-23  Stanislav Brabec  <sbrabec@suse.cz>
+
+	* cs.po: Typo fix.
+
+2004-08-23  Danilo Šegan  <dsegan@gmx.net>
+
+	* sr.po, sr@Latn.po: Updated Serbian translation.
+
+2004-08-23  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-08-23  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation.
+
+2004-08-22  Christian Neumair  <chris@gnome-de.org>
+
+	* de.po: Updated German translation.
+
+2004-08-22  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* nb.po: Update
+	* no.po: Update
+
+2004-08-22  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-22  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-08-22  Duarte Loreto <happyguy_pt@hotmail.com>
+
+	* pt.po: Updated Portuguese translation.
+
+2004-08-20  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-08-20  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-08-19  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanih translation.
+
+2004-08-19  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-19  Maxim Dziumanenko <mvd@mylinux.com.ua>
+
+	* uk.po: Updated Ukrainian translation.
+
+2004-08-18  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Typo fix.
+
+2004-08-18  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* nb.po: Add this.
+
+2004-08-18  Åsmund Skjæveland <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation.
+
+2004-08-18  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-08-18  Laszlo Dvornik  <dvornik@gnome.hu>
+
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+
+2004-08-18  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-08-18  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-08-17  Nikos Charonitakis  <charosn@her.forthnet.gr>
+
+	* elpo:  Updated Greek translation.
+
+2004-08-17  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-08-17  Ankit Patel <ankit@redhat.com>
+
+	* gu.po: Updated Final Gujarati Translation.
+
+2004-08-15  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-15  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation
+
+2004-08-15  Duarte Loreto <happyguy_pt@hotmail.com>
+
+	* pt.po: Updated Portuguese translation.
+
+2004-08-14  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation
+
+2004-08-14  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-08-14  Ilkka Tuohela  <hile@iki.fi
+
+	* fi.po: Updated Finnish translation
+
+2004-08-14  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-08-14  Žygimantas Beručka  <uid0@akl.lt>
+
+	* lt.po: Updated Lithuanian translation.
+
+2004-08-13  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-13  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-08-13  Tommi Vainikainen  <thv@iki.fi>
+
+	* fi.po: Unified some fields in po headers for Finnish team.
+
+2004-08-13  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-08-13  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-12  Leonid Kanter <leon@asplinux.ru>
+
+        * ru.po: Updated Russian translation
+
+2004-08-12  Åsmund Skjæveland <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation.
+
+2004-08-12  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-08-11  Leonid Kanter <leon@asplinux.ru>
+
+        * ru.po: Updated Russian translation from Dan Korostelev <dan@ats.energo.ru>
+
+2004-08-11  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-08-11  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-08-11  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-08-10  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-10  Leonid Kanter <leon@asplinux.ru>
+
+	* ru.po: Updated Russian translation
+
+2004-08-10  Laszlo Dvornik  <dvornik@gnome.hu>
+
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+
+2004-08-09  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-09  Ankit Patel <ankit@redhat.com>
+
+	* gu.po: Updated Gujarati translation.
+
+2004-08-09  Amanpreet Singh Alam   <aalam@redhat.com>
+
+	* pa.po: Updated Panjabi translation.
+
+2004-08-08  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-08-07  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-08-07  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-08-06  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-06  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-08-06  Duarte Loreto <happyguy_pt@hotmail.com>
+
+	* pt.po: Updated Portuguese translation.
+
+2004-08-05  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-05  Åsmund Skjæveland <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation.
+
+2004-08-05  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-08-04  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-08-03  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-03  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-08-03  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation.
+
+2004-08-03  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Daniel van Eeden.
+
+2004-08-02  JP Rosevear  <jpr@novell.com>
+
+	* POTFILES.in: move e-pilot-settings.c
+
+2004-08-02  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-08-02  Adam Weinberger  <adamw@gnome.org>
+
+	* POTFILES.in: Removed e-util/e-pilot-settings.c
+
+2004-08-02  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-31  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Updated Catalan translation by
+	Xavier Conde Rueda <xaviconde@eresmas.com>.
+
+2004-07-31  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-07-31  Laszlo Dvornik  <dvornik@gnome.hu>
+
+	* hu.po: Updated Hungarian translation.
+
+2004-07-29  Christophe Merlet  <redfox@redfoxcenter.org>
+
+        * fr.po: Updated French translation from
+	Sebastien Bacher <seb128@debian.org>.
+
+2004-07-29  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-07-28  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-07-28  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* no.po: Updated Norwegian translation.
+
+2004-07-28  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-07-28  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-07-27  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-26  Åsmund Skjæveland  <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation.
+
+2004-07-26  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-07-25  Gil Osher  <dolfin@rpg.org.il>
+
+	* he.po: Added Hebrew translation.
+
+2004-07-23  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-23  Åsmund Skjæveland  <aasmunds@fys.uio.no>
+
+	* nn.po: Updated Norwegian Nynorsk translation.	
+
+2004-07-23  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-07-22  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+	
+2004-07-21  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-07-20  Gustavo Maciel Dias Vieira <gustavo@sagui.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation done by
+	Gustavo Maciel Dias Vieira <gustavo@sagui.org>.
+
+2004-07-20  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-18  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-07-18  Laszlo Dvornik  <dvornik@gnome.hu>
+
+	* hu.po: Updated Hungarian translation by Gabor Kelemen.
+
+2004-07-16  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-16  Alexander Shopov  <ash@contact.bg>
+
+	* bg.po: Updated Bulgarian translation by
+	Vladimir "Kaladan" Petkov <vpetkov@i-space.org>
+		
+2004-07-14  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-15  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-07-14  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-07-13  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* no.po: Updated Norwegian translation.
+
+2004-07-13  Leonid Kanter <leon@asplinux.ru>
+
+        * ru.po: updated Russian translation
+
+2004-07-13  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-07-12  Leonid Kanter <leon@asplinux.ru>
+
+	* ru.po: updated Russian translation
+
+2004-07-10  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Daniel van Eeden.
+
+2004-07-10  Changwoo Ryu  <cwryu@debian.org>
+
+	* ko.po: Updated Korean translation.
+
+2004-07-10  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-07-08  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-07-08  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-07-07  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-07-07  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-06  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-07-05  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-07-04  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-07-03  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Translation updated.
+
+2004-07-02  Christian Neumair  <chris@gnome-de.org>
+
+	* de.po: Updated German translation.
+
+2004-07-02  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-07-02  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-07-02  Christian Rose  <menthos@menthos.com>
+
+	* sv.po: Added links to bug reports.
+
+2004-07-01  Christian Rose  <menthos@menthos.com>
+
+	* sv.po: Updated Swedish translation.
+
+2004-06-30  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-06-29  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Translation updated.
+
+2004-06-29  Christian Rose  <menthos@menthos.com>
+
+	* POTFILES.in: Removed non-existing .h files, added missing files,
+	sorted the whole thing.
+
+2004-06-28  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* POTFILES.in: Update this.
+	* no.po: Update this too.
+
+2004-06-25  Rodney Dawes  <dobey@novell.com>
+
+	* POTFILES.in: Update for removed files
+
+2004-06-24  Pablo Saratxaga  <pablo@mandrakesoft.com>
+
+	* wa.po: Updated Walloon file
+
+2004-06-23  Rodney Dawes  <dobey@novell.com>
+
+	* POTFILES.in: Update for removed files
+
+2004-06-20  Arafat Medini  <lumina@silverpen.de>
+
+	* ar.po: Added Arabic translation.
+
+2004-06-19  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-06-18  Jeffrey Stedfast  <fejj@novell.com>
+
+	* POTFILES.in: Added error.xml.h files
+
+2004-06-18  Not Zed  <NotZed@Ximian.com>
+
+	* POTFILES.in: fix up for mail glade ifle changes.
+
+2004-06-18  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-06-17  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-06-17  Priit Laes  <plaes@cvs.gnome.org>
+
+	* et.po: Translation updated.
+
+2004-06-17  Metin Amiroff  <metin@karegen.com>
+
+	* az.po: Translation updated by Mətin Əmirov.
+
+2004-06-17  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-06-17  Not Zed  <NotZed@Ximian.com>
+
+	* POTFILES.in: moved the filter files around.
+
+2004-06-17  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-06-16  Ilkka Tuohela  <hile@iki.fi>
+
+	* fi.po: Updated Finnish translation.
+
+2004-06-16  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-06-16  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-06-15  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-06-15  Leonid Kanter <leon@asplinux.ru>
+
+	* ru.po: Updated Russian translation with correction of %%+05d.
+
+2004-06-15  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation with correction of %%+05d.
+
+2004-06-14  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-06-14  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-06-13  Metin Amiroff  <metin@karegen.com>
+
+	* az.po: Translation updated by Mətin Əmirov.
+
+2004-06-13  Kostas Papadimas <pkst@gnome.org>
+
+	* el.po: Updated  Greek translation.
+
+2004-06-13  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-06-12  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation.
+
+2004-06-12  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-06-10  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+	* POTFILES.in: Correct path error.
+
+2004-06-10  Rodney Dawes  <dobey@novell.com>
+
+	* POTFILES.in: Update for removed files
+
+2004-06-08  Marco Ciampa  <ciampix@libero.it>
+
+        * it.po: Italian translation updated.
+
+2004-06-08  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-06-07  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-06-06  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-06-05  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Updated Catalan translation by
+	Xavier Conde Rueda <xaviconde@eresmas.com>.
+
+2004-06-05  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-06-05  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-06-04  Andras Timar  <timar@gnome.hu>
+
+	* hu.po: Updated Hungarian translation.
+
+2004-06-03  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-05-28  JP Rosevear  <jpr@novell.com>
+
+	* POTFILES.in: remove about box
+
+2004-05-27  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-26  Christophe Merlet  <redfox@redfoxcenter.org>
+
+	* POTFILES.in: Updated.
+	* fr.po: Updated French translation.
+
+2004-05-26  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated.
+
+2004-05-25  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-05-25  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+	
+2004-05-25  Artur Flinta  <aflinta@cvs.gnome.org>
+
+	* pl.po: Updated Polish translation by GNOME PL Team.
+
+2004-05-25  Alexander Shopov  <ash@contact.bg>
+
+	* bg.po: Updated Bulgarian translation by
+	Vladimir "Kaladan" Petkov <vpetkov@i-space.org>
+
+2004-05-25  Joop Stakenborg  <pg4i@xs4all.nl>
+
+	* nl.po: fixed attribution to not cause crash.  See #58882.
+
+2004-05-24  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-05-23  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+	
+2004-05-23  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-05-22  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Updated Spanish translation
+
+2004-05-22  Takeshi AIHANA <aihana@gnome.gr.jp>
+
+	* ja.po: Updated Japanese translation.
+
+2004-05-22  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* no.po: Updated Norwegian translation.
+
+2004-05-22  Priit Laes  <plaes@cvs.gnome.org>
+
+	* et.po: Translation updated.
+
+2004-05-22  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-05-21  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-20  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-19  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-05-19  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Updated Catalan translation by
+	Xavier Conde Rueda <xaviconde@eresmas.com>.
+
+2004-05-19  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-18  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-17  Gustavo Maciel Dias Vieira <gustavo@sagui.org>
+
+	* pt_BR.po: Updated Brazilian Portuguese translation done by
+	Gustavo Maciel Dias Vieira <gustavo@sagui.org>.
+
+2004-05-16  Duarte Loreto <happyguy_pt@hotmail.com>
+
+	* pt.po: Updated Portuguese translation.
+
+2004-05-15  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-13  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-12  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* no.po: Updated Norwegian translation.
+
+2004-05-12  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-05-12  Not Zed  <NotZed@Ximian.com>
+
+	* POTFILES.in: fix for xml error files, get i18n strings from
+	generated .h files.
+
+2004-05-11  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-10  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-05-10  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
+
+	* es.po: Spanish translation updated.
+
 2004-05-10  Priit Laes  <plaes@cvs.gnome.org>
 
 	* et.po: Translation updated.
@@ -275,7 +1381,6 @@
 
 	* POTFILES.in: s/eab-destination/e-destination/
 
->>>>>>> 1.1414
 2004-04-08  Priit Laes  <plaes@cvs.gnome.org>
 
 	* et.po: Translation updated.

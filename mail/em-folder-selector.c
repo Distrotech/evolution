@@ -47,7 +47,7 @@
 #include "em-folder-tree.h"
 #include "em-folder-selector.h"
 
-#define d(x) x
+#define d(x)
 
 
 extern CamelSession *session;
@@ -141,7 +141,7 @@ folder_created_cb (EMFolderTreeModel *model, const char *path, const char *uri, 
 	camel_exception_init (&ex);
 	if (!(store = (CamelStore *) camel_session_get_service (session, uri, CAMEL_PROVIDER_STORE, &ex)))
 		return;
-	
+
 	if (camel_store_folder_uri_equal (store, emfs->created_uri, uri)) {
 		em_folder_tree_set_selected (emfs->emft, uri);
 		g_signal_handler_disconnect (model, emfs->created_id);
@@ -166,7 +166,8 @@ emfs_response (GtkWidget *dialog, int response, EMFolderSelector *emfs)
 	dialog = em_folder_selector_create_new (emft, 0, _("Create New Folder"), _("Specify where to create the folder:"));
 	gtk_window_set_transient_for ((GtkWindow *) dialog, (GtkWindow *) emfs);
 	uri = em_folder_selector_get_selected_uri (emfs);
-	em_folder_tree_set_selected (emft, uri);
+	if (uri)
+		em_folder_tree_set_selected (emft, uri);
 	
 	if (gtk_dialog_run ((GtkDialog *) dialog) == GTK_RESPONSE_OK) {
 		uri = em_folder_selector_get_selected_uri ((EMFolderSelector *) dialog);
@@ -189,16 +190,17 @@ emfs_response (GtkWidget *dialog, int response, EMFolderSelector *emfs)
 static void
 emfs_create_name_changed (GtkEntry *entry, EMFolderSelector *emfs)
 {
-	const char *path, *text = NULL;
+	char *path;
+	const char *text = NULL;
 	gboolean active;
 	
 	if (emfs->name_entry->text_length > 0)
 		text = gtk_entry_get_text (emfs->name_entry);
 	
-	path = em_folder_tree_get_selected_path (emfs->emft);
-	
+	path = em_folder_tree_get_selected_uri(emfs->emft);
 	active = text && path && !strchr (text, '/');
-	
+	g_free(path);
+
 	gtk_dialog_set_response_sensitive ((GtkDialog *) emfs, GTK_RESPONSE_OK, active);
 }
 
@@ -218,10 +220,11 @@ folder_activated_cb (EMFolderTree *emft, const char *path, const char *uri, EMFo
 }
 
 void
-em_folder_selector_construct (EMFolderSelector *emfs, EMFolderTree *emft, guint32 flags, const char *title, const char *text)
+em_folder_selector_construct (EMFolderSelector *emfs, EMFolderTree *emft, guint32 flags, const char *title, const char *text, const char *oklabel)
 {
 	GtkWidget *label;
 	
+	gtk_window_set_modal (GTK_WINDOW (emfs), FALSE);
 	gtk_window_set_default_size (GTK_WINDOW (emfs), 350, 300);
 	gtk_window_set_title (GTK_WINDOW (emfs), title);
 	gtk_container_set_border_width (GTK_CONTAINER (emfs), 6);
@@ -236,7 +239,7 @@ em_folder_selector_construct (EMFolderSelector *emfs, EMFolderTree *emft, guint3
 	}
 	
 	gtk_dialog_add_buttons (GTK_DIALOG (emfs), GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-				GTK_STOCK_OK, GTK_RESPONSE_OK, NULL);
+				oklabel?oklabel:GTK_STOCK_OK, GTK_RESPONSE_OK, NULL);
 	
 	gtk_dialog_set_response_sensitive (GTK_DIALOG (emfs), GTK_RESPONSE_OK, FALSE);
 	gtk_dialog_set_default_response (GTK_DIALOG (emfs), GTK_RESPONSE_OK);
@@ -260,12 +263,12 @@ em_folder_selector_construct (EMFolderSelector *emfs, EMFolderTree *emft, guint3
 }
 
 GtkWidget *
-em_folder_selector_new (EMFolderTree *emft, guint32 flags, const char *title, const char *text)
+em_folder_selector_new (EMFolderTree *emft, guint32 flags, const char *title, const char *text, const char *oklabel)
 {
 	EMFolderSelector *emfs;
 	
 	emfs = g_object_new (em_folder_selector_get_type (), NULL);
-	em_folder_selector_construct (emfs, emft, flags, title, text);
+	em_folder_selector_construct (emfs, emft, flags, title, text, oklabel);
 	
 	return (GtkWidget *) emfs;
 }
@@ -275,13 +278,15 @@ static void
 emfs_create_name_activate (GtkEntry *entry, EMFolderSelector *emfs)
 {
 	if (emfs->name_entry->text_length > 0) {
-		const char *path, *text;
+		char *path;
+		const char *text;
 		
 		text = gtk_entry_get_text (emfs->name_entry);
-		path = em_folder_tree_get_selected_path (emfs->emft);
+		path = em_folder_tree_get_selected_uri(emfs->emft);
 		
 		if (text && path && !strchr (text, '/'))
 			g_signal_emit_by_name (emfs, "response", GTK_RESPONSE_OK);
+		g_free(path);
 	}
 }
 
@@ -296,7 +301,7 @@ em_folder_selector_create_new (EMFolderTree *emft, guint32 flags, const char *ti
 	flags &= ~EM_FOLDER_SELECTOR_CAN_CREATE;
 	
 	emfs = g_object_new (em_folder_selector_get_type (), NULL);
-	em_folder_selector_construct (emfs, emft, flags, title, text);
+	em_folder_selector_construct (emfs, emft, flags, title, text, _("Create"));
 	em_folder_tree_set_excluded(emft, EMFT_EXCLUDE_NOINFERIORS);
 	
 	hbox = gtk_hbox_new (FALSE, 0);
@@ -332,7 +337,8 @@ em_folder_selector_set_selected_list (EMFolderSelector *emfs, GList *list)
 const char *
 em_folder_selector_get_selected_uri (EMFolderSelector *emfs)
 {
-	const char *uri, *name;
+	char *uri;
+	const char *name;
 	
 	if (!(uri = em_folder_tree_get_selected_uri (emfs->emft))) {
 		d(printf ("no selected folder?\n"));
@@ -357,8 +363,15 @@ em_folder_selector_get_selected_uri (EMFolderSelector *emfs)
 			
 			camel_url_set_fragment (url, newpath);
 		} else {
-			newpath = g_strdup_printf("%s/%s", (url->path == NULL || strcmp(url->path, "/") == 0) ? "":url->path, name);
-			camel_url_set_path(url, newpath);
+			char *path;
+
+			path = g_strdup_printf("%s/%s", (url->path == NULL || strcmp(url->path, "/") == 0) ? "":url->path, name);
+			camel_url_set_path(url, path);
+			if (path[0] == '/') {
+				newpath = g_strdup(path+1);
+				g_free(path);
+			} else
+				newpath = path;
 		}
 		
 		g_free (emfs->selected_path);
@@ -389,30 +402,36 @@ em_folder_selector_get_selected_paths (EMFolderSelector *emfs)
 const char *
 em_folder_selector_get_selected_path (EMFolderSelector *emfs)
 {
-	const char *path;
+	char *uri, *path;
 	
 	if (emfs->selected_path) {
 		/* already did the work in a previous call */
 		return emfs->selected_path;
 	}
-	
-	if (!(path = em_folder_tree_get_selected_path (emfs->emft))) {
+
+	if ((uri = em_folder_tree_get_selected_uri(emfs->emft)) == NULL) {
 		d(printf ("no selected folder?\n"));
 		return NULL;
 	}
-	
-	if (path && emfs->name_entry) {
+	g_free(uri);
+
+	path = em_folder_tree_get_selected_path(emfs->emft);
+	if (emfs->name_entry) {
 		const char *name;
 		char *newpath;
 		
 		name = gtk_entry_get_text (emfs->name_entry);
-		if (strcmp (path, "/") != 0)
-			newpath = g_strdup_printf ("%s/%s", path, name);
+		if (strcmp (path, "") != 0)
+			newpath = g_strdup_printf ("%s/%s", path?path:"", name);
 		else
-			newpath = g_strdup_printf ("/%s", name);
+			newpath = g_strdup (name);
 		
-		path = emfs->selected_path = newpath;
+		g_free(path);
+		emfs->selected_path = newpath;
+	} else {
+		g_free(emfs->selected_path);
+		emfs->selected_path = path?path:g_strdup("");
 	}
-	
-	return path;
+
+	return emfs->selected_path;
 }

@@ -39,6 +39,8 @@ struct _CamelMimeMessage;
 struct _CamelMimePart;
 struct _GtkSelectionData;
 struct _GtkAdjustment;
+struct _CamelException;
+struct _EMFormat;
 
 gboolean em_utils_prompt_user(struct _GtkWindow *parent, const char *promptkey, const char *tag, const char *arg0, ...);
 
@@ -65,10 +67,12 @@ void em_utils_flag_for_followup_completed (struct _GtkWidget *parent, struct _Ca
 
 void em_utils_selection_set_mailbox(struct _GtkSelectionData *data, struct _CamelFolder *folder, GPtrArray *uids);
 void em_utils_selection_get_mailbox(struct _GtkSelectionData *data, struct _CamelFolder *folder);
+void em_utils_selection_get_message(struct _GtkSelectionData *data, struct _CamelFolder *folder);
 /* FIXME: be nice if these also worked on struct _CamelFolder's, no easy way to get uri from folder yet tho */
 void em_utils_selection_set_uidlist(struct _GtkSelectionData *data, const char *uri, GPtrArray *uids);
-int  em_utils_selection_get_uidlist(struct _GtkSelectionData *data, char **uri, GPtrArray **uidsp);
+void em_utils_selection_get_uidlist(struct _GtkSelectionData *data, struct _CamelFolder *dest, int move, struct _CamelException *ex);
 void em_utils_selection_set_urilist(struct _GtkSelectionData *data, struct _CamelFolder *folder, GPtrArray *uids);
+void em_utils_selection_get_urilist(struct _GtkSelectionData *data, struct _CamelFolder *folder);
 
 char *em_utils_temp_save_part(struct _GtkWidget *parent, struct _CamelMimePart *part);
 
@@ -81,8 +85,8 @@ void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 char *em_utils_get_proxy_uri(void);
 
 /* FIXME: should this have an override charset? */
-char *em_utils_part_to_html(struct _CamelMimePart *part);
-char *em_utils_message_to_html(struct _CamelMimeMessage *msg, const char *credits, guint32 flags);
+char *em_utils_part_to_html(struct _CamelMimePart *part, ssize_t *len, struct _EMFormat *source);
+char *em_utils_message_to_html(struct _CamelMimeMessage *msg, const char *credits, guint32 flags, ssize_t *len, struct _EMFormat *source);
 
 void em_utils_expunge_folder (struct _GtkWidget *parent, struct _CamelFolder *folder);
 void em_utils_empty_trash (struct _GtkWidget *parent);
@@ -96,6 +100,8 @@ char *em_uri_to_camel (const char *euri);
 
 /* is this address in the addressbook?  caches results */
 gboolean em_utils_in_addressbook(struct _CamelInternetAddress *addr);
+
+const char *em_utils_snoop_type(struct _CamelMimePart *part);
 
 #ifdef __cplusplus
 }

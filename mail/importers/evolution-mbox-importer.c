@@ -41,6 +41,7 @@
 #include <gtk/gtkprogressbar.h>
 
 #include <bonobo/bonobo-control.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <camel/camel-exception.h>
 
@@ -111,13 +112,14 @@ create_control_fn(EvolutionImporter *importer, Bonobo_Control *control, void *da
 {
 	GtkWidget *hbox, *w;
 	
-	hbox = gtk_hbox_new(FALSE, FALSE);
+	hbox = gtk_hbox_new(FALSE, 0);
 
 	w = gtk_label_new(_("Destination folder:"));
 	gtk_box_pack_start((GtkBox *)hbox, w, FALSE, TRUE, 6);
 
 	w = em_folder_selection_button_new(_("Select folder"), _("Select folder to import into"));
-	/* set selection to Inbox? */
+	em_folder_selection_button_set_selection((EMFolderSelectionButton *)w,
+						 mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_INBOX));
 	g_signal_connect(w, "selected", G_CALLBACK(folder_selected), data);
 	gtk_box_pack_start((GtkBox *)hbox, w, FALSE, TRUE, 6);
 
@@ -213,10 +215,13 @@ static gboolean
 load_file_fn(EvolutionImporter *eimporter, const char *filename, void *data)
 {
 	MboxImporter *importer = data;
-
+	char *utf8_filename;
+	
+	utf8_filename = g_filename_to_utf8 (filename, -1, NULL, NULL, NULL);
 	importer->dialog = gtk_message_dialog_new(NULL, 0/*GTK_DIALOG_NO_SEPARATOR*/,
 						  GTK_MESSAGE_INFO, GTK_BUTTONS_CANCEL,
-						  _("Importing `%s'"), filename);
+						  _("Importing `%s'"), utf8_filename);
+	g_free (utf8_filename);
 	gtk_window_set_title (GTK_WINDOW (importer->dialog), _("Importing..."));
 
 	importer->label = gtk_label_new (_("Please wait"));

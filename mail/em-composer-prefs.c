@@ -66,6 +66,7 @@
 
 #include "mail-config.h"
 #include "mail-signature-editor.h"
+#include "em-config.h"
 
 #define d(x)
 
@@ -326,11 +327,11 @@ sig_edit_cb (GtkWidget *widget, EMComposerPrefs *prefs)
 }
 
 void
-em_composer_prefs_new_signature (GtkWindow *parent, gboolean html, const char *script)
+em_composer_prefs_new_signature (GtkWindow *parent, gboolean html)
 {
 	ESignature *sig;
 	
-	sig = mail_config_signature_new (script, script ? TRUE : FALSE, html);
+	sig = mail_config_signature_new (NULL, FALSE, html);
 	mail_signature_editor (sig, parent, TRUE);
 }
 
@@ -362,7 +363,7 @@ sig_add_cb (GtkWidget *widget, EMComposerPrefs *prefs)
 	parent = gtk_widget_get_toplevel ((GtkWidget *) prefs);
 	parent = GTK_WIDGET_TOPLEVEL (parent) ? parent : NULL;
 	
-	em_composer_prefs_new_signature ((GtkWindow *) parent, send_html, NULL);
+	em_composer_prefs_new_signature ((GtkWindow *) parent, send_html);
 }
 
 static void
@@ -383,11 +384,7 @@ sig_add_script_response (GtkWidget *widget, int button, EMComposerPrefs *prefs)
 			struct stat st;
 			
 			if (stat (argv[0], &st) == 0 && S_ISREG (st.st_mode) && access (argv[0], X_OK) == 0) {
-				GtkWidget *parent;
 				ESignature *sig;
-				
-				parent = gtk_widget_get_toplevel ((GtkWidget *) prefs);
-				parent = GTK_WIDGET_TOPLEVEL (parent) ? parent : NULL;
 				
 				if ((sig = g_object_get_data ((GObject *) entry, "sig"))) {
 					/* we're just editing an existing signature script */
@@ -395,7 +392,11 @@ sig_add_script_response (GtkWidget *widget, int button, EMComposerPrefs *prefs)
 					sig->name = g_strdup (name);
 					e_signature_list_change (mail_config_get_signatures (), sig);
 				} else {
-					em_composer_prefs_new_signature ((GtkWindow *) parent, TRUE, script);
+					sig = mail_config_signature_new (script, TRUE, TRUE);
+					sig->name = g_strdup (name);
+					
+					e_signature_list_add (mail_config_get_signatures (), sig);
+					g_object_unref (sig);
 				}
 				
 				gtk_widget_hide (prefs->sig_script_dialog);
@@ -536,7 +537,7 @@ spell_set_ui (EMComposerPrefs *prefs)
 	/* setup the language list */
 	if (!(lang = gconf_client_get_string (prefs->gconf, GNOME_SPELL_GCONF_DIR "/language", &err)) || err) {
 		g_free (lang);
-		g_error_free (err);
+		g_clear_error (&err);
 		lang = g_strdup (e_iconv_locale_language ());
 	}
 	
@@ -840,6 +841,36 @@ toggle_button_init (EMComposerPrefs *prefs, GtkToggleButton *toggle, int not, co
 		gtk_widget_set_sensitive ((GtkWidget *) toggle, FALSE);
 }
 
+static GtkWidget *
+emcp_widget_glade(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
+{
+	EMComposerPrefs *prefs = data;
+
+	return glade_xml_get_widget(prefs->gui, item->label);
+}
+
+/* plugin meta-data */
+static EMConfigItem emcp_items[] = {
+	{ E_CONFIG_BOOK, "", "composer_toplevel", emcp_widget_glade },
+	{ E_CONFIG_PAGE, "00.general", "vboxGeneral", emcp_widget_glade },
+	{ E_CONFIG_SECTION, "00.general/00.behavior", "vboxBehavior", emcp_widget_glade },
+	{ E_CONFIG_SECTION, "00.general/10.alerts", "vboxAlerts", emcp_widget_glade },
+	{ E_CONFIG_PAGE, "10.signatures", "vboxSignatures", emcp_widget_glade },
+	/* signature/signatures and signature/preview parts not usable */
+
+	{ E_CONFIG_PAGE, "20.spellcheck", "vboxSpellChecking", emcp_widget_glade },
+	{ E_CONFIG_SECTION, "20.spellcheck/00.languages", "vbox178", emcp_widget_glade },
+	{ E_CONFIG_SECTION, "20.spellcheck/00.options", "vboxOptions", emcp_widget_glade },
+};
+
+static void
+emcp_free(EConfig *ec, GSList *items, void *data)
+{
+	/* the prefs data is freed automagically */
+
+	g_slist_free(items);
+}
+
 static void
 em_composer_prefs_construct (EMComposerPrefs *prefs)
 {
@@ -850,22 +881,23 @@ em_composer_prefs_construct (EMComposerPrefs *prefs)
 	GtkTreeSelection *selection;
 	int style;
 	char *buf;
+	EMConfig *ec;
+	EMConfigTargetPrefs *target;
+	GSList *l;
+	int i;
 	
 	prefs->gconf = mail_config_get_gconf_client ();
 	
-	gui = glade_xml_new (EVOLUTION_GLADEDIR "/mail-config.glade", "composer_tab", NULL);
+	gui = glade_xml_new (EVOLUTION_GLADEDIR "/mail-config.glade", "composer_toplevel", NULL);
 	prefs->gui = gui;
 	prefs->sig_script_gui = glade_xml_new (EVOLUTION_GLADEDIR "/mail-config.glade", "vbox_add_script_signature", NULL);
-	
-	/* get our toplevel widget */
-	toplevel = glade_xml_get_widget (gui, "toplevel");
-	
-	/* reparent */
-	gtk_widget_ref (toplevel);
-	gtk_container_remove (GTK_CONTAINER (toplevel->parent), toplevel);
-	gtk_container_add (GTK_CONTAINER (prefs), toplevel);
-	gtk_widget_unref (toplevel);
-	
+
+	ec = em_config_new(E_CONFIG_BOOK, "com.novell.evolution.mail.composerPrefs");
+	l = NULL;
+	for (i=0;i<sizeof(emcp_items)/sizeof(emcp_items[0]);i++)
+		l = g_slist_prepend(l, &emcp_items[i]);
+	e_config_add_items((EConfig *)ec, l, NULL, NULL, emcp_free, prefs);
+
 	/* General tab */
 	
 	/* Default Behavior */
@@ -988,8 +1020,13 @@ em_composer_prefs_construct (EMComposerPrefs *prefs)
 	g_signal_connect (prefs->sig_preview, "url_requested", G_CALLBACK (url_requested), NULL);
 	gtk_widget_show (GTK_WIDGET (prefs->sig_preview));
 	gtk_container_add (GTK_CONTAINER (widget), GTK_WIDGET (prefs->sig_preview));
-}
 
+	/* get our toplevel widget */
+	target = em_config_target_new_prefs(ec, prefs->gconf);
+	e_config_set_target((EConfig *)ec, (EConfigTarget *)target);
+	toplevel = e_config_create_widget((EConfig *)ec);
+	gtk_container_add (GTK_CONTAINER (prefs), toplevel);
+}
 
 GtkWidget *
 em_composer_prefs_new (void)

@@ -1,3 +1,1836 @@
+2004-10-11  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #67014.
+
+	* mail-errors.xml: added "checking-service" error.
+
+	* em-account-editor.c (em_account_editor_construct): keep track of
+	the dialogue
+	(emae_editor_destroyed): , and clean up when destroyed.
+
+	* em-account-editor.c (emae_check_authtype)
+	(emae_check_authtype_response, emae_check_authtype_done): handle
+	checking authtype gui here.
+
+	* mail-config.c (check_service_describe, check_service_check) 
+	(check_response, mail_config_check_service): removed.
+
+	* mail-ops.c (mail_check_service): moved here from mail-config,
+	and modified to be a re-usable threaded function.
+
+2004-10-18  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #68006.
+
+	* em-folder-view.c (emfv_init): dont ref/sink the invisible.
+	(emfv_destroy): just destroy it here.
+
+2004-10-15  Not Zed  <NotZed@Ximian.com>
+
+	* em-composer-utils.c (create_new_composer):
+	(em_utils_compose_new_message, forward_non_attached): do noting if
+	the composer couldn't be created.  We get a popup from elsewhere
+	to let the user know.
+
+2004-10-14  Sivaiah Nallagatla <snallagatla@novell.com>
+
+	* mail-errors.xml : Remove Pango markup from groupwise 
+	account setup error message 
+
+2004-10-12  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html-display.c (efhd_find_handler): use builtin
+	handlers (and plugins) always overriding bonobo ones.
+
+2004-10-11  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #67408.
+
+	* em-folder-view.c (emfv_gui_folder_changed): noop if we were
+	destroyed.
+	(emfv_destroy): set destroyed bit.
+
+2004-10-11  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (mc_startup): register the formatter types
+	before registering the formatter hook.
+
+2004-10-08  JP Rosevear  <jpr@novell.com>
+ 
+	* mail-account-gui.c (browse_clicked): use "Select a file"
+	
+2004-10-08  Harry Lu  <harry.lu@sun.com>
+
+	* em-folder-tree.c: (em_folder_tree_class_init), (real_popup_menu),
+	(emft_popup_menu), (emft_tree_button_press): implement popup_menu
+	so that popup menu can be shown with Shift+F10 on folder tree.
+	* em-folder-view.c: (emfv_popup), (emfv_list_key_press):
+	same as above.
+
+2004-10-07  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (mc_startup): dont init the base plugin system
+	here anymore, only register the hook types for mail hooks.
+
+2004-09-28  Not Zed  <NotZed@Ximian.com>
+
+	* em-composer-utils.c (forward_non_attached): put back in the
+	attachment attaching code.  Doesn't work for s/mime and pgp, but
+	why bother arguing about it.
+
+2004-10-06  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (emft_get_folder_info__desc): fix busted cast.
+
+	* *.c: e-popup api changes.
+
+2004-10-06  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (emft_tree_button_press): remove some debug
+	that made it in accidentally.
+
+2004-10-05  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (emft_popup_copy_folder_selected): remove old
+	debug which no longer works.
+
+	** See bug #66991 (related to #64377).
+
+	* em-folder-tree.c (em_folder_tree_set_selected): if we get a NULL
+	uri or "", just clear the list.
+	(emft_tree_button_press): select the new path as well as move the
+	cursor there, otherwise emft_tree_user_event clears the selection.
+
+2004-09-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* em-migrate.c (upgrade_passwords_1_2): fix uninitialised pointer.
+
+2004-09-27  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-account-editor.c: Changed the SSL option menu labels.
+
+2004-09-21  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #63521.
+
+	* mail-ops.c (fetch_mail_fetch): delete all the messages on the
+	server if we're not in keep on server mode and everything worked.
+	uncancel ourselves before saving the cache uid since it could be
+	cancelled otherwise.
+
+2004-09-24  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #66706.
+
+	* em-subscribe-editor.c: add a sequence number to EMSubscribe and
+	the subscribe_msg structures.  NOOP if the sequence has changed in
+	all callbacks.  up the sequence number when we refresh.
+
+2004-09-20  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #65329.
+
+	* em-folder-tree-model.c (emft_is_special_local_folder): added
+	helper for finding local folders for translation.
+	(em_folder_tree_model_set_folder_info): translate the special
+	local folder names.
+
+	* mail-component.c: mark standard folder names for translation.
+
+2004-09-23  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #65058 (again again).
+
+	* em-format-html.c (efh_text_html): calculate our location uri
+	ourselves (content id).
+
+	* em-format.c (em_format_add_puri): if we have no content-location
+	key, don't fallback to any container's location.
+
+2004-09-23  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (emft_get_folder_info__desc): describe the
+	get-folder process.  This also makes it cancellable.
+
+	** See bug #64972.
+
+	* em-composer-utils.c (em_utils_reply_to_message): pass the folder
+	to guess_account.
+
+2004-09-03  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #65058.
+
+	* em-format-html.c (efh_image): use the content-id rather than
+	the uri for tracking our image reference.  Makes more
+	sense anyway, its guaranteed unique.
+
+2004-09-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* em-folder-tree-model.c (em_folder_tree_model_set_selected): Fix
+	a typo setting the root node.
+
+2004-09-09  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-message-browser.c (emmb_set_message): Ignore the
+	emfv->mark_seen for deciding whether or not to mark the message as
+	seen. Fixes bug #65448.
+
+2004-09-09  Jeffrey Stedfast  <fejj@novell.com>
+
+	* mail-account-gui.c (mail_account_gui_new): If built with
+	gtkfilechooser support, we need to add a checkbox in the chooser
+	so that the user can select files or folders (allowing him to
+	choose - otherwise they won't be able to setup certain types of
+	accounts). Fixes bug #64974.
+
+2004-09-12  JP Rosevear  <jpr@novell.com>
+
+	Fixes #65703
+	
+	* em-popup.c: use proper stock icon name
+
+2004-09-08  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #60515.
+
+	* mail-account-gui.c (sig_fill_menu): connect to the activate
+	signal for the none item.
+
+2004-09-03  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #59717.
+
+	* mail-config.c (mail_config_check_service): Make the dialog
+	modal.  Not ideal but a problem with the way the function works,
+	it should be fully async instead.
+
+2004-09-01  Jeffrey Stedfast  <fejj@novell.com>
+
+	Fix for bug #63377 and prevention of similar cases.
+
+	* em-format.c (emf_finalise): Free the default_charset.
+	(emf_format_clone): Clone the default_charset - this prevents the
+	particular crash described in bug #63377.
+
+	* em-utils.c (em_utils_message_to_html): If source is NULL, set
+	our own default charset (from the user's gconf key) on the
+	formatter to make sure there's always a source charset for
+	conversion to UTF-8.
+
+2004-08-30  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree.c (emft_popup_delete_folder): Set the store and
+	full_name info on the dialog.
+	(emft_popup_delete_response): Use the requisite data stored on the
+	dialog object rather than examining the selection again. Fixes bug
+	#62665.
+
+2004-08-30  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #64377.
+
+	* em-folder-selector.c (emfs_response): only set the uri if we
+	have one to set.
+
+	* em-folder-tree.c (em_folder_tree_finalize): Removed
+	cose using selected_path and selected_uri strings.
+	(emft_popup_new_folder): "
+	(emft_popup_copy_folder_selected): "
+	(emft_tree_selection_changed): 
+	(emft_tree_row_activated): ", free paths after use.
+
+	* em-folder-selector.c (emfs_create_name_changed): free
+	get_selected_uri return.
+	(emfs_create_name_activate): "
+	(em_folder_selector_get_selected_path): handle api change, store
+	the selected_path too.
+
+	* em-folder-tree.c (em_folder_tree_get_selected_uri):
+	de-constify,and get the selection directly from the tree.
+	(em_folder_tree_get_selected_path): same.
+
+2004-08-27  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #63456.
+
+	* message-list.c (main_folder_changed): noop if the async_event
+	pointer is NULL which can happen during destroy.
+
+2004-08-27  JP Rosevear  <jpr@novell.com>
+
+	* importers/mail-importer.c (import_folders_rec): utf8_filename
+	should be char * not char
+
+2004-08-27  Hans Petter Jansson  <hpj@ximian.com>
+
+	* em-utils.c (emu_can_save): Don't crash if we're passed a NULL
+	path. GtkFileChooser can return NULL filenames that get passed
+	to this function.
+
+2004-08-26  Christian Neumair  <chris@gnome-de.org>
+
+	* GNOME_Evolution_Mail.server.in.in:
+	Don't mark component menu accel for translation.
+
+2004-08-24  Jeffrey Stedfast  <fejj@novell.com>
+
+	Fix for bug #63177
+
+	* em-folder-tree.c (emft_drop_async_drop): Check full_name == NULL
+	rather than full_name[0] since store's have NULL full_names, not
+	empty string (like they used to).
+	(emft_drop_folder): Same.
+	(tree_drag_data_received): Don't abort the drop if the user
+	dropped on a store, this is allowed (depending on the store).
+
+2004-08-25  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (store_info_new): only open the trash or junk
+	if they're vfolders here.  Some stores that implement their own
+	trash folders are unacceptably slow to open otherwise.
+
+2004-08-25  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* importers/evolution-mbox-importer.c (load_file_fn):
+
+	* importers/evolution-outlook-importer.c (load_file_fn):
+
+	* importers/mail-importer.c (import_folders_rec): Convert filename
+	to UTF-8 from local encoding before displaying it.
+
+2004-08-23  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (em_folder_tree_set_selected): store the
+	select-uri on the view not in the thread message.
+	(emft_get_folder_info__free):
+	(emft_get_folder_info__got): select_uri removed.
+	(em_folder_tree_set_selected_list): don't set each selected
+	separately, do it as a list.
+	(emft_maybe_expand_row): if this is a selected row, select it too.
+	(emft_get_folder_info__got): do no pending set selection stuff
+	here.
+	(em_folder_tree_set_selected): just call set_selected_list with
+	one item.
+	(emft_expand_node): if this is a selected row, select it too.
+	(emft_get_folder_info__got): no longer need to track lost folders.
+	(emft_tree_row_activated): clear the pending select list.
+	(emft_tree_selection_changed): and here too.
+	(em_folder_tree_get_selected_uris): get the lost folders from the
+	un-applied selected ones now.  also fixes a list appending error.
+	(emft_tree_user_event): find out when the user hits a key or mouse
+	button to override any pending single-user select and don't
+	override the cursor setting either.
+	(emft_tree_row_expanded): set the 'load subdirs' false before we
+	load it, so we don't try to load it again if its still being
+	loaded.
+	(emft_get_folder_info__got): don't check the loaded flag here, it
+	should be set by the callee, also check the exception return.
+
+2004-08-13  Jeffrey Stedfast  <fejj@novell.com>
+
+	Fix for bug #62812
+
+	* em-format-html-display.c (em_format_html_display_search): Set
+	the search_dialog to be transient for the parent window and make
+	sure to destroy the search_dialog when the parent gets destroyed.
+
+2004-08-21 Sivaiah Nallagatla <snallagatla@novell.com>
+
+	* mail-erros.xml: changed the groupwise account setup error
+	message
+
+2004-08-16  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #62963.
+
+	* message-list.c (build_tree, build_flat): define selected in
+	declaration block, not inline. Spotted by Vincent Noel
+	<vnoel@cox.net>
+
+2004-08-13  Not Zed  <NotZed@Ximian.com>
+
+	* em-utils.c (em_utils_message_to_html): don't include the
+	terminating NUL in the data length.
+	(em_utils_part_to_html): nor here.
+
+2004-08-12  Carlos Garnacho Parro  <carlosg@gnome.org>
+
+	* em-utils.c: Optionally use GtkFileChooser if compiled against
+	Gtk+ >= 2.4.0
+
+	* mail-config.glade: added the "use_filechooser" property to the
+	various GnomeFileEntries
+
+2004-08-10  Jeffrey Stedfast  <fejj@novell.com>
+
+	Partial fix for bug #62771
+
+	* em-format-quote.c (emfq_format_header): Same.
+
+	* em-format-html.c (efh_format_header): Decode the
+	X-Mailer/User-Agent headers.
+
+2004-08-10  Not Zed  <NotZed@Ximian.com>
+
+	* mail-session.c (get_password): just call
+	e_passwords_ask_password directly.
+	(pass_activate, pass_response, request_password, do_get_pass)
+	(do_free_pass, main_forget_password): no longer required as
+	e_password now handles the magic, and is thread safe.
+
+	* mail-config.c (mail_config_write_on_exit): epasswords api
+	change.
+
+2004-08-06  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree-model.c (em_folder_tree_model_get_selected):
+	Return NULL not FALSE on error.
+
+2004-06-08  Karsten Bräckelmann  <guenther@rudersport.de>
+
+	* em-format-html-display.c (smime_encrypt_table[4]): minor typo,
+	uppercase 'the' corrected.
+
+2004-08-03  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-composer-utils.c (format_sender): If type="{Sender}" and name
+	is an empty string, use the addr. Fixes bug #62377
+
+2004-08-01  JP Rosevear  <jpr@novell.com>
+
+	* default/C/Inbox: Update to just call us "Evolution" and be more
+	accurate about the new features included
+
+2004-07-29  Sivaiah Nallagatla <snallagatla@novell.com>
+
+	* mail-errors.xml: add the error message needed for groupwise
+	account setup
+
+2004-07-28  Not Zed  <NotZed@Ximian.com>
+
+	** See #61958.
+
+	* mail-folder-cache.c (real_flush_updates): remove the soreinfo
+	lookup, it isn't used anywhere anymore.
+	(mail_note_folder): hook onto the events outside of the lock, and
+	don't pass the mfi pointer anymore.
+	(mail_note_store): hook onto the events outside of the lock.
+	(folder_changed, folder_finalised, folder_renamed): lookup the mfi
+	if needed, it is no longer passed to the callback.
+	(unset_folder_info): change unhook calls for new parameters.
+
+2004-07-28  Not Zed  <NotZed@Ximian.com>
+
+	** See #61940.
+
+	* em-composer-utils.c (composer_set_body): add emformat source arg.
+	(em_utils_reply_to_message): take source arg.  Fixed callers.
+
+	* em-utils.c (em_utils_message_to_html): take a source formatter
+	argument, so we can copy/honour settings from it.
+	(em_utils_part_to_html): similar.
+
+2004-07-27  Not Zed  <NotZed@Ximian.com>
+
+	** See #57972.
+
+	* message-list.c (search_func): removed.
+	(ml_search_path): new function to just search, not actually change
+	the cursor like e_tree_find does.
+	(message_list_can_select): new function, returns true if the
+	selection specified is possible without changing the selection.
+	(message_list_select): rewritten.
+	(select_path): helper to select a path in a way that 'works
+	reliably'.
+	(message_list_select_next_thread): rewritten to use the
+	table-adapter, so it properly handles arbitrary sorting.
+
+	* em-folder-view.c (em_folder_view_get_popup_target): setup
+	next/prev flags as appropriate.
+	(emfv_enable_map[]): setup next/prev flags.
+
+	* em-folder-view.h: added last and first message status bits to
+	folder view select mask.
+
+2004-07-23  Radek Doulik  <rodo@ximian.com>
+
+	* added len parameter to em_utils_part_to_html and
+	em_utils_message_to_html. it is used to return length of returned
+	buffer. we use that info later when setting composer body content.
+
+2004-07-22  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (impl_createControls): dont call
+	e_error_default parent here, we dont have access to the toplevel
+	yet.
+
+2004-07-23  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #61824.
+
+	* em-popup.c (emp_part_popup_reply_sender)
+	(emp_part_popup_reply_list, emp_part_popup_reply_all): use new
+	api.  We have no uid/folder to update here.
+
+	* em-folder-view.c (emfv_message_reply): use new api for replying
+	so we can supply the message content and have flags updated.
+
+	* em-composer-utils.c (em_utils_reply_to_message): added optional
+	folder and uid.
+	(em_utils_reply_to_message_by_uid): removed, use the other
+	interface instead.
+	(reply_to_message): just call reply_to_message if we get a message
+	to reply to.
+	(em_utils_reply_to_message): if no message supplied, load it via
+	the uid.
+
+2004-07-22  Not Zed  <NotZed@Ximian.com>
+
+	* em-utils.c (em_utils_part_to_html, em_utils_message_to_html):
+	set the session on the formatter.  See #61767.
+
+2004-07-22  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #61747.
+
+	* message-list.c (search_func): don't emit a message_selected here
+	(god knows why we did?).  Don't update cursor_uid either, just
+	clear it.
+	(message_list_select): select the path if we find it here, causing
+	the cascade of selection action.
+
+2004-07-19  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-migrate.c (em_migrate_folder): Free uri and name
+	strings. Fixes a leak.
+
+2004-07-13  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-view.c (emfv_message_reply): Chck that the selection
+	is active. Hopefully this will fix bug #61427.
+
+2004-07-13  Dan Winship  <danw@novell.com>
+
+	* em-utils.c (em_utils_selection_set_urilist,
+	em_utils_temp_save_part): free return value from e_mkdtemp
+
+2004-07-09  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-browser.c (emfb_folder_expunge): only call expunge if
+	the folder is set.
+	(emfb_enable_map[]): only enable expunge menu item if we have a
+	valid folder set.
+
+	** See bug #60900.
+
+	* em-format-html.c: convert the text_inline_parts hash to be keyed
+	off the partid.
+	(efh_free_inline_parts): -> efh_free_cache and fix to do it.
+
+	* em-format.c (emf_free_cache): make the inline table cache other
+	info too based on partid, this frees the structure.
+	(emf_clone_inlines): copy all of the cache data.
+	(em_format_is_inline): use the new data structure to determine
+	state.
+	(em_format_set_inline): same for setting.
+	(emf_multipart_signed): cache/lookup the cached part.
+	(emf_insert_cache): helper to add a cache entry.
+	(emf_multipart_encrypted): cache decrypted part.
+	(emf_application_xpkcs7mime): same.
+
+2004-07-08  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #60900 (related only).
+
+	* em-format-html-display.c (efhd_attachment_show): let set_inline
+	do the redraw itself if required.  kill some dead code.
+
+	* em-format.c (em_format_set_inline): trigger a redraw here like
+	the other em_format_set methods, if the state changed.
+
+	* em-format.c (emf_format_clone): free inline table keys & setup
+	string hash table.
+
+	* em-format-quote.c (emfq_format_attachment): 
+	* em-format-html-display.c (efhd_format_attachment): 
+	* em-format-html.c (efh_format_attachment): is_inline api changes.
+
+	* em-format-html-display.c (efhd_attachment_show): set_inline api
+	changes.
+
+	* em-format.c (em_format_is_inline): make this use the partid
+	rather than the part address as a key, which may change.
+	(emf_init): make the inline talbe a string hashtable.
+	(emf_finalise): free inline keys.
+	(emf_clone_inlines): copy the key string.
+
+2004-07-07  Jeffrey Stedfast  <fejj@novell.com>
+
+	Fix for bug #61199.
+
+	* em-format-html.c (efh_format_address): Same.
+
+	* em-format-quote.c (emfq_format_address): Make sure 'real' isn't
+	NULL before using.
+
+2004-07-08  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* Makefile.am:
+	tarball should ship .schemas.in.in files, not generated files.
+
+2004-07-02  JP Rosevaer  <jpr@novell.com>
+
+	* Makefile.am (SUBDIRS): Revert previous error change
+
+2004-09-10  Not Zed  <NotZed@Ximian.com>
+
+	* em-*: various doco updates.
+
+	* em-format-quote.c (emfq_builtin_init): instead of removing the
+	type, just add an override noop.  Changed api's.
+
+2004-09-09  Not Zed  <NotZed@Ximian.com>
+
+	* em-format.c (em_format_class_remove_handler): Change this to use
+	the original structure only, not by type.
+
+	* em-format-hook.c (emfh_enable): implement hook enablation.
+
+2004-09-07  Not Zed  <NotZed@Ximian.com>
+
+	* em-account-editor.c (emae_setup_providers): set the provider
+	shown selected on the store as well.
+
+	* mail-config.glade: moved the druid 'help text' directly into the
+	glade file.
+
+	* em-account-editor.c (emae_check_complete): add pre-load for
+	management page options.
+
+	* em-utils.c (em_utils_configure_account): remove use of
+	mail-config-druid.
+
+	* em-account-editor.c (emae_remove_childen): removed.
+	(*): removed service->url, always get it from/set it to the
+	e-account so it doesn't have side-effects with plugins.
+
+	* mail-dialogs.glade: fix up the names of the various license
+	dialog fields.
+
+2004-09-06  Not Zed  <NotZed@Ximian.com>
+
+	* em-account-editor.c (emae_receive_options_extra_item): store the
+	config widgets in the item entry itself.
+	(emae_auto_detect): wasted a whole lot of time on this crap.
+
+	* em-account-prefs.c (account_able_clicked): removed some redundant logic.
+
+	* mail-send-recv.c (mail_autoreceive_setup): renamed to
+	mail_autoreceive_init and rewrote all the callbacks.  now it
+	listens to events on the accountlist directly and doesn't need
+	invoking manually.  It also runs relative to the account always,
+	rather than copying the uri.  Removed all callers except the mail
+	component one.
+
+	* em-account-editor.c (em_account_editor_provider_selector_new):
+	removed becaus eof below.
+	(em_account_editor_construct): copy the account to a working
+	object if supplied, else create a new one.
+
+	* mail-config.glade: make the provider selectors just use
+	em_account_editor_dropdown new for the dropdown menu.
+
+	* em-account-editor.c (prepare_signatures): removed, merged into
+	the identity page code.
+	(sig_fill_menu): removed.
+	(emae_setup_signatures): new function to setup signatures on a
+	gtkcombobox.
+	(clear_menu): removed.
+	(signature_changed): removed.
+	(emae_signature_changed): new function for changed.
+	(signature_removed): removed.
+	(emae_signature_removed): new function for removed.
+	(emae_signature_get_iter): helper for finding the right row for
+	this signature.
+	(signature_added): removed.
+	(emae_signature_added): new function for added.
+	(sig_activate): removed.
+	(emae_signaturetype_changed): new function to update the account
+	info immediately.
+	(sig_add_new_signature): renamed to emae_signature_new.
+	(select_account_signature): no longer needed, this happens in the
+	setup.
+
+	* mail-config.glade: changed the signature thing to a custom
+	widget (gtkcombobox).
+
+	* em-account-editor.c (em_account_editor_construct): updates for
+	api change, table sections require table items.
+	(emae_setup_service): handle host:port hostname syntax.
+	(emae_hostname_changed): and here too.
+	(emae_commit): fill this out, and implement it.
+
+2004-09-04  Not Zed  <NotZed@Ximian.com>
+
+	* *.c: include gnome i18.h if needed since camel-object.h was
+	fixed.
+
+	* em-format.c (em_format_class_add_handler): if a handler is
+	already set for type, link it in.
+
+	* em-format.h: added a link pointer to EMFormatHanlder, so that
+	overrides can also fallback.  remove applications member - not
+	used anymore.
+
+2004-09-01  Not Zed  <NotZed@Ximian.com>
+
+	* em-popup.h: added some docs.
+
+	* em-popup.c (emp_standard_menu_factory): 
+	* em-folder-tree.c (tree_drag_data_received): popup api changes.
+
+2004-08-31  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html-display.c (efhd_attachment_button_show): use a
+	wrapper for the button event since the popup event has changed
+	signature.
+
+2004-08-30  Not Zed  <NotZed@Ximian.com>
+
+	* em-popup.c (emp_standard_menu_factory): changed args.
+	(struct _open_in_item): removed, use user data instead.
+	(*): fix callbacks for new apis.
+	(emp_popup_open): Removed some dead popup callbacks never invoked.
+	(em_popup_target_new_attachments): new target type for attachment
+	bar in composer.
+
+	* em-folder-tree.c (emft_popup*): convert to new e-popup apis.
+
+	* em-folder-view.c: emfv_popup_*: convert to new e-poup callback
+	signatures.
+	(EMFV_MAP_CALLBACK): fix for e-popup callback change.
+	(EMFV_POPUP_AUTO_TYPE): same.
+	(emfv_popup): dont bother setting item callback data.
+	(emfv_popup_labels_free): api changes.
+	(emfv_popup_items_free): new free method.
+	(EMFVPopupItem): No longer needed.
+	(emfv_uri_popup_free): api changes.
+	(emfv_format_popup_event): new api's == simpler code.
+
+	* em-account-editor.c (emae_receive_options_extra_item): add a
+	hack for the label item, which is only used by connector to
+	override the hostname and username labels.
+
+2004-08-24  Not Zed  <NotZed@Ximian.com>
+
+	* em-account-editor.c (em_account_editor_construct): create the
+	window rather than the widget here.
+
+	* mail-config.glade: remove the extra_page from the druid, it is
+	autogenerated now.  renamed the "Receiving options" notebook page
+	to "Receiving Email" since it isn't hte options page.
+
+	* em-account-editor.c (emae_receive_options_page): no longer
+	needed, autogenerated.
+	(emae_receive_options_item): setup the auto-receive time values.
+	(emae_receive_page): don't setup the auto check time values here.
+
+	* mail-config.glade: Remove the Receiving Mail tab, it is now
+	completely auto-generated.
+
+2004-08-17  Not Zed  <NotZed@Ximian.com>
+
+	* em-event.[ch]: mail event dispatcher.
+
+	* mail-component.c (mc_startup): hook into events.
+
+	* mail-folder-cache.c (update_1folder): always set the uri field.
+	(real_flush_updates): emit a folder.changed:new event if we have new
+	mail.
+
+2004-08-13  Not Zed  <NotZed@Ximian.com>
+
+	* mail-config.glade: replaced ssl selector with custom widget
+	(gtkcombobox).  Giv the preferences, composer toplevel unique
+	names.
+
+2004-07-29  Not Zed  <NotZed@Ximian.com>
+
+	* mail-config.glade: replaced source and transport selector with
+	custom widget (gtkcombobox).
+
+	* em-account-editor.[ch]: copy over mail-account-gui.[ch] and
+	rename stuff.  Make a gobject.  Move most internals, internal.
+
+2004-07-28  Not Zed  <NotZed@Ximian.com>
+
+	* em-composer-prefs.c (em_composer_prefs_construct): get the
+	toplevel tab as the root.
+	(em_composer_prefs_construct): setup plugin metadata for composer
+	prefs.
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): setup plugin
+	metadata for mail preferences.
+
+	* em-config.c (em_config_target_new_prefs): new target for 'prefs'
+	mode, everything global via gconf.
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): get the gui from
+	the preferences_toplevel not the preferences_tab window which we
+	don't need.
+
+	* mail-config.glade: rename the preferences 'toplevel' to
+	preferences_toplevel so we can get it unparented.  And the
+	composer toplevel to composer_toplevel.
+
+	* em-folder-properties.c (em_folder_properties_show): remove test
+	code.
+
+	* em-format.h (struct _EMFormatPURI): add a free function
+	callback.
+
+	* em-format.c (emf_clear_puri_node): if the free function is set,
+	call it.
+
+2004-07-01  Rodney Dawes  <dobey@novell.com>
+
+	* Makefile.am (BUILT_SOURCES): Remove $(error_i18n)
+	(CLEANFILES): Put $(error_i18n) in here
+
+2004-06-29  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree-model.c (folder_created_cb): call
+	folder_subscribed directly from the async function not
+	foldre_subscribed_cb, otherwise we run out of order.  Part of
+	#60775.
+
+	* em-vfolder-rule.c (source_add): setup exclusion for vfolder
+	sources, noselect folders.  Bug #60794.
+
+2004-06-23  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-selector.c (em_folder_selector_get_selected_path):
+	Don't prepend the path string with a '/'.
+
+	* em-folder-tree.c (em_folder_tree_create_folder): This takes a
+	full_name so update the argument to make that clear.
+	(emft_create_folder): Same and also don't strip a leading '/'
+
+2004-06-25  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (folder_tree_new): set search column.  #60152.
+
+2004-06-24  Rodney Dawes  <dobey@novell.com>
+
+	* em-utils.c (em_utils_add_address): Add code to set the parent,
+	position, and type hint of the "Add address" dialog
+
+	Fixes #60030
+
+2004-06-23  Not Zed  <NotZed@Ximian.com>
+
+	** See #54030.
+
+	* e-searching-tokenizer.c (e_searching_tokenizer_match_count):
+	only return a count if we're using the primary search string.
+
+	* em-format-html-display.c (efhd_search_response): set the primary
+	search string to NULL instead of resetting it.
+	(efhd_update_search): dont noop if we have a null search text,
+	just set an empty search.
+
+	* e-searching-tokenizer.c (e_searching_tokenizer_reset): remove
+	this, revert jeff's fixes for 54030.  this is incomplete and so
+	doesn't work either (search text stays remembered and secondary
+	search text lost too).
+
+	** See #60523.
+
+	* em-folder-view.c (emfv_finalise): unhook the folder changed
+	before destroying the async thing, and move it all to destroy
+	event anyway.
+	(emfv_destroy): as above.
+
+2004-06-22  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree-model.c (sort_cb): Same as below.
+	(em_folder_tree_model_remove_folders): Same.
+
+	* em-folder-tree.c (emft_maybe_expand_row): As toshok discovered,
+	gtk_tree_model_get() strdup's string arguments, *sigh*, so we need
+	to free them.
+	(tree_drag_data_delete): Same.
+	(tree_drag_data_get): Same.
+	(tree_drag_data_received): Same.
+	(emft_drop_target): Same
+	(em_folder_tree_get_selected_uris): Same.
+	(get_selected_uris_path_iterate): Same.
+	(emft_update_model_expanded_state): Same.
+	(emft_tree_row_expanded): Same.
+	(emft_tree_row_activated): Same.
+	(emft_popup_delete_response): Same.
+	(emft_popup_delete_folder): Same.
+	(emft_popup_rename_folder): Same.
+	(emft_popup_properties): Same.
+	(emft_tree_button_press): Same.
+	(emft_tree_selection_changed): Same.
+
+2004-06-22  Chris Toshok  <toshok@ximian.com>
+
+	* em-folder-tree.c (render_pixbuf): gtk_tree_model_get on a string
+	field allocates the return value.  free path.
+
+2004-06-22  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-popup.c (emp_apps_open_in): If the app requires a terminal to
+	run, give it a bloody terminal (who uses vi in an xterm to view
+	attached text files? *sigh*). Fixes bug #51259.
+
+2004-06-21  Chris Toshok  <toshok@ximian.com>
+
+	* em-folder-tree.c (render_display_name): gtk_tree_model_get on a
+	string field allocates the return value.  free name.
+
+2004-06-21  Radek Doulik  <rodo@ximian.com>
+
+	* em-junk-filter.c (em_junk_sa_test_spamd): make sure we test for
+	-p and --port only and not for other options as --pidfile
+
+	Fixes #60260
+
+	(em_junk_sa_test_spamd): try to get spamd/spamc binaries from
+	gconf
+
+	Implements #59368
+
+2004-06-18  Not Zed  <NotZed@Ximian.com>
+
+	** See #31027.
+
+	* em-vfolder-editor.c (em_vfolder_editor_new): make sure we
+	construct the rule editor with a source of 'incoming', otherwise
+	newly created rules have no source in the current session.
+
+	* em-vfolder-rule.c (em_vfolder_rule_init): init the vfolder
+	source to 'incoming' always.
+
+	* mail-vfolder.c (uri_is_ignore): fix debug statement.
+
+	** See #60214.
+
+	* em-folder-view.c (em_folder_view_print): re-arrange code to make
+	the dialogue async.  We also now load the message every time
+	before printing.
+	(emfv_print_response): handle response to print.
+	
+	* em-format-html-print.c (em_format_html_print_message): new api
+	to print a specific uid on a specific folder.
+
+2004-06-18  Not Zed  <NotZed@Ximian.com>
+
+	* em-vfolder-rule.c (get_widget): use mail dialogs.glade.
+
+	* mail-dialogs.glade: move the vfolder-source window here from
+	mail-config.glade.
+
+	* Makefile.am (glade_DATA): fix the glade list.
+
+	* mail-license.glade, subscribe-dialog.glade, mail-security.glade,
+	* mail-search.glade: Merged into mail-dialogs.glade.  Should be
+	easier to manage.
+
+	* message-tag-followup.c (construct): use mail dialogs glade file.
+
+	* mail-account-gui.c (display_license): use mail dialogs glade file.
+
+	* em-subscribe-editor.c (em_subscribe_editor_new): use new glade
+	file.
+
+	* em-format-html-display.c (em_format_html_display_search): use
+	merged glade file.
+	(efhd_xpkcs7mime_validity_clicked): same.
+
+	* mail-dialogs.glade: merge various glade files into here.
+
+2004-06-17  Not Zed  <NotZed@Ximian.com>
+
+	** See #59885.
+
+	** Moved all of the mail specific filtering stuff from filter/* to
+	here.  Renamed appropriately into em* space, etc.
+
+	* em-filter-folder-element.c (emff_copy_value): implement for folders.
+
+	* em-vfolder-rule.c (get_widget): read the vfolder glade from
+	mail-config.glade.
+
+	* mail-config.glade: moved the vfolder source selector here.
+
+	* em-search-context.c: new mail search specific rule context.
+
+	* mail-component.c (setup_search_context): use the new
+	em_search_context.
+
+	* vfolder-rule.c (validate): change error to mail context.
+	
+	* filter-folder.c (validate): change error to mail context.
+
+	* Makefile.am (em-filter-i18n.h): added rule for i18n of mail
+	filter type stuff.
+	(libevolution_mail_la_SOURCES): added in the filter and vfolder
+	rule stuff specific to mail.
+
+	** See #59885.
+
+	* em-format-html-quote.[ch]: remove and remove from build, not
+	used.
+
+	* Makefile.am (libevolution_mail_la_LIBADD): add libeabutil and
+	evolutionsmime.
+
+	* mail-component-factory.c (factory): there is no mail_config
+	anymore.
+
+2004-06-16  Rodney Dawes  <dobey@novell.com>
+
+	* em-folder-properties.c: Include gtk[hv]box.h so we can use them
+	(emfp_dialog_got_folder): Fix the border widths and spacings for
+	the internal widgets and the dialog's vbox and action area to be
+	compliant with the HIG
+	Fix the general layout of the dialog to be HIG-compliant as well
+	Use ngettext for the row labels for number of messages
+	Add a cancel button, since we are not instant-apply
+	Align the message counts to the right
+	Part of this patch is from Christian Neumair <chris@gnome-de.org>
+
+	* mail-component.c (view_changed_cb): Fix a typo for the sent folder
+	send is not a pluralization of sent
+
+2004-06-16  JP Rosevear  <jpr@novell.com>
+
+	* em-composer-prefs.c (spell_set_ui): clear the error, don't free
+	it, so NULL is handled properly
+
+2004-06-16  Not Zed  <NotZed@Ximian.com>
+
+	* em-utils.c (em_utils_selection_get_urilist): handle comments in
+	the urilist.  Can't remember the rfc for it.
+
+	** See #56479.
+
+	* em-utils.c (em_utils_in_addressbook): use the main thread to
+	setup the addressbook list.
+	(em_utils_in_addressbook): only check against the "completion"
+	sources, not all of them.
+
+2004-06-15  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-browser.c (emfb_mail_stop): call mail_cancel_all to
+	implement the stop button.
+
+	* em-utils.c (emu_addr_sources_refresh): don't unref the group
+	list, otherwise the sources become broken now (?).
+	(em_utils_in_addressbook): add some locking.  add cancellation.
+	this is almost certainly going to cause issues.
+
+	* mail-mt.c (mail_cancel_hook_add, mail_cancel_hook_remove)
+	(mail_cancel_all): new functions to implement a global mailer stop
+	button.
+
+2004-06-15  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-ops.c (save_part_save): This code no longer needs to do
+	charset conversion. Yay. Fixes bug #60225.
+
+	* em-utils.c (em_utils_save_part_to_file): Use the proper e-error
+	namespace.
+
+2004-06-15  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree.c (emft_popup_copy_folder_selected): frombase is
+	simply the select_path, since selected_path is now just the
+	full_name rather than the path. Fixes bug #60075.
+
+	* em-composer-utils.c (attribution_format): New function to format
+	an attribution string (won't crash if translators were sloppy with
+	their strftime/printf-style formatters). Also nice/extendable for
+	future feature enhancements such as user-customisable attribution
+	strings.
+	(composer_set_body): Use above function rather than using
+	e_strftime/etc ourselves.
+
+2004-06-15  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-view.c (emfv_init): Changed the second
+	gtk_selection_add_target() to use GDK_SELECTION_CLIPBOARD rather
+	than GDK_SELECTION_PRIMARY again. This should fix bug #60022.
+
+2004-06-14  Radek Doulik  <rodo@ximian.com>
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): the check button
+	label has now opposite meaning (after UI changes), call
+	toggle_button_init with 'not' parameter set to TRUE
+	(toggle_button_toggled_not): new helper function, sets negative
+	value to gconf bool key
+
+2004-06-14  Not Zed  <NotZed@Ximian.com>
+
+	* mail-vfolder.c (rule_changed): don't check rule->source, its
+	irrelevent to vfolder sources, and clean up the logic a bit.
+	#59158.
+
+	* em-folder-tree.c (emft_popup_new_folder_response): destroy the
+	create dialogue if we're firing up the vfolder creation window.
+
+	* em-composer-utils.c (get_reply_all): if we removed all of the
+	addresses because they were 'us', add the first to
+	address back.  otherwise reply-to-all behaves strange.
+
+2004-06-11  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-tree.c (em_folder_tree_set_selected): Free any old
+	select_uri string we may have.
+	(emft_tree_row_expanded): Remove the gross hack that was here.
+	(emft_get_folder_info__got): Check for priv->select_uri and try
+	selecting it (if we can't select it yet, it'll just be re-queued
+	for later).
+	(emft_tree_row_activated): Clear the select_uri if set, the user's
+	selection overrules any auto-selection.
+	(emft_tree_selection_changed): Same.
+
+2004-06-11  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (emft_tree_button_press): rearrange the setting
+	up of the target flags, stores can have a null path.
+
+	* em-folder-selector.c (emfs_create_name_changed): use
+	get_selected_uri rather than path.  a valid uri may have a null
+	path now.
+	(emfs_create_name_activate): and here too.
+	(em_folder_selector_get_selected_path): check the uri is null for
+	a selected path, and then handle a null path.
+
+	* em-folder-tree-model.c (em_folder_tree_model_add_store): revert
+	previous change.  Stupid emftm.
+
+	* em-utils.c (em_uri_from_camel): handle a null path or fragment.
+
+	* em-folder-tree-model.c (em_folder_tree_model_add_store): set the
+	full name of the store to "".  Fixes #59925 and probably other
+	issues.  Related to the removal of folderinfo->path.
+
+2004-06-10  Jeffrey Stedfast  <fejj@novell.com>
+
+	Fixes bug #58825. Ugh. Really Gross Hack (tm).
+
+	* em-folder-tree.c (emft_tree_row_expanded): If the store that we
+	are expanding matches the uri that we've been requested to select
+	(e.g. from before the store was added to the tree), then give the
+	uri to the get_folder_info_op.
+	(em_folder_tree_set_selected): If the store for the uri isn't in
+	the tree yet, save the uri for later.
+
+	* mail-component.c (folder_selected_cb): Set the selected state of
+	the folder-tree and save it.
+	(impl_createControls): Restore the selected state on the
+	folder-tree.
+
+	* em-folder-tree-model.c (em_folder_tree_model_set_selected): New
+	function to set the selected-uri saved state.
+	(em_folder_tree_model_get_selected): New function to get the
+	selected uri saved state.
+	(em_folder_tree_model_save_state): Renamed.
+
+	* em-folder-tree.c (emft_update_model_expanded_state): Don't let
+	path be NULL if the node is a store node (path == NULL for any
+	other case is a bug).
+	(emft_maybe_expand_row): Same.
+
+2004-06-10  Not Zed  <NotZed@Ximian.com>
+
+	* message-list.c (message_list_set_selected): use new
+	etreeselectionmodel api to select paths in one call.  Fixes
+	#59546.
+
+	* em-folder-view.c (emfv_message_reply): check that we have
+	content selected, not just a selection, before trying to reply to
+	that content.  #59146.
+	(emfv_message_reply): strip call content-* headers (fixme), and
+	set transfer-encoding to 8bit.
+
+2004-06-08  Rodney Dawes  <dobey@ximian.com>
+
+	* mail-config.glade: Fix for SSL options appearing for sendmail
+
+2004-06-08  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree.c (em_folder_tree_set_selected): Scroll to the
+	selected folder if needed. Fixes bug #59609.
+
+	* em-folder-selector.c (em_folder_selector_construct): Make the
+	chooser non-modal. Fixes bug #53735.
+
+	* em-folder-tree.c (emft_tree_row_collapsed): Only change the
+	cursor if the currently selected folder is a subfolder of the
+	folder collapsed. Fixes bug #59801 without breaking bug #57665.
+	(emft_tree_test_collapse_row): Renamed from
+	emft_tree_collapse_row() to match the new signal we are connected
+	to.
+
+2004-06-07  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree-model.c (em_folder_tree_model_add_store): Set the
+	store's FULL_NAME to NULL here. Fixes the crash in bug #59713.
+
+2004-06-07  Dan Winship  <danw@novell.com>
+
+	* em-folder-view.c (emfv_popup_menu, emfv_message_pixmaps):
+	s/stock_save_as/stock_save-as/
+
+	* em-popup.c (emp_standard_select_popups,
+	emp_standard_object_popups): Likewise	
+
+2004-06-05  Christian Neumair  <chris@gnome-de.org>
+
+	* em-folder-tree.c: Shuffle usage of trailing "..." in menus according
+	to the HIG.
+
+2004-06-05  Christian Neumair  <chris@gnome-de.org>
+
+	* mail-component.c (view_changed_cb): Use ngettext for message count
+	information.
+
+2004-06-04  Radek Doulik  <rodo@ximian.com>
+
+	* default/C/Inbox (Content-Type): added size info to IMG tags so
+	that it loads the message smoother
+
+2004-06-03  William Jon McCann  <mccann@jhu.edu>
+
+	* mail-session.c (request_password): Don't pack entry and checkbox
+	widgets directly into the dialog vbox so that they line up
+	correctly with the action area buttons.
+
+2004-06-02  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (mc_add_local_store_done): put this back in,
+	local folders not being noted properly all the time.
+
+2004-06-01  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-composer-utils.c (forward_non_attached): Don't attach
+	anything ever. This is confusing way too many users who expect it
+	to attach all or nothing. Since Forward-Attached is what users
+	should be using to forward a message and all attachments, make
+	these not attach anything (which is what other mailers do
+	anyway). This wlso makes Forward-Quoted consistant with
+	Reply-Quoted which is a Good Thing (tm).
+
+2004-06-01  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-selector.c (em_folder_selector_get_selected_uri): set
+	the right path on the url.
+
+	* mail-signature-editor.c (load_signature): ugh, unlike camel
+	exceptions, you can't pass NULL to CORBA calls.
+	(mail_signature_editor): ditto.  See bug #58815.
+
+2004-05-28  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree.c (d): Disable debug here too - all this code has
+	been working fine.
+
+	* em-folder-selector.c (d): Disable debug spew here too (not that
+	this debug was ever seen since it never hit those conditions).
+
+	* mail-folder-cache.c (d): Disable debug here too.
+
+	* em-folder-tree-model.c: Disable debug spewage that we don't need
+	anymore. The amount of debug spewage on the console is getting to
+	be too much to find anything.
+
+	* em-folder-tree.c (emft_expand_node): Use p+1 as the full_name
+	rather than p. Fixes bug #59187.
+
+2004-05-27  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-folder-tree.c (emft_get_folder_info__got): Instead of
+	removing the "Loading..." row for toplevel folder nodes on failure
+	(which indicates a failure conenct to the server, most likely),
+	collapse the store node so that if the user expands the store
+	node, it will automagically try connecting again. Fixes bug #57493.
+
+2004-05-27  Rodney Dawes  <dobey@novell.com>
+
+	* Makefile.am (EXTRA_DIST): Add $(error_i18n)
+
+2004-05-26  Not Zed  <NotZed@Ximian.com>
+
+	* mail-vfolder.c (vfolder_adduri_desc): initialise desc to NULL
+	before using it later on.  gcc doesn't warn on this if you're not
+	optimising.  Sigh.  Probably fix #59070, #59060, #58972 and
+	friends.
+
+	* importers/evolution-mbox-importer.c (create_control_fn): set the
+	default selection to inbox.
+
+	* importers/evolution-outlook-importer.c (folder_selected)
+	(create_control_fn): copied from mbox importer.  fixes a crash &
+	lets you choose the target folder.
+
+2004-05-25  Jeffrey Stedfast  <fejj@novell.com>
+
+	* mail-errors.xml: a few fixes.
+
+	* em-format-quote.c (emfq_text_plain): Only strip the signature if
+	we are in some wy modifying the content (we don't want to remove
+	the signature if we are editing the message as a new
+	message). Fixes bug #58826.
+
+2004-05-25  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (mc_add_local_store_done): removed, now
+	redundant.
+
+	* em-folder-tree.c (em_folder_tree_set_selected): fix for path changes.
+
+	* em-folder-tree-model.c (em_folder_tree_model_set_unread_count):
+	change to use full name rather than path name.
+
+	* em-folder-tree-model.h: renamed path_hash to full_hash.
+
+	* em-folder-tree-model.c (folder_subscribed): dont use
+	g_path_get_dirname here, it is os dependent, we want / always.
+	(full_hash_free): rename from path_hash free.
+
+	* em-folder-view.c (emfv_popup_menu[]): disable add sender to
+	addressbook bar if it is also disabled.  #58955.
+
+2004-05-24  Not Zed  <NotZed@Ximian.com>
+
+	* mail-account-gui.c (mail_account_gui_build_extra_conf): don't
+	enable the widget based on its writability if it is a dependent
+	option which is now disable.
+	(setup_toggle): return whether the widget is sensitive too.
+	#57171.
+
+	* em-popup.c (em_popup_target_new_select): only enable add sender
+	if we also have 1 selected.  #56663.
+
+	* em-folder-view.c (emfv_enable_menus): remove some debug.
+
+	* em-format-html.c (efh_format_header): output commas between
+	newsgroups, and also append_printf.
+
+2004-05-24  Sivaiah Nallagatla <snallagatla@novell.com>
+
+	* mail-account-gui.c (mail_account_gui_build_extra_conf): added
+	empty handling for CAMEL_PROVIDER_CONF_HIDDEN
+	(extract_values): added handling for CAMEL_PROVIDER_CONF_HIDDEN
+
+2004-05-24  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-tree.c (em_folder_tree_set_selected): use set_cursor
+	instead of scroll_to_row.  See #58383.
+	(get_selected_uris_iterate): removed.
+	(em_folder_tree_get_selected_uris): use an interative call based
+	on gtk_tree_selection_get_selected_rows rather than
+	selected_foreach, as the gtk+ docs suggest.  was trying to fix a
+	bug but it seems gtktreeselection bug (shift-select rows using
+	keyboard only)
+
+	* message-list.c (regen_list_regened): pull the message from the
+	regen list before we check the list and pending uid.
+
+	* em-folder-view.c (emfv_enable_menus): remove the hack for
+	enabling select delete from here and put it in the right place.
+	(em_folder_view_get_popup_target): put it here so its consistent.
+
+2004-05-22  Not Zed  <NotZed@Ximian.com>
+
+	* mail-tools.c (mail_tool_uri_to_folder): put note_store back in.
+	Quick hack to fix the issue of folders being opened before we hook
+	onto folder_created.
+
+	* mail-folder-cache.c: remove 'name' from update struct, not used
+	anymore
+
+	** Another unread count bug, #58814.
+
+	* mail-vfolder.c (context_rule_added):
+	* mail-tools.c (mail_tool_uri_to_folder):
+	* mail-component.c (mc_add_local_store_done): don't call mail note
+	folder anymore, fix up headers.
+
+	* mail-folder-cache.c (store_folder_opened)
+	(mail_note_store_remove, mail_note_store): handle the new
+	store:folder_opened signal.  Don't need the mail_note_folder hack
+	anymore, mail_tool_uri_to_folder slowly does less.
+
+2004-05-21  Not Zed  <NotZed@Ximian.com>
+
+	* mail-mt.c (do_call): add marshaller for p_ppppp call.
+
+	* mail-session.c (get_password): fix for camel api changes.
+	(forget_password): same.
+
+	** See #58376.
+
+	* message-list.c (mail_regen_list): do some timeout foo so we
+	don't keep doing list regnerations if we're getting called too
+	often.  God knows what this will break.
+	(message_list_set_selected): removede bug printf.
+	(regen_list_free): move the message-list poking stuff into
+	regen_list_regened.
+	(message_list_set_folder): call mail_regen_cancel to cancel any
+	regen stuff.
+	(mail_regen_cancel): cancel/clear outstanding regenerations.
+	(message_list_destroy): do it here too.
+	(message_list_select_uid): also set the pending select uid if we
+	have a timeout pending.
+
+	* mail-component.c (impl_createControls): set the defualt parent
+	to the main folderview as soon as its created.
+
+	* em-folder-tree.c (emft_popup_copy_folder_selected): use
+	get_toplevel rather than get_ancestor.  seems the more reliable
+	one.  also we're always parented so we shoudl always find a
+	toplevel window.
+	(em_folder_tree_create_folder): same.
+	(emft_popup_delete_response): set error parent.
+	(emft_popup_delete_folder, emft_popup_rename_folder) 
+	(emft_popup_rename_folder, emft_popup_rename_folder): 
+
+	* em-migrate.c (update_passwords_1_2): finally put the 1.2
+	password upgrade patch in.  Untested.  #42721.
+
+2004-05-20  Jeffrey Stedfast  <fejj@novell.com>
+
+	Fixes for bug #57305.
+
+	* mail-account-gui.c (sig_add_new_signature): Updated for changes
+	below.
+
+	* em-composer-prefs.c (em_composer_prefs_new_signature): No longer
+	takes a script argument (makes no sense to edit a script with an
+	HTML editor if we require that the script already exist before we
+	let the user add it anyway).
+	(sig_add_cb): Updated for above change.
+	(sig_add_script_response): Don't pop up an editor window for the
+	newly added script, the script has already been created! Instead
+	simply create a new ESignature object, set the sig->name, and add
+	it to the signature list.
+
+2004-05-20  Radek Doulik  <rodo@ximian.com>
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): remove "use
+	daemon" handling code
+
+	Fixes #56909
+
+2004-05-20  Not Zed  <NotZed@Ximian.com>
+
+	** See #58388.
+
+	* mail-mt.c (mail_msg_check_error): surpress any errors about
+	messages not found because of invalid uid's.  They're really just
+	internal errors.
+
+	** See #57583.
+
+	* message-list.c (build_tree): save/restore the selection when we
+	update.
+	(message_list_set_selected): util to set the selected messages
+	from a list of uids.
+	(build_flat): same.  I wonder if etree's unbroken enough to use it
+	more directly?
+
+	** See #58693.
+	
+	* mail-send-recv.c (mail_autoreceive_setup): add bounds checking
+	so sloppy ui work wont break it again.
+
+	* mail-config.glade: put the minimum for autocheck back to 1
+	minute.  Naughty jeff.
+
+2004-05-19  Chris Toshok  <toshok@ximian.com>
+
+	* importers/pine-importer.c (import_contacts): use the new
+	e_book_new_* and e_book_open apis.
+
+	* em-utils.c (em_utils_in_addressbook): use the new e_book_new_*
+	and e_book_open apis.
+
+2004-05-19  Jeffrey Stedfast  <fejj@novell.com>
+
+	* message-tags.glade: Fixed the icon name to get the right one.
+
+	* message-list.c (message_list_init_images): Changed to load an
+	empty pixbuf manually rather than relying on the pixbuf returned
+	for "" from e_icon_factory_get_icon() since it has changed to
+	return a broken image icon.
+
+2004-05-19  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: don't dist the error .h file
+
+2004-05-19  Not Zed  <NotZed@Ximian.com>
+
+	* mail-ops.c (send_queue_send): set seen when we set deleted.  ?
+	#56549.
+
+	* em-inline-filter.c (emif_add_part): if we end up with an
+	application/octet-stream part, pre-snoop it so we set the right
+	mime type to start with.  Fixes #58554.
+
+	* em-format.c (emf_snoop_part): removed, now in em-utils.
+
+	* em-utils.c (em_utils_snoop_type): rah rah, snoop a mime part's
+	type.
+
+	* em-format-html.c (efh_text_plain): Revert jeff's fix for #56290.
+	Ugh, we already have all the citation info in local data.  Removed
+	the need for gconf too.
+
+2004-05-19  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html.c (efh_format_secure): make this match the efhd
+	stuff.
+
+	* em-format-html-display.c: removed stock_signature-nokey since it
+	doesn't exist in gnome-icon-theme.
+	(efhd_xpkcs7mime_button): if there is no signing, but encryption,
+	use its icon.  if there's no encryption too, use a broken icon
+	(?).
+
+2004-05-05  William Jon McCann  <mccann@jhu.edu>
+
+	* GNOME_Evolution_Mail.server.in.in: Add menu_label and
+	menu_accelerator.
+
+2004-05-19  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (mc_quit_sync): fixed up the empty trash on
+	exit thing, to update for all stores, not update the timestamp on
+	the first store synced.
+
+2004-05-18  Cantona Su <paradisetux@hotmail.com>
+
+	* em-format-html.c: Added header "X-Newsreader" for handle Outlook
+	Express as Mailer.
+	
+2004-05-18  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-browser.c (em_folder_browser_show_preview): don't
+	nomarkseen when we restore the message when we show the preview.
+	#58387.
+
+	* mail-folder-cache.c (folder_changed): no new message test if its
+	the drafts folder too.
+
+	* mail-vfolder.c (vfolder_adduri_desc): use a nicer, account-based
+	formatter for folder names.  Hmm, that was a good waste of time.
+	For #55412.
+
+	* em-folder-view.c (emfv_list_selection_change): Listen to the
+	tree selection change event directly & proxy out, so we can update
+	the status bar properly.  Blah.  For #58600.
+
+	** Quick fix for #57434
+
+	* em-format.c (emf_format_clone): fix the FIXME about cloning
+	headers shown.
+
+	* em-format-html.c (efh_format_headers): only show rupert if we're
+	showing rupert.
+
+	* em-format-html-print.c (efhp_init): default show_rupert to off.
+
+	* em-format-html.c (efh_init): default show_rupert to on.
+
+	* em-format-html.h: added show_rupert bit.
+
+	* mail-folder-cache.c (folder_changed): don't emit new mail if its
+	any vfolder, not just vtrash folder.  #56350.
+
+	* em-folder-view.c (emfv_list_done_message_selected): run
+	enable_menu's to make sure we're up to date.  #58352.
+
+	** crappy hacks for #58385.
+
+	* em-folder-selection-button.c
+	(em_folder_selection_button_clicked): leave Ok button for this
+	selection.
+
+	* em-folder-selection.c (em_select_folder): added oklabel here too.
+
+	* em-folder-selector.c (em_folder_selector_new)
+	(em_folder_selector_construct, em_folder_selector_create_new):
+	Added oklabel- text for ok label.
+	(em_folder_selector_create_new): Set the ok label to Create.
+
+	* em-message-browser.c (emmb_set_message): don't mark message seen
+	if user has disabled auto-mark seen feature.  #58629.
+
+	* em-format.c (em_format_part): if we have no content-type header,
+	then we get no mime-type set, so assume text/plain.  #58470.
+
+2004-05-17  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-mailer-prefs.c: #include <gtk/gtkliststore.h>. Fixes bug
+	#58407.
+
+2004-05-17  Not Zed  <NotZed@Ximian.com>
+
+	* mail-account-gui.c (mail_account_gui_setup): put the None item
+	at the head of the providers list.
+	(mail_account_gui_setup): only set the transport default fallback
+	if it is not a STORE_AND_TRANSPORT type provider (since that was
+	just disabled).  #57939.
+
+	* message-list.c (on_selection_changed_cmd): only NOOP if we have
+	no selection and no uid, if we have a selection and no uid, then
+	always update.  Fixes #58267 without breaking the double-load
+	thing.
+
+	* em-folder-view.c (em_folder_view_open_selected): keep the hide
+	deleted status.  Makes #51082 work at last.
+
+	** Bug #6556.
+
+	* message-list.c (ml_drop_async_desc, ml_drop_async_drop)
+	(ml_drop_async_done, ml_drop_async_free, ml_drag_data_action)
+	(ml_drop_popup_copy, ml_drop_popup_move, ml_drop_popup_cancel)
+	(ml_tree_drag_data_received): implement async drop operations and
+	the ask drop option menu.
+
+2004-05-14  Not Zed  <NotZed@Ximian.com>
+
+	** Bug #6556.
+
+	* message-list.c (ml_selection_received_uidlist): removed, not
+	needed anymore.
+	(ml_selection_received): call get_uidlist to paste the selection.
+	(ml_tree_drag_data_received): same here.
+
+	* em-folder-tree.c (emft_drop_uid_list): removed, not needed
+	because of below change.
+
+	* em-utils.c (em_utils_selection_get_uidlist): actually do the
+	copy now, don't just decode the data.
+
+	* em-folder-tree.c (tree_drag_data_received): just copy the
+	selection data data itself, dont decode yet.
+	(emft_import_message_rfc822): removed, not needed, use em utils
+	stuff instead.
+	(emft_drop_message_rfc822): same.
+	(emft_drop_text_uri_list): same.
+	(emft_drop_async_free): simply free stuff.
+	(emft_drop_async_drop): call em_utils stuff where they exist to do
+	the drop.
+
+	* message-list.c (ml_tree_drag_data_get): send x-mailbox instead
+	of message/rfc822 for the mailbox.
+	(ml_tree_drag_data_received): handle drop of x-mailbox differently
+	to message/rfc822.
+	(ml_tree_drag_motion): implement so proper options are setup
+	whilst dragging.
+	(message_list_construct): seutp the drag src/dest types for
+	changes typs and with ASK action.
+
+	* em-utils.c (em_utils_read_messages_from_stream): dont unref the
+	stream when we get it.
+	(em_utils_selection_get_mailbox): add an argument to scan from or
+	not, for message/rfc822 vs x-mailbox drops.
+	(em_utils_read_messages_from_stream): Same.
+
+	* em-folder-tree.c (tree_drag_motion): default to move properly.
+
+	* message-list.c (ml_selection_received_uidlist): take a move flag.
+	(ml_tree_drag_data_received): handle move action.
+
+	* em-folder-tree.c (em_folder_tree_new_with_model): got sick of
+	this bloody warning.
+
+	* em-format.c (default_headers[]): just remove x-mailer from the
+	header list, if it isn't on by default.  This is the default list.
+	(em_format_default_headers): loop through everything.
+
+2004-05-14  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-popup.h: s/RESEND/EDIT/
+
+	* em-popup.c (em_popup_target_new_select): s/RESEND/EDIT/
+
+	* em-folder-view.c: s/RESEND/EDIT/
+	(emfv_popup_edit): Renamed from emfv_popup_resend. Part of the fix
+	for bug #58358 (The main fix was just a change to the ui file).
+
+	* mail-config.c (mail_config_init): Build the path to the gtkrc
+	filename and store it on the config struct so we don't have to
+	keep rebuilding it.
+	(config_write_style): Reuse config->gtkrc string instead of
+	constructing the path again.
+	(mail_config_write_on_exit): Free the gtkrc path.
+	(config_write_style): fflush the gtkrc file.
+
+	* em-popup.c (emp_popup_resend): Updated the #if 0'd code for the
+	API chanegs made to em_utils_edit_messages().
+
+	* em-folder-view.c (em_folder_view_open_selected): Pass TRUE as
+	the replace argument to em_utils_edit_messages() here.
+	(emfv_popup_resend): Pass FALSE here. Fixes bug #58357.
+
+	* em-composer-utils.c (em_utils_edit_messages): Now takes a
+	'replace' argument specifying whether or not the original message
+	should be deleted when the edited message is sent or saved.
+
+	* em-format-html.c (efh_format_secure): Same. Also changed the
+	"Valid signature, cannot verify sender" string to "Valid signature
+	but cannot verify sender" as I think it reads nicer.
+
+	* em-format-html-display.c (efhd_format_secure): Since signature
+	status is a tri-state, use 3 different colours too (yellow for
+	valid sig but unknown sender).
+
+2004-05-13  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-format.c (em_format_default_headers): Don't include the last
+	default_header when setting the default headers. If the user has
+	configured Evolution to display the Mailer header, then it will be
+	set in em-folder-view.c as appropriate when it checks the gconf
+	settings. Fixes bug #58217.
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): Default
+	"x-evolution-mailer" header to disabled.
+
+	* em-format-quote.c (emfq_text_plain): Add a stripsig
+	filter. Fixes bug #52767.
+
+	* em-stripsig-filter.[c,h]: New filter class to strip
+	signatures. Useful when generating forwards/replies.
+
+2004-05-13  Not Zed  <NotZed@Ximian.com>
+
+	* em-migrate.c (em_migrate_folder): move ignore case outside of
+	block.  Stupid c language.
+
+	* em-folder-view.c (emfv_format_popup_event): fix warning with
+	cast.
+
+	** See bug #58304.
+
+	* em-junk-filter.c (em_junk_sa_setting_notify): listen to sa
+	settings changes, update some globals.
+	(em_junk_filter_get_plugin): setup the gconf client here and
+	listen to changes.
+	(em_junk_sa_get_local_only, em_junk_sa_get_use_daemon) 
+	(em_junk_sa_get_daemon_port): removed, use globals instead.
+
+2004-05-13  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.c (emfv_message_reply): re-enabled the reply to
+	selection stuff.  I worked out how to make it work; I think.
+
+	* em-format-html-display.c (efhd_html_button_press_event): if we
+	aren't on a clickable object, do a null popup event instead.
+
+	* em-folder-view.c (emfv_format_popup_event): do the full popup if
+	we aren't on anything (not on a uri or part).  See #8414.
+
+	* GNOME_Evolution_Mail.server.in.in: added "email" to the
+	uri_schema's attribute.
+
+	* mail-component.c (impl_handleURI): handle email: uri's, specify
+	opening a message on a folder.
+	(handleuri_got_folder): open the message.  For some 1337 s3Kr3t
+	ha0x.
+
+2004-05-12  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #58302.
+
+	* em-composer-utils.c (em_utils_post_to_folder): 
+	* em-composer-utils.c (em_utils_compose_new_message_with_mailto):
+	poke the composer headers from account directly, don't call set
+	headers which overwrites stuff.
+
+2004-05-12  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (setup_search_context): enable threading option
+	type on the search bar.
+
+	* mail-errors.xml.h: add for translators.
+
+	* Makefile.am (%.xml.h): fix for xml i18n stuff.
+
+	* mail-errors.xml: moved from the .xml.in file.
+
+2004-05-11  Not Zed  <NotZed@Ximian.com>
+
+	* em-utils.c (em_uri_from_camel): pass an exception to
+	provider_get, it relies on one.
+
+	* em-migrate.c (em_migrate_1_4): fix some error messages, and fail
+	with fatal errors properly.
+	(em_migrate_local_folders_1_4): EEP!  Who cares if this fails!
+	Well I do.  Setup exceptions and return codes.
+	(em_migrate_dir): and here too.  Sloppy!
+	(em_migrate_dir): change the code slightly, 1.4 would recurse all
+	folders, even if the parent folder doesn't have a
+	folder-metadata.xml.  Make sure we copy that mode.
+	(get_local_store_uri): Make it copy the 1.4 behaviour properly.
+	Any error -> use defaults.
+	(em_migrate_dir): lots of changes.
+	(mbox_build_filename): take the output string as an arg.
+	(cp): add an argument to overwrite/append or require a unique
+	empty file.
+	(cp_r): add mode arg here too.
+	(em_migrate_folder): split the folder copy stuff from em_migrate
+	dir entirely.  blah.
+	(em_upgrade_accounts_1_4): can't fail, remove return code, etc.
+	(em_upgrade_xml_1_4): removed this rather redundant odd api.
+	(upgrade_xml_uris): this can't fail, remove return codes etc.
+	(em_upgrade_xml_1_0): another oddly redundant function.
+	(em_migrate_pop_uid_caches_1_4): error messages, blah blah.
+	(em_migrate_folder_expand_state_1_4): no fatal states here.
+	(em_migrate_folder_view_settings_1_4): nor here.
+	(emm_setup_initial): do i18n 'better', using
+	gnome_i18n_get_language_list, rather than hacky code.
+
+2004-05-10  Not Zed  <NotZed@Ximian.com>
+
+	* mail-tools.c: remove e-meta.h, not used anymore.
+
+2004-05-11  Dan Winship  <danw@ximian.com>
+
+	* GNOME_Evolution_Mail.server.in.in: Remove the mail folder
+	control factory
+
+	* mail-component-factory.c (factory): Remove support for the mail
+	folder control
+
+	* mail-component.c: Remove the property bag stuff
+	(mail_control_new): Gone
+
+2004-05-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* em-subscribe-editor.c (sub_queue_fill_level): Fixed warning
+
+2004-05-10  Jeffrey Stedfast  <fejj@novell.com>
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): Default the
+	Mailer header to enabled. Fixes bug #58217.
+
+2004-05-10  JP Rosevear  <jpr@ximian.com>
+
+	* mail-ops.c (mail_send_message): set header to just Evolution
+	(mail_append_mail): ditto
+
+	* em-message-browser.c (em_message_browser_window_new): set title
+	to just Evolution
+
 2004-05-10  Not Zed  <NotZed@Ximian.com>
 
 	* em-folder-view.c (emfv_activate): cleanup the view menus if they

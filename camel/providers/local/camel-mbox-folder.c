@@ -42,6 +42,7 @@
 #include "camel-stream-filter.h"
 #include "camel-mime-filter-from.h"
 #include "camel-exception.h"
+#include "camel-i18n.h"
 
 #define d(x) /*(printf("%s(%d): ", __FILE__, __LINE__),(x))*/
 
@@ -51,9 +52,6 @@ static CamelLocalFolderClass *parent_class = NULL;
 #define CMBOXF_CLASS(so) CAMEL_MBOX_FOLDER_CLASS (CAMEL_OBJECT_GET_CLASS(so))
 #define CF_CLASS(so) CAMEL_FOLDER_CLASS (CAMEL_OBJECT_GET_CLASS(so))
 #define CMBOXS_CLASS(so) CAMEL_STORE_CLASS (CAMEL_OBJECT_GET_CLASS(so))
-
-char *camel_mbox_folder_get_full_path (const char *toplevel_dir, const char *full_name);
-char *camel_mbox_folder_get_meta_path (const char *toplevel_dir, const char *full_name, const char *ext);
 
 static int mbox_lock(CamelLocalFolder *lf, CamelLockType type, CamelException *ex);
 static void mbox_unlock(CamelLocalFolder *lf);
@@ -67,7 +65,7 @@ static void mbox_set_message_user_tag(CamelFolder *folder, const char *uid, cons
 
 static void mbox_append_message(CamelFolder *folder, CamelMimeMessage * message, const CamelMessageInfo * info,	char **appended_uid, CamelException *ex);
 static CamelMimeMessage *mbox_get_message(CamelFolder *folder, const gchar * uid, CamelException *ex);
-static CamelLocalSummary *mbox_create_summary(const char *path, const char *folder, CamelIndex *index);
+static CamelLocalSummary *mbox_create_summary(CamelLocalFolder *lf, const char *path, const char *folder, CamelIndex *index);
 
 static void mbox_finalise(CamelObject * object);
 
@@ -147,7 +145,7 @@ camel_mbox_folder_new(CamelStore *parent_store, const char *full_name, guint32 f
 }
 
 char *
-camel_mbox_folder_get_full_path (const char *toplevel_dir, const char *full_name)
+camel_mbox_folder_get_full_path (CamelLocalFolder *lf, const char *toplevel_dir, const char *full_name)
 {
 	const char *inptr = full_name;
 	int subdirs = 0;
@@ -183,7 +181,7 @@ camel_mbox_folder_get_full_path (const char *toplevel_dir, const char *full_name
 }
 
 char *
-camel_mbox_folder_get_meta_path (const char *toplevel_dir, const char *full_name, const char *ext)
+camel_mbox_folder_get_meta_path (CamelLocalFolder *lf, const char *toplevel_dir, const char *full_name, const char *ext)
 {
 /*#define USE_HIDDEN_META_FILES*/
 #ifdef USE_HIDDEN_META_FILES
@@ -195,11 +193,11 @@ camel_mbox_folder_get_meta_path (const char *toplevel_dir, const char *full_name
 	else
 		sprintf (name, ".%s%s", full_name, ext);
 	
-	return camel_mbox_folder_get_full_path (toplevel_dir, name);
+	return camel_mbox_folder_get_full_path (lf, toplevel_dir, name);
 #else
 	char *full_path, *path;
 	
-	full_path = camel_mbox_folder_get_full_path (toplevel_dir, full_name);
+	full_path = camel_mbox_folder_get_full_path (lf, toplevel_dir, full_name);
 	path = g_strdup_printf ("%s%s", full_path, ext);
 	g_free (full_path);
 	
@@ -207,7 +205,7 @@ camel_mbox_folder_get_meta_path (const char *toplevel_dir, const char *full_name
 #endif
 }
 
-static CamelLocalSummary *mbox_create_summary(const char *path, const char *folder, CamelIndex *index)
+static CamelLocalSummary *mbox_create_summary(CamelLocalFolder *lf, const char *path, const char *folder, CamelIndex *index)
 {
 	return (CamelLocalSummary *)camel_mbox_summary_new(path, folder, index);
 }
@@ -414,7 +412,8 @@ retry:
 
 	if (info == NULL) {
 		camel_exception_setv(ex, CAMEL_EXCEPTION_FOLDER_INVALID_UID,
-				     _("Cannot get message: %s\n  %s"), uid, _("No such message"));
+				     _("Cannot get message: %s from folder %s\n  %s"),
+				     uid, lf->folder_path, _("No such message"));
 		goto fail;
 	}
 
@@ -431,7 +430,7 @@ retry:
 
 	fd = open(lf->folder_path, O_RDONLY);
 	if (fd == -1) {
-		camel_exception_setv (ex, CAMEL_EXCEPTION_FOLDER_INVALID_UID,
+		camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
 				      _("Cannot get message: %s from folder %s\n  %s"),
 				      uid, lf->folder_path, g_strerror (errno));
 		goto fail;
@@ -462,7 +461,7 @@ retry:
 				goto retry;
 		}
 
-		camel_exception_setv(ex, CAMEL_EXCEPTION_FOLDER_INVALID_UID,
+		camel_exception_setv(ex, CAMEL_EXCEPTION_FOLDER_INVALID,
 				     _("Cannot get message: %s from folder %s\n  %s"), uid, lf->folder_path,
 				     _("The folder appears to be irrecoverably corrupted."));
 		goto fail;
@@ -470,9 +469,9 @@ retry:
 	
 	message = camel_mime_message_new();
 	if (camel_mime_part_construct_from_parser((CamelMimePart *)message, parser) == -1) {
-		camel_exception_setv(ex, errno==EINTR?CAMEL_EXCEPTION_USER_CANCEL:CAMEL_EXCEPTION_FOLDER_INVALID_UID,
+		camel_exception_setv(ex, errno==EINTR?CAMEL_EXCEPTION_USER_CANCEL:CAMEL_EXCEPTION_SYSTEM,
 				     _("Cannot get message: %s from folder %s\n  %s"), uid, lf->folder_path,
-				     _("Message construction failed: Corrupt mailbox?"));
+				     _("Message construction failed."));
 		camel_object_unref((CamelObject *)message);
 		message = NULL;
 		goto fail;

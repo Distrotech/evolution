@@ -1,3 +1,429 @@
+2004-10-07  Not Zed  <NotZed@Ximian.com>
+
+	* main.c (main): initialise plugin system.
+	(main): add --disable-eplugin and --disable-mono arguments.
+
+2004-09-30  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* e-shell-importer.c: (import_cb): use g_timeout_add().
+	* importer/intelligent.c: (select_row_cb), (unselect_row_cb),
+	(create_gui): use gtk_notebook_set_current_page() instead of
+	deprecated gtk_notebook_set_page()
+
+2004-09-24  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell-window-commands.c: Added ed catmur to the credits.
+
+2004-09-27  Andre Klapper  <a9016009@gmx.de>
+
+	* e-shell-window-commands.c (about_box_new): fixed two
+	typos in the list of contributors
+
+2004-09-21  JP Rosevear  <jpr@novell.com>
+
+	From Malcolm Tredinnick <malcolm@commsecure.com.au>, Fixes #66261
+	
+	* e-shell-window-commands.c (about_box_new): don't show
+	"translator-credits" if not translated
+
+2004-09-07  JP Rosevear  <jpr@novell.com>
+
+	Fixes #17338
+	
+	* e-shell-window-commands.c (about_box_new): use per language
+	translator credits, update authors lists (not strictly authors,
+	but we have a lot of helpful people)
+
+2004-09-13  Sivaiah Nallagatla <snallagatla@novell.com>
+
+	* e-shell.c (offline_procedure_finished_cb)
+	(e_shell_go_online) : set online status 
+	for e_passwords 
+	see #62856 (work around)
+		
+2004-09-03  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #61285.
+
+	* e-shell-settings-dialog.c (load_pages): use a better query to
+	get the configuration pages, the old one didn't include version
+	information properly.
+
+2004-08-27  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #62856 (workaround only)
+
+	* e-shell.c (impl_Shell_setLineStatus, e_shell_construct): set the
+	online state on e_passwords.
+
+2004-08-26  Rodney Dawes  <dobey@novell.com>
+
+	* apps_evolution_shell.schemas.in.in: Don't translate the default
+	value for the window height
+
+2004-08-25  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* e-shell-startup-wizard.c: (prepare_importer_page):
+	don't call gtk_dialog_set_has_separator
+	on Message Dialog on GTK+ >= 2.4.0 (output warning)
+
+	* e-shell-importer.c: (e_shell_importer_start_import):
+	Initialize data->finish before using it
+	(prepare_intelligent_page): don't call gtk_dialog_set_has_separator
+	on Message Dialog on GTK+ >= 2.4.0 (output warning)
+	(start_import) (next_file_page): convert filename from UTF-8 to
+	local encoding.
+
+2004-08-12  Carlos Garnacho Parro  <carlosg@gnome.org>
+
+	* e-shell-importer.c: added the "use_filechooser" property to the
+	GnomeFileEntry
+
+2004-08-10  Not Zed  <NotZed@Ximian.com>
+
+	* main.c (main): init epasswords.
+
+2004-08-01  Not Zed  <NotZed@Ximian.com>
+ 
+ 	* apps_evolution_shell.schemas.in.in: added last_version item.
+ 
+ 	* shell-errors.xml: added upgrade-remove-1-4 and
+ 	upgrade-remove-1-4-confirm dialogues.
+ 
+ 	* e-shell.c (remove_dir): utility to recursively delete a tree of
+	files and folders.
+ 	(e_shell_attempt_upgrade): keep track of the last upgraded
+ 	version, if != current version, and < 1.5, and it exists, offer to
+ 	remove ~/evolution.  Confirm the offer before actually doing it.
+ 
+ 	* e-shell-window-commands.c: include gnome-about.
+ 	(command_help_faq): fix comment structure
+ 
+ 	* e-shell.c (attempt_upgrade): moved most of this into
+ 	e_shell_attempt_upgrade.
+ 	(e_shell_attempt_upgrade): moved most of this into
+	attempt_upgrade, removed rev args.  It makes sense, really!
+ 	(e_shell_construct): call e_shell_attempt_upgrade instead.
+
+2004-07-22  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell.c (create_window): merged this into
+	e_shell_create_window, all it was doing was adding a stack frame.
+	(e_shell_create_window): setup the e error default window.
+
+2004-07-22  Jeffrey Stedfast  <fejj@novell.com>
+
+	* e-shell-importer.c (e_shell_importer_start_import): Use
+	stock_mail-import instead of stock_import? *shrug* Fixes bug
+	#61778.
+
+2004-07-08  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* Makefile.am:
+	tarball should ship .schemas.in.in files, not generated files.
+
+	* apps_evolution_shell.schemas.in.in:
+	Don't translate default component id (bug #60859)
+
+2004-07-06  Rodney Dawes  <dobey@novell.com>
+
+	* e-shell-errors.xml.h: Add this back to CVS for translators
+	* .cvsignore: Don't ignore e-shell-errors.xml.h
+
+2004-09-07  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell.c (e_shell_construct): disable the startup wizard.
+
+2004-06-24  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #57367.
+
+	* e-shell-window.c (e_shell_window_new): fix gconf client leak and
+	clean up some logic.
+	
+	* e-shell.c (e_shell_construct): dont activate the components
+	individually, component registry does that implictly.
+
+	* e-component-registry.c (init): dont call query_components here.
+	(query_components): setup a run-once guard.  before adding a
+	component info to the list, make sure we can activate it.
+	(component_info_new): take the interface as a construct argument
+	now.
+	(e_component_registry_peek_list): perform the component list query
+	if we haven't already.
+	(e_component_registry_peek_info): same.
+	(e_component_registry_activate): just always return
+	the reffed component, it isn't added unless it was already activated.
+
+2004-06-21  Chris Toshok  <toshok@ximian.com>
+
+	* e-user-creatable-items-handler.c (impl_finalize): free
+	priv->menu_xml.  plugs (big) leak.
+
+2004-06-18  Jeffrey Stedfast  <fejj@novell.com>
+
+	* main.c (main): Remove AUTOHELP option since GNOME adds this
+	itself. Fixes bug #60374.
+	(main): Before exiting from main(), call shutdown() routines.
+
+2004-06-18  Radek Doulik  <rodo@ximian.com>
+
+	* main.c (main): test for skip_warning_dialog value in gconf here
+	and not in show_development_warning, otherwise we don't add or
+	call idle_cb and evo will not run
+	(show_development_warning): do not read skip_warning_dialog here
+
+2004-06-18  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #54498.
+
+	* main.c (idle_cb): don't do dev warning stuff here anymore.
+
+	* main.c (main): show the dev warning before doing anything else
+	if we are going to.
+	(warning_dialog_response_callback): kick off the actual
+	application once we're finished.
+	(window_map_callback, new_window_created_callback): removed, not
+	needed anymore.
+
+2004-06-17  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* main.c (main): Call gnome_sound_init() before bonobo_main().
+
+2004-06-09  Dan Winship  <danw@novell.com>
+
+	* check-empty.xpm, check-filled.xpm, check-missing.xpm:
+	* e-shell-config-autocompletion.[ch]:
+	* e-shell-config-default-folders.[ch]:
+	* e-shell-config-folder-settings.[ch]:
+	* e-shell-config-offline.[ch]:
+	* e-shell-config.[ch]:
+	* e-shell-folder-creation-dialog.[ch]:
+	* e-shell-shared-folder-picker-dialog.[ch]:
+	* e-storage-set-store.[ch]:
+	* e-storage-set-view-checkboxes.etstate:
+	* e-storage-set-view-no-checkboxes.etstate:
+	* e-storage-set-view.etspec:
+	* e-uri-schema-registry.[ch]:
+	* evolution-activity-client.c:
+	* evolution-storage-set-view-factory.[ch]:
+	* evolution-storage-set-view.[ch]:
+	* glade/e-folder-list.glade:
+	* glade/e-shell-config-default-folders.glade:
+	* glade/e-shell-folder-creation-dialog.glade:
+	* glade/e-shell-shared-folder-picker-dialog.glade: Remove
+	no-longer-used stuff
+
+	* README: Remove this, since it's more confusing than true now.
+
+	* Evolution-Offline.idl, Evolution-common.idl: Remove
+	GNOME_Evolution_Folder, and references to it.
+
+	* e-active-connection-dialog.glade:
+	* evolution-startup-wizard.glade: Move the last two remaining
+	files from ./glade/ up to here.
+	
+	* glade/*: Gone.
+
+	* Makefile.am, .cvsignore: update for the above
+
+2004-06-06  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* e-shell-window-commands.c: Added Martyn Russel to the credits.
+
+2004-06-04  JP Rosevear  <jpr@novell.com>
+
+	Fixes #59361
+	
+	* e-sidebar.c (layout_buttons): handle 0 and 1 buttons properly
+
+2004-06-01  William Jon McCann  <mccann@jhu.edu>
+
+	* e-shell-window-commands.c (e_shell_window_commands_setup):
+	Add listener for the ViewToolbar command.
+	(view_toolbar_item_toggled_handler):
+	New function to handle toggling toolbar visibility and saving state.
+	
+	* e-shell-window.c (e_shell_window_save_defaults): 
+	Save the status of the toolbar visibility.
+	(setup_widgets): Set initial state of toolbar visibility.
+
+	* apps_evolution_shell.schemas.in.in: Added schema for toolbar_visible.
+
+2004-06-01  Christophe Fergeau  <teuf@gnome.org>
+ 	
+ 	* e-shell-importer.c: sort the various available importer plugins by
+  	name in the importer druid combo box so that the list doesn't change
+  	from one evolution run to another. 
+	
+2004-05-27  Not Zed  <NotZed@Ximian.com>
+
+	** See #58827.
+
+	* e-shell-window.c (switch_view): api change
+	
+	* e-shell.c (impl_Shell_handleURI): Fixed for api change.
+	(impl_Shell_handleURI): check the component alias for an alternate
+	uri schema path.  'quick hack' for activating components from
+	command line.  This may, or may not, continue to function.
+
+	* e-component-registry.c (e_component_registry_peek_info): added
+	an id for search type.
+	(e_component_registry_peek_info_for_uri_schema): ^ makes this
+	redundant, removed.
+	(e_component_registry_activate): fixed for api change.
+
+2004-05-28  Rodney Dawes  <dobey@novell.com>
+
+	* e-shell-importer.c (e_shell_importer_start_import):
+	Set the default window size for the druid to 480x320
+
+2004-05-28  JP Rosevear  <jpr@novell.com>
+
+	* e-shell-window-commands.c: remove bogus include
+
+2004-05-28  William Jon McCann  <mccann@jhu.edu>
+
+       * Makefile.am (evolution_SOURCES): Remove e-shell-about-box.
+
+       * e-shell-window-commands.c (command_about_box, about_box_new):
+       Use GNOME about box.
+
+2004-05-27  Rodney Dawes  <dobey@novell.com>
+
+	* Makefile.am (EXTRA_DIST): Add $(error_i18n) for "make dist"
+
+2004-05-27  Rodney Dawes  <dobey@novell.com>
+
+	* Makefile.am (EXTRA_DIST): Don't dist $(error_i18n) as it requires
+	e-error-tool to be built
+
+	* shell-errors.xml.(h|in): Remove these from CVS, the .in is not used
+	any more, and the .h is generated from the .xml
+
+2004-05-26  Sarfraaz Ahmed <asarfraaz@novell.com>
+
+	* e-shell.c (set_interactive): Implemented. Sends the "interactive"
+	message when the first window is created to all the components.
+
+2004-05-26  Not Zed  <NotZed@Ximian.com>
+
+	* importer/evolution-importer.c
+	(impl_GNOME_Evolution_Importer_createControl): set exception if not
+	implemented.
+
+	* e-shell-importer.c (importer_file_page_new): set the entry to
+	activate default, and fixed the _Filename and _Forward shortcut
+	clash.  #58081.
+	(prepare_dest_page): pack the widget without expand/fill.
+
+2004-05-21  Jeffrey Stedfast  <fejj@novell.com>
+
+	* evolution-shell-component-utils.c (e_activation_failure_dialog):
+	Removed. Nothing uses this interface (which didn't use the EError
+	routines anyway).
+
+2004-05-21  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell.c (e_shell_attempt_upgrade): remove unused.
+
+2004-05-19  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell-window.c (setup_widgets): use the menu icon not the
+	button icon for the menus.
+	(setup_widgets): fixed some i18n stuff with the menu xml.  no use
+	putting _x stuff here, it also needs a source.  And a memleak.
+	Yucko.
+
+	* e-component-registry.c (component_info_new): take menu icon.
+	(query_components): setup the menu icon, not a large toolbar sized
+	icon.
+
+	* e-shell-window.c (menu_component_selected): just use '-' as
+	ascii, its always going to be hte same in utf8.  simplifies the
+	code somewhat.
+
+2004-05-05  William Jon McCann  <mccann@jhu.edu>
+
+	* e-shell-window.c (menu_component_selected, setup_widgets):
+	Add components to View menu.
+
+	* e-component-registry.[ch] (component_info_new) 
+	(component_info_free, query_components): Add menu_label and
+	menu_accelerator fields.
+
+2004-05-18  Not Zed  <NotZed@Ximian.com>
+
+	* shell-errors.xml: added noshell and noshell-reason error
+	strings.  the latter seems a waste, but ...
+
+	* main.c (idle_cb): use e_error for the new no shell errors.
+
+2004-05-17  Jeffrey Stedfast  <fejj@novell.com>
+
+	* e-shell-window-commands.c: Change E_PIXMAP() sizes over to
+	E_ICON_SIZE enum values.
+
+	* main.c: #include <gtk/gtkvbox.h>
+
+	* e-shell-startup-wizard.c (make_importer_page): Use
+	E_ICON_SIZE_DIALOG
+
+2004-05-12  Jeffrey Stedfast  <fejj@novell.com>
+
+	* main.c (main): Call e_icon_factory_shutdown() after
+	bonobo_main() exits.
+
+2004-05-12  Not Zed  <NotZed@Ximian.com>
+
+	* shell-errors.xml: fix the label tag for the upgrade failed box.
+
+	* shell-errors.xml.h: add for translators.
+
+2004-05-11  Not Zed  <NotZed@Ximian.com>
+
+	* shell-errors.xml: Shell errors.
+
+	* e-shell.c (e_shell_attempt_upgrade): handle exceptions better.
+	allow the user to keep going or abort.  stop as soon as something
+	fails.  Related to #53083.
+	(attempt_upgrade): abort and quit if the subcall failed.  it will
+	display an appropriate error box.
+	(attempt_upgrade): abort if we don't have enough space.  #57290.
+
+	* Evolution-Component.idl (upgradeFromVersion): remove the return
+	code, use exceptions to indicate failure.
+
+2004-05-10  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell.c (e_shell_attempt_upgrade): handle the various
+	exceptions appropritately.
+	(detect_version): this never fails, remove return code.
+	(attempt_upgrade): add a check for disk space.  this is only
+	rough.  not sure how portable.  If we can't find out we go forward
+	anyway.
+
+	* Evolution-Component.idl: Throw some proper exceptions for
+	upgradeFromVersion.  UpgradeFailed with detailed error reason, and
+	UnsupportedVersion for non-fatal reason.
+
+2004-05-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* e-shell-offline-handler.c (cancel_offline): Fix warning
+
+2004-05-10  JP Rosevear  <jpr@ximian.com>
+
+	* main.c (show_development_warning): set title to just Evolution
+	(show_development_warning): ditto for warning
+	(idle_cb): ditto for title
+
+	* e-shell-window.c (update_offline_toggle_status): set tooltip to
+	just Evolution
+	(e_shell_window_new): ditto for window title
+
+	* e-shell-window-commands.c (command_about_box): set title to
+	just Evolution
+
 2004-05-05  Dan Winship  <danw@ximian.com>
 
 	* e-sidebar.c (layout_buttons): Change the algorithm so that if

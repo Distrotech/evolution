@@ -58,64 +58,92 @@ libevolution_mail_la_SOURCES =			\
 	$(MARSHAL_GENERATED)			\
 	e-searching-tokenizer.c			\
 	e-searching-tokenizer.h			\
+	em-account-editor.c			\
+	em-account-editor.h			\
 	em-account-prefs.c			\
 	em-account-prefs.h			\
 	em-composer-prefs.c			\
 	em-composer-prefs.h			\
-	em-mailer-prefs.c			\
-	em-mailer-prefs.h			\
-	em-inline-filter.c			\
-	em-inline-filter.h			\
-	em-folder-properties.c			\
-	em-folder-properties.h			\
-	em-folder-selection.c			\
-	em-folder-selection.h			\
-	em-folder-selection-button.c		\
-	em-folder-selection-button.h		\
-	em-folder-selector.c			\
-	em-folder-selector.h			\
-	em-folder-tree.c			\
-	em-folder-tree.h			\
-	em-folder-tree-model.c			\
-	em-folder-tree-model.h			\
-	em-folder-view.c			\
-	em-folder-view.h			\
+	em-composer-utils.c			\
+	em-composer-utils.h			\
+	em-config.c				\
+	em-config.h				\
+	em-event.c				\
+	em-event.h				\
+	em-filter-context.c			\
+	em-filter-context.h			\
+	em-filter-editor.c			\
+	em-filter-editor.h			\
+	em-filter-folder-element.c		\
+	em-filter-folder-element.h		\
+	em-filter-rule.c			\
+	em-filter-rule.h			\
+	em-filter-source-element.c		\
+	em-filter-source-element.h		\
 	em-folder-browser.c			\
 	em-folder-browser.h			\
-	em-format.c				\
-	em-format.h				\
-	em-format-html.c			\
-	em-format-html.h			\
+	em-folder-properties.c			\
+	em-folder-properties.h			\
+	em-folder-selection-button.c		\
+	em-folder-selection-button.h		\
+	em-folder-selection.c			\
+	em-folder-selection.h			\
+	em-folder-selector.c			\
+	em-folder-selector.h			\
+	em-folder-tree-model.c			\
+	em-folder-tree-model.h			\
+	em-folder-tree.c			\
+	em-folder-tree.h			\
+	em-folder-view.c			\
+	em-folder-view.h			\
+	em-format-hook.c			\
+	em-format-hook.h			\
 	em-format-html-display.c		\
 	em-format-html-display.h		\
 	em-format-html-print.c			\
 	em-format-html-print.h			\
-	em-format-html-quote.c			\
-	em-format-html-quote.h			\
+	em-format-html.c			\
+	em-format-html.h			\
 	em-format-quote.c			\
 	em-format-quote.h			\
-	em-message-browser.c			\
-	em-message-browser.h			\
-	em-migrate.c				\
-	em-migrate.h				\
-	em-composer-utils.c			\
-	em-composer-utils.h			\
-	em-popup.c				\
-	em-popup.h				\
-	em-utils.c				\
-	em-utils.h				\
-	em-subscribe-editor.c			\
-	em-subscribe-editor.h			\
-	em-sync-stream.c			\
-	em-sync-stream.h			\
+	em-format.c				\
+	em-format.h				\
+	em-html-stream.c			\
+	em-html-stream.h			\
 	em-icon-stream.c			\
 	em-icon-stream.h			\
+	em-inline-filter.c			\
+	em-inline-filter.h			\
 	em-junk-filter.c			\
 	em-junk-filter.h			\
 	em-junk-plugin.c			\
 	em-junk-plugin.h			\
-	em-html-stream.c			\
-	em-html-stream.h			\
+	em-mailer-prefs.c			\
+	em-mailer-prefs.h			\
+	em-menu.c				\
+	em-menu.h				\
+	em-message-browser.c			\
+	em-message-browser.h			\
+	em-migrate.c				\
+	em-migrate.h				\
+	em-popup.c				\
+	em-popup.h				\
+	em-search-context.c			\
+	em-search-context.h			\
+	em-stripsig-filter.c			\
+	em-stripsig-filter.h			\
+	em-subscribe-editor.c			\
+	em-subscribe-editor.h			\
+	em-sync-stream.c			\
+	em-sync-stream.h			\
+	em-utils.c				\
+	em-utils.h				\
+	em-vfolder-context.c			\
+	em-vfolder-context.h			\
+	em-vfolder-editor.c			\
+	em-vfolder-editor.h			\
+	em-vfolder-rule.c			\
+	em-vfolder-rule.h			\
 	mail-account-editor.c			\
 	mail-account-editor.h			\
 	mail-account-gui.c			\
@@ -125,14 +153,14 @@ libevolution_mail_la_SOURCES =			\
 	mail-component-factory.c		\
 	mail-component.c			\
 	mail-component.h			\
-	mail-config.c				\
-	mail-config.h				\
 	mail-config-druid.c			\
 	mail-config-druid.h			\
-	mail-crypto.c				\
-	mail-crypto.h				\
 	mail-config-factory.c			\
 	mail-config-factory.h			\
+	mail-config.c				\
+	mail-config.h				\
+	mail-crypto.c				\
+	mail-crypto.h				\
 	mail-folder-cache.c			\
 	mail-folder-cache.h			\
 	mail-mt.c				\
@@ -159,6 +187,10 @@ libevolution_mail_la_SOURCES =			\
 	message-tag-followup.c			\
 	message-tag-followup.h
 
+if ENABLE_SMIME
+SMIME_LIB=$(top_builddir)/smime/gui/libevolution-smime.la
+endif
+
 libevolution_mail_la_LIBADD =					\
 	$(top_builddir)/shell/importer/libevolution-importer.la	\
 	$(top_builddir)/mail/importers/libevolution-mail-importers.la\
@@ -170,10 +202,14 @@ libevolution_mail_la_LIBADD =					\
 	$(top_builddir)/widgets/misc/libefilterbar.la		\
 	$(top_builddir)/filter/libfilter.la			\
 	$(top_builddir)/widgets/menus/libmenus.la		\
+	$(top_builddir)/addressbook/util/libeabutil.la		\
+	$(SMIME_LIB)						\
 	$(EVOLUTION_MAIL_LIBS)
 
 libevolution_mail_la_LDFLAGS =				\
 	-avoid-version -module
+
+libevolution_mail_la_DEPENDENCIES = em-filter-i18n.h
 
 # .server files
 
@@ -183,13 +219,22 @@ server_DATA = $(server_in_files:.server.in.in=_$(BASE_VERSION).server)
 @INTLTOOL_SERVER_RULE@
 
 # Misc data to install
+filterdir = $(privdatadir)
+filter_DATA = filtertypes.xml vfoldertypes.xml searchtypes.xml
 
-error_in_files = mail-errors.xml.in
-error_DATA = $(error_in_files:.xml.in=.xml)
+error_DATA = mail-errors.xml
+error_i18n = $(error_DATA:.xml=.xml.h)
 errordir = $(privdatadir)/errors
-@INTLTOOL_XML_RULE@
+%.xml.h: %.xml
+	$(top_builddir)/e-util/e-error-tool $^
 
-glade_DATA = mail-config.glade  subscribe-dialog.glade message-tags.glade mail-search.glade mail-security.glade
+em-filter-i18n.h: filtertypes.xml vfoldertypes.xml searchtypes.xml
+	echo "/* Automatically generated. Do not edit. */" > $@;	      \
+	cat $(srcdir)/filtertypes.xml $(srcdir)/vfoldertypes.xml $(srcdir)/searchtypes.xml |	      \
+		sed -n -e 's:.*<title>\(.*\)</title>:char *s = N_("\1");:p' | \
+		sort -u >> $@
+
+glade_DATA = mail-config.glade mail-dialogs.glade
 MARSHAL_GENERATED = em-marshal.c em-marshal.h
 @EVO_MARSHAL_RULE@
 
@@ -199,12 +244,16 @@ EXTRA_DIST = 				\
 	ChangeLog.pre-1-4		\
 	em-marshal.list			\
 	$(SPELL_IDL)			\
-	$(error_in_files)		\
+	$(error_DATA)			\
+	$(error_i18n)			\
 	$(glade_DATA)			\
-	$(schema_DATA)			\
+	$(schema_in_files)		\
 	$(server_in_files)		\
-	$(etspec_DATA)
-
+	$(etspec_DATA)			\
+	filtertypes.xml			\
+	vfoldertypes.xml		\
+	searchtypes.xml			\
+	em-filter-i18n.h
 
 # Purify support
 
@@ -243,6 +292,6 @@ install-data-local:
 dist-hook:
 	cd $(distdir); rm -f $(BUILT_SOURCES)
 
-BUILT_SOURCES = $(SPELL_IDL_GENERATED) $(MARSHAL_GENERATED) $(server_DATA) $(error_DATA)
+BUILT_SOURCES = $(SPELL_IDL_GENERATED) $(MARSHAL_GENERATED) $(server_DATA) $(error_i18n)
 
 CLEANFILES = $(BUILT_SOURCES)

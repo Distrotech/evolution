@@ -36,17 +36,16 @@
 
 #include <gconf/gconf.h>
 #include <gconf/gconf-client.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <camel/camel-vee-folder.h>
 #include <camel/camel-file-utils.h>
 #include <camel/camel-movemail.h>
 
-#include <filter/vfolder-rule.h>
-#include <filter/vfolder-context.h>
+#include "em-vfolder-rule.h"
+#include "em-vfolder-context.h"
 #include <filter/filter-option.h>
 #include <filter/filter-input.h>
-
-#include "e-util/e-meta.h"
 
 #include "mail-component.h"
 #include "mail-session.h"

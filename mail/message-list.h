@@ -139,6 +139,8 @@ struct _MessageList {
 	/* list of outstanding regeneration requests */
 	GList *regen;
 	char *pending_select_uid; /* set if we were busy regnerating while we had a select come in */
+	guint regen_timeout_id;
+	void *regen_timeout_msg;
 
 	char *frozen_search;	/* to save search took place while we were frozen */
 
@@ -163,8 +165,10 @@ typedef void (*MessageListForeachFunc) (MessageList *message_list,
 					gpointer user_data);
 
 typedef enum {
-	MESSAGE_LIST_SELECT_NEXT = 1,
-	MESSAGE_LIST_SELECT_PREVIOUS = -1
+	MESSAGE_LIST_SELECT_NEXT = 0,
+	MESSAGE_LIST_SELECT_PREVIOUS = 1,
+	MESSAGE_LIST_SELECT_DIRECTION = 1, /* direction mask */
+	MESSAGE_LIST_SELECT_WRAP = 1<<1, /* option bit */
 } MessageListSelectDirection;
 
 GtkType        message_list_get_type   (void);
@@ -179,14 +183,15 @@ void	       message_list_freeze(MessageList *ml);
 void	       message_list_thaw(MessageList *ml);
 
 GPtrArray     *message_list_get_selected(MessageList *ml);
+void           message_list_set_selected(MessageList *ml, GPtrArray *uids);
 void	       message_list_free_uids(MessageList *ml, GPtrArray *uids);
 
 /* select next/prev message helpers */
 gboolean       message_list_select     (MessageList *message_list,
 					MessageListSelectDirection direction,
 					guint32 flags,
-					guint32 mask,
-					gboolean wraparound);
+					guint32 mask);
+gboolean message_list_can_select(MessageList *ml, MessageListSelectDirection direction, guint32 flags, guint32 mask);
 
 void           message_list_select_uid (MessageList *message_list,
 					const char *uid);

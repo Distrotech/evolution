@@ -54,6 +54,7 @@
 #include <gconf/gconf-client.h>
 
 #include <libgnomeui/gnome-pixmap.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "message-tag-followup.h"
 #include "mail-config.h"
@@ -304,7 +305,7 @@ construct (MessageTagEditor *editor)
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (editor)->vbox), 0);
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (editor)->action_area), 12);
 
-	gui = glade_xml_new (EVOLUTION_GLADEDIR "/message-tags.glade", "followup_editor", NULL);
+	gui = glade_xml_new (EVOLUTION_GLADEDIR "/mail-dialogs.glade", "followup_editor", NULL);
 	
 	widget = glade_xml_get_widget (gui, "toplevel");
 	

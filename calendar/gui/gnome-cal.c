@@ -1786,25 +1786,6 @@ gnome_calendar_set_view (GnomeCalendar *gcal, GnomeCalendarViewType view_type)
 	set_view (gcal, view_type, FALSE);
 }
 
-
-/**
- * gnome_calendar_set_view:
- * @gcal: A calendar.
- * @view_type: Type of view to show.
- *
- * Sets the view that should be shown in a calendar.  If @reset_range is true,
- * this function will automatically set the number of days or weeks shown in
- * the view; otherwise the last configuration will be kept.
- **/
-void
-gnome_calendar_set_view (GnomeCalendar *gcal, GnomeCalendarViewType view_type)
-{
-	g_return_if_fail (gcal != NULL);
-	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
-
-	set_view (gcal, view_type, FALSE);
-}
-
 /* Sets the view without changing the selection or updating the date
  * navigator. If a range of dates isn't selected it will also reset the number
  * of days/weeks shown to the default (i.e. 1 day for the day view or 5 weeks
