@@ -28,7 +28,6 @@
 
 #include "e-util/e-dialog-utils.h"
 
-#include "e-activity-handler.h"
 #include "e-component-registry.h"
 #include "e-corba-shortcuts.h"
 #include "e-corba-storage-registry.h"
@@ -43,8 +42,8 @@
 #include "e-shell-startup-wizard.h"
 #include "e-shell-view.h"
 #include "e-shortcuts.h"
-#include "e-storage-set.h"
 #include "e-splash.h"
+#include "e-storage-set.h"
 #include "e-uri-schema-registry.h"
 
 #include "e-shell-marshal.h"
@@ -81,7 +80,7 @@
 
 #include "Evolution.h"
 
-
+
 #define PARENT_TYPE bonobo_object_get_type ()
 static BonoboObjectClass *parent_class = NULL;
 
@@ -107,9 +106,6 @@ struct _EShellPrivate {
 
 	/* ::StorageRegistry interface handler.  */
 	ECorbaStorageRegistry *corba_storage_registry; /* <aggregate> */
-
-	/* ::Activity interface handler.  */
-	EActivityHandler *activity_handler; /* <aggregate> */
 
 	/* ::Shortcuts interface handler.  */
 	ECorbaShortcuts *corba_shortcuts; /* <aggregate> */
@@ -142,7 +138,7 @@ struct _EShellPrivate {
 	unsigned int preparing_to_quit : 1;
 };
 
-
+
 /* Constants.  */
 
 /* FIXME: We need a component repository instead.  */
@@ -150,7 +146,7 @@ struct _EShellPrivate {
 #define SHORTCUTS_FILE_NAME     "shortcuts.xml"
 #define LOCAL_STORAGE_DIRECTORY "local"
 
-
+
 enum {
 	NO_VIEWS_LEFT,
 	LINE_STATUS_CHANGED,
@@ -160,7 +156,7 @@ enum {
 
 static guint signals[LAST_SIGNAL] = { 0 };
 
-
+
 /* Utility functions.  */
 
 static void
@@ -194,7 +190,7 @@ get_config_start_offline (void)
 	return value;
 }
 
-
+
 /* Interactivity handling.  */
 
 static void
@@ -246,7 +242,7 @@ set_interactive (EShell *shell,
 	e_free_string_list (id_list);
 }
 
-
+
 /* Callback for the folder selection dialog.  */
 
 static void
@@ -317,7 +313,7 @@ folder_selection_dialog_folder_selected_cb (EShellFolderSelectionDialog *folder_
 	CORBA_exception_free (&ev);
 }
 
-
+
 /* CORBA interface implementation.  */
 
 static gboolean
@@ -661,24 +657,7 @@ impl_Shell_setLineStatus (PortableServer_Servant servant,
 		e_shell_go_offline (shell, NULL);
 }
 
-
-/* Set up the ::Activity interface.  */
 
-static void
-setup_activity_interface (EShell *shell)
-{
-	EActivityHandler *activity_handler;
-	EShellPrivate *priv;
-
-	priv = shell->priv;
-
-	activity_handler = e_activity_handler_new ();
-
-	bonobo_object_add_interface (BONOBO_OBJECT (shell), BONOBO_OBJECT (activity_handler));
-	priv->activity_handler = activity_handler;
-}
-
-
 /* Set up the ::Shortcuts interface.  */
 
 static void
@@ -697,7 +676,7 @@ setup_shortcuts_interface (EShell *shell)
 	priv->corba_shortcuts = corba_shortcuts;
 }
 
-
+
 /* Initialization of the storages.  */
 
 static gboolean
@@ -757,7 +736,7 @@ setup_local_storage (EShell *shell)
 	return TRUE;
 }
 
-
+
 /* Initialization of the components.  */
 
 static char *
@@ -917,7 +896,7 @@ set_owner_on_components (EShell *shell,
 	e_free_string_list (id_list);
 }
 
-
+
 /* EStorageSet callbacks.  */
 
 static void
@@ -943,7 +922,7 @@ storage_set_moved_folder_callback (EStorageSet *storage_set,
 	g_free (destination_uri);
 }
 
-
+
 /* EShellView handling and bookkeeping.  */
 
 static int
@@ -1024,7 +1003,6 @@ create_view (EShell *shell,
 	shell->priv->views = g_list_prepend (shell->priv->views, view);
 
 	task_bar = e_shell_view_get_task_bar (view);
-	e_activity_handler_attach_task_bar (priv->activity_handler, task_bar);
 
 	if (template_view != NULL) {
 		e_shell_view_show_folder_bar (view, e_shell_view_folder_bar_shown (template_view));
@@ -1036,7 +1014,7 @@ create_view (EShell *shell,
 	return view;
 }
 
-
+
 /* GObject methods.  */
 
 static void
@@ -1108,7 +1086,6 @@ impl_dispose (GObject *object)
 
 	/* No unreffing for these as they are aggregate.  */
 	/* bonobo_object_unref (BONOBO_OBJECT (priv->corba_storage_registry)); */
-	/* bonobo_object_unref (BONOBO_OBJECT (priv->activity_handler)); */
 	/* bonobo_object_unref (BONOBO_OBJECT (priv->corba_shortcuts)); */
 
 	/* FIXME.  Maybe we should do something special here.  */
@@ -1147,7 +1124,7 @@ impl_finalize (GObject *object)
 	(* G_OBJECT_CLASS (parent_class)->finalize) (object);
 }
 
-
+
 /* Initialization.  */
 
 static void
@@ -1222,7 +1199,6 @@ e_shell_init (EShell *shell)
 	priv->folder_type_registry         = NULL;
 	priv->uri_schema_registry          = NULL;
 	priv->corba_storage_registry       = NULL;
-	priv->activity_handler             = NULL;
 	priv->corba_shortcuts              = NULL;
 	priv->offline_handler              = NULL;
 	priv->crash_type_names             = NULL;
@@ -1235,7 +1211,7 @@ e_shell_init (EShell *shell)
 	shell->priv = priv;
 }
 
-
+
 /**
  * e_shell_construct:
  * @shell: An EShell object to construct
@@ -1335,10 +1311,6 @@ e_shell_construct (EShell *shell,
 	/* The local storage depends on the component registry.  */
 	setup_local_storage (shell);
 	
-	/* Set up the ::Activity interface.  This must be done before we notify
-	   the components, as they might want to use it.  */
-	setup_activity_interface (shell);
-	
 	/* Set up the shortcuts interface.  This has to be done after the
 	   shortcuts are actually initialized.  */
 	
@@ -1433,7 +1405,7 @@ e_shell_new (const char *local_directory,
 	return new;
 }
 
-
+
 /**
  * e_shell_create_view:
  * @shell: The shell for which to create a new view.
@@ -1494,7 +1466,7 @@ e_shell_request_close_view (EShell *shell,
 		return FALSE;
 }
 
-
+
 /**
  * e_shell_get_local_directory:
  * @shell: An EShell object.
@@ -1597,7 +1569,7 @@ e_shell_get_local_storage (EShell *shell)
 	return shell->priv->local_storage;
 }
 
-
+
 static gboolean
 save_settings_for_component (EShell *shell,
 			     const char *id,
@@ -1741,7 +1713,7 @@ e_shell_destroy_all_views (EShell *shell)
 	}
 }
 
-
+
 /**
  * e_shell_component_maybe_crashed:
  * @shell: A pointer to an EShell object
@@ -1813,7 +1785,7 @@ e_shell_component_maybe_crashed   (EShell *shell,
 	/* FIXME: we should probably re-start the component here */
 }
 
-
+
 /* Offline/online handling.  */
 
 static void
@@ -1958,7 +1930,7 @@ e_shell_go_online (EShell *shell,
 	g_signal_emit (shell, signals[LINE_STATUS_CHANGED], 0, priv->line_status);
 }
 
-
+
 void
 e_shell_send_receive (EShell *shell)
 {
@@ -2020,7 +1992,7 @@ e_shell_show_settings (EShell *shell, const char *type, EShellView *shell_view)
 	gtk_widget_show (priv->settings_dialog);
 }
 
-
+
 EComponentRegistry *
 e_shell_get_component_registry (EShell *shell)
 {
@@ -2039,7 +2011,7 @@ e_shell_get_user_creatable_items_handler (EShell *shell)
 	return shell->priv->user_creatable_items_handler;
 }
 
-
+
 /* FIXME: These are ugly hacks, they really should not be needed.  */
 
 void
@@ -2059,7 +2031,7 @@ e_shell_unregister_all (EShell *shell)
 	priv->component_registry = NULL;
 }
 
-
+
 const char *
 e_shell_construct_result_to_string (EShellConstructResult result)
 {
@@ -2079,7 +2051,7 @@ e_shell_construct_result_to_string (EShellConstructResult result)
 	}
 }
 
-
+
 static void
 prepare_for_quit_callback (EvolutionShellComponentClient *client,
 			   EvolutionShellComponentResult result,
@@ -2144,7 +2116,7 @@ e_shell_prepare_for_quit (EShell *shell)
 	return retval;
 }
 
-
+
 /* URI parsing.   */
 
 static gboolean
@@ -2253,8 +2225,5 @@ e_shell_parse_uri (EShell *shell,
 	return FALSE;
 }
 
-
-BONOBO_TYPE_FUNC_FULL (EShell,
-		       GNOME_Evolution_Shell,
-		       PARENT_TYPE,
-		       e_shell)
+
+BONOBO_TYPE_FUNC_FULL (EShell, GNOME_Evolution_Shell, PARENT_TYPE, e_shell)

@@ -1,3 +1,13 @@
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-shell.c: Removed activity_handler member from EShellPrivate.
+	(setup_activity_interface): Removed.
+	(e_shell_construct): Don't call.
+	(create_view): Do not call e_activity_handler_attach_task_bar
+	here.
+
+	* e-activity-handler.c, e-activity-handler.h: Removed.
+
 2003-07-23  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-folder.c (e_folder_new): Accept a NULL description.
