@@ -39,6 +39,7 @@
 #include "mail-tools.h"
 #include "mail-config.h"
 #include "mail-config-druid.h"
+#include "message-tag-followup.h"
 
 #include <e-util/e-dialog-utils.h>
 
@@ -633,7 +634,7 @@ get_reply_sender (CamelMimeMessage *message, CamelInternetAddress **to)
 static gboolean
 get_reply_list (CamelMimeMessage *message, CamelInternetAddress **to)
 {
-	
+	/* FIXME: implement me */
 	return FALSE;
 }
 
@@ -1087,4 +1088,143 @@ em_utils_save_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
 	em_utils_filesel_prompt (parent, _("Save Message..."), path, save_messages_ok,
 				 (GWeakNotify) save_messages_destroy, data);
 	g_free (path);
+}
+
+
+/* Flag-for-Followup... */
+
+/* tag-editor callback data */
+struct ted_t {
+	MessageTagEditor *editor;
+	CamelFolder *folder;
+	GPtrArray *uids;
+};
+
+static void
+ted_free (struct ted_t *ted)
+{
+	camel_object_unref (ted->folder);
+	em_utils_uids_free (ted->uids);
+	g_free (ted);
+}
+
+static void
+tag_editor_response (GtkWidget *dialog, int button, struct ted_t *ted)
+{
+	CamelFolder *folder;
+	CamelTag *tags, *t;
+	GPtrArray *uids;
+	int i;
+	
+	if (button == GTK_RESPONSE_OK && (tags = message_tag_editor_get_tag_list (ted->editor))) {
+		folder = ted->folder;
+		uids = ted->uids;
+		
+		camel_folder_freeze (folder);
+		for (i = 0; i < uids->len; i++) {
+			for (t = tags; t; t = t->next)
+				camel_folder_set_message_user_tag (folder, uids->pdata[i], t->name, t->value);
+		}
+		
+		camel_folder_thaw (folder);
+		camel_tag_list_free (&tags);
+	}
+	
+	gtk_widget_destroy (dialog);
+}
+
+void
+em_utils_flag_for_followup (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+{
+	GtkWidget *editor;
+	struct ted_t *ted;
+	int i;
+	
+	g_return_if_fail (CAMEL_IS_FOLDER (folder));
+	g_return_if_fail (uids != NULL);
+	
+	editor = (GtkWidget *) message_tag_followup_new ();
+	
+	if (parent != NULL)
+		gtk_window_set_transient_for ((GtkWindow *) editor, parent);
+	
+	camel_object_ref (folder);
+	
+	ted = g_new (struct ted_t, 1);
+	ted->editor = MESSAGE_TAG_EDITOR (editor);
+	ted->folder = folder;
+	ted->uids = uids;
+	
+	for (i = 0; i < uids->len; i++) {
+		CamelMessageInfo *info;
+		
+		info = camel_folder_get_message_info (folder, uids->pdata[i]);
+		message_tag_followup_append_message (MESSAGE_TAG_FOLLOWUP (editor),
+						     camel_message_info_from (info),
+						     camel_message_info_subject (info));
+	}
+	
+	/* special-case... */
+	if (uids->len == 1) {
+		CamelMessageInfo *info;
+		
+		info = camel_folder_get_message_info (folder, uids->pdata[0]);
+		if (info) {
+			if (info->user_tags)
+				message_tag_editor_set_tag_list (MESSAGE_TAG_EDITOR (editor), info->user_tags);
+			camel_folder_free_message_info (folder, info);
+		}
+	}
+	
+	g_signal_connect (editor, "response", G_CALLBACK (tag_editor_response), ted);
+	g_object_weak_ref ((GObject *) editor, (GWeakNotify) ted_free, ted);
+	
+	gtk_widget_show (editor);
+}
+
+void
+em_utils_flag_for_followup_clear (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+{
+	int i;
+	
+	g_return_if_fail (CAMEL_IS_FOLDER (folder));
+	g_return_if_fail (uids != NULL);
+	
+	camel_folder_freeze (folder);
+	for (i = 0; i < uids->len; i++) {
+		camel_folder_set_message_user_tag (folder, uids->pdata[i], "follow-up", "");
+		camel_folder_set_message_user_tag (folder, uids->pdata[i], "due-by", "");
+		camel_folder_set_message_user_tag (folder, uids->pdata[i], "completed-on", "");
+	}
+	camel_folder_thaw (folder);
+	
+	em_utils_uids_free (uids);
+}
+
+void
+em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+{
+	char *now;
+	int i;
+	
+	g_return_if_fail (CAMEL_IS_FOLDER (folder));
+	g_return_if_fail (uids != NULL);
+	
+	now = header_format_date (time (NULL), 0);
+	
+	camel_folder_freeze (folder);
+	for (i = 0; i < uids->len; i++) {
+		const char *tag;
+		
+		tag = camel_folder_get_message_user_tag (folder, uids->pdata[i], "follow-up");
+		if (tag == NULL || *tag == '\0')
+			continue;
+		
+		camel_folder_set_message_user_tag (folder, uids->pdata[i], "completed-on", now);
+	}
+	camel_folder_thaw (folder);
+	
+	g_free (now);
+	
+	em_utils_uids_free (uids);
 }

@@ -1,3 +1,13 @@
+2003-08-22  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-utils.c (em_utils_flag_for_followup): Implemented.
+	(em_utils_flag_for_followup_clear): Implemented.
+	(em_utils_flag_for_followup_completed): Implemented.
+
+	* em-folder-view.c (emfv_message_followup_flag): Implemented.
+	(emfv_message_followup_clear): Implemented.
+	(emfv_message_followup_completed): Implemented.
+
 2003-08-22  Not Zed  <NotZed@Ximian.com>
 
 	* em-camel-stream.c (em_camel_stream_new): now take the gtkhtml

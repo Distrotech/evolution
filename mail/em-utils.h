@@ -68,6 +68,10 @@ void em_utils_post_reply_to_message_by_uid (GtkWindow *parent, CamelFolder *fold
 void em_utils_save_message (GtkWindow *parent, CamelMimeMessage *message);
 void em_utils_save_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
 
+void em_utils_flag_for_followup (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup_clear (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

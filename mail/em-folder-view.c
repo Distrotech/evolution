@@ -61,8 +61,6 @@
 
 #include "mail-mt.h"
 #include "mail-ops.h"
-#include "mail-config.h"
-
 #include "mail-config.h"	/* hrm, pity we need this ... */
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
@@ -188,11 +186,11 @@ em_folder_view_open_selected(EMFolderView *emfv)
 	GPtrArray *uids;
 	int i;
 
-	/* FIXME: handle editing message?  Should be a different method? */
+	/* FIXME: handle editing message?  Should be a different method? editing handled by 'Resend' method already */
 
 	uids = message_list_get_selected(emfv->list);
 
-	/* FIXME: 'are you sure' for > 10 messages */
+	/* FIXME: 'are you sure' for > 10 messages; is this even necessary? */
 
 	for (i=0; i<uids->len; i++) {
 		EMMessageBrowser *emmb;
@@ -566,12 +564,42 @@ emfv_message_undelete(BonoboUIComponent *uic, void *data, const char *path)
 }
 
 static void
-emfv_message_followup_flag(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_followup_flag (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	GPtrArray *uids;
 	
-	emfv = emfv;
-	/* FIXME: code needs refactoring to use here, maybe some helper class methods */
+	parent = emfv_get_parent_window (emfv);
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_flag_for_followup (parent, emfv->folder, uids);
+}
+
+static void
+emfv_message_followup_clear (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_flag_for_followup_clear (parent, emfv->folder, uids);
+}
+
+static void
+emfv_message_followup_completed (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GtkWindow *parent;
+	GPtrArray *uids;
+	
+	parent = emfv_get_parent_window (emfv);
+	
+	uids = message_list_get_selected (emfv->list);
+	em_utils_flag_for_followup_completed (parent, emfv->folder, uids);
 }
 
 static void
@@ -663,6 +691,8 @@ static void
 emfv_tools_filter_mlist(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -670,6 +700,8 @@ static void
 emfv_tools_filter_recipient(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -677,6 +709,8 @@ static void
 emfv_tools_filter_sender(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -684,6 +718,8 @@ static void
 emfv_tools_filter_subject(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -691,6 +727,8 @@ static void
 emfv_tools_vfolder_mlist(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -698,6 +736,8 @@ static void
 emfv_tools_vfolder_recipient(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -705,6 +745,8 @@ static void
 emfv_tools_vfolder_sender(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -712,6 +754,8 @@ static void
 emfv_tools_vfolder_subject(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
+	
+	/* FIXME: implement me */
 	emfv = emfv;
 }
 
@@ -837,10 +881,9 @@ emfv_view_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Even
 			em_format_set_mode((EMFormat *)emfv->preview, i);
 
 			if (TRUE /* set preferences but not for EMMessageBrowser? */) {
-				GConfClient *gconf = gconf_client_get_default();
+				GConfClient *gconf = mail_config_get_gconf_client ();
 				
 				gconf_client_set_int (gconf, "/apps/evolution/mail/display/message_style", i, NULL);
-				g_object_unref(gconf);
 			}
 			break;
 		}
@@ -855,9 +898,8 @@ emfv_caret_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Eve
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
-	gconf = gconf_client_get_default();
+	gconf = mail_config_get_gconf_client ();
 	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/caret_mode", state[0] != '0', NULL);
-	g_object_unref(gconf);
 }
 
 static void
@@ -883,7 +925,7 @@ static void
 emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 {
 	if (state) {
-		GConfClient *gconf = gconf_client_get_default();
+		GConfClient *gconf = mail_config_get_gconf_client ();
 		em_format_mode_t style;
 		gboolean caret_mode;
 		GSList *l;
@@ -925,8 +967,6 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 #endif
 		/* default charset used in mail view */
 		e_charset_picker_bonobo_ui_populate (uic, "/menu/View", _("Default"), emfv_charset_changed, emfv);
-
-		g_object_unref(gconf);
 	} else {
 		const BonoboUIVerb *v;
 
