@@ -51,21 +51,23 @@ struct _QueryClass {
 	POA_GNOME_Evolution_Calendar_Query__epv epv;
 };
 
-GType  query_get_type                (void);
-Query *query_new                     (CalBackend                             *backend,
-				      GNOME_Evolution_Calendar_QueryListener  ql,
-				      CalBackendObjectSExp                   *sexp);
-void   query_notify_objects_added    (Query                                  *query,
-				      const GList                            *objects);
-void   query_notify_objects_modified (Query                                  *query,
-				      const GList                            *objects);
-void   query_notify_objects_removed  (Query                                  *query,
-				      const GList                            *uids);
-void   query_notify_query_progress   (Query                                  *query,
-				      const char                             *message,
-				      int                                     percent);
-void   query_notify_query_done       (Query                                  *query,
-				      GNOME_Evolution_Calendar_CallStatus     status);
+GType                 query_get_type (void);
+Query                *query_new (CalBackend                             *backend,
+				 GNOME_Evolution_Calendar_QueryListener  ql,
+				 CalBackendObjectSExp                   *sexp);
+const char           *query_get_text (Query *query);
+CalBackendObjectSExp *query_get_object_sexp (Query *query);
+void                  query_notify_objects_added (Query       *query,
+						  const GList *objects);
+void                  query_notify_objects_modified (Query       *query,
+						     const GList *objects);
+void                  query_notify_objects_removed (Query       *query,
+						    const GList *uids);
+void                  query_notify_query_progress (Query      *query,
+						   const char *message,
+						   int         percent);
+void                  query_notify_query_done (Query                               *query,
+					       GNOME_Evolution_Calendar_CallStatus status);
 
 G_END_DECLS
 

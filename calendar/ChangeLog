@@ -1,3 +1,10 @@
+2003-09-11  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/query.[ch] (query_get_text): new function.
+	(query_get_object_sexp): new function.
+
+	* pcs/cal-backend-file.c (cal_backend_file_start_query): implemented.
+
 2003-09-10  JP Rosevear  <jpr@ximian.com>
 
 	* pcs/cal.h: update proto
@@ -110,6 +117,12 @@
 
 	* idl/evolution-calendar.idl: make the getQuery call async, make
 	the query listener calls oneway and match the addressbook
+
+2003-09-09  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c (cal_backend_file_get_object_component):
+	added case for getting the individual recurrences if 'rid' is
+	not NULL,
 
 2003-09-09  Rodrigo Moya <rodrigo@ximian.com>
 

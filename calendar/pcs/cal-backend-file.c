@@ -64,6 +64,9 @@ struct _CalBackendFilePrivate {
 	/* The calendar's default timezone, used for resolving DATE and
 	   floating DATE-TIME values. */
 	icaltimezone *default_zone;
+
+	/* The list of live queries */
+	GList *queries;
 };
 
 
@@ -935,6 +938,7 @@ cal_backend_file_get_object_component (CalBackend *backend, const char *uid, con
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
+	CalComponent *comp;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
@@ -944,9 +948,16 @@ cal_backend_file_get_object_component (CalBackend *backend, const char *uid, con
 	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
 	g_assert (priv->comp_uid_hash != NULL);
 
-	return lookup_component (cbfile, uid);
+	comp = lookup_component (cbfile, uid);
+	if (!comp)
+		return NULL;
 
-	/* FIXME: use 'rid' */
+	if (rid && *rid) {
+		
+	} else
+		return comp;
+
+	return NULL;
 }
 
 /* Get_timezone_object handler for the file backend */
@@ -1074,9 +1085,39 @@ cal_backend_file_start_query (CalBackend *backend, Query *query)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
+	MatchObjectData match_data;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
+
+	/* try to match all currently existing objects */
+	match_data.search_needed = TRUE;
+	match_data.query = query_get_text (query);
+	match_data.obj_list = NULL;
+	match_data.backend = backend;
+	match_data.default_zone = priv->default_zone;
+
+	if (!strcmp (match_data.query, "#t"))
+		match_data.search_needed = FALSE;
+
+	match_data.obj_sexp = query_get_object_sexp (query);
+	if (!match_data.obj_sexp) {
+		query_notify_query_done (query, GNOME_Evolution_Calendar_InvalidQuery);
+		return;
+	}
+
+	g_hash_table_foreach (priv->comp_uid_hash, (GHFunc) match_object_sexp, &match_data);
+
+	/* notify listeners of all objects */
+	if (match_data.obj_list) {
+		query_notify_objects_added (query, (const GList *) match_data.obj_list);
+
+		/* free memory */
+		g_list_foreach (match_data.obj_list, (GFunc) g_free, NULL);
+		g_list_free (match_data.obj_list);
+	}
+
+	query_notify_query_done (query, GNOME_Evolution_Calendar_Success);
 }
 
 static gboolean

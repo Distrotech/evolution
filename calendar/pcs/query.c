@@ -257,6 +257,30 @@ query_new (CalBackend *backend,
 	return query;
 }
 
+/**
+ * query_get_sexp
+ * @query: A #Query object.
+ *
+ * Get the expression used for the given query.
+ *
+ * Returns: the query expression used to search.
+ */
+const char *
+query_get_text (Query *query)
+{
+	g_return_val_if_fail (IS_QUERY (query), NULL);
+
+	return cal_backend_object_sexp_text (query->priv->sexp);
+}
+
+CalBackendObjectSExp *
+query_get_object_sexp (Query *query)
+{
+	g_return_val_if_fail (IS_QUERY (query), NULL);
+
+	return query->priv->sexp;
+}
+
 void
 query_notify_objects_added (Query *query, const GList *objects)
 {
