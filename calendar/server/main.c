@@ -13,4 +13,6 @@ int main(int argc, char *argv[])
   cs_server_run(serv);
 
   cs_server_destroy(serv);
+
+  return 0;
 }

@@ -7,15 +7,19 @@ typedef struct {
   int servfd;
   GList *connections;
   GMainLoop *mainloop;
+  GIOChannel *gioc;
 } CSServer;
 CSServer *cs_server_new(void);
 void cs_server_run(CSServer *server);
 void cs_server_destroy(CSServer *server);
 
 typedef struct {
+  CSServer *serv;
+  GIOChannel *gioc;
   int fd;
 } CSConnection;
-CSConnection *cs_connection_accept(CSServer *server);
+void cs_connection_accept(gpointer data, GIOCondition cond,
+			  CSServer *server);
 void cs_connection_destroy(CSConnection *cnx);
 
 typedef char * CSIdentifier;

@@ -1,7 +1,7 @@
 CFLAGS=-g -Wall -pipe
 REALCFLAGS=$(shell glib-config --cflags) $(CFLAGS)
 
-SRCS=calserv.c
+SRCS=calserv.c main.c
 OBJS=$(addsuffix .o, $(basename $(SRCS)))
 LIBS=$(shell glib-config --libs)
 all: calserv
