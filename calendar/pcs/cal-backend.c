@@ -84,7 +84,7 @@ static void cal_backend_class_init (CalBackendClass *class);
 static void cal_backend_init (CalBackend *backend);
 static void cal_backend_finalize (GObject *object);
 
-static char *get_object (CalBackend *backend, const char *uid);
+static char *get_object (CalBackend *backend, const char *uid, const char *rid);
 
 static void notify_categories_changed (CalBackend *backend);
 
@@ -623,11 +623,11 @@ cal_backend_set_mode (CalBackend *backend, CalMode mode)
 
 /* Default cal_backend_get_object implementation */
 static char *
-get_object (CalBackend *backend, const char *uid)
+get_object (CalBackend *backend, const char *uid, const char *rid)
 {
 	CalComponent *comp;
 
-	comp = cal_backend_get_object_component (backend, uid);
+	comp = cal_backend_get_object_component (backend, uid, rid);
 	if (!comp)
 		return NULL;
 
@@ -648,45 +648,47 @@ cal_backend_get_default_object (CalBackend *backend, CalObjType type)
  * cal_backend_get_object:
  * @backend: A calendar backend.
  * @uid: Unique identifier for a calendar object.
+ * @rid: ID for the object's recurrence to get.
  *
  * Queries a calendar backend for a calendar object based on its unique
- * identifier.
+ * identifier and its recurrence ID (if a recurrent appointment).
  *
  * Return value: The string representation of a complete calendar wrapping the
  * the sought object, or NULL if no object had the specified UID.
  **/
 char *
-cal_backend_get_object (CalBackend *backend, const char *uid)
+cal_backend_get_object (CalBackend *backend, const char *uid, const char *rid)
 {
 	g_return_val_if_fail (backend != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
 	g_return_val_if_fail (uid != NULL, NULL);
 
 	g_assert (CLASS (backend)->get_object != NULL);
-	return (* CLASS (backend)->get_object) (backend, uid);
+	return (* CLASS (backend)->get_object) (backend, uid, rid);
 }
 
 /**
  * cal_backend_get_object_component:
  * @backend: A calendar backend.
  * @uid: Unique identifier for a calendar object.
+ * @rid: ID for the object's recurrence to get.
  *
  * Queries a calendar backend for a calendar object based on its unique
- * identifier. It returns the CalComponent rather than the string
- * representation.
+ * identifier and its recurrence ID (if a recurrent appointment). It
+ * returns the CalComponent rather than the string representation.
  *
  * Return value: The CalComponent of the sought object, or NULL if no object
  * had the specified UID.
  **/
 CalComponent *
-cal_backend_get_object_component (CalBackend *backend, const char *uid)
+cal_backend_get_object_component (CalBackend *backend, const char *uid, const char *rid)
 {
 	g_return_val_if_fail (backend != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
 	g_return_val_if_fail (uid != NULL, NULL);
 
 	g_assert (CLASS (backend)->get_object_component != NULL);
-	return (* CLASS (backend)->get_object_component) (backend, uid);
+	return (* CLASS (backend)->get_object_component) (backend, uid, rid);
 }
 
 /**
@@ -728,7 +730,7 @@ cal_backend_get_type_by_uid (CalBackend *backend, const char *uid)
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_COMPONENT_NO_TYPE);
 	g_return_val_if_fail (uid != NULL, CAL_COMPONENT_NO_TYPE);
 
-	comp_str = cal_backend_get_object (backend, uid);
+	comp_str = cal_backend_get_object (backend, uid, NULL);
 	if (!comp_str)
 		return CAL_COMPONENT_NO_TYPE;
 

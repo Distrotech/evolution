@@ -1,3 +1,33 @@
+2003-08-23  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/query-backend.c (object_updated_cb):
+	* pcs/cal-backend.c (cal_backend_get_type_by_uid): use 'rid' parameter
+	where appropriate.
+
+	* pcs/cal-backend-file.c (check_dup_uid): removed unused variables.
+	(cal_backend_file_compute_changes_foreach_key): pass a NULL 'rid'
+	to cal_backend_get_object().
+	(lookup_component): get a 'rid' argument also.
+	(cal_backend_file_cancel_object, cal_backend_file_remove_object):
+	pass correct number of parameters to lookup_component().
+
+2003-08-22  Rodrigo Moya <rodrigo@ximian.com>
+
+	* idl/evolution-calendar.idl: use UID/RID pairs to identify objects.
+
+	* pcs/cal.c (impl_Cal_getObject): added 'rid' parameter.
+
+	* pcs/cal-backend.c (cal_backend_get_object): added 'rid' parameter.
+	(cal_backend_get_object_component): ditto.
+	(get_object): ditto.
+
+	* pcs/cal-backend-file.c (cal_backend_file_get_object_component):
+	added 'rid' parameter.
+	(lookup_component): added 'rid' parameter and made it search for the
+	recurrence when that parameter is not NULL.
+	(cal_backend_file_get_alarms_for_object, cal_backend_file_update_object):
+	adapted to changes in lookup_component().
+
 2003-08-20  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/query-backend.c (foreach_uid_cb): use the icalcomponent

@@ -207,7 +207,7 @@ module Calendar {
 		CalObj getDefaultObject (in CalObjType type);
 		
 		/* Gets a component based on its URI */
-		CalObj getObject (in CalObjUID uid)
+		CalObj getObject (in CalObjUID uid, in CalRecurID rid)
 			raises (NotFound);
 
 		oneway void getObjectList (in string query);

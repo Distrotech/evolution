@@ -175,7 +175,7 @@ object_updated_cb (CalBackend *backend, const char *uid, gpointer user_data)
 		g_object_unref (orig_value);
 	}
 
-	comp_str = cal_backend_get_object (qb->priv->backend, uid);
+	comp_str = cal_backend_get_object (qb->priv->backend, uid, NULL);
 	if (!comp_str)
 		return;
 

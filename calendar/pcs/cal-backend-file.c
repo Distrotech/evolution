@@ -95,7 +95,7 @@ static CalMode cal_backend_file_get_mode (CalBackend *backend);
 static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
 
 static char *cal_backend_file_get_default_object (CalBackend *backend, CalObjType type);
-static CalComponent *cal_backend_file_get_object_component (CalBackend *backend, const char *uid);
+static CalComponent *cal_backend_file_get_object_component (CalBackend *backend, const char *uid, const char *rid);
 static char *cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid);
 static GList *cal_backend_file_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
 static GNOME_Evolution_Calendar_CalObjChangeSeq *cal_backend_file_get_changes (
@@ -435,7 +435,7 @@ cal_backend_file_finalize (GObject *object)
 
 /* Looks up a component by its UID on the backend's component hash table */
 static CalComponent *
-lookup_component (CalBackendFile *cbfile, const char *uid)
+lookup_component (CalBackendFile *cbfile, const char *uid, const char *rid)
 {
 	CalBackendFilePrivate *priv;
 	CalBackendFileObject *obj;
@@ -530,7 +530,6 @@ check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 {
 	CalBackendFilePrivate *priv;
 	CalBackendFileObject *obj;
-	CalComponent *old_comp;
 	const char *uid;
 	char *new_uid;
 
@@ -627,7 +626,7 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	cal_component_get_uid (comp, &uid);
 	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
 	g_hash_table_remove (priv->comp_uid_hash, uid);
-	free_object (uid, obj, NULL);
+	free_object ((gpointer) uid, obj, NULL);
 
 	l = g_list_find (priv->comp, comp);
 	g_assert (l != NULL);
@@ -928,7 +927,7 @@ cal_backend_file_get_default_object (CalBackend *backend, CalObjType type)
 
 /* Get_object_component handler for the file backend */
 static CalComponent *
-cal_backend_file_get_object_component (CalBackend *backend, const char *uid)
+cal_backend_file_get_object_component (CalBackend *backend, const char *uid, const char *rid)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -941,7 +940,7 @@ cal_backend_file_get_object_component (CalBackend *backend, const char *uid)
 	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
 	g_assert (priv->comp_uid_hash != NULL);
 
-	return lookup_component (cbfile, uid);
+	return lookup_component (cbfile, uid, rid);
 }
 
 /* Get_timezone_object handler for the file backend */
@@ -1187,7 +1186,7 @@ static void
 cal_backend_file_compute_changes_foreach_key (const char *key, gpointer data)
 {
 	CalBackendFileComputeChangesData *be_data = data;
-	char *calobj = cal_backend_get_object (be_data->backend, key);
+	char *calobj = cal_backend_get_object (be_data->backend, key, NULL);
 	
 	if (calobj == NULL) {
 		CalComponent *comp;
@@ -1409,7 +1408,7 @@ cal_backend_file_get_alarms_for_object (CalBackend *backend, const char *uid,
 	g_return_val_if_fail (start <= end, NULL);
 	g_return_val_if_fail (object_found != NULL, NULL);
 
-	comp = lookup_component (cbfile, uid);
+	comp = lookup_component (cbfile, uid, NULL);
 	if (!comp) {
 		*object_found = FALSE;
 		return NULL;
@@ -1471,16 +1470,20 @@ cal_backend_file_update_object (CalBackendFile *cbfile,
 	/* Set the LAST-MODIFIED time on the component */
 	last_modified = icaltime_from_timet (time (NULL), 0);
 	cal_component_set_last_modified (comp, &last_modified);
-	
-	/* Remove any old version of the component. */
-	old_comp = lookup_component (cbfile, comp_uid);
-	if (old_comp)
-		remove_component (cbfile, old_comp);
 
-	/* Now add the component to our local cache, but we pass FALSE as
-	   the last argument, since the libical component is assumed to have
-	   been added already. */
-	add_component (cbfile, comp, FALSE);
+	if (cal_component_is_instance (comp)) {
+		/* FIXME */
+	} else {
+		/* Remove any old version of the component. */
+		old_comp = lookup_component (cbfile, comp_uid, NULL);
+		if (old_comp)
+			remove_component (cbfile, old_comp);
+
+		/* Now add the component to our local cache, but we pass FALSE as
+		   the last argument, since the libical component is assumed to have
+		   been added already. */
+		add_component (cbfile, comp, FALSE);
+	}
 
 	return comp_uid;
 }
@@ -1502,7 +1505,7 @@ cal_backend_file_cancel_object (CalBackendFile *cbfile,
 		return NULL;
 
 	/* Find the old version of the component. */
-	old_comp = lookup_component (cbfile, comp_uid);
+	old_comp = lookup_component (cbfile, comp_uid, NULL);
 	if (!old_comp)
 		return NULL;
 
@@ -1630,7 +1633,7 @@ cal_backend_file_remove_object (CalBackend *backend, const char *uid, CalObjModT
 
 	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
 
-	comp = lookup_component (cbfile, uid);
+	comp = lookup_component (cbfile, uid, NULL);
 	if (!comp)
 		return CAL_BACKEND_RESULT_NOT_FOUND;
 

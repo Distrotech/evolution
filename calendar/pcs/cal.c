@@ -280,6 +280,7 @@ impl_Cal_getDefaultObject (PortableServer_Servant servant,
 static GNOME_Evolution_Calendar_CalObj
 impl_Cal_getObject (PortableServer_Servant servant,
 		    const CORBA_char *uid,
+		    const CORBA_char *rid,
 		    CORBA_Environment *ev)
 {
 	Cal *cal;
@@ -289,7 +290,7 @@ impl_Cal_getObject (PortableServer_Servant servant,
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	calobj = cal_backend_get_object (priv->backend, uid);
+	calobj = cal_backend_get_object (priv->backend, uid, rid);
 
 	if (calobj) {
 		CORBA_char *calobj_copy;
