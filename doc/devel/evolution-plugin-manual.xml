@@ -14,6 +14,7 @@
 <!ENTITY e-plugin-reference SYSTEM "e-plugin.xml">
 
 <!ENTITY em-popup-reference SYSTEM "em-popup.xml">
+<!ENTITY em-format-reference SYSTEM "em-format.xml">
 
 ]>
 <?xml-stylesheet href="sdocbook.css" type="text/css"?>
@@ -161,45 +162,50 @@
 	</para>
 	<itemizedlist>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Provide a language independent invocation mechanism
-	    </para>
+	    </simpara>
 	  </listitem>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Allow extension of parts of the user interface and processing elements
-	    </para>
+	    </simpara>
 	  </listitem>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Require minimal extra or foreign code to implement in the core application
-	    </para>
+	    </simpara>
 	  </listitem>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Require minimal interface code to implement the extensions
-	    </para>
+	    </simpara>
 	  </listitem>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Not to impact performance or increase resource usage unduly
-	    </para>
+	    </simpara>
 	  </listitem>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Versioning
-	    </para>
+	    </simpara>
 	  </listitem>
 	  <listitem>
-	    <para>
+	    <simpara>
 	      Be able to be extended itself fairly easily.
-	    </para>
+	    </simpara>
 	  </listitem>
 	</itemizedlist>
 	<para>
 	  EPlugin manages to fulfill these goals in most cases. EPlugin isn't a
 	  single object or interface in itself, although there is an object
-	  titled EPlugin, it is a synergistic collection of integrated and
+	  titled EPlugin, it is a synergistic
+	  <footnote><simpara>I've always wanted to use
+	      <emphasis>synergistic</emphasis> in a sentence since
+	      I read it on the back of the Commodore 64 Users
+	      Guide.</simpara></footnote>
+	  collection of integrated and
 	  continually evolving objects which work together to achieve these
 	  goals (and that will definitly be the end of the MarketSpeak). It
 	  consists of a loader to invoke extension callbacks, hooks to resolve
@@ -209,8 +215,19 @@
 	</para>
 	<para>
 	  EPlugin's design was inspired and influenced by the &eclipse;
-	  project. It aims at a lower target however, so it was more easily
+	  project. It aims at a lower target however, so it was able more easily
 	  implemented in a practical time-frame.
+	</para>
+	<para>
+	  &EPlugin; was chosen as an approach to the problem of adding
+	  scriptability to &Evolution;.  Instead of just linking to Perl, or
+	  Python, or even Mono by itself an approach was taken which focuses on
+	  the application end of the system.  So instead of making every part
+	  of the application export its functionality and have to deal with
+	  whatever script engine is present, EPlugin addresses the hooking part
+	  of the equation in a language-independent manner.  It also attemps to
+	  do it in a way which doesn't impact on the application development
+	  either.
 	</para>
 	<para>
 	  The EPlugin world is awash with its own language. The next few
@@ -310,10 +327,10 @@
 	  control or create. The items are added to each manager instance from
 	  the plugins or from core code. The items from all of these sources
 	  are then merged together when required and processed accordingly. For
-	  example, menu items are merged into the display format. Events on the
+	  example, menu items are merged into a tree of GtkMenus. Events on the
 	  other hand are simply ordered and then invoked in the order of their
 	  priority. Items are part of the manager implementation, and in
-	  EPlugin they are all extensible objects too, which the hooks use to
+	  &EPlugin; they are all extensible objects too, which the hooks use to
 	  perform mapping to the plugin. Items may be extended by code hooking
 	  into the implementation, either the plugin hooks, or the core code.
 	</para>
@@ -358,19 +375,19 @@
 	  is an abstract class which provides the basic services for plugin
 	  implementations. The main services are:
 	  <itemizedlist>
-	    <listitem><para>Resolve plugin type and instantiate an EPlugin
-		object to represent and manage it.</para></listitem>
-	    <listitem><para>Load the base structure of the XML plugin
-		definition files.</para></listitem>
-	    <listitem><para>Resolve plugin hook types and instantiate a
-		EPluginHook to represent and manage it.</para></listitem>
-	    <listitem><para>Provide a simple, language-independent api for
-		invoking plugin callbacks</para></listitem>
-	    <listitem><para>Provide I18N context for plugins.</para></listitem>
-	    <listitem><para>Some simple static helper methods to simplify each
-		implementing class.</para></listitem>
+	    <listitem><simpara>Resolve plugin type and instantiate an EPlugin
+		object to represent and manage it.</simpara></listitem>
+	    <listitem><simpara>Load the base structure of the XML plugin
+		definition files.</simpara></listitem>
+	    <listitem><simpara>Resolve plugin hook types and instantiate a
+		EPluginHook to represent and manage it.</simpara></listitem>
+	    <listitem><simpara>Provide a simple, language-independent api for
+		invoking plugin callbacks</simpara></listitem>
+	    <listitem><simpara>Provide I18N context for plugins.</simpara></listitem>
+	    <listitem><simpara>Some simple static helper methods to simplify each
+		implementing class.</simpara></listitem>
 	  </itemizedlist>
-	  See the <link linkend="REF-EPlugin">EPlugin reference section</link> for
+	  See the <xref linkend="REF-EPlugin"/> for
 	  these details.
 	</para>
 
@@ -662,8 +679,8 @@
 	  <simplesect>
 	    <title>Callback signature</title>
 	    <funcsynopsis><funcprototype>
-		<funcdef>IntPtr<function>function</function></funcdef>
-		<paramdef>IntPtr<parameter>data</parameter></paramdef>
+		<funcdef>IntPtr <function>function</function></funcdef>
+		<paramdef>IntPtr <parameter>data</parameter></paramdef>
 	      </funcprototype></funcsynopsis>
 	    <variablelist>
 	      <varlistentry>
@@ -800,8 +817,7 @@
 	      <listitem>
 		<simpara>
 		  The text to be displayed on the menu item.  This will be
-		  translated based on the plugin translation domain (FIXME:
-		  domain's are not yet available).
+		  translated based on the plugin translation domain.
 		</simpara>
 	      </listitem>
 	    </varlistentry>
@@ -1128,7 +1144,7 @@
 	  of the UI, such as navigating through a druid or handling
 	  instant-apply vs. modify-and-save dialogues.
 	</para>
-	<figure>
+	<figure id="e-config-flow">
 	  <title>Event and Data Flow in EMConfig</title>
 	  <mediaobject>
 	    <imageobject>
@@ -1203,7 +1219,8 @@
 		  section frame text.  For pages this will be the druid page
 		  title or the notebook tab text.  If a
 		  <parameter>factory</parameter>is supplied then this value is
-		  not used.
+		  not used.  This will be translated based on the plugin
+		  translation domain.
 		</simpara>
 	      </listitem>
 	    </varlistentry>
@@ -1222,7 +1239,7 @@
 	  </variablelist>
 	</sect2>
 	<sect2>
-	  <title>Merging Plugin Items</title>
+	  <title>Generating Configuration Pages</title>
 	  <para>
 	    Configuration items essentially spam 3 dimensions, but are
 	    merged in a similar fashion to the way Popup items are merged.  The
@@ -1233,7 +1250,106 @@
 	    or pages.
 	  </para>
 	  <para>
-	    <emphasis>Insert screen-shot example here</emphasis>
+	    All items for a given configuration screen are converted into a
+	    list and sorted based on the <parameter>path</parameter>.  The
+	    configuration builder then goes through each item, creating
+	    container widgets or calling factories as required.  If a given
+	    page or section is empty, then it is removed automatically.  This
+	    process isn't only a one-off process.  For certain complex
+	    configuration screens, items or even pages and sections need to be
+	    dynamic based on a previous setting.  EConfig supports this mode of
+	    operation too, in which case it re-builds the configuration screen
+	    the same way, and automatically destroys the old widgets
+	    <footnote><simpara>In most cases, in some cases additional manual
+		processing is required in the factory
+		callback.</simpara></footnote> and even re-orders pages and
+	    sections where appropriate to make the user-interface consistent.
+	  </para>
+	  <para>
+	    The following few examples some of the flexibility of the EConfig
+	    system.
+	  </para>
+	  <figure id="e-config-build-1">
+	    <title>The application defined, unaltered configuration page.</title>
+	    <mediaobject>
+	      <!-- do we need to build our own eps for the image? -->
+	      <imageobject>
+		<imagedata fileref="images/e-config-build-1.png" format="PNG"/>
+	      </imageobject>
+	      <textobject>
+		<phrase>Shows the original HTML Mail settings page.</phrase>
+	      </textobject>
+	    </mediaobject>
+	  </figure>
+	  <para>
+	    First we have the original configuration window.  This is defined
+	    by the application, the application uses EConfig to build this
+	    window, and in the process EConfig instruments the sections that
+	    the application defines.  This allows plugins to add new
+	    pages/sections/items anywhere on the page - to a granularity as
+	    defined by the application.  For example the application may at
+	    minimum merely define the top-level notebook or druid object and a
+	    number of pages.  When the pages are created the application could
+	    add as much content as it wants, which would still allow plugins to
+	    extend the user interface, but only by adding options to the end of
+	    each page.  At the other end of the scale the application could
+	    enumerate every single item (i.e. row) in every section on every
+	    page, allowing plugins to put new items anywhere in the display.
+	  </para>
+	  <figure id="e-config-build-2">
+	    <title>A plugin adding a new section to an existing page.</title>
+	    <mediaobject>
+	      <!-- do we need to build our own eps for the image? -->
+	      <imageobject>
+		<imagedata fileref="images/e-config-build-2.png" format="PNG"/>
+	      </imageobject>
+	      <textobject>
+		<phrase>Shows the HTML Mail settings page with a new section
+		  and item added by a plugin.</phrase>
+	      </textobject>
+	    </mediaobject>
+	  </figure>
+	  <para>
+	    In this case the plugin has merely added a new section on the
+	    bottom of the HTML Mail settings page.  When the factory is called
+	    the plugin has a parent GtkTable (in this case, it could be a VBox)
+	    and borderless frame already defined, and it just has to
+	    instantiate its own control widgets, add them to the table, and
+	    return one of the widgets.  The returned widget is used later if
+	    the window needs to be reconfigured, although this particular configuration
+	    page is static so it isn't needed.
+	  </para>
+	  <figure id="e-config-build-3">
+	    <title>A plugin inserting a new page for its settings.</title>
+	    <mediaobject>
+	      <!-- do we need to build our own eps for the image? -->
+	      <imageobject>
+		<imagedata fileref="images/e-config-build-3.png" format="PNG"/>
+	      </imageobject>
+	      <textobject>
+		<phrase>Shows the plugin adding a new page for its setting as
+		  an alternative.</phrase>
+	      </textobject>
+	    </mediaobject>
+	  </figure>
+	  <para>
+	    And finally we have exactly the same plugin, which has exactly the
+	    same code.  But a small change to the plugin definition allows the
+	    plugin to add an arbitrary new page (in an arbitrary position) into
+	    the whole window.  If this was a druid, then new druid pages can
+	    also be inserted at arbitrary locations, and page navigation (in a
+	    strictly linear manner) is automatically controlled by EConfig as
+	    per <xref linkend="e-config-flow"/>.
+	  </para>
+	  <para>
+	    In practice, EConfig provides more than it takes the application to
+	    use - generally little or no extra application code is required to
+	    use it.  It also
+	    <footnote><simpara>Or it will - the code needs some
+		tweaking.</simpara></footnote> enforces and simplifies HIG
+	    compliance.  And as a side-benefit to the application it
+	    transparently provides extension hooks for
+	    external code to provide a seamlessly integrated user experience.
 	  </para>
 	</sect2>
       </sect1>
@@ -1510,6 +1626,7 @@
 	    code (more or less write-once global and static variables) if
 	    they call any other formatting functions.
 	  </para>
+	</sect2>
       </sect1>
     </chapter>
   </part>
@@ -1528,6 +1645,8 @@
 	<title>Table Format</title>
 	<informaltable>
 	  <tgroup cols="2">
+	    <colspec colnum="1" colname="field" colwidth="1*"/>
+	    <colspec colnum="2" colname="value" colwidth="4*"/>
 	    <tbody>
 	      <row>
 		<entry>Name</entry>
@@ -1584,6 +1703,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1608,6 +1729,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1634,6 +1757,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1657,6 +1782,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1680,6 +1807,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1743,6 +1872,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -1780,6 +1911,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -1829,6 +1962,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -1864,6 +1999,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -1896,6 +2033,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -1944,6 +2083,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1970,6 +2111,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -1994,6 +2137,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2023,6 +2168,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -2081,6 +2228,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2111,6 +2260,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2141,6 +2292,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2171,6 +2324,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2202,6 +2357,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2237,6 +2394,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -2268,6 +2427,8 @@
 	    
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -2290,6 +2451,8 @@
 
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -2322,6 +2485,8 @@
 	  <title>Folder Changed Event</title>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2347,6 +2512,8 @@
 	    
 	    <informaltable>
 	      <tgroup cols="2">
+		<colspec colnum="1" colname="field" colwidth="1*"/>
+		<colspec colnum="2" colname="value" colwidth="4*"/>
 		<tbody valign="top">
 		  <row>
 		    <entry>Name</entry>
@@ -2390,6 +2557,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2423,6 +2592,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2458,6 +2629,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2495,6 +2668,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2529,6 +2704,8 @@
 	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Name</entry>
@@ -2554,6 +2731,8 @@
 
 	  <informaltable>
 	    <tgroup cols="2">
+	      <colspec colnum="1" colname="field" colwidth="1*"/>
+	      <colspec colnum="2" colname="value" colwidth="4*"/>
 	      <tbody valign="top">
 		<row>
 		  <entry>Structure</entry>
@@ -2567,7 +2746,10 @@
 		  <entry>
 		    <simplelist>
 		      <member><constant>inline</constant> = <constant>EM_FORMAT_HANDLER_INLINE</constant></member>
-		      <member><constant>inline_disposition</constant> = <constant>EM_FORMAT_HANDLER_INLINE_DISPOSITION</constant></member>
+		      <member><constant>inline_disposition</constant> =
+			<constant>EM_FORMAT_HANDLER_INLINE_DISPOSITION</constant></member>
+		      </simplelist>
+		  </entry>
 		</row>
 	      </tbody>
 	    </tgroup>
@@ -2711,6 +2893,22 @@
 	event listeners into dynamically loaded event handlers.
       </para>
       &e-event-reference;
+    </chapter>
+
+    <chapter>
+      <title>
+	EMFormat
+      </title>
+      <para>
+	The EMFormat object drives the formatting of MIME message content for
+	display, print, and replying.  EMFormatHTML is an implementation of
+	EMFormat which writes its output to a GtkHTML instance.
+      </para>
+      <para>
+	The EMFormatHook object is loaded by the &EPlugin; system, and is used hook
+	event listeners into dynamically loaded event handlers.
+      </para>
+      &em-format-reference;
     </chapter>
   </part>
 
