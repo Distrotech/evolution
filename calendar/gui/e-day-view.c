@@ -494,8 +494,6 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
 
-//	g_message ("Day view range set to %lu:%lu", start_time, end_time);
-
 	/* Calculate the first day that should be shown, based on start_time
 	   and the days_shown setting. If we are showing 1 day it is just the
 	   start of the day given by start_time, otherwise it is the previous
@@ -507,12 +505,10 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 	}
 		
 	/* See if we need to change the days shown. */
-	if (lower != day_view->lower) {
+	if (lower != day_view->lower)
 		e_day_view_recalc_day_starts (day_view, lower);
 
-		/* FIXME I think we can take this out */
-		e_day_view_update_query (day_view);
-	}
+	e_day_view_set_selected_time_range (E_CALENDAR_VIEW (day_view), start_time, end_time);
 }
 
 

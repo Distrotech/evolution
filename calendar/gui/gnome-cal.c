@@ -1540,7 +1540,7 @@ display_view_cb (GalViewInstance *view_instance, GalView *view, gpointer data)
 	gcal = GNOME_CALENDAR (data);
 
 	if (!IS_CALENDAR_VIEW (view))
-		g_error ("display_view_cb(): Unknown type of view for GnomeCalendar");
+		g_error (G_STRLOC ": Unknown type of view for GnomeCalendar");
 
 	cal_view = CALENDAR_VIEW (view);
 
@@ -2482,7 +2482,6 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem *calitem, Gnom
 	}
 
 	/* Make the views display things properly */
-	g_message ("Updating view times %d:%d:%d", tt.year, tt.month, tt.day);
 	update_view_times (gcal, new_time);
 
 	set_view (gcal, view_type, TRUE, TRUE);

@@ -1513,6 +1513,9 @@ e_cal_model_set_time_range (ECalModel *model, time_t start, time_t end)
 	g_return_if_fail (start <= end);
 
 	priv = model->priv;
+
+	if (priv->start == start && priv->end == end)
+		return;
 	
 	priv->start = start;
 	priv->end = end;

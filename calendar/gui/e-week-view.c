@@ -313,7 +313,6 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 		start_time = time_day_begin_with_zone (start_time,
 						       e_calendar_view_get_timezone (E_CALENDAR_VIEW (week_view)));
 		e_week_view_recalc_day_starts (week_view, start_time);
-		e_week_view_update_query (week_view);
 	}
 
 	/* Reset the adjustment value to 0 if the base address has changed.
@@ -323,6 +322,9 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 		gtk_adjustment_set_value (GTK_RANGE (week_view->vscrollbar)->adjustment, 0);
 
 	gtk_widget_queue_draw (week_view->main_canvas);
+
+	/* FIXME Only select one day */
+	e_week_view_set_selected_time_range (E_CALENDAR_VIEW (week_view), start_time, end_time);
 }
 
 
@@ -2228,8 +2230,6 @@ e_week_view_on_button_release (GtkWidget *widget,
 			       GdkEventButton *event,
 			       EWeekView *week_view)
 {
-	time_t start, end;
-
 #if 0
 	g_print ("In e_week_view_on_button_release\n");
 #endif
@@ -2237,11 +2237,6 @@ e_week_view_on_button_release (GtkWidget *widget,
 	if (week_view->selection_drag_pos != E_WEEK_VIEW_DRAG_NONE) {
 		week_view->selection_drag_pos = E_WEEK_VIEW_DRAG_NONE;
 		gdk_pointer_ungrab (event->time);
-		start = week_view->day_starts[week_view->selection_start_day];
-		end = week_view->day_starts[week_view->selection_end_day + 1];
-
-		gnome_calendar_set_selected_time_range (e_calendar_view_get_calendar (E_CALENDAR_VIEW (week_view)),
-							start, end);
 	}
 
 	return FALSE;
