@@ -35,11 +35,7 @@
 #include <libgnome/gnome-util.h>
 #include <libgnomevfs/gnome-vfs.h>
 #include <ebook/e-book.h>
-#include <ebook/e-book-util.h>
-#include <ebook/e-card-types.h>
-#include <ebook/e-card-cursor.h>
-#include <ebook/e-card.h>
-#include <ebook/e-card-simple.h>
+#include <ebook/e-vcard.h>
 #include <cal-util/cal-component.h>
 #include <cal-util/cal-util.h>
 #include <cal-util/timeutil.h>

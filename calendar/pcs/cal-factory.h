@@ -22,7 +22,7 @@
 #define CAL_FACTORY_H
 
 #include <bonobo/bonobo-object.h>
-#include <ical.h>
+#include <libical/ical.h>
 
 #include "pcs/evolution-calendar.h"
 

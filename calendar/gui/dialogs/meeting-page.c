@@ -695,7 +695,7 @@ meeting_page_construct (MeetingPage *mpage, EMeetingStore *ems,
 	MeetingPagePrivate *priv;
 	ETable *real_table;
 	gchar *filename;
-	const char *backend_address;
+	char *backend_address;
 	EIterator *it;
 	EAccount *def_account;
 	GList *address_strings = NULL, *l;
@@ -747,7 +747,7 @@ meeting_page_construct (MeetingPage *mpage, EMeetingStore *ems,
 	}
 	g_object_unref(it);
 	g_free (backend_address);
-	
+
 	if (address_strings)
 		gtk_combo_set_popdown_strings (GTK_COMBO (priv->organizer), address_strings);
 	else
@@ -760,13 +760,6 @@ meeting_page_construct (MeetingPage *mpage, EMeetingStore *ems,
 	/* The etable displaying attendees and their status */
 	g_object_ref((ems));
 	priv->model = ems;
-
-	filename = g_build_filename (calendar_component_peek_config_directory (calendar_component_peek ()),
-				     "et-header-meeting-page", NULL);
-	priv->etable = e_meeting_model_etable_from_model (priv->model, 
-							  EVOLUTION_ETSPECDIR "/meeting-page.etspec", 
-							  filename);
-	g_free (filename);
 
 	btn = gtk_button_new_with_label ("Add Attendee");
 	g_signal_connect(btn, "clicked", G_CALLBACK (add_btn_clicked_cb), mpage);
