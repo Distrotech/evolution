@@ -1,3 +1,7 @@
+2003-10-10  Not Zed  <NotZed@Ximian.com>
+
+	* e-account-list.c (e_account_list_find): add FIND_UID find type.
+
 2003-09-26  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* e-host-utils.c (e_gethostbyaddr_r): IPv6 implementation
