@@ -341,11 +341,23 @@ get_dtstart (ECalModel *model, ECalModelComponent *comp_data)
 		icaltimezone *zone;
 		icalproperty *prop;
 
-		prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
-		if (!prop)
-			return NULL;
+		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
+			prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY);
+			if (!prop) {
+				prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
+				if (!prop)
+					return NULL;
 
-		tt_start = icalproperty_get_dtstart (prop);
+				tt_start = icalproperty_get_dtstart (prop);
+			} else
+				tt_start = icalproperty_get_recurrenceid (prop);
+		} else {
+			prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
+			if (!prop)
+				return NULL;
+			tt_start = icalproperty_get_dtstart (prop);
+		}
+
 		if (!icaltime_is_valid_time (tt_start))
 			return NULL;
 

@@ -1,5 +1,9 @@
 2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.c (get_dtstart): use the recurrence-ID if available.
+
+2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model.h: added 'instance_start' and 'instance_end' fields
 	to ECalModelComponent, so that we can keep the start and end times of
 	instances.
