@@ -66,6 +66,8 @@ typedef struct {
 
 static void* photo_getter (EContact *contact, EVCardAttribute *attr);
 static void photo_setter (EContact *contact, EVCardAttribute *attr, void *data);
+static void* fn_getter (EContact *contact, EVCardAttribute *attr);
+static void fn_setter (EContact *contact, EVCardAttribute *attr, void *data);
 static void* n_getter (EContact *contact, EVCardAttribute *attr);
 static void n_setter (EContact *contact, EVCardAttribute *attr, void *data);
 static void* adr_getter (EContact *contact, EVCardAttribute *attr);
@@ -89,7 +91,10 @@ static EContactFieldInfo field_info[] = {
 	STRING_FIELD (E_CONTACT_FILE_AS,    EVC_X_FILE_AS, "file_as",    N_("File As"),    FALSE),
 
 	/* Name fields */
-	STRING_FIELD        (E_CONTACT_FULL_NAME,   EVC_FN,       "full_name",   N_("Full Name"),   FALSE),
+	/* FN isn't really a structured field - we use a getter/setter
+	   so we can set the N property (since evo 1.4 works fine with
+	   vcards that don't even have a N attribute.  *sigh*) */
+	STRUCT_FIELD        (E_CONTACT_FULL_NAME,   EVC_FN,       "full_name",   N_("Full Name"),   FALSE, fn_getter, fn_setter),
 	STRUCT_FIELD        (E_CONTACT_NAME,        EVC_N,        "name",        N_("Name"),        FALSE, n_getter, n_setter),
 	LIST_ELEM_STR_FIELD (E_CONTACT_GIVEN_NAME,  EVC_N,        "given_name",  N_("Given Name"),  FALSE, 1),
 	LIST_ELEM_STR_FIELD (E_CONTACT_FAMILY_NAME, EVC_N,        "family_name", N_("Family Name"), FALSE, 0),
@@ -359,6 +364,38 @@ photo_setter (EContact *contact, EVCardAttribute *attr, void *data)
 }
 
 
+static void*
+fn_getter (EContact *contact, EVCardAttribute *attr)
+{
+	if (attr) {
+		GList *p = e_vcard_attribute_get_values (attr);
+
+		return g_strdup (p && p->data ? p->data : "");
+	}
+	else
+		return NULL;
+}
+
+static void
+fn_setter (EContact *contact, EVCardAttribute *attr, void *data)
+{
+	e_vcard_attribute_add_value (attr, (char*)data);
+
+	attr = e_contact_get_first_attr (contact, EVC_N);
+	if (!attr) {
+		EContactName *name = e_contact_name_from_string ((char*)data);
+
+		attr = e_vcard_attribute_new (NULL, EVC_N);
+		e_vcard_add_attribute (E_VCARD (contact), attr);
+
+		/* call the setter directly */
+		n_setter (contact, attr, name);
+
+		e_contact_name_free (name);
+	}
+}
+
+
 
 static void*
 n_getter (EContact *contact, EVCardAttribute *attr)
@@ -387,6 +424,27 @@ n_setter (EContact *contact, EVCardAttribute *attr, void *data)
 	e_vcard_attribute_add_value (attr, name->additional);
 	e_vcard_attribute_add_value (attr, name->prefixes);
 	e_vcard_attribute_add_value (attr, name->suffixes);
+
+	/* now find the attribute for FileAs.  if it's not present, fill it in */
+	attr = e_contact_get_first_attr (contact, EVC_X_FILE_AS);
+	if (!attr) {
+		char *strings[3], **stringptr;
+		char *string;
+		attr = e_vcard_attribute_new (NULL, EVC_X_FILE_AS);
+		e_vcard_add_attribute (E_VCARD (contact), attr);
+
+		stringptr = strings;
+		if (name->family && *name->family)
+			*(stringptr++) = name->family;
+		if (name->given && *name->given)
+			*(stringptr++) = name->given;
+		*stringptr = NULL;
+		string = g_strjoinv(", ", strings);
+
+		e_vcard_attribute_add_value (attr, string);
+		g_free (string);
+	}
+
 }
 
 

@@ -1,5 +1,20 @@
 2003-10-17  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-contact.c (fn_getter): new function, just return
+	the full name value.
+	(fn_setter): rather distasteful hack.  set the N attribute if it's
+	not already present.
+	(n_setter): set the X-EVOLUTION-FILE-AS attribute if it's not
+	already set.
+
+	* backend/pas/pas-backend-ldap.c (prop_info): add PROP_WRITE_ONLY
+	flag for properties (right now just 'sn') that we don't want to
+	use when building the EContact - we only use it when storing the
+	contact out to the ldap server.
+	(build_contact_from_entry): skip WRITE_ONLY properties.
+
+2003-10-17  Chris Toshok  <toshok@ximian.com>
+
 	* gui/widgets/e-addressbook-view.c (init_collection): add the
 	minicard factory back in.
 	(display_view): add the minicard case back in.

@@ -187,6 +187,7 @@ struct prop_info {
 #define PROP_TYPE_BINARY   0x04
 #define PROP_DN            0x08
 #define PROP_EVOLVE        0x10
+#define PROP_WRITE_ONLY    0x20
 	int prop_type;
 
 	/* the remaining items are only used for the TYPE_COMPLEX props */
@@ -206,12 +207,13 @@ struct prop_info {
 #define COMPLEX_PROP(fid,a,ctor,ber,cmp) {fid, a, PROP_TYPE_COMPLEX, ctor, ber, cmp}
 #define E_COMPLEX_PROP(fid,a,ctor,ber,cmp) {fid, a, PROP_TYPE_COMPLEX | PROP_EVOLVE, ctor, ber, cmp}
 #define STRING_PROP(fid,a) {fid, a, PROP_TYPE_STRING}
+#define WRITE_ONLY_STRING_PROP(fid,a) {fid, a, PROP_TYPE_STRING | PROP_WRITE_ONLY}
 #define E_STRING_PROP(fid,a) {fid, a, PROP_TYPE_STRING | PROP_EVOLVE}
 
 
 	/* name fields */
 	STRING_PROP (E_CONTACT_FULL_NAME,   "cn" ),
-	STRING_PROP (E_CONTACT_FAMILY_NAME, "sn" ),
+	WRITE_ONLY_STRING_PROP (E_CONTACT_FAMILY_NAME, "sn" ),
 
 	/* email addresses */
 	COMPLEX_PROP   (E_CONTACT_EMAIL, "mail", email_populate, email_ber, email_compare),
@@ -2593,6 +2595,9 @@ build_contact_from_entry (LDAP *ldap, LDAPMessage *e, GList **existing_objectcla
 			printf ("info = %p\n", info);
 
 			if (info) {
+				if (info->prop_type & PROP_WRITE_ONLY)
+					continue;
+
 				if (info->prop_type & PROP_TYPE_BINARY) {
 					struct berval **ber_values = ldap_get_values_len (ldap, e, attr);
 
