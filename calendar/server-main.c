@@ -28,8 +28,12 @@ int main(int argc, char *argv[])
 			continue;
 		}
 	}
-	if (!base_dir)
-		g_error ("You must specify a base directory with -d");
+	if (!base_dir){
+		g_warning ("Using a temporary directory to run!\n");
+		base_dir = "/tmp/calendar-server";
+		mkdir (base_dir, 0700);
+	}
+	
 	backend_init (base_dir);
 	
 	serv = cs_server_new ();

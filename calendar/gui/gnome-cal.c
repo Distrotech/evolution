@@ -9,6 +9,11 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <pwd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <fcntl.h>
 #include "calendar.h"
 #include "gnome-cal.h"
@@ -213,10 +218,65 @@ gnome_calendar_load (GnomeCalendar *gcal, char *file)
 	char *r;
 	
 	if ((r = calendar_load (gcal->cal, file)) != NULL){
+		GtkWidget *w;
+		
+		w = gnome_message_box_new ("Error loading calendar", GNOME_MESSAGE_BOX_INFO, "Ok", NULL);
+		gtk_widget_show (w);
 		printf ("Error loading calendar: %s\n", r);
-		return 0;
+		return FALSE;
 	}
 	gnome_calendar_update_all (gcal, NULL, 0);
+	return TRUE;
+}
+
+static void
+parse_url (char *url, char **hostname, int *port, char **username, char **password)
+{
+	struct passwd *pw;
+
+	pw = getpwuid (getuid ());
+	
+	g_warning ("Hardcoded values!\n");
+	*hostname = g_strdup ("localhost");
+	*port = 7668;
+	*username = g_strdup (pw->pw_name);
+	*password = g_strdup (pw->pw_name);
+}
+
+static void
+server_connect (gpointer data, gint source, GdkInputCondition condition)
+{
+	GnomeCalendar *gcal = data;
+
+	printf ("Connected! %d\n", condition);
+}
+
+int
+gnome_calendar_load_net (GnomeCalendar *gcal, char *url)
+{
+	char *hostname, *username, *password;
+	struct hostent *he;
+	int port;
+	struct sockaddr_in addr;
+	
+	parse_url (url, &hostname, &port, &username, &password);
+
+	gcal->server.socket = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (gcal->server.socket < 0)
+		return 0;
+
+	he = gethostbyname (hostname);
+	if (!he)
+		return 0;
+	
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons (port);
+	memcpy (&addr.sin_addr.s_addr, &he->h_addr, 4);
+
+	fcntl (gcal->server.socket, F_SETFL, O_NONBLOCK);
+	connect (gcal->server.socket, &addr, sizeof (addr));
+	gdk_input_add (gcal->server.socket, GDK_INPUT_READ, server_connect, gcal);
+
 	return 1;
 }
 

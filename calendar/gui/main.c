@@ -335,6 +335,19 @@ open_calendar_cmd (GtkWidget *widget, void *data)
 }
 
 static void
+open_server_calendar_cmd (GtkWidget *widget, void *data)
+{
+	char *name;
+	struct passwd *pw;
+
+	pw = getpwuid (getuid ());
+	
+	name = g_copy_strings ("ical://localhost:7668;", pw->pw_name, ";", pw->pw_name, NULL);
+	new_calendar ("", name, NULL, NULL);
+	g_free (name);
+}
+		
+static void
 save_ok (GtkWidget *widget, GtkFileSelection *fs)
 {
 	GnomeCalendar *gcal;
@@ -401,6 +414,8 @@ static GnomeUIInfo gnome_cal_file_menu [] = {
 	{ GNOME_APP_UI_ITEM, N_("_New calendar"), NULL, new_calendar_cmd, NULL, NULL,
 	  GNOME_APP_PIXMAP_STOCK, GNOME_STOCK_MENU_NEW, 'n', GDK_CONTROL_MASK, NULL },
 	{ GNOME_APP_UI_ITEM, N_("_Open calendar..."), NULL, open_calendar_cmd, NULL, NULL,
+	  GNOME_APP_PIXMAP_STOCK, GNOME_STOCK_MENU_OPEN, 'o', GDK_CONTROL_MASK, NULL },
+	{ GNOME_APP_UI_ITEM, N_("_Open server calendar..."), NULL, open_server_calendar_cmd, NULL, NULL,
 	  GNOME_APP_PIXMAP_STOCK, GNOME_STOCK_MENU_OPEN, 'o', GDK_CONTROL_MASK, NULL },
 	{ GNOME_APP_UI_ITEM, N_("_Save calendar"), NULL, save_calendar_cmd, NULL, NULL,
 	  GNOME_APP_PIXMAP_STOCK, GNOME_STOCK_MENU_SAVE, 's', GDK_CONTROL_MASK, NULL },
@@ -485,7 +500,8 @@ new_calendar (char *full_name, char *calendar_file, char *geometry, char *page)
 	int         xpos, ypos, width, height;
 
 	/* i18n: This "%s%s" indicates possession. Languages where the order is
-       the inverse should translate it to "%2$s%1$s". */
+	 * the inverse should translate it to "%2$s%1$s".
+	 */
 	g_snprintf(title, 128, _("%s%s"), full_name, _("'s calendar"));
 
 	toplevel = gnome_calendar_new (title);
@@ -500,7 +516,12 @@ new_calendar (char *full_name, char *calendar_file, char *geometry, char *page)
 	if (page)
 		gnome_calendar_set_view (GNOME_CALENDAR (toplevel), page);
 
-	if (calendar_file && g_file_exists (calendar_file))
+	if (strncmp ("ical://", calendar_file, strlen ("ical://")) == 0){
+		if (!gnome_calendar_load_net (GNOME_CALENDAR (toplevel), calendar_file)){
+			gtk_widget_destroy (toplevel);
+			return;
+		}
+	} else if (calendar_file && g_file_exists (calendar_file))
 		gnome_calendar_load (GNOME_CALENDAR (toplevel), calendar_file);
 	else
 		GNOME_CALENDAR (toplevel)->cal->filename = g_strdup (calendar_file);
