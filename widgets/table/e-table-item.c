@@ -625,11 +625,12 @@ int
 e_table_item_row_diff (ETableItem *eti, int start_row, int end_row)
 {
 	int row, total;
+	int height_extra = eti->draw_grid ? 1 : 0;
 
 	total = 0;
 
 	for (row = start_row; row < end_row; row++)
-		total += eti_row_height (eti, row) + 1;
+		total += eti_row_height (eti, row) + height_extra;
 
 	return total;
 }
