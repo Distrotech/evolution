@@ -1,3 +1,14 @@
+2003-08-22  Not Zed  <NotZed@Ximian.com>
+
+	* mail-format.c (write_date): translate the local time format.
+
+2003-08-20  David Woodhouse  <dwmw2@infradead.org>
+
+	* mail-format.c (write_date): Use e_utf8_strftime() to generate
+	localised time; avoid gratuitous extra translation and array of
+	day names, and the autoconf magic which made Not Zed dislike the
+	inclusion of the timezone name.
+
 2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
 
 	* GNOME_Evolution_Mail.server.in.in: Rename
@@ -6,13 +17,139 @@
 	to GNOME_Evolution_Mail_Factory_2.
 	* mail-component-factory.c: Update accordingly.
 
+2003-08-18  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-session.c (main_get_filter_driver): Removed the
+	new-mail-notification mess.
+
+	* mail-folder-cache.c (notify_idle_cb): New idle callback to alert
+	the user about new mail.
+	(notify_type_changed): New function to intercept user changes to
+	his/her notification settings changes.
+	(real_flush_updates): Initialise new mail notification if not yet
+	initialised and setup an idle callback if none is already set.
+	(update_1folder): Now takes an additional argument `new' which
+	states whether or not the fodler got any new mail so that we may
+	handle notify the user (if needed).
+	(folder_changed): Pass in the number of new messages received.
+
+2003-08-19  Not Zed  <NotZed@Ximian.com>
+
+	* mail-callbacks.c (mail_generate_reply): Added a comment for
+	translators.
+
+2003-08-19  David Woodhouse  <dwmw2@infradead.org>
+
+	* mail-callbacks.c (mail_generate_reply): Add a timezone offset to
+	the attribution string.
+
+2003-08-19  Not Zed  <NotZed@Ximian.com>
+
+	* mail-format.c (write_date): Added translation for day and
+	localtime strings.  Also removed the tz_zone stuff, and just use
+	'localtime' always.
+
+2003-08-15  David Woodhouse  <dwmw2@infradead.org>
+
+	* mail-format.c (write_date): Show date in localtime too.
+
+2003-08-19  Harry Lu  <harry.lu@sun.com>
+
+	** For #45348
+
+	* mail-display.c (mail_display_render): Change "%P" to "%p" so 
+	that strftime() can work under solaris.
+
+2003-08-14  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-ops.c (mail_send_message): Don't abort at the first failure
+	after sending (filtering, appending to Sent, syncing). Instead,
+	keep a running tab of exceptions and then set a culmulative
+	exception at the end to report to our caller. Also, if we fail to
+	append to the account Sent folder, try again with the local Sent
+	folder. Fixes bug #46512.
+
+2003-08-13  Suresh Chandrasekharan <suresh.chandrasekharan@sun.com>
+	
+	* e-searching-tokenizer.c (searcher_next_token): Fix for 45818 (
+	i18n mail messages search only produces '[?]'). Now multibyte
+	character selection works correctly. But due to associated gtkhtml
+	bug, the find button functionallity for multibyte characters is
+	broken.
+
+2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-tools.h: Removed unused function prototype.
+
+2003-08-11  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-session.c (remove_timeout): Removed.
+	(register_timeout): Removed.
+
 2003-08-09  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-component.c (storage_go_online): Pass NULL for the
 	operation pointer to mail_note_store(), to sync with Michael's
 	changes.
 
+2003-08-05  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-format.c (handle_multipart_encrypted): Updated for
+	CamelMimePart::content_type changes.
+
+	* mail-ops.c (save_part_save): Use
+	camel_data_wrapper_decode_to_stream() here.
+
+	* mail-display.c (drag_data_get_cb): Updated for
+	CamelMimePart::content_type changes.
+	(do_attachment_header): Same.
+
+2003-07-31  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-format.c (mail_format_raw_message): Updated to pass FALSE
+	as the 'decode' param to
+	mail_format_data_wrapper_write_to_stream().
+	(mail_format_data_wrapper_write_to_stream): Now takes a boolean
+	arg telling whether to decode or not. Also reworked the charset
+	logic now that camel doesn't handle this for us any longer.
+	(mail_format_get_data_wrapper_text): Updated.
+	(handle_text_plain): Same.
+	(handle_text_enriched): Here too.
+
+	* mail-display.c (do_attachment_header): Call decode_to_stream
+	here instead of write_to_stream.
+	(do_external_viewer): Same.
+	(on_url_requested): Same. Also updated for
+	mail_format_data_wrapper_write_to_stream().
+	(try_part_urls): Call decode_to_stream.
+	(drag_data_get_cb): Same.
+
 2003-08-05  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #32732
+
+	* message-list.c (mail_regen_list): use thread_new.
+
+	* mail-local.c (reconfigure_response): use thread_new.
+
+	* mail-display.c (stream_write_or_redisplay_when_loaded): use
+	thread_new.
+
+	* mail-config.c (mail_config_check_service): use thread_new rather
+	than queue.
+
+	* mail-callbacks.c (view_msg): change to use mail_get_messages(),
+	fixes FIXME.
+	(do_view_messages): handle get_messages callback.
+	(do_view_message): removed.
+
+	* mail-ops.c (mail_get_folderinfo): Use a new thread thread
+	semantic.
+	(mail_save_part): "
+	(mail_store_set_offline): "
+	(mail_sync_folder): use queued_slow thread queue.
+	(mail_expunge_folder): "
+	(mail_empty_trash): "
 
 	** See bug #47224.  Hook onto clicked rather than button_pressed,
 	so that dnd works.
@@ -57,7 +194,7 @@
 
 2003-08-01  Yuedong Du  <yuedong.du@sun.com>
 
-	* message-browser.c: (on_key_press): close mail message window
+	* message-browser.c (on_key_press): close mail message window
 	using 'ESC' key, fix bug #47087
 
 2003-07-28  Jeffrey Stedfast  <fejj@ximian.com>

@@ -1,3 +1,21 @@
+2003-08-28  Hans Petter Jansson  <hpj@ximian.com>
+
+	* eggtrayicon.[ch]: Added for tray icon support. To be removed when
+	libgnomeui sports this functionality.
+
+	* Makefile.am: Include eggtrayicon.
+
+2003-08-27  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* e-mktemp.c (e_mktemp_cleanup): We need to unlink the full paths
+	in the tmpdirs, not just the base path.
+
+2003-08-20  Suresh Chandrasekharan <suresh.chandrasekharan@sun.com>
+	
+	* e-time-utils.c (parse_with_strptime): Fixes #43558 Appointment
+	Editor always gives time validation error for apptmnts in non
+	UTF-8/non ASCII locales.
+
 2003-08-17  Ettore Perazzoli  <ettore@ximian.com>
 
 	* test-source-list.c: No short letter for --key.
@@ -120,6 +138,14 @@
 	* e-source.c: New file.
 	* e-source.h: New file.
 	* test-source-list.c: New file to test the above.
+
+2003-08-11  Not Zed  <NotZed@Ximian.com>
+
+	* e-msgport.c (e_thread_put): check pthread_create return code
+	properly.
+	(e_mutex_lock): check pthread* return codes properly.
+	(e_mutex_unlock): Same here.
+	(e_mutex_cond_wait): and here.
 
 2003-08-05  Dan Winship  <danw@ximian.com>
 

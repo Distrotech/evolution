@@ -984,6 +984,7 @@ mail_generate_reply (CamelFolder *folder, CamelMimeMessage *message, const char 
 	GConfClient *gconf;
 	EIterator *iter;
 	time_t date;
+	int date_ofs;
 	char *url;
 	
 	gconf = mail_config_get_gconf_client ();
@@ -1178,9 +1179,14 @@ mail_generate_reply (CamelFolder *folder, CamelMimeMessage *message, const char 
 			name = _("an unknown sender");
 		}
 		
-		date = camel_mime_message_get_date (message, NULL);
-		e_utf8_strftime (format, sizeof (format), _("On %a, %Y-%m-%d at %H:%M, %%s wrote:"), localtime (&date));
-		text = mail_tool_quote_message (message, format, name && *name ? name : address);
+		date = camel_mime_message_get_date (message, &date_ofs);
+		/* Convert to UTC */
+		date += (date_ofs / 100) * 60 * 60;
+		date += (date_ofs % 100) * 60;
+
+		/* translators: attribution string used when quoting messages */
+		e_utf8_strftime (format, sizeof (format), _("On %a, %Y-%m-%d at %H:%M %%+05d, %%s wrote:"), gmtime (&date));
+		text = mail_tool_quote_message (message, format, date_ofs, name && *name ? name : address);
 		mail_ignore (composer, name, address);
 		if (text) {
 			e_msg_composer_set_body_text (composer, text);
@@ -3104,14 +3110,17 @@ configure_folder (BonoboUIComponent *uih, void *user_data, const char *path)
 }
 
 static void
-do_view_message (CamelFolder *folder, const char *uid, CamelMimeMessage *message, void *data)
+do_view_messages(CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *data)
 {
-	FolderBrowser *fb = FOLDER_BROWSER (data);
-	
+	FolderBrowser *fb = data;
+	int i;
+
 	if (FOLDER_BROWSER_IS_DESTROYED (fb))
 		return;
-	
-	if (message && uid) {
+
+	for (i = 0; i < uids->len && i < msgs->len; i++) {
+		char *uid = uids->pdata[i];
+		CamelMimeMessage *msg = msgs->pdata[i];
 		GtkWidget *mb;
 		
 		camel_folder_set_message_flags (folder, uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
@@ -3125,7 +3134,6 @@ view_msg (GtkWidget *widget, gpointer user_data)
 {
 	FolderBrowser *fb = FOLDER_BROWSER (user_data);
 	GPtrArray *uids;
-	int i;
 	
 	if (FOLDER_BROWSER_IS_DESTROYED (fb))
 		return;
@@ -3136,12 +3144,7 @@ view_msg (GtkWidget *widget, gpointer user_data)
 	if (uids->len > 10 && !are_you_sure (_("Are you sure you want to open all %d messages in separate windows?"), uids, fb))
 		return;
 	
-	/* FIXME: use mail_get_messages() */
-	for (i = 0; i < uids->len; i++) {
-		mail_get_message (fb->folder, uids->pdata [i], do_view_message, fb, mail_thread_queued);
-		g_free (uids->pdata [i]);
-	}
-	g_ptr_array_free (uids, TRUE);
+	mail_get_messages(fb->folder, uids, do_view_messages, fb);
 }
 
 void

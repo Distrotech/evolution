@@ -4,7 +4,6 @@
   
   $Id$
 
-
  (C) COPYRIGHT 2000, Eric Busboom, http://www.softwarestudio.org
 
  This program is free software; you can redistribute it and/or modify
@@ -1458,7 +1457,19 @@ const char* icalcomponent_get_summary(icalcomponent* comp)
 void icalcomponent_set_comment(icalcomponent* comp, const char* v);
 const char* icalcomponent_get_comment(icalcomponent* comp);
 
-void icalcomponent_set_uid(icalcomponent* comp, const char* v);
+void icalcomponent_set_uid(icalcomponent* comp, const char* v)
+{
+	icalcomponent *inner = icalcomponent_get_inner (comp);
+	icalproperty *prop
+	    = icalcomponent_get_first_property (inner, ICAL_UID_PROPERTY);
+
+	if (prop == 0) {
+	    prop = icalproperty_new_uid (v);
+	    icalcomponent_add_property (inner, prop);
+	}
+
+	icalproperty_set_uid (prop, v);
+}
 
 const char* icalcomponent_get_uid(icalcomponent* comp)
 {

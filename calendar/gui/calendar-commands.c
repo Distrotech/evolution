@@ -314,8 +314,8 @@ static void
 publish_freebusy_cmd (BonoboUIComponent *uic, gpointer data, const gchar *path)
 {
 	GnomeCalendar *gcal;
-	CalClient *client;
-	GList *comp_list;
+	GList *client_list, *cl;
+	GList *comp_list = NULL;
 	icaltimezone *utc;
 	time_t start = time (NULL), end;
 
@@ -325,20 +325,26 @@ publish_freebusy_cmd (BonoboUIComponent *uic, gpointer data, const gchar *path)
 	start = time_day_begin_with_zone (start, utc);
 	end = time_add_week_with_zone (start, 6, utc);
 
-	client = gnome_calendar_get_cal_client (gcal);
-	comp_list = cal_client_get_free_busy (client, NULL, start, end);
-	if (comp_list) {
-		GList *l;
+	client_list = e_cal_model_get_client_list (gnome_calendar_get_calendar_model (gcal));
+	for (cl = client_list; cl != NULL; cl = cl->next) {
+		GList *tmp_comp_list;
 
-		for (l = comp_list; l; l = l->next) {
-			CalComponent *comp = CAL_COMPONENT (l->data);
-			itip_send_comp (CAL_COMPONENT_METHOD_PUBLISH, comp, client, NULL);
+		tmp_comp_list = cal_client_get_free_busy ((CalClient *) cl->data, NULL, start, end);
+		if (tmp_comp_list) {
+			GList *l;
 
-			g_object_unref (comp);
+			for (l = comp_list; l; l = l->next) {
+				CalComponent *comp = CAL_COMPONENT (l->data);
+				itip_send_comp (CAL_COMPONENT_METHOD_PUBLISH, comp, (CalClient *) cl->data, NULL);
+
+				g_object_unref (comp);
+			}
+
+			g_list_free (comp_list);
 		}
-
- 		g_list_free (comp_list);
 	}
+
+	g_list_free (client_list);
 }
 
 static void
@@ -419,16 +425,15 @@ get_shell_view_interface (BonoboControl *control)
 	return shell_view;
 }
 
-/* Displays the currently displayed time range in the folder bar label on the
-   shell view, according to which view we are showing. */
-void
-calendar_set_folder_bar_label (GnomeCalendar *gcal, BonoboControl *control)
+const gchar *
+calendar_get_text_for_folder_bar_label (GnomeCalendar *gcal)
 {
 	icaltimezone *zone;
 	struct icaltimetype start_tt, end_tt;
 	time_t start_time, end_time;
 	struct tm start_tm, end_tm;
-	char buffer[512], end_buffer[256];
+	static char buffer[512];
+	char end_buffer[256];
 	GnomeCalendarViewType view;
 
 	gnome_calendar_get_visible_time_range (gcal, &start_time, &end_time);
@@ -512,8 +517,17 @@ calendar_set_folder_bar_label (GnomeCalendar *gcal, BonoboControl *control)
 		break;
 	default:
 		g_assert_not_reached ();
+		return NULL;
 	}
+	return buffer;
+}
 
+/* Displays the currently displayed time range in the folder bar label on the
+   shell view, according to which view we are showing. */
+void
+calendar_set_folder_bar_label (GnomeCalendar *gcal, BonoboControl *control)
+{
+	char *buffer = (char *)calendar_get_text_for_folder_bar_label (gcal);
 	control_util_set_folder_bar_label (control, buffer);
 }
 
@@ -581,7 +595,7 @@ sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboole
 	g_assert (uic != NULL);
 
 	n_selected = enable ? gnome_calendar_get_num_events_selected (gcal) : 0;
-	read_only = cal_client_is_read_only (gnome_calendar_get_cal_client (gcal));
+	read_only = cal_client_is_read_only (e_cal_model_get_default_client (gnome_calendar_get_calendar_model (gcal)));
 
 	bonobo_ui_component_set_prop (uic, "/commands/Cut", "sensitive",
 				      n_selected == 0 || read_only ? "0" : "1",
@@ -612,7 +626,7 @@ sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboole
 			event = NULL;
 
 		if (event) {
-			if (cal_component_has_recurrences (event->comp))
+			if (cal_util_component_has_recurrences (event->comp_data->icalcomp))
 				has_recurrences = TRUE;
 		}
 	}

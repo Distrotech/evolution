@@ -463,7 +463,8 @@ mail_send_message (CamelMimeMessage *message, const char *destination,
 	char *transport_url = NULL;
 	char *sent_folder_uri = NULL;
 	const char *resent_from;
-	CamelFolder *folder;
+	CamelFolder *folder = NULL;
+	GString *err = NULL;
 	XEvolution *xev;
 	int i;
 	
@@ -542,52 +543,75 @@ mail_send_message (CamelMimeMessage *message, const char *destination,
 	info = camel_message_info_new ();
 	info->flags = CAMEL_MESSAGE_SEEN;
 	
+	if (sent_folder_uri) {
+		folder = mail_tool_uri_to_folder (sent_folder_uri, 0, ex);
+		camel_exception_clear (ex);
+		g_free (sent_folder_uri);
+	}
+	
+	if (!folder) {
+		camel_object_ref (sent_folder);
+		folder = sent_folder;
+	}
+	
 	if (driver) {
 		camel_filter_driver_filter_message (driver, message, info,
 						    NULL, NULL, NULL, "", ex);
 		
 		if (camel_exception_is_set (ex)) {
-			ExceptionId id;
+			if (camel_exception_get_id (ex) == CAMEL_EXCEPTION_USER_CANCEL)
+				goto exit;
 			
-			id = camel_exception_get_id (ex);
-			camel_exception_setv (ex, id, "%s\n%s", camel_exception_get_description (ex),
-					      _("However, the message was successfully sent."));
-			
-			camel_message_info_free (info);
-			g_free (sent_folder_uri);
-			
-			return;
+			/* save this error */
+			err = g_string_new ("");
+			g_string_append_printf (err, _("Failed to apply outgoing filters: %s"),
+						camel_exception_get_description (ex));
 		}
 	}
 	
-	if (sent_folder_uri) {
-		folder = mail_tool_uri_to_folder (sent_folder_uri, 0, NULL);
-		g_free (sent_folder_uri);
-		if (!folder) {
-			/* FIXME */
-			camel_object_ref (sent_folder);
-			folder = sent_folder;
-		}
-	} else {
-		camel_object_ref (sent_folder);
-		folder = sent_folder;
-	}
-	
-	if (folder) {
-		camel_folder_append_message (folder, message, info, NULL, ex);
-		if (camel_exception_is_set (ex)) {
-			ExceptionId id;
-			
-			id = camel_exception_get_id (ex);
-			camel_exception_setv (ex, id, "%s\n%s", camel_exception_get_description (ex),
-					      _("However, the message was successfully sent."));
-		}
+ retry_append:
+	camel_exception_clear (ex);
+	camel_folder_append_message (folder, message, info, NULL, ex);
+	if (camel_exception_is_set (ex)) {
+		if (camel_exception_get_id (ex) == CAMEL_EXCEPTION_USER_CANCEL)
+			goto exit;
 		
-		camel_folder_sync (folder, FALSE, NULL);
-		camel_object_unref (folder);
+		if (err == NULL)
+			err = g_string_new ("");
+		else
+			g_string_append (err, "\n\n");
+		
+		if (folder != sent_folder) {
+			const char *name;
+			
+			camel_object_get (folder, NULL, CAMEL_OBJECT_DESCRIPTION, (char **) &name, 0);
+			g_string_append_printf (err, _("Failed to append to %s: %s\n"
+						"Appending to local `Sent' folder instead."),
+						name, camel_exception_get_description (ex));
+			camel_object_ref (sent_folder);
+			camel_object_unref (folder);
+			folder = sent_folder;
+			
+			goto retry_append;
+		} else {
+			g_string_append_printf (err, _("Failed to append to local `Sent' folder: %s"),
+						camel_exception_get_description (ex));
+		}
 	}
 	
+	if (err != NULL) {
+		/* set the culmulative exception report */
+		camel_exception_set (ex, CAMEL_EXCEPTION_SYSTEM, err->str);
+	}
+		
+ exit:
+	
+	camel_folder_sync (folder, FALSE, NULL);
 	camel_message_info_free (info);
+	camel_object_unref (folder);
+	
+	if (err != NULL)
+		g_string_free (err, TRUE);
 }
 
 /* ********************************************************************** */
@@ -1188,7 +1212,7 @@ mail_get_folderinfo (CamelStore *store, CamelOperation *op, void (*done)(CamelSt
 	m->data = data;
 	id = m->msg.seq;
 
-	e_thread_put(mail_thread_queued, (EMsg *)m);
+	e_thread_put(mail_thread_new, (EMsg *)m);
 
 	return id;
 }
@@ -1562,7 +1586,7 @@ mail_sync_folder(CamelFolder *folder, void (*done) (CamelFolder *folder, void *d
 	m->data = data;
 	m->done = done;
 
-	e_thread_put(mail_thread_queued, (EMsg *)m);
+	e_thread_put(mail_thread_queued_slow, (EMsg *)m);
 }
 
 /* ******************************************************************************** */
@@ -1634,7 +1658,7 @@ mail_expunge_folder(CamelFolder *folder, void (*done) (CamelFolder *folder, void
 	m->data = data;
 	m->done = done;
 
-	e_thread_put(mail_thread_queued, (EMsg *)m);
+	e_thread_put(mail_thread_queued_slow, (EMsg *)m);
 }
 
 /* ******************************************************************************** */
@@ -1709,7 +1733,7 @@ mail_empty_trash(EAccount *account, void (*done) (EAccount *account, void *data)
 	m->data = data;
 	m->done = done;
 
-	e_thread_put(mail_thread_queued, (EMsg *)m);
+	e_thread_put(mail_thread_queued_slow, (EMsg *)m);
 }
 
 /* ** GET MESSAGE(s) ***************************************************** */
@@ -2081,7 +2105,7 @@ save_part_save (struct _mail_msg *mm)
 		filtered_stream = stream_fs;
 	}
 	
-	if (camel_data_wrapper_write_to_stream (data, filtered_stream) == -1
+	if (camel_data_wrapper_decode_to_stream (data, filtered_stream) == -1
 	    || camel_stream_flush (filtered_stream) == -1)
 		camel_exception_setv (&mm->ex, CAMEL_EXCEPTION_SYSTEM,
 				      _("Could not write data: %s"),
@@ -2130,7 +2154,7 @@ mail_save_part (CamelMimePart *part, const char *path,
 	m->done = done;
 	
 	id = m->msg.seq;
-	e_thread_put (mail_thread_queued, (EMsg *)m);
+	e_thread_put (mail_thread_new, (EMsg *)m);
 	
 	return id;
 }
@@ -2305,7 +2329,7 @@ mail_store_set_offline (CamelStore *store, gboolean offline,
 	m->done = done;
 
 	id = m->msg.seq;
-	e_thread_put(mail_thread_queued, (EMsg *)m);
+	e_thread_put(mail_thread_new, (EMsg *)m);
 
 	return id;
 }

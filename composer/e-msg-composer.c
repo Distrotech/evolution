@@ -406,10 +406,22 @@ build_message (EMsgComposer *composer, gboolean save_html_object_data)
 	
 	stream = camel_stream_mem_new_with_byte_array (data);
 	
+	/* convert the stream to the appropriate charset */
+	if (charset && strcasecmp (charset, "UTF-8") != 0) {
+		CamelStreamFilter *filter_stream;
+		CamelMimeFilterCharset *filter;
+		
+		filter_stream = camel_stream_filter_new_with_stream (stream);
+		camel_object_unref (stream);
+		
+		stream = (CamelStream *) filter_stream;
+		filter = camel_mime_filter_charset_new_convert ("UTF-8", charset);
+		camel_stream_filter_add (filter_stream, (CamelMimeFilter *) filter);
+		camel_object_unref (filter);
+	}
+	
 	/* construct the content object */
 	plain = camel_data_wrapper_new ();
-	plain->rawtext = FALSE;
-	
 	camel_data_wrapper_construct_from_stream (plain, stream);
 	camel_object_unref (stream);
 	
@@ -438,7 +450,6 @@ build_message (EMsgComposer *composer, gboolean save_html_object_data)
 		}
 		
 		html = camel_data_wrapper_new ();
-		html->rawtext = FALSE;
 		
 		stream = camel_stream_mem_new_with_byte_array (data);
 		camel_data_wrapper_construct_from_stream (html, stream);
@@ -1398,14 +1409,14 @@ autosave_manager_query_load_orphans (AutosaveManager *am, GtkWindow *parent)
 	if (match != NULL) {
 		GtkWidget *dialog;
 
-		dialog = gtk_message_dialog_new(parent,
-						GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
-						GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
-						_("Ximian Evolution has found unsaved files from a previous session.\n"
-						  "Would you like to try to recover them?"));
+		dialog = gtk_message_dialog_new (parent,
+						 GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+						 GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
+						 _("Ximian Evolution has found unsaved files from a previous session.\n"
+						   "Would you like to try to recover them?"));
 		gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_YES);
-		load = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES;
-		gtk_widget_destroy(dialog);
+		load = gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_YES;
+		gtk_widget_destroy (dialog);
 	}
 	
 	while (match != NULL) {
@@ -2926,9 +2937,9 @@ create_composer (int visible_mask)
 	
 	gtk_window_set_default_size (GTK_WINDOW (composer),
 				     DEFAULT_WIDTH, DEFAULT_HEIGHT);
-	gnome_window_icon_set_from_file (GTK_WINDOW (composer), EVOLUTION_DATADIR
-					 "/images/evolution/compose-message.png");
-	
+	gnome_window_icon_set_from_file (GTK_WINDOW (composer), EVOLUTION_IMAGESDIR
+					 "/compose-message.png");
+
 	/* DND support */
 	gtk_drag_dest_set (GTK_WIDGET (composer), GTK_DEST_DEFAULT_ALL,
 			   drop_types, num_drop_types, GDK_ACTION_COPY);
@@ -3828,14 +3839,16 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 	GList *to = NULL, *cc = NULL, *bcc = NULL;
 	EDestination **tov, **ccv, **bccv;
 	char *subject = NULL, *body = NULL;
-	const char *p, *header;
+	char *header, *content, *buf;
 	size_t nread, nwritten;
-	char *content;
+	const char *p;
 	int len, clen;
 	CamelURL *url;
 	
+	buf = g_strdup (mailto);
+	
 	/* Parse recipients (everything after ':' until '?' or eos). */
-	p = mailto + 7;
+	p = buf + 7;
 	len = strcspn (p, "?");
 	if (len) {
 		content = g_strndup (p, len);
@@ -3855,7 +3868,8 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 			if (p[len] != '=')
 				break;
 			
-			header = p;
+			header = (char *) p;
+			header[len] = '\0';
 			p += len + 1;
 			
 			clen = strcspn (p, "&");
@@ -3863,13 +3877,13 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 			content = g_strndup (p, clen);
 			camel_url_decode (content);
 			
-			if (!strncasecmp (header, "to", len)) {
+			if (!strcasecmp (header, "to")) {
 				to = add_recipients (to, content, FALSE);
-			} else if (!strncasecmp (header, "cc", len)) {
+			} else if (!strcasecmp (header, "cc")) {
 				cc = add_recipients (cc, content, FALSE);
-			} else if (!strncasecmp (header, "bcc", len)) {
+			} else if (!strcasecmp (header, "bcc")) {
 				bcc = add_recipients (bcc, content, FALSE);
-			} else if (!strncasecmp (header, "subject", len)) {
+			} else if (!strcasecmp (header, "subject")) {
 				g_free (subject);
 				if (g_utf8_validate (content, -1, NULL)) {
 					subject = content;
@@ -3882,7 +3896,7 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 						subject[nwritten] = '\0';
 					}
 				}
-			} else if (!strncasecmp (header, "body", len)) {
+			} else if (!strcasecmp (header, "body")) {
 				g_free (body);
 				if (g_utf8_validate (content, -1, NULL)) {
 					body = content;
@@ -3895,7 +3909,7 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 						body[nwritten] = '\0';
 					}
 				}
-			} else if (!strncasecmp (header, "attach", len)) {
+			} else if (!strcasecmp (header, "attach")) {
 				/*Change file url to absolute path*/
 				if (!strncasecmp (content, "file:", 5)) {
 					url = camel_url_new (content, NULL);
@@ -3906,6 +3920,10 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 					e_msg_composer_attachment_bar_attach (E_MSG_COMPOSER_ATTACHMENT_BAR (composer->attachment_bar),
 									      content);
 				}
+			} else if (!strcasecmp (header, "from")) {
+				/* Ignore */
+			} else if (!strcasecmp (header, "reply-to")) {
+				/* ignore */
 			} else {
 				/* add an arbitrary header? */
 				e_msg_composer_add_header (composer, header, content);
@@ -3921,6 +3939,8 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 			}
 		}
 	}
+	
+	g_free (buf);
 	
 	tov  = e_destination_list_to_vector (to);
 	ccv  = e_destination_list_to_vector (cc);

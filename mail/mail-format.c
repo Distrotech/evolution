@@ -45,8 +45,10 @@
 #include <camel/camel-multipart-signed.h>
 #include <camel/camel-mime-filter-enriched.h>
 #include <camel/camel-mime-filter-tohtml.h>
+#include <camel/camel-mime-filter-windows.h>
 
 #include <e-util/e-trie.h>
+#include <e-util/e-time-utils.h>
 
 #include "mail.h"
 #include "mail-tools.h"
@@ -193,7 +195,7 @@ mail_format_raw_message (CamelMimeMessage *mime_message, MailDisplay *md,
 	
 	camel_stream_write_string ((CamelStream *) stream, STANDARD_ISSUE_TABLE_OPEN "<tr><td><tt>");
 	
-	mail_format_data_wrapper_write_to_stream (wrapper, md, (CamelStream *) filtered_stream);
+	mail_format_data_wrapper_write_to_stream (wrapper, FALSE, md, (CamelStream *) filtered_stream);
 	camel_object_unref (filtered_stream);
 	
 	camel_stream_write_string ((CamelStream *) stream, "</tt></td></tr></table>");
@@ -781,8 +783,42 @@ write_date (MailDisplayStream *stream, CamelMimeMessage *message, int flags)
 	datestr = camel_medium_get_header (CAMEL_MEDIUM (message), "Date");
 	
 	if (datestr) {
-		write_field_row_begin (stream, _("Date"), flags);
-		camel_stream_printf ((CamelStream *) stream, "%s</td> </tr>", datestr);
+		int msg_offset;
+		time_t msg_date;
+		struct tm local;
+		int local_tz;
+
+		msg_date = header_decode_date(datestr, &msg_offset);
+		e_localtime_with_offset(msg_date, &local, &local_tz);
+
+		write_field_row_begin(stream, _("Date"), flags);
+		camel_stream_printf((CamelStream *)stream, "%s", datestr);
+
+		/* Convert message offset to minutes (e.g. -0400 --> -240) */
+		msg_offset = ((msg_offset / 100) * 60) + (msg_offset % 100);
+		/* Turn into offset from localtime, not UTC */
+		msg_offset -= local_tz / 60;
+
+		if (msg_offset) {
+			/* Message timezone different from local. Show both */
+			char buf[30];
+
+			msg_offset += (local.tm_hour * 60) + local.tm_min;
+
+			if (msg_offset >= (24 * 60) || msg_offset < 0) {
+				/* Timezone conversion crossed midnight. Show day */
+				/* translators: strftime format for local time equivalent in Date header display */
+				e_utf8_strftime(buf, 29, _("<I> (%a, %R %Z)</I>"), &local);
+			} else {
+				e_utf8_strftime(buf, 29, _("<I> (%R %Z)</I>"), &local);
+			}
+
+			/* I doubt any locales put '%' in time representation
+			   but just in case... */
+			camel_stream_printf((CamelStream *)stream,  "%s", buf);
+		}
+					     
+		camel_stream_printf ((CamelStream *) stream, "</td> </tr>");
 	}
 }
 
@@ -1117,67 +1153,74 @@ mail_content_loaded (CamelDataWrapper *wrapper, MailDisplay *md, gboolean redisp
 
 
 ssize_t
-mail_format_data_wrapper_write_to_stream (CamelDataWrapper *wrapper, MailDisplay *mail_display, CamelStream *stream)
+mail_format_data_wrapper_write_to_stream (CamelDataWrapper *wrapper, gboolean decode, MailDisplay *mail_display, CamelStream *stream)
 {
-	CamelStreamFilter *filtered_stream;
-	ssize_t written;
+	CamelStreamFilter *filter_stream;
+	CamelMimeFilterCharset *filter;
+	CamelContentType *content_type;
+	GConfClient *gconf;
+	ssize_t nwritten;
+	char *charset;
 	
-	filtered_stream = camel_stream_filter_new_with_stream (stream);
+	gconf = mail_config_get_gconf_client ();
 	
-	if (wrapper->rawtext || (mail_display && mail_display->charset)) {
-		CamelMimeFilterCharset *filter;
-		CamelContentType *content_type;
-		GConfClient *gconf;
-		char *charset;
-		
-		gconf = mail_config_get_gconf_client ();
-		
-		content_type = camel_data_wrapper_get_mime_type_field (wrapper);
-		
-		if (!wrapper->rawtext) {
-			/* data wrapper had been successfully converted to UTF-8 using the mime
-			   part's charset, but the user thinks he knows best so we'll let him
-			   shoot himself in the foot here... */
+	content_type = camel_data_wrapper_get_mime_type_field (wrapper);
+	
+	/* find out the charset the user wants to override to */
+	if (mail_display && mail_display->charset) {
+		/* user override charset */
+		charset = g_strdup (mail_display->charset);
+	} else if (content_type && (charset = (char *) header_content_type_param (content_type, "charset"))) {
+		/* try to use the charset declared in the Content-Type header */
+		if (!strncasecmp (charset, "iso-8859-", 9)) {
+			/* Since a few Windows mailers like to claim they sent
+			 * out iso-8859-# encoded text when they really sent
+			 * out windows-cp125#, do some simple sanity checking
+			 * before we move on... */
+			CamelMimeFilterWindows *windows;
+			CamelStream *null;
 			
-			/* get the original charset of the mime part */
-			charset = (char *) (content_type ? header_content_type_param (content_type, "charset") : NULL);
-			if (!charset)
-				charset = gconf_client_get_string (gconf, "/apps/evolution/mail/format/charset", NULL);
+			null = camel_stream_null_new ();
+			filter_stream = camel_stream_filter_new_with_stream (null);
+			camel_object_unref (null);
+			
+			windows = (CamelMimeFilterWindows *) camel_mime_filter_windows_new (charset);
+			camel_stream_filter_add (filter_stream, (CamelMimeFilter *) windows);
+			
+			if (decode)
+				camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *) filter_stream);
 			else
-				charset = g_strdup (charset);
+				camel_data_wrapper_write_to_stream (wrapper, (CamelStream *) filter_stream);
+			camel_stream_flush ((CamelStream *) filter_stream);
+			camel_object_unref (filter_stream);
 			
-			/* since the content is already in UTF-8, we need to decode into the
-			   original charset before we can convert back to UTF-8 using the charset
-			   the user is overriding with... */
-			if ((filter = camel_mime_filter_charset_new_convert ("utf-8", charset))) {
-				camel_stream_filter_add (filtered_stream, CAMEL_MIME_FILTER (filter));
-				camel_object_unref (filter);
-			}
-			
-			g_free (charset);
-		}
-		
-		/* find out the charset the user wants to override to */
-		if (mail_display && mail_display->charset)
-			charset = g_strdup (mail_display->charset);
-		else if (content_type && (charset = (char *) header_content_type_param (content_type, "charset")))
+			charset = g_strdup (camel_mime_filter_windows_real_charset (windows));
+			camel_object_unref (windows);
+		} else {
 			charset = g_strdup (charset);
-		else
-			charset = gconf_client_get_string (gconf, "/apps/evolution/mail/format/charset", NULL);
-		
-		if ((filter = camel_mime_filter_charset_new_convert (charset, "utf-8"))) {
-			camel_stream_filter_add (filtered_stream, CAMEL_MIME_FILTER (filter));
-			camel_object_unref (filter);
 		}
-		
-		g_free (charset);
+	} else {
+		/* default to user's locale charset? */
+		charset = gconf_client_get_string (gconf, "/apps/evolution/mail/format/charset", NULL);
 	}
 	
-	written = camel_data_wrapper_write_to_stream (wrapper, CAMEL_STREAM (filtered_stream));
-	camel_stream_flush (CAMEL_STREAM (filtered_stream));
-	camel_object_unref (filtered_stream);
+	filter_stream = camel_stream_filter_new_with_stream (stream);
 	
-	return written;
+	if ((filter = camel_mime_filter_charset_new_convert (charset, "UTF-8"))) {
+		camel_stream_filter_add (filter_stream, (CamelMimeFilter *) filter);
+		camel_object_unref (filter);
+	}
+	
+	g_free (charset);
+	
+	if (decode)
+		nwritten = camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *) filter_stream);
+	else
+		nwritten = camel_data_wrapper_write_to_stream (wrapper, (CamelStream *) filter_stream);
+	camel_stream_flush ((CamelStream *) filter_stream);
+	camel_object_unref (filter_stream);
+	
+	return nwritten;
 }
 
 /* Return the contents of a data wrapper, or %NULL if it contains only
@@ -1194,7 +1237,7 @@ mail_format_get_data_wrapper_text (CamelDataWrapper *wrapper, MailDisplay *mail_
 	ba = g_byte_array_new ();
 	camel_stream_mem_set_byte_array (CAMEL_STREAM_MEM (memstream), ba);
 	
-	mail_format_data_wrapper_write_to_stream (wrapper, mail_display, memstream);
+	mail_format_data_wrapper_write_to_stream (wrapper, TRUE, mail_display, memstream);
 	camel_object_unref (memstream);
 	
 	for (text = ba->data, end = text + ba->len; text < end; text++) {
@@ -1269,7 +1312,7 @@ handle_text_plain (CamelMimePart *part, const char *mime_type,
 	camel_stream_write_string ((CamelStream *) stream, STANDARD_ISSUE_TABLE_OPEN "<tr><td><tt>\n");
 	
 	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (part));
-	mail_format_data_wrapper_write_to_stream (wrapper, md, (CamelStream *) filtered_stream);
+	mail_format_data_wrapper_write_to_stream (wrapper, TRUE, md, (CamelStream *) filtered_stream);
 	
 	camel_stream_write_string ((CamelStream *) stream, "</tt></td></tr></table>\n");
 	
@@ -1304,7 +1347,7 @@ handle_text_enriched (CamelMimePart *part, const char *mime_type,
 	
 	camel_stream_write_string ((CamelStream *) stream, STANDARD_ISSUE_TABLE_OPEN "<tr><td><tt>\n");	
 	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (part));
-	mail_format_data_wrapper_write_to_stream (wrapper, md, (CamelStream *) filtered_stream);
+	mail_format_data_wrapper_write_to_stream (wrapper, TRUE, md, (CamelStream *) filtered_stream);
 	
 	camel_stream_write_string ((CamelStream *) stream, "</tt></td></tr></table>\n");
 	camel_object_unref (filtered_stream);
@@ -1400,7 +1443,7 @@ handle_multipart_encrypted (CamelMimePart *part, const char *mime_type,
 	gboolean handled;
 	
 	/* Currently we only handle RFC2015-style PGP encryption. */
-	protocol = header_content_type_param (part->content_type, "protocol");
+	protocol = header_content_type_param (((CamelDataWrapper *) part)->mime_type, "protocol");
 	if (!protocol || strcmp (protocol, "application/pgp-encrypted") != 0)
 		return handle_multipart_mixed (part, mime_type, md, stream);
 	

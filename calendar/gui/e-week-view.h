@@ -395,6 +395,8 @@ void	   e_week_view_set_24_hour_format	(EWeekView	*week_view,
 
 void       e_week_view_delete_occurrence        (EWeekView      *week_view);
 
+void       e_week_view_unrecur_appointment      (EWeekView *week_view);
+
 /* Returns the number of selected events (0 or 1 at present). */
 gint	   e_week_view_get_num_events_selected	(EWeekView	*week_view);
 
@@ -435,6 +437,10 @@ gint	   e_week_view_get_time_string_width	(EWeekView	*week_view);
 gint	   e_week_view_event_sort_func		(const void	*arg1,
 						 const void	*arg2);
 
+gboolean e_week_view_find_event_from_item (EWeekView	  *week_view,
+ 					   GnomeCanvasItem *item,
+ 					   gint		  *event_num_return,
+ 					   gint		  *span_num_return);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -1500,7 +1500,7 @@ store_disconnect(CamelStore *store, void *event_data, void *data)
 }
 #endif
 
-#define FACTORY_ID "OAFIID:GNOME_Evolution_Mail_Factory2"
+#define FACTORY_ID "OAFIID:GNOME_Evolution_Mail_Factory_2"
 
 #define MAIL_CONFIG_IID "OAFIID:GNOME_Evolution_MailConfig"
 #define WIZARD_IID "OAFIID:GNOME_Evolution_Mail_Wizard"
