@@ -284,7 +284,7 @@ create_noselect_control (void)
 static GtkWidget *
 create_view_callback (EStorageBrowser *browser, const char *path, void *unused_data)
 {
-	EMFolderTree *emft = e_storage_browser_peek_tree_widget (browser);
+	EMFolderTree *emft = (EMFolderTree *) e_storage_browser_peek_tree_widget (browser);
 	BonoboControl *control;
 	const char *noselect;
 	const char *uri;
@@ -308,6 +308,31 @@ create_view_callback (EStorageBrowser *browser, const char *path, void *unused_d
 	return bonobo_widget_new_control_from_objref (BONOBO_OBJREF (control), CORBA_OBJECT_NIL);
 }
 
+static void
+browser_page_switched_callback (EStorageBrowser *browser,
+				GtkWidget *old_page,
+				GtkWidget *new_page,
+				BonoboControl *parent_control)
+{
+	if (BONOBO_IS_WIDGET (old_page)) {
+		BonoboControlFrame *control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (old_page));
+		
+		bonobo_control_frame_control_deactivate (control_frame);
+	}
+	
+	if (BONOBO_IS_WIDGET (new_page)) {
+		BonoboControlFrame *control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (new_page));
+		Bonobo_UIContainer ui_container = bonobo_control_get_remote_ui_container (parent_control, NULL);
+		
+		/* This is necessary because we are not embedding the folder browser control
+		   directly; we are putting the folder browser control into a notebook which
+		   is then exported to the shell as a control.  So we need to forward the
+		   notebook's UIContainer to the folder browser.  */
+		bonobo_control_frame_set_ui_container (control_frame, ui_container, NULL);
+		
+		bonobo_control_frame_control_activate (control_frame);
+	}
+}
 
 
 static void
@@ -487,7 +512,6 @@ static void
 drop_folder (EMFolderTree *emft, const char *path, const char *uri, gboolean move, GtkSelectionData *selection, gpointer user_data)
 {
 	CamelFolder *src, *dest;
-	CamelFolder *store;
 	CamelException ex;
 	
 	camel_exception_init (&ex);
@@ -709,49 +733,50 @@ static void
 impl_dispose (GObject *object)
 {
 	MailComponentPrivate *priv = MAIL_COMPONENT (object)->priv;
-
-	if (priv->storage_set != NULL) {
-		g_object_unref (priv->storage_set);
-		priv->storage_set = NULL;
-	}
-
-	if (priv->folder_type_registry != NULL) {
-		g_object_unref (priv->folder_type_registry);
-		priv->folder_type_registry = NULL;
-	}
-
+	
 	if (priv->search_context != NULL) {
 		g_object_unref (priv->search_context);
 		priv->search_context = NULL;
 	}
-
+	
 	if (priv->local_store != NULL) {
 		camel_object_unref (CAMEL_OBJECT (priv->local_store));
 		priv->local_store = NULL;
 	}
-
+	
 	(* G_OBJECT_CLASS (parent_class)->dispose) (object);
+}
+
+static void
+store_hash_free (gpointer key, gpointer value, gpointer user_data)
+{
+	CamelStore *store = key;
+	char *name = value;
+	
+	g_free (name);
+	camel_object_unref (store);
 }
 
 static void
 impl_finalize (GObject *object)
 {
 	MailComponentPrivate *priv = MAIL_COMPONENT (object)->priv;
-
+	
 	g_free (priv->base_directory);
-
+	
 	mail_async_event_destroy (priv->async_event);
-
-	g_hash_table_destroy (priv->storages_hash); /* EPFIXME free the data within? */
-
+	
+	g_hash_table_foreach (priv->store_hash, store_hash_free, NULL);
+	g_hash_table_destroy (priv->store_hash);
+	
 	if (mail_async_event_destroy (priv->async_event) == -1) {
 		g_warning("Cannot destroy async event: would deadlock");
 		g_warning(" system may be unstable at exit");
 	}
-
-	g_free(priv->context_path);
+	
+	g_free (priv->context_path);
 	g_free (priv);
-
+	
 	(* G_OBJECT_CLASS (parent_class)->finalize) (object);
 }
 
@@ -775,7 +800,6 @@ impl_createControls (PortableServer_Servant servant,
 	browser = e_storage_browser_new (priv->storage_set, "/", create_view_callback, NULL);
 	
 	tree_widget = e_storage_browser_peek_tree_widget (browser);
-	tree_widget_scrolled = e_storage_browser_peek_tree_widget_scrolled (browser);
 	view_widget = e_storage_browser_peek_view_widget (browser);
 	
 	/*e_storage_set_view_set_drag_types ((EStorageSetView *) tree_widget, drag_types, num_drag_types);
@@ -834,10 +858,7 @@ mail_component_init (MailComponent *component)
 	mail_session_init (priv->base_directory);
 	
 	priv->async_event = mail_async_event_new();
-	priv->storages_hash = g_hash_table_new (NULL, NULL);
-	
-	priv->folder_type_registry = e_folder_type_registry_new ();
-	priv->storage_set = e_storage_set_new (priv->folder_type_registry);
+	priv->store_hash = g_hash_table_new (NULL, NULL);
 	
 	/* migrate evolution 1.x folders to 2.0's location/format */
 	mail_dir = g_strdup_printf ("%s/mail", priv->base_directory);
@@ -1015,7 +1036,7 @@ mail_component_remove_storage (MailComponent *component, CamelStore *store)
 	MailComponentPrivate *priv = component->priv;
 	char *name;
 	
-	/* Because the storages_hash holds a reference to each store
+	/* Because the store_hash holds a reference to each store
 	 * used as a key in it, none of them will ever be gc'ed, meaning
 	 * any call to camel_session_get_{service,store} with the same
 	 * URL will always return the same object. So this works.
@@ -1069,7 +1090,7 @@ mail_component_get_storage_count (MailComponent *component)
 void
 mail_component_storages_foreach (MailComponent *component, GHFunc func, void *user_data)
 {
-	g_hash_table_foreach (component->priv->storages_hash, func, user_data);
+	g_hash_table_foreach (component->priv->store_hash, func, user_data);
 }
 
 extern struct _CamelSession *session;
