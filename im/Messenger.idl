@@ -1,0 +1,76 @@
+#include <Bonobo.idl>
+
+module GNOME {
+module Evolution {
+module Messenger {
+	typedef string Identity;
+
+	interface Backend : Bonobo::Unknown {
+		exception UnknownContact {};
+
+		enum Status {
+			ONLINE,
+			IDLE,
+			AWAY,
+			NOT_AVAILABLE,
+			OCCUPIED,
+			INVISIBLE,
+			FREE_CHAT
+		};
+
+		typedef sequence<string> SignonList;
+
+		/* Get a list of the signons in this backend */
+		SignonList getSignons();
+
+		void signoff(in string signon);
+
+		void signoffAll();
+
+		void changeStatus(in string signon, in Status status,
+				  in string data);
+
+		void sendMessage(in string signon, in string contact, 
+				 in string message);
+
+		void contactInfo(in string signon, in string contact);
+
+		void addContact(in string signon, in string contact);
+
+		void removeContact(in string signon, in string contact);
+
+		void keepalive(in string signon);
+
+	};
+
+	interface Listener : Bonobo::Unknown {
+		enum SignonError {
+			NONE,
+			INVALID_LOGIN,
+			NET_FAILURE
+		};
+
+		/* Async responses */
+		void signonResult(in Identity id, in Backend backend,
+				  in SignonError error);
+		
+		/* Async incoming events */
+		void receiveMessage(in Identity id, in string contact,
+				    in boolean autoresponse,
+				    in string message);
+		void contactInfo(in Identity id, in string info);
+		void contactUpdate(in Identity id, in string contact,
+				   in boolean online);
+	};
+		
+
+	interface BackendDispatcher : Bonobo::Unknown {
+		exception ServiceNotSupported {};
+
+		void signon(in string service, in string signon,
+			    in string password, in Listener listener)
+			raises (ServiceNotSupported);
+	};
+};
+};
+};
