@@ -115,6 +115,16 @@ static void cmm_destroyed (CamelObject *cmm, gpointer event_data, gpointer user_
 	g_hash_table_destroy (ht);
 }
 
+GHashTable *mail_lookup_url_table (CamelMimeMessage *mime_message)
+{
+	if (!cmm_to_urls) {
+		cmm_to_urls = g_hash_table_new (g_direct_hash, g_direct_equal);
+		return NULL;
+	}
+
+	return g_hash_table_lookup (cmm_to_urls, mime_message);
+}
+
 /**
  * mail_format_mime_message: 
  * @mime_message: the input mime message

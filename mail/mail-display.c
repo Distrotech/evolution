@@ -28,6 +28,8 @@
 
 static GtkObjectClass *mail_display_parent_class;
 
+/* Sigh... gtk_object_set_data is nice to have... */
+extern GHashTable *mail_lookup_url_table (CamelMimeMessage *mime_message);
 
 /*----------------------------------------------------------------------*
  *                        Callbacks
@@ -99,7 +101,7 @@ save_data (const char *cid, CamelMimeMessage *message)
 	char *filename;
 
 	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
-	urls = gtk_object_get_data (GTK_OBJECT (message), "urls");
+	urls = mail_lookup_url_table (message);
 	part = g_hash_table_lookup (urls, cid);
 	g_return_if_fail (CAMEL_IS_MIME_PART (part));
 	data = camel_medium_get_content_object (CAMEL_MEDIUM (part));
@@ -203,7 +205,7 @@ on_object_requested (GtkHTML *html, GtkHTMLEmbedded *eb, gpointer data)
 	if (strncmp (eb->classid, "cid:", 4) != 0)
 		return FALSE;
 	message = gtk_object_get_data (GTK_OBJECT (html), "message");
-	urls = gtk_object_get_data (GTK_OBJECT (message), "urls");
+	urls = mail_lookup_url_table (message);
 	medium = g_hash_table_lookup (urls, eb->classid);
 	g_return_val_if_fail (CAMEL_IS_MEDIUM (medium), FALSE);
 	wrapper = camel_medium_get_content_object (medium);
@@ -274,7 +276,7 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 	GHashTable *urls;
 
 	message = gtk_object_get_data (GTK_OBJECT (html), "message");
-	urls = gtk_object_get_data (GTK_OBJECT (message), "urls");
+	urls = mail_lookup_url_table (message);
 
 	user_data = g_hash_table_lookup (urls, url);
 	if (user_data == NULL)

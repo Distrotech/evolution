@@ -26,12 +26,24 @@
 #define _MAIL_THREADS_H_
 
 #ifdef USE_BROKEN_THREADS
+
+#include <camel/camel-exception.h>
+#include <stdlib.h> /*size_t*/
+
+typedef struct _mail_operation_spec {
+	const gchar *simple_desc;
+	size_t datasize;
+	void (*setup) (gpointer, gpointer, CamelException *);
+	void (*callback) (gpointer, CamelException *);
+	void (*cleanup) (gpointer, CamelException *);
+} mail_operation_spec;
+
 /* Schedule to operation to happen eventually */
 
-gboolean mail_operation_try( const gchar *description, 
-			     void (*callback)( gpointer ), 
-			     void (*cleanup)( gpointer ),
-			     gpointer user_data );
+gboolean mail_operation_queue( const gchar *description, 
+			       void (*callback)( gpointer ), 
+			       void (*cleanup)( gpointer ),
+			       gpointer user_data );
 
 /* User interface hooks for the other thread */
 

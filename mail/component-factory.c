@@ -231,7 +231,7 @@ create_vfolder_storage (EvolutionShellComponent *shell_component)
 
 		user = g_strdup_printf ("%s/vfolders.xml", evolution_dir);
 		system = g_strdup_printf("%s/evolution/vfoldertypes.xml", EVOLUTION_DATADIR);
-		fe = filter_driver_new(system, user, mail_uri_to_folder);
+		fe = filter_driver_new(system, user, mail_uri_to_folder_sync);
 		g_free(user);
 		g_free(system);
 		count = filter_driver_rule_count(fe);
@@ -269,10 +269,66 @@ create_vfolder_storage (EvolutionShellComponent *shell_component)
 	}
 }
 
+/* **************************************** */
+
 struct create_info_s {
 	EvolutionStorage *storage;
 	char *source;
+	GSList *new_folders;
 };
+
+struct new_folder_info_s {
+	char *path;
+	const char *type;
+	char *uri;
+	char *description;
+};
+
+static void 
+cleanup_create_info (gpointer userdata)
+{
+	struct create_info_s *info = (struct create_info_s *) userdata;
+	GSList *iter;
+	struct new_folder_info_s *nfi;
+
+	for (iter = info->new_folders; iter; iter = iter->next) {
+		if (iter->data) {
+			nfi = (struct new_folder_info_s *) iter->data;
+
+			g_message ("cleanup_create_info: %s %s %s %s",
+				   nfi->path, nfi->type, nfi->uri, nfi->description);
+
+			evolution_storage_new_folder (info->storage,
+						      nfi->path,
+						      nfi->type,
+						      nfi->uri,
+						      nfi->description);
+			g_free (nfi->path);
+			g_free (nfi->uri);
+			g_free (nfi->description);
+			g_free (nfi);
+		}
+	}
+
+	g_slist_free (info->new_folders);
+	g_free (info->source);
+	gtk_object_unref (GTK_OBJECT (info->storage));
+	g_free (info);
+}
+
+static void
+add_new_mailbox (struct create_info_s *info, gchar *path, const gchar *type, gchar *uri, gchar *desc)
+{
+	struct new_folder_info_s *nfi;
+
+	nfi = g_new (struct new_folder_info_s, 1);
+	nfi->path = path;
+	nfi->type = type;
+	nfi->uri = uri;
+	nfi->description = desc;
+
+	info->new_folders = g_slist_prepend (info->new_folders, nfi);
+}
 
 static void
 create_imap_storage (EvolutionShellComponent *shell_component)
@@ -319,15 +375,16 @@ create_imap_storage (EvolutionShellComponent *shell_component)
 
 	ii = g_new( struct create_info_s, 1 );
 	ii->storage = storage;
+	gtk_object_ref (GTK_OBJECT (storage));
 	ii->source = g_strdup( source );
+	ii->new_folders = NULL;
 
 #ifdef USE_BROKEN_THREADS
-	mail_operation_try( "Create IMAP Storage", real_create_imap_storage, g_free, ii );
+	mail_operation_queue( "Create IMAP Storage", real_create_imap_storage, cleanup_create_info, ii );
 #else
 	real_create_imap_storage( ii );
-	g_free( ii );
+	cleanup_create_info( ii );
 #endif
-	/* Note the g_free as our cleanup function deleting the ii struct when we're done */
 }
 
 static void
@@ -375,7 +432,8 @@ real_create_imap_storage( gpointer user_data )
 	lsub = camel_folder_get_subfolder_names (folder);
 
 	p = g_strdup_printf ("%s/INBOX", source);
-	evolution_storage_new_folder (storage, "/INBOX", "mail", p, "description");
+	add_new_mailbox (ii, g_strdup ("/INBOX"), "mail", g_strdup (p), g_strdup ("description") );
+	/*evolution_storage_new_folder (storage, "/INBOX", "mail", p, "description");*/
 
 	max = lsub->len;
 	for (i = 0; i < max; i++) {
@@ -388,11 +446,11 @@ real_create_imap_storage( gpointer user_data )
 		mail_op_set_message( "Adding %s", path );
 #endif
 
-		evolution_storage_new_folder (storage, path, "mail", buf, "description");
+		add_new_mailbox (ii, path, "mail", buf, g_strdup ("description") );
+		/*evolution_storage_new_folder (storage, path, "mail", buf, "description");*/
 	}
 
  cleanup:
-	g_free( ii->source );
 #ifdef USE_BROKEN_THREADS
 	if( camel_exception_is_set( ex ) )
 		mail_op_error( "%s", camel_exception_get_description( ex ) );
@@ -440,13 +498,15 @@ create_news_storage (EvolutionShellComponent *shell_component)
 
 	ni = g_new( struct create_info_s, 1 );
 	ni->storage = storage;
+	gtk_object_ref (GTK_OBJECT (storage));
 	ni->source = g_strdup( source );
+	ni->new_folders = NULL;
 
 #ifdef USE_BROKEN_THREADS
-	mail_operation_try( "Create News Storage", real_create_news_storage, g_free, ni );
+	mail_operation_queue( "Create News Storage", real_create_news_storage, cleanup_create_info, ni );
 #else
 	real_create_news_storage( ni );
-	g_free( ni );
+	cleanup_create_info( ni );
 #endif
 	/* again note the g_free cleanup func */
 }
@@ -507,11 +567,11 @@ real_create_news_storage( gpointer user_data )
 		mail_op_set_message( "Adding %s", path );
 #endif
 		/* FIXME: should be s,"mail","news",? */
-		evolution_storage_new_folder (storage, path, "mail", buf, "description");
+		add_new_mailbox (ni, path, "mail", buf, g_strdup ("description"));
+		/*evolution_storage_new_folder (storage, path, "mail", buf, "description");*/
 	}
 
  cleanup:
-	g_free( ni->source );
 #ifdef USE_BROKEN_THREADS
 	if( camel_exception_is_set( ex ) )
 		mail_op_error( "%s", camel_exception_get_description( ex ) );

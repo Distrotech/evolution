@@ -35,7 +35,7 @@
 
 /* FIXME TODO: Do we need operations that don't get a progress window because
  * they're quick, but we still want camel to be locked? We need some kind
- * of flag to mail_operation_try, but then we also need some kind of monitor
+ * of flag to mail_operation_queue, but then we also need some kind of monitor
  * to open the window if it takes more than a second or something. That would
  * probably entail another thread....
  */
@@ -195,7 +195,7 @@ choke on this: no thread type defined
 #endif
 
 /**
- * mail_operation_try:
+ * mail_operation_queue:
  * @description: A user-friendly string describing the operation.
  * @callback: the function to call in another thread to start the operation
  * @cleanup: the function to call in the main thread when the callback is finished.
@@ -215,7 +215,7 @@ choke on this: no thread type defined
  **/
 
 gboolean
-mail_operation_try( const gchar *description, void (*callback)( gpointer ), 
+mail_operation_queue( const gchar *description, void (*callback)( gpointer ), 
 		    void (*cleanup)( gpointer ), gpointer user_data )
 {
 	closure_t *clur;

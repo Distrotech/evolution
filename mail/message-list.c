@@ -18,6 +18,7 @@
 #include <camel/camel-folder.h>
 #include "message-list.h"
 #include "message-thread.h"
+#include "mail-threads.h"
 #include "Mail.h"
 #include "widgets/e-table/e-table-header-item.h"
 #include "widgets/e-table/e-table-item.h"
@@ -62,6 +63,9 @@ static void on_row_selection (ETableScrolled *table, int row, gboolean selected,
 static void select_row (ETableScrolled *table, gpointer user_data);
 static void select_msg (MessageList *message_list, gint row);
 static char *filter_date (const void *data);
+
+static void real_message_list_regenerate (gpointer userdata);
+static void cleanup_message_list_regenerate (gpointer userdata);
 
 static struct {
 	char **image_base;
@@ -790,12 +794,17 @@ build_flat (MessageList *ml, ETreePath *parent, GPtrArray *uids)
 	}
 }
 
+typedef struct regen_data_s {
+	MessageList *ml;
+	const char *search;
+	GPtrArray *uids;
+
+} regen_data_t;
+
 void
 message_list_regenerate (MessageList *message_list, const char *search)
 {
-	ETreeModel *etm = E_TREE_MODEL (message_list->table_model);
-	GPtrArray *uids;
-	int row = 0;
+	regen_data_t *rd;
 
 	if (message_list->search) {
 		g_free (message_list->search);
@@ -807,25 +816,61 @@ message_list_regenerate (MessageList *message_list, const char *search)
 				      free_key, NULL);
 		g_hash_table_destroy (message_list->uid_rowmap);
 	}
+
 	message_list->uid_rowmap = g_hash_table_new (g_str_hash, g_str_equal);
 
-	if (search) {
+	rd = g_new (regen_data_t, 1);
+	rd->ml = message_list;
+	rd->search = g_strdup (search);
+	rd->uids = NULL;
+
+	mail_operation_queue ("Fetching UIDs", real_message_list_regenerate, 
+			    cleanup_message_list_regenerate, rd);
+}
+
+static void real_message_list_regenerate (gpointer userdata)
+{
+	MessageList *message_list;
+	regen_data_t *rd = (regen_data_t *) userdata;
+
+	message_list = rd->ml;
+
+	if (rd->search) {
 		CamelException ex;
 
 		camel_exception_init (&ex);
-		uids = camel_folder_search_by_expression (message_list->folder,
-							  search, &ex);
+		rd->uids = camel_folder_search_by_expression (message_list->folder,
+							      rd->search, &ex);
 		if (camel_exception_is_set (&ex)) {
-			e_notice (NULL, GNOME_MESSAGE_BOX_ERROR,
-				  "Search failed: %s",
-				  camel_exception_get_description (&ex));
+			/*
+			 * e_notice (NULL, GNOME_MESSAGE_BOX_ERROR,
+			 *	  "Search failed: %s",
+			 *	  camel_exception_get_description (&ex));
+			 */
+			mail_op_error ("Search failed: %s",
+				       camel_exception_get_description (&ex));
 			camel_exception_clear (&ex);
+			rd->uids = NULL;
 		} else
-			message_list->search = g_strdup (search);
+			message_list->search = g_strdup (rd->search);
 	} else
-		uids = camel_folder_get_uids (message_list->folder);
+		rd->uids = camel_folder_get_uids (message_list->folder);
+}
+
+static void cleanup_message_list_regenerate (gpointer userdata)
+{
+	ETreeModel *etm;
+	int row = 0;
+	MessageList *message_list;
+	regen_data_t *rd = (regen_data_t *) userdata;
+
+	message_list = rd->ml;
+	etm = E_TREE_MODEL (message_list->table_model);
 
 	/* FIXME: free the old tree data */
+
+	if (rd->uids == NULL) /*exception*/
+		return;
 
 	/* Clear the old contents, build the new */
 	if (message_list->tree_root)
@@ -837,17 +882,17 @@ message_list_regenerate (MessageList *message_list, const char *search)
 	if (threaded_view) {
 		struct _container *head;
 
-		head = thread_messages (message_list->folder, uids);
+		head = thread_messages (message_list->folder, rd->uids);
 		build_tree (message_list, message_list->tree_root, head, &row);
 		thread_messages_free (head);
 	} else
-		build_flat (message_list, message_list->tree_root, uids);
+		build_flat (message_list, message_list->tree_root, rd->uids);
 
-	if (search) {
-		g_strfreev ((char **)uids->pdata);
-		g_ptr_array_free (uids, FALSE);
+	if (rd->search) {
+		g_strfreev ((char **)rd->uids->pdata);
+		g_ptr_array_free (rd->uids, FALSE);
 	} else
-		camel_folder_free_uids (message_list->folder, uids);
+		camel_folder_free_uids (message_list->folder, rd->uids);
 
 	e_table_model_changed (message_list->table_model);
 	message_list->rows_selected = 0;
@@ -902,6 +947,7 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder)
 
 	camel_object_ref (CAMEL_OBJECT (camel_folder));
 
+	/*gtk_idle_add (regen_message_list, message_list);*/
 	folder_changed (camel_folder, 0, message_list);
 }
 

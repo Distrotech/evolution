@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include "mail-threads.h"
 
-#ifdef ENABLE_BROKEN_THREADS
+#ifdef USE_BROKEN_THREADS
 
 static void op_1( gpointer userdata );
 static void op_2( gpointer userdata );
@@ -25,13 +25,13 @@ static gboolean queue_ops( void )
 
 	g_message( "Top of queue_ops" );
 
-	mail_operation_try( "The Crawling Progress Bar of Doom", op_1, done, "op1 finished" );
-	mail_operation_try( "The Mysterious Message Setter", op_2, done, "op2 finished" );
-	mail_operation_try( "The Error Dialog of No Return", op_3, done, "op3 finished" );
+	mail_operation_queue( "The Crawling Progress Bar of Doom", op_1, done, "op1 finished" );
+	mail_operation_queue( "The Mysterious Message Setter", op_2, done, "op2 finished" );
+	mail_operation_queue( "The Error Dialog of No Return", op_3, done, "op3 finished" );
 
 	for( i = 0; i < 3; i++ ) {
 		sprintf( buf, "Queue Filler %d", i );
-		mail_operation_try( buf, op_4, NULL, GINT_TO_POINTER( i ) );
+		mail_operation_queue( buf, op_4, NULL, GINT_TO_POINTER( i ) );
 	}
 
 	g_message( "Waiting for finish..." );
@@ -39,18 +39,18 @@ static gboolean queue_ops( void )
 
 	g_message( "Ops done -- queue some more!" );
 
-	mail_operation_try( "Progress Bar Redux", op_1, NULL, NULL );
+	mail_operation_queue( "Progress Bar Redux", op_1, NULL, NULL );
 
 	g_message( "Waiting for finish again..." );
 	mail_operation_wait_for_finish();
 
 	g_message( "Ops done -- more, more!" );
 
-	mail_operation_try( "Dastardly Password Stealer", op_5, NULL, NULL );
+	mail_operation_queue( "Dastardly Password Stealer", op_5, NULL, NULL );
 
 	for( i = 0; i < 3; i++ ) {
 		sprintf( buf, "Queue Filler %d", i );
-		mail_operation_try( buf, op_4, NULL, GINT_TO_POINTER( i ) );
+		mail_operation_queue( buf, op_4, NULL, GINT_TO_POINTER( i ) );
 	}
 
 	g_message( "Waiting for finish AGAIN..." );

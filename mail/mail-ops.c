@@ -288,7 +288,7 @@ real_fetch_mail (gpointer user_data)
 	/* apply filtering rules to this inbox */
 	userrules = g_strdup_printf ("%s/filters.xml", evolution_dir);
 	systemrules = g_strdup_printf ("%s/evolution/filtertypes.xml", EVOLUTION_DATADIR);
-	filter = filter_driver_new (systemrules, userrules, mail_uri_to_folder);
+	filter = filter_driver_new (systemrules, userrules, mail_uri_to_folder_sync);
 	g_free (userrules);
 	g_free (systemrules);
 
@@ -370,7 +370,7 @@ fetch_mail (GtkWidget *button, gpointer user_data)
 	info->fb = FOLDER_BROWSER (user_data);
 	info->source_url = url;
 #ifdef USE_BROKEN_THREADS
-	mail_operation_try (_("Fetching mail"), real_fetch_mail, NULL, info);
+	mail_operation_queue (_("Fetching mail"), real_fetch_mail, NULL, info);
 #else
 	real_fetch_mail (info);
 #endif
@@ -542,7 +542,7 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 	info->psd = psd;
 
 #ifdef USE_BROKEN_THREADS
-	mail_operation_try ("Send Message", real_send_mail, cleanup_send_mail, info);
+	mail_operation_queue ("Send Message", real_send_mail, cleanup_send_mail, info);
 #else
 	real_send_mail (info);
 	cleanup_send_mail (info);
@@ -743,7 +743,8 @@ refile_msg (GtkWidget *button, gpointer user_data)
 	g_free (uri);
 
 	rfd.source = ml->folder;
-	rfd.dest = mail_uri_to_folder (physical);
+	/* the _sync is ok, we're already in Another Thread. */
+	rfd.dest = mail_uri_to_folder_sync (physical);
 	g_free (physical);
 	if (!rfd.dest)
 		return;
@@ -808,7 +809,7 @@ expunge_folder (BonoboUIHandler *uih, void *user_data, const char *path)
 
 	if (fb->message_list->folder) {
 #ifdef USE_BROKEN_THREADS
-		mail_operation_try ("Expunge Folder", real_expunge_folder, NULL, fb);
+		mail_operation_queue ("Expunge Folder", real_expunge_folder, NULL, fb);
 #else
 		real_expunge_folder (fb);
 #endif
@@ -873,7 +874,7 @@ vfolder_editor_clicked(FilterEditor *fe, int button, FolderBrowser *fb)
 	
 			user = g_strdup_printf ("%s/vfolders.xml", evolution_dir);
 			system = g_strdup_printf ("%s/evolution/vfoldertypes.xml", EVOLUTION_DATADIR);
-			fe = filter_driver_new (system, user, mail_uri_to_folder);
+			fe = filter_driver_new (system, user, mail_uri_to_folder_sync);
 			g_free (user);
 			g_free (system);
 			count = filter_driver_rule_count (fe);

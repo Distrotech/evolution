@@ -1,3 +1,21 @@
+2000-07-17  Peter Williams  <peterw@helixcode.com>
+
+	* component-factory.c (real_create_{imap,news}_storage): Instead of
+	directly calling evolution_storage_new_folder, queue up a list of
+	folders to register so that we don't do our CORBA in The Other Thread.
+	(create_{imap,news}_storage): Changes ancillary to the above.
+	(add_new_mailbox): New function to queue up a folder
+	(cleanup_create_info): New function to dequeue the folders and free mem.
+
+	* test-thread.c: s,ENABLE_BROKEN_THREADS,USE_BROKEN_THREADS -- oops
+
+	* mail-format.c: (mail_lookup_url_table): New function to get the url
+	table associated with a CamelMimeMessage because we can no longer 
+	gtk_object_get_data on it.
+
+	* mail-display.c: replace 'gtk_object_get_data( message, "urls" )'
+	with 'mail_lookup_url_table( message )'
+
 2000-07-14  Peter Williams  <peterw@curious-george.helixcode.com>
 
 	* message-list.c (message_list_set_folder): Ported to CamelObject:

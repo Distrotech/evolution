@@ -180,7 +180,7 @@ folder_browser_factory_new_control (const char *uri)
 	if (folder_browser == NULL)
 		return NULL;
 
-	if (!folder_browser_set_uri (FOLDER_BROWSER (folder_browser), uri)) {
+	if (!folder_browser_set_uri_sync (FOLDER_BROWSER (folder_browser), uri)) {
 		gtk_object_sink (GTK_OBJECT (folder_browser));
 		return NULL;
 	}
