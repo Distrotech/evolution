@@ -41,12 +41,15 @@ struct _GtkHTMLStream;
 
 typedef struct _EMCamelStream {
 	CamelStream parent_stream;
-	
+
+	struct _GtkHTML *html;
 	struct _GtkHTMLStream *html_stream;
 
 	struct _EMsgPort *data_port, *reply_port;
 	struct _GIOChannel *gui_channel;
 	guint gui_watch;
+	char *buffer;
+	int used;
 } EMCamelStream;
 
 typedef struct {
@@ -58,7 +61,7 @@ typedef struct {
 CamelType    em_camel_stream_get_type (void);
 
 /* the html_stream is closed when we are finalised (with an error), or closed (ok) */
-CamelStream *em_camel_stream_new (struct _GtkHTMLStream *html_stream);
+CamelStream *em_camel_stream_new(struct _GtkHTML *html, struct _GtkHTMLStream *html_stream);
 
 #ifdef __cplusplus
 }

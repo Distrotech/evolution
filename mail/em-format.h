@@ -35,6 +35,7 @@ struct _CamelMimePart;
 struct _CamelMedium;
 struct _CamelSession;
 struct _CamelURL;
+struct _CamelDataWrapper;
 
 typedef struct _EMFormat EMFormat;
 typedef struct _EMFormatClass EMFormatClass;
@@ -184,7 +185,7 @@ void em_format_pull_level(EMFormat *emf);
 /* raw content only */
 void em_format_format_content(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);
 /* raw content text parts - should this just be checked/done by above? */
-void em_format_format_text(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);
+void em_format_format_text(EMFormat *emf, struct _CamelStream *stream, struct _CamelDataWrapper *part);
 
 void em_format_part_as(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part, const char *mime_type);
 void em_format_part(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);

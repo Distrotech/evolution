@@ -26,6 +26,7 @@
 #include <config.h>
 #endif
 
+#include <string.h>
 #include <stdio.h>
 #include <camel/camel-stream.h>
 #include <camel/camel-object.h>
@@ -35,6 +36,8 @@
 #include "em-camel-stream.h"
 
 #include "mail-mt.h"
+
+#define EMCS_BUFFER_SIZE (4096)
 
 #define d(x) 
 
@@ -50,7 +53,7 @@ struct _write_msg {
 
 	enum _write_msg_t op;
 
-	char *data;
+	const char *data;
 	size_t n;
 };
 
@@ -101,41 +104,49 @@ emcs_gui_received(GIOChannel *source, GIOCondition cond, void *data)
 {
 	EMCamelStream *estream = data;
 	struct _write_msg *msg;
-	int go = TRUE;
 
 	d(printf("%p: gui sync op job waiting\n", estream));
 
-	while (go && (msg = (struct _write_msg *)e_msgport_get(estream->data_port)) ) {
-		d(printf("%p: running sync op %d\n", estream, msg->op));
+	msg = (struct _write_msg *)e_msgport_get(estream->data_port);
+	/* Should never happen ... */
+	if (msg == NULL)
+		return TRUE;
 
-		switch (msg->op) {
-		case EMCS_WRITE:
-			if (estream->html_stream)
-				gtk_html_stream_write(estream->html_stream, msg->data, msg->n);
-			break;
-		case EMCS_FLUSH:
-			stream_flush((CamelStream *)estream);
-			break;
-		case EMCS_CLOSE_OK:
-			if (estream->html_stream) {
-				gtk_html_stream_close(estream->html_stream, GTK_HTML_STREAM_OK);
-				estream->html_stream = NULL;
-			}
-			go = FALSE;
-			break;
-		case EMCS_CLOSE_ERROR:
-			if (estream->html_stream) {
-				gtk_html_stream_close(estream->html_stream, GTK_HTML_STREAM_ERROR);
-				estream->html_stream = NULL;
-			}
-			go = FALSE;
-			break;
-		}
+	d(printf("%p: running sync op %d\n", estream, msg->op));
 
-		e_msgport_reply((EMsg *)msg);
-		d(printf("%p: checking more sync ops\n", estream));
+	/* force out any pending data before doing anything else */
+	if (estream->used > 0) {
+		d(printf("sync write %d\n", estream->used));
+		
+		if (estream->html_stream)
+			gtk_html_stream_write(estream->html_stream, estream->buffer, estream->used);
+		estream->used = 0;
 	}
 
+	switch (msg->op) {
+	case EMCS_WRITE:
+		d(printf("sync write %d\n", msg->n));
+		if (estream->html_stream)
+			gtk_html_stream_write(estream->html_stream, msg->data, msg->n);
+		break;
+	case EMCS_FLUSH:
+		stream_flush((CamelStream *)estream);
+		break;
+	case EMCS_CLOSE_OK:
+		if (estream->html_stream) {
+			gtk_html_stream_close(estream->html_stream, GTK_HTML_STREAM_OK);
+			estream->html_stream = NULL;
+		}
+		break;
+	case EMCS_CLOSE_ERROR:
+		if (estream->html_stream) {
+			gtk_html_stream_close(estream->html_stream, GTK_HTML_STREAM_ERROR);
+			estream->html_stream = NULL;
+		}
+		break;
+	}
+	
+	e_msgport_reply((EMsg *)msg);
 	d(printf("%p: gui sync op jobs done\n", estream));
 
 	return TRUE;
@@ -151,6 +162,9 @@ em_camel_stream_init (CamelObject *object)
 
 	estream->gui_channel = g_io_channel_unix_new(e_msgport_fd(estream->data_port));
 	estream->gui_watch = g_io_add_watch(estream->gui_channel, G_IO_IN, emcs_gui_received, estream);
+
+	estream->used = 0;
+	estream->buffer = g_malloc(EMCS_BUFFER_SIZE);
 
 	d(printf("%p: new estream\n", estream));
 }
@@ -187,12 +201,14 @@ em_camel_stream_finalize (CamelObject *object)
 			sync_op(estream, EMCS_CLOSE_ERROR, NULL, 0);
 	}
 
+	/* TODO: is this stuff safe to do in another thread? */
 	g_source_remove(estream->gui_watch);
 	g_io_channel_unref(estream->gui_channel);
 	e_msgport_destroy(estream->data_port);
 	estream->data_port = NULL;
 	e_msgport_destroy(estream->reply_port);
 	estream->reply_port = NULL;
+	g_free(estream->buffer);
 }
 
 static ssize_t
@@ -200,11 +216,29 @@ stream_write (CamelStream *stream, const char *buffer, size_t n)
 {
 	EMCamelStream *estream = EM_CAMEL_STREAM (stream);
 
+	if (estream->html_stream == NULL)
+		return -1;
+
 	if (pthread_self() == mail_gui_thread)
 		gtk_html_stream_write(estream->html_stream, buffer, n);
-	else
+	else {
+#if 1
+		size_t left = EMCS_BUFFER_SIZE-estream->used;
+
+		/* A super-simple buffer, if we get too much to fit, just do a sync
+		   write, which will implicitly clear our previous writes first */
+		d(printf("thread write '%d'\n", n));
+
+		if (n >= left) {
+			sync_op(estream, EMCS_WRITE, buffer, n);
+		} else {
+			memcpy(estream->buffer + estream->used, buffer, n);
+			estream->used += n;
+		}
+#else
 		sync_op(estream, EMCS_WRITE, buffer, n);
-	
+#endif
+	}	
 	return (ssize_t) n;
 }
 
@@ -214,7 +248,6 @@ stream_flush(CamelStream *stream)
 	EMCamelStream *estream = (EMCamelStream *)stream;
 
 	if (estream->html_stream) {
-
 		if (pthread_self() == mail_gui_thread) {
 			/* FIXME: flush html stream via gtkhtml_stream_flush which doens't exist yet ... */
 			while (gtk_events_pending ())
@@ -246,13 +279,24 @@ stream_close(CamelStream *stream)
 	return 0;
 }
 
+static void
+emcs_gtkhtml_destroy(struct _GtkHTML *html, EMCamelStream *emcs)
+{
+	d(printf("%p: emcs gtkhtml destroy\n", emcs));
+	emcs->html = NULL;
+	emcs->html_stream = NULL;
+}
+
+/* TODO: Could pass NULL for html_stream, and do a gtk_html_begin
+   on first data -> less flashing */
 CamelStream *
-em_camel_stream_new (GtkHTMLStream *html_stream)
+em_camel_stream_new(struct _GtkHTML *html, struct _GtkHTMLStream *html_stream)
 {
 	EMCamelStream *new;
 	
 	new = EM_CAMEL_STREAM (camel_object_new (EM_CAMEL_STREAM_TYPE));
 	new->html_stream = html_stream;
-	
+	g_signal_connect(html, "destroy", G_CALLBACK(emcs_gtkhtml_destroy), new);
+
 	return CAMEL_STREAM (new);
 }

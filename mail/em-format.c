@@ -307,7 +307,7 @@ em_format_push_level(EMFormat *emf)
 {
 	struct _EMFormatPURITree *purilist;
 
-	printf("em_format_push_level\n");
+	d(printf("em_format_push_level\n"));
 	purilist = g_malloc0(sizeof(*purilist));
 	e_dlist_init(&purilist->children);
 	e_dlist_init(&purilist->uri_list);
@@ -330,7 +330,7 @@ em_format_push_level(EMFormat *emf)
 void
 em_format_pull_level(EMFormat *emf)
 {
-	printf("em_format_pull_level\n");
+	d(printf("em_format_pull_level\n"));
 	emf->pending_uri_level = emf->pending_uri_level->parent;
 }
 
@@ -350,13 +350,13 @@ em_format_find_visible_puri(EMFormat *emf, const char *uri)
 	EMFormatPURI *pw;
 	struct _EMFormatPURITree *ptree;
 
-	(printf("checking for visible uri '%s'\n", uri));
+	d(printf("checking for visible uri '%s'\n", uri));
 
 	ptree = emf->pending_uri_level;
 	while (ptree) {
 		pw = (EMFormatPURI *)ptree->uri_list.head;
 		while (pw->next) {
-			(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
+			d(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
 			if ((pw->uri && !strcmp(pw->uri, uri)) || !strcmp(pw->cid, uri))
 				return pw;
 			pw = pw->next;
@@ -429,7 +429,7 @@ emf_clear_puri_node(struct _EMFormatPURITree *node)
 void
 em_format_clear_puri_tree(EMFormat *emf)
 {
-	(printf("clearing pending uri's\n"));
+	d(printf("clearing pending uri's\n"));
 
 	if (emf->pending_uri_table) {
 		g_hash_table_destroy(emf->pending_uri_table);
@@ -747,7 +747,7 @@ em_format_format_content(EMFormat *emf, CamelStream *stream, CamelMimePart *part
 	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)part);
 
 	if (header_content_type_is(dw->mime_type, "text", "*"))
-		em_format_format_text(emf, stream, part);
+		em_format_format_text(emf, stream, dw);
 	else
 		camel_data_wrapper_decode_to_stream(dw, stream);
 }
@@ -761,15 +761,12 @@ em_format_format_content(EMFormat *emf, CamelStream *stream, CamelMimePart *part
  * Decode/output a part's content to @stream.
  **/
 void
-em_format_format_text(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
+em_format_format_text(EMFormat *emf, CamelStream *stream, CamelDataWrapper *dw)
 {
-	CamelDataWrapper *dw;
 	CamelStreamFilter *filter_stream;
 	CamelMimeFilterCharset *filter;
 	const char *charset;
 	char *fallback_charset = NULL;
-
-	dw = camel_medium_get_content_object((CamelMedium *)part);
 	
 	if (emf->charset) {
 		charset = emf->charset;
@@ -1081,19 +1078,19 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 		body_part = camel_multipart_get_part(mp, i);
 		if (body_part != display_part) {
 			puri = em_format_add_puri(emf, sizeof(EMFormatPURI), NULL, body_part, emf_write_related);
-			(printf(" part '%s' '%s' added\n", puri->uri?puri->uri:"", puri->cid));
+			d(printf(" part '%s' '%s' added\n", puri->uri?puri->uri:"", puri->cid));
 		}
 	}
 	
 	em_format_part(emf, stream, display_part);
 	camel_stream_flush(stream);
-	printf("flushing stream\n");
+
 	ptree = emf->pending_uri_level;
 	puri = (EMFormatPURI *)ptree->uri_list.head;
 	purin = puri->next;
 	while (purin) {
 		if (purin->use_count == 0) {
-			(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
+			d(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
 			if (purin->func == emf_write_related)
 				em_format_part(emf, stream, puri->part);
 			else
@@ -1182,7 +1179,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "multipart/encrypted", emf_multipart_encrypted },
 	{ "multipart/mixed", emf_multipart_mixed },
 	{ "multipart/signed", emf_multipart_signed },
-	/*{ "multipart/related", emf_multipart_related },*/
+	{ "multipart/related", emf_multipart_related },
 	{ "message/rfc822", emf_message_rfc822 },
 	{ "message/news", emf_message_rfc822 },
 	{ "message/*", emf_message_rfc822 },

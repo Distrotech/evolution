@@ -1,3 +1,24 @@
+2003-08-22  Not Zed  <NotZed@Ximian.com>
+
+	* em-camel-stream.c (em_camel_stream_new): now take the gtkhtml
+	too, and hook onto it's destroy so we don't try writing anymore
+	after its gone.
+	(stream_write, stream_flush, stream_close, emcs_gui_received):
+	NOOP if the gtkhtml has been destroyed.
+	(emcs_gtkhtml_destroy): null out the stream when the gtkhtml gets
+	destroyed, it is no longer valid.
+	(emcs_gui_received): dont try to soak all outstanding events, it
+	always runs synchronous anyway, just get one and exit.
+
+	* em-format-html.c (efh_gtkhtml_destroy): if the gtkhtml gets
+	destroyed, abort any pending timeouts/processing.
+	(efh_format_source): fixed implementation to write out all
+	headers.
+	(efh_multipart_related, emfh_multipart_related_check): separate
+	checking for unused parts into a separate job, which is run after
+	previous ones are executed.  keep track of visibility tree level
+	in job, etc.
+
 2003-08-22  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-browser.c (emfb_mail_compose): Implemented.

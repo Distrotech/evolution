@@ -28,22 +28,6 @@
 #include <gtk/gtkscrolledwindow.h>
 #include <gtk/gtkbutton.h>
 
-#if 0
-#include <libgnomeprintui/gnome-print-dialog.h>
-
-#include "mail-config.h"
-
-#include <camel/camel-mime-message.h>
-#include <camel/camel-stream.h>
-#include <camel/camel-stream-filter.h>
-#include <camel/camel-mime-filter.h>
-#include <camel/camel-mime-filter-tohtml.h>
-#include <camel/camel-mime-filter-enriched.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-url.h>
-#endif
-
 #include <camel/camel-folder.h>
 
 #include <bonobo/bonobo-main.h>
@@ -80,7 +64,8 @@ emmb_init(GObject *o)
 	emmb->view.preview = (EMFormatHTMLDisplay *)em_format_html_display_new();
 
 	g_slist_free(emmb->view.ui_files);
-	emmb->view.ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-messagedisplay.xml");
+	emmb->view.ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-message.xml");
+	emmb->view.ui_files = g_slist_append(emmb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-messagedisplay.xml");
 
 	/* currently: just use a scrolledwindow for preview widget */
 	p->preview = gtk_scrolled_window_new(NULL, NULL);
@@ -104,8 +89,9 @@ emmb_finalise(GObject *o)
 {
 	EMMessageBrowser *emmb = (EMMessageBrowser *)o;
 
-	g_free(emmb->priv);
+	printf("%p em message browser finalise\n", emmb);
 
+	g_free(emmb->priv);
 	((GObjectClass *)emmb_parent)->finalize(o);
 }
 

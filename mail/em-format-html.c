@@ -69,7 +69,7 @@
 
 #include "mail-config.h"
 
-#define d(x) x
+#define d(x) 
 
 #define EFH_TABLE_OPEN "<table>"
 
@@ -109,6 +109,7 @@ struct _EMFormatHTMLJob {
 
 static void efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTML *efh);
 static gboolean efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh);
+static void efh_gtkhtml_destroy(GtkHTML *html, EMFormatHTML *efh);
 
 static void efh_format_clone(EMFormat *, CamelMedium *, EMFormat *);
 static void efh_format_error(EMFormat *emf, CamelStream *stream, const char *txt);
@@ -144,6 +145,7 @@ efh_init(GObject *o)
 	gtk_html_set_default_content_type(efh->html, "text/html; charset=utf-8");
 	gtk_html_set_editable(efh->html, FALSE);
 	
+	g_signal_connect(efh->html, "destroy", G_CALLBACK(efh_gtkhtml_destroy), efh);
 	g_signal_connect(efh->html, "url_requested", G_CALLBACK(efh_url_requested), efh);
 	g_signal_connect(efh->html, "object_requested", G_CALLBACK(efh_object_requested), efh);
 
@@ -154,21 +156,33 @@ efh_init(GObject *o)
 }
 
 static void
-efh_finalise(GObject *o)
+efh_gtkhtml_destroy(GtkHTML *html, EMFormatHTML *efh)
 {
-	EMFormatHTML *efh = (EMFormatHTML *)o;
-
-	em_format_html_clear_pobject(efh);
-
-	if (efh->html)
-		g_object_unref(efh->html);
-
 	if (efh->priv->format_timeout_id != 0) {
 		g_source_remove(efh->priv->format_timeout_id);
 		efh->priv->format_timeout_id = 0;
 		mail_msg_free(efh->priv->format_timeout_msg);
 		efh->priv->format_timeout_msg = NULL;
 	}
+
+	/* This probably works ... */
+	if (efh->priv->format_id != -1)
+		mail_msg_cancel(efh->priv->format_id);
+
+	if (efh->html) {
+		g_object_unref(efh->html);
+		efh->html = NULL;
+	}
+}
+
+static void
+efh_finalise(GObject *o)
+{
+	EMFormatHTML *efh = (EMFormatHTML *)o;
+
+	em_format_html_clear_pobject(efh);
+
+	efh_gtkhtml_destroy(efh->html, efh);
 
 	g_free(efh->priv);
 
@@ -455,7 +469,7 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 	EMFormatPURI *puri;
 	struct _EMFormatHTMLJob *job = NULL;
 
-	(printf("url requested, html = %p, url '%s'\n", html, url));
+	d(printf("url requested, html = %p, url '%s'\n", html, url));
 
 	puri = em_format_find_visible_puri((EMFormat *)efh, url);
 	if (puri) {
@@ -472,7 +486,7 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 	}
 
 	if (job) {
-		job->estream = em_camel_stream_new(handle);
+		job->estream = em_camel_stream_new(html, handle);
 		emfh_queue_job(efh, job);
 	}
 }
@@ -510,8 +524,6 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	const char *format;
 	guint32 rgb = 0x737373, flags;
 
-	/* FIXME: charset override? */
-
 	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");
 
 	flags = efh->text_html_flags;
@@ -530,7 +542,7 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	camel_stream_filter_add(filtered_stream, html_filter);
 	camel_object_unref(html_filter);
 	
-	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, part);
+	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, camel_medium_get_content_object((CamelMedium *)part));
 	camel_stream_flush((CamelStream *)filtered_stream);
 	camel_object_unref(filtered_stream);
 	
@@ -560,7 +572,7 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	camel_object_unref(enriched);
 
 	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");	
-	em_format_format_text((EMFormat *)efh, stream, part);
+	em_format_format_text((EMFormat *)efh, stream, dw);
 	
 	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
 	camel_object_unref(filtered_stream);
@@ -569,7 +581,7 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 static void
 efh_write_text_html(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 {
-	em_format_format_text(emf, stream, puri->part);
+	em_format_format_text(emf, stream, camel_medium_get_content_object((CamelMedium *)puri->part));
 }
 
 static void
@@ -715,7 +727,7 @@ emfh_multipart_related_check(struct _EMFormatHTMLJob *job)
 	purin = puri->next;
 	while (purin) {
 		if (purin->use_count == 0) {
-			(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
+			d(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
 			if (purin->func == emfh_write_related)
 				em_format_part((EMFormat *)job->format, (CamelStream *)job->estream, puri->part);
 			else
@@ -787,7 +799,7 @@ efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 		body_part = camel_multipart_get_part(mp, i);
 		if (body_part != display_part) {
 			puri = em_format_add_puri(emf, sizeof(EMFormatPURI), NULL, body_part, emfh_write_related);
-			(printf(" part '%s' '%s' added\n", puri->uri?puri->uri:"", puri->cid));
+			d(printf(" part '%s' '%s' added\n", puri->uri?puri->uri:"", puri->cid));
 		}
 	}
 	
@@ -984,6 +996,9 @@ static void efh_format_do(struct _mail_msg *mm)
 	int cancelled = FALSE;
 	CamelURL *base;
 
+	if (m->format->html == NULL) 
+		return;
+
 	/* <insert top-header stuff here> */
 
 	if (((EMFormat *)m->format)->mode == EM_FORMAT_SOURCE)
@@ -999,8 +1014,15 @@ static void efh_format_do(struct _mail_msg *mm)
 	g_mutex_lock(m->format->priv->lock);
 	while ((job = (struct _EMFormatHTMLJob *)e_dlist_remhead(&m->format->priv->pending_jobs))) {
 		g_mutex_unlock(m->format->priv->lock);
+
+		/* This is an implicit check to see if the gtkhtml has been destroyed */
+		if (!cancelled)
+			cancelled = m->format->html == NULL;
+
+		/* Now do an explicit check for user cancellation */
 		if (!cancelled)
 			cancelled = camel_operation_cancel_check(NULL);
+
 		if (!cancelled) {
 			d(printf("Performing job %p\n", job));
 			((EMFormat *)m->format)->pending_uri_level = job->puri_level;
@@ -1074,6 +1096,11 @@ efh_format_timeout(struct _format_msg *m)
 	/* FIXME: how to remove dependency on mail_config??? */
 	GConfClient *gconf = mail_config_get_gconf_client();
 
+	if (m->format->html == NULL) {
+		mail_msg_free(m);
+		return FALSE;
+	}
+
 	d(printf("timeout called ...\n"));
 	if (m->format->priv->format_id != -1) {
 		d(printf(" still waiting for cancellation to take effect, waiting ...\n"));
@@ -1094,7 +1121,7 @@ efh_format_timeout(struct _format_msg *m)
 		mail_msg_free(m);
 	} else {
 		hstream = gtk_html_begin(efh->html);
-		m->estream = (EMCamelStream *)em_camel_stream_new(hstream);
+		m->estream = (EMCamelStream *)em_camel_stream_new(efh->html, hstream);
 
 		if (efh->priv->last_part == m->message) {
 			/* HACK: so we redraw in the same spot */
@@ -1123,6 +1150,9 @@ static void efh_format_clone(EMFormat *emf, CamelMedium *part, EMFormat *emfsour
 	struct _format_msg *m;
 
 	/* How to sub-class ?  Might need to adjust api ... */
+
+	if (efh->html == NULL)
+		return;
 
 	d(printf("efh_format called\n"));
 	if (efh->priv->format_timeout_id != 0) {
@@ -1317,7 +1347,22 @@ static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *
 
 static void efh_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
 {
-	efh_text_plain((EMFormatHTML *)emf, stream, part, NULL);
+	CamelStreamFilter *filtered_stream;
+	CamelMimeFilter *html_filter;
+	CamelDataWrapper *dw = (CamelDataWrapper *)part;
+
+	filtered_stream = camel_stream_filter_new_with_stream ((CamelStream *) stream);
+	html_filter = camel_mime_filter_tohtml_new (CAMEL_MIME_FILTER_TOHTML_CONVERT_NL
+						    | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
+						    | CAMEL_MIME_FILTER_TOHTML_ESCAPE_8BIT, 0);
+	camel_stream_filter_add(filtered_stream, html_filter);
+	camel_object_unref(html_filter);
+	
+	camel_stream_write_string((CamelStream *)stream, EFH_TABLE_OPEN "<tr><td><tt>");
+	em_format_format_text(emf, (CamelStream *)filtered_stream, dw);
+	camel_object_unref(filtered_stream);
+	
+	camel_stream_write_string(stream, "</tt></td></tr></table>");
 }
 
 static void
