@@ -93,6 +93,7 @@ enum {
 	ARG_LENGTH_THRESHOLD,
 	ARG_MODEL,
 	ARG_UNIFORM_ROW_HEIGHT,
+	ARG_USE_CLICK_TO_ADD
 };
 
 static gint et_signals [LAST_SIGNAL] = { 0, };
@@ -1718,6 +1719,9 @@ et_get_arg (GtkObject *o, GtkArg *arg, guint arg_id)
 	case ARG_UNIFORM_ROW_HEIGHT:
 		GTK_VALUE_BOOL (*arg) = etable->uniform_row_height;
 		break;
+	case ARG_USE_CLICK_TO_ADD:
+		GTK_VALUE_BOOL (*arg) = etable->use_click_to_add;
+		break;
 	default:
 		break;
 	}
@@ -1748,6 +1752,35 @@ et_set_arg (GtkObject *o, GtkArg *arg, guint arg_id)
 			gnome_canvas_item_set (GNOME_CANVAS_ITEM(etable->group),
 					       "uniform_row_height", GTK_VALUE_BOOL (*arg),
 					       NULL);
+		}
+		break;
+	case ARG_USE_CLICK_TO_ADD:
+		if (etable->use_click_to_add == GTK_VALUE_BOOL (*arg))
+			return;
+
+		etable->use_click_to_add = GTK_VALUE_BOOL (*arg);
+
+		if (etable->use_click_to_add) {
+			etable->click_to_add = gnome_canvas_item_new
+				(GNOME_CANVAS_GROUP(etable->canvas_vbox),
+				 e_table_click_to_add_get_type (),
+				 "header", etable->header,
+				 "model", etable->model,
+				 "message", etable->click_to_add_message,
+				 NULL);
+
+			if (etable->use_click_to_add_end)
+				e_canvas_vbox_add_item (E_CANVAS_VBOX(etable->canvas_vbox),
+							etable->click_to_add);
+			else
+				e_canvas_vbox_add_item_start (E_CANVAS_VBOX(etable->canvas_vbox),
+							      etable->click_to_add);
+
+			gtk_signal_connect (GTK_OBJECT (etable->click_to_add), "cursor_change",
+					    GTK_SIGNAL_FUNC(click_to_add_cursor_change), etable);
+		} else {
+			gtk_object_destroy (GTK_OBJECT (etable->click_to_add));
+			etable->click_to_add = NULL;
 		}
 		break;
 	}
@@ -2854,6 +2887,8 @@ e_table_class_init (ETableClass *class)
 				 GTK_ARG_WRITABLE, ARG_LENGTH_THRESHOLD);
 	gtk_object_add_arg_type ("ETable::uniform_row_height", GTK_TYPE_BOOL,
 				 GTK_ARG_READWRITE, ARG_UNIFORM_ROW_HEIGHT);
+	gtk_object_add_arg_type ("ETable::use_click_to_add", GTK_TYPE_BOOL,
+				 GTK_ARG_READWRITE, ARG_USE_CLICK_TO_ADD);
 	gtk_object_add_arg_type ("ETable::model", E_TABLE_MODEL_TYPE,
 				 GTK_ARG_READABLE, ARG_MODEL);
 }
