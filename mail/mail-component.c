@@ -80,7 +80,7 @@ struct _MailComponentPrivate {
 	EMFolderTree *emft;
 	
 	MailAsyncEvent *async_event;
-	GHashTable *store_hash; /* storage by store */
+	GHashTable *store_hash; /* display_name by store */
 	
 	RuleContext *search_context;
 	
@@ -265,7 +265,7 @@ create_view_widget (EMFolderTree *emft, const char *path, const char *uri)
 	if (!control)
 		return NULL;
 	
-	/* EPFIXME: This leaks the control.  */
+	/* EPFIXME: This leaks the control. */
 	return bonobo_widget_new_control_from_objref (BONOBO_OBJREF (control), CORBA_OBJECT_NIL);
 }
 
@@ -285,6 +285,7 @@ folder_selected_cb (EMFolderTree *emft, const char *path, const char *uri, GtkBo
 	}
 	
 	view = create_view_widget (emft, path, uri);
+	gtk_widget_show (view);
 	
 	gtk_box_pack_start_defaults (vbox, view);
 }

@@ -956,6 +956,7 @@ tree_store_set_folder_info (GtkTreeStore *model, GtkTreeIter *iter,
 static void
 tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *tree_path, EMFolderTree *emft)
 {
+	/* FIXME: might be best to call get_folder_info in another thread and add the nodes to the treeview in the callback? */
 	struct _EMFolderTreePrivate *priv = emft->priv;
 	struct _emft_store_info *si;
 	CamelFolderInfo *fi, *child;
