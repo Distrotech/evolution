@@ -1,5 +1,10 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* main.c (idle_cb): Create a new window using
+	e_shell_create_window().
+
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
 	* main.c: Remove the global evolution_directory variable.
 	(main): Just declare, assign and free the evolution_directory
 	variable here.  Also, use g_idle_add() instead of gtk_idle_add().

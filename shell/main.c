@@ -434,7 +434,7 @@ idle_cb (void *data)
 		   view, AND we can't load the user's previous settings, then show the default
 		   URI.  */
 		if (! have_evolution_uri) {
-			/* e_shell_create_view (shell, NULL, NULL); FIXME */
+			e_shell_create_window (shell, NULL);
 			display_default = TRUE;
 			displayed_any = TRUE;
 		} else {
@@ -471,12 +471,8 @@ idle_cb (void *data)
 
 	CORBA_exception_free (&ev);
 	
-	if (shell == NULL) {
+	if (shell == NULL)
 		bonobo_main_quit ();
-	} else {
-		/* FIXME */
-		gtk_widget_show (e_shell_window_new (shell));
-	}
 
 	return FALSE;
 }
