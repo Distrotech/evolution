@@ -1,3 +1,12 @@
+2004-09-07  Not Zed  <NotZed@Ximian.com>
+
+	* e-config.c (ec_rebuild): pass the right old widget to the page
+	factory.
+	(ec_widget_destroy): unref the config and the target when done.
+	(e_config_create_widget): force the notebook to page 0, workaround
+	some other bug i don't understand.
+	(e_config_create_window): set dialog hint on druid.
+
 2004-09-06  Not Zed  <NotZed@Ximian.com>
 
 	* e-account.c (e_account_import): emit a changed event on the dest.

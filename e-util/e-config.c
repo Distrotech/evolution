@@ -118,6 +118,8 @@ ep_finalise(GObject *o)
 	struct _widget_node *wn;
 	struct _check_node *cn;
 
+	printf("finalising EConfig %p\n", o);
+
 	g_free(emp->id);
 
 	while ((mnode = (struct _menu_node *)e_dlist_remhead(&p->menus))) {
@@ -489,8 +491,6 @@ ec_rebuild(EConfig *emp)
 
 				emp->widget = root;
 				wn->widget = root;
-
-				g_object_set_data_full((GObject *)root, "e-config", emp, g_object_unref);
 			} else {
 				root = wn->widget;
 			}
@@ -559,7 +559,7 @@ ec_rebuild(EConfig *emp)
 			}
 
 			if (item->factory) {
-				page = item->factory(emp, item, root, wn->widget, wn->context->data);
+				page = item->factory(emp, item, root, wn->frame, wn->context->data);
 				if (emp->type == E_CONFIG_DRUID) {
 					if (page) {
 						g_assert(GNOME_IS_DRUID_PAGE_STANDARD(page));
@@ -733,6 +733,17 @@ e_config_set_target(EConfig *emp, EConfigTarget *target)
 		((EConfigClass *)G_OBJECT_GET_CLASS(emp))->set_target(emp, target);
 }
 
+static void
+ec_widget_destroy(GtkWidget *w, EConfig *ec)
+{
+	if (ec->target) {
+		e_config_target_free(ec, ec->target);
+		ec->target = NULL;
+	}
+
+	g_object_unref(ec);
+}
+
 /**
  * e_config_create_widget:
  * @emp: An initialised EConfig object.
@@ -785,8 +796,14 @@ e_config_create_widget(EConfig *emp)
 	}
 
 	g_ptr_array_free(items, TRUE);
-
 	ec_rebuild(emp);
+
+	/* auto-unref it */
+	g_signal_connect(emp->widget, "destroy", G_CALLBACK(ec_widget_destroy), emp);
+
+	/* FIXME: for some reason ec_rebuild puts the widget on page 1, this is just to override that */
+	if (emp->type == E_CONFIG_BOOK)
+		gtk_notebook_set_current_page((GtkNotebook *)emp->widget, 0);
 
 	return emp->widget;
 }
@@ -837,6 +854,7 @@ e_config_create_window(EConfig *emp, struct _GtkWindow *parent, const char *titl
 		/* response is handled directly by the druid stuff */
 		w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 		gtk_container_add((GtkContainer *)w, emp->widget);
+		gtk_window_set_type_hint((GtkWindow *)w, GDK_WINDOW_TYPE_HINT_DIALOG);
 	}
 
 	emp->window = w;
