@@ -56,6 +56,8 @@ Spell-impl.o: Spell.h
 libevolution_mail_la_SOURCES =			\
 	$(SPELL_IDL_GENERATED)			\
 	$(MARSHAL_GENERATED)			\
+	e-plugin.c				\
+	e-plugin.h				\
 	e-searching-tokenizer.c			\
 	e-searching-tokenizer.h			\
 	em-account-prefs.c			\

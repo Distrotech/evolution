@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<e-plugin-list>
+<e-plugin
+  class="com.ximian.evolution.mail.popup:1.0"
+  type="shlib"
+  location="test-plugin.so"
+  name="Test plugin"
+  description="A plugin for testing plugins">
+  <hook class="com.ximian.evolution.mail.popup:1.0">
+  <menu id="com.ximian.mail.folderview.popup.select" target="select">
+   <item
+    type="item"
+    path="99.test"
+    label="Test plugin hook"
+    mask="one"
+    activate="test_plugin_test"/>
+  </menu>
+  </hook>
+</e-plugin>
+</e-plugin-list>

@@ -735,6 +735,9 @@ mail_component_init (MailComponent *component)
 
 	offline = mail_offline_handler_new();
 	bonobo_object_add_interface((BonoboObject *)component, (BonoboObject *)offline);
+
+	/* temporary */
+	em_setup_plugins();
 }
 
 /* Public API.  */
