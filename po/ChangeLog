@@ -1,3 +1,52 @@
+2004-05-02  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+
+2004-05-02  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* POTFILES.in: Add some missing files.
+	* no.po: Update Norwegian translation.
+
+2004-05-02  Gareth Owen  <gowen72@yahoo.com>
+
+	* en_GB.po: Updated British English translation
+
+2004-05-02  Priit Laes  <plaes@cvs.gnome.org>
+
+	* et.po: Translation updated.
+
+2004-05-01  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-05-01  Funda Wang  <fundawang@linux.net.cn>
+
+	* zh_CN.po: Updated Simplified Chinese translation.
+
+2004-05-01  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-05-01  Priit Laes  <plaes@cvs.gnome.org>
+
+	* et.po: Translation updated.
+
+2004-05-01  Duarte Loreto <happyguy_pt@hotmail.com>
+
+	* pt.po: Updated and revised Portuguese translation.
+
+2004-04-30  Adam Weinberger  <adamw@gnome.org>
+
+	* en_CA.po: Updated Canadian English translation.
+
+2004-04-30  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Updated Czech translation.
+
+2004-04-30  Marco Ciampa <ciampix@libero.it>
+
+	* it.po: Italian translation updated.
+	
 2004-04-30  Priit Laes  <plaes@cvs.gnome.org>
 
 	* et.po: Translation updated.

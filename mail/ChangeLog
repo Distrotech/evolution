@@ -1,3 +1,32 @@
+2004-04-30  Priit Laes  <amd@tt.ee>
+
+	* mail-config.glade: fix typo. #53466.
+
+	* evolution-mail.schemas.in.in: use American English instead of
+	British. #53466.
+
+2004-04-30  Jeffrey Stedfast  <fejj@ximian.com>
+
+	Fix for bug #56645
+
+	* em-folder-tree.c (tree_drag_motion): If the row the cursor is
+	hovering over has children and is not expanded already, setup a
+	timer to auto-expand it if the user hovers there long enough.
+	(tree_autoexpand): Callback to expand the row.
+	(tree_drag_leave): Disconnect the timer.
+	(tree_drag_drop): Same.
+	(em_folder_tree_destroy): Same.
+
+2004-04-30  Enver ALTIN  <enver.altin@frontsite.com.tr>
+
+	* evolution-mail.schemas.in.in: Fixed a type-o.
+
+2004-04-30  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* message-list.c (message_list_set_folder): Properly initialise
+	the strikeout column for both types of folders (trash and not
+	trash). Completes the fix for bug #57304.
+
 2004-04-30  Not Zed  <NotZed@Ximian.com>
 
 	* em-utils.c (emu_can_save): fix the overwrite? question.  #57822.
