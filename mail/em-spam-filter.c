@@ -38,6 +38,7 @@
 
 static pthread_mutex_t em_spam_sa_test_lock = PTHREAD_MUTEX_INITIALIZER;
 
+static const char * em_spam_sa_get_name (void);
 static gboolean em_spam_sa_check_spam (CamelMimeMessage *msg);
 static void em_spam_sa_report_spam (CamelMimeMessage *msg);
 static void em_spam_sa_report_ham (CamelMimeMessage *msg);
@@ -46,7 +47,7 @@ static void em_spam_sa_commit_reports (void);
 static EMSpamPlugin spam_assassin_plugin =
 {
 	{
-		N_("Spamassassin (built-in)"),
+		em_spam_sa_get_name,
 		1,
 		em_spam_sa_check_spam,
 		em_spam_sa_report_spam,
@@ -62,6 +63,12 @@ static gboolean em_spam_sa_use_spamc = FALSE;
 static gint em_spam_sa_spamd_port = -1;
 
 #define d(x) x
+
+static const char *
+em_spam_sa_get_name (void)
+{
+	return _("Spamassassin (built-in)");
+}
 
 static int
 pipe_to_sa (CamelMimeMessage *msg, gchar *in, int argc, gchar **argv)
@@ -152,7 +159,7 @@ pipe_to_sa (CamelMimeMessage *msg, gchar *in, int argc, gchar **argv)
 
 #define NPORTS 1
 
-static gboolean
+static int
 em_spam_sa_test_spamd_running (gint port)
 {
 	static gchar *sac_args [3] = {
@@ -160,7 +167,7 @@ em_spam_sa_test_spamd_running (gint port)
 		"-c",
 		NULL
 	};
-	gboolean retval;
+	int retval;
 
 	d(fprintf (stderr, "test if spamd is running (port %d)\n", port);)
 	sac_args [2] = port > 0  ? g_strdup_printf ("spamc -x -p %d", port) : g_strdup_printf ("spamc -x");
