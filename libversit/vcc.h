@@ -69,6 +69,7 @@ will get a link error.
 #if INCLUDEMFC
 extern VObject* Parse_MIME_FromFile(CFile *file);
 #else
+extern VObject* Parse_MIME(const char *input, unsigned long len);
 extern VObject* Parse_MIME_FromFile(FILE *file);
 #endif
 
