@@ -1,3 +1,20 @@
+2000-12-23  Not Zed  <NotZed@HelixCode.com>
+
+	* message-list.h (MessageList): Add a specific hide data lock.
+
+	* message-list.c (message_list_drag_data_get): Do not use
+	cursor_uid, but get all currentlys elected messages directly off
+	the message-list.
+	(message_list_destroy): Removed mail_tool_camel_lock stuff.
+	(on_click): "
+	(message_list_hide_add, message_list_hide_uids, hide_load_state,
+	hide_save_state, message_list_hide_clear): ", but use a specfic
+	lock for the hide data.
+	(do_regenerate_messagelist): remove mail_tool_camel_lock stuff,
+	add hide_lock where required.
+	(message_list_init): Setup the hide_lock.
+	(message_list_destroy): Free the hide_lock.
+
 2000-12-22  Not Zed  <NotZed@HelixCode.com>
 
 	* mail-ops.c (mail_do_sync_folder): Run sync in different thread
