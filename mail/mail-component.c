@@ -142,6 +142,8 @@ add_storage (MailComponent *component,
 
 	e_storage_set_add_storage (component->priv->storage_set, storage);
 
+	mail_note_store ((CamelStore *) store, NULL, storage, NULL, NULL);
+
 	g_object_unref (storage);
 }
 

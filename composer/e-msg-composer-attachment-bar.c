@@ -192,9 +192,16 @@ static void
 remove_attachment (EMsgComposerAttachmentBar *bar,
 		   EMsgComposerAttachment *attachment)
 {
+	g_return_if_fail (E_IS_MSG_COMPOSER_ATTACHMENT_BAR (bar));
+	g_return_if_fail (g_list_find (bar->priv->attachments, attachment) != NULL);
+
 	bar->priv->attachments = g_list_remove (bar->priv->attachments,
 						attachment);
 	bar->priv->num_attachments--;
+	if (attachment->editor_gui != NULL) {
+		GtkWidget *dialog = glade_xml_get_widget (attachment->editor_gui, "dialog");
+		g_signal_emit_by_name (dialog, "response", GTK_RESPONSE_CLOSE);
+	}
 	
 	g_object_unref(attachment);
 	
@@ -231,7 +238,7 @@ update (EMsgComposerAttachmentBar *bar)
 		content_type = camel_mime_part_get_content_type (attachment->body);
 		/* Get the image out of the attachment 
 		   and create a thumbnail for it */
-		image = header_content_type_is (content_type, "image", "*");
+		image = camel_content_type_is (content_type, "image", "*");
 		
 		if (image && attachment->pixbuf_cache == NULL) {
 			CamelDataWrapper *wrapper;
@@ -304,7 +311,7 @@ update (EMsgComposerAttachmentBar *bar)
 		} else {
 			char *mime_type;
 			
-			mime_type = header_content_type_simple (content_type);
+			mime_type = camel_content_type_simple (content_type);
 			pixbuf = e_icon_for_mime_type (mime_type, 48);
 			g_free (mime_type);
 			gnome_icon_list_append_pixbuf (icon_list, pixbuf, NULL, label);
@@ -336,8 +343,15 @@ remove_selected (EMsgComposerAttachmentBar *bar)
 	p = gnome_icon_list_get_selection (icon_list);
 	for ( ; p != NULL; p = p->next) {
 		num = GPOINTER_TO_INT (p->data);
-		attachment = E_MSG_COMPOSER_ATTACHMENT (g_list_nth (bar->priv->attachments, num)->data);
-		attachment_list = g_list_prepend (attachment_list, attachment);
+		attachment = E_MSG_COMPOSER_ATTACHMENT (g_list_nth_data (bar->priv->attachments, num));
+
+		/* We need to check if there are duplicated index in the return list of 
+		   gnome_icon_list_get_selection() because of gnome bugzilla bug #122356.
+		   FIXME in the future. */
+
+		if (g_list_find (attachment_list, attachment) == NULL) {
+			attachment_list = g_list_prepend (attachment_list, attachment);
+		}
 	}
 	
 	for (p = attachment_list; p != NULL; p = p->next)
@@ -725,15 +739,15 @@ attach_to_multipart (CamelMultipart *multipart,
 	content = camel_medium_get_content_object (CAMEL_MEDIUM (attachment->body));
 	
 	if (!CAMEL_IS_MULTIPART (content)) {
-		if (header_content_type_is (content_type, "text", "*")) {
-			CamelMimePartEncodingType encoding;
+		if (camel_content_type_is (content_type, "text", "*")) {
+			CamelTransferEncoding encoding;
 			CamelStreamFilter *filter_stream;
 			CamelMimeFilterBestenc *bestenc;
 			CamelStream *stream;
 			const char *charset;
 			char *type;
 			
-			charset = header_content_type_param (content_type, "charset");
+			charset = camel_content_type_param (content_type, "charset");
 			
 			stream = camel_stream_null_new ();
 			filter_stream = camel_stream_filter_new_with_stream (stream);
@@ -747,7 +761,7 @@ attach_to_multipart (CamelMultipart *multipart,
 			encoding = camel_mime_filter_bestenc_get_best_encoding (bestenc, CAMEL_BESTENC_8BIT);
 			camel_mime_part_set_encoding (attachment->body, encoding);
 			
-			if (encoding == CAMEL_MIME_PART_ENCODING_7BIT) {
+			if (encoding == CAMEL_TRANSFER_ENCODING_7BIT) {
 				/* the text fits within us-ascii so this is safe */
 				/* FIXME: check that this isn't iso-2022-jp? */
 				default_charset = "us-ascii";
@@ -762,15 +776,15 @@ attach_to_multipart (CamelMultipart *multipart,
 			
 			if (!charset) {
 				/* looks kinda nasty, but this is how ya have to do it */
-				header_content_type_set_param (content_type, "charset", default_charset);
-				type = header_content_type_format (content_type);
+				camel_content_type_set_param (content_type, "charset", default_charset);
+				type = camel_content_type_format (content_type);
 				camel_mime_part_set_content_type (attachment->body, type);
 				g_free (type);
 			}
 			
 			camel_object_unref (bestenc);
 		} else if (!CAMEL_IS_MIME_MESSAGE (content)) {
-			camel_mime_part_set_encoding (attachment->body, CAMEL_MIME_PART_ENCODING_BASE64);
+			camel_mime_part_set_encoding (attachment->body, CAMEL_TRANSFER_ENCODING_BASE64);
 		}
 	}
 	

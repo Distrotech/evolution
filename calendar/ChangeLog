@@ -1,3 +1,83 @@
+2003-09-22  Hans Petter Jansson  <hpj@ximian.com>
+
+	* cal-util/Makefile.am (libical_util_la_LIBADD):
+	libical.la -> libical-evolution.la
+
+	* importers/Makefile.am (libevolution_calendar_importers_la_LIBADD):
+	libicalvcal.la -> libicalvcal-evolution.la
+
+2003-09-16  Rodrigo Moya <rodrigo@ximian.com>
+
+	* conduits/todo/Makefile.am: removed libwombat reference.
+
+2003-09-15  Harry Lu  <harry.lu@sun.com>
+
+	* gui/apps_evolution_calendar.schemas: change last_notification_time's
+	type from string to int.
+
+2003-09-12  Bolian Yin <bolian.yin@sun.com>
+
+	* e-week-view.c (e_week_view_focus): make jump button focusable
+	 (e_week_view_on_jump_button_event): key_press and focus event for jump button
+	 (e_week_view_jump_to_button_item): new function, jump to the day view.
+	 (e_week_view_is_jump_button_visible): new function.
+
+2003-09-11  Hans Petter Jansson  <hpj@ximian.com>
+
+	* cal-util/Makefile.am (libcal_util_la_LIBADD):
+	libical-evolution.la -> libical.la
+
+	* cal-util/cal-component.c (cal_component_get_classification)
+	(cal_component_set_classification)
+	(get_text_list)
+	(get_icaltimetype)
+	(get_datetime)
+	(get_period_list)
+	(get_recur_list)
+	(cal_component_get_transparency)
+	(cal_component_set_transparency): Adapt to new libical.
+
+	* cal-util/cal-util.c (cal_util_event_dates_match): Ditto.
+
+	* pcs/cal-backend-file.c (create_user_free_busy): Ditto.
+
+	* gui/e-cal-model-tasks.c (get_completed)
+	(get_due)
+	(get_due_status): Ditto.
+
+	* gui/e-cal-model.c (get_dtstart)
+	(set_classification): Ditto.
+
+	* gui/e-cal-model-calendar.c (get_dtend)
+	(get_transparency)
+	(set_transparency): Adapt to new libical and fix a comparison bug.
+
+	* importers/Makefile.am (libevolution_calendar_importers_la_LIBADD):
+	libical-evolution.la -> libical.la
+
+2003-09-11  Dan Winship  <danw@ximian.com>
+
+	* cal-util/Makefile.am (privlib_LTLIBRARIES): Remove
+	libcal-util-static.la
+
+	* cal-client/Makefile.am (noinst_LTLIBRARIES): Remove
+	libcal-client-static.la
+
+	* conduits/calendar/Makefile.am (libecalendar_conduit_la_LIBADD):
+	use non-static libraries. The static ones were only needed for
+	libtool 1.3.
+
+	* conduits/todo/Makefile.am (libetodo_conduit_la_LIBADD): Likewise
+
+        * gui/Makefile.am (IDL_GENERATED): Don't compile the calendar idl
+        here. It's already in libcal-client.
+
+2003-09-11  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* conduits/todo/Makefile.am:
+	Statically link with wombat. Fix ETodo conduit.
+	(Mdk bug #5348)
+
 2003-09-01  Andrew Wu <Yang.Wu@sun.com>
 
 	* gui/e-day-view.c:

@@ -1,3 +1,50 @@
+2003-09-23  Charles Zhang  <charles.zhang@sun.com>
+
+	* e-shell-startup-wizard.c (e_shell_startup_wizard_create): connect
+	to "key_press_event" signal with key_press_event_callback.
+	(key_press_event): Handle `ESC` key press event. [#48145]
+
+2003-09-22  Hans Petter Jansson  <hpj@ximian.com>
+
+	* Makefile.am (evolution_LDADD): libical.la -> libical-evolution.la
+
+2003-09-12  Frederic Crozat  <fcrozat@mandrakesoft.com>
+
+	* e-config-upgrade.c: (utf8_reencode), (upgrade_xml_1_2_rec),
+	(e_config_upgrade):
+	Fix migration of shortcuts.xml which was incorrectly encoded by
+	libxml1. (Mdk bug #4927)
+
+2003-09-11  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-storage-set-view.c (impl_right_click): If the
+	right_click_row_path is not NULL (i.e. a menu is being popped up
+	already), don't pop up the menu again.  [#48388]
+
+2003-09-11  Ettore Perazzoli  <ettore@ximian.com>
+
+	[#47875, thanks to Calvin Liu for figuring this out.]
+
+	* e-shortcuts.c (e_shortcuts_add_default_shortcuts): Use the
+	group_num arg, so it gets added to the proper group.
+	(e_shortcuts_add_default_group): Pass the actual group number to
+	e_shortcuts_add_default_shortcuts().
+
+2003-09-11  Hans Petter Jansson  <hpj@ximian.com>
+
+	* Makefile.am (evolution_LDADD): libical-evolution.la -> libical.la
+
+2003-09-05  Yuedong Du  <yuedong.du@sun.com>
+
+	* e-shell-importer.c: (importer_file_page_new),
+	(importer_type_page_new), (show_import_wizard): Use 
+	gtk_label_new_with_mnemonic() to replace gtk_label_new(). Use
+	gtk_label_set_mnemonic_widget() to set up label<-> entry
+	relationship. Change gtk_button_set_label() to 
+	gtk_button_set_use_underline() and gtk_button_set_label(). Change 
+	gtk_radio_button_new_with_label_from_widget() to 
+	gtk_radio_button_new_with_mnemonic_from_widget(). fix bug #47867
+
 2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-shell-window.c: New member current_view in struct

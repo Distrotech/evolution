@@ -1,5 +1,8 @@
 SUBDIRS = # importers FIXME
 
+libexec_PROGRAMS =				\
+	evolution-mbox-upgrade
+
 importerdir = $(privlibdir)/evolution-mail-importers
 
 INCLUDES =						\
@@ -73,35 +76,51 @@ $(SPELL_IDL_GENERATED_C): $(SPELL_IDL_GENERATED_H)
 Spell-impl.o: Spell.h
 
 
-# Code generation for Evolution.idl
-
-EVOLUTION_IDL_GENERATED_H =		\
-	Evolution.h
-EVOLUTION_IDL_GENERATED_C =		\
-	Evolution-common.c				\
-	Evolution-skels.c				\
-	Evolution-stubs.c
-EVOLUTION_IDL_GENERATED = $(EVOLUTION_IDL_GENERATED_C) $(EVOLUTION_IDL_GENERATED_H)
-
-$(EVOLUTION_IDL_GENERATED_H): $(top_srcdir)/shell/Evolution.idl 
-	$(ORBIT_IDL) -I $(srcdir) -I $(datadir)/idl $(IDL_INCLUDES) $(top_srcdir)/shell/Evolution.idl
-$(EVOLUTION_IDL_GENERATED_C): $(EVOLUTION_IDL_GENERATED_H)
-
-
 # libevolution-mail
 
 libevolution_mail_la_SOURCES =			\
-	$(EVOLUTION_IDL_GENERATED)		\
-	$(MAILER_IDL_GENERATED)			\
 	$(SPELL_IDL_GENERATED)			\
+	$(MAILER_IDL_GENERATED)			\
 	e-searching-tokenizer.c			\
 	e-searching-tokenizer.h			\
-	folder-browser.c			\
-	folder-browser.h			\
+	em-inline-filter.c			\
+	em-inline-filter.h			\
+	em-folder-view.c			\
+	em-folder-view.h			\
+	em-folder-browser.c			\
+	em-folder-browser.h			\
+	em-format.c				\
+	em-format.h				\
+	em-format-html.c			\
+	em-format-html.h			\
+	em-format-html-display.c		\
+	em-format-html-display.h		\
+	em-format-html-print.c			\
+	em-format-html-print.h			\
+	em-format-html-quote.c			\
+	em-format-html-quote.h			\
+	em-format-quote.c			\
+	em-format-quote.h			\
+	em-marshal.c				\
+	em-marshal.h				\
+	em-message-browser.c			\
+	em-message-browser.h			\
+	em-composer-utils.c			\
+	em-composer-utils.h			\
+	em-popup.c				\
+	em-popup.h				\
+	em-utils.c				\
+	em-utils.h				\
+	em-subscribe-editor.c			\
+	em-subscribe-editor.h			\
+	em-sync-stream.c			\
+	em-sync-stream.h			\
+	em-icon-stream.c			\
+	em-icon-stream.h			\
+	em-html-stream.c			\
+	em-html-stream.h			\
 	folder-browser-factory.c		\
 	folder-browser-factory.h		\
-	folder-browser-ui.c			\
-	folder-browser-ui.h			\
 	folder-info.c				\
 	folder-info.h				\
 	mail-account-editor.c			\
@@ -112,8 +131,6 @@ libevolution_mail_la_SOURCES =			\
 	mail-accounts.h				\
 	mail-autofilter.c			\
 	mail-autofilter.h			\
-	mail-callbacks.c			\
-	mail-callbacks.h			\
 	mail-component-factory.c		\
 	mail-component.c			\
 	mail-component.h			\
@@ -129,15 +146,8 @@ libevolution_mail_la_SOURCES =			\
 	mail-config-factory.h			\
 	mail-preferences.c			\
 	mail-preferences.h			\
-	mail-display.c				\
-	mail-display.h				\
-	mail-display-stream.c			\
-	mail-display-stream.h			\
 	mail-folder-cache.c			\
 	mail-folder-cache.h			\
-	mail-format.h				\
-	mail-format.c				\
-	mail-identify.c				\
 	mail-importer.c				\
 	mail-importer.h				\
 	mail-mt.c				\
@@ -146,8 +156,6 @@ libevolution_mail_la_SOURCES =			\
 	mail-offline-handler.h			\
 	mail-ops.c				\
 	mail-ops.h				\
-	mail-search.c				\
-	mail-search.h				\
 	mail-send-recv.c			\
 	mail-send-recv.h			\
 	mail-session.c				\
@@ -159,16 +167,12 @@ libevolution_mail_la_SOURCES =			\
 	mail-types.h				\
 	mail-vfolder.c				\
 	mail-vfolder.h				\
-	message-browser.c			\
-	message-browser.h			\
 	message-list.c				\
 	message-list.h				\
 	message-tag-editor.c			\
 	message-tag-editor.h			\
 	message-tag-followup.c			\
 	message-tag-followup.h			\
-	subscribe-dialog.c			\
-	subscribe-dialog.h			\
 	mail.h
 
 # EPFIXME: Functionality to be brought back to life.
@@ -195,6 +199,12 @@ libevolution_mail_la_LDFLAGS =				\
 
 # .server files
 
+evolution_mbox_upgrade_SOURCES = evolution-mbox-upgrade.c
+evolution_mbox_upgrade_LDADD = 				\
+	$(top_builddir)/camel/libcamel.la 		\
+	$(top_builddir)/e-util/libeutil.la 		\
+	$(EVOLUTION_MAIL_LIBS)
+
 server_in_files = GNOME_Evolution_Mail.server.in.in
 
 server_DATA = $(server_in_files:.server.in.in=.server)
@@ -205,7 +215,9 @@ server_DATA = $(server_in_files:.server.in.in=.server)
 
 # Misc data to install
 
-glade_DATA = mail-config.glade local-config.glade subscribe-dialog.glade message-tags.glade
+glade_DATA = mail-config.glade local-config.glade subscribe-dialog.glade message-tags.glade mail-search.glade
+MARSHAL_GENERATED = em-marshal.c em-marshal.h
+@EVO_MARSHAL_RULE@
 
 etspec_DATA = mail-accounts.etspec message-list.etspec subscribe-dialog.etspec
 
@@ -213,6 +225,7 @@ idl_DATA = $(MAILER_IDL)
 
 EXTRA_DIST = 				\
 	ChangeLog.pre-1-4		\
+	em-marshal.list			\
 	Mailer.idl 			\
 	$(SPELL_IDL)			\
 	$(glade_DATA)			\
@@ -254,5 +267,5 @@ install-data-local:
 dist-hook:
 	cd $(distdir); rm -f $(BUILT_SOURCES)
 
-BUILT_SOURCES = $(MAILER_IDL_GENERATED) $(SPELL_IDL_GENERATED) $(server_DATA)
+BUILT_SOURCES = $(MAILER_IDL_GENERATED) $(SPELL_IDL_GENERATED) $(MARSHAL_GENERATED) $(server_DATA)
 CLEANFILES = $(BUILT_SOURCES)

@@ -85,9 +85,8 @@
 #include <camel/camel-stream-filter.h>
 #include <camel/camel-mime-filter-charset.h>
 
-#include "mail/mail-callbacks.h"
+#include "mail/em-utils.h"
 #include "mail/mail-crypto.h"
-#include "mail/mail-format.h"
 #include "mail/mail-tools.h"
 #include "mail/mail-ops.h"
 #include "mail/mail-mt.h"
@@ -194,7 +193,7 @@ get_text (Bonobo_PersistStream persist, char *format)
 
 #define LINE_LEN 72
 
-static CamelMimePartEncodingType
+static CamelTransferEncoding
 best_encoding (GByteArray *buf, const char *charset)
 {
 	char *in, *out, outbuf[256], *ch;
@@ -226,11 +225,11 @@ best_encoding (GByteArray *buf, const char *charset)
 		return -1;
 	
 	if (count == 0)
-		return CAMEL_MIME_PART_ENCODING_7BIT;
+		return CAMEL_TRANSFER_ENCODING_7BIT;
 	else if (count <= buf->len * 0.17)
-		return CAMEL_MIME_PART_ENCODING_QUOTEDPRINTABLE;
+		return CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE;
 	else
-		return CAMEL_MIME_PART_ENCODING_BASE64;
+		return CAMEL_TRANSFER_ENCODING_BASE64;
 }
 
 static const char *
@@ -258,13 +257,13 @@ composer_get_default_charset_setting (void)
 }
 
 static const char *
-best_charset (GByteArray *buf, const char *default_charset, CamelMimePartEncodingType *encoding)
+best_charset (GByteArray *buf, const char *default_charset, CamelTransferEncoding *encoding)
 {
 	const char *charset;
 	
 	/* First try US-ASCII */
 	*encoding = best_encoding (buf, "US-ASCII");
-	if (*encoding == CAMEL_MIME_PART_ENCODING_7BIT)
+	if (*encoding == CAMEL_TRANSFER_ENCODING_7BIT)
 		return NULL;
 	
 	/* Next try the user-specified charset for this message */
@@ -282,7 +281,7 @@ best_charset (GByteArray *buf, const char *default_charset, CamelMimePartEncodin
 	/* Try to find something that will work */
 	charset = camel_charset_best (buf->data, buf->len);
 	if (!charset)
-		*encoding = CAMEL_MIME_PART_ENCODING_7BIT;
+		*encoding = CAMEL_TRANSFER_ENCODING_7BIT;
 	else
 		*encoding = best_encoding (buf, charset);
 	
@@ -349,7 +348,7 @@ build_message (EMsgComposer *composer, gboolean save_html_object_data)
 		E_MSG_COMPOSER_ATTACHMENT_BAR (composer->attachment_bar);
 	EMsgComposerHdrs *hdrs = E_MSG_COMPOSER_HDRS (composer->hdrs);
 	CamelDataWrapper *plain, *html, *current;
-	CamelMimePartEncodingType plain_encoding;
+	CamelTransferEncoding plain_encoding;
 	CamelMultipart *body = NULL;
 	CamelContentType *type;
 	CamelMimeMessage *new;
@@ -379,16 +378,16 @@ build_message (EMsgComposer *composer, gboolean save_html_object_data)
 	}
 	
 	if (composer->mime_body) {
-		plain_encoding = CAMEL_MIME_PART_ENCODING_7BIT;
+		plain_encoding = CAMEL_TRANSFER_ENCODING_7BIT;
 		for (i = 0; composer->mime_body[i]; i++) {
 			if ((unsigned char) composer->mime_body[i] > 127) {
-				plain_encoding = CAMEL_MIME_PART_ENCODING_QUOTEDPRINTABLE;
+				plain_encoding = CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE;
 				break;
 			}
 		}
 		data = g_byte_array_new ();
 		g_byte_array_append (data, composer->mime_body, strlen (composer->mime_body));
-		type = header_content_type_decode (composer->mime_type);
+		type = camel_content_type_decode (composer->mime_type);
 	} else {
 		data = get_text (composer->persist_stream_interface, "text/plain");
 		if (!data) {
@@ -399,9 +398,9 @@ build_message (EMsgComposer *composer, gboolean save_html_object_data)
 		
 		/* FIXME: we may want to do better than this... */
 		charset = best_charset (data, composer->charset, &plain_encoding);
-		type = header_content_type_new ("text", "plain");
+		type = camel_content_type_new ("text", "plain");
 		if (charset)
-			header_content_type_set_param (type, "charset", charset);
+			camel_content_type_set_param (type, "charset", charset);
 	}
 	
 	stream = camel_stream_mem_new_with_byte_array (data);
@@ -426,7 +425,7 @@ build_message (EMsgComposer *composer, gboolean save_html_object_data)
 	camel_object_unref (stream);
 	
 	camel_data_wrapper_set_mime_type_field (plain, type);
-	header_content_type_unref (type);
+	camel_content_type_unref (type);
 	
 	if (composer->send_html) {
 		CORBA_Environment ev;
@@ -1352,10 +1351,10 @@ autosave_load_draft (const char *filename)
 		autosave_save_draft (composer);
 		
 		g_signal_connect (GTK_OBJECT (composer), "send",
-				  G_CALLBACK (composer_send_cb), NULL);
+				  G_CALLBACK (em_utils_composer_send_cb), NULL);
 		
 		g_signal_connect (GTK_OBJECT (composer), "save-draft",
-				  G_CALLBACK (composer_save_draft_cb), NULL);
+				  G_CALLBACK (em_utils_composer_save_draft_cb), NULL);
 		
 		gtk_widget_show (GTK_WIDGET (composer));
 	}
@@ -1956,11 +1955,6 @@ static BonoboUIVerb verbs [] = {
 	
 	BONOBO_UI_VERB ("FileSend", menu_file_send_cb),
 	
-	BONOBO_UI_VERB ("EditCut", menu_edit_cut_cb),
-	BONOBO_UI_VERB ("EditCopy", menu_edit_copy_cb),
-	BONOBO_UI_VERB ("EditPaste", menu_edit_paste_cb),
-	BONOBO_UI_VERB ("SelectAll", menu_edit_select_all_cb),
-	
 	BONOBO_UI_VERB ("DeleteAll", menu_edit_delete_all_cb),
 	
 	BONOBO_UI_VERB_END
@@ -2223,6 +2217,10 @@ setup_ui (EMsgComposer *composer)
 	mail_config_signature_register_client ((MailConfigSignatureClient) sig_event_client, composer);
 	
 	bonobo_ui_component_thaw (composer->uic, NULL);
+
+	/* Create the UIComponent for the non-control entries */
+
+	composer->entry_uic = bonobo_ui_component_new_default ();
 }
 
 
@@ -2408,7 +2406,7 @@ static void
 composer_finalise (GObject *object)
 {
 	EMsgComposer *composer;
-	
+
 	composer = E_MSG_COMPOSER (object);
 	
 	if (composer->extra_hdr_names) {
@@ -2455,7 +2453,7 @@ destroy (GtkObject *object)
 {
 	EMsgComposer *composer;
 	CORBA_Environment ev;
-	
+
 	composer = E_MSG_COMPOSER (object);
 	
 	CORBA_exception_init (&ev);
@@ -2463,6 +2461,11 @@ destroy (GtkObject *object)
 	if (composer->uic) {
 		bonobo_object_unref (BONOBO_OBJECT (composer->uic));
 		composer->uic = NULL;
+	}
+
+	if (composer->entry_uic) {
+		bonobo_object_unref (BONOBO_OBJECT (composer->entry_uic));
+		composer->entry_uic = NULL;
 	}
 	
 	/* FIXME?  I assume the Bonobo widget will get destroyed
@@ -2535,7 +2538,7 @@ message_rfc822_dnd (EMsgComposer *composer, CamelStream *stream)
 	camel_mime_parser_scan_from (mp, TRUE);
 	camel_mime_parser_init_with_stream (mp, stream);
 	
-	while (camel_mime_parser_step (mp, 0, 0) == HSCAN_FROM) {
+	while (camel_mime_parser_step (mp, 0, 0) == CAMEL_MIME_PARSER_STATE_FROM) {
 		CamelMimeMessage *message;
 		CamelMimePart *part;
 		
@@ -2850,15 +2853,36 @@ composer_key_pressed (GtkWidget *widget, GdkEventKey *event, gpointer user_data)
 	return FALSE; /* Not handled. */
 }
 
+/* Verbs for non-control entries */
+static BonoboUIVerb entry_verbs [] = {
+	BONOBO_UI_VERB ("EditCut", menu_edit_cut_cb),
+	BONOBO_UI_VERB ("EditCopy", menu_edit_copy_cb),
+	BONOBO_UI_VERB ("EditPaste", menu_edit_paste_cb),
+	BONOBO_UI_VERB ("EditSelectAll", menu_edit_select_all_cb),
+	BONOBO_UI_VERB_END
+};
 
 /* All this snot is so that Cut/Copy/Paste work. */
 static gboolean
 composer_entry_focus_in_event_cb (GtkWidget *widget, GdkEventFocus *event, gpointer user_data)
 {
 	EMsgComposer *composer = user_data;
-	
+	BonoboUIContainer *container;
+
 	composer->focused_entry = widget;
-	bonobo_ui_component_add_verb_list_with_data (composer->uic, verbs, composer);
+
+	container = bonobo_window_get_ui_container (BONOBO_WINDOW (composer));
+	bonobo_ui_component_set_container (composer->entry_uic, bonobo_object_corba_objref (BONOBO_OBJECT (container)), NULL);
+
+	bonobo_ui_component_add_verb_list_with_data (composer->entry_uic, entry_verbs, composer);
+
+	bonobo_ui_component_freeze (composer->entry_uic, NULL);
+
+	bonobo_ui_util_set_ui (composer->entry_uic, PREFIX,
+			       EVOLUTION_UIDIR "/evolution-composer-entries.xml",
+			       "evolution-composer-entries", NULL);
+	
+	bonobo_ui_component_thaw (composer->entry_uic, NULL);
 	
 	return FALSE;
 }
@@ -2870,6 +2894,8 @@ composer_entry_focus_out_event_cb (GtkWidget *widget, GdkEventFocus *event, gpoi
 	
 	g_assert (composer->focused_entry == widget);
 	composer->focused_entry = NULL;
+
+	bonobo_ui_component_unset_container (composer->entry_uic, NULL);
 	
 	return FALSE;
 }
@@ -2883,12 +2909,12 @@ setup_cut_copy_paste (EMsgComposer *composer)
 	hdrs = (EMsgComposerHdrs *) composer->hdrs;
 	
 	entry = e_msg_composer_hdrs_get_subject_entry (hdrs);
-	g_signal_connect (entry, "focus-in-event", G_CALLBACK (composer_entry_focus_in_event_cb), composer);
-	g_signal_connect (entry, "focus-out-event", G_CALLBACK (composer_entry_focus_out_event_cb), composer);
+	g_signal_connect (entry, "focus_in_event", G_CALLBACK (composer_entry_focus_in_event_cb), composer);
+	g_signal_connect (entry, "focus_out_event", G_CALLBACK (composer_entry_focus_out_event_cb), composer);
 	
 	entry = e_msg_composer_hdrs_get_reply_to_entry (hdrs);
-	g_signal_connect (entry, "focus-in-event", G_CALLBACK (composer_entry_focus_in_event_cb), composer);
-	g_signal_connect (entry, "focus-out-event", G_CALLBACK (composer_entry_focus_out_event_cb), composer);
+	g_signal_connect (entry, "focus_in_event", G_CALLBACK (composer_entry_focus_in_event_cb), composer);
+	g_signal_connect (entry, "focus_out_event", G_CALLBACK (composer_entry_focus_out_event_cb), composer);
 }
 
 static void
@@ -2922,6 +2948,7 @@ create_composer (int visible_mask)
 	CORBA_Environment ev;
 	GConfClient *gconf;
 	int vis;
+	BonoboControlFrame *control_frame;
 	
 	composer = g_object_new (E_TYPE_MSG_COMPOSER, "win_name", _("Compose a message"), NULL);
 	gtk_window_set_title ((GtkWindow *) composer, _("Compose a message"));
@@ -2992,6 +3019,9 @@ create_composer (int visible_mask)
 		gtk_object_destroy (GTK_OBJECT (composer));
 		return NULL;
 	}
+
+	control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (composer->editor));
+	bonobo_control_frame_set_autoactivate (control_frame, TRUE);
 	
 	/* let the editor know which mode we are in */
 	bonobo_widget_set_property (BONOBO_WIDGET (composer->editor), 
@@ -3211,10 +3241,10 @@ add_attachments_handle_mime_part (EMsgComposer *composer, CamelMimePart *mime_pa
 			e_msg_composer_add_inline_image_from_mime_part (composer, mime_part);
 	} else if (CAMEL_IS_MIME_MESSAGE (wrapper)) {
 		/* do nothing */
-	} else if (related && header_content_type_is (content_type, "image", "*")) {
+	} else if (related && camel_content_type_is (content_type, "image", "*")) {
 		e_msg_composer_add_inline_image_from_mime_part (composer, mime_part);
 	} else {
-		if (header_content_type_is (content_type, "text", "*")) {
+		if (camel_content_type_is (content_type, "text", "*")) {
 			/* do nothing */
 		} else {
 			e_msg_composer_attach (composer, mime_part);
@@ -3231,7 +3261,7 @@ add_attachments_from_multipart (EMsgComposer *composer, CamelMultipart *multipar
 	gboolean related;
 	int i, nparts;
 	
-	related = header_content_type_is (CAMEL_DATA_WRAPPER (multipart)->mime_type, "multipart", "related");
+	related = camel_content_type_is (CAMEL_DATA_WRAPPER (multipart)->mime_type, "multipart", "related");
 		
 	if (CAMEL_IS_MULTIPART_SIGNED (multipart)) {
 		mime_part = camel_multipart_get_part (multipart, CAMEL_MULTIPART_SIGNED_CONTENT);
@@ -3303,18 +3333,15 @@ handle_multipart_signed (EMsgComposer *composer, CamelMultipart *multipart, int 
 		} else if (CAMEL_IS_MULTIPART_ENCRYPTED (content)) {
 			/* decrypt the encrypted content and configure the composer to encrypt outgoing messages */
 			handle_multipart_encrypted (composer, multipart, depth);
-		} else if (header_content_type_is (content_type, "multipart", "alternative")) {
+		} else if (camel_content_type_is (content_type, "multipart", "alternative")) {
 			/* this contains the text/plain and text/html versions of the message body */
 			handle_multipart_alternative (composer, multipart, depth);
 		} else {
 			/* there must be attachments... */
 			handle_multipart (composer, multipart, depth);
 		}
-	} else if (header_content_type_is (content_type, "text", "*")) {
-		char *text;
-		
-		if ((text = mail_get_message_body (content, FALSE, FALSE)))
-			e_msg_composer_set_pending_body (composer, text);
+	} else if (camel_content_type_is (content_type, "text", "*")) {
+		e_msg_composer_set_pending_body (composer, em_utils_part_to_html (mime_part));
 	} else {
 		e_msg_composer_attach (composer, mime_part);
 	}
@@ -3360,18 +3387,15 @@ handle_multipart_encrypted (EMsgComposer *composer, CamelMultipart *multipart, i
 		} else if (CAMEL_IS_MULTIPART_ENCRYPTED (content)) {
 			/* decrypt the encrypted content and configure the composer to encrypt outgoing messages */
 			handle_multipart_encrypted (composer, multipart, depth);
-		} else if (header_content_type_is (content_type, "multipart", "alternative")) {
+		} else if (camel_content_type_is (content_type, "multipart", "alternative")) {
 			/* this contains the text/plain and text/html versions of the message body */
 			handle_multipart_alternative (composer, multipart, depth);
 		} else {
 			/* there must be attachments... */
 			handle_multipart (composer, multipart, depth);
 		}
-	} else if (header_content_type_is (content_type, "text", "*")) {
-		char *text;
-		
-		if ((text = mail_get_message_body (content, FALSE, FALSE)))
-			e_msg_composer_set_pending_body (composer, text);
+	} else if (camel_content_type_is (content_type, "text", "*")) {
+		e_msg_composer_set_pending_body (composer, em_utils_part_to_html (mime_part));
 	} else {
 		e_msg_composer_attach (composer, mime_part);
 	}
@@ -3412,11 +3436,11 @@ handle_multipart_alternative (EMsgComposer *composer, CamelMultipart *multipart,
 				/* depth doesn't matter so long as we don't pass 0 */
 				handle_multipart (composer, mp, depth + 1);
 			}
-		} else if (header_content_type_is (content_type, "text", "html")) {
+		} else if (camel_content_type_is (content_type, "text", "html")) {
 			/* text/html is preferable, so once we find it we're done... */
 			text_part = mime_part;
 			break;
-		} else if (header_content_type_is (content_type, "text", "*")) {
+		} else if (camel_content_type_is (content_type, "text", "*")) {
 			/* anyt text part not text/html is second rate so the first
 			   text part we find isn't necessarily the one we'll use. */
 			if (!text_part)
@@ -3426,14 +3450,8 @@ handle_multipart_alternative (EMsgComposer *composer, CamelMultipart *multipart,
 		}
 	}
 	
-	if (text_part) {
-		CamelDataWrapper *contents;
-		char *text;
-		
-		contents = camel_medium_get_content_object (CAMEL_MEDIUM (text_part));
-		if ((text = mail_get_message_body (contents, FALSE, FALSE)))
-			e_msg_composer_set_pending_body (composer, text);
-	}
+	if (text_part)
+		e_msg_composer_set_pending_body(composer, em_utils_part_to_html(text_part));
 }
 
 static void
@@ -3463,7 +3481,7 @@ handle_multipart (EMsgComposer *composer, CamelMultipart *multipart, int depth)
 			} else if (CAMEL_IS_MULTIPART_ENCRYPTED (content)) {
 				/* decrypt the encrypted content and configure the composer to encrypt outgoing messages */
 				handle_multipart_encrypted (composer, mp, depth + 1);
-			} else if (header_content_type_is (content_type, "multipart", "alternative")) {
+			} else if (camel_content_type_is (content_type, "multipart", "alternative")) {
 				handle_multipart_alternative (composer, mp, depth + 1);
 			} else {
 				/* depth doesn't matter so long as we don't pass 0 */
@@ -3471,12 +3489,7 @@ handle_multipart (EMsgComposer *composer, CamelMultipart *multipart, int depth)
 			}
 		} else if (depth == 0 && i == 0) {
 			/* Since the first part is not multipart/alternative, then this must be the body */
-			char *text;
-			
-			text = mail_get_message_body (content, FALSE, FALSE);
-			
-			if (text)
-				e_msg_composer_set_pending_body (composer, text);
+			e_msg_composer_set_pending_body(composer, em_utils_part_to_html(mime_part));
 		} else if (camel_mime_part_get_content_id (mime_part) ||
 			   camel_mime_part_get_content_location (mime_part)) {
 			/* special in-line attachment */
@@ -3553,7 +3566,7 @@ e_msg_composer_new_with_message (CamelMimeMessage *message)
 	EDestination **Tov, **Ccv, **Bccv;
 	GHashTable *auto_cc, *auto_bcc;
 	CamelContentType *content_type;
-	struct _header_raw *headers;
+	struct _camel_header_raw *headers;
 	CamelDataWrapper *content;
 	EAccount *account = NULL;
 	char *account_name;
@@ -3736,7 +3749,7 @@ e_msg_composer_new_with_message (CamelMimeMessage *message)
 		} else if (CAMEL_IS_MULTIPART_ENCRYPTED (content)) {
 			/* decrypt the encrypted content and configure the composer to encrypt outgoing messages */
 			handle_multipart_encrypted (new, multipart, 0);
-		} else if (header_content_type_is (content_type, "multipart", "alternative")) {
+		} else if (camel_content_type_is (content_type, "multipart", "alternative")) {
 			/* this contains the text/plain and text/html versions of the message body */
 			handle_multipart_alternative (new, multipart, 0);
 		} else {
@@ -3744,15 +3757,7 @@ e_msg_composer_new_with_message (CamelMimeMessage *message)
 			handle_multipart (new, multipart, 0);
 		}
 	} else {
-		/* We either have a text/plain or a text/html part */
-		CamelDataWrapper *contents;
-		char *text;
-		
-		contents = camel_medium_get_content_object (CAMEL_MEDIUM (message));
-		text = mail_get_message_body (contents, FALSE, FALSE);
-		
-		if (text)
-			e_msg_composer_set_pending_body (new, text);
+		e_msg_composer_set_pending_body(new, em_utils_part_to_html((CamelMimePart *)message));
 	}
 	
 	/* We wait until now to set the body text because we need to ensure that
@@ -3910,7 +3915,7 @@ handle_mailto (EMsgComposer *composer, const char *mailto)
 					}
 				}
 			} else if (!strcasecmp (header, "attach")) {
-				/*Change file url to absolute path*/
+				/* Change file url to absolute path */
 				if (!strncasecmp (content, "file:", 5)) {
 					url = camel_url_new (content, NULL);
 					e_msg_composer_attachment_bar_attach (E_MSG_COMPOSER_ATTACHMENT_BAR (composer->attachment_bar),
@@ -4188,12 +4193,12 @@ e_msg_composer_add_inline_image_from_file (EMsgComposer *composer,
 	camel_medium_set_content_object (CAMEL_MEDIUM (part), wrapper);
 	camel_object_unref (wrapper);
 	
-	cid = header_msgid_generate ();
+	cid = camel_header_msgid_generate ();
 	camel_mime_part_set_content_id (part, cid);
 	name = g_path_get_basename(file_name);
 	camel_mime_part_set_filename (part, name);
 	g_free(name);
-	camel_mime_part_set_encoding (part, CAMEL_MIME_PART_ENCODING_BASE64);
+	camel_mime_part_set_encoding (part, CAMEL_TRANSFER_ENCODING_BASE64);
 	
 	url = g_strdup_printf ("file:%s", file_name);
 	g_hash_table_insert (composer->inline_images_by_url, url, part);

@@ -242,8 +242,15 @@ real_flush_updates(void *o, void *event_data, void *data)
 				char *type = (strncmp(up->uri, "vtrash:", 7)==0)?"vtrash":"mail";
 				EFolder *new_folder = e_folder_new (up->name, type, NULL);
 
+				d(printf("Adding new folder: %s\n", up->path));
+
 				e_folder_set_physical_uri (new_folder, up->uri);
 				e_folder_set_unread_count (new_folder, up->unread);
+				if (CAMEL_IS_DISCO_STORE(up->store) && camel_disco_store_can_work_offline((CamelDiscoStore *)up->store))
+				    e_folder_set_can_sync_offline (new_folder, TRUE);
+				else
+				    e_folder_set_can_sync_offline (new_folder, FALSE);
+
 				e_storage_new_folder(storage, up->path, new_folder);
 			}
 

@@ -30,9 +30,6 @@
 #include "mail-mt.h"
 #include "mail-preferences.h"
 
-/* EPFIXME totally nasty to include this here. */
-#include "mail-callbacks.h"
-
 #include <bonobo-activation/bonobo-activation.h>
 #include <bonobo/bonobo-shlib-factory.h>
 
@@ -80,9 +77,14 @@ factory (BonoboGenericFactory *factory,
 		   || strcmp (component_id, MAIL_COMPOSER_PREFS_CONTROL_ID) == 0) {
 		/* EPFIXME: Calling a callback!?!  */
 		return mail_config_control_factory_cb (factory, component_id, CORBA_OBJECT_NIL);
-	} else if (strcmp(component_id, COMPOSER_ID) == 0) {
+	}
+#if 0
+	/* EPFIXME need to fix this -- after we stopped making composer_send_cb
+	   and composer_save_draft_cb public, this doesn't work anymore. */
+	else if (strcmp(component_id, COMPOSER_ID) == 0) {
 		return (BonoboObject *) evolution_composer_new (composer_send_cb, composer_save_draft_cb);
 	}
+#endif
 
 	g_warning (FACTORY_ID ": Don't know what to do with %s", component_id);
 	return NULL;

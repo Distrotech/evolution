@@ -36,6 +36,7 @@
 
 #include <filter/filter-editor.h>
 
+#include "mail-component.h"
 #include "mail-mt.h"
 #include "mail-ops.h"
 #include "mail-tools.h"
@@ -215,14 +216,14 @@ static GtkWidget *filter_editor = NULL;
 static void
 filter_editor_response (GtkWidget *dialog, int button, gpointer user_data)
 {
-	extern char *evolution_dir;
 	FilterContext *fc;
 	
 	if (button == GTK_RESPONSE_ACCEPT) {
 		char *user;
 		
 		fc = g_object_get_data ((GObject *) dialog, "context");
-		user = g_strdup_printf ("%s/filters.xml", evolution_dir);
+		user = g_strdup_printf ("%s/filters.xml",
+					mail_component_peek_base_directory (mail_component_peek ()));
 		rule_context_save ((RuleContext *) fc, user);
 		g_free (user);
 	}
@@ -249,7 +250,7 @@ static const char *filter_source_names[] = {
 void
 em_utils_edit_filters (GtkWidget *parent)
 {
-	extern char *evolution_dir;
+	const char *base_directory = mail_component_peek_base_directory (mail_component_peek ());
 	char *user, *system;
 	FilterContext *fc;
 	
@@ -259,7 +260,7 @@ em_utils_edit_filters (GtkWidget *parent)
 	}
 	
 	fc = filter_context_new ();
-	user = g_strdup_printf ("%s/filters.xml", evolution_dir);
+	user = g_strdup_printf ("%s/filters.xml", base_directory);
 	system = EVOLUTION_PRIVDATADIR "/filtertypes.xml";
 	rule_context_load ((RuleContext *) fc, system, user);
 	g_free (user);

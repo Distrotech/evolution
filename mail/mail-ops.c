@@ -44,12 +44,13 @@
 #include "mail-vfolder.h"
 #include "mail-session.h"
 #include "composer/e-msg-composer.h"
-#include "folder-browser.h"
 
 #include "filter/filter-filter.h"
 
 #include "mail-mt.h"
 #include "mail-folder-cache.h"
+
+#include "em-utils.h"
 
 #define w(x)
 #define d(x) 
@@ -151,17 +152,12 @@ static void
 filter_folder_free (struct _mail_msg *mm)
 {
 	struct _filter_mail_msg *m = (struct _filter_mail_msg *)mm;
-	int i;
 	
 	if (m->source_folder)
 		camel_object_unref (m->source_folder);
 	
-	if (m->source_uids) {
-		for (i = 0; i < m->source_uids->len; i++)
-			g_free (m->source_uids->pdata[i]);
-		
-		g_ptr_array_free (m->source_uids, TRUE);
-	}
+	if (m->source_uids)
+		em_utils_uids_free (m->source_uids);
 	
 	if (m->cancel)
 		camel_operation_unref (m->cancel);
@@ -1005,14 +1001,10 @@ static void
 transfer_messages_free (struct _mail_msg *mm)
 {
 	struct _transfer_msg *m = (struct _transfer_msg *)mm;
-	int i;
-
+	
 	camel_object_unref (m->source);
 	g_free (m->dest_uri);
-	for (i = 0; i < m->uids->len; i++)
-		g_free (m->uids->pdata[i]);
-	g_ptr_array_free (m->uids, TRUE);
-
+	em_utils_uids_free (m->uids);
 }
 
 static struct _mail_msg_op transfer_messages_op = {
@@ -1858,10 +1850,8 @@ static void get_messages_free(struct _mail_msg *mm)
 {
 	struct _get_messages_msg *m = (struct _get_messages_msg *)mm;
 	int i;
-
-	for (i=0;i<m->uids->len;i++)
-		g_free(m->uids->pdata[i]);
-	g_ptr_array_free(m->uids, TRUE);
+	
+	em_utils_uids_free (m->uids);
 	for (i=0;i<m->messages->len;i++) {
 		if (m->messages->pdata[i])
 			camel_object_unref(m->messages->pdata[i]);
@@ -1940,8 +1930,8 @@ save_prepare_part (CamelMimePart *mime_part)
 			
 			/* We want to save textual parts as 8bit instead of encoded */
 			type = camel_data_wrapper_get_mime_type_field (wrapper);
-			if (header_content_type_is (type, "text", "*"))
-				camel_mime_part_set_encoding (mime_part, CAMEL_MIME_PART_ENCODING_8BIT);
+			if (camel_content_type_is (type, "text", "*"))
+				camel_mime_part_set_encoding (mime_part, CAMEL_TRANSFER_ENCODING_8BIT);
 		}
 	}
 }
@@ -2011,11 +2001,8 @@ static void save_messages_saved(struct _mail_msg *mm)
 static void save_messages_free(struct _mail_msg *mm)
 {
 	struct _save_messages_msg *m = (struct _save_messages_msg *)mm;
-	int i;
-
-	for (i=0;i<m->uids->len;i++)
-		g_free(m->uids->pdata[i]);
-	g_ptr_array_free(m->uids, TRUE);
+	
+	em_utils_uids_free (m->uids);
 	camel_object_unref(m->folder);
 	g_free(m->path);
 }
@@ -2091,8 +2078,8 @@ save_part_save (struct _mail_msg *mm)
 	
 	data = camel_medium_get_content_object (CAMEL_MEDIUM (m->part));
 	content_type = camel_mime_part_get_content_type (m->part);
-	if (header_content_type_is (content_type, "text", "*")
-	    && (charset = header_content_type_param (content_type, "charset"))
+	if (camel_content_type_is (content_type, "text", "*")
+	    && (charset = camel_content_type_param (content_type, "charset"))
 	    && strcasecmp (charset, "utf-8") != 0) {
 		charsetfilter = camel_mime_filter_charset_new_convert ("utf-8", charset);
 		filtered_stream = (CamelStream *) camel_stream_filter_new_with_stream (stream_fs);
@@ -2183,7 +2170,7 @@ static void prep_offline_do(struct _mail_msg *mm)
 	if (folder) {
 		if (CAMEL_IS_DISCO_FOLDER(folder)) {
 			camel_disco_folder_prepare_for_offline((CamelDiscoFolder *)folder,
-							       "(match-all (or (not (system-flag \"Seen\")) (system-flag \"Flagged\")))",
+							       "(match-all)",
 							       &mm->ex);
 		}
 		/* prepare_for_offline should do this? */

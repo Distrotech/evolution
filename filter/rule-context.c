@@ -209,7 +209,7 @@ rule_context_new(void)
 }
 
 void
-rule_context_add_part_set(RuleContext *rc, const char *setname, int part_type, RCPartFunc append, RCNextPartFunc next)
+rule_context_add_part_set(RuleContext *rc, const char *setname, GType part_type, RCPartFunc append, RCNextPartFunc next)
 {
 	struct _part_set_map *map;
 	
@@ -226,7 +226,7 @@ rule_context_add_part_set(RuleContext *rc, const char *setname, int part_type, R
 }
 
 void
-rule_context_add_rule_set(RuleContext *rc, const char *setname, int rule_type, RCRuleFunc append, RCNextRuleFunc next)
+rule_context_add_rule_set(RuleContext *rc, const char *setname, GType rule_type, RCRuleFunc append, RCNextRuleFunc next)
 {
 	struct _rule_set_map *map;
 	
@@ -337,6 +337,24 @@ load(RuleContext *rc, const char *system, const char *user)
 				}
 				rule = rule->next;
 			}
+		} else if ((rule_map = g_hash_table_lookup(rc->rule_set_map, set->name))) {
+			d(printf("loading system rules ...\n"));
+			rule = set->children;
+			while (rule) {
+				d(printf("checking node: %s\n", rule->name));
+				if (!strcmp(rule->name, "rule")) {
+					FilterRule *part = FILTER_RULE(g_object_new(rule_map->type, NULL, NULL));
+					
+					if (filter_rule_xml_decode(part, rule, rc) == 0) {
+						part->system = TRUE;
+						rule_map->append(rc, part);
+					} else {
+						g_object_unref(part);
+						g_warning("Cannot load filter part");
+					}
+				}
+				rule = rule->next;
+			}
 		}
 		set = set->next;
 	}
@@ -412,9 +430,11 @@ save(RuleContext *rc, const char *user)
 		xmlAddChild(root, rules);
 		rule = NULL;
 		while ((rule = map->next(rc, rule, NULL))) {
-			d(printf("processing rule %s\n", rule->name));
-			work = filter_rule_xml_encode(rule);
-			xmlAddChild(rules, work);
+			if (!rule->system) {
+				d(printf("processing rule %s\n", rule->name));
+				work = filter_rule_xml_encode(rule);
+				xmlAddChild(rules, work);
+			}
 		}
 		l = g_list_next(l);
 	}
