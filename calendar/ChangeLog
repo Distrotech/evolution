@@ -1,3 +1,9 @@
+2003-09-04  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-day-view.c (process_component):
+	* gui/e-week-view.c (process_component): dont expand recurrences,
+	since they are now expanded by the backends.
+
 2003-09-02    <jpr@ximian.com>
 
 	* gui/tasks-control.c (sensitize_commands): adapt to cal-client

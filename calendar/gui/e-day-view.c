@@ -3180,6 +3180,7 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 	const char *uid;
 	CalComponent *comp;
 	AddEventData add_event_data;
+	CalComponentDateTime dt_start, dt_end;
 
 	/* If our time hasn't been set yet, just return. */
 	if (day_view->lower == 0 && day_view->upper == 0)
@@ -3220,17 +3221,26 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 						   NULL);
 	}
 
-	/* Add the occurrences of the event. */
+	/* Add the event if it's on the time range */
 	comp = cal_component_new ();
 	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (comp_data->icalcomp));
-	add_event_data.day_view = day_view;
-	add_event_data.comp_data = comp_data;
-	cal_recur_generate_instances (comp, day_view->lower,
-				      day_view->upper,
-				      e_day_view_add_event, &add_event_data,
-				      cal_client_resolve_tzid_cb,
-				      comp_data->client,
-				      e_cal_view_get_timezone (E_CAL_VIEW (day_view)));
+	cal_component_get_dtstart (comp, &dt_start);
+	cal_component_get_dtend (comp, &dt_end);
+
+	if (dt_start.value && dt_end.value) {
+		time_t tt_start, tt_end;
+
+		tt_start = icaltime_as_timet (*dt_start.value);
+		tt_end = icaltime_as_timet (*dt_end.value);
+
+		if ((tt_start >= day_view->lower && tt_start <= day_view->upper)
+		    || (tt_end >= day_view->lower && tt_end <= day_view->upper)) {
+			add_event_data.day_view = day_view;
+			add_event_data.comp_data = comp_data;
+			e_day_view_add_event (comp, tt_start, tt_end, &add_event_data);
+		}
+	}
+
 	g_object_unref (comp);
 
 	e_day_view_queue_layout (day_view);

@@ -1063,6 +1063,7 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 	CalComponent *comp = NULL;
 	AddEventData add_event_data;
 	const char *uid;
+	CalComponentDateTime dt_start, dt_end;
 
 	/* If we don't have a valid date set yet, just return. */
 	if (!g_date_valid (&week_view->first_day_shown))
@@ -1114,18 +1115,25 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 		g_object_unref (tmp_comp);
 	}
 
-	/* Add the occurrences of the event. */
+	/* Add the event if it's on the time range */
 	num_days = week_view->multi_week_view ? week_view->weeks_shown * 7 : 7;
 
-	add_event_data.week_view = week_view;
-	add_event_data.comp_data = comp_data;
-	cal_recur_generate_instances (comp,
-				      week_view->day_starts[0],
-				      week_view->day_starts[num_days],
-				      e_week_view_add_event, &add_event_data,
-				      cal_client_resolve_tzid_cb,
-				      comp_data->client,
-				      e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
+	cal_component_get_dtstart (comp, &dt_start);
+	cal_component_get_dtend (comp, &dt_end);
+
+	if (dt_start.value && dt_end.value) {
+		time_t tt_start, tt_end;
+
+		tt_start = icaltime_as_timet (*dt_start.value);
+		tt_end = icaltime_as_timet (*dt_end.value);
+
+		if ((tt_start >= week_view->day_starts[0] && tt_start <= week_view->day_starts[num_days])
+		    || (tt_end >= week_view->day_starts[0] && tt_end <= week_view->day_starts[num_days])) {
+			add_event_data.week_view = week_view;
+			add_event_data.comp_data = comp_data;
+			e_week_view_add_event (comp, tt_start, tt_end, &add_event_data);
+		}
+	}
 
 	g_object_unref (comp);
 
