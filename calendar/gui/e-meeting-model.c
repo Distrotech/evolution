@@ -35,12 +35,10 @@
 #include <gal/e-table/e-cell-text.h>
 #include <gal/e-table/e-cell-popup.h>
 #include <gal/e-table/e-cell-combo.h>
+#include <addressbook/util/eab-destination.h>
 #include <ebook/e-book.h>
-#include <ebook/e-book-util.h>
-#include <ebook/e-card-types.h>
-#include <ebook/e-card-cursor.h>
-#include <ebook/e-card.h>
-#include <ebook/e-card-simple.h>
+#include <ebook/e-book-async.h>
+#include <ebook/e-contact.h>
 #include <cal-util/cal-component.h>
 #include <cal-util/cal-util.h>
 #include <cal-util/timeutil.h>
@@ -141,7 +139,9 @@ book_open_cb (EBook *book, EBookStatus status, gpointer data)
 	
 	priv = im->priv;
 
-	if (status == E_BOOK_STATUS_SUCCESS)
+	priv->ebook = book;
+
+	if (status == E_BOOK_ERROR_OK)
 		priv->book_loaded = TRUE;
 	else
 		g_warning ("Book not loaded");
@@ -155,12 +155,7 @@ book_open_cb (EBook *book, EBookStatus status, gpointer data)
 static void
 start_addressbook_server (EMeetingModel *im)
 {
-	EMeetingModelPrivate *priv;
-
-	priv = im->priv;
-	
-	priv->ebook = e_book_new ();
-	e_book_load_default_book (priv->ebook, book_open_cb, im);
+	e_book_async_get_default_addressbook (book_open_cb, im);
 }
 
 static EMeetingAttendee *
@@ -1321,34 +1316,32 @@ async_open (GnomeVFSAsyncHandle *handle,
 }
 
 static void
-cursor_cb (EBook *book, EBookStatus status, ECardCursor *cursor, gpointer data)
+contacts_cb (EBook *book, EBookStatus status, GList *contacts, gpointer data)
 {
 	EMeetingModelQueueData *qdata = data;
-	int length, i;
+	GList *l;
 
-	if (status != E_BOOK_STATUS_SUCCESS)
+	if (status != E_BOOK_ERROR_OK)
 		return;
 
-	length = e_card_cursor_get_length (cursor);
-	for (i = 0; i < length; i ++) {
+	for (l = contacts; l; l = l->next) {
 		GnomeVFSAsyncHandle *handle;
-		ECard *card = e_card_cursor_get_nth (cursor, i);
-		const char *addr;
-		
-		if (card->fburl == NULL)
-			continue;
+		EContact *contact = E_CONTACT (l->data);
+		const char *fburl = e_contact_get_const (contact, E_CONTACT_FREEBUSY_URL);
 
-		addr = itip_strip_mailto (e_meeting_attendee_get_address (qdata->ia));
-		if (!e_card_email_match_string (card, addr))
+		if (!fburl || !*fburl)
 			continue;
 
 		/* Read in free/busy data from the url */
-		gnome_vfs_async_open (&handle, card->fburl, GNOME_VFS_OPEN_READ, 
+		gnome_vfs_async_open (&handle, fburl, GNOME_VFS_OPEN_READ, 
 				      GNOME_VFS_PRIORITY_DEFAULT, async_open, qdata);
+
+		e_free_object_list (contacts);
 		return;
 	}
 
 	process_callbacks (qdata);
+	e_free_object_list (contacts);
 }
 
 static gboolean
@@ -1441,9 +1434,9 @@ refresh_busy_periods (gpointer data)
 		return TRUE;
 	}
 	
-	query = g_strdup_printf ("(contains \"email\" \"%s\")", 
+	query = g_strdup_printf ("(is \"email\" \"%s\")", 
 				 itip_strip_mailto (e_meeting_attendee_get_address (ia)));
-	if (!e_book_get_cursor (priv->ebook, query, cursor_cb, qdata))
+	if (!e_book_async_get_contacts (priv->ebook, query, contacts_cb, qdata))
 		process_callbacks (qdata);
 	g_free (query);
 
@@ -1645,35 +1638,35 @@ e_meeting_model_invite_others_dialog (EMeetingModel *im)
 }
 
 static void
-process_section (EMeetingModel *im, GNOME_Evolution_Addressbook_SimpleCardList *cards, icalparameter_role role)
+process_section (EMeetingModel *im, EABDestination **destv, icalparameter_role role)
 {
 	EMeetingModelPrivate *priv;
 	int i;
 
+	if (!destv)
+	  return;
+
 	priv = im->priv;
-	for (i = 0; i < cards->_length; i++) {
+	for (i = 0; destv[i]; i++) {
 		EMeetingAttendee *ia;
 		const char *name, *attendee = NULL;
 		char *attr;
-		GNOME_Evolution_Addressbook_SimpleCard card;
 		CORBA_Environment ev;
-
-		card = cards->_buffer[i];
+		EABDestination *dest = destv[i];
 
 		CORBA_exception_init (&ev);
 
 		/* Get the CN */
-		name = GNOME_Evolution_Addressbook_SimpleCard_get (card, GNOME_Evolution_Addressbook_SimpleCard_FullName, &ev);
-		if (BONOBO_EX (&ev)) {
-			CORBA_exception_free (&ev);
-			continue;
-		}
+		name = eab_destination_get_name (dest);
 
 		/* Get the field as attendee from the backend */
 		if (cal_client_get_ldap_attribute (priv->client, &attr, NULL) && attr) {
 			/* FIXME this should be more general */
-			if (!strcmp (attr, "icscalendar"))
-				attendee = GNOME_Evolution_Addressbook_SimpleCard_get (card, GNOME_Evolution_Addressbook_SimpleCard_Icscalendar, &ev);
+			if (!strcmp (attr, "icscalendar")) {
+				EContact *contact = eab_destination_get_contact (dest);
+				if (contact)
+					attendee = e_contact_get_const (contact, E_CONTACT_ICS_CALENDAR);
+			}
 		
 			g_free (attr);
 		}
@@ -1682,11 +1675,7 @@ process_section (EMeetingModel *im, GNOME_Evolution_Addressbook_SimpleCardList *
 
 		/* If we couldn't get the attendee prior, get the email address as the default */
 		if (attendee == NULL || *attendee == '\0') {
-			attendee = GNOME_Evolution_Addressbook_SimpleCard_get (card, GNOME_Evolution_Addressbook_SimpleCard_Email, &ev);
-			if (BONOBO_EX (&ev)) {
-				CORBA_exception_free (&ev);
-				continue;
-			}
+			attendee = eab_destination_get_email (dest);
 		}
 		
 		CORBA_exception_free (&ev);
@@ -1719,8 +1708,8 @@ select_names_ok_cb (BonoboListener    *listener,
 	GtkWidget *control_widget;
 	BonoboControlFrame *control_frame;
 	Bonobo_PropertyBag pb;
-	BonoboArg *card_arg;
-	GNOME_Evolution_Addressbook_SimpleCardList cards;
+	char *dest_str;
+	EABDestination **dest;
 	int i;
 	
 	priv = im->priv;
@@ -1733,12 +1722,10 @@ select_names_ok_cb (BonoboListener    *listener,
 
  		control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (control_widget));
  		pb = bonobo_control_frame_get_control_property_bag (control_frame, NULL);
- 		card_arg = bonobo_property_bag_client_get_value_any (pb, "simple_card_list", NULL);
- 		if (card_arg != NULL) {
- 			cards = BONOBO_ARG_GET_GENERAL (card_arg, TC_GNOME_Evolution_Addressbook_SimpleCardList, GNOME_Evolution_Addressbook_SimpleCardList, NULL);
- 			process_section (im, &cards, roles[i]);
- 			bonobo_arg_release (card_arg);
- 		}
+ 		dest_str = bonobo_pbclient_get_string (pb, "destinations", NULL);
+		dest = eab_destination_importv (dest_str);
+		process_section (im, dest, roles[i]);
+		eab_destination_freev (dest);
 	}
 }
 

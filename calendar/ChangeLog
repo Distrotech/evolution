@@ -1,3 +1,33 @@
+2003-10-08  Chris Toshok  <toshok@ximian.com>
+
+	* gui/dialogs/e-delegate-dialog.c (e_delegate_dialog_construct):
+	EDestination => EABDestination, and e_destination =>
+	eab_destination.
+	(e_delegate_dialog_get_delegate): same.
+	(e_delegate_dialog_get_delegate_name): same.
+
+	* gui/dialogs/comp-editor-util.c: remove unnecessary #include of
+	e-destination.h.
+
+	* gui/dialogs/alarm-options.c (alarm_to_malarm_widgets):
+	EDestination => EABDestination, and e_destination =>
+	eab_destination.
+	(malarm_widgets_to_alarm): same.
+
+	* gui/e-meeting-model.c (book_open_cb): track change to error
+	return codes.
+	(start_addressbook_server): use
+	e_book_async_get_default_addressbook.
+	(contacts_cb): rename cursor_cb to this, as we no longer get
+	passed a cursur, and we don't need to check the email address
+	since the query is now "is" instead of "contains".
+	(refresh_busy_periods): use an "is" query, and use
+	e_book_async_get_contacts instead of getting a CardCursor.
+	(process_section): this takes an EABDestination** instead of a
+	SimpleCardList*, which is gone.
+	(select_names_ok_cb): get "destinations" instead of
+	"simple_card_list".
+
 2003-10-08  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client.c (cal_client_is_read_only): fixed
