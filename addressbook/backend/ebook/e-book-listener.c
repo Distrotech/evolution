@@ -208,14 +208,10 @@ impl_BookListener_respond_get_changes (PortableServer_Servant servant,
 static void
 impl_BookListener_respond_open_book (PortableServer_Servant servant,
 				     const GNOME_Evolution_Addressbook_CallStatus status,
-				     const GNOME_Evolution_Addressbook_Book book,
 				     CORBA_Environment *ev)
 {
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
-	GNOME_Evolution_Addressbook_Book  book_copy;
-
-	book_copy = bonobo_object_dup_ref (book, ev);
 
 	if (ev->_major != CORBA_NO_EXCEPTION) {
 		g_warning ("EBookListener: Exception while duplicating Book!\n");
@@ -224,7 +220,6 @@ impl_BookListener_respond_open_book (PortableServer_Servant servant,
 
 	response.op       = OpenBookResponse;
 	response.status   = e_book_listener_convert_status (status);
-	response.book     = book_copy;
 
 	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
 }

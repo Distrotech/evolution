@@ -79,6 +79,11 @@ module Addressbook {
 	interface Book : Bonobo::Unknown {
 
 		/*
+		 * Opening/creating addressbooks.
+		 */
+		oneway void open (in boolean only_if_exists);
+
+		/*
 		 * Fetching cards in the addresbook.
 		 */
 		oneway void getVCard (in CardId id);
@@ -150,7 +155,7 @@ module Addressbook {
 		oneway void notifyCardsRemoved         (in CallStatus status);
 		oneway void notifyCardModified         (in CallStatus status);
 		oneway void notifyProgress             (in string status_message, in short precent);
-		oneway void notifyBookOpened           (in CallStatus status, in Book book);
+		oneway void notifyBookOpened           (in CallStatus status);
 		oneway void notifyViewRequested        (in CallStatus status, in BookView view);
 		oneway void notifyChangesRequested     (in CallStatus status, in BookChangeList changes);
 		oneway void notifyCardRequested        (in CallStatus status, in VCard card);
@@ -165,7 +170,7 @@ module Addressbook {
 	interface BookFactory : Bonobo::Unknown {
 		exception ProtocolNotSupported {};
 
-		oneway void openBook (in string uri, in BookListener listener)
+		Book getBook (in string uri, in BookListener listener)
 			raises (ProtocolNotSupported);
 	};
 };

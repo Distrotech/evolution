@@ -951,7 +951,8 @@ END:VCARD"
 
 static GNOME_Evolution_Addressbook_CallStatus
 pas_backend_file_load_uri (PASBackend             *backend,
-			   const char             *uri)
+			   const char             *uri,
+			   gboolean                only_if_exists)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	char           *filename;
@@ -1006,21 +1007,11 @@ pas_backend_file_load_uri (PASBackend             *backend,
 		if (db_error != 0) {
 			db_error = db->open (db, filename, NULL, DB_HASH, DB_CREATE, 0666);
 
-			if (db_error == 0) {
-				char *create_initial_file;
-				char *dir;
-
-				dir = g_path_get_dirname(filename);
-				create_initial_file = g_build_filename (dir, "create-initial", NULL);
-
-				if (g_file_test(create_initial_file, G_FILE_TEST_EXISTS)) {
-					char *id;
-					id = do_create(bf, INITIAL_VCARD);
-					g_free (id);
-				}
-
-				g_free(create_initial_file);
-				g_free(dir);
+			if (db_error == 0 && !only_if_exists) {
+				char *id;
+				id = do_create(bf, INITIAL_VCARD);
+				g_free (id);
+				/* XXX check errors here */
 
 				writable = TRUE;
 			}

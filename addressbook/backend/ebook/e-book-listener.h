@@ -72,9 +72,6 @@ struct _EBookListenerResponse {
 	/* For most Response notifications */
 	EBookStatus             status;
 
-	/* For OpenBookResponse */
-	GNOME_Evolution_Addressbook_Book          book;
-
 	/* For GetBookViewReponse */
 	GNOME_Evolution_Addressbook_BookView      book_view;
 

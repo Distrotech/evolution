@@ -28,6 +28,7 @@
 typedef struct _PASBookPrivate PASBookPrivate;
 
 typedef enum {
+	Open,
 	CreateCard,
 	RemoveCards,
 	ModifyCard,
@@ -39,6 +40,11 @@ typedef enum {
 	GetSupportedAuthMethods,
 	CancelOperation
 } PASOperation;
+
+typedef struct {
+	PASOperation op;
+	gboolean only_if_exists;
+} PASOpenRequest;
 
 typedef struct {
 	PASOperation op;
@@ -93,6 +99,7 @@ typedef struct {
 typedef union {
 	PASOperation                      op;
 
+	PASOpenRequest                    open;
 	PASCreateCardRequest              create;
 	PASRemoveCardsRequest             remove;
 	PASModifyCardRequest              modify;
@@ -115,8 +122,6 @@ struct _PASBookClass {
 
 	POA_GNOME_Evolution_Addressbook_Book__epv epv;
 
-	void (*request) (PASBook *book, PASRequest *req);
-
 	/* Padding for future expansion */
 	void (*_pas_reserved0) (void);
 	void (*_pas_reserved1) (void);
@@ -127,8 +132,11 @@ struct _PASBookClass {
 
 
 PASBook                *pas_book_new                    (PASBackend                               *backend,
+							 const char                               *uri,
 							 GNOME_Evolution_Addressbook_BookListener  listener);
+GNOME_Evolution_Addressbook_BookListener pas_book_get_listener (PASBook                         *book);
 PASBackend             *pas_book_get_backend            (PASBook                                *book);
+const char             *pas_book_get_uri                (PASBook                                *book);
 
 void                    pas_book_respond_open           (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status);

@@ -99,13 +99,13 @@ EBookStatus e_book_commit_contact        (EBook       *book,
 					  EContact       *contact);
 
 EBookStatus e_book_get_book_view         (EBook       *book,
-					  EBookQuery  *query,
+					  const char  *query_string,
 					  GList       *requested_fields,
 					  int          max_results,
 					  EBookView  **book_view);
 
 EBookStatus e_book_get_contacts          (EBook       *book,
-					  EBookQuery  *query,
+					  const char  *query_string,
 					  GList       **contacts);
 
 EBookStatus e_book_get_changes           (EBook       *book,

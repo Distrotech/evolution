@@ -833,7 +833,7 @@ typedef struct {
 	EBookMsg msg;
 
 	EBook *book;
-	EBookQuery *query;
+	char *query;
 	EBookBookViewCallback cb;
 	gpointer closure;
 } GetBookViewMsg;
@@ -887,7 +887,7 @@ _get_book_view_dtor (EBookMsg *msg)
 {
 	GetBookViewMsg *view_msg = (GetBookViewMsg *)msg;
 	
-	e_book_query_unref (view_msg->query);
+	g_free (view_msg->query);
 	g_free (view_msg);
 }
 
@@ -905,7 +905,7 @@ e_book_async_get_book_view (EBook                 *book,
 	e_book_msg_init ((EBookMsg*)msg, _get_book_view_handler, _get_book_view_dtor);
 
 	msg->book = g_object_ref (book);
-	msg->query = e_book_query_from_string (query);
+	msg->query = g_strdup (query);
 	msg->cb = cb;
 	msg->closure = closure;
 

@@ -467,7 +467,8 @@ END:VCARD"
 
 static GNOME_Evolution_Addressbook_CallStatus
 pas_backend_vcf_load_uri (PASBackend             *backend,
-			   const char             *uri)
+			  const char             *uri,
+			  gboolean                only_if_exists)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	char           *filename;
@@ -492,22 +493,13 @@ pas_backend_vcf_load_uri (PASBackend             *backend,
 		if (fd == -1) {
 			fd = open (filename, O_CREAT, 0666);
 
-			if (fd != -1) {
-				char *create_initial_vcf;
-				char *dir;
+			if (fd != -1 && !only_if_exists) {
+				char *id;
+				id = do_create(bvcf, INITIAL_VCARD, FALSE);
+				save_file (bvcf);
+				g_free (id);
 
-				dir = g_path_get_dirname(filename);
-				create_initial_vcf = g_build_filename (dir, "create-initial", NULL);
-
-				if (g_file_test(create_initial_vcf, G_FILE_TEST_EXISTS)) {
-					char *id;
-					id = do_create(bvcf, INITIAL_VCARD, FALSE);
-					save_file (bvcf);
-					g_free (id);
-				}
-
-				g_free(create_initial_vcf);
-				g_free(dir);
+				/* XXX check errors here */
 
 				writable = TRUE;
 			}

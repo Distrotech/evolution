@@ -47,8 +47,8 @@ struct _PASBackendClass {
 	GObjectClass parent_class;
 
 	/* Virtual methods */
-	GNOME_Evolution_Addressbook_CallStatus (*load_uri) (PASBackend *backend, const char *uri);
-	gboolean (*add_client) (PASBackend *backend, GNOME_Evolution_Addressbook_BookListener listener);
+	GNOME_Evolution_Addressbook_CallStatus (*load_uri) (PASBackend *backend, const char *uri, gboolean only_if_exists);
+	gboolean (*add_client) (PASBackend *backend, PASBook *book);
 	void (*remove_client) (PASBackend *backend, PASBook *book);
         char *(*get_static_capabilities) (PASBackend *backend);
 
@@ -84,11 +84,14 @@ gboolean    pas_backend_construct                (PASBackend             *backen
 
 GNOME_Evolution_Addressbook_CallStatus
             pas_backend_load_uri                 (PASBackend             *backend,
-						  const char             *uri);
+						  const char             *uri,
+						  gboolean                only_if_exists);
 const char *pas_backend_get_uri                  (PASBackend             *backend);
 
+void        pas_backend_handle_request (PASBackend *backend, PASBook *book, PASRequest *req);
+
 gboolean    pas_backend_add_client               (PASBackend             *backend,
-						  GNOME_Evolution_Addressbook_BookListener listener);
+						  PASBook                *book);
 void        pas_backend_remove_client            (PASBackend             *backend,
 						  PASBook                *book);
 char       *pas_backend_get_static_capabilities  (PASBackend             *backend);
@@ -97,6 +100,10 @@ gboolean    pas_backend_is_loaded                (PASBackend             *backen
 
 gboolean    pas_backend_is_writable              (PASBackend             *backend);
 
+
+void        pas_backend_open                     (PASBackend             *backend,
+						  PASBook                *book,
+						  PASOpenRequest         *req);
 void        pas_backend_create_card              (PASBackend             *backend,
 						  PASBook                *book,
 						  PASCreateCardRequest   *req);

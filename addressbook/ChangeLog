@@ -1,5 +1,112 @@
 2003-08-07  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-book-listener.c
+	(impl_BookListener_respond_open_book): remove the book arg.
+
+	* backend/ebook/e-book-listener.h (struct _EBookListenerResponse):
+	remove the corba book.
+
+	* backend/ebook/e-book-async.c (_get_book_view_dtor): free the
+	query string.
+	(e_book_async_get_book_view): dup the query string.
+
+	* backend/ebook/e-book.h: change e_book_get_book_view and
+	e_book_get_contacts to take a const char * query string instead of
+	an EBookQuery.
+
+	* backend/ebook/e-book.c (e_book_add_contact): pass
+	EVC_FORMAT_VCARD_30 to e_vcard_to_string.
+	(e_book_commit_contact): same.
+	(e_book_get_book_view): take a const char* query string instead of
+	an EBookQuery.
+	(e_book_get_contacts): same.
+	(e_book_response_open): track change - the Book is no longer
+	communicated back here.
+	(listener_cb): nuke.
+	(e_book_handle_response): track change to e_book_response_open.
+	(e_book_load_uri): rework this from using BookFactory::openBook to
+	BookFactory::getBook + Book::open.
+	(e_book_get_uri): new function, reimplement from old api.
+	(e_book_get_static_capabilities): same.
+	(e_book_check_static_capability): same.
+	(startup_mainloop): new function, run bonobo_main.
+	(e_book_activate): start up a thread with startup_mainloop as the
+	start func.
+	(e_book_new): call e_book_activate.
+
+	* backend/idl/addressbook.idl: Add Book::open, remove the Book
+	from notifyBookOpened's args, and change BookFactory::openBook to
+	BookFactory::getBook.
+
+	* backend/pas/pas-backend-file.c (pas_backend_file_load_uri): add
+	only_if_exists - stop using the "create-initial" special file.
+
+	* backend/pas/pas-backend-vcf.c (pas_backend_vcf_load_uri): add
+	only_if_exists - stop using the "create-initial" special file.
+
+	* backend/pas/pas-backend.c (pas_backend_load_uri): add
+	@only_if_exists, and pass it along to the virtual method.
+	(pas_backend_open): new function, lock the mutex so only one
+	PASBook can actually call load_uri.  call load_uri with
+	pas_book_get_uri, and req->only_if_exists.
+	(pas_backend_handle_request): rename process_client_request to
+	this, and expose it publicly.  Also add a case statement for
+	"Open".
+	(real_add_client): gut this function, we don't need to create the
+	book anymore, just add the client to the list and do the weak
+	ref/ORBit small stuff.
+	(pas_backend_add_client): track change to signature - BookListener
+	-> PASBook.
+	(pas_backend_init): init open_mutex.
+	(pas_backend_dispose): free open_mutex.
+
+	* backend/pas/pas-backend.h (PASBackendClass): add @only_if_exists
+	to the load_uri virtual method, and change the add_client virtual
+	method to take a PASBook instead of a BookListener.  add the same
+	args to _load_uri and add_client.  Also, add prototypes for
+	pas_backend_handle_request and pas_backend_open.
+
+	* backend/pas/pas-book-factory.c
+	(_pas_book_factory_send_open_book_response): nuke.
+	(pas_book_factory_launch_backend): just return NULL, don't call
+	_pas_book_factory_send_open_book_response, in the error case.
+	(start_backend): nuke
+	(impl_GNOME_Evolution_Addressbook_BookFactory_getBook): rename
+	_openBook to this.  clean up the code a bit.  Create the PASBook
+	here, and always track change to pas_backend_add_client's type (we
+	pass the book now, not the listener).
+	(pas_book_factory_class_init): openBook -> getBook.
+
+	* backend/pas/pas-book.c
+	(impl_GNOME_Evolution_Addressbook_Book_open): new function, call
+	pas_backend_open.
+	(impl_GNOME_Evolution_Addressbook_Book_getVCard): get rid of the
+	signal crap, just call pas_backend_handle_request.
+	(impl_GNOME_Evolution_Addressbook_Book_getCardList): same.
+	(impl_GNOME_Evolution_Addressbook_Book_authenticateUser): same.
+	(impl_GNOME_Evolution_Addressbook_Book_addCard): same.
+	(impl_GNOME_Evolution_Addressbook_Book_removeCards): same.
+	(impl_GNOME_Evolution_Addressbook_Book_modifyCard): same.
+	(impl_GNOME_Evolution_Addressbook_Book_getChanges): same.
+	(impl_GNOME_Evolution_Addressbook_Book_getSupportedFields): same.
+	(impl_GNOME_Evolution_Addressbook_Book_getSupportedAuthMethods):
+	same.
+	(impl_GNOME_Evolution_Addressbook_Book_cancelOperation): same.
+	(pas_book_get_backend): aggregate some g_return_if_fail's.
+	(pas_book_get_listener): new function.
+	(pas_book_get_uri): new function.
+	(pas_book_respond_open): just call BookListener::notifyBookOpened.
+	(pas_book_construct): add @uri, and g_strdup it.
+	(pas_book_new): add @uri, and pass it to pas_book_construct.
+	(pas_book_class_init): remove the "request" signal stuff, and fill
+	in epv->open.
+
+	* backend/pas/pas-book.h: add PASOpenRequest struct/enum entry.
+	Also, add @uri to the pas_book_new args, and add a prototype for
+	pas_book_get_uri.  Also, remove the "request" signal.
+
+2003-08-07  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-book-factory.c
 	(pas_book_factory_get_n_backends): lock map_mutex around hash
 	table work.

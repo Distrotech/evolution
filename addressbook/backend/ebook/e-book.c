@@ -12,6 +12,7 @@
 #include <bonobo-activation/bonobo-activation.h>
 
 #include <bonobo/bonobo-exception.h>
+#include <bonobo/bonobo-main.h>
 
 #include "e-book-marshal.h"
 #include "e-book-listener.h"
@@ -43,8 +44,6 @@ typedef struct {
 
 	EBookView *view;
 	EBookViewListener *listener;
-
-	GNOME_Evolution_Addressbook_Book corba_book;
 } EBookOp;
 
 typedef enum {
@@ -61,11 +60,7 @@ struct _EBookPrivate {
 	char *cap;
 	gboolean cap_queried;
 
-#if 0
-	BonoboListener	      *listener;
-#else
 	EBookListener         *listener;
-#endif
 	EComponentListener    *comp_listener;
 
 	GNOME_Evolution_Addressbook_Book         corba_book;
@@ -143,7 +138,7 @@ e_book_remove_op (EBook *book,
  **/
 EBookStatus
 e_book_add_contact (EBook           *book,
-		 EContact           *contact)
+		    EContact           *contact)
 {
 	EBookOp *our_op;
 	EBookStatus status;
@@ -167,7 +162,7 @@ e_book_add_contact (EBook           *book,
 		return E_BOOK_STATUS_BUSY;
 	}
 
-	vcard_str = e_vcard_to_string (E_VCARD (contact));
+	vcard_str = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
 	our_op = e_book_new_op (book);
 
@@ -272,7 +267,7 @@ e_book_commit_contact (EBook           *book,
 		return E_BOOK_STATUS_BUSY;
 	}
 
-	vcard_str = e_vcard_to_string (E_VCARD (contact));
+	vcard_str = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
 	our_op = e_book_new_op (book);
 
@@ -840,7 +835,7 @@ e_book_remove_contacts (EBook    *book,
  **/
 EBookStatus
 e_book_get_book_view (EBook       *book,
-		      EBookQuery  *query,
+		      const char  *query_string,
 		      GList       *requested_fields,
 		      int          max_results,
 		      EBookView  **book_view)
@@ -849,12 +844,11 @@ e_book_get_book_view (EBook       *book,
 	CORBA_Environment ev;
 	EBookOp *our_op;
 	EBookStatus status;
-	char *query_string;
 	int num_fields, i;
 	GList *iter;
 
 	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (query,                          E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (query_string,                   E_BOOK_STATUS_INVALID_ARG);
 	g_return_val_if_fail (book_view,                      E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
@@ -877,8 +871,6 @@ e_book_get_book_view (EBook       *book,
 
 	CORBA_exception_init (&ev);
 
-	query_string = e_book_query_to_string (query);
-
 	our_op->listener = e_book_view_listener_new();
 
 	num_fields = g_list_length (requested_fields);
@@ -896,8 +888,6 @@ e_book_get_book_view (EBook       *book,
 						      bonobo_object_corba_objref(BONOBO_OBJECT(our_op->listener)),
 						      query_string,
 						      &stringlist, max_results, &ev);
-
-	g_free (query_string);
 
 	CORBA_free(stringlist._buffer);
 
@@ -967,16 +957,15 @@ e_book_response_get_book_view (EBook       *book,
  **/
 EBookStatus
 e_book_get_contacts (EBook       *book,
-		     EBookQuery  *query,
+		     const char  *query_string,
 		     GList       **contacts)
 {
 	CORBA_Environment ev;
 	EBookOp *our_op;
 	EBookStatus status;
-	char *query_string;
 
 	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (query,                          E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (query_string,                   E_BOOK_STATUS_INVALID_ARG);
 	g_return_val_if_fail (contacts,                       E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
@@ -999,12 +988,8 @@ e_book_get_contacts (EBook       *book,
 
 	CORBA_exception_init (&ev);
 
-	query_string = e_book_query_to_string (query);
-
 	/* will eventually end up calling e_book_response_get_contacts */
 	GNOME_Evolution_Addressbook_Book_getCardList (book->priv->corba_book, query_string, &ev);
-
-	g_free (query_string);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		e_book_remove_op (book, our_op);
@@ -1254,8 +1239,7 @@ e_book_cancel (EBook *book)
 
 static void
 e_book_response_open (EBook       *book,
-		      EBookStatus  status,
-		      GNOME_Evolution_Addressbook_Book corba_book)
+		      EBookStatus  status)
 {
 
 	EBookOp *op;
@@ -1270,79 +1254,12 @@ e_book_response_open (EBook       *book,
 	e_mutex_lock (op->mutex);
 
 	op->status = status;
-	op->corba_book = bonobo_object_dup_ref (corba_book, NULL);
 
 	pthread_cond_signal (&op->cond);
 
 	e_mutex_unlock (op->mutex);
 }
 
-#if 0
-static void
-listener_cb (BonoboListener    *listener,
-	     const char        *event_name, 
-	     const CORBA_any   *any,
-	     CORBA_Environment *ev,
-	     gpointer           user_data)
-{
-	EBook *book = E_BOOK (user_data);
-
-	if (!strcmp (event_name, "create-card-response")) {
-	}
-	else if (!strcmp (event_name, "remove-card-response") ||
-		 !strcmp (event_name, "modify-card-response") ||
-		 !strcmp (event_name, "authentication-response")) {
-	}
-	else if (!strcmp (event_name, "get-card-response")) {
-		GNOME_Evolution_Addressbook_GetCardResponse resp;
-		EContact *contact;
-
-		printf ("get-card-response\n");
-		resp = BONOBO_ARG_GET_GENERAL (any, TC_GNOME_Evolution_Addressbook_GetCardResponse,
-					       GNOME_Evolution_Addressbook_GetCardResponse, NULL);
-
-		contact = e_contact_new_from_vcard (resp.card);
-
-		e_book_response_get_contact (book, resp.status, contact);
-	}
-	else if (!strcmp (event_name, "get-card-list-response")) {
-		GNOME_Evolution_Addressbook_GetCardListResponse resp;
-		GList *list = 0;
-		int i;
-
-		printf ("get-card-list-response\n");
-		resp = BONOBO_ARG_GET_GENERAL (any, TC_GNOME_Evolution_Addressbook_GetCardListResponse,
-					       GNOME_Evolution_Addressbook_GetCardListResponse, NULL);
-
-		for (i = 0; i < resp.cards._length; i ++)
-			list = g_list_prepend (list, e_contact_new_from_vcard (resp.cards._buffer[i]));
-
-		e_book_response_get_contacts (book, resp.status, list);
-	}
-	else if (!strcmp (event_name, "get-book-view-response")) {
-	}
-	else if (!strcmp (event_name, "get-changes-response")) {
-	}
-	else if (!strcmp (event_name, "open-book-response")) {
-		GNOME_Evolution_Addressbook_BookOpenedResponse resp;
-
-		resp = BONOBO_ARG_GET_GENERAL (any, TC_GNOME_Evolution_Addressbook_BookOpenedResponse,
-					       GNOME_Evolution_Addressbook_BookOpenedResponse, NULL);
-
-		e_book_response_open (book, resp.status, resp.book);
-	}
-	else if (!strcmp (event_name, "get-supported-fields-response")) {
-	}
-	else if (!strcmp (event_name, "get-supported-auth-methods-response")) {
-	}
-	else if (!strcmp (event_name, "writable-status-changed")) {
-	}
-	else {
-		g_warning ("EBook: Unknown response code `%s'!\n",
-			   event_name);
-	}
-}
-#else
 static void
 e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EBook *book)
 {
@@ -1370,7 +1287,7 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		e_book_response_get_changes(book, resp->status, resp->list);
 		break;
 	case OpenBookResponse:
-		e_book_response_open (book, resp->status, resp->book);
+		e_book_response_open (book, resp->status);
 		break;
 	case GetSupportedFieldsResponse:
 		e_book_response_get_supported_fields (book, resp->status, resp->list);
@@ -1388,7 +1305,6 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 			 resp->op);
 	}
 }
-#endif
 
 
 
@@ -1514,13 +1430,6 @@ e_book_load_uri (EBook                     *book,
 	/*
 	 * Create our local BookListener interface.
 	 */
-#if 0
-	book->priv->listener = bonobo_listener_new (listener_cb, book);
-	if (book->priv->listener == NULL) {
-		g_warning ("e_book_load_uri: Could not create BonoboListener!\n");
-		return E_BOOK_STATUS_OTHER_ERROR; /* XXX need a new status code here */
-	}
-#else
 	book->priv->listener = e_book_listener_new ();
 	if (book->priv->listener == NULL) {
 		g_warning ("e_book_load_uri: Could not create EBookListener!\n");
@@ -1528,7 +1437,6 @@ e_book_load_uri (EBook                     *book,
 	}
 	book->priv->listener_signal = g_signal_connect (book->priv->listener, "response",
 							G_CALLBACK (e_book_handle_response), book);
-#endif
 
 	g_free (book->priv->uri);
 	book->priv->uri = g_strdup (uri);
@@ -1545,11 +1453,29 @@ e_book_load_uri (EBook                     *book,
 
 		CORBA_exception_init (&ev);
 
-		GNOME_Evolution_Addressbook_BookFactory_openBook (factory, book->priv->uri,
-								  bonobo_object_corba_objref (BONOBO_OBJECT (book->priv->listener)),
-								  &ev);
+		corba_book = GNOME_Evolution_Addressbook_BookFactory_getBook (factory, book->priv->uri,
+								      bonobo_object_corba_objref (BONOBO_OBJECT (book->priv->listener)),
+								      &ev);
 
 		if (ev._major != CORBA_NO_EXCEPTION) {
+			e_book_remove_op (book, our_op);
+			e_mutex_unlock (our_op->mutex);
+			e_book_free_op (our_op);
+
+			CORBA_exception_free (&ev);
+			continue;
+		}
+
+		GNOME_Evolution_Addressbook_Book_open (corba_book,
+						       TRUE /* XXX need to add this as an arg */,
+						       &ev);
+
+		if (ev._major != CORBA_NO_EXCEPTION) {
+			/* kill the listener so the book will die */
+			g_signal_handler_disconnect (book->priv->listener, book->priv->listener_signal);
+			bonobo_object_unref (book->priv->listener);
+			book->priv->listener = NULL;
+
 			e_book_remove_op (book, our_op);
 			e_mutex_unlock (our_op->mutex);
 			e_book_free_op (our_op);
@@ -1565,7 +1491,6 @@ e_book_load_uri (EBook                     *book,
 		e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
 		status = our_op->status;
-		corba_book = our_op->corba_book;
 
 		/* remove the op from the book's hash of operations */
 		e_book_remove_op (book, our_op);
@@ -1612,11 +1537,89 @@ e_book_load_local_addressbook (EBook *book)
 	return status;
 }
 
+const char *
+e_book_get_uri (EBook *book)
+{
+	return book->priv->uri;
+}
+
+const char *
+e_book_get_static_capabilities (EBook *book)
+{
+	if (!book->priv->cap_queried) {
+		CORBA_Environment ev;
+		char *temp;
+
+		CORBA_exception_init (&ev);
+
+		if (book->priv->load_state != URILoaded) {
+			g_warning ("e_book_unload_uri: No URI is loaded!\n");
+			return g_strdup("");
+		}
+
+		temp = GNOME_Evolution_Addressbook_Book_getStaticCapabilities(book->priv->corba_book, &ev);
+
+		if (ev._major != CORBA_NO_EXCEPTION) {
+			g_warning ("e_book_get_static_capabilities: Exception "
+				   "during get_static_capabilities!\n");
+			CORBA_exception_free (&ev);
+			return g_strdup("");
+		}
+
+		book->priv->cap = g_strdup(temp);
+		book->priv->cap_queried = TRUE;
+
+		CORBA_free(temp);
+
+		CORBA_exception_free (&ev);
+	}
+
+	return book->priv->cap;
+}
+
+gboolean
+e_book_check_static_capability (EBook *book,
+				const char  *cap)
+{
+	const char *caps = e_book_get_static_capabilities (book);
+
+	/* XXX this is an inexact test but it works for our use */
+	if (caps && strstr (caps, cap))
+		return TRUE;
+
+	return FALSE;
+}
+
+
+static void*
+startup_mainloop (void *arg)
+{
+	bonobo_main();
+	return NULL;
+}
+
+/* one-time start up for libebook */
+static void
+e_book_activate()
+{
+	static GStaticMutex e_book_lock = G_STATIC_MUTEX_INIT;
+	static gboolean activated = FALSE;
+
+	g_static_mutex_lock (&e_book_lock);
+	if (!activated) {
+		pthread_t ebook_mainloop_thread;
+		activated = TRUE;
+		pthread_create(&ebook_mainloop_thread, NULL, startup_mainloop, NULL);
+	}
+	g_static_mutex_unlock (&e_book_lock);
+}
+
 
 
 EBook*
 e_book_new (void)
 {
+	e_book_activate ();
 	return g_object_new (E_TYPE_BOOK, NULL);
 }
 
