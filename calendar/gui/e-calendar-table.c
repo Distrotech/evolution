@@ -131,16 +131,6 @@ e_calendar_table_class_init (ECalendarTableClass *class)
 	/* Method override */
 	object_class->destroy		= e_calendar_table_destroy;
 
-#if 0
-	widget_class->realize		= e_calendar_table_realize;
-	widget_class->unrealize		= e_calendar_table_unrealize;
-	widget_class->style_set		= e_calendar_table_style_set;
- 	widget_class->size_allocate	= e_calendar_table_size_allocate;
-	widget_class->focus_in_event	= e_calendar_table_focus_in;
-	widget_class->focus_out_event	= e_calendar_table_focus_out;
-	widget_class->key_press_event	= e_calendar_table_key_press;
-#endif
-
 	/* clipboard atom */
 	if (!clipboard_atom)
 		clipboard_atom = gdk_atom_intern ("CLIPBOARD", FALSE);
@@ -1372,6 +1362,7 @@ static GdkPixbuf *progress_icon = NULL;
 void
 e_calendar_table_set_status_message (ECalendarTable *cal_table, const gchar *message)
 {
+#if 0
 	EActivityHandler *activity_handler = tasks_component_peek_activity_handler (tasks_component_peek ());
 
         g_return_if_fail (E_IS_CALENDAR_TABLE (cal_table));
@@ -1394,4 +1385,5 @@ e_calendar_table_set_status_message (ECalendarTable *cal_table, const gchar *mes
         } else {
                 e_activity_handler_operation_progressing (activity_handler, cal_table->activity_id, message, -1.0);
 	}
+#endif
 }

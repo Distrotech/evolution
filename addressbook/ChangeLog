@@ -1,5 +1,60 @@
 2004-04-21  Hans Petter Jansson  <hpj@ximian.com>
 
+	* gui/contact-editor/e-contact-editor.c (free_attr_list): Implement.
+	(extract_email): Preserve offscreen addresses.
+	(extract_phone): Preserve offscreen phone numbers.
+	(extract_im): Preserve offscreen IM accounts.
+
+2004-04-21  Hans Petter Jansson  <hpj@ximian.com>
+
+	* gui/contact-editor/e-contact-editor.c: Add defines for the slot
+	counts for email, phone, im, address.
+	(phones): Add E_CONTACT_PHONE_COMPANY back in, now that we can
+	differentiate it.
+	(init_email): Use EMAIL_SLOTS and a loop.
+	(init_im): Ditto for IM_SLOTS.
+	(init_phone): Ditto for PHONE_SLOTS.
+	(fill_in_address)
+	(extract_address)
+	(init_address): Ditto for ADDRESS_SLOTS.
+	(get_ui_slot_param): Implement.
+	(get_ui_slot): Implement.
+	(set_ui_slot): Implement.
+	(alloc_ui_slot): Implement.
+	(fill_in_email): Add code to preserve spatial organization.
+	(extract_email): Ditto.
+	(fill_in_phone): Ditto.
+	(extract_phone): Ditto.
+	(fill_in_im): Ditto.
+	(exctract_im): Ditto.
+
+2004-04-21  Chris Toshok  <toshok@ximian.com>
+
+	* gui/component/addressbook-migrate.c (setup_progress_dialog):
+	store off the label as well as the folder name label, so we can
+	reuse the dialog and update the label.  Also, no longer take the
+	string to display here.
+	(dialog_set_label): new function.
+	(migrate_contact_lists_for_local_folders): call
+	dialog_set_folder_name here so we can see the folder being
+	migrated.
+	(migrate_company_phone_for_local_folders): new function for
+	updating the way we store company phone numbers.
+	(addressbook_migrate): split out the logic for setting up/tearing
+	down the dialog from the individual migration points so we can
+	reuse the same dialog and not have get destroyed/recreated for
+	each stage.  Also add a new migration point ( <= 1.5.8) for
+	migrating the company phone numbers.
+
+2004-04-21  Sivaiah Nallagatla   <snallagatla@novell.com>
+	
+	* gui/component/addressbook.c (remove_parameters_from_uri) : added 
+        a new function to striff off any parameters present after ';' in the uri 
+	 (load_source_auth_cb) (addressbook_authenticate) : call above function to 
+	 remove anything after ';' before passing uri to e-password calls 	
+	
+2004-04-21  Hans Petter Jansson  <hpj@ximian.com>
+
 	* gui/contact-editor/e-contact-editor.h (EContactEditor): Remove
 	unused fields.
 

@@ -365,11 +365,20 @@ get_prop(BonoboPropertyBag *bag, BonoboArg *arg, guint arg_id, CORBA_Environment
 	}
 }
 
+static int
+check_autosave(void *data)
+{
+	e_msg_composer_check_autosave(NULL);
+
+	return FALSE;
+}
+
 static void
 view_control_activate_cb (BonoboControl *control, gboolean activate, EMFolderView *view)
 {
 	BonoboUIComponent *uic;
-	
+	static int recover = 0;
+
 	uic = bonobo_control_get_ui_component (control);
 	g_assert (uic != NULL);
 	
@@ -388,6 +397,14 @@ view_control_activate_cb (BonoboControl *control, gboolean activate, EMFolderVie
 	} else {
 		em_folder_view_activate (view, uic, activate);
 		bonobo_ui_component_unset_container (uic, NULL);
+	}
+
+	/* This is a weird place to put it, but createControls does it too early.
+	   I also think we should wait to do it until we actually visit the mailer.
+	   The delay is arbitrary - without it it shows up before the main window */
+	if (!recover) {
+		recover = 1;
+		g_timeout_add(1000, check_autosave, NULL);
 	}
 }
 
@@ -475,19 +492,43 @@ view_changed_cb(EMFolderView *emfv, EInfoLabel *el)
 			else
 				g_string_append_printf(tmp, _("%d junk"), junked);
 		} else {
+			int bits = 0;
+			GPtrArray *selected;
+
+			/* This is so that if any of these are
+			 * shared/reused, we fallback to the standard
+			 * display behaviour */
+
+			selected = message_list_get_selected(emfv->list);
+
 			if (em_utils_folder_is_drafts(emfv->folder, emfv->folder_uri))
+				bits |= 1;
+			if (em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
+				bits |= 2;
+			if (em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri))
+				bits |= 4;
+			/* HACK: hardcoded inbox or maildir '.' folder */
+			if (g_ascii_strcasecmp(emfv->folder->full_name, "inbox") == 0
+			    || g_ascii_strcasecmp(emfv->folder->full_name, ".") == 0)
+				bits |= 8;
+
+			if (bits == 1)
 				g_string_append_printf(tmp, _("%d drafts"), visible);
-			else if (em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
+			else if (bits == 2)
 				g_string_append_printf(tmp, _("%d sent"), visible);
-			else if (em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri))
+			else if (bits == 4)
 				g_string_append_printf(tmp, _("%d unsent"), visible);
 			else {
 				if (!emfv->hide_deleted)
 					visible += deleted;
 				g_string_append_printf(tmp, _("%d total"), visible);
-				if (unread)
+				if (unread && selected->len <=1)
 					g_string_append_printf(tmp, _(", %d unread"), unread);
 			}
+
+			if (selected->len > 1)
+				g_string_append_printf(tmp, _(", %d selected"), selected->len);
+			message_list_free_uids(emfv->list, selected);
 		}
 
 		e_info_label_set_info(el, name, tmp->str);

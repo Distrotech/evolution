@@ -79,8 +79,6 @@ struct _ETasksPrivate {
 	GalViewMenus *view_menus;
 
 	GList *notifications;
-
-	EUserCreatableItemsHandler *creatable_items_handler;
 };
 
 
@@ -216,7 +214,8 @@ set_timezone (ETasks *tasks)
 			e_cal_set_default_timezone (client, zone, NULL);
 	}
 
-	e_cal_component_preview_set_default_timezone (E_CAL_COMPONENT_PREVIEW (priv->preview), zone);
+	if (priv->preview)
+		e_cal_component_preview_set_default_timezone (E_CAL_COMPONENT_PREVIEW (priv->preview), zone);
 }
 
 static void
@@ -353,9 +352,8 @@ setup_widgets (ETasks *tasks)
 	g_signal_connect (etable, "selection_change", G_CALLBACK (table_selection_change_cb), tasks);
 
 	/* create the task detail */
-//	gtk_widget_pop_colormap ();
-
 	priv->preview = e_cal_component_preview_new ();
+	e_cal_component_preview_set_default_timezone (E_CAL_COMPONENT_PREVIEW (priv->preview), calendar_config_get_icaltimezone ());	
 	gtk_paned_add2 (GTK_PANED (paned), priv->preview);
 	gtk_widget_show (priv->preview);
 
@@ -446,14 +444,6 @@ e_tasks_set_ui_component (ETasks *tasks,
 	g_return_if_fail (ui_component == NULL || BONOBO_IS_UI_COMPONENT (ui_component));
 
 	e_search_bar_set_ui_component (E_SEARCH_BAR (tasks->priv->search_bar), ui_component);
-
-	if (ui_component) {
-		if (!tasks->priv->creatable_items_handler) {
-			tasks->priv->creatable_items_handler =
-				e_user_creatable_items_handler_new ("tasks", NULL, NULL);
-		}
-		e_user_creatable_items_handler_activate (tasks->priv->creatable_items_handler, ui_component);
-	}
 }
 
 
@@ -494,11 +484,6 @@ e_tasks_destroy (GtkObject *object)
 		for (l = priv->notifications; l; l = l->next)
 			calendar_config_remove_notification (GPOINTER_TO_UINT (l->data));
 		priv->notifications = NULL;
-		
-		if (priv->creatable_items_handler) {
-			g_object_unref (priv->creatable_items_handler);
-			priv->creatable_items_handler = NULL;
-		}
 
 		g_free (priv);
 		tasks->priv = NULL;
