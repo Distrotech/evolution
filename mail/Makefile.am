@@ -136,6 +136,8 @@ libevolution_mail_la_SOURCES =			\
 	em-subscribe-editor.h			\
 	em-sync-stream.c			\
 	em-sync-stream.h			\
+	em-tree-store.c				\
+	em-tree-store.h				\
 	em-utils.c				\
 	em-utils.h				\
 	em-vfolder-context.c			\

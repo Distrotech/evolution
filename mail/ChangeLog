@@ -1,5 +1,10 @@
 2004-10-15  Not Zed  <NotZed@Ximian.com>
 
+	* em-tree-store.[ch]: added initial gtkreestore implementation for
+	message list.
+
+2004-10-15  Not Zed  <NotZed@Ximian.com>
+
 	* em-composer-utils.c (create_new_composer):
 	(em_utils_compose_new_message, forward_non_attached): do noting if
 	the composer couldn't be created.  We get a popup from elsewhere
