@@ -301,16 +301,6 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 		e_week_view_set_selected_time_range (E_CALENDAR_VIEW (week_view), start_time, start_time);
 }
 
-static gboolean
-process_component_recur_cb (ECalComponent *comp, time_t start, time_t end, gpointer data) 
-{
-	AddEventData *add_event_data;
-
-	add_event_data = data;
-
-	return e_week_view_add_event (comp, start, end, FALSE, add_event_data);
-}
-
 static void
 process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 {
