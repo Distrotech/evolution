@@ -216,6 +216,8 @@ account_add_clicked (GtkButton *button, gpointer user_data)
 			if (firstid == NULL)
 				firstid = pageid;
 			w = e_config_page_get((EConfig *)emae->config, pageid);
+			/* FIXME:
+			   if account changed: re-check validity of page for next/prev buttons */
 			g_object_set_data((GObject *)w, "pageid", (void *)pageid);
 			g_signal_connect(w, "back", G_CALLBACK(emap_druid_prev), emae);
 			g_signal_connect(w, "next", G_CALLBACK(emap_druid_next), emae);

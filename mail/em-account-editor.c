@@ -2878,6 +2878,8 @@ emae_identity_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, st
 
 		/* need to set packing? */
 		gtk_widget_reparent(w, ((GnomeDruidPageStandard *)page)->vbox);
+
+		return page;
 	}
 
 	return w;
@@ -2908,6 +2910,8 @@ emae_receive_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, str
 
 		/* need to set packing? */
 		gtk_widget_reparent(w, ((GnomeDruidPageStandard *)page)->vbox);
+
+		return page;
 	}
 
 	return w;
@@ -2969,6 +2973,8 @@ emae_receive_options_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *par
 
 		/* need to set packing? */
 		gtk_widget_reparent(w, ((GnomeDruidPageStandard *)page)->vbox);
+
+		return page;
 	}
 
 	return w;
@@ -3229,6 +3235,8 @@ emae_send_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct
 
 		/* need to set packing? */
 		gtk_widget_reparent(w, ((GnomeDruidPageStandard *)page)->vbox);
+
+		return page;
 	}
 
 	return w;
@@ -3377,7 +3385,7 @@ emae_widget_druid_glade(EConfig *ec, EConfigItem *item, struct _GtkWidget *paren
 
 /* plugin meta-data for "com.novell.evolution.mail.config.accountDruid" */
 static EMConfigItem emae_druid_items[] = {
-	{ E_CONFIG_DRUID, "Evolution Account Wizard", "account_druid", emae_widget_druid_glade },
+	{ E_CONFIG_DRUID, "", "account_druid", emae_widget_druid_glade },
 	{ E_CONFIG_PAGE, "00.identity", "vboxIdentityBorder", emae_identity_page },
 	{ E_CONFIG_SECTION, "00.identity/00.name", "account_vbox", emae_widget_glade },
 	/* table not vbox: { E_CONFIG_SECTION, "00.identity/10.required", "identity_required_table", emae_widget_glade }, */

@@ -68,6 +68,8 @@ libevolution_mail_la_SOURCES =			\
 	em-composer-utils.h			\
 	em-config.c				\
 	em-config.h				\
+	em-event.c				\
+	em-event.h				\
 	em-filter-context.c			\
 	em-filter-context.h			\
 	em-filter-editor.c			\

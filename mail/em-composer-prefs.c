@@ -858,7 +858,7 @@ static EMConfigItem emcp_items[] = {
 	{ E_CONFIG_PAGE, "10.signatures", "vboxSignatures", emcp_widget_glade },
 	/* signature/signatures and signature/preview parts not usable */
 
-	{ E_CONFIG_PAGE, "20.spellcheck", "vboxSpellCheck", emcp_widget_glade },
+	{ E_CONFIG_PAGE, "20.spellcheck", "vboxSpellChecking", emcp_widget_glade },
 	{ E_CONFIG_SECTION, "20.spellcheck/00.languages", "vbox178", emcp_widget_glade },
 	{ E_CONFIG_SECTION, "20.spellcheck/00.options", "vboxOptions", emcp_widget_glade },
 };

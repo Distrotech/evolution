@@ -330,6 +330,8 @@ mc_startup(MailComponent *mc)
 	em_format_hook_register_type(em_format_html_get_type());
 	em_format_hook_register_type(em_format_html_display_get_type());
 
+	e_plugin_hook_register_type(em_event_hook_get_type());
+
 	e_plugin_load_plugins();
 }
 

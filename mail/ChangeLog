@@ -1,3 +1,13 @@
+2004-08-17  Not Zed  <NotZed@Ximian.com>
+
+	* em-event.[ch]: mail event dispatcher.
+
+	* mail-component.c (mc_startup): hook into events.
+
+	* mail-folder-cache.c (update_1folder): always set the uri field.
+	(real_flush_updates): emit a folder.changed:new event if we have new
+	mail.
+
 2004-08-13  Not Zed  <NotZed@Ximian.com>
 
 	* mail-config.glade: replaced ssl selector with custom widget
