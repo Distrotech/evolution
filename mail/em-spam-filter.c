@@ -27,10 +27,16 @@
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <camel/camel-stream-fs.h>
 
 #include "em-spam-filter.h"
+
+#define LOCK(x) pthread_mutex_lock(&x)
+#define UNLOCK(x) pthread_mutex_unlock(&x)
+
+static pthread_mutex_t em_spam_sa_test_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static gboolean em_spam_sa_check_spam (CamelMimeMessage *msg);
 static void em_spam_sa_report_spam (CamelMimeMessage *msg);
@@ -229,9 +235,10 @@ em_spam_sa_check_spam (CamelMimeMessage *msg)
 
 	d(fprintf (stderr, "em_spam_sa_check_spam\n"));
 
-	/* FIXME: lock em_spam_sa_spamd_tested to avoid conflicts between threads */
+	LOCK (em_spam_sa_test_lock);
 	if (!em_spam_sa_spamd_tested)
 		em_spam_sa_test_spamd ();
+	UNLOCK (em_spam_sa_test_lock);
 
 	args [2] = em_spam_sa_use_spamc
 		? (em_spam_sa_spamd_port == -1

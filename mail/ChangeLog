@@ -1,3 +1,8 @@
+2003-10-23  Radek Doulik  <rodo@ximian.com>
+
+	* em-spam-filter.c (em_spam_sa_check_spam): lock spamd test
+	between threads
+
 2003-10-09  Frederic Crozat  <fcrozat@mandrakesoft.com>
 
 	* em-icon-stream.c: (emis_sync_close):
