@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * A client-side GtkObject which exposes the Evolution:IM:Listener
+ * A client-side GtkObject which exposes the Evolution:Messenger:Listener
  * interface.
  *
  * Author:
