@@ -31,5 +31,9 @@ CamelFolder *em_folder_selection_run_dialog (GtkWindow *parent_window,
 					     const char *title,
 					     const char *caption,
 					     CamelFolder *default_folder);
+char *em_folder_selection_run_dialog_uri(GtkWindow *parent_window,
+					 const char *title,
+					 const char *caption,
+					 const char *default_folder_uri);
 
 #endif /* EM_FOLDER_SELECTION_H */

@@ -61,6 +61,7 @@ em_folder_selection_run_dialog (GtkWindow *parent_window,
 
 	/* EPFIXME: Allowed types?  */
 	dialog = e_folder_selection_dialog_new (storage_set, title, caption, default_path, NULL, FALSE);
+	g_free(default_path);
 	response = gtk_dialog_run (GTK_DIALOG (dialog));
 
 	if (response != GTK_RESPONSE_OK) {
@@ -79,4 +80,36 @@ em_folder_selection_run_dialog (GtkWindow *parent_window,
 	gtk_widget_destroy (dialog);
 
 	return selected_camel_folder;
+}
+
+/* FIXME: This isn't the way to do it, but then neither is the above, really ... */
+char *
+em_folder_selection_run_dialog_uri(GtkWindow *parent_window,
+				   const char *title,
+				   const char *caption,
+				   const char *default_folder_uri)
+{
+	EStorageSet *storage_set = mail_component_peek_storage_set (mail_component_peek ());
+	char *default_path;
+	GtkWidget *dialog;
+	EFolder *selected_e_folder;
+	int response;
+
+	default_path = e_storage_set_get_path_for_physical_uri(storage_set, default_folder_uri);
+	dialog = e_folder_selection_dialog_new (storage_set, title, caption, default_path, NULL, FALSE);
+	g_free(default_path);
+	response = gtk_dialog_run (GTK_DIALOG (dialog));
+
+	if (response != GTK_RESPONSE_OK) {
+		gtk_widget_destroy (dialog);
+		return NULL;
+	}
+
+	selected_e_folder = e_storage_set_get_folder (storage_set,
+						      e_folder_selection_dialog_get_selected_path (E_FOLDER_SELECTION_DIALOG (dialog)));
+	gtk_widget_destroy (dialog);
+	if (selected_e_folder == NULL)
+		return NULL;
+
+	return g_strdup(e_folder_get_physical_uri(selected_e_folder));
 }

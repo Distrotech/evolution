@@ -22,11 +22,12 @@
 
 #include <config.h>
 
+#include <string.h>
+
 #include "em-folder-selection-button.h"
 
 #include "mail-component.h"
 #include "em-folder-selection.h"
-#include "em-marshal.h"
 
 #include <gal/util/e-util.h>
 
@@ -43,7 +44,7 @@ struct _EMFolderSelectionButtonPrivate {
 	GtkWidget *icon;
 	GtkWidget *label;
 
-	CamelFolder *selected_folder;
+	char *uri;
 
 	char *title;
 	char *caption;
@@ -69,76 +70,33 @@ static void
 set_contents (EMFolderSelectionButton *button)
 {
 	EMFolderSelectionButtonPrivate *priv = button->priv;
-	CamelStore *store;
-	EStorage *storage;
-	EFolder *folder;
-	const char *storage_name;
-	char *path;
-	char *label;
+	char *path, *tmp, *label;
 
-	if (priv->selected_folder == NULL) {
-		set_contents_unselected (button);
-		return;
-	}
+	if (priv->uri == NULL)
+		goto unset;
 
-	store = camel_folder_get_parent_store (priv->selected_folder);
-	storage = mail_component_lookup_storage (mail_component_peek (), store);
+	/* We set the button name directly from the storage set path, which is /accountname/path/foldername */
+	path = e_storage_set_get_path_for_physical_uri(mail_component_peek_storage_set(mail_component_peek()), priv->uri);
 
-	if (storage == NULL) {
-		set_contents_unselected (button);
-		return;
-	}
+	if (path == NULL)
+		goto unknown;
 
-	storage_name = e_storage_get_name (storage);
+	tmp = strchr(path+1, '/');
+	if (tmp == NULL)
+		goto unknown;
+	*tmp++ = 0;
 
-	path = g_strconcat ("/", camel_folder_get_full_name (priv->selected_folder), NULL);
-	folder = e_storage_get_folder (storage, path);
-	g_free (path);
-
-	if (folder == NULL) {
-		set_contents_unselected (button);
-		return;
-	}
-
-	/* EPFIXME icon */
-
-	label = g_strdup_printf (_("\"%s\" in \"%s\""), e_folder_get_name (folder), e_storage_get_name (storage));
+	label = g_strdup_printf(_("\"%s\" in \"%s\""), tmp, path+1);
 	gtk_label_set_text (GTK_LABEL (priv->label), label);
 	g_free (label);
-}
 
-static void
-set_selection (EMFolderSelectionButton *button,
-	       CamelFolder *folder)
-{
-	if (button->priv->selected_folder == folder)
-		return;
+	g_free(path);
+	return;
 
-	if (button->priv->selected_folder != NULL)
-		camel_object_unref (CAMEL_OBJECT (button->priv->selected_folder));
-
-	if (folder != NULL) {
-		camel_object_ref (CAMEL_OBJECT (folder));
-		button->priv->selected_folder = folder;
-	}
-
-	set_contents (button);
-}
-
-
-/* GObject methods.  */
-
-static void
-impl_dispose (GObject *object)
-{
-	EMFolderSelectionButtonPrivate *priv = EM_FOLDER_SELECTION_BUTTON (object)->priv;
-
-	if (priv->selected_folder != NULL) {
-		camel_object_unref (CAMEL_OBJECT (priv->selected_folder));
-		priv->selected_folder = NULL;
-	}
-
-	(* G_OBJECT_CLASS (parent_class)->dispose) (object);
+unknown:
+	g_free(path);
+unset:
+	set_contents_unselected(button);
 }
 
 static void
@@ -148,37 +106,33 @@ impl_finalize (GObject *object)
 
 	g_free (priv->title);
 	g_free (priv->caption);
+	g_free(priv->uri);
 	g_free (priv);
 
 	(* G_OBJECT_CLASS (parent_class)->finalize) (object);
 }
-
-
-/* GtkButton methods.  */
 
 static void
 impl_clicked (GtkButton *button)
 {
 	EMFolderSelectionButtonPrivate *priv = EM_FOLDER_SELECTION_BUTTON (button)->priv;
 	GtkWidget *toplevel;
-	CamelFolder *folder;
+	char *uri;
 
 	if (GTK_BUTTON_CLASS (parent_class)->clicked != NULL)
 		(* GTK_BUTTON_CLASS (parent_class)->clicked) (button);
 
 	toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
-	folder = em_folder_selection_run_dialog (toplevel ? GTK_WINDOW (toplevel) : NULL,
+	uri = em_folder_selection_run_dialog_uri((GtkWindow *)toplevel,
 						 priv->title,
 						 priv->caption,
-						 priv->selected_folder);
+						 priv->uri);
 
-	em_folder_selection_button_set_selection (EM_FOLDER_SELECTION_BUTTON (button), folder);
+	em_folder_selection_button_set_selection (EM_FOLDER_SELECTION_BUTTON (button), uri);
+	g_free(uri);
 
-	g_signal_emit (button, signals[SELECTED], 0, folder);
+	g_signal_emit (button, signals[SELECTED], 0);
 }
-
-
-/* Initialization.  */
 
 static void
 class_init (EMFolderSelectionButtonClass *class)
@@ -186,7 +140,6 @@ class_init (EMFolderSelectionButtonClass *class)
 	GObjectClass *object_class = G_OBJECT_CLASS (class);
 	GtkButtonClass *button_class = GTK_BUTTON_CLASS (class);
 
-	object_class->dispose  = impl_dispose;
 	object_class->finalize = impl_finalize;
 
 	button_class->clicked = impl_clicked;
@@ -198,9 +151,8 @@ class_init (EMFolderSelectionButtonClass *class)
 					  G_SIGNAL_RUN_FIRST,
 					  G_STRUCT_OFFSET (EMFolderSelectionButtonClass, selected),
 					  NULL, NULL,
-					  em_marshal_NONE__POINTER,
-					  G_TYPE_NONE, 1,
-					  G_TYPE_POINTER);
+					  g_cclosure_marshal_VOID__VOID,
+					  G_TYPE_NONE, 0);
 }
 
 static void
@@ -228,12 +180,8 @@ init (EMFolderSelectionButton *folder_selection_button)
 	set_contents (folder_selection_button);
 }
 
-
-/* Public API.  */
-
 GtkWidget *
-em_folder_selection_button_new (const char *title,
-				const char *caption)
+em_folder_selection_button_new(const char *title, const char *caption)
 {
 	EMFolderSelectionButton *button = g_object_new (EM_TYPE_FOLDER_SELECTION_BUTTON, NULL);
 
@@ -245,23 +193,27 @@ em_folder_selection_button_new (const char *title,
 
 
 void
-em_folder_selection_button_set_selection  (EMFolderSelectionButton *button,
-					   CamelFolder *folder)
+em_folder_selection_button_set_selection(EMFolderSelectionButton *button, const char *uri)
 {
-	g_return_if_fail (EM_IS_FOLDER_SELECTION_BUTTON (button));
-	g_return_if_fail (folder == NULL || CAMEL_IS_FOLDER (folder));
+	EMFolderSelectionButtonPrivate *p = button->priv;
 
-	set_selection (button, folder);
+	g_return_if_fail(EM_IS_FOLDER_SELECTION_BUTTON(button));
+
+	if (p->uri != uri) {
+		g_free(p->uri);
+		p->uri = g_strdup(uri);
+	}
+
+	set_contents(button);
 }
 
 
-CamelFolder *
-em_folder_selection_button_get_selection  (EMFolderSelectionButton *button)
+const char *
+em_folder_selection_button_get_selection(EMFolderSelectionButton *button)
 {
 	g_return_val_if_fail (EM_IS_FOLDER_SELECTION_BUTTON (button), NULL);
 
-	return button->priv->selected_folder;
+	return button->priv->uri;
 }
-
 
 E_MAKE_TYPE (em_folder_selection_button, "EMFolderSelectionButton", EMFolderSelectionButton, class_init, init, PARENT_TYPE)

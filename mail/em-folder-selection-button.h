@@ -32,7 +32,6 @@
 #define EM_IS_FOLDER_SELECTION_BUTTON(obj)			(G_TYPE_CHECK_INSTANCE_TYPE ((obj), EM_TYPE_FOLDER_SELECTION_BUTTON))
 #define EM_IS_FOLDER_SELECTION_BUTTON_CLASS(klass)		(G_TYPE_CHECK_CLASS_TYPE ((obj), EM_TYPE_FOLDER_SELECTION_BUTTON))
 
-
 typedef struct _EMFolderSelectionButton        EMFolderSelectionButton;
 typedef struct _EMFolderSelectionButtonPrivate EMFolderSelectionButtonPrivate;
 typedef struct _EMFolderSelectionButtonClass   EMFolderSelectionButtonClass;
@@ -48,19 +47,14 @@ struct _EMFolderSelectionButtonClass {
 
 	/* Signals.  */
 
-	void  (* selected)  (EMFolderSelectionButton *button,
-			     CamelFolder *folder);
+	void  (* selected)  (EMFolderSelectionButton *button);
 };
-
 
 GType    em_folder_selection_button_get_type (void);
 
-GtkWidget *em_folder_selection_button_new  (const char *title,
-					    const char *caption);
+GtkWidget *em_folder_selection_button_new(const char *title, const char *caption);
 
-void         em_folder_selection_button_set_selection  (EMFolderSelectionButton *button,
-							CamelFolder             *folder);
-CamelFolder *em_folder_selection_button_get_selection  (EMFolderSelectionButton *button);
-
+void        em_folder_selection_button_set_selection(EMFolderSelectionButton *button, const char *uri);
+const char *em_folder_selection_button_get_selection(EMFolderSelectionButton *button);
 
 #endif /* _EM_FOLDER_SELECTION_BUTTON_H_ */

@@ -36,7 +36,7 @@
 #include <e-util/e-account-list.h>
 #include <e-util/e-dialog-utils.h>
 
-#include "evolution-folder-selector-button.h"
+#include "em-folder-selection-button.h"
 #include "mail-account-gui.h"
 #include "mail-session.h"
 #include "mail-send-recv.h"
@@ -1064,16 +1064,13 @@ extract_values (MailAccountGuiService *source, GHashTable *extra_config, CamelUR
 	}
 }
 
-
 static void
-folder_selected (EvolutionFolderSelectorButton *button,
-		 GNOME_Evolution_Folder *corba_folder,
-		 gpointer user_data)
+folder_selected (EMFolderSelectionButton *button, gpointer user_data)
 {
 	char **folder_name = user_data;
 	
 	g_free (*folder_name);
-	*folder_name = g_strdup (corba_folder->physicalUri);
+	*folder_name = g_strdup(em_folder_selection_button_get_selection(button));
 }
 
 static void
@@ -1084,14 +1081,12 @@ default_folders_clicked (GtkButton *button, gpointer user_data)
 	/* Drafts folder */
 	g_free (gui->drafts_folder_uri);
 	gui->drafts_folder_uri = g_strdup (default_drafts_folder_uri);
-	evolution_folder_selector_button_set_uri (EVOLUTION_FOLDER_SELECTOR_BUTTON (gui->drafts_folder_button),
-						  gui->drafts_folder_uri);
+	em_folder_selection_button_set_selection((EMFolderSelectionButton *)gui->drafts_folder_button, gui->drafts_folder_uri);
 	
 	/* Sent folder */
 	g_free (gui->sent_folder_uri);
 	gui->sent_folder_uri = g_strdup (default_sent_folder_uri);
-	evolution_folder_selector_button_set_uri (EVOLUTION_FOLDER_SELECTOR_BUTTON (gui->sent_folder_button),
-						  gui->sent_folder_uri);
+	em_folder_selection_button_set_selection((EMFolderSelectionButton *)gui->sent_folder_button, gui->sent_folder_uri);
 }
 
 GtkWidget *mail_account_gui_folder_selector_button_new (char *widget_name, char *string1, char *string2, int int1, int int2);
@@ -1101,7 +1096,7 @@ mail_account_gui_folder_selector_button_new (char *widget_name,
 					     char *string1, char *string2,
 					     int int1, int int2)
 {
-	return (GtkWidget *)g_object_new (EVOLUTION_TYPE_FOLDER_SELECTOR_BUTTON, NULL);
+	return (GtkWidget *)em_folder_selection_button_new(_("Select Folder"), NULL);
 }
 
 static gboolean
@@ -1414,7 +1409,6 @@ prepare_signatures (MailAccountGui *gui)
 MailAccountGui *
 mail_account_gui_new (EAccount *account, MailAccountsTab *dialog)
 {
-	const char *allowed_types[] = { "mail/*", NULL };
 	MailAccountGui *gui;
 	GtkWidget *button;
 	
@@ -1503,31 +1497,21 @@ mail_account_gui_new (EAccount *account, MailAccountsTab *dialog)
 	
 	/* Drafts folder */
 	gui->drafts_folder_button = GTK_BUTTON (glade_xml_get_widget (gui->xml, "drafts_button"));
-	g_signal_connect (gui->drafts_folder_button, "selected",
-			  G_CALLBACK (folder_selected), &gui->drafts_folder_uri);
+	g_signal_connect (gui->drafts_folder_button, "selected", G_CALLBACK (folder_selected), &gui->drafts_folder_uri);
 	if (account->drafts_folder_uri)
 		gui->drafts_folder_uri = g_strdup (account->drafts_folder_uri);
 	else
 		gui->drafts_folder_uri = g_strdup (default_drafts_folder_uri);
-	evolution_folder_selector_button_construct (EVOLUTION_FOLDER_SELECTOR_BUTTON (gui->drafts_folder_button),
-						    global_shell_client,
-						    _("Select Folder"),
-						    gui->drafts_folder_uri,
-						    allowed_types);
+	em_folder_selection_button_set_selection((EMFolderSelectionButton *)gui->drafts_folder_button, gui->drafts_folder_uri);
 	
 	/* Sent folder */
 	gui->sent_folder_button = GTK_BUTTON (glade_xml_get_widget (gui->xml, "sent_button"));
-	g_signal_connect (gui->sent_folder_button, "selected",
-			  G_CALLBACK (folder_selected), &gui->sent_folder_uri);
+	g_signal_connect (gui->sent_folder_button, "selected", G_CALLBACK (folder_selected), &gui->sent_folder_uri);
 	if (account->sent_folder_uri)
 		gui->sent_folder_uri = g_strdup (account->sent_folder_uri);
 	else
 		gui->sent_folder_uri = g_strdup (default_sent_folder_uri);
-	evolution_folder_selector_button_construct (EVOLUTION_FOLDER_SELECTOR_BUTTON (gui->sent_folder_button),
-						    global_shell_client,
-						    _("Select Folder"),
-						    gui->sent_folder_uri,
-						    allowed_types);
+	em_folder_selection_button_set_selection((EMFolderSelectionButton *)gui->sent_folder_button, gui->sent_folder_uri);
 	
 	/* Special Folders "Reset Defaults" button */
 	button = glade_xml_get_widget (gui->xml, "default_folders_button");

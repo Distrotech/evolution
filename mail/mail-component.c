@@ -771,6 +771,93 @@ mail_component_storages_foreach (MailComponent *component,
 	g_hash_table_foreach (component->priv->storages_hash, func, data);
 }
 
+extern struct _CamelSession *session;
+
+char *em_uri_from_camel(const char *curi)
+{
+	CamelURL *curl;
+	EAccount *account;
+	const char *uid, *path;
+	char *euri;
+	CamelProvider *provider;
+
+	provider = camel_session_get_provider(session, curi, NULL);
+	if (provider == NULL)
+		return g_strdup(curi);
+
+	curl = camel_url_new(curi, NULL);
+	if (curl == NULL)
+		return g_strdup(curi);
+
+	account = mail_config_get_account_by_source_url(curi);
+	uid = (account == NULL)?"local@local":account->uid;
+	path = (provider->url_flags & CAMEL_URL_FRAGMENT_IS_PATH)?curl->fragment:curl->path;
+	if (path[0] == '/')
+		path++;
+	euri = g_strdup_printf("email://%s/%s", uid, path);
+	printf("em uri from camel '%s' -> '%s'\n", curi, euri);
+
+	return euri;
+}
+
+char *em_uri_to_camel(const char *euri)
+{
+	EAccountList *accounts;
+	EAccount *account;
+	EAccountService *service;
+	CamelProvider *provider;
+	CamelURL *eurl, *curl;
+	char *uid, *curi;
+
+	eurl = camel_url_new(euri, NULL);
+	if (eurl == NULL)
+		return g_strdup(euri);
+
+	if (strcmp(eurl->protocol, "email") != 0) {
+		camel_url_free(eurl);
+		return g_strdup(euri);
+	}
+
+	g_assert(eurl->user != NULL);
+	g_assert(eurl->host != NULL);
+
+	if (strcmp(eurl->user, "local") == 0 && strcmp(eurl->host, "local") == 0) {
+		/* FIXME: needs to track real local store location */
+		curi = g_strdup_printf("mbox:%s/.evolution/mail/local#%s", g_get_home_dir(), eurl->path);
+		camel_url_free(eurl);
+		return curi;
+	}
+
+	uid = g_strdup_printf("%s@%s", eurl->user, eurl->host);
+
+	accounts = mail_config_get_accounts();
+	account = e_account_list_find(accounts, E_ACCOUNT_FIND_UID, uid);
+	g_free(uid);
+
+	if (account == NULL) {
+		camel_url_free(eurl);
+		return g_strdup(euri);
+	}
+
+	service = account->source;
+	provider = camel_session_get_provider(session, service->url, NULL);
+
+	curl = camel_url_new(service->url, NULL);
+	if (provider->url_flags & CAMEL_URL_FRAGMENT_IS_PATH)
+		camel_url_set_fragment(curl, eurl->path);
+	else
+		camel_url_set_path(curl, eurl->path);
+
+	curi = camel_url_to_string(curl, 0);
+
+	camel_url_free(eurl);
+	camel_url_free(curl);
+
+	printf("em uri to camel '%s' -> '%s'\n", euri, curi);
+
+	return curi;
+}
+
 
 CamelFolder *
 mail_component_get_folder_from_evomail_uri (MailComponent *component,

@@ -69,7 +69,7 @@
   <!-- (composer) -->
   <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Composer"
 	      type="factory"
-	      location="OAFIID:GNOME_Evolution_Mail_ControlFactory">
+	      location="OAFIID:GNOME_Evolution_Mail_Factory_2">
 
     <oaf_attribute name="repo_ids" type="stringv">
       <item value="IDL:GNOME/Evolution:Composer:1.0"/>

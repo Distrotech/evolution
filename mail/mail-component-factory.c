@@ -20,6 +20,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include "em-utils.h"
 #include "evolution-composer.h"
 #include "mail-accounts.h"
 #include "mail-component.h"
@@ -69,16 +70,11 @@ factory (BonoboGenericFactory *factory,
 	} else if (strcmp (component_id, MAIL_ACCOUNTS_CONTROL_ID) == 0
 		   || strcmp (component_id, MAIL_PREFERENCES_CONTROL_ID) == 0
 		   || strcmp (component_id, MAIL_COMPOSER_PREFS_CONTROL_ID) == 0) {
-		/* EPFIXME: Calling a callback!?!  */
 		return mail_config_control_factory_cb (factory, component_id, CORBA_OBJECT_NIL);
+	} else if (strcmp(component_id, COMPOSER_ID) == 0) {
+		/* FIXME: how to remove need for callbacks, probably make the composer more tightly integrated with mail */
+		return (BonoboObject *) evolution_composer_new (em_utils_composer_send_cb, em_utils_composer_save_draft_cb);
 	}
-#if 0
-	/* EPFIXME need to fix this -- after we stopped making composer_send_cb
-	   and composer_save_draft_cb public, this doesn't work anymore. */
-	else if (strcmp(component_id, COMPOSER_ID) == 0) {
-		return (BonoboObject *) evolution_composer_new (composer_send_cb, composer_save_draft_cb);
-	}
-#endif
 
 	g_warning (FACTORY_ID ": Don't know what to do with %s", component_id);
 	return NULL;

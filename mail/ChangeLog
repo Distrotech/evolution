@@ -1,3 +1,39 @@
+2003-10-10  Not Zed  <NotZed@Ximian.com>
+
+	* mail-account-gui.c
+	(mail_account_gui_folder_selector_button_new): use
+	em_folder_selection_button.
+	(mail_account_gui_new): "
+	(folder_selected): "
+
+	* em-folder-selection-button.c: Make this use camel uri's rather
+	than camelfolders.
+	(set_selection): removed, redundant.
+	(impl_dispose): removed, not needed.
+
+	* em-folder-selection-button.h: change the selected signal not to
+	actually return the selection, which must get retrieved later.
+
+	* mail-component.c (em_uri_from_camel): create an evo mail uri
+	from a camel one.
+	(em_uri_to_camel): the reverse.
+
+	* mail-signature-editor.c (mail_signature_editor): up the version
+	of the gtkhtml editor.
+
+2003-10-09  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-selection-button.c (set_selection): always set
+	selected_folder, otherwise we don't unset it properly.
+
+	* em-folder-selection.c (em_folder_selection_run_dialog): fix a
+	small memleak.
+	(em_folder_selection_run_dialog_uri): do the same as run_dialog
+	but take, and return physical uri's.
+
+	* mail-component-factory.c (factory): removed some fixme's, and
+	re-hookedup the composer.
+
 2003-10-08  Chris Toshok  <toshok@ximian.com>
 
 	* em-utils.c (em_utils_camel_address_to_destination): EDestination
