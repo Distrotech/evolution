@@ -1,3 +1,9 @@
+2000-08-03  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* filter-folder.c (button_clicked): Use the base name of the
+	Evoluton URI for the button's label.
+	(get_widget): Likewise.
+
 2000-08-03  Peter Williams  <peterw@helixcode.com>
 
 	* filter-driver.c (op_filter_mail): Conform to the new mail-threads

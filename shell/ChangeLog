@@ -1,3 +1,23 @@
+2000-08-04  Michael Meeks  <michael@helixcode.com>
+
+	* evolution-shell-component.c (impl_ShellComponent_populate_folder_context_menu):
+	unref.
+
+	* e-shell.c (e_shell_construct): Remove erroneous refs on
+	folder_type_registry, storage_set.
+
+	* e-shortcuts-view.c (destroy): unref the shortcuts, causing a
+	massive ripple chain ref-count reaction.
+
+2000-08-03  Michael Meeks  <michael@helixcode.com>
+
+	* e-shell-view.c (destroy): unref the UI handler.
+
+2000-08-03  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* e-shell-folder-selection-dialog.c (set_default_folder): Make
+	sure default_uri isn't NULL!!
+
 2000-08-03  Ettore Perazzoli  <ettore@helixcode.com>
 
 	* e-shell-view-menu.c (command_goto_folder): Just use the current

@@ -493,12 +493,31 @@ mail_operation_wait_for_finish (void)
  *
  * Returns TRUE if operations are being executed asynchronously
  * when called, FALSE if not.
- */
+ **/
 
 gboolean
 mail_operations_are_executing (void)
 {
 	return (queue_len > 0);
+}
+
+/**
+ * mail_operations_terminate:
+ *
+ * Let the operations finish then terminate the dispatch thread
+ **/
+
+void
+mail_operations_terminate (void)
+{
+	closure_t clur;
+
+	mail_operation_wait_for_finish();
+
+	memset (&clur, 0, sizeof (closure_t));
+	clur.spec = NULL;
+
+	write (DISPATCH_WRITER, &clur, sizeof (closure_t));
 }
 
 /* ** Static functions **************************************************** */
@@ -682,6 +701,9 @@ dispatch (void *unused)
 			g_warning ("dispatcher: Didn't read full message!");
 			continue;
 		}
+
+		if (clur->spec == NULL)
+			break;
 
 		msg.type = STARTING;
 		msg.message = g_strdup (clur->gerund);

@@ -1,9 +1,16 @@
 2000-08-04  Peter Williams  <peterw@helixcode.com>
 
+	* component-factory.c (owner_unset_cb): Use mail_operations_
+	terminate() instead of wait_for_finish().
+
 	* mail-threads.c (mail_operation_queue): Centralize the clur
 	handling functions; fix a race condition where the dispatcher
 	would overwrite the closure before the main thread could
 	free the old one.
+	(mail_operations_terminate): New function, wait for ops to
+	finished and kill the other thread.
+	(dispatch): changes to die when terminate is called (abort
+	on NULL spec).
 
 	* mail-ops.c (cleanup_display_message): Fix improper handling
 	of displaying a NULL message (which means clear the message
