@@ -1,3 +1,7 @@
+2004-07-05  Not Zed  <NotZed@Ximian.com>
+
+	* configure.in: add some mono checks.
+
 2004-06-24  Pablo Saratxaga  <pablo@mandrakesoft.com>
 
 	* configure.in: Added Walloon (wa) to ALL_LINGUAS.
