@@ -1,5 +1,14 @@
 2003-10-22  JP Rosevear <jpr@ximian.com>
 
+	* gui/e-cal-list-view.c (e_cal_list_view_new): create a model and
+	pass it as an arg during creation
+
+	* gui/e-day-view.c (e_day_view_new): unref the model
+
+	* gui/e-week-view.c (e_week_view_new): ditto
+	
+2003-10-22  JP Rosevear <jpr@ximian.com>
+
 	* cal-client/cal-client.c (cal_client_get_object): only change to
 	invalid object error code if we got the object but couldn't parse
 	it, and only check for timezones if we had success
