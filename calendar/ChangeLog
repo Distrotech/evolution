@@ -1,3 +1,50 @@
+2004-04-15 Gary Ekker <gekker@novell.com>
+
+	Fixes #52271
+
+	* gui/e-cal-model-tasks.c: (set_percent): shouldn't call
+	ensure_task_not_complete here, it removes the percent property that
+	we just set.
+
+2004-04-15  JP Rosevear  <jpr@ximian.com>
+
+	* gui/dialogs/task-page.c (task_page_fill_component): don't
+	actually check if start date is after due date, its perfectly
+	valid for that to occur
+
+2004-04-15  JP Rosevear  <jpr@ximian.com>
+
+	Fixes #53903
+
+	* gui/dialogs/meeting-page.c (meeting_page_fill_widgets):
+	show/hide add button properly
+	(change_clicked_cb): ditto
+
+	* gui/dialogs/comp-editor.c (needs_send_cb): call back when "needs_send"
+	(page_changed_cb): use accessor
+
+2004-04-15  JP Rosevear  <jpr@ximian.com>
+
+	* gui/dialogs/comp-editor.c (save_comp): stop listening to changes
+	since we are just going to save and close
+	(save_cmd): remove, its ok since we are toasting menus shortly
+	anyhow
+	(obj_modified_cb): no need to look at update flag
+	(obj_removed_cb): ditto
+
+2004-04-15  Gary Ekker  <gekker@novell.com>
+
+	* gui/calendar-component.h: move the calendar publishing initialization
+	from createControls to main.c
+
+	* gui/calendar-component.c: (create_controls): Ditto
+
+	* gui/main.c: (initialize): Ditto
+
+	* gui/dialogs/cal-prefs-dialog.c: (url_list_changed): remove a gfree
+	that was freeing a before it should have been. Also removed cruft from
+	a previous attempt to fix the crash.
+
 2004-04-15  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (e_cal_model_generate_instances):
