@@ -1,5 +1,12 @@
 2000-07-20  Peter Williams  <peterw@helixcode.com>
 
+	* mail-threads.c (read_msg): Check if the exception is
+	a user cancel; don't complain if it is.
+	(mail_operation_queue): Same.
+	(dispatch_func): Same.
+
+2000-07-20  Peter Williams  <peterw@helixcode.com>
+	
 	* mail-ops-new.c (cleanup_send_mail): Fix evil mistaken
 	unref.
 

@@ -199,6 +199,7 @@ setup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	camel_object_ref (CAMEL_OBJECT (input->message));
 	camel_object_ref (CAMEL_OBJECT (input->done_folder));
 	gtk_object_ref (GTK_OBJECT (input->composer));
+	gtk_widget_hide (GTK_WIDGET (input->composer));
 }
 
 static void
@@ -251,12 +252,10 @@ cleanup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	g_free (input->xport_uri);
 	g_free (input->done_uid);
 
-	gtk_widget_show (input->composer);
-
 	if (!camel_exception_is_set (ex))
 		gtk_widget_destroy (input->composer);
-		/*	else
-			gtk_widget_show (input->composer);*/
+	else
+		gtk_widget_show (input->composer);
 }
 
 static const mail_operation_spec op_send_mail =

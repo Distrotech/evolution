@@ -196,8 +196,6 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 				   NULL, NULL, 0,
 				   GTK_WIDGET (composer));
 	}
-
-	gtk_widget_hide (GTK_WIDGET (composer));
 }
 
 static void

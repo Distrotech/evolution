@@ -225,21 +225,23 @@ mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean 
 		(spec->setup) (clur->in_data, clur->op_data, clur->ex);
 
 	if (camel_exception_is_set (clur->ex)) {
-		GtkWidget *err_dialog;
-		gchar *msg;
+		if (clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
+			GtkWidget *err_dialog;
+			gchar *msg;
 
-		msg = g_strdup_printf ("Error while preparing to %s:\n"
-				       "%s", spec->infinitive,
-				       camel_exception_get_description (clur->ex));
-		err_dialog = gnome_error_dialog (msg);
-		g_free (msg);
-		gnome_dialog_set_close (GNOME_DIALOG (err_dialog), TRUE);
-		/*gnome_dialog_run_and_close (GNOME_DIALOG (err_dialog));*/
-		/*gtk_widget_destroy (err_dialog);*/
-		gtk_widget_show (GTK_WIDGET (err_dialog));
+			msg = g_strdup_printf ("Error while preparing to %s:\n"
+					       "%s", spec->infinitive,
+					       camel_exception_get_description (clur->ex));
+			err_dialog = gnome_error_dialog (msg);
+			g_free (msg);
+			gnome_dialog_set_close (GNOME_DIALOG (err_dialog), TRUE);
+			/*gnome_dialog_run_and_close (GNOME_DIALOG (err_dialog));*/
+			/*gtk_widget_destroy (err_dialog);*/
+			gtk_widget_show (GTK_WIDGET (err_dialog));
 
-		g_warning ("Setup failed for `%s': %s", spec->infinitive,
-			   camel_exception_get_description (clur->ex));
+			g_warning ("Setup failed for `%s': %s", spec->infinitive,
+				   camel_exception_get_description (clur->ex));
+		}
 		g_free (clur->op_data);
 		camel_exception_free (clur->ex);
 		if (free_in_data)
@@ -604,12 +606,14 @@ static void *dispatch_func (void *data)
 	(clur->spec->callback) (clur->in_data, clur->op_data, clur->ex);
 
 	if (camel_exception_is_set (clur->ex)) {
-		g_warning ("Callback failed for `%s': %s",
-			   clur->spec->infinitive,
-			   camel_exception_get_description (clur->ex));
-		mail_op_error ("Error while `%s':\n"
-			       "%s", clur->spec->gerund,
-			       camel_exception_get_description (clur->ex));
+		if (clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
+			g_warning ("Callback failed for `%s': %s",
+				   clur->spec->infinitive,
+				   camel_exception_get_description (clur->ex));
+			mail_op_error ("Error while `%s':\n"
+				       "%s", clur->spec->gerund,
+				       camel_exception_get_description (clur->ex));
+		}
 	}
 
 	msg.type = FINISHED;
@@ -711,7 +715,8 @@ static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer u
 						    msg->clur->op_data,
 						    msg->clur->ex);
 
-		if (camel_exception_is_set (msg->clur->ex)) {
+		if (camel_exception_is_set (msg->clur->ex) &&
+		    msg->clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
 			g_warning ("Error on cleanup of `%s': %s",
 				   msg->clur->spec->infinitive,
 				   camel_exception_get_description (msg->clur->ex));
