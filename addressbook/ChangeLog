@@ -1,5 +1,19 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* printing/e-contact-print-envelope.c: card -> contact.
+
+	* printing/e-contact-print-envelope.h: card -> contact.
+
+	* printing/e-contact-print.c: card -> contact.
+
+	* printing/e-contact-print.h: card -> contact.
+
+	* printing/Makefile.am (contact_print_test_LDADD): add
+	libeabutil.la and reorder things so it links.
+	(contact_print_style_editor_test_LDADD): same.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* gui/component/select-names/e-select-names-text-model.c:
 	e-addressbook-util.h -> eab-gui-util.h.
 
