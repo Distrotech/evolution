@@ -2380,7 +2380,7 @@ e_week_view_add_event (ECalComponent *comp,
 #endif
 	g_return_val_if_fail (start <= end, TRUE);
 	g_return_val_if_fail (start < add_event_data->week_view->day_starts[num_days], TRUE);
-	g_return_val_if_fail (end > add_event_data->week_view->day_starts[0], TRUE);
+	//g_return_val_if_fail (end > add_event_data->week_view->day_starts[0], TRUE);
 
 	start_tt = icaltime_from_timet_with_zone (start, FALSE,
 						  e_calendar_view_get_timezone (E_CALENDAR_VIEW (add_event_data->week_view)));

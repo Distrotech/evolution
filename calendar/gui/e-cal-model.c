@@ -1292,6 +1292,40 @@ add_instance_cb (ECalComponent *comp, time_t instance_start, time_t instance_end
 }
 
 static void
+set_instance_times (ECalModelComponent *comp_data, icaltimezone *zone)
+{
+	struct icaltimetype recur_time, start_time, end_time;
+
+	recur_time = icalcomponent_get_recurrenceid (comp_data->icalcomp);
+	start_time = icalcomponent_get_dtstart (comp_data->icalcomp);
+	end_time = icalcomponent_get_dtend (comp_data->icalcomp);
+
+	if (zone) {
+		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
+			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, icaltimezone_get_utc_timezone ());
+			comp_data->instance_end = comp_data->instance_start +
+				(icaltime_as_timet_with_zone (end_time, zone) -
+				 icaltime_as_timet_with_zone (start_time, zone));
+		} else {
+			comp_data->instance_start = icaltime_as_timet_with_zone (
+				icalcomponent_get_dtstart (comp_data->icalcomp), zone);
+			comp_data->instance_end = icaltime_as_timet_with_zone (
+				icalcomponent_get_dtend (comp_data->icalcomp), zone);
+		}
+	} else {
+		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
+			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, icaltimezone_get_utc_timezone ());
+			comp_data->instance_end = comp_data->instance_start +
+				(icaltime_as_timet (end_time) -
+				 icaltime_as_timet (start_time));
+		} else {
+			comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
+			comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
+		}
+	}
+}
+
+static void
 e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data)
 {
 	ECalModel *model = (ECalModel *) user_data;
@@ -1321,15 +1355,7 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 			comp_data = g_new0 (ECalModelComponent, 1);
 			comp_data->client = g_object_ref (e_cal_view_get_client (query));
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
-			if (priv->zone) {
-				comp_data->instance_start = icaltime_as_timet_with_zone (
-					icalcomponent_get_dtstart (comp_data->icalcomp), priv->zone);
-				comp_data->instance_end = icaltime_as_timet_with_zone (
-					icalcomponent_get_dtend (comp_data->icalcomp), priv->zone);
-			} else {
-				comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
-				comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
-			}
+			set_instance_times (comp_data, priv->zone);
 
 			g_ptr_array_add (priv->objects, comp_data);
 			e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
@@ -1401,15 +1427,7 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 			}
 		     
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
-			if (priv->zone) {
-				comp_data->instance_start = icaltime_as_timet_with_zone (
-					icalcomponent_get_dtstart (comp_data->icalcomp), priv->zone);
-				comp_data->instance_end = icaltime_as_timet_with_zone (
-					icalcomponent_get_dtend (comp_data->icalcomp), priv->zone);
-			} else {
-				comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
-				comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
-			}
+			set_instance_times (comp_data, priv->zone);
 
 			e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
 		}
@@ -1434,10 +1452,9 @@ e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
 		/* make sure we remove all objects with this UID */
 		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {
 			pos = get_position_in_array (priv->objects, comp_data);
-		
+
 			g_ptr_array_remove (priv->objects, comp_data);
 			e_cal_model_free_component_data (comp_data);
-		
 			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
 		}
 	}
