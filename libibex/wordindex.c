@@ -439,7 +439,8 @@ static int word_close(struct _IBEXWord *idx)
 	}
 	idx->namestore->klass->close(idx->namestore);
 	idx->nameindex->klass->close(idx->nameindex);
-	idx->wordstore->klass->close(idx->wordstore);
+	/*same as namestore:
+	  idx->wordstore->klass->close(idx->wordstore);*/
 	idx->wordindex->klass->close(idx->wordindex);
 	g_free(idx);
 
