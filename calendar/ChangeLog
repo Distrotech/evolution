@@ -1,6 +1,13 @@
 2003-09-18  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-listener.[ch]: added "add_timezone" signal.
+	(impl_notifyTimezoneAdded): implemented new CalListener method.
+	(cal_listener_class_init): create "add_timezone" signal for the class.
+
 	* cal-client/cal-client.[ch] (cal_client_add_timezone): new function.
+	(cal_client_init): connect to "add_timezone" signal on the
+	CalListener.
+	(cal_add_timezone_cb): callback for the "add_timezone" signal.
 
 2003-09-18  Rodrigo Moya <rodrigo@ximian.com>
 

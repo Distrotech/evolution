@@ -53,6 +53,7 @@ enum {
 	RECEIVE_OBJECTS,
 	SEND_OBJECTS,
 	OBJECT_LIST,
+	ADD_TIMEZONE,
 	QUERY,
 	LAST_SIGNAL
 };
@@ -341,6 +342,24 @@ impl_notifyObjectListRequested (PortableServer_Servant servant,
 	g_list_free (object_list);
 }
 
+static void
+impl_notifyTimezoneAdded (PortableServer_Servant servant,
+			  const GNOME_Evolution_Calendar_CallStatus status,
+			  const CORBA_char *tzid,
+			  CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+	
+	g_signal_emit (G_OBJECT (listener), signals[ADD_TIMEZONE], 0, convert_status (status), tzid);
+}
+
 static void 
 impl_notifyQuery (PortableServer_Servant servant,
 		  const GNOME_Evolution_Calendar_CallStatus status,
@@ -599,6 +618,14 @@ cal_listener_class_init (CalListenerClass *klass)
 			      NULL, NULL,
 			      cal_marshal_VOID__INT_POINTER,
 			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_POINTER);
+	signals[ADD_TIMEZONE] =
+		g_signal_new ("add_timezone",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, add_timezone),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
 	signals[QUERY] =
 		g_signal_new ("query",
 			      G_TYPE_FROM_CLASS (klass),

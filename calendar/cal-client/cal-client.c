@@ -658,6 +658,30 @@ cal_object_list_cb (CalListener *listener, ECalendarStatus status, GList *object
 }
 
 static void
+cal_add_timezone_cb (CalListener *listener, ECalendarStatus status, const char *tzid, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->uid = g_strdup (tzid);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+
+}
+
+static void
 cal_query_cb (CalListener *listener, ECalendarStatus status, GNOME_Evolution_Calendar_Query query, gpointer data)
 {
 	CalClient *client = data;
@@ -850,6 +874,7 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "receive_objects", G_CALLBACK (cal_objects_received_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "send_objects", G_CALLBACK (cal_objects_sent_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "add_timezone", G_CALLBACK (cal_add_timezone_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "query", G_CALLBACK (cal_query_cb), client);
 }
 
