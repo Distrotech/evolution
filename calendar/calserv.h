@@ -58,8 +58,7 @@ typedef struct {
 } CSConnection;
 
 /* in server-commands.c */
-void cs_connection_process_line(CSConnection *cnx, char *line);
-void cs_connection_process_literal(CSConnection *cnx, char *line);
+void cs_connection_process_command(CSConnection *cnx);
 
 /* in server-io.c */
 void cs_connection_destroy(CSConnection *cnx);

@@ -228,58 +228,14 @@ cs_connection_process(gpointer data, GIOCondition cond,
     default:
     }
 
-    if(cnx->rs == RS_DONE)
+    if(cnx->rs == RS_DONE) {
       cs_connection_process_command(CSConnection *cnx);
-  } while(found_something);
-}
-
-static void
-_cs_connection_process(gpointer data, GIOCondition cond,
-		      CSConnection *cnx)
-{
-  char readbuf[257], *ctmp;
-  int rsize;
-  char *theline;
-
-  if(cond & (G_IO_HUP|G_IO_NVAL|G_IO_ERR)) {
-    cs_connection_destroy(cnx);
-    return;
-  }
-
-  g_return_if_fail(cond & G_IO_IN);
-
-  /* read the data */
-  rsize = read(cnx->fd, readbuf, sizeof(readbuf) - 1);
-  readbuf[rsize] = '\0';
-  g_string_append(cnx->rdbuf, readbuf);
-
-  if(cnx->reading_literal) {
-    cnx->reading_literal -= rsize;
-
-    if(cnx->reading_literal <= 0) {
-      theline = g_strndup(cnx->rdbuf->str,
-			  cnx->rdbuf->len + cnx->reading_literal);
-      g_string_erase(cnx->rdbuf,
-		     0,
-		     cnx->rdbuf->len + cnx->reading_literal);
-      cnx->reading_literal = 0;
-      cs_connection_process_literal(cnx, theline);
-      g_free(theline);
+      cs_cmdarg_destroy(cnx->curcmd.args); cnx->curcmd.args = NULL;
+      g_free(cnx->curcmd.id);
+      g_free(cnx->curcmd.name);
+      cnx->rs = RS_ID; /* Next? */
     }
-
-  } else {
-    ctmp = strchr(cnx->rdbuf->str, '\n');
-    if(!ctmp)
-      return; /* done reading the newly available data */
-    
-    /* OK, we have a complete line, save the rest */
-    theline = g_strndup(cnx->rdbuf->str, MAX(ctmp - cnx->rdbuf->str - 1, 0));
-    g_string_erase(cnx->rdbuf,
-		   0,
-		   MAX(ctmp - cnx->rdbuf->str + 1, cnx->rdbuf->len));
-    cs_connection_process_line(cnx, theline);
-    g_free(theline);
-  }
+  } while(found_something);
 }
 
 static void

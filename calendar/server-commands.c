@@ -4,13 +4,13 @@
 #include <stdlib.h>
 
 static void
-cs_command_NOOP(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_NOOP(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "%s OK NOOP\n", ci->id);
 }
 
 static void
-cs_command_LOGOUT(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_LOGOUT(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "* BYE ICAP Server thinks you suck anyways\n");
   fprintf(cnx->fh, "%s OK LOGOUT Completed\n", ci->id);
@@ -18,7 +18,7 @@ cs_command_LOGOUT(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 static void
-cs_command_CAPABILITY(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_CAPABILITY(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "* CAPABILITY "CS_capabilities"\n");
 
@@ -26,7 +26,7 @@ cs_command_CAPABILITY(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 static void
-cs_command_LOGIN(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_LOGIN(CSConnection *cnx, CSCmdInfo *ci)
 {
   char *ctmp;
   char *username, *password;
@@ -104,19 +104,19 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
 }
 
 static void
-cs_command_SELECT(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_SELECT(CSConnection *cnx, CSCmdInfo *ci)
 {
   cs_command_switchcals(cnx, ci, FALSE);
 }
 
 static void
-cs_command_EXAMINE(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_EXAMINE(CSConnection *cnx, CSCmdInfo *ci)
 {
   cs_command_switchcals(cnx, ci, TRUE);
 }
 
 static void
-cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci)
 {
   char *ctmp;
   char *calname;
@@ -139,7 +139,7 @@ cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 static void
-cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
 {
   char *ctmp;
   char *calname;
@@ -167,7 +167,7 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 static void
-cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci)
 {
   char *ctmp;
   char *calname;
@@ -199,28 +199,28 @@ cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 static void
-cs_command_LSUB(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_LSUB(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "%s NO LSUB subscription not yet implemented\n",
 	  ci->id);
 }
 
 static void
-cs_command_SUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_SUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "%s NO %s subscription not yet implemented\n",
 	  ci->id, ci->name);
 }
 
 static void
-cs_command_UNSUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_UNSUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "%s NO %s subscription not yet implemented\n",
 	  ci->id, ci->name);
 }
 
 static void
-cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci)
 {
   char *ctmp;
   char *calname, *flags;
@@ -247,7 +247,7 @@ cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 static void
-cs_literal_APPEND(CSConnection *cnx, CSCmdInfo *ci, char *l)
+cs_literal_APPEND(CSConnection *cnx, CSCmdInfo *ci)
 {
   if(!cnx->active_cal) {
     fprintf(cnx->fh, "%s NO %s no current calendar\n",
@@ -260,56 +260,10 @@ cs_literal_APPEND(CSConnection *cnx, CSCmdInfo *ci, char *l)
 }
 
 void
-cs_connection_process_literal(CSConnection *cnx, char *line)
+cs_connection_process_command(CSConnection *cnx)
 {
-  g_return_if_fail(cnx->curcmd);
-
-#define CHECK_LIT(x) if(!strcasecmp(cnx->curcmd->name, #x)) \
-cs_literal_##x(cnx, cnx->curcmd, line)
-
-  CHECK_LIT(APPEND);
-  else {
-    g_warning("Unknown command %s", line);
-    fprintf(cnx->fh, "%s BAD unknown literal handler\n", cnx->curcmd->name);
-  }
-}
-
-void
-cs_connection_process_line(CSConnection *cnx, char *l)
-{
-  char *ctmp;
-  char *cmd_id, *cmd_name;
-  char *origl;
-  CSCmdInfo cmdinfo, *ciptr;
-
-  origl = alloca(strlen(l) + 1);
-  strcpy(origl, l);
-
-  if(cnx->curcmd)
-    ciptr = cnx->curcmd;
-  else {
-    memset(&cmdinfo, '\0', sizeof(cmdinfo));
-    ciptr = &cmdinfo;
-
-    ctmp = l;
-    
-    cmdinfo.id = ctmp;
-    ctmp = strchr(ctmp, ' ');
-    g_return_if_fail(ctmp);
-    *ctmp = '\0';
-    ctmp++;
-    
-    cmdinfo.name = ctmp;
-    ctmp = strchr(ctmp, ' ');
-    if(ctmp) {
-      *ctmp = '\0';
-      ctmp++;
-      cmdinfo.rol = ctmp;
-    }
-  }
-
-#define CHECK_CMD(x) if(!strcasecmp(cmd_name, #x)) \
-cs_command_##x(cnx, ciptr, origl)
+#define CHECK_CMD(x) if(!strcasecmp(cnx->cmd, #x)) \
+cs_command_##x(cnx, &cnx->curcmd)
 
   CHECK_CMD(NOOP);
   else CHECK_CMD(LOGOUT);
@@ -324,7 +278,7 @@ cs_command_##x(cnx, ciptr, origl)
   else CHECK_CMD(SUBSCRIBE);
   else CHECK_CMD(UNSUBSCRIBE);
   else {
-    g_warning("Unknown command %s", cmd_name);
-    fprintf(cnx->fh, "%s BAD unknown command\n", ciptr->id);
+    g_warning("Unknown command %s", cnx->curcmd.name);
+    fprintf(cnx->fh, "%s BAD unknown command\n", cnx->curcmd.id);
   }
 }
