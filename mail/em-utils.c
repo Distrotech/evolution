@@ -34,6 +34,8 @@
 
 #include <camel/camel-stream-fs.h>
 
+#include <filter/filter-editor.h>
+
 #include "mail-mt.h"
 #include "mail-ops.h"
 #include "mail-tools.h"
@@ -116,7 +118,7 @@ druid_destroy_cb (gpointer user_data, GObject *deadbeef)
 }
 
 gboolean
-em_utils_configure_account (GtkWindow *parent)
+em_utils_configure_account (GtkWidget *parent)
 {
 	MailConfigDruid *druid;
 	
@@ -130,7 +132,7 @@ em_utils_configure_account (GtkWindow *parent)
 }
 
 gboolean
-em_utils_check_user_can_send_mail (GtkWindow *parent)
+em_utils_check_user_can_send_mail (GtkWidget *parent)
 {
 	EAccount *account;
 	
@@ -150,17 +152,83 @@ em_utils_check_user_can_send_mail (GtkWindow *parent)
 }
 
 
+/* Editing Filters/vFolders... */
+
+static GtkWidget *filter_editor = NULL;
+
+static void
+filter_editor_response (GtkWidget *dialog, int button, gpointer user_data)
+{
+	extern char *evolution_dir;
+	FilterContext *fc;
+	
+	if (button == GTK_RESPONSE_ACCEPT) {
+		char *user;
+		
+		fc = g_object_get_data ((GObject *) dialog, "context");
+		user = g_strdup_printf ("%s/filters.xml", evolution_dir);
+		rule_context_save ((RuleContext *) fc, user);
+		g_free (user);
+	}
+	
+	gtk_widget_destroy (dialog);
+	
+	filter_editor = NULL;
+}
+
+static const char *filter_source_names[] = {
+	"incoming",
+	"outgoing",
+	NULL,
+};
+
+void
+em_utils_edit_filters (GtkWidget *parent)
+{
+	extern char *evolution_dir;
+	char *user, *system;
+	FilterContext *fc;
+	
+	if (filter_editor) {
+		gdk_window_raise (GTK_WIDGET (filter_editor)->window);
+		return;
+	}
+	
+	fc = filter_context_new ();
+	user = g_strdup_printf ("%s/filters.xml", evolution_dir);
+	system = EVOLUTION_PRIVDATADIR "/filtertypes.xml";
+	rule_context_load ((RuleContext *) fc, system, user);
+	g_free (user);
+	
+	if (((RuleContext *) fc)->error) {
+		e_notice (parent, GTK_MESSAGE_ERROR,
+			  _("Error loading filter information:\n%s"),
+			  ((RuleContext *) fc)->error);
+		return;
+	}
+	
+	filter_editor = (GtkWidget *) filter_editor_new (fc, filter_source_names);
+	if (parent != NULL)
+		e_dialog_set_transient_for ((GtkWindow *) filter_editor, parent);
+	
+	gtk_window_set_title (GTK_WINDOW (filter_editor), _("Filters"));
+	g_object_set_data_full ((GObject *) filter_editor, "context", fc, (GtkDestroyNotify) g_object_unref);
+	g_signal_connect (filter_editor, "response", G_CALLBACK (filter_editor_response), NULL);
+	gtk_widget_show (GTK_WIDGET (filter_editor));
+}
+
+
 /* Composing messages... */
 
 static EMsgComposer *
-create_new_composer (GtkWindow *parent)
+create_new_composer (GtkWidget *parent)
 {
 	EMsgComposer *composer;
 	
 	composer = e_msg_composer_new ();
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+		e_dialog_set_transient_for ((GtkWindow *) composer, parent);
 	
 	em_composer_utils_setup_default_callbacks (composer);
 	
@@ -168,7 +236,7 @@ create_new_composer (GtkWindow *parent)
 }
 
 void
-em_utils_compose_new_message (GtkWindow *parent)
+em_utils_compose_new_message (GtkWidget *parent)
 {
 	GtkWidget *composer;
 	
@@ -178,7 +246,7 @@ em_utils_compose_new_message (GtkWindow *parent)
 }
 
 void
-em_utils_compose_new_message_with_mailto (GtkWindow *parent, const char *url)
+em_utils_compose_new_message_with_mailto (GtkWidget *parent, const char *url)
 {
 	EMsgComposer *composer;
 	
@@ -188,7 +256,7 @@ em_utils_compose_new_message_with_mailto (GtkWindow *parent, const char *url)
 		composer = e_msg_composer_new ();
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+		e_dialog_set_transient_for ((GtkWindow *) composer, parent);
 	
 	em_composer_utils_setup_default_callbacks (composer);
 	
@@ -196,14 +264,14 @@ em_utils_compose_new_message_with_mailto (GtkWindow *parent, const char *url)
 }
 
 void
-em_utils_post_to_url (GtkWindow *parent, const char *url)
+em_utils_post_to_url (GtkWidget *parent, const char *url)
 {
 	EMsgComposer *composer;
 	
 	composer = e_msg_composer_new_post ();
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+		e_dialog_set_transient_for ((GtkWindow *) composer, parent);
 	
 	if (url != NULL)
 		e_msg_composer_hdrs_set_post_to ((EMsgComposerHdrs *) ((EMsgComposer *) composer)->hdrs, url);
@@ -220,7 +288,7 @@ em_utils_post_to_url (GtkWindow *parent, const char *url)
 /* Editing messages... */
 
 static void
-edit_message (GtkWindow *parent, CamelMimeMessage *message, CamelFolder *drafts, const char *uid)
+edit_message (GtkWidget *parent, CamelMimeMessage *message, CamelFolder *drafts, const char *uid)
 {
 	EMsgComposer *composer;
 	
@@ -233,7 +301,7 @@ edit_message (GtkWindow *parent, CamelMimeMessage *message, CamelFolder *drafts,
 }
 
 void
-em_utils_edit_message (GtkWindow *parent, CamelMimeMessage *message)
+em_utils_edit_message (GtkWidget *parent, CamelMimeMessage *message)
 {
 	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
 	
@@ -251,12 +319,12 @@ edit_messages (CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *user
 	for (i = 0; i < msgs->len; i++) {
 		camel_medium_remove_header (CAMEL_MEDIUM (msgs->pdata[i]), "X-Mailer");
 		
-		edit_message ((GtkWindow *) user_data, msgs->pdata[i], folder, uids->pdata[i]);
+		edit_message ((GtkWidget *) user_data, msgs->pdata[i], folder, uids->pdata[i]);
 	}
 }
 
 void
-em_utils_edit_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_edit_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
@@ -274,7 +342,7 @@ forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part,
 	if (part == NULL)
 		return;
 	
-	composer = create_new_composer ((GtkWindow *) user_data);
+	composer = create_new_composer ((GtkWidget *) user_data);
 	e_msg_composer_set_headers (composer, NULL, NULL, NULL, NULL, subject);
 	e_msg_composer_attach (composer, part);
 	
@@ -285,7 +353,7 @@ forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part,
 }
 
 void
-em_utils_forward_attached (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_forward_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
@@ -295,7 +363,7 @@ em_utils_forward_attached (GtkWindow *parent, CamelFolder *folder, GPtrArray *ui
 
 
 static void
-forward_non_attached (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, int style)
+forward_non_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, int style)
 {
 	CamelMimeMessage *message;
 	CamelDataWrapper *wrapper;
@@ -335,11 +403,11 @@ forward_non_attached (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids, G
 static void
 forward_inline (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void *user_data)
 {
-	forward_non_attached ((GtkWindow *) user_data, folder, uids, messages, MAIL_CONFIG_FORWARD_INLINE);
+	forward_non_attached ((GtkWidget *) user_data, folder, uids, messages, MAIL_CONFIG_FORWARD_INLINE);
 }
 
 void
-em_utils_forward_inline (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_forward_inline (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
@@ -350,11 +418,11 @@ em_utils_forward_inline (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids
 static void
 forward_quoted (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void *user_data)
 {
-	forward_non_attached ((GtkWindow *) user_data, folder, uids, messages, MAIL_CONFIG_FORWARD_QUOTED);
+	forward_non_attached ((GtkWidget *) user_data, folder, uids, messages, MAIL_CONFIG_FORWARD_QUOTED);
 }
 
 void
-em_utils_forward_quoted (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
@@ -366,7 +434,7 @@ em_utils_forward_quoted (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids
 /* Redirecting messages... */
 
 static EMsgComposer *
-redirect_get_composer (GtkWindow *parent, CamelMimeMessage *message)
+redirect_get_composer (GtkWidget *parent, CamelMimeMessage *message)
 {
 	EMsgComposer *composer;
 	EAccount *account;
@@ -382,7 +450,7 @@ redirect_get_composer (GtkWindow *parent, CamelMimeMessage *message)
 	composer = e_msg_composer_new_redirect (message, account ? account->name : NULL);
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+		e_dialog_set_transient_for ((GtkWindow *) composer, parent);
 	
 	em_composer_utils_setup_default_callbacks (composer);
 	
@@ -390,7 +458,7 @@ redirect_get_composer (GtkWindow *parent, CamelMimeMessage *message)
 }
 
 void
-em_utils_redirect_message (GtkWindow *parent, CamelMimeMessage *message)
+em_utils_redirect_message (GtkWidget *parent, CamelMimeMessage *message)
 {
 	EMsgComposer *composer;
 	CamelDataWrapper *wrapper;
@@ -414,11 +482,11 @@ redirect_msg (CamelFolder *folder, const char *uid, CamelMimeMessage *message, v
 	if (message == NULL)
 		return;
 	
-	em_utils_redirect_message ((GtkWindow *) user_data, message);
+	em_utils_redirect_message ((GtkWidget *) user_data, message);
 }
 
 void
-em_utils_redirect_message_by_uid (GtkWindow *parent, CamelFolder *folder, const char *uid)
+em_utils_redirect_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uid != NULL);
@@ -513,7 +581,7 @@ em_utils_camel_address_to_destination (CamelInternetAddress *iaddr)
 }
 
 static EMsgComposer *
-reply_get_composer (GtkWindow *parent, CamelMimeMessage *message, EAccount *account,
+reply_get_composer (GtkWidget *parent, CamelMimeMessage *message, EAccount *account,
 		    CamelInternetAddress *to, CamelInternetAddress *cc)
 {
 	const char *message_id, *references;
@@ -528,7 +596,7 @@ reply_get_composer (GtkWindow *parent, CamelMimeMessage *message, EAccount *acco
 	composer = e_msg_composer_new ();
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+		e_dialog_set_transient_for ((GtkWindow *) composer, parent);
 	
 	/* construct the tov/ccv */
 	tov = em_utils_camel_address_to_destination (to);
@@ -745,7 +813,7 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 }
 
 void
-em_utils_reply_to_message (GtkWindow *parent, CamelMimeMessage *message, int mode)
+em_utils_reply_to_message (GtkWidget *parent, CamelMimeMessage *message, int mode)
 {
 	CamelInternetAddress *to = NULL, *cc = NULL;
 	EMsgComposer *composer;
@@ -783,7 +851,7 @@ em_utils_reply_to_message (GtkWindow *parent, CamelMimeMessage *message, int mod
 }
 
 struct rtm_t {
-	GtkWindow *parent;
+	GtkWidget *parent;
 	int mode;
 };
 
@@ -831,7 +899,7 @@ reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *messag
 }
 
 void
-em_utils_reply_to_message_by_uid (GtkWindow *parent, CamelFolder *folder, const char *uid, int mode)
+em_utils_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid, int mode)
 {
 	struct rtm_t *rtm;
 	
@@ -854,7 +922,7 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	/* FIXME: would be nice if this shared more code with reply_get_composer() */
 	const char *message_id, *references;
 	CamelInternetAddress *to = NULL;
-	GtkWindow *parent = user_data;
+	GtkWidget *parent = user_data;
 	EDestination **tov = NULL;
 	EMsgComposer *composer;
 	char *subject, *url;
@@ -869,7 +937,7 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	composer = e_msg_composer_new_post ();
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+		e_dialog_set_transient_for ((GtkWindow *) composer, parent);
 	
 	/* construct the tov/ccv */
 	tov = em_utils_camel_address_to_destination (to);
@@ -927,7 +995,7 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 }
 
 void
-em_utils_post_reply_to_message_by_uid (GtkWindow *parent, CamelFolder *folder, const char *uid)
+em_utils_post_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uid != NULL);
@@ -953,7 +1021,7 @@ filesel_ok_cb (GtkWidget *ok_button, gpointer user_data)
 }
 
 static void
-em_utils_filesel_prompt (GtkWindow *parent, const char *title, const char *default_path,
+em_utils_filesel_prompt (GtkWidget *parent, const char *title, const char *default_path,
 			 OKCallback ok_cb, GWeakNotify destroy_cb, gpointer user_data)
 {
 	GtkFileSelection *filesel;
@@ -962,7 +1030,7 @@ em_utils_filesel_prompt (GtkWindow *parent, const char *title, const char *defau
 	gtk_file_selection_set_filename (filesel, default_path);
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) filesel, parent);
+		e_dialog_set_transient_for ((GtkWindow *) filesel, parent);
 	
 	g_object_set_data ((GObject *) filesel, "ok_cb", ok_cb);
 	g_object_set_data ((GObject *) filesel, "user_data", user_data);
@@ -1023,7 +1091,7 @@ save_message_ok (GtkFileSelection *filesel, gpointer user_data)
 }
 
 void
-em_utils_save_message (GtkWindow *parent, CamelMimeMessage *message)
+em_utils_save_message (GtkWidget *parent, CamelMimeMessage *message)
 {
 	char *path;
 	
@@ -1070,7 +1138,7 @@ save_messages_destroy (gpointer user_data, GObject *deadbeef)
 }
 
 void
-em_utils_save_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_save_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	struct _save_messages_data *data;
 	char *path;
@@ -1134,7 +1202,7 @@ tag_editor_response (GtkWidget *dialog, int button, struct ted_t *ted)
 }
 
 void
-em_utils_flag_for_followup (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	GtkWidget *editor;
 	struct ted_t *ted;
@@ -1146,7 +1214,7 @@ em_utils_flag_for_followup (GtkWindow *parent, CamelFolder *folder, GPtrArray *u
 	editor = (GtkWidget *) message_tag_followup_new ();
 	
 	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) editor, parent);
+		e_dialog_set_transient_for ((GtkWindow *) editor, parent);
 	
 	camel_object_ref (folder);
 	
@@ -1183,7 +1251,7 @@ em_utils_flag_for_followup (GtkWindow *parent, CamelFolder *folder, GPtrArray *u
 }
 
 void
-em_utils_flag_for_followup_clear (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	int i;
 	
@@ -1202,7 +1270,7 @@ em_utils_flag_for_followup_clear (GtkWindow *parent, CamelFolder *folder, GPtrAr
 }
 
 void
-em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	char *now;
 	int i;

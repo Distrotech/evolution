@@ -36,23 +36,26 @@ extern "C" {
 GPtrArray *em_utils_uids_copy (GPtrArray *uids);
 void em_utils_uids_free (GPtrArray *uids);
 
-gboolean em_utils_configure_account (GtkWindow *parent);
-gboolean em_utils_check_user_can_send_mail (GtkWindow *parent);
+gboolean em_utils_configure_account (GtkWidget *parent);
+gboolean em_utils_check_user_can_send_mail (GtkWidget *parent);
 
-void em_utils_compose_new_message (GtkWindow *window);
-void em_utils_compose_new_message_with_mailto (GtkWindow *window, const char *url);
+void em_utils_edit_filters (GtkWidget *parent);
+void em_utils_edit_vfolders (GtkWidget *parent);
 
-void em_utils_post_to_url (GtkWindow *parent, const char *url);
+void em_utils_compose_new_message (GtkWidget *parent);
+void em_utils_compose_new_message_with_mailto (GtkWidget *parent, const char *url);
 
-void em_utils_edit_message (GtkWindow *parent, CamelMimeMessage *message);
-void em_utils_edit_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_post_to_url (GtkWidget *parent, const char *url);
 
-void em_utils_forward_attached (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_forward_inline (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_forward_quoted (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_edit_message (GtkWidget *parent, CamelMimeMessage *message);
+void em_utils_edit_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
 
-void em_utils_redirect_message (GtkWindow *parent, CamelMimeMessage *message);
-void em_utils_redirect_message_by_uid (GtkWindow *parent, CamelFolder *folder, const char *uid);
+void em_utils_forward_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_forward_inline (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+
+void em_utils_redirect_message (GtkWidget *parent, CamelMimeMessage *message);
+void em_utils_redirect_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid);
 
 enum {
 	REPLY_MODE_SENDER,
@@ -60,17 +63,17 @@ enum {
 	REPLY_MODE_LIST
 };
 
-void em_utils_reply_to_message (GtkWindow *parent, CamelMimeMessage *message, int mode);
-void em_utils_reply_to_message_by_uid (GtkWindow *parent, CamelFolder *folder, const char *uid, int mode);
+void em_utils_reply_to_message (GtkWidget *parent, CamelMimeMessage *message, int mode);
+void em_utils_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid, int mode);
 
-void em_utils_post_reply_to_message_by_uid (GtkWindow *parent, CamelFolder *folder, const char *uid);
+void em_utils_post_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid);
 
-void em_utils_save_message (GtkWindow *parent, CamelMimeMessage *message);
-void em_utils_save_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_save_message (GtkWidget *parent, CamelMimeMessage *message);
+void em_utils_save_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
 
-void em_utils_flag_for_followup (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_flag_for_followup_clear (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
-void em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
+void em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids);
 
 #ifdef __cplusplus
 }

@@ -249,14 +249,6 @@ emfv_set_message(EMFolderView *emfv, const char *uid)
 
 /* ********************************************************************** */
 
-static GtkWindow *
-emfv_get_parent_window (EMFolderView *emfv)
-{
-	/* FIXME: return our parent window... */
-	return NULL;
-}
-
-
 static void
 emfv_mail_next(BonoboUIComponent *uid, void *data, const char *path)
 {
@@ -355,12 +347,10 @@ emfv_message_forward (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	GConfClient *gconf;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	int mode;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
 	gconf = mail_config_get_gconf_client ();
@@ -370,13 +360,13 @@ emfv_message_forward (BonoboUIComponent *uic, void *data, const char *path)
 	
 	switch (mode) {
 	case MAIL_CONFIG_FORWARD_ATTACHED:
-		em_utils_forward_attached (parent, emfv->folder, uids);
+		em_utils_forward_attached ((GtkWidget *) emfv, emfv->folder, uids);
 		break;
 	case MAIL_CONFIG_FORWARD_INLINE:
-		em_utils_forward_inline (parent, emfv->folder, uids);
+		em_utils_forward_inline ((GtkWidget *) emfv, emfv->folder, uids);
 		break;
 	case MAIL_CONFIG_FORWARD_QUOTED:
-		em_utils_forward_quoted (parent, emfv->folder, uids);
+		em_utils_forward_quoted ((GtkWidget *) emfv, emfv->folder, uids);
 		break;
 	default:
 		break;
@@ -387,125 +377,109 @@ static void
 emfv_message_forward_attached (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_forward_attached (parent, emfv->folder, uids);
+	em_utils_forward_attached ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
 emfv_message_forward_inline (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_forward_inline (parent, emfv->folder, uids);
+	em_utils_forward_inline ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
 emfv_message_forward_quoted (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_forward_quoted (parent, emfv->folder, uids);
+	em_utils_forward_quoted ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
 emfv_message_redirect (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
-	em_utils_redirect_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid);
+	em_utils_redirect_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid);
 }
 
 static void
 emfv_message_post_reply (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
-	em_utils_post_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid);
+	em_utils_post_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid);
 }
 
 static void
 emfv_message_reply_all (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
-	em_utils_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_ALL);
+	em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_ALL);
 }
 
 static void
 emfv_message_reply_list (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
-	em_utils_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_LIST);
+	em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_LIST);
 }
 
 static void
 emfv_message_reply_sender (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
-	em_utils_reply_to_message_by_uid (parent, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_SENDER);
+	em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_SENDER);
 }
 
 static void
@@ -567,39 +541,30 @@ static void
 emfv_message_followup_flag (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_flag_for_followup (parent, emfv->folder, uids);
+	em_utils_flag_for_followup ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
 emfv_message_followup_clear (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_flag_for_followup_clear (parent, emfv->folder, uids);
+	em_utils_flag_for_followup_clear ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
 emfv_message_followup_completed (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_flag_for_followup_completed (parent, emfv->folder, uids);
+	em_utils_flag_for_followup_completed ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
@@ -612,27 +577,23 @@ static void
 emfv_message_resend (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
-	if (!em_utils_check_user_can_send_mail (parent))
+	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
 	
 	uids = message_list_get_selected (emfv->list);
-	em_utils_edit_messages (parent, emfv->folder, uids);
+	em_utils_edit_messages ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void
 emfv_message_saveas (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	GPtrArray *uids;
 	
-	parent = emfv_get_parent_window (emfv);
 	uids = message_list_get_selected (emfv->list);
-	em_utils_save_messages (parent, emfv->folder, uids);
+	em_utils_save_messages ((GtkWidget *) emfv, emfv->folder, uids);
 }
 
 static void

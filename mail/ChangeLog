@@ -1,3 +1,21 @@
+2003-08-25  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-utils.c (em_utils_flag_for_followup): Use
+	e_dialog_set_transient_for().
+	(em_utils_filesel_prompt): Same.
+	(post_reply_to_message): Here too.
+	(em_utils_edit_filters): Same.
+	(create_new_composer): And here.
+	(em_utils_compose_new_message_with_mailto): Here too.
+	(em_utils_post_to_url): "
+	(redirect_get_composer): Same.
+	(reply_get_composer): Again...
+
+	* em-folder-browser.c (emfb_tools_filters): Implemented.
+
+	* em-utils.c (em_utils_edit_filters): New function to open the
+	filter editor dialog.
+
 2003-08-22  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-utils.c (em_utils_flag_for_followup): Implemented.

@@ -1,6 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
+ *           Jeffrey Stedfast <fejj@ximian.com>
  *
  *  Copyright 2003 Ximian, Inc. (www.ximian.com)
  *
@@ -32,8 +33,11 @@
 
 #include <libgnomeprintui/gnome-print-dialog.h>
 
+#include "mail-mt.h"
 #include "mail-tools.h"
 #include "mail-config.h"
+
+#include <e-util/e-passwords.h>
 
 #include <camel/camel-mime-message.h>
 #include <camel/camel-stream.h>
@@ -224,26 +228,24 @@ static void
 emfb_edit_invert_selection(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-
-	printf("editinvertselection: %s\n", path);
-	message_list_invert_selection(emfv->list);
+	
+	message_list_invert_selection (emfv->list);
 }
 
 static void
 emfb_edit_select_all(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	printf("editselectall\n");
-	message_list_select_all(emfv->list);
+	
+	message_list_select_all (emfv->list);
 }
 
 static void
 emfb_edit_select_thread(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-
-	printf("editselectthread\n");
-	message_list_select_thread(emfv->list);
+	
+	message_list_select_thread (emfv->list);
 }
 
 static void
@@ -265,13 +267,10 @@ static void
 emfb_mark_all_read(BonoboUIComponent *uid, void *data, const char *path)
 {
 	/* FIXME: make a 'mark messages' function? */
-
 	EMFolderView *emfv = data;
 	GPtrArray *uids;
 	int i;
-
-	printf("markallread\n");
-
+	
 	uids = camel_folder_get_uids(emfv->folder);
 	camel_folder_freeze(emfv->folder);
 	for (i=0;i<uids->len;i++)
@@ -284,7 +283,7 @@ static void
 emfb_view_hide_read(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-
+	
 	printf("viewhideread\n");
 	message_list_hide_add(emfv->list, "(match-all (system-flag \"seen\"))", ML_HIDE_SAME, ML_HIDE_SAME);
 }
@@ -314,13 +313,6 @@ emfb_view_show_all(BonoboUIComponent *uid, void *data, const char *path)
 
 /* ********************************************************************** */
 
-static GtkWindow *
-emfb_get_parent_window (EMFolderBrowser *emfb)
-{
-	/* FIXME: implement me */
-	return NULL;
-}
-
 static void
 emfb_empty_trash(BonoboUIComponent *uid, void *data, const char *path)
 {
@@ -339,11 +331,8 @@ static void
 emfb_mail_compose(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
-	GtkWindow *parent;
 	
-	parent = emfb_get_parent_window (emfb);
-	
-	em_utils_compose_new_message (parent);
+	em_utils_compose_new_message ((GtkWidget *) emfb);
 }
 
 static void
@@ -356,23 +345,19 @@ static void
 emfb_mail_post(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	GtkWindow *parent;
 	char *url;
 	
-	parent = emfb_get_parent_window ((EMFolderBrowser *) emfv);
-	
 	url = mail_tools_folder_to_url (emfv->folder);
-	em_utils_post_to_url (parent, url);
+	em_utils_post_to_url ((GtkWidget *) emfv, url);
 	g_free (url);
 }
 
 static void
 emfb_tools_filters(BonoboUIComponent *uid, void *data, const char *path)
 {
-	EMFolderView *emfv = data;
-	emfv = emfv;
-
-	/* re-do filter_edit to be a generic callback */
+	EMFolderBrowser *emfb = data;
+	
+	em_utils_edit_filters ((GtkWidget *) emfb);
 }
 
 static void
