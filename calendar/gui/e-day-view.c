@@ -29,6 +29,7 @@
 #include <config.h>
 
 #include "e-day-view.h"
+#include "ea-calendar.h"
 
 #include <math.h>
 #include <time.h>
@@ -537,6 +538,8 @@ e_day_view_class_init (EDayViewClass *class)
 	/* clipboard atom */
 	if (!clipboard_atom)
 		clipboard_atom = gdk_atom_intern ("CLIPBOARD", FALSE);
+        /* init the accessibility support for e_day_view */
+	e_day_view_a11y_init ();
 
 }
 
