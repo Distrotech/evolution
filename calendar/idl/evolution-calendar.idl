@@ -143,6 +143,7 @@ module Calendar {
 		UnsupportedAuthenticationMethod,
 		TLSNotAvailable,
 		NoSuchCal,
+		InvalidObject,
 
 		/* These can be returned for successful searches, but
 		   indicate the result set was truncated */

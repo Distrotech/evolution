@@ -1725,11 +1725,41 @@ cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *c
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
+	icalcomponent *icalcomp;
+	icalcomponent_kind kind;
+	const char *comp_uid;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	/* FIXME Implement */
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+	g_return_val_if_fail (calobj != NULL, GNOME_Evolution_Calendar_ObjectNotFound);
+
+	icalcomp = icalparser_parse_string ((char *) calobj);
+	if (!icalcomp)
+		return GNOME_Evolution_Calendar_InvalidObject;
+
+	kind = icalcomponent_isa (icalcomp);
+	if (kind != ICAL_VEVENT_COMPONENT && kind != ICAL_VTODO_COMPONENT) {
+		icalcomponent_free (icalcomp);
+		return GNOME_Evolution_Calendar_InvalidObject;
+	}
+
+	/* check the object is not in our cache */
+	if (lookup_component (cbfile, icalcomponent_get_uid (icalcomp))) {
+		icalcomponent_free (icalcomp);
+		return GNOME_Evolution_Calendar_CardIdAlreadyExists;
+	}
+
+	/* add object to our cache */
+	comp_uid = cal_backend_file_update_object (cbfile, icalcomp);
+	if (!comp_uid) {
+		icalcomponent_free (icalcomp);
+		return GNOME_Evolution_Calendar_OtherError;
+	}
+
+	cal_backend_obj_updated (backend, comp_uid);
+	mark_dirty (cbfile);
 
 	return GNOME_Evolution_Calendar_Success;
 }
@@ -1740,11 +1770,41 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
+	icalcomponent *icalcomp;
+	icalcomponent_kind kind;
+	const char *comp_uid;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 		
-	/* FIXME Implement */
+	g_return_val_if_fail (priv->icalcomp != NULL, GNOME_Evolution_Calendar_NoSuchCal);
+	g_return_val_if_fail (calobj != NULL, GNOME_Evolution_Calendar_ObjectNotFound);
+
+	icalcomp = icalparser_parse_string ((char *) calobj);
+	if (!icalcomp)
+		return GNOME_Evolution_Calendar_InvalidObject;
+
+	kind = icalcomponent_isa (icalcomp);
+	if (kind != ICAL_VEVENT_COMPONENT && kind != ICAL_VTODO_COMPONENT) {
+		icalcomponent_free (icalcomp);
+		return GNOME_Evolution_Calendar_InvalidObject;
+	}
+
+	/* get the object from our cache */
+	if (!lookup_component (cbfile, icalcomponent_get_uid (icalcomp))) {
+		icalcomponent_free (icalcomp);
+		return GNOME_Evolution_Calendar_ObjectNotFound;
+	}
+
+	/* update the object */
+	comp_uid = cal_backend_file_update_object (cbfile, icalcomp);
+	if (!comp_uid) {
+		icalcomponent_free (icalcomp);
+		return GNOME_Evolution_Calendar_OtherError;
+	}
+
+	cal_backend_obj_updated (backend, comp_uid);
+	mark_dirty (cbfile);
 
 	return GNOME_Evolution_Calendar_Success;
 }
