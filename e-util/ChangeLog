@@ -1,3 +1,8 @@
+2003-10-20  Ettore Perazzoli  <ettore@ximian.com>
+
+	* Makefile.am (pilot_compile) [! ENABLE_PILOT_CONDUITS]: Add
+	md5-utils.c so it compiles even if you have no Pilot support.
+
 2003-10-16  Rodrigo Moya <rodrigo@ximian.com>
 
 	* e-source-list.c (e_source_list_sync): use gconf_client_notify_remove
