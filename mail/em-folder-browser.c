@@ -75,7 +75,7 @@
 #include "em-folder-properties.h"
 #include "em-subscribe-editor.h"
 #include "em-menu.h"
-#include "message-list.h"
+#include "em-tree-view.h"
 
 #include "mail-component.h"
 #include "mail-ops.h"
@@ -114,8 +114,10 @@ static void emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser 
 static void emfb_search_search_activated(ESearchBar *esb, EMFolderBrowser *emfb);
 static void emfb_search_query_changed(ESearchBar *esb, EMFolderBrowser *emfb);
 
+#if 0
 static int emfb_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderBrowser *emfb);
 static void emfb_list_message_selected (MessageList *ml, const char *uid, EMFolderBrowser *emfb);
+#endif
 
 static const EMFolderViewEnable emfb_enable_map[];
 
@@ -163,6 +165,7 @@ emfb_init(GObject *o)
 	EMFolderBrowser *emfb = (EMFolderBrowser *)o;
 	RuleContext *search_context = mail_component_peek_search_context (mail_component_peek ());
 	struct _EMFolderBrowserPrivate *p;
+	GtkWidget *scrolled;
 
 	p = emfb->priv = g_malloc0(sizeof(struct _EMFolderBrowserPrivate));
 
@@ -198,9 +201,15 @@ emfb_init(GObject *o)
 	gtk_widget_show(emfb->vpane);
 
 	gtk_box_pack_start_defaults((GtkBox *)emfb, emfb->vpane);
-	
-	gtk_paned_add1((GtkPaned *)emfb->vpane, (GtkWidget *)emfb->view.list);
+
+	scrolled = gtk_scrolled_window_new(NULL, NULL);
+	gtk_scrolled_window_set_policy((GtkScrolledWindow *)scrolled, GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_scrolled_window_set_shadow_type((GtkScrolledWindow *)scrolled, GTK_SHADOW_IN);
+	gtk_container_add((GtkContainer *)scrolled, (GtkWidget *)emfb->view.list);
 	gtk_widget_show((GtkWidget *)emfb->view.list);
+
+	gtk_paned_add1((GtkPaned *)emfb->vpane, scrolled);
+	gtk_widget_show(scrolled);
 
 	/* currently: just use a scrolledwindow for preview widget */
 	p->preview = gtk_scrolled_window_new(NULL, NULL);
@@ -214,8 +223,11 @@ emfb_init(GObject *o)
 	gtk_paned_add2((GtkPaned *)emfb->vpane, p->preview);
 	gtk_widget_show(p->preview);
 
+#warning "message-list"
+#if 0
 	g_signal_connect (((EMFolderView *) emfb)->list->tree, "key_press", G_CALLBACK(emfb_list_key_press), emfb);
 	g_signal_connect (((EMFolderView *) emfb)->list, "message_selected", G_CALLBACK (emfb_list_message_selected), emfb);
+#endif
 }
 
 static void
@@ -310,13 +322,15 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 		gtk_paned_set_position (GTK_PANED (emfb->vpane), paned_size);
 		gtk_widget_show (GTK_WIDGET (emfb->priv->preview));
 
+#warning "message-list"
+#if 0
 		if (emfb->view.list->cursor_uid) {
 			char *uid = g_alloca(strlen(emfb->view.list->cursor_uid)+1);
 
 			strcpy(uid, emfb->view.list->cursor_uid);
 			em_folder_view_set_message(&emfb->view, uid, FALSE);
 		}
-
+#endif
 		/* need to load/show the current message? */
 		/*do_message_selected (emfb);*/
 		/*set_cursor_pos (emfb, y);*/
@@ -451,6 +465,7 @@ emfb_search_query_changed(ESearchBar *esb, EMFolderBrowser *emfb)
 
 /* ********************************************************************** */
 
+#if 0
 static int
 emfb_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderBrowser *emfb)
 {
@@ -482,6 +497,8 @@ emfb_list_message_selected (MessageList *ml, const char *uid, EMFolderBrowser *e
 	camel_object_meta_set (emfv->folder, "evolution:selected_uid", uid);
 	camel_object_state_write (emfv->folder);
 }
+#endif
+#warning "message-list"
 
 /* ********************************************************************** */
 
@@ -839,7 +856,9 @@ emfb_list_built (MessageList *ml, EMFolderBrowser *emfb)
 	
 	g_signal_handler_disconnect (ml, emfb->priv->list_built_id);
 	emfb->priv->list_built_id = 0;
-	
+
+#warning "message-list"
+#if 0	
 	if (emfv->list->cursor_uid == NULL) {
 		if (emfb->priv->select_uid) {
 			em_folder_view_set_message(emfv, emfb->priv->select_uid, TRUE);
@@ -854,7 +873,7 @@ emfb_list_built (MessageList *ml, EMFolderBrowser *emfb)
 			/*message_list_select (ml, MESSAGE_LIST_SELECT_NEXT, 0, CAMEL_MESSAGE_SEEN, TRUE);*/
 		}
 	}
-	
+#endif
 	emfb->priv->default_scroll_position = position;
 	
 	/* FIXME: this is a gross workaround for an etable bug that I can't fix - bug #55303 */
@@ -931,9 +950,12 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 			g_free(p->select_uid);
 			p->select_uid = NULL;
 		}
-		
+
+#warning "message-list"
+#if 0		
 		if (emfv->list->cursor_uid == NULL && emfb->priv->list_built_id == 0)
 			p->list_built_id = g_signal_connect(emfv->list, "message_list_built", G_CALLBACK (emfb_list_built), emfv);
+#endif
 	}
 
 	message_list_thaw(emfv->list);

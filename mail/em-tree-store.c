@@ -315,8 +315,6 @@ emts_iter_nth_child(GtkTreeModel *tree_model, GtkTreeIter *iter, GtkTreeIter *pa
 {
 	EMTreeNode *node;
 
-	printf("emts_iter_nth_child(%d)\n", n);
-
 	if (parent)
 		node = parent->user_data;
 	else

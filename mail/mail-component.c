@@ -61,7 +61,7 @@
 #include "mail-send-recv.h"
 #include "mail-session.h"
 #include "mail-offline-handler.h"
-#include "message-list.h"
+#include "em-tree-view.h"
 
 #include "e-activity-handler.h"
 #include "shell/e-user-creatable-items-handler.h"

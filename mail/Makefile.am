@@ -184,8 +184,6 @@ libevolution_mail_la_SOURCES =			\
 	mail-types.h				\
 	mail-vfolder.c				\
 	mail-vfolder.h				\
-	message-list.c				\
-	message-list.h				\
 	message-tag-editor.c			\
 	message-tag-editor.h			\
 	message-tag-followup.c			\

@@ -49,6 +49,10 @@ emtv_init(GObject *o)
 	struct _EMTreeViewPrivate *p = _PRIVATE(o);
 
 	p->text_renderer = gtk_cell_renderer_text_new();
+	/* Stupid gtk rubbish */
+	g_object_ref(p->text_renderer);
+	gtk_object_sink((GtkObject *)p->text_renderer);
+
 	emtv = emtv;
 }
 
@@ -112,6 +116,8 @@ em_tree_view_get_type(void)
 EMTreeView *em_tree_view_new(void)
 {
 	EMTreeView *emtv = g_object_new(em_tree_view_get_type(), 0);
+
+	g_object_set((GObject *)emtv, "fixed_height_mode", TRUE, NULL);
 
 	return emtv;
 }
@@ -437,7 +443,7 @@ emtv_rebuild_model(EMTreeView *emtv)
 	gtk_tree_view_set_model((GtkTreeView *)emtv, (GtkTreeModel *)emts);
 
 	p->expanded_filename = mail_config_folder_to_cachename(emtv->folder, "emt-expanded-");
-	p->expanded_filename = mail_config_folder_to_cachename(emtv->folder, "emt-state-");
+	p->state_filename = mail_config_folder_to_cachename(emtv->folder, "emt-state-");
 
 	if (emtv_load_state(emtv) == -1)
 		emtv_load_state_default(emtv);
@@ -469,29 +475,23 @@ void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, cons
 	emtv_rebuild_model(emtv);
 }
 
+static void
+emtv_get_selected(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, void *data)
+{
+	GPtrArray *uids = data;
+	CamelMessageInfo *mi = NULL;
+
+	gtk_tree_model_get(model, iter, EMTS_COL_MESSAGEINFO, &mi, -1);
+	if (mi)
+		g_ptr_array_add(uids, g_strdup(camel_message_info_uid(mi)));
+}
+
 GPtrArray *em_tree_view_get_selected(EMTreeView *emtv)
 {
 	GPtrArray *uids = g_ptr_array_new();
 	GtkTreeSelection *selection = gtk_tree_view_get_selection((GtkTreeView *)emtv);
-	GList *rows, *l;
-	GtkTreeModel *model;
 
-	/* This looks ... slow */
-	rows = gtk_tree_selection_get_selected_rows(selection, &model);
-	for (l=rows; l; l=g_list_next(l)) {
-		GtkTreeIter iter;
-		GtkTreePath *path = l->data;
-
-		if (gtk_tree_model_get_iter(model, &iter, path)) {
-			CamelMessageInfo *mi;
-			
-			gtk_tree_model_get(model, &iter, EMTS_COL_MESSAGEINFO, &mi, -1);
-			if (mi)
-				g_ptr_array_add(uids, g_strdup(camel_message_info_uid(mi)));
-		}
-		gtk_tree_path_free(path);
-	}
-	g_list_free(rows);
+	gtk_tree_selection_selected_foreach(selection, emtv_get_selected, uids);
 
 	return uids;
 }
