@@ -219,20 +219,29 @@ calendar_component_init (CalendarComponent *component)
 	if (!groups) {
 		ESourceGroup *group;
 		ESource *source;
-		char *base_uri;
+		char *base_uri, *new_dir;
 
 		/* create the source group */
 		base_uri = g_build_filename (g_get_home_dir (),
-					     "./evolution/local/OnThisComputer");
+					     "/.evolution/calendar/local/OnThisComputer/",
+					     NULL);
 		group = e_source_group_new (_("On This Computer"), base_uri);
 		e_source_list_add_group (priv->source_list, group, -1);
 
 		/* create default calendars */
-		source = e_source_new (_("Personal"), "Personal");
-		e_source_group_add_source (group, source, -1);
+		new_dir = g_build_filename (base_uri, "Personal/", NULL);
+		if (!e_mkdir_hier (new_dir, 0700)) {
+			source = e_source_new (_("Personal"), "Personal");
+			e_source_group_add_source (group, source, -1);
+		}
+		g_free (new_dir);
 
-		source = e_source_new (_("Work"), "Work");
-		e_source_group_add_source (group, source, -1);
+		new_dir = g_build_filename (base_uri, "Work/", NULL);
+		if (!e_mkdir_hier (new_dir, 0700)) {
+			source = e_source_new (_("Work"), "Work");
+			e_source_group_add_source (group, source, -1);
+		}
+		g_free (new_dir);
 
 		g_free (base_uri);
 	}

@@ -52,7 +52,7 @@ create_new_source_with_group (GtkWindow *parent,
 	/* create the new source */
 	new_dir = g_build_filename (e_source_group_peek_base_uri (group),
 				    source_name, NULL);
-	if (mkdir (new_dir, 0700)) {
+	if (e_mkdir_hier (new_dir, 0700)) {
 		g_free (new_dir);
 		e_notice (parent, GTK_MESSAGE_ERROR,
 			  _("Could not create directory for new calendar"));
