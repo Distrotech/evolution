@@ -1,5 +1,10 @@
 2000-09-19  Not Zed  <NotZed@HelixCode.com>
 
+	* file.c:
+	* find.c:
+	* words.c:
+	* index.c: Removed unused files.
+
 	* block.h: Changed block to use only 24 bits for next and 8 for
 	used, and fixed all relevant code.  Some cleanup.
 	
