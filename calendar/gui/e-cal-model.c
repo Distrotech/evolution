@@ -71,6 +71,8 @@ static void *ecm_initialize_value (ETableModel *etm, int col);
 static gboolean ecm_value_is_empty (ETableModel *etm, int col, const void *value);
 static char *ecm_value_to_string (ETableModel *etm, int col, const void *value);
 
+static const char *ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data);
+
 static GObjectClass *parent_class = NULL;
 
 E_MAKE_TYPE (e_cal_model, "ECalModel", ECalModel, e_cal_model_class_init,
@@ -98,8 +100,7 @@ e_cal_model_class_init (ECalModelClass *klass)
 	etm_class->value_is_empty = ecm_value_is_empty;
 	etm_class->value_to_string = ecm_value_to_string;
 
-	klass->create_component_with_defaults = NULL;
-	klass->get_color_for_component = NULL;
+	klass->get_color_for_component = ecm_get_color_for_component;
 }
 
 static void
@@ -253,15 +254,9 @@ get_classification (ECalModelComponent *comp_data)
 static const char *
 get_color (ECalModel *model, ECalModelComponent *comp_data)
 {
-	ECalModelClass *model_class;
-
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 
-	model_class = E_CAL_MODEL_CLASS (G_OBJECT_GET_CLASS (model));
-	if (model_class && model_class->get_color_for_component)
-		return model_class->get_color_for_component (model, comp_data);
-
-	return NULL;
+	return e_cal_model_get_color_for_component (model, comp_data);
 }
 
 static char *
@@ -581,10 +576,7 @@ ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 	if (!(comp_data->client && cal_client_get_load_state (comp_data->client) == CAL_CLIENT_LOAD_LOADED))
 		return;
 
-	if (E_CAL_MODEL_CLASS (G_OBJECT_GET_CLASS (model))->create_component_with_defaults)
-		icalcomp = E_CAL_MODEL_CLASS (G_OBJECT_GET_CLASS (model))->create_component_with_defaults (model);
-	else
-		icalcomp = icalcomponent_new (ICAL_VEVENT_COMPONENT);
+	icalcomp = e_cal_model_create_component_with_defaults (model);
 
 	set_categories (icalcomp, e_table_model_value_at (source, E_CAL_MODEL_FIELD_CATEGORIES, row));
 	set_classification (icalcomp, e_table_model_value_at (source, E_CAL_MODEL_FIELD_CLASSIFICATION, row));
@@ -751,6 +743,33 @@ ecm_value_to_string (ETableModel *etm, int col, const void *value)
 	case E_CAL_MODEL_FIELD_COLOR :
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		return NULL;
+	}
+
+	return NULL;
+}
+
+/* ECalModel class methods */
+
+static const char *
+ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
+{
+	ECalModelPrivate *priv;
+	gint i, pos;
+	GList *l;
+	gchar *colors[] = { "gray", "green", "darkblue" };
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+	g_return_val_if_fail (comp_data != NULL, NULL);
+
+	priv = model->priv;
+
+	for (l = priv->clients, i = 0; l != NULL; l = l->next, i++) {
+		ECalModelClient *client_data = (ECalModelClient *) l->data;
+
+		if (client_data->client == comp_data->client) {
+			pos = i % G_N_ELEMENTS (colors);
+			return colors[pos];
+		}
 	}
 
 	return NULL;
@@ -1170,6 +1189,61 @@ e_cal_model_set_query (ECalModel *model, const char *sexp)
 		client_data = (ECalModelClient *) l->data;
 		update_query_for_client (model, client_data);
 	}
+}
+
+/**
+ * e_cal_model_create_component_with_defaults
+ */
+icalcomponent *
+e_cal_model_create_component_with_defaults (ECalModel *model)
+{
+	ECalModelPrivate *priv;
+	CalComponent *comp;
+	icalcomponent *icalcomp;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	priv = model->priv;
+
+	g_return_val_if_fail (priv->clients != NULL, NULL);
+
+	switch (priv->kind) {
+	case ICAL_VEVENT_COMPONENT :
+		comp = cal_comp_event_new_with_defaults ((CalClient *) priv->clients->data);
+		break;
+	case ICAL_VTODO_COMPONENT :
+		comp = cal_comp_task_new_with_defaults ((CalClient *) priv->clients->data);
+		break;
+	default:
+		return NULL;
+	}
+
+	icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
+	g_object_unref (comp);
+
+	return icalcomp;
+}
+
+/**
+ * e_cal_model_get_color_for_component
+ */
+const gchar *
+e_cal_model_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
+{
+	ECalModelClass *model_class;
+	const gchar *color = NULL;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+	g_return_val_if_fail (comp_data != NULL, NULL);
+
+	model_class = (ECalModelClass *) G_OBJECT_GET_CLASS (model);
+	if (model_class->get_color_for_component != NULL)
+		color = model_class->get_color_for_component (model, comp_data);
+
+	if (!color)
+		color = ecm_get_color_for_component (model, comp_data);
+
+	return color;
 }
 
 /**

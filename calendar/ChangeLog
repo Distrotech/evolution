@@ -1,5 +1,12 @@
 2003-08-06  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.[ch]: removed 'create_component_with_defaults'
+	virtual method.
+	(e_cal_component_create_component_with_defaults):
+	(e_cal_component_get_color_for_component): new functions.
+
+2003-08-06  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model.[ch] (e_cal_model_set_query): new function.
 	(e_cal_model_remove_all_clients): implemented.
 	(remove_client): also remove all objects belonging to the

@@ -68,7 +68,6 @@ typedef struct {
 	ETableModelClass parent_class;
 
 	/* virtual methods */
-	icalcomponent * (* create_component_with_defaults) (ECalModel *model);
 	const gchar * (* get_color_for_component) (ECalModel *model, ECalModelComponent *comp_data);
 } ECalModelClass;
 
@@ -85,6 +84,8 @@ void                e_cal_model_remove_all_clients (ECalModel *model);
 
 void                e_cal_model_set_query (ECalModel *model, const gchar *sexp);
 
+icalcomponent      *e_cal_model_create_component_with_defaults (ECalModel *model);
+const gchar        *e_cal_model_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data);
 ECalModelComponent *e_cal_model_get_component_at (ECalModel *model, gint row);
 
 gchar              *e_cal_model_date_value_to_string (ECalModel *model, const void *value);
