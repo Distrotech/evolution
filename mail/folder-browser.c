@@ -555,7 +555,7 @@ static gint
 on_right_click (ETable *table, gint row, gint col, GdkEvent *event, FolderBrowser *fb)
 {
 	extern CamelFolder *drafts_folder;
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 	GPtrArray *uids;
 	int enable_mask = 0;
 	int last_item, i;
@@ -668,6 +668,8 @@ on_right_click (ETable *table, gint row, gint col, GdkEvent *event, FolderBrowse
 			else
 				have_undeleted = TRUE;
 			
+			camel_folder_free_message_info(fb->folder, info);
+
 			if (have_seen && have_unseen && have_deleted && have_undeleted)
 				break;
 		}

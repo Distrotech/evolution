@@ -330,7 +330,7 @@ get_message_uid (MessageList *message_list, int row)
 /* Gets the CamelMessageInfo for the message displayed at the given
  * view row.
  */
-static const CamelMessageInfo *
+static CamelMessageInfo *
 get_message_info (MessageList *message_list, int row)
 {
 	const char *uid;
@@ -364,7 +364,7 @@ message_list_select (MessageList *message_list, int base_row,
 		     MessageListSelectDirection direction,
 		     guint32 flags, guint32 mask)
 {
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 	int vrow, mrow, last;
 	ETable *et = message_list->table;
 
@@ -393,8 +393,10 @@ message_list_select (MessageList *message_list, int base_row,
 		if (info && (info->flags & mask) == flags) {
 			e_table_set_cursor_row (et, mrow);
 			gtk_signal_emit(GTK_OBJECT (message_list), message_list_signals [MESSAGE_SELECTED], camel_message_info_uid(info));
+			camel_folder_free_message_info(message_list->folder, info);
 			return;
 		}
+		camel_folder_free_message_info(message_list->folder, info);
 		vrow += direction;
 	}
 
@@ -412,7 +414,7 @@ message_list_drag_data_get (ETable             *table,
 			    gpointer            user_data)
 {
 	MessageList *mlist = (MessageList *) user_data;
-	const CamelMessageInfo *minfo = get_message_info (mlist, row);
+	CamelMessageInfo *minfo;
 	GPtrArray *uids = NULL;
 	char *tmpl, *tmpdir, *filename, *subject;
 	
@@ -433,8 +435,15 @@ message_list_drag_data_get (ETable             *table,
 			g_free (tmpl);
 			return;
 		}
-		
+
+		minfo = get_message_info (mlist, row);
+		if (minfo == NULL) {
+			g_warning("Row %d is invalid", row);
+			g_free(tmpl);
+			return;
+		}
 		subject = g_strdup (camel_message_info_subject (minfo));
+		camel_folder_free_message_info(mlist->folder, minfo);
 		e_filename_make_safe (subject);
 		filename = g_strdup_printf ("%s/%s.eml", tmpdir, subject);
 		g_free (subject);
@@ -646,7 +655,7 @@ ml_tree_icon_at (ETreeModel *etm, ETreePath *path, void *model_data)
 static int
 subtree_unread(MessageList *ml, ETreePath *node)
 {
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 	char *uid;
 
 	while (node) {
@@ -656,8 +665,11 @@ subtree_unread(MessageList *ml, ETreePath *node)
 			g_warning("I got a NULL uid at node %p", node);
 		} else if (id_is_uid(uid)
 			   && (info = camel_folder_get_message_info(ml->folder, id_uid(uid)))) {
-			if (!(info->flags & CAMEL_MESSAGE_SEEN))
+			if (!(info->flags & CAMEL_MESSAGE_SEEN)) {
+				camel_folder_free_message_info(ml->folder, info);
 				return TRUE;
+			}
+			camel_folder_free_message_info(ml->folder, info);
 		}
 		if ((child = e_tree_model_node_get_first_child (E_TREE_MODEL (ml->table_model), node)))
 			if (subtree_unread(ml, child))
@@ -670,7 +682,7 @@ subtree_unread(MessageList *ml, ETreePath *node)
 static int
 subtree_size(MessageList *ml, ETreePath *node)
 {
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 	char *uid;
 	int size = 0;
 
@@ -682,6 +694,7 @@ subtree_size(MessageList *ml, ETreePath *node)
 		} else if (id_is_uid(uid)
 			   && (info = camel_folder_get_message_info(ml->folder, id_uid(uid)))) {
 			size += info->size;
+			camel_folder_free_message_info(ml->folder, info);
 		}
 		if ((child = e_tree_model_node_get_first_child (E_TREE_MODEL (ml->table_model), node)))
 			size += subtree_size(ml, child);
@@ -694,7 +707,7 @@ subtree_size(MessageList *ml, ETreePath *node)
 static time_t
 subtree_earliest(MessageList *ml, ETreePath *node, int sent)
 {
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 	char *uid;
 	time_t earliest = 0, date;
 
@@ -711,6 +724,7 @@ subtree_earliest(MessageList *ml, ETreePath *node, int sent)
 				date = info->date_received;
 			if (earliest == 0 || date < earliest)
 				earliest = date;
+			camel_folder_free_message_info(ml->folder, info);
 		}
 		if ((child = e_tree_model_node_get_first_child (E_TREE_MODEL (ml->table_model), node))) {
 			date = subtree_earliest(ml, child, sent);
@@ -728,9 +742,10 @@ static void *
 ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 {
 	MessageList *message_list = model_data;
-	const CamelMessageInfo *msg_info;
 	char *uid;
 	static char *saved;
+	CamelMessageInfo *info;
+	static CamelMessageInfo *msg_info;
 
 	/* simlated(tm) static dynamic memory (sigh) */
 	if (saved) {
@@ -748,10 +763,21 @@ ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 		goto fake;
 	uid = id_uid(uid);
 
-	msg_info = camel_folder_get_message_info (message_list->folder, uid);
-	if (msg_info == NULL) {
-		g_warning("UID for message-list not found in folder: %s", uid);
-		return NULL;
+	/* we need ot keep the msg_info ref'd as we return the data, sigh.
+
+	   Well, since we have it around, also check to see if its the same
+	   one each call, and save the folder lookup */
+	if (msg_info == NULL || strcmp(camel_message_info_uid(msg_info), uid) != 0) {
+		/* FIXME: what if the folder changes?  Nothing sets the folder
+		   yet, but this probably means we need to cache this inside the ml itself */
+		if (msg_info)
+			camel_folder_free_message_info(message_list->folder, msg_info);
+
+		msg_info = camel_folder_get_message_info (message_list->folder, uid);
+		if (msg_info == NULL) {
+			g_warning("UID for message-list not found in folder: %s", uid);
+			return NULL;
+		}
 	}
 	
 	switch (col){
@@ -856,9 +882,10 @@ ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 		if ( (child = e_tree_model_node_get_first_child(etm, path))
 		     && (uid = e_tree_model_node_get_data (etm, child))
 		     && id_is_uid(uid)	
-		     && (msg_info = camel_folder_get_message_info (message_list->folder, id_uid(uid))) ) {
+		     && (info = camel_folder_get_message_info (message_list->folder, id_uid(uid))) ) {
 			/* well, we could scan more children, build up a (more accurate) list, but this should do ok */
-			saved = g_strdup_printf(_("%s, et al."), camel_message_info_from(msg_info));
+			saved = g_strdup_printf(_("%s, et al."), camel_message_info_from(info));
+			camel_folder_free_message_info(message_list->folder, info);
 		} else {
 			return _("<unknown>");
 		}
@@ -871,9 +898,10 @@ ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 		if ( (child = e_tree_model_node_get_first_child(etm, path))
 		     && (uid = e_tree_model_node_get_data (etm, child))
 		     && id_is_uid(uid)	
-		     && (msg_info = camel_folder_get_message_info (message_list->folder, id_uid(uid))) ) {
+		     && (info = camel_folder_get_message_info (message_list->folder, id_uid(uid))) ) {
 			/* well, we could scan more children, build up a (more accurate) list, but this should do ok */
-			saved = g_strdup_printf(_("%s, et al."), camel_message_info_to(msg_info));
+			saved = g_strdup_printf(_("%s, et al."), camel_message_info_to(info));
+			camel_folder_free_message_info(message_list->folder, info);
 		} else {
 			return _("<unknown>");
 		}
@@ -1269,7 +1297,7 @@ static void
 save_node_state(MessageList *ml, FILE *out, ETreePath *node)
 {
 	char *data;
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 
 	while (node) {
 		ETreePath *child = e_tree_model_node_get_first_child (E_TREE_MODEL (ml->table_model), node);
@@ -1281,6 +1309,7 @@ save_node_state(MessageList *ml, FILE *out, ETreePath *node)
 					info = camel_folder_get_message_info(ml->folder, id_uid(data));
 					if (info) {
 						fprintf(out, "%08x%08x\n", info->message_id.id.part.hi, info->message_id.id.part.lo);
+						camel_folder_free_message_info(ml->folder, info);
 					}
 				} else {
 					fprintf(out, "%s\n", data);
@@ -1988,7 +2017,7 @@ static gint
 on_click (ETableScrolled *table, gint row, gint col, GdkEvent *event, MessageList *list)
 {
 	int flag;
-	const CamelMessageInfo *info;
+	CamelMessageInfo *info;
 
 	if (col == COL_MESSAGE_STATUS)
 		flag = CAMEL_MESSAGE_SEEN;
@@ -2006,6 +2035,7 @@ on_click (ETableScrolled *table, gint row, gint col, GdkEvent *event, MessageLis
 	}
 	
 	camel_folder_set_message_flags(list->folder, camel_message_info_uid(info), flag, ~info->flags);
+	camel_folder_free_message_info(list->folder, info);
 
 	mail_tool_camel_lock_down();
 

@@ -1,3 +1,31 @@
+2000-12-20  Not Zed  <NotZed@HelixCode.com>
+
+	* message-list.c (message_list_select): Free messageinfo lookups.
+	(message_list_drag_data_get): "
+	(subtree_unread): "
+	(subtree_size): "
+	(subtree_earliest): "
+	(ml_tree_value_at): "  Also, keep the message info around in a
+	static variable, and ref'd, so that any internal references we
+	have to it dont vanish while we're not looking.  This has a couple
+	of problems ... esp since we never unref the last access, although
+	camel-folder-summary wont check this when its unref'd, so we're
+	'safe'.
+	(save_node_state): free messageinfo lookups.
+	(on_click): "
+	(get_message_info): deconstify return.
+
+	* mail-tools.c (mail_tool_move_folder_contents): Free messageinfo
+	lookups.
+
+	* mail-ops.c (do_filter_ondemand): Free messageinfo lookups.
+	(do_flag_messages): "
+	(do_fetch_mail): Remove mail_tool_lock stuff.
+	(mail_operation_run): Quick hack to run an operation
+	asynchrounously, in a brand-new thread.
+
+	* folder-browser.c (on_right_click): Free messageinfo lookups.
+
 2000-12-16  Not Zed  <NotZed@HelixCode.com>
 
 	* message-list.c (build_tree): Always use the slow (full-update)
