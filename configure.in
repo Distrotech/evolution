@@ -536,8 +536,9 @@ doc/Makefile
 doc/C/Makefile
 ])
 
-echo "WARNING WARNING WARNING WARNING WARNING WARNING"
-echo "*   Evolution should now compile but YMMV     *"
-echo "*   WRT whether it works or not, threaded     *"
-echo "*                  or not.                    *"
-echo "WARNING WARNING WARNING WARNING WARNING WARNING"
+echo "WARNING WARNING WARNING WARNING WARNING WARNING WARNING"
+echo "*       Evolution should now compile but YMMV         *"
+echo "*       WRT whether it works or not, threaded         *"
+echo "*                      or not.                        *"
+echo "*  --enable-broken-threads is probably required now   *"
+echo "WARNING WARNING WARNING WARNING WARNING WARNING WARNING"
