@@ -96,10 +96,8 @@ typedef enum _EShellConstructResult EShellConstructResult;
 GtkType                e_shell_get_type   (void);
 EShellConstructResult  e_shell_construct  (EShell                *shell,
 					   const char            *iid,
-					   const char            *local_directory,
 					   EShellStartupLineMode  startup_line_mode);
-EShell                *e_shell_new        (const char            *local_directory,
-					   EShellStartupLineMode  startup_line_mode,
+EShell                *e_shell_new        (EShellStartupLineMode  startup_line_mode,
 					   EShellConstructResult *construct_result_return);
 
 EShellWindow *e_shell_create_window         (EShell       *shell,
@@ -108,7 +106,6 @@ gboolean      e_shell_request_close_window  (EShell       *shell,
 					     EShellWindow *window);
 
 
-const char          *e_shell_get_local_directory       (EShell          *shell);
 EUriSchemaRegistry  *e_shell_get_uri_schema_registry   (EShell          *shell);
 
 gboolean             e_shell_save_settings             (EShell          *shell);

@@ -75,8 +75,6 @@ struct _EShellPrivate {
 	/* IID for registering the object on OAF.  */
 	char *iid;
 
-	char *local_directory;
-
 	GList *windows;
 
 	EUriSchemaRegistry *uri_schema_registry;
@@ -493,8 +491,6 @@ impl_finalize (GObject *object)
 		bonobo_activation_active_server_unregister (priv->iid,
 							    bonobo_object_corba_objref (BONOBO_OBJECT (shell)));
 
-	g_free (priv->local_directory);
-
 	e_free_string_list (priv->crash_type_names);
 
 	g_free (priv);
@@ -562,7 +558,6 @@ e_shell_init (EShell *shell)
 	priv->windows = NULL;
 
 	priv->iid                          = NULL;
-	priv->local_directory              = NULL;
 	priv->uri_schema_registry          = NULL;
 	priv->crash_type_names             = NULL;
 	priv->line_status                  = E_SHELL_LINE_STATUS_OFFLINE;
@@ -579,18 +574,15 @@ e_shell_init (EShell *shell)
  * e_shell_construct:
  * @shell: An EShell object to construct
  * @iid: OAFIID for registering the shell into the name server
- * @local_directory: Local directory for storing local information and folders
  * @startup_line_mode: How to set up the line mode (online or offline) initally.
  * 
- * Construct @shell so that it uses the specified @local_directory and
- * @corba_object.
+ * Construct @shell so that it uses the specified @corba_object.
  *
  * Return value: The result of the operation.
  **/
 EShellConstructResult
 e_shell_construct (EShell *shell,
 		   const char *iid,
-		   const char *local_directory,
 		   EShellStartupLineMode startup_line_mode)
 {
 	GtkWidget *splash = NULL;
@@ -600,20 +592,14 @@ e_shell_construct (EShell *shell,
 
 	g_return_val_if_fail (shell != NULL, E_SHELL_CONSTRUCT_RESULT_INVALIDARG);
 	g_return_val_if_fail (E_IS_SHELL (shell), E_SHELL_CONSTRUCT_RESULT_INVALIDARG);
-	g_return_val_if_fail (local_directory != NULL, E_SHELL_CONSTRUCT_RESULT_INVALIDARG);
-	g_return_val_if_fail (g_path_is_absolute (local_directory), E_SHELL_CONSTRUCT_RESULT_INVALIDARG);
 	g_return_val_if_fail (startup_line_mode == E_SHELL_STARTUP_LINE_MODE_CONFIG
 			      || startup_line_mode == E_SHELL_STARTUP_LINE_MODE_ONLINE
 			      || startup_line_mode == E_SHELL_STARTUP_LINE_MODE_OFFLINE,
 			      E_SHELL_CONSTRUCT_RESULT_INVALIDARG);
 	
 	priv = shell->priv;
+	priv->iid = g_strdup (iid);
 
-	priv->iid             = g_strdup (iid);
-	priv->local_directory = g_strdup (local_directory);
-
-	e_setup_check_config (local_directory);
-	
 	/* Now we can register into OAF.  Notice that we shouldn't be
 	   registering into OAF until we are sure we can complete.  */
 	
@@ -662,7 +648,6 @@ e_shell_construct (EShell *shell,
 
 /**
  * e_shell_new:
- * @local_directory: Local directory for storing local information and folders.
  * @start_online: Whether to start in on-line mode or not.
  * @construct_result_return: A pointer to an EShellConstructResult variable into
  * which the result of the operation will be stored.
@@ -672,23 +657,16 @@ e_shell_construct (EShell *shell,
  * Return value: 
  **/
 EShell *
-e_shell_new (const char *local_directory,
-	     EShellStartupLineMode startup_line_mode,
+e_shell_new (EShellStartupLineMode startup_line_mode,
 	     EShellConstructResult *construct_result_return)
 {
 	EShell *new;
 	EShellPrivate *priv;
 	EShellConstructResult construct_result;
 
-	g_return_val_if_fail (local_directory != NULL, NULL);
-	g_return_val_if_fail (*local_directory != '\0', NULL);
-
 	new = g_object_new (e_shell_get_type (), NULL);
 
-	construct_result = e_shell_construct (new,
-					      E_SHELL_OAFIID,
-					      local_directory,
-					      startup_line_mode);
+	construct_result = e_shell_construct (new, E_SHELL_OAFIID, startup_line_mode);
 
 	if (construct_result != E_SHELL_CONSTRUCT_RESULT_OK) {
 		*construct_result_return = construct_result;
@@ -761,24 +739,6 @@ e_shell_request_close_window (EShell *shell,
 		return TRUE;
 	else
 		return FALSE;
-}
-
-
-/**
- * e_shell_get_local_directory:
- * @shell: An EShell object.
- * 
- * Get the local directory associated with @shell.
- * 
- * Return value: A pointer to the path of the local directory.
- **/
-const char *
-e_shell_get_local_directory (EShell *shell)
-{
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->local_directory;
 }
 
 

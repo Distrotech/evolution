@@ -80,7 +80,6 @@
 
 
 static EShell *shell = NULL;
-static char *evolution_directory = NULL;
 
 /* Command-line options.  */
 static gboolean start_online = FALSE;
@@ -373,8 +372,7 @@ idle_cb (void *data)
 	else
 		startup_line_mode = E_SHELL_STARTUP_LINE_MODE_OFFLINE;
 
-	shell = e_shell_new (evolution_directory, startup_line_mode, &result);
-	g_free (evolution_directory);
+	shell = e_shell_new (startup_line_mode, &result);
 
 	switch (result) {
 	case E_SHELL_CONSTRUCT_RESULT_OK:
@@ -559,6 +557,7 @@ main (int argc, char **argv)
 	GnomeProgram *program;
 	poptContext popt_context;
 	const char **args;
+	char *evolution_directory;
 
 	/* Make ElectricFence work.  */
 	free (malloc (10));
@@ -608,11 +607,12 @@ main (int argc, char **argv)
 
 	/* FIXME */
 	evolution_directory = g_build_filename (g_get_home_dir (), "evolution", NULL);
-
 	if (! e_setup (evolution_directory))
 		exit (1);
 	if (setup_only)
 		exit (0);
+
+	g_free (evolution_directory);
 
 	uri_list = NULL;
 
@@ -629,9 +629,9 @@ main (int argc, char **argv)
 	uri_list = g_slist_reverse (uri_list);
 	g_value_unset (&popt_context_value);
 
-	e_config_upgrade(evolution_directory);
+	e_config_upgrade (evolution_directory);
 
-	gtk_idle_add (idle_cb, uri_list);
+	g_idle_add (idle_cb, uri_list);
 
 	bonobo_main ();
 

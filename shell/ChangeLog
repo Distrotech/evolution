@@ -1,5 +1,21 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* main.c: Remove the global evolution_directory variable.
+	(main): Just declare, assign and free the evolution_directory
+	variable here.  Also, use g_idle_add() instead of gtk_idle_add().
+	(idle_cb): Don't pass the evolution directory path to
+	e_shell_new() anymore, since that arg is gone.
+
+	* e-shell.c: Remove member local_directory from EShellPrivate.
+	(impl_finalize): Don't free.
+	(e_shell_init): Don't NULL.
+	(e_shell_construct): Removed arg local_directory.
+	(e_shell_new): Likewise.
+	(e_shell_construct): Don't call e_setup_check_config() here.
+	(e_shell_get_local_directory): Removed.
+
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
 	* main.c: Removed global variable "no_splash".
 	(idle_cb): Updated to not pass the splash argument to
 	e_shell_new().
