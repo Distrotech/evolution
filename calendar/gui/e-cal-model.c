@@ -1251,38 +1251,70 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 
 	for (l = objects; l; l = l->next) {
 		ECalModelComponent *comp_data;
+		int pos;
 
 		e_table_model_pre_change (E_TABLE_MODEL (model));
 
-		comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), icalcomponent_get_uid (l->data));
-		g_assert (comp_data);
-	
-		if (comp_data->icalcomp)
-			icalcomponent_free (comp_data->icalcomp);
-		if (comp_data->dtstart) {
-			g_free (comp_data->dtstart);
-			comp_data->dtstart = NULL;
-		}
-		if (comp_data->dtend) {
-			g_free (comp_data->dtend);
-			comp_data->dtend = NULL;
-		}
-		if (comp_data->due) {
-			g_free (comp_data->due);
-			comp_data->due = NULL;
-		}
-		if (comp_data->completed) {
-			g_free (comp_data->completed);
-			comp_data->completed = NULL;
-		}
-		if (comp_data->color) {
-			g_free (comp_data->color);
-			comp_data->color = NULL;
-		}
-		     
-		comp_data->icalcomp = icalcomponent_new_clone (l->data);
+		if (e_cal_util_component_is_instance (l->data)) {
+			const char *rid, *instance_rid;
 
-		e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
+			rid = icaltime_as_ical_string (icalcomponent_get_recurrenceid (l->data));
+			for (pos = 0; pos < priv->objects->len; pos++) {
+				comp_data = g_ptr_array_index (priv->objects, pos);
+				if (strcmp (icalcomponent_get_uid (l->data), icalcomponent_get_uid (comp_data->icalcomp)) == 0) {
+					if (!e_cal_util_component_is_instance (comp_data->icalcomp))
+						continue;
+
+					instance_rid = icaltime_as_ical_string (icalcomponent_get_recurrenceid (comp_data->icalcomp));
+					if (strcmp (rid, instance_rid) == 0) {
+						if (comp_data->icalcomp)
+							icalcomponent_free (comp_data->icalcomp);
+						if (comp_data->dtstart) {
+							g_free (comp_data->dtstart);
+							comp_data->dtstart = NULL;
+						}
+						if (comp_data->dtend) {
+							g_free (comp_data->dtend);
+							comp_data->dtend = NULL;
+						}
+						if (comp_data->due) {
+							g_free (comp_data->due);
+							comp_data->due = NULL;
+						}
+						if (comp_data->completed) {
+							g_free (comp_data->completed);
+							comp_data->completed = NULL;
+						}
+						if (comp_data->color) {
+							g_free (comp_data->color);
+							comp_data->color = NULL;
+						}
+		     
+						comp_data->icalcomp = icalcomponent_new_clone (l->data);
+
+						e_table_model_row_changed (E_TABLE_MODEL (model),
+									   get_position_in_array (priv->objects, comp_data));
+					}
+				}
+			}
+		} else {
+			GList sl;
+
+			/* remove all objects with this UID */
+			while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {		
+				pos = get_position_in_array (priv->objects, comp_data);
+		
+				g_ptr_array_remove (priv->objects, comp_data);
+				e_cal_model_free_component_data (comp_data);
+		
+				e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+			}
+
+			/* re-add all occurrences */
+			sl.next = sl.prev = NULL;
+			sl.data = l->data;
+			e_cal_view_objects_added_cb (query, &sl, model);
+		}
 	}
 }
 
