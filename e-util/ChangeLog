@@ -1,3 +1,11 @@
+2000-12-19  Not Zed  <NotZed@HelixCode.com>
+
+	* e-sexp.c: Make the code compile without being a gtk object (the
+	old code can still be built as a gtk object if required).  Also
+	removed some dead code.
+	(e_sexp_ref): New function to ref if we're not a gkt object.
+	(e_sexp_unref): Same for unref.
+
 2000-12-13  Larry Ewing  <lewing@helixcode.com>
 
 	* e-html-utils.c (e_text_to_html): make sure we actually make
