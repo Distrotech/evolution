@@ -1,5 +1,13 @@
 2003-09-23  JP Rosevear <jpr@ximian.com>
 
+	* pcs/cal.c (cal_notify_object_created): notify with the object,
+	not the uid
+
+	* gui/e-cal-model.c (add_new_client): don't listen for
+	non-existent signal
+
+2003-09-23  JP Rosevear <jpr@ximian.com>
+
 	* cal-client/cal-client.h: remove dead proto
 
 2003-09-23  JP Rosevear <jpr@ximian.com>

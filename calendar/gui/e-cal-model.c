@@ -1252,17 +1252,6 @@ backend_died_cb (CalClient *client, gpointer user_data)
 }
 
 static void
-cal_removed_cb (CalClient *client, CalClientRemoveStatus status, gpointer user_data)
-{
-	ECalModel *model;
-
-	model = E_CAL_MODEL (user_data);
-
-	if (status == CAL_CLIENT_REMOVE_SUCCESS)
-		e_cal_model_remove_client (model, client);
-}
-
-static void
 add_new_client (ECalModel *model, CalClient *client)
 {
 	ECalModelPrivate *priv;
@@ -1277,8 +1266,8 @@ add_new_client (ECalModel *model, CalClient *client)
 
 	priv->clients = g_list_append (priv->clients, client_data);
 
-	g_signal_connect (G_OBJECT (client_data->client), "cal_removed",
-			  G_CALLBACK (cal_removed_cb), model);
+	/* FIXME Listen for removals? */
+
 	g_signal_connect (G_OBJECT (client_data->client), "backend_died",
 			  G_CALLBACK (backend_died_cb), model);
 

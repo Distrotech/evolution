@@ -867,7 +867,7 @@ cal_notify_object_created (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 		if (!query_object_matches (query, object))
 			continue;
 		
-		query_notify_objects_added_1 (query, uid);
+		query_notify_objects_added_1 (query, object);
 
 		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
 
