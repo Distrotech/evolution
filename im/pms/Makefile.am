@@ -35,6 +35,7 @@ pms_SOURCES = 	\
 pms_LDADD =				\
 	../libMessenger.a		\
 	libemessengerbackend.a		\
+	../messenger/libemessenger.a	\
 	libtocbackend.a			\
 	$(BONOBO_GNOME_LIBS)
 
