@@ -81,7 +81,7 @@ enum {
 };
 
 static void ets_sort_info_changed (ETableSortInfo *sort_info, ETreeSorted *ets);
-static void resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_children);
+static void resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_children, gboolean send_signals);
 static void mark_path_needs_resort (ETreeSorted *ets, ETreeSortedPath *path, gboolean needs_rebuild, gboolean resort_all_children);
 static void schedule_resort (ETreeSorted *ets, ETreeSortedPath *path, gboolean needs_regen, gboolean resort_all_children);
 static void free_path (ETreeSortedPath *path);
@@ -96,7 +96,7 @@ ets_sort_idle(gpointer user_data)
 {
 	ETreeSorted *ets = user_data;
 	if (ets->priv->root) {
-		resort_node (ets, ets->priv->root, FALSE);
+		resort_node (ets, ets->priv->root, FALSE, TRUE);
 	}
 	ets->priv->sort_idle_id = 0;
 	return FALSE;
@@ -345,29 +345,32 @@ generate_children(ETreeSorted *ets, ETreeSortedPath *path, gboolean needs_resort
 }
 
 static void
-resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_children)
+resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_children, gboolean send_signals)
 {
+	gboolean needs_resort;
 	if (path) {
+		needs_resort = path->needs_resort;
 		if (path->needs_resort) {
 			int i;
 			if (path->needs_regen_to_sort)
 				generate_children(ets, path, FALSE);
-			e_table_sorting_utils_tree_sort (E_TREE_MODEL(ets),
-							 ets->priv->sort_info,
-							 ets->priv->full_header,
-							 (ETreePath *) path->children,
-							 path->num_children);
-			for (i = 0; i < path->num_children; i++) {
-				path->children[i]->position = i;
+			if (path->num_children > 0) {
+				e_table_sorting_utils_tree_sort (E_TREE_MODEL(ets),
+								 ets->priv->sort_info,
+								 ets->priv->full_header,
+								 (ETreePath *) path->children,
+								 path->num_children);
+				for (i = 0; i < path->num_children; i++) {
+					path->children[i]->position = i;
+				}
 			}
-			e_tree_model_node_changed(E_TREE_MODEL(ets), path);
 		}
 		if (path->resort_all_children)
 			resort_all_children = TRUE;
 		if ((resort_all_children || path->child_needs_resort) && path->num_children >= 0) {
 			int i;
 			for (i = 0; i < path->num_children; i++) {
-				resort_node(ets, path->children[i], resort_all_children);
+				resort_node(ets, path->children[i], resort_all_children, !needs_resort);
 			}
 			path->child_needs_resort = 0;
 		}
@@ -375,6 +378,8 @@ resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_childr
 		path->child_needs_resort = 0;
 		path->needs_regen_to_sort = 0;
 		path->resort_all_children = 0;
+		if (needs_resort && send_signals)
+			e_tree_model_node_changed(E_TREE_MODEL(ets), path);
 	}
 }
 
