@@ -3,9 +3,9 @@
  * The Evolution addressbook client object.
  *
  * Author:
- *   Nat Friedman (nat@ximian.com)
+ *   Chris Toshok (toshok@ximian.com)
  *
- * Copyright 1999, 2000, Ximian, Inc.
+ * Copyright (C) 1999-2003, Ximian, Inc.
  */
 
 #ifndef __E_BOOK_H__
@@ -14,8 +14,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <e-util/e-list.h>
-#include <ebook/e-card.h>
+#include <ebook/e-contact.h>
 #include <ebook/e-book-query.h>
 #include <ebook/e-book-view.h>
 #include <ebook/e-book-types.h>
@@ -61,10 +60,10 @@ EBookStatus e_book_unload_uri            (EBook       *book);
 EBookStatus e_book_load_local_addressbook (EBook *book);
 
 EBookStatus e_book_get_supported_fields  (EBook       *book,
-					  EList      **fields);
+					  GList      **fields);
 
 EBookStatus e_book_get_supported_auth_methods (EBook       *book,
-					       EList      **auth_methods);
+					       GList      **auth_methods);
 
 /* User authentication. */
 EBookStatus e_book_authenticate_user     (EBook       *book,
@@ -72,35 +71,35 @@ EBookStatus e_book_authenticate_user     (EBook       *book,
 					  const char  *passwd,
 					  const char  *auth_method);
 
-/* Fetching cards. */
-EBookStatus e_book_get_card              (EBook       *book,
+/* Fetching contacts. */
+EBookStatus e_book_get_contact           (EBook       *book,
 					  const char  *id,
-					  ECard      **card);
+					  EContact   **contact);
 
-/* Deleting cards. */
-EBookStatus e_book_remove_card           (EBook       *book,
+/* Deleting contacts. */
+EBookStatus e_book_remove_contact        (EBook       *book,
 					  const char  *id);
 
-EBookStatus e_book_remove_cards          (EBook       *book,
-					  EList       *id_list);
+EBookStatus e_book_remove_contacts       (EBook       *book,
+					  GList       *id_list);
 
-/* Adding cards. */
-EBookStatus e_book_add_card              (EBook       *book,
-					  ECard       *card);
+/* Adding contacts. */
+EBookStatus e_book_add_contact           (EBook       *book,
+					  EContact    *contact);
 
-/* Modifying cards. */
-EBookStatus e_book_commit_card           (EBook       *book,
-					  ECard       *card);
+/* Modifying contacts. */
+EBookStatus e_book_commit_contact        (EBook       *book,
+					  EContact       *contact);
 
 EBookStatus e_book_get_book_view         (EBook       *book,
 					  EBookQuery  *query,
-					  EList       *requested_fields,
+					  GList       *requested_fields,
 					  int          max_results,
 					  EBookView  **book_view);
 
-EBookStatus e_book_get_card_list         (EBook       *book,
+EBookStatus e_book_get_contacts          (EBook       *book,
 					  EBookQuery  *query,
-					  EList       **cards);
+					  GList       **contacts);
 
 EBookStatus e_book_get_changes           (EBook       *book,
 					  char        *changeid,

@@ -56,11 +56,9 @@ typedef struct {
 	void (*create_card)  (PASBackend *backend, PASBook *book, PASCreateCardRequest *req);
 	void (*remove_cards) (PASBackend *backend, PASBook *book, PASRemoveCardsRequest *req);
 	void (*modify_card)  (PASBackend *backend, PASBook *book, PASModifyCardRequest *req);
-	void (*check_connection) (PASBackend *backend, PASBook *book, PASCheckConnectionRequest *req);
 	void (*get_vcard) (PASBackend *backend, PASBook *book, PASGetVCardRequest *req);
-	void (*get_cursor) (PASBackend *backend, PASBook *book, PASGetCursorRequest *req);
+	void (*get_card_list) (PASBackend *backend, PASBook *book, PASGetCardListRequest *req);
 	void (*get_book_view) (PASBackend *backend, PASBook *book, PASGetBookViewRequest *req);
-	void (*get_completion_view) (PASBackend *backend, PASBook *book, PASGetCompletionViewRequest *req);
 	void (*get_changes) (PASBackend *backend, PASBook *book, PASGetChangesRequest *req);
 	void (*authenticate_user) (PASBackend *backend, PASBook *book, PASAuthenticateUserRequest *req);
 	void (*get_supported_fields) (PASBackend *backend, PASBook *book, PASGetSupportedFieldsRequest *req);
@@ -98,21 +96,15 @@ void        pas_backend_remove_cards              (PASBackend             *backe
 void        pas_backend_modify_card              (PASBackend             *backend,
 						  PASBook                *book,
 						  PASModifyCardRequest   *req);
-void        pas_backend_check_connection         (PASBackend             *backend,
-						  PASBook                *book,
-						  PASCheckConnectionRequest *req);
 void        pas_backend_get_vcard                (PASBackend             *backend,
 						  PASBook                *book,
 						  PASGetVCardRequest     *req);
-void        pas_backend_get_cursor               (PASBackend             *backend,
+void        pas_backend_get_card_list            (PASBackend             *backend,
 						  PASBook                *book,
-						  PASGetCursorRequest    *req);
+						  PASGetCardListRequest  *req);
 void        pas_backend_get_book_view            (PASBackend             *backend,
 						  PASBook                *book,
 						  PASGetBookViewRequest  *req);
-void        pas_backend_get_completion_view      (PASBackend             *backend,
-						  PASBook                *book,
-						  PASGetCompletionViewRequest *req);
 void        pas_backend_get_changes              (PASBackend             *backend,
 						  PASBook                *book,
 						  PASGetChangesRequest   *req);

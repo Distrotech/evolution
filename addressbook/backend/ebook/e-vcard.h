@@ -26,18 +26,27 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#define EVC_FN "FN"
-#define EVC_ORG "ORG"
-#define EVC_URL "URL"
+#define EVC_UID     "UID"
+#define EVC_FN      "FN"
+#define EVC_N       "N"
+#define EVC_ORG     "ORG"
+#define EVC_URL     "URL"
 #define EVC_VERSION "VERSION"
-#define EVC_REV "REV"
-#define EVC_PRODID "PRODID"
-#define EVC_TYPE "TYPE"
-#define EVC_ADR "ADR"
-#define EVC_TEL "TEL"
+#define EVC_REV     "REV"
+#define EVC_PRODID  "PRODID"
+#define EVC_TYPE    "TYPE"
+#define EVC_ADR     "ADR"
+#define EVC_TEL     "TEL"
+#define EVC_EMAIL   "EMAIL"
 
 #define EVC_ENCODING "ENCODING"
 #define EVC_QUOTEDPRINTABLE "QUOTED-PRINTABLE"
+
+#define EVC_X_FILE_AS "X-EVOLUTION-FILE-AS"
+#define EVC_X_AIM     "X-AIM"
+#define EVC_X_JABBER  "X-JABBER"
+#define EVC_X_YAHOO   "X-YAHOO"
+#define EVC_X_MSN     "X-MSN"
 
 #define E_TYPE_VCARD            (e_vcard_get_type ())
 #define E_VCARD(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_VCARD, EVCard))
@@ -63,9 +72,12 @@ struct _EVCardClass {
 };
 
 GType   e_vcard_get_type                     (void);
+
+void    e_vcard_construct                    (EVCard *evc, const char *str);
 EVCard* e_vcard_new                          (void);
 EVCard* e_vcard_new_from_string              (const char *str);
-char*   e_vcard_to_string                    (EVCard *evcard);
+
+char*   e_vcard_to_string                    (EVCard *evc);
 /* mostly for debugging */
 void    e_vcard_dump_structure               (EVCard *evc);
 
@@ -73,6 +85,8 @@ void    e_vcard_dump_structure               (EVCard *evc);
 /* attributes */
 EVCardAttribute *e_vcard_attribute_new             (const char *attr_group, const char *attr_name);
 void             e_vcard_attribute_free            (EVCardAttribute *attr);
+EVCardAttribute *e_vcard_attribute_copy            (EVCardAttribute *attr);
+void             e_vcard_remove_attribute          (EVCard *evcard, const char *attr_group, const char *attr_name);
 void             e_vcard_add_attribute             (EVCard *evcard, EVCardAttribute *attr);
 void             e_vcard_add_attribute_with_value  (EVCard *evcard, EVCardAttribute *attr, const char *value);
 void             e_vcard_add_attribute_with_values (EVCard *evcard, EVCardAttribute *attr, ...);
@@ -82,6 +96,7 @@ void             e_vcard_attribute_add_values      (EVCardAttribute *attr, ...);
 /* attribute parameters */
 EVCardAttributeParam* e_vcard_attribute_param_new             (const char *param_name);
 void                  e_vcard_attribute_param_free            (EVCardAttributeParam *param);
+EVCardAttributeParam* e_vcard_attribute_param_copy            (EVCardAttributeParam *param);
 void                  e_vcard_attribute_add_param             (EVCardAttribute *attr, EVCardAttributeParam *param);
 void                  e_vcard_attribute_add_param_with_value  (EVCardAttribute *attr,
 							       EVCardAttributeParam *param, const char *value);

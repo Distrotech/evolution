@@ -1,5 +1,5 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-/* evcard.h
+/* e-vcard.c
  *
  * Copyright (C) 2003 Ximian, Inc.
  *
@@ -480,14 +480,16 @@ parse (EVCard *evc, const char *str)
 		*end = '\0';
 	}
 	
+#if DEBUG_FOLDING
 	printf ("BEFORE FOLDING:\n");
 	printf (str);
-
+#endif
 	buf = fold_lines (buf);
 
+#if DEBUG_FOLDING
 	printf ("\n\nAFTER FOLDING:\n");
 	printf (buf);
-
+#endif
 	p = buf;
 
 	attr = read_attribute (&p);
@@ -579,18 +581,29 @@ unescape_string (const char *s)
 }
 #endif
 
+void
+e_vcard_construct (EVCard *evc, const char *str)
+{
+	if (*str)
+		parse (evc, str);
+}
+
 EVCard *
 e_vcard_new ()
 {
-	return g_object_new (E_TYPE_VCARD, NULL);
+	return e_vcard_new_from_string ("");
 }
 
 EVCard *
 e_vcard_new_from_string (const char *str)
 {
-	EVCard *evc = e_vcard_new ();
+	EVCard *evc;
 
-	parse (evc, str);
+	g_return_val_if_fail (str, NULL);
+
+	evc = e_vcard_new ();
+
+	e_vcard_construct (evc, str);
 
 	return evc;
 }
@@ -732,24 +745,38 @@ e_vcard_attribute_new (const char *attr_group, const char *attr_name)
 void
 e_vcard_attribute_free (EVCardAttribute *attr)
 {
-	GList *p;
-
 	g_free (attr->group);
 	g_free (attr->name);
 
 	g_list_foreach (attr->values, (GFunc)g_free, NULL);
 	g_list_free (attr->values);
 
-	for (p = attr->params; p; p = p->next) {
-		EVCardAttributeParam *param = p->data;
-
-		g_free (param->name);
-		g_list_foreach (param->values, (GFunc)g_free, NULL);
-		g_list_free (param->values);
-		g_free (param);
-	}
+	g_list_foreach (attr->params, (GFunc)e_vcard_attribute_param_free, NULL);
+	g_list_free (attr->params);
 
 	g_free (attr);
+}
+
+EVCardAttribute*
+e_vcard_attribute_copy (EVCardAttribute *attr)
+{
+	EVCardAttribute *a = e_vcard_attribute_new (e_vcard_attribute_get_group (attr),
+						    e_vcard_attribute_get_name (attr));
+	GList *p;
+
+	for (p = attr->values; p; p = p->next)
+		e_vcard_attribute_add_value (a, p->data);
+
+	for (p = attr->params; p; p = p->next)
+		e_vcard_attribute_add_param (a, e_vcard_attribute_param_copy (p->data));
+
+	return a;
+}
+
+void
+e_card_remove_attribute (EVCard *evc, const char *attr_group, const char *attr_value)
+{
+	/* XXX need to write this */
 }
 
 void
@@ -823,6 +850,19 @@ e_vcard_attribute_param_free (EVCardAttributeParam *param)
 	g_list_foreach (param->values, (GFunc)g_free, NULL);
 	g_list_free (param->values);
 	g_free (param);
+}
+
+EVCardAttributeParam*
+e_vcard_attribute_param_copy (EVCardAttributeParam *param)
+{
+	EVCardAttributeParam *p = e_vcard_attribute_param_new (e_vcard_attribute_param_get_name (param));
+	GList *l;
+
+	for (l = param->values; l; l = l->next) {
+		e_vcard_attribute_param_add_value (p, l->data);
+	}
+
+	return p;
 }
 
 void

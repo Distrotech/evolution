@@ -53,8 +53,7 @@ pasinclude_HEADERS =					\
 	pas-book.h					\
 	pas-backend-card-sexp.h				\
 	pas-backend.h					\
-	pas-backend-summary.h				\
-	pas-card-cursor.h
+	pas-backend-summary.h
 
 libpas_a_SOURCES =					\
 	$(pasinclude_HEADERS)				\
@@ -66,7 +65,6 @@ libpas_a_SOURCES =					\
 	pas-backend-file.c				\
 	pas-backend.c					\
 	pas-backend-summary.c				\
-	pas-card-cursor.c				\
 	pas-marshal.c
 
 libpasfile_a_SOURCES =					\

@@ -81,7 +81,7 @@ struct _EBookListenerResponse {
 	GNOME_Evolution_Addressbook_BookView      book_view;
 
 	/* For GetSupportedFields/GetSupportedAuthMethods */
-	EList                                    *list;
+	GList                                    *list;
 
 	/* For ProgressEvent */
 	char                   *msg;

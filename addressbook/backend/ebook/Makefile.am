@@ -54,8 +54,9 @@ libebook_la_SOURCES =					\
 	e-book-view-listener.c				\
 	e-book-view.c					\
 	e-book.c					\
-	e-card-simple.c					\
+	e-contact.c					\
 	e-card.c					\
+	e-card-simple.c					\
 	e-vcard.c
 
 libebook_la_LIBADD =					\
@@ -73,9 +74,8 @@ libebookinclude_HEADERS =				\
 	e-book-view-listener.h				\
 	e-book-view.h					\
 	e-book.h					\
-	e-card-simple.h					\
 	e-card-types.h					\
-	e-card.h					\
+	e-contact.h					\
 	e-vcard.h					\
 	addressbook.h
 

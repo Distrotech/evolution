@@ -108,20 +108,6 @@ pas_backend_modify_card (PASBackend *backend,
 }
 
 void
-pas_backend_check_connection (PASBackend *backend,
-			      PASBook *book,
-			      PASCheckConnectionRequest *req)
-{
-	g_return_if_fail (PAS_IS_BACKEND (backend));
-	g_return_if_fail (PAS_IS_BOOK (book));
-	g_return_if_fail (req != NULL);
-
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->check_connection != NULL);
-
-	(* PAS_BACKEND_GET_CLASS (backend)->check_connection) (backend, book, req);
-}
-
-void
 pas_backend_get_vcard (PASBackend *backend,
 		       PASBook *book,
 		       PASGetVCardRequest *req)
@@ -136,17 +122,17 @@ pas_backend_get_vcard (PASBackend *backend,
 }
 
 void
-pas_backend_get_cursor (PASBackend *backend,
-			PASBook *book,
-			PASGetCursorRequest *req)
+pas_backend_get_card_list (PASBackend *backend,
+			   PASBook *book,
+			   PASGetCardListRequest *req)
 {
 	g_return_if_fail (PAS_IS_BACKEND (backend));
 	g_return_if_fail (PAS_IS_BOOK (book));
-	g_return_if_fail (req != NULL && req->search != NULL);
+	g_return_if_fail (req != NULL && req->query != NULL);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_cursor != NULL);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_card_list != NULL);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_cursor) (backend, book, req);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_card_list) (backend, book, req);
 }
 
 void
@@ -156,25 +142,11 @@ pas_backend_get_book_view (PASBackend *backend,
 {
 	g_return_if_fail (PAS_IS_BACKEND (backend));
 	g_return_if_fail (PAS_IS_BOOK (book));
-	g_return_if_fail (req != NULL && req->search != NULL && req->listener != CORBA_OBJECT_NIL);
+	g_return_if_fail (req != NULL && req->listener != CORBA_OBJECT_NIL);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_book_view != NULL);
 
 	(* PAS_BACKEND_GET_CLASS (backend)->get_book_view) (backend, book, req);
-}
-
-void
-pas_backend_get_completion_view (PASBackend *backend,
-				 PASBook *book,
-				 PASGetCompletionViewRequest *req)
-{
-	g_return_if_fail (PAS_IS_BACKEND (backend));
-	g_return_if_fail (PAS_IS_BOOK (book));
-	g_return_if_fail (req != NULL && req->search != NULL && req->listener != CORBA_OBJECT_NIL);
-
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_completion_view != NULL);
-
-	(* PAS_BACKEND_GET_CLASS (backend)->get_completion_view) (backend, book, req);
 }
 
 void
@@ -258,24 +230,16 @@ process_client_requests (PASBook *book, gpointer user_data)
 		pas_backend_modify_card (backend, book, &req->modify);
 		break;
 
-	case CheckConnection:
-		pas_backend_check_connection (backend, book, &req->check_connection);
-		break;
-
 	case GetVCard:
 		pas_backend_get_vcard (backend, book, &req->get_vcard);
 		break;
 
-	case GetCursor:
-		pas_backend_get_cursor (backend, book, &req->get_cursor);
+	case GetCardList:
+		pas_backend_get_card_list (backend, book, &req->get_card_list);
 		break;
 
 	case GetBookView:
 		pas_backend_get_book_view (backend, book, &req->get_book_view);
-		break;
-
-	case GetCompletionView:
-		pas_backend_get_completion_view (backend, book, &req->get_completion_view);
 		break;
 
 	case GetChanges:

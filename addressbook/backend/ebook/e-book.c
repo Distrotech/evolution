@@ -37,8 +37,8 @@ typedef struct {
 	EBookStatus status;
 
 	char *id;
-	EList *list;
-	ECard *card;
+	GList *list;
+	EContact *contact;
 
 	GNOME_Evolution_Addressbook_Book corba_book;
 } EBookOp;
@@ -131,25 +131,25 @@ e_book_remove_op (EBook *book,
 /**
  * e_book_add_card:
  * @book: an #EBook
- * @card: an #ECard
+ * @contact: an #EContact
  *
- * adds @card to @book.
+ * adds @contact to @book.
  *
  * Return value: a #EBookStatus value.
  **/
 EBookStatus
-e_book_add_card (EBook           *book,
-		 ECard           *card)
+e_book_add_contact (EBook           *book,
+		 EContact           *contact)
 {
 	EBookOp *our_op;
 	EBookStatus status;
 	CORBA_Environment ev;
 	char *vcard_str;
 
-	printf ("e_book_add_card\n");
+	printf ("e_book_add_contact\n");
 
 	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (card && E_IS_CARD (card), E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (contact && E_IS_CONTACT (contact), E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
@@ -163,7 +163,7 @@ e_book_add_card (EBook           *book,
 		return E_BOOK_STATUS_BUSY;
 	}
 
-	vcard_str = e_vcard_to_string (E_VCARD (card));
+	vcard_str = e_vcard_to_string (E_VCARD (contact));
 
 	our_op = e_book_new_op (book);
 
@@ -173,7 +173,7 @@ e_book_add_card (EBook           *book,
 
 	CORBA_exception_init (&ev);
 
-	/* will eventually end up calling e_book_response_add_card */
+	/* will eventually end up calling e_book_response_add_contact */
 	our_op->corba_id = GNOME_Evolution_Addressbook_Book_addCard (book->priv->corba_book,
 								     (const GNOME_Evolution_Addressbook_VCard) vcard_str, &ev);
 
@@ -196,7 +196,7 @@ e_book_add_card (EBook           *book,
 	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
 	status = our_op->status;
-	e_card_set_id (card, our_op->id);
+	e_contact_set (contact, E_CONTACT_UID, our_op->id);
 	g_free (our_op->id);
 
 	e_mutex_unlock (our_op->mutex);
@@ -207,19 +207,19 @@ e_book_add_card (EBook           *book,
 }
 
 static void
-e_book_response_add_card (EBook       *book,
+e_book_response_add_contact (EBook       *book,
 			  int          corba_id,
 			  EBookStatus  status,
 			  char        *id)
 {
 	EBookOp *op;
 
-	printf ("e_book_response_add_card\n");
+	printf ("e_book_response_add_contact\n");
 
 	op = e_book_get_op (book, corba_id);
 
 	if (op == NULL) {
-	  g_warning ("e_book_response_add_card: Cannot find operation ");
+	  g_warning ("e_book_response_add_contact: Cannot find operation ");
 	  return;
 	}
 
@@ -236,18 +236,18 @@ e_book_response_add_card (EBook       *book,
 
 
 /**
- * e_book_commit_card:
+ * e_book_commit_contact:
  * @book: an #EBook
- * @card: an #ECard
+ * @contact: an #EContact
  *
- * applies the changes made to @card to the stored version in
+ * applies the changes made to @contact to the stored version in
  * @book.
  *
  * Return value: a #EBookStatus value.
  **/
 EBookStatus
-e_book_commit_card (EBook           *book,
-		    ECard           *card)
+e_book_commit_contact (EBook           *book,
+		    EContact           *contact)
 {
 	EBookOp *our_op;
 	EBookStatus status;
@@ -255,7 +255,7 @@ e_book_commit_card (EBook           *book,
 	char *vcard_str;
 
 	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (card && E_IS_CARD (card), E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (contact && E_IS_CONTACT (contact), E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
@@ -269,7 +269,7 @@ e_book_commit_card (EBook           *book,
 		return E_BOOK_STATUS_BUSY;
 	}
 
-	vcard_str = e_vcard_to_string (E_VCARD (card));
+	vcard_str = e_vcard_to_string (E_VCARD (contact));
 
 	our_op = e_book_new_op (book);
 
@@ -302,7 +302,7 @@ e_book_commit_card (EBook           *book,
 	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
 	status = our_op->status;
-	e_card_set_id (card, our_op->id);
+	e_contact_set (contact, E_CONTACT_UID, our_op->id);
 	g_free (our_op->id);
 
 	/* remove the op from the book's hash of operations */
@@ -319,7 +319,7 @@ e_book_commit_card (EBook           *book,
 /**
  * e_book_get_supported_fields:
  * @book: an #EBook
- * @fields: an #EList
+ * @fields: a #GList
  *
  * queries @book for the list of fields it supports.  mostly for use
  * by the contact editor so it knows what fields to sensitize.
@@ -328,7 +328,7 @@ e_book_commit_card (EBook           *book,
  **/
 EBookStatus
 e_book_get_supported_fields  (EBook            *book,
-			      EList           **fields)
+			      GList           **fields)
 {
 	EBookOp *our_op;
 	EBookStatus status;
@@ -390,9 +390,9 @@ e_book_get_supported_fields  (EBook            *book,
 
 static void
 e_book_response_get_supported_fields (EBook       *book,
-				       int          corba_id,
-				       EBookStatus  status,
-				       EList       *fields)
+				      int          corba_id,
+				      EBookStatus  status,
+				      GList       *fields)
 {
 	EBookOp *op;
 
@@ -417,7 +417,7 @@ e_book_response_get_supported_fields (EBook       *book,
 /**
  * e_book_get_supported_auth_methods:
  * @book: an #EBook
- * @auth_methods: an #EList
+ * @auth_methods: a #GList
  *
  * queries @book for the list of authentication methods it supports.
  *
@@ -425,7 +425,7 @@ e_book_response_get_supported_fields (EBook       *book,
  **/
 EBookStatus
 e_book_get_supported_auth_methods (EBook            *book,
-				   EList           **auth_methods)
+				   GList           **auth_methods)
 {
 	EBookOp *our_op;
 	EBookStatus status;
@@ -489,7 +489,7 @@ static void
 e_book_response_get_supported_auth_methods (EBook                 *book,
 					    int                    corba_id,
 					    EBookStatus            status,
-					    EList                 *auth_methods)
+					    GList                 *auth_methods)
 {
 	EBookOp *op;
 
@@ -594,20 +594,20 @@ e_book_authenticate_user (EBook         *book,
 
 
 /**
- * e_book_get_card:
+ * e_book_get_contact:
  * @book: an #EBook
  * @id: a string
- * @card: an #ECard
+ * @contact: an #EContact
  *
- * Fills in @card with the contents of the vcard in @book
+ * Fills in @contact with the contents of the vcard in @book
  * corresponding to @id.
  *
  * Return value: a #EBookStatus value.
  **/
 EBookStatus 
-e_book_get_card (EBook       *book,
+e_book_get_contact (EBook       *book,
 		 const char  *id,
-		 ECard      **card)
+		 EContact      **contact)
 {
 	EBookOp *our_op;
 	EBookStatus status;
@@ -615,7 +615,7 @@ e_book_get_card (EBook       *book,
 
 	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
 	g_return_val_if_fail (id,                       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (card,                     E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (contact,                     E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
@@ -658,7 +658,7 @@ e_book_get_card (EBook       *book,
 	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
 	status = our_op->status;
-	*card = our_op->card;
+	*contact = our_op->contact;
 
 	e_mutex_unlock (our_op->mutex);
 
@@ -668,7 +668,7 @@ e_book_get_card (EBook       *book,
 }
 
 static void
-e_book_response_get_card (EBook       *book,
+e_book_response_get_contact (EBook       *book,
 			  int          corba_id,
 			  EBookStatus  status,
 			  char        *vcard)
@@ -686,10 +686,12 @@ e_book_response_get_card (EBook       *book,
 	e_mutex_lock (op->mutex);
 
 	op->status = status;
-	op->card = e_card_new (vcard);
+	op->contact = e_contact_new_from_vcard (vcard);
 
-	if (op->card)
-		e_card_set_book (op->card, book);
+#if notyet
+	if (op->contact)
+		e_contact_set_book (op->contact, book);
+#endif
 
 	pthread_cond_signal (&op->cond);
 
@@ -698,19 +700,19 @@ e_book_response_get_card (EBook       *book,
 
 
 /**
- * e_book_remove_card_by_id:
+ * e_book_remove_contact_by_id:
  * @book: an #EBook
  * @id: a string
  *
- * Removes the card with id @id from @book.
+ * Removes the contact with id @id from @book.
  *
  * Return value: a #EBookStatus value.
  **/
 EBookStatus
-e_book_remove_card (EBook      *book,
-		    const char *id)
+e_book_remove_contact (EBook      *book,
+		       const char *id)
 {
-	EList *list;
+	GList *list;
 	gboolean rv;
 
 	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
@@ -730,42 +732,38 @@ e_book_remove_card (EBook      *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	list = e_list_new ((EListCopyFunc)g_strdup, (EListFreeFunc)g_free, NULL);
+	list = g_list_append (NULL, (char*)id);
 
-	e_list_append (list, id);
-	
-	rv = e_book_remove_cards (book, list);
-
-	g_object_unref (list);
+	rv = e_book_remove_contacts (book, list);
 
 	return rv;
 }
 
 /**
- * e_book_remove_cards:
+ * e_book_remove_contacts:
  * @book: an #EBook
- * @ids: an #EList of const char *id's
+ * @ids: an #GList of const char *id's
  *
- * Removes the cards with ids from the list @ids from @book.  This is
- * always more efficient than calling e_book_remove_card_by_id if you
+ * Removes the contacts with ids from the list @ids from @book.  This is
+ * always more efficient than calling e_book_remove_contact_by_id if you
  * have more than one id to remove, as some backends can implement it
  * as a batch request.
  *
  * Return value: a #EBookStatus value.
  **/
 EBookStatus
-e_book_remove_cards (EBook    *book,
-		     EList    *ids)
+e_book_remove_contacts (EBook    *book,
+			GList    *ids)
 {
 	GNOME_Evolution_Addressbook_CardIdList idlist;
 	CORBA_Environment ev;
-	EIterator *iter;
+	GList *iter;
 	int num_ids, i;
 	EBookOp *our_op;
 	EBookStatus status;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (ids && e_list_length (ids) > 0, E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (ids,                      E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
@@ -787,16 +785,13 @@ e_book_remove_cards (EBook    *book,
 
 	CORBA_exception_init (&ev);
 
-	num_ids = e_list_length (ids);
+	num_ids = g_list_length (ids);
 	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_CardId_allocbuf (num_ids);
 	idlist._maximum = num_ids;
 	idlist._length = num_ids;
 
-	iter = e_list_get_iterator (ids); i = 0;
-	while (e_iterator_is_valid (iter)) {
-		idlist._buffer[i++] = CORBA_string_dup (e_iterator_get (iter));
-		e_iterator_next (iter);
-	}
+	for (iter = ids, i = 0; iter; iter = iter->next)
+		idlist._buffer[i++] = CORBA_string_dup (iter->data);
 
 	/* will eventually end up calling e_book_response_generic */
 	our_op->corba_id = GNOME_Evolution_Addressbook_Book_removeCards (book->priv->corba_book, &idlist, &ev);
@@ -830,7 +825,7 @@ e_book_remove_cards (EBook    *book,
 
 
 /**
- * e_book_get_card_list:
+ * e_book_get_contacts:
  * @book: an #EBook
  * @query: an #EBookQuery
  *
@@ -839,9 +834,9 @@ e_book_remove_cards (EBook    *book,
  * Return value: a #EBookStatus value.
  **/
 EBookStatus
-e_book_get_card_list (EBook       *book,
-		      EBookQuery  *query,
-		      EList       **cards)
+e_book_get_contacts (EBook       *book,
+		     EBookQuery  *query,
+		     GList       **contacts)
 {
 	CORBA_Environment ev;
 	EBookOp *our_op;
@@ -850,7 +845,7 @@ e_book_get_card_list (EBook       *book,
 
 	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
 	g_return_val_if_fail (query,                          E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (cards,                          E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (contacts,                       E_BOOK_STATUS_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
@@ -874,7 +869,7 @@ e_book_get_card_list (EBook       *book,
 
 	query_string = e_book_query_to_string (query);
 
-	/* will eventually end up calling e_book_response_get_card_list */
+	/* will eventually end up calling e_book_response_get_contacts */
 	our_op->corba_id = GNOME_Evolution_Addressbook_Book_getCardList (book->priv->corba_book, query_string, &ev);
 
 	g_free (query_string);
@@ -897,7 +892,7 @@ e_book_get_card_list (EBook       *book,
 	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
 	status = our_op->status;
-	*cards = our_op->list;
+	*contacts = our_op->list;
 
 	e_mutex_unlock (our_op->mutex);
 
@@ -907,10 +902,10 @@ e_book_get_card_list (EBook       *book,
 }
 
 static void
-e_book_response_get_card_list (EBook       *book,
-			       int          corba_id,
-			       EBookStatus  status,
-			       EList       *card_list)
+e_book_response_get_contacts (EBook       *book,
+			      int          corba_id,
+			      EBookStatus  status,
+			      GList       *contact_list)
 {
 
 	EBookOp *op;
@@ -918,14 +913,14 @@ e_book_response_get_card_list (EBook       *book,
 	op = e_book_get_op (book, corba_id);
 
 	if (op == NULL) {
-	  g_warning ("e_book_response_get_card_list: Cannot find operation ");
+	  g_warning ("e_book_response_get_contact_list: Cannot find operation ");
 	  return;
 	}
 
 	e_mutex_lock (op->mutex);
 
 	op->status = status;
-	op->list = card_list;
+	op->list = contact_list;
 
 	pthread_cond_signal (&op->cond);
 
@@ -1052,7 +1047,7 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 {
 	switch (resp->op) {
 	case CreateCardResponse:
-		e_book_response_add_card (book, resp->corba_id, resp->status, resp->id);
+		e_book_response_add_contact (book, resp->corba_id, resp->status, resp->id);
 		break;
 	case RemoveCardResponse:
 	case ModifyCardResponse:
@@ -1060,10 +1055,10 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		e_book_response_generic (book, resp->corba_id, resp->status);
 		break;
 	case GetCardResponse:
-		e_book_response_get_card (book, resp->corba_id, resp->status, resp->vcard);
+		e_book_response_get_contact (book, resp->corba_id, resp->status, resp->vcard);
 		break;
 	case GetCardListResponse:
-		e_book_response_get_card_list (book, resp->corba_id, resp->status, resp->list);
+		e_book_response_get_contacts (book, resp->corba_id, resp->status, resp->list);
 		break;
 #if notyet
 	case GetBookViewResponse:

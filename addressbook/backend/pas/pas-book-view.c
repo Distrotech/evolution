@@ -178,8 +178,8 @@ pas_book_view_notify_status_message (PASBookView *book_view,
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Addressbook_BookViewListener_notifyStatusMessage (
-		book_view->priv->listener, message, &ev);
+	GNOME_Evolution_Addressbook_BookViewListener_notifyProgress (
+		book_view->priv->listener, message, 0, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_view_notify_status_message: Exception signaling BookViewListener!\n");

@@ -34,7 +34,6 @@
 #include <libgnome/gnome-i18n.h>
 
 #include "pas-book.h"
-#include "pas-card-cursor.h"
 #include "pas-backend-card-sexp.h"
 #include "pas-backend-summary.h"
 
@@ -250,6 +249,7 @@ pas_backend_file_book_view_free(PASBackendFileBookView *book_view, void *closure
 	g_free(book_view);
 }
 
+#if 0
 static long
 get_length(PASCardCursor *cursor, gpointer data)
 {
@@ -292,6 +292,7 @@ cursor_destroy(gpointer data, GObject *where_object_was)
 
 	g_free(cursor_data);
 }
+#endif
 
 static void
 view_destroy(gpointer data, GObject *where_object_was)
@@ -907,65 +908,6 @@ pas_backend_file_process_modify_card (PASBackend *backend,
 }
 
 static void
-pas_backend_file_build_cards_list(PASBackend *backend,
-				  PASBackendFileCursorPrivate *cursor_data,
-				  char *search)
-{
-	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-	DB             *db = bf->priv->file_db;
-	DBC            *dbc;
-	int            db_error;
-	DBT  id_dbt, vcard_dbt;
-	PASBackendCardSExp *card_sexp = NULL;
-	gboolean search_needed;
-	
-	cursor_data->elements = NULL;
-
-	search_needed = TRUE;
-
-	if (!strcmp (search, "(contains \"x-evolution-any-field\" \"\")"))
-		search_needed = FALSE;
-
-	card_sexp = pas_backend_card_sexp_new (search);
-	
-	if (!card_sexp)
-		g_warning ("pas_backend_file_build_all_cards_list: error building list\n");
-
-	db_error = db->cursor (db, NULL, &dbc, 0);
-
-	if (db_error != 0) {
-		g_warning ("pas_backend_file_build_all_cards_list: error building list\n");
-	}
-
-	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
-	memset (&id_dbt, 0, sizeof (id_dbt));
-	db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_FIRST);
-
-	while (db_error == 0) {
-
-		/* don't include the version in the list of cards */
-		if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
-		    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
-
-			if ((!search_needed) || (card_sexp != NULL && pas_backend_card_sexp_match_vcard  (card_sexp, vcard_dbt.data))) {
-				cursor_data->elements = g_list_prepend (cursor_data->elements, g_strdup (vcard_dbt.data));
-			}
-		}
-
-		db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
-
-	}
-
-	if (db_error != DB_NOTFOUND) {
-		g_warning ("pas_backend_file_build_all_cards_list: error building list\n");
-	}
-	else {
-		cursor_data->num_elements = g_list_length (cursor_data->elements);
-		cursor_data->elements = g_list_reverse (cursor_data->elements);
-	}
-}
-
-static void
 pas_backend_file_process_get_vcard (PASBackend *backend,
 				    PASBook    *book,
 				    PASGetVCardRequest *req)
@@ -999,53 +941,62 @@ pas_backend_file_process_get_vcard (PASBackend *backend,
 }
 
 static void
-pas_backend_file_process_get_cursor (PASBackend *backend,
-				     PASBook    *book,
-				     PASGetCursorRequest *req)
+pas_backend_file_process_get_card_list (PASBackend *backend,
+					PASBook    *book,
+					PASGetCardListRequest *req)
 {
-	/*
-	  PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-	  DB             *db = bf->priv->file_db;
-	  DBT            id_dbt, vcard_dbt;
-	*/
-	CORBA_Environment ev;
-	int            db_error = 0;
-	PASBackendFileCursorPrivate *cursor_data;
-	PASCardCursor *cursor;
-	GNOME_Evolution_Addressbook_Book corba_book;
+	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
+	DB             *db = bf->priv->file_db;
+	DBC            *dbc;
+	int            db_error;
+	DBT  id_dbt, vcard_dbt;
+	PASBackendCardSExp *card_sexp = NULL;
+	gboolean search_needed;
+	char *search = req->query;
+	EList *card_list = e_list_new ((EListCopyFunc)g_strdup, (EListFreeFunc)g_free, NULL);
 
-	cursor_data = g_new(PASBackendFileCursorPrivate, 1);
-	cursor_data->backend = backend;
-	cursor_data->book = book;
+	printf ("pas_backend_file_process_get_card_list (%s)\n", search);
 
-	pas_backend_file_build_cards_list(backend, cursor_data, req->search);
+	search_needed = TRUE;
 
-	corba_book = bonobo_object_corba_objref(BONOBO_OBJECT(book));
+	if (!strcmp (search, "(contains \"x-evolution-any-field\" \"\")"))
+		search_needed = FALSE;
 
-	CORBA_exception_init(&ev);
-
-	GNOME_Evolution_Addressbook_Book_ref(corba_book, &ev);
+	card_sexp = pas_backend_card_sexp_new (search);
 	
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning("pas_backend_file_process_get_cursor: Exception reffing "
-			  "corba book.\n");
+	if (!card_sexp)
+		g_warning ("pas_backend_file_get_card_list: error building list\n");
+
+	db_error = db->cursor (db, NULL, &dbc, 0);
+
+	if (db_error != 0) {
+		g_warning ("pas_backend_file_get_card_list: error building list\n");
 	}
 
-	CORBA_exception_free(&ev);
-	
-	cursor = pas_card_cursor_new(get_length,
-				     get_nth,
-				     cursor_data);
+	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
+	memset (&id_dbt, 0, sizeof (id_dbt));
+	db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_FIRST);
 
-	g_object_weak_ref (G_OBJECT (cursor),
-			   cursor_destroy, cursor_data);
-	
-	pas_book_respond_get_cursor (
-		book,
-		(db_error == 0 
-		 ? GNOME_Evolution_Addressbook_BookListener_Success 
-		 : GNOME_Evolution_Addressbook_BookListener_CardNotFound),
-		cursor);
+	while (db_error == 0) {
+
+		/* don't include the version in the list of cards */
+		if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
+		    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
+
+			if ((!search_needed) || (card_sexp != NULL && pas_backend_card_sexp_match_vcard  (card_sexp, vcard_dbt.data))) {
+				e_list_append (card_list, vcard_dbt.data);
+			}
+		}
+
+		db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
+
+	}
+
+	pas_book_respond_get_card_list (book,
+					db_error != DB_NOTFOUND
+					? GNOME_Evolution_Addressbook_BookListener_OtherError
+					: GNOME_Evolution_Addressbook_BookListener_Success,
+					card_list);
 }
 
 static void
@@ -1087,6 +1038,7 @@ pas_backend_file_process_get_book_view (PASBackend *backend,
 	g_object_unref(iterator);
 }
 
+#if 0
 static void
 pas_backend_file_process_get_completion_view (PASBackend *backend,
 					      PASBook    *book,
@@ -1125,6 +1077,7 @@ pas_backend_file_process_get_completion_view (PASBackend *backend,
 	pas_backend_file_search (bf, book, e_iterator_get(iterator), TRUE);
 	g_object_unref(iterator);
 }
+#endif
 
 static void
 pas_backend_file_process_get_changes (PASBackend *backend,
@@ -1170,16 +1123,6 @@ pas_backend_file_process_get_changes (PASBackend *backend,
 	e_iterator_last(iterator);
 	pas_backend_file_changes (bf, book, e_iterator_get(iterator));
 	g_object_unref(iterator);
-}
-
-static void
-pas_backend_file_process_check_connection (PASBackend *backend,
-					   PASBook    *book,
-					   PASCheckConnectionRequest *req)
-{
-	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-
-	pas_book_report_connection (book, bf->priv->file_db != NULL);
 }
 
 static char *
@@ -1565,11 +1508,9 @@ pas_backend_file_class_init (PASBackendFileClass *klass)
 	parent_class->create_card             = pas_backend_file_process_create_card;
 	parent_class->remove_cards            = pas_backend_file_process_remove_cards;
 	parent_class->modify_card             = pas_backend_file_process_modify_card;
-	parent_class->check_connection        = pas_backend_file_process_check_connection;
 	parent_class->get_vcard               = pas_backend_file_process_get_vcard;
-	parent_class->get_cursor              = pas_backend_file_process_get_cursor;
+	parent_class->get_card_list           = pas_backend_file_process_get_card_list;
 	parent_class->get_book_view           = pas_backend_file_process_get_book_view;
-	parent_class->get_completion_view     = pas_backend_file_process_get_completion_view;
 	parent_class->get_changes             = pas_backend_file_process_get_changes;
 	parent_class->authenticate_user       = pas_backend_file_process_authenticate_user;
 	parent_class->get_supported_fields    = pas_backend_file_process_get_supported_fields;

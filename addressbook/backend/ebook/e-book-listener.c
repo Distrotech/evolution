@@ -11,7 +11,7 @@
 
 #include <config.h>
 #include <bonobo/bonobo-main.h>
-#include "e-card.h"
+#include "e-contact.h"
 #include "e-book-listener.h"
 #include "e-book-marshal.h"
 
@@ -232,11 +232,10 @@ e_book_listener_queue_get_supported_fields_response (EBookListener *listener,
 
 	resp->op     = GetSupportedFieldsResponse;
 	resp->status = status;
-	resp->list   = e_list_new ((EListCopyFunc)g_strdup, (EListFreeFunc)g_free, NULL);
+	resp->list   = NULL;
 
-	for (i = 0; i < fields->_length; i ++) {
-		e_list_append (resp->list, fields->_buffer[i]);
-	}
+	for (i = 0; i < fields->_length; i ++)
+		resp->list = g_list_prepend (resp->list, g_strdup (fields->_buffer[i]));
 
 	e_book_listener_queue_response (listener, resp);
 }
@@ -256,11 +255,10 @@ e_book_listener_queue_get_supported_auth_methods_response (EBookListener *listen
 
 	resp->op     = GetSupportedAuthMethodsResponse;
 	resp->status = status;
-	resp->list   = e_list_new ((EListCopyFunc)g_strdup, (EListFreeFunc)g_free, NULL);
+	resp->list   = NULL;
 
-	for (i = 0; i < auth_methods->_length; i ++) {
-		e_list_append (resp->list, auth_methods->_buffer[i]);
-	}
+	for (i = 0; i < auth_methods->_length; i ++)
+		resp->list = g_list_prepend (resp->list, g_strdup (auth_methods->_buffer[i]));
 
 	e_book_listener_queue_response (listener, resp);
 }
@@ -353,10 +351,10 @@ impl_BookListener_respond_get_card_list (PortableServer_Servant servant,
 
 	response.op     = GetCardListResponse;
 	response.status = status;
-	response.list   = e_list_new ((EListCopyFunc)g_object_ref, (EListFreeFunc)g_object_unref, NULL);
+	response.list   = NULL;
 
 	for (i = 0; i < cards->_length; i ++) {
-		e_list_append (response.list, e_card_new (cards->_buffer[i]));
+		response.list = g_list_prepend (response.list, e_contact_new_from_vcard (cards->_buffer[i]));
 	}
 
 	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);

@@ -2760,7 +2760,7 @@ e_card_load_uri (const gchar *book_uri, const gchar *uid, ECard **card)
 		return status;
 	}
 
-	status = e_book_get_card (book, uid, card);
+	status = e_book_get_contact (book, uid, card);
 
 	g_object_unref (book);
 	return status;

@@ -13,7 +13,7 @@
 #include <bonobo/bonobo-main.h>
 #include "e-book-view-listener.h"
 #include "e-book-view.h"
-#include "e-card.h"
+#include "e-contact.h"
 #include "e-book-marshal.h"
 
 static EBookViewStatus e_book_view_listener_convert_status (GNOME_Evolution_Addressbook_BookViewListener_CallStatus status);
@@ -180,7 +180,7 @@ e_book_view_listener_queue_sequence_event (EBookViewListener          *listener,
 	resp->message   = NULL;
 	
 	for ( i = 0; i < cards->_length; i++ ) {
-		resp->cards = g_list_append(resp->cards, e_card_new(cards->_buffer[i]));
+		resp->cards = g_list_append(resp->cards, e_contact_new_from_vcard (cards->_buffer[i]));
 	}
 
 	e_book_view_listener_queue_response (listener, resp);

@@ -21,22 +21,22 @@ struct EBookQuery {
 
 	union {
 		struct {
-			guint             nqs;
-			EBookQuery      **qs;
+			guint          nqs;
+			EBookQuery   **qs;
 		} andor;
 
 		struct {
-			EBookQuery       *q;
+			EBookQuery    *q;
 		} not;
 
 		struct {
-			EBookQueryTest    test;
-			ECardSimpleField  field;
-			char             *value;
+			EBookQueryTest test;
+			EContactField  field;
+			char          *value;
 		} field_test;
 
 		struct {
-			ECardSimpleField  field;
+			EContactField  field;
 		} exist;
 	} query;
 };
@@ -124,7 +124,7 @@ e_book_query_not (EBookQuery *q, gboolean unref)
 }
 
 EBookQuery *
-e_book_query_field_test (ECardSimpleField field,
+e_book_query_field_test (EContactField field,
 			 EBookQueryTest test,
 			 const char *value)
 {
@@ -139,7 +139,7 @@ e_book_query_field_test (ECardSimpleField field,
 }
 
 EBookQuery *
-e_book_query_field_exists (ECardSimpleField field)
+e_book_query_field_exists (EContactField field)
 {
 	EBookQuery *ret = g_new0 (EBookQuery, 1);
 
@@ -224,7 +224,7 @@ e_book_query_to_string    (EBookQuery *q)
 		g_free (s);
 		break;
 	case E_BOOK_QUERY_TYPE_FIELD_EXISTS:
-		g_string_append_printf (str, "exists \"%s\"", e_card_simple_get_ecard_field (NULL, q->query.exist.field));
+		g_string_append_printf (str, "exists \"%s\"", e_contact_field_name (q->query.exist.field));
 		break;
 	case E_BOOK_QUERY_TYPE_FIELD_TEST:
 		switch (q->query.field_test.test) {
@@ -237,7 +237,7 @@ e_book_query_to_string    (EBookQuery *q)
 		/* XXX need to escape q->query.field_test.value */
 		g_string_append_printf (str, "%s \"%s\" \"%s\"",
 					s,
-					e_card_simple_get_ecard_field (NULL, q->query.field_test.field),
+					e_contact_field_name (q->query.field_test.field),
 					q->query.field_test.value);
 		break;
 	}

@@ -15,14 +15,61 @@ run_mainloop (void *data)
 	bonobo_main();
 }
 
+static void
+print_all_emails (EBook *book)
+{
+	EBookQuery *query;
+	EBookStatus status;
+	GList *cards, *c;
+
+
+	/*
+	  this should be:
+	    query = e_book_query_field_exists (E_CARD_SIMPLE_FIELD_FULL_NAME);
+	  but backends don't handle "exists" yet.
+	*/
+	query = e_book_query_field_test (E_CONTACT_FULL_NAME,
+					 E_BOOK_QUERY_CONTAINS, "");
+
+	status = e_book_get_contacts (book, query, &cards);
+
+	e_book_query_unref (query);
+
+	if (status != E_BOOK_STATUS_OK) {
+		printf ("error getting card list\n");
+		exit(0);
+	}
+
+	for (c = cards; c; c = c->next) {
+		EContact *contact = E_CONTACT (c->data);
+		char *file_as = e_contact_get (contact, E_CONTACT_FILE_AS);
+		GList *emails, *e;
+
+		printf ("Contact: %s\n", file_as);
+		printf ("Email addresses:\n");
+		emails = e_contact_get (contact, E_CONTACT_EMAIL);
+		for (e = emails; e; e = e->next) {
+			EVCardAttribute *attr = e->data;
+			GList *values = e_vcard_attribute_get_values (attr);
+			printf ("\t%s\n",  values && values->data ? (char*)values->data : "");
+			e_vcard_attribute_free (attr);
+		}
+		g_list_free (emails);
+
+		g_free (file_as);
+
+		g_object_unref (contact);
+
+		printf ("\n");
+	}
+	g_list_free (cards);
+}
+
 int
 main (int argc, char **argv)
 {
 	EBook *book;
-	EBookQuery *query;
 	EBookStatus status;
-	EList *cards;
-	EIterator *iter;
 
 	gnome_program_init("test-ebook", "0.0", LIBGNOME_MODULE, argc, argv, NULL);
 
@@ -30,6 +77,11 @@ main (int argc, char **argv)
 		g_error ("Could not initialize Bonobo");
 
 	pthread_create(&mainloop_thread, NULL, run_mainloop, NULL);
+
+
+	/*
+	** the actual ebook foo
+	*/
 
 	book = e_book_new ();
 
@@ -39,36 +91,9 @@ main (int argc, char **argv)
 		exit(0);
 	}
 
-	/*
-	  XXX this should be:
+	print_all_emails (book);
 
-	  query = e_book_query_field_exists (E_CARD_SIMPLE_FIELD_FULL_NAME);
 
-	  but backends don't handle "exists" yet.
-	*/
-	query = e_book_query_field_test (E_CARD_SIMPLE_FIELD_FULL_NAME,
-					 E_BOOK_QUERY_CONTAINS, "");
-
-	status = e_book_get_card_list (book, query, &cards);
-
-	e_book_query_unref (query);
-
-	if (status != E_BOOK_STATUS_OK) {
-		printf ("error getting card list\n");
-		exit(0);
-	}
-
-	iter = e_list_get_iterator (cards);
-	while (e_iterator_is_valid (iter)) {
-		ECard *card = (ECard*)e_iterator_get (iter);
-
-		printf ("Contact: %s\n", card->file_as);
-
-		e_iterator_next (iter);
-	}
-
-	g_object_unref (iter);
-	g_object_unref (cards);
 	g_object_unref (book);
 
 	bonobo_main_quit();

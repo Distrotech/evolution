@@ -9,7 +9,6 @@
 #include <config.h>
 #include <bonobo/bonobo-main.h>
 #include "addressbook.h"
-#include "pas-card-cursor.h"
 
 struct _PASCardCursorPrivate {
 	long     (*get_length) (PASCardCursor *cursor, gpointer data);

@@ -40,7 +40,6 @@
 #include "pas-backend-ldap.h"
 #include "pas-backend-card-sexp.h"
 #include "pas-book.h"
-#include "pas-card-cursor.h"
 
 #include <stdlib.h>
 
@@ -1761,6 +1760,7 @@ pas_backend_ldap_process_get_vcard (PASBackend *backend,
 }
 
 
+#if 0
 typedef struct {
 	LDAPOp op;
 	PASBackendLDAPCursorPrivate *cursor_data;
@@ -1942,6 +1942,7 @@ pas_backend_ldap_process_get_cursor (PASBackend *backend,
 		get_cursor_dtor ((LDAPOp*)cursor_op);
 	}
 }
+#endif
 
 
 /* List property functions */
@@ -3142,32 +3143,11 @@ pas_backend_ldap_process_get_book_view (PASBackend *backend,
 }
 
 static void
-pas_backend_ldap_process_get_completion_view (PASBackend *backend,
-					      PASBook    *book,
-					      PASGetCompletionViewRequest *req)
-{
-	PASBackendLDAP *bl = PAS_BACKEND_LDAP (backend);
-
-	ldap_get_view (backend, book, req->search, req->listener, 
-		       MIN (bl->priv->ldap_limit, 100));
-}
-
-static void
 pas_backend_ldap_process_get_changes (PASBackend *backend,
 				      PASBook    *book,
 				      PASGetChangesRequest *req)
 {
 	/* FIXME: implement */
-}
-
-static void
-pas_backend_ldap_process_check_connection (PASBackend *backend,
-					   PASBook    *book,
-					   PASCheckConnectionRequest *req)
-{
-	PASBackendLDAP *bl = PAS_BACKEND_LDAP (backend);
-
-	pas_book_report_connection (book, bl->priv->connected);
 }
 
 #define LDAP_SIMPLE_PREFIX "ldap/simple-"
@@ -3495,11 +3475,8 @@ pas_backend_ldap_class_init (PASBackendLDAPClass *klass)
 	parent_class->create_card             = pas_backend_ldap_process_create_card;
 	parent_class->remove_cards            = pas_backend_ldap_process_remove_cards;
 	parent_class->modify_card             = pas_backend_ldap_process_modify_card;
-	parent_class->check_connection        = pas_backend_ldap_process_check_connection;
 	parent_class->get_vcard               = pas_backend_ldap_process_get_vcard;
-	parent_class->get_cursor              = pas_backend_ldap_process_get_cursor;
 	parent_class->get_book_view           = pas_backend_ldap_process_get_book_view;
-	parent_class->get_completion_view     = pas_backend_ldap_process_get_completion_view;
 	parent_class->get_changes             = pas_backend_ldap_process_get_changes;
 	parent_class->authenticate_user       = pas_backend_ldap_process_authenticate_user;
 	parent_class->get_supported_fields    = pas_backend_ldap_process_get_supported_fields;
