@@ -1012,7 +1012,7 @@ sig_changed_text (GtkWidget *w, MailAccountGui *gui)
 	gui->text_signature = (MailConfigSignature *) gtk_object_get_data (GTK_OBJECT (active), "sig");
 	gui->text_random = index == 1;
 
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), !gui->text_random);
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), gui->text_signature != NULL);
 }
 
 static void
@@ -1027,7 +1027,7 @@ sig_changed_html (GtkWidget *w, MailAccountGui *gui)
 	gui->html_signature = (MailConfigSignature *) gtk_object_get_data (GTK_OBJECT (active), "sig");
 	gui->html_random = index == 1;
 
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), !gui->html_random);
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), gui->html_signature != NULL);
 }
 
 static void
@@ -1061,6 +1061,33 @@ sig_edit_html (GtkWidget *w, MailAccountGui *gui)
 }
 
 static void
+sig_new_text (GtkWidget *w, MailAccountGui *gui)
+{
+	GtkWidget *mi;
+
+	if (!gui->dialog)
+		return;
+
+	gtk_window_set_transient_for (GTK_WINDOW (gtk_widget_get_toplevel (w)), NULL);
+	gdk_window_raise (GTK_WIDGET (gui->dialog)->window);
+	gtk_notebook_set_page (GTK_NOTEBOOK (glade_xml_get_widget (gui->dialog->gui, "notebook")), 3);
+
+	gui->text_signature = mail_accounts_dialog_new_signature (gui->dialog);
+	gui->text_random = FALSE;
+	
+	mi = gtk_menu_item_new_with_label (gui->text_signature->name);
+	gtk_object_set_data (GTK_OBJECT (mi), "sig", gui->text_signature);
+	gtk_menu_append (GTK_MENU (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text))), mi);
+
+	mi = gtk_menu_item_new_with_label (gui->text_signature->name);
+	gtk_object_set_data (GTK_OBJECT (mi), "sig", gui->text_signature);
+	gtk_menu_append (GTK_MENU (GTK_MENU (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html)))), mi);
+
+	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text),
+				     gui->text_signature->id + (mail_config_get_signatures_random () ? 2 : 1));
+}
+
+static void
 setup_signatures (MailAccountGui *gui)
 {
 	gui->text_signature = gui->account->id->text_signature;
@@ -1071,8 +1098,8 @@ setup_signatures (MailAccountGui *gui)
 	sig_select_text_sig (gui);
 	sig_select_html_sig (gui);
 
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), !gui->text_random);
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), !gui->html_random);		
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), gui->text_signature != NULL);
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), gui->html_signature != NULL);
 }
 
 static void
@@ -1089,20 +1116,33 @@ prepare_signatures (MailAccountGui *gui)
 			    "selection-done", sig_changed_html, gui);
 
 	gui->sig_new_text = glade_xml_get_widget (gui->xml, "button-sig-new-text");
+	gtk_signal_connect (GTK_OBJECT (gui->sig_new_text), "clicked", GTK_SIGNAL_FUNC (sig_new_text), gui);
 	gui->sig_new_html = glade_xml_get_widget (gui->xml, "button-sig-new-html");
 	gui->sig_edit_text = glade_xml_get_widget (gui->xml, "button-sig-edit-text");
 	gtk_signal_connect (GTK_OBJECT (gui->sig_edit_text), "clicked", GTK_SIGNAL_FUNC (sig_edit_text), gui);
 	gui->sig_edit_html = glade_xml_get_widget (gui->xml, "button-sig-edit-html");
 	gtk_signal_connect (GTK_OBJECT (gui->sig_edit_html), "clicked", GTK_SIGNAL_FUNC (sig_edit_html), gui);
+
+	if (!gui->dialog) {
+		gtk_widget_hide (glade_xml_get_widget (gui->xml, "label-sig-text"));
+		gtk_widget_hide (glade_xml_get_widget (gui->xml, "label-sig-html"));
+		gtk_widget_hide (gui->sig_option_text);
+		gtk_widget_hide (gui->sig_option_html);
+		gtk_widget_hide (gui->sig_new_text);
+		gtk_widget_hide (gui->sig_new_html);
+		gtk_widget_hide (gui->sig_edit_text);
+		gtk_widget_hide (gui->sig_edit_html);
+	}
 }
 
 MailAccountGui *
-mail_account_gui_new (MailConfigAccount *account)
+mail_account_gui_new (MailConfigAccount *account, MailAccountsDialog *dialog)
 {
 	MailAccountGui *gui;
 	
 	gui = g_new0 (MailAccountGui, 1);
 	gui->account = account;
+	gui->dialog = dialog;
 	gui->xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-config.glade", NULL);
 	
 	/* Management */

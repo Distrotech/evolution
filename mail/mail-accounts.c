@@ -261,7 +261,7 @@ mail_edit (GtkButton *button, gpointer data)
 			MailConfigAccount *account;
 			
 			account = gtk_clist_get_row_data (dialog->mail_accounts, dialog->accounts_row);
-			editor = mail_account_editor_new (account, GTK_WINDOW (dialog));
+			editor = mail_account_editor_new (account, GTK_WINDOW (dialog), dialog);
 			gtk_signal_connect (GTK_OBJECT (editor), "destroy",
 					    GTK_SIGNAL_FUNC (mail_editor_destroyed),
 					    dialog);
@@ -855,8 +855,8 @@ sig_current_sig (MailAccountsDialog *dialog)
 	return gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
 }
 
-static void
-sig_add (GtkWidget *w, MailAccountsDialog *dialog)
+MailConfigSignature *
+mail_accounts_dialog_new_signature (MailAccountsDialog *dialog)
 {
 	MailConfigSignature *sig;
 	gchar *name [1];
@@ -868,6 +868,15 @@ sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 	row = gtk_clist_append (GTK_CLIST (dialog->sig_clist), name);
 	gtk_clist_set_row_data (GTK_CLIST (dialog->sig_clist), row, sig);
 	gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), row, 0);
+	gtk_widget_grab_focus (dialog->sig_name);
+
+	return sig;
+}
+
+static void
+sig_add (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	mail_accounts_dialog_new_signature (dialog);
 }
 
 static void sig_row_unselect (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog);

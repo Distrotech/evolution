@@ -36,6 +36,7 @@ extern "C" {
 #include <camel/camel-provider.h>
 
 #include "mail-config.h"
+#include "mail-accounts.h"
 
 typedef struct {
 	GtkOptionMenu *type;
@@ -61,6 +62,7 @@ typedef struct {
 typedef struct {
 	GtkWidget *top;
 	MailConfigAccount *account;
+	MailAccountsDialog *dialog;
 	GladeXML *xml;
 	
 	/* identity */
@@ -118,7 +120,7 @@ typedef struct {
 } MailAccountGui;
 
 
-MailAccountGui *mail_account_gui_new (MailConfigAccount *account);
+MailAccountGui *mail_account_gui_new (MailConfigAccount *account, MailAccountsDialog *dialog);
 void mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top);
 gboolean mail_account_gui_save (MailAccountGui *gui);
 void mail_account_gui_destroy (MailAccountGui *gui);
