@@ -1,3 +1,19 @@
+2002-03-24  Ettore Perazzoli  <ettore@ximian.com>
+
+	* mail-send-recv.c: Remove member current_folder from struct
+	_send_data.
+	(build_dialogue): Remove arg @current_folder.
+	(mail_send_receive): Likewise.
+	(free_send_data): No need to refresh the current folder here.
+	[Well, hopefully, at least.]
+
+	* component-factory.c (send_receive_callback): New.
+	(create_component): Connect.
+
+	* mail-callbacks.c (send_receive_mail): Removed.
+
+	* folder-browser-ui.c: Remove "MailGetSend" verb.
+
 2002-03-22  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* GNOME_Evolution_Mail.oaf.in: Add info about the new config

@@ -43,6 +43,7 @@
 #include "mail-ops.h"
 #include "mail-offline-handler.h"
 #include "mail-local.h"
+#include "mail-send-recv.h" 
 #include "mail-session.h"
 #include "mail-mt.h"
 #include "mail-importer.h"
@@ -901,6 +902,32 @@ owner_unset_cb (EvolutionShellComponent *shell_component, gpointer user_data)
 	g_timeout_add(100, idle_quit, NULL);
 }
 
+static void
+send_receive_callback (EvolutionShellComponent *shell_component,
+		       gboolean show_dialog,
+		       void *data)
+{
+	const MailConfigAccount *account;
+
+	/* FIXME: configure_mail should work without a folder browser.  */
+	if (!mail_config_is_configured () /* && !configure_mail (fb) */)
+		return;
+	
+	account = mail_config_get_default_account ();
+	if (!account || !account->transport) {
+		if (show_dialog) {
+			GtkWidget *dialog;
+		
+			dialog = gnome_error_dialog (_("You have not set a mail transport method"));
+			gnome_dialog_set_close (GNOME_DIALOG (dialog), TRUE);
+			gtk_widget_show (dialog);
+		}
+		return;
+	}
+	
+	mail_send_receive ();
+}
+
 static BonoboObject *
 create_component (void)
 {
@@ -918,11 +945,14 @@ create_component (void)
 							 populate_folder_context_menu,
 							 get_dnd_selection,
 							 NULL);
+
+	gtk_signal_connect (GTK_OBJECT (shell_component), "send_receive",
+			    GTK_SIGNAL_FUNC (send_receive_callback), shell_component);
 	
 	destination_interface = evolution_shell_component_dnd_destination_folder_new (destination_folder_handle_motion,
 										      destination_folder_handle_drop,
 										      shell_component);
-	
+
 	bonobo_object_add_interface (BONOBO_OBJECT (shell_component),
 				     BONOBO_OBJECT (destination_interface));
 	

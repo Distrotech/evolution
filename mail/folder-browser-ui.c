@@ -108,7 +108,6 @@ static BonoboUIVerb global_verbs [] = {
 	BONOBO_UI_UNSAFE_VERB ("EmptyTrash", empty_trash),
 	BONOBO_UI_UNSAFE_VERB ("ForgetPasswords", mail_session_forget_passwords),
 	BONOBO_UI_UNSAFE_VERB ("MailCompose", compose_msg),
-	BONOBO_UI_UNSAFE_VERB ("MailGetSend", send_receive_mail),
 	BONOBO_UI_UNSAFE_VERB ("MailStop", stop_threads),
 	BONOBO_UI_UNSAFE_VERB ("ToolsFilters", filter_edit),
 	BONOBO_UI_UNSAFE_VERB ("ToolsSubscriptions", manage_subscriptions),
