@@ -819,6 +819,7 @@ sig_load_preview (MailAccountsDialog *dialog, MailConfigSignature *sig)
 		return;
 	}
 
+	mail_config_signature_run_script (sig->script);
 	str = e_msg_composer_get_sig_file_content (sig->filename, sig->html);
 	if (!str)
 		str = g_strdup (" ");

@@ -3003,3 +3003,21 @@ mail_config_signature_emit_event (MailConfigSigEvent event, MailConfigSignature 
 		(*((MailConfigSignatureClient) l->data)) (event, sig, l->next->data);
 	}
 }
+
+void
+mail_config_signature_run_script (gchar *script)
+{
+	if (script) {
+		gchar *argv[2];
+		gint pid, status;
+
+		printf ("running script %s\n", script);
+		argv [0] = script;
+		argv [1] = NULL;
+		pid = gnome_execute_async (NULL, 1, argv);
+		if (pid < 0)
+			gnome_error_dialog (_("Cannot execute signature script"));
+		else
+			waitpid (pid, &status, 0);
+	}
+}

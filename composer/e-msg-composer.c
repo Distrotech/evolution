@@ -848,19 +848,7 @@ get_signature_html (EMsgComposer *composer)
 		return NULL;
 	printf ("sig file: %s\n", sig_file);
 
-	if (script) {
-		gchar *argv[2];
-		gint pid, status;
-
-		printf ("running script %s\n", script);
-		argv [0] = script;
-		argv [1] = NULL;
-		pid = gnome_execute_async (NULL, 1, argv);
-		if (pid < 0)
-			gnome_error_dialog (_("Cannot execute signature script"));
-		else
-			waitpid (pid, &status, 0);
-	}
+	mail_config_signature_run_script (script);
 	text = e_msg_composer_get_sig_file_content (sig_file, format_html);
 	/* printf ("text: %s\n", text); */
 	if (text) {
@@ -1783,6 +1771,8 @@ sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, EMsgCompos
 	bonobo_ui_component_freeze (composer->uic, NULL);
 	switch (event) {
 	case MAIL_CONFIG_SIG_EVENT_DELETED:
+		if (sig == composer->signature)
+			composer->signature = NULL;
 		path = g_strdup_printf ("/menu/Edit/EditMisc/EditSignaturesSubmenu/Signature%d",
 					g_list_length (mail_config_get_signature_list ()));
 		bonobo_ui_component_rm (composer->uic, path, NULL);
@@ -1790,6 +1780,7 @@ sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, EMsgCompos
 		setup_signatures_menu (composer);
 		break;
 	case MAIL_CONFIG_SIG_EVENT_RANDOM_OFF:
+		composer->random_signature = FALSE;
 		bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SignatureRandom", NULL);
 		bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SeparatorRandom", NULL);
 		setup_signatures_menu (composer);

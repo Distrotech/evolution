@@ -277,6 +277,7 @@ void mail_config_signature_unregister_client (MailConfigSignatureClient client, 
 void mail_config_signature_emit_event (MailConfigSigEvent event, MailConfigSignature *sig);
 
 void mail_config_write_account_sig (MailConfigAccount *account, gint i);
+void mail_config_signature_run_script (gchar *script);
 
 
 #ifdef __cplusplus
