@@ -95,6 +95,8 @@ struct _CalBackendClass {
 	void (* open) (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 	void (* remove) (CalBackend *backend, Cal *cal);
 
+	void (* create_object) (CalBackend *backend, Cal *cal, const char *calobj);
+	void (* modify_object) (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
 	void (* remove_object) (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
 
 	void (* get_object_list) (CalBackend *backend, Cal *cal, const char *sexp);
@@ -154,6 +156,8 @@ void cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal);
 void  cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 void cal_backend_remove (CalBackend *backend, Cal *cal);
 
+void cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj);
+void cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
 void cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
 
 void cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp);

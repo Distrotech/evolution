@@ -265,6 +265,8 @@ cal_backend_class_init (CalBackendClass *class)
 	class->get_alarms_for_object = NULL;
 	class->discard_alarm = NULL;
 	class->update_objects = NULL;
+	class->create_object = NULL;
+	class->modify_object = NULL;
 	class->remove_object = NULL;
 	class->send_object = NULL;
 }
@@ -937,6 +939,28 @@ cal_backend_update_objects (CalBackend *backend, const char *calobj, CalObjModTy
 
 	g_assert (CLASS (backend)->update_objects != NULL);
 	return (* CLASS (backend)->update_objects) (backend, calobj, mod);
+}
+
+void
+cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (calobj != NULL);
+
+	g_assert (CLASS (backend)->create_object != NULL);
+	(* CLASS (backend)->create_object) (backend, cal, calobj);
+}
+
+void
+cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (calobj != NULL);
+
+	g_assert (CLASS (backend)->modify_object != NULL);
+	(* CLASS (backend)->modify_object) (backend, cal, calobj, mod);
 }
 
 /**

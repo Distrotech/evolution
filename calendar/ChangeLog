@@ -1,3 +1,30 @@
+2003-09-12    <jpr@ximian.com>
+
+	* pcs/cal.c (impl_Cal_createObject): implement
+	(impl_Cal_modifyObject): ditto
+	(cal_class_init): set epv methods for create/modify
+
+	* pcs/cal-backend.h: add protos, vmethod
+
+	* pcs/cal-backend.c (cal_backend_class_init): init new vmethods
+	(cal_backend_create_object): call through
+	(cal_backend_modify_object): ditto
+
+	* pcs/cal-backend-sync.h: add protos, vmethods
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_create_object): call
+	through
+	(cal_backend_sync_modify_object): ditto
+	(_cal_backend_create_object): create object and notify
+	(_cal_backend_modify_object): modify object and notify
+
+	* pcs/cal-backend-file.c (cal_backend_file_create_object):
+	skeleton routine for creating objects
+	(cal_backend_file_modify_object): ditto for modifying
+
+	* idl/evolution-calendar.idl: add createObject and modifyObject
+	calls
+
 2003-09-12  JP Rosevear  <jpr@ximian.com>
 
 	* pcs/cal.c (cal_notify_object_removed): its uid, not uids

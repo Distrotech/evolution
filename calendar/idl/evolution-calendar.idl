@@ -266,6 +266,8 @@ module Calendar {
 			raises (NotFound, InvalidObject, PermissionDenied);
 
 		/* Removes a component */
+		oneway void createObject (in CalObj calobj);
+		oneway void modifyObject (in CalObj calobj, in CalObjModType mod);
 		oneway void removeObject (in CalObjUID uid, in CalObjModType mod);
 
 		/* Sends a component */

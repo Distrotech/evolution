@@ -106,6 +106,28 @@ cal_backend_sync_remove  (CalBackendSync *backend, Cal *cal)
 }
 
 CalBackendSyncStatus
+cal_backend_sync_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->create_object_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->create_object_sync) (backend, cal, calobj, uid);
+}
+
+CalBackendSyncStatus
+cal_backend_sync_modify_object (CalBackendSync *backend, Cal *cal, const char *calobj, 
+				CalObjModType mod, char **old_object)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->modify_object_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->modify_object_sync) (backend, cal, 
+									     calobj, mod, old_object);
+}
+
+CalBackendSyncStatus
 cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod)
 {
 	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
@@ -210,6 +232,31 @@ _cal_backend_remove (CalBackend *backend, Cal *cal)
 }
 
 static void
+_cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj)
+{
+	CalBackendSyncStatus status;
+	char *uid = NULL;
+	
+	status = cal_backend_sync_create_object (CAL_BACKEND_SYNC (backend), cal, calobj, &uid);
+
+	cal_notify_object_created (cal, status, uid, calobj);
+
+	g_free (uid);
+}
+
+static void
+_cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod)
+{
+	CalBackendSyncStatus status;
+	char *old_object;
+	
+	status = cal_backend_sync_modify_object (CAL_BACKEND_SYNC (backend), cal, 
+						 calobj, mod, &old_object);
+
+	cal_notify_object_modified (cal, status, old_object, calobj);
+}
+
+static void
 _cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod)
 {
 	CalBackendSyncStatus status;
@@ -277,6 +324,8 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->get_static_capabilities = _cal_backend_get_static_capabilities;
 	backend_class->open = _cal_backend_open;
 	backend_class->remove = _cal_backend_remove;
+	backend_class->create_object = _cal_backend_create_object;
+	backend_class->modify_object = _cal_backend_modify_object;
 	backend_class->remove_object = _cal_backend_remove_object;
 	backend_class->get_object_list = _cal_backend_get_object_list;
 

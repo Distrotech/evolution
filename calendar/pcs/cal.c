@@ -460,6 +460,35 @@ impl_Cal_updateObjects (PortableServer_Servant servant,
 	}
 }
 
+static void
+impl_Cal_createObject (PortableServer_Servant servant,
+		       const CORBA_char *calobj,
+		       CORBA_Environment *ev)
+{
+	Cal *cal;
+	CalPrivate *priv;
+
+	cal = CAL (bonobo_object_from_servant (servant));
+	priv = cal->priv;
+
+	cal_backend_create_object (priv->backend, cal, calobj);
+}
+
+static void
+impl_Cal_modifyObject (PortableServer_Servant servant,
+		       const CORBA_char *calobj,
+		       const GNOME_Evolution_Calendar_CalObjModType mod,
+		       CORBA_Environment *ev)
+{
+	Cal *cal;
+	CalPrivate *priv;
+
+	cal = CAL (bonobo_object_from_servant (servant));
+	priv = cal->priv;
+
+	cal_backend_modify_object (priv->backend, cal, calobj, mod);
+}
+
 /* Cal::removeObject method */
 static void
 impl_Cal_removeObject (PortableServer_Servant servant,
@@ -754,6 +783,8 @@ cal_class_init (CalClass *klass)
 	epv->getAlarmsForObject = impl_Cal_getAlarmsForObject;
 	epv->discardAlarm = impl_Cal_discardAlarm;
 	epv->updateObjects = impl_Cal_updateObjects;
+	epv->createObject = impl_Cal_createObject;
+	epv->modifyObject = impl_Cal_modifyObject;
 	epv->removeObject = impl_Cal_removeObject;
 	epv->sendObject = impl_Cal_sendObject;
 	epv->getQuery = impl_Cal_getQuery;

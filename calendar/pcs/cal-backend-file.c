@@ -85,6 +85,9 @@ static CalBackendSyncStatus cal_backend_file_get_static_capabilities (CalBackend
 static CalBackendSyncStatus cal_backend_file_open (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
 static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Cal *cal);
 
+static CalBackendSyncStatus cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid);
+static CalBackendSyncStatus cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
+
 static CalBackendSyncStatus cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
 
 static CalBackendSyncStatus cal_backend_file_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
@@ -187,6 +190,8 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	sync_class->get_static_capabilities_sync = cal_backend_file_get_static_capabilities;
 	sync_class->open_sync = cal_backend_file_open;
 	sync_class->remove_sync = cal_backend_file_remove;
+	sync_class->create_object_sync = cal_backend_file_create_object;
+	sync_class->modify_object_sync = cal_backend_file_modify_object;
 	sync_class->remove_object_sync = cal_backend_file_remove_object;
 	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
 
@@ -1713,6 +1718,35 @@ cal_backend_file_update_objects (CalBackend *backend, const char *calobj, CalObj
 	g_list_free (removed_uids);
 
 	return retval;
+}
+
+static CalBackendSyncStatus
+cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	/* FIXME Implement */
+
+	return GNOME_Evolution_Calendar_Success;
+}
+
+static CalBackendSyncStatus
+cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *calobj, 
+				CalObjModType mod, char **old_object)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+		
+	/* FIXME Implement */
+
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Remove_object handler for the file backend */
