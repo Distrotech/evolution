@@ -63,6 +63,8 @@ gnome_cal_server_SOURCES =	\
 	calendar.h		\
 	calobj.c		\
 	calobj.h		\
+	net-parse.c		\
+	net-parse.h		\
 	timeutil.c		\
 	timeutil.h		\
 	server-auth.c		\

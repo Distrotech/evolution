@@ -243,12 +243,26 @@ parse_url (char *url, char **hostname, int *port, char **username, char **passwo
 	*password = g_strdup (pw->pw_name);
 }
 
+enum {
+	STATE_CONNECT,
+	STATE_LOGIN,
+} ServerState;
+
 static void
-server_connect (gpointer data, gint source, GdkInputCondition condition)
+server_input (gpointer data, gint source, GdkInputCondition condition)
 {
 	GnomeCalendar *gcal = data;
+	char readbuf [128], *p = readbuf;
+	
+	do {
+		int n;
+		
+		n = read (source, p, sizeof (readbuf) - 1);
+		p [n] = 0;
+		g_string_append (gcal->server.string, p);
+	} while (n == sizeof (readbuf) - 1);
 
-	printf ("Connected! %d\n", condition);
+	
 }
 
 int
@@ -271,11 +285,12 @@ gnome_calendar_load_net (GnomeCalendar *gcal, char *url)
 	
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons (port);
-	memcpy (&addr.sin_addr.s_addr, &he->h_addr, 4);
+	memcpy (&he->h_addr, &addr.sin_addr.s_addr, 4);
 
+	gcal->server.state = STATE_CONNECT;
 	fcntl (gcal->server.socket, F_SETFL, O_NONBLOCK);
 	connect (gcal->server.socket, &addr, sizeof (addr));
-	gdk_input_add (gcal->server.socket, GDK_INPUT_READ, server_connect, gcal);
+	gdk_input_add (gcal->server.socket, GDK_INPUT_READ, server_input, gcal);
 
 	return 1;
 }

@@ -32,6 +32,8 @@ typedef struct {
 
 	struct {
 		int socket;
+		GString *information;
+		int state;
 	} server;
 } GnomeCalendar;
 

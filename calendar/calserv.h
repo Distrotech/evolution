@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "calendar.h"
 #include "backend.h"
+#include "net-parse.h"
 
 #define CS_capabilities "ICAP AUTH=PLAINTEXT"
 
@@ -21,29 +22,11 @@ CSServer *cs_server_new     (void);
 void      cs_server_run     (CSServer *server);
 void      cs_server_destroy (CSServer *server);
 
-/* for bandying around info on a command */
-typedef struct _CSCmdArg CSCmdArg;
-struct _CSCmdArg {
-  enum { ITEM_UNKNOWN=0, ITEM_STRING, ITEM_SUBLIST } type;
-  gpointer data;
-  CSCmdArg *next, *up;
-};
-CSCmdArg *cs_cmdarg_new(CSCmdArg *prev, CSCmdArg *parent);
-gint cs_cmdarg_nargs(CSCmdArg *arglist);
-void cs_cmdarg_destroy(CSCmdArg *arg);
-
-typedef struct {
-  char *id;
-  char *name;
-  CSCmdArg *args;
-} CSCmdInfo;
-
 typedef struct {
   CSServer *serv;
   GIOChannel *gioc;
   int fd;
   FILE *fh;
-  GString *rdbuf;
   char *authid; /* username, if authenticated */
 
   char wrbuf[1024];
@@ -51,11 +34,7 @@ typedef struct {
   Calendar *active_cal;
   gboolean active_is_readonly;
 
-  /* read state */
-  enum { RS_ID=0, RS_NAME, RS_ARG, RS_DONE } rs;
-  gint in_literal, literal_left, in_quoted; /* 0 if not currently reading */
-  CSCmdArg *curarg;
-  CSCmdInfo curcmd;
+  StreamParse parse;
 } CSConnection;
 
 /* in server-commands.c */

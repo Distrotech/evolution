@@ -300,9 +300,9 @@ cs_connection_process_command(CSConnection *cnx)
   CSCmdArg *arg;
 
   for(i = 0; commands[i].name; i++) {
-    if(!strcasecmp(commands[i].name, cnx->curcmd.name)) {
+    if(!strcasecmp(commands[i].name, cnx->parse.curcmd.name)) {
       /* check args */
-      for(j = 0, arg = cnx->curcmd.args;
+      for(j = 0, arg = cnx->parse.curcmd.args;
 	  commands[i].args[j].argtype && arg; arg = arg->next, j++) {
 	if(commands[i].args[j].argtype != arg->type)
 	  goto errout;
@@ -311,13 +311,13 @@ cs_connection_process_command(CSConnection *cnx)
       if(!arg && commands[i].args[j].is_required) goto errout; /* too few */
 
       /* do it */
-      commands[i].handler(cnx, &cnx->curcmd);
+      commands[i].handler(cnx, &cnx->parse.curcmd);
     }
   }
 
   return;
 
  errout:
-  g_warning("Unknown command %s", cnx->curcmd.name);
-  fprintf(cnx->fh, "%s BAD unknown command\r\n", cnx->curcmd.id);
+  g_warning("Unknown command %s", cnx->parse.curcmd.name);
+  fprintf(cnx->fh, "%s BAD unknown command\r\n", cnx->parse.curcmd.id);
 }
