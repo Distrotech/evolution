@@ -23,6 +23,7 @@
 
 #include <bonobo/bonobo-object.h>
 #include "evolution-calendar.h"
+#include "cal-client-types.h"
 
 G_BEGIN_DECLS
 
@@ -48,22 +49,21 @@ typedef struct {
 	BonoboObjectClass parent_class;
 
 	POA_GNOME_Evolution_Calendar_Listener__epv epv;
+
+	/* Signals */
+	void (*read_only) (CalListener *listener, ECalendarStatus status, gboolean read_only);
+	void (*cal_address) (CalListener *listener, ECalendarStatus status, const char *address);
+	void (*alarm_address) (CalListener *listener, ECalendarStatus status, const char *address);
+	void (*ldap_attribute) (CalListener *listener, ECalendarStatus status, const char *ldap_attribute);
+	void (*static_capabilities) (CalListener *listener, ECalendarStatus status, const char *capabilities);
+
+	void (*open) (CalListener *listener, ECalendarStatus status);
+	void (*remove) (CalListener *listener, ECalendarStatus status);
+
+	void (*object_list) (CalListener *listener, ECalendarStatus status, GList **objects);
 } CalListenerClass;
 
 /* Notification functions */
-typedef void (* CalListenerCalOpenedFn) (CalListener *listener,
-					 GNOME_Evolution_Calendar_Listener_FileStatus status,
-					 gpointer data);
-
-typedef void (* CalListenerCalRemovedFn) (CalListener *listener,
-					  GNOME_Evolution_Calendar_Listener_FileStatus status,
-					  gpointer data);
-
-typedef void (* CalListenerCalObjectListFn) (CalListener *listener,
-					     const GNOME_Evolution_Calendar_CallStatus status,
-					     const GNOME_Evolution_Calendar_stringlist *objects,
-					     gpointer data);
-
 typedef void (* CalListenerCalSetModeFn) (CalListener *listener,
 					  GNOME_Evolution_Calendar_Listener_SetModeStatus status,
 					  GNOME_Evolution_Calendar_CalMode mode,
@@ -81,18 +81,12 @@ typedef void (* CalListenerCategoriesChangedFn) (CalListener *listener,
 GType cal_listener_get_type (void);
 
 CalListener *cal_listener_construct (CalListener *listener,
-				     CalListenerCalOpenedFn cal_opened_fn,
-				     CalListenerCalRemovedFn cal_removed_fn,
-				     CalListenerCalObjectListFn cal_object_list_fn,
 				     CalListenerCalSetModeFn cal_set_mode_fn,
 				     CalListenerErrorOccurredFn error_occurred_fn,
 				     CalListenerCategoriesChangedFn categories_changed_fn,
 				     gpointer fn_data);
 
-CalListener *cal_listener_new (CalListenerCalOpenedFn cal_opened_fn,
-			       CalListenerCalRemovedFn cal_removed_fn,
-			       CalListenerCalObjectListFn cal_object_list_fn,
-			       CalListenerCalSetModeFn cal_set_mode_fn,
+CalListener *cal_listener_new (CalListenerCalSetModeFn cal_set_mode_fn,
 			       CalListenerErrorOccurredFn error_occurred_fn,
 			       CalListenerCategoriesChangedFn categories_changed_fn,
 			       gpointer fn_data);

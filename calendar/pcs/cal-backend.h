@@ -42,15 +42,6 @@ G_BEGIN_DECLS
 #define IS_CAL_BACKEND(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), CAL_BACKEND_TYPE))
 #define IS_CAL_BACKEND_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), CAL_BACKEND_TYPE))
 
-/* Open status values */
-typedef enum {
-	CAL_BACKEND_FILE_SUCCESS,	/* Loading OK */
-	CAL_BACKEND_FILE_ERROR,		/* We need better error reporting in libversit */
-	CAL_BACKEND_FILE_NOT_FOUND,
-	CAL_BACKEND_FILE_PERMISSION_DENIED
-} CalBackendFileStatus;
-
-/* Update and Remove result values */
 typedef enum {
 	CAL_BACKEND_RESULT_SUCCESS,
 	CAL_BACKEND_RESULT_INVALID_OBJECT,
@@ -88,23 +79,24 @@ struct _CalBackendClass {
 	void (* last_client_gone) (CalBackend *backend);
 	void (* cal_added) (CalBackend *backend, Cal *cal);
 
-	void (* opened) (CalBackend *backend, CalBackendFileStatus status);
-	void (* removed) (CalBackend *backend, CalBackendFileStatus status);
+	/* FIXME What to pass back here */
+	void (* opened) (CalBackend *backend, int status);
+	void (* removed) (CalBackend *backend, int status);
 	void (* obj_updated) (CalBackend *backend, const char *uid);
 	void (* obj_removed) (CalBackend *backend, const char *uid);
 
 	/* Virtual methods */
-	const char *(* get_cal_address) (CalBackend *backend);
-	const char *(* get_alarm_email_address) (CalBackend *backend);
-	const char *(* get_ldap_attribute) (CalBackend *backend);
+	void (* is_read_only) (CalBackend *backend, Cal *cal);
+	void (* get_cal_address) (CalBackend *backend, Cal *cal);
+	void (* get_alarm_email_address) (CalBackend *backend, Cal *cal);
+	void (* get_ldap_attribute) (CalBackend *backend, Cal *cal);
+	void (* get_static_capabilities) (CalBackend *backend, Cal *cal);
 	
-	const char *(* get_static_capabilities) (CalBackend *backend);
-	
-	CalBackendFileStatus (* open) (CalBackend *backend, gboolean only_if_exists);
-	CalBackendFileStatus (* remove) (CalBackend *backend);
+	void (* open) (CalBackend *backend, Cal *cal, gboolean only_if_exists);
+	void (* remove) (CalBackend *backend, Cal *cal);
 
 	gboolean (* is_loaded) (CalBackend *backend);
-	gboolean (* is_read_only) (CalBackend *backend);
+
 
 	Query *(* get_query) (CalBackend *backend,
 			      GNOME_Evolution_Calendar_QueryListener ql,
@@ -153,20 +145,16 @@ GType cal_backend_get_type (void);
 const char *cal_backend_get_uri (CalBackend *backend);
 icalcomponent_kind cal_backend_get_kind (CalBackend *backend);
 
-const char *cal_backend_get_cal_address (CalBackend *backend);
-const char *cal_backend_get_alarm_email_address (CalBackend *backend);
-const char *cal_backend_get_ldap_attribute (CalBackend *backend);
+void cal_backend_is_read_only (CalBackend *backend, Cal *cal);
+void cal_backend_get_cal_address (CalBackend *backend, Cal *cal);
+void cal_backend_get_alarm_email_address (CalBackend *backend, Cal *cal);
+void cal_backend_get_ldap_attribute (CalBackend *backend, Cal *cal);
+void cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal);
 
-const char *cal_backend_get_static_capabilities (CalBackend *backend);
-
-void cal_backend_add_cal (CalBackend *backend, Cal *cal);
-
-CalBackendFileStatus cal_backend_open (CalBackend *backend, gboolean only_if_exists);
-CalBackendFileStatus cal_backend_remove (CalBackend *backend);
+void  cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists);
+void cal_backend_remove (CalBackend *backend, Cal *cal);
 
 gboolean cal_backend_is_loaded (CalBackend *backend);
-
-gboolean cal_backend_is_read_only (CalBackend *backend);
 
 Query *cal_backend_get_query (CalBackend *backend,
 			      GNOME_Evolution_Calendar_QueryListener ql,
@@ -216,9 +204,14 @@ CalBackendSendResult cal_backend_send_object (CalBackend *backend, const char *c
 icaltimezone* cal_backend_get_timezone (CalBackend *backend, const char *tzid);
 icaltimezone* cal_backend_get_default_timezone (CalBackend *backend);
 
+void cal_backend_add_cal (CalBackend *backend, Cal *cal);
+
 void cal_backend_last_client_gone (CalBackend *backend);
-void cal_backend_opened (CalBackend *backend, CalBackendFileStatus status);
-void cal_backend_removed (CalBackend *backend, CalBackendFileStatus status);
+
+/* FIXME what to do about status */
+void cal_backend_opened (CalBackend *backend, int status);
+void cal_backend_removed (CalBackend *backend, int status);
+
 void cal_backend_obj_updated (CalBackend *backend, const char *uid);
 void cal_backend_obj_removed (CalBackend *backend, const char *uid);
 

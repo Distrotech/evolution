@@ -1,3 +1,112 @@
+2003-09-02    <jpr@ximian.com>
+
+	* gui/tasks-control.c (sensitize_commands): adapt to cal-client
+	threaded sync api changes
+
+	* gui/itip-utils.c (itip_organizer_is_user): ditto
+
+	* gui/gnome-cal.c (gnome_calendar_purge): ditto
+
+	* gui/e-meeting-model.c (process_section): ditto
+
+	* gui/e-calendar-table.c (e_calendar_table_show_popup_menu): ditto
+
+	* gui/e-cal-view.c (e_cal_view_create_popup_menu): ditto
+
+	* gui/calendar-commands.c (sensitize_calendar_commands): ditto
+	(sensitize_taskpad_commands): ditto
+
+	* gui/dialogs/task-editor.c (set_menu_sens): ditto
+
+	* gui/dialogs/meeting-page.c (meeting_page_construct): ditto
+
+	* gui/dialogs/event-editor.c (set_menu_sens): ditto
+
+	* gui/dialogs/alarm-page.c (add_clicked_cb): ditto
+
+	* conduits/calendar/calendar-conduit.c (pre_sync): convert to
+	cal_client api changes
+
+	* conduits/todo/todo-conduit.c (pre_sync): ditto
+	
+	* cal-client/client-test.c (list_uids): match new error handling
+
+	* cal-client/cal-marshal.list: marshallers
+
+	* cal-client/cal-listener.[hc]: emit signals for corba listener
+	callbacks - start with is_read_only, get_static_capabilities,
+	get_cal_address, get_ldap_attribute, open, remove and object_list
+
+	* cal-client/cal-client.h: move the status enum away from here,
+	update protos to new thread sync api standard
+
+	* cal-client/cal-client.c: the listener emits signals instead of
+	using callback functions now and we return booleans + GError in
+	outs for results
+	(e_calendar_error_quark): for GError handling
+	(cal_read_only_cb): handle listener op callback
+	(cal_cal_address_cb): ditto
+	(cal_alarm_address_cb): ditto
+	(cal_ldap_attribute_cb): ditto
+	(cal_static_capabilities_cb): ditto
+	(cal_opened_cb): ditto
+	(cal_removed_cb): ditto
+	(cal_object_list_cb): ditto
+
+	* cal-client/cal-client-types.h: add GError stuff
+
+	* cal-client/Makefile.am: build glib marshal stuff
+
+	* pcs/query.c (backend_opened_cb): comment out some break
+	temporarily
+
+	* pcs/cal.h: add protos
+
+	* pcs/cal.c (impl_Cal_open): just call the backend method, it will
+	handle the notification
+	(impl_Cal_remove): ditto
+	(impl_Cal_isReadOnly): ditto
+	(impl_Cal_getCalAddress): ditto
+	(impl_Cal_getAlarmEmailAddress): ditto
+	(impl_Cal_getLdapAttribute): ditto
+	(impl_Cal_getStaticCapabilities): ditto
+	(impl_Cal_getObjectList): simplify
+	(cal_new): set poa to be threaded
+	(cal_notify_read_only): notification utils
+	(cal_notify_cal_address): ditto
+	(cal_notify_alarm_email_address): ditto
+	(cal_notify_ldap_attribute): ditto
+	(cal_notify_static_capabilities): ditto
+	(cal_notify_open): ditto
+	(cal_notify_remove): ditto
+	(cal_notify_object_list): ditto
+
+	* pcs/cal-factory.c (impl_CalFactory_getCal): dup the key and the
+	object
+	(cal_factory_new): set poa to be threaded
+
+	* pcs/cal-backend.h: update vmethods and protos
+
+	* pcs/cal-backend.c (cal_backend_get_cal_address): we no longer
+	return anything - the callee is responsible for notification
+	(cal_backend_get_alarm_email_address): ditto
+	(cal_backend_get_ldap_attribute): ditto
+	(cal_backend_get_static_capabilities): ditto
+	(cal_backend_open): ditto
+	(cal_backend_remove): ditto
+
+	* pcs/cal-backend-file.h: update inheritance
+
+	* pcs/cal-backend-file.c: inherit from CalBackendSync and make
+	is_read_only, get_static_capabilities, get_cal_address, get_ldap_attribute, open and
+	remove match
+
+	* pcs/Makefile.am: build new files
+
+2003-09-02 JP Rosevear  <jpr@ximian.com>
+
+	* idl/evolution-calendar.idl: make all listener callbacks one ways
+
 2003-09-02  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-file.c (match_recurrence_sexp, match_object_sexp):

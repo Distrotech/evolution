@@ -925,8 +925,8 @@ pre_sync (GnomePilotConduit *conduit,
 	g_free (filename);
 
 	/* Get the local database */
-	/* FIXME Check status return */
-	cal_client_get_object_list_as_comp (ctxt->client, "(#t)", &ctxt->comps);
+	if (!cal_client_get_object_list_as_comp (ctxt->client, "(#t)", &ctxt->comps, NULL))
+		return -1;
 
 	/* Count and hash the changes */
 	change_id = g_strdup_printf ("pilot-sync-evolution-todo-%d", ctxt->cfg->pilot_id);

@@ -79,13 +79,15 @@ static void cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *
 static void cal_backend_file_dispose (GObject *object);
 static void cal_backend_file_finalize (GObject *object);
 
-static gboolean cal_backend_file_is_read_only (CalBackend *backend);
-static const char *cal_backend_file_get_cal_address (CalBackend *backend);
-static const char *cal_backend_file_get_alarm_email_address (CalBackend *backend);
-static const char *cal_backend_file_get_ldap_attribute (CalBackend *backend);
-static const char *cal_backend_file_get_static_capabilities (CalBackend *backend);
-static CalBackendFileStatus cal_backend_file_open (CalBackend *backend, gboolean only_if_exists);
-static CalBackendFileStatus cal_backend_file_remove (CalBackend *backend);
+static CalBackendSyncStatus cal_backend_file_is_read_only (CalBackendSync *backend, Cal *cal, gboolean *read_only);
+static CalBackendSyncStatus cal_backend_file_get_cal_address (CalBackendSync *backend, Cal *cal, char **address);
+static CalBackendSyncStatus cal_backend_file_get_alarm_email_address (CalBackendSync *backend, Cal *cal, char **address);
+static CalBackendSyncStatus cal_backend_file_get_ldap_attribute (CalBackendSync *backend, Cal *cal, char **attribute);
+static CalBackendSyncStatus cal_backend_file_get_static_capabilities (CalBackendSync *backend, Cal *cal, char **capabilities);
+
+static CalBackendSyncStatus cal_backend_file_open (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
+static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Cal *cal);
+
 static gboolean cal_backend_file_is_loaded (CalBackend *backend);
 static Query *cal_backend_file_get_query (CalBackend *backend,
 					  GNOME_Evolution_Calendar_QueryListener ql,
@@ -127,7 +129,7 @@ static icaltimezone* cal_backend_file_get_default_timezone (CalBackend *backend)
 static gboolean cal_backend_file_set_default_timezone (CalBackend *backend,
 						       const char *tzid);
 
-static CalBackendClass *parent_class;
+static CalBackendSyncClass *parent_class;
 
 
 
@@ -156,7 +158,7 @@ cal_backend_file_get_type (void)
                         0,
                         (GInstanceInitFunc) cal_backend_file_init
                 };
-		cal_backend_file_type = g_type_register_static (CAL_BACKEND_TYPE,
+		cal_backend_file_type = g_type_register_static (CAL_TYPE_BACKEND_SYNC,
 								"CalBackendFile", &info, 0);
 	}
 
@@ -169,22 +171,24 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 {
 	GObjectClass *object_class;
 	CalBackendClass *backend_class;
+	CalBackendSyncClass *sync_class;
 
 	object_class = (GObjectClass *) class;
 	backend_class = (CalBackendClass *) class;
+	sync_class = (CalBackendSyncClass *) class;
 
-	parent_class = (CalBackendClass *) g_type_class_peek_parent (class);
+	parent_class = (CalBackendSyncClass *) g_type_class_peek_parent (class);
 
 	object_class->dispose = cal_backend_file_dispose;
 	object_class->finalize = cal_backend_file_finalize;
 
-	backend_class->is_read_only = cal_backend_file_is_read_only;
-	backend_class->get_cal_address = cal_backend_file_get_cal_address;
- 	backend_class->get_alarm_email_address = cal_backend_file_get_alarm_email_address;
- 	backend_class->get_ldap_attribute = cal_backend_file_get_ldap_attribute;
- 	backend_class->get_static_capabilities = cal_backend_file_get_static_capabilities;
-	backend_class->open = cal_backend_file_open;
-	backend_class->remove = cal_backend_file_remove;
+	sync_class->is_read_only_sync = cal_backend_file_is_read_only;
+	sync_class->get_cal_address_sync = cal_backend_file_get_cal_address;
+ 	sync_class->get_alarm_email_address_sync = cal_backend_file_get_alarm_email_address;
+ 	sync_class->get_ldap_attribute_sync = cal_backend_file_get_ldap_attribute;
+ 	sync_class->get_static_capabilities_sync = cal_backend_file_get_static_capabilities;
+	sync_class->open_sync = cal_backend_file_open;
+	sync_class->remove_sync = cal_backend_file_remove;
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->get_query = cal_backend_file_get_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
@@ -460,42 +464,52 @@ lookup_component (CalBackendFile *cbfile, const char *uid, const char *rid)
 /* Calendar backend methods */
 
 /* Is_read_only handler for the file backend */
-static gboolean
-cal_backend_file_is_read_only (CalBackend *backend)
+static CalBackendSyncStatus
+cal_backend_file_is_read_only (CalBackendSync *backend, Cal *cal, gboolean *read_only)
 {
 	/* we just return FALSE, since all calendars are read-write */
-	return FALSE;
+	*read_only = FALSE;
+	
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Get_email_address handler for the file backend */
-static const char *
-cal_backend_file_get_cal_address (CalBackend *backend)
+static CalBackendSyncStatus
+cal_backend_file_get_cal_address (CalBackendSync *backend, Cal *cal, char **address)
 {
 	/* A file backend has no particular email address associated
 	 * with it (although that would be a useful feature some day).
 	 */
-	return NULL;
+	*address = NULL;
+
+	return GNOME_Evolution_Calendar_Success;
 }
 
-static const char *
-cal_backend_file_get_ldap_attribute (CalBackend *backend)
+static CalBackendSyncStatus
+cal_backend_file_get_ldap_attribute (CalBackendSync *backend, Cal *cal, char **attribute)
 {
-	return NULL;
+	*attribute = NULL;
+	
+	return GNOME_Evolution_Calendar_Success;
 }
 
-static const char *
-cal_backend_file_get_alarm_email_address (CalBackend *backend)
+static CalBackendSyncStatus
+cal_backend_file_get_alarm_email_address (CalBackendSync *backend, Cal *cal, char **address)
 {
  	/* A file backend has no particular email address associated
  	 * with it (although that would be a useful feature some day).
  	 */
-	return NULL;
+	*address = NULL;
+	
+	return GNOME_Evolution_Calendar_Success;
 }
 
-static const char *
-cal_backend_file_get_static_capabilities (CalBackend *backend)
+static CalBackendSyncStatus
+cal_backend_file_get_static_capabilities (CalBackendSync *backend, Cal *cal, char **capabilities)
 {
- 	return CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS;
+	*capabilities = CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS;
+	
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* function to resolve timezones */
@@ -538,10 +552,14 @@ mark_dirty (CalBackendFile *cbfile)
 
 	priv = cbfile->priv;
 
+#if 0
 	if (priv->idle_id != 0)
 		return;
 
 	priv->idle_id = g_idle_add (save_idle, cbfile);
+#endif
+
+	save (cbfile);
 }
 
 /* Checks if the specified component has a duplicated UID and if so changes it */
@@ -744,7 +762,7 @@ scan_vcalendar (CalBackendFile *cbfile)
 }
 
 /* Parses an open iCalendar file and loads it into the backend */
-static CalBackendFileStatus
+static CalBackendSyncStatus
 open_cal (CalBackendFile *cbfile, const char *uristr)
 {
 	CalBackendFilePrivate *priv;
@@ -754,7 +772,7 @@ open_cal (CalBackendFile *cbfile, const char *uristr)
 
 	icalcomp = cal_util_parse_ics_file (uristr);
 	if (!icalcomp)
-		return CAL_BACKEND_FILE_ERROR;
+		return GNOME_Evolution_Calendar_OtherError;
 
 	/* FIXME: should we try to demangle XROOT components and
 	 * individual components as well?
@@ -762,7 +780,8 @@ open_cal (CalBackendFile *cbfile, const char *uristr)
 
 	if (icalcomponent_isa (icalcomp) != ICAL_VCALENDAR_COMPONENT) {
 		icalcomponent_free (icalcomp);
-		return CAL_BACKEND_FILE_ERROR;
+
+		return GNOME_Evolution_Calendar_OtherError;
 	}
 
 	priv->icalcomp = icalcomp;
@@ -772,10 +791,10 @@ open_cal (CalBackendFile *cbfile, const char *uristr)
 
 	priv->uri = g_strdup (uristr);
 
-	return CAL_BACKEND_FILE_SUCCESS;
+	return GNOME_Evolution_Calendar_Success;
 }
 
-static CalBackendFileStatus
+static CalBackendSyncStatus
 create_cal (CalBackendFile *cbfile, const char *uristr)
 {
 	CalBackendFilePrivate *priv;
@@ -792,7 +811,7 @@ create_cal (CalBackendFile *cbfile, const char *uristr)
 
 	mark_dirty (cbfile);
 
-	return CAL_BACKEND_FILE_SUCCESS;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 static char *
@@ -842,32 +861,30 @@ get_uri_string (CalBackend *backend)
 }
 
 /* Open handler for the file backend */
-static CalBackendFileStatus
-cal_backend_file_open (CalBackend *backend, gboolean only_if_exists)
+static CalBackendSyncStatus
+cal_backend_file_open (CalBackendSync *backend, Cal *cal, gboolean only_if_exists)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
 	char *str_uri;
-	CalBackendFileStatus status;
+	CalBackendSyncStatus status;
 	
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_return_val_if_fail (priv->icalcomp == NULL, CAL_BACKEND_FILE_ERROR);
-
 	/* Claim a succesful open if we are already open */
 	if (priv->uri && priv->comp_uid_hash)
-		return CAL_BACKEND_FILE_SUCCESS;
+		return GNOME_Evolution_Calendar_Success;
 	
-	str_uri = get_uri_string (backend);
+	str_uri = get_uri_string (CAL_BACKEND (backend));
 	if (!str_uri)
-		return CAL_BACKEND_FILE_ERROR;
+		return GNOME_Evolution_Calendar_OtherError;
 	
 	if (access (str_uri, R_OK) == 0)
 		status = open_cal (cbfile, str_uri);
 	else {
 		if (only_if_exists)
-			status = CAL_BACKEND_FILE_NOT_FOUND;
+			status = GNOME_Evolution_Calendar_NoSuchCal;
 		else
 			status = create_cal (cbfile, str_uri);
 	}
@@ -877,8 +894,8 @@ cal_backend_file_open (CalBackend *backend, gboolean only_if_exists)
 	return status;
 }
 
-static CalBackendFileStatus
-cal_backend_file_remove (CalBackend *backend)
+static CalBackendSyncStatus
+cal_backend_file_remove (CalBackendSync *backend, Cal *cal)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -887,26 +904,26 @@ cal_backend_file_remove (CalBackend *backend)
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	str_uri = get_uri_string (backend);
+	str_uri = get_uri_string (CAL_BACKEND (backend));
 	if (!str_uri)
-		return CAL_BACKEND_FILE_ERROR;
+		return GNOME_Evolution_Calendar_OtherError;
 
 	if (access (str_uri, W_OK) != 0) {
 		g_free (str_uri);
 
-		return CAL_BACKEND_FILE_PERMISSION_DENIED;
+		return GNOME_Evolution_Calendar_PermissionDenied;
 	}
 
 	/* FIXME Remove backup file and whole directory too? */
 	if (unlink (str_uri) != 0) {
 		g_free (str_uri);
 
-		return CAL_BACKEND_FILE_ERROR;
+		return GNOME_Evolution_Calendar_OtherError;
 	}
 	
 	g_free (str_uri);
 	
-	return CAL_BACKEND_FILE_SUCCESS;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 /* is_loaded handler for the file backend */

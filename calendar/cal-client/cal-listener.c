@@ -19,6 +19,9 @@
  */
 
 #include <config.h>
+
+#include <bonobo/bonobo-main.h>
+#include "cal-marshal.h"
 #include "cal-listener.h"
 
 
@@ -26,9 +29,6 @@
 /* Private part of the CalListener structure */
 struct CalListenerPrivate {
 	/* Notification functions and their closure data */
-	CalListenerCalOpenedFn cal_opened_fn;
-	CalListenerCalRemovedFn cal_removed_fn;
-	CalListenerCalObjectListFn cal_object_list_fn;
 	CalListenerCalSetModeFn cal_set_mode_fn;
 	CalListenerErrorOccurredFn error_occurred_fn;
 	CalListenerCategoriesChangedFn categories_changed_fn;
@@ -38,116 +38,141 @@ struct CalListenerPrivate {
 	gboolean notify : 1;
 };
 
-
+/* Signal IDs */
+enum {
+	READ_ONLY,
+	CAL_ADDRESS,
+	ALARM_ADDRESS,
+	LDAP_ATTRIBUTE,
+	STATIC_CAPABILITIES,
+	OPEN,
+	REMOVE,
+	OBJECT_LIST,
+	LAST_SIGNAL
+};
 
-static void cal_listener_class_init (CalListenerClass *klass);
-static void cal_listener_init (CalListener *listener, CalListenerClass *klass);
-static void cal_listener_finalize (GObject *object);
-
-static void impl_notifyCalOpened (PortableServer_Servant servant,
-				  GNOME_Evolution_Calendar_Listener_FileStatus status,
-				  CORBA_Environment *ev);
-static void impl_notifyCalRemoved (PortableServer_Servant servant,
-				   GNOME_Evolution_Calendar_Listener_FileStatus status,
-				   CORBA_Environment *ev);
-static void impl_notifyObjectListRequested (PortableServer_Servant servant,
-					    const GNOME_Evolution_Calendar_CallStatus status,
-					    const GNOME_Evolution_Calendar_stringlist *objects,
-					    CORBA_Environment *ev);
-static void impl_notifyCalSetMode (PortableServer_Servant servant,
-				   GNOME_Evolution_Calendar_Listener_SetModeStatus status,
-				   GNOME_Evolution_Calendar_CalMode mode,
-				   CORBA_Environment *ev);
-static void impl_notifyErrorOccurred (PortableServer_Servant servant,
-				      const CORBA_char *message,
-				      CORBA_Environment *ev);
-static void impl_notifyCategoriesChanged (PortableServer_Servant servant,
-					  const GNOME_Evolution_Calendar_StringSeq *categories,
-					  CORBA_Environment *ev);
+static guint signals[LAST_SIGNAL] = { 0 };
 
 static BonoboObjectClass *parent_class;
 
-
-
-BONOBO_TYPE_FUNC_FULL (CalListener,
-		       GNOME_Evolution_Calendar_Listener,
-		       BONOBO_TYPE_OBJECT,
-		       cal_listener);
-
-/* Class initialization function for the calendar listener */
-static void
-cal_listener_class_init (CalListenerClass *klass)
+static ECalendarStatus
+convert_status (const GNOME_Evolution_Calendar_CallStatus status)
 {
-	GObjectClass *object_class;
-
-	object_class = (GObjectClass *) klass;
-
-	parent_class = g_type_class_peek_parent (klass);
-
-	klass->epv.notifyCalOpened = impl_notifyCalOpened;
-	klass->epv.notifyCalRemoved = impl_notifyCalRemoved;
-	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
-	klass->epv.notifyCalSetMode = impl_notifyCalSetMode;
-	klass->epv.notifyErrorOccurred = impl_notifyErrorOccurred;
-	klass->epv.notifyCategoriesChanged = impl_notifyCategoriesChanged;
-
-	object_class->finalize = cal_listener_finalize;
+	switch (status) {
+	case GNOME_Evolution_Calendar_Success:
+		return E_CALENDAR_STATUS_OK;
+	case GNOME_Evolution_Calendar_RepositoryOffline:
+		return E_CALENDAR_STATUS_REPOSITORY_OFFLINE;
+	case GNOME_Evolution_Calendar_PermissionDenied:
+		return E_CALENDAR_STATUS_PERMISSION_DENIED;
+	case GNOME_Evolution_Calendar_ObjectNotFound:
+		return E_CALENDAR_STATUS_OBJECT_NOT_FOUND;
+	case GNOME_Evolution_Calendar_CardIdAlreadyExists:
+		return E_CALENDAR_STATUS_CARD_ID_ALREADY_EXISTS;
+	case GNOME_Evolution_Calendar_AuthenticationFailed:
+		return E_CALENDAR_STATUS_AUTHENTICATION_FAILED;
+	case GNOME_Evolution_Calendar_AuthenticationRequired:
+		return E_CALENDAR_STATUS_AUTHENTICATION_REQUIRED;
+	case GNOME_Evolution_Calendar_OtherError:
+	default:
+		return E_CALENDAR_STATUS_OTHER_ERROR;
+	}
 }
 
-/* Object initialization function for the calendar listener */
 static void
-cal_listener_init (CalListener *listener, CalListenerClass *klass)
-{
-	CalListenerPrivate *priv;
-
-	priv = g_new0 (CalListenerPrivate, 1);
-	listener->priv = priv;
-
-	priv->cal_opened_fn = NULL;
-	priv->cal_removed_fn = NULL;
-	priv->cal_object_list_fn = NULL;
-	priv->error_occurred_fn = NULL;
-	priv->categories_changed_fn = NULL;
-
-	priv->notify = TRUE;
-}
-
-/* Finalize handler for the calendar listener */
-static void
-cal_listener_finalize (GObject *object)
+impl_notifyReadOnly (PortableServer_Servant servant,
+		     GNOME_Evolution_Calendar_CallStatus status,
+		     const CORBA_boolean read_only,
+		     CORBA_Environment *ev)
 {
 	CalListener *listener;
 	CalListenerPrivate *priv;
 
-	g_return_if_fail (object != NULL);
-	g_return_if_fail (IS_CAL_LISTENER (object));
-
-	listener = CAL_LISTENER (object);
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
 	priv = listener->priv;
 
-	priv->cal_opened_fn = NULL;
-	priv->cal_removed_fn = NULL;
-	priv->error_occurred_fn = NULL;
-	priv->categories_changed_fn = NULL;
-	priv->fn_data = NULL;
+	if (!priv->notify)
+		return;
 
-	priv->notify = FALSE;
-
-	g_free (priv);
-	listener->priv = NULL;
-
-	if (G_OBJECT_CLASS (parent_class)->finalize)
-		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
+	g_signal_emit (G_OBJECT (listener), signals[READ_ONLY], 0, convert_status (status), &read_only);
 }
 
-
+static void
+impl_notifyCalAddress (PortableServer_Servant servant,
+		       GNOME_Evolution_Calendar_CallStatus status,
+		       const CORBA_char *address,
+		       CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
 
-/* CORBA servant implementation */
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[CAL_ADDRESS], 0, convert_status (status), address);
+}
+
+static void
+impl_notifyAlarmEmailAddress (PortableServer_Servant servant,
+			      GNOME_Evolution_Calendar_CallStatus status,
+			      const CORBA_char *address,
+			      CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[ALARM_ADDRESS], 0, convert_status (status), address);
+}
+
+static void
+impl_notifyLDAPAttribute (PortableServer_Servant servant,
+			  GNOME_Evolution_Calendar_CallStatus status,
+			  const CORBA_char *ldap_attribute,
+			  CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[LDAP_ATTRIBUTE], 0, convert_status (status), ldap_attribute);
+}
+
+static void
+impl_notifyStaticCapabilities (PortableServer_Servant servant,
+			       GNOME_Evolution_Calendar_CallStatus status,
+			       const CORBA_char *capabilities,
+			       CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[STATIC_CAPABILITIES], 0, convert_status (status));
+}
 
 /* ::notifyCalOpened method */
 static void
 impl_notifyCalOpened (PortableServer_Servant servant,
-		      GNOME_Evolution_Calendar_Listener_FileStatus status,
+		      GNOME_Evolution_Calendar_CallStatus status,
 		      CORBA_Environment *ev)
 {
 	CalListener *listener;
@@ -159,13 +184,12 @@ impl_notifyCalOpened (PortableServer_Servant servant,
 	if (!priv->notify)
 		return;
 
-	g_assert (priv->cal_opened_fn != NULL);
-	(* priv->cal_opened_fn) (listener, status, priv->fn_data);
+	g_signal_emit (G_OBJECT (listener), signals[OPEN], 0, convert_status (status));
 }
 
 static void
 impl_notifyCalRemoved (PortableServer_Servant servant,
-		      GNOME_Evolution_Calendar_Listener_FileStatus status,
+		      GNOME_Evolution_Calendar_CallStatus status,
 		      CORBA_Environment *ev)
 {
 	CalListener *listener;
@@ -177,8 +201,27 @@ impl_notifyCalRemoved (PortableServer_Servant servant,
 	if (!priv->notify)
 		return;
 
-	g_assert (priv->cal_removed_fn != NULL);
-	(* priv->cal_removed_fn) (listener, status, priv->fn_data);
+	g_signal_emit (G_OBJECT (listener), signals[REMOVE], 0, convert_status (status));
+}
+
+static GList *
+build_object_list (const GNOME_Evolution_Calendar_stringlist *seq)
+{
+	GList *list;
+	int i;
+
+	list = NULL;
+	for (i = 0; i < seq->_length; i++) {
+		icalcomponent *comp;
+		
+		comp = icalcomponent_new_from_string (seq->_buffer[i]);
+		if (!comp)
+			continue;
+		
+		list = g_list_prepend (list, comp);
+	}
+
+	return list;
 }
 
 static void 
@@ -189,15 +232,21 @@ impl_notifyObjectListRequested (PortableServer_Servant servant,
 {
 	CalListener *listener;
 	CalListenerPrivate *priv;
-
+	GList *object_list, *l;
+	
 	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
 	priv = listener->priv;
 
 	if (!priv->notify)
 		return;
 
-	g_assert (priv->cal_object_list_fn != NULL);
- 	(* priv->cal_object_list_fn) (listener, status, objects, priv->fn_data);
+	object_list = build_object_list (objects);
+	
+	g_signal_emit (G_OBJECT (listener), signals[OBJECT_LIST], 0, convert_status (status), object_list);
+
+	for (l = object_list; l; l = l->next)
+		icalcomponent_free (l->data);
+	g_list_free (object_list);
 }
 
 /* ::notifyCalSetMode method */
@@ -215,6 +264,8 @@ impl_notifyCalSetMode (PortableServer_Servant servant,
 
 	if (!priv->notify)
 		return;
+
+	g_message ("notify_set_mode");
 
 	g_assert (priv->cal_set_mode_fn != NULL);
 	(* priv->cal_set_mode_fn) (listener, status, mode, priv->fn_data);
@@ -236,6 +287,8 @@ impl_notifyErrorOccurred (PortableServer_Servant servant,
 	if (!priv->notify)
 		return;
 
+	g_message ("notify_error");
+
 	g_assert (priv->error_occurred_fn != NULL);
 	(* priv->error_occurred_fn) (listener, message, priv->fn_data);
 }
@@ -255,11 +308,149 @@ impl_notifyCategoriesChanged (PortableServer_Servant servant,
 	if (!priv->notify)
 		return;
 
+	g_message ("notify_categories");
+
 	g_assert (priv->categories_changed_fn != NULL);
 	(* priv->categories_changed_fn) (listener, categories, priv->fn_data);
 }
 
 
+
+/* Object initialization function for the calendar listener */
+static void
+cal_listener_init (CalListener *listener, CalListenerClass *klass)
+{
+	CalListenerPrivate *priv;
+
+	priv = g_new0 (CalListenerPrivate, 1);
+	listener->priv = priv;
+
+	priv->error_occurred_fn = NULL;
+	priv->categories_changed_fn = NULL;
+
+	priv->notify = TRUE;
+}
+
+/* Finalize handler for the calendar listener */
+static void
+cal_listener_finalize (GObject *object)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	g_return_if_fail (object != NULL);
+	g_return_if_fail (IS_CAL_LISTENER (object));
+
+	listener = CAL_LISTENER (object);
+	priv = listener->priv;
+
+	priv->error_occurred_fn = NULL;
+	priv->categories_changed_fn = NULL;
+	priv->fn_data = NULL;
+
+	priv->notify = FALSE;
+
+	g_free (priv);
+	listener->priv = NULL;
+
+	if (G_OBJECT_CLASS (parent_class)->finalize)
+		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
+}
+
+/* Class initialization function for the calendar listener */
+static void
+cal_listener_class_init (CalListenerClass *klass)
+{
+	GObjectClass *object_class;
+
+	object_class = (GObjectClass *) klass;
+
+	parent_class = g_type_class_peek_parent (klass);
+
+	klass->epv.notifyReadOnly = impl_notifyReadOnly;
+	klass->epv.notifyCalAddress = impl_notifyCalAddress;
+	klass->epv.notifyAlarmEmailAddress = impl_notifyAlarmEmailAddress;
+	klass->epv.notifyLDAPAttribute = impl_notifyLDAPAttribute;
+	klass->epv.notifyStaticCapabilities = impl_notifyStaticCapabilities;
+	klass->epv.notifyCalOpened = impl_notifyCalOpened;
+	klass->epv.notifyCalRemoved = impl_notifyCalRemoved;
+	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
+	klass->epv.notifyCalSetMode = impl_notifyCalSetMode;
+	klass->epv.notifyErrorOccurred = impl_notifyErrorOccurred;
+	klass->epv.notifyCategoriesChanged = impl_notifyCategoriesChanged;
+
+	object_class->finalize = cal_listener_finalize;
+
+	signals[READ_ONLY] =
+		g_signal_new ("read_only",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, read_only),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_BOOLEAN,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_BOOLEAN);
+	signals[CAL_ADDRESS] =
+		g_signal_new ("cal_address",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, cal_address),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
+	signals[ALARM_ADDRESS] =
+		g_signal_new ("alarm_address",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, alarm_address),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
+	signals[LDAP_ATTRIBUTE] =
+		g_signal_new ("ldap_attribute",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, ldap_attribute),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);	
+	signals[STATIC_CAPABILITIES] =
+		g_signal_new ("static_capabilities",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, static_capabilities),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
+	signals[OPEN] =
+		g_signal_new ("open",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, open),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);	
+	signals[REMOVE] =
+		g_signal_new ("remove",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, remove),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);	
+	signals[OBJECT_LIST] =
+		g_signal_new ("object_list",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, object_list),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_POINTER,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_POINTER);	
+}
+
+BONOBO_TYPE_FUNC_FULL (CalListener,
+		       GNOME_Evolution_Calendar_Listener,
+		       BONOBO_TYPE_OBJECT,
+		       cal_listener);
 
 /**
  * cal_listener_construct:
@@ -281,9 +472,6 @@ impl_notifyCategoriesChanged (PortableServer_Servant servant,
  **/
 CalListener *
 cal_listener_construct (CalListener *listener,
-			CalListenerCalOpenedFn cal_opened_fn,
-			CalListenerCalRemovedFn cal_removed_fn,
-			CalListenerCalObjectListFn cal_object_list_fn,
 			CalListenerCalSetModeFn cal_set_mode_fn,
 			CalListenerErrorOccurredFn error_occurred_fn,
 			CalListenerCategoriesChangedFn categories_changed_fn,
@@ -293,18 +481,12 @@ cal_listener_construct (CalListener *listener,
 
 	g_return_val_if_fail (listener != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_LISTENER (listener), NULL);
-	g_return_val_if_fail (cal_opened_fn != NULL, NULL);
-	g_return_val_if_fail (cal_removed_fn != NULL, NULL);
-	g_return_val_if_fail (cal_object_list_fn != NULL, NULL);
  	g_return_val_if_fail (cal_set_mode_fn != NULL, NULL);
 	g_return_val_if_fail (error_occurred_fn != NULL, NULL);
 	g_return_val_if_fail (categories_changed_fn != NULL, NULL);
 
 	priv = listener->priv;
 
-	priv->cal_opened_fn = cal_opened_fn;
-	priv->cal_removed_fn = cal_removed_fn;
-	priv->cal_object_list_fn = cal_object_list_fn;
 	priv->cal_set_mode_fn = cal_set_mode_fn;
 	priv->error_occurred_fn = error_occurred_fn;
 	priv->categories_changed_fn = categories_changed_fn;
@@ -328,27 +510,21 @@ cal_listener_construct (CalListener *listener,
  * Return value: A newly-created #CalListener object.
  **/
 CalListener *
-cal_listener_new (CalListenerCalOpenedFn cal_opened_fn,
-		  CalListenerCalRemovedFn cal_removed_fn,
-		  CalListenerCalObjectListFn cal_object_list_fn,
-		  CalListenerCalSetModeFn cal_set_mode_fn,
+cal_listener_new (CalListenerCalSetModeFn cal_set_mode_fn,
 		  CalListenerErrorOccurredFn error_occurred_fn,
 		  CalListenerCategoriesChangedFn categories_changed_fn,
 		  gpointer fn_data)
 {
 	CalListener *listener;
 
-	g_return_val_if_fail (cal_opened_fn != NULL, NULL);
-	g_return_val_if_fail (cal_removed_fn != NULL, NULL);
-	g_return_val_if_fail (cal_object_list_fn != NULL, NULL);
 	g_return_val_if_fail (error_occurred_fn != NULL, NULL);
 	g_return_val_if_fail (categories_changed_fn != NULL, NULL);
 
-	listener = g_object_new (CAL_LISTENER_TYPE, NULL);
+	listener = g_object_new (CAL_LISTENER_TYPE, 
+				 "poa", bonobo_poa_get_threaded (ORBIT_THREAD_HINT_PER_REQUEST, NULL),
+				 NULL);
+
 	return cal_listener_construct (listener,
-				       cal_opened_fn,
-				       cal_removed_fn,
-				       cal_object_list_fn,
 				       cal_set_mode_fn,
 				       error_occurred_fn,
 				       categories_changed_fn,

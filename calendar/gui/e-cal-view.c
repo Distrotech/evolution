@@ -1154,7 +1154,8 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 	guint32 disable_mask = 0, hide_mask = 0;
 	GtkMenu *popup;
 	CalClient *client = NULL;
-
+	gboolean read_only = TRUE;
+	
 	g_return_val_if_fail (E_IS_CAL_VIEW (cal_view), NULL);
 
 	/* get the selection */
@@ -1199,7 +1200,8 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 		client = event->comp_data->client;
 	}
 
-	if (cal_client_is_read_only (client))
+	cal_client_is_read_only (client, &read_only, NULL);
+	if (!read_only)
 		disable_mask |= MASK_EDITABLE;
 
 	if (being_edited)

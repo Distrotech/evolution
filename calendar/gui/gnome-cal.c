@@ -3096,10 +3096,12 @@ gnome_calendar_purge (GnomeCalendar *gcal, time_t older_than)
 	client_list = e_cal_model_get_client_list (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)));
 	for (l = client_list; l != NULL; l = l->next) {
 		CalQuery *exp_query;
-
-		if (cal_client_is_read_only ((CalClient *) l->data))
+		gboolean read_only = TRUE;
+		
+		cal_client_is_read_only ((CalClient *) l->data, &read_only, NULL);
+		if (!read_only)
 			continue;
-
+		
 		exp_query = cal_client_get_query ((CalClient *) l->data, sexp);
 		if (!exp_query) {
 			e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);

@@ -779,6 +779,8 @@ start_cached_query_cb (gpointer data)
 /* Callback used when the backend gets loaded; we just queue the query to be
  * started later.
  */
+#if 0
+/* FIXME Bring this back when status is clearer */
 static void
 backend_opened_cb (CalBackend *backend, CalBackendFileStatus status, gpointer data)
 {
@@ -799,6 +801,7 @@ backend_opened_cb (CalBackend *backend, CalBackendFileStatus status, gpointer da
 		priv->timeout_id = g_timeout_add (100, (GSourceFunc) start_query_cb, query);
 	}
 }
+#endif
 
 /* Callback used when the backend for a cached query is destroyed */
 static void
@@ -812,6 +815,8 @@ backend_destroyed_cb (gpointer data, GObject *where_backend_was)
 	bonobo_object_unref (BONOBO_OBJECT (query));
 }
 
+#if 0
+/* FIXME Bring this back when status is clearer */
 static void
 backend_removed_cb (CalBackend *backend, CalBackendFileStatus status, gpointer data) 
 {
@@ -831,6 +836,7 @@ backend_removed_cb (CalBackend *backend, CalBackendFileStatus status, gpointer d
 
 	g_object_weak_unref (G_OBJECT (priv->backend), backend_destroyed_cb, query);
 }
+#endif
 
 /**
  * query_construct:
@@ -894,12 +900,14 @@ query_construct (Query *query,
 
 		priv->timeout_id = g_timeout_add (100, (GSourceFunc) start_query_cb, query);
 	} else {
+#if 0
 		g_signal_connect (G_OBJECT (priv->backend), "opened",
 				  G_CALLBACK (backend_opened_cb),
 				  query);
 		g_signal_connect (G_OBJECT (priv->backend), "removed",
 				  G_CALLBACK (backend_removed_cb),
 				  query);
+#endif
 	}
 	
 	return query;

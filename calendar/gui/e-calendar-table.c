@@ -1022,7 +1022,8 @@ e_calendar_table_show_popup_menu (ETable *table,
 	GtkMenu *gtk_menu;
 	icalproperty *prop;
 	ECalModelComponent *comp_data;
-
+	gboolean read_only = TRUE;
+	
 	n_selected = e_table_selected_count (table);
 	if (n_selected <= 0)
 		return TRUE;
@@ -1041,7 +1042,8 @@ e_calendar_table_show_popup_menu (ETable *table,
 	} else
 		hide_mask = MASK_SINGLE;
 
-	if (cal_client_is_read_only (comp_data->client))
+	cal_client_is_read_only (comp_data->client, &read_only, NULL);
+	if (!read_only)
 		disable_mask |= MASK_EDITABLE;
 
 	if (cal_client_get_static_capability (comp_data->client, CAL_STATIC_CAPABILITY_NO_TASK_ASSIGNMENT))

@@ -22,6 +22,7 @@
 
 #include <bonobo-activation/bonobo-activation.h>
 #include <bonobo/bonobo-exception.h>
+#include <bonobo/bonobo-main.h>
 #include "e-util/e-url.h"
 #include "evolution-calendar.h"
 #include "cal.h"
@@ -207,7 +208,7 @@ impl_CalFactory_getCal (PortableServer_Servant servant,
 		}
 
 		/* Track the backend */
-		g_hash_table_insert (priv->backends, uri_string, backend);
+		g_hash_table_insert (priv->backends, g_strdup (uri_string), backend);
 
 		g_signal_connect (G_OBJECT (backend), "last_client_gone",
 				  G_CALLBACK (backend_last_client_gone_cb),
@@ -229,7 +230,7 @@ impl_CalFactory_getCal (PortableServer_Servant servant,
 	e_uri_free (uri);
 	g_free (uri_string);
 
-	return BONOBO_OBJREF (cal);
+	return CORBA_Object_duplicate (BONOBO_OBJREF (cal), ev);
 }
 
 
@@ -248,7 +249,9 @@ cal_factory_new (void)
 {
 	CalFactory *factory;
 
-	factory = g_object_new (CAL_FACTORY_TYPE, NULL);
+	factory = g_object_new (CAL_FACTORY_TYPE, 
+				"poa", bonobo_poa_get_threaded (ORBIT_THREAD_HINT_PER_REQUEST, NULL), 
+				NULL);
 
 	return factory;
 }

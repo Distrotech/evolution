@@ -1647,7 +1647,8 @@ process_section (EMeetingModel *im, GNOME_Evolution_Addressbook_SimpleCardList *
 	priv = im->priv;
 	for (i = 0; i < cards->_length; i++) {
 		EMeetingAttendee *ia;
-		const char *name, *attendee = NULL, *attr;
+		const char *name, *attendee = NULL;
+		char *attr;
 		GNOME_Evolution_Addressbook_SimpleCard card;
 		CORBA_Environment ev;
 
@@ -1663,11 +1664,12 @@ process_section (EMeetingModel *im, GNOME_Evolution_Addressbook_SimpleCardList *
 		}
 
 		/* Get the field as attendee from the backend */
-		attr = cal_client_get_ldap_attribute (priv->client);
-		if (attr) {
+		if (cal_client_get_ldap_attribute (priv->client, &attr, NULL) && attr) {
 			/* FIXME this should be more general */
 			if (!strcmp (attr, "icscalendar"))
 				attendee = GNOME_Evolution_Addressbook_SimpleCard_get (card, GNOME_Evolution_Addressbook_SimpleCard_Icscalendar, &ev);
+		
+			g_free (attr);
 		}
 
 		CORBA_exception_init (&ev);

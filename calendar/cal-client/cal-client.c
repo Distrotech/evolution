@@ -33,7 +33,6 @@
 #include "e-util/e-url.h"
 #include "e-util/e-msgport.h"
 #include "cal-util/cal-util-marshal.h"
-#include "cal-client-types.h"
 #include "cal-client.h"
 #include "cal-listener.h"
 
@@ -46,8 +45,9 @@ typedef struct {
 
 //	char *id;
 	GList *list;
-//	EContact *contact;
-
+	gboolean bool;
+	char *string;
+	
 //	EBookView *view;
 //	EBookViewListener *listener;
 } ECalendarOp;
@@ -104,7 +104,6 @@ struct _CalClientPrivate {
 /* Signal IDs */
 enum {
 	CAL_OPENED,
-	CAL_REMOVED,
 	CAL_SET_MODE,
 	BACKEND_ERROR,
 	CATEGORIES_CHANGED,
@@ -113,10 +112,6 @@ enum {
 	LAST_SIGNAL
 };
 
-static void cal_client_class_init (CalClientClass *klass);
-static void cal_client_init (CalClient *client, CalClientClass *klass);
-static void cal_client_finalize (GObject *object);
-
 static void cal_client_get_object_timezones_cb (icalparameter *param,
 						void *data);
 
@@ -124,36 +119,26 @@ static guint cal_client_signals[LAST_SIGNAL];
 
 static GObjectClass *parent_class;
 
+#define E_CALENDAR_CHECK_STATUS(status,error) G_STMT_START{			\
+	if ((status) == E_CALENDAR_STATUS_OK) {				\
+		return TRUE;						\
+	}								\
+	else {								\
+		g_set_error ((error), E_CALENDAR_ERROR, (status), "ECalendarStatus returned %d", (status));	\
+		return FALSE;						\
+	}				}G_STMT_END
+
 
 
-/**
- * cal_client_get_type:
- *
- * Registers the #CalClient class if necessary, and returns the type ID assigned
- * to it.
- *
- * Return value: The type ID of the #CalClient class.
- **/
-GType
-cal_client_get_type (void)
+/* Error quark */
+GQuark
+e_calendar_error_quark (void)
 {
-	static GType cal_client_type = 0;
+  static GQuark q = 0;
+  if (q == 0)
+    q = g_quark_from_static_string ("e-calendar-error-quark");
 
-	if (!cal_client_type) {
-		static GTypeInfo info = {
-                        sizeof (CalClientClass),
-                        (GBaseInitFunc) NULL,
-                        (GBaseFinalizeFunc) NULL,
-                        (GClassInitFunc) cal_client_class_init,
-                        NULL, NULL,
-                        sizeof (CalClient),
-                        0,
-                        (GInstanceInitFunc) cal_client_init
-                };
-		cal_client_type = g_type_register_static (G_TYPE_OBJECT, "CalClient", &info, 0);
-	}
-
-	return cal_client_type;
+  return q;
 }
 
 GType
@@ -280,111 +265,6 @@ e_calendar_remove_op (CalClient *client, ECalendarOp *op)
 	client->priv->current_op = NULL;
 }
 
-/* Class initialization function for the calendar client */
-static void
-cal_client_class_init (CalClientClass *klass)
-{
-	GObjectClass *object_class;
-
-	object_class = (GObjectClass *) klass;
-
-	parent_class = g_type_class_peek_parent (klass);
-
-	cal_client_signals[CAL_OPENED] =
-		g_signal_new ("cal_opened",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, cal_opened),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__ENUM,
-			      G_TYPE_NONE, 1,
-			      CAL_CLIENT_OPEN_STATUS_ENUM_TYPE);
-	cal_client_signals[CAL_REMOVED] =
-		g_signal_new ("cal_removed",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, cal_removed),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__ENUM,
-			      G_TYPE_NONE, 1,
-			      CAL_CLIENT_REMOVE_STATUS_ENUM_TYPE);
-
-	cal_client_signals[CAL_SET_MODE] =
-		g_signal_new ("cal_set_mode",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, cal_set_mode),
-			      NULL, NULL,
-			      cal_util_marshal_VOID__ENUM_ENUM,
-			      G_TYPE_NONE, 2,
-			      CAL_CLIENT_SET_MODE_STATUS_ENUM_TYPE,
-			      CAL_MODE_ENUM_TYPE);
-	cal_client_signals[BACKEND_ERROR] =
-		g_signal_new ("backend_error",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, backend_error),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
-	cal_client_signals[CATEGORIES_CHANGED] =
-		g_signal_new ("categories_changed",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, categories_changed),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__POINTER,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_POINTER);
-	cal_client_signals[FORGET_PASSWORD] =
-		g_signal_new ("forget_password",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, forget_password),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
-	cal_client_signals[BACKEND_DIED] =
-		g_signal_new ("backend_died",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, backend_died),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__VOID,
-			      G_TYPE_NONE, 0);
-
-	klass->cal_opened = NULL;
-	klass->categories_changed = NULL;
-	klass->forget_password = NULL;
-	klass->backend_died = NULL;
-
-	object_class->finalize = cal_client_finalize;
-}
-
-/* Object initialization function for the calendar client */
-static void
-cal_client_init (CalClient *client, CalClientClass *klass)
-{
-	CalClientPrivate *priv;
-
-	priv = g_new0 (CalClientPrivate, 1);
-	client->priv = priv;
-
-	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
-	priv->uri = NULL;
-	priv->mutex = e_mutex_new (E_MUTEX_REC);
-	priv->cal_address = NULL;
-	priv->alarm_email_address = NULL;
-	priv->ldap_attribute = NULL;
-	priv->capabilities = FALSE;
-	priv->factories = NULL;
-	priv->timezones = g_hash_table_new (g_str_hash, g_str_equal);
-	priv->default_zone = icaltimezone_get_utc_timezone ();
-	priv->comp_listener = NULL;
-}
-
 /* Gets rid of the factories that a client knows about */
 static void
 destroy_factories (CalClient *client)
@@ -437,7 +317,7 @@ destroy_cal (CalClient *client)
 	CORBA_exception_init (&ev);
 	result = CORBA_Object_is_nil (priv->cal, &ev);
 	if (BONOBO_EX (&ev)) {
-		g_message ("destroy_cal(): could not see if the "
+		g_message (G_STRLOC ": could not see if the "
 			   "calendar client interface object was nil");
 		priv->cal = CORBA_OBJECT_NIL;
 		CORBA_exception_free (&ev);
@@ -448,19 +328,7 @@ destroy_cal (CalClient *client)
 	if (result)
 		return;
 
-	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Cal_unref (priv->cal, &ev);
-	if (BONOBO_EX (&ev))
-		g_message ("destroy_cal(): could not unref the calendar client interface object");
-
-	CORBA_exception_free (&ev);
-
-	CORBA_exception_init (&ev);
-	CORBA_Object_release (priv->cal, &ev);
-	if (BONOBO_EX (&ev))
-		g_message ("destroy_cal(): could not release the calendar client interface object");
-
-	CORBA_exception_free (&ev);
+	bonobo_object_release_unref (priv->cal, NULL);	
 	priv->cal = CORBA_OBJECT_NIL;
 
 }
@@ -471,77 +339,6 @@ free_timezone (gpointer key, gpointer value, gpointer data)
 	/* Note that the key comes from within the icaltimezone value, so we
 	   don't free that. */
 	icaltimezone_free (value, TRUE);
-}
-
-/* Finalize handler for the calendar client */
-static void
-cal_client_finalize (GObject *object)
-{
-	CalClient *client;
-	CalClientPrivate *priv;
-
-	g_return_if_fail (object != NULL);
-	g_return_if_fail (IS_CAL_CLIENT (object));
-
-	client = CAL_CLIENT (object);
-	priv = client->priv;
-
-	if (priv->listener) {
-		cal_listener_stop_notification (priv->listener);
-		bonobo_object_unref (priv->listener);
-		priv->listener = NULL;
-	}
-
-	if (priv->comp_listener) {
-		g_signal_handlers_disconnect_matched (G_OBJECT (priv->comp_listener),
-						      G_SIGNAL_MATCH_DATA,
-						      0, 0, NULL, NULL,
-						      client);
-		g_object_unref (G_OBJECT (priv->comp_listener));
-		priv->comp_listener = NULL;
-	}
-
-	destroy_factories (client);
-	destroy_cal (client);
-
-	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
-
-	if (priv->uri) {
-		g_free (priv->uri);
-		priv->uri = NULL;
-	}
-
-	if (priv->mutex) {
-		e_mutex_destroy (priv->mutex);
-		priv->mutex = NULL;
-	}
-	
-	if (priv->cal_address) {
-		g_free (priv->cal_address);
-		priv->cal_address = NULL;
-	}
-	if (priv->alarm_email_address) {
-		g_free (priv->alarm_email_address);
-		priv->alarm_email_address = NULL;
-	}
-	if (priv->ldap_attribute) {
-		g_free (priv->ldap_attribute);
-		priv->ldap_attribute = NULL;
-	}
-	if (priv->capabilities) {
-		g_free (priv->capabilities);
-		priv->capabilities = NULL;
-	}
-
-	g_hash_table_foreach (priv->timezones, free_timezone, NULL);
-	g_hash_table_destroy (priv->timezones);
-	priv->timezones = NULL;
-
-	g_free (priv);
-	client->priv = NULL;
-
-	if (G_OBJECT_CLASS (parent_class)->finalize)
-		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
 }
 
 
@@ -561,180 +358,188 @@ backend_died_cb (EComponentListener *cl, gpointer user_data)
 
 /* Signal handlers for the listener's signals */
 /* Handle the cal_opened notification from the listener */
-static void
-cal_opened_cb (CalListener *listener,
-	       GNOME_Evolution_Calendar_Listener_FileStatus status,
-	       gpointer data)
-{
-	CalClient *client;
-	CalClientPrivate *priv;
-	CalClientOpenStatus client_status;
-
-	client = CAL_CLIENT (data);
-	priv = client->priv;
-
-	g_assert (priv->load_state == CAL_CLIENT_LOAD_LOADING);
-	g_assert (priv->uri != NULL);
-
-	client_status = CAL_CLIENT_OPEN_ERROR;
-
-	switch (status) {
-	case GNOME_Evolution_Calendar_Listener_SUCCESS:
-		priv->load_state = CAL_CLIENT_LOAD_LOADED;
-
-		client_status = CAL_CLIENT_OPEN_SUCCESS;
-
-		/* setup component listener */
-		priv->comp_listener = e_component_listener_new (priv->cal);
-		g_signal_connect (G_OBJECT (priv->comp_listener), "component_died",
-				  G_CALLBACK (backend_died_cb), client);
-		goto out;
-
-	case GNOME_Evolution_Calendar_Listener_ERROR:
-		client_status = CAL_CLIENT_OPEN_ERROR;
-		goto error;
-
-	case GNOME_Evolution_Calendar_Listener_NOT_FOUND:
-		client_status = CAL_CLIENT_OPEN_NOT_FOUND;
-		goto error;
-
-	case GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED :
-		client_status = CAL_CLIENT_OPEN_PERMISSION_DENIED;
-		goto error;
-
-	default:
-		g_assert_not_reached ();
-	}
-
- error:
-
-	bonobo_object_unref (BONOBO_OBJECT (priv->listener));
-	priv->listener = NULL;
-
-	/* We free the priv->uri and set the priv->load_state until after the
-	 * "cal_opened" signal has been emitted so that handlers will be able to
-	 * access this information.
-	 */
-
- out:
-
-	/* We are *not* inside a signal handler (this is just a simple callback
-	 * called from the listener), so there is not a temporary reference to
-	 * the client object.  We ref() so that we can safely emit our own
-	 * signal and clean up.
-	 */
-
-	g_object_ref (G_OBJECT (client));
-
-	g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_OPENED],
-		       0, client_status);
-
-	if (client_status != CAL_CLIENT_OPEN_SUCCESS) {
-		priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
-		g_free (priv->uri);
-		priv->uri = NULL;
-	}
-
-	g_assert (priv->load_state != CAL_CLIENT_LOAD_LOADING);
-
-	g_object_unref (G_OBJECT (client));
-}
 
 static void
-cal_removed_cb (CalListener *listener,
-	       GNOME_Evolution_Calendar_Listener_FileStatus status,
-	       gpointer data)
-{
-	CalClient *client;
-	CalClientPrivate *priv;
-	CalClientRemoveStatus client_status;
-
-	client = CAL_CLIENT (data);
-	priv = client->priv;
-
-	g_assert (priv->load_state == CAL_CLIENT_LOAD_LOADING);
-	g_assert (priv->uri != NULL);
-
-	client_status = CAL_CLIENT_OPEN_ERROR;
-
-	switch (status) {
-	case GNOME_Evolution_Calendar_Listener_SUCCESS:
-		client_status = CAL_CLIENT_REMOVE_SUCCESS;
-		break;
-
-	case GNOME_Evolution_Calendar_Listener_ERROR:
-		client_status = CAL_CLIENT_REMOVE_ERROR;
-		break;
-
-	case GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED :
-		client_status = CAL_CLIENT_REMOVE_PERMISSION_DENIED;
-		break;		
-
-	default:		
-		g_assert_not_reached ();
-	}
-
-	/* We are *not* inside a signal handler (this is just a simple callback
-	 * called from the listener), so there is not a temporary reference to
-	 * the client object.  We ref() so that we can safely emit our own
-	 * signal and clean up.
-	 */
-
-	g_object_ref (G_OBJECT (client));
-
-	g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_REMOVED],
-		       0, client_status);
-
-	/* FIXME How to cleanup after a removal */
-	if (client_status == CAL_CLIENT_REMOVE_SUCCESS) {
-		priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
-	}
-
-	g_object_unref (G_OBJECT (client));
-}
-
-/* Builds a GList of CalObjInstance structures from the CORBA sequence */
-static GList *
-build_object_list (const GNOME_Evolution_Calendar_stringlist *seq)
-{
-	GList *list;
-	int i;
-
-	list = NULL;
-	for (i = 0; i < seq->_length; i++) {
-		icalcomponent *comp;
-		
-		comp = icalcomponent_new_from_string (seq->_buffer[i]);
-		if (!comp)
-			continue;
-		
-		list = g_list_prepend (list, comp);
-	}
-
-	return list;
-}
-
-static void
-cal_object_list_cb (CalListener *listener,
-		    const GNOME_Evolution_Calendar_CallStatus status,
-		    const GNOME_Evolution_Calendar_stringlist *objects,
-		    gpointer data)
+cal_read_only_cb (CalListener *listener, ECalendarStatus status, gboolean read_only, gpointer data)
 {
 	CalClient *client = data;
 	ECalendarOp *op;
-	
+
 	op = e_calendar_get_op (client);
 
 	if (op == NULL) {
-	  g_warning ("e_book_response_get_contacts: Cannot find operation ");
-	  return;
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
 	}
 
 	e_mutex_lock (op->mutex);
 
 	op->status = status;
-	op->list = build_object_list (objects);
+	op->bool = read_only;
 
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_cal_address_cb (CalListener *listener, ECalendarStatus status, const char *address, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (address);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_alarm_address_cb (CalListener *listener, ECalendarStatus status, const char *address, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (address);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_ldap_attribute_cb (CalListener *listener, ECalendarStatus status, const char *attribute, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (attribute);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_static_capabilities_cb (CalListener *listener, ECalendarStatus status, const char *capabilities, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (capabilities);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_opened_cb (CalListener *listener, ECalendarStatus status, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_removed_cb (CalListener *listener, ECalendarStatus status, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
+cal_object_list_cb (CalListener *listener, ECalendarStatus status, GList *objects, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+	GList *l;
+	
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->list = g_list_copy (objects);
+	
+	for (l = op->list; l; l = l->next)
+		l->data = icalcomponent_new_clone (l->data);
+	
 	pthread_cond_signal (&op->cond);
 
 	e_mutex_unlock (op->mutex);
@@ -871,6 +676,216 @@ get_factories (const char *str_uri, GList **factories)
 	return TRUE;
 }
 
+/* Object initialization function for the calendar client */
+static void
+cal_client_init (CalClient *client, CalClientClass *klass)
+{
+	CalClientPrivate *priv;
+
+	priv = g_new0 (CalClientPrivate, 1);
+	client->priv = priv;
+
+	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
+	priv->uri = NULL;
+	priv->mutex = e_mutex_new (E_MUTEX_REC);
+	priv->listener = cal_listener_new (cal_set_mode_cb,
+					   backend_error_cb,
+					   categories_changed_cb,
+					   client);
+
+	priv->cal_address = NULL;
+	priv->alarm_email_address = NULL;
+	priv->ldap_attribute = NULL;
+	priv->capabilities = FALSE;
+	priv->factories = NULL;
+	priv->timezones = g_hash_table_new (g_str_hash, g_str_equal);
+	priv->default_zone = icaltimezone_get_utc_timezone ();
+	priv->comp_listener = NULL;
+
+	g_signal_connect (G_OBJECT (priv->listener), "read_only", G_CALLBACK (cal_read_only_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "cal_address", G_CALLBACK (cal_cal_address_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "alarm_address", G_CALLBACK (cal_alarm_address_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "ldap_attribute", G_CALLBACK (cal_ldap_attribute_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "static_capabilities", G_CALLBACK (cal_static_capabilities_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "open", G_CALLBACK (cal_opened_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "remove", G_CALLBACK (cal_removed_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
+}
+
+/* Finalize handler for the calendar client */
+static void
+cal_client_finalize (GObject *object)
+{
+	CalClient *client;
+	CalClientPrivate *priv;
+
+	g_return_if_fail (object != NULL);
+	g_return_if_fail (IS_CAL_CLIENT (object));
+
+	client = CAL_CLIENT (object);
+	priv = client->priv;
+
+	if (priv->listener) {
+		cal_listener_stop_notification (priv->listener);
+		bonobo_object_unref (priv->listener);
+		priv->listener = NULL;
+	}
+
+	if (priv->comp_listener) {
+		g_signal_handlers_disconnect_matched (G_OBJECT (priv->comp_listener),
+						      G_SIGNAL_MATCH_DATA,
+						      0, 0, NULL, NULL,
+						      client);
+		g_object_unref (G_OBJECT (priv->comp_listener));
+		priv->comp_listener = NULL;
+	}
+
+	destroy_factories (client);
+	destroy_cal (client);
+
+	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
+
+	if (priv->uri) {
+		g_free (priv->uri);
+		priv->uri = NULL;
+	}
+
+	if (priv->mutex) {
+		e_mutex_destroy (priv->mutex);
+		priv->mutex = NULL;
+	}
+	
+	if (priv->cal_address) {
+		g_free (priv->cal_address);
+		priv->cal_address = NULL;
+	}
+	if (priv->alarm_email_address) {
+		g_free (priv->alarm_email_address);
+		priv->alarm_email_address = NULL;
+	}
+	if (priv->ldap_attribute) {
+		g_free (priv->ldap_attribute);
+		priv->ldap_attribute = NULL;
+	}
+	if (priv->capabilities) {
+		g_free (priv->capabilities);
+		priv->capabilities = NULL;
+	}
+
+	g_hash_table_foreach (priv->timezones, free_timezone, NULL);
+	g_hash_table_destroy (priv->timezones);
+	priv->timezones = NULL;
+
+	g_free (priv);
+	client->priv = NULL;
+
+	if (G_OBJECT_CLASS (parent_class)->finalize)
+		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
+}
+
+/* Class initialization function for the calendar client */
+static void
+cal_client_class_init (CalClientClass *klass)
+{
+	GObjectClass *object_class;
+
+	object_class = (GObjectClass *) klass;
+
+	parent_class = g_type_class_peek_parent (klass);
+
+	cal_client_signals[CAL_OPENED] =
+		g_signal_new ("cal_opened",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, cal_opened),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__ENUM,
+			      G_TYPE_NONE, 1,
+			      CAL_CLIENT_OPEN_STATUS_ENUM_TYPE);
+	cal_client_signals[CAL_SET_MODE] =
+		g_signal_new ("cal_set_mode",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, cal_set_mode),
+			      NULL, NULL,
+			      cal_util_marshal_VOID__ENUM_ENUM,
+			      G_TYPE_NONE, 2,
+			      CAL_CLIENT_SET_MODE_STATUS_ENUM_TYPE,
+			      CAL_MODE_ENUM_TYPE);
+	cal_client_signals[BACKEND_ERROR] =
+		g_signal_new ("backend_error",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, backend_error),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__STRING,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_STRING);
+	cal_client_signals[CATEGORIES_CHANGED] =
+		g_signal_new ("categories_changed",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, categories_changed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__POINTER,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_POINTER);
+	cal_client_signals[FORGET_PASSWORD] =
+		g_signal_new ("forget_password",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, forget_password),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__STRING,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_STRING);
+	cal_client_signals[BACKEND_DIED] =
+		g_signal_new ("backend_died",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, backend_died),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__VOID,
+			      G_TYPE_NONE, 0);
+
+	klass->cal_opened = NULL;
+	klass->categories_changed = NULL;
+	klass->forget_password = NULL;
+	klass->backend_died = NULL;
+
+	object_class->finalize = cal_client_finalize;
+}
+
+/**
+ * cal_client_get_type:
+ *
+ * Registers the #CalClient class if necessary, and returns the type ID assigned
+ * to it.
+ *
+ * Return value: The type ID of the #CalClient class.
+ **/
+GType
+cal_client_get_type (void)
+{
+	static GType cal_client_type = 0;
+
+	if (!cal_client_type) {
+		static GTypeInfo info = {
+                        sizeof (CalClientClass),
+                        (GBaseInitFunc) NULL,
+                        (GBaseFinalizeFunc) NULL,
+                        (GClassInitFunc) cal_client_class_init,
+                        NULL, NULL,
+                        sizeof (CalClient),
+                        0,
+                        (GInstanceInitFunc) cal_client_init
+                };
+		cal_client_type = g_type_register_static (G_TYPE_OBJECT, "CalClient", &info, 0);
+	}
+
+	return cal_client_type;
+}
+
 /**
  * cal_client_new:
  *
@@ -922,7 +937,6 @@ static gboolean
 real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exists, gboolean *supported)
 {
 	CalClientPrivate *priv;
-	GNOME_Evolution_Calendar_Listener corba_listener;
 	GList *f;
 	CORBA_Environment ev;
 	
@@ -938,31 +952,15 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 		
 		return FALSE;
 	}
-	
-	priv->listener = cal_listener_new (cal_opened_cb,
-					   cal_removed_cb,
-					   cal_object_list_cb,
-					   cal_set_mode_cb,
-					   backend_error_cb,
-					   categories_changed_cb,
-					   client);
-	if (!priv->listener) {
-		g_message ("cal_client_open_calendar(): could not create the listener");
-
-		if (supported)
-			*supported = TRUE;		
-
-		return FALSE;
-	}
-
-	corba_listener = (GNOME_Evolution_Calendar_Listener) (BONOBO_OBJREF (priv->listener));
 
 	priv->load_state = CAL_CLIENT_LOAD_LOADING;
 	priv->uri = g_strdup (str_uri);
 
 	for (f = priv->factories; f; f = f->next) {
 		GNOME_Evolution_Calendar_Cal cal;
-		
+		ECalendarOp *our_op;
+		ECalendarStatus status;
+
 		CORBA_exception_init (&ev);
 
 		cal = GNOME_Evolution_Calendar_CalFactory_getCal (f->data, priv->uri, CALOBJ_TYPE_EVENT,
@@ -971,6 +969,15 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 			continue;
 		
 		priv->cal = cal;
+
+		/* FIXME The lock is not so clean in this routine */
+		e_mutex_lock (client->priv->mutex);
+		
+		our_op = e_calendar_new_op (client);
+		
+		e_mutex_lock (our_op->mutex);
+		
+		e_mutex_unlock (client->priv->mutex);
 
 		GNOME_Evolution_Calendar_Cal_open (cal, only_if_exists, &ev);
 		if (BONOBO_EX (&ev)) {
@@ -982,17 +989,35 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 		
 		CORBA_exception_free (&ev);
 
+		e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+		status = our_op->status;
+		
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
 		if (supported)
 			*supported = TRUE;
-		
-		return TRUE;
+
+		if (status == E_CALENDAR_STATUS_OK) {
+			priv->load_state = CAL_CLIENT_LOAD_LOADED;
+
+			priv->comp_listener = e_component_listener_new (priv->cal);
+			g_signal_connect (G_OBJECT (priv->comp_listener), "component_died",
+					  G_CALLBACK (backend_died_cb), client);
+			
+			/* FIXME This is only here temporarily */
+			g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_OPENED],
+				       0, status);
+
+			return TRUE;
+		}
 	}
 
 	if (supported)
 		*supported = FALSE;
 	
-	bonobo_object_unref (BONOBO_OBJECT (priv->listener));
-	priv->listener = NULL;
 	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
 	g_free (priv->uri);
 	priv->uri = NULL;
@@ -1100,26 +1125,60 @@ cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists)
 }
 
 gboolean 
-cal_client_remove_calendar (CalClient *client)
+cal_client_remove_calendar (CalClient *client, GError **error)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 	
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, FALSE);
-		
-	CORBA_exception_init (&ev);	
-		
-	GNOME_Evolution_Calendar_Cal_remove (priv->cal, &ev);
-	if (BONOBO_EX (&ev))
-		return FALSE;
 	
+	e_mutex_lock (client->priv->mutex);
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_remove (priv->cal, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+	}
+
 	CORBA_exception_free (&ev);
 
-	return TRUE;
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 #if 0
@@ -1241,28 +1300,66 @@ cal_client_get_uri (CalClient *client)
  * Return value: TRUE if the calendar is read-only, FALSE otherwise.
  */
 gboolean
-cal_client_is_read_only (CalClient *client)
+cal_client_is_read_only (CalClient *client, gboolean *read_only, GError **error)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
-	CORBA_boolean read_only;
-
+	ECalendarStatus status;
+	ECalendarOp *our_op;
+	
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
+	
+	e_mutex_lock (client->priv->mutex);
 
-	if (priv->load_state != CAL_CLIENT_LOAD_LOADED)
-		return FALSE;
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
 
 	CORBA_exception_init (&ev);
-	read_only = GNOME_Evolution_Calendar_Cal_isReadOnly (priv->cal, &ev);
+
+	GNOME_Evolution_Calendar_Cal_isReadOnly (priv->cal, &ev);
 	if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_is_read_only: could not call isReadOnly method");
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
 	}
+
 	CORBA_exception_free (&ev);
 
-	return read_only;
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*read_only = our_op->bool;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	return status;
 }
 
 /**
@@ -1275,108 +1372,257 @@ cal_client_is_read_only (CalClient *client)
  * is loaded or being loaded, or %NULL if the client has not started a
  * load request yet or the calendar has no associated email address.
  **/
-const char *
-cal_client_get_cal_address (CalClient *client)
+gboolean
+cal_client_get_cal_address (CalClient *client, char **cal_address, GError **error)
 {
 	CalClientPrivate *priv;
-
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
+	
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
+	
+	e_mutex_lock (client->priv->mutex);
 
-	if (priv->cal_address == NULL) {
-		CORBA_Environment ev;
-		CORBA_char *cal_address;
-
-		CORBA_exception_init (&ev);
-		cal_address = GNOME_Evolution_Calendar_Cal_getCalAddress (priv->cal, &ev);
-		if (!BONOBO_EX (&ev)) {
-			priv->cal_address = g_strdup (cal_address);
-			CORBA_free (cal_address);
-		}
-		CORBA_exception_free (&ev);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
 	}
 
-	return priv->cal_address;
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_getCalAddress (priv->cal, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*cal_address = our_op->string;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
-const char *
-cal_client_get_alarm_email_address (CalClient *client)
+gboolean
+cal_client_get_alarm_email_address (CalClient *client, char **alarm_address, GError **error)
 {
 	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
 
-	if (priv->alarm_email_address == NULL) {
-		CORBA_Environment ev;
-		CORBA_char *email_address;
+	e_mutex_lock (client->priv->mutex);
 
-		CORBA_exception_init (&ev);
-		email_address = GNOME_Evolution_Calendar_Cal_getAlarmEmailAddress (priv->cal, &ev);
-		if (!BONOBO_EX (&ev)) {
-			priv->alarm_email_address = g_strdup (email_address);
-			CORBA_free (email_address);
-		}
-		CORBA_exception_free (&ev);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
 	}
 
-	return priv->alarm_email_address;
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_getAlarmEmailAddress (priv->cal, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*alarm_address = our_op->string;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
-const char *
-cal_client_get_ldap_attribute (CalClient *client)
+gboolean
+cal_client_get_ldap_attribute (CalClient *client, char **ldap_attribute, GError **error)
 {
 	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
 
-	if (priv->ldap_attribute == NULL) {
-		CORBA_Environment ev;
-		CORBA_char *ldap_attribute;
+	e_mutex_lock (client->priv->mutex);
 
-		CORBA_exception_init (&ev);
-		ldap_attribute = GNOME_Evolution_Calendar_Cal_getLdapAttribute (priv->cal, &ev);
-		if (!BONOBO_EX (&ev)) {
-			priv->ldap_attribute = g_strdup (ldap_attribute);
-			CORBA_free (ldap_attribute);
-		}
-		CORBA_exception_free (&ev);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
 	}
 
-	return priv->ldap_attribute;
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_getLdapAttribute (priv->cal, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*ldap_attribute = our_op->string;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
-static void
+static ECalendarStatus
 load_static_capabilities (CalClient *client) 
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 	char *cap;
 	
 	priv = client->priv;
 
 	if (priv->capabilities)
-		return;
-	
-	CORBA_exception_init (&ev);
-	cap = GNOME_Evolution_Calendar_Cal_getStaticCapabilities (priv->cal, &ev);
-	if (!BONOBO_EX (&ev))
-		priv->capabilities = g_strdup (cap);
-	else
-		priv->capabilities = g_strdup ("");	
+		return E_CALENDAR_STATUS_OK;
 
-	CORBA_free (cap);
+	e_mutex_lock (client->priv->mutex);
+
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_getStaticCapabilities (priv->cal, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+	}
+
 	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	cap = our_op->string;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	return status;
 }
 
 static gboolean
@@ -1386,6 +1632,7 @@ check_capability (CalClient *client, const char *cap)
 	
 	priv = client->priv;
 
+	/* FIXME Check result */
 	load_static_capabilities (client);
 	if (strstr (priv->capabilities, cap))
 		return TRUE;
@@ -1818,8 +2065,8 @@ cal_client_get_changes (CalClient *client, CalObjType type, const char *change_i
  * 
  * Return value: 
  **/
-ECalendarStatus
-cal_client_get_object_list (CalClient *client, const char *query, GList **objects)
+gboolean
+cal_client_get_object_list (CalClient *client, const char *query, GList **objects, GError **error)
 {
 
 	CORBA_Environment ev;
@@ -1850,7 +2097,6 @@ cal_client_get_object_list (CalClient *client, const char *query, GList **object
 
 	CORBA_exception_init (&ev);
 
-	/* will eventually end up calling e_book_response_get_contacts */
 	GNOME_Evolution_Calendar_Cal_getObjectList (client->priv->cal, query, &ev);
 
 	if (BONOBO_EX (&ev)) {
@@ -1862,7 +2108,7 @@ cal_client_get_object_list (CalClient *client, const char *query, GList **object
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 	
 	CORBA_exception_free (&ev);
@@ -1878,38 +2124,35 @@ cal_client_get_object_list (CalClient *client, const char *query, GList **object
 	e_mutex_unlock (our_op->mutex);
 	e_calendar_free_op (our_op);
 
-	return status;
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
-ECalendarStatus
-cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects)
+gboolean
+cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects, GError **error)
 {
-	ECalendarStatus status;	
 	GList *ical_objects = NULL;
+	GList *l;
 	
 	g_return_val_if_fail (client != NULL, E_CALENDAR_STATUS_INVALID_ARG);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), E_CALENDAR_STATUS_INVALID_ARG);
 	g_return_val_if_fail (query != NULL, E_CALENDAR_STATUS_INVALID_ARG);
 	g_return_val_if_fail (objects != NULL, E_CALENDAR_STATUS_INVALID_ARG);
 	
-	status = cal_client_get_object_list (client, query, &ical_objects);
-
-	if (status == E_CALENDAR_STATUS_OK) {
-		GList *l;
+	if (!cal_client_get_object_list (client, query, &ical_objects, error))
+		return FALSE;
 		
-		*objects = NULL;
-		for (l = ical_objects; l; l = l->next) {
-			CalComponent *comp;
+	*objects = NULL;
+	for (l = ical_objects; l; l = l->next) {
+		CalComponent *comp;
 			
-			comp = cal_component_new ();
-			cal_component_set_icalcomponent (comp, l->data);
-			*objects = g_list_prepend (*objects, comp);
-		}
-			
-		g_list_free (ical_objects);
+		comp = cal_component_new ();
+		cal_component_set_icalcomponent (comp, l->data);
+		*objects = g_list_prepend (*objects, comp);
 	}
+			
+	g_list_free (ical_objects);
 
-	return status;
+	return TRUE;
 }
 
 void 
@@ -2090,8 +2333,10 @@ cal_client_generate_instances (CalClient *client, CalObjType type,
 
 	/* Generate objects */
 	query = g_strdup_printf ("(occur-in-time-range? (%lu) (%lu))", start, end);
-	/* FIXME Check return status */
-	cal_client_get_object_list (client, query, &objects);
+	if (!cal_client_get_object_list (client, query, &objects, NULL)) {
+		g_free (query);
+		return;
+	}	
 	g_free (query);
 
 	instances = NULL;

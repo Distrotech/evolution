@@ -581,13 +581,15 @@ sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboole
 {
 	BonoboUIComponent *uic;
 	int n_selected;
-	gboolean read_only, has_recurrences;
+	gboolean read_only = FALSE, has_recurrences;
 	
 	uic = bonobo_control_get_ui_component (control);
 	g_assert (uic != NULL);
 
 	n_selected = enable ? gnome_calendar_get_num_events_selected (gcal) : 0;
-	read_only = cal_client_is_read_only (e_cal_model_get_default_client (gnome_calendar_get_calendar_model (gcal)));
+
+	cal_client_is_read_only (e_cal_model_get_default_client (gnome_calendar_get_calendar_model (gcal)), 
+				 &read_only, NULL);
 
 	bonobo_ui_component_set_prop (uic, "/commands/Cut", "sensitive",
 				      n_selected == 0 || read_only ? "0" : "1",
@@ -640,13 +642,13 @@ sensitize_taskpad_commands (GnomeCalendar *gcal, BonoboControl *control, gboolea
 {
 	BonoboUIComponent *uic;
 	int n_selected;
-	gboolean read_only;
+	gboolean read_only = TRUE;
 	
 	uic = bonobo_control_get_ui_component (control);
 	g_assert (uic != NULL);
 
 	n_selected = enable ? gnome_calendar_get_num_tasks_selected (gcal) : 0;
-	read_only = cal_client_is_read_only (gnome_calendar_get_task_pad_cal_client (gcal));
+	cal_client_is_read_only (gnome_calendar_get_task_pad_cal_client (gcal), &read_only, NULL);
 
 	bonobo_ui_component_set_prop (uic, "/commands/Cut", "sensitive",
 				      n_selected == 0 || read_only ? "0" : "1",

@@ -98,12 +98,14 @@ itip_organizer_is_user (CalComponent *comp, CalClient *client)
   		strip = itip_strip_mailto (organizer.value);
   
  		if (cal_client_get_static_capability (client, CAL_STATIC_CAPABILITY_ORGANIZER_NOT_EMAIL_ADDRESS)) { 
- 			const char *email;
+ 			char *email;
  			
- 			email = cal_client_get_cal_address (client);
- 			if (email && !g_strcasecmp (email, strip))
+  			if (cal_client_get_cal_address (client, &email, NULL) && !g_strcasecmp (email, strip)) {
+				g_free (email);
+				
  				return TRUE;
- 
+			}
+			
  			return FALSE;
  		}
  	

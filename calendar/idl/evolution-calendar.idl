@@ -135,14 +135,14 @@ module Calendar {
 		Success,
 		RepositoryOffline,
 		PermissionDenied,
-		CardNotFound,
+		ObjectNotFound,
 		CardIdAlreadyExists,
 		AuthenticationFailed,
 		AuthenticationRequired,
 		UnsupportedField,
 		UnsupportedAuthenticationMethod,
 		TLSNotAvailable,
-		NoSuchBook,
+		NoSuchCal,
 
 		/* These can be returned for successful searches, but
 		   indicate the result set was truncated */
@@ -179,25 +179,25 @@ module Calendar {
 		oneway void open (in boolean only_if_exists)
 			raises (InvalidURI, PermissionDenied);
 
-		void remove ()
+		oneway void remove ()
 			raises (InvalidURI, PermissionDenied);
 
 		/* Check write permissions for calendar */
-		boolean isReadOnly ();
+		oneway void isReadOnly ();
 		
 		/* Information on the backend's capabilities */
-		string getStaticCapabilities ();
+		oneway void getStaticCapabilities ();
 
 		/* Return the cal address associated with this calendar,
 		   if any. */
-		string getCalAddress ()
+		oneway void getCalAddress ()
 			raises (NotFound);
 
-		string getAlarmEmailAddress ()
+		oneway void getAlarmEmailAddress ()
 			raises (NotFound);
 
 		/* Returns the LDAP attribute to get attendees from */
-		string getLdapAttribute ()
+		oneway void getLdapAttribute ()
 			raises (NotFound);
 
 		/* For going online/offline */
@@ -283,16 +283,6 @@ module Calendar {
 
 	/* Listener for changes in a calendar */
 	interface Listener : Bonobo::Unknown {
-		/* Return status when opening a calendar */
-		enum FileStatus {
-			SUCCESS,		/* All OK */
-			ERROR,			/* Generic error */
-			NOT_FOUND,		/* Requested opening in only_if_exists mode
-						 * when the URI did not exist.
-						 */
-			PERMISSION_DENIED
-		};
-
 		/* Return status when setting calendar mode */
 		enum SetModeStatus {
 			MODE_SET,                    /* All OK */
@@ -300,23 +290,25 @@ module Calendar {
 			MODE_NOT_SUPPORTED           /* Mode not supported */
 		};
 
-		/* Called from a CalFactory when a calendar is initially opened.
-		 * The listener must remember the cal object.  
-		 */
-		oneway void notifyCalOpened (in FileStatus status);
-
-		oneway void notifyCalRemoved (in FileStatus status);
+		oneway void notifyReadOnly (in CallStatus status, in boolean read_only);
+		oneway void notifyCalAddress (in CallStatus status, in string address);
+		oneway void notifyAlarmEmailAddress (in CallStatus status, in string address);
+		oneway void notifyLDAPAttribute (in CallStatus status, in string ldap_attribute);
+		oneway void notifyStaticCapabilities (in CallStatus status, in string capabilities);
+		
+		oneway void notifyCalOpened (in CallStatus status);
+		oneway void notifyCalRemoved (in CallStatus status);
 
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 
                 /* Called from a Calendar when the mode is changed */
-		void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		
+		oneway void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		
 
 		/* Called from a Calendar when the list of categories changes */
-		void notifyCategoriesChanged (in StringSeq categories);
+		oneway void notifyCategoriesChanged (in StringSeq categories);
 
 		/* Called from a Calendar when there is an error not notified otherwise */
-		void notifyErrorOccurred (in string message);
+		oneway void notifyErrorOccurred (in string message);
 	};
 
 	/* Handle to a live query on a calendar */

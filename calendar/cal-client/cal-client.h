@@ -25,6 +25,7 @@
 #include <cal-util/cal-recur.h>
 #include <cal-util/cal-util.h>
 #include <cal-client/cal-query.h>
+#include "cal-client-types.h"
 
 G_BEGIN_DECLS
 
@@ -44,27 +45,6 @@ G_BEGIN_DECLS
 typedef struct _CalClientClass CalClientClass;
 
 typedef struct _CalClientPrivate CalClientPrivate;
-
-typedef enum {
-	E_CALENDAR_STATUS_OK,
-	E_CALENDAR_STATUS_INVALID_ARG,
-	E_CALENDAR_STATUS_BUSY,
-	E_CALENDAR_STATUS_REPOSITORY_OFFLINE,
-	E_CALENDAR_STATUS_NO_SUCH_CALENDAR,
-	E_CALENDAR_STATUS_URI_NOT_LOADED,
-	E_CALENDAR_STATUS_URI_ALREADY_LOADED,
-	E_CALENDAR_STATUS_PERMISSION_DENIED,
-	E_CALENDAR_STATUS_CARD_NOT_FOUND,
-	E_CALENDAR_STATUS_CARD_ID_ALREADY_EXISTS,
-	E_CALENDAR_STATUS_PROTOCOL_NOT_SUPPORTED,
-	E_CALENDAR_STATUS_CANCELLED,
-	E_CALENDAR_STATUS_COULD_NOT_CANCEL,
-	E_CALENDAR_STATUS_AUTHENTICATION_FAILED,
-	E_CALENDAR_STATUS_AUTHENTICATION_REQUIRED,
-	E_CALENDAR_STATUS_TLS_NOT_AVAILABLE,
-	E_CALENDAR_STATUS_CORBA_EXCEPTION,
-	E_CALENDAR_STATUS_OTHER_ERROR
-} ECalendarStatus;
 
 /* Open status for the cal_opened signal */
 typedef enum {
@@ -132,7 +112,6 @@ struct _CalClientClass {
 	/* Notification signals */
 
 	void (* cal_opened) (CalClient *client, CalClientOpenStatus status);
-	void (* cal_removed) (CalClient *client, CalClientRemoveStatus status);
 	void (* cal_set_mode) (CalClient *client, CalClientSetModeStatus status, CalMode mode);	
 
 	void (* backend_error) (CalClient *client, const char *message);
@@ -170,7 +149,7 @@ gboolean cal_client_open_calendar (CalClient *client, const char *str_uri, gbool
 gboolean cal_client_open_default_calendar (CalClient *client, gboolean only_if_exists);
 gboolean cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists);
 
-gboolean cal_client_remove_calendar (CalClient *client);
+gboolean cal_client_remove_calendar (CalClient *client, GError **error);
 
 GList *cal_client_uri_list (CalClient *client, CalMode mode);
 
@@ -178,11 +157,10 @@ CalClientLoadState cal_client_get_load_state (CalClient *client);
 
 const char *cal_client_get_uri (CalClient *client);
 
-gboolean cal_client_is_read_only (CalClient *client);
-
-const char *cal_client_get_cal_address (CalClient *client);
-const char *cal_client_get_alarm_email_address (CalClient *client);
-const char *cal_client_get_ldap_attribute (CalClient *client);
+gboolean cal_client_is_read_only (CalClient *client, gboolean *read_only, GError **error);
+gboolean cal_client_get_cal_address (CalClient *client, char **cal_address, GError **error);
+gboolean cal_client_get_alarm_email_address (CalClient *client, char **alarm_address, GError **error);
+gboolean cal_client_get_ldap_attribute (CalClient *client, char **ldap_attribute, GError **error);
 
 gboolean cal_client_get_one_alarm_only (CalClient *client);
 gboolean cal_client_get_organizer_must_attend (CalClient *client);
@@ -208,8 +186,8 @@ CalClientGetStatus cal_client_get_timezone (CalClient *client,
 
 GList *cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id);
 
-ECalendarStatus cal_client_get_object_list (CalClient *client, const char *query, GList **objects);
-ECalendarStatus cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects);
+gboolean cal_client_get_object_list (CalClient *client, const char *query, GList **objects, GError **error);
+gboolean cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects, GError **error);
 void cal_client_free_object_list (GList *objects);
 
 GList *cal_client_get_free_busy (CalClient *client, GList *users,

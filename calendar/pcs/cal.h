@@ -60,6 +60,19 @@ Cal *cal_construct (Cal *cal,
 
 Cal *cal_new (CalBackend *backend, const char *uri, GNOME_Evolution_Calendar_Listener listener);
 
+void cal_notify_read_only (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, gboolean read_only);
+void cal_notify_cal_address (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *address);
+void cal_notify_alarm_email_address (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *address);
+void cal_notify_ldap_attribute (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *attribute);
+void cal_notify_static_capabilities (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *capabilities);
+
+void cal_notify_open (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
+void cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
+
+void cal_notify_object_list (Cal *cal,
+			     GNOME_Evolution_Calendar_CallStatus status,
+			     GNOME_Evolution_Calendar_stringlist *objects);
+
 void cal_notify_mode (Cal *cal, 
 		      GNOME_Evolution_Calendar_Listener_SetModeStatus status, 
 		      GNOME_Evolution_Calendar_CalMode mode);

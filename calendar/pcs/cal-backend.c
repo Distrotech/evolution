@@ -380,44 +380,44 @@ cal_backend_get_kind (CalBackend *backend)
  *
  * Return value: The cal address associated with the calendar.
  **/
-const char *
-cal_backend_get_cal_address (CalBackend *backend)
+void
+cal_backend_get_cal_address (CalBackend *backend, Cal *cal)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_cal_address != NULL);
-	return (* CLASS (backend)->get_cal_address) (backend);
+	(* CLASS (backend)->get_cal_address) (backend, cal);
 }
 
-const char *
-cal_backend_get_alarm_email_address (CalBackend *backend)
+void
+cal_backend_get_alarm_email_address (CalBackend *backend, Cal *cal)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_alarm_email_address != NULL);
-	return (* CLASS (backend)->get_alarm_email_address) (backend);
+	(* CLASS (backend)->get_alarm_email_address) (backend, cal);
 }
 
-const char *
-cal_backend_get_ldap_attribute (CalBackend *backend)
+void
+cal_backend_get_ldap_attribute (CalBackend *backend, Cal *cal)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_ldap_attribute != NULL);
-	return (* CLASS (backend)->get_ldap_attribute) (backend);
+	(* CLASS (backend)->get_ldap_attribute) (backend, cal);
 }
 
-const char *
-cal_backend_get_static_capabilities (CalBackend *backend)
+void
+cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal)
 {
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->get_static_capabilities != NULL);
-	return (* CLASS (backend)->get_static_capabilities) (backend);
+	(* CLASS (backend)->get_static_capabilities) (backend, cal);
 }
 
 /* Callback used when a Cal is destroyed */
@@ -481,32 +481,24 @@ cal_backend_add_cal (CalBackend *backend, Cal *cal)
  *
  * Return value: An operation status code.
  **/
-CalBackendFileStatus
-cal_backend_open (CalBackend *backend, gboolean only_if_exists)
+void
+cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists)
 {
-	CalBackendFileStatus result;
-
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_FILE_ERROR);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_FILE_ERROR);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->open != NULL);
-	result = (* CLASS (backend)->open) (backend, only_if_exists);
-
-	return result;
+	(* CLASS (backend)->open) (backend, cal, only_if_exists);
 }
 
-CalBackendFileStatus
-cal_backend_remove (CalBackend *backend)
+void
+cal_backend_remove (CalBackend *backend, Cal *cal)
 {
-	CalBackendFileStatus result;
-
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_FILE_ERROR);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_FILE_ERROR);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->remove != NULL);
-	result = (* CLASS (backend)->remove) (backend);
-
-	return result;
+	(* CLASS (backend)->remove) (backend, cal);
 }
 
 /**
@@ -540,18 +532,14 @@ cal_backend_is_loaded (CalBackend *backend)
  *
  * Return value: TRUE if the calendar is read only, FALSE otherwise.
  */
-gboolean
-cal_backend_is_read_only (CalBackend *backend)
+void
+cal_backend_is_read_only (CalBackend *backend, Cal *cal)
 {
-	gboolean result;
-
-	g_return_val_if_fail (backend != NULL, FALSE);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), FALSE);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_assert (CLASS (backend)->is_read_only != NULL);
-	result = (* CLASS (backend)->is_read_only) (backend);
-
-	return result;	
+	(* CLASS (backend)->is_read_only) (backend, cal);
 }
 
 /**
@@ -1004,7 +992,7 @@ cal_backend_last_client_gone (CalBackend *backend)
  * only by backend implementations.
  **/
 void
-cal_backend_opened (CalBackend *backend, CalBackendFileStatus status)
+cal_backend_opened (CalBackend *backend, int status)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (IS_CAL_BACKEND (backend));
@@ -1014,7 +1002,7 @@ cal_backend_opened (CalBackend *backend, CalBackendFileStatus status)
 }
 
 void
-cal_backend_removed (CalBackend *backend, CalBackendFileStatus status)
+cal_backend_removed (CalBackend *backend, int status)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (IS_CAL_BACKEND (backend));

@@ -44,6 +44,7 @@ pcsinclude_HEADERS = 		\
 	$(CORBA_GENERATED_H)	\
 	cal.h			\
 	cal-backend.h		\
+	cal-backend-sync.h	\
 	cal-backend-util.h	\
 	cal-backend-object-sexp.h\
 	cal-common.h		\
@@ -56,6 +57,7 @@ libpcs_a_SOURCES =		\
 	$(CORBA_GENERATED_C)	\
 	cal.c			\
 	cal-backend.c		\
+	cal-backend-sync.c	\
 	cal-backend-util.c	\
 	cal-backend-object-sexp.c\
 	cal-factory.c		\

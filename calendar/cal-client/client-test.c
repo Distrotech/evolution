@@ -57,8 +57,8 @@ list_uids (gpointer data)
 
 	g_message ("Blah");
 	
-	/* FIXME Check return status */
-	cal_client_get_object_list (client, "#t", &objects);
+	if (!cal_client_get_object_list (client, "(contains? \"any\" \"Test4\")", &objects, NULL))
+		return FALSE;
 	
 	cl_printf (client, "UIDS: ");
 
@@ -150,7 +150,7 @@ create_client (CalClient **client, const char *uri, gboolean only_if_exists)
 
 	*client = cal_client_new ();
 	if (!*client) {
-		g_message ("create_client(): could not create the client");
+		g_message (G_STRLOC ": could not create the client");
 		exit (1);
 	}
 
@@ -165,7 +165,7 @@ create_client (CalClient **client, const char *uri, gboolean only_if_exists)
 	result = cal_client_open_calendar (*client, uri, only_if_exists);
 
 	if (!result) {
-		g_message ("create_client(): failure when issuing calendar open request `%s'",
+		g_message (G_STRLOC ": failure when issuing calendar open request `%s'",
 			   uri);
 		exit (1);
 	}
@@ -185,7 +185,7 @@ main (int argc, char **argv)
 		exit (1);
 	}
 
-	create_client (&client1, "file:///home/jpr/evolution/local/Calendar", FALSE);
+	create_client (&client1, "file:///home/gnome24-evolution-new-calendar/evolution/local/Calendar", FALSE);
 //	create_client (&client2, "file:///tmp/tasks", TRUE);
 
 	bonobo_main ();
