@@ -1,3 +1,9 @@
+2000-09-11  Not Zed  <NotZed@HelixCode.com>
+
+	** Redid almost everything, on-disk hash table to store an index
+	to index records, mroe on the way to modularisation (more to go),
+	now stores reverse indexes for deleting.
+
 2000-08-31  Not Zed  <NotZed@HelixCode.com>
 
 	* block.c (add_key_mem): Initialise a memory based array for newly

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unicode.h>
 #include <ctype.h>
+#include <string.h>
 
 #include "ibex_internal.h"
 
@@ -133,19 +134,6 @@ utf8_category (char *sp, char **snp, char *send)
 	}
 }
 
-static void
-do_insert_words(char *key, char *name, ibex *ib)
-{
-	add_record(ib->blocks, key, strtoul(name, NULL, 10));
-	g_free(key);
-}
-
-static void
-do_free_words(char *key, char *name, void *data)
-{
-	g_free(key);
-}
-
 /**
  * ibex_index_buffer: the lowest-level ibex indexing interface
  * @ib: an ibex
@@ -173,6 +161,8 @@ ibex_index_buffer (ibex *ib, char *name, char *buffer, size_t len, size_t *unrea
 	char *p, *q, *nq, *end, *word;
 	int wordsiz, cat;
 	GHashTable *words = g_hash_table_new(g_str_hash, g_str_equal);
+	GPtrArray *wordlist = g_ptr_array_new();
+	int i, ret=-1;
 
 	if (unread)
 		*unread = 0;
@@ -217,45 +207,39 @@ ibex_index_buffer (ibex *ib, char *name, char *buffer, size_t len, size_t *unrea
 		ibex_normalise_word (p, q, word);
 		if (word[0]) {
 			if (g_hash_table_lookup(words, word) == 0) {
-				g_hash_table_insert(words, g_strdup(word), name);
+				char *newword = g_strdup(word);
+				g_ptr_array_add(wordlist, newword);
+				g_hash_table_insert(words, newword, name);
 			}
 		}
 		p = q;
 	}
 done:
-	/* FIXME: all words should be for a given file, not just for
-	   a given buffer ... */
-	if (!ibex_contains_name(ib, name)) {
-		void ibex_add_name(ibex *ib, char *name);
-		d(printf("adding '%s' to database\n", name));
-		ibex_add_name(ib, name);
-	}
-
-	g_hash_table_foreach(words, (GHFunc)do_insert_words, ib);
-	g_hash_table_destroy(words);
-	g_free (word);
-	return 0;
+	ib->words->klass->add_list(ib->words, name, wordlist);
+	ret = 0;
 error:
-	g_hash_table_foreach(words, (GHFunc)do_free_words, NULL);
+	for (i=0;i<wordlist->len;i++)
+		g_free(wordlist->pdata[i]);
+	g_ptr_array_free(wordlist, TRUE);
 	g_hash_table_destroy(words);
 	g_free (word);
-	return -1;
+	return ret;
 }
 
 
 ibex *ibex_open (char *file, int flags, int mode)
 {
 	ibex *ib;
-	u_int32_t dbflags = 0;
-	int err;
 
 	ib = g_malloc0(sizeof(*ib));
-	ib->blocks = block_cache_open(file, flags, mode);
+	ib->blocks = ibex_block_cache_open(file, flags, mode);
 	if (ib->blocks == 0) {
 		g_warning("create: Error occured?: %s\n", strerror(errno));
 		g_free(ib);
 		return NULL;
 	}
+	/* FIXME: the blockcache or the wordindex needs to manage the other one */
+	ib->words = ib->blocks->words;
 
 	return ib;
 }
@@ -263,8 +247,9 @@ ibex *ibex_open (char *file, int flags, int mode)
 int ibex_save (ibex *ib)
 {
 	printf("syncing database\n");
+	ib->words->klass->sync(ib->words);
 	/* FIXME: some return */
-	sync_cache(ib->blocks);
+	ibex_block_cache_sync(ib->blocks);
 	return 0;
 }
 
@@ -274,74 +259,41 @@ int ibex_close (ibex *ib)
 
 	printf("closing database\n");
 
-	block_cache_close(ib->blocks);
+	ib->words->klass->close(ib->words);
+	ibex_block_cache_close(ib->blocks);
 	g_free(ib);
 	return ret;
 }
 
 void ibex_unindex (ibex *ib, char *name)
 {
-	nameid_t id;
-
 	d(printf("trying to unindex '%s'\n", name));
-
-	id = strtoul(name, NULL, 10);
-
-	/* if its indexed, do the hard work ... */
-	if (find_indexed(ib->blocks, id)) {
-		remove_indexed(ib->blocks, id);
-	}
+	ib->words->klass->unindex_name(ib->words, name);
 }
 
 GPtrArray *ibex_find (ibex *ib, char *word)
 {
 	char *normal;
-	int len, i;
-	GPtrArray *result = g_ptr_array_new();
-	GArray *matches;
+	int len;
 
 	len = strlen(word);
 	normal = alloca(len+1);
 	ibex_normalise_word(word, word+len, normal);
-	matches = get_record(ib->blocks, normal);
-	for (i=0;i<matches->len;i++) {
-		char uid[16];
-
-		sprintf(uid, "%u", g_array_index(matches, nameid_t, i));
-		g_ptr_array_add(result, g_strdup(uid));
-	}
-	g_array_free(matches, TRUE);
-	return result;
+	return ib->words->klass->find(ib->words, normal);
 }
 
 gboolean ibex_find_name (ibex *ib, char *name, char *word)
 {
 	char *normal;
-	int len, i;
-	GArray *matches;
-	nameid_t id;
-	int result = FALSE;
+	int len;
 
 	len = strlen(word);
 	normal = alloca(len+1);
 	ibex_normalise_word(word, word+len, normal);
-	id = strtoul(name, NULL, 10);
-
-	return find_record(ib->blocks, normal, id);
+	return ib->words->klass->find_name(ib->words, name, normal);
 }
 
 gboolean ibex_contains_name(ibex *ib, char *name)
 {
-	nameid_t id;
-
-	id = strtoul(name, NULL, 10);
-	return find_indexed(ib->blocks, id);
-}
-
-void ibex_add_name(ibex *ib, char *name)
-{
-	nameid_t id;
-
-	id = strtoul(name, NULL, 10);
-	return add_indexed(ib->blocks, id);
+	return ib->words->klass->contains_name(ib->words, name);
 }

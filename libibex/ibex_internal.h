@@ -22,10 +22,12 @@
 
 #include "ibex.h"
 #include "block.h"
+#include "wordindex.h"
 
 #define IBEX_VERSION "ibex3"
 
 struct ibex {
 	char *path;
 	struct _memcache *blocks;
+	struct _IBEXWord *words;
 };
