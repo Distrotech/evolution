@@ -434,34 +434,6 @@ model_rows_inserted_cb (ETableModel *etm, int row, int count, gpointer user_data
 	e_week_view_queue_layout (week_view);
 }
 
-static gboolean
-row_deleted_check_cb (EWeekView *week_view, gint event_num, gpointer data)
-{	
-	GHashTable *uids = data;
-	EWeekViewEvent *event;
-	ECalModel *model;
-	const char *uid;
-	
-	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
-	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
-	model = e_calendar_view_get_model (E_CALENDAR_VIEW (week_view));
-
-	if (!e_cal_model_get_component_for_uid (model, uid))
-		g_hash_table_insert (uids, g_strdup(uid), GINT_TO_POINTER (1));
-
-	return TRUE;
-}
-
-static void
-remove_uid_cb (gpointer key, gpointer value, gpointer data)
-{
-	EWeekView *week_view = data;
-	char *uid = key;
-
-	e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_remove_event_cb, NULL);
-	g_free(uid);
-}
-
 static void
 model_rows_deleted_cb (ETableModel *etm, int row, int count, gpointer user_data)
 {
