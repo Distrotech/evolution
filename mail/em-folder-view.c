@@ -523,6 +523,18 @@ emfv_popup_mark_unimportant(GtkWidget *w, EMFolderView *emfv)
 }
 
 static void
+emfv_popup_mark_spam (GtkWidget *w, EMFolderView *emfv)
+{
+	em_folder_view_mark_selected (emfv, CAMEL_MESSAGE_SPAM | CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SPAM);
+}
+
+static void
+emfv_popup_mark_nospam (GtkWidget *w, EMFolderView *emfv)
+{
+	em_folder_view_mark_selected (emfv, CAMEL_MESSAGE_SPAM, 0);
+}
+
+static void
 emfv_popup_delete(GtkWidget *w, EMFolderView *emfv)
 {
 	GPtrArray *uids;
@@ -637,6 +649,8 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM,  "30.emfv.01", N_("Mark as _Unread"), G_CALLBACK(emfv_popup_mark_unread), NULL, "mail-new.xpm", EM_POPUP_SELECT_MARK_UNREAD },
 	{ EM_POPUP_ITEM, "30.emfv.02", N_("Mark as _Important"), G_CALLBACK(emfv_popup_mark_important), NULL, "priority-high.xpm", EM_POPUP_SELECT_MARK_IMPORTANT },
 	{ EM_POPUP_ITEM, "30.emfv.03", N_("_Mark as Unimportant"), G_CALLBACK(emfv_popup_mark_unimportant), NULL, NULL, EM_POPUP_SELECT_MARK_UNIMPORTANT },
+	{ EM_POPUP_ITEM, "30.emfv.04", N_("Mark as _Spam"), G_CALLBACK(emfv_popup_mark_spam), NULL, NULL, EM_POPUP_SELECT_MARK_SPAM },
+	{ EM_POPUP_ITEM, "30.emfv.05", N_("Mark as _Nospam"), G_CALLBACK(emfv_popup_mark_nospam), NULL, NULL, EM_POPUP_SELECT_MARK_NOSPAM },
 	
 	{ EM_POPUP_BAR, "40.emfv" },
 	{ EM_POPUP_ITEM, "40.emfv.00", N_("_Delete"), G_CALLBACK(emfv_popup_delete), NULL, "evolution-trash-mini.png", EM_POPUP_SELECT_DELETE },
@@ -778,6 +792,8 @@ EMFV_MAP_CALLBACK(emfv_message_mark_read, emfv_popup_mark_read)
 EMFV_MAP_CALLBACK(emfv_message_mark_unread, emfv_popup_mark_unread)
 EMFV_MAP_CALLBACK(emfv_message_mark_important, emfv_popup_mark_important)
 EMFV_MAP_CALLBACK(emfv_message_mark_unimportant, emfv_popup_mark_unimportant)
+EMFV_MAP_CALLBACK(emfv_message_mark_spam, emfv_popup_mark_spam)
+EMFV_MAP_CALLBACK(emfv_message_mark_nospam, emfv_popup_mark_nospam)
 EMFV_MAP_CALLBACK(emfv_message_delete, emfv_popup_delete)
 EMFV_MAP_CALLBACK(emfv_message_undelete, emfv_popup_undelete)
 EMFV_MAP_CALLBACK(emfv_message_followup_flag, emfv_popup_flag_followup)
@@ -1199,6 +1215,8 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("MessageMarkAsUnRead", emfv_message_mark_unread),
 	BONOBO_UI_UNSAFE_VERB ("MessageMarkAsImportant", emfv_message_mark_important),
 	BONOBO_UI_UNSAFE_VERB ("MessageMarkAsUnimportant", emfv_message_mark_unimportant),
+	BONOBO_UI_UNSAFE_VERB ("MessageMarkAsSpam", emfv_message_mark_spam),
+	BONOBO_UI_UNSAFE_VERB ("MessageMarkAsNospam", emfv_message_mark_nospam),
 	BONOBO_UI_UNSAFE_VERB ("MessageFollowUpFlag", emfv_message_followup_flag),
 	BONOBO_UI_UNSAFE_VERB ("MessageMove", emfv_message_move),
 	BONOBO_UI_UNSAFE_VERB ("MessageOpen", emfv_message_open),
@@ -1299,6 +1317,8 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "MessageMarkAsUnRead",      EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_UNREAD },
 	{ "MessageMarkAsImportant",   EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_IMPORTANT },
 	{ "MessageMarkAsUnimportant", EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_UNIMPORTANT },
+	{ "MessageMarkAsSpam",        EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_SPAM },
+	{ "MessageMarkAsNospam",      EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_NOSPAM },
 	{ "MessageFollowUpFlag",      EM_POPUP_SELECT_MANY },
 	{ "MessageMove",              EM_POPUP_SELECT_MANY },
 	{ "MessageOpen",              EM_POPUP_SELECT_MANY },

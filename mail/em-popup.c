@@ -245,7 +245,8 @@ em_popup_create_menu(EMPopup *emp, guint32 hide_mask, guint32 disable_mask)
 		if (tmp) {
 			g_string_append_len(ppath, item->path, tmp-item->path);
 			thismenu = g_hash_table_lookup(menu_hash, ppath->str);
-			g_assert(thismenu != NULL);
+			if (thismenu == NULL)
+				continue;
 		} else {
 			thismenu = topmenu;
 		}
@@ -458,6 +459,11 @@ em_popup_target_new_select(struct _CamelFolder *folder, const char *folder_uri, 
 			mask &= ~EM_POPUP_SELECT_MARK_UNIMPORTANT;
 		else
 			mask &= ~EM_POPUP_SELECT_MARK_IMPORTANT;
+
+		if (info->flags & CAMEL_MESSAGE_SPAM)
+			mask &= ~EM_POPUP_SELECT_MARK_NOSPAM;
+		else
+			mask &= ~EM_POPUP_SELECT_MARK_SPAM;
 			
 		tmp = camel_tag_get (&info->user_tags, "follow-up");
 		if (tmp && *tmp) {

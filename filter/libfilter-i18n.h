@@ -53,6 +53,7 @@ char *s = N_("Shell Command");
 char *s = N_("Size (kB)");
 char *s = N_("sounds like");
 char *s = N_("Source Account");
+char *s = N_("Spam");
 char *s = N_("Specific header");
 char *s = N_("starts with");
 char *s = N_("Status");

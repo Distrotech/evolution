@@ -116,6 +116,7 @@ static const EvolutionShellComponentFolderType folder_types[] = {
 	{ "mail", "evolution-inbox.png", N_("Mail"), N_("Folder containing mail"), TRUE, accepted_dnd_types, exported_dnd_types },
 	{ "mail/public", "evolution-inbox.png", N_("Public Mail"), N_("Public folder containing mail"), FALSE, accepted_dnd_types, exported_dnd_types },
 	{ "vtrash", "evolution-trash.png", N_("Virtual Trash"), N_("Virtual Trash folder"), FALSE, accepted_dnd_types, exported_dnd_types },
+	{ "vspam", "evolution-spam.png", N_("Virtual Spam"), N_("Virtual Spam folder"), FALSE, accepted_dnd_types, exported_dnd_types },
 	{ NULL, NULL, NULL, NULL, FALSE, NULL, NULL }
 };
 
@@ -134,6 +135,12 @@ static inline gboolean
 type_is_vtrash (const char *type)
 {
 	return !strcmp (type, "vtrash");
+}
+
+static inline gboolean
+type_is_vspam (const char *type)
+{
+	return !strcmp (type, "vspam");
 }
 
 /* EvolutionShellComponent methods and signals.  */
@@ -180,7 +187,12 @@ create_view (EvolutionShellComponent *shell_component,
 			control = folder_browser_factory_new_control ("vtrash:file:/", corba_shell);
 		else
 			control = folder_browser_factory_new_control (physical_uri, corba_shell);
-	} else
+	} else if (type_is_vspam (folder_type))
+		if (!strncasecmp (physical_uri, "file:", 5))
+			control = folder_browser_factory_new_control ("vspam:file:/", corba_shell);
+		else
+			control = folder_browser_factory_new_control (physical_uri, corba_shell);
+	else
 		return EVOLUTION_SHELL_COMPONENT_UNSUPPORTEDTYPE;
 	
 	if (!control)
@@ -613,6 +625,10 @@ destination_folder_handle_drop (EvolutionShellComponentDndDestinationFolder *des
 	/* if this is a local vtrash folder, then it's uri is vtrash:file:/ */
 	if (type_is_vtrash (folder_type) && !strncmp (physical_uri, "file:", 5))
 		physical_uri = "vtrash:file:/";
+
+	/* if this is a local vspam folder, then it's uri is vspam:file:/ */
+	if (type_is_vspam (folder_type) && !strncmp (physical_uri, "file:", 5))
+		physical_uri = "vspam:file:/";
 	
 	switch (type) {
 	case ACCEPTED_DND_TYPE_TEXT_URI_LIST:
@@ -1242,7 +1258,7 @@ storage_remove_folder (EvolutionStorage *storage,
 	
 	g_warning ("storage_remove_folder: path=\"%s\"; uri=\"%s\"", path, physical_uri);
 	
-	if (!path || !*path || !physical_uri || !strncmp (physical_uri, "vtrash:", 7)) {
+	if (!path || !*path || !physical_uri || !strncmp (physical_uri, "vtrash:", 7) || !strncmp (physical_uri, "vspam:", 6)) {
 		notify_listener (listener, GNOME_Evolution_Storage_INVALID_URI);
 		return;
 	}

@@ -1059,9 +1059,9 @@ get_folderinfo_desc (struct _mail_msg *mm, int done)
 }
 
 static void
-add_vtrash_info (CamelStore *store, CamelFolderInfo *info)
+add_vtrash_or_vspam_info (CamelStore *store, CamelFolderInfo *info, gchar *name, gchar *full_name, gchar *url_base, gboolean unread_count)
 {
-	CamelFolderInfo *fi, *vtrash, *parent;
+	CamelFolderInfo *fi, *folder_info, *parent;
 	char *uri, *path;
 	CamelURL *url;
 	
@@ -1069,14 +1069,14 @@ add_vtrash_info (CamelStore *store, CamelFolderInfo *info)
 
 	parent = NULL;
 	for (fi = info; fi; fi = fi->sibling) {
-		if (!strcmp (fi->name, CAMEL_VTRASH_NAME))
+		if (!strcmp (fi->name, name))
 			break;
 		parent = fi;
 	}
 	
-	/* create our vTrash URL */
+	/* create our vTrash/vSpam URL */
 	url = camel_url_new (info->url, NULL);
-	path = g_strdup_printf ("/%s", CAMEL_VTRASH_NAME);
+	path = g_strdup_printf ("/%s", name);
 	if (url->fragment)
 		camel_url_set_fragment (url, path);
 	else
@@ -1086,29 +1086,42 @@ add_vtrash_info (CamelStore *store, CamelFolderInfo *info)
 	camel_url_free (url);
 	
 	if (fi) {
-		/* We're going to replace the physical Trash folder with our vTrash folder */
-		vtrash = fi;
-		g_free (vtrash->full_name);
-		g_free (vtrash->name);
-		g_free (vtrash->url);
+		/* We're going to replace the physical Trash/Spam folder with our vTrash/vSpam folder */
+		folder_info = fi;
+		g_free (folder_info->full_name);
+		g_free (folder_info->name);
+		g_free (folder_info->url);
 	} else {
-		/* There wasn't a Trash folder so create a new folder entry */
-		vtrash = g_new0 (CamelFolderInfo, 1);
+		/* There wasn't a Trash/Spam folder so create a new folder entry */
+		folder_info = g_new0 (CamelFolderInfo, 1);
 
 		g_assert(parent != NULL);
 
 		/* link it into the right spot */
-		vtrash->sibling = parent->sibling;
-		parent->sibling = vtrash;
+		folder_info->sibling = parent->sibling;
+		parent->sibling = folder_info;
 	}
 	
 	/* Fill in the new fields */
-	vtrash->full_name = g_strdup (_("Trash"));
-	vtrash->name = g_strdup(vtrash->full_name);
-	vtrash->url = g_strdup_printf ("vtrash:%s", uri);
-	vtrash->unread_message_count = -1;
-	vtrash->path = g_strdup_printf("/%s", vtrash->name);
+	folder_info->full_name = g_strdup (full_name);
+	folder_info->name = g_strdup(folder_info->full_name);
+	folder_info->url = g_strdup_printf ("%s:%s", url_base, uri);
+	if (!unread_count)
+		folder_info->unread_message_count = -1;
+	folder_info->path = g_strdup_printf("/%s", folder_info->name);
 	g_free (uri);
+}
+
+static void
+add_vtrash_info (CamelStore *store, CamelFolderInfo *info)
+{
+	add_vtrash_or_vspam_info (store, info, CAMEL_VTRASH_NAME, _("Trash"), "vtrash", FALSE);
+}
+
+static void
+add_vspam_info (CamelStore *store, CamelFolderInfo *info)
+{
+	add_vtrash_or_vspam_info (store, info, CAMEL_VSPAM_NAME, _("Spam"), "vspam", TRUE);
 }
 
 static void
@@ -1138,6 +1151,8 @@ get_folderinfo_get (struct _mail_msg *mm)
 	if (m->info) {
 		if (m->info->url && (m->store->flags & CAMEL_STORE_VTRASH))
 			add_vtrash_info(m->store, m->info);
+		if (m->info->url && (m->store->flags & CAMEL_STORE_VSPAM))
+			add_vspam_info(m->store, m->info);
 		if (CAMEL_IS_VEE_STORE(m->store))
 			add_unmatched_info(m->info);
 	}

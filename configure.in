@@ -1374,6 +1374,7 @@ default_user/local/Drafts/Makefile
 default_user/local/Inbox/Makefile
 default_user/local/Outbox/Makefile
 default_user/local/Sent/Makefile
+default_user/local/Spam/Makefile
 default_user/local/Tasks/Makefile
 default_user/local/Trash/Makefile
 e-util/Makefile
