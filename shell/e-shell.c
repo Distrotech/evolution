@@ -649,10 +649,12 @@ e_shell_construct (EShell *shell,
 	
 	attempt_upgrade(shell);
 
+#if 0
 	if (e_shell_startup_wizard_create () == FALSE) {
 		bonobo_object_unref (BONOBO_OBJECT (shell));
 		exit (0);
 	}
+#endif
 
 	priv->is_initialized = TRUE;
 
