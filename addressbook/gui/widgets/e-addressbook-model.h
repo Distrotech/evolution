@@ -7,11 +7,11 @@
 #include "addressbook/backend/ebook/e-book-async.h"
 #include "addressbook/backend/ebook/e-book-view.h"
 
-#define E_TYPE_AB_MODEL                 (eab_model_get_type ())
-#define EAB_MODEL(o)                    (G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_AB_MODEL, EABModel))
-#define EAB_MODEL_CLASS(k)              (G_TYPE_CHECK_CLASS_CAST((k), E_TYPE_AB_MODEL, EABModelClass))
-#define E_IS_ADDRESSBOOK_MODEL(o)       (G_TYPE_CHECK_INSTANCE_TYPE ((o), E_TYPE_AB_MODEL))
-#define E_IS_ADDRESSBOOK_MODEL_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), E_TYPE_AB_MODEL))
+#define EAB_TYPE_MODEL                  (eab_model_get_type ())
+#define EAB_MODEL(o)                    (G_TYPE_CHECK_INSTANCE_CAST ((o), EAB_TYPE_MODEL, EABModel))
+#define EAB_MODEL_CLASS(k)              (G_TYPE_CHECK_CLASS_CAST((k), EAB_TYPE_MODEL, EABModelClass))
+#define E_IS_ADDRESSBOOK_MODEL(o)       (G_TYPE_CHECK_INSTANCE_TYPE ((o), EAB_TYPE_MODEL))
+#define E_IS_ADDRESSBOOK_MODEL_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), EAB_TYPE_MODEL))
 
 typedef struct _EABModel EABModel;
 typedef struct _EABModelClass EABModelClass;

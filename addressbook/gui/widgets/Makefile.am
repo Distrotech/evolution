@@ -49,12 +49,26 @@ libeabwidgets_la_SOURCES =			\
 	eab-vcard-control.c			\
 	eab-vcard-control.h			\
 	eab-marshal.c				\
+	e-minicard.c				\
+	e-minicard.h				\
+	e-minicard-label.c			\
+	e-minicard-label.h			\
+	e-minicard-view.c			\
+	e-minicard-view.h			\
+	e-minicard-view-widget.c		\
+	e-minicard-view-widget.h		\
+	e-addressbook-reflow-adapter.c		\
+	e-addressbook-reflow-adapter.h		\
 	e-addressbook-table-adapter.c		\
 	e-addressbook-table-adapter.h		\
 	e-addressbook-model.c			\
 	e-addressbook-model.h			\
 	e-addressbook-view.c			\
-	e-addressbook-view.h
+	e-addressbook-view.h			\
+	gal-view-minicard.c			\
+	gal-view-minicard.h			\
+	gal-view-factory-minicard.c		\
+	gal-view-factory-minicard.h
 
 #TREEVIEW_SOURCES=	e-addressbook-treeview-adapter.c	\
 #			e-addressbook-treeview-adapter.h	\

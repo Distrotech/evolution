@@ -1,3 +1,36 @@
+2003-10-17  Chris Toshok  <toshok@ximian.com>
+
+	* gui/widgets/e-addressbook-view.c (init_collection): add the
+	minicard factory back in.
+	(display_view): add the minicard case back in.
+	(get_selection_model): same.
+	(minicard_right_click): resurrect.
+	(create_minicard_view): same.
+	(change_view_type): add the minicard case back in.
+	(eab_view_print): same.
+	(eab_view_print_preview): same.
+
+	* gui/widgets/e-addressbook-view.h (EABViewType): add MINICARD
+	back in.
+
+	* gui/widgets/e-addressbook-model.c (eab_model_new):
+	E_TYPE_AB_MODEL -> EAB_TYPE_MODEL.
+
+	* gui/widgets/e-addressbook-model.h: rename E_TYPE_AB_MODEL to
+	EAB_TYPE_MODEL.
+
+	* gui/widgets/Makefile.am (libeabwidgets_la_SOURCES): add the
+	minicard stuff back into the build.
+
+	* gui/widgets/e-addressbook-reflow-adapter.[ch],
+	gui/widgets/e-minicard-label.[ch],
+	gui/widgets/e-minicard-view-widget.[ch],
+	gui/widgets/e-minicard-view.[ch], gui/widgets/e-minicard.[ch],
+	gui/widgets/gal-view-factory-minicard.[ch], gal-view-minicard.h:
+	resurrect the minicard stuff, in a new uneditable,
+	EContact-friendly state.  no in-place editing anymore.
+
+	
 2003-10-10  Chris Toshok  <toshok@ximian.com>
 
 	* gui/contact-editor/e-contact-editor.c (fill_in_info): un-ifdef

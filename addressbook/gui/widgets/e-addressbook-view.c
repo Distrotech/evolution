@@ -48,6 +48,8 @@
 #include "gal-view-factory-treeview.h"
 #include "gal-view-treeview.h"
 #endif
+#include "gal-view-minicard.h"
+#include "gal-view-factory-minicard.h"
 
 #include "eab-marshal.h"
 #include "e-addressbook-view.h"
@@ -411,6 +413,10 @@ init_collection (void)
 		gal_view_collection_add_factory (collection, factory);
 		g_object_unref (factory);
 
+		factory = gal_view_factory_minicard_new();
+		gal_view_collection_add_factory (collection, factory);
+		g_object_unref (factory);
+
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 		factory = gal_view_factory_treeview_new ();
 		gal_view_collection_add_factory (collection, factory);
@@ -430,6 +436,10 @@ display_view(GalViewInstance *instance,
 	if (GAL_IS_VIEW_ETABLE(view)) {
 		change_view_type (address_view, EAB_VIEW_TABLE);
 		gal_view_etable_attach_table (GAL_VIEW_ETABLE(view), e_table_scrolled_get_table(E_TABLE_SCROLLED(address_view->widget)));
+	}
+	else if (GAL_IS_VIEW_MINICARD(view)) {
+		change_view_type (address_view, EAB_VIEW_MINICARD);
+		gal_view_minicard_attach (GAL_VIEW_MINICARD (view), E_MINICARD_VIEW_WIDGET (address_view->object));
 	}
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 	else if (GAL_IS_VIEW_TREEVIEW (view)) {
@@ -540,10 +550,11 @@ get_selection_model (EABView *view)
 {
 	if (view->view_type == EAB_VIEW_TABLE)
 		return e_table_get_selection_model (e_table_scrolled_get_table (E_TABLE_SCROLLED(view->widget)));
+	else if (view->view_type == EAB_VIEW_MINICARD)
+		return e_minicard_view_widget_get_selection_model (E_MINICARD_VIEW_WIDGET(view->object));
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
-	else if (view->view_type == EAB_VIEW_TREEVIEW) {
+	else if (view->view_type == EAB_VIEW_TREEVIEW)
 		return e_treeview_get_selection_model (GTK_TREE_VIEW (view->object));
-	}
 #endif
 	g_return_val_if_reached (NULL);
 }
@@ -1094,6 +1105,46 @@ backend_died (GtkObject *object, EABView *eav)
 }
 
 static void
+minicard_right_click (EMinicardView *minicard_view_item, GdkEvent *event, EABView *view)
+{
+       do_popup_menu(view, event);
+}
+
+static void
+create_minicard_view (EABView *view)
+{
+	GtkWidget *scrolled_window;
+	GtkWidget *minicard_view;
+	EAddressbookReflowAdapter *adapter;
+
+	adapter = E_ADDRESSBOOK_REFLOW_ADAPTER(e_addressbook_reflow_adapter_new (view->model));
+	minicard_view = e_minicard_view_widget_new(adapter);
+
+	g_signal_connect(minicard_view, "selection_change",
+			 G_CALLBACK(selection_changed), view);
+
+	g_signal_connect(minicard_view, "right_click",
+			 G_CALLBACK(minicard_right_click), view);
+
+	scrolled_window = gtk_scrolled_window_new (NULL, NULL);
+	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
+					GTK_POLICY_AUTOMATIC,
+					GTK_POLICY_AUTOMATIC);
+
+	view->object = G_OBJECT(minicard_view);
+	view->widget = scrolled_window;
+
+	gtk_container_add (GTK_CONTAINER (scrolled_window), minicard_view);
+	gtk_widget_show (minicard_view);
+
+	gtk_widget_show_all( GTK_WIDGET(scrolled_window) );
+
+	gtk_paned_add1 (GTK_PANED (view->paned), scrolled_window);
+
+	e_reflow_model_changed (E_REFLOW_MODEL (adapter));
+}
+
+static void
 create_table_view (EABView *view)
 {
 	ETableModel *adapter;
@@ -1243,6 +1294,9 @@ change_view_type (EABView *view, EABViewType view_type)
 	case EAB_VIEW_TABLE:
 		create_table_view (view);
 		break;
+	case EAB_VIEW_MINICARD:
+		create_minicard_view (view);
+		break;
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 	case EAB_VIEW_TREEVIEW:
 		create_treeview_view (view);
@@ -1385,7 +1439,20 @@ eab_view_discard_menus (EABView *view)
 void
 eab_view_print(EABView *view)
 {
-	if (view->view_type == EAB_VIEW_TABLE) {
+	if (view->view_type == EAB_VIEW_MINICARD) {
+		char *query;
+		EBook *book;
+		GtkWidget *print;
+
+		g_object_get (view->model,
+			      "query", &query,
+			      "book", &book,
+			      NULL);
+		print = e_contact_print_dialog_new(book, query);
+		g_free(query);
+		gtk_widget_show_all(print);
+	}
+	else if (view->view_type == EAB_VIEW_TABLE) {
 		GtkWidget *dialog;
 		EPrintable *printable;
 		ETable *etable;
@@ -1425,7 +1492,18 @@ eab_view_print(EABView *view)
 void
 eab_view_print_preview(EABView *view)
 {
-	if (view->view_type == EAB_VIEW_TABLE) {
+	if (view->view_type == EAB_VIEW_MINICARD) {
+		char *query;
+		EBook *book;
+
+		g_object_get (view->model,
+			      "query", &query,
+			      "book", &book,
+			      NULL);
+		e_contact_print_preview(book, query);
+		g_free(query);
+	}
+	else if (view->view_type == EAB_VIEW_TABLE) {
 		EPrintable *printable;
 		ETable *etable;
 		GnomePrintJob *master;

@@ -633,7 +633,7 @@ eab_model_new (void)
 {
 	EABModel *et;
 
-	et = g_object_new (E_TYPE_AB_MODEL, NULL);
+	et = g_object_new (EAB_TYPE_MODEL, NULL);
 	
 	return et;
 }
