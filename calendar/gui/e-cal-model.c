@@ -26,6 +26,7 @@
 #include <e-util/e-time-utils.h>
 #include <cal-util/timeutil.h>
 #include "calendar-config.h"
+#include "comp-util.h"
 #include "e-cal-model.h"
 #include "itip-utils.h"
 #include "misc.h"
@@ -53,6 +54,9 @@ struct _ECalModelPrivate {
 
 	/* Addresses for determining icons */
 	EAccountList *accounts;
+
+	/* Whether we display dates in 24-hour format. */
+        gboolean use_24_hour_format;
 };
 
 static void e_cal_model_class_init (ECalModelClass *klass);
@@ -117,6 +121,8 @@ e_cal_model_init (ECalModel *model, ECalModelClass *klass)
 	priv->kind = ICAL_NO_COMPONENT;
 
 	priv->accounts = itip_addresses_get ();
+
+	priv->use_24_hour_format = TRUE;
 }
 
 static void
@@ -696,7 +702,7 @@ ecm_value_is_empty (ETableModel *etm, int col, const void *value)
 		 * contains the default category, then it possibly means that
 		 * the user has not entered anything at all in the click-to-add;
 		 * the category is in the value because we put it there in
-		 * calendar_model_initialize_value().
+		 * ecm_initialize_value().
 		 */
 		if (priv->default_category && value && strcmp (priv->default_category, value) == 0)
 			return TRUE;
@@ -845,6 +851,55 @@ e_cal_model_set_timezone (ECalModel *model, icaltimezone *zone)
 		   so we need to redisplay everything */
 		e_table_model_changed (E_TABLE_MODEL (model));
 	}
+}
+
+/**
+ * e_cal_model_set_default_category
+ */
+void
+e_cal_model_set_default_category (ECalModel *model, const gchar *default_cat)
+{
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	if (model->priv->default_category)
+		g_free (model->priv->default_category);
+
+	model->priv->default_category = g_strdup (default_cat);
+}
+
+/**
+ * e_cal_model_set_use_24_hour_format
+ */
+void
+e_cal_model_set_use_24_hour_format (ECalModel *model, gboolean use24)
+{
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	if (model->priv->use_24_hour_format != use24) {
+                e_table_model_pre_change (E_TABLE_MODEL (model));
+                model->priv->use_24_hour_format = use24;
+                /* Get the views to redraw themselves. */
+                e_table_model_changed (E_TABLE_MODEL (model));
+        }
+}
+
+/**
+ * e_cal_model_get_default_client
+ */
+CalClient *
+e_cal_model_get_default_client (ECalModel *model)
+{
+	ECalModelPrivate *priv;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	priv = model->priv;
+
+	if (!priv->clients)
+		return NULL;
+
+	/* FIXME: look at the configuration and return the real default calendar if we've got it loaded */
+	return (CalClient *) priv->clients->data;
 }
 
 static ECalModelComponent *
@@ -1309,7 +1364,7 @@ e_cal_model_date_value_to_string (ECalModel *model, const void *value)
 
 	tmp_tm.tm_wday = time_day_of_week (tt.day, tt.month - 1, tt.year);
 
-	e_time_format_date_and_time (&tmp_tm, calendar_config_get_24_hour_format (),
+	e_time_format_date_and_time (&tmp_tm, priv->use_24_hour_format,
 				     TRUE, FALSE,
 				     buffer, sizeof (buffer));
 	return g_strdup (buffer);

@@ -881,17 +881,16 @@ ecmt_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 	g_return_val_if_fail (comp_data != NULL, NULL);
 
 	switch (get_due_status ((ECalModelTasks *) model, comp_data)) {
-	case E_CAL_MODEL_TASKS_DUE_NEVER:
-	case E_CAL_MODEL_TASKS_DUE_FUTURE:
-	case E_CAL_MODEL_TASKS_DUE_COMPLETE:
-		return NULL;
 	case E_CAL_MODEL_TASKS_DUE_TODAY:
 		return calendar_config_get_tasks_due_today_color ();
 	case E_CAL_MODEL_TASKS_DUE_OVERDUE:
 		return calendar_config_get_tasks_overdue_color ();
+	case E_CAL_MODEL_TASKS_DUE_NEVER:
+	case E_CAL_MODEL_TASKS_DUE_FUTURE:
+	case E_CAL_MODEL_TASKS_DUE_COMPLETE:
 	}
 
-	return NULL;
+	return E_CAL_MODEL_CLASS (parent_class)->get_color_for_component (model, comp_data);
 }
 
 /**
@@ -901,4 +900,23 @@ ECalModelTasks *
 e_cal_model_tasks_new (void)
 {
 	return g_object_new (E_TYPE_CAL_MODEL_TASKS, NULL);
+}
+
+/**
+ * e_cal_model_tasks_mark_task_complete
+ */
+void
+e_cal_model_tasks_mark_task_complete (ECalModelTasks *model, gint model_row)
+{
+	ECalModelTasksPrivate *priv;
+	ECalModelComponent *comp_data;
+
+	g_return_if_fail (E_IS_CAL_MODEL_TASKS (model));
+	g_return_if_fail (model_row >= 0 && model_row < e_table_model_row_count (E_TABLE_MODEL (model)));
+
+	priv = model->priv;
+
+	comp_data = e_cal_model_get_component_at (E_CAL_MODEL (model), model_row);
+	if (comp_data)
+		ensure_task_complete (comp_data, -1);
 }

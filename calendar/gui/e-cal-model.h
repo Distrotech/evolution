@@ -78,6 +78,10 @@ void                e_cal_model_set_component_kind (ECalModel *model, icalcompon
 icaltimezone       *e_cal_model_get_timezone (ECalModel *model);
 void                e_cal_model_set_timezone (ECalModel *model, icaltimezone *zone);
 
+void                e_cal_model_set_default_category (ECalModel *model, const gchar *default_cat);
+void                e_cal_model_set_use_24_hour_format (ECalModel *model, gboolean use24);
+
+CalClient          *e_cal_model_get_default_client (ECalModel *model);
 void                e_cal_model_add_client (ECalModel *model, CalClient *client);
 void                e_cal_model_remove_client (ECalModel *model, CalClient *client);
 void                e_cal_model_remove_all_clients (ECalModel *model);

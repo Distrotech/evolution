@@ -1,5 +1,43 @@
 2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.[ch] (cal_client_get_component_as_string):
+	* cal-util/cal-util.[ch] (cal_util_add_timezone_from_component):
+	use icalcomponent's instead of CalComponent's.
+
+	* gui/Makefile.am:
+	* gui/calendar-model.[ch]: removed old model class.
+
+	* gui/e-calendar-table.[ch]: use ECalModelTasks class instead
+	of CalendarModel.
+	(e_calendar_table_set_status_message): new function.
+	(get_selected_comp): return an ECalModelComponent.
+	(get_selected_objects): return a list of ECalModelComponent's.
+	(delete_selected_components): use the CalClient associated
+	with each component.
+	(copy_row_cb): adapted to changes in get_selected_comp.
+
+	* gui/e-tasks.c:
+	* gui/print.c:
+	* gui/dialogs/comp-editor.c (save_as_cmd):
+	* gui/e-day-view.c (e_day_view_on_drag_data_get):
+	* gui/e-cal-view.c (e_cal_view_copy_clipboard, on_save_as): pass
+	an icalcomponent to cal_util_add_timezones_from_component and
+	cal_client_get_component_as_string.
+
+	* gui/e-cal-model.[ch] (e_cal_model_set_use_24_hour_format):
+	(e_cal_model_get_default_client):
+	(e_cal_model_set_default_category): new functions.
+
+	* gui/e-cal-model-tasks.[ch] (e_cal_model_tasks_mark_task_complete):
+	new function.
+	(ecmt_get_color_for_component): chain the call to the parent class
+	so that it assigns the per-client color to 'normal' tasks.
+
+	* gui/calendar-config.c (calendar_config_configure_e_calendar_table):
+	call e_cal_model_set_use_24_hour_format.
+
+2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model.c (ecm_get_color_for_component): use the color
 	palette from Tuomas.
 
