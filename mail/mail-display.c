@@ -956,7 +956,7 @@ drag_data_get_cb (GtkWidget *widget,
 			
 			cstream = (CamelStreamMem *) camel_stream_mem_new ();
 			wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (part));
-			camel_data_wrapper_write_to_stream (wrapper, (CamelStream *)cstream);
+			camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *)cstream);
 			
 			gtk_selection_data_set (selection_data, selection_data->target, 8,
 						cstream->buffer->data, cstream->buffer->len);
@@ -998,7 +998,7 @@ do_attachment_header (GtkHTML *html, GtkHTMLEmbedded *eb,
 		content = camel_medium_get_content_object (CAMEL_MEDIUM (part));
 		if (!camel_data_wrapper_is_offline (content)) {
 			pbl->mstream = camel_stream_mem_new ();
-			camel_data_wrapper_write_to_stream (content, pbl->mstream);
+			camel_data_wrapper_decode_to_stream (content, pbl->mstream);
 			camel_stream_reset (pbl->mstream);
 		}
 	}
@@ -1110,7 +1110,7 @@ do_external_viewer (GtkHTML *html, GtkHTMLEmbedded *eb,
 	/* Write the data to a CamelStreamMem... */
 	cstream = (CamelStreamMem *) camel_stream_mem_new ();
 	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (part));
- 	camel_data_wrapper_write_to_stream (wrapper, (CamelStream *)cstream);
+ 	camel_data_wrapper_decode_to_stream (wrapper, (CamelStream *)cstream);
 	
 	/* ...convert the CamelStreamMem to a BonoboStreamMem... */
 	bstream = bonobo_stream_mem_create (cstream->buffer->data, cstream->buffer->len, TRUE, FALSE);
@@ -1255,9 +1255,9 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 		html_stream = mail_display_stream_new (html, handle);
 		
 		if (header_content_type_is (content_type, "text", "*")) {
-			mail_format_data_wrapper_write_to_stream (wrapper, md, html_stream);
+			mail_format_data_wrapper_write_to_stream (wrapper, TRUE, md, html_stream);
 		} else {
-			camel_data_wrapper_write_to_stream (wrapper, html_stream);
+			camel_data_wrapper_decode_to_stream (wrapper, html_stream);
 		}
 		
 		camel_object_unref (html_stream);
@@ -1558,7 +1558,7 @@ try_part_urls (struct _load_content_msg *m)
 		}
 		
 		html_stream = mail_display_stream_new (m->html, m->handle);
-		camel_data_wrapper_write_to_stream (data, html_stream);
+		camel_data_wrapper_decode_to_stream (data, html_stream);
 		camel_object_unref (html_stream);
 		
 		gtk_html_end (m->html, m->handle, GTK_HTML_STREAM_OK);
