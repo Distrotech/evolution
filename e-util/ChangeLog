@@ -1,3 +1,8 @@
+2004-11-16  Not Zed  <NotZed@Ximian.com>
+
+	* e-host-utils.[ch]: removed, code moved into
+	camel-net-utils.[ch].
+
 2004-11-15  Not Zed  <NotZed@Ximian.com>
 
 	* e-trie.[ch], e-memory.[ch], e-sexp.[ch], e-msgport.[ch]: Moved

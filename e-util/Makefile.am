@@ -35,7 +35,6 @@ eutilinclude_HEADERS = 				\
 	e-fsutils.h				\
 	e-gtk-utils.h				\
 	e-gui-utils.h				\
-	e-host-utils.h				\
 	e-html-utils.h				\
 	e-icon-factory.h			\
 	e-iterator.h				\
@@ -74,7 +73,6 @@ libeutil_la_SOURCES =				\
 	e-fsutils.c				\
 	e-gtk-utils.c				\
 	e-gui-utils.c				\
-	e-host-utils.c				\
 	e-html-utils.c				\
 	e-icon-factory.c			\
 	e-iterator.c				\
