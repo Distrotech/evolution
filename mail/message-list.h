@@ -1,4 +1,26 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+/*
+ *  Authors: Jeffrey Stedfast <fejj@ximian.com>
+ *
+ *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
+ *
+ */
+
+
 #ifndef _MESSAGE_LIST_H_
 #define _MESSAGE_LIST_H_
 
@@ -8,6 +30,11 @@
 #include <gal/e-table/e-table-simple.h>
 #include <gal/e-table/e-tree-scrolled.h>
 #include "mail-types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#pragma }
+#endif /* __cplusplus */
 
 #define MESSAGE_LIST_TYPE        (message_list_get_type ())
 #define MESSAGE_LIST(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), MESSAGE_LIST_TYPE, MessageList))
@@ -134,6 +161,7 @@ void           message_list_foreach    (MessageList *message_list,
 					MessageListForeachFunc callback,
 					gpointer user_data);
 
+/* select next/prev message helpers */
 gboolean       message_list_select     (MessageList *message_list,
 					MessageListSelectDirection direction,
 					guint32 flags,
@@ -143,24 +171,33 @@ gboolean       message_list_select     (MessageList *message_list,
 void           message_list_select_uid (MessageList *message_list,
 					const char *uid);
 
-void           message_list_select_next_thread (MessageList *messageList);
+void           message_list_select_next_thread (MessageList *ml);
+
+/* selection manipulation */
+void           message_list_select_all (MessageList *ml);
+void           message_list_select_thread (MessageList *ml);
+void           message_list_invert_selection (MessageList *ml);
 
 /* info */
-unsigned int   message_list_length(MessageList *ml);
-unsigned int   message_list_hidden(MessageList *ml);
+unsigned int   message_list_length (MessageList *ml);
+unsigned int   message_list_hidden (MessageList *ml);
 
 /* hide specific messages */
-void	       message_list_hide_add(MessageList *ml, const char *expr, unsigned int lower, unsigned int upper);
-void	       message_list_hide_uids(MessageList *ml, GPtrArray *uids);
-void	       message_list_hide_clear(MessageList *ml);
+void	       message_list_hide_add (MessageList *ml, const char *expr, unsigned int lower, unsigned int upper);
+void	       message_list_hide_uids (MessageList *ml, GPtrArray *uids);
+void	       message_list_hide_clear (MessageList *ml);
 
-void	       message_list_set_threaded(MessageList *ml, gboolean threaded);
-void	       message_list_set_hidedeleted(MessageList *ml, gboolean hidedeleted);
-void	       message_list_set_search(MessageList *ml, const char *search);
+void	       message_list_set_threaded (MessageList *ml, gboolean threaded);
+void	       message_list_set_hidedeleted (MessageList *ml, gboolean hidedeleted);
+void	       message_list_set_search (MessageList *ml, const char *search);
 
 void           message_list_save_state (MessageList *ml);
 
 #define MESSAGE_LIST_LOCK(m, l) g_mutex_lock(((MessageList *)m)->l)
 #define MESSAGE_LIST_UNLOCK(m, l) g_mutex_unlock(((MessageList *)m)->l)
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _MESSAGE_LIST_H_ */

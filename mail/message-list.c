@@ -562,6 +562,108 @@ message_list_select_next_thread (MessageList *message_list)
 }
 
 
+/**
+ * message_list_select_all:
+ * @message_list: Message List widget
+ *
+ * Selects all messages in the message list.
+ **/
+void
+message_list_select_all (MessageList *message_list)
+{
+	ESelectionModel *etsm;
+	
+	etsm = e_tree_get_selection_model (message_list->tree);
+	
+	e_selection_model_select_all (etsm);
+}
+
+
+typedef struct thread_select_info {
+	MessageList *ml;
+	GPtrArray *paths;
+} thread_select_info_t;
+
+static gboolean
+select_node (ETreeModel *model, ETreePath path, gpointer user_data)
+{
+	thread_select_info_t *tsi = (thread_select_info_t *) user_data;
+	
+	g_ptr_array_add (tsi->paths, path);
+	return FALSE; /*not done yet*/
+}
+
+static void
+thread_select_foreach (ETreePath path, gpointer user_data)
+{
+	thread_select_info_t *tsi = (thread_select_info_t *) user_data;
+	ETreeModel *model = tsi->ml->model;
+	ETreePath node;
+	
+	/* @path part of the initial selection. If it has children,
+	 * we select them as well. If it doesn't, we select its siblings and
+	 * their children (ie, the current node must be inside the thread
+	 * that the user wants to mark.
+	 */
+	
+	if (e_tree_model_node_get_first_child (model, path)) {
+		node = path;
+	} else {
+		node = e_tree_model_node_get_parent (model, path);
+		
+		/* Let's make an exception: if no parent, then we're about
+		 * to mark the whole tree. No. */
+		if (e_tree_model_node_is_root (model, node)) 
+			node = path;
+	}
+	
+	e_tree_model_node_traverse (model, node, select_node, tsi);
+}
+
+/**
+ * message_list_select_thread:
+ * @message_list: Message List widget
+ *
+ * Selects all messages in the current thread (based on cursor).
+ **/
+void
+message_list_select_thread (MessageList *message_list)
+{
+	ETreeSelectionModel *etsm;
+	thread_select_info_t tsi;
+	int i;
+	
+	tsi.ml = message_list;
+	tsi.paths = g_ptr_array_new ();
+	
+	etsm = e_tree_get_selection_model (message_list->tree);
+	
+	e_tree_selected_path_foreach (message_list->tree, thread_select_foreach, &tsi);
+	
+	for (i = 0; i < tsi.paths->len; i++)
+		e_tree_selection_model_add_to_selection (etsm, tsi.paths->pdata[i]);
+	
+	g_ptr_array_free (tsi.paths, TRUE);
+}
+
+
+/**
+ * message_list_invert_selection:
+ * @message_list: Message List widget
+ *
+ * Invert the current selection in the message-list.
+ **/
+void
+message_list_invert_selection (MessageList *message_list)
+{
+	ESelectionModel *etsm;
+	
+	etsm = e_tree_get_selection_model (fb->message_list->tree);
+	
+	e_selection_model_invert_selection (etsm);
+}
+
+
 /*
  * SimpleTableModel::col_count
  */

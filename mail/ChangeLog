@@ -1,5 +1,16 @@
 2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* mail-callbacks.c (invert_selection): Use
+	message_list_invert_selection().
+	(select_thread): Use message_list_select_thread().
+	(select_all): Use message_list_select_all().
+
+	* message-list.c (message_list_select_all): New function.
+	(message_list_select_thread): New function.
+	(message_list_invert_selection): New function.
+
+2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
+
 	* mail-session.c: Synced up with HEAD.
 
 	* component-factory.c:
