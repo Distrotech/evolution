@@ -5,6 +5,8 @@
 #include <glib-object.h>
 #include <e-util/e-msgport.h>
 
+struct _GtkTreeIter;
+
 typedef struct _EMTreeLeaf EMTreeLeaf;
 typedef struct _EMTreeNode EMTreeNode;
 
@@ -28,6 +30,7 @@ struct _EMTreeNode {
 
 	unsigned int flags:4;
 
+	GSList *aux;
 	EDList children;
 };
 
@@ -45,6 +48,14 @@ typedef enum {
 	EMTS_COL_NUMBER
 } emts_col_t;
 
+struct _emts_column_info {
+	GType type;
+	const char *id;
+	const char *title;
+};
+
+extern struct _emts_column_info *emts_column_info;
+
 struct _EMTreeStore
 {
 	GObject parent;
@@ -59,5 +70,7 @@ struct _EMTreeStoreClass
 };
 
 GType em_tree_store_get_type (void);
+
+int em_tree_store_get_iter(EMTreeStore *store, struct _GtkTreeIter *iter, const char *uid);
 
 #endif /* _EM_TREE_STORE_H */
