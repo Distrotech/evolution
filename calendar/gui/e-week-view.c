@@ -361,6 +361,12 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 		e_week_view_remove_event_cb (week_view, event_num, comp_data);
 
 		g_object_unref (tmp_comp);
+	} else {
+		if (rid && e_week_view_find_event_from_uid (week_view, uid, NULL, &event_num)) {
+			event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
+			if (!e_cal_util_component_is_instance (event->comp_data->icalcomp))
+				e_week_view_remove_event_cb (week_view, event_num, comp_data);
+		}
 	}
 
 	/* Add the object */
