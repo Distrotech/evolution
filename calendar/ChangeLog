@@ -1,5 +1,10 @@
 2003-08-20  Rodrigo Moya <rodrigo@ximian.com>
 
+	* pcs/query-backend.c (foreach_uid_cb): use the icalcomponent
+	to call icalcomponent_get_uid, not the string.
+
+2003-08-20  Rodrigo Moya <rodrigo@ximian.com>
+
 	* pcs/cal-backend-file.c: store objects by UID and RID.
 	(free_object): new function to free the CalBackendFileObject structure.
 	(cal_backend_file_dispose): use free_object callback to remove the

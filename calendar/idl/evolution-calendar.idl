@@ -28,6 +28,9 @@ module Calendar {
 	/* A unique identifier for a calendar component */
 	typedef string CalObjUID;
 
+	/* A unique identified for an event recurrence */
+	typedef string CalRecurID;
+
 	/* Simple sequence of strings */
 	typedef sequence<string> StringSeq;
 

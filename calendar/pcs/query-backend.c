@@ -234,7 +234,7 @@ foreach_uid_cb (gpointer data, gpointer user_data)
 	g_return_if_fail (IS_QUERY_BACKEND (qb));
 
 	comp = icalcomponent_new_from_string (data);
-	object_updated_cb (qb->priv->backend, icalcomponent_get_uid (data), qb);
+	object_updated_cb (qb->priv->backend, icalcomponent_get_uid (comp), qb);
 	icalcomponent_free (comp);
 }
 
