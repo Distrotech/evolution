@@ -1,3 +1,22 @@
+2003-08-15  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-uid.c: #include <glib/gstrfuncs.h>
+
+	* test-source-list.c: Add options to display, set and unset the
+	color as well.
+
+	* e-source.c: New members has_color, color in struct
+	ESourcePrivate.
+	(e_source_update_from_xml_node): Parse a color property from the
+	XML node.  Protect from NULL name and relative_uri members as
+	well.
+	(e_source_dump_to_xml_node): Set a color property on the XML node.
+	(e_source_get_color): New.
+	(e_source_set_color): New.
+	(e_source_unset_color): New.
+	(e_source_new_from_xml_node): Use e_source_update_from_xml_node()
+	instead of getting the data from the XML yourself.
+
 2003-08-14  Ettore Perazzoli  <ettore@ximian.com>
 
 	Add UIDs to ESource* items so we can distinguish renames from

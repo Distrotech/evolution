@@ -22,6 +22,8 @@
 
 #include "e-uid.h"
 
+#include <glib/gstrfuncs.h>
+
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
