@@ -80,6 +80,9 @@ struct _EMFormatHTMLPrivate {
 	guint format_timeout_id;
 	struct _format_msg *format_timeout_msg;
 
+	/* Table that re-maps text parts into a mutlipart/mixed */
+	GHashTable *text_inline_parts;
+
 	EDList pending_jobs;
 	GMutex *lock;
 };
@@ -116,6 +119,7 @@ efh_init(GObject *o)
 	e_dlist_init(&efh->priv->pending_jobs);
 	efh->priv->lock = g_mutex_new();
 	efh->priv->format_id = -1;
+	efh->priv->text_inline_parts = g_hash_table_new(NULL, NULL);
 
 	efh->html = (GtkHTML *)gtk_html_new();
 	g_object_ref(efh->html);
@@ -164,9 +168,14 @@ efh_finalise(GObject *o)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)o;
 
+	/* FIXME: check for leaked stuff */
+
 	em_format_html_clear_pobject(efh);
 
 	efh_gtkhtml_destroy(efh->html, efh);
+
+	g_hash_table_foreach(efh->priv->text_inline_parts, (GHFunc)camel_object_free, NULL);
+	g_hash_table_destroy(efh->priv->text_inline_parts);
 
 	g_free(efh->priv);
 
@@ -527,17 +536,19 @@ efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh)
 }
 
 /* ********************************************************************** */
+#include "em-inline-filter.h"
+#include <camel/camel-stream-null.h>
 
 static void
 efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
 {
 	CamelStreamFilter *filtered_stream;
 	CamelMimeFilter *html_filter;
+	CamelMultipart *mp;
 	CamelContentType *type;
 	const char *format;
 	guint32 rgb = 0x737373, flags;
-
-	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");
+	int i, count;
 
 	flags = efh->text_html_flags;
 	
@@ -547,17 +558,54 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	    && (format = header_content_type_param(type, "format"))
 	    && !g_ascii_strcasecmp(format, "flowed"))
 		flags |= CAMEL_MIME_FILTER_TOHTML_FORMAT_FLOWED;
-	
-	html_filter = camel_mime_filter_tohtml_new(flags, rgb);
+
+	/* This scans the text part for inline-encoded data, creates
+	   a multipart of all the parts inside it. */
+
+	/* FIXME: We should discard this multipart if it only contains
+	   the original text, but it makes this hash lookup more complex */
+
+	mp = g_hash_table_lookup(efh->priv->text_inline_parts, part);
+	if (mp == NULL) {
+		EMInlineFilter *inline_filter;
+		CamelStream *null;
+
+		null = camel_stream_null_new();
+		filtered_stream = camel_stream_filter_new_with_stream(null);
+		camel_object_unref(null);
+		inline_filter = em_inline_filter_new(camel_mime_part_get_encoding(part));
+		camel_stream_filter_add(filtered_stream, (CamelMimeFilter *)inline_filter);
+		camel_data_wrapper_write_to_stream(camel_medium_get_content_object((CamelMedium *)part), (CamelStream *)filtered_stream);
+		camel_stream_close((CamelStream *)filtered_stream);
+		camel_object_unref(filtered_stream);
+		mp = em_inline_filter_get_multipart(inline_filter);
+		g_hash_table_insert(efh->priv->text_inline_parts, part, mp);
+		camel_object_unref(inline_filter);
+	}
+
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
+	html_filter = camel_mime_filter_tohtml_new(flags, rgb);
 	camel_stream_filter_add(filtered_stream, html_filter);
 	camel_object_unref(html_filter);
-	
-	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, camel_medium_get_content_object((CamelMedium *)part));
-	camel_stream_flush((CamelStream *)filtered_stream);
+
+	/* We handle our made-up multipart here, so we don't recursively call ourselves */
+
+	count = camel_multipart_get_number(mp);
+	for (i=0;i<count;i++) {
+		CamelMimePart *newpart = camel_multipart_get_part(mp, i);
+
+		type = camel_mime_part_get_content_type(newpart);
+		if (header_content_type_is(type, "text", "plain")) {
+			camel_stream_write_string(stream, "<table><tr><td><tt>\n");
+			em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, camel_medium_get_content_object((CamelMedium *)newpart));
+			camel_stream_flush((CamelStream *)filtered_stream);
+			camel_stream_write_string(stream, "</tt></td></tr></table>\n");
+		} else {
+			em_format_part((EMFormat *)efh, stream, newpart);
+		}
+	}
+
 	camel_object_unref(filtered_stream);
-	
-	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
 }
 
 static void
@@ -1111,6 +1159,7 @@ efh_format_timeout(struct _format_msg *m)
 {
 	GtkHTMLStream *hstream;
 	EMFormatHTML *efh = m->format;
+	struct _EMFormatHTMLPrivate *p = efh->priv;
 
 	if (m->format->html == NULL) {
 		mail_msg_free(m);
@@ -1118,12 +1167,12 @@ efh_format_timeout(struct _format_msg *m)
 	}
 
 	d(printf("timeout called ...\n"));
-	if (m->format->priv->format_id != -1) {
+	if (p->format_id != -1) {
 		d(printf(" still waiting for cancellation to take effect, waiting ...\n"));
 		return TRUE;
 	}
 
-	g_assert(e_dlist_empty(&efh->priv->pending_jobs));
+	g_assert(e_dlist_empty(&p->pending_jobs));
 
 	d(printf(" ready to go, firing off format thread\n"));
 
@@ -1139,14 +1188,18 @@ efh_format_timeout(struct _format_msg *m)
 		hstream = gtk_html_begin(efh->html);
 		m->estream = (EMHTMLStream *)em_html_stream_new(efh->html, hstream);
 
-		if (efh->priv->last_part == m->message) {
+		if (p->last_part == m->message) {
 			/* HACK: so we redraw in the same spot */
 			/* FIXME: It doesn't work! */
 			efh->html->engine->newPage = FALSE;
 		} else {
-			efh->priv->last_part = m->message;
-			/* FIXME: Need to handle 'load if sender in addressbook' case too */
+			/* clear cache of inline-scanned text parts */
+			g_hash_table_foreach(p->text_inline_parts, (GHFunc)camel_object_free, NULL);
+			g_hash_table_destroy(p->text_inline_parts);
+			p->text_inline_parts = g_hash_table_new(NULL, NULL);
 
+			p->last_part = m->message;
+			/* FIXME: Need to handle 'load if sender in addressbook' case too */
 			efh->load_http_now = efh->load_http;
 		}
 		

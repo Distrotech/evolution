@@ -1,3 +1,15 @@
+2003-09-11  Not Zed  <NotZed@Ximian.com>
+
+	* em-inline-filter.[ch]: A new class which implements an inline
+	snooper via a mime filter, so it is fully streamable.  contents
+	merely passes through the filter.
+
+	* em-format-html.c (efh_finalise): free text substitute parts
+	table.
+	(efh_text_plain): transform a text part into a multipart, scanning
+	for inline data.  Keep the multipart around for redraws.
+	(efh_format_timeout): clear the text substitute parts table.
+
 2003-09-10  Not Zed  <NotZed@Ximian.com>
 
 	* em-format-html-display.c (efhd_init): hook onto realise so we

@@ -71,6 +71,8 @@ libevolution_mail_la_SOURCES =		\
 	component-factory.h		\
 	e-searching-tokenizer.c		\
 	e-searching-tokenizer.h		\
+	em-inline-filter.c		\
+	em-inline-filter.h		\
 	em-folder-view.c		\
 	em-folder-view.h		\
 	em-folder-browser.c		\
