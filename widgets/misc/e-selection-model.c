@@ -37,6 +37,7 @@ enum {
 	CURSOR_CHANGED,
 	CURSOR_ACTIVATED,
 	SELECTION_CHANGED,
+	SELECTION_ROW_CHANGED,
 	LAST_SIGNAL
 };
 
@@ -171,27 +172,36 @@ e_selection_model_class_init (ESelectionModelClass *klass)
 				gtk_marshal_NONE__NONE,
 				GTK_TYPE_NONE, 0);
 
-	klass->cursor_changed     = NULL;
-	klass->cursor_activated   = NULL;
-	klass->selection_changed  = NULL;
+	e_selection_model_signals [SELECTION_ROW_CHANGED] =
+		gtk_signal_new ("selection_row_changed",
+				GTK_RUN_LAST,
+				E_OBJECT_CLASS_TYPE (object_class),
+				GTK_SIGNAL_OFFSET (ESelectionModelClass, selection_row_changed),
+				gtk_marshal_NONE__INT,
+				GTK_TYPE_NONE, 1, GTK_TYPE_INT);
 
-	klass->is_row_selected    = NULL;
-	klass->foreach            = NULL;
-	klass->clear              = NULL;
-	klass->selected_count     = NULL;
-	klass->select_all         = NULL;
-	klass->invert_selection   = NULL;
-	klass->row_count          = NULL;
+	klass->cursor_changed        = NULL;
+	klass->cursor_activated      = NULL;
+	klass->selection_changed     = NULL;
+	klass->selection_row_changed = NULL;
 
-	klass->change_one_row     = NULL;
-	klass->change_cursor      = NULL;
-	klass->cursor_row         = NULL;
-	klass->cursor_col         = NULL;
+	klass->is_row_selected       = NULL;
+	klass->foreach               = NULL;
+	klass->clear                 = NULL;
+	klass->selected_count        = NULL;
+	klass->select_all            = NULL;
+	klass->invert_selection      = NULL;
+	klass->row_count             = NULL;
 
-	klass->select_single_row  = NULL;
-	klass->toggle_single_row  = NULL;
-	klass->move_selection_end = NULL;
-	klass->set_selection_end  = NULL;
+	klass->change_one_row        = NULL;
+	klass->change_cursor         = NULL;
+	klass->cursor_row            = NULL;
+	klass->cursor_col            = NULL;
+
+	klass->select_single_row     = NULL;
+	klass->toggle_single_row     = NULL;
+	klass->move_selection_end    = NULL;
+	klass->set_selection_end     = NULL;
 
 
 	E_OBJECT_CLASS_ADD_SIGNALS (object_class, e_selection_model_signals, LAST_SIGNAL);
@@ -639,4 +649,13 @@ e_selection_model_selection_changed   (ESelectionModel *selection)
 {
 	gtk_signal_emit(GTK_OBJECT(selection),
 			e_selection_model_signals[SELECTION_CHANGED]);
+}
+
+void
+e_selection_model_selection_row_changed (ESelectionModel *selection,
+					 int              row)
+{
+	gtk_signal_emit(GTK_OBJECT(selection),
+			e_selection_model_signals[SELECTION_CHANGED],
+			row);
 }

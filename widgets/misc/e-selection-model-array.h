@@ -50,6 +50,10 @@ typedef struct {
 	guint model_changed_id;
 	guint model_row_inserted_id, model_row_deleted_id;
 
+	/* Anything other than -1 means that the selection is a single
+	 * row.  This being -1 does not impart any information. */
+	gint        selected_row;
+
 	guint frozen : 1;
 	guint selection_model_changed : 1;
 	guint group_info_changed : 1;

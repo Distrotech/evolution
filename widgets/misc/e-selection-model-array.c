@@ -70,6 +70,7 @@ e_selection_model_array_delete_rows(ESelectionModelArray *esma, int row, int cou
 		if (esma->cursor_row >= 0) 
 			e_bit_array_change_one_row(esma->eba, esma->cursor_row, TRUE);
 
+		esma->selected_row = -1;
 		e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 		e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), esma->cursor_row, esma->cursor_col);
 	}
@@ -84,6 +85,7 @@ e_selection_model_array_insert_rows(ESelectionModelArray *esma, int row, int cou
 		if (esma->cursor_row >= row)
 			esma->cursor_row += count;
 
+		esma->selected_row = -1;
 		e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 		e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), esma->cursor_row, esma->cursor_col);
 	}
@@ -114,6 +116,7 @@ e_selection_model_array_move_row(ESelectionModelArray *esma, int old_row, int ne
 		if (cursor) {
 			esma->cursor_row = new_row;
 		}
+		esma->selected_row = -1;
 		e_selection_model_selection_changed(esm);
 		e_selection_model_cursor_changed(esm, esma->cursor_row, esma->cursor_col);
 	}
@@ -223,6 +226,7 @@ esma_clear(ESelectionModel *selection)
 	}
 	esma->cursor_row = -1;
 	esma->cursor_col = -1;
+	esma->selected_row = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), -1, -1);
 }
@@ -267,6 +271,7 @@ esma_select_all (ESelectionModel *selection)
 	esma->cursor_col = 0;
 	esma->cursor_row = 0;
 	esma->selection_start_row = 0;
+	esma->selected_row = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), 0, 0);
 }
@@ -290,6 +295,7 @@ esma_invert_selection (ESelectionModel *selection)
 	esma->cursor_col = -1;
 	esma->cursor_row = -1;
 	esma->selection_start_row = 0;
+	esma->selected_row = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), -1, -1);
 }
@@ -359,12 +365,22 @@ static void
 esma_select_single_row (ESelectionModel *selection, int row)
 {
 	ESelectionModelArray *esma = E_SELECTION_MODEL_ARRAY(selection);
+	int selected_row = esma->selected_row;
 
 	e_selection_model_array_confirm_row_count(esma);
+	
 	e_bit_array_select_single_row(esma->eba, row);
 
-	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	esma->selection_start_row = row;
+	esma->selected_row = row;
+	if (selected_row != -1) {
+		if (selected_row != row) {
+			e_selection_model_selection_row_changed(E_SELECTION_MODEL(esma), selected_row);
+			e_selection_model_selection_row_changed(E_SELECTION_MODEL(esma), row);
+		}
+	} else {
+		e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
+	}
 }
 
 static void
@@ -376,7 +392,8 @@ esma_toggle_single_row (ESelectionModel *selection, int row)
 	e_bit_array_toggle_single_row(esma->eba, row);
 
 	esma->selection_start_row = row;
-	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
+	esma->selected_row = -1;
+	e_selection_model_selection_row_changed(E_SELECTION_MODEL(esma), row);
 }
 
 static void
@@ -411,6 +428,7 @@ esma_move_selection_end (ESelectionModel *selection, int row)
 		esma_change_range(selection, old_end, new_end, TRUE);
 	if (new_end < old_end)
 		esma_change_range(selection, new_end, old_end, FALSE);
+	esma->selected_row = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 }
 
@@ -443,6 +461,8 @@ e_selection_model_array_init (ESelectionModelArray *esma)
 	esma->selection_start_row = 0;
 	esma->cursor_row = -1;
 	esma->cursor_col = -1;
+
+	esma->selected_row = -1;
 }
 
 static void
