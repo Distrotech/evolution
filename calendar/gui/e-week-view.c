@@ -3187,6 +3187,10 @@ e_week_view_find_event_from_uid (EWeekView	  *week_view,
 	EWeekViewEvent *event;
 	gint event_num, num_events;
 
+	*event_num_return = -1;
+	if (!uid)
+		return FALSE;
+
 	num_events = week_view->events->len;
 	for (event_num = 0; event_num < num_events; event_num++) {
 		const char *u;

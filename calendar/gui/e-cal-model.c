@@ -1452,6 +1452,16 @@ e_cal_model_create_component_with_defaults (ECalModel *model)
 	icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
 	g_object_unref (comp);
 
+	/* make sure the component has an UID */
+	if (!icalcomponent_get_uid (icalcomp)) {
+		char *uid;
+
+		uid = cal_component_gen_uid ();
+		icalcomponent_set_uid (icalcomp, uid);
+
+		g_free (uid);
+	}
+
 	return icalcomp;
 }
 

@@ -1,5 +1,14 @@
 2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.c (e_cal_model_create_component_with_defaults):
+	make sure the component has always an UID.
+
+	* gui/e-day-view.c  (e_day_view_find_event_from_uid):
+	* gui/e-week-view.c (e_week_view_find_event_from_uid): check
+	pointers passed to strcmp().
+
+2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/gnome-cal.c (gnome_calendar_open): added missing call to
 	cal_client_open().
 

@@ -1798,6 +1798,9 @@ e_day_view_find_event_from_uid (EDayView *day_view,
 	gint day, event_num;
 	const char *u;
 
+	if (!uid)
+		return FALSE;
+
 	for (day = 0; day < day_view->days_shown; day++) {
 		for (event_num = 0; event_num < day_view->events[day]->len;
 		     event_num++) {
