@@ -319,7 +319,7 @@ photo_getter (EContact *contact, EVCardAttribute *attr)
 			EContactPhoto *photo = g_new (EContactPhoto, 1);
 
 			photo->length = s->len;
-			photo->data = malloc (photo->length);
+			photo->data = g_malloc (photo->length);
 			memcpy (photo->data, s->str, photo->length);
 
 			return photo;

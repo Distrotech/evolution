@@ -1,7 +1,7 @@
 
 TEST_LIBS=$(top_builddir)/addressbook/backend/ebook/libebook.la
 
-CFLAGS=-I$(srcdir)/../../.. @EVOLUTION_ADDRESSBOOK_CFLAGS@
+INCLUDES=-I$(srcdir)/../../.. @EVOLUTION_ADDRESSBOOK_CFLAGS@
 
 noinst_PROGRAMS= test-changes test-date test-ebook test-photo test-string
 
