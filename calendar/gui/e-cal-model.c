@@ -1287,17 +1287,16 @@ e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
 		int pos;
 
 		e_table_model_pre_change (E_TABLE_MODEL (model));
+
+		/* remove all objects with this UID */
+		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {		
+			pos = get_position_in_array (priv->objects, comp_data);
 		
-		comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data);
-		if (!comp_data)
-			continue;
+			g_ptr_array_remove (priv->objects, comp_data);
+			e_cal_model_free_component_data (comp_data);
 		
-		pos = get_position_in_array (priv->objects, comp_data);
-		
-		g_ptr_array_remove (priv->objects, comp_data);
-		e_cal_model_free_component_data (comp_data);
-		
-		e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+		}
 	}
 }
 
