@@ -650,8 +650,13 @@ ets_is_expandable (ETreeModel *etm, ETreePath node)
 {
  	ETreeSortedPath *path = node;
 	ETreeSorted *ets = E_TREE_SORTED(etm);
+	gboolean expandable = e_tree_model_node_is_expandable (ets->priv->source, path->corresponding);
 
-	return e_tree_model_node_is_expandable (ets->priv->source, path->corresponding);
+	if ((!expandable) && path->num_children == -1) {
+		path->num_children = 0;
+	}
+
+	return expandable;
 }
 
 static guint

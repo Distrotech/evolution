@@ -153,11 +153,14 @@ static int
 find_next_node(ETreeTableAdapter *adapter, int row)
 {
 	ETreePath path = adapter->priv->map_table[row];
-	ETreePath next_sibling = e_tree_model_node_get_next(adapter->priv->source, path);
-	ETreeTableAdapterNode *current = find_node (adapter, path);
-	if (next_sibling && current)
-		return row + current->num_visible_children + 1;
-	else
+	if (path) {
+		ETreePath next_sibling = e_tree_model_node_get_next(adapter->priv->source, path);
+		ETreeTableAdapterNode *current = find_node (adapter, path);
+		if (next_sibling)
+			return row + (current ? current->num_visible_children : 0) + 1;
+		else
+			return -1;
+	} else
 		return -1;
 }
 
@@ -246,12 +249,12 @@ array_size_from_path(ETreeTableAdapter *etta, ETreePath path)
 {
 	int size = 1;
 
-	ETreeTableAdapterNode *node;
+	ETreeTableAdapterNode *node = NULL;
 
-	node = find_or_create_node(etta, path);
+	if (e_tree_model_node_is_expandable(etta->priv->source, path))
+		node = find_or_create_node(etta, path);
 
-
-	if (node->expanded) {
+	if (node && node->expanded) {
 		ETreePath children;
 
 		for (children = e_tree_model_node_get_first_child(etta->priv->source, path); 
@@ -267,16 +270,17 @@ array_size_from_path(ETreeTableAdapter *etta, ETreePath path)
 static int
 fill_array_from_path(ETreeTableAdapter *etta, ETreePath *array, ETreePath path)
 {
-	ETreeTableAdapterNode *node;
+	ETreeTableAdapterNode *node = NULL;
 	int index = 0;
 
 	array[index] = path;
 
 	index ++;
 
-	node = find_or_create_node(etta, path);
+	if (e_tree_model_node_is_expandable(etta->priv->source, path))
+		node = find_or_create_node(etta, path);
 
-	if (node->expanded) {
+	if (node && node->expanded) {
 		ETreePath children;
 
 		for (children = e_tree_model_node_get_first_child(etta->priv->source, path); 
@@ -286,7 +290,8 @@ fill_array_from_path(ETreeTableAdapter *etta, ETreePath *array, ETreePath path)
 		}
 	}
 
-	node->num_visible_children = index - 1;
+	if (node)
+		node->num_visible_children = index - 1;
 
 	return index;
 }
@@ -540,7 +545,6 @@ etta_proxy_node_changed (ETreeModel *etm, ETreePath path, ETreeTableAdapter *ett
 		fill_array_from_path(etta, etta->priv->map_table, path);
 	} else {
 		int row = find_row_num(etta, path);
-		ETreeTableAdapterNode *node;
 		int size;
 		int old_size;
 
@@ -548,8 +552,12 @@ etta_proxy_node_changed (ETreeModel *etm, ETreePath path, ETreeTableAdapter *ett
 			return;
 
 		size = array_size_from_path(etta, path);
-		node = find_or_create_node(etta, path);
-		old_size = node->num_visible_children + 1;
+		if (e_tree_model_node_is_expandable(etta->priv->source, path)) {
+			ETreeTableAdapterNode *node = find_or_create_node(etta, path);
+			old_size = node->num_visible_children + 1;
+		} else {
+			old_size = 1;
+		}
 
 		etta_expand_to(etta, etta->priv->n_map + size - old_size);
 
@@ -611,7 +619,7 @@ etta_proxy_node_inserted (ETreeModel *etm, ETreePath parent, ETreePath child, ET
 			else if (parent_row != 0)
 				e_table_model_row_changed(E_TABLE_MODEL(etta), parent_row - 1);
 		}
-		if (parent_node->expanded == FALSE)
+		if (!parent_node->expanded)
 			return;
 
 		row = find_first_child_node(etta, parent_row);
@@ -663,7 +671,7 @@ etta_proxy_node_removed (ETableModel *etm, ETreePath parent, ETreePath child, ET
 	}
 	if (row != -1) {
 		ETreeTableAdapterNode *node = find_node(etta, child);
-		int to_remove = node->num_visible_children + 1;
+		int to_remove = (node ? node->num_visible_children : 0) + 1;
 
 		memmove(etta->priv->map_table + row,
 			etta->priv->map_table + row + to_remove,
@@ -850,8 +858,11 @@ void         e_tree_table_adapter_root_node_set_visible (ETreeTableAdapter *etta
 
 void         e_tree_table_adapter_node_set_expanded (ETreeTableAdapter *etta, ETreePath path, gboolean expanded)
 {
-	ETreeTableAdapterNode *node = find_or_create_node(etta, path);
-	int row = find_row_num(etta, path);
+	ETreeTableAdapterNode *node;
+	int row;
+
+	node = find_or_create_node(etta, path);
+	row = find_row_num(etta, path);
 
 	if (expanded != node->expanded) {
 		node->expanded = expanded;
@@ -942,7 +953,9 @@ void         e_tree_table_adapter_show_node (ETreeTableAdapter *etta, ETreePath 
 
 gboolean     e_tree_table_adapter_node_is_expanded (ETreeTableAdapter *etta, ETreePath path)
 {
-	ETreeTableAdapterNode *node = find_or_create_node(etta, path);
-
-	return node->expanded;
+	if (e_tree_model_node_is_expandable(etta->priv->source, path)) {
+		ETreeTableAdapterNode *node = find_or_create_node(etta, path);
+		return node->expanded;
+	} else
+		return FALSE;
 }
