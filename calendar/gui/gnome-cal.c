@@ -978,7 +978,7 @@ setup_widgets (GnomeCalendar *gcal)
 	connect_week_view_focus (gcal, E_WEEK_VIEW (priv->month_view));
 
 	/* The List View. */
-	filename = g_strdup_printf ("%s/config/CalListView", evolution_dir);
+	filename = g_strdup_printf (".evolution/config/CalListView");
 	priv->list_view = e_cal_list_view_new (filename);
 	g_free (filename);
 

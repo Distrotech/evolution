@@ -1,3 +1,10 @@
+2003-10-15  Hans Petter Jansson  <hpj@ximian.com>
+
+	* gui/e-select-names-editable.c (e_selct_names_editable_get_address):
+	EDestination -> EABDestination.
+
+	* gui/gnome-cal.c (setup_widgets): evolution_dir -> ".evolution".
+
 2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-meeting-list-view.c: adapted to new addressbook API.
