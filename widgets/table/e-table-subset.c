@@ -26,12 +26,15 @@ etss_destroy (GtkObject *object)
 		gtk_object_unref (GTK_OBJECT (etss->source));
 
 	gtk_signal_disconnect (GTK_OBJECT (etss->source),
+			       etss->table_model_pre_change_id);
+	gtk_signal_disconnect (GTK_OBJECT (etss->source),
 			       etss->table_model_changed_id);
 	gtk_signal_disconnect (GTK_OBJECT (etss->source),
 			       etss->table_model_row_changed_id);
 	gtk_signal_disconnect (GTK_OBJECT (etss->source),
 			       etss->table_model_cell_changed_id);
 
+	etss->table_model_pre_change_id = 0;
 	etss->table_model_changed_id = 0;
 	etss->table_model_row_changed_id = 0;
 	etss->table_model_cell_changed_id = 0;
@@ -81,21 +84,11 @@ etss_is_cell_editable (ETableModel *etm, int col, int row)
 	return e_table_model_is_cell_editable (etss->source, col, etss->map_table [row]);
 }
 
-static gint
-etss_append_row (ETableModel *etm)
+static void
+etss_append_row (ETableModel *etm, ETableModel *source, int row)
 {
 	ETableSubset *etss = (ETableSubset *)etm;
-	gint source_row = e_table_model_append_row (etss->source);
-	const int n = etss->n_map;
-	const int * const map_table = etss->map_table;
-	int i;
-
-	for (i = 0; i < n; i++){
-		if (map_table [i] == source_row){
-			return i;
-		}
-	}
-	return -1;
+	e_table_model_append_row (etss->source, source, row);
 }
 
 static void *
@@ -163,6 +156,12 @@ etss_class_init (GtkObjectClass *klass)
 E_MAKE_TYPE(e_table_subset, "ETableSubset", ETableSubset, etss_class_init, NULL, PARENT_TYPE);
 
 static void
+etss_proxy_model_pre_change (ETableModel *etm, ETableSubset *etss)
+{
+	e_table_model_pre_change (E_TABLE_MODEL (etss));
+}
+
+static void
 etss_proxy_model_changed (ETableModel *etm, ETableSubset *etss)
 {
 	e_table_model_changed (E_TABLE_MODEL (etss));
@@ -216,6 +215,8 @@ e_table_subset_construct (ETableSubset *etss, ETableModel *source, int nvals)
 	for (i = 0; i < nvals; i++)
 		etss->map_table [i] = i;
 
+	etss->table_model_pre_change_id = gtk_signal_connect (GTK_OBJECT (source), "model_pre_change",
+							      GTK_SIGNAL_FUNC (etss_proxy_model_pre_change), etss);
 	etss->table_model_changed_id = gtk_signal_connect (GTK_OBJECT (source), "model_changed",
 						     GTK_SIGNAL_FUNC (etss_proxy_model_changed), etss);
 	etss->table_model_row_changed_id = gtk_signal_connect (GTK_OBJECT (source), "model_row_changed",
