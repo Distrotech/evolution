@@ -1237,7 +1237,6 @@ setup_popup_icons (EPopupMenu *context_menu)
 GtkMenu *
 e_cal_view_create_popup_menu (ECalView *cal_view)
 {
-	gboolean being_edited, have_selection;
 	GList *selected;
 	EPopupMenu *context_menu;
 	guint32 disable_mask = 0, hide_mask = 0;
@@ -1248,10 +1247,7 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 	g_return_val_if_fail (E_IS_CAL_VIEW (cal_view), NULL);
 
 	/* get the selection */
-	being_edited = FALSE;
 	selected = e_cal_view_get_selected_events (cal_view);
-
-	have_selection = GTK_WIDGET_HAS_FOCUS (cal_view) && selected != NULL;
 
 	if (selected == NULL) {
 		cal_view->priv->view_menu = gnome_calendar_setup_view_popup (cal_view->priv->calendar);
@@ -1290,11 +1286,8 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 	}
 
 	cal_client_is_read_only (client, &read_only, NULL);
-	if (!read_only)
+	if (read_only)
 		disable_mask |= MASK_EDITABLE;
-
-	if (being_edited)
-		disable_mask |= MASK_EDITING;
 
 	setup_popup_icons (context_menu);
 	popup = e_popup_menu_create (context_menu, disable_mask, hide_mask, cal_view);
