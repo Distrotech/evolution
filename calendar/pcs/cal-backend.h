@@ -124,7 +124,7 @@ struct _CalBackendClass {
 	icaltimezone *(* get_timezone) (CalBackend *backend, const char *tzid);
 	icaltimezone *(* get_default_timezone) (CalBackend *backend);
 	gboolean (* set_default_timezone) (CalBackend *backend, const char *tzid);
-	gboolean (* add_timezone) (CalBackend *backend, Cal *cal, const char *tzobj);
+	void (* add_timezone) (CalBackend *backend, Cal *cal, const char *tzobj);
 };
 
 GType cal_backend_get_type (void);
@@ -167,7 +167,7 @@ CalComponent *cal_backend_get_object_component (CalBackend *backend, const char 
 
 gboolean cal_backend_set_default_timezone (CalBackend *backend, const char *tzid);
 
-gboolean cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj);
+void cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj);
 
 char *cal_backend_get_timezone_object (CalBackend *backend, const char *tzid);
 

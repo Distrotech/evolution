@@ -128,13 +128,14 @@ cal_backend_sync_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 }
 
 CalBackendSyncStatus
-cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod)
+cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, 
+				CalObjModType mod, char **object)
 {
 	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
 
 	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->remove_object_sync);
 
-	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->remove_object_sync) (backend, cal, uid, mod);
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->remove_object_sync) (backend, cal, uid, mod, object);
 }
 
 CalBackendSyncStatus
@@ -292,10 +293,11 @@ static void
 _cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod)
 {
 	CalBackendSyncStatus status;
+	char *object;
+	
+	status = cal_backend_sync_remove_object (CAL_BACKEND_SYNC (backend), cal, uid, mod, &object);
 
-	status = cal_backend_sync_remove_object (CAL_BACKEND_SYNC (backend), cal, uid, mod);
-
-	cal_notify_object_removed (cal, status, uid);
+	cal_notify_object_removed (cal, status, uid, object);
 }
 
 static void

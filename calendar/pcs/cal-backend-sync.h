@@ -44,7 +44,7 @@ struct _CalBackendSyncClass {
 
 	CalBackendSyncStatus (*create_object_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid);
 	CalBackendSyncStatus (*modify_object_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
-	CalBackendSyncStatus (*remove_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
+	CalBackendSyncStatus (*remove_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod, char **object);
 
 	CalBackendSyncStatus (*receive_objects_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, GList **created, GList **modified, GList **removed);
 	CalBackendSyncStatus (*send_objects_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj);
@@ -96,7 +96,8 @@ CalBackendSyncStatus cal_backend_sync_modify_object           (CalBackendSync  *
 CalBackendSyncStatus cal_backend_sync_remove_object           (CalBackendSync  *backend,
 							       Cal             *cal,
 							       const char      *uid,
-							       CalObjModType    mod);
+							       CalObjModType    mod,
+							       char **object);
 CalBackendSyncStatus cal_backend_sync_receive_objects         (CalBackendSync  *backend,
 							       Cal             *cal,
 							       const char      *calobj,
@@ -111,6 +112,7 @@ CalBackendSyncStatus cal_backend_sync_get_object_list         (CalBackendSync  *
 							       const char      *sexp,
 							       GList          **objects);
 
+CalBackendSyncStatus cal_backend_sync_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj);
 
 G_END_DECLS
 

@@ -1016,14 +1016,14 @@ cal_backend_set_default_timezone (CalBackend *backend, const char *tzid)
  *
  * Returns: TRUE if successful, or FALSE if not.
  */
-gboolean
+void
 cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj)
 {
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), FALSE);
-	g_return_val_if_fail (tzobj != NULL, FALSE);
-	g_return_val_if_fail (CLASS (backend)->add_timezone != NULL, FALSE);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (tzobj != NULL);
+	g_return_if_fail (CLASS (backend)->add_timezone != NULL);
 
-	return (* CLASS (backend)->add_timezone) (backend, cal, tzobj);
+	(* CLASS (backend)->add_timezone) (backend, cal, tzobj);
 }
 
 /**

@@ -88,7 +88,7 @@ static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Ca
 static CalBackendSyncStatus cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid);
 static CalBackendSyncStatus cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
 
-static CalBackendSyncStatus cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
+static CalBackendSyncStatus cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod, char **object);
 
 static CalBackendSyncStatus cal_backend_file_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
@@ -1439,54 +1439,6 @@ cal_backend_file_discard_alarm (CalBackend *backend, const char *uid, const char
 	return CAL_BACKEND_RESULT_SUCCESS;
 }
 
-/* Creates a CalComponent for the given icalcomponent and adds it to our
-   cache. Note that the icalcomponent is not added to the toplevel
-   icalcomponent here. That needs to be done elsewhere. It returns the uid
-   of the added component, or NULL if it failed. */
-static const char*
-cal_backend_file_update_object (CalBackendFile *cbfile,
-				icalcomponent *icalcomp)
-{
-	CalComponent *old_comp;
-	CalComponent *comp;
-	const char *comp_uid;
-	struct icaltimetype last_modified;
-
-	/* Create a CalComponent wrapper for the icalcomponent. */
-	comp = cal_component_new ();
-	if (!cal_component_set_icalcomponent (comp, icalcomp)) {
-		g_object_unref (comp);
-		return NULL;
-	}
-
-	/* Get the UID, and check it isn't empty. */
-	cal_component_get_uid (comp, &comp_uid);
-	if (!comp_uid || !comp_uid[0]) {
-		g_object_unref (comp);
-		return NULL;
-	}
-
-	/* Set the LAST-MODIFIED time on the component */
-	last_modified = icaltime_from_timet (time (NULL), 0);
-	cal_component_set_last_modified (comp, &last_modified);
-
-	if (cal_component_is_instance (comp)) {
-		/* FIXME */
-	} else {
-		/* Remove any old version of the component. */
-		old_comp = lookup_component (cbfile, comp_uid);
-		if (old_comp)
-			remove_component (cbfile, old_comp);
-
-		/* Now add the component to our local cache, but we pass FALSE as
-		   the last argument, since the libical component is assumed to have
-		   been added already. */
-		add_component (cbfile, comp, FALSE);
-	}
-
-	return comp_uid;
-}
-
 static CalBackendSyncStatus
 cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid)
 {
@@ -1494,8 +1446,10 @@ cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *c
 	CalBackendFilePrivate *priv;
 	icalcomponent *icalcomp;
 	icalcomponent_kind kind;
+	CalComponent *comp;
 	const char *comp_uid;
-
+	struct icaltimetype current;
+	
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
@@ -1506,27 +1460,38 @@ cal_backend_file_create_object (CalBackendSync *backend, Cal *cal, const char *c
 	if (!icalcomp)
 		return GNOME_Evolution_Calendar_InvalidObject;
 
+	/* FIXME Check kind with the parent */
 	kind = icalcomponent_isa (icalcomp);
 	if (kind != ICAL_VEVENT_COMPONENT && kind != ICAL_VTODO_COMPONENT) {
 		icalcomponent_free (icalcomp);
 		return GNOME_Evolution_Calendar_InvalidObject;
 	}
 
+	/* Get the UID */
+	comp_uid = icalcomponent_get_uid (icalcomp);
+	
 	/* check the object is not in our cache */
-	if (lookup_component (cbfile, icalcomponent_get_uid (icalcomp))) {
+	if (lookup_component (cbfile, comp_uid)) {
 		icalcomponent_free (icalcomp);
 		return GNOME_Evolution_Calendar_CardIdAlreadyExists;
 	}
 
-	/* add object to our cache */
-	comp_uid = cal_backend_file_update_object (cbfile, icalcomp);
-	if (!comp_uid) {
-		icalcomponent_free (icalcomp);
-		return GNOME_Evolution_Calendar_OtherError;
-	}
+	/* Create the cal component */
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomp);
 
+	/* Set the created and last modified times on the component */
+	current = icaltime_from_timet (time (NULL), 0);
+	cal_component_set_created (comp, &current);
+	cal_component_set_last_modified (comp, &current);
+
+	/* Add the object */
+	add_component (cbfile, comp, TRUE);
+
+	/* Mark for saving */
 	mark_dirty (cbfile);
 
+	/* Return the UID */
 	if (uid)
 		*uid = g_strdup (comp_uid);
 
@@ -1542,7 +1507,8 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 	icalcomponent *icalcomp;
 	icalcomponent_kind kind;
 	const char *comp_uid;
-	CalComponent *comp;
+	CalComponent *comp, *old_comp;
+	struct icaltimetype current;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
@@ -1554,36 +1520,50 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 	if (!icalcomp)
 		return GNOME_Evolution_Calendar_InvalidObject;
 
+	/* FIXME Check kind with the parent */
 	kind = icalcomponent_isa (icalcomp);
 	if (kind != ICAL_VEVENT_COMPONENT && kind != ICAL_VTODO_COMPONENT) {
 		icalcomponent_free (icalcomp);
 		return GNOME_Evolution_Calendar_InvalidObject;
 	}
 
-	/* get the object from our cache */
-	if (!(comp = lookup_component (cbfile, icalcomponent_get_uid (icalcomp)))) {
+	/* Get the uid */
+	comp_uid = icalcomponent_get_uid (icalcomp);
+
+	/* Get the object from our cache */
+	if (!(old_comp = lookup_component (cbfile, comp_uid))) {
 		icalcomponent_free (icalcomp);
 		return GNOME_Evolution_Calendar_ObjectNotFound;
 	}
 
-	if (old_object)
-		*old_object = cal_component_get_as_string (comp);
+	/* Create the cal component */
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomp);
+	
+	/* Set the last modified time on the component */
+	current = icaltime_from_timet (time (NULL), 0);
+	cal_component_set_last_modified (comp, &current);
 
-	/* update the object */
-	comp_uid = cal_backend_file_update_object (cbfile, icalcomp);
-	if (!comp_uid) {
-		icalcomponent_free (icalcomp);
-		return GNOME_Evolution_Calendar_OtherError;
-	}
+	/* FIXME we need to handle mod types here */
+
+	/* Remove the old version */
+	remove_component (cbfile, old_comp);
+
+	/* Add the object */
+	add_component (cbfile, comp, TRUE);
 
 	mark_dirty (cbfile);
+
+	if (old_object)
+		*old_object = cal_component_get_as_string (comp);
 
 	return GNOME_Evolution_Calendar_Success;
 }
 
 /* Remove_object handler for the file backend */
 static CalBackendSyncStatus
-cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod)
+cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, 
+				CalObjModType mod, char **object)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -1596,10 +1576,13 @@ cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 
 	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
 
+	/* FIXME we need to handle mod types here */
+
 	comp = lookup_component (cbfile, uid);
 	if (!comp)
 		return GNOME_Evolution_Calendar_ObjectNotFound;
 	
+	*object = cal_component_get_as_string (comp);
 	remove_component (cbfile, comp);
 	
 	mark_dirty (cbfile);

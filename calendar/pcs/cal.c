@@ -527,8 +527,7 @@ impl_Cal_addTimezone (PortableServer_Servant servant,
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	if (!cal_backend_add_timezone (priv->backend, cal, tz))
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidObject);
+	cal_backend_add_timezone (priv->backend, cal, tz);
 }
 
 /**
@@ -864,7 +863,10 @@ cal_notify_object_created (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 		Query *query = QUERY (e_iterator_get (iter));
 		
 		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
-
+		
+		if (!query_object_matches (query, object))
+			continue;
+		
 		query_notify_objects_added_1 (query, uid);
 
 		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
@@ -939,7 +941,8 @@ cal_notify_object_modified (Cal *cal, GNOME_Evolution_Calendar_CallStatus status
 }
 
 void
-cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *uid)
+cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, 
+			   const char *uid, const char *object)
 {
 	CalPrivate *priv;
 	EList *queries;
@@ -959,6 +962,9 @@ cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 		Query *query = QUERY (e_iterator_get (iter));
 
 		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
+
+		if (!query_object_matches (query, object))
+			continue;
 
 		query_notify_objects_removed_1 (query, uid);
 
