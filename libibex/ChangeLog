@@ -1,3 +1,17 @@
+2000-08-31  Not Zed  <NotZed@HelixCode.com>
+
+	* block.c (add_key_mem): Initialise a memory based array for newly
+	added index entries.
+	(add_record): Changed to cache updates in memory until we hit a
+	limit, and then flush them to disk.
+	(get_record): Merge in-memory records with disk records.
+	(remove_record): Remove from memory first, and if that fails, goto
+	disk.
+	(find_record): Check memory first, then disk if that fails.
+	(add_datum_list): oops, copy size * sizeof(blockid_t)
+	(add_indexed): Make sure we link in the head node when we create a
+	new one.
+
 2000-08-09  Christopher James Lahey  <clahey@helixcode.com>
 
 	* file.c, find.c: Fixed some warnings.

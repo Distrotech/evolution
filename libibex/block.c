@@ -14,9 +14,10 @@
 #include "block.h"
 
 #define d(x)
+/*#define DEBUG*/
 
-#define BLOCK_SIZE (512)
-#define CACHE_SIZE 1024		/* blocks in disk cache */
+#define BLOCK_SIZE (256)
+#define CACHE_SIZE 256		/* blocks in disk cache */
 				/* total cache size = block size * cache size */
 
 /* root block */
@@ -87,12 +88,18 @@ struct _memcache {
 struct _memidx {
 	blockid_t block;	/* block containing this index item */
 	blockid_t root;		/* root of the list of index contents */
+	GArray *members;	/* in-memory cache of newly added members */
 	int keyid;		/* id of this index item  this could be removed ... saving 4 bytes per word */
+#ifdef DEBUG
+	int count;
+#endif
 	char key[1];		/* key data follows */
 };
 
 
 int load_keys(struct _memcache *, blockid_t head);
+blockid_t add_datum_list(struct _memcache *block_cache, blockid_t head, GArray *data);
+int update_key_root(struct _memcache *block_cache, const char *key, blockid_t root);
 
 /* for implementing an LRU cache */
 
@@ -143,10 +150,48 @@ dirty_block(struct _block *block)
 void
 sync_block(struct _memcache *block_cache, struct _memblock *memblock)
 {
-	printf("\nsyncing block %d\n", memblock->block);
 	lseek(block_cache->fd, memblock->block, SEEK_SET);
 	if (write(block_cache->fd, &memblock->data, sizeof(memblock->data)) != -1) {
 		memblock->flags &= ~BLOCK_DIRTY;
+	}
+}
+
+/* sync the in-memory data for a word to disk */
+static void
+sync_word(char *key, struct _memidx *memidx, struct _memcache *block_cache)
+{
+	blockid_t new;
+
+	if (memidx->members->len > 0) {
+		d(printf("syncing word %s %d members\n", key, memidx->members->len));
+		new = add_datum_list(block_cache, memidx->root, memidx->members);
+		g_array_set_size(memidx->members, 0);
+		if (new != memidx->root)
+			update_key_root(block_cache, key, new);
+
+#ifdef DEBUG
+		if (!strcmp(key, "with")) {
+			blockid_t node = memidx->root;
+			int count=0;
+			printf("scanning/dumping 'with' blocks ...\n");
+
+			while (node) {
+				struct _block *block = read_block(block_cache, node);
+				int i;
+
+				printf("node %d used %d\n", node, block->used);
+				for (i=0;i<block->used;i++) {
+					count++;
+					printf(" %8d", block->bl_data[i]);
+				}
+				printf("\n");
+				node = block->next;
+			}
+
+			printf("total count is supposed to be: %d\n", memidx->count);
+			printf("but i dumped: %d\n", count);
+		}
+#endif
 	}
 }
 
@@ -154,6 +199,9 @@ void
 sync_cache(struct _memcache *block_cache)
 {
 	struct _memblock *memblock;
+
+	printf("syncing cache\n");
+	g_hash_table_foreach(block_cache->index_keys, (GHFunc)sync_word, block_cache);
 
 	memblock = (struct _memblock *)block_cache->nodes.head;
 	while (memblock->next) {
@@ -397,7 +445,7 @@ add_datum_list(struct _memcache *block_cache, blockid_t head, GArray *data)
 		space = sizeof(block->bl_data)/sizeof(block->bl_data[0]) - block->used;
 		if (space) {
 			tocopy = MIN(left, space);
-			memcpy(block->bl_data+block->used, &g_array_index(data, blockid_t, copied), tocopy);
+			memcpy(block->bl_data+block->used, &g_array_index(data, blockid_t, copied), tocopy*sizeof(blockid_t));
 			block->used += tocopy;
 			dirty_block(block);
 		} else {
@@ -405,7 +453,7 @@ add_datum_list(struct _memcache *block_cache, blockid_t head, GArray *data)
 			newblock = read_block(block_cache, new);
 			newblock->next = head;
 			tocopy = MIN(left, sizeof(block->bl_data)/sizeof(block->bl_data[0]));
-			memcpy(newblock->bl_data, &g_array_index(data, blockid_t, copied), tocopy);
+			memcpy(newblock->bl_data, &g_array_index(data, blockid_t, copied), tocopy*sizeof(blockid_t));
 			newblock->used = tocopy;
 			block = newblock;
 			head = new;
@@ -419,7 +467,7 @@ add_datum_list(struct _memcache *block_cache, blockid_t head, GArray *data)
 GArray *
 get_datum(struct _memcache *block_cache, blockid_t head)
 {
-	GArray *result = g_array_new(0, 0, sizeof(id_t));
+	GArray *result = g_array_new(0, 0, sizeof(nameid_t));
 
 	while (head) {
 		struct _block *block = read_block(block_cache, head);
@@ -447,6 +495,10 @@ add_key_mem(struct _memcache *block_cache, const char *key, int keylen, blockid_
 	memidx->root = root;
 	memidx->block = block;
 	memidx->keyid = keyid;
+	memidx->members = g_array_new(0,0,sizeof(nameid_t));
+#ifdef DEBUG
+	memidx->count = 0;
+#endif
 	g_hash_table_insert(block_cache->index_keys, memidx->key, memidx);
 }
 
@@ -552,26 +604,65 @@ update_key_root(struct _memcache *block_cache, const char *key, blockid_t root)
 		}
 		memidx->root = root;
 	}
+	return 0;
 }
 
 GArray *
 get_record(struct _memcache *block_cache, const char *key)
 {
 	blockid_t head;
+	struct _memidx *memidx;
+	GArray *result;
 
+	memidx = g_hash_table_lookup(block_cache->index_keys, key);
+	if (memidx) {
+		result = get_datum(block_cache, memidx->root);
+		g_array_append_vals(result, memidx->members->data, memidx->members->len);
+	} else {
+		result = g_array_new(0,0, sizeof(nameid_t));
+	}
+	return result;
+	
+#if 0
 	head = key_to_block(block_cache, key);
 
 	/* handles the case of not-found (head == 0) */
 	return get_datum(block_cache, head);
+#endif
 }
 
 int
 add_record(struct _memcache *block_cache, const char *key, nameid_t data)
 {
-	blockid_t head, new;
+	blockid_t new;
+	struct _memidx *memidx;
 
 	d(printf("adding record %s = %d\n", key, data));
 
+	memidx = g_hash_table_lookup(block_cache->index_keys, key);
+	if (memidx == NULL) {
+		add_key(block_cache, key);
+		memidx = g_hash_table_lookup(block_cache->index_keys, key);
+		g_assert(memidx != NULL);
+	}
+#ifdef DEBUG
+	memidx->count++;
+#endif
+
+	/* check if we're just adding to the same name first ... */
+	if (memidx->members->len>0
+	    && g_array_index(memidx->members, nameid_t, memidx->members->len-1) == data)
+		return 0;
+
+	g_array_append_val(memidx->members, data);
+	if (memidx->members->len > 128) { /* on average we'll have to hit 2 blocks anyway ... */
+		d(printf("overflowed memory block '%s', flushing to disk\n", key));
+		new = add_datum_list(block_cache, memidx->root, memidx->members);
+		g_array_set_size(memidx->members, 0);
+		if (new != memidx->root)
+			update_key_root(block_cache, key, new);
+	}
+#if 0
 	head = key_to_block(block_cache, key);
 	if (head == 0) {
 		head = add_key(block_cache, key);
@@ -579,6 +670,7 @@ add_record(struct _memcache *block_cache, const char *key, nameid_t data)
 	new = add_datum(block_cache, head, data);
 	if (new != head)
 		update_key_root(block_cache, key, new);
+#endif
 	return 0;
 }
 
@@ -586,9 +678,33 @@ int
 remove_record(struct _memcache *block_cache, const char *key, nameid_t data)
 {
 	blockid_t head, new;
+	struct _memidx *memidx;
+	int i;
 
 	d(printf("adding record %s = %d\n", key, data));
 
+	memidx = g_hash_table_lookup(block_cache->index_keys, key);
+	if (memidx == NULL)
+		return 0;
+
+	/* first check in-memory */
+	for (i=0;i<memidx->members->len;i++) {
+		if (g_array_index(memidx->members, nameid_t, i) == data) {
+			g_array_remove_index_fast(memidx->members, i);
+#ifdef DEBUG
+			memidx->count--;
+#endif
+			return 0;
+		}
+	}
+
+	/* then go to disk ... */
+	head = memidx->root;
+	new = remove_datum(block_cache, head, data);
+	if (new != head)
+		update_key_root(block_cache, key, new);
+	return 0;
+#if 0
 	head = key_to_block(block_cache, key);
 	if (head == 0) {
 		return 0;
@@ -597,17 +713,33 @@ remove_record(struct _memcache *block_cache, const char *key, nameid_t data)
 	if (new != head)
 		update_key_root(block_cache, key, new);
 	return 0;
+#endif
 }
 
 gboolean
 find_record(struct _memcache *block_cache, const char *key, nameid_t data)
 {
-	blockid_t head, new;
+	struct _memidx *memidx;
+	int i;
 
-	d(printf("adding record %s = %d\n", key, data));
+	d(printf("find record %s = %d\n", key, data));
 
+	memidx = g_hash_table_lookup(block_cache->index_keys, key);
+	if (memidx == NULL)
+		return FALSE;
+
+	/* first check in-memory */
+	for (i=0;i<memidx->members->len;i++) {
+		if (g_array_index(memidx->members, nameid_t, i) == data) {
+			return TRUE;
+		}
+	}
+	return find_datum(block_cache, memidx->root, data);
+
+#if 0
 	head = key_to_block(block_cache, key);
 	return find_datum(block_cache, head, data);
+#endif
 }
 
 /* add a name indexed */
@@ -623,12 +755,16 @@ add_indexed(struct _memcache *block_cache, nameid_t data)
 	head = root->names;
 	if (head == 0) {
 		head = get_block(block_cache);
+		root->names = head;
+		dirty_block((struct _block *)root);
 	}
+
 	new = add_datum(block_cache, head, data);
 	if (new != head) {
 		root->names = new;
 		dirty_block((struct _block *)root);
 	}
+
 	return 0;
 }
 
@@ -674,9 +810,11 @@ gboolean
 find_indexed(struct _memcache *block_cache, nameid_t data)
 {
 	struct _root *root = (struct _root *)read_block(block_cache, 0);
+	int res;
 
-	d(printf("finding name %d\n", data));
-	return find_datum(block_cache, root->names, data);
+	res = find_datum(block_cache, root->names, data);
+	d(printf("finding name %d = %s\n", data, res?"TRUE":"FALSE"));
+	return res;
 }
 
 #if 0

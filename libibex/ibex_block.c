@@ -223,10 +223,11 @@ ibex_index_buffer (ibex *ib, char *name, char *buffer, size_t len, size_t *unrea
 		p = q;
 	}
 done:
-	/* FIXME: do this and inserts within a transaction */
+	/* FIXME: all words should be for a given file, not just for
+	   a given buffer ... */
 	if (!ibex_contains_name(ib, name)) {
 		void ibex_add_name(ibex *ib, char *name);
-		printf("adding '%s' to database\n", name);
+		d(printf("adding '%s' to database\n", name));
 		ibex_add_name(ib, name);
 	}
 
@@ -282,7 +283,7 @@ void ibex_unindex (ibex *ib, char *name)
 {
 	nameid_t id;
 
-	printf("trying to unindex '%s'\n", name);
+	d(printf("trying to unindex '%s'\n", name));
 
 	id = strtoul(name, NULL, 10);
 
