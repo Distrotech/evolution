@@ -21,8 +21,6 @@
 # License along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 #
-# This is a line I added to check how CVS behaves on multiple uncommitted
-# merges.
 
 problem() {
     echo "I detected the following problem: $problem"
