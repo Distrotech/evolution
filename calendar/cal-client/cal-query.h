@@ -59,7 +59,7 @@ typedef struct {
 
 	/* Notification signals */
 
-	void (* obj_updated) (CalQuery *query, const char *uid,
+	void (* obj_updated) (CalQuery *query, const char *calobj,
 			      gboolean query_in_progress, int n_scanned, int total);
 	void (* obj_removed) (CalQuery *query, const char *uid);
 

@@ -273,17 +273,25 @@ query_finalize (GObject *object)
 
 /* Adds a component to our the UIDs hash table and notifies the client */
 static void
-add_component (Query *query, const char *uid, gboolean query_in_progress, int n_scanned, int total)
+add_component (Query *query, CalComponent *comp, gboolean query_in_progress, int n_scanned, int total)
 {
 	QueryPrivate *priv;
 	char *old_uid;
+	const char *uid;
 	CORBA_Environment ev;
 	GList *l;
+	gchar *comp_str;
+	GNOME_Evolution_Calendar_CalObjSeq *corba_objects;
 
 	if (query_in_progress)
 		g_assert (n_scanned > 0 || n_scanned <= total);
 
 	priv = query->priv;
+
+	cal_component_get_uid (comp, &uid);
+	comp_str = cal_component_get_as_string (comp);
+	if (!comp_str)
+		return;
 
 	if (g_hash_table_lookup_extended (priv->uids, uid, (gpointer *) &old_uid, NULL)) {
 		g_hash_table_remove (priv->uids, old_uid);
@@ -292,19 +300,17 @@ add_component (Query *query, const char *uid, gboolean query_in_progress, int n_
 
 	g_hash_table_insert (priv->uids, g_strdup (uid), NULL);
 
+	corba_objects = GNOME_Evolution_Calendar_CalObjSeq__alloc ();
+	CORBA_sequence_set_release (corba_objects, TRUE);
+	corba_objects->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObj_allocbuf (1);
+	corba_objects->_length = 1;
+	corba_objects->_buffer[0] = CORBA_string_dup (comp_str);
+
 	CORBA_exception_init (&ev);
 	for (l = priv->listeners; l != NULL; l = l->next) {
-		GNOME_Evolution_Calendar_CalObjUIDSeq *corba_uids;
-
-		corba_uids = GNOME_Evolution_Calendar_CalObjUIDSeq__alloc ();
-		CORBA_sequence_set_release (corba_uids, TRUE);
-		corba_uids->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObjUID_allocbuf (1);
-		corba_uids->_length = 1;
-		corba_uids->_buffer[0] = CORBA_string_dup (uid);
-
 		GNOME_Evolution_Calendar_QueryListener_notifyObjUpdated (
 			l->data,
-			corba_uids,
+			corba_objects,
 			query_in_progress,
 			n_scanned,
 			total,
@@ -313,11 +319,11 @@ add_component (Query *query, const char *uid, gboolean query_in_progress, int n_
 		if (BONOBO_EX (&ev))
 			g_message ("add_component(): Could not notify the listener of an "
 				   "updated component");
-
-		CORBA_free (corba_uids);
 	}
 
+	CORBA_free (corba_objects);
 	CORBA_exception_free (&ev);
+	g_free (comp_str);
 }
 
 /* Removes a component from our the UIDs hash table and notifies the client */
@@ -455,7 +461,7 @@ match_component (Query *query, const char *uid,
 
 	
 	if (cal_backend_object_sexp_match_comp (priv->esexp, comp, priv->backend))
-		add_component (query, uid, query_in_progress, n_scanned, total);
+		add_component (query, comp, query_in_progress, n_scanned, total);
 	else
 		remove_component (query, uid);
 }
@@ -711,26 +717,28 @@ start_cached_query_cb (gpointer data)
 		CORBA_exception_init (&ev);
 
 		/* if the query is done, then we just notify the listener of all the
-		 * UIDS we've got so far, all at once */
+		 * objects we've got so far, all at once */
 		g_hash_table_foreach (priv->uids, (GHFunc) add_uid_cb, &uid_list);
 
 		len = g_list_length (uid_list);
 		if (len > 0) {
 			int n;
-			GNOME_Evolution_Calendar_CalObjUIDSeq *corba_uids;
+			GNOME_Evolution_Calendar_CalObjSeq *corba_objects;
 
-			corba_uids = GNOME_Evolution_Calendar_CalObjUIDSeq__alloc ();
-			corba_uids->_length = len;
-			corba_uids->_maximum = len;
-			corba_uids->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObjUID_allocbuf (len);
-			CORBA_sequence_set_release (corba_uids, TRUE);
+			corba_objects = GNOME_Evolution_Calendar_CalObjSeq__alloc ();
+			corba_objects->_length = len;
+			corba_objects->_maximum = len;
+			corba_objects->_buffer = CORBA_sequence_GNOME_Evolution_Calendar_CalObj_allocbuf (len);
+			CORBA_sequence_set_release (corba_objects, TRUE);
 
-			for (l = uid_list, n = 0; l != NULL; l = l->next, n++)
-				corba_uids->_buffer[n] = CORBA_string_dup ((CORBA_char *) l->data);
+			for (l = uid_list, n = 0; l != NULL; l = l->next, n++) {
+				gchar *comp_str;
+				corba_objects->_buffer[n] = CORBA_string_dup ((CORBA_char *) l->data);
+			}
 
 			GNOME_Evolution_Calendar_QueryListener_notifyObjUpdated (
 				info->ql,
-				corba_uids,
+				corba_objects,
 				TRUE,
 				len,
 				len, &ev);
@@ -739,7 +747,7 @@ start_cached_query_cb (gpointer data)
 				g_message ("start_cached_query_cb(): Could not notify the listener of all "
 					   "cached components");
 
-			CORBA_free (corba_uids);
+			CORBA_free (corba_objects);
 			g_list_free (uid_list);
 		}
 

@@ -1051,7 +1051,7 @@ get_position_in_array (GPtrArray *objects, gpointer item)
 }
 
 static void
-query_obj_updated_cb (CalQuery *query, const char *uid,
+query_obj_updated_cb (CalQuery *query, const char *object,
 		      gboolean query_in_progress,
 		      int n_scanned, int total,
 		      gpointer user_data)
@@ -1061,6 +1061,7 @@ query_obj_updated_cb (CalQuery *query, const char *uid,
 	CalClientGetStatus status;
 	ECalModelComponent *comp_data;
 	gint pos;
+	const char *uid;
 	ECalModel *model = (ECalModel *) user_data;
 
 	g_return_if_fail (E_IS_CAL_MODEL (model));
@@ -1069,59 +1070,43 @@ query_obj_updated_cb (CalQuery *query, const char *uid,
 
 	e_table_model_pre_change (E_TABLE_MODEL (model));
 
-	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), uid);
-	status = cal_client_get_object (cal_query_get_client (query), uid, NULL, &new_icalcomp);
-	switch (status) {
-	case CAL_CLIENT_GET_SUCCESS :
-		if (comp_data) {
-			if (comp_data->icalcomp)
-				icalcomponent_free (comp_data->icalcomp);
-			if (comp_data->dtstart) {
-				g_free (comp_data->dtstart);
-				comp_data->dtstart = NULL;
-			}
-			if (comp_data->dtend) {
-				g_free (comp_data->dtend);
-				comp_data->dtend = NULL;
-			}
-			if (comp_data->due) {
-				g_free (comp_data->due);
-				comp_data->due = NULL;
-			}
-			if (comp_data->completed) {
-				g_free (comp_data->completed);
-				comp_data->completed = NULL;
-			}
+	new_icalcomp = icalparser_parse_string (object);
+	if (!new_icalcomp) {
+		e_table_model_no_change (E_TABLE_MODEL (model));
+		return;
+	}
 
-			comp_data->icalcomp = new_icalcomp;
-
-			e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
-		} else {
-			comp_data = g_new0 (ECalModelComponent, 1);
-			comp_data->client = cal_query_get_client (query);
-			comp_data->icalcomp = new_icalcomp;
-
-			g_ptr_array_add (priv->objects, comp_data);
-			e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
+	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), icalcomponent_get_uid (new_icalcomp));
+	if (comp_data) {
+		if (comp_data->icalcomp)
+			icalcomponent_free (comp_data->icalcomp);
+		if (comp_data->dtstart) {
+			g_free (comp_data->dtstart);
+			comp_data->dtstart = NULL;
 		}
-		break;
-	case CAL_CLIENT_GET_NOT_FOUND :
-	case CAL_CLIENT_GET_SYNTAX_ERROR :
-		if (comp_data) {
-			/* Nothing; the object may have been removed from the server. We just
-			   notify that the old object was deleted.
-			*/
-			pos = get_position_in_array (priv->objects, comp_data);
+		if (comp_data->dtend) {
+			g_free (comp_data->dtend);
+			comp_data->dtend = NULL;
+		}
+		if (comp_data->due) {
+			g_free (comp_data->due);
+			comp_data->due = NULL;
+		}
+		if (comp_data->completed) {
+			g_free (comp_data->completed);
+			comp_data->completed = NULL;
+		}
 
-			g_ptr_array_remove (priv->objects, comp_data);
-			free_comp_data (comp_data);
+		comp_data->icalcomp = new_icalcomp;
 
-			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
-		} else
-			e_table_model_no_change (E_TABLE_MODEL (model));
-		break;
-	default :
-		g_assert_not_reached ();
+		e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
+	} else {
+		comp_data = g_new0 (ECalModelComponent, 1);
+		comp_data->client = cal_query_get_client (query);
+		comp_data->icalcomp = new_icalcomp;
+
+		g_ptr_array_add (priv->objects, comp_data);
+		e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
 	}
 }
 

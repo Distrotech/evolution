@@ -1,3 +1,23 @@
+2003-08-26  Rodrigo Moya <rodrigo@ximian.com>
+
+	* idl/evolution-calendar.idl: QueryListener::notifyObjUpdated now gets
+	a sequence of CalObj's.
+
+	* pcs/query.c (add_component): send the whole object to the listener,
+	not just the UID. Improved the way the listeners are notified, by allocating
+	a CORBA sequence to be used for all listeners, not one for each.
+	(match_component): pass the CalComponent to add_component, not only the UID.
+	(start_cached_query_cb): send the whole object to the listener.
+
+	* cal-client/cal-query.[ch]: changed argument names for "obj_updated"
+	signal.
+	(obj_updated_cb): pass the calobj's, not uid's.
+
+	* gui/e-tasks.c (query_obj_updated_cb):
+	* gui/gnome-cal.c (dn_query_obj_updated_cb, purging_obj_updated_cb):
+	* gui/e-cal-model.c (query_obj_updated_cb): we now get the object's
+	string representation instead of the UID.
+
 2003-08-25  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client.c (cal_client_get_object): added a 'rid' argument

@@ -330,8 +330,8 @@ module Calendar {
 		 * being populated and the other arguments indicate the
 		 * percentage of completion Otherwise, the percent value is
 		 * unspecified.  */
-		void notifyObjUpdated (in CalObjUIDSeq uids, 
-				       in boolean query_in_progress, 
+		void notifyObjUpdated (in CalObjSeq uids,
+				       in boolean query_in_progress,
 				       in long n_scanned,
 				       in long total);
 

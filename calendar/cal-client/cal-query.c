@@ -227,7 +227,7 @@ cal_query_finalize (GObject *object)
 /* Callback used when an object is updated in the query */
 static void
 obj_updated_cb (QueryListener *ql,
-		const GNOME_Evolution_Calendar_CalObjUIDSeq *uids,
+		const GNOME_Evolution_Calendar_CalObjSeq *objects,
 		CORBA_boolean query_in_progress,
 		CORBA_long n_scanned,
 		CORBA_long total,
@@ -238,9 +238,9 @@ obj_updated_cb (QueryListener *ql,
 
 	query = CAL_QUERY (data);
 
-	for (n = 0; n < uids->_length; n++) {
+	for (n = 0; n < objects->_length; n++) {
 		g_signal_emit (G_OBJECT (query), query_signals[OBJ_UPDATED], 0,
-			       uids->_buffer[n], query_in_progress,
+			       objects->_buffer[n], query_in_progress,
 			       (int) n_scanned, (int) total);
 	}
 }

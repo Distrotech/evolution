@@ -939,17 +939,23 @@ create_sexp (void)
 
 /* Callback used when a component is updated in the live query */
 static void
-query_obj_updated_cb (CalQuery *query, const char *uid,
+query_obj_updated_cb (CalQuery *query, const char *object,
 		      gboolean query_in_progress, int n_scanned, int total,
 		      gpointer data)
 {
 	ETasks *tasks;
 	ETasksPrivate *priv;
+	icalcomponent *icalcomp;
 	
 	tasks = E_TASKS (data);
 	priv = tasks->priv;
 	
-	delete_error_dialog (cal_client_remove_object (priv->client, uid), CAL_COMPONENT_TODO);
+	icalcomp = icalparser_parse_string (object);
+	if (icalcomp) {
+		delete_error_dialog (cal_client_remove_object (priv->client, icalcomponent_get_uid (icalcomp)),
+				     CAL_COMPONENT_TODO);
+		icalcomponent_free (icalcomp);
+	}
 }
 
 /* Callback used when an evaluation error occurs when running a query */
