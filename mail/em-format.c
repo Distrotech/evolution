@@ -31,6 +31,7 @@
 #include <libgnomevfs/gnome-vfs-mime.h>
 #include <libgnomevfs/gnome-vfs-mime-utils.h>
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <e-util/e-msgport.h>
 #include <camel/camel-url.h>
@@ -158,8 +159,10 @@ em_format_get_type(void)
  * @emfc: EMFormatClass
  * @info: Callback information.
  * 
- * Add a mime type handler to this class.  This is only used by implementing
- * classes.
+ * Add a mime type handler to this class.  This is only used by
+ * implementing classes.  The @info.old pointer will automatically be
+ * setup to point to the old hanlder if one was already set.  This can
+ * be used for overrides a fallback.
  *
  * When a mime type described by @info is encountered, the callback will
  * be invoked.  Note that @info may be extended by sub-classes if
@@ -170,15 +173,10 @@ em_format_get_type(void)
 void
 em_format_class_add_handler(EMFormatClass *emfc, EMFormatHandler *info)
 {
-	printf("adding handler '%s'\n", info->mime_type);
-
+	printf("adding format handler to '%s' '%s'\n", 	g_type_name_from_class((GTypeClass *)emfc), info->mime_type);
+	info->old = g_hash_table_lookup(emfc->type_handlers, info->mime_type);
 	g_hash_table_insert(emfc->type_handlers, info->mime_type, info);
-	/* FIXME: do we care?  This is really gui stuff */
-	/*
-	  if (info->applications == NULL)
-	  info->applications = gnome_vfs_mime_get_short_list_applications(info->mime_type);*/
 }
-
 
 /**
  * em_format_class_remove_handler:

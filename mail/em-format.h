@@ -53,18 +53,38 @@ typedef enum _em_format_mode_t {
 	EM_FORMAT_SOURCE,
 } em_format_mode_t;
 
-/* can be subclassed/extended ... */
+/**
+ * struct _EMFormatHandler - MIME type handler.
+ * 
+ * @mime_type: Type this handler handles.
+ * @handler: The handler callback.
+ * @flags: Handling flags, see enum _em_format_handler_t.
+ * @old: The last handler set on this type.  Allows overrides to
+ * fallback to previous implementation.
+ * 
+ **/
 struct _EMFormatHandler {
 	char *mime_type;
 	EMFormatFunc handler;
 	guint32 flags;
-	GList *applications;	/* gnome vfs short-list of applications, do we care? */
+
+	struct _EMFormatHandler *old;
 };
 
-/* inline by default */
-#define EM_FORMAT_HANDLER_INLINE (1<<0)
-/* inline by default, and override content-disposition always */
-#define EM_FORMAT_HANDLER_INLINE_DISPOSITION (1<<1)
+/**
+ * enum _em_format_handler_t - Format handler flags.
+ * 
+ * @EM_FORMAT_HANDLER_INLINE: This type should be shown expanded
+ * inline by default.
+ * @EM_FORMAT_HANDLER_INLINE_DISPOSITION: This type should always be
+ * shown inline, despite what the Content-Disposition suggests.
+ * 
+ **/
+enum _em_format_handler_t {
+	EM_FORMAT_HANDLER_INLINE = 1<<0,
+	EM_FORMAT_HANDLER_INLINE_DISPOSITION = 1<<1,
+};
+
 
 typedef struct _EMFormatPURI EMFormatPURI;
 typedef void (*EMFormatPURIFunc)(EMFormat *md, struct _CamelStream *stream, EMFormatPURI *puri);

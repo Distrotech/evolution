@@ -52,12 +52,7 @@
 #include <glade/glade.h>
 
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
-
-#if 0
-#include <libgnomevfs/gnome-vfs-utils.h>
-#include <libgnomevfs/gnome-vfs-mime-utils.h>
-#include <libgnomevfs/gnome-vfs-mime.h>
-#endif
+#include <libgnome/gnome-i18n.h>
 
 #include <bonobo/bonobo-control-frame.h>
 #include <bonobo/bonobo-stream-memory.h>

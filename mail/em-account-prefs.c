@@ -32,6 +32,8 @@
 #include <gtk/gtkcellrenderertoggle.h>
 #include <gtk/gtkcellrenderertext.h>
 
+#include <libgnome/gnome-i18n.h>
+
 #include "mail-component.h"
 #include "mail-config.h"
 #include "mail-config-druid.h"

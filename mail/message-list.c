@@ -39,6 +39,7 @@
 
 #include <gtk/gtkmain.h>
 #include <gtk/gtkinvisible.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <gal/util/e-util.h>
 #include <gal/widgets/e-gui-utils.h>

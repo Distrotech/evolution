@@ -20,7 +20,6 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -38,6 +37,7 @@
 #include <e-util/e-mktemp.h>
 
 #include <gal/util/e-xml-utils.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <camel/camel-file-utils.h>
 

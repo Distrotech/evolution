@@ -40,6 +40,7 @@
 
 #include <libgnome/gnome-url.h>
 #include <libgnomevfs/gnome-vfs-mime.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "em-popup.h"
 #include "e-util/e-msgport.h"

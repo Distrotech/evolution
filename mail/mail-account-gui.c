@@ -44,6 +44,7 @@
 #include <gtk/gtknotebook.h>
 #include <gtk/gtkhbox.h>
 #include <gtk/gtkdialog.h>
+#include <libgnome/gnome-i18n.h>
 
 #include <e-util/e-account-list.h>
 #include <e-util/e-signature-list.h>

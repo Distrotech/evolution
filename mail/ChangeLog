@@ -1,3 +1,15 @@
+2004-09-04  Not Zed  <NotZed@Ximian.com>
+
+	* *.c: include gnome i18.h if needed since camel-object.h was
+	fixed.
+
+	* em-format.c (em_format_class_add_handler): if a handler is
+	already set for type, link it in.
+
+	* em-format.h: added a link pointer to EMFormatHanlder, so that
+	overrides can also fallback.  remove applications member - not
+	used anymore.
+
 2004-09-01  Not Zed  <NotZed@Ximian.com>
 
 	* em-popup.h: added some docs.

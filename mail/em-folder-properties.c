@@ -39,6 +39,7 @@
 #include <gtk/gtkvbox.h>
 
 #include <camel/camel-folder.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "em-folder-properties.h"
 #include "em-config.h"
