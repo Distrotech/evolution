@@ -57,10 +57,10 @@ typedef struct {
 	ETableGroupClass parent_class;
 } ETableGroupContainerClass;
 
-ETableGroup *e_table_group_container_new       (GnomeCanvasGroup *parent, ETableHeader *full_header, ETableHeader     *header,
+ETableGroup *e_table_group_container_new       (GnomeCanvasGroup *parent, ETableColumnSet *columns, ETableHeader     *header,
 						ETableModel *model, ETableSortInfo *sort_info, int n);
 void         e_table_group_container_construct (GnomeCanvasGroup *parent, ETableGroupContainer *etgc,
-						ETableHeader *full_header,
+						ETableColumnSet *columns,
 						ETableHeader     *header,
 						ETableModel *model, ETableSortInfo *sort_info, int n);
 

@@ -41,7 +41,7 @@ typedef struct {
 } ETableGroupLeafClass;
 
 ETableGroup *e_table_group_leaf_new       (GnomeCanvasGroup *parent,
-					   ETableHeader *full_header,
+					   ETableColumnSet  *columns,
 					   ETableHeader     *header,
 					   ETableModel *model,
 					   ETableSortInfo *sort_info);

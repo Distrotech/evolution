@@ -318,6 +318,7 @@ e_table_header_add_column (ETableHeader *eth, ETableCol *tc, int pos)
 	/*
 	 * We are the primary owners of the column
 	 */
+	tc = e_table_col_copy(tc);
 	gtk_object_ref (GTK_OBJECT (tc));
 	gtk_object_sink (GTK_OBJECT (tc));
 	

@@ -38,7 +38,7 @@ struct _ETableCol {
 	unsigned int      resizeable:1;
 	unsigned int      sortable:1;
 	unsigned int      groupable:1;
-	const char       *col_id;
+	char             *col_id;
 	int               col_idx;
 
 	GtkJustification  justification;
@@ -46,6 +46,7 @@ struct _ETableCol {
 	ETableColArrow    arrow;
 
 	ECell            *ecell;
+	char             *name;
 };
 
 struct _ETableColClass {

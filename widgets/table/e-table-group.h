@@ -7,6 +7,7 @@
 #include <gal/e-table/e-table-header.h>
 #include <gal/e-table/e-table-sort-info.h>
 #include <gal/e-table/e-table-defines.h>
+#include <gal/e-table/e-table-column-set.h>
 #include <gal/util/e-util.h>
 #include <gal/widgets/e-printable.h>
 
@@ -22,7 +23,7 @@ typedef struct {
 	/*
 	 * The full header.
 	 */
-	ETableHeader *full_header;
+	ETableColumnSet *columns;
 	ETableHeader *header;
 	
 	/*
@@ -102,14 +103,14 @@ void             e_table_group_compute_location      (ETableGroup      *etg,
 						      int *col);
 
 ETableGroup     *e_table_group_new       (GnomeCanvasGroup *parent,
-					  ETableHeader     *full_header,
+					  ETableColumnSet  *columns,
 					  ETableHeader     *header,
 					  ETableModel      *model,
 					  ETableSortInfo   *sort_info,
 					  int               n);
 void             e_table_group_construct (GnomeCanvasGroup *parent,
 					  ETableGroup      *etg,
-					  ETableHeader     *full_header,
+					  ETableColumnSet  *columns,
 					  ETableHeader     *header,
 					  ETableModel      *model);
 

@@ -846,26 +846,26 @@ ethi_draw (GnomeCanvasItem *item, GdkDrawable *drawable, int x, int y, int width
 	const int cols = e_table_header_count (ethi->eth);
 	int x1, x2;
 	int col;
-	GHashTable *arrows = g_hash_table_new (NULL, NULL);
+	GHashTable *arrows = g_hash_table_new (g_str_hash, g_str_equal);
 
 
 	if (ethi->sort_info) {
 		int length = e_table_sort_info_grouping_get_count(ethi->sort_info);
 		int i;
 		for (i = 0; i < length; i++) {
-			ETableSortColumn column = e_table_sort_info_grouping_get_nth(ethi->sort_info, i);
+			const ETableSortColumn *column = e_table_sort_info_grouping_get_nth(ethi->sort_info, i);
 			g_hash_table_insert (arrows, 
-					     (gpointer) column.column,
-					     (gpointer) (column.ascending ?
+					     (gpointer) column->column,
+					     (gpointer) (column->ascending ?
 							 E_TABLE_COL_ARROW_DOWN : 
 							 E_TABLE_COL_ARROW_UP));
 		}
 		length = e_table_sort_info_sorting_get_count(ethi->sort_info);
 		for (i = 0; i < length; i++) {
-			ETableSortColumn column = e_table_sort_info_sorting_get_nth(ethi->sort_info, i);
+			const ETableSortColumn *column = e_table_sort_info_sorting_get_nth(ethi->sort_info, i);
 			g_hash_table_insert (arrows, 
-					     (gpointer) column.column,
-					     (gpointer) (column.ascending ?
+					     (gpointer) column->column,
+					     (gpointer) (column->ascending ?
 							 E_TABLE_COL_ARROW_DOWN : 
 							 E_TABLE_COL_ARROW_UP));
 		}

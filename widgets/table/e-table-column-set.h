@@ -1,13 +1,13 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-#ifndef _E_TABLE_COLUMN_H_
-#define _E_TABLE_COLUMN_H_
+#ifndef _E_TABLE_COLUMN_SET_H_
+#define _E_TABLE_COLUMN_SET_H_
 
 #include <gtk/gtkobject.h>
 #include <gdk/gdk.h>
-#include <gal/e-table/e-table-sort-info.h>
 #include <gal/e-table/e-table-col.h>
 
 typedef struct _ETableColumnSet ETableColumnSet;
+typedef struct _ETableColumnSetClass ETableColumnSetClass;
 
 #define E_TABLE_COLUMN_SET_TYPE        (e_table_column_set_get_type ())
 #define E_TABLE_COLUMN_SET(o)          (GTK_CHECK_CAST ((o), E_TABLE_COLUMN_SET_TYPE, ETableColumnSet))
@@ -29,10 +29,9 @@ struct _ETableColumnSet {
 	GHashTable *columns;
 };
 
-typedef struct {
+struct _ETableColumnSetClass{
 	GtkObjectClass parent_class;
-
-} ETableColumnSetClass;
+};
 
 GtkType     e_table_column_set_get_type        (void);
 ETableColumnSet  *e_table_column_set_new       (void);

@@ -111,25 +111,23 @@ etgc_destroy (GtkObject *object)
 
 void
 e_table_group_container_construct (GnomeCanvasGroup *parent, ETableGroupContainer *etgc,
-				   ETableHeader *full_header,
+				   ETableColumnSet  *columns,
 				   ETableHeader     *header,
 				   ETableModel *model, ETableSortInfo *sort_info, int n)
 {
 	ETableCol *col;
-	ETableSortColumn column = e_table_sort_info_grouping_get_nth(sort_info, n);
+	const ETableSortColumn *column = e_table_sort_info_grouping_get_nth(sort_info, n);
 
-	if (column.column > e_table_header_count (full_header))
-		col = e_table_header_get_column (full_header, e_table_header_count (full_header) - 1);
-	else
-		col = e_table_header_get_column (full_header, column.column);
 
-	e_table_group_construct (parent, E_TABLE_GROUP (etgc), full_header, header, model);
+	col = e_table_column_set_get_column (columns, column->column);
+
+	e_table_group_construct (parent, E_TABLE_GROUP (etgc), columns, header, model);
 	etgc->ecol = col;
 	gtk_object_ref (GTK_OBJECT(etgc->ecol));
 	etgc->sort_info = sort_info;
 	gtk_object_ref (GTK_OBJECT(etgc->sort_info));
 	etgc->n = n;
-	etgc->ascending = column.ascending;
+	etgc->ascending = column->ascending;
 
 	
 	etgc->font = gdk_font_load ("lucidasans-10");
@@ -142,7 +140,7 @@ e_table_group_container_construct (GnomeCanvasGroup *parent, ETableGroupContaine
 }
 
 ETableGroup *
-e_table_group_container_new (GnomeCanvasGroup *parent, ETableHeader *full_header,
+e_table_group_container_new (GnomeCanvasGroup *parent, ETableColumnSet *columns,
 			     ETableHeader     *header,
 			     ETableModel *model, ETableSortInfo *sort_info, int n)
 {
@@ -152,7 +150,7 @@ e_table_group_container_new (GnomeCanvasGroup *parent, ETableHeader *full_header
 	
 	etgc = gtk_type_new (e_table_group_container_get_type ());
 
-	e_table_group_container_construct (parent, etgc, full_header, header,
+	e_table_group_container_construct (parent, etgc, columns, header,
 					   model, sort_info, n);
 	return E_TABLE_GROUP (etgc);
 }
@@ -393,7 +391,7 @@ etgc_add (ETableGroup *etg, gint row)
 						  "anchor", GTK_ANCHOR_SW,
 						  "fill_color", "black",
 						  NULL);
-	child = e_table_group_new (GNOME_CANVAS_GROUP (etgc), etg->full_header,
+	child = e_table_group_new (GNOME_CANVAS_GROUP (etgc), etg->columns,
 				   etg->header, etg->model, etgc->sort_info, etgc->n + 1);
 	gnome_canvas_item_set(GNOME_CANVAS_ITEM(child),
 			      "drawgrid", etgc->draw_grid,

@@ -54,20 +54,20 @@ etgl_destroy (GtkObject *object)
 static void
 e_table_group_leaf_construct (GnomeCanvasGroup *parent,
 			      ETableGroupLeaf  *etgl,
-			      ETableHeader     *full_header,
+			      ETableColumnSet  *columns,
 			      ETableHeader     *header,
 			      ETableModel      *model,
 			      ETableSortInfo   *sort_info)
 {
-	etgl->subset = E_TABLE_SUBSET_VARIABLE(e_table_sorted_variable_new (model, full_header, sort_info));
+	etgl->subset = E_TABLE_SUBSET_VARIABLE(e_table_sorted_variable_new (model, columns, sort_info));
 	gtk_object_ref(GTK_OBJECT(etgl->subset));
 	gtk_object_sink(GTK_OBJECT(etgl->subset));
-	e_table_group_construct (parent, E_TABLE_GROUP (etgl), full_header, header, model);
+	e_table_group_construct (parent, E_TABLE_GROUP (etgl), columns, header, model);
 }
 
 ETableGroup *
 e_table_group_leaf_new       (GnomeCanvasGroup *parent,
-			      ETableHeader     *full_header,
+			      ETableColumnSet  *columns,
 			      ETableHeader     *header,
 			      ETableModel      *model,
 			      ETableSortInfo   *sort_info)
@@ -78,7 +78,7 @@ e_table_group_leaf_new       (GnomeCanvasGroup *parent,
 	
 	etgl = gtk_type_new (e_table_group_leaf_get_type ());
 
-	e_table_group_leaf_construct (parent, etgl, full_header,
+	e_table_group_leaf_construct (parent, etgl, columns,
 				      header, model, sort_info);
 	return E_TABLE_GROUP (etgl);
 }

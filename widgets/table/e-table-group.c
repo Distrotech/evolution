@@ -44,8 +44,8 @@ etg_destroy (GtkObject *object)
 	ETableGroup *etg = E_TABLE_GROUP(object);
 	if (etg->header)
 		gtk_object_unref (GTK_OBJECT(etg->header));
-	if (etg->full_header)
-		gtk_object_unref (GTK_OBJECT(etg->full_header));
+	if (etg->columns)
+		gtk_object_unref (GTK_OBJECT(etg->columns));
 	if (etg->model)
 		gtk_object_unref (GTK_OBJECT(etg->model));
 	if (GTK_OBJECT_CLASS (etg_parent_class)->destroy)
@@ -54,7 +54,7 @@ etg_destroy (GtkObject *object)
 
 ETableGroup *
 e_table_group_new (GnomeCanvasGroup *parent,
-		   ETableHeader     *full_header,
+		   ETableColumnSet  *columns,
 		   ETableHeader     *header,
 		   ETableModel      *model,
 		   ETableSortInfo   *sort_info,
@@ -63,9 +63,9 @@ e_table_group_new (GnomeCanvasGroup *parent,
 	g_return_val_if_fail (model != NULL, NULL);
 	
 	if (n < e_table_sort_info_grouping_get_count(sort_info)) {
-		return e_table_group_container_new (parent, full_header, header, model, sort_info, n);
+		return e_table_group_container_new (parent, columns, header, model, sort_info, n);
 	} else {
-		return e_table_group_leaf_new (parent, full_header, header, model, sort_info);
+		return e_table_group_leaf_new (parent, columns, header, model, sort_info);
 	}
 	return NULL;
 }
@@ -73,12 +73,12 @@ e_table_group_new (GnomeCanvasGroup *parent,
 void
 e_table_group_construct (GnomeCanvasGroup *parent,
 			 ETableGroup      *etg,
-			 ETableHeader     *full_header,
+			 ETableColumnSet  *columns,
 			 ETableHeader     *header,
 			 ETableModel      *model)
 {
-	etg->full_header = full_header;
-	gtk_object_ref (GTK_OBJECT(etg->full_header));
+	etg->columns = columns;
+	gtk_object_ref (GTK_OBJECT(etg->columns));
 	etg->header = header;
 	gtk_object_ref (GTK_OBJECT(etg->header));
 	etg->model = model;

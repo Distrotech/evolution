@@ -59,7 +59,7 @@ typedef struct {
 	ETableSortInfo  *sort_info;
 	
 	/* For adding fields. */
-	ETableHeader    *full_header;
+	ETableColumnSet    *columns;
 } ETableHeaderItem;
 
 typedef struct {

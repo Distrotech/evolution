@@ -7,6 +7,7 @@
 #include <gal/e-table/e-table-subset-variable.h>
 #include <gal/e-table/e-table-sort-info.h>
 #include <gal/e-table/e-table-header.h>
+#include <gal/e-table/e-table-column-set.h>
 
 #define E_TABLE_SORTER_TYPE        (e_table_sorter_get_type ())
 #define E_TABLE_SORTER(o)          (GTK_CHECK_CAST ((o), E_TABLE_SORTER_TYPE, ETableSorter))
@@ -17,19 +18,19 @@
 typedef struct {
 	GtkObject base;
 
-	ETableModel    *source;
-	ETableHeader   *full_header;
-	ETableSortInfo *sort_info;
+	ETableModel     *source;
+	ETableColumnSet *columns;
+	ETableSortInfo  *sort_info;
 
-	int             needs_sorting;
+	int              needs_sorting;
 
-	int            *sorted;
-	int            *backsorted;
+	int             *sorted;
+	int             *backsorted;
 
-	int             table_model_changed_id;
-	int             table_model_row_changed_id;
-	int             table_model_cell_changed_id;
-	int             sort_info_changed_id;
+	int              table_model_changed_id;
+	int              table_model_row_changed_id;
+	int              table_model_cell_changed_id;
+	int              sort_info_changed_id;
 } ETableSorter;
 
 typedef struct {
@@ -37,7 +38,7 @@ typedef struct {
 } ETableSorterClass;
 
 GtkType       e_table_sorter_get_type (void);
-ETableSorter *e_table_sorter_new      (ETableModel *etm, ETableHeader *full_header, ETableSortInfo *sort_info);
+ETableSorter *e_table_sorter_new      (ETableModel *etm, ETableColumnSet *columns, ETableSortInfo *sort_info);
 
 gint          e_table_sorter_model_to_sorted (ETableSorter *sorter, int row);
 gint          e_table_sorter_sorted_to_model (ETableSorter *sorter, int row);

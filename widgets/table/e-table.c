@@ -612,7 +612,7 @@ et_xml_to_header (ETable *e_table, ETableColumnSet *columns, xmlNode *xmlColumns
 
 		name = xmlNodeListGetString (column->doc, column->childs, 1);
 
-		col = e_table_header_get_column (columns, name);
+		col = e_table_column_set_get_column (columns, name);
 
 		if (col)
 			e_table_header_add_column (nh, col, -1);
@@ -638,17 +638,19 @@ et_grouping_xml_to_sort_info (ETable *table, xmlNode *grouping)
 
 	i = 0;
 	for (grouping = grouping->childs; grouping && !strcmp (grouping->name, "group"); grouping = grouping->childs) {
-		ETableSortColumn column;
-		column.column = e_xml_get_integer_prop_by_name (grouping, "column");
-		column.ascending = e_xml_get_integer_prop_by_name (grouping, "ascending");
-		e_table_sort_info_grouping_set_nth(table->sort_info, i++, column);
+		char *column;
+		gboolean ascending;
+		column = xmlGetProp(grouping, "column");
+		ascending = e_xml_get_integer_prop_by_name (grouping, "ascending");
+		e_table_sort_info_grouping_set_nth(table->sort_info, i++, column, ascending);
 	}
 	i = 0;
 	for (; grouping && !strcmp (grouping->name, "leaf"); grouping = grouping->childs) {
-		ETableSortColumn column;
-		column.column = e_xml_get_integer_prop_by_name (grouping, "column");
-		column.ascending = e_xml_get_integer_prop_by_name (grouping, "ascending");
-		e_table_sort_info_sorting_set_nth(table->sort_info, i++, column);
+		char *column;
+		gboolean ascending;
+		column = xmlGetProp(grouping, "column");
+		ascending = e_xml_get_integer_prop_by_name (grouping, "ascending");
+		e_table_sort_info_sorting_set_nth(table->sort_info, i++, column, ascending);
 	}
 
 	table->group_info_change_id = 
@@ -765,7 +767,7 @@ e_table_construct_from_spec_file (ETable *e_table, ETableColumnSet *columns, ETa
 	g_return_val_if_fail(e_table != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE(e_table), NULL);
 	g_return_val_if_fail(columns != NULL, NULL);
-	g_return_val_if_fail(E_IS_COLUMN_SET(columns), NULL);
+	g_return_val_if_fail(E_IS_TABLE_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(filename != NULL, NULL);
@@ -783,7 +785,7 @@ e_table_new (ETableColumnSet *columns, ETableModel *etm, const char *spec)
 	ETable *e_table;
 
 	g_return_val_if_fail(columns != NULL, NULL);
-	g_return_val_if_fail(E_IS_COLUMN_SET(columns), NULL);
+	g_return_val_if_fail(E_IS_TABLE_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(spec != NULL, NULL);
@@ -801,7 +803,7 @@ e_table_new_from_spec_file (ETableColumnSet *columns, ETableModel *etm, const ch
 	ETable *e_table;
 
 	g_return_val_if_fail(columns != NULL, NULL);
-	g_return_val_if_fail(E_IS_COLUMN_SET(columns), NULL);
+	g_return_val_if_fail(E_IS_TABLE_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(filename != NULL, NULL);
@@ -845,20 +847,20 @@ et_build_grouping_spec (ETable *e_table)
 	node = grouping;
 
 	for (i = 0; i < group_count; i++) {
-		ETableSortColumn column = e_table_sort_info_grouping_get_nth(e_table->sort_info, i);
+		const ETableSortColumn *column = e_table_sort_info_grouping_get_nth(e_table->sort_info, i);
 		xmlNode *new_node = xmlNewChild(node, NULL, "group", NULL);
 
-		e_xml_set_integer_prop_by_name (new_node, "column", column.column);
-		e_xml_set_integer_prop_by_name (new_node, "ascending", column.ascending);
+		e_xml_set_string_prop_by_name (new_node, "column", column->column);
+		e_xml_set_integer_prop_by_name (new_node, "ascending", column->ascending);
 		node = new_node;
 	}
 
 	for (i = 0; i < sort_count; i++) {
-		ETableSortColumn column = e_table_sort_info_sorting_get_nth(e_table->sort_info, i);
+		const ETableSortColumn *column = e_table_sort_info_sorting_get_nth(e_table->sort_info, i);
 		xmlNode *new_node = xmlNewChild(node, NULL, "leaf", NULL);
 		
-		e_xml_set_integer_prop_by_name (new_node, "column", column.column);
-		e_xml_set_integer_prop_by_name (new_node, "ascending", column.ascending);
+		e_xml_set_string_prop_by_name (new_node, "column", column->column);
+		e_xml_set_integer_prop_by_name (new_node, "ascending", column->ascending);
 		node = new_node;
 	}
 

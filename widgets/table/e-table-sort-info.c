@@ -31,13 +31,26 @@ static void
 etsi_destroy (GtkObject *object)
 {
 	ETableSortInfo *etsi;
+	int i;
 
 	etsi = E_TABLE_SORT_INFO (object);
 	
-	if (etsi->groupings)
+	if (etsi->groupings) {
+		for (i = 0; i < etsi->group_count; i++) {
+			if (etsi->groupings[i])
+				g_free(etsi->groupings[i]->column);
+			g_free(etsi->groupings[i]);
+		}
 		g_free(etsi->groupings);
-	if (etsi->sortings)
+	}
+	if (etsi->sortings) {
+		for (i = 0; i < etsi->sort_count; i++) {
+			if (etsi->sortings[i])
+				g_free(etsi->sortings[i]->column);
+			g_free(etsi->sortings[i]);
+		}
 		g_free(etsi->sortings);
+	}
 }
 
 static void
@@ -150,7 +163,11 @@ e_table_sort_info_grouping_real_truncate  (ETableSortInfo *info, int length)
 		info->group_count = length;
 	}
 	if (length > info->group_count) {
-		info->groupings = g_realloc(info->groupings, length * sizeof(ETableSortColumn));
+		int i;
+		info->groupings = g_realloc(info->groupings, length * sizeof(ETableSortColumn *));
+		for (i = info->group_count; i < length; i++) {
+			info->groupings[i] = 0;
+		}
 		info->group_count = length;
 	}
 }
@@ -162,25 +179,32 @@ e_table_sort_info_grouping_truncate  (ETableSortInfo *info, int length)
 	e_table_sort_info_group_info_changed(info);
 }
 
-ETableSortColumn
+const ETableSortColumn *
 e_table_sort_info_grouping_get_nth   (ETableSortInfo *info, int n)
 {
 	if (n < info->group_count) {
 		return info->groupings[n];
 	} else {
-		ETableSortColumn fake = {0, 0};
-		return fake;
+		return NULL;
 	}
 }
 
 void
-e_table_sort_info_grouping_set_nth   (ETableSortInfo *info, int n, ETableSortColumn column)
+e_table_sort_info_grouping_set_nth   (ETableSortInfo *info, int n, const char *name, gboolean ascending)
 {
-	if (n >= info->group_count) {
+	ETableSortColumn *column;
+
+	column = g_new(ETableSortColumn, 1);
+
+	if (n >= info->sort_count) {
 		e_table_sort_info_grouping_real_truncate(info, n + 1);
 	}
+
+	column->column = g_strdup(name);
+	column->ascending = ascending;
+
 	info->groupings[n] = column;
-	e_table_sort_info_group_info_changed(info);
+	e_table_sort_info_sort_info_changed(info);
 }
 
 
@@ -197,7 +221,11 @@ e_table_sort_info_sorting_real_truncate  (ETableSortInfo *info, int length)
 		info->sort_count = length;
 	}
 	if (length > info->sort_count) {
-		info->sortings = g_realloc(info->sortings, length * sizeof(ETableSortColumn));
+		int i;
+		info->sortings = g_realloc(info->sortings, length * sizeof(ETableSortColumn *));
+		for (i = info->sort_count; i < length; i++) {
+			info->sortings[i] = 0;
+		}
 		info->sort_count = length;
 	}
 }
@@ -209,23 +237,30 @@ e_table_sort_info_sorting_truncate  (ETableSortInfo *info, int length)
 	e_table_sort_info_sort_info_changed(info);
 }
 
-ETableSortColumn
+const ETableSortColumn *
 e_table_sort_info_sorting_get_nth   (ETableSortInfo *info, int n)
 {
 	if (n < info->sort_count) {
 		return info->sortings[n];
 	} else {
-		ETableSortColumn fake = {0, 0};
-		return fake;
+		return NULL;
 	}
 }
 
 void
-e_table_sort_info_sorting_set_nth   (ETableSortInfo *info, int n, ETableSortColumn column)
+e_table_sort_info_sorting_set_nth   (ETableSortInfo *info, int n, const char *name, gboolean ascending)
 {
+	ETableSortColumn *column;
+
+	column = g_new(ETableSortColumn, 1);
+
 	if (n >= info->sort_count) {
 		e_table_sort_info_sorting_real_truncate(info, n + 1);
 	}
+
+	column->column = g_strdup(name);
+	column->ascending = ascending;
+
 	info->sortings[n] = column;
 	e_table_sort_info_sort_info_changed(info);
 }
