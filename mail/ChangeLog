@@ -1,3 +1,8 @@
+2004-11-12  Not Zed  <NotZed@Ximian.com>
+
+	* mail-send-recv.c (auto_account_finalised): fix the callback
+	signature.
+
 2004-11-11  Not Zed  <NotZed@Ximian.com>
 
 	* mail-component.c (mc_add_store):
