@@ -1,3 +1,8 @@
+2003-10-13  Rodrigo Moya <rodrigo@ximian.com>
+
+	* e-source-group.[ch] (e_source_group_peek_source_by_name): added
+	new function.
+
 2003-10-10  Not Zed  <NotZed@Ximian.com>
 
 	* e-account-list.c (e_account_list_find): add FIND_UID find type.
