@@ -29,6 +29,7 @@
 #include <string.h>
 #include <pthread.h>
 
+#include <camel/camel-data-wrapper.h>
 #include <camel/camel-stream-fs.h>
 
 #include "em-junk-filter.h"
