@@ -640,6 +640,30 @@ cal_object_list_cb (CalListener *listener, ECalendarStatus status, GList *object
 }
 
 static void
+cal_get_timezone_cb (CalListener *listener, ECalendarStatus status, const char *object, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->string = g_strdup (object);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+
+}
+
+static void
 cal_add_timezone_cb (CalListener *listener, ECalendarStatus status, const char *tzid, gpointer data)
 {
 	CalClient *client = data;
@@ -661,6 +685,28 @@ cal_add_timezone_cb (CalListener *listener, ECalendarStatus status, const char *
 
 	e_mutex_unlock (op->mutex);
 
+}
+
+static void
+cal_set_default_timezone_cb (CalListener *listener, ECalendarStatus status, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
 }
 
 static void
@@ -856,7 +902,9 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "receive_objects", G_CALLBACK (cal_objects_received_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "send_objects", G_CALLBACK (cal_objects_sent_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "get_timezone", G_CALLBACK (cal_get_timezone_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "add_timezone", G_CALLBACK (cal_add_timezone_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "set_default_timezone", G_CALLBACK (cal_set_default_timezone_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "query", G_CALLBACK (cal_query_cb), client);
 }
 
@@ -1289,7 +1337,7 @@ cal_client_remove_calendar (CalClient *client, GError **error)
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -1311,7 +1359,7 @@ cal_client_remove_calendar (CalClient *client, GError **error)
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -1464,12 +1512,12 @@ cal_client_is_read_only (CalClient *client, gboolean *read_only, GError **error)
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -1491,7 +1539,7 @@ cal_client_is_read_only (CalClient *client, gboolean *read_only, GError **error)
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -1537,12 +1585,12 @@ cal_client_get_cal_address (CalClient *client, char **cal_address, GError **erro
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -1564,7 +1612,7 @@ cal_client_get_cal_address (CalClient *client, char **cal_address, GError **erro
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -1600,12 +1648,12 @@ cal_client_get_alarm_email_address (CalClient *client, char **alarm_address, GEr
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -1627,7 +1675,7 @@ cal_client_get_alarm_email_address (CalClient *client, char **alarm_address, GEr
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -1663,12 +1711,12 @@ cal_client_get_ldap_attribute (CalClient *client, char **ldap_attribute, GError 
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -1690,7 +1738,7 @@ cal_client_get_ldap_attribute (CalClient *client, char **ldap_attribute, GError 
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -1709,8 +1757,8 @@ cal_client_get_ldap_attribute (CalClient *client, char **ldap_attribute, GError 
 	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
-static ECalendarStatus
-load_static_capabilities (CalClient *client) 
+static gboolean
+load_static_capabilities (CalClient *client, GError **error) 
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
@@ -1721,18 +1769,18 @@ load_static_capabilities (CalClient *client)
 	priv = client->priv;
 
 	if (priv->capabilities)
-		return E_CALENDAR_STATUS_OK;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);
 
 	e_mutex_lock (client->priv->mutex);
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -1754,7 +1802,7 @@ load_static_capabilities (CalClient *client)
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -1770,18 +1818,18 @@ load_static_capabilities (CalClient *client)
 	e_mutex_unlock (our_op->mutex);
 	e_calendar_free_op (our_op);
 
-	return status;
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 static gboolean
 check_capability (CalClient *client, const char *cap) 
 {
 	CalClientPrivate *priv;
-	
+
 	priv = client->priv;
 
 	/* FIXME Check result */
-	load_static_capabilities (client);
+	load_static_capabilities (client, NULL);
 	if (priv->capabilities && strstr (priv->capabilities, cap))
 		return TRUE;
 	
@@ -1864,9 +1912,9 @@ typedef struct _CalClientGetTimezonesData CalClientGetTimezonesData;
 struct _CalClientGetTimezonesData {
 	CalClient *client;
 
-	/* This starts out at CAL_CLIENT_GET_SUCCESS. If an error occurs this
+	/* This starts out at E_CALENDAR_STATUS_OK. If an error occurs this
 	   contains the last error. */
-	CalClientGetStatus status;
+	ECalendarStatus status;
 };
 
 CalClientGetStatus 
@@ -1916,7 +1964,7 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
 	   we try to get a timezone in the middle of a redraw, and there is a
 	   resize pending, which leads to an assert failure and an abort. */
 	cb_data.client = client;
-	cb_data.status = CAL_CLIENT_GET_SUCCESS;
+	cb_data.status = E_CALENDAR_STATUS_OK;
 	icalcomponent_foreach_tzid (*icalcomp,
 				    cal_client_get_object_timezones_cb,
 				    &cb_data);
@@ -1992,7 +2040,7 @@ cal_client_get_object (CalClient *client, const char *uid, const char *rid, ical
 	   we try to get a timezone in the middle of a redraw, and there is a
 	   resize pending, which leads to an assert failure and an abort. */
 	cb_data.client = client;
-	cb_data.status = CAL_CLIENT_GET_SUCCESS;
+	cb_data.status = E_CALENDAR_STATUS_OK;
 	icalcomponent_foreach_tzid (*icalcomp,
 				    cal_client_get_object_timezones_cb,
 				    &cb_data);
@@ -2013,106 +2061,18 @@ cal_client_get_object_timezones_cb (icalparameter *param,
 	CalClientGetTimezonesData *cb_data = data;
 	const char *tzid;
 	icaltimezone *zone;
-	CalClientGetStatus status;
+	GError *error = NULL;
 
 	tzid = icalparameter_get_tzid (param);
 	if (!tzid) {
-		cb_data->status = CAL_CLIENT_GET_SYNTAX_ERROR;
+		cb_data->status = E_CALENDAR_STATUS_INVALID_OBJECT;
 		return;
 	}
 
-	status = cal_client_get_timezone (cb_data->client, tzid, &zone);
-	if (status != CAL_CLIENT_GET_SUCCESS)
-		cb_data->status = status;
-}
-
-
-CalClientGetStatus
-cal_client_get_timezone (CalClient *client,
-			 const char *tzid,
-			 icaltimezone **zone)
-{
-	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalObj comp_str;
-	CalClientGetStatus retval;
-	icalcomponent *icalcomp;
-	icaltimezone *tmp_zone;
-
-	g_return_val_if_fail (client != NULL, CAL_CLIENT_GET_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_GET_NOT_FOUND);
-
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED,
-			      CAL_CLIENT_GET_NOT_FOUND);
-
-	g_return_val_if_fail (zone != NULL, CAL_CLIENT_GET_NOT_FOUND);
-
-	/* If tzid is NULL or "" we return NULL, since it is a 'local time'. */
-	if (!tzid || !tzid[0]) {
-		*zone = NULL;
-		return CAL_CLIENT_GET_SUCCESS;
-	}
-
-	/* If it is UTC, we return the special UTC timezone. */
-	if (!strcmp (tzid, "UTC")) {
-		*zone = icaltimezone_get_utc_timezone ();
-		return CAL_CLIENT_GET_SUCCESS;
-	}
-
-	/* See if we already have it in the cache. */
-	tmp_zone = g_hash_table_lookup (priv->timezones, tzid);
-	if (tmp_zone) {
-		*zone = tmp_zone;
-		return CAL_CLIENT_GET_SUCCESS;
-	}
-
-	retval = CAL_CLIENT_GET_NOT_FOUND;
-	*zone = NULL;
-
-	/* We don't already have it, so we try to get it from the server. */
-	CORBA_exception_init (&ev);
-	comp_str = GNOME_Evolution_Calendar_Cal_getTimezoneObject (priv->cal, (char *) tzid, &ev);
-
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		goto out;
-	else if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_timezone(): could not get the object");
-		goto out;
-	}
-
-	icalcomp = icalparser_parse_string (comp_str);
-	CORBA_free (comp_str);
-
-	if (!icalcomp) {
-		retval = CAL_CLIENT_GET_SYNTAX_ERROR;
-		goto out;
-	}
-
-	tmp_zone = icaltimezone_new ();
-	if (!tmp_zone) {
-		/* FIXME: Needs better error code - out of memory. Or just
-		   abort like GLib does? */
-		retval = CAL_CLIENT_GET_NOT_FOUND;
-		goto out;
-	}
-
-	if (!icaltimezone_set_component (tmp_zone, icalcomp)) {
-		retval = CAL_CLIENT_GET_SYNTAX_ERROR;
-		goto out;
-	}
-
-	/* Now add it to the cache, to avoid the server call in future. */
-	g_hash_table_insert (priv->timezones, icaltimezone_get_tzid (tmp_zone),
-			     tmp_zone);
-
-	*zone = tmp_zone;
-	retval = CAL_CLIENT_GET_SUCCESS;
-
- out:
-
-	CORBA_exception_free (&ev);
-	return retval;
+	if (!cal_client_get_timezone (cb_data->client, tzid, &zone, &error))
+		cb_data->status = error->code;
+	    
+	g_clear_error (&error);
 }
 
 /* Resolves TZIDs for the recurrence generator. */
@@ -2121,7 +2081,6 @@ cal_client_resolve_tzid_cb (const char *tzid, gpointer data)
 {
 	CalClient *client;
 	icaltimezone *zone = NULL;
-	CalClientGetStatus status;
 
 	g_return_val_if_fail (data != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_CLIENT (data), NULL);
@@ -2129,7 +2088,7 @@ cal_client_resolve_tzid_cb (const char *tzid, gpointer data)
 	client = CAL_CLIENT (data);
 
 	/* FIXME: Handle errors. */
-	status = cal_client_get_timezone (client, tzid, &zone);
+	cal_client_get_timezone (client, tzid, &zone, NULL);
 
 	return zone;
 }
@@ -2228,12 +2187,12 @@ cal_client_get_object_list (CalClient *client, const char *query, GList **object
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -2768,10 +2727,7 @@ foreach_tzid_callback (icalparameter *param, void *cbdata)
 		return;
 
 	if (data->include_all_timezones) {
-		CalClientGetStatus status;
-
-		status = cal_client_get_timezone (data->client, tzid, &zone);
-		if (status != CAL_CLIENT_GET_SUCCESS) {
+		if (!cal_client_get_timezone (data->client, tzid, &zone, NULL)) {
 			data->success = FALSE;
 			return;
 		}
@@ -2927,12 +2883,12 @@ cal_client_create_object (CalClient *client, icalcomponent *icalcomp, char **uid
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -2953,7 +2909,7 @@ cal_client_create_object (CalClient *client, icalcomponent *icalcomp, char **uid
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -2990,12 +2946,12 @@ cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModT
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -3016,7 +2972,7 @@ cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModT
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -3051,12 +3007,12 @@ cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjMod
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -3078,7 +3034,7 @@ cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjMod
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -3134,12 +3090,12 @@ cal_client_receive_objects (CalClient *client, icalcomponent *icalcomp, GError *
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -3160,7 +3116,7 @@ cal_client_receive_objects (CalClient *client, icalcomponent *icalcomp, GError *
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -3195,12 +3151,12 @@ cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **er
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -3221,7 +3177,7 @@ cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **er
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -3232,6 +3188,114 @@ cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **er
 
 	status = our_op->status;
 	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
+}
+
+gboolean
+cal_client_get_timezone (CalClient *client, const char *tzid, icaltimezone **zone, GError **error)
+{
+	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
+	icalcomponent *icalcomp;
+
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
+	g_return_val_if_fail (tzid != NULL, FALSE);
+
+	priv = client->priv;
+
+	e_mutex_lock (priv->mutex);
+
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (priv->mutex);
+
+	/* Check for well known zones and in the cache */
+	*zone = NULL;
+	
+	/* If tzid is NULL or "" we return NULL, since it is a 'local time'. */
+	if (!tzid || !tzid[0]) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);		
+	}
+
+	/* If it is UTC, we return the special UTC timezone. */
+	if (!strcmp (tzid, "UTC")) {
+		*zone = icaltimezone_get_utc_timezone ();
+	} else {
+		/* See if we already have it in the cache. */
+		*zone = g_hash_table_lookup (priv->timezones, tzid);
+	}
+	
+	if (*zone) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OK, error);	
+	}
+	
+	/* call the backend */
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_getTimezone (priv->cal, tzid, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	
+	icalcomp = icalparser_parse_string (our_op->string);
+	g_free (our_op->string);
+	
+	/* FIXME Invalid object status? */
+	if (!icalcomp)
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OBJECT_NOT_FOUND, error);
+	
+	*zone = icaltimezone_new ();	
+	if (!icaltimezone_set_component (*zone, icalcomp)) {
+		icaltimezone_free (*zone, 1);
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_OBJECT_NOT_FOUND, error);
+	}
+
+	/* Now add it to the cache, to avoid the server call in future. */
+	g_hash_table_insert (priv->timezones, icaltimezone_get_tzid (*zone), *zone);
+
 	e_calendar_remove_op (client, our_op);
 	e_mutex_unlock (our_op->mutex);
 	e_calendar_free_op (our_op);
@@ -3267,12 +3331,12 @@ cal_client_add_timezone (CalClient *client, icaltimezone *izone, GError **error)
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -3297,7 +3361,7 @@ cal_client_add_timezone (CalClient *client, icaltimezone *izone, GError **error)
 
 		g_warning (G_STRLOC ": Unable to contact backend");
 
-		return FALSE;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
 	}
 
 	CORBA_exception_free (&ev);
@@ -3340,12 +3404,12 @@ cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GEr
 
 	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
 	if (client->priv->current_op != NULL) {
 		e_mutex_unlock (client->priv->mutex);
-		return E_CALENDAR_STATUS_BUSY;
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
 	}
 
 	our_op = e_calendar_new_op (client);
@@ -3395,17 +3459,15 @@ cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GEr
    DATE-TIME values into specific times. (Most of our IDL interface uses
    time_t values to pass specific times from the server to the client.) */
 static gboolean
-cal_client_ensure_timezone_on_server (CalClient *client, icaltimezone *zone)
+cal_client_ensure_timezone_on_server (CalClient *client, icaltimezone *zone, GError **error)
 {
 	CalClientPrivate *priv;
 	char *tzid;
 	icaltimezone *tmp_zone;
-	gboolean retval = FALSE;
-	icalcomponent *vtimezone_comp;
-	char *vtimezone_as_string;
-	CORBA_Environment ev;
 
 	priv = client->priv;
+
+	/* FIXME This is highly broken since there is no locking */
 
 	/* If the zone is NULL or UTC we don't need to do anything. */
 	if (!zone)
@@ -3424,75 +3486,76 @@ cal_client_ensure_timezone_on_server (CalClient *client, icaltimezone *zone)
 
 	/* Now we have to send it to the server, in case it doesn't already
 	   have it. */
-
-	/* Convert the timezone to a string and add it. */
-	vtimezone_comp = icaltimezone_get_component (zone);
-	if (!vtimezone_comp) {
-		return FALSE;
-	}
-
-	/* We don't need to free this string as libical owns it. */
-	vtimezone_as_string = icalcomponent_as_ical_string (vtimezone_comp);
-
-	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Cal_addTimezone (priv->cal, vtimezone_as_string, &ev);
-	
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_InvalidObject))
-		goto out;
-	else if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_ensure_timezone_on_server(): could not add the timezone to the server");
-		goto out;
-	}
-
-	retval = TRUE;
-
- out:
-	CORBA_exception_free (&ev);
-	return retval;
+	return cal_client_add_timezone (client, zone, error);
 }
 
-
 gboolean
-cal_client_set_default_timezone (CalClient *client, icaltimezone *zone)
+cal_client_set_default_timezone (CalClient *client, icaltimezone *zone, GError **error)
 {
 	CalClientPrivate *priv;
-	gboolean retval = FALSE;
 	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 	const char *tzid;
-
-	g_return_val_if_fail (client != NULL, FALSE);
+	
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 	g_return_val_if_fail (zone != NULL, FALSE);
 
 	priv = client->priv;
 
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED,
-			      FALSE);
-
 	/* Make sure the server has the VTIMEZONE data. */
-	if (!cal_client_ensure_timezone_on_server (client, zone))
+	if (!cal_client_ensure_timezone_on_server (client, zone, error))
 		return FALSE;
 
-	/* Now set the default timezone on the server. */
-	CORBA_exception_init (&ev);
-	tzid = icaltimezone_get_tzid (zone);
-	GNOME_Evolution_Calendar_Cal_setDefaultTimezone (priv->cal,
-							 (char *) tzid, &ev);
+	e_mutex_lock (priv->mutex);
 
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		goto out;
-	else if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_set_default_timezone(): could not set the default timezone");
-		goto out;
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
 	}
 
-	retval = TRUE;
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
 
-	priv->default_zone = zone;
+	our_op = e_calendar_new_op (client);
 
- out:
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (priv->mutex);
+
+	/* FIXME Adding it to the server to change the tzid */
+	tzid = icaltimezone_get_tzid (zone);
+
+	/* call the backend */
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_setDefaultTimezone (priv->cal, tzid, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
 
 	CORBA_exception_free (&ev);
-	return retval;
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 

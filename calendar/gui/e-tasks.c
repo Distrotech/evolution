@@ -787,7 +787,8 @@ cal_opened_cb				(CalClient	*client,
 		location = calendar_config_get_timezone ();
 		zone = icaltimezone_get_builtin_timezone (location);
 		if (zone)
-			cal_client_set_default_timezone (client, zone);
+			/* FIXME Error checking */
+			cal_client_set_default_timezone (client, zone, NULL);
 		return;
 
 	case CAL_CLIENT_OPEN_ERROR:
@@ -1128,6 +1129,7 @@ e_tasks_update_all_config_settings	(void)
 		calendar_config_configure_e_calendar_table (E_CALENDAR_TABLE (priv->tasks_view));
 
 		if (zone)
-			cal_client_set_default_timezone (priv->client, zone);
+			/* FIXME Error checking */
+			cal_client_set_default_timezone (priv->client, zone, NULL);
 	}
 }

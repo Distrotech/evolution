@@ -69,7 +69,9 @@ typedef struct {
 
 	void (*object_list) (CalListener *listener, ECalendarStatus status, GList **objects);
 
+	void (*get_timezone) (CalListener *listener, ECalendarStatus status, const char *object);
 	void (*add_timezone) (CalListener *listener, ECalendarStatus status, const char *tzid);
+	void (*set_default_timezone) (CalListener *listener, ECalendarStatus status, const char *tzid);
 
 	void (*query) (CalListener *listener, ECalendarStatus status, GNOME_Evolution_Calendar_Query query);
 } CalListenerClass;

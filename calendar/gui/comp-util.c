@@ -95,7 +95,6 @@ cal_comp_util_compare_event_timezones (CalComponent *comp,
 				       CalClient *client,
 				       icaltimezone *zone)
 {
-	CalClientGetStatus status;
 	CalComponentDateTime start_datetime, end_datetime;
 	const char *tzid;
 	gboolean retval = FALSE;
@@ -143,10 +142,8 @@ cal_comp_util_compare_event_timezones (CalComponent *comp,
 		/* If the TZIDs differ, we have to compare the UTC offsets
 		   of the start and end times, using their own timezones and
 		   the given timezone. */
-		status = cal_client_get_timezone (client,
-						  start_datetime.tzid,
-						  &start_zone);
-		if (status != CAL_CLIENT_GET_SUCCESS)
+		if (!cal_client_get_timezone (client, start_datetime.tzid,
+					      &start_zone, NULL))
 			goto out;
 
 		if (start_datetime.value) {
@@ -160,10 +157,8 @@ cal_comp_util_compare_event_timezones (CalComponent *comp,
 				goto out;
 		}
 
-		status = cal_client_get_timezone (client,
-						  end_datetime.tzid,
-						  &end_zone);
-		if (status != CAL_CLIENT_GET_SUCCESS)
+		if (!cal_client_get_timezone (client, end_datetime.tzid,
+					      &end_zone, NULL))
 			goto out;
 
 		if (end_datetime.value) {

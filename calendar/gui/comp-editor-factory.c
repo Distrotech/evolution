@@ -411,7 +411,8 @@ resolve_pending_requests (OpenClient *oc)
 	location = calendar_config_get_timezone ();
 	zone = icaltimezone_get_builtin_timezone (location);
 	if (zone)
-		cal_client_set_default_timezone (oc->client, zone);
+		/* FIXME Error handling? */
+		cal_client_set_default_timezone (oc->client, zone, NULL);
 
 	for (l = oc->pending; l; l = l->next) {
 		Request *request;

@@ -129,7 +129,7 @@ get_dtend (ECalModelComponent *comp_data)
 		/* FIXME: handle errors */
 		cal_client_get_timezone (comp_data->client,
 					 icaltimezone_get_tzid (icaltimezone_get_builtin_timezone (tt_end.zone)),
-					 &zone);
+					 &zone, NULL);
 		comp_data->dtend->zone = zone;
 	}
 

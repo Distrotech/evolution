@@ -53,7 +53,9 @@ enum {
 	RECEIVE_OBJECTS,
 	SEND_OBJECTS,
 	OBJECT_LIST,
+	GET_TIMEZONE,
 	ADD_TIMEZONE,
+	SET_DEFAULT_TIMEZONE,
 	QUERY,
 	LAST_SIGNAL
 };
@@ -74,6 +76,8 @@ convert_status (const GNOME_Evolution_Calendar_CallStatus status)
 		return E_CALENDAR_STATUS_PERMISSION_DENIED;
 	case GNOME_Evolution_Calendar_ObjectNotFound:
 		return E_CALENDAR_STATUS_OBJECT_NOT_FOUND;
+	case GNOME_Evolution_Calendar_InvalidObject:
+		return E_CALENDAR_STATUS_INVALID_OBJECT;
 	case GNOME_Evolution_Calendar_CardIdAlreadyExists:
 		return E_CALENDAR_STATUS_CARD_ID_ALREADY_EXISTS;
 	case GNOME_Evolution_Calendar_AuthenticationFailed:
@@ -343,6 +347,24 @@ impl_notifyObjectListRequested (PortableServer_Servant servant,
 }
 
 static void
+impl_notifyTimezoneRequested (PortableServer_Servant servant,
+			      const GNOME_Evolution_Calendar_CallStatus status,
+			      const CORBA_char *object,
+			      CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+	
+	g_signal_emit (G_OBJECT (listener), signals[GET_TIMEZONE], 0, convert_status (status), object);
+}
+
+static void
 impl_notifyTimezoneAdded (PortableServer_Servant servant,
 			  const GNOME_Evolution_Calendar_CallStatus status,
 			  const CORBA_char *tzid,
@@ -358,6 +380,23 @@ impl_notifyTimezoneAdded (PortableServer_Servant servant,
 		return;
 	
 	g_signal_emit (G_OBJECT (listener), signals[ADD_TIMEZONE], 0, convert_status (status), tzid);
+}
+
+static void
+impl_notifyDefaultTimezoneSet (PortableServer_Servant servant,
+			       const GNOME_Evolution_Calendar_CallStatus status,
+			       CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+	
+	g_signal_emit (G_OBJECT (listener), signals[SET_DEFAULT_TIMEZONE], 0, convert_status (status));
 }
 
 static void 
@@ -507,6 +546,9 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyObjectModified = impl_notifyObjectModified;
 	klass->epv.notifyObjectRemoved = impl_notifyObjectRemoved;
 	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
+	klass->epv.notifyTimezoneRequested = impl_notifyTimezoneRequested;
+	klass->epv.notifyTimezoneAdded = impl_notifyTimezoneAdded;
+	klass->epv.notifyDefaultTimezoneSet = impl_notifyDefaultTimezoneSet;
 	klass->epv.notifyQuery = impl_notifyQuery;
 	klass->epv.notifyCalSetMode = impl_notifyCalSetMode;
 	klass->epv.notifyErrorOccurred = impl_notifyErrorOccurred;
@@ -618,6 +660,14 @@ cal_listener_class_init (CalListenerClass *klass)
 			      NULL, NULL,
 			      cal_marshal_VOID__INT_POINTER,
 			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_POINTER);
+	signals[GET_TIMEZONE] =
+		g_signal_new ("get_timezone",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, get_timezone),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_STRING,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
 	signals[ADD_TIMEZONE] =
 		g_signal_new ("add_timezone",
 			      G_TYPE_FROM_CLASS (klass),
@@ -626,6 +676,14 @@ cal_listener_class_init (CalListenerClass *klass)
 			      NULL, NULL,
 			      cal_marshal_VOID__INT_STRING,
 			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
+	signals[SET_DEFAULT_TIMEZONE] =
+		g_signal_new ("set_default_timezone",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, set_default_timezone),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);
 	signals[QUERY] =
 		g_signal_new ("query",
 			      G_TYPE_FROM_CLASS (klass),

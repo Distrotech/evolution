@@ -444,7 +444,7 @@ get_timezone (CalClient *client, const char *tzid)
 
 	timezone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
 	if (timezone == NULL)
-		 cal_client_get_timezone (client, tzid, &timezone);
+		 cal_client_get_timezone (client, tzid, &timezone, NULL);
 	
 	return timezone;
 }
@@ -890,8 +890,10 @@ pre_sync (GnomePilotConduit *conduit,
 	LOG (g_message ( "  Using timezone: %s", icaltimezone_get_tzid (ctxt->timezone) ));
 
 	/* Set the default timezone on the backend. */
-	if (ctxt->timezone)
-		cal_client_set_default_timezone (ctxt->client, ctxt->timezone);
+	if (ctxt->timezone) {
+		if (!cal_client_set_default_timezone (ctxt->client, ctxt->timezone, NULL))
+			return -1;		
+	}
 
 	/* Get the default component */
 	if (cal_client_get_default_object (ctxt->client, CALOBJ_TYPE_TODO, &icalcomp) != CAL_CLIENT_GET_SUCCESS)

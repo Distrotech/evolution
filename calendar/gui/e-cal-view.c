@@ -244,7 +244,8 @@ selection_received (GtkWidget *invisible,
 
 	default_tzid = calendar_config_get_timezone ();
 	client = e_cal_model_get_default_client (cal_view->priv->model);
-	cal_client_get_timezone (client, default_tzid, &default_zone);
+	/* FIXME Error checking */
+	cal_client_get_timezone (client, default_tzid, &default_zone, NULL);
 
 	/* check the type of the component */
 	/* FIXME An error dialog if we return? */

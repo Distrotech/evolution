@@ -1,3 +1,37 @@
+2003-09-24  JP Rosevear  <jpr@ximian.com>
+
+	* conduits/*/*.c: adjust to new timezone api calls
+
+	* gui/*.c: ditto
+
+	* gui/dialogs/*.c: ditto
+
+	* cal-client/cal-listener.h: add new signals
+
+	* cal-client/cal-listener.c (convert_status): convert invalid
+	object as well
+	(impl_notifyTimezoneRequested): implement
+	(impl_notifyDefaultTimezoneSet): ditto
+	(cal_listener_class_init): set epv implementations for timezone
+	functions
+	(cal_listener_class_init): create timezone response signals
+
+	* cal-client/cal-client.h: update protos
+
+	* cal-client/cal-client.c: fix return values all over the place
+	(cal_get_timezone_cb): getTimezone response
+	(cal_query_cb): setDefaultTimezone response
+	(cal_client_init): listen for new response signals
+	(cal_client_get_timezone): implement using new thread sync api
+	(cal_client_ensure_timezone_on_server): use add timezone call
+	(cal_client_set_default_timezone): oimplement using new thread sync
+	api
+
+	* cal-client/cal-client-types.h: add invalid object status code
+
+	* idl/evolution-calendar.idl: getQuery no longer raises any user
+	exceptions, remove dead types and exceptions
+
 2003-09-24  JP Rosevear <jpr@ximian.com>
 
 	* pcs/cal.h: new protos

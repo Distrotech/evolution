@@ -2171,11 +2171,8 @@ get_zone_from_tzid (CalClient *client, const char *tzid)
 	   the builtin timezone with the TZID first. */
 	zone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
 	if (!zone) {
-		CalClientGetStatus status;
-
-		status = cal_client_get_timezone (client, tzid, &zone);
-		/* FIXME: Handle error better. */
-		if (status != CAL_CLIENT_GET_SUCCESS)
+		if (!cal_client_get_timezone (client, tzid, &zone, NULL)) 
+			/* FIXME: Handle error better. */
 			g_warning ("Couldn't get timezone from server: %s",
 				   tzid ? tzid : "");
 	}

@@ -124,12 +124,6 @@ CalClient *cal_client_new (void);
 
 void cal_client_set_auth_func (CalClient *client, CalClientAuthFunc func, gpointer data);
 
-/* Sets the default timezone to use to resolve DATE and floating DATE-TIME
-   values. This will typically be from the user's timezone setting. Call this
-   before using any other functions. It will pass the default timezone on to
-   the server. Returns TRUE on success. */
-gboolean cal_client_set_default_timezone (CalClient *client, icaltimezone *zone);
-
 gboolean cal_client_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exists);
 gboolean cal_client_open_default_calendar (CalClient *client, gboolean only_if_exists);
 gboolean cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists);
@@ -163,10 +157,6 @@ CalClientGetStatus cal_client_get_object (CalClient *client,
 					  const char *rid,
 					  icalcomponent **icalcomp);
 
-CalClientGetStatus cal_client_get_timezone (CalClient *client,
-					    const char *tzid,
-					    icaltimezone **zone);
-
 GList *cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id);
 
 gboolean cal_client_get_object_list (CalClient *client, const char *query, GList **objects, GError **error);
@@ -198,7 +188,13 @@ gboolean cal_client_remove_object_with_mod (CalClient *client, const char *uid, 
 gboolean cal_client_receive_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
 gboolean cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
 
+gboolean cal_client_get_timezone (CalClient *client, const char *tzid, icaltimezone **zone, GError **error);
 gboolean cal_client_add_timezone (CalClient *client, icaltimezone *izone, GError **error);
+/* Sets the default timezone to use to resolve DATE and floating DATE-TIME
+   values. This will typically be from the user's timezone setting. Call this
+   before using any other functions. It will pass the default timezone on to
+   the server. Returns TRUE on success. */
+gboolean cal_client_set_default_timezone (CalClient *client, icaltimezone *zone, GError **error);
 
 gboolean cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GError **error);
 

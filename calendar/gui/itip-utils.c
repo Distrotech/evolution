@@ -187,8 +187,8 @@ foreach_tzid_callback (icalparameter *param, gpointer data)
 		zone = icalcomponent_get_timezone (tz_data->zones, tzid);
 	if (zone == NULL)
 		zone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
-	if (zone == NULL && tz_data->client != NULL)
-		cal_client_get_timezone (tz_data->client, tzid, &zone);
+	if (zone == NULL && tz_data->client != NULL)		
+		cal_client_get_timezone (tz_data->client, tzid, &zone, NULL);
 	if (zone == NULL)
 		return;
 
@@ -752,7 +752,8 @@ comp_compliant (CalComponentItipMethod method, CalComponent *comp, CalClient *cl
 				if (from_zone == NULL)
 					from_zone = icaltimezone_get_builtin_timezone_from_tzid (dt.tzid);
 				if (from_zone == NULL && client != NULL)
-					cal_client_get_timezone (client, dt.tzid, &from_zone);
+					/* FIXME Error checking */
+					cal_client_get_timezone (client, dt.tzid, &from_zone, NULL);
 			}
 			
 			to_zone = icaltimezone_get_utc_timezone ();

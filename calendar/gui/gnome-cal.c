@@ -1670,7 +1670,8 @@ client_cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer da
 	case CAL_CLIENT_OPEN_SUCCESS:
 		/* Set the client's default timezone, if we have one. */
 		if (priv->zone) {
-			cal_client_set_default_timezone (client, priv->zone);
+			/* FIXME Error checking */
+			cal_client_set_default_timezone (client, priv->zone, NULL);
 		}
 
 		/* add the alarms for this client */
@@ -2203,7 +2204,8 @@ gnome_calendar_update_config_settings (GnomeCalendar *gcal,
 			CalClient *client = l->data;
 
 			if (cal_client_get_load_state (client) == CAL_CLIENT_LOAD_LOADED)
-				cal_client_set_default_timezone (client, priv->zone);
+				/* FIXME Error checking */
+				cal_client_set_default_timezone (client, priv->zone, NULL);
 		}
 
 		g_list_free (client_list);
@@ -2211,8 +2213,9 @@ gnome_calendar_update_config_settings (GnomeCalendar *gcal,
 
 	if (priv->task_pad_client
 	    && cal_client_get_load_state (priv->task_pad_client) == CAL_CLIENT_LOAD_LOADED) {
+		/* FIXME Error Checking */
 		cal_client_set_default_timezone (priv->task_pad_client,
-						 priv->zone);
+						 priv->zone, NULL);
 	}
 
 	e_cal_view_set_timezone (E_CAL_VIEW (priv->day_view), priv->zone);
