@@ -1303,6 +1303,7 @@ set_instance_times (ECalModelComponent *comp_data, icaltimezone *zone)
 	if (zone) {
 		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
 			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, icaltimezone_get_utc_timezone ());
+			icaltimezone_convert_time (&comp_data->instance_start, icaltimezone_get_utc_timezone (), zone);
 			comp_data->instance_end = comp_data->instance_start +
 				(icaltime_as_timet_with_zone (end_time, zone) -
 				 icaltime_as_timet_with_zone (start_time, zone));
@@ -1583,11 +1584,10 @@ remove_client_objects (ECalModel *model, ECalModelClient *client_data)
 
 		if (comp_data->client == client_data->client) {
 			e_table_model_pre_change (E_TABLE_MODEL (model));
-			
+			e_table_model_row_deleted (E_TABLE_MODEL (model), i - 1);
+
 			g_ptr_array_remove (model->priv->objects, comp_data);
 			e_cal_model_free_component_data (comp_data);
-
-			e_table_model_row_deleted (E_TABLE_MODEL (model), i - 1);
 		}
 	}
 }

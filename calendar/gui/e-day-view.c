@@ -4103,7 +4103,7 @@ e_day_view_add_event (ECalComponent *comp,
 	/* Check that the event times are valid. */
 	g_return_val_if_fail (start <= end, TRUE);
 	g_return_val_if_fail (start < add_event_data->day_view->upper, TRUE);
-	//g_return_val_if_fail (end > add_event_data->day_view->lower, TRUE);
+	g_return_val_if_fail (end > add_event_data->day_view->lower, TRUE);
 
 	start_tt = icaltime_from_timet_with_zone (start, FALSE,
 						  e_calendar_view_get_timezone (E_CALENDAR_VIEW (add_event_data->day_view)));
