@@ -108,20 +108,6 @@ pas_backend_modify_card (PASBackend *backend,
 }
 
 void
-pas_backend_check_connection (PASBackend *backend,
-			      PASBook *book,
-			      PASCheckConnectionRequest *req)
-{
-	g_return_if_fail (PAS_IS_BACKEND (backend));
-	g_return_if_fail (PAS_IS_BOOK (book));
-	g_return_if_fail (req != NULL);
-
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->check_connection != NULL);
-
-	return (* PAS_BACKEND_GET_CLASS (backend)->check_connection) (backend, book, req);
-}
-
-void
 pas_backend_get_vcard (PASBackend *backend,
 		       PASBook *book,
 		       PASGetVCardRequest *req)
@@ -256,10 +242,6 @@ process_client_requests (PASBook *book, gpointer user_data)
 
 	case ModifyCard:
 		pas_backend_modify_card (backend, book, &req->modify);
-		break;
-
-	case CheckConnection:
-		pas_backend_check_connection (backend, book, &req->check_connection);
 		break;
 
 	case GetVCard:

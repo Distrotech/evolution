@@ -39,7 +39,6 @@ typedef enum {
 	GetBookView,
 	GetCompletionView,
 	GetChanges,
-	CheckConnection,
 	AuthenticateUser,
 	GetSupportedFields,
 	GetSupportedAuthMethods
@@ -47,54 +46,64 @@ typedef enum {
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
+} PASGenericRequest;
+
+typedef struct {
+	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *id;
 	char *vcard;
 } PASCreateCardRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	GList *ids;
 } PASRemoveCardsRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *vcard;
 } PASModifyCardRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *id;
 } PASGetVCardRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *search;
 } PASGetCursorRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *search;
 	GNOME_Evolution_Addressbook_BookViewListener listener;
 } PASGetBookViewRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *search;
 	GNOME_Evolution_Addressbook_BookViewListener listener;
 } PASGetCompletionViewRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *change_id;
 	GNOME_Evolution_Addressbook_BookViewListener listener;
 } PASGetChangesRequest;
 
 typedef struct {
 	PASOperation op;
-} PASCheckConnectionRequest;
-
-typedef struct {
-	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 	char *user;
         char *passwd;
 	char *auth_method;
@@ -102,15 +111,18 @@ typedef struct {
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 } PASGetSupportedFieldsRequest;
 
 typedef struct {
 	PASOperation op;
+	GNOME_Evolution_Addressbook_OpID opid;
 } PASGetSupportedAuthMethodsRequest;
 
 typedef union {
 	PASOperation                      op;
 
+	PASGenericRequest                 generic;
 	PASCreateCardRequest              create;
 	PASRemoveCardsRequest             remove;
 	PASModifyCardRequest              modify;
@@ -119,7 +131,6 @@ typedef union {
 	PASGetBookViewRequest             get_book_view;
 	PASGetCompletionViewRequest       get_completion_view;
 	PASGetChangesRequest              get_changes;
-	PASCheckConnectionRequest         check_connection;
 	PASAuthenticateUserRequest        auth_user;
 	PASGetSupportedFieldsRequest      get_supported_fields;
 	PASGetSupportedAuthMethodsRequest get_supported_auth_methods;
@@ -153,38 +164,47 @@ void                    pas_book_free_request           (PASRequest             
 void                    pas_book_respond_open           (PASBook                           *book,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status);
 void                    pas_book_respond_create         (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 							 const char                        *id);
 void                    pas_book_respond_remove         (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status);
 void                    pas_book_respond_modify         (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status);
 void                    pas_book_respond_authenticate_user (PASBook                           *book,
+							    GNOME_Evolution_Addressbook_OpID opid,
 							    GNOME_Evolution_Addressbook_BookListener_CallStatus  status);
 void                    pas_book_respond_get_supported_fields (PASBook *book,
+							       GNOME_Evolution_Addressbook_OpID opid,
 							       GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 							       EList   *fields);
 void                    pas_book_respond_get_supported_auth_methods (PASBook *book,
+								     GNOME_Evolution_Addressbook_OpID opid,
 								     GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 								     EList   *fields);
 
 void                    pas_book_respond_get_cursor     (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 							 PASCardCursor                     *cursor);
 void                    pas_book_respond_get_book_view  (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 							 PASBookView                       *book_view);
 void                    pas_book_respond_get_completion_view (PASBook                           *book,
+							      GNOME_Evolution_Addressbook_OpID opid,
 						      GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 						      PASBookView                       *completion_view);
 void                    pas_book_respond_get_vcard      (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 							 char                              *vcard);
 void                    pas_book_respond_get_changes    (PASBook                           *book,
+							 GNOME_Evolution_Addressbook_OpID opid,
 							 GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 							 PASBookView                       *book_view);
-void                    pas_book_report_connection      (PASBook                           *book,
-							 gboolean                           connected);
 
 void                    pas_book_report_writable        (PASBook                           *book,
 							 gboolean                           writable);

@@ -13,6 +13,7 @@
 #include "e-card.h"
 
 #include <gal/widgets/e-unicode.h>
+#include <gal/widgets/e-gui-utils.h>
 
 #include <ctype.h>
 #include <stdio.h>

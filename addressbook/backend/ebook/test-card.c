@@ -2,18 +2,19 @@
 #include "e-card.h"
 #include <libgnome/gnome-init.h>
 
-#define TEST_VCARD                     \
-"BEGIN:VCARD\r\n"                      \
-"FN:Nat\r\n"                           \
-"N:Friedman;Nat;D;Mr.\r\n"             \
-"ORG:Ximian, Inc.\r\n"                 \
-"TITLE:Head Geek\r\n"                  \
-"ROLE:Programmer/Executive\r\n"        \
-"BDAY:1977-08-06\r\n"                  \
-"TEL;WORK:617 679 1984\r\n"            \
-"TEL;CELL:123 456 7890\r\n"            \
-"EMAIL;INTERNET:nat@nat.org\r\n"       \
-"EMAIL;INTERNET:nat@ximian.com\r\n"    \
+#define TEST_VCARD                       \
+"BEGIN:VCARD\r\n"                        \
+"X-EVOLUTION-FILE-AS: Friedman, Nat\r\n" \
+"FN:Nat\r\n"                             \
+"N:Friedman;Nat;D;Mr.\r\n"             	 \
+"ORG:Ximian, Inc.;Marketing\r\n"       	 \
+"TITLE:Head Geek\r\n"                  	 \
+"ROLE:Programmer/Executive\r\n"        	 \
+"BDAY:1977-08-06\r\n"                  	 \
+"TEL;WORK:617 679 1984\r\n"            	 \
+"TEL;CELL:123 456 7890\r\n"            	 \
+"EMAIL;INTERNET:nat@nat.org\r\n"       	 \
+"EMAIL;INTERNET:nat@ximian.com\r\n"      \
 "ADR;WORK;POSTAL:P.O. Box 101;;;Any Town;CA;91921-1234;\r\n" \
 "ADR;HOME;POSTAL;INTL:P.O. Box 202;;;Any Town 2;MI;12344-4321;USA\r\n" \
 "END:VCARD\r\n"                        \
@@ -147,7 +148,7 @@ main (int argc, char **argv)
 	  printf("BDay : %4d-%02d-%02d\n", bday->year, bday->month, bday->day);
 	}
 	if ( email ) {
-	  iterator = e_list_get_iterator(address);
+	  iterator = e_list_get_iterator(email);
 	  for (; e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
 	    printf("Email : %s\n", (char *) e_iterator_get(iterator));
 	  }
@@ -183,6 +184,7 @@ main (int argc, char **argv)
 	  }
 	  g_object_unref(iterator);
 	}
+	printf ("=====\n");
 	printf("%s", e_card_get_vcard_assume_utf8(card));
 	g_object_unref (card);
 

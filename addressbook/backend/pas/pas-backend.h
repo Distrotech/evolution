@@ -56,7 +56,6 @@ typedef struct {
 	void (*create_card)  (PASBackend *backend, PASBook *book, PASCreateCardRequest *req);
 	void (*remove_cards) (PASBackend *backend, PASBook *book, PASRemoveCardsRequest *req);
 	void (*modify_card)  (PASBackend *backend, PASBook *book, PASModifyCardRequest *req);
-	void (*check_connection) (PASBackend *backend, PASBook *book, PASCheckConnectionRequest *req);
 	void (*get_vcard) (PASBackend *backend, PASBook *book, PASGetVCardRequest *req);
 	void (*get_cursor) (PASBackend *backend, PASBook *book, PASGetCursorRequest *req);
 	void (*get_book_view) (PASBackend *backend, PASBook *book, PASGetBookViewRequest *req);
@@ -98,9 +97,6 @@ void        pas_backend_remove_cards              (PASBackend             *backe
 void        pas_backend_modify_card              (PASBackend             *backend,
 						  PASBook                *book,
 						  PASModifyCardRequest   *req);
-void        pas_backend_check_connection         (PASBackend             *backend,
-						  PASBook                *book,
-						  PASCheckConnectionRequest *req);
 void        pas_backend_get_vcard                (PASBackend             *backend,
 						  PASBook                *book,
 						  PASGetVCardRequest     *req);

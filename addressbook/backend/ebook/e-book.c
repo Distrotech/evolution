@@ -53,7 +53,7 @@ struct _EBookPrivate {
 	 */
 	GList                 *pending_ops;
 
-	guint op_tag;
+	GNOME_Evolution_Addressbook_OpID op_tag;
 
 	gchar *uri;
 
@@ -63,7 +63,6 @@ struct _EBookPrivate {
 enum {
 	OPEN_PROGRESS,
 	WRITABLE_STATUS,
-	LINK_STATUS,
 	BACKEND_DIED,
 	LAST_SIGNAL
 };
@@ -120,7 +119,7 @@ e_book_queue_op (EBook    *book,
  * Local response queue management.
  */
 static void
-e_book_unqueue_op (EBook    *book)
+e_book_unqueue_op (EBook    *book, guint tag)
 {
 	EBookOp *op;
 	GList *removed;
@@ -454,14 +453,6 @@ e_book_do_progress_event (EBook                 *book,
 }
 
 static void
-e_book_do_link_event (EBook                 *book,
-		      EBookListenerResponse *resp)
-{
-	g_signal_emit (book, e_book_signals [LINK_STATUS], 0,
-		       resp->connected);
-}
-
-static void
 e_book_do_writable_event (EBook                 *book,
 			  EBookListenerResponse *resp)
 {
@@ -568,9 +559,6 @@ e_book_check_listener_queue (EBookListener *listener, EBook *book)
 	case OpenProgressEvent:
 		e_book_do_progress_event (book, resp);
 		break;
-	case LinkStatusEvent:
-		e_book_do_link_event (book, resp);
-		break;
 	case WritableStatusEvent:
 		e_book_do_writable_event (book, resp);
 		break;
@@ -645,6 +633,9 @@ e_book_load_uri_from_factory (EBook *book,
 
 	CORBA_exception_init (&ev);
 
+	/* reset the op_tag here, since we assume the 0 tag is for
+	   loading the uri*/
+	book->priv->op_tag = 0;
 	e_book_queue_op (book, e_book_load_uri_open_cb, load_uri_data, NULL);
 
 	GNOME_Evolution_Addressbook_BookFactory_openBook (
@@ -654,7 +645,7 @@ e_book_load_uri_from_factory (EBook *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_load_uri: CORBA exception while opening addressbook!\n");
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, 0);
 		CORBA_exception_free (&ev);
 		e_book_load_uri_step (book, E_BOOK_STATUS_OTHER_ERROR, load_uri_data);
 	}
@@ -906,13 +897,13 @@ e_book_get_supported_fields (EBook              *book,
 
 	tag = e_book_queue_op (book, cb, closure, NULL);
 
-	GNOME_Evolution_Addressbook_Book_getSupportedFields(book->priv->corba_book, &ev);
+	GNOME_Evolution_Addressbook_Book_getSupportedFields(book->priv->corba_book, tag, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_get_supported_fields: Exception "
 			   "during get_supported_fields!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 
@@ -938,13 +929,13 @@ e_book_get_supported_auth_methods (EBook                   *book,
 
 	tag = e_book_queue_op (book, cb, closure, NULL);
 
-	GNOME_Evolution_Addressbook_Book_getSupportedAuthMethods(book->priv->corba_book, &ev);
+	GNOME_Evolution_Addressbook_Book_getSupportedAuthMethods(book->priv->corba_book, tag, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_get_supported_auth_methods: Exception "
 			   "during get_supported_auth_methods!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 
@@ -993,6 +984,7 @@ e_book_authenticate_user (EBook         *book,
 			  gpointer      closure)
 {
 	CORBA_Environment  ev;
+	guint tag;
 
 	g_return_if_fail (book != NULL);
 	g_return_if_fail (E_IS_BOOK (book));
@@ -1004,9 +996,10 @@ e_book_authenticate_user (EBook         *book,
 
 	CORBA_exception_init (&ev);
 
-	e_book_queue_op (book, cb, closure, NULL);
+	tag = e_book_queue_op (book, cb, closure, NULL);
 
 	GNOME_Evolution_Addressbook_Book_authenticateUser (book->priv->corba_book,
+							   tag,
 							   user,
 							   passwd,
 							   auth_method,
@@ -1015,7 +1008,7 @@ e_book_authenticate_user (EBook         *book,
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_authenticate_user: Exception authenticating user with the PAS!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return;
 	}
 
@@ -1048,13 +1041,13 @@ e_book_get_card (EBook             *book,
 
 	tag = e_book_queue_op (book, cb, closure, NULL);
 
-	GNOME_Evolution_Addressbook_Book_getVCard (book->priv->corba_book, (const GNOME_Evolution_Addressbook_VCard) id, &ev);
+	GNOME_Evolution_Addressbook_Book_getVCard (book->priv->corba_book, tag, (const GNOME_Evolution_Addressbook_VCard) id, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_get_card: Exception "
 			   "getting card!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 
@@ -1124,6 +1117,7 @@ e_book_remove_cards (EBook         *book,
 	CORBA_Environment ev;
 	GList *l;
 	int num_ids, i;
+	guint tag;
 
 	g_return_val_if_fail (book != NULL,     FALSE);
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
@@ -1136,7 +1130,7 @@ e_book_remove_cards (EBook         *book,
 
 	CORBA_exception_init (&ev);
 
-	e_book_queue_op (book, cb, closure, NULL);
+	tag = e_book_queue_op (book, cb, closure, NULL);
 
 	num_ids = g_list_length (ids);
 	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_CardId_allocbuf (num_ids);
@@ -1147,13 +1141,13 @@ e_book_remove_cards (EBook         *book,
 		idlist._buffer[i] = CORBA_string_dup (l->data);
 	}
 
-	GNOME_Evolution_Addressbook_Book_removeCards (book->priv->corba_book, &idlist, &ev);
+	GNOME_Evolution_Addressbook_Book_removeCards (book->priv->corba_book, tag, &idlist, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_remove_card_by_id: CORBA exception "
 			   "talking to PAS!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return FALSE;
 	}
 	
@@ -1216,6 +1210,7 @@ e_book_add_vcard (EBook           *book,
 		  gpointer         closure)
 {
 	CORBA_Environment ev;
+	guint tag;
 
 	g_return_val_if_fail (book  != NULL,    FALSE);
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
@@ -1228,15 +1223,15 @@ e_book_add_vcard (EBook           *book,
 
 	CORBA_exception_init (&ev);
 
-	e_book_queue_op (book, (EBookCallback) cb, closure, NULL);
+	tag = e_book_queue_op (book, (EBookCallback) cb, closure, NULL);
 
-	GNOME_Evolution_Addressbook_Book_addCard (
-		book->priv->corba_book, (const GNOME_Evolution_Addressbook_VCard) vcard, &ev);
+	GNOME_Evolution_Addressbook_Book_addCard (book->priv->corba_book,
+						  tag, (const GNOME_Evolution_Addressbook_VCard) vcard, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_add_vcard: Exception adding card to PAS!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return FALSE;
 	}
 
@@ -1296,6 +1291,7 @@ e_book_commit_vcard (EBook         *book,
 		     gpointer       closure)
 {
 	CORBA_Environment ev;
+	guint tag;
 
 	g_return_val_if_fail (book  != NULL,    FALSE);
 	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
@@ -1308,51 +1304,19 @@ e_book_commit_vcard (EBook         *book,
 
 	CORBA_exception_init (&ev);
 
-	e_book_queue_op (book, cb, closure, NULL);
+	tag = e_book_queue_op (book, cb, closure, NULL);
 
-	GNOME_Evolution_Addressbook_Book_modifyCard (
-		book->priv->corba_book, (const GNOME_Evolution_Addressbook_VCard) vcard, &ev);
+	GNOME_Evolution_Addressbook_Book_modifyCard (book->priv->corba_book,
+						     tag, (const GNOME_Evolution_Addressbook_VCard) vcard, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_commit_vcard: Exception "
 			   "modifying card in PAS!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return FALSE;
 	}
 
-	CORBA_exception_free (&ev);
-
-	return TRUE;
-}
-
-/**
- * e_book_check_connection:
- */
-gboolean
-e_book_check_connection (EBook *book)
-{
-	CORBA_Environment ev;
-
-	g_return_val_if_fail (book != NULL,     FALSE);
-	g_return_val_if_fail (E_IS_BOOK (book), FALSE);
-
-	if (book->priv->load_state != URILoaded) {
-		g_warning ("e_book_check_connection: No URI loaded!\n");
-		return FALSE;
-	}
-
-	CORBA_exception_init (&ev);
-
-	GNOME_Evolution_Addressbook_Book_checkConnection (book->priv->corba_book, &ev);
-
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning ("e_book_check_connection: Exception "
-			   "querying the PAS!\n");
-		CORBA_exception_free (&ev);
-		return FALSE;
-	}
-	
 	CORBA_exception_free (&ev);
 
 	return TRUE;
@@ -1379,13 +1343,13 @@ e_book_get_cursor       (EBook               *book,
 
 	tag = e_book_queue_op (book, cb, closure, NULL);
 	
-	GNOME_Evolution_Addressbook_Book_getCursor (book->priv->corba_book, query, &ev);
+	GNOME_Evolution_Addressbook_Book_getCursor (book->priv->corba_book, tag, query, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_get_all_cards: Exception "
 			   "querying list of cards!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 	
@@ -1418,13 +1382,14 @@ e_book_get_book_view       (EBook                 *book,
 
 	tag = e_book_queue_op (book, cb, closure, listener);
 	
-	GNOME_Evolution_Addressbook_Book_getBookView (book->priv->corba_book, bonobo_object_corba_objref(BONOBO_OBJECT(listener)), query, &ev);
+	GNOME_Evolution_Addressbook_Book_getBookView (book->priv->corba_book,
+						      tag, bonobo_object_corba_objref(BONOBO_OBJECT(listener)), query, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_get_book_view: Exception "
 			   "getting book_view!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 	
@@ -1458,6 +1423,7 @@ e_book_get_completion_view      (EBook                 *book,
 	tag = e_book_queue_op (book, cb, closure, listener);
 	
 	GNOME_Evolution_Addressbook_Book_getCompletionView (book->priv->corba_book,
+							    tag,
 							    bonobo_object_corba_objref(BONOBO_OBJECT(listener)),
 							    query, &ev);
 
@@ -1465,7 +1431,7 @@ e_book_get_completion_view      (EBook                 *book,
 		g_warning ("e_book_get_completion_view: Exception "
 			   "getting completion_view!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 	
@@ -1498,13 +1464,15 @@ e_book_get_changes         (EBook                 *book,
 
 	tag = e_book_queue_op (book, cb, closure, listener);
 	
-	GNOME_Evolution_Addressbook_Book_getChanges (book->priv->corba_book, bonobo_object_corba_objref(BONOBO_OBJECT(listener)), changeid, &ev);
+	GNOME_Evolution_Addressbook_Book_getChanges (book->priv->corba_book,
+						     tag,
+						     bonobo_object_corba_objref(BONOBO_OBJECT(listener)), changeid, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("e_book_changes: Exception "
 			   "getting changes!\n");
 		CORBA_exception_free (&ev);
-		e_book_unqueue_op (book);
+		e_book_unqueue_op (book, tag);
 		return 0;
 	}
 	
@@ -1578,7 +1546,7 @@ e_book_init (EBook *book)
 {
 	book->priv             = g_new0 (EBookPrivate, 1);
 	book->priv->load_state = URINotLoaded;
-	book->priv->op_tag     = 1;
+	book->priv->op_tag     = 0;
 	book->priv->uri        = NULL;
 }
 
@@ -1632,16 +1600,6 @@ e_book_class_init (EBookClass *klass)
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
 	parent_class = g_type_class_ref (G_TYPE_OBJECT);
-
-	e_book_signals [LINK_STATUS] =
-		g_signal_new ("link_status",
-			      G_OBJECT_CLASS_TYPE (object_class),
-			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EBookClass, link_status),
-			      NULL, NULL,
-			      e_book_marshal_NONE__BOOL,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_BOOLEAN);
 
 	e_book_signals [WRITABLE_STATUS] =
 		g_signal_new ("writable_status",

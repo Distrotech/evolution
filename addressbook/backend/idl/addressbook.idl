@@ -17,6 +17,7 @@ module Addressbook {
 	typedef sequence<VCard> VCardList;
 	typedef sequence<CardId> CardIdList;
 	typedef sequence<string> stringlist;
+	typedef long OpID;
 
 	interface CardCursor : Bonobo::Unknown {
 		long   count  ();
@@ -59,37 +60,37 @@ module Addressbook {
 		/*
 		 * Fetching cards in the addresbook.
 		 */
-		void getVCard (in CardId id);
+		void getVCard (in OpID opid, in CardId id);
 
-		void authenticateUser (in string user, in string passwd,
+		void authenticateUser (in OpID opid, in string user, in string passwd,
 				       in string authMethod);
 
 		/*
 		 * Adding and deleting cards in the book.
 		 */
-		void addCard    (in VCard vcard);
-		void removeCards (in CardIdList Id);
+		void addCard    (in OpID opid, in VCard vcard);
+		void removeCards (in OpID opid, in CardIdList Id);
 	        
 		/*
 		 * Modifying cards in the addressbook.
 		 */
-		void modifyCard (in VCard vcard);
+		void modifyCard (in OpID opid, in VCard vcard);
 		
 		/*
 		 * This function returns a cursor to the book
 		 * listener.  This is for people who want a snapshot
 		 * of the addressbook.
 		 */
-		void getCursor (in string query);
+		void getCursor (in OpID opid, in string query);
 		
 		/*
 		 * These two functions return a book view to the book
 		 * listener.  This is for people who want a live view
 		 * of the addressbook.
 		 */
-		void getBookView (in BookViewListener listener, in string query);
+		void getBookView (in OpID opid, in BookViewListener listener, in string query);
 
-		void getChanges  (in BookViewListener listener, in string change_id);
+		void getChanges  (in OpID opid, in BookViewListener listener, in string change_id);
 
 		/*
 		 * This function returns a book view that is identical
@@ -99,11 +100,9 @@ module Addressbook {
 		 * addresses, and nickname.  It is intended for use in
 		 * completion searches.
 		 */
-		void getCompletionView (in BookViewListener listener, in string query);
+		void getCompletionView (in OpID opid, in BookViewListener listener, in string query);
 
-		void checkConnection ();
-
-		void getSupportedFields ();
+		void getSupportedFields (in OpID opid);
 
 		/*
 		 * This function returns a list of strings
@@ -127,7 +126,7 @@ module Addressbook {
 		 * as it will be passed unchanged to the backend auth
 		 * function (eg. ldap_sasl_bind)
 		 */
-		void getSupportedAuthMethods ();
+		void getSupportedAuthMethods (in OpID opid);
 
 		string getStaticCapabilities ();
 
@@ -144,7 +143,6 @@ module Addressbook {
 			CardIdAlreadyExists,
 			ProtocolNotSupported,
 			AuthenticationFailed,
-			AuthenticationRequired,
 			UnsupportedField,
 			UnsupportedAuthenticationMethod,
 			TLSNotAvailable,
@@ -153,40 +151,30 @@ module Addressbook {
 			OtherError
 		};
 
-		void notifyCardCreated  (in CallStatus status, in CardId Id);
-
-		void notifyCardsRemoved (in CallStatus status);
-
-		void notifyCardModified (in CallStatus status);
-		
 		void notifyOpenBookProgress (in string status_message, in short percent);
 
 		void notifyBookOpened       (in CallStatus status, in Book book);
 
-		void notifyCardRequested    (in CallStatus status, in VCard card);
 
-		void notifyCursorRequested  (in CallStatus status, in CardCursor cursor);
+		void notifyCardCreated  (in OpID opid, in CallStatus status, in CardId Id);
 
-		void notifyViewRequested    (in CallStatus status, in BookView view);
+		void notifyCardsRemoved (in OpID opid, in CallStatus status);
 
-		void notifyChangesRequested (in CallStatus status, in BookView view);
+		void notifyCardModified (in OpID opid, in CallStatus status);
+		
+		void notifyCardRequested    (in OpID opid, in CallStatus status, in VCard card);
 
-		void notifyAuthenticationResult (in CallStatus status);
+		void notifyCursorRequested  (in OpID opid, in CallStatus status, in CardCursor cursor);
 
-		void notifySupportedFields (in CallStatus status, in stringlist fields);
+		void notifyViewRequested    (in OpID opid, in CallStatus status, in BookView view);
 
-		void notifySupportedAuthMethods (in CallStatus status, in stringlist fields);
+		void notifyChangesRequested (in OpID opid, in CallStatus status, in BookView view);
 
-		/**
-		 * notifyConnectionStatus:
-		 *
-		 * Used to report changes in the connection to the
-		 * contact repository.  This is often a response to a
-		 * call to check_connection() on the Book, but wombat
-		 * is free to report the connection status without
-		 * being asked.
-		 */
-		void notifyConnectionStatus (in boolean connected);
+		void notifyAuthenticationResult (in OpID opid, in CallStatus status);
+
+		void notifySupportedFields (in OpID opid, in CallStatus status, in stringlist fields);
+
+		void notifySupportedAuthMethods (in OpID opid, in CallStatus status, in stringlist fields);
 
 		/**
 		 * notifyWritable:
@@ -201,6 +189,8 @@ module Addressbook {
 		 * notices a change.
 		 */
 		void notifyWritable (in boolean writable);
+
+		void notifyAuthenticationRequired ();
 	};
 
 	interface BookFactory : Bonobo::Unknown {

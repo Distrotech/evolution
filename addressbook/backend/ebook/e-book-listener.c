@@ -295,23 +295,6 @@ e_book_listener_queue_get_changes_response (EBookListener        *listener,
 }
 
 static void
-e_book_listener_queue_link_status (EBookListener *listener,
-				   gboolean       connected)
-{
-	EBookListenerResponse *resp;
-
-	if (listener->priv->stopped)
-		return;
-
-	resp = g_new0 (EBookListenerResponse, 1);
-
-	resp->op        = LinkStatusEvent;
-	resp->connected = connected;
-
-	e_book_listener_queue_response (listener, resp);
-}
-
-static void
 e_book_listener_queue_writable_status (EBookListener *listener,
 				       gboolean       writable)
 {
@@ -395,6 +378,7 @@ e_book_listener_queue_get_supported_auth_methods_response (EBookListener *listen
 
 static void
 impl_BookListener_respond_create_card (PortableServer_Servant                   servant,
+				       GNOME_Evolution_Addressbook_OpID         opid,
 				       const GNOME_Evolution_Addressbook_BookListener_CallStatus  status,
 				       const CORBA_char* id,
 				       CORBA_Environment                       *ev)
@@ -409,6 +393,7 @@ impl_BookListener_respond_create_card (PortableServer_Servant                   
 
 static void
 impl_BookListener_respond_remove_cards (PortableServer_Servant servant,
+					GNOME_Evolution_Addressbook_OpID opid,
 					const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 					CORBA_Environment *ev)
 {
@@ -421,6 +406,7 @@ impl_BookListener_respond_remove_cards (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_modify_card (PortableServer_Servant servant,
+				       GNOME_Evolution_Addressbook_OpID opid,
 				       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 				       CORBA_Environment *ev)
 {
@@ -433,6 +419,7 @@ impl_BookListener_respond_modify_card (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_vcard (PortableServer_Servant servant,
+				     GNOME_Evolution_Addressbook_OpID opid,
 				     const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 				     const CORBA_char* card,
 				     CORBA_Environment *ev)
@@ -447,6 +434,7 @@ impl_BookListener_respond_get_vcard (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_cursor (PortableServer_Servant servant,
+				      GNOME_Evolution_Addressbook_OpID opid,
 				      const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 				      const GNOME_Evolution_Addressbook_CardCursor cursor,
 				      CORBA_Environment *ev)
@@ -469,6 +457,7 @@ impl_BookListener_respond_get_cursor (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_view (PortableServer_Servant servant,
+				    GNOME_Evolution_Addressbook_OpID opid,
 				    const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 				    const GNOME_Evolution_Addressbook_BookView book_view,
 				    CORBA_Environment *ev)
@@ -491,6 +480,7 @@ impl_BookListener_respond_get_view (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_get_changes (PortableServer_Servant servant,
+				       GNOME_Evolution_Addressbook_OpID opid,
 				       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 				       const GNOME_Evolution_Addressbook_BookView book_view,
 				       CORBA_Environment *ev)
@@ -547,6 +537,7 @@ impl_BookListener_report_open_book_progress (PortableServer_Servant servant,
 
 static void
 impl_BookListener_respond_authentication_result (PortableServer_Servant servant,
+						 GNOME_Evolution_Addressbook_OpID opid,
 						 const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 						 CORBA_Environment *ev)
 {
@@ -558,6 +549,7 @@ impl_BookListener_respond_authentication_result (PortableServer_Servant servant,
 
 static void
 impl_BookListener_response_get_supported_fields (PortableServer_Servant servant,
+						 GNOME_Evolution_Addressbook_OpID opid,
 						 const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 						 const GNOME_Evolution_Addressbook_stringlist *fields,
 						 CORBA_Environment *ev)
@@ -570,6 +562,7 @@ impl_BookListener_response_get_supported_fields (PortableServer_Servant servant,
 
 static void
 impl_BookListener_response_get_supported_auth_methods (PortableServer_Servant servant,
+						       GNOME_Evolution_Addressbook_OpID opid,
 						       const GNOME_Evolution_Addressbook_BookListener_CallStatus status,
 						       const GNOME_Evolution_Addressbook_stringlist *auth_methods,
 						       CORBA_Environment *ev)
@@ -578,17 +571,6 @@ impl_BookListener_response_get_supported_auth_methods (PortableServer_Servant se
 
 	e_book_listener_queue_get_supported_auth_methods_response (
 				     listener, status, auth_methods);
-}
-
-static void
-impl_BookListener_report_connection_status (PortableServer_Servant servant,
-					    const CORBA_boolean connected,
-					    CORBA_Environment *ev)
-{
-	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
-
-	e_book_listener_queue_link_status (
-		listener, connected);
 }
 
 static void
@@ -666,8 +648,6 @@ e_book_listener_convert_status (const GNOME_Evolution_Addressbook_BookListener_C
 		return E_BOOK_STATUS_PROTOCOL_NOT_SUPPORTED;
 	case GNOME_Evolution_Addressbook_BookListener_AuthenticationFailed:
 		return E_BOOK_STATUS_AUTHENTICATION_FAILED;
-	case GNOME_Evolution_Addressbook_BookListener_AuthenticationRequired:
-		return E_BOOK_STATUS_AUTHENTICATION_REQUIRED;
 	case GNOME_Evolution_Addressbook_BookListener_TLSNotAvailable:
 		return E_BOOK_STATUS_TLS_NOT_AVAILABLE;
 	case GNOME_Evolution_Addressbook_BookListener_NoSuchBook:
@@ -786,7 +766,6 @@ e_book_listener_class_init (EBookListenerClass *klass)
 	epv->notifyCursorRequested      = impl_BookListener_respond_get_cursor;
 	epv->notifyViewRequested        = impl_BookListener_respond_get_view;
 	epv->notifyChangesRequested     = impl_BookListener_respond_get_changes;
-	epv->notifyConnectionStatus     = impl_BookListener_report_connection_status;
 	epv->notifyWritable             = impl_BookListener_report_writable;
 }
 

@@ -44,7 +44,6 @@ struct _EBookClass {
 	 * Signals.
 	 */
 	void (* open_progress)   (EBook *book, const char *msg, short percent);
-	void (* link_status)     (EBook *book, gboolean connected);
 	void (* writable_status) (EBook *book, gboolean writable);
 	void (* backend_died)    (EBook *book);
 };
@@ -133,8 +132,6 @@ gboolean  e_book_commit_vcard             (EBook                 *book,
 					   EBookCallback          cb,
 					   gpointer               closure);
 
-/* Checking to see if we're connected to the card repository. */
-gboolean  e_book_check_connection         (EBook                 *book);
 guint     e_book_get_cursor               (EBook                 *book,
 					   char                  *query,
 					   EBookCursorCallback    cb,

@@ -720,6 +720,7 @@ pas_backend_file_process_create_card (PASBackend *backend,
 		
 		pas_book_respond_create (
 			book,
+			req->opid,
 			GNOME_Evolution_Addressbook_BookListener_Success,
 			id);
 
@@ -731,10 +732,10 @@ pas_backend_file_process_create_card (PASBackend *backend,
 	else {
 		/* XXX need a different call status for this case, i
                    think */
-		pas_book_respond_create (
-				 book,
-				 GNOME_Evolution_Addressbook_BookListener_CardNotFound,
-				 "");
+		pas_book_respond_create (book,
+					 req->opid,
+					 GNOME_Evolution_Addressbook_BookListener_CardNotFound,
+					 "");
 	}
 }
 
@@ -800,7 +801,7 @@ pas_backend_file_process_remove_cards (PASBackend *backend,
 	}
 	g_object_unref(iterator);
 	
-	pas_book_respond_remove (book, rv);
+	pas_book_respond_remove (book, req->opid, rv);
 
 	for (l = removed_cards; l; l = l->next) {
 		ECard *c = l->data;
@@ -846,9 +847,9 @@ pas_backend_file_process_modify_card (PASBackend *backend,
 	/* get the old ecard - the one that's presently in the db */
 	db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
 	if (0 != db_error) {
-		pas_book_respond_modify (
-				 book,
-				 GNOME_Evolution_Addressbook_BookListener_CardNotFound);
+		pas_book_respond_modify (book,
+					 req->opid,
+					 GNOME_Evolution_Addressbook_BookListener_CardNotFound);
 		return;
 	}
 	old_vcard_string = g_strdup(vcard_dbt.data);
@@ -889,17 +890,17 @@ pas_backend_file_process_modify_card (PASBackend *backend,
 
 		g_object_unref(iterator);
 
-		pas_book_respond_modify (
-				 book,
-				 GNOME_Evolution_Addressbook_BookListener_Success);
+		pas_book_respond_modify (book,
+					 req->opid,
+					 GNOME_Evolution_Addressbook_BookListener_Success);
 
 		pas_backend_summary_remove_card (bf->priv->summary, id);
 		pas_backend_summary_add_card (bf->priv->summary, req->vcard);
 	}
 	else {
-		pas_book_respond_modify (
-				 book,
-				 GNOME_Evolution_Addressbook_BookListener_CardNotFound);
+		pas_book_respond_modify (book,
+					 req->opid,
+					 GNOME_Evolution_Addressbook_BookListener_CardNotFound);
 	}
 
 	g_free(old_vcard_string);
@@ -995,6 +996,7 @@ pas_backend_file_process_get_vcard (PASBackend *backend,
 	}
 
 	pas_book_respond_get_vcard (book,
+				    req->opid,
 				    status,
 				    card);
 }
@@ -1043,6 +1045,7 @@ pas_backend_file_process_get_cursor (PASBackend *backend,
 	
 	pas_book_respond_get_cursor (
 		book,
+		req->opid,
 		(db_error == 0 
 		 ? GNOME_Evolution_Addressbook_BookListener_Success 
 		 : GNOME_Evolution_Addressbook_BookListener_CardNotFound),
@@ -1074,10 +1077,11 @@ pas_backend_file_process_get_book_view (PASBackend *backend,
 	e_list_append(bf->priv->book_views, &view);
 
 	pas_book_respond_get_book_view (book,
-		   (book_view != NULL
-		    ? GNOME_Evolution_Addressbook_BookListener_Success 
-		    : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
-		   book_view);
+					req->opid,
+					(book_view != NULL
+					 ? GNOME_Evolution_Addressbook_BookListener_Success 
+					 : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
+					book_view);
 
 	if (!pas_backend_is_loaded (backend))
 		return;
@@ -1113,10 +1117,11 @@ pas_backend_file_process_get_completion_view (PASBackend *backend,
 	e_list_append(bf->priv->book_views, &view);
 
 	pas_book_respond_get_completion_view (book,
-		   (book_view != NULL
-		    ? GNOME_Evolution_Addressbook_BookListener_Success 
-		    : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
-		   book_view);
+					      req->opid,
+					      (book_view != NULL
+					       ? GNOME_Evolution_Addressbook_BookListener_Success 
+					       : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
+					      book_view);
 
 	if (!pas_backend_is_loaded (backend))
 		return;
@@ -1145,10 +1150,11 @@ pas_backend_file_process_get_changes (PASBackend *backend,
 	g_object_weak_ref (G_OBJECT (book_view), view_destroy, book);
 
 	pas_book_respond_get_changes (book,
-		   (book_view != NULL
-		    ? GNOME_Evolution_Addressbook_BookListener_Success 
-		    : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
-		   book_view);
+				      req->opid,
+				      (book_view != NULL
+				       ? GNOME_Evolution_Addressbook_BookListener_Success 
+				       : GNOME_Evolution_Addressbook_BookListener_CardNotFound /* XXX */),
+				      book_view);
 
 	view.book_view = book_view;
 	view.change_id = req->change_id;
@@ -1173,16 +1179,6 @@ pas_backend_file_process_get_changes (PASBackend *backend,
 	g_object_unref(iterator);
 }
 
-static void
-pas_backend_file_process_check_connection (PASBackend *backend,
-					   PASBook    *book,
-					   PASCheckConnectionRequest *req)
-{
-	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-
-	pas_book_report_connection (book, bf->priv->file_db != NULL);
-}
-
 static char *
 pas_backend_file_extract_path_from_uri (const char *uri)
 {
@@ -1197,6 +1193,7 @@ pas_backend_file_process_authenticate_user (PASBackend *backend,
 					    PASAuthenticateUserRequest *req)
 {
 	pas_book_respond_authenticate_user (book,
+					    req->opid,
 					    GNOME_Evolution_Addressbook_BookListener_Success);
 }
 
@@ -1223,6 +1220,7 @@ pas_backend_file_process_get_supported_fields (PASBackend *backend,
 	g_object_unref (simple);
 
 	pas_book_respond_get_supported_fields (book,
+					       req->opid,
 					       GNOME_Evolution_Addressbook_BookListener_Success,
 					       fields);
 }
@@ -1566,7 +1564,6 @@ pas_backend_file_class_init (PASBackendFileClass *klass)
 	parent_class->create_card             = pas_backend_file_process_create_card;
 	parent_class->remove_cards            = pas_backend_file_process_remove_cards;
 	parent_class->modify_card             = pas_backend_file_process_modify_card;
-	parent_class->check_connection        = pas_backend_file_process_check_connection;
 	parent_class->get_vcard               = pas_backend_file_process_get_vcard;
 	parent_class->get_cursor              = pas_backend_file_process_get_cursor;
 	parent_class->get_book_view           = pas_backend_file_process_get_book_view;
