@@ -1,7 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 #include "ebook/e-book.h"
-#include "ebook/e-card-simple.h"
 #include <libgnome/gnome-init.h>
 #include <bonobo/bonobo-main.h>
 #include <stdlib.h>

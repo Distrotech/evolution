@@ -57,8 +57,6 @@ libebook_la_SOURCES =					\
 	e-book.c					\
 	e-book-async.c					\
 	e-contact.c					\
-	e-card.c					\
-	e-card-simple.c					\
 	e-vcard.c
 
 libebook_la_LIBADD =					\

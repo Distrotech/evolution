@@ -1016,6 +1016,8 @@ e_book_response_get_book_view (EBook       *book,
 
 	EBookOp *op;
 
+	printf ("e_book_response_get_book_view\n");
+
 	op = e_book_get_op (book);
 
 	if (op == NULL) {
@@ -1561,7 +1563,7 @@ activate_factories_for_uri (EBook *book, const char *uri)
 	}
 
 	protocol = g_strndup (uri, colon-uri);
-	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/BookFactory:2.0')"
+	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/BookFactory:1.0')"
 				 " AND addressbook:supported_protocols.has ('%s')", protocol
 				 );
 

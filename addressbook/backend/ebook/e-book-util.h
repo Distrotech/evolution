@@ -37,7 +37,7 @@ G_BEGIN_DECLS
 /* Callbacks for asynchronous functions. */
 typedef void (*EBookCommonCallback)      (EBook *book, gpointer closure);
 typedef void (*EBookSimpleQueryCallback) (EBook *book, EBookStatus status, const GList *cards, gpointer closure);
-typedef void (*EBookHaveAddressCallback) (EBook *book, const gchar *addr, ECard *card, gpointer closure);
+typedef void (*EBookHaveAddressCallback) (EBook *book, const gchar *addr, EContact *contact, gpointer closure);
 
 void                   e_book_load_address_book_by_uri  (EBook                    *book,
 							 const char               *uri,

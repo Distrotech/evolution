@@ -29,7 +29,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
-#include <ebook/e-card.h>
+#include <ebook/e-contact.h>
 #include <ebook/e-book.h>
 #include <libxml/tree.h>
 

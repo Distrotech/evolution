@@ -201,11 +201,106 @@ e_contact_set_property (GObject *object,
 			GParamSpec *pspec)
 {
 	EContact *contact = E_CONTACT (object);
+	int i;
+	EContactFieldInfo *info = NULL;
 
 	if (prop_id < 1 || prop_id >= E_CONTACT_FIELD_LAST) {
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		return;
 	}
+
+
+	for (i = 0; i < G_N_ELEMENTS (field_info); i++) {
+		if (field_info[i].field_id == prop_id) {
+			info = &field_info[i];
+			break;
+		}
+	}
+
+	if (!info) {
+		g_warning ("unknown field %d", prop_id);
+		return;
+	}
+	
+#if notyet
+	if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
+		switch (info->field_id) {
+		case E_CONTACT_EMAIL_1:
+		case E_CONTACT_EMAIL_2:
+		case E_CONTACT_EMAIL_3: {
+			GList *emails = e_contact_get_email_list (contact);
+
+			g_value_set_string (value, g_list_nth_data (emails, info->field_id - E_CONTACT_EMAIL_1));
+					
+			g_list_foreach (emails, (GFunc)g_free, NULL);
+			g_list_free (emails);
+			break;
+		case E_CONTACT_GIVEN_NAME:
+		case E_CONTACT_FAMILY_NAME: {
+			EContactName *name = e_contact_get (contact, E_CONTACT_NAME);
+
+			g_value_set_string (value, info->field_id == E_CONTACT_GIVEN_NAME ? name->given : name->family);
+
+			e_contact_name_free (name);
+			break;
+		}
+		}
+		default:
+			g_warning ("unhandled synthetic field 0x%02x", info->field_id);
+		}
+	}
+	else if (info->t & E_CONTACT_FIELD_TYPE_STRUCT) {
+		switch (info->field_id) {
+		case E_CONTACT_NAME: {
+			EVCardAttribute *attr = e_contact_get_first_attr (contact, EVC_N);
+			EContactName *name = g_new0 (EContactName, 1);
+			if (attr) {
+				GList *p = e_vcard_attribute_get_values (attr);
+				name->family     = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->given      = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->additional = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->prefixes   = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->suffixes   = g_strdup (p && p->data ? p->data : "");
+			}
+			
+			g_value_set_pointer (value, name);
+			break;
+		}
+		default:
+			g_warning ("unhandled structured field 0x%02x", info->field_id);
+		}		
+	}
+	else
+#endif
+		if (info->t & E_CONTACT_FIELD_TYPE_STRING) {
+			gboolean found = FALSE;
+
+			GList *attrs, *l;
+			attrs = e_vcard_get_attributes (E_VCARD (contact));
+
+			/* first we search for an attribute we can overwrite */
+			for (l = attrs; l; l = l->next) {
+				EVCardAttribute *attr = l->data;
+				const char *name, *group;
+
+				group = e_vcard_attribute_get_group (attr);
+				name = e_vcard_attribute_get_name (attr);
+
+				/* all the attributes we care about should be in group "" */
+				if ((!group || !*group) && !strcmp (name, info->vcard_field_name)) {
+					printf ("setting %s to `%s'\n", name, g_value_get_string (value));
+					e_vcard_attribute_remove_values (attr);
+					e_vcard_attribute_add_value (attr, g_value_get_string (value));
+					found = TRUE;
+					break;
+				}
+			}
+			/* and if we don't find one we create a new attribute */
+			if (!found)
+				e_vcard_add_attribute_with_value (E_VCARD (contact),
+								  e_vcard_attribute_new (NULL, info->vcard_field_name),
+								  g_value_get_string (value));
+		}
 }
 
 static GList *
@@ -473,6 +568,8 @@ e_contact_get_const (EContact *contact, EContactField field_id)
 void
 e_contact_set (EContact *contact, EContactField field_id, gpointer value)
 {
+	printf ("e_contact_set (%p, %d, %p)\n", contact, field_id, value);
+
 	g_return_if_fail (contact && E_IS_CONTACT (contact));
 	g_return_if_fail (field_id >= 1 && field_id <= E_CONTACT_FIELD_LAST);
 

@@ -31,7 +31,9 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <e-util/e-config-listener.h>
+#if notyet
 #include "e-card-compare.h"
+#endif
 
 typedef struct _CommonBookInfo CommonBookInfo;
 struct _CommonBookInfo {
