@@ -193,8 +193,9 @@ find_word_start (const char *text,
 	gint offset;
         char *at_offset;
 	gunichar current, previous;
+	gint len;
 	offset = begin_offset;
-	gint len = g_utf8_strlen (text, -1);
+	len = g_utf8_strlen (text, -1);
 
 	while (offset > 0 && offset < len)
 	{
@@ -220,9 +221,11 @@ find_word_end (const char *text,
         gint offset;
         char *at_offset;
         gunichar current, previous;
+        gint len;
+
         offset = begin_offset;
-        gint len = g_utf8_strlen (text, -1);
-                                                                                                                           
+        len = g_utf8_strlen (text, -1);
+
         while (offset > 0 && offset < len)
 	{
                 at_offset = g_utf8_offset_to_pointer (text, offset);
@@ -247,9 +250,10 @@ find_sentence_start (const char *text,
 	gint offset, sentence_start;
 	char *at_offset;
 	gunichar current;
+	gint len;
 	offset = begin_offset;
 	sentence_start = -1;
-	gint len = g_utf8_strlen (text, -1);
+	len = g_utf8_strlen (text, -1);
 
 	while (TRUE)
 	{
@@ -278,8 +282,9 @@ find_sentence_end (const char *text,
         gint offset;
         char *at_offset;
         gunichar previous;
+        gint len;
         offset = begin_offset;
-        gint len = g_utf8_strlen (text, -1);
+        len = g_utf8_strlen (text, -1);
                                                                                                                             
         while (offset > 0 && offset < len)
         {
@@ -300,9 +305,10 @@ find_line_start (const char *text,
         gint offset;
         char *at_offset;
         gunichar previous;
+        gint len;
         offset = begin_offset;
-        gint len = g_utf8_strlen (text, -1);
-                                                                                                                            
+        len = g_utf8_strlen (text, -1);
+
         while (offset > 0 && offset < len)
         {
                 at_offset = g_utf8_offset_to_pointer (text, offset-1);
@@ -322,8 +328,9 @@ find_line_end (const char *text,
         gint offset;
         char *at_offset;
         gunichar current;
+        gint len;
         offset = begin_offset;
-        gint len = g_utf8_strlen (text, -1);
+        len = g_utf8_strlen (text, -1);
                                                                                                                             
         while (offset >= 0 && offset < len)
         {
@@ -968,13 +975,14 @@ et_insert_text (AtkEditableText *text,
 		gint *position)
 {
 	/* Utf8 unimplemented */
+	char *result;
 
 	const char *full_text = et_get_full_text (ATK_TEXT (text));
 
 	if( full_text == NULL )
 		return;
 
-	char *result = g_strdup_printf ("%.*s%.*s%s", *position, full_text, length, string, full_text + *position);
+	result = g_strdup_printf ("%.*s%.*s%s", *position, full_text, length, string, full_text + *position);
 
 	et_set_full_text (text, result);
 
