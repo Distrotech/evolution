@@ -224,7 +224,6 @@ e_cal_model_finalize (GObject *object)
 		}
 		
 		if (priv->accounts) {
-			g_object_unref (priv->accounts);
 			priv->accounts = NULL;
 		}
 
@@ -646,6 +645,8 @@ ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 	if (cal_client_update_objects (comp_data.client, comp_data.icalcomp) != CAL_CLIENT_RESULT_SUCCESS) {
 		/* FIXME: show error dialog */
 	}
+
+	icalcomponent_free (comp_data.icalcomp);
 }
 
 static void *
@@ -819,25 +820,22 @@ ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 	ECalModelPrivate *priv;
 	gint i, first_empty = 0;
 	static AssignedColorData assigned_colors[] = {
-		{ "#718DA9" /* 113 141 169 */, NULL },
-		{ "#C6E2E2" /* 198 226 226 */, NULL },
-		{ "#8DC671" /* 141 198 113 */, NULL },
-		{ "#C6E2A9" /* 198 226 169 */, NULL },
-		{ "#C6A971" /* 198 169 113 */, NULL },
-		{ "#FFE271" /* 255 226 113 */, NULL },
-		{ "#E27171" /* 226 113 113 */, NULL },
-		{ "#FFA9A9" /* 255 169 169 */, NULL },
-		{ "#C68DC6" /* 198 141 198 */, NULL },
-		{ "#E2C6E2" /* 226 198 226 */, NULL },
-		{ "#D6D684" /* 214 214 132 */, NULL },
-		{ "#5B5B84"  /* 91 91 132 */, NULL }
+		{ "#BECEDD", NULL }, /* 190 206 221     Blue */
+		{ "#E2F0EF", NULL }, /* 226 240 239     Light Blue */
+		{ "#C6E2B7", NULL }, /* 198 226 183     Green */
+		{ "#E2F0D3", NULL }, /* 226 240 211     Light Green */
+		{ "#E2D4B7", NULL }, /* 226 212 183     Khaki */
+		{ "#EAEAC1", NULL }, /* 234 234 193     Light Khaki */
+		{ "#F0B8B7", NULL }, /* 240 184 183     Pink */
+		{ "#FED4D3", NULL }, /* 254 212 211     Light Pink */
+		{ "#E2C6E1", NULL }, /* 226 198 225     Purple */
+		{ "#F0E2EF", NULL }  /* 240 226 239     Light Purple */
 	};
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
-	g_return_val_if_fail (comp_data != NULL, NULL);
 
 	priv = model->priv;
-
+                                                                                
 	for (i = 0; i < G_N_ELEMENTS (assigned_colors); i++) {
 		GList *l;
 
@@ -1238,6 +1236,16 @@ update_query_for_client (ECalModel *model, ECalModelClient *client_data)
 }
 
 static void
+backend_died_cb (CalClient *client, gpointer user_data)
+{
+	ECalModel *model;
+
+	model = E_CAL_MODEL (user_data);
+
+	e_cal_model_remove_client (model, client);
+}
+
+static void
 add_new_client (ECalModel *model, CalClient *client)
 {
 	ECalModelPrivate *priv;
@@ -1251,6 +1259,9 @@ add_new_client (ECalModel *model, CalClient *client)
 	g_object_ref (client_data->client);
 
 	priv->clients = g_list_append (priv->clients, client_data);
+
+	g_signal_connect (G_OBJECT (client_data->client), "backend_died",
+			  G_CALLBACK (backend_died_cb), model);
 
 	update_query_for_client (model, client_data);
 }
@@ -1398,6 +1409,7 @@ e_cal_model_create_component_with_defaults (ECalModel *model)
 	ECalModelPrivate *priv;
 	CalComponent *comp;
 	icalcomponent *icalcomp;
+	CalClient *client;
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 
@@ -1405,12 +1417,16 @@ e_cal_model_create_component_with_defaults (ECalModel *model)
 
 	g_return_val_if_fail (priv->clients != NULL, NULL);
 
+	client = e_cal_model_get_default_client (model);
+	if (!client)
+		return icalcomponent_new (priv->kind);
+
 	switch (priv->kind) {
 	case ICAL_VEVENT_COMPONENT :
-		comp = cal_comp_event_new_with_defaults ((CalClient *) priv->clients->data);
+		comp = cal_comp_event_new_with_defaults (client);
 		break;
 	case ICAL_VTODO_COMPONENT :
-		comp = cal_comp_task_new_with_defaults ((CalClient *) priv->clients->data);
+		comp = cal_comp_task_new_with_defaults (client);
 		break;
 	default:
 		return NULL;
@@ -1499,4 +1515,26 @@ e_cal_model_date_value_to_string (ECalModel *model, const void *value)
 				     TRUE, FALSE,
 				     buffer, sizeof (buffer));
 	return g_strdup (buffer);
+}
+
+/**
+ * e_cal_model_free_component_data
+ */
+void
+e_cal_model_free_component_data (ECalModelComponent *comp_data)
+{
+	g_return_if_fail (comp_data != NULL);
+
+	if (comp_data->icalcomp)
+		icalcomponent_free (comp_data->icalcomp);
+	if (comp_data->dtstart)
+		g_free (comp_data->dtstart);
+	if (comp_data->dtend)
+		g_free (comp_data->dtend);
+	if (comp_data->due)
+		g_free (comp_data->due);
+	if (comp_data->completed)
+		g_free (comp_data->completed);
+
+	g_free (comp_data);
 }

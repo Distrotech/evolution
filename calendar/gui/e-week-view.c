@@ -1763,7 +1763,10 @@ e_week_view_update_event_cb (EWeekView *week_view,
 
 	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
 
+	if (event->allocated_comp_data)
+		e_cal_model_free_component_data (event->comp_data);
 	event->comp_data = comp_data;
+	event->allocated_comp_data = FALSE;
 
 	for (span_num = 0; span_num < event->num_spans; span_num++) {
 		span = &g_array_index (week_view->spans, EWeekViewEventSpan,
@@ -1843,6 +1846,11 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 			gtk_object_destroy (GTK_OBJECT (span->background_item));
 			span->background_item = NULL;
 		}
+	}
+
+	if (event->allocated_comp_data) {
+		e_cal_model_free_component_data (event->comp_data);
+		event->allocated_comp_data = FALSE;
 	}
 
 	g_array_remove_index (week_view->events, event_num);
@@ -2199,6 +2207,8 @@ e_week_view_free_events (EWeekView *week_view)
 	for (event_num = 0; event_num < week_view->events->len; event_num++) {
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
+		if (event->allocated_comp_data)
+			e_cal_model_free_component_data (event->comp_data);
 	}
 
 	g_array_set_size (week_view->events, 0);
@@ -2264,7 +2274,17 @@ e_week_view_add_event (CalComponent *comp,
 	end_tt = icaltime_from_timet_with_zone (end, FALSE,
 						e_cal_view_get_timezone (E_CAL_VIEW (add_event_data->week_view)));
 
-	event.comp_data = add_event_data->comp_data;
+	if (add_event_data->comp_data) {
+		event.comp_data = add_event_data->comp_data;
+		event.allocated_comp_data = FALSE;
+	} else {
+		event.comp_data = g_new0 (ECalModelComponent, 1);
+		event.allocated_comp_data = TRUE;
+
+		event.comp_data->client = e_cal_model_get_default_client (e_cal_view_get_model (E_CAL_VIEW (add_event_data->week_view)));
+		cal_component_commit_sequence (comp);
+		event.comp_data->icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
+	}
 	event.start = start;
 	event.end = end;
 	event.spans_index = 0;
@@ -2278,8 +2298,7 @@ e_week_view_add_event (CalComponent *comp,
 	event.different_timezone = FALSE;
 	if (!cal_comp_util_compare_event_timezones (
 		    comp,
-		    event.comp_data ? event.comp_data->client
-		    : e_cal_model_get_default_client (e_cal_view_get_model (E_CAL_VIEW (add_event_data->week_view))),
+		    event.comp_data->client,
 		    e_cal_view_get_timezone (E_CAL_VIEW (add_event_data->week_view))))
 		event.different_timezone = TRUE;
 
@@ -3214,6 +3233,8 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 
 	/* Add a new event covering the selected range. */
 	icalcomp = e_cal_model_create_component_with_defaults (e_cal_view_get_model (E_CAL_VIEW (week_view)));
+	uid = icalcomponent_get_uid (icalcomp);
+
 	comp = cal_component_new ();
 	cal_component_set_icalcomponent (comp, icalcomp);
 
@@ -3244,7 +3265,6 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	e_week_view_check_layout (week_view);
 	gtk_widget_queue_draw (week_view->main_canvas);
 
-	cal_component_get_uid (comp, &uid);
 	if (e_week_view_find_event_from_uid (week_view, uid, &event_num)) {
 		e_week_view_start_editing_event (week_view, event_num, 0,
 						 initial_text);

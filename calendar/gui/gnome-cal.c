@@ -1012,20 +1012,29 @@ gnome_calendar_destroy (GtkObject *object)
 	priv = gcal->priv;
 
 	if (priv) {
+		GList *l, *client_list;
+
 		free_categories (priv->cal_categories);
 		priv->cal_categories = NULL;
 
 		free_categories (priv->tasks_categories);
 		priv->tasks_categories = NULL;
 
+		/* disconnect from signals on all the clients */
+		client_list = e_cal_model_get_client_list (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)));
+		for (l = client_list; l != NULL; l = l->next) {
+			g_signal_handlers_disconnect_matched ((CalClient *) l->data, G_SIGNAL_MATCH_DATA,
+							      0, 0, NULL, NULL, gcal);
+		}
+
+		g_list_free (client_list);
+		
 		/* Save the TaskPad layout. */
 		filename = g_strdup_printf ("%s/config/TaskPad", evolution_dir);
 		e_calendar_table_save_state (E_CALENDAR_TABLE (priv->todo), filename);
 		g_free (filename);
 
 		if (priv->dn_queries) {
-			GList *l;
-
 			for (l = priv->dn_queries; l != NULL; l = l->next) {
 				g_signal_handlers_disconnect_matched ((CalQuery *) l->data, G_SIGNAL_MATCH_DATA,
 								      0, 0, NULL, NULL, gcal);
@@ -2094,11 +2103,8 @@ gboolean
 gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 {
 	GnomeCalendarPrivate *priv;
-	char *tasks_uri;
 	gboolean success;
-	EUri *uri;
 	char *message;
-	char *real_uri;
 	char *urinopwd;
 	CalClient *client;
 
@@ -2112,13 +2118,7 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 		cal_client_get_load_state (priv->task_pad_client) == CAL_CLIENT_LOAD_NOT_LOADED,
 		FALSE);
 
-	uri = e_uri_new (str_uri);
-	if (!uri || !g_strncasecmp (uri->protocol, "file", 4))
-		real_uri = g_concat_dir_and_file (str_uri, "calendar.ics");
-	else
-		real_uri = g_strdup (str_uri);
-
-	urinopwd = get_uri_without_password (real_uri);
+	urinopwd = get_uri_without_password (str_uri);
 	message = g_strdup_printf (_("Opening calendar at %s"), urinopwd);
 	g_free (urinopwd);
 	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), message);
@@ -2130,46 +2130,18 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	g_signal_connect (G_OBJECT (client), "categories_changed", G_CALLBACK (client_categories_changed_cb), gcal);
 	g_signal_connect (G_OBJECT (client), "backend_died", G_CALLBACK (backend_died_cb), gcal);
 
-	if (!cal_client_open_calendar (client, real_uri, FALSE)) {
-		g_message ("gnome_calendar_open(): Could not issue the request to open the calendar folder");
-		g_free (real_uri);
+	if (!cal_client_open_calendar (client, str_uri, FALSE)) {
+		g_warning (G_STRLOC ": Could not issue the request to open the calendar folder");
 		g_object_unref (client);
-		e_uri_free (uri);
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 
 		return FALSE;
 	}
 
 	/* Open the appropriate Tasks folder to show in the TaskPad */
-
-	if (!uri) {
-		tasks_uri = g_strdup_printf ("%s/local/Tasks/tasks.ics", evolution_dir);
-		message = g_strdup_printf (_("Opening tasks at %s"), tasks_uri);
-		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), message);
-		g_free (message);
-
-		success = cal_client_open_calendar (priv->task_pad_client, tasks_uri, FALSE);
-		g_free (tasks_uri);
-	}
-	else {
-		if (!g_strncasecmp (uri->protocol, "file", 4)) {
-			tasks_uri = g_strdup_printf ("%s/local/Tasks/tasks.ics", evolution_dir);
-			message = g_strdup_printf (_("Opening tasks at %s"), tasks_uri);
-			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), message);
-			g_free (message);
-
-			success = cal_client_open_calendar (priv->task_pad_client, tasks_uri, FALSE);
-			g_free (tasks_uri);
-		}
-		else {
-			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
-							     _("Opening default tasks folder"));
-			success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
-		}
-	}
-
-	g_free (real_uri);
-	e_uri_free (uri);
+	e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
+					     _("Opening default tasks folder"));
+	success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
 
 	if (!success) {
 		g_message ("gnome_calendar_open(): Could not issue the request to open the tasks folder");
@@ -3156,6 +3128,7 @@ gnome_calendar_purge (GnomeCalendar *gcal, time_t older_than)
 		priv->exp_queries = g_list_append (priv->exp_queries, exp_query);
 	}
 
+	g_list_free (client_list);
 	g_free (sexp);
 	g_free (start);
 	g_free (end);
