@@ -1,3 +1,13 @@
+2003-09-12  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal.c (cal_notify_cal_address, cal_notify_alarm_email_address,
+	cal_notify_ldap_attribute, cal_notify_static_capability):
+	make sure we always notify listeners, regardless of whether the
+	string is empty or not.
+
+	* cal-client/cal-client.c (check_capability): guard against using
+	NULL strings with strstr.
+
 2003-09-12  JP Rosevear <jpr@ximian.com>
 
 	* cal-client/client-test.c (cal_opened_cb): listen for other query

@@ -1729,7 +1729,7 @@ check_capability (CalClient *client, const char *cap)
 
 	/* FIXME Check result */
 	load_static_capabilities (client);
-	if (strstr (priv->capabilities, cap))
+	if (priv->capabilities && strstr (priv->capabilities, cap))
 		return TRUE;
 	
 	return FALSE;

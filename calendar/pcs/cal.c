@@ -834,13 +834,12 @@ cal_notify_cal_address (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, co
 
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (IS_CAL (cal));
-	g_return_if_fail (address != NULL);
 
 	priv = cal->priv;
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyCalAddress (priv->listener, status, address, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyCalAddress (priv->listener, status, address ? address : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of cal address");
@@ -856,13 +855,12 @@ cal_notify_alarm_email_address (Cal *cal, GNOME_Evolution_Calendar_CallStatus st
 
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (IS_CAL (cal));
-	g_return_if_fail (address != NULL);
 
 	priv = cal->priv;
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyAlarmEmailAddress (priv->listener, status, address, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyAlarmEmailAddress (priv->listener, status, address ? address : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of alarm address");
@@ -878,13 +876,12 @@ cal_notify_ldap_attribute (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (IS_CAL (cal));
-	g_return_if_fail (attribute != NULL);
 
 	priv = cal->priv;
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyLDAPAttribute (priv->listener, status, attribute, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyLDAPAttribute (priv->listener, status, attribute ? attribute : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of ldap attribute");
@@ -900,13 +897,13 @@ cal_notify_static_capabilities (Cal *cal, GNOME_Evolution_Calendar_CallStatus st
 
 	g_return_if_fail (cal != NULL);
 	g_return_if_fail (IS_CAL (cal));
-	g_return_if_fail (capabilities != NULL);
 
 	priv = cal->priv;
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyStaticCapabilities (priv->listener, status, capabilities, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyStaticCapabilities (priv->listener, status,
+								    capabilities ? capabilities : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of static capabilities");
