@@ -44,6 +44,10 @@ void em_format_html_display_goto_anchor(EMFormatHTMLDisplay *efhd, const char *n
 
 void em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *strings);
 
+void em_format_html_display_zoom_in (EMFormatHTMLDisplay *efhd);
+void em_format_html_display_zoom_out (EMFormatHTMLDisplay *efhd);
+void em_format_html_display_zoom_reset (EMFormatHTMLDisplay *efhd);
+
 /* experimental */
 struct _EPopupExtension;
 void em_format_html_display_set_popup(EMFormatHTMLDisplay *, struct _EPopupExtension *);

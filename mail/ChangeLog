@@ -1,3 +1,10 @@
+2003-08-18  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format-html-display.c (em_format_html_display_zoom_in): New
+	method to zoom-in on the gtkhtml contents.
+	(em_format_html_display_zoom_out): Same but for zoom-out
+	(em_format_html_display_zoom_reset): You get the idea.
+
 2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* mail-callbacks.c (invert_selection): Use

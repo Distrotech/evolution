@@ -294,6 +294,25 @@ em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *s
 	em_format_format_clone((EMFormat *)efhd, ((EMFormat *)efhd)->message, (EMFormat *)efhd);
 }
 
+
+void
+em_format_html_display_zoom_in (EMFormatHTMLDisplay *efhd)
+{
+	gtk_html_zoom_in (((EMFormatHTML *) efhd)->html);
+}
+
+void
+em_format_html_display_zoom_out (EMFormatHTMLDisplay *efhd)
+{
+	gtk_html_zoom_out (((EMFormatHTML *) efhd)->html);
+}
+
+void
+em_format_html_display_zoom_reset (EMFormatHTMLDisplay *efhd)
+{
+	gtk_html_zoom_reset (((EMFormatHTML *) efhd)->html);
+}
+
 /* ********************************************************************** */
 
 static void
