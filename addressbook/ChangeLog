@@ -1,3 +1,14 @@
+2004-11-16  Not Zed  <NotZed@Ximian.com>
+
+	* util/Makefile.am (libeabutil_la_LIBADD): remove camel, add
+	ADDRESSBOOK_LIBS.
+
+	* conduit/Makefile.am (libeaddress_conduit_la_LIBADD): remove
+	camel.
+
+	* gui/component/Makefile.am (libevolution_addressbook_la_LIBADD):
+	remove camel.
+
 2004-11-15  Not Zed  <NotZed@Ximian.com>
 
 	* *.c: Moved various things from e-util to libedataserver, where
