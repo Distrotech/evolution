@@ -313,8 +313,6 @@ e_week_view_init (EWeekView *week_view)
 
 	week_view->main_gc = NULL;
 
-	week_view->default_category = NULL;
-
 	/* Create the small font. */
 	week_view->use_small_font = TRUE;
 
@@ -459,11 +457,6 @@ e_week_view_destroy (GtkObject *object)
 	if (week_view->small_font_desc) {
 		pango_font_description_free (week_view->small_font_desc);
 		week_view->small_font_desc = NULL;
-	}
-
-	if (week_view->default_category) {
-		g_free (week_view->default_category);
-		week_view->default_category = NULL;
 	}
 
 	if (week_view->normal_cursor) {
@@ -1215,27 +1208,6 @@ e_week_view_draw_shadow (EWeekView *week_view)
 	gdk_draw_line (window, light_gc, x2, y1, x2, y2);
 	gdk_draw_line (window, light_gc, x1, y2, x2, y2);
 }
-
-/**
- * e_week_view_set_default_category:
- * @week_view: A week view.
- * @category: Default category name or NULL for no category.
- *
- * Sets the default category that will be used when creating new calendar
- * components from the week view.
- **/
-void
-e_week_view_set_default_category (EWeekView *week_view, const char *category)
-{
-	g_return_if_fail (week_view != NULL);
-	g_return_if_fail (E_IS_WEEK_VIEW (week_view));
-
-	if (week_view->default_category)
-		g_free (week_view->default_category);
-
-	week_view->default_category = g_strdup (category);
-}
-
 
 /* This sets the selected time range. The EWeekView will show the corresponding
    month and the days between start_time and end_time will be selected.
@@ -3320,7 +3292,8 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 						     e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
 	cal_component_set_dtend (comp, &date);
 
-	cal_component_set_categories (comp, week_view->default_category);
+	cal_component_set_categories (
+		comp, e_cal_view_get_default_category (E_CAL_VIEW (week_view)));
 
 	/* We add the event locally and start editing it. We don't send it
 	   to the server until the user finishes editing it. */

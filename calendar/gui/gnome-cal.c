@@ -684,6 +684,7 @@ gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp)
 {
 	GnomeCalendarPrivate *priv;
 	ECalModel *model;
+	int i;
 
 	g_return_if_fail (gcal != NULL);
 	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
@@ -701,10 +702,8 @@ gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp)
 	update_query (gcal);
 
 	/* Set the query on the views */
-	adjust_query_for_view (E_CAL_VIEW (priv->day_view), sexp);
-	adjust_query_for_view (E_CAL_VIEW (priv->work_week_view), sexp);
-	adjust_query_for_view (E_CAL_VIEW (priv->week_view), sexp);
-	adjust_query_for_view (E_CAL_VIEW (priv->month_view), sexp);
+	for (i = 0; i < GNOME_CAL_LAST_VIEW; i++)
+		adjust_query_for_view (E_CAL_VIEW (priv->views[i]), sexp);
 
 	/* Set the query on the task pad */
 	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));
@@ -748,14 +747,15 @@ search_bar_category_changed_cb (CalSearchBar *cal_search, const char *category, 
 	GnomeCalendar *gcal;
 	GnomeCalendarPrivate *priv;
 	ECalModel *model;
+	int i;
 
 	gcal = GNOME_CALENDAR (data);
 	priv = gcal->priv;
 
-	e_day_view_set_default_category (E_DAY_VIEW (priv->day_view), category);
-	e_day_view_set_default_category (E_DAY_VIEW (priv->work_week_view), category);
-	e_week_view_set_default_category (E_WEEK_VIEW (priv->week_view), category);
-	e_week_view_set_default_category (E_WEEK_VIEW (priv->month_view), category);
+	for (i = 0; i < GNOME_CAL_LAST_VIEW; i++) {
+		e_cal_view_set_default_category (E_CAL_VIEW (priv->views[i]),
+						 category);
+	}
 
 	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));
 	e_cal_model_set_default_category (model, category);
@@ -2053,7 +2053,8 @@ gnome_calendar_get_calendar_model (GnomeCalendar *gcal)
 
 	priv = gcal->priv;
 
-	return e_cal_view_get_model (E_CAL_VIEW (priv->week_view));
+	return e_cal_view_get_model (
+		gnome_calendar_get_current_view_widget (gcal));
 }
 
 /**
@@ -2078,12 +2079,15 @@ gnome_calendar_get_default_client (GnomeCalendar *gcal)
 void
 gnome_calendar_set_default_client (GnomeCalendar *gcal, CalClient *client)
 {
+	int i;
+
 	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
 
-	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->day_view)), client);
-	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->work_week_view)), client);
-	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->week_view)), client);
-	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->month_view)), client);
+	for (i = 0; i < GNOME_CAL_LAST_VIEW; i++) {
+		e_cal_model_set_default_client (
+			e_cal_view_get_model (E_CAL_VIEW (gcal->priv->views[i])),
+			client);
+	}
 }
 
 /**
@@ -2158,7 +2162,6 @@ gboolean
 gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 {
 	GnomeCalendarPrivate *priv;
-	gboolean success;
 	CalClient *client;
 	int i;
 	
@@ -2191,19 +2194,6 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 		
 		model = e_cal_view_get_model (priv->views[i]);
 		e_cal_model_add_client (model, client);
-	}
-
-	if (g_hash_table_size (priv->clients) < 1) {
-		/* Open the appropriate Tasks folder to show in the TaskPad */
-		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
-						     _("Opening default tasks folder"));
-		success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
-
-		if (!success) {
-			g_message (G_STRLOC ": Could not issue the request to open the tasks folder");
-			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), NULL);
-			return FALSE;
-		}
 	}
 
 	/* update date navigator query */

@@ -453,9 +453,6 @@ struct _EDayView
 	gint am_string_width;
 	gint pm_string_width;
 
-	/* The default category for new events */
-	char *default_category;
-
 	/* The activity client used to show messages on the status bar. */
 	EvolutionActivityClient *activity;
 };
@@ -471,9 +468,6 @@ GtkWidget* e_day_view_new			(void);
 
 void       e_day_view_set_query			(EDayView	*day_view,
 						 const char	*sexp);
-
-void       e_day_view_set_default_category	(EDayView	*day_view,
-						 const char	*category);
 
 /* Whether we are displaying a work-week, in which case the display always
    starts on the first day of the working week. */

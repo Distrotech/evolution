@@ -593,8 +593,6 @@ e_day_view_init (EDayView *day_view)
 
 	day_view->auto_scroll_timeout_id = 0;
 
-	day_view->default_category = NULL;
-
 	day_view->large_font_desc = NULL;
 
 	/* String to use in 12-hour time format for times in the morning. */
@@ -885,12 +883,6 @@ e_day_view_destroy (GtkObject *object)
 		day_view->large_font_desc = NULL;
 	}
 
-	if (day_view->default_category) {
-		g_free (day_view->default_category);
-		day_view->default_category = NULL;
-	}
-
-	
 	if (day_view->normal_cursor) {
 		gdk_cursor_unref (day_view->normal_cursor);
 		day_view->normal_cursor = NULL;
@@ -1431,26 +1423,6 @@ e_day_view_focus_out (GtkWidget *widget, GdkEventFocus *event)
 	gtk_widget_queue_draw (day_view->main_canvas);
 
 	return FALSE;
-}
-
-/**
- * e_day_view_set_default_category:
- * @day_view: A day view.
- * @category: Default category name or NULL for no category.
- * 
- * Sets the default category that will be used when creating new calendar
- * components from the day view.
- **/
-void
-e_day_view_set_default_category (EDayView *day_view, const char *category)
-{
-	g_return_if_fail (day_view != NULL);
-	g_return_if_fail (E_IS_DAY_VIEW (day_view));
-
-	if (day_view->default_category)
-		g_free (day_view->default_category);
-
-	day_view->default_category = g_strdup (category);
 }
 
 static gboolean
@@ -4742,7 +4714,8 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	cal_component_set_dtstart (comp, &start_dt);
 	cal_component_set_dtend (comp, &end_dt);
 
-	cal_component_set_categories (comp, day_view->default_category);
+	cal_component_set_categories (
+		comp, e_cal_view_get_default_category (E_CAL_VIEW (day_view)));
 
 	/* We add the event locally and start editing it. We don't send it
 	   to the server until the user finishes editing it. */

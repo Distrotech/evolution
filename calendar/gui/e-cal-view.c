@@ -70,6 +70,9 @@ struct _ECalViewPrivate {
 
 	/* The timezone. */
 	icaltimezone *zone;
+
+	/* The default category */
+	char *default_category;
 };
 
 static void e_cal_view_class_init (ECalViewClass *klass);
@@ -435,6 +438,11 @@ e_cal_view_destroy (GtkObject *object)
 			cal_view->priv->clipboard_selection = NULL;
 		}
 
+		if (cal_view->priv->default_category) {
+			g_free (cal_view->priv->default_category);
+			cal_view->priv->default_category = NULL;
+		}
+
 		g_free (cal_view->priv);
 		cal_view->priv = NULL;
 	}
@@ -513,6 +521,32 @@ e_cal_view_set_timezone (ECalView *cal_view, icaltimezone *zone)
 	cal_view->priv->zone = zone;
 	g_signal_emit (G_OBJECT (cal_view), e_cal_view_signals[TIMEZONE_CHANGED], 0,
 		       old_zone, cal_view->priv->zone);
+}
+
+const char *
+e_cal_view_get_default_category (ECalView *cal_view)
+{
+	g_return_val_if_fail (E_IS_CAL_VIEW (cal_view), NULL);
+	return (const char *) cal_view->priv->default_category;
+}
+
+/**
+ * e_cal_view_set_default_category
+ * @cal_view: A calendar view.
+ * @category: Default category name or NULL for no category.
+ *
+ * Sets the default category that will be used when creating new calendar
+ * components from the given calendar view.
+ */
+void
+e_cal_view_set_default_category (ECalView *cal_view, const char *category)
+{
+	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
+
+	if (cal_view->priv->default_category)
+		g_free (cal_view->priv->default_category);
+
+	cal_view->priv->default_category = g_strdup (category);
 }
 
 void

@@ -1,3 +1,27 @@
+2003-10-17  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-view.[ch] (e_cal_view_get_default_category):
+	(e_cal_view_set_default_category): new functions.
+	(e_cal_view_destroy): free the default_category field.
+
+	* gui/e-day-view.[ch] (e_day_view_set_default_category):
+	removed obsolete function.
+	(e_day_view_init, e_day_view_destroy, e_day_view_do_key_press):
+	use the ECalView's default_category.
+
+	* gui/e-week-view.[ch] (e_week_view_set_default_category):
+	removed obsolete function.
+	(e_week_view_init, e_week_view_destroy, e_week_view_do_key_press):
+	use the ECalView's default_category.
+
+	* gui/gnome-cal.c (gnome_calendar_set_query): set the query
+	also on the list view by using the priv->views array.
+	(search_bar_category_changed_cb, gnome_calendar_set_default_client):
+	use the priv->views array.
+	(gnome_calendar_get_calendar_model): return the model for the
+	current view widget.
+	(gnome_calendar_open): removed tasks opening code.
+
 2003-10-16  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/dialogs/new-calendar.c (new_calendar_dialog): if the user
