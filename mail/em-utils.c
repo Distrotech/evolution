@@ -2154,16 +2154,8 @@ em_utils_quote_message (CamelMimeMessage *message, const char *credits)
 }
 
 
-/**
- * em_utils_confirm_expunge:
- * @parent: parent window
- *
- * Confirm that the user wishes to expunge.
- *
- * Returns %TRUE if the user really means it or %FALSE otherwise.
- **/
-gboolean
-em_utils_confirm_expunge (GtkWidget *parent)
+static gboolean
+confirm_expunge (GtkWidget *parent)
 {
 	gboolean res, show_again;
 	GConfClient *gconf;
@@ -2187,6 +2179,23 @@ em_utils_confirm_expunge (GtkWidget *parent)
 
 
 /**
+ * em_utils_expunge_folder:
+ * @parent: parent window
+ * @folder: folder to expunge
+ *
+ * Expunges @folder.
+ **/
+void
+em_utils_expunge_folder (GtkWidget *parent, CamelFolder *folder)
+{
+	if (!confirm_expunge (parent))
+		return;
+	
+	mail_empty_trash (folder, NULL, NULL);
+}
+
+
+/**
  * em_utils_empty_trash:
  * @parent: parent window
  *
@@ -2202,7 +2211,7 @@ em_utils_empty_trash (GtkWidget *parent)
 	EIterator *iter;
 	CamelException ex;
 	
-	if (!em_utils_confirm_expunge (parent))
+	if (!confirm_expunge (parent))
 		return;
 	
 	camel_exception_init (&ex);

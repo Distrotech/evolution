@@ -104,8 +104,7 @@ void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 char *em_utils_quote_message (struct _CamelMimeMessage *message, const char *credits);
 
 
-gboolean em_utils_confirm_expunge (struct _GtkWidget *parent);
-
+void em_utils_expunge_folder (struct _GtkWidget *parent, struct _CamelFolder *folder);
 void em_utils_empty_trash (struct _GtkWidget *parent);
 
 #ifdef __cplusplus

@@ -440,11 +440,7 @@ emfb_folder_expunge(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
 	
-	if (!em_utils_confirm_expunge ((GtkWidget *) emfb))
-		return;
-	
-	/* TODO: The old code did a LOT more than this, but was it reqiured? */
-	mail_expunge_folder(emfb->view.folder, NULL, NULL);
+	em_utils_expunge_folder ((GtkWidget *) emfb, emfb->view.folder);
 }
 
 static void

@@ -1,5 +1,13 @@
 2003-09-04  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-folder-browser.c (emfb_folder_expunge): Call
+	em_utils_expunge_folder instead.
+
+	* em-utils.c (em_utils_expunge_folder): New function.
+	(confirm_expunge): Make private.
+
+2003-09-04  Jeffrey Stedfast  <fejj@ximian.com>
+
 	* em-folder-browser.c (emfb_folder_expunge): Confirm hat the user
 	wants to expunge.
 	(emfb_empty_trash): Implemented.
