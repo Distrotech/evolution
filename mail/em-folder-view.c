@@ -31,6 +31,10 @@
 #include <gtk/gtkbutton.h>
 #include <gtk/gtkvpaned.h>
 
+#include <gtkhtml/gtkhtml.h>
+
+#include <libgnome/gnome-url.h>
+
 #include <libgnomeprintui/gnome-print-dialog.h>
 
 #include <camel/camel-mime-message.h>
@@ -1126,7 +1130,24 @@ emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv)
 static void
 emfv_format_link_clicked(EMFormatHTMLDisplay *efhd, const char *uri, EMFolderView *emfv)
 {
-	printf("Link clicked: %s\n", uri);
+	if (!strncasecmp (uri, "mailto:", 7)) {
+		em_utils_compose_new_message_with_mailto ((GtkWidget *) efhd, uri);
+	} else if (*uri == '#') {
+		gtk_html_jump_to_anchor (((EMFormatHTML *) efhd)->html, uri + 1);
+	} else if (!strncasecmp (uri, "thismessage:", 12)) {
+		/* ignore */
+	} else if (!strncasecmp (uri, "cid:", 4)) {
+		/* ignore */
+	} else {
+		GError *err = NULL;
+		
+		gnome_url_show (uri, &err);
+		
+		if (err) {
+			g_warning ("gnome_url_show: %s", err->message);
+			g_error_free (err);
+		}
+	}
 }
 
 static int

@@ -5,6 +5,7 @@
 	currently registered.
 	(emfv_list_done_message_selected): Add the mark-as-seen timeout
 	functionality here.
+	(emfv_format_link_clicked): Implemented.
 
 2003-08-27  Jeffrey Stedfast  <fejj@ximian.com>
 
