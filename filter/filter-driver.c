@@ -1,7 +1,9 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  *  Copyright (C) 2000 Helix Code Inc.
  *
  *  Authors: Michael Zucchi <notzed@helixcode.com>
+ *           Jeffrey Stedfast <fejj@helixcode.com>
  *
  *  This program is free software; you can redistribute it and/or 
  *  modify it under the terms of the GNU General Public License as 
@@ -36,6 +38,19 @@
 
 #include <camel/camel.h>
 
+/* mail-thread filter input data type */
+typedef struct {
+	FilterDriver *driver;
+	CamelFolder *source;
+	CamelFolder *inbox;
+} filter_mail_input_t;
+
+/* mail-thread filter functions */
+static void setup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex);
+
+
 struct _FilterDriverPrivate {
 	GList *rules, *options;
 	GHashTable *globals;	/* global variables */
@@ -62,13 +77,13 @@ static void filter_driver_class_init (FilterDriverClass *klass);
 static void filter_driver_init       (FilterDriver *obj);
 static void filter_driver_finalise   (GtkObject *obj);
 
-static CamelFolder *open_folder(FilterDriver *d, const char *folder_url);
-static int close_folders(FilterDriver *d);
+static CamelFolder *open_folder (FilterDriver *d, const char *folder_url);
+static int close_folders (FilterDriver *d);
 
-static ESExpResult *do_delete(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
-static ESExpResult *mark_forward(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
-static ESExpResult *mark_copy(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
-static ESExpResult *do_stop(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
+static ESExpResult *do_delete (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
+static ESExpResult *mark_forward (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
+static ESExpResult *mark_copy (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
+static ESExpResult *do_stop (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *);
 
 static struct {
 	char *name;
@@ -130,46 +145,46 @@ filter_driver_init (FilterDriver *obj)
 	struct _FilterDriverPrivate *p;
 	int i;
 
-	p = _PRIVATE(obj) = g_malloc0(sizeof(*p));
+	p = _PRIVATE (obj) = g_malloc0 (sizeof (*p));
 
-	p->eval = e_sexp_new();
+	p->eval = e_sexp_new ();
 	/* Load in builtin symbols */
-	for(i=0;i<sizeof(symbols)/sizeof(symbols[0]);i++) {
+	for (i = 0; i < sizeof (symbols) / sizeof (symbols[0]); i++) {
 		if (symbols[i].type == 1) {
-			e_sexp_add_ifunction(p->eval, 0, symbols[i].name, (ESExpIFunc *)symbols[i].func, obj);
+			e_sexp_add_ifunction (p->eval, 0, symbols[i].name, (ESExpIFunc *)symbols[i].func, obj);
 		} else {
-			e_sexp_add_function(p->eval, 0, symbols[i].name, symbols[i].func, obj);
+			e_sexp_add_function (p->eval, 0, symbols[i].name, symbols[i].func, obj);
 		}
 	}
 
-	p->globals = g_hash_table_new(g_str_hash, g_str_equal);
+	p->globals = g_hash_table_new (g_str_hash, g_str_equal);
 
 	p->ex = camel_exception_new ();
 }
 
 static void
-free_hash_strings(void *key, void *value, void *data)
+free_hash_strings (void *key, void *value, void *data)
 {
-	g_free(key);
-	g_free(value);
+	g_free (key);
+	g_free (value);
 }
 
 static void
 filter_driver_finalise (GtkObject *obj)
 {
-	FilterDriver *d = (FilterDriver *)obj;
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	FilterDriver *d = (FilterDriver *) obj;
+	struct _FilterDriverPrivate *p = _PRIVATE (d);
 
-	g_hash_table_foreach(p->globals, free_hash_strings, d);
-	g_hash_table_destroy(p->globals);
+	g_hash_table_foreach (p->globals, free_hash_strings, d);
+	g_hash_table_destroy (p->globals);
 
-	gtk_object_unref((GtkObject *)p->eval);
+	gtk_object_unref (GTK_OBJECT (p->eval));
 
-	camel_exception_free(p->ex);
+	camel_exception_free (p->ex);
 	
-	g_free(p);
+	g_free (p);
 
-	((GtkObjectClass *)(filter_driver_parent))->finalize((GtkObject *)obj);
+	((GtkObjectClass *)(filter_driver_parent))->finalize (GTK_OBJECT (obj));
 }
 
 /**
@@ -190,19 +205,19 @@ filter_driver_new (const char *system, const char *user, FilterFolderFetcher fet
 	xmlDocPtr desc, filt;
 
 	new = FILTER_DRIVER (gtk_type_new (filter_driver_get_type ()));
-	p = _PRIVATE(new);
+	p = _PRIVATE (new);
 
 	p->fetcher = fetcher;
 
 #warning "fix leaks, free xml docs here"
-	desc = xmlParseFile(system);
-	p->rules = filter_load_ruleset(desc);
+	desc = xmlParseFile (system);
+	p->rules = filter_load_ruleset (desc);
 
-	filt = xmlParseFile(user);
+	filt = xmlParseFile (user);
 	if (filt == NULL)
 		p->options = NULL;
 	else
-		p->options = filter_load_optionset(filt, p->rules);
+		p->options = filter_load_optionset (filt, p->rules);
 
 	return new;
 }
@@ -210,14 +225,14 @@ filter_driver_new (const char *system, const char *user, FilterFolderFetcher fet
 
 void filter_driver_set_global(FilterDriver *d, const char *name, const char *value)
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	struct _FilterDriverPrivate *p = _PRIVATE (d);
 	char *oldkey, *oldvalue;
 
-	if (g_hash_table_lookup_extended(p->globals, name, (void *)&oldkey, (void *)&oldvalue)) {
-		g_free(oldvalue);
-		g_hash_table_insert(p->globals, oldkey, g_strdup(value));
+	if (g_hash_table_lookup_extended (p->globals, name, (void *)&oldkey, (void *)&oldvalue)) {
+		g_free (oldvalue);
+		g_hash_table_insert (p->globals, oldkey, g_strdup (value));
 	} else {
-		g_hash_table_insert(p->globals, g_strdup(name), g_strdup(value));
+		g_hash_table_insert (p->globals, g_strdup (name), g_strdup (value));
 	}
 }
 
@@ -237,57 +252,57 @@ extern int filter_find_arg(FilterArg *a, char *name);
   splices ${cc} lines into a single string
 */
 static int
-expand_variables(GString *out, char *source, GList *args, GHashTable *globals)
+expand_variables (GString *out, char *source, GList *args, GHashTable *globals)
 {
 	GList *argl;
 	FilterArg *arg;
-	char *name= alloca(32);
+	char *name = alloca(32);
 	char *start, *end, *newstart, *tmp, *val;
-	int namelen=32;
-	int len=0;
+	int namelen = 32;
+	int len = 0;
 	int ok = 0;
 
 	start = source;
-	while ( (newstart = strstr(start, "${"))
-		&& (end = strstr(newstart+2, "}")) ) {
+	while ((newstart = strstr (start, "${"))
+		&& (end = strstr (newstart + 2, "}"))) {
 		len = end-newstart-2;
-		if (len+1>namelen) {
-			namelen = (len+1)*2;
-			name = alloca(namelen);
+		if (len + 1 > namelen) {
+			namelen = (len + 1) * 2;
+			name = alloca (namelen);
 		}
-		memcpy(name, newstart+2, len);
+		memcpy (name, newstart + 2, len);
 		name[len] = 0;
-		argl = g_list_find_custom(args, name, (GCompareFunc) filter_find_arg);
+		argl = g_list_find_custom (args, name, (GCompareFunc) filter_find_arg);
 		if (argl) {
 			int i, count;
 
-			tmp = g_strdup_printf("%.*s", newstart-start, start);
-			g_string_append(out, tmp);
-			g_free(tmp);
+			tmp = g_strdup_printf ("%.*s", newstart - start, start);
+			g_string_append (out, tmp);
+			g_free (tmp);
 
 			arg = argl->data;
-			count = filter_arg_get_count(arg);
-			for (i=0;i<count;i++) {
-				g_string_append(out, " \"");
-				g_string_append(out, filter_arg_get_value_as_string(arg, i));
-				g_string_append(out, "\"");
+			count = filter_arg_get_count (arg);
+			for (i = 0; i < count; i++) {
+				g_string_append (out, " \"");
+				g_string_append (out, filter_arg_get_value_as_string (arg, i));
+				g_string_append (out, "\"");
 			}
-		} else if ( (val = g_hash_table_lookup(globals, name)) ) {
-			tmp = g_strdup_printf("%.*s", newstart-start, start);
-			g_string_append(out, tmp);
-			g_free(tmp);
-			g_string_append(out, " \"");
-			g_string_append(out, val);
-			g_string_append(out, "\"");
+		} else if ((val = g_hash_table_lookup (globals, name))) {
+			tmp = g_strdup_printf ("%.*s", newstart - start, start);
+			g_string_append (out, tmp);
+			g_free (tmp);
+			g_string_append (out, " \"");
+			g_string_append (out, val);
+			g_string_append (out, "\"");
 		} else {
 			ok = 1;
-			tmp = g_strdup_printf("%.*s", end-start+1, start);
-			g_string_append(out, tmp);
-			g_free(tmp);
+			tmp = g_strdup_printf ("%.*s", end-start + 1, start);
+			g_string_append (out, tmp);
+			g_free (tmp);
 		}
-		start = end+1;
+		start = end + 1;
 	}
-	g_string_append(out, start);
+	g_string_append (out, start);
 
 	return ok;
 }
@@ -296,14 +311,14 @@ expand_variables(GString *out, char *source, GList *args, GHashTable *globals)
   build an expression for the filter
 */
 void
-filter_driver_expand_option(FilterDriver *d, GString *s, GString *action, struct filter_option *op)
+filter_driver_expand_option (FilterDriver *driver, GString *s, GString *action, struct filter_option *op)
 {
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 	GList *optionl;
 	FilterArg *arg;
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
 
 	if (s) {
-		g_string_append(s, "(and ");
+		g_string_append (s, "(and ");
 		optionl = op->options;
 		while (optionl) {
 			struct filter_optionrule *or = optionl->data;
@@ -311,40 +326,40 @@ filter_driver_expand_option(FilterDriver *d, GString *s, GString *action, struct
 			    || or->rule->type == FILTER_XML_EXCEPT) {
 				if (or->args)
 					arg = or->args->data;
-				expand_variables(s, or->rule->code, or->args, p->globals);
+				expand_variables (s, or->rule->code, or->args, p->globals);
 			}
-			optionl = g_list_next(optionl);
+			optionl = g_list_next (optionl);
 		}
 
-		g_string_append(s, ")");
+		g_string_append (s, ")");
 	}
 
 	if (action) {
-		g_string_append(action, "(begin ");
+		g_string_append (action, "(begin ");
 		optionl = op->options;
 		while (optionl) {
 			struct filter_optionrule *or = optionl->data;
 			if (or->rule->type == FILTER_XML_ACTION) {
-				expand_variables(action, or->rule->code, or->args, p->globals);
-				g_string_append(action, " ");
+				expand_variables (action, or->rule->code, or->args, p->globals);
+				g_string_append (action, " ");
 			}
-			optionl = g_list_next(optionl);
+			optionl = g_list_next (optionl);
 		}
-		g_string_append(action, ")");
+		g_string_append (action, ")");
 	}
 }
 
 static ESExpResult *
-do_delete(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *d)
+do_delete (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *driver)
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 	char *uid;
 	int i;
 
-	printf("doing delete\n");
+	printf ("doing delete\n");
 	for (i = 0; i < p->matches->len; i++) {
 		uid = p->matches->pdata[i];
-		printf(" %s\n", uid);
+		printf (" %s\n", uid);
 
 		camel_folder_delete_message (p->source, uid);
 	}
@@ -352,32 +367,32 @@ do_delete(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *
 }
 
 static ESExpResult *
-mark_forward(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *d)
+mark_forward (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *driver)
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 	int i;
 
-	printf("marking the following messages for forwarding:\n");
+	printf ("marking the following messages for forwarding:\n");
 	for (i = 0; i < p->matches->len; i++) {
-		printf(" %s\n", (char *)p->matches->pdata[i]);
+		printf (" %s\n", (char *)p->matches->pdata[i]);
 	}
 	return NULL;
 }
 
 static ESExpResult *
-mark_copy(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *d)
+mark_copy (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *driver)
 {
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 	int i, m;
 	char *uid;
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
 
-	printf("marking for copy\n");
+	printf ("marking for copy\n");
 	for (i = 0; i < argc; i++) {
 		if (argv[i]->type == ESEXP_RES_STRING) {
 			char *folder = argv[i]->value.string;
 			CamelFolder *outbox;
 
-			outbox = open_folder(d, folder);
+			outbox = open_folder (driver, folder);
 			if (outbox == NULL)
 				continue;
 
@@ -385,12 +400,12 @@ mark_copy(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *
 				gpointer old_key, old_value;
 
 				uid = p->matches->pdata[m];
-				printf(" %s\n", uid);
+				printf (" %s\n", uid);
 
-				if (g_hash_table_lookup_extended(p->copies, uid, &old_key, &old_value))
-					g_hash_table_insert(p->copies, old_key, g_list_prepend(old_value, outbox));
+				if (g_hash_table_lookup_extended (p->copies, uid, &old_key, &old_value))
+					g_hash_table_insert (p->copies, old_key, g_list_prepend (old_value, outbox));
 				else
-					g_hash_table_insert(p->copies, g_strdup(uid), g_list_append(NULL, outbox));
+					g_hash_table_insert (p->copies, g_strdup (uid), g_list_append (NULL, outbox));
 			}
 		}
 	}
@@ -399,92 +414,148 @@ mark_copy(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *
 }
 
 static ESExpResult *
-do_stop(struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *d)
+do_stop (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver *driver)
 {
-	int i;
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 	char *uid;
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	int i;
 
-	printf("doing stop on the following messages:\n");
+	printf ("doing stop on the following messages:\n");
 	for (i = 0; i < p->matches->len; i++) {
 		uid = p->matches->pdata[i];
-		printf(" %s\n", uid);
-		g_hash_table_insert(p->terminated, g_strdup(uid), (void *)1);
+		printf (" %s\n", uid);
+		g_hash_table_insert (p->terminated, g_strdup (uid), GINT_TO_POINTER (1));
 	}
 	return NULL;
 }
 
 static CamelFolder *
-open_folder(FilterDriver *d, const char *folder_url)
+open_folder (FilterDriver *driver, const char *folder_url)
 {
 	CamelFolder *camelfolder;
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 
 	/* we have a lookup table of currently open folders */
-	camelfolder = g_hash_table_lookup(p->folders, folder_url);
+	camelfolder = g_hash_table_lookup (p->folders, folder_url);
 	if (camelfolder)
 		return camelfolder;
 
-	camelfolder = p->fetcher(folder_url);
+	camelfolder = p->fetcher (folder_url);
 	if (camelfolder) {
-		g_hash_table_insert(p->folders, g_strdup(folder_url), camelfolder);
-		camel_folder_freeze(camelfolder);
+		g_hash_table_insert (p->folders, g_strdup (folder_url), camelfolder);
+		camel_folder_freeze (camelfolder);
 	}
 
 	return camelfolder;
 }
 
 static void
-close_folder(void *key, void *value, void *data)
+close_folder (void *key, void *value, void *data)
 {
-	CamelFolder *f = value;
-	FilterDriver *d = data;
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	CamelFolder *folder = value;
+	FilterDriver *driver = data;
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 
-	g_free(key);
-	camel_folder_sync(f, FALSE, p->ex);
-	camel_folder_thaw(f);
-	gtk_object_unref((GtkObject *)f);
+	g_free (key);
+	camel_folder_sync (folder, FALSE, p->ex);
+	camel_folder_thaw (folder);
+	gtk_object_unref (GTK_OBJECT (folder));
 }
 
 /* flush/close all folders */
 static int
-close_folders(FilterDriver *d)
+close_folders (FilterDriver *driver)
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 
-	g_hash_table_foreach(p->folders, close_folder, d);
-	g_hash_table_destroy(p->folders);
-	p->folders = g_hash_table_new(g_str_hash, g_str_equal);
+	g_hash_table_foreach (p->folders, close_folder, driver);
+	g_hash_table_destroy (p->folders);
+	p->folders = g_hash_table_new (g_str_hash, g_str_equal);
 
-	/* FIXME: status from d */
+	/* FIXME: status from driver */
 	return 0;
 }
 
 int
-filter_driver_rule_count(FilterDriver *d)
+filter_driver_rule_count (FilterDriver *driver)
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
-	return g_list_length(p->options);
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
+	return g_list_length (p->options);
 }
 
 struct filter_option *
-filter_driver_rule_get(FilterDriver *d, int n)
+filter_driver_rule_get (FilterDriver *driver, int n)
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
-	return g_list_nth_data(p->options, n);
+	struct _FilterDriverPrivate *p = _PRIVATE (driver);
+	return g_list_nth_data (p->options, n);
 }
 
 static void
 free_key (gpointer key, gpointer value, gpointer user_data)
 {
-	g_free(key);
+	g_free (key);
 }
 
-int
-filter_driver_run(FilterDriver *d, CamelFolder *source, CamelFolder *inbox)
+static const mail_operation_spec op_filter_mail =
 {
-	struct _FilterDriverPrivate *p = _PRIVATE(d);
+	"Filter email",
+	"Filtering email",
+	0,
+	setup_filter_mail,
+	do_filter_mail,
+	cleanup_filter_mail
+};
+
+int
+filter_driver_run (FilterDriver *d, CamelFolder *source, CamelFolder *inbox)
+{
+	filter_mail_input_t *input;
+
+	input = g_new (filter_mail_input_t, 1);
+	input->driver = d;
+	input->source = source;
+	input->inbox = inbox;
+
+	mail_operation_queue (&op_filter_mail, input, TRUE);
+
+	return 0;
+}
+
+static void
+setup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	filter_mail_input_t *input = (filter_mail_input_t *) in_data;
+
+	if (!input->driver) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "Bad filter driver passed to filter_mail");
+		return;
+	}
+
+	if (!CAMEL_IS_FOLDER (input->source)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "Bad source folder passed to filter_mail");
+		return;
+	}
+
+	if (!CAMEL_IS_FOLDER (input->inbox)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "Bad Inbox passed to filter_mail");
+		return;
+	}
+
+	camel_object_ref (CAMEL_OBJECT (input->source));
+	camel_object_ref (CAMEL_OBJECT (input->inbox));
+}
+
+static void
+do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	filter_mail_input_t *input = (filter_mail_input_t *) in_data;
+	FilterDriver *d = input->driver;
+	CamelFolder *source = input->source;
+	CamelFolder *inbox = input->inbox;
+	struct _FilterDriverPrivate *p = _PRIVATE (d);
 	ESExpResult *r;
 	GList *options;
 	GString *s, *a;
@@ -496,21 +567,21 @@ filter_driver_run(FilterDriver *d, CamelFolder *source, CamelFolder *inbox)
 	p->source = source;
 
 	/* setup runtime data */
-	p->folders = g_hash_table_new(g_str_hash, g_str_equal);
-	p->terminated = g_hash_table_new(g_str_hash, g_str_equal);
-	p->processed = g_hash_table_new(g_str_hash, g_str_equal);
-	p->copies = g_hash_table_new(g_str_hash, g_str_equal);
+	p->folders = g_hash_table_new (g_str_hash, g_str_equal);
+	p->terminated = g_hash_table_new (g_str_hash, g_str_equal);
+	p->processed = g_hash_table_new (g_str_hash, g_str_equal);
+	p->copies = g_hash_table_new (g_str_hash, g_str_equal);
 
-	camel_exception_init(p->ex);
-	camel_folder_freeze(inbox);
+	camel_exception_init (p->ex);
+	camel_folder_freeze (inbox);
 
 	options = p->options;
 	while (options) {
 		struct filter_option *fo = options->data;
 
-		s = g_string_new("");
-		a = g_string_new("");
-		filter_driver_expand_option(d, s, a, fo);
+		s = g_string_new ("");
+		a = g_string_new ("");
+		filter_driver_expand_option (d, s, a, fo);
 
 		p->matches = camel_folder_search_by_expression (p->source, s->str, p->ex);
 
@@ -519,73 +590,103 @@ filter_driver_run(FilterDriver *d, CamelFolder *source, CamelFolder *inbox)
 			uid = p->matches->pdata[i];
 
 			/* for all matching id's, so we can work out what to default */
-			if (g_hash_table_lookup(p->processed, uid) == NULL) {
-				g_hash_table_insert(p->processed, g_strdup(uid), (void *)1);
+			if (g_hash_table_lookup (p->processed, uid) == NULL) {
+				g_hash_table_insert (p->processed, g_strdup (uid), GINT_TO_POINTER (1));
 			}
 
-			if (g_hash_table_lookup(p->terminated, uid)) {
-				g_ptr_array_remove_index_fast(p->matches, i);
+			if (g_hash_table_lookup (p->terminated, uid)) {
+				g_ptr_array_remove_index_fast (p->matches, i);
 				i--;
 			}
 		}
 
-		e_sexp_input_text(p->eval, a->str, strlen(a->str));
-		e_sexp_parse(p->eval);
-		r = e_sexp_eval(p->eval);
-		e_sexp_result_free(r);
+		e_sexp_input_text (p->eval, a->str, strlen (a->str));
+		e_sexp_parse (p->eval);
+		r = e_sexp_eval (p->eval);
+		e_sexp_result_free (r);
 
-		g_string_free(s, TRUE);
-		g_string_free(a, TRUE);
+		g_string_free (s, TRUE);
+		g_string_free (a, TRUE);
 
-		g_strfreev((char **)p->matches->pdata);
-		g_ptr_array_free(p->matches, FALSE);
+		g_strfreev ((char **)p->matches->pdata);
+		g_ptr_array_free (p->matches, FALSE);
 		
-		options = g_list_next(options);
+		options = g_list_next (options);
 	}
 
 	/* Do any queued copies, and make sure everything is deleted from
 	 * the source. If we have an inbox, anything that didn't get
 	 * processed otherwise goes there.
 	 */
-	all = camel_folder_get_uids(p->source);
+	all = camel_folder_get_uids (p->source);
 	for (i = 0; i < all->len; i++) {
 		char *uid = all->pdata[i], *procuid;
 		GList *copies, *tmp;
 		CamelMimeMessage *mm;
 
-		copies = g_hash_table_lookup(p->copies, uid);
-		procuid = g_hash_table_lookup(p->processed, uid);
+		copies = g_hash_table_lookup (p->copies, uid);
+		procuid = g_hash_table_lookup (p->processed, uid);
 
 		if (copies || !procuid) {
-			mm = camel_folder_get_message(p->source, uid, p->ex);
+			mm = camel_folder_get_message (p->source, uid, p->ex);
 
 			while (copies) {
-				camel_folder_append_message(copies->data, mm, p->ex);
+				camel_folder_append_message (copies->data, mm, p->ex);
 				tmp = copies->next;
-				g_list_free_1(copies);
+				g_list_free_1 (copies);
 				copies = tmp;
 			}
 
 			if (!procuid) {
-				printf("Applying default rule to message %s\n", uid);
-				camel_folder_append_message(inbox, mm, p->ex);
+				printf ("Applying default rule to message %s\n", uid);
+				camel_folder_append_message (inbox, mm, p->ex);
 			}
 
-			gtk_object_unref((GtkObject *)mm);
+			gtk_object_unref (GTK_OBJECT (mm));
 		}
-		camel_folder_delete_message(p->source, uid);
+		camel_folder_delete_message (p->source, uid);
 	}
-	camel_folder_free_uids(p->source, all);
+	camel_folder_free_uids (p->source, all);
 
-	g_hash_table_foreach(p->copies, free_key, NULL);
-	g_hash_table_destroy(p->copies);
-	g_hash_table_foreach(p->processed, free_key, NULL);
-	g_hash_table_destroy(p->processed);
-	g_hash_table_foreach(p->terminated, free_key, NULL);
-	g_hash_table_destroy(p->terminated);
-	close_folders(d);
-	g_hash_table_destroy(p->folders);
-	camel_folder_thaw(inbox);
-
-	return 0;
+	g_hash_table_foreach (p->copies, free_key, NULL);
+	g_hash_table_destroy (p->copies);
+	g_hash_table_foreach (p->processed, free_key, NULL);
+	g_hash_table_destroy (p->processed);
+	g_hash_table_foreach (p->terminated, free_key, NULL);
+	g_hash_table_destroy (p->terminated);
+	close_folders (d);
+	g_hash_table_destroy (p->folders);
+	camel_folder_thaw (inbox);
 }
+
+static void
+cleanup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	filter_mail_input_t *input = (filter_mail_input_t *) in_data;
+
+	camel_object_unref (CAMEL_OBJECT (input->source));
+	camel_object_unref (CAMEL_OBJECT (input->inbox));
+}
+
+#if 0
+static const mail_operation_spec op_fetch_mail =
+{
+	"Fetch email",
+	"Fetching email",
+	0,
+	setup_fetch_mail,
+	do_fetch_mail,
+	cleanup_fetch_mail
+};
+
+void mail_do_fetch_mail (const gchar *source_url, CamelFolder *destination)
+{
+	fetch_mail_input_t *input;
+
+	input = g_new (fetch_mail_input_t, 1);
+	input->source_url = g_strdup (source_url);
+	input->destination = destination;
+
+	mail_operation_queue (&op_fetch_mail, input, TRUE);
+}
+#endif

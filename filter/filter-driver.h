@@ -26,6 +26,7 @@
 #include <camel/camel-session.h>
 #include <camel/camel-folder.h>
 #include "filter-xml.h"
+#include <mail/mail-threads.h>
 
 #define FILTER_DRIVER(obj)         GTK_CHECK_CAST (obj, filter_driver_get_type (), FilterDriver)
 #define FILTER_DRIVER_CLASS(klass) GTK_CHECK_CLASS_CAST (klass, filter_driver_get_type (), FilterDriverClass)

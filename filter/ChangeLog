@@ -1,3 +1,7 @@
+2000-07-20  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* filter-driver.c: Update to make "async".
+
 2000-07-11  Dan Winship  <danw@helixcode.com>
 
 	* filter-driver.c: Update for CamelFolder API changes
