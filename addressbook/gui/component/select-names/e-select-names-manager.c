@@ -153,18 +153,6 @@ popup_cb (EEntry *eentry, GdkEventButton *ev, gint pos, gpointer user_data)
 	e_select_names_popup (text_model, ev, pos, GTK_WIDGET (eentry));
 }
 
-#if 0
-static gboolean
-clean_cb (gpointer ptr)
-{
-	ESelectNamesManagerEntry *entry = ptr;
-
-	e_select_names_model_clean (entry->model, TRUE);
-	entry->cleaning_tag = 0;
-	return FALSE;
-}
-#endif
-
 static gint
 focus_in_cb (GtkWidget *w, GdkEventFocus *ev, gpointer user_data)
 {
@@ -178,35 +166,6 @@ focus_in_cb (GtkWidget *w, GdkEventFocus *ev, gpointer user_data)
 	e_select_names_model_cancel_cardify_all (entry->model);
 
 	return FALSE;
-}
-
-static gint
-focus_out_cb (GtkWidget *w, GdkEventFocus *ev, gpointer user_data)
-{
-#if 0
-	/* XXX fix me */
-	ESelectNamesManagerEntry *entry = user_data;
-	gboolean visible = e_entry_completion_popup_is_visible (entry->entry);
-
-	if (! visible) {
-		e_select_names_model_cardify_all (entry->model, entry->manager->completion_book, 100);
-		if (entry->cleaning_tag == 0)
-			entry->cleaning_tag = gtk_timeout_add (100, clean_cb, entry);
-	}
-#endif
-	return FALSE;
-}
-
-static void
-completion_popup_cb (EEntry *w, gint visible, gpointer user_data)
-{
-#if 0
-	/* XXX fix me */
-	ESelectNamesManagerEntry *entry = user_data;
-
-	if (!visible && !GTK_WIDGET_HAS_FOCUS (GTK_WIDGET (entry->entry->canvas)))
-		e_select_names_model_cardify_all (entry->model, entry->manager->completion_book, 0);
-#endif
 }
 
 static void
@@ -292,16 +251,6 @@ e_select_names_manager_entry_new (ESelectNamesManager *manager, ESelectNamesMode
 			  G_CALLBACK (focus_in_cb),
 			  entry);
 	
-	g_signal_connect (entry->entry->canvas,
-			  "focus_out_event",
-			  G_CALLBACK (focus_out_cb),
-			  entry);
-
-	g_signal_connect (entry->entry,
-			  "completion_popup",
-			  G_CALLBACK (completion_popup_cb),
-			  entry);
-
 	g_object_set_data (G_OBJECT (entry->entry), "entry_info", entry);
 	g_object_set_data (G_OBJECT (entry->entry), "select_names_model", model);
 	g_object_set_data (G_OBJECT (entry->entry), "select_names_text_model", text_model);

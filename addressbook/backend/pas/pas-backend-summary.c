@@ -694,6 +694,7 @@ pas_backend_summary_add_card (PASBackendSummary *summary, const char *vcard)
 	ECard *card;
 	ECardSimple *simple;
 	PASBackendSummaryItem *new_item;
+	gboolean wants_html, wants_html_set;
 
 	card = e_card_new ((char*)vcard);
 	simple = e_card_simple_new (card);
@@ -711,8 +712,14 @@ pas_backend_summary_add_card (PASBackendSummary *summary, const char *vcard)
 	new_item->email_3    = e_card_simple_get (simple, E_CARD_SIMPLE_FIELD_EMAIL_3);
 	new_item->list       = e_card_evolution_list (card);
 	new_item->list_show_addresses = e_card_evolution_list_show_addresses (card);
-	new_item->wants_html = card->wants_html;
-	new_item->wants_html_set = card->wants_html_set;
+
+	g_object_get (card,
+		      "wants_html", &wants_html,
+		      "wants_html_set", &wants_html_set,
+		      NULL);
+
+	new_item->wants_html = wants_html;
+	new_item->wants_html_set = wants_html_set;
 
 	g_ptr_array_add (summary->priv->items, new_item);
 	g_hash_table_insert (summary->priv->id_to_item, new_item->id, new_item);
@@ -1072,10 +1079,12 @@ pas_backend_summary_get_summary_vcard(PASBackendSummary *summary, const char *id
 
 		e_card_simple_sync_card (simple);
 
-		card->list = item->list;
-		card->wants_html = item->wants_html;
-		card->wants_html_set = item->wants_html_set;
-		card->list_show_addresses = item->list_show_addresses;
+		g_object_set (card,
+			      "list", item->list,
+			      "wants_html", item->wants_html,
+			      "wants_html_set", item->wants_html_set,
+			      "list_show_addresses", item->list_show_addresses,
+			      NULL);
 
 		vcard = e_card_simple_get_vcard (simple);
 

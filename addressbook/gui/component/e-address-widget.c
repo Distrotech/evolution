@@ -253,7 +253,14 @@ e_address_widget_cardify (EAddressWidget *addr, ECard *card, gboolean known_emai
 		addr->known_email = known_email;
 
 		if (!(addr->name && *addr->name)) {
-			gchar *s = e_card_name_to_string (card->name);
+			gchar *s;
+			ECardName *name;
+
+			g_object_get (card,
+				      "name", &name,
+				      NULL);
+
+			s = e_card_name_to_string (name);
 			e_address_widget_set_name (addr, s);
 			g_free (s);
 		}

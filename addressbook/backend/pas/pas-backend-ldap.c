@@ -547,6 +547,7 @@ query_ldap_root_dse (PASBackendLDAP *bl)
 	char *attrs[MAX_DSE_ATTRS], **values;
 	int i = 0;
 	struct timeval timeout;
+	char *auth_method;
 
 	attrs[i++] = "supportedControl";
 	attrs[i++] = "supportedExtension";
@@ -587,21 +588,20 @@ query_ldap_root_dse (PASBackendLDAP *bl)
 		ldap_value_free (values);
 	}
 
+	if (bl->priv->supported_auth_methods)
+		g_object_unref (bl->priv->supported_auth_methods);
+	bl->priv->supported_auth_methods = e_list_new ((EListCopyFunc)g_strdup, (EListFreeFunc)g_free, NULL);
+
+	auth_method = g_strdup_printf ("ldap/simple-binddn|%s", _("Using Distinguished Name (DN)"));
+	e_list_append (bl->priv->supported_auth_methods, auth_method);
+	g_free (auth_method);
+
+	auth_method = g_strdup_printf ("ldap/simple-email|%s", _("Using Email Address"));
+	e_list_append (bl->priv->supported_auth_methods, auth_method);
+	g_free (auth_method);
+
 	values = ldap_get_values (ldap, resp, "supportedSASLMechanisms");
 	if (values) {
-		char *auth_method;
-		if (bl->priv->supported_auth_methods)
-			g_object_unref (bl->priv->supported_auth_methods);
-		bl->priv->supported_auth_methods = e_list_new ((EListCopyFunc)g_strdup, (EListFreeFunc)g_free, NULL);
-
-		auth_method = g_strdup_printf ("ldap/simple-binddn|%s", _("Using Distinguished Name (DN)"));
-		e_list_append (bl->priv->supported_auth_methods, auth_method);
-		g_free (auth_method);
-
-		auth_method = g_strdup_printf ("ldap/simple-email|%s", _("Using Email Address"));
-		e_list_append (bl->priv->supported_auth_methods, auth_method);
-		g_free (auth_method);
-
 		for (i = 0; values[i]; i++) {
 			auth_method = g_strdup_printf ("sasl/%s|%s", values[i], values[i]);
 			e_list_append (bl->priv->supported_auth_methods, auth_method);
@@ -2423,7 +2423,7 @@ func_and(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *data)
 			g_list_free_1(list_head);
 		}
 
-		ldap_data->list = g_list_prepend(ldap_data->list, g_strjoinv(" ", strings));
+		ldap_data->list = g_list_prepend(ldap_data->list, g_strjoinv("", strings));
 
 		for (i = 0 ; i < argc + 2; i ++)
 			g_free (strings[i]);
@@ -2460,7 +2460,7 @@ func_or(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *data)
 			g_list_free_1(list_head);
 		}
 
-		ldap_data->list = g_list_prepend(ldap_data->list, g_strjoinv(" ", strings));
+		ldap_data->list = g_list_prepend(ldap_data->list, g_strjoinv("", strings));
 
 		for (i = 0 ; i < argc + 2; i ++)
 			g_free (strings[i]);

@@ -27,93 +27,17 @@
 
 typedef struct _ECard ECard;
 typedef struct _ECardClass ECardClass;
+typedef struct _ECardPrivate ECardPrivate;
 
 struct _EBook; /* Forward reference */
 
 struct _ECard {
 	GObject object;
-	char *id;
-
-	struct _EBook   *book;          /* The EBook this card is from.     */
-
-	char            *file_as;       /* The File As field.               */
-	char            *fname;         /* The full name.                   */
-	ECardName       *name;          /* The structured name.             */
-	EList           *address;  	/* Delivery addresses (ECardDeliveryAddress *) */
-	EList           *address_label; /* Delivery address labels
-					 * (ECardAddrLabel *)               */
-
-	EList           *phone;         /* Phone numbers (ECardPhone *)     */
-	EList           *email;         /* Email addresses (char *)         */
-	char            *url;	        /* The person's web page.           */
-
-	ECardDate       *bday;	        /* The person's birthday.           */
-
-	char            *note;
-
-
-	char            *org;           /* The person's organization.       */
-	char            *org_unit;      /* The person's organization unit.  */
-	char            *office;        /* The person's office.             */
-	char            *role;          /* The person's role w/in his org   */
-	char            *title;	        /* The person's title w/in his org  */
-
-	char            *manager;
-	char            *assistant;
-
-	char            *nickname;      /* The person's nickname            */
-	
-	char            *spouse;        /* The person's spouse.             */
-	ECardDate       *anniversary;   /* The person's anniversary.        */
-
-	char            *mailer;        /* Mailer                           */
-
-	char            *caluri;        /* Calendar URI                     */
-	char            *fburl;         /* Free Busy URL                    */
-
-	gint             timezone;      /* number of minutes from UTC as an int */
-
-	ECardDate       *last_use;
-	float            raw_use_score;
-
-	char            *related_contacts;  /* EDestinationV (serialized) of related contacts. */
-
-	EList           *categories;    /* Categories.                      */
-
-	EList           *arbitrary;     /* Arbitrary fields.                */
-
-	
-
-	guint32         wants_html : 1;     /* Wants html mail. */
-	guint32         wants_html_set : 1; /* Wants html mail. */
-	guint32		list : 1; /* If the card corresponds to a contact list */
-	guint32		list_show_addresses : 1; /* Whether to show the addresses
-						    in the To: or Bcc: field */
-
-#if 0
-	ECardPhoto      *logo;          /* This person's org's logo.        */
-
-	ECardPhoto      *photo;    	/* A photo of the person.           */
-	
-	ECard           *agent;         /* A person who sereves as this
-					   guy's agent/secretary/etc.       */
-
-	ECardSound      *sound;
-
-	ECardKey        *key;	        /* The person's public key.         */
-	ECardTimeZone   *timezn;        /* The person's time zone.          */
-	ECardGeoPos     *geopos;        /* The person's long/lat.           */
-
-	ECardRev        *rev;	        /* The time this card was last
-					   modified.                        */
-
-	EList        xtension;
-#endif
+	ECardPrivate *priv;
 };
 
 struct _ECardClass {
 	GObjectClass parent_class;
-	GHashTable    *attribute_jump_table;
 };
 
 

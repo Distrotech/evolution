@@ -896,9 +896,9 @@ local_record_from_ecard (EAddrLocalRecord *local, ECard *ecard, EAddrConduitCont
 	g_object_ref (ecard);
 	simple = e_card_simple_new (ecard);
 	
-	local->local.ID = e_pilot_map_lookup_pid (ctxt->map, ecard->id, TRUE);
+	local->local.ID = e_pilot_map_lookup_pid (ctxt->map, e_card_get_id (ecard), TRUE);
 
-	compute_status (ctxt, local, ecard->id);
+	compute_status (ctxt, local, e_card_get_id (ecard));
 
 	local->addr = g_new0 (struct Address, 1);
 
@@ -933,13 +933,11 @@ local_record_from_ecard (EAddrLocalRecord *local, ECard *ecard, EAddrConduitCont
 		}
 	}
 
-	if (ecard->name) {
-		local->addr->entry[entryFirstname] = e_pilot_utf8_to_pchar (ecard->name->given);
-		local->addr->entry[entryLastname] = e_pilot_utf8_to_pchar (ecard->name->family);
-	}
+	local->addr->entry[entryFirstname] = e_pilot_utf8_to_pchar (e_card_simple_get_const (simple, E_CARD_SIMPLE_FIELD_GIVEN_NAME));
+	local->addr->entry[entryLastname] = e_pilot_utf8_to_pchar (e_card_simple_get_const (simple, E_CARD_SIMPLE_FIELD_FAMILY_NAME));
 
-	local->addr->entry[entryCompany] = e_pilot_utf8_to_pchar (ecard->org);
-	local->addr->entry[entryTitle] = e_pilot_utf8_to_pchar (ecard->title);
+	local->addr->entry[entryCompany] = e_pilot_utf8_to_pchar (e_card_simple_get_const (simple, E_CARD_SIMPLE_FIELD_ORG));
+	local->addr->entry[entryTitle] = e_pilot_utf8_to_pchar (e_card_simple_get_const (simple, E_CARD_SIMPLE_FIELD_TITLE));
 
 	mailing_address = -1;
 	for (i = 0; i < E_CARD_SIMPLE_ADDRESS_ID_LAST; i++) {
@@ -1032,7 +1030,7 @@ local_record_from_ecard (EAddrLocalRecord *local, ECard *ecard, EAddrConduitCont
 	}
 	
 	/* Note */
-	local->addr->entry[entryNote] = e_pilot_utf8_to_pchar (ecard->note);
+	local->addr->entry[entryNote] = e_pilot_utf8_to_pchar (e_card_simple_get_const (simple, E_CARD_SIMPLE_FIELD_NOTE));
 
 	g_object_unref (simple);
 }
@@ -1050,7 +1048,7 @@ local_record_from_uid (EAddrLocalRecord *local,
 	for (l = ctxt->cards; l != NULL; l = l->next) {
 		ecard = l->data;
 		
-		if (ecard->id && !strcmp (ecard->id, uid))
+		if (e_card_get_id (ecard) && !strcmp (e_card_get_id (ecard), uid))
 			break;
 
 		ecard = NULL;
@@ -1093,7 +1091,10 @@ ecard_from_remote_record(EAddrConduitContext *ctxt,
 		ecard = e_card_duplicate (in_card);
 
 	/* Name */
-	name = e_card_name_copy (ecard->name);
+	g_object_set (ecard,
+		      "name", &name,
+		      NULL);
+	name = e_card_name_copy (name);
 	name->given = get_entry_text (address, entryFirstname);
 	name->family = get_entry_text (address, entryLastname);
 
@@ -1437,7 +1438,7 @@ set_pilot_id (GnomePilotConduitSyncAbs *conduit,
 {
 	LOG ("set_pilot_id: setting to %d\n", ID);
 	
-	e_pilot_map_insert (ctxt->map, ID, local->ecard->id, FALSE);
+	e_pilot_map_insert (ctxt->map, ID, e_card_get_id (local->ecard), FALSE);
 
         return 0;
 }
@@ -1612,7 +1613,7 @@ add_record (GnomePilotConduitSyncAbs *conduit,
 	}
 
 	e_card_set_id (ecard, cons.id);
-	e_pilot_map_insert (ctxt->map, remote->ID, ecard->id, FALSE);
+	e_pilot_map_insert (ctxt->map, remote->ID, e_card_get_id (ecard), FALSE);
 
 	g_object_unref (ecard);
 
@@ -1689,8 +1690,8 @@ delete_record (GnomePilotConduitSyncAbs *conduit,
 
 	LOG ("delete_record: delete %s\n", print_local (local));
 
-	e_pilot_map_remove_by_uid (ctxt->map, local->ecard->id);
-	e_book_remove_card_by_id (ctxt->ebook, local->ecard->id, status_cb, &commit_status);
+	e_pilot_map_remove_by_uid (ctxt->map, e_card_get_id (local->ecard));
+	e_book_remove_card_by_id (ctxt->ebook, e_card_get_id (local->ecard), status_cb, &commit_status);
 	
 	gtk_main (); /* enter sub mainloop */
 	
@@ -1712,7 +1713,7 @@ archive_record (GnomePilotConduitSyncAbs *conduit,
 
 	LOG ("archive_record: %s\n", archive ? "yes" : "no");
 
-	e_pilot_map_insert (ctxt->map, local->local.ID, local->ecard->id, archive);
+	e_pilot_map_insert (ctxt->map, local->local.ID, e_card_get_id (local->ecard), archive);
 	
         return retval;
 }

@@ -24,21 +24,76 @@
 #include <bonobo/bonobo-i18n.h>
 #include <gal/util/e-util.h>
 
-#include <libversit/vcc.h>
+#include <mimedir/mimedir-vcard.h>
 #include "e-util/ename/e-name-western.h"
 #include "e-util/ename/e-address-western.h"
 #include "e-book.h"
 #include "e-destination.h"
 
+#if 0
 #define is_a_prop_of(obj,prop) (isAPropertyOf ((obj),(prop)))
 #define str_val(obj) (the_str = (vObjectValueType (obj))? fakeCString (vObjectUStringZValue (obj)) : calloc (1, 1))
 #define has(obj,prop) (vo = isAPropertyOf ((obj), (prop)))
+#endif
 
+#define XEV_FILE_AS "X-EVOLUTION-FILE-AS"
 #define XEV_WANTS_HTML "X-MOZILLA-HTML"
 #define XEV_ARBITRARY "X-EVOLUTION-ARBITRARY"
 #define XEV_LIST "X-EVOLUTION-LIST"
 #define XEV_LIST_SHOW_ADDRESSES "X-EVOLUTION-LIST-SHOW_ADDRESSES"
 #define XEV_RELATED_CONTACTS "X-EVOLUTION-RELATED_CONTACTS"
+
+struct _ECardPrivate {
+	gboolean         empty;         /* TRUE if the card was created from
+					   the (invalid) vcard "" */
+
+	MIMEDirVCard    *mimedir_vcard;
+
+	EBook           *book;          /* The EBook this card is from.     */
+
+	ECardName       *name;          /* The structured name.             */
+	EList           *address;  	/* Delivery addresses (ECardDeliveryAddress *) */
+	EList           *address_label; /* Delivery address labels
+					 * (ECardAddrLabel *)               */
+
+	EList           *phone;         /* Phone numbers (ECardPhone *)     */
+	EList           *email;         /* Email addresses (char *)         */
+
+	ECardDate       bday;	        /* The person's birthday.           */
+
+	char            *note;
+
+
+	char            *office;        /* The person's office.             */
+
+	char            *manager;
+	char            *assistant;
+
+	char            *spouse;        /* The person's spouse.             */
+	ECardDate       *anniversary;   /* The person's anniversary.        */
+
+	char            *caluri;        /* Calendar URI                     */
+	char            *fburl;         /* Free Busy URL                    */
+
+	gint             timezone;      /* number of minutes from UTC as an int */
+
+	ECardDate       *last_use;
+	float            raw_use_score;
+
+	char            *related_contacts;  /* EDestinationV (serialized) of related contacts. */
+
+	EList           *categories;    /* Categories.                      */
+
+	EList           *arbitrary;     /* Arbitrary fields.                */
+
+	
+
+	guint32         wants_html : 1;     /* Wants html mail. */
+	guint32         wants_html_set : 1; /* Wants html mail. */
+	guint32		list : 1; /* If the card corresponds to a contact list */
+	guint32		list_show_addresses : 1; /* Whether to show the addresses
+						    in the To: or Bcc: field */
+};
 
 /* Object property IDs */
 enum {
@@ -81,95 +136,12 @@ enum {
 
 static GObjectClass *parent_class;
 
-static void parse(ECard *card, VObject *vobj, char *default_charset);
 static void e_card_init (ECard *card);
 static void e_card_class_init (ECardClass *klass);
 
 static void e_card_dispose (GObject *object);
 static void e_card_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void e_card_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
-
-static void assign_string(VObject *vobj, char *default_charset, char **string);
-
-char *e_v_object_get_child_value(VObject *vobj, char *name, char *default_charset);
-
-static void parse_bday(ECard *card, VObject *object, char *default_charset);
-static void parse_full_name(ECard *card, VObject *object, char *default_charset);
-static void parse_file_as(ECard *card, VObject *object, char *default_charset);
-static void parse_name(ECard *card, VObject *object, char *default_charset);
-static void parse_email(ECard *card, VObject *object, char *default_charset);
-static void parse_phone(ECard *card, VObject *object, char *default_charset);
-static void parse_address(ECard *card, VObject *object, char *default_charset);
-static void parse_address_label(ECard *card, VObject *object, char *default_charset);
-static void parse_url(ECard *card, VObject *object, char *default_charset);
-static void parse_org(ECard *card, VObject *object, char *default_charset);
-static void parse_office(ECard *card, VObject *object, char *default_charset);
-static void parse_title(ECard *card, VObject *object, char *default_charset);
-static void parse_role(ECard *card, VObject *object, char *default_charset);
-static void parse_manager(ECard *card, VObject *object, char *default_charset);
-static void parse_assistant(ECard *card, VObject *object, char *default_charset);
-static void parse_nickname(ECard *card, VObject *object, char *default_charset);
-static void parse_spouse(ECard *card, VObject *object, char *default_charset);
-static void parse_anniversary(ECard *card, VObject *object, char *default_charset);
-static void parse_mailer(ECard *card, VObject *object, char *default_charset);
-static void parse_caluri(ECard *card, VObject *object, char *default_charset);
-static void parse_fburl(ECard *card, VObject *object, char *default_charset);
-static void parse_note(ECard *card, VObject *object, char *default_charset);
-static void parse_related_contacts(ECard *card, VObject *object, char *default_charset);
-static void parse_categories(ECard *card, VObject *object, char *default_charset);
-static void parse_wants_html(ECard *card, VObject *object, char *default_charset);
-static void parse_list(ECard *card, VObject *object, char *default_charset);
-static void parse_list_show_addresses(ECard *card, VObject *object, char *default_charset);
-static void parse_arbitrary(ECard *card, VObject *object, char *default_charset);
-static void parse_id(ECard *card, VObject *object, char *default_charset);
-static void parse_last_use(ECard *card, VObject *object, char *default_charset);
-static void parse_use_score(ECard *card, VObject *object, char *default_charset);
-
-static ECardPhoneFlags get_phone_flags (VObject *vobj);
-static void set_phone_flags (VObject *vobj, ECardPhoneFlags flags);
-static ECardAddressFlags get_address_flags (VObject *vobj);
-static void set_address_flags (VObject *vobj, ECardAddressFlags flags);
-
-typedef void (* ParsePropertyFunc) (ECard *card, VObject *object, char *default_charset);
-
-struct {
-	char *key;
-	ParsePropertyFunc function;
-} attribute_jump_array[] = 
-{
-	{ VCFullNameProp,            parse_full_name },
-	{ "X-EVOLUTION-FILE-AS",     parse_file_as },
-	{ VCNameProp,                parse_name },
-	{ VCBirthDateProp,           parse_bday },
-	{ VCEmailAddressProp,        parse_email },
-	{ VCTelephoneProp,           parse_phone },
-	{ VCAdrProp,                 parse_address },
-	{ VCDeliveryLabelProp,       parse_address_label },
-	{ VCURLProp,                 parse_url },
-	{ VCOrgProp,                 parse_org },
-	{ "X-EVOLUTION-OFFICE",      parse_office },
-	{ VCTitleProp,               parse_title },
-	{ VCBusinessRoleProp,        parse_role },
-	{ "X-EVOLUTION-MANAGER",     parse_manager },
-	{ "X-EVOLUTION-ASSISTANT",   parse_assistant },
-	{ "NICKNAME",                parse_nickname },
-	{ "X-EVOLUTION-SPOUSE",      parse_spouse },
-	{ "X-EVOLUTION-ANNIVERSARY", parse_anniversary },   
-	{ VCMailerProp,              parse_mailer },
-	{ "CALURI",                  parse_caluri },
-	{ "FBURL",                   parse_fburl },
-	{ VCNoteProp,                parse_note },
-	{ XEV_RELATED_CONTACTS,      parse_related_contacts },
-	{ "CATEGORIES",              parse_categories },
-	{ XEV_WANTS_HTML,            parse_wants_html },
-	{ XEV_ARBITRARY,             parse_arbitrary },
-	{ VCUniqueStringProp,        parse_id },
-	{ "X-EVOLUTION-LAST-USE",    parse_last_use },
-	{ "X-EVOLUTION-USE-SCORE",   parse_use_score },
-	{ XEV_LIST,                  parse_list },
-	{ XEV_LIST_SHOW_ADDRESSES,   parse_list_show_addresses },
-	{ VCUniqueStringProp,        parse_id }
-};
 
 /**
  * e_card_get_type:
@@ -208,20 +180,53 @@ ECard *
 e_card_new_with_default_charset (char *vcard, char *default_charset)
 {
 	ECard *card = g_object_new (E_TYPE_CARD, NULL);
-	VObject *vobj = Parse_MIME(vcard, strlen(vcard));
-	while(vobj) {
-		VObject *next;
-		parse(card, vobj, default_charset);
-		next = nextVObjectInList(vobj);
-		cleanVObject(vobj);
-		vobj = next;
+	ECardPrivate *priv = card->priv;
+	MIMEDirDateTime *datetime;
+	GSList *email_list, *e;
+	GError *error = NULL;
+
+	if (!vcard || !*vcard) {
+		priv->mimedir_vcard = mimedir_vcard_new ();
+		priv->empty = TRUE;
 	}
-	if (card->name == NULL)
-		card->name = e_card_name_new();
-	if (card->file_as == NULL)
-		card->file_as = g_strdup("");
-	if (card->fname == NULL)
-		card->fname = g_strdup("");
+	else {
+		priv->mimedir_vcard = mimedir_vcard_new_from_string (vcard, &error);
+		priv->empty = FALSE;
+	}
+
+	if (error) {
+		g_warning ("mimedir error: %s\n", error->message);
+		g_warning ("while parsing vcard: %s\n", vcard);
+		g_error_free (error);
+		g_object_unref (card);
+		return NULL;
+	}
+
+	g_object_get (priv->mimedir_vcard,
+		      "birthday", &datetime,
+		      "email-list", &email_list,
+		      NULL);
+
+	priv->email = e_list_new((EListCopyFunc) g_strdup, 
+				 (EListFreeFunc) g_free,
+				 NULL);
+
+	for (e = email_list; e; e = g_slist_next (e)) {
+		MIMEDirVCardEMail *email = e->data;
+		char *address;
+
+		g_object_get (email,
+			      "address", &address,
+			      NULL);
+
+		e_list_append (priv->email, address);
+	}
+
+	if (datetime) {
+		mimedir_datetime_get_date (datetime, (GDateYear*)&priv->bday.year, (GDateMonth*)&priv->bday.month, (GDateDay*)&priv->bday.day);
+		g_object_unref (datetime);
+	}
+
 	return card;
 }
 
@@ -240,13 +245,21 @@ e_card_new (char *vcard)
 ECard *
 e_card_duplicate(ECard *card)
 {
-	char *vcard = e_card_get_vcard_assume_utf8(card);
-	ECard *new_card = e_card_new(vcard);
-	g_free (vcard);
-	
-	if (card->book) {
-		new_card->book = card->book;
-		g_object_ref (new_card->book);
+	MIMEDirProfile *profile;
+	ECard *new_card;
+
+	new_card = g_object_new (E_TYPE_CARD, NULL);
+
+	profile = mimedir_vcard_write_to_profile (card->priv->mimedir_vcard);
+	new_card->priv->mimedir_vcard = mimedir_vcard_new_from_profile (profile, NULL);
+	g_object_unref (profile);
+
+	memcpy (&new_card->priv->bday, &card->priv->bday, sizeof (ECardDate));
+	new_card->priv->email = e_list_duplicate (card->priv->email);
+
+	if (card->priv->book) {
+		new_card->priv->book = card->priv->book;
+		g_object_ref (new_card->priv->book);
 	}
 
 	return new_card;
@@ -271,14 +284,17 @@ e_card_get_use_score(ECard *card)
 {
 	GDate today, last_use;
 	gint days_since_last_use;
+	ECardPrivate *priv;
 
 	g_return_val_if_fail (card != NULL && E_IS_CARD (card), 0);
 
-	if (card->last_use == NULL)
+	priv = card->priv;
+
+	if (priv->last_use == NULL)
 		return 0.0;
 
 	e_card_get_today (&today);
-	g_date_set_dmy (&last_use, card->last_use->day, card->last_use->month, card->last_use->year);
+	g_date_set_dmy (&last_use, priv->last_use->day, priv->last_use->month, priv->last_use->year);
 
 	days_since_last_use = g_date_get_julian (&today) - g_date_get_julian (&last_use);
 	
@@ -287,7 +303,7 @@ e_card_get_use_score(ECard *card)
 	if (days_since_last_use < 0)
 		days_since_last_use = 0;
 
-	return MAX (card->raw_use_score, 0) * exp (- days_since_last_use / 30.0);
+	return MAX (priv->raw_use_score, 0) * exp (- days_since_last_use / 30.0);
 }
 
 void
@@ -295,20 +311,23 @@ e_card_touch(ECard *card)
 {
 	GDate today;
 	double use_score;
+	ECardPrivate *priv;
 
 	g_return_if_fail (card != NULL && E_IS_CARD (card));
+
+	priv = card->priv;
 
 	e_card_get_today (&today);
 	use_score = e_card_get_use_score (card);
 
-	if (card->last_use == NULL)
-		card->last_use = g_new (ECardDate, 1);
+	if (priv->last_use == NULL)
+		priv->last_use = g_new (ECardDate, 1);
 
-	card->last_use->day   = g_date_get_day (&today);
-	card->last_use->month = g_date_get_month (&today);
-	card->last_use->year  = g_date_get_year (&today);
+	priv->last_use->day   = g_date_get_day (&today);
+	priv->last_use->month = g_date_get_month (&today);
+	priv->last_use->year  = g_date_get_year (&today);
 
-	card->raw_use_score   = use_score + 1.0;
+	priv->raw_use_score   = use_score + 1.0;
 }
 
 /**
@@ -321,9 +340,16 @@ e_card_touch(ECard *card)
 const char *
 e_card_get_id (ECard *card)
 {
+	ECardPrivate *priv;
+	char *id;
+
 	g_return_val_if_fail (card && E_IS_CARD (card), NULL);
 
-	return card->id ? card->id : "";
+	priv = card->priv;
+
+	g_object_get (priv->mimedir_vcard, "uid", &id, NULL);
+
+	return id ? id : "";
 }
 
 /**
@@ -337,31 +363,41 @@ e_card_get_id (ECard *card)
 void
 e_card_set_id (ECard *card, const char *id)
 {
+	ECardPrivate *priv;
+
 	g_return_if_fail (card && E_IS_CARD (card));
 
-	if ( card->id )
-		g_free(card->id);
-	card->id = g_strdup(id ? id : "");
+	priv = card->priv;
+
+	g_object_set (priv->mimedir_vcard, "uid", id, NULL);
 }
 
 EBook *
 e_card_get_book (ECard *card)
 {
+	ECardPrivate *priv;
+
 	g_return_val_if_fail (card && E_IS_CARD (card), NULL);
 
-	return card->book;
+	priv = card->priv;
+
+	return priv->book;
 }
 
 void
 e_card_set_book (ECard *card, EBook *book)
 {
+	ECardPrivate *priv;
+
 	g_return_if_fail (card && E_IS_CARD (card));
-	
-	if (card->book)
-		g_object_unref (card->book);
-	card->book = book;
-	if (card->book)
-		g_object_ref (card->book);
+
+	priv = card->priv;
+
+	if (priv->book)
+		g_object_unref (priv->book);
+	priv->book = book;
+	if (priv->book)
+		g_object_ref (priv->book);
 }
 
 gchar *
@@ -376,97 +412,7 @@ e_card_date_to_string (ECardDate *dt)
 		return NULL;
 }
 
-static VObject *
-addPropValueUTF8(VObject *o, const char *p, const char *v)
-{
-	VObject *prop = addPropValue (o, p, v);
-	for (; *v; v++) {
-		if ((*v) & 0x80) {
-			addPropValue (prop, "CHARSET", "UTF-8");
-			addProp(prop, VCQuotedPrintableProp);
-
-			return prop;
-		}
-		if (*v == '\n') {
-			addProp(prop, VCQuotedPrintableProp);
-			for (; *v; v++) {
-				if ((*v) & 0x80) {
-					addPropValue (prop, "CHARSET", "UTF-8");
-					return prop;
-				}
-			}
-			return prop;
-		}
-	}
-	return prop;
-}
-
-static VObject *
-addPropValueQP(VObject *o, const char *p, const char *v)
-{
-	VObject *prop = addPropValue (o, p, v);
-	for (; *v; v++) {
-		if (*v == '\n') {
-			addProp(prop, VCQuotedPrintableProp);
-			break;
-		}
-	}
-	return prop;
-}
-
-static void
-addPropValueSets (VObject *o, const char *p, const char *v, gboolean assumeUTF8, gboolean *is_ascii, gboolean *has_return)
-{
-	addPropValue (o, p, v);
-	if (*has_return && (assumeUTF8 || !*is_ascii))
-		return;
-	if (*has_return) {
-		for (; *v; v++) {
-			if (*v & 0x80) {
-				*is_ascii = FALSE;
-				return;
-			}
-		}
-		return;
-	}
-	if (assumeUTF8 || !*is_ascii) {
-		for (; *v; v++) {
-			if (*v == '\n') {
-				*has_return = TRUE;
-				return;
-			}
-		}
-		return;
-	}
-	for (; *v; v++) {
-		if (*v & 0x80) {
-			*is_ascii = FALSE;
-			for (; *v; v++) {
-				if (*v == '\n') {
-					*has_return = TRUE;
-					return;
-				}
-			}
-			return;
-		}
-		if (*v == '\n') {
-			*has_return = TRUE;
-			for (; *v; v++) {
-				if (*v & 0x80) {
-					*is_ascii = FALSE;
-					return;
-				}
-			}
-			return;
-		}
-	}
-	return;
-}
-
-#define ADD_PROP_VALUE(o, p, v)              (assumeUTF8 ? (addPropValueQP ((o), (p), (v))) : addPropValueUTF8 ((o), (p), (v)))
-#define ADD_PROP_VALUE_SET_IS_ASCII(o, p, v) (addPropValueSets ((o), (p), (v), assumeUTF8, &is_ascii, &has_return))
-
-
+#if 0
 static VObject *
 e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 {
@@ -475,16 +421,6 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 	vobj = newVObject (VCCardProp);
 
 	ADD_PROP_VALUE(vobj, VCVersionProp, "2.1");
-
-	if (card->file_as && *card->file_as)
-		ADD_PROP_VALUE(vobj, "X-EVOLUTION-FILE-AS", card->file_as);
-	else if (card->file_as)
-		addProp(vobj, "X-EVOLUTION-FILE_AS");
-
-	if (card->fname && *card->fname)
-		ADD_PROP_VALUE(vobj, VCFullNameProp, card->fname);
-	else if (card->fname)
-		addProp(vobj, VCFullNameProp);
 
 	if ( card->name && (card->name->prefix || card->name->given || card->name->additional || card->name->family || card->name->suffix) ) {
 		VObject *nameprop;
@@ -596,9 +532,6 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 		g_free(value);
 	}
 
-	if (card->url)
-		ADD_PROP_VALUE(vobj, VCURLProp, card->url);
-
 	if (card->org || card->org_unit) {
 		VObject *orgprop;
 		gboolean is_ascii = TRUE;
@@ -619,21 +552,12 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 	if (card->office)
 		ADD_PROP_VALUE(vobj, "X-EVOLUTION-OFFICE", card->office);
 
-	if (card->title)
-		ADD_PROP_VALUE(vobj, VCTitleProp, card->title);
-
-	if (card->role)
-		ADD_PROP_VALUE(vobj, VCBusinessRoleProp, card->role);
-	
 	if (card->manager)
 		ADD_PROP_VALUE(vobj, "X-EVOLUTION-MANAGER", card->manager);
 	
 	if (card->assistant)
 		ADD_PROP_VALUE(vobj, "X-EVOLUTION-ASSISTANT", card->assistant);
 	
-	if (card->nickname)
-		ADD_PROP_VALUE(vobj, "NICKNAME", card->nickname);
-
 	if (card->spouse)
 		ADD_PROP_VALUE(vobj, "X-EVOLUTION-SPOUSE", card->spouse);
 
@@ -644,10 +568,6 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 		g_free(value);
 	}
 
-	if (card->mailer) {
-		ADD_PROP_VALUE(vobj, VCMailerProp, card->mailer);
-	}
-	
 	if (card->caluri)
 		addPropValueQP(vobj, "CALURI", card->caluri);
 
@@ -736,6 +656,7 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 
 	return vobj;
 }
+#endif
 
 /**
  * e_card_get_vcard:
@@ -746,29 +667,16 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 char *
 e_card_get_vcard (ECard *card)
 {
-	VObject *vobj;
-	char *temp, *ret_val;
+	ECardPrivate *priv = card->priv;
 
-	vobj = e_card_get_vobject (card, FALSE);
-	temp = writeMemVObject(NULL, NULL, vobj);
-	ret_val = g_strdup(temp);
-	free(temp);
-	cleanVObject(vobj);
-	return ret_val;
+	/* XXX make sure the MIMEDirVCard is synced */
+	return mimedir_vcard_write_to_string (priv->mimedir_vcard);
 }
 
 char *
 e_card_get_vcard_assume_utf8 (ECard *card)
 {
-	VObject *vobj;
-	char *temp, *ret_val;
-
-	vobj = e_card_get_vobject (card, TRUE);
-	temp = writeMemVObject(NULL, NULL, vobj);
-	ret_val = g_strdup(temp);
-	free(temp);
-	cleanVObject(vobj);
-	return ret_val;
+	return e_card_get_vcard (card);
 }
 
 /**
@@ -780,6 +688,7 @@ e_card_get_vcard_assume_utf8 (ECard *card)
 char *
 e_card_list_get_vcard (const GList *list)
 {
+#ifdef MIMEDIR_WORK
 	VObject *vobj;
 
 	char *temp, *ret_val;
@@ -798,16 +707,10 @@ e_card_list_get_vcard (const GList *list)
 	free(temp);
 	cleanVObjects(vobj);
 	return ret_val;
+#endif
 }
 
-static void
-parse_file_as(ECard *card, VObject *vobj, char *default_charset)
-{
-	if ( card->file_as )
-		g_free(card->file_as);
-	assign_string(vobj, default_charset, &(card->file_as));
-}
-
+#ifdef MIMEDIR_WORK
 static void
 parse_name(ECard *card, VObject *vobj, char *default_charset)
 {
@@ -820,28 +723,6 @@ parse_name(ECard *card, VObject *vobj, char *default_charset)
 	card->name->additional = e_v_object_get_child_value (vobj, VCAdditionalNamesProp, default_charset);
 	card->name->prefix     = e_v_object_get_child_value (vobj, VCNamePrefixesProp,    default_charset);
 	card->name->suffix     = e_v_object_get_child_value (vobj, VCNameSuffixesProp,    default_charset);
-}
-
-static void
-parse_full_name(ECard *card, VObject *vobj, char *default_charset)
-{
-	if ( card->fname )
-		g_free(card->fname);
-	assign_string(vobj, default_charset, &(card->fname));
-}
-
-static void
-parse_email(ECard *card, VObject *vobj, char *default_charset)
-{
-	char *next_email;
-	EList *list;
-
-	assign_string(vobj, default_charset, &next_email);
-	g_object_get(card,
-		     "email", &list,
-		     NULL);
-	e_list_append(list, next_email);
-	g_free (next_email);
 }
 
 /* Deal with charset */
@@ -913,49 +794,11 @@ parse_address_label(ECard *card, VObject *vobj, char *default_charset)
 }
 
 static void
-parse_url(ECard *card, VObject *vobj, char *default_charset)
-{
-	if (card->url)
-		g_free(card->url);
-	assign_string(vobj, default_charset, &(card->url));
-}
-
-static void
-parse_org(ECard *card, VObject *vobj, char *default_charset)
-{
-	char *temp;
-	
-	temp = e_v_object_get_child_value(vobj, VCOrgNameProp, default_charset);
-	g_free(card->org);
-	card->org = temp;
-
-	temp = e_v_object_get_child_value(vobj, VCOrgUnitProp, default_charset);
-	g_free(card->org_unit);
-	card->org_unit = temp;
-}
-
-static void
 parse_office(ECard *card, VObject *vobj, char *default_charset)
 {
 	if ( card->office )
 		g_free(card->office);
 	assign_string(vobj, default_charset, &(card->office));
-}
-
-static void
-parse_title(ECard *card, VObject *vobj, char *default_charset)
-{
-	if ( card->title )
-		g_free(card->title);
-	assign_string(vobj, default_charset, &(card->title));
-}
-
-static void
-parse_role(ECard *card, VObject *vobj, char *default_charset)
-{
-	if (card->role)
-		g_free(card->role);
-	assign_string(vobj, default_charset, &(card->role));
 }
 
 static void
@@ -972,14 +815,6 @@ parse_assistant(ECard *card, VObject *vobj, char *default_charset)
 	if ( card->assistant )
 		g_free(card->assistant);
 	assign_string(vobj, default_charset, &(card->assistant));
-}
-
-static void
-parse_nickname(ECard *card, VObject *vobj, char *default_charset)
-{
-	if (card->nickname)
-		g_free(card->nickname);
-	assign_string(vobj, default_charset, &(card->nickname));
 }
 
 static void
@@ -1002,14 +837,6 @@ parse_anniversary(ECard *card, VObject *vobj, char *default_charset)
 		*(card->anniversary) = e_card_date_from_string(str);
 		free(str);
 	}
-}
-
-static void
-parse_mailer(ECard *card, VObject *vobj, char *default_charset)
-{
-	if ( card->mailer )
-		g_free(card->mailer);
-	assign_string(vobj, default_charset, &(card->mailer));
 }
 
 static void
@@ -1251,9 +1078,6 @@ parse(ECard *card, VObject *vobj, char *default_charset)
 	while(moreIteration (&iterator)) {
 		parse_attribute(card, nextVObject(&iterator), default_charset);
 	}
-	if (!card->fname) {
-		card->fname = g_strdup("");
-	}
 	if (!card->name) {
 		card->name = e_card_name_from_string(card->fname);
 	}
@@ -1271,22 +1095,16 @@ parse(ECard *card, VObject *vobj, char *default_charset)
 		card->file_as = string;
 	}
 }
+#endif
 
 static void
 e_card_class_init (ECardClass *klass)
 {
-	int i;
 	GObjectClass *object_class;
 
 	object_class = G_OBJECT_CLASS(klass);
 
 	parent_class = g_type_class_ref (G_TYPE_OBJECT);
-
-	klass->attribute_jump_table = g_hash_table_new(g_str_hash, g_str_equal);
-
-	for ( i = 0; i < sizeof(attribute_jump_array) / sizeof(attribute_jump_array[0]); i++ ) {
-		g_hash_table_insert(klass->attribute_jump_table, attribute_jump_array[i].key, attribute_jump_array[i].function);
-	}
 
 	object_class->dispose = e_card_dispose;
 	object_class->get_property = e_card_get_property;
@@ -1953,15 +1771,18 @@ e_card_email_match_single_string (const gchar *a, const gchar *b)
 gboolean
 e_card_email_match_string (const ECard *card, const gchar *str)
 {
+	ECardPrivate *priv;
 	EIterator *iter;
 	
 	g_return_val_if_fail (card && E_IS_CARD (card), FALSE);
 	g_return_val_if_fail (str != NULL, FALSE);
 
-	if (!card->email)
+	priv = card->priv;
+
+	if (!priv->email)
 		return FALSE;
 
-	iter = e_list_get_iterator (card->email);
+	iter = e_list_get_iterator (priv->email);
 	for (e_iterator_reset (iter); e_iterator_is_valid (iter); e_iterator_next (iter)) {
 		if (e_card_email_match_single_string (e_iterator_get (iter), str))
 			return TRUE;
@@ -1974,16 +1795,19 @@ e_card_email_match_string (const ECard *card, const gchar *str)
 gint
 e_card_email_find_number (const ECard *card, const gchar *email)
 {
+	ECardPrivate *priv;
 	EIterator *iter;
 	gint count = 0;
 
 	g_return_val_if_fail (E_IS_CARD (card), -1);
 	g_return_val_if_fail (email != NULL, -1);
 
-	if (!card->email)
+	priv = card->priv;
+
+	if (!priv->email)
 		return -1;
 
-	iter = e_list_get_iterator (card->email);
+	iter = e_list_get_iterator (priv->email);
 	for (e_iterator_reset (iter); e_iterator_is_valid (iter); e_iterator_next (iter)) {
 		if (!g_ascii_strcasecmp (e_iterator_get (iter), email))
 			goto finished;
@@ -2005,41 +1829,38 @@ static void
 e_card_dispose (GObject *object)
 {
 	ECard *card = E_CARD(object);
+	ECardPrivate *priv = card->priv;
 
-#define FREE_IF(x) do { if ((x)) { g_free (x); x = NULL; } } while (0)
-#define UNREF_IF(x) do { if ((x)) { g_object_unref (x); x = NULL; } } while (0)
+	if (priv) {
+		if (priv->book)
+			g_object_unref (priv->book);
+		if (priv->name)
+			e_card_name_unref(priv->name);
 
-	FREE_IF (card->id);
-	UNREF_IF (card->book);
-	FREE_IF(card->file_as);
-	FREE_IF(card->fname);
-	if (card->name) {
-		e_card_name_unref(card->name);
-		card->name = NULL;
+		g_free(priv->office);
+		g_free(priv->manager);
+		g_free(priv->assistant);
+		g_free(priv->spouse);
+		g_free(priv->anniversary);
+		g_free(priv->caluri);
+		g_free(priv->fburl);
+		g_free(priv->note);
+		g_free(priv->related_contacts);
+
+		if (priv->categories)
+			g_object_unref (priv->categories);
+		if (priv->email)
+			g_object_unref (priv->email);
+		if (priv->phone)
+			g_object_unref (priv->phone);
+		if (priv->address)
+			g_object_unref (priv->address);
+		if (priv->address_label)
+			g_object_unref (priv->address_label);
+
+		g_free (card->priv);
+		card->priv = NULL;
 	}
-	FREE_IF(card->bday);
-
-	FREE_IF(card->url);
-	FREE_IF(card->org);
-	FREE_IF(card->org_unit);
-	FREE_IF(card->office);
-	FREE_IF(card->title);
-	FREE_IF(card->role);
-	FREE_IF(card->manager);
-	FREE_IF(card->assistant);
-	FREE_IF(card->nickname);
-	FREE_IF(card->spouse);
-	FREE_IF(card->anniversary);
-	FREE_IF(card->caluri);
-	FREE_IF(card->fburl);
-	FREE_IF(card->note);
-	FREE_IF(card->related_contacts);
-
-	UNREF_IF (card->categories);
-	UNREF_IF (card->email);
-	UNREF_IF (card->phone);
-	UNREF_IF (card->address);
-	UNREF_IF (card->address_label);
 
 	if (G_OBJECT_CLASS (parent_class)->dispose)
 		G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -2054,36 +1875,37 @@ e_card_set_property (GObject *object,
 		     GParamSpec *pspec)
 {
 	ECard *card;
-	
+	ECardPrivate *priv;
+
 	card = E_CARD (object);
 
+	priv = card->priv;
+
 	switch (prop_id) {
-	case PROP_FILE_AS:
-		g_free(card->file_as);
-		card->file_as = g_strdup(g_value_get_string (value));
-		if (card->file_as == NULL)
-			card->file_as = g_strdup("");
+	case PROP_FILE_AS: 
+		{
+			const char *file_as = g_value_get_string (value);
+
+			mimedir_vcard_set_custom_attribute (priv->mimedir_vcard, XEV_FILE_AS, (char*)(file_as ? file_as : ""));
+		}
 		break;
 
 	case PROP_FULL_NAME:
-		g_free(card->fname);
-		card->fname = g_strdup(g_value_get_string (value));
-		if (card->fname == NULL)
-			card->fname = g_strdup("");
-
-		e_card_name_unref (card->name);
-		card->name = e_card_name_from_string (card->fname);
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "name", value);
+		e_card_name_unref (priv->name);
+		priv->name = e_card_name_from_string (g_value_get_string (value));
 		break;
 	case PROP_NAME:
-		e_card_name_unref (card->name);
-		card->name = e_card_name_ref(g_value_get_pointer (value));
-		if (card->name == NULL)
-			card->name = e_card_name_new();
-		if (card->fname == NULL) {
-			card->fname = e_card_name_to_string(card->name);
+#ifdef MIMEDIR_WORK
+		e_card_name_unref (priv->name);
+		priv->name = e_card_name_ref(g_value_get_pointer (value));
+		if (priv->name == NULL)
+			priv->name = e_card_name_new();
+		if (priv->fname == NULL) {
+			priv->fname = e_card_name_to_string(priv->name);
 		}
-		if (card->file_as == NULL) {
-			ECardName *name = card->name;
+		if (priv->file_as == NULL) {
+			ECardName *name = priv->name;
 			char *strings[3], **stringptr;
 			char *string;
 			stringptr = strings;
@@ -2093,135 +1915,201 @@ e_card_set_property (GObject *object,
 				*(stringptr++) = name->given;
 			*stringptr = NULL;
 			string = g_strjoinv(", ", strings);
-			card->file_as = string;
+			priv->file_as = string;
 		}
+#endif
 		break;
 	case PROP_CATEGORIES:
-		if (card->categories)
-			g_object_unref(card->categories);
-		card->categories = NULL;
+		if (priv->categories)
+			g_object_unref(priv->categories);
+		priv->categories = NULL;
+#if MIMEDIR_WORK
 		if (g_value_get_string (value))
 			do_parse_categories(card, (char*)g_value_get_string (value));
+#endif
 		break;
 	case PROP_CATEGORY_LIST:
-		if (card->categories)
-			g_object_unref(card->categories);
-		card->categories = E_LIST(g_value_get_object(value));
-		if (card->categories)
-			g_object_ref(card->categories);
+		if (priv->categories)
+			g_object_unref(priv->categories);
+		priv->categories = E_LIST(g_value_get_object(value));
+		if (priv->categories)
+			g_object_ref(priv->categories);
 		break;
 	case PROP_BIRTH_DATE:
-		g_free(card->bday);
-		if (g_value_get_pointer (value)) {
-			card->bday = g_new (ECardDate, 1);
-			memcpy (card->bday, g_value_get_pointer (value), sizeof (ECardDate));
-		} else {
-			card->bday = NULL;
+		{
+			MIMEDirDateTime *datetime;
+			if (g_value_get_pointer (value)) {
+				memcpy (&priv->bday, g_value_get_pointer (value), sizeof (ECardDate));
+			}
+			else {
+				memset (&priv->bday, 0, sizeof (ECardDate));
+			}
+
+			datetime = mimedir_datetime_new_from_date (priv->bday.year, priv->bday.month, priv->bday.day);
+
+			g_object_set (priv->mimedir_vcard,
+				      "birthday", datetime,
+				      NULL);
+			g_object_unref (datetime);
 		}
 		break;
 	case PROP_URL:
-		g_free(card->url);
-		card->url = g_strdup(g_value_get_string(value));
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "url", value);
 		break;
 	case PROP_ORG:
-		g_free(card->org);
-		card->org = g_strdup(g_value_get_string(value));
+		{
+			GSList *current_org_list;
+
+			/*
+			 * as far as we're concerned:
+			 * first element in org list = org.
+			 * second element in org list = org unit.
+			 * third element ... = ignored.
+			 */
+			
+			g_object_get (priv->mimedir_vcard,
+				      "organization-list", &current_org_list,
+				      NULL);
+
+			current_org_list = mimedir_utils_copy_string_slist (current_org_list);
+
+			if (current_org_list) {
+				/* ick, in place modification */
+				g_free (current_org_list->next->data);
+				current_org_list->data = g_strdup (g_value_get_string (value));
+			}
+			else {
+				current_org_list = g_slist_append (NULL, g_strdup (g_value_get_string (value)));
+			}
+
+			g_object_set (priv->mimedir_vcard,
+				      "organization-list", current_org_list,
+				      NULL);
+
+			mimedir_utils_free_string_slist (current_org_list);
+		}
 		break;
 	case PROP_ORG_UNIT:
-		g_free(card->org_unit);
-		card->org_unit = g_strdup(g_value_get_string(value));
+		{
+			GSList *current_org_list;
+
+			/*
+			 * as far as we're concerned:
+			 * first element in org list = org.
+			 * second element in org list = org unit.
+			 * third element ... = ignored.
+			 */
+			
+			g_object_get (priv->mimedir_vcard,
+				      "organization-list", &current_org_list,
+				      NULL);
+
+			current_org_list = mimedir_utils_copy_string_slist (current_org_list);
+
+			if (!current_org_list) {
+				current_org_list = g_slist_append (NULL, g_strdup (""));
+			}
+
+			if (current_org_list->next) {
+				/* ick, in place modification */
+				g_free (current_org_list->next->data);
+				current_org_list->next->data = g_strdup (g_value_get_string (value));
+			}
+			else {
+				current_org_list = g_slist_append (current_org_list, g_strdup (g_value_get_string (value)));
+			}
+
+			g_object_set (priv->mimedir_vcard,
+				      "organization-list", current_org_list,
+				      NULL);
+
+			mimedir_utils_free_string_slist (current_org_list);
+		}
 		break;
 	case PROP_OFFICE:
-		g_free(card->office);
-		card->office = g_strdup(g_value_get_string(value));
+		g_free(priv->office);
+		priv->office = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_TITLE:
-		g_free(card->title);
-		card->title = g_strdup(g_value_get_string(value));
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "jobtitle", value);
 		break;
 	case PROP_ROLE:
-		g_free(card->role);
-		card->role = g_strdup(g_value_get_string(value));
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "role", value);
 		break;
 	case PROP_MANAGER:
-		g_free(card->manager);
-		card->manager = g_strdup(g_value_get_string(value));
+		g_free(priv->manager);
+		priv->manager = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_ASSISTANT:
-		g_free(card->assistant);
-		card->assistant = g_strdup(g_value_get_string(value));
+		g_free(priv->assistant);
+		priv->assistant = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_NICKNAME:
-		g_free(card->nickname);
-		card->nickname = g_strdup(g_value_get_string(value));
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "nickname", value);
 		break;
 	case PROP_SPOUSE:
-		g_free(card->spouse);
-		card->spouse = g_strdup(g_value_get_string(value));
+		g_free(priv->spouse);
+		priv->spouse = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_ANNIVERSARY:
-		g_free(card->anniversary);
+		g_free(priv->anniversary);
 		if (g_value_get_pointer (value)) {
-			card->anniversary = g_new (ECardDate, 1);
-			memcpy (card->anniversary, g_value_get_pointer (value), sizeof (ECardDate));
+			priv->anniversary = g_new (ECardDate, 1);
+			memcpy (priv->anniversary, g_value_get_pointer (value), sizeof (ECardDate));
 		} else {
-			card->anniversary = NULL;
+			priv->anniversary = NULL;
 		}
 		break;
 	case PROP_MAILER:
-		g_free(card->mailer);
-		card->mailer = g_strdup(g_value_get_string(value));
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "mailer", value);
 		break;
 	case PROP_CALURI:
-		g_free(card->caluri);
-		card->caluri = g_strdup(g_value_get_string(value));
+		g_free(priv->caluri);
+		priv->caluri = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_FBURL:
-		g_free(card->fburl);
-		card->fburl = g_strdup(g_value_get_string(value));
+		g_free(priv->fburl);
+		priv->fburl = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_NOTE:
-		g_free (card->note);
-		card->note = g_strdup(g_value_get_string(value));
+		g_free (priv->note);
+		priv->note = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_RELATED_CONTACTS:
-		g_free (card->related_contacts);
-		card->related_contacts = g_strdup(g_value_get_string(value));
+		g_free (priv->related_contacts);
+		priv->related_contacts = g_strdup(g_value_get_string(value));
 		break;
 	case PROP_WANTS_HTML:
-		card->wants_html = g_value_get_boolean (value);
-		card->wants_html_set = TRUE;
+		priv->wants_html = g_value_get_boolean (value);
+		priv->wants_html_set = TRUE;
 		break;
 	case PROP_ARBITRARY:
-		if (card->arbitrary)
-			g_object_unref(card->arbitrary);
-		card->arbitrary = E_LIST(g_value_get_pointer(value));
-		if (card->arbitrary)
-			g_object_ref(card->arbitrary);
+		if (priv->arbitrary)
+			g_object_unref(priv->arbitrary);
+		priv->arbitrary = E_LIST(g_value_get_pointer(value));
+		if (priv->arbitrary)
+			g_object_ref(priv->arbitrary);
 		break;
 	case PROP_ID:
-		g_free(card->id);
-		card->id = g_strdup(g_value_get_string(value));
-		if (card->id == NULL)
-			card->id = g_strdup ("");
+		g_object_set_property (G_OBJECT (priv->mimedir_vcard), "uid", value);
 		break;
 	case PROP_LAST_USE:
-		g_free(card->last_use);
+		g_free(priv->last_use);
 		if (g_value_get_pointer (value)) {
-			card->last_use = g_new (ECardDate, 1);
-			memcpy (card->last_use, g_value_get_pointer (value), sizeof (ECardDate));
+			priv->last_use = g_new (ECardDate, 1);
+			memcpy (priv->last_use, g_value_get_pointer (value), sizeof (ECardDate));
 		} else {
-			card->last_use = NULL;
+			priv->last_use = NULL;
 		}
 		break;
 	case PROP_USE_SCORE:
-		card->raw_use_score = g_value_get_float (value);
+		priv->raw_use_score = g_value_get_float (value);
 		break;
 	case PROP_EVOLUTION_LIST:
-		card->list = g_value_get_boolean (value);
+		priv->list = g_value_get_boolean (value);
 		break;
 	case PROP_EVOLUTION_LIST_SHOW_ADDRESSES:
-		card->list_show_addresses = g_value_get_boolean (value);
+		priv->list_show_addresses = g_value_get_boolean (value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -2236,47 +2124,46 @@ e_card_get_property (GObject *object,
 		     GValue *value,
 		     GParamSpec *pspec)
 {
+	ECardPrivate *priv;
 	ECard *card;
 
 	card = E_CARD (object);
 
+	priv = card->priv;
+
 	switch (prop_id) {
 	case PROP_FILE_AS:
-		g_value_set_string (value, card->file_as);
+		g_value_set_string (value, mimedir_vcard_get_custom_attribute (priv->mimedir_vcard, XEV_FILE_AS));
 		break;
 	case PROP_FULL_NAME:
-		g_value_set_string (value, card->fname);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "name", value);
 		break;
 	case PROP_NAME:
-		g_value_set_pointer (value, card->name);
+		g_value_set_pointer (value, priv->name);
 		break;
 	case PROP_ADDRESS:
-		if (!card->address)
-			card->address = e_list_new((EListCopyFunc) e_card_delivery_address_ref,
+		if (!priv->address)
+			priv->address = e_list_new((EListCopyFunc) e_card_delivery_address_ref,
 						   (EListFreeFunc) e_card_delivery_address_unref,
 						   NULL);
-		g_value_set_object (value, card->address);
+		g_value_set_object (value, priv->address);
 		break;
 	case PROP_ADDRESS_LABEL:
-		if (!card->address_label)
-			card->address_label = e_list_new((EListCopyFunc) e_card_address_label_ref,
+		if (!priv->address_label)
+			priv->address_label = e_list_new((EListCopyFunc) e_card_address_label_ref,
 							 (EListFreeFunc) e_card_address_label_unref,
 							 NULL);
-		g_value_set_object (value, card->address_label);
+		g_value_set_object (value, priv->address_label);
 		break;
 	case PROP_PHONE:
-		if (!card->phone)
-			card->phone = e_list_new((EListCopyFunc) e_card_phone_ref,
+		if (!priv->phone)
+			priv->phone = e_list_new((EListCopyFunc) e_card_phone_ref,
 						 (EListFreeFunc) e_card_phone_unref,
 						 NULL);
-		g_value_set_object (value, card->phone);
+		g_value_set_object (value, priv->phone);
 		break;
 	case PROP_EMAIL:
-		if (!card->email)
-			card->email = e_list_new((EListCopyFunc) g_strdup, 
-						 (EListFreeFunc) g_free,
-						 NULL);
-		g_value_set_object (value, card->email);
+		g_value_set_object (value, priv->email);
 		break;
 	case PROP_CATEGORIES:
 		{
@@ -2284,13 +2171,13 @@ e_card_get_property (GObject *object,
 			char ** strs;
 			int length;
 			EIterator *iterator;
-			if (!card->categories)
-				card->categories = e_list_new((EListCopyFunc) g_strdup, 
+			if (!priv->categories)
+				priv->categories = e_list_new((EListCopyFunc) g_strdup, 
 							      (EListFreeFunc) g_free,
 							      NULL);
-			length = e_list_length(card->categories);
+			length = e_list_length(priv->categories);
 			strs = g_new(char *, length + 1);
-			for (iterator = e_list_get_iterator(card->categories), i = 0; e_iterator_is_valid(iterator); e_iterator_next(iterator), i++) {
+			for (iterator = e_list_get_iterator(priv->categories), i = 0; e_iterator_is_valid(iterator); e_iterator_next(iterator), i++) {
 				strs[i] = (char *)e_iterator_get(iterator);
 			}
 			strs[i] = 0;
@@ -2299,91 +2186,105 @@ e_card_get_property (GObject *object,
 		}
 		break;
 	case PROP_CATEGORY_LIST:
-		if (!card->categories)
-			card->categories = e_list_new((EListCopyFunc) g_strdup, 
+		if (!priv->categories)
+			priv->categories = e_list_new((EListCopyFunc) g_strdup, 
 						      (EListFreeFunc) g_free,
 						      NULL);
-		g_value_set_object (value, card->categories);
+		g_value_set_object (value, priv->categories);
 		break;
 	case PROP_BIRTH_DATE:
-		g_value_set_pointer (value, card->bday);
+		g_value_set_pointer (value, &priv->bday);
 		break;
 	case PROP_URL:
-		g_value_set_string (value, card->url);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "url", value);
 		break;
 	case PROP_ORG:
-		g_value_set_string (value, card->org);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "organization", value);
 		break;
 	case PROP_ORG_UNIT:
-		g_value_set_string (value, card->org_unit);
+		{
+			GSList *org_list;
+			char *s;
+
+			g_object_get (priv->mimedir_vcard,
+				      "organization-list", &org_list,
+				      NULL);
+
+			if (org_list && org_list->next)
+				s = (char*)org_list->next->data;
+			else
+				s = NULL;
+
+			g_value_set_string (value, s);
+		}
 		break;
 	case PROP_OFFICE:
-		g_value_set_string (value, card->office);
+		g_value_set_string (value, priv->office);
 		break;
 	case PROP_TITLE:
-		g_value_set_string (value, card->title);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "jobtitle", value);
 		break;
 	case PROP_ROLE:
-		g_value_set_string (value, card->role);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "role", value);
 		break;
 	case PROP_MANAGER:
-		g_value_set_string (value, card->manager);
+		g_value_set_string (value, priv->manager);
 		break;
 	case PROP_ASSISTANT:
-		g_value_set_string (value, card->assistant);
+		g_value_set_string (value, priv->assistant);
 		break;
 	case PROP_NICKNAME:
-		g_value_set_string (value, card->nickname);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "nickname", value);
 		break;
 	case PROP_SPOUSE:
-		g_value_set_string (value, card->spouse);
+		g_value_set_string (value, priv->spouse);
 		break;
 	case PROP_ANNIVERSARY:
-		g_value_set_pointer (value, card->anniversary);
+		g_value_set_pointer (value, priv->anniversary);
 		break;
 	case PROP_MAILER:
-		g_value_set_string (value, card->mailer);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "mailer", value);
 		break;
 	case PROP_CALURI:
-		g_value_set_string (value, card->caluri);
+		g_value_set_string (value, priv->caluri);
 		break;
 	case PROP_FBURL:
-		g_value_set_string (value, card->fburl);
+		g_value_set_string (value, priv->fburl);
 		break;
 	case PROP_NOTE:
-		g_value_set_string (value, card->note);
+		g_value_set_string (value, priv->note);
 		break;
 	case PROP_RELATED_CONTACTS:
-		g_value_set_string (value, card->related_contacts);
+		g_value_set_string (value, priv->related_contacts);
 		break;
 	case PROP_WANTS_HTML:
-		g_value_set_boolean (value, card->wants_html);
+		g_value_set_boolean (value, priv->wants_html);
 		break;
 	case PROP_WANTS_HTML_SET:
-		g_value_set_boolean (value, card->wants_html_set);
+		g_value_set_boolean (value, priv->wants_html_set);
 		break;
 	case PROP_ARBITRARY:
-		if (!card->arbitrary)
-			card->arbitrary = e_list_new((EListCopyFunc) e_card_arbitrary_ref,
+		if (!priv->arbitrary)
+			priv->arbitrary = e_list_new((EListCopyFunc) e_card_arbitrary_ref,
 						     (EListFreeFunc) e_card_arbitrary_unref,
 						     NULL);
 
-		g_value_set_object (value, card->arbitrary);
+		g_value_set_object (value, priv->arbitrary);
 		break;
 	case PROP_ID:
-		g_value_set_string (value, card->id);
+		g_object_get_property (G_OBJECT (priv->mimedir_vcard), "uid", value);
 		break;
 	case PROP_LAST_USE:
-		g_value_set_pointer (value, card->last_use);
+		g_value_set_pointer (value, priv->last_use);
 		break;
 	case PROP_USE_SCORE:
 		g_value_set_float (value, e_card_get_use_score (card));
 		break;
 	case PROP_EVOLUTION_LIST:
-		g_value_set_boolean (value, card->list);
+		g_value_set_boolean (value, priv->list);
 		break;
 	case PROP_EVOLUTION_LIST_SHOW_ADDRESSES:
-		g_value_set_boolean (value, card->list_show_addresses);
+		g_value_set_boolean (value, priv->list_show_addresses);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -2398,45 +2299,39 @@ e_card_get_property (GObject *object,
 static void
 e_card_init (ECard *card)
 {
-	card->id                  = g_strdup("");
+	ECardPrivate *priv;
+
+	card->priv = priv = g_new0 (ECardPrivate, 1);
 	
-	card->file_as             = NULL;
-	card->fname               = NULL;
-	card->name                = NULL;
-	card->bday                = NULL;
-	card->email               = NULL;
-	card->phone               = NULL;
-	card->address             = NULL;
-	card->address_label       = NULL;
-	card->url                 = NULL;
-	card->org                 = NULL;
-	card->org_unit            = NULL;
-	card->office              = NULL;
-	card->title               = NULL;
-	card->role                = NULL;
-	card->manager             = NULL;
-	card->assistant           = NULL;
-	card->nickname            = NULL;
-	card->spouse              = NULL;
-	card->anniversary         = NULL;
-	card->mailer              = NULL;
-	card->caluri              = NULL;
-	card->fburl               = NULL;
-	card->note                = NULL;
-	card->related_contacts    = NULL;
-	card->categories          = NULL;
-	card->wants_html          = FALSE;
-	card->wants_html_set      = FALSE;
-	card->list                = FALSE;
-	card->list_show_addresses = FALSE;
-	card->arbitrary           = NULL;
-	card->last_use            = NULL;
-	card->raw_use_score       = 0;
+	priv->name                = NULL;
+	priv->phone               = NULL;
+	priv->address             = NULL;
+	priv->address_label       = NULL;
+	priv->office              = NULL;
+	priv->manager             = NULL;
+	priv->assistant           = NULL;
+	priv->spouse              = NULL;
+	priv->anniversary         = NULL;
+	priv->caluri              = NULL;
+	priv->fburl               = NULL;
+	priv->note                = NULL;
+	priv->related_contacts    = NULL;
+	priv->categories          = NULL;
+	priv->wants_html          = FALSE;
+	priv->wants_html_set      = FALSE;
+	priv->list                = FALSE;
+	priv->list_show_addresses = FALSE;
+	priv->arbitrary           = NULL;
+	priv->last_use            = NULL;
+	priv->raw_use_score       = 0;
+
+	memset (&priv->bday, 0, sizeof (ECardDate));
 }
 
 GList *
 e_card_load_cards_from_file_with_default_charset(const char *filename, char *default_charset)
 {
+#ifdef MIMEDIR_WORK
 	VObject *vobj = Parse_MIME_FromFileName((char *) filename);
 	GList *list = NULL;
 	while(vobj) {
@@ -2450,6 +2345,7 @@ e_card_load_cards_from_file_with_default_charset(const char *filename, char *def
 	}
 	list = g_list_reverse(list);
 	return list;
+#endif
 }
 
 GList *
@@ -2461,6 +2357,7 @@ e_card_load_cards_from_file(const char *filename)
 GList *
 e_card_load_cards_from_string_with_default_charset(const char *str, char *default_charset)
 {
+#ifdef MIMEDIR_WORK
 	VObject *vobj = Parse_MIME(str, strlen (str));
 	GList *list = NULL;
 	while(vobj) {
@@ -2474,6 +2371,7 @@ e_card_load_cards_from_string_with_default_charset(const char *str, char *defaul
 	}
 	list = g_list_reverse(list);
 	return list;
+#endif
 }
 
 GList *
@@ -2485,83 +2383,33 @@ e_card_load_cards_from_string(const char *str)
 void
 e_card_free_empty_lists (ECard *card)
 {
-	if (card->address && e_list_length (card->address) == 0) {
-		g_object_unref (card->address);
-		card->address = NULL;
+	ECardPrivate *priv = card->priv;
+
+	if (priv->address && e_list_length (priv->address) == 0) {
+		g_object_unref (priv->address);
+		priv->address = NULL;
 	}
 
-	if (card->address_label && e_list_length (card->address_label) == 0) {
-		g_object_unref (card->address_label);
-		card->address_label = NULL;
+	if (priv->address_label && e_list_length (priv->address_label) == 0) {
+		g_object_unref (priv->address_label);
+		priv->address_label = NULL;
 	}
 
-	if (card->phone && e_list_length (card->phone) == 0) {
-		g_object_unref (card->phone);
-		card->phone = NULL;
+	if (priv->phone && e_list_length (priv->phone) == 0) {
+		g_object_unref (priv->phone);
+		priv->phone = NULL;
 	}
 
-	if (card->email && e_list_length (card->email) == 0) {
-		g_object_unref (card->email);
-		card->email = NULL;
+	if (priv->categories && e_list_length (priv->categories) == 0) {
+		g_object_unref (priv->categories);
+		priv->categories = NULL;
 	}
 
-	if (card->categories && e_list_length (card->categories) == 0) {
-		g_object_unref (card->categories);
-		card->categories = NULL;
-	}
-
-	if (card->arbitrary && e_list_length (card->arbitrary) == 0) {
-		g_object_unref (card->arbitrary);
-		card->arbitrary = NULL;
+	if (priv->arbitrary && e_list_length (priv->arbitrary) == 0) {
+		g_object_unref (priv->arbitrary);
+		priv->arbitrary = NULL;
 	}
 }
-
-static void
-assign_string(VObject *vobj, char *default_charset, char **string)
-{
-	int type = vObjectValueType(vobj);
-	char *str;
-	char *charset = default_charset;
-	gboolean free_charset = FALSE;
-	VObject *charset_obj;
-
-	if ((charset_obj = isAPropertyOf (vobj, "CHARSET"))) {
-		switch (vObjectValueType (charset_obj)) {
-		case VCVT_STRINGZ:
-			charset = (char *) vObjectStringZValue(charset_obj);
-			break;
-		case VCVT_USTRINGZ:
-			charset = fakeCString (vObjectUStringZValue (charset_obj));
-			free_charset = TRUE;
-			break;
-		}
-	}
-
-	switch(type) {
-	case VCVT_STRINGZ:
-		if (strcmp (charset, "UTF-8"))
-			*string = e_utf8_from_charset_string (charset, vObjectStringZValue(vobj));
-		else
-			*string = g_strdup(vObjectStringZValue(vobj));
-		break;
-	case VCVT_USTRINGZ:
-		str = fakeCString (vObjectUStringZValue (vobj));
-		if (strcmp (charset, "UTF-8"))
-			*string = e_utf8_from_charset_string (charset, str);
-		else
-			*string = g_strdup(str);
-		free(str);
-		break;
-	default:
-		*string = g_strdup("");
-		break;
-	}
-
-	if (free_charset) {
-		free (charset);
-	}
-}
-
 
 ECardDate
 e_card_date_from_string (const char *str)
@@ -2588,41 +2436,7 @@ e_card_date_from_string (const char *str)
 	return date;
 }
 
-char *
-e_v_object_get_child_value(VObject *vobj, char *name, char *default_charset)
-{
-	char *ret_val;
-	VObjectIterator iterator;
-	gboolean free_charset = FALSE;
-	VObject *charset_obj;
-
-	if ((charset_obj = isAPropertyOf (vobj, "CHARSET"))) {
-		switch (vObjectValueType (charset_obj)) {
-		case VCVT_STRINGZ:
-			default_charset = (char *) vObjectStringZValue(charset_obj);
-			break;
-		case VCVT_USTRINGZ:
-			default_charset = fakeCString (vObjectUStringZValue (charset_obj));
-			free_charset = TRUE;
-			break;
-		}
-	}
-
-	initPropIterator(&iterator, vobj);
-	while(moreIteration (&iterator)) {
-		VObject *attribute = nextVObject(&iterator);
-		const char *id = vObjectName(attribute);
-		if ( ! strcmp(id, name) ) {
-			assign_string(attribute, default_charset, &ret_val);
-			return ret_val;
-		}
-	}
-	if (free_charset)
-		free (default_charset);
-
-	return NULL;
-}
-
+#ifdef MIMEDIR_WORK
 static struct { 
 	char *id;
 	ECardPhoneFlags flag;
@@ -2713,6 +2527,7 @@ set_address_flags (VObject *vobj, ECardAddressFlags flags)
 		}
 	}
 }
+#endif
 
 #include <Evolution-Composer.h>
 
@@ -2985,15 +2800,25 @@ e_card_send (ECard *card, ECardDisposition disposition)
 gboolean
 e_card_evolution_list (ECard *card)
 {
+	ECardPrivate *priv;
+
 	g_return_val_if_fail (card && E_IS_CARD (card), FALSE);
-	return card->list;
+
+	priv = card->priv;
+
+	return priv->list;
 }
 
 gboolean
 e_card_evolution_list_show_addresses (ECard *card)
 {
+	ECardPrivate *priv;
+
 	g_return_val_if_fail (card && E_IS_CARD (card), FALSE);
-	return card->list_show_addresses;
+
+	priv = card->priv;
+
+	return priv->list_show_addresses;
 }
 
 typedef struct _CardLoadData CardLoadData;

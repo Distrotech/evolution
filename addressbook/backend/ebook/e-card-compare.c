@@ -142,7 +142,7 @@ e_card_compare_name_to_string_full (ECard *card, const gchar *str, gboolean allo
 				    gint *matched_parts_out, ECardMatchPart *first_matched_part_out, gint *matched_character_count_out)
 {
 	gchar **namev, **givenv = NULL, **addv = NULL, **familyv = NULL;
-
+	ECardName *ecardname;
 	gint matched_parts = E_CARD_MATCH_PART_NONE;
 	ECardMatchPart first_matched_part = E_CARD_MATCH_PART_NONE;
 	ECardMatchPart this_part_match = E_CARD_MATCH_PART_NOT_APPLICABLE;
@@ -153,8 +153,13 @@ e_card_compare_name_to_string_full (ECard *card, const gchar *str, gboolean allo
 	gchar *str_cpy, *s;
 
 	g_return_val_if_fail (E_IS_CARD (card), E_CARD_MATCH_NOT_APPLICABLE);
-	g_return_val_if_fail (card->name != NULL, E_CARD_MATCH_NOT_APPLICABLE);
 	g_return_val_if_fail (str != NULL, E_CARD_MATCH_NOT_APPLICABLE);
+	
+	g_object_get (card,
+		      "name", &ecardname,
+		      NULL);
+
+	g_return_val_if_fail (ecardname != NULL, E_CARD_MATCH_NOT_APPLICABLE);
 
 	str_cpy = s = g_strdup (str);
 	while (*s) {
@@ -165,12 +170,12 @@ e_card_compare_name_to_string_full (ECard *card, const gchar *str, gboolean allo
 	namev   = g_strsplit (str_cpy, " ", 0);
 	g_free (str_cpy);
 
-	if (card->name->given)
-		givenv = g_strsplit (card->name->given, " ", 0);
-	if (card->name->additional)
-		addv = g_strsplit (card->name->additional, " ", 0);
-	if (card->name->family)
-		familyv = g_strsplit (card->name->family, " ", 0);
+	if (ecardname->given)
+		givenv = g_strsplit (ecardname->given, " ", 0);
+	if (ecardname->additional)
+		addv = g_strsplit (ecardname->additional, " ", 0);
+	if (ecardname->family)
+		familyv = g_strsplit (ecardname->family, " ", 0);
 
 	fragment_count = 0;
 	for (i = 0; givenv && givenv[i]; ++i)
@@ -285,8 +290,13 @@ e_card_compare_name (ECard *card1, ECard *card2)
 	g_return_val_if_fail (E_IS_CARD (card1), E_CARD_MATCH_NOT_APPLICABLE);
 	g_return_val_if_fail (E_IS_CARD (card2), E_CARD_MATCH_NOT_APPLICABLE);
 
-	a = card1->name;
-	b = card2->name;
+	g_object_get (card1,
+		      "name", &a,
+		      NULL);
+
+	g_object_get (card2,
+		      "name", &b,
+		      NULL);
 
 	if (a == NULL || b == NULL)
 		return E_CARD_MATCH_NOT_APPLICABLE;
@@ -433,17 +443,23 @@ compare_email_addresses (const gchar *addr1, const gchar *addr2)
 ECardMatchType
 e_card_compare_email (ECard *card1, ECard *card2)
 {
+	EList *email1, *email2;
 	EIterator *i1, *i2;
 	ECardMatchType match = E_CARD_MATCH_NOT_APPLICABLE;
 
 	g_return_val_if_fail (card1 && E_IS_CARD (card1), E_CARD_MATCH_NOT_APPLICABLE);
 	g_return_val_if_fail (card2 && E_IS_CARD (card2), E_CARD_MATCH_NOT_APPLICABLE);
 
-	if (card1->email == NULL || card2->email == NULL)
+	g_object_get (card1, "email", &email1, NULL);
+	g_object_get (card2, "email", &email2, NULL);
+	if (email1 == NULL || email2 == NULL) {
+		if (email1) g_object_unref (email1);
+		if (email2) g_object_unref (email2);
 		return E_CARD_MATCH_NOT_APPLICABLE;
+	}
 
-	i1 = e_list_get_iterator (card1->email);
-	i2 = e_list_get_iterator (card2->email);
+	i1 = e_list_get_iterator (email1);
+	i2 = e_list_get_iterator (email2);
 
 	/* Do pairwise-comparisons on all of the e-mail addresses.  If
 	   we find an exact match, there is no reason to keep
@@ -466,6 +482,9 @@ e_card_compare_email (ECard *card1, ECard *card2)
 
 	g_object_unref (i1);
 	g_object_unref (i2);
+
+	g_object_unref (email1);
+	g_object_unref (email2);
 
 	return match;
 }
@@ -592,6 +611,8 @@ use_common_book_cb (EBook *book, gpointer closure)
 	gint p=0;
 	gchar *query, *qj;
 	int i;
+	ECardName *name;
+	EList *email;
 
 	if (book == NULL) {
 		info->cb (info->card, NULL, E_CARD_MATCH_NONE, info->closure);
@@ -599,23 +620,20 @@ use_common_book_cb (EBook *book, gpointer closure)
 		return;
 	}
 
-#if 0
-	if (card->nickname && *card->nickname)
-		query_parts[p++] = g_strdup_printf ("(beginswith \"nickname\" \"%s\")", card->nickname);
-#endif
+	g_object_get (card, "name", &name, NULL);
 
-	if (card->name->given && strlen (card->name->given) > 1)
-		query_parts[p++] = g_strdup_printf ("(contains \"full_name\" \"%s\")", card->name->given);
+	if (name->given && strlen (name->given) > 1)
+		query_parts[p++] = g_strdup_printf ("(contains \"full_name\" \"%s\")", name->given);
 
-	if (card->name->additional && strlen (card->name->additional) > 1)
-		query_parts[p++] = g_strdup_printf ("(contains \"full_name\" \"%s\")", card->name->additional);
+	if (name->additional && strlen (name->additional) > 1)
+		query_parts[p++] = g_strdup_printf ("(contains \"full_name\" \"%s\")", name->additional);
 
-	if (card->name->family && strlen (card->name->family) > 1)
-		query_parts[p++] = g_strdup_printf ("(contains \"full_name\" \"%s\")", card->name->family);
+	if (name->family && strlen (name->family) > 1)
+		query_parts[p++] = g_strdup_printf ("(contains \"full_name\" \"%s\")", name->family);
 
-		
-	if (card->email) {
-		EIterator *iter = e_list_get_iterator (card->email);
+	g_object_get (card, "email", &email, NULL);
+	if (email) {
+		EIterator *iter = e_list_get_iterator (email);
 		while (e_iterator_is_valid (iter) && p < MAX_QUERY_PARTS) {
 			gchar *addr = g_strdup (e_iterator_get (iter));
 			if (addr && *addr) {
@@ -632,6 +650,8 @@ use_common_book_cb (EBook *book, gpointer closure)
 			}
 			e_iterator_next (iter);
 		}
+
+		g_object_unref (email);
 	}
 
 	

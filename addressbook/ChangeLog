@@ -1,3 +1,28 @@
+2003-02-18  Chris Toshok  <toshok@ximian.com>
+
+	* gui/component/select-names/e-select-names-popup.c: deal with ecard being opaque.
+
+	* gui/component/select-names/e-select-names-manager.c: same.
+
+	* gui/component/select-names/e-select-names-completion.c: same.
+
+	* gui/component/e-address-widget.c: same.
+
+	* gui/component/e-address-popup.c: same.
+
+	* conduit/address-conduit.c: same.
+
+	* backend/pas/pas-backend-summary.c: same.
+
+	* backend/pas/pas-backend-ldap.c: same.
+
+	* backend/ebook/e-destination.c: same.
+
+	* backend/ebook/e-card-compare.c: same.
+
+	* backend/ebook/e-card.[ch]: make everything private, and port to
+	mimedir.
+
 2003-02-17  Chris Toshok  <toshok@ximian.com>
 
 	* gui/component/select-names/e-select-names-completion.c

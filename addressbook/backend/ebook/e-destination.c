@@ -693,11 +693,17 @@ e_destination_get_name (const EDestination *dest)
 	
 	if (priv->name == NULL) {
 		if (priv->card != NULL) {
-			priv->name = e_card_name_to_string (priv->card->name);
+			ECardName *name;
+			char *file_as;
+
+			g_object_get (priv->card, "name", &name, NULL);
+			g_object_get (priv->card, "file_as", &file_as, NULL);
+
+			priv->name = e_card_name_to_string (name);
 			
 			if (priv->name == NULL || *priv->name == '\0') {
 				g_free (priv->name);
-				priv->name = g_strdup (priv->card->file_as);
+				priv->name = g_strdup (file_as);
 			}
 			
 			if (priv->name == NULL || *priv->name == '\0') {
@@ -735,9 +741,13 @@ e_destination_get_email (const EDestination *dest)
 	
 	if (priv->email == NULL) {
 		if (priv->card != NULL) {
+			EList *email;
+
+			g_object_get (priv->card, "email", &email, NULL);
+
 			/* Pull the address out of the card. */
-			if (priv->card->email) {
-				EIterator *iter = e_list_get_iterator (priv->card->email);
+			if (email) {
+				EIterator *iter = e_list_get_iterator (email);
 				int n = priv->card_email_num;
 				
 				if (n >= 0) {
@@ -751,7 +761,9 @@ e_destination_get_email (const EDestination *dest)
 						priv->email = g_strdup ((char *) ptr);
 					}
 				}
-			} 
+
+				g_object_unref (email);
+			}
 		} else if (priv->raw != NULL) {
 			CamelInternetAddress *addr = camel_internet_address_new ();
 			
@@ -874,14 +886,19 @@ e_destination_get_textrep (const EDestination *dest)
 gboolean
 e_destination_is_evolution_list (const EDestination *dest)
 {
+	EList *email = NULL;
+
 	g_return_val_if_fail (dest && E_IS_DESTINATION (dest), FALSE);
 	
+	if (dest->priv->card)
+		g_object_get (dest->priv->card, "email", &email, NULL);
+
 	if (dest->priv->list_dests == NULL
 	    && dest->priv->card != NULL
-	    && dest->priv->card->email != NULL
+	    && email != NULL
 	    && e_card_evolution_list (dest->priv->card)) {
 		
-		EIterator *iter = e_list_get_iterator (dest->priv->card->email);
+		EIterator *iter = e_list_get_iterator (email);
 		
 		e_iterator_reset (iter);
 		while (e_iterator_is_valid (iter)) {
@@ -893,7 +910,10 @@ e_destination_is_evolution_list (const EDestination *dest)
 			e_iterator_next (iter);
 		}
 	}
-	
+
+	if (email)
+		g_object_unref (email);
+
 	return dest->priv->list_dests != NULL;
 }
 
@@ -911,12 +931,18 @@ e_destination_list_show_addresses (const EDestination *dest)
 gboolean
 e_destination_get_html_mail_pref (const EDestination *dest)
 {
+	gboolean wants_html;
+
 	g_return_val_if_fail (dest && E_IS_DESTINATION (dest), FALSE);
 	
 	if (dest->priv->html_mail_override || dest->priv->card == NULL)
 		return dest->priv->wants_html_mail;
-	
-	return dest->priv->card->wants_html;
+
+	g_object_get (dest->priv->card,
+		      "wants_html", &wants_html,
+		      NULL);
+
+	return wants_html;
 }
 
 gboolean

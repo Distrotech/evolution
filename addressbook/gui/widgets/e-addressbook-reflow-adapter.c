@@ -185,8 +185,12 @@ addressbook_compare (EReflowModel *erm, int n1, int n2)
 
 		if (card1 && card2) {
 			char *file_as1, *file_as2;
-			file_as1 = card1->file_as;
-			file_as2 = card2->file_as;
+			g_object_get (card1,
+				      "file_as", &file_as1,
+				      NULL);
+			g_object_get (card2,
+				      "file_as", &file_as2,
+				      NULL);
 			if (file_as1 && file_as2)
 				return g_utf8_collate(file_as1, file_as2);
 			if (file_as1)

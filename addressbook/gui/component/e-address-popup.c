@@ -429,6 +429,7 @@ static void
 email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
 {
 	EMailTable *et;
+	ECardName *name;
 
 	gchar *name_str;
 	gint xpad, ypad;
@@ -461,7 +462,11 @@ email_table_init (MiniWizard *wiz, ECard *card, const gchar *extra_address)
 	xpad = 3;
 	ypad = 3;
 
-	name_str = e_card_name_to_string (et->card->name);
+	g_object_get (et->card,
+		      "name", &name,
+		      NULL);
+
+	name_str = e_card_name_to_string (name);
 	gtk_table_attach (GTK_TABLE (et->table),
 			  gtk_label_new (name_str),
 			  0, 2, 0, 1, 
@@ -622,7 +627,14 @@ card_picker_init (MiniWizard *wiz, const GList *cards, const gchar *new_name, co
 	pick->cards = NULL;
 	while (cards) {
 		ECard *card = (ECard *) cards->data;
-		gchar *name_str = e_card_name_to_string (card->name);
+		ECardName *name;
+		gchar *name_str;
+
+		g_object_get (card,
+			      "name", &name,
+			      NULL);
+
+		name_str = e_card_name_to_string (name);
 
 		pick->cards = g_list_append (pick->cards, card);
 		g_object_ref (card);
