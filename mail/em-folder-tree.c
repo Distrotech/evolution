@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
-#include <gdk/gdk-pixbuf.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 
 #include "em-popup.h"
 #include "em-marshal.h"
@@ -193,10 +193,10 @@ render_pixbuf (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 	char *path;
 	
 	if (!initialised) {
-		folder_icons[0] = gdk_pixbuf_load_from_file (EVOLUTION_ICONSDIR "/folder-mini.png");
-		folder_icons[1] = gdk_pixbuf_load_from_file (EVOLUTION_ICONSDIR "/inbox-mini.png");
-		folder_icons[2] = gdk_pixbuf_load_from_file (EVOLUTION_ICONSDIR "/outbox-mini.png");
-		folder_icons[3] = gdk_pixbuf_load_from_file (EVOLUTION_ICONSDIR "/evolution-trash-mini.png");
+		folder_icons[0] = gdk_pixbuf_new_from_file (EVOLUTION_ICONSDIR "/folder-mini.png", NULL);
+		folder_icons[1] = gdk_pixbuf_new_from_file (EVOLUTION_ICONSDIR "/inbox-mini.png", NULL);
+		folder_icons[2] = gdk_pixbuf_new_from_file (EVOLUTION_ICONSDIR "/outbox-mini.png", NULL);
+		folder_icons[3] = gdk_pixbuf_new_from_file (EVOLUTION_ICONSDIR "/evolution-trash-mini.png", NULL);
 		initialised = TRUE;
 	}
 	
