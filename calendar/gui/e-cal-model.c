@@ -1459,6 +1459,9 @@ e_cal_model_create_component_with_defaults (ECalModel *model)
 		return NULL;
 	}
 
+	if (!comp)
+		return icalcomponent_new (priv->kind);
+
 	icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
 	g_object_unref (comp);
 

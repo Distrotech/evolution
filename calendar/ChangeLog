@@ -1,5 +1,10 @@
 2003-10-07  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.c (e_cal_model_create_component_with_defaults):
+	dont clone NULL icalcomponent's.
+
+2003-10-07  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model.c (e_cal_model_get_default_client): make sure we
 	always return a default client, if possible, since we rely on having
 	a default client in many places.
