@@ -28,9 +28,7 @@
 #include "addressbook-config.h"
 #include "e-address-popup.h"
 #include "e-address-widget.h"
-#if notyet
-#include "e-minicard-control.h"
-#endif
+#include "eab-vcard-control.h"
 #include "select-names/e-select-names-bonobo.h"
 
 #include <bonobo/bonobo-shlib-factory.h>
@@ -38,9 +36,7 @@
 
 #define FACTORY_ID "OAFIID:GNOME_Evolution_Addressbook_Factory"
 
-#if notyet
-#define MINICARD_CONTROL_ID            "OAFIID:GNOME_Evolution_Addressbook_MiniCard_Control"
-#endif
+#define VCARD_CONTROL_ID               "OAFIID:GNOME_Evolution_Addressbook_VCard_Control"
 #define ADDRESSBOOK_CONTROL_ID         "OAFIID:GNOME_Evolution_Addressbook_Control"
 #define SHELL_COMPONENT_ID             "OAFIID:GNOME_Evolution_Addressbook_ShellComponent"
 #define ADDRESS_WIDGET_ID              "OAFIID:GNOME_Evolution_Addressbook_AddressWidget"
@@ -54,10 +50,10 @@ factory (BonoboGenericFactory *factory,
 	 const char *component_id,
 	 void *closure)
 {
-#if notyet
-	if (strcmp (component_id, MINICARD_CONTROL_ID) == 0)
-		return BONOBO_OBJECT (e_minicard_control_new ());
-#endif
+	printf ("asked to activate component_id `%s'\n", component_id);
+
+	if (strcmp (component_id, VCARD_CONTROL_ID) == 0)
+		return BONOBO_OBJECT (eab_vcard_control_new ());
 	if (strcmp (component_id, ADDRESSBOOK_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (addressbook_new_control ());
 	if (strcmp (component_id, SHELL_COMPONENT_ID) == 0)

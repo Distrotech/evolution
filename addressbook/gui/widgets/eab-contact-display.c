@@ -28,7 +28,6 @@
 #include <string.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnome/gnome-url.h>
-#include <gtk/gtkscrolledwindow.h>
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-stream.h>
 
@@ -42,6 +41,8 @@ struct _EABContactDisplayPrivate {
 
 #define HTML_HEADER "<!doctype html public \"-//W3C//DTD HTML 4.0 TRANSITIONAL//EN\">\n<html>\n"  \
                     "<head>\n<meta name=\"generator\" content=\"Evolution Addressbook Component\">\n</head>\n"
+
+#define MAX_COMPACT_IMAGE_DIMENSION 48
 
 static void
 on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
@@ -117,8 +118,8 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 		e_contact_address_free (adr);
 }
 
-void
-eab_contact_display_render (EABContactDisplay *display, EContact *contact)
+static void
+eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact)
 {
 	GtkHTMLStream *html_stream;
 
@@ -239,54 +240,215 @@ eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 	gtk_html_end (display->priv->html, html_stream, GTK_HTML_STREAM_OK);
 }
 
+static void
+eab_contact_display_render_compact (EABContactDisplay *display, EContact *contact)
+{
+	GtkHTMLStream *html_stream;
+
+	if (display->priv->contact)
+		g_object_unref (display->priv->contact);
+	display->priv->contact = contact;
+	if (display->priv->contact)
+		g_object_ref (display->priv->contact);
+
+	html_stream = gtk_html_begin (display->priv->html);
+	gtk_html_stream_write (html_stream, HTML_HEADER, sizeof (HTML_HEADER) - 1);
+	gtk_html_stream_write (html_stream, "<body>\n", 7);
+
+	if (contact) {
+		char *str, *html;
+		EContactPhoto *photo;
+
+		gtk_html_stream_printf (html_stream,
+					"<table width=\"100%%\" cellpadding=1 cellspacing=0 bgcolor=\"#000000\">"
+					"<tr><td>"
+					"<table width=\"100%%\" cellpadding=0 cellspacing=0 bgcolor=\"#eeeeee\">"
+					"<tr><td>"
+					"<table>"
+					"<tr valign=\"top\"><td>");
+
+		photo = e_contact_get (contact, E_CONTACT_PHOTO);
+		if (!photo)
+			photo = e_contact_get (contact, E_CONTACT_LOGO);
+		if (photo) {
+			int calced_width = MAX_COMPACT_IMAGE_DIMENSION, calced_height = MAX_COMPACT_IMAGE_DIMENSION;
+			GdkPixbufLoader *loader = gdk_pixbuf_loader_new ();
+			GdkPixbuf *pixbuf;
+
+			/* figure out if we need to downscale the
+			   image here.  we don't scale the pixbuf
+			   itself, just insert width/height tags in
+			   the html */
+			gdk_pixbuf_loader_write (loader, photo->data, photo->length, NULL);
+			pixbuf = gdk_pixbuf_loader_get_pixbuf (loader);
+			gdk_pixbuf_loader_close (loader, NULL);
+			g_object_unref (loader);
+			if (pixbuf) {
+				int max_dimension = gdk_pixbuf_get_height (pixbuf);
+				if (max_dimension < gdk_pixbuf_get_width (pixbuf))
+					max_dimension = gdk_pixbuf_get_width (pixbuf);
+
+				calced_width = (float)gdk_pixbuf_get_width (pixbuf) / max_dimension * MAX_COMPACT_IMAGE_DIMENSION;
+				calced_height = (float)gdk_pixbuf_get_height (pixbuf) / max_dimension * MAX_COMPACT_IMAGE_DIMENSION;
+
+				calced_width = MIN (calced_width, MAX_COMPACT_IMAGE_DIMENSION);
+				calced_height = MIN (calced_height, MAX_COMPACT_IMAGE_DIMENSION);
+			}
+
+			gdk_pixbuf_unref (pixbuf);
+			gtk_html_stream_printf (html_stream, "<img width=\"%d\" height=\"%d\" src=\"internal-contact-photo:\">",
+						calced_width, calced_height);
+			e_contact_photo_free (photo);
+		}
+		
+		gtk_html_stream_printf (html_stream, "</td><td>\n");
+
+		str = e_contact_get_const (contact, E_CONTACT_FILE_AS);
+		if (str) {
+			html = e_text_to_html (str, 0);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>", html);
+			g_free (html);
+		}
+		else {
+			str = e_contact_get_const (contact, E_CONTACT_FULL_NAME);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>", html);
+				g_free (html);
+			}
+		}
+
+		gtk_html_stream_write (html_stream, "<hr>", 4);
+		
+		if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
+			GList *email_list;
+			GList *l;
+
+			gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
+			gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", _("List Members"));
+
+			email_list = e_contact_get (contact, E_CONTACT_EMAIL);
+			for (l = email_list; l; l = l->next) {
+				EABDestination *dest = eab_destination_import (l->data);
+				if (dest) {
+					const char *textrep = eab_destination_get_textrep (dest, TRUE);
+					char *html = e_text_to_html (textrep, 0);
+					gtk_html_stream_printf (html_stream, "%s, ", html);
+					g_free (html);
+					g_object_unref (dest);
+				}
+			}
+			gtk_html_stream_printf (html_stream, "</td></tr></table>");
+		}
+		else {
+			gboolean comma = FALSE;
+			str = e_contact_get_const (contact, E_CONTACT_TITLE);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Job Title"), str);
+				g_free (html);
+			}
+
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: ", _("Email"));
+			str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "%s", str);
+				g_free (html);
+				comma = TRUE;
+			}
+			str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "%s%s", comma ? ", " : "", str);
+				g_free (html);
+				comma = TRUE;
+			}
+			str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "%s%s", comma ? ", " : "", str);
+				g_free (html);
+			}
+			gtk_html_stream_write (html_stream, "<br>", 4);
+			
+			str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
+			if (str) {
+				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+							_("Home page"), html);
+				g_free (html);
+			}
+
+			str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
+			if (str) {
+				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+							_("Blog"), html);
+			}
+		}
+
+		gtk_html_stream_printf (html_stream, "</td></tr></table></td></tr></table></td></tr></table>\n");
+	}
+
+	gtk_html_stream_write (html_stream, "</body></html>\n", 15);
+	gtk_html_end (display->priv->html, html_stream, GTK_HTML_STREAM_OK);
+}
+
+void
+eab_contact_display_render (EABContactDisplay *display, EContact *contact,
+			    EABContactDisplayRenderMode mode)
+{
+	switch (mode) {
+	case EAB_CONTACT_DISPLAY_RENDER_NORMAL:
+		eab_contact_display_render_normal (display, contact);
+		break;
+	case EAB_CONTACT_DISPLAY_RENDER_COMPACT:
+		eab_contact_display_render_compact (display, contact);
+		break;
+	}
+}
+
 GtkWidget*
 eab_contact_display_new (void)
 {
 	EABContactDisplay *display;
-	GtkWidget *scroll;
-	GtkHTML *html;
 
 	display = g_object_new (EAB_TYPE_CONTACT_DISPLAY, NULL);
 	
 	display->priv = g_new0 (EABContactDisplayPrivate, 1);
 
-	scroll = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scroll), GTK_SHADOW_IN);
-	gtk_box_pack_start_defaults (GTK_BOX (display), scroll);
-	gtk_widget_show (scroll);
-
-	html = display->priv->html = GTK_HTML (gtk_html_new ());
-
-	gtk_html_set_default_content_type (html, "text/html; charset=utf-8");
+	display->priv->html = GTK_HTML (gtk_html_new ());
 	
-	gtk_html_set_editable (html, FALSE);
+	gtk_html_set_default_content_type (display->priv->html, "text/html; charset=utf-8");
+	
+	gtk_html_set_editable (display->priv->html, FALSE);
 
 
-	g_signal_connect (html, "url_requested",
+	g_signal_connect (display->priv->html, "url_requested",
 			  G_CALLBACK (on_url_requested),
 			  display);
-	g_signal_connect (html, "link_clicked",
+	g_signal_connect (display->priv->html, "link_clicked",
 			  G_CALLBACK (on_link_clicked),
 			  display);
 #if 0
-	g_signal_connect (html, "object_requested",
+	g_signal_connect (display->priv->html, "object_requested",
 			  G_CALLBACK (on_object_requested),
 			  mail_display);
-	g_signal_connect (html, "button_press_event",
+	g_signal_connect (display->priv->html, "button_press_event",
 			  G_CALLBACK (html_button_press_event), mail_display);
-	g_signal_connect (html, "motion_notify_event",
+	g_signal_connect (display->priv->html, "motion_notify_event",
 			  G_CALLBACK (html_motion_notify_event), mail_display);
-	g_signal_connect (html, "enter_notify_event",
+	g_signal_connect (display->priv->html, "enter_notify_event",
 			  G_CALLBACK (html_enter_notify_event), mail_display);
-	g_signal_connect (html, "iframe_created",
+	g_signal_connect (display->priv->html, "iframe_created",
 			  G_CALLBACK (html_iframe_created), mail_display);
-	g_signal_connect (html, "on_url",
+	g_signal_connect (display->priv->html, "on_url",
 			  G_CALLBACK (html_on_url), mail_display);
 #endif
 
-	gtk_container_add (GTK_CONTAINER (scroll), GTK_WIDGET (html));
-	gtk_widget_show (GTK_WIDGET (html));
+	gtk_box_pack_start_defaults (GTK_BOX (display), GTK_WIDGET (display->priv->html));
+	gtk_widget_show (GTK_WIDGET (display->priv->html));
 
 	return GTK_WIDGET (display);
 }

@@ -243,6 +243,7 @@ eab_view_init (EABView *eav)
 	eav->model = NULL;
 	eav->object = NULL;
 	eav->widget = NULL;
+	eav->scrolled = NULL;
 	eav->contact_display = NULL;
 
 	eav->view_instance = NULL;
@@ -337,10 +338,16 @@ eab_view_new (void)
 	gtk_container_add (GTK_CONTAINER (eav->paned), eav->widget);
 	gtk_widget_show (eav->widget);
 
+	eav->scrolled = gtk_scrolled_window_new (NULL, NULL);
+	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (eav->scrolled), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (eav->scrolled), GTK_SHADOW_IN);
 	eav->contact_display = eab_contact_display_new ();
-	gtk_container_add (GTK_CONTAINER (eav->paned), eav->contact_display);
+
+	gtk_scrolled_window_add_with_viewport (GTK_SCROLLED_WINDOW (eav->scrolled), eav->contact_display);
 	gtk_widget_show (eav->contact_display);
 
+	gtk_container_add (GTK_CONTAINER (eav->paned), eav->scrolled);
+	gtk_widget_show (eav->scrolled);
 	gtk_widget_show (eav->paned);
 
 	/* XXX hack */
@@ -916,7 +923,8 @@ render_contact (int row, EABView *view)
 {
 	EContact *contact = eab_model_get_contact (view->model, row);
 
-	eab_contact_display_render (EAB_CONTACT_DISPLAY (view->contact_display), contact);
+	eab_contact_display_render (EAB_CONTACT_DISPLAY (view->contact_display), contact,
+				    EAB_CONTACT_DISPLAY_RENDER_NORMAL);
 }
 
 static void
@@ -932,7 +940,8 @@ selection_changed (GObject *o, EABView *view)
 		e_selection_model_foreach (selection_model,
 					   (EForeachFunc)render_contact, view);
 	else
-		eab_contact_display_render (EAB_CONTACT_DISPLAY (view->contact_display), NULL);
+		eab_contact_display_render (EAB_CONTACT_DISPLAY (view->contact_display), NULL,
+					    EAB_CONTACT_DISPLAY_RENDER_NORMAL);
 					    
 }
 

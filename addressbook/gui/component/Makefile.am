@@ -9,7 +9,6 @@ INCLUDES =									\
 	-I$(top_srcdir)/widgets/misc				\
 	-I$(top_srcdir)/addressbook/gui/contact-editor		\
 	-I$(top_srcdir)/addressbook/gui/contact-list-editor	\
-	-I$(top_srcdir)/addressbook/gui/minicard		\
 	-I$(top_srcdir)/addressbook/gui/widgets			\
 	-I$(top_srcdir)/addressbook/backend			\
 	-I$(top_builddir)/addressbook/backend			\

@@ -75,6 +75,7 @@ struct _EABView
 	GObject *object;
 	GtkWidget *widget;
 
+	GtkWidget *scrolled;
 	GtkWidget *contact_display;
 	GtkWidget *paned;
 

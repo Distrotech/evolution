@@ -13,7 +13,7 @@
 
 </oaf_server>
 
-<oaf_server iid="OAFIID:GNOME_Evolution_Addressbook_MiniCard_Control"
+<oaf_server iid="OAFIID:GNOME_Evolution_Addressbook_VCard_Control"
             type="factory"
             location="OAFIID:GNOME_Evolution_Addressbook_Factory">
 

@@ -1,5 +1,39 @@
 2003-10-01  Chris Toshok  <toshok@ximian.com>
 
+	* gui/widgets/e-addressbook-view.c (eab_view_new): create the
+	scrolled window to embed the EABContactDisplay widget inside of.
+
+	* gui/widgets/e-addressbook-view.h (struct _EABView): add scrolled;
+
+	* gui/widgets/eab-contact-display.h: add
+	EABContactDisplayRenderMode enum, and add @render_mode arg to
+	eab_contact_display_render.
+
+	* gui/widgets/eab-contact-display.c
+	(eab_contact_display_render_compact): new function, render a
+	compact format suitable for inclusion in the mail display.
+	(eab_contact_display_render_normal): move the previouw contents of
+	eab_contact_display_render here.
+	(eab_contact_display_render): render in either compact or normal
+	mode depending on @mode.
+	(eab_contact_display_new): remove the scrolled window stuff from
+	here, as in the compact mode we don't want it present.  push it up
+	into the e-addressbook-view.c code.
+	
+	* gui/widgets/eab-vcard-control.[ch]: bonobo control that wraps up
+	the EABContactDisplay stuff and lets us display vcards in a pretty
+	format in mail messages.
+	
+	* gui/component/component-factory.c (factory): replace the #if
+	notyet'ed minicard control code with the new vcard control.
+
+	* gui/component/Makefile.am (INCLUDES): remove gui/minicard.
+
+	* gui/component/GNOME_Evolution_Addressbook.server.in.in: remove
+	the MiniCard_Control iid, and replace it with VCard_Control.
+
+2003-10-01  Chris Toshok  <toshok@ximian.com>
+
 	* gui/component/addressbook-component.c
 	(destination_folder_handle_drop): use
 	eab_contact_list_from_string, and un-"#if notyet" this.

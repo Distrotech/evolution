@@ -24,6 +24,7 @@
 #define _EAB_CONTACT_DISPLAY_H_
 
 #include <gtk/gtkvbox.h>
+#include <gtkhtml/gtkhtml.h>
 #include <ebook/e-contact.h>
 
 #define EAB_TYPE_CONTACT_DISPLAY        (eab_contact_display_get_type ())
@@ -35,6 +36,11 @@
 typedef struct _EABContactDisplay EABContactDisplay;
 typedef struct _EABContactDisplayPrivate EABContactDisplayPrivate;
 typedef struct _EABContactDisplayClass EABContactDisplayClass;
+
+typedef enum {
+	EAB_CONTACT_DISPLAY_RENDER_NORMAL,  /* for use in the preview pane */
+	EAB_CONTACT_DISPLAY_RENDER_COMPACT  /* for use with embedded vcards (e.g, the EABVCardControl) */
+} EABContactDisplayRenderMode;
 
 struct _EABContactDisplay {
 	GtkVBox parent;
@@ -49,6 +55,7 @@ struct _EABContactDisplayClass {
 GtkType        eab_contact_display_get_type    (void);
 GtkWidget *    eab_contact_display_new         (void);
 
-void           eab_contact_display_render      (EABContactDisplay *display, EContact *contact);
+void           eab_contact_display_render      (EABContactDisplay *display, EContact *contact,
+						EABContactDisplayRenderMode render_mode);
 
 #endif /* _EAB_CONTACT_DISPLAY_H_ */
