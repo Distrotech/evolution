@@ -5,7 +5,6 @@
 <requires lib="gnome"/>
 
 <widget class="GtkWindow" id="add-calendar-window">
-  <property name="visible">True</property>
   <property name="title" translatable="yes">Add Calendar</property>
   <property name="type">GTK_WINDOW_TOPLEVEL</property>
   <property name="window_position">GTK_WIN_POS_NONE</property>
@@ -36,7 +35,7 @@
 	      <property name="editable">True</property>
 	      <property name="visibility">True</property>
 	      <property name="max_length">0</property>
-	      <property name="text" translatable="yes">Chillonia</property>
+	      <property name="text" translatable="yes"></property>
 	      <property name="has_frame">True</property>
 	      <property name="invisible_char" translatable="yes">*</property>
 	      <property name="activates_default">True</property>
@@ -209,28 +208,11 @@
 	      <property name="yalign">0.5</property>
 	      <property name="xpad">0</property>
 	      <property name="ypad">0</property>
+	      <property name="mnemonic_widget">source-color</property>
 	    </widget>
 	    <packing>
 	      <property name="left_attach">0</property>
 	      <property name="right_attach">1</property>
-	      <property name="top_attach">2</property>
-	      <property name="bottom_attach">3</property>
-	      <property name="x_options">fill</property>
-	      <property name="y_options"></property>
-	    </packing>
-	  </child>
-
-	  <child>
-	    <widget class="GnomeColorPicker" id="group-color">
-	      <property name="visible">True</property>
-	      <property name="can_focus">True</property>
-	      <property name="dither">True</property>
-	      <property name="use_alpha">False</property>
-	      <property name="title" translatable="yes">Pick a color</property>
-	    </widget>
-	    <packing>
-	      <property name="left_attach">1</property>
-	      <property name="right_attach">2</property>
 	      <property name="top_attach">2</property>
 	      <property name="bottom_attach">3</property>
 	      <property name="x_options">fill</property>
@@ -331,6 +313,7 @@
 	      <property name="yalign">0.5</property>
 	      <property name="xpad">0</property>
 	      <property name="ypad">0</property>
+	      <property name="mnemonic_widget">group-optionmenu</property>
 	    </widget>
 	    <packing>
 	      <property name="left_attach">0</property>
@@ -355,12 +338,31 @@
 	      <property name="yalign">0.5</property>
 	      <property name="xpad">0</property>
 	      <property name="ypad">0</property>
+	      <property name="mnemonic_widget">name-entry</property>
 	    </widget>
 	    <packing>
 	      <property name="left_attach">0</property>
 	      <property name="right_attach">1</property>
 	      <property name="top_attach">1</property>
 	      <property name="bottom_attach">2</property>
+	      <property name="x_options">fill</property>
+	      <property name="y_options"></property>
+	    </packing>
+	  </child>
+
+	  <child>
+	    <widget class="GnomeColorPicker" id="source-color">
+	      <property name="visible">True</property>
+	      <property name="can_focus">True</property>
+	      <property name="dither">True</property>
+	      <property name="use_alpha">False</property>
+	      <property name="title" translatable="yes">Pick a color</property>
+	    </widget>
+	    <packing>
+	      <property name="left_attach">1</property>
+	      <property name="right_attach">2</property>
+	      <property name="top_attach">2</property>
+	      <property name="bottom_attach">3</property>
 	      <property name="x_options">fill</property>
 	      <property name="y_options"></property>
 	    </packing>
@@ -1184,7 +1186,6 @@
 </widget>
 
 <widget class="GtkWindow" id="add-task-list-window">
-  <property name="visible">True</property>
   <property name="title" translatable="yes">Add Tasks Group</property>
   <property name="type">GTK_WINDOW_TOPLEVEL</property>
   <property name="window_position">GTK_WIN_POS_NONE</property>
@@ -1215,7 +1216,7 @@
 	      <property name="editable">True</property>
 	      <property name="visibility">True</property>
 	      <property name="max_length">0</property>
-	      <property name="text" translatable="yes">Chillonia</property>
+	      <property name="text" translatable="yes"></property>
 	      <property name="has_frame">True</property>
 	      <property name="invisible_char" translatable="yes">*</property>
 	      <property name="activates_default">False</property>
@@ -1302,7 +1303,7 @@
 	  </child>
 
 	  <child>
-	    <widget class="GnomeColorPicker" id="group-color">
+	    <widget class="GnomeColorPicker" id="source-color">
 	      <property name="visible">True</property>
 	      <property name="can_focus">True</property>
 	      <property name="dither">True</property>

@@ -1,3 +1,69 @@
+2004-04-28  Not Zed  <NotZed@Ximian.com>
+
+	* gui/e-itip-control.c (object_requested_cb): dont shadow source
+	with another source in the fallback case.  Related to #54094.
+
+2004-04-27  JP Rosevear  <jpr@ximian.com>
+
+	* gui/cal-search-bar.c: disable comment searching which is
+	currently useless
+
+2004-04-27  JP Rosevear  <jpr@ximian.com>
+
+	Fixes #52270 and #57593
+
+	* gui/e-cal-model-tasks.c (ecmt_set_value_at): remove checks for
+	start after due
+	(ecmt_duplicate_value): copy the completed and due dates properly
+	(ecmt_fill_component_from_model): only set the percent and status
+	if the completion isn't set
+	(ensure_task_partially_complete): ensure the task is not complete,
+	in progress and make the percentage sensible if its 0 or 100
+	(set_status): make sure the status and related vars are set
+	properly
+	(ecmt_set_value_at): handle status
+	(ecmt_fill_component_from_model): make sure the click to add
+	fields don't clobber each other
+	(ecmt_is_cell_editable): status is editable
+
+	* gui/e-cal-model-calendar.c (ecmc_duplicate_value): copy the
+	dtend correctly
+
+2004-04-27  Larry Ewing  <lewing@ximian.com>
+
+	* gui/dialogs/calendar-setup.c: hook up the color picker and test
+	buttons in the new task dialog.
+
+	* gui/dialogs/calendar-setup.glade: fix visibility and color
+	picker names.
+
+2004-04-27  Larry Ewing  <lewing@ximian.com>
+
+	* gui/dialogs/calendar-setup.c (new_calendar_test_uri): add
+	handler for test button.
+	(calendar_setup_new_calendar): connect test button, fill in color
+	picker member.
+	(source_to_dialog): set the color picker color if the source has
+	one.
+	(dialog_to_source): set the source color.
+
+2004-04-27  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* gui/migration.c (migrate_tasks): Fixed the version checks for
+	migrating pilot data.
+	(migrate_calendars): Same.
+	(migrate_pilot_data): Doh. Take a third argument to specify what
+	component we are migrating ("todo" vs "calendar") so that we can
+	compare against the correct filename. Might help :-)
+	(migrate_pilot_db_key): Just set an empty value for the data since
+	there's no way to actually get it and I don't think it really
+	matters anyway.
+
+2004-04-27  Kidd Wang  <kidd.wang@sun.com>
+
+	* gui/e-cal-model-tasks.c: (ecmt_set_value_at): compare the start
+	time and the due time only when both are not null.
+
 2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (e_cal_view_objects_added_cb): only expand
@@ -40,7 +106,14 @@
 	(clear_objects_array, e_cal_view_objects_removed_cb, remove_client):
 	use e_cal_model_free_component_data.
 	(e_cal_model_set_default_client): fixed warnings.
-	
+
+2004-04-26  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* gui/migration.c (migrate_pilot_data): New function to migrate
+	pilot data.
+	(migrate_calendars): Migrate pilot data if upgrade version <=1.5.9
+	(migrate_tasks): Same.
+
 2004-04-25  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-day-view.c (e_day_view_add_event):

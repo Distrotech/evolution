@@ -1,3 +1,41 @@
+2004-04-27  Larry Ewing  <lewing@ximian.com>
+
+	* gui/component/addressbook-config.c: remove debug spew.
+
+2004-04-27  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* gui/component/addressbook-migrate.c (addressbook_migrate):
+	Migrate pilot data.
+	(migrate_pilot_data): Oops. Apparently the addressbook didn't
+	change the format of the changelog file from db3 to xml, so fix to
+	simply copy the file over.
+
+2004-04-27  Rodney Dawes  <dobey@ximian.com>
+
+	* gui/contact-editor/e-contact-editor-fullname.c:
+	(e_contact_editor_fullname_init):
+	* gui/contact-editor/fullname.glade:
+	* gui/search/e-addressbook-search-dialog.c (eab_search_dialog_init):
+	Update dialog vbox and action area border widths to be HIG compliant
+	Update main child widget border widths to be HIG compliant
+
+2004-04-27  Larry Ewing  <lewing@ximian.com>
+
+	* gui/component/addressbook-config.c (source_to_dialog_new): fix
+	warnings, remove unused code.
+
+	* gui/component/addressbook-config.c: start integrate the new
+	dialog.
+
+	* gui/component/ldap-config.glade: add the new dialog.
+
+2004-04-26  Rodney Dawes  <dobey@ximian.com>
+
+	* gui/contact-editor/contact-editor.glade:
+	* gui/contact-editor/e-contact-editor.c (e_contact_editor_init):
+	Set spacing around notebook widget and the dialog's action area and
+	vbox widgets to be compliant with the HIG dialog specs
+
 2004-04-25  Chris Toshok  <toshok@ximian.com>
 
 	* importers/evolution-ldif-importer.c (ldif_fields): add "mobile"
@@ -117,11 +155,13 @@
 	migrating the company phone numbers.
 
 2004-04-21  Sivaiah Nallagatla   <snallagatla@novell.com>
-	
-	* gui/component/addressbook.c (remove_parameters_from_uri) : added 
-        a new function to striff off any parameters present after ';' in the uri 
-	 (load_source_auth_cb) (addressbook_authenticate) : call above function to 
-	 remove anything after ';' before passing uri to e-password calls 	
+
+	* gui/component/addressbook.c (remove_parameters_from_uri) : added
+	a new function to striff off any parameters present after ';' in
+	the uri
+	(load_source_auth_cb) (addressbook_authenticate) : call above
+	function to remove anything after ';' before passing uri to
+	e-password calls
 	
 2004-04-21  Hans Petter Jansson  <hpj@ximian.com>
 
@@ -182,7 +222,6 @@
 	* gui/contact-editor/e-contact-editor.c (new_target_cb):
 	addressbook_show_load_error_dialog -> eab_load_error_dialog.
 
->>>>>>> 1.1665
 2004-04-19  Rodney Dawes  <dobey@ximian.com>
 
 	* gui/contact-editor/contact-editor.glade: Set the default image for
