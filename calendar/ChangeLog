@@ -1,3 +1,12 @@
+2003-08-29  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c (lookup_component): take into account the 'rid'
+	argument.
+	(get_rid_string): new function to convert the recurrence ID to string.
+	(add_recurrence_to_object): callback for cal_recur_generate_instances.
+	(add_component): expand recurrences and g_strdup the hash's key.
+	(free_cal_component): free also the hash's key.
+
 2003-08-26  Rodrigo Moya <rodrigo@ximian.com>
 
 	* idl/evolution-calendar.idl: QueryListener::notifyObjUpdated now gets

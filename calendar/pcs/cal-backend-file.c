@@ -264,6 +264,8 @@ free_cal_component (gpointer key, gpointer value, gpointer data)
 {
 	CalComponent *comp;
 
+	g_free (key);
+
 	comp = CAL_COMPONENT (value);
 	g_object_unref (comp);
 }
@@ -443,8 +445,12 @@ lookup_component (CalBackendFile *cbfile, const char *uid, const char *rid)
 	priv = cbfile->priv;
 
 	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
-	if (obj)
+	if (obj) {
+		if (rid && *rid)
+			return g_hash_table_lookup (obj->recurrences, rid);
+
 		return obj->top_comp;
+	}
 
 	return NULL;
 }
@@ -490,6 +496,20 @@ static const char *
 cal_backend_file_get_static_capabilities (CalBackend *backend)
 {
  	return CAL_STATIC_CAPABILITY_NO_EMAIL_ALARMS;
+}
+
+/* function to resolve timezones */
+static icaltimezone *
+resolve_tzid (const char *tzid, gpointer user_data)
+{
+	icalcomponent *vcalendar_comp = user_data;
+
+        if (!tzid || !tzid[0])
+                return NULL;
+        else if (!strcmp (tzid, "UTC"))
+                return icaltimezone_get_utc_timezone ();
+
+	return icalcomponent_get_timezone (vcalendar_comp, tzid);
 }
 
 /* Idle handler; we save the calendar since it is dirty */
@@ -554,6 +574,42 @@ check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 	mark_dirty (cbfile);
 }
 
+static char *
+get_rid_string (CalComponent *comp)
+{
+        CalComponentRange range;
+        struct icaltimetype tt;
+                                                                                   
+        cal_component_get_recurid (comp, &range);
+        if (!range.datetime.value)
+                return "0";
+        tt = *range.datetime.value;
+        cal_component_free_range (&range);
+                                                                                   
+        return icaltime_is_valid_time (tt) && !icaltime_is_null_time (tt) ?
+                icaltime_as_ical_string (tt) : "0";
+}
+
+/* add instances to the recurrences hash table */
+static gboolean
+add_recurrence_to_object (CalComponent *comp,
+			   time_t instance_start,
+			   time_t instance_end,
+			   gpointer data)
+{
+	gchar *rid, *str;
+	CalBackendFileObject *obj = data;
+
+	rid = get_rid_string (comp);
+	str = g_strdup_printf ("%s-%s",
+			       icalcomponent_get_uid (cal_component_get_icalcomponent (obj->top_comp)),
+			       rid);
+
+	g_hash_table_insert (obj->recurrences, str, comp);
+
+	return TRUE;
+}
+
 /* Tries to add an icalcomponent to the file backend.  We only store the objects
  * of the types we support; all others just remain in the toplevel component so
  * that we don't lose them.
@@ -576,8 +632,17 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 
 	obj = g_new0 (CalBackendFileObject, 1);
 	obj->top_comp = comp;
-	obj->recurrences = NULL; /* FIXME: expand recurrences here */
-	g_hash_table_insert (priv->comp_uid_hash, (char *) uid, obj);
+	obj->recurrences = g_hash_table_new (g_str_hash, g_str_equal);
+
+	/* expand recurrences */
+	cal_recur_generate_instances (comp, -1, -1,
+				      add_recurrence_to_object,
+				      obj,
+				      resolve_tzid,
+				      cal_component_get_icalcomponent (obj->top_comp),
+				      priv->default_zone);
+
+	g_hash_table_insert (priv->comp_uid_hash, g_strdup (uid), obj);
 
 	priv->comp = g_list_prepend (priv->comp, comp);
 
@@ -978,20 +1043,6 @@ cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid)
 		return g_strdup (ical_string);
 	else
 		return NULL;
-}
-
-/* function to resolve timezones */
-static icaltimezone *
-resolve_tzid (const char *tzid, gpointer user_data)
-{
-	icalcomponent *vcalendar_comp = user_data;
-
-        if (!tzid || !tzid[0])
-                return NULL;
-        else if (!strcmp (tzid, "UTC"))
-                return icaltimezone_get_utc_timezone ();
-
-	return icalcomponent_get_timezone (vcalendar_comp, tzid);
 }
 
 /* Get_objects_in_range handler for the file backend */
