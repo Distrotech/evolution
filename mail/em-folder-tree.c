@@ -1047,7 +1047,7 @@ tree_drag_data_received(GtkWidget *widget, GdkDragContext *context, int x, int y
 		for (i=0;i<sizeof(emft_drop_popup_menu)/sizeof(emft_drop_popup_menu[0]);i++) {
 			EPopupItem *item = &emft_drop_popup_menu[i];
 
-			if ((item->mask & mask) == 0)
+			if ((item->visible & mask) == 0)
 				menus = g_slist_append(menus, item);
 		}
 		e_popup_add_items((EPopup *)emp, menus, emft_drop_popup_free, m);

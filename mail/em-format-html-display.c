@@ -1082,6 +1082,12 @@ efhd_attachment_show(EPopup *ep, EPopupItem *item, void *data)
 #endif
 }
 
+static void
+efhd_attachment_button_show(GtkWidget *w, void *data)
+{
+	efhd_attachment_show(NULL, NULL, data);
+}
+
 static EPopupItem efhd_menu_items[] = {
 	{ E_POPUP_BAR, "05.display", },
 	{ E_POPUP_ITEM, "05.display.00", N_("_View Inline"), efhd_attachment_show },
@@ -1252,7 +1258,7 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	button = gtk_button_new();
 
 	if (info->handle)
-		g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_show), info);
+		g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_button_show), info);
 	else {
 		gtk_widget_set_sensitive(button, FALSE);
 		GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);

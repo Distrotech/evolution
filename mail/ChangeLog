@@ -1,3 +1,16 @@
+2004-09-01  Not Zed  <NotZed@Ximian.com>
+
+	* em-popup.h: added some docs.
+
+	* em-popup.c (emp_standard_menu_factory): 
+	* em-folder-tree.c (tree_drag_data_received): popup api changes.
+
+2004-08-31  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html-display.c (efhd_attachment_button_show): use a
+	wrapper for the button event since the popup event has changed
+	signature.
+
 2004-08-30  Not Zed  <NotZed@Ximian.com>
 
 	* em-popup.c (emp_standard_menu_factory): changed args.

@@ -703,7 +703,7 @@ emp_standard_menu_factory(EPopup *emp, void *data)
 	}
 
 	for (i=0;i<len;i++) {
-		if ((items[i].mask & emp->target->mask) == 0)
+		if ((items[i].visible & emp->target->mask) == 0)
 			menus = g_slist_prepend(menus, &items[i]);
 	}
 
