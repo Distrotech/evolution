@@ -1,3 +1,147 @@
+2004-05-10  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.c (emfv_activate): cleanup the view menus if they
+	were created.
+
+	* em-folder-view.h: added list_active bit, means the view is
+	showing the list and needs e.g. view menus.
+
+	* em-folder-view.c (emfv_setup_view_instance): was
+	create_view_instance.  Now also setup the menu's if we're showing the list.
+
+	* em-folder-browser.c (emfb_create_view_menus): removed.  moved
+	functionality into emfolderview.
+
+2004-05-07  Jeffrey Stedfast  <fejj@ximian.com>
+
+	Fix for bug #57152.
+
+	* em-folder-tree.c (emft_get_folder_info__got): If we queried for
+	a recursive folder-info listing, then pass fully_loaded as TRUE to
+	set_folder_info().
+	(emft_get_folder_info__got): If we find that a folder doesn't have
+	children, set the expanded state to FALSE.
+
+	* em-folder-tree-model.c (em_folder_tree_model_set_folder_info):
+	Now takes a "fully_loaded" argument to hint to set_folder_info
+	whether or not folder-info's without child nodes can possibly have
+	children (eg. if fully_loaded is set and fi->child is NULL, then
+	'load' will be FALSE no matter what fi->flags contains).
+
+2004-05-07  Radek Doulik  <rodo@ximian.com>
+
+	* mail-config.c (config_write_style): set cite_color property of
+	gtkhtml widgets
+	(mail_config_init): add /apps/evolution/mail/display dir to gconf
+	client and watch for mark_citations and citation_colour changes
+
+	See bug #57587
+
+2004-05-07  Not Zed  <NotZed@Ximian.com>
+
+	* mail-account-editor.c: include missing header.
+
+	** See bug #57935.
+
+	* em-folder-view.c (emfv_set_message): add new arg, nomarkseen,
+	don't mark the selected message seen once its loaded.
+	(emfv_list_message_selected): clear the nomarkseen flag once we've
+	processed the selection.
+	(emfv_list_done_message_selected): handle the nomarkseen flag,
+	don't mark a message seen if it was explictly selected.
+
+	* em-folder-browser.c (emfb_list_built): use
+	em_folder_view_select_message rather than doing it via the
+	messagelist directly.
+
+	** Dunno why i bothered, but see bug #58090.
+
+	* importers/netscape-importer.c
+	(netscape_filter_parse_conditions): check for custom headers
+	properly.
+	(netscape_filter_flatfile_get_entry): put in some validate checks.
+	(netscape_filter_to_evol_filter): implement custom headers properly.
+	(ns_filter_condition_types): add missing "status" string.
+
+	** See #58017.
+
+	* message-list.c (mail_regen_list): use thread_queued, so we don't
+	regen out of order.
+
+	* em-folder-view.c (emfv_list_message_selected): use the queue
+	thread so we don't get messages out of order.
+
+	* mail-ops.c (mail_transfer_messages): use thread_queued_slow.
+	(mail_prep_offline): and here too.
+
+2004-05-06  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-component.c (folder_selected_cb): Check that the folder is
+	selectable using the new flags argument.
+
+	* em-folder-selector.c (folder_selected_cb): Updated for below
+	changes.
+
+	* em-folder-tree.c (emft_tree_selection_changed): Updated to pass
+	a flags argument to the folder_selected signal.
+	(emft_tree_row_activated): Same.
+
+2004-05-06  Radek Doulik  <rodo@ximian.com>
+
+	* em-composer-prefs.c (sig_selection_changed): reset the preview
+	if no signature is selected
+
+	Fixes #57167
+
+2004-05-05  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-tree.c (emft_tree_row_collapsed): Select the row that
+	was just collapsed. Fixes bug #57665.
+
+	* mail-autofilter.c (rule_match_thread): Removed.
+	(rule_from_message): Removed the AUTO_THREAD bit.
+
+	* em-folder-view.c: Removed vFolder/Filter on Thread. These were
+	both broken.
+	(struct _filter_data): Removed a bunch of data members since most
+	of them weren't used.
+
+2004-05-05  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #57720.
+	
+	* em-folder-browser.c (emfb_create_view_menus): removed some stuff
+	done in create_view_instance in the superclass.
+
+	* em-folder-view.c (emfv_create_view_instance): moved here from
+	em-folder-browser, setup the view instance for the folder.
+	(emfv_set_folder): if the folder is set, create the view instance.
+
+	* em-folder-browser.c: moved the galview instance and menu
+	pointers to EMFolderView, since they're basically meta-data on the
+	messagelist @ to fix issues.
+
+	* em-folder-view.c (em_folder_view_open_selected): copy over the
+	threaded list value when the message browser is brought up.
+
+	** some clean up
+
+	* evolution-mail.schemas.in.in: removed xmailer_mask stuff.
+
+	* em-migrate.c (mail_display_map[]): Removed xmailer_mask stuff.
+
+	* em-folder-view.c (emfv_setting_notify): removed xmailer_mask stuff.
+
+	* em-format-html.c (em_format_html_set_xmailer_mask): removed.
+	This isn't used anymore.
+
+	** Fixes the double-draw on separate mail view.
+
+	* message-list.c (on_cursor_activated_cmd): noop if the cursor and
+	uid match for all cases (clearing uid).
+	(on_selection_changed_cmd): noop if the cursor and new selection
+	hasn't changed & fix a memleak.
+
 2004-05-04  Jeffrey Stedfast  <fejj@ximian.com>
 
 	Fix for bug #55303, but ideally there would be a nicer way of
@@ -37,7 +181,6 @@
 	* mail-license.glade: Modified the display string and added the
 	appropriate gtk_response types for the buttons.
 	
-
 2004-05-03  Jeffrey Stedfast  <fejj@ximian.com>
 
 	Fix for bug #57968

@@ -25,6 +25,9 @@
 #endif
 
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkbutton.h>
@@ -36,6 +39,11 @@
 #include <libgnomeprintui/gnome-print-dialog.h>
 
 #include <gconf/gconf-client.h>
+
+#include <gal/menus/gal-view-etable.h>
+#include <gal/menus/gal-view-factory-etable.h>
+#include <gal/menus/gal-view-instance.h>
+#include "widgets/menus/gal-view-menus.h"
 
 #include <camel/camel-mime-message.h>
 #include <camel/camel-stream.h>
@@ -77,9 +85,10 @@
 
 #include "mail-mt.h"
 #include "mail-ops.h"
-#include "mail-config.h"	/* hrm, pity we need this ... */
+#include "mail-config.h"
 #include "mail-autofilter.h"
 #include "mail-vfolder.h"
+#include "mail-component.h"
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
@@ -97,7 +106,7 @@ static void emfv_enable_menus(EMFolderView *emfv);
 
 static void emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri);
 static void emfv_set_folder_uri(EMFolderView *emfv, const char *uri);
-static void emfv_set_message(EMFolderView *emfv, const char *uid);
+static void emfv_set_message(EMFolderView *emfv, const char *uid, int nomarkseen);
 static void emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
 
 static void emfv_message_reply(EMFolderView *emfv, int mode);
@@ -114,11 +123,15 @@ static const EMFolderViewEnable emfv_enable_map[];
 struct _EMFolderViewPrivate {
 	guint seen_id;
 	guint setting_notify_id;
-	
+	int nomarkseen:1;
+
 	CamelObjectHookID folder_changed_id;
 
 	GtkWidget *invisible;
 	char *selection_uri;
+
+	GalViewInstance *view_instance;
+	GalViewMenus *view_menus;
 };
 
 static GtkVBoxClass *emfv_parent;
@@ -147,6 +160,7 @@ emfv_init(GObject *o)
 	p = emfv->priv = g_malloc0(sizeof(struct _EMFolderViewPrivate));
 
 	emfv->statusbar_active = TRUE;
+	emfv->list_active = FALSE;
 	
 	emfv->ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 	emfv->ui_app_name = "evolution-mail";
@@ -355,10 +369,11 @@ em_folder_view_open_selected(EMFolderView *emfv)
 			EMMessageBrowser *emmb;
 
 			emmb = (EMMessageBrowser *)em_message_browser_window_new();
+			message_list_set_threaded(((EMFolderView *)emmb)->list, emfv->list->threaded);
 			/* FIXME: session needs to be passed easier than this */
 			em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, ((EMFormat *)emfv->preview)->session);
 			em_folder_view_set_folder((EMFolderView *)emmb, emfv->folder, emfv->folder_uri);
-			em_folder_view_set_message((EMFolderView *)emmb, uids->pdata[i]);
+			em_folder_view_set_message((EMFolderView *)emmb, uids->pdata[i], FALSE);
 			gtk_widget_show(emmb->window);
 		}
 
@@ -366,6 +381,111 @@ em_folder_view_open_selected(EMFolderView *emfv)
 	}
 
 	return i;
+}
+
+/* ******************************************************************************** */
+static void
+emfv_list_display_view(GalViewInstance *instance, GalView *view, EMFolderView *emfv)
+{
+	if (GAL_IS_VIEW_ETABLE(view))
+		gal_view_etable_attach_tree(GAL_VIEW_ETABLE(view), emfv->list->tree);
+}
+
+static void
+emfv_setup_view_instance(EMFolderView *emfv)
+{
+	struct _EMFolderViewPrivate *p = emfv->priv;
+	gboolean outgoing;
+	char *id;
+	static GalViewCollection *collection = NULL;
+
+	g_assert(emfv->folder);
+	g_assert(emfv->folder_uri);
+
+	if (collection == NULL) {
+		ETableSpecification *spec;
+		GalViewFactory *factory;
+		const char *evolution_dir;
+		char *dir;
+
+		collection = gal_view_collection_new ();
+	
+		gal_view_collection_set_title (collection, _("Mail"));
+	
+		evolution_dir = mail_component_peek_base_directory (mail_component_peek ());
+		dir = g_build_filename (evolution_dir, "mail", "views", NULL);
+		gal_view_collection_set_storage_directories (collection, EVOLUTION_GALVIEWSDIR "/mail/", dir);
+		g_free (dir);
+	
+		spec = e_table_specification_new ();
+		e_table_specification_load_from_file (spec, EVOLUTION_ETSPECDIR "/message-list.etspec");
+	
+		factory = gal_view_factory_etable_new (spec);
+		g_object_unref (spec);
+		gal_view_collection_add_factory (collection, factory);
+		g_object_unref (factory);
+	
+		gal_view_collection_load (collection);
+	}
+
+	if (p->view_instance) {
+		g_object_unref(p->view_instance);
+		p->view_instance = NULL;
+	}
+
+	if (p->view_menus) {
+		g_object_unref(p->view_menus);
+		p->view_menus = NULL;
+	}
+
+	outgoing = em_utils_folder_is_drafts (emfv->folder, emfv->folder_uri)
+		|| em_utils_folder_is_sent (emfv->folder, emfv->folder_uri)
+		|| em_utils_folder_is_outbox (emfv->folder, emfv->folder_uri);
+	
+	/* TODO: should this go through mail-config api? */
+	id = mail_config_folder_to_safe_url (emfv->folder);
+	p->view_instance = gal_view_instance_new (collection, id);
+	g_free (id);
+	
+	if (outgoing)
+		gal_view_instance_set_default_view(p->view_instance, "As_Sent_Folder");
+	
+	gal_view_instance_load(p->view_instance);
+	
+	if (!gal_view_instance_exists(p->view_instance)) {
+		struct stat st;
+		char *path;
+		
+		path = mail_config_folder_to_cachename (emfv->folder, "et-header-");
+		if (path && stat (path, &st) == 0 && st.st_size > 0 && S_ISREG (st.st_mode)) {
+			ETableSpecification *spec;
+			ETableState *state;
+			GalView *view;
+			
+			spec = e_table_specification_new ();
+			e_table_specification_load_from_file (spec, EVOLUTION_ETSPECDIR "/message-list.etspec");
+			view = gal_view_etable_new (spec, "");
+			g_object_unref (spec);
+			
+			state = e_table_state_new ();
+			e_table_state_load_from_file (state, path);
+			gal_view_etable_set_state (GAL_VIEW_ETABLE (view), state);
+			g_object_unref (state);
+			
+			gal_view_instance_set_custom_view(p->view_instance, view);
+			g_object_unref (view);
+		}
+		
+		g_free (path);
+	}
+
+	g_signal_connect(p->view_instance, "display_view", G_CALLBACK(emfv_list_display_view), emfv);
+	emfv_list_display_view(p->view_instance, gal_view_instance_get_current_view(p->view_instance), emfv);
+	
+	if (emfv->list_active && emfv->uic) {
+		p->view_menus = gal_view_menus_new(p->view_instance);
+		gal_view_menus_apply(p->view_menus, emfv->uic, NULL);
+	}
 }
 
 /* ********************************************************************** */
@@ -401,6 +521,8 @@ emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 									(CamelObjectEventHookFunc)emfv_folder_changed, emfv);
 		camel_object_ref(folder);
 		mail_refresh_folder(folder, NULL, NULL);
+		/* We need to set this up to get the right view options for the message-list, even if we're not showing it */
+		emfv_setup_view_instance(emfv);
 	}
 	
 	emfv_enable_menus(emfv);
@@ -424,8 +546,10 @@ emfv_set_folder_uri(EMFolderView *emfv, const char *uri)
 }
 
 static void
-emfv_set_message(EMFolderView *emfv, const char *uid)
+emfv_set_message(EMFolderView *emfv, const char *uid, int nomarkseen)
 {
+	/* This could possible race with other set messages, but likelyhood is small */
+	emfv->priv->nomarkseen = nomarkseen;
 	message_list_select_uid(emfv->list, uid);
 	/* force an update, since we may not get an updated event if we select the same uid */
 	emfv_list_message_selected(emfv->list, uid, emfv);
@@ -757,13 +881,11 @@ EMFV_POPUP_AUTO_TYPE(vfolder_type_current, emfv_popup_vfolder_subject, AUTO_SUBJ
 EMFV_POPUP_AUTO_TYPE(vfolder_type_current, emfv_popup_vfolder_sender, AUTO_FROM)
 EMFV_POPUP_AUTO_TYPE(vfolder_type_current, emfv_popup_vfolder_recipients, AUTO_TO)
 EMFV_POPUP_AUTO_TYPE(vfolder_type_current, emfv_popup_vfolder_mlist, AUTO_MLIST)
-EMFV_POPUP_AUTO_TYPE(vfolder_type_current, emfv_popup_vfolder_thread, AUTO_THREAD)
 
 EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_subject, AUTO_SUBJECT)
 EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_sender, AUTO_FROM)
 EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_recipients, AUTO_TO)
 EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_mlist, AUTO_MLIST)
-EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_thread, AUTO_THREAD)
 
 /* TODO: Move some of these to be 'standard' menu's */
 
@@ -819,8 +941,6 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM, "90.filter.00/00.02", N_("VFolder on _Recipients"), G_CALLBACK(emfv_popup_vfolder_recipients), NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/00.03", N_("VFolder on Mailing _List"),
 	  G_CALLBACK(emfv_popup_vfolder_mlist), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
-	{ EM_POPUP_ITEM, "90.filter.00/00.04", N_("VFolder on Thread"),
-	  G_CALLBACK(emfv_popup_vfolder_thread), NULL, NULL, EM_POPUP_SELECT_ONE },
 	
 	{ EM_POPUP_BAR, "90.filter.00/10", NULL, NULL, NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/10.00", N_("Filter on Sub_ject"), G_CALLBACK(emfv_popup_filter_subject), NULL, NULL, EM_POPUP_SELECT_ONE },
@@ -828,8 +948,6 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM, "90.filter.00/10.02", N_("Filter on Re_cipients"), G_CALLBACK(emfv_popup_filter_recipients),  NULL, NULL, EM_POPUP_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/10.03", N_("Filter on _Mailing List"),
 	  G_CALLBACK(emfv_popup_filter_mlist), NULL, NULL, EM_POPUP_SELECT_ONE|EM_POPUP_SELECT_MAILING_LIST },
-	{ EM_POPUP_ITEM, "90.filter.00/10.04", N_("Filter on Thread"),
-	  G_CALLBACK(emfv_popup_filter_thread), NULL, NULL, EM_POPUP_SELECT_ONE },
 };
 
 static void
@@ -1207,24 +1325,15 @@ emfv_text_zoom_reset(BonoboUIComponent *uic, void *data, const char *path)
 /* ********************************************************************** */
 
 struct _filter_data {
-	CamelFolder *folder;
 	const char *source;
-	char *uid;
-	int type;
 	char *uri;
-	char *mlist;
-	char *references;
+	int type;
 };
 
 static void
 filter_data_free (struct _filter_data *fdata)
 {
-	g_free (fdata->uid);
 	g_free (fdata->uri);
-	if (fdata->folder)
-		camel_object_unref (fdata->folder);
-	g_free (fdata->mlist);
-	g_free (fdata->references);
 	g_free (fdata);
 }
 
@@ -1275,7 +1384,6 @@ EMFV_MAP_CALLBACK(emfv_tools_filter_subject, emfv_popup_filter_subject)
 EMFV_MAP_CALLBACK(emfv_tools_filter_sender, emfv_popup_filter_sender)
 EMFV_MAP_CALLBACK(emfv_tools_filter_recipient, emfv_popup_filter_recipients)
 EMFV_MAP_CALLBACK(emfv_tools_filter_mlist, emfv_popup_filter_mlist)
-EMFV_MAP_CALLBACK(emfv_tools_filter_thread, emfv_popup_filter_thread)
 
 static void
 vfolder_type_got_message (CamelFolder *folder, const char *uid, CamelMimeMessage *msg, void *user_data)
@@ -1317,7 +1425,6 @@ EMFV_MAP_CALLBACK(emfv_tools_vfolder_subject, emfv_popup_vfolder_subject)
 EMFV_MAP_CALLBACK(emfv_tools_vfolder_sender, emfv_popup_vfolder_sender)
 EMFV_MAP_CALLBACK(emfv_tools_vfolder_recipient, emfv_popup_vfolder_recipients)
 EMFV_MAP_CALLBACK(emfv_tools_vfolder_mlist, emfv_popup_vfolder_mlist)
-EMFV_MAP_CALLBACK(emfv_tools_vfolder_thread, emfv_popup_vfolder_thread)
 
 /* ********************************************************************** */
 
@@ -1384,12 +1491,10 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("ToolsFilterRecipient", emfv_tools_filter_recipient),
 	BONOBO_UI_UNSAFE_VERB ("ToolsFilterSender", emfv_tools_filter_sender),
 	BONOBO_UI_UNSAFE_VERB ("ToolsFilterSubject", emfv_tools_filter_subject),
-	BONOBO_UI_UNSAFE_VERB ("ToolsFilterThread", emfv_tools_filter_thread),
 	BONOBO_UI_UNSAFE_VERB ("ToolsVFolderMailingList", emfv_tools_vfolder_mlist),
 	BONOBO_UI_UNSAFE_VERB ("ToolsVFolderRecipient", emfv_tools_vfolder_recipient),
 	BONOBO_UI_UNSAFE_VERB ("ToolsVFolderSender", emfv_tools_vfolder_sender),
 	BONOBO_UI_UNSAFE_VERB ("ToolsVFolderSubject", emfv_tools_vfolder_subject),
-	BONOBO_UI_UNSAFE_VERB ("ToolsVFolderThread", emfv_tools_vfolder_thread),
 
 	BONOBO_UI_UNSAFE_VERB ("ViewLoadImages", emfv_view_load_images),
 	/* ViewHeaders stuff is a radio */
@@ -1492,12 +1597,10 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "ToolsFilterRecipient",     EM_POPUP_SELECT_ONE },
 	{ "ToolsFilterSender",        EM_POPUP_SELECT_ONE },
 	{ "ToolsFilterSubject",       EM_POPUP_SELECT_ONE },
-	{ "ToolsFilterThread",        EM_POPUP_SELECT_ONE },
 	{ "ToolsVFolderMailingList",  EM_POPUP_SELECT_ONE },
 	{ "ToolsVFolderRecipient",    EM_POPUP_SELECT_ONE },
 	{ "ToolsVFolderSender",       EM_POPUP_SELECT_ONE },
 	{ "ToolsVFolderSubject",      EM_POPUP_SELECT_ONE },
-	{ "ToolsVFolderThread",       EM_POPUP_SELECT_ONE },
 
 	{ "ViewLoadImages",	      EM_POPUP_SELECT_ONE },
 
@@ -1621,6 +1724,8 @@ emfv_charset_changed(BonoboUIComponent *uic, const char *path, Bonobo_UIComponen
 static void
 emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 {
+	struct _EMFolderViewPrivate *p = emfv->priv;
+
 	if (act) {
 		em_format_mode_t style;
 		gboolean state;
@@ -1654,12 +1759,26 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 		emfv_enable_menus(emfv);
 		if (emfv->statusbar_active)
 			bonobo_ui_component_set_translate (uic, "/", "<status><item name=\"main\"/></status>", NULL);
+
+		/* We need to set this up to get the right view options for the message-list, even if we're not showing it */
+		if (emfv->folder)
+			emfv_setup_view_instance(emfv);
 	} else {
 		const BonoboUIVerb *v;
 
 		/* TODO: Should this just rm /? */
 		for (v = &emfv_message_verbs[0]; v->cname; v++)
 			bonobo_ui_component_remove_verb(uic, v->cname);
+
+		if (p->view_instance) {
+			g_object_unref(p->view_instance);
+			p->view_instance = NULL;
+		}
+
+		if (p->view_menus) {
+			g_object_unref(p->view_menus);
+			p->view_menus = NULL;
+		}
 
 		if (emfv->folder)
 			mail_sync_folder(emfv->folder, NULL, NULL);
@@ -1793,6 +1912,7 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	EMFolderView *emfv = data;
 	
 	if (emfv->preview == NULL) {
+		emfv->priv->nomarkseen = FALSE;
 		g_object_unref (emfv);
 		return;
 	}
@@ -1802,7 +1922,7 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	if (emfv->priv->seen_id)
 		g_source_remove(emfv->priv->seen_id);
 	
-	if (msg && emfv->mark_seen) {
+	if (msg && emfv->mark_seen && !emfv->priv->nomarkseen) {
 		if (emfv->mark_seen_timeout > 0) {
 			struct mst_t *mst;
 		
@@ -1818,25 +1938,26 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	}
 	
 	g_object_unref (emfv);
+	emfv->priv->nomarkseen = FALSE;
 }
 
 static void
 emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv)
 {
-	/* FIXME: ui stuff based on messageinfo, if available */
-
 	if (emfv->preview_active) {
 		if (uid) {
 			if (emfv->displayed_uid == NULL || strcmp(emfv->displayed_uid, uid) != 0) {
 				g_free(emfv->displayed_uid);
 				emfv->displayed_uid = g_strdup(uid);
 				g_object_ref (emfv);
-				mail_get_message(emfv->folder, uid, emfv_list_done_message_selected, emfv, mail_thread_new);
+				/* TODO: we should manage our own thread stuff, would make cancelling outstanding stuff easier */
+				mail_get_message(emfv->folder, uid, emfv_list_done_message_selected, emfv, mail_thread_queued);
 			}
 		} else {
 			g_free(emfv->displayed_uid);
 			emfv->displayed_uid = NULL;
 			em_format_format((EMFormat *)emfv->preview, NULL, NULL, NULL);
+			emfv->priv->nomarkseen = FALSE;
 		}
 	}
 
@@ -2028,7 +2149,6 @@ enum {
 	EMFV_MARK_SEEN,
 	EMFV_MARK_SEEN_TIMEOUT,
 	EMFV_LOAD_HTTP,
-	EMFV_XMAILER_MASK,
 	EMFV_HEADERS,
 	EMFV_SETTINGS		/* last, for loop count */
 };
@@ -2044,7 +2164,6 @@ static const char * const emfv_display_keys[] = {
 	"mark_seen",
 	"mark_seen_timeout",
 	"load_http_images",
-	"xmailer_mask",
 	"headers",
 };
 
@@ -2107,9 +2226,6 @@ emfv_setting_notify(GConfClient *gconf, guint cnxn_id, GConfEntry *entry, EMFold
 		break;
 	case EMFV_LOAD_HTTP:
 		em_format_html_set_load_http((EMFormatHTML *)emfv->preview, gconf_value_get_int(value));
-		break;
-	case EMFV_XMAILER_MASK:
-		em_format_html_set_xmailer_mask((EMFormatHTML *)emfv->preview, gconf_value_get_int (value));
 		break;
 	case EMFV_HEADERS: {
 		GSList *header_config_list, *p;

@@ -61,6 +61,7 @@ struct _EMFolderView {
 	struct _EMFolderViewPrivate *priv;
 
 	struct _MessageList *list;
+
 	struct _EMFormatHTMLDisplay *preview;
 
 	struct _CamelFolder *folder;
@@ -84,6 +85,7 @@ struct _EMFolderView {
 	int preview_active:1;	/* is preview being used */
 	int statusbar_active:1; /* should we manage the statusbar messages ourselves? */
 	int hide_deleted:1;
+	int list_active:1;	/* we actually showing the list? */
 };
 
 struct _EMFolderViewClass {
@@ -97,7 +99,7 @@ struct _EMFolderViewClass {
 
 	void (*set_folder_uri)(EMFolderView *emfv, const char *uri);
 	void (*set_folder)(EMFolderView *emfv, struct _CamelFolder *folder, const char *uri);
-	void (*set_message)(EMFolderView *emfv, const char *uid);
+	void (*set_message)(EMFolderView *emfv, const char *uid, int nomarkseen);
 
 	/* Signals */
 	void (*on_url)(EMFolderView *emfv, const char *uri, const char *nice_uri);
@@ -113,7 +115,7 @@ GtkWidget *em_folder_view_new(void);
 #define em_folder_view_activate(emfv, uic, state) EM_FOLDER_VIEW_GET_CLASS (emfv)->activate((emfv), (uic), (state))
 #define em_folder_view_set_folder(emfv, folder, uri) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_folder((emfv), (folder), (uri))
 #define em_folder_view_set_folder_uri(emfv, uri) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_folder_uri((emfv), (uri))
-#define em_folder_view_set_message(emfv, uid) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_message((emfv), (uid))
+#define em_folder_view_set_message(emfv, uid, nomarkseen) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_message((emfv), (uid), (nomarkseen))
 
 struct _EMPopupTarget *em_folder_view_get_popup_target(EMFolderView *emfv);
 
@@ -125,7 +127,7 @@ int em_folder_view_print(EMFolderView *emfv, int preview);
 /* this could be on message-list */
 guint32 em_folder_view_disable_mask(EMFolderView *emfv);
 
-void em_folder_view_set_statusbar (EMFolderView *emfv, gboolean statusbar);
+void em_folder_view_set_statusbar(EMFolderView *emfv, gboolean statusbar);
 void em_folder_view_set_hide_deleted(EMFolderView *emfv, gboolean status);
 
 #ifdef __cplusplus
