@@ -1,3 +1,13 @@
+2004-11-11  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (mc_add_store):
+	(mc_add_store_done): Let the counters know about the junk/trash
+	folders that have already been opened.
+
+	* em-vfs-stream.[ch]: Added stream class to read/write gnome-vfs
+	data from camel.  NFI if this will work, depends on how
+	thread-safe gnome-vfs is.
+
 2004-11-08  Not Zed  <NotZed@Ximian.com>
 
 	* mail-vfolder.c (uri_is_spethal): fix the special check for local
