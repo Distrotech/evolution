@@ -2340,3 +2340,101 @@ mail_execute_shell_command (CamelFilterDriver *driver, int argc, char **argv, vo
 	
 	gnome_execute_async_fds (NULL, argc, argv, TRUE);
 }
+
+/* [Un]mark spam flag */
+
+struct _mark_spam_mail_msg {
+	struct _mail_msg msg;
+	
+	CamelFolder *folder;
+	MessageList *list;
+	gboolean spam;
+};
+
+static char *
+mark_spam_describe (struct _mail_msg *mm, int complete)
+{
+	return g_strdup (_("Changing junk status"));
+}
+
+/* filter a folder, or a subset thereof, uses source_folder/source_uids */
+/* this is shared with fetch_mail */
+static void
+mark_spam_mark (struct _mail_msg *mm)
+{
+	struct _mark_spam_mail_msg *m = (struct _mark_spam_mail_msg *) mm;
+	CamelSpamPlugin *csp = NULL;
+	GPtrArray *uids;
+	gboolean commit_reports = FALSE;
+	int i;
+
+	if (m->folder == NULL)
+		return;
+	
+	uids = message_list_get_selected (m->list);
+	camel_folder_freeze (m->folder);
+
+	for (i=0; i<uids->len; i++) {
+		guint32 flags;
+
+		flags = camel_folder_get_message_flags (m->folder, uids->pdata[i]);
+		if (((flags & CAMEL_MESSAGE_SPAM) == CAMEL_MESSAGE_SPAM) != m->spam) {
+			CamelMimeMessage *msg = camel_folder_get_message (m->folder, uids->pdata[i], NULL);
+
+			if (msg) {
+				csp = CAMEL_SERVICE (m->folder->parent_store)->session->spam_plugin;
+				if (m->spam)
+					camel_spam_plugin_report_spam (csp, msg);
+				else
+					camel_spam_plugin_report_ham (csp, msg);
+
+				commit_reports = TRUE;
+				camel_object_unref (msg);
+			}
+		}
+		camel_folder_set_message_flags(m->folder, uids->pdata[i],
+					       CAMEL_MESSAGE_SPAM | (m->spam ? CAMEL_MESSAGE_DELETED : 0),
+					       m->spam ? CAMEL_MESSAGE_SPAM : 0);
+	}
+
+	if (commit_reports)
+		camel_spam_plugin_commit_reports (csp);
+
+	message_list_free_uids(m->list, uids);
+	camel_folder_thaw(m->folder);
+}
+
+static void
+mark_spam_marked (struct _mail_msg *mm)
+{
+}
+
+static void
+mark_spam_free (struct _mail_msg *mm)
+{
+	struct _mark_spam_mail_msg *m = (struct _mark_spam_mail_msg *)mm;
+	
+	if (m->folder)
+		camel_object_unref (m->folder);
+}
+
+static struct _mail_msg_op mark_spam_op = {
+	mark_spam_describe,
+	mark_spam_mark,
+	mark_spam_marked,
+	mark_spam_free,
+};
+
+void
+mail_mark_spam (CamelFolder *folder, MessageList *list, gboolean spam)
+{
+	struct _mark_spam_mail_msg *m;
+	
+	m = mail_msg_new (&mark_spam_op, NULL, sizeof (*m));
+	m->folder = folder;
+	camel_object_ref (folder);
+	m->list = list;
+	m->spam = spam;
+	
+	e_thread_put (mail_thread_new, (EMsg *) m);
+}
