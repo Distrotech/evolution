@@ -53,11 +53,12 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
       break;
     case RS_ARG:
       if(parse->in_literal) {
-	parse->literal_left -= rsize;
 
-	if(parse->literal_left <= 0) {
+	if(parse->in_literal <= parse->rdbuf->len) {
+	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
+	  parse->curarg->type = ITEM_STRING;
 	  parse->curarg->data = g_strndup(parse->rdbuf->str, parse->in_literal);
-	  parse->in_literal = parse->literal_left = 0;
+	  parse->in_literal = 0;
 	  g_string_erase(parse->rdbuf, 0, parse->in_literal + 2 /* CRLF */);
 	  found_something = TRUE;
 	}
@@ -103,8 +104,7 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 	  return FALSE;
 	}
 	found_something = TRUE;
-	parse->literal_left = parse->in_literal + 2;
-	g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str + 2 /* eliminate CR */);
+	g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str + 3 /* eliminate CR */);
 	break;
       case '"':
 	ctmp = strchr(parse->rdbuf->str + 1, '"');
@@ -122,7 +122,7 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
       case ' ':
 	g_string_erase(parse->rdbuf, 0, 1);
 	found_something = parse->rdbuf->len;
-	parse->in_literal = parse->literal_left = parse->in_quoted = 0;
+	parse->in_literal = parse->in_quoted = 0;
 	break;
       case '\r':
       case '\n':

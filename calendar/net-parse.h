@@ -34,7 +34,6 @@ typedef struct {
 	} rs;
 
 	gint in_literal;
-	gint literal_left;
 	gint in_quoted; /* 0 if not currently reading */
 	CSCmdArg *curarg, **setptr;
         GSList *upargs;
