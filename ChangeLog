@@ -1,3 +1,8 @@
+2003-07-25 Yuedong Du <yuedong.du@sun.com>
+
+	* data/Makefile.am: merge ettore's fix
+	* data/evolution.desktop.in.in ditto
+
 2003-07-16 Bolian Yin <bolian.yin@sun.com>
 
 	* configure.in: Add a11y/calendar Makefile (bug #46435)
