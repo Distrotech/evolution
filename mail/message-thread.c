@@ -36,9 +36,6 @@
 
 #define d(x)
 
-static struct _container *thread_messages(CamelFolder *folder, GPtrArray *uids);
-static void thread_messages_free(struct _container *);
-
 /* for debug only */
 int dump_tree(struct _container *c);
 
@@ -339,17 +336,25 @@ dump_tree(struct _container *c)
 	return count;
 }
 
-static void thread_messages_free(struct _container *c)
+static void
+container_free(struct _container *c)
 {
 	struct _container *n;
 
 	while (c) {
 		n = c->next;
 		if (c->child)
-			thread_messages_free(c->child); /* free's children first */
+			container_free(c->child); /* free's children first */
 		g_free(c);
 		c = n;
 	}
+}
+
+void
+thread_messages_free(struct _thread_messages *thread)
+{
+	container_free(thread->tree);
+	g_free(thread);
 }
 
 static int
@@ -411,13 +416,14 @@ sort_thread(struct _container **cp)
 	*cp = head;
 }
 
-static struct _container *
+struct _thread_messages *
 thread_messages(CamelFolder *folder, GPtrArray *uids)
 {
 	GHashTable *id_table, *no_id_table;
 	int i;
 	struct _container *c, *p, *child, *head, *container;
 	struct _header_references *ref;
+	struct _thread_messages *thread;
 
 	id_table = g_hash_table_new(g_str_hash, g_str_equal);
 	no_id_table = g_hash_table_new(NULL, NULL);
@@ -498,7 +504,23 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 #endif
 
 	sort_thread(&head);
-	return head;
+
+	thread = g_malloc(sizeof(*thread));
+	thread->tree = head;
+
+	return thread;
+}
+
+void
+thread_messages_add(struct _thread_messages *thread, CamelFolder *folder, GPtrArray *uids)
+{
+	
+}
+
+void
+thread_messages_remove(struct _thread_messages *thread, CamelFolder *folder, GPtrArray *uids)
+{
+	
 }
 
 /* ** THREAD MESSAGES ***************************************************** */
@@ -511,7 +533,7 @@ typedef struct thread_messages_input_s {
 } thread_messages_input_t;
 
 typedef struct thread_messages_data_s {
-	struct _container *container;
+	struct _thread_messages *thread;
 } thread_messages_data_t;
 
 static gchar *describe_thread_messages (gpointer in_data, gboolean gerund);
@@ -557,7 +579,7 @@ static void do_thread_messages (gpointer in_data, gpointer op_data, CamelExcepti
 	thread_messages_input_t *input = (thread_messages_input_t *) in_data;
 	thread_messages_data_t *data = (thread_messages_data_t *) op_data;
 
-	data->container = thread_messages (input->ml->folder, input->uids);
+	data->thread = thread_messages (input->ml->folder, input->uids);
 }
 
 static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
@@ -565,8 +587,8 @@ static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelEx
 	thread_messages_input_t *input = (thread_messages_input_t *) in_data;
 	thread_messages_data_t *data = (thread_messages_data_t *) op_data;
 
-	(input->build) (input->ml, data->container);
-	thread_messages_free (data->container);
+	(input->build) (input->ml, data->thread->tree);
+	thread_messages_free (data->thread);
 
 	if (input->use_camel_uidfree) {
 		mail_tool_camel_lock_up ();

@@ -33,6 +33,7 @@ static int blowup(int status)
 {
 	printf("memory blew up, status %d\n", status);
 	/*abort();*/
+	return status;
 }
 
 int

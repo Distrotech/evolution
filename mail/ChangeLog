@@ -1,3 +1,42 @@
+2000-10-20  Not Zed  <NotZed@HelixCode.com>
+
+	* message-list.c (main_folder_changed): Perform incremental update
+	of the display for flat view.
+	(ml_tree_value_at): Spit out a mroe meaningful warning when we
+	can't find the uid in our tree, in the folder.
+
+	* message-thread.c (thread_messages): Made public.
+	(thread_messages_free): Made public.
+	(thread_messages): Now we also return a struct _thread_messages,
+	which is passed to other functions.
+	(container_free): Renamed from thread_messages_free.
+	(thread_messages_free): Take a thread_messages argument.
+	(thread_messages_add): New function to add a list of uid's to the
+	thread list.
+	(thread_messages_remove): Likewise, for removing them.
+	(cleanup_thread_messages): Change for struct changes.
+	(do_thread_messages): Likewise.
+
+2000-10-19  Not Zed  <NotZed@HelixCode.com>
+
+	* mail-tools.c (mail_tool_do_movemail): removed unused var
+
+	* folder-browser.c (search_full_clicked): Fix for api changes,
+	such as it can be called an api, its mroe an utter mess infact.
+	(search_set): Same.
+	(search_set): And here.
+	(folder_browser_clear_search): And here.
+
+	* message-list.c (folder_changed): Copy and forward the changeinfo
+	list to the mian thread.
+	(main_folder_changed): Free the changeinfo. Todo: something smart
+	with this information.
+	(struct regenerate_messagelist_input_s): Added a changes field.
+	(mail_do_regenerate_messagelist): Added a change list argument.
+	(message_list_set_folder): Fix for mail_do_regenreate_messagelist
+	api.
+	(message_list_toggle_threads): Same.
+
 2000-10-18  Iain Holmes  <iain@helixcode.com>
 
 	* mail-config-gui.c (mail_config): Make all the CLists have passive

@@ -165,7 +165,7 @@ search_full_clicked(MailSearchDialogue *msd, guint button, FolderBrowser *fb)
 	case 0:			/* 'ok' */
 	case 1:			/* 'search' */
 		query = mail_search_dialogue_get_query(msd);
-		mail_do_regenerate_messagelist(fb->message_list, query);
+		mail_do_regenerate_messagelist(fb->message_list, query, NULL);
 		g_free(query);
 		/* save the search as well */
 		if (fb->search_full)
@@ -178,7 +178,7 @@ search_full_clicked(MailSearchDialogue *msd, guint button, FolderBrowser *fb)
 	case 2:			/* 'cancel' */
 		gnome_dialog_close((GnomeDialog *)msd);
 	case -1:		/* dialogue closed */
-		mail_do_regenerate_messagelist(fb->message_list, 0);
+		mail_do_regenerate_messagelist(fb->message_list, 0, NULL);
 		/* reset the search buttons state */
 		gtk_menu_set_active(GTK_MENU(GTK_OPTION_MENU(fb->search_menu)->menu), 0);
 		gtk_widget_set_sensitive(fb->search_entry, TRUE);
@@ -223,7 +223,7 @@ search_set(FolderBrowser *fb)
 	if (text == NULL || text[0] == 0) {
 		if (text) 
 			g_free(text);
-		mail_do_regenerate_messagelist (fb->message_list, NULL);
+		mail_do_regenerate_messagelist (fb->message_list, NULL, NULL);
 		return;
 	}
 
@@ -241,7 +241,7 @@ search_set(FolderBrowser *fb)
 			str++;
 		}
 	}
-	mail_do_regenerate_messagelist (fb->message_list, out->str);
+	mail_do_regenerate_messagelist (fb->message_list, out->str, NULL);
 	g_string_free(out, TRUE);
 
 	g_free (text);
@@ -383,7 +383,7 @@ folder_browser_clear_search (FolderBrowser *fb)
 {
 	gtk_entry_set_text (GTK_ENTRY (fb->search_entry), "");
 	gtk_option_menu_set_history (GTK_OPTION_MENU (fb->search_menu), 0);
-	mail_do_regenerate_messagelist (fb->message_list, NULL);
+	mail_do_regenerate_messagelist (fb->message_list, NULL, NULL);
 }
 
 static int

@@ -52,6 +52,8 @@
 #include "art/score-higher.xpm"
 #include "art/score-highest.xpm"
 
+#define d(x)
+
 /*
  * Default sizes for the ETable display
  *
@@ -642,7 +644,10 @@ ml_tree_value_at (ETreeModel *etm, ETreePath *path, int col, void *model_data)
 	uid += 4;
 
 	msg_info = camel_folder_get_message_info (message_list->folder, uid);
-	g_return_val_if_fail (msg_info != NULL, NULL);
+	if (msg_info == NULL) {
+		g_warning("UID for message-list not found in folder: %s", uid);
+		return NULL;
+	}
 	
 	switch (col){
 	case COL_MESSAGE_STATUS:
@@ -1363,18 +1368,157 @@ build_flat (MessageList *ml, GPtrArray *uids)
 	}
 }
 
+/* used to sort the rows to match list order */
+struct _uidsort {
+	int row;
+	char *uid;
+};
+
+static int
+sort_uid_cmp(const void *ap, const void *bp)
+{
+	const struct _uidsort *a = (struct _uidsort *)ap;
+	const struct _uidsort *b = (struct _uidsort *)bp;
+
+	if (a->row < b->row)
+		return -1;
+	else if (a->row > b->row)
+		return 1;
+	return 0;
+}
+
+static void
+sort_uid_to_rows(MessageList *ml, GPtrArray *uids)
+{
+	struct _uidsort *uidlist;
+	int i;
+
+	uidlist = g_malloc(sizeof(struct _uidsort) * uids->len);
+	for (i=0;i<uids->len;i++) {
+		uidlist[i].row = (int)g_hash_table_lookup(ml->uid_rowmap, uids->pdata[i]);
+		uidlist[i].uid = uids->pdata[i];
+	}
+	qsort(uidlist, uids->len, sizeof(struct _uidsort), sort_uid_cmp);
+	for (i=0;i<uids->len;i++) {
+		uids->pdata[i] = uidlist[i].uid;
+	}
+	g_free(uidlist);
+}
+
 static void
 main_folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
-	MessageList *message_list = MESSAGE_LIST (user_data);
+	MessageList *ml = MESSAGE_LIST (user_data);
+	CamelFolderChangeInfo *changes = (CamelFolderChangeInfo *)event_data;
 
-	mail_do_regenerate_messagelist (message_list, message_list->search);
+	/* try and optimise updates, only change what has changed */
+	if (mail_config_thread_list() == FALSE) {
+		int row, i;
+		ETreePath *node;
+		char *uid;
+		int oldrow;
+		char *olduid;
+
+		/* remove individual nodes? */
+		if (changes->uid_removed->len > 0) {
+			/* first, we need to sort the row id's to match the summary order */
+			sort_uid_to_rows(ml, changes->uid_removed);
+
+			/* we remove from the end, so that the rowmap remains valid as we go */
+			d(printf("Removing messages from view:\n"));
+			for (i=changes->uid_removed->len-1;i>=0;i--) {
+				d(printf(" %s\n", (char *)changes->uid_removed->pdata[i]));
+				if (g_hash_table_lookup_extended(ml->uid_rowmap, changes->uid_removed->pdata[i], (void *)&olduid, (void *)&row)) {
+					node = e_tree_model_node_at_row((ETreeModel *)ml->table_model, row);
+					uid = e_tree_model_node_get_data((ETreeModel *)ml->table_model, node);
+					if (uid && !strncmp(uid, "uid:", 4) && !strcmp(uid+4, changes->uid_removed->pdata[i])) {
+						e_tree_model_node_remove((ETreeModel *)ml->table_model, node);
+						g_free(uid);
+						g_hash_table_remove(ml->uid_rowmap, olduid);
+						g_free(olduid);
+						d(printf("  - removed\n"));
+					} else {
+						d(printf("  - is this the right uid, it doesn't match my map?\n"));
+					}
+				}
+			}
+		}
+
+		/* add new nodes? - just append to the end */
+		if (changes->uid_added->len > 0) {
+			node = e_tree_model_node_get_last_child((ETreeModel *)ml->table_model, ml->tree_root);
+			row = e_tree_model_row_of_node((ETreeModel *)ml->table_model, node) + 1;
+			d(printf("Adding messages to view:\n"));
+			for (i=0;i<changes->uid_added->len;i++) {
+				d(printf(" %s\n", (char *)changes->uid_added->pdata[i]));
+				uid = g_strdup_printf ("uid:%s", (char *)changes->uid_added->pdata[i]);
+				node = e_tree_model_node_insert((ETreeModel *)ml->table_model, ml->tree_root, row, uid);
+				g_hash_table_insert(ml->uid_rowmap, g_strdup (uid+4), GINT_TO_POINTER (row));
+				row++;
+			}
+		}
+
+		/* TODO: this can be generalised for the threaded view as well, they are both trees */
+		/* now, check the rowmap, some rows might've changed (with removes) */
+		if (changes->uid_removed->len) {
+			d(printf("checking uid mappings\n"));
+			row = 0;
+			node = e_tree_model_node_get_first_child ((ETreeModel *)ml->table_model, ml->tree_root);
+			while (node) {
+				uid = e_tree_model_node_get_data((ETreeModel *)ml->table_model, node);
+				if (!strncmp(uid, "uid:", 4)) {
+					if (g_hash_table_lookup_extended(ml->uid_rowmap, uid+4, (void *)&olduid, (void *)&oldrow)) {
+						if (oldrow != row) {
+							d(printf("row %d moved to new row %d\n", oldrow, row));
+							g_hash_table_insert(ml->uid_rowmap, olduid, (void *)row);
+						}
+					} else { /* missing?  shouldn't happen */
+						g_warning("Uid vanished from rowmap?: %s\n", uid);
+					}
+				}
+				row++;
+				node = e_tree_model_node_get_next((ETreeModel *)ml->table_model, node);
+			}
+		}
+		camel_folder_change_info_free(changes);
+	} else {
+		/* mail_do_* frees changes for us */
+		mail_do_regenerate_messagelist(ml, ml->search, changes);
+	}
+
+#if 0
+	/* TODO: somehting smart with the changeinfo */
+	{
+		int i;
+
+		if (changes->uid_added->len > 0) {
+			printf("These messages were added:\n");
+			for (i=0;i<changes->uid_added->len;i++)
+				printf(" %s\n", (char *)changes->uid_added->pdata[i]);
+		}
+		if (changes->uid_removed->len > 0) {
+			printf("These messages were removed:\n");
+			for (i=0;i<changes->uid_removed->len;i++)
+				printf(" %s\n", (char *)changes->uid_removed->pdata[i]);
+		}
+		if (changes->uid_changed->len > 0) {
+			printf("These messages were changed:\n");
+			for (i=0;i<changes->uid_changed->len;i++)
+				printf(" %s\n", (char *)changes->uid_changed->pdata[i]);
+		}
+	}
+#endif
 }
 
 static void
 folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
-	mail_op_forward_event (main_folder_changed, o, event_data, user_data);
+	/* similarly to message_changed, copy the change list and propagate it to
+	   the main thread and free it */
+	CamelFolderChangeInfo *changes = camel_folder_change_info_new();
+
+	camel_folder_change_info_cat(changes, (CamelFolderChangeInfo *)event_data);
+	mail_op_forward_event (main_folder_changed, o, changes, user_data);
 }
 
 static void
@@ -1431,7 +1575,7 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder)
 
 	/*gtk_idle_add (regen_message_list, message_list);*/
 	/*folder_changed (CAMEL_OBJECT (camel_folder), 0, message_list);*/
-	mail_do_regenerate_messagelist (message_list, message_list->search);
+	mail_do_regenerate_messagelist (message_list, message_list->search, NULL);
 }
 
 GtkWidget *
@@ -1663,8 +1807,8 @@ message_list_toggle_threads (BonoboUIComponent           *component,
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 	
-	mail_config_set_thread_list (atoi (state));
-	mail_do_regenerate_messagelist (ml, ml->search);
+	mail_config_set_thread_list(atoi(state));
+	mail_do_regenerate_messagelist(ml, ml->search, NULL);
 }
 
 /* ** REGENERATE MESSAGELIST ********************************************** */
@@ -1672,6 +1816,7 @@ message_list_toggle_threads (BonoboUIComponent           *component,
 typedef struct regenerate_messagelist_input_s {
 	MessageList *ml;
 	char *search;
+	CamelFolderChangeInfo *changes;
 } regenerate_messagelist_input_t;
 
 typedef struct regenerate_messagelist_data_s {
@@ -1784,13 +1929,15 @@ static const mail_operation_spec op_regenerate_messagelist =
 	cleanup_regenerate_messagelist
 };
 
-void mail_do_regenerate_messagelist (MessageList *list, const gchar *search)
+/* if changes == NULL, then update the whole list, otherwise just update the changes */
+void mail_do_regenerate_messagelist (MessageList *list, const gchar *search, CamelFolderChangeInfo *changes)
 {
 	regenerate_messagelist_input_t *input;
 
 	input = g_new (regenerate_messagelist_input_t, 1);
 	input->ml = list;
 	input->search = g_strdup (search);
+	input->changes = changes;
 
 	mail_operation_queue (&op_regenerate_messagelist, input, TRUE);
 }
