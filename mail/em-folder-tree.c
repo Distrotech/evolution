@@ -34,6 +34,9 @@
 #include <camel/camel-store.h>
 #include <camel/camel-folder.h>
 
+#include "mail-mt.h"
+#include "mail-ops.h"
+
 #include "em-popup.h"
 #include "em-marshal.h"
 #include "em-folder-tree.h"
@@ -686,6 +689,7 @@ emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTr
 	struct _emft_store_info *si;
 	CamelStore *store;
 	CamelException ex;
+	char *path;
 	
 	if (response != GTK_RESPONSE_OK) {
 		gtk_widget_destroy ((GtkWidget *) emfs);
@@ -748,7 +752,7 @@ emft_popup_new_folder (GtkWidget *item, EMFolderTree *emft)
 	EMFolderTree *folder_tree;
 	GtkWidget *dialog;
 	
-	folder_tree = em_folder_tree_new ();
+	folder_tree = (EMFolderTree *) em_folder_tree_new ();
 	g_hash_table_foreach (emft->priv->store_hash, store_hash_add_store, folder_tree);
 	
 	dialog = em_folder_selector_create_new (folder_tree, 0, _("Create folder"), _("Specify where to create the folder:"));
@@ -898,7 +902,7 @@ emft_popup_rename_folder (GtkWidget *item, EMFolderTree *emft)
 	while (!done) {
 		const char *why;
 		
-		new = e_request_string (NULL, _("Rename Folder"), prompt, name);
+		new_name = e_request_string (NULL, _("Rename Folder"), prompt, name);
 		if (new_name == NULL || !strcmp (name, new_name)) {
 			/* old name == new name */
 			done = TRUE;
@@ -970,7 +974,7 @@ emft_popup_properties_response (GtkWidget *dialog, int response, struct _prop_da
 			break;
 		case CAMEL_ARG_STR:
 			g_free (arg->ca_str);
-			arg->ca_str = gtk_entry_get_text ((GtkEntry *) prop_data->widgets[i]);
+			arg->ca_str = (char *) gtk_entry_get_text ((GtkEntry *) prop_data->widgets[i]);
 			break;
 		default:
 			g_assert_not_reached ();
