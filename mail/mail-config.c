@@ -483,12 +483,112 @@ lookup_signature (gint i)
 }
 
 static void
+config_write_imported_signature (gchar *filename, gint i, gboolean html)
+{
+	MailConfigSignature *sig = g_new0 (MailConfigSignature, 1);
+	gchar *name;
+
+	name = strrchr (filename, '/');
+	if (!name)
+		name = filename;
+	else
+		name ++;
+
+	sig->name = g_strdup (name);
+	sig->filename = filename;
+	sig->html = html;
+
+	config_write_signature (sig, i);
+	signature_destroy (sig);
+}
+
+static void
+config_import_old_signatures ()
+{
+	gint num;
+
+	num = bonobo_config_get_long_with_default (config->db, "/Mail/Signatures/num", -1, NULL);
+
+	if (num == -1) {
+		/* there are no signatures defined
+		 * look for old config to create new ones from old ones
+		 */
+
+		GHashTable *cache;
+		gint i, accounts;
+
+		cache = g_hash_table_new (g_str_hash, g_str_equal);
+		accounts = bonobo_config_get_long_with_default (config->db, "/Mail/Accounts/num", 0, NULL);
+		num = 0;
+		for (i = 0; i < accounts; i ++) {
+			gchar *path, *val;
+
+			/* read text signature file */
+			path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
+			val = bonobo_config_get_string (config->db, path, NULL);
+			g_free (path);
+			if (val && *val) {
+
+				gint id;
+				gpointer orig_key, node_val;
+
+				if (g_hash_table_lookup_extended (cache, val, &orig_key, &node_val)) {
+					id = GPOINTER_TO_INT (node_val);
+				} else {
+					g_hash_table_insert (cache, g_strdup (val), GINT_TO_POINTER (id));
+					config_write_imported_signature (val, num, FALSE);
+					id = num;
+					num ++;
+				}
+
+				/* set new text signature to this identity */
+				path = g_strdup_printf ("/Mail/Accounts/identity_signature_text_%d", i);
+				bonobo_config_set_long (config->db, path, id, NULL);
+				g_free (path);
+			} else
+				g_free (val);
+
+			path = g_strdup_printf ("/Mail/Accounts/identity_has_html_signature_%d", i);
+			if (bonobo_config_get_boolean_with_default (config->db, path, FALSE, NULL)) {
+				g_free (path);
+				path = g_strdup_printf ("/Mail/Accounts/identity_html_signature_%d", i);
+				val = bonobo_config_get_string (config->db, path, NULL);
+				if (val && *val) {
+
+					gint id;
+					gpointer orig_key, node_val;
+
+					if (g_hash_table_lookup_extended (cache, val, &orig_key, &node_val)) {
+						id = GPOINTER_TO_INT (node_val);
+					} else {
+						g_hash_table_insert (cache, g_strdup (val), GINT_TO_POINTER (id));
+						config_write_imported_signature (val, num, TRUE);
+						id = num;
+						num ++;
+					}
+
+					/* set new html signature to this identity */
+					g_free (path);
+					path = g_strdup_printf ("/Mail/Accounts/identity_signature_html_%d", i);
+					bonobo_config_set_long (config->db, path, id, NULL);
+				} else
+					g_free (val);
+			}
+			g_free (path);
+		}
+		bonobo_config_set_long (config->db, "/Mail/Signatures/num", num, NULL);
+		g_hash_table_destroy (cache);
+	}
+}
+
+static void
 config_read (void)
 {
 	int len, i, default_num;
 	
 	mail_config_clear ();
 
+	config_import_old_signatures ();
 	config_read_signatures ();
 	
 	len = bonobo_config_get_long_with_default (config->db, 
