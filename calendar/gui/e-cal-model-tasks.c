@@ -40,13 +40,15 @@ static int ecmt_column_count (ETableModel *etm);
 static void *ecmt_value_at (ETableModel *etm, int col, int row);
 static void ecmt_set_value_at (ETableModel *etm, int col, int row, const void *value);
 static gboolean ecmt_is_cell_editable (ETableModel *etm, int col, int row);
-static void ecmt_append_row (ETableModel *etm, ETableModel *source, int row);
 static void *ecmt_duplicate_value (ETableModel *etm, int col, const void *value);
 static void ecmt_free_value (ETableModel *etm, int col, void *value);
 static void *ecmt_initialize_value (ETableModel *etm, int col);
 static gboolean ecmt_value_is_empty (ETableModel *etm, int col, const void *value);
 static char *ecmt_value_to_string (ETableModel *etm, int col, const void *value);
+
 static const char *ecmt_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data);
+static void ecmt_fill_component_from_model (ECalModel *model, ECalModelComponent *comp_data,
+					    ECalModel *source_model, gint row);
 
 static GObjectClass *parent_class = NULL;
 
@@ -68,7 +70,6 @@ ecmt_class_init (ECalModelTasksClass *klass)
 	etm_class->value_at = ecmt_value_at;
 	etm_class->set_value_at = ecmt_set_value_at;
 	etm_class->is_cell_editable = ecmt_is_cell_editable;
-	etm_class->append_row = ecmt_append_row;
 	etm_class->duplicate_value = ecmt_duplicate_value;
 	etm_class->free_value = ecmt_free_value;
 	etm_class->initialize_value = ecmt_initialize_value;
@@ -76,6 +77,7 @@ ecmt_class_init (ECalModelTasksClass *klass)
 	etm_class->value_to_string = ecmt_value_to_string;
 
 	model_class->get_color_for_component = ecmt_get_color_for_component;
+	model_class->fill_component_from_model = ecmt_fill_component_from_model;
 }
 
 static void
@@ -513,6 +515,29 @@ set_complete (ECalModelComponent *comp_data, const void *value)
 		ensure_task_not_complete (comp_data);
 }
 
+static void
+set_due (ECalModelComponent *comp_data, const void *value)
+{
+	icalproperty *prop;
+	ECellDateEditValue *dv = (ECellDateEditValue *) value;
+
+	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DUE_PROPERTY);
+
+	if (!dv) {
+		if (prop) {
+			icalcomponent_remove_property (comp_data->icalcomp, prop);
+			icalproperty_free (prop);
+		}
+	} else {
+		if (prop)
+			icalproperty_set_due (prop, dv->tt);
+		else {
+			prop = icalproperty_new_due (dv->tt);
+			icalcomponent_add_property (comp_data->icalcomp, prop);
+		}
+	}
+}
+
 /* FIXME: We need to set the "transient_for" property for the dialog, but the
  * model doesn't know anything about the windows.
  */
@@ -715,7 +740,7 @@ ecmt_set_value_at (ETableModel *etm, int col, int row, const void *value)
 		set_complete (comp_data, value);
 		break;
 	case E_CAL_MODEL_TASKS_FIELD_DUE :
-		/* FIXME */
+		set_due (comp_data, value);
 		break;
 	case E_CAL_MODEL_TASKS_FIELD_GEO :
 		set_geo (comp_data, value);
@@ -765,19 +790,6 @@ ecmt_is_cell_editable (ETableModel *etm, int col, int row)
 	}
 
 	return FALSE;
-}
-
-static void
-ecmt_append_row (ETableModel *etm, ETableModel *source, gint row)
-{
-	ECalModelTasksPrivate *priv;
-	ECalModelTasks *model = (ECalModelTasks *) etm;
-
-	g_return_if_fail (E_IS_CAL_MODEL_TASKS (model));
-
-	priv = model->priv;
-
-	/* FIXME: how to chain to ecm_append_row? */
 }
 
 static void *
@@ -946,6 +958,30 @@ ecmt_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 	}
 
 	return E_CAL_MODEL_CLASS (parent_class)->get_color_for_component (model, comp_data);
+}
+
+static void
+ecmt_fill_component_from_model (ECalModel *model, ECalModelComponent *comp_data,
+				ECalModel *source_model, gint row)
+{
+	g_return_if_fail (E_IS_CAL_MODEL_TASKS (model));
+	g_return_if_fail (comp_data != NULL);
+	g_return_if_fail (E_IS_CAL_MODEL_TASKS (source_model));
+
+	set_completed ((ECalModelTasks *) model, comp_data,
+		       e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_COMPLETED, row));
+	set_due (comp_data,
+		 e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_DUE, row));
+	set_geo (comp_data,
+		 e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_GEO, row));
+	set_percent (comp_data,
+		     e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_PERCENT, row));
+	set_priority (comp_data,
+		      e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_PRIORITY, row));
+	set_status (comp_data,
+		    e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_STATUS, row));
+	set_url (comp_data,
+		 e_table_model_value_at (E_TABLE_MODEL (source_model), E_CAL_MODEL_TASKS_FIELD_URL, row));
 }
 
 /**

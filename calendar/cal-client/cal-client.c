@@ -2661,7 +2661,8 @@ cal_client_update_object_with_mod (CalClient *client, CalComponent *comp, CalObj
 	cal_component_commit_sequence (comp);
 
 	obj_string = cal_client_get_component_as_string_internal (client,
-								  comp, FALSE);
+								  cal_component_get_icalcomponent (comp),
+								  FALSE);
 	if (obj_string == NULL)
 		return CAL_CLIENT_RESULT_INVALID_OBJECT;
 

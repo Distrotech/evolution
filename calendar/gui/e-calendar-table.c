@@ -316,6 +316,8 @@ e_calendar_table_init (ECalendarTable *cal_table)
 	GdkPixbuf *pixbuf;
 	GList *strings;
 
+	cal_table->activity = NULL;
+
 	/* Create the model */
 
 	cal_table->model = (ECalModel *) e_cal_model_tasks_new ();
@@ -515,7 +517,9 @@ e_calendar_table_init (ECalendarTable *cal_table)
 						     extras,
 						     EVOLUTION_ETSPECDIR "/e-calendar-table.etspec",
 						     NULL);
-	g_object_unref (extras);
+	/* FIXME: this causes a message from GLib about 'extras' having only a floating
+	   reference */
+	/* g_object_unref (extras); */
 
 	cal_table->etable = table;
 	gtk_table_attach (GTK_TABLE (cal_table), table, 0, 1, 0, 1,

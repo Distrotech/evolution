@@ -37,7 +37,6 @@ static int ecmc_column_count (ETableModel *etm);
 static void *ecmc_value_at (ETableModel *etm, int col, int row);
 static void ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value);
 static gboolean ecmc_is_cell_editable (ETableModel *etm, int col, int row);
-static void ecmc_append_row (ETableModel *etm, ETableModel *source, int row);
 static void *ecmc_duplicate_value (ETableModel *etm, int col, const void *value);
 static void ecmc_free_value (ETableModel *etm, int col, void *value);
 static void *ecmc_initialize_value (ETableModel *etm, int col);
@@ -63,7 +62,6 @@ ecmc_class_init (ECalModelCalendarClass *klass)
 	etm_class->value_at = ecmc_value_at;
 	etm_class->set_value_at = ecmc_set_value_at;
 	etm_class->is_cell_editable = ecmc_is_cell_editable;
-	etm_class->append_row = ecmc_append_row;
 	etm_class->duplicate_value = ecmc_duplicate_value;
 	etm_class->free_value = ecmc_free_value;
 	etm_class->initialize_value = ecmc_initialize_value;
@@ -328,16 +326,6 @@ ecmc_is_cell_editable (ETableModel *etm, int col, int row)
 	}
 
 	return FALSE;
-}
-
-static void
-ecmc_append_row (ETableModel *etm, ETableModel *source, gint row)
-{
-	ECalModelCalendar *model = (ECalModelCalendar *) etm;
-
-	g_return_if_fail (E_IS_CAL_MODEL_CALENDAR (model));
-
-	/* FIXME: how to chain to ecm_append_row? */
 }
 
 static void *

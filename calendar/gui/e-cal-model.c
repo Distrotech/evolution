@@ -23,6 +23,7 @@
 #include <glib/garray.h>
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-util.h>
+#include <e-util/e-config-listener.h>
 #include <e-util/e-time-utils.h>
 #include <cal-util/timeutil.h>
 #include "calendar-config.h"
@@ -105,6 +106,7 @@ e_cal_model_class_init (ECalModelClass *klass)
 	etm_class->value_to_string = ecm_value_to_string;
 
 	klass->get_color_for_component = ecm_get_color_for_component;
+	klass->fill_component_from_model = NULL;
 }
 
 static void
@@ -320,8 +322,13 @@ get_dtstart (ECalModel *model, ECalModelComponent *comp_data)
 
 	if (!comp_data->dtstart) {
 		icaltimezone *zone;
+		icalproperty *prop;
 
-		tt_start = icalcomponent_get_dtstart (comp_data->icalcomp);
+		prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
+		if (!prop)
+			return NULL;
+
+		tt_start = icalproperty_get_dtstart (prop);
 		if (!icaltime_is_valid_time (tt_start))
 			return NULL;
 
@@ -379,13 +386,13 @@ ecm_value_at (ETableModel *etm, int col, int row)
 	case E_CAL_MODEL_FIELD_CLASSIFICATION :
 		return get_classification (comp_data);
 	case E_CAL_MODEL_FIELD_COLOR :
-		return get_color (model, comp_data);
+		return (void *) get_color (model, comp_data);
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		return comp_data->icalcomp;
 	case E_CAL_MODEL_FIELD_DESCRIPTION :
 		return get_description (comp_data);
 	case E_CAL_MODEL_FIELD_DTSTART :
-		return get_dtstart (model, comp_data);
+		return (void *) get_dtstart (model, comp_data);
 	case E_CAL_MODEL_FIELD_HAS_ALARMS :
 		return GINT_TO_POINTER ((icalcomponent_get_first_component (comp_data->icalcomp,
 									    ICAL_VALARM_COMPONENT) != NULL));
@@ -439,58 +446,58 @@ ecm_value_at (ETableModel *etm, int col, int row)
 }
 
 static void
-set_categories (icalcomponent *icalcomp, const char *value)
+set_categories (ECalModelComponent *comp_data, const char *value)
 {
 	icalproperty *prop;
 
-	prop = icalcomponent_get_first_property (icalcomp, ICAL_CATEGORIES_PROPERTY);
+	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_CATEGORIES_PROPERTY);
 	if (!value || !(*value)) {
 		if (prop) {
-			icalcomponent_remove_property (icalcomp, prop);
+			icalcomponent_remove_property (comp_data->icalcomp, prop);
 			icalproperty_free (prop);
 		}
 	} else {
 		if (!prop) {
 			prop = icalproperty_new_categories (value);
-			icalcomponent_add_property (icalcomp, prop);
+			icalcomponent_add_property (comp_data->icalcomp, prop);
 		} else
 			icalproperty_set_categories (prop, value);
 	}
 }
 
 static void
-set_classification (icalcomponent *icalcomp, const char *value)
+set_classification (ECalModelComponent *comp_data, const char *value)
 {
 	icalproperty *prop;
 
-	prop = icalcomponent_get_first_property (icalcomp, ICAL_CLASS_PROPERTY);
+	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_CLASS_PROPERTY);
 	if (!value || !(*value)) {
 		if (prop) {
-			icalcomponent_remove_property (icalcomp, prop);
+			icalcomponent_remove_property (comp_data->icalcomp, prop);
 			icalproperty_free (prop);
 		}
 	} else {
 		if (!prop) {
 			prop = icalproperty_new_class (value);
-			icalcomponent_add_property (icalcomp, prop);
+			icalcomponent_add_property (comp_data->icalcomp, prop);
 		} else
 			icalproperty_set_class (prop, value);
 	}
 }
 
 static void
-set_description (icalcomponent *icalcomp, const char *value)
+set_description (ECalModelComponent *comp_data, const char *value)
 {
 	icalproperty *prop;
 
 	/* remove old description(s) */
-	prop = icalcomponent_get_first_property (icalcomp, ICAL_DESCRIPTION_PROPERTY);
+	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DESCRIPTION_PROPERTY);
 	while (prop) {
 		icalproperty *next;
 
-		next = icalcomponent_get_next_property (icalcomp, ICAL_DESCRIPTION_PROPERTY);
+		next = icalcomponent_get_next_property (comp_data->icalcomp, ICAL_DESCRIPTION_PROPERTY);
 
-		icalcomponent_remove_property (icalcomp, prop);
+		icalcomponent_remove_property (comp_data->icalcomp, prop);
 		icalproperty_free (prop);
 
 		prop = next;
@@ -501,7 +508,7 @@ set_description (icalcomponent *icalcomp, const char *value)
 		return;
 
 	prop = icalproperty_new_description (value);
-	icalcomponent_add_property (icalcomp, prop);
+	icalcomponent_add_property (comp_data->icalcomp, prop);
 }
 
 static void
@@ -521,9 +528,25 @@ set_dtstart (ECalModel *model, ECalModelComponent *comp_data, const void *value)
 }
 
 static void
-set_summary (icalcomponent *icalcomp, const char *value)
+set_summary (ECalModelComponent *comp_data, const char *value)
 {
-	icalcomponent_set_summary (icalcomp, value);
+	icalproperty *prop;
+
+	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_SUMMARY_PROPERTY);
+
+	if (string_is_empty (value)) {
+		if (prop) {
+			icalcomponent_remove_property (comp_data->icalcomp, prop);
+			icalproperty_free (prop);
+		}
+	} else {
+		if (prop)
+			icalproperty_set_summary (prop, value);
+		else {
+			prop = icalproperty_new_summary (value);
+			icalcomponent_add_property (comp_data->icalcomp, prop);
+		}
+	}
 }
 
 static void
@@ -590,7 +613,8 @@ ecm_is_cell_editable (ETableModel *etm, int col, int row)
 static void
 ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 {
-	ECalModelComponent *comp_data;
+	ECalModelClass *model_class;
+	ECalModelComponent comp_data;
 	icalcomponent *icalcomp;
 	ECalModel *source_model = (ECalModel *) source;
 	ECalModel *model = (ECalModel *) etm;
@@ -598,21 +622,29 @@ ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 	g_return_if_fail (E_IS_CAL_MODEL (model));
 	g_return_if_fail (E_IS_CAL_MODEL (source_model));
 
-	comp_data = g_ptr_array_index (source_model->priv->objects, row);
-	g_assert (comp_data != NULL);
+	memset (&comp_data, 0, sizeof (comp_data));
+	comp_data.client = e_cal_model_get_default_client (model);
 
 	/* guard against saving before the calendar is open */
-	if (!(comp_data->client && cal_client_get_load_state (comp_data->client) == CAL_CLIENT_LOAD_LOADED))
+	if (!(comp_data.client && cal_client_get_load_state (comp_data.client) == CAL_CLIENT_LOAD_LOADED))
 		return;
 
-	icalcomp = e_cal_model_create_component_with_defaults (model);
+	comp_data.icalcomp = e_cal_model_create_component_with_defaults (model);
 
-	set_categories (icalcomp, e_table_model_value_at (source, E_CAL_MODEL_FIELD_CATEGORIES, row));
-	set_classification (icalcomp, e_table_model_value_at (source, E_CAL_MODEL_FIELD_CLASSIFICATION, row));
-	set_description (icalcomp, e_table_model_value_at (source, E_CAL_MODEL_FIELD_DESCRIPTION, row));
-	set_summary (icalcomp, e_table_model_value_at (source, E_CAL_MODEL_FIELD_SUMMARY, row));
+	/* set values for our fields */
+	set_categories (&comp_data, e_table_model_value_at (source, E_CAL_MODEL_FIELD_CATEGORIES, row));
+	set_classification (&comp_data, e_table_model_value_at (source, E_CAL_MODEL_FIELD_CLASSIFICATION, row));
+	set_description (&comp_data, e_table_model_value_at (source, E_CAL_MODEL_FIELD_DESCRIPTION, row));
+	set_dtstart (model, &comp_data, e_table_model_value_at (source, E_CAL_MODEL_FIELD_DTSTART, row));
+	set_summary (&comp_data, e_table_model_value_at (source, E_CAL_MODEL_FIELD_SUMMARY, row));
 
-	if (cal_client_update_objects (comp_data->client, icalcomp) != CAL_CLIENT_RESULT_SUCCESS) {
+	/* call the class' method for filling the component */
+	model_class = (ECalModelClass *) G_OBJECT_GET_CLASS (model);
+	if (model_class->fill_component_from_model != NULL) {
+		model_class->fill_component_from_model (model, &comp_data, source_model, row);
+	}
+
+	if (cal_client_update_objects (comp_data.client, icalcomp) != CAL_CLIENT_RESULT_SUCCESS) {
 		/* FIXME: show error dialog */
 	}
 
@@ -913,6 +945,10 @@ CalClient *
 e_cal_model_get_default_client (ECalModel *model)
 {
 	ECalModelPrivate *priv;
+	GList *l;
+	gchar *default_uri = NULL;
+	EConfigListener *db;
+	ECalModelClient *client_data;
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 
@@ -921,8 +957,34 @@ e_cal_model_get_default_client (ECalModel *model)
 	if (!priv->clients)
 		return NULL;
 
-	/* FIXME: look at the configuration and return the real default calendar if we've got it loaded */
-	return (CalClient *) priv->clients->data;
+	db = e_config_listener_new ();
+
+	/* look at the configuration and return the real default calendar if we've got it loaded */
+	if (priv->kind == ICAL_VEVENT_COMPONENT)
+		default_uri = e_config_listener_get_string (db, "/apps/evolution/shell/default_folders/calendar_uri");
+	else if (priv->kind == ICAL_VTODO_COMPONENT)
+		default_uri = e_config_listener_get_string (db, "/apps/evolution/shell/default_folders/tasks_uri");
+
+	g_object_unref (db);
+
+	if (!default_uri) {
+		client_data = (ECalModelClient *) priv->clients->data;
+		return client_data->client;
+	}
+
+	for (l = priv->clients; l != NULL; l = l->next) {
+		client_data = (ECalModelClient *) l->data;
+
+		if (!strcmp (default_uri, cal_client_get_uri (client_data->client))) {
+			g_free (default_uri);
+			return client_data->client;
+		}
+	}
+
+	g_free (default_uri);
+
+	client_data = (ECalModelClient *) priv->clients->data;
+	return client_data->client;
 }
 
 static ECalModelComponent *

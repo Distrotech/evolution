@@ -1,5 +1,35 @@
 2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.c (cal_client_update_object_with_mod):
+	cal_client_get_component_as_string_internal expects now a
+	icalcomponent, not a CalComponent.
+
+	* gui/e-cal-model.h: added fill_component_from_model virtual method.
+
+	* gui/e-cal-model.c (e_cal_model_get_default_client): return
+	the default URI as per the configuration if we've got that
+	client loaded. If not, return the first client.
+	(get_dtstart): retrieve the value from the icalproperty.
+	(set_summary): implemented correctly.
+	(set_categories, set_classification, set_description): changed
+	to really get an ECalModelComponent.
+	(ecm_append_row): pass the correct arguments to the set_ functions
+	and call the class' fill_component_from_model method to fill in the
+	created icalcomponent.
+
+	* gui/e-cal-model-tasks.c (set_due): added missing function.
+	(ecmt_set_value_at): implemented case for DUE field.
+	(ecmt_fill_component_from_model): implemented new virtual method.
+	(ecmt_append_row): removed.
+
+	* gui/e-cal-model-calendar.c (ecmc_append_row): removed.
+
+	* gui/e-calendar-table.c (e_calendar_table_init): initialize
+	missing fields. Disabled call to g_object_unref on the 'extras'
+	object, since it causes GLib warnings. Something is wrong here.
+
+2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model.c (cal_opened_cb): don't call remove_client,
 	since the client, at this point, hasn't been added anywhere.
 	(ecm_finalize): don't call e_cal_model_remove_all_clients, since
