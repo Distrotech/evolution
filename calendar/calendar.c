@@ -28,6 +28,7 @@ extern char *tzname[2];
 time_t calendar_day_begin, calendar_day_end;
 
 static void calendar_init_alarms (Calendar *cal);
+static void calendar_set_day (void);
 
 Calendar *
 calendar_new (char *title)
@@ -37,6 +38,9 @@ calendar_new (char *title)
 	cal = g_new0 (Calendar, 1);
 
 	cal->title = g_strdup (title);
+
+	if ((calendar_day_begin == 0) || (calendar_day_end == 0))
+		calendar_set_day ();
 
 	calendar_init_alarms (cal);
 	
