@@ -56,6 +56,8 @@ struct _MailComponentPrivate {
 
 	EFolderTypeRegistry *folder_type_registry;
 	EStorageSet *storage_set;
+
+	RuleContext *search_context;
 };
 
 
@@ -212,6 +214,26 @@ go_online (MailComponent *component)
 	mail_component_storages_foreach (component, storage_go_online, NULL);
 }
 
+static void
+setup_search_context (MailComponent *component)
+{
+	MailComponentPrivate *priv = component->priv;
+	char *user = g_strdup_printf ("%s/evolution/searches.xml", g_get_home_dir ()); /* EPFIXME should be somewhere else. */
+	char *system = g_strdup (EVOLUTION_PRIVDATADIR "/vfoldertypes.xml");
+		
+	priv->search_context = rule_context_new ();
+	g_object_set_data_full (G_OBJECT (priv->search_context), "user", user, g_free);
+	g_object_set_data_full (G_OBJECT (priv->search_context), "system", system, g_free);
+		
+	rule_context_add_part_set (priv->search_context, "partset", filter_part_get_type (),
+				   rule_context_add_part, rule_context_next_part);
+		
+	rule_context_add_rule_set (priv->search_context, "ruleset", filter_rule_get_type (),
+				   rule_context_add_rule, rule_context_next_rule);
+		
+	rule_context_load (priv->search_context, system, user);
+}
+
 
 /* EStorageBrowser callbacks.  */
 
@@ -316,6 +338,11 @@ impl_dispose (GObject *object)
 	if (priv->folder_type_registry != NULL) {
 		g_object_unref (priv->folder_type_registry);
 		priv->folder_type_registry = NULL;
+	}
+
+	if (priv->search_context != NULL) {
+		g_object_unref (priv->search_context);
+		priv->search_context = NULL;
 	}
 
 	(* G_OBJECT_CLASS (parent_class)->dispose) (object);
@@ -440,25 +467,7 @@ mail_component_init (MailComponent *component)
 	
 	/* mail_autoreceive_setup (); FIXME keep it off for testing */
 
-#if 0				/* FIXME todo */
-	{
-		/* setup the global quick-search context */
-		char *user = g_strdup_printf ("%s/searches.xml", evolution_dir);
-		char *system = g_strdup (EVOLUTION_PRIVDATADIR "/vfoldertypes.xml");
-		
-		search_context = rule_context_new ();
-		g_object_set_data_full(G_OBJECT(search_context), "user", user, g_free);
-		g_object_set_data_full(G_OBJECT(search_context), "system", system, g_free);
-		
-		rule_context_add_part_set (search_context, "partset", filter_part_get_type (),
-					   rule_context_add_part, rule_context_next_part);
-		
-		rule_context_add_rule_set (search_context, "ruleset", filter_rule_get_type (),
-					   rule_context_add_rule, rule_context_next_rule);
-		
-		rule_context_load (search_context, system, user);
-	}
-#endif
+	setup_search_context (component);
 
 #if 0
 	/* FIXME this shouldn't be here.  */
@@ -503,6 +512,12 @@ const char *
 mail_component_peek_base_directory (MailComponent *component)
 {
 	return component->priv->base_directory;
+}
+
+RuleContext *
+mail_component_peek_search_context (MailComponent *component)
+{
+	return component->priv->search_context;
 }
 
 

@@ -1,5 +1,24 @@
 2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
 
+	* folder-browser.c (folder_browser_gui_init): Get the search
+	context through mail_component_peek_search_context(), since it's
+	no longer a global variable.
+	(folder_browser_gui_init): Cleaned up an extra unneeded if()
+	statement.
+
+	* mail-component.c: New member search_context in struct
+	MailComponentPrivate.
+	(mail_component_peek_search_context): New.
+	(setup_search_context): New function to initialize the
+	search_context, based on the old code in component-factory.c.
+	(mail_component_init): Call it here.
+	(impl_dispose): Unref the rule_context.
+
+	* mail-component-factory.c: Removed global variable
+	search_context.
+
+2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
+
 	* mail-component.c (browser_page_switched_callback): New callback
 	for the "page_switched" signal on EStorageBrowser; deactivate the
 	previous page, activate the new one.

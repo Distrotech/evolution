@@ -61,6 +61,7 @@
 #include "e-searching-tokenizer.h"
 #include "mail.h"
 #include "mail-callbacks.h"
+#include "mail-component.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
 #include "mail-vfolder.h"
@@ -2380,7 +2381,7 @@ paned_realised(GtkWidget *w, FolderBrowser *fb)
 static void
 folder_browser_gui_init (FolderBrowser *fb)
 {
-	extern RuleContext *search_context;
+	const RuleContext *search_context = mail_component_peek_search_context (mail_component_peek ());
 	ESelectionModel *esm;
 	
 	/* The panned container */
@@ -2402,12 +2403,6 @@ folder_browser_gui_init (FolderBrowser *fb)
 		fb->search = e_filter_bar_new (search_context, systemrules, userrules,
 					       folder_browser_config_search, fb);
 		e_search_bar_set_menu ((ESearchBar *)fb->search, folder_browser_search_menu_items);
-	}
-
-	/* EPFIXME: This added if() is necessary because currently we are not
-	   initializing search_context.  We have to get rid of the nasty global
-	   variable and refactor more.  */
-	if (fb->search != NULL) {
 		gtk_widget_show (GTK_WIDGET (fb->search));
 	
 		g_signal_connect (fb->search, "menu_activated",

@@ -57,9 +57,6 @@ CamelFolder *sent_folder = NULL;
 char *default_outbox_folder_uri;
 CamelFolder *outbox_folder = NULL;
 EvolutionShellClient *global_shell_client = NULL;
-#include "filter/rule-context.h"
-RuleContext *search_context = NULL;
-
 
 static BonoboObject *
 factory (BonoboGenericFactory *factory,

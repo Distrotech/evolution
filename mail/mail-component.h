@@ -33,6 +33,8 @@
 #include "e-storage.h"
 #include "Evolution.h"
 
+#include "filter/rule-context.h"
+
 
 #define MAIL_TYPE_COMPONENT			(mail_component_get_type ())
 #define MAIL_COMPONENT(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), MAIL_TYPE_COMPONENT, MailComponent))
@@ -62,7 +64,8 @@ GType  mail_component_get_type  (void);
 
 MailComponent *mail_component_peek  (void);
 
-const char *mail_component_peek_base_directory  (MailComponent *component);
+const char  *mail_component_peek_base_directory  (MailComponent *component);
+RuleContext *mail_component_peek_search_context  (MailComponent *component);
 
 void mail_component_add_store (MailComponent *component,
 			       CamelStore *store,
