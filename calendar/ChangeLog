@@ -1,3 +1,13 @@
+2003-09-19  Rodrigo Moya <rodrigo@ximian.com>
+
+	* cal-client/cal-client.c (cal_client_get_alarms_in_range): changed
+	to use queries.
+	(build_component_alarms_list): create the alarm list from a list
+	of iCalendar strings.
+	(build_alarm_instance_list): removed.
+	(cal_client_get_alarms_for_object): dont call the CORBA methods,
+	just get alarms by itself.
+
 2003-09-18  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-listener.[ch]: added "add_timezone" signal.

@@ -1880,7 +1880,7 @@ cal_backend_file_receive_objects (CalBackendSync *backend, Cal *cal, const char 
 
 	mark_dirty (cbfile);
 
-	error:
+ error:
 	g_hash_table_destroy (tzdata.zones);
 	
 	return status;

@@ -33,6 +33,7 @@
 #include "e-util/e-url.h"
 #include "e-util/e-msgport.h"
 #include "cal-util/cal-util-marshal.h"
+#include "cal-util/timeutil.h"
 #include "cal-client.h"
 #include "cal-listener.h"
 #include "query-listener.h"
@@ -2547,64 +2548,22 @@ cal_client_generate_instances (CalClient *client, CalObjType type,
 	g_list_free (instances);
 }
 
-/* Builds a list of CalAlarmInstance structures */
-static GSList *
-build_alarm_instance_list (CalComponent *comp, GNOME_Evolution_Calendar_CalAlarmInstanceSeq *seq)
-{
-	GSList *alarms;
-	int i;
-
-	alarms = NULL;
-
-	for (i = 0; i < seq->_length; i++) {
-		GNOME_Evolution_Calendar_CalAlarmInstance *corba_instance;
-		CalComponentAlarm *alarm;
-		const char *auid;
-		CalAlarmInstance *instance;
-
-		corba_instance = seq->_buffer + i;
-
-		/* Since we want the in-commponent auid, we look for the alarm
-		 * in the component and fetch its "real" auid.
-		 */
-
-		alarm = cal_component_get_alarm (comp, corba_instance->auid);
-		if (!alarm)
-			continue;
-
-		auid = cal_component_alarm_get_uid (alarm);
-		cal_component_alarm_free (alarm);
-
-		instance = g_new (CalAlarmInstance, 1);
-		instance->auid = auid;
-		instance->trigger = corba_instance->trigger;
-		instance->occur_start = corba_instance->occur_start;
-		instance->occur_end = corba_instance->occur_end;
-
-		alarms = g_slist_prepend (alarms, instance);
-	}
-
-	return g_slist_reverse (alarms);
-}
-
 /* Builds a list of CalComponentAlarms structures */
 static GSList *
-build_component_alarms_list (GNOME_Evolution_Calendar_CalComponentAlarmsSeq *seq)
+build_component_alarms_list (CalClient *client, GList *object_list, time_t start, time_t end)
 {
 	GSList *comp_alarms;
-	int i;
+	GList *l;
 
 	comp_alarms = NULL;
 
-	for (i = 0; i < seq->_length; i++) {
-		GNOME_Evolution_Calendar_CalComponentAlarms *corba_alarms;
+	for (l = object_list; l != NULL; l = l->next) {
 		CalComponent *comp;
 		CalComponentAlarms *alarms;
 		icalcomponent *icalcomp;
+		CalAlarmAction omit[] = {-1};
 
-		corba_alarms = seq->_buffer + i;
-
-		icalcomp = icalparser_parse_string (corba_alarms->calobj);
+		icalcomp = icalparser_parse_string (l->data);
 		if (!icalcomp)
 			continue;
 
@@ -2615,11 +2574,10 @@ build_component_alarms_list (GNOME_Evolution_Calendar_CalComponentAlarmsSeq *seq
 			continue;
 		}
 
-		alarms = g_new (CalComponentAlarms, 1);
-		alarms->comp = comp;
-		alarms->alarms = build_alarm_instance_list (comp, &corba_alarms->alarms);
-
-		comp_alarms = g_slist_prepend (comp_alarms, alarms);
+		alarms = cal_util_generate_alarms_for_comp (comp, start, end, omit, cal_client_resolve_tzid_cb,
+							    icalcomp, client->priv->default_zone);
+		if (alarms)
+			comp_alarms = g_slist_prepend (comp_alarms, alarms);
 	}
 
 	return comp_alarms;
@@ -2643,9 +2601,9 @@ GSList *
 cal_client_get_alarms_in_range (CalClient *client, time_t start, time_t end)
 {
 	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalComponentAlarmsSeq *seq;
 	GSList *alarms;
+	char *sexp, *ss_start, *ss_end;
+	GList *object_list = NULL;
 
 	g_return_val_if_fail (client != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
@@ -2656,18 +2614,28 @@ cal_client_get_alarms_in_range (CalClient *client, time_t start, time_t end)
 	g_return_val_if_fail (start != -1 && end != -1, NULL);
 	g_return_val_if_fail (start <= end, NULL);
 
-	CORBA_exception_init (&ev);
+	/* build the query string */
+	ss_start = isodate_from_time_t (start);
+	ss_end = isodate_from_time_t (end);
+	/* FIXME: no function to query for alarms */
+	sexp = g_strdup_printf ("(and (occur-in-time-range? (make-time \"%s\")"
+				"                           (make-time \"%s\")))",
+				ss_start, ss_end);
 
-	seq = GNOME_Evolution_Calendar_Cal_getAlarmsInRange (priv->cal, start, end, &ev);
-	if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_alarms_in_range(): could not get the alarm range");
-		CORBA_exception_free (&ev);
+	g_free (ss_start);
+	g_free (ss_end);
+
+	/* execute the query on the server */
+	if (!cal_client_get_object_list (client, sexp, &object_list, NULL)) {
+		g_free (sexp);
 		return NULL;
 	}
-	CORBA_exception_free (&ev);
 
-	alarms = build_component_alarms_list (seq);
-	CORBA_free (seq);
+	alarms = build_component_alarms_list (client, object_list, start, end);
+
+	g_list_foreach (object_list, (GFunc) g_free, NULL);
+	g_list_free (object_list);
+	g_free (sexp);
 
 	return alarms;
 }
@@ -2717,11 +2685,9 @@ cal_client_get_alarms_for_object (CalClient *client, const char *uid,
 				  CalComponentAlarms **alarms)
 {
 	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalComponentAlarms *corba_alarms;
-	gboolean retval;
 	icalcomponent *icalcomp;
 	CalComponent *comp;
+	CalAlarmAction omit[] = {-1};
 
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
@@ -2735,40 +2701,23 @@ cal_client_get_alarms_for_object (CalClient *client, const char *uid,
 	g_return_val_if_fail (alarms != NULL, FALSE);
 
 	*alarms = NULL;
-	retval = FALSE;
 
-	CORBA_exception_init (&ev);
-
-	corba_alarms = GNOME_Evolution_Calendar_Cal_getAlarmsForObject (priv->cal, (char *) uid,
-									start, end, &ev);
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		goto out;
-	else if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_alarms_for_object(): could not get the alarm range");
-		goto out;
-	}
-
-	icalcomp = icalparser_parse_string (corba_alarms->calobj);
+	if (!cal_client_get_object (client, uid, NULL, &icalcomp))
+		return FALSE;
 	if (!icalcomp)
-		goto out;
+		return FALSE;
 
 	comp = cal_component_new ();
 	if (!cal_component_set_icalcomponent (comp, icalcomp)) {
 		icalcomponent_free (icalcomp);
 		g_object_unref (G_OBJECT (comp));
-		goto out;
+		return FALSE;
 	}
 
-	retval = TRUE;
+	*alarms = cal_util_generate_alarms_for_comp (comp, start, end, omit, cal_client_resolve_tzid_cb,
+						     icalcomp, priv->default_zone);
 
-	*alarms = g_new (CalComponentAlarms, 1);
-	(*alarms)->comp = comp;
-	(*alarms)->alarms = build_alarm_instance_list (comp, &corba_alarms->alarms);
-	CORBA_free (corba_alarms);
-
- out:
-	CORBA_exception_free (&ev);
-	return retval;
+	return TRUE;
 }
 
 /**
