@@ -69,8 +69,7 @@ RuleContext *mail_component_peek_search_context  (MailComponent *component);
 
 void mail_component_add_store (MailComponent *component,
 			       CamelStore *store,
-			       const char *name,
-			       const char *uri);
+			       const char *name);
 
 void  mail_component_load_storage_by_uri    (MailComponent *component,
 					     const char    *uri,

@@ -116,7 +116,6 @@ storage_async_open_folder_callback (EStorage *storage,
 static void
 add_storage (MailComponent *component,
 	     const char *name,
-	     const char *uri,
 	     CamelService *store,
 	     CamelException *ex)
 {
@@ -128,7 +127,8 @@ add_storage (MailComponent *component,
 
 	root_folder = e_folder_new (name, "noselect", "");
 	storage = e_storage_new (name, root_folder);
-	e_storage_declare_has_subfolders (storage, "/", _("Connecting..."));
+	/* FIXME? */
+	/* e_storage_declare_has_subfolders (storage, "/", _("Connecting...")); */
 
 	g_signal_connect(storage, "async_open_folder",
 			 G_CALLBACK (storage_async_open_folder_callback), store);
@@ -425,6 +425,7 @@ mail_component_init (MailComponent *component)
 {
 	MailComponentPrivate *priv;
 	EAccountList *accounts;
+	char *local_store_uri = NULL;
 
 	priv = g_new0 (MailComponentPrivate, 1);
 	component->priv = priv;
@@ -447,7 +448,12 @@ mail_component_init (MailComponent *component)
 
 	vfolder_load_storage(corba_shell);
 #endif
-	
+
+	/* EPFIXME It should use base_directory once we have moved it.  */
+	local_store_uri = g_strconcat ("mbox://", g_get_home_dir (), "/.evolution/mail/local", NULL);
+	mail_component_load_storage_by_uri (component, local_store_uri, _("On this Computer"));
+	g_free (local_store_uri);
+
 	accounts = mail_config_get_accounts ();
 	setup_account_storages (component, accounts);
 	
@@ -521,8 +527,7 @@ mail_component_peek_search_context (MailComponent *component)
 void
 mail_component_add_store (MailComponent *component,
 			  CamelStore *store,
-			  const char *name,
-			  const char *uri)
+			  const char *name)
 {
 	CamelException ex;
 
@@ -532,10 +537,10 @@ mail_component_add_store (MailComponent *component,
 		char *service_name;
 		
 		service_name = camel_service_get_name ((CamelService *) store, TRUE);
-		add_storage (component, service_name, uri, (CamelService *) store, &ex);
+		add_storage (component, service_name, (CamelService *) store, &ex);
 		g_free (service_name);
 	} else {
-		add_storage (component, name, uri, (CamelService *) store, &ex);
+		add_storage (component, name, (CamelService *) store, &ex);
 	}
 	
 	camel_exception_clear (&ex);
@@ -581,12 +586,12 @@ mail_component_load_storage_by_uri (MailComponent *component,
 	}
 	
 	if (name != NULL) {
-		add_storage (component, name, uri, store, &ex);
+		add_storage (component, name, store, &ex);
 	} else {
 		char *service_name;
 		
 		service_name = camel_service_get_name (store, TRUE);
-		add_storage (component, service_name, uri, store, &ex);
+		add_storage (component, service_name, store, &ex);
 		g_free (service_name);
 	}
 	

@@ -194,8 +194,6 @@ get_local_store (CamelSession *session, const char *dirname, const char *metadat
 			buf = g_strdup_printf ("%s:%s", protocol, dirname);
 			xmlFree (protocol);
 			
-			xmlFree (name);
-			
 			if ((store = camel_session_get_store (session, buf, ex)))
 				*namep = g_strdup (name);
 			else

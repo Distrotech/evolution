@@ -1,5 +1,17 @@
 2003-09-23  Ettore Perazzoli  <ettore@ximian.com>
 
+	* mail-component.c (add_storage): Remove unused arg "uri".
+	(mail_component_add_store): Likewise.
+	(add_storage): Don't set the "Connecting..." node.
+	(mail_component_init): Set up local store at
+	~/.evolution/mail/local.
+
+	* evolution-mbox-upgrade.c (get_local_store): Remove a double
+	xmlFree() that was causing it to crash.
+
+
+2003-09-23  Ettore Perazzoli  <ettore@ximian.com>
+
 	* mail-component.c (add_storage): Note the new store.
 
 	* mail-component-factory.c: Don't include "mail-callbacks.h"

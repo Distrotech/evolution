@@ -1860,7 +1860,7 @@ add_new_store (char *uri, CamelStore *store, void *user_data)
 		g_object_unref (storage);
 	} else {
 		/* store is *not* in the folder tree, so lets add it. */
-		mail_component_add_store (component, store, account->name, account->source->url);
+		mail_component_add_store (component, store, account->name);
 	}
 }
 
