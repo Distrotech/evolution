@@ -1,4 +1,4 @@
-SUBDIRS = . pms messenger
+SUBDIRS = . messenger pms
 
 INCLUDES = 								\
 	-I$(top_srcdir)/widgets						\
