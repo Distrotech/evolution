@@ -530,27 +530,23 @@ static gboolean
 comp_server_send (CalComponentItipMethod method, CalComponent *comp, CalClient *client, 
 		  icalcomponent *zones, GList **users)
 {
-	CalClientSendResult result;
-	icalcomponent *top_level, *new_top_level = NULL;
-	char error_msg[256];
+	icalcomponent *top_level;
 	gboolean retval = TRUE;
+	GError *error = NULL;
 	
 	top_level = comp_toplevel_with_zones (method, comp, client, zones);
-	result = cal_client_send_object (client, top_level, &new_top_level, users, error_msg);
-
-	if (result == CAL_CLIENT_SEND_SUCCESS) {
-		icalcomponent *ical_comp;
-		
-		ical_comp = icalcomponent_get_inner (new_top_level);
-		icalcomponent_remove_component (new_top_level, ical_comp);
-		cal_component_set_icalcomponent (comp, ical_comp);
-		icalcomponent_free (new_top_level);
-	} else if (result == CAL_CLIENT_SEND_BUSY) {
-		e_notice (NULL, GTK_MESSAGE_ERROR, error_msg);
-
-		retval = FALSE;
+	if (!cal_client_send_objects (client, top_level, &error)) {
+		/* FIXME Really need a book problem status code */
+		if (error->code != E_CALENDAR_STATUS_OK) {
+			/* FIXME Better error message */
+			e_notice (NULL, GTK_MESSAGE_ERROR, "Unable to book");
+			
+			retval = FALSE;
+		}
 	}
 
+	g_clear_error (&error);
+	
 	icalcomponent_free (top_level);
 
 	return retval;
