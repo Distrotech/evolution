@@ -674,8 +674,8 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM,  "30.emfv.01", N_("Mark as _Unread"), G_CALLBACK(emfv_popup_mark_unread), NULL, "mail-new.xpm", EM_POPUP_SELECT_MARK_UNREAD },
 	{ EM_POPUP_ITEM, "30.emfv.02", N_("Mark as _Important"), G_CALLBACK(emfv_popup_mark_important), NULL, "priority-high.xpm", EM_POPUP_SELECT_MARK_IMPORTANT },
 	{ EM_POPUP_ITEM, "30.emfv.03", N_("_Mark as Unimportant"), G_CALLBACK(emfv_popup_mark_unimportant), NULL, NULL, EM_POPUP_SELECT_MARK_UNIMPORTANT },
-	{ EM_POPUP_ITEM, "30.emfv.04", N_("Mark as _Spam"), G_CALLBACK(emfv_popup_mark_spam), NULL, NULL, EM_POPUP_SELECT_MARK_SPAM },
-	{ EM_POPUP_ITEM, "30.emfv.05", N_("Mark as _Nospam"), G_CALLBACK(emfv_popup_mark_nospam), NULL, NULL, EM_POPUP_SELECT_MARK_NOSPAM },
+	{ EM_POPUP_ITEM, "30.emfv.04", N_("Mark as _Junk"), G_CALLBACK(emfv_popup_mark_spam), NULL, NULL, EM_POPUP_SELECT_MARK_SPAM },
+	{ EM_POPUP_ITEM, "30.emfv.05", N_("Mark as _Not Junk"), G_CALLBACK(emfv_popup_mark_nospam), NULL, NULL, EM_POPUP_SELECT_MARK_NOSPAM },
 	
 	{ EM_POPUP_BAR, "40.emfv" },
 	{ EM_POPUP_ITEM, "40.emfv.00", N_("_Delete"), G_CALLBACK(emfv_popup_delete), NULL, "evolution-trash-mini.png", EM_POPUP_SELECT_DELETE },

@@ -1121,7 +1121,7 @@ add_vtrash_info (CamelStore *store, CamelFolderInfo *info)
 static void
 add_vspam_info (CamelStore *store, CamelFolderInfo *info)
 {
-	add_vtrash_or_vspam_info (store, info, CAMEL_VSPAM_NAME, _("Spam"), "vspam", TRUE);
+	add_vtrash_or_vspam_info (store, info, CAMEL_VSPAM_NAME, _("Junk"), "vspam", TRUE);
 }
 
 static void

@@ -116,7 +116,7 @@ static const EvolutionShellComponentFolderType folder_types[] = {
 	{ "mail", "evolution-inbox.png", N_("Mail"), N_("Folder containing mail"), TRUE, accepted_dnd_types, exported_dnd_types },
 	{ "mail/public", "evolution-inbox.png", N_("Public Mail"), N_("Public folder containing mail"), FALSE, accepted_dnd_types, exported_dnd_types },
 	{ "vtrash", "evolution-trash.png", N_("Virtual Trash"), N_("Virtual Trash folder"), FALSE, accepted_dnd_types, exported_dnd_types },
-	{ "vspam", "evolution-spam.png", N_("Virtual Spam"), N_("Virtual Spam folder"), FALSE, accepted_dnd_types, exported_dnd_types },
+	{ "vspam", "evolution-spam.png", N_("Virtual Junk"), N_("Virtual Junk folder"), FALSE, accepted_dnd_types, exported_dnd_types },
 	{ NULL, NULL, NULL, NULL, FALSE, NULL, NULL }
 };
 
