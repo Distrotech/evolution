@@ -32,6 +32,8 @@
 #include <ctype.h>
 
 #include <gal/util/e-iconv.h>
+#include <gal/util/e-util.h>	/* for e_utf8_strftime, what about e_time_format_time? */
+#include "e-util/e-time-utils.h"
 
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-embedded.h>
@@ -97,6 +99,7 @@ struct _EMFormatHTMLJob {
 	struct _EMFormatPURITree *puri_level;
 	CamelURL *base;
 
+	/* FIXME: add 'cancelled' argument, to perform a noop/clean up */
 	void (*callback)(struct _EMFormatHTMLJob *job);
 	union {
 		char *uri;
@@ -438,6 +441,7 @@ badurl:
 	g_free(job->u.uri);
 }
 
+/* FIXME: need to expose job api for subclasses */
 static struct _EMFormatHTMLJob *
 emfh_new_job(EMFormatHTML *emfh, void (*callback)(struct _EMFormatHTMLJob *job), void *data)
 {
@@ -1034,6 +1038,8 @@ static void efh_format_do(struct _mail_msg *mm)
 			d(printf("Job cancelled %p\n", job));
 		}
 
+		/* FIXME: this will leak in case of some cancelled jobs */
+
 		/* clean up the job */
 		camel_object_unref(job->estream);
 		if (job->base)
@@ -1197,8 +1203,8 @@ static void efh_format_error(EMFormat *emf, CamelStream *stream, const char *txt
 static void
 efh_format_text_header(EMFormat *emf, CamelStream *stream, const char *label, const char *value, guint32 flags)
 {
-	char *html;
-	const char *fmt;
+	char *mhtml = NULL;
+	const char *fmt, *html;
 
 	if (value == NULL)
 		return;
@@ -1206,7 +1212,10 @@ efh_format_text_header(EMFormat *emf, CamelStream *stream, const char *label, co
 	while (*value == ' ')
 		value++;
 
-	html = camel_text_to_html(value, ((EMFormatHTML *)emf)->text_html_flags, 0);
+	if (flags & EM_FORMAT_HTML_HEADER_HTML)
+		html = value;
+	else
+		html = mhtml = camel_text_to_html(value, ((EMFormatHTML *)emf)->text_html_flags, 0);
 
 	if (flags & EM_FORMAT_HTML_HEADER_NOCOLUMNS) {
 		if (flags & EM_FORMAT_HEADER_BOLD)
@@ -1221,7 +1230,7 @@ efh_format_text_header(EMFormat *emf, CamelStream *stream, const char *label, co
 	}
 
 	camel_stream_printf(stream, fmt, label, html);
-	g_free(html);
+	g_free(mhtml);
 }
 
 static void
@@ -1272,7 +1281,44 @@ efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, const c
 			label = _("Mailer");
 			flags |= EM_FORMAT_HEADER_BOLD;
 		} else if (!strcmp(name, "date")) {
-			txt = camel_medium_get_header(part, "date");
+			int msg_offset, local_tz;
+               		time_t msg_date;
+               		struct tm local;
+			const char *date;
+
+			date = camel_medium_get_header(part, "date");
+			if (date == NULL)
+				return;
+
+			/* Show the local timezone equivalent in brackets if the sender is remote */
+               		msg_date = header_decode_date(date, &msg_offset);
+			e_localtime_with_offset(msg_date, &local, &local_tz);
+
+               		/* Convert message offset to minutes (e.g. -0400 --> -240) */
+               		msg_offset = ((msg_offset / 100) * 60) + (msg_offset % 100);
+               		/* Turn into offset from localtime, not UTC */
+               		msg_offset -= local_tz / 60;
+
+               		if (msg_offset) {
+				char buf[32], *html;
+
+				msg_offset += (local.tm_hour * 60) + local.tm_min;
+				if (msg_offset >= (24 * 60) || msg_offset < 0) {
+					/* translators: strftime format for local time equivalent in Date header display, with day */
+              				e_utf8_strftime(buf, sizeof(buf), _("<I> (%a, %R %Z)</I>"), &local);
+               			} else {
+					/* translators: strftime format for local time equivalent in Date header display, without day */
+               				e_utf8_strftime(buf, sizeof(buf), _("<I> (%R %Z)</I>"), &local);
+				}
+
+				html = camel_text_to_html(date, ((EMFormatHTML *)emf)->text_html_flags, 0);
+				txt = value = g_strdup_printf("%s %s", html, buf);
+				g_free(html);
+				flags |= EM_FORMAT_HTML_HEADER_HTML;
+			} else {
+				txt = date;
+			}
+
 			label = _("Date");
 			flags |= EM_FORMAT_HEADER_BOLD;
 		} else {
@@ -1283,9 +1329,7 @@ efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, const c
 		}
 
 		efh_format_text_header(emf, stream, label, txt, flags);
-
-		if (value)
-			g_free(value);
+		g_free(value);
 	}
 #undef msg
 }

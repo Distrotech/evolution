@@ -813,6 +813,14 @@ static EMPopupItem efhd_menu_items[] = {
 
 static EMPopupItem efhd_menu_apps_bar = { EM_POPUP_BAR, "99.display" };
 
+static void
+efhd_popup_place_widget(GtkMenu *menu, int *x, int *y, gboolean *push_in, GtkWidget *w)
+{
+	gdk_window_get_origin(gtk_widget_get_parent_window(w), x, y);
+	*x += w->allocation.x + w->allocation.width;
+	*y += w->allocation.y;
+}
+
 static gboolean
 efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *info)
 {
@@ -831,7 +839,7 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 
 	d(printf("attachment popup, button %d\n", event->button));
 
-	if (event->button != 1 && event->button != 3) {
+	if (event && event->button != 1 && event->button != 3) {
 		/* ?? gtk_propagate_event(GTK_WIDGET (user_data), (GdkEvent *)event);*/
 		return FALSE;
 	}
@@ -897,9 +905,19 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
 
 	menu = em_popup_create_menu_once(emp, hide_mask, 0);
-	gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button, event->time);
+	if (event)
+		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button, event->time);
+	else
+		gtk_menu_popup(menu, NULL, NULL, efhd_popup_place_widget, w, 0, gtk_get_current_event_time());
+
 
 	return TRUE;
+}
+static gboolean
+efhd_attachment_popup_menu(GtkWidget *w, struct _attach_puri *info)
+{
+	printf("attachment popup menu?\n");
+	return efhd_attachment_popup(w, NULL, info);
 }
 
 /* ********************************************************************** */
@@ -987,12 +1005,13 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	mainbox = gtk_hbox_new(FALSE, 0);
 
 	button = gtk_button_new();
-	GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);
 
 	if (info->handle)
 		g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_show), info);
-	else
+	else {
 		gtk_widget_set_sensitive(button, FALSE);
+		GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);
+	}
 
 	hbox = gtk_hbox_new(FALSE, 2);
 	info->forward = gtk_image_new_from_stock(GTK_STOCK_GO_FORWARD, GTK_ICON_SIZE_BUTTON);
@@ -1016,9 +1035,11 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	g_free(drag_types[0].target);
 
 	button = gtk_button_new();
-	GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);
+	/*GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);*/
 	gtk_container_add((GtkContainer *)button, gtk_arrow_new(GTK_ARROW_DOWN, GTK_SHADOW_ETCHED_IN));
-	g_signal_connect(button, "button_press_event", G_CALLBACK(efhd_attachment_popup), info);
+	/*g_signal_connect(button, "button_press_event", G_CALLBACK(efhd_attachment_popup), info);
+	  g_signal_connect(button, "popup_menu", G_CALLBACK(efhd_attachment_popup_menu), info);*/
+	g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_popup_menu), info);
 	gtk_box_pack_start((GtkBox *)mainbox, button, TRUE, TRUE, 0);
 
 	gtk_widget_show_all(mainbox);

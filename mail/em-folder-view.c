@@ -27,9 +27,9 @@
 #include <string.h>
 
 #include <gtk/gtkvbox.h>
-#include <gtk/gtkscrolledwindow.h>
 #include <gtk/gtkbutton.h>
 #include <gtk/gtkvpaned.h>
+#include <gdk/gdkkeysyms.h>
 
 #include <gtkhtml/gtkhtml.h>
 
@@ -79,11 +79,17 @@
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
+static void emfv_folder_changed(CamelFolder *folder, CamelFolderChangeInfo *changes, EMFolderView *emfv);
+
 static void emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv);
 static int emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv);
+static void emfv_list_double_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv);
+static int emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderView *emfv);
 
 static void emfv_format_link_clicked(EMFormatHTMLDisplay *efhd, const char *uri, EMFolderView *);
 static int emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const char *uri, CamelMimePart *part, EMFolderView *);
+
+static void emfv_enable_menus(EMFolderView *emfv);
 
 static void emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri);
 static void emfv_set_folder_uri(EMFolderView *emfv, const char *uri);
@@ -94,8 +100,12 @@ static void emfv_message_reply(EMFolderView *emfv, int mode);
 static void vfolder_type_current (EMFolderView *emfv, int type);
 static void filter_type_current (EMFolderView *emfv, int type);
 
+static const EMFolderViewEnable emfv_enable_map[];
+
 struct _EMFolderViewPrivate {
 	guint seen_id;
+
+	CamelObjectHookID folder_changed_id;
 };
 
 static GtkVBoxClass *emfv_parent;
@@ -113,25 +123,45 @@ emfv_init(GObject *o)
 	emfv->ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 	emfv->ui_app_name = "evolution-mail";
 
+	emfv->enable_map = g_slist_prepend(NULL, (void *)emfv_enable_map);
+
 	emfv->list = (MessageList *)message_list_new();
 	g_signal_connect(emfv->list, "message_selected", G_CALLBACK(emfv_list_message_selected), emfv);
 
 	/* FIXME: should this hang off message-list instead? */
 	g_signal_connect(emfv->list->tree, "right_click", G_CALLBACK(emfv_list_right_click), emfv);
+	g_signal_connect(emfv->list->tree, "double_click", G_CALLBACK(emfv_list_double_click), emfv);
+	g_signal_connect(emfv->list->tree, "key_press", G_CALLBACK(emfv_list_key_press), emfv);
 
 	emfv->preview = (EMFormatHTMLDisplay *)em_format_html_display_new();
 	g_signal_connect(emfv->preview, "link_clicked", G_CALLBACK(emfv_format_link_clicked), emfv);
 	g_signal_connect(emfv->preview, "popup_event", G_CALLBACK(emfv_format_popup_event), emfv);
 
 	/* setup selection?  etc? */
+
+	emfv->async = mail_async_event_new();
 }
 
 static void
 emfv_finalise(GObject *o)
 {
 	EMFolderView *emfv = (EMFolderView *)o;
+	struct _EMFolderViewPrivate *p = emfv->priv;
 
-	g_free(emfv->priv);
+	if (emfv->async)
+		mail_async_event_destroy(emfv->async);
+
+	if (emfv->folder) {
+		if (p->folder_changed_id)
+			camel_object_remove_event(emfv->folder, p->folder_changed_id);
+		camel_object_unref(emfv->folder);
+		g_free(emfv->folder_uri);
+	}
+
+	g_slist_free(emfv->ui_files);
+	g_slist_free(emfv->enable_map);
+
+	g_free(p);
 
 	((GObjectClass *)emfv_parent)->finalize(o);
 }
@@ -140,12 +170,15 @@ static void
 emfv_destroy (GtkObject *o)
 {
 	EMFolderView *emfv = (EMFolderView *) o;
-	
-	if (emfv->priv->seen_id) {
-		gtk_timeout_remove (emfv->priv->seen_id);
-		emfv->priv->seen_id = 0;
+	struct _EMFolderViewPrivate *p = emfv->priv;
+
+	if (p->seen_id) {
+		g_source_remove(p->seen_id);
+		p->seen_id = 0;
 	}
-	
+
+	emfv->uic = NULL;
+
 	((GtkObjectClass *) emfv_parent)->destroy (o);
 }
 
@@ -263,11 +296,19 @@ emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 	message_list_set_folder(emfv->list, folder, uri, isout);
 	g_free(emfv->folder_uri);
 	emfv->folder_uri = g_strdup(uri);
-	if (folder)
-		camel_object_ref(folder);
-	if (emfv->folder)
-		camel_object_unref(emfv->folder);
-	emfv->folder = folder;
+	if (folder != emfv->folder) {
+		if (emfv->folder) {
+			if (emfv->priv->folder_changed_id)
+				camel_object_remove_event(emfv->folder, emfv->priv->folder_changed_id);
+			camel_object_unref(emfv->folder);
+		}
+		emfv->folder = folder;
+		if (folder) {
+			emfv->priv->folder_changed_id = camel_object_hook_event(folder, "folder_changed",
+										(CamelObjectEventHookFunc)emfv_folder_changed, emfv);
+			camel_object_ref(folder);
+		}
+	}
 }
 
 static void
@@ -512,25 +553,9 @@ EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_sender, AUTO_FROM)
 EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_recipients, AUTO_TO)
 EMFV_POPUP_AUTO_TYPE(filter_type_current, emfv_popup_filter_mlist, AUTO_MLIST)
 
-enum {
-	CAN_SELECT_ONE              = 1<<1,
-	CAN_MARK_READ              = 1<<2,
-	CAN_MARK_UNREAD            = 1<<3,
-	CAN_DELETE                 = 1<<4,
-	CAN_UNDELETE               = 1<<5,
-	CAN_MAILING_LIST            = 1<<6,
-	CAN_RESEND                 = 1<<7,
-	CAN_MARK_IMPORTANT         = 1<<8,
-	CAN_MARK_UNIMPORTANT       = 1<<9,
-	CAN_FLAG_FOLLOWUP      = 1<<10,
-	CAN_FLAG_COMPLETED         = 1<<11,
-	CAN_FLAG_CLEAR             = 1<<12,
-	CAN_ADD_SENDER             = 1<<13
-};
-
 static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM, "00.emfv.00", N_("_Open"), G_CALLBACK(emfv_popup_open), NULL, NULL, 0 },
-	{ EM_POPUP_ITEM, "00.emfv.01", N_("_Edit as New Message..."), G_CALLBACK(emfv_popup_resend), NULL, NULL, CAN_RESEND },
+	{ EM_POPUP_ITEM, "00.emfv.01", N_("_Edit as New Message..."), G_CALLBACK(emfv_popup_resend), NULL, NULL, EM_FOLDER_VIEW_CAN_RESEND },
 	{ EM_POPUP_ITEM, "00.emfv.02", N_("_Save As..."), G_CALLBACK(emfv_popup_saveas), NULL, "save-as-16.png", 0 },
 	{ EM_POPUP_ITEM, "00.emfv.03", N_("_Print"), G_CALLBACK(emfv_popup_print), NULL, "print.xpm", 0 },
 
@@ -540,20 +565,20 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_ITEM, "10.emfv.02", N_("Reply to _All"), G_CALLBACK(emfv_popup_reply_all), NULL, "reply_to_all.xpm" },
 	{ EM_POPUP_ITEM, "10.emfv.03", N_("_Forward"), G_CALLBACK(emfv_popup_forward), NULL, "forward.xpm" },
 
-	{ EM_POPUP_BAR, "20.emfv", NULL, NULL, NULL, NULL, CAN_FLAG_FOLLOWUP|CAN_FLAG_COMPLETED|CAN_FLAG_CLEAR },
-	{ EM_POPUP_ITEM, "20.emfv.00", N_("Follo_w Up..."), G_CALLBACK(emfv_popup_flag_followup), NULL, "flag-for-followup-16.png",  CAN_FLAG_FOLLOWUP },
-	{ EM_POPUP_ITEM, "20.emfv.01", N_("Fla_g Completed"), G_CALLBACK(emfv_popup_flag_completed), NULL, NULL, CAN_FLAG_COMPLETED },
-	{ EM_POPUP_ITEM, "20.emfv.02", N_("Cl_ear Flag"), G_CALLBACK(emfv_popup_flag_clear), NULL, NULL, CAN_FLAG_CLEAR },
+	{ EM_POPUP_BAR, "20.emfv", NULL, NULL, NULL, NULL, EM_FOLDER_VIEW_CAN_FLAG_FOLLOWUP|EM_FOLDER_VIEW_CAN_FLAG_COMPLETED|EM_FOLDER_VIEW_CAN_FLAG_CLEAR },
+	{ EM_POPUP_ITEM, "20.emfv.00", N_("Follo_w Up..."), G_CALLBACK(emfv_popup_flag_followup), NULL, "flag-for-followup-16.png",  EM_FOLDER_VIEW_CAN_FLAG_FOLLOWUP },
+	{ EM_POPUP_ITEM, "20.emfv.01", N_("Fla_g Completed"), G_CALLBACK(emfv_popup_flag_completed), NULL, NULL, EM_FOLDER_VIEW_CAN_FLAG_COMPLETED },
+	{ EM_POPUP_ITEM, "20.emfv.02", N_("Cl_ear Flag"), G_CALLBACK(emfv_popup_flag_clear), NULL, NULL, EM_FOLDER_VIEW_CAN_FLAG_CLEAR },
 	
 	{ EM_POPUP_BAR, "30.emfv" },
-	{ EM_POPUP_ITEM, "30.emfv.00", N_("Mar_k as Read"), G_CALLBACK(emfv_popup_mark_read), NULL, "mail-read.xpm", CAN_MARK_READ },
-	{ EM_POPUP_ITEM,  "30.emfv.01", N_("Mark as _Unread"), G_CALLBACK(emfv_popup_mark_unread), NULL, "mail-new.xpm", CAN_MARK_UNREAD },
-	{ EM_POPUP_ITEM, "30.emfv.02", N_("Mark as _Important"), G_CALLBACK(emfv_popup_mark_important), NULL, "priority-high.xpm", CAN_MARK_IMPORTANT },
-	{ EM_POPUP_ITEM, "30.emfv.03", N_("_Mark as Unimportant"), G_CALLBACK(emfv_popup_mark_unimportant), NULL, NULL, CAN_MARK_UNIMPORTANT },
+	{ EM_POPUP_ITEM, "30.emfv.00", N_("Mar_k as Read"), G_CALLBACK(emfv_popup_mark_read), NULL, "mail-read.xpm", EM_FOLDER_VIEW_CAN_MARK_READ },
+	{ EM_POPUP_ITEM,  "30.emfv.01", N_("Mark as _Unread"), G_CALLBACK(emfv_popup_mark_unread), NULL, "mail-new.xpm", EM_FOLDER_VIEW_CAN_MARK_UNREAD },
+	{ EM_POPUP_ITEM, "30.emfv.02", N_("Mark as _Important"), G_CALLBACK(emfv_popup_mark_important), NULL, "priority-high.xpm", EM_FOLDER_VIEW_CAN_MARK_IMPORTANT },
+	{ EM_POPUP_ITEM, "30.emfv.03", N_("_Mark as Unimportant"), G_CALLBACK(emfv_popup_mark_unimportant), NULL, NULL, EM_FOLDER_VIEW_CAN_MARK_UNIMPORTANT },
 	
 	{ EM_POPUP_BAR, "40.emfv" },
-	{ EM_POPUP_ITEM, "40.emfv.00", N_("_Delete"), G_CALLBACK(emfv_popup_delete), NULL, "evolution-trash-mini.png", CAN_DELETE },
-	{ EM_POPUP_ITEM, "40.emfv.01", N_("U_ndelete"), G_CALLBACK(emfv_popup_undelete), NULL, "undelete_message-16.png", CAN_UNDELETE },
+	{ EM_POPUP_ITEM, "40.emfv.00", N_("_Delete"), G_CALLBACK(emfv_popup_delete), NULL, "evolution-trash-mini.png", EM_FOLDER_VIEW_CAN_DELETE },
+	{ EM_POPUP_ITEM, "40.emfv.01", N_("U_ndelete"), G_CALLBACK(emfv_popup_undelete), NULL, "undelete_message-16.png", EM_FOLDER_VIEW_CAN_UNDELETE },
 
 	{ EM_POPUP_BAR, "50.emfv" },
 	{ EM_POPUP_ITEM, "50.emfv.00", N_("Mo_ve to Folder..."), G_CALLBACK(emfv_popup_move) },
@@ -564,26 +589,26 @@ static EMPopupItem emfv_popup_menu[] = {
 	{ EM_POPUP_IMAGE, "60.label.00/00.label", N_("None"), G_CALLBACK(emfv_popup_label_clear) },
 	{ EM_POPUP_BAR, "60.label.00/00.label.00" },
 
-	{ EM_POPUP_BAR, "70.emfv", NULL, NULL, NULL, NULL, CAN_SELECT_ONE|CAN_ADD_SENDER },	
-	{ EM_POPUP_ITEM, "70.emfv.00", N_("Add Sender to Address_book"), G_CALLBACK(emfv_popup_add_sender), NULL, NULL, CAN_SELECT_ONE|CAN_ADD_SENDER },
+	{ EM_POPUP_BAR, "70.emfv", NULL, NULL, NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE|EM_FOLDER_VIEW_CAN_ADD_SENDER },	
+	{ EM_POPUP_ITEM, "70.emfv.00", N_("Add Sender to Address_book"), G_CALLBACK(emfv_popup_add_sender), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE|EM_FOLDER_VIEW_CAN_ADD_SENDER },
 
 	{ EM_POPUP_BAR, "80.emfv" },	
 	{ EM_POPUP_ITEM, "80.emfv.00", N_("Appl_y Filters"), G_CALLBACK(emfv_popup_apply_filters) },
 
 	{ EM_POPUP_BAR, "90.filter" },
-	{ EM_POPUP_SUBMENU, "90.filter.00", N_("Crea_te Rule From Message"), NULL, NULL, NULL, CAN_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.00", N_("VFolder on _Subject"), G_CALLBACK(emfv_popup_vfolder_subject), NULL, NULL, CAN_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.01", N_("VFolder on Se_nder"), G_CALLBACK(emfv_popup_vfolder_sender), NULL, NULL, CAN_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/00.02", N_("VFolder on _Recipients"), G_CALLBACK(emfv_popup_vfolder_recipients), NULL, NULL, CAN_SELECT_ONE },
+	{ EM_POPUP_SUBMENU, "90.filter.00", N_("Crea_te Rule From Message"), NULL, NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ EM_POPUP_ITEM, "90.filter.00/00.00", N_("VFolder on _Subject"), G_CALLBACK(emfv_popup_vfolder_subject), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ EM_POPUP_ITEM, "90.filter.00/00.01", N_("VFolder on Se_nder"), G_CALLBACK(emfv_popup_vfolder_sender), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ EM_POPUP_ITEM, "90.filter.00/00.02", N_("VFolder on _Recipients"), G_CALLBACK(emfv_popup_vfolder_recipients), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/00.03", N_("VFolder on Mailing _List"),
-	  G_CALLBACK(emfv_popup_vfolder_mlist), NULL, NULL, CAN_SELECT_ONE|CAN_MAILING_LIST },
+	  G_CALLBACK(emfv_popup_vfolder_mlist), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE|EM_FOLDER_VIEW_CAN_MAILING_LIST },
 
 	{ EM_POPUP_BAR, "90.filter.00/10" },
-	{ EM_POPUP_ITEM, "90.filter.00/10.00", N_("Filter on Sub_ject"), G_CALLBACK(emfv_popup_filter_subject), NULL, NULL, CAN_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/10.01", N_("Filter on Sen_der"), G_CALLBACK(emfv_popup_filter_sender), NULL, NULL, CAN_SELECT_ONE },
-	{ EM_POPUP_ITEM, "90.filter.00/10.02", N_("Filter on Re_cipients"), G_CALLBACK(emfv_popup_filter_recipients),  NULL, NULL, CAN_SELECT_ONE },
+	{ EM_POPUP_ITEM, "90.filter.00/10.00", N_("Filter on Sub_ject"), G_CALLBACK(emfv_popup_filter_subject), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ EM_POPUP_ITEM, "90.filter.00/10.01", N_("Filter on Sen_der"), G_CALLBACK(emfv_popup_filter_sender), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ EM_POPUP_ITEM, "90.filter.00/10.02", N_("Filter on Re_cipients"), G_CALLBACK(emfv_popup_filter_recipients),  NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE },
 	{ EM_POPUP_ITEM, "90.filter.00/10.03", N_("Filter on _Mailing List"),
-	  G_CALLBACK(emfv_popup_filter_mlist), NULL, NULL, CAN_SELECT_ONE|CAN_MAILING_LIST },
+	  G_CALLBACK(emfv_popup_filter_mlist), NULL, NULL, EM_FOLDER_VIEW_CAN_SELECT_ONE|EM_FOLDER_VIEW_CAN_MAILING_LIST },
 };
 
 static void
@@ -607,13 +632,10 @@ static void
 emfv_popup(EMFolderView *emfv, GdkEvent *event)
 {
 	GSList *menus = NULL, *l, *label_list = NULL;
-	GPtrArray *uids;
-	CamelMessageInfo *info;
 	int disable_mask = 0, hide_mask;
 	GtkMenu *menu;
 	EMPopup *emp;
 	int i;
-	const char *tmp;
 
 	emp = em_popup_new();
 
@@ -660,71 +682,15 @@ emfv_popup(EMFolderView *emfv, GdkEvent *event)
 
 	em_popup_add_items(emp, label_list, emfv_popup_labels_free);
 
-	disable_mask = CAN_SELECT_ONE | CAN_MAILING_LIST
-		| CAN_MARK_READ | CAN_MARK_UNREAD
-		| CAN_DELETE | CAN_UNDELETE
-		| CAN_MARK_IMPORTANT | CAN_MARK_UNIMPORTANT
-		| CAN_FLAG_CLEAR | CAN_FLAG_FOLLOWUP | CAN_FLAG_COMPLETED;
-
-	if (em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
-		disable_mask |= CAN_ADD_SENDER;
-	else
-		disable_mask |= CAN_RESEND;
-
-	if (em_utils_folder_is_drafts(emfv->folder, emfv->folder_uri))
-		disable_mask |= CAN_ADD_SENDER;
-	
-	if (em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri))
-		disable_mask |= CAN_ADD_SENDER;
-
-	uids = message_list_get_selected(emfv->list);
-
-	if (uids->len == 1)
-		disable_mask &= ~CAN_SELECT_ONE;
-
-	for (i = 0; i < uids->len; i++) {
-		info = camel_folder_get_message_info(emfv->folder, uids->pdata[i]);
-		if (info == NULL)
-			continue;
-
-		if (info->flags & CAMEL_MESSAGE_SEEN)
-			disable_mask &= ~CAN_MARK_UNREAD;
-		else
-			disable_mask &= ~CAN_MARK_READ;
-		
-		if (info->flags & CAMEL_MESSAGE_DELETED)
-			disable_mask &= ~CAN_UNDELETE;
-		else
-			disable_mask &= ~CAN_DELETE;
-
-		if (info->flags & CAMEL_MESSAGE_FLAGGED)
-			disable_mask &= ~CAN_MARK_UNIMPORTANT;
-		else
-			disable_mask &= ~CAN_MARK_IMPORTANT;
-			
-		tmp = camel_tag_get (&info->user_tags, "follow-up");
-		if (tmp && *tmp) {
-			disable_mask &= ~CAN_FLAG_CLEAR;
-			tmp = camel_tag_get(&info->user_tags, "completed-on");
-			if (tmp == NULL || *tmp == 0)
-				disable_mask &= ~CAN_FLAG_COMPLETED;
-		} else
-			disable_mask &= ~CAN_FLAG_FOLLOWUP;
-
-		if (i == 0 && uids->len == 1
-		    && (tmp = camel_message_info_mlist(info))
-		    && tmp[0] != 0)
-			disable_mask &= ~CAN_MAILING_LIST;
-
-		camel_folder_free_message_info(emfv->folder, info);
-	}
+	disable_mask = em_folder_view_disable_mask(emfv);
 
 	/* uh, hide_mask probably just = disable_mask & ~SELECTED */
-	hide_mask = disable_mask & (CAN_ADD_SENDER|CAN_RESEND
-				    |CAN_MARK_READ|CAN_MARK_UNREAD
-				    |CAN_DELETE|CAN_UNDELETE
-				    |CAN_MARK_IMPORTANT|CAN_MARK_UNIMPORTANT
-				    |CAN_FLAG_CLEAR|CAN_FLAG_FOLLOWUP|CAN_FLAG_COMPLETED);
+	hide_mask = disable_mask & (EM_FOLDER_VIEW_CAN_ADD_SENDER|EM_FOLDER_VIEW_CAN_RESEND
+				    |EM_FOLDER_VIEW_CAN_MARK_READ|EM_FOLDER_VIEW_CAN_MARK_UNREAD
+				    |EM_FOLDER_VIEW_CAN_DELETE|EM_FOLDER_VIEW_CAN_UNDELETE
+				    |EM_FOLDER_VIEW_CAN_MARK_IMPORTANT|EM_FOLDER_VIEW_CAN_MARK_UNIMPORTANT
+				    |EM_FOLDER_VIEW_CAN_FLAG_CLEAR|EM_FOLDER_VIEW_CAN_FLAG_FOLLOWUP|EM_FOLDER_VIEW_CAN_FLAG_COMPLETED
+				    |EM_FOLDER_VIEW_CAN_THREADED);
 
 	menu = em_popup_create_menu_once(emp, hide_mask, disable_mask);
 
@@ -1165,7 +1131,9 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("MailPrevious", emfv_mail_previous),
 	BONOBO_UI_UNSAFE_VERB ("MailPreviousFlagged", emfv_mail_previous_flagged),
 	BONOBO_UI_UNSAFE_VERB ("MailPreviousUnread", emfv_mail_previous_unread),
+
 	BONOBO_UI_UNSAFE_VERB ("AddSenderToAddressbook", emfv_add_sender_addressbook),
+
 	BONOBO_UI_UNSAFE_VERB ("MessageApplyFilters", emfv_message_apply_filters),
 	BONOBO_UI_UNSAFE_VERB ("MessageCopy", emfv_message_copy),
 	BONOBO_UI_UNSAFE_VERB ("MessageDelete", emfv_message_delete),
@@ -1189,11 +1157,14 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("MessageSaveAs", emfv_message_saveas),
 	BONOBO_UI_UNSAFE_VERB ("MessageSearch", emfv_message_search),
 	BONOBO_UI_UNSAFE_VERB ("MessageUndelete", emfv_message_undelete),
+
 	BONOBO_UI_UNSAFE_VERB ("PrintMessage", emfv_print_message),
 	BONOBO_UI_UNSAFE_VERB ("PrintPreviewMessage", emfv_print_preview_message),
+
 	BONOBO_UI_UNSAFE_VERB ("TextZoomIn", emfv_text_zoom_in),
 	BONOBO_UI_UNSAFE_VERB ("TextZoomOut", emfv_text_zoom_out),
 	BONOBO_UI_UNSAFE_VERB ("TextZoomReset", emfv_text_zoom_reset),
+
 	/* TODO: This stuff should just be 1 item that runs a wizard */
 	BONOBO_UI_UNSAFE_VERB ("ToolsFilterMailingList", emfv_tools_filter_mlist),
 	BONOBO_UI_UNSAFE_VERB ("ToolsFilterRecipient", emfv_tools_filter_recipient),
@@ -1245,6 +1216,102 @@ static EPixmap emfv_message_pixmaps[] = {
 
 	E_PIXMAP_END
 };
+
+/* this is added to emfv->enable_map in :init() */
+static const EMFolderViewEnable emfv_enable_map[] = {
+	{ "EditCut",                  EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "EditCopy",                 EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "EditPaste",                0 },
+
+	/* FIXME: should these be single-selection? */
+	{ "MailNext",                 EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MailNextFlagged",          EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MailNextUnread",           EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MailNextThread",           EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MailPrevious",             EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MailPreviousFlagged",      EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MailPreviousUnread",       EM_FOLDER_VIEW_CAN_SELECT_MANY },
+
+	{ "AddSenderToAddressbook",   EM_FOLDER_VIEW_CAN_ADD_SENDER },
+
+	{ "MessageApplyFilters",      EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageCopy",              EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageDelete",            EM_FOLDER_VIEW_CAN_SELECT_MANY|EM_FOLDER_VIEW_CAN_DELETE },
+	{ "MessageForward",           EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageForwardAttached",   EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageForwardInline",     EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageForwardQuoted",     EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageRedirect",          EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageMarkAsRead",        EM_FOLDER_VIEW_CAN_SELECT_MANY|EM_FOLDER_VIEW_CAN_MARK_READ },
+	{ "MessageMarkAsUnRead",      EM_FOLDER_VIEW_CAN_SELECT_MANY|EM_FOLDER_VIEW_CAN_MARK_UNREAD },
+	{ "MessageMarkAsImportant",   EM_FOLDER_VIEW_CAN_SELECT_MANY|EM_FOLDER_VIEW_CAN_MARK_IMPORTANT },
+	{ "MessageMarkAsUnimportant", EM_FOLDER_VIEW_CAN_SELECT_MANY|EM_FOLDER_VIEW_CAN_MARK_UNIMPORTANT },
+	{ "MessageFollowUpFlag",      EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageMove",              EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageOpen",              EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessagePostReply",         EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageReplyAll",          EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageReplyList",         EM_FOLDER_VIEW_CAN_SELECT_ONE|EM_FOLDER_VIEW_CAN_MAILING_LIST },
+	{ "MessageReplySender",       EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageResend",            EM_FOLDER_VIEW_CAN_RESEND },
+	{ "MessageSaveAs",            EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "MessageSearch",            EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "MessageUndelete",          EM_FOLDER_VIEW_CAN_SELECT_MANY|EM_FOLDER_VIEW_CAN_UNDELETE },
+	{ "PrintMessage",             EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "PrintPreviewMessage",      EM_FOLDER_VIEW_CAN_SELECT_ONE },
+
+	{ "TextZoomIn",		      EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "TextZoomOut",	      EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "TextZoomReset",	      EM_FOLDER_VIEW_CAN_SELECT_ONE },
+
+	{ "ToolsFilterMailingList",   EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "ToolsFilterRecipient",     EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "ToolsFilterSender",        EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "ToolsFilterSubject",       EM_FOLDER_VIEW_CAN_SELECT_ONE },	
+	{ "ToolsVFolderMailingList",  EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "ToolsVFolderRecipient",    EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "ToolsVFolderSender",       EM_FOLDER_VIEW_CAN_SELECT_ONE },
+	{ "ToolsVFolderSubject",      EM_FOLDER_VIEW_CAN_SELECT_ONE },
+
+	{ "ViewLoadImages",	      EM_FOLDER_VIEW_CAN_SELECT_ONE },
+
+	{ NULL },
+#if 0
+	/* always enabled ?*/
+	{ "ViewFullHeaders", IS_0MESSAGE, 0 },
+	{ "ViewNormal",      IS_0MESSAGE, 0 },
+	{ "ViewSource",      IS_0MESSAGE, 0 },
+	{ "CaretMode",       IS_0MESSAGE, 0 },
+#endif
+};
+
+static void
+emfv_enable_menus(EMFolderView *emfv)
+{
+	guint32 disable_mask;
+	GString *name;
+	GSList *l;
+
+	if (emfv->uic == NULL)
+		return;
+
+	disable_mask = em_folder_view_disable_mask(emfv);
+
+	name = g_string_new("");
+	for (l = emfv->enable_map; l; l = l->next) {
+		EMFolderViewEnable *map = l->data;
+		int i;
+
+		for (i=0;map[i].name;i++) {
+			int state = (map[i].mask & disable_mask) == 0;
+
+			g_string_printf(name, "/commands/%s", map[i].name);
+			bonobo_ui_component_set_prop(emfv->uic, name->str, "sensitive", state?"1":"0", NULL);
+		}
+	}
+
+	g_string_free(name, TRUE);
+}
 
 /* must match em_format_mode_t order */
 static const char * const emfv_display_styles[] = {
@@ -1315,9 +1382,9 @@ emfv_charset_changed(BonoboUIComponent *uic, const char *path, Bonobo_UIComponen
 }
 
 static void
-emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
+emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 {
-	if (state) {
+	if (act) {
 		GConfClient *gconf = mail_config_get_gconf_client ();
 		em_format_mode_t style;
 		gboolean state;
@@ -1325,15 +1392,13 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 
 		printf("activate folder viewer %p\n", emfv);
 
+		emfv->uic = uic;
+
 		for (l = emfv->ui_files;l;l = l->next)
 			bonobo_ui_util_set_ui(uic, PREFIX, (char *)l->data, emfv->ui_app_name, NULL);
 
 		bonobo_ui_component_add_verb_list_with_data(uic, emfv_message_verbs, emfv);
 		e_pixmaps_update(uic, emfv_message_pixmaps);
-
-		/* FIXME: global menu's? */
-		/* FIXME: toggled states, hidedeleted, view threaded */
-		/* FIXME: view menu's? */
 
 		/* FIXME: Need to implement or monitor in em-format-html-display */
 		state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/caret_mode", NULL);
@@ -1371,6 +1436,8 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 
 		if (emfv->folder)
 			mail_sync_folder(emfv->folder, NULL, NULL);
+
+		emfv->uic = NULL;
 	}
 }
 
@@ -1419,6 +1486,96 @@ int em_folder_view_print(EMFolderView *emfv, int preview)
 
 	return res;
 }
+
+/**
+ * em_folder_view_disable_mask:
+ * @emfv: 
+ * 
+ * Build a disable mask based on the current selection.
+ *
+ * See EM_FOLDER_VIEW_CAN* definitions.
+ *
+ * Return value: 
+ **/
+guint32
+em_folder_view_disable_mask(EMFolderView *emfv)
+{
+	GPtrArray *uids;
+	guint32 disable_mask;
+	int i;
+	const char *tmp;
+
+	disable_mask = ~(EM_FOLDER_VIEW_CAN_ADD_SENDER|EM_FOLDER_VIEW_CAN_RESEND);
+
+	if (em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
+		disable_mask |= EM_FOLDER_VIEW_CAN_ADD_SENDER;
+	else
+		disable_mask |= EM_FOLDER_VIEW_CAN_RESEND;
+
+	if (em_utils_folder_is_drafts(emfv->folder, emfv->folder_uri))
+		disable_mask |= EM_FOLDER_VIEW_CAN_ADD_SENDER;
+	
+	if (em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri))
+		disable_mask |= EM_FOLDER_VIEW_CAN_ADD_SENDER;
+
+	if (emfv->list->threaded)
+		disable_mask &= ~EM_FOLDER_VIEW_CAN_THREADED;
+
+	if (message_list_hidden)
+		disable_mask &= ~EM_FOLDER_VIEW_CAN_HIDDEN;
+
+	uids = message_list_get_selected(emfv->list);
+
+	if (uids->len == 1)
+		disable_mask &= ~EM_FOLDER_VIEW_CAN_SELECT_ONE;
+
+	if (uids->len >= 1)
+		disable_mask &= ~EM_FOLDER_VIEW_CAN_SELECT_MANY;
+
+	for (i = 0; i < uids->len; i++) {
+		CamelMessageInfo *info = camel_folder_get_message_info(emfv->folder, uids->pdata[i]);
+
+		if (info == NULL)
+			continue;
+
+		if (info->flags & CAMEL_MESSAGE_SEEN)
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_MARK_UNREAD;
+		else
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_MARK_READ;
+		
+		if (info->flags & CAMEL_MESSAGE_DELETED)
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_UNDELETE;
+		else
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_DELETE;
+
+		if (info->flags & CAMEL_MESSAGE_FLAGGED)
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_MARK_UNIMPORTANT;
+		else
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_MARK_IMPORTANT;
+			
+		tmp = camel_tag_get (&info->user_tags, "follow-up");
+		if (tmp && *tmp) {
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_FLAG_CLEAR;
+			tmp = camel_tag_get(&info->user_tags, "completed-on");
+			if (tmp == NULL || *tmp == 0)
+				disable_mask &= ~EM_FOLDER_VIEW_CAN_FLAG_COMPLETED;
+		} else
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_FLAG_FOLLOWUP;
+
+		if (i == 0 && uids->len == 1
+		    && (tmp = camel_message_info_mlist(info))
+		    && tmp[0] != 0)
+			disable_mask &= ~EM_FOLDER_VIEW_CAN_MAILING_LIST;
+
+		camel_folder_free_message_info(emfv->folder, info);
+	}
+
+	message_list_free_uids(emfv->list, uids);
+
+	return disable_mask;
+}
+
+/* ********************************************************************** */
 
 struct mst_t {
 	EMFolderView *emfv;
@@ -1497,12 +1654,82 @@ emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv)
 		else
 			em_format_format((EMFormat *)emfv->preview, NULL);
 	}
+
+	emfv_enable_menus(emfv);
 }
 
-static int emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv)
+static void
+emfv_list_double_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv)
+{
+	/* Ignore double-clicks on columns that handle thier own state */
+	if (MESSAGE_LIST_COLUMN_IS_ACTIVE (col))
+		return;
+
+	em_folder_view_open_selected(emfv);
+}
+
+static int
+emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv)
 {
 	emfv_popup(emfv, event);
 
+	return TRUE;
+}
+
+static int
+emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderView *emfv)
+{
+	GPtrArray *uids;
+	int i;
+	guint32 flags;
+
+	if ((ev->key.state & GDK_CONTROL_MASK) != 0)
+		return FALSE;
+
+	switch (ev->key.keyval) {
+	case GDK_Return:
+	case GDK_KP_Enter:
+	case GDK_ISO_Enter:
+		em_folder_view_open_selected(emfv);
+		break;
+	case GDK_Delete:
+	case GDK_KP_Delete:
+		/* If any messages are undeleted, run delete, if all are deleted, run undelete */
+		flags = 0;
+		uids = message_list_get_selected(emfv->list);
+		for (i = 0; i < uids->len; i++) {
+			if ((camel_folder_get_message_flags(emfv->folder, uids->pdata[i]) & CAMEL_MESSAGE_DELETED) == 0)
+				break;
+		}
+		message_list_free_uids(emfv->list, uids);
+		if (i == uids->len)
+			emfv_popup_undelete(NULL, emfv);
+		else
+			emfv_popup_delete(NULL, emfv);
+		break;
+	case GDK_Menu:
+		/* FIXME: location of popup */
+		emfv_popup(emfv, NULL);
+		break;
+	case '!':
+		uids = message_list_get_selected(emfv->list);
+
+		camel_folder_freeze(emfv->folder);
+		for (i = 0; i < uids->len; i++) {
+			flags = camel_folder_get_message_flags(emfv->folder, uids->pdata[i]) ^ CAMEL_MESSAGE_FLAGGED;
+			if (flags & CAMEL_MESSAGE_FLAGGED)
+				flags &= ~CAMEL_MESSAGE_DELETED;
+			camel_folder_set_message_flags(emfv->folder, uids->pdata[i],
+						       CAMEL_MESSAGE_FLAGGED|CAMEL_MESSAGE_DELETED, flags);
+		}
+		camel_folder_thaw(emfv->folder);
+
+		message_list_free_uids(emfv->list, uids);
+		break;
+	default:
+		return FALSE;
+	}
+	
 	return TRUE;
 }
 
@@ -1535,4 +1762,18 @@ emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const 
 	printf("popup event, uri '%s', part '%p'\n", uri, part);
 
 	return FALSE;
+}
+
+static void
+emfv_gui_folder_changed(CamelFolder *folder, void *dummy, EMFolderView *emfv)
+{
+	emfv_enable_menus(emfv);
+	g_object_unref(emfv);
+}
+
+static void
+emfv_folder_changed(CamelFolder *folder, CamelFolderChangeInfo *changes, EMFolderView *emfv)
+{
+	g_object_ref(emfv);
+	mail_async_event_emit(emfv->async, MAIL_ASYNC_GUI, (MailAsyncFunc)emfv_gui_folder_changed, folder, NULL, emfv);
 }

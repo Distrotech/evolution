@@ -57,8 +57,6 @@ emmb_init(GObject *o)
 	EMMessageBrowser *emmb = (EMMessageBrowser *)o;
 	struct _EMMessageBrowserPrivate *p;
 
-	printf("em message browser init\n");
-
 	p = emmb->priv = g_malloc0(sizeof(struct _EMMessageBrowserPrivate));
 
 	g_slist_free(emmb->view.ui_files);
@@ -77,17 +75,12 @@ emmb_init(GObject *o)
 	gtk_widget_show(p->preview);
 
 	gtk_box_pack_start_defaults((GtkBox *)emmb, p->preview);
-
-	/* FIXME: setup selection? - should be in superclass? */
-	/* FIXME: setup dnd? */
 }
 
 static void
 emmb_finalise(GObject *o)
 {
 	EMMessageBrowser *emmb = (EMMessageBrowser *)o;
-
-	printf("%p em message browser finalise\n", emmb);
 
 	g_free(emmb->priv);
 	((GObjectClass *)emmb_parent)->finalize(o);
@@ -148,7 +141,7 @@ GtkWidget *em_message_browser_window_new(void)
 	em_folder_view_activate((EMFolderView *)emmb, uic, TRUE);
 
 	/* FIXME: keep track of size changes for next instantation */
-	gtk_window_set_default_size(emmb->window, 600, 400);
+	gtk_window_set_default_size((GtkWindow *)emmb->window, 600, 400);
 
 	/* cleanup? */
 

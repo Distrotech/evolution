@@ -1969,3 +1969,32 @@ em_utils_folder_is_outbox(CamelFolder *folder, const char *uri)
 	/* <Highlander>There can be only one.</Highlander> */
 	return folder == outbox_folder;
 }
+
+/**
+ * em_utils_adjustment_page:
+ * @adj: 
+ * @down: 
+ * 
+ * Move an adjustment up/down forward/back one page.
+ **/
+void
+em_utils_adjustment_page(GtkAdjustment *adj, gboolean down)
+{
+	float page_size = adj->page_size - adj->step_increment;
+
+	if (down) {
+		if (adj->value < adj->upper - adj->page_size - page_size)
+			adj->value += page_size;
+		else if (adj->upper >= adj->page_size)
+			adj->value = adj->upper - adj->page_size;
+		else
+			adj->value = adj->lower;
+	} else {
+		if (adj->value > adj->lower + page_size)
+			adj->value -= page_size;
+		else
+			adj->value = adj->lower;
+	}
+
+	gtk_adjustment_value_changed(adj);
+}

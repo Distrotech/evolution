@@ -39,8 +39,36 @@ struct _CamelMedium;
 typedef struct _EMFolderView EMFolderView;
 typedef struct _EMFolderViewClass EMFolderViewClass;
 
+typedef struct _EMFolderViewEnable EMFolderViewEnable;
+
+enum {
+	EM_FOLDER_VIEW_CAN_SELECT_ONE		    = 1<<1,
+	EM_FOLDER_VIEW_CAN_SELECT_MANY		    = 1<<2,
+	EM_FOLDER_VIEW_CAN_MARK_READ              = 1<<3,
+	EM_FOLDER_VIEW_CAN_MARK_UNREAD            = 1<<4,
+	EM_FOLDER_VIEW_CAN_DELETE                 = 1<<5,
+	EM_FOLDER_VIEW_CAN_UNDELETE               = 1<<6,
+	EM_FOLDER_VIEW_CAN_MAILING_LIST            = 1<<7,
+	EM_FOLDER_VIEW_CAN_RESEND                 = 1<<8,
+	EM_FOLDER_VIEW_CAN_MARK_IMPORTANT         = 1<<9,
+	EM_FOLDER_VIEW_CAN_MARK_UNIMPORTANT       = 1<<10,
+	EM_FOLDER_VIEW_CAN_FLAG_FOLLOWUP      = 1<<11,
+	EM_FOLDER_VIEW_CAN_FLAG_COMPLETED         = 1<<12,
+	EM_FOLDER_VIEW_CAN_FLAG_CLEAR             = 1<<13,
+	EM_FOLDER_VIEW_CAN_ADD_SENDER             = 1<<14,
+	EM_FOLDER_VIEW_CAN_THREADED = 1<<15,
+	EM_FOLDER_VIEW_CAN_HIDDEN = 1<<16,
+};
+
+struct _EMFolderViewEnable {
+	const char *name;	/* bonobo name, relative to /commands/ */
+	guint32 mask;		/* disable mask, see EM_FOLDER_VIEW_CAN* flags */
+};
+
 struct _EMFolderView {
 	GtkVBox parent;
+
+	struct _EMFolderViewPrivate *priv;
 
 	struct _MessageList *list;
 	struct _EMFormatHTMLDisplay *preview;
@@ -48,12 +76,16 @@ struct _EMFolderView {
 	struct _CamelFolder *folder;
 	char *folder_uri;
 
-	struct _EMFolderViewPrivate *priv;
-
 	/* used to load ui from base activate implementation */
-	GSList *ui_files;	/* const char * list */
+	GSList *ui_files;	/* const char * list, TODO: should this be on class? */
 	const char *ui_app_name;
 
+	/* for proxying jobs to main or other threads */
+	struct _MailAsyncEvent *async;
+
+	struct _BonoboUIComponent *uic;	/* if we're active, this will be set */
+	GSList *enable_map;	/* bonobo menu enable map, entries are 0-terminated EMFolderViewEnable arryas
+				   TODO: should this be on class? */
 	int preview_active:1;
 };
 
@@ -81,6 +113,9 @@ int em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set);
 int em_folder_view_open_selected(EMFolderView *emfv);
 
 int em_folder_view_print(EMFolderView *emfv, int preview);
+
+/* this could be on message-list */
+guint32 em_folder_view_disable_mask(EMFolderView *emfv);
 
 #ifdef __cplusplus
 }

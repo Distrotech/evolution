@@ -1,3 +1,56 @@
+2003-09-02  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.h (struct _EMFolderView): track the uicomponent
+	while we're activated.
+
+	* em-message-browser.c (em_message_browser_window_new): kill
+	warning.
+	(emmb_init, emmb_finalise): kill printf
+
+	* em-format-html.c (efh_format_header): Converted code from head
+	from David Woodhouse <dwmw2@infradead.org>'s timezone display
+	patch.
+	(efh_format_text_header): support new flag, HEADER_HTML - header
+	alredy in html format.
+
+	* em-format-html-print.c (em_format_html_print_print): only ref
+	print_config if != NULL.
+
+	* em-folder-browser.c (emfb_tree_key_press): handle
+	space/backspace in messagelist to scroll the message view.
+	(emfb_create_view_menus): setup view menu's, this should probably
+	live in message-list.
+	(emfb_init): setup the folderbrowser enable map into the list.
+	(emfb_enable_map): folder browser enable map
+
+	* em-utils.c (em_utils_adjustment_page): new helper to scroll an
+	adjustment up/down 1 page.
+
+	* em-folder-view.c (emfv_list_double_click): implement, open
+	window.
+	(emfv_list_key_press): implement keybinding overrides.  Enhance
+	delete key to undelete if everything is already deleted.
+	(emfv_build_enable_mask): separate out enable mask creation.
+	(emfv_popup): use above to get mask.
+	(emfv_enable_menus): enable/sensitize menus, use the same disable
+	mask system as used for the popups.
+	(emfv_destroy): change to use g_source_remove on seen_id.
+	(emfv_finalise): free up folders, clean up async event thing.
+	(emfv_init): setup an async event handler
+	(emfv_set_folder): handle hook/unhook of folder_changed events.
+	(emfv_folder_changed): proxy folder changed to main thread, ignore
+	the details of what changed.
+	(emfv_gui_folder_changed): update the menu's to reflect any folder
+	changes.
+	(emfv_build_disable_mask): added CAN_THREADED.
+	(em_folder_view_disable_mask): make public (rename from
+	emfv_build_disable_mask).
+	(emfv_enable_menus): changed to work on a list of arrays of
+	enablers, so they can be subclassed.
+	(emfv_init): add our enable map to the ui.
+	(em_folder_view_disable_mask): added support for can hidden (there
+	are hidden messages).
+
 2003-09-01  Not Zed  <NotZed@Ximian.com>
 
 	* em-popup.c: New, simple menu-merging popup menu implementation.

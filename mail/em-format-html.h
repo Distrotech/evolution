@@ -60,6 +60,7 @@ struct _EMFormatHTMLPObject {
 };
 
 #define EM_FORMAT_HTML_HEADER_NOCOLUMNS (EM_FORMAT_HEADER_LAST)
+#define EM_FORMAT_HTML_HEADER_HTML (EM_FORMAT_HEADER_LAST<<1) /* header already in html format */
 #define EM_FORMAT_HTML_HEADER_LAST (EM_FORMAT_HEADER_LAST<<8)
 
 struct _EMFormatHTML {

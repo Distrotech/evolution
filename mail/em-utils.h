@@ -35,6 +35,7 @@ struct _GtkWidget;
 struct _CamelFolder;
 struct _CamelMimeMessage;
 struct _GtkSelectionData;
+struct _GtkAdjustment;
 
 GPtrArray *em_utils_uids_copy (GPtrArray *uids);
 void em_utils_uids_free (GPtrArray *uids);
@@ -93,6 +94,8 @@ char *em_utils_temp_save_part(struct _GtkWidget *parent, struct _CamelMimePart *
 gboolean em_utils_folder_is_drafts(struct _CamelFolder *folder, const char *uri);
 gboolean em_utils_folder_is_sent(struct _CamelFolder *folder, const char *uri);
 gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder, const char *uri);
+
+void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 
 #ifdef __cplusplus
 }

@@ -151,7 +151,8 @@ emfhp_complete(EMFormatHTMLPrint *efhp, void *data)
 int em_format_html_print_print(EMFormatHTMLPrint *efhp, struct _CamelMedium *msg, EMFormatHTML *source, struct _GnomePrintConfig *print_config, int preview)
 {
 	efhp->config = print_config;
-	g_object_ref(print_config);
+	if (print_config)
+		g_object_ref(print_config);
 	efhp->preview = preview;
 
 	((EMFormatHTML *)efhp)->load_http = source->load_http_now;

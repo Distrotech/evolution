@@ -33,6 +33,7 @@
 #include <gtk/gtkbutton.h>
 #include <gtk/gtkvpaned.h>
 #include <gtkhtml/gtkhtml.h>
+#include <gdk/gdkkeysyms.h>
 
 #include <libgnomeprintui/gnome-print-dialog.h>
 
@@ -60,9 +61,16 @@
 #include <bonobo/bonobo-ui-util.h>
 
 /* for efilterbar stuff */
+#include "mail-vfolder.h"
 #include "filter/vfolder-rule.h"
 #include <widgets/misc/e-filter-bar.h>
 #include <camel/camel-search-private.h>
+
+/* gal view crap */
+#include <gal/menus/gal-view-etable.h>
+#include <gal/menus/gal-view-instance.h>
+#include <gal/menus/gal-view-factory-etable.h>
+#include "widgets/menus/gal-view-menus.h"
 
 #include "em-utils.h"
 #include "em-format-html-display.h"
@@ -80,6 +88,9 @@ struct _EMFolderBrowserPrivate {
 
 	GtkWidget *subscribe_editor;
 
+	GalViewInstance *view_instance;
+	GalViewMenus *view_menus;
+
 	int show_preview:1;
 	int show_list:1;
 };
@@ -92,6 +103,10 @@ static void emfb_search_config_search(EFilterBar *efb, FilterRule *rule, int id,
 static void emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser *fb);
 static void emfb_search_search_activated(ESearchBar *esb, EMFolderBrowser *emfb);
 static void emfb_search_query_changed(ESearchBar *esb, EMFolderBrowser *fb);
+
+static int emfb_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderBrowser *fb);
+
+static const EMFolderViewEnable emfb_enable_map[];
 
 enum {
 	ESB_SAVE,
@@ -136,6 +151,8 @@ emfb_init(GObject *o)
 	emfb->view.ui_files = g_slist_append(emfb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-list.xml");
 	emfb->view.ui_files = g_slist_append(emfb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 
+	emfb->view.enable_map = g_slist_prepend(emfb->view.enable_map, (void *)emfb_enable_map);
+
 	if (search_context) {
 		const char *systemrules = g_object_get_data (G_OBJECT (search_context), "system");
 		const char *userrules = g_object_get_data (G_OBJECT (search_context), "user");
@@ -171,6 +188,8 @@ emfb_init(GObject *o)
 
 	gtk_paned_add2((GtkPaned *)emfb->vpane, p->preview);
 	gtk_widget_show(p->preview);
+
+	g_signal_connect(emfb->view.list->tree, "key_press", G_CALLBACK(emfb_list_key_press), emfb);
 }
 
 static void
@@ -353,6 +372,30 @@ emfb_search_query_changed(ESearchBar *esb, EMFolderBrowser *emfb)
 	id = e_search_bar_get_item_id(esb);
 	if (id == E_FILTERBAR_ADVANCED_ID)
 		emfb_search_search_activated(esb, emfb);
+}
+
+/* ********************************************************************** */
+
+static int
+emfb_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderBrowser *emfb)
+{
+	if ((ev->key.state & GDK_CONTROL_MASK) != 0)
+		return FALSE;
+	
+	printf("key press: %d\n", ev->key.keyval);
+
+	switch (ev->key.keyval) {
+	case GDK_space:
+		em_utils_adjustment_page(gtk_scrolled_window_get_vadjustment((GtkScrolledWindow *)emfb->priv->preview), TRUE);
+		break;
+	case GDK_BackSpace:
+		em_utils_adjustment_page(gtk_scrolled_window_get_vadjustment((GtkScrolledWindow *)emfb->priv->preview), FALSE);
+		break;
+	default:
+		return FALSE;
+	}
+	
+	return TRUE;
 }
 
 /* ********************************************************************** */
@@ -557,6 +600,13 @@ static EPixmap emfb_pixmaps[] = {
 	E_PIXMAP_END
 };
 
+static const EMFolderViewEnable emfb_enable_map[] = {
+	{ "EditSelectThread", EM_FOLDER_VIEW_CAN_THREADED },
+	{ "ViewHideSelected", EM_FOLDER_VIEW_CAN_SELECT_MANY },
+	{ "ViewShowAll", EM_FOLDER_VIEW_CAN_HIDDEN },
+	{ NULL },
+};
+
 static void
 emfb_hide_deleted(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
 {
@@ -637,10 +687,108 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 	emfb_parent->set_folder(emfv, folder, uri);
 }
 
+/* TODO: All this mess should sit directly on MessageList, but it would
+   need to become BonoboUIComponent aware ... */
+
 static void
-emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
+emfb_list_display_view(GalViewInstance *instance, GalView *view, EMFolderBrowser *emfb)
 {
-	if (state) {
+	if (GAL_IS_VIEW_ETABLE(view))
+		gal_view_etable_attach_tree(GAL_VIEW_ETABLE(view), emfb->view.list->tree);
+}
+
+static void
+emfb_create_view_menus(EMFolderBrowser *emfb, BonoboUIComponent *uic)
+{
+	struct _EMFolderBrowserPrivate *p = emfb->priv;
+	static GalViewCollection *collection = NULL;
+	char *id;
+	gboolean outgoing;
+	
+	g_assert(p->view_instance == NULL);
+	g_assert(p->view_menus == NULL);
+	
+	outgoing = em_utils_folder_is_drafts(emfb->view.folder, emfb->view.folder_uri)
+		|| em_utils_folder_is_sent(emfb->view.folder, emfb->view.folder_uri)
+		|| em_utils_folder_is_outbox(emfb->view.folder, emfb->view.folder_uri);
+	
+	if (collection == NULL) {
+		ETableSpecification *spec;
+		char *dir;
+		GalViewFactory *factory;
+		
+		collection = gal_view_collection_new();
+		
+		gal_view_collection_set_title(collection, _("Mail"));
+		
+		dir = g_build_filename(g_get_home_dir(), "/evolution/views/mail/", NULL);
+		gal_view_collection_set_storage_directories(collection, EVOLUTION_GALVIEWSDIR "/mail/", dir);
+		g_free(dir);
+		
+		spec = e_table_specification_new();
+		e_table_specification_load_from_file(spec, EVOLUTION_ETSPECDIR "/message-list.etspec");
+		
+		factory = gal_view_factory_etable_new(spec);
+		g_object_unref(spec);
+		gal_view_collection_add_factory(collection, factory);
+		g_object_unref(factory);
+		
+		gal_view_collection_load(collection);
+	}
+
+	/* TODO: should this go through mail-config api? */
+	id = mail_config_folder_to_safe_url(emfb->view.folder);
+	p->view_instance = gal_view_instance_new(collection, id);
+	g_free(id);
+	
+	if (outgoing)
+		gal_view_instance_set_default_view(p->view_instance, "As_Sent_Folder");
+	
+	if (!gal_view_instance_exists(p->view_instance)) {
+		char *path;
+		struct stat st;
+		
+		gal_view_instance_load(p->view_instance);
+		
+		path = mail_config_folder_to_cachename(emfb->view.folder, "et-header-");
+		if (path && stat (path, &st) == 0 && st.st_size > 0 && S_ISREG (st.st_mode)) {
+			ETableSpecification *spec;
+			ETableState *state;
+			GalView *view;
+			
+			spec = e_table_specification_new();
+			e_table_specification_load_from_file(spec, EVOLUTION_ETSPECDIR "/message-list.etspec");
+			view = gal_view_etable_new(spec, "");
+			g_object_unref(spec);
+			
+			state = e_table_state_new();
+			e_table_state_load_from_file(state, path);
+			gal_view_etable_set_state(GAL_VIEW_ETABLE (view), state);
+			g_object_unref(state);
+			
+			gal_view_instance_set_custom_view(p->view_instance, view);
+			g_object_unref(view);
+		}
+		g_free(path);
+	}
+	
+	p->view_menus = gal_view_menus_new(p->view_instance);
+	gal_view_menus_apply(p->view_menus, uic, NULL);
+	
+	/* Due to CORBA reentrancy, the view could be gone now. */
+	if (p->view_instance == NULL)
+		return;
+	
+	g_signal_connect(p->view_instance, "display_view", G_CALLBACK(emfb_list_display_view), emfb);	
+	emfb_list_display_view(p->view_instance, gal_view_instance_get_current_view(p->view_instance), emfb);
+}
+
+static void
+emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
+{
+	struct _EMFolderBrowserPrivate *p = ((EMFolderBrowser *)emfv)->priv;
+
+	if (act) {
 		GConfClient *gconf;
 		gboolean state;
 		char *sstate;
@@ -648,7 +796,7 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 		gconf = mail_config_get_gconf_client ();
 
 		/* parent loads all ui files via ui_files */
-		emfb_parent->activate(emfv, uic, state);
+		emfb_parent->activate(emfv, uic, act);
 
 		bonobo_ui_component_add_verb_list_with_data(uic, emfb_verbs, emfv);
 		e_pixmaps_update(uic, emfb_pixmaps);
@@ -712,17 +860,28 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 
 		/* FIXME: property menu customisation */
 		/*folder_browser_setup_property_menu (fb, fb->uicomp);*/
-	
-		/* FIXME: GalView menus?  Also requires a message_list_display_view(ml, GalView) call */
-		/*if (fb->view_instance == NULL)
-		  folder_browser_ui_setup_view_menus (fb);
-		  FIXME: The galview instance should be setup earlier, when we have the folder, when we setup a meta? */
+
+		if (((EMFolderBrowser *)emfv)->search)
+			e_search_bar_set_ui_component((ESearchBar *)((EMFolderBrowser *)emfv)->search, uic);
+
+		if (emfv->folder)
+			emfb_create_view_menus((EMFolderBrowser *)emfv, uic);
 	} else {
 		const BonoboUIVerb *v;
 		
 		for (v = &emfb_verbs[0]; v->cname; v++)
 			bonobo_ui_component_remove_verb(uic, v->cname);
 
-		emfb_parent->activate(emfv, uic, state);
+		if (p->view_instance) {
+			g_object_unref(p->view_instance);
+			p->view_instance = NULL;
+			g_object_unref(p->view_menus);
+			p->view_menus = NULL;
+		}
+
+		if (((EMFolderBrowser *)emfv)->search)
+			e_search_bar_set_ui_component((ESearchBar *)((EMFolderBrowser *)emfv)->search, NULL);
+
+		emfb_parent->activate(emfv, uic, act);
 	}
 }
