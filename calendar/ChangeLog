@@ -1,3 +1,7 @@
+2003-09-22  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-object-sexp.c (func_has_alarms): new SExp function.
+
 2003-09-22  JP Rosevear <jpr@ximian.com>
 
 	* gui/e-day-view.c (e_day_view_on_editing_stopped): create the

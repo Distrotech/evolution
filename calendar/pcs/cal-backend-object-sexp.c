@@ -481,6 +481,44 @@ func_contains (ESExp *esexp, int argc, ESExpResult **argv, void *data)
 	return result;
 }
 
+/* (has-alarms? #f|#t)
+ *
+ * A boolean value for components that have/dont have alarms.
+ *
+ * Returns: a boolean indicating whether the component has alarms or not.
+ */
+static ESExpResult *
+func_has_alarms (ESExp *esexp, int argc, ESExpResult **argv, void *data)
+{
+	SearchContext *ctx = data;
+	ESExpResult *result;
+	gboolean has_to_have_alarms;
+
+	/* Check argument types */
+
+	if (argc != 1) {
+		e_sexp_fatal_error (esexp, _("has-alarms? expects at least 1 argument"));
+		return NULL;
+	}
+
+	if (argv[0]->type != ESEXP_RES_BOOL) {
+		e_sexp_fatal_error (esexp, _("has-alarms? excepts argument to be a boolean"));
+		return NULL;
+	}
+
+	has_to_have_alarms = argv[0]->value.bool;
+	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
+
+	if (has_to_have_alarms && cal_component_has_alarms (ctx->comp))
+		result->value.bool = TRUE;
+	else if (!has_to_have_alarms && !cal_component_has_alarms (ctx->comp))
+		result->value.bool = TRUE;
+	else
+		result->value.bool = FALSE;
+
+	return result;
+}
+
 /* (has-categories? STR+)
  * (has-categories? #f)
  *
@@ -806,6 +844,7 @@ static struct {
 	{ "get-vtype", func_get_vtype, 0 },
 	{ "occur-in-time-range?", func_occur_in_time_range, 0 },
 	{ "contains?", func_contains, 0 },
+	{ "has-alarms?", func_has_alarms, 0 },
 	{ "has-categories?", func_has_categories, 0 },
 	{ "is-completed?", func_is_completed, 0 },
 	{ "completed-before?", func_completed_before, 0 }
