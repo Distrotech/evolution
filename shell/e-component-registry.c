@@ -28,7 +28,6 @@
 
 #include "e-shell-utils.h"
 #include <e-util/e-icon-factory.h>
-#include "e-util/e-lang-utils.h"
 
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-util.h>
@@ -134,6 +133,7 @@ query_components (EComponentRegistry *registry)
 	Bonobo_ServerInfoList *info_list;
 	CORBA_Environment ev;
 	GSList *language_list;
+	const GList *l;
 	char *query;
 	int i;
 
@@ -150,7 +150,9 @@ query_components (EComponentRegistry *registry)
 		return;
 	}
 
-	language_list = e_get_language_list ();
+	l = gnome_i18n_get_language_list("LC_MESSAGES");
+	for (language_list=NULL;l;l=l->next)
+		language_list = g_slist_append(language_list, l->data);
 
 	for (i = 0; i < info_list->_length; i++) {
 		const char *id;
@@ -191,6 +193,7 @@ query_components (EComponentRegistry *registry)
 		if (icon != NULL)
 			g_object_unref (icon);
 	}
+	g_slist_free(language_list);
 
 	CORBA_free (info_list);
 	CORBA_exception_free (&ev);

@@ -869,6 +869,8 @@ typedef struct {
 static const char *
 ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 {
+	ESource *source;
+	guint32 source_color;
 	ECalModelPrivate *priv;
 	gint i, first_empty = 0;
 	static AssignedColorData assigned_colors[] = {
@@ -887,7 +889,14 @@ ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 
 	priv = model->priv;
-                                                                                
+             
+	source = e_cal_get_source (comp_data->client);
+	if (e_source_get_color (source, &source_color)) {
+		g_free (comp_data->color);
+		comp_data->color = g_strdup_printf ("#%06x", source_color & 0xffffff);
+		return comp_data->color;
+	}
+                                                                   
 	for (i = 0; i < G_N_ELEMENTS (assigned_colors); i++) {
 		GList *l;
 
@@ -1266,6 +1275,10 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 			g_free (comp_data->completed);
 			comp_data->completed = NULL;
 		}
+		if (comp_data->color) {
+			g_free (comp_data->color);
+			comp_data->color = NULL;
+		}
 		     
 		comp_data->icalcomp = icalcomponent_new_clone (l->data);
 
@@ -1346,7 +1359,7 @@ update_e_cal_view_for_client (ECalModel *model, ECalModelClient *client_data)
 		g_warning (G_STRLOC ": Unable to get query");
 
 		return;
-	}
+	}	
 
 	g_signal_connect (client_data->query, "objects_added", G_CALLBACK (e_cal_view_objects_added_cb), model);
 	g_signal_connect (client_data->query, "objects_modified", G_CALLBACK (e_cal_view_objects_modified_cb), model);
@@ -1852,6 +1865,8 @@ e_cal_model_free_component_data (ECalModelComponent *comp_data)
 		g_free (comp_data->due);
 	if (comp_data->completed)
 		g_free (comp_data->completed);
+	if (comp_data->color)
+		g_free (comp_data->color);
 
 	g_free (comp_data);
 }
