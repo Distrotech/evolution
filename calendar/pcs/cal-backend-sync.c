@@ -352,7 +352,8 @@ _cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj)
 
 	cal_notify_object_created (cal, status, uid, calobj);
 
-	g_free (uid);
+	if (uid)
+		g_free (uid);
 }
 
 static void

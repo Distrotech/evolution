@@ -779,7 +779,7 @@ cal_notify_object_created (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 	g_object_unref (queries);
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Listener_notifyObjectCreated (priv->listener, status, uid, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyObjectCreated (priv->listener, status, uid ? uid : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of object creation");
