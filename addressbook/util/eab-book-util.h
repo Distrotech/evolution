@@ -51,6 +51,8 @@ guint                  eab_nickname_query            (EBook                    *
 						      EBookContactsCallback     cb,
 						      gpointer                  closure);
 
+GList                 *eab_load_contacts_from_string (const char *str);
+
 /* Returns the EContact associated to email in the callback,
    or NULL if no match is found in the default address book. */
 void                   eab_query_address_default     (const gchar              *email,

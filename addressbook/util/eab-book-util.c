@@ -244,6 +244,49 @@ eab_nickname_query (EBook                 *book,
 	return retval;
 }
 
+GList*
+eab_load_contacts_from_string (const char *str)
+{
+	GList *contacts = NULL;
+	GString *gstr = g_string_new ("");
+	char *p = (char*)str;
+	char *q;
+	char *blank_line;
+
+	while (*p) {
+		if (*p != '\r') g_string_append_c (gstr, *p);
+		
+		p++;
+	}
+
+	p = g_string_free (gstr, FALSE);
+	q = p;
+	do {
+		char *temp;
+
+		blank_line = strstr (q, "\n\n");
+		if (blank_line) {
+			temp = g_strndup (q, blank_line - q);
+		}
+		else {
+			temp = g_strdup (q);
+		}
+
+		contacts = g_list_append (contacts, e_contact_new_from_vcard (temp));
+
+		g_free (temp);
+
+		if (blank_line)
+			q = blank_line + 2;
+		else
+			q = NULL;
+	} while (blank_line);
+
+	g_free (p);
+
+	return contacts;
+}
+
 #if notyet
 /*
  *  Convenience routine to check for addresses in the local address book.

@@ -47,7 +47,6 @@ libevolution_addressbook_la_SOURCES = 	\
 
 #	$(top_builddir)/addressbook/printing/libecontactprint.la			\
 #	$(top_builddir)/addressbook/gui/merging/libecardmerging.la			\
-#	$(top_builddir)/addressbook/gui/contact-list-editor/libecontactlisteditor.la	\
 
 libevolution_addressbook_la_LIBADD =							\
 	$(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
@@ -58,6 +57,7 @@ libevolution_addressbook_la_LIBADD =							\
 	$(top_builddir)/addressbook/util/libeabutil.la					\
 	$(top_builddir)/addressbook/backend/ebook/libebook.la				\
 	$(top_builddir)/addressbook/gui/contact-editor/libecontacteditor.la		\
+	$(top_builddir)/addressbook/gui/contact-list-editor/libecontactlisteditor.la	\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la					\
 	$(top_builddir)/widgets/menus/libmenus.la					\
 	$(EVOLUTION_ADDRESSBOOK_LIBS) $(LDAP_LIBS)

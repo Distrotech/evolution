@@ -1,5 +1,87 @@
 2003-09-30  Chris Toshok  <toshok@ximian.com>
 
+	* gui/component/Makefile.am (libevolution_addressbook_la_LIBADD):
+	add libecontactlisteditor.la back into the build.
+
+	* gui/component/addressbook-component.c (new_item_cb): enable the
+	contact list editor portion.
+
+	* util/eab-book-util.c (eab_load_contacts_from_string): new
+	function, return a GList of EContact*'s parsed from the string.
+
+	* util/eab-book-util.h: add prototype for
+	eab_load_contacts_from_string.
+
+	* gui/contact-list-editor/contact-list-editor.glade: set the id of
+	the list-image widget.
+
+	* gui/contact-list-editor/e-contact-list-editor.c
+	(e_contact_list_editor_class_init): PROP_CARD -> PROP_CONTACT.
+	(e_contact_list_editor_init): initialize image_buf to null and
+	card -> contact.  also, hook up the dnd signals on the list_image
+	widget so we can drop images.
+	(e_contact_list_editor_dispose): free the image_buf.
+	(list_added_cb): card -> contact.
+	(list_modified_cb): same.
+	(save_contact): same, and use the ebook-async api.
+	(prompt_to_save_changes): card -> contact.
+	(file_save_cb): same.
+	(file_save_as_cb): same.
+	(file_send_as_cb): #if notyet for now.
+	(file_send_to_cb): same.
+	(tb_save_and_close_cb): card -> contact.
+	(list_deleted_cb): same.
+	(delete_cb): same.
+	(delete_cb): same, and use ebook-async.
+	(e_contact_list_editor_new): card -> contact.
+	(e_contact_list_editor_set_property): same.
+	(table_drag_motion_cb): use GDK_POINTER_TO_ATOM instead of
+	casting.
+	(table_drag_data_received_cb): use eab_load_contacts_from_string,
+	and card -> contact.
+	(set_image_from_data): new function. create a pixbuf from the
+	image data and composite it in an image that's the same size as
+	the initial list_image widget.
+	(image_drag_motion_cb): new function.
+	(image_drag_drop_cb): new function.
+	(image_drag_data_received_cb): new function.
+	(extract_info): port to EContact, and add support for the image.
+	(fill_in_info): same.
+
+	* gui/contact-list-editor/e-contact-list-editor.h (struct
+	_EContactListEditor): add image stuff, and ECard -> EContact.
+
+	* gui/contact-list-editor/e-contact-list-model.c
+	(contact_list_value_at): e_destination -> eab_destination.
+	(e_contact_list_model_init): same.
+	(e_contact_list_model_add_destination): same.
+	(e_contact_list_model_add_email): same.
+	(e_contact_list_model_add_contact): same, and card -> contact.
+	(e_contact_list_model_remove_row): e_destination ->
+	eab_destination.
+	(e_contact_list_model_get_destination): same.
+
+	* gui/contact-list-editor/e-contact-list-model.h: card -> contact,
+	and e-destination -> eab-destination.
+
+	* gui/widgets/e-addressbook-view.etspec: fix a couple of
+	fields.. this needs a completely once-over at some point soon.
+
+	* gui/widgets/e-addressbook-view.c (table_double_click): reenable
+	all of this.
+
+	* gui/widgets/eab-contact-display.c (render_address): use
+	e_text_to_html to convert the \n's to <br>'s.
+	(on_url_requested): get PHOTO if there is one, otherwise LOGO.
+	(eab_contact_display_render): escape all the text we're sending to
+	gtkhtml with e_text_to_html.  also, if it's a contact list, output
+	_("List Members") with the contents of _EMAIL.
+
+	* gui/widgets/eab-gui-util.h: rename eab_send_card{_list} to
+	eab_send_contact{_list}.
+
+2003-09-30  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/tests/ebook/Makefile.am (noinst_PROGRAMS): add
 	test-string.
 

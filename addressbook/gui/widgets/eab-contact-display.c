@@ -22,6 +22,9 @@
 
 #include "eab-contact-display.h"
 
+#include "e-util/e-html-utils.h"
+#include "util/eab-destination.h"
+
 #include <string.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnome/gnome-url.h>
@@ -49,6 +52,8 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 		EContactPhoto *photo;
 
 		photo = e_contact_get (display->priv->contact, E_CONTACT_PHOTO);
+		if (!photo)
+			photo = e_contact_get (display->priv->contact, E_CONTACT_LOGO);
 
 		printf ("writing a photo of length %d\n", photo->length);
 
@@ -79,26 +84,14 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 
 	label = e_contact_get_const (contact, label_field);
 	if (label) {
-		char *lf;
-		const char *start = label;
+		char *html = e_text_to_html (label, E_TEXT_TO_HTML_CONVERT_NL);
 
 		gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
-		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", html_label);
-
-		do {
-			lf = strchr (start, '\n');
-			
-			if (lf) {
-				if (lf != start) {
-					gtk_html_stream_write (html_stream, start, lf - start);
-					gtk_html_stream_write (html_stream, "<br>", 4);
-				}
-				start = lf + 1;
-			}
-		} while (lf);
+		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>%s<br>", html_label, html);
 
 		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">%s</a>", _("Map It"));
 		gtk_html_stream_printf (html_stream, "</td></tr></table>");
+		g_free (html);
 		return;
 	}
 
@@ -139,14 +132,14 @@ eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 	gtk_html_stream_write (html_stream, HTML_HEADER, sizeof (HTML_HEADER) - 1);
 	gtk_html_stream_write (html_stream, "<body>\n", 7);
 
-	/* XXX we need to entity-ize the strings we're passing to gtkhtml (escape &'s, <'s, etc) */
-
 	if (contact) {
-		char *str;
+		char *str, *html;
 		EContactPhoto *photo;
 
 		gtk_html_stream_printf (html_stream, "<table border=\"0\" valign=\"top\"><tr valign=\"top\"><td>");
 		photo = e_contact_get (contact, E_CONTACT_PHOTO);
+		if (!photo)
+			photo = e_contact_get (contact, E_CONTACT_LOGO);
 		if (photo) {
 			gtk_html_stream_printf (html_stream, "<img src=\"internal-contact-photo:\">");
 			e_contact_photo_free (photo);
@@ -155,44 +148,89 @@ eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 		gtk_html_stream_printf (html_stream, "</td><td>\n");
 
 		str = e_contact_get_const (contact, E_CONTACT_FILE_AS);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<h2>%s</h2>", str);
+		if (str) {
+			html = e_text_to_html (str, 0);
+			gtk_html_stream_printf (html_stream, "<h2>%s</h2>", html);
+			g_free (html);
+		}
 		else {
 			str = e_contact_get_const (contact, E_CONTACT_FULL_NAME);
-			if (str)
-				gtk_html_stream_printf (html_stream, "<h2>%s</h2>", str);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<h2>%s</h2>", html);
+				g_free (html);
+			}
 		}
 
-		str = e_contact_get_const (contact, E_CONTACT_TITLE);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Job Title"), str);
+		if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
+			GList *email_list;
+			GList *l;
 
-		str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
-		str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
-		str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
+			gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
+			gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", _("List Members"));
+
+			email_list = e_contact_get (contact, E_CONTACT_EMAIL);
+			for (l = email_list; l; l = l->next) {
+				EABDestination *dest = eab_destination_import (l->data);
+				if (dest) {
+					const char *textrep = eab_destination_get_textrep (dest, TRUE);
+					char *html = e_text_to_html (textrep, 0);
+					gtk_html_stream_printf (html_stream, "%s<br>", html);
+					g_free (html);
+					g_object_unref (dest);
+				}
+			}
+			gtk_html_stream_printf (html_stream, "</td></tr></table>");
+		}
+		else {
+			str = e_contact_get_const (contact, E_CONTACT_TITLE);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Job Title"), str);
+				g_free (html);
+			}
+
+			str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), html);
+				g_free (html);
+			}
+			str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
+				g_free (html);
+			}
+			str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
+			if (str) {
+				html = e_text_to_html (str, 0);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
+				g_free (html);
+			}
 
 
-		render_address (html_stream, contact, _("Home Address"),  E_CONTACT_ADDRESS_HOME,  E_CONTACT_ADDRESS_LABEL_HOME);
-		render_address (html_stream, contact, _("Work Address"),  E_CONTACT_ADDRESS_WORK,  E_CONTACT_ADDRESS_LABEL_WORK);
-		render_address (html_stream, contact, _("Other Address"), E_CONTACT_ADDRESS_OTHER, E_CONTACT_ADDRESS_LABEL_OTHER);
+			render_address (html_stream, contact, _("Home Address"),  E_CONTACT_ADDRESS_HOME,  E_CONTACT_ADDRESS_LABEL_HOME);
+			render_address (html_stream, contact, _("Work Address"),  E_CONTACT_ADDRESS_WORK,  E_CONTACT_ADDRESS_LABEL_WORK);
+			render_address (html_stream, contact, _("Other Address"), E_CONTACT_ADDRESS_OTHER, E_CONTACT_ADDRESS_LABEL_OTHER);
 
-		gtk_html_stream_printf (html_stream, "<hr>");
+			gtk_html_stream_printf (html_stream, "<hr>");
 
-		str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: <a href=\"%s\">%s</a><br>",
-						_("Home page"), str, str);
+			str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
+			if (str) {
+				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+							_("Home page"), html);
+				g_free (html);
+			}
 
-		str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
-		if (str)
-			gtk_html_stream_printf (html_stream, "<b>%s</b>: <a href=\"%s\">%s</a><br>",
-						_("Blog"), str, str);
+			str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
+			if (str) {
+				html = e_text_to_html (str, E_TEXT_TO_HTML_CONVERT_URLS);
+				gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>",
+							_("Blog"), html);
+			}
+		}
 
 		gtk_html_stream_printf (html_stream, "</td></tr></table>\n");
 	}

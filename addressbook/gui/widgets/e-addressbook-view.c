@@ -947,7 +947,6 @@ selection_changed (GObject *o, EABView *view)
 static void
 table_double_click(ETableScrolled *table, gint row, gint col, GdkEvent *event, EABView *view)
 {
-#if notyet
 	if (E_IS_ADDRESSBOOK_TABLE_ADAPTER(view->object)) {
 		EABModel *model = view->model;
 		EContact *contact = eab_model_get_contact (model, row);
@@ -959,12 +958,11 @@ table_double_click(ETableScrolled *table, gint row, gint col, GdkEvent *event, E
 		
 		g_assert (E_IS_BOOK (book));
 
-		if (e_card_evolution_list (card))
+		if (e_contact_get (contact, E_CONTACT_IS_LIST))
 			eab_show_contact_list_editor (book, contact, FALSE, view->editable);
 		else
 			eab_show_contact_editor (book, contact, FALSE, view->editable);
 	}
-#endif
 }
 
 static gint

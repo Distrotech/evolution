@@ -53,9 +53,9 @@ typedef enum {
 	EAB_DISPOSITION_AS_TO,
 } EABDisposition;
 
-void                eab_send_card                 (ECard                   *card,
+void                eab_send_contact              (EContact                *contact,
 						   EAddressbookDisposition  disposition);
-void                eab_send_card_list            (GList                   *cards,
+void                eab_send_contact_list         (GList                   *contacts,
 						   EAddressbookDisposition  disposition);
 #endif
 

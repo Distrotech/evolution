@@ -409,12 +409,10 @@ new_item_cb (EBook *book, EBookStatus status, gpointer closure)
 	gboolean is_list = GPOINTER_TO_INT (closure);
 	if (status != E_BOOK_ERROR_OK)
 		return;
-#if notyet
 	if (is_list)
-		e_addressbook_show_contact_list_editor (book, e_card_new(""), TRUE, TRUE);
+		eab_show_contact_list_editor (book, e_contact_new(), TRUE, TRUE);
 	else
-#endif
-		e_addressbook_show_contact_editor (book, e_contact_new(), TRUE, TRUE);
+		eab_show_contact_editor (book, e_contact_new(), TRUE, TRUE);
 }
 
 static void
