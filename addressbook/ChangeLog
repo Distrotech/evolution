@@ -1,5 +1,8 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-contact.c: my head explodes from so many
+	changes.
+
 	* backend/ebook/e-contact.h: reorder fields such that all the
 	string fields are first in the enum (and add a
 	E_CONTACT_LAST_SIMPLE_STRING value, ala the old e-card-simple
