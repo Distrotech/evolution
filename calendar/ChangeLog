@@ -1,5 +1,14 @@
 2003-09-11  JP Rosevear <jpr@ximian.com>
 
+	* pcs/cal-backend-file.c (match_recurrence_sexp): don't unref the
+	component
+
+	* cal-client/client-test.c (cal_opened_cb): listen to objects
+	added signal
+	(objects_added_cb): print the object uid
+	
+2003-09-11  JP Rosevear <jpr@ximian.com>
+
 	* pcs/cal-backend-object-sexp.c (cal_backend_object_sexp_text):
 	return the base text
 

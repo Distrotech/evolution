@@ -1021,8 +1021,6 @@ match_recurrence_sexp (CalComponent *comp,
 		match_data->obj_list = g_list_append (match_data->obj_list,
 						      cal_component_get_as_string (comp));
 	}
-
-	g_object_unref (comp);
 }
 
 static void
@@ -1091,6 +1089,8 @@ cal_backend_file_start_query (CalBackend *backend, Query *query)
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
+
+	g_message (G_STRLOC ": Starting query (%s)", query_get_text (query));
 
 	/* try to match all currently existing objects */
 	match_data.search_needed = TRUE;
