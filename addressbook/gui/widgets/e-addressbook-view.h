@@ -32,6 +32,9 @@
 
 G_BEGIN_DECLS
 
+struct _EABMenu;
+struct _EABMenuTargetSelect;
+
 /* EABView - A card displaying information about a contact.
  *
  * The following arguments are available:
@@ -81,7 +84,7 @@ struct _EABView
 	GObject *object;
 	GtkWidget *widget;
 
-	GtkWidget *scrolled;
+	GtkWidget *contact_display_window;
 	GtkWidget *contact_display;
 	GtkWidget *paned;
 
@@ -92,9 +95,10 @@ struct _EABView
 	BonoboUIComponent *uic;
 
 	/* the search bar and related machinery */
-	ESearchBar *search;
-	gint        ecml_changed_id;
-
+	ESearchBar  *search;
+	gint         ecml_changed_id;
+	RuleContext *search_context;
+	FilterRule  *search_rule;
 };
 
 struct _EABViewClass
@@ -118,6 +122,9 @@ void       eab_view_show_contact_preview (EABView *view, gboolean show);
 void       eab_view_setup_menus         (EABView  *view,
 					 BonoboUIComponent *uic);
 void       eab_view_discard_menus       (EABView  *view);
+
+RuleContext *eab_view_peek_search_context (EABView *view);
+FilterRule  *eab_view_peek_search_rule    (EABView *view);
 
 void       eab_view_save_as             (EABView  *view);
 void       eab_view_view                (EABView  *view);
@@ -149,6 +156,8 @@ gboolean   eab_view_can_select_all      (EABView  *view);
 gboolean   eab_view_can_stop            (EABView  *view);
 gboolean   eab_view_can_copy_to_folder  (EABView  *view);
 gboolean   eab_view_can_move_to_folder  (EABView  *view);
+
+struct _EABMenuTargetSelect *eab_view_get_menu_target (EABView *view, struct _EABMenu *menu);
 
 G_END_DECLS;
 

@@ -31,10 +31,11 @@
 
 #include <bonobo/bonobo-exception.h>
 
-#include "e-source-selector.h"
 #include <libedataserver/e-source-list.h>
+#include <libedataserverui/e-source-selector.h>
 #include <libgnome/gnome-i18n.h>
 #include <gtk/gtkscrolledwindow.h>
+#include <gtk/gtktreeselection.h>
 #include <gtk/gtkwidget.h>
 #include <gtk/gtksignal.h>
 
@@ -130,6 +131,7 @@ autocompletion_config_control_new (void)
 					     GTK_SHADOW_IN);
 
 	ac->control_widget = e_source_selector_new (ac->source_list);
+	
 	gtk_container_add (GTK_CONTAINER (scrolledwin), ac->control_widget);
 
 	initialize_selection (ac);

@@ -41,15 +41,15 @@
 #include <bonobo/bonobo-control.h>
 
 #include <libebook/e-book.h>
+#include <libedataserverui/e-source-selector.h>
 
 #include <importer/evolution-importer.h>
 #include <importer/GNOME_Evolution_Importer.h>
-#include <widgets/misc/e-source-selector.h>
 #include <util/eab-book-util.h>
 #include <util/e-destination.h>
 
-#define COMPONENT_FACTORY_IID "OAFIID:GNOME_Evolution_Addressbook_VCard_ImporterFactory"
-#define COMPONENT_IID "OAFIID:GNOME_Evolution_Addressbook_VCard_Importer"
+#define COMPONENT_FACTORY_IID "OAFIID:GNOME_Evolution_Addressbook_VCard_ImporterFactory:" BASE_VERSION
+#define COMPONENT_IID "OAFIID:GNOME_Evolution_Addressbook_VCard_Importer:" BASE_VERSION
 
 typedef struct {
 	ESource *primary;
@@ -59,6 +59,30 @@ typedef struct {
 	EBook *book;
 	gboolean ready;
 } VCardImporter;
+
+static void
+add_to_notes (EContact *contact, EContactField field)
+{
+	const gchar *old_text;
+	const gchar *field_text;
+	gchar       *new_text;
+
+	old_text = e_contact_get_const (contact, E_CONTACT_NOTE);
+	if (old_text && strstr (old_text, e_contact_pretty_name (field)))
+		return;
+
+	field_text = e_contact_get_const (contact, field);
+	if (!field_text || !*field_text)
+		return;
+
+	new_text = g_strdup_printf ("%s%s%s: %s",
+				    old_text ? old_text : "",
+				    old_text && *old_text &&
+				    *(old_text + strlen (old_text) - 1) != '\n' ? "\n" : "",
+				    e_contact_pretty_name (field), field_text);
+	e_contact_set (contact, E_CONTACT_NOTE, new_text);
+	g_free (new_text);
+}
 
 /* EvolutionImporter methods */
 static void
@@ -124,6 +148,102 @@ process_item_fn (EvolutionImporter *importer,
 		}
 	}
 	e_contact_set_attributes (contact, E_CONTACT_EMAIL, attrs);
+
+	/*
+	  Deal with TEL attributes that don't conform to what we need.
+
+	  1. if there's no location (HOME/WORK/OTHER), default to OTHER.
+	  2. if there's *only* a location specified, default to VOICE.
+	*/
+	attrs = e_vcard_get_attributes (E_VCARD (contact));
+	for (attr = attrs; attr; attr = attr->next) {
+		EVCardAttribute *a = attr->data;
+		gboolean location_only = TRUE;
+		gboolean no_location = TRUE;
+		GList *params, *param;
+
+		if (g_ascii_strcasecmp (e_vcard_attribute_get_name (a),
+					EVC_TEL))
+			continue;
+
+		params = e_vcard_attribute_get_params (a);
+		for (param = params; param; param = param->next) {
+			EVCardAttributeParam *p = param->data;
+			GList *vs, *v;
+
+			if (g_ascii_strcasecmp (e_vcard_attribute_param_get_name (p),
+						EVC_TYPE))
+				continue;
+
+			vs = e_vcard_attribute_param_get_values (p);
+			for (v = vs; v; v = v->next) {
+				if (!g_ascii_strcasecmp ((char*)v->data, "WORK") ||
+				    !g_ascii_strcasecmp ((char*)v->data, "HOME") ||
+				    !g_ascii_strcasecmp ((char*)v->data, "OTHER"))
+					no_location = FALSE;
+				else
+					location_only = FALSE;
+			}
+		}
+
+		if (location_only) {
+			/* add VOICE */
+			e_vcard_attribute_add_param_with_value (a,
+								e_vcard_attribute_param_new (EVC_TYPE),
+								"VOICE");
+		}
+		if (no_location) {
+			/* add OTHER */
+			e_vcard_attribute_add_param_with_value (a,
+								e_vcard_attribute_param_new (EVC_TYPE),
+								"OTHER");
+		}
+	}
+
+	/*
+	  Deal with ADR attributes that don't conform to what we need.
+
+	  if HOME or WORK isn't specified, add TYPE=OTHER.
+	*/
+	attrs = e_vcard_get_attributes (E_VCARD (contact));
+	for (attr = attrs; attr; attr = attr->next) {
+		EVCardAttribute *a = attr->data;
+		gboolean no_location = TRUE;
+		GList *params, *param;
+
+		if (g_ascii_strcasecmp (e_vcard_attribute_get_name (a),
+					EVC_ADR))
+			continue;
+
+		params = e_vcard_attribute_get_params (a);
+		for (param = params; param; param = param->next) {
+			EVCardAttributeParam *p = param->data;
+			GList *vs, *v;
+
+			if (g_ascii_strcasecmp (e_vcard_attribute_param_get_name (p),
+						EVC_TYPE))
+				continue;
+
+			vs = e_vcard_attribute_param_get_values (p);
+			for (v = vs; v; v = v->next) {
+				if (!g_ascii_strcasecmp ((char*)v->data, "WORK") ||
+				    !g_ascii_strcasecmp ((char*)v->data, "HOME"))
+					no_location = FALSE;
+			}
+		}
+
+		if (no_location) {
+			/* add OTHER */
+			e_vcard_attribute_add_param_with_value (a,
+								e_vcard_attribute_param_new (EVC_TYPE),
+								"OTHER");
+		}
+	}
+
+	/* Work around the fact that these fields no longer show up in the UI */
+	add_to_notes (contact, E_CONTACT_OFFICE);
+	add_to_notes (contact, E_CONTACT_SPOUSE);
+	add_to_notes (contact, E_CONTACT_BLOG_URL);
 
 	/* FIXME Error checking */
 	e_book_add_contact (gci->book, contact, NULL);
@@ -277,12 +397,12 @@ load_file_fn (EvolutionImporter *importer,
 	gci->ready = FALSE;
 	
 	/* Load the book */
-	gci->book = e_book_new ();
+	gci->book = e_book_new (gci->primary, NULL);
 	if (!gci->book) {
 		g_message (G_STRLOC ":Couldn't create EBook.");
 		return FALSE;
 	}
-	e_book_load_source (gci->book, gci->primary, TRUE, NULL);
+	e_book_open (gci->book, TRUE, NULL);
 
 	/* Load the file and the contacts */
 	if (!g_file_get_contents (filename, &contents, NULL, NULL)) {

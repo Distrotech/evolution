@@ -20,6 +20,10 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -36,7 +40,7 @@
 #include <bonobo/bonobo-control.h>
 #include <bonobo/bonobo-exception.h>
 #include <libecal/e-cal.h>
-#include <widgets/misc/e-source-selector.h>
+#include <libedataserverui/e-source-selector.h>
 #include <importer/evolution-importer.h>
 #include <importer/evolution-intelligent-importer.h>
 #include <importer/GNOME_Evolution_Importer.h>

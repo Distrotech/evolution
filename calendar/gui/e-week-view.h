@@ -26,7 +26,6 @@
 
 #include <gtk/gtktable.h>
 #include <libgnomecanvas/gnome-canvas.h>
-#include <gal/widgets/e-popup-menu.h>
 
 #include "e-calendar-view.h"
 #include "gnome-cal.h"
@@ -50,7 +49,7 @@ extern "C" {
 #define E_WEEK_VIEW_ICON_HEIGHT		16
 #define E_WEEK_VIEW_ICON_X_PAD		1
 #define E_WEEK_VIEW_ICON_Y_PAD		1
-#define E_WEEK_VIEW_ICON_R_PAD		1
+#define E_WEEK_VIEW_ICON_R_PAD		8
 
 /* The space on the left & right outside of the event. (The triangle to
    indicate the event continues is displayed in this space). */
@@ -71,7 +70,7 @@ extern "C" {
 #define E_WEEK_VIEW_EVENT_TIME_SPACING	2
 
 /* The space between the time and the event text or icons. */
-#define E_WEEK_VIEW_EVENT_TIME_X_PAD	2
+#define E_WEEK_VIEW_EVENT_TIME_X_PAD	8
 
 /* The space between the borders of long events and any text of icons. */
 #define E_WEEK_VIEW_EVENT_EDGE_X_PAD	2
@@ -204,6 +203,8 @@ struct _EWeekView
 	   one week is shown, with a different layout. */
 	gboolean multi_week_view;
 
+	gboolean update_base_date;
+	
 	/* How many weeks we are showing. This is only relevant if
 	   display_month is TRUE. */
 	gint weeks_shown;
@@ -358,6 +359,10 @@ void       e_week_view_set_selected_time_range_visible	(EWeekView	*week_view,
 gboolean   e_week_view_get_multi_week_view	(EWeekView	*week_view);
 void       e_week_view_set_multi_week_view	(EWeekView	*week_view,
 						 gboolean	 multi_week_view);
+
+/* Whether to update the base date when the time range changes */
+gboolean e_week_view_get_update_base_date (EWeekView *week_view);
+void e_week_view_set_update_base_date (EWeekView *week_view, gboolean update_base_date);
 
 /* The number of weeks shown in the multi-week view. */
 gint	   e_week_view_get_weeks_shown		(EWeekView	*week_view);

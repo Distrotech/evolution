@@ -30,7 +30,7 @@
 
 #include <bonobo/bonobo-object.h>
 #include <bonobo/bonobo-moniker-util.h>
-#include <libebook/e-book-async.h>
+#include <libebook/e-book.h>
 #include "e-util/e-config-listener.h"
 
 G_BEGIN_DECLS
@@ -44,15 +44,18 @@ EConfigListener       *eab_get_config_database       (void);
 guint                  eab_name_and_email_query      (EBook                    *book,
 						      const char               *name,
 						      const char               *email,
-						      EBookContactsCallback     cb,
+						      EBookListCallback         cb,
 						      gpointer                  closure);
 guint                  eab_nickname_query            (EBook                    *book,
 						      const char               *nickname,
-						      EBookContactsCallback     cb,
+						      EBookListCallback         cb,
 						      gpointer                  closure);
 
 GList                 *eab_contact_list_from_string (const char *str);
 char                  *eab_contact_list_to_string    (GList *contacts);
+
+gboolean               eab_book_and_contact_list_from_string (const char *str, EBook **book, GList **contacts);
+char                  *eab_book_and_contact_list_to_string   (EBook *book, GList *contacts);
 
 /* Returns the EContact associated to email in the callback,
    or NULL if no match is found in the default address book. */

@@ -28,14 +28,14 @@
 #include <bonobo/bonobo-control.h>
 
 #include <libebook/e-book.h>
+#include <libedataserverui/e-source-selector.h>
 
 #include <importer/evolution-importer.h>
 #include <importer/GNOME_Evolution_Importer.h>
-#include <widgets/misc/e-source-selector.h>
 #include <util/e-destination.h>
 
-#define COMPONENT_FACTORY_IID "OAFIID:GNOME_Evolution_Addressbook_LDIF_ImporterFactory"
-#define COMPONENT_IID "OAFIID:GNOME_Evolution_Addressbook_LDIF_Importer"
+#define COMPONENT_FACTORY_IID "OAFIID:GNOME_Evolution_Addressbook_LDIF_ImporterFactory:" BASE_VERSION
+#define COMPONENT_IID "OAFIID:GNOME_Evolution_Addressbook_LDIF_Importer:" BASE_VERSION
 
 static GHashTable *dn_contact_hash;
 
@@ -52,11 +52,12 @@ static struct {
 	char *ldif_attribute;
 	EContactField contact_field;
 #define FLAG_ADDRESS 0x01
+#define FLAG_LIST 0x02
 	int flags;
 }
 ldif_fields[] = {
 	{ "cn", E_CONTACT_FULL_NAME },
-	{ "mail", E_CONTACT_EMAIL },
+	{ "mail", E_CONTACT_EMAIL, FLAG_LIST },
 #if 0
 	{ "givenname", E_CONTACT_GIVEN_NAME },
 #endif
@@ -260,6 +261,16 @@ parseLine (EContact *contact, EContactAddress *address, char **buf)
 					else if (!g_ascii_strcasecmp (ptr, "streetaddress"))
 						address->street = g_strdup (ldif_value->str);
 				}
+				else if (ldif_fields[i].flags & FLAG_LIST) {
+					GList *list;
+
+					list = e_contact_get (contact, ldif_fields[i].contact_field);
+					list = g_list_append (list, g_strdup (ldif_value->str));
+					e_contact_set (contact, ldif_fields[i].contact_field, list);
+
+					g_list_foreach (list, (GFunc) g_free, NULL);
+					g_list_free (list);
+				}
 				else {
 					/* FIXME is everything a string? */
 					e_contact_set (contact, ldif_fields[i].contact_field, ldif_value->str);
@@ -428,6 +439,30 @@ create_contacts_from_ldif (const char *filename)
 	return list;
 }
 
+static void
+add_to_notes (EContact *contact, EContactField field)
+{
+	const gchar *old_text;
+	const gchar *field_text;
+	gchar       *new_text;
+
+	old_text = e_contact_get_const (contact, E_CONTACT_NOTE);
+	if (old_text && strstr (old_text, e_contact_pretty_name (field)))
+		return;
+
+	field_text = e_contact_get_const (contact, field);
+	if (!field_text || !*field_text)
+		return;
+
+	new_text = g_strdup_printf ("%s%s%s: %s",
+				    old_text ? old_text : "",
+				    old_text && *old_text &&
+				    *(old_text + strlen (old_text) - 1) != '\n' ? "\n" : "",
+				    e_contact_pretty_name (field), field_text);
+	e_contact_set (contact, E_CONTACT_NOTE, new_text);
+	g_free (new_text);
+}
+
 /* EvolutionImporter methods */
 static void
 process_item_fn (EvolutionImporter *importer,
@@ -459,6 +494,13 @@ process_item_fn (EvolutionImporter *importer,
 	contact = gci->iterator->data;
 	if (e_contact_get (contact, E_CONTACT_IS_LIST))
 		resolve_list_card (gci, contact);
+	else {
+		/* Work around the fact that these fields no longer show up in the UI */
+		add_to_notes (contact, E_CONTACT_OFFICE);
+		add_to_notes (contact, E_CONTACT_SPOUSE);
+		add_to_notes (contact, E_CONTACT_BLOG_URL);
+	}
+
 	/* FIXME Error checking */
 	e_book_add_contact (gci->book, contact, NULL);
 
@@ -574,12 +616,12 @@ load_file_fn (EvolutionImporter *importer,
 	gci->ready = FALSE;
 
 	/* Load the book and the cards */
-	gci->book = e_book_new ();
+	gci->book = e_book_new (gci->primary, NULL);
 	if (!gci->book) {
 		g_message (G_STRLOC ":Couldn't create EBook.");
 		return FALSE;
 	}
-	e_book_load_source (gci->book, gci->primary, TRUE, NULL);
+	e_book_open (gci->book, TRUE, NULL);
 	gci->contactlist = create_contacts_from_ldif (filename);
 	gci->ready = TRUE;
 

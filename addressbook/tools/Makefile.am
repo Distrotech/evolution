@@ -2,10 +2,8 @@ privlibexec_SCRIPTS =					\
 	csv2vcard					\
 	evolution-addressbook-clean
 
-bin_PROGRAMS =			\
+privlibexec_PROGRAMS =			\
 	evolution-addressbook-export	
-
-noinst_PROGRAMS= evolution-addressbook-abuse
 
 INCLUDES =						\
 	-DG_LOG_DOMAIN=\"evolution-addressbook-tools\"	\
@@ -17,9 +15,8 @@ INCLUDES =						\
 	-DDATADIR=\""$(datadir)"\"			\
 	-DLIBDIR=\""$(libdir)"\"			\
 	-I$(top_srcdir)/addressbook			\
-	-I$(top_srcdir)/addressbook/backend		\
-	-I$(top_builddir)/addressbook/backend		\
-	$(GNOME_FULL_CFLAGS)
+	-I$(top_builddir)/addressbook			\
+	$(EVOLUTION_ADDRESSBOOK_CFLAGS)
 
 evolution_addressbook_export_SOURCES =				\
 	evolution-addressbook-export.c				\
@@ -28,14 +25,7 @@ evolution_addressbook_export_SOURCES =				\
 	evolution-addressbook-export.h
 
 evolution_addressbook_export_LDADD =				\
-	$(top_builddir)/addressbook/backend/ebook/libebook.la	\
-	$(top_builddir)/e-util/ename/libename.la		\
-	$(top_builddir)/e-util/libeutil.la
-
-evolution_addressbook_abuse_LDADD =				\
-	$(top_builddir)/addressbook/backend/ebook/libebook.la	\
-	$(top_builddir)/e-util/ename/libename.la		\
-	$(top_builddir)/e-util/libeutil.la
+	$(EVOLUTION_ADDRESSBOOK_LIBS)
 
 EXTRA_DIST = $(privlibexec_SCRIPTS) \
 	evolution-addressbook-clean.in

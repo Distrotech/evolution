@@ -31,6 +31,9 @@
 #include "addressbook-view.h"
 #include "addressbook/gui/contact-editor/eab-editor.h"
 #include "addressbook/gui/widgets/eab-gui-util.h"
+#include "e-util/e-plugin.h"
+#include "addressbook/gui/widgets/eab-popup.h"
+#include "addressbook/gui/widgets/eab-menu.h"
 
 #include "widgets/misc/e-task-bar.h"
 #include "widgets/misc/e-info-label.h"
@@ -106,10 +109,10 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 	list->_buffer[1].type = GNOME_Evolution_CREATABLE_OBJECT;
 
 	list->_buffer[2].id = "address_book";
-	list->_buffer[2].description = _("New Contacts Group");
-	list->_buffer[2].menuDescription = _("_Contacts Group");
-	list->_buffer[2].tooltip = _("Create a new contacts group");
-	list->_buffer[2].menuShortcut = 'g';
+	list->_buffer[2].description = _("New Address Book");
+	list->_buffer[2].menuDescription = _("Address _Book");
+	list->_buffer[2].tooltip = _("Create a new address book");
+	list->_buffer[2].menuShortcut = 'b';
 	list->_buffer[2].iconName = "stock_addressbook";
 	list->_buffer[2].type = GNOME_Evolution_CREATABLE_FOLDER;
 
@@ -151,6 +154,7 @@ impl_requestCreateItem (PortableServer_Servant servant,
 {
 	AddressbookComponent *addressbook_component = ADDRESSBOOK_COMPONENT (bonobo_object_from_servant (servant));
 	AddressbookComponentPrivate *priv;
+	EBook *book;
 
 	priv = addressbook_component->priv;
 
@@ -167,13 +171,26 @@ impl_requestCreateItem (PortableServer_Servant servant,
 		return;
 	}
 
-	e_book_async_get_default_addressbook (book_loaded_cb, g_strdup (item_type_name));
+	book = e_book_new_default_addressbook (NULL);
+	e_book_async_open (book, FALSE, book_loaded_cb, g_strdup (item_type_name));
 }
 
-static CORBA_boolean
+static void
 impl_upgradeFromVersion (PortableServer_Servant servant, short major, short minor, short revision, CORBA_Environment *ev)
 {
-	return addressbook_migrate (addressbook_component_peek (), major, minor, revision);
+	GError *err = NULL;
+
+	if (!addressbook_migrate (addressbook_component_peek (), major, minor, revision, &err)) {
+		GNOME_Evolution_Component_UpgradeFailed *failedex;
+
+		failedex = GNOME_Evolution_Component_UpgradeFailed__alloc();
+		failedex->what = CORBA_string_dup(_("Failed upgrading Addressbook settings or folders."));
+		failedex->why = CORBA_string_dup(err->message);
+		CORBA_exception_set(ev, CORBA_USER_EXCEPTION, ex_GNOME_Evolution_Component_UpgradeFailed, failedex);
+	}
+
+	if (err)
+		g_error_free(err);
 }
 
 static CORBA_boolean
@@ -232,6 +249,7 @@ static void
 addressbook_component_init (AddressbookComponent *component)
 {
 	AddressbookComponentPrivate *priv;
+	static int first = TRUE;
 
 	priv = g_new0 (AddressbookComponentPrivate, 1);
 
@@ -245,6 +263,12 @@ addressbook_component_init (AddressbookComponent *component)
 #ifdef ENABLE_SMIME
 	smime_component_init ();
 #endif
+
+	if (first) {
+		first = FALSE;
+		e_plugin_hook_register_type(eab_popup_hook_get_type());
+		e_plugin_hook_register_type(eab_menu_hook_get_type());
+	}
 }
 
 

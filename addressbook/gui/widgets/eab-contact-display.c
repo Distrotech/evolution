@@ -20,21 +20,27 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "eab-contact-display.h"
 
+#include "eab-gui-util.h"
 #include "e-util/e-html-utils.h"
+#include "e-util/e-icon-factory.h"
 
 #include <string.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnome/gnome-url.h>
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-stream.h>
-#include <gtk/gtkscrolledwindow.h>
 
-#define PARENT_TYPE (gtk_vbox_get_type ())
+#define HANDLE_MAILTO_INTERNALLY 1
+
+#define PARENT_TYPE (GTK_TYPE_HTML)
 
 struct _EABContactDisplayPrivate {
-	GtkHTML *html;
 	EContact *contact;
 };
 
@@ -75,7 +81,7 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 		gsize data_length;
 		gchar *filename;
 
-		filename = e_icon_factory_get_icon_filename (url + strlen ("evo-icon:"), 16);
+		filename = e_icon_factory_get_icon_filename (url + strlen ("evo-icon:"), E_ICON_SIZE_MENU);
 		if (g_file_get_contents (filename, &data, &data_length, NULL)) {
 			gtk_html_stream_write (handle, data, data_length);
 			g_free (data);
@@ -91,7 +97,20 @@ static void
 on_link_clicked (GtkHTML *html, const char *url, EABContactDisplay *display)
 {
 	GError *err = NULL;
-		
+
+#ifdef HANDLE_MAILTO_INTERNALLY
+	if (!strncmp (url, "internal-mailto:", strlen ("internal-mailto:"))) {
+		int mail_num = atoi (url + strlen ("internal-mailto:"));
+
+		if (mail_num == -1)
+			return;
+
+		eab_send_contact (display->priv->contact, mail_num, EAB_DISPOSITION_AS_TO);
+
+		return;
+	}
+#endif
+
 	gnome_url_show (url, &err);
 		
 	if (err) {
@@ -266,45 +285,67 @@ static void
 render_contact (GtkHTMLStream *html_stream, EContact *contact)
 {
 	GString *accum;
-	const char *e;
+	GList *email_list, *l;
+#ifdef HANDLE_MAILTO_INTERNALLY
+	int email_num = 0;
+#endif
 	char *nl;
 
 	gtk_html_stream_printf (html_stream, "<table border=\"0\">");
 
 	accum = g_string_new ("");
 	nl = "";
-	e = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
-	if (e) {
-		g_string_append_printf (accum, "%s", e);
+
+	start_block (html_stream, "");
+
+	email_list = e_contact_get (contact, E_CONTACT_EMAIL);
+	for (l = email_list; l; l = l->next) {
+#ifdef HANDLE_MAILTO_INTERNALLY
+		char *html = e_text_to_html (l->data, 0);
+		g_string_append_printf (accum, "%s<a href=\"internal-mailto:%d\">%s</a>", nl, email_num, html);
+		email_num ++;
+		g_free (html);
+		nl = "<br>";
+		
+#else
+		g_string_append_printf (accum, "%s%s", nl, (char*)l->data);
 		nl = "\n";
+#endif
 	}
-	e = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
-	if (e) {
-		g_string_append_printf (accum, "%s%s", nl, e);
-		nl = "\n";
-	}
-	e = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
-	if (e) {
-		g_string_append_printf (accum, "%s%s", nl, e);
-	}
+	g_list_foreach (email_list, (GFunc)g_free, NULL);
+	g_list_free (email_list);
 
 	if (accum->len) {
-		start_block (html_stream, "");
+
+#ifdef HANDLE_MAILTO_INTERNALLY
+		gtk_html_stream_printf (html_stream, "<tr><td valign=\"top\" width=\"" IMAGE_COL_WIDTH "\">");
+		gtk_html_stream_printf (html_stream,
+					"</td><td valign=\"top\" width=\"100\" nowrap><font color=" HEADER_COLOR ">%s:</font></td> <td valign=\"top\">%s</td></tr>",
+					_("E-mail"), accum->str);
+#else
 		render_name_value (html_stream, _("E-mail"), accum->str, NULL,
 				   E_TEXT_TO_HTML_CONVERT_ADDRESSES | E_TEXT_TO_HTML_CONVERT_NL);
-		end_block (html_stream);
+#endif
 	}
+
+	g_string_assign (accum, "");
+
+	accum_attribute (accum, contact, _("AIM"), E_CONTACT_IM_AIM_HOME_1, AIM_ICON, 0);
+	accum_attribute (accum, contact, _("GroupWise"), E_CONTACT_IM_GROUPWISE_HOME_1, GROUPWISE_ICON, 0);
+	accum_attribute (accum, contact, _("ICQ"), E_CONTACT_IM_ICQ_HOME_1, ICQ_ICON, 0);
+	accum_attribute (accum, contact, _("Jabber"), E_CONTACT_IM_JABBER_HOME_1, JABBER_ICON, 0);
+	accum_attribute (accum, contact, _("MSN"), E_CONTACT_IM_MSN_HOME_1, MSN_ICON, 0);
+	accum_attribute (accum, contact, _("Yahoo"), E_CONTACT_IM_YAHOO_HOME_1, YAHOO_ICON, 0);
+
+	if (accum->len > 0)
+		gtk_html_stream_printf (html_stream, accum->str);
+
+	end_block (html_stream);
 
 	g_string_assign (accum, "");
 
 	accum_attribute (accum, contact, _("Organization"), E_CONTACT_ORG, NULL, 0);
 	accum_attribute (accum, contact, _("Position"), E_CONTACT_TITLE, NULL, 0);
-	accum_attribute (accum, contact, _("AIM"), E_CONTACT_IM_AIM_WORK_1, AIM_ICON, 0);
-	accum_attribute (accum, contact, _("Groupwise"), E_CONTACT_IM_GROUPWISE_WORK_1, GROUPWISE_ICON, 0);
-	accum_attribute (accum, contact, _("ICQ"), E_CONTACT_IM_ICQ_WORK_1, ICQ_ICON, 0);
-	accum_attribute (accum, contact, _("Jabber"), E_CONTACT_IM_JABBER_WORK_1, JABBER_ICON, 0);
-	accum_attribute (accum, contact, _("MSN"), E_CONTACT_IM_MSN_WORK_1, MSN_ICON, 0);
-	accum_attribute (accum, contact, _("Yahoo"), E_CONTACT_IM_YAHOO_WORK_1, YAHOO_ICON, 0);
 	accum_attribute (accum, contact, _("Video Conferencing"), E_CONTACT_VIDEO_URL, VIDEOCONF_ICON, E_TEXT_TO_HTML_CONVERT_URLS);
 	accum_attribute (accum, contact, _("Phone"), E_CONTACT_PHONE_BUSINESS, NULL, 0);
 	accum_attribute (accum, contact, _("Fax"), E_CONTACT_PHONE_BUSINESS_FAX, NULL, 0);
@@ -318,12 +359,6 @@ render_contact (GtkHTMLStream *html_stream, EContact *contact)
 
 	g_string_assign (accum, "");
 
-	accum_attribute (accum, contact, _("AIM"), E_CONTACT_IM_AIM_HOME_1, AIM_ICON, 0);
-	accum_attribute (accum, contact, _("Groupwise"), E_CONTACT_IM_GROUPWISE_HOME_1, GROUPWISE_ICON, 0);
-	accum_attribute (accum, contact, _("ICQ"), E_CONTACT_IM_ICQ_HOME_1, ICQ_ICON, 0);
-	accum_attribute (accum, contact, _("Jabber"), E_CONTACT_IM_JABBER_HOME_1, JABBER_ICON, 0);
-	accum_attribute (accum, contact, _("MSN"), E_CONTACT_IM_MSN_HOME_1, MSN_ICON, 0);
-	accum_attribute (accum, contact, _("Yahoo"), E_CONTACT_IM_YAHOO_HOME_1, YAHOO_ICON, 0);
 	accum_attribute (accum, contact, _("WWW"), E_CONTACT_HOMEPAGE_URL, NULL, E_TEXT_TO_HTML_CONVERT_URLS);
 	accum_attribute (accum, contact, _("Blog"), E_CONTACT_BLOG_URL, NULL, E_TEXT_TO_HTML_CONVERT_URLS);
 
@@ -357,7 +392,7 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 	if (display->priv->contact)
 		g_object_ref (display->priv->contact);
 
-	html_stream = gtk_html_begin (display->priv->html);
+	html_stream = gtk_html_begin (GTK_HTML (display));
 	gtk_html_stream_write (html_stream, HTML_HEADER, sizeof (HTML_HEADER) - 1);
 	gtk_html_stream_write (html_stream, "<body>\n", 7);
 
@@ -396,7 +431,7 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 	}
 
 	gtk_html_stream_write (html_stream, "</body></html>\n", 15);
-	gtk_html_end (display->priv->html, html_stream, GTK_HTML_STREAM_OK);
+	gtk_html_end (GTK_HTML (display), html_stream, GTK_HTML_STREAM_OK);
 }
 
 static void
@@ -410,7 +445,7 @@ eab_contact_display_render_compact (EABContactDisplay *display, EContact *contac
 	if (display->priv->contact)
 		g_object_ref (display->priv->contact);
 
-	html_stream = gtk_html_begin (display->priv->html);
+	html_stream = gtk_html_begin (GTK_HTML (display));
 	gtk_html_stream_write (html_stream, HTML_HEADER, sizeof (HTML_HEADER) - 1);
 	gtk_html_stream_write (html_stream, "<body>\n", 7);
 
@@ -552,7 +587,7 @@ eab_contact_display_render_compact (EABContactDisplay *display, EContact *contac
 	}
 
 	gtk_html_stream_write (html_stream, "</body></html>\n", 15);
-	gtk_html_end (display->priv->html, html_stream, GTK_HTML_STREAM_OK);
+	gtk_html_end (GTK_HTML (display), html_stream, GTK_HTML_STREAM_OK);
 }
 
 void
@@ -573,50 +608,36 @@ GtkWidget*
 eab_contact_display_new (void)
 {
 	EABContactDisplay *display;
-	GtkWidget *scrolled_window;
 
 	display = g_object_new (EAB_TYPE_CONTACT_DISPLAY, NULL);
 	
 	display->priv = g_new0 (EABContactDisplayPrivate, 1);
 
-	scrolled_window = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
-					GTK_POLICY_AUTOMATIC,
-					GTK_POLICY_AUTOMATIC);
-	gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW (scrolled_window), GTK_SHADOW_IN);
-
-	display->priv->html = GTK_HTML (gtk_html_new ());
+	gtk_html_set_default_content_type (GTK_HTML (display), "text/html; charset=utf-8");
 	
-	gtk_html_set_default_content_type (display->priv->html, "text/html; charset=utf-8");
-	
-	gtk_html_set_editable (display->priv->html, FALSE);
+	gtk_html_set_editable (GTK_HTML (display), FALSE);
 
-	g_signal_connect (display->priv->html, "url_requested",
+	g_signal_connect (display, "url_requested",
 			  G_CALLBACK (on_url_requested),
 			  display);
-	g_signal_connect (display->priv->html, "link_clicked",
+	g_signal_connect (display, "link_clicked",
 			  G_CALLBACK (on_link_clicked),
 			  display);
 #if 0
-	g_signal_connect (display->priv->html, "object_requested",
+	g_signal_connect (display, "object_requested",
 			  G_CALLBACK (on_object_requested),
 			  mail_display);
-	g_signal_connect (display->priv->html, "button_press_event",
+	g_signal_connect (display, "button_press_event",
 			  G_CALLBACK (html_button_press_event), mail_display);
-	g_signal_connect (display->priv->html, "motion_notify_event",
+	g_signal_connect (display, "motion_notify_event",
 			  G_CALLBACK (html_motion_notify_event), mail_display);
-	g_signal_connect (display->priv->html, "enter_notify_event",
+	g_signal_connect (display, "enter_notify_event",
 			  G_CALLBACK (html_enter_notify_event), mail_display);
-	g_signal_connect (display->priv->html, "iframe_created",
+	g_signal_connect (display, "iframe_created",
 			  G_CALLBACK (html_iframe_created), mail_display);
-	g_signal_connect (display->priv->html, "on_url",
+	g_signal_connect (display, "on_url",
 			  G_CALLBACK (html_on_url), mail_display);
 #endif
-
-	gtk_container_add (GTK_CONTAINER (scrolled_window), GTK_WIDGET (display->priv->html));
-
-	gtk_box_pack_start_defaults (GTK_BOX (display), scrolled_window);
-	gtk_widget_show_all (scrolled_window);
 
 	return GTK_WIDGET (display);
 }
@@ -630,7 +651,7 @@ eab_contact_display_init (GObject *object)
 static void
 eab_contact_display_class_init (GtkObjectClass *object_class)
 {
-	//	object_class->destroy = mail_display_destroy;
+	/*	object_class->destroy = mail_display_destroy;*/
 }
 
 GType

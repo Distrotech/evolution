@@ -4,7 +4,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
-#include <libebook/e-book-async.h>
+#include <libebook/e-book.h>
 #include <libebook/e-book-view.h>
 
 #define EAB_TYPE_MODEL                  (eab_model_get_type ())
@@ -23,6 +23,8 @@ struct _EABModel {
 	EBook *book;
 	EBookQuery *query;
 	EBookView *book_view;
+
+	int book_view_idle_id;
 
 	EContact **data;
 	int data_count;

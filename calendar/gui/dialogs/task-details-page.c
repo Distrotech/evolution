@@ -87,8 +87,6 @@ static const int priority_map[] = {
 
 
 
-static void task_details_page_class_init (TaskDetailsPageClass *class);
-static void task_details_page_init (TaskDetailsPage *tdpage);
 static void task_details_page_finalize (GObject *object);
 
 static GtkWidget *task_details_page_get_widget (CompEditorPage *page);
@@ -97,21 +95,7 @@ static gboolean task_details_page_fill_widgets (CompEditorPage *page, ECalCompon
 static gboolean task_details_page_fill_component (CompEditorPage *page, ECalComponent *comp);
 static gboolean task_details_page_fill_timezones (CompEditorPage *page, GHashTable *timezones);
 
-static CompEditorPageClass *parent_class = NULL;
-
-
-
-/**
- * task_details_page_get_type:
- * 
- * Registers the #TaskDetailsPage class if necessary, and returns the type ID
- * associated to it.
- * 
- * Return value: The type ID of the #TaskDetailsPage class.
- **/
-
-E_MAKE_TYPE (task_details_page, "TaskDetailsPage", TaskDetailsPage, task_details_page_class_init,
-	     task_details_page_init, TYPE_COMP_EDITOR_PAGE);
+G_DEFINE_TYPE (TaskDetailsPage, task_details_page, TYPE_COMP_EDITOR_PAGE);
 
 /* Class initialization function for the task page */
 static void
@@ -122,8 +106,6 @@ task_details_page_class_init (TaskDetailsPageClass *class)
 
 	editor_page_class = (CompEditorPageClass *) class;
 	object_class = (GObjectClass *) class;
-
-	parent_class = g_type_class_ref(TYPE_COMP_EDITOR_PAGE);
 
 	editor_page_class->get_widget = task_details_page_get_widget;
 	editor_page_class->focus_main_widget = task_details_page_focus_main_widget;
@@ -185,8 +167,8 @@ task_details_page_finalize (GObject *object)
 	g_free (priv);
 	tdpage->priv = NULL;
 
-	if (G_OBJECT_CLASS (parent_class)->finalize)
-		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
+	if (G_OBJECT_CLASS (task_details_page_parent_class)->finalize)
+		(* G_OBJECT_CLASS (task_details_page_parent_class)->finalize) (object);
 }
 
 
@@ -277,6 +259,25 @@ clear_widgets (TaskDetailsPage *tdpage)
 	e_dialog_editable_set (priv->url, NULL);
 }
 
+static void
+sensitize_widgets (TaskDetailsPage *tdpage)
+{
+	gboolean read_only;
+	TaskDetailsPagePrivate *priv;
+	
+	priv = tdpage->priv;
+
+	if (!e_cal_is_read_only (COMP_EDITOR_PAGE (tdpage)->client, &read_only, NULL))
+		read_only = TRUE;
+	
+	gtk_widget_set_sensitive (priv->status, !read_only);
+	gtk_widget_set_sensitive (priv->priority, !read_only);
+	gtk_widget_set_sensitive (priv->percent_complete, !read_only);
+	gtk_widget_set_sensitive (priv->completed_date, !read_only);
+	gtk_widget_set_sensitive (priv->url_label, !read_only);
+	gtk_entry_set_editable (GTK_ENTRY (e_url_entry_get_entry (E_URL_ENTRY (priv->url_entry))), !read_only);
+}
+
 /* fill_widgets handler for the task page */
 static gboolean
 task_details_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
@@ -363,6 +364,8 @@ task_details_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
 	
 	priv->updating = FALSE;
 
+	sensitize_widgets (tdpage);
+
 	return TRUE;
 }
 
@@ -372,12 +375,13 @@ task_details_page_fill_component (CompEditorPage *page, ECalComponent *comp)
 {
 	TaskDetailsPage *tdpage;
 	TaskDetailsPagePrivate *priv;
-	struct icaltimetype icaltime;
+	struct icaltimetype icalcomplete, icaltoday;
 	icalproperty_status status;
 	TaskEditorPriority priority;
 	int priority_value, percent;
 	char *url;
 	gboolean date_set;
+	icaltimezone *zone = calendar_config_get_icaltimezone ();
 	
 	tdpage = TASK_DETAILS_PAGE (page);
 	priv = tdpage->priv;
@@ -395,10 +399,10 @@ task_details_page_fill_component (CompEditorPage *page, ECalComponent *comp)
 	priority_value = priority_index_to_value (priority);
 	e_cal_component_set_priority (comp, &priority_value);
 
-	icaltime = icaltime_null_time ();
+	icalcomplete = icaltime_null_time ();
 
 	/* COMPLETED must be in UTC. */
-	icaltime.is_utc = 1;
+	icalcomplete.is_utc = 1;
 
 	/* Completed Date. */
 	if (!e_date_edit_date_is_valid (E_DATE_EDIT (priv->completed_date)) ||
@@ -408,12 +412,24 @@ task_details_page_fill_component (CompEditorPage *page, ECalComponent *comp)
 	}
 
 	date_set = e_date_edit_get_date (E_DATE_EDIT (priv->completed_date),
-					 &icaltime.year,
-					 &icaltime.month,
-					 &icaltime.day);
+					 &icalcomplete.year,
+					 &icalcomplete.month,
+					 &icalcomplete.day);
+
 	e_date_edit_get_time_of_day (E_DATE_EDIT (priv->completed_date),
-				     &icaltime.hour,
-				     &icaltime.minute);
+				     &icalcomplete.hour,
+				     &icalcomplete.minute);
+
+	/* COMPLETED today or before */
+	icaltoday = icaltime_current_time_with_zone (zone);
+	icaltimezone_convert_time (&icaltoday, zone,
+				    icaltimezone_get_utc_timezone());
+
+	if (icaltime_compare_date_only (icalcomplete, icaltoday) > 0) { 
+		comp_editor_page_display_validation_error (page, _("Completed date is wrong"), priv->completed_date);
+		return FALSE;
+	}
+
 	if (date_set) {
 		/* COMPLETED must be in UTC, so we assume that the date in the
 		   dialog is in the current timezone, and we now convert it
@@ -421,10 +437,9 @@ task_details_page_fill_component (CompEditorPage *page, ECalComponent *comp)
 		   entire time the dialog is shown. Otherwise if the user
 		   changes the timezone, the COMPLETED date may get changed
 		   as well. */
-		icaltimezone *zone = calendar_config_get_icaltimezone ();
-		icaltimezone_convert_time (&icaltime, zone,
+		icaltimezone_convert_time (&icalcomplete, zone,
 					   icaltimezone_get_utc_timezone ());
-		e_cal_component_set_completed (comp, &icaltime);
+		e_cal_component_set_completed (comp, &icalcomplete);
 	} else {
 		e_cal_component_set_completed (comp, NULL);
 	}
@@ -723,13 +738,21 @@ init_widgets (TaskDetailsPage *tdpage)
 	/* Completed Date */
 	g_signal_connect((priv->completed_date), "changed",
 			    G_CALLBACK (date_changed_cb), tdpage);
+	g_signal_connect (priv->completed_date, "changed",
+			    G_CALLBACK (field_changed_cb), tdpage);
 
 	/* URL */
 	g_signal_connect((priv->url), "changed",
 			    G_CALLBACK (field_changed_cb), tdpage);
 }
 
-
+static void
+client_changed_cb (CompEditorPage *page, ECal *client, gpointer user_data)
+{
+	TaskDetailsPage *tdpage = TASK_DETAILS_PAGE (page);
+
+	sensitize_widgets (tdpage);
+}
 
 /**
  * task_details_page_construct:
@@ -762,6 +785,9 @@ task_details_page_construct (TaskDetailsPage *tdpage)
 	}
 
 	init_widgets (tdpage);
+
+	g_signal_connect_after (G_OBJECT (tdpage), "client_changed",
+				G_CALLBACK (client_changed_cb), NULL);
 
 	return tdpage;
 }

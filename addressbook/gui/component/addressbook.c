@@ -26,7 +26,7 @@
 
 #include <gtk/gtkmessagedialog.h>
 #include <libgnome/gnome-i18n.h>
-#include <libebook/e-book-async.h>
+#include <libebook/e-book.h>
 
 #include "e-util/e-passwords.h"
 
@@ -79,9 +79,18 @@ load_source_auth_cb (EBook *book, EBookStatus status, gpointer closure)
 	}
 
 	if (status != E_BOOK_ERROR_OK) {
+
+		/* the user clicked cancel in the password dialog */
 		if (status == E_BOOK_ERROR_CANCELLED) {
-			/* the user clicked cancel in the password dialog */
+				
+			if (e_book_check_static_capability (book, "anon-access")) {
+			
 			GtkWidget *dialog;
+
+			/* XXX "LDAP" has to be removed from the folowing message
+			   so that it wil valid for other servers which provide 
+			   anonymous access*/
+
 			dialog = gtk_message_dialog_new (NULL,
 							 0,
 							 GTK_MESSAGE_WARNING,
@@ -92,11 +101,17 @@ load_source_auth_cb (EBook *book, EBookStatus status, gpointer closure)
 			data->cb (book, E_BOOK_ERROR_OK, data->closure);
 			free_load_source_data (data);
 			return;
+			}
 		}
 		else {
 			gchar *uri = e_source_get_uri (data->source);
 			gchar *stripped_uri = remove_parameters_from_uri (uri);
-			e_passwords_forget_password ("Addressbook", stripped_uri);
+			const gchar *auth_domain = e_source_get_property (data->source, "auth-domain");
+		        const gchar *component_name;
+			
+			component_name = auth_domain ? auth_domain : "Addressbook";
+			
+			e_passwords_forget_password (component_name, stripped_uri);
 			addressbook_authenticate (book, TRUE, data->source, load_source_auth_cb, closure);
 			
 			g_free (stripped_uri);
@@ -139,11 +154,14 @@ addressbook_authenticate (EBook *book, gboolean previous_failure, ESource *sourc
 	const gchar *user;
 	gchar *uri = e_source_get_uri (source);
         gchar *stripped_uri = remove_parameters_from_uri (uri);
-
+	const gchar *auth_domain = e_source_get_property (source, "auth-domain");
+	const gchar *component_name;
+			
+	component_name = auth_domain ? auth_domain : "Addressbook";
 	g_free (uri);
 	uri = stripped_uri;
 
-	password = e_passwords_get_password ("Addressbook", uri);
+	password = e_passwords_get_password (component_name, uri);
 
 	auth = e_source_get_property (source, "auth");
 
@@ -160,9 +178,11 @@ addressbook_authenticate (EBook *book, gboolean previous_failure, ESource *sourc
 		char *prompt;
 		gboolean remember;
 		char *failed_auth;
+		guint32 flags = E_PASSWORDS_REMEMBER_FOREVER|E_PASSWORDS_SECRET|E_PASSWORDS_ONLINE;
 
 		if (previous_failure) {
 			failed_auth = _("Failed to authenticate.\n");
+			flags |= E_PASSWORDS_REPROMPT;
 		}
 		else {
 			failed_auth = "";
@@ -172,8 +192,8 @@ addressbook_authenticate (EBook *book, gboolean previous_failure, ESource *sourc
 					  failed_auth, e_source_peek_name (source), user);
 
 		remember = get_remember_password (source);
-		pass_dup = e_passwords_ask_password (prompt, "Addressbook", uri, prompt, TRUE,
-						     E_PASSWORDS_REMEMBER_FOREVER, &remember,
+		pass_dup = e_passwords_ask_password (prompt, component_name, uri, prompt,
+						     flags, &remember,
 						     NULL);
 		if (remember != get_remember_password (source))
 			set_remember_password (source, remember);
@@ -225,23 +245,23 @@ load_source_cb (EBook *book, EBookStatus status, gpointer closure)
 }
 
 guint
-addressbook_load_source (EBook *book, ESource *source,
-			 EBookCallback cb, gpointer closure)
+addressbook_load (EBook *book,
+		  EBookCallback cb, gpointer closure)
 {
 	LoadSourceData *load_source_data = g_new0 (LoadSourceData, 1);
 
 	load_source_data->cb = cb;
 	load_source_data->closure = closure;
-	load_source_data->source = g_object_ref (source);
+	load_source_data->source = g_object_ref (g_object_ref (e_book_get_source (book)));
 	load_source_data->cancelled = FALSE;
 
-	e_book_async_load_source (book, source, load_source_cb, load_source_data);
+	e_book_async_open (book, FALSE, load_source_cb, load_source_data);
 
 	return GPOINTER_TO_UINT (load_source_data);
 }
 
 void
-addressbook_load_source_cancel (guint id)
+addressbook_load_cancel (guint id)
 {
 	LoadSourceData *load_source_data = GUINT_TO_POINTER (id);
 
@@ -263,11 +283,16 @@ void
 addressbook_load_default_book (EBookCallback cb, gpointer closure)
 {
 	LoadSourceData *load_source_data = g_new (LoadSourceData, 1);
+	EBook *book;
 
 	load_source_data->cb = cb;
 	load_source_data->source = NULL;
 	load_source_data->closure = closure;
 	load_source_data->cancelled = FALSE;
 
-	e_book_async_get_default_addressbook (default_book_cb, load_source_data);
+	book = e_book_new_default_addressbook (NULL);
+	if (!book)
+		load_source_cb (NULL, E_BOOK_ERROR_OTHER_ERROR, load_source_data); /* XXX we should just use a GError and it's error code here */
+	else
+		e_book_async_open (book, FALSE, default_book_cb, load_source_data);
 }

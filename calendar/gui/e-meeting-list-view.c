@@ -48,11 +48,8 @@
 
 #define SELECT_NAMES_OAFID "OAFIID:GNOME_Evolution_Addressbook_SelectNames:" BASE_VERSION
 
-struct _EMeetingListViewPrivate 
-{
+struct _EMeetingListViewPrivate {
 	EMeetingStore *store;
-
-	EBook *ebook;
 
         GNOME_Evolution_Addressbook_SelectNames corba_select_names;
 };
@@ -70,30 +67,13 @@ static icalparameter_role roles[] = {ICAL_ROLE_CHAIR,
 				     ICAL_ROLE_NONPARTICIPANT,
 				     ICAL_ROLE_NONE};
 
-static GtkTreeViewClass *parent_class = NULL;
+G_DEFINE_TYPE (EMeetingListView, e_meeting_list_view, GTK_TYPE_TREE_VIEW);
 
 static void
-start_addressbook_server (EMeetingListView *view)
-{
-	GError *error = NULL;
-
-	view->priv->ebook = e_book_new ();
-	if (!e_book_load_local_addressbook (view->priv->ebook, &error)) {
-		g_warning ("start_addressbook_server(): %s", error->message);
-		g_error_free (error);
-
-		return;
-	}
-}
-
-static void
-emlv_finalize (GObject *obj)
+e_meeting_list_view_finalize (GObject *obj)
 {
 	EMeetingListView *view = E_MEETING_LIST_VIEW (obj);
 	EMeetingListViewPrivate *priv = view->priv;
-	
-	if (priv->ebook != NULL)
-		g_object_unref (priv->ebook);
 
 	if (priv->corba_select_names != CORBA_OBJECT_NIL) {
 		CORBA_Environment ev;
@@ -104,21 +84,23 @@ emlv_finalize (GObject *obj)
 
 	g_free (priv);
 
-	if (G_OBJECT_CLASS (parent_class)->finalize)
- 		(* G_OBJECT_CLASS (parent_class)->finalize) (obj);
+	if (G_OBJECT_CLASS (e_meeting_list_view_parent_class)->finalize)
+ 		(* G_OBJECT_CLASS (e_meeting_list_view_parent_class)->finalize) (obj);
 }
 
 static void
-emlv_class_init (GObjectClass *klass)
+e_meeting_list_view_class_init (EMeetingListViewClass *klass)
 {
-	parent_class = g_type_class_peek_parent (klass);
+	GObjectClass *object_class;
 
-	klass->finalize = emlv_finalize;
+	object_class = G_OBJECT_CLASS (klass);
+
+	object_class->finalize = e_meeting_list_view_finalize;
 }
 
 
 static void
-emlv_init (EMeetingListView *view)
+e_meeting_list_view_init (EMeetingListView *view)
 {
 	EMeetingListViewPrivate *priv;
 
@@ -127,11 +109,8 @@ emlv_init (EMeetingListView *view)
 	view->priv = priv;
 
 	priv->corba_select_names = CORBA_OBJECT_NIL;
-	
-	start_addressbook_server (view);
 }
 
-E_MAKE_TYPE (e_meeting_list_view, "EMeetingListView", EMeetingListView, emlv_class_init, emlv_init, GTK_TYPE_TREE_VIEW);
 static GList *
 get_type_strings ()
 {
@@ -334,7 +313,7 @@ process_section (EMeetingListView *view, EDestination **cards, icalparameter_rol
 	int i;
 
 	priv = view->priv;
-	for (i = 0; i < G_N_ELEMENTS (cards); i++) {
+	for (i = 0; cards[i] != NULL; i++) {
 		const char *name, *attendee = NULL;
 		char *attr = NULL;
 

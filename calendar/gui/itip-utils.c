@@ -30,7 +30,6 @@
 #include <libgnome/gnome-i18n.h>
 #include <gtk/gtkmessagedialog.h>
 #include <gtk/gtkwidget.h>
-#include <gal/util/e-util.h>
 #include <libical/ical.h>
 #include <Evolution-Composer.h>
 #include <e-util/e-dialog-utils.h>
@@ -541,7 +540,7 @@ comp_server_send (ECalComponentItipMethod method, ECalComponent *comp, ECal *cli
 	GError *error = NULL;
 	
 	top_level = comp_toplevel_with_zones (method, comp, client, zones);
-	if (!e_cal_send_objects (client, top_level, &users, &returned_icalcomp, &error)) {
+	if (!e_cal_send_objects (client, top_level, users, &returned_icalcomp, &error)) {
 		/* FIXME Really need a book problem status code */
 		if (error->code != E_CALENDAR_STATUS_OK) {
 			/* FIXME Better error message */
@@ -845,7 +844,7 @@ itip_send_comp (ECalComponentItipMethod method, ECalComponent *send_comp,
 	CORBA_exception_init (&ev);
 
 	/* Give the server a chance to manipulate the comp */
-	if (method != E_CAL_COMPONENT_METHOD_PUBLISH) {
+	if (method != E_CAL_COMPONENT_METHOD_PUBLISH && !e_cal_get_save_schedules (client)) {
 		if (!comp_server_send (method, send_comp, client, zones, &users))
 			goto cleanup;
 	}
@@ -1057,8 +1056,10 @@ comp_fb_normalize (icalcomponent *icomp)
 	
 	prop = icalcomponent_get_first_property (icomp, 
 						 ICAL_ORGANIZER_PROPERTY);
-	p = icalproperty_new_clone (prop);
-	icalcomponent_add_property (iclone, p);
+	if (prop) {
+		p = icalproperty_new_clone (prop);
+		icalcomponent_add_property (iclone, p);
+	}
 	
 	itt = icalcomponent_get_dtstart (icomp);
 	icalcomponent_set_dtstart (iclone, itt);
@@ -1103,8 +1104,10 @@ comp_fb_normalize (icalcomponent *icomp)
 	icalcomponent_set_dtstamp (iclone, itt);	
 	
 	prop = icalcomponent_get_first_property (icomp, ICAL_URL_PROPERTY);
-	p = icalproperty_new_clone (prop);
-	icalcomponent_add_property (iclone, p);
+	if (prop) {
+		p = icalproperty_new_clone (prop);
+		icalcomponent_add_property (iclone, p);
+	}
 	
 	comment =  icalcomponent_get_comment (icomp);
 	if (comment)
@@ -1134,8 +1137,6 @@ itip_publish_comp (ECal *client, gchar *uri, gchar *username,
 	SoupMessage *msg;
 	SoupUri *real_uri;
 	char *ical_string;
-	char *prompt;
-	gboolean remember = FALSE;
 	
 	toplevel = e_cal_util_new_top_level ();
 	icalcomponent_set_method (toplevel, ICAL_METHOD_PUBLISH);
@@ -1153,7 +1154,7 @@ itip_publish_comp (ECal *client, gchar *uri, gchar *username,
 	session = soup_session_async_new ();
 
 	real_uri = soup_uri_new (uri);
-	if (!real_uri) {
+	if (!real_uri || !real_uri->host) {
 		g_warning (G_STRLOC ": Invalid URL: %s", uri);
 		g_object_unref (session);
 		return FALSE;

@@ -29,15 +29,15 @@
 
 #include <gal/e-table/e-table-simple.h>
 #include <gal/e-table/e-table-without.h>
-#include <gal/widgets/e-popup-menu.h>
 
-#include <libebook/e-book-async.h>
+#include <libebook/e-book.h>
 #include <libebook/e-contact.h>
 #include <addressbook/gui/widgets/e-addressbook-model.h>
 #include <addressbook/gui/widgets/e-addressbook-table-adapter.h>
 #include <addressbook/util/eab-book-util.h>
 #include <addressbook/gui/component/addressbook-component.h>
 #include <addressbook/gui/component/addressbook.h>
+#include <addressbook/gui/widgets/eab-popup.h>
 
 #include "e-select-names-config.h"
 #include "e-select-names.h"
@@ -47,10 +47,11 @@
 #include <e-util/e-categories-master-list-wombat.h>
 #include "e-util/e-sexp.h"
 
-static void e_select_names_init		(ESelectNames		 *names);
-static void e_select_names_class_init	(ESelectNamesClass	 *klass);
-static void e_select_names_dispose (GObject *object);
-static void update_query (GtkWidget *widget, ESelectNames *e_select_names);
+static void  e_select_names_init       (ESelectNames		 *names);
+static void  e_select_names_class_init (ESelectNamesClass	 *klass);
+static void  e_select_names_dispose    (GObject *object);
+static void  update_query              (GtkWidget *widget, ESelectNames *e_select_names);
+static char *get_query_string          (ESelectNames *e_select_names);
 
 static void sync_table_and_models (ESelectNamesModel *triggering_model, ESelectNames *esl);
 
@@ -120,10 +121,12 @@ search_result (EABModel *model, EBookViewStatus status, ESelectNames *esn)
 static void
 set_book(EBook *book, EBookStatus status, ESelectNames *esn)
 {
+	char *query_str = get_query_string (esn);
 	g_object_set(esn->model,
 		     "book", book,
+		     "query", query_str,
 		     NULL);
-	update_query (NULL, esn);
+	g_free (query_str);
 	g_object_unref(book);
 	g_object_unref(esn->model);
 	g_object_unref(esn);
@@ -154,12 +157,12 @@ addressbook_model_set_source (ESelectNames *e_select_names, EABModel *model, ESo
 {
 	EBook *book;
 
-	book = e_book_new();
+	book = e_book_new(source, NULL);
 
 	g_object_ref(e_select_names);
 	g_object_ref(model);
 
-	addressbook_load_source (book, source, (EBookCallback) set_book, e_select_names);
+	addressbook_load (book, (EBookCallback) set_book, e_select_names);
 }
 
 static void *
@@ -342,15 +345,15 @@ source_selected (ESourceOptionMenu *menu, ESource *source, ESelectNames *e_selec
 	e_select_names_config_set_last_completion_book (e_source_peek_uid (source));
 }
 
-static void
-update_query (GtkWidget *widget, ESelectNames *e_select_names)
+static char *
+get_query_string (ESelectNames *e_select_names)
 {
 	char *category = "";
 	const char *search = "";
-	char *query;
-	char *q_array[4];
+	EBookQuery *query;
+	EBookQuery *q_array[4];
+	char *query_str;
 	int i;
-	GString *s = g_string_new ("");
 
 	if (e_select_names->categories) {
 		category = e_categories_master_list_option_menu_get_category (E_CATEGORIES_MASTER_LIST_OPTION_MENU (e_select_names->categories));
@@ -359,34 +362,37 @@ update_query (GtkWidget *widget, ESelectNames *e_select_names)
 		search = gtk_entry_get_text (GTK_ENTRY (e_select_names->select_entry));
 	}
 
-	e_sexp_encode_string (s, search);
-
 	i = 0;
-	q_array[i++] = "(contains \"email\" \"\")";
+	q_array[i++] = e_book_query_field_test (E_CONTACT_EMAIL, E_BOOK_QUERY_CONTAINS, "");
 	if (category && *category)
-		q_array[i++] = g_strdup_printf ("(is \"category\" \"%s\")", category);
+		q_array[i++] = e_book_query_field_test (E_CONTACT_CATEGORY_LIST, E_BOOK_QUERY_IS, category);
 	if (search && *search)
-		q_array[i++] = g_strdup_printf ("(or (beginswith \"email\" %s) "
-						"    (beginswith \"full_name\" %s) "
-						"    (beginswith \"nickname\" %s)"
-						"    (beginswith \"file_as\" %s))",
-						s->str, s->str, s->str, s->str);
-	q_array[i++] = NULL;
-	if (i > 2) {
-		char *temp = g_strjoinv (" ", q_array);
-		query = g_strdup_printf ("(and %s)", temp);
-		g_free (temp);
-	} else {
-		query = g_strdup (q_array[0]);
+		q_array[i++] = e_book_query_orv (e_book_query_field_test (E_CONTACT_EMAIL, E_BOOK_QUERY_BEGINS_WITH, search),
+						 e_book_query_field_test (E_CONTACT_FULL_NAME, E_BOOK_QUERY_BEGINS_WITH, search),
+						 e_book_query_field_test (E_CONTACT_NICKNAME, E_BOOK_QUERY_BEGINS_WITH, search),
+						 e_book_query_field_test (E_CONTACT_FILE_AS, E_BOOK_QUERY_BEGINS_WITH, search),
+						 NULL);
+	if (i > 1) {
+		query = e_book_query_and (i, q_array, TRUE);
 	}
+	else {
+		query = q_array[0];
+	}
+	query_str = e_book_query_to_string (query);
+	e_book_query_unref (query);
+	return query_str;
+}
+
+
+static void
+update_query (GtkWidget *widget, ESelectNames *e_select_names)
+{
+	char *query_str = get_query_string (e_select_names);
+	printf ("query_str = %s\n", query_str);
 	g_object_set (e_select_names->model,
-		      "query", query,
+		      "query", query_str,
 		      NULL);
-	for (i = 1; q_array[i]; i++) {
-		g_free (q_array[i]);
-	}
-	g_free (query);
-	g_string_free (s, TRUE);
+	g_free (query_str);
 }
 
 static void
@@ -425,7 +431,7 @@ select_entry_changed (GtkWidget *widget, ESelectNames *e_select_names)
 									    E_CONTACT_FULL_NAME,
 									    model_row),
 						    -1);
-			if (g_utf8_collate (select_strcoll_string, row_strcoll_string) <= 0) {
+			if (strcmp (select_strcoll_string, row_strcoll_string) <= 0) {
 				g_free (row_strcoll_string);
 				break;
 			}
@@ -492,7 +498,7 @@ e_select_names_init (ESelectNames *e_select_names)
 				GTK_STOCK_OK, GTK_RESPONSE_OK,
 				NULL);
 
-	gtk_window_set_modal (GTK_WINDOW (e_select_names), TRUE);
+	gtk_window_set_modal (GTK_WINDOW (e_select_names), FALSE);
 	gtk_window_set_default_size (GTK_WINDOW (e_select_names), 472, 512);
 	gtk_window_set_title (GTK_WINDOW (e_select_names), _("Select Contacts from Address Book"));
 	gtk_window_set_resizable (GTK_WINDOW (e_select_names), TRUE);
@@ -672,36 +678,44 @@ remove_address(ETable *table, int row, int col, GdkEvent *event, ESelectNamesChi
 	e_select_names_model_delete (child->source, row);
 }
 
-struct _RightClickData {
-	ESelectNamesChild *child;
-	int row;
+static void
+remove_cb (EPopup *ep, EPopupItem *pitem, void *data)
+{
+	EABPopupTargetSelectNames *t = (EABPopupTargetSelectNames *)ep->target;
+
+	e_select_names_model_delete (t->model, t->row);
+}
+
+static EPopupItem esn_select_popups[] = {
+	{ E_POPUP_ITEM, "20.delete", N_("Remove"), remove_cb, NULL, NULL, 0, 0 },
 };
-typedef struct _RightClickData RightClickData;
 
 static void
-remove_cb (GtkWidget *widget, void *data)
+esn_select_popup_free (EPopup *ep, GSList *list, void *data)
 {
-	RightClickData *rcdata = (RightClickData *)data;
-
-	e_select_names_model_delete (rcdata->child->source, rcdata->row);
-
-	/* Free everything we've created */
-	g_free (rcdata);
+	g_slist_free (list);
 }
 
 static void
 section_right_click_cb (ETable *et, int row, int col, GdkEvent *ev, ESelectNamesChild *child)
 {
-	static EPopupMenu right_click_menu[] = {
-		E_POPUP_ITEM (N_("Remove"), G_CALLBACK (remove_cb), 0),
-		E_POPUP_TERMINATOR
-	};
-	RightClickData *rcdata = g_new0 (RightClickData, 1);
+	EABPopup *ep;
+	EABPopupTargetSelectNames *t;
+	GSList *menus = NULL;
+	int i;
+	GtkMenu *menu;
 
-	rcdata->row = row;
-	rcdata->child = child;
+	ep = eab_popup_new("com.novell.evolution.addressbook.selectNames.popup");
+	t = eab_popup_target_new_select_names(ep, child->source, row);
+	t->target.widget = (GtkWidget *)et;
 
-	e_popup_menu_run (right_click_menu, (GdkEvent *)ev, 0, 0, rcdata);
+	for (i=0;i<sizeof(esn_select_popups)/sizeof(esn_select_popups[0]);i++)
+		menus = g_slist_prepend(menus, &esn_select_popups[i]);
+
+	e_popup_add_items((EPopup *)ep, menus, esn_select_popup_free, NULL);
+
+	menu = e_popup_create_menu_once((EPopup *)ep, (EPopupTarget *)t, 0);
+	gtk_menu_popup(menu, NULL, NULL, NULL, NULL, ev->button.button, ev->button.time);
 }
 
 void

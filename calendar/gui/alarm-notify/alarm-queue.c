@@ -26,6 +26,7 @@
 #include <glib.h>
 #include <bonobo-activation/bonobo-activation.h>
 #include <bonobo/bonobo-object.h>
+#include <bonobo/bonobo-exception.h>
 #include <gtk/gtksignal.h>
 #include <gtk/gtkbox.h>
 #include <gtk/gtkdialog.h>
@@ -50,6 +51,7 @@
 #include "alarm-queue.h"
 #include "config-data.h"
 #include "util.h"
+#include "e-util/e-popup.h"
 
 
 
@@ -235,7 +237,7 @@ remove_queued_alarm (CompQueuedAlarms *cqa, gpointer alarm_id,
 	if (remove_alarm) {
 		cqa->expecting_update = TRUE;
 		e_cal_discard_alarm (cqa->parent_client->client, cqa->alarms->comp,
-					  qa->instance->auid, NULL);
+				     qa->instance->auid, NULL);
 		cqa->expecting_update = FALSE;
 	}
 
@@ -328,6 +330,7 @@ add_component_alarms (ClientAlarms *ca, ECalComponentAlarms *alarms)
 
 	/* No alarms? */
 	if (alarms == NULL || alarms->alarms == NULL) {
+		g_message ("No alarms to add");
 		if (alarms)
 			e_cal_component_alarms_free (alarms);
 		return;
@@ -347,6 +350,7 @@ add_component_alarms (ClientAlarms *ca, ECalComponentAlarms *alarms)
 
 		instance = l->data;
 
+		g_message ("Adding alarm at %lu (%lu)", instance->trigger, time (NULL));
 		alarm_id = alarm_add (instance->trigger, alarm_trigger_cb, cqa, NULL);
 		if (!alarm_id) {
 			g_message ("add_component_alarms(): Could not schedule a trigger for "
@@ -385,14 +389,33 @@ add_component_alarms (ClientAlarms *ca, ECalComponentAlarms *alarms)
 static void
 load_alarms (ClientAlarms *ca, time_t start, time_t end)
 {
-	/* create the live query */
-	if (!ca->query) {
-		/* FIXME: handle errors */
-		if (!e_cal_get_query (ca->client, "(has-alarms?)", &ca->query, NULL)) {
-			g_warning (G_STRLOC ": Could not get query for client");
-			return;
-		}
+	char *str_query, *iso_start, *iso_end;
 
+	iso_start = isodate_from_time_t (start);
+	if (!iso_start)
+		return;
+                                                                               
+	iso_end = isodate_from_time_t (end);
+	if (!iso_end) {
+		g_free (iso_start);
+		return;
+	}
+
+	str_query = g_strdup_printf ("(has-alarms-in-range? (make-time \"%s\") (make-time \"%s\"))",
+				     iso_start, iso_end);
+	g_free (iso_start);
+	g_free (iso_end);
+
+	/* create the live query */
+	if (ca->query) {
+		g_object_unref (ca->query);
+		ca->query = NULL;
+	}
+
+	/* FIXME: handle errors */
+	if (!e_cal_get_query (ca->client, str_query, &ca->query, NULL)) {
+		g_warning (G_STRLOC ": Could not get query for client");
+	} else {
 		g_signal_connect (G_OBJECT (ca->query), "objects_added",
 				  G_CALLBACK (query_objects_changed_cb), ca);
 		g_signal_connect (G_OBJECT (ca->query), "objects_modified",
@@ -402,40 +425,30 @@ load_alarms (ClientAlarms *ca, time_t start, time_t end)
 
 		e_cal_view_start (ca->query);
 	}
+
+	g_free (str_query);
 }
 
 /* Loads today's remaining alarms for a client */
 static void
 load_alarms_for_today (ClientAlarms *ca)
 {
-	time_t now, day_end;
+	time_t now, from, day_end;
 	icaltimezone *zone;
 
 	now = time (NULL);
 
-	zone = config_data_get_timezone ();
-
-	day_end = time_day_end_with_zone (now, zone);
-	load_alarms (ca, now, day_end);
-}
-
-/* Adds any alarms that should have occurred while the alarm daemon was not
- * running.
- */
-static void
-load_missed_alarms (ClientAlarms *ca)
-{
-	time_t now;
-
-	now = time (NULL);
-
-	g_assert (saved_notification_time != -1);
-
-	/* We add 1 to the saved_notification_time to make the time ranges
+	/* Make sure we don't miss some events from the last notification.
+	 * We add 1 to the saved_notification_time to make the time ranges
 	 * half-open; we do not want to display the "last" displayed alarm
 	 * twice, once when it occurs and once when the alarm daemon restarts.
 	 */
-	load_alarms (ca, saved_notification_time + 1, now);
+	from = MIN (config_data_get_last_notification_time () + 1, now);
+	zone = config_data_get_timezone ();
+
+	g_message ("Loading alarms for today");
+	day_end = time_day_end_with_zone (now, zone);
+	load_alarms (ca, from, day_end);
 }
 
 /* Called when a calendar client finished loading; we load its alarms */
@@ -450,7 +463,6 @@ cal_opened_cb (ECal *client, ECalendarStatus status, gpointer data)
 		return;
 
 	load_alarms_for_today (ca);
-	load_missed_alarms (ca);
 }
 
 /* Looks up a component's queued alarm structure in a client alarms structure */
@@ -530,61 +542,64 @@ query_objects_changed_cb (ECal *client, GList *objects, gpointer data)
 	zone = config_data_get_timezone ();
 
 	day_end = time_day_end_with_zone (time (NULL), zone);
-
+	g_message ("Query response for alarms");
 	for (l = objects; l != NULL; l = l->next) {
 		const char *uid;
+		GSList *sl;
 
 		uid = icalcomponent_get_uid (l->data);
 		found = e_cal_get_alarms_for_object (ca->client, uid, from, day_end, &alarms);
 
 		if (!found) {
+			g_message ("No alarms found on object");
 			remove_comp (ca, uid);
 			continue;
 		}
 
 		cqa = lookup_comp_queued_alarms (ca, uid);
-		if (!cqa)
+		if (!cqa) {
+			g_message ("No currently queue alarms");
 			add_component_alarms (ca, alarms);
-		else {
-			GSList *sl;
-
-			/* if the alarms or the alarms list is empty, just remove it */
-			if (alarms == NULL || alarms->alarms == NULL) {
-				if (alarms)
-					e_cal_component_alarms_free (alarms);
-			}
-			else {
-				/* if already in the list, just update it */
-				remove_alarms (cqa, FALSE);
-				cqa->alarms = alarms;
-				cqa->queued_alarms = NULL;
-	
-				/* add the new alarms */
-				for (sl = cqa->alarms->alarms; sl; sl = sl->next) {
-					ECalComponentAlarmInstance *instance;
-					gpointer alarm_id;
-					QueuedAlarm *qa;
-	
-					instance = sl->data;
-	
-					alarm_id = alarm_add (instance->trigger, alarm_trigger_cb, cqa, NULL);
-					if (!alarm_id) {
-						g_message ("obj_updated_cb(): Could not schedule a trigger for "
-							   "%ld, discarding...", (long) instance->trigger);
-						continue;
-					}
-
-					qa = g_new (QueuedAlarm, 1);
-					qa->alarm_id = alarm_id;
-					qa->instance = instance;
-					qa->snooze = FALSE;
-
-					cqa->queued_alarms = g_slist_prepend (cqa->queued_alarms, qa);
-				}
-
-				cqa->queued_alarms = g_slist_reverse (cqa->queued_alarms);
-			}
+			continue;
 		}
+
+		g_message ("Already existing alarms");
+		/* if the alarms or the alarms list is empty, just remove it */
+		if (alarms == NULL || alarms->alarms == NULL) {
+			if (alarms)
+				e_cal_component_alarms_free (alarms);
+			continue;
+		}
+
+		/* if already in the list, just update it */
+		remove_alarms (cqa, FALSE);
+		cqa->alarms = alarms;
+		cqa->queued_alarms = NULL;
+		
+		/* add the new alarms */
+		for (sl = cqa->alarms->alarms; sl; sl = sl->next) {
+			ECalComponentAlarmInstance *instance;
+			gpointer alarm_id;
+			QueuedAlarm *qa;
+
+			instance = sl->data;
+
+			alarm_id = alarm_add (instance->trigger, alarm_trigger_cb, cqa, NULL);
+			if (!alarm_id) {
+				g_message (G_STRLOC ": Could not schedule a trigger for "
+					   "%ld, discarding...", (long) instance->trigger);
+				continue;
+			}
+
+			qa = g_new (QueuedAlarm, 1);
+			qa->alarm_id = alarm_id;
+			qa->instance = instance;
+			qa->snooze = FALSE;
+			
+			cqa->queued_alarms = g_slist_prepend (cqa->queued_alarms, qa);
+		}
+		
+		cqa->queued_alarms = g_slist_reverse (cqa->queued_alarms);
 	}
 }
 
@@ -642,44 +657,45 @@ edit_component (ECal *client, ECalComponent *comp)
 {
 	const char *uid;
 	const char *uri;
+	ECalSourceType source_type;
 	CORBA_Environment ev;
 	GNOME_Evolution_Calendar_CompEditorFactory factory;
+	GNOME_Evolution_Calendar_CompEditorFactory_CompEditorMode corba_type;
 
 	e_cal_component_get_uid (comp, &uid);
 
 	uri = e_cal_get_uri (client);
+	source_type = e_cal_get_source_type (client);
 
 	/* Get the factory */
-
 	CORBA_exception_init (&ev);
 	factory = bonobo_activation_activate_from_id ("OAFIID:GNOME_Evolution_Calendar_CompEditorFactory:" BASE_VERSION,
 						      0, NULL, &ev);
 
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_message ("edit_component(): Could not activate the component editor factory");
+	if (BONOBO_EX (&ev)) {
+		g_message (G_STRLOC ": Could not activate the component editor factory");
 		CORBA_exception_free (&ev);
 		return;
 	}
-	CORBA_exception_free (&ev);
 
 	/* Edit the component */
+	switch (source_type) {
+	case E_CAL_SOURCE_TYPE_TODO:
+		corba_type = GNOME_Evolution_Calendar_CompEditorFactory_EDITOR_MODE_TODO;
+		break;
+	default:
+		corba_type = GNOME_Evolution_Calendar_CompEditorFactory_EDITOR_MODE_EVENT;		
+	}
+	
+	GNOME_Evolution_Calendar_CompEditorFactory_editExisting (factory, uri, (char *) uid, corba_type, &ev);
 
-	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_CompEditorFactory_editExisting (factory, uri, (char *) uid, &ev);
-
-	if (ev._major != CORBA_NO_EXCEPTION)
-		g_message ("edit_component(): Exception while editing the component");
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": Exception while editing the component");
 
 	CORBA_exception_free (&ev);
 
 	/* Get rid of the factory */
-
-	CORBA_exception_init (&ev);
-	bonobo_object_release_unref (factory, &ev);
-	if (ev._major != CORBA_NO_EXCEPTION)
-		g_message ("edit_component(): Could not unref the calendar component factory");
-
-	CORBA_exception_free (&ev);
+	bonobo_object_release_unref (factory, NULL);
 }
 
 typedef struct {
@@ -760,6 +776,9 @@ tray_icon_destroyed_cb (GtkWidget *tray, gpointer user_data)
 {
 	TrayIconData *tray_data = user_data;
 
+	g_signal_handlers_disconnect_matched (tray_data->query, G_SIGNAL_MATCH_FUNC,
+					      0, 0, NULL, on_dialog_objs_removed_cb, NULL);
+
 	if (tray_data->cqa != NULL)
 		remove_queued_alarm (tray_data->cqa, tray_data->alarm_id, TRUE, TRUE);
 
@@ -768,10 +787,12 @@ tray_icon_destroyed_cb (GtkWidget *tray, gpointer user_data)
 		tray_data->message = NULL;
 	}
 
-	g_source_remove (tray_data->blink_id);
+	if (tray_data->blink_id)
+		g_source_remove (tray_data->blink_id);
 
 	g_object_unref (tray_data->comp);
 	g_object_unref (tray_data->client);
+	g_object_unref (tray_data->query);
 
 	tray_icons_list = g_list_remove (tray_icons_list, tray_data);
 	g_free (tray_data);
@@ -780,36 +801,6 @@ tray_icon_destroyed_cb (GtkWidget *tray, gpointer user_data)
 }
 
 /* Callbacks.  */
-static void
-add_popup_menu_item (GtkMenu *menu, const char *label, const char *pixmap,
-		     GCallback callback, gpointer user_data)
-{
-	GtkWidget *item, *image;
-
-	if (pixmap) {
-		item = gtk_image_menu_item_new_with_label (label);
-
-		/* load the image */
-		if (g_file_test (pixmap, G_FILE_TEST_EXISTS))
-			image = gtk_image_new_from_file (pixmap);
-		else
-			image = gtk_image_new_from_stock (pixmap, GTK_ICON_SIZE_MENU);
-
-		if (image) {
-			gtk_widget_show (image);
-			gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (item), image);
-		}
-	} else {
-		item = gtk_menu_item_new_with_label (label);
-	}
-
-	if (callback)
-		g_signal_connect (G_OBJECT (item), "activate", callback, user_data);
-
-	gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
-	gtk_widget_show (item);
-}
-
 static gboolean
 open_alarm_dialog (TrayIconData *tray_data)
 {
@@ -834,13 +825,15 @@ open_alarm_dialog (TrayIconData *tray_data)
 }
 
 static void
-popup_dismiss_cb (GtkWidget *widget, TrayIconData *tray_data)
+popup_dismiss_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	TrayIconData *tray_data = data;
+
 	gtk_widget_destroy (tray_data->tray_icon);
 }
 
 static void
-popup_dismiss_all_cb (GtkWidget *widget, TrayIconData *tray_data)
+popup_dismiss_all_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
 	while (tray_icons_list != NULL) {
 		TrayIconData *tray_data = tray_icons_list->data;
@@ -852,9 +845,23 @@ popup_dismiss_all_cb (GtkWidget *widget, TrayIconData *tray_data)
 }
 
 static void
-popup_open_cb (GtkWidget *widget, TrayIconData *tray_data)
+popup_open_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	TrayIconData *tray_data = data;
+
 	open_alarm_dialog (tray_data);
+}
+
+static EPopupItem tray_items[] = {
+	{ E_POPUP_ITEM, "00.open", N_("Open"), popup_open_cb, NULL, GTK_STOCK_OPEN },
+	{ E_POPUP_ITEM, "10.dismiss", N_("Dismiss"), popup_dismiss_cb, NULL, NULL },
+	{ E_POPUP_ITEM, "20.dismissall", N_("Dismiss All"), popup_dismiss_all_cb, NULL, NULL },
+};
+
+static void
+tray_popup_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
 }
 
 static gint
@@ -866,17 +873,17 @@ tray_icon_clicked_cb (GtkWidget *widget, GdkEventButton *event, gpointer user_da
 		if (event->button == 1) {
 			return open_alarm_dialog (tray_data);
 		} else if (event->button == 3) {
-			GtkWidget *menu;
+			GtkMenu *menu;
+			GSList *menus = NULL;
+			EPopup *ep;
+			int i;
 
-			/* display popup menu */
-			menu = gtk_menu_new ();
-			add_popup_menu_item (GTK_MENU (menu), _("Open"), GTK_STOCK_OPEN,
-					     G_CALLBACK (popup_open_cb), tray_data);
-			add_popup_menu_item (GTK_MENU (menu), _("Dismiss"), NULL,
-					     G_CALLBACK (popup_dismiss_cb), tray_data);
-			add_popup_menu_item (GTK_MENU (menu), _("Dismiss All"), NULL,
-					     G_CALLBACK (popup_dismiss_all_cb), tray_data);
-			gtk_menu_popup (GTK_MENU (menu), NULL, NULL, NULL, NULL, event->button, event->time);
+			ep = e_popup_new("com.novell.evolution.alarmNotify.popup");
+			for (i=0;i<sizeof(tray_items)/sizeof(tray_items[0]);i++)
+				menus = g_slist_prepend(menus, &tray_items[i]);
+			e_popup_add_items(ep, menus, tray_popup_free, tray_data);
+			menu = e_popup_create_menu_once(ep, NULL, 0);
+			gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button, event->time);
 
 			return TRUE;
 		}
@@ -893,11 +900,12 @@ tray_icon_blink_cb (gpointer data)
 
 	tray_data->blink_state = tray_data->blink_state == TRUE ? FALSE : TRUE;
 	pixbuf = e_icon_factory_get_icon  (tray_data->blink_state == TRUE ?
-				 	   "stock_appointment-reminder-excl" :
-				 	   "stock_appointment-reminder",
-					   24);
+					   "stock_appointment-reminder-excl" :
+					   "stock_appointment-reminder",
+					   E_ICON_SIZE_LARGE_TOOLBAR);
+
 	gtk_image_set_from_pixbuf (GTK_IMAGE (tray_data->image), pixbuf);
-	gdk_pixbuf_unref (pixbuf);
+	g_object_unref (pixbuf);
 
 	return TRUE;
 }
@@ -909,7 +917,6 @@ display_notification (time_t trigger, CompQueuedAlarms *cqa,
 {
 	QueuedAlarm *qa;
 	ECalComponent *comp;
-	ECalComponentVType vtype;
 	const char *message;
 	ECalComponentAlarm *alarm;
 	GtkWidget *tray_icon, *image, *ebox;
@@ -924,9 +931,7 @@ display_notification (time_t trigger, CompQueuedAlarms *cqa,
 	qa = lookup_queued_alarm (cqa, alarm_id);
 	if (!qa)
 		return;
-
-	vtype = e_cal_component_get_vtype (comp);
-
+	
 	/* get a sensible description for the event */
 	alarm = e_cal_component_get_alarm (comp, qa->instance->auid);
 	g_assert (alarm != NULL);
@@ -947,9 +952,8 @@ display_notification (time_t trigger, CompQueuedAlarms *cqa,
 	/* create the tray icon */
 	tooltips = gtk_tooltips_new ();
 
-	/* FIXME: Use stock image equivalent when it becomes available */
 	tray_icon = egg_tray_icon_new (qa->instance->auid);
-	pixbuf = e_icon_factory_get_icon  ("stock_appointment-reminder", 24);
+	pixbuf = e_icon_factory_get_icon  ("stock_appointment-reminder", E_ICON_SIZE_LARGE_TOOLBAR);
 	image = gtk_image_new_from_pixbuf (pixbuf);
 	gdk_pixbuf_unref (pixbuf);
 	ebox = gtk_event_box_new ();
@@ -983,7 +987,7 @@ display_notification (time_t trigger, CompQueuedAlarms *cqa,
 	tray_data->alarm_id = alarm_id;
 	tray_data->comp = e_cal_component_clone (comp);
 	tray_data->client = cqa->parent_client->client;
-	tray_data->query = cqa->parent_client->query;
+	tray_data->query = g_object_ref (cqa->parent_client->query);
 	tray_data->image = image;
 	tray_data->blink_state = FALSE;
 	g_object_ref (tray_data->client);
@@ -998,9 +1002,13 @@ display_notification (time_t trigger, CompQueuedAlarms *cqa,
 	g_signal_connect (G_OBJECT (tray_data->query), "objects_removed",
 			  G_CALLBACK (on_dialog_objs_removed_cb), tray_data);
 
-	tray_data->blink_id = g_timeout_add (500, tray_icon_blink_cb, tray_data);
-
-	gtk_widget_show (tray_icon);
+	if (!config_data_get_notify_with_tray ()) {
+		tray_data->blink_id = -1;
+		open_alarm_dialog (tray_data);
+	} else {
+		tray_data->blink_id = g_timeout_add (500, tray_icon_blink_cb, tray_data);
+		gtk_widget_show (tray_icon);
+	}
 }
 
 /* Performs notification of an audio alarm */
@@ -1278,14 +1286,12 @@ alarm_queue_add_client (ECal *client)
 
 	ca->uid_alarms_hash = g_hash_table_new (g_str_hash, g_str_equal);
 
-	if (e_cal_get_load_state (client) != E_CAL_LOAD_LOADED)
+	if (e_cal_get_load_state (client) == E_CAL_LOAD_LOADED) {
+		load_alarms_for_today (ca);
+	} else {
 		g_signal_connect (client, "cal_opened",
 				  G_CALLBACK (cal_opened_cb),
 				  ca);
-
-	if (e_cal_get_load_state (client) == E_CAL_LOAD_LOADED) {
-		load_alarms_for_today (ca);
-		load_missed_alarms (ca);
 	}
 }
 

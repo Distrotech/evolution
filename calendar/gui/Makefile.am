@@ -115,6 +115,8 @@ libevolution_calendar_la_SOURCES =		\
 	e-alarm-list.h				\
 	e-cal-component-preview.c		\
 	e-cal-component-preview.h		\
+	e-cal-menu.c				\
+	e-cal-menu.h				\
 	e-cal-model-calendar.h			\
 	e-cal-model-calendar.c			\
 	e-cal-model-calendar.h			\
@@ -122,6 +124,8 @@ libevolution_calendar_la_SOURCES =		\
 	e-cal-model-tasks.h			\
 	e-cal-model.c				\
 	e-cal-model.h				\
+	e-cal-popup.h				\
+	e-cal-popup.c				\
 	e-calendar-view.c			\
 	e-calendar-view.h			\
 	e-cal-list-view.c			\
@@ -249,7 +253,7 @@ schema_DATA = $(schema_in_files:.schemas.in.in=-$(BASE_VERSION).schemas)
 EXTRA_DIST =	 			\
 	e-calendar-marshal.list		\
 	$(glade_DATA)			\
-	$(schema_DATA)                  \
+	$(schema_in_files)              \
 	$(etspec_DATA)			\
 	$(server_in_files)
 

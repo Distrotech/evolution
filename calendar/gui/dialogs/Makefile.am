@@ -32,10 +32,10 @@ noinst_LTLIBRARIES = libcal-dialogs.la
 
 libcal_dialogs_la_SOURCES =	\
 	$(IDL_GENERATED)	\
-	alarm-options.c		\
-	alarm-options.h		\
-	alarm-page.c		\
-	alarm-page.h		\
+	alarm-dialog.c		\
+	alarm-dialog.h		\
+	alarm-list-dialog.c	\
+	alarm-list-dialog.h	\
 	cal-prefs-dialog.c	\
 	cal-prefs-dialog.h	\
 	calendar-setup.c	\
@@ -86,8 +86,8 @@ libcal_dialogs_la_SOURCES =	\
 	url-editor-dialog.h	
 
 glade_DATA =				\
-	alarm-options.glade		\
-	alarm-page.glade		\
+	alarm-dialog.glade		\
+	alarm-list-dialog.glade		\
 	cal-prefs-dialog.glade		\
 	calendar-setup.glade		\
 	e-delegate-dialog.glade		\

@@ -28,16 +28,15 @@
  * edit the text.
  */
 
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif
 
 #include "e-util/e-categories-config.h"
 #include "e-week-view-event-item.h"
 
 #include <gtk/gtksignal.h>
 #include <gal/e-text/e-text.h>
-
-static void e_week_view_event_item_class_init	(EWeekViewEventItemClass *class);
-static void e_week_view_event_item_init		(EWeekViewEventItem *wveitem);
 
 static void e_week_view_event_item_set_arg	(GtkObject	 *o,
 						 GtkArg		 *arg,
@@ -89,8 +88,6 @@ static ECalendarViewPosition e_week_view_event_item_get_position (EWeekViewEvent
 							      gdouble y);
 
 
-static GnomeCanvasItemClass *parent_class;
-
 /* The arguments we take */
 enum {
 	ARG_0,
@@ -98,17 +95,13 @@ enum {
 	ARG_SPAN_NUM
 };
 
-E_MAKE_TYPE (e_week_view_event_item, "EWeekViewEventItem", EWeekViewEventItem,
-	     e_week_view_event_item_class_init, e_week_view_event_item_init,
-	     GNOME_TYPE_CANVAS_ITEM);
+G_DEFINE_TYPE (EWeekViewEventItem, e_week_view_event_item, GNOME_TYPE_CANVAS_ITEM);
 
 static void
 e_week_view_event_item_class_init (EWeekViewEventItemClass *class)
 {
 	GtkObjectClass  *object_class;
 	GnomeCanvasItemClass *item_class;
-
-	parent_class = g_type_class_peek_parent (class);
 
 	object_class = (GtkObjectClass *) class;
 	item_class = (GnomeCanvasItemClass *) class;
@@ -182,8 +175,8 @@ e_week_view_event_item_update (GnomeCanvasItem *item,
 	week_view = E_WEEK_VIEW (GTK_WIDGET (item->canvas)->parent);
 	g_return_if_fail (E_IS_WEEK_VIEW (week_view));
 
-	if (GNOME_CANVAS_ITEM_CLASS (parent_class)->update)
-		(* GNOME_CANVAS_ITEM_CLASS (parent_class)->update) (item, affine, clip_path, flags);
+	if (GNOME_CANVAS_ITEM_CLASS (e_week_view_event_item_parent_class)->update)
+		(* GNOME_CANVAS_ITEM_CLASS (e_week_view_event_item_parent_class)->update) (item, affine, clip_path, flags);
 
 	item->x1 = 0;
 	item->y1 = 0;
@@ -250,8 +243,13 @@ e_week_view_event_item_draw (GnomeCanvasItem  *canvas_item,
 	if (wveitem->event_num == -1 || wveitem->span_num == -1)
 		return;
 
+	g_return_if_fail(wveitem->event_num < week_view->events->len);
+
 	event = &g_array_index (week_view->events, EWeekViewEvent,
 				wveitem->event_num);
+
+	g_return_if_fail(event->spans_index + wveitem->span_num < week_view->spans->len);
+
 	span = &g_array_index (week_view->spans, EWeekViewEventSpan,
 			       event->spans_index + wveitem->span_num);
 
@@ -720,22 +718,39 @@ e_week_view_event_item_draw_triangle (EWeekViewEventItem *wveitem,
 				      gint		  h)
 {
 	EWeekView *week_view;
+	EWeekViewEvent *event;
 	GdkGC *gc;
+	GdkColor bg_color;
 	GdkPoint points[3];
 	gint c1, c2;
 
 	week_view = E_WEEK_VIEW (GTK_WIDGET (GNOME_CANVAS_ITEM (wveitem)->canvas)->parent);
+
+	event = &g_array_index (week_view->events, EWeekViewEvent,
+				wveitem->event_num);
 
 	gc = week_view->main_gc;
 
 	points[0].x = x;
 	points[0].y = y;
 	points[1].x = x + w;
-	points[1].y = y + (h / 2) - 1;
+	points[1].y = y + (h / 2);
 	points[2].x = x;
 	points[2].y = y + h - 1;
 
-	gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BACKGROUND]);
+	if (gdk_color_parse (e_cal_model_get_color_for_component (e_calendar_view_get_model (E_CALENDAR_VIEW (week_view)),
+								  event->comp_data),
+			     &bg_color)) {
+		GdkColormap *colormap;
+
+		colormap = gtk_widget_get_colormap (GTK_WIDGET (week_view));
+		if (gdk_colormap_alloc_color (colormap, &bg_color, TRUE, TRUE))
+			gdk_gc_set_foreground (gc, &bg_color);
+		else
+			gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BACKGROUND]);
+	} else
+		gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BACKGROUND]);
+
 	gdk_draw_polygon (drawable, gc, TRUE, points, 3);
 
 	gdk_gc_set_foreground (gc, &week_view->colors[E_WEEK_VIEW_COLOR_EVENT_BORDER]);

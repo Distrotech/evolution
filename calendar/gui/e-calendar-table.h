@@ -68,6 +68,9 @@ struct _ECalendarTable {
 
 struct _ECalendarTableClass {
 	GtkTableClass parent_class;
+
+	/* Notification signals */
+	void (* user_created) (ECalendarTable *cal_table);
 };
 
 
@@ -81,6 +84,8 @@ ETable    *e_calendar_table_get_table (ECalendarTable *cal_table);
 void       e_calendar_table_open_selected (ECalendarTable *cal_table);
 void       e_calendar_table_complete_selected (ECalendarTable *cal_table);
 void       e_calendar_table_delete_selected (ECalendarTable *cal_table);
+
+GSList    *e_calendar_table_get_selected (ECalendarTable *cal_table);
 
 /* Clipboard related functions */
 void       e_calendar_table_cut_clipboard       (ECalendarTable *cal_table);

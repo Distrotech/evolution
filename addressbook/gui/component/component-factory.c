@@ -40,13 +40,13 @@
 #define FACTORY_ID "OAFIID:GNOME_Evolution_Addressbook_Factory:" BASE_VERSION
 
 #define VCARD_CONTROL_ID               "OAFIID:GNOME_Evolution_Addressbook_VCard_Control:" BASE_VERSION
-#define ADDRESSBOOK_CONTROL_ID         "OAFIID:GNOME_Evolution_Addressbook_Control:" BASE_VERSION
 #define COMPONENT_ID                   "OAFIID:GNOME_Evolution_Addressbook_Component:" BASE_VERSION
 #define ADDRESS_POPUP_ID               "OAFIID:GNOME_Evolution_Addressbook_AddressPopup:" BASE_VERSION
 #define SELECT_NAMES_ID                "OAFIID:GNOME_Evolution_Addressbook_SelectNames:" BASE_VERSION
-#define LDAP_STORAGE_CONFIG_CONTROL_ID "OAFIID:GNOME_Evolution_LDAPStorage_ConfigControl:" BASE_VERSION
 #define COMPLETION_CONFIG_CONTROL_ID "OAFIID:GNOME_Evolution_Addressbook_Autocompletion_ConfigControl:" BASE_VERSION
 #define CERTIFICATE_MANAGER_CONFIG_CONTROL_ID "OAFIID:GNOME_Evolution_SMime_CertificateManager_ConfigControl:" BASE_VERSION
+
+#define d(x)
 
 
 static BonoboObject *
@@ -54,17 +54,10 @@ factory (BonoboGenericFactory *factory,
 	 const char *component_id,
 	 void *closure)
 {
-	printf ("asked to activate component_id `%s'\n", component_id);
+	d(printf ("asked to activate component_id `%s'\n", component_id));
 
 	if (strcmp (component_id, VCARD_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (eab_vcard_control_new ());
-	if (strcmp (component_id, ADDRESSBOOK_CONTROL_ID) == 0) {
-		AddressbookView *view;
-
-		/* FIXME: temporary hack, leaks a view */
-		view = addressbook_view_new ();
-		return BONOBO_OBJECT (addressbook_view_peek_folder_view (view));
-	}
 	if (strcmp (component_id, COMPONENT_ID) == 0) {
 		BonoboObject *object = BONOBO_OBJECT (addressbook_component_peek ());
 		bonobo_object_ref (object);
@@ -74,11 +67,6 @@ factory (BonoboGenericFactory *factory,
 		return BONOBO_OBJECT (eab_popup_control_new ());
 	if (strcmp (component_id, COMPLETION_CONFIG_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (autocompletion_config_control_new ());
-#if 0
-	/* Config control is dead */
-	if (strcmp (component_id, LDAP_STORAGE_CONFIG_CONTROL_ID) == 0)
-		return BONOBO_OBJECT (addressbook_config_control_new ());
-#endif
 	if (strcmp (component_id, SELECT_NAMES_ID) == 0)
 		return BONOBO_OBJECT (e_select_names_bonobo_new ());
 #ifdef ENABLE_SMIME

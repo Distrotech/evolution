@@ -31,6 +31,7 @@
 #include <bonobo/bonobo-exception.h>
 #include <gconf/gconf-client.h>
 #include <libecal/e-cal.h>
+#include <libedataserverui/e-source-selector.h>
 #include <shell/e-user-creatable-items-handler.h>
 #include "e-cal-model.h"
 #include "e-tasks.h"
@@ -40,18 +41,30 @@
 #include "migration.h"
 #include "comp-util.h"
 #include "calendar-config.h"
+#include "e-cal-popup.h"
 #include "common/authentication.h"
 #include "dialogs/calendar-setup.h"
 #include "dialogs/comp-editor.h"
 #include "dialogs/copy-source-dialog.h"
 #include "dialogs/task-editor.h"
-#include "widgets/misc/e-source-selector.h"
 #include "widgets/misc/e-info-label.h"
+#include "widgets/misc/e-error.h"
 #include "e-util/e-icon-factory.h"
 
-#define CREATE_TASK_ID      "task"
-#define CREATE_TASK_LIST_ID "task-list"
+#define CREATE_TASK_ID               "task"
+#define CREATE_TASK_ASSIGNED_ID      "task-assigned"
+#define CREATE_TASK_LIST_ID          "task-list"
 
+enum DndTargetType {
+	DND_TARGET_TYPE_CALENDAR_LIST,
+};
+#define CALENDAR_TYPE "text/calendar"
+#define XCALENDAR_TYPE "text/x-calendar"
+static GtkTargetEntry drag_types[] = {
+	{ CALENDAR_TYPE, 0, DND_TARGET_TYPE_CALENDAR_LIST },
+	{ XCALENDAR_TYPE, 0, DND_TARGET_TYPE_CALENDAR_LIST }
+};
+static gint num_drag_types = sizeof(drag_types) / sizeof(drag_types[0]);
 
 #define PARENT_TYPE bonobo_object_get_type ()
 
@@ -241,131 +254,111 @@ update_primary_selection (TasksComponentView *component_view)
 
 /* Callbacks.  */
 static void
-add_popup_menu_item (GtkMenu *menu, const char *label, const char *icon_name,
-		     GCallback callback, gpointer user_data, gboolean sensitive)
+copy_task_list_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
-	GtkWidget *item, *image;
-	GdkPixbuf *pixbuf;
-
-	if (icon_name) {
-		item = gtk_image_menu_item_new_with_label (label);
-
-		/* load the image */
-		pixbuf = e_icon_factory_get_icon (icon_name, 16);
-		image = gtk_image_new_from_pixbuf (pixbuf);
-
-		if (image) {
-			gtk_widget_show (image);
-			gtk_image_menu_item_set_image (GTK_IMAGE_MENU_ITEM (item), image);
-		}
-	} else {
-		item = gtk_menu_item_new_with_label (label);
-	}
-
-	if (callback)
-		g_signal_connect (G_OBJECT (item), "activate", callback, user_data);
-
-	if (!sensitive)
-		gtk_widget_set_sensitive (item, FALSE);
-
-	gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
-	gtk_widget_show (item);
-}
-
-static void
-copy_task_list_cb (GtkWidget *widget, TasksComponentView *component_view)
-{
+	TasksComponentView *component_view = data;
 	ESource *selected_source;
 	
 	selected_source = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (component_view->source_selector));
 	if (!selected_source)
 		return;
 
-	copy_source_dialog (GTK_WINDOW (gtk_widget_get_toplevel (widget)), selected_source, E_CAL_SOURCE_TYPE_TODO);
+	copy_source_dialog (GTK_WINDOW (gtk_widget_get_toplevel(ep->target->widget)), selected_source, E_CAL_SOURCE_TYPE_TODO);
 }
 
 static void
-delete_task_list_cb (GtkWidget *widget, TasksComponentView *component_view)
+delete_task_list_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	TasksComponentView *component_view = data;
 	ESource *selected_source;
-	GtkWidget *dialog;
+	ECal *cal;
+	char *uri;
 
 	selected_source = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (component_view->source_selector));
 	if (!selected_source)
 		return;
 
-	/* create the confirmation dialog */
-	dialog = gtk_message_dialog_new (
-		GTK_WINDOW (gtk_widget_get_toplevel (widget)),
-		GTK_DIALOG_MODAL,
-		GTK_MESSAGE_QUESTION,
-		GTK_BUTTONS_YES_NO,
-		_("Task List '%s' will be removed. Are you sure you want to continue?"),
-		e_source_peek_name (selected_source));
-	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_YES) {
-		ECal *cal;
-		char *uri;
+	if (e_error_run((GtkWindow *)gtk_widget_get_toplevel(ep->target->widget),
+			"calendar:prompt-delete-task-list", e_source_peek_name(selected_source)) != GTK_RESPONSE_YES)
+		return;
 
-		/* first, ask the backend to remove the task list */
-		uri = e_source_get_uri (selected_source);
-		cal = e_cal_model_get_client_for_uri (
-			e_calendar_table_get_model (E_CALENDAR_TABLE (e_tasks_get_calendar_table (component_view->tasks))),
-			uri);
-		if (!cal)
-			cal = e_cal_new_from_uri (uri, E_CAL_SOURCE_TYPE_TODO);
-		g_free (uri);
-		if (cal) {
-			if (e_cal_remove (cal, NULL)) {
-				if (e_source_selector_source_is_selected (E_SOURCE_SELECTOR (component_view->source_selector),
-									  selected_source)) {
-					e_tasks_remove_todo_source (component_view->tasks, selected_source);
-					e_source_selector_unselect_source (E_SOURCE_SELECTOR (component_view->source_selector),
-									   selected_source);
-				}
-
-				e_source_group_remove_source (e_source_peek_group (selected_source), selected_source);
-				e_source_list_sync (component_view->source_list, NULL);
+	/* first, ask the backend to remove the task list */
+	uri = e_source_get_uri (selected_source);
+	cal = e_cal_model_get_client_for_uri (
+		e_calendar_table_get_model (E_CALENDAR_TABLE (e_tasks_get_calendar_table (component_view->tasks))),
+		uri);
+	if (!cal)
+		cal = e_cal_new_from_uri (uri, E_CAL_SOURCE_TYPE_TODO);
+	g_free (uri);
+	if (cal) {
+		if (e_cal_remove (cal, NULL)) {
+			if (e_source_selector_source_is_selected (E_SOURCE_SELECTOR (component_view->source_selector),
+								  selected_source)) {
+				e_tasks_remove_todo_source (component_view->tasks, selected_source);
+				e_source_selector_unselect_source (E_SOURCE_SELECTOR (component_view->source_selector),
+								   selected_source);
 			}
+			
+			e_source_group_remove_source (e_source_peek_group (selected_source), selected_source);
+			e_source_list_sync (component_view->source_list, NULL);
 		}
 	}
-
-	gtk_widget_destroy (dialog);
 }
 
 static void
-new_task_list_cb (GtkWidget *widget, TasksComponentView *component_view)
+new_task_list_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
-	calendar_setup_new_task_list (GTK_WINDOW (gtk_widget_get_toplevel (widget)));
+	calendar_setup_new_task_list (GTK_WINDOW (gtk_widget_get_toplevel(ep->target->widget)));
 }
 
 static void
-edit_task_list_cb (GtkWidget *widget, TasksComponentView *component_view)
+edit_task_list_cb (EPopup *ep, EPopupItem *pitem, void *data)
 {
+	TasksComponentView *component_view = data;
 	ESource *selected_source;
 
 	selected_source = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (component_view->source_selector));
 	if (!selected_source)
 		return;
 
-	calendar_setup_edit_task_list (GTK_WINDOW (gtk_widget_get_toplevel (widget)), selected_source);
+	calendar_setup_edit_task_list (GTK_WINDOW (gtk_widget_get_toplevel(ep->target->widget)), selected_source);
 }
 
+static EPopupItem etc_source_popups[] = {
+	{ E_POPUP_ITEM, "10.new", N_("New Task List"), new_task_list_cb, NULL, "stock_todo", 0, 0 },
+	{ E_POPUP_ITEM, "15.copy", N_("Copy"), copy_task_list_cb, NULL, "stock_folder-copy", 0, E_CAL_POPUP_SOURCE_PRIMARY },
+	{ E_POPUP_ITEM, "20.delete", N_("Delete"), delete_task_list_cb, NULL, "stock_delete", 0, E_CAL_POPUP_SOURCE_USER|E_CAL_POPUP_SOURCE_PRIMARY },
+	{ E_POPUP_ITEM, "30.properties", N_("Properties..."), edit_task_list_cb, NULL, NULL, 0, E_CAL_POPUP_SOURCE_PRIMARY },
+};
+
 static void
-fill_popup_menu_cb (ESourceSelector *selector, GtkMenu *menu, TasksComponentView *component_view)
+etc_source_popup_free(EPopup *ep, GSList *list, void *data)
 {
-	gboolean sensitive;
+	g_slist_free(list);
+}
 
-	sensitive = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (component_view->source_selector)) ?
-		TRUE : FALSE;
+static gboolean
+popup_event_cb(ESourceSelector *selector, ESource *insource, GdkEventButton *event, TasksComponentView *component_view)
+{
+	ECalPopup *ep;
+	ECalPopupTargetSource *t;
+	GSList *menus = NULL;
+	int i;
+	GtkMenu *menu;
 
-	add_popup_menu_item (menu, _("New Task List"), "stock_todo",
-			     G_CALLBACK (new_task_list_cb), component_view, TRUE);
-	add_popup_menu_item (menu, _("Copy"), "stock_folder-copy",
-			     G_CALLBACK (copy_task_list_cb), component_view, sensitive);
-	add_popup_menu_item (menu, _("Delete"), "stock_delete", G_CALLBACK (delete_task_list_cb),
-			     component_view, sensitive);
-	add_popup_menu_item (menu, _("Properties..."), NULL, G_CALLBACK (edit_task_list_cb),
-			     component_view, sensitive);
+	ep = e_cal_popup_new("com.novell.evolution.tasks.source.popup");
+	t = e_cal_popup_target_new_source(ep, selector);
+	t->target.widget = (GtkWidget *)component_view->tasks;
+
+	for (i=0;i<sizeof(etc_source_popups)/sizeof(etc_source_popups[0]);i++)
+		menus = g_slist_prepend(menus, &etc_source_popups[i]);
+
+	e_popup_add_items((EPopup *)ep, menus, etc_source_popup_free, component_view);
+
+	menu = e_popup_create_menu_once((EPopup *)ep, (EPopupTarget *)t, 0);
+	gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event?event->button:0, event?event->time:gtk_get_current_event_time());
+
+	return TRUE;
 }
 
 static void
@@ -378,6 +371,12 @@ static void
 primary_source_selection_changed_cb (ESourceSelector *selector, TasksComponentView *component_view)
 {
 	update_uri_for_primary_selection (component_view);
+}
+
+static void
+source_added_cb (ETasks *tasks, ESource *source, TasksComponentView *component_view)
+{
+	e_source_selector_select_source (E_SOURCE_SELECTOR (component_view->source_selector), source);
 }
 
 static void
@@ -430,17 +429,241 @@ model_rows_deleted_cb (ETableModel *etm, int row, int count, TasksComponentView 
 
 /* Evolution::Component CORBA methods */
 
-static CORBA_boolean
+static void
 impl_upgradeFromVersion (PortableServer_Servant servant,
 			 CORBA_short major,
 			 CORBA_short minor,
 			 CORBA_short revision,
 			 CORBA_Environment *ev)
 {
+	GError *err = NULL;
 	TasksComponent *component = TASKS_COMPONENT (bonobo_object_from_servant (servant));
 
-	return migrate_tasks (component, major, minor, revision);
+	if (!migrate_tasks(component, major, minor, revision, &err)) {
+		GNOME_Evolution_Component_UpgradeFailed *failedex;
+
+		failedex = GNOME_Evolution_Component_UpgradeFailed__alloc();
+		failedex->what = CORBA_string_dup(_("Failed upgrading tasks."));
+		failedex->why = CORBA_string_dup(err->message);
+		CORBA_exception_set(ev, CORBA_USER_EXCEPTION, ex_GNOME_Evolution_Component_UpgradeFailed, failedex);
+	}
+
+	if (err)
+		g_error_free(err);
 }
+
+static gboolean
+selector_tree_drag_drop (GtkWidget *widget, 
+			 GdkDragContext *context, 
+			 int x, 
+			 int y, 
+			 guint time, 
+			 CalendarComponent *component)
+{
+	GtkTreeViewColumn *column;
+	int cell_x;
+	int cell_y;
+	GtkTreePath *path;
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	gpointer data;
+	
+	if (!gtk_tree_view_get_path_at_pos  (GTK_TREE_VIEW (widget), x, y, &path, 
+					     &column, &cell_x, &cell_y))
+		return FALSE;
+	
+	
+	model = gtk_tree_view_get_model (GTK_TREE_VIEW (widget));
+
+	if (!gtk_tree_model_get_iter (model, &iter, path)) {
+		gtk_tree_path_free (path);
+		return FALSE;
+	}
+
+	gtk_tree_model_get (model, &iter, 0, &data, -1);
+	
+	if (E_IS_SOURCE_GROUP (data)) {
+		g_object_unref (data);
+		gtk_tree_path_free (path);
+		return FALSE;
+	}
+	
+	gtk_tree_path_free (path);
+	return TRUE;
+}
+	
+static gboolean
+selector_tree_drag_motion (GtkWidget *widget,
+			   GdkDragContext *context,
+			   int x,
+			   int y,
+			   guint time,
+			   gpointer user_data)
+{
+	GtkTreePath *path = NULL;
+	gpointer data = NULL;
+	GtkTreeViewDropPosition pos;
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	GdkDragAction action = GDK_ACTION_DEFAULT;
+	
+	if (!gtk_tree_view_get_dest_row_at_pos (GTK_TREE_VIEW (widget),
+						x, y, &path, &pos))
+		goto finish;
+	
+	model = gtk_tree_view_get_model (GTK_TREE_VIEW (widget));
+	
+	if (!gtk_tree_model_get_iter (model, &iter, path))
+		goto finish;
+	
+	gtk_tree_model_get (model, &iter, 0, &data, -1);
+
+	if (E_IS_SOURCE_GROUP (data) || e_source_get_readonly (data))
+		goto finish;
+	
+	gtk_tree_view_set_drag_dest_row(GTK_TREE_VIEW (widget), path, GTK_TREE_VIEW_DROP_INTO_OR_BEFORE);
+	action = context->suggested_action;
+
+ finish:
+	if (path)
+		gtk_tree_path_free (path);
+	if (data)
+		g_object_unref (data);
+
+	gdk_drag_status (context, action, time);
+	return TRUE;
+}
+
+static gboolean
+update_single_object (ECal *client, icalcomponent *icalcomp)
+{
+	char *uid;
+	icalcomponent *tmp_icalcomp;
+
+	uid = (char *) icalcomponent_get_uid (icalcomp);
+	
+	if (e_cal_get_object (client, uid, NULL, &tmp_icalcomp, NULL))
+		return e_cal_modify_object (client, icalcomp, CALOBJ_MOD_ALL, NULL);
+
+	return e_cal_create_object (client, icalcomp, &uid, NULL);	
+}
+
+static gboolean
+update_objects (ECal *client, icalcomponent *icalcomp)
+{
+	icalcomponent *subcomp;
+	icalcomponent_kind kind;
+
+	kind = icalcomponent_isa (icalcomp);
+	if (kind == ICAL_VTODO_COMPONENT || kind == ICAL_VEVENT_COMPONENT)
+		return update_single_object (client, icalcomp);
+	else if (kind != ICAL_VCALENDAR_COMPONENT)
+		return FALSE;
+
+	subcomp = icalcomponent_get_first_component (icalcomp, ICAL_ANY_COMPONENT);
+	while (subcomp) {
+		gboolean success;
+		
+		kind = icalcomponent_isa (subcomp);
+		if (kind == ICAL_VTIMEZONE_COMPONENT) {
+			icaltimezone *zone;
+
+			zone = icaltimezone_new ();
+			icaltimezone_set_component (zone, subcomp);
+
+			success = e_cal_add_timezone (client, zone, NULL);
+			icaltimezone_free (zone, 1);
+			if (!success)
+				return success;
+		} else if (kind == ICAL_VTODO_COMPONENT ||
+			   kind == ICAL_VEVENT_COMPONENT) {
+			success = update_single_object (client, subcomp);
+			if (!success)
+				return success;
+		}
+
+		subcomp = icalcomponent_get_next_component (icalcomp, ICAL_ANY_COMPONENT);
+	}
+
+	return TRUE;
+}
+
+static void
+selector_tree_drag_data_received (GtkWidget *widget, 
+				  GdkDragContext *context, 
+				  gint x, 
+				  gint y, 
+				  GtkSelectionData *data,
+				  guint info,
+				  guint time,
+				  gpointer user_data)
+{
+	GtkTreePath *path = NULL;
+	GtkTreeViewDropPosition pos;
+	gpointer source = NULL;
+	GtkTreeModel *model;
+	GtkTreeIter iter;
+	gboolean success = FALSE;
+	icalcomponent *icalcomp = NULL;
+	ECal *client = NULL;
+
+	if (!gtk_tree_view_get_dest_row_at_pos (GTK_TREE_VIEW (widget),
+						x, y, &path, &pos))
+		goto finish;
+	
+	model = gtk_tree_view_get_model (GTK_TREE_VIEW (widget));
+	
+	if (!gtk_tree_model_get_iter (model, &iter, path))
+		goto finish;
+       
+	
+	gtk_tree_model_get (model, &iter, 0, &source, -1);
+
+	if (E_IS_SOURCE_GROUP (source) || e_source_get_readonly (source))
+		goto finish;
+
+	icalcomp = icalparser_parse_string (data->data);
+	
+	if (icalcomp) {
+		char * uid;
+
+		/* FIXME deal with GDK_ACTION_ASK */
+		if (context->action == GDK_ACTION_COPY) {
+			uid = e_cal_component_gen_uid ();
+			icalcomponent_set_uid (icalcomp, uid);
+		}
+
+		client = auth_new_cal_from_source (source, 
+						   E_CAL_SOURCE_TYPE_TODO);
+		
+		if (client) {
+			if (e_cal_open (client, TRUE, NULL)) {
+				success = TRUE;
+				update_objects (client, icalcomp);
+			}
+			
+			g_object_unref (client);
+		}
+		
+		icalcomponent_free (icalcomp);
+	}
+
+ finish:
+	if (source)
+		g_object_unref (source);
+	if (path)
+		gtk_tree_path_free (path);
+
+	gtk_drag_finish (context, success, context->action == GDK_ACTION_MOVE, time);
+}	
+
+static void
+selector_tree_drag_leave (GtkWidget *widget, GdkDragContext *context, guint time, gpointer data)
+{
+	gtk_tree_view_set_drag_dest_row(GTK_TREE_VIEW (widget), 
+					NULL, GTK_TREE_VIEW_DROP_BEFORE);
+}
+
 
 static void
 control_activate_cb (BonoboControl *control, gboolean activate, gpointer data)
@@ -507,6 +730,8 @@ setup_create_ecal (TasksComponent *component, TasksComponentView *component_view
 	}
 		
 	if (priv->create_ecal) {
+		icaltimezone *zone;
+
 		if (!e_cal_open (priv->create_ecal, FALSE, NULL)) {
 			GtkWidget *dialog;
 			
@@ -519,6 +744,9 @@ setup_create_ecal (TasksComponent *component, TasksComponentView *component_view
 
 			return NULL;
 		}
+
+		zone = calendar_config_get_icaltimezone ();
+		e_cal_set_default_timezone (priv->create_ecal, zone, NULL);
 	} else {
 		GtkWidget *dialog;
 			
@@ -543,13 +771,12 @@ setup_create_ecal (TasksComponent *component, TasksComponentView *component_view
 }
 
 static gboolean
-create_new_todo (TasksComponent *task_component, TasksComponentView *component_view)
+create_new_todo (TasksComponent *task_component, gboolean is_assigned, TasksComponentView *component_view)
 {
 	ECal *ecal;
 	TasksComponentPrivate *priv;
 	ECalComponent *comp;
 	TaskEditor *editor;
-	gboolean read_only;
 	
 	priv = task_component->priv;
 	
@@ -557,21 +784,12 @@ create_new_todo (TasksComponent *task_component, TasksComponentView *component_v
 	if (!ecal)
 		return FALSE;
 
-	if (!e_cal_is_read_only (ecal, &read_only, NULL) || read_only) {
-		GtkWidget *dialog;
-			
-		dialog = gtk_message_dialog_new (NULL, GTK_DIALOG_MODAL,
-						 GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
-						 _("Selected task list is read-only, events cannot be created. Please select a read-write calendar."));
-		gtk_dialog_run (GTK_DIALOG (dialog));
-		gtk_widget_destroy (dialog);
-		return TRUE;
-	}
-
 	editor = task_editor_new (ecal);
 	comp = cal_comp_task_new_with_defaults (ecal);
 
 	comp_editor_edit_comp (COMP_EDITOR (editor), comp);
+	if (is_assigned)
+		task_editor_show_assignment (editor);
 	comp_editor_focus (COMP_EDITOR (editor));
 
 	e_comp_editor_registry_add (comp_editor_registry, COMP_EDITOR (editor), TRUE);
@@ -599,7 +817,9 @@ create_local_item_cb (EUserCreatableItemsHandler *handler, const char *item_type
 	}
 	
 	if (strcmp (item_type_name, CREATE_TASK_ID) == 0) {
-		create_new_todo (tasks_component, component_view);
+		create_new_todo (tasks_component, FALSE, component_view);
+	} else if (strcmp (item_type_name, CREATE_TASK_ASSIGNED_ID) == 0) {
+		create_new_todo (tasks_component, TRUE, component_view);
 	} else if (strcmp (item_type_name, CREATE_TASK_LIST_ID) == 0) {
 		calendar_setup_new_task_list (GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (component_view->tasks))));
 	}
@@ -623,6 +843,20 @@ create_component_view (TasksComponent *tasks_component)
 	
 	/* Create sidebar selector */
 	component_view->source_selector = e_source_selector_new (tasks_component->priv->source_list);
+	e_source_selector_set_select_new ((ESourceSelector *)component_view->source_selector, TRUE);
+
+	g_signal_connect (component_view->source_selector, "drag-motion", G_CALLBACK (selector_tree_drag_motion), 
+			  tasks_component);
+	g_signal_connect (component_view->source_selector, "drag-leave", G_CALLBACK (selector_tree_drag_leave), 
+			  tasks_component);
+	g_signal_connect (component_view->source_selector, "drag-drop", G_CALLBACK (selector_tree_drag_drop), 
+			  tasks_component);
+	g_signal_connect (component_view->source_selector, "drag-data-received", 
+			  G_CALLBACK (selector_tree_drag_data_received), tasks_component);
+
+	gtk_drag_dest_set(component_view->source_selector, GTK_DEST_DEFAULT_ALL, drag_types,
+			  num_drag_types, GDK_ACTION_COPY | GDK_ACTION_MOVE);
+
 	gtk_widget_show (component_view->source_selector);
 
 	selector_scrolled_window = gtk_scrolled_window_new (NULL, NULL);
@@ -657,6 +891,8 @@ create_component_view (TasksComponent *tasks_component)
 	component_view->model = E_TABLE_MODEL (e_calendar_table_get_model (e_tasks_get_calendar_table (component_view->tasks)));
 
 	/* This signal is thrown if backends die - we update the selector */
+	g_signal_connect (component_view->tasks, "source_added", 
+			  G_CALLBACK (source_added_cb), component_view);
 	g_signal_connect (component_view->tasks, "source_removed", 
 			  G_CALLBACK (source_removed_cb), component_view);
 
@@ -676,8 +912,8 @@ create_component_view (TasksComponent *tasks_component)
 			  G_CALLBACK (source_selection_changed_cb), component_view);
 	g_signal_connect (component_view->source_selector, "primary_selection_changed",
 			  G_CALLBACK (primary_source_selection_changed_cb), component_view);
-	g_signal_connect (component_view->source_selector, "fill_popup_menu",
-			  G_CALLBACK (fill_popup_menu_cb), component_view);
+	g_signal_connect (component_view->source_selector, "popup_event",
+			  G_CALLBACK (popup_event_cb), component_view);
 
 	/* Set up the "new" item handler */
 	component_view->creatable_items_handler = e_user_creatable_items_handler_new ("tasks", create_local_item_cb, tasks_component);
@@ -783,7 +1019,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 {
 	GNOME_Evolution_CreatableItemTypeList *list = GNOME_Evolution_CreatableItemTypeList__alloc ();
 
-	list->_length  = 2;
+	list->_length  = 3;
 	list->_maximum = list->_length;
 	list->_buffer  = GNOME_Evolution_CreatableItemTypeList_allocbuf (list->_length);
 
@@ -797,13 +1033,21 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 	list->_buffer[0].iconName = "stock_task";
 	list->_buffer[0].type = GNOME_Evolution_CREATABLE_OBJECT;
 
-	list->_buffer[1].id = CREATE_TASK_LIST_ID;
-	list->_buffer[1].description = _("New tasks group");
-	list->_buffer[1].menuDescription = _("_Tasks Group");
-	list->_buffer[1].tooltip = _("Create a new tasks group");
-	list->_buffer[1].menuShortcut = 'n';
-	list->_buffer[1].iconName = "stock_todo";
-	list->_buffer[1].type = GNOME_Evolution_CREATABLE_FOLDER;
+	list->_buffer[1].id = CREATE_TASK_ASSIGNED_ID;
+	list->_buffer[1].description = _("New assigned task");
+	list->_buffer[1].menuDescription = _("Assigne_d Task");
+	list->_buffer[1].tooltip = _("Create a new assigned task");
+	list->_buffer[1].menuShortcut = 'd';
+	list->_buffer[1].iconName = "stock_task";
+	list->_buffer[1].type = GNOME_Evolution_CREATABLE_OBJECT;
+
+	list->_buffer[2].id = CREATE_TASK_LIST_ID;
+	list->_buffer[2].description = _("New task list");
+	list->_buffer[2].menuDescription = _("Task l_ist");
+	list->_buffer[2].tooltip = _("Create a new task list");
+	list->_buffer[2].menuShortcut = 'i';
+	list->_buffer[2].iconName = "stock_todo";
+	list->_buffer[2].type = GNOME_Evolution_CREATABLE_FOLDER;
 
 	return list;
 }
@@ -819,7 +1063,10 @@ impl_requestCreateItem (PortableServer_Servant servant,
 	priv = tasks_component->priv;	
 	
 	if (strcmp (item_type_name, CREATE_TASK_ID) == 0) {
-		if (!create_new_todo (tasks_component, NULL))
+		if (!create_new_todo (tasks_component, FALSE, NULL))
+			bonobo_exception_set (ev, ex_GNOME_Evolution_Component_Failed);
+	} else if (strcmp (item_type_name, CREATE_TASK_ASSIGNED_ID) == 0) {
+		if (!create_new_todo (tasks_component, TRUE, NULL))
 			bonobo_exception_set (ev, ex_GNOME_Evolution_Component_Failed);
 	} else if (strcmp (item_type_name, CREATE_TASK_LIST_ID) == 0) {
 		/* FIXME Should we use the last opened window? */

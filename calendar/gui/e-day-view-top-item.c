@@ -25,16 +25,15 @@
  * EDayViewTopItem - displays the top part of the Day/Work Week calendar view.
  */
 
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif
+
 #include <glib.h>
 #include <libgnome/gnome-i18n.h>
-#include <gal/util/e-util.h>
 #include "e-util/e-categories-config.h"
 #include <libecal/e-cal-time-util.h>
 #include "e-day-view-top-item.h"
-
-static void e_day_view_top_item_class_init	(EDayViewTopItemClass *class);
-static void e_day_view_top_item_init		(EDayViewTopItem *dvtitem);
 
 static void e_day_view_top_item_set_arg		(GtkObject	 *o,
 						 GtkArg		 *arg,
@@ -61,7 +60,8 @@ static void e_day_view_top_item_draw_triangle	(EDayViewTopItem *dvtitem,
 						 gint		  x,
 						 gint		  y,
 						 gint		  w,
-						 gint		  h);
+						 gint		  h,
+						 gint             event_num);
 static double e_day_view_top_item_point		(GnomeCanvasItem *item,
 						 double		  x,
 						 double		  y,
@@ -72,24 +72,19 @@ static gint e_day_view_top_item_event		(GnomeCanvasItem *item,
 						 GdkEvent	 *event);
 
 
-static GnomeCanvasItemClass *parent_class;
-
 /* The arguments we take */
 enum {
 	ARG_0,
 	ARG_DAY_VIEW
 };
 
-E_MAKE_TYPE (e_day_view_top_item, "EDayViewTopItem", EDayViewTopItem, e_day_view_top_item_class_init,
-	     e_day_view_top_item_init, GNOME_TYPE_CANVAS_ITEM);
+G_DEFINE_TYPE (EDayViewTopItem, e_day_view_top_item, GNOME_TYPE_CANVAS_ITEM);
 
 static void
 e_day_view_top_item_class_init (EDayViewTopItemClass *class)
 {
 	GtkObjectClass  *object_class;
 	GnomeCanvasItemClass *item_class;
-
-	parent_class = g_type_class_peek_parent (class);
 
 	object_class = (GtkObjectClass *) class;
 	item_class = (GnomeCanvasItemClass *) class;
@@ -138,8 +133,8 @@ e_day_view_top_item_update (GnomeCanvasItem *item,
 			    ArtSVP	    *clip_path,
 			    int		     flags)
 {
-	if (GNOME_CANVAS_ITEM_CLASS (parent_class)->update)
-		(* GNOME_CANVAS_ITEM_CLASS (parent_class)->update) (item, affine, clip_path, flags);
+	if (GNOME_CANVAS_ITEM_CLASS (e_day_view_top_item_parent_class)->update)
+		(* GNOME_CANVAS_ITEM_CLASS (e_day_view_top_item_parent_class)->update) (item, affine, clip_path, flags);
 
 	/* The item covers the entire canvas area. */
 	item->x1 = 0;
@@ -397,7 +392,7 @@ e_day_view_top_item_draw_long_event (EDayViewTopItem *dvtitem,
 		e_day_view_top_item_draw_triangle (dvtitem, drawable,
 						   item_x - x, item_y - y,
 						   -E_DAY_VIEW_BAR_WIDTH,
-						   item_h);
+						   item_h, event_num);
 	} else {
 		gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BORDER]);
 		gdk_draw_line (drawable, gc,
@@ -412,7 +407,7 @@ e_day_view_top_item_draw_long_event (EDayViewTopItem *dvtitem,
 						   item_x + item_w - 1 - x,
 						   item_y - y,
 						   E_DAY_VIEW_BAR_WIDTH,
-						   item_h);
+						   item_h, event_num);
 	} else {
 		gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BORDER]);
 		gdk_draw_line (drawable, gc,
@@ -595,11 +590,14 @@ e_day_view_top_item_draw_triangle (EDayViewTopItem *dvtitem,
 				   gint		    x,
 				   gint		    y,
 				   gint		    w,
-				   gint		    h)
+				   gint		    h,
+				   gint             event_num)
 {
 	EDayView *day_view;
+	EDayViewEvent *event;
 	GtkStyle *style;
 	GdkGC *gc;
+	GdkColor bg_color;
 	GdkPoint points[3];
 	gint c1, c2;
 
@@ -611,7 +609,7 @@ e_day_view_top_item_draw_triangle (EDayViewTopItem *dvtitem,
 	points[0].x = x;
 	points[0].y = y;
 	points[1].x = x + w;
-	points[1].y = y + (h / 2) - 1;
+	points[1].y = y + (h / 2);
 	points[2].x = x;
 	points[2].y = y + h - 1;
 
@@ -621,7 +619,23 @@ e_day_view_top_item_draw_triangle (EDayViewTopItem *dvtitem,
 	if (h % 2 == 0)
 		c1--;
 
-	gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BACKGROUND]);
+	event = &g_array_index (day_view->long_events, EDayViewEvent,
+				event_num);
+
+	/* Fill it in. */
+	if (gdk_color_parse (e_cal_model_get_color_for_component (e_calendar_view_get_model (E_CALENDAR_VIEW (day_view)),
+								  event->comp_data),
+			     &bg_color)) {
+		GdkColormap *colormap;
+
+		colormap = gtk_widget_get_colormap (GTK_WIDGET (day_view));
+		if (gdk_colormap_alloc_color (colormap, &bg_color, TRUE, TRUE))
+			gdk_gc_set_foreground (gc, &bg_color);
+		else
+			gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BACKGROUND]);
+	} else
+		gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BACKGROUND]);
+
 	gdk_draw_polygon (drawable, gc, TRUE, points, 3);
 
 	gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BORDER]);

@@ -40,16 +40,17 @@
 #include <bonobo/bonobo-object.h>
 #include <bonobo/bonobo-exception.h>
 #include <gtkhtml/gtkhtml.h>
+#include <gtkhtml/gtkhtml-embedded.h>
 #include <gtkhtml/gtkhtml-stream.h>
 #include <libedataserver/e-source-list.h>
+#include <libedataserverui/e-source-option-menu.h>
 #include <libical/ical.h>
 #include <libecal/e-cal-component.h>
 #include <libecal/e-cal-time-util.h>
 #include <libecal/e-cal.h>
 #include <e-util/e-time-utils.h>
 #include <e-util/e-dialog-widgets.h>
-#include <camel/camel-mime-filter-tohtml.h>
-#include <widgets/misc/e-source-option-menu.h>
+#include <e-util/e-html-utils.h>
 #include "dialogs/delete-error.h"
 #include "calendar-config.h"
 #include "itip-utils.h"
@@ -66,6 +67,13 @@ struct _EItipControlPrivate {
 	ECal *current_ecal;
 	ECalSourceType type;
 
+	char action;
+	gboolean rsvp;
+
+	GtkWidget *ok;
+	GtkWidget *hbox;
+	GtkWidget *vbox;
+	
 	char *vcalendar;
 	ECalComponent *comp;
 	icalcomponent *main_comp;
@@ -86,9 +94,9 @@ struct _EItipControlPrivate {
 	gchar *delegator_name;
 	gchar *my_address;
 	gint   view_only;
-
-	gboolean destroyed;
 };
+
+#define ACTION_DATA "EItipControl:Action"
 
 /* HTML Strings */
 #define HTML_BODY_START "<body bgcolor=\"#ffffff\" text=\"#000000\" link=\"#336699\">"
@@ -96,22 +104,17 @@ struct _EItipControlPrivate {
 #define HTML_BODY_END   "</body>"
 #define HTML_FOOTER     "</html>"
 
-static void class_init	(EItipControlClass	 *klass);
-static void init	(EItipControl		 *itip);
-static void destroy	(GtkObject               *obj);
-static void finalize	(GObject               *obj);
+static void e_itip_control_destroy	(GtkObject               *obj);
 
+static void find_my_address (EItipControl *itip, icalcomponent *ical_comp, icalparameter_partstat *status);
 static void url_requested_cb (GtkHTML *html, const gchar *url, GtkHTMLStream *handle, gpointer data);
 static gboolean object_requested_cb (GtkHTML *html, GtkHTMLEmbedded *eb, gpointer data);
-static void ok_clicked_cb (GtkHTML *html, const gchar *method, const gchar *url, const gchar *encoding, gpointer data);
+static void ok_clicked_cb (GtkWidget *widget, gpointer data);
 
-static GtkVBoxClass *parent_class = NULL;
-
-E_MAKE_TYPE (e_itip_control, "EItipControl", EItipControl, class_init, init,
-	     GTK_TYPE_VBOX);
+G_DEFINE_TYPE (EItipControl, e_itip_control, GTK_TYPE_VBOX);
 
 static void
-class_init (EItipControlClass *klass)
+e_itip_control_class_init (EItipControlClass *klass)
 {
 	GObjectClass *object_class;
 	GtkObjectClass *gtkobject_class;
@@ -119,15 +122,59 @@ class_init (EItipControlClass *klass)
 	object_class = G_OBJECT_CLASS (klass);
 	gtkobject_class = GTK_OBJECT_CLASS (klass);
 	
-	parent_class = g_type_class_peek_parent (klass);
-
-	gtkobject_class->destroy = destroy;
-
-	object_class->finalize = finalize;
+	gtkobject_class->destroy = e_itip_control_destroy;
 }
 
+static void
+set_ok_sens (EItipControl *itip)
+{
+	EItipControlPrivate *priv;
+	gboolean read_only = TRUE;
+	
+	priv = itip->priv;
+
+	if (!priv->ok)
+		return;
+	
+	if (priv->current_ecal)
+		e_cal_is_read_only (priv->current_ecal, &read_only, NULL);
+	
+	gtk_widget_set_sensitive (priv->ok, priv->current_ecal != NULL && !read_only);
+}
+
+static void
+cal_opened_cb (ECal *ecal, ECalendarStatus status, gpointer data)
+{
+	EItipControl *itip = data;
+	EItipControlPrivate *priv;
+	ESource *source;
+	ECalSourceType source_type;
+	icaltimezone *zone;
+
+	priv = itip->priv;
+
+	source_type = e_cal_get_source_type (ecal);
+	source = e_cal_get_source (ecal);
+	
+	g_signal_handlers_disconnect_matched (ecal, G_SIGNAL_MATCH_FUNC, 0, 0, NULL, cal_opened_cb, NULL);
+
+	if (status != E_CALENDAR_STATUS_OK) {
+		g_hash_table_remove (priv->ecals[source_type], e_source_peek_uid (source));
+
+		return;
+	}
+
+	zone = calendar_config_get_icaltimezone ();
+	e_cal_set_default_timezone (ecal, zone, NULL);
+
+	priv->current_ecal = ecal;
+	set_ok_sens (itip);
+}
+
+typedef void (* EItipControlOpenFunc) (ECal *ecal, ECalendarStatus status, gpointer data);
+
 static ECal *
-start_calendar_server (EItipControl *itip, ESource *source, ECalSourceType type)
+start_calendar_server (EItipControl *itip, ESource *source, ECalSourceType type, EItipControlOpenFunc func, gpointer data)
 {
 	EItipControlPrivate *priv;
 	ECal *ecal;
@@ -135,15 +182,19 @@ start_calendar_server (EItipControl *itip, ESource *source, ECalSourceType type)
 	priv = itip->priv;
 	
 	ecal = g_hash_table_lookup (priv->ecals[type], e_source_peek_uid (source));
-	if (ecal)
-		return ecal;
+	if (ecal) {
+		priv->current_ecal = ecal;
+		set_ok_sens (itip);
+		return ecal;		
+	}
 	
 	ecal = auth_new_cal_from_source (source, type);
-	if (!e_cal_open (ecal, TRUE, NULL))
-		return NULL;
-	
+	g_signal_connect (G_OBJECT (ecal), "cal_opened", G_CALLBACK (func), data);
+
 	g_hash_table_insert (priv->ecals[type], g_strdup (e_source_peek_uid (source)), ecal);
 	
+	e_cal_open_async (ecal, TRUE);
+
 	return ecal;
 }
 
@@ -160,16 +211,121 @@ start_calendar_server_by_uid (EItipControl *itip, const char *uid, ECalSourceTyp
 
 		source = e_source_list_peek_source_by_uid (priv->source_lists[i], uid);
 		if (source)
-			return start_calendar_server (itip, source, type);
+			return start_calendar_server (itip, source, type, cal_opened_cb, itip);
 	}
 	
 	return NULL;
 }
 
-static ECal *
-find_server (EItipControl *itip, ECalComponent *comp)
+typedef struct {
+	EItipControl *itip;	
+	char *uid;
+	int count;
+	gboolean show_selector;
+} EItipControlFindData;
+
+static void
+source_selected_cb (ESourceOptionMenu *esom, ESource *source, gpointer data)
+{
+	EItipControl *itip = data;
+	EItipControlPrivate *priv;
+	
+	priv = itip->priv;
+
+	if (priv->ok)
+		gtk_widget_set_sensitive (priv->ok, FALSE);
+
+	start_calendar_server (itip, source, priv->type, cal_opened_cb, itip);
+}
+
+static void
+find_cal_opened_cb (ECal *ecal, ECalendarStatus status, gpointer data)
+{
+	EItipControlFindData *fd = data;
+	EItipControlPrivate *priv;
+	ESource *source;
+	ECalSourceType source_type;
+	icalcomponent *icalcomp;
+	icaltimezone *zone;
+
+	source_type = e_cal_get_source_type (ecal);
+	source = e_cal_get_source (ecal);
+
+	priv = fd->itip->priv;
+	
+	fd->count--;
+	
+	g_signal_handlers_disconnect_matched (ecal, G_SIGNAL_MATCH_FUNC, 0, 0, NULL, find_cal_opened_cb, NULL);
+
+	if (status != E_CALENDAR_STATUS_OK) {
+		g_hash_table_remove (priv->ecals[source_type], e_source_peek_uid (source));
+
+		goto cleanup;
+	}
+
+	if (e_cal_get_object (ecal, fd->uid, NULL, &icalcomp, NULL)) {
+		icalcomponent_free (icalcomp);
+		
+		priv->current_ecal = ecal;
+		set_ok_sens (fd->itip);
+	}
+
+	zone = calendar_config_get_icaltimezone ();
+	e_cal_set_default_timezone (ecal, zone, NULL);
+
+ cleanup:
+	if (fd->count == 0) {
+		if (fd->show_selector && !priv->current_ecal && priv->vbox) {
+			GtkWidget *esom;
+			ESource *source = NULL;
+			char *uid;
+
+			switch (priv->type) {
+			case E_CAL_SOURCE_TYPE_EVENT:
+				uid = calendar_config_get_primary_calendar ();
+				break;
+			case E_CAL_SOURCE_TYPE_TODO:
+				uid = calendar_config_get_primary_tasks ();
+				break;
+			default:
+				uid = NULL;
+				g_assert_not_reached ();
+			}	
+	
+			if (uid) {
+				source = e_source_list_peek_source_by_uid (priv->source_lists[priv->type], uid);
+				g_free (uid);
+			}
+
+			/* Try to create a default if there isn't one */
+			if (!source)
+				source = e_source_list_peek_source_any (priv->source_lists[priv->type]);
+
+			esom = e_source_option_menu_new (priv->source_lists[priv->type]);
+			g_signal_connect_object (esom, "source_selected",
+						 G_CALLBACK (source_selected_cb), 
+						 fd->itip, 0);
+
+			gtk_box_pack_start (GTK_BOX (priv->vbox), esom, FALSE, TRUE, 0);
+			gtk_widget_show (esom);
+
+			/* FIXME What if there is no source? */
+			if (source)
+				e_source_option_menu_select (E_SOURCE_OPTION_MENU (esom), source);
+		} else {
+			/* FIXME Display error message to user */
+		}
+		
+		g_free (fd->uid);
+		g_free (fd);
+	}
+}
+
+static void
+find_server (EItipControl *itip, ECalComponent *comp, gboolean show_selector)
 {
 	EItipControlPrivate *priv;
+	EItipControlFindData *fd = NULL;
 	GSList *groups, *l;
 	const char *uid;
 
@@ -183,31 +339,35 @@ find_server (EItipControl *itip, ECalComponent *comp)
 		GSList *sources, *m;
 		
 		group = l->data;
-		
+
 		sources = e_source_group_peek_sources (group);
 		for (m = sources; m; m = m->next) {
 			ESource *source;
 			ECal *ecal;
-			icalcomponent *icalcomp;
-			GError *error = NULL;
 			
 			source = m->data;
-			ecal = start_calendar_server (itip, source, priv->type);
 			
-			if (ecal && e_cal_get_object (ecal, uid, NULL, &icalcomp, &error)) {
-				if (error && error->code == E_CALENDAR_STATUS_OK) {
-					icalcomponent_free (icalcomp);
-					g_error_free (error);
-
-					return ecal;
-				}
-
-				g_clear_error (&error);
+			if (!fd) {
+				fd = g_new0 (EItipControlFindData, 1);
+				fd->itip = itip;
+				fd->uid = g_strdup (uid);
+				fd->show_selector = show_selector;
 			}
+			fd->count++;
+
+			ecal = start_calendar_server (itip, source, priv->type, find_cal_opened_cb, fd);				
 		}		
 	}
+}
 
-	return NULL;
+static void
+cleanup_ecal (ECal *ecal) 
+{
+	/* Clean up any signals */
+	g_signal_handlers_disconnect_matched (ecal, G_SIGNAL_MATCH_FUNC, 0, 0, NULL, cal_opened_cb, NULL);
+	g_signal_handlers_disconnect_matched (ecal, G_SIGNAL_MATCH_FUNC, 0, 0, NULL, find_cal_opened_cb, NULL);
+	
+	g_object_unref (ecal);
 }
 
 static void
@@ -222,7 +382,7 @@ html_destroyed (gpointer data)
 }
 
 static void
-init (EItipControl *itip)
+e_itip_control_init (EItipControl *itip)
 {
 	EItipControlPrivate *priv;
 	GtkWidget *scrolled_window;
@@ -243,7 +403,7 @@ init (EItipControl *itip)
 	
 	/* Initialize the ecal hashes */
 	for (i = 0; i < E_CAL_SOURCE_TYPE_LAST; i++)
-		priv->ecals[i] = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);;
+		priv->ecals[i] = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, cleanup_ecal);
 	priv->current_ecal = NULL;
 
 	/* Other fields to init */
@@ -268,15 +428,13 @@ init (EItipControl *itip)
 	gtk_widget_show (scrolled_window);
 
 	gtk_container_add (GTK_CONTAINER (scrolled_window), priv->html);
-	gtk_object_weakref (GTK_OBJECT (priv->html), html_destroyed, itip);
+	g_object_weak_ref (G_OBJECT (priv->html), (GWeakNotify)html_destroyed, itip);
 	gtk_widget_set_usize (scrolled_window, 600, 400);
 	gtk_box_pack_start (GTK_BOX (itip), scrolled_window, FALSE, FALSE, 6);
 
 	g_signal_connect (priv->html, "url_requested", G_CALLBACK (url_requested_cb), itip);
 	g_signal_connect (priv->html, "object_requested", G_CALLBACK (object_requested_cb), itip);
 	g_signal_connect (priv->html, "submit", G_CALLBACK (ok_clicked_cb), itip);
-
-	priv->destroyed = FALSE;
 }
 
 static void
@@ -324,46 +482,37 @@ clean_up (EItipControl *itip)
 }
 
 static void
-destroy (GtkObject *obj)
+e_itip_control_destroy (GtkObject *obj)
 {
 	EItipControl *itip = E_ITIP_CONTROL (obj);
 	EItipControlPrivate *priv;
-
-	priv = itip->priv;
-
-	priv->destroyed = TRUE;
-
-	(* GTK_OBJECT_CLASS (parent_class)->destroy) (obj);
-}
-
-static void
-finalize (GObject *obj)
-{
-	EItipControl *itip = E_ITIP_CONTROL (obj);
-	EItipControlPrivate *priv;
-	int i;
 	
 	priv = itip->priv;
 
-	clean_up (itip);
+	if (priv) {
+		int i;
 
- 	if (priv->html)
- 		gtk_object_weakunref (GTK_OBJECT (priv->html), html_destroyed, itip);
-
-	priv->accounts = NULL;
-
-	for (i = 0; i < E_CAL_SOURCE_TYPE_LAST; i++) {
-		if (priv->ecals[i]) {
-			g_hash_table_destroy (priv->ecals[i]);
-			priv->ecals[i] = NULL;
+		clean_up (itip);
+		
+		priv->accounts = NULL;
+		
+		for (i = 0; i < E_CAL_SOURCE_TYPE_LAST; i++) {
+			if (priv->ecals[i]) {
+				g_hash_table_destroy (priv->ecals[i]);
+				priv->ecals[i] = NULL;
+			}
 		}
+		
+		if (priv->html) {
+			g_signal_handlers_disconnect_matched (priv->html, G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, itip);
+			g_object_weak_unref (G_OBJECT (priv->html), (GWeakNotify)html_destroyed, itip);
+		}
+		
+		g_free (priv);
+		itip->priv = NULL;
 	}
-
-	g_free (priv);
-	itip->priv = NULL;
-
-	if (G_OBJECT_CLASS (parent_class)->finalize)
-		(* G_OBJECT_CLASS (parent_class)->finalize) (obj);
+	
+	(* GTK_OBJECT_CLASS (e_itip_control_parent_class)->destroy) (obj);
 }
 
 GtkWidget *
@@ -373,25 +522,17 @@ e_itip_control_new (void)
 }
 
 static void
-find_my_address (EItipControl *itip, icalcomponent *ical_comp)
+find_my_address (EItipControl *itip, icalcomponent *ical_comp, icalparameter_partstat *status)
 {
 	EItipControlPrivate *priv;
 	icalproperty *prop;
 	char *my_alt_address = NULL;
 	
 	priv = itip->priv;
-
-	/* If the mailer told us the address to use, use that */
-	if (priv->delegator_address != NULL) {
-		priv->my_address = g_strdup (itip_strip_mailto (priv->delegator_address));
-		priv->my_address = g_strstrip (priv->my_address);
-		return;
-	}
 	
 	for (prop = icalcomponent_get_first_property (ical_comp, ICAL_ATTENDEE_PROPERTY);
 	     prop != NULL;
-	     prop = icalcomponent_get_next_property (ical_comp, ICAL_ATTENDEE_PROPERTY))
-	{
+	     prop = icalcomponent_get_next_property (ical_comp, ICAL_ATTENDEE_PROPERTY)) {
 		icalvalue *value;
 		icalparameter *param;
 		const char *attendee, *name;
@@ -418,34 +559,62 @@ find_my_address (EItipControl *itip, icalcomponent *ical_comp)
 			name_clean = NULL;
 		}
 
-		it = e_list_get_iterator((EList *)priv->accounts);
-		while (e_iterator_is_valid(it)) {
-			const EAccount *account = e_iterator_get(it);
-
-			/* Check for a matching address */
-			if (attendee_clean != NULL
-			    && !g_ascii_strcasecmp (account->id->address, attendee_clean)) {
-				priv->my_address = g_strdup (account->id->address);
-				g_free (attendee_clean);
-				g_free (name_clean);
-				g_free (my_alt_address);
-				g_object_unref(it);
-				return;
-			}
+		if (priv->delegator_address) {
+			char *delegator_clean;
 			
-			/* Check for a matching cname to fall back on */
-			if (name_clean != NULL 
-			    && !g_ascii_strcasecmp (account->id->name, name_clean))
-				my_alt_address = g_strdup (attendee_clean);
+			delegator_clean = g_strdup (itip_strip_mailto (attendee));
+			delegator_clean = g_strstrip (delegator_clean);
+			
+			/* If the mailer told us the address to use, use that */
+			if (delegator_clean != NULL
+			    && !g_ascii_strcasecmp (attendee_clean, delegator_clean)) {
+				priv->my_address = g_strdup (itip_strip_mailto (priv->delegator_address));
+				priv->my_address = g_strstrip (priv->my_address);
 
-			e_iterator_next(it);
+				if (status) {
+					param = icalproperty_get_first_parameter (prop, ICAL_PARTSTAT_PARAMETER);
+					*status = param ? icalparameter_get_partstat (param) : ICAL_PARTSTAT_NEEDSACTION;
+				}
+			}
+
+			g_free (delegator_clean);
+		} else {
+			it = e_list_get_iterator((EList *)priv->accounts);
+			while (e_iterator_is_valid(it)) {
+				const EAccount *account = e_iterator_get(it);
+				
+				/* Check for a matching address */
+				if (attendee_clean != NULL
+				    && !g_ascii_strcasecmp (account->id->address, attendee_clean)) {
+					priv->my_address = g_strdup (account->id->address);
+					if (status) {
+						param = icalproperty_get_first_parameter (prop, ICAL_PARTSTAT_PARAMETER);
+						*status = param ? icalparameter_get_partstat (param) : ICAL_PARTSTAT_NEEDSACTION;
+					}
+					g_free (attendee_clean);
+					g_free (name_clean);
+					g_free (my_alt_address);
+					g_object_unref(it);
+					return;
+				}
+				
+				/* Check for a matching cname to fall back on */
+				if (name_clean != NULL 
+				    && !g_ascii_strcasecmp (account->id->name, name_clean))
+					my_alt_address = g_strdup (attendee_clean);
+				
+				e_iterator_next(it);
+			}
+			g_object_unref(it);
 		}
+		
 		g_free (attendee_clean);
 		g_free (name_clean);
-		g_object_unref(it);
 	}
 
 	priv->my_address = my_alt_address;
+	if (status)
+		*status = ICAL_PARTSTAT_NEEDSACTION;
 }
 
 static icalproperty *
@@ -679,6 +848,7 @@ set_date_label (EItipControl *itip, GtkHTML *html, GtkHTMLStream *html_stream,
 	EItipControlPrivate *priv;
 	ECalComponentDateTime datetime;
 	static char buffer[1024];
+	gchar *str;
 	gboolean wrote = FALSE, task_completed = FALSE;
 	ECalComponentVType type;
 
@@ -689,20 +859,24 @@ set_date_label (EItipControl *itip, GtkHTML *html, GtkHTMLStream *html_stream,
 	buffer[0] = '\0';
 	e_cal_component_get_dtstart (comp, &datetime);
 	if (datetime.value) {
+		str = g_strdup_printf ("<b>%s:</b>", _("Starts"));
 		write_label_piece (itip, &datetime, buffer, 1024,
-				   _("<b>Starts:</b> "),
+				  str,
 				   "<br>", FALSE);
 		gtk_html_write (html, html_stream, buffer, strlen(buffer));
 		wrote = TRUE;
+		g_free (str);
 	}
 	e_cal_component_free_datetime (&datetime);
 
 	buffer[0] = '\0';
 	e_cal_component_get_dtend (comp, &datetime);
 	if (datetime.value){
-		write_label_piece (itip, &datetime, buffer, 1024, _("<b>Ends:</b> "), "<br>", FALSE);
+		str = g_strdup_printf ("<b>%s:</b>", _("Ends"));
+		write_label_piece (itip, &datetime, buffer, 1024, str, "<br>", FALSE);
 		gtk_html_write (html, html_stream, buffer, strlen (buffer));
 		wrote = TRUE;
+		g_free (str);
 	}
 	e_cal_component_free_datetime (&datetime);
 
@@ -719,20 +893,24 @@ set_date_label (EItipControl *itip, GtkHTML *html, GtkHTMLStream *html_stream,
 	if (type == E_CAL_COMPONENT_TODO && datetime.value) {
 		/* Pass TRUE as is_utc, so it gets converted to the current
 		   timezone. */
+		str = g_strdup_printf ("<b>%s:</b>", _("Completed"));
 		datetime.value->is_utc = TRUE;
-		write_label_piece (itip, &datetime, buffer, 1024, _("<b>Completed:</b> "), "<br>", FALSE);
+		write_label_piece (itip, &datetime, buffer, 1024, str, "<br>", FALSE);
 		gtk_html_write (html, html_stream, buffer, strlen (buffer));
 		wrote = TRUE;
 		task_completed = TRUE;
+		g_free (str);
 	}
 	e_cal_component_free_datetime (&datetime);
 
 	buffer[0] = '\0';
 	e_cal_component_get_due (comp, &datetime);
 	if (type == E_CAL_COMPONENT_TODO && !task_completed && datetime.value) {
-		write_label_piece (itip, &datetime, buffer, 1024, _("<b>Due:</b> "), "<br>", FALSE);
+		str = g_strdup_printf ("<b>%s:</b>", _("Due"));
+		write_label_piece (itip, &datetime, buffer, 1024, str, "<br>", FALSE);
 		gtk_html_write (html, html_stream, buffer, strlen (buffer));
 		wrote = TRUE;
+		g_free (str);
 	}
 
 	e_cal_component_free_datetime (&datetime);
@@ -778,7 +956,7 @@ write_error_html (EItipControl *itip, const gchar *itip_err)
 	/* The column for the image */
 	gtk_html_stream_printf (html_stream, "<tr><td width=48 align=\"center\" valign=\"top\" rowspan=\"8\">");
 	/* The image */
-	filename = e_icon_factory_get_icon_filename ("stock_new-meeting", 48);
+	filename = e_icon_factory_get_icon_filename ("stock_new-meeting", E_ICON_SIZE_DIALOG);
 	gtk_html_stream_printf (html_stream, "<img src=\"%s\"></td>", filename);
 	g_free (filename);
 
@@ -814,6 +992,7 @@ write_html (EItipControl *itip, const gchar *itip_desc, const gchar *itip_title,
 	gchar *html;
 	const gchar *const_html;
 	gchar *filename;
+	gchar *str;
 
 	priv = itip->priv;
 
@@ -837,7 +1016,7 @@ write_html (EItipControl *itip, const gchar *itip_desc, const gchar *itip_title,
 	gtk_html_write (GTK_HTML (priv->html), html_stream, const_html, strlen(const_html));
 
 	/* The image */
-	filename = e_icon_factory_get_icon_filename ("stock_new-meeting", 48);
+	filename = e_icon_factory_get_icon_filename ("stock_new-meeting", E_ICON_SIZE_DIALOG);
 	gtk_html_stream_printf (html_stream, "<img src=\"%s\"></td>", filename);
 	g_free (filename);
 
@@ -922,16 +1101,19 @@ write_html (EItipControl *itip, const gchar *itip_desc, const gchar *itip_title,
 
 	/* Summary */
 	e_cal_component_get_summary (priv->comp, &text);
-	html = text.value ? camel_text_to_html (text.value, CAMEL_MIME_FILTER_TOHTML_CONVERT_NL, 0) : _("<i>None</i>");
+	str = g_strdup_printf ("<i>%s:</i>", _("None"));
+
+	html = text.value ? e_text_to_html_full (text.value, E_TEXT_TO_HTML_CONVERT_NL, 0) : str;
 	gtk_html_stream_printf (html_stream, "<b>%s</b><br>%s<br><br>",
 				_("Summary:"), html);
+	g_free (str);
 	if (text.value)
 		g_free (html);
 	
 	/* Location */
 	e_cal_component_get_location (priv->comp, &string);
 	if (string != NULL) {
-		html = camel_text_to_html (string, CAMEL_MIME_FILTER_TOHTML_CONVERT_NL, 0);
+		html = e_text_to_html_full (string, E_TEXT_TO_HTML_CONVERT_NL, 0);
 		gtk_html_stream_printf (html_stream, "<b>%s</b><br>%s<br><br>", 
 					_("Location:"), html);
 		g_free (html);
@@ -977,7 +1159,7 @@ write_html (EItipControl *itip, const gchar *itip_desc, const gchar *itip_title,
 		text = *((ECalComponentText *)l->data);
 
 	if (l && text.value) {
-		html = camel_text_to_html (text.value, CAMEL_MIME_FILTER_TOHTML_CONVERT_NL, 0);
+		html = e_text_to_html_full (text.value, E_TEXT_TO_HTML_CONVERT_NL, 0);
 		gtk_html_stream_printf (html_stream, "<b>%s</b><br>%s",
 					_("Description:"), html);
 		g_free (html);
@@ -1009,112 +1191,51 @@ write_html (EItipControl *itip, const gchar *itip_desc, const gchar *itip_title,
 
 
 static char*
-get_publish_options (gboolean selector)
+get_publish_options (void)
 {
-	char *html;
-	
-	html = g_strdup_printf ("<form><b>%s</b>&nbsp"
-				"<select NAME=\"action\" SIZE=\"1\"> "
-				"<option VALUE=\"U\">%s</option>"
-				"</select>&nbsp &nbsp "
-				"<input TYPE=Submit name=\"ok\" value=\"%s\">"
-				"</form>",
-				_("Choose an action:"),
-				_("Update"),
-				_("OK"));
-
-	if (selector) {
-		char *sel;
-		
-		sel = g_strconcat (html, "<object classid=\"gtk:label\">", NULL);
-		g_free (html);
-		html = sel;
-	}
-	
-	return html;
+	return g_strdup_printf ("<object classid=\"itip:publish_options\"></object>");
 }
 
 static char*
-get_request_options (gboolean selector)
+get_request_options (void)
 {
-	char *html;
-	
-	html = g_strdup_printf ("<form><b>%s</b>&nbsp"
-				"<select NAME=\"action\" SIZE=\"1\"> "
-				"<option VALUE=\"A\">%s</option> "
-				"<option VALUE=\"T\">%s</option> "
-				"<option VALUE=\"D\">%s</option></select>&nbsp "
-				"<input TYPE=\"checkbox\" name=\"rsvp\" value=\"1\" checked>%s&nbsp&nbsp"
-				"<input TYPE=\"submit\" name=\"ok\" value=\"%s\"><br> "
-				"</form>",
-				_("Choose an action:"),
-				_("Accept"),
-				_("Tentatively accept"),
-				_("Decline"),
-				_("RSVP"),
-				_("OK"));
-
-	if (selector) {
-		char *sel;
-		
-		sel = g_strconcat (html, "<object classid=\"gtk:label\">", NULL);
-		g_free (html);
-		html = sel;
-	}
-	
-	return html;
+	return g_strdup_printf ("<object classid=\"itip:request_options\"></object>");
 }
 
 static char*
 get_request_fb_options ()
 {
-	return g_strdup_printf ("<form><b>%s</b>&nbsp"
-				"<select NAME=\"action\" SIZE=\"1\"> "
-				"<option VALUE=\"F\">%s</option></select>&nbsp &nbsp "
-				"<input TYPE=Submit name=\"ok\" value=\"%s\">"
-				"</form>",
-				_("Choose an action:"),
-				_("Send Free/Busy Information"),
-				_("OK"));
+	return g_strdup_printf ("<object classid=\"itip:freebusy_options\"></object>");
 }
 
 static char*
 get_reply_options ()
 {
-	return g_strdup_printf ("<form><b>%s</b>&nbsp"
-				"<select NAME=\"action\" SIZE=\"1\"> "
-				"<option VALUE=\"R\">%s</option></select>&nbsp &nbsp "
-				"<input TYPE=Submit name=\"ok\" value=\"%s\">"
-				"</form>",
-				_("Choose an action:"),
-				_("Update respondent status"),
-				_("OK"));
+	return g_strdup_printf ("<object classid=\"itip:reply_options\"></object>");
 }
 
 static char*
 get_refresh_options ()
 {
-	return g_strdup_printf ("<form><b>%s</b>&nbsp"
-				"<select NAME=\"action\" SIZE=\"1\"> "
-				"<option VALUE=\"S\">%s</option></select>&nbsp &nbsp "
-				"<input TYPE=Submit name=\"ok\" value=\"%s\">"
-				"</form>",
-				_("Choose an action:"),
-				_("Send Latest Information"),
-				_("OK"));
+	return g_strdup_printf ("<object classid=\"itip:refresh_options\"></object>");
 }
 
 static char*
-get_cancel_options ()
-{
-	return g_strdup_printf ("<form><b>%s</b>&nbsp"
-				"<select NAME=\"action\" SIZE=\"1\"> "
-				"<option VALUE=\"C\">%s</option></select>&nbsp &nbsp "
-				"<input TYPE=Submit name=\"ok\" value=\"%s\">"
-				"</form>",
-				_("Choose an action:"),
-				_("Cancel"),
-				_("OK"));
+get_cancel_options (gboolean found, icalcomponent_kind kind)
+{ 
+	if (!found) {
+		switch (kind) {
+		case ICAL_VEVENT_COMPONENT:
+			return g_strdup_printf ("<i>%s</i>", _("The meeting has been cancelled, however it could not be found in your calendars"));
+		case ICAL_VTODO_COMPONENT:
+ 			return g_strdup_printf ("<i>%s</i>", _("The task has been cancelled, however it could not be found in your task lists"));
+		default:
+			g_assert_not_reached ();
+			return NULL;
+		}		
+	}
+
+	return g_strdup_printf ("<object classid=\"itip:cancel_options\"></object>");
 }
 
 
@@ -1178,20 +1299,18 @@ show_current_event (EItipControl *itip)
 	EItipControlPrivate *priv;
 	const gchar *itip_title, *itip_desc;
 	char *options;
-
+	gboolean show_selector = FALSE;
+	
 	priv = itip->priv;
 
 	priv->type = E_CAL_SOURCE_TYPE_EVENT;
-	if (priv->calendar_uid)
-		priv->current_ecal = start_calendar_server_by_uid (itip, priv->calendar_uid, priv->type);
-	else 
-		priv->current_ecal = find_server (itip, priv->comp);
-	
+
 	switch (priv->method) {
 	case ICAL_METHOD_PUBLISH:
 		itip_desc = _("<b>%s</b> has published meeting information.");
 		itip_title = _("Meeting Information");
-		options = get_publish_options (priv->current_ecal ? FALSE : TRUE);
+		options = get_publish_options ();
+		show_selector = TRUE;
 		break;
 	case ICAL_METHOD_REQUEST:
 		if (priv->delegator_address != NULL)
@@ -1199,12 +1318,14 @@ show_current_event (EItipControl *itip)
 		else
 			itip_desc = _("<b>%s</b> requests your presence at a meeting.");
 		itip_title = _("Meeting Proposal");
-		options = get_request_options (priv->current_ecal ? FALSE : TRUE);
+		options = get_request_options ();
+		show_selector = TRUE;
 		break;
 	case ICAL_METHOD_ADD:
+		/* FIXME Whats going on here? */
 		itip_desc = _("<b>%s</b> wishes to add to an existing meeting.");
 		itip_title = _("Meeting Update");
-		options = get_publish_options (priv->current_ecal ? FALSE : TRUE);
+		options = get_publish_options ();
 		break;
 	case ICAL_METHOD_REFRESH:
 		itip_desc = _("<b>%s</b> wishes to receive the latest meeting information.");
@@ -1225,7 +1346,10 @@ show_current_event (EItipControl *itip)
 	case ICAL_METHOD_CANCEL:
 		itip_desc = _("<b>%s</b> has cancelled a meeting.");
 		itip_title = _("Meeting Cancellation");
-		options = get_cancel_options ();
+		/* FIXME priv->current_ecal will always be NULL so the
+		 * user won't see an error message, the OK button will
+		 * just be de-sensitized */
+		options = get_cancel_options (TRUE, ICAL_VEVENT_COMPONENT);
 
 		/* Provide extra info, since might not be in the component */
 		adjust_item (itip, priv->comp);
@@ -1238,6 +1362,11 @@ show_current_event (EItipControl *itip)
 
 	write_html (itip, itip_desc, itip_title, options);
 	g_free (options);
+
+	if (priv->calendar_uid)
+		priv->current_ecal = start_calendar_server_by_uid (itip, priv->calendar_uid, priv->type);
+	else 
+		find_server (itip, priv->comp, show_selector);
 }
 
 static void
@@ -1246,33 +1375,34 @@ show_current_todo (EItipControl *itip)
 	EItipControlPrivate *priv;
 	const gchar *itip_title, *itip_desc;
 	char *options;
-
+	gboolean show_selector = FALSE;
+	
 	priv = itip->priv;
 
 	priv->type = E_CAL_SOURCE_TYPE_TODO;
-	if (priv->calendar_uid)
-		priv->current_ecal = start_calendar_server_by_uid (itip, priv->calendar_uid, priv->type);
-	else 
-		priv->current_ecal = find_server (itip, priv->comp);
 
 	switch (priv->method) {
 	case ICAL_METHOD_PUBLISH:
 		itip_desc = _("<b>%s</b> has published task information.");
 		itip_title = _("Task Information");
-		options = get_publish_options (priv->current_ecal ? FALSE : TRUE);
+		options = get_publish_options ();
+		show_selector = TRUE;
 		break;
 	case ICAL_METHOD_REQUEST:
+		/* FIXME Does this need to handle like events above? */
 		if (priv->delegator_address != NULL)
 			itip_desc = _("<b>%s</b> requests %s to perform a task.");
 		else
 			itip_desc = _("<b>%s</b> requests you perform a task.");
 		itip_title = _("Task Proposal");
-		options = get_request_options (priv->current_ecal ? FALSE : TRUE);
+		options = get_request_options ();
+		show_selector = TRUE;
 		break;
 	case ICAL_METHOD_ADD:
+		/* FIXME Whats going on here? */
 		itip_desc = _("<b>%s</b> wishes to add to an existing task.");
 		itip_title = _("Task Update");
-		options = get_publish_options (priv->current_ecal ? FALSE : TRUE);
+		options = get_publish_options ();
 		break;
 	case ICAL_METHOD_REFRESH:
 		itip_desc = _("<b>%s</b> wishes to receive the latest task information.");
@@ -1293,7 +1423,10 @@ show_current_todo (EItipControl *itip)
 	case ICAL_METHOD_CANCEL:
 		itip_desc = _("<b>%s</b> has cancelled a task.");
 		itip_title = _("Task Cancellation");
-		options = get_cancel_options ();
+		/* FIXME priv->current_ecal will always be NULL so the
+		 * user won't see an error message, the OK button will
+		 * just be de-sensitized */
+		options = get_cancel_options (TRUE, ICAL_VTODO_COMPONENT);
 
 		/* Provide extra info, since might not be in the component */
 		adjust_item (itip, priv->comp);
@@ -1306,6 +1439,11 @@ show_current_todo (EItipControl *itip)
 
 	write_html (itip, itip_desc, itip_title, options);
 	g_free (options);
+
+	if (priv->calendar_uid)
+		priv->current_ecal = start_calendar_server_by_uid (itip, priv->calendar_uid, priv->type);
+	else 
+		find_server (itip, priv->comp, show_selector);
 }
 
 static void
@@ -1472,7 +1610,7 @@ show_current (EItipControl *itip)
 		write_error_html (itip, _("The message contains only unsupported requests."));
 	}
 
-	find_my_address (itip, priv->ical_comp);
+	find_my_address (itip, priv->ical_comp, NULL);
 
 	g_object_unref (itip);
 }
@@ -1487,6 +1625,8 @@ e_itip_control_set_data (EItipControl *itip, const gchar *text)
 	icalcompiter tz_iter;
 
 	priv = itip->priv;
+	if (priv == NULL)
+		return;
 
 	clean_up (itip);
 
@@ -1740,6 +1880,7 @@ update_item (EItipControl *itip)
 	icalproperty *prop;
 	icalcomponent *clone;
 	GtkWidget *dialog;
+	GError *error = NULL;
 
 	priv = itip->priv;
 
@@ -1761,9 +1902,9 @@ update_item (EItipControl *itip)
 	icalcomponent_add_component (priv->top_level, clone);
 	icalcomponent_set_method (priv->top_level, priv->method);
 
-	/* FIXME Better error dialog */
-	if (!e_cal_receive_objects (priv->current_ecal, priv->top_level, NULL)) {
-		dialog = gnome_warning_dialog (_("Calendar file could not be updated!\n"));
+	if (!e_cal_receive_objects (priv->current_ecal, priv->top_level, &error)) {
+		dialog = gnome_warning_dialog (error->message);
+		g_error_free (error);
 	} else {
 		dialog = gnome_ok_dialog (_("Update complete\n"));
 	}
@@ -1772,39 +1913,21 @@ update_item (EItipControl *itip)
 	icalcomponent_remove_component (priv->top_level, clone);
 }
 
-#if 0
 static void
 update_attendee_status (EItipControl *itip)
 {
 	EItipControlPrivate *priv;
-	ECal *client;
-	ECalGetStatus status;
 	ECalComponent *comp = NULL;
 	icalcomponent *icalcomp = NULL;
-	ECalComponentVType type;
 	const char *uid;
 	GtkWidget *dialog;
-	ECalResult result;
-
+	GError *error;
+	
 	priv = itip->priv;
-
-	type = e_cal_component_get_vtype (priv->comp);
-	if (type == E_CAL_COMPONENT_TODO)
-		client = priv->task_client;
-	else
-		client = priv->event_client;
-
-	if (client == NULL) {
-		dialog = gnome_warning_dialog (_("Attendee status can not be updated "
-						 "because the item no longer exists"));
-		goto cleanup;
-	}
 	
 	/* Obtain our version */
 	e_cal_component_get_uid (priv->comp, &uid);
-	status = e_cal_get_object (client, uid, NULL, &icalcomp);
-
-	if (status == E_CAL_GET_SUCCESS) {
+	if (e_cal_get_object (priv->current_ecal, uid, NULL, &icalcomp, NULL)) {
 		GSList *attendees;
 
 		comp = e_cal_component_new ();
@@ -1846,25 +1969,11 @@ update_attendee_status (EItipControl *itip)
 			}
 		}
 
-		result = e_cal_update_object (client, comp);
-		switch (result) {
-		case E_CAL_RESULT_INVALID_OBJECT :
-			dialog = gnome_warning_dialog (_("Object is invalid and cannot be updated\n"));
-			break;
-		case E_CAL_RESULT_CORBA_ERROR :
-			dialog = gnome_warning_dialog (_("There was an error on the CORBA system\n"));
-			break;
-		case E_CAL_RESULT_NOT_FOUND :
-			dialog = gnome_warning_dialog (_("Object could not be found\n"));
-			break;
-		case E_CAL_RESULT_PERMISSION_DENIED :
-			dialog = gnome_warning_dialog (_("You don't have the right permissions to update the calendar\n"));
-			break;
-		case E_CAL_RESULT_SUCCESS :
+		if (!e_cal_modify_object (priv->current_ecal, icalcomp, CALOBJ_MOD_ALL, &error)) {
+			dialog = gnome_warning_dialog (error->message);
+			g_error_free (error);
+		} else {
 			dialog = gnome_ok_dialog (_("Attendee status updated\n"));
-			break;
-		default :
-			dialog = gnome_warning_dialog (_("Attendee status could not be updated!\n"));
 		}
 	} else {
 		dialog = gnome_warning_dialog (_("Attendee status can not be updated "
@@ -1876,7 +1985,6 @@ update_attendee_status (EItipControl *itip)
 		g_object_unref (comp);
 	gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 }
-#endif
 
 static void
 remove_item (EItipControl *itip)
@@ -1976,23 +2084,6 @@ send_freebusy (EItipControl *itip)
 }
 
 static void
-source_selected_cb (ESourceOptionMenu *esom, ESource *source, gpointer data)
-{
-	EItipControl *itip = data;
-	EItipControlPrivate *priv;
-	ECal *ecal = NULL;
-	
-	priv = itip->priv;
-
-	ecal = start_calendar_server (itip, source, priv->type);
-	if (!ecal) {
-		/* FIXME Show error dialog */
-	}
-
-	priv->current_ecal = ecal;
-}
-
-static void
 url_requested_cb (GtkHTML *html, const gchar *url, GtkHTMLStream *handle, gpointer data)
 {	unsigned char buffer[4096];
 	int len, fd;
@@ -2017,127 +2108,362 @@ url_requested_cb (GtkHTML *html, const gchar *url, GtkHTMLStream *handle, gpoint
 	close (fd);
 }
 
-static gboolean
-object_requested_cb (GtkHTML *html, GtkHTMLEmbedded *eb, gpointer data) 
+static void
+option_activated_cb (GtkWidget *widget, gpointer data)
 {
-	EItipControl *itip = E_ITIP_CONTROL (data);
+	EItipControl *itip = E_ITIP_CONTROL (data);	
 	EItipControlPrivate *priv;
-	GtkWidget *esom;
-	ESource *source = NULL;
-	char *uid;
 	
-	priv = itip->priv;	
+	priv = itip->priv;
 
-	switch (priv->type) {
-	case E_CAL_SOURCE_TYPE_EVENT:
-		uid = calendar_config_get_primary_calendar ();
-		break;
-	case E_CAL_SOURCE_TYPE_TODO:
-		uid = calendar_config_get_primary_tasks ();
-		break;
-	default:
-		return FALSE;
-	}	
+	priv->action = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (widget), ACTION_DATA));
+}
+
+static void
+add_option (EItipControl *itip, GtkWidget *menu, const char *text, char action) 
+{
+	GtkWidget *item;
 	
-	if (uid) {
-		source = e_source_list_peek_source_by_uid (priv->source_lists[priv->type], uid);
-		g_free (uid);
-	}
-	if (!source) {
-		/* Try to create a default if there isn't one */
-		source = e_source_list_peek_source_any (priv->source_lists[priv->type]);
-	}
+	item = gtk_menu_item_new_with_label (text);
+	g_signal_connect (item, "activate", G_CALLBACK (option_activated_cb), itip);
+	g_object_set_data (G_OBJECT (item), ACTION_DATA, GINT_TO_POINTER ((int)action));
+	gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+	gtk_widget_show (item);
+	
+}
 
-	esom = e_source_option_menu_new (priv->source_lists[priv->type]);
-	g_signal_connect_object (esom, "source_selected",
-				 G_CALLBACK (source_selected_cb), 
-				 itip, 0);
+static void
+insert_boxes (GtkHTMLEmbedded *eb, EItipControl *itip)
+{
+	EItipControlPrivate *priv;
+	
+	priv = itip->priv;
 
-	gtk_container_add (GTK_CONTAINER (eb), esom);
-	gtk_widget_show (esom);
+	priv->vbox = gtk_vbox_new (FALSE, 12);
+	g_object_add_weak_pointer (G_OBJECT (priv->vbox), ((gpointer *)&priv->vbox));	
 
-	/* FIXME What if there is no source? */
-	if (source)
-		e_source_option_menu_select (E_SOURCE_OPTION_MENU (esom), source);
+	gtk_container_add (GTK_CONTAINER (eb), priv->vbox);
+	gtk_widget_show (priv->vbox);
+
+	priv->hbox = gtk_hbox_new (FALSE, 6);
+	g_object_add_weak_pointer (G_OBJECT (priv->hbox), ((gpointer *)&priv->hbox));
+
+	gtk_box_pack_start (GTK_BOX (priv->vbox), priv->hbox, FALSE, TRUE, 0);
+	gtk_widget_show (priv->hbox);
+}
+
+static void
+insert_label (GtkWidget *hbox) 
+{
+	GtkWidget *label;
+	char *text;
+	
+	text = g_strdup_printf ("<b>%s</b>", _("Choose an action:"));
+	label = gtk_label_new (NULL);
+	gtk_label_set_markup (GTK_LABEL (label), text);
+	g_free (text);
+
+	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, TRUE, 0);
+	gtk_widget_show (label);	
+}
+
+static void
+rsvp_clicked_cb (GtkWidget *widget, gpointer data)
+{
+	EItipControl *itip = E_ITIP_CONTROL (data);	
+	EItipControlPrivate *priv;
+	
+	priv = itip->priv;
+
+	priv->rsvp = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget));
+}
+
+static void
+insert_rsvp (GtkWidget *hbox, EItipControl *itip) 
+{
+	EItipControlPrivate *priv;
+	GtkWidget *btn;
+
+	priv = itip->priv;
+	
+	btn = gtk_check_button_new_with_label ("RSVP");
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (btn), TRUE);
+	priv->rsvp = TRUE;
+
+	g_signal_connect (btn, "clicked", G_CALLBACK (rsvp_clicked_cb), itip);
+
+	gtk_box_pack_start (GTK_BOX (hbox), btn, FALSE, TRUE, 0);
+	gtk_widget_show (btn);	
+}
+
+static void
+insert_ok (GtkWidget *hbox, EItipControl *itip) 
+{
+	EItipControlPrivate *priv;
+	
+	priv = itip->priv;
+	
+	priv->ok = gtk_button_new_from_stock (GTK_STOCK_OK);
+	g_object_add_weak_pointer (G_OBJECT (priv->ok), ((gpointer *)&priv->ok));
+
+	g_signal_connect (priv->ok, "clicked", G_CALLBACK (ok_clicked_cb), itip);
+
+	set_ok_sens (itip);
+
+	gtk_box_pack_start (GTK_BOX (hbox), priv->ok, FALSE, TRUE, 0);
+	gtk_widget_show (priv->ok);	
+}
+
+static gboolean
+publish_options_object (EItipControl *itip, GtkHTML *html, GtkHTMLEmbedded *eb)
+{
+	EItipControlPrivate *priv;
+	GtkWidget *option, *menu;
+	
+	priv = itip->priv;
+
+	insert_boxes (eb, itip);
+	insert_label (priv->hbox);
+
+	option = gtk_option_menu_new ();
+	
+	menu = gtk_menu_new ();
+
+	add_option (itip, menu, _("Update"), 'U');
+	priv->action = 'U';
+	
+	gtk_option_menu_set_menu (GTK_OPTION_MENU (option), menu);
+
+	gtk_box_pack_start (GTK_BOX (priv->hbox), option, FALSE, TRUE, 0);
+	gtk_widget_show (option);
+
+	insert_ok (priv->hbox, itip);
 
 	return TRUE;
 }
 
+static gboolean
+request_options_object (EItipControl *itip, GtkHTML *html, GtkHTMLEmbedded *eb)
+{
+	EItipControlPrivate *priv;
+	GtkWidget *option, *menu;
+	
+	priv = itip->priv;
+
+	insert_boxes (eb, itip);
+	insert_label (priv->hbox);
+	
+	option = gtk_option_menu_new ();
+	
+	menu = gtk_menu_new ();
+
+	add_option (itip, menu, _("Accept"), 'A');
+	add_option (itip, menu, _("Tentatively accept"), 'T');
+	add_option (itip, menu, _("Decline"), 'D');
+	priv->action = 'A';
+	
+	gtk_option_menu_set_menu (GTK_OPTION_MENU (option), menu);
+
+	gtk_box_pack_start (GTK_BOX (priv->hbox), option, FALSE, TRUE, 0);
+	gtk_widget_show (option);
+
+	insert_rsvp (priv->hbox, itip);
+	insert_ok (priv->hbox, itip);
+
+	return TRUE;
+}
+
+static gboolean
+freebusy_options_object (EItipControl *itip, GtkHTML *html, GtkHTMLEmbedded *eb)
+{
+	EItipControlPrivate *priv;
+	GtkWidget *option, *menu;
+	
+	priv = itip->priv;
+
+	insert_boxes (eb, itip);
+	insert_label (priv->hbox);
+
+	option = gtk_option_menu_new ();
+	
+	menu = gtk_menu_new ();
+
+	add_option (itip, menu, _("Send Free/Busy Information"), 'F');
+	priv->action = 'F';
+	
+	gtk_option_menu_set_menu (GTK_OPTION_MENU (option), menu);
+
+	gtk_container_add (GTK_CONTAINER (priv->hbox), option);
+	gtk_widget_show (option);
+
+	insert_ok (priv->hbox, itip);
+
+	return TRUE;
+}
+
+static gboolean
+reply_options_object (EItipControl *itip, GtkHTML *html, GtkHTMLEmbedded *eb)
+{
+	EItipControlPrivate *priv;
+	GtkWidget *option, *menu;
+	
+	priv = itip->priv;
+
+	insert_boxes (eb, itip);
+	insert_label (priv->hbox);
+
+	option = gtk_option_menu_new ();
+	
+	menu = gtk_menu_new ();
+
+	add_option (itip, menu, _("Update respondent status"), 'R');
+	priv->action = 'R';
+	
+	gtk_option_menu_set_menu (GTK_OPTION_MENU (option), menu);
+
+	gtk_container_add (GTK_CONTAINER (priv->hbox), option);
+	gtk_widget_show (option);
+
+	insert_ok (priv->hbox, itip);
+
+	return TRUE;
+}
+
+static gboolean
+refresh_options_object (EItipControl *itip, GtkHTML *html, GtkHTMLEmbedded *eb)
+{
+	EItipControlPrivate *priv;
+	GtkWidget *option, *menu;
+	
+	priv = itip->priv;
+
+	insert_boxes (eb, itip);
+	insert_label (priv->hbox);
+
+	option = gtk_option_menu_new ();
+	
+	menu = gtk_menu_new ();
+
+	add_option (itip, menu, _("Send Latest Information"), 'S');
+	priv->action = 'R';
+	
+	gtk_option_menu_set_menu (GTK_OPTION_MENU (option), menu);
+
+	gtk_container_add (GTK_CONTAINER (priv->hbox), option);
+	gtk_widget_show (option);
+
+	insert_ok (priv->hbox, itip);
+
+	return TRUE;
+}
+
+static gboolean
+cancel_options_object (EItipControl *itip, GtkHTML *html, GtkHTMLEmbedded *eb)
+{
+	EItipControlPrivate *priv;
+	GtkWidget *option, *menu;
+	
+	priv = itip->priv;
+
+	insert_boxes (eb, itip);
+	insert_label (priv->hbox);
+
+	option = gtk_option_menu_new ();
+	
+	menu = gtk_menu_new ();
+
+	add_option (itip, menu, _("Cancel"), 'C');
+	priv->action = 'C';
+	
+	gtk_option_menu_set_menu (GTK_OPTION_MENU (option), menu);
+
+	gtk_container_add (GTK_CONTAINER (priv->hbox), option);
+	gtk_widget_show (option);
+
+	insert_ok (priv->hbox, itip);
+
+	return TRUE;
+}
+
+static gboolean
+object_requested_cb (GtkHTML *html, GtkHTMLEmbedded *eb, gpointer data) 
+{
+	EItipControl *itip = E_ITIP_CONTROL (data);
+
+	if (!strcmp (eb->classid, "itip:publish_options"))
+		return publish_options_object (itip, html, eb);
+	else if (!strcmp (eb->classid, "itip:request_options"))
+		return request_options_object (itip, html, eb);
+	else if (!strcmp (eb->classid, "itip:freebusy_options"))
+		return freebusy_options_object (itip, html, eb);
+	else if (!strcmp (eb->classid, "itip:reply_options"))
+		return reply_options_object (itip, html, eb);
+	else if (!strcmp (eb->classid, "itip:refresh_options"))
+		return refresh_options_object (itip, html, eb);
+	else if (!strcmp (eb->classid, "itip:cancel_options"))
+		return cancel_options_object (itip, html, eb);
+	
+	return FALSE;
+}
+
 static void
-ok_clicked_cb (GtkHTML *html, const gchar *method, const gchar *url, const gchar *encoding, gpointer data)
+ok_clicked_cb (GtkWidget *widget, gpointer data)
 {
 	EItipControl *itip = E_ITIP_CONTROL (data);
 	EItipControlPrivate *priv;
-	gchar **fields;
-	gboolean rsvp = FALSE, status = FALSE;
-	int i;
+	gboolean status = FALSE;
 
 	priv = itip->priv;
 
-	fields = g_strsplit (encoding, "&", -1);
-	for (i = 0; fields[i] != NULL; i++) {
-		gchar **key_value;
+	if (!priv->my_address && priv->current_ecal != NULL)
+		e_cal_get_cal_address (priv->current_ecal, &priv->my_address, NULL);
 
-		key_value = g_strsplit (fields[i], "=", 2);
-
-		if (key_value[0] != NULL && !strcmp (key_value[0], "action")) {
-			if (key_value[1] == NULL)
-				break;
-
-			switch (key_value[1][0]) {
-			case 'U':
-				update_item (itip);
-				break;
-			case 'A':
-				status = change_status (priv->ical_comp, priv->my_address, 
-							ICAL_PARTSTAT_ACCEPTED);
-				if (status) {
-					e_cal_component_rescan (priv->comp);
-					update_item (itip);
-				}
-				break;
-			case 'T':
-				status = change_status (priv->ical_comp, priv->my_address,
-							ICAL_PARTSTAT_TENTATIVE);
-				if (status) {
-					e_cal_component_rescan (priv->comp);
-					update_item (itip);
-				}
-				break;
-			case 'D':
-				status = change_status (priv->ical_comp, priv->my_address,
-							ICAL_PARTSTAT_DECLINED);
-				if (status) {
-					e_cal_component_rescan (priv->comp);
-					remove_item (itip);
-				}
-				break;
-			case 'F':
-				send_freebusy (itip);
-				break;
-			case 'R':
-				/* FIXME Make sure this does the right thing in the backend */
-				update_item (itip);
-				break;
-			case 'S':
-				send_item (itip);
-				break;
-			case 'C':
-				update_item (itip);
-				break;
-			}
+	switch (priv->action) {
+	case 'U':
+		update_item (itip);
+		break;
+	case 'A':
+		status = change_status (priv->ical_comp, priv->my_address, 
+					ICAL_PARTSTAT_ACCEPTED);
+		if (status) {
+			e_cal_component_rescan (priv->comp);
+			update_item (itip);
 		}
-
-		if (key_value[0] != NULL && !strcmp (key_value[0], "rsvp"))
-			if (*key_value[1] == '1')
-				rsvp = TRUE;
-
-		g_strfreev (key_value);
-
+		break;
+	case 'T':
+		status = change_status (priv->ical_comp, priv->my_address,
+					ICAL_PARTSTAT_TENTATIVE);
+		if (status) {
+			e_cal_component_rescan (priv->comp);
+			update_item (itip);
+		}
+		break;
+	case 'D':
+		status = change_status (priv->ical_comp, priv->my_address,
+					ICAL_PARTSTAT_DECLINED);
+		if (status) {
+			e_cal_component_rescan (priv->comp);
+			update_item (itip);
+		}
+		break;
+	case 'F':
+		send_freebusy (itip);
+		break;
+	case 'R':
+		update_attendee_status (itip);
+		break;
+	case 'S':
+		send_item (itip);
+		break;
+	case 'C':
+		update_item (itip);
+		break;
 	}
-	g_strfreev (fields);
 
-	if (rsvp && status) {
+	if (e_cal_get_save_schedules (priv->current_ecal))
+		return;
+
+	if (priv->rsvp && status) {
 		ECalComponent *comp = NULL;
 		ECalComponentVType vtype;
 		icalcomponent *ical_comp;
@@ -2152,7 +2478,7 @@ ok_clicked_cb (GtkHTML *html, const gchar *method, const gchar *url, const gchar
 		vtype = e_cal_component_get_vtype (comp);
 		
 		if (priv->my_address == NULL)
-			find_my_address (itip, priv->ical_comp);
+			find_my_address (itip, priv->ical_comp, NULL);
 		g_assert (priv->my_address != NULL);
 		
 		ical_comp = e_cal_component_get_icalcomponent (comp);

@@ -221,7 +221,7 @@
       <applyto>/apps/evolution/calendar/tasks/colors/due_today</applyto>
       <owner>evolution-calendar</owner>
       <type>string</type>
-      <default>blue</default>
+      <default>#1e90ff</default>
       <locale name="C">
         <short>Color of tasks that are due today</short>
       </locale>
@@ -232,7 +232,7 @@
       <applyto>/apps/evolution/calendar/tasks/colors/overdue</applyto>
       <owner>evolution-calendar</owner>
       <type>string</type>
-      <default>red</default>
+      <default>#ff0000</default>
       <locale name="C">
         <short>Color of tasks that are overdue</short>
       </locale>
@@ -342,6 +342,17 @@
       <default>[]</default>
       <locale name="C">
         <short>Programs that can run as part of alarms</short>
+      </locale>
+    </schema>
+
+    <schema>
+      <key>/schemas/apps/evolution/calendar/notify/notify_with_tray</key>
+      <applyto>/apps/evolution/calendar/notify/notify_with_tray</applyto>
+      <owner>evolution-calendar</owner>
+      <type>bool</type>
+      <default>false</default>
+      <locale name="C">
+        <short>Whether or not to use the notification tray for display alarms</short>
       </locale>
     </schema>
     

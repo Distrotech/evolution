@@ -44,11 +44,10 @@
 #include <gtk/gtktable.h>
 #include <gtk/gtktreeselection.h>
 #include <gtk/gtktreeview.h>
+#include <gtk/gtkvbox.h>
 #include <bonobo/bonobo-control.h>
 #include <bonobo/bonobo-property-bag.h>
 #include <bonobo/bonobo-generic-factory.h>
-#include <gal/widgets/e-popup-menu.h>
-#include <libebook/e-book-async.h>
 #include <addressbook/util/eab-book-util.h>
 #include <addressbook/gui/contact-editor/e-contact-editor.h>
 #include <addressbook/gui/contact-editor/e-contact-quick-add.h>
@@ -1047,8 +1046,6 @@ name_only_query_cb (EBook *book, EBookStatus status, GList *contacts, gpointer c
 		eab_popup_control_no_matches (pop);
 	} else {
 		eab_popup_control_ambiguous_email_add (pop, contacts);
-		g_list_foreach (contacts, (GFunc)g_object_unref, NULL);
-		g_list_free (contacts);
 	}
 }
 
@@ -1082,9 +1079,6 @@ query_cb (EBook *book, EBookStatus status, GList *contacts, gpointer closure)
 			eab_popup_control_display_contact (pop, E_CONTACT (contacts->data));
 		else
 			eab_popup_control_multiple_matches (pop, contacts);
-
-		g_list_foreach (contacts, (GFunc)g_object_unref, NULL);
-		g_list_free (contacts);
 	}
 }
 

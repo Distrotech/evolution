@@ -26,6 +26,7 @@
 #include <gtk/gtkmessagedialog.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnomeui/gnome-uidefs.h>
+#include <e-util/e-icon-factory.h>
 #include "changed-comp.h"
 
 
@@ -49,7 +50,8 @@ changed_component_dialog (GtkWindow *parent, ECalComponent *comp, gboolean delet
 	ECalComponentVType vtype;
 	char *str;
 	gint response;
-
+	GList *icon_list;
+	
 	vtype = e_cal_component_get_vtype (comp);
 
 	if (deleted) {
@@ -104,7 +106,14 @@ changed_component_dialog (GtkWindow *parent, ECalComponent *comp, gboolean delet
 	dialog = gtk_message_dialog_new (parent, GTK_DIALOG_MODAL,
 					 GTK_MESSAGE_QUESTION,
 					 GTK_BUTTONS_YES_NO, str);
-
+	
+	icon_list = e_icon_factory_get_icon_list ("stock_calendar");
+	if (icon_list) {
+		gtk_window_set_icon_list (GTK_WINDOW (dialog), icon_list);
+		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
+		g_list_free (icon_list);
+	}
+	
 	response = gtk_dialog_run (GTK_DIALOG (dialog));
 	gtk_widget_destroy (dialog);
 

@@ -34,8 +34,8 @@
 #include <gtk/gtkentry.h>
 #include <gtk/gtksignal.h>
 #include <gnome.h>
-#include <gal/util/e-util.h>
 #include <widgets/e-timezone-dialog/e-timezone-dialog.h>
+#include <libgnome/gnome-i18n.h>
 #include "e-timezone-entry.h"
 #include <e-util/e-icon-factory.h>
 
@@ -61,13 +61,12 @@ enum {
   LAST_SIGNAL
 };
 
-
-static void e_timezone_entry_class_init	(ETimezoneEntryClass	*class);
-static void e_timezone_entry_init	(ETimezoneEntry	*tentry);
 static void e_timezone_entry_destroy	(GtkObject	*object);
 
 static gboolean e_timezone_entry_mnemonic_activate (GtkWidget *widget,
                                                     gboolean   group_cycling);
+static gboolean e_timezone_entry_focus (GtkWidget *widget,
+					GtkDirectionType direction);
 static void on_entry_changed		(GtkEntry	*entry,
 					 ETimezoneEntry *tentry);
 static void on_button_clicked		(GtkWidget	*widget,
@@ -76,11 +75,9 @@ static void on_button_clicked		(GtkWidget	*widget,
 static void e_timezone_entry_set_entry  (ETimezoneEntry *tentry);
 
 
-static GtkHBoxClass *parent_class;
 static guint timezone_entry_signals[LAST_SIGNAL] = { 0 };
 
-E_MAKE_TYPE (e_timezone_entry, "ETimezoneEntry", ETimezoneEntry,
-	     e_timezone_entry_class_init, e_timezone_entry_init, GTK_TYPE_HBOX);
+G_DEFINE_TYPE (ETimezoneEntry, e_timezone_entry, GTK_TYPE_HBOX);
 
 static void
 e_timezone_entry_class_init		(ETimezoneEntryClass	*class)
@@ -90,9 +87,8 @@ e_timezone_entry_class_init		(ETimezoneEntryClass	*class)
  
 	object_class = (GtkObjectClass*) class;
 
-	parent_class = g_type_class_peek_parent (class);
-
 	widget_class->mnemonic_activate = e_timezone_entry_mnemonic_activate;
+	widget_class->focus = e_timezone_entry_focus;
 	timezone_entry_signals[CHANGED] =
 		gtk_signal_new ("changed",
 				GTK_RUN_LAST,
@@ -115,6 +111,7 @@ e_timezone_entry_init		(ETimezoneEntry	*tentry)
 	ETimezoneEntryPrivate *priv;
 	GtkWidget *gtk_image;
 	GdkPixbuf *gdk_pixbuf;
+	AtkObject *a11y;
 
 	tentry->priv = priv = g_new0 (ETimezoneEntryPrivate, 1);
 
@@ -132,8 +129,12 @@ e_timezone_entry_init		(ETimezoneEntry	*tentry)
 	g_signal_connect (priv->button, "clicked", G_CALLBACK (on_button_clicked), tentry);
 	gtk_box_pack_start (GTK_BOX (tentry), priv->button, FALSE, FALSE, 6);
 	gtk_widget_show (priv->button);
+	a11y = gtk_widget_get_accessible (priv->button);
+	if (a11y != NULL) {
+		atk_object_set_name (a11y, _("Timezone Button"));
+	}
 
-	gdk_pixbuf = e_icon_factory_get_icon ("stock_timezone", 16);
+	gdk_pixbuf = e_icon_factory_get_icon ("stock_timezone", E_ICON_SIZE_BUTTON);
 	gtk_image = gtk_image_new_from_pixbuf (gdk_pixbuf);
 	gtk_container_add (GTK_CONTAINER (priv->button), gtk_image);
 	gtk_widget_show (gtk_image);
@@ -177,8 +178,8 @@ e_timezone_entry_destroy		(GtkObject	*object)
 	g_free (tentry->priv);
 	tentry->priv = NULL;
 
-	if (GTK_OBJECT_CLASS (parent_class)->destroy)
-		(* GTK_OBJECT_CLASS (parent_class)->destroy) (object);
+	if (GTK_OBJECT_CLASS (e_timezone_entry_parent_class)->destroy)
+		(* GTK_OBJECT_CLASS (e_timezone_entry_parent_class)->destroy) (object);
 }
 
 
@@ -312,5 +313,36 @@ e_timezone_entry_mnemonic_activate (GtkWidget *widget,
         }
                                                                                                 
         return TRUE;
+}
+
+static gboolean
+e_timezone_entry_focus (GtkWidget *widget, GtkDirectionType direction)
+{
+	ETimezoneEntry *tentry;
+
+	tentry = E_TIMEZONE_ENTRY (widget);
+
+	if (direction == GTK_DIR_TAB_FORWARD) {
+		if (GTK_WIDGET_HAS_FOCUS (tentry->priv->entry))
+			gtk_widget_grab_focus (tentry->priv->button);
+		else if (GTK_WIDGET_HAS_FOCUS (tentry->priv->button))
+			return FALSE;
+		else if (GTK_WIDGET_VISIBLE (tentry->priv->entry))
+			gtk_widget_grab_focus (tentry->priv->entry);
+		else
+			gtk_widget_grab_focus (tentry->priv->button);
+	} else if (direction == GTK_DIR_TAB_BACKWARD) {
+		if (GTK_WIDGET_HAS_FOCUS (tentry->priv->entry))
+			return FALSE;
+		else if (GTK_WIDGET_HAS_FOCUS (tentry->priv->button)) {
+			if (GTK_WIDGET_VISIBLE (tentry->priv->entry))
+				gtk_widget_grab_focus (tentry->priv->entry);
+			else
+				return FALSE;
+		} else
+			gtk_widget_grab_focus (tentry->priv->button);
+	} else
+		return FALSE;
+	return TRUE;
 }
 

@@ -18,6 +18,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <gtk/gtkmessagedialog.h>
 #include <bonobo/bonobo-i18n.h>
 #include "copy-source-dialog.h"
@@ -83,7 +87,8 @@ copy_source (CopySourceDialogData *csdd)
 				/* FIXME: process errors */
 				if (e_cal_get_object (dest_client, icalcomponent_get_uid (l->data), NULL,
 						      &icalcomp, NULL)) {
-					e_cal_modify_object (dest_client, icalcomp, CALOBJ_MOD_ALL, NULL);
+					e_cal_modify_object (dest_client, l->data, CALOBJ_MOD_ALL, NULL);
+					icalcomponent_free (icalcomp);
 				} else {
 					e_cal_create_object (dest_client, l->data, (char **) &uid, NULL);
 					g_free ((gpointer) uid);

@@ -62,9 +62,12 @@ static guint signals [LAST_SIGNAL] = {0, };
 
 enum DndTargetType {
 	DND_TARGET_TYPE_VCARD_LIST,
+	DND_TARGET_TYPE_SOURCE_VCARD_LIST
 };
 #define VCARD_LIST_TYPE "text/x-vcard"
+#define SOURCE_VCARD_LIST_TYPE "text/x-source-vcard"
 static GtkTargetEntry drag_types[] = {
+	{ SOURCE_VCARD_LIST_TYPE, 0, DND_TARGET_TYPE_SOURCE_VCARD_LIST },
 	{ VCARD_LIST_TYPE, 0, DND_TARGET_TYPE_VCARD_LIST }
 };
 static gint num_drag_types = sizeof(drag_types) / sizeof(drag_types[0]);
@@ -92,8 +95,25 @@ e_minicard_view_drag_data_get(GtkWidget *widget,
 					value, strlen (value));
 		break;
 	}
-	}
+	case DND_TARGET_TYPE_SOURCE_VCARD_LIST: {
+		EBook *book;
+		char *value;
+		
+		g_object_get (view->adapter, "book", &book, NULL);
+		value = eab_book_and_contact_list_to_string (book, view->drag_list);
 
+		gtk_selection_data_set (selection_data,
+					selection_data->target,
+					8,
+					value, strlen (value));
+		break;
+	}
+	}
+}
+
+static void
+clear_drag_data (EMinicardView *view)
+{
 	g_list_foreach (view->drag_list, (GFunc)g_object_unref, NULL);
 	g_list_free (view->drag_list);
 	view->drag_list = NULL;
@@ -105,6 +125,8 @@ e_minicard_view_drag_begin (EAddressbookReflowAdapter *adapter, GdkEvent *event,
 	GdkDragContext *context;
 	GtkTargetList *target_list;
 	GdkDragAction actions = GDK_ACTION_MOVE | GDK_ACTION_COPY;
+
+	clear_drag_data (view);
 	
 	view->drag_list = e_minicard_view_get_card_list (view);
 
@@ -268,6 +290,8 @@ static void
 e_minicard_view_dispose (GObject *object)
 {
 	EMinicardView *view = E_MINICARD_VIEW(object);
+
+	clear_drag_data (view);
 
 	if (view->canvas_drag_data_get_id) {
 		g_signal_handler_disconnect (GNOME_CANVAS_ITEM (view)->canvas,
@@ -497,6 +521,7 @@ e_minicard_view_class_init (EMinicardViewClass *klass)
 static void
 e_minicard_view_init (EMinicardView *view)
 {
+	view->drag_list = NULL;
 	view->adapter = NULL;
 	view->canvas_drag_data_get_id = 0;
 	view->writable_status_id = 0;

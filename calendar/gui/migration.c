@@ -20,6 +20,10 @@
  * Author: Rodrigo Moya <rodrigo@ximian.com>
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,12 +40,12 @@
 #include <gtk/gtkmain.h>
 #include <gtk/gtklabel.h>
 #include <gtk/gtkprogressbar.h>
-#include <gal/util/e-util.h>
 #include <libecal/e-cal.h>
 #include <e-util/e-bconf-map.h>
 #include <e-util/e-folder-map.h>
 #include <libedataserver/e-dbhash.h>
 #include <libedataserver/e-xml-hash-utils.h>
+#include "calendar-config.h"
 #include "calendar-config-keys.h"
 #include "migration.h"
 
@@ -377,6 +381,7 @@ create_calendar_contact_source (ESourceList *source_list)
 	e_source_group_add_source (group, source, -1);
 	g_object_unref (source);
 
+	e_source_set_color (source, 0xFED4D3);
 	e_source_group_set_readonly (group, TRUE);
 
 	return group;
@@ -453,7 +458,18 @@ create_calendar_sources (CalendarComponent *component,
 		/* Create the default Person calendar */
 		ESource *source = e_source_new (_("Personal"), PERSONAL_RELATIVE_URI);
 		e_source_group_add_source (*on_this_computer, source, -1);
+		
+		if (!calendar_config_get_primary_calendar () && !calendar_config_get_calendars_selected ()) {
+			GSList selected;
 
+			calendar_config_set_primary_calendar (e_source_peek_uid (source));
+
+			selected.data = (gpointer)e_source_peek_uid (source);
+			selected.next = NULL;
+			calendar_config_set_calendars_selected (&selected);
+		}
+		
+		e_source_set_color (source, 0xBECEDD);
 		*personal_source = source;
 	}
 
@@ -536,6 +552,17 @@ create_task_sources (TasksComponent *component,
 		ESource *source = e_source_new (_("Personal"), PERSONAL_RELATIVE_URI);
 		e_source_group_add_source (*on_this_computer, source, -1);
 
+		if (!calendar_config_get_primary_tasks () && !calendar_config_get_tasks_selected ()) {
+			GSList selected;
+
+			calendar_config_set_primary_tasks (e_source_peek_uid (source));
+
+			selected.data = (gpointer)e_source_peek_uid (source);
+			selected.next = NULL;
+			calendar_config_set_tasks_selected (&selected);
+		}
+
+		e_source_set_color (source, 0xBECEDD);
 		*personal_source = source;
 	}
 
@@ -669,11 +696,11 @@ migrate_pilot_data (const char *component, const char *conduit, const char *old_
 }
 
 gboolean
-migrate_calendars (CalendarComponent *component, int major, int minor, int revision)
+migrate_calendars (CalendarComponent *component, int major, int minor, int revision, GError **err)
 {
 	ESourceGroup *on_this_computer = NULL, *on_the_web = NULL, *contacts = NULL;
 	ESource *personal_source = NULL;
-	gboolean retval = TRUE;
+	gboolean retval = FALSE;
 
 	/* we call this unconditionally now - create_groups either
 	   creates the groups/sources or it finds the necessary
@@ -704,8 +731,9 @@ migrate_calendars (CalendarComponent *component, int major, int minor, int revis
 			xmlFreeDoc(config_doc);
 
 			if (res != 0) {
-				g_warning("Could not move config from bonobo-conf to gconf");
-				return FALSE;
+				/* FIXME: set proper domain/code */
+				g_set_error(err, 0, 0, _("Unable to migrate old settings from evolution/config.xmldb"));
+				goto fail;
 			}
 		}
 
@@ -731,8 +759,12 @@ migrate_calendars (CalendarComponent *component, int major, int minor, int revis
 
 				source_name = get_source_name (on_this_computer, (char*)l->data);
 
-				if (!migrate_ical_folder (l->data, on_this_computer, source_name, E_CAL_SOURCE_TYPE_EVENT))
-					retval = FALSE;
+				if (!migrate_ical_folder (l->data, on_this_computer, source_name, E_CAL_SOURCE_TYPE_EVENT)) {
+					/* FIXME: domain/code */
+					g_set_error(err, 0, 0, _("Unable to migrate calendar `%s'"), source_name);
+					g_free(source_name);
+					goto fail;
+				}
 				
 				g_free (source_name);
 			}
@@ -778,10 +810,31 @@ migrate_calendars (CalendarComponent *component, int major, int minor, int revis
 			g_free (new_path);
 			g_free (old_path);
 		}
+
+		/* we only need to do this next step if people ran
+		   older versions of 1.5.  We need to clear out the
+		   absolute URI's that were assigned to ESources
+		   during one phase of development, as they take
+		   precedent over relative uris (but aren't updated
+		   when editing an ESource). */
+		if (minor == 5 && revision <= 11) {
+			GSList *g;
+			for (g = e_source_list_peek_groups (calendar_component_peek_source_list (component)); g; g = g->next) {
+				ESourceGroup *group = g->data;
+				GSList *s;
+
+				for (s = e_source_group_peek_sources (group); s; s = s->next) {
+					ESource *source = s->data;
+					e_source_set_absolute_uri (source, NULL);
+				}
+			}
+		}
+
 	}
 
 	e_source_list_sync (calendar_component_peek_source_list (component), NULL);
-
+	retval = TRUE;
+fail:
 	if (on_this_computer)
 		g_object_unref (on_this_computer);
 	if (on_the_web)
@@ -795,12 +848,12 @@ migrate_calendars (CalendarComponent *component, int major, int minor, int revis
 }
 
 gboolean
-migrate_tasks (TasksComponent *component, int major, int minor, int revision)
+migrate_tasks (TasksComponent *component, int major, int minor, int revision, GError **err)
 {
 	ESourceGroup *on_this_computer = NULL;
 	ESourceGroup *on_the_web = NULL;
 	ESource *personal_source = NULL;
-	gboolean retval = TRUE;
+	gboolean retval = FALSE;
 
 	/* we call this unconditionally now - create_groups either
 	   creates the groups/sources or it finds the necessary
@@ -831,8 +884,8 @@ migrate_tasks (TasksComponent *component, int major, int minor, int revision)
 			xmlFreeDoc(config_doc);
 
 			if (res != 0) {
-				g_warning("Could not move config from bonobo-conf to gconf");
-				return FALSE;
+				g_set_error(err, 0, 0, _("Unable to migrate old settings from evolution/config.xmldb"));
+				goto fail;
 			}
 		}
 
@@ -858,8 +911,12 @@ migrate_tasks (TasksComponent *component, int major, int minor, int revision)
 
 				source_name = get_source_name (on_this_computer, (char*)l->data);
 
-				if (!migrate_ical_folder (l->data, on_this_computer, source_name, E_CAL_SOURCE_TYPE_TODO))
-					retval = FALSE;
+				if (!migrate_ical_folder (l->data, on_this_computer, source_name, E_CAL_SOURCE_TYPE_TODO)) {
+					/* FIXME: domain/code */
+					g_set_error(err, 0, 0, _("Unable to migrate tasks `%s'"), source_name);
+					g_free(source_name);
+					goto fail;
+				}
 				
 				g_free (source_name);
 			}
@@ -879,10 +936,30 @@ migrate_tasks (TasksComponent *component, int major, int minor, int revision)
 			g_free (new_path);
 			g_free (old_path);
 		}
+
+		/* we only need to do this next step if people ran
+		   older versions of 1.5.  We need to clear out the
+		   absolute URI's that were assigned to ESources
+		   during one phase of development, as they take
+		   precedent over relative uris (but aren't updated
+		   when editing an ESource). */
+		if (minor == 5 && revision <= 11) {
+			GSList *g;
+			for (g = e_source_list_peek_groups (tasks_component_peek_source_list (component)); g; g = g->next) {
+				ESourceGroup *group = g->data;
+				GSList *s;
+
+				for (s = e_source_group_peek_sources (group); s; s = s->next) {
+					ESource *source = s->data;
+					e_source_set_absolute_uri (source, NULL);
+				}
+			}
+		}
 	}
 
 	e_source_list_sync (tasks_component_peek_source_list (component), NULL);
-
+	retval = TRUE;
+fail:
 	if (on_this_computer)
 		g_object_unref (on_this_computer);
 	if (on_the_web)

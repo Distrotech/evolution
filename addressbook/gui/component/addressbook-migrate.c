@@ -19,6 +19,10 @@
  * Author: Chris Toshok (toshok@ximian.com)
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <glib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -30,7 +34,7 @@
 
 #include "addressbook-migrate.h"
 #include "e-destination.h"
-#include <libebook/e-book-async.h>
+#include <libebook/e-book.h>
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-util.h>
 #include <gal/util/e-xml-utils.h>
@@ -211,6 +215,30 @@ get_source_name (ESourceGroup *group, const char *path)
 }
 
 static void
+add_to_notes (EContact *contact, EContactField field)
+{
+	const gchar *old_text;
+	const gchar *field_text;
+	gchar       *new_text;
+
+	old_text = e_contact_get_const (contact, E_CONTACT_NOTE);
+	if (old_text && strstr (old_text, e_contact_pretty_name (field)))
+		return;
+
+	field_text = e_contact_get_const (contact, field);
+	if (!field_text || !*field_text)
+		return;
+
+	new_text = g_strdup_printf ("%s%s%s: %s",
+				    old_text ? old_text : "",
+				    old_text && *old_text &&
+				    *(old_text + strlen (old_text) - 1) != '\n' ? "\n" : "",
+				    e_contact_pretty_name (field), field_text);
+	e_contact_set (contact, E_CONTACT_NOTE, new_text);
+	g_free (new_text);
+}
+
+static void
 migrate_contacts (MigrationContext *context, EBook *old_book, EBook *new_book)
 {
 	EBookQuery *query = e_book_query_any_field_contains ("");
@@ -274,6 +302,31 @@ migrate_contacts (MigrationContext *context, EBook *old_book, EBook *new_book)
 					e_vcard_attribute_add_param_with_value (a,
 										e_vcard_attribute_param_new (EVC_TYPE),
 										"VOICE");
+				attr = attr->next;
+			}
+			/* Replace "POSTAL" (1.4) addresses with "OTHER" (1.5) */
+			else if (!strcmp ("ADR", e_vcard_attribute_get_name (a))) {
+				GList *params, *param;
+				gboolean found = FALSE;
+				EVCardAttributeParam *p;
+
+				params = e_vcard_attribute_get_params (a);
+				for (param = params; param; param = param->next) {
+					p = param->data;
+					if (!strcmp (EVC_TYPE, e_vcard_attribute_param_get_name (p))) {
+						GList *v = e_vcard_attribute_param_get_values (p);
+						if (v && v->data && !strcmp ("POSTAL", v->data)) {
+							found = TRUE;
+							break;
+						}
+					}
+				}
+
+				if (found) {
+					e_vcard_attribute_param_remove_values (p);
+					e_vcard_attribute_param_add_value (p, "OTHER");
+				}
+
 				attr = attr->next;
 			}
 			/* this is kinda gross.  The new vcard parser
@@ -341,14 +394,16 @@ migrate_contact_folder_to_source (MigrationContext *context, char *old_path, ESo
 
 	dialog_set_folder_name (context, e_source_peek_name (new_source));
 
-	old_book = e_book_new ();
-	if (!e_book_load_source (old_book, old_source, TRUE, &e)) {
+	old_book = e_book_new (old_source, &e);
+	if (!old_book
+	    || !e_book_open (old_book, TRUE, &e)) {
 		g_warning ("failed to load source book for migration: `%s'", e->message);
 		goto finish;
 	}
 
-	new_book = e_book_new ();
-	if (!e_book_load_source (new_book, new_source, FALSE, &e)) {
+	new_book = e_book_new (new_source, &e);
+	if (!new_book
+	    || !e_book_open (new_book, FALSE, &e)) {
 		g_warning ("failed to load destination book for migration: `%s'", e->message);
 		goto finish;
 	}
@@ -647,7 +702,7 @@ migrate_ldap_servers (MigrationContext *context, ESourceGroup *on_ldap_servers)
 }
 
 static ESource*
-get_source_by_uri (ESourceList *source_list, const char *uri)
+get_source_by_name (ESourceList *source_list, const char *name)
 {
 	GSList *groups;
 	GSList *g;
@@ -667,14 +722,9 @@ get_source_by_uri (ESourceList *source_list, const char *uri)
 
 		for (s = sources; s; s = s->next) {
 			ESource *source = E_SOURCE (s->data);
-			char *source_uri = e_source_get_uri (source);
-			gboolean found = FALSE;
+			const char *source_name = e_source_peek_name (source);
 
-			if (!strcmp (uri, source_uri))
-				found = TRUE;
-
-			g_free (source_uri);
-			if (found)
+			if (!strcmp (name, source_name))
 				return source;
 		}
 	}
@@ -731,16 +781,11 @@ migrate_completion_folders (MigrationContext *context)
 						source = e_source_list_peek_source_by_uid (context->source_list, uid);
 				}
 				else {
-					char *uri;
-					char *semi = strchr (physical_uri, ';');
-					if (semi)
-						uri = g_strndup (physical_uri, semi - physical_uri);
-					else
-						uri = g_strdup (physical_uri);
+					char *name = e_xml_get_string_prop_by_name (child, "display-name");
 
-					source = get_source_by_uri (context->source_list, uri);
+					source = get_source_by_name (context->source_list, name);
 
-					g_free (uri);
+					g_free (name);
 				}
 
 				if (source) {
@@ -779,8 +824,9 @@ migrate_contact_lists_for_local_folders (MigrationContext *context, ESourceGroup
 
 		dialog_set_folder_name (context, e_source_peek_name (source));
 
-		book = e_book_new ();
-		if (!e_book_load_source (book, source, TRUE, NULL)) {
+		book = e_book_new (source, NULL);
+		if (!book
+		    || !e_book_open (book, TRUE, NULL)) {
 			char *uri = e_source_get_uri (source);
 			g_warning ("failed to migrate contact lists for source %s", uri);
 			g_free (uri);
@@ -853,8 +899,9 @@ migrate_company_phone_for_local_folders (MigrationContext *context, ESourceGroup
 
 		dialog_set_folder_name (context, e_source_peek_name (source));
 
-		book = e_book_new ();
-		if (!e_book_load_source (book, source, TRUE, NULL)) {
+		book = e_book_new (source, NULL);
+		if (!book
+		    || !e_book_open (book, TRUE, NULL)) {
 			char *uri = e_source_get_uri (source);
 			g_warning ("failed to migrate company phone numbers for source %s", uri);
 			g_free (uri);
@@ -1043,7 +1090,7 @@ migration_context_free (MigrationContext *context)
 }
 
 int
-addressbook_migrate (AddressbookComponent *component, int major, int minor, int revision)
+addressbook_migrate (AddressbookComponent *component, int major, int minor, int revision, GError **err)
 {
 	ESourceGroup *on_this_computer;
 	ESourceGroup *on_ldap_servers;
@@ -1115,6 +1162,25 @@ addressbook_migrate (AddressbookComponent *component, int major, int minor, int 
 			migrate_pilot_data (old_path, new_path);
 			g_free (new_path);
 			g_free (old_path);
+		}
+
+		/* we only need to do this next step if people ran
+		   older versions of 1.5.  We need to clear out the
+		   absolute URI's that were assigned to ESources
+		   during one phase of development, as they take
+		   precedent over relative uris (but aren't updated
+		   when editing an ESource). */
+		if (minor == 5 && revision <= 11) {
+			GSList *g;
+			for (g = e_source_list_peek_groups (context->source_list); g; g = g->next) {
+				ESourceGroup *group = g->data;
+				GSList *s;
+
+				for (s = e_source_group_peek_sources (group); s; s = s->next) {
+					ESource *source = s->data;
+					e_source_set_absolute_uri (source, NULL);
+				}
+			}
 		}
 	}
 

@@ -1,3 +1,4 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* Evolution calendar - Main page of the task editor dialog
  *
  * Copyright (C) 2001 Ximian, Inc.
@@ -34,8 +35,6 @@
 #include <libgnome/gnome-i18n.h>
 #include <glade/glade.h>
 #include <libgnomeui/gnome-stock-icons.h>
-#include <gal/util/e-util.h>
-#include <gal/widgets/e-popup-menu.h>
 #include <gal/widgets/e-gui-utils.h>
 #include <widgets/misc/e-dateedit.h>
 #include <e-util/e-dialog-utils.h>
@@ -49,7 +48,7 @@
 #include "comp-editor-util.h"
 #include "e-delegate-dialog.h"
 #include "meeting-page.h"
-
+#include "../e-cal-popup.h"
 
 /* Private part of the MeetingPage structure */
 struct _MeetingPagePrivate {
@@ -69,20 +68,24 @@ struct _MeetingPagePrivate {
 
 	/* Widgets from the Glade file */
 	GtkWidget *main;
+	GtkWidget *list_box;
 	GtkWidget *organizer_table;
 	GtkWidget *organizer;
 	GtkWidget *existing_organizer_table;
 	GtkWidget *existing_organizer;
 	GtkWidget *existing_organizer_btn;
 	GtkWidget *add;
+	GtkWidget *remove;
 	GtkWidget *invite;
-	
+	GtkWidget *att_label;
+
 	/* ListView stuff */
 	EMeetingStore *model;
 	EMeetingListView *list_view;
 	gint row;
 	
 	/* For handling who the organizer is */
+	gboolean user_org;
 	gboolean existing;
 	
         gboolean updating;
@@ -90,8 +93,6 @@ struct _MeetingPagePrivate {
 
 
 
-static void meeting_page_class_init (MeetingPageClass *class);
-static void meeting_page_init (MeetingPage *mpage);
 static void meeting_page_finalize (GObject *object);
 
 static GtkWidget *meeting_page_get_widget (CompEditorPage *page);
@@ -99,21 +100,7 @@ static void meeting_page_focus_main_widget (CompEditorPage *page);
 static gboolean meeting_page_fill_widgets (CompEditorPage *page, ECalComponent *comp);
 static gboolean meeting_page_fill_component (CompEditorPage *page, ECalComponent *comp);
 
-static CompEditorPageClass *parent_class = NULL;
-
-
-
-/**
- * meeting_page_get_type:
- * 
- * Registers the #MeetingPage class if necessary, and returns the type ID
- * associated to it.
- * 
- * Return value: The type ID of the #MeetingPage class.
- **/
-
-E_MAKE_TYPE (meeting_page, "MeetingPage", MeetingPage, meeting_page_class_init, meeting_page_init,
-	     TYPE_COMP_EDITOR_PAGE);
+G_DEFINE_TYPE (MeetingPage, meeting_page, TYPE_COMP_EDITOR_PAGE);
 
 /* Class initialization function for the task page */
 static void
@@ -124,8 +111,6 @@ meeting_page_class_init (MeetingPageClass *class)
 
 	editor_page_class = (CompEditorPageClass *) class;
 	object_class = (GObjectClass *) class;
-
-	parent_class = g_type_class_ref (TYPE_COMP_EDITOR_PAGE);
 
 	editor_page_class->get_widget = meeting_page_get_widget;
 	editor_page_class->focus_main_widget = meeting_page_focus_main_widget;
@@ -267,8 +252,8 @@ meeting_page_finalize (GObject *object)
 	g_free (priv);
 	mpage->priv = NULL;
 
-	if (G_OBJECT_CLASS (parent_class)->finalize)
-		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
+	if (G_OBJECT_CLASS (meeting_page_parent_class)->finalize)
+		(* G_OBJECT_CLASS (meeting_page_parent_class)->finalize) (object);
 }
 
 
@@ -314,6 +299,24 @@ clear_widgets (MeetingPage *mpage)
 	gtk_widget_hide (priv->existing_organizer_table);	
 
 	priv->existing = FALSE;
+	priv->user_org = TRUE;
+}
+
+static void
+sensitize_widgets (MeetingPage *mpage)
+{
+	gboolean read_only;
+	MeetingPagePrivate *priv = mpage->priv;
+
+	if (!e_cal_is_read_only (COMP_EDITOR_PAGE (mpage)->client, &read_only, NULL))
+		read_only = TRUE;
+
+	gtk_widget_set_sensitive (priv->organizer, !read_only);
+	gtk_widget_set_sensitive (priv->existing_organizer_btn, !read_only);
+	gtk_widget_set_sensitive (priv->add, !read_only && priv->user_org);
+	gtk_widget_set_sensitive (priv->remove, !read_only && priv->user_org);
+	gtk_widget_set_sensitive (priv->invite, !read_only && priv->user_org);
+	gtk_widget_set_sensitive (GTK_WIDGET (priv->list_view), !read_only);
 }
 
 /* fill_widgets handler for the meeting page */
@@ -353,19 +356,23 @@ meeting_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
 			gtk_widget_hide (priv->organizer_table);
 			gtk_widget_show (priv->existing_organizer_table);
 			if (itip_organizer_is_user (comp, page->client)) {
-				gtk_widget_show (priv->invite);
-				gtk_widget_show (priv->add);
+				gtk_widget_set_sensitive (priv->invite, TRUE);
+				gtk_widget_set_sensitive (priv->add, TRUE);
+				gtk_widget_set_sensitive (priv->remove, TRUE);
 				if (e_cal_get_static_capability (
 					    page->client,
 					    CAL_STATIC_CAPABILITY_ORGANIZER_NOT_EMAIL_ADDRESS))
 					gtk_widget_hide (priv->existing_organizer_btn);
+				priv->user_org = TRUE;
 			} else {
 				if (e_cal_get_static_capability (
 					    page->client,
 					    CAL_STATIC_CAPABILITY_ORGANIZER_NOT_EMAIL_ADDRESS))
 					gtk_widget_hide (priv->existing_organizer_btn);
-				gtk_widget_hide (priv->invite);
-				gtk_widget_hide (priv->add);
+				gtk_widget_set_sensitive (priv->invite, FALSE);
+				gtk_widget_set_sensitive (priv->add, FALSE);
+				gtk_widget_set_sensitive (priv->remove, FALSE);
+				priv->user_org = FALSE;
 			}
 			
 			if (organizer.cn != NULL)
@@ -392,6 +399,8 @@ meeting_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
 	}
 	
 	priv->updating = FALSE;
+
+	sensitize_widgets (mpage);
 
 	return TRUE;
 }
@@ -465,6 +474,8 @@ get_widgets (MeetingPage *mpage)
 	if (!priv->main)
 		return FALSE;
 
+	priv->list_box = GW ("list-box");
+
 	/* Get the GtkAccelGroup from the toplevel window, so we can install
 	   it when the notebook page is mapped. */
 	toplevel = gtk_widget_get_toplevel (priv->main);
@@ -481,7 +492,7 @@ get_widgets (MeetingPage *mpage)
 	priv->organizer_table = GW ("organizer-table");
 	priv->organizer = GW ("organizer");
 	gtk_combo_set_value_in_list (GTK_COMBO (priv->organizer), FALSE, FALSE);
-	gtk_entry_set_editable(GTK_COMBO(priv->organizer)->entry, FALSE);
+	gtk_entry_set_editable (GTK_ENTRY (GTK_COMBO (priv->organizer)->entry), FALSE);
 
 	/* For showing existing organizers */
 	priv->existing_organizer_table = GW ("existing-organizer-table");
@@ -490,12 +501,19 @@ get_widgets (MeetingPage *mpage)
 
 	/* Buttons */
 	priv->add = GW ("add-attendee");
+	priv->remove = GW ("remove-attendee");
 	priv->invite = GW ("invite");
-	
+
+	/* Attendees Label */
+	priv->att_label = GW ("attendees-label");
+
 #undef GW
 
-	return (priv->invite
+	return (priv->list_box
+		&& priv->att_label
+		&& priv->invite
 		&& priv->add
+		&& priv->remove
 		&& priv->organizer_table
 		&& priv->organizer
 		&& priv->existing_organizer_table
@@ -545,12 +563,14 @@ change_clicked_cb (GtkWidget *widget, gpointer data)
 
 	gtk_widget_show (priv->organizer_table);
 	gtk_widget_hide (priv->existing_organizer_table);
-	gtk_widget_show (priv->invite);
-	gtk_widget_show (priv->add);
+	gtk_widget_set_sensitive (priv->invite, TRUE);
+	gtk_widget_set_sensitive (priv->add, TRUE);
+	gtk_widget_set_sensitive (priv->remove, TRUE);
 
 	comp_editor_page_notify_changed (COMP_EDITOR_PAGE (mpage));
 	
 	priv->existing = FALSE;
+	priv->user_org = TRUE;
 }
 
 static void
@@ -560,6 +580,132 @@ add_clicked_cb (GtkButton *btn, MeetingPage *mpage)
 	
 	attendee = e_meeting_store_add_attendee_with_defaults (mpage->priv->model);
 	e_meeting_list_view_edit (mpage->priv->list_view, attendee);
+}
+
+static gboolean
+existing_attendee (EMeetingAttendee *ia, ECalComponent *comp) 
+{
+	GSList *attendees, *l;
+	const gchar *ia_address;
+	
+	ia_address = itip_strip_mailto (e_meeting_attendee_get_address (ia));
+	if (!ia_address)
+		return FALSE;
+	
+	e_cal_component_get_attendee_list (comp, &attendees);
+
+	for (l = attendees; l; l = l->next) {
+		ECalComponentAttendee *attendee = l->data;
+		const char *address;
+		
+		address = itip_strip_mailto (attendee->value);
+		if (address && !g_strcasecmp (ia_address, address)) {
+			e_cal_component_free_attendee_list (attendees);
+			return TRUE;
+		}
+	}
+	
+	e_cal_component_free_attendee_list (attendees);
+	
+	return FALSE;
+}
+
+static void
+remove_attendee (MeetingPage *mpage, EMeetingAttendee *ia) 
+{
+	MeetingPagePrivate *priv;
+	int pos = 0;
+	
+	priv = mpage->priv;
+
+	/* If the user deletes the organizer attendee explicitly,
+	   assume they no longer want the organizer showing up */
+	if (ia == priv->ia) {
+		g_object_unref (priv->ia);
+		priv->ia = NULL;
+	}	
+		
+	/* If this was a delegatee, no longer delegate */
+	if (e_meeting_attendee_is_set_delfrom (ia)) {
+		EMeetingAttendee *ib;
+		
+		ib = e_meeting_store_find_attendee (priv->model, e_meeting_attendee_get_delfrom (ia), &pos);
+		if (ib != NULL) {
+			e_meeting_attendee_set_delto (ib, NULL);
+			e_meeting_attendee_set_edit_level (ib,  E_MEETING_ATTENDEE_EDIT_FULL);
+		}		
+	}
+	
+	/* Handle deleting all attendees in the delegation chain */	
+	while (ia != NULL) {
+		EMeetingAttendee *ib = NULL;
+
+		if (existing_attendee (ia, priv->comp)) {
+			g_object_ref (ia);
+			g_ptr_array_add (priv->deleted_attendees, ia);
+		}
+		
+		if (e_meeting_attendee_get_delto (ia) != NULL)
+			ib = e_meeting_store_find_attendee (priv->model, e_meeting_attendee_get_delto (ia), NULL);
+		e_meeting_store_remove_attendee (priv->model, ia);
+
+		ia = ib;
+	}
+
+	sensitize_widgets (mpage);
+}
+
+static void
+remove_attendee_at_row (MeetingPage *mpage, int row) 
+{
+	MeetingPagePrivate *priv;
+	EMeetingAttendee *ia;
+	
+	priv = mpage->priv;
+
+	ia = e_meeting_store_find_attendee_at_row (priv->model, row);
+	remove_attendee (mpage, ia);
+}
+
+static void
+remove_clicked_cb (GtkButton *btn, MeetingPage *mpage)
+{
+	MeetingPagePrivate *priv;
+	EMeetingAttendee *ia;
+	GtkTreeSelection *selection;
+	GtkTreeIter iter;
+	GtkTreePath *path;
+	gboolean valid_iter;
+	char *address;
+	
+	priv = mpage->priv;
+
+	selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (priv->list_view));
+	if (!gtk_tree_selection_get_selected (selection, NULL, &iter)) {
+		g_warning ("Could not get a selection to delete.");
+		return;
+	}
+	path = gtk_tree_model_get_path (GTK_TREE_MODEL (priv->model), &iter);	
+	
+	gtk_tree_model_get (GTK_TREE_MODEL (priv->model), &iter, E_MEETING_STORE_ADDRESS_COL, &address, -1);
+	ia = e_meeting_store_find_attendee (priv->model, address, NULL);
+	g_free (address);
+	if (!ia)
+		return;
+	
+	remove_attendee (mpage, ia);
+
+	/* Select closest item after removal */
+	valid_iter = gtk_tree_model_get_iter (GTK_TREE_MODEL (priv->model), &iter, path);
+	if (!valid_iter) {
+		gtk_tree_path_prev (path);
+		valid_iter = gtk_tree_model_get_iter (GTK_TREE_MODEL (priv->model), &iter, path);
+	}
+
+	if (valid_iter)
+		gtk_tree_selection_select_iter (selection, &iter);
+
+	gtk_tree_path_free (path);
 }
 
 /* Function called to invite more people */
@@ -593,52 +739,30 @@ init_widgets (MeetingPage *mpage)
 	/* Add attendee button */
 	g_signal_connect (priv->add, "clicked", G_CALLBACK (add_clicked_cb), mpage);
 
-	/* Invite button */
+	/* Remove attendee button */
+	g_signal_connect (priv->remove, "clicked", G_CALLBACK (remove_clicked_cb), mpage);
+
+	/* Contacts button */
 	g_signal_connect(priv->invite, "clicked", G_CALLBACK (invite_cb), mpage);
 }
 
 static void
-popup_delete_cb (GtkWidget *widget, gpointer data) 
+client_changed_cb (CompEditorPage *page, ECal *client, gpointer user_data)
 {
-	MeetingPage *mpage = MEETING_PAGE (data);
+	MeetingPage *mpage = MEETING_PAGE (page);
+
+	sensitize_widgets (mpage);
+}
+
+static void
+popup_delete_cb (EPopup *ep, EPopupItem *pitem, void *data)
+{
+	MeetingPage *mpage = data;
 	MeetingPagePrivate *priv;
-	EMeetingAttendee *ia;
-	int pos = 0;
 	
 	priv = mpage->priv;
 
-	ia = e_meeting_store_find_attendee_at_row (priv->model, priv->row);
-
-	/* If the user deletes the attendee explicitly, assume they no
-	   longer want the organizer showing up */
-	if (ia == priv->ia) {
-		g_object_unref (priv->ia);
-		priv->ia = NULL;
-	}	
-		
-	/* If this was a delegatee, no longer delegate */
-	if (e_meeting_attendee_is_set_delfrom (ia)) {
-		EMeetingAttendee *ib;
-		
-		ib = e_meeting_store_find_attendee (priv->model, e_meeting_attendee_get_delfrom (ia), &pos);
-		if (ib != NULL) {
-			e_meeting_attendee_set_delto (ib, NULL);
-			e_meeting_attendee_set_edit_level (ib,  E_MEETING_ATTENDEE_EDIT_FULL);
-		}		
-	}
-	
-	/* Handle deleting all attendees in the delegation chain */	
-	while (ia != NULL) {
-		EMeetingAttendee *ib = NULL;
-
-		g_object_ref (ia);
-		g_ptr_array_add (priv->deleted_attendees, ia);
-		e_meeting_store_remove_attendee (priv->model, ia);
-
-		if (e_meeting_attendee_get_delto (ia) != NULL)
-			ib = e_meeting_store_find_attendee (priv->model, e_meeting_attendee_get_delto (ia), NULL);
-		ia = ib;
-	}
+	remove_attendee_at_row (mpage, priv->row);
 }
 
 enum {
@@ -646,16 +770,19 @@ enum {
 	CAN_DELETE = 4
 };
 
-static EPopupMenu context_menu[] = {
+static EPopupItem context_menu_items[] = {
 #if 0
-	E_POPUP_ITEM (N_("_Delegate To..."), G_CALLBACK (popup_delegate_cb),  CAN_DELEGATE),
-
-	E_POPUP_SEPARATOR,
+	{ E_POPUP_ITEM, "00.delegate", N_("_Delegate To..."), popup_delegate_cb, NULL, NULL, CAN_DELEGATE },
+	{ E_POPUP_BAR, "05.bar" },
 #endif
-	E_POPUP_ITEM (N_("_Delete"), G_CALLBACK (popup_delete_cb),   CAN_DELETE),
-	
-	E_POPUP_TERMINATOR
+	{ E_POPUP_ITEM, "10.delete", N_("_Remove"), popup_delete_cb, NULL, GTK_STOCK_REMOVE, CAN_DELETE },
 };
+
+static void
+context_popup_free(EPopup *ep, GSList *items, void *data)
+{
+	g_slist_free(items);
+}
 
 static gint
 button_press_event (GtkWidget *widget, GdkEventButton *event, MeetingPage *mpage)
@@ -666,8 +793,11 @@ button_press_event (GtkWidget *widget, GdkEventButton *event, MeetingPage *mpage
 	GtkTreePath *path;
 	GtkTreeIter iter;
 	char *address;
-	int disable_mask = 0, hide_mask = 0;
-	
+	int disable_mask = 0;
+	GSList *menus = NULL;
+	ECalPopup *ep;
+	int i;
+
 	priv = mpage->priv;
 
 	/* only process right-clicks */
@@ -688,16 +818,13 @@ button_press_event (GtkWidget *widget, GdkEventButton *event, MeetingPage *mpage
 	
  	if (e_meeting_attendee_get_edit_level (ia) != E_MEETING_ATTENDEE_EDIT_FULL)
  		disable_mask = CAN_DELETE;
- 
-	/* FIXME: if you enable Delegate, then change index to '1'.
-	 * (This has now been enabled). */
-	/* context_menu[1].pixmap_widget = gnome_stock_new_with_icon (GNOME_STOCK_MENU_TRASH); */
-	context_menu[1].pixmap_widget =
-	  gtk_image_new_from_stock (GTK_STOCK_DELETE, GTK_ICON_SIZE_MENU);
 
-	menu = e_popup_menu_create (context_menu, disable_mask, hide_mask, mpage);
-	e_auto_kill_popup_menu_on_selection_done (menu);
-	
+	ep = e_cal_popup_new("com.novell.evolution.calendar.meeting.popup");
+	for (i=0;i<sizeof(context_menu_items)/sizeof(context_menu_items[0]);i++)
+		menus = g_slist_prepend(menus, &context_menu_items[i]);
+
+	e_popup_add_items((EPopup *)ep, menus, context_popup_free, mpage);
+	menu = e_popup_create_menu_once((EPopup *)ep, NULL, disable_mask);
 	gtk_menu_popup (menu, NULL, NULL, NULL, NULL, event->button, event->time);
 
 	return TRUE;
@@ -782,18 +909,24 @@ meeting_page_construct (MeetingPage *mpage, EMeetingStore *ems,
 	priv->model = ems;
 
 	priv->list_view = e_meeting_list_view_new (priv->model); 
-
 	g_signal_connect (G_OBJECT (priv->list_view), "button_press_event", G_CALLBACK (button_press_event), mpage);
 
 	gtk_widget_show (GTK_WIDGET (priv->list_view));
 	sw = gtk_scrolled_window_new (NULL, NULL);
+	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (sw), GTK_SHADOW_IN);
 	gtk_widget_show (sw);
 	gtk_container_add (GTK_CONTAINER (sw), GTK_WIDGET (priv->list_view));
-	gtk_box_pack_start (GTK_BOX (priv->main), sw, TRUE, TRUE, 6);
+	gtk_box_pack_start (GTK_BOX (priv->list_box), sw, TRUE, TRUE, 0);
 	
+	/* Set the mnemonic widget for the Attendees label */
+	gtk_label_set_mnemonic_widget (GTK_LABEL (priv->att_label), GTK_WIDGET (priv->list_view));
+
 	/* Init the widget signals */
 	init_widgets (mpage);
+
+	g_signal_connect_after (G_OBJECT (mpage), "client_changed",
+				G_CALLBACK (client_changed_cb), NULL);
 
 	return mpage;
 }

@@ -26,6 +26,8 @@
 #include <gtk/gtkstock.h>
 #include <gtk/gtkmessagedialog.h>
 #include <libgnome/gnome-i18n.h>
+#include <e-util/e-icon-factory.h>
+#include "widgets/misc/e-error.h"
 #include "../calendar-config.h"
 #include "delete-comp.h"
 
@@ -59,10 +61,10 @@ delete_component_dialog (ECalComponent *comp,
 			 int n_comps, ECalComponentVType vtype,
 			 GtkWidget *widget)
 {
-	char *str;
-	GtkWidget *dialog;
-	int ret;
-
+	const char *stock_icon, *id;
+	char *arg0 = NULL;
+	int response;
+	
 	if (comp) {
 		g_return_val_if_fail (E_IS_CAL_COMPONENT (comp), FALSE);
 		g_return_val_if_fail (n_comps == 1, FALSE);
@@ -79,73 +81,66 @@ delete_component_dialog (ECalComponent *comp,
 
 	if (comp) {
 		ECalComponentText summary;
-		char *tmp;
-
+		
 		vtype = e_cal_component_get_vtype (comp);
-
+		
 		if (!consider_as_untitled) {
 			e_cal_component_get_summary (comp, &summary);
-			tmp = g_strdup (summary.value);
-		} else
-			tmp = NULL;
-
+			arg0 = g_strdup (summary.value);
+		}
+		
 		switch (vtype) {
 		case E_CAL_COMPONENT_EVENT:
-			if (tmp)
-				str = g_strdup_printf (_("Are you sure you want to delete "
-							 "the appointment `%s'?"), tmp);
+			stock_icon = "stock_calendar";
+			if (arg0)
+				id = "calendar:prompt-delete-titled-appointment";
 			else
-				str = g_strdup (_("Are you sure you want to delete this "
-						  "untitled appointment?"));
+				id = "calendar:prompt-delete-appointment";
 			break;
 
 		case E_CAL_COMPONENT_TODO:
-			if (tmp)
-				str = g_strdup_printf (_("Are you sure you want to delete "
-							 "the task `%s'?"), tmp);
+			stock_icon = "stock_todo";
+			if (arg0)
+				id = "calendar:prompt-delete-named-task";
 			else
-				str = g_strdup (_("Are you sure you want to delete this "
-						  "untitled task?"));
+				id = "calendar:prompt-delete-task";
 			break;
 
 		case E_CAL_COMPONENT_JOURNAL:
-			if (tmp)
-				str = g_strdup_printf (_("Are you sure you want to delete "
-							 "the journal entry `%s'?"), tmp);
+			stock_icon = "stock_calendar";
+			if (arg0)
+				id = "calendar:prompt-delete-named-journal";
 			else
-				str = g_strdup (_("Are you sure want to delete this "
-						  "untitled journal entry?"));
+				id = "calendar:prompt-delete-journal";
 			break;
 
 		default:
 			g_message ("delete_component_dialog(): Cannot handle object of type %d",
 				   vtype);
-			g_free (tmp);
+			g_free (arg0);
 			return FALSE;
 		}
-
-		g_free (tmp);
 	} else {
 		switch (vtype) {
 		case E_CAL_COMPONENT_EVENT:
-			str = g_strdup_printf (ngettext("Are you sure you want to delete "
-							"%d appointment?",
-							"Are you sure you want to delete "
-							"%d appointments?", n_comps), n_comps);
+			if (n_comps == 1)
+				id = "calendar:prompt-delete-appointment";
+			else
+				id = "calendar:prompt-delete-appointments";
 			break;
 
 		case E_CAL_COMPONENT_TODO:
-			str = g_strdup_printf (ngettext("Are you sure you want to delete "
-							"%d task?",
-							"Are you sure you want to delete "
-							"%d tasks?", n_comps), n_comps);
+			if (n_comps == 1)
+				id = "calendar:prompt-delete-task";
+			else
+				id = "calendar:prompt-delete-tasks";
 			break;
 
 		case E_CAL_COMPONENT_JOURNAL:
-			str = g_strdup_printf (ngettext("Are you sure you want to delete "
-							"%d journal entry?",
-							"Are you sure you want to delete "
-							"%d journal entries?", n_comps), n_comps);
+			if (n_comps == 1)
+				id = "calendar:prompt-delete-journal";
+			else
+				id = "calendar:prompt-delete-journals";
 			break;
 
 		default:
@@ -153,14 +148,13 @@ delete_component_dialog (ECalComponent *comp,
 				   vtype);
 			return FALSE;
 		}
+		
+		if (n_comps > 1)
+			arg0 = g_strdup_printf ("%d", n_comps);
 	}
-
-	dialog = gtk_message_dialog_new ((GtkWindow *)gtk_widget_get_toplevel (widget),
-					 0, GTK_MESSAGE_QUESTION, GTK_BUTTONS_NONE, "%s", str);
-	gtk_dialog_add_buttons ((GtkDialog *) dialog, GTK_STOCK_NO, GTK_RESPONSE_CANCEL, GTK_STOCK_YES, GTK_RESPONSE_OK, NULL);
-	g_free (str);
-	ret = gtk_dialog_run ((GtkDialog *) dialog) == GTK_RESPONSE_OK;
-	gtk_widget_destroy (dialog);
-
-	return ret;
+	
+	response = e_error_run ((GtkWindow *) gtk_widget_get_toplevel (widget), id, arg0, NULL);
+	g_free (arg0);
+	
+	return response == GTK_RESPONSE_YES;
 }

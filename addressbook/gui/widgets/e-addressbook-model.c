@@ -501,7 +501,6 @@ get_view (EABModel *model)
 			limit = atoi (limit_str);
 
 		remove_book_view(model);
-		free_data (model);
 
 		if (model->first_get_view) {
 			model->first_get_view = FALSE;
@@ -509,6 +508,8 @@ get_view (EABModel *model)
 			if (e_book_check_static_capability (model->book, "do-initial-query")) {
 				success = e_book_async_get_book_view (model->book, model->query, NULL, limit, book_view_loaded, model);
 			} else {
+				free_data (model);
+
 				g_signal_emit (model,
 					       eab_model_signals [MODEL_CHANGED], 0);
 				g_signal_emit (model,
@@ -521,6 +522,16 @@ get_view (EABModel *model)
 
 	}
 }
+
+static gboolean
+get_view_idle (EABModel *model)
+{
+	model->book_view_idle_id = 0;
+	get_view (model);
+	g_object_unref (model);
+	return FALSE;
+}
+
 
 EContact *
 eab_model_get_contact(EABModel *model,
@@ -536,6 +547,7 @@ static void
 eab_model_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
 	EABModel *model;
+	gboolean need_get_book_view = FALSE;
 
 	model = EAB_MODEL (object);
 	
@@ -556,16 +568,6 @@ eab_model_set_property (GObject *object, guint prop_id, const GValue *value, GPa
 		}
 		model->book = E_BOOK(g_value_get_object (value));
 		if (model->book) {
-			if (!model->editable_set) {
-				model->editable = e_book_is_writable (model->book);
-
-				g_signal_emit (model,
-					       eab_model_signals [WRITABLE_STATUS], 0,
-					       model->editable);
-			}
-			model->first_get_view = TRUE;
-			g_object_ref (model->book);
-			get_view (model);
 			model->writable_status_id =
 				g_signal_connect (model->book,
 						  "writable_status",
@@ -574,13 +576,25 @@ eab_model_set_property (GObject *object, guint prop_id, const GValue *value, GPa
 				g_signal_connect (model->book,
 						  "backend_died",
 						  G_CALLBACK (backend_died), model);
+
+			if (!model->editable_set) {
+				model->editable = e_book_is_writable (model->book);
+
+				g_signal_emit (model,
+					       eab_model_signals [WRITABLE_STATUS], 0,
+					       model->editable);
+			}
+
+			model->first_get_view = TRUE;
+			g_object_ref (model->book);
+			need_get_book_view = TRUE;
 		}
 		break;
 	case PROP_QUERY:
 		if (model->query)
 			e_book_query_unref (model->query);
 		model->query = e_book_query_from_string (g_value_get_string (value));
-		get_view (model);
+		need_get_book_view = TRUE;
 		break;
 	case PROP_EDITABLE:
 		model->editable = g_value_get_boolean (value);
@@ -590,6 +604,14 @@ eab_model_set_property (GObject *object, guint prop_id, const GValue *value, GPa
 		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
 	}
+
+	if (need_get_book_view) {
+		if (!model->book_view_idle_id) {
+			g_object_ref (model);
+			model->book_view_idle_id = g_idle_add ((GSourceFunc)get_view_idle, model);
+		}
+	}
+
 }
 
 static void

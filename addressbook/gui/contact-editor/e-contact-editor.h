@@ -27,7 +27,7 @@
 
 #include "addressbook/gui/contact-editor/eab-editor.h"
 
-#include <libebook/e-book-async.h>
+#include <libebook/e-book.h>
 #include <libebook/e-contact.h>
 
 #include <gtk/gtktreeview.h>
@@ -69,8 +69,9 @@ struct _EContactEditor
 	GladeXML *gui;
 	GtkWidget *app;
 
+	GtkWidget *file_selector;
+
 	EContactName *name;
-	char *company;
 
 	/* Whether we are editing a new contact or an existing one */
 	guint is_new_contact : 1;
@@ -81,17 +82,8 @@ struct _EContactEditor
 	/* Whether the contact has been changed since bringing up the contact editor */
 	guint changed : 1;
 
-	/* Whether the contact editor will accept delete */
-	guint source_editable : 1;
-
 	/* Whether the contact editor will accept modifications, save */
 	guint target_editable : 1;
-
-	/* Whether the fullname will accept modifications */
-	guint fullname_editable : 1;
-
-	/* Whether each of the addresses are editable */
-	gboolean address_editable [E_CONTACT_LAST_ADDRESS_ID - E_CONTACT_FIRST_ADDRESS_ID + 1];
 
 	/* Whether an async wombat call is in progress */
 	guint in_async_call : 1;
@@ -101,6 +93,9 @@ struct _EContactEditor
 	/* ID for async load_source call */
 	guint  load_source_id;
 	EBook *load_book;
+
+	/* signal ids for "writable_status" */
+	int target_editable_id;
 };
 
 struct _EContactEditorClass

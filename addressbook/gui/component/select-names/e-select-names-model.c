@@ -16,12 +16,11 @@
 #include <gtk/gtksignal.h>
 
 #include <gal/util/e-util.h>
+#include <libebook/e-book.h>
 #include <libebook/e-contact.h>
 #include "e-select-names-model.h"
 #include "e-select-names-marshal.h"
-
-#define MAX_LENGTH 2047
-
+#include "eab-book-util.h"
 
 enum {
 	E_SELECT_NAMES_MODEL_CHANGED,
@@ -212,12 +211,6 @@ e_select_names_model_get_textification (ESelectNamesModel *model, const char *se
 		}
 		
 		text = g_strjoinv (separator, strv);
-
-		if (g_utf8_strlen(text, -1) > MAX_LENGTH) {
-			char *p = g_utf8_offset_to_pointer (text, MAX_LENGTH);
-			*p = '\0';
-			text = g_realloc (text, p - text + 1);
-		}
 		
 		g_free (strv);
 		
@@ -586,6 +579,116 @@ e_select_names_model_merge (ESelectNamesModel *dest, ESelectNamesModel *src)
 			e_select_names_model_append (dest, e_destination_copy (d));
 	}
 }
+
+typedef struct {
+	EDestination *dest;
+	ESelectNamesModel *model;
+} ModelDestClosure;
+
+static void
+name_and_email_simple_query_cb (EBook *book, EBookStatus status, GList *contacts, gpointer closure)
+{
+	ModelDestClosure *c = closure;
+	EDestination *dest = c->dest;
+	ESelectNamesModel *model = c->model;
+	EContact *contact;
+	int num_non_list_contacts = 0;
+	GList *l;
+
+	g_free (c);
+
+	if (status == E_BOOK_ERROR_OK) {
+		for (l = contacts; l; l = l->next) {
+			EContact *c = E_CONTACT (l->data);
+			if (!e_contact_get (c, E_CONTACT_IS_LIST)) {
+				num_non_list_contacts++;
+				contact = c;
+			}
+		}
+
+		if (num_non_list_contacts == 1) {
+			const char *email = e_destination_get_email (dest);
+			int email_num = 0;
+		
+			if (email && *email) {
+				GList *email_list = e_contact_get (contact, E_CONTACT_EMAIL);
+				GList *l;
+
+				for (l = email_list; l; l = l->next) {
+					if (!g_ascii_strcasecmp (email, l->data))
+						break;
+					email_num++;
+				}
+				if (l == NULL)
+					email_num = -1;
+			}
+
+			if (email_num >= 0) {
+				e_destination_set_contact (dest, contact, email_num);
+				e_select_names_model_changed (model);
+			}
+		}
+	}
+	
+	
+	g_object_unref (dest);
+	g_object_unref (model);
+	g_object_unref (book);
+}
+
+static void
+book_opened (EBook *book, EBookStatus status, gpointer closure)
+{
+	ESelectNamesModel *model = closure;
+	GList *iter;
+
+	for (iter = model->priv->data; iter != NULL; iter = g_list_next (iter)) {
+		ModelDestClosure *c = g_new (ModelDestClosure, 1);
+
+		c->dest = g_object_ref (E_DESTINATION (iter->data));
+		c->model = g_object_ref (model);
+
+		if (e_destination_is_evolution_list (c->dest))
+			continue;
+	
+		if (e_destination_get_contact (c->dest))
+			continue;
+
+		g_object_ref (book);
+
+		eab_name_and_email_query (book,
+					  e_destination_get_name (c->dest),
+					  e_destination_get_email (c->dest),
+					  name_and_email_simple_query_cb,
+					  c);
+	}
+
+
+	g_object_unref (model);
+	g_object_unref (book);
+}
+
+void
+e_select_names_model_load_contacts (ESelectNamesModel *model)
+{
+	EBook *book;
+
+	g_return_if_fail (E_IS_SELECT_NAMES_MODEL (model));
+
+	if (model->priv->data) {
+		g_object_ref (model);
+
+		book = e_book_new_default_addressbook (NULL);
+
+		e_book_async_open (book, TRUE, book_opened, model);
+	}
+}
+
+void
+e_select_names_cancel_contacts_load (ESelectNamesModel *model)
+{
+}
+
 
 void
 e_select_names_model_name_pos (ESelectNamesModel *model, gint seplen, gint index, gint *pos, gint *length)

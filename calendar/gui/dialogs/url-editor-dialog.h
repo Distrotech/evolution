@@ -35,7 +35,7 @@ G_BEGIN_DECLS
 #include <glade/glade.h>
 
 #include "cal-prefs-dialog.h"
-#include "widgets/misc/e-source-selector.h"
+#include <libedataserverui/e-source-selector.h>
 
 struct _UrlDialogData {
 	/* Glade XML data */
@@ -48,6 +48,7 @@ struct _UrlDialogData {
 	GtkWidget *weekly;
 	GtkWidget *user_publish;
 	
+	GtkWidget *calendar_list_label;
 	GtkWidget *scrolled_window;
 	
 	GtkEntry *username_entry;

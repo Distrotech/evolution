@@ -74,7 +74,7 @@ guint
 eab_name_and_email_query (EBook *book,
 			  const gchar *name,
 			  const gchar *email,
-			  EBookContactsCallback cb,
+			  EBookListCallback cb,
 			  gpointer closure)
 {
 	gchar *email_query=NULL, *name_query=NULL;
@@ -153,7 +153,7 @@ eab_name_and_email_query (EBook *book,
 guint
 eab_nickname_query (EBook                 *book,
 		    const char            *nickname,
-		    EBookContactsCallback  cb,
+		    EBookListCallback      cb,
 		    gpointer               closure)
 {
 	EBookQuery *query;
@@ -184,9 +184,21 @@ eab_contact_list_from_string (const char *str)
 {
 	GList *contacts = NULL;
 	GString *gstr = g_string_new ("");
+	char *str_stripped;
 	char *p = (char*)str;
 	char *q;
-	char *blank_line;
+
+	if (!p)
+		return NULL;
+
+	if (!strncmp (p, "Book: ", 6)) {
+		p = strchr (p, '\n');
+		if (!p) {
+			g_warning (G_STRLOC ": Got book but no newline!");
+			return NULL;
+		}
+		p++;
+	}
 
 	while (*p) {
 		if (*p != '\r') g_string_append_c (gstr, *p);
@@ -194,30 +206,45 @@ eab_contact_list_from_string (const char *str)
 		p++;
 	}
 
-	p = g_string_free (gstr, FALSE);
-	q = p;
-	do {
-		char *temp;
+	q = p = str_stripped = g_string_free (gstr, FALSE);
 
-		blank_line = strstr (q, "\n\n");
-		if (blank_line) {
-			temp = g_strndup (q, blank_line - q);
+	/* Note: The VCard standard says
+	 *
+	 * vcard = "BEGIN" [ws] ":" [ws] "VCARD" [ws] 1*CRLF 
+	 *         items *CRLF "END" [ws] ":" [ws] "VCARD"
+	 *
+	 * which means we can have whitespace (e.g. "BEGIN : VCARD"). So we're not being
+	 * fully compliant here, although I'm not sure it matters. The ideal solution
+	 * would be to have a vcard parsing function that returned the end of the vcard
+	 * parsed. Arguably, contact list parsing should all be in libebook's e-vcard.c,
+	 * where we can do proper parsing and validation without code duplication. */
+
+	for (p = strstr (p, "BEGIN:VCARD"); p; p = strstr (q, "\nBEGIN:VCARD")) {
+		gchar *card_str;
+
+		if (*p == '\n')
+			p++;
+
+		for (q = strstr (p, "END:VCARD"); q; q = strstr (q, "END:VCARD")) {
+			gchar *temp;
+
+			q += 9;
+			temp = q;
+			temp += strspn (temp, "\r\n\t ");
+
+			if (*temp == '\0' || !strncmp (temp, "BEGIN:VCARD", 11))
+				break;  /* Found the outer END:VCARD */
 		}
-		else {
-			temp = g_strdup (q);
-		}
 
-		contacts = g_list_append (contacts, e_contact_new_from_vcard (temp));
+		if (!q)
+			break;
 
-		g_free (temp);
+		card_str = g_strndup (p, q - p);
+		contacts = g_list_append (contacts, e_contact_new_from_vcard (card_str));
+		g_free (card_str);
+	}
 
-		if (blank_line)
-			q = blank_line + 2;
-		else
-			q = NULL;
-	} while (blank_line);
-
-	g_free (p);
+	g_free (str_stripped);
 
 	return contacts;
 }
@@ -238,6 +265,59 @@ eab_contact_list_to_string (GList *contacts)
 	}
 
 	return g_string_free (str, FALSE);
+}
+
+gboolean
+eab_book_and_contact_list_from_string (const char *str, EBook **book, GList **contacts)
+{
+	const char *s0, *s1;
+	char *uri;
+
+	g_return_val_if_fail (str != NULL, FALSE);
+	g_return_val_if_fail (book != NULL, FALSE);
+	g_return_val_if_fail (contacts != NULL, FALSE);
+
+	*contacts = eab_contact_list_from_string (str);
+
+	if (!strncmp (str, "Book: ", 6)) {
+		s0 = str + 6;
+		s1 = strchr (str, '\r');
+
+		if (!s1)
+			s1 = strchr (str, '\n');
+	} else {
+		s0 = NULL;
+		s1 = NULL;
+	}
+
+	if (!s0 || !s1) {
+		*book = NULL;
+		return FALSE;
+	}
+
+	uri = g_strndup (s0, s1 - s0);
+	*book = e_book_new_from_uri (uri, NULL);
+	g_free (uri);
+
+	return *book ? TRUE : FALSE;
+}
+
+char *
+eab_book_and_contact_list_to_string (EBook *book, GList *contacts)
+{
+	char *s0, *s1;
+
+	s0 = eab_contact_list_to_string (contacts);
+	if (!s0)
+		s0 = g_strdup ("");
+
+	if (book)
+		s1 = g_strconcat ("Book: ", e_book_get_uri (book), "\r\n", s0, NULL);
+	else
+		s1 = g_strdup (s0);
+
+	g_free (s0);
+	return s1;
 }
 
 #if notyet

@@ -23,10 +23,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif
+
 #include <string.h>
 #include <glade/glade.h>
-#include <gal/util/e-util.h>
 #include <libgnome/gnome-i18n.h>
 
 #include "task-page.h"
@@ -48,8 +50,6 @@ struct _TaskEditorPrivate {
 
 
 
-static void task_editor_class_init (TaskEditorClass *class);
-static void task_editor_init (TaskEditor *te);
 static void task_editor_set_e_cal (CompEditor *editor, ECal *client);
 static void task_editor_edit_comp (CompEditor *editor, ECalComponent *comp);
 static gboolean task_editor_send_comp (CompEditor *editor, ECalComponentItipMethod method);
@@ -63,30 +63,7 @@ static void forward_cmd (GtkWidget *widget, gpointer data);
 static void model_row_change_insert_cb (GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data);
 static void model_row_delete_cb (GtkTreeModel *model, GtkTreePath *path, gpointer data);
 
-static BonoboUIVerb verbs [] = {
-	BONOBO_UI_UNSAFE_VERB ("ActionAssignTask", assign_task_cmd),
-	BONOBO_UI_UNSAFE_VERB ("ActionRefreshTask", refresh_task_cmd),
-	BONOBO_UI_UNSAFE_VERB ("ActionCancelTask", cancel_task_cmd),
-	BONOBO_UI_UNSAFE_VERB ("ActionForward", forward_cmd),
-
-	BONOBO_UI_VERB_END
-};
-
-static CompEditorClass *parent_class;
-
-
-
-/**
- * task_editor_get_type:
- *
- * Registers the #TaskEditor class if necessary, and returns the type ID
- * associated to it.
- *
- * Return value: The type ID of the #TaskEditor class.
- **/
-
-E_MAKE_TYPE (task_editor, "TaskEditor", TaskEditor, task_editor_class_init, task_editor_init,
-	     TYPE_COMP_EDITOR);
+G_DEFINE_TYPE (TaskEditor, task_editor, TYPE_COMP_EDITOR);
 
 /* Class initialization function for the event editor */
 static void
@@ -98,54 +75,11 @@ task_editor_class_init (TaskEditorClass *klass)
 	object_class = (GObjectClass *) klass;
 	editor_class = (CompEditorClass *) klass;
 
-	parent_class = g_type_class_ref(TYPE_COMP_EDITOR);
-
 	editor_class->set_e_cal = task_editor_set_e_cal;
 	editor_class->edit_comp = task_editor_edit_comp;
 	editor_class->send_comp = task_editor_send_comp;
 
 	object_class->finalize = task_editor_finalize;
-}
-
-static void
-set_menu_sens (TaskEditor *te) 
-{
-	TaskEditorPrivate *priv;
-	gboolean sens, existing, user, read_only = TRUE;
-	
-	priv = te->priv;
-
- 	existing = comp_editor_get_existing_org (COMP_EDITOR (te));
- 	user = comp_editor_get_user_org (COMP_EDITOR (te));
-	
-	e_cal_is_read_only (comp_editor_get_e_cal (COMP_EDITOR (te)), &read_only, NULL);
- 
-  	sens = e_cal_get_static_capability (comp_editor_get_e_cal (COMP_EDITOR (te)),
-						 CAL_STATIC_CAPABILITY_NO_TASK_ASSIGNMENT)
-						 || priv->assignment_shown || read_only;
-  	comp_editor_set_ui_prop (COMP_EDITOR (te), 
-  				 "/commands/ActionAssignTask", 
-  				 "sensitive", sens ? "0" : "1");
-  
- 	sens = priv->assignment_shown && existing && !user && !read_only;
-  	comp_editor_set_ui_prop (COMP_EDITOR (te), 
-  				 "/commands/ActionRefreshTask", 
-  				 "sensitive", sens ? "1" : "0");
- 
- 	sens = priv->assignment_shown && existing && user && !read_only;
-  	comp_editor_set_ui_prop (COMP_EDITOR (te), 
-  				 "/commands/ActionCancelTask", 
-  				 "sensitive", sens ? "1" : "0");
-
-	comp_editor_set_ui_prop (COMP_EDITOR (te),
-				 "/commands/FileSave",
-				 "sensitive", read_only ? "0" : "1");
-	comp_editor_set_ui_prop (COMP_EDITOR (te),
-				 "/commands/FileSaveAndClose",
-				 "sensitive", read_only ? "0" : "1");
-	comp_editor_set_ui_prop (COMP_EDITOR (te),
-				 "/commands/FileDelete",
-				 "sensitive", read_only ? "0" : "1");
 }
 
 static void
@@ -161,6 +95,12 @@ init_widgets (TaskEditor *te)
 			    G_CALLBACK (model_row_change_insert_cb), te);
 	g_signal_connect((priv->model), "row_deleted",
 			    G_CALLBACK (model_row_delete_cb), te);
+}
+
+static void
+client_changed_cb (CompEditorPage *page, ECal *client, gpointer user_data)
+{
+//	set_menu_sens (TASK_EDITOR (user_data));
 }
 
 /* Object initialization function for the task editor */
@@ -190,14 +130,16 @@ task_editor_construct (TaskEditor *te, ECal *client)
 	gtk_object_sink (GTK_OBJECT (priv->task_page));
 	comp_editor_append_page (COMP_EDITOR (te), 
 				 COMP_EDITOR_PAGE (priv->task_page),
-				 _("Basic"));
+				 _("Task"));
+	g_signal_connect (G_OBJECT (priv->task_page), "client_changed",
+			  G_CALLBACK (client_changed_cb), te);
 
 	priv->task_details_page = task_details_page_new ();
 	g_object_ref (priv->task_details_page);
 	gtk_object_sink (GTK_OBJECT (priv->task_details_page));
 	comp_editor_append_page (COMP_EDITOR (te),
 				 COMP_EDITOR_PAGE (priv->task_details_page),
-				 _("Details"));
+				 _("Status"));
 
 	priv->meet_page = meeting_page_new (priv->model, client);
 	g_object_ref (priv->meet_page);
@@ -208,10 +150,7 @@ task_editor_construct (TaskEditor *te, ECal *client)
 
 	comp_editor_set_e_cal (COMP_EDITOR (te), client);
 
-	comp_editor_merge_ui (COMP_EDITOR (te), "evolution-task-editor.xml", verbs, NULL);
-
 	init_widgets (te);
-	set_menu_sens (te);
 
 	return te;
 }
@@ -227,8 +166,8 @@ task_editor_set_e_cal (CompEditor *editor, ECal *client)
 
 	e_meeting_store_set_e_cal (priv->model, client);
 
-	if (parent_class->set_e_cal)
-		parent_class->set_e_cal (editor, client);
+	if (COMP_EDITOR_CLASS (task_editor_parent_class)->set_e_cal)
+		COMP_EDITOR_CLASS (task_editor_parent_class)->set_e_cal (editor, client);
 }
 
 static void
@@ -245,8 +184,8 @@ task_editor_edit_comp (CompEditor *editor, ECalComponent *comp)
 
 	priv->updating = TRUE;
 
-	if (parent_class->edit_comp)
-		parent_class->edit_comp (editor, comp);
+	if (COMP_EDITOR_CLASS (task_editor_parent_class)->edit_comp)
+		COMP_EDITOR_CLASS (task_editor_parent_class)->edit_comp (editor, comp);
 
 	client = comp_editor_get_e_cal (COMP_EDITOR (editor));
 
@@ -311,7 +250,6 @@ task_editor_edit_comp (CompEditor *editor, ECalComponent *comp)
 	}
 	e_cal_component_free_attendee_list (attendees);
 
-	set_menu_sens (te);
 	comp_editor_set_needs_send (COMP_EDITOR (te), priv->assignment_shown && itip_organizer_is_user (comp, client));
 
 	priv->updating = FALSE;
@@ -345,8 +283,8 @@ task_editor_send_comp (CompEditor *editor, ECalComponentItipMethod method)
 	}
 
  parent:
-	if (parent_class->send_comp)
-		return parent_class->send_comp (editor, method);
+	if (COMP_EDITOR_CLASS (task_editor_parent_class)->send_comp)
+		return COMP_EDITOR_CLASS (task_editor_parent_class)->send_comp (editor, method);
 
 	return FALSE;
 }
@@ -372,8 +310,8 @@ task_editor_finalize (GObject *object)
 	
 	g_free (priv);
 
-	if (G_OBJECT_CLASS (parent_class)->finalize)
-		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
+	if (G_OBJECT_CLASS (task_editor_parent_class)->finalize)
+		(* G_OBJECT_CLASS (task_editor_parent_class)->finalize) (object);
 }
 
 /**
@@ -407,7 +345,6 @@ show_assignment (TaskEditor *te)
 					 _("Assignment"));
 		priv->assignment_shown = TRUE;
 
-		set_menu_sens (te);
 		comp_editor_set_needs_send (COMP_EDITOR (te), priv->assignment_shown);
 		comp_editor_set_changed (COMP_EDITOR (te), TRUE);
 	}

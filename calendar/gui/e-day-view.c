@@ -47,7 +47,6 @@
 #include <gal/widgets/e-popup-menu.h>
 #include <gal/widgets/e-gui-utils.h>
 #include <gal/widgets/e-unicode.h>
-#include <gal/util/e-util.h>
 #include <libgnomecanvas/gnome-canvas-rect-ellipse.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnome/gnome-exec.h>
@@ -122,8 +121,6 @@ static GtkTargetEntry target_table[] = {
 };
 static guint n_targets = sizeof(target_table) / sizeof(target_table[0]);
 
-static void e_day_view_class_init (EDayViewClass *class);
-static void e_day_view_init (EDayView *day_view);
 static void e_day_view_destroy (GtkObject *object);
 static void e_day_view_realize (GtkWidget *widget);
 static void e_day_view_unrealize (GtkWidget *widget);
@@ -442,10 +439,7 @@ static void e_day_view_queue_layout (EDayView *day_view);
 static void e_day_view_cancel_layout (EDayView *day_view);
 static gboolean e_day_view_layout_timeout_cb (gpointer data);
 
-static GtkTableClass *parent_class;
-
-E_MAKE_TYPE (e_day_view, "EDayView", EDayView, e_day_view_class_init,
-	     e_day_view_init, e_calendar_view_get_type ());
+G_DEFINE_TYPE (EDayView, e_day_view, E_TYPE_CALENDAR_VIEW);
 
 static void
 e_day_view_class_init (EDayViewClass *class)
@@ -454,7 +448,6 @@ e_day_view_class_init (EDayViewClass *class)
 	GtkWidgetClass *widget_class;
 	ECalendarViewClass *view_class;
 
-	parent_class = g_type_class_peek_parent (class);
 	object_class = (GtkObjectClass *) class;
 	widget_class = (GtkWidgetClass *) class;
 	view_class = (ECalendarViewClass *) class;
@@ -670,7 +663,7 @@ row_deleted_check_cb (EDayView	*day_view, gint day, gint event_num, gpointer dat
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
 
 	if (!e_cal_model_get_component_for_uid (model, uid))
-		g_hash_table_insert (uids, (char *)uid, GINT_TO_POINTER (1));
+		g_hash_table_insert (uids, g_strdup(uid), GINT_TO_POINTER (1));
 
 	return TRUE;
 }
@@ -679,9 +672,10 @@ static void
 remove_uid_cb (gpointer key, gpointer value, gpointer data)
 {
 	EDayView *day_view = data;
-	const char *uid = key;
+	char *uid = key;
 	
 	e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_remove_event_cb, NULL);
+	g_free(uid);
 }
 
 static void
@@ -1140,7 +1134,7 @@ e_day_view_destroy (GtkObject *object)
 		}
 	}
 
-	GTK_OBJECT_CLASS (parent_class)->destroy (object);
+	GTK_OBJECT_CLASS (e_day_view_parent_class)->destroy (object);
 }
 
 
@@ -1152,8 +1146,8 @@ e_day_view_realize (GtkWidget *widget)
 	gboolean success[E_DAY_VIEW_COLOR_LAST];
 	gint nfailed;
 
-	if (GTK_WIDGET_CLASS (parent_class)->realize)
-		(*GTK_WIDGET_CLASS (parent_class)->realize)(widget);
+	if (GTK_WIDGET_CLASS (e_day_view_parent_class)->realize)
+		(*GTK_WIDGET_CLASS (e_day_view_parent_class)->realize)(widget);
 
 	day_view = E_DAY_VIEW (widget);
 	day_view->main_gc = gdk_gc_new (widget->window);
@@ -1222,10 +1216,10 @@ e_day_view_realize (GtkWidget *widget)
 	gdk_gc_set_colormap (day_view->main_gc, colormap);
 
 	/* Create the pixmaps. */
-	day_view->reminder_icon = e_icon_factory_get_icon ("stock_bell", E_DAY_VIEW_ICON_WIDTH);
-	day_view->recurrence_icon = e_icon_factory_get_icon ("stock_refresh", E_DAY_VIEW_ICON_WIDTH);
-	day_view->timezone_icon = e_icon_factory_get_icon ("stock_timezone", E_DAY_VIEW_ICON_WIDTH);
-	day_view->meeting_icon = e_icon_factory_get_icon ("stock_people", E_DAY_VIEW_ICON_WIDTH);
+	day_view->reminder_icon = e_icon_factory_get_icon ("stock_bell", E_ICON_SIZE_MENU);
+	day_view->recurrence_icon = e_icon_factory_get_icon ("stock_refresh", E_ICON_SIZE_MENU);
+	day_view->timezone_icon = e_icon_factory_get_icon ("stock_timezone", E_ICON_SIZE_MENU);
+	day_view->meeting_icon = e_icon_factory_get_icon ("stock_people", E_ICON_SIZE_MENU);
 
 
 	/* Set the canvas item colors. */
@@ -1296,8 +1290,8 @@ e_day_view_unrealize (GtkWidget *widget)
 	g_object_unref (day_view->meeting_icon);
 	day_view->meeting_icon = NULL;
 
-	if (GTK_WIDGET_CLASS (parent_class)->unrealize)
-		(*GTK_WIDGET_CLASS (parent_class)->unrealize)(widget);
+	if (GTK_WIDGET_CLASS (e_day_view_parent_class)->unrealize)
+		(*GTK_WIDGET_CLASS (e_day_view_parent_class)->unrealize)(widget);
 }
 
 
@@ -1320,8 +1314,8 @@ e_day_view_style_set (GtkWidget *widget,
 	PangoFontMetrics *font_metrics;
 	PangoLayout *layout;
 
-	if (GTK_WIDGET_CLASS (parent_class)->style_set)
-		(*GTK_WIDGET_CLASS (parent_class)->style_set)(widget, previous_style);
+	if (GTK_WIDGET_CLASS (e_day_view_parent_class)->style_set)
+		(*GTK_WIDGET_CLASS (e_day_view_parent_class)->style_set)(widget, previous_style);
 
 	day_view = E_DAY_VIEW (widget);
 
@@ -1479,7 +1473,7 @@ e_day_view_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 #endif
 	day_view = E_DAY_VIEW (widget);
 
-	(*GTK_WIDGET_CLASS (parent_class)->size_allocate) (widget, allocation);
+	(*GTK_WIDGET_CLASS (e_day_view_parent_class)->size_allocate) (widget, allocation);
 
 	e_day_view_recalc_cell_sizes (day_view);
 
@@ -2878,7 +2872,7 @@ e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 			return TRUE;
 		}
 
-		if (!GTK_WIDGET_HAS_FOCUS (day_view))
+		if (!GTK_WIDGET_HAS_FOCUS (day_view) && !GTK_WIDGET_HAS_FOCUS (day_view->main_canvas))
 			gtk_widget_grab_focus (GTK_WIDGET (day_view));
 
 		if (gdk_pointer_grab (GTK_LAYOUT (widget)->bin_window, FALSE,
@@ -2886,6 +2880,7 @@ e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 				      | GDK_BUTTON_RELEASE_MASK,
 				      FALSE, NULL, event->time) == 0) {
 			e_day_view_start_selection (day_view, day, row);
+			g_signal_emit_by_name (day_view, "selected_time_changed");
 		}
 	} else if (event->button == 3) {
 		if (!GTK_WIDGET_HAS_FOCUS (day_view))
@@ -3301,7 +3296,7 @@ e_day_view_show_popup_menu (EDayView *day_view,
 
 	popup = e_calendar_view_create_popup_menu (E_CALENDAR_VIEW (day_view));
 	g_object_weak_ref (G_OBJECT (popup), popup_destroyed_cb, day_view);
-	e_popup_menu (popup, gdk_event);
+	gtk_menu_popup (popup, NULL, NULL, NULL, NULL, gdk_event?gdk_event->button.button:0, gdk_event?gdk_event->button.time:gtk_get_current_event_time());
 }
 
 static gboolean
@@ -3922,7 +3917,7 @@ e_day_view_finish_long_event_resize (EDayView *day_view)
 		e_cal_component_set_dtend (comp, &date);
 	}
 	
- 	if (e_cal_component_has_recurrences (comp)) {
+ 	if (e_cal_component_is_instance (comp)) {
  		if (!recur_component_dialog (client, comp, &mod, NULL)) {
  			gtk_widget_queue_draw (day_view->top_canvas);
 			goto out;
@@ -4002,7 +3997,7 @@ e_day_view_finish_resize (EDayView *day_view)
 
 	day_view->resize_drag_pos = E_CALENDAR_VIEW_POS_NONE;
 
- 	if (e_cal_component_has_recurrences (comp)) {
+ 	if (e_cal_component_is_instance (comp)) {
  		if (!recur_component_dialog (client, comp, &mod, NULL)) {
  			gtk_widget_queue_draw (day_view->top_canvas);
 			goto out;
@@ -4136,13 +4131,15 @@ e_day_view_add_event (ECalComponent *comp,
 		event.comp_data = g_new0 (ECalModelComponent, 1);
 
 		event.comp_data->client = g_object_ref (e_cal_model_get_default_client (e_calendar_view_get_model (E_CALENDAR_VIEW (add_event_data->day_view))));
-		e_cal_component_commit_sequence (comp);
+		e_cal_component_abort_sequence (comp);
 		event.comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
 	}
 
 	event.start = start;
 	event.end = end;
 	event.canvas_item = NULL;
+	event.comp_data->instance_start = start;
+	event.comp_data->instance_end = end;
 
 	/* Calculate the start & end minute, relative to the top of the
 	   display. */
@@ -4898,7 +4895,7 @@ e_day_view_key_press (GtkWidget *widget, GdkEventKey *event)
 
 	/* if not handled, try key bindings */
 	if (!handled)
-		handled = GTK_WIDGET_CLASS (parent_class)->key_press_event (widget, event);
+		handled = GTK_WIDGET_CLASS (e_day_view_parent_class)->key_press_event (widget, event);
 	return handled;
 }
 
@@ -5854,7 +5851,7 @@ e_day_view_change_event_time (EDayView *day_view, time_t start_dt, time_t end_dt
 
 	day_view->resize_drag_pos = E_CALENDAR_VIEW_POS_NONE;
 
- 	if (e_cal_component_has_recurrences (comp)) {
+ 	if (e_cal_component_is_instance (comp)) {
  		if (!recur_component_dialog (client, comp, &mod, NULL)) {
  			gtk_widget_queue_draw (day_view->top_canvas);
 			goto out;
@@ -6057,14 +6054,17 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 		summary.value = text;
 		summary.altrep = NULL;
 		e_cal_component_set_summary (comp, &summary);
+		e_cal_component_commit_sequence (comp);
 
 		if (!on_server) {
 			if (!e_cal_create_object (client, icalcomp, NULL, NULL))
 				g_message (G_STRLOC ": Could not create the object!");
+			else
+				g_signal_emit_by_name (day_view, "user_created");
 		} else {
 			CalObjModType mod = CALOBJ_MOD_ALL;
 			GtkWindow *toplevel;
-			if (e_cal_component_has_recurrences (comp)) {
+			if (e_cal_component_is_instance (comp)) {
 				if (!recur_component_dialog (client, comp, &mod, NULL)) {
 					goto out;
 				}
@@ -7169,7 +7169,7 @@ e_day_view_on_top_canvas_drag_data_received  (GtkWidget          *widget,
 			if (event->canvas_item)
 				gnome_canvas_item_show (event->canvas_item);
 
-			if (e_cal_component_has_recurrences (comp)) {
+			if (e_cal_component_is_instance (comp)) {
 				if (!recur_component_dialog (client, comp, &mod, NULL))
 					return;
 			}
@@ -7357,7 +7357,7 @@ e_day_view_on_main_canvas_drag_data_received  (GtkWidget          *widget,
 			if (event->canvas_item)
 				gnome_canvas_item_show (event->canvas_item);
 
-			if (e_cal_component_has_recurrences (comp)) {
+			if (e_cal_component_is_instance (comp)) {
 				if (!recur_component_dialog (client, comp, &mod, NULL)) {
 					g_object_unref (comp);
 					return;
