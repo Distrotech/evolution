@@ -1,5 +1,11 @@
 2003-09-01  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-vcard.c (e_vcard_new_from_string): omg i'm dumb.
+	don't call e_vcard_new here since it just turns around and calls
+	e_vcard_new_from_string again.
+
+2003-09-01  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-book-view.c (pas_book_view_notify_change): guard
 	pending adds foo.
 	(pas_book_view_notify_remove): same.

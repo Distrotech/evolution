@@ -601,7 +601,7 @@ e_vcard_new_from_string (const char *str)
 
 	g_return_val_if_fail (str, NULL);
 
-	evc = e_vcard_new ();
+	evc = g_object_new (E_TYPE_VCARD, NULL);
 
 	e_vcard_construct (evc, str);
 
