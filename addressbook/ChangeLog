@@ -1,5 +1,21 @@
 2003-08-26  Chris Toshok  <toshok@ximian.com>
 
+	* backend/idl/addressbook.idl: add oneway void Book::remove() and
+	oneway void notifyBookRemoved()
+
+2003-08-26  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-backend.c (pas_backend_remove): new function.
+	(pas_backend_add_book_view): new function.
+	(pas_backend_add_client): move the "real_add_client" code here.
+	(pas_backend_remove_client): move the "real_remove_client" code
+	here.
+	(pas_backend_class_init): remove assignments of add_client and
+	remove_client vtable entries.
+	(pas_backend_is_removed): new function.
+	(pas_backend_set_is_removed): new function.
+	(pas_backend_init): init clients_mutex and views_mutex.
+
 	* backend/pas/pas-backend.h: remove the vtable entries for
 	add/remove_client, since these are fully handled in PASBackend.
 	Add prototypes for

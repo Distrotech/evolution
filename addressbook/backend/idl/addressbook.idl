@@ -42,6 +42,7 @@ module Addressbook {
 		UnsupportedAuthenticationMethod,
 		TLSNotAvailable,
 		NoSuchBook,
+		BookRemoved,
 
 		/* These can be returned for successful searches, but
 		   indicate the result set was truncated */
@@ -82,6 +83,11 @@ module Addressbook {
 		 * Opening/creating addressbooks.
 		 */
 		oneway void open (in boolean only_if_exists);
+
+		/*
+		 * Removing addressbooks.
+		 */
+		oneway void remove ();
 
 		/*
 		 * Fetching cards in the addresbook.
@@ -156,6 +162,7 @@ module Addressbook {
 		oneway void notifyCardModified         (in CallStatus status);
 		oneway void notifyProgress             (in string status_message, in short precent);
 		oneway void notifyBookOpened           (in CallStatus status);
+		oneway void notifyBookRemoved          (in CallStatus status);
 		oneway void notifyViewRequested        (in CallStatus status, in BookView view);
 		oneway void notifyChangesRequested     (in CallStatus status, in BookChangeList changes);
 		oneway void notifyCardRequested        (in CallStatus status, in VCard card);
