@@ -194,7 +194,7 @@ pas_book_view_notify_add_1 (PASBookView *book_view,
 
 void
 pas_book_view_notify_complete (PASBookView *book_view,
-			       GNOME_Evolution_Addressbook_BookViewListener_CallStatus status)
+			       GNOME_Evolution_Addressbook_CallStatus status)
 {
 	CORBA_Environment ev;
 

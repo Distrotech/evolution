@@ -41,29 +41,33 @@ pas_backend_sync_create_card (PASBackendSync *backend,
 PASBackendSyncStatus
 pas_backend_sync_remove_cards (PASBackendSync *backend,
 			       PASBook *book,
-			       PASRemoveCardsRequest *req)
+			       PASRemoveCardsRequest *req,
+			       GList **ids)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (req && req->ids, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (ids, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync) (backend, book, req);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync) (backend, book, req, ids);
 }
 
 PASBackendSyncStatus
 pas_backend_sync_modify_card (PASBackendSync *backend,
 			      PASBook *book,
-			      PASModifyCardRequest *req)
+			      PASModifyCardRequest *req,
+			      char **old_vcard)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (req && req->vcard, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (old_vcard, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync) (backend, book, req);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync) (backend, book, req, old_vcard);
 }
 
 PASBackendSyncStatus
@@ -99,35 +103,18 @@ pas_backend_sync_get_card_list (PASBackendSync *backend,
 }
 
 PASBackendSyncStatus
-pas_backend_sync_get_book_view (PASBackendSync *backend,
-				PASBook *book,
-				PASGetBookViewRequest *req,
-				PASBookView **view)
-{
-	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->listener != CORBA_OBJECT_NIL, GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (view, GNOME_Evolution_Addressbook_OtherError);
-	
-	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_book_view_sync);
-
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_book_view_sync) (backend, book, req, view);
-}
-
-PASBackendSyncStatus
 pas_backend_sync_get_changes (PASBackendSync *backend,
 			      PASBook *book,
 			      PASGetChangesRequest *req,
-			      PASBookView **view)
+			      GList **changes)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (req && req->change_id && req->listener != CORBA_OBJECT_NIL, GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (view, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (changes, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync) (backend, book, req, view);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_changes_sync) (backend, book, req, changes);
 }
 
 PASBackendSyncStatus
@@ -176,25 +163,19 @@ pas_backend_sync_get_supported_auth_methods (PASBackendSync *backend,
 	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_supported_auth_methods_sync) (backend, book, req, methods);
 }
 
-static gboolean
-_pas_backend_is_threaded (PASBackend *backend)
-{
-	return TRUE;
-}
-
 static void
 _pas_backend_create_card (PASBackend *backend,
 			  PASBook    *book,
 			  PASCreateCardRequest *req)
 {
-  PASBackendSyncStatus status;
-  char *id;
+	PASBackendSyncStatus status;
+	char *id;
 
-  status = pas_backend_sync_create_card (PAS_BACKEND_SYNC (backend), book, req, &id);
+	status = pas_backend_sync_create_card (PAS_BACKEND_SYNC (backend), book, req, &id);
 
-  pas_book_respond_create (book, status, id);
+	pas_book_respond_create (book, status, id, req->vcard);
 
-  g_free (id);
+	g_free (id);
 }
 
 static void
@@ -202,11 +183,12 @@ _pas_backend_remove_cards (PASBackend *backend,
 			   PASBook    *book,
 			   PASRemoveCardsRequest *req)
 {
-  PASBackendSyncStatus status;
+	PASBackendSyncStatus status;
+	GList *ids = NULL;
 
-  status = pas_backend_sync_remove_cards (PAS_BACKEND_SYNC (backend), book, req);
+	status = pas_backend_sync_remove_cards (PAS_BACKEND_SYNC (backend), book, req, &ids);
 
-  pas_book_respond_remove (book, status);
+	pas_book_respond_remove (book, status, ids);
 }
 
 static void
@@ -214,11 +196,12 @@ _pas_backend_modify_card (PASBackend *backend,
 			  PASBook    *book,
 			  PASModifyCardRequest *req)
 {
-  PASBackendSyncStatus status;
+	PASBackendSyncStatus status;
+	char *old_vcard;
 
-  status = pas_backend_sync_modify_card (PAS_BACKEND_SYNC (backend), book, req);
+	status = pas_backend_sync_modify_card (PAS_BACKEND_SYNC (backend), book, req, &old_vcard);
 
-  pas_book_respond_modify (book, status);
+	pas_book_respond_modify (book, status, old_vcard, req->vcard);
 }
 
 static void
@@ -226,14 +209,14 @@ _pas_backend_get_vcard (PASBackend *backend,
 			PASBook    *book,
 			PASGetVCardRequest *req)
 {
-  PASBackendSyncStatus status;
-  char *vcard;
+	PASBackendSyncStatus status;
+	char *vcard;
 
-  status = pas_backend_sync_get_vcard (PAS_BACKEND_SYNC (backend), book, req, &vcard);
+	status = pas_backend_sync_get_vcard (PAS_BACKEND_SYNC (backend), book, req, &vcard);
 
-  pas_book_respond_get_vcard (book, status, vcard);
+	pas_book_respond_get_vcard (book, status, vcard);
 
-  g_free (vcard);
+	g_free (vcard);
 }
 
 static void
@@ -241,27 +224,12 @@ _pas_backend_get_card_list (PASBackend *backend,
 			    PASBook    *book,
 			    PASGetCardListRequest *req)
 {
-  PASBackendSyncStatus status;
-  GList *cards = NULL;
+	PASBackendSyncStatus status;
+	GList *cards = NULL;
 
-  status = pas_backend_sync_get_card_list (PAS_BACKEND_SYNC (backend), book, req, &cards);
+	status = pas_backend_sync_get_card_list (PAS_BACKEND_SYNC (backend), book, req, &cards);
 
-  pas_book_respond_get_card_list (book, status, cards);
-}
-
-static void
-_pas_backend_get_book_view (PASBackend *backend,
-			    PASBook    *book,
-			    PASGetBookViewRequest *req)
-{
-  PASBackendSyncStatus status;
-  PASBookView *view;
-
-  status = pas_backend_sync_get_book_view (PAS_BACKEND_SYNC (backend), book, req, &view);
-
-  pas_book_respond_get_book_view (book, status, view);
-
-  /* XXX free view? */
+	pas_book_respond_get_card_list (book, status, cards);
 }
 
 static void
@@ -269,14 +237,14 @@ _pas_backend_get_changes (PASBackend *backend,
 			  PASBook    *book,
 			  PASGetChangesRequest *req)
 {
-  PASBackendSyncStatus status;
-  PASBookView *view;
+	PASBackendSyncStatus status;
+	GList *changes = NULL;
 
-  status = pas_backend_sync_get_changes (PAS_BACKEND_SYNC (backend), book, req, &view);
+	status = pas_backend_sync_get_changes (PAS_BACKEND_SYNC (backend), book, req, &changes);
 
-  pas_book_respond_get_changes (book, status, view);
+	pas_book_respond_get_changes (book, status, changes);
 
-  /* XXX free view? */
+	/* XXX free view? */
 }
 
 static void
@@ -284,11 +252,11 @@ _pas_backend_authenticate_user (PASBackend *backend,
 				PASBook    *book,
 				PASAuthenticateUserRequest *req)
 {
-  PASBackendSyncStatus status;
+	PASBackendSyncStatus status;
 
-  status = pas_backend_sync_authenticate_user (PAS_BACKEND_SYNC (backend), book, req);
+	status = pas_backend_sync_authenticate_user (PAS_BACKEND_SYNC (backend), book, req);
 
-  pas_book_respond_authenticate_user (book, status);
+	pas_book_respond_authenticate_user (book, status);
 }
 
 static void
@@ -296,15 +264,15 @@ _pas_backend_get_supported_fields (PASBackend *backend,
 				   PASBook    *book,
 				   PASGetSupportedFieldsRequest *req)
 {
-  PASBackendSyncStatus status;
-  GList *fields = NULL;
+	PASBackendSyncStatus status;
+	GList *fields = NULL;
 
-  status = pas_backend_sync_get_supported_fields (PAS_BACKEND_SYNC (backend), book, req, &fields);
+	status = pas_backend_sync_get_supported_fields (PAS_BACKEND_SYNC (backend), book, req, &fields);
 
-  pas_book_respond_get_supported_fields (book, status, fields);
+	pas_book_respond_get_supported_fields (book, status, fields);
 
-  g_list_foreach (fields, (GFunc)g_free, NULL);
-  g_list_free (fields);
+	g_list_foreach (fields, (GFunc)g_free, NULL);
+	g_list_free (fields);
 }
 
 static void
@@ -312,15 +280,15 @@ _pas_backend_get_supported_auth_methods (PASBackend *backend,
 					 PASBook    *book,
 					 PASGetSupportedAuthMethodsRequest *req)
 {
-  PASBackendSyncStatus status;
-  GList *methods = NULL;
+	PASBackendSyncStatus status;
+	GList *methods = NULL;
 
-  status = pas_backend_sync_get_supported_auth_methods (PAS_BACKEND_SYNC (backend), book, req, &methods);
+	status = pas_backend_sync_get_supported_auth_methods (PAS_BACKEND_SYNC (backend), book, req, &methods);
 
-  pas_book_respond_get_supported_auth_methods (book, status, methods);
+	pas_book_respond_get_supported_auth_methods (book, status, methods);
 
-  g_list_foreach (methods, (GFunc)g_free, NULL);
-  g_list_free (methods);
+	g_list_foreach (methods, (GFunc)g_free, NULL);
+	g_list_free (methods);
 }
 
 static void
@@ -359,13 +327,11 @@ pas_backend_sync_class_init (PASBackendSyncClass *klass)
 
 	object_class = (GObjectClass *) klass;
 
-	backend_class->is_threaded = _pas_backend_is_threaded;
 	backend_class->create_card = _pas_backend_create_card;
 	backend_class->remove_cards = _pas_backend_remove_cards;
 	backend_class->modify_card = _pas_backend_modify_card;
 	backend_class->get_vcard = _pas_backend_get_vcard;
 	backend_class->get_card_list = _pas_backend_get_card_list;
-	backend_class->get_book_view = _pas_backend_get_book_view;
 	backend_class->get_changes = _pas_backend_get_changes;
 	backend_class->authenticate_user = _pas_backend_authenticate_user;
 	backend_class->get_supported_fields = _pas_backend_get_supported_fields;

@@ -33,11 +33,11 @@ typedef enum {
 	ModifyCard,
 	GetVCard,
 	GetCardList,
-	GetBookView,
 	GetChanges,
 	AuthenticateUser,
 	GetSupportedFields,
-	GetSupportedAuthMethods
+	GetSupportedAuthMethods,
+	CancelOperation
 } PASOperation;
 
 typedef struct {
@@ -68,14 +68,7 @@ typedef struct {
 
 typedef struct {
 	PASOperation op;
-	const char *search;
-	GNOME_Evolution_Addressbook_BookViewListener listener;
-} PASGetBookViewRequest;
-
-typedef struct {
-	PASOperation op;
 	const char *change_id;
-	GNOME_Evolution_Addressbook_BookViewListener listener;
 } PASGetChangesRequest;
 
 typedef struct {
@@ -93,6 +86,10 @@ typedef struct {
 	PASOperation op;
 } PASGetSupportedAuthMethodsRequest;
 
+typedef struct {
+	PASOperation op;
+} PASCancelOperationRequest;
+
 typedef union {
 	PASOperation                      op;
 
@@ -101,11 +98,11 @@ typedef union {
 	PASModifyCardRequest              modify;
 	PASGetVCardRequest                get_vcard;
 	PASGetCardListRequest             get_card_list;
-	PASGetBookViewRequest             get_book_view;
 	PASGetChangesRequest              get_changes;
 	PASAuthenticateUserRequest        auth_user;
 	PASGetSupportedFieldsRequest      get_supported_fields;
 	PASGetSupportedAuthMethodsRequest get_supported_auth_methods;
+	PASCancelOperationRequest         cancel_operation;
 } PASRequest;
 
 struct _PASBook {
@@ -131,39 +128,42 @@ struct _PASBookClass {
 
 PASBook                *pas_book_new                    (PASBackend                               *backend,
 							 GNOME_Evolution_Addressbook_BookListener  listener);
-PASBackend             *pas_book_get_backend            (PASBook                           *book);
+PASBackend             *pas_book_get_backend            (PASBook                                *book);
 
-void                    pas_book_free_request           (PASRequest                        *request);
-void                    pas_book_respond_open           (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status);
-void                    pas_book_respond_create         (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
-							 const char                        *id);
-void                    pas_book_respond_remove         (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status);
-void                    pas_book_respond_modify         (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status);
-void                    pas_book_respond_authenticate_user (PASBook                           *book,
-							    GNOME_Evolution_Addressbook_BookListenerCallStatus  status);
-void                    pas_book_respond_get_supported_fields (PASBook *book,
-							       GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
-							       GList   *fields);
-void                    pas_book_respond_get_supported_auth_methods (PASBook *book,
-								     GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
-								     GList   *fields);
+void                    pas_book_respond_open           (PASBook                                *book,
+							 GNOME_Evolution_Addressbook_CallStatus  status);
+void                    pas_book_respond_create         (PASBook                                *book,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
+							 const char                             *id,
+							 const char                             *vcard);
+void                    pas_book_respond_remove         (PASBook                                *book,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
+							 GList                                  *ids);
+void                    pas_book_respond_modify         (PASBook                                *book,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
+							 const char                             *old_vcard,
+							 const char                             *new_vcard);
+void                    pas_book_respond_authenticate_user (PASBook                                *book,
+							    GNOME_Evolution_Addressbook_CallStatus  status);
+void                    pas_book_respond_get_supported_fields (PASBook                                *book,
+							       GNOME_Evolution_Addressbook_CallStatus  status,
+							       GList                                  *fields);
+void                    pas_book_respond_get_supported_auth_methods (PASBook                                *book,
+								     GNOME_Evolution_Addressbook_CallStatus  status,
+								     GList                                  *fields);
 
 void                    pas_book_respond_get_book_view  (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 PASBookView                       *book_view);
 void                    pas_book_respond_get_vcard      (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 char                              *vcard);
 void                    pas_book_respond_get_card_list  (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 GList *cards);
-void                    pas_book_respond_get_changes    (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_BookListenerCallStatus  status,
-							 PASBookView                       *book_view);
+void                    pas_book_respond_get_changes    (PASBook                                *book,
+							 GNOME_Evolution_Addressbook_CallStatus  status,
+							 GList                                  *changes);
 
 void                    pas_book_report_writable        (PASBook                           *book,
 							 gboolean                           writable);

@@ -16,6 +16,7 @@ struct _PASBackendPrivate {
 	GList *clients;
 	char *uri;
 	gboolean loaded, writable;
+	EList *views;
 };
 
 /* Signal IDs */
@@ -34,11 +35,11 @@ pas_backend_construct (PASBackend *backend)
 	return TRUE;
 }
 
-GNOME_Evolution_Addressbook_BookListenerCallStatus
+GNOME_Evolution_Addressbook_CallStatus
 pas_backend_load_uri (PASBackend             *backend,
 		      const char             *uri)
 {
-	GNOME_Evolution_Addressbook_BookListenerCallStatus status;
+	GNOME_Evolution_Addressbook_CallStatus status;
 
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
 	g_return_val_if_fail (uri, FALSE);
@@ -142,20 +143,6 @@ pas_backend_get_card_list (PASBackend *backend,
 }
 
 void
-pas_backend_get_book_view (PASBackend *backend,
-			   PASBook *book,
-			   PASGetBookViewRequest *req)
-{
-	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
-	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->listener != CORBA_OBJECT_NIL);
-
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_book_view);
-
-	(* PAS_BACKEND_GET_CLASS (backend)->get_book_view) (backend, book, req);
-}
-
-void
 pas_backend_start_book_view (PASBackend *backend,
 			     PASBookView *book_view)
 {
@@ -174,7 +161,6 @@ pas_backend_get_changes (PASBackend *backend,
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
-	g_return_if_fail (req && req->change_id && req->listener != CORBA_OBJECT_NIL);
 
 	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_changes);
 
@@ -223,21 +209,24 @@ pas_backend_get_supported_auth_methods (PASBackend *backend,
 	(* PAS_BACKEND_GET_CLASS (backend)->get_supported_auth_methods) (backend, book, req);
 }
 
-typedef struct {
-	PASBook *book;
-	PASBackend *backend;
-	PASRequest *req;
-} ProcessClientRequestStruct;
-
-static void*
-threaded_process_client_request (void *arg)
+GNOME_Evolution_Addressbook_CallStatus
+pas_backend_cancel_operation (PASBackend *backend,
+			      PASBook *book,
+			      PASCancelOperationRequest *req)
 {
-	ProcessClientRequestStruct *s = arg;
-	PASBook *book = s->book;
-	PASBackend *backend = s->backend;
-	PASRequest *req = s->req;
+	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (req, GNOME_Evolution_Addressbook_OtherError);
 
-	g_free (s);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->cancel_operation);
+
+	return (* PAS_BACKEND_GET_CLASS (backend)->cancel_operation) (backend, book, req);
+}
+
+static void
+process_client_request (PASBook *book, PASRequest *req, gpointer user_data)
+{
+	PASBackend *backend = pas_book_get_backend (book);
 
 	switch (req->op) {
 	case CreateCard:
@@ -260,10 +249,6 @@ threaded_process_client_request (void *arg)
 		pas_backend_get_card_list (backend, book, &req->get_card_list);
 		break;
 
-	case GetBookView:
-		pas_backend_get_book_view (backend, book, &req->get_book_view);
-		break;
-
 	case GetChanges:
 		pas_backend_get_changes (backend, book, &req->get_changes);
 		break;
@@ -279,26 +264,11 @@ threaded_process_client_request (void *arg)
 	case GetSupportedAuthMethods:
 		pas_backend_get_supported_auth_methods (backend, book, &req->get_supported_auth_methods);
 		break;
+
+	case CancelOperation:
+		pas_backend_cancel_operation (backend, book, &req->cancel_operation);
+		break;
 	}
-
-	return NULL;
-}
-
-static void
-process_client_request (PASBook *book, PASRequest *req, gpointer user_data)
-{
-	ProcessClientRequestStruct *s = g_new (ProcessClientRequestStruct, 1);
-	pthread_t thread;
-
-	s->book    = book;
-	s->req     = req;
-	s->backend = pas_book_get_backend (book);
-
-#if 0
-	pthread_create(&thread, NULL, threaded_process_client_request, s);
-#else
-	threaded_process_client_request (s);
-#endif
 }
 
 static void
@@ -375,16 +345,12 @@ real_remove_client (PASBackend *backend,
 		last_client_gone (backend);
 }
 
-static gboolean
-real_is_threaded (PASBackend *backend)
+EList*
+pas_backend_get_book_views (PASBackend *backend)
 {
-	return FALSE;
-}
+	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
 
-static void
-real_start_threaded (PASBackend *backend)
-{
-	/* by default we do nothing */
+	return g_object_ref (backend->priv->views);
 }
 
 /**
@@ -431,26 +397,6 @@ pas_backend_get_static_capabilities (PASBackend *backend)
 }
 
 gboolean
-pas_backend_is_threaded (PASBackend *backend)
-{
-	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
-	
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->is_threaded);
-
-	return PAS_BACKEND_GET_CLASS (backend)->is_threaded (backend);
-}
-
-void
-pas_backend_start_threaded (PASBackend *backend)
-{
-	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
-	
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->start_threaded);
-
-	PAS_BACKEND_GET_CLASS (backend)->start_threaded (backend);
-}
-
-gboolean
 pas_backend_is_loaded (PASBackend *backend)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND (backend), FALSE);
@@ -490,6 +436,7 @@ pas_backend_init (PASBackend *backend)
 	priv          = g_new0 (PASBackendPrivate, 1);
 	priv->uri     = NULL;
 	priv->clients = NULL;
+	priv->views   = e_list_new((EListCopyFunc) g_object_ref, (EListFreeFunc) g_object_unref, NULL);
 
 	backend->priv = priv;
 }
@@ -507,6 +454,11 @@ pas_backend_dispose (GObject *object)
 		if (backend->priv->uri)
 			g_free (backend->priv->uri);
 
+		if (backend->priv->views) {
+			g_object_unref (backend->priv->views);
+			backend->priv->views = NULL;
+		}
+
 		g_free (backend->priv);
 		backend->priv = NULL;
 	}
@@ -523,8 +475,6 @@ pas_backend_class_init (PASBackendClass *klass)
 
 	object_class = (GObjectClass *) klass;
 
-	klass->is_threaded = real_is_threaded;
-	klass->start_threaded = real_start_threaded;
 	klass->add_client = real_add_client;
 	klass->remove_client = real_remove_client;
 

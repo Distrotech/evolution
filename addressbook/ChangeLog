@@ -1,3 +1,84 @@
+2003-08-06  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-backend-sync.c (pas_backend_sync_remove_cards):
+	add out param @ids, so we can call pas_book_respond_remove
+	properly.
+	(_pas_backend_remove_cards): the other half of the change - pass
+	the ids on to pas_book_response_remove.
+	(pas_backend_sync_modify_card): add out param @old_vcard so we can
+	call pas_book_respond_modify properly.
+	(_pas_backend_modify_card): the other half of the change, pass the
+	old_vcard on to pas_book_respond_modify.
+	(pas_backend_sync_get_book_view): nuke.
+	(pas_backend_sync_get_changes): track change (book view -> GList)
+	(_pas_backend_is_threaded): nuke.
+	(_pas_backend_create_card): indent.
+	(_pas_backend_remove_cards): same.
+	(_pas_backend_modify_card): same.
+	(_pas_backend_get_card_list): same.
+	(_pas_backend_get_changes): same.
+	(_pas_backend_authenticate_user): same.
+	(_pas_backend_get_supported_fields): same.
+	(_pas_backend_get_supported_auth_methods): same.
+	(_pas_backend_get_book_view): nuke.
+	(pas_backend_sync_class_init): remove assignment to is_threaded
+	and get_book_view.
+
+	* backend/pas/pas-backend-sync.h: add out-params @ids to
+	remove_cards_sync, @old_vcard to modify_card_sync.
+	get_changes_sync's out-param is a GList instead of a book view,
+	and remove get_book_view_sync.
+
+	* backend/pas/pas-backend.c (pas_backend_get_book_view): nuke.
+	(pas_backend_is_threaded): nuke.
+	(pas_backend_start_threaded): nuke.
+	(pas_backend_init): initialize priv->views.
+	(pas_backend_dispose): free priv->views.
+	(pas_backend_get_book_views): new function, return priv->views.
+
+	* backend/pas/pas-backend.h: remove the get_book_view virtual
+	method, and the pas_backend_get_book_view prototype.  Also, track
+	the CallStatus change, and add a cancel_operation virtual method
+	and prototype, and add pas_backend_get_book_views function, so the
+	PASBook's can get ahold of the list.
+
+	* backend/pas/pas-book-view.h: track collapsing of
+	Addressbook::BookListenerCallStatus and
+	Addressbook::BookView::CallStatus enums into
+	Addressbook::CallStatus.
+
+	* backend/pas/pas-book-view.c: same.
+	
+	* backend/pas/pas-card-cursor.[ch]: nuke
+	
+	* backend/pas/pas-book.c: track collapsing of
+	Addressbook::BookListenerCallStatus and
+	Addressbook::BookView::CallStatus enums into
+	Addressbook::CallStatus.
+	(impl_GNOME_Evolution_Addressbook_Book_getBookView): implement
+	this all here, instead of farming it out to the backends.
+	(impl_GNOME_Evolution_Addressbook_Book_getChanges): track change
+	to signature.  this is no longer a book view, it'll return an
+	actual list.
+	(impl_GNOME_Evolution_Addressbook_Book_cancelOperation): new
+	function, implement.
+	(pas_book_respond_create): iterate over the views, notifying them
+	if the new card matches their query.
+	(pas_book_respond_remove): iterate over the views, telling them to
+	delete the card matching the id.
+	(pas_book_respond_modify): iterate over the views, notifying them
+	if they need to change/add/remove that card.
+	(view_destroy): move this here from the backends.
+	(pas_book_respond_get_book_view): weak-ref the book view.
+	(pas_book_new): remove the is_threaded switch on POA hints, and
+	always use PER_REQUEST.
+	(pas_book_class_init): fill in cancelOperation.
+
+	* backend/pas/pas-book.h: track collapsing of
+	Addressbook::BookListenerCallStatus and
+	Addressbook::BookView::CallStatus enums into
+	Addressbook::CallStatus.
+
 2003-08-01  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-book-async.c: mostly finished.
