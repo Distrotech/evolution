@@ -1,3 +1,27 @@
+2003-09-12  JP Rosevear <jpr@ximian.com>
+
+	* pcs/query.h: add protos
+
+	* pcs/query.c (query_object_matches): use the sexp to check for a
+	match
+	(query_notify_objects_added_1): notify of one object added to
+	query
+	(query_notify_objects_modified_1): ditto for modification
+	(query_notify_objects_removed_1): ditto for removal
+
+	* pcs/cal.h: add protos
+
+	* pcs/cal.c (cal_notify_object_created): notify of object creation
+	(cal_notify_object_modified): notify of object modification
+	(cal_notify_object_removed): use the _1 routines
+
+	* pcs/cal-backend-file.c (match_recurrence_sexp): this returns a
+	boolean
+	(cal_backend_file_update_objects): don't signal removals here now
+
+	* idl/evolution-calendar.idl: add object created and modified
+	responses
+
 2003-09-11  JP Rosevear <jpr@ximian.com>
 
 	* pcs/cal.h: update proto

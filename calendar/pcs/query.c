@@ -281,6 +281,20 @@ query_get_object_sexp (Query *query)
 	return query->priv->sexp;
 }
 
+gboolean
+query_object_matches (Query *query, const char *object)
+{
+	QueryPrivate *priv;
+	
+	g_return_val_if_fail (query != NULL, FALSE);
+	g_return_val_if_fail (IS_QUERY (query), FALSE);
+	g_return_val_if_fail (object != NULL, FALSE);
+
+	priv = query->priv;
+	
+	return cal_backend_object_sexp_match_object (priv->sexp, object, priv->backend);
+}
+
 void
 query_notify_objects_added (Query *query, const GList *objects)
 {
@@ -314,6 +328,24 @@ query_notify_objects_added (Query *query, const GList *objects)
 		g_warning (G_STRLOC ": could not notify the listener of object addition");
 
 	CORBA_exception_free (&ev);
+}
+
+void
+query_notify_objects_added_1 (Query *query, const char *object)
+{
+	QueryPrivate *priv;
+	GList objects;
+	
+	g_return_if_fail (query != NULL);
+	g_return_if_fail (IS_QUERY (query));
+
+	priv = query->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	objects.next = objects.prev = NULL;
+	objects.data = (gpointer)object;
+
+	query_notify_objects_added (query, &objects);
 }
 
 void
@@ -352,6 +384,24 @@ query_notify_objects_modified (Query *query, const GList *objects)
 }
 
 void
+query_notify_objects_modified_1 (Query *query, const char *object)
+{
+	QueryPrivate *priv;
+	GList objects;
+	
+	g_return_if_fail (query != NULL);
+	g_return_if_fail (IS_QUERY (query));
+
+	priv = query->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	objects.next = objects.prev = NULL;
+	objects.data = (gpointer)object;
+	
+	query_notify_objects_modified (query, &objects);
+}
+
+void
 query_notify_objects_removed (Query *query, const GList *uids)
 {
 	QueryPrivate *priv;
@@ -385,6 +435,24 @@ query_notify_objects_removed (Query *query, const GList *uids)
 
 
 	CORBA_exception_free (&ev);
+}
+
+void
+query_notify_objects_removed_1 (Query *query, const char *uid)
+{
+	QueryPrivate *priv;
+	GList uids;
+	
+	g_return_if_fail (query != NULL);
+	g_return_if_fail (IS_QUERY (query));
+
+	priv = query->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	uids.next = uids.prev = NULL;
+	uids.data = (gpointer)uid;
+	
+	query_notify_objects_modified (query, &uids);
 }
 
 void

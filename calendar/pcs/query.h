@@ -57,12 +57,19 @@ Query                *query_new (CalBackend                             *backend
 				 CalBackendObjectSExp                   *sexp);
 const char           *query_get_text (Query *query);
 CalBackendObjectSExp *query_get_object_sexp (Query *query);
+gboolean query_object_matches (Query *query, const char *object);
 void                  query_notify_objects_added (Query       *query,
 						  const GList *objects);
+void                  query_notify_objects_added_1 (Query       *query,
+						    const char *object);
 void                  query_notify_objects_modified (Query       *query,
 						     const GList *objects);
+void                  query_notify_objects_modified_1 (Query       *query,
+						     const char *object);
 void                  query_notify_objects_removed (Query       *query,
 						    const GList *uids);
+void                  query_notify_objects_removed_1 (Query       *query,
+						    const char *uid);
 void                  query_notify_query_progress (Query      *query,
 						   const char *message,
 						   int         percent);

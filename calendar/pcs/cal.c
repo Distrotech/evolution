@@ -926,6 +926,102 @@ cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
 }
 
 void
+cal_notify_object_created (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
+			   const char *uid, const char *object)
+{
+	CalPrivate *priv;
+	EList *queries;
+	EIterator *iter;
+	CORBA_Environment ev;
+
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	queries = cal_backend_get_queries (priv->backend);
+	iter = e_list_get_iterator (queries);
+
+	while (e_iterator_is_valid (iter)) {
+		Query *query = QUERY (e_iterator_get (iter));
+		
+		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
+
+		query_notify_objects_added_1 (query, uid);
+
+		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
+
+		e_iterator_next (iter);
+	}
+	g_object_unref (iter);
+	g_object_unref (queries);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyObjectCreated (priv->listener, status, uid, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": could not notify the listener of object creation");
+
+	CORBA_exception_free (&ev);
+}
+
+void
+cal_notify_object_modified (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, 
+			    const char *old_object, const char *object)
+{
+	CalPrivate *priv;
+	EList *queries;
+	EIterator *iter;
+	CORBA_Environment ev;
+
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	queries = cal_backend_get_queries (priv->backend);
+	iter = e_list_get_iterator (queries);
+
+	while (e_iterator_is_valid (iter)) {
+		Query *query = QUERY (e_iterator_get (iter));
+		gboolean old_match, new_match;
+		
+		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
+
+		old_match = query_object_matches (query, old_object);
+		new_match = query_object_matches (query, object);
+		if (old_match && new_match)
+			query_notify_objects_modified_1 (query, object);
+		else if (new_match)
+			query_notify_objects_added_1 (query, object);
+		else /* if (old_match) */ {
+			icalcomponent *comp;
+
+			comp = icalcomponent_new_from_string ((char *)old_object);
+			query_notify_objects_removed_1 (query, icalcomponent_get_uid (comp));
+			icalcomponent_free (comp);
+		}
+		query_notify_query_done (query, GNOME_Evolution_Calendar_Success);
+
+		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
+
+		e_iterator_next (iter);
+	}
+	g_object_unref (iter);
+	g_object_unref (queries);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyObjectModified (priv->listener, status, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": could not notify the listener of object creation");
+
+	CORBA_exception_free (&ev);
+}
+
+void
 cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *uid)
 {
 	CalPrivate *priv;
@@ -944,13 +1040,10 @@ cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 
 	while (e_iterator_is_valid (iter)) {
 		Query *query = QUERY (e_iterator_get (iter));
-		GList uids;
-		
+
 		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
 
-		uids.next = uids.prev = NULL;
-		uids.data = uid;
-		query_notify_objects_removed (query, uid);
+		query_notify_objects_removed_1 (query, uids);
 
 		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
 

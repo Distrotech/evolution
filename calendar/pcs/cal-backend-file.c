@@ -1008,7 +1008,7 @@ typedef struct {
 	icaltimezone *default_zone;
 } MatchObjectData;
 
-static void
+static gboolean
 match_recurrence_sexp (CalComponent *comp,
 		       time_t instance_start,
 		       time_t instance_end,
@@ -1021,6 +1021,8 @@ match_recurrence_sexp (CalComponent *comp,
 		match_data->obj_list = g_list_append (match_data->obj_list,
 						      cal_component_get_as_string (comp));
 	}
+
+	return TRUE;
 }
 
 static void
@@ -1702,9 +1704,12 @@ cal_backend_file_update_objects (CalBackend *backend, const char *calobj, CalObj
 	}
 	g_list_free (updated_uids);
 
+#if 0
+	/* FIXME Get rid of this for now, update_objects will go away */
 	for (elem = removed_uids; elem; elem = elem->next) {
 		char *comp_uid = elem->data;
 	}
+#endif
 	g_list_free (removed_uids);
 
 	return retval;

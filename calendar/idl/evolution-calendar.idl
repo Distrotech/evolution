@@ -294,6 +294,8 @@ module Calendar {
 		oneway void notifyCalOpened (in CallStatus status);
 		oneway void notifyCalRemoved (in CallStatus status);
 
+		oneway void notifyObjectCreated (in CallStatus status, in string uid);
+		oneway void notifyObjectModified (in CallStatus status);
 		oneway void notifyObjectRemoved (in CallStatus status);
 		
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
