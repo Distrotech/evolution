@@ -49,7 +49,7 @@ impl_MessengerBackendDispatcher_signon(
 					listener,
 					CORBA_string_dup(identity), 
 					BONOBO_OBJREF(backend),
-					GNOME_Evolution_Messenger_Listener_NONE,
+					GNOME_Evolution_Messenger_Listener_SignonError_NONE,
 					ev);
 				break;
 			case E_MESSENGER_BACKEND_ERROR_INVALID_LOGIN:
@@ -57,7 +57,7 @@ impl_MessengerBackendDispatcher_signon(
 					listener,
 					CORBA_string_dup(identity),
 					BONOBO_OBJREF(backend),
-					GNOME_Evolution_Messenger_Listener_INVALID_LOGIN,
+					GNOME_Evolution_Messenger_Listener_SignonError_INVALID_LOGIN,
 					ev);
 				break;
 			case E_MESSENGER_BACKEND_ERROR_NET_FAILURE:
@@ -65,7 +65,7 @@ impl_MessengerBackendDispatcher_signon(
 					listener,
 					CORBA_string_dup(identity),
 					BONOBO_OBJREF(backend),
-					GNOME_Evolution_Messenger_Listener_NET_FAILURE,
+					GNOME_Evolution_Messenger_Listener_SignonError_NET_FAILURE,
 					ev);
 				break;
 			default:
