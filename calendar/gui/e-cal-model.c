@@ -1261,35 +1261,6 @@ search_by_uid_and_client (ECalModelPrivate *priv, ECal *client, const char *uid)
 	return NULL;
 }
 
-static ECalModelComponent *
-search_instance (ECalModelPrivate *priv, ECal *client, const char *uid, const char *rid)
-{
-	gint i;
-
-	g_return_val_if_fail (uid != NULL, NULL);
-	g_return_val_if_fail (rid != NULL, NULL);
-
-	for (i = 0; i < priv->objects->len; i++) {
-		ECalModelComponent *comp_data = g_ptr_array_index (priv->objects, i);
-
-		if (comp_data) {
-			const char *tmp_uid;
-
-			tmp_uid = icalcomponent_get_uid (comp_data->icalcomp);
-			if (tmp_uid && *tmp_uid) {
-				if ((!client || comp_data->client == client) && !strcmp (uid, tmp_uid)) {
-					if (e_cal_util_component_is_instance (comp_data->icalcomp) &&
-					    strcmp (rid, icaltime_as_ical_string (
-							    icalcomponent_get_recurrenceid (comp_data->icalcomp))) == 0)
-						return comp_data;
-				}
-			}
-		}
-	}
-
-	return NULL;
-}
-
 static gint
 get_position_in_array (GPtrArray *objects, gpointer item)
 {
@@ -1323,7 +1294,7 @@ add_instance_cb (ECalComponent *comp, time_t instance_start, time_t instance_end
 
 	comp_data = g_new0 (ECalModelComponent, 1);
 	comp_data->client = g_object_ref (e_cal_view_get_client (rdata->query));
-	comp_data->icalcomp = icalcomponent_new_clone (rdata->icalcomp);
+	comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
 	comp_data->instance_start = instance_start;
 	comp_data->instance_end = instance_end;
 
@@ -1337,7 +1308,6 @@ static void
 e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data)
 {
 	ECalModel *model = (ECalModel *) user_data;
-	ECalModelComponent *comp_data;
 	ECalModelPrivate *priv;
 	GList *l;
 	time_t start, end;
@@ -1385,9 +1355,6 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 
 	for (l = objects; l; l = l->next) {
 		ECalModelComponent *comp_data;
-		int pos;
-		GList sl;
-		icalcomponent *icalcomp;
 
 		if ((priv->flags & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES) &&
 		    e_cal_util_component_has_recurrences (l->data)) {
