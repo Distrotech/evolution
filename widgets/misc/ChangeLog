@@ -1,5 +1,10 @@
 2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-source-selector.c (e_source_selector_selection_shown)
+	(e_source_selector_show_selection): Add precondition.
+
+2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
+
 	* test-source-selector.c (on_idle_create_widget): Add a
 	checkbutton to the test window for toggling the checkboxes on and
 	off.  Also, put the list in a scrolled window and set a default
