@@ -1077,6 +1077,17 @@ sig_switch_to_list (GtkWidget *w, MailAccountGui *gui)
 }
 
 static void
+sig_set_and_write (MailAccountGui *gui)
+{
+	gui->account->id->text_signature = gui->text_signature;
+	gui->account->id->text_random = gui->text_random;
+	gui->account->id->html_signature = gui->html_signature;
+	gui->account->id->html_random = gui->html_random;
+
+	mail_config_write_account_sig (gui->account, -1);
+}
+
+static void
 sig_new_text (GtkWidget *w, MailAccountGui *gui)
 {
 	if (!gui->dialog)
@@ -1089,7 +1100,7 @@ sig_new_text (GtkWidget *w, MailAccountGui *gui)
 	
 	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_index (gui->text_signature));
 
-	mail_config_write_account_sig (gui->account, -1);
+	sig_set_and_write (gui);
 }
 
 static void
@@ -1098,14 +1109,14 @@ sig_new_html (GtkWidget *w, MailAccountGui *gui)
 	if (!gui->dialog)
 		return;
 
+	sig_switch_to_list (w, gui);
+
 	gui->html_signature = mail_accounts_dialog_new_signature (gui->dialog, TRUE);
 	gui->html_random = FALSE;
 	
 	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_index (gui->html_signature));
 
-	sig_switch_to_list (w, gui);
-
-	mail_config_write_account_sig (gui->account, -1);
+	sig_set_and_write (gui);
 }
 
 static void
@@ -1724,12 +1735,7 @@ mail_account_gui_save (MailAccountGui *gui)
 	account->id->address = e_utf8_gtk_entry_get_text (gui->email_address);
 	account->id->organization = e_utf8_gtk_entry_get_text (gui->organization);
 
-	account->id->text_signature = gui->text_signature;
-	account->id->text_random = gui->text_random;
-	account->id->html_signature = gui->html_signature;
-	account->id->html_random = gui->html_random;
-
-	mail_config_write_account_sig (gui->account, -1);
+	sig_set_and_write (gui);
 
 	old_enabled = account->source && account->source->enabled;
 	service_destroy (account->source);
