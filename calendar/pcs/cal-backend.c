@@ -289,6 +289,8 @@ cal_backend_init (CalBackend *backend)
 	priv = g_new0 (CalBackendPrivate, 1);
 	backend->priv = priv;
 
+	/* FIXME bonobo_object_ref/unref? */
+	priv->queries = e_list_new((EListCopyFunc) g_object_ref, (EListFreeFunc) g_object_unref, NULL);
 	priv->queries_mutex = g_mutex_new ();
 	
 	priv->categories = g_hash_table_new (g_str_hash, g_str_equal);
@@ -324,6 +326,8 @@ cal_backend_finalize (GObject *object)
 	priv = backend->priv;
 
 	g_assert (priv->clients == NULL);
+
+	g_object_unref (priv->queries);
 
 	g_hash_table_foreach_remove (priv->changed_categories, prune_changed_categories, NULL);
 	g_hash_table_destroy (priv->changed_categories);

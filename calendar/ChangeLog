@@ -1,3 +1,8 @@
+2003-09-10  JP Rosevear  <jpr@ximian.com>
+
+	* pcs/cal-backend.c (cal_backend_finalize): unref the elist
+	(cal_backend_init): init the query elist
+
 2003-09-10  JP Rosevear <jpr@ximian.com>
 
 	* gui/gnome-cal.c (dn_query_objects_added_cb): match new query
