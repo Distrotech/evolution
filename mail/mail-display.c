@@ -84,7 +84,7 @@ save_data_cb (GtkWidget *widget, gpointer user_data)
 		msg = g_strdup_printf ("Could not write data: %s", strerror(errno));
 		gnome_error_dialog_parented (msg, GTK_WINDOW (file_select));
 	}
-	gtk_object_unref (GTK_OBJECT (stream_fs));
+	camel_object_unref (CAMEL_OBJECT (stream_fs));
 
 	gtk_widget_destroy (GTK_WIDGET (file_select));
 }
@@ -241,7 +241,7 @@ on_object_requested (GtkHTML *html, GtkHTMLEmbedded *eb, gpointer data)
 
 	/* ...convert the CamelStreamMem to a BonoboStreamMem... */
 	bstream = bonobo_stream_mem_create (ba->data, ba->len, TRUE, FALSE);
-	gtk_object_unref (GTK_OBJECT (cstream));
+	camel_object_unref (CAMEL_OBJECT (cstream));
 
 	/* ...and hydrate the PersistStream from the BonoboStream. */
 	CORBA_exception_init (&ev);
@@ -293,7 +293,7 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 		stream_mem = camel_stream_mem_new_with_byte_array (ba);
 		camel_data_wrapper_write_to_stream (data, stream_mem);
 		gtk_html_write (html, handle, ba->data, ba->len);
-		gtk_object_unref (GTK_OBJECT (stream_mem));
+		camel_object_unref (CAMEL_OBJECT (stream_mem));
 	} else if (strncmp (url, "x-evolution-data:", 17) == 0) {
 		GByteArray *ba = user_data;
 
@@ -343,7 +343,7 @@ mail_display_set_message (MailDisplay *mail_display,
 
 	/* Clean up from previous message. */
 	if (mail_display->current_message)
-		gtk_object_unref (GTK_OBJECT (mail_display->current_message));
+		camel_object_unref (CAMEL_OBJECT (mail_display->current_message));
 
 	mail_display->current_message = (CamelMimeMessage*)medium;
 
@@ -352,7 +352,7 @@ mail_display_set_message (MailDisplay *mail_display,
 			 "<BODY TEXT=\"#000000\" BGCOLOR=\"#FFFFFF\">\n");
 
 	if (medium) {
-		gtk_object_ref (GTK_OBJECT (medium));
+		camel_object_ref (CAMEL_OBJECT (medium));
 		gtk_object_set_data (GTK_OBJECT (mail_display->html),
 				     "message", medium);
 		mail_format_mime_message (CAMEL_MIME_MESSAGE (medium),

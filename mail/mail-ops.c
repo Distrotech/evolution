@@ -120,7 +120,7 @@ check_configured (void)
 }
 
 static void
-select_first_unread (CamelFolder *folder, int type, gpointer data)
+select_first_unread (CamelFolder *folder, gpointer event_data, gpointer data)
 {
 	FolderBrowser *fb = data;
 
@@ -140,7 +140,6 @@ real_fetch_mail (gpointer user_data)
 	FilterDriver *filter = NULL;
 	char *userrules, *systemrules;
 	char *tmp_mbox = NULL, *source;
-	guint handler_id = 0;
 
 	info = (rfm_t *) user_data;
 	fb = info->fb;
@@ -248,8 +247,8 @@ real_fetch_mail (gpointer user_data)
 				msg = camel_folder_get_message (sourcefolder, uids->pdata[i], ex);
 				if (camel_exception_get_id (ex) != CAMEL_EXCEPTION_NONE) {
 					async_mail_exception_dialog ("Unable to read message", ex, fb);
-					gtk_object_unref (GTK_OBJECT (msg));
-					gtk_object_unref (GTK_OBJECT (sourcefolder));
+					camel_object_unref (CAMEL_OBJECT (msg));
+					camel_object_unref (CAMEL_OBJECT (sourcefolder));
 
 					goto cleanup;
 				}
@@ -257,20 +256,20 @@ real_fetch_mail (gpointer user_data)
 				camel_folder_append_message (folder, msg, ex);
 				if (camel_exception_get_id (ex) != CAMEL_EXCEPTION_NONE) {
 					async_mail_exception_dialog ("Unable to write message", ex, fb);
-					gtk_object_unref (GTK_OBJECT (msg));
-					gtk_object_unref (GTK_OBJECT (sourcefolder));
+					camel_object_unref (CAMEL_OBJECT (msg));
+					camel_object_unref (CAMEL_OBJECT (sourcefolder));
 		   
 					goto cleanup;
 				}
 
 				camel_folder_delete_message (sourcefolder, uids->pdata[i]);
-				gtk_object_unref (GTK_OBJECT (msg));
+				camel_object_unref (CAMEL_OBJECT (msg));
 			}
 			camel_folder_free_uids (sourcefolder, uids);
 			camel_folder_sync (sourcefolder, TRUE, ex);
 			if (camel_exception_is_set (ex))
 				async_mail_exception_dialog ("", ex, fb);
-			gtk_object_unref (GTK_OBJECT (sourcefolder));
+			camel_object_unref (CAMEL_OBJECT (sourcefolder));
 		} else {
 			folder = sourcefolder;
 		}
@@ -297,8 +296,9 @@ real_fetch_mail (gpointer user_data)
 	 * message iff it changes and iff it's the folder being viewed.
 	 */
 	if (dest_folder == fb->folder)
-		handler_id = gtk_signal_connect (GTK_OBJECT (dest_folder), "folder_changed",
-						 GTK_SIGNAL_FUNC (select_first_unread), fb);
+		camel_object_hook_event (CAMEL_OBJECT (dest_folder), "folder_changed", select_first_unread, fb);
+		/*handler_id = gtk_signal_connect (CAMEL_OBJECT (dest_folder), "folder_changed",
+		  GTK_SIGNAL_FUNC (select_first_unread), fb);*/
 
 	if (filter_driver_run (filter, folder, dest_folder) == -1) {
 		async_mail_exception_dialog ("Unable to get new mail", ex, fb);
@@ -306,7 +306,8 @@ real_fetch_mail (gpointer user_data)
 	}
 
 	if (dest_folder == fb->folder)
-		gtk_signal_disconnect (GTK_OBJECT (dest_folder), handler_id);
+		camel_object_unhook_event (CAMEL_OBJECT (dest_folder), "folder_changed", select_first_unread, fb);
+		/*gtk_signal_disconnect (CAMEL_OBJECT (dest_folder), handler_id);*/
 
  cleanup:
 	g_free (tmp_mbox);
@@ -318,22 +319,22 @@ real_fetch_mail (gpointer user_data)
 
 	if (folder) {
 		camel_folder_sync (folder, TRUE, ex);
-		gtk_object_unref (GTK_OBJECT (folder));
+		camel_object_unref (CAMEL_OBJECT (folder));
 	}
 
 	if (dest_folder) {
 		camel_folder_sync (dest_folder, TRUE, ex);
-		gtk_object_unref (GTK_OBJECT (dest_folder));
+		camel_object_unref (CAMEL_OBJECT (dest_folder));
 	}
 
 	if (store) {
 		camel_service_disconnect (CAMEL_SERVICE (store), ex);
-		gtk_object_unref (GTK_OBJECT (store));
+		camel_object_unref (CAMEL_OBJECT (store));
 	}
 
 	if (dest_store && dest_store != fb->folder->parent_store) {
 		camel_service_disconnect (CAMEL_SERVICE (dest_store), ex);
-		gtk_object_unref (GTK_OBJECT (dest_store));
+		camel_object_unref (CAMEL_OBJECT (dest_store));
 	}
 	camel_exception_free (ex);
 }
@@ -468,7 +469,7 @@ cleanup_send_mail (gpointer userdata)
 		gtk_object_destroy (GTK_OBJECT (info->composer));
 	}
 
-	gtk_object_unref (GTK_OBJECT (info->message));
+	camel_object_unref (CAMEL_OBJECT (info->message));
 	g_free (info);
 }
 
@@ -527,7 +528,7 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 	subject = camel_mime_message_get_subject (message);
 	if (subject == NULL || subject[0] == '\0') {
 		if (! ask_confirm_for_empty_subject (composer)) {
-			gtk_object_unref (GTK_OBJECT (message));
+			camel_object_unref (CAMEL_OBJECT (message));
 			return;
 		}
 	}
@@ -553,7 +554,7 @@ free_psd (GtkWidget *composer, gpointer user_data)
 {
 	struct post_send_data *psd = user_data;
 
-	gtk_object_unref (GTK_OBJECT (psd->folder));
+	camel_object_unref (CAMEL_OBJECT (psd->folder));
 	g_free (psd);
 }
 
@@ -599,7 +600,7 @@ reply (FolderBrowser *fb, gboolean to_all)
 
 	psd = g_new (struct post_send_data, 1);
 	psd->folder = fb->folder;
-	gtk_object_ref (GTK_OBJECT (psd->folder));
+	camel_object_ref (CAMEL_OBJECT (psd->folder));
 	psd->uid = fb->message_list->cursor_uid;
 	psd->flags = CAMEL_MESSAGE_ANSWERED;
 
@@ -652,8 +653,8 @@ attach_msg (MessageList *ml, const char *uid, gpointer data)
 
 	e_msg_composer_attach (composer, part);
 
-	gtk_object_unref (GTK_OBJECT (part));
-	gtk_object_unref (GTK_OBJECT (message));
+	camel_object_unref (CAMEL_OBJECT (part));
+	camel_object_unref (CAMEL_OBJECT (message));
 	g_free (desc);
 }
 
@@ -749,7 +750,7 @@ refile_msg (GtkWidget *button, gpointer user_data)
 	rfd.ex = camel_exception_new ();
 
 	message_list_foreach (ml, real_refile_msg, &rfd);
-	gtk_object_unref (GTK_OBJECT (rfd.dest));
+	camel_object_unref (CAMEL_OBJECT (rfd.dest));
 
 	if (camel_exception_is_set (rfd.ex))
 	    mail_exception_dialog ("Could not move message", rfd.ex, fb);

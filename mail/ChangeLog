@@ -1,3 +1,13 @@
+2000-07-14  Peter Williams  <peterw@curious-george.helixcode.com>
+
+	* message-list.c (message_list_set_folder): Ported to CamelObject:
+	GTK_OBJECT->CAMEL_OBJECT; gtk_signal_connect->camel_object_hook_event;
+	GDK_THREADS_ENTER/LEAVE around "changed" event hooks.
+
+	* folder-browser.c (folder_browser_destroy): likewise.
+	(mail_uri_to_folder): likewise.
+	(folder_browser_load_folder): likewise.
+	
 2000-07-11  Dan Winship  <danw@helixcode.com>
 
 	* Update for CamelFolder API changes

@@ -184,7 +184,7 @@ select_msg (MessageList *message_list, gint row)
 			gtk_timeout_remove (message_list->seen_id);
 
 		mail_display_set_message (md, CAMEL_MEDIUM (message));
-		gtk_object_unref (GTK_OBJECT (message));
+		camel_object_unref (CAMEL_OBJECT (message));
 
 		message_list->seen_id =
 			gtk_timeout_add (1500, mark_msg_seen, message_list);
@@ -632,7 +632,7 @@ message_list_destroy (GtkObject *object)
 	if (message_list->idle_id != 0)
 		g_source_remove(message_list->idle_id);
 
-	gtk_object_unref (GTK_OBJECT (message_list->folder));
+	camel_object_unref (CAMEL_OBJECT (message_list->folder));
 
 	GTK_OBJECT_CLASS (message_list_parent_class)->destroy (object);
 }
@@ -855,9 +855,11 @@ message_list_regenerate (MessageList *message_list, const char *search)
 }
 
 static void
-folder_changed (CamelFolder *f, int type, MessageList *message_list)
+folder_changed (CamelFolder *f, gpointer event_data, MessageList *message_list)
 {
+	GDK_THREADS_ENTER(); /* Very important!!!! */
 	message_list_regenerate (message_list, message_list->search);
+	GDK_THREADS_LEAVE(); /* Very important!!!! */
 }
 
 static void
@@ -865,10 +867,14 @@ message_changed (CamelFolder *f, const char *uid, MessageList *message_list)
 {
 	int row;
 
+	GDK_THREADS_ENTER(); /* Very important!!!! */
+
 	row = GPOINTER_TO_INT (g_hash_table_lookup (message_list->uid_rowmap,
 						    uid));
 	if (row != -1)
 		e_table_model_row_changed (message_list->table_model, row);
+
+	GDK_THREADS_LEAVE(); /* Very important!!!! */
 }
 
 void
@@ -885,16 +891,16 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder)
 	camel_exception_init (&ex);
 	
 	if (message_list->folder)
-		gtk_object_unref (GTK_OBJECT (message_list->folder));
+		camel_object_unref (CAMEL_OBJECT (message_list->folder));
 
 	message_list->folder = camel_folder;
 
-	gtk_signal_connect(GTK_OBJECT (camel_folder), "folder_changed",
+	camel_object_hook_event(CAMEL_OBJECT (camel_folder), "folder_changed",
 			   folder_changed, message_list);
-	gtk_signal_connect(GTK_OBJECT (camel_folder), "message_changed",
+	camel_object_hook_event(CAMEL_OBJECT (camel_folder), "message_changed",
 			   message_changed, message_list);
 
-	gtk_object_ref (GTK_OBJECT (camel_folder));
+	camel_object_ref (CAMEL_OBJECT (camel_folder));
 
 	folder_changed (camel_folder, 0, message_list);
 }

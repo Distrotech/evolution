@@ -41,7 +41,7 @@ folder_browser_destroy (GtkObject *object)
 		g_free (folder_browser->uri);
 
 	if (folder_browser->folder)
-		gtk_object_unref (GTK_OBJECT (folder_browser->folder));
+		camel_object_unref (CAMEL_OBJECT (folder_browser->folder));
 	
 	if (folder_browser->message_list)
 		bonobo_object_unref (BONOBO_OBJECT (folder_browser->message_list));
@@ -157,14 +157,14 @@ mail_uri_to_folder (const char *name)
 				       camel_exception_get_description (ex));
 		gnome_error_dialog (msg);
 		if (folder) {
-			gtk_object_unref (GTK_OBJECT (folder));
+			camel_object_unref (CAMEL_OBJECT (folder));
 			folder = NULL;
 		}
 	}
 	camel_exception_free (ex);
 
 	if (store)
-		gtk_object_unref (GTK_OBJECT (store));
+		camel_object_unref (CAMEL_OBJECT (store));
 
 	return folder;
 }
@@ -179,7 +179,7 @@ folder_browser_load_folder (FolderBrowser *fb, const char *name)
 		return FALSE;
 
 	if (fb->folder)
-		gtk_object_unref (GTK_OBJECT (fb->folder));
+		camel_object_unref (CAMEL_OBJECT (fb->folder));
 	fb->folder = new_folder;
 
 	message_list_set_folder (fb->message_list, new_folder);

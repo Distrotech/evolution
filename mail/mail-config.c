@@ -624,12 +624,12 @@ service_acceptable (GtkNotebook *notebook)
 
 	if (ok) {
 		camel_service_disconnect (service, ex);
-		gtk_object_unref (GTK_OBJECT (service));
+		camel_object_unref (CAMEL_OBJECT (service));
 		camel_exception_free (ex);
 		return TRUE;
 	}
 
-	gtk_object_unref (GTK_OBJECT (service));
+	camel_object_unref (CAMEL_OBJECT (service));
 
  error:
 	error_dialog (GTK_WIDGET (notebook), camel_exception_get_description (ex));

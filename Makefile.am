@@ -18,32 +18,31 @@ EXTRA_DIST =			\
 	$(appicon_DATA)		\
 	$(application_DATA)
 
+
 SUBDIRS =			\
-	intl			\
-	macros			\
-	camel			\
-	composer		\
-	po			\
-	doc
-
-# Things that I don't care about
-#	data			\
-#	e-util			\
-#	widgets			\
-#	shell			\
-#	libibex			\
-#	libical			\
-#	libversit		\
-#	addressbook		\
-#	calendar		\
-#	wombat			\
-#	art			\
-#	default_user		\
-#	tools			\
-
-# Things that need to be fixed to work with camel
-#	filter			\
-#	mail			\
+        intl                    \
+        macros                  \
+        data                    \
+        e-util                  \
+        widgets                 \
+        shell                   \
+        libibex                 \
+        camel                   \
+        filter                  \
+        composer                \
+        mail                    \
+        libical                 \
+        libversit               \
+        addressbook             \
+        calendar                \
+        wombat                  \
+        art                     \
+        default_user            \
+        tools                   \
+        po                      \
+        doc
 
 dist-hook: evolution.spec
 	cp evolution.spec $(distdir)
+
+

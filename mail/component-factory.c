@@ -121,13 +121,13 @@ create_folder (EvolutionShellComponent *shell_component,
 		if (!camel_exception_is_set (&ex)) {
 			folder = camel_store_get_folder (store, "mbox",
 							 TRUE, &ex);
-			gtk_object_unref (GTK_OBJECT (store));
+			camel_object_unref (CAMEL_OBJECT (store));
 		} else {
 			folder = NULL;
 		}
 
 		if (!camel_exception_is_set (&ex)) {
-			gtk_object_unref (GTK_OBJECT (folder));
+			camel_object_unref (CAMEL_OBJECT (folder));
 			result = Evolution_ShellComponentListener_OK;
 		} else {
 			result = Evolution_ShellComponentListener_INVALID_URI;
