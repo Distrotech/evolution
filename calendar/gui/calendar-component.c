@@ -52,7 +52,7 @@ static void
 load_uri_for_selection (ESourceSelector *selector,
 			BonoboControl *view_control)
 {
-	ESource * selected_source = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (selector));
+	ESource *selected_source = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (selector));
 
 	if (selected_source != NULL) {
 		char *uri = e_source_get_uri (selected_source);
@@ -121,7 +121,7 @@ impl_createControls (PortableServer_Servant servant,
 	selector = e_source_selector_new (calendar_component->priv->source_list);
 	gtk_widget_show (selector);
 
-	selector_scrolled_window = gtk_scrolled_window_new (GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	selector_scrolled_window = gtk_scrolled_window_new (NULL, NULL);
 	gtk_container_add (GTK_CONTAINER (selector_scrolled_window), selector);
 	gtk_widget_show (selector_scrolled_window);
 
@@ -146,6 +146,8 @@ calendar_component_class_init (CalendarComponentClass *class)
 	GObjectClass *object_class = G_OBJECT_CLASS (class);
 
 	parent_class = g_type_class_peek_parent (class);
+
+	epv->createControls = impl_createControls;
 
 	object_class->dispose = impl_dispose;
 	object_class->finalize = impl_finalize;

@@ -1,5 +1,10 @@
 2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
 
+	* gui/calendar-component.c (impl_createControls): Oops, pass
+	[NULL, NULL] to gtk_scrolled_window_new().
+
+2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
+
 	* gui/main.c (factory): Ref the object from
 	calendar_component_peek() before returning it.
 
