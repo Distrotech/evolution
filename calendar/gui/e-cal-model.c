@@ -188,7 +188,20 @@ e_cal_model_finalize (GObject *object)
 	priv = model->priv;
 	if (priv) {
 		if (priv->clients) {
-			e_cal_model_remove_all_clients (model);
+			while (priv->clients != NULL) {
+				ECalModelClient *client_data = (ECalModelClient *) priv->clients->data;
+
+				g_signal_handlers_disconnect_matched (client_data->client, G_SIGNAL_MATCH_DATA,
+								      0, 0, NULL, NULL, model);
+				g_signal_handlers_disconnect_matched (client_data->query, G_SIGNAL_MATCH_DATA,
+								      0, 0, NULL, NULL, model);
+
+				priv->clients = g_list_remove (priv->clients, client_data);
+				g_object_unref (client_data->client);
+				g_object_unref (client_data->query);
+				g_free (client_data);
+			}
+
 			priv->clients = NULL;
 		}
 
@@ -973,6 +986,23 @@ query_obj_updated_cb (CalQuery *query, const char *uid,
 		if (comp_data) {
 			if (comp_data->icalcomp)
 				icalcomponent_free (comp_data->icalcomp);
+			if (comp_data->dtstart) {
+				g_free (comp_data->dtstart);
+				comp_data->dtstart = NULL;
+			}
+			if (comp_data->dtend) {
+				g_free (comp_data->dtend);
+				comp_data->dtend = NULL;
+			}
+			if (comp_data->due) {
+				g_free (comp_data->due);
+				comp_data->due = NULL;
+			}
+			if (comp_data->completed) {
+				g_free (comp_data->completed);
+				comp_data->completed = NULL;
+			}
+
 			comp_data->icalcomp = new_icalcomp;
 
 			e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
@@ -1138,10 +1168,8 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer user_data
 {
 	ECalModel *model = (ECalModel *) user_data;
 
-	if (status != CAL_CLIENT_OPEN_SUCCESS) {
-		e_cal_model_remove_client (model, client);
+	if (status != CAL_CLIENT_OPEN_SUCCESS)
 		return;
-	}
 
 	add_new_client (model, client);
 }
@@ -1374,6 +1402,7 @@ e_cal_model_date_value_to_string (ECalModel *model, const void *value)
 
 	tmp_tm.tm_wday = time_day_of_week (tt.day, tt.month - 1, tt.year);
 
+	memset (buffer, 0, sizeof (buffer));
 	e_time_format_date_and_time (&tmp_tm, priv->use_24_hour_format,
 				     TRUE, FALSE,
 				     buffer, sizeof (buffer));

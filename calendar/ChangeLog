@@ -1,3 +1,11 @@
+2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (cal_opened_cb): don't call remove_client,
+	since the client, at this point, hasn't been added anywhere.
+	(ecm_finalize): don't call e_cal_model_remove_all_clients, since
+	that function triggers notifications on the model.
+	(query_obj_updated_cb): free all the date fields.
+
 2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (ecm_value_at): don't convert to an integer
