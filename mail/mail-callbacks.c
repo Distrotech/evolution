@@ -3052,6 +3052,32 @@ print_preview_msg (GtkWidget *button, gpointer user_data)
 
 static GtkObject *subscribe_dialog = NULL;
 
+#define NEW_SUBSCRIBE
+
+#ifdef NEW_SUBSCRIBE
+static void
+subscribe_dialog_destroy (GtkObject *dialog, GObject *deadbeef)
+{
+	subscribe_dialog = NULL;
+}
+
+void
+manage_subscriptions (BonoboUIComponent *uih, void *user_data, const char *path)
+{
+	if (!subscribe_dialog) {
+		subscribe_dialog = subscribe_editor_new();
+		
+		g_object_weak_ref ((GObject *) subscribe_dialog, (GWeakNotify) subscribe_dialog_destroy, subscribe_dialog);
+		g_object_ref(subscribe_dialog);
+		gtk_object_sink((GtkObject *)subscribe_dialog);
+		gtk_widget_show(subscribe_dialog);
+	} else {
+		gdk_window_raise (((GtkWidget *)subscribe_dialog)->window);
+	}
+}
+
+#else
+
 static void
 subscribe_dialog_destroy (GtkObject *dialog, GObject *deadbeef)
 {
@@ -3077,6 +3103,7 @@ manage_subscriptions (BonoboUIComponent *uih, void *user_data, const char *path)
 	}
 }
 
+#endif
 /******************** End Subscription Dialog ***************************/
 
 static void
