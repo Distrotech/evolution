@@ -25,7 +25,7 @@ struct _EMFolderView {
 struct _EMFolderViewClass {
 	GtkVBoxClass parent_class;
 
-	void (*set_folder)(EMFolderView *emfv, struct _CamelFolder *folder, const char *uri);
+	void (*set_folder)(EMFolderView *emfv, const char *uri);
 	void (*set_message)(EMFolderView *emfv, const char *uid);
 };
 

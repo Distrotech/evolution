@@ -54,6 +54,8 @@
 #include "mail-session.h"
 #include "mail-folder-cache.h"
 
+#include "em-folder-browser.h"
+
 #include "evolution-shell-component-utils.h"
 
 /* The FolderBrowser BonoboControls we have.  */
@@ -93,6 +95,8 @@ control_activate (BonoboControl     *control,
 	Bonobo_UIContainer container;
 	GNOME_Evolution_ShellView svi;
 
+#if 0
+
 	container = bonobo_control_get_remote_ui_container (control, NULL);
 	bonobo_ui_component_set_container (uic, container, NULL);
 	bonobo_object_release_unref (container, NULL);
@@ -118,6 +122,7 @@ control_activate (BonoboControl     *control,
 	folder_browser_reload (fb);
 	
 	e_search_bar_set_ui_component (E_SEARCH_BAR (fb->search), uic);
+#endif
 }
 
 static void
@@ -125,6 +130,7 @@ control_deactivate (BonoboControl     *control,
 		    BonoboUIComponent *uic,
 		    FolderBrowser     *fb)
 {
+#if 0
 	/*bonobo_ui_component_freeze (uic, NULL);*/
 
 	folder_browser_ui_rm_list (fb);
@@ -142,6 +148,7 @@ control_deactivate (BonoboControl     *control,
 	folder_browser_set_shell_view (fb, CORBA_OBJECT_NIL);
 
 	e_search_bar_set_ui_component (E_SEARCH_BAR (fb->search), NULL);
+#endif
 }
 
 static void
@@ -172,14 +179,17 @@ folder_browser_factory_new_control (const char *uri,
 {
 	BonoboControl *control;
 	GtkWidget *fb;
-	
+
+#if 0	
 	if (!(fb = folder_browser_new (shell, uri)))
 		return NULL;
 	
 	FOLDER_BROWSER (fb)->pref_master = TRUE; /* save UI settings changed in this FB */
-	
+#endif
+	fb = em_folder_browser_new();
 	gtk_widget_show (fb);
-	
+	em_folder_view_set_folder((EMFolderView *)fb, uri);
+
 	control = bonobo_control_new (fb);
 	
 	if (control == NULL) {
@@ -214,7 +224,9 @@ folder_browser_factory_get_browser(const char *uri)
 	EIterator *it;
 	BonoboControl *control;
 	FolderBrowser *fb = NULL;
-	
+
+	return NULL;
+
 	if (control_list == NULL)
 		return NULL;
 	

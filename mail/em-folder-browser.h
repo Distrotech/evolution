@@ -25,6 +25,4 @@ GtkWidget *em_folder_browser_new(void);
 
 void em_folder_browser_show_preview(EMFolderBrowser *emfv, gboolean state);
 
-void em_folder_browser_set_folder(EMFolderBrowser *emfv, struct _CamelFolder *folder, const char *uri);
-
 #endif /* ! _EM_FOLDER_BROWSER_H */

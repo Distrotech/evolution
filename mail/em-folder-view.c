@@ -29,7 +29,7 @@ static void emfv_list_message_selected(MessageList *ml, const char *uid, EMFolde
 static void emfv_format_link_clicked(EMFormatHTMLDisplay *efhd, const char *uri, EMFolderView *);
 static int emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const char *uri, CamelMimePart *part, EMFolderView *);
 
-static void emfv_set_folder(EMFolderView *emfv, struct _CamelFolder *folder, const char *uri);
+static void emfv_set_folder(EMFolderView *emfv, const char *uri);
 
 struct _EMFolderViewPrivate {
 	int dummy;
@@ -103,12 +103,11 @@ GtkWidget *em_folder_view_new(void)
 }
 
 static void
-emfv_set_folder(EMFolderView *emfv, struct _CamelFolder *folder, const char *uri)
+emfv_got_folder(char *uri, CamelFolder *folder, void *data)
 {
-	if (emfv->preview)
-		em_format_format((EMFormat *)emfv->preview, NULL);
+	EMFolderView *emfv = data;
 
-	/* FIXME: outgoing folder type */
+	/* FIXME: outgoing folder type? */
 	message_list_set_folder(emfv->list, folder, FALSE);
 	g_free(emfv->folder_uri);
 	emfv->folder_uri = g_strdup(uri);
@@ -119,6 +118,15 @@ emfv_set_folder(EMFolderView *emfv, struct _CamelFolder *folder, const char *uri
 	emfv->folder = folder;
 }
 
+static void
+emfv_set_folder(EMFolderView *emfv, const char *uri)
+{
+	if (emfv->preview)
+		em_format_format((EMFormat *)emfv->preview, NULL);
+
+	mail_get_folder(uri, 0, emfv_got_folder, emfv, mail_thread_new);
+}
+
 void em_folder_view_set_folder(EMFolderView *emfv, const char *uri)
 {
 	/*struct _EMFolderViewPrivate *p = emfv->priv;*/
@@ -127,7 +135,7 @@ void em_folder_view_set_folder(EMFolderView *emfv, const char *uri)
 }
 
 static void
-emfv_set_message(EMFolderView *emfv, const char *uid);
+emfv_set_message(EMFolderView *emfv, const char *uid)
 {
 	message_list_select_uid(emfv->list, uid);
 }
@@ -191,17 +199,17 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	/* FIXME: mark_seen timeout */
 	/* FIXME: asynchronous stuff */
 
-	emf_format_format(emfv->preview, (struct _CamelMedium *)msg);
+	em_format_format(emfv->preview, (struct _CamelMedium *)msg);
 }
 
 static void
 emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv)
 {
-	printf("message selected '%s'\n", uid);
+	printf("message selected '%s'\n", uid?uid:"<none>");
 
 	/* FIXME: ui stuff based on messageinfo, if available */
 
-	if (emfv->preview) {
+	if (uid && emfv->preview) {
 		mail_get_message(emfv->folder, uid, emfv_list_done_message_selected, emfv, mail_thread_new);
 	}
 }

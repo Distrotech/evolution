@@ -61,7 +61,7 @@ emfb_init(GObject *o)
 	gtk_container_add((GtkContainer *)p->preview, (GtkWidget *)emfb->view.preview->formathtml.html);
 	gtk_widget_show((GtkWidget *)emfb->view.preview->formathtml.html);
 
-	gtk_paned_add1((GtkPaned *)emfb->vpane, p->preview);
+	gtk_paned_add2((GtkPaned *)emfb->vpane, p->preview);
 	gtk_widget_show(p->preview);
 
 	/* FIXME: setup selection */
