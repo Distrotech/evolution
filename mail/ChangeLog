@@ -1,3 +1,11 @@
+2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format.c: Updated for new mime-parser changes made to HEAD.
+
+	* em-folder-view.c: Fixed some compiler warnings.
+
+	* em-format-html.c: Fixed some compiler warnings.
+
 2003-08-06  Not Zed  <NotZed@Ximian.com>
 
 	* em-format-html-display.c (efhd_format_attachment): Added bonobo
@@ -20,7 +28,7 @@
 
 2003-08-01  Yuedong Du  <yuedong.du@sun.com>
 
-	* message-browser.c: (on_key_press): close mail message window
+	* message-browser.c (on_key_press): close mail message window
 	using 'ESC' key, fix bug #47087
 
 2003-07-28  Jeffrey Stedfast  <fejj@ximian.com>

@@ -1,4 +1,32 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+/*
+ *  Authors: Michael Zucchi <notzed@ximian.com>
+ *           Jeffrey Stedfast <fejj@ximian.com>
+ *
+ *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
+ *
+ */
 
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#include <stdio.h>
 #include <string.h>
 
 #include <libgnomevfs/gnome-vfs-mime.h>
@@ -15,6 +43,7 @@
 #include <camel/camel-medium.h>
 #include <camel/camel-gpg-context.h>
 #include <camel/camel-string-utils.h>
+
 #include "em-format.h"
 
 static void emf_builtin_init(EMFormatClass *);
@@ -771,7 +800,7 @@ emf_multipart_encrypted(EMFormat *emf, CamelStream *stream, CamelMimePart *part,
 	const char *protocol;
 
 	/* Currently we only handle RFC2015-style PGP encryption. */
-	protocol = header_content_type_param (part->content_type, "protocol");
+	protocol = header_content_type_param (((CamelDataWrapper *) part)->mime_type, "protocol");
 	if (!protocol || strcmp (protocol, "application/pgp-encrypted") != 0)
 		return emf_multipart_mixed(emf, stream, part, info);
 	

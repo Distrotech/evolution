@@ -1,3 +1,29 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+/*
+ *  Authors: Michael Zucchi <notzed@ximian.com>
+ *
+ *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Street #330, Boston, MA 02111-1307, USA.
+ *
+ */
+
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkscrolledwindow.h>
@@ -148,7 +174,7 @@ void em_folder_view_set_message(EMFolderView *emfv, const char *uid)
 
 int em_folder_view_print(EMFolderView *emfv, int preview)
 {
-	struct _EMFolderViewPrivate *p = emfv->priv;
+	/*struct _EMFolderViewPrivate *p = emfv->priv;*/
 	EMFormatHTMLPrint *print;
 	GnomePrintConfig *config = NULL;
 	int res;
@@ -199,7 +225,7 @@ emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeM
 	/* FIXME: mark_seen timeout */
 	/* FIXME: asynchronous stuff */
 
-	em_format_format(emfv->preview, (struct _CamelMedium *)msg);
+	em_format_format((EMFormat *) emfv->preview, (struct _CamelMedium *)msg);
 }
 
 static void
