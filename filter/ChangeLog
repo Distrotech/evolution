@@ -1,3 +1,8 @@
+2000-10-22  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* filter-rule.c: Added #include <config.h> to make some
+	of the filter/vfolder dialog localized at least.
+	
 2000-10-19  Jeffrey Stedfast  <fejj@helixcode.com>
 
 	* filter-driver.c (filter_driver_filter_folder): Start fetching at
