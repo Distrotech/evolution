@@ -25,6 +25,7 @@
 #include <config.h>
 #endif
 
+#include "em-marshal.h"
 #include "em-folder-tree-model.h"
 
 
@@ -53,6 +54,17 @@ static gboolean model_drag_data_get      (GtkTreeDragSource *drag_source,
 static gboolean model_drag_data_delete   (GtkTreeDragSource *drag_source,
 					  GtkTreePath *src_path);
 
+
+enum {
+	DRAG_DATA_RECEIVED,
+	ROW_DROP_POSSIBLE,
+	ROW_DRAGGABLE,
+	DRAG_DATA_GET,
+	DRAG_DATA_DELETE,
+	LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL] = { 0, };
 
 
 static GtkTreeStore *parent_class = NULL;
@@ -113,6 +125,60 @@ em_folder_tree_model_class_init (EMFolderTreeModelClass *klass)
 	parent_class = g_type_class_ref (GTK_TYPE_TREE_STORE);
 	
 	object_class->finalize = em_folder_tree_model_finalize;
+	
+	/* signals */
+	signals[DRAG_DATA_RECEIVED] =
+		g_signal_new ("drag-data-received",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeModelClass, drag_data_received),
+			      NULL, NULL,
+			      em_marshal_BOOLEAN__POINTER_POINTER,
+			      G_TYPE_BOOLEAN, 2,
+			      G_TYPE_POINTER,
+			      G_TYPE_POINTER);
+	
+	signals[ROW_DROP_POSSIBLE] =
+		g_signal_new ("row-drop-possible",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeModelClass, row_drop_possible),
+			      NULL, NULL,
+			      em_marshal_BOOLEAN__POINTER_POINTER,
+			      G_TYPE_BOOLEAN, 2,
+			      G_TYPE_POINTER,
+			      G_TYPE_POINTER);
+	
+	signals[ROW_DRAGGABLE] =
+		g_signal_new ("row-draggable",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeModelClass, row_draggable),
+			      NULL, NULL,
+			      em_marshal_BOOLEAN__POINTER,
+			      G_TYPE_BOOLEAN, 1,
+			      G_TYPE_POINTER);
+	
+	signals[DRAG_DATA_GET] =
+		g_signal_new ("drag-data-get",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeModelClass, drag_data_get),
+			      NULL, NULL,
+			      em_marshal_BOOLEAN__POINTER_POINTER,
+			      G_TYPE_BOOLEAN, 2,
+			      G_TYPE_POINTER,
+			      G_TYPE_POINTER);
+	
+	signals[DRAG_DATA_DELETE] =
+		g_signal_new ("drag-data-delete",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeModelClass, drag_data_delete),
+			      NULL, NULL,
+			      em_marshal_BOOLEAN__POINTER,
+			      G_TYPE_BOOLEAN, 1,
+			      G_TYPE_POINTER);
 }
 
 static void
@@ -154,71 +220,65 @@ static gboolean
 model_drag_data_received (GtkTreeDragDest *drag_dest, GtkTreePath *dest_path, GtkSelectionData *selection_data)
 {
 	EMFolderTreeModel *model = (EMFolderTreeModel *) drag_dest;
-	EMFolderTreeVTable *vtable = model->vtable;
+	gboolean retval = FALSE;
 	
-	if (vtable && vtable->drag_data_received)
-		return vtable->drag_data_received (model, dest_path, selection_data, vtable->user_data);
+	g_signal_emit (model, signals[DRAG_DATA_RECEIVED], 0, &retval, dest_path, selection_data);
 	
-	return FALSE;
+	return retval;
 }
 
 static gboolean
 model_row_drop_possible (GtkTreeDragDest *drag_dest, GtkTreePath *dest_path, GtkSelectionData *selection_data)
 {
 	EMFolderTreeModel *model = (EMFolderTreeModel *) drag_dest;
-	EMFolderTreeVTable *vtable = model->vtable;
+	gboolean retval = FALSE;
 	
-	if (vtable && vtable->row_drop_possible)
-		return vtable->row_drop_possible (model, dest_path, selection_data, vtable->user_data);
+	g_signal_emit (model, signals[ROW_DROP_POSSIBLE], 0, &retval, dest_path, selection_data);
 	
-	return FALSE;
+	return retval;
 }
 
 static gboolean
 model_row_draggable (GtkTreeDragSource *drag_source, GtkTreePath *src_path)
 {
 	EMFolderTreeModel *model = (EMFolderTreeModel *) drag_source;
-	EMFolderTreeVTable *vtable = model->vtable;
+	gboolean retval = FALSE;
 	
-	if (vtable && vtable->row_draggable)
-		return vtable->row_draggable (model, src_path, vtable->user_data);
+	g_signal_emit (model, signals[ROW_DRAGGABLE], 0, &retval, src_path);
 	
-	return FALSE;
+	return retval;
 }
 
 static gboolean
 model_drag_data_get (GtkTreeDragSource *drag_source, GtkTreePath *src_path, GtkSelectionData *selection_data)
 {
 	EMFolderTreeModel *model = (EMFolderTreeModel *) drag_source;
-	EMFolderTreeVTable *vtable = model->vtable;
+	gboolean retval = FALSE;
 	
-	if (vtable && vtable->drag_data_get)
-		return vtable->drag_data_get (model, src_path, selection_data, vtable->user_data);
+	g_signal_emit (model, signals[DRAG_DATA_GET], 0, &retval, src_path, selection_data);
 	
-	return FALSE;
+	return retval;
 }
 
 static gboolean
 model_drag_data_delete (GtkTreeDragSource *drag_source, GtkTreePath *src_path)
 {
 	EMFolderTreeModel *model = (EMFolderTreeModel *) drag_source;
-	EMFolderTreeVTable *vtable = model->vtable;
+	gboolean retval = FALSE;
 	
-	if (vtable && vtable->drag_data_delete)
-		return vtable->drag_data_delete (model, src_path, vtable->user_data);
+	g_signal_emit (model, signals[DRAG_DATA_DELETE], 0, &retval, src_path);
 	
-	return FALSE;
+	return retval;
 }
 
 
 EMFolderTreeModel *
-em_folder_tree_model_new (EMFolderTreeModelVTable *vtable, int n_columns, GType *types)
+em_folder_tree_model_new (int n_columns, GType *types)
 {
 	EMFolderTreeModel *model;
 	
 	model = g_object_new (EM_TYPE_FOLDER_TREE_MODEL, NULL);
 	gtk_tree_store_set_column_types ((GtkTreeStore *) model, n_columns, types);
-	model->vtable = vtable;
 	
 	return model;
 }

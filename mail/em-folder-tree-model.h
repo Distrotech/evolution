@@ -24,6 +24,7 @@
 #ifndef __EM_FOLDER_TREE_MODEL_H__
 #define __EM_FOLDER_TREE_MODEL_H__
 
+#include <gtk/gtktreednd.h>
 #include <gtk/gtktreestore.h>
 
 #ifdef __cplusplus
@@ -41,46 +42,36 @@ extern "C" {
 typedef struct _EMFolderTreeModel EMFolderTreeModel;
 typedef struct _EMFolderTreeModelClass EMFolderTreeModelClass;
 
-typedef struct {
-	gboolean (* drag_data_received) (EMFolderTreeModel *model,
-					 GtkTreePath *dest_path,
-					 GtkSelectionData *selection_data,
-					 void *user_data);
-	gboolean (* row_drop_possible)  (EMFolderTreeModel *model,
-					 GtkTreePath *dest_path,
-					 GtkSelectionData *selection_data,
-					 void *user_data);
-	
-	gboolean (* row_draggable)      (EMFolderTreeModel *model,
-					 GtkTreePath *src_path,
-					 void *user_data);
-	gboolean (* drag_data_get)      (EMFolderTreeModel *model,
-					 GtkTreePath *src_path,
-					 GtkSelectionData *selection_data,
-					 void *user_data);
-	gboolean (* drag_data_delete)   (EMFolderTreeModel *model,
-					 GtkTreePath *src_path,
-					 void *user_data);
-	
-	void *user_data;
-} EMFolderTreeModelVTable;
-
 struct _EMFolderTreeModel {
 	GtkTreeStore parent_object;
 	
-	EMFolderTreeModelVTable *vtable;
 };
 
 struct _EMFolderTreeModelClass {
 	GtkTreeStoreClass parent_class;
 	
+	/* signals */
+	gboolean (* drag_data_received) (EMFolderTreeModel *model,
+					 GtkTreePath *dest_path,
+					 GtkSelectionData *selection_data);
+	gboolean (* row_drop_possible)  (EMFolderTreeModel *model,
+					 GtkTreePath *dest_path,
+					 GtkSelectionData *selection_data);
+	
+	gboolean (* row_draggable)      (EMFolderTreeModel *model,
+					 GtkTreePath *src_path);
+	gboolean (* drag_data_get)      (EMFolderTreeModel *model,
+					 GtkTreePath *src_path,
+					 GtkSelectionData *selection_data);
+	gboolean (* drag_data_delete)   (EMFolderTreeModel *model,
+					 GtkTreePath *src_path);
 };
 
 
 GType em_folder_tree_model_get_type (void);
 
 
-EMFolderTreeModel *em_folder_tree_model_new (EMFolderTreeModelVTable *vtable, int n_columns, GType *types);
+EMFolderTreeModel *em_folder_tree_model_new (int n_columns, GType *types);
 
 
 #ifdef __cplusplus
