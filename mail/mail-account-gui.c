@@ -1169,6 +1169,79 @@ sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, MailAccoun
 
 		break;
 	}
+	case MAIL_CONFIG_SIG_EVENT_DELETED: {
+
+		GtkWidget *menu;
+		GtkWidget *mi;
+
+		printf ("gui DELETED\n");
+
+		if (sig == gui->text_signature) {
+			gui->text_signature = NULL;
+			gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_gui_index (gui, TRUE));
+		}
+
+		if (sig == gui->html_signature) {
+			gui->html_signature = NULL;
+			gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_gui_index (gui, FALSE));
+		}
+
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text));
+		mi = g_list_nth_data (GTK_MENU_SHELL (menu)->children, sig_get_index (sig));
+		gtk_container_remove (GTK_CONTAINER (menu), mi);
+
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html));
+		mi = g_list_nth_data (GTK_MENU_SHELL (menu)->children, sig_get_index (sig));
+		gtk_container_remove (GTK_CONTAINER (menu), mi);
+
+		break;
+	}
+	case MAIL_CONFIG_SIG_EVENT_RANDOM_ON: {
+
+		GtkWidget *menu;
+		GtkWidget *mi;
+
+		printf ("gui RANDOM ON\n");
+
+		mi = gtk_menu_item_new_with_label (_("Random"));
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text));
+		gtk_menu_insert (GTK_MENU (menu), mi, 1);
+		gtk_widget_show (mi);
+
+		mi = gtk_menu_item_new_with_label (_("Random"));
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html));
+		gtk_menu_insert (GTK_MENU (menu), mi, 1);
+		gtk_widget_show (mi);
+
+		break;
+	}
+	case MAIL_CONFIG_SIG_EVENT_RANDOM_OFF: {
+
+		GtkWidget *menu;
+		GtkWidget *mi;
+
+		printf ("gui RANDOM OFF\n");
+
+		if (gui->text_random) {
+			gui->text_random = FALSE;
+			gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_gui_index (gui, TRUE));
+		}
+
+		if (gui->html_random) {
+			gui->html_random = FALSE;
+			gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_gui_index (gui, FALSE));
+		}
+
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text));
+		mi = g_list_nth_data (GTK_MENU_SHELL (menu)->children, 1);
+		gtk_container_remove (GTK_CONTAINER (menu), mi);
+
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html));
+		mi = g_list_nth_data (GTK_MENU_SHELL (menu)->children, 1);
+		gtk_container_remove (GTK_CONTAINER (menu), mi);
+
+		break;
+	}
 	default:
 		;
 	}

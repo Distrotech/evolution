@@ -2804,8 +2804,9 @@ mail_config_signature_delete (MailConfigSignature *sig)
 	GList *l, *next;
 	gboolean after = FALSE;
 
+	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_DELETED, sig);
+
 	/* FIXME remove it from all accounts */
-	/* FIXME update identity dialog combos */
 
 	for (l = config->signature_list; l; l = next) {
 		next = l->next;
