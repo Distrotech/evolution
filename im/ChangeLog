@@ -1,7 +1,10 @@
 2001-10-27  Nat Friedman  <nat@ximian.com>
 
+	* Makefile.am (SUBDIRS): Reverse the order here.
+
 	* messenger/: Import of this directory.
 	* Makefile.am (SUBDIRS): Added messenger/ to the subdirs.
+
 	* Messenger.idl (Messenger): contactInfo is an async response.
 
 	* pms/Makefile.am (libtocbackend_a_SOURCES): Changed the
