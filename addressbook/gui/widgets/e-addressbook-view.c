@@ -53,11 +53,11 @@
 #include "e-addressbook-view.h"
 #include "e-addressbook-model.h"
 #include "eab-gui-util.h"
+#include "util/eab-book-util.h"
 #include "e-addressbook-table-adapter.h"
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 #include "e-addressbook-treeview-adapter.h"
 #endif
-#include "e-contact-save-as.h"
 #if notyet
 #include "e-card-merging.h"
 #endif
@@ -254,7 +254,7 @@ eab_view_init (EABView *eav)
 	eav->query = NULL;
 
 	eav->invisible = NULL;
-	eav->clipboard_cards = NULL;
+	eav->clipboard_contacts = NULL;
 }
 
 static void
@@ -289,10 +289,10 @@ eab_view_dispose (GObject *object)
 		eav->view_menus = NULL;
 	}
 
-	if (eav->clipboard_cards) {
-		g_list_foreach (eav->clipboard_cards, (GFunc)g_object_unref, NULL);
-		g_list_free (eav->clipboard_cards);
-		eav->clipboard_cards = NULL;
+	if (eav->clipboard_contacts) {
+		g_list_foreach (eav->clipboard_contacts, (GFunc)g_object_unref, NULL);
+		g_list_free (eav->clipboard_contacts);
+		eav->clipboard_contacts = NULL;
 	}
 		
 	if (eav->invisible) {
@@ -570,8 +570,8 @@ contact_and_book_free (ContactAndBook *contact_and_book)
 }
 
 static void
-get_card_list_1(gint model_row,
-		      gpointer closure)
+get_contact_list_1(gint model_row,
+		   gpointer closure)
 {
 	ContactAndBook *contact_and_book;
 	GList **list;
@@ -587,7 +587,7 @@ get_card_list_1(gint model_row,
 }
 
 static GList *
-get_card_list (ContactAndBook *contact_and_book)
+get_contact_list (ContactAndBook *contact_and_book)
 {
 	GList *list = NULL;
 	ESelectionModel *selection;
@@ -596,7 +596,7 @@ get_card_list (ContactAndBook *contact_and_book)
 
 	if (selection) {
 		contact_and_book->closure = &list;
-		e_selection_model_foreach (selection, get_card_list_1, contact_and_book);
+		e_selection_model_foreach (selection, get_contact_list_1, contact_and_book);
 	}
 
 	return list;
@@ -649,49 +649,45 @@ get_has_email_address (ContactAndBook *contact_and_book)
 static void
 save_as (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
-	GList *cards = get_card_list (contact_and_book);
-	if (cards) {
-		e_contact_list_save_as(_("Save as VCard"), cards, NULL);
-		e_free_object_list(cards);
+	GList *contacts = get_contact_list (contact_and_book);
+	if (contacts) {
+		eab_contact_list_save(_("Save as VCard"), contacts, NULL);
+		e_free_object_list(contacts);
 	}
 }
 
 static void
 send_as (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
-#if notyet
-	GList *cards = get_card_list (contact_and_book);
-	if (cards) {
-		eab_send_card_list(cards, EAB_DISPOSITION_AS_ATTACHMENT);
-		e_free_object_list(cards);
+	GList *contacts = get_contact_list (contact_and_book);
+	if (contacts) {
+		eab_send_contact_list(contacts, EAB_DISPOSITION_AS_ATTACHMENT);
+		e_free_object_list(contacts);
 	}
-#endif
 }
 
 static void
 send_to (GtkWidget *widget, ContactAndBook *contact_and_book)
 
 {
-#if notyet
-	GList *cards = get_card_list (contact_and_book);
+	GList *contacts = get_contact_list (contact_and_book);
 
-	if (cards) {
-		eab_send_card_list(cards, EAB_DISPOSITION_AS_TO);
-		e_free_object_list(cards);
+	if (contacts) {
+		eab_send_contact_list(contacts, EAB_DISPOSITION_AS_TO);
+		e_free_object_list(contacts);
 	}
-#endif
 }
 
 static void
 print (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
-	GList *cards = get_card_list (contact_and_book);
-	if (cards) {
-		if (cards->next)
-			gtk_widget_show(e_contact_print_card_list_dialog_new(cards));
+	GList *contacts = get_contact_list (contact_and_book);
+	if (contacts) {
+		if (contacts->next)
+			gtk_widget_show(e_contact_print_contact_list_dialog_new(contacts));
 		else
-			gtk_widget_show(e_contact_print_card_dialog_new(cards->data));
-		e_free_object_list(cards);
+			gtk_widget_show(e_contact_print_contact_dialog_new(contacts->data));
+		e_free_object_list(contacts);
 	}
 }
 
@@ -731,7 +727,7 @@ delete (GtkWidget *widget, ContactAndBook *contact_and_book)
 #if notyet
 	if (e_contact_editor_confirm_delete(GTK_WINDOW(gtk_widget_get_toplevel(contact_and_book->view->widget)))) {
 		EBook *book;
-		GList *list = get_card_list(contact_and_book);
+		GList *list = get_contact_list(contact_and_book);
 		GList *iterator;
 		gboolean bulk_remove = FALSE;
 
@@ -746,7 +742,7 @@ delete (GtkWidget *widget, ContactAndBook *contact_and_book)
 			GList *ids = NULL;
 
 			for (iterator = list; iterator; iterator = iterator->next) {
-				ECard *card = iterator->data;
+				EContact *contact = iterator->data;
 				ids = g_list_prepend (ids, (char*)e_card_get_id (card));
 			}
 
@@ -794,27 +790,23 @@ free_popup_info (GtkWidget *w, ContactAndBook *contact_and_book)
 static void
 new_card (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
-#if notyet
 	EBook *book;
 
 	g_object_get(contact_and_book->view->model,
 		     "book", &book,
 		     NULL);
-	eab_show_contact_editor (book, e_card_new(""), TRUE, TRUE);
-#endif
+	eab_show_contact_editor (book, e_contact_new(), TRUE, TRUE);
 }
 
 static void
 new_list (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
-#if notyet
 	EBook *book;
 
 	g_object_get(contact_and_book->view->model,
 		     "book", &book,
 		     NULL);
-	eab_show_contact_list_editor (book, e_card_new(""), TRUE, TRUE);
-#endif
+	eab_show_contact_list_editor (book, e_contact_new(), TRUE, TRUE);
 }
 
 #if 0
@@ -1479,7 +1471,7 @@ selection_get (GtkWidget *invisible,
 {
 	char *value;
 
-	value = e_card_list_get_vcard(view->clipboard_cards);
+	value = eab_contact_list_to_string (view->clipboard_contacts);
 
 	gtk_selection_data_set (selection_data, GDK_SELECTION_TYPE_STRING,
 				8, value, strlen (value));
@@ -1491,10 +1483,10 @@ selection_clear_event (GtkWidget *invisible,
 		       GdkEventSelection *event,
 		       EABView *view)
 {
-	if (view->clipboard_cards) {
-		g_list_foreach (view->clipboard_cards, (GFunc)g_object_unref, NULL);
-		g_list_free (view->clipboard_cards);
-		view->clipboard_cards = NULL;
+	if (view->clipboard_contacts) {
+		g_list_foreach (view->clipboard_contacts, (GFunc)g_object_unref, NULL);
+		g_list_free (view->clipboard_contacts);
+		view->clipboard_contacts = NULL;
 	}
 }
 
@@ -1510,20 +1502,17 @@ selection_received (GtkWidget *invisible,
 	}
 	else {
 		/* XXX make sure selection_data->data = \0 terminated */
-		GList *card_list = e_card_load_cards_from_string_with_default_charset (selection_data->data, "ISO-8859-1");
+		GList *contact_list = eab_contact_list_from_string (selection_data->data);
 		GList *l;
 		
-		if (!card_list /* it wasn't a vcard list */)
-			return;
+		for (l = contact_list; l; l = l->next) {
+			EContact *contact = l->data;
 
-		for (l = card_list; l; l = l->next) {
-			ECard *card = l->data;
-
-			e_card_merging_book_addl_card (view->book, card, NULL /* XXX */, NULL);
+			e_card_merging_book_addl_contact (view->book, contact, NULL /* XXX */, NULL);
 		}
 
-		g_list_foreach (card_list, (GFunc)g_object_unref, NULL);
-		g_list_free (card_list);
+		g_list_foreach (contact_list, (GFunc)g_object_unref, NULL);
+		g_list_free (contact_list);
 	}
 #endif
 }
@@ -1536,7 +1525,7 @@ add_to_list (int model_row, gpointer closure)
 }
 
 static GList *
-get_selected_cards (EABView *view)
+get_selected_contacts (EABView *view)
 {
 	GList *list;
 	GList *iterator;
@@ -1546,9 +1535,7 @@ get_selected_cards (EABView *view)
 	e_selection_model_foreach (selection, add_to_list, &list);
 
 	for (iterator = list; iterator; iterator = iterator->next) {
-		iterator->data = eab_model_contact_at (view->model, GPOINTER_TO_INT (iterator->data));
-		if (iterator->data)
-			g_object_ref (iterator->data);
+		iterator->data = eab_model_get_contact (view->model, GPOINTER_TO_INT (iterator->data));
 	}
 	list = g_list_reverse (list);
 	return list;
@@ -1557,42 +1544,36 @@ get_selected_cards (EABView *view)
 void
 eab_view_save_as (EABView *view)
 {
-	GList *list = get_selected_cards (view);
+	GList *list = get_selected_contacts (view);
 	if (list)
-		e_contact_list_save_as (_("Save as VCard"), list, NULL);
+		eab_contact_list_save (_("Save as VCard"), list, NULL);
 	e_free_object_list(list);
 }
 
 void
 eab_view_view (EABView *view)
 {
-#if notyet
-	GList *list = get_selected_cards (view);
-	eab_show_multiple_cards (view->book, list, view->editable);
+	GList *list = get_selected_contacts (view);
+	eab_show_multiple_contacts (view->book, list, view->editable);
 	e_free_object_list(list);
-#endif
 }
 
 void
 eab_view_send (EABView *view)
 {
-#if notyet
-	GList *list = get_selected_cards (view);
+	GList *list = get_selected_contacts (view);
 	if (list)
-		eab_send_card_list (list, EAB_DISPOSITION_AS_ATTACHMENT);
+		eab_send_contact_list (list, EAB_DISPOSITION_AS_ATTACHMENT);
 	e_free_object_list(list);
-#endif
 }
 
 void
 eab_view_send_to (EABView *view)
 {
-#if notyet
-	GList *list = get_selected_cards (view);
+	GList *list = get_selected_contacts (view);
 	if (list)
-		eab_send_card_list (list, EAB_DISPOSITION_AS_TO);
+		eab_send_contact_list (list, EAB_DISPOSITION_AS_TO);
 	e_free_object_list(list);
-#endif
 }
 
 void
@@ -1605,7 +1586,7 @@ eab_view_cut (EABView *view)
 void
 eab_view_copy (EABView *view)
 {
-	view->clipboard_cards = get_selected_cards (view);
+	view->clipboard_contacts = get_selected_contacts (view);
 
 	gtk_selection_owner_set (view->invisible, clipboard_atom, GDK_CURRENT_TIME);
 }
@@ -1644,33 +1625,31 @@ eab_view_stop(EABView *view)
 }
 
 static void
-view_transfer_cards (EABView *view, gboolean delete_from_source)
+view_transfer_contacts (EABView *view, gboolean delete_from_source)
 {
-#if notyet
 	EBook *book;
-	GList *cards;
+	GList *contacts;
 	GtkWindow *parent_window;
 
 	g_object_get(view->model, 
 		     "book", &book,
 		     NULL);
-	cards = get_selected_cards (view);
+	contacts = get_selected_contacts (view);
 	parent_window = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (view)));
 
-	eab_transfer_cards (book, cards, delete_from_source, parent_window);
-#endif
+	eab_transfer_contacts (book, contacts, delete_from_source, parent_window);
 }
 
 void
 eab_view_copy_to_folder (EABView *view)
 {
-	view_transfer_cards (view, FALSE);
+	view_transfer_contacts (view, FALSE);
 }
 
 void
 eab_view_move_to_folder (EABView *view)
 {
-	view_transfer_cards (view, TRUE);
+	view_transfer_contacts (view, TRUE);
 }
 
 

@@ -39,25 +39,31 @@ EContactListEditor *eab_show_contact_list_editor  (EBook       *book,
 						   EContact    *contact,
 						   gboolean     is_new_contact,
 						   gboolean     editable);
-void                eab_show_multiple_cards       (EBook       *book,
+void                eab_show_multiple_contacts    (EBook       *book,
 						   GList       *list,
 						   gboolean     editable);
-void                eab_transfer_cards            (EBook       *source,
-						   GList       *cards, /* adopted */
+void                eab_transfer_contacts         (EBook       *source,
+						   GList       *contacts, /* adopted */
 						   gboolean     delete_from_source,
 						   GtkWindow   *parent_window);
 
-#if notyet
+void                eab_contact_save              (char *title,
+						   EContact *contact,
+						   GtkWindow *parent_window);
+
+void                eab_contact_list_save         (char *title,
+						   GList *list,
+						   GtkWindow *parent_window);
+
 typedef enum {
 	EAB_DISPOSITION_AS_ATTACHMENT,
 	EAB_DISPOSITION_AS_TO,
 } EABDisposition;
 
-void                eab_send_contact              (EContact                *contact,
-						   EAddressbookDisposition  disposition);
-void                eab_send_contact_list         (GList                   *contacts,
-						   EAddressbookDisposition  disposition);
-#endif
+void                eab_send_contact              (EContact       *contact,
+						   EABDisposition  disposition);
+void                eab_send_contact_list         (GList          *contacts,
+						   EABDisposition  disposition);
 
 G_END_DECLS
 

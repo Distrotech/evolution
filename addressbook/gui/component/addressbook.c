@@ -44,7 +44,6 @@
 #include "evolution-shell-component-utils.h"
 #include "evolution-activity-client.h"
 #include "e-contact-editor.h"
-#include "e-contact-save-as.h"
 #include "addressbook-config.h"
 #include "addressbook.h"
 #include "addressbook-component.h"

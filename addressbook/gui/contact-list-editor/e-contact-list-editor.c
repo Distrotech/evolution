@@ -37,7 +37,6 @@
 #include "addressbook/util/eab-book-util.h"
 
 #include "e-contact-editor.h"
-#include "e-contact-save-as.h"
 #include "e-contact-list-model.h"
 #include "e-contact-list-editor-marshal.h"
 
@@ -498,31 +497,27 @@ file_save_as_cb (GtkWidget *widget, gpointer data)
 
 	extract_info (cle);
 
-	e_contact_save_as(_("Save List as VCard"), cle->contact, GTK_WINDOW (cle->app));
+	eab_contact_save(_("Save List as VCard"), cle->contact, GTK_WINDOW (cle->app));
 }
 
 static void
 file_send_as_cb (GtkWidget *widget, gpointer data)
 {
-#if notyet
 	EContactListEditor *cle = E_CONTACT_LIST_EDITOR (data);
 
 	extract_info (cle);
 
 	eab_send_contact(cle->contact, EAB_DISPOSITION_AS_ATTACHMENT);
-#endif
 }
 
 static void
 file_send_to_cb (GtkWidget *widget, gpointer data)
 {
-#if notyet
 	EContactListEditor *cle = E_CONTACT_LIST_EDITOR (data);
 
 	extract_info (cle);
 
 	eab_send_contact(cle->contact, EAB_DISPOSITION_AS_TO);
-#endif
 }
 
 static void
@@ -914,7 +909,7 @@ table_drag_data_received_cb (ETable *table, int row, int col,
 
 	if (!strcmp (target_type, VCARD_TYPE)) {
 
-		GList *contact_list = eab_load_contacts_from_string (selection_data->data);
+		GList *contact_list = eab_contact_list_from_string (selection_data->data);
 		GList *c;
 
 		if (contact_list)

@@ -245,7 +245,7 @@ eab_nickname_query (EBook                 *book,
 }
 
 GList*
-eab_load_contacts_from_string (const char *str)
+eab_contact_list_from_string (const char *str)
 {
 	GList *contacts = NULL;
 	GString *gstr = g_string_new ("");
@@ -285,6 +285,24 @@ eab_load_contacts_from_string (const char *str)
 	g_free (p);
 
 	return contacts;
+}
+
+char*
+eab_contact_list_to_string (GList *contacts)
+{
+	GString *str = g_string_new ("");
+	GList *l;
+
+	for (l = contacts; l; l = l->next) {
+		EContact *contact = l->data;
+		char *vcard_str = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
+
+		g_string_append (str, vcard_str);
+		if (l->next)
+			g_string_append (str, "\r\n");
+	}
+
+	return g_string_free (str, FALSE);
 }
 
 #if notyet

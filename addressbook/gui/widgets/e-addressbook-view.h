@@ -66,7 +66,7 @@ struct _EABView
 	EABModel   *model;
 
 	GtkWidget *invisible;
-	GList *clipboard_cards;
+	GList *clipboard_contacts;
 
 	EBook *book;
 	char  *query;

@@ -480,7 +480,6 @@ destination_folder_handle_drop (EvolutionShellComponentDndDestinationFolder *fol
 				const GNOME_Evolution_ShellComponentDnd_Data * data,
 				gpointer user_data)
 {
-#if notyet
 	EBook *book;
 	GList *contact_list;
 
@@ -489,12 +488,12 @@ destination_folder_handle_drop (EvolutionShellComponentDndDestinationFolder *fol
 
 	/* g_print ("in destination_folder_handle_drop (%s)\n", physical_uri); */
 
-	card_list = e_card_load_cards_from_string_with_default_charset (data->bytes._buffer, "ISO-8859-1");
+	contact_list = eab_contact_list_from_string (data->bytes._buffer);
 
 	book = e_book_new ();
 	addressbook_load_uri (book, physical_uri,
-			      (EBookCallback)dnd_drop_book_open_cb, card_list);
-#endif
+			      (EBookCallback)dnd_drop_book_open_cb, contact_list);
+
 	return TRUE;
 }
 

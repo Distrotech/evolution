@@ -1,3 +1,85 @@
+2003-10-01  Chris Toshok  <toshok@ximian.com>
+
+	* gui/component/addressbook-component.c
+	(destination_folder_handle_drop): use
+	eab_contact_list_from_string, and un-"#if notyet" this.
+
+	* gui/component/addressbook.c: remove #include
+	"e-contact-save-as.h"
+
+	* gui/contact-list-editor/e-contact-list-editor.c
+	(file_save_as_cb): use eab_contact_save.
+	(file_send_as_cb): use eab_send_contact, un-"#if notyet" this.
+	(file_send_to_cb): same.
+	(table_drag_data_received_cb): use eab_contact_list_from_string.
+
+	* gui/widgets/e-addressbook-reflow-adapter.[ch]: nuke.  last
+	vestiges of the minicard view.
+	
+	* gui/widgets/e-addressbook-view.c (eab_view_init):
+	s/clipboard_cards/cliboard_contacts.
+	(eab_view_dispose): same.
+	(get_contact_list_1): s/card/contact
+	(get_contact_list): same.
+	(save_as): same, and use eab_contact_list_save.
+	(send_as): reenable this code, s/card/contact, and use
+	eab_send_contact_list.
+	(send_to): same.
+	(print): s/card/contact.
+	(delete): same.
+	(new_card): same, and un-"#if notyet" some code.
+	(selection_get): use eab_contact_list_to_string.
+	(selection_clear_event): s/card/contact
+	(selection_received): same.
+	(get_selected_contacts): same.
+	(eab_view_save_as): same, and use eab_contact_list_save.
+	(eab_view_view): same, and use eab_show_multiple_contacts.
+	(eab_view_send): reenable this code, s/card/contact, and use
+	eab_send_contact_list.
+	(eab_view_send_to): same.
+	(eab_view_copy): s/card/contact.
+	(view_transfer_contacts): same.
+	(eab_view_copy_to_folder): same.
+	(eab_view_move_to_folder): same.
+
+	* gui/widgets/e-addressbook-view.h (struct _EABView): rename
+	clipboard_cards to clipboard_contacts.
+
+	* gui/widgets/eab-gui-util.c (view_contacts): un-"#if notyet"
+	(file_exists): moved from e-contact-save-as.c
+	(save_it): same.
+	(close_it): same.
+	(destroy_it): same.
+	(make_safe_filename): same.
+	(eab_contact_save): same, and renamed from e_contact_save_as.
+	(eab_contact_list_save): same, and renamed from
+	e_contact_list_save_as.
+	(contact_deleted_cb): s/card/contact.
+	(do_delete): same, and use e_book_async.
+	(delete_contacts): s/card/contact.
+	(process_unref): same.
+	(contact_added_cb): same.
+	(do_copy): same, and use e_book_async.
+	(got_book_cb): same.
+	(eab_transfer_contacts): same, and use e_book_async.
+	(eab_send_contact_list): s/card/contact
+	(eab_send_contact): same.
+
+	* gui/widgets/eab-gui-util.h: some random s/card/contact work, and
+	move the contents of e-contact-save-as.h here.
+
+	* util/eab-book-util.c (eab_contact_list_from_string): rename
+	eab_load_contacts_from_string to this.
+	(eab_contact_list_to_string): new function.
+
+	* util/eab-book-util.h: add prototype for
+	eab_contact_list_to_string, and rename
+	eab_load_contacts_from_string to eab_contact_list_from_string.
+
+	* gui/contact-editor/e-contact-save-as.[ch]: nuke.  the contents
+	of these files has been wrapped up in
+	gui/widgets/eab-gui-util.[ch].
+	
 2003-09-30  Chris Toshok  <toshok@ximian.com>
 
 	* gui/component/Makefile.am (libevolution_addressbook_la_LIBADD):

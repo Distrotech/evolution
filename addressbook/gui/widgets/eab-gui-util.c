@@ -20,6 +20,13 @@
  */
 
 #include <config.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <string.h>
+
+#include <gal/util/e-util.h>
 #include "eab-gui-util.h"
 #include "util/eab-book-util.h"
 #include "util/eab-destination.h"
@@ -173,13 +180,11 @@ static void
 view_contacts (EBook *book, GList *list, gboolean editable)
 {
 	for (; list; list = list->next) {
-#if notyet
 		EContact *contact = list->data;
-		if (e_card_evolution_list (card))
-			e_addressbook_show_contact_list_editor (book, card, FALSE, editable);
+		if (e_contact_get (contact, E_CONTACT_IS_LIST))
+			eab_show_contact_list_editor (book, contact, FALSE, editable);
 		else
-			e_addressbook_show_contact_editor (book, card, FALSE, editable);
-#endif
+			eab_show_contact_editor (book, contact, FALSE, editable);
 	}
 }
 
@@ -214,25 +219,202 @@ eab_show_multiple_contacts (EBook *book,
 }
 
 
-#if notyet
+static gint
+file_exists(GtkFileSelection *filesel, const char *filename)
+{
+	GtkWidget *dialog;
+	gint response;
+
+	dialog = gtk_message_dialog_new (GTK_WINDOW (filesel),
+					 0,
+					 GTK_MESSAGE_QUESTION,
+					 GTK_BUTTONS_NONE,
+					 _("%s already exists\nDo you want to overwrite it?"), filename);
+
+	gtk_dialog_add_buttons (GTK_DIALOG (dialog),
+				GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT,
+				_("Overwrite"), GTK_RESPONSE_ACCEPT,
+				NULL);
+
+	response = gtk_dialog_run (GTK_DIALOG (dialog));
+	gtk_widget_destroy (dialog);
+	return response;
+}
+
+typedef struct {
+	GtkFileSelection *filesel;
+	char *vcard;
+} SaveAsInfo;
+
+static void
+save_it(GtkWidget *widget, SaveAsInfo *info)
+{
+	gint error = 0;
+	gint response = 0;
+	
+	const char *filename = gtk_file_selection_get_filename (info->filesel);
+
+	error = e_write_file (filename, info->vcard, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC);
+
+	if (error == EEXIST) {
+		response = file_exists(info->filesel, filename);
+		switch (response) {
+			case GTK_RESPONSE_ACCEPT : /* Overwrite */
+				e_write_file(filename, info->vcard, O_WRONLY | O_CREAT | O_TRUNC);
+				break;
+			case GTK_RESPONSE_REJECT : /* cancel */
+				return;
+		}
+	} else if (error != 0) {
+		GtkWidget *dialog;
+		char *str;
+
+		str = g_strdup_printf (_("Error saving %s: %s"), filename, strerror(errno));
+		dialog = gtk_message_dialog_new (GTK_WINDOW (info->filesel),
+						 GTK_DIALOG_DESTROY_WITH_PARENT,
+						 GTK_MESSAGE_ERROR,
+						 GTK_BUTTONS_OK,
+						 str);
+		g_free (str);
+
+		gtk_widget_show (dialog);
+		
+		return;
+	}
+	
+	gtk_widget_destroy(GTK_WIDGET(info->filesel));
+}
+
+static void
+close_it(GtkWidget *widget, SaveAsInfo *info)
+{
+	gtk_widget_destroy (GTK_WIDGET (info->filesel));
+}
+
+static void
+destroy_it(void *data, GObject *where_the_object_was)
+{
+	SaveAsInfo *info = data;
+	g_free (info->vcard);
+	g_free (info);
+}
+
+static char *
+make_safe_filename (const char *prefix, char *name)
+{
+	char *safe, *p;
+
+	if (!name) {
+		/* This is a filename. Translators take note. */
+		name = _("card.vcf");
+	}
+
+	p = strrchr (name, '/');
+	if (p)
+		safe = g_strdup_printf ("%s%s%s", prefix, p, ".vcf");
+	else
+		safe = g_strdup_printf ("%s/%s%s", prefix, name, ".vcf");
+	
+	p = strrchr (safe, '/') + 1;
+	if (p)
+		e_filename_make_safe (p);
+	
+	return safe;
+}
+
+void
+eab_contact_save (char *title, EContact *contact, GtkWindow *parent_window)
+{
+	GtkFileSelection *filesel;
+	char *file;
+	char *name;
+	SaveAsInfo *info = g_new(SaveAsInfo, 1);
+
+	filesel = GTK_FILE_SELECTION(gtk_file_selection_new(title));
+
+	name = e_contact_get (contact, E_CONTACT_FILE_AS);
+	file = make_safe_filename (g_get_home_dir(), name);
+	gtk_file_selection_set_filename (filesel, file);
+	g_free (file);
+
+	info->filesel = filesel;
+	info->vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
+
+	g_signal_connect(filesel->ok_button, "clicked",
+			 G_CALLBACK (save_it), info);
+	g_signal_connect(filesel->cancel_button, "clicked",
+			 G_CALLBACK (close_it), info);
+	g_object_weak_ref (G_OBJECT (filesel), destroy_it, info);
+
+	if (parent_window) {
+		gtk_window_set_transient_for (GTK_WINDOW (filesel),
+					      parent_window);
+		gtk_window_set_modal (GTK_WINDOW (filesel), TRUE);
+	}
+
+	gtk_widget_show(GTK_WIDGET(filesel));
+}
+
+void
+eab_contact_list_save (char *title, GList *list, GtkWindow *parent_window)
+{
+	GtkFileSelection *filesel;
+	SaveAsInfo *info = g_new(SaveAsInfo, 1);
+
+	filesel = GTK_FILE_SELECTION(gtk_file_selection_new(title));
+
+	/* This is a filename. Translators take note. */
+	if (list && list->data && list->next == NULL) {
+		char *name, *file;
+		name = e_contact_get (E_CONTACT (list->data), E_CONTACT_FILE_AS);
+		if (!name)
+			name = e_contact_get (E_CONTACT (list->data), E_CONTACT_FULL_NAME);
+
+		file = make_safe_filename (g_get_home_dir(), name);
+		gtk_file_selection_set_filename (filesel, file);
+		g_free (file);
+	} else {
+		char *file;
+		file = make_safe_filename (g_get_home_dir(), _("list"));
+		gtk_file_selection_set_filename (filesel, file);
+		g_free (file);
+	}
+
+	info->filesel = filesel;
+	info->vcard = eab_contact_list_to_string (list);
+	
+	g_signal_connect(filesel->ok_button, "clicked",
+			 G_CALLBACK (save_it), info);
+	g_signal_connect(filesel->cancel_button, "clicked",
+			 G_CALLBACK (close_it), info);
+	g_object_weak_ref (G_OBJECT (filesel), destroy_it, info);
+
+	if (parent_window) {
+		gtk_window_set_transient_for (GTK_WINDOW (filesel),
+					      parent_window);
+		gtk_window_set_modal (GTK_WINDOW (filesel), TRUE);
+	}
+
+	gtk_widget_show(GTK_WIDGET(filesel));
+}
 
 typedef struct ContactCopyProcess_ ContactCopyProcess;
 
 typedef void (*ContactCopyDone) (ContactCopyProcess *process);
 
-struct CardCopyProcess_ {
+struct ContactCopyProcess_ {
 	int count;
-	GList *cards;
+	GList *contacts;
 	EBook *source;
 	EBook *destination;
-	CardCopyDone done_cb;
+	ContactCopyDone done_cb;
 };
 
 static void
-card_deleted_cb (EBook* book, EBookStatus status, gpointer user_data)
+contact_deleted_cb (EBook* book, EBookStatus status, gpointer user_data)
 {
 	if (status != E_BOOK_ERROR_OK) {
-		eab_error_dialog (_("Error removing card"), status);
+		eab_error_dialog (_("Error removing contact"), status);
 	}
 }
 
@@ -240,28 +422,28 @@ static void
 do_delete (gpointer data, gpointer user_data)
 {
 	EBook *book = user_data;
-	ECard *card = data;
+	EContact *contact = data;
 
-	e_book_remove_card(book, card, card_deleted_cb, NULL);
+	e_book_async_remove_contact(book, contact, contact_deleted_cb, NULL);
 }
 
 static void
-delete_cards (CardCopyProcess *process)
+delete_contacts (ContactCopyProcess *process)
 {
-	g_list_foreach (process->cards,
+	g_list_foreach (process->contacts,
 			do_delete,
 			process->source);
 }
 
 static void
-process_unref (CardCopyProcess *process)
+process_unref (ContactCopyProcess *process)
 {
 	process->count --;
 	if (process->count == 0) {
 		if (process->done_cb) {
 			process->done_cb (process);
 		}
-		e_free_object_list(process->cards);
+		e_free_object_list(process->contacts);
 		g_object_unref (process->source);
 		g_object_unref (process->destination);
 		g_free (process);
@@ -269,12 +451,12 @@ process_unref (CardCopyProcess *process)
 }
 
 static void
-card_added_cb (EBook* book, EBookStatus status, const char *id, gpointer user_data)
+contact_added_cb (EBook* book, EBookStatus status, const char *id, gpointer user_data)
 {
-	CardCopyProcess *process = user_data;
+	ContactCopyProcess *process = user_data;
 
 	if (status != E_BOOK_ERROR_OK) {
-		eab_error_dialog (_("Error adding card"), status);
+		eab_error_dialog (_("Error adding contact"), status);
 	} else {
 		process_unref (process);
 	}
@@ -284,27 +466,27 @@ static void
 do_copy (gpointer data, gpointer user_data)
 {
 	EBook *book;
-	ECard *card;
-	CardCopyProcess *process;
+	EContact *contact;
+	ContactCopyProcess *process;
 
 	process = user_data;
-	card = data;
+	contact = data;
 
 	book = process->destination;
 
 	process->count ++;
-	e_book_add_card(book, card, card_added_cb, process);
+	e_book_async_add_contact(book, contact, contact_added_cb, process);
 }
 
 static void
-got_book_cb (EBook *book, gpointer closure)
+got_book_cb (EBook *book, EBookStatus status, gpointer closure)
 {
-	CardCopyProcess *process;
+	ContactCopyProcess *process;
 	process = closure;
-	if (book) {
+	if (status == E_BOOK_ERROR_OK) {
 		process->destination = book;
 		g_object_ref (book);
-		g_list_foreach (process->cards,
+		g_list_foreach (process->contacts,
 				do_copy,
 				process);
 	}
@@ -314,30 +496,31 @@ got_book_cb (EBook *book, gpointer closure)
 extern EvolutionShellClient *global_shell_client;
 
 void
-eab_transfer_cards (EBook *source, GList *cards /* adopted */, gboolean delete_from_source, GtkWindow *parent_window)
+eab_transfer_contacts (EBook *source, GList *contacts /* adopted */, gboolean delete_from_source, GtkWindow *parent_window)
 {
+	EBook *dest;
 	const char *allowed_types[] = { "contacts/*", NULL };
 	GNOME_Evolution_Folder *folder;
 	static char *last_uri = NULL;
-	CardCopyProcess *process;
+	ContactCopyProcess *process;
 	char *desc;
 
-	if (cards == NULL)
+	if (contacts == NULL)
 		return;
 
 	if (last_uri == NULL)
 		last_uri = g_strdup ("");
 
-	if (cards->next == NULL) {
+	if (contacts->next == NULL) {
 		if (delete_from_source)
-			desc = _("Move card to");
+			desc = _("Move contact to");
 		else
-			desc = _("Copy card to");
+			desc = _("Copy contact to");
 	} else {
 		if (delete_from_source)
-			desc = _("Move cards to");
+			desc = _("Move contacts to");
 		else
-			desc = _("Copy cards to");
+			desc = _("Copy contacts to");
 	}
 
 	evolution_shell_client_user_select_folder (global_shell_client,
@@ -352,19 +535,20 @@ eab_transfer_cards (EBook *source, GList *cards /* adopted */, gboolean delete_f
 		last_uri = g_strdup (folder->evolutionUri);
 	}
 
-	process = g_new (CardCopyProcess, 1);
+	process = g_new (ContactCopyProcess, 1);
 	process->count = 1;
 	process->source = source;
 	g_object_ref (source);
-	process->cards = cards;
+	process->contacts = contacts;
 	process->destination = NULL;
 
 	if (delete_from_source)
-		process->done_cb = delete_cards;
+		process->done_cb = delete_contacts;
 	else
 		process->done_cb = NULL;
 
-	e_book_use_address_book_by_uri (folder->physicalUri, got_book_cb, process);
+	dest = e_book_new ();
+	e_book_async_load_uri (dest, folder->physicalUri, got_book_cb, process);
 
 	CORBA_free (folder);
 }
@@ -374,12 +558,13 @@ eab_transfer_cards (EBook *source, GList *cards /* adopted */, gboolean delete_f
 #define COMPOSER_OAFID "OAFIID:GNOME_Evolution_Mail_Composer"
 
 void
-eab_send_card_list (GList *cards, EAddressbookDisposition disposition)
+eab_send_contact_list (GList *contacts, EABDisposition disposition)
 {
+#if notyet
 	GNOME_Evolution_Composer composer_server;
 	CORBA_Environment ev;
 
-	if (cards == NULL)
+	if (contacts == NULL)
 		return;
 
 	CORBA_exception_init (&ev);
@@ -394,9 +579,9 @@ eab_send_card_list (GList *cards, EAddressbookDisposition disposition)
 		gint to_length = 0, bcc_length = 0;
 
 		/* Figure out how many addresses of each kind we have. */
-		for (iter = cards; iter != NULL; iter = g_list_next (iter)) {
-			ECard *card = E_CARD (iter->data);
-			if (e_card_evolution_list (card)) {
+		for (iter = contacts; iter != NULL; iter = g_list_next (iter)) {
+			EContact *contact = E_CONTACT (iter->data);
+			if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
 				gint len = card->email ? e_list_length (card->email) : 0;
 				if (e_card_evolution_list_show_addresses (card))
 					to_length += len;
@@ -534,7 +719,7 @@ eab_send_card_list (GList *cards, EAddressbookDisposition disposition)
 
 		show_inline = FALSE;
 
-		tempstr = e_card_list_get_vcard (cards);
+		tempstr = eab_contact_list_to_string (cards);
 		attach_data = GNOME_Evolution_Composer_AttachmentData__alloc();
 		attach_data->_maximum = attach_data->_length = strlen (tempstr);
 		attach_data->_buffer = CORBA_sequence_CORBA_char_allocbuf (attach_data->_length);
@@ -622,15 +807,14 @@ eab_send_card_list (GList *cards, EAddressbookDisposition disposition)
 	}
 
 	CORBA_exception_free (&ev);
+#endif
 }
 
 void
-eab_send_card (ECard *card, EAddressbookDisposition disposition)
+eab_send_contact (EContact *contact, EABDisposition disposition)
 {
 	GList *list;
-	list = g_list_prepend (NULL, card);
-	e_addressbook_send_card_list (list, disposition);
+	list = g_list_prepend (NULL, contact);
+	eab_send_contact_list (list, disposition);
 	g_list_free (list);
 }
-
-#endif
