@@ -4135,12 +4135,12 @@ e_day_view_add_event (ECalComponent *comp,
 
 	/* set recurrence ID */
 	if (e_cal_component_has_recurrences (comp)) {
-		struct icaltimetype itt;
-
-		itt = icalcomponent_get_dtstart (event.comp_data->icalcomp);
-		icalcomponent_set_recurrenceid (event.comp_data->icalcomp,
-						icaltime_from_timet (start, itt.is_date));
+		if (!(icalcomponent_get_first_property (event.comp_data->icalcomp,
+							ICAL_RECURRENCEID_PROPERTY))) {
+			icalcomponent_set_recurrenceid (event.comp_data->icalcomp, start_tt);
+		}
 	}
+
 	/* Calculate the start & end minute, relative to the top of the
 	   display. */
 	offset = add_event_data->day_view->first_hour_shown * 60

@@ -2432,6 +2432,14 @@ e_week_view_add_event (ECalComponent *comp,
 	event.spans_index = 0;
 	event.num_spans = 0;
 
+	/* set recurrence ID */
+	if (e_cal_component_has_recurrences (comp)) {
+		if (!(icalcomponent_get_first_property (event.comp_data->icalcomp,
+							ICAL_RECURRENCEID_PROPERTY))) {
+			icalcomponent_set_recurrenceid (event.comp_data->icalcomp, start_tt);
+		}
+	}
+
 	event.start_minute = start_tt.hour * 60 + start_tt.minute;
 	event.end_minute = end_tt.hour * 60 + end_tt.minute;
 	if (event.end_minute == 0 && start != end)
