@@ -99,7 +99,8 @@ static void selection_get (GtkWidget *invisible, GtkSelectionData *selection_dat
 			   guint info, guint time_stamp, EABView *view);
 static void invisible_destroyed (gpointer data, GObject *where_object_was);
 
-static GtkTableClass *parent_class = NULL;
+#define PARENT_TYPE GTK_TYPE_EVENT_BOX
+static GtkEventBoxClass *parent_class = NULL;
 
 /* The arguments we take */
 enum {
@@ -150,7 +151,7 @@ eab_view_get_type (void)
 			(GInstanceInitFunc) eab_view_init,
 		};
 
-		type = g_type_register_static (GTK_TYPE_TABLE, "EABView", &info, 0);
+		type = g_type_register_static (PARENT_TYPE, "EABView", &info, 0);
 	}
 
 	return type;
@@ -165,7 +166,7 @@ eab_view_class_init (EABViewClass *klass)
 	object_class = G_OBJECT_CLASS(klass);
 	widget_class = GTK_WIDGET_CLASS(klass);
 
-	parent_class = gtk_type_class (gtk_table_get_type ());
+	parent_class = gtk_type_class (PARENT_TYPE);
 
 	object_class->set_property = eab_view_set_property;
 	object_class->get_property = eab_view_get_property;
@@ -239,66 +240,21 @@ eab_view_init (EABView *eav)
 {
 	eav->view_type = EAB_VIEW_NONE;
 
-	eav->model = eab_model_new ();
-
-	g_signal_connect (eav->model,
-			  "status_message",
-			  G_CALLBACK (status_message),
-			  eav);
-
-	g_signal_connect (eav->model,
-			  "search_result",
-			  G_CALLBACK (search_result),
-			  eav);
-
-	g_signal_connect (eav->model,
-			  "folder_bar_message",
-			  G_CALLBACK (folder_bar_message),
-			  eav);
-
-	g_signal_connect (eav->model,
-			  "stop_state_changed",
-			  G_CALLBACK (stop_state_changed),
-			  eav);
-
-	g_signal_connect (eav->model,
-			  "writable_status",
-			  G_CALLBACK (writable_status),
-			  eav);
-
-	g_signal_connect (eav->model,
-			  "backend_died",
-			  G_CALLBACK (backend_died),
-			  eav);
-
-	eav->editable = FALSE;
-	eav->book = NULL;
-	eav->query = g_strdup (SHOW_ALL_SEARCH);
-
+	eav->model = NULL;
 	eav->object = NULL;
 	eav->widget = NULL;
+	eav->contact_display = NULL;
 
 	eav->view_instance = NULL;
 	eav->view_menus = NULL;
+	eav->current_view = NULL;
 	eav->uic = NULL;
 
-	eav->invisible = gtk_invisible_new ();
+	eav->book = NULL;
+	eav->query = NULL;
 
-	gtk_selection_add_target (eav->invisible,
-				  clipboard_atom,
-				  GDK_SELECTION_TYPE_STRING,
-				  0);
-		
-	g_signal_connect (eav->invisible, "selection_get",
-			  G_CALLBACK (selection_get), 
-			  eav);
-	g_signal_connect (eav->invisible, "selection_clear_event",
-			  G_CALLBACK (selection_clear_event),
-			  eav);
-	g_signal_connect (eav->invisible, "selection_received",
-			  G_CALLBACK (selection_received),
-			  eav);
-	g_object_weak_ref (G_OBJECT (eav->invisible), invisible_destroyed, eav);
+	eav->invisible = NULL;
+	eav->clipboard_cards = NULL;
 }
 
 static void
@@ -352,6 +308,63 @@ GtkWidget*
 eab_view_new (void)
 {
 	GtkWidget *widget = GTK_WIDGET (g_object_new (E_TYPE_AB_VIEW, NULL));
+	EABView *eav = EAB_VIEW (widget);
+
+	/* create our model */
+	eav->model = eab_model_new ();
+
+	g_signal_connect (eav->model, "status_message",
+			  G_CALLBACK (status_message), eav);
+	g_signal_connect (eav->model, "search_result",
+			  G_CALLBACK (search_result), eav);
+	g_signal_connect (eav->model, "folder_bar_message",
+			  G_CALLBACK (folder_bar_message), eav);
+	g_signal_connect (eav->model, "stop_state_changed",
+			  G_CALLBACK (stop_state_changed), eav);
+	g_signal_connect (eav->model, "writable_status",
+			  G_CALLBACK (writable_status), eav);
+	g_signal_connect (eav->model, "backend_died",
+			  G_CALLBACK (backend_died), eav);
+
+	eav->editable = FALSE;
+	eav->query = g_strdup (SHOW_ALL_SEARCH);
+
+	/* create the paned window and contact display */
+	eav->paned = gtk_vpaned_new ();
+	gtk_container_add (GTK_CONTAINER (eav), eav->paned);
+
+	eav->widget = gtk_label_new ("empty label here");
+	gtk_container_add (GTK_CONTAINER (eav->paned), eav->widget);
+	gtk_widget_show (eav->widget);
+
+	eav->contact_display = eab_contact_display_new ();
+	gtk_container_add (GTK_CONTAINER (eav->paned), eav->contact_display);
+	gtk_widget_show (eav->contact_display);
+
+	gtk_widget_show (eav->paned);
+
+	/* XXX hack */
+	gtk_paned_set_position (GTK_PANED (eav->paned), 144);
+
+	/* gtk selection crap */
+	eav->invisible = gtk_invisible_new ();
+
+	gtk_selection_add_target (eav->invisible,
+				  clipboard_atom,
+				  GDK_SELECTION_TYPE_STRING,
+				  0);
+		
+	g_signal_connect (eav->invisible, "selection_get",
+			  G_CALLBACK (selection_get), 
+			  eav);
+	g_signal_connect (eav->invisible, "selection_clear_event",
+			  G_CALLBACK (selection_clear_event),
+			  eav);
+	g_signal_connect (eav->invisible, "selection_received",
+			  G_CALLBACK (selection_received),
+			  eav);
+	g_object_weak_ref (G_OBJECT (eav->invisible), invisible_destroyed, eav);
+
 	return widget;
 }
 
@@ -906,11 +919,29 @@ do_popup_menu(EABView *view, GdkEvent *event)
 
 }
 
+static void
+render_contact (int row, EABView *view)
+{
+	EContact *contact = eab_model_get_contact (view->model, row);
+
+	eab_contact_display_render (EAB_CONTACT_DISPLAY (view->contact_display), contact);
+}
 
 static void
 selection_changed (GObject *o, EABView *view)
 {
+	ESelectionModel *selection_model;
+
 	command_state_change (view);
+
+	selection_model = get_selection_model (view);
+
+	if (e_selection_model_selected_count (selection_model) == 1)
+		e_selection_model_foreach (selection_model,
+					   (EForeachFunc)render_contact, view);
+	else
+		eab_contact_display_render (EAB_CONTACT_DISPLAY (view->contact_display), NULL);
+					    
 }
 
 static void
@@ -1084,11 +1115,7 @@ create_table_view (EABView *view)
 			  G_CALLBACK (table_drag_data_get),
 			  view);
 
-	gtk_table_attach(GTK_TABLE(view), table,
-			 0, 1,
-			 0, 1,
-			 GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND,
-			 0, 0);
+	gtk_paned_add1 (GTK_PANED (view->paned), table);
 
 	gtk_widget_show( GTK_WIDGET(table) );
 }
@@ -1176,11 +1203,7 @@ create_treeview_view (EABView *view)
 	g_signal_connect(e_treeview_get_selection_model (GTK_TREE_VIEW (treeview)), "selection_changed",
 			 G_CALLBACK(selection_changed), view);
 
-	gtk_table_attach(GTK_TABLE(view), scrolled,
-			 0, 1,
-			 0, 1,
-			 GTK_FILL | GTK_EXPAND, GTK_FILL | GTK_EXPAND,
-			 0, 0);
+	gtk_paned_add1 (GTK_PANED (view->paned), scrolled);
 
 	gtk_widget_show( GTK_WIDGET(scrolled) );
 
@@ -1195,6 +1218,7 @@ change_view_type (EABView *view, EABViewType view_type)
 		return;
 
 	if (view->widget) {
+		gtk_container_remove (GTK_CONTAINER (view->paned), view->widget);
 		gtk_widget_destroy (view->widget);
 		view->widget = NULL;
 	}

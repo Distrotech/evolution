@@ -164,8 +164,8 @@ update_folder_bar_message (EABModel *model)
 
 static void
 create_contact(EBookView *book_view,
-	    const GList *contacts,
-	    EABModel *model)
+	       const GList *contacts,
+	       EABModel *model)
 {
 	int old_count = model->data_count;
 	int length = g_list_length ((GList *)contacts);
@@ -557,7 +557,7 @@ get_view (EABModel *model)
 
 EContact *
 eab_model_get_contact(EABModel *model,
-			     int                row)
+		      int       row)
 {
 	if (model->data && 0 <= row && row < model->data_count) {
 		return e_contact_duplicate (model->data[row]);

@@ -39,6 +39,8 @@ noinst_LTLIBRARIES =				\
 
 libeminicard_la_SOURCES =			\
 	$(CORBA_SOURCE)				\
+	eab-contact-display.c			\
+	eab-contact-display.h			\
 	e-addressbook-marshal.c			\
 	e-addressbook-table-adapter.c		\
 	e-addressbook-table-adapter.h		\

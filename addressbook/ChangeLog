@@ -1,5 +1,32 @@
 2003-09-06  Chris Toshok  <toshok@ximian.com>
 
+	* gui/widgets/Makefile.am (libeminicard_la_SOURCES): add
+	eab-contact-display.[ch]
+
+	* gui/widgets/e-addressbook-view.c (eab_view_init): just init
+	everything to NULL.
+	(eab_view_new): move a bunch of stuff that was in eab_view_init
+	here.  create a vpaned to hold the contact display, and create the
+	contact display.
+	(render_contact): render the selected contact to the
+	contact_display.
+	(selection_changed): add logic to display the currently selected
+	contact in the preview pane.
+	(create_table_view): add the table to the paned.
+	(create_treeview_view): add the scrolled to the paned.
+	(change_view_type): remove view->widget from the paned.
+
+	* gui/widgets/e-addressbook-view.h: switch from using a GtkTable
+	to a GtkEventBox - we don't need the table logic anymore.
+
+	* gui/widgets/e-addressbook-model.c (create_contact): indent
+	(eab_model_get_contact): same.
+
+	* gui/widgets/eab-contact-display.[ch]: new files - this
+	implements the preview pane.
+	
+2003-09-06  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-backend-ldap.c (BINARY_PROP): new type of
 	property, for specifying data coming back from the ldap server
 	with both data/length (like photos).

@@ -20,17 +20,15 @@
 #ifndef __EAB_VIEW_H__
 #define __EAB_VIEW_H__
 
-#include <gtk/gtktable.h>
+#include <gtk/gtkeventbox.h>
 #include <bonobo/bonobo-ui-component.h>
 #include <gal/menus/gal-view-instance.h>
 #include "e-addressbook-model.h"
+#include "eab-contact-display.h"
 #include "widgets/menus/gal-view-menus.h"
 #include "addressbook/backend/ebook/e-book.h"
 
-#ifdef __cplusplus
-extern "C" {
-#pragma }
-#endif /* __cplusplus */
+G_BEGIN_DECLS
 
 /* EABView - A card displaying information about a contact.
  *
@@ -60,7 +58,7 @@ typedef struct _EABViewClass  EABViewClass;
 
 struct _EABView
 {
-	GtkTable parent;
+	GtkEventBox parent;
 	
 	/* item specific fields */
 	EABViewType view_type;
@@ -77,7 +75,8 @@ struct _EABView
 	GObject *object;
 	GtkWidget *widget;
 
-	GtkWidget *vbox;
+	GtkWidget *contact_display;
+	GtkWidget *paned;
 
 	/* Menus handler and the view instance */
 	GalViewInstance *view_instance;
@@ -88,7 +87,7 @@ struct _EABView
 
 struct _EABViewClass
 {
-	GtkTableClass parent_class;
+	GtkEventBoxClass parent_class;
 
 	/*
 	 * Signals
@@ -138,9 +137,6 @@ gboolean   eab_view_can_stop            (EABView  *view);
 gboolean   eab_view_can_copy_to_folder  (EABView  *view);
 gboolean   eab_view_can_move_to_folder  (EABView  *view);
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
+G_END_DECLS;
 
 #endif /* __EAB_VIEW_H__ */
