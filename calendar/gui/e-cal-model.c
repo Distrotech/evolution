@@ -224,7 +224,6 @@ e_cal_model_finalize (GObject *object)
 		}
 		
 		if (priv->accounts) {
-			g_object_unref (priv->accounts);
 			priv->accounts = NULL;
 		}
 
