@@ -73,7 +73,6 @@ static void cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *
 static void cal_backend_file_dispose (GObject *object);
 static void cal_backend_file_finalize (GObject *object);
 
-static const char *cal_backend_file_get_uri (CalBackend *backend);
 static gboolean cal_backend_file_is_read_only (CalBackend *backend);
 static const char *cal_backend_file_get_cal_address (CalBackend *backend);
 static const char *cal_backend_file_get_alarm_email_address (CalBackend *backend);
@@ -176,7 +175,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	object_class->dispose = cal_backend_file_dispose;
 	object_class->finalize = cal_backend_file_finalize;
 
-	backend_class->get_uri = cal_backend_file_get_uri;
 	backend_class->is_read_only = cal_backend_file_is_read_only;
 	backend_class->get_cal_address = cal_backend_file_get_cal_address;
  	backend_class->get_alarm_email_address = cal_backend_file_get_alarm_email_address;
@@ -433,22 +431,6 @@ lookup_component (CalBackendFile *cbfile, const char *uid)
 
 
 /* Calendar backend methods */
-
-/* Get_uri handler for the file backend */
-static const char *
-cal_backend_file_get_uri (CalBackend *backend)
-{
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
-
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
-	g_assert (priv->uri != NULL);
-
-	return (const char *) priv->uri;
-}
 
 /* Is_read_only handler for the file backend */
 static gboolean
@@ -819,6 +801,7 @@ cal_backend_file_remove (CalBackend *backend)
 		return CAL_BACKEND_FILE_PERMISSION_DENIED;
 	}
 
+	/* FIXME Remove backup file and whole directory too? */
 	if (unlink (str_uri) != 0) {
 		g_free (str_uri);
 

@@ -94,8 +94,6 @@ struct _CalBackendClass {
 	void (* obj_removed) (CalBackend *backend, const char *uid);
 
 	/* Virtual methods */
-	const char *(* get_uri) (CalBackend *backend);
-
 	const char *(* get_cal_address) (CalBackend *backend);
 	const char *(* get_alarm_email_address) (CalBackend *backend);
 	const char *(* get_ldap_attribute) (CalBackend *backend);

@@ -254,7 +254,6 @@ cal_backend_class_init (CalBackendClass *class)
 	class->obj_updated = NULL;
 	class->obj_removed = NULL;
 
-	class->get_uri = NULL;
 	class->get_cal_address = NULL;
 	class->get_alarm_email_address = NULL;
 	class->get_static_capabilities = NULL;

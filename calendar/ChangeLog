@@ -1,5 +1,16 @@
 2003-08-12  JP Rosevear  <jpr@ximian.com>
 
+	* pcs/cal-backend.h: remove get_uri vmethod
+
+	* pcs/cal-backend.c (cal_backend_class_init): remove get_uri
+	vmethod init
+
+	* pcs/cal-backend-file.c (cal_backend_file_class_init): no longer
+	a get uri vmethod
+	(cal_backend_file_get_uri): remove implementation of above
+
+2003-08-12  JP Rosevear  <jpr@ximian.com>
+	
 	* cal-client/client-test.c (main): use tmp uris
 
 	* cal-client/cal-listener.h: update protos
