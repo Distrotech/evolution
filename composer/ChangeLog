@@ -1,3 +1,13 @@
+2003-09-08  Not Zed  <NotZed@Ximian.com>
+
+	* e-msg-composer.c (autosave_load_draft): ugh, direct linking to
+	evolution-mail suckage.  Should these callbacks just be handled
+	internally?
+	(handle_multipart_encrypted, handle_multipart_signed)
+	(handle_multipart_alternative, handle_multipart)
+	(e_msg_composer_new_with_message): Use new em_utils stuff for
+	message formatting.
+
 2003-08-22  Antonio Xu  <antonio.xu@sun.com>
 
 	* e-msg-composer-attachment.c (): Connect response signal to
