@@ -573,7 +573,7 @@ emfv_popup_move(GtkWidget *w, EMFolderView *emfv)
 	d->uids = message_list_get_selected(emfv->list);
 	d->delete = TRUE;
 
-	em_select_folder((GtkWidget *)emfv, NULL, emfv_popup_move_cb, d);
+	em_select_folder((GtkWidget *)emfv, _("Select folder"), NULL, NULL, emfv_popup_move_cb, d);
 }
 
 static void
@@ -587,7 +587,7 @@ emfv_popup_copy(GtkWidget *w, EMFolderView *emfv)
 	d->uids = message_list_get_selected(emfv->list);
 	d->delete = FALSE;
 
-	em_select_folder((GtkWidget *)emfv, NULL, emfv_popup_move_cb, d);
+	em_select_folder((GtkWidget *)emfv, _("Select folder"), NULL, NULL, emfv_popup_move_cb, d);
 }
 
 static void

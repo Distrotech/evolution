@@ -27,7 +27,7 @@
 #include "em-folder-selection-button.h"
 
 #include "mail-component.h"
-#include "em-folder-selection.h"
+#include "em-folder-selector.h"
 
 #include <gal/util/e-util.h>
 
@@ -113,16 +113,38 @@ impl_finalize (GObject *object)
 }
 
 static void
+emfsb_selector_response(EMFolderSelector *emfs, int response, EMFolderSelectionButton *button)
+{
+	if (response == GTK_RESPONSE_OK) {
+		const char *uri = em_folder_selector_get_selected_uri(emfs);
+
+		em_folder_selection_button_set_selection(button, uri);
+		g_signal_emit(button, signals[SELECTED], 0);
+	}
+
+	gtk_widget_destroy((GtkWidget *)emfs);
+}
+
+static void
 impl_clicked (GtkButton *button)
 {
 	EMFolderSelectionButtonPrivate *priv = EM_FOLDER_SELECTION_BUTTON (button)->priv;
+	EStorageSet *ess;
+	GtkWidget *w;
 	GtkWidget *toplevel;
-	char *uri;
 
 	if (GTK_BUTTON_CLASS (parent_class)->clicked != NULL)
 		(* GTK_BUTTON_CLASS (parent_class)->clicked) (button);
 
 	toplevel = gtk_widget_get_toplevel (GTK_WIDGET (button));
+	ess = mail_component_peek_storage_set(mail_component_peek());
+	w = em_folder_selector_new(ess, EM_FOLDER_SELECTOR_CAN_CREATE, priv->title, priv->caption);
+	em_folder_selector_set_selected_uri((EMFolderSelector *)w, priv->uri);
+	g_signal_connect(w, "response", G_CALLBACK(emfsb_selector_response), button);
+	gtk_widget_show(w);
+}
+#if 0
+{
 	uri = em_folder_selection_run_dialog_uri((GtkWindow *)toplevel,
 						 priv->title,
 						 priv->caption,
@@ -133,6 +155,7 @@ impl_clicked (GtkButton *button)
 
 	g_signal_emit (button, signals[SELECTED], 0);
 }
+#endif
 
 static void
 class_init (EMFolderSelectionButtonClass *class)

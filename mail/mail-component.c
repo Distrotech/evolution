@@ -25,6 +25,7 @@
 #include "e-storage.h"
 #include "e-storage-set.h"
 #include "e-storage-browser.h"
+#include "em-folder-selector.h"
 
 #include "folder-browser-factory.h"
 #include "mail-config.h"
@@ -34,6 +35,11 @@
 #include "mail-ops.h"
 #include "mail-send-recv.h"
 #include "mail-session.h"
+
+#include "em-popup.h"
+
+#include <gal/e-table/e-tree.h>
+#include <gal/e-table/e-tree-memory.h>
 
 #include <camel/camel.h>
 
@@ -52,16 +58,19 @@ struct _MailComponentPrivate {
 	char *base_directory;
 
 	MailAsyncEvent *async_event;
-	GHashTable *storages_hash;
+	GHashTable *storages_hash; /* storage by store */
 
 	EFolderTypeRegistry *folder_type_registry;
 	EStorageSet *storage_set;
 
 	RuleContext *search_context;
 
+	char *context_path;	/* current path for right-click menu */
+
 	CamelStore *local_store;
 };
 
+static int emc_tree_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, MailComponent *component);
 
 /* Utility functions.  */
 
@@ -129,6 +138,8 @@ add_storage (MailComponent *component,
 	e_storage_declare_has_subfolders(storage, "/", _("Connecting..."));
 
 	camel_object_ref(store);
+
+	g_object_set_data((GObject *)storage, "em-store", store);
 	g_hash_table_insert (component->priv->storages_hash, store, storage);
 
 	g_signal_connect(storage, "async_open_folder",
@@ -167,8 +178,6 @@ load_accounts(MailComponent *component, EAccountList *accounts)
 		account = (EAccount *) e_iterator_get (iter);
 		service = account->source;
 		name = account->name;
-
-		printf("loading account '%s'\n", service->url?service->url:"botched crap");
 
 		if (account->enabled && service->url != NULL)
 			mail_component_load_storage_by_uri (component, service->url, name);
@@ -236,7 +245,6 @@ setup_search_context (MailComponent *component)
 		
 	rule_context_load (priv->search_context, system, user);
 }
-
 
 /* Local store setup.  */
 char *default_drafts_folder_uri;
@@ -415,6 +423,7 @@ impl_finalize (GObject *object)
 		g_warning(" system may be unstable at exit");
 	}
 
+	g_free(priv->context_path);
 	g_free (priv);
 
 	(* G_OBJECT_CLASS (parent_class)->finalize) (object);
@@ -453,6 +462,8 @@ impl_createControls (PortableServer_Servant servant,
 
 	g_signal_connect_object (browser, "page_switched",
 				 G_CALLBACK (browser_page_switched_callback), view_control, 0);
+
+	g_signal_connect(tree_widget, "right_click", G_CALLBACK(emc_tree_right_click), mail_component);
 }
 
 
@@ -959,3 +970,481 @@ mail_component_evomail_uri_from_folder (MailComponent *component,
 
 
 BONOBO_TYPE_FUNC_FULL (MailComponent, GNOME_Evolution_Component, PARENT_TYPE, mail_component)
+
+
+/* ********************************************************************** */
+#if 0
+static void
+emc_popup_view(GtkWidget *w, MailComponent *mc)
+{
+
+}
+
+static void
+emc_popup_open_new(GtkWidget *w, MailComponent *mc)
+{
+}
+#endif
+
+static void
+em_copy_folders(CamelStore *tostore, const char *tobase, CamelStore *fromstore, const char *frombase, int delete)
+{
+	GString *toname, *fromname;
+	CamelFolderInfo *fi;
+	GList *pending = NULL;
+	guint32 flags = CAMEL_STORE_FOLDER_INFO_RECURSIVE;
+	CamelException *ex = camel_exception_new();
+	int fromlen;
+	const char *tmp;
+
+	if (camel_store_supports_subscriptions(fromstore))
+		flags |= CAMEL_STORE_FOLDER_INFO_SUBSCRIBED;
+
+	fi = camel_store_get_folder_info(fromstore, frombase, flags, ex);
+	if (camel_exception_is_set(ex))
+		goto done;
+
+	pending = g_list_append(pending, fi);
+
+	toname = g_string_new("");
+	fromname = g_string_new("");
+
+	tmp = strrchr(frombase, '/');
+	if (tmp == NULL)
+		fromlen = 0;
+	else
+		fromlen = tmp-frombase;
+
+	printf("top name is '%s'\n", fi->full_name);
+
+	while (pending) {
+		CamelFolderInfo *info = pending->data;
+
+		pending = g_list_remove_link(pending, pending);
+		while (info) {
+			CamelFolder *fromfolder, *tofolder;
+			GPtrArray *uids;
+
+			if (info->child)
+				pending = g_list_append(pending, info->child);
+			g_string_printf(toname, "%s/%s", tobase, info->full_name + fromlen);
+
+			printf("Copying from '%s' to '%s'\n", info->full_name, toname->str);
+
+			/* This makes sure we create the same tree, e.g. from a nonselectable source */
+			/* Not sure if this is really the 'right thing', e.g. for spool stores, but it makes the ui work */
+			fromfolder = camel_store_get_folder(fromstore, info->full_name, 0, ex);
+			tofolder = camel_store_get_folder(tostore, toname->str, CAMEL_STORE_FOLDER_CREATE, ex);
+			if (tofolder == NULL) {
+				if (fromfolder)
+					camel_object_unref(fromfolder);
+				goto exception;
+			}
+
+			if (fromfolder) {
+				uids = camel_folder_get_uids(fromfolder);
+				camel_folder_transfer_messages_to(fromfolder, uids, tofolder, NULL, FALSE, ex);
+				camel_folder_free_uids(fromfolder, uids);
+
+				camel_object_unref(fromfolder);
+			}
+			camel_object_unref(tofolder);
+			if (camel_exception_is_set(ex))
+				goto exception;
+			info = info->sibling;
+		}
+	}
+
+	camel_store_free_folder_info(fromstore, fi);
+
+exception:
+	g_string_free(toname, TRUE);
+	g_string_free(fromname, TRUE);
+done:
+	printf("exception: %s\n", ex->desc?ex->desc:"<none>");
+	camel_exception_free(ex);
+}
+
+struct _copy_folder_data {
+	MailComponent *mc;
+	int delete;
+};
+
+static void
+emc_popup_copy_folder_selected(const char *uri, void *data)
+{
+	struct _copy_folder_data *d = data;
+
+	if (uri == NULL) {
+		g_free(d);
+		return;
+	}
+
+	if (uri) {
+		EFolder *folder = e_storage_set_get_folder(d->mc->priv->storage_set, d->mc->priv->context_path);
+		CamelException *ex = camel_exception_new();
+		CamelStore *fromstore, *tostore;
+		char *tobase, *frombase;
+		CamelURL *url;
+
+		printf("copying folder '%s' to '%s'\n", d->mc->priv->context_path, uri);
+
+		fromstore = camel_session_get_store(session, e_folder_get_physical_uri(folder), ex);
+		frombase = strchr(d->mc->priv->context_path+1, '/')+1;
+
+		tostore = camel_session_get_store(session, uri, ex);
+		url = camel_url_new(uri, NULL);
+		if (url->fragment)
+			tobase = url->fragment;
+		else
+			tobase = url->path;
+
+		em_copy_folders(tostore, tobase, fromstore, frombase, d->delete);
+
+		camel_url_free(url);
+		camel_exception_free(ex);
+	}
+	g_free(d);
+}
+
+static void
+emc_popup_copy(GtkWidget *w, MailComponent *mc)
+{
+	struct _copy_folder_data *d;
+
+	d = g_malloc(sizeof(*d));
+	d->mc = mc;
+	d->delete = 0;
+	em_select_folder(NULL, _("Select folder"), _("Select destination to copy folder into"), NULL, emc_popup_copy_folder_selected, d);
+}
+
+static void
+emc_popup_move(GtkWidget *w, MailComponent *mc)
+{
+	struct _copy_folder_data *d;
+
+	d = g_malloc(sizeof(*d));
+	d->mc = mc;
+	d->delete = 1;
+	em_select_folder(NULL, _("Select folder"), _("Select destination to move folder into"), NULL, emc_popup_copy_folder_selected, d);
+}
+static void
+emc_popup_new_folder_create(EStorageSet *ess, EStorageResult result, void *data)
+{
+	printf("folder created %s\n", result == E_STORAGE_OK?"ok":"failed");
+}
+
+static void
+emc_popup_new_folder_response(EMFolderSelector *emfs, guint response, MailComponent *mc)
+{
+	if (response == GTK_RESPONSE_OK) {
+		char *path, *tmp, *name, *full;
+		EStorage *storage;
+		CamelStore *store;
+		CamelException *ex;
+
+		printf("Creating folder: %s (%s)\n", em_folder_selector_get_selected(emfs),
+		       em_folder_selector_get_selected_uri(emfs));
+
+		path = g_strdup(em_folder_selector_get_selected(emfs));
+		tmp = strchr(path+1, '/');
+		*tmp++ = 0;
+		/* FIXME: camel_store_create_folder should just take full path names */
+		full = g_strdup(tmp);
+		name = strrchr(tmp, '/');
+		if (name == NULL) {
+			name = tmp;
+			tmp = "";
+		} else
+			*name++  = 0;
+
+		storage = e_storage_set_get_storage(mc->priv->storage_set, path+1);
+		store = g_object_get_data((GObject *)storage, "em-store");
+
+		printf("creating folder '%s' / '%s' on '%s'\n", tmp, name, path+1);
+
+		ex = camel_exception_new();
+		camel_store_create_folder(store, tmp, name, ex);
+		if (camel_exception_is_set(ex)) {
+			printf("Create failed: %s\n", ex->desc);
+		} else if (camel_store_supports_subscriptions(store)) {
+			camel_store_subscribe_folder(store, full, ex);
+			if (camel_exception_is_set(ex)) {
+				printf("Subscribe failed: %s\n", ex->desc);
+			}
+		}
+
+		camel_exception_free(ex);
+
+		g_free(full);
+		g_free(path);
+
+		/* Blah, this should just use camel, we get better error reporting if we do too */
+		/*e_storage_set_async_create_folder(mc->priv->storage_set, path, "mail", "", emc_popup_new_folder_create, mc);*/
+	}
+	gtk_widget_destroy((GtkWidget *)emfs);
+}
+
+static void
+emc_popup_new_folder(GtkWidget *w, MailComponent *mc)
+{
+	GtkWidget *w;
+
+	w = em_folder_selector_create_new(mc->priv->storage_set, 0, _("Create folder"), _("Specify where to create the folder:"));
+	em_folder_selector_set_selected((EMFolderSelector *)w, mc->priv->context_path);
+	g_signal_connect(w, "response", G_CALLBACK(emc_popup_new_folder_response), mc);
+	gtk_widget_show(w);
+}
+
+static void
+em_delete_rec(CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
+{
+	while (fi) {
+		CamelFolder *folder;
+
+		if (fi->child)
+			em_delete_rec(store, fi->child, ex);
+		if (camel_exception_is_set(ex))
+			return;
+
+		printf("deleting folder '%s'\n", fi->full_name);
+
+		if (camel_store_supports_subscriptions(store))
+			camel_store_unsubscribe_folder(store, fi->full_name, NULL);
+
+		folder = camel_store_get_folder(store, fi->full_name, 0, NULL);
+		if (folder) {
+			GPtrArray *uids = camel_folder_get_uids(folder);
+			int i;
+
+			camel_folder_freeze(folder);
+			for (i = 0; i < uids->len; i++)
+				camel_folder_delete_message(folder, uids->pdata[i]);
+			camel_folder_sync(folder, TRUE, NULL);
+			camel_folder_thaw(folder);
+			camel_folder_free_uids(folder, uids);
+		}
+
+		camel_store_delete_folder(store, fi->full_name, ex);
+		if (camel_exception_is_set(ex))
+			return;
+		fi = fi->sibling;
+	}
+}
+
+static void
+em_delete_folders(CamelStore *store, const char *base, CamelException *ex)
+{
+	CamelFolderInfo *fi;
+	guint32 flags = CAMEL_STORE_FOLDER_INFO_RECURSIVE;
+ 
+	if (camel_store_supports_subscriptions(store))
+		flags |= CAMEL_STORE_FOLDER_INFO_SUBSCRIBED;
+
+	fi = camel_store_get_folder_info(store, base, flags, ex);
+	if (camel_exception_is_set(ex))
+		return;
+
+	em_delete_rec(store, fi, ex);
+	camel_store_free_folder_info(store, fi);
+}
+
+static void
+emc_popup_delete_response(GtkWidget *w, guint response, MailComponent *mc)
+{
+	gtk_widget_destroy(w);
+
+	if (response == GTK_RESPONSE_OK) {
+		const char *path = strchr(mc->priv->context_path+1, '/')+1;
+		EFolder *folder = e_storage_set_get_folder(mc->priv->storage_set, mc->priv->context_path);
+		CamelException *ex = camel_exception_new();
+		CamelStore *store;
+
+		/* FIXME: need to hook onto store changed event and delete view as well, somewhere else tho */
+		store = camel_session_get_store(session, e_folder_get_physical_uri(folder), ex);
+		if (camel_exception_is_set(ex))
+			goto exception;
+
+		em_delete_folders(store, path, ex);
+		if (!camel_exception_is_set(ex))
+			goto noexception;
+	exception:
+		e_notice(NULL, GTK_MESSAGE_ERROR,
+			 _("Could not delete folder: %s"), ex->desc);
+	noexception:
+		camel_exception_free(ex);
+		if (store)
+			camel_object_unref(store);
+	}
+}
+
+static void
+emc_popup_delete_folder(GtkWidget *w, MailComponent *mc)
+{
+	GtkWidget *dialog;
+	char *title;
+	const char *path = strchr(mc->priv->context_path+1, '/')+1;
+	EFolder *folder;
+
+	folder = e_storage_set_get_folder(mc->priv->storage_set, mc->priv->context_path);
+	if (folder == NULL)
+		return;
+
+	dialog = gtk_message_dialog_new(NULL,
+					GTK_DIALOG_DESTROY_WITH_PARENT | GTK_DIALOG_MODAL,
+					GTK_MESSAGE_QUESTION,
+					GTK_BUTTONS_NONE,
+					_("Really delete folder \"%s\" and all of its subfolders?"), path);
+
+	gtk_dialog_add_button((GtkDialog *)dialog, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
+	gtk_dialog_add_button((GtkDialog *)dialog, GTK_STOCK_DELETE, GTK_RESPONSE_OK);
+
+	gtk_dialog_set_default_response((GtkDialog *)dialog, GTK_RESPONSE_OK);
+	gtk_container_set_border_width((GtkContainer *)dialog, 6); 
+	gtk_box_set_spacing((GtkBox *)((GtkDialog *)dialog)->vbox, 6);
+
+	title = g_strdup_printf(_("Delete \"%s\""), path);
+	gtk_window_set_title((GtkWindow *)dialog, title);
+	g_free(title);
+
+	g_signal_connect(dialog, "response", G_CALLBACK(emc_popup_delete_response), mc);
+	gtk_widget_show(dialog);
+}
+
+static void
+emc_popup_rename_folder(GtkWidget *w, MailComponent *mc)
+{
+	char *prompt, *new;
+	EFolder *folder;
+	const char *old, *why;
+	int done = 0;
+
+	folder = e_storage_set_get_folder(mc->priv->storage_set, mc->priv->context_path);
+	if (folder == NULL)
+		return;
+
+	old = e_folder_get_name(folder);
+	prompt = g_strdup_printf (_("Rename the \"%s\" folder to:"), e_folder_get_name(folder));
+	while (!done) {
+		new = e_request_string(NULL, _("Rename Folder"), prompt, old);
+		if (new == NULL || strcmp(old, new) == 0)
+			done = 1;
+#if 0
+		else if (!e_shell_folder_name_is_valid(new, &why))
+			e_notice(NULL, GTK_MESSAGE_ERROR, _("The specified folder name is not valid: %s"), why);
+#endif
+		else {
+			char *base, *path;
+
+			/* FIXME: we can't use the os independent path crap here, since we want to control the format */
+			base = g_path_get_dirname(mc->priv->context_path);
+			path = g_build_filename(base, new, NULL);
+
+			if (e_storage_set_get_folder(mc->priv->storage_set, path) != NULL) {
+				e_notice(NULL, GTK_MESSAGE_ERROR,
+					 _("A folder named \"%s\" already exists.  Please use a different name."), new);
+			} else {
+				CamelStore *store;
+				CamelException *ex = camel_exception_new();
+				const char *oldpath, *newpath;
+
+				oldpath = strchr(mc->priv->context_path+1, '/');
+				g_assert(oldpath);
+				newpath = strchr(path+1, '/');
+				g_assert(newpath);
+				oldpath++;
+				newpath++;
+
+				printf("renaming %s to %s\n", oldpath, newpath);
+
+				store = camel_session_get_store(session, e_folder_get_physical_uri(folder), ex);
+				if (camel_exception_is_set(ex))
+					goto exception;
+
+				camel_store_rename_folder(store, oldpath, newpath, ex);
+				if (!camel_exception_is_set(ex))
+					goto noexception;
+
+			exception:
+				e_notice(NULL, GTK_MESSAGE_ERROR,
+					 _("Could not rename folder: %s"), ex->desc);
+			noexception:
+				if (store)
+					camel_object_unref(store);
+				camel_exception_free(ex);
+
+				done = 1;
+			}
+			g_free(path);
+			g_free(base);
+		}
+		g_free(new);
+	}
+}
+
+#if 0
+static void
+emc_popup_properties(GtkWidget *w, MailComponent *mc)
+{
+}
+#endif
+
+static EMPopupItem emc_popup_menu[] = {
+#if 0
+	{ EM_POPUP_ITEM, "00.emc.00", N_("_View"), G_CALLBACK(emc_popup_view), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "00.emc.01", N_("Open in _New Window"), G_CALLBACK(emc_popup_open_new), NULL, NULL, 0 },
+
+	{ EM_POPUP_BAR, "10.emc" },
+#endif
+	{ EM_POPUP_ITEM, "10.emc.00", N_("_Copy"), G_CALLBACK(emc_popup_copy), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "10.emc.01", N_("_Move"), G_CALLBACK(emc_popup_move), NULL, NULL, 0 },
+
+	{ EM_POPUP_BAR, "20.emc" },
+	{ EM_POPUP_ITEM, "20.emc.00", N_("_New Folder..."), G_CALLBACK(emc_popup_new_folder), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "20.emc.01", N_("_Delete"), G_CALLBACK(emc_popup_delete_folder), NULL, NULL, 0 },
+	{ EM_POPUP_ITEM, "20.emc.01", N_("_Rename"), G_CALLBACK(emc_popup_rename_folder), NULL, NULL, 0 },
+
+#if 0
+	{ EM_POPUP_BAR, "80.emc" },
+	{ EM_POPUP_ITEM, "80.emc.00", N_("_Properties..."), G_CALLBACK(emc_popup_properties), NULL, NULL, 0 },
+#endif
+};
+
+
+static int
+emc_tree_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, MailComponent *component)
+{
+	char *name;
+	ETreeModel *model = e_tree_get_model(tree);
+	EMPopup *emp;
+	int i;
+	GSList *menus = NULL;
+	struct _GtkMenu *menu;
+
+	name = e_tree_memory_node_get_data((ETreeMemory *)model, path);
+	g_free(component->priv->context_path);
+	component->priv->context_path = g_strdup(name);
+	printf("right click, path = '%s'\n", name);
+
+	emp = em_popup_new("com.ximian.mail.storageset.popup.select");
+
+	for (i=0;i<sizeof(emc_popup_menu)/sizeof(emc_popup_menu[0]);i++) {
+		EMPopupItem *item = &emc_popup_menu[i];
+
+		item->activate_data = component;
+		menus = g_slist_prepend(menus, item);
+	}
+
+	em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+
+	menu = em_popup_create_menu_once(emp, NULL, 0, 0);
+
+	if (event == NULL || event->type == GDK_KEY_PRESS) {
+		/* FIXME: menu pos function */
+		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, 0, event->key.time);
+	} else {
+		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button.button, event->button.time);
+	}
+
+	return TRUE;
+}

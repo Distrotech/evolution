@@ -24,7 +24,6 @@
 #define _EM_FOLDER_SELECTION_BUTTON_H_
 
 #include <gtk/gtkbutton.h>
-#include <camel/camel-folder.h>
 
 #define EM_TYPE_FOLDER_SELECTION_BUTTON			(em_folder_selection_button_get_type ())
 #define EM_FOLDER_SELECTION_BUTTON(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), EM_TYPE_FOLDER_SELECTION_BUTTON, EMFolderSelectionButton))

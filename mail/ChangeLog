@@ -1,5 +1,16 @@
 2003-10-13  Not Zed  <NotZed@Ximian.com>
 
+	* em-popup.c (em_popup_create_menu_once): only hookup target free
+	if we have a target set.
+
+	* mail-component.c (load_accounts): removed debug i accidentally
+	left in.
+	(emc_tree_right_click): handle right-click context menu, using an
+	EMPopup table.
+	(emc_popup_*): setup empty popup handlers.
+
+2003-10-13  Not Zed  <NotZed@Ximian.com>
+
 	* em-folder-selection.c (em_select_folder): asynchornous folder
 	selection call.
 	(emfs_folder_selected): callback for folder selected.

@@ -138,8 +138,14 @@ emfs_folder_selected(GtkWidget *w, const char *path, struct _select_folder_data 
 	gtk_widget_destroy(w);
 }
 
+static void
+emfs_folder_cancelled(GtkWidget *w, struct _select_folder_data *d)
+{
+	gtk_widget_destroy(w);
+}
+
 void
-em_select_folder(GtkWindow *parent_window, const char *default_folder_uri, void (*done)(const char *uri, void *data), void *data)
+em_select_folder(GtkWindow *parent_window, const char *title, const char *text, const char *default_folder_uri, void (*done)(const char *uri, void *data), void *data)
 {
 	EStorageSet *storage_set = mail_component_peek_storage_set (mail_component_peek ());
 	char *path;
@@ -154,9 +160,11 @@ em_select_folder(GtkWindow *parent_window, const char *default_folder_uri, void 
 		path = e_storage_set_get_path_for_physical_uri(storage_set, default_folder_uri);
 	else
 		path = NULL;
-	dialog = e_folder_selection_dialog_new(storage_set, _("Select folder"), NULL, path, NULL, TRUE);
+	dialog = e_folder_selection_dialog_new(storage_set, title, text, path, NULL, TRUE);
 	g_free(path);
+	/* ugh, painful api ... */
 	g_signal_connect(dialog, "folder_selected", G_CALLBACK(emfs_folder_selected), d);
+	g_signal_connect(dialog, "cancelled", G_CALLBACK(emfs_folder_cancelled), d);
 	g_object_set_data_full((GObject *)dialog, "emfs_data", d, g_free);
 	gtk_widget_show(dialog);
 }
