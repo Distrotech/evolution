@@ -21,10 +21,13 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <string.h>
 
@@ -78,6 +81,7 @@
 
 #include "e-util/e-dialog-utils.h"
 #include "em-utils.h"
+#include "em-composer-utils.h"
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
 #include "em-folder-browser.h"
@@ -622,10 +626,12 @@ emfb_empty_trash(BonoboUIComponent *uid, void *data, const char *path)
 static void
 emfb_mail_compose(BonoboUIComponent *uid, void *data, const char *path)
 {
-	if (!em_utils_check_user_can_send_mail((GtkWidget *)data))
+	EMFolderView *emfv = data;
+
+	if (!em_utils_check_user_can_send_mail((GtkWidget *)emfv))
 		return;
 
-	em_utils_compose_new_message ();
+	em_utils_compose_new_message(emfv->folder_uri);
 }
 
 static void

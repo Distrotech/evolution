@@ -1,3 +1,54 @@
+2004-05-03  Jeffrey Stedfast  <fejj@ximian.com>
+
+	Fix for bug #57968
+
+	* message-list.c (message_list_set_folder): Save the tree/hide
+	state of the current folder before clearing the message-list.
+	(message_list_set_folder): Note that a new folder has just been
+	set (now needed by the regen code to tell whether or not it should
+	save the tree state before clearing the tree).
+	(message_list_destroy): Save the tree/hide state before destroying
+	the message-info's, not after.
+	(regen_list_regened): If the regen is being performed in response
+	to a message_list_set_folder, don't save the tree state before
+	clearing the tree or we'll clobber the real state with bogus data.
+
+2004-05-03  William Jon McCann  <mccann@jhu.edu>
+
+	* mail-account-gui.c: Add gtkdialog header to fix build.
+
+2004-05-03  Not Zed  <NotZed@Ximian.com>
+
+	* em-composer-utils.c (create_new_composer): take fromuri and
+	subject to set the basic headers/account.
+	(em_utils_compose_new_message)
+	(em_utils_compose_new_message_with_mailto, forward_attached)
+	(em_utils_forward_attached, forward_non_attached)
+	(em_utils_forward_inline, em_utils_forward_quoted)
+	(em_utils_forward_message, em_utils_forward_messages): Take the
+	from folder uri to set the from account if it can.  Fixed all
+	callers.  For #57964.
+
+	* mail-send-recv.c (receive_update_done): removed.
+
+	* em-mailer-prefs.h:
+	* message-tag-followup.h:
+	* mail-config-druid.h:
+	* mail-tools.h: clean up & use forward decls.  Fix users with
+	busted includes.
+
+	* em-composer-utils.c (em_utils_compose_new_message)
+	(em_utils_compose_new_message_with_mailto)
+	(em_utils_post_to_folder, em_utils_post_to_url)
+	(em_utils_edit_message, em_utils_edit_messages)
+	(em_utils_forward_attached, em_utils_forward_inline)
+	(em_utils_forward_quoted, em_utils_forward_message)
+	(em_utils_forward_messages, em_utils_redirect_message)
+	(em_utils_redirect_message_by_uid) :
+	(em_utils_reply_to_message, em_utils_reply_to_message_by_uid)
+	(em_utils_post_reply_to_message_by_uid): Moved these here from
+	em-utils.c.
+
 2004-04-30  Priit Laes  <amd@tt.ee>
 
 	* mail-config.glade: fix typo. #53466.

@@ -38,6 +38,7 @@
 #include <libgnomeui/gnome-window-icon.h>
 #include <libgnome/gnome-util.h>
 #include <libgnome/gnome-i18n.h>
+#include <libgnome/gnome-help.h>
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gal/widgets/e-categories.h>
@@ -157,6 +158,9 @@ phones [] = {
 	{ E_CONTACT_PHONE_TELEX,        EVC_X_TELEX,           NULL    },
 	{ E_CONTACT_PHONE_TTYTDD,       EVC_X_TTYTDD,          NULL    }
 };
+
+/* Defaults from the table above */
+gint phones_default [] = { 1, 6, 2, 9 };
 
 static EContactField addresses[] = {
 	E_CONTACT_ADDRESS_WORK,
@@ -680,7 +684,8 @@ fill_in_phone_record (EContactEditor *editor, gint record, const gchar *phone, g
 	g_free (widget_name);
 
 	gtk_option_menu_set_history (GTK_OPTION_MENU (phone_type_option_menu),
-				     phone_type >= 0 ? phone_type : 0);
+				     phone_type >= 0 ? phone_type :
+				     phones_default [record - 1]);
 	set_entry_text (editor, GTK_ENTRY (phone_entry), phone ? phone : "");
 }
 
@@ -1891,6 +1896,20 @@ app_delete_event_cb (GtkWidget *widget, GdkEvent *event, gpointer data)
 	return TRUE;
 }
 
+static void
+show_help_cb (GtkWidget *widget, gpointer data)
+{
+	GError *error = NULL;
+
+	gnome_help_display_desktop (NULL,
+				    "evolution-" BASE_VERSION,
+				    "usage-contact.xml",
+				    "usage-contact-cards",
+				    &error);
+	if (error != NULL)
+		g_warning ("%s", error->message);
+}
+
 static GList *
 add_to_tab_order(GList *list, GladeXML *gui, char *name)
 {
@@ -1980,6 +1999,8 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 	g_signal_connect (widget, "clicked", G_CALLBACK (file_save_and_close_cb), e_contact_editor);
 	widget = glade_xml_get_widget (e_contact_editor->gui, "button-cancel");
 	g_signal_connect (widget, "clicked", G_CALLBACK (file_cancel_cb), e_contact_editor);
+	widget = glade_xml_get_widget (e_contact_editor->gui, "button-help");
+	g_signal_connect (widget, "clicked", G_CALLBACK (show_help_cb), e_contact_editor);
 
 	widget = glade_xml_get_widget(e_contact_editor->gui, "entry-fullname");
 	if (widget)

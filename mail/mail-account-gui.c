@@ -31,8 +31,19 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include <gconf/gconf.h>
 #include <gconf/gconf-client.h>
+
+#include <gtk/gtkentry.h>
+#include <gtk/gtktogglebutton.h>
+#include <gtk/gtktextbuffer.h>
+#include <gtk/gtktextview.h>
+#include <gtk/gtkcheckbutton.h>
+#include <gtk/gtkspinbutton.h>
+#include <gtk/gtkmenuitem.h>
+#include <gtk/gtkoptionmenu.h>
+#include <gtk/gtknotebook.h>
+#include <gtk/gtkhbox.h>
+#include <gtk/gtkdialog.h>
 
 #include <e-util/e-account-list.h>
 #include <e-util/e-signature-list.h>
@@ -327,7 +338,7 @@ service_complete (MailAccountGuiService *service, GHashTable *extra_config, GtkW
 	return TRUE;
 }
 
-gboolean
+static gboolean
 mail_account_gui_check_for_license (CamelProvider *prov)
 {
 	GConfClient *gconf;

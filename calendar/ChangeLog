@@ -1,3 +1,82 @@
+2004-05-03  Rodney Dawes  <dobey@ximian.com>
+
+	* gui/dialogs/select-source-dialog.c (select_source_dialog):
+	Make this dialog be HIG-compliant and accessible
+
+2004-05-03  Edgar Luna Díaz  <eald@linuxuanl.org>
+
+	* gui/dialogs/select-source-dialog.c (select_source_dialog):
+	Set the default window size to 276 x 320
+
+	Fixes #57298
+
+2004-05-03  Larry Ewing  <lewing@ximian.com>
+
+	* gui/dialogs/calendar-setup.glade: rename the cancel button.
+
+2004-04-29  Larry Ewing  <lewing@ximian.com>
+
+	* gui/e-cal-model.c (ecm_get_color_for_component): use the source
+	color if it is set.  Yay for ugly colors.
+
+	* gui/e-cal-model.h: add a color holder to the ECalModelComponent
+	since the return value of the color stuff is const.
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	Fixes #51714
+
+	* gui/e-cal-list-view.c (setup_e_table): listen for double click
+	signal
+	(e_cal_list_view_on_table_double_click): edit the appointment that
+	was double clicked on
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	* gui/calendar-component.c (set_info): set the info label
+	(calendar_dates_changed_cb): call back for when the dates of the
+	calendar change
+	(create_component_view): store the info label for later use;
+	listen for date changes to set the info label
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	Fixes #57897
+
+	* gui/e-tasks.c (setup_widgets): no need to listen for the deleted
+	signal, the cursor will change in that case
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	* gui/e-cal-model-tasks.c (set_completed): remove useless debug
+	statement
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	* gui/tasks-component.c (set_info): set the info label message
+	(model_changed_cb): call above
+	(table_selection_change_cb): ditto
+	(model_rows_inserted_cb): ditto
+	(model_rows_deleted_cb): ditto
+	(create_component_view): remember the info in the view struct;
+	listen for events that require the info label to be updated
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	Fixes #57899
+
+	* gui/e-day-view.c (e_day_view_do_key_press): bail if the client
+	is read only (or we get an error trying to find out)
+
+	* gui/e-week-view.c (e_week_view_do_key_press): ditto
+
+2004-05-03  JP Rosevear  <jpr@ximian.com>
+
+	Fixes #57894
+
+	* gui/gnome-cal.c (gnome_calendar_new_task): make sure we use the
+	default component of the correct model
+
 2004-05-03  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (e_cal_view_objects_modified_cb): make sure old
