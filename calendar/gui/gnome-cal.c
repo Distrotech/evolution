@@ -671,7 +671,8 @@ gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp)
 	update_query (gcal);
 
 	/* Set the query on the main view */
-	e_cal_view_set_query (E_CAL_VIEW (gnome_calendar_get_current_view_widget (gcal)), sexp);
+	model = e_cal_view_get_model (E_CAL_VIEW (gnome_calendar_get_current_view_widget (gcal)));
+	e_cal_model_set_query (model, sexp);
 
 	/* Set the query on the task pad */
 
@@ -1916,10 +1917,6 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 	/*
 	 * Calendar Folder Client.
 	 */
-	priv->client = cal_client_new ();
-	if (!priv->client)
-		return NULL;
-
 	g_signal_connect (priv->client, "cal_opened",
 			  G_CALLBACK (client_cal_opened_cb), gcal);
 	g_signal_connect (priv->client, "backend_error",
@@ -1929,10 +1926,12 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 	g_signal_connect (priv->client, "backend_died",
 			  G_CALLBACK (backend_died_cb), gcal);
 
-	e_cal_view_set_cal_client (E_CAL_VIEW (priv->day_view), priv->client);
-	e_cal_view_set_cal_client (E_CAL_VIEW (priv->work_week_view), priv->client);
-	e_cal_view_set_cal_client (E_CAL_VIEW (priv->week_view), priv->client);
-	e_cal_view_set_cal_client (E_CAL_VIEW (priv->month_view), priv->client);
+
+	model = e_cal_model_calendar_new ();
+	e_cal_view_set_model (E_CAL_VIEW (priv->day_view), model);
+	e_cal_view_set_model (E_CAL_VIEW (priv->work_week_view), model);
+	e_cal_view_set_model (E_CAL_VIEW (priv->week_view), model);
+	e_cal_view_set_model (E_CAL_VIEW (priv->month_view), model);
 
 	/*
 	 * TaskPad Folder Client.

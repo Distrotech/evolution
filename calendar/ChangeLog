@@ -1,3 +1,17 @@
+2003-08-09  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-view.[ch] (e_cal_view_get_cal_client,
+	 e_cal_view_set_cal_client, e_cal_view_get_query,
+	 e_cal_view_set_query): removed unneeded functions.
+	(e_cal_view_get_model, e_cal_view_set_model): new functions.
+	(e_cal_view_destroy): free the model.
+	(e_cal_view_init): removed sexp initialization.
+
+	* gui/gnome-cal.c (gnome_calendar_set_query): set the
+	query on the view's model, not on the view.
+	(gnome_calendar_construct): create the calendar model and associate
+	it to all the views.
+
 2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model-calendar.c (ecmc_fill_component_from_model):

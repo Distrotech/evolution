@@ -51,11 +51,8 @@ struct _ECalViewPrivate {
 	/* The GnomeCalendar we are associated to */
 	GnomeCalendar *calendar;
 
-	/* Calendar client we are monitoring */
-	CalClient *client;
-
-	/* Search expression */
-	gchar *sexp;
+	/* The calendar model we are monitoring */
+	ECalModel *model;
 
 	/* The activity client used to show messages on the status bar. */
 	EvolutionActivityClient *activity;
@@ -279,8 +276,6 @@ e_cal_view_init (ECalView *cal_view, ECalViewClass *klass)
 {
 	cal_view->priv = g_new0 (ECalViewPrivate, 1);
 
-	cal_view->priv->sexp = g_strdup ("#t"); /* match all by default */
-
 	/* Set up the invisible widget for the clipboard selections */
 	cal_view->priv->invisible = gtk_invisible_new ();
 	gtk_selection_add_target (cal_view->priv->invisible,
@@ -305,14 +300,9 @@ e_cal_view_destroy (GtkObject *object)
 	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
 
 	if (cal_view->priv) {
-		if (cal_view->priv->client) {
-			g_object_unref (cal_view->priv->client);
-			cal_view->priv->client = NULL;
-		}
-
-		if (cal_view->priv->sexp) {
-			g_free (cal_view->priv->sexp);
-			cal_view->priv->sexp = NULL;
+		if (cal_view->priv->model) {
+			g_object_unref (cal_view->priv->model);
+			cal_view->priv->model = NULL;
 		}
 
 		if (cal_view->priv->activity) {
@@ -357,69 +347,26 @@ e_cal_view_set_calendar (ECalView *cal_view, GnomeCalendar *calendar)
 	cal_view->priv->calendar = calendar;
 }
 
-CalClient *
-e_cal_view_get_cal_client (ECalView *cal_view)
+ECalModel *
+e_cal_view_get_model (ECalView *cal_view)
 {
 	g_return_val_if_fail (E_IS_CAL_VIEW (cal_view), NULL);
 
-	return cal_view->priv->client;
-}
-
-static void
-cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer user_data)
-{
-	ECalView *cal_view = (ECalView *) user_data;
-
-	if (status != CAL_CLIENT_OPEN_SUCCESS)
-		return;
-
-	e_cal_view_update_query (cal_view);
+	return cal_view->priv->model;
 }
 
 void
-e_cal_view_set_cal_client (ECalView *cal_view, CalClient *client)
+e_cal_view_set_model (ECalView *cal_view, ECalModel *model)
 {
 	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
+	g_return_if_fail (E_IS_CAL_MODEL (model));
 
-	if (client == cal_view->priv->client)
-		return;
+	if (cal_view->priv->model)
+		g_object_unref (cal_view->priv->model);
 
-	if (IS_CAL_CLIENT (client))
-		g_object_ref (client);
+	cal_view->priv->model = model;
+	g_object_ref (cal_view->priv->model);
 
-	if (cal_view->priv->client) {
-		g_signal_handlers_disconnect_matched (cal_view->priv->client, G_SIGNAL_MATCH_DATA, 0, 0,
-						      NULL, NULL, cal_view);
-		g_object_unref (cal_view->priv->client);
-	}
-
-	cal_view->priv->client = client;
-	if (cal_view->priv->client) {
-		if (cal_client_get_load_state (cal_view->priv->client) == CAL_CLIENT_LOAD_LOADED)
-			e_cal_view_update_query (cal_view);
-		else
-			g_signal_connect (cal_view->priv->client, "cal_opened",
-					  G_CALLBACK (cal_opened_cb), cal_view);
-	}
-}
-
-const gchar *
-e_cal_view_get_query (ECalView *cal_view)
-{
-	g_return_val_if_fail (E_IS_CAL_VIEW (cal_view), NULL);
-
-	return (const gchar *) cal_view->priv->sexp;
-}
-
-void
-e_cal_view_set_query (ECalView *cal_view, const gchar *sexp)
-{
-	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
-
-	if (cal_view->priv->sexp)
-		g_free (cal_view->priv->sexp);
-
-	cal_view->priv->sexp = g_strdup (sexp);
 	e_cal_view_update_query (cal_view);
 }
 
