@@ -1,3 +1,7 @@
+2003-09-12  JP Rosevear  <jpr@ximian.com>
+
+	* pcs/cal.c (cal_notify_object_removed): its uid, not uids
+
 2003-09-12  JP Rosevear <jpr@ximian.com>
 
 	* pcs/query.h: add protos
