@@ -97,11 +97,11 @@
     <cmd name="MessageMarkAsUnimportant"
      _tip="Mark the selected message(s) as unimportant"/>
 
-    <cmd name="MessageMarkAsSpam"
+    <cmd name="MessageMarkAsJunk"
      _tip="Mark the selected message(s) as junk"
      pixtype="pixbuf"/>
 
-    <cmd name="MessageMarkAsNospam"
+    <cmd name="MessageMarkAsNoJunk"
      _tip="Mark the selected message(s) as not being junk"/>
 
     <cmd name="MessageMove"
@@ -275,8 +275,8 @@
           <menuitem name="MessageMarkAsUnRead" verb="" _label="Mark as U_nread"/>
           <menuitem name="MessageMarkAsImportant" verb="" _label="Mark as I_mportant"/>
           <menuitem name="MessageMarkAsUnimportant" verb="" _label="Mark as Unimp_ortant"/>
-          <menuitem name="MessageMarkAsSpam" verb="" _label="Mark as _Junk"/>
-          <menuitem name="MessageMarkAsNospam" verb="" _label="Mark as _Not Junk"/>
+          <menuitem name="MessageMarkAsJunk" verb="" _label="Mark as _Junk"/>
+          <menuitem name="MessageMarkAsNojunk" verb="" _label="Mark as _Not Junk"/>
         </placeholder>
       </submenu>
     </placeholder>
