@@ -36,6 +36,8 @@
 #include "em-folder-selector.h"
 
 
+#define d(x) x
+
 enum {
 	COL_STRING_DISPLAY_NAME,  /* string that appears in the tree */
 	COL_POINTER_CAMEL_STORE,  /* CamelStore object */
@@ -204,11 +206,11 @@ render_pixbuf (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 			    COL_BOOL_IS_STORE, &is_store, -1);
 	
 	if (!is_store) {
-		if (!strcasecmp (name, "/Inbox"))
+		if (!strcasecmp (path, "/Inbox"))
 			pixbuf = folder_icons[FOLDER_ICON_INBOX];
-		else if (!strcasecmp (name, "/Outbox"))
+		else if (!strcasecmp (path, "/Outbox"))
 			pixbuf = folder_icons[FOLDER_ICON_OUTBOX];
-		else if (!strcasecmp (name, "/Trash"))
+		else if (!strcasecmp (path, "/Trash"))
 			pixbuf = folder_icons[FOLDER_ICON_TRASH];
 		else
 			pixbuf = folder_icons[FOLDER_ICON_NORMAL];
@@ -406,6 +408,7 @@ tree_store_set_folder_info (GtkTreeStore *model, GtkTreeIter *iter,
 static void
 tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *tree_path, EMFolderTree *emft)
 {
+	struct _EMFolderTreePrivate *priv = emft->priv;
 	struct _emft_store_info *si;
 	CamelFolderInfo *fi, *child;
 	CamelStore *store;
