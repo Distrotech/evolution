@@ -69,6 +69,7 @@ struct _ComponentView {
 	char *component_alias;
 
 	GNOME_Evolution_ComponentView component_view;
+	char *title;
 
 	GtkWidget *sidebar_widget;
 	GtkWidget *view_widget;
@@ -150,8 +151,12 @@ component_view_new (const char *id, const char *alias, int button_id)
 static void
 component_view_free (ComponentView *view)
 {
-	if (view->component_view)
-		bonobo_object_release_unref(view->component_view, NULL);
+	if (view->component_view) {
+		CORBA_Environment ev = { 0 };
+
+		CORBA_Object_release(view->component_view, &ev);
+		CORBA_exception_free(&ev);
+	}
 
 	g_free (view->component_id);
 	g_free (view->component_alias);
@@ -317,9 +322,12 @@ switch_view (EShellWindow *window, ComponentView *component_view)
 		gtk_notebook_set_current_page (GTK_NOTEBOOK (priv->statusbar_notebook), component_view->notebook_page_num);
 	}
 
-	title = g_strdup_printf ("Evolution - %s", info->button_label);
-	gtk_window_set_title (GTK_WINDOW (window), title);
-	g_free (title);
+	if (component_view->title == NULL) {
+		title = g_strdup_printf ("Evolution - %s", info->button_label);
+		gtk_window_set_title (GTK_WINDOW (window), title);
+		g_free (title);
+	} else
+		gtk_window_set_title (GTK_WINDOW (window), component_view->title);
 
 	if (info->button_icon)
 		gtk_window_set_icon (GTK_WINDOW (window), info->button_icon);
@@ -928,5 +936,30 @@ e_shell_window_show_settings (EShellWindow *window)
 	e_shell_show_settings (window->priv->shell, window->priv->current_view ? window->priv->current_view->component_alias : NULL, window);
 }
 
+void
+e_shell_window_set_title(EShellWindow *window, const char *component_id, const char *title)
+{
+	EShellWindowPrivate *priv = window->priv;
+	ComponentView *view = NULL;
+	GSList *p;
+
+	for (p = priv->component_views; p != NULL; p = p->next) {
+		ComponentView *this_view = p->data;
+
+		if (strcmp (this_view->component_id, component_id) == 0
+		    || (this_view->component_alias != NULL
+			&& strcmp (this_view->component_alias, component_id) == 0)) {
+			view = p->data;
+			break;
+		}
+	}
+
+	if (view) {
+		g_free(view->title);
+		view->title = g_strdup(title);
+		if (view->title && view == priv->current_view)
+			gtk_window_set_title((GtkWindow *)window, title);
+	}
+}
 
 E_MAKE_TYPE (e_shell_window, "EShellWindow", EShellWindow, class_init, init, BONOBO_TYPE_WINDOW)

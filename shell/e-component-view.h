@@ -48,13 +48,14 @@ typedef struct _EComponentViewClass   EComponentViewClass;
 struct _EComponentView {
 	BonoboObject parent;
 
+	EComponentViewPrivate *priv;
+
+	char *id;
 	GNOME_Evolution_ShellView shell_view;
 
 	struct _BonoboControl *side_control;
 	struct _BonoboControl *view_control;
 	struct _BonoboControl *statusbar_control;
-
-	EComponentViewPrivate *priv;
 };
 
 struct _EComponentViewClass {
@@ -64,7 +65,10 @@ struct _EComponentViewClass {
 };
 
 GType           e_component_view_get_type(void);
-EComponentView *e_component_view_new(GNOME_Evolution_ShellView shell_view, struct _GtkWidget *side, struct _GtkWidget *view, struct _GtkWidget *status);
+EComponentView *e_component_view_new(GNOME_Evolution_ShellView shell_view, const char *id, struct _GtkWidget *side, struct _GtkWidget *view, struct _GtkWidget *status);
+EComponentView *e_component_view_new_controls(GNOME_Evolution_ShellView parent, const char *id, struct _BonoboControl *side, struct _BonoboControl *view, struct _BonoboControl *statusbar);
+
+void e_component_view_set_title(EComponentView *ecv, const char *title);
 
 #ifdef __cplusplus
 }

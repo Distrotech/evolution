@@ -65,6 +65,10 @@ impl_dispose (GObject *object)
 static void
 impl_finalise (GObject *object)
 {
+	EComponentView *ecv = (EComponentView *)object;
+
+	g_free(ecv->id);
+
 	((GObjectClass *)parent_class)->finalize(object);
 }
 
@@ -89,19 +93,48 @@ e_component_view_init (EComponentView *shell)
 {
 }
 
-EComponentView *e_component_view_new(GNOME_Evolution_ShellView parent, struct _GtkWidget *side, struct _GtkWidget *view, struct _GtkWidget *statusbar)
+EComponentView *e_component_view_new(GNOME_Evolution_ShellView parent, const char *id, struct _GtkWidget *side, struct _GtkWidget *view, struct _GtkWidget *statusbar)
 {
 	EComponentView *new = g_object_new (e_component_view_get_type (), NULL);
 	CORBA_Environment ev = { 0 };
 
+	new->id = g_strdup(id);
 	new->shell_view = CORBA_Object_duplicate(parent, &ev);
 	CORBA_exception_free(&ev);
 
+	/* FIXME: hook onto destroys */
 	new->side_control = bonobo_control_new(side);
 	new->view_control = bonobo_control_new(view);
 	new->statusbar_control = bonobo_control_new(statusbar);
 
 	return new;
+}
+
+EComponentView *e_component_view_new_controls(GNOME_Evolution_ShellView parent, const char *id, BonoboControl *side, BonoboControl *view, BonoboControl *statusbar)
+{
+	EComponentView *new = g_object_new (e_component_view_get_type (), NULL);
+	CORBA_Environment ev = { 0 };
+
+	new->id = g_strdup(id);
+	new->shell_view = CORBA_Object_duplicate(parent, &ev);
+	CORBA_exception_free(&ev);
+
+	/* FIXME: hook onto destroys */
+	new->side_control = side;
+	new->view_control = view;
+	new->statusbar_control = statusbar;
+
+	return new;
+}
+
+void
+e_component_view_set_title(EComponentView *ecv, const char *title)
+{
+	CORBA_Environment ev = { 0 };
+
+	/* save roundtrips, check title is the same */
+	GNOME_Evolution_ShellView_setTitle(ecv->shell_view, ecv->id, title, &ev);
+	CORBA_exception_free(&ev);
 }
 
 BONOBO_TYPE_FUNC_FULL (EComponentView, GNOME_Evolution_ComponentView, bonobo_object_get_type(), e_component_view)

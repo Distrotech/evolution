@@ -14,7 +14,8 @@ module GNOME {
 module Evolution {
 
 	interface ShellView : Bonobo::Unknown {
-		void setTitle(in string title);
+		/* Should really use a ComponentView i guess */
+		void setTitle(in string component, in string title);
 		void setComponent(in string component);
 	};
 

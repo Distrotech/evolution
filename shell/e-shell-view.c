@@ -40,14 +40,14 @@ struct _EShellViewPrivate {
 };
 
 static void
-impl_ShellView_setTitle(PortableServer_Servant _servant, const CORBA_char * title, CORBA_Environment * ev)
+impl_ShellView_setTitle(PortableServer_Servant _servant, const CORBA_char *id, const CORBA_char * title, CORBA_Environment * ev)
 {
 	EShellView *esw = (EShellView *)bonobo_object_from_servant(_servant);
-	char *tmp = g_strdup_printf("Evolution = %s", title);
+	char *tmp = g_strdup_printf("Evolution - %s", title);
 
 	printf("shell view:setTitle '%s'\n", title);
 
-	gtk_window_set_title((GtkWindow *)esw->window, tmp);
+	e_shell_window_set_title(esw->window, id, tmp);
 	g_free(tmp);
 }
 

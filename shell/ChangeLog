@@ -1,3 +1,15 @@
+2004-06-28  Not Zed  <NotZed@Ximian.com>
+
+	* e-shell-view.c (impl_ShellView_setTitle): take a component id
+	argument.
+
+	* e-shell-window.c (component_view_free): release the corba object
+	properly.
+	(e_shell_window_set_title): new helper to set the title for the
+	component.
+	(switch_view): use the component specific title if available or
+	fallback to the component name.
+
 2004-06-25  Not Zed  <NotZed@Ximian.com>
 
 	** See bug #60354.
