@@ -3,3 +3,4 @@ Makefile
 .deps
 .libs
 test-e-messenger-identity
+test-e-messenger-signon-signoff
