@@ -28,7 +28,6 @@
 
 #include "e-icon-factory.h"
 #include "e-shell-constants.h"
-#include "e-shell-config.h"
 #include "e-shell-window.h"	/* FIXME */
 #include "e-setup.h"
 
@@ -380,8 +379,6 @@ idle_cb (void *data)
 
 	switch (result) {
 	case E_SHELL_CONSTRUCT_RESULT_OK:
-		e_shell_config_factory_register (shell);
-
 		g_signal_connect (shell, "no_windows_left", G_CALLBACK (no_windows_left_cb), NULL);
 		g_object_weak_ref (G_OBJECT (shell), shell_weak_notify, NULL);
 

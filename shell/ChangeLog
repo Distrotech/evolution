@@ -1,5 +1,48 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-setup.c: Do not #include "e-shell-config.h".
+
+	* main.c (idle_cb): Do not register the config factory.
+
+	* e-shell.c: Removed members offline_handler, shortcuts and
+	corba_shortcuts from EShellPrivate.
+	(setup_shortcuts_interface): Removed.
+	(storage_set_moved_folder_callback): Removed.
+	(e_shell_construct): Don't connect.  Also, no need to set up the
+	shortcuts either.
+	(e_shell_get_shortcuts): Removed.
+	(offline_procedure_started_cb): Removed.
+	(offline_procedure_finished_cb): Removed.
+	(e_shell_go_offline): Just assert for now.
+	(e_shell_go_online): Same.
+
+	* e-shell-config-autocompletion.c: Removed.
+	* e-shell-config-autocompletion.h: Removed.
+
+	* e-shell-config-default-folders.c: Removed.
+	* e-shell-config-default-folders.h: Removed.
+
+	* e-shell-config-folder-settings.c: Removed.
+	* e-shell-config-folder-settings.h: Removed.
+
+	* e-shell-config.c, e-shell-config.h: Removed.
+
+	* e-corba-shortcuts.c, e-corba-shortcuts.h: Removed.
+
+	* e-shortcuts-view-model.c, e-shortcuts-view-model.h: Removed.
+
+	* e-shortcuts-view.c, e-shortcuts-view.h: Removed.
+
+	* e-shortcuts.c, e-shortcuts.h: Removed.
+
+	* e-shell-offline-handler.c, e-shell-offline-handler.h: Removed.
+	
+	* e-shell-offline-sync.c, e-shell-offline-sync.h: Removed.
+
+	* e-shell-config-offline.c, e-shell-config-offline.h: Removed.
+
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
 	* e-shell.c: Renamed signal "new_view_created" to
 	"new_window_created".  Renamed "no_views_left" to
 	"no_windows_left". Renamed EShellPrivate member "views" to

@@ -41,16 +41,17 @@ typedef struct _EShellClass   EShellClass;
 #include "e-uri-schema-registry.h"
 #include "e-shell-user-creatable-items-handler.h"
 #include "e-local-storage.h"
+#include "e-storage-set.h"
 #include "e-shell-window.h"
 
-
+
 #define E_TYPE_SHELL			(e_shell_get_type ())
 #define E_SHELL(obj)			(GTK_CHECK_CAST ((obj), E_TYPE_SHELL, EShell))
 #define E_SHELL_CLASS(klass)		(GTK_CHECK_CLASS_CAST ((klass), E_TYPE_SHELL, EShellClass))
 #define E_IS_SHELL(obj)			(GTK_CHECK_TYPE ((obj), E_TYPE_SHELL))
 #define E_IS_SHELL_CLASS(klass)		(GTK_CHECK_CLASS_TYPE ((obj), E_TYPE_SHELL))
 
-
+
 enum _EShellLineStatus {
 	E_SHELL_LINE_STATUS_ONLINE,
 	E_SHELL_LINE_STATUS_GOING_OFFLINE,
@@ -81,7 +82,7 @@ struct _EShellClass {
 	void (* new_window_created) (EShell *shell, EShellWindow *window);
 };
 
-
+
 /* ID for registering the shell in the OAF name service.  */
 #define E_SHELL_OAFIID  "OAFIID:GNOME_Evolution_Shell"
 
@@ -94,10 +95,7 @@ enum _EShellConstructResult {
 };
 typedef enum _EShellConstructResult EShellConstructResult;
 
-
-#include "e-shortcuts.h"
 
-
 GtkType                e_shell_get_type   (void);
 EShellConstructResult  e_shell_construct  (EShell                *shell,
 					   const char            *iid,
@@ -116,7 +114,6 @@ gboolean      e_shell_request_close_window  (EShell       *shell,
 
 
 const char          *e_shell_get_local_directory       (EShell          *shell);
-EShortcuts          *e_shell_get_shortcuts             (EShell          *shell);
 EStorageSet         *e_shell_get_storage_set           (EShell          *shell);
 ELocalStorage       *e_shell_get_local_storage         (EShell          *shell);
 EFolderTypeRegistry *e_shell_get_folder_type_registry  (EShell          *shell);
@@ -149,10 +146,10 @@ EShellUserCreatableItemsHandler *e_shell_get_user_creatable_items_handler  (EShe
 
 gboolean e_shell_prepare_for_quit (EShell *shell);
 
-
+
 const char *e_shell_construct_result_to_string (EShellConstructResult result);
 
-
+
 gboolean  e_shell_parse_uri  (EShell      *shell,
 			      const char  *uri,
 			      char       **path_return,

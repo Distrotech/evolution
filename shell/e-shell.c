@@ -29,7 +29,6 @@
 #include "e-util/e-dialog-utils.h"
 
 #include "e-component-registry.h"
-#include "e-corba-shortcuts.h"
 #include "e-corba-storage-registry.h"
 #include "e-folder-type-registry.h"
 #include "e-local-storage.h"
@@ -37,10 +36,8 @@
 #include "e-shell-constants.h"
 #include "e-shell-corba-icon-utils.h"
 #include "e-shell-folder-selection-dialog.h"
-#include "e-shell-offline-handler.h"
 #include "e-shell-settings-dialog.h"
 #include "e-shell-startup-wizard.h"
-#include "e-shortcuts.h"
 #include "e-splash.h"
 #include "e-storage-set.h"
 #include "e-uri-schema-registry.h"
@@ -95,7 +92,6 @@ struct _EShellPrivate {
 	ELocalStorage *local_storage;
 	EStorage *summary_storage;
 
-	EShortcuts *shortcuts;
 	EFolderTypeRegistry *folder_type_registry;
 	EUriSchemaRegistry *uri_schema_registry;
 
@@ -103,13 +99,6 @@ struct _EShellPrivate {
 
 	/* ::StorageRegistry interface handler.  */
 	ECorbaStorageRegistry *corba_storage_registry; /* <aggregate> */
-
-	/* ::Shortcuts interface handler.  */
-	ECorbaShortcuts *corba_shortcuts; /* <aggregate> */
-
-	/* This object handles going off-line.  If the pointer is not NULL, it
-	   means we have a going-off-line process in progress.  */
-	EShellOfflineHandler *offline_handler;
 
 	/* Names for the types of the folders that have maybe crashed.  */
 	GList *crash_type_names; /* char * */
@@ -140,7 +129,6 @@ struct _EShellPrivate {
 
 /* FIXME: We need a component repository instead.  */
 
-#define SHORTCUTS_FILE_NAME     "shortcuts.xml"
 #define LOCAL_STORAGE_DIRECTORY "local"
 
 
@@ -379,25 +367,6 @@ impl_Shell_setLineStatus (PortableServer_Servant servant,
 }
 
 
-/* Set up the ::Shortcuts interface.  */
-
-static void
-setup_shortcuts_interface (EShell *shell)
-{
-	ECorbaShortcuts *corba_shortcuts;
-	EShellPrivate *priv;
-
-	priv = shell->priv;
-
-	g_assert (priv->shortcuts != NULL);
-
-	corba_shortcuts = e_corba_shortcuts_new (priv->shortcuts);
-
-	bonobo_object_add_interface (BONOBO_OBJECT (shell), BONOBO_OBJECT (corba_shortcuts));
-	priv->corba_shortcuts = corba_shortcuts;
-}
-
-
 /* Initialization of the storages.  */
 
 static gboolean
@@ -590,32 +559,6 @@ set_owner_on_components (EShell *shell,
 }
 
 
-/* EStorageSet callbacks.  */
-
-static void
-storage_set_moved_folder_callback (EStorageSet *storage_set,
-				   const char *source_path,
-				   const char *destination_path,
-				   void *data)
-{
-	EShell *shell;
-	char *source_uri;
-	char *destination_uri;
-
-	shell = E_SHELL (data);
-
-	source_uri = g_strconcat (E_SHELL_URI_PREFIX, source_path, NULL);
-	destination_uri = g_strconcat (E_SHELL_URI_PREFIX, destination_path, NULL);
-
-	e_shortcuts_update_shortcuts_for_changed_uri (e_shell_get_shortcuts (shell),
-						      source_uri,
-						      destination_uri);
-
-	g_free (source_uri);
-	g_free (destination_uri);
-}
-
-
 /* EShellWindow handling and bookkeeping.  */
 
 static int
@@ -723,11 +666,6 @@ impl_dispose (GObject *object)
 		priv->summary_storage = NULL;
 	}
 
-	if (priv->shortcuts != NULL) {
-		g_object_unref (priv->shortcuts);
-		priv->shortcuts = NULL;
-	}
-
 	if (priv->folder_type_registry != NULL) {
 		g_object_unref (priv->folder_type_registry);
 		priv->folder_type_registry = NULL;
@@ -759,13 +697,6 @@ impl_dispose (GObject *object)
 
 	/* No unreffing for these as they are aggregate.  */
 	/* bonobo_object_unref (BONOBO_OBJECT (priv->corba_storage_registry)); */
-	/* bonobo_object_unref (BONOBO_OBJECT (priv->corba_shortcuts)); */
-
-	/* FIXME.  Maybe we should do something special here.  */
-	if (priv->offline_handler != NULL) {
-		g_object_unref (priv->offline_handler);
-		priv->offline_handler = NULL;
-	}
 
 	if (priv->settings_dialog != NULL) {
 		gtk_widget_destroy (priv->settings_dialog);
@@ -861,13 +792,10 @@ e_shell_init (EShell *shell)
 	priv->storage_set                  = NULL;
 	priv->local_storage                = NULL;
 	priv->summary_storage              = NULL;
-	priv->shortcuts                    = NULL;
 	priv->component_registry           = NULL;
 	priv->folder_type_registry         = NULL;
 	priv->uri_schema_registry          = NULL;
 	priv->corba_storage_registry       = NULL;
-	priv->corba_shortcuts              = NULL;
-	priv->offline_handler              = NULL;
 	priv->crash_type_names             = NULL;
 	priv->line_status                  = E_SHELL_LINE_STATUS_OFFLINE;
 	priv->settings_dialog              = NULL;
@@ -902,7 +830,6 @@ e_shell_construct (EShell *shell,
 	GtkWidget *splash = NULL;
 	EShellPrivate *priv;
 	CORBA_Object corba_object;
-	gchar *shortcut_path;
 	gboolean start_online;
 
 	g_return_val_if_fail (shell != NULL, E_SHELL_CONSTRUCT_RESULT_INVALIDARG);
@@ -922,10 +849,6 @@ e_shell_construct (EShell *shell,
 	priv->uri_schema_registry  = e_uri_schema_registry_new ();
 	priv->storage_set          = e_storage_set_new (priv->folder_type_registry);
 
-	g_signal_connect_object (priv->storage_set, "moved_folder",
-				 G_CALLBACK (storage_set_moved_folder_callback),
-				 shell, 0);
-	
 	e_folder_type_registry_register_type (priv->folder_type_registry,
 					      "noselect", "empty.gif",
 					      "noselect", "", FALSE,
@@ -962,24 +885,8 @@ e_shell_construct (EShell *shell,
 	
 	setup_components (shell, (ESplash *)splash);
 	
-	/* Set up the shortcuts.  */
-	
-	shortcut_path = g_build_filename (local_directory, "shortcuts.xml", NULL);
-	priv->shortcuts = e_shortcuts_new_from_file (shell, shortcut_path);
-	g_assert (priv->shortcuts != NULL);
-	
-	if (e_shortcuts_get_num_groups (priv->shortcuts) == 0)
-		e_shortcuts_add_default_group (priv->shortcuts);
-	
-	g_free (shortcut_path);
-	
 	/* The local storage depends on the component registry.  */
 	setup_local_storage (shell);
-	
-	/* Set up the shortcuts interface.  This has to be done after the
-	   shortcuts are actually initialized.  */
-	
-	setup_shortcuts_interface (shell);
 	
 	/* Now that we have a local storage and all the interfaces set up, we
 	   can tell the components we are here.  */
@@ -1059,7 +966,7 @@ e_shell_new (const char *local_directory,
 
 	priv = new->priv;
 
-	if (priv->shortcuts == NULL || priv->storage_set == NULL) {
+	if (priv->storage_set == NULL) {
 		/* FIXME? */
 		*construct_result_return = E_SHELL_CONSTRUCT_RESULT_GENERICERROR;
 		bonobo_object_unref (BONOBO_OBJECT (new));
@@ -1147,23 +1054,6 @@ e_shell_get_local_directory (EShell *shell)
 	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
 
 	return shell->priv->local_directory;
-}
-
-/**
- * e_shell_get_shortcuts:
- * @shell: An EShell object.
- * 
- * Get the shortcuts associated to @shell.
- * 
- * Return value: A pointer to the EShortcuts associated to @shell.
- **/
-EShortcuts *
-e_shell_get_shortcuts (EShell *shell)
-{
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->shortcuts;
 }
 
 /**
@@ -1442,44 +1332,6 @@ e_shell_component_maybe_crashed   (EShell *shell,
 }
 
 
-/* Offline/online handling.  */
-
-static void
-offline_procedure_started_cb (EShellOfflineHandler *offline_handler,
-			      void *data)
-{
-	EShell *shell;
-	EShellPrivate *priv;
-
-	shell = E_SHELL (data);
-	priv = shell->priv;
-
-	priv->line_status = E_SHELL_LINE_STATUS_GOING_OFFLINE;
-	g_signal_emit (shell, signals[LINE_STATUS_CHANGED], 0, priv->line_status);
-}
-
-static void
-offline_procedure_finished_cb (EShellOfflineHandler *offline_handler,
-			       gboolean now_offline,
-			       void *data)
-{
-	EShell *shell;
-	EShellPrivate *priv;
-
-	shell = E_SHELL (data);
-	priv = shell->priv;
-
-	if (now_offline)
-		priv->line_status = E_SHELL_LINE_STATUS_OFFLINE;
-	else
-		priv->line_status = E_SHELL_LINE_STATUS_ONLINE;
-
-	g_object_unref (priv->offline_handler);
-	priv->offline_handler = NULL;
-
-	g_signal_emit (shell, signals[LINE_STATUS_CHANGED], 0, priv->line_status);
-}
-
 /**
  * e_shell_get_line_status:
  * @shell: A pointer to an EShell object.
@@ -1520,16 +1372,17 @@ e_shell_go_offline (EShell *shell,
 	if (priv->line_status != E_SHELL_LINE_STATUS_ONLINE)
 		return;
 
-	g_assert (priv->offline_handler == NULL);
-
+#if 0
 	priv->offline_handler = e_shell_offline_handler_new (shell);
 
+	/* FIXME TODO */
 	g_signal_connect (priv->offline_handler, "offline_procedure_started",
 			  G_CALLBACK (offline_procedure_started_cb), shell);
 	g_signal_connect (priv->offline_handler, "offline_procedure_finished",
 			  G_CALLBACK (offline_procedure_finished_cb), shell);
 
 	e_shell_offline_handler_put_components_offline (priv->offline_handler, GTK_WINDOW (action_window));
+#endif
 }
 
 /**
@@ -1543,6 +1396,7 @@ void
 e_shell_go_online (EShell *shell,
 		   EShellWindow *action_window)
 {
+#if 0				/* FIXME TODO */
 	EShellPrivate *priv;
 	GList *component_ids;
 	GList *p;
@@ -1584,6 +1438,7 @@ e_shell_go_online (EShell *shell,
 
 	priv->line_status = E_SHELL_LINE_STATUS_ONLINE;
 	g_signal_emit (shell, signals[LINE_STATUS_CHANGED], 0, priv->line_status);
+#endif
 }
 
 

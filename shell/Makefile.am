@@ -190,8 +190,6 @@ evolution_SOURCES =				\
 	e-config-upgrade.h			\
 	e-corba-config-page.c			\
 	e-corba-config-page.h			\
-	e-corba-shortcuts.c			\
-	e-corba-shortcuts.h			\
 	e-corba-storage-registry.c		\
 	e-corba-storage-registry.h		\
 	e-corba-storage.c			\
@@ -206,16 +204,6 @@ evolution_SOURCES =				\
 	e-setup.h				\
 	e-shell-about-box.c			\
 	e-shell-about-box.h			\
-	e-shell-config.c			\
-	e-shell-config.h			\
-	e-shell-config-autocompletion.c		\
-	e-shell-config-autocompletion.h		\
-	e-shell-config-offline.c		\
-	e-shell-config-offline.h		\
-	e-shell-config-default-folders.c	\
-	e-shell-config-default-folders.h	\
-	e-shell-config-folder-settings.c	\
-	e-shell-config-folder-settings.h	\
 	e-shell-constants.h			\
 	e-shell-folder-creation-dialog.c	\
 	e-shell-folder-creation-dialog.h	\
@@ -223,10 +211,6 @@ evolution_SOURCES =				\
 	e-shell-folder-selection-dialog.h	\
 	e-shell-folder-title-bar.c		\
 	e-shell-folder-title-bar.h		\
-	e-shell-offline-handler.c		\
-	e-shell-offline-handler.h		\
-	e-shell-offline-sync.c			\
-	e-shell-offline-sync.h			\
 	e-shell-settings-dialog.c		\
 	e-shell-settings-dialog.h		\
 	e-shell-startup-wizard.c		\
@@ -237,12 +221,6 @@ evolution_SOURCES =				\
 	e-shell-window.h			\
 	e-shell.c				\
 	e-shell.h				\
-	e-shortcuts-view-model.c		\
-	e-shortcuts-view-model.h		\
-	e-shortcuts-view.c			\
-	e-shortcuts-view.h			\
-	e-shortcuts.c				\
-	e-shortcuts.h				\
 	e-splash.c				\
 	e-splash.h				\
 	e-task-bar.c				\
