@@ -18,6 +18,7 @@ gnomecal_SOURCES = \
 	calobj.h		\
 	eventedit.c		\
 	eventedit.h		\
+	frontend.c		\
 	getdate.y		\
 	gncal-day-panel.c	\
 	gncal-day-panel.h	\
