@@ -949,8 +949,8 @@ void      e_bsearch                                                        (cons
 		*end = l;
 }
 
-gpointer closure_closure;
-ESortCompareFunc compare_closure;
+static gpointer closure_closure;
+static ESortCompareFunc compare_closure;
 
 static int
 qsort_callback(const void *data1, const void *data2)
