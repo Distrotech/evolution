@@ -1,3 +1,8 @@
+2003-09-10  Not Zed  <NotZed@Ximian.com>
+
+	* listener.c (impl_event): We want to use decode to stream for
+	attachment parts.
+
 2003-09-08  Not Zed  <NotZed@Ximian.com>
 
 	* e-msg-composer.c (autosave_load_draft): ugh, direct linking to
