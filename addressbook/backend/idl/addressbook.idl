@@ -18,39 +18,19 @@ module Addressbook {
 	typedef sequence<CardId> CardIdList;
 	typedef sequence<string> stringlist;
 
-	/* 
-	 * A book view is a live view of a book.  It's either a view
-	 * of all the cards in the book or a view of a query.  When
-	 * created, it will get a series of signal_card_added calls
-	 * for all objects in the initial set.  After that, it will
-	 * get added, removed, or changed signals whenever the book
-	 * changes (if it affects the set of viewed cards.)
-	 */
-	interface BookViewListener : Bonobo::Unknown {
-		enum CallStatus {
-			Success,
-			/* These are still successful searches, but
-			   the result set was truncated */
-			SearchSizeLimitExceeded,
-			SearchTimeLimitExceeded,
-
-			/* These are failures */
-			InvalidQuery,
-			QueryRefused,
-			OtherError
-		};
-		oneway void notifyCardAdded        (in VCardList cards);
-		oneway void notifyCardsRemoved     (in CardIdList ids);
-		oneway void notifyCardChanged      (in VCardList cards);
-		oneway void notifySequenceComplete (in CallStatus status);
-		oneway void notifyProgress         (in string message, in short percent);
-	};
-	
-	interface BookView : Bonobo::Unknown {
-		oneway void start ();
+	enum BookChangeType {
+		CardAdded,
+		CardModified,
+		CardDeleted
 	};
 
-	enum BookListenerCallStatus {
+	struct BookChangeItem {
+		BookChangeType change_type;
+		VCard          contact;
+	};
+	typedef sequence<BookChangeItem> BookChangeList;
+
+	enum CallStatus {
 		Success,
 		RepositoryOffline,
 		PermissionDenied,
@@ -63,7 +43,37 @@ module Addressbook {
 		TLSNotAvailable,
 		NoSuchBook,
 
+		/* These can be returned for successful searches, but
+		   indicate the result set was truncated */
+		SearchSizeLimitExceeded,
+		SearchTimeLimitExceeded,
+
+		InvalidQuery,
+		QueryRefused,
+
+		CouldNotCancel,
+		
 		OtherError
+	};
+
+	/* 
+	 * A book view is a live view of a book.  It's either a view
+	 * of all the cards in the book or a view of a query.  When
+	 * created, it will get a series of signal_card_added calls
+	 * for all objects in the initial set.  After that, it will
+	 * get added, removed, or changed signals whenever the book
+	 * changes (if it affects the set of viewed cards.)
+	 */
+	interface BookViewListener : Bonobo::Unknown {
+		oneway void notifyCardAdded        (in VCardList cards);
+		oneway void notifyCardsRemoved     (in CardIdList ids);
+		oneway void notifyCardChanged      (in VCardList cards);
+		oneway void notifySequenceComplete (in CallStatus status);
+		oneway void notifyProgress         (in string message, in short percent);
+	};
+	
+	interface BookView : Bonobo::Unknown {
+		oneway void start ();
 	};
 
 	interface Book : Bonobo::Unknown {
@@ -95,7 +105,7 @@ module Addressbook {
 		oneway void getBookView (in BookViewListener listener, in string query,
 					 in stringlist requested_fields, in long max_results);
 
-		oneway void getChanges  (in BookViewListener listener, in string change_id);
+		oneway void getChanges  (in string change_id);
 
 		oneway void getCardList (in string query);
 
@@ -131,23 +141,23 @@ module Addressbook {
 
 		/* cancels the currently running operation, whatever
 		   it is. */
-		BookListenerCallStatus cancelOperation ();
+		CallStatus cancelOperation ();
 	};
 
 	interface BookListener : Bonobo::Unknown {
 
-		oneway void notifyCardCreated          (in BookListenerCallStatus status, in CardId Id);
-		oneway void notifyCardsRemoved         (in BookListenerCallStatus status);
-		oneway void notifyCardModified         (in BookListenerCallStatus status);
+		oneway void notifyCardCreated          (in CallStatus status, in CardId Id);
+		oneway void notifyCardsRemoved         (in CallStatus status);
+		oneway void notifyCardModified         (in CallStatus status);
 		oneway void notifyProgress             (in string status_message, in short precent);
-		void notifyBookOpened                  (in BookListenerCallStatus status, in Book book);
-		void notifyViewRequested               (in BookListenerCallStatus status, in BookView view);
-		void notifyChangesRequested            (in BookListenerCallStatus status, in BookView view);
-		oneway void notifyCardRequested        (in BookListenerCallStatus status, in VCard card);
-		oneway void notifyCardListRequested    (in BookListenerCallStatus status, in stringlist cards);
-		oneway void notifySupportedFields      (in BookListenerCallStatus status, in stringlist fields);
-		oneway void notifyAuthenticationResult (in BookListenerCallStatus status);
-		oneway void notifySupportedAuthMethods (in BookListenerCallStatus status, in stringlist auth_methods);
+		oneway void notifyBookOpened           (in CallStatus status, in Book book);
+		oneway void notifyViewRequested        (in CallStatus status, in BookView view);
+		oneway void notifyChangesRequested     (in CallStatus status, in BookChangeList changes);
+		oneway void notifyCardRequested        (in CallStatus status, in VCard card);
+		oneway void notifyCardListRequested    (in CallStatus status, in stringlist cards);
+		oneway void notifySupportedFields      (in CallStatus status, in stringlist fields);
+		oneway void notifyAuthenticationResult (in CallStatus status);
+		oneway void notifySupportedAuthMethods (in CallStatus status, in stringlist auth_methods);
 
 		oneway void notifyWritable (in boolean writable);
 	};

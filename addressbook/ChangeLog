@@ -1,5 +1,12 @@
 2003-07-29  Chris Toshok  <toshok@ximian.com>
 
+	* backend/idl/addressbook.idl: collapse
+	Addressbook::BookListenerCallStatus and
+	Addressbook::BookView::CallStatus enums into
+	Addressbook::CallStatus.
+
+2003-07-29  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/e-book-types.h: add EBookChangeType/EBookChange.
 
 2003-07-29  Chris Toshok  <toshok@ximian.com>
