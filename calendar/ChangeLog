@@ -1,5 +1,13 @@
 2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-week-view-event-item.c (e_week_view_event_item_draw): draw
+	a filled rectangle and a black border around it for one-day events.
+
+	* gui/e-day-view-top-item.c (e_day_view_top_item_draw_long_event):
+	fill the rectangle for the item with its associated color.
+
+2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/gnome-cal.c (gnome_calendar_open): unref the client if there
 	is an error.
 	(update_query): set status bar messages for progress.

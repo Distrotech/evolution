@@ -353,6 +353,7 @@ e_day_view_top_item_draw_long_event (EDayViewTopItem *dvtitem,
 	GdkRectangle clip_rect;
 	GSList *categories_list, *elem;
 	PangoLayout *layout;
+	GdkColor bg_color;
 
 	day_view = dvtitem->day_view;
 
@@ -388,7 +389,18 @@ e_day_view_top_item_draw_long_event (EDayViewTopItem *dvtitem,
 		       item_x + item_w - 1 - x, item_y + item_h - 1 - y);
 
 	/* Fill it in. */
-	gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BACKGROUND]);
+	if (gdk_color_parse (e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (day_view)),
+								  event->comp_data),
+			     &bg_color)) {
+		GdkColormap *colormap;
+
+		colormap = gtk_widget_get_colormap (GTK_WIDGET (day_view));
+		if (gdk_colormap_alloc_color (colormap, &bg_color, TRUE, TRUE))
+			gdk_gc_set_foreground (gc, &bg_color);
+		else
+			gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BACKGROUND]);
+	} else
+		gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BACKGROUND]);
 	gdk_draw_rectangle (drawable, gc, TRUE,
 			    item_x - x, item_y + 1 - y,
 			    item_w, item_h - 2);
