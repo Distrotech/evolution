@@ -31,7 +31,7 @@
 #include "mail.h"
 #include "mail-threads.h"
 #include "mail-tools.h"
-#include "mail-ops-new.h"
+#include "mail-ops.h"
 #include "folder-browser.h"
 #include "e-util/e-setup.h"
 #include "filter/filter-editor.h"
@@ -104,7 +104,7 @@ fetch_mail (GtkWidget *button, gpointer user_data)
 		return;
 	}
 
-	mail_do_fetch_mail (url, NULL);
+	mail_do_fetch_mail (url, NULL, select_first_unread, user_data);
 	g_free (url);
 }
 

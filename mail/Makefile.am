@@ -46,8 +46,8 @@ evolution_mail_SOURCES =		\
 	mail-display.h			\
 	mail-format.c			\
 	mail-identify.c			\
-	mail-ops-new.c			\
-	mail-ops-new.h			\
+	mail-ops.c			\
+	mail-ops.h			\
 	mail-threads.c			\
 	mail-threads.h			\
 	mail-tools.c			\

@@ -17,7 +17,7 @@
 #include "mail-tools.h"
 #include "message-list.h"
 #include "mail-threads.h"
-#include "mail-ops-new.h"
+#include "mail-ops.h"
 #include <widgets/e-paned/e-vpaned.h>
 
 #define PARENT_TYPE (gtk_table_get_type ())
@@ -59,22 +59,24 @@ folder_browser_class_init (GtkObjectClass *object_class)
 	folder_browser_parent_class = gtk_type_class (PARENT_TYPE);
 }
 
-static gboolean
-folder_browser_load_folder (FolderBrowser *fb, const char *name)
-{
-	CamelFolder *new_folder;
-
-	new_folder = mail_tool_uri_to_folder_noex (name);
-
-	if (!new_folder)
-		return FALSE;
-
-	if (fb->folder)
-		camel_object_unref (CAMEL_OBJECT (fb->folder));
-	fb->folder = new_folder;
-	message_list_set_folder (fb->message_list, new_folder);
-	return TRUE;
-}
+/*
+ * static gboolean
+ * folder_browser_load_folder (FolderBrowser *fb, const char *name)
+ * {
+ * 	CamelFolder *new_folder;
+ * 
+ * 	new_folder = mail_tool_uri_to_folder_noex (name);
+ * 
+ * 	if (!new_folder)
+ * 		return FALSE;
+ * 
+ * 	if (fb->folder)
+ * 		camel_object_unref (CAMEL_OBJECT (fb->folder));
+ * 	fb->folder = new_folder;
+ * 	message_list_set_folder (fb->message_list, new_folder);
+ * 	return TRUE;
+ * }
+ */
 
 #define EQUAL(a,b) (strcmp (a,b) == 0)
 

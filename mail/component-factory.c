@@ -36,7 +36,7 @@
 #include "folder-browser.h"
 #include "mail.h"		/* YUCK FIXME */
 #include "mail-tools.h"
-#include "mail-ops-new.h"
+#include "mail-ops.h"
 #include "e-util/e-gui-utils.h"
 #include "e-util/e-setup.h"
 

@@ -80,7 +80,9 @@ mail_tool_fetch_mail_into_searchable (const char *source_url, CamelException *ex
 
 /* Filter source into dest using the default filters. */
 void
-mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest, CamelException *ex);
+mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest, 
+				gpointer hook_func, gpointer hook_data,
+				CamelException *ex);
 
 /* Get the root folder of the store specified by @source_uri */
 CamelFolder *

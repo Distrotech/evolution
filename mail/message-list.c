@@ -20,7 +20,7 @@
 #include "message-thread.h"
 #include "mail-threads.h"
 #include "mail-tools.h"
-#include "mail-ops-new.h"
+#include "mail-ops.h"
 #include "Mail.h"
 #include "widgets/e-table/e-table-header-item.h"
 #include "widgets/e-table/e-table-item.h"

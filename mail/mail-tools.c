@@ -401,7 +401,9 @@ mail_tool_fetch_mail_into_searchable (const char *source_url, CamelException *ex
 }
 
 void
-mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest, CamelException *ex)
+mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest, 
+				gpointer hook_func, gpointer hook_data,
+				CamelException *ex)
 {
 	gchar *userrules;
 	gchar *systemrules;
@@ -413,13 +415,11 @@ mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest, CamelExc
         g_free (userrules);
         g_free (systemrules);
 
-	mail_tool_camel_lock_up();
-        if (filter_driver_run (filter, source, dest) == -1)
-		camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM, "Couldn't perform "
-				      "filter of `%s' into `%s'", 
-				      source->full_name, 
-				      dest->full_name);
-	mail_tool_camel_lock_down();
+	if (hook_func)
+		camel_object_hook_event (CAMEL_OBJECT (dest), "folder_changed",
+					 hook_func, hook_data);
+
+        filter_driver_run (filter, source, dest, TRUE, hook_func, hook_data);
 }
 
 CamelFolder *

@@ -1,5 +1,23 @@
+2000-07-21  Peter Williams  <peterw@helixcode.com>
+
+	* mail-callbacks.c (fetch_mail): Pass a hook function and data
+	down the chain to pick up the folder_changed and change the view.
+
+	* mail-ops.c: Rename from mail-ops-new.c now that it's a little more
+	solid. 
+	(fetch_mail): Add new options to hook and unhook an event while the
+	filter driver runs. A hack, but all of the operations are to some
+	extent.
+	(cleanup_fetch_mail): Unref the destination folder if not NULL.
+	* mail-tools.c (mail_tool_filter_contents_into): Intermediate the
+	event hook/unhook hack here.
+
 2000-07-20  Peter Williams  <peterw@helixcode.com>
 
+	* mail-ops-new.c (setup_send_mail): Fix silly forgetting-to-ref
+	problem on some sends (when not replying). Note the early exit
+	path with a big comment.
+	
 	* message-list.c (message_list_set_folder): Don't call
 	folder_changed, call mail_do_regenerate_messagelist, as
 	the GDK_THREADS_ENTER in the former can deadlock us!
