@@ -65,11 +65,14 @@ gnome_cal_server_SOURCES =	\
 	calobj.h		\
 	timeutil.c		\
 	timeutil.h		\
-	server.c
+	server-auth.c		\
+	server-commands.c	\
+	server-io.c		\
+	server-main.c
 
 gnome_cal_server_LDADD =	\
 	$(GNOME_LIBDIR) 	\
-	$(GNOME_LIBS) 		\
+	$(GLIB_LIBS) 		\
 	../libversit/libversit.a
 
 LINK_FLAGS = \
