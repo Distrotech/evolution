@@ -61,7 +61,6 @@
 #define CREATE_TASK_ID "task"
 
 char *evolution_dir = NULL;
-EvolutionShellClient *global_shell_client = NULL;
 extern ECompEditorRegistry *comp_editor_registry;
 
 static const EvolutionShellComponentFolderType folder_types[] = {
@@ -509,14 +508,12 @@ owner_set_cb (EvolutionShellComponent *shell_component,
 	if (evolution_dir)
 		g_free (evolution_dir);
 	evolution_dir = g_strdup (evolution_homedir);
-	global_shell_client = shell_client;
 }
 
 static void
 owner_unset_cb (EvolutionShellComponent *shell_component,
 		gpointer user_data)
 {
-	global_shell_client = NULL;
 }
 
 /* Computes the final URI for a calendar component */

@@ -1,3 +1,24 @@
+2003-07-30  Ettore Perazzoli  <ettore@ximian.com>
+
+	* gui/main.c (factory): Do not depend on global_shell_client being
+	not NULL for creating the calendar preferences dialog.
+
+	* gui/e-itip-control.c (show_current): Don't call get_servers
+	anymore [to be fixed].
+	(get_servers): #if 0ed out.
+	(object_requested_cb): Don't create the folder selector button.
+
+	* gui/e-cal-view.c (e_cal_view_set_status_message): Don't create
+	an activity client.
+
+	* gui/calendar-model.c (calendar_model_set_status_message): Don't
+	create an activity client.
+
+	* gui/calendar-component.c: Removed global variable
+	global_shell_client.
+	(owner_set_cb): Don't set global_shell_client.
+	(owner_unset_cb): Don't set it here either.
+
 2003-07-24  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-view.[ch] (e_cal_view_delete_selected_occurrence):

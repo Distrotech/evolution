@@ -2084,7 +2084,6 @@ static GdkPixbuf *progress_icon[2] = { NULL, NULL };
 void
 calendar_model_set_status_message (CalendarModel *model, const char *message)
 {
-	extern EvolutionShellClient *global_shell_client; /* ugly */
 	CalendarModelPrivate *priv;
 
 	g_return_if_fail (IS_CALENDAR_MODEL (model));
@@ -2103,9 +2102,13 @@ calendar_model_set_status_message (CalendarModel *model, const char *message)
 
 		if (progress_icon[0] == NULL)
 			progress_icon[0] = gdk_pixbuf_new_from_file (EVOLUTION_IMAGESDIR "/" EVOLUTION_TASKS_PROGRESS_IMAGE, NULL);
+
+		/* EPFIXME */
+#if 0
 		priv->activity = evolution_activity_client_new (
 			global_shell_client, client_id,
 			progress_icon, message, TRUE, &display);
+#endif
 
 		g_free (client_id);
 	}
