@@ -3188,7 +3188,6 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 	const char *uid;
 	CalComponent *comp;
 	AddEventData add_event_data;
-	CalComponentDateTime dt_start, dt_end;
 
 	/* If our time hasn't been set yet, just return. */
 	if (day_view->lower == 0 && day_view->upper == 0)
@@ -3207,9 +3206,8 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 			event = &g_array_index (day_view->events[day],
 						EDayViewEvent, event_num);
 
-		/* FIXME Passing the wrong thing to has_recurrences */
 		if (!cal_util_component_has_recurrences (comp_data->icalcomp)
-		    && !cal_component_has_recurrences (event->comp_data->icalcomp)
+		    && !cal_util_component_has_recurrences (event->comp_data->icalcomp)
 		    && cal_util_event_dates_match (event->comp_data->icalcomp, comp_data->icalcomp)) {
 #if 0
 			g_print ("updated object's dates unchanged\n");
@@ -3230,26 +3228,17 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 						   NULL);
 	}
 
-	/* Add the event if it's on the time range */
+	/* Add the occurrences of the event */
 	comp = cal_component_new ();
 	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (comp_data->icalcomp));
-	cal_component_get_dtstart (comp, &dt_start);
-	cal_component_get_dtend (comp, &dt_end);
 
-	if (dt_start.value && dt_end.value) {
-		time_t tt_start, tt_end;
-
-		tt_start = icaltime_as_timet (*dt_start.value);
-		tt_end = icaltime_as_timet (*dt_end.value);
-
-		if ((tt_start >= day_view->lower && tt_start <= day_view->upper)
-		    || (tt_end >= day_view->lower && tt_end <= day_view->upper)
-		    || (tt_start <= day_view->lower && tt_end >= day_view->upper)) {
-			add_event_data.day_view = day_view;
-			add_event_data.comp_data = comp_data;
-			e_day_view_add_event (comp, tt_start, tt_end, &add_event_data);
-		}
-	}
+	add_event_data.day_view = day_view;
+	add_event_data.comp_data = comp_data;
+	cal_recur_generate_instances (comp, day_view->lower,
+				      day_view->upper,
+				      e_day_view_add_event, &add_event_data,
+				      cal_client_resolve_tzid_cb, comp_data->client,
+				      e_cal_view_get_timezone (E_CAL_VIEW (day_view)));
 
 	g_object_unref (comp);
 
