@@ -1,3 +1,8 @@
+2001-09-04  Peter Williams  <peterw@ximian.com>
+
+	* mail-local.c (mlf_init): Remove accidentally left-in "choke on this"
+	preprocessor thingie.
+
 2001-08-31  Peter Williams  <peterw@ximian.com>
 
 	* mail-local.c (mail_local_reconfigure_folder): Use (NULL, NULL)

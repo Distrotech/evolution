@@ -422,8 +422,6 @@ mlf_init (CamelObject *obj)
 
 #ifdef ENABLE_THREADS
 	mlf->real_folder_lock = g_mutex_new ();
-#else
-	choke on this
 #endif
 }
 
