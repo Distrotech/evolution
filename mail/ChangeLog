@@ -1,3 +1,24 @@
+2004-09-07  Not Zed  <NotZed@Ximian.com>
+
+	* em-account-editor.c (emae_setup_providers): set the provider
+	shown selected on the store as well.
+
+	* mail-config.glade: moved the druid 'help text' directly into the
+	glade file.
+
+	* em-account-editor.c (emae_check_complete): add pre-load for
+	management page options.
+
+	* em-utils.c (em_utils_configure_account): remove use of
+	mail-config-druid.
+
+	* em-account-editor.c (emae_remove_childen): removed.
+	(*): removed service->url, always get it from/set it to the
+	e-account so it doesn't have side-effects with plugins.
+
+	* mail-dialogs.glade: fix up the names of the various license
+	dialog fields.
+
 2004-09-06  Not Zed  <NotZed@Ximian.com>
 
 	* em-account-editor.c (emae_receive_options_extra_item): store the

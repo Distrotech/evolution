@@ -26,8 +26,6 @@
 /*
   work before merge can occur:
 
-  fix license display.
-  remove old code.
   verify behaviour.
   work out what to do with the startup druid.
 
@@ -115,7 +113,6 @@ typedef struct _EMAccountEditorService {
 	struct _GtkEntry *path;
 	struct _GtkWidget *ssl_frame;
 	struct _GtkComboBox *use_ssl;
-	struct _GtkWidget *ssl_selected;
 	struct _GtkWidget *ssl_hbox;
 	struct _GtkWidget *no_ssl;
 
@@ -125,8 +122,6 @@ typedef struct _EMAccountEditorService {
 	struct _GtkToggleButton *remember;
 	struct _GtkButton *check_supported;
 	struct _GtkToggleButton *needs_auth;
-
-	CamelURL *url;		/* for working with various options changing */
 
 	GList *authtypes;	/* if "Check supported" */
 	CamelProvider *provider;
@@ -183,6 +178,11 @@ typedef struct _EMAccountEditorPrivate {
 	struct _GtkEntry *smime_encrypt_key;
 	struct _GtkButton *smime_encrypt_key_select;
 	struct _GtkButton *smime_encrypt_key_clear;
+
+	/* for druid page preparation */
+	unsigned int identity_set:1;
+	unsigned int receive_set:1;
+	unsigned int management_set:1;
 } EMAccountEditorPrivate;
 
 static GtkWidget *emae_setup_authtype(EMAccountEditor *emae, EMAccountEditorService *service);
@@ -218,11 +218,6 @@ emae_finalise(GObject *o)
 		g_object_unref(p->xml);
 	if (p->druidxml)
 		g_object_unref(p->druidxml);
-
-	if (p->source.url)
-		camel_url_free(p->source.url);
-	if (p->transport.url)
-		camel_url_free(p->transport.url);
 
 	g_list_free(p->source.authtypes);
 	g_list_free(p->transport.authtypes);
@@ -312,86 +307,38 @@ is_email (const char *address)
 	return TRUE;
 }
 
-static GtkWidget *
-get_focused_widget (GtkWidget *def, ...)
+static CamelURL *
+emae_account_url(EMAccountEditor *emae, int urlid)
 {
-	GtkWidget *widget, *ret = NULL;
-	va_list args;
-	
-	va_start (args, def);
-	widget = va_arg (args, GtkWidget *);
-	while (widget) {
-		if (GTK_WIDGET_HAS_FOCUS (widget)) {
-			ret = widget;
-			break;
-		}
-		
-		widget = va_arg (args, GtkWidget *);
+	CamelURL *url = NULL;
+	const char *uri;
+
+	uri = e_account_get_string(emae->account, urlid);
+
+	if (uri && uri[0])
+		url = camel_url_new(uri, NULL);
+
+	if (url == NULL) {
+		url = camel_url_new("dummy:", NULL);
+		camel_url_set_protocol(url, NULL);
 	}
-	va_end (args);
-	
-	if (ret)
-		return ret;
-	else
-		return def;
+
+	return url;
 }
 
-#if 0
-gboolean
-em_account_editor_identity_complete (EMAccountEditor *gui, GtkWidget **incomplete)
-{
-	const char *text;
-	
-	text = gtk_entry_get_text (gui->full_name);
-	if (!text || !*text) {
-		if (incomplete)
-			*incomplete = get_focused_widget (GTK_WIDGET (gui->full_name),
-							  GTK_WIDGET (gui->email_address),
-							  GTK_WIDGET (gui->reply_to),
-							  NULL);
-		return FALSE;
-	}
-	
-	text = gtk_entry_get_text (gui->email_address);
-	if (!text || !is_email (text)) {
-		if (incomplete)
-			*incomplete = get_focused_widget (GTK_WIDGET (gui->email_address),
-							  GTK_WIDGET (gui->full_name),
-							  GTK_WIDGET (gui->reply_to),
-							  NULL);
-		return FALSE;
-	}
-	
-	/* make sure that if the reply-to field is filled in, that it is valid */
-	text = gtk_entry_get_text (gui->reply_to);
-	if (text && *text && !is_email (text)) {
-		if (incomplete)
-			*incomplete = get_focused_widget (GTK_WIDGET (gui->reply_to),
-							  GTK_WIDGET (gui->email_address),
-							  GTK_WIDGET (gui->full_name),
-							  NULL);
-		return FALSE;
-	}
-	
-	return TRUE;
-}
-#endif
-
+/* ********************************************************************** */
 static void
-check_button_state (GtkToggleButton *button, gpointer data)
+emae_license_state(GtkToggleButton *button, GtkDialog *dialog)
 {
-	if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (button)))
-		gtk_widget_set_sensitive (GTK_WIDGET (data), TRUE);
-	else
-		gtk_widget_set_sensitive (GTK_WIDGET (data), FALSE);
+	gtk_dialog_set_response_sensitive(dialog, GTK_RESPONSE_ACCEPT,
+					  gtk_toggle_button_get_active(button));
 }
-
 
 static gboolean
-populate_text_entry (GtkTextView *view, const char *filename)
+emae_load_text(GtkTextView *view, const char *filename)
 {
 	FILE *fd;
-	char *filebuf;
+	char filebuf[1024];
 	GtkTextIter iter;
 	GtkTextBuffer *buffer;
 	int count;
@@ -399,455 +346,89 @@ populate_text_entry (GtkTextView *view, const char *filename)
 	g_return_val_if_fail (filename != NULL , FALSE);
 
 	fd = fopen (filename, "r");
-	
-	if (!fd) {
-		/* FIXME: Should never come here */
-		return FALSE;
-	}
-	
-	filebuf = g_malloc (1024);
+	if (fd) {
+		buffer =  gtk_text_buffer_new (NULL);
+		gtk_text_buffer_get_start_iter (buffer, &iter);
+		while (!feof (fd) && !ferror (fd)) {
+			count = fread (filebuf, 1, sizeof (filebuf), fd);
+			gtk_text_buffer_insert (buffer, &iter, filebuf, count);
+		}
 
-	buffer =  gtk_text_buffer_new (NULL);
-	gtk_text_buffer_get_start_iter (buffer, &iter);
-
-	while (!feof (fd) && !ferror (fd)) {
-		count = fread (filebuf, 1, sizeof (filebuf), fd);
-		gtk_text_buffer_insert (buffer, &iter, filebuf, count);
+		gtk_text_view_set_buffer(GTK_TEXT_VIEW (view), GTK_TEXT_BUFFER(buffer));
+		fclose (fd);
 	}
-	gtk_text_view_set_buffer (GTK_TEXT_VIEW (view), 
-					GTK_TEXT_BUFFER (buffer));
-	fclose (fd);
-	g_free (filebuf);
-	return TRUE;
+
+	return fd != NULL;
 }
 
 static gboolean
-display_license (CamelProvider *prov)
+emae_display_license(EMAccountEditor *emae, CamelProvider *prov)
 {
 	GladeXML *xml;
-	GtkWidget *top_widget;
-	GtkTextView *text_entry;
-	GtkButton *button_yes, *button_no;
-	GtkCheckButton *check_button;
+	GtkWidget *w, *dialog;
+	char *tmp;
 	GtkResponseType response = GTK_RESPONSE_NONE;
-	GtkLabel *top_label;
-	char *label_text, *dialog_title;
-	gboolean status;
 	
-	xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-dialogs.glade", "lic_dialog", NULL);
-	
-	top_widget = glade_xml_get_widget (xml, "lic_dialog");
-	text_entry = GTK_TEXT_VIEW (glade_xml_get_widget (xml, "textview1"));
-	if (!(status = populate_text_entry (GTK_TEXT_VIEW (text_entry), prov->license_file)))
-		goto failed;
-	
-	gtk_text_view_set_editable (GTK_TEXT_VIEW (text_entry), FALSE);
-	
-	button_yes = GTK_BUTTON (glade_xml_get_widget (xml, "lic_yes_button"));
-	gtk_widget_set_sensitive (GTK_WIDGET (button_yes), FALSE);
-	
-	button_no = GTK_BUTTON (glade_xml_get_widget (xml, "lic_no_button"));
-	
-	check_button = GTK_CHECK_BUTTON (glade_xml_get_widget (xml, "lic_checkbutton"));
-	
-	top_label = GTK_LABEL (glade_xml_get_widget (xml, "lic_top_label"));
-	
-	label_text = g_strdup_printf (_("\nPlease read carefully the license agreement\n" 
-					"for %s displayed below\n" 
-					"and tick the check box for accepting it\n"), prov->license);
-	
-	gtk_label_set_label (top_label, label_text);
-	
-	dialog_title = g_strdup_printf (_("%s License Agreement"), prov->license);
-	
-	gtk_window_set_title (GTK_WINDOW (top_widget), dialog_title);
-	
-	g_signal_connect (check_button, "toggled", G_CALLBACK (check_button_state), button_yes);
-	
-	response = gtk_dialog_run (GTK_DIALOG (top_widget));
-	
-	g_free (label_text);
-	g_free (dialog_title);
-	
- failed:
-	gtk_widget_destroy (top_widget);
-	g_object_unref (xml);
+	xml = glade_xml_new (EVOLUTION_GLADEDIR "/mail-dialogs.glade", "license_dialog", NULL);
+	dialog = glade_xml_get_widget(xml, "license_dialog");
+	gtk_dialog_set_response_sensitive((GtkDialog *)dialog, GTK_RESPONSE_ACCEPT, FALSE);
+	tmp = g_strdup_printf(_("%s License Agreement"), prov->license);
+	gtk_window_set_title((GtkWindow *)dialog, tmp);
+	g_free(tmp);
+
+	g_signal_connect(glade_xml_get_widget(xml, "license_checkbutton"),
+			 "toggled", G_CALLBACK(emae_license_state), dialog);
+
+	tmp = g_strdup_printf(_("\nPlease read carefully the license agreement\n" 
+				"for %s displayed below\n" 
+				"and tick the check box for accepting it\n"), prov->license);
+	gtk_label_set_text((GtkLabel *)glade_xml_get_widget(xml, "license_top_label"), tmp);
+	g_free(tmp);
+
+	w = glade_xml_get_widget(xml, "license_textview");
+	if (emae_load_text((GtkTextView *)w, prov->license_file)) {
+		gtk_text_view_set_editable((GtkTextView *)w, FALSE);
+		response = gtk_dialog_run((GtkDialog *)dialog);
+	} else {
+		e_error_run((GtkWindow *)gtk_widget_get_toplevel(emae->editor),
+			    "mail:no-load-license", prov->license_file, NULL);
+	}
+
+	gtk_widget_destroy(dialog);
+	g_object_unref(xml);
 	
 	return (response == GTK_RESPONSE_ACCEPT);
 }
 
 static gboolean
-em_account_editor_check_for_license (CamelProvider *prov)
+emae_check_license(EMAccountEditor *emae, CamelProvider *prov)
 {
-	GConfClient *gconf;
-	gboolean accepted = TRUE, status;
-	GSList * providers_list, *l, *n;
-	char *provider;
+	gboolean accepted = TRUE;
 
 	if (prov->flags & CAMEL_PROVIDER_HAS_LICENSE) {
-		gconf = mail_config_get_gconf_client ();
-		
+		GConfClient *gconf = mail_config_get_gconf_client();
+		GSList *providers_list, *l;
+
 		providers_list = gconf_client_get_list (gconf, "/apps/evolution/mail/licenses", GCONF_VALUE_STRING, NULL);
 		
-		for (l = providers_list, accepted = FALSE; l && !accepted; l = g_slist_next (l))
-			accepted = (strcmp ((char *)l->data, prov->protocol) == 0);
-		if (!accepted) {
-			/* Since the license is not yet accepted, pop-up a 
-			 * dialog to display the license agreement and check 
-			 * if the user accepts it
-			 */
+		for (l = providers_list, accepted = FALSE; l && !accepted; l = g_slist_next(l))
+			accepted = (strcmp((char *)l->data, prov->protocol) == 0);
 
-			if ((accepted = display_license (prov)) == TRUE) {
-				provider = g_strdup (prov->protocol);
-				providers_list = g_slist_append (providers_list,
-						 provider);
-				status = gconf_client_set_list (gconf, 
-						"/apps/evolution/mail/licenses",
-						GCONF_VALUE_STRING,
-						 providers_list, NULL);
-			}
+		if (!accepted
+		    && (accepted = emae_display_license(emae, prov)) == TRUE) {
+			providers_list = g_slist_append(providers_list, g_strdup(prov->protocol));
+			gconf_client_set_list(gconf, 
+					      "/apps/evolution/mail/licenses",
+					      GCONF_VALUE_STRING,
+					      providers_list, NULL);
 		}
-		l = providers_list;
-		while (l) {
-			n = g_slist_next (l);
-			g_free (l->data);
-			g_slist_free_1 (l);
-			l = n;
-		}
+
+		g_slist_foreach(providers_list, (GFunc)g_free, NULL);
+		g_slist_free(providers_list);
 	}
+
 	return accepted;
 }
-
-#if 0
-gboolean
-em_account_editor_source_complete (EMAccountEditor *gui, GtkWidget **incomplete)
-{
-	return service_complete (&gui->source, gui->extra_config, incomplete);
-}
-#endif
-
-
-gboolean
-em_account_editor_transport_complete (EMAccountEditor *emae, GtkWidget **incomplete)
-{
-#if 0
-	EMAccountEditorPrivate *gui = emae->priv;
-
-	if (!gui->transport.provider) {
-		if (incomplete)
-			*incomplete = GTK_WIDGET (gui->transport.type);
-		return FALSE;
-	}
-
-	/* If it's both source and transport, there's nothing extra to
-	 * configure on the transport page.
-	 */
-	if (CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (gui->transport.provider)) {
-		if (gui->transport.provider == gui->source.provider)
-			return TRUE;
-		if (incomplete)
-			*incomplete = GTK_WIDGET (gui->transport.type);
-		return FALSE;
-	}
-	
-	if (!service_complete (&gui->transport, NULL, incomplete))
-		return FALSE;
-	
-	/* FIXME? */
-	if (gtk_toggle_button_get_active (gui->transport_needs_auth) &&
-	    CAMEL_PROVIDER_ALLOWS (gui->transport.provider, CAMEL_URL_PART_USER)) {
-		const char *text = gtk_entry_get_text (gui->transport.username);
-		
-		if (!text || !*text) {
-			if (incomplete)
-				*incomplete = get_focused_widget (GTK_WIDGET (gui->transport.username),
-								  GTK_WIDGET (gui->transport.hostname),
-								  NULL);
-			return FALSE;
-		}
-	}
-#endif	
-	return TRUE;
-}
-
-gboolean
-em_account_editor_management_complete (EMAccountEditor *emae, GtkWidget **incomplete)
-{
-#if 0
-	EMAccountEditorPrivate *gui = emae->priv;
-	const char *text;
-	
-	text = gtk_entry_get_text (gui->account_name);
-	if (text && *text)
-		return TRUE;
-	
-	if (incomplete)
-		*incomplete = GTK_WIDGET (gui->account_name);
-#endif	
-	return FALSE;
-}
-
-
-#if 0
-static void
-transport_provider_set_available (EMAccountEditor *emae, CamelProvider *provider,
-				  gboolean available)
-{
-	EMAccountEditorPrivate *gui = emae->priv;
-	GtkWidget *menuitem;
-	
-	menuitem = g_object_get_data ((GObject *) gui->transport.type, provider->protocol);
-	g_return_if_fail (menuitem != NULL);
-	
-	gtk_widget_set_sensitive (menuitem, available);
-	
-	if (available) {
-		gpointer number = g_object_get_data ((GObject *) menuitem, "number");
-		
-		g_signal_emit_by_name (menuitem, "activate");
-		gtk_option_menu_set_history (gui->transport.type, GPOINTER_TO_UINT (number));
-	}
-}
-
-/* TBD */
-static void
-source_type_changed (GtkWidget *widget, gpointer user_data)
-{
-	EMAccountEditor *emae = user_data;
-	EMAccountEditorPrivate *gui = emae->priv;
-	GtkWidget *file_entry, *label, *frame, *dwidget = NULL;
-	CamelProvider *provider;
-	gboolean writeable;
-	gboolean license_accepted = TRUE;
-	
-	provider = g_object_get_data ((GObject *) widget, "provider");
-	
-	/* If the previously-selected provider has a linked transport,
-	 * disable it.
-	 */
-	if (gui->source.provider &&
-	    CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (gui->source.provider))
-		transport_provider_set_available (gui, gui->source.provider, FALSE);
-	
-	gui->source.provider = provider;
-	
-	if (gui->source.provider) {
-		writeable = e_account_writable_option (emae->account, gui->source.provider->protocol, "auth");
-		gtk_widget_set_sensitive ((GtkWidget *) gui->source.authtype, writeable);
-		gtk_widget_set_sensitive ((GtkWidget *) gui->source.check_supported, writeable);
-		
-		writeable = e_account_writable_option (emae->account, gui->source.provider->protocol, "use_ssl");
-		gtk_widget_set_sensitive ((GtkWidget *) gui->source.use_ssl, writeable);
-		
-		writeable = e_account_writable (emae->account, E_ACCOUNT_SOURCE_SAVE_PASSWD);
-		gtk_widget_set_sensitive ((GtkWidget *) gui->source.remember, writeable);
-	}
-	
-	if (provider)
-		gtk_label_set_text (gui->source.description, provider->description);
-	else
-		gtk_label_set_text (gui->source.description, "");
-	
-	if (gui->source.provider)	
-		license_accepted = em_account_editor_check_for_license (gui->source.provider);
-
-	frame = glade_xml_get_widget (gui->xml, "source_frame");
-	if (provider && license_accepted) {
-		gtk_widget_show (frame);
-		
-		/* hostname */
-		label = glade_xml_get_widget (gui->xml, "source_host_label");
-		
-		if (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_HOST)) {
-			dwidget = GTK_WIDGET (gui->source.hostname);
-			gtk_widget_show (GTK_WIDGET (gui->source.hostname));
-			gtk_widget_show (label);
-		} else {
-			gtk_widget_hide (GTK_WIDGET (gui->source.hostname));
-			gtk_widget_hide (label);
-		}
-		
-		/* username */
-		label = glade_xml_get_widget (gui->xml, "source_user_label");
-		
-		if (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_USER)) {
-			if (!dwidget)
-				dwidget = GTK_WIDGET (gui->source.username);
-			gtk_widget_show (GTK_WIDGET (gui->source.username));
-			gtk_widget_show (label);
-		} else {
-			gtk_widget_hide (GTK_WIDGET (gui->source.username));
-			gtk_widget_hide (label);
-		}
-		
-		/* path */
-		label = glade_xml_get_widget (gui->xml, "source_path_label");
-		file_entry = glade_xml_get_widget (gui->xml, "source_path_entry");
-		
-		if (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_PATH)) {
-			if (!dwidget)
-				dwidget = GTK_WIDGET (gui->source.path);
-			
-			gtk_widget_show (GTK_WIDGET (file_entry));
-			gtk_widget_show (label);
-		} else {
-			gtk_entry_set_text (gui->source.path, "");
-			gtk_widget_hide (GTK_WIDGET (file_entry));
-			gtk_widget_hide (label);
-		}
-		
-		/* ssl */
-#ifdef HAVE_SSL
-		gtk_widget_hide (gui->source.no_ssl);
-		if (provider && provider->flags & CAMEL_PROVIDER_SUPPORTS_SSL) {
-			gtk_widget_show (gui->source.ssl_frame);
-			gtk_widget_show (gui->source.ssl_hbox);
-		} else {
-			gtk_widget_hide (gui->source.ssl_frame);
-			gtk_widget_hide (gui->source.ssl_hbox);
-		}
-#else
-		gtk_widget_hide (gui->source.ssl_hbox);
-		gtk_widget_show (gui->source.no_ssl);
-#endif
-		
-		/* auth */
-		frame = glade_xml_get_widget (gui->xml, "source_auth_frame");
-		if (provider && CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_AUTH)) {
-			build_auth_menu (&gui->source, provider->authtypes, NULL, FALSE);
-			gtk_widget_show (frame);
-		} else
-			gtk_widget_hide (frame);
-	} else {
-		gtk_widget_hide (frame);
-		frame = glade_xml_get_widget (gui->xml, "source_auth_frame");
-		gtk_widget_hide (frame);
-	}
-	
-	g_signal_emit_by_name (gui->source.username, "changed");
-	
-	if (dwidget)
-		gtk_widget_grab_focus (dwidget);
-	
-	em_account_editor_build_extra_conf (gui, gui && emae->account && emae->account->source ? emae->account->source->url : NULL);
-	
-	if (provider && CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (provider))
-		transport_provider_set_available (gui, provider, TRUE);
-}
-
-
-static void
-transport_needs_auth_toggled (GtkToggleButton *toggle, gpointer data)
-{
-	EMAccountEditor *emae = data;
-	EMAccountEditorPrivate *gui = emae->priv;
-	gboolean need = gtk_toggle_button_get_active (toggle);
-	GtkWidget *widget;
-	
-	widget = glade_xml_get_widget (gui->xml, "transport_auth_frame");
-	gtk_widget_set_sensitive (widget, need);
-	if (need)
-		service_changed (NULL, &gui->transport);
-}
-
-static void
-transport_type_changed (GtkWidget *widget, gpointer user_data)
-{
-	EMAccountEditor *emae = user_data;
-	EMAccountEditorPrivate *gui = emae->priv;
-	CamelProvider *provider;
-	GtkWidget *label, *frame;
-	gboolean writeable;
-	
-	provider = g_object_get_data ((GObject *) widget, "provider");
-	gui->transport.provider = provider;
-	
-	if (gui->transport.provider) {
-		writeable = e_account_writable_option (emae->account, gui->transport.provider->protocol, "auth");
-		gtk_widget_set_sensitive ((GtkWidget *) gui->transport.authtype, writeable);
-		gtk_widget_set_sensitive ((GtkWidget *) gui->transport.check_supported, writeable);
-		
-		writeable = e_account_writable_option (emae->account, gui->transport.provider->protocol, "use_ssl");
-		gtk_widget_set_sensitive ((GtkWidget *) gui->transport.use_ssl, writeable);
-		
-		writeable = e_account_writable (emae->account, E_ACCOUNT_TRANSPORT_SAVE_PASSWD);
-		gtk_widget_set_sensitive ((GtkWidget *) gui->transport.remember, writeable);
-	}
-	
-	/* description */
-	gtk_label_set_text (gui->transport.description, provider->description);
-	
-	frame = glade_xml_get_widget (gui->xml, "transport_frame");
-	if (!CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (provider) &&
-	    (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_HOST) ||
-	     (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_AUTH) &&
-	      !CAMEL_PROVIDER_NEEDS (provider, CAMEL_URL_PART_AUTH)))) {
-		gtk_widget_show (frame);
-		
-		label = glade_xml_get_widget (gui->xml, "transport_host_label");
-		if (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_HOST)) {
-			gtk_widget_show (GTK_WIDGET (gui->transport.hostname));
-			gtk_widget_show (label);
-		} else {
-			gtk_widget_hide (GTK_WIDGET (gui->transport.hostname));
-			gtk_widget_hide (label);
-		}
-		
-		/* ssl */
-#ifdef HAVE_SSL
-		gtk_widget_hide (gui->transport.no_ssl);
-		if (provider && provider->flags & CAMEL_PROVIDER_SUPPORTS_SSL) {
-			gtk_widget_show (gui->transport.ssl_frame);
-			gtk_widget_show (gui->transport.ssl_hbox);
-		} else {
-			gtk_widget_hide (gui->transport.ssl_frame);
-			gtk_widget_hide (gui->transport.ssl_hbox);
-		}
-#else
-		gtk_widget_hide (gui->transport.ssl_hbox);
-		gtk_widget_show (gui->transport.no_ssl);
-#endif
-		
-		/* auth */
-		if (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_AUTH) &&
-		    !CAMEL_PROVIDER_NEEDS (provider, CAMEL_URL_PART_AUTH))
-			gtk_widget_show (GTK_WIDGET (gui->transport_needs_auth));
-		else
-			gtk_widget_hide (GTK_WIDGET (gui->transport_needs_auth));
-	} else
-		gtk_widget_hide (frame);
-	
-	frame = glade_xml_get_widget (gui->xml, "transport_auth_frame");
-	if (!CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (provider) &&
-	    CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_AUTH)) {
-		gtk_widget_show (frame);
-		
-		label = glade_xml_get_widget (gui->xml, "transport_user_label");
-		if (CAMEL_PROVIDER_ALLOWS (provider, CAMEL_URL_PART_USER)) {
-			gtk_widget_show (GTK_WIDGET (gui->transport.username));
-			gtk_widget_show (label);
-		} else {
-			gtk_widget_hide (GTK_WIDGET (gui->transport.username));
-			gtk_widget_hide (label);
-		}
-		
-		build_auth_menu (&gui->transport, provider->authtypes, NULL, FALSE);
-		transport_needs_auth_toggled (gui->transport_needs_auth, gui);
-	} else
-		gtk_widget_hide (frame);
-	
-	g_signal_emit_by_name (gui->transport.hostname, "changed");
-}
-
-static void
-service_changed (GtkEntry *entry, gpointer user_data)
-{
-	EMAccountEditorService *service = user_data;
-	
-	gtk_widget_set_sensitive (GTK_WIDGET (service->check_supported),
-				  service_complete (service, NULL, NULL));
-}
-#endif
 
 static void
 default_folders_clicked (GtkButton *button, gpointer user_data)
@@ -857,11 +438,9 @@ default_folders_clicked (GtkButton *button, gpointer user_data)
 	
 	uri = mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_DRAFTS);
 	em_folder_selection_button_set_selection((EMFolderSelectionButton *)emae->priv->drafts_folder_button, uri);
-	e_account_set_string(emae->account, E_ACCOUNT_DRAFTS_FOLDER_URI, uri);
 
 	uri = mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_SENT);
 	em_folder_selection_button_set_selection((EMFolderSelectionButton *)emae->priv->sent_folder_button, uri);
-	e_account_set_string(emae->account, E_ACCOUNT_SENT_FOLDER_URI, uri);
 }
 
 /* custom widget factories */
@@ -909,88 +488,6 @@ em_account_editor_ssl_selector_new(char *widget_name, char *string1, char *strin
 	return (GtkWidget *)dropdown;
 }
 
-static gboolean
-setup_service (EMAccountEditor *emae, EMAccountEditorService *gsvc, EAccountService *service)
-{
-#if 0
-	EMAccountEditorPrivate *gui = emae->priv;
-	CamelURL *url = camel_url_new (service->url, NULL);
-	gboolean has_auth = FALSE;
-	
-	if (url == NULL || gsvc->provider == NULL)
-		return FALSE;
-	
-	if (url->user && CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_USER))
-		gtk_entry_set_text (gsvc->username, url->user);
-	
-	if (url->host && CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_HOST)) {
-		char *hostname;
-		
-		if (url->port)
-			hostname = g_strdup_printf ("%s:%d", url->host, url->port);
-		else
-			hostname = g_strdup (url->host);
-		
-		gtk_entry_set_text (gsvc->hostname, hostname);
-		g_free (hostname);
-	}
-	
-	if (url->path && CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_PATH))
-		gtk_entry_set_text (gsvc->path, url->path);
-	
-	if (gsvc->provider->flags & CAMEL_PROVIDER_SUPPORTS_SSL) {
-		GList *children, *item;
-		const char *use_ssl;
-		int i;
-		
-		use_ssl = camel_url_get_param (url, "use_ssl");
-		if (!use_ssl)
-			use_ssl = "never";
-		else if (!*use_ssl)  /* old config code just used an empty string as the value */
-			use_ssl = "always";
-		
-		children = gtk_container_get_children(GTK_CONTAINER (gtk_option_menu_get_menu (gsvc->use_ssl)));
-		for (item = children, i = 0; item; item = item->next, i++) {
-			if (!strcmp (use_ssl, ssl_options[i].value)) {
-				gtk_option_menu_set_history (gsvc->use_ssl, i);
-				g_signal_emit_by_name (item->data, "activate", gsvc);
-				break;
-			}
-		}
-	}
-	
-	if (url->authmech && CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_AUTH)) {
-		GList *children, *item;
-		CamelServiceAuthType *authtype;
-		int i;
-		
-		children = gtk_container_get_children(GTK_CONTAINER (gtk_option_menu_get_menu (gsvc->authtype)));
-		for (item = children, i = 0; item; item = item->next, i++) {
-			authtype = g_object_get_data ((GObject *) item->data, "authtype");
-			if (!authtype)
-				continue;
-			if (!strcmp (authtype->authproto, url->authmech)) {
-				gtk_option_menu_set_history (gsvc->authtype, i);
-				g_signal_emit_by_name (item->data, "activate");
-				break;
-			}
-		}
-		g_list_free (children);
-		
-		has_auth = TRUE;
-	}
-	camel_url_free (url);
-	
-	gtk_toggle_button_set_active (gsvc->remember, service->save_passwd);
-
-	gtk_widget_set_sensitive((GtkWidget *)gsvc->authtype, e_account_writable_option(emae->account, gsvc->provider->protocol, "auth"));
-	gtk_widget_set_sensitive((GtkWidget *)gsvc->use_ssl, e_account_writable_option(emae->account, gsvc->provider->protocol, "use_ssl"));
-	
-	return has_auth;
-#endif
-	return TRUE;
-}
-
 /* The camel provider auto-detect interface should be deprecated.
    But it still needs to be replaced with something of similar functionality.
    Just using the normal econfig plugin mechanism should be adequate. */
@@ -1011,13 +508,17 @@ emae_auto_detect(EMAccountEditor *emae)
 	CamelProviderConfEntry *entries;
 	char *value;
 	int i;
+	CamelURL *url;
 
-	if (service->provider == NULL || (entries = service->provider->extra_conf) == NULL)
+	if (service->provider == NULL
+	    || (entries = service->provider->extra_conf) == NULL)
 		return;
 
 	printf("Running auto-detect\n");
-	
-	camel_provider_auto_detect(service->provider, service->url, &auto_detected, NULL);
+
+	url = emae_account_url(emae, E_ACCOUNT_SOURCE_URL);
+	camel_provider_auto_detect(service->provider, url, &auto_detected, NULL);
+	camel_url_free(url);
 	if (auto_detected == NULL) {
 		printf(" no values detected\n");
 		return;
@@ -1283,6 +784,7 @@ emae_account_spinint_widget(EMAccountEditor *emae, GtkSpinButton *spin, int item
 	gtk_widget_set_sensitive((GtkWidget *)spin, e_account_writable(emae->account, item));
 }
 
+#if 0
 static GtkSpinButton *
 emae_account_spinint(EMAccountEditor *emae, const char *name, int item)
 {
@@ -1293,6 +795,7 @@ emae_account_spinint(EMAccountEditor *emae, const char *name, int item)
 
 	return spin;
 }
+#endif
 
 static void
 emae_account_folder_changed(EMFolderSelectionButton *folder, EMAccountEditor *emae)
@@ -1426,6 +929,25 @@ smime_encrypt_key_clear(GtkWidget *w, EMAccountEditor *emae)
 }
 #endif
 
+static void
+emae_url_set_hostport(CamelURL *url, const char *txt)
+{
+	const char *port;
+	char *host;
+
+	if (txt && (port = strchr(txt, ':'))) {
+		camel_url_set_port(url, atoi(port+1));
+		host = g_alloca(port-txt+1);
+		memcpy(host, txt, port-txt);
+		host[port-txt] = 0;
+	} else {
+		host = (char *)txt;
+	}
+	camel_url_set_host(url, host);
+}
+
+/* This is used to map a funciton which will set on the url a string value.
+   We need our own function for host:port decoding, as above */
 struct _provider_host_info {
 	guint32 flag;
 	void (*setval)(CamelURL *, const char *);
@@ -1433,7 +955,7 @@ struct _provider_host_info {
 };
 
 static struct _provider_host_info emae_source_host_info[] = {
-	{ CAMEL_URL_PART_HOST, camel_url_set_host, { "source_host", "source_host_label" } },
+	{ CAMEL_URL_PART_HOST, emae_url_set_hostport, { "source_host", "source_host_label" } },
 	{ CAMEL_URL_PART_USER, camel_url_set_user, { "source_user", "source_user_label", } },
 	{ CAMEL_URL_PART_PATH, camel_url_set_path, { "source_path", "source_path_label", "source_path_entry" } },
 	{ CAMEL_URL_PART_AUTH, NULL, { NULL, "source_auth_frame" } },
@@ -1441,12 +963,15 @@ static struct _provider_host_info emae_source_host_info[] = {
 };
 
 static struct _provider_host_info emae_transport_host_info[] = {
-	{ CAMEL_URL_PART_HOST, camel_url_set_host, { "transport_host", "transport_host_label" } },
+	{ CAMEL_URL_PART_HOST, emae_url_set_hostport, { "transport_host", "transport_host_label" } },
 	{ CAMEL_URL_PART_USER, camel_url_set_user, { "transport_user", "transport_user_label", } },
 	{ CAMEL_URL_PART_AUTH, NULL, { NULL, "transport_auth_frame" } },
 	{ 0 },
 };
 
+/* This is used to map each of the two services in a typical account to the widgets that represent each service.
+   i.e. the receiving (source) service, and the sending (transport) service.
+   It is used throughout the following code to drive each page */
 static struct _service_info {
 	int account_uri_key;
 	int save_passwd_key;
@@ -1496,11 +1021,12 @@ static struct _service_info {
 };
 
 static void
-emae_uri_changed(EMAccountEditorService *service)
+emae_uri_changed(EMAccountEditorService *service, CamelURL *url)
 {
 	char *uri;
 
-	uri = camel_url_to_string(service->url, 0);
+	uri = camel_url_to_string(url, 0);
+	printf("uri changed: '%s'\n", uri);
 	e_account_set_string(service->emae->account, emae_service_info[service->type].account_uri_key, uri);
 	g_free(uri);
 }
@@ -1508,28 +1034,17 @@ emae_uri_changed(EMAccountEditorService *service)
 static void
 emae_service_url_changed(EMAccountEditorService *service, void (*setval)(CamelURL *, const char *), GtkEntry *entry)
 {
-	setval(service->url, gtk_entry_get_text(entry));
-	emae_uri_changed(service);
+	CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
+
+	setval(url, gtk_entry_get_text(entry));
+	emae_uri_changed(service, url);
+	camel_url_free(url);
 }
 
 static void
 emae_hostname_changed(GtkEntry *entry, EMAccountEditorService *service)
 {
-	const char *tmp, *port;
-	char *host;
-
-	tmp = gtk_entry_get_text(entry);
-	if (tmp && (port = strchr(tmp, ':'))) {
-		camel_url_set_port(service->url, atoi(port+1));
-		host = g_alloca(port-tmp+1);
-		memcpy(host, tmp, port-tmp);
-		host[port-tmp] = 0;
-	} else {
-		host = (char *)tmp;
-	}
-
-	camel_url_set_host(service->url, host);
-	emae_uri_changed(service);
+	emae_service_url_changed(service, emae_url_set_hostport, entry);
 }
 
 static void
@@ -1555,8 +1070,8 @@ emae_needs_auth(GtkToggleButton *toggle, EMAccountEditorService *service)
 	/* if need ; service_changed? */
 }
 
-static void
-emae_ssl_update(EMAccountEditorService *service)
+static int
+emae_ssl_update(EMAccountEditorService *service, CamelURL *url)
 {
 	int id = gtk_combo_box_get_active(service->use_ssl);
 	GtkTreeModel *model;
@@ -1564,40 +1079,49 @@ emae_ssl_update(EMAccountEditorService *service)
 	char *ssl;
 
 	if (id == -1)
-		return;
+		return 0;
 
 	model = gtk_combo_box_get_model(service->use_ssl);
-	if (!gtk_tree_model_iter_nth_child(model, &iter, NULL, id))
-		return;
+	if (gtk_tree_model_iter_nth_child(model, &iter, NULL, id)) {
+		gtk_tree_model_get(model, &iter, 1, &ssl, -1);
+		if (!strcmp(ssl, "none"))
+			ssl = NULL;
+		camel_url_set_param(url, "use_ssl", ssl);
+		return 1;
+	}
 
-	gtk_tree_model_get(model, &iter, 1, &ssl, -1);
-	if (!strcmp(ssl, "none"))
-		ssl = NULL;
-	camel_url_set_param(service->url, "use_ssl", ssl);
+	return 0;
 }
 
 static void
 emae_ssl_changed(GtkComboBox *dropdown, EMAccountEditorService *service)
 {
-	emae_ssl_update(service);
-	emae_uri_changed(service);
+	CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
+
+	if (emae_ssl_update(service, url))
+		emae_uri_changed(service, url);
+	camel_url_free(url);
 }
 
 static void
 emae_service_provider_changed(EMAccountEditorService *service)
 {
-	char *uri;
 	int i, j;
 	void (*show)(GtkWidget *);
+	CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
 
 	if (service->provider) {
 		int enable;
 		GtkWidget *dwidget = NULL;
 
-		camel_url_set_protocol(service->url, service->provider->protocol);
+		camel_url_set_protocol(url, service->provider->protocol);
+		gtk_label_set_text(service->description, service->provider->description);
+		if (!emae_check_license(service->emae, service->provider))
+			gtk_widget_hide(service->frame);
+		else
+			gtk_widget_show(service->frame);
 
 		enable = e_account_writable_option(service->emae->account, service->provider->protocol, "auth");
-			
 		gtk_widget_set_sensitive((GtkWidget *)service->authtype, enable);
 		gtk_widget_set_sensitive((GtkWidget *)service->check_supported, enable);
 
@@ -1606,10 +1130,6 @@ emae_service_provider_changed(EMAccountEditorService *service)
 			
 		enable = e_account_writable(service->emae->account, emae_service_info[service->type].save_passwd_key);
 		gtk_widget_set_sensitive((GtkWidget *)service->remember, enable);
-
-		/* FIXME: handle license */
-		gtk_label_set_text(service->description, service->provider->description);
-		gtk_widget_show(service->frame);
 
 		for (i=0;emae_service_info[service->type].host_info[i].flag;i++) {
 			const char *name;
@@ -1629,7 +1149,7 @@ emae_service_provider_changed(EMAccountEditorService *service)
 							dwidget = w;
 
 						if (info->setval)
-							info->setval(service->url, enable?gtk_entry_get_text((GtkEntry *)w):NULL);
+							info->setval(url, enable?gtk_entry_get_text((GtkEntry *)w):NULL);
 					}
 				}
 			}
@@ -1639,7 +1159,7 @@ emae_service_provider_changed(EMAccountEditorService *service)
 			gtk_widget_grab_focus(dwidget);
 
 		if (CAMEL_PROVIDER_ALLOWS(service->provider, CAMEL_URL_PART_AUTH)) {
-			camel_url_set_authmech(service->url, NULL);
+			camel_url_set_authmech(url, NULL);
 			emae_setup_authtype(service->emae, service);
 			if (service->needs_auth && !CAMEL_PROVIDER_NEEDS(service->provider, CAMEL_URL_PART_AUTH))
 				gtk_widget_show((GtkWidget *)service->needs_auth);
@@ -1650,10 +1170,10 @@ emae_service_provider_changed(EMAccountEditorService *service)
 #ifdef HAVE_SSL
 		gtk_widget_hide(service->no_ssl);
 		if (service->provider->flags & CAMEL_PROVIDER_SUPPORTS_SSL) {
-			emae_ssl_update(service);
+			emae_ssl_update(service, url);
 			show = gtk_widget_show;
 		} else {
-			camel_url_set_param(service->url, "use_ssl", NULL);
+			camel_url_set_param(url, "use_ssl", NULL);
 			show = gtk_widget_hide;
 		}
 		show(service->ssl_frame);
@@ -1661,24 +1181,21 @@ emae_service_provider_changed(EMAccountEditorService *service)
 #else
 		gtk_widget_hide(service->ssl_hbox);
 		gtk_widget_show(service->no_ssl);
-		camel_url_set_param(service->url, "use_ssl", NULL);
+		camel_url_set_param(url, "use_ssl", NULL);
 #endif
-		uri = camel_url_to_string(service->url, 0);
 	} else {
-		camel_url_set_protocol(service->url, NULL);
+		camel_url_set_protocol(url, NULL);
 		gtk_label_set_text(service->description, "");
 		gtk_widget_hide(service->frame);
 		gtk_widget_hide(service->auth_frame);
 		gtk_widget_hide(service->ssl_frame);
-		uri = NULL;
 	}
 
 	/* FIXME: linked services? */
 	/* FIXME: permissions setup */
 
-	printf("providertype changed, newuri = '%s'\n", uri);
-	e_account_set_string(service->emae->account, emae_service_info[service->type].account_uri_key, uri);
-	g_free(uri);
+	emae_uri_changed(service, url);
+	camel_url_free(url);
 }
 
 static void
@@ -1748,7 +1265,7 @@ emae_setup_providers(EMAccountEditor *emae, EMAccountEditorService *service)
 
 	for (l=gui->providers; l; l=l->next) {
 		CamelProvider *provider = l->data;
-		
+
 		if (!((strcmp(provider->domain, "mail") == 0
 		       || strcmp (provider->domain, "news") == 0)
 		      && provider->object_types[service->type]
@@ -1764,8 +1281,20 @@ emae_setup_providers(EMAccountEditor *emae, EMAccountEditorService *service)
 		    && CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (provider))
 			gtk_widget_set_sensitive (item, FALSE);
 #endif
-		if (current && strcmp(provider->protocol, current) == 0)
+		/* find the displayed and set default */
+		if (i == 0 || (current && strcmp(provider->protocol, current) == 0)) {
+			service->provider = provider;
 			active = i;
+
+			/* we need to set this value on the uri too */
+			if (current == NULL) {
+				CamelURL *url = emae_account_url(emae, info->account_uri_key);
+
+				camel_url_set_protocol(url, provider->protocol);
+				emae_uri_changed(service, url);
+				camel_url_free(url);
+			}
+		}
 		i++;
 	}
 
@@ -1786,28 +1315,24 @@ emae_authtype_changed(GtkComboBox *dropdown, EMAccountEditorService *service)
 	int id = gtk_combo_box_get_active(dropdown);
 	GtkTreeModel *model;
 	GtkTreeIter iter;
-	char *uri;
 	CamelServiceAuthType *authtype;
+	CamelURL *url;
 
 	if (id == -1)
 		return;
 
+	url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
 	model = gtk_combo_box_get_model(dropdown);
-	if (!gtk_tree_model_iter_nth_child(model, &iter, NULL, id))
-		return;
+	if (gtk_tree_model_iter_nth_child(model, &iter, NULL, id)) {
+		gtk_tree_model_get(model, &iter, 1, &authtype, -1);
+		if (authtype)
+			camel_url_set_authmech(url, authtype->authproto);
+		else
+			camel_url_set_authmech(url, NULL);
+		emae_uri_changed(service, url);
+	}
+	camel_url_free(url);
 
-	gtk_tree_model_get(model, &iter, 1, &authtype, -1);
-	if (authtype)
-		camel_url_set_authmech(service->url, authtype->authproto);
-	else
-		camel_url_set_authmech(service->url, NULL);
-
-	uri = camel_url_to_string(service->url, 0);
-	printf("authtype changed, newuri = '%s'\n", uri);
-	e_account_set_string(service->emae->account, emae_service_info[service->type].account_uri_key, uri);
-	g_free(uri);
-
-	/* invoke service_changed thing? */
 	gtk_widget_set_sensitive((GtkWidget *)service->remember, authtype?authtype->need_password:FALSE);
 }
 
@@ -1902,16 +1427,12 @@ emae_setup_service(EMAccountEditor *emae, EMAccountEditorService *service)
 {
 	EMAccountEditorPrivate *gui = emae->priv;
 	struct _service_info *info = &emae_service_info[service->type];
+	CamelURL *url = emae_account_url(emae, info->account_uri_key);
 	const char *uri = e_account_get_string(emae->account, info->account_uri_key);
+	const char *tmp;
+	int i;
 
-	if (uri) {
-		service->provider = camel_provider_get(uri, NULL);
-		service->url = camel_url_new(uri, NULL);
-	} else {
-		service->provider = NULL;
-		service->url = camel_url_new("dummy:", NULL);
-		camel_url_set_protocol(service->url, NULL);
-	}
+	service->provider = uri?camel_provider_get(uri, NULL):NULL;
 
 	service->frame = glade_xml_get_widget(gui->xml, info->frame);
 	service->container = glade_xml_get_widget(gui->xml, info->container);
@@ -1927,35 +1448,32 @@ emae_setup_service(EMAccountEditor *emae, EMAccountEditorService *service)
 	service->use_ssl = (GtkComboBox *)glade_xml_get_widget (gui->xml, info->use_ssl);
 	service->no_ssl = glade_xml_get_widget (gui->xml, info->ssl_disabled);
 
-	if (service->url) {
-		const char *tmp;
-		int i;
+	/* configure ui for current settings */
+	if (url->host) {
+		if (url->port) {
+			char *host = g_strdup_printf("%s:%d", url->host, url->port);
 
-		if (service->url->host) {
-			if (service->url->port) {
-				char *host = g_strdup_printf("%s:%d", service->url->host, service->url->port);
+			gtk_entry_set_text(service->hostname, host);
+			g_free(host);
+		} else
+			gtk_entry_set_text(service->hostname, url->host);
+	}
+	if (url->user)
+		gtk_entry_set_text(service->username, url->user);
+	if (service->path && url->path)
+		gtk_entry_set_text(service->path, url->path);
 
-				gtk_entry_set_text(service->hostname, host);
-				g_free(host);
-			} else
-				gtk_entry_set_text(service->hostname, service->url->host);
-		}
-		if (service->url->user)
-			gtk_entry_set_text(service->username, service->url->user);
-		if (service->path && service->url->path)
-			gtk_entry_set_text(service->path, service->url->path);
+	tmp = camel_url_get_param(url, "use_ssl");
+	if (tmp == NULL)
+		tmp = "never";
 
-		tmp = camel_url_get_param(service->url, "use_ssl");
-		if (tmp == NULL)
-			tmp = "never";
-
-		for (i=0;i<num_ssl_options;i++) {
-			if (!strcmp(ssl_options[i].value, tmp)) {
-				gtk_combo_box_set_active(service->use_ssl, i);
-				break;
-			}
+	for (i=0;i<num_ssl_options;i++) {
+		if (!strcmp(ssl_options[i].value, tmp)) {
+			gtk_combo_box_set_active(service->use_ssl, i);
+			break;
 		}
 	}
+	camel_url_free(url);
 
 	g_signal_connect (service->hostname, "changed", G_CALLBACK (emae_hostname_changed), service);
 	g_signal_connect (service->username, "changed", G_CALLBACK (emae_username_changed), service);
@@ -1970,6 +1488,7 @@ emae_setup_service(EMAccountEditor *emae, EMAccountEditorService *service)
 	if (info->needs_auth) {
 		service->needs_auth = (GtkToggleButton *)glade_xml_get_widget (gui->xml, info->needs_auth);
 		g_signal_connect(service->needs_auth, "toggled", G_CALLBACK(emae_needs_auth), service);
+		emae_needs_auth(service->needs_auth, service);
 	}
 
 	emae_setup_providers(emae, service);
@@ -2047,9 +1566,6 @@ emae_receive_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, str
 	if (old)
 		return old;
 
-	/* FIXME: how to setup the initial account details so this doesn't just crash a lot */
-
-	/* Source */
 	gui->source.type = CAMEL_PROVIDER_STORE;
 	emae_setup_service(emae, &gui->source);
 
@@ -2067,46 +1583,30 @@ emae_receive_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, str
 }
 
 static void
-emae_remove_childen(EMAccountEditor *emae, const char *container, const char *keep)
-{
-	GtkWidget *k;
-	GList *l;
-
-	k = keep?glade_xml_get_widget(emae->priv->xml, keep):NULL;
-	l = gtk_container_get_children((GtkContainer *)glade_xml_get_widget(emae->priv->xml, container));
-	while (l) {
-		GList *n = g_list_next(l);
-
-		if (l->data != (void *)k)
-			gtk_widget_destroy((GtkWidget *)l->data);
-
-		g_list_free_1(l);
-		l = n;
-	}
-}
-
-static void
 emae_option_toggle_changed(GtkToggleButton *toggle, EMAccountEditorService *service)
 {
 	const char *name = g_object_get_data((GObject *)toggle, "option-name");
 	GSList *depl = g_object_get_data((GObject *)toggle, "dependent-list");
 	int active = gtk_toggle_button_get_active(toggle);
+	CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
 
 	for (;depl;depl = g_slist_next(depl))
 		gtk_widget_set_sensitive((GtkWidget *)depl->data, active);
 
-	camel_url_set_param(service->url, name, active?"":NULL);
-	emae_uri_changed(service);
+	camel_url_set_param(url, name, active?"":NULL);
+	emae_uri_changed(service, url);
+	camel_url_free(url);
 }
 
 static GtkWidget *
-emae_option_toggle(EMAccountEditorService *service, const char *text, const char *name, int def)
+emae_option_toggle(EMAccountEditorService *service, CamelURL *url, const char *text, const char *name, int def)
 {
 	GtkWidget *w;
 
+	/* FIXME: how do we get the default value ever? */
 	w = g_object_new(gtk_check_button_get_type(),
 			 "label", text,
-			 "active", service->url?camel_url_get_param(service->url, name) != NULL:def,
+			 "active", camel_url_get_param(url, name) != NULL,
 			 NULL);
 	g_object_set_data((GObject *)w, "option-name", (void *)name);
 	g_signal_connect(w, "toggled", G_CALLBACK(emae_option_toggle_changed), service);
@@ -2122,22 +1622,24 @@ emae_option_entry_changed(GtkEntry *entry, EMAccountEditorService *service)
 {
 	const char *name = g_object_get_data((GObject *)entry, "option-name");
 	const char *text = gtk_entry_get_text(entry);
+	CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
 
-	camel_url_set_param(service->url, name, text && text[0]?text:NULL);
-	emae_uri_changed(service);
+	camel_url_set_param(url, name, text && text[0]?text:NULL);
+	emae_uri_changed(service, url);
+	camel_url_free(url);
 }
 
 static GtkWidget *
-emae_option_entry(EMAccountEditorService *service, const char *name, const char *def)
+emae_option_entry(EMAccountEditorService *service, CamelURL *url, const char *name, const char *def)
 {
 	GtkWidget *w;
+	const char *val = camel_url_get_param(url, name);
 
-	if (service->url
-	    && (def = camel_url_get_param(service->url, name)) == NULL)
-		def = "";
+	if (val == NULL)
+		val = def;
 
 	w = g_object_new(gtk_entry_get_type(),
-			 "text", def,
+			 "text", val,
 			 NULL);
 	g_object_set_data((GObject *)w, "option-name", (void *)name);
 	g_signal_connect(w, "changed", G_CALLBACK(emae_option_entry_changed), service);
@@ -2151,10 +1653,12 @@ emae_option_checkspin_changed(GtkSpinButton *spin, EMAccountEditorService *servi
 {
 	const char *name = g_object_get_data((GObject *)spin, "option-name");
 	char value[16];
+	CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
 
 	sprintf(value, "%d", gtk_spin_button_get_value_as_int(spin));
-	camel_url_set_param(service->url, name, value);
-	emae_uri_changed(service);
+	camel_url_set_param(url, name, value);
+	emae_uri_changed(service, url);
+	camel_url_free(url);
 }
 
 static void
@@ -2167,15 +1671,18 @@ emae_option_checkspin_check_changed(GtkToggleButton *toggle, EMAccountEditorServ
 		gtk_widget_set_sensitive((GtkWidget *)spin, TRUE);
 		emae_option_checkspin_changed(spin, service);
 	} else {
-		camel_url_set_param(service->url, name, NULL);
+		CamelURL *url = emae_account_url(service->emae, emae_service_info[service->type].account_uri_key);
+
+		camel_url_set_param(url, name, NULL);
 		gtk_widget_set_sensitive((GtkWidget *)spin, FALSE);
-		emae_uri_changed(service);
+		emae_uri_changed(service, url);
+		camel_url_free(url);
 	}
 }
 
 /* this is a fugly api */
 static GtkWidget *
-emae_option_checkspin(EMAccountEditorService *service, const char *name, const char *fmt, const char *info)
+emae_option_checkspin(EMAccountEditorService *service, CamelURL *url, const char *name, const char *fmt, const char *info)
 {
 	GtkWidget *hbox, *check, *spin, *label;
 	double min, def, max;
@@ -2198,8 +1705,7 @@ emae_option_checkspin(EMAccountEditorService *service, const char *name, const c
 		max = 1.0;
 	}
 
-	if (service->url
-	    && (enable = (val = camel_url_get_param(service->url, name)) != NULL) )
+	if ((enable = (val = camel_url_get_param(url, name)) != NULL) )
 		def = strtod(val, NULL);
 	else
 		enable = (on == 'y');
@@ -2274,6 +1780,7 @@ emae_receive_options_extra_item(EConfig *ec, EConfigItem *eitem, struct _GtkWidg
 	EMAccountEditorService *service = &emae->priv->source;
 	int row, i;
 	GHashTable *extra;
+	CamelURL *url;
 
 	/* Clean up any widgets we had setup before */
 	if (item->widgets) {
@@ -2298,8 +1805,8 @@ emae_receive_options_extra_item(EConfig *ec, EConfigItem *eitem, struct _GtkWidg
 section:
 	printf("Building extra section '%s'\n", eitem->path);
 
+	url = emae_account_url(emae, emae_service_info[service->type].account_uri_key);
 	item->extra_table = g_hash_table_new(g_str_hash, g_str_equal);
-
 	extra = g_hash_table_new(g_str_hash, g_str_equal);
 	row = ((GtkTable *)parent)->nrows;
 
@@ -2331,7 +1838,7 @@ section:
 			}
 			break;
 		case CAMEL_PROVIDER_CONF_CHECKBOX:
-			w = emae_option_toggle(service, entries[i].text, entries[i].name, atoi(entries[i].value));
+			w = emae_option_toggle(service, url, entries[i].text, entries[i].name, atoi(entries[i].value));
 			gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			g_hash_table_insert(extra, entries[i].name, w);
 			if (depw)
@@ -2342,7 +1849,7 @@ section:
 		case CAMEL_PROVIDER_CONF_ENTRY:
 			l = g_object_new(gtk_label_get_type(), "label", entries[i].text, "xalign", 0.0, NULL);
 			gtk_widget_show(l);
-			w = emae_option_entry(service, entries[i].name, entries[i].value);
+			w = emae_option_entry(service, url, entries[i].name, entries[i].value);
 			gtk_table_attach((GtkTable *)parent, l, 0, 1, row, row+1, GTK_FILL, 0, 0, 0);
 			gtk_table_attach((GtkTable *)parent, w, 1, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			if (depw) {
@@ -2356,7 +1863,7 @@ section:
 			g_hash_table_insert(item->extra_table, entries[i].name, w);
 			break;
 		case CAMEL_PROVIDER_CONF_CHECKSPIN:
-			w = emae_option_checkspin(service, entries[i].name, entries[i].text, entries[i].value);
+			w = emae_option_checkspin(service, url, entries[i].name, entries[i].text, entries[i].value);
 			gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			if (depw)
 				depl = g_slist_prepend(depl, w);
@@ -2375,6 +1882,8 @@ section:
 				gtk_widget_set_sensitive((GtkWidget *)n->data, act);
 		}
 	}
+
+	camel_url_free(url);
 
 	/* Since EConfig destroys the factory widget when it changes, we
 	 * need to destroy our own ones as well, and add a dummy item
@@ -2721,15 +2230,56 @@ emae_check_complete(EConfig *ec, const char *pageid, void *data)
 			printf("management page incomplete\n");
 	}
 
-	/* small hack: we use the page check in the druid to
-	   do camel-provider settings auto-detection */
-	if (pageid != NULL
-	    && ((EConfig *)emae->priv->config)->type == E_CONFIG_DRUID
-	    && !strcmp(pageid, "20.receive_options")
-	    && emae->priv->source.provider
-	    && emae->priv->extra_provider != emae->priv->source.provider) {
-		emae->priv->extra_provider = emae->priv->source.provider;
-		emae_auto_detect(emae);
+	/* We use the page-check of various pages to 'prepare' or
+	   pre-load their values, only in the druid */
+	if (pageid
+	    && ((EConfig *)emae->priv->config)->type == E_CONFIG_DRUID) {
+		if (!strcmp(pageid, "00.identity")) {
+			if (!emae->priv->identity_set) {
+				char *uname;
+
+				emae->priv->identity_set = 1;
+				uname = g_locale_to_utf8(g_get_real_name(), -1, NULL, NULL, NULL);
+				if (uname) {
+					gtk_entry_set_text((GtkEntry *)glade_xml_get_widget(emae->priv->xml, "management_name"), uname);
+					g_free(uname);
+				}
+			}
+		} else if (!strcmp(pageid, "10.receive")) {
+			if (!emae->priv->receive_set) {
+				char *user, *at;
+
+				emae->priv->receive_set = 1;
+				tmp = e_account_get_string(emae->account, E_ACCOUNT_ID_ADDRESS);
+				at = strchr(tmp, '@');
+				user = g_alloca(at-tmp+1);
+				memcpy(user, tmp, at-tmp);
+				user[at-tmp] = 0;
+				gtk_entry_set_text(emae->priv->source.username, user);
+				gtk_entry_set_text(emae->priv->transport.username, user);
+			}
+		} else if (!strcmp(pageid, "20.receive_options")) {
+			if (emae->priv->source.provider
+			    && emae->priv->extra_provider != emae->priv->source.provider) {
+				emae->priv->extra_provider = emae->priv->source.provider;
+				emae_auto_detect(emae);
+			}
+		} else if (!strcmp(pageid, "40.management")) {
+			if (!emae->priv->management_set) {
+				char *template;
+				unsigned int i = 0, len;
+
+				emae->priv->management_set = 1;
+				tmp = e_account_get_string(emae->account, E_ACCOUNT_ID_ADDRESS);
+				len = strlen(tmp);
+				template = alloca(len + 14);
+				strcpy(template, tmp);
+				while (mail_config_get_account_by_name(template))
+					sprintf(template + len, " (%d)", i++);
+
+				gtk_entry_set_text((GtkEntry *)glade_xml_get_widget(emae->priv->xml, "management_name"), template);
+			}
+		}
 	}
 
 	return ok;
@@ -2772,7 +2322,7 @@ emae_commit(EConfig *ec, GSList *items, void *data)
 		if (account->enabled
 		    && emae->priv->source.provider
 		    && (emae->priv->source.provider->flags & CAMEL_PROVIDER_IS_STORAGE))
-			mail_get_store(account->source->url, NULL, add_new_store, account);
+			mail_get_store(e_account_get_string(emae->account, E_ACCOUNT_SOURCE_URL), NULL, add_new_store, account);
 	}
 
 	if (gtk_toggle_button_get_active(emae->priv->default_account))
@@ -2805,7 +2355,13 @@ em_account_editor_construct(EMAccountEditor *emae, EAccount *account, em_account
 
 		emae->do_signature = TRUE;
 	} else {
+		/* TODO: have a get_default_account thing?? */
 		emae->account = e_account_new();
+		emae->account->enabled = TRUE;
+		e_account_set_string(emae->account, E_ACCOUNT_DRAFTS_FOLDER_URI,
+				     mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_DRAFTS));
+		e_account_set_string(emae->account, E_ACCOUNT_SENT_FOLDER_URI,
+				     mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_SENT));
 	}
 
 	gui->xml = glade_xml_new(EVOLUTION_GLADEDIR "/mail-config.glade", "account_editor_notebook", NULL);
@@ -2880,217 +2436,4 @@ em_account_editor_construct(EMAccountEditor *emae, EAccount *account, em_account
 	emae->editor = e_config_create_window((EConfig *)ec, NULL, type==EMAE_NOTEBOOK?_("Account Editor"):_("Evolution Account Assistant"));
 
 	/* FIXME: need to hook onto destroy as required */
-}
-
-#if 0
-static void
-save_service (EMAccountEditorService *gsvc, GHashTable *extra_config, EAccountService *service)
-{
-	CamelURL *url;
-	const char *str;
-	
-	if (!gsvc->provider) {
-		g_free (service->url);
-		service->url = NULL;
-		return;
-	}
-	
-	url = g_new0 (CamelURL, 1);
-	url->protocol = g_strdup (gsvc->provider->protocol);
-	
-	if (CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_USER)) {
-		str = gtk_entry_get_text (gsvc->username);
-		if (str && *str)
-			url->user = g_strstrip (g_strdup (str));
-	}
-	
-	if (CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_AUTH) &&
-	    GTK_WIDGET_IS_SENSITIVE (gsvc->authtype) && gsvc->authitem && url->user) {
-		CamelServiceAuthType *authtype;
-		
-		authtype = g_object_get_data(G_OBJECT(gsvc->authitem), "authtype");
-		if (authtype && authtype->authproto && *authtype->authproto)
-			url->authmech = g_strdup (authtype->authproto);
-		
-		service->save_passwd = gtk_toggle_button_get_active (gsvc->remember);
-	}
-	
-	if (CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_HOST)) {
-		char *pport;
-		
-		str = gtk_entry_get_text (gsvc->hostname);
-		if (str && *str) {
-			pport = strchr (str, ':');
-			if (pport) {
-				url->host = g_strndup (str, pport - str);
-				url->port = atoi (pport + 1);
-			} else
-				url->host = g_strdup (str);
-		}
-	}
-	
-	if (CAMEL_PROVIDER_ALLOWS (gsvc->provider, CAMEL_URL_PART_PATH)) {
-		str = gtk_entry_get_text (gsvc->path);
-		if (str && *str)
-			url->path = g_strdup (str);
-	}
-	
-	if (gsvc->provider->flags & CAMEL_PROVIDER_SUPPORTS_SSL) {
-		const char *use_ssl;
-		
-		use_ssl = g_object_get_data(G_OBJECT(gsvc->ssl_selected), "use_ssl");
-		
-		/* set the value to either "always" or "when-possible"
-		   but don't bother setting it for "never" */
-		if (strcmp (use_ssl, "never"))
-			camel_url_set_param (url, "use_ssl", use_ssl);
-	}
-	
-	if (extra_config)
-		extract_values (gsvc, extra_config, url);
-	
-	g_free (service->url);
-	service->url = camel_url_to_string (url, 0);
-	
-	/* Temporary until keep_on_server moves into the POP provider */
-	if (camel_url_get_param (url, "keep_on_server"))
-		service->keep_on_server = TRUE;
-	
-	camel_url_free (url);
-}
-#endif
-
-gboolean
-em_account_editor_save (EMAccountEditor *emae)
-{
-#if 0
-	EMAccountEditorPrivate *gui = emae->priv;
-	EAccount *account, *new;
-	CamelProvider *provider = NULL;
-	gboolean is_new = FALSE;
-	const char *new_name;
-	gboolean is_storage;
-	
-	if (!em_account_editor_identity_complete (gui, NULL) ||
-	    !em_account_editor_source_complete (gui, NULL) ||
-	    !em_account_editor_transport_complete (gui, NULL) ||
-	    !em_account_editor_management_complete (gui, NULL))
-		return FALSE;
-	
-	new = emae->account;
-	
-	/* this would happen at an inconvenient time in the druid,
-	 * but the druid performs its own check so this can't happen
-	 * here. */
-	
-	new_name = gtk_entry_get_text (emae->account_name);
-	account = mail_config_get_account_by_name (new_name);
-	
-	if (account && account != new) {
-		e_error_run((GtkWindow *)gtk_widget_get_toplevel((GtkWidget *)emae->account_name),
-			    "mail:account-notunique", NULL);
-		return FALSE;
-	}
-	
-	account = new;
-	
-	new = e_account_new ();
-	new->name = g_strdup (new_name);
-	new->enabled = account->enabled;
-	
-	/* construct the identity */
-	new->id->name = g_strdup (gtk_entry_get_text (gui->full_name));
-	new->id->address = g_strdup (gtk_entry_get_text (gui->email_address));
-	new->id->reply_to = g_strdup (gtk_entry_get_text (gui->reply_to));
-	new->id->organization = g_strdup (gtk_entry_get_text (gui->organization));
-	
-	/* signatures */
-	new->id->sig_uid = g_strdup (gui->sig_uid);
-	
-	/* source */
-	save_service (&gui->source, gui->extra_config, new->source);
-	if (new->source->url)
-		provider = camel_provider_get(new->source->url, NULL);
-	
-	new->source->auto_check = gtk_toggle_button_get_active (gui->source_auto_check);
-	if (new->source->auto_check)
-		new->source->auto_check_time = gtk_spin_button_get_value_as_int (gui->source_auto_check_min);
-	
-	/* transport */
-	if (CAMEL_PROVIDER_IS_STORE_AND_TRANSPORT (gui->transport.provider)) {
-		/* The transport URI is the same as the source URI. */
-		save_service (&gui->source, gui->extra_config, new->transport);
-	} else
-		save_service (&gui->transport, NULL, new->transport);
-	
-	/* Check to make sure that the Drafts folder uri is "valid" before assigning it */
-	if (mail_config_get_account_by_source_url (gui->drafts_folder_uri) ||
-		!strncmp (gui->drafts_folder_uri, "mbox:", 5)) {
-		new->drafts_folder_uri = em_uri_from_camel (gui->drafts_folder_uri);
-	} else {
-		/* assign defaults - the uri is unknown to us (probably pointed to an old source url) */
-		new->drafts_folder_uri = em_uri_from_camel(mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_DRAFTS));
-	}
-	
-	/* Check to make sure that the Sent folder uri is "valid" before assigning it */
-	if (mail_config_get_account_by_source_url (gui->sent_folder_uri) ||
-		!strncmp (gui->sent_folder_uri, "mbox:", 5)) {
-		new->sent_folder_uri = em_uri_from_camel (gui->sent_folder_uri);
-	} else {
-		/* assign defaults - the uri is unknown to us (probably pointed to an old source url) */
-		new->sent_folder_uri = em_uri_from_camel(mail_component_get_folder_uri(NULL, MAIL_COMPONENT_FOLDER_SENT));
-	}
-	
-	new->always_cc = gtk_toggle_button_get_active (gui->always_cc);
-	new->cc_addrs = g_strdup (gtk_entry_get_text (gui->cc_addrs));
-	new->always_bcc = gtk_toggle_button_get_active (gui->always_bcc);
-	new->bcc_addrs = g_strdup (gtk_entry_get_text (gui->bcc_addrs));
-	
-	new->pgp_key = g_strdup (gtk_entry_get_text (gui->pgp_key));
-	new->pgp_encrypt_to_self = gtk_toggle_button_get_active (gui->pgp_encrypt_to_self);
-	new->pgp_always_sign = gtk_toggle_button_get_active (gui->pgp_always_sign);
-	new->pgp_no_imip_sign = gtk_toggle_button_get_active (gui->pgp_no_imip_sign);
-	new->pgp_always_trust = gtk_toggle_button_get_active (gui->pgp_always_trust);
-	
-#if defined (HAVE_NSS)
-	new->smime_sign_default = gtk_toggle_button_get_active (gui->smime_sign_default);
-	new->smime_sign_key = g_strdup (gtk_entry_get_text (gui->smime_sign_key));
-	
-	new->smime_encrypt_default = gtk_toggle_button_get_active (gui->smime_encrypt_default);
-	new->smime_encrypt_key = g_strdup (gtk_entry_get_text (gui->smime_encrypt_key));
-	new->smime_encrypt_to_self = gtk_toggle_button_get_active (gui->smime_encrypt_to_self);
-#endif /* HAVE_NSS */
-	
-	is_storage = provider && (provider->flags & CAMEL_PROVIDER_IS_STORAGE);
-	
-	if (!mail_config_find_account (account)) {
-		/* this is a new account so add it to our account-list */
-		is_new = TRUE;
-	}
-	
-	/* update the old account with the new settings */
-	e_account_import (account, new);
-	g_object_unref (new);
-	
-	if (is_new) {
-		mail_config_add_account (account);
-		
-		/* if the account provider is something we can stick
-		   in the folder-tree and not added by some other
-		   component, then get the CamelStore and add it to
-		   the folder-tree */
-		if (is_storage && account->enabled)
-			mail_get_store (account->source->url, NULL, add_new_store, account);
-	} else {
-		e_account_list_change (mail_config_get_accounts (), account);
-	}
-	
-	if (gtk_toggle_button_get_active (gui->default_account))
-		mail_config_set_default_account (account);
-	
-	mail_config_save_accounts ();
-	
-	mail_autoreceive_setup ();
-#endif	
-	return TRUE;
 }
