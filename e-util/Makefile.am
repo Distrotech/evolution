@@ -44,6 +44,7 @@ eutilinclude_HEADERS = 				\
 	e-passwords.h				\
 	e-path.h				\
 	e-plugin.h				\
+	e-popup.h				\
 	e-request.h				\
 	e-sexp.h				\
 	e-signature.h				\
@@ -84,6 +85,7 @@ libeutil_la_SOURCES =				\
 	e-passwords.c				\
 	e-path.c				\
 	e-plugin.c				\
+	e-popup.c				\
 	e-request.c				\
 	e-sexp.c				\
 	e-signature.c				\
