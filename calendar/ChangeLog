@@ -1,5 +1,14 @@
 2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.c (ecm_value_at): don't convert to an integer
+	the return value from get_color.
+	(ecm_get_color_for_component): use correct GTK 2.x color values.
+
+	* gui/e-calendar-table.c: replace all CAL_COMPONENT_FIELD...
+	with the correct E_CAL_MODEL_*_FIELD...
+
+2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-cal-model-tasks.c (get_completed, get_due): added
 	missing implementation.
 	(ecmt_class_init): initialize missing virtual method.
