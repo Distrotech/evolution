@@ -20,5 +20,28 @@
  * USA
  */
 
-#include "em-spam-plugin.h"
+#ifndef _EM_JUNK_PLUGIN_H
+#define _EM_JUNK_PLUGIN_H
 
+#include <camel/camel-junk-plugin.h>
+#include <gtk/gtkwidget.h>
+
+#define EM_JUNK_PLUGIN(x) ((EMJunkPlugin *) x)
+
+typedef struct _EMJunkPlugin EMJunkPlugin;
+
+struct _EMJunkPlugin
+{
+	CamelJunkPlugin csp;
+
+	/* when called, it should insert own GUI configuration into supplied.
+	   container. returns data pointer which is later passed to apply,
+	   plugin has to call (*changed_cb) (); whenever configuration
+	   is changed to notify settings dialog about a change.
+	   if setup_config_ui is NULL, it means there are no options */
+
+	gpointer (*setup_config_ui) (GtkWidget *container, void (*changed_cb) ());
+	void     (*apply)           (gpointer data);
+};
+
+#endif

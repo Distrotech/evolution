@@ -189,8 +189,8 @@ static struct {
 	{ NULL,			NULL }
 };
 
-/* FIXME: spam prefs */
-static gboolean spam_folder = TRUE;
+/* FIXME: junk prefs */
+static gboolean junk_folder = TRUE;
 
 #ifdef SMART_ADDRESS_COMPARE
 static EMailAddress *
@@ -2438,8 +2438,8 @@ main_folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 			}
 		}
 		
-		if (ml->hidespam)
-			mail_folder_hide_by_flag (folder, ml, &changes, CAMEL_MESSAGE_SPAM);
+		if (ml->hidejunk)
+			mail_folder_hide_by_flag (folder, ml, &changes, CAMEL_MESSAGE_JUNK);
 
 		/* check if the hidden state has changed, if so modify accordingly, then regenerate */
 		if (ml->hidedeleted)
@@ -2593,7 +2593,7 @@ message_list_set_folder (MessageList *message_list, CamelFolder *folder, const c
 		gconf = mail_config_get_gconf_client ();
 		hide_deleted = !gconf_client_get_bool (gconf, "/apps/evolution/mail/display/show_deleted", NULL);
 		message_list->hidedeleted = hide_deleted && !(folder->folder_flags & CAMEL_FOLDER_IS_TRASH);
-		message_list->hidespam = spam_folder && !(folder->folder_flags & CAMEL_FOLDER_IS_SPAM) && !(folder->folder_flags & CAMEL_FOLDER_IS_TRASH);
+		message_list->hidejunk = junk_folder && !(folder->folder_flags & CAMEL_FOLDER_IS_JUNK) && !(folder->folder_flags & CAMEL_FOLDER_IS_TRASH);
 		
 		hide_load_state (message_list);
 		mail_regen_list (message_list, message_list->search, NULL, NULL);
@@ -3053,7 +3053,7 @@ struct _regen_list_msg {
 	CamelFolderChangeInfo *changes;
 	gboolean dotree;	/* we are building a tree */
 	gboolean hidedel;	/* we want to/dont want to show deleted messages */
-	gboolean hidespam;	/* we want to/dont want to show spam messages */
+	gboolean hidejunk;	/* we want to/dont want to show junk messages */
 	gboolean thread_subject;
 	CamelFolderThread *tree;
 
@@ -3092,12 +3092,12 @@ regen_list_regen (struct _mail_msg *mm)
 	} else if (m->hidedel) {
 		char *expr;
 
-		if (m->hidespam) {
+		if (m->hidejunk) {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 92);
-				sprintf(expr, "(and (match-all (and (not (system-flag \"deleted\")) (not (system-flag \"spam\"))))\n %s)", m->search);
+				sprintf(expr, "(and (match-all (and (not (system-flag \"deleted\")) (not (system-flag \"junk\"))))\n %s)", m->search);
 			} else
-				expr = "(match-all (and (not (system-flag \"deleted\")) (not (system-flag \"spam\"))))";
+				expr = "(match-all (and (not (system-flag \"deleted\")) (not (system-flag \"junk\"))))";
 		} else {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 64);
@@ -3109,12 +3109,12 @@ regen_list_regen (struct _mail_msg *mm)
 	} else {
 		char *expr;
 
-		if (m->hidespam) {
+		if (m->hidejunk) {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 64);
-				sprintf(expr, "(and (match-all (not (system-flag \"spam\")))\n %s)", m->search);
+				sprintf(expr, "(and (match-all (not (system-flag \"junk\")))\n %s)", m->search);
 			} else
-				expr = "(match-all (not (system-flag \"spam\")))";
+				expr = "(match-all (not (system-flag \"junk\")))";
 			searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &mm->ex);
 		} else {
 			if (m->search)
@@ -3353,7 +3353,7 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 	m->changes = changes;
 	m->dotree = ml->threaded;
 	m->hidedel = ml->hidedeleted;
-	m->hidespam = ml->hidespam;
+	m->hidejunk = ml->hidejunk;
 	m->thread_subject = gconf_client_get_bool (gconf, "/apps/evolution/mail/display/thread_subject", NULL);
 	g_object_ref(ml);
 	m->folder = ml->folder;

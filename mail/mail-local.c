@@ -1187,7 +1187,7 @@ mail_local_provider_init (void)
 /* ** Local Storage Listener ****************************************************** */
 
 static void
-local_storage_new_folder_cb_trash_or_spam (const GNOME_Evolution_Folder *folder, const gchar *path, gchar *full_name, gchar *url_base)
+local_storage_new_folder_cb_trash_or_junk (const GNOME_Evolution_Folder *folder, const gchar *path, gchar *full_name, gchar *url_base)
 {
 		CamelFolderInfo info;
 		CamelURL *url;
@@ -1225,15 +1225,15 @@ local_storage_new_folder_cb (EvolutionStorageListener *storage_listener,
 	d(printf(" path = '%s'\n uri = '%s'\n display = '%s'\n",
 		 path, folder->physicalUri, folder->displayName));
 
-	/* We dont actually add the trash/spam to our local folders list, get_trash is handled
+	/* We dont actually add the trash/junk to our local folders list, get_trash is handled
 	   outside our internal folder list */
 
 	if (strcmp(folder->type, "mail") == 0) {
 		mail_local_store_add_folder(global_local_store, folder->physicalUri, path, folder->displayName);
 	} else if (strcmp(folder->type, "vtrash") == 0)
-		local_storage_new_folder_cb_trash_or_spam (folder, path, CAMEL_VTRASH_NAME, "vtrash");
-	else if (strcmp(folder->type, "vspam") == 0)
-		local_storage_new_folder_cb_trash_or_spam (folder, path, CAMEL_VSPAM_NAME, "vspam");
+		local_storage_new_folder_cb_trash_or_junk (folder, path, CAMEL_VTRASH_NAME, "vtrash");
+	else if (strcmp(folder->type, "vjunk") == 0)
+		local_storage_new_folder_cb_trash_or_junk (folder, path, CAMEL_VJUNK_NAME, "vjunk");
 
 }
 

@@ -114,8 +114,8 @@ struct _MessageList {
 	/* do we automatically hide deleted messages? */
 	guint hidedeleted : 1;
 
-	/* do we automatically hide spam messages? */
-	guint hidespam : 1;
+	/* do we automatically hide junk messages? */
+	guint hidejunk : 1;
 	
 	/* is the message-list object in a destroyed state? */
 	guint destroyed : 1;

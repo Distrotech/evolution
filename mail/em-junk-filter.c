@@ -31,43 +31,43 @@
 
 #include <camel/camel-stream-fs.h>
 
-#include "em-spam-filter.h"
+#include "em-junk-filter.h"
 
 #define LOCK(x) pthread_mutex_lock(&x)
 #define UNLOCK(x) pthread_mutex_unlock(&x)
 
-static pthread_mutex_t em_spam_sa_test_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t em_junk_sa_test_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static const char * em_spam_sa_get_name (void);
-static gboolean em_spam_sa_check_spam (CamelMimeMessage *msg);
-static void em_spam_sa_report_spam (CamelMimeMessage *msg);
-static void em_spam_sa_report_ham (CamelMimeMessage *msg);
-static void em_spam_sa_commit_reports (void);
+static const char * em_junk_sa_get_name (void);
+static gboolean em_junk_sa_check_junk (CamelMimeMessage *msg);
+static void em_junk_sa_report_junk (CamelMimeMessage *msg);
+static void em_junk_sa_report_notjunk (CamelMimeMessage *msg);
+static void em_junk_sa_commit_reports (void);
 
-static EMSpamPlugin spam_assassin_plugin =
+static EMJunkPlugin spam_assassin_plugin =
 {
 	{
-		em_spam_sa_get_name,
+		em_junk_sa_get_name,
 		1,
-		em_spam_sa_check_spam,
-		em_spam_sa_report_spam,
-		em_spam_sa_report_ham,
-		em_spam_sa_commit_reports,
+		em_junk_sa_check_junk,
+		em_junk_sa_report_junk,
+		em_junk_sa_report_notjunk,
+		em_junk_sa_commit_reports,
 	},
 	NULL,
 	NULL
 };
 
-static gboolean em_spam_sa_spamd_tested = FALSE;
-static gboolean em_spam_sa_use_spamc = FALSE;
-static gint em_spam_sa_spamd_port = -1;
+static gboolean em_junk_sa_junkd_tested = FALSE;
+static gboolean em_junk_sa_use_junkc = FALSE;
+static gint em_junk_sa_junkd_port = -1;
 
 #define d(x) x
 
 static const char *
-em_spam_sa_get_name (void)
+em_junk_sa_get_name (void)
 {
-	return _("Spamassassin (built-in)");
+	return _("Junkassassin (built-in)");
 }
 
 static int
@@ -160,7 +160,7 @@ pipe_to_sa (CamelMimeMessage *msg, gchar *in, int argc, gchar **argv)
 #define NPORTS 1
 
 static int
-em_spam_sa_test_spamd_running (gint port)
+em_junk_sa_test_junkd_running (gint port)
 {
 	static gchar *sac_args [3] = {
 		"/bin/sh",
@@ -169,8 +169,8 @@ em_spam_sa_test_spamd_running (gint port)
 	};
 	int retval;
 
-	d(fprintf (stderr, "test if spamd is running (port %d)\n", port);)
-	sac_args [2] = port > 0  ? g_strdup_printf ("spamc -x -p %d", port) : g_strdup_printf ("spamc -x");
+	d(fprintf (stderr, "test if junkd is running (port %d)\n", port);)
+	sac_args [2] = port > 0  ? g_strdup_printf ("junkc -x -p %d", port) : g_strdup_printf ("junkc -x");
 
 	retval = pipe_to_sa (NULL, "From test@127.0.0.1", 3, sac_args) == 0;
 	g_free (sac_args [2]);
@@ -179,27 +179,27 @@ em_spam_sa_test_spamd_running (gint port)
 }
 
 static void
-em_spam_sa_test_spamd ()
+em_junk_sa_test_junkd ()
 {
 	gint i, port = 7830;
 
-	em_spam_sa_use_spamc = FALSE;
+	em_junk_sa_use_junkc = FALSE;
 
-	/* if (em_spam_sa_test_spamd_running (-1)) {
-		em_spam_sa_use_spamc = TRUE;
-		em_spam_sa_spamd_port = -1;
+	/* if (em_junk_sa_test_junkd_running (-1)) {
+		em_junk_sa_use_junkc = TRUE;
+		em_junk_sa_junkd_port = -1;
 		} else { */
 		for (i = 0; i < NPORTS; i ++) {
-			if (em_spam_sa_test_spamd_running (port)) {
-				em_spam_sa_use_spamc = TRUE;
-				em_spam_sa_spamd_port = port;
+			if (em_junk_sa_test_junkd_running (port)) {
+				em_junk_sa_use_junkc = TRUE;
+				em_junk_sa_junkd_port = port;
 				break;
 			}
 			port ++;
 		}
 		/* } */
 
-	if (!em_spam_sa_use_spamc) {
+	if (!em_junk_sa_use_junkc) {
 		static gchar *sad_args [3] = {
 			"/bin/sh",
 			"-c",
@@ -207,16 +207,16 @@ em_spam_sa_test_spamd ()
 		};
 		gint i, port = 7830;
 
-		d(fprintf (stderr, "looks like spamd is not running\n");)
+		d(fprintf (stderr, "looks like junkd is not running\n");)
 
 		for (i = 0; i < NPORTS; i ++) {
-			d(fprintf (stderr, "trying to run spamd at port %d\n", port));
+			d(fprintf (stderr, "trying to run junkd at port %d\n", port));
 
-			sad_args [2] = g_strdup_printf ("spamd --port %d --local --daemonize", port);
+			sad_args [2] = g_strdup_printf ("junkd --port %d --local --daemonize", port);
 			if (!pipe_to_sa (NULL, NULL, 3, sad_args)) {
 				g_free (sad_args [2]);
-				em_spam_sa_use_spamc = TRUE;
-				em_spam_sa_spamd_port = port;
+				em_junk_sa_use_junkc = TRUE;
+				em_junk_sa_junkd_port = port;
 				d(fprintf (stderr, "success at port %d\n", port));
 				break;
 			}
@@ -225,13 +225,13 @@ em_spam_sa_test_spamd ()
 		}
 	}
 
-	d(fprintf (stderr, "use spamd %d at port %d\n", em_spam_sa_use_spamc, em_spam_sa_spamd_port);)
+	d(fprintf (stderr, "use junkd %d at port %d\n", em_junk_sa_use_junkc, em_junk_sa_junkd_port);)
 
-	em_spam_sa_spamd_tested = TRUE;
+	em_junk_sa_junkd_tested = TRUE;
 }
 
 static gboolean
-em_spam_sa_check_spam (CamelMimeMessage *msg)
+em_junk_sa_check_junk (CamelMimeMessage *msg)
 {
 	static gchar *args [3] = {
 		"/bin/sh",
@@ -240,25 +240,25 @@ em_spam_sa_check_spam (CamelMimeMessage *msg)
 	};
 	gint retval;
 
-	d(fprintf (stderr, "em_spam_sa_check_spam\n"));
+	d(fprintf (stderr, "em_junk_sa_check_junk\n"));
 
-	LOCK (em_spam_sa_test_lock);
-	if (!em_spam_sa_spamd_tested)
-		em_spam_sa_test_spamd ();
-	UNLOCK (em_spam_sa_test_lock);
+	LOCK (em_junk_sa_test_lock);
+	if (!em_junk_sa_junkd_tested)
+		em_junk_sa_test_junkd ();
+	UNLOCK (em_junk_sa_test_lock);
 
-	args [2] = em_spam_sa_use_spamc
-		? (em_spam_sa_spamd_port == -1
-		   ? g_strdup ("spamc -c")         /* Exit with a non-zero exit code if the
-						      tested message was spam */
-		   : g_strdup_printf ("spamc"
+	args [2] = em_junk_sa_use_junkc
+		? (em_junk_sa_junkd_port == -1
+		   ? g_strdup ("junkc -c")         /* Exit with a non-zero exit code if the
+						      tested message was junk */
+		   : g_strdup_printf ("junkc"
 				      " -c"        /* Exit with a non-zero exit code if the
-						      tested message was spam */
-				      " -p %d", em_spam_sa_spamd_port)
+						      tested message was junk */
+				      " -p %d", em_junk_sa_junkd_port)
 )
-		: g_strdup ("spamassassin"
+		: g_strdup ("junkassassin"
 			    " --exit-code"         /* Exit with a non-zero exit code if the
-						      tested message was spam */
+						      tested message was junk */
 			    " --local");           /* Local tests only (no online tests) */
 
 	retval = pipe_to_sa (msg, NULL, 3, args);
@@ -267,43 +267,43 @@ em_spam_sa_check_spam (CamelMimeMessage *msg)
 }
 
 static void
-em_spam_sa_report_spam (CamelMimeMessage *msg)
+em_junk_sa_report_junk (CamelMimeMessage *msg)
 {
 	static gchar *args [3] = {
 		"/bin/sh",
 		"-c",
 		"sa-learn"
 		" --no-rebuild"        /* do not rebuild db */
-		" --spam"              /* report spam */
+		" --junk"              /* report junk */
 		" --single"            /* single message */
 		" --local"             /* local only */
 	};
 
-	d(fprintf (stderr, "em_spam_sa_report_spam\n");)
+	d(fprintf (stderr, "em_junk_sa_report_junk\n");)
 
 	pipe_to_sa (msg, NULL, 3, args) > 0;
 }
 
 static void
-em_spam_sa_report_ham (CamelMimeMessage *msg)
+em_junk_sa_report_notjunk (CamelMimeMessage *msg)
 {
 	static gchar *args [3] = {
 		"/bin/sh",
 		"-c",
 		"sa-learn"
 		" --no-rebuild"        /* do not rebuild db */
-		" --ham"               /* report ham */
+		" --ham"               /* report notjunk */
 		" --single"            /* single message */
 		" --local"             /* local only */
 	};
 
-	d(fprintf (stderr, "em_spam_sa_report_ham\n");)
+	d(fprintf (stderr, "em_junk_sa_report_notjunk\n");)
 
 	pipe_to_sa (msg, NULL, 3, args) > 0;
 }
 
 static void
-em_spam_sa_commit_reports (void)
+em_junk_sa_commit_reports (void)
 {
 	static gchar *args [3] = {
 		"/bin/sh",
@@ -313,13 +313,13 @@ em_spam_sa_commit_reports (void)
 		" --local"             /* local only */
 	};
 
-	d(fprintf (stderr, "em_spam_sa_commit_reports\n");)
+	d(fprintf (stderr, "em_junk_sa_commit_reports\n");)
 
 	pipe_to_sa (NULL, NULL, 3, args) > 0;
 }
 
-const EMSpamPlugin *
-em_spam_filter_get_plugin (void)
+const EMJunkPlugin *
+em_junk_filter_get_plugin (void)
 {
 	return &spam_assassin_plugin;
 }

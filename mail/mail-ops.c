@@ -1059,7 +1059,7 @@ get_folderinfo_desc (struct _mail_msg *mm, int done)
 }
 
 static void
-add_vtrash_or_vspam_info (CamelStore *store, CamelFolderInfo *info, gchar *name, gchar *full_name, gchar *url_base, gboolean unread_count)
+add_vtrash_or_vjunk_info (CamelStore *store, CamelFolderInfo *info, gchar *name, gchar *full_name, gchar *url_base, gboolean unread_count)
 {
 	CamelFolderInfo *fi, *folder_info, *parent;
 	char *uri, *path;
@@ -1074,7 +1074,7 @@ add_vtrash_or_vspam_info (CamelStore *store, CamelFolderInfo *info, gchar *name,
 		parent = fi;
 	}
 	
-	/* create our vTrash/vSpam URL */
+	/* create our vTrash/vJunk URL */
 	url = camel_url_new (info->url, NULL);
 	path = g_strdup_printf ("/%s", name);
 	if (url->fragment)
@@ -1086,13 +1086,13 @@ add_vtrash_or_vspam_info (CamelStore *store, CamelFolderInfo *info, gchar *name,
 	camel_url_free (url);
 	
 	if (fi) {
-		/* We're going to replace the physical Trash/Spam folder with our vTrash/vSpam folder */
+		/* We're going to replace the physical Trash/Junk folder with our vTrash/vJunk folder */
 		folder_info = fi;
 		g_free (folder_info->full_name);
 		g_free (folder_info->name);
 		g_free (folder_info->url);
 	} else {
-		/* There wasn't a Trash/Spam folder so create a new folder entry */
+		/* There wasn't a Trash/Junk folder so create a new folder entry */
 		folder_info = g_new0 (CamelFolderInfo, 1);
 
 		g_assert(parent != NULL);
@@ -1115,13 +1115,13 @@ add_vtrash_or_vspam_info (CamelStore *store, CamelFolderInfo *info, gchar *name,
 static void
 add_vtrash_info (CamelStore *store, CamelFolderInfo *info)
 {
-	add_vtrash_or_vspam_info (store, info, CAMEL_VTRASH_NAME, _("Trash"), "vtrash", FALSE);
+	add_vtrash_or_vjunk_info (store, info, CAMEL_VTRASH_NAME, _("Trash"), "vtrash", FALSE);
 }
 
 static void
-add_vspam_info (CamelStore *store, CamelFolderInfo *info)
+add_vjunk_info (CamelStore *store, CamelFolderInfo *info)
 {
-	add_vtrash_or_vspam_info (store, info, CAMEL_VSPAM_NAME, _("Junk"), "vspam", TRUE);
+	add_vtrash_or_vjunk_info (store, info, CAMEL_VJUNK_NAME, _("Junk"), "vjunk", TRUE);
 }
 
 static void
@@ -1151,8 +1151,8 @@ get_folderinfo_get (struct _mail_msg *mm)
 	if (m->info) {
 		if (m->info->url && (m->store->flags & CAMEL_STORE_VTRASH))
 			add_vtrash_info(m->store, m->info);
-		if (m->info->url && (m->store->flags & CAMEL_STORE_VSPAM))
-			add_vspam_info(m->store, m->info);
+		if (m->info->url && (m->store->flags & CAMEL_STORE_VJUNK))
+			add_vjunk_info(m->store, m->info);
 		if (CAMEL_IS_VEE_STORE(m->store))
 			add_unmatched_info(m->info);
 	}
@@ -2341,18 +2341,18 @@ mail_execute_shell_command (CamelFilterDriver *driver, int argc, char **argv, vo
 	gnome_execute_async_fds (NULL, argc, argv, TRUE);
 }
 
-/* [Un]mark spam flag */
+/* [Un]mark junk flag */
 
-struct _mark_spam_mail_msg {
+struct _mark_junk_mail_msg {
 	struct _mail_msg msg;
 	
 	CamelFolder *folder;
 	MessageList *list;
-	gboolean spam;
+	gboolean junk;
 };
 
 static char *
-mark_spam_describe (struct _mail_msg *mm, int complete)
+mark_junk_describe (struct _mail_msg *mm, int complete)
 {
 	return g_strdup (_("Changing junk status"));
 }
@@ -2360,10 +2360,10 @@ mark_spam_describe (struct _mail_msg *mm, int complete)
 /* filter a folder, or a subset thereof, uses source_folder/source_uids */
 /* this is shared with fetch_mail */
 static void
-mark_spam_mark (struct _mail_msg *mm)
+mark_junk_mark (struct _mail_msg *mm)
 {
-	struct _mark_spam_mail_msg *m = (struct _mark_spam_mail_msg *) mm;
-	CamelSpamPlugin *csp = NULL;
+	struct _mark_junk_mail_msg *m = (struct _mark_junk_mail_msg *) mm;
+	CamelJunkPlugin *csp = NULL;
 	GPtrArray *uids;
 	gboolean commit_reports = FALSE;
 	int i;
@@ -2378,63 +2378,63 @@ mark_spam_mark (struct _mail_msg *mm)
 		guint32 flags;
 
 		flags = camel_folder_get_message_flags (m->folder, uids->pdata[i]);
-		if (((flags & CAMEL_MESSAGE_SPAM) == CAMEL_MESSAGE_SPAM) != m->spam) {
+		if (((flags & CAMEL_MESSAGE_JUNK) == CAMEL_MESSAGE_JUNK) != m->junk) {
 			CamelMimeMessage *msg = camel_folder_get_message (m->folder, uids->pdata[i], NULL);
 
 			if (msg) {
-				csp = CAMEL_SERVICE (m->folder->parent_store)->session->spam_plugin;
-				if (m->spam)
-					camel_spam_plugin_report_spam (csp, msg);
+				csp = CAMEL_SERVICE (m->folder->parent_store)->session->junk_plugin;
+				if (m->junk)
+					camel_junk_plugin_report_junk (csp, msg);
 				else
-					camel_spam_plugin_report_ham (csp, msg);
+					camel_junk_plugin_report_notjunk (csp, msg);
 
 				commit_reports = TRUE;
 				camel_object_unref (msg);
 			}
 		}
 		camel_folder_set_message_flags(m->folder, uids->pdata[i],
-					       CAMEL_MESSAGE_SPAM | (m->spam ? CAMEL_MESSAGE_DELETED : 0),
-					       m->spam ? CAMEL_MESSAGE_SPAM : 0);
+					       CAMEL_MESSAGE_JUNK | (m->junk ? CAMEL_MESSAGE_DELETED : 0),
+					       m->junk ? CAMEL_MESSAGE_JUNK : 0);
 	}
 
 	if (commit_reports)
-		camel_spam_plugin_commit_reports (csp);
+		camel_junk_plugin_commit_reports (csp);
 
 	message_list_free_uids(m->list, uids);
 	camel_folder_thaw(m->folder);
 }
 
 static void
-mark_spam_marked (struct _mail_msg *mm)
+mark_junk_marked (struct _mail_msg *mm)
 {
 }
 
 static void
-mark_spam_free (struct _mail_msg *mm)
+mark_junk_free (struct _mail_msg *mm)
 {
-	struct _mark_spam_mail_msg *m = (struct _mark_spam_mail_msg *)mm;
+	struct _mark_junk_mail_msg *m = (struct _mark_junk_mail_msg *)mm;
 	
 	if (m->folder)
 		camel_object_unref (m->folder);
 }
 
-static struct _mail_msg_op mark_spam_op = {
-	mark_spam_describe,
-	mark_spam_mark,
-	mark_spam_marked,
-	mark_spam_free,
+static struct _mail_msg_op mark_junk_op = {
+	mark_junk_describe,
+	mark_junk_mark,
+	mark_junk_marked,
+	mark_junk_free,
 };
 
 void
-mail_mark_spam (CamelFolder *folder, MessageList *list, gboolean spam)
+mail_mark_junk (CamelFolder *folder, MessageList *list, gboolean junk)
 {
-	struct _mark_spam_mail_msg *m;
+	struct _mark_junk_mail_msg *m;
 	
-	m = mail_msg_new (&mark_spam_op, NULL, sizeof (*m));
+	m = mail_msg_new (&mark_junk_op, NULL, sizeof (*m));
 	m->folder = folder;
 	camel_object_ref (folder);
 	m->list = list;
-	m->spam = spam;
+	m->junk = junk;
 	
 	e_thread_put (mail_thread_new, (EMsg *) m);
 }

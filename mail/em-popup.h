@@ -87,8 +87,8 @@ enum {
 	EM_POPUP_SELECT_FLAG_COMPLETED         = 1<<12,
 	EM_POPUP_SELECT_FLAG_CLEAR             = 1<<13,
 	EM_POPUP_SELECT_ADD_SENDER             = 1<<14,
-	EM_POPUP_SELECT_MARK_SPAM              = 1<<15,
-	EM_POPUP_SELECT_MARK_NOSPAM            = 1<<16,
+	EM_POPUP_SELECT_MARK_JUNK              = 1<<15,
+	EM_POPUP_SELECT_MARK_NOJUNK            = 1<<16,
 	EM_POPUP_SELECT_LAST = 1<<18 /* reserve 2 slots */
 };
 

@@ -20,11 +20,5 @@
  * USA
  */
 
-#ifndef _EM_SPAM_FILTER_H
-#define _EM_SPAM_FILTER_H
+#include "em-junk-plugin.h"
 
-#include "em-spam-plugin.h"
-
-const EMSpamPlugin * em_spam_filter_get_plugin (void);
-
-#endif
