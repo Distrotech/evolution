@@ -108,6 +108,8 @@ libevolution_mail_la_SOURCES =			\
 	em-message-browser.h			\
 	em-migrate.c				\
 	em-migrate.h				\
+	em-config.c				\
+	em-config.h				\
 	em-composer-utils.c			\
 	em-composer-utils.h			\
 	em-menu.c				\
