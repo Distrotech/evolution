@@ -1,5 +1,8 @@
 2003-09-22  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.c (cal_client_get_alarms_in_range): use
+	'has-alarms' function in the search expression.
+
 	* pcs/cal-backend-object-sexp.c (func_has_alarms): new SExp function.
 
 2003-09-22  JP Rosevear <jpr@ximian.com>

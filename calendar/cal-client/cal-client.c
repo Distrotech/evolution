@@ -2618,7 +2618,7 @@ cal_client_get_alarms_in_range (CalClient *client, time_t start, time_t end)
 	ss_start = isodate_from_time_t (start);
 	ss_end = isodate_from_time_t (end);
 	/* FIXME: no function to query for alarms */
-	sexp = g_strdup_printf ("(and (occur-in-time-range? (make-time \"%s\")"
+	sexp = g_strdup_printf ("(and (has-alarms-in-range? (make-time \"%s\")"
 				"                           (make-time \"%s\")))",
 				ss_start, ss_end);
 
