@@ -30,6 +30,7 @@
 #include <string.h>
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "e-util.h"
 #if 0
@@ -948,7 +949,16 @@ void      e_bsearch                                                        (cons
 		*end = l;
 }
 
-/* FIXME: This is ~ n log_2 n compares and 1/2 * size * n^2 byte copies.  I think it could be more efficient. */
+gpointer closure_closure;
+ESortCompareFunc compare_closure;
+
+static int
+qsort_callback(const void *data1, const void *data2)
+{
+	return (*compare_closure) (data1, data2, closure_closure);
+}
+
+/* Forget it.  We're just going to use qsort.  I lost the need for a stable sort. */
 void
 e_sort (void             *base,
 	size_t            nmemb,
@@ -956,6 +966,10 @@ e_sort (void             *base,
 	ESortCompareFunc  compare,
 	gpointer          closure)
 {
+	closure_closure = closure;
+	compare_closure = compare;
+	qsort(base, nmemb, size, qsort_callback);
+#if 0
 	void *base_copy;
 	int i;
 	base_copy = g_malloc(nmemb * size);
@@ -968,4 +982,5 @@ e_sort (void             *base,
 	}
 	memcpy(base, base_copy, nmemb * size);
 	g_free(base_copy);
+#endif
 }
