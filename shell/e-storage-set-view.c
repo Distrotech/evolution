@@ -865,9 +865,6 @@ etree_get_save_id (ETreeModel *etm, ETreePath node, void *model_data)
 	storage_set_view = E_STORAGE_SET_VIEW (model_data);
 	storage_set = storage_set_view->priv->storage_set;
 
-	if (e_tree_model_node_is_root(etm, node))
-		return g_strdup("root");
-
 	path = (char *) e_tree_memory_node_get_data (E_TREE_MEMORY(etm), node);
 
 	folder = e_storage_set_get_folder (storage_set, path);
@@ -879,7 +876,7 @@ etree_get_save_id (ETreeModel *etm, ETreePath node, void *model_data)
 	if (storage != NULL)
 		return g_strdup (e_storage_get_name (storage));
 
-	return NULL;
+	return g_strdup("root");
 }
 
 static void *
