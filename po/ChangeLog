@@ -1,3 +1,100 @@
+2004-12-06  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-12-05  Baris Cicek <baris@teamforce.name.tr>
+
+	* tr.po: Fixed a typo in Turkish Translation
+
+2004-12-04  Žygimantas Beručka  <uid0@akl.lt>
+
+	* lt.po: Updated Lithuanian translation.
+
+2004-12-03  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* POTFILES.in: 
+	  Removed mail/mail-account-editor.c
+	  Removed mail/mail-config-druid.c
+	  They are no longer available.
+	* da.po: Updated Danish translation.
+
+2004-12-01  Dafydd Harries  <daf@muse.19inch.net>
+
+	* cy.po: Copied from the gnome-2-8 branch.
+
+2004-11-30  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Lode Vermeiren.
+
+2004-11-26  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated Danish translation.
+
+2004-11-25  Žygimantas Beručka  <uid0@akl.lt>
+
+	* lt.po: Updated Lithuanian translation.
+
+2004-11-25  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated.
+
+2004-11-23  Žygimantas Beručka  <uid0@akl.lt>
+
+	* lt.po: Again updated Lithuanian translation. More to come soon.
+
+2004-11-23  Žygimantas Beručka  <uid0@akl.lt>
+
+	* lt.po: Updated Lithuanian translation.
+
+2004-11-21  Hendrik Richter  <hendrik@gnome-de.org>
+
+	* de.po: Merged German translation from gnome-2-8.
+
+2004-11-21  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated.
+
+2004-11-19  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Updated Italian translation.
+
+2004-11-17  Vincent van Adrighem  <adrighem@gnome.org>
+
+	* nl.po: Translation updated by Michel Klijmij.
+
+2004-11-15  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Updated Catalan translation.
+
+2004-11-13  Meelad Zakaria  <meelad@bamdad.org>
+
+	* fa.po: Updated Persian translation.
+
+2004-11-10  Marco Ciampa  <ciampix@libero.it>
+
+	* it.po: Updated Italian translation.
+
+2004-11-10  Jordi Mallach  <jordi@sindominio.net>
+
+	* ca.po: Updated Catalan translation.
+
+2004-11-07  Laurent Dhima  <laurenti@alblinux.net>
+
+	* sq.po: Updated Albanian translation.
+
+2004-11-06  Sebastien Bacher  <seb128@debian.org>
+
+	* fr.po: Fix in the French translation.
+
+2004-11-04  Miloslav Trmac  <mitr@volny.cz>
+
+	* cs.po: Fixed Czech translation (thanks to
+	 Juraj Kubelka <Juraj.Kubelka@email.cz>).
+
+2004-10-26  Martin Willemoes Hansen  <mwh@sysrq.dk>
+
+	* da.po: Updated translator-credits.
+
 2004-10-22  Martin Willemoes Hansen  <mwh@sysrq.dk>
 
 	* da.po: Updated Danish translation.

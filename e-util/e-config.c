@@ -47,6 +47,8 @@
 
 #include <libgnome/gnome-i18n.h>
 
+#define d(x) 
+
 struct _EConfigFactory {
 	struct _EConfigFactory *next, *prev;
 
@@ -118,7 +120,7 @@ ep_finalise(GObject *o)
 	struct _widget_node *wn;
 	struct _check_node *cn;
 
-	printf("finalising EConfig %p\n", o);
+	d(printf("finalising EConfig %p\n", o));
 
 	g_free(emp->id);
 
@@ -162,7 +164,7 @@ ec_set_target(EConfig *emp, EConfigTarget *target)
 static void
 ep_class_init(GObjectClass *klass)
 {
-	printf("EConfig class init %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type));
+	d(printf("EConfig class init %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type)));
 
 	klass->finalize = ep_finalise;
 	((EConfigClass *)klass)->set_target = ec_set_target;
@@ -327,7 +329,7 @@ ec_druid_check_current(EConfig *ec)
 static void
 ec_druid_cancel(GnomeDruid *druid, struct _widget_node *wn)
 {
-	printf("finishing druid, calling abort\n");
+	d(printf("finishing druid, calling abort\n"));
 	e_config_abort(wn->config);
 
 	if (wn->config->window)
@@ -337,7 +339,7 @@ ec_druid_cancel(GnomeDruid *druid, struct _widget_node *wn)
 static void
 ec_druid_finish(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
 {
-	printf("finishing druid, calling commit\n");
+	d(printf("finishing druid, calling commit\n"));
 	e_config_commit(wn->config);
 
 	/* TODO: allow the commit to fail?  Do we care? */
@@ -348,7 +350,7 @@ ec_druid_finish(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn
 static void
 ec_druid_prepare(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
 {
-	printf("prepare page '%s'\n", wn->item->path);
+	d(printf("prepare page '%s'\n", wn->item->path));
 	wn->config->priv->druid_page = wn;
 	ec_druid_check_current(wn->config);
 }
@@ -358,7 +360,7 @@ ec_druid_prev(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
 {
 	EConfig *ec = wn->config;
 
-	printf("prev page from '%s'\n", wn->item->path);
+	d(printf("prev page from '%s'\n", wn->item->path));
 	if (wn->prev) {
 		for (wn = wn->prev;wn->prev;wn=wn->prev) {
 			if (!wn->empty
@@ -370,7 +372,7 @@ ec_druid_prev(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
 	}
 
 	if (wn->prev) {
-		printf(" is %s\n",wn->item->path);
+		d(printf(" is %s\n",wn->item->path));
 		gnome_druid_set_page((GnomeDruid *)ec->widget, (GnomeDruidPage *)wn->frame);
 		ec->priv->druid_page = wn;
 	} else {
@@ -386,7 +388,7 @@ ec_druid_next(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
 {
 	EConfig *ec = wn->config;
 
-	printf("next page from '%s'\n", wn->item->path);
+	d(printf("next page from '%s'\n", wn->item->path));
 	if (wn->next) {
 		for (wn = wn->next;wn->next;wn=wn->next) {
 			if (!wn->empty
@@ -398,7 +400,7 @@ ec_druid_next(GnomeDruidPage *page, GnomeDruid *druid, struct _widget_node *wn)
 	}
 
 	if (wn->next) {
-		printf(" is %s\n",wn->item->path);
+		d(printf(" is %s\n",wn->item->path));
 		gnome_druid_set_page((GnomeDruid *)ec->widget, (GnomeDruidPage *)wn->frame);
 		ec->priv->druid_page = wn;
 	} else {
@@ -417,7 +419,7 @@ ec_rebuild(EConfig *emp)
 	GtkWidget *book = NULL, *page = NULL, *section = NULL, *root = NULL, *druid = NULL;
 	int pageno = 0, sectionno = 0, itemno = 0;
 
-	printf("target changed, rebuilding:\n");
+	d(printf("target changed, rebuilding:\n"));
 
 	/* TODO: This code is pretty complex, and will probably just
 	 * become more complex with time.  It could possibly be split
@@ -428,7 +430,7 @@ ec_rebuild(EConfig *emp)
 		struct _EConfigItem *item = wn->item;
 		GtkWidget *w;
 
-		printf(" '%s'\n", item->path);
+		d(printf(" '%s'\n", item->path));
 
 		/* If the last section doesn't contain anything, hide it */
 		if (sectionnode != NULL
@@ -442,7 +444,7 @@ ec_rebuild(EConfig *emp)
 				sectionno--;
 			} else
 				gtk_widget_show(sectionnode->frame);
-			printf("%s section '%s' [sections=%d]\n", sectionnode->empty?"hiding":"showing", sectionnode->item->path, sectionno);
+			d(printf("%s section '%s' [sections=%d]\n", sectionnode->empty?"hiding":"showing", sectionnode->item->path, sectionno));
 		}
 
 		/* If the last page doesn't contain anything, hide it */
@@ -455,7 +457,7 @@ ec_rebuild(EConfig *emp)
 				pageno--;
 			} else
 				gtk_widget_show(pagenode->frame);
-			printf("%s page '%s' [section=%d]\n", pagenode->empty?"hiding":"showing", pagenode->item->path, pageno);
+			d(printf("%s page '%s' [section=%d]\n", pagenode->empty?"hiding":"showing", pagenode->item->path, pageno));
 		}
 
 		/* Now process the item */
@@ -584,7 +586,7 @@ ec_rebuild(EConfig *emp)
 					page = ((GnomeDruidPageStandard *)w)->vbox;
 					connect = TRUE;
 				} else {
-					w = gtk_label_new(item->label);
+					w = gtk_label_new_with_mnemonic (item->label);
 					gtk_widget_show(w);
 					page = gtk_vbox_new(FALSE, 12);
 					gtk_container_set_border_width((GtkContainer *)page, 12);
@@ -595,10 +597,10 @@ ec_rebuild(EConfig *emp)
 			} else
 				page = wn->widget;
 
-			printf("page %d:%s widget %p\n", pageno, item->path, w);
+			d(printf("page %d:%s widget %p\n", pageno, item->path, page));
 
 			if (wn->widget && wn->widget != page) {
-				printf("destroy old widget for page '%s'\n", item->path);
+				d(printf("destroy old widget for page '%s'\n", item->path));
 				gtk_widget_destroy(wn->widget);
 			}
 
@@ -630,15 +632,23 @@ ec_rebuild(EConfig *emp)
 			if (item->factory) {
 				section = item->factory(emp, item, page, wn->widget, wn->context->data);
 				wn->frame = section;
-				itemno = 1;
+				if (section)
+					itemno = 1;
 
 				if (section
 				    && ((item->type == E_CONFIG_SECTION && !GTK_IS_BOX(section))
 					|| (item->type == E_CONFIG_SECTION_TABLE && !GTK_IS_TABLE(section))))
-					g_warning("ECofnig section type is wrong");
-			} else if (wn->widget == NULL) {
+					g_warning("EConfig section type is wrong");
+			} else {
 				GtkWidget *frame;
 				GtkWidget *label = NULL;
+
+				if (wn->frame) {
+					d(printf("Item %s, clearing generated section widget\n", wn->item->path));
+					gtk_widget_destroy(wn->frame);
+					wn->widget = NULL;
+					wn->frame = NULL;
+				}
 
 				if (item->label) {
 					char *txt = g_strdup_printf("<span weight=\"bold\">%s</span>", item->label);
@@ -652,8 +662,11 @@ ec_rebuild(EConfig *emp)
 
 				if (item->type == E_CONFIG_SECTION)
 					section = gtk_vbox_new(FALSE, 6);
-				else
+				else {
 					section = gtk_table_new(1, 1, FALSE);
+					gtk_table_set_col_spacings((GtkTable *)section, 6);
+					gtk_table_set_row_spacings((GtkTable *)section, 6);
+				}
 
 				frame = g_object_new(gtk_frame_get_type(),
 						     "shadow_type", GTK_SHADOW_NONE, 
@@ -666,14 +679,14 @@ ec_rebuild(EConfig *emp)
 				gtk_widget_show_all(frame);
 				gtk_box_pack_start((GtkBox *)page, frame, FALSE, FALSE, 0);
 				wn->frame = frame;
-			} else {
-				section = wn->widget;
 			}
 		nopage:
 			if (wn->widget && wn->widget != section) {
-				printf("destroy old widget for section '%s'\n", item->path);
+				d(printf("destroy old widget for section '%s'\n", item->path));
 				gtk_widget_destroy(wn->widget);
 			}
+
+			d(printf("Item %s, setting section widget\n", wn->item->path));
 
 			sectionno++;
 			wn->widget = section;
@@ -681,6 +694,10 @@ ec_rebuild(EConfig *emp)
 			break;
 		case E_CONFIG_ITEM:
 		case E_CONFIG_ITEM_TABLE:
+			/* generated sections never retain their widgets on a rebuild */
+			if (sectionnode->item->factory == NULL)
+				wn->widget = NULL;
+
 			/* ITEMs are called with the section parent.
 			   The type depends on the section type,
 			   either a GtkTable, or a GtkVBox */
@@ -693,10 +710,10 @@ ec_rebuild(EConfig *emp)
 			else if (item->factory)
 				w = item->factory(emp, item, section, wn->widget, wn->context->data);
 
-			printf("item %d:%s widget %p\n", itemno, item->path, w);
+			d(printf("item %d:%s widget %p\n", itemno, item->path, w));
 
 			if (wn->widget && wn->widget != w) {
-				printf("destroy old widget for item '%s'\n", item->path);
+				d(printf("destroy old widget for item '%s'\n", item->path));
 				gtk_widget_destroy(wn->widget);
 			}
 
@@ -714,7 +731,7 @@ ec_rebuild(EConfig *emp)
 			sectionno--;
 		} else
 			gtk_widget_show(sectionnode->frame);
-		printf("%s section '%s' [sections=%d]\n", sectionnode->empty?"hiding":"showing", sectionnode->item->path, sectionno);
+		d(printf("%s section '%s' [sections=%d]\n", sectionnode->empty?"hiding":"showing", sectionnode->item->path, sectionno));
 	}
 
 	/* If the last page doesn't contain anything, hide it */
@@ -724,7 +741,7 @@ ec_rebuild(EConfig *emp)
 			pageno--;
 		} else
 			gtk_widget_show(pagenode->frame);
-		printf("%s page '%s' [section=%d]\n", pagenode->empty?"hiding":"showing", pagenode->item->path, pageno);
+		d(printf("%s page '%s' [section=%d]\n", pagenode->empty?"hiding":"showing", pagenode->item->path, pageno));
 	}
 
 	if (book) {
@@ -1234,7 +1251,7 @@ ech_config_factory(EConfig *emp, void *data)
 {
 	struct _EConfigHookGroup *group = data;
 
-	printf("config factory called %s\n", group->id?group->id:"all menus");
+	d(printf("config factory called %s\n", group->id?group->id:"all menus"));
 
 	if (emp->target->type != group->target_type)
 		return;
@@ -1285,7 +1302,7 @@ emph_construct_item(EPluginHook *eph, EConfigHookGroup *menu, xmlNodePtr root, E
 {
 	struct _EConfigItem *item;
 
-	printf("  loading config item\n");
+	d(printf("  loading config item\n"));
 	item = g_malloc0(sizeof(*item));
 	if ((item->type = e_plugin_hook_id(root, ech_item_types, "type")) == -1)
 		goto error;
@@ -1300,11 +1317,11 @@ emph_construct_item(EPluginHook *eph, EConfigHookGroup *menu, xmlNodePtr root, E
 	if (item->user_data)
 		item->factory = ech_config_widget_factory;
 
-	printf("   path=%s label=%s factory=%s\n", item->path, item->label, (char *)item->user_data);
+	d(printf("   path=%s label=%s factory=%s\n", item->path, item->label, (char *)item->user_data));
 
 	return item;
 error:
-	printf("error!\n");
+	d(printf("error!\n"));
 	emph_free_item(item);
 	return NULL;
 }
@@ -1318,7 +1335,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 	EConfigHookClass *klass = (EConfigHookClass *)G_OBJECT_GET_CLASS(eph);
 	char *tmp;
 
-	printf(" loading menu\n");
+	d(printf(" loading menu\n"));
 	menu = g_malloc0(sizeof(*menu));
 
 	tmp = xmlGetProp(root, "target");
@@ -1359,7 +1376,7 @@ emph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 	xmlNodePtr node;
 	EConfigClass *klass;
 
-	printf("loading config hook\n");
+	d(printf("loading config hook\n"));
 
 	if (((EPluginHookClass *)emph_parent_class)->construct(eph, ep, root) == -1)
 		return -1;
@@ -1405,7 +1422,7 @@ emph_class_init(EPluginHookClass *klass)
 	/* this is actually an abstract implementation but list it anyway */
 	klass->id = "org.gnome.evolution.config:1.0";
 
-	printf("EConfigHook: init class %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type));
+	d(printf("EConfigHook: init class %p '%s'\n", klass, g_type_name(((GObjectClass *)klass)->g_type_class.g_type)));
 
 	((EConfigHookClass *)klass)->target_map = g_hash_table_new(g_str_hash, g_str_equal);
 	((EConfigHookClass *)klass)->config_class = g_type_class_ref(e_config_get_type());

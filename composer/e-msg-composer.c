@@ -86,7 +86,7 @@
 
 #include <glade/glade.h>
 
-#include <gal/util/e-iconv.h>
+#include <libedataserver/e-iconv.h>
 #include <gal/e-text/e-entry.h>
 
 #include "e-util/e-dialog-utils.h"
@@ -105,6 +105,7 @@
 #include <camel/camel-multipart-signed.h>
 #include <camel/camel-multipart-encrypted.h>
 #include <camel/camel-string-utils.h>
+#include <camel/camel-cipher-context.h>
 #if defined (HAVE_NSS) && defined (SMIME_SUPPORTED)
 #include <camel/camel-smime-context.h>
 #endif
@@ -2093,12 +2094,14 @@ setup_signatures_menu (EMsgComposer *composer)
 	EIterator *it;
 	
 	hbox = e_msg_composer_hdrs_get_from_hbox (E_MSG_COMPOSER_HDRS (composer->hdrs));
-	
-	label = gtk_label_new (_("Signature:"));
+
+	label = gtk_label_new_with_mnemonic (_("Si_gnature:"));
 	gtk_widget_show (label);
-	
+
 	composer->sig_menu = (GtkOptionMenu *) gtk_option_menu_new ();
-	
+
+	gtk_label_set_mnemonic_widget (label, composer->sig_menu);
+
 	gtk_box_pack_end_defaults (GTK_BOX (hbox), (GtkWidget *) composer->sig_menu);
 	gtk_box_pack_end (GTK_BOX (hbox), label, FALSE, TRUE, 0);
 	hspace = gtk_hbox_new (FALSE, 0);
@@ -2924,7 +2927,7 @@ drag_data_received (EMsgComposer *composer, GdkDragContext *context,
 		memcpy(m->selection->data, selection->data, selection->length);
 		m->selection->length = selection->length;
 
-		emp = em_popup_new("org.gnome.mail.composer.popup.drop");
+		emp = em_popup_new("org.gnome.evolution.mail.composer.popup.drop");
 		for (i=0;i<sizeof(drop_popup_menu)/sizeof(drop_popup_menu[0]);i++)
 			menus = g_slist_append(menus, &drop_popup_menu[i]);
 
@@ -3197,6 +3200,19 @@ msg_composer_destroy_notify (void *data)
 	all_composers = g_slist_remove (all_composers, composer);
 }
 
+static int
+composer_key_pressed (EMsgComposer *composer, GdkEventKey *event, void *user_data)
+{
+	if (event->keyval == GDK_Escape) {
+		do_exit (composer);
+		g_signal_stop_emission_by_name (composer, "key-press-event");
+		return TRUE;
+	}
+	
+	return FALSE;
+}
+
+
 /* Verbs for non-control entries */
 static BonoboUIVerb entry_verbs [] = {
 	BONOBO_UI_VERB ("EditCut", menu_edit_cut_cb),
@@ -3309,12 +3325,15 @@ create_composer (int visible_mask)
 	int vis;
 	GList *icon_list;
 	BonoboControlFrame *control_frame;
-	GdkPixbuf *attachment_pixbuf;
 	
 	composer = g_object_new (E_TYPE_MSG_COMPOSER, "win_name", _("Compose a message"), NULL);
 	gtk_window_set_title ((GtkWindow *) composer, _("Compose a message"));
 	
 	all_composers = g_slist_prepend (all_composers, composer);
+	
+	g_signal_connect (composer, "key-press-event",
+			  G_CALLBACK (composer_key_pressed),
+			  NULL);
 	
 	g_signal_connect (composer, "destroy",
 			  G_CALLBACK (msg_composer_destroy_notify),
@@ -3425,11 +3444,9 @@ create_composer (int visible_mask)
 	gtk_misc_set_alignment (GTK_MISC (composer->attachment_expander_num), 1.0, 0.5);
 	expander_hbox = gtk_hbox_new (FALSE, 0);
 	
-	attachment_pixbuf = e_icon_factory_get_icon ("stock_attach", E_ICON_SIZE_MENU);
-	composer->attachment_expander_icon = gtk_image_new_from_pixbuf (attachment_pixbuf);
+	composer->attachment_expander_icon = e_icon_factory_get_image ("stock_attach", E_ICON_SIZE_MENU);
 	gtk_misc_set_alignment (GTK_MISC (composer->attachment_expander_icon), 1, 0.5);
 	gtk_widget_set_size_request (composer->attachment_expander_icon, 100, -1);
-	g_object_unref (attachment_pixbuf);	
 
 	gtk_box_pack_start (GTK_BOX (expander_hbox), composer->attachment_expander_label,
 			    TRUE, TRUE, 0);
@@ -3728,24 +3745,25 @@ handle_multipart_signed (EMsgComposer *composer, CamelMultipart *multipart, int 
 static void
 handle_multipart_encrypted (EMsgComposer *composer, CamelMultipart *multipart, int depth)
 {
-	CamelMultipartEncrypted *mpe = (CamelMultipartEncrypted *) multipart;
 	CamelContentType *content_type;
 	CamelCipherContext *cipher;
 	CamelDataWrapper *content;
 	CamelMimePart *mime_part;
 	CamelException ex;
-	
+	CamelCipherValidity *valid;
+
 	/* FIXME: make sure this is a PGP/MIME encrypted part?? */
 	e_msg_composer_set_pgp_encrypt (composer, TRUE);
 	
 	camel_exception_init (&ex);
 	cipher = mail_crypto_get_pgp_cipher_context (NULL);
-	mime_part = camel_multipart_encrypted_decrypt (mpe, cipher, &ex);
-	camel_object_unref (cipher);
+	mime_part = camel_mime_part_new();
+	valid = camel_cipher_decrypt(cipher, (CamelMimePart *)multipart, mime_part, &ex);
+	camel_object_unref(cipher);
 	camel_exception_clear (&ex);
-	
-	if (!mime_part)
-		return;
+	if (valid == NULL)
+		return;	
+	camel_cipher_validity_free(valid);
 	
 	content_type = camel_mime_part_get_content_type (mime_part);
 	

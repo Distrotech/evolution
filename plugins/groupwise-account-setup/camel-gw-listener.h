@@ -26,10 +26,10 @@
 #define CAMEL_GW_LISTENER_H
                                                                                                                              
 
-#include <e-util/e-account-list.h>
+#include <libedataserver/e-account-list.h>
 #include<libedataserver/e-source.h>
 #include<libedataserver/e-source-list.h>
-#include "camel-url.h"
+#include <camel/camel-url.h>
                          
 G_BEGIN_DECLS
                                                                                                                              

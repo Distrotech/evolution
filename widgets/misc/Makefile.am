@@ -4,7 +4,7 @@ INCLUDES =								\
 	-DMAP_DIR=\""$(imagesdir)"\"					\
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"			\
 	-DG_LOG_DOMAIN=__FILE__						\
-	$(GNOME_FULL_CFLAGS)
+	$(E_WIDGETS_CFLAGS)
 
 privlib_LTLIBRARIES =	\
 	libemiscwidgets.la
@@ -43,7 +43,6 @@ widgetsinclude_HEADERS =			\
 	e-search-bar.h				\
 	e-task-bar.h				\
 	e-task-widget.h				\
-	e-title-bar.h				\
 	e-url-entry.h
 
 libemiscwidgets_la_SOURCES =			\
@@ -72,7 +71,6 @@ libemiscwidgets_la_SOURCES =			\
 	e-search-bar.c				\
 	e-task-bar.c				\
 	e-task-widget.c				\
-	e-title-bar.c				\
 	e-url-entry.c
 
 MARSHAL_GENERATED = e-util-marshal.c e-util-marshal.h
@@ -86,7 +84,7 @@ errordir = $(privdatadir)/errors
 
 libemiscwidgets_la_LIBADD = $(top_builddir)/e-util/libeutil.la		\
 	$(top_builddir)/a11y/widgets/libevolution-widgets-a11y.la	\
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
 noinst_LTLIBRARIES = libefilterbar.la
 
@@ -100,7 +98,7 @@ noinst_PROGRAMS = 			\
 	test-dropdown-button		\
 	test-error			\
 	test-multi-config-dialog 	\
-	test-title-bar
+	test-info-label
 
 # test-calendar
 
@@ -110,7 +108,7 @@ test_calendar_SOURCES = 	\
 test_calendar_LDADD = 						\
 	./libemiscwidgets.la					\
 	$(top_builddir)/e-util/libeutil.la			\
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
 # test-dateedit
 
@@ -120,7 +118,7 @@ test_dateedit_SOURCES = 	\
 test_dateedit_LDADD = 			\
 	./libemiscwidgets.la		\
 	$(top_builddir)/e-util/libeutil.la	\
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
 # test-dropdown-button
 
@@ -130,7 +128,7 @@ test_dropdown_button_SOURCES = 	\
 test_dropdown_button_LDADD =	\
 	./libemiscwidgets.la	\
 	$(top_builddir)/e-util/libeutil.la  \
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
 # test-multi-config-dialog
 
@@ -140,17 +138,17 @@ test_multi_config_dialog_SOURCES = 	\
 test_multi_config_dialog_LDADD = 	\
 	./libemiscwidgets.la		\
 	$(top_builddir)/e-util/libeutil.la	\
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
-# test-title-bar
+# test-info-label
 
-test_title_bar_SOURCES = 	\
-	test-title-bar.c
+test_info_label_SOURCES = 	\
+	test-info-label.c
 
-test_title_bar_LDADD = 		\
+test_info_label_LDADD = 		\
 	./libemiscwidgets.la	\
 	$(top_builddir)/e-util/libeutil.la	\
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
 test_error_SOURCES = 	\
 	test-error.c
@@ -158,7 +156,7 @@ test_error_SOURCES = 	\
 test_error_LDADD = 				\
 	$(top_builddir)/e-util/libeutil.la	\
 	./libemiscwidgets.la			\
-	$(GNOME_FULL_LIBS)
+	$(E_WIDGETS_LIBS)
 
 
 BUILT_SOURCES = $(MARSHAL_GENERATED) $(error_i18n)

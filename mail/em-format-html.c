@@ -31,9 +31,9 @@
 #include <fcntl.h>
 #include <ctype.h>
 
-#include <gal/util/e-iconv.h>
-#include <gal/util/e-util.h>	/* for e_utf8_strftime, what about e_time_format_time? */
-#include "e-util/e-time-utils.h"
+#include <libedataserver/e-iconv.h>
+#include <libedataserver/e-util.h>	/* for e_utf8_strftime, what about e_time_format_time? */
+#include <libedataserver/e-time-utils.h>
 #include "e-util/e-icon-factory.h"
 
 #include <gtkhtml/gtkhtml.h>
@@ -59,7 +59,7 @@
 #include <camel/camel-data-cache.h>
 #include <camel/camel-file-utils.h>
 
-#include <e-util/e-msgport.h>
+#include <libedataserver/e-msgport.h>
 
 #include "mail-component.h"
 #include "mail-config.h"
@@ -69,7 +69,7 @@
 #include "em-html-stream.h"
 #include "em-utils.h"
 
-#define d(x) 
+#define d(x)
 
 #define EFH_TABLE_OPEN "<table>"
 
@@ -659,9 +659,7 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	struct _EMFormatHTMLCache *efhc;
 
 	camel_stream_printf (stream,
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=1 width=100%%><tr><td>\n"
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=0 width=100%%><tr><td>\n"
-			     "<table cellspacing=0 cellpadding=10><td><tr>\n",
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px;\">\n",
 			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
 
 	flags = efh->text_html_flags;
@@ -743,10 +741,7 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	}
 
 	camel_object_unref(filtered_stream);
-	camel_stream_write_string(stream,
-				  "</td></tr></table>\n"
-				  "</td></tr></table>\n"
-				  "</td></tr></table>\n");
+	camel_stream_write_string(stream, "</div>\n");
 }
 
 static void
@@ -772,18 +767,13 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	camel_object_unref(enriched);
 
 	camel_stream_printf (stream,
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=1 width=100%%><tr><td>\n"
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=0 width=100%%><tr><td>\n"
-			     "<table cellspacing=0 cellpadding=10><td><tr>\n",
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px;\">\n",
 			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
 
 	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, dw);
 	
 	camel_object_unref(filtered_stream);
-	camel_stream_write_string(stream,
-				  "</td></tr></table>\n"
-				  "</td></tr></table>\n"
-				  "</td></tr></table>\n");
+	camel_stream_write_string(stream, "</div>");
 }
 
 static void
@@ -795,52 +785,35 @@ efh_write_text_html(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 static void
 efh_text_html(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
 {
-	const char *location, *base, *tmp;
+	const char *location;
 	EMFormatPURI *puri;
 	char *cid = NULL;
 
 	camel_stream_printf (stream,
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=1 width=100%%><tr><td>\n"
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=0 width=100%%><tr><td>\n"
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x;\">\n"
 			     "<!-- text/html -->\n",
 			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
-	
-	if ((base = camel_medium_get_header((CamelMedium *)part, "Content-Base"))) {
-		char *base_url;
-		size_t len;
-		
-		len = strlen(base);
-		if (*base == '"' && *(base + len - 1) == '"') {
-			len -= 2;
-			base_url = alloca(len + 1);
-			memcpy(base_url, base + 1, len);
-			base_url[len] = '\0';
-			base = base_url;
-		}
 
-		/* FIXME: set base needs to go on the gtkhtml stream? */
-		gtk_html_set_base(efh->html, base);
-	}
-
+	/* TODO: perhaps we don't need to calculate this anymore now base is handled better */
 	/* calculate our own location string so add_puri doesn't do it
 	   for us. our iframes are special cases, we need to use the
 	   proper base url to access them, but other children parts
 	   shouldn't blindly inherit the container's location. */
-	tmp = camel_mime_part_get_content_location(part);
-	if (tmp == NULL) {
+	location = camel_mime_part_get_content_location(part);
+	if (location == NULL) {
 		if (((EMFormat *)efh)->base)
 			cid = camel_url_to_string(((EMFormat *)efh)->base, 0);
 		else
 			cid = g_strdup(((EMFormat *)efh)->part_id->str);
 	} else {
-		if (strchr(tmp, ':') == NULL && ((EMFormat *)efh)->base != NULL) {
+		if (strchr(location, ':') == NULL && ((EMFormat *)efh)->base != NULL) {
 			CamelURL *uri;
 			
-			uri = camel_url_new_with_base(((EMFormat *)efh)->base, tmp);
+			uri = camel_url_new_with_base(((EMFormat *)efh)->base, location);
 			cid = camel_url_to_string(uri, 0);
 			camel_url_free(uri);
 		} else {
-			cid = g_strdup(tmp);
+			cid = g_strdup(location);
 		}
 	}
 
@@ -848,8 +821,7 @@ efh_text_html(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFor
 	d(printf("adding iframe, location %s\n", cid));
 	camel_stream_printf(stream,
 			    "<iframe src=\"%s\" frameborder=0 scrolling=no>could not get %s</iframe>\n"
-			    "</td></tr></table>\n"
-			    "</td></tr></table>\n",
+			    "</div>\n",
 			    cid, cid);
 	g_free(cid);
 }
@@ -953,9 +925,7 @@ efh_message_deliverystatus(EMFormatHTML *efh, CamelStream *stream, CamelMimePart
 
 	/* Yuck, this is copied from efh_text_plain */
 	camel_stream_printf (stream,
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=1 width=100%%><tr><td>\n"
-			     "<table bgcolor=\"#%06x\" cellspacing=0 cellpadding=0 width=100%%><tr><td>\n"
-			     "<table cellspacing=0 cellpadding=10><td><tr>\n",
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px;\">\n",
 			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
 
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
@@ -968,10 +938,7 @@ efh_message_deliverystatus(EMFormatHTML *efh, CamelStream *stream, CamelMimePart
 	camel_stream_flush((CamelStream *)filtered_stream);
 	camel_stream_write_string(stream, "</tt>\n");
 
-	camel_stream_write_string(stream,
-				  "</td></tr></table>\n"
-				  "</td></tr></table>\n"
-				  "</td></tr></table>\n");
+	camel_stream_write_string(stream, "</div>");
 }
 
 static void
@@ -1021,9 +988,8 @@ efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	CamelMultipart *mp = (CamelMultipart *)camel_medium_get_content_object((CamelMedium *)part);
 	CamelMimePart *body_part, *display_part = NULL;
 	CamelContentType *content_type;
-	const char *location, *start;
+	const char *start;
 	int i, nparts, partidlen, displayid = 0;
-	CamelURL *base_save = NULL;
 	EMFormatPURI *puri;
 	struct _EMFormatHTMLJob *job;
 
@@ -1062,13 +1028,6 @@ efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 		return;
 	}
 	
-	/* stack of present location and pending uri's */
-	location = camel_mime_part_get_content_location(part);
-	if (location) {
-		d(printf("setting content location %s\n", location));
-		base_save = emf->base;
-		emf->base = camel_url_new(location, NULL);
-	}
 	em_format_push_level(emf);
 
 	partidlen = emf->part_id->len;
@@ -1096,11 +1055,6 @@ efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	em_format_html_job_queue((EMFormatHTML *)emf, job);
 
 	em_format_pull_level(emf);
-	
-	if (location) {
-		camel_url_free(emf->base);
-		emf->base = base_save;
-	}
 }
 
 static void
@@ -1211,43 +1165,55 @@ static void efh_format_do(struct _mail_msg *mm)
 		em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, (CamelMedium *)m->message);
 	}
 
-	camel_stream_write_string((CamelStream *)m->estream, "</body>\n</html>\n");
-	camel_stream_close((CamelStream *)m->estream);
-	camel_object_unref(m->estream);
-	m->estream = NULL;
+	camel_stream_flush((CamelStream *)m->estream);
 
 	puri_level = ((EMFormat *)m->format)->pending_uri_level;
 	base = ((EMFormat *)m->format)->base;
 
-	/* now dispatch any added tasks ... */
-	g_mutex_lock(m->format->priv->lock);
-	while ((job = (struct _EMFormatHTMLJob *)e_dlist_remhead(&m->format->priv->pending_jobs))) {
+	do {
+		/* now dispatch any added tasks ... */
+		g_mutex_lock(m->format->priv->lock);
+		while ((job = (struct _EMFormatHTMLJob *)e_dlist_remhead(&m->format->priv->pending_jobs))) {
+			g_mutex_unlock(m->format->priv->lock);
+
+			/* This is an implicit check to see if the gtkhtml has been destroyed */
+			if (!cancelled)
+				cancelled = m->format->html == NULL;
+
+			/* Now do an explicit check for user cancellation */
+			if (!cancelled)
+				cancelled = camel_operation_cancel_check(NULL);
+
+			/* call jobs even if cancelled, so they can clean up resources */
+			((EMFormat *)m->format)->pending_uri_level = job->puri_level;
+			if (job->base)
+				((EMFormat *)m->format)->base = job->base;
+			job->callback(job, cancelled);
+			((EMFormat *)m->format)->base = base;
+
+			/* clean up the job */
+			camel_object_unref(job->stream);
+			if (job->base)
+				camel_url_free(job->base);
+			g_free(job);
+
+			g_mutex_lock(m->format->priv->lock);
+		}
 		g_mutex_unlock(m->format->priv->lock);
 
-		/* This is an implicit check to see if the gtkhtml has been destroyed */
-		if (!cancelled)
-			cancelled = m->format->html == NULL;
+		if (m->estream) {
+			/* Closing this base stream can queue more jobs, so we need
+			   to check the list again after we've finished */
+			d(printf("out of jobs, closing root stream\n"));
+			camel_stream_write_string((CamelStream *)m->estream, "</body>\n</html>\n");
+			camel_stream_close((CamelStream *)m->estream);
+			camel_object_unref(m->estream);
+			m->estream = NULL;
+		}
 
-		/* Now do an explicit check for user cancellation */
-		if (!cancelled)
-			cancelled = camel_operation_cancel_check(NULL);
+		/* e_dlist_empty is atomic and doesn't need locking */
+	} while (!e_dlist_empty(&m->format->priv->pending_jobs));
 
-		/* call jobs even if cancelled, so they can clean up resources */
-		((EMFormat *)m->format)->pending_uri_level = job->puri_level;
-		if (job->base)
-			((EMFormat *)m->format)->base = job->base;
-		job->callback(job, cancelled);
-		((EMFormat *)m->format)->base = base;
-
-		/* clean up the job */
-		camel_object_unref(job->stream);
-		if (job->base)
-			camel_url_free(job->base);
-		g_free(job);
-
-		g_mutex_lock(m->format->priv->lock);
-	}
-	g_mutex_unlock(m->format->priv->lock);
 	d(printf("out of jobs, done\n"));
 
 	((EMFormat *)m->format)->pending_uri_level = puri_level;
@@ -1329,7 +1295,6 @@ efh_format_timeout(struct _format_msg *m)
 		mail_msg_free(m);
 		p->last_part = NULL;
 	} else {
-		/*hstream = gtk_html_begin(efh->html);*/
 		hstream = NULL;
 		m->estream = (EMHTMLStream *)em_html_stream_new(efh->html, hstream);
 

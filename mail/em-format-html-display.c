@@ -72,7 +72,7 @@
 /* should this be in e-util rather than gal? */
 #include <gal/util/e-util.h>
 
-#include <e-util/e-msgport.h>
+#include <libedataserver/e-msgport.h>
 #include <e-util/e-gui-utils.h>
 #include <e-util/e-dialog-utils.h>
 #include <e-util/e-icon-factory.h>
@@ -833,7 +833,6 @@ static gboolean
 efhd_xpkcs7mime_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *pobject)
 {
 	GtkWidget *icon, *button;
-	GdkPixbuf *pixbuf;
 	struct _smime_pobject *po = (struct _smime_pobject *)pobject;
 	const char *name;
 
@@ -843,10 +842,7 @@ efhd_xpkcs7mime_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	else
 		name = smime_encrypt_table[po->valid->encrypt.status].icon;
 
-	pixbuf = e_icon_factory_get_icon (name, E_ICON_SIZE_LARGE_TOOLBAR);
-	
-	icon = gtk_image_new_from_pixbuf (pixbuf);
-	g_object_unref(pixbuf);
+	icon = e_icon_factory_get_image (name, E_ICON_SIZE_LARGE_TOOLBAR);
 	gtk_widget_show(icon);
 
 	button = gtk_button_new();
@@ -1090,7 +1086,15 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 		return FALSE;
 	}
 
-	emp = em_popup_new("org.gnome.mail.formathtmldisplay.popup.part");
+	/** @HookPoint-EMPopup: Attachment Button Context Menu
+	 * @Id: org.gnome.evolution.mail.formathtmldisplay.popup
+	 * @Class: org.gnome.evolution.mail.popup:1.0
+	 * @Target: EMPopupTargetPart
+	 *
+	 * This is the drop-down menu shown when a user clicks on the down arrow
+	 * of the attachment button in inline mail content.
+	 */
+	emp = em_popup_new("org.gnome.evolution.mail.formathtmldisplay.popup");
 	target = em_popup_target_new_part(emp, info->puri.part, info->handle?info->handle->mime_type:NULL);
 	target->target.widget = w;
 
@@ -1209,6 +1213,7 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 		{ NULL, 0, 0 },
 		{ "text/uri-list", 0, 1 },
 	};
+	AtkObject *a11y;
 
 	/* FIXME: handle default shown case */
 	d(printf("adding attachment button/content\n"));
@@ -1288,6 +1293,11 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	button = gtk_button_new();
 	/*GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);*/
 	gtk_container_add((GtkContainer *)button, gtk_arrow_new(GTK_ARROW_DOWN, GTK_SHADOW_NONE));
+
+	a11y = gtk_widget_get_accessible (button);
+	atk_object_set_name (a11y, _("Attachment Button"));
+
+
 	g_signal_connect(button, "button_press_event", G_CALLBACK(efhd_attachment_popup), info);
 	g_signal_connect(button, "popup_menu", G_CALLBACK(efhd_attachment_popup_menu), info);
 	g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_popup_menu), info);

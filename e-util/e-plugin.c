@@ -4,14 +4,15 @@
 #include <string.h>
 
 #include <glib/gi18n.h>
+#include <gconf/gconf-client.h>
 
 #include "e-plugin.h"
-#include "e-msgport.h"
+#include "libedataserver/e-msgport.h"
 
 /* plugin debug */
-#define pd(x) x
+#define pd(x)
 /* plugin hook debug */
-#define phd(x) x
+#define phd(x)
 
 /*
 <camel-plugin
@@ -52,6 +53,10 @@ static GHashTable *ep_plugins;
 static GHashTable *ep_plugins_pending;
 /* list of all cached xml docs:struct _plugin_doc's */
 static EDList ep_plugin_docs = E_DLIST_INITIALISER(ep_plugin_docs);
+/* gconf client */
+static GConfClient *ep_gconf;
+/* the list of disabled plugins from gconf */
+static GSList *ep_disabled;
 
 /* EPluginHook stuff */
 static void *eph_parent_class;
@@ -66,6 +71,43 @@ struct _plugin_doc {
 	GSList *plugins;
 };
 
+static gboolean
+ep_check_enabled(const char *id)
+{
+	GSList *l = ep_disabled;
+
+	for (;l;l = g_slist_next(l))
+		if (!strcmp((char *)l->data, id))
+			return FALSE;
+
+	return TRUE;
+}
+
+static void
+ep_set_enabled(const char *id, int state)
+{
+	if ((state == 0) == ep_check_enabled(id) == 0)
+		return;
+
+	if (state) {
+		GSList *l = ep_disabled;
+
+		while (l) {
+			GSList *n = l->next;
+
+			if (!strcmp((char *)l->data, id)) {
+				g_free(l->data);
+				ep_disabled = g_slist_remove_link(ep_disabled, l);
+			}
+			l = n;
+		}
+	} else {
+		ep_disabled = g_slist_prepend(ep_disabled, g_strdup(id));
+	}
+
+	gconf_client_set_list(ep_gconf, "/apps/evolution/eplugin/disabled", GCONF_VALUE_STRING, ep_disabled, NULL);
+}
+
 static int
 ep_construct(EPlugin *ep, xmlNodePtr root)
 {
@@ -75,7 +117,7 @@ ep_construct(EPlugin *ep, xmlNodePtr root)
 	ep->domain = e_plugin_xml_prop(root, "domain");
 	ep->name = e_plugin_xml_prop_domain(root, "name", ep->domain);
 
-	printf("creating plugin '%s' '%s'\n", ep->name?ep->name:"un-named", ep->id);
+	pd(printf("creating plugin '%s' '%s'\n", ep->name?ep->name:"un-named", ep->id));
 
 	node = root->children;
 	while (node) {
@@ -89,7 +131,8 @@ ep_construct(EPlugin *ep, xmlNodePtr root)
 				goto fail;
 			}
 
-			if (eph_types != NULL
+			if (ep->enabled
+			    && eph_types != NULL
 			    && (type = g_hash_table_lookup(eph_types, class)) != NULL) {
 				g_free(class);
 				hook = g_object_new(G_OBJECT_CLASS_TYPE(type), NULL);
@@ -117,12 +160,35 @@ ep_construct(EPlugin *ep, xmlNodePtr root)
 			}
 		} else if (strcmp(node->name, "description") == 0) {
 			ep->description = e_plugin_xml_content_domain(node, ep->domain);
+		} else if (strcmp(node->name, "author") == 0) {
+			char *name = e_plugin_xml_prop(node, "name");
+			char *email = e_plugin_xml_prop(node, "email");
+
+			if (name || email) {
+				EPluginAuthor *epa = g_malloc0(sizeof(*epa));
+
+				epa->name = name;
+				epa->email = email;
+				ep->authors = g_slist_append(ep->authors, epa);
+			}
 		}
 		node = node->next;
 	}
 	res = 0;
 fail:
 	return res;
+}
+
+static void
+ep_enable(EPlugin *ep, int state)
+{
+	GSList *l;
+
+	ep->enabled = state;
+	for (l=ep->hooks;l;l = g_slist_next(l))
+		e_plugin_hook_enable((EPluginHook *)l->data, state);
+
+	ep_set_enabled(ep->id, state);
 }
 
 static void
@@ -155,6 +221,7 @@ ep_class_init(EPluginClass *klass)
 {
 	((GObjectClass *)klass)->finalize = ep_finalise;
 	klass->construct = ep_construct;
+	klass->enable = ep_enable;
 }
 
 /**
@@ -265,20 +332,19 @@ ep_load(const char *filename)
 			ep = g_object_new(G_TYPE_FROM_CLASS(klass), NULL);
 			ep->id = id;
 			ep->path = g_strdup(filename);
-			if (e_plugin_construct(ep, root) == -1) {
-				g_object_unref(ep);
-			} else {
-				g_hash_table_insert(ep_plugins, ep->id, ep);
-				pdoc->plugins = g_slist_prepend(pdoc->plugins, ep);
-				cache |= (ep->hooks_pending != NULL);
-			}
+			ep->enabled = ep_check_enabled(id);
+			if (e_plugin_construct(ep, root) == -1)
+				e_plugin_enable(ep, FALSE);
+			g_hash_table_insert(ep_plugins, ep->id, ep);
+			pdoc->plugins = g_slist_prepend(pdoc->plugins, ep);
+			cache |= (ep->hooks_pending != NULL);
 		}
 	}
 
 	res = 0;
 fail:
 	if (cache) {
-		printf("Caching plugin description '%s' for unknown future hooks\n", filename);
+		pd(printf("Caching plugin description '%s' for unknown future hooks\n", filename));
 		e_dlist_addtail(&ep_plugin_docs, (EDListNode *)pdoc);
 	} else {
 		xmlFreeDoc(pdoc->doc);
@@ -297,7 +363,7 @@ ep_load_pending(EPlugin *ep, EPluginHookClass *type)
 	int res = 0;
 	GSList *l, *p;
 
-	printf("New hook type registered '%s', loading pending hooks on plugin '%s'\n", type->id, ep->id);
+	phd(printf("New hook type registered '%s', loading pending hooks on plugin '%s'\n", type->id, ep->id));
 
 	l = ep->hooks_pending;
 	p = NULL;
@@ -307,7 +373,7 @@ ep_load_pending(EPlugin *ep, EPluginHookClass *type)
 		char *class = xmlGetProp(node, "class");
 		EPluginHook *hook;
 
-		printf(" checking pending hook '%s'\n", class?class:"<unknown>");
+		phd(printf(" checking pending hook '%s'\n", class?class:"<unknown>"));
 
 		if (class) {
 			if (strcmp(class, type->id) == 0) {
@@ -382,11 +448,11 @@ e_plugin_load_plugins(void)
 		struct dirent *d;
 		char *path = l->data;
 
-		printf("scanning plugin dir '%s'\n", path);
+		pd(printf("scanning plugin dir '%s'\n", path));
 
 		dir = opendir(path);
 		if (dir == NULL) {
-			g_warning("Could not find plugin path: %s", path);
+			/*g_warning("Could not find plugin path: %s", path);*/
 			continue;
 		}
 
@@ -422,6 +488,9 @@ e_plugin_register_type(GType type)
 	if (ep_types == NULL) {
 		ep_types = g_hash_table_new(g_str_hash, g_str_equal);
 		ep_plugins = g_hash_table_new(g_str_hash, g_str_equal);
+		/* TODO: notify listening */
+		ep_gconf = gconf_client_get_default();
+		ep_disabled = gconf_client_get_list(ep_gconf, "/apps/evolution/eplugin/disabled", GCONF_VALUE_STRING, NULL);
 	}
 
 	klass = g_type_class_ref(type);
@@ -429,6 +498,34 @@ e_plugin_register_type(GType type)
 	pd(printf("register plugin type '%s'\n", klass->type));
 
 	g_hash_table_insert(ep_types, (void *)klass->type, klass);
+}
+
+static void
+ep_list_plugin(void *key, void *val, void *dat)
+{
+	GSList **l = (GSList **)dat;
+
+	*l = g_slist_prepend(*l, g_object_ref(val));
+}
+
+/**
+ * e_plugin_list_plugins: List all plugins.
+ * 
+ * Static class method to retrieve a list of all current plugins.  They
+ * are listed in no particular order.
+ * 
+ * Return value: A GSList of all plugins, they must be
+ * g_object_unref'd and the list freed.
+ **/
+GSList *
+e_plugin_list_plugins(void)
+{
+	GSList *l = NULL;
+
+	if (ep_plugins)
+		g_hash_table_foreach(ep_plugins, ep_list_plugin, &l);
+
+	return l;
 }
 
 /**
@@ -463,8 +560,10 @@ e_plugin_construct(EPlugin *ep, xmlNodePtr root)
 void *
 e_plugin_invoke(EPlugin *ep, const char *name, void *data)
 {
-	if (!ep->enabled)
-		g_warning("Invoking method on disabled plugin");
+	if (!ep->enabled) {
+		g_warning("Invoking method on disabled plugin, ignored");
+		return NULL;
+	}
 
 	return ((EPluginClass *)G_OBJECT_GET_CLASS(ep))->invoke(ep, name, data);
 }
@@ -481,17 +580,10 @@ e_plugin_invoke(EPlugin *ep, const char *name, void *data)
 void
 e_plugin_enable(EPlugin *ep, int state)
 {
-	GSList *l;
-
 	if ((ep->enabled == 0) == (state == 0))
 		return;
 
-	ep->enabled = state;
-	for (l=ep->hooks;l;l = g_slist_next(l)) {
-		EPluginHook *eph = l->data;
-
-		e_plugin_hook_enable(eph, state);
-	}
+	((EPluginClass *)G_OBJECT_GET_CLASS(ep))->enable(ep, state);
 }
 
 /**
@@ -642,6 +734,30 @@ static void *epl_parent_class;
    pages.
 */
 
+static int
+epl_loadmodule(EPlugin *ep)
+{
+	if (epl->module == NULL) {
+		EPluginLibEnableFunc enable;
+		
+		if ((epl->module = g_module_open(epl->location, 0)) == NULL) {
+			g_warning("can't load plugin '%s'", g_module_error());
+			return -1;
+		}
+
+		if (g_module_symbol(epl->module, "e_plugin_lib_enable", (void *)&enable)) {
+			if (enable(epl, TRUE) != 0) {
+				ep->enabled = FALSE;
+				g_module_close(epl->module);
+				epl->module = NULL;
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static void *
 epl_invoke(EPlugin *ep, const char *name, void *data)
 {
@@ -652,23 +768,8 @@ epl_invoke(EPlugin *ep, const char *name, void *data)
 		return NULL;
 	}
 
-	if (epl->module == NULL) {
-		EPluginLibEnableFunc enable;
-		
-		if ((epl->module = g_module_open(epl->location, 0)) == NULL) {
-			g_warning("can't load plugin '%s'", g_module_error());
-			return NULL;
-		}
-
-		if (g_module_symbol(epl->module, "e_plugin_lib_enable", (void *)&enable)) {
-			if (enable(epl, TRUE) != 0) {
-				ep->enabled = FALSE;
-				g_module_close(epl->module);
-				epl->module = NULL;
-				return NULL;
-			}
-		}
-	}
+	if (epl_loadmodule(ep) != 0)
+		return NULL;
 
 	if (!g_module_symbol(epl->module, name, (void *)&cb)) {
 		g_warning("Cannot resolve symbol '%s' in plugin '%s' (not exported?)", name, epl->location);
@@ -689,7 +790,46 @@ epl_construct(EPlugin *ep, xmlNodePtr root)
 	if (epl->location == NULL)
 		return -1;
 
+	/* If we're enabled, check for the load-on-startup property */
+	if (ep->enabled) {
+		xmlChar *tmp;
+
+		tmp = xmlGetProp(root, "load-on-startup");
+		if (tmp) {
+			xmlFree(tmp);
+			if (epl_loadmodule(ep) != 0)
+				return -1;
+		}
+	}
+
 	return 0;
+}
+
+static void
+epl_enable(EPlugin *ep, int state)
+{
+	EPluginLibEnableFunc enable;
+
+	((EPluginClass *)epl_parent_class)->enable(ep, state);
+
+	/* if we're disabling and it isn't loaded, nothing to do */
+	if (!state && epl->module == NULL)
+		return;
+
+	/* this will noop if we're disabling since we tested it above */
+	if (epl_loadmodule(ep) != 0)
+		return;
+
+	if (g_module_symbol(epl->module, "e_plugin_lib_enable", (void *)&enable)) {
+		if (enable(epl, state) != 0)
+			return;
+	}
+#if 0
+	if (!state) {
+		g_module_close(epl->module);
+		epl->module = NULL;
+	}
+#endif
 }
 
 static void
@@ -711,6 +851,7 @@ epl_class_init(EPluginClass *klass)
 	((GObjectClass *)klass)->finalize = epl_finalise;
 	klass->construct = epl_construct;
 	klass->invoke = epl_invoke;
+	klass->enable = epl_enable;
 	klass->type = "shlib";
 }
 
@@ -874,7 +1015,7 @@ e_plugin_hook_register_type(GType type)
 					cache |= (((EPlugin *)l->data)->hooks_pending != NULL);
 
 				if (!cache) {
-					printf("Gargabe collecting plugin description\n");
+					pd(printf("Gargabe collecting plugin description\n"));
 					e_dlist_remove((EDListNode *)pdoc);
 					xmlFreeDoc(pdoc->doc);
 					g_free(pdoc);

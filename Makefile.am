@@ -7,7 +7,6 @@ changelogs =				\
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = 				\
-	camel-$(BASE_VERSION).pc		\
 	evolution-shell-$(BASE_VERSION).pc
 
 EXTRA_DIST = 			\
@@ -20,6 +19,7 @@ EXTRA_DIST = 			\
 	NEWS			\
 	NEWS-1.0		\
 	marshal.mk		\
+	plugin.mk		\
 	server.mk		\
 	intltool-merge.in	\
 	intltool-update.in	\
@@ -36,7 +36,6 @@ SUBDIRS = 			\
 	a11y			\
         widgets                 \
         shell                   \
-	camel			\
 	filter			\
 	$(SMIME_DIR)		\
 	addressbook		\

@@ -33,7 +33,7 @@
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
 #include <libgnome/gnome-i18n.h>
 
-#include <e-util/e-msgport.h>
+#include <libedataserver/e-msgport.h>
 #include <camel/camel-url.h>
 #include <camel/camel-stream.h>
 #include <camel/camel-stream-mem.h>
@@ -216,7 +216,7 @@ em_format_get_type(void)
 void
 em_format_class_add_handler(EMFormatClass *emfc, EMFormatHandler *info)
 {
-	printf("adding format handler to '%s' '%s'\n", 	g_type_name_from_class((GTypeClass *)emfc), info->mime_type);
+	d(printf("adding format handler to '%s' '%s'\n", 	g_type_name_from_class((GTypeClass *)emfc), info->mime_type));
 	info->old = g_hash_table_lookup(emfc->type_handlers, info->mime_type);
 	g_hash_table_insert(emfc->type_handlers, info->mime_type, info);
 }
@@ -239,7 +239,10 @@ em_format_class_remove_handler(EMFormatClass *emfc, EMFormatHandler *info)
 	current = g_hash_table_lookup(emfc->type_handlers, info->mime_type);
 	if (current == info) {
 		current = info->old;
-		g_hash_table_insert(emfc->type_handlers, current->mime_type, current);
+		if (current)
+			g_hash_table_insert(emfc->type_handlers, current->mime_type, current);
+		else
+			g_hash_table_remove(emfc->type_handlers, info->mime_type);
 	} else {
 		while (current && current->old != info)
 			current = current->old;
@@ -325,7 +328,7 @@ em_format_add_puri(EMFormat *emf, size_t size, const char *cid, CamelMimePart *p
 	EMFormatPURI *puri;
 	const char *tmp;
 
-	printf("adding puri for part: %s\n", emf->part_id->str);
+	d(printf("adding puri for part: %s\n", emf->part_id->str));
 
 	g_assert(size >= sizeof(*puri));
 	puri = g_malloc0(size);
@@ -439,13 +442,13 @@ em_format_find_visible_puri(EMFormat *emf, const char *uri)
 	EMFormatPURI *pw;
 	struct _EMFormatPURITree *ptree;
 
-	(printf("checking for visible uri '%s'\n", uri));
+	d(printf("checking for visible uri '%s'\n", uri));
 
 	ptree = emf->pending_uri_level;
 	while (ptree) {
 		pw = (EMFormatPURI *)ptree->uri_list.head;
 		while (pw->next) {
-			(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
+			d(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
 			if ((pw->uri && !strcmp(pw->uri, uri)) || !strcmp(pw->cid, uri))
 				return pw;
 			pw = pw->next;
@@ -538,9 +541,31 @@ void
 em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const char *mime_type)
 {
 	const EMFormatHandler *handle = NULL;
-	const char *snoop_save = emf->snoop_mime_type;
+	const char *snoop_save = emf->snoop_mime_type, *tmp;
+	CamelURL *base_save = emf->base, *base = NULL;
+	char *basestr = NULL;
+
+	d(printf("format_part_as()\n"));
 
 	emf->snoop_mime_type = NULL;
+
+	/* RFC 2110, we keep track of content-base, and absolute content-location headers
+	   This is actually only required for html, but, *shrug* */
+	tmp = camel_medium_get_header((CamelMedium *)part, "Content-Base");
+	if (tmp == NULL) {
+		tmp = camel_mime_part_get_content_location(part);
+		if (tmp && strchr(tmp, ':') == NULL)
+			tmp = NULL;
+	} else {
+		tmp = basestr = camel_header_location_decode(tmp);
+	}
+	d(printf("content-base is '%s'\n", tmp?tmp:"<unset>"));
+	if (tmp
+	    && (base = camel_url_new(tmp, NULL))) {
+		emf->base = base;
+		d(printf("Setting content base '%s'\n", tmp));
+	}
+	g_free(basestr);
 
 	if (mime_type != NULL) {
 		if (g_ascii_strcasecmp(mime_type, "application/octet-stream") == 0)
@@ -554,8 +579,7 @@ em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const
 		    && !em_format_is_attachment(emf, part)) {
 			d(printf("running handler for type '%s'\n", mime_type));
 			handle->handler(emf, stream, part, handle);
-			emf->snoop_mime_type = snoop_save;
-			return;
+			goto finish;
 		}
 		d(printf("this type is an attachment? '%s'\n", mime_type));
 	} else {
@@ -563,7 +587,12 @@ em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const
 	}
 
 	((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_attachment(emf, stream, part, mime_type, handle);
+finish:
+	emf->base = base_save;
 	emf->snoop_mime_type = snoop_save;
+
+	if (base)
+		camel_url_free(base);
 }
 
 void
@@ -1278,10 +1307,9 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	CamelMultipart *mp = (CamelMultipart *)camel_medium_get_content_object((CamelMedium *)part);
 	CamelMimePart *body_part, *display_part = NULL;
 	CamelContentType *content_type;
-	const char *location, *start;
+	const char *start;
 	int i, nparts, partidlen, displayid = 0;
 	char *oldpartid;
-	CamelURL *base_save = NULL;
 	struct _EMFormatPURITree *ptree;
 	EMFormatPURI *puri, *purin;
 
@@ -1321,13 +1349,6 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 		return;
 	}
 	
-	/* stack of present location and pending uri's */
-	location = camel_mime_part_get_content_location(part);
-	if (location) {
-		d(printf("setting content location %s\n", location));
-		base_save = emf->base;
-		emf->base = camel_url_new(location, NULL);
-	}
 	em_format_push_level(emf);
 
 	oldpartid = g_strdup(emf->part_id->str);
@@ -1360,7 +1381,7 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 				g_string_printf(emf->part_id, "%s", puri->part_id);
 				em_format_part(emf, stream, puri->part);
 			} else
-				printf("unreferenced uri generated by format code: %s\n", puri->uri?puri->uri:puri->cid);
+				d(printf("unreferenced uri generated by format code: %s\n", puri->uri?puri->uri:puri->cid));
 		}
 		puri = purin;
 		purin = purin->next;
@@ -1370,11 +1391,6 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	g_free(oldpartid);
 
 	em_format_pull_level(emf);
-	
-	if (location) {
-		camel_url_free(emf->base);
-		emf->base = base_save;
-	}
 }
 
 static void

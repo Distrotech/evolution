@@ -94,7 +94,6 @@
 /* econfig item for the extra config hings */
 struct _receive_options_item {
 	EMConfigItem item;
-	GSList *widgets;
 
 	/* Only CAMEL_PROVIDER_CONF_ENTRYs GtkEntrys are stored here.
 	   The auto-detect camel provider code will probably be removed */
@@ -288,9 +287,9 @@ static struct {
 	char *label;
 	char *value;
 } ssl_options[] = {
-	{ N_("No encryption"), "never" },
-	{ N_("TLS encryption"), "when-possible" },
-	{ N_("SSL encryption"), "always" }
+	{ N_("Never"), "never" },
+	{ N_("Whenever Possible"), "when-possible" },
+	{ N_("Always"), "always" }
 };
 
 #define num_ssl_options (sizeof (ssl_options) / sizeof (ssl_options[0]))
@@ -1639,10 +1638,8 @@ emae_option_toggle(EMAccountEditorService *service, CamelURL *url, const char *t
 	GtkWidget *w;
 
 	/* FIXME: how do we get the default value ever? */
-	w = g_object_new(gtk_check_button_get_type(),
-			 "label", text,
-			 "active", camel_url_get_param(url, name) != NULL,
-			 NULL);
+	w = gtk_check_button_new_with_mnemonic (text);
+	g_object_set_data ((GObject *)w, "active", camel_url_get_param (url, name) != NULL);
 	g_object_set_data((GObject *)w, "option-name", (void *)name);
 	g_signal_connect(w, "toggled", G_CALLBACK(emae_option_toggle_changed), service);
 	gtk_widget_show(w);
@@ -1785,7 +1782,7 @@ emae_receive_options_item(EConfig *ec, EConfigItem *item, struct _GtkWidget *par
 	row = ((GtkTable *)parent)->nrows;
 
 	box = gtk_hbox_new(FALSE, 4);
-	w = gtk_check_button_new_with_label(_("Automatically check for _new mail every"));
+	w = gtk_check_button_new_with_mnemonic (_("Automatically check for _new mail every"));
 	emae_account_toggle_widget(emae, (GtkToggleButton *)w, E_ACCOUNT_SOURCE_AUTO_CHECK);
 	gtk_box_pack_start((GtkBox *)box, w, FALSE, FALSE, 0);
 
@@ -1811,19 +1808,11 @@ emae_receive_options_extra_item(EConfig *ec, EConfigItem *eitem, struct _GtkWidg
 	GtkWidget *w, *l;
 	CamelProviderConfEntry *entries;
 	GtkWidget *depw;
-	GSList *depl = NULL, *widgets = NULL, *n;
+	GSList *depl = NULL, *n;
 	EMAccountEditorService *service = &emae->priv->source;
 	int row, i;
 	GHashTable *extra;
 	CamelURL *url;
-
-	/* Clean up any widgets we had setup before */
-	if (item->widgets) {
-		g_slist_foreach(item->widgets, (GFunc)gtk_widget_destroy, NULL);
-		g_hash_table_destroy(item->extra_table);
-		item->widgets = NULL;
-		item->extra_table = NULL;
-	}
 
 	if (emae->priv->source.provider == NULL
 	    || emae->priv->source.provider->extra_conf == NULL)
@@ -1878,7 +1867,6 @@ section:
 			g_hash_table_insert(extra, entries[i].name, w);
 			if (depw)
 				depl = g_slist_prepend(depl, w);
-			widgets = g_slist_prepend(widgets, w);
 			row++;
 			break;
 		case CAMEL_PROVIDER_CONF_ENTRY:
@@ -1891,8 +1879,6 @@ section:
 				depl = g_slist_prepend(depl, w);
 				depl = g_slist_prepend(depl, l);
 			}
-			widgets = g_slist_prepend(widgets, w);
-			widgets = g_slist_prepend(widgets, l);
 			row++;
 			/* FIXME: this is another hack for exchange/groupwise connector */
 			g_hash_table_insert(item->extra_table, entries[i].name, w);
@@ -1902,7 +1888,6 @@ section:
 			gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			if (depw)
 				depl = g_slist_prepend(depl, w);
-			widgets = g_slist_prepend(widgets, w);
 			row++;
 			break;
 		default:
@@ -1927,7 +1912,6 @@ section:
 	w = gtk_label_new("");
 	gtk_widget_hide(w);
 	gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, 0, 0, 0, 0);
-	item->widgets = widgets;
 
 	return w;
 }
@@ -2179,7 +2163,6 @@ emae_free_auto(EConfig *ec, GSList *items, void *data)
 		g_free(item->item.path);
 		if (item->extra_table)
 			g_hash_table_destroy(item->extra_table);
-		g_slist_free(item->widgets);
 		g_free(item);
 		g_slist_free_1(l);
 		l = n;
@@ -2414,9 +2397,25 @@ em_account_editor_construct(EMAccountEditor *emae, EAccount *account, em_account
 	gui->providers = g_list_sort(camel_provider_list(TRUE), (GCompareFunc)provider_compare);
 
 	if (type == EMAE_NOTEBOOK) {
+		/** @HookPoint-EMConfig: Mail Account Editor
+		 * @Id: org.gnome.evolution.mail.config.accountEditor
+		 * @Type: E_CONFIG_BOOK
+		 * @Class: org.gnome.evolution.mail.config:1.0
+		 * @Target: EMConfigTargetAccount
+		 *
+		 * The account editor window.
+		 */
 		ec = em_config_new(E_CONFIG_BOOK, "org.gnome.evolution.mail.config.accountEditor");
 		items = emae_editor_items;
 	} else {
+		/** @HookPoint-EMConfig: New Mail Account Druid
+		 * @Id: org.gnome.evolution.mail.config.accountDruid
+		 * @Type: E_CONFIG_DRUID
+		 * @Class: org.gnome.evolution.mail.config:1.0
+		 * @Target: EMConfigTargetAccount
+		 *
+		 * The new mail account druid.
+		 */
 		ec = em_config_new(E_CONFIG_DRUID, "org.gnome.evolution.mail.config.accountDruid");
 		items = emae_druid_items;
 	}

@@ -36,6 +36,7 @@ char *s = N_("Junk");
 char *s = N_("Junk Test");
 char *s = N_("Label");
 char *s = N_("Mailing list");
+char *s = N_("Match All");
 char *s = N_("Message Body");
 char *s = N_("Message Header");
 char *s = N_("Message is Junk");

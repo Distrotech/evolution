@@ -34,6 +34,7 @@
 
 #include "e-shell.h"
 #include "es-menu.h"
+#include "es-event.h"
 
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
@@ -476,7 +477,7 @@ main (int argc, char **argv)
 		  N_("Start in online mode"), NULL },
 #ifdef KILL_PROCESS_CMD
 		{ "force-shutdown", '\0', POPT_ARG_NONE, &killev, 0, 
-		  N_("Forcibly shut down all evolution components"), NULL },
+		  N_("Forcibly shut down all Evolution components"), NULL },
 #endif
 #ifdef DEVELOPMENT
 		{ "force-migrate", '\0', POPT_ARG_NONE, &force_migrate, 0, 

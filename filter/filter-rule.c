@@ -787,9 +787,10 @@ get_widget (FilterRule *fr, struct _RuleContext *f)
 	   rule parts need to be a vbox */
 	vbox = gtk_vbox_new (FALSE, 6);
 
-	label = gtk_label_new (_("Rule name:"));
+	label = gtk_label_new_with_mnemonic (_("_Rule name:"));
 	name = gtk_entry_new ();
-	
+	gtk_label_set_mnemonic_widget (label, name);
+
 	if (!fr->name) {
 		fr->name = g_strdup (_("Untitled"));
 		gtk_entry_set_text (GTK_ENTRY (name), fr->name);
@@ -971,6 +972,6 @@ filter_rule_find_list (GList * l, const char *name, const char *source)
 #ifdef FOR_TRANSLATIONS_ONLY
 
 static char *list[] = {
-  N_("incoming"), N_("outgoing")
+  N_("Incoming"), N_("Outgoing")
 };
 #endif

@@ -31,10 +31,16 @@
 #include "em-mailer-prefs.h"
 #include "em-composer-prefs.h"
 
-#include "mail-config-druid.h"
 #include "mail-config-factory.h"
 #include "mail-config.h"
 #include "mail-mt.h"
+
+#include "em-popup.h"
+#include "em-menu.h"
+#include "em-event.h"
+#include "em-config.h"
+#include "em-format-hook.h"
+#include "em-format-html-display.h"
 
 #include "importers/mail-importer.h"
 
@@ -49,7 +55,6 @@
 #define COMPONENT_ID	"OAFIID:GNOME_Evolution_Mail_Component:" BASE_VERSION
 #define COMPOSER_ID	"OAFIID:GNOME_Evolution_Mail_Composer:" BASE_VERSION
 #define FOLDER_INFO_ID	"OAFIID:GNOME_Evolution_FolderInfo:" BASE_VERSION
-#define WIZARD_ID	"OAFIID:GNOME_Evolution_Mail_Wizard:" BASE_VERSION
 
 static BonoboObject *
 factory(BonoboGenericFactory *factory, const char *component_id, void *closure)
@@ -61,8 +66,6 @@ factory(BonoboGenericFactory *factory, const char *component_id, void *closure)
 
 		bonobo_object_ref (BONOBO_OBJECT (component));
 		return BONOBO_OBJECT (component);
-	} else if (strcmp(component_id, WIZARD_ID) == 0) {
-		return evolution_mail_config_wizard_new();
 	} else if (strcmp (component_id, EM_ACCOUNT_PREFS_CONTROL_ID) == 0
 		   || strcmp (component_id, EM_MAILER_PREFS_CONTROL_ID) == 0
 		   || strcmp (component_id, EM_COMPOSER_PREFS_CONTROL_ID) == 0) {
@@ -85,9 +88,21 @@ make_factory (PortableServer_POA poa, const char *iid, gpointer impl_ptr, CORBA_
 	static int init = 0;
 
 	if (!init) {
-		mail_config_init ();
-		mail_msg_init ();
 		init = 1;
+
+		mail_config_init();
+		mail_msg_init();
+
+		e_plugin_hook_register_type(em_popup_hook_get_type());
+		e_plugin_hook_register_type(em_menu_hook_get_type());
+		e_plugin_hook_register_type(em_config_hook_get_type());
+
+		em_format_hook_register_type(em_format_get_type());
+		em_format_hook_register_type(em_format_html_get_type());
+		em_format_hook_register_type(em_format_html_display_get_type());
+		e_plugin_hook_register_type(em_format_hook_get_type());
+
+		e_plugin_hook_register_type(em_event_hook_get_type());
 	}
 
 	return bonobo_shlib_factory_std (FACTORY_ID, poa, impl_ptr, factory, NULL, ev);

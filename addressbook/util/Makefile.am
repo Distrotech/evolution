@@ -14,13 +14,11 @@ noinst_LTLIBRARIES = libeabutil.la
 
 libeabutil_la_SOURCES =					\
 	eab-marshal.c					\
-	e-destination.c					\
-	e-destination.h					\
 	eab-book-util.c					\
 	eab-book-util.h
 
 libeabutil_la_LIBADD =					\
-	$(top_builddir)/camel/libcamel.la		\
+	$(EVOLUTION_ADDRESSBOOK_LIBS)			\
 	$(top_builddir)/e-util/libeutil.la
 
 MARSHAL_GENERATED = eab-marshal.c eab-marshal.h

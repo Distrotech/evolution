@@ -29,7 +29,7 @@
 #include "em-mailer-prefs.h"
 #include "em-format.h"
 
-#include <gal/util/e-iconv.h>
+#include <libedataserver/e-iconv.h>
 #include <gtkhtml/gtkhtml-properties.h>
 #include <libxml/tree.h>
 #include "widgets/misc/e-charset-picker.h"
@@ -717,6 +717,14 @@ em_mailer_prefs_construct (EMMailerPrefs *prefs)
 	gui = glade_xml_new (EVOLUTION_GLADEDIR "/mail-config.glade", "preferences_toplevel", NULL);
 	prefs->gui = gui;
 
+	/** @HookPoint-EMConfig: Mail Preferences Page
+	 * @Id: org.gnome.evolution.mail.prefs
+	 * @Type: E_CONFIG_BOOK
+	 * @Class: org.gnome.evolution.mail.config:1.0
+	 * @Target: EMConfigTargetPrefs
+	 *
+	 * The main mail preferences page.
+	 */
 	ec = em_config_new(E_CONFIG_BOOK, "org.gnome.evolution.mail.prefs");
 	l = NULL;
 	for (i=0;i<sizeof(emmp_items)/sizeof(emmp_items[0]);i++)
