@@ -2783,6 +2783,15 @@ message_list_set_folder (MessageList *message_list, CamelFolder *folder, const c
 	
 	if (message_list->folder == folder)
 		return;
+
+	{
+		static int set = 0;
+
+		if (!set) {
+			em_tree_store_test(folder);
+			set = 1;
+		}
+	}
 	
 	camel_exception_init (&ex);
 	

@@ -50,8 +50,6 @@ struct _EMTreeStore
 	GObject parent;
 
 	EMTreeNode *root;
-	struct _CamelFolder *folder;
-
 	guint32 stamp;
 };
 

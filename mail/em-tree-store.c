@@ -68,11 +68,14 @@ emts_node_alloc(struct _EMTreeStorePrivate *p)
 static EMTreeNode *
 emts_leaf_alloc(struct _EMTreeStorePrivate *p)
 {
+	return emts_node_alloc(p);
+#if 0
 	EMTreeNode *node = e_memchunk_alloc0(p->leaf_chunks);
 
 	node->flags = EM_TREE_NODE_LEAF;
 
 	return node;
+#endif
 }
 
 static void
@@ -434,6 +437,32 @@ em_tree_store_new(void)
 }
 
 static void
+dump_info_rec(EMTreeNode *node, GString *pre)
+{
+	int len = pre->len;
+
+	g_string_append(pre, "  ");
+	printf("%p: %s%s\n", node, pre->str, node->info?camel_message_info_subject(node->info):"<unset>");
+	if (node_has_children(node)) {
+		node = node->children.head;
+		while (node->next) {
+			dump_info_rec(node, pre);
+			node = node->next;
+		}
+	}
+	g_string_truncate(pre, len);
+}
+
+static void
+dump_info(EMTreeNode *root)
+{
+	GString *pre = g_string_new("");
+
+	dump_info_rec(root, pre);
+	g_string_free(pre, TRUE);
+}
+
+static void
 emts_insert_info(EMTreeStore *emts, CamelMessageInfo *mi)
 {
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
@@ -451,6 +480,10 @@ emts_insert_info(EMTreeStore *emts, CamelMessageInfo *mi)
 	if (mi->references) {
 		parent = emts->root;
 
+		/* FIXME: Going in this direction means that if a new parent is discovered
+		   for the parent, it isn't moved.  So it needs to create the node first,
+		   then go up the parents */
+
 		/* make sure the tree from root to the message exists */
 		for (j=mi->references->size-1;j>=0;j--) {
 			/* should never be empty, but just incase */
@@ -458,16 +491,26 @@ emts_insert_info(EMTreeStore *emts, CamelMessageInfo *mi)
 				continue;
 
 			node = g_hash_table_lookup(p->id_table, &mi->references->references[j]);
-			if (node == parent || (node && node->parent == parent))
+			printf("looking up reference = %p\n", node);
+			if (node == parent || (node && node->parent == parent)) {
+				if (node == parent)
+					printf(" same as parent?\n");
+				else
+					printf(" parent is same\n");
+				parent = node;
 				continue;
+			}
 
 			if (node == NULL) {
 				/* need to make a place-holder parent node */
 
+				printf(" placeholder\n");
 				node = emts_node_alloc(p);
 				g_hash_table_insert(p->id_table, &mi->references->references[j], node);
 			} else {
 				/* re-parent the node based on the updated information */
+
+				printf(" new parent\n");
 
 				if (p->signals) {
 					iter.user_data = node;
@@ -493,12 +536,14 @@ emts_insert_info(EMTreeStore *emts, CamelMessageInfo *mi)
 				}
 			}
 
+			printf("  insert placeholder %p parent %p\n", node, parent);
+
 			node->parent = parent;
 			e_dlist_addtail(&parent->children, (EDListNode *)node);
 			parent = node;
 
 			if (p->signals) {
-				iter.user_data = c;
+				iter.user_data = node;
 				iter.stamp = emts->stamp;
 				path = emts_get_path((GtkTreeModel *)emts, &iter);
 				gtk_tree_model_row_inserted((GtkTreeModel *)emts, path, &iter);
@@ -513,17 +558,38 @@ emts_insert_info(EMTreeStore *emts, CamelMessageInfo *mi)
 	if (match && match->info == NULL) {
 		/* we're filling in a dummy node previously made */
 		c = match;
-		match = NULL;
 	} else {
+		match = NULL;
+
 		/* else we're creating a new one */
 		c = emts_leaf_alloc(p);
 		if (mi->message_id.id.id)
 			g_hash_table_insert(p->id_table, &mi->message_id, c);
+
+		/* promote if need be */
+		if (parent->flags & EM_TREE_NODE_LEAF) {
+			node = emts_node_alloc(p);
+			node->next = parent->next;
+			node->prev = parent->prev;
+			node->info = parent->info;
+			node->next->prev = node;
+			node->prev->next = node;
+			emts_node_free(p, parent);
+			parent = node;
+			if (parent->info) {
+				if (parent->info->message_id.id.id)
+					g_hash_table_insert(p->id_table, &parent->info->message_id.id.id, parent);
+				g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(parent->info), parent);
+			}
+		}
+
+		c->parent = parent;
+		e_dlist_addtail(&parent->children, (EDListNode *)c);
 	}
+
+	printf("insert %p parent %p\n", c, parent);
 		
 	c->info = mi;
-	c->parent = parent;
-	e_dlist_addtail(&parent->children, (EDListNode *)c);
 	g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(mi), c);
 
 	if (!match && p->signals) {
@@ -601,7 +667,7 @@ emts_folder_changed_idle(void *data)
 			CamelMessageInfo *mi;
 
 			if (g_hash_table_lookup(p->uid_table, uid) == NULL
-			    && (mi = camel_folder_get_message_info(emts->folder, uid)))
+			    && (mi = camel_folder_get_message_info(p->folder, uid)))
 				emts_insert_info(emts, mi);
 		}
 
@@ -689,6 +755,8 @@ em_tree_store_get_widget(CamelFolder *folder)
 	/* *shrug* */
 	p->signals = TRUE;
 
+	dump_info(model->root);
+
 	tree = (GtkTreeView *) gtk_tree_view_new_with_model ((GtkTreeModel *) model);
 	gtk_widget_show((GtkWidget *)tree);
 		
@@ -705,4 +773,15 @@ em_tree_store_get_widget(CamelFolder *folder)
 	gtk_tree_view_set_expander_column(tree, gtk_tree_view_get_column(tree, 0));
 
 	return widget;
+}
+
+void
+em_tree_store_test(CamelFolder *folder)
+{
+	GtkWidget *window, *emts;
+
+	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	emts = em_tree_store_get_widget(folder);
+	gtk_container_add((GtkContainer *)window, emts);
+	gtk_widget_show_all(window);
 }
