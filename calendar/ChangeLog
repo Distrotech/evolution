@@ -1,3 +1,7 @@
+2003-09-25  JP Rosevear <jpr@ximian.com>
+
+	* idl/evolution-calendar.idl: remove unused user exceptions
+
 2003-09-24  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-util.[ch] (cal_backend_util_fill_alarm_instances_seq):
