@@ -169,6 +169,8 @@ libevolution_calendar_la_SOURCES =		\
 	itip-utils.c				\
 	itip-utils.h				\
 	main.c					\
+	migration.c				\
+	migration.h				\
 	misc.c					\
 	misc.h					\
 	print.c					\

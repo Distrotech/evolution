@@ -1,7 +1,16 @@
-2003-10-17  Jeffrey Stedfast  <fejj@ximian.com>
+2003-10-17  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/migration.[ch] (migrate_old_calendars): new function.
+
+	* gui/calendar-component.c (calendar_component_init): call
+	the above function to migrate from old setups.
+
+	* gui/Makefile.am: added new files.
+
+2003-10-17  Jeffrey Stedfast <fejj@ximian.com>
+	
 	* conduits/calendar/Makefile.am: Fixed for libical build changes.
-
+	
 2003-10-17  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-view.c (on_print): call

@@ -27,6 +27,7 @@
 #include "calendar-component.h"
 #include "control-factory.h"
 #include "gnome-cal.h"
+#include "migration.h"
 
 #include "widgets/misc/e-source-selector.h"
 
@@ -228,22 +229,25 @@ calendar_component_init (CalendarComponent *component)
 		group = e_source_group_new (_("On This Computer"), base_uri);
 		e_source_list_add_group (priv->source_list, group, -1);
 
-		/* create default calendars */
-		new_dir = g_build_filename (base_uri, "Personal/", NULL);
-		if (!e_mkdir_hier (new_dir, 0700)) {
-			source = e_source_new (_("Personal"), "Personal");
-			e_source_group_add_source (group, source, -1);
-		}
-		g_free (new_dir);
+		/* migrate calendars from older setup */
+		if (!migrate_old_calendars (group)) {
+			/* create default calendars */
+			new_dir = g_build_filename (base_uri, "Personal/", NULL);
+			if (!e_mkdir_hier (new_dir, 0700)) {
+				source = e_source_new (_("Personal"), "Personal");
+				e_source_group_add_source (group, source, -1);
+			}
+			g_free (new_dir);
 
-		new_dir = g_build_filename (base_uri, "Work/", NULL);
-		if (!e_mkdir_hier (new_dir, 0700)) {
-			source = e_source_new (_("Work"), "Work");
-			e_source_group_add_source (group, source, -1);
-		}
-		g_free (new_dir);
+			new_dir = g_build_filename (base_uri, "Work/", NULL);
+			if (!e_mkdir_hier (new_dir, 0700)) {
+				source = e_source_new (_("Work"), "Work");
+				e_source_group_add_source (group, source, -1);
+			}
+			g_free (new_dir);
 
-		g_free (base_uri);
+			g_free (base_uri);
+		}
 	}
 
 	component->priv = priv;
