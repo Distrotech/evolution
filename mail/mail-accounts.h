@@ -103,6 +103,8 @@ struct _MailAccountsDialog {
 	GtkWidget *sig_simple;
 	GtkWidget *sig_advanced;
 	GtkWidget *sig_advanced_table;
+	gboolean   sig_switch;
+	gint       sig_row;
 
 	/* Other page */
 	GtkToggleButton *empty_trash;

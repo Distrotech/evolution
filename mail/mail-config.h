@@ -249,6 +249,11 @@ gboolean mail_config_check_service (const char *url, CamelProviderType type, GLi
 
 gboolean evolution_mail_config_factory_init (void);
 
+GList * mail_config_get_signature_list (void);
+MailConfigSignature *mail_config_add_signature (void);
+void mail_config_delete_signature (MailConfigSignature *sig);
+void mail_config_write_signature (MailConfigSignature *sig);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -805,6 +805,14 @@ dialog_destroy (GtkWidget *dialog, gpointer user_data)
 static void
 sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 {
+	MailConfigSignature *sig;
+	gchar *name [1];
+
+	sig = mail_config_add_signature ();
+
+	name [0] = sig->name;
+	gtk_clist_select_row (GTK_CLIST (dialog->sig_clist),
+			      gtk_clist_append (GTK_CLIST (dialog->sig_clist), name), 0);
 }
 
 static void
@@ -834,16 +842,145 @@ sig_simple (GtkWidget *w, MailAccountsDialog *dialog)
 }
 
 static void
+sig_row_select (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig;
+
+	gtk_widget_set_sensitive (dialog->sig_add, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_delete, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_edit, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_name, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_random, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_filename, TRUE);
+	gtk_widget_set_sensitive (dialog->sig_script, TRUE);
+
+	dialog->sig_switch = TRUE;
+	sig = gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), row);
+	if (sig) {
+		if (sig->name)
+			gtk_entry_set_text (GTK_ENTRY (dialog->sig_name), sig->name);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dialog->sig_random), sig->random);
+		if (sig->filename)
+			gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_filename))),
+					    sig->filename);
+		if (sig->script)
+			gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_script))),
+					    sig->script);
+	}
+	dialog->sig_switch = FALSE;
+	dialog->sig_row = row;
+}
+
+static void
+sig_row_unselect (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog)
+{
+	gtk_widget_set_sensitive (dialog->sig_add, FALSE);
+	gtk_widget_set_sensitive (dialog->sig_delete, FALSE);
+	gtk_widget_set_sensitive (dialog->sig_edit, FALSE);
+	gtk_widget_set_sensitive (dialog->sig_name, FALSE);
+	gtk_widget_set_sensitive (dialog->sig_random, FALSE);
+	gtk_widget_set_sensitive (dialog->sig_filename, FALSE);
+	gtk_widget_set_sensitive (dialog->sig_script, FALSE);
+
+	dialog->sig_switch = TRUE;
+	gtk_entry_set_text (GTK_ENTRY (dialog->sig_name), "");
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (dialog->sig_random), FALSE);
+	gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_filename))), "");
+	gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_script))), "");
+	dialog->sig_switch = FALSE;
+}
+
+static void
+sig_fill_clist (GtkWidget *clist)
+{
+	GList *l;
+	gchar *name [1];
+	gint row;
+
+	for (l = mail_config_get_signature_list (); l; l = l->next) {
+		name [0] = ((MailConfigSignature *) l->data)->name;
+		row = gtk_clist_append (GTK_CLIST (clist), name);
+		gtk_clist_set_row_data (GTK_CLIST (clist), row, l->data);
+	}
+}
+
+static MailConfigSignature *
+sig_current_sig (MailAccountsDialog *dialog)
+{
+	return gtk_clist_get_row_data (GTK_CLIST (dialog->sig_clist), dialog->sig_row);
+}
+
+static void
+sig_name_changed (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig = sig_current_sig (dialog);
+	gchar *name [1];
+
+	if (dialog->sig_switch)
+		return;
+
+	g_free (sig->name);
+	sig->name = g_strdup (gtk_entry_get_text (GTK_ENTRY (dialog->sig_name)));
+
+	name [0] = sig->name;
+
+	gtk_clist_set_text (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0, sig->name);
+
+	mail_config_write_signature (sig);
+}
+
+static void
+sig_random_toggled (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig = sig_current_sig (dialog);
+
+	if (dialog->sig_switch)
+		return;
+
+	sig->random = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (dialog->sig_random));
+
+	mail_config_write_signature (sig);
+}
+
+static void
+sig_filename_changed (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig = sig_current_sig (dialog);
+
+	if (dialog->sig_switch)
+		return;
+
+	g_free (sig->filename);
+	sig->filename = g_strdup (gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_filename), FALSE));
+
+	mail_config_write_signature (sig);
+}
+
+static void
+sig_script_changed (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	MailConfigSignature *sig = sig_current_sig (dialog);
+
+	if (dialog->sig_switch)
+		return;
+
+	g_free (sig->script);
+	sig->script = g_strdup (gnome_file_entry_get_full_path (GNOME_FILE_ENTRY (dialog->sig_script), FALSE));
+
+	mail_config_write_signature (sig);
+}
+
+static void
 signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 {
 	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-add");
-	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_add), dialog);
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_add), "clicked", GTK_SIGNAL_FUNC (sig_add), dialog);
 
-	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-delete");
-	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_delete), dialog);
+	dialog->sig_delete = glade_xml_get_widget (gui, "button-sig-delete");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_delete), "clicked", GTK_SIGNAL_FUNC (sig_delete), dialog);
 
-	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-edit");
-	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_edit), dialog);
+	dialog->sig_edit = glade_xml_get_widget (gui, "button-sig-edit");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_edit), "clicked", GTK_SIGNAL_FUNC (sig_edit), dialog);
 
 	dialog->sig_advanced = glade_xml_get_widget (gui, "button-sig-advanced");
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_advanced), dialog);
@@ -852,10 +989,27 @@ signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_simple), "clicked", GTK_SIGNAL_FUNC (sig_simple), dialog);
 
 	dialog->sig_clist = glade_xml_get_widget (gui, "clist-sig");
+	sig_fill_clist (dialog->sig_clist);
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_clist), "select_row", GTK_SIGNAL_FUNC (sig_row_select), dialog);
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_clist), "unselect_row", GTK_SIGNAL_FUNC (sig_row_unselect), dialog);
+
 	dialog->sig_name = glade_xml_get_widget (gui, "entry-sig-name");
-	dialog->sig_filename = glade_xml_get_widget (gui, "entry-sig-filename");
-	dialog->sig_script = glade_xml_get_widget (gui, "entry-sig-script");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_name), "changed", GTK_SIGNAL_FUNC (sig_name_changed), dialog);
+
+	dialog->sig_random = glade_xml_get_widget (gui, "check-sig-random");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_random), "toggled", GTK_SIGNAL_FUNC (sig_random_toggled), dialog);
+
+	dialog->sig_filename = glade_xml_get_widget (gui, "file-sig-filename");
+	gtk_signal_connect (GTK_OBJECT (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_filename))),
+			    "changed", GTK_SIGNAL_FUNC (sig_filename_changed), dialog);
+
+	dialog->sig_script = glade_xml_get_widget (gui, "file-sig-script");
+	gtk_signal_connect (GTK_OBJECT (gnome_file_entry_gtk_entry (GNOME_FILE_ENTRY (dialog->sig_script))),
+			    "changed", GTK_SIGNAL_FUNC (sig_script_changed), dialog);
+
 	dialog->sig_advanced_table = glade_xml_get_widget (gui, "table-sig-advanced");
+
+	/* preview GtkHTML widget */
 }
 
 static void

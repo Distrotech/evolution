@@ -431,20 +431,22 @@ config_write_signature (MailConfigSignature *sig, gint i)
 }
 
 static void
+config_write_signatures_num ()
+{
+	bonobo_config_set_long (config->db, "/Mail/Signatures/num", config->signatures, NULL);
+}
+
+static void
 config_write_signatures ()
 {
-	GList *l, *next;
+	GList *l;
 	gint id;
 
-	for (id = 0, l = config->signature_list; l; l = next) {
-		next = l->next;
-		if (l->data) {
-			config_write_signature ((MailConfigSignature *) l->data, id);
-			id ++;
-		}
+	for (id = 0, l = config->signature_list; l; l = l->next) {
+		config_write_signature ((MailConfigSignature *) l->data, id);
 	}
 
-	bonobo_config_set_long (config->db, "/Mail/Signatures/num", id, NULL);
+	config_write_signatures_num ();
 }
 
 static void
@@ -2648,4 +2650,41 @@ evolution_mail_config_factory_init (void)
 
 	bonobo_running_context_auto_exit_unref (BONOBO_OBJECT (factory));
 	return TRUE;
+}
+
+GList *
+mail_config_get_signature_list (void)
+{
+	return config->signature_list;
+}
+
+MailConfigSignature *
+mail_config_add_signature (void)
+{
+	MailConfigSignature *sig;
+
+	sig = g_new0 (MailConfigSignature, 1);
+
+	sig->name = _("Unnamed");
+	sig->filename = g_strdup_printf ("FIXME");
+	sig->id = config->signatures;
+
+	config->signature_list = g_list_append (config->signature_list, sig);
+	config->signatures ++;
+
+	config_write_signature (sig, sig->id);
+	config_write_signatures_num ();
+
+	return sig;
+}
+
+void
+mail_config_delete_signature (MailConfigSignature *sig)
+{
+}
+
+void
+mail_config_write_signature (MailConfigSignature *sig)
+{
+	config_write_signature (sig, sig->id);
 }
