@@ -1,5 +1,7 @@
 2000-08-08  Peter Williams  <peterw@helixcode.com>
 
+	* mail-tools.c (mail_tool_do_movemail): Fix for undeclared tmpfd.
+
 	* mail-local.c (local_reconfigure_folder): Big rewrite; make into
 	an asynchronous operation. Use some mail tools to make life easy.
 

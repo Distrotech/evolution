@@ -149,7 +149,9 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 	gchar *dest_path;
 	const gchar *source;
 	CamelFolder *ret;
-
+#ifndef MOVEMAIL_PATH
+	int tmpfd;
+#endif
 	g_return_val_if_fail (strncmp (source_url, "mbox:", 5) == 0, NULL);
 
 	/* Set up our destination. */
