@@ -882,8 +882,8 @@ eti_header_structure_changed (ETableHeader *eth, ETableItem *eti)
 		eti_realize_cell_views (eti);
 	} else {
 		if (eti->table_model) {
-			eti_detach_cell_views (eti);
 			eti_attach_cell_views (eti);
+			eti_realize_cell_views (eti);
 		}
 	}
 	eti->needs_compute_width = 1;
