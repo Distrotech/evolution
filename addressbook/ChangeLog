@@ -1,5 +1,10 @@
 2003-10-21  Chris Toshok  <toshok@ximian.com>
 
+	* tools/evolution-addressbook-abuse.c: use the synchronous api for
+	this.  simplifies it a bunch.
+
+2003-10-21  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-book.c
 	(impl_GNOME_Evolution_Addressbook_Book_remove): we can ill afford
 	bad debug spew.
