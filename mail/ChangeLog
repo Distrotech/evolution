@@ -1,3 +1,125 @@
+2003-09-09  Not Zed  <NotZed@Ximian.com>
+
+	* em-utils.c (forward_non_attached): implement forward quoted.
+
+	* em-format-quote.[ch]: New class, em-format-html-quote wont cut
+	it.  Sigh.
+
+	* em-format-html-quote.c (efhq_base_init): move type init stuff
+	here.
+	(efhq_complete): remove, this is a signal.
+	(efhq_multipart_related): we need to override the base class, we
+	don't want to output any attachment html.
+
+	* em-format-html-print.c (efhp_base_init): move builtin type init
+	to here.
+
+	* em-format-html.c (efh_init): get xmailer mask from gconf (sigh).
+	(efh_format_header): inmplement most of xmailer mask thing.
+	rupert icon not done yet, probably needs to be done as part of
+	em-format-html-display, sigh.
+	(type_builtin_table[]): add image/svg to supported image formats.
+	(efhd_base_init): move type init to here.
+	(efh_text_enriched): write to the filtered_stream, not stream.
+
+	* em-format.c (em_format_format_text): oops, actually use any
+	supplied charset.
+	(emf_base_init): move hashtable init into base_init, so we get a
+	new copy for each derived class too.
+
+	* mail-send-recv.c (build_dialogue): use an eclippedlabel for
+	status.  Fixed all uses.
+
+2003-09-08  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html.h (EMFormatHTML): added a simple_headers option,
+	only output headers in basic format.  Added hide_headers option,
+	to disable all header output.
+
+	* em-format-html-quote.c (efhq_format_message): blockquote the
+	contnet, thats how you cite it!
+	(efhq_init): turn on simple headers for html output.
+	(efhq_format_message): output headers and part directly, bypassing
+	parent format_message.
+	(efhq_format_message): implement hide_headers.
+
+	* em-format-html.c (efh_busy): implement busy.
+	(efh_format_message): implement simple_headers option.
+	(efh_format_text_header): implement simple_headers option.
+	(efh_format_message): move the header formatting stuff into
+	exported em_format_html_format_headers.
+	(efh_format_message): only output headers if not hidden.
+
+	* em-format.c (emf_busy): base implementation of a new virtual
+	method, returns TRUE if the object is still busy
+	rendering/downloading stuff.
+
+	* em-utils.c (em_utils_message_to_html): renamed from
+	em_utils_quote_message.  Also make sure the html conversion is
+	complete before getting the data.
+	(em_utils_part_to_html): similar, but for parts.
+	(composer_set_body): put in David Woodhouse's timezone in
+	attribution patch.
+	(composer_set_body): we want to quote the part (content), we don't
+	want message headers.
+	(em_utils_message_to_html): add a 'show headers' argument.
+
+	* folder-browser-factory.c (control_activate): removed.
+	(control_deactivate): removed.
+
+	* mail-identify.c: 
+	* folder-browser.[ch], folder-browser-ui.[ch]: 
+	* mail-callbacks.[ch], mail-search.[ch]:
+	* mail-display.[ch], mail-format.[ch], mail-display-stream.[ch]:
+	* message-browser.[ch]: Removed, fixed all users.
+
+	* component-factory.c (factory): change callbacks to em_utils
+	ones.
+	(configure_folder_popup): comment out some of the reconfigure
+	stuff.  Wont have it in 1.6?
+	(handle_external_uri_cb): use em_utils stuff.
+	(user_create_new_item_cb): "
+	(owner_unset_cb): "
+
+	* em-composer-utils.c (composer_send_cb): rename to
+	em_utils_composer_send_cb, and export, sigh, needed for factory.
+	(composer_save_draft_cb): Same.
+
+2003-09-05  Not Zed  <NotZed@Ximian.com>
+
+	* em-format.c (type_builtin_table[]): Add a fallback multipart/*
+	for other types (e.g. multipart/report)
+	(em_format_fallback_handler): fix some bad logic.
+
+	* em-folder-browser.c: track the pane size if the user changes it.
+	(emfb_set_folder): Added a bit of a mess that will select the
+	first unread message the first time you visit a folder.
+	(emfb_destroy): impelment.  clear up outstanding signal handlers.
+	(emfb_list_built): Select the first unread message.  this isn't
+	entirely reliable as yet, and not configurable at all.
+
+	* em-format-html-display.c (em_format_html_display_set_animate)
+	(em_format_html_display_set_caret_mode): guess? :)
+	(efhd_attachment_button): dont desensitise the button, just dont
+	hook onto it, otherwise it looks fugly.
+
+	* em-folder-view.c (emfv_list_done_message_selected): dont lookup
+	gconf values every time.  use g_timeout_add rather than
+	gtk_timeout, remove fixme's.
+	(emfv_setting_notify): listner for gconf changes, reflect internally.
+	(emfv_setting_setup): setup listner for gconf, and read initial settings.
+	(emfv_activate): use local copy of settings rather than snooping gconf.
+	(emfv_caret_mode): propagate caret-mode to display
+
+	* em-format-html-quote.c (efhq_format_message): remove gconf
+	stuff, our parent already has citation colour.
+
+	* em-format-html.c (efh_format_timeout): remove gconf stuff.
+	(em_format_html_set_load_http, em_format_html_set_mark_citations):
+	set options on formatter, re-renders if required.
+	(type_builtin_table[]): text/* should go to text/plain, not
+	text/enriched.
+
 2003-09-04  Not Zed  <NotZed@Ximian.com>
 
 	* em-utils.c (confirm_expunge): rename it to emu_confirm_expunge

@@ -288,6 +288,18 @@ void em_format_html_display_goto_anchor(EMFormatHTMLDisplay *efhd, const char *n
 	printf("FIXME: go to anchor '%s'\n", name);
 }
 
+void em_format_html_display_set_animate(EMFormatHTMLDisplay *efhd, gboolean state)
+{
+	efhd->animate = state;
+	gtk_html_set_animate(((EMFormatHTML *)efhd)->html, state);
+}
+
+void em_format_html_display_set_caret_mode(EMFormatHTMLDisplay *efhd, gboolean state)
+{
+	efhd->caret_mode = state;
+	gtk_html_set_caret_mode(((EMFormatHTML *)efhd)->html, state);
+}
+
 void
 em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *strings)
 {
@@ -867,10 +879,8 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 
 	if (info->handle)
 		g_signal_connect(button, "clicked", G_CALLBACK(efhd_attachment_show), info);
-	else {
-		gtk_widget_set_sensitive(button, FALSE);
+	else
 		GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);
-	}
 
 	hbox = gtk_hbox_new(FALSE, 2);
 	info->forward = gtk_image_new_from_stock(GTK_STOCK_GO_FORWARD, GTK_ICON_SIZE_BUTTON);
@@ -925,7 +935,7 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 
 	if (info->shown)
 		gtk_widget_hide(info->forward);
-	else
+	else if (info->down)
 		gtk_widget_hide(info->down);
 
 	gtk_container_add((GtkContainer *)eb, mainbox);

@@ -39,11 +39,6 @@
 #include "em-utils.h"
 #include "em-composer-utils.h"
 
-
-static void composer_send_cb (EMsgComposer *composer, gpointer user_data);
-static void composer_save_draft_cb (EMsgComposer *composer, int quit, gpointer user_data);
-
-
 struct emcs_t {
 	unsigned int ref_count;
 	
@@ -242,9 +237,9 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 		if (!emcs) {
 			/* disconnect the previous signal handlers */
 			g_signal_handlers_disconnect_matched (send->composer, G_SIGNAL_MATCH_FUNC, 0,
-							      0, NULL, composer_send_cb, NULL);
+							      0, NULL, em_utils_composer_send_cb, NULL);
 			g_signal_handlers_disconnect_matched (send->composer, G_SIGNAL_MATCH_FUNC, 0,
-							      0, NULL, composer_save_draft_cb, NULL);
+							      0, NULL, em_utils_composer_save_draft_cb, NULL);
 			
 			/* reconnect to the signals using a non-NULL emcs for the callback data */
 			em_composer_utils_setup_default_callbacks (send->composer);
@@ -410,8 +405,8 @@ got_post_folder (char *uri, CamelFolder *folder, void *data)
 		camel_object_ref (folder);
 }
 
-static void
-composer_send_cb (EMsgComposer *composer, gpointer user_data)
+void
+em_utils_composer_send_cb (EMsgComposer *composer, gpointer user_data)
 {
 	extern CamelFolder *outbox_folder;
 	CamelMimeMessage *message;
@@ -492,8 +487,8 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 		emcs = emcs_new ();
 		
 		/* disconnect the previous signal handlers */
-		g_signal_handlers_disconnect_by_func (sdi->composer, G_CALLBACK (composer_send_cb), NULL);
-		g_signal_handlers_disconnect_by_func (sdi->composer, G_CALLBACK (composer_save_draft_cb), NULL);
+		g_signal_handlers_disconnect_by_func (sdi->composer, G_CALLBACK (em_utils_composer_send_cb), NULL);
+		g_signal_handlers_disconnect_by_func (sdi->composer, G_CALLBACK (em_utils_composer_save_draft_cb), NULL);
 		
 		/* reconnect to the signals using a non-NULL emcs for the callback data */
 		em_composer_utils_setup_default_callbacks (sdi->composer);
@@ -547,8 +542,8 @@ save_draft_folder (char *uri, CamelFolder *folder, gpointer data)
 	}
 }
 
-static void
-composer_save_draft_cb (EMsgComposer *composer, int quit, gpointer user_data)
+void
+em_utils_composer_save_draft_cb (EMsgComposer *composer, int quit, gpointer user_data)
 {
 	extern char *default_drafts_folder_uri;
 	extern CamelFolder *drafts_folder;
@@ -621,8 +616,8 @@ em_composer_utils_setup_callbacks (EMsgComposer *composer, CamelFolder *folder, 
 		emcs->drafts_uid = g_strdup (drafts_uid);
 	}
 	
-	g_signal_connect (composer, "send", G_CALLBACK (composer_send_cb), emcs);
-	g_signal_connect (composer, "save-draft", G_CALLBACK (composer_save_draft_cb), emcs);
+	g_signal_connect (composer, "send", G_CALLBACK (em_utils_composer_send_cb), emcs);
+	g_signal_connect (composer, "save-draft", G_CALLBACK (em_utils_composer_save_draft_cb), emcs);
 	
 	g_object_weak_ref ((GObject *) composer, (GWeakNotify) composer_destroy_cb, emcs);
 }

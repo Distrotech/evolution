@@ -97,8 +97,10 @@ struct _EMFolderBrowserPrivate {
 	GalViewInstance *view_instance;
 	GalViewMenus *view_menus;
 
-	int show_preview:1;
-	int show_list:1;
+	guint vpane_resize_id;
+	guint list_built_id;	/* hook onto list-built for delayed 'select first unread' stuff */
+
+	unsigned int show_preview:1;
 };
 
 static void emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
@@ -132,12 +134,24 @@ static EMFolderViewClass *emfb_parent;
 
 /* Needed since the paned wont take the position its given otherwise ... */
 static void
-paned_realised(GtkWidget *w, EMFolderBrowser *emfb)
+emfb_pane_realised(GtkWidget *w, EMFolderBrowser *emfb)
 {
 	GConfClient *gconf;
 
 	gconf = mail_config_get_gconf_client ();
 	gtk_paned_set_position((GtkPaned *)emfb->vpane, gconf_client_get_int(gconf, "/apps/evolution/mail/display/paned_size", NULL));
+}
+
+static gboolean
+emfb_pane_button_release_event(GtkWidget *w, GdkEventButton *e, EMFolderBrowser *emfb)
+{
+	GConfClient *gconf = mail_config_get_gconf_client ();
+
+	if (GTK_WIDGET_REALIZED (w))
+		gconf_client_set_int(gconf, "/apps/evolution/mail/display/paned_size",
+				     gtk_paned_get_position(GTK_PANED(w)), NULL);
+	
+	return FALSE;
 }
 
 static void
@@ -175,7 +189,9 @@ emfb_init(GObject *o)
 	}
 
 	emfb->vpane = gtk_vpaned_new();
-	g_signal_connect(emfb->vpane, "realize", G_CALLBACK(paned_realised), emfb);
+	g_signal_connect(emfb->vpane, "realize", G_CALLBACK(emfb_pane_realised), emfb);
+	emfb->priv->vpane_resize_id = g_signal_connect(emfb->vpane, "button_release_event", G_CALLBACK(emfb_pane_button_release_event), emfb);
+
 	gtk_widget_show(emfb->vpane);
 
 	gtk_box_pack_start_defaults((GtkBox *)emfb, emfb->vpane);
@@ -209,9 +225,23 @@ emfb_finalise(GObject *o)
 }
 
 static void
+emfb_destroy(GtkObject *o)
+{
+	EMFolderBrowser *emfb = (EMFolderBrowser *)o;
+
+	if (emfb->priv->list_built_id) {
+		g_signal_handler_disconnect(((EMFolderView *)emfb)->list, emfb->priv->list_built_id);
+		emfb->priv->list_built_id = 0;
+	}
+
+	((GtkObjectClass *)emfb_parent)->destroy(o);
+}
+
+static void
 emfb_class_init(GObjectClass *klass)
 {
 	klass->finalize = emfb_finalise;
+	((GtkObjectClass *)klass)->destroy = emfb_destroy;
 	((EMFolderViewClass *)klass)->set_folder = emfb_set_folder;
 	((EMFolderViewClass *)klass)->activate = emfb_activate;
 }
@@ -667,6 +697,19 @@ emfb_view_preview(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_E
 	em_folder_browser_show_preview((EMFolderBrowser *)emfv, state[0] != '0');
 }
 
+/* TODO: This should probably be handled by message-list, by storing/queueing
+   up the select operation if its busy rebuilding the message-list */
+static void
+emfb_list_built(MessageList *ml, EMFolderBrowser *emfb)
+{
+	g_signal_handler_disconnect(ml, emfb->priv->list_built_id);
+	emfb->priv->list_built_id = 0;
+	
+	if (((EMFolderView *)emfb)->list->cursor_uid == NULL)
+		message_list_select(((EMFolderView *)emfb)->list,
+				    MESSAGE_LIST_SELECT_NEXT, 0, CAMEL_MESSAGE_SEEN, TRUE);
+}
+
 static void
 emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 {
@@ -687,6 +730,10 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 			printf("forcing folder thread_list to '%s'\n", sstate);
 			message_list_set_threaded(emfv->list, sstate[0] == '1');
 		}
+
+		if (emfv->list->cursor_uid == NULL && ((EMFolderBrowser *)emfv)->priv->list_built_id == 0)
+			((EMFolderBrowser *)emfv)->priv->list_built_id =
+				g_signal_connect(emfv->list, "message_list_built", G_CALLBACK(emfb_list_built), emfv);
 	}
 
 	emfb_parent->set_folder(emfv, folder, uri);

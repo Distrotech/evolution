@@ -21,29 +21,36 @@
  */
 
 
-#ifndef _EM_FORMAT_HTML_QUOTE_H
-#define _EM_FORMAT_HTML_QUOTE_H
+#ifndef _EM_FORMAT_QUOTE_H
+#define _EM_FORMAT_QUOTE_H
 
-#include "em-format-html.h"
+#include "em-format.h"
 
-typedef struct _EMFormatHTMLQuote EMFormatHTMLQuote;
-typedef struct _EMFormatHTMLQuoteClass EMFormatHTMLQuoteClass;
+typedef struct _EMFormatQuote EMFormatQuote;
+typedef struct _EMFormatQuoteClass EMFormatQuoteClass;
 
-struct _EMFormatHTMLQuote {
-	EMFormatHTML formathtml;
+#define EM_FORMAT_QUOTE_CITE (1<<0)
+#define EM_FORMAT_QUOTE_HEADERS (1<<1)
 
-	struct _EMFormatHTMLQuotePrivate *priv;
+struct _EMFormatQuote {
+	EMFormat format;
+
+	struct _EMFormatQuotePrivate *priv;
+
+	char *credits;
+	struct _CamelStream *stream;
+	guint32 flags;
+
+	guint32 text_html_flags;
+	guint32 citation_colour;
 };
 
-struct _EMFormatHTMLQuoteClass {
-	EMFormatHTMLClass formathtml_class;
-	
+struct _EMFormatQuoteClass {
+	EMFormatClass format_class;
 };
 
-GType em_format_html_quote_get_type (void);
+GType em_format_quote_get_type(void);
 
-EMFormatHTMLQuote *em_format_html_quote_new (void);
+EMFormatQuote *em_format_quote_new(const char *, struct _CamelStream *, guint32 flags);
 
-EMFormatHTMLQuote *em_format_html_quote_new_with_credits (const char *cedits);
-
-#endif /* !_EM_FORMAT_HTML_QUOTE_H */
+#endif /* !_EM_FORMAT_QUOTE_H */

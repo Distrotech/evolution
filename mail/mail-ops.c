@@ -43,7 +43,6 @@
 #include "mail-vfolder.h"
 #include "mail-session.h"
 #include "composer/e-msg-composer.h"
-#include "folder-browser.h"
 
 #include "filter/filter-filter.h"
 

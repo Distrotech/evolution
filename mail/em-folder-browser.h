@@ -37,10 +37,10 @@ typedef struct _EMFolderBrowserClass EMFolderBrowserClass;
 struct _EMFolderBrowser {
 	EMFolderView view;
 
+	struct _EMFolderBrowserPrivate *priv;
+
 	GtkWidget *vpane;
 	struct _EFilterBar *search;
-
-	struct _EMFolderBrowserPrivate *priv;
 };
 
 struct _EMFolderBrowserClass {

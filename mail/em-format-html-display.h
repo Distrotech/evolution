@@ -42,6 +42,9 @@ EMFormatHTMLDisplay *em_format_html_display_new(void);
 
 void em_format_html_display_goto_anchor(EMFormatHTMLDisplay *efhd, const char *name);
 
+void em_format_html_display_set_animate(EMFormatHTMLDisplay *efhd, gboolean state);
+void em_format_html_display_set_caret_mode(EMFormatHTMLDisplay *efhd, gboolean state);
+
 void em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *strings);
 void em_format_html_display_search(EMFormatHTMLDisplay *efhd);
 

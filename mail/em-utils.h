@@ -34,9 +34,11 @@ extern "C" {
 struct _GtkWidget;
 struct _GtkWindow;
 struct _CamelFolder;
+struct _CamelStream;
 struct _CamelMimeMessage;
 struct _GtkSelectionData;
 struct _GtkAdjustment;
+struct _EMsgComposer;
 
 gboolean em_utils_prompt_user (struct _GtkWindow *parent, int def, gboolean *again, const char *fmt, ...);
 
@@ -49,9 +51,13 @@ gboolean em_utils_check_user_can_send_mail (struct _GtkWidget *parent);
 void em_utils_edit_filters (struct _GtkWidget *parent);
 void em_utils_edit_vfolders (struct _GtkWidget *parent);
 
-void em_utils_compose_new_message (struct _GtkWidget *parent);
-void em_utils_compose_new_message_with_mailto (struct _GtkWidget *parent, const char *url);
+void em_utils_composer_send_cb(struct _EMsgComposer *composer, gpointer user_data);
+void em_utils_composer_save_draft_cb(struct _EMsgComposer *composer, int quit, gpointer user_data);
 
+void em_utils_compose_new_message (struct _GtkWidget *parent);
+
+/* FIXME: mailto?  url?  should make up its mind what its called.  imho use 'uri' */
+void em_utils_compose_new_message_with_mailto (struct _GtkWidget *parent, const char *url);
 void em_utils_post_to_url (struct _GtkWidget *parent, const char *url);
 
 void em_utils_edit_message (struct _GtkWidget *parent, struct _CamelMimeMessage *message);
@@ -104,7 +110,10 @@ void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 
 char *em_utils_get_proxy_uri(void);
 
-char *em_utils_quote_message (struct _CamelMimeMessage *message, const char *credits);
+/* FIXME: should this have an override charset? */
+char *em_utils_part_to_html(struct _CamelMimePart *part);
+char *em_utils_message_to_html(struct _CamelMimeMessage *msg, const char *credits, guint32 flags);
+
 void em_utils_expunge_folder (struct _GtkWidget *parent, struct _CamelFolder *folder);
 void em_utils_empty_trash (struct _GtkWidget *parent);
 

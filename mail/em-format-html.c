@@ -40,6 +40,8 @@
 #include <gtkhtml/gtkhtml-stream.h>
 #include <gtkhtml/htmlengine.h>
 
+#include <gconf/gconf-client.h>
+
 #include <libgnomevfs/gnome-vfs-utils.h>
 #include <libgnomevfs/gnome-vfs-mime-utils.h>
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
@@ -63,13 +65,10 @@
 
 #include <e-util/e-msgport.h>
 #include "mail-mt.h"
-#include "mail-config.h"
 
 #include "em-format-html.h"
 #include "em-html-stream.h"
 #include "em-utils.h"
-
-#include "mail-config.h"
 
 #define d(x) 
 
@@ -94,6 +93,7 @@ static void efh_format_error(EMFormat *emf, CamelStream *stream, const char *txt
 static void efh_format_message(EMFormat *, CamelStream *, CamelMedium *);
 static void efh_format_source(EMFormat *, CamelStream *, CamelMimePart *);
 static void efh_format_attachment(EMFormat *, CamelStream *, CamelMimePart *, const char *, const EMFormatHandler *);
+static gboolean efh_busy(EMFormat *);
 
 static void efh_builtin_init(EMFormatHTMLClass *efhc);
 
@@ -108,6 +108,7 @@ static void
 efh_init(GObject *o)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)o;
+	GConfClient *gconf;
 
 	efh->priv = g_malloc0(sizeof(*efh->priv));
 
@@ -129,8 +130,13 @@ efh_init(GObject *o)
 
 	efh->header_colour = 0xeeeeee;
 	efh->text_colour = 0;
-	efh->text_html_flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES |
-		CAMEL_MIME_FILTER_TOHTML_MARK_CITATION;
+	efh->text_html_flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
+		| CAMEL_MIME_FILTER_TOHTML_MARK_CITATION;
+
+	/* TODO: should this be here?   wont track changes ... */
+	gconf = gconf_client_get_default();
+	efh->xmailer_mask = gconf_client_get_int(gconf, "/apps/evolution/mail/display/xmailer_mask", NULL);
+	g_object_unref(gconf);
 }
 
 static void
@@ -168,15 +174,20 @@ efh_finalise(GObject *o)
 }
 
 static void
+efh_base_init(EMFormatHTMLClass *efhklass)
+{
+	efh_builtin_init(efhklass);
+}
+
+static void
 efh_class_init(GObjectClass *klass)
 {
-	efh_builtin_init((EMFormatHTMLClass *)klass);
-
 	((EMFormatClass *)klass)->format_clone = efh_format_clone;
 	((EMFormatClass *)klass)->format_error = efh_format_error;
 	((EMFormatClass *)klass)->format_message = efh_format_message;
 	((EMFormatClass *)klass)->format_source = efh_format_source;
 	((EMFormatClass *)klass)->format_attachment = efh_format_attachment;
+	((EMFormatClass *)klass)->busy = efh_busy;
 
 	klass->finalize = efh_finalise;
 }
@@ -189,7 +200,7 @@ em_format_html_get_type(void)
 	if (type == 0) {
 		static const GTypeInfo info = {
 			sizeof(EMFormatHTMLClass),
-			NULL, NULL,
+			(GBaseInitFunc)efh_base_init, NULL,
 			(GClassInitFunc)efh_class_init,
 			NULL, NULL,
 			sizeof(EMFormatHTML), 0,
@@ -231,6 +242,25 @@ void em_format_html_load_http(EMFormatHTML *emfh)
 	emfh->load_http_now = TRUE;
 	d(printf("redrawing with images forced on\n"));
 	em_format_format_clone((EMFormat *)emfh, emfh->format.message, (EMFormat *)emfh);
+}
+
+void
+em_format_html_set_load_http(EMFormatHTML *emfh, int state)
+{
+	if (emfh->load_http ^ state) {
+		emfh->load_http = state;
+		em_format_format_clone((EMFormat *)emfh, emfh->format.message, (EMFormat *)emfh);
+	}
+}
+
+void
+em_format_html_set_mark_citations(EMFormatHTML *emfh, int state, guint32 citation_colour)
+{
+	if (emfh->mark_citations ^ state || emfh->citation_colour != citation_colour) {
+		emfh->mark_citations = state;
+		emfh->citation_colour = citation_colour;
+		em_format_format_clone((EMFormat *)emfh, emfh->format.message, (EMFormat *)emfh);
+	}
 }
 
 CamelMimePart *
@@ -553,7 +583,7 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	camel_object_unref(enriched);
 
 	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");	
-	em_format_format_text((EMFormat *)efh, stream, dw);
+	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, dw);
 	
 	camel_stream_write_string(stream, "</tt></td></tr></table>\n");
 	camel_object_unref(filtered_stream);
@@ -921,6 +951,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "image/tiff", (EMFormatFunc)efh_image },
 	{ "image/x-bmp", (EMFormatFunc)efh_image },
 	{ "image/bmp", (EMFormatFunc)efh_image },
+	{ "image/svg", (EMFormatFunc)efh_image },
 	{ "image/x-cmu-raster", (EMFormatFunc)efh_image },
 	{ "image/x-ico", (EMFormatFunc)efh_image },
 	{ "image/x-portable-anymap", (EMFormatFunc)efh_image },
@@ -932,7 +963,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "text/plain", (EMFormatFunc)efh_text_plain },
 	{ "text/html", (EMFormatFunc)efh_text_html },
 	{ "text/richtext", (EMFormatFunc)efh_text_enriched },
-	{ "text/*", (EMFormatFunc)efh_text_enriched },
+	{ "text/*", (EMFormatFunc)efh_text_plain },
 	{ "message/external-body", (EMFormatFunc)efh_message_external },
 	{ "multipart/signed", (EMFormatFunc)efh_multipart_signed },
 	{ "multipart/related", (EMFormatFunc)efh_multipart_related },
@@ -1072,8 +1103,6 @@ efh_format_timeout(struct _format_msg *m)
 {
 	GtkHTMLStream *hstream;
 	EMFormatHTML *efh = m->format;
-	/* FIXME: how to remove dependency on mail_config??? */
-	GConfClient *gconf = mail_config_get_gconf_client();
 
 	if (m->format->html == NULL) {
 		mail_msg_free(m);
@@ -1109,7 +1138,7 @@ efh_format_timeout(struct _format_msg *m)
 		} else {
 			efh->priv->last_part = m->message;
 			/* FIXME: Need to handle 'load if sender in addressbook' case too */
-			efh->load_http = gconf_client_get_int(gconf, "/apps/evolution/mail/display/load_http_images", NULL) == MAIL_CONFIG_HTTP_ALWAYS;
+
 			efh->load_http_now = efh->load_http;
 		}
 		
@@ -1190,16 +1219,20 @@ efh_format_text_header(EMFormat *emf, CamelStream *stream, const char *label, co
 	else
 		html = mhtml = camel_text_to_html(value, ((EMFormatHTML *)emf)->text_html_flags, 0);
 
-	if (flags & EM_FORMAT_HTML_HEADER_NOCOLUMNS) {
-		if (flags & EM_FORMAT_HEADER_BOLD)
-			fmt = "<tr><td><b>%s:</b> %s</td></tr>";
-		else
-			fmt = "<tr><td>%s: %s</td></tr>";
+	if (((EMFormatHTML *)emf)->simple_headers) {
+		fmt = "<b>%s</b>: %s<br>";
 	} else {
-		if (flags & EM_FORMAT_HEADER_BOLD)
-			fmt = "<tr><th align=\"right\" valign=\"top\">%s:<b>&nbsp;</b></th><td>%s</td></tr>";
-		else
-			fmt = "<tr><td align=\"right\" valign=\"top\">%s:<b>&nbsp;</b></td><td>%s</td></tr>";
+		if (flags & EM_FORMAT_HTML_HEADER_NOCOLUMNS) {
+			if (flags & EM_FORMAT_HEADER_BOLD)
+				fmt = "<tr><td><b>%s:</b> %s</td></tr>";
+			else
+				fmt = "<tr><td>%s: %s</td></tr>";
+		} else {
+			if (flags & EM_FORMAT_HEADER_BOLD)
+				fmt = "<tr><th align=\"right\" valign=\"top\">%s:<b>&nbsp;</b></th><td>%s</td></tr>";
+			else
+				fmt = "<tr><td align=\"right\" valign=\"top\">%s:<b>&nbsp;</b></td><td>%s</td></tr>";
+		}
 	}
 
 	camel_stream_printf(stream, fmt, label, html);
@@ -1223,6 +1256,7 @@ static void
 efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, const char *namein, guint32 flags, const char *charset)
 {
 #define msg ((CamelMimeMessage *)part)
+#define efh ((EMFormatHTML *)emf)
 	char *name;
 
 	name = alloca(strlen(namein)+1);
@@ -1251,6 +1285,12 @@ efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, const c
 			txt = camel_medium_get_header(part, "x-mailer");
 			if (txt == NULL)
 				txt = camel_medium_get_header(part, "user-agent");
+			if (txt == NULL
+			    || ((efh->xmailer_mask & EM_FORMAT_HTML_XMAILER_OTHER) == 0
+				&& ((efh->xmailer_mask & EM_FORMAT_HTML_XMAILER_EVOLUTION) == 0
+				    || strstr(txt, "Evolution") == NULL)))
+				return;
+
 			label = _("Mailer");
 			flags |= EM_FORMAT_HEADER_BOLD;
 		} else if (!strcmp(name, "date")) {
@@ -1305,29 +1345,32 @@ efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, const c
 		g_free(value);
 	}
 #undef msg
+#undef efh
 }
 
-static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *part)
+void
+em_format_html_format_headers(EMFormatHTML *efh, CamelStream *stream, CamelMedium *part)
 {
 	EMFormatHeader *h;
 	const char *charset;
 	CamelContentType *ct;
-#define efh ((EMFormatHTML *)emf)
+#define emf ((EMFormat *)efh)
 	
 	ct = camel_mime_part_get_content_type((CamelMimePart *)part);
 	charset = header_content_type_param(ct, "charset");
 	charset = e_iconv_charset_name(charset);	
 
-	camel_stream_printf(stream,
-			    "<table width=\"100%%\" cellpadding=5 cellspacing=0>"
-			    "<tr><td>"
-			    "<table width=\"100%%\" cellpaddding=1 cellspacing=0 bgcolor=\"#000000\">"
-			    "<tr><td>"
-			    "<table width=\"100%%\"cellpadding=0 cellspacing=0 bgcolor=\"#%06x\">"
-			    "<tr><td>"
-			    "<table><font color=\"#%06x\"",
-			    efh->header_colour & 0xffffff,
-			    efh->text_colour & 0xffffff);
+	if (!efh->simple_headers)
+		camel_stream_printf(stream,
+				    "<table width=\"100%%\" cellpadding=5 cellspacing=0>"
+				    "<tr><td>"
+				    "<table width=\"100%%\" cellpaddding=1 cellspacing=0 bgcolor=\"#000000\">"
+				    "<tr><td>"
+				    "<table width=\"100%%\"cellpadding=0 cellspacing=0 bgcolor=\"#%06x\">"
+				    "<tr><td>"
+				    "<table><font color=\"#%06x\"",
+				    efh->header_colour & 0xffffff,
+				    efh->text_colour & 0xffffff);
 
 	/* dump selected headers */
 	h = (EMFormatHeader *)emf->header_list.head;
@@ -1346,11 +1389,21 @@ static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *
 		}
 	}
 
-	camel_stream_printf(stream,
-			    "</font></table>"
-			    "</td></tr></table>"
-			    "</td></tr></table>"
-			    "</td></tr></table>");
+	if (!efh->simple_headers)
+		camel_stream_printf(stream,
+				    "</font></table>"
+				    "</td></tr></table>"
+				    "</td></tr></table>"
+				    "</td></tr></table>");
+#undef emf
+}
+
+static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *part)
+{
+#define efh ((EMFormatHTML *)emf)
+
+	if (!efh->hide_headers)
+		em_format_html_format_headers(efh, stream, part);
 
 	if (emf->message != part)
 		camel_stream_printf(stream, "<blockquote>");
@@ -1408,4 +1461,10 @@ efh_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 
 	if (handle && em_format_is_inline(emf, part))
 		handle->handler(emf, stream, part, handle);
+}
+
+static gboolean
+efh_busy(EMFormat *emf)
+{
+	return (((EMFormatHTML *)emf)->priv->format_id != -1);
 }

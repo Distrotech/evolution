@@ -11,6 +11,8 @@
 #include <gtk/gtklabel.h>
 #include <gtk/gtkimage.h>
 
+#include <libgnome/gnome-url.h>
+
 #include <glib.h>
 
 #include "em-popup.h"

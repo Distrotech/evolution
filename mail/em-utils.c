@@ -20,7 +20,6 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -49,10 +48,9 @@
 
 #include "em-utils.h"
 #include "em-composer-utils.h"
-#include "em-format-html-quote.h"
+#include "em-format-quote.h"
 
 static EAccount *guess_account (CamelMimeMessage *message);
-
 
 /**
  * em_utils_prompt_user:
@@ -125,7 +123,6 @@ em_utils_uids_copy (GPtrArray *uids)
 	return copy;
 }
 
-
 /**
  * em_utils_uids_free:
  * @uids: array of uids
@@ -148,7 +145,6 @@ druid_destroy_cb (gpointer user_data, GObject *deadbeef)
 {
 	gtk_main_quit ();
 }
-
 
 /**
  * em_utils_configure_account:
@@ -178,7 +174,6 @@ em_utils_configure_account (GtkWidget *parent)
 	
 	return mail_config_is_configured ();
 }
-
 
 /**
  * em_utils_check_user_can_send_mail:
@@ -243,7 +238,6 @@ static const char *filter_source_names[] = {
 	NULL,
 };
 
-
 /**
  * em_utils_edit_filters:
  * @parent: parent window
@@ -304,7 +298,6 @@ create_new_composer (GtkWidget *parent)
 	return composer;
 }
 
-
 /**
  * em_utils_compose_new_message:
  * @parent: parent window
@@ -321,7 +314,6 @@ em_utils_compose_new_message (GtkWidget *parent)
 	
 	gtk_widget_show (composer);
 }
-
 
 /**
  * em_utils_compose_new_message_with_mailto:
@@ -349,7 +341,6 @@ em_utils_compose_new_message_with_mailto (GtkWidget *parent, const char *url)
 	
 	gtk_widget_show ((GtkWidget *) composer);
 }
-
 
 /**
  * em_utils_post_to_url:
@@ -396,7 +387,6 @@ edit_message (GtkWidget *parent, CamelMimeMessage *message, CamelFolder *drafts,
 	gtk_widget_show (GTK_WIDGET (composer));
 }
 
-
 /**
  * em_utils_edit_message:
  * @parent: parent window
@@ -427,7 +417,6 @@ edit_messages (CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *user
 		edit_message ((GtkWidget *) user_data, msgs->pdata[i], folder, uids->pdata[i]);
 	}
 }
-
 
 /**
  * em_utils_edit_messages:
@@ -466,7 +455,6 @@ forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part,
 	gtk_widget_show (GTK_WIDGET (composer));
 }
 
-
 /**
  * em_utils_forward_attached:
  * @parent: parent window
@@ -496,15 +484,20 @@ forward_non_attached (GtkWidget *parent, GPtrArray *messages, int style)
 	EMsgComposer *composer;
 	char *subject, *text;
 	int i;
-	
+	guint32 flags;
+
 	if (messages->len == 0)
 		return;
-	
+
+	flags = EM_FORMAT_QUOTE_HEADERS;
+	if (style == MAIL_CONFIG_FORWARD_QUOTED)
+		flags |= EM_FORMAT_QUOTE_CITE;
+
 	for (i = 0; i < messages->len; i++) {
 		message = messages->pdata[i];
 		subject = mail_tool_generate_forward_subject (message);
 		
-		text = em_utils_quote_message (message, _("-------- Forwarded Message --------"));
+		text = em_utils_message_to_html(message, _("-------- Forwarded Message --------"), flags);
 		
 		if (text) {
 			composer = create_new_composer (parent);
@@ -533,7 +526,6 @@ forward_inline (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void 
 	forward_non_attached ((GtkWidget *) user_data, messages, MAIL_CONFIG_FORWARD_INLINE);
 }
 
-
 /**
  * em_utils_forward_inline:
  * @parent: parent window
@@ -557,7 +549,6 @@ forward_quoted (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void 
 	forward_non_attached ((GtkWidget *) user_data, messages, MAIL_CONFIG_FORWARD_QUOTED);
 }
 
-
 /**
  * em_utils_forward_quoted:
  * @parent: parent window
@@ -575,7 +566,6 @@ em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids
 	
 	mail_get_messages (folder, uids, forward_quoted, parent);
 }
-
 
 /**
  * em_utils_forward_message:
@@ -620,7 +610,6 @@ em_utils_forward_message (GtkWidget *parent, CamelMimeMessage *message)
 	
 	g_ptr_array_free (messages, TRUE);
 }
-
 
 /**
  * em_utils_forward_messages:
@@ -680,7 +669,6 @@ redirect_get_composer (GtkWidget *parent, CamelMimeMessage *message)
 	return composer;
 }
 
-
 /**
  * em_utils_redirect_message:
  * @parent: parent window
@@ -716,7 +704,6 @@ redirect_msg (CamelFolder *folder, const char *uid, CamelMimeMessage *message, v
 	
 	em_utils_redirect_message ((GtkWidget *) user_data, message);
 }
-
 
 /**
  * em_utils_redirect_message_by_uid:
@@ -1053,6 +1040,7 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 	CamelMimePart *part;
 	GConfClient *gconf;
 	time_t date;
+	int date_offset;
 	
 	gconf = mail_config_get_gconf_client ();
 	
@@ -1075,24 +1063,25 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 		} else {
 			name = _("an unknown sender");
 		}
-		
-		date = camel_mime_message_get_date (message, NULL);
-		e_utf8_strftime (format, sizeof (format), _("On %a, %Y-%m-%d at %H:%M, %%s wrote:"), localtime (&date));
-		credits = g_strdup_printf (format, name && *name ? name : addr);
-		
-		if ((text = em_utils_quote_message (message, credits))) {
-			e_msg_composer_set_body_text (composer, text);
-			g_free (text);
-		}
-		
+
+		date = camel_mime_message_get_date(message, &date_offset);
+		/* Convert to UTC */
+		date += (date_offset / 100) * 60 * 60;
+		date += (date_offset % 100) * 60;
+
+		/* translators: attribution string used when quoting messages,
+		   it must contain a single single %%+05d followed by a single '%%s' */
+		e_utf8_strftime(format, sizeof(format), _("On %a, %Y-%m-%d at %H:%M %%+05d, %%s wrote:"), gmtime(&date));
+		credits = g_strdup_printf(format, date_offset, name && *name ? name : addr);
+		text = em_utils_message_to_html(message, credits, EM_FORMAT_QUOTE_CITE);
 		g_free (credits);
-		
+		e_msg_composer_set_body_text(composer, text);
+		g_free (text);
 		break;
 	}
 	
 	e_msg_composer_drop_editor_undo (composer);
 }
-
 
 /**
  * em_utils_reply_to_message:
@@ -1187,7 +1176,6 @@ reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *messag
 	gtk_widget_show (GTK_WIDGET (composer));
 	e_msg_composer_unset_changed (composer);
 }
-
 
 /**
  * em_utils_reply_to_message_by_uid:
@@ -1293,7 +1281,6 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	gtk_widget_show (GTK_WIDGET (composer));	
 	e_msg_composer_unset_changed (composer);
 }
-
 
 /**
  * em_utils_post_reply_to_message_by_uid:
@@ -1405,7 +1392,6 @@ emu_save_part_response(GtkFileSelection *filesel, int response, CamelMimePart *p
 	camel_object_unref(part);
 }
 
-
 /**
  * em_utils_save_part:
  * @parent: parent window
@@ -1463,7 +1449,6 @@ emu_save_messages_response(GtkFileSelection *filesel, int response, struct _save
 	g_free(data);
 	gtk_widget_destroy((GtkWidget *)filesel);
 }
-
 
 /**
  * em_utils_save_messages:
@@ -1536,7 +1521,6 @@ tag_editor_response (GtkWidget *dialog, int button, struct ted_t *ted)
 	gtk_widget_destroy (dialog);
 }
 
-
 /**
  * em_utils_flag_for_followup:
  * @parent: parent window
@@ -1595,7 +1579,6 @@ em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArray *u
 	gtk_widget_show (editor);
 }
 
-
 /**
  * em_utils_flag_for_followup_clear:
  * @parent: parent window
@@ -1623,7 +1606,6 @@ em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrAr
 	
 	em_utils_uids_free (uids);
 }
-
 
 /**
  * em_utils_flag_for_followup_completed:
@@ -1662,7 +1644,6 @@ em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GP
 	
 	em_utils_uids_free (uids);
 }
-
 
 #include "camel/camel-stream-mem.h"
 #include "camel/camel-stream-filter.h"
@@ -1753,7 +1734,6 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 	return res;
 }
 
-
 /**
  * em_utils_selection_set_mailbox:
  * @data: selection data
@@ -1777,7 +1757,6 @@ em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtr
 
 	camel_object_unref(stream);
 }
-
 
 /**
  * em_utils_selection_get_mailbox:
@@ -1803,7 +1782,6 @@ em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder)
 	em_utils_read_messages_from_stream(folder, stream);
 	camel_object_unref(stream);
 }
-
 
 /**
  * em_utils_selection_set_uidlist:
@@ -1987,7 +1965,6 @@ em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 
 extern CamelFolder *drafts_folder, *sent_folder, *outbox_folder;
 
-
 /**
  * em_utils_folder_is_drafts:
  * @folder: folder
@@ -2028,7 +2005,6 @@ em_utils_folder_is_drafts(CamelFolder *folder, const char *uri)
 	
 	return is;
 }
-
 
 /**
  * em_utils_folder_is_sent:
@@ -2071,7 +2047,6 @@ em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
 	return is;
 }
 
-
 /**
  * em_utils_folder_is_outbox:
  * @folder: folder
@@ -2087,7 +2062,6 @@ em_utils_folder_is_outbox(CamelFolder *folder, const char *uri)
 	/* <Highlander>There can be only one.</Highlander> */
 	return folder == outbox_folder;
 }
-
 
 /**
  * em_utils_adjustment_page:
@@ -2189,18 +2163,20 @@ em_utils_get_proxy_uri(void)
 }
 
 /**
- * em_utils_quote_message:
- * @message: message to quote
- * @credits: leading credits
+ * em_utils_part_to_html:
+ * @part:
  *
- * Quotes a message suitable for forwarding or replying.
- *
- * Returns the quoted html text to feed into the composer.
+ * Converts a mime part's contents into html text.  If @credits is given,
+ * then it will be used as an attribution string, and the
+ * content will be cited.  Otherwise no citation or attribution
+ * will be performed.
+ * 
+ * Return Value: The part in displayable html format.
  **/
 char *
-em_utils_quote_message (CamelMimeMessage *message, const char *credits)
+em_utils_part_to_html(CamelMimePart *part)
 {
-	EMFormatHTMLQuote *emfq;
+	EMFormatQuote *emfq;
 	CamelStreamMem *mem;
 	GByteArray *buf;
 	char *text;
@@ -2209,8 +2185,44 @@ em_utils_quote_message (CamelMimeMessage *message, const char *credits)
 	mem = (CamelStreamMem *) camel_stream_mem_new ();
 	camel_stream_mem_set_byte_array (mem, buf);
 	
-	emfq = em_format_html_quote_new_with_credits (credits);
-	em_format_format_message ((EMFormat *) emfq, (CamelStream *) mem, (CamelMedium *) message);
+	emfq = em_format_quote_new(NULL, (CamelStream *)mem, 0);
+	em_format_part((EMFormat *) emfq, (CamelStream *) mem, part);
+	g_object_unref (emfq);
+	
+	camel_stream_write ((CamelStream *) mem, "", 1);
+	camel_object_unref (mem);
+	
+	text = buf->data;
+	g_byte_array_free (buf, FALSE);
+	
+	return text;
+}
+
+/**
+ * em_utils_message_to_html:
+ * @message: 
+ * @credits: 
+ * @flags: EMFormatQuote flags
+ *
+ * Convert a message to html, quoting if the @credits attribution
+ * string is given.
+ * 
+ * Return value: The html version.
+ **/
+char *
+em_utils_message_to_html(CamelMimeMessage *message, const char *credits, guint32 flags)
+{
+	EMFormatQuote *emfq;
+	CamelStreamMem *mem;
+	GByteArray *buf;
+	char *text;
+	
+	buf = g_byte_array_new ();
+	mem = (CamelStreamMem *) camel_stream_mem_new ();
+	camel_stream_mem_set_byte_array (mem, buf);
+	
+	emfq = em_format_quote_new(credits, (CamelStream *)mem, flags);
+	em_format_format((EMFormat *)emfq, (CamelMedium *)message);
 	g_object_unref (emfq);
 	
 	camel_stream_write ((CamelStream *) mem, "", 1);

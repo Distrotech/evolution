@@ -44,10 +44,7 @@
 
 #include "folder-browser-factory.h"
 
-#include "folder-browser.h"
-#include "folder-browser-ui.h"
 #include "mail.h"
-#include "mail-callbacks.h"
 #include "shell/Evolution.h"
 #include "mail-config.h"
 #include "mail-ops.h"
@@ -85,71 +82,6 @@ fb_get_svi (BonoboControl *control)
 		g_warning ("Control frame doesn't have Evolution/ShellView.");
 
 	return shell_view_interface;
-}
-
-static void
-control_activate (BonoboControl     *control,
-		  BonoboUIComponent *uic,
-		  FolderBrowser     *fb)
-{
-	GtkWidget *folder_browser;
-	Bonobo_UIContainer container;
-	GNOME_Evolution_ShellView svi;
-
-#if 0
-
-	container = bonobo_control_get_remote_ui_container (control, NULL);
-	bonobo_ui_component_set_container (uic, container, NULL);
-	bonobo_object_release_unref (container, NULL);
-
-	g_assert (container == bonobo_ui_component_get_container (uic));
-	g_return_if_fail (container != CORBA_OBJECT_NIL);
-		
-	folder_browser = bonobo_control_get_widget (control);
-	folder_browser_set_ui_component (FOLDER_BROWSER (folder_browser), uic);
-
-	/*bonobo_ui_component_freeze (uic, NULL);*/
-
-	folder_browser_ui_add_global (fb);
-	folder_browser_ui_add_list (fb);
-	folder_browser_ui_add_message (fb);
-	
-	/*bonobo_ui_component_thaw (uic, NULL);*/
-	
-	svi = fb_get_svi (control);
-	folder_browser_set_shell_view (fb, svi);
-	bonobo_object_release_unref (svi, NULL);
-	
-	folder_browser_reload (fb);
-	
-	e_search_bar_set_ui_component (E_SEARCH_BAR (fb->search), uic);
-#endif
-}
-
-static void
-control_deactivate (BonoboControl     *control,
-		    BonoboUIComponent *uic,
-		    FolderBrowser     *fb)
-{
-#if 0
-	/*bonobo_ui_component_freeze (uic, NULL);*/
-
-	folder_browser_ui_rm_list (fb);
-	folder_browser_ui_rm_all (fb);
-
-	/*bonobo_ui_component_thaw (uic, NULL);*/
-	
-	if (fb->folder)
-		mail_sync_folder (fb->folder, NULL, NULL);
-	
-	if (fb->message_list)
-		message_list_save_state (fb->message_list);
-	
-	folder_browser_set_ui_component (fb, NULL);
-	folder_browser_set_shell_view (fb, CORBA_OBJECT_NIL);
-
-	e_search_bar_set_ui_component (E_SEARCH_BAR (fb->search), NULL);
-#endif
 }
 
 static void
@@ -230,13 +162,13 @@ folder_browser_factory_get_control_list (void)
 	return control_list;
 }
 
-FolderBrowser *
+struct _EMFolderBrowser *
 folder_browser_factory_get_browser(const char *uri)
 {
 	EList *controls;
 	EIterator *it;
 	BonoboControl *control;
-	FolderBrowser *fb = NULL;
+	EMFolderBrowser *fb = NULL;
 
 	return NULL;
 
@@ -248,8 +180,8 @@ folder_browser_factory_get_browser(const char *uri)
 	it = e_list_get_iterator (controls);
 	while (e_iterator_is_valid (it)) {
 		control = BONOBO_CONTROL (e_iterator_get (it));
-		fb = FOLDER_BROWSER (bonobo_control_get_widget (control));
-		if (fb->uri && strcmp (fb->uri, uri) == 0)
+		fb = (EMFolderBrowser *)bonobo_control_get_widget(control);
+		if (((EMFolderView *)fb)->folder_uri && strcmp (((EMFolderView *)fb)->folder_uri, uri) == 0)
 			break;
 		fb = NULL;
 		

@@ -43,11 +43,15 @@ efhp_finalise(GObject *o)
 }
 
 static void
+efhp_base_init(EMFormatHTMLPrintClass *efhpklass)
+{
+	efhp_builtin_init(efhpklass);
+}
+
+static void
 efhp_class_init(GObjectClass *klass)
 {
 	klass->finalize = efhp_finalise;
-
-	efhp_builtin_init((EMFormatHTMLPrintClass *)klass);
 }
 
 GType
@@ -58,7 +62,7 @@ em_format_html_print_get_type(void)
 	if (type == 0) {
 		static const GTypeInfo info = {
 			sizeof(EMFormatHTMLPrintClass),
-			NULL, NULL,
+			(GBaseInitFunc)efhp_base_init, NULL,
 			(GClassInitFunc)efhp_class_init,
 			NULL, NULL,
 			sizeof(EMFormatHTMLPrint), 0,

@@ -85,6 +85,8 @@ libevolution_mail_la_SOURCES =		\
 	em-format-html-print.h		\
 	em-format-html-quote.c		\
 	em-format-html-quote.h		\
+	em-format-quote.c		\
+	em-format-quote.h		\
 	em-marshal.c			\
 	em-marshal.h			\
 	em-message-browser.c		\
@@ -103,12 +105,8 @@ libevolution_mail_la_SOURCES =		\
 	em-icon-stream.h		\
 	em-html-stream.c		\
 	em-html-stream.h		\
-	folder-browser.c		\
-	folder-browser.h		\
 	folder-browser-factory.c	\
 	folder-browser-factory.h	\
-	folder-browser-ui.c		\
-	folder-browser-ui.h		\
 	folder-info.c			\
 	folder-info.h			\
 	mail-account-editor.c		\
@@ -119,8 +117,6 @@ libevolution_mail_la_SOURCES =		\
 	mail-accounts.h			\
 	mail-autofilter.c		\
 	mail-autofilter.h		\
-	mail-callbacks.c		\
-	mail-callbacks.h		\
 	mail-composer-prefs.c		\
 	mail-composer-prefs.h		\
 	mail-config.c			\
@@ -133,15 +129,8 @@ libevolution_mail_la_SOURCES =		\
 	mail-config-factory.h		\
 	mail-preferences.c		\
 	mail-preferences.h		\
-	mail-display.c			\
-	mail-display.h			\
-	mail-display-stream.c		\
-	mail-display-stream.h		\
 	mail-folder-cache.c		\
 	mail-folder-cache.h		\
-	mail-format.h			\
-	mail-format.c			\
-	mail-identify.c			\
 	mail-importer.c			\
 	mail-importer.h			\
 	mail-local.c			\
@@ -152,8 +141,6 @@ libevolution_mail_la_SOURCES =		\
 	mail-offline-handler.h		\
 	mail-ops.c			\
 	mail-ops.h			\
-	mail-search.c			\
-	mail-search.h			\
 	mail-send-recv.c		\
 	mail-send-recv.h		\
 	mail-session.c			\
@@ -165,17 +152,33 @@ libevolution_mail_la_SOURCES =		\
 	mail-types.h			\
 	mail-vfolder.c			\
 	mail-vfolder.h			\
-	message-browser.c		\
-	message-browser.h		\
 	message-list.c			\
 	message-list.h			\
 	message-tag-editor.c		\
 	message-tag-editor.h		\
 	message-tag-followup.c		\
 	message-tag-followup.h		\
-	subscribe-dialog.c		\
-	subscribe-dialog.h		\
 	mail.h
+
+#	subscribe-dialog.c		\
+#	subscribe-dialog.h		\
+#	mail-format.h			\
+#	mail-format.c			\
+#	mail-display.c			\
+#	mail-display.h			\
+#	mail-display-stream.c		\
+#	mail-display-stream.h		\
+#	mail-identify.c			\
+#	folder-browser.c		\
+#	folder-browser.h		\
+#	folder-browser-ui.c		\
+#	folder-browser-ui.h		\
+#	mail-callbacks.c		\
+#	mail-callbacks.h		\
+#	mail-search.c			\
+#	mail-search.h			\
+#	message-browser.c		\
+#	message-browser.h
 
 # needs gtkhtml prop manager ported
 #	mail-font-prefs.c		\

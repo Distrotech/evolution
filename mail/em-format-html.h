@@ -41,6 +41,7 @@ struct _EMFormatHTMLHandler {
 
 struct _GtkHTMLEmbedded;
 struct _CamelMimePart;
+struct _CamelMedium;
 struct _CamelStream;
 
 /* A HTMLJob will be executed in another thread, in sequence,
@@ -90,6 +91,11 @@ struct _EMFormatHTMLPObject {
 #define EM_FORMAT_HTML_HEADER_HTML (EM_FORMAT_HEADER_LAST<<1) /* header already in html format */
 #define EM_FORMAT_HTML_HEADER_LAST (EM_FORMAT_HEADER_LAST<<8)
 
+/* xmailer_mask bits */
+#define EM_FORMAT_HTML_XMAILER_EVOLUTION (1<<0)
+#define EM_FORMAT_HTML_XMAILER_OTHER     (1<<1)
+#define EM_FORMAT_HTML_XMAILER_RUPERT    (1<<2)
+
 struct _EMFormatHTML {
 	EMFormat format;
 
@@ -105,10 +111,12 @@ struct _EMFormatHTML {
 	guint32 header_colour;	/* header box colour */
 	guint32 text_colour;
 	guint32 citation_colour;
-	guint32 xmailer_mask;	/* this should probably die? */
+	unsigned int xmailer_mask:4;
 	unsigned int load_http:1;
 	unsigned int load_http_now:1;
 	unsigned int mark_citations:1;
+	unsigned int simple_headers:1; /* simple header format, no box/table */
+	unsigned int hide_headers:1; /* no headers at all */
 };
 
 struct _EMFormatHTMLClass {
@@ -119,6 +127,12 @@ GType em_format_html_get_type(void);
 EMFormatHTML *em_format_html_new(void);
 
 void em_format_html_load_http(EMFormatHTML *emf);
+
+void em_format_html_set_load_http(EMFormatHTML *emf, int state);
+void em_format_html_set_mark_citations(EMFormatHTML *emf, int state, guint32 citation_colour);
+
+/* output headers */
+void em_format_html_format_headers(EMFormatHTML *efh, struct _CamelStream *stream, struct _CamelMedium *part);
 
 /* retrieves a pseudo-part icon wrapper for a file */
 struct _CamelMimePart *em_format_html_file_part(EMFormatHTML *efh, const char *mime_type, const char *path, const char *name);

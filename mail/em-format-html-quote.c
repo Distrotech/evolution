@@ -20,7 +20,6 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -28,32 +27,22 @@
 #include <string.h>
 
 #include <camel/camel-stream.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-mime-message.h>
-
-#include "mail-config.h"
-
+#include <camel/camel-mime-filter-tohtml.h>
 #include "em-format-html-quote.h"
-
 
 struct _EMFormatHTMLQuotePrivate {
 	char *credits;
 };
-
 
 static void efhq_format_clone (EMFormat *, CamelMedium *, EMFormat *);
 static void efhq_format_error (EMFormat *emf, CamelStream *stream, const char *txt);
 static void efhq_format_message (EMFormat *, CamelStream *, CamelMedium *);
 static void efhq_format_source (EMFormat *, CamelStream *, CamelMimePart *);
 static void efhq_format_attachment (EMFormat *, CamelStream *, CamelMimePart *, const char *, const EMFormatHandler *);
-static void efhq_complete (EMFormat *);
 
 static void efhq_builtin_init (EMFormatHTMLQuoteClass *efhc);
 
-
 static EMFormatHTMLClass *efhq_parent;
-
 
 static void
 efhq_init (GObject *o)
@@ -64,6 +53,8 @@ efhq_init (GObject *o)
 	
 	/* we want to convert url's etc */
 	((EMFormatHTML *) efhq)->text_html_flags |= CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS | CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES;
+	/* we want simple header format */
+	((EMFormatHTML *) efhq)->simple_headers = TRUE;
 }
 
 static void
@@ -78,6 +69,12 @@ efhq_finalise (GObject *o)
 }
 
 static void
+efhq_base_init(EMFormatHTMLQuoteClass *efhqklass)
+{
+	efhq_builtin_init(efhqklass);
+}
+
+static void
 efhq_class_init (GObjectClass *klass)
 {
 	((EMFormatClass *) klass)->format_clone = efhq_format_clone;
@@ -85,11 +82,8 @@ efhq_class_init (GObjectClass *klass)
 	((EMFormatClass *) klass)->format_message = efhq_format_message;
 	((EMFormatClass *) klass)->format_source = efhq_format_source;
 	((EMFormatClass *) klass)->format_attachment = efhq_format_attachment;
-	((EMFormatClass *) klass)->complete = efhq_complete;
 	
 	klass->finalize = efhq_finalise;
-	
-	efhq_builtin_init ((EMFormatHTMLQuoteClass *) klass);
 }
 
 GType
@@ -100,7 +94,7 @@ em_format_html_quote_get_type (void)
 	if (type == 0) {
 		static const GTypeInfo info = {
 			sizeof (EMFormatHTMLQuoteClass),
-			NULL, NULL,
+			(GBaseInitFunc)efhq_base_init, NULL,
 			(GClassInitFunc)efhq_class_init,
 			NULL, NULL,
 			sizeof (EMFormatHTMLQuote), 0,
@@ -148,21 +142,19 @@ static void
 efhq_format_message (EMFormat *emf, CamelStream *stream, CamelMedium *part)
 {
 	EMFormatHTMLQuote *emfq = (EMFormatHTMLQuote *) emf;
-	GConfClient *gconf;
-	char *colour;
 	
-	gconf = mail_config_get_gconf_client ();
-	colour = gconf_client_get_string (gconf, "/apps/evolution/mail/display/citation_colour", NULL);
+	camel_stream_printf (stream, "%s<!--+GtkHTML:<DATA class=\"ClueFlow\" key=\"orig\" value=\"1\">-->\n"
+			     "<font color=\"#%06x\">\n"
+			     "<blockquote type=cite>\n",
+			     emfq->priv->credits ? emfq->priv->credits : "",
+			     emfq->formathtml.citation_colour);
+
+	if (!((EMFormatHTML *)emf)->hide_headers)
+		em_format_html_format_headers((EMFormatHTML *)emf, stream, part);
+
+	em_format_part(emf, stream, (CamelMimePart *)part);
 	
-	camel_stream_printf (stream, "%s<!--+GtkHTML:<DATA class=\"ClueFlow\" key=\"orig\" value=\"1\">-->"
-			     "<font color=\"%s\">\n", emfq->priv->credits ? emfq->priv->credits : "",
-			     colour ? colour : "#737373");
-	
-	g_free (colour);
-	
-	((EMFormatClass *) efhq_parent)->format_message (emf, stream, part);
-	
-	camel_stream_write_string (stream, "</font><!--+GtkHTML:<DATA class=\"ClueFlow\" clear=\"orig\">-->");
+	camel_stream_write_string (stream, "</blockquote></font><!--+GtkHTML:<DATA class=\"ClueFlow\" clear=\"orig\">-->");
 }
 
 static void
@@ -178,10 +170,72 @@ efhq_format_attachment (EMFormat *emf, CamelStream *stream, CamelMimePart *part,
 	;
 }
 
+#include <camel/camel-medium.h>
+#include <camel/camel-mime-part.h>
+#include <camel/camel-multipart.h>
+#include <camel/camel-url.h>
+
 static void
-efhq_complete (EMFormat *emf)
+efhq_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
 {
-	;
+	CamelMultipart *mp = (CamelMultipart *)camel_medium_get_content_object((CamelMedium *)part);
+	CamelMimePart *body_part, *display_part = NULL;
+	CamelContentType *content_type;
+	const char *location, *start;
+	int i, nparts;
+	CamelURL *base_save = NULL;
+
+	if (!CAMEL_IS_MULTIPART(mp)) {
+		em_format_format_source(emf, stream, part);
+		return;
+	}
+
+	/* sigh, so much for oo code reuse ... */
+	/* FIXME: put in a function */
+	nparts = camel_multipart_get_number(mp);	
+	content_type = camel_mime_part_get_content_type(part);
+	start = header_content_type_param(content_type, "start");
+	if (start && strlen(start)>2) {
+		int len;
+		const char *cid;
+
+		/* strip <>'s */
+		len = strlen (start) - 2;
+		start++;
+		
+		for (i=0; i<nparts; i++) {
+			body_part = camel_multipart_get_part(mp, i);
+			cid = camel_mime_part_get_content_id(body_part);
+			
+			if (cid && !strncmp(cid, start, len) && strlen(cid) == len) {
+				display_part = body_part;
+				break;
+			}
+		}
+	} else {
+		display_part = camel_multipart_get_part(mp, 0);
+	}
+	
+	if (display_part == NULL) {
+		em_format_part_as(emf, stream, part, "multipart/mixed");
+		return;
+	}
+	
+	/* stack of present location and pending uri's */
+	location = camel_mime_part_get_content_location(part);
+	if (location) {
+		base_save = emf->base;
+		emf->base = camel_url_new(location, NULL);
+	}
+	em_format_push_level(emf);
+
+	em_format_part(emf, stream, display_part);
+	em_format_pull_level(emf);
+	
+	if (location) {
+		camel_url_free(emf->base);
+		emf->base = base_save;
+	}
 }
 
 static const char *type_remove_table[] = {
@@ -206,6 +260,10 @@ static const char *type_remove_table[] = {
 	"image/pjpeg",
 };
 
+static EMFormatHandler type_builtin_table[] = {
+	{ "multipart/related", (EMFormatFunc)efhq_multipart_related },
+};
+
 static void
 efhq_builtin_init (EMFormatHTMLQuoteClass *efhc)
 {
@@ -213,4 +271,7 @@ efhq_builtin_init (EMFormatHTMLQuoteClass *efhc)
 	
 	for (i = 0; i < sizeof (type_remove_table) / sizeof (type_remove_table[0]); i++)
 		em_format_class_remove_handler ((EMFormatClass *) efhc, type_remove_table[i]);
+
+	for (i=0;i<sizeof(type_builtin_table)/sizeof(type_builtin_table[0]);i++)
+		em_format_class_add_handler((EMFormatClass *)efhc, &type_builtin_table[i]);
 }

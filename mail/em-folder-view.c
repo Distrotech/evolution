@@ -99,10 +99,13 @@ static void emfv_message_reply(EMFolderView *emfv, int mode);
 static void vfolder_type_current (EMFolderView *emfv, int type);
 static void filter_type_current (EMFolderView *emfv, int type);
 
+static void emfv_setting_setup(EMFolderView *emfv);
+
 static const EMFolderViewEnable emfv_enable_map[];
 
 struct _EMFolderViewPrivate {
 	guint seen_id;
+	guint setting_notify_id;
 
 	CamelObjectHookID folder_changed_id;
 
@@ -151,6 +154,8 @@ emfv_init(GObject *o)
 	gtk_selection_add_target(p->invisible, GDK_SELECTION_PRIMARY, GDK_SELECTION_TYPE_STRING, 1);
 
 	emfv->async = mail_async_event_new();
+
+	emfv_setting_setup(emfv);
 }
 
 static void
@@ -186,6 +191,14 @@ emfv_destroy (GtkObject *o)
 	if (p->seen_id) {
 		g_source_remove(p->seen_id);
 		p->seen_id = 0;
+	}
+
+	if (p->setting_notify_id) {
+		GConfClient *gconf = gconf_client_get_default();
+
+		gconf_client_notify_remove(gconf, p->setting_notify_id);
+		p->setting_notify_id = 0;
+		g_object_unref(gconf);
 	}
 
 	if (p->invisible) {
@@ -325,6 +338,8 @@ emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 			camel_object_ref(folder);
 		}
 	}
+
+	emfv_enable_menus(emfv);
 }
 
 static void
@@ -1310,13 +1325,13 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "ViewLoadImages",	      EM_POPUP_SELECT_ONE },
 
 	{ NULL },
-#if 0
-	/* always enabled ?*/
+
+	/* always enabled
+
 	{ "ViewFullHeaders", IS_0MESSAGE, 0 },
 	{ "ViewNormal",      IS_0MESSAGE, 0 },
 	{ "ViewSource",      IS_0MESSAGE, 0 },
-	{ "CaretMode",       IS_0MESSAGE, 0 },
-#endif
+	{ "CaretMode",       IS_0MESSAGE, 0 }, */
 };
 
 static void
@@ -1394,13 +1409,14 @@ emfv_view_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Even
 static void
 emfv_caret_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
 {
-	GConfClient *gconf;
+	EMFolderView *emfv = data;
 
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
-	gconf = mail_config_get_gconf_client ();
-	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/caret_mode", state[0] != '0', NULL);
+	em_format_html_display_set_caret_mode(emfv->preview, state[0] != '0');
+
+	gconf_client_set_bool(mail_config_get_gconf_client(), "/apps/evolution/mail/display/caret_mode", state[0] != '0', NULL);
 }
 
 static void
@@ -1426,7 +1442,6 @@ static void
 emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 {
 	if (act) {
-		GConfClient *gconf = mail_config_get_gconf_client ();
 		em_format_mode_t style;
 		gboolean state;
 		GSList *l;
@@ -1441,14 +1456,11 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 		bonobo_ui_component_add_verb_list_with_data(uic, emfv_message_verbs, emfv);
 		e_pixmaps_update(uic, emfv_message_pixmaps);
 
-		/* FIXME: Need to implement or monitor in em-format-html-display */
-		state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/caret_mode", NULL);
+		state = emfv->preview->caret_mode;
 		bonobo_ui_component_set_prop(uic, "/commands/CaretMode", "state", state?"1":"0", NULL);
 		bonobo_ui_component_add_listener(uic, "CaretMode", emfv_caret_mode, emfv);
 
-		style = gconf_client_get_int(gconf, "/apps/evolution/mail/display/message_style", NULL);
-		if (style < EM_FORMAT_NORMAL || style > EM_FORMAT_SOURCE)
-			style = EM_FORMAT_NORMAL;
+		style = ((EMFormat *)emfv->preview)->mode;
 		bonobo_ui_component_set_prop(uic, emfv_display_styles[style], "state", "1", NULL);
 		bonobo_ui_component_add_listener(uic, "ViewNormal", emfv_view_mode, emfv);
 		bonobo_ui_component_add_listener(uic, "ViewFullHeaders", emfv_view_mode, emfv);
@@ -1457,15 +1469,11 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 
 		if (emfv->folder && !em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
 			bonobo_ui_component_set_prop(uic, "/commands/MessageResend", "sensitive", "0", NULL);
-#if 0	
-	
-		/* sensitivity of message-specific commands */
-		prev_state = fb->selection_state;
-		fb->selection_state = FB_SELSTATE_UNDEFINED;
-		folder_browser_ui_set_selection_state (fb, prev_state);
-#endif
+
 		/* default charset used in mail view */
 		e_charset_picker_bonobo_ui_populate (uic, "/menu/View", _("Default"), emfv_charset_changed, emfv);
+
+		emfv_enable_menus(emfv);
 	} else {
 		const BonoboUIVerb *v;
 
@@ -1578,37 +1586,26 @@ static void
 emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeMessage *msg, void *data)
 {
 	EMFolderView *emfv = data;
-	GConfClient *gconf;
-	gboolean mark_seen;
-	int timeout;
 	
 	em_format_format((EMFormat *) emfv->preview, (struct _CamelMedium *)msg);
 	
-	gconf = mail_config_get_gconf_client ();
-	mark_seen = gconf_client_get_bool (gconf, "/apps/evolution/mail/display/mark_seen", NULL);
-	
 	if (emfv->priv->seen_id)
-		gtk_timeout_remove (emfv->priv->seen_id);
+		g_source_remove(emfv->priv->seen_id);
 	
-	if (msg && mark_seen) {
-		struct mst_t *mst;
+	if (msg && emfv->mark_seen) {
+		if (emfv->mark_seen_timeout > 0) {
+			struct mst_t *mst;
 		
-		mst = g_new (struct mst_t, 1);
-		mst->emfv = emfv;
-		mst->uid = g_strdup (uid);
+			mst = g_new (struct mst_t, 1);
+			mst->emfv = emfv;
+			mst->uid = g_strdup (uid);
 		
-		timeout = gconf_client_get_int (gconf, "/apps/evolution/mail/display/mark_seen_timeout", NULL);
-		
-		if (timeout > 0) {
-			emfv->priv->seen_id = gtk_timeout_add_full (timeout, do_mark_seen, NULL, mst, (GtkDestroyNotify) mst_free);
+			emfv->priv->seen_id = g_timeout_add_full(G_PRIORITY_DEFAULT_IDLE, emfv->mark_seen_timeout,
+								 (GSourceFunc)do_mark_seen, mst, (GDestroyNotify)mst_free);
 		} else {
-			do_mark_seen (mst);
-			mst_free (mst);
+			camel_folder_set_message_flags(emfv->folder, uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 		}
 	}
-	
-	/* FIXME: asynchronous stuff */
-	/* FIXME: enable/disable menu's */
 }
 
 static void
@@ -1760,4 +1757,116 @@ emfv_folder_changed(CamelFolder *folder, CamelFolderChangeInfo *changes, EMFolde
 {
 	g_object_ref(emfv);
 	mail_async_event_emit(emfv->async, MAIL_ASYNC_GUI, (MailAsyncFunc)emfv_gui_folder_changed, folder, NULL, emfv);
+}
+
+/* keep these two tables in sync */
+enum {
+	EMFV_ANIMATE_IMAGES = 1,
+	EMFV_CITATION_COLOUR,
+	EMFV_CITATION_MARK,
+	EMFV_CARET_MODE,
+	EMFV_MESSAGE_STYLE,
+	EMFV_MARK_SEEN,
+	EMFV_MARK_SEEN_TIMEOUT,
+	EMFV_SETTINGS		/* last, for loop count */
+};
+
+/* IF these get too long, update key field */
+static const char * const emfv_display_keys[] = {
+	"animate_images",
+	"citation_colour",
+	"mark_citations",
+	"caret_mode",
+	"message_style",
+	"mark_seen",
+	"mark_seen_timeout"
+};
+
+static GHashTable *emfv_setting_key;
+
+static void
+emfv_setting_notify(GConfClient *gconf, guint cnxn_id, GConfEntry *entry, EMFolderView *emfv)
+{
+	char *tkey;
+
+	g_return_if_fail (gconf_entry_get_key (entry) != NULL);
+	g_return_if_fail (gconf_entry_get_value (entry) != NULL);
+	
+	tkey = strrchr(entry->key, '/');
+	g_return_if_fail (tkey != NULL);
+
+	switch(GPOINTER_TO_INT(g_hash_table_lookup(emfv_setting_key, tkey+1))) {
+	case EMFV_ANIMATE_IMAGES:
+		em_format_html_display_set_animate(emfv->preview, gconf_value_get_bool(gconf_entry_get_value(entry)));
+		break;
+	case EMFV_CITATION_COLOUR: {
+		const char *s;
+		GdkColor colour;
+		guint32 rgb;
+
+		s = gconf_value_get_string(gconf_entry_get_value(entry));
+		gdk_color_parse(s?s:"#737373", &colour);
+		rgb = ((colour.red & 0xff00) << 8) | (colour.green & 0xff00) | ((colour.blue & 0xff00) >> 8);
+		em_format_html_set_mark_citations((EMFormatHTML *)emfv->preview,
+						  ((EMFormatHTML *)emfv->preview)->mark_citations, rgb);
+		break; }
+	case EMFV_CITATION_MARK:
+		em_format_html_set_mark_citations((EMFormatHTML *)emfv->preview,
+						  gconf_value_get_bool(gconf_entry_get_value(entry)),
+						  ((EMFormatHTML *)emfv->preview)->citation_colour);
+		break;
+	case EMFV_CARET_MODE:
+		em_format_html_display_set_caret_mode(emfv->preview, gconf_value_get_bool(gconf_entry_get_value(entry)));
+		break;
+	case EMFV_MESSAGE_STYLE: {
+		int style = gconf_value_get_int(gconf_entry_get_value(entry));
+		
+		if (style < EM_FORMAT_NORMAL || style > EM_FORMAT_SOURCE)
+			style = EM_FORMAT_NORMAL;
+		em_format_set_mode((EMFormat *)emfv->preview, style);
+		break; }
+	case EMFV_MARK_SEEN:
+		emfv->mark_seen = gconf_value_get_bool(gconf_entry_get_value(entry));
+		break;
+	case EMFV_MARK_SEEN_TIMEOUT:
+		emfv->mark_seen_timeout = gconf_value_get_int(gconf_entry_get_value(entry));
+		break;
+	}
+}
+
+static void
+emfv_setting_setup(EMFolderView *emfv)
+{
+	GConfClient *gconf = gconf_client_get_default();
+	GConfEntry *entry;
+	GError *err = NULL;
+	int i;
+	char key[64];
+
+	if (emfv_setting_key == NULL) {
+		emfv_setting_key = g_hash_table_new(g_str_hash, g_str_equal);
+		for (i=1;i<EMFV_SETTINGS;i++)
+			g_hash_table_insert(emfv_setting_key, (void *)emfv_display_keys[i-1], GINT_TO_POINTER(i));
+	}
+
+	gconf_client_add_dir(gconf, "/apps/evolution/mail/display", GCONF_CLIENT_PRELOAD_NONE, NULL);
+
+	for (i=1;err == NULL && i<EMFV_SETTINGS;i++) {
+		sprintf(key, "/apps/evolution/mail/display/%s", emfv_display_keys[i-1]);
+		entry = gconf_client_get_entry(gconf, key, NULL, TRUE, &err);
+		if (entry) {
+			emfv_setting_notify(gconf, 0, entry, emfv);
+			gconf_entry_free(entry);
+		}
+	}
+
+	if (err) {
+		g_warning("Could not load display settings: %s", err->message);
+		g_error_free(err);
+	}
+
+	emfv->priv->setting_notify_id = gconf_client_notify_add(gconf, "/apps/evolution/mail/display",
+								(GConfClientNotifyFunc)emfv_setting_notify,
+								emfv, NULL, NULL);
+	g_object_unref(gconf);
 }

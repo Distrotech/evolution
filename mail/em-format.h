@@ -135,7 +135,11 @@ struct _EMFormatClass {
 	/* use for unparsable content */
 	void (*format_source)(EMFormat *, struct _CamelStream *, struct _CamelMimePart *);
 
+	/* returns true if the formatter is still busy with pending stuff */
+	gboolean (*busy)(EMFormat *);
+
 	/* signals */
+	/* complete, alternative to polling busy, for asynchronous work */
 	void (*complete)(EMFormat *);
 };
 
@@ -182,6 +186,8 @@ void em_format_pull_level(EMFormat *emf);
 #define em_format_format_attachment(emf, stream, msg, type, info) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_attachment((emf), (stream), (msg), (type), (info))
 #define em_format_format_message(emf, stream, msg) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_message((emf), (stream), (msg))
 #define em_format_format_source(emf, stream, msg) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_source((emf), (stream), (msg))
+
+#define em_format_busy(emf) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->busy((emf))
 
 /* raw content only */
 void em_format_format_content(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);

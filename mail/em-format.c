@@ -47,8 +47,8 @@
 #include <camel/camel-string-utils.h>
 #include <camel/camel-stream-filter.h>
 #include <camel/camel-stream-null.h>
-#include <camel/camel-mime-filter-windows.h>
 #include <camel/camel-mime-filter-charset.h>
+#include <camel/camel-mime-filter-windows.h>
 
 #include "em-format.h"
 
@@ -58,6 +58,7 @@ static void emf_builtin_init(EMFormatClass *);
 static const char *emf_snoop_part(CamelMimePart *part);
 
 static void emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource);
+static gboolean emf_busy(EMFormat *emf);
 
 enum {
 	EMF_COMPLETE,
@@ -97,6 +98,13 @@ emf_finalise(GObject *o)
 }
 
 static void
+emf_base_init(EMFormatClass *emfklass)
+{
+	emfklass->type_handlers = g_hash_table_new(g_str_hash, g_str_equal);
+	emf_builtin_init(emfklass);
+}
+
+static void
 emf_class_init(GObjectClass *klass)
 {
 	((EMFormatClass *)klass)->type_handlers = g_hash_table_new(g_str_hash, g_str_equal);
@@ -104,6 +112,7 @@ emf_class_init(GObjectClass *klass)
 
 	klass->finalize = emf_finalise;
 	((EMFormatClass *)klass)->format_clone = emf_format_clone;
+	((EMFormatClass *)klass)->busy = emf_busy;
 
 	emf_signals[EMF_COMPLETE] =
 		g_signal_new("complete",
@@ -123,7 +132,7 @@ em_format_get_type(void)
 	if (type == 0) {
 		static const GTypeInfo info = {
 			sizeof(EMFormatClass),
-			NULL, NULL,
+			(GBaseInitFunc)emf_base_init, NULL,
 			(GClassInitFunc)emf_class_init,
 			NULL, NULL,
 			sizeof(EMFormat), 0,
@@ -213,11 +222,11 @@ em_format_fallback_handler(EMFormat *emf, const char *mime_type)
 	if (s == NULL)
 		mime = (char *)mime_type;
 	else {
-		size_t len = (s-mime_type)+2;
+		size_t len = (s-mime_type)+1;
 
-		mime = alloca(len+1);
+		mime = alloca(len+2);
 		strncpy(mime, mime_type, len);
-		strcpy(mime+len, "/*");
+		strcpy(mime+len, "*");
 	}
 
 	return em_format_find_handler(emf, mime);
@@ -531,6 +540,12 @@ emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
 	}
 }
 
+static gboolean
+emf_busy(EMFormat *emf)
+{
+	return FALSE;
+}
+
 /**
  * em_format_format_clone:
  * @emf: Mail formatter.
@@ -784,8 +799,6 @@ em_format_format_text(EMFormat *emf, CamelStream *stream, CamelDataWrapper *dw)
 	const char *charset;
 	char *fallback_charset = NULL;
 
-	/* FIXME: This should be an em_utils method */
-
 	if (emf->charset) {
 		charset = emf->charset;
 	} else if (dw->mime_type
@@ -812,7 +825,7 @@ em_format_format_text(EMFormat *emf, CamelStream *stream, CamelDataWrapper *dw)
 		
 		charset = fallback_charset = g_strdup(camel_mime_filter_windows_real_charset(windows));
 		camel_object_unref(windows);
-	} else {
+	} else if (charset == NULL) {
 		/* FIXME: remove gconf query every time */
 		GConfClient *gconf = gconf_client_get_default();
 
@@ -820,7 +833,7 @@ em_format_format_text(EMFormat *emf, CamelStream *stream, CamelDataWrapper *dw)
 		g_object_unref(gconf);
 	}
 
-	filter_stream = camel_stream_filter_new_with_stream (stream);
+	filter_stream = camel_stream_filter_new_with_stream(stream);
 	
 	if ((filter = camel_mime_filter_charset_new_convert(charset, "UTF-8"))) {
 		camel_stream_filter_add(filter_stream, (CamelMimeFilter *) filter);
@@ -1052,7 +1065,8 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 		em_format_format_source(emf, stream, part);
 		return;
 	}
-	
+
+	/* FIXME: put this stuff in a shared function */
 	nparts = camel_multipart_get_number(mp);	
 	content_type = camel_mime_part_get_content_type(part);
 	start = header_content_type_param(content_type, "start");
@@ -1198,6 +1212,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ "multipart/mixed", emf_multipart_mixed },
 	{ "multipart/signed", emf_multipart_signed },
 	{ "multipart/related", emf_multipart_related },
+	{ "multipart/*", emf_multipart_mixed },
 	{ "message/rfc822", emf_message_rfc822 },
 	{ "message/news", emf_message_rfc822 },
 	{ "message/*", emf_message_rfc822 },
