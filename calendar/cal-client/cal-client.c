@@ -1600,9 +1600,10 @@ cal_client_get_uri (CalClient *client)
  * @client: A calendar client.
  *
  * Queries whether the calendar client can perform modifications
- * on the calendar or not.
+ * on the calendar or not. Whether the backend is read only or not
+ * is specified, on exit, in the @read_only argument.
  *
- * Return value: TRUE if the calendar is read-only, FALSE otherwise.
+ * Return value: TRUE if the call was successful, FALSE if there was an error.
  */
 gboolean
 cal_client_is_read_only (CalClient *client, gboolean *read_only, GError **error)

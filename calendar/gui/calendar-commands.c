@@ -586,15 +586,23 @@ static void
 sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboolean enable)
 {
 	BonoboUIComponent *uic;
+	ECalViewEvent *event;
+	GList *list;
 	int n_selected;
+	GtkWidget *view;
 	gboolean read_only = FALSE, has_recurrences;
 	
 	uic = bonobo_control_get_ui_component (control);
 	g_assert (uic != NULL);
 
-	n_selected = enable ? gnome_calendar_get_num_events_selected (gcal) : 0;
+	view = gnome_calendar_get_current_view_widget (gcal);
+	list = e_cal_view_get_selected_events (E_CAL_VIEW (view));
 
-	cal_client_is_read_only (e_cal_model_get_default_client (gnome_calendar_get_calendar_model (gcal)), 
+	n_selected = enable ? g_list_length (list) : 0;
+
+	event = (ECalViewEvent *) list ? list->data : NULL;
+	cal_client_is_read_only (event ? event->comp_data->client :
+				 e_cal_model_get_default_client (gnome_calendar_get_calendar_model (gcal)), 
 				 &read_only, NULL);
 
 	bonobo_ui_component_set_prop (uic, "/commands/Cut", "sensitive",
@@ -613,19 +621,8 @@ sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboole
 	/* occurrence-related menu items */
 	has_recurrences = FALSE;
 	if (n_selected > 0 && !read_only) {
-		ECalViewEvent *event;
-		GList *list;
-		GtkWidget *view;
-
-		view = gnome_calendar_get_current_view_widget (gcal);
-		list = e_cal_view_get_selected_events (E_CAL_VIEW (view));
 		if (list) {
 			event = (ECalViewEvent *) list->data;
-			g_list_free (list);
-		} else
-			event = NULL;
-
-		if (event) {
 			if (cal_util_component_has_recurrences (event->comp_data->icalcomp))
 				has_recurrences = TRUE;
 		}
@@ -637,6 +634,10 @@ sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboole
 	bonobo_ui_component_set_prop (uic, "/commands/DeleteAllOccurrences", "sensitive",
 				      has_recurrences ? "1" : "0",
 				      NULL);
+
+	/* free memory */
+	if (list)
+		g_list_free (list);
 }
 
 /* Sensitizes the UI Component menu/toolbar tasks commands based on the number
