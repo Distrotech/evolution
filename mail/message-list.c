@@ -150,15 +150,15 @@ static gint
 mark_msg_seen (gpointer data)
 {
 	MessageList *ml = data;
-	guint32 flags;
+	GPtrArray *uids;
 
 	if (!ml->cursor_uid)
 		return FALSE;
 
-	flags = camel_folder_get_message_flags (ml->folder, ml->cursor_uid);
-	camel_folder_set_message_flags (ml->folder, ml->cursor_uid,
-					CAMEL_MESSAGE_SEEN,
-					CAMEL_MESSAGE_SEEN);
+	uids = g_ptr_array_new ();
+	g_ptr_array_add (uids, g_strdup (ml->cursor_uid));
+	mail_do_flag_messages (ml->folder, uids,
+			       CAMEL_MESSAGE_SEEN);
 	return FALSE;
 }
 
@@ -308,6 +308,7 @@ ml_tree_set_value_at (ETreeModel *etm, ETreePath *path, int col,
 	MessageList *message_list = model_data;
 	const CamelMessageInfo *msg_info;
 	char *uid;
+	GPtrArray *uids;
 
 	if (col != COL_MESSAGE_STATUS)
 		return;
@@ -321,8 +322,11 @@ ml_tree_set_value_at (ETreeModel *etm, ETreePath *path, int col,
 	if (!msg_info)
 		return;
 
-	camel_folder_set_message_flags (message_list->folder, msg_info->uid,
-					CAMEL_MESSAGE_SEEN, ~msg_info->flags);
+	uids = g_ptr_array_new ();
+	g_ptr_array_add (uids, g_strdup (uid));
+	mail_do_flag_messages (message_list->folder, uids, 
+			       CAMEL_MESSAGE_SEEN);
+
 	if (message_list->seen_id) {
 		gtk_timeout_remove (message_list->seen_id);
 		message_list->seen_id = 0;
