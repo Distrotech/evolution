@@ -1,9 +1,23 @@
+2003-10-16  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/dialogs/new-calendar.c (new_calendar_dialog): moved the
+	source creation...
+	(create_new_source_with_group): ...here, and made the code create
+	the directory for the new calendar.
+
 2003-10-15  Hans Petter Jansson  <hpj@ximian.com>
 
 	* gui/e-select-names-editable.c (e_selct_names_editable_get_address):
 	EDestination -> EABDestination.
 
 	* gui/gnome-cal.c (setup_widgets): evolution_dir -> ".evolution".
+
+2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-select-names-editable.c (e_select_names_editable_get_address):
+	use EABDestination instead of EDestination.
+
+	* gui/gnome-cal.c (gnome_calendar_open): disabled tasks opening code.
 
 2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
 
