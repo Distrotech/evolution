@@ -1,5 +1,11 @@
 2004-04-27  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-day-view.c (process_component): deal correctly with recurrences.
+	(e_day_view_find_event_from_uid): added 'rid' argument.
+
+	* gui/e-week-view.c (process_component): deal correctly with recurrences.
+	(e_week_view_find_event_from_uid): added 'rid' argument.
+
 	* gui/e-cal-model.c (get_dtstart): use the recurrence-ID if available.
 
 2004-04-27  Rodrigo Moya <rodrigo@ximian.com>

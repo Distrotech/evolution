@@ -164,6 +164,7 @@ static void e_week_view_on_editing_stopped (EWeekView *week_view,
 					    GnomeCanvasItem *item);
 static gboolean e_week_view_find_event_from_uid (EWeekView	  *week_view,
 						 const gchar	  *uid,
+						 const gchar      *rid,
 						 gint		  *event_num_return);
 typedef gboolean (* EWeekViewForeachEventCallback) (EWeekView *week_view,
 						    gint event_num,
@@ -335,7 +336,7 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 	gint event_num, num_days;
 	ECalComponent *comp = NULL;
 	AddEventData add_event_data;
-	const char *uid;
+	const char *uid, *rid;
 
 	/* If we don't have a valid date set yet, just return. */
 	if (!g_date_valid (&week_view->first_day_shown))
@@ -350,11 +351,12 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 	}
 
 	e_cal_component_get_uid (comp, &uid);
+	rid = e_cal_component_get_recurid_as_string (comp);
 
 	/* If the event already exists and the dates didn't change, we can
 	   update the event fairly easily without changing the events arrays
 	   or computing a new layout. */
-	if (e_week_view_find_event_from_uid (week_view, uid, &event_num)) {
+	if (e_week_view_find_event_from_uid (week_view, uid, rid, &event_num)) {
 		ECalComponent *tmp_comp;
 
 		event = &g_array_index (week_view->events, EWeekViewEvent,
@@ -3438,6 +3440,7 @@ e_week_view_find_event_from_item (EWeekView	  *week_view,
 static gboolean
 e_week_view_find_event_from_uid (EWeekView	  *week_view,
 				 const gchar	  *uid,
+				 const gchar      *rid,
 				 gint		  *event_num_return)
 {
 	EWeekViewEvent *event;
@@ -3449,13 +3452,21 @@ e_week_view_find_event_from_uid (EWeekView	  *week_view,
 
 	num_events = week_view->events->len;
 	for (event_num = 0; event_num < num_events; event_num++) {
-		const char *u;
+		const char *u, *r;
 
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
 
 		u = icalcomponent_get_uid (event->comp_data->icalcomp);
 		if (u && !strcmp (uid, u)) {
+			if (rid && *rid) {
+				r = icaltime_as_ical_string (icalcomponent_get_recurrenceid (event->comp_data->icalcomp));
+				if (!r || !*r)
+					continue;
+				if (strcmp (rid, r) != 0)
+					continue;
+			}
+
 			*event_num_return = event_num;
 			return TRUE;
 		}
@@ -3589,7 +3600,7 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	e_week_view_check_layout (week_view);
 	gtk_widget_queue_draw (week_view->main_canvas);
 
-	if (e_week_view_find_event_from_uid (week_view, uid, &event_num)) {
+	if (e_week_view_find_event_from_uid (week_view, uid, NULL, &event_num)) {
 		e_week_view_start_editing_event (week_view, event_num, 0,
 						 initial_text);
 	} else {

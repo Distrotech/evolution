@@ -288,6 +288,7 @@ static ECalendarViewPosition e_day_view_convert_position_in_main_canvas (EDayVie
 								    gint *event_num_return);
 static gboolean e_day_view_find_event_from_uid (EDayView *day_view,
 						const gchar *uid,
+						const gchar *rid,
 						gint *day_return,
 						gint *event_num_return);
 
@@ -513,7 +514,7 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 {
 	EDayViewEvent *event;
 	gint day, event_num;
-	const char *uid;
+	const char *uid, *rid;
 	ECalComponent *comp;
 	AddEventData add_event_data;
 
@@ -530,11 +531,12 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 	}
 
 	e_cal_component_get_uid (comp, &uid);
+	rid = e_cal_component_get_recurid_as_string (comp);
 
 	/* If the event already exists and the dates didn't change, we can
 	   update the event fairly easily without changing the events arrays
 	   or computing a new layout. */
-	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
+	if (e_day_view_find_event_from_uid (day_view, uid, rid, &day, &event_num)) {
 		ECalComponent *tmp_comp;
 		
 		if (day == E_DAY_VIEW_LONG_EVENT)
@@ -1983,12 +1985,13 @@ e_day_view_find_event_from_item (EDayView *day_view,
 static gboolean
 e_day_view_find_event_from_uid (EDayView *day_view,
 				const gchar *uid,
+				const gchar *rid,
 				gint *day_return,
 				gint *event_num_return)
 {
 	EDayViewEvent *event;
 	gint day, event_num;
-	const char *u;
+	const char *u, *r;
 
 	if (!uid)
 		return FALSE;
@@ -2001,6 +2004,14 @@ e_day_view_find_event_from_uid (EDayView *day_view,
 
 			u = icalcomponent_get_uid (event->comp_data->icalcomp);
 			if (u && !strcmp (uid, u)) {
+				if (rid && *rid) {
+					r = icaltime_as_ical_string (icalcomponent_get_recurrenceid (event->comp_data->icalcomp));
+					if (!r || !*r)
+						continue;
+					if (strcmp (rid, r) != 0)
+						continue;
+				}
+
 				*day_return = day;
 				*event_num_return = event_num;
 				return TRUE;
@@ -4852,7 +4863,7 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	gtk_widget_queue_draw (day_view->top_canvas);
 	gtk_widget_queue_draw (day_view->main_canvas);
 
-	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
+	if (e_day_view_find_event_from_uid (day_view, uid, NULL, &day, &event_num)) {
 		e_day_view_start_editing_event (day_view, day, event_num,
 						initial_text);
 	} else {
