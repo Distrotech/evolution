@@ -683,7 +683,7 @@ local_record_from_uid (EToDoLocalRecord *local,
 
 	g_assert(local!=NULL);
 
-	status = cal_client_get_object (ctxt->client, uid, &icalcomp);
+	status = cal_client_get_object (ctxt->client, uid, NULL, &icalcomp);
 
 	if (status == CAL_CLIENT_GET_SUCCESS) {
 		comp = cal_component_new ();

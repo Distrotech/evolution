@@ -1,3 +1,18 @@
+2003-08-25  Rodrigo Moya <rodrigo@ximian.com>
+
+	* cal-client/cal-client.c (cal_client_get_object): added a 'rid' argument
+	to match the IDL method.
+
+	* conduits/calendar/calendar-conduit.c (local_record_from_uid):
+	* conduits/todo/todo-conduit.c (local_record_from_uid):
+	* gui/comp-editor-factory.c (edit_existing):
+	* gui/comp-util.c (cal_comp_is_on_server):
+	* gui/e-cal-model.c (query_obj_updated_cb):
+	* gui/e-itip-control.c (find_server, get_real_item, update_attendee_status):
+	* gui/gnome-cal.c (dn_query_obj_updated_cb, purging_obj_updated_cb):
+	* gui/dialogs/comp-editor.c (obj_updated_cb): adapted to changes in
+	cal_client_get_object().
+
 2003-08-23  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/query-backend.c (object_updated_cb):

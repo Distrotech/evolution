@@ -378,7 +378,7 @@ dn_query_obj_updated_cb (CalQuery *query, const char *uid,
 		return;
 	}
 
-	status = cal_client_get_object (cal_query_get_client (query), uid, &icalcomp);
+	status = cal_client_get_object (cal_query_get_client (query), uid, NULL, &icalcomp);
 
 	switch (status) {
 	case CAL_CLIENT_GET_SUCCESS:
@@ -3007,7 +3007,7 @@ purging_obj_updated_cb (CalQuery *query, const char *uid,
 
 	priv = gcal->priv;
 
-	if (cal_client_get_object (cal_query_get_client (query), uid, &icalcomp) != CAL_CLIENT_GET_SUCCESS)
+	if (cal_client_get_object (cal_query_get_client (query), uid, NULL, &icalcomp) != CAL_CLIENT_GET_SUCCESS)
 		return;
 
 	comp = cal_component_new ();

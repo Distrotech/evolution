@@ -308,7 +308,7 @@ find_server (GPtrArray *servers, CalComponent *comp)
 		CalClientGetStatus status;
 		
 		client = g_ptr_array_index (servers, i);
-		status = cal_client_get_object (client, uid, &icalcomp);
+		status = cal_client_get_object (client, uid, NULL, &icalcomp);
 		if (status == CAL_CLIENT_GET_SUCCESS) {
 			icalcomponent_free (icalcomp);
 			g_object_ref (client);
@@ -1261,11 +1261,11 @@ get_real_item (EItipControl *itip)
 	switch (type) {
 	case CAL_COMPONENT_EVENT:
 		if (priv->event_client != NULL)
-			status = cal_client_get_object (priv->event_client, uid, &icalcomp);
+			status = cal_client_get_object (priv->event_client, uid, NULL, &icalcomp);
 		break;
 	case CAL_COMPONENT_TODO:
 		if (priv->task_client != NULL)
-			status = cal_client_get_object (priv->task_client, uid, &icalcomp);
+			status = cal_client_get_object (priv->task_client, uid, NULL, &icalcomp);
 		break;
 	default:
 		status = CAL_CLIENT_GET_NOT_FOUND;
@@ -1966,7 +1966,7 @@ update_attendee_status (EItipControl *itip)
 	
 	/* Obtain our version */
 	cal_component_get_uid (priv->comp, &uid);
-	status = cal_client_get_object (client, uid, &icalcomp);
+	status = cal_client_get_object (client, uid, NULL, &icalcomp);
 
 	if (status == CAL_CLIENT_GET_SUCCESS) {
 		GSList *attendees;

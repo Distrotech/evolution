@@ -1546,13 +1546,14 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
  * Return value: Result code based on the status of the operation.
  **/
 CalClientGetStatus
-cal_client_get_object (CalClient *client, const char *uid, icalcomponent **icalcomp)
+cal_client_get_object (CalClient *client, const char *uid, const char *rid, icalcomponent **icalcomp)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
 	GNOME_Evolution_Calendar_CalObj comp_str;
 	CalClientGetStatus retval;
 	CalClientGetTimezonesData cb_data;
+	gchar *real_rid;
 
 	g_return_val_if_fail (client != NULL, CAL_CLIENT_GET_NOT_FOUND);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_GET_NOT_FOUND);
@@ -1566,8 +1567,12 @@ cal_client_get_object (CalClient *client, const char *uid, icalcomponent **icalc
 	retval = CAL_CLIENT_GET_NOT_FOUND;
 	*icalcomp = NULL;
 
+	real_rid = g_strdup (rid ? rid : "");
+
 	CORBA_exception_init (&ev);
-	comp_str = GNOME_Evolution_Calendar_Cal_getObject (priv->cal, (char *) uid, &ev);
+	comp_str = GNOME_Evolution_Calendar_Cal_getObject (priv->cal, (char *) uid, (char *) real_rid, &ev);
+
+	g_free (real_rid);
 
 	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
 		goto out;

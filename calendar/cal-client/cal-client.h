@@ -199,6 +199,7 @@ CalClientGetStatus cal_client_get_default_object (CalClient *client,
 
 CalClientGetStatus cal_client_get_object (CalClient *client,
 					  const char *uid,
+					  const char *rid,
 					  icalcomponent **icalcomp);
 
 CalClientGetStatus cal_client_get_timezone (CalClient *client,

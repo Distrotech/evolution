@@ -1070,7 +1070,7 @@ query_obj_updated_cb (CalQuery *query, const char *uid,
 	e_table_model_pre_change (E_TABLE_MODEL (model));
 
 	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), uid);
-	status = cal_client_get_object (cal_query_get_client (query), uid, &new_icalcomp);
+	status = cal_client_get_object (cal_query_get_client (query), uid, NULL, &new_icalcomp);
 	switch (status) {
 	case CAL_CLIENT_GET_SUCCESS :
 		if (comp_data) {
