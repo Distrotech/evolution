@@ -656,6 +656,6 @@ e_selection_model_selection_row_changed (ESelectionModel *selection,
 					 int              row)
 {
 	gtk_signal_emit(GTK_OBJECT(selection),
-			e_selection_model_signals[SELECTION_CHANGED],
+			e_selection_model_signals[SELECTION_ROW_CHANGED],
 			row);
 }
