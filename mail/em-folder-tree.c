@@ -87,8 +87,8 @@ static GType col_types[] = {
 
 struct _emft_store_info {
 	CamelStore *store;
-	GtkTreePath *path;
-	GHashTable *path_hash;  /* maps CamelFolderInfo::path's to GtkTreePath's */
+	GtkTreeRowReference *row;
+	GHashTable *path_hash;  /* maps CamelFolderInfo::path's to GtkTreeRowReferences */
 	
 	char *display_name;
 	
@@ -103,7 +103,7 @@ struct _EMFolderTreePrivate {
 	GtkTreeView *treeview;
 	
 	GHashTable *store_hash;  /* maps CamelStore's to store-info's */
-	GHashTable *uri_hash;    /* maps URI's to GtkTreePath's */
+	GHashTable *uri_hash;    /* maps URI's to GtkTreeRowReferences */
 	
 	char *selected_uri;
 	char *selected_path;
@@ -271,7 +271,7 @@ render_pixbuf (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 	gtk_tree_model_get (model, iter, COL_STRING_FOLDER_PATH, &path,
 			    COL_BOOL_IS_STORE, &is_store, -1);
 	
-	if (!is_store) {
+	if (!is_store && path != NULL) {
 		if (!strcasecmp (path, "/Inbox"))
 			pixbuf = folder_icons[FOLDER_ICON_INBOX];
 		else if (!strcasecmp (path, "/Outbox"))
@@ -282,7 +282,7 @@ render_pixbuf (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 			pixbuf = folder_icons[FOLDER_ICON_NORMAL];
 	}
 	
-	g_object_set (renderer, "pixbuf", pixbuf, -1);
+	g_object_set (renderer, "pixbuf", pixbuf, NULL);
 }
 
 static void
@@ -291,6 +291,7 @@ render_display_name (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 {
 	gboolean is_store, bold;
 	unsigned int unread;
+	char *display;
 	char *name;
 	
 	gtk_tree_model_get (model, iter, COL_STRING_DISPLAY_NAME, &name,
@@ -302,10 +303,17 @@ render_display_name (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 			bold = subdirs_contain_unread (model, iter);
 	}
 	
-	g_object_set (renderer, "text", name,
+	if (!is_store && unread)
+		display = g_strdup_printf ("%s (%u)", name, unread);
+	else
+		display = g_strdup (name);
+	
+	g_object_set (renderer, "text", display,
 		      "weight", bold ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL,
 		      "foreground_set", unread ? TRUE : FALSE,
 		      "foreground", unread ? "#0000ff" : "#000000", NULL);
+	
+	g_free (display);
 }
 
 static void
@@ -326,7 +334,7 @@ static void
 path_hash_free (gpointer key, gpointer value, gpointer user_data)
 {
 	g_free (key);
-	gtk_tree_path_free (value);
+	gtk_tree_row_reference_free (value);
 }
 
 static void
@@ -340,7 +348,7 @@ store_info_free (struct _emft_store_info *si)
 	
 	g_free (si->display_name);
 	camel_object_unref (si->store);
-	gtk_tree_path_free (si->path);
+	gtk_tree_row_reference_free (si->row);
 	g_hash_table_foreach (si->path_hash, path_hash_free, NULL);
 	g_free (si);
 }
@@ -357,7 +365,7 @@ static void
 uri_hash_free (gpointer key, gpointer value, gpointer user_data)
 {
 	g_free (key);
-	/* GtkTreePath is free'd by path_hash_free */
+	gtk_tree_row_reference_free (value);
 }
 
 static void
@@ -902,24 +910,47 @@ tree_store_set_folder_info (GtkTreeStore *model, GtkTreeIter *iter,
 			    struct _emft_store_info *si,
 			    CamelFolderInfo *fi)
 {
+	GtkTreeRowReference *uri_row, *path_row;
+	unsigned int unread;
 	GtkTreePath *path;
+	GtkTreeIter sub;
 	gboolean load;
 	
 	load = (fi->flags & CAMEL_FOLDER_CHILDREN) && !(fi->flags & CAMEL_FOLDER_NOINFERIORS);
 	
 	path = gtk_tree_model_get_path ((GtkTreeModel *) model, iter);
-	g_hash_table_insert (priv->uri_hash, g_strdup (fi->url), path);
-	g_hash_table_insert (si->path_hash, g_strdup (fi->path), path);
+	uri_row = gtk_tree_row_reference_new ((GtkTreeModel *) model, path);
+	path_row = gtk_tree_row_reference_copy (uri_row);
+	gtk_tree_path_free (path);
+	
+	g_hash_table_insert (priv->uri_hash, g_strdup (fi->url), uri_row);
+	g_hash_table_insert (si->path_hash, g_strdup (fi->path), path_row);
+	
+	unread = fi->unread_message_count == -1 ? 0 : fi->unread_message_count;
 	
 	gtk_tree_store_set (model, iter,
 			    COL_STRING_DISPLAY_NAME, fi->name,
 			    COL_POINTER_CAMEL_STORE, si->store,
 			    COL_STRING_FOLDER_PATH, fi->path,
 			    COL_STRING_URI, fi->url,
-			    COL_UINT_UNREAD, fi->unread_message_count,
+			    COL_UINT_UNREAD, unread,
 			    COL_BOOL_IS_STORE, FALSE,
 			    COL_BOOL_LOAD_SUBDIRS, load,
 			    -1);
+	
+	if (load) {
+		/* create a placeholder node for our subfolders... */
+		gtk_tree_store_append (model, &sub, iter);
+		gtk_tree_store_set (model, &sub,
+				    COL_STRING_DISPLAY_NAME, _("Loading..."),
+				    COL_POINTER_CAMEL_STORE, si->store,
+				    COL_STRING_FOLDER_PATH, fi->path,
+				    COL_BOOL_LOAD_SUBDIRS, TRUE,
+				    COL_BOOL_IS_STORE, FALSE,
+				    COL_STRING_URI, fi->url,
+				    COL_UINT_UNREAD, 0,
+				    -1);
+	}
 }
 
 static void
@@ -934,6 +965,7 @@ tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *tree_p
 	GtkTreeIter iter;
 	gboolean load;
 	char *path;
+	char *top;
 	
 	model = (GtkTreeStore *) gtk_tree_view_get_model (treeview);
 	
@@ -945,21 +977,40 @@ tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *tree_p
 	if (!load)
 		return;
 	
-	if (!(si = g_hash_table_lookup (emft->priv->store_hash, store)))
+	if (!(si = g_hash_table_lookup (emft->priv->store_hash, store))) {
+		g_assert_not_reached ();
 		return;
+	}
 	
 	/* get the first child (which will be a dummy if we haven't loaded the child folders yet) */
 	gtk_tree_model_iter_children ((GtkTreeModel *) model, &iter, root);
 	
+	/* FIXME: this sucks ass, need to fix camel so that using path as @top will Just Work (tm) */
+	/* NOTE: CamelImapStore will handle "" as toplevel, but CamelMboxStore wants NULL */
+	if (!path || !strcmp (path, "/"))
+		top = NULL;
+	else
+		top = path + 1;
+	
 	/* FIXME: are there any flags we want to pass when getting folder-info's? */
 	camel_exception_init (&ex);
-	if (!(fi = camel_store_get_folder_info (store, path, 0, &ex))) {
+	if (!(fi = camel_store_get_folder_info (store, top, 0, &ex))) {
 		/* FIXME: report error to user? or simply re-collapse node? or both? */
+		g_warning ("can't get folder-info's for store '%s' at path='%s'", si->display_name, path);
+		gtk_tree_store_remove (model, &iter);
 		camel_exception_clear (&ex);
 		return;
 	}
 	
-	if (!(child = fi->child)) {
+	/* FIXME: camel is totally on crack here, @top's folder info
+	 * should be @fi and fi->childs should be what we want to fill
+	 * our tree with... *sigh* */
+	if (!strcmp (fi->path, path))
+		child = fi->sibling;
+	else
+		child = fi;
+	
+	if (child == NULL) {
 		/* no children afterall... remove the "Loading..." placeholder node */
 		gtk_tree_store_remove (model, &iter);
 	} else {
@@ -971,7 +1022,7 @@ tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *tree_p
 		} while (child != NULL);
 	}
 	
-	gtk_tree_store_set (model, root, COL_BOOL_LOAD_SUBDIRS, FALSE);
+	gtk_tree_store_set (model, root, COL_BOOL_LOAD_SUBDIRS, FALSE, -1);
 	
 	camel_store_free_folder_info (store, fi);
 }
@@ -1706,7 +1757,9 @@ tree_selection_changed (GtkTreeSelection *selection, EMFolderTree *emft)
 	GtkTreeIter iter;
 	char *path, *uri;
 	
-	gtk_tree_selection_get_selected (selection, &model, &iter);
+	if (!gtk_tree_selection_get_selected (selection, &model, &iter))
+		return;
+	
 	gtk_tree_model_get (model, &iter, COL_STRING_FOLDER_PATH, &path,
 			    COL_STRING_URI, &uri, -1);
 	
@@ -1725,6 +1778,7 @@ folder_subscribed_cb (CamelStore *store, void *event_data, EMFolderTree *emft)
 {
 	CamelFolderInfo *fi = event_data;
 	struct _emft_store_info *si;
+	GtkTreeRowReference *row;
 	GtkTreeIter parent, iter;
 	GtkTreeModel *model;
 	GtkTreePath *path;
@@ -1744,22 +1798,27 @@ folder_subscribed_cb (CamelStore *store, void *event_data, EMFolderTree *emft)
 	
 	if (!strcmp (dirname, "/")) {
 		/* user subscribed to a toplevel folder */
-		path = si->path;
+		row = si->row;
 		g_free (dirname);
 	} else {
-		path = g_hash_table_lookup (si->path_hash, dirname);
+		row = g_hash_table_lookup (si->path_hash, dirname);
 		g_free (dirname);
 		
-		/* if path is NULL, don't bother adding to the tree,
+		/* if row is NULL, don't bother adding to the tree,
 		 * when the user expands enough nodes - it will be
 		 * added auto-magically */
-		if (path == NULL)
+		if (row == NULL)
 			return;
 	}
 	
+	path = gtk_tree_row_reference_get_path (row);
 	model = gtk_tree_view_get_model (emft->priv->treeview);
-	if (!(gtk_tree_model_get_iter (model, &parent, path)))
+	if (!(gtk_tree_model_get_iter (model, &parent, path))) {
+		gtk_tree_path_free (path);
 		return;
+	}
+	
+	gtk_tree_path_free (path);
 	
 	/* make sure parent's subfolders have already been loaded */
 	gtk_tree_model_get (model, &parent, COL_BOOL_LOAD_SUBDIRS, &load, -1);
@@ -1776,9 +1835,9 @@ static void
 remove_folders (EMFolderTree *emft, GtkTreeModel *model, struct _emft_store_info *si, GtkTreeIter *toplevel)
 {
 	struct _EMFolderTreePrivate *priv = emft->priv;
+	GtkTreeRowReference *row;
 	char *uri, *folder_path;
 	gboolean is_store, go;
-	GtkTreePath *path;
 	GtkTreeIter iter;
 	
 	if (gtk_tree_model_iter_children (model, &iter, toplevel)) {
@@ -1795,11 +1854,15 @@ remove_folders (EMFolderTree *emft, GtkTreeModel *model, struct _emft_store_info
 			    COL_STRING_FOLDER_PATH, &folder_path,
 			    COL_BOOL_IS_STORE, &is_store, -1);
 	
-	if ((path = g_hash_table_lookup (si->path_hash, folder_path)))
-		gtk_tree_path_free (path);
+	if ((row = g_hash_table_lookup (si->path_hash, folder_path))) {
+		g_hash_table_remove (si->path_hash, folder_path);
+		gtk_tree_row_reference_free (row);
+	}
 	
-	g_hash_table_remove (si->path_hash, folder_path);
-	g_hash_table_remove (priv->uri_hash, uri);
+	if ((row = g_hash_table_lookup (priv->uri_hash, uri))) {
+		g_hash_table_remove (priv->uri_hash, uri);
+		gtk_tree_row_reference_free (row);
+	}
 	
 	gtk_tree_store_remove ((GtkTreeStore *) model, toplevel);
 	
@@ -1814,6 +1877,7 @@ folder_unsubscribed_cb (CamelStore *store, void *event_data, EMFolderTree *emft)
 {
 	CamelFolderInfo *fi = event_data;
 	struct _emft_store_info *si;
+	GtkTreeRowReference *row;
 	GtkTreeModel *model;
 	GtkTreePath *path;
 	GtkTreeIter iter;
@@ -1821,12 +1885,15 @@ folder_unsubscribed_cb (CamelStore *store, void *event_data, EMFolderTree *emft)
 	if (!(si = g_hash_table_lookup (emft->priv->store_hash, store)))
 		return;
 	
-	if (!(path = g_hash_table_lookup (si->path_hash, fi->path)))
+	if (!(row = g_hash_table_lookup (si->path_hash, fi->path)))
 		return;
 	
+	path = gtk_tree_row_reference_get_path (row);
 	model = gtk_tree_view_get_model (emft->priv->treeview);
-	if (!(gtk_tree_model_get_iter (model, &iter, path)))
+	if (!(gtk_tree_model_get_iter (model, &iter, path))) {
+		gtk_tree_path_free (path);
 		return;
+	}
 	
 	remove_folders (emft, model, si, &iter);
 }
@@ -1859,6 +1926,7 @@ em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *dis
 {
 	struct _EMFolderTreePrivate *priv;
 	struct _emft_store_info *si;
+	GtkTreeRowReference *row;
 	GtkTreeIter root, iter;
 	GtkTreeStore *model;
 	GtkTreePath *path;
@@ -1874,7 +1942,10 @@ em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *dis
 	if ((si = g_hash_table_lookup (priv->store_hash, store))) {
 		const char *name;
 		
-		gtk_tree_model_get_iter ((GtkTreeModel *) model, &iter, si->path);
+		path = gtk_tree_row_reference_get_path (si->row);
+		gtk_tree_model_get_iter ((GtkTreeModel *) model, &iter, path);
+		gtk_tree_path_free (path);
+		
 		gtk_tree_model_get ((GtkTreeModel *) model, &iter, COL_STRING_DISPLAY_NAME, (char **) &name, -1);
 		
 		g_warning ("the store `%s' is already in the folder tree as `%s'",
@@ -1891,17 +1962,19 @@ em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *dis
 			    COL_STRING_DISPLAY_NAME, display_name,
 			    COL_POINTER_CAMEL_STORE, store,
 			    COL_STRING_FOLDER_PATH, "/",
+			    COL_BOOL_LOAD_SUBDIRS, TRUE,
 			    COL_BOOL_IS_STORE, TRUE,
 			    COL_STRING_URI, uri, -1);
 	
-	g_free (uri);
-	
 	path = gtk_tree_model_get_path ((GtkTreeModel *) model, &iter);
+	row = gtk_tree_row_reference_new ((GtkTreeModel *) model, path);
+	gtk_tree_path_free (path);
+	
 	si = g_new (struct _emft_store_info, 1);
 	si->display_name = g_strdup (display_name);
 	camel_object_ref (store);
 	si->store = store;
-	si->path = path;
+	si->row = row;
 	si->path_hash = g_hash_table_new (g_str_hash, g_str_equal);
 	g_hash_table_insert (priv->store_hash, store, si);
 	
@@ -1911,11 +1984,14 @@ em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *dis
 	gtk_tree_store_set (model, &iter,
 			    COL_STRING_DISPLAY_NAME, _("Loading..."),
 			    COL_POINTER_CAMEL_STORE, store,
+			    COL_STRING_FOLDER_PATH, "/",
 			    COL_BOOL_LOAD_SUBDIRS, TRUE,
 			    COL_BOOL_IS_STORE, FALSE,
 			    COL_STRING_URI, uri,
 			    COL_UINT_UNREAD, 0,
 			    -1);
+	
+	g_free (uri);
 	
 	/* listen to store events */
 #define CAMEL_CALLBACK(func) ((CamelObjectEventHookFunc) func)
@@ -1933,6 +2009,7 @@ em_folder_tree_remove_store (EMFolderTree *emft, CamelStore *store)
 	struct _EMFolderTreePrivate *priv;
 	struct _emft_store_info *si;
 	GtkTreeModel *model;
+	GtkTreePath *path;
 	GtkTreeIter iter;
 	
 	g_return_if_fail (EM_IS_FOLDER_TREE (emft));
@@ -1947,7 +2024,9 @@ em_folder_tree_remove_store (EMFolderTree *emft, CamelStore *store)
 		return;
 	}
 	
-	gtk_tree_model_get_iter (model, &iter, si->path);
+	path = gtk_tree_row_reference_get_path (si->row);
+	gtk_tree_model_get_iter (model, &iter, path);
+	gtk_tree_path_free (path);
 	
 	/* recursively remove subfolders and finally the toplevel store */
 	remove_folders (emft, model, si, &iter);
