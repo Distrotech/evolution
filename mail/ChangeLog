@@ -1,5 +1,11 @@
 2001-01-08  Jeffrey Stedfast  <fejj@helixcode.com>
 
+	* mail-config-druid.glade: More fixes (hide the password, don't
+	make labels x-expand, etc).
+	
+	* mail-account-editor.c: Don't forget to show() the menu items,
+	make the window modal, and allow for resizing it.
+
 	* mail-config-druid.c: More lovely fixes...
 
 	* mail-callbacks.c: Don't segfault if a default account doesn't
