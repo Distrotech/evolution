@@ -6,6 +6,7 @@
  */
 
 #include <config.h>
+#include <string.h>
 #include <glib.h>
 #include <bonobo/bonobo-main.h>
 #include "pas-backend.h"
@@ -19,44 +20,34 @@ struct _PASBookViewPrivate {
 
 #define INITIAL_THRESHOLD 20
 	GMutex *pending_mutex;
-	int     card_count;
-	int     card_threshold;
-	int     card_threshold_max;
-	GList  *cards;
+
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard adds;
+	int next_threshold;
+	int threshold_max;
+
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard changes;
+	CORBA_sequence_GNOME_Evolution_Addressbook_ContactId removes;
 
 	PASBackend *backend;
 	char *card_query;
 	PASBackendCardSExp *card_sexp;
+	GHashTable *ids;
 };
 
 static void
-send_pending_adds (PASBookView *book_view)
+send_pending_adds (PASBookView *book_view, gboolean reset)
 {
 	CORBA_Environment ev;
-	gint i;
-	CORBA_sequence_GNOME_Evolution_Addressbook_VCard card_sequence;
-	GList *cards = book_view->priv->cards;
-	int card_count = book_view->priv->card_count;
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard *adds;
 
-	printf ("send_pending_adds (%d cards)\n", card_count);
-
-	book_view->priv->cards = NULL;
-	book_view->priv->card_count = 0;
-	book_view->priv->card_threshold = INITIAL_THRESHOLD;
-
-	card_sequence._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_VCard_allocbuf(card_count);
-	card_sequence._maximum = card_count;
-	card_sequence._length = card_count;
-
-	for ( i = 0; cards; cards = g_list_next(cards), i++ ) {
-		printf ("%s\n", (char*)cards->data);
-		card_sequence._buffer[i] = CORBA_string_dup((char *) cards->data);
-	}
+	adds = &book_view->priv->adds;
+	if (adds->_length == 0)
+		return;
 
 	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsAdded (
-		book_view->priv->listener, &card_sequence, &ev);
+		book_view->priv->listener, adds, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("send_pending_adds: Exception signaling BookViewListener!\n");
@@ -64,148 +55,202 @@ send_pending_adds (PASBookView *book_view)
 
 	CORBA_exception_free (&ev);
 
-	CORBA_free(card_sequence._buffer);
-	g_list_foreach (cards, (GFunc)g_free, NULL);
-	g_list_free (cards);
+	CORBA_free (adds->_buffer);
+	adds->_buffer = NULL;
+	adds->_maximum = 0;
+	adds->_length = 0;
+
+	if (reset)
+		book_view->priv->next_threshold = INITIAL_THRESHOLD;
 }
 
-/**
- * pas_book_view_notify_change:
- */
-void
-pas_book_view_notify_change (PASBookView                *book_view,
-			     const GList                *cards)
+static void
+send_pending_changes (PASBookView *book_view)
 {
 	CORBA_Environment ev;
-	gint i, length;
-	CORBA_sequence_GNOME_Evolution_Addressbook_VCard card_sequence;
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard *changes;
 
-	g_mutex_lock (book_view->priv->pending_mutex);
-
-	if (book_view->priv->cards)
-		send_pending_adds (book_view);
-
-	g_mutex_unlock (book_view->priv->pending_mutex);
-
-	length = g_list_length((GList *) cards);
-
-	card_sequence._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_VCard_allocbuf(length);
-	card_sequence._maximum = length;
-	card_sequence._length = length;
-
-	for ( i = 0; cards; cards = g_list_next(cards), i++ )
-		card_sequence._buffer[i] = CORBA_string_dup((char *) cards->data);
+	changes = &book_view->priv->changes;
+	if (changes->_length == 0)
+		return;
 
 	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsChanged (
-		book_view->priv->listener, &card_sequence, &ev);
+		book_view->priv->listener, changes, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning ("pas_book_view_notify_change: Exception signaling BookViewListener!\n");
+		g_warning ("send_pending_changes: Exception signaling BookViewListener!\n");
 	}
 
 	CORBA_exception_free (&ev);
 
-	CORBA_free(card_sequence._buffer);
+	CORBA_free (changes->_buffer);
+	changes->_buffer = NULL;
+	changes->_maximum = 0;
+	changes->_length = 0;
 }
 
-void
-pas_book_view_notify_change_1 (PASBookView *book_view,
-			       const char  *card)
+static void
+send_pending_removes (PASBookView *book_view)
 {
-	GList *list = g_list_append(NULL, (char *) card);
-	pas_book_view_notify_change(book_view, list);
-	g_list_free(list);
+	CORBA_Environment ev;
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard *removes;
+
+	removes = &book_view->priv->removes;
+	if (removes->_length == 0)
+		return;
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsRemoved (
+		book_view->priv->listener, removes, &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		g_warning ("send_pending_removes: Exception signaling BookViewListener!\n");
+	}
+
+	CORBA_exception_free (&ev);
+
+	CORBA_free (removes->_buffer);
+	removes->_buffer = NULL;
+	removes->_maximum = 0;
+	removes->_length = 0;
+}
+
+#define MAKE_REALLOC(type)						\
+static void								\
+CORBA_sequence_ ## type ## _realloc (CORBA_sequence_ ## type *seq,	\
+				     CORBA_unsigned_long      new_max)	\
+{									\
+	type *new_buf;							\
+									\
+	new_buf = CORBA_sequence_ ## type ## _allocbuf (new_max);	\
+	memcpy (new_buf, seq->_buffer, seq->_maximum * sizeof (type));	\
+	CORBA_free (seq->_buffer);					\
+	seq->_buffer = new_buf;						\
+	seq->_maximum = new_max;					\
+}
+
+MAKE_REALLOC (GNOME_Evolution_Addressbook_VCard)
+MAKE_REALLOC (GNOME_Evolution_Addressbook_ContactId)
+
+static void
+notify_change (PASBookView *book_view, const char *vcard)
+{
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard *changes;
+
+	send_pending_adds (book_view, TRUE);
+	send_pending_removes (book_view);
+
+	changes = &book_view->priv->changes;
+
+	if (changes->_length == changes->_maximum) {
+		CORBA_sequence_GNOME_Evolution_Addressbook_VCard_realloc (
+			changes, 2 * (changes->_maximum + 1));
+	}
+
+	changes->_buffer[changes->_length++] = CORBA_string_dup (vcard);
+}
+
+static void
+notify_remove (PASBookView *book_view, const char *id)
+{
+	CORBA_sequence_GNOME_Evolution_Addressbook_ContactId *removes;
+
+	send_pending_adds (book_view, TRUE);
+	send_pending_changes (book_view);
+
+	removes = &book_view->priv->removes;
+
+	if (removes->_length == removes->_maximum) {
+		CORBA_sequence_GNOME_Evolution_Addressbook_ContactId_realloc (
+			removes, 2 * (removes->_maximum + 1));
+	}
+
+	removes->_buffer[removes->_length++] = CORBA_string_dup (id);
+	g_hash_table_remove (book_view->priv->ids, id);
+}
+
+static void
+notify_add (PASBookView *book_view, const char *id, const char *vcard)
+{
+	CORBA_sequence_GNOME_Evolution_Addressbook_VCard *adds;
+	PASBookViewPrivate *priv = book_view->priv;
+
+	send_pending_changes (book_view);
+	send_pending_removes (book_view);
+
+	adds = &priv->adds;
+
+	if (adds->_length == adds->_maximum) {
+		send_pending_adds (book_view, FALSE);
+
+		adds->_buffer = CORBA_sequence_GNOME_Evolution_Addressbook_VCard_allocbuf (priv->next_threshold);
+		adds->_maximum = priv->next_threshold;
+
+		if (priv->next_threshold < priv->threshold_max) {
+			priv->next_threshold = MIN (2 * priv->next_threshold,
+						    priv->threshold_max);
+		}
+	}
+
+	adds->_buffer[adds->_length++] = CORBA_string_dup (vcard);
+	g_hash_table_insert (book_view->priv->ids, g_strdup (id),
+			     GUINT_TO_POINTER (1));
+}
+
+/**
+ * pas_book_view_notify_update:
+ */
+void
+pas_book_view_notify_update (PASBookView *book_view,
+			     EContact    *contact)
+{
+	gboolean currently_in_view, want_in_view;
+	const char *id;
+	char *vcard;
+
+	g_mutex_lock (book_view->priv->pending_mutex);
+
+	id = e_contact_get_const (contact, E_CONTACT_UID);
+
+	currently_in_view =
+		g_hash_table_lookup (book_view->priv->ids, id) != NULL;
+	want_in_view = pas_backend_card_sexp_match_contact (
+		book_view->priv->card_sexp, contact);
+
+	if (want_in_view) {
+		vcard = e_vcard_to_string (E_VCARD (contact),
+					   EVC_FORMAT_VCARD_30);
+
+		if (currently_in_view)
+			notify_change (book_view, vcard);
+		else
+			notify_add (book_view, id, vcard);
+
+		g_free (vcard);
+	} else {
+		if (currently_in_view)
+			pas_book_view_notify_remove (book_view, id);
+		/* else nothing; we're removing a card that wasn't there */
+	}
+
+	g_mutex_unlock (book_view->priv->pending_mutex);
 }
 
 /**
  * pas_book_view_notify_remove:
  */
 void
-pas_book_view_notify_remove (PASBookView  *book_view,
-			     const GList  *ids)
+pas_book_view_notify_remove (PASBookView *book_view,
+			     const char  *id)
 {
-	GNOME_Evolution_Addressbook_ContactIdList idlist;
-	CORBA_Environment ev;
-	const GList *l;
-	int num_ids, i;
-
 	g_mutex_lock (book_view->priv->pending_mutex);
-
-	if (book_view->priv->cards)
-		send_pending_adds (book_view);
-
-	g_mutex_unlock (book_view->priv->pending_mutex);
-
-	num_ids = g_list_length ((GList*)ids);
-	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_ContactId_allocbuf (num_ids);
-	idlist._maximum = num_ids;
-	idlist._length = num_ids;
-
-	for (l = ids, i = 0; l; l=l->next, i ++)
-		idlist._buffer[i] = CORBA_string_dup (l->data);
-
-	CORBA_exception_init (&ev);
-
-	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsRemoved (
-		book_view->priv->listener, &idlist, &ev);
-
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning ("pas_book_view_notify_remove: Exception signaling BookViewListener!\n");
-	}
-
-	CORBA_free(idlist._buffer);
-
-	CORBA_exception_free (&ev);
-}
-
-void
-pas_book_view_notify_remove_1 (PASBookView                *book_view,
-			       const char                 *id)
-{
-	GList *ids = NULL;
-
-	ids = g_list_prepend (ids, (char*)id);
-
-	pas_book_view_notify_remove (book_view, ids);
-
-	g_list_free (ids);
-}
-
-/**
- * pas_book_view_notify_add:
- */
-void
-pas_book_view_notify_add (PASBookView          *book_view,
-			  GList                *cards)
-{
-	PASBookViewPrivate *priv = book_view->priv;
-
-	g_mutex_lock (book_view->priv->pending_mutex);
-
-	priv->card_count += g_list_length (cards);
-	priv->cards = g_list_concat (cards, priv->cards);
-
-	/* If we've accumulated a number of cards, actually send them to the client */
-	if (priv->card_count >= priv->card_threshold) {
-		send_pending_adds (book_view);
-
-		/* Yeah, this scheme is overly complicated.  But I like it. */
-		if (priv->card_threshold < priv->card_threshold_max)
-			priv->card_threshold = MIN (2*priv->card_threshold, priv->card_threshold_max);
-	}
-
+	notify_remove (book_view, id);
 	g_mutex_unlock (book_view->priv->pending_mutex);
 }
 
-void
-pas_book_view_notify_add_1 (PASBookView *book_view,
-			    const char  *card)
-{
-	GList *list = g_list_append(NULL, (char *) card);
-	pas_book_view_notify_add(book_view, list);
-}
 
 void
 pas_book_view_notify_complete (PASBookView *book_view,
@@ -215,8 +260,9 @@ pas_book_view_notify_complete (PASBookView *book_view,
 
 	g_mutex_lock (book_view->priv->pending_mutex);
 
-	if (book_view->priv->cards)
-		send_pending_adds (book_view);
+	send_pending_adds (book_view, TRUE);
+	send_pending_changes (book_view);
+	send_pending_removes (book_view);
 
 	g_mutex_unlock (book_view->priv->pending_mutex);
 
@@ -250,16 +296,6 @@ pas_book_view_notify_status_message (PASBookView *book_view,
 	CORBA_exception_free (&ev);
 }
 
-gboolean
-pas_book_view_vcard_matches (PASBookView *book_view,
-			     const char  *vcard)
-{
-	if (book_view->priv->card_sexp == NULL)
-		return FALSE;
-
-	return pas_backend_card_sexp_match_vcard (book_view->priv->card_sexp, vcard);
-}
-
 static void
 pas_book_view_construct (PASBookView                *book_view,
 			 PASBackend                 *backend,
@@ -287,12 +323,8 @@ pas_book_view_construct (PASBookView                *book_view,
 	CORBA_exception_free (&ev);
 
 	priv->backend = backend;
-	priv->cards = NULL;
-	priv->card_threshold = INITIAL_THRESHOLD;
-	priv->card_threshold_max = 3000;
 	priv->card_query = g_strdup (card_query);
 	priv->card_sexp = card_sexp;
-	priv->pending_mutex = g_mutex_new();
 }
 
 /**
@@ -357,8 +389,12 @@ pas_book_view_dispose (GObject *object)
 	if (book_view->priv) {
 		bonobo_object_release_unref (book_view->priv->listener, NULL);
 
-		g_list_foreach (book_view->priv->cards, (GFunc)g_free, NULL);
-		g_list_free (book_view->priv->cards);
+		if (book_view->priv->adds._buffer)
+			CORBA_free (book_view->priv->adds._buffer);
+		if (book_view->priv->changes._buffer)
+			CORBA_free (book_view->priv->changes._buffer);
+		if (book_view->priv->removes._buffer)
+			CORBA_free (book_view->priv->removes._buffer);
 
 		g_free (book_view->priv->card_query);
 		g_object_unref (book_view->priv->card_sexp);
@@ -393,8 +429,15 @@ pas_book_view_class_init (PASBookViewClass *klass)
 static void
 pas_book_view_init (PASBookView *book_view)
 {
-	book_view->priv           = g_new0 (PASBookViewPrivate, 1);
-	book_view->priv->listener = CORBA_OBJECT_NIL;
+	book_view->priv = g_new0 (PASBookViewPrivate, 1);
+
+	book_view->priv->pending_mutex = g_mutex_new();
+
+	book_view->priv->next_threshold = INITIAL_THRESHOLD;
+	book_view->priv->threshold_max = 3000;
+
+	book_view->priv->ids = g_hash_table_new_full (g_str_hash, g_str_equal,
+						      g_free, NULL);
 }
 
 BONOBO_TYPE_FUNC_FULL (

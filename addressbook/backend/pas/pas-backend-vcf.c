@@ -55,8 +55,6 @@ typedef struct {
 	PASBackendVCF *bvcf;
 	PASBook *book;
 	PASBookView *view;
-
-	gboolean search_needed;
 } VCFBackendSearchClosure;
 
 static void
@@ -68,10 +66,11 @@ free_search_closure (VCFBackendSearchClosure *closure)
 static void
 foreach_search_compare (char *id, char *vcard_string, VCFBackendSearchClosure *closure)
 {
-	if (!closure->search_needed ||
-	    pas_book_view_vcard_matches (closure->view, vcard_string)) {
-		pas_book_view_notify_add_1 (closure->view, g_strdup (vcard_string));
-	}
+	EContact *contact;
+
+	contact = e_contact_new_from_vcard (vcard_string);
+	pas_book_view_notify_update (closure->view, contact);
+	g_object_unref (contact);
 }
 
 static gboolean
@@ -95,21 +94,14 @@ static void
 pas_backend_vcf_search (PASBackendVCF  	      *bvcf,
 			PASBookView           *book_view)
 {
-	gboolean search_needed;
 	const char *query = pas_book_view_get_card_query (book_view);
 	VCFBackendSearchClosure *closure = g_new0 (VCFBackendSearchClosure, 1);
 
-	search_needed = TRUE;
-
 	if ( ! strcmp (query, "(contains \"x-evolution-any-field\" \"\")"))
-		search_needed = FALSE;
-
-	if (search_needed)
-		pas_book_view_notify_status_message (book_view, _("Searching..."));
-	else
 		pas_book_view_notify_status_message (book_view, _("Loading..."));
+	else
+		pas_book_view_notify_status_message (book_view, _("Searching..."));
 
-	closure->search_needed = search_needed;
 	closure->view = book_view;
 	closure->bvcf = bvcf;
 
@@ -244,7 +236,7 @@ vcf_flush_file (gpointer data)
 	return FALSE;
 }
 
-static char *
+static EContact *
 do_create(PASBackendVCF  *bvcf,
 	  const char     *vcard_req,
 	  gboolean        dirty_the_file)
@@ -259,7 +251,7 @@ do_create(PASBackendVCF  *bvcf,
 	e_contact_set(contact, E_CONTACT_UID, id);
 	vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
-	g_hash_table_insert (bvcf->priv->contacts, g_strdup (id), vcard);
+	g_hash_table_insert (bvcf->priv->contacts, id, vcard);
 
 	if (dirty_the_file) {
 		bvcf->priv->dirty = TRUE;
@@ -269,29 +261,24 @@ do_create(PASBackendVCF  *bvcf,
 								       vcf_flush_file, bvcf);
 	}
 
-	g_object_unref(contact);
-
-	return id;
+	return contact;
 }
 
 static PASBackendSyncStatus
 pas_backend_vcf_process_create_contact (PASBackendSync *backend,
-					PASBook    *book,
+					PASBook *book,
 					const char *vcard,
-					char **id_out)
+					EContact **contact)
 {
-	char *id;
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 
-	id = do_create(bvcf, vcard, TRUE);
-	if (id) {
-		*id_out = id;
+	*contact = do_create(bvcf, vcard, TRUE);
+	if (*contact) {
 		return GNOME_Evolution_Addressbook_Success;
 	}
 	else {
 		/* XXX need a different call status for this case, i
                    think */
-		*id_out = g_strdup ("");
 		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 }
@@ -323,30 +310,23 @@ pas_backend_vcf_process_remove_contacts (PASBackendSync *backend,
 
 static PASBackendSyncStatus
 pas_backend_vcf_process_modify_contact (PASBackendSync *backend,
-					PASBook    *book,
+					PASBook *book,
 					const char *vcard,
-					char **old_vcard)
+					EContact **contact)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
-	char          *old_vcard_string, *old_id;
-	EContact      *contact;
-	char          *id;
+	char *old_id, *old_vcard_string;
+	const char *id;
 
 	/* create a new ecard from the request data */
-	contact = e_contact_new_from_vcard (vcard);
-	id = e_contact_get (contact, E_CONTACT_UID);
-
-	g_object_unref (contact);
+	*contact = e_contact_new_from_vcard (vcard);
+	id = e_contact_get_const (*contact, E_CONTACT_UID);
 
 	if (!g_hash_table_lookup_extended (bvcf->priv->contacts, id, (gpointer)&old_id, (gpointer)&old_vcard_string)) {
-		g_free (id);
 		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 	else {
-		*old_vcard = g_strdup (old_vcard_string);
-
-		g_hash_table_remove (bvcf->priv->contacts, id);
-		g_hash_table_insert (bvcf->priv->contacts, id, g_strdup (vcard));
+		g_hash_table_insert (bvcf->priv->contacts, old_id, g_strdup (vcard));
 
 		g_free (old_vcard_string);
 
@@ -486,12 +466,13 @@ pas_backend_vcf_load_uri (PASBackend             *backend,
 			fd = open (filename, O_CREAT, 0666);
 
 			if (fd != -1 && !only_if_exists) {
-				char *id;
-				id = do_create(bvcf, XIMIAN_VCARD, FALSE);
+				EContact *contact;
+
+				contact = do_create(bvcf, XIMIAN_VCARD, FALSE);
 				save_file (bvcf);
-				g_free (id);
 
 				/* XXX check errors here */
+				g_object_unref (contact);
 
 				writable = TRUE;
 			}

@@ -32,11 +32,11 @@ struct _PASBackendSyncClass {
 	/* Virtual methods */
 	PASBackendSyncStatus (*remove_sync) (PASBackendSync *backend, PASBook *book);
 	PASBackendSyncStatus (*create_contact_sync)  (PASBackendSync *backend, PASBook *book,
-						      const char *vcard, char **id);
+						      const char *vcard, EContact **contact);
 	PASBackendSyncStatus (*remove_contacts_sync) (PASBackendSync *backend, PASBook *book,
 						      GList *id_list, GList **removed_ids);
 	PASBackendSyncStatus (*modify_contact_sync)  (PASBackendSync *backend, PASBook *book,
-						      const char *vcard, char **old_vcard);
+						      const char *vcard, EContact **contact);
 	PASBackendSyncStatus (*get_contact_sync) (PASBackendSync *backend, PASBook *book,
 						  const char *id, char **vcard);
 	PASBackendSyncStatus (*get_contact_list_sync) (PASBackendSync *backend, PASBook *book,
@@ -68,9 +68,9 @@ gboolean    pas_backend_sync_construct                (PASBackendSync           
 GType       pas_backend_sync_get_type                 (void);
 
 PASBackendSyncStatus pas_backend_sync_remove  (PASBackendSync *backend, PASBook *book);
-PASBackendSyncStatus pas_backend_sync_create_contact  (PASBackendSync *backend, PASBook *book, const char *vcard, char **id);
+PASBackendSyncStatus pas_backend_sync_create_contact  (PASBackendSync *backend, PASBook *book, const char *vcard, EContact **contact);
 PASBackendSyncStatus pas_backend_sync_remove_contacts (PASBackendSync *backend, PASBook *book, GList *id_list, GList **removed_ids);
-PASBackendSyncStatus pas_backend_sync_modify_contact  (PASBackendSync *backend, PASBook *book, const char *vcard, char **old_vcard);
+PASBackendSyncStatus pas_backend_sync_modify_contact  (PASBackendSync *backend, PASBook *book, const char *vcard, EContact **contact);
 PASBackendSyncStatus pas_backend_sync_get_contact (PASBackendSync *backend, PASBook *book, const char *id, char **vcard);
 PASBackendSyncStatus pas_backend_sync_get_contact_list (PASBackendSync *backend, PASBook *book, const char *query, GList **contacts);
 PASBackendSyncStatus pas_backend_sync_get_changes (PASBackendSync *backend, PASBook *book, const char *change_id, GList **changes);

@@ -17,6 +17,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <pas/pas-types.h>
+#include <ebook/e-contact.h>
 
 #define PAS_TYPE_BOOK_VIEW        (pas_book_view_get_type ())
 #define PAS_BOOK_VIEW(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), PAS_TYPE_BOOK_VIEW, PASBookView))
@@ -48,25 +49,14 @@ const char*  pas_book_view_get_card_query         (PASBookView                *b
 PASBackendCardSExp* pas_book_view_get_card_sexp   (PASBookView                *book_view);
 PASBackend*  pas_book_view_get_backend            (PASBookView                *book_view);
 
-void         pas_book_view_notify_change          (PASBookView                *book_view,
-						   const GList                *cards);
-void         pas_book_view_notify_change_1        (PASBookView                *book_view,
-						   const char                 *card);
+void         pas_book_view_notify_update          (PASBookView                *book_view,
+						   EContact                   *contact);
 void         pas_book_view_notify_remove          (PASBookView                *book_view,
-						   const GList                *ids);
-void         pas_book_view_notify_remove_1        (PASBookView                *book_view,
 						   const char                 *id);
-void         pas_book_view_notify_add             (PASBookView                *book_view,
-						   GList                      *cards);
-void         pas_book_view_notify_add_1           (PASBookView                *book_view,
-						   const char                 *card);
 void         pas_book_view_notify_complete        (PASBookView                *book_view,
 						   GNOME_Evolution_Addressbook_CallStatus);
 void         pas_book_view_notify_status_message  (PASBookView                *book_view,
 						   const char                 *message);
-
-gboolean     pas_book_view_vcard_matches          (PASBookView                *book_view,
-						   const char                 *vcard);
 
 GType        pas_book_view_get_type               (void);
 

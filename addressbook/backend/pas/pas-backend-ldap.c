@@ -1110,7 +1110,6 @@ add_objectclass_mod (PASBackendLDAP *bl, GPtrArray *mod_array, GList *existing_o
 typedef struct {
 	LDAPOp op;
 	char *dn;
-	char *new_vcard;
 	EContact *new_contact;
 } LDAPCreateOp;
 
@@ -1120,6 +1119,7 @@ create_contact_handler (LDAPOp *op, LDAPMessage *res)
 	LDAPCreateOp *create_op = (LDAPCreateOp*)op;
 	PASBackendLDAP *bl = PAS_BACKEND_LDAP (op->backend);
 	LDAP *ldap = bl->priv->ldap;
+	EContact *contact;
 	int ldap_error;
 	int response;
 
@@ -1127,8 +1127,7 @@ create_contact_handler (LDAPOp *op, LDAPMessage *res)
 		g_warning ("incorrect msg type %d passed to create_contact_handler", ldap_msgtype (res));
 		pas_book_respond_create (op->book,
 					 GNOME_Evolution_Addressbook_OtherError,
-					 create_op->dn,
-					 create_op->new_vcard);
+					 NULL);
 		ldap_op_finished (op);
 		return;
 	}
@@ -1140,8 +1139,7 @@ create_contact_handler (LDAPOp *op, LDAPMessage *res)
 	response = ldap_error_to_response (ldap_error);
 	pas_book_respond_create (op->book,
 				 response,
-				 create_op->dn,
-				 create_op->new_vcard);
+				 create_op->new_contact);
 
 	ldap_op_finished (op);
 }
@@ -1151,7 +1149,6 @@ create_contact_dtor (LDAPOp *op)
 {
 	LDAPCreateOp *create_op = (LDAPCreateOp*)op;
 
-	g_free (create_op->new_vcard);
 	g_free (create_op->dn);
 	g_object_unref (create_op->new_contact);
 	g_free (create_op);
@@ -1176,11 +1173,10 @@ pas_backend_ldap_process_create_contact (PASBackend *backend,
 
 	printf ("vcard = %s\n", vcard);
 
-	create_op->new_vcard = g_strdup (vcard);
 	create_op->new_contact = e_contact_new_from_vcard (vcard);
 
 	create_op->dn = create_dn_from_contact (create_op->new_contact, bl->priv->ldap_rootdn);
-	e_contact_set (create_op->new_contact, E_CONTACT_UID, create_op->dn); /* for the notification code below */
+	e_contact_set (create_op->new_contact, E_CONTACT_UID, create_op->dn);
 
 	ldap = bl->priv->ldap;
 
@@ -1193,7 +1189,7 @@ pas_backend_ldap_process_create_contact (PASBackend *backend,
                    UnsupportedAttribute back */
 		pas_book_respond_create (book,
 					 GNOME_Evolution_Addressbook_BookListener_UnsupportedField,
-					 create_op->dn);
+					 NULL);
 
 		g_free (create_op->dn);
 		g_object_unref (create_op->new_contact);
@@ -1263,8 +1259,7 @@ pas_backend_ldap_process_create_contact (PASBackend *backend,
 		response = ldap_error_to_response (err);
 		pas_book_respond_create (create_op->op.book,
 					 response,
-					 create_op->dn,
-					 create_op->new_vcard);
+					 NULL);
 		create_contact_dtor ((LDAPOp*)create_op);
 		return;
 	}
@@ -1376,8 +1371,6 @@ pas_backend_ldap_process_remove_contacts (PASBackend *backend,
 typedef struct {
 	LDAPOp op;
 	const char *id; /* the id of the contact we're modifying */
-	char *current_vcard; /* current in the LDAP db */
-	char *vcard;         /* the VCard we want to store */
 	EContact *current_contact;
 	EContact *contact;
 	GList *existing_objectclasses;
@@ -1395,8 +1388,7 @@ modify_contact_modify_handler (LDAPOp *op, LDAPMessage *res)
 		g_warning ("incorrect msg type %d passed to modify_contact_handler", ldap_msgtype (res));
 		pas_book_respond_modify (op->book,
 					 GNOME_Evolution_Addressbook_OtherError,
-					 modify_op->current_vcard,
-					 modify_op->vcard);
+					 NULL);
 		ldap_op_finished (op);
 		return;
 	}
@@ -1407,8 +1399,7 @@ modify_contact_modify_handler (LDAPOp *op, LDAPMessage *res)
 	/* and lastly respond */
 	pas_book_respond_modify (op->book,
 				 ldap_error_to_response (ldap_error),
-				 modify_op->current_vcard,
-				 modify_op->vcard);
+				 modify_op->contact);
 	ldap_op_finished (op);
 }
 
@@ -1432,14 +1423,13 @@ modify_contact_search_handler (LDAPOp *op, LDAPMessage *res)
 			g_warning ("uh, this shouldn't happen");
 			pas_book_respond_modify (op->book,
 						 GNOME_Evolution_Addressbook_OtherError,
-						 "", "");
+						 NULL);
 			ldap_op_finished (op);
 			return;
 		}
 
 		modify_op->current_contact = build_contact_from_entry (ldap, e,
 								       &modify_op->existing_objectclasses);
-		modify_op->current_vcard = e_vcard_to_string (E_VCARD (modify_op->current_contact), EVC_FORMAT_VCARD_30);
 	}
 	else if (msg_type == LDAP_RES_SEARCH_RESULT) {
 		int ldap_error;
@@ -1458,7 +1448,7 @@ modify_contact_search_handler (LDAPOp *op, LDAPMessage *res)
 			/* more here i'm sure */
 			pas_book_respond_modify (op->book,
 						 ldap_error_to_response (ldap_error),
-						 "", "");
+						 NULL);
 			ldap_op_finished (op);
 			return;
 		}
@@ -1493,7 +1483,7 @@ modify_contact_search_handler (LDAPOp *op, LDAPMessage *res)
 				g_warning ("ldap_modify_ext returned %d\n", ldap_error);
 				pas_book_respond_modify (op->book,
 							 ldap_error_to_response (ldap_error),
-							 "", "");
+							 NULL);
 				ldap_op_finished (op);
 				return;
 			}
@@ -1506,7 +1496,7 @@ modify_contact_search_handler (LDAPOp *op, LDAPMessage *res)
 		g_warning ("unhandled result type %d returned", msg_type);
 		pas_book_respond_modify (op->book,
 					 GNOME_Evolution_Addressbook_OtherError,
-					 "", "");
+					 NULL);
 		ldap_op_finished (op);
 	}
 }
@@ -1518,10 +1508,8 @@ modify_contact_dtor (LDAPOp *op)
 
 	g_list_foreach (modify_op->existing_objectclasses, (GFunc)g_free, NULL);
 	g_list_free (modify_op->existing_objectclasses);
-	g_free (modify_op->current_vcard);
 	if (modify_op->current_contact)
 		g_object_unref (modify_op->current_contact);
-	g_free (modify_op->vcard);
 	if (modify_op->contact)
 		g_object_unref (modify_op->contact);
 	g_free (modify_op);
@@ -1541,8 +1529,7 @@ pas_backend_ldap_process_modify_contact (PASBackend *backend,
 
 	book_view = find_book_view (bl);
 
-	modify_op->vcard = g_strdup (vcard);
-	modify_op->contact = e_contact_new_from_vcard (modify_op->vcard);
+	modify_op->contact = e_contact_new_from_vcard (vcard);
 	modify_op->id = e_contact_get_const (modify_op->contact, E_CONTACT_UID);
 
 	ldap = bl->priv->ldap;
@@ -1570,7 +1557,7 @@ pas_backend_ldap_process_modify_contact (PASBackend *backend,
 		g_warning ("ldap_search_ext returned %d\n", ldap_error);
 		pas_book_respond_modify (book,
 					 GNOME_Evolution_Addressbook_OtherError,
-					 "", "");
+					 NULL);
 		modify_contact_dtor ((LDAPOp*)modify_op);
 	}
 }
@@ -2709,7 +2696,7 @@ ldap_search_handler (LDAPOp *op, LDAPMessage *res)
 		while (NULL != e) {
 			EContact *contact = build_contact_from_entry (ldap, e, NULL);
 
-			pas_book_view_notify_add_1 (view, e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30));
+			pas_book_view_notify_update (view, contact);
 
 			g_object_unref (contact);
 

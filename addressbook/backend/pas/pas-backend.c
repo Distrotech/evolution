@@ -456,6 +456,105 @@ pas_backend_change_delete_new  (const char *id)
 
 
 static void
+pas_backend_foreach_view (PASBackend *backend,
+			  void (*callback) (PASBookView *, gpointer),
+			  gpointer user_data)
+{
+	EList *views;
+	PASBookView *view;
+	EIterator *iter;
+
+	views = pas_backend_get_book_views (backend);
+	iter = e_list_get_iterator (views);
+
+	while (e_iterator_is_valid (iter)) {
+		view = (PASBookView*)e_iterator_get (iter);
+
+		bonobo_object_ref (view);
+		callback (view, user_data);
+		bonobo_object_unref (view);
+
+		e_iterator_next (iter);
+	}
+
+	g_object_unref (iter);
+	g_object_unref (views);
+}
+
+
+static void
+view_notify_update (PASBookView *view, gpointer contact)
+{
+	pas_book_view_notify_update (view, contact);
+}
+
+/**
+ * pas_backend_notify_update:
+ * @backend: an addressbook backend
+ * @contact: a new or modified contact
+ *
+ * Notifies all of @backend's book views about the new or modified
+ * contacts @contact.
+ *
+ * pas_book_respond_create() and pas_book_respond_modify() call this
+ * function for you. You only need to call this from your backend if
+ * contacts are created or modified by another (non-PAS-using) client.
+ **/
+void
+pas_backend_notify_update (PASBackend *backend, EContact *contact)
+{
+	pas_backend_foreach_view (backend, view_notify_update, contact);
+}
+
+
+static void
+view_notify_remove (PASBookView *view, gpointer id)
+{
+	pas_book_view_notify_remove (view, id);
+}
+
+/**
+ * pas_backend_notify_remove:
+ * @backend: an addressbook backend
+ * @id: a contact id
+ *
+ * Notifies all of @backend's book views that the contact with UID
+ * @id has been removed.
+ *
+ * pas_book_respond_remove_contacts() calls this function for you. You
+ * only need to call this from your backend if contacts are removed by
+ * another (non-PAS-using) client.
+ **/
+void
+pas_backend_notify_remove (PASBackend *backend, const char *id)
+{
+	pas_backend_foreach_view (backend, view_notify_remove, (gpointer)id);
+}
+
+
+static void
+view_notify_complete (PASBookView *view, gpointer unused)
+{
+	pas_book_view_notify_complete (view, GNOME_Evolution_Addressbook_Success);
+}
+
+/**
+ * pas_backend_notify_complete:
+ * @backend: an addressbook backend
+ *
+ * Notifies all of @backend's book views that the current set of
+ * notifications is complete; use this after a series of
+ * pas_backend_notify_update() and pas_backend_notify_remove() calls.
+ **/
+void
+pas_backend_notify_complete (PASBackend *backend)
+{
+	pas_backend_foreach_view (backend, view_notify_complete, NULL);
+}
+
+
+
+static void
 pas_backend_init (PASBackend *backend)
 {
 	PASBackendPrivate *priv;

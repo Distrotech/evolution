@@ -1,3 +1,68 @@
+2003-10-20  Dan Winship  <danw@ximian.com>
+
+	* backend/pas/pas-book-view.c: Queue up removes and modifies as
+	well as adds, and remove the calls that took a list of changes
+	rather than a single change, since no one was really using the
+	list versions. Keep a list of IDs currently in the view so we can
+	more easily figure out what changes count as adds, modifies, and
+	removes.
+	(send_pending_adds): Don't reset next_threshold if it's being
+	called from notify_add.
+	(send_pending_changes, send_pending_removes): New
+	(pas_book_view_notify_update): Simplified add/change interface.
+	Takes an EContact and figures out if it's new, modified, or
+	removed relative to this view.
+	(pas_book_view_notify_change, pas_book_view_notify_change_1,
+	pas_book_view_notify_add, pas_book_view_notify_add_1): Gone.
+	(pas_book_view_notify_remove): Now does what remove_1 used to do.
+	(pas_book_view_vcard_matches): Remove this; no longer used.
+
+	* backend/pas/pas-backend.c (pas_backend_notify_update): New.
+	Calls pas_book_view_notify_update() on each of the backend's views.
+	(pas_backend_notify_remove): Likewise for notify_remove().
+	(pas_backend_notify_complete): And notify_complete().
+
+	* backend/pas/pas-book.c (pas_book_respond_create): Take an
+	EContact instead of an id and a vcard. Use
+	pas_backend_notify_update.
+	(pas_book_respond_remove_contacts): Use pas_backend_notify_remove.
+	(pas_book_respond_modify): Take a single EContact instead of two
+	vcards. Use pas_backend_notify_update.
+
+	* backend/pas/pas-backend-sync.c
+	(pas_backend_sync_create_contact): Return an EContact rather than
+	an id.
+	(pas_backend_sync_modify_contact): Return an EContact rather than
+	the old_vcard.
+	(_pas_backend_create_contact, _pas_backend_modify_contact): Update
+
+	* backend/pas/pas-backend-file.c (do_summary_query): Use
+	pas_book_view_notify_update.
+	(pas_backend_file_search_timeout): Likewise
+	(pas_backend_file_create_contact): Update for API changes
+	(pas_backend_file_modify_contact): Likewise.
+
+	* backend/pas/pas-backend-ldap.c (create_contact_handler,
+	pas_backend_ldap_process_create_contact): Update for API changes
+	(modify_contact_modify_handler, modify_contact_search_handler,
+	pas_backend_ldap_process_modify_contact): Likewise
+	(ldap_search_handler): Use pas_book_view_notify_update
+
+	* backend/pas/pas-backend-vcf.c (foreach_search_compare): Use
+	pas_book_view_notify_update.
+	(pas_backend_vcf_process_create_contact): Update for API changes
+	(pas_backend_vcf_process_modify_contact): Likewise
+
+	* backend/pas/pas-backend-summary.c
+	(pas_backend_summary_add_contact): Take an EContact instead of a
+	const char *vcard.
+
+	* backend/ebook/e-contact.c (photo_getter): s/malloc/g_malloc/
+
+	* backend/ebook/tests/ebook/Makefile.am: 
+	* backend/ebook/tests/vcard/Makefile.am: Make these automake-1.7
+	compliant
+
 2003-10-20  JP Rosevear <jpr@ximian.com>
 
 	* backend/pas/pas-backend-vcf.c (pas_backend_vcf_search): compiler

@@ -26,6 +26,7 @@
 #include <glib-object.h>
 #include <pas/addressbook.h>
 #include <pas/pas-types.h>
+#include <ebook/e-contact.h>
 
 #define PAS_TYPE_BACKEND         (pas_backend_get_type ())
 #define PAS_BACKEND(o)           (G_TYPE_CHECK_INSTANCE_CAST ((o), PAS_TYPE_BACKEND, PASBackend))
@@ -137,7 +138,14 @@ void        pas_backend_start_book_view            (PASBackend             *back
 void        pas_backend_add_book_view              (PASBackend             *backend,
 						    PASBookView            *view);
 
-EList      *pas_backend_get_book_views             (PASBackend *backend);
+EList      *pas_backend_get_book_views             (PASBackend             *backend);
+
+void        pas_backend_notify_update              (PASBackend             *backend,
+						    EContact               *contact);
+void        pas_backend_notify_remove              (PASBackend             *backend,
+						    const char             *id);
+void        pas_backend_notify_complete            (PASBackend             *backend);
+
 
 GType       pas_backend_get_type                 (void);
 

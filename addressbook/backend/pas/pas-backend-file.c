@@ -111,7 +111,6 @@ do_summary_query (PASBackendFile *bf,
 
 	for (i = 0; i < ids->len; i ++) {
 		char *id = g_ptr_array_index (ids, i);
-		char *vcard = NULL;
 
 #if SUMMARY_STORES_ENOUGH_INFO
 		/* this is disabled for the time being because lists
@@ -121,6 +120,11 @@ do_summary_query (PASBackendFile *bf,
 		if (completion_search) {
 			vcard = pas_backend_summary_get_summary_vcard (bf->priv->summary,
 								       id);
+			if (vcard) {
+				EContact *contact = e_contact_new_from_vcard (vcard_dbt.data);
+				pas_book_view_notify_update (view, contact);
+				g_object_unref (contact);
+			}
 		}
 		else {
 #endif
@@ -130,13 +134,10 @@ do_summary_query (PASBackendFile *bf,
 			db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
 
 			if (db_error == 0)
-				vcard = g_strdup (vcard_dbt.data);
+				pas_book_view_notify_update (view, vcard_dbt.data);
 #if SUMMARY_STORES_ENOUGH_INFO
 		}
 #endif
-
-		if (vcard)
-			pas_book_view_notify_add_1 (view, vcard);
 	}
 
 	g_ptr_array_free (ids, TRUE);
@@ -161,7 +162,6 @@ typedef struct {
 	DBC    *dbc;
 
 	gboolean done_first;
-	gboolean search_needed;
 } FileBackendSearchClosure;
 
 static void
@@ -197,10 +197,11 @@ pas_backend_file_search_timeout (gpointer data)
 		/* don't include the version in the list of cards */
 		if (strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
 			char *vcard_string = vcard_dbt.data;
+			EContact *contact = e_contact_new_from_vcard (vcard_string);
 
-			/* check if the vcard matches the search sexp */
-			if ((!closure->search_needed) || pas_book_view_vcard_matches (closure->view, vcard_string))
-				pas_book_view_notify_add_1 (closure->view, g_strdup (vcard_string));
+			/* notify_update will check if it matches for us */
+			pas_book_view_notify_update (closure->view, contact);
+			g_object_unref (contact);
 		}
 
 		db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
@@ -225,17 +226,12 @@ static void
 pas_backend_file_search (PASBackendFile  	      *bf,
 			 PASBookView         	      *book_view)
 {
-	gboolean search_needed;
 	const char *query = pas_book_view_get_card_query (book_view);
-	search_needed = TRUE;
 
 	if ( ! strcmp (query, "(contains \"x-evolution-any-field\" \"\")"))
-		search_needed = FALSE;
-
-	if (search_needed)
-		pas_book_view_notify_status_message (book_view, _("Searching..."));
-	else
 		pas_book_view_notify_status_message (book_view, _("Loading..."));
+	else
+		pas_book_view_notify_status_message (book_view, _("Searching..."));
 
 	if (pas_backend_summary_is_summary_query (bf->priv->summary, query)) {
 		do_summary_query (bf, book_view);
@@ -245,7 +241,6 @@ pas_backend_file_search (PASBackendFile  	      *bf,
 		DB  *db = bf->priv->file_db;
 		int db_error;
 
-		closure->search_needed = search_needed;
 		closure->view = book_view;
 		closure->bf = bf;
 
@@ -259,10 +254,9 @@ pas_backend_file_search (PASBackendFile  	      *bf,
 	}
 }
 
-static char *
+static EContact *
 do_create(PASBackendFile  *bf,
-	  const char      *vcard_req,
-	  EContact        **new_contact)
+	  const char      *vcard_req)
 {
 	DB             *db = bf->priv->file_db;
 	DBT            id_dbt, vcard_dbt;
@@ -270,7 +264,6 @@ do_create(PASBackendFile  *bf,
 	char           *id;
 	EContact       *contact;
 	char           *vcard;
-	char           *ret_val;
 
 	id = pas_backend_file_create_unique_id ();
 
@@ -290,45 +283,32 @@ do_create(PASBackendFile  *bf,
 		db_error = db->sync (db, 0);
 		if (db_error != 0)
 			g_warning ("db->sync failed.\n");
-		ret_val = id;
-
 	}
 	else {
-		g_free (id);
-		ret_val = NULL;
+		g_object_unref (contact);
+		contact = NULL;
 	}
 
-	if (new_contact)
-		*new_contact = contact;
-	else
-		g_object_unref(contact);
-
-	return ret_val;
+	g_free (id);
+	return contact;
 }
 
 static PASBackendSyncStatus
 pas_backend_file_create_contact (PASBackendSync *backend,
-				 PASBook    *book,
+				 PASBook *book,
 				 const char *vcard,
-				 char **id_out)
+				 EContact **contact)
 {
-	char *id;
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-	EContact *contact;
 
-	id = do_create(bf, vcard, &contact);
-	if (id) {
-		char *new_vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
-		pas_backend_summary_add_contact (bf->priv->summary, new_vcard);
-
-		*id_out = id;
-		g_free (new_vcard);
+	*contact = do_create (bf, vcard);
+	if (*contact) {
+		pas_backend_summary_add_contact (bf->priv->summary, *contact);
 		return GNOME_Evolution_Addressbook_Success;
 	}
 	else {
 		/* XXX need a different call status for this case, i
                    think */
-		*id_out = g_strdup ("");
 		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 }
@@ -390,18 +370,16 @@ static PASBackendSyncStatus
 pas_backend_file_modify_contact (PASBackendSync *backend,
 				 PASBook    *book,
 				 const char *vcard,
-				 char **old_vcard)
+				 EContact **contact)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
 	DBT            id_dbt, vcard_dbt;
 	int            db_error;
-	EContact      *contact;
 	char          *id, *lookup_id;
 
-	/* create a new ecard from the request data */
-	contact = e_contact_new_from_vcard (vcard);
-	id = e_contact_get(contact, E_CONTACT_UID);
+	*contact = e_contact_new_from_vcard (vcard);
+	id = e_contact_get(*contact, E_CONTACT_UID);
 
 	/* This is disgusting, but for a time cards were added with
            ID's that are no longer used (they contained both the uri
@@ -415,15 +393,12 @@ pas_backend_file_modify_contact (PASBackendSync *backend,
 		lookup_id = id;
 
 	string_to_dbt (lookup_id, &id_dbt);	
-	g_free (id);
 	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
 
 	/* get the old ecard - the one that's presently in the db */
 	db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
 	if (0 != db_error)
 		return GNOME_Evolution_Addressbook_ContactNotFound;
-
-	*old_vcard = g_strdup(vcard_dbt.data);
 
 	string_to_dbt (vcard, &vcard_dbt);	
 
@@ -435,10 +410,9 @@ pas_backend_file_modify_contact (PASBackendSync *backend,
 			g_warning ("db->sync failed.\n");
 
 		pas_backend_summary_remove_contact (bf->priv->summary, id);
-		pas_backend_summary_add_contact (bf->priv->summary, vcard);
+		pas_backend_summary_add_contact (bf->priv->summary, *contact);
 	}
-
-	g_object_unref(contact);
+	g_free (id);
 
 	if (0 == db_error)
 		return GNOME_Evolution_Addressbook_Success;
@@ -936,10 +910,11 @@ pas_backend_file_load_uri (PASBackend             *backend,
 			db_error = db->open (db, filename, NULL, DB_HASH, DB_CREATE, 0666);
 
 			if (db_error == 0 && !only_if_exists) {
-				char *id;
-				id = do_create(bf, XIMIAN_VCARD, NULL);
-				g_free (id);
+				EContact *contact;
+
+				contact = do_create(bf, XIMIAN_VCARD);
 				/* XXX check errors here */
+				g_object_unref (contact);
 
 				writable = TRUE;
 			}

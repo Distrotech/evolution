@@ -59,15 +59,13 @@ void                    pas_book_respond_remove         (PASBook                
 							 GNOME_Evolution_Addressbook_CallStatus  status);
 void                    pas_book_respond_create         (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
-							 const char                             *id,
-							 const char                             *vcard);
+							 EContact                               *contact);
 void                    pas_book_respond_remove_contacts (PASBook                                *book,
 							  GNOME_Evolution_Addressbook_CallStatus  status,
 							  GList                                  *ids);
 void                    pas_book_respond_modify         (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
-							 const char                             *old_vcard,
-							 const char                             *new_vcard);
+							 EContact                               *contact);
 void                    pas_book_respond_authenticate_user (PASBook                                *book,
 							    GNOME_Evolution_Addressbook_CallStatus  status);
 void                    pas_book_respond_get_supported_fields (PASBook                                *book,

@@ -689,12 +689,9 @@ pas_backend_summary_save (PASBackendSummary *summary)
 }
 
 void
-pas_backend_summary_add_contact (PASBackendSummary *summary, const char *vcard)
+pas_backend_summary_add_contact (PASBackendSummary *summary, EContact *contact)
 {
-	EContact *contact;
 	PASBackendSummaryItem *new_item;
-
-	contact = e_contact_new_from_vcard (vcard);
 
 	new_item = g_new0 (PASBackendSummaryItem, 1);
 

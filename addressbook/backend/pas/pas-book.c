@@ -285,43 +285,20 @@ pas_book_respond_remove (PASBook                           *book,
 void
 pas_book_respond_create (PASBook                                *book,
 			 GNOME_Evolution_Addressbook_CallStatus  status,
-			 const char                             *id,
-			 const char                             *vcard)
+			 EContact                               *contact)
 {
 	CORBA_Environment ev;
 
-	CORBA_exception_init (&ev);
-
 	if (status == GNOME_Evolution_Addressbook_Success) {
-		/* the card was created, let's let the views know about it */
-		EList *views = pas_backend_get_book_views (book->priv->backend);
-		EIterator *iter;
-
-		iter = e_list_get_iterator (views);
-		while (e_iterator_is_valid (iter)) {
-			CORBA_Environment ev;
-			PASBookView *view = (PASBookView*)e_iterator_get (iter);
-
-			CORBA_exception_init(&ev);
-
-			bonobo_object_dup_ref(bonobo_object_corba_objref(BONOBO_OBJECT(view)), &ev);
-
-			if (pas_book_view_vcard_matches (view, vcard))
-				pas_book_view_notify_add_1 (view,
-							    vcard);
-
-			pas_book_view_notify_complete (view, GNOME_Evolution_Addressbook_Success);
-
-			bonobo_object_release_unref(bonobo_object_corba_objref(BONOBO_OBJECT(view)), &ev);
-
-			e_iterator_next (iter);
-		}
-		g_object_unref (iter);
-		g_object_unref (views);
+		pas_backend_notify_update (book->priv->backend, contact);
+		pas_backend_notify_complete (book->priv->backend);
 	}
 
+	CORBA_exception_init (&ev);
+
 	GNOME_Evolution_Addressbook_BookListener_notifyContactCreated (
-		book->priv->listener, status, (char *)id, &ev);
+		book->priv->listener, status,
+		e_contact_get (contact, E_CONTACT_UID), &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("pas_book_respond_create: Exception "
@@ -344,27 +321,10 @@ pas_book_respond_remove_contacts (PASBook                                *book,
 
 	CORBA_exception_init (&ev);
 
-	for (i = ids; i; i = i->next) {
-		EList *views = pas_backend_get_book_views (book->priv->backend);
-		EIterator *iter = e_list_get_iterator (views);
-		char *id = i->data;
-
-		while (e_iterator_is_valid (iter)) {
-			CORBA_Environment ev;
-			PASBookView *view = (PASBookView*)e_iterator_get (iter);
-					
-			CORBA_exception_init(&ev);
-
-			bonobo_object_dup_ref(bonobo_object_corba_objref(BONOBO_OBJECT(view)), &ev);
-
-			pas_book_view_notify_remove_1 (view, id);
-
-			bonobo_object_release_unref(bonobo_object_corba_objref(BONOBO_OBJECT(view)), &ev);
-
-			e_iterator_next (iter);
-		}
-		g_object_unref (iter);
-		g_object_unref (views);
+	if (ids) {
+		for (i = ids; i; i = i->next)
+			pas_backend_notify_remove (book->priv->backend, i->data);
+		pas_backend_notify_complete (book->priv->backend);
 	}
 
 	GNOME_Evolution_Addressbook_BookListener_notifyContactsRemoved (
@@ -384,48 +344,16 @@ pas_book_respond_remove_contacts (PASBook                                *book,
 void
 pas_book_respond_modify (PASBook                                *book,
 			 GNOME_Evolution_Addressbook_CallStatus  status,
-			 const char                             *old_vcard,
-			 const char                             *new_vcard)
+			 EContact                               *contact)
 {
 	CORBA_Environment ev;
 
-	CORBA_exception_init (&ev);
-
 	if (status == GNOME_Evolution_Addressbook_Success) {
-		/* the card was modified, let's let the views know about it */
-		EList *views = pas_backend_get_book_views (book->priv->backend);
-		EIterator *iter = e_list_get_iterator (views);
-		while (e_iterator_is_valid (iter)) {
-			CORBA_Environment ev;
-			gboolean old_match, new_match;
-			PASBookView *view = (PASBookView*)e_iterator_get (iter);
-					
-			CORBA_exception_init(&ev);
-
-			bonobo_object_dup_ref(bonobo_object_corba_objref(BONOBO_OBJECT(view)), &ev);
-
-			old_match = pas_book_view_vcard_matches (view,
-								 old_vcard);
-			new_match = pas_book_view_vcard_matches (view,
-								 new_vcard);
-			if (old_match && new_match)
-				pas_book_view_notify_change_1 (view, new_vcard);
-			else if (new_match)
-				pas_book_view_notify_add_1 (view, new_vcard);
-			else /* if (old_match) */ {
-				EContact *contact = e_contact_new_from_vcard (old_vcard);
-				pas_book_view_notify_remove_1 (view, e_contact_get_const (contact, E_CONTACT_UID));
-				g_object_unref (contact);
-			}
-			pas_book_view_notify_complete (view, GNOME_Evolution_Addressbook_Success);
-
-			bonobo_object_release_unref(bonobo_object_corba_objref(BONOBO_OBJECT(view)), &ev);
-
-			e_iterator_next (iter);
-		}
-		g_object_unref (iter);
-		g_object_unref (views);
+		pas_backend_notify_update (book->priv->backend, contact);
+		pas_backend_notify_complete (book->priv->backend);
 	}
+
+	CORBA_exception_init (&ev);
 
 	GNOME_Evolution_Addressbook_BookListener_notifyContactModified (
 		book->priv->listener, status, &ev);

@@ -24,18 +24,18 @@ pas_backend_sync_construct (PASBackendSync *backend)
 
 PASBackendSyncStatus
 pas_backend_sync_create_contact (PASBackendSync *backend,
-				 PASBook    *book,
+				 PASBook *book,
 				 const char *vcard,
-				 char **id)
+				 EContact **contact)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (id, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (contact, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->create_contact_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->create_contact_sync) (backend, book, vcard, id);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->create_contact_sync) (backend, book, vcard, contact);
 }
 
 PASBackendSyncStatus
@@ -70,16 +70,16 @@ PASBackendSyncStatus
 pas_backend_sync_modify_contact (PASBackendSync *backend,
 				 PASBook *book,
 				 const char *vcard,
-				 char **old_vcard)
+				 EContact **contact)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (old_vcard, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (contact, GNOME_Evolution_Addressbook_OtherError);
 
 	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_contact_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_contact_sync) (backend, book, vcard, old_vcard);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_contact_sync) (backend, book, vcard, contact);
 }
 
 PASBackendSyncStatus
@@ -191,13 +191,13 @@ _pas_backend_create_contact (PASBackend *backend,
 			     const char *vcard)
 {
 	PASBackendSyncStatus status;
-	char *id;
+	EContact *contact;
 
-	status = pas_backend_sync_create_contact (PAS_BACKEND_SYNC (backend), book, vcard, &id);
+	status = pas_backend_sync_create_contact (PAS_BACKEND_SYNC (backend), book, vcard, &contact);
 
-	pas_book_respond_create (book, status, id, vcard);
+	pas_book_respond_create (book, status, contact);
 
-	g_free (id);
+	g_object_unref (contact);
 }
 
 static void
@@ -221,11 +221,13 @@ _pas_backend_modify_contact (PASBackend *backend,
 			     const char *vcard)
 {
 	PASBackendSyncStatus status;
-	char *old_vcard;
+	EContact *contact;
 
-	status = pas_backend_sync_modify_contact (PAS_BACKEND_SYNC (backend), book, vcard, &old_vcard);
+	status = pas_backend_sync_modify_contact (PAS_BACKEND_SYNC (backend), book, vcard, &contact);
 
-	pas_book_respond_modify (book, status, old_vcard, vcard);
+	pas_book_respond_modify (book, status, contact);
+
+	g_object_unref (contact);
 }
 
 static void

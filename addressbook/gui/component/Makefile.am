@@ -39,7 +39,7 @@ libevolution_addressbook_la_SOURCES = 	\
 	addressbook.h			\
 	component-factory.c
 
-#	$(top_builddir)/addressbook/printing/libecontactprint.la			\
+#	$(top_builddir)/addressbook/printing/libecontactprint.la
 
 libevolution_addressbook_la_LIBADD =							\
 	$(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
