@@ -61,6 +61,8 @@ libcal_dialogs_la_SOURCES =	\
 	delete-error.h		\
 	e-delegate-dialog.c	\
 	e-delegate-dialog.h	\
+	e-send-options-utils.c  \
+	e-send-options-utils.h  \
 	event-editor.c		\
 	event-editor.h		\
 	event-page.c		\

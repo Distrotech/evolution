@@ -44,6 +44,7 @@
 #include "../calendar-config.h"
 #include "comp-editor.h"
 #include "comp-editor-util.h"
+#include "e-send-options-utils.h"
 #include "task-page.h"
 
 
@@ -72,8 +73,13 @@ struct _TaskPagePrivate {
 	GtkWidget *categories;
 
 	GtkWidget *source_selector;
+	GtkWidget *sendoptions_label;
+	GtkWidget *sendoptions_button;
 
 	gboolean updating;
+	gboolean sendoptions_shown;
+
+	ESendOptionsDialog *sod;
 };
 
 static const int classification_map[] = {
@@ -140,8 +146,13 @@ task_page_init (TaskPage *tpage)
 	priv->classification = NULL;
 	priv->categories_btn = NULL;
 	priv->categories = NULL;
+	priv->sendoptions_label = NULL;
+	priv->sendoptions_button = NULL;
+	priv->sendoptions_shown = FALSE;
+	priv->sod = NULL;
 
 	priv->updating = FALSE;
+	priv->sendoptions_shown = FALSE;
 }
 
 /* Destroy handler for the task page */
@@ -164,7 +175,12 @@ task_page_finalize (GObject *object)
 		g_object_unref (priv->xml);
 		priv->xml = NULL;
 	}
-
+	
+	if (priv->sod) {
+		g_object_unref (priv->sod);
+		priv->sod = NULL;
+	}
+	
 	g_free (priv);
 	tpage->priv = NULL;
 
@@ -250,7 +266,39 @@ sensitize_widgets (TaskPage *tpage)
 	gtk_widget_set_sensitive (priv->description, !read_only);
 	gtk_widget_set_sensitive (priv->classification, !read_only);
 	gtk_widget_set_sensitive (priv->categories_btn, !read_only);
+	gtk_widget_set_sensitive (priv->sendoptions_button, !read_only);
 	gtk_entry_set_editable (GTK_ENTRY (priv->categories), !read_only);
+}
+void
+task_page_hide_options (TaskPage *page)
+{
+	g_return_if_fail (IS_TASK_PAGE (page));
+
+	gtk_widget_hide (page->priv->sendoptions_label);
+	gtk_widget_hide (page->priv->sendoptions_button);
+
+	page->priv->sendoptions_shown = FALSE;
+	
+}
+void
+task_page_show_options (TaskPage *page)
+{
+	g_return_if_fail (IS_TASK_PAGE (page));
+	
+	gtk_widget_show (page->priv->sendoptions_label);
+	gtk_widget_show (page->priv->sendoptions_button);
+	
+	if (!page->priv->sod) {
+		page->priv->sod = e_sendoptions_dialog_new ();
+		page->priv->sod->data->initialized = TRUE;
+	}
+
+	if (e_cal_get_static_capability (COMP_EDITOR_PAGE (page)->client, CAL_STATIC_CAPABILITY_NO_GEN_OPTIONS))
+		e_sendoptions_set_need_general_options (page->priv->sod, FALSE);
+	
+	e_sendoptions_utils_set_default_data (page->priv->sod);
+
+	page->priv->sendoptions_shown = TRUE;
 }
 
 /* fill_widgets handler for the task page */
@@ -263,7 +311,8 @@ task_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
 	ECalComponentDateTime d;
 	ECalComponentClassification cl;
 	GSList *l;
-	const char *categories;
+	icalcomponent *icalcomp;
+	const char *categories, *uid;
 	icaltimezone *zone, *default_zone;
 	ESource *source;
 
@@ -390,6 +439,12 @@ task_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
                 break;
 	}
 	e_dialog_option_menu_set (priv->classification, cl, classification_map);
+
+	e_cal_component_get_uid (comp, &uid);
+	if (e_cal_get_object (COMP_EDITOR_PAGE (tpage)->client, uid, NULL, &icalcomp, NULL)) {
+		icalcomponent_free (icalcomp);
+		task_page_hide_options (tpage);
+	}
 
 	/* Categories */
 	e_cal_component_get_categories (comp, &categories);
@@ -530,6 +585,10 @@ task_page_fill_component (CompEditorPage *page, ECalComponent *comp)
 	
 	/* Classification. */
 	e_cal_component_set_classification (comp, classification_get (priv->classification));
+	
+	/* send options */
+	if (priv->sendoptions_shown) 
+		e_sendoptions_utils_fill_component (priv->sod, comp);
 
 	/* Categories */
 	cat = e_dialog_editable_get (priv->categories);
@@ -648,6 +707,9 @@ get_widgets (TaskPage *tpage)
 	priv->categories = GW ("categories");
 
 	priv->source_selector = GW ("source");
+	
+	priv->sendoptions_label = GW ("send-options-label");
+	priv->sendoptions_button = GW ("send-options-button");
 
 #undef GW
 
@@ -660,7 +722,9 @@ get_widgets (TaskPage *tpage)
 		&& priv->classification
 		&& priv->description
 		&& priv->categories_btn
-		&& priv->categories);
+		&& priv->categories
+		&& priv->sendoptions_label
+		&& priv->sendoptions_button);
 }
 
 /* Callback used when the summary changes; we emit the notification signal. */
@@ -818,9 +882,29 @@ source_changed_cb (GtkWidget *widget, ESource *source, gpointer data)
 			comp_editor_notify_client_changed (
 				COMP_EDITOR (gtk_widget_get_toplevel (priv->main)),
 				client);
+			if (e_cal_get_static_capability (client, CAL_STATIC_CAPABILITY_REQ_SEND_OPTIONS))
+				task_page_show_options (tpage);
+			else
+				task_page_hide_options (tpage);
+
+
 			sensitize_widgets (tpage);
 		}
 	}
+}
+
+static void
+send_options_clicked_cb (GtkWidget *button, gpointer data)
+{
+	TaskPage *tpage;
+	TaskPagePrivate *priv;
+	GtkWidget *toplevel;
+	
+	tpage = TASK_PAGE (data);
+	priv = tpage->priv;
+	
+	toplevel = gtk_widget_get_toplevel (priv->main);
+	e_sendoptions_dialog_run (priv->sod, toplevel, E_ITEM_TASK);
 }
 
 /* Hooks the widget signals */
@@ -860,6 +944,10 @@ init_widgets (TaskPage *tpage)
 	/* Categories button */
 	g_signal_connect((priv->categories_btn), "clicked",
 			    G_CALLBACK (categories_clicked_cb), tpage);
+	
+	/* send options button */
+	g_signal_connect((priv->sendoptions_button), "clicked", 
+			    G_CALLBACK (send_options_clicked_cb), tpage);
 
 	/* Source selector */
 	g_signal_connect((priv->source_selector), "source_selected",
