@@ -25,8 +25,8 @@
 #include <bonobo/bonobo-main.h>
 #include "e-util/e-url.h"
 #include "evolution-calendar.h"
-#include "cal.h"
 #include "cal-backend.h"
+#include "cal.h"
 #include "cal-factory.h"
 
 #define PARENT_TYPE                BONOBO_TYPE_OBJECT

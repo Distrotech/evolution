@@ -21,8 +21,8 @@
  * 02111-1307, USA.
  */
 
-#ifndef __CAL_BACKEND_CARD_SEXP_H__
-#define __CAL_BACKEND_CARD_SEXP_H__
+#ifndef __CAL_BACKEND_OBJECT_SEXP_H__
+#define __CAL_BACKEND_OBJECT_SEXP_H__
 
 #include <glib.h>
 #include <glib-object.h>
@@ -38,8 +38,6 @@ G_BEGIN_DECLS
 #define CAL_IS_BACKEND_OBJECT_SEXP_CLASS(k) (G_TYPE_CHECK_CLASS_TYPE ((k), CAL_TYPE_BACKEND_OBJECT_SEXP))
 #define CAL_BACKEND_OBJECT_SEXP_GET_CLASS(k) (G_TYPE_INSTANCE_GET_CLASS ((obj), CAL_TYPE_BACKEND_OBJECT_SEXP, CALBackendObjectSExpClass))
 
-typedef struct _CalBackendObjectSExp CalBackendObjectSExp;
-typedef struct _CalBackendObjectSExpClass CalBackendObjectSExpClass;
 typedef struct _CalBackendObjectSExpPrivate CalBackendObjectSExpPrivate;
 
 struct _CalBackendObjectSExp {
@@ -52,8 +50,11 @@ struct _CalBackendObjectSExpClass {
 	GObjectClass parent_class;
 };
 
-CalBackendObjectSExp *cal_backend_object_sexp_new          (const char           *text);
 GType                 cal_backend_object_sexp_get_type     (void);
+CalBackendObjectSExp *cal_backend_object_sexp_new          (const char           *text);
+const char *cal_backend_object_sexp_text (CalBackendObjectSExp *sexp);
+
+
 gboolean              cal_backend_object_sexp_match_object (CalBackendObjectSExp *sexp,
 							    const char           *object,
 							    CalBackend           *backend);

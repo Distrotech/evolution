@@ -142,10 +142,6 @@ struct _GnomeCalendarPrivate {
 	   'dates-shown-changed' signal.*/
 	time_t visible_start;
 	time_t visible_end;
-
-	/* Calendar query for purging old events */
-	GList *exp_queries;
-	time_t exp_older_than;
 };
 
 /* Signal IDs */
@@ -355,49 +351,50 @@ gnome_calendar_class_init (GnomeCalendarClass *class)
 
 /* Callback used when the calendar query reports of an updated object */
 static void
-dn_query_obj_updated_cb (CalQuery *query, const char *object,
-			 gboolean query_in_progress, int n_scanned, int total,
-			 gpointer data)
+dn_query_objects_added_cb (CalQuery *query, GList *objects, gpointer data)
 {
 	GnomeCalendar *gcal;
 	GnomeCalendarPrivate *priv;
-	CalComponent *comp = NULL;
-	icalcomponent *icalcomp;
+	GList *l;
+	
+	gcal = GNOME_CALENDAR (data);
+	priv = gcal->priv;
+
+	for (l = objects; l; l = l->next) {
+		CalComponent *comp = NULL;
+
+		comp = cal_component_new ();
+		if (!cal_component_set_icalcomponent (comp, icalcomponent_new_clone (l->data))) {
+			g_object_unref (comp);
+			
+			continue;
+		}
+
+		tag_calendar_by_comp (priv->date_navigator, comp, cal_query_get_client (query), NULL,
+				      FALSE, TRUE);
+		g_object_unref (comp);
+	}
+}
+
+static void
+dn_query_objects_modified_cb (CalQuery *query, GList *objects, gpointer data)
+{
+	GnomeCalendar *gcal;
+	GnomeCalendarPrivate *priv;
 
 	gcal = GNOME_CALENDAR (data);
 	priv = gcal->priv;
 
-	/* If this is an update that is not part of an ongoing query, we have to
-	 * retag the whole thing:  an event may change dates and the
-	 * tag_calendar_by_comp() below would not know how to untag the old
-	 * dates.
+	/* We have to retag the whole thing: an event may change dates
+	 * and the tag_calendar_by_comp() below would not know how to
+	 * untag the old dates.
 	 */
-	if (!query_in_progress) {
-		update_query (gcal);
-		return;
-	}
-
-	icalcomp = icalparser_parse_string (object);
-	if (!icalcomp) {
-		g_message ("dn_query_obj_updated_cb(): Syntax error while getting object `%s'", object);
-		return;
-	}
-
-	comp = cal_component_new ();
-	if (!cal_component_set_icalcomponent (comp, icalcomp)) {
-		g_object_unref (comp);
-		icalcomponent_free (icalcomp);
-		return;
-	}
-
-	tag_calendar_by_comp (priv->date_navigator, comp, cal_query_get_client (query), NULL,
-			      FALSE, TRUE);
-	g_object_unref (comp);
+	update_query (gcal);
 }
 
 /* Callback used when the calendar query reports of a removed object */
 static void
-dn_query_obj_removed_cb (CalQuery *query, const char *uid, gpointer data)
+dn_query_objects_removed_cb (CalQuery *query, GList *uids, gpointer data)
 {
 	GnomeCalendar *gcal;
 
@@ -409,30 +406,15 @@ dn_query_obj_removed_cb (CalQuery *query, const char *uid, gpointer data)
 
 /* Callback used when the calendar query is done */
 static void
-dn_query_query_done_cb (CalQuery *query, CalQueryDoneStatus status, const char *error_str,
-			gpointer data)
+dn_query_done_cb (CalQuery *query, ECalendarStatus status, gpointer data)
 {
 	GnomeCalendar *gcal;
 
 	gcal = GNOME_CALENDAR (data);
 
-	/* FIXME */
-
-	if (status != CAL_QUERY_DONE_SUCCESS)
-		fprintf (stderr, "query done: %s\n", error_str);
-}
-
-/* Callback used when the calendar query reports an evaluation error */
-static void
-dn_query_eval_error_cb (CalQuery *query, const char *error_str, gpointer data)
-{
-	GnomeCalendar *gcal;
-
-	gcal = GNOME_CALENDAR (data);
-
-	/* FIXME */
-
-	fprintf (stderr, "eval error: %s\n", error_str);
+	/* FIXME Better error reporting */
+	if (status != E_CALENDAR_STATUS_OK)
+		g_warning (G_STRLOC ": Query did not successfully complete");
 }
 
 /* Returns the current view widget, a EDayView or EWeekView. */
@@ -618,20 +600,20 @@ update_query (GnomeCalendar *gcal)
 	/* create queries for each loaded client */
 	client_list = e_cal_model_get_client_list (e_cal_view_get_model (E_CAL_VIEW (priv->day_view)));
 	for (l = client_list; l != NULL; l = l->next) {
-		old_query = cal_client_get_query ((CalClient *) l->data, real_sexp);
-		if (!old_query) {
-			g_message ("update_query(): Could not create the query");
+		if (!cal_client_get_query ((CalClient *) l->data, real_sexp, &old_query, NULL)) {
+			g_warning (G_STRLOC ": Could not create the query");
+
 			continue;
 		}
 
-		g_signal_connect (old_query, "obj_updated",
-				  G_CALLBACK (dn_query_obj_updated_cb), gcal);
-		g_signal_connect (old_query, "obj_removed",
-				  G_CALLBACK (dn_query_obj_removed_cb), gcal);
+		g_signal_connect (old_query, "objects_added",
+				  G_CALLBACK (dn_query_objects_added_cb), gcal);
+		g_signal_connect (old_query, "objects_modified",
+				  G_CALLBACK (dn_query_objects_modified_cb), gcal);
+		g_signal_connect (old_query, "objects_removed",
+				  G_CALLBACK (dn_query_objects_removed_cb), gcal);
 		g_signal_connect (old_query, "query_done",
-				  G_CALLBACK (dn_query_query_done_cb), gcal);
-		g_signal_connect (old_query, "eval_error",
-				  G_CALLBACK (dn_query_eval_error_cb), gcal);
+				  G_CALLBACK (dn_query_done_cb), gcal);
 
 		priv->dn_queries = g_list_append (priv->dn_queries, old_query);
 	}
@@ -975,8 +957,6 @@ gnome_calendar_init (GnomeCalendar *gcal)
 
 	priv->visible_start = -1;
 	priv->visible_end = -1;
-
-	priv->exp_queries = NULL;
 }
 
 /* Frees a set of categories */
@@ -1066,19 +1046,6 @@ gnome_calendar_destroy (GtkObject *object)
 		if (priv->view_menus) {
 			g_object_unref (priv->view_menus);
 			priv->view_menus = NULL;
-		}
-
-		if (priv->exp_queries) {
-			GList *l;
-
-			for (l = priv->exp_queries; l != NULL; l = l->next) {
-				g_signal_handlers_disconnect_matched ((CalQuery *) l->data, G_SIGNAL_MATCH_DATA,
-								      0, 0, NULL, NULL, gcal);
-				g_object_unref (l->data);
-			}
-
-			g_list_free (priv->exp_queries);
-			priv->exp_queries = NULL;
 		}
 
 		g_free (priv);
@@ -2957,115 +2924,17 @@ gnome_calendar_unrecur_selection (GnomeCalendar *gcal)
 	}
 }
 
-typedef struct {
-	gboolean remove;
-	GnomeCalendar *gcal;
-} obj_updated_closure;
-
 static gboolean
 check_instance_cb (CalComponent *comp,
 		   time_t instance_start,
 		   time_t instance_end,
 		   gpointer data)
 {
-	obj_updated_closure *closure = data;
+	gboolean *remove = data;
 
-	if (instance_start >= closure->gcal->priv->exp_older_than ||
-	    instance_end >= closure->gcal->priv->exp_older_than) {
-		closure->remove = FALSE;
-		return FALSE;
-	}
+	*remove = FALSE;
 
-	closure->remove = TRUE;
-	return TRUE;
-}
-
-static void
-purging_obj_updated_cb (CalQuery *query, const char *object,
-			gboolean query_in_progress, int n_scanned, int total,
-			gpointer data)
-{
-	GnomeCalendarPrivate *priv;
-	GnomeCalendar *gcal = data;
-	CalComponent *comp;
-	icalcomponent *icalcomp;
-	obj_updated_closure closure;
-	gchar *msg;
-	const gchar *uid;
-
-	priv = gcal->priv;
-
-	icalcomp = icalparser_parse_string (object);
-	if (!icalcomp)
-		return;
-
-	uid = icalcomponent_get_uid (icalcomp);
-	comp = cal_component_new ();
-	if (!cal_component_set_icalcomponent (comp, icalcomp)) {
-		g_object_unref (comp);
-		icalcomponent_free (icalcomp);
-		return;
-	}
-
-	msg = g_strdup_printf (_("Purging event %s"), uid);
-
-	/* further filter the event, to check the last recurrence end date */
-	if (cal_component_has_recurrences (comp)) {
-		closure.remove = TRUE;
-		closure.gcal = gcal;
-
-		cal_recur_generate_instances (comp, priv->exp_older_than, -1,
-					      (CalRecurInstanceFn) check_instance_cb,
-					      &closure,
-					      (CalRecurResolveTimezoneFn) cal_client_resolve_tzid_cb,
-					      cal_query_get_client (query), priv->zone);
-
-		if (closure.remove) {
-			e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), msg);
-			delete_error_dialog (cal_client_remove_object (cal_query_get_client (query), uid),
-					     CAL_COMPONENT_EVENT);
-		}
-	} else {
-		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), msg);
-		delete_error_dialog (cal_client_remove_object (cal_query_get_client (query), uid), CAL_COMPONENT_EVENT);
-	}
-
-	g_object_unref (comp);
-	g_free (msg);
-}
-
-static void
-purging_eval_error_cb (CalQuery *query, const char *error_str, gpointer data)
-{
-	GnomeCalendarPrivate *priv;
-	GnomeCalendar *gcal = data;
-
-	priv = gcal->priv;
-
-	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
-
-	g_signal_handlers_disconnect_matched (query, G_SIGNAL_MATCH_DATA,
-					      0, 0, NULL, NULL, gcal);
-
-	priv->exp_queries = g_list_remove (priv->exp_queries, query);
-	g_object_unref (query);
-}
-
-static void
-purging_query_done_cb (CalQuery *query, CalQueryDoneStatus status, const char *error_str, gpointer data)
-{
-	GnomeCalendarPrivate *priv;
-	GnomeCalendar *gcal = data;
-
-	priv = gcal->priv;
-
-	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
-
-	g_signal_handlers_disconnect_matched (query, G_SIGNAL_MATCH_DATA,
-					      0, 0, NULL, NULL, gcal);
-
-	priv->exp_queries = g_list_remove (priv->exp_queries, query);
-	g_object_unref (query);
+	return FALSE;
 }
 
 void
@@ -3079,11 +2948,6 @@ gnome_calendar_purge (GnomeCalendar *gcal, time_t older_than)
 
 	priv = gcal->priv;
 
-	/* if we have a query, we are already purging */
-	if (priv->exp_queries)
-		return;
-
-	priv->exp_older_than = older_than;
 	start = isodate_from_time_t (0);
 	end = isodate_from_time_t (older_than);
 	sexp = g_strdup_printf ("(and (= (get-vtype) \"VEVENT\")"
@@ -3093,28 +2957,46 @@ gnome_calendar_purge (GnomeCalendar *gcal, time_t older_than)
 
 	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), _("Purging"));
 
+	/* FIXME Confirm expunge */
+
 	client_list = e_cal_model_get_client_list (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)));
 	for (l = client_list; l != NULL; l = l->next) {
-		CalQuery *exp_query;
+		CalClient *client = l->data;
+		GList *objects, *l;
 		gboolean read_only = TRUE;
 		
-		cal_client_is_read_only ((CalClient *) l->data, &read_only, NULL);
+		cal_client_is_read_only (client, &read_only, NULL);
 		if (!read_only)
 			continue;
 		
-		exp_query = cal_client_get_query ((CalClient *) l->data, sexp);
-		if (!exp_query) {
-			e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
-			g_message ("gnome_calendar_purge(): Could not create the query");
+		if (!cal_client_get_object_list (client, sexp, &objects, NULL)) {
+			g_warning (G_STRLOC ": Could not get the objects");
+			
 			continue;
 		}
-	
-		g_signal_connect (exp_query, "obj_updated", G_CALLBACK (purging_obj_updated_cb), gcal);
-		g_signal_connect (exp_query, "query_done", G_CALLBACK (purging_query_done_cb), gcal);
-		g_signal_connect (exp_query, "eval_error", G_CALLBACK (purging_eval_error_cb), gcal);
+		
+		for (l = objects; l; l = l->next) {
+			CalComponent *comp;
+			gboolean remove = TRUE;
 
-		priv->exp_queries = g_list_append (priv->exp_queries, exp_query);
+			comp = cal_component_new ();
+			cal_component_set_icalcomponent (comp, icalcomponent_new_clone (l->data));
+			
+			cal_recur_generate_instances (comp, older_than, -1,
+						      (CalRecurInstanceFn) check_instance_cb,
+						      &remove,
+						      (CalRecurResolveTimezoneFn) cal_client_resolve_tzid_cb,
+						      client, priv->zone);
+
+			/* FIXME Better error handling */
+			if (remove)
+				cal_client_remove_object (client, icalcomponent_get_uid (l->data));
+
+			g_object_unref (comp);
+		}
 	}
+
+	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 
 	g_list_free (client_list);
 	g_free (sexp);

@@ -26,6 +26,7 @@
 #include <bonobo/bonobo-object.h>
 #include "pcs/evolution-calendar.h"
 #include "pcs/cal-common.h"
+#include "pcs/query.h"
 
 G_BEGIN_DECLS
 
@@ -72,6 +73,8 @@ void cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
 void cal_notify_object_list (Cal *cal,
 			     GNOME_Evolution_Calendar_CallStatus status,
 			     GNOME_Evolution_Calendar_stringlist *objects);
+
+void cal_notify_query (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, Query *query);
 
 void cal_notify_mode (Cal *cal, 
 		      GNOME_Evolution_Calendar_Listener_SetModeStatus status, 

@@ -24,9 +24,8 @@
 #include <ical.h>
 #include <bonobo/bonobo-main.h>
 #include <bonobo/bonobo-exception.h>
-#include "cal.h"
 #include "cal-backend.h"
-#include "query.h"
+#include "cal.h"
 
 #define PARENT_TYPE         BONOBO_TYPE_OBJECT
 
@@ -557,40 +556,45 @@ impl_Cal_sendObject (PortableServer_Servant servant,
 }
 
 /* Cal::getQuery implementation */
-static GNOME_Evolution_Calendar_Query
+static void
 impl_Cal_getQuery (PortableServer_Servant servant,
 		   const CORBA_char *sexp,
 		   GNOME_Evolution_Calendar_QueryListener ql,
 		   CORBA_Environment *ev)
 {
+
 	Cal *cal;
 	CalPrivate *priv;
 	Query *query;
-	CORBA_Environment ev2;
-	GNOME_Evolution_Calendar_Query query_copy;
-
+	CalBackendObjectSExp *obj_sexp;
+	
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	query = cal_backend_get_query (priv->backend, ql, sexp);
+	/* we handle this entirely here, since it doesn't require any
+	   backend involvement now that we have pas_book_view_start to
+	   actually kick off the search. */
+
+	obj_sexp = cal_backend_object_sexp_new (sexp);
+	if (!obj_sexp) {
+		cal_notify_query (cal, GNOME_Evolution_Calendar_InvalidQuery, NULL);
+
+		return;
+	}
+
+	query = query_new (priv->backend, ql, obj_sexp);
 	if (!query) {
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_CouldNotCreate);
-		return CORBA_OBJECT_NIL;
+		g_object_unref (obj_sexp);
+		cal_notify_query (cal, GNOME_Evolution_Calendar_OtherError, NULL);
+
+		return;
 	}
 
-	CORBA_exception_init (&ev2);
-	query_copy = CORBA_Object_duplicate (BONOBO_OBJREF (query), &ev2);
-	if (BONOBO_EX (&ev2)) {
-		bonobo_object_unref (query);
-		CORBA_exception_free (&ev2);
-		g_message ("Cal_get_query(): Could not duplicate the query reference");
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_CouldNotCreate);
-		return CORBA_OBJECT_NIL;
-	}
+	cal_backend_add_query (priv->backend, query);
 
-	CORBA_exception_free (&ev2);
+	cal_notify_query (cal, GNOME_Evolution_Calendar_Success, query);
 
-	return query_copy;
+	g_object_unref (query);
 }
 
 /* Cal::setDefaultTimezone method */
@@ -971,7 +975,28 @@ cal_notify_object_list (Cal *cal,
 	GNOME_Evolution_Calendar_Listener_notifyObjectListRequested (priv->listener, status, objects, &ev);
 
 	if (BONOBO_EX (&ev))
-		g_message (G_STRLOC ": could not notify the listener of object request");
+		g_message (G_STRLOC ": could not notify the listener of object list");
+
+	CORBA_exception_free (&ev);	
+}
+
+void
+cal_notify_query (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, Query *query)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyQuery (priv->listener, status, BONOBO_OBJREF (query), &ev);
+
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": could not notify the listener of query");
 
 	CORBA_exception_free (&ev);	
 }

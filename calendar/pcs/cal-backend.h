@@ -24,6 +24,7 @@
 #ifndef CAL_BACKEND_H
 #define CAL_BACKEND_H
 
+#include <e-util/e-list.h>
 #include <cal-util/cal-util.h>
 #include <cal-util/cal-component.h>
 #include "pcs/evolution-calendar.h"
@@ -97,10 +98,7 @@ struct _CalBackendClass {
 
 	gboolean (* is_loaded) (CalBackend *backend);
 
-
-	Query *(* get_query) (CalBackend *backend,
-			      GNOME_Evolution_Calendar_QueryListener ql,
-			      const char *sexp);
+	void (* start_query) (CalBackend *backend, Query *query);
 
 	/* Mode relate virtual methods */
 	CalMode (* get_mode) (CalBackend *backend);
@@ -156,9 +154,9 @@ void cal_backend_remove (CalBackend *backend, Cal *cal);
 
 gboolean cal_backend_is_loaded (CalBackend *backend);
 
-Query *cal_backend_get_query (CalBackend *backend,
-			      GNOME_Evolution_Calendar_QueryListener ql,
-			      const char *sexp);
+void cal_backend_start_query (CalBackend *backend, Query *query);
+void cal_backend_add_query (CalBackend *backend, Query *query);
+EList *cal_backend_get_queries (CalBackend *backend);
 
 CalMode cal_backend_get_mode (CalBackend *backend);
 void cal_backend_set_mode (CalBackend *backend, CalMode mode);

@@ -1,7 +1,6 @@
 /* Evolution calendar - iCalendar file backend
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 2000-2003 Ximian, Inc.
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Rodrigo Moya <rodrigo@ximian.com>
@@ -84,9 +83,7 @@ static CalBackendSyncStatus cal_backend_file_open (CalBackendSync *backend, Cal 
 static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Cal *cal);
 
 static gboolean cal_backend_file_is_loaded (CalBackend *backend);
-static Query *cal_backend_file_get_query (CalBackend *backend,
-					  GNOME_Evolution_Calendar_QueryListener ql,
-					  const char *sexp);
+static void cal_backend_file_start_query (CalBackend *backend, Query *query);
 static GList *cal_backend_file_get_object_list (CalBackend *backend, const char *query);
 static CalMode cal_backend_file_get_mode (CalBackend *backend);
 static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
@@ -185,7 +182,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	sync_class->open_sync = cal_backend_file_open;
 	sync_class->remove_sync = cal_backend_file_remove;
 	backend_class->is_loaded = cal_backend_file_is_loaded;
-	backend_class->get_query = cal_backend_file_get_query;
+	backend_class->start_query = cal_backend_file_start_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
 	backend_class->set_mode = cal_backend_file_set_mode;	
  	backend_class->get_default_object = cal_backend_file_get_default_object;
@@ -528,14 +525,10 @@ mark_dirty (CalBackendFile *cbfile)
 
 	priv = cbfile->priv;
 
-#if 0
 	if (priv->idle_id != 0)
 		return;
 
 	priv->idle_id = g_idle_add (save_idle, cbfile);
-#endif
-
-	save (cbfile);
 }
 
 /* Checks if the specified component has a duplicated UID and if so changes it */
@@ -877,19 +870,6 @@ cal_backend_file_is_loaded (CalBackend *backend)
 	return (priv->icalcomp != NULL);
 }
 
-/* get_query handler for the file backend */
-static Query *
-cal_backend_file_get_query (CalBackend *backend,
-			    GNOME_Evolution_Calendar_QueryListener ql,
-			    const char *sexp)
-{
-	CalBackendFile *cbfile;
-
-	cbfile = CAL_BACKEND_FILE (backend);
-
-	return query_new (backend, ql, sexp);
-}
-
 /* is_remote handler for the file backend */
 static CalMode
 cal_backend_file_get_mode (CalBackend *backend)
@@ -1084,6 +1064,17 @@ cal_backend_file_get_object_list (CalBackend *backend, const char *query)
 	g_hash_table_foreach (priv->comp_uid_hash, (GHFunc) match_object_sexp, &match_data);
 
 	return match_data.obj_list;
+}
+
+/* get_query handler for the file backend */
+static void
+cal_backend_file_start_query (CalBackend *backend, Query *query)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
 }
 
 static gboolean

@@ -52,6 +52,9 @@ struct _CalBackendPrivate {
 	/* List of Cal objects with their listeners */
 	GList *clients;
 
+	GMutex *queries_mutex;
+	EList *queries;
+	
 	/* Hash table of live categories, temporary hash of
 	 * added/removed categories, and idle handler for sending
 	 * category_changed.
@@ -260,7 +263,7 @@ cal_backend_class_init (CalBackendClass *class)
 	class->open = NULL;
 	class->is_loaded = NULL;
 	class->is_read_only = NULL;
-	class->get_query = NULL;
+	class->start_query = NULL;
 	class->get_mode = NULL;
 	class->set_mode = NULL;	
 	class->get_object = get_object;
@@ -286,6 +289,8 @@ cal_backend_init (CalBackend *backend)
 	priv = g_new0 (CalBackendPrivate, 1);
 	backend->priv = priv;
 
+	priv->queries_mutex = g_mutex_new ();
+	
 	priv->categories = g_hash_table_new (g_str_hash, g_str_equal);
 	priv->changed_categories = g_hash_table_new (g_str_hash, g_str_equal);
 }
@@ -325,6 +330,8 @@ cal_backend_finalize (GObject *object)
 
 	g_hash_table_foreach (priv->categories, free_category_cb, NULL);
 	g_hash_table_destroy (priv->categories);
+
+	g_mutex_free (priv->queries_mutex);
 
 	if (priv->category_idle_id)
 		g_source_remove (priv->category_idle_id);
@@ -542,30 +549,36 @@ cal_backend_is_read_only (CalBackend *backend, Cal *cal)
 	(* CLASS (backend)->is_read_only) (backend, cal);
 }
 
-/**
- * cal_backend_get_query:
- * @backend: A calendar backend.
- * @ql: The query listener.
- * @sexp: Search expression.
- *
- * Create a query object for this backend.
- */
-Query *
-cal_backend_get_query (CalBackend *backend,
-		       GNOME_Evolution_Calendar_QueryListener ql,
-		       const char *sexp)
+void 
+cal_backend_start_query (CalBackend *backend, Query *query)
 {
-	Query *result;
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
-	g_return_val_if_fail (backend != NULL, FALSE);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), FALSE);
+	g_assert (CLASS (backend)->start_query != NULL);
+	(* CLASS (backend)->start_query) (backend, query);
+}
 
-	if (CLASS (backend)->get_query != NULL)
-		result = (* CLASS (backend)->get_query) (backend, ql, sexp);
-	else
-		result = query_new (backend, ql, sexp);
+void
+cal_backend_add_query (CalBackend *backend, Query *query)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
 
-	return result;
+	g_mutex_lock (backend->priv->queries_mutex);
+
+	e_list_append (backend->priv->queries, query);
+	
+	g_mutex_unlock (backend->priv->queries_mutex);
+}
+
+EList *
+cal_backend_get_queries (CalBackend *backend)
+{
+	g_return_val_if_fail (backend != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
+
+	return backend->priv->queries;
 }
 
 /**

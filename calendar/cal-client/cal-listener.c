@@ -48,6 +48,7 @@ enum {
 	OPEN,
 	REMOVE,
 	OBJECT_LIST,
+	QUERY,
 	LAST_SIGNAL
 };
 
@@ -249,6 +250,24 @@ impl_notifyObjectListRequested (PortableServer_Servant servant,
 	g_list_free (object_list);
 }
 
+static void 
+impl_notifyQuery (PortableServer_Servant servant,
+		  const GNOME_Evolution_Calendar_CallStatus status,
+		  const GNOME_Evolution_Calendar_Query query,
+		  CORBA_Environment *ev) 
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+	
+	g_signal_emit (G_OBJECT (listener), signals[QUERY], 0, convert_status (status), query);
+}
+
 /* ::notifyCalSetMode method */
 static void
 impl_notifyCalSetMode (PortableServer_Servant servant,
@@ -375,6 +394,7 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyCalOpened = impl_notifyCalOpened;
 	klass->epv.notifyCalRemoved = impl_notifyCalRemoved;
 	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
+	klass->epv.notifyQuery = impl_notifyQuery;
 	klass->epv.notifyCalSetMode = impl_notifyCalSetMode;
 	klass->epv.notifyErrorOccurred = impl_notifyErrorOccurred;
 	klass->epv.notifyCategoriesChanged = impl_notifyCategoriesChanged;
@@ -444,7 +464,15 @@ cal_listener_class_init (CalListenerClass *klass)
 			      G_STRUCT_OFFSET (CalListenerClass, object_list),
 			      NULL, NULL,
 			      cal_marshal_VOID__INT_POINTER,
-			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_POINTER);	
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_POINTER);
+	signals[QUERY] =
+		g_signal_new ("query",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, query),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT_POINTER,
+			      G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_POINTER);
 }
 
 BONOBO_TYPE_FUNC_FULL (CalListener,

@@ -45,6 +45,12 @@ cl_printf (CalClient *client, const char *format, ...)
 	va_end (args);
 }
 
+static void
+query_done_cb (GObject *object, ECalendarStatus status, gpointer data)
+{
+	cl_printf (data, "Query done");
+}
+
 /* Lists the UIDs of objects in a calendar, called as an idle handler */
 static gboolean
 list_uids (gpointer data)
@@ -92,6 +98,8 @@ list_uids (gpointer data)
 static void
 cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 {
+	CalQuery *query;
+	
 	cl_printf (client, "Load/create %s\n",
 		   ((status == CAL_CLIENT_OPEN_SUCCESS) ? "success" :
 		    (status == CAL_CLIENT_OPEN_ERROR) ? "error" :
@@ -121,6 +129,11 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 
 		g_message ("Idling");
 #endif		
+		if (!cal_client_get_query (client, "(contains? \"any\" \"Test4\")", &query, NULL))
+			g_warning (G_STRLOC ": Unable to obtain query");
+
+		g_signal_connect (G_OBJECT (query), "query_done", query_done_cb, client);
+		
 		g_idle_add (list_uids, client);
 	}
 	else

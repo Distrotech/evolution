@@ -273,11 +273,7 @@ module Calendar {
 		CalObj sendObject (in CalObj calobj, out UserList users)
 			raises (InvalidObject, PermissionDenied, Busy);
 
-		/* Initiates a live query of the calendar.  Returns a handle
-		 * to the live query itself; changes to components that are
-		 * present in the query are notified to the listener.
-		 */
-		Query getQuery (in string sexp, in QueryListener ql)
+		oneway void getQuery (in string sexp, in QueryListener ql)
 			raises (CouldNotCreate);
 	};
 
@@ -300,6 +296,7 @@ module Calendar {
 		oneway void notifyCalRemoved (in CallStatus status);
 
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
+		oneway void notifyQuery (in CallStatus status, in Query query);
 
                 /* Called from a Calendar when the mode is changed */
 		oneway void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		
@@ -313,39 +310,16 @@ module Calendar {
 
 	/* Handle to a live query on a calendar */
 	interface Query : Bonobo::Unknown {
+		oneway void start ();
 	};
 
 	/* Listener for changes in a query of a calendar */
 	interface QueryListener : Bonobo::Unknown {
-		/* Called when components are added or changed.  If
-		 * query_in_progress is true, then the initial query results are
-		 * being populated and the other arguments indicate the
-		 * percentage of completion Otherwise, the percent value is
-		 * unspecified.  */
-		void notifyObjUpdated (in CalObjSeq uids,
-				       in boolean query_in_progress,
-				       in long n_scanned,
-				       in long total);
-
-		/* Called when a component is removed */
-		void notifyObjRemoved (in CalObjUID uid);
-
-		/* Reported when a query ends */
-		enum QueryDoneStatus {
-			SUCCESS,
-			PARSE_ERROR
-		};
-
-		/* Called when the query finishes populating itself some time
-		 * after it is created.  Before this is called,
-		 * notifyObjUpdated() may have been called several times to
-		 * indicate which objects are actually in the query, unless the
-		 * status result is a parse error.  
-		 */
-		void notifyQueryDone (in QueryDoneStatus status, in string error_str);
-
-		/* Called when an evaluation error occurs while performing a query */
-		void notifyEvalError (in string error_str);
+		oneway void notifyObjectsAdded (in stringlist objects);		
+		oneway void notifyObjectsModified (in stringlist objects);		
+		oneway void notifyObjectsRemoved (in CalObjUIDSeq uids);
+		oneway void notifyQueryProgress (in string message, in short percent);
+		oneway void notifyQueryDone (in CallStatus status);
 	};
 
 	/* A calendar factory, can load and create calendars */

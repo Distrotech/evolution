@@ -222,7 +222,7 @@ CalClientSendResult cal_client_send_object (CalClient *client, icalcomponent *ic
 					    icalcomponent **new_icalcomp, GList **users,
 					    char error_msg[256]);
 
-CalQuery *cal_client_get_query (CalClient *client, const char *sexp);
+gboolean cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GError **error);
 
 /* Resolves TZIDs for the recurrence generator. */
 icaltimezone *cal_client_resolve_tzid_cb (const char *tzid, gpointer data);

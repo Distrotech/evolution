@@ -35,6 +35,7 @@
 #include "cal-util/cal-util-marshal.h"
 #include "cal-client.h"
 #include "cal-listener.h"
+#include "query-listener.h"
 
 
 
@@ -47,9 +48,9 @@ typedef struct {
 	GList *list;
 	gboolean bool;
 	char *string;
-	
-//	EBookView *view;
-//	EBookViewListener *listener;
+
+	CalQuery *query;
+	QueryListener *listener;
 } ECalendarOp;
 
 /* Private part of the CalClient structure */
@@ -545,6 +546,29 @@ cal_object_list_cb (CalListener *listener, ECalendarStatus status, GList *object
 	e_mutex_unlock (op->mutex);
 }
 
+static void
+cal_query_cb (CalListener *listener, ECalendarStatus status, GNOME_Evolution_Calendar_Query query, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+	
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->query = cal_query_new (query, op->listener, client);
+	
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);	
+}
+
 /* Handle the cal_set_mode notification from the listener */
 static void
 cal_set_mode_cb (CalListener *listener,
@@ -710,6 +734,7 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "open", G_CALLBACK (cal_opened_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "remove", G_CALLBACK (cal_removed_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "query", G_CALLBACK (cal_query_cb), client);
 }
 
 /* Finalize handler for the calendar client */
@@ -2068,7 +2093,6 @@ cal_client_get_changes (CalClient *client, CalObjType type, const char *change_i
 gboolean
 cal_client_get_object_list (CalClient *client, const char *query, GList **objects, GError **error)
 {
-
 	CORBA_Environment ev;
 	ECalendarOp *our_op;
 	ECalendarStatus status;
@@ -3069,20 +3093,66 @@ cal_client_send_object (CalClient *client, icalcomponent *icalcomp,
  * Return value: A query object that will emit notification signals as calendar
  * components are added and removed from the query in the server.
  **/
-CalQuery *
-cal_client_get_query (CalClient *client, const char *sexp)
+gboolean
+cal_client_get_query (CalClient *client, const char *sexp, CalQuery **query, GError **error)
 {
-	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	ECalendarOp *our_op;
+	ECalendarStatus status;
 
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	g_return_val_if_fail (client != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (query != NULL, E_CALENDAR_STATUS_INVALID_ARG);
 
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, FALSE);
+	e_mutex_lock (client->priv->mutex);
 
-	g_return_val_if_fail (sexp != NULL, NULL);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+	}
 
-	return cal_query_new (client, priv->cal, sexp);
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+	CORBA_exception_init (&ev);
+
+	our_op->listener = query_listener_new ();
+	GNOME_Evolution_Calendar_Cal_getQuery (client->priv->cal, sexp, BONOBO_OBJREF (our_op->listener), &ev);
+
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
+	
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*query = our_op->query;
+
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 

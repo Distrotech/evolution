@@ -1051,33 +1051,49 @@ get_position_in_array (GPtrArray *objects, gpointer item)
 }
 
 static void
-query_obj_updated_cb (CalQuery *query, const char *object,
-		      gboolean query_in_progress,
-		      int n_scanned, int total,
-		      gpointer user_data)
+query_objects_added_cb (CalQuery *query, GList *objects, gpointer user_data)
 {
-	ECalModelPrivate *priv;
-	icalcomponent *new_icalcomp;
-	CalClientGetStatus status;
-	ECalModelComponent *comp_data;
-	gint pos;
-	const char *uid;
 	ECalModel *model = (ECalModel *) user_data;
-
-	g_return_if_fail (E_IS_CAL_MODEL (model));
-
+	ECalModelPrivate *priv;
+	GList *l;
+	int start_row;
+	
 	priv = model->priv;
 
 	e_table_model_pre_change (E_TABLE_MODEL (model));
 
-	new_icalcomp = icalparser_parse_string (object);
-	if (!new_icalcomp) {
-		e_table_model_no_change (E_TABLE_MODEL (model));
-		return;
+	start_row = priv->objects->len ? priv->objects->len - 1 : 0;
+	
+	for (l = objects; l; l = l->next) {
+		ECalModelComponent *comp_data;
+
+		comp_data = g_new0 (ECalModelComponent, 1);
+		comp_data->client = cal_query_get_client (query);
+		comp_data->icalcomp = icalcomponent_new_clone (l->data);
+
+		g_ptr_array_add (priv->objects, comp_data);
 	}
 
-	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), icalcomponent_get_uid (new_icalcomp));
-	if (comp_data) {
+	e_table_model_rows_inserted (E_TABLE_MODEL (model), start_row, priv->objects->len - start_row);
+}
+
+static void
+query_objects_modified_cb (CalQuery *query, GList *objects, gpointer user_data)
+{
+	ECalModelPrivate *priv;
+	ECalModel *model = (ECalModel *) user_data;
+	GList *l;
+	
+	priv = model->priv;
+
+	for (l = objects; l; l = l->next) {
+		ECalModelComponent *comp_data;
+
+		e_table_model_pre_change (E_TABLE_MODEL (model));
+
+		comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), icalcomponent_get_uid (l->data));
+		g_assert (comp_data);
+	
 		if (comp_data->icalcomp)
 			icalcomponent_free (comp_data->icalcomp);
 		if (comp_data->dtstart) {
@@ -1096,64 +1112,58 @@ query_obj_updated_cb (CalQuery *query, const char *object,
 			g_free (comp_data->completed);
 			comp_data->completed = NULL;
 		}
-
-		comp_data->icalcomp = new_icalcomp;
+		     
+		comp_data->icalcomp = icalcomponent_new_clone (l->data);
 
 		e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
-	} else {
-		comp_data = g_new0 (ECalModelComponent, 1);
-		comp_data->client = cal_query_get_client (query);
-		comp_data->icalcomp = new_icalcomp;
-
-		g_ptr_array_add (priv->objects, comp_data);
-		e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
 	}
 }
 
 static void
-query_obj_removed_cb (CalQuery *query, const char *uid, gpointer user_data)
+query_objects_removed_cb (CalQuery *query, GList *uids, gpointer user_data)
 {
-	ECalModelComponent *comp_data;
 	ECalModelPrivate *priv;
 	ECalModel *model = (ECalModel *) user_data;
-
-	g_return_if_fail (E_IS_CAL_MODEL (model));
-
+	GList *l;
+	
 	priv = model->priv;
 
-	e_table_model_pre_change (E_TABLE_MODEL (model));
+	for (l = uids; l; l = l->next) {
+		ECalModelComponent *comp_data;
+		int pos;
 
-	comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), uid);
-	if (comp_data) {
-		gint pos = get_position_in_array (priv->objects, comp_data);
-
+		e_table_model_pre_change (E_TABLE_MODEL (model));
+		
+		comp_data = search_by_uid_and_client (priv, cal_query_get_client (query), l->data);
+		g_assert (comp_data);
+		
+		pos = get_position_in_array (priv->objects, comp_data);
+			
 		g_ptr_array_remove (priv->objects, comp_data);
 		free_comp_data (comp_data);
-
+		
 		e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
-	} else
-		e_table_model_no_change (E_TABLE_MODEL (model));
+	}
 }
 
 static void
-query_done_cb (CalQuery *query, CalQueryDoneStatus status, const char *error_str, gpointer user_data)
+query_progress_cb (CalQuery *query, const char *message, int percent, gpointer user_data)
 {
 	ECalModel *model = (ECalModel *) user_data;
 
 	g_return_if_fail (E_IS_CAL_MODEL (model));
 
-	if (status != CAL_QUERY_DONE_SUCCESS)
-		g_warning ("query done: %s\n", error_str);
+	/* FIXME Update status bar */
 }
 
 static void
-query_eval_error_cb (CalQuery *query, const char *error_str, gpointer user_data)
+query_done_cb (CalQuery *query, ECalendarStatus status, gpointer user_data)
 {
-	ECalModel *model = (ECalModel *) user_data;
+ 	ECalModel *model = (ECalModel *) user_data;
 
 	g_return_if_fail (E_IS_CAL_MODEL (model));
 
-	g_warning ("eval error: %s\n", error_str);
+	/* FIXME Clear status bar */
 }
 
 /* Builds a complete query sexp for the calendar model by adding the predicates
@@ -1200,24 +1210,26 @@ update_query_for_client (ECalModel *model, ECalModelClient *client_data)
 		g_signal_handlers_disconnect_matched (client_data->query, G_SIGNAL_MATCH_DATA,
 						      0, 0, NULL, NULL, model);
 		g_object_unref (client_data->query);
+		client_data->query = NULL;
 	}
 
 	/* prepare the query */
 	g_assert (priv->sexp != NULL);
 	real_sexp = adjust_query_sexp (model, priv->sexp);
 
-	client_data->query = cal_client_get_query (client_data->client, real_sexp);
+	if (!cal_client_get_query (client_data->client, real_sexp, &client_data->query, NULL)) {
+		g_warning (G_STRLOC ": Unable to get query");
+		g_free (real_sexp);
+
+		return;
+	}	
 	g_free (real_sexp);
 
-	if (!client_data->query) {
-		g_message ("update_query_for_client(): Could not create the query");
-		return;
-	}
-
-	g_signal_connect (client_data->query, "obj_updated", G_CALLBACK (query_obj_updated_cb), model);
-	g_signal_connect (client_data->query, "obj_removed", G_CALLBACK (query_obj_removed_cb), model);
+	g_signal_connect (client_data->query, "objects_added", G_CALLBACK (query_objects_added_cb), model);
+	g_signal_connect (client_data->query, "objects_modified", G_CALLBACK (query_objects_modified_cb), model);
+	g_signal_connect (client_data->query, "objects_removed", G_CALLBACK (query_objects_removed_cb), model);
+	g_signal_connect (client_data->query, "query_progress", G_CALLBACK (query_progress_cb), model);
 	g_signal_connect (client_data->query, "query_done", G_CALLBACK (query_done_cb), model);
-	g_signal_connect (client_data->query, "eval_error", G_CALLBACK (query_eval_error_cb), model);
 }
 
 static void
