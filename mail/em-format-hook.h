@@ -63,6 +63,15 @@ struct _EMFormatHookGroup {
 	GSList *items;		/* items to consider */
 };
 
+/**
+ * struct _EMFormatHook - Mail formatter hook.
+ * 
+ * @hook: 
+ * @groups: 
+ *
+ * The Mail formatter hook links all of the plugin formatter hooks
+ * into the relevent formatter classes.
+ **/
 struct _EMFormatHook {
 	EPluginHook hook;
 

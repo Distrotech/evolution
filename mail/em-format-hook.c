@@ -177,7 +177,7 @@ emfh_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 
 					for (;l;l=g_slist_next(l)) {
 						EMFormatHookItem *item = l->data;
-
+						/* TODO: only add handlers if enabled? */
 						em_format_class_add_handler(klass, &item->handler);
 					}
 				}
@@ -191,6 +191,31 @@ emfh_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 	eph->plugin = ep;
 
 	return 0;
+}
+
+static void
+emfh_enable(EPluginHook *eph, int state)
+{
+	GSList *g, *l;
+	EMFormatClass *klass;
+
+	g = emfh->groups;
+	if (emfh_types == NULL)
+		return;
+
+	for (;g;g=g_slist_next(g)) {
+		struct _EMFormatHookGroup *group = g->data;
+
+		klass = g_hash_table_lookup(emfh_types, group->id);
+		for (l=group->items;l;g=g_slist_next(l)) {
+			EMFormatHookItem *item = l->data;
+
+			if (state)
+				em_format_class_add_handler(klass, &item->handler);
+			else
+				em_format_class_remove_handler(klass, &item->handler);
+		}
+	}
 }
 
 static void
@@ -209,6 +234,7 @@ emfh_class_init(EPluginHookClass *klass)
 {
 	((GObjectClass *)klass)->finalize = emfh_finalise;
 	klass->construct = emfh_construct;
+	klass->enable = emfh_enable;
 	klass->id = "com.novell.evolution.mail.format:1.0";
 }
 

@@ -1,3 +1,17 @@
+2004-09-10  Not Zed  <NotZed@Ximian.com>
+
+	* em-*: various doco updates.
+
+	* em-format-quote.c (emfq_builtin_init): instead of removing the
+	type, just add an override noop.  Changed api's.
+
+2004-09-09  Not Zed  <NotZed@Ximian.com>
+
+	* em-format.c (em_format_class_remove_handler): Change this to use
+	the original structure only, not by type.
+
+	* em-format-hook.c (emfh_enable): implement hook enablation.
+
 2004-09-07  Not Zed  <NotZed@Ximian.com>
 
 	* em-account-editor.c (emae_setup_providers): set the provider

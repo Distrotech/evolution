@@ -180,16 +180,29 @@ em_format_class_add_handler(EMFormatClass *emfc, EMFormatHandler *info)
 
 /**
  * em_format_class_remove_handler:
- * @emfc: EMFormatClass
- * @mime_type: mime-type of handler to remove
- *
- * Remove a mime type handler from this class. This is only used by
- * implementing classes.
+ * @emfc: 
+ * @info: 
+ * 
+ * Remove a handler.  @info must be a value which was previously
+ * added.
  **/
 void
-em_format_class_remove_handler (EMFormatClass *emfc, const char *mime_type)
+em_format_class_remove_handler(EMFormatClass *emfc, EMFormatHandler *info)
 {
-	g_hash_table_remove (emfc->type_handlers, mime_type);
+	EMFormatHandler *current;
+
+	/* TODO: thread issues? */
+
+	current = g_hash_table_lookup(emfc->type_handlers, info->mime_type);
+	if (current == info) {
+		current = info->old;
+		g_hash_table_insert(emfc->type_handlers, current->mime_type, current);
+	} else {
+		while (current && current->old != info)
+			current = current->old;
+		g_return_if_fail(current != NULL);
+		current->old = info->old;
+	}
 }
 
 /**
