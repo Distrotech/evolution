@@ -592,9 +592,8 @@ static EPopupMenu menu[] = {
 
 /* handle context menu over message-list */
 static gint
-on_right_click (ETable *table, gint row, gint col, GdkEvent *event, FolderBrowser *fb)
+on_right_click (ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, FolderBrowser *fb)
 {
-	extern CamelFolder *drafts_folder;
 	CamelMessageInfo *info;
 	GPtrArray *uids;
 	int enable_mask = 0;
@@ -714,7 +713,7 @@ display_menu:
 }
 
 static int
-etable_key (ETable *table, int row, int col, GdkEvent *ev, FolderBrowser *fb)
+etree_key (ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, FolderBrowser *fb)
 {
 	if ((ev->key.state & !(GDK_SHIFT_MASK | GDK_LOCK_MASK)) != 0)
 		return FALSE;
@@ -768,7 +767,7 @@ etable_key (ETable *table, int row, int col, GdkEvent *ev, FolderBrowser *fb)
 		return TRUE;
 
 	case GDK_Menu:
-		on_right_click (table, row, col, ev, fb);
+		on_right_click (tree, row, path, col, ev, fb);
 		return TRUE;
 
 	default:
@@ -779,7 +778,7 @@ etable_key (ETable *table, int row, int col, GdkEvent *ev, FolderBrowser *fb)
 }
 
 static void
-on_double_click (ETable *table, gint row, gint col, GdkEvent *event, FolderBrowser *fb)
+on_double_click (ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, FolderBrowser *fb)
 {
 	/* Ignore double-clicks on columns where single-click doesn't
 	 * just select.
@@ -971,13 +970,13 @@ my_folder_browser_init (GtkObject *object)
 				  GTK_POLICY_NEVER,
 				  GTK_POLICY_ALWAYS);
 	
-	gtk_signal_connect (GTK_OBJECT (fb->message_list->table),
-			    "key_press", GTK_SIGNAL_FUNC (etable_key), fb);
+	gtk_signal_connect (GTK_OBJECT (fb->message_list->tree),
+			    "key_press", GTK_SIGNAL_FUNC (etree_key), fb);
 
-	gtk_signal_connect (GTK_OBJECT (fb->message_list->table),
+	gtk_signal_connect (GTK_OBJECT (fb->message_list->tree),
 			    "right_click", GTK_SIGNAL_FUNC (on_right_click), fb);
 
-	gtk_signal_connect (GTK_OBJECT (fb->message_list->table),
+	gtk_signal_connect (GTK_OBJECT (fb->message_list->tree),
 			    "double_click", GTK_SIGNAL_FUNC (on_double_click), fb);
 
 	gtk_signal_connect (GTK_OBJECT(fb->message_list), "message_selected",
