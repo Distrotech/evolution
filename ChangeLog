@@ -1,3 +1,8 @@
+2003-02-18  Chris Toshok  <toshok@ximian.com>
+
+	* configure.in (WOMBAT_LIBS): add mimedir.
+	(EVOLUTION_ADDRESSBOOK_DEPS): same.
+
 2003-02-07  Rodney Dawes  <dobey@ximian.com>
 
 	* data/Makefile.am: Fix installation of desktop/mime files
