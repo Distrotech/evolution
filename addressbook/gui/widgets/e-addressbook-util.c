@@ -21,24 +21,30 @@
 
 #include <config.h>
 #include "e-addressbook-util.h"
+#if notyet
 #include "ebook/e-destination.h"
+#endif
 
 #include <gnome.h>
 
-#include "e-card-merging.h"
 #include <shell/evolution-shell-client.h>
+#if 0
 #include <addressbook/backend/ebook/e-book-util.h>
+#endif
+
+#include "addressbook/gui/contact-editor/e-contact-editor.h"
+#include "addressbook/gui/contact-list-editor/e-contact-list-editor.h"
 
 void
-e_addressbook_error_dialog (const gchar *msg, EBookStatus status)
+eab_error_dialog (const gchar *msg, EBookStatus status)
 {
 	static char *status_to_string[] = {
 		N_("Success"),
 		N_("Unknown error"),
 		N_("Repository offline"),
 		N_("Permission denied"),
-		N_("Card not found"),
-		N_("Card ID already exists"),
+		N_("Contact not found"),
+		N_("Contact ID already exists"),
 		N_("Protocol not supported"),
 		N_("Cancelled"),
 		N_("Authentication Failed"),
@@ -92,8 +98,8 @@ static void
 added_cb (EBook* book, EBookStatus status, const char *id,
 	  gboolean is_list)
 {
-	if (status != E_BOOK_STATUS_SUCCESS) {
-		e_addressbook_error_dialog (is_list ? _("Error adding list") : _("Error adding card"), status);
+	if (status != E_BOOK_ERROR_OK) {
+		eab_error_dialog (is_list ? _("Error adding list") : _("Error adding contact"), status);
 	}
 }
 
@@ -101,9 +107,9 @@ static void
 modified_cb (EBook* book, EBookStatus status,
 	     gboolean is_list)
 {
-	if (status != E_BOOK_STATUS_SUCCESS) {
-		e_addressbook_error_dialog (is_list ? _("Error modifying list") : _("Error modifying card"),
-					    status);
+	if (status != E_BOOK_ERROR_OK) {
+		eab_error_dialog (is_list ? _("Error modifying list") : _("Error modifying contact"),
+				  status);
 	}
 }
 
@@ -111,9 +117,9 @@ static void
 deleted_cb (EBook* book, EBookStatus status,
 	    gboolean is_list)
 {
-	if (status != E_BOOK_STATUS_SUCCESS) {
-		e_addressbook_error_dialog (is_list ? _("Error removing list") : _("Error removing card"),
-					    status);
+	if (status != E_BOOK_ERROR_OK) {
+		eab_error_dialog (is_list ? _("Error removing list") : _("Error removing contact"),
+				  status);
 	}
 }
 
@@ -124,19 +130,19 @@ editor_closed_cb (GtkObject *editor, gpointer data)
 }
 
 EContactEditor *
-e_addressbook_show_contact_editor (EBook *book, ECard *card,
-				   gboolean is_new_card,
+e_addressbook_show_contact_editor (EBook *book, EContact *contact,
+				   gboolean is_new_contact,
 				   gboolean editable)
 {
 	EContactEditor *ce;
 
-	ce = e_contact_editor_new (book, card, is_new_card, editable);
+	ce = e_contact_editor_new (book, contact, is_new_contact, editable);
 
-	g_signal_connect (ce, "card_added",
+	g_signal_connect (ce, "contact_added",
 			  G_CALLBACK (added_cb), GINT_TO_POINTER (FALSE));
-	g_signal_connect (ce, "card_modified",
+	g_signal_connect (ce, "contact_modified",
 			  G_CALLBACK (modified_cb), GINT_TO_POINTER (FALSE));
-	g_signal_connect (ce, "card_deleted",
+	g_signal_connect (ce, "contact_deleted",
 			  G_CALLBACK (deleted_cb), GINT_TO_POINTER (FALSE));
 	g_signal_connect (ce, "editor_closed",
 			  G_CALLBACK (editor_closed_cb), NULL);
@@ -145,13 +151,13 @@ e_addressbook_show_contact_editor (EBook *book, ECard *card,
 }
 
 EContactListEditor *
-e_addressbook_show_contact_list_editor (EBook *book, ECard *card,
-					gboolean is_new_card,
+e_addressbook_show_contact_list_editor (EBook *book, EContact *contact,
+					gboolean is_new_contact,
 					gboolean editable)
 {
 	EContactListEditor *ce;
 
-	ce = e_contact_list_editor_new (book, card, is_new_card, editable);
+	ce = e_contact_list_editor_new (book, contact, is_new_contact, editable);
 
 	g_signal_connect (ce, "list_added",
 			  G_CALLBACK (added_cb), GINT_TO_POINTER (TRUE));
@@ -168,21 +174,23 @@ e_addressbook_show_contact_list_editor (EBook *book, ECard *card,
 }
 
 static void
-view_cards (EBook *book, GList *list, gboolean editable)
+view_contacts (EBook *book, GList *list, gboolean editable)
 {
 	for (; list; list = list->next) {
-		ECard *card = list->data;
+#if notyet
+		EContact *contact = list->data;
 		if (e_card_evolution_list (card))
 			e_addressbook_show_contact_list_editor (book, card, FALSE, editable);
 		else
 			e_addressbook_show_contact_editor (book, card, FALSE, editable);
+#endif
 	}
 }
 
 void
-e_addressbook_show_multiple_cards (EBook *book,
-				   GList *list,
-				   gboolean editable)
+e_addressbook_show_multiple_contacts (EBook *book,
+				      GList *list,
+				      gboolean editable)
 {
 	if (list) {
 		int length = g_list_length (list);
@@ -194,26 +202,27 @@ e_addressbook_show_multiple_cards (EBook *book,
 							 0,
 							 GTK_MESSAGE_QUESTION,
 							 GTK_BUTTONS_YES_NO,
-							 _("Opening %d cards will open %d new windows as well.\n"
-							   "Do you really want to display all of these cards?"),
+							 _("Opening %d contacts will open %d new windows as well.\n"
+							   "Do you really want to display all of these contacts?"),
 							 length,
 							 length);
 
 			response = gtk_dialog_run (GTK_DIALOG (dialog));
 			gtk_widget_destroy (dialog);
 			if (response == GTK_RESPONSE_YES)
-				view_cards (book, list, editable);
+				view_contacts (book, list, editable);
 		} else {
-			view_cards (book, list, editable);
+			view_contacts (book, list, editable);
 		}
 	}
 }
 
 
+#if notyet
 
-typedef struct CardCopyProcess_ CardCopyProcess;
+typedef struct ContactCopyProcess_ ContactCopyProcess;
 
-typedef void (*CardCopyDone) (CardCopyProcess *process);
+typedef void (*ContactCopyDone) (ContactCopyProcess *process);
 
 struct CardCopyProcess_ {
 	int count;
@@ -226,8 +235,8 @@ struct CardCopyProcess_ {
 static void
 card_deleted_cb (EBook* book, EBookStatus status, gpointer user_data)
 {
-	if (status != E_BOOK_STATUS_SUCCESS) {
-		e_addressbook_error_dialog (_("Error removing card"), status);
+	if (status != E_BOOK_ERROR_OK) {
+		eab_error_dialog (_("Error removing card"), status);
 	}
 }
 
@@ -268,8 +277,8 @@ card_added_cb (EBook* book, EBookStatus status, const char *id, gpointer user_da
 {
 	CardCopyProcess *process = user_data;
 
-	if (status != E_BOOK_STATUS_SUCCESS) {
-		e_addressbook_error_dialog (_("Error adding card"), status);
+	if (status != E_BOOK_ERROR_OK) {
+		eab_error_dialog (_("Error adding card"), status);
 	} else {
 		process_unref (process);
 	}
@@ -452,6 +461,7 @@ e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
 					if (e_iterator_is_valid (iterator)) {
 						
 						if (is_list) {
+#if notyet
 							/* We need to decode the list entries, which are XMLified EDestinations. */
 							EDestination *dest = e_destination_import (e_iterator_get (iterator));
 							if (dest != NULL) {
@@ -460,6 +470,7 @@ e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
 								free_name_addr = TRUE;
 								g_object_unref (dest);
 							}
+#endif
 							
 						} else { /* is just a plain old card */
 							if (card->name)
@@ -628,3 +639,4 @@ e_addressbook_send_card (ECard *card, EAddressbookDisposition disposition)
 	g_list_free (list);
 }
 
+#endif

@@ -20,25 +20,24 @@
 #ifndef __E_ADDRESSBOOK_UTIL_H__
 #define __E_ADDRESSBOOK_UTIL_H__
 
+#include <gtk/gtkwindow.h>
 #include "addressbook/backend/ebook/e-book.h"
 #include "addressbook/gui/contact-editor/e-contact-editor.h"
 #include "addressbook/gui/contact-list-editor/e-contact-list-editor.h"
 
-#ifdef __cplusplus
-extern "C" {
-#pragma }
-#endif /* __cplusplus */
+G_BEGIN_DECLS
 
-void                e_addressbook_error_dialog              (const gchar *msg,
-							     EBookStatus  status);
+void                eab_error_dialog              (const gchar *msg,
+						   EBookStatus  status);
 gint                e_addressbook_prompt_save_dialog        (GtkWindow   *parent);
+
 EContactEditor     *e_addressbook_show_contact_editor       (EBook       *book,
-							     ECard       *card,
-							     gboolean     is_new_card,
+							     EContact    *contact,
+							     gboolean     is_new_contact,
 							     gboolean     editable);
 EContactListEditor *e_addressbook_show_contact_list_editor  (EBook       *book,
-							     ECard       *card,
-							     gboolean     is_new_card,
+							     EContact    *contact,
+							     gboolean     is_new_contact,
 							     gboolean     editable);
 void                e_addressbook_show_multiple_cards       (EBook       *book,
 							     GList       *list,
@@ -48,6 +47,7 @@ void                e_addressbook_transfer_cards            (EBook       *source
 							     gboolean     delete_from_source,
 							     GtkWindow   *parent_window);
 
+#if notyet
 typedef enum {
 	E_ADDRESSBOOK_DISPOSITION_AS_ATTACHMENT,
 	E_ADDRESSBOOK_DISPOSITION_AS_TO,
@@ -57,9 +57,8 @@ void                e_addressbook_send_card                 (ECard              
 							     EAddressbookDisposition  disposition);
 void                e_addressbook_send_card_list            (GList                   *cards,
 							     EAddressbookDisposition  disposition);
+#endif
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+G_END_DECLS
 
 #endif /* __E_ADDRESSBOOK_UTIL_H__ */

@@ -40,8 +40,6 @@ noinst_LTLIBRARIES =				\
 libeminicard_la_SOURCES =			\
 	$(CORBA_SOURCE)				\
 	e-addressbook-marshal.c			\
-	e-addressbook-reflow-adapter.c		\
-	e-addressbook-reflow-adapter.h		\
 	e-addressbook-table-adapter.c		\
 	e-addressbook-table-adapter.h		\
 	e-addressbook-model.c			\
@@ -49,23 +47,7 @@ libeminicard_la_SOURCES =			\
 	e-addressbook-util.c			\
 	e-addressbook-util.h			\
 	e-addressbook-view.c			\
-	e-addressbook-view.h			\
-	e-minicard-control.c			\
-	e-minicard-control.h			\
-	e-minicard-label.c			\
-	e-minicard-label.h			\
-	e-minicard-view-widget.c		\
-	e-minicard-view-widget.h		\
-	e-minicard-view.c			\
-	e-minicard-view.h			\
-	e-minicard-widget.c			\
-	e-minicard-widget.h			\
-	e-minicard.c				\
-	e-minicard.h				\
-	gal-view-factory-minicard.c		\
-	gal-view-factory-minicard.h		\
-	gal-view-minicard.c			\
-	gal-view-minicard.h
+	e-addressbook-view.h
 
 #TREEVIEW_SOURCES=	e-addressbook-treeview-adapter.c	\
 #			e-addressbook-treeview-adapter.h	\
@@ -77,12 +59,12 @@ libeminicard_la_SOURCES =			\
 # GLib marshalling cruft
 
 e-addressbook-marshal.h: e-addressbook-marshal.list
-	( @GLIB_GENMARSHAL@ --prefix=e_addressbook_marshal e-addressbook-marshal.list --header > e-addressbook-marshal.tmp \
+	( @GLIB_GENMARSHAL@ --prefix=eab_marshal e-addressbook-marshal.list --header > e-addressbook-marshal.tmp \
 	&& mv e-addressbook-marshal.tmp e-addressbook-marshal.h ) \
 	|| ( rm -f e-addressbook-marshal.tmp && exit 1 )
 
 e-addressbook-marshal.c: e-addressbook-marshal.h
-	( @GLIB_GENMARSHAL@ --prefix=e_addressbook_marshal e-addressbook-marshal.list --body > e-addressbook-marshal.tmp \
+	( @GLIB_GENMARSHAL@ --prefix=eab_marshal e-addressbook-marshal.list --body > e-addressbook-marshal.tmp \
 	&& mv e-addressbook-marshal.tmp e-addressbook-marshal.c ) \
 	|| ( rm -f e-addressbook-marshal.tmp && exit 1 )
 

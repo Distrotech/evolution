@@ -1,3 +1,42 @@
+2003-09-02  Chris Toshok  <toshok@ximian.com>
+
+	* gui/widgets/Makefile.am (libeminicard_la_SOURCES): remove all
+	the reflow/minicard stuff from the build.
+	(e-addressbook-marshal.[ch]): change the prefix on the marshallers to
+	eab_marshal.
+
+	* gui/widgets/e-addressbook-view.etspec: bring this more in line
+	with the field ids for EContact, and comment out a ton of them
+	that aren't there yet.
+
+	* gui/widgets/e-addressbook-view.[ch]: big renaming - rename
+	e_addressbook_view to eab_view, and EAddressbookView to EABView.
+
+	* gui/widgets/e-addressbook-util.c (eab_error_dialog): rename, and
+	change a few of the error strings s/Card/Contact.
+	(added_cb): E_BOOK_STATUS_SUCCESS => E_BOOK_ERROR_OK.
+	(modified_cb): same.
+	(e_addressbook_show_contact_editor): this takes an EContact now,
+	and track the change to the contact editor signal names.
+	(e_addressbook_show_contact_list_editor): this takes an EContact
+	now.
+	(view_contacts): rename view_cards to this, and ifdef the body.
+	(e_addressbook_show_multiple_contacts): rename
+	e_addressbook_show_multiple_cards to this, and s/card/contact.
+
+	* gui/widgets/e-addressbook-util.h: ifdef some things out, and
+	rename e_addressbook_error_dialog to eab_error_dialog.
+
+	* gui/widgets/e-addressbook-table-adapter.[ch]: big renaming -
+	rename e_addressbook_table_adapter to eab_table_adapter, and
+	EAddressbookTableAdapter to EABTableAdapter.  Also, remove the
+	simple mapping - we can do ECardSimple-like operations directly on
+	the EContacts from the EABModel.
+
+	* gui/widgets/e-addressbook-model.[ch]: big renaming - rename
+	e_addressbook_model to eab_model, and EAddressbookModel to
+	EABModel.  Also, convert everything from ECard to EContact.
+
 2003-09-01  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-vcard.c (e_vcard_new_from_string): omg i'm dumb.
