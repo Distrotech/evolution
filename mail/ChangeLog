@@ -1,3 +1,7 @@
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
+	* mail-component.c: Removed some debugging messages.
+
 2003-07-23  Ettore Perazzoli  <ettore@ximian.com>
 
 	* subscribe-dialog.c: Converted to use EStorages instead of

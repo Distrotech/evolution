@@ -3,10 +3,9 @@
  *
  * Copyright (C) 2003  Ettore Perazzoli
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
+ * This  program is free  software; you  can redistribute  it and/or
+ * modify it under the terms of version 2  of the GNU General Public
+ * License as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -108,7 +107,6 @@ storage_async_open_folder_callback (EStorage *storage,
 	storage_connected_data->callback = callback;
 	storage_connected_data->callback_data = callback_data;
 
-	g_print ("callback - store %p\n", store);
 	mail_note_store (store, storage, (void *) storage_connected_callback, storage_connected_data);
 }
 
@@ -129,7 +127,6 @@ add_storage (MailComponent *component,
 	storage = e_storage_new (name, root_folder);
 	e_storage_declare_has_subfolders (storage, "/", _("Connecting..."));
 
-	g_print ("connect - store %p\n", store); /* EPFIXME */
 	g_signal_connect(storage, "async_open_folder",
 			 G_CALLBACK (storage_async_open_folder_callback), store);
 
@@ -203,7 +200,6 @@ storage_go_online (gpointer key, gpointer value, gpointer data)
 	if ((CAMEL_IS_DISCO_STORE (service)
 	     && camel_disco_store_status (CAMEL_DISCO_STORE (service)) == CAMEL_DISCO_STORE_OFFLINE)
 	    || service->status != CAMEL_SERVICE_DISCONNECTED) {
-		g_print ("store %p online\n", store);
 		mail_store_set_offline (store, FALSE, NULL, NULL);
 		mail_note_store (store, NULL, NULL, NULL);
 	}
@@ -386,6 +382,7 @@ mail_component_init (MailComponent *component)
 
 	/* EPFIXME: Move to a private directory.  */
 	priv->base_directory = g_build_filename (g_get_home_dir (), "evolution", NULL);
+	g_print ("base directory %s\n", priv->base_directory);
 
 	/* EPFIXME: Turn into an object?  */
 	mail_session_init (priv->base_directory);
