@@ -216,7 +216,7 @@ _cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalO
 
 	status = cal_backend_sync_remove_object (CAL_BACKEND_SYNC (backend), cal, uid, mod);
 
-	cal_notify_object_removed (cal, status);
+	cal_notify_object_removed (cal, status, uid);
 }
 
 static void

@@ -571,7 +571,7 @@ cal_backend_get_queries (CalBackend *backend)
 	g_return_val_if_fail (backend != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
 
-	return backend->priv->queries;
+	return g_object_ref (backend->priv->queries);
 }
 
 /**

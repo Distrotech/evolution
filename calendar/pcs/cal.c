@@ -926,9 +926,11 @@ cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
 }
 
 void
-cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
+cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *uid)
 {
 	CalPrivate *priv;
+	EList *queries;
+	EIterator *iter;
 	CORBA_Environment ev;
 
 	g_return_if_fail (cal != NULL);
@@ -936,6 +938,26 @@ cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
 
 	priv = cal->priv;
 	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	queries = cal_backend_get_queries (priv->backend);
+	iter = e_list_get_iterator (queries);
+
+	while (e_iterator_is_valid (iter)) {
+		Query *query = QUERY (e_iterator_get (iter));
+		GList uids;
+		
+		bonobo_object_dup_ref (BONOBO_OBJREF (query), NULL);
+
+		uids.next = uids.prev = NULL;
+		uids.data = uid;
+		query_notify_objects_removed (query, uid);
+
+		bonobo_object_release_unref (BONOBO_OBJREF (query), NULL);
+
+		e_iterator_next (iter);
+	}
+	g_object_unref (iter);
+	g_object_unref (queries);
 
 	CORBA_exception_init (&ev);
 	GNOME_Evolution_Calendar_Listener_notifyObjectRemoved (priv->listener, status, &ev);
