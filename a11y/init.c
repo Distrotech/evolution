@@ -18,6 +18,7 @@
  * Boston, MA 02111-1307, USA.
  *
  * Author: Gilbert Fang <gilbert.fang@sun.com> Sun Microsystem Inc., 2003
+ *         Bolian Yin <bolian.yin@sun.com>
  *
  */
 
@@ -27,6 +28,8 @@
 
 #include <stdio.h>
 
+#include "calendar/ea-calendar.h"
+
 /* Static functions */
 
 static gboolean initialized = FALSE;
@@ -34,6 +37,7 @@ static gboolean initialized = FALSE;
 extern void gnome_accessibility_module_init     (void);
 extern void gnome_accessibility_module_shutdown (void);
 
+extern 
 void
 e_a11y_init (void)
 {
@@ -45,6 +49,7 @@ e_a11y_init (void)
 	initialized = TRUE;
 
 	fprintf (stderr, "Evolution Accessibility Support Extension Module initialized\n");
+	ea_calendar_init();
 }
 
 void

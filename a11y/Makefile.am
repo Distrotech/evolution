@@ -1,4 +1,6 @@
 
+SUBDIRS = calendar
+
 INCLUDES =						\
 	-DPREFIX=\"$(prefix)\"				\
 	-DSYSCONFDIR=\"$(sysconfdir)\"			\
@@ -8,6 +10,7 @@ INCLUDES =						\
 	-I$(top_srcdir) 				\
 	-DG_DISABLE_DEPRECATED				\
 	-DLIBGNOME_DISABLE_DEPRECATED			\
+	$(EVOLUTION_CALENDAR_CFLAGS)			\
 	$(A11Y_CFLAGS)
 
 privlib_LTLIBRARIES = libevolution-a11y.la 
@@ -16,4 +19,6 @@ libevolution_a11y_la_SOURCES =				\
 	init.c
 
 libevolution_a11y_la_LIBADD =				\
-	$(A11Y_LIBS)
+	$(A11Y_LIBS)					\
+	$(top_builddir)/a11y/calendar/libevolution-calendar-a11y.la \
+	$(top_builddir)/calendar/gui/libevolution-calendar.la

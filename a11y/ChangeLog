@@ -1,3 +1,19 @@
+2003-07-17  Bolian Yin <bolian.yin@sun.com>
+	* init.c: init calendar a11y support
+	* Makefile.am: add calendar lib
+	New files are:
+		ea-factory.h
+		calendar/ea-calendar.c
+		calendar/ea-calendar.h
+		calendar/ea-day-view-event-factory.c
+		calendar/ea-day-view-event-factory.h
+		calendar/ea-day-view-event.c
+		calendar/ea-day-view-event.h
+		calendar/ea-day-view.c
+		calendar/ea-day-view.h
+		calendar/ea-gnome-calendar.c
+		calendar/ea-gnome-calendar.h
+
 2003-06-26  Gilbert Fang  <gilbert.fang@sun.com>
 
 	* init.c: Initial new file for libevolution-a11y.so framework.
