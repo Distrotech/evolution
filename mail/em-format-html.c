@@ -1013,6 +1013,12 @@ static void efh_format_do(struct _mail_msg *mm)
 	if (m->format->html == NULL) 
 		return;
 
+	camel_stream_printf((CamelStream *)m->estream,
+			    "<!doctype html public \"-//W3C//DTD HTML 4.0 TRANSITIONAL//EN\">\n<html>\n"
+			    "<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\">\n</head>\n"
+			    "<body text=\"#%06x\"\n",
+			    m->format->text_colour & 0xffffff);
+
 	/* <insert top-header stuff here> */
 
 	if (((EMFormat *)m->format)->mode == EM_FORMAT_SOURCE)
@@ -1057,6 +1063,8 @@ static void efh_format_do(struct _mail_msg *mm)
 	}
 	g_mutex_unlock(m->format->priv->lock);
 	d(printf("out of jobs, done\n"));
+
+	camel_stream_write_string((CamelStream *)m->estream, "</body>\n</html>\n");
 
 	camel_stream_close((CamelStream *)m->estream);
 	camel_object_unref(m->estream);

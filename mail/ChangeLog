@@ -1,3 +1,33 @@
+2003-09-10  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html-display.c (efhd_init): hook onto realise so we
+	get the real theme-applied style.
+	(efhd_gtkhtml_realise): get the theme data for colour defaults.
+	Tweak the colour selection to make it work better with dark
+	themes.
+
+	* em-format-quote.c (emfq_format_source): we need to implement
+	this.
+	(emfq_format_error): we need not to call parent, it doesn't
+	implement it.
+
+	* message-list.c (message_list_select_uid): don't emit
+	changedhere, let it go through the table cursor change.
+
+	* em-folder-browser.c (em_folder_browser_show_preview): use
+	folderview.preview_active for this state.
+	(em_folder_browser_show_preview): clear the current message when
+	we turn off the message view, and load the current one when turn it on.
+
+	* em-folder-view.c (emfv_destroy): zero out preview + list.
+	(emfv_list_message_selected): check preview_active before doing
+	anything.
+	(emfv_edit_cut):
+	(emfv_edit_copy): only run if preview active.
+
+	* em-format-html.c (efh_format_do): output the proper html
+	headers, etc.
+
 2003-09-10  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* mail-account-gui.c (mail_account_gui_save): Allow the user to

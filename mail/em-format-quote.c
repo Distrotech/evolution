@@ -145,7 +145,6 @@ static void
 emfq_format_error(EMFormat *emf, CamelStream *stream, const char *txt)
 {
 	/* FIXME: should we even bother writign error text for quoting? probably not... */
-	((EMFormatClass *)emfq_parent)->format_error(emf, stream, txt);
 }
 
 static void
@@ -176,8 +175,19 @@ emfq_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *part)
 static void
 emfq_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
 {
-	/* FIXME: should we just format_message? */
-	((EMFormatClass *) emfq_parent)->format_source(emf, stream, part);
+	CamelStreamFilter *filtered_stream;
+	CamelMimeFilter *html_filter;
+	CamelDataWrapper *dw = (CamelDataWrapper *)part;
+
+	filtered_stream = camel_stream_filter_new_with_stream ((CamelStream *) stream);
+	html_filter = camel_mime_filter_tohtml_new (CAMEL_MIME_FILTER_TOHTML_CONVERT_NL
+						    | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
+						    | CAMEL_MIME_FILTER_TOHTML_ESCAPE_8BIT, 0);
+	camel_stream_filter_add(filtered_stream, html_filter);
+	camel_object_unref(html_filter);
+	
+	em_format_format_text(emf, (CamelStream *)filtered_stream, dw);
+	camel_object_unref(filtered_stream);
 }
 
 static void

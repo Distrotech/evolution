@@ -206,6 +206,9 @@ emfv_destroy (GtkObject *o)
 		p->invisible = NULL;
 	}
 
+	emfv->preview = NULL;
+	emfv->list = NULL;
+	emfv->preview_active = FALSE;
 	emfv->uic = NULL;
 
 	((GtkObjectClass *) emfv_parent)->destroy (o);
@@ -791,7 +794,7 @@ emfv_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
 
 	if (message_list_has_primary_selection(emfv->list))
 		message_list_copy(emfv->list, TRUE);
-	else
+	else if (emfv->preview_active)
 		em_format_html_display_cut(emfv->preview);
 }
 
@@ -802,7 +805,7 @@ emfv_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
 
 	if (message_list_has_primary_selection(emfv->list))
 		message_list_copy(emfv->list, FALSE);
-	else
+	else if (emfv->preview_active)
 		em_format_html_display_copy(emfv->preview);
 }
 
@@ -1499,7 +1502,7 @@ int em_folder_view_print(EMFolderView *emfv, int preview)
 	struct _CamelMedium *msg;
 
 	/* FIXME: need to load the message first */
-	if (emfv->preview == NULL)
+	if (!emfv->preview_active)
 		return 0;
 
 	msg = emfv->preview->formathtml.format.message;
@@ -1615,7 +1618,7 @@ emfv_list_message_selected(MessageList *ml, const char *uid, EMFolderView *emfv)
 
 	/* FIXME: ui stuff based on messageinfo, if available */
 
-	if (emfv->preview) {
+	if (emfv->preview_active) {
 		if (uid)
 			mail_get_message(emfv->folder, uid, emfv_list_done_message_selected, emfv, mail_thread_new);
 		else

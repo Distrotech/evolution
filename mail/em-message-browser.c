@@ -59,6 +59,8 @@ emmb_init(GObject *o)
 
 	p = emmb->priv = g_malloc0(sizeof(struct _EMMessageBrowserPrivate));
 
+	((EMFolderView *)emmb)->preview_active = TRUE;
+
 	g_slist_free(emmb->view.ui_files);
 	emmb->view.ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 	emmb->view.ui_files = g_slist_append(emmb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-messagedisplay.xml");

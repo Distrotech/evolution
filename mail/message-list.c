@@ -526,15 +526,11 @@ message_list_select_uid (MessageList *message_list, const char *uid)
 	node = g_hash_table_lookup (message_list->uid_nodemap, uid);
 	if (node) {
 		CamelMessageInfo *info;
-		
+
 		info = get_message_info (message_list, node);
+
+		/* This will emit a changed signal that we'll pick up */
 		e_tree_set_cursor (message_list->tree, node);
-		
-		g_free (message_list->cursor_uid);
-		message_list->cursor_uid = g_strdup (camel_message_info_uid (info));
-		
-		g_signal_emit (GTK_OBJECT (message_list), message_list_signals[MESSAGE_SELECTED], 0,
-				 camel_message_info_uid (info));
 	} else {
 		g_free (message_list->cursor_uid);
 		message_list->cursor_uid = NULL;
@@ -2640,14 +2636,14 @@ on_selection_changed_cmd(ETree *tree, MessageList *ml)
 {
 	GPtrArray *uids;
 
-	g_free(ml->cursor_uid);
-	ml->cursor_uid = NULL;
-
 	uids = message_list_get_selected(ml);
+	g_free(ml->cursor_uid);
 	if (uids->len == 1)
 		ml->cursor_uid = g_strdup(uids->pdata[0]);
+	else
+		ml->cursor_uid = NULL;
 
-	if ((uids->len == 1 || uids->len == 0) && !ml->idle_id)
+	if (uids->len <= 1 && !ml->idle_id)
 		ml->idle_id = g_idle_add_full (G_PRIORITY_LOW, on_cursor_activated_idle, ml, NULL);
 
 	if (ml->priv->primary_uids) {

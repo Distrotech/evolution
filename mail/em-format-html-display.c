@@ -139,28 +139,18 @@ static guint efhd_signals[EFHD_LAST_SIGNAL] = { 0 };
 static EMFormatHTMLClass *efhd_parent;
 
 static void
-efhd_init(GObject *o)
+efhd_gtkhtml_realise(GtkHTML *html, EMFormatHTMLDisplay *efhd)
 {
-	EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay *)o;
 	GtkStyle *style;
-#define efh ((EMFormatHTML *)efhd)
-
-	efhd->priv = g_malloc0(sizeof(*efhd->priv));
-
-	efhd->search_tok = (ESearchingTokenizer *)e_searching_tokenizer_new();
-	html_engine_set_tokenizer(efh->html->engine, (HTMLTokenizer *)efhd->search_tok);
-
-	/* we want to convert url's etc */
-	efh->text_html_flags |= CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS | CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES;
 
 	/* FIXME: does this have to be re-done every time we draw? */
 
 	/* My favorite thing to do... muck around with colors so we respect people's stupid themes.
 	   However, we only do this if we are rendering to the screen -- we ignore the theme
 	   when we are printing. */
-	style = gtk_widget_get_style((GtkWidget *)efh->html);
+	style = gtk_widget_get_style((GtkWidget *)html);
 	if (style) {
-		int state = GTK_WIDGET_STATE((GtkWidget *)efh->html);
+		int state = GTK_WIDGET_STATE(html);
 		gushort r, g, b;
 #define SCALE (238)
 
@@ -174,20 +164,37 @@ efhd_init(GObject *o)
 			g = (g*SCALE) >> 8;
 			b = (b*SCALE) >> 8;
 		} else {
-			r = (255 - (SCALE * (255-r))) >> 8;
-			g = (255 - (SCALE * (255-g))) >> 8;
-			b = (255 - (SCALE * (255-b))) >> 8;
+			r = 128 - ((SCALE * r) >> 9);
+			g = 128 - ((SCALE * g) >> 9);
+			b = 128 - ((SCALE * b) >> 9);
 		}
 
-		efh->header_colour = ((r<<16) | (g<< 8) | b) & 0xffffff;
+		efhd->formathtml.header_colour = ((r<<16) | (g<< 8) | b) & 0xffffff;
 		
 		r = style->text[state].red >> 8;
 		g = style->text[state].green >> 8;
 		b = style->text[state].blue >> 8;
 
-		efh->text_colour = ((r<<16) | (g<< 8) | b) & 0xffffff;
+		efhd->formathtml.text_colour = ((r<<16) | (g<< 8) | b) & 0xffffff;
 	}
 #undef SCALE
+}
+
+static void
+efhd_init(GObject *o)
+{
+	EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay *)o;
+#define efh ((EMFormatHTML *)efhd)
+
+	efhd->priv = g_malloc0(sizeof(*efhd->priv));
+
+	efhd->search_tok = (ESearchingTokenizer *)e_searching_tokenizer_new();
+	html_engine_set_tokenizer(efh->html->engine, (HTMLTokenizer *)efhd->search_tok);
+
+	g_signal_connect(efh->html, "realize", G_CALLBACK(efhd_gtkhtml_realise), o);
+
+	/* we want to convert url's etc */
+	efh->text_html_flags |= CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS | CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES;
 #undef efh
 }
 

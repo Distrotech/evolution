@@ -99,8 +99,6 @@ struct _EMFolderBrowserPrivate {
 
 	guint vpane_resize_id;
 	guint list_built_id;	/* hook onto list-built for delayed 'select first unread' stuff */
-
-	unsigned int show_preview:1;
 };
 
 static void emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
@@ -165,6 +163,8 @@ emfb_init(GObject *o)
 	printf("em folder browser init\n");
 
 	p = emfb->priv = g_malloc0(sizeof(struct _EMFolderBrowserPrivate));
+
+	emfb->view.preview_active = TRUE;
 
 	g_slist_free(emfb->view.ui_files);
 	emfb->view.ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-global.xml");
@@ -276,11 +276,11 @@ GtkWidget *em_folder_browser_new(void)
 
 void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 {
-	if ((emfb->priv->show_preview ^ state) == 0
+	if ((emfb->view.preview_active ^ state) == 0
 	    || emfb->view.list == NULL)
 		return;
 	
-	emfb->priv->show_preview = state;
+	emfb->view.preview_active = state;
 	
 	if (state) {
 		GConfClient *gconf = mail_config_get_gconf_client ();
@@ -291,15 +291,22 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 		/*y = save_cursor_pos (emfb);*/
 		gtk_paned_set_position (GTK_PANED (emfb->vpane), paned_size);
 		gtk_widget_show (GTK_WIDGET (emfb->priv->preview));
+
+		if (emfb->view.list->cursor_uid)
+			message_list_select_uid(emfb->view.list, emfb->view.list->cursor_uid);
+
 		/* need to load/show the current message? */
 		/*do_message_selected (emfb);*/
 		/*set_cursor_pos (emfb, y);*/
 	} else {
+		em_format_format((EMFormat *)emfb->view.preview, NULL);
 		gtk_widget_hide(emfb->priv->preview);
 		/*
 		mail_display_set_message (emfb->mail_display, NULL, NULL, NULL);
 		emfb_ui_message_loaded (emfb);*/
 	}
+
+	/* FIXME: need to update menu's to reflect ui changes */
 }
 
 /* ********************************************************************** */
