@@ -1113,23 +1113,13 @@ sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, MailAccoun
 		gtk_object_set_data (GTK_OBJECT (mi), "sig", sig);
 		gtk_widget_show (mi);
 		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text));
-		//gtk_widget_ref (menu);
-		//gtk_option_menu_remove_menu (GTK_OPTION_MENU (gui->sig_option_text));
 		gtk_menu_append (GTK_MENU (menu), mi);
-		//gtk_option_menu_set_menu (GTK_OPTION_MENU (gui->sig_option_text), menu);
-		//gtk_widget_unref (menu);
-		//gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_gui_index (gui, TRUE));
 
 		mi = gtk_menu_item_new_with_label (sig->name);
 		gtk_object_set_data (GTK_OBJECT (mi), "sig", sig);
 		gtk_widget_show (mi);
 		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html));
-		//gtk_widget_ref (menu);
-		//gtk_option_menu_remove_menu (GTK_OPTION_MENU (gui->sig_option_html));
 		gtk_menu_append (GTK_MENU (GTK_MENU (menu)), mi);
-		//gtk_option_menu_set_menu (GTK_OPTION_MENU (gui->sig_option_html), menu);
-		//gtk_widget_unref (menu);
-		//gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_gui_index (gui, FALSE));
 
 		break;
 	}
