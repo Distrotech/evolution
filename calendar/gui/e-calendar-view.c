@@ -37,9 +37,11 @@
 #include "comp-util.h"
 #include "e-cal-model-calendar.h"
 #include "e-cal-view.h"
+#include "e-comp-editor-registry.h"
 #include "itip-utils.h"
 #include "dialogs/delete-comp.h"
 #include "dialogs/delete-error.h"
+#include "dialogs/event-editor.h"
 #include "dialogs/send-comp.h"
 #include "dialogs/cancel-comp.h"
 #include "dialogs/recur-comp.h"
@@ -83,6 +85,7 @@ static void e_cal_view_destroy (GtkObject *object);
 
 static GObjectClass *parent_class = NULL;
 static GdkAtom clipboard_atom = GDK_NONE;
+extern ECompEditorRegistry *comp_editor_registry;
 
 /* Property IDs */
 enum props {
@@ -560,7 +563,9 @@ e_cal_view_set_status_message (ECalView *cal_view, const gchar *message)
 			cal_view->priv->activity = NULL;
 		}
 	} else if (!cal_view->priv->activity) {
+#if 0
 		int display;
+#endif
 		char *client_id = g_strdup_printf ("%p", cal_view);
 
 		if (progress_icon[0] == NULL)
@@ -836,11 +841,9 @@ e_cal_view_delete_selected_occurrence (ECalView *cal_view)
 static void
 on_new_appointment (GtkWidget *widget, gpointer user_data)
 {
-	time_t dtstart, dtend;
 	ECalView *cal_view = (ECalView *) user_data;
 
-	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
-	gnome_calendar_new_appointment_for (cal_view->priv->calendar, dtstart, dtend, FALSE, FALSE);
+	e_cal_view_new_appointment (cal_view);
 }
 
 static void
@@ -850,7 +853,7 @@ on_new_event (GtkWidget *widget, gpointer user_data)
 	ECalView *cal_view = (ECalView *) user_data;
 
 	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
-	gnome_calendar_new_appointment_for (cal_view->priv->calendar, dtstart, dtend, TRUE, FALSE);
+	e_cal_view_new_appointment_for (cal_view, dtstart, dtend, TRUE, FALSE);
 }
 
 static void
@@ -860,7 +863,7 @@ on_new_meeting (GtkWidget *widget, gpointer user_data)
 	ECalView *cal_view = (ECalView *) user_data;
 
 	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
-	gnome_calendar_new_appointment_for (cal_view->priv->calendar, dtstart, dtend, FALSE, TRUE);
+	e_cal_view_new_appointment_for (cal_view, dtstart, dtend, FALSE, TRUE);
 }
 
 static void
@@ -897,8 +900,8 @@ on_edit_appointment (GtkWidget *widget, gpointer user_data)
 		ECalViewEvent *event = (ECalViewEvent *) selected->data;
 
 		if (event)
-			gnome_calendar_edit_object (cal_view->priv->calendar, event->comp_data->client,
-						    event->comp_data->icalcomp, FALSE);
+			e_cal_view_edit_appointment (cal_view, event->comp_data->client,
+						     event->comp_data->icalcomp, FALSE);
 
 		g_list_free (selected);
 	}
@@ -914,7 +917,7 @@ on_print (GtkWidget *widget, gpointer user_data)
 
 	cal_view = E_CAL_VIEW (user_data);
 
-	gnome_calendar_get_current_time_range (cal_view->priv->calendar, &start, NULL);
+	e_cal_view_get_visible_time_range (cal_view, &start, NULL);
 	view_type = gnome_calendar_get_view (cal_view->priv->calendar);
 
 	switch (view_type) {
@@ -1010,7 +1013,7 @@ on_meeting (GtkWidget *widget, gpointer user_data)
 	selected = e_cal_view_get_selected_events (cal_view);
 	if (selected) {
 		ECalViewEvent *event = (ECalViewEvent *) selected->data;
-		gnome_calendar_edit_object (cal_view->priv->calendar, event->comp_data->client, event->comp_data->icalcomp, TRUE);
+		e_cal_view_edit_appointment (cal_view, event->comp_data->client, event->comp_data->icalcomp, TRUE);
 
 		g_list_free (selected);
 	}
@@ -1336,4 +1339,149 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 	g_signal_connect (popup, "selection-done", G_CALLBACK (free_view_popup), cal_view);
 
 	return popup;
+}
+
+/**
+ * e_cal_view_new_appointment_for
+ * @cal_view: A calendar view.
+ * @dtstart: A Unix time_t that marks the beginning of the appointment.
+ * @dtend: A Unix time_t that marks the end of the appointment.
+ * @all_day: If TRUE, the dtstart and dtend are expanded to cover
+ * the entire day, and the event is set to TRANSPARENT.
+ * @meeting: Whether the appointment is a meeting or not.
+ *
+ * Opens an event editor dialog for a new appointment.
+ */
+void
+e_cal_view_new_appointment_for (ECalView *cal_view,
+				time_t dtstart, time_t dtend,
+				gboolean all_day,
+				gboolean meeting)
+{
+	ECalViewPrivate *priv;
+	struct icaltimetype itt;
+	CalComponentDateTime dt;
+	CalComponent *comp;
+	icalcomponent *icalcomp;
+	CalComponentTransparency transparency;
+
+	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
+
+	priv = cal_view->priv;
+
+	dt.value = &itt;
+	if (all_day)
+		dt.tzid = NULL;
+	else
+		dt.tzid = icaltimezone_get_tzid (priv->zone);
+
+	icalcomp = e_cal_model_create_component_with_defaults (priv->model);
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomp);
+
+	/* DTSTART, DTEND */
+	itt = icaltime_from_timet_with_zone (dtstart, FALSE, priv->zone);
+	if (all_day) {
+		itt.hour = itt.minute = itt.second = 0;
+		itt.is_date = TRUE;
+	}
+	cal_component_set_dtstart (comp, &dt);
+
+	itt = icaltime_from_timet_with_zone (dtend, FALSE, priv->zone);
+	if (all_day) {
+		/* We round it up to the end of the day, unless it is
+		   already set to midnight */
+		if (itt.hour != 0 || itt.minute != 0 || itt.second != 0) {
+			icaltime_adjust (&itt, 1, 0, 0, 0);
+		}
+		itt.hour = itt.minute = itt.second = 0;
+		itt.is_date = TRUE;
+	}
+	cal_component_set_dtend (comp, &dt);
+
+	/* TRANSPARENCY */
+	transparency = all_day ? CAL_COMPONENT_TRANSP_TRANSPARENT
+		: CAL_COMPONENT_TRANSP_OPAQUE;
+	cal_component_set_transparency (comp, transparency);
+
+	/* CATEGORY */
+	cal_component_set_categories (comp, priv->default_category);
+
+	/* edit the object */
+	cal_component_commit_sequence (comp);
+
+	e_cal_view_edit_appointment (cal_view,
+				     e_cal_model_get_default_client (priv->model),
+				     icalcomp, meeting);
+
+	g_object_unref (comp);
+}
+
+/**
+ * e_cal_view_new_appointment
+ * @cal_view: A calendar view.
+ *
+ * Opens an event editor dialog for a new appointment. The appointment's
+ * start and end times are set to the currently selected time range in
+ * the calendar view.
+ */
+void
+e_cal_view_new_appointment (ECalView *cal_view)
+{
+	time_t dtstart, dtend;
+
+	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
+
+	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
+	e_cal_view_new_appointment_for (cal_view, dtstart, dtend, FALSE, FALSE);
+}
+
+/**
+ * e_cal_view_edit_appointment
+ * @cal_view: A calendar view.
+ * @client: Calendar client.
+ * @icalcomp: The object to be edited.
+ * @meeting: Whether the appointment is a meeting or not.
+ *
+ * Opens an editor window to allow the user to edit the selected
+ * object.
+ */
+void
+e_cal_view_edit_appointment (ECalView *cal_view,
+			     CalClient *client,
+			     icalcomponent *icalcomp,
+			     gboolean meeting)
+{
+	ECalViewPrivate *priv;
+	CompEditor *ce;
+	const char *uid;
+	CalComponent *comp;
+
+	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
+	g_return_if_fail (IS_CAL_CLIENT (client));
+	g_return_if_fail (icalcomp != NULL);
+
+	priv = cal_view->priv;
+
+	uid = icalcomponent_get_uid (icalcomp);
+
+	ce = e_comp_editor_registry_find (comp_editor_registry, uid);
+	if (!ce) {
+		EventEditor *ee;
+
+		ee = event_editor_new (client);
+		ce = COMP_EDITOR (ee);
+
+		comp = cal_component_new ();
+		cal_component_set_icalcomponent (comp, icalcomponent_new_clone (icalcomp));
+		comp_editor_edit_comp (ce, comp);
+		if (meeting)
+			event_editor_show_meeting (ee);
+
+		e_comp_editor_registry_add (comp_editor_registry, ce, FALSE);
+
+		g_object_unref (comp);
+	}
+
+	comp_editor_focus (ce);
 }

@@ -1986,7 +1986,7 @@ e_week_view_on_button_press (GtkWidget *widget,
 		return FALSE;
 
 	if (event->button == 1 && event->type == GDK_2BUTTON_PRESS) {
-		gnome_calendar_new_appointment (e_cal_view_get_calendar (E_CAL_VIEW (week_view)));
+		e_cal_view_new_appointment (E_CAL_VIEW (week_view));
 		return TRUE;
 	}
 
@@ -2847,13 +2847,10 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 {
 	EWeekViewEvent *event;
 	gint event_num, span_num;
-	GnomeCalendar *calendar;
 
 #if 0
 	g_print ("In e_week_view_on_text_item_event\n");
 #endif
-
-	calendar = e_cal_view_get_calendar (E_CAL_VIEW (week_view));
 
 	switch (gdkevent->type) {
 	case GDK_KEY_PRESS:
@@ -2883,10 +2880,9 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
 
-		if (calendar)
-			gnome_calendar_edit_object (calendar, event->comp_data->client, event->comp_data->icalcomp, FALSE);
-		else
-			g_warning ("Calendar not set");
+		e_cal_view_edit_appointment (E_CAL_VIEW (week_view),
+					     event->comp_data->client,
+					     event->comp_data->icalcomp, FALSE);
 
 		gtk_signal_emit_stop_by_name (GTK_OBJECT (item), "event");
 		return TRUE;

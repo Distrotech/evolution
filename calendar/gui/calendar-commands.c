@@ -95,7 +95,7 @@ file_new_appointment_cb (BonoboUIComponent *uic, gpointer data, const char *path
 
 	cal_view = (ECalView *) gnome_calendar_get_current_view_widget (gcal);
 	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
-	gnome_calendar_new_appointment_for (gcal, dtstart, dtend, FALSE, FALSE);
+	e_cal_view_new_appointment_for (cal_view, dtstart, dtend, FALSE, FALSE);
 }
 
 static void
@@ -109,7 +109,7 @@ file_new_event_cb (BonoboUIComponent *uic, gpointer data, const char *path)
 
 	cal_view = (ECalView *) gnome_calendar_get_current_view_widget (gcal);
 	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
-	gnome_calendar_new_appointment_for (gcal, dtstart, dtend, TRUE, FALSE);
+	e_cal_view_new_appointment_for (cal_view, dtstart, dtend, TRUE, FALSE);
 }
 
 static void
@@ -123,7 +123,7 @@ file_new_meeting_cb (BonoboUIComponent *uic, gpointer data, const char *path)
 
 	cal_view = (ECalView *) gnome_calendar_get_current_view_widget (gcal);
 	e_cal_view_get_selected_time_range (cal_view, &dtstart, &dtend);
-	gnome_calendar_new_appointment_for (gcal, dtstart, dtend, FALSE, TRUE);
+	e_cal_view_new_appointment_for (cal_view, dtstart, dtend, FALSE, TRUE);
 }
 
 static void

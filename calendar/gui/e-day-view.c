@@ -2568,9 +2568,9 @@ e_day_view_on_top_canvas_button_press (GtkWidget *widget,
 			time_t dtstart, dtend;
 
 			e_day_view_get_selected_time_range ((ECalView *) day_view, &dtstart, &dtend);
-			gnome_calendar_new_appointment_for (e_cal_view_get_calendar (E_CAL_VIEW (day_view)),
-							    dtstart, dtend,
-							    TRUE, FALSE);
+			e_cal_view_new_appointment_for (E_CAL_VIEW (day_view),
+							dtstart, dtend,
+							TRUE, FALSE);
 			return TRUE;
 		}
 
@@ -2689,9 +2689,9 @@ e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 			time_t dtstart, dtend;
 
 			e_day_view_get_selected_time_range ((ECalView *) day_view, &dtstart, &dtend);
-			gnome_calendar_new_appointment_for (e_cal_view_get_calendar (E_CAL_VIEW (day_view)),
-							    dtstart, dtend,
-							    FALSE, FALSE);
+			e_cal_view_new_appointment_for (E_CAL_VIEW (day_view),
+							dtstart, dtend,
+							FALSE, FALSE);
 			return TRUE;
 		}
 
@@ -3081,7 +3081,6 @@ e_day_view_on_event_double_click (EDayView *day_view,
 				  gint event_num)
 {
 	EDayViewEvent *event;
-	GnomeCalendar *calendar;
 
 	if (day == -1)
 		event = &g_array_index (day_view->long_events, EDayViewEvent,
@@ -3092,11 +3091,9 @@ e_day_view_on_event_double_click (EDayView *day_view,
 
 	e_day_view_stop_editing_event (day_view);
 
-	calendar = e_cal_view_get_calendar (E_CAL_VIEW (day_view));
-	if (calendar)
-		gnome_calendar_edit_object (calendar, event->comp_data->client, event->comp_data->icalcomp, FALSE);
-	else
-		g_warning ("Calendar not set");
+	e_cal_view_edit_appointment (E_CAL_VIEW (day_view),
+				     event->comp_data->client, 
+				     event->comp_data->icalcomp, FALSE);
 }
 
 static void
