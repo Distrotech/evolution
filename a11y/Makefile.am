@@ -1,3 +1,12 @@
+# Calendar IDL files
+                                                                                
+CALENDAR_IDLS = $(top_srcdir)/calendar/idl/evolution-calendar.idl
+
+CALENDAR_IDL_GENERATED_H = evolution-calendar.h
+
+$(CALENDAR_IDL_GENERATED_H): $(CALENDAR_IDLS)
+	$(ORBIT_IDL) -I $(srcdir) $(IDL_INCLUDES)   \
+                $(top_srcdir)/calendar/idl/evolution-calendar.idl
 
 SUBDIRS = calendar
 
@@ -16,9 +25,11 @@ INCLUDES =						\
 privlib_LTLIBRARIES = libevolution-a11y.la 
 
 libevolution_a11y_la_SOURCES =				\
+	$(CALENDAR_IDL_GENERATED_H)			\
 	init.c
+
+BUILT_SOURCES = $(CALENDAR_IDL_GENERATED_H)
 
 libevolution_a11y_la_LIBADD =				\
 	$(A11Y_LIBS)					\
-	$(top_builddir)/a11y/calendar/libevolution-calendar-a11y.la \
-	$(top_builddir)/calendar/gui/libevolution-calendar.la
+	$(top_builddir)/a11y/calendar/libevolution-calendar-a11y.la 
