@@ -1,5 +1,19 @@
 2000-02-16  Matt Loper  <matt@helixcode.com>
 
+	* camel/camel-formatter.c (handle_mime_part): Renamed from
+	handle_mime_message, as it can now handle CamelMimeBodyParts.
+	(camel_formatter_class_init): Handle text/richtext as text/plain
+	(ugly, but at least it's visible). Give body parts to
+	handle_mime_part.
+
+	* tests/ui-tests/message-browser.c (handle_tree_item): Associate
+	each tree item with a CamelDataWrapper.
+	(tree_selection_changed): When a tree item is selected, reflect it
+	in the gtkhtml window.
+
+	* camel/camel-mime-message.c (camel_mime_message_init): Change
+	mimetype of a mime message to "message/rfc822".
+
 	* tests/ui-tests/message-browser.c (tree_selection_changed): New
 	callback function, which will later change the main html window to
 	reflect the newly-selected tree item.

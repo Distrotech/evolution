@@ -57,6 +57,9 @@ handle_tree_item (CamelDataWrapper* object, GtkWidget* tree_ctrl)
 	GtkWidget* subtree = NULL;
 
 	tree_item = gtk_tree_item_new_with_label (label);
+	gtk_object_set_data (GTK_OBJECT (tree_item),
+			     "camel_data_wrapper", object);
+	
 	gtk_tree_append (GTK_TREE (tree_ctrl), tree_item);
 
 	gtk_widget_show(tree_item);
@@ -72,6 +75,9 @@ handle_tree_item (CamelDataWrapper* object, GtkWidget* tree_ctrl)
 
 		containee_tree_item =
 			gtk_tree_item_new_with_label (containee_label);
+		gtk_object_set_data (GTK_OBJECT (containee_tree_item),
+				     "camel_data_wrapper",
+				     containee);		
 
 		gtk_tree_append (GTK_TREE (subtree), containee_tree_item);
 
@@ -115,6 +121,9 @@ handle_tree_item (CamelDataWrapper* object, GtkWidget* tree_ctrl)
 	}
 }
 
+static GtkWidget*
+get_gtk_html_contents_window (CamelDataWrapper* data);
+
 static void
 tree_selection_changed( GtkWidget *tree )
 {
@@ -122,12 +131,20 @@ tree_selection_changed( GtkWidget *tree )
   
 	i = GTK_TREE_SELECTION(tree);
 	while (i){
-		gchar *name;
-		GtkLabel *label;
-		GtkWidget *item;
-
+		gchar*     name;
+		GtkLabel*  label;
+		GtkWidget* item;
+		CamelDataWrapper* camel_data_wrapper;
+		
 		/* Get a GtkWidget pointer from the list node */
 		item = GTK_WIDGET (i->data);
+		camel_data_wrapper =
+			gtk_object_get_data (GTK_OBJECT (item),
+					     "camel_data_wrapper");
+
+		g_assert (camel_data_wrapper);
+		get_gtk_html_contents_window (camel_data_wrapper);
+		
 		label = GTK_LABEL (GTK_BIN (item)->child);
 		gtk_label_get (label, &name);
 		g_print ("\t%s on level %d\n", name, GTK_TREE
@@ -435,7 +452,7 @@ main (int argc, char *argv[])
         gtk_paned_add1 (GTK_PANED (hpane), tree_ctrl_window);	
 
 	/* add the HTML view of the message */
-	html_window = get_gtk_html_window (message);
+	html_window = get_gtk_html_window (CAMEL_DATA_WRAPPER (message));
         gtk_paned_add2 (GTK_PANED (hpane), html_window);		
 	
 	/* rock n roll */
