@@ -16,7 +16,7 @@ cs_command_LOGOUT(CSConnection *cnx, CSCmdInfo *ci)
 {
   fprintf(cnx->fh, "* BYE ICAP Server thinks you suck anyways\r\n");
   fprintf(cnx->fh, "%s OK LOGOUT Completed\r\n", ci->id);
-  cs_connection_destroy(cnx);
+  cs_connection_unref(cnx); /* give up server list ref */
 }
 
 static void
@@ -73,6 +73,7 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
 
   if(cnx->active_cal)
     backend_close_calendar(cnx->active_cal);
+
   cnx->active_cal = newcal;
   cnx->active_is_readonly = activate_rdonly;
   fprintf(cnx->fh, "* %s EXISTS\r\n", ci->id);
@@ -102,11 +103,12 @@ cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci)
     return;
   }
 
-  calname = ci->args->data;
-  if(!calname) {
-    fprintf(cnx->fh, "%s BAD %s not enough args\r\n", ci->id, ci->name);
+  if(!ci->args || ci->args->type != ITEM_STRING) {
+    fprintf(cnx->fh, "%s BAD %s invalid args\r\n", ci->id, ci->name);
     return;
   }
+
+  calname = ci->args->data;
 
   backend_calendar_create(cnx->authid, calname);
   fprintf(cnx->fh, "%s OK %s Calendar store created\r\n", ci->id, ci->name);
@@ -129,7 +131,7 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
   }
 
   if (backend_calendar_inuse (cnx->authid, calname)){
-     fprintf (cnx->fh, "%s BAD calendar in use\r\n", ci->id);
+     fprintf (cnx->fh, "%s NO calendar in use\r\n", ci->id);
      return;
   }
 
@@ -203,13 +205,142 @@ cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_ATTRIBUTE(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
+  char *calname;
+  Calendar *cal;
+  CSCmdArg *curitem;
+
+  /*
+    fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
+  */
+  calname = ci->args->data;
+  cal = backend_open_calendar(cnx->authid, calname);
+  fprintf(cnx->fh, "* FETCH (");
+
+  if(ci->args->next->type == ITEM_STRING)
+    curitem = ci->args->next;
+  else
+    curitem = ci->args->next->data;
+
+  for(; curitem; curitem = curitem->next) {
+    if(!strcasecmp(curitem->data, "FLAGS")) {
+      fprintf(cnx->fh, "FLAGS (");
+      if(cal == cnx->active_cal)
+	fprintf(cnx->fh, "\\Seen");
+      /* support more flags, you moron */
+      fprintf(cnx->fh, ")");
+    } else if(!strcasecmp(curitem->data, "TYPE")) {
+      fprintf(cnx->fh, "TYPE NIL"); /* no flags supported */
+    } else if(!strcasecmp(curitem->data, "CSID")) {
+      char *uid;
+
+      uid = backend_get_id(cal);
+      fprintf(cnx->fh, "CSID %s", uid);
+      g_free(uid);
+    } else if(!strcasecmp(curitem->data, "COMPONENTS")) {
+      const char *compstr = "BEGIN: VCALENDAR\nPRODID:-//Yomomma Software//Pimpit Calendar v0.0//EN\n"
+	"VERSION: 2.0\n"
+	"BEGIN: VEVENT\n"
+	"ATTACH; VALUE=URL:\n"
+	"DESCRIPTION; VALUE=TEXT:\n"
+	"DTSTART; VALUE=DATE-TIME:\n"
+	"DTEND; VALUE=DATE-TIME:\n"
+	"STATUS:\n"
+	"SUMMARY; VALUE=TEXT:\n"
+	"UID:\n"
+	"END: VEVENT\n"
+	"END: VCALENDAR";
+      fprintf(cnx->fh, "COMPONENTS {%d}\n%s\n",
+	      strlen(compstr), compstr);
+    } else if(!strcasecmp(curitem->data, "TIMEZONE")) {
+      /* NYI */
+      fprintf(cnx->fh, "TIMEZONE NIL");
+    }
+
+    if(curitem->next) fprintf(cnx->fh, " ");
+  }
+  fprintf(cnx->fh, ")\n"); /* end * FETCH line */
+
+  calendar_unref(cal);
+  fprintf(cnx->fh, "%s OK %s completed\r\n", ci->id, ci->name);
 }
 
 static void
 cs_command_FREEBUSY(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
+  char *t_start, *t_end;
+  GSList *calendars = NULL, *ltmp;
+  Calendar *curcal;
+  time_t tm_start, tm_end;
+  GString *tmpstr = g_string_new(NULL);
+
+  if(ci->args->type == ITEM_STRING) {
+    calendars = g_slist_prepend(calendars,
+				backend_open_calendar(cnx->authid,
+						      ci->args->data));
+  } else { /* ITEM_LIST */
+    CSCmdArg *curitem;
+
+    for(curitem = ci->args->data; curitem; curitem = curitem->next) {
+      g_assert(curitem->type == ITEM_STRING);
+
+      curcal = backend_open_calendar(cnx->authid,
+				     curitem->data);
+      if(!curcal) {
+	fprintf(cnx->fh, "%s BAD %s Invalid calendar name\r\n",
+		ci->id, ci->name);
+	goto errout;
+      }
+
+      calendars = g_slist_prepend(calendars, curcal);
+    }
+  }
+
+  t_start = ci->args->next->data;
+  t_end = ci->args->next->next->data;
+  tm_start = parse_time_range(ci->args->next, NULL);
+  tm_end = parse_time_range(ci->args->next->next, NULL);
+
+  for(ltmp = calendars; ltmp; ltmp = g_slist_next(ltmp)) {
+    GList *evs, *lltmp;
+
+    curcal = ltmp->data;
+    fprintf(cnx->fh, "CSNAME %s ICAL ", curcal->title);
+
+    evs = calendar_get_events_in_range(curcal, tm_start, tm_end);
+    g_string_sprintf(tmpstr,
+		     "BEGIN: VCALENDAR\n"
+		     "PRODID:-//blah//blum//EN\n"
+		     "BEGIN: VFREEBUSY\n"
+		     "ATTENDEE: %s\n"
+		     "DTSTART: %s\nDTEND: %s\n"
+		     "FREEBUSY; VALUE=PERIOD-START: ",
+		     curcal->title, t_start, t_end);
+    for(lltmp = evs; lltmp; lltmp = g_list_next(lltmp)) {
+      struct tm *tt;
+      tt = gmtime(&((CalendarObject *)lltmp->data)->ev_start);
+      g_string_sprintfa(tmpstr, "%.4d%.2d%.2dT%.2d%.2d%.2dZ",
+			tt->tm_year, tt->tm_mon,
+			tt->tm_mday, tt->tm_hour, tt->tm_min,
+			tt->tm_sec);
+      tt = gmtime(&((CalendarObject *)lltmp->data)->ev_end);
+      g_string_sprintfa(tmpstr, "/%.4d%.2d%.2dT%.2d%.2d%.2dZ%s",
+			tt->tm_year, tt->tm_mon,
+			tt->tm_mday, tt->tm_hour, tt->tm_min,
+			tt->tm_sec,
+			lltmp->next?", ":"");
+
+    }
+    g_string_sprintfa(tmpstr, "END: VFREEBUSY\nEND: VCALENDAR");
+    fprintf(cnx->fh, "{%d}\n%s\n", tmpstr->len, tmpstr->str);
+  }
+  fprintf(cnx->fh, ")\n");
+
+  fprintf(cnx->fh, "%s OK %s completed\r\n", ci->id, ci->name);
+
+  errout:
+  g_slist_foreach(calendars, (GFunc)calendar_unref, NULL);
+  g_slist_free(calendars);
+  g_string_free(tmpstr, TRUE);
 }
 
 static void
@@ -304,7 +435,8 @@ cs_connection_process_command(CSConnection *cnx)
       /* check args */
       for(j = 0, arg = cnx->parse.curcmd.args;
 	  commands[i].args[j].argtype && arg; arg = arg->next, j++) {
-	if(commands[i].args[j].argtype != arg->type)
+	if(commands[i].args[j].argtype != arg->type
+	   && commands[i].args[j].argtype == ITEM_STRING)
 	  goto errout;
       }
       if(commands[i].args[j].argtype) goto errout; /* too many args */

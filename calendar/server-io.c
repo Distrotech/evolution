@@ -10,8 +10,8 @@
 
 void cs_connection_accept(gpointer data, GIOCondition cond,
 			  CSServer *server);
-static void cs_connection_process(gpointer data, GIOCondition cond,
-				  CSConnection *cnx);
+static gboolean cs_connection_process(gpointer data, GIOCondition cond,
+				      CSConnection *cnx);
 static void cs_connection_greet(CSConnection *cnx);
 
 CSServer *
@@ -71,12 +71,12 @@ cs_server_destroy(CSServer *server)
   close(server->servfd);
   g_io_channel_unref(server->gioc);
 
-  g_list_foreach(server->connections, (GFunc)cs_connection_destroy, NULL);
+  g_list_foreach(server->connections, (GFunc)cs_connection_unref, NULL);
 
   g_free(server);
 }
 
-static void
+static gboolean
 cs_connection_process(gpointer data, GIOCondition cond,
 		      CSConnection *cnx)
 {
@@ -85,28 +85,31 @@ cs_connection_process(gpointer data, GIOCondition cond,
   gboolean cont;
 
   if(cond & (G_IO_HUP|G_IO_NVAL|G_IO_ERR)) {
-    cs_connection_destroy(cnx);
-    return;
+    cs_connection_unref(cnx); /* give up server list ref */
+    return FALSE;
   }
 
-  g_return_if_fail(cond & G_IO_IN);
+  g_return_val_if_fail(cond & G_IO_IN, FALSE);
 
   /* read the data */
   rsize = read(cnx->fd, readbuf, sizeof(readbuf) - 1);
   if(!rsize) {
-    cs_connection_destroy(cnx);
-    return;
+    cs_connection_unref(cnx); /* give up server list ref */
+    return FALSE;
   }
   readbuf[rsize] = '\0';
   g_string_append(cnx->parse.rdbuf, readbuf);
 
-  do {
-      gboolean error;
+  if (rsize == 0){
+    cs_connection_unref (cnx); /* give up server list ref */
+    return FALSE;
+  }
 
-      if (rsize == 0){
-	cs_connection_destroy (cnx);
-	return;
-      }
+  cs_connection_ref(cnx); /* attain in-parse ref */
+
+  do {
+      gboolean error = FALSE;
+
       if (try_to_parse (&cnx->parse, rsize, &error, &cont)){
         cs_connection_process_command(cnx);
         cs_cmdarg_destroy(cnx->parse.curcmd.args);
@@ -115,10 +118,17 @@ cs_connection_process(gpointer data, GIOCondition cond,
         g_free(cnx->parse.curcmd.name);
         cnx->parse.rs = RS_ID; /* Next? */
       }
-      if (error)
-        cs_connection_destroy(cnx);
+
+      if (error) {
+        cs_connection_unref(cnx); /* give up in-parse ref */
+        cs_connection_unref(cnx); /* give up server list ref */
+	return FALSE;
+      }
   } while (cont);
-  
+
+  cs_connection_unref(cnx);
+
+  return TRUE;
 }
 
 static void
@@ -159,13 +169,24 @@ void cs_connection_accept(gpointer data, GIOCondition cond,
 		 (GIOFunc)&cs_connection_process, cnx);
 
   server->connections = g_list_prepend(server->connections, cnx);
+  cs_connection_ref(cnx); /* attain server list ref */
   cs_connection_greet(cnx);
 }
 
 void
-cs_connection_destroy(CSConnection *cnx)
+cs_connection_ref(CSConnection *cnx)
+{
+  cnx->refcount++;
+}
+
+void
+cs_connection_unref(CSConnection *cnx)
 {
   CSServer *server;
+
+  cnx->refcount--;
+  if(cnx->refcount > 0)
+    return;
 
   server = cnx->serv;
   server->connections = g_list_remove(server->connections, cnx);
@@ -175,5 +196,6 @@ cs_connection_destroy(CSConnection *cnx)
   g_free(cnx->authid);
   if(cnx->active_cal)
     backend_close_calendar(cnx->active_cal);
+
   g_free(cnx);
 }     

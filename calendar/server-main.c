@@ -32,7 +32,6 @@ on"), N_("PORT")},
 int main(int argc, char *argv[])
 {
 	CSServer *serv;
-	int i;
 	
 	gnomelib_init("gnome-cal-server", "0");
 	gnomelib_register_popt_table(options, "gnome-cal-server options");

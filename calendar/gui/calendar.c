@@ -275,6 +275,7 @@ calendar_load (Calendar *cal, char *fname)
 	if (!vcal)
 		return "Could not load the calendar";
 
+	/* need to remove global variable usage here... */
 	calendar_today     = time (NULL);
 	calendar_day_begin = time_day_begin (calendar_today);
 	calendar_day_end   = time_day_end (calendar_today);
@@ -304,17 +305,15 @@ calendar_get (char *fname)
 	return cal;
 }
 
-gboolean
+Calendar *
 calendar_loaded (char *fname)
 {
-	g_return_val_if_fail (fname, FALSE);
-	
-	if (!all_calendars)
-		return FALSE;
+        Calendar *retval = NULL;
 
-	if (g_hash_table_lookup (all_calendars, fname))
-		return TRUE;
-	return FALSE;
+	if (fname && all_calendars)
+	  retval = g_hash_table_lookup (all_calendars, fname);
+
+	return retval;
 }
 
 void

@@ -40,3 +40,7 @@ typedef struct {
 } StreamParse;
 
 int try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont);
+
+/* Pass in NULL for end_time if you don't want it back (e.g. for
+   parsing a simple time */
+time_t parse_time_range(CSCmdArg *arg, time_t *end_time);

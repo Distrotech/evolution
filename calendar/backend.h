@@ -10,7 +10,8 @@ char     *backend_calendar_name   (char *username, char *calendar_name, gboolean
 int       backend_calendar_create (char *username, char *calendar_name);
 void      backend_delete_calendar (char *username, char *calendar_name);
 void      backend_close_calendar  (Calendar *calendar);
-gboolean  backend_calendar_inuse (char *username, char *calendar_name);
+Calendar *backend_calendar_inuse (char *username, char *calendar_name);
+char * backend_get_id (Calendar *cal);
 
 #endif
 

@@ -30,6 +30,8 @@ typedef struct {
 	/* If the calendar was last modified */
 	int     modified;
 	void    *temp;
+
+        char *uid;
 } Calendar;
 
 /* This is only used by the calendar_get_events_in_range routine to get
@@ -73,8 +75,9 @@ void      calendar_notify           (time_t time, CalendarAlarm *which, void *da
 
 void      ical_object_try_alarms    (iCalObject *obj);
 
-int       calendar_get_id           (Calendar *cal);
-gboolean  calendar_loaded           (char *fname);
+char*      calendar_get_id           (Calendar *cal);
+/* You will need to calendar_ref() this calendar if you want to make use of it */
+Calendar *calendar_loaded           (char *fname);
 
 extern time_t calendar_day_begin, calendar_day_end;
 

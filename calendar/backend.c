@@ -6,6 +6,7 @@
 #include <libgnome/gnome-util.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdio.h>
 #include "calendar.h"
 #include "backend.h"
 
@@ -36,15 +37,42 @@ xmkdir (char *path)
 	mkdir (path, 0777);
 }
 
-
-int
-calendar_get_id (Calendar *cal)
+char *
+backend_get_id(Calendar *cal)
 {
-	static int id;
+  FILE *inf;
+  char *fname;
+  char buf[32];
+  
+  fname = g_copy_strings(cal->filename, ".uid", NULL);
+  inf = fopen(fname, "r");
+  g_free(fname);
+  if(!inf) return NULL;
+  fgets(buf, sizeof(buf), inf);
+  fclose(inf);
 
-	
-	g_warning ("This is broken.  We need to get id from a file on the disk (relative to %s)\n", base_directory);
-	return id++;
+  return g_strdup(g_strchomp(g_strstrip(buf)));
+}
+
+static void
+calendar_assign_id(const char *filename)
+{
+	FILE *inf;
+	unsigned long lastid;
+	char *fname;
+
+	lastid = gnome_config_get_int("/calendar/Calendar/ID=0");
+
+	fname = g_copy_strings(filename, ".uid", NULL);
+	inf = fopen(fname, "w");
+	g_free(fname);
+	if(!inf) return;
+	fprintf(inf, "%.16lu\n", lastid);
+	fclose(inf);
+	lastid++;
+
+	gnome_config_set_int("/calendar/Calendar/ID", lastid);	
+	gnome_config_sync();
 }
 
 /**
@@ -105,7 +133,7 @@ backend_calendar_create (char *username, char *calendar_name)
 	
 	cal_file = backend_calendar_name (username, calendar_name, FALSE);
 	
-	if (!calendar_path_is_directory (cal_file)){
+	if (calendar_path_is_directory (cal_file)) {
 		char *p = g_basename (cal_file);
 
 		*(p-1) = 0;
@@ -113,6 +141,7 @@ backend_calendar_create (char *username, char *calendar_name)
 	} else {
 		truncate (cal_file, 0);
 	}
+	calendar_assign_id(cal_file);
 	g_free (cal_file);
 	return 0;
 }
@@ -128,7 +157,7 @@ backend_open_calendar (char *username, char *calendar_name)
 	cal_file = backend_calendar_name (username, calendar_name, TRUE);
 	if (!cal_file)
 		return NULL;
-	
+
 	cal = calendar_get (cal_file);
 	g_free (cal_file);
 
@@ -186,7 +215,7 @@ backend_list_users (void)
 
 		if (len < sizeof (".calendar"))
 			continue;
-		
+
 		if (strcmp (dent->d_name + len - sizeof (".calendar"), ".calendar") != 0)
 			continue;
 
@@ -215,14 +244,14 @@ backend_add_object (Calendar *calendar, iCalObject *object)
 	
 }
 
-gboolean
+Calendar *
 backend_calendar_inuse (char *username, char *calendar_name)
 {
-	gboolean ret_val;
+	Calendar *ret_val;
 	char *cal_file;
 
 	g_return_val_if_fail (username != NULL, FALSE);
-	g_return_val_if_fail (cal_file != NULL, FALSE);
+	g_return_val_if_fail (calendar_name != NULL, FALSE);
 	
 	cal_file = backend_calendar_name (username, calendar_name, FALSE);
 	ret_val = calendar_loaded (cal_file);

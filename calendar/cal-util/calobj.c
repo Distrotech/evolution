@@ -14,6 +14,18 @@
 #include "timeutil.h"
 #include "../libversit/vcc.h"
 
+static int
+ical_object_assign_id (cal)
+{
+  int lastid;
+  lastid = gnome_config_get_int("/calendar/Calendar/ID=0");
+
+  lastid++;
+  
+  gnome_config_set_int("/calendar/Calendar/ID", lastid);	
+  gnome_config_sync();
+}
+
 iCalObject *
 ical_object_new (void *_calendar)
 {
@@ -22,7 +34,7 @@ ical_object_new (void *_calendar)
 	
 	ico = g_new0 (iCalObject, 1);
 	
-	ico->seq = calendar_get_id (cal);
+	ico->seq = ical_object_assign_id (cal);
 	ico->dtstamp = time (NULL);
 
 	return ico;

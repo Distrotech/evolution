@@ -23,6 +23,7 @@ void      cs_server_run     (CSServer *server);
 void      cs_server_destroy (CSServer *server);
 
 typedef struct {
+  int refcount;
   CSServer *serv;
   GIOChannel *gioc;
   int fd;
@@ -41,7 +42,9 @@ typedef struct {
 void cs_connection_process_command(CSConnection *cnx);
 
 /* in server-io.c */
-void cs_connection_destroy(CSConnection *cnx);
+void cs_connection_ref(CSConnection *cnx);
+#define cs_connection_destroy cs_connection_unref
+void cs_connection_unref(CSConnection *cnx);
 
 typedef char * CSIdentifier;
 CSIdentifier cs_identifier_new();
