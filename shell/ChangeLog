@@ -1,5 +1,51 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* evolution-shell-client.c
+	(evolution_shell_client_create_storage_set_view): Just crash when
+	you get here.
+	(evolution_shell_client_get_pixbuf_for_type): Likewise.
+	(evolution_shell_client_set_line_status): Likewise.
+	(evolution_shell_client_get_local_storage): Likewise.
+	(evolution_shell_client_get_shortcuts_interface): Likewise.
+	(evolution_shell_client_get_storage_registry_interface): Likewise.
+	(evolution_shell_client_get_activity_interface): Likewise.
+	(evolution_shell_client_user_select_folder): Likewise.
+	(evolution_shell_client_new): Likewise.
+	(evolution_shell_client_construct): Likewise.
+	(query_shell_interface): Removed.
+	(init): Do nothing.
+	(class_init): Do nothing.
+	(unref_pixbuf): Removed.
+	(impl_dispose): Removed.
+	(impl_finalize): Removed.
+	(user_select_folder): Removed.
+	(count_string_items): Removed.
+	(create_folder_selection_listener_interface): Removed.
+	(init_FolderSelectionListener_vtables): Removed.
+	(impl_FolderSelectionListener_cancel): Removed.
+	(impl_FolderSelectionListener_selected): Removed.
+	(query_shell_interface): Removed.
+
+	* e-shell.c (impl_Shell_getLocalStorage): Removed.
+	(impl_Shell_createStorageSetView): Removed.
+	(impl_Shell_getIconByType): Removed.
+	(impl_Shell_getComponentByType): Removed.
+	(impl_Shell_selectUserFolder): Removed.
+	(e_shell_class_init): Do not install removed method impls.
+	(folder_selection_dialog_cancelled_cb): Removed.
+	(folder_selection_dialog_folder_selected_cb): Removed.
+
+	* Evolution-Shell.idl (getLocalStorage): Removed
+	(createStorageSetView): Removed.
+	(selectUserFolder): Removed.
+	(getIconByType): Removed.
+	(getComponentByType): Removed.
+	(FolderSelectionListener): Removed.
+
+	* Evolution-Component.idl (requestQuit, interactive): New methods.
+
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
 	* e-shell.c: Removed activity_handler member from EShellPrivate.
 	(setup_activity_interface): Removed.
 	(e_shell_construct): Don't call.

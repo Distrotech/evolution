@@ -17,6 +17,20 @@ module Evolution {
 		/* Create the controls for embedding in the shell.  */
 		void createControls (out Bonobo::Control sidebar_control,
 				     out Bonobo::Control view_control);
+
+		/* Request the component to quit.  The component will reply
+		   with an event named "quit", with a boolean value of TRUE if
+		   the component agrees to quit and FALSE if it doesn't want
+		   to.  */
+		void requestQuit (in Bonobo::Listener listener);
+
+		/* Notify the component of whether the shell is currently
+		   running in interactive mode or not.  (I.e. basically,
+		   whether there are any Evolution windows on the screen.)
+		   @new_view_xid is an X Window ID ("None" if @now_interactive
+		   is FALSE) */
+		void interactive (in boolean now_interactive,
+				  in unsigned long new_view_xid);
 	};
 
 };
