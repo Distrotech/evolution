@@ -1,23 +1,31 @@
 #include "calserv.h"
 
-CSCmdInfo *cs_cmdinfo_dup(CSCmdInfo *ci)
+CSCmdArg *
+cs_cmdarg_new(CSCmdArg *prev, CSCmdArg *parent)
 {
-  CSCmdInfo *retval;
+  CSCmdArg *retval = g_new0(CSCmdArg, 1);
 
-  retval = g_new0(CSCmdInfo, 1);
-  retval->id = g_strdup(ci->id);
-  retval->name = g_strdup(ci->name);
-  retval->rol = g_strdup(ci->rol);
+  prev->next = retval;
+  if(parent)
+    retval->up = parent;
+  else if(prev)
+    retval->up = prev->up;
 
   return retval;
 }
 
 void
-cs_cmdinfo_destroy(CSCmdInfo *ci)
+cs_cmdarg_destroy(CSCmdArg *arg)
 {
-  g_free(ci->id);
-  g_free(ci->name);
-  g_free(ci->rol);
-  g_free(ci);
+  switch(arg->type) {
+  case ITEM_STRING:
+    g_free(arg->data); break;
+  case ITEM_SUBLIST:
+    cs_cmdarg_destroy(arg->data); break;
+  default:
+    g_warning("Unknown arg type %d", arg->type);
+  }
+  cs_cmdarg_destroy(arg->next);
+  g_free(arg);
 }
 

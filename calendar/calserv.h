@@ -22,15 +22,20 @@ void      cs_server_run     (CSServer *server);
 void      cs_server_destroy (CSServer *server);
 
 /* for bandying around info on a command */
+typedef struct _CSCmdArg CSCmdArg;
+struct _CSCmdArg {
+  enum { ITEM_UNKNOWN=0, ITEM_STRING, ITEM_SUBLIST } type;
+  gpointer data;
+  CSCmdArg *next, *up;
+};
+CSCmdArg *cs_cmdarg_new(CSCmdArg *prev, CSCmdArg *parent);
+void cs_cmdarg_destroy(CSCmdArg *arg);
+
 typedef struct {
   char *id;
   char *name;
-  char *rol;
-  gpointer cmd_specific_data;
+  CSCmdArg *args;
 } CSCmdInfo;
-
-CSCmdInfo *cs_cmdinfo_dup(CSCmdInfo *ci);
-void cs_cmdinfo_destroy(CSCmdInfo *ci);
 
 typedef struct {
   CSServer *serv;
@@ -40,13 +45,16 @@ typedef struct {
   GString *rdbuf;
   char *authid; /* username, if authenticated */
 
-  gint reading_literal; /* 0 if not currently reading */
   char wrbuf[1024];
 
   Calendar *active_cal;
   gboolean active_is_readonly;
 
-  CSCmdInfo *curcmd;
+  /* read state */
+  enum { RS_ID=0, RS_NAME, RS_ARG, RS_DONE } rs;
+  gint in_literal, literal_left, in_quoted; /* 0 if not currently reading */
+  CSCmdArg *curarg;
+  CSCmdInfo curcmd;
 } CSConnection;
 
 /* in server-commands.c */

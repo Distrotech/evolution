@@ -76,6 +76,168 @@ cs_connection_process(gpointer data, GIOCondition cond,
 		      CSConnection *cnx)
 {
   char readbuf[257], *ctmp;
+  int rsize, itmp;
+  gboolean found_something, is_eol;
+  char *ctmp;
+
+  if(cond & (G_IO_HUP|G_IO_NVAL|G_IO_ERR)) {
+    cs_connection_destroy(cnx);
+    return;
+  }
+
+  g_return_if_fail(cond & G_IO_IN);
+
+  /* read the data */
+  rsize = read(cnx->fd, readbuf, sizeof(readbuf) - 1);
+  readbuf[rsize] = '\0';
+  g_string_append(cnx->rdbuf, readbuf);
+
+  found_something = FALSE;
+  do {
+    switch(cnx->rs) {
+    case RS_ID:
+      ctmp = strchr(cnx->rdbuf->str, ' ');
+      if(ctmp) {
+	itmp = ctmp - cnx->rdbuf->str;
+	cnx->rs = RS_NAME;
+	cnx->curcmd.id = g_strndup(cnx->rdbuf->str, itmp);
+	g_string_erase(cnx->rdbuf, 0, itmp + 1);
+	found_something = TRUE;
+      }
+      break;
+    case RS_NAME:
+      is_eol = FALSE;
+      ctmp = strchr(cnx->rdbuf->str, ' ');
+
+      if(!ctmp) {
+	ctmp = strchr(cnx->rdbuf->str, '\r');
+	if(!ctmp) break;
+
+	is_eol = TRUE;
+      }
+      found_something = TRUE;
+      itmp = ctmp - cnx->rdbuf->str;
+
+      if(is_eol)
+	cnx->rs = RS_DONE;
+      else {
+	cnx->rs = RS_ARG;
+	cnx->curarg = cnx->args = NULL;
+	cnx->args->type = ITEM_SUBLIST;
+      }
+
+      cnx->curcmd.name = g_strndup(cnx->rdbuf->str, itmp);
+      g_string_erase(cnx->rdbuf, 0, itmp + 1);
+      break;
+    case RS_ARG:
+      if(cnx->in_literal) {
+	cnx->literal_left -= rsize;
+
+	if(cnx->literal_left <= 0) {
+	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, cnx->in_literal);
+	  cnx->in_literal = cnx->literal_left = 0;
+	  g_string_erase(cnx->rdbuf, 0, cnx->in_literal + 2 /* CRLF */);
+	  found_something = TRUE;
+	}
+
+	break;
+      }
+
+      switch(*cnx->rdbuf->str) {
+      case '(': /* open list */
+	cnx->curarg = cs_cmdarg_new(NULL, cnx->curarg);
+	cnx->curarg->type = ITEM_SUBLIST;
+	g_string_erase(cnx->rdbuf, 0, 1);
+	found_something = TRUE;
+	break;
+      case ')': /* close list */
+	if(!cnx->curarg) {
+	  g_warning("Too many close parens. zonk.");
+	  cs_connection_destroy(cnx);
+	  return;
+	}
+	cnx->curarg = cnx->curarg->up;
+	break;
+      case '{': /* literal */
+	ctmp = strchr(cnx->rdbuf->str + 1, '}');
+	if(!ctmp) break;
+	if(*(ctmp + 1) != '\r' /* lameness */
+	   || sscanf(cnx->rdbuf->str + 1, "%d", &cnx->in_literal) < 1) {
+	  g_warning("bad literal. zonk.");
+	  cs_connection_destroy(cnx);
+	  return;
+	}
+	found_something = TRUE;
+	cnx->literal_left = cnx->in_literal + 2;
+	g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str + 2 /* eliminate CR */);
+	break;
+      case '"':
+	ctmp = strchr(cnx->rdbuf->str + 1, '"');
+	if(!ctmp) break;
+	found_something = TRUE;
+	cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	cnx->type = ITEM_STRING;
+	cnx->data = g_strndup(cnx->rdbuf->str + 1, ctmp - cnx->rdbuf->str - 1);
+	g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
+	break;
+      case ' ':
+	found_something = cnx->rdbuf->len;
+	cnx->in_literal = cnx->literal_left = cnx->in_quoted = 0;
+	g_string_erase(cnx->rdbuf, 0, 1);
+	break;
+      case '\r':
+	if(cnx->rdbuf->len > 2) {
+	  cnx->rs = RS_DONE;
+	  g_string_erase(cnx->rdbuf, 0, 2);
+	}
+	break;
+      default: /* warning, massive code duplication */
+	/* it is a string */
+	ctmp = strchr(cnx->rdbuf->str, ' ');
+	if(ctmp) {
+	  found_something = TRUE;
+	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	  cnx->curarg->type = ITEM_STRING;
+	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
+	  g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
+	  break;
+	}
+	ctmp = strchr(cnx->rdbuf->str, ')');
+	if(ctmp) {
+	  found_something = TRUE;
+	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	  cnx->curarg->type = ITEM_STRING;
+	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
+	  cnx->curarg = cnx->curarg->up;
+	  g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
+	  break;
+	}
+	ctmp = strchr(cnx->rdbuf->str, '\r');
+	if(ctmp) {
+	  found_something = TRUE;
+	  cnx->rs = RS_DONE;
+	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	  cnx->type = ITEM_STRING;
+	  cnx->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
+	  g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
+	  break;
+	}
+	break;
+      }
+      break;
+    default:
+    }
+
+    if(cnx->rs == RS_DONE)
+      cs_connection_process_command(CSConnection *cnx);
+  } while(found_something);
+}
+
+static void
+_cs_connection_process(gpointer data, GIOCondition cond,
+		      CSConnection *cnx)
+{
+  char readbuf[257], *ctmp;
   int rsize;
   char *theline;
 
