@@ -1,6 +1,7 @@
-1999-04-25  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+1999-04-27  Federico Mena Quintero  <federico@nuclecu.unam.mx>
 
-	* main.c (dump_todo): Add --todo flag to dump the todo contents.
+	* gnome-month-item.c (gnome_month_item_set_arg): Fixed cut&paste
+	bug for day fontsets.
 
 1999-04-19  Miguel de Icaza  <miguel@nuclecu.unam.mx>
 
