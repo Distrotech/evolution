@@ -1,21 +1,33 @@
+2003-07-04  Maxx Cao  <maxx.cao@sun.com>
+
+        ** For bug #41839
+        * mail-display.c (do_attachment_header): Attachment buttons made
+        accessable with keyboard (focusable). "Inline" button is disabled
+        when attachment can't be viewed inline.
+        (do_signature): Signature button made accessable with keyboard
+        (focusable).
+        (button_press): Function changed to an event callback (originally
+        gtkbutton signal callback).
+        (popup_menu_placement_callback): Function added to place popup
+        menu (of attachment) beside button when activated by keyboard.
+
 2003-07-10  Yuedong Du  <yuedong.du@sun.com>
-                                                                                
+
         * evolution-mail.schemas: add a gconf key corresponding to newly
         introduced caret mode of gtkhtml widget.
-                                                                                
+
         * folder-browser-ui.c: new verb handling, corresponding the new menu
         entry for the caret mode flag.
-                                                                                
+
         * folder-browser.h: declaration of new verb handler to the menu entry
         that turn caret mode on/off. The function just set the new introduced
         gconf key.
-                                                                                
+
         * folder-browser.c: ditto
-                                                                                
+
         * mail-config.c: lstione to the new gconf key, and when caret mode
         flag is set/unset,change the style of gtkhtml widget. see bug
         #44607.
-                                                                                
 
 2003-06-16  Not Zed  <NotZed@Ximian.com>
 
