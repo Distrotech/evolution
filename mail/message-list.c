@@ -1895,7 +1895,24 @@ main_folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	CamelFolderChangeInfo *changes = (CamelFolderChangeInfo *)event_data;
 
 	printf("folder changed event, changes = %p\n", changes);
+	if (changes) {
+		printf("changed = %d added = %d removed = %d\n",
+		       changes->uid_changed->len, changes->uid_added->len, changes->uid_removed->len);
+		if (changes->uid_added->len == 0 && changes->uid_removed->len == 0) {
+			int i;
 
+			for (i=0;i<changes->uid_changed->len;i++) {
+				int row = GPOINTER_TO_INT (g_hash_table_lookup (ml->uid_rowmap, changes->uid_changed->pdata[i]));
+				if (row != -1)
+					e_table_model_row_changed(ml->table_model, row);
+			}
+
+			camel_folder_change_info_free(changes);
+			return;
+		}
+	}
+
+	
 	mail_do_regenerate_messagelist(ml, ml->search, NULL, changes);
 }
 
@@ -2477,5 +2494,7 @@ mail_do_regenerate_messagelist (MessageList *list, const gchar *search, const ch
 	input->changes = changes;
 	input->dotree = list->threaded;
 
-	mail_operation_queue (&op_regenerate_messagelist, input, TRUE);
+	/* just a quick hack */
+	mail_operation_run (&op_regenerate_messagelist, input, TRUE);
+	/*mail_operation_queue (&op_regenerate_messagelist, input, TRUE);*/
 }

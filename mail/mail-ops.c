@@ -37,6 +37,9 @@
 #include "folder-browser.h"
 #include "e-util/e-html-utils.h"
 
+/* temporary 'hack' */
+int mail_operation_run(const mail_operation_spec *op, void *in, int free);
+
 /* ** FETCH MAIL ********************************************************** */
 
 typedef struct fetch_mail_input_s
@@ -1983,7 +1986,8 @@ mail_do_sync_folder (CamelFolder *folder)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 
-	mail_operation_queue (&op_sync_folder, folder, FALSE);
+	/*mail_operation_queue (&op_sync_folder, folder, FALSE);*/
+	mail_operation_run (&op_sync_folder, folder, FALSE);
 }
 
 /* ** DISPLAY MESSAGE ***************************************************** */
@@ -2090,8 +2094,6 @@ static const mail_operation_spec op_display_message = {
 	cleanup_display_message
 };
 
-static int mail_operation_run(const mail_operation_spec *op, void *in, int free);
-
 void
 mail_do_display_message (MessageList *ml, MailDisplay *md, const char *uid,
 			 gint (*timeout) (gpointer))
@@ -2167,7 +2169,7 @@ runcleanup(GIOChannel *source, GIOCondition cond, void *d)
 #include <pthread.h>
 
 /* quick hack, like queue, but it runs it instantly in a new thread ! */
-static int
+int
 mail_operation_run(const mail_operation_spec *op, void *in, int free)
 {
 	struct _op_data *o;

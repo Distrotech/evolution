@@ -1,3 +1,32 @@
+2000-12-22  Not Zed  <NotZed@HelixCode.com>
+
+	* mail-ops.c (mail_do_sync_folder): Run sync in different thread
+	each time.  Just a quick litlte hack to check multithreading.
+	There are now few operations that single-queue.  Need to work out
+	a way to make the allocation of threads & resources easier, so we
+	dont get overwhelmed with threads, but we dont block when we dont
+	have to, either.
+
+	* message-list.c (main_folder_changed): If we have only changed
+	events, then process them directly.
+	(mail_do_regenerate_messagelist): Run regenerate in a new thread
+	each time, another quick hack to check mutlithreading.
+
+	* mail-view.c (view_delete_msg): Call camel folder set message
+	flags directly.  mail_do_set_message_flags() is now completely
+	unused.
+
+	* folder-browser.c (mark_msg_seen): Call camel folder
+	set_message_flags directly.
+
+	* mail-callbacks.c (flag_messages): New function, that just sets
+	flags of all selected messages, without all that messy thread
+	stuff (setting flags is	in-memory).
+	(mark_as_seen): Use flag_messages().
+	(mark_as_unseen): "
+	(undelete_msg): "
+	(delete_msg): "
+
 2000-12-20  Not Zed  <NotZed@HelixCode.com>
 
 	* message-list.c (message_list_select): Free messageinfo lookups.

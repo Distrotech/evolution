@@ -854,15 +854,11 @@ static gint
 mark_msg_seen (gpointer data)
 {
 	MessageList *ml = data;
-	GPtrArray *uids;
 
 	if (!ml->cursor_uid) 
 		return FALSE;
-
-	uids = g_ptr_array_new ();
-	g_ptr_array_add (uids, g_strdup (ml->cursor_uid));
-	mail_do_flag_messages (ml->folder, uids, FALSE,
-			       CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+	
+	camel_folder_set_message_flags(ml->folder, ml->cursor_uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 	return FALSE;
 }
 
