@@ -126,8 +126,11 @@ gboolean            e_cal_model_get_rgb_color_for_component    (ECalModel       
 								double              *blue);
 ECalModelComponent *e_cal_model_get_component_at               (ECalModel           *model,
 								gint                 row);
+ECalModelComponent *e_cal_model_get_component_for_uid  (ECalModel           *model,
+								const char *uid);
 gchar              *e_cal_model_date_value_to_string           (ECalModel           *model,
 								const void          *value);
+ECalModelComponent *e_cal_model_copy_component_data (ECalModelComponent *comp_data);
 void                e_cal_model_free_component_data            (ECalModelComponent  *comp_data);
 void                e_cal_model_generate_instances             (ECalModel           *model,
 								time_t               start,

@@ -1127,6 +1127,8 @@ e_cal_model_get_client_for_uri (ECalModel *model, const char *uri)
 	return NULL;
 }
 
+/* Pass NULL for the client if we just want to find based on uid */
+/* FIXME how do we prevent the same UID is different calendars? */
 static ECalModelComponent *
 search_by_uid_and_client (ECalModelPrivate *priv, ECal *client, const char *uid)
 {
@@ -1140,7 +1142,7 @@ search_by_uid_and_client (ECalModelPrivate *priv, ECal *client, const char *uid)
 
 			tmp_uid = icalcomponent_get_uid (comp_data->icalcomp);
 			if (tmp_uid && *tmp_uid) {
-				if (comp_data->client == client && !strcmp (uid, tmp_uid))
+				if ((!client || comp_data->client == client) && !strcmp (uid, tmp_uid))
 					return comp_data;
 			}
 		}
@@ -1177,7 +1179,7 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 		e_table_model_pre_change (E_TABLE_MODEL (model));
 
 		comp_data = g_new0 (ECalModelComponent, 1);
-		comp_data->client = e_cal_view_get_client (query);
+		comp_data->client = g_object_ref (e_cal_view_get_client (query));
 		comp_data->icalcomp = icalcomponent_new_clone (l->data);
 
 		g_ptr_array_add (priv->objects, comp_data);
@@ -1248,7 +1250,7 @@ e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
 			continue;
 		
 		pos = get_position_in_array (priv->objects, comp_data);
-			
+		
 		g_ptr_array_remove (priv->objects, comp_data);
 		free_comp_data (comp_data);
 		
@@ -1381,24 +1383,25 @@ remove_client (ECalModel *model, ECalModelClient *client_data)
 	model->priv->clients = g_list_remove (model->priv->clients, client_data);
 
 	/* remove all objects belonging to this client */
-	e_table_model_pre_change (E_TABLE_MODEL (model));
 	for (i = model->priv->objects->len; i > 0; i--) {
 		ECalModelComponent *comp_data = (ECalModelComponent *) g_ptr_array_index (model->priv->objects, i - 1);
 
 		g_assert (comp_data != NULL);
 
 		if (comp_data->client == client_data->client) {
+			e_table_model_pre_change (E_TABLE_MODEL (model));
+			
 			g_ptr_array_remove (model->priv->objects, comp_data);
 			free_comp_data (comp_data);
+
+			e_table_model_row_deleted (E_TABLE_MODEL (model), i);
 		}
 	}
-	e_table_model_changed (E_TABLE_MODEL (model));
-
+	
 	/* free all remaining memory */
 	g_object_unref (client_data->client);
 	g_object_unref (client_data->query);
 	g_free (client_data);
-
 }
 
 /**
@@ -1447,7 +1450,8 @@ redo_queries (ECalModel *model)
 	ECalModelPrivate *priv;
 	char *iso_start, *iso_end;
 	GList *l;
-
+	int len;
+	
 	priv = model->priv;
 
 	if (priv->full_sexp)
@@ -1466,12 +1470,11 @@ redo_queries (ECalModel *model)
 		priv->full_sexp = ("#f");
 	}	
 	
-	g_message ("Redoing queries with: %s", priv->full_sexp);
-	
 	/* clean up the current contents */
 	e_table_model_pre_change (E_TABLE_MODEL (model));
+	len = priv->objects->len;
 	clear_objects_array (priv);
-	e_table_model_changed (E_TABLE_MODEL (model));
+	e_table_model_rows_deleted (E_TABLE_MODEL (model), 0, len);
 	
 	/* update the query for all clients */
 	for (l = priv->clients; l != NULL; l = l->next) {
@@ -1514,8 +1517,6 @@ e_cal_model_set_time_range (ECalModel *model, time_t start, time_t end)
 	priv->start = start;
 	priv->end = end;
 
-	g_message ("Setting time range to %lu:%lu", start, end);
-	
 	g_signal_emit (G_OBJECT (model), signals[TIME_RANGE_CHANGED], 0, start, end);
 	redo_queries (model);
 }
@@ -1668,6 +1669,18 @@ e_cal_model_get_component_at (ECalModel *model, gint row)
 	return g_ptr_array_index (priv->objects, row);
 }
 
+ECalModelComponent *
+e_cal_model_get_component_for_uid  (ECalModel *model, const char *uid)
+{
+	ECalModelPrivate *priv;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	priv = model->priv;
+
+	return search_by_uid_and_client (priv, NULL, uid);
+}
+
 /**
  * e_cal_model_date_value_to_string
  */
@@ -1708,6 +1721,45 @@ e_cal_model_date_value_to_string (ECalModel *model, const void *value)
 	return g_strdup (buffer);
 }
 
+static ECellDateEditValue *
+copy_ecdv (ECellDateEditValue *ecdv)
+{
+	ECellDateEditValue *new_ecdv;
+	
+	
+	new_ecdv = g_new0 (ECellDateEditValue, 1);
+	new_ecdv->tt = ecdv->tt;
+	new_ecdv->zone = ecdv->zone;
+}
+
+/**
+ * e_cal_model_free_component_data
+ */
+ECalModelComponent *
+e_cal_model_copy_component_data (ECalModelComponent *comp_data)
+{
+	ECalModelComponent *new_data;
+	
+	g_return_if_fail (comp_data != NULL);
+
+	new_data = g_new0 (ECalModelComponent, 1);
+
+	if (comp_data->icalcomp)	
+		new_data->icalcomp = icalcomponent_new_clone (comp_data->icalcomp);	
+	if (comp_data->client)
+		new_data->client = g_object_ref (comp_data->client);
+	if (comp_data->dtstart)
+		new_data->dtstart = copy_ecdv (comp_data->dtstart);
+	if (comp_data->dtend)
+		new_data->dtend = copy_ecdv (comp_data->dtend);
+	if (comp_data->due)
+		new_data->due = copy_ecdv (comp_data->due);
+	if (comp_data->completed)
+		new_data->completed = copy_ecdv (comp_data->completed);
+
+	return new_data;
+}
+
 /**
  * e_cal_model_free_component_data
  */
@@ -1716,6 +1768,8 @@ e_cal_model_free_component_data (ECalModelComponent *comp_data)
 {
 	g_return_if_fail (comp_data != NULL);
 
+	if (comp_data->client)
+		g_object_unref (comp_data->client);
 	if (comp_data->icalcomp)
 		icalcomponent_free (comp_data->icalcomp);
 	if (comp_data->dtstart)

@@ -169,7 +169,9 @@ static gboolean e_week_view_find_event_from_uid (EWeekView	  *week_view,
 typedef gboolean (* EWeekViewForeachEventCallback) (EWeekView *week_view,
 						    gint event_num,
 						    gpointer data);
-
+static void e_week_view_foreach_event (EWeekView *week_view, 
+				       EWeekViewForeachEventCallback callback,
+				       gpointer data);
 static void e_week_view_foreach_event_with_uid (EWeekView *week_view,
 						const gchar *uid,
 						EWeekViewForeachEventCallback callback,
@@ -459,12 +461,52 @@ model_rows_inserted_cb (ETableModel *etm, int row, int count, gpointer user_data
 	e_week_view_queue_layout (week_view);
 }
 
+static gboolean
+row_deleted_check_cb (EWeekView *week_view, gint event_num, gpointer data)
+{	
+	GHashTable *uids = data;
+	EWeekViewEvent *event;
+	ECalModel *model;
+	const char *uid;
+	
+	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
+	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
+	model = e_calendar_view_get_model (E_CALENDAR_VIEW (week_view));
+
+	g_message ("Checking %d (%s)", event_num, uid);
+
+	if (!e_cal_model_get_component_for_uid (model, uid))
+		g_hash_table_insert (uids, (char *)uid, GINT_TO_POINTER (1));
+
+	return TRUE;
+}
+
+static void
+remove_uid_cb (gpointer key, gpointer value, gpointer data)
+{
+	EWeekView *week_view = data;
+	const char *uid = key;
+	
+	e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_remove_event_cb, NULL);
+}
+
 static void
 model_rows_deleted_cb (ETableModel *etm, int row, int count, gpointer user_data)
 {
 	EWeekView *week_view = E_WEEK_VIEW (user_data);
+	GHashTable *uids;
+	
+	/* FIXME Stop editing? */
 
-	e_week_view_update_query (week_view);
+	uids = g_hash_table_new (g_str_hash, g_str_equal);
+	
+	e_week_view_foreach_event (week_view, row_deleted_check_cb, uids);
+	g_hash_table_foreach (uids, remove_uid_cb, week_view);
+
+	g_hash_table_destroy (uids);
+	
+	gtk_widget_queue_draw (week_view->main_canvas);
+	e_week_view_queue_layout (week_view);
 }
 
 static void
@@ -1911,10 +1953,8 @@ e_week_view_update_event_cb (EWeekView *week_view,
 
 	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
 
-	if (event->allocated_comp_data)
-		e_cal_model_free_component_data (event->comp_data);
-	event->comp_data = comp_data;
-	event->allocated_comp_data = FALSE;
+	e_cal_model_free_component_data (event->comp_data);
+	event->comp_data = e_cal_model_copy_component_data (comp_data);
 
 	for (span_num = 0; span_num < event->num_spans; span_num++) {
 		span = &g_array_index (week_view->spans, EWeekViewEventSpan,
@@ -1937,6 +1977,26 @@ e_week_view_update_event_cb (EWeekView *week_view,
 	return TRUE;
 }
 
+/* This calls a given function for each event instance Note that it is
+   safe for the callback to remove the event (since we step backwards
+   through the arrays). */
+static void
+e_week_view_foreach_event (EWeekView *week_view, 
+			   EWeekViewForeachEventCallback callback,
+			   gpointer data)
+{
+	EWeekViewEvent *event;
+	gint event_num;
+
+	for (event_num = week_view->events->len - 1;
+	     event_num >= 0;
+	     event_num--) {
+		event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
+
+		if (!(*callback) (week_view, event_num, data))
+			return;
+	}
+}
 
 /* This calls a given function for each event instance that matches the given
    uid. Note that it is safe for the callback to remove the event (since we
@@ -1999,10 +2059,7 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 		}
 	}
 
-	if (event->allocated_comp_data) {
-		e_cal_model_free_component_data (event->comp_data);
-		event->allocated_comp_data = FALSE;
-	}
+	e_cal_model_free_component_data (event->comp_data);
 
 	g_array_remove_index (week_view->events, event_num);
 	week_view->events_need_layout = TRUE;
@@ -2358,8 +2415,7 @@ e_week_view_free_events (EWeekView *week_view)
 	for (event_num = 0; event_num < week_view->events->len; event_num++) {
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
-		if (event->allocated_comp_data)
-			e_cal_model_free_component_data (event->comp_data);
+		e_cal_model_free_component_data (event->comp_data);
 	}
 
 	g_array_set_size (week_view->events, 0);
@@ -2425,13 +2481,11 @@ e_week_view_add_event (ECalComponent *comp,
 						e_calendar_view_get_timezone (E_CALENDAR_VIEW (add_event_data->week_view)));
 
 	if (add_event_data->comp_data) {
-		event.comp_data = add_event_data->comp_data;
-		event.allocated_comp_data = FALSE;
+		event.comp_data = e_cal_model_copy_component_data (add_event_data->comp_data);
 	} else {
 		event.comp_data = g_new0 (ECalModelComponent, 1);
-		event.allocated_comp_data = TRUE;
 
-		event.comp_data->client = e_cal_model_get_default_client (e_calendar_view_get_model (E_CALENDAR_VIEW (add_event_data->week_view)));
+		event.comp_data->client = g_object_ref (e_cal_model_get_default_client (e_calendar_view_get_model (E_CALENDAR_VIEW (add_event_data->week_view))));
 		e_cal_component_commit_sequence (comp);
 		event.comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
 	}

@@ -494,7 +494,7 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
 
-	g_message ("Day view range set to %lu:%lu", start_time, end_time);
+//	g_message ("Day view range set to %lu:%lu", start_time, end_time);
 
 	/* Calculate the first day that should be shown, based on start_time
 	   and the days_shown setting. If we are showing 1 day it is just the
@@ -644,12 +644,60 @@ model_rows_inserted_cb (ETableModel *etm, int row, int count, gpointer user_data
 
 }
 
+static gboolean
+row_deleted_check_cb (EDayView	*day_view, gint day, gint event_num, gpointer data)
+{	
+	GHashTable *uids = data;
+	EDayViewEvent *event;
+	ECalModel *model;
+	const char *uid;
+	
+	if (day == E_DAY_VIEW_LONG_EVENT) {
+		event = &g_array_index (day_view->long_events, EDayViewEvent,
+					event_num);
+	} else {
+		event = &g_array_index (day_view->events[day], EDayViewEvent,
+					event_num);
+	}
+
+	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
+	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
+
+	g_message ("Checking %d:%d (%s)", day, event_num, uid);
+
+	if (!e_cal_model_get_component_for_uid (model, uid))
+		g_hash_table_insert (uids, (char *)uid, GINT_TO_POINTER (1));
+
+	return TRUE;
+}
+
+static void
+remove_uid_cb (gpointer key, gpointer value, gpointer data)
+{
+	EDayView *day_view = data;
+	const char *uid = key;
+	
+	e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_remove_event_cb, NULL);
+}
+
 static void
 model_rows_deleted_cb (ETableModel *etm, int row, int count, gpointer user_data)
 {
 	EDayView *day_view = E_DAY_VIEW (user_data);
+	GHashTable *uids;
+	
+	e_day_view_stop_editing_event (day_view);
+	
+	uids = g_hash_table_new (g_str_hash, g_str_equal);
+	
+	e_day_view_foreach_event (day_view, row_deleted_check_cb, uids);
+	g_hash_table_foreach (uids, remove_uid_cb, day_view);
 
-	e_day_view_update_query (day_view);
+	g_hash_table_destroy (uids);
+	
+	gtk_widget_queue_draw (day_view->top_canvas);
+	gtk_widget_queue_draw (day_view->main_canvas);
+	e_day_view_queue_layout (day_view);
 }
 
 static void
@@ -1623,10 +1671,8 @@ e_day_view_update_event_cb (EDayView *day_view,
 					event_num);
 	}
 
-	if (event->allocated_comp_data)
-		e_cal_model_free_component_data (event->comp_data);
-	event->comp_data = comp_data;
-	event->allocated_comp_data = FALSE;
+	e_cal_model_free_component_data (event->comp_data);
+	event->comp_data = e_cal_model_copy_component_data (comp_data);
 
 	if (day == E_DAY_VIEW_LONG_EVENT) {
 		e_day_view_update_long_event_label (day_view, event_num);
@@ -1753,10 +1799,7 @@ e_day_view_remove_event_cb (EDayView *day_view,
 	if (event->canvas_item)
 		gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 
-	if (event->allocated_comp_data) {
-		e_cal_model_free_component_data (event->comp_data);
-		event->allocated_comp_data = FALSE;
-	}
+	e_cal_model_free_component_data (event->comp_data);
 
 	if (day == E_DAY_VIEW_LONG_EVENT) {
 		g_array_remove_index (day_view->long_events, event_num);
@@ -4014,10 +4057,7 @@ e_day_view_free_event_array (EDayView *day_view,
 		if (event->canvas_item)
 			gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 
-		if (event->allocated_comp_data) {
-			e_cal_model_free_component_data (event->comp_data);
-			event->allocated_comp_data = FALSE;
-		}
+		e_cal_model_free_component_data (event->comp_data);
 	}
 
 	g_array_set_size (array, 0);
@@ -4057,13 +4097,11 @@ e_day_view_add_event (ECalComponent *comp,
 						e_calendar_view_get_timezone (E_CALENDAR_VIEW (add_event_data->day_view)));
 
 	if (add_event_data->comp_data) {
-		event.comp_data = add_event_data->comp_data;
-		event.allocated_comp_data = FALSE;
+		event.comp_data = e_cal_model_copy_component_data (add_event_data->comp_data);
 	} else {
 		event.comp_data = g_new0 (ECalModelComponent, 1);
-		event.allocated_comp_data = TRUE;
 
-		event.comp_data->client = e_cal_model_get_default_client (e_calendar_view_get_model (E_CALENDAR_VIEW (add_event_data->day_view)));
+		event.comp_data->client = g_object_ref (e_cal_model_get_default_client (e_calendar_view_get_model (E_CALENDAR_VIEW (add_event_data->day_view))));
 		e_cal_component_commit_sequence (comp);
 		event.comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
 	}
