@@ -100,6 +100,8 @@ struct _EMFolderTreePrivate {
 
 enum {
 	FOLDER_SELECTED,
+	FOLDER_DRAGGED,
+	FOLDER_RECEIVE_DROP,
 	LAST_SIGNAL
 };
 
@@ -157,13 +159,46 @@ em_folder_tree_class_init (EMFolderTreeClass *klass)
 	object_class->finalize = em_folder_tree_finalize;
 	gtk_object_class->destroy = em_folder_tree_destroy;
 	
-	signals[FOLDER_SELECTED] = g_signal_new ("folder-selected",
-						 G_OBJECT_CLASS_TYPE (object_class),
-						 G_SIGNAL_RUN_FIRST,
-						 G_STRUCT_OFFSET (EMFolderTreeClass, folder_selected),
-						 NULL, NULL,
-						 em_marshal_NONE__STRING_STRING,
-						 G_TYPE_NONE, 0);
+	signals[FOLDER_SELECTED] =
+		g_signal_new ("folder-selected",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeClass, folder_selected),
+			      NULL, NULL,
+			      em_marshal_VOID__STRING_STRING,
+			      G_TYPE_NONE, 2,
+			      G_TYPE_STRING,
+			      G_TYPE_STRING);
+	
+	signals[FOLDER_DRAGGED] =
+		g_signal_new ("folder-dragged",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeClass, folder_dragged),
+			      NULL, NULL,
+			      em_marshal_VOID__STRING_STRING_POINTER_POINTER_UINT_UINT,
+			      G_TYPE_NONE, 6,
+			      G_TYPE_STRING,
+			      G_TYPE_STRING,
+			      G_TYPE_POINTER,
+			      G_TYPE_POINTER,
+			      G_TYPE_UINT,
+			      G_TYPE_UINT);
+	
+	signals[FOLDER_RECEIVE_DROP] =
+		g_signal_new ("folder-receive-drop",
+			      G_OBJECT_CLASS_TYPE (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMFolderTreeClass, folder_receive_drop),
+			      NULL, NULL,
+			      em_marshal_VOID__STRING_STRING_POINTER_POINTER_UINT_UINT,
+			      G_TYPE_NONE, 6,
+			      G_TYPE_STRING,
+			      G_TYPE_STRING,
+			      G_TYPE_POINTER,
+			      G_TYPE_POINTER,
+			      G_TYPE_UINT,
+			      G_TYPE_UINT);
 }
 
 
@@ -384,7 +419,6 @@ em_folder_tree_destroy (GtkObject *obj)
 {
 	GTK_OBJECT_CLASS (parent_class)->destroy (obj);
 }
-
 
 GtkWidget *
 em_folder_tree_new (void)

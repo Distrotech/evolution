@@ -53,6 +53,12 @@ struct _EMFolderTreeClass {
 	
 	/* signals */
 	void (* folder_selected) (EMFolderTree *emft, const char *path, const char *uri);
+	void (* folder_dragged) (EMFolderTree *emft, const char *path, const char *uri,
+				 GdkDragContext *context, GtkSelectionData *selection,
+				 guint info, guint time);
+	void (* folder_receive_drop) (EMFolderTree *emft, const char *path, const char *uri,
+				      GdkDragContext *context, GtkSelectionData *selection,
+				      guint info, guint time);
 };
 
 
