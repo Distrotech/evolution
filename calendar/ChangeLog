@@ -1,3 +1,15 @@
+2003-08-20  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c: store objects by UID and RID.
+	(free_object): new function to free the CalBackendFileObject structure.
+	(cal_backend_file_dispose): use free_object callback to remove the
+	objects in the comp_uid_hash.
+	(lookup_component): search correctly the component in the new hash
+	table organizarion.
+	(check_dup_uid): ditto.
+	(add_component): ditto.
+	(remove_component): ditto.
+
 2003-08-19  JP Rosevear  <jpr@ximian.com>
 
 	* gui/gnome-cal.c (setup_widgets): set up models here
@@ -158,6 +170,10 @@
 	properly
 
 2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (ecm_get_color_for_component): assign the colors
+	based on the URI, which is stored in a common place for all models.
+	Thus different views will use the same color for the same calendar.
 
 	* gui/e-week-view-event-item.c (e_week_view_event_item_draw): draw
 	a filled rectangle and a black border around it for one-day events.

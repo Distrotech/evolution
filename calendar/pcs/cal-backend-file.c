@@ -36,6 +36,11 @@
 
 
 
+typedef struct {
+	CalComponent *top_comp;
+	GHashTable *recurrences;
+} CalBackendFileObject;
+
 /* Private part of the CalBackendFile structure */
 struct _CalBackendFilePrivate {
 	/* URI where the calendar data is stored */
@@ -47,7 +52,7 @@ struct _CalBackendFilePrivate {
 	/* Toplevel VCALENDAR component */
 	icalcomponent *icalcomp;
 
-	/* All the CalComponent objects in the calendar, hashed by UID.  The
+	/* All the CalBackendFileObject's in the calendar, hashed by UID.  The
 	 * hash key *is* the uid returned by cal_component_get_uid(); it is not
 	 * copied, so don't free it when you remove an object from the hash
 	 * table.
@@ -253,7 +258,6 @@ cal_backend_file_get_file_name (CalBackendFile *cbfile)
 	return priv->file_name;
 }
 
-
 /* g_hash_table_foreach() callback to destroy a CalComponent */
 static void
 free_cal_component (gpointer key, gpointer value, gpointer data)
@@ -262,6 +266,25 @@ free_cal_component (gpointer key, gpointer value, gpointer data)
 
 	comp = CAL_COMPONENT (value);
 	g_object_unref (comp);
+}
+
+/* g_hash_table_foreach() callback to destroy a CalBackendFileObject */
+static void
+free_object (gpointer key, gpointer value, gpointer data)
+{
+	CalBackendFileObject *obj = value;
+
+	if (obj) {
+		if (obj->top_comp)
+			g_object_unref (obj->top_comp);
+
+		if (obj->recurrences) {
+			g_hash_table_foreach (obj->recurrences, (GHFunc) free_cal_component, NULL);
+			g_hash_table_destroy (obj->recurrences);
+		}
+
+		g_free (obj);
+	}
 }
 
 /* Saves the calendar data */
@@ -359,8 +382,7 @@ cal_backend_file_dispose (GObject *object)
 	}
 
 	if (priv->comp_uid_hash) {
-		g_hash_table_foreach (priv->comp_uid_hash, 
-				      free_cal_component, NULL);
+		g_hash_table_foreach (priv->comp_uid_hash, (GHFunc) free_object, NULL);
 		g_hash_table_destroy (priv->comp_uid_hash);
 		priv->comp_uid_hash = NULL;
 	}
@@ -416,13 +438,15 @@ static CalComponent *
 lookup_component (CalBackendFile *cbfile, const char *uid)
 {
 	CalBackendFilePrivate *priv;
-	CalComponent *comp;
+	CalBackendFileObject *obj;
 
 	priv = cbfile->priv;
 
-	comp = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	if (obj)
+		return obj->top_comp;
 
-	return comp;
+	return NULL;
 }
 
 
@@ -505,6 +529,7 @@ static void
 check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 {
 	CalBackendFilePrivate *priv;
+	CalBackendFileObject *obj;
 	CalComponent *old_comp;
 	const char *uid;
 	char *new_uid;
@@ -513,8 +538,8 @@ check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 
 	cal_component_get_uid (comp, &uid);
 
-	old_comp = g_hash_table_lookup (priv->comp_uid_hash, uid);
-	if (!old_comp)
+	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	if (!obj)
 		return; /* Everything is fine */
 
 	g_message ("check_dup_uid(): Got object with duplicated UID `%s', changing it...", uid);
@@ -540,6 +565,7 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	CalBackendFilePrivate *priv;
 	const char *uid;
 	GSList *categories;
+	CalBackendFileObject *obj;
 
 	priv = cbfile->priv;
 
@@ -548,7 +574,11 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	 */
 	check_dup_uid (cbfile, comp);
 	cal_component_get_uid (comp, &uid);
-	g_hash_table_insert (priv->comp_uid_hash, (char *)uid, comp);
+
+	obj = g_new0 (CalBackendFileObject, 1);
+	obj->top_comp = comp;
+	obj->recurrences = NULL; /* FIXME: expand recurrences here */
+	g_hash_table_insert (priv->comp_uid_hash, (char *) uid, obj);
 
 	priv->comp = g_list_prepend (priv->comp, comp);
 
@@ -581,6 +611,7 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	const char *uid;
 	GList *l;
 	GSList *categories;
+	CalBackendFileObject *obj;
 
 	priv = cbfile->priv;
 
@@ -594,7 +625,9 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	/* Remove it from our mapping */
 
 	cal_component_get_uid (comp, &uid);
+	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
 	g_hash_table_remove (priv->comp_uid_hash, uid);
+	free_object (uid, obj, NULL);
 
 	l = g_list_find (priv->comp, comp);
 	g_assert (l != NULL);
