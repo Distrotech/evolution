@@ -1218,9 +1218,11 @@ add_instance_to_model (ECalComponent *comp, time_t start, time_t end, gpointer u
 
 		itt = icalcomponent_get_dtstart (comp_data->icalcomp);
 
-		if (!icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY)) {
-			icalcomponent_set_recurrenceid (comp_data->icalcomp,
-							icaltime_from_timet (start, itt.is_date));
+		if (e_cal_util_component_has_recurrences (comp_data->icalcomp)) {
+			if (!icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY)) {
+				icalcomponent_set_recurrenceid (comp_data->icalcomp,
+								icaltime_from_timet (start, itt.is_date));
+			}
 		}
 	}
 
