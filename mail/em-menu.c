@@ -270,7 +270,7 @@ emp_standard_menu_factory(EMenu *emp, void *data)
 static void *emph_parent_class;
 #define emph ((EMMenuHook *)eph)
 
-static struct _EMenuHookTargetMask emph_select_masks[] = {
+static const EMenuHookTargetMask emph_select_masks[] = {
 	{ "one", EM_MENU_SELECT_ONE },
 	{ "many", EM_MENU_SELECT_MANY },
 	{ "mark_read", EM_MENU_SELECT_MARK_READ },
@@ -291,7 +291,7 @@ static struct _EMenuHookTargetMask emph_select_masks[] = {
 	{ 0 }
 };
 
-static struct _EMenuHookTargetMap emph_targets[] = {
+static const EMenuHookTargetMap emph_targets[] = {
 	{ "select", EM_MENU_TARGET_SELECT, emph_select_masks },
 	{ 0 }
 };

@@ -104,7 +104,7 @@ emp_target_free(EPopup *ep, EPopupTarget *t)
 		g_free(s->mime_type);
 		break; }
 	case EM_POPUP_TARGET_FOLDER: {
-		EMPopupTargetFolder *s = (EMPopupTargetFolder *)s;
+		EMPopupTargetFolder *s = (EMPopupTargetFolder *)t;
 
 		g_free(s->uri);
 		break; }
@@ -731,7 +731,7 @@ emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data)
 static void *emph_parent_class;
 #define emph ((EMPopupHook *)eph)
 
-static struct _EPopupHookTargetMask emph_select_masks[] = {
+static const EPopupHookTargetMask emph_select_masks[] = {
 	{ "one", EM_POPUP_SELECT_ONE },
 	{ "many", EM_POPUP_SELECT_MANY },
 	{ "mark_read", EM_POPUP_SELECT_MARK_READ },
@@ -752,20 +752,20 @@ static struct _EPopupHookTargetMask emph_select_masks[] = {
 	{ 0 }
 };
 
-struct _EPopupHookTargetMask emph_uri_masks[] = {
+static const EPopupHookTargetMask emph_uri_masks[] = {
 	{ "http", EM_POPUP_URI_HTTP },
 	{ "mailto", EM_POPUP_URI_MAILTO },
 	{ "notmailto", EM_POPUP_URI_NOT_MAILTO },
 	{ 0 }
 };
 
-static struct _EPopupHookTargetMask emph_part_masks[] = {
+static const EPopupHookTargetMask emph_part_masks[] = {
 	{ "message", EM_POPUP_PART_MESSAGE },
 	{ "image", EM_POPUP_PART_IMAGE },
 	{ 0 }
 };
 
-static struct _EPopupHookTargetMask emph_folder_masks[] = {
+static const EPopupHookTargetMask emph_folder_masks[] = {
 	{ "folder", EM_POPUP_FOLDER_FOLDER },
 	{ "store", EM_POPUP_FOLDER_STORE },
 	{ "inferiors", EM_POPUP_FOLDER_INFERIORS },
@@ -773,7 +773,7 @@ static struct _EPopupHookTargetMask emph_folder_masks[] = {
 	{ "select", EM_POPUP_FOLDER_SELECT },
 	{ 0 }
 };
-static struct _EPopupHookTargetMap emph_targets[] = {
+static const EPopupHookTargetMap emph_targets[] = {
 	{ "select", EM_POPUP_TARGET_SELECT, emph_select_masks },
 	{ "uri", EM_POPUP_TARGET_URI, emph_uri_masks },
 	{ "part", EM_POPUP_TARGET_PART, emph_part_masks },
