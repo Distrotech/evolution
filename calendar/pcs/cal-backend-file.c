@@ -36,11 +36,6 @@
 
 
 
-typedef struct {
-	CalComponent *top_comp;
-	GHashTable *recurrences;
-} CalBackendFileObject;
-
 /* Private part of the CalBackendFile structure */
 struct _CalBackendFilePrivate {
 	/* URI where the calendar data is stored */
@@ -52,7 +47,7 @@ struct _CalBackendFilePrivate {
 	/* Toplevel VCALENDAR component */
 	icalcomponent *icalcomp;
 
-	/* All the CalBackendFileObject's in the calendar, hashed by UID.  The
+	/* All the objects in the calendar, hashed by UID.  The
 	 * hash key *is* the uid returned by cal_component_get_uid(); it is not
 	 * copied, so don't free it when you remove an object from the hash
 	 * table.
@@ -274,23 +269,13 @@ free_cal_component (gpointer key, gpointer value, gpointer data)
 	g_object_unref (comp);
 }
 
-/* g_hash_table_foreach() callback to destroy a CalBackendFileObject */
+/* g_hash_table_foreach() callback to destroy a CalComponent */
 static void
 free_object (gpointer key, gpointer value, gpointer data)
 {
-	CalBackendFileObject *obj = value;
+	CalComponent *comp = value;
 
-	if (obj) {
-		if (obj->top_comp)
-			g_object_unref (obj->top_comp);
-
-		if (obj->recurrences) {
-			g_hash_table_foreach (obj->recurrences, (GHFunc) free_cal_component, NULL);
-			g_hash_table_destroy (obj->recurrences);
-		}
-
-		g_free (obj);
-	}
+	g_object_unref (comp);
 }
 
 /* Saves the calendar data */
@@ -441,22 +426,13 @@ cal_backend_file_finalize (GObject *object)
 
 /* Looks up a component by its UID on the backend's component hash table */
 static CalComponent *
-lookup_component (CalBackendFile *cbfile, const char *uid, const char *rid)
+lookup_component (CalBackendFile *cbfile, const char *uid)
 {
 	CalBackendFilePrivate *priv;
-	CalBackendFileObject *obj;
 
 	priv = cbfile->priv;
 
-	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
-	if (obj) {
-		if (rid && *rid)
-			return g_hash_table_lookup (obj->recurrences, rid);
-
-		return obj->top_comp;
-	}
-
-	return NULL;
+	return g_hash_table_lookup (priv->comp_uid_hash, uid);
 }
 
 
@@ -567,7 +543,7 @@ static void
 check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 {
 	CalBackendFilePrivate *priv;
-	CalBackendFileObject *obj;
+	CalComponent *existing_comp;
 	const char *uid;
 	char *new_uid;
 
@@ -575,8 +551,8 @@ check_dup_uid (CalBackendFile *cbfile, CalComponent *comp)
 
 	cal_component_get_uid (comp, &uid);
 
-	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
-	if (!obj)
+	existing_comp = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	if (!existing_comp)
 		return; /* Everything is fine */
 
 	g_message ("check_dup_uid(): Got object with duplicated UID `%s', changing it...", uid);
@@ -608,26 +584,6 @@ get_rid_string (CalComponent *comp)
                 icaltime_as_ical_string (tt) : "0";
 }
 
-/* add instances to the recurrences hash table */
-static gboolean
-add_recurrence_to_object (CalComponent *comp,
-			   time_t instance_start,
-			   time_t instance_end,
-			   gpointer data)
-{
-	gchar *rid, *str;
-	CalBackendFileObject *obj = data;
-
-	rid = get_rid_string (comp);
-	str = g_strdup_printf ("%s-%s",
-			       icalcomponent_get_uid (cal_component_get_icalcomponent (obj->top_comp)),
-			       rid);
-
-	g_hash_table_insert (obj->recurrences, str, comp);
-
-	return TRUE;
-}
-
 /* Tries to add an icalcomponent to the file backend.  We only store the objects
  * of the types we support; all others just remain in the toplevel component so
  * that we don't lose them.
@@ -638,7 +594,6 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	CalBackendFilePrivate *priv;
 	const char *uid;
 	GSList *categories;
-	CalBackendFileObject *obj;
 
 	priv = cbfile->priv;
 
@@ -648,21 +603,7 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	check_dup_uid (cbfile, comp);
 	cal_component_get_uid (comp, &uid);
 
-	obj = g_new0 (CalBackendFileObject, 1);
-	obj->top_comp = comp;
-	obj->recurrences = g_hash_table_new (g_str_hash, g_str_equal);
-
-	/* expand recurrences */
-	if (cal_component_has_recurrences (obj->top_comp)) {
-		cal_recur_generate_instances (comp, -1, -1,
-					      add_recurrence_to_object,
-					      obj,
-					      resolve_tzid,
-					      cal_component_get_icalcomponent (obj->top_comp),
-					      priv->default_zone);
-	}
-
-	g_hash_table_insert (priv->comp_uid_hash, g_strdup (uid), obj);
+	g_hash_table_insert (priv->comp_uid_hash, uid, comp);
 
 	priv->comp = g_list_prepend (priv->comp, comp);
 
@@ -695,7 +636,6 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	const char *uid;
 	GList *l;
 	GSList *categories;
-	CalBackendFileObject *obj;
 
 	priv = cbfile->priv;
 
@@ -709,9 +649,7 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	/* Remove it from our mapping */
 
 	cal_component_get_uid (comp, &uid);
-	obj = g_hash_table_lookup (priv->comp_uid_hash, uid);
 	g_hash_table_remove (priv->comp_uid_hash, uid);
-	free_object ((gpointer) uid, obj, NULL);
 
 	l = g_list_find (priv->comp, comp);
 	g_assert (l != NULL);
@@ -1024,7 +962,9 @@ cal_backend_file_get_object_component (CalBackend *backend, const char *uid, con
 	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
 	g_assert (priv->comp_uid_hash != NULL);
 
-	return lookup_component (cbfile, uid, rid);
+	return lookup_component (cbfile, uid);
+
+	/* FIXME: use 'rid' */
 }
 
 /* Get_timezone_object handler for the file backend */
@@ -1073,30 +1013,18 @@ typedef struct {
 } MatchObjectData;
 
 static void
-match_recurrence_sexp (gpointer key, gpointer value, gpointer data)
-{
-	MatchObjectData *match_data = data;
-
-	if ((!match_data->search_needed) ||
-	    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, value, match_data->backend))) {
-		match_data->obj_list = g_list_append (match_data->obj_list,
-							      cal_component_get_as_string (value));
-	}
-}
-
-static void
 match_object_sexp (gpointer key, gpointer value, gpointer data)
 {
-	CalBackendFileObject *obj = value;
+	CalComponent *comp = value;
 	MatchObjectData *match_data = data;
 
-	if (cal_component_has_recurrences (obj->top_comp)) {
-		g_hash_table_foreach (obj->recurrences, (GHFunc) match_recurrence_sexp, match_data);
+	if (cal_component_has_recurrences (comp)) {
+		/* FIXME: expand recurrences */
 	} else {
 		if ((!match_data->search_needed) ||
-		    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, obj->top_comp, match_data->backend)))
+		    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, comp, match_data->backend)))
 			match_data->obj_list = g_list_append (match_data->obj_list,
-							      cal_component_get_as_string (obj->top_comp));
+							      cal_component_get_as_string (comp));
 	}
 }
 
@@ -1512,7 +1440,7 @@ cal_backend_file_get_alarms_for_object (CalBackend *backend, const char *uid,
 	g_return_val_if_fail (start <= end, NULL);
 	g_return_val_if_fail (object_found != NULL, NULL);
 
-	comp = lookup_component (cbfile, uid, NULL);
+	comp = lookup_component (cbfile, uid);
 	if (!comp) {
 		*object_found = FALSE;
 		return NULL;
@@ -1579,7 +1507,7 @@ cal_backend_file_update_object (CalBackendFile *cbfile,
 		/* FIXME */
 	} else {
 		/* Remove any old version of the component. */
-		old_comp = lookup_component (cbfile, comp_uid, NULL);
+		old_comp = lookup_component (cbfile, comp_uid);
 		if (old_comp)
 			remove_component (cbfile, old_comp);
 
@@ -1609,7 +1537,7 @@ cal_backend_file_cancel_object (CalBackendFile *cbfile,
 		return NULL;
 
 	/* Find the old version of the component. */
-	old_comp = lookup_component (cbfile, comp_uid, NULL);
+	old_comp = lookup_component (cbfile, comp_uid);
 	if (!old_comp)
 		return NULL;
 
@@ -1737,7 +1665,7 @@ cal_backend_file_remove_object (CalBackend *backend, const char *uid, CalObjModT
 
 	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
 
-	comp = lookup_component (cbfile, uid, NULL);
+	comp = lookup_component (cbfile, uid);
 	if (!comp)
 		return CAL_BACKEND_RESULT_NOT_FOUND;
 
