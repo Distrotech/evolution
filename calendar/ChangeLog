@@ -1,5 +1,15 @@
 2003-10-13  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-model.[ch] (e_cal_model_get_client_for_uri): new function.
+
+	* gui/gnome-cal.[ch] (gnome_calendar_set_default_client): new function.
+
+	* gui/calendar-component.c (primary_source_selection_changed_callback):
+	set the default client on the calendar view to be the primary
+	selection on the source list.
+
+2003-10-13  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/dialogs/new-calendar.c (new_calendar_dialog): set a default group
 	on the calendar group option menu and create the source if all checks
 	are passed.

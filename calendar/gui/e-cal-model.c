@@ -1065,6 +1065,29 @@ e_cal_model_get_client_list (ECalModel *model)
 	return list;
 }
 
+/**
+ * e_cal_model_get_client_for_uri
+ * @model: A calendar model.
+ * @uri: Uri for the client to get.
+ */
+CalClient *
+e_cal_model_get_client_for_uri (ECalModel *model, const char *uri)
+{
+	GList *l;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+	g_return_val_if_fail (uri != NULL, NULL);
+
+	for (l = model->priv->clients; l != NULL; l = l->next) {
+		ECalModelClient *client_data = (ECalModelClient *) l->data;
+
+		if (!strcmp (uri, cal_client_get_uri (client_data->client)))
+			return client_data->client;
+	}
+
+	return NULL;
+}
+
 static ECalModelComponent *
 search_by_uid_and_client (ECalModelPrivate *priv, CalClient *client, const char *uid)
 {

@@ -1995,6 +1995,25 @@ gnome_calendar_get_default_client (GnomeCalendar *gcal)
 }
 
 /**
+ * gnome_calendar_set_default_client
+ * @gcal: A calendar view.
+ * @client: The client to use as default.
+ *
+ * Set the default client on the given calendar view. The default calendar will
+ * be used as the default when creating events in the view.
+ */
+void
+gnome_calendar_set_default_client (GnomeCalendar *gcal, CalClient *client)
+{
+	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
+
+	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->day_view)), client);
+	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->work_week_view)), client);
+	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->week_view)), client);
+	e_cal_model_set_default_client (e_cal_view_get_model (E_CAL_VIEW (gcal->priv->month_view)), client);
+}
+
+/**
  * gnome_calendar_get_task_pad_cal_client:
  * @gcal: A calendar view.
  *

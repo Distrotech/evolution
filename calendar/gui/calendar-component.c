@@ -25,8 +25,8 @@
 #endif
 
 #include "calendar-component.h"
-
 #include "control-factory.h"
+#include "gnome-cal.h"
 
 #include "widgets/misc/e-source-selector.h"
 
@@ -85,6 +85,24 @@ static void
 primary_source_selection_changed_callback (ESourceSelector *selector,
 					   BonoboControl *view_control)
 {
+	ESource *source;
+	GnomeCalendar *gcal;
+	ECalModel *model;
+	CalClient *client;
+
+	source = e_source_selector_peek_primary_selection (selector);
+	if (!source)
+		return;
+
+	/* set the default client on the GnomeCalendar */
+	gcal = (GnomeCalendar *) bonobo_control_get_widget (view_control);
+	if (!GNOME_IS_CALENDAR (gcal))
+		return;
+
+	model = gnome_calendar_get_calendar_model (gcal);
+	client = e_cal_model_get_client_for_uri (model, e_source_get_uri (source));
+	if (client)
+		gnome_calendar_set_default_client (gcal, client);
 }
 
 /* GObject methods.  */
