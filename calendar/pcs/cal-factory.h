@@ -62,10 +62,11 @@ GType       cal_factory_get_type        (void);
 CalFactory *cal_factory_new             (void);
 
 gboolean    cal_factory_register_storage (CalFactory *factory, const char *iid);
-void        cal_factory_register_method (CalFactory *factory,
-					 const char *method,
-					 icalcomponent_kind kind,
-					 GType       backend_type);
+void        cal_factory_register_method  (CalFactory *factory,
+					  const char *method,
+					  icalcomponent_kind kind,
+					  GType       backend_type);
+int         cal_factory_get_n_backends   (CalFactory *factory);
 void        cal_factory_dump_active_backends   (CalFactory *factory);
 
 G_END_DECLS

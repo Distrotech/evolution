@@ -438,6 +438,25 @@ cal_factory_register_method (CalFactory *factory, const char *method, icalcompon
 	g_hash_table_insert (kinds, GINT_TO_POINTER (kind), GINT_TO_POINTER (backend_type));
 }
 
+/**
+ * cal_factory_get_n_backends
+ * @factory: A calendar factory.
+ *
+ * Get the number of backends currently active in the given factory.
+ *
+ * Returns: the number of backends.
+ */
+int
+cal_factory_get_n_backends (CalFactory *factory)
+{
+	CalFactoryPrivate *priv;
+
+	g_return_val_if_fail (IS_CAL_FACTORY (factory), 0);
+
+	priv = factory->priv;
+	return g_hash_table_size (priv->backends);
+}
+
 /* Frees a uri/backend pair from the backends hash table */
 static void
 dump_backend (gpointer key, gpointer value, gpointer data)

@@ -23,10 +23,13 @@
 #endif
 
 #include <gtk/gtkdialog.h>
+#include <gtk/gtkentry.h>
 #include <gtk/gtkmenu.h>
 #include <gtk/gtkmenuitem.h>
+#include <gtk/gtkmessagedialog.h>
 #include <gtk/gtkoptionmenu.h>
 #include <glade/glade.h>
+#include <e-util/e-dialog-utils.h>
 #include <e-util/e-source-list.h>
 #include "new-calendar.h"
 
@@ -105,16 +108,13 @@ new_calendar_dialog (GtkWindow *parent)
 					}
 
 					/* create the new source */
-					source = e_source_new ();
-					e_source_set_group (source, group);
-					e_source_set_name (source, name);
-
 					rel_uri = g_strdup_printf ("Calendar/%s", name);
-					e_source_set_relative_uri (source, rel_uri);
-					g_free (rel_uri);
+					source = e_source_new (name, rel_uri);
+					e_source_set_group (source, group);
 
 					e_source_group_add_source (group, source, -1);
 
+					g_free (rel_uri);
 					retry = FALSE;
 				} else {
 					e_notice (dialog, GTK_MESSAGE_ERROR, _("A group must be selected"));
