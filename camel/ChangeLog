@@ -1,5 +1,14 @@
 2004-11-16  Not Zed  <NotZed@Ximian.com>
 
+	* camel-lock-helper.c (g_strerror): have our own so we don't need
+	to link with glib.
+
+	* providers/*/Makefile.am: Do not install ANY provider header
+	files.  No providers are subclassable.  No providers are directly
+	linkable.
+
+	* camel.pc.in: create package config file.
+
 	* tests/lib/folders.c (test_folder_message_ops): updated counts for
 	delete also marking unread.
 

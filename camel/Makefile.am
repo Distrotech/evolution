@@ -2,13 +2,19 @@
 
 SUBDIRS = . providers tests
 
+%-$(BASE_VERSION).pc: %.pc
+	 cp $< $@
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = camel-$(BASE_VERSION).pc
+
 libcamelincludedir = $(privincludedir)/camel
 libcamel_providerincludedir = $(privincludedir)/camel
 
-camellibexecdir = $(privlibexecdir)/camel
+camellibexecdir = $(libexecdir)/camel/$(BASE_VERSION)
 camellibexec_PROGRAMS =	camel-lock-helper camel-index-control
 
-privlib_LTLIBRARIES = libcamel.la libcamel-provider.la
+lib_LTLIBRARIES = libcamel-1.2.la libcamel-provider-1.2.la
 
 INCLUDES = -I.. -I$(srcdir)/.. 			 	\
 	-I$(top_srcdir)/intl			 	\
@@ -17,7 +23,7 @@ INCLUDES = -I.. -I$(srcdir)/.. 			 	\
 	-DG_LOG_DOMAIN=\"camel\"			\
 	$(CAMEL_CFLAGS)
 
-libcamel_provider_la_SOURCES = 			\
+libcamel_provider_1_2_la_SOURCES = 			\
 	camel-cipher-context.c			\
 	camel-digest-folder.c			\
 	camel-digest-store.c			\
@@ -105,14 +111,14 @@ libcamel_providerinclude_HEADERS =			\
 	camel-vee-summary.h			\
 	camel-vtrash-folder.h
 
-libcamel_provider_la_LDFLAGS = -version-info $(LIBCAMEL_CURRENT):$(LIBCAMEL_REVISION):$(LIBCAMEL_AGE)
+libcamel_provider_1_2_la_LDFLAGS = -version-info $(LIBCAMEL_CURRENT):$(LIBCAMEL_REVISION):$(LIBCAMEL_AGE)
 
-libcamel_provider_la_LIBADD =			\
-	$(top_builddir)/libedataserver/libedataserver-${BASE_VERSION}.la 	\
-	libcamel.la				\
+libcamel_provider_1_2_la_LIBADD =			\
+	$(top_builddir)/libedataserver/libedataserver-$(BASE_VERSION).la 	\
+	libcamel-$(BASE_VERSION).la				\
 	$(CAMEL_LIBS)
 
-libcamel_la_SOURCES = 				\
+libcamel_1_2_la_SOURCES = 				\
 	broken-date-parser.c			\
 	camel-address.c				\
 	camel-arg.c				\
@@ -177,7 +183,6 @@ libcamel_la_SOURCES = 				\
 	camel.c
 
 libcamelinclude_HEADERS =			\
-	broken-date-parser.h			\
 	camel-address.h				\
 	camel-arg.h				\
 	camel-block-file.h			\
@@ -242,10 +247,10 @@ libcamelinclude_HEADERS =			\
 	camel-utf8.h				\
 	camel.h
 
-libcamel_la_LDFLAGS = -version-info 0:0:0
+libcamel_1_2_la_LDFLAGS = -version-info $(LIBCAMEL_CURRENT):$(LIBCAMEL_REVISION):$(LIBCAMEL_AGE)
 
-libcamel_la_LIBADD =				\
-	$(top_builddir)/libedataserver/libedataserver-${BASE_VERSION}.la 	\
+libcamel_1_2_la_LIBADD =				\
+	$(top_builddir)/libedataserver/libedataserver-$(BASE_VERSION).la 	\
 	$(CAMEL_LIBS)
 
 camel_lock_helper_SOURCES = 			\
@@ -262,7 +267,7 @@ camel_index_control_SOURCES =			\
 	camel-index-control.c
 
 camel_index_control_LDADD =			\
-	libcamel.la				\
+	libcamel-$(BASE_VERSION).la				\
 	$(libcamel_la_LIBADD)
 
 install-exec-hook:
@@ -298,11 +303,13 @@ install-exec-hook:
 	fi
 
 noinst_HEADERS =				\
+	broken-date-parser.h			\
 	camel-charset-map-private.h		\
 	camel-private.h				\
 	camel-search-private.h			\
 	camel-html-parser.h
 
 EXTRA_DIST =					\
+	$(pkgconfig_DATA:.pc=.pc.in) 		\
 	ChangeLog.pre-1-4			\
 	README
