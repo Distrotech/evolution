@@ -1,3 +1,7 @@
+2000-08-08  Peter Williams  <peterw@helixcode.com>
+
+	* Makefile.am (SUBDIRS): Reenable the calendar. Oops.
+
 2000-08-05  Dan Winship  <danw@helixcode.com>
 
 	* tools/verify-evolution-install.sh: Look for oafinfo files in
