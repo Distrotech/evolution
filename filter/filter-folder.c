@@ -53,9 +53,6 @@ static void filter_folder_finalise (GObject *obj);
 static FilterElementClass *parent_class = NULL;
 
 
-extern EvolutionShellClient *global_shell_client;
-
-
 GType
 filter_folder_get_type (void)
 {
@@ -238,7 +235,8 @@ get_widget (FilterElement *fe)
 	static const char *allowed_types[] = { "mail/*", NULL };
 	FilterFolder *ff = (FilterFolder *)fe;
 	GtkWidget *button;
-	
+
+#if 0				/* EPFIXME */
 	button = evolution_folder_selector_button_new (global_shell_client,
 						       _("Select Folder"),
 						       ff->uri,
@@ -248,6 +246,9 @@ get_widget (FilterElement *fe)
 	g_signal_connect (button, "selected", G_CALLBACK (folder_selected), ff);
 	
 	return button;
+#else
+	return NULL;
+#endif
 }
 
 static void
