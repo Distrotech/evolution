@@ -52,6 +52,7 @@ typedef struct {
 GtkType   task_page_get_type  (void);
 TaskPage *task_page_construct (TaskPage *epage);
 TaskPage *task_page_new       (void);
+void task_page_show_option_widgets (TaskPage *page,gboolean is_assigned);
 
 
 

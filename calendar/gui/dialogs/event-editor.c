@@ -138,6 +138,7 @@ event_editor_construct (EventEditor *ee, ECal *client)
 				 _("Appointment"));
 	g_signal_connect (G_OBJECT (priv->event_page), "client_changed",
 			  G_CALLBACK (client_changed_cb), ee);
+	event_page_hide_option_widgets (priv->event_page, priv->is_meeting);
 
 	priv->recur_page = recurrence_page_new ();
 	g_object_ref (priv->recur_page);

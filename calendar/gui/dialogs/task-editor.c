@@ -133,7 +133,7 @@ task_editor_construct (TaskEditor *te, ECal *client)
 				 _("Task"));
 	g_signal_connect (G_OBJECT (priv->task_page), "client_changed",
 			  G_CALLBACK (client_changed_cb), te);
-
+	task_page_show_option_widgets (priv->task_page, FALSE);
 	priv->task_details_page = task_details_page_new ();
 	g_object_ref (priv->task_details_page);
 	gtk_object_sink (GTK_OBJECT (priv->task_details_page));
@@ -339,6 +339,7 @@ show_assignment (TaskEditor *te)
 
 	priv = te->priv;
 
+	task_page_show_option_widgets (priv->task_page, TRUE);
 	if (!priv->assignment_shown) {
 		comp_editor_append_page (COMP_EDITOR (te),
 					 COMP_EDITOR_PAGE (priv->meet_page),

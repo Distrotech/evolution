@@ -973,9 +973,7 @@ Mail Receipt</property>
 			  <child>
 			    <widget class="GtkComboBox" id="complete-combo">
 			      <property name="visible">True</property>
-			      <property name="items" translatable="yes">None
-Mail Receipt
-</property>
+			      <property name="items" translatable="yes">None</property>
 			    </widget>
 			    <packing>
 			      <property name="left_attach">1</property>
@@ -987,7 +985,7 @@ Mail Receipt
 			  </child>
 
 			  <child>
-			    <widget class="GtkLabel" id="label109">
+			    <widget class="GtkLabel" id="completed-label">
 			      <property name="visible">True</property>
 			      <property name="label" translatable="yes">When co_mpleted:</property>
 			      <property name="use_underline">True</property>
@@ -1037,8 +1035,7 @@ Mail Receipt
 			  <child>
 			    <widget class="GtkComboBox" id="open-combo">
 			      <property name="visible">True</property>
-			      <property name="items" translatable="yes">None
-Mail Receipt</property>
+			      <property name="items" translatable="yes">None</property>
 			    </widget>
 			    <packing>
 			      <property name="left_attach">1</property>

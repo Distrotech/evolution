@@ -93,6 +93,7 @@ struct _EventPagePrivate {
 	EAlarmList *alarm_list_store;
 	
 	gboolean updating;
+	gboolean is_meeting;
 
 	char *old_summary;
 	CalUnits alarm_units;
@@ -171,6 +172,7 @@ event_page_init (EventPage *epage)
 	priv->send_options_label = NULL;
 	priv->send_options_button = NULL;
 	priv->options_data = NULL;
+	priv->is_meeting = FALSE;
 
 	priv->alarm_interval =  -1;
 	
@@ -630,7 +632,21 @@ sensitize_widgets (EventPage *epage)
 	else
 		gtk_widget_hide (priv->alarm_warning);
 	gtk_widget_set_sensitive (priv->categories_btn, !read_only);
+	gtk_widget_set_sensitive (priv->send_options_button, !read_only);
 	gtk_entry_set_editable (GTK_ENTRY (priv->categories), !read_only);
+}
+
+void
+event_page_hide_option_widgets (EventPage *page,gboolean is_meeting)
+{
+	g_return_if_fail (IS_EVENT_PAGE (page));
+
+	if (!is_meeting) {
+		gtk_widget_hide (page->priv->send_options_label);
+		gtk_widget_hide (page->priv->send_options_button);
+	}
+
+	page->priv->is_meeting = is_meeting;
 }
 
 /* fill_widgets handler for the event page */
@@ -933,6 +949,14 @@ event_page_fill_component (CompEditorPage *page, ECalComponent *comp)
 	/* Show Time As (Transparency) */
 	busy = e_dialog_toggle_get (priv->show_time_as_busy);
 	e_cal_component_set_transparency (comp, busy ? E_CAL_COMPONENT_TRANSP_OPAQUE : E_CAL_COMPONENT_TRANSP_TRANSPARENT);
+
+	/* send options */
+	if (priv->is_meeting) {
+		if (!priv->options_data)
+			priv->options_data = send_options_new ();
+
+		send_options_fill_component (comp, priv->options_data);
+	}
 
 	/* Alarm */
 	e_cal_component_remove_all_alarms (comp);
@@ -1590,7 +1614,7 @@ send_options_clicked_cb (GtkWidget *button, gpointer data)
 		priv->options_data = send_options_new ();
 
 	toplevel = gtk_widget_get_toplevel (priv->main);
-	result = send_options_run_dialog (toplevel, COMP_EDITOR_PAGE (epage)->client, priv->options_data);
+	result = send_options_run_dialog (toplevel, COMP_EDITOR_PAGE (epage)->client, priv->options_data, TRUE);
 	priv->options_data->initialized = TRUE;
 	
 }

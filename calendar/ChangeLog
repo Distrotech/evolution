@@ -1,3 +1,17 @@
+2004-11-23  Chenthill Palanisamy  <pchenthill@novell.com>
+	
+	* gui/dialogs/event-editor.c:
+	(event_editor_construct): Made a function call to event page
+        to show/hide send options widgets. (event_page_hide_option_widgets).
+	* gui/dialogs/event-page.c
+	(event_page_fill_component): Added the call for send_options_fill_component.
+	(event_page_hide_option_widgets): Added a new function.
+	* gui/dialogs/task-page.c: Did the same as in event-page.c for send-options.
+	* gui/dialogs/task-editor.c : Called a function to show/hide send-options
+	widgets (task_page_show_option_widgets).
+	* gui/dialogs/send-options.c (send_options_fill_widgets): Added the X properties
+	to put the data into ical.
+
 2004-11-09  Chenthill Palanisamy  <pchenthill@novell.com>
 
 	* gui/dialogs/event-page.glade:

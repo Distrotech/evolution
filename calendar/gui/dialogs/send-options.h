@@ -22,26 +22,26 @@
 #include <libecal/e-cal.h>
 
 typedef enum {
-	PRIORITY_LOW,
-	PRIORITY_STANDARD,
-	PRIORITY_HIGH
+	E_PRIORITY_LOW,
+	E_PRIORITY_STANDARD,
+	E_PRIORITY_HIGH
 } ESendOptionsPriority;
 
 typedef enum {
-	RETURN_NOTIFY_NONE,
-	RETURN_NOTIFY_MAIL
+	E_RETURN_NOTIFY_NONE,
+	E_RETURN_NOTIFY_MAIL
 } ESendOptionsReturnNotify;
 
 typedef enum {
-	DELIVERED,
-	DELIVERED_OPENED,
-	ALL,
+	E_DELIVERED,
+	E_DELIVERED_OPENED,
+	E_ALL
 } TrackInfo;
 
 typedef struct {
 	ESendOptionsPriority priority;
 	gboolean reply_enabled;
-	gboolean reply_convinient;
+	gboolean reply_convenient;
 	gint reply_within;
 	gboolean expiration_enabled;
 	gint expire_after;
@@ -67,7 +67,7 @@ typedef struct {
 	
 } ESendOptionsData;
 
-gboolean send_options_run_dialog (GtkWidget *parent, ECal *ecal, ESendOptionsData *options_data);
+gboolean send_options_run_dialog (GtkWidget *parent, ECal *ecal, ESendOptionsData *options_data, gboolean is_event);
 ESendOptionsData *send_options_new (void);
 void send_options_finalize (ESendOptionsData *options_data);
 void send_options_fill_component (ECalComponent *comp, ESendOptionsData *options);
