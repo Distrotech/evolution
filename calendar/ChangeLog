@@ -1,5 +1,22 @@
 2003-09-22  JP Rosevear <jpr@ximian.com>
 
+	* gui/gnome-cal.h: remove proto
+
+	* gui/gnome-cal.c: remove gnome_calendar_unrecur_selection
+
+	* gui/e-week-view.h: remove proto
+
+	* gui/e-week-view.c: remove e_week_view_unrecur_appointment
+
+	* gui/e-day-view.h: remove proto
+
+	* gui/e-day-view.c: remove e_day_view_unrecur_appointment
+
+	* gui/e-cal-view.c: remove on_unrecur_appointment (this is handled
+	better via recurrence id's now)
+
+2003-09-22  JP Rosevear <jpr@ximian.com>
+
 	* gui/e-itip-control.c (update_attendee_status): ifdef out, leave
 	temporarily for reference, but otherwise it shouldn't be needed
 	(update_item): switch to using receive objects

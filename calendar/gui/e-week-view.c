@@ -3322,64 +3322,6 @@ e_week_view_popup_menu (GtkWidget *widget)
 	return TRUE;
 }
 
-void
-e_week_view_unrecur_appointment (EWeekView *week_view)
-{
-	EWeekViewEvent *event;
-	CalComponent *comp, *new_comp;
-	CalComponentDateTime date;
-	struct icaltimetype itt;
-
-	if (week_view->popup_event_num == -1)
-		return;
-
-	event = &g_array_index (week_view->events, EWeekViewEvent,
-				week_view->popup_event_num);
-
-	/* For the recurring object, we add a exception to get rid of the
-	   instance. */
-	comp = cal_component_new ();
-	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
-	cal_comp_util_add_exdate (comp, event->start, e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-
-	/* For the unrecurred instance we duplicate the original object,
-	   create a new uid for it, get rid of the recurrence rules, and set
-	   the start & end times to the instances times. */
-	new_comp = cal_component_new ();
-	cal_component_set_icalcomponent (new_comp, icalcomponent_new_clone (event->comp_data->icalcomp));
-	cal_component_set_uid (new_comp, cal_component_gen_uid ());
-	cal_component_set_rdate_list (new_comp, NULL);
-	cal_component_set_rrule_list (new_comp, NULL);
-	cal_component_set_exdate_list (new_comp, NULL);
-	cal_component_set_exrule_list (new_comp, NULL);
-
-	date.value = &itt;
-	date.tzid = icaltimezone_get_tzid (e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-
-	*date.value = icaltime_from_timet_with_zone (event->start, FALSE,
-						     e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-	cal_component_set_dtstart (new_comp, &date);
-	*date.value = icaltime_from_timet_with_zone (event->end, FALSE,
-						     e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
-	cal_component_set_dtend (new_comp, &date);
-
-	/* Now update both CalComponents. Note that we do this last since at
-	   present the updates happen synchronously so our event may disappear.
-	*/
-	if (cal_client_update_object (event->comp_data->client, comp)
-	    != CAL_CLIENT_RESULT_SUCCESS)
-		g_message ("e_week_view_on_unrecur_appointment(): Could not update the object!");
-
-	g_object_unref (comp);
-
-	if (cal_client_update_object (event->comp_data->client, new_comp)
-	    != CAL_CLIENT_RESULT_SUCCESS)
-		g_message ("e_week_view_on_unrecur_appointment(): Could not update the object!");
-
-	g_object_unref (new_comp);
-}
-
-
 static gboolean
 e_week_view_on_jump_button_event (GnomeCanvasItem *item,
 				  GdkEvent *event,

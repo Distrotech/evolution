@@ -976,14 +976,6 @@ on_paste (GtkWidget *widget, gpointer user_data)
 	e_cal_view_paste_clipboard (cal_view);
 }
 
-static void
-on_unrecur_appointment (GtkWidget *widget, gpointer user_data)
-{
-	ECalView *cal_view = E_CAL_VIEW (user_data);
-
-	gnome_calendar_unrecur_selection (cal_view->priv->calendar);
-}
-
 enum {
 	/*
 	 * This is used to "flag" events that can not be editted
@@ -1077,7 +1069,6 @@ static EPopupMenu child_items [] = {
 	E_POPUP_SEPARATOR,
 
 	E_POPUP_ITEM (N_("_Delete"), GTK_SIGNAL_FUNC (on_delete_appointment), MASK_EDITABLE | MASK_SINGLE | MASK_EDITING),
-	E_POPUP_ITEM (N_("Make this Occurrence _Movable"), GTK_SIGNAL_FUNC (on_unrecur_appointment), MASK_RECURRING | MASK_EDITING | MASK_EDITABLE | MASK_INSTANCE),
 	E_POPUP_ITEM (N_("Delete this _Occurrence"), GTK_SIGNAL_FUNC (on_delete_occurrence), MASK_RECURRING | MASK_EDITING | MASK_EDITABLE),
 	E_POPUP_ITEM (N_("Delete _All Occurrences"), GTK_SIGNAL_FUNC (on_delete_appointment), MASK_RECURRING | MASK_EDITING | MASK_EDITABLE),
 
