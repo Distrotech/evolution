@@ -2156,8 +2156,17 @@ add_alarms (const char *uri)
 	CORBA_exception_free (&ev);
 }
 
+/**
+ * gnome_calendar_add_event_uri:
+ * @gcal: A GnomeCalendar.
+ * @str_uri: URI to add to the calendar views.
+ *
+ * Adds the given calendar URI to the calendar views.
+ *
+ * Returns: TRUE if successful, FALSE if error.
+ */
 gboolean
-gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
+gnome_calendar_add_event_uri (GnomeCalendar *gcal, const char *str_uri)
 {
 	GnomeCalendarPrivate *priv;
 	CalClient *client;

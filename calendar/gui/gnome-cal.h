@@ -110,7 +110,7 @@ CalClient *gnome_calendar_get_default_client    (GnomeCalendar *gcal);
 void       gnome_calendar_set_default_client    (GnomeCalendar *gcal, CalClient *client);
 CalClient *gnome_calendar_get_task_pad_cal_client(GnomeCalendar *gcal);
 
-gboolean   gnome_calendar_open                  (GnomeCalendar *gcal, const char *str_uri);
+gboolean   gnome_calendar_add_event_uri         (GnomeCalendar *gcal, const char *str_uri);
 
 void gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp);
 

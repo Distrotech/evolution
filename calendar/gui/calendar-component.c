@@ -55,9 +55,11 @@ struct _CalendarComponentPrivate {
 static void
 load_uri_for_source (ESource *source, BonoboControl *view_control)
 {
+	GnomeCalendar *gcal;
 	char *uri = e_source_get_uri (source);
 
-	bonobo_control_set_property (view_control, NULL, "folder_uri", TC_CORBA_string, uri, NULL);
+	gcal = (GnomeCalendar *) bonobo_control_get_widget (view_control);
+	gnome_calendar_add_event_uri (gcal, uri);
 	g_free (uri);
 }
 
