@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <glib.h>
+#include <fcntl.h>
 #include <libgnome/gnome-defs.h>
 #include <libgnome/gnome-util.h>
 #include <sys/stat.h>
@@ -40,18 +41,19 @@ xmkdir (char *path)
 char *
 backend_get_id(Calendar *cal)
 {
-  FILE *inf;
-  char *fname;
-  char buf[32];
-  
-  fname = g_copy_strings(cal->filename, ".uid", NULL);
-  inf = fopen(fname, "r");
-  g_free(fname);
-  if(!inf) return NULL;
-  fgets(buf, sizeof(buf), inf);
-  fclose(inf);
-
-  return g_strdup(g_strchomp(g_strstrip(buf)));
+	FILE *inf;
+	char *fname;
+	char buf[32];
+	
+	fname = g_copy_strings (cal->filename, ".uid", NULL);
+	inf = fopen (fname, "r");
+	g_free (fname);
+	if (!inf)
+		return NULL;
+	fgets (buf, sizeof (buf), inf);
+	fclose (inf);
+	
+	return g_strdup (g_strchomp (g_strstrip (buf)));
 }
 
 static void
@@ -90,7 +92,7 @@ backend_calendar_name (char *username, char *calendar_name, gboolean must_exist)
 	char *user_dir, *cal_file;
 
 	if (!calendar_name)
-		calendar_name = "default.vcf";
+		calendar_name = "default.calendar";
 	
 	user_dir = g_concat_dir_and_file (base_directory, username);
 	cal_file = g_concat_dir_and_file (user_dir, calendar_name);
@@ -139,11 +141,28 @@ backend_calendar_create (char *username, char *calendar_name)
 		*(p-1) = 0;
 		xmkdir (cal_file);
 	} else {
-		truncate (cal_file, 0);
+		int fd;
+		
+		fd = open (cal_file, O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+		if (fd != -1)
+			close (fd);
 	}
-	calendar_assign_id(cal_file);
+	calendar_assign_id (cal_file);
 	g_free (cal_file);
 	return 0;
+}
+
+void
+backend_verify_default (char *username)
+{
+	char *user_dir;
+	
+	g_return_if_fail (username != NULL);
+	user_dir = g_concat_dir_and_file (base_directory, username);
+	if (!g_file_exists (user_dir)){
+		xmkdir (user_dir);
+		backend_calendar_create (username, "default.calendar");
+	}
 }
 
 Calendar *
@@ -211,18 +230,60 @@ backend_list_users (void)
 
 	
 	while ((dent = readdir (dir)) != NULL){
-		int len = strlen (dent->d_name);
+		char *user_dir, *def_calendar;
+		struct stat s;
 
-		if (len < sizeof (".calendar"))
-			continue;
+		user_dir = g_concat_dir_and_file (base_directory, dent->d_name);
+		def_calendar = g_concat_dir_and_file (user_dir, "default.calendar");
 
-		if (strcmp (dent->d_name + len - sizeof (".calendar"), ".calendar") != 0)
-			continue;
+		if (stat (def_calendar, &s) == 0)
+			list = g_list_prepend (list, g_strdup (dent->d_name));
 
-		list = g_list_prepend (list, g_strdup (dent->d_name));
+		g_free (def_calendar);
+		g_free (user_dir);
 	}
 	
 	closedir (dir);
+
+	return list;
+}
+
+GList *
+backend_list_user_calendars (char *username)
+{
+	struct dirent *dent;
+	DIR *dir;
+	GList *list = NULL;
+	char *user_dir;
+
+	user_dir = g_concat_dir_and_file (base_directory, username);
+
+	dir = opendir (user_dir);
+	if (!dir){
+		g_free (user_dir);
+		return NULL;
+	}
+
+	while ((dent = readdir (dir)) != NULL){
+		const int extsize = sizeof (".calendar")-1;
+		int len = strlen (dent->d_name);
+
+		if (len < extsize)
+			continue;
+
+		if (strcmp (dent->d_name + len - extsize, ".calendar") == 0){
+			char *full, *name, *p;
+
+			name = g_strdup (dent->d_name);
+			p = strstr (name, ".calendar");
+			*p = 0;
+			full = g_copy_strings ("<", username, ">/", name, NULL);
+			g_free (name);
+			
+			list = g_list_prepend (list, full);
+		}
+	}
+	g_free (user_dir);
 
 	return list;
 }
@@ -241,7 +302,8 @@ backend_list_users (void)
 void
 backend_add_object (Calendar *calendar, iCalObject *object)
 {
-	
+	g_return_if_fail (calendar != NULL);
+	g_return_if_fail (object != NULL);
 }
 
 Calendar *

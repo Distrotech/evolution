@@ -17,13 +17,15 @@
 static int
 ical_object_assign_id (cal)
 {
-  int lastid;
-  lastid = gnome_config_get_int("/calendar/Calendar/ID=0");
+	int lastid;
+	lastid = gnome_config_get_int("/calendar/Calendar/ID=0");
+	
+	lastid++;
+	
+	gnome_config_set_int ("/calendar/Calendar/ID", lastid);	
+	gnome_config_sync ();
 
-  lastid++;
-  
-  gnome_config_set_int("/calendar/Calendar/ID", lastid);	
-  gnome_config_sync();
+	return lastid;
 }
 
 iCalObject *
@@ -729,6 +731,21 @@ ical_object_create_from_vobject (VObject *o, const char *object_name)
 		free (the_str);
 	}
 	return ical;
+}
+
+iCalObject *
+ical_object_create_from_data (void *data, int len)
+{
+        VObject *vo;
+
+	vo = Parse_MIME (data, len);
+	if (!vo)
+		return NULL;
+
+	if (has (vo, VCEventProp))
+		return ical_object_create_from_vobject (vo, VCEventProp);
+	else
+		return ical_object_create_from_vobject (vo, VCTodoProp);
 }
 
 static char *

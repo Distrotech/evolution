@@ -181,6 +181,7 @@ iCalObject *ical_new                        (void *calendar, char *comment, char
 iCalObject *ical_object_new                 (void *calendar);
 void        ical_object_destroy             (iCalObject *ico);
 iCalObject *ical_object_create_from_vobject (VObject *obj, const char *object_name);
+iCalObject *ical_object_create_from_data    (void *data, int len);
 VObject    *ical_object_to_vobject          (iCalObject *ical);
 iCalObject *ical_object_duplicate           (iCalObject *o);
 void        ical_foreach                    (GList *events, calendarfn fn, void *closure);

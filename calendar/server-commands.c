@@ -35,12 +35,15 @@ cs_command_LOGIN(CSConnection *cnx, CSCmdInfo *ci)
   username = ci->args->data;
   password = ci->args->next->data;
 
-  if(cs_user_authenticate(cnx, username, password)) {
-    fprintf(cnx->fh, "%s NO LOGIN for 31337 d00dz\r\n", ci->id);
+  if (cs_user_authenticate(cnx, username, password)){
+    fprintf (cnx->fh, "%s NO LOGIN for 31337 d00dz\r\n", ci->id);
   } else {
-    fprintf(cnx->fh, "%s OK LOGIN completed\r\n", ci->id);
-    if(cnx->authid) g_free(cnx->authid);
+    fprintf (cnx->fh, "%s OK LOGIN completed\r\n", ci->id);
+    if (cnx->authid)
+      g_free(cnx->authid);
     cnx->authid = g_strdup(username);
+
+    backend_verify_default (username);
   }
 }
 
@@ -142,23 +145,44 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *calname;
-  GList *users, *ltmp;
+	char *calname;
+	GList *result, *l;
+	
+	calname = ci->args->data;
+	
+	/* List of users */
+	if (strcmp (calname, "<*>") == 0){
+		result = backend_list_users ();
+		
+		for (l = result; l; l = l->next)
+			fprintf (cnx->fh, "* LIST () <%s>\r\n", (char *)l->data);
 
-  calname = ci->args->data;
+	} else if (strcmp (calname, "<>") == 0){
+		result = backend_list_user_calendars (cnx->authid);
 
-  if(strcmp(calname, "<*>")) {
-    fprintf(cnx->fh, "%s NO %s failed, we suck at listing.\r\n", ci->id, ci->name);
-    return;
-  }
+		for (l = result; l; l = l->next)
+			fprintf (cnx->fh, "* LIST () %s\r\n", (char *) l->data);
+	} else {
+		int len = strlen (calname);
+		char *user;
+		
+		if (calname [0] != '<' || len < 1 || calname [len-1] != '>'){
+			fprintf(cnx->fh, "%s NO %s failed.\r\n", ci->id, ci->name);
+			return;
+		}
+		user = strdup (calname + 1);
+		user [len-2] = 0;
 
-  users = backend_list_users();
-  for(ltmp = users; ltmp; ltmp = g_list_next(ltmp)) {
-    fprintf(cnx->fh, "* LIST () <%s>\r\n", (char *)ltmp->data);
-  }
-  g_list_foreach(ltmp, (GFunc)g_free, NULL);
-  g_list_free(ltmp);
-  fprintf(cnx->fh, "%s OK %s Completed\r\n", ci->id, ci->name);
+		result = backend_list_user_calendars (user);
+		g_free (user);
+
+		for (l = result; l; l = l->next)
+			fprintf (cnx->fh, "* LIST () %s\r\n", (char *) l->data);
+	}
+	
+	g_list_foreach (result, (GFunc) g_free, NULL);
+	g_list_free (result);
+	fprintf(cnx->fh, "%s OK %s Completed\r\n", ci->id, ci->name);
 }
 
 static void
@@ -185,21 +209,29 @@ cs_command_UNSUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *calname;
-  CSCmdArg *flags;
-  char *obj;
-
-  calname = ci->args->data;
-  flags = ci->args->next->data;
-  obj = ci->args->next->next->data;
-
-  if(!cnx->active_cal) {
-    fprintf(cnx->fh, "%s NO %s no current calendar\r\n",
-	    ci->id, ci->name);
-    return;
-  }
-  backend_add_object(cnx->active_cal, NULL);
-  fprintf(cnx->fh, "%s OK %s completed\r\n", ci->id, ci->name);
+	char *calname;
+	CSCmdArg *flags;
+	char *obj;
+	iCalObject *iobject;
+	
+	calname = ci->args->data;
+	flags = ci->args->next->data;
+	obj = ci->args->next->next->data;
+	
+	if (!cnx->active_cal) {
+		fprintf (cnx->fh, "%s NO %s no current calendar\r\n",
+			 ci->id, ci->name);
+		return;
+	}
+	iobject = ical_object_create_from_data (obj, strlen (obj));
+	if (!iobject){
+		fprintf (cnx->fh, "%s NO %s invalid object\r\n",
+			 ci->id, ci->name);
+		return;
+	}
+	
+	backend_add_object (cnx->active_cal, iobject);
+	fprintf(cnx->fh, "%s OK %s completed\r\n", ci->id, ci->name);
 }
 
 static void

@@ -1,3 +1,20 @@
+1998-12-29  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* server-commands.c (cs_command_APPEND): Create the object from a
+	transfered iCal object.
+
+	* calobj.c (ical_object_create_from_data): New function.
+
+	* server-commands.c (cs_command_LIST): Complete the implementation
+	of the LIST command.
+
+1998-12-28  Miguel de Icaza  <miguel@nuclecu.unam.mx>
+
+	* backend.c (backend_verify_default): New routine, used to create
+	a default calendar directory for the user.
+
+	* calobj.c (ical_object_new): Return a value.
+
 1998-12-17  Miguel de Icaza  <miguel@nuclecu.unam.mx>
 
 	* frontend.c (calendar_get_id): Provide a way to return unique IDs
