@@ -669,31 +669,6 @@ update_query (GnomeCalendar *gcal)
 
 	g_free (real_sexp);
 }
-#if 0
-static void
-adjust_e_cal_view_for_view (ECalendarView *cal_view, const char *sexp)
-{
-	char *real_sexp, *start, *end;
-	time_t ttstart, ttend;
-
-	e_calendar_view_get_visible_time_range (cal_view, &ttstart, &ttend);
-
-	start = isodate_from_time_t (ttstart);
-	end = isodate_from_time_t (ttend);
-
-	real_sexp = g_strdup_printf (
-		"(and (occur-in-time-range? (make-time \"%s\")"
-		"                           (make-time \"%s\"))"
-		" %s)",
-		start, end, sexp);
-
-	e_cal_model_set_query (e_calendar_view_get_model (cal_view), real_sexp);
-
-	g_free (start);
-	g_free (end);
-	g_free (real_sexp);
-}
-#endif
 
 static void
 set_search_query (GnomeCalendar *gcal, const char *sexp)
