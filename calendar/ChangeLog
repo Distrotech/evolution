@@ -1,5 +1,9 @@
 2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/gnome-cal.c (gnome_calendar_construct): fixed typo.
+
+2003-08-07  Rodrigo Moya <rodrigo@ximian.com>
+
 	* cal-client/cal-client.[ch] (cal_client_get_component_as_string):
 	* cal-util/cal-util.[ch] (cal_util_add_timezone_from_component):
 	use icalcomponent's instead of CalComponent's.

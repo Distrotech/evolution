@@ -1953,7 +1953,7 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));
 	g_assert (model != NULL);
 
-	e_cal_model_add_cal_client (model, priv->task_pad_client);
+	e_cal_model_add_client (model, priv->task_pad_client);
 
 	/* Get the default view to show. */
 	view_type = calendar_config_get_default_view ();
