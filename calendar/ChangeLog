@@ -1,3 +1,11 @@
+2003-10-02  Rodrigo Moya <rodrigo@ximian.com>
+
+	* cal-client/cal-client.c (cal_client_modify_object): return FALSE
+	if the icalcomponent is NULL.
+
+	* gui/e-day-view.c (e_day_view_finish_resize): commit sequence on
+	CalComponent after changing start/end dates.
+
 2003-10-01  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-day-view.c (process_component):

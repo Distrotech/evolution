@@ -3159,6 +3159,7 @@ cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModT
 
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
+	g_return_val_if_fail (icalcomp != NULL, FALSE);
 
 	priv = client->priv;
 

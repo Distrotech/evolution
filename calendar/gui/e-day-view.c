@@ -3904,7 +3904,8 @@ e_day_view_finish_resize (EDayView *day_view)
 	}
 	
 	toplevel = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (day_view)));
-	
+
+	cal_component_commit_sequence (comp);
  	if (cal_client_modify_object (client, cal_component_get_icalcomponent (comp), mod, NULL)) {
 		if (itip_organizer_is_user (comp, client) &&
 		    send_component_dialog (toplevel, client, comp, TRUE)) {

@@ -324,9 +324,9 @@ cal_factory_init (CalFactory *factory, CalFactoryClass *klass)
 	factory->priv = priv;
 
 	priv->methods = g_hash_table_new_full (g_str_hash, g_str_equal, 
-					       (GDestroyNotify)g_free, (GDestroyNotify)g_hash_table_destroy);
+					       (GDestroyNotify) g_free, (GDestroyNotify) g_hash_table_destroy);
 	priv->backends = g_hash_table_new_full (g_str_hash, g_str_equal, 
-						(GDestroyNotify)g_free, (GDestroyNotify)g_object_unref);
+						(GDestroyNotify) g_free, (GDestroyNotify) g_object_unref);
 	priv->registered = FALSE;
 }
 

@@ -361,7 +361,7 @@ cal_destroy_cb (gpointer data, GObject *where_cal_was)
 {
 	CalBackend *backend = CAL_BACKEND (data);
 
-	cal_backend_remove_client (backend, (Cal *)where_cal_was);
+	cal_backend_remove_client (backend, (Cal *) where_cal_was);
 }
 
 static void
