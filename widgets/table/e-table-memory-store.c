@@ -26,6 +26,7 @@
 #include "e-table-memory-store.h"
 
 #define PARENT_TYPE e_table_memory_get_type ()
+ETableMemoryClass *parent_class = NULL;
 
 #define STORE_LOCATOR(etms, col, row) (*((etms)->priv->store + (row) * (etms)->priv->col_count + (col)))
 
@@ -81,6 +82,21 @@ free_value (ETableMemoryStore *etms, int col, void *value)
 	default:
 		break;
 	}
+}
+
+static void
+etms_destroy (GtkObject *object)
+{
+	ETableMemoryStore *etms;
+
+	etms = E_TABLE_MEMORY_STORE (object);
+
+	e_table_memory_store_clear (etms);
+
+	g_free (etms->priv->columns);
+	g_free (etms->priv);
+
+	(* GTK_OBJECT_CLASS (parent_class)->destroy) (object);
 }
 
 static int
@@ -233,6 +249,8 @@ e_table_memory_store_class_init (GtkObjectClass *object_class)
 {
 	ETableModelClass *model_class = (ETableModelClass *) object_class;
 
+	object_class->destroy         = etms_destroy;
+
 	model_class->column_count     = etms_column_count;
 	model_class->value_at         = etms_value_at;
 	model_class->set_value_at     = etms_set_value_at;
@@ -243,6 +261,8 @@ e_table_memory_store_class_init (GtkObjectClass *object_class)
 	model_class->value_is_empty   = etms_value_is_empty;
 	model_class->value_to_string  = etms_value_to_string;
 	model_class->append_row       = etms_append_row;
+
+	parent_class = gtk_type_class (e_table_memory_get_type ());
 }
 
 GtkType
@@ -540,7 +560,15 @@ e_table_memory_store_change_adopt (ETableMemoryStore *etms, int row, gpointer da
 void
 e_table_memory_store_remove (ETableMemoryStore *etms, int row)
 {
-	int row_count;
+	ETableModel *model;
+	int column_count, row_count;
+	int i;
+
+	model = E_TABLE_MODEL (etms);
+	column_count = e_table_model_column_count (model);
+
+	for (i = 0; i < column_count; i ++)
+		e_table_model_free_value (model, i, e_table_model_value_at (model, i, row));
 
 	row_count = e_table_model_row_count (E_TABLE_MODEL (etms)) - 1;
 	memmove (etms->priv->store + etms->priv->col_count * row,
@@ -554,6 +582,20 @@ e_table_memory_store_remove (ETableMemoryStore *etms, int row)
 void
 e_table_memory_store_clear (ETableMemoryStore *etms)
 {
+	ETableModel *model;
+	int row_count, column_count;
+	int i, j;
+
+	model = E_TABLE_MODEL (etms);
+	row_count = e_table_model_row_count (model);
+	column_count = e_table_model_column_count (model);
+
+	for (i = 0; i < row_count; i ++) {
+		for (j = 0; j < column_count; j ++) {
+			e_table_model_free_value (model, j, e_table_model_value_at (model, j, i));
+		}
+	}
+
 	e_table_memory_clear (E_TABLE_MEMORY (etms));
 
 	g_free (etms->priv->store);
