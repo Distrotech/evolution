@@ -1,10 +1,17 @@
 2003-08-11  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-source.c (e_source_set_group): Weak_unref the current group if
+	not NULL and properly handle the case where a NULL group is being
+	passed in.
+
+2003-08-11  Ettore Perazzoli  <ettore@ximian.com>
+
 	* e-source-group.c: New file.
 	* e-source-group.h: New file.
 	* e-source-list.h: New file.
 	* e-source-list.c: New file.
 	* e-source.c: New file.
+
 	* e-source.h: New file.
 	* test-source-list.c: New file to test the above.
 
