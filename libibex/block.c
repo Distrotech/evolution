@@ -36,6 +36,11 @@
 
 #include "block.h"
 
+#ifdef USE_MMAP
+#include <unistd.h>
+#include <sys/mman.h>
+#endif
+
 /*#define MALLOC_CHECK*/
 
 #ifdef MALLOC_CHECK
@@ -45,6 +50,21 @@
 #define d(x)
 /*#define DEBUG*/
 
+
+/* in-memory structure for block cache */
+struct _memblock {
+	struct _memblock *next;
+	struct _memblock *prev;
+
+	blockid_t block;
+	int flags;
+
+	struct _block data;
+};
+#define BLOCK_DIRTY (1<<0)
+
+
+/* for some debugging stuff only */
 int block_log;
 
 #ifdef IBEX_STATS
@@ -209,12 +229,6 @@ struct _listnode *ibex_list_remove(struct _listnode *n)
 	return n;
 }
 
-static struct _memblock *
-memblock_addr(struct _block *block)
-{
-	return (struct _memblock *)(((char *)block) - G_STRUCT_OFFSET(struct _memblock, data));
-}
-
 /* read/sync the rootblock into the block_cache structure */
 static int
 ibex_block_read_root(struct _memcache *block_cache)
@@ -237,6 +251,14 @@ ibex_block_sync_root(struct _memcache *block_cache)
 	return fsync(block_cache->fd);
 }
 
+
+#ifndef USE_MMAP
+
+static struct _memblock *
+memblock_addr(struct _block *block)
+{
+	return (struct _memblock *)(((char *)block) - G_STRUCT_OFFSET(struct _memblock, data));
+}
 
 /**
  * ibex_block_dirty:
@@ -593,3 +615,206 @@ ibex_block_get(struct _memcache *block_cache)
 	ibex_block_dirty(block);
 	return head;
 }
+
+#else /* USE_MMAP */
+
+/* FIXME: should be increment of system pagesize */
+#define BLOCK_MMAP_INCREMENT (1310720)
+
+/* list of blocks mmapped to memory */
+struct _mapblock {
+	struct _mapblock *next;
+	struct _mapblock *prev;
+	unsigned int start, size;
+	char *mem;
+};
+
+struct _memcache *ibex_block_cache_open(const char *name, int flags, int mode)
+{
+	struct _memcache *block_cache = g_malloc0(sizeof(*block_cache));
+	struct _mapblock *map_block;
+
+	d(printf("opening ibex file: %s", name));
+
+	/* setup cache */
+	ibex_list_new(&block_cache->map_blocks);
+	block_cache->fd = open(name, flags, mode);
+
+	if (block_cache->fd == -1) {
+		g_free(block_cache);
+		return NULL;
+	}
+
+	ibex_block_read_root(block_cache);
+	if (block_cache->root.roof == 0
+	    || memcmp(block_cache->root.version, IBEX_VERSION, 4)
+	    || ((block_cache->root.flags & IBEX_ROOT_SYNCF) == 0)) {
+		d(printf("Initialising superblock\n"));
+		/* reset root data */
+		memcpy(block_cache->root.version, IBEX_VERSION, 4);
+		block_cache->root.roof = 1024;
+		block_cache->root.free = 0;
+		block_cache->root.words = 0;
+		block_cache->root.names = 0;
+		block_cache->root.tail = 0;	/* list of tail blocks */
+		block_cache->root.flags = 0;
+		ibex_block_sync_root(block_cache);
+		/* reset the file contents */
+		ftruncate(block_cache->fd, 1024);
+	} else {
+		d(printf("superblock already initialised:\n"
+			 " roof = %d\n free = %d\n words = %d\n names = %d\n tail = %d\n",
+			 block_cache->root.roof, block_cache->root.free,
+			 block_cache->root.words, block_cache->root.names, block_cache->root.tail));
+	}
+
+	map_block = g_malloc0(sizeof(*map_block));
+	map_block->start = 0;
+	map_block->size = (block_cache->root.roof + BLOCK_MMAP_INCREMENT) / BLOCK_MMAP_INCREMENT * BLOCK_MMAP_INCREMENT;
+	map_block->mem = mmap(NULL, map_block->size, PROT_WRITE|PROT_READ, MAP_SHARED, block_cache->fd, 0);
+	ibex_list_addtail(&block_cache->map_blocks, (struct _listnode *)map_block);
+
+	printf("mmaped %s at %p for %d bytes from %d\n", name, map_block->mem, map_block->size, map_block->start);
+
+	/* FIXME: this should be moved higher up in the object tree */
+	{
+		struct _IBEXWord *ibex_create_word_index_mem(struct _memcache *bc, blockid_t *wordroot, blockid_t *nameroot);
+
+		block_cache->words = ibex_create_word_index_mem(block_cache, &block_cache->root.words,&block_cache->root.names);
+	}
+
+#ifdef IBEX_STATS
+	init_stats(block_cache);
+#endif
+
+	return block_cache;
+}
+
+void ibex_block_cache_close(struct _memcache *block_cache)
+{
+	struct _mapblock *map_block, *map_blockn;
+
+	ibex_block_cache_sync(block_cache);
+
+	map_block = (struct _mapblock *)block_cache->map_blocks.head;
+	map_blockn = map_block->next;
+	while (map_blockn) {
+		munmap(map_block->mem, map_block->size);
+		g_free(map_block);
+		map_block = map_blockn;
+		map_blockn = map_block->next;
+	}
+
+	close(block_cache->fd);
+	g_free(block_cache);
+}
+
+void ibex_block_cache_sync(struct _memcache *block_cache)
+{
+	struct _mapblock *map_block;
+	int ok = TRUE;
+
+	map_block = (struct _mapblock *)block_cache->map_blocks.head;
+	while (map_block->next) {
+		printf("syncing mmap block at %p for %d bytes from %d\n", map_block->mem, map_block->size, map_block->start);
+		if (msync(map_block->mem, map_block->size, MS_SYNC) != 0) {
+			g_warning("Failed to sync index : %s", strerror(errno));
+			ok = FALSE;
+		}
+		map_block = map_block->next;
+	}
+
+	if (ok) {
+		block_cache->root.flags |= IBEX_ROOT_SYNCF;
+		if (ibex_block_sync_root(block_cache) != 0) {
+			block_cache->root.flags &= ~IBEX_ROOT_SYNCF;
+		}
+	}
+}
+
+void ibex_block_cache_flush(struct _memcache *block_cache)
+{
+	ibex_block_cache_sync(block_cache);
+}
+
+blockid_t ibex_block_get(struct _memcache *block_cache)
+{
+	struct _block *block;
+	blockid_t head;
+
+	if (block_cache->root.free) {
+		head = block_cache->root.free;
+		block = ibex_block_read(block_cache, head);
+		block_cache->root.free = block_location(block->next);
+	} else {
+		struct _mapblock *map_block;
+
+		map_block = (struct _mapblock *)block_cache->map_blocks.tailpred;
+		if (map_block->start + map_block->size < block_cache->root.roof + BLOCK_SIZE) {
+			struct _mapblock *map_new = g_malloc0(sizeof(*map_new));
+			map_new->start = map_block->start + map_block->size;
+			map_new->size = BLOCK_MMAP_INCREMENT;
+			map_new->mem = mmap(NULL, map_new->size, PROT_WRITE|PROT_READ, MAP_SHARED, block_cache->fd, map_new->start);
+			ibex_list_addtail(&block_cache->map_blocks, (struct _listnode *)map_new);
+
+			printf("mmaped extra at %p for %d bytes from %d\n", map_new->mem, map_new->size, map_new->start);
+		}
+
+		head = block_cache->root.roof;
+		block_cache->root.roof += BLOCK_SIZE;
+
+		/* grow the file, should probably do this in bigger blocks then add them to the free list
+		   if we aren't using them yet */
+		lseek(block_cache->fd, block_cache->root.roof-1, SEEK_SET);
+		write(block_cache->fd, "", 1);
+
+		/* FIXME: we know what this is from above, could set it directly */
+		block = ibex_block_read(block_cache, head);
+	}
+
+	g_assert(head != 0);
+
+	d(printf("new block = %d\n", head));
+	block->next = 0;
+	block->used = 0;
+	ibex_block_dirty(block);
+	return head;
+}
+
+void ibex_block_free(struct _memcache *block_cache, blockid_t blockid)
+{
+	struct _block *block = ibex_block_read(block_cache, blockid);
+
+	block->next = block_number(block_cache->root.free);
+	block_cache->root.free = blockid;
+	ibex_block_dirty((struct _block *)block);
+}
+
+void ibex_block_dirty(struct _block *block)
+{
+	/* noop? */
+}
+
+struct _block *ibex_block_read(struct _memcache *block_cache, blockid_t blockid)
+{
+	struct _mapblock *map_block;
+
+	/* nothing can read the root block directly */
+	g_assert(blockid != 0);
+	g_assert(blockid < block_cache->root.roof);
+
+	map_block = (struct _mapblock *)block_cache->map_blocks.head;
+	while (map_block->next) {
+		if (blockid >= map_block->start && blockid < map_block->start + map_block->size)
+			return (struct _block *)(map_block->mem + (blockid - map_block->start));
+
+		map_block = map_block->next;
+	}
+
+	g_assert_not_reached();
+	return NULL;
+}
+
+
+#endif
+

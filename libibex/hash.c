@@ -252,7 +252,9 @@ hash_get_key(struct _IBEXIndex *index, hashid_t hashbucket, int *len)
 	} else {
 		end = &bucket->hb_keydata[bucket->hb_keys[ind-1].keyoffset];
 	}
-	
+
+	g_assert(end >= start);
+
 	ret = g_malloc(end-start+1);
 	memcpy(ret, start, end-start);
 	ret[end-start]=0;

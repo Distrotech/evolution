@@ -8,6 +8,8 @@
 
 #include <glib.h>
 
+/*#define USE_MMAP*/		/* try mmap version.  works, but is not worth it */
+
 /* version of file format */
 #define IBEX_VERSION "ibx6"
 
@@ -61,29 +63,22 @@ struct _listnode *ibex_list_addhead(struct _list *l, struct _listnode *n);
 struct _listnode *ibex_list_addtail(struct _list *l, struct _listnode *n);
 struct _listnode *ibex_list_remove(struct _listnode *n);
 
-/* in-memory structure for block cache */
-struct _memblock {
-	struct _memblock *next;
-	struct _memblock *prev;
-
-	blockid_t block;
-	int flags;
-
-	struct _block data;
-};
-#define BLOCK_DIRTY (1<<0)
-
 struct _memcache {
-	struct _list nodes;
-	int count;		/* nodes in cache */
-
-	GHashTable *index;	/* blockid->memblock mapping */
 	int fd;			/* file fd */
 
 #ifdef IBEX_STATS
 	GHashTable *stats;
 #endif
 	struct _root root;	/* root block */
+
+#ifdef USE_MMAP
+	struct _list map_blocks;
+#else
+	struct _list nodes;
+	int count;		/* nodes in cache */
+
+	GHashTable *index;	/* blockid->memblock mapping */
+#endif
 
 	/* temporary here */
 	struct _IBEXWord *words; /* word index */

@@ -1,3 +1,17 @@
+2001-04-03  Not Zed  <NotZed@Ximian.com>
+
+	* testindex.c (main): Heavier testing.
+
+2001-02-07  Not Zed  <NotZed@Ximian.com>
+
+	* block.c: Attempted a mmap version.  Its not better enough, often
+	enough to make it worthwhile.  Very dissaspointing.  Other code
+	paths could probably be optimised beyond the io one anyway.
+
+2001-02-06  Not Zed  <NotZed@Ximian.com>
+
+	* block.h: Moved memblock into block.c.
+
 2001-03-26  Kjartan Maraas  <kmaraas@gnome.org>
 
 	* disktail.c: Header shuffling. Move glibc headers before
