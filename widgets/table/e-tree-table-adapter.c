@@ -59,6 +59,9 @@ find_node(ETreeTableAdapter *adapter, ETreePath path)
 {
 	ETreeTableAdapterNode *node;
 
+	if (path == NULL)
+		return NULL;
+
 	if (e_tree_model_has_save_id(adapter->priv->source)) {
 		char *save_id;
 		save_id = e_tree_model_get_save_id(adapter->priv->source, path);

@@ -177,6 +177,25 @@ find_path(ETreeSorted *ets, ETreePath corresponding)
 }
 
 static ETreeSortedPath *
+find_child_path(ETreeSorted *ets, ETreeSortedPath *parent, ETreePath corresponding)
+{
+	int i;
+
+	if (corresponding == NULL)
+		return NULL;
+
+	if (parent->num_children == -1) {
+		return NULL;
+	}
+
+	for (i = 0; i < parent->num_children; i++)
+		if (parent->children[i]->corresponding == corresponding)
+			return parent->children[i];
+
+	return NULL;
+}
+
+static ETreeSortedPath *
 find_or_create_path(ETreeSorted *ets, ETreePath corresponding)
 {
 	int depth;
@@ -909,14 +928,23 @@ static void
 ets_proxy_node_removed (ETreeModel *etm, ETreePath parent, ETreePath child, ETreeSorted *ets)
 {
 	ETreeSortedPath *parent_path = find_path(ets, parent);
-	ETreeSortedPath *path = find_path(ets, child);
+	ETreeSortedPath *path;
 
-	if (parent_path && parent_path->num_children != -1) {
+	if (parent_path)
+		path = find_child_path(ets, parent_path, child);
+	else
+		path = find_path(ets, child);
+
+	if (path && parent_path && parent_path->num_children != -1) {
+		int i = path->position;
 		parent_path->num_children --;
-		memmove(parent_path->children + path->position, parent_path->children + path->position + 1, sizeof(ETreeSortedPath *) * (parent_path->num_children - path->position - 1));
+		memmove(parent_path->children + i, parent_path->children + i + 1, sizeof(ETreeSortedPath *) * (parent_path->num_children - i));
+		for (; i < parent_path->num_children; i++) {
+			parent_path->children[i]->position = i;
+		}
 		e_tree_model_node_removed(E_TREE_MODEL(ets), parent_path, path);
 		free_path(path);
-	} else if (path != NULL && path == ets->priv->root) {
+	} else if (path && path == ets->priv->root) {
 		ets->priv->root = NULL;
 		e_tree_model_node_removed(E_TREE_MODEL(ets), NULL, path);
 		free_path(path);
