@@ -28,6 +28,7 @@ int       e_table_sorting_utils_insert        (ETableModel    *source,
 					       int     	       rows, 
 					       int     	       row);
 
+int       e_table_sorting_utils_check_position (ETableModel *source, ETableSortInfo *sort_info, ETableHeader *full_header, int *map_table, int rows, int view_row);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

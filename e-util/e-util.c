@@ -269,6 +269,30 @@ e_marshal_INT__INT_INT_POINTER (GtkObject * object,
 				func_data);
 }
 
+typedef gint (*GtkSignal_INT__INT_POINTER_INT_POINTER) (GtkObject * object,
+							gint arg1,
+							gpointer arg2,
+							gint arg3,
+							gpointer arg4,
+							gpointer user_data);
+
+void
+e_marshal_INT__INT_POINTER_INT_POINTER (GtkObject * object,
+					GtkSignalFunc func,
+					gpointer func_data, GtkArg * args)
+{
+	GtkSignal_INT__INT_POINTER_INT_POINTER rfunc;
+	gint *return_val;
+	return_val = GTK_RETLOC_INT (args[3]);
+	rfunc = (GtkSignal_INT__INT_POINTER_INT_POINTER) func;
+	*return_val = (*rfunc) (object,
+				GTK_VALUE_INT     (args[0]),
+				GTK_VALUE_POINTER (args[1]),
+				GTK_VALUE_INT     (args[2]),
+				GTK_VALUE_POINTER (args[3]),
+				func_data);
+}
+
 typedef void (*GtkSignal_NONE__OBJECT_DOUBLE_DOUBLE_BOOL) (GtkObject * object,
 							      GtkObject *arg1,
 							      gdouble arg2,
@@ -361,6 +385,29 @@ e_marshal_NONE__INT_INT_POINTER_POINTER_INT_INT (GtkObject * object,
 	    GTK_VALUE_INT (args[4]), GTK_VALUE_INT (args[5]), func_data);
 }
 
+typedef void (*GtkSignal_NONE__INT_POINTER_INT_POINTER_POINTER_INT_INT) (GtkObject * object,
+									 gint arg1, 
+									 gpointer arg2,
+									 gint arg3,
+									 gpointer arg4,
+									 gpointer arg5,
+									 gint arg6,
+									 gint arg7,
+									 gpointer user_data);
+void
+e_marshal_NONE__INT_POINTER_INT_POINTER_POINTER_INT_INT (GtkObject * object,
+							 GtkSignalFunc func,
+							 gpointer func_data, GtkArg * args)
+{
+  GtkSignal_NONE__INT_POINTER_INT_POINTER_POINTER_INT_INT rfunc;
+  rfunc = (GtkSignal_NONE__INT_POINTER_INT_POINTER_POINTER_INT_INT) func;
+  (*rfunc) (object,
+	    GTK_VALUE_INT (args[0]), GTK_VALUE_POINTER (args[1]), GTK_VALUE_INT (args[2]),
+	    GTK_VALUE_POINTER (args[3]),
+	    GTK_VALUE_POINTER (args[4]),
+	    GTK_VALUE_INT (args[5]), GTK_VALUE_INT (args[6]), func_data);
+}
+
 typedef void (*GtkSignal_NONE__INT_INT_POINTER_INT) (GtkObject * object,
 						     gint arg1, 
 						     gint arg2,
@@ -376,6 +423,24 @@ e_marshal_NONE__INT_INT_POINTER_INT (GtkObject * object,
   (*rfunc) (object,
 	    GTK_VALUE_INT (args[0]), GTK_VALUE_INT (args[1]), 
 	    GTK_VALUE_POINTER (args[2]), GTK_VALUE_INT (args[3]), func_data);
+}
+
+typedef void (*GtkSignal_NONE__INT_POINTER_INT_POINTER_INT) (GtkObject * object,
+							     gint arg1, 
+							     gpointer arg2,
+							     gint arg3,
+							     gpointer arg4,
+							     gint arg5, gpointer user_data);
+void
+e_marshal_NONE__INT_POINTER_INT_POINTER_INT (GtkObject * object,
+					     GtkSignalFunc func,
+					     gpointer func_data, GtkArg * args)
+{
+  GtkSignal_NONE__INT_POINTER_INT_POINTER_INT rfunc;
+  rfunc = (GtkSignal_NONE__INT_POINTER_INT_POINTER_INT) func;
+  (*rfunc) (object,
+	    GTK_VALUE_INT (args[0]), GTK_VALUE_POINTER (args[1]), GTK_VALUE_INT (args[2]), 
+	    GTK_VALUE_POINTER (args[3]), GTK_VALUE_INT (args[4]), func_data);
 }
 
 typedef gboolean (*GtkSignal_BOOL__INT_INT_POINTER_INT_INT_INT) (GtkObject * object,
@@ -402,6 +467,34 @@ e_marshal_BOOL__INT_INT_POINTER_INT_INT_INT (GtkObject * object,
 			  GTK_VALUE_INT (args[3]),
 			  GTK_VALUE_INT (args[4]),
 			  GTK_VALUE_INT (args[5]), func_data);
+}
+
+typedef gboolean (*GtkSignal_BOOL__INT_POINTER_INT_POINTER_INT_INT_INT) (GtkObject * object,
+									 gint arg1, 
+									 gpointer arg2,
+									 gint arg3,
+									 gpointer arg4,
+									 gint arg5,
+									 gint arg6,
+									 gint arg7,
+									 gpointer user_data);
+void
+e_marshal_BOOL__INT_POINTER_INT_POINTER_INT_INT_INT (GtkObject * object,
+						     GtkSignalFunc func,
+						     gpointer func_data, GtkArg * args)
+{
+  GtkSignal_BOOL__INT_POINTER_INT_POINTER_INT_INT_INT rfunc;
+  gboolean *return_val;
+  return_val = GTK_RETLOC_BOOL (args[6]);
+  rfunc = (GtkSignal_BOOL__INT_POINTER_INT_POINTER_INT_INT_INT) func;
+  *return_val = (*rfunc) (object,
+			  GTK_VALUE_INT (args[0]),
+			  GTK_VALUE_POINTER (args[1]),
+			  GTK_VALUE_INT (args[2]), 
+			  GTK_VALUE_POINTER (args[3]),
+			  GTK_VALUE_INT (args[4]),
+			  GTK_VALUE_INT (args[5]),
+			  GTK_VALUE_INT (args[6]), func_data);
 }
 
 typedef void (*GtkSignal_NONE__INT_INT_POINTER_INT_INT_POINTER_INT_INT) (GtkObject *
@@ -436,6 +529,38 @@ e_marshal_NONE__INT_INT_POINTER_INT_INT_POINTER_INT_INT (GtkObject * object,
 	    GTK_VALUE_INT (args[6]), GTK_VALUE_INT (args[7]), func_data);
 }
 
+typedef void (*GtkSignal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_INT_INT) (GtkObject *
+										 object,
+										 gint arg1, 
+										 gpointer arg2,
+										 gint arg3,
+										 gpointer arg4,
+										 gint arg5,
+										 gint arg6,
+										 gpointer arg7,
+										 gint arg8,
+										 gint arg9,
+										 gpointer user_data);
+
+void
+e_marshal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_INT_INT (GtkObject * object,
+								 GtkSignalFunc func,
+								 gpointer func_data,
+								 GtkArg * args)
+{
+  GtkSignal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_INT_INT rfunc;
+  rfunc = (GtkSignal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_INT_INT) func;
+  (*rfunc) (object,
+	    GTK_VALUE_INT (args[0]), 
+	    GTK_VALUE_POINTER (args[1]),
+	    GTK_VALUE_INT (args[2]), 
+	    GTK_VALUE_POINTER (args[3]),
+	    GTK_VALUE_INT (args[4]),
+	    GTK_VALUE_INT (args[5]),
+	    GTK_VALUE_POINTER (args[6]),
+	    GTK_VALUE_INT (args[7]), GTK_VALUE_INT (args[8]), func_data);
+}
+
 typedef void (*GtkSignal_NONE__POINTER_POINTER_INT) (GtkObject *, gpointer,
 						     gpointer, gint, gpointer);
 
@@ -447,6 +572,19 @@ e_marshal_NONE__POINTER_POINTER_INT (GtkObject * object, GtkSignalFunc func,
   rfunc = (GtkSignal_NONE__POINTER_POINTER_INT) func;
   (*rfunc) (object, GTK_VALUE_POINTER (args[0]), GTK_VALUE_POINTER (args[1]),
 	    GTK_VALUE_INT (args[2]), func_data);
+}	
+
+typedef void (*GtkSignal_NONE__INT_POINTER_INT_POINTER) (GtkObject *, gint, gpointer,
+							 gint, gpointer, gpointer);
+
+void
+e_marshal_NONE__INT_POINTER_INT_POINTER (GtkObject * object, GtkSignalFunc func,
+					 gpointer func_data, GtkArg * args)
+{
+  GtkSignal_NONE__INT_POINTER_INT_POINTER rfunc;
+  rfunc = (GtkSignal_NONE__INT_POINTER_INT_POINTER) func;
+  (*rfunc) (object, GTK_VALUE_INT (args[0]), GTK_VALUE_POINTER (args[1]),
+	    GTK_VALUE_INT (args[2]), GTK_VALUE_POINTER (args[3]), func_data);
 }	
 
 typedef int (*GtkSignal_INT__POINTER_POINTER) (GtkObject *,

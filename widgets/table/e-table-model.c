@@ -68,6 +68,23 @@ e_table_model_row_count (ETableModel *e_table_model)
 }
 
 /**
+ * e_table_model_append_row:
+ * @e_table_model: the table model to append the a row to.
+ * @source:
+ * @row:
+ *
+ */
+void
+e_table_model_append_row (ETableModel *e_table_model, ETableModel *source, int row)
+{
+	g_return_if_fail (e_table_model != NULL);
+	g_return_if_fail (E_IS_TABLE_MODEL (e_table_model));
+
+	if (ETM_CLASS (e_table_model)->append_row)
+		ETM_CLASS (e_table_model)->append_row (e_table_model, source, row);
+}
+
+/**
  * e_table_value_at:
  * @e_table_model: the e-table-model to operate on
  * @col: column in the model to pull data from.
@@ -131,46 +148,6 @@ e_table_model_is_cell_editable (ETableModel *e_table_model, int col, int row)
 	return ETM_CLASS (e_table_model)->is_cell_editable (e_table_model, col, row);
 }
 
-/**
- * e_table_model_append_row:
- * @e_table_model: the table model to append the a row to.
- * @source:
- * @row:
- *
- */
-void
-e_table_model_append_row (ETableModel *e_table_model, ETableModel *source, int row)
-{
-	g_return_if_fail (e_table_model != NULL);
-	g_return_if_fail (E_IS_TABLE_MODEL (e_table_model));
-
-	if (ETM_CLASS (e_table_model)->append_row)
-		ETM_CLASS (e_table_model)->append_row (e_table_model, source, row);
-}
-
-const char *
-e_table_model_row_sort_group(ETableModel *e_table_model, int row)
-{
-	g_return_val_if_fail (e_table_model != NULL, "/");
-	g_return_val_if_fail (E_IS_TABLE_MODEL (e_table_model), "/");
-
-	if (ETM_CLASS (e_table_model)->row_sort_group)
-		return ETM_CLASS (e_table_model)->row_sort_group (e_table_model, row);
-	else
-		return "/";
-}
-
-gboolean
-e_table_model_has_sort_group(ETableModel *e_table_model)
-{
-	g_return_val_if_fail (e_table_model != NULL, FALSE);
-	g_return_val_if_fail (E_IS_TABLE_MODEL (e_table_model), FALSE);
-
-	if (ETM_CLASS (e_table_model)->has_sort_group)
-		return ETM_CLASS (e_table_model)->has_sort_group (e_table_model);
-	else
-		return FALSE;
-}
 
 void *
 e_table_model_duplicate_value (ETableModel *e_table_model, int col, const void *value)
@@ -297,19 +274,18 @@ e_table_model_class_init (GtkObjectClass *object_class)
 
 	klass->column_count = NULL;     
 	klass->row_count = NULL;        
+	klass->append_row = NULL;
+
 	klass->value_at = NULL;         
 	klass->set_value_at = NULL;     
 	klass->is_cell_editable = NULL; 
-	klass->append_row = NULL;
-
-	klass->row_sort_group = NULL;
-	klass->has_sort_group = NULL;
 
 	klass->duplicate_value = NULL;  
 	klass->free_value = NULL;       
 	klass->initialize_value = NULL; 
 	klass->value_is_empty = NULL;   
 	klass->value_to_string = NULL;
+
 	klass->model_changed = NULL;    
 	klass->model_row_changed = NULL;
 	klass->model_cell_changed = NULL;

@@ -32,6 +32,8 @@
 #include "e-table-state.h"
 #include "e-table-column-specification.h"
 
+#include "e-table-utils.h"
+
 #define COLUMN_HEADER_HEIGHT 16
 
 #define PARENT_TYPE gtk_table_get_type ()
@@ -741,112 +743,12 @@ e_table_fill_table (ETable *e_table, ETableModel *model)
 	e_table_group_add_all (e_table->group);
 }
 
-static ETableCol *
-et_col_spec_to_col (ETable                    *e_table,
-		    ETableColumnSpecification *col_spec,
-		    ETableExtras              *ete)
-{
-	ETableCol *col = NULL;
-	ECell *cell;
-	GCompareFunc compare;
-
-	cell = e_table_extras_get_cell(ete, col_spec->cell);
-	compare = e_table_extras_get_compare(ete, col_spec->compare);
-
-	if (cell && compare) {
-		if (col_spec->pixbuf && *col_spec->pixbuf) {
-			GdkPixbuf *pixbuf;
-
-			pixbuf = e_table_extras_get_pixbuf(
-				ete, col_spec->pixbuf);
-			if (pixbuf) {
-				col = e_table_col_new_with_pixbuf (
-					col_spec->model_col, gettext (col_spec->title),
-					pixbuf, col_spec->expansion,
-					col_spec->minimum_width,
-					cell, compare, col_spec->resizable);
-			}
-		}
-		if (col == NULL && col_spec->title && *col_spec->title) {
-			col = e_table_col_new (
-				col_spec->model_col, gettext (col_spec->title),
-				col_spec->expansion, col_spec->minimum_width,
-				cell, compare, col_spec->resizable);
-		}
-	}
-	return col;
-}
-
-static ETableHeader *
-et_spec_to_full_header (ETable              *e_table,
-			ETableSpecification *spec,
-			ETableExtras        *ete)
-{
-	ETableHeader *nh;
-	int column;
-
-	g_return_val_if_fail (e_table, NULL);
-	g_return_val_if_fail (spec, NULL);
-	g_return_val_if_fail (ete, NULL);
-
-	nh = e_table_header_new ();
-
-	for (column = 0; spec->columns[column]; column++) {
-		ETableCol *col = et_col_spec_to_col (
-			e_table, spec->columns[column], ete);
-
-		if (col)
-			e_table_header_add_column (nh, col, -1);
-	}
-
-	return nh;
-}
-
-static ETableHeader *
-et_state_to_header (ETable *e_table, ETableHeader *full_header, ETableState *state)
-{
-	ETableHeader *nh;
-	const int max_cols = e_table_header_count (full_header);
-	int column;
-
-	g_return_val_if_fail (e_table, NULL);
-	g_return_val_if_fail (full_header, NULL);
-	g_return_val_if_fail (state, NULL);
-
-	nh = e_table_header_new ();
-
-	gtk_object_set(GTK_OBJECT(nh),
-		       "width_extras", e_table_header_width_extras(GTK_WIDGET(e_table)->style),
-		       NULL);
-
-	for (column = 0; column < state->col_count; column++) {
-		int col;
-		double expansion;
-		ETableCol *table_col;
-
-		col = state->columns[column];
-		expansion = state->expansions[column];
-
-		if (col >= max_cols)
-			continue;
-
-		table_col = e_table_header_get_column (full_header, col);
-
-		if (expansion >= -1)
-			table_col->expansion = expansion;
-
-		e_table_header_add_column (nh, table_col, -1);
-	}
-
-	return nh;
-}
-
 void
 e_table_set_state_object(ETable *e_table, ETableState *state)
 {
 	if (e_table->header)
 		gtk_object_unref(GTK_OBJECT(e_table->header));
-	e_table->header = et_state_to_header (e_table, e_table->full_header, state);
+	e_table->header = e_table_state_to_header (GTK_WIDGET(e_table), e_table->full_header, state);
 	if (e_table->header)
 		gtk_object_ref(GTK_OBJECT(e_table->header));
 
@@ -1031,7 +933,7 @@ et_real_construct (ETable *e_table, ETableModel *etm, ETableExtras *ete,
 	e_table->draw_grid = specification->draw_grid;
 	e_table->draw_focus = specification->draw_focus;
 	e_table->cursor_mode = specification->cursor_mode;
-	e_table->full_header = et_spec_to_full_header(e_table, specification, ete);
+	e_table->full_header = e_table_spec_to_full_header(specification, ete);
 
 	gtk_object_set(GTK_OBJECT(e_table->selection),
 		       "selection_mode", specification->selection_mode,
@@ -1044,7 +946,7 @@ et_real_construct (ETable *e_table, ETableModel *etm, ETableExtras *ete,
 	gtk_widget_push_visual (gdk_rgb_get_visual ());
 	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
 
-	e_table->header = et_state_to_header (e_table, e_table->full_header, state);
+	e_table->header = e_table_state_to_header (GTK_WIDGET(e_table), e_table->full_header, state);
 	e_table->horizontal_scrolling = specification->horizontal_scrolling;
 
 	e_table->sort_info = state->sort_info;

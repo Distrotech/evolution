@@ -26,14 +26,11 @@ typedef struct {
 	 */
 	int         (*column_count)     (ETableModel *etm);
 	int         (*row_count)        (ETableModel *etm);
+	void        (*append_row)       (ETableModel *etm, ETableModel *source, int row);
+
 	void       *(*value_at)         (ETableModel *etm, int col, int row);
 	void        (*set_value_at)     (ETableModel *etm, int col, int row, const void *value);
 	gboolean    (*is_cell_editable) (ETableModel *etm, int col, int row);
-	void        (*append_row)       (ETableModel *etm, ETableModel *source, int row);
-
-	/* the sort group id for this row */
-	const char *(*row_sort_group)	(ETableModel *etm, int row);
-	gboolean    (*has_sort_group)	(ETableModel *etm);
 
 	/* Allocate a copy of the given value. */
 	void       *(*duplicate_value)  (ETableModel *etm, int col, const void *value);
@@ -72,13 +69,11 @@ GtkType     e_table_model_get_type (void);
 int         e_table_model_column_count     (ETableModel *e_table_model);
 const char *e_table_model_column_name      (ETableModel *e_table_model, int col);
 int         e_table_model_row_count        (ETableModel *e_table_model);
+void        e_table_model_append_row       (ETableModel *e_table_model, ETableModel *source, int row);
+
 void       *e_table_model_value_at         (ETableModel *e_table_model, int col, int row);
 void        e_table_model_set_value_at     (ETableModel *e_table_model, int col, int row, const void *value);
 gboolean    e_table_model_is_cell_editable (ETableModel *e_table_model, int col, int row);
-void        e_table_model_append_row       (ETableModel *e_table_model, ETableModel *source, int row);
-
-const char *e_table_model_row_sort_group   (ETableModel *e_table_model, int row);
-gboolean    e_table_model_has_sort_group   (ETableModel *e_table_model);
 
 void       *e_table_model_duplicate_value  (ETableModel *e_table_model, int col, const void *value);
 void        e_table_model_free_value       (ETableModel *e_table_model, int col, void *value);

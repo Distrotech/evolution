@@ -85,6 +85,10 @@ void      e_marshal_INT__INT_INT_POINTER                           (GtkObject   
 								    GtkSignalFunc  func,
 								    gpointer       func_data,
 								    GtkArg        *args);
+void      e_marshal_INT__INT_POINTER_INT_POINTER                   (GtkObject     *object,
+								    GtkSignalFunc  func,
+								    gpointer       func_data,
+								    GtkArg        *args);
 void      e_marshal_NONE__OBJECT_DOUBLE_DOUBLE_BOOL                (GtkObject     *object,
 								    GtkSignalFunc  func,
 								    gpointer       func_data,
@@ -104,8 +108,20 @@ void      e_marshal_NONE__INT_INT_POINTER_POINTER_INT_INT          (GtkObject   
 								    gpointer       func_data,
 								    GtkArg        *args);
 
+#define e_marshal_NONE__INT_POINTER_INT_POINTER_POINTER_UINT_UINT e_marshal_NONE__INT_POINTER_INT_POINTER_POINTER_INT_INT
+void      e_marshal_NONE__INT_POINTER_INT_POINTER_POINTER_INT_INT  (GtkObject     *object,
+								    GtkSignalFunc  func,
+								    gpointer       func_data,
+								    GtkArg        *args);
+
 #define e_marshal_NONE__INT_INT_POINTER_UINT e_marshal_NONE__INT_INT_POINTER_INT
 void      e_marshal_NONE__INT_INT_POINTER_INT                      (GtkObject     *object,
+								    GtkSignalFunc  func,
+								    gpointer       func_data,
+								    GtkArg        *args);
+
+#define e_marshal_NONE__INT_POINTER_INT_POINTER_UINT e_marshal_NONE__INT_POINTER_INT_POINTER_INT
+void      e_marshal_NONE__INT_POINTER_INT_POINTER_INT              (GtkObject     *object,
 								    GtkSignalFunc  func,
 								    gpointer       func_data,
 								    GtkArg        *args);
@@ -116,10 +132,11 @@ void      e_marshal_BOOL__INT_INT_POINTER_INT_INT_INT              (GtkObject   
 								    gpointer       func_data,
 								    GtkArg        *args);
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
+#define e_marshal_BOOL__INT_POINTER_INT_POINTER_INT_INT_UINT e_marshal_BOOL__INT_POINTER_INT_POINTER_INT_INT_INT
+void      e_marshal_BOOL__INT_POINTER_INT_POINTER_INT_INT_INT      (GtkObject     *object,
+								    GtkSignalFunc  func,
+								    gpointer       func_data,
+								    GtkArg        *args);
 
 #define e_marshal_NONE__INT_INT_POINTER_INT_INT_POINTER_UINT_UINT e_marshal_NONE__INT_INT_POINTER_INT_INT_POINTER_INT_INT
 
@@ -127,7 +144,20 @@ void    e_marshal_NONE__INT_INT_POINTER_INT_INT_POINTER_INT_INT  (GtkObject     
 								  GtkSignalFunc  func,
 								  gpointer       func_data,
 								  GtkArg        *args);
+
+#define e_marshal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_UINT_UINT e_marshal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_INT_INT
+
+void    e_marshal_NONE__INT_POINTER_INT_POINTER_INT_INT_POINTER_INT_INT  (GtkObject     *object,
+									  GtkSignalFunc  func,
+									  gpointer       func_data,
+									  GtkArg        *args);
+
 void    e_marshal_NONE__POINTER_POINTER_INT                      (GtkObject     *object,
+								  GtkSignalFunc  func,
+								  gpointer       func_data,
+								  GtkArg        *args);
+
+void    e_marshal_NONE__INT_POINTER_INT_POINTER                  (GtkObject     *object,
 								  GtkSignalFunc  func,
 								  gpointer       func_data,
 								  GtkArg        *args);
@@ -144,5 +174,9 @@ void    e_marshal_INT__POINTER_POINTER_POINTER_POINTER           (GtkObject     
 								  GtkSignalFunc  func,
 								  gpointer       func_data,
 								  GtkArg        *args);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _E_UTIL_H_ */

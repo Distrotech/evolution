@@ -851,6 +851,8 @@ eti_header_dim_changed (ETableHeader *eth, int col, ETableItem *eti)
 {
 	eti->needs_compute_width = 1;
 	e_canvas_item_request_reflow (GNOME_CANVAS_ITEM (eti));
+	eti->needs_redraw = 1;
+	gnome_canvas_item_request_update (GNOME_CANVAS_ITEM (eti));
 }
 
 static void
@@ -878,6 +880,8 @@ eti_header_structure_changed (ETableHeader *eth, ETableItem *eti)
 	}
 	eti->needs_compute_width = 1;
 	e_canvas_item_request_reflow (GNOME_CANVAS_ITEM (eti));
+	eti->needs_redraw = 1;
+	gnome_canvas_item_request_update (GNOME_CANVAS_ITEM (eti));
 }
 
 static int
