@@ -1,25 +1,9 @@
-2003-09-11  Dan Winship  <danw@ximian.com>
+2003-09-12  Bolian Yin <bolian.yin@sun.com>
 
-	* cal-util/Makefile.am (privlib_LTLIBRARIES): Remove
-	libcal-util-static.la
-
-	* cal-client/Makefile.am (noinst_LTLIBRARIES): Remove
-	libcal-client-static.la
-
-	* conduits/calendar/Makefile.am (libecalendar_conduit_la_LIBADD):
-	use non-static libraries. The static ones were only needed for
-	libtool 1.3.
-
-	* conduits/todo/Makefile.am (libetodo_conduit_la_LIBADD): Likewise
-
-        * gui/Makefile.am (IDL_GENERATED): Don't compile the calendar idl
-        here. It's already in libcal-client.
-
-2003-09-11  Frederic Crozat  <fcrozat@mandrakesoft.com>
-
-	* conduits/todo/Makefile.am:
-	Statically link with wombat. Fix ETodo conduit.
-	(Mdk bug #5348)
+      * e-week-view.c (e_week_view_focus): make jump button focusable
+       (e_week_view_on_jump_button_event): key_press and focus event for jump button
+       (e_week_view_jump_to_button_item): new function, jump to the day view.
+       (e_week_view_is_jump_button_visible): new function.
 
 2003-09-01  Andrew Wu <Yang.Wu@sun.com>
        * gui/e-day-view.c:
