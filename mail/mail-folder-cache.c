@@ -234,6 +234,7 @@ real_flush_updates(void *o, void *event_data, void *data)
 				EFolder *folder = e_storage_get_folder (storage, up->path);
 
 				if (folder != NULL) {
+					d(printf("updating unread count to '%s' to %d\n", up->path, up->unread));
 					e_folder_set_unread_count (folder, up->unread);
 				} else {
 					g_warning ("No folder at %s ?!", up->path);

@@ -125,7 +125,7 @@
   <!-- Account Editor -->
   <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Accounts_ConfigControl"
 	      type="factory"
-	      location="OAFIID:GNOME_Evolution_Mail_ControlFactory">
+	      location="OAFIID:GNOME_Evolution_Mail_Factory_2">
 
     <oaf_attribute name="repo_ids" type="stringv">
       <item value="IDL:GNOME/Evolution/ConfigControl:1.0"/>
@@ -154,7 +154,7 @@
   <!-- Mail Preferences -->
   <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Preferences_ConfigControl"
 	      type="factory"
-	      location="OAFIID:GNOME_Evolution_Mail_ControlFactory">
+	      location="OAFIID:GNOME_Evolution_Mail_Factory_2">
 
     <oaf_attribute name="repo_ids" type="stringv">
       <item value="IDL:GNOME/Evolution/ConfigControl:1.0"/>
@@ -179,7 +179,7 @@
   <!-- Composer Preferences -->
   <oaf_server iid="OAFIID:GNOME_Evolution_Mail_ComposerPrefs_ConfigControl"
 	      type="factory"
-	      location="OAFIID:GNOME_Evolution_Mail_ControlFactory">
+	      location="OAFIID:GNOME_Evolution_Mail_Factory_2">
 
     <oaf_attribute name="repo_ids" type="stringv">
       <item value="IDL:GNOME/Evolution/ConfigControl:1.0"/>

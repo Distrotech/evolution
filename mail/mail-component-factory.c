@@ -47,12 +47,6 @@
 
 /* EPFIXME: This stuff is here just to get it to compile, it should be moved
    out of the way (was originally in component-factory.c).  */
-char *default_drafts_folder_uri;
-CamelFolder *drafts_folder = NULL;
-char *default_sent_folder_uri;
-CamelFolder *sent_folder = NULL;
-char *default_outbox_folder_uri;
-CamelFolder *outbox_folder = NULL;
 EvolutionShellClient *global_shell_client = NULL;
 
 static BonoboObject *

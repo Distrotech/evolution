@@ -755,7 +755,7 @@ store_folder_renamed(CamelObject *o, void *event_data, void *data)
 }
 
 void
-vfolder_load_storage(GNOME_Evolution_Shell shell)
+vfolder_load_storage(void)
 {
 	char *user, *storeuri;
 	FilterRule *rule;

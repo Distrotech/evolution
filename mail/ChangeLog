@@ -1,3 +1,17 @@
+2003-10-08  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (setup_local_folder): removed.
+	(setup_local_store): setup various needed globals properly.
+	(setup_account_storages): renamed to load_accounts.
+	(go_online): turn on interactivity as well as onlinedness.
+
+	* GNOME_Evolution_Mail.server.in.in: point the preferences pages
+	to the right factory.
+
+2003-10-07  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.[ch]: Fix copyrights.
+
 2003-10-02  Not Zed  <NotZed@Ximian.com>
 
 	* mail-component.c (add_storage): Add the storage to the hash

@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* mail-component.c
  *
- * Copyright (C) 2003  Ettore Perazzoli
+ * Copyright (C) 2003  Ximian Inc.
  *
  * This  program is free  software; you  can redistribute  it and/or
  * modify it under the terms of version 2  of the GNU General Public
@@ -126,10 +126,9 @@ add_storage (MailComponent *component,
 
 	root_folder = e_folder_new (name, "noselect", "");
 	storage = e_storage_new (name, root_folder);
-	/* EPFIXME? */
-	/* e_storage_declare_has_subfolders (storage, "/", _("Connecting...")); */
+	e_storage_declare_has_subfolders(storage, "/", _("Connecting..."));
 
-	camel_object_ref (CAMEL_OBJECT (store));
+	camel_object_ref(store);
 	g_hash_table_insert (component->priv->storages_hash, store, storage);
 
 	g_signal_connect(storage, "async_open_folder",
@@ -150,8 +149,7 @@ add_storage (MailComponent *component,
 }
 
 static void
-setup_account_storages (MailComponent *component,
-			EAccountList *accounts)
+load_accounts(MailComponent *component, EAccountList *accounts)
 {
 	EIterator *iter;
 	
@@ -169,7 +167,9 @@ setup_account_storages (MailComponent *component,
 		account = (EAccount *) e_iterator_get (iter);
 		service = account->source;
 		name = account->name;
-		
+
+		printf("loading account '%s'\n", service->url?service->url:"botched crap");
+
 		if (account->enabled && service->url != NULL)
 			mail_component_load_storage_by_uri (component, service->url, name);
 		
@@ -212,8 +212,9 @@ storage_go_online (gpointer key, gpointer value, gpointer data)
 static void
 go_online (MailComponent *component)
 {
-	camel_session_set_online (session, TRUE);
-	mail_component_storages_foreach (component, storage_go_online, NULL);
+	camel_session_set_online(session, TRUE);
+	mail_session_set_interactive(TRUE);
+	mail_component_storages_foreach(component, storage_go_online, NULL);
 }
 
 static void
@@ -238,55 +239,51 @@ setup_search_context (MailComponent *component)
 
 
 /* Local store setup.  */
+char *default_drafts_folder_uri;
+CamelFolder *drafts_folder = NULL;
+char *default_sent_folder_uri;
+CamelFolder *sent_folder = NULL;
+char *default_outbox_folder_uri;
+CamelFolder *outbox_folder = NULL;
+char *default_inbox_folder_uri;
+CamelFolder *inbox_folder = NULL;
 
-static gboolean
-setup_local_folder (MailComponent *component,
-		    const char *name)
+static struct {
+	char *base;
+	char **uri;
+	CamelFolder **folder;
+} default_folders[] = {
+	{ "Inbox", &default_inbox_folder_uri, &inbox_folder },
+	{ "Drafts", &default_drafts_folder_uri, &drafts_folder },
+	{ "Outbox", &default_outbox_folder_uri, &outbox_folder },
+	{ "Sent", &default_sent_folder_uri, &sent_folder },
+};
+
+static void
+setup_local_store(MailComponent *component)
 {
-	MailComponentPrivate *priv = component->priv;
-	CamelException *ex = camel_exception_new ();
-	CamelFolder *folder;
-	gboolean retval;
+	MailComponentPrivate *p = component->priv;
+	char *store_uri;
+	CamelException *ex = camel_exception_new();
+	int i;
 
-	g_assert (priv->local_store != NULL);
-
-	printf("getting local folder: %s\n", name);
-
-	folder = camel_store_get_folder (priv->local_store, name, CAMEL_STORE_FOLDER_CREATE, ex);
-	if (folder != NULL) {
-		retval = TRUE;
-	} else {
-		g_warning ("Cannot create local folder %s -- %s", name, camel_exception_get_description (ex));
-		retval = FALSE;
-	}
-
-	camel_exception_free (ex);
-	return retval;
-}
-
-static gboolean
-setup_local_store (MailComponent *component)
-{
-	MailComponentPrivate *priv = component->priv;
-	char *local_store_uri;
-
-	g_assert (priv->local_store == NULL);
+	g_assert(p->local_store == NULL);
 
 	/* EPFIXME It should use base_directory once we have moved it.  */
-	local_store_uri = g_strconcat ("mbox:", g_get_home_dir (), "/.evolution/mail/local", NULL);
-	priv->local_store = mail_component_load_storage_by_uri (component, local_store_uri, _("On this Computer"));
-	camel_object_ref (CAMEL_OBJECT (priv->local_store));
-	g_free (local_store_uri);
+	store_uri = g_strconcat("mbox:", g_get_home_dir(), "/.evolution/mail/local", NULL);
+	p->local_store = mail_component_load_storage_by_uri(component, store_uri, _("On this Computer"));
+	camel_object_ref(p->local_store);
 
-	if (! setup_local_folder (component, "Inbox")
-	    || ! setup_local_folder (component, "Outbox")
-	    || ! setup_local_folder (component, "Drafts")
-	    || ! setup_local_folder (component, "Sent"))
-		return FALSE;
+	for (i=0;i<sizeof(default_folders)/sizeof(default_folders[0]);i++) {
+		/* FIXME: should this uri be account relative? */
+		*default_folders[i].uri = g_strdup_printf("%s#%s", store_uri, default_folders[i].base);
+		*default_folders[i].folder = camel_store_get_folder(p->local_store, default_folders[i].base, CAMEL_STORE_FOLDER_CREATE, ex);
+		camel_exception_clear(ex);
+	}
 
-	return TRUE;
+	g_free(store_uri);
+	camel_exception_free(ex);
 }
-
 
 /* EStorageBrowser callbacks.  */
 
@@ -500,14 +497,12 @@ mail_component_init (MailComponent *component)
 #if 0				/* EPFIXME TODO somehow */
 	for (i = 0; i < sizeof (standard_folders) / sizeof (standard_folders[0]); i++)
 		*standard_folders[i].uri = g_strdup_printf ("file://%s/local/%s", evolution_dir, standard_folders[i].name);
-
-	vfolder_load_storage(corba_shell);
+	vfolder_load_storage();
 #endif
-
 	setup_local_store (component);
 
 	accounts = mail_config_get_accounts ();
-	setup_account_storages (component, accounts);
+	load_accounts(component, accounts);
 
 #if 0
 	/* EPFIXME?  */
