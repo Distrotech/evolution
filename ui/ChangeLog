@@ -1,5 +1,10 @@
 2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
 
+	* evolution-calendar.xml: removed stock icon for "NewCalendar"
+	verb, and added items for creating calendar events.
+
+2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
+
 	* evolution-calendar.xml: added 'New Calendar' menu item.
 
 2003-08-27  Not Zed  <NotZed@Ximian.com>
