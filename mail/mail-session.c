@@ -628,7 +628,7 @@ main_get_filter_driver (CamelSession *session, const char *type, CamelException 
 	faction = g_string_new ("");
 
 	/* implicit spam check as 1st rule */
-	camel_filter_driver_add_rule (driver, "Spam check", "(spam-filter)", "(begin (set-system-flag \"spam\"))");
+	camel_filter_driver_add_rule (driver, "Spam check", "(spam-test)", "(begin (set-system-flag \"spam\"))");
 	
 	/* add the user-defined rules next */
 	while ((rule = rule_context_next_rule (fc, rule, type))) {
