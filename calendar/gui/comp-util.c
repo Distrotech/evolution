@@ -206,6 +206,7 @@ cal_comp_is_on_server (CalComponent *comp, CalClient *client)
 {
 	const char *uid;
 	icalcomponent *icalcomp;
+	GError *error = NULL;
 
 	g_return_val_if_fail (comp != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_COMPONENT (comp), FALSE);
@@ -220,13 +221,16 @@ cal_comp_is_on_server (CalComponent *comp, CalClient *client)
 	 */
 	cal_component_get_uid (comp, &uid);
 
-	if (cal_client_get_object (client, uid, NULL, &icalcomp, NULL)) {
+	if (cal_client_get_object (client, uid, NULL, &icalcomp, &error)) {
 		icalcomponent_free (icalcomp);
 
 		return TRUE;
 	}
 
-	/* FIXME Better error handling */
+	if (error) {
+		g_warning ("cal_comp_is_on_server(): %s", error->message);
+		g_error_free (error);
+	}
 	
 	return FALSE;
 }

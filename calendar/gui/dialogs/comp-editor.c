@@ -296,6 +296,7 @@ save_comp (CompEditor *editor)
 	CalComponent *clone;
 	GList *l;
 	gboolean result;
+	GError *error = NULL;
 
 	priv = editor->priv;
 
@@ -323,22 +324,23 @@ save_comp (CompEditor *editor)
 	priv->updating = TRUE;
 
 	if (!cal_comp_is_on_server (priv->comp, priv->client)) {
-		/* FIXME Better error handling */
-		result = cal_client_create_object (priv->client, cal_component_get_icalcomponent (priv->comp), NULL, NULL);
+		result = cal_client_create_object (priv->client, cal_component_get_icalcomponent (priv->comp), NULL, &error);
 	} else {
-		/* FIXME Better error handling */
-		result = cal_client_modify_object (priv->client, cal_component_get_icalcomponent (priv->comp), priv->mod, NULL);
+		result = cal_client_modify_object (priv->client, cal_component_get_icalcomponent (priv->comp), priv->mod, &error);
 	}	
 	
 	if (!result) {
 		GtkWidget *dlg;
 		char *msg;
 
-		msg = g_strdup (_("Could not update object"));
+		msg = g_strdup (error ? error->message : _("Could not update object"));
 
 		dlg = gnome_error_dialog (msg);
 		gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+
 		g_free (msg);
+		if (error)
+			g_error_free (error);
 
 		return FALSE;
 	} else {

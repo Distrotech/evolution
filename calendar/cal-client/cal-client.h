@@ -203,6 +203,7 @@ icaltimezone *cal_client_resolve_tzid_cb (const char *tzid, gpointer data);
    used by the component. It also includes a 'METHOD:PUBLISH' property. */
 char* cal_client_get_component_as_string (CalClient *client, icalcomponent *icalcomp);
 
+const char * cal_client_get_error_message (ECalendarStatus status);
 
 
 

@@ -26,6 +26,7 @@
 #include <string.h>
 #include <bonobo-activation/bonobo-activation.h>
 #include <bonobo/bonobo-exception.h>
+#include <bonobo/bonobo-i18n.h>
 #include <libgnome/gnome-util.h>
 
 #include "e-util/e-component-listener.h"
@@ -122,12 +123,14 @@ static guint cal_client_signals[LAST_SIGNAL];
 
 static GObjectClass *parent_class;
 
-#define E_CALENDAR_CHECK_STATUS(status,error) G_STMT_START{			\
+#define E_CALENDAR_CHECK_STATUS(status,error) G_STMT_START{		\
 	if ((status) == E_CALENDAR_STATUS_OK) {				\
 		return TRUE;						\
 	}								\
-	else {								\
-		g_set_error ((error), E_CALENDAR_ERROR, (status), "ECalendarStatus returned %d", (status));	\
+	else {                                                          \
+                const char *msg;                                        \
+                msg = cal_client_get_error_message ((status));          \
+		g_set_error ((error), E_CALENDAR_ERROR, (status), msg, (status));	\
 		return FALSE;						\
 	}				}G_STMT_END
 
@@ -3752,3 +3755,55 @@ cal_client_set_default_timezone (CalClient *client, icaltimezone *zone, GError *
 	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
+/**
+ * cal_client_get_error_message
+ * @status: A status code.
+ *
+ * Get an error message for the given status code.
+ *
+ * Returns: the error message.
+ */
+const char *
+cal_client_get_error_message (ECalendarStatus status)
+{
+	switch (status) {
+	case E_CALENDAR_STATUS_INVALID_ARG :
+		return _("Invalid argument");
+	case E_CALENDAR_STATUS_BUSY :
+		return _("Backend is busy");
+	case E_CALENDAR_STATUS_REPOSITORY_OFFLINE :
+		return _("Repository is offline");
+	case E_CALENDAR_STATUS_NO_SUCH_CALENDAR :
+		return _("No such calendar");
+	case E_CALENDAR_STATUS_OBJECT_NOT_FOUND :
+		return _("Object not found");
+	case E_CALENDAR_STATUS_INVALID_OBJECT :
+		return _("Invalid object");
+	case E_CALENDAR_STATUS_URI_NOT_LOADED :
+		return _("URI not loaded");
+	case E_CALENDAR_STATUS_URI_ALREADY_LOADED :
+		return _("URI already loaded");
+	case E_CALENDAR_STATUS_PERMISSION_DENIED :
+		return _("Permission denied");
+	case E_CALENDAR_STATUS_CARD_NOT_FOUND :
+		return _("Object not found");
+	case E_CALENDAR_STATUS_CARD_ID_ALREADY_EXISTS :
+		return _("Object ID already exists");
+	case E_CALENDAR_STATUS_PROTOCOL_NOT_SUPPORTED :
+		return _("Protocol not supported");
+	case E_CALENDAR_STATUS_CANCELLED :
+		return _("Operation has been cancelled");
+	case E_CALENDAR_STATUS_COULD_NOT_CANCEL :
+		return _("Could not cancel operation");
+	case E_CALENDAR_STATUS_AUTHENTICATION_FAILED :
+		return _("Authentication failed");
+	case E_CALENDAR_STATUS_AUTHENTICATION_REQUIRED :
+		return _("Authentication required");
+	case E_CALENDAR_STATUS_CORBA_EXCEPTION :
+		return _("A CORBA esception has occurred");
+	case E_CALENDAR_STATUS_OTHER_ERROR :
+		return _("Unknown error");
+	}
+
+	return NULL;
+}
