@@ -79,5 +79,3 @@ Productivity_DATA = gncal.desktop
 
 install-data-local:
 	$(mkinstalldirs) $(DESTDIR)$(help_base)/C
-	$(INSTALL_DATA)  $(srcdir)/gnome-cal.html $(DESTDIR)$(help_base)/C/gnome-cal.html
-	cd $(DESTDIR)$(help_base)/C; rm -f index.html ; $(LN_S) gnome-cal.html index.html	
