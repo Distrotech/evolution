@@ -1,3 +1,11 @@
+2003-07-18  Gilbert Fang <gilbert.fang@sun.com>
+
+	** bug #44592 reopen: no need to do explicitly init for a11y.
+	* main.c:
+	find_a11y_module: removed
+	invoke_a11y_module: removed.
+	init_a11y: removed
+
 2003-06-26  Gilbert Fang <gilbert.fang@sun.com>
 
 	** bug #44592
