@@ -247,9 +247,9 @@ calendar_component_init (CalendarComponent *component)
 				e_source_group_add_source (group, source, -1);
 			}
 			g_free (new_dir);
-
-			g_free (base_uri);
 		}
+
+		g_free (base_uri);
 	}
 
 	component->priv = priv;
