@@ -250,6 +250,8 @@ setup_local_folder (MailComponent *component,
 
 	g_assert (priv->local_store != NULL);
 
+	printf("getting local folder: %s\n", name);
+
 	folder = camel_store_get_folder (priv->local_store, name, CAMEL_STORE_FOLDER_CREATE, ex);
 	if (folder != NULL) {
 		retval = TRUE;
@@ -271,7 +273,7 @@ setup_local_store (MailComponent *component)
 	g_assert (priv->local_store == NULL);
 
 	/* EPFIXME It should use base_directory once we have moved it.  */
-	local_store_uri = g_strconcat ("mbox://", g_get_home_dir (), "/.evolution/mail/local", NULL);
+	local_store_uri = g_strconcat ("mbox:", g_get_home_dir (), "/.evolution/mail/local", NULL);
 	priv->local_store = mail_component_load_storage_by_uri (component, local_store_uri, _("On this Computer"));
 	camel_object_ref (CAMEL_OBJECT (priv->local_store));
 	g_free (local_store_uri);

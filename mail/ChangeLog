@@ -1,3 +1,10 @@
+2003-10-02  Not Zed  <NotZed@Ximian.com>
+
+	* mail-component.c (setup_local_store): use mbox:/path rather than
+	mbox:///path - the mbox code is 'wrong', but this is easier to
+	fix.  fixes local unread counts.  maybe the provider url-compare
+	should address this too.
+
 2003-09-29  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-component.c: New member local_store in
