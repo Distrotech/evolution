@@ -1,5 +1,11 @@
 2003-09-25  JP Rosevear <jpr@ximian.com>
 
+	* pcs/cal.c (cal_notify_default_object): send back the empty
+	string if the object is NULL
+	(cal_notify_object): ditto
+
+2003-09-25  JP Rosevear <jpr@ximian.com>
+
 	* gui/comp-editor-factory.c (edit_existing): convert to api
 	changes
 

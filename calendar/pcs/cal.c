@@ -1044,7 +1044,8 @@ cal_notify_default_object (Cal *cal, GNOME_Evolution_Calendar_CallStatus status,
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Calendar_Listener_notifyDefaultObjectRequested (priv->listener, status, object, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyDefaultObjectRequested (priv->listener, status, 
+									object ? object : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of default object");
@@ -1066,7 +1067,8 @@ cal_notify_object (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, char *o
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Calendar_Listener_notifyObjectRequested (priv->listener, status, object, &ev);
+	GNOME_Evolution_Calendar_Listener_notifyObjectRequested (priv->listener, status,
+								 object ? object : "", &ev);
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of object");
