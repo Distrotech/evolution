@@ -490,10 +490,11 @@ open_client (CompEditorFactory *factory, const char *uristr)
 	CompEditorFactoryPrivate *priv;
 	CalClient *client;
 	OpenClient *oc;
+	GError *error = NULL;
 
 	priv = factory->priv;
 
-	client = cal_client_new ();
+	client = cal_client_new (uristr, CALOBJ_TYPE_ANY);
 	if (!client)
 		return NULL;
 
@@ -511,10 +512,12 @@ open_client (CompEditorFactory *factory, const char *uristr)
 
 	g_hash_table_insert (priv->uri_client_hash, oc->uri, oc);
 
-	if (!cal_client_open_calendar (oc->client, uristr, FALSE)) {
+	if (!cal_client_open (oc->client, FALSE, &error)) {
+		g_warning (_("open_client(): %s"), error->message);
 		g_free (oc->uri);
 		g_object_unref (oc->client);
 		g_free (oc);
+		g_error_free (error);
 
 		return NULL;
 	}

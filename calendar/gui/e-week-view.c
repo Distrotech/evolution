@@ -62,6 +62,7 @@
 #include "calendar-config.h"
 #include "print.h"
 #include "goto.h"
+#include "e-cal-model-calendar.h"
 #include "e-week-view-event-item.h"
 #include "e-week-view-layout.h"
 #include "e-week-view-main-item.h"
@@ -423,8 +424,11 @@ GtkWidget *
 e_week_view_new (void)
 {
 	GtkWidget *week_view;
+	ECalModel *model;
+	
+	model = E_CAL_MODEL (e_cal_model_calendar_new ());
 
-	week_view = GTK_WIDGET (g_object_new (e_week_view_get_type (), NULL));
+	week_view = GTK_WIDGET (g_object_new (e_week_view_get_type (), "model", model, NULL));
 
 	return week_view;
 }

@@ -130,63 +130,26 @@ class_init (EItipControlClass *klass)
 	object_class->finalize = finalize;
 }
 
-
-/* Calendar Server routines */
-static void
-start_calendar_server_cb (CalClient *cal_client,
-			  CalClientOpenStatus status,
-			  gpointer data)
-{
-	int *success = data;
-	int orig = *success;
-	
-	if (status == CAL_CLIENT_OPEN_SUCCESS)
-		*success = 1;
-	else
-		*success = 0;
-
-	if (orig != -1)
-		gtk_main_quit (); /* end the sub event loop */
-}
-
 static CalClient *
 start_calendar_server (EItipControl *itip, char *uri)
 {
 	CalClient *client;
-	int success = -1;
+	GError *error = NULL;
 
-	client = cal_client_new ();
+	client = cal_client_new (uri, CALOBJ_TYPE_EVENT);
 
-	g_signal_connect (client, "cal_opened", G_CALLBACK (start_calendar_server_cb), &success);
-
-	if (!cal_client_open_calendar (client, uri, TRUE))
- 		goto error;
+	if (!cal_client_open (client, TRUE, &error)) {
+		g_warning (_("start_calendar_server(): %s"), error->message);
+		g_error_free (error);
+ 		g_object_unref (client);
+		return NULL;
+	}
 	
-	/* run a sub event loop to turn cal-client's async load
-	   notification into a synchronous call */
- 	if (success == -1 && !itip->priv->destroyed) {
-		success = 0;
-		
- 		gtk_signal_connect (GTK_OBJECT (itip), "destroy",
- 				    gtk_main_quit, NULL);
-	
-		gtk_main ();
-	
- 		gtk_signal_disconnect_by_func (GTK_OBJECT (itip),
- 					       gtk_main_quit, NULL);
- 	}
-
-	if (success == 1)
-		return client;
-
-error:
-	g_object_unref (client);
-	
-	return NULL;
+	return client;
 }
 
 static gboolean
-start_default_server_async (EItipControl *itip, CalClient *client, gboolean tasks)
+start_default_server (EItipControl *itip, CalClient *client, gboolean tasks)
 {
 	if (tasks)
 		return cal_client_open_default_tasks (client, FALSE);
@@ -538,8 +501,7 @@ find_attendee (icalcomponent *ical_comp, const char *address)
 
 	for (prop = icalcomponent_get_first_property (ical_comp, ICAL_ATTENDEE_PROPERTY);
 	     prop != NULL;
-	     prop = icalcomponent_get_next_property (ical_comp, ICAL_ATTENDEE_PROPERTY))
-	{
+	     prop = icalcomponent_get_next_property (ical_comp, ICAL_ATTENDEE_PROPERTY)) {
 		icalvalue *value;
 		const char *attendee;
 		char *text;
@@ -2243,28 +2205,29 @@ object_requested_cb (GtkHTML *html, GtkHTMLEmbedded *eb, gpointer data)
 	context = g_new0 (ObjectRequestContext, 1);
 	context->itip   = itip;
 	context->eb     = eb;
-	context->client = cal_client_new ();
 
-	g_object_ref (itip);
-	g_signal_connect (context->client, "cal_opened",
-			  G_CALLBACK (default_server_started_cb), context);
-
+	/* FIXME: use the default URIs */
 	switch (vtype) {
 	case CAL_COMPONENT_EVENT:
-		success = start_default_server_async (itip, context->client, FALSE);
+		context->client = cal_client_new ("", CALOBJ_TYPE_EVENT);
+		success = start_default_server (itip, context->client, FALSE);
 		break;
 	case CAL_COMPONENT_TODO:
-		success = start_default_server_async (itip, context->client, TRUE);
+		context->client = cal_client_new ("", CALOBJ_TYPE_TODO);
+		success = start_default_server (itip, context->client, TRUE);
 		break;
 	default:
-		success = FALSE;
+		g_free (context);
+		return FALSE;
 	}
 
 	if (!success) {
-		g_object_unref (itip);
 		g_object_unref (context->client);
 		g_free (context);
+		return FALSE;
 	}
+
+	g_object_ref (itip);
 
 	return TRUE;
 }

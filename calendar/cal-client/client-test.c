@@ -172,11 +172,9 @@ client_destroy_cb (gpointer data, GObject *object)
 
 /* Creates a calendar client and tries to load the specified URI into it */
 static void
-create_client (CalClient **client, const char *uri, gboolean only_if_exists)
+create_client (CalClient **client, const char *uri, CalObjType type, gboolean only_if_exists)
 {
-	gboolean result;
-
-	*client = cal_client_new ();
+	*client = cal_client_new (uri, type);
 	if (!*client) {
 		g_message (G_STRLOC ": could not create the client");
 		exit (1);
@@ -190,9 +188,7 @@ create_client (CalClient **client, const char *uri, gboolean only_if_exists)
 
 	printf ("Calendar loading `%s'...\n", uri);
 
-	result = cal_client_open_calendar (*client, uri, only_if_exists);
-
-	if (!result) {
+	if (!cal_client_open (*client, only_if_exists, NULL)) {
 		g_message (G_STRLOC ": failure when issuing calendar open request `%s'",
 			   uri);
 		exit (1);
@@ -213,7 +209,8 @@ main (int argc, char **argv)
 		exit (1);
 	}
 
-	create_client (&client1, "file:///home/gnome24-evolution-new-calendar/evolution/local/Calendar", FALSE);
+	create_client (&client1, "file:///home/gnome24-evolution-new-calendar/evolution/local/Calendar", 
+		       CALOBJ_TYPE_EVENT, FALSE);
 //	create_client (&client2, "file:///tmp/tasks", TRUE);
 
 	bonobo_main ();

@@ -20,7 +20,9 @@
  * Author: Ettore Perazzoli <ettore@ximian.com>
  */
 
+#ifdef CONFIG_H
 #include <config.h>
+#endif
 
 #include "calendar-component.h"
 
@@ -49,28 +51,42 @@ struct _CalendarComponentPrivate {
 /* Utility functions.  */
 
 static void
-load_uri_for_selection (ESourceSelector *selector,
-			BonoboControl *view_control)
+load_uri_for_source (ESource *source, BonoboControl *view_control)
 {
-	ESource *selected_source = e_source_selector_peek_primary_selection (E_SOURCE_SELECTOR (selector));
+	char *uri = e_source_get_uri (source);
 
-	if (selected_source != NULL) {
-		char *uri = e_source_get_uri (selected_source);
-		bonobo_control_set_property (view_control, NULL, "folder_uri", TC_CORBA_string, uri, NULL);
-		g_free (uri);
-	}
+	bonobo_control_set_property (view_control, NULL, "folder_uri", TC_CORBA_string, uri, NULL);
+	g_free (uri);
 }
 
+static void
+load_uri_for_selection (ESourceSelector *selector, BonoboControl *view_control)
+{
+	GSList *selection, *l;
+	
+	selection = e_source_selector_get_selection (selector);
+	for (l = selection; l; l = l->next) {
+		ESource *selected_source = l->data;
+		
+		load_uri_for_source (selected_source, view_control);
+	}	
+}
 
 /* Callbacks.  */
+static void
+source_selection_changed_callback (ESourceSelector *selector,
+				   BonoboControl *view_control)
+{
+	
+	load_uri_for_selection (selector, view_control);
+}
 
 static void
 primary_source_selection_changed_callback (ESourceSelector *selector,
 					   BonoboControl *view_control)
 {
-	load_uri_for_selection (selector, view_control);
-}
 
+}
 
 /* GObject methods.  */
 
@@ -128,8 +144,14 @@ impl_createControls (PortableServer_Servant servant,
 	sidebar_control = bonobo_control_new (selector_scrolled_window);
 
 	view_control = control_factory_new_control ();
+
+	g_signal_connect_object (selector, "selection_changed",
+				 G_CALLBACK (source_selection_changed_callback), 
+				 G_OBJECT (view_control), 0);
 	g_signal_connect_object (selector, "primary_selection_changed",
-				 G_CALLBACK (primary_source_selection_changed_callback), G_OBJECT (view_control), 0);
+				 G_CALLBACK (primary_source_selection_changed_callback), 
+				 G_OBJECT (view_control), 0);
+
 	load_uri_for_selection (E_SOURCE_SELECTOR (selector), view_control);
 
 	*corba_sidebar_control = CORBA_Object_duplicate (BONOBO_OBJREF (sidebar_control), ev);

@@ -1,3 +1,29 @@
+2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/comp-editor-factory.c (open_client):
+	* gui/gnome-cal.c (gnome_calendar_open, gnome_calendar_construct):
+	* gui/calendar-offline-handler.c (backend_go_offline, backend_go_online,
+	calendar_offline_handler_init): adapted to changes in cal_client and
+	manage GError's returned by cal_client_open.
+
+	* gui/e-itip-control.c: dont run anymore sub event loops.
+	(start_calendar_server): use synchronous interface for opening calendars.
+	(start_default_server): renamed it from *_async.
+	(start_calendar_server_cb): removed unneeded function.
+	(object_requested_cb): use sync interface.
+
+	* gui/e-tasks.c (e_tasks_construct): dont create the CalClient here.
+	(e_tasks_open): do it here, where we've got all the info needed.
+
+	* importers/icalendar-importer.c (update_single_object): killed warning.
+	(ical_importer_new, vcal_importer_new): don't create CalClient's here.
+	(load_file_fn): create them here.
+	(vcal_load_file_fn): and here.
+	(gnome_calendar_import_data_fn): fixed usage of cal_client_*.
+
+	* */*: integrated JP's changes for synchronous open's in cal_client
+	and one model per view instead of one model for all views.
+	
 2003-10-02  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client.c (cal_client_modify_object): return FALSE

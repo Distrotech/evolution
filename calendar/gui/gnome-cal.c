@@ -70,6 +70,8 @@ struct _GnomeCalendarPrivate {
 	 * The Calendar Folder.
 	 */
 
+	GHashTable *clients;
+	
 	/* Set of categories from the calendar client */
 	GPtrArray *cal_categories;
 
@@ -108,7 +110,7 @@ struct _GnomeCalendarPrivate {
 	GtkWidget   *work_week_view;
 	GtkWidget   *week_view;
 	GtkWidget   *month_view;
-
+	
 	/* Calendar query for the date navigator */
 	GList       *dn_queries; /* list of CalQueries */
 	char        *sexp;
@@ -117,6 +119,7 @@ struct _GnomeCalendarPrivate {
 	/* This is the view currently shown. We use it to keep track of the
 	   positions of the panes. range_selected is TRUE if a range of dates
 	   was selected in the date navigator to show the view. */
+	ECalView    *views[GNOME_CAL_LAST_VIEW];
 	GnomeCalendarViewType current_view_type;
 	gboolean range_selected;
 
@@ -558,6 +561,7 @@ adjust_query_sexp (GnomeCalendar *gcal, const char *sexp)
 				    start, end,
 				    sexp);
 
+
 	g_free (start);
 	g_free (end);
 
@@ -801,7 +805,6 @@ setup_widgets (GnomeCalendar *gcal)
 	GtkWidget *w;
 	gchar *filename;
 	ETable *etable;
-	ECalModel *model;
 
 	priv = gcal->priv;
 
@@ -925,14 +928,11 @@ setup_widgets (GnomeCalendar *gcal)
 
 	connect_week_view_focus (gcal, E_WEEK_VIEW (priv->month_view));
 
-	model = (ECalModel *) e_cal_model_calendar_new ();
-	e_cal_view_set_model (E_CAL_VIEW (priv->day_view), model);
-	e_cal_view_set_model (E_CAL_VIEW (priv->work_week_view), model);
-	e_cal_view_set_model (E_CAL_VIEW (priv->week_view), model);
-	e_cal_view_set_model (E_CAL_VIEW (priv->month_view), model);
-
-	g_object_unref (model);
-
+	priv->views[GNOME_CAL_DAY_VIEW] = E_CAL_VIEW (priv->day_view);
+	priv->views[GNOME_CAL_WORK_WEEK_VIEW] = E_CAL_VIEW (priv->work_week_view);
+	priv->views[GNOME_CAL_WEEK_VIEW] = E_CAL_VIEW (priv->week_view);
+	priv->views[GNOME_CAL_MONTH_VIEW] = E_CAL_VIEW (priv->month_view);
+	
 	gnome_calendar_update_config_settings (gcal, TRUE);
 }
 
@@ -945,6 +945,8 @@ gnome_calendar_init (GnomeCalendar *gcal)
 	priv = g_new0 (GnomeCalendarPrivate, 1);
 	gcal->priv = priv;
 
+	priv->clients = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
+	
 	priv->cal_categories = NULL;
 	priv->tasks_categories = NULL;
 
@@ -996,6 +998,8 @@ gnome_calendar_destroy (GtkObject *object)
 
 	if (priv) {
 		GList *l, *client_list;
+
+		g_hash_table_destroy (priv->clients);
 
 		free_categories (priv->cal_categories);
 		priv->cal_categories = NULL;
@@ -1909,7 +1913,7 @@ gnome_calendar_construct (GnomeCalendar *gcal)
 	/*
 	 * TaskPad Folder Client.
 	 */
-	priv->task_pad_client = cal_client_new ();
+	priv->task_pad_client = cal_client_new ("", CALOBJ_TYPE_TODO); /* FIXME: use default tasks */
 	if (!priv->task_pad_client)
 		return NULL;
 
@@ -2063,51 +2067,46 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 {
 	GnomeCalendarPrivate *priv;
 	gboolean success;
-	char *message;
-	char *urinopwd;
 	CalClient *client;
-
+	int i;
+	
 	g_return_val_if_fail (gcal != NULL, FALSE);
 	g_return_val_if_fail (GNOME_IS_CALENDAR (gcal), FALSE);
 	g_return_val_if_fail (str_uri != NULL, FALSE);
 
 	priv = gcal->priv;
 
-	g_return_val_if_fail (
-		cal_client_get_load_state (priv->task_pad_client) == CAL_CLIENT_LOAD_NOT_LOADED,
-		FALSE);
-
-	urinopwd = get_uri_without_password (str_uri);
-	message = g_strdup_printf (_("Opening calendar at %s"), urinopwd);
-	g_free (urinopwd);
-	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), message);
-	g_free (message);
-
-	client = cal_client_new ();
-	g_signal_connect (G_OBJECT (client), "cal_opened", G_CALLBACK (client_cal_opened_cb), gcal);
+	client = g_hash_table_lookup (priv->clients, str_uri);
+	if (client)
+		return TRUE;
+	
+	client = cal_client_new (str_uri, CALOBJ_TYPE_EVENT);
+	g_hash_table_insert (priv->clients, g_strdup (str_uri), g_object_ref (client));
+	
 	g_signal_connect (G_OBJECT (client), "backend_error", G_CALLBACK (backend_error_cb), gcal);
 	g_signal_connect (G_OBJECT (client), "categories_changed", G_CALLBACK (client_categories_changed_cb), gcal);
 	g_signal_connect (G_OBJECT (client), "backend_died", G_CALLBACK (backend_died_cb), gcal);
 
-	if (!cal_client_open_calendar (client, str_uri, FALSE)) {
-		g_warning (G_STRLOC ": Could not issue the request to open the calendar folder");
-		g_object_unref (client);
-		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
-
-		return FALSE;
+	for (i = 0; i < GNOME_CAL_LAST_VIEW; i++) {
+		ECalModel *model;
+		
+		model = e_cal_view_get_model (priv->views[i]);
+		e_cal_model_add_client (model, client);
 	}
+	
+	if (g_hash_table_size (priv->clients) < 1) {
+		/* Open the appropriate Tasks folder to show in the TaskPad */
+		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
+						     _("Opening default tasks folder"));
+		success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
 
-	/* Open the appropriate Tasks folder to show in the TaskPad */
-	e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
-					     _("Opening default tasks folder"));
-	success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
-
-	if (!success) {
-		g_message ("gnome_calendar_open(): Could not issue the request to open the tasks folder");
-		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), NULL);
-		return FALSE;
+		if (!success) {
+			g_message (G_STRLOC ": Could not issue the request to open the tasks folder");
+			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), NULL);
+			return FALSE;
+		}
 	}
-
+	
 	return TRUE;
 }
 

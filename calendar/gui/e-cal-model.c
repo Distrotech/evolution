@@ -41,6 +41,9 @@ struct _ECalModelPrivate {
 	/* The list of clients we are managing. Each element is of type ECalModelClient */
 	GList *clients;
 
+	/* The default client in the list */
+	CalClient *default_client;
+	
 	/* Array for storing the objects. Each element is of type ECalModelComponent */
 	GPtrArray *objects;
 
@@ -972,46 +975,43 @@ CalClient *
 e_cal_model_get_default_client (ECalModel *model)
 {
 	ECalModelPrivate *priv;
-	GList *l;
-	gchar *default_uri = NULL;
-	EConfigListener *db;
-	ECalModelClient *client_data;
 
+	g_return_val_if_fail (model != NULL, NULL);
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+	
+	priv = model->priv;
+
+	return priv->default_client;
+}
+
+void
+e_cal_model_set_default_client (ECalModel *model, CalClient *client)
+{
+	ECalModelPrivate *priv;
+	GList *l;
+	gboolean found = FALSE;
+	
+	g_return_if_fail (model != NULL);
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (IS_CAL_CLIENT (client));
 
 	priv = model->priv;
 
-	if (!priv->clients)
-		return NULL;
-
-	db = e_config_listener_new ();
-
-	/* look at the configuration and return the real default calendar if we've got it loaded */
-	if (priv->kind == ICAL_VEVENT_COMPONENT)
-		default_uri = e_config_listener_get_string (db, "/apps/evolution/shell/default_folders/calendar_uri");
-	else if (priv->kind == ICAL_VTODO_COMPONENT)
-		default_uri = e_config_listener_get_string (db, "/apps/evolution/shell/default_folders/tasks_uri");
-
-	g_object_unref (db);
-
-	if (!default_uri) {
-		client_data = (ECalModelClient *) priv->clients->data;
-		return client_data->client;
-	}
-
+	/* See if we already know about the client */
 	for (l = priv->clients; l != NULL; l = l->next) {
-		client_data = (ECalModelClient *) l->data;
+		ECalModelClient *client_data = l->data;
 
-		if (!strcmp (default_uri, cal_client_get_uri (client_data->client))) {
-			g_free (default_uri);
-			return client_data->client;
-		}
+		if (client == client_data->client)
+			found = TRUE;
 	}
 
-	g_free (default_uri);
-
-	client_data = (ECalModelClient *) priv->clients->data;
-	return client_data->client;
+	/* If its not found, add it */
+	if (!found)
+		e_cal_model_add_client (model, client);
+	
+	/* Store the default client */
+	priv->default_client = client;
 }
 
 /**

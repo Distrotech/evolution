@@ -65,6 +65,7 @@
 #include "calendar-commands.h"
 #include "calendar-config.h"
 #include "goto.h"
+#include "e-cal-model-calendar.h"
 #include "e-day-view-time-item.h"
 #include "e-day-view-top-item.h"
 #include "e-day-view-layout.h"
@@ -850,8 +851,11 @@ GtkWidget *
 e_day_view_new (void)
 {
 	GtkWidget *day_view;
+	ECalModel *model;
+	
+	model = E_CAL_MODEL (e_cal_model_calendar_new ());
 
-	day_view = GTK_WIDGET (g_object_new (e_day_view_get_type (), NULL));
+	day_view = GTK_WIDGET (g_object_new (e_day_view_get_type (), "model", model, NULL));
 
 	return day_view;
 }
@@ -2048,7 +2052,6 @@ e_day_view_find_work_week_start		(EDayView	*day_view,
 	return icaltime_as_timet_with_zone (tt, e_cal_view_get_timezone (E_CAL_VIEW (day_view)));
 }
 
-
 /* Returns the selected time range. */
 static void
 e_day_view_get_selected_time_range (ECalView *cal_view, time_t *start_time, time_t *end_time)
@@ -2106,6 +2109,28 @@ e_day_view_get_visible_time_range	(ECalView	*cal_view,
 }
 
 static void
+update_query (EDayView *day_view)
+{
+	ECalModel *model;
+	char *start, *end;
+	char *sexp;
+
+	start = isodate_from_time_t (day_view->lower);
+	end = isodate_from_time_t (day_view->upper);
+
+	sexp = g_strdup_printf ("(and (= (get-vtype) \"VEVENT\")"
+				"     (occur-in-time-range? (make-time \"%s\")"
+				"                           (make-time \"%s\")))",
+				start, end);
+	
+	g_free (start);
+	g_free (end);
+
+	model = e_cal_view_get_model (E_CAL_VIEW (day_view));
+	e_cal_model_set_query (model, sexp);
+}
+
+static void
 e_day_view_recalc_day_starts (EDayView *day_view,
 			      time_t start_time)
 {
@@ -2123,6 +2148,8 @@ e_day_view_recalc_day_starts (EDayView *day_view,
 
 	day_view->lower = start_time;
 	day_view->upper = day_view->day_starts[day_view->days_shown];
+
+	update_query (day_view);
 }
 
 
@@ -3207,7 +3234,6 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 						EDayViewEvent, event_num);
 
 		if (!cal_util_component_has_recurrences (comp_data->icalcomp)
-		    && !cal_util_component_has_recurrences (event->comp_data->icalcomp)
 		    && cal_util_event_dates_match (event->comp_data->icalcomp, comp_data->icalcomp)) {
 #if 0
 			g_print ("updated object's dates unchanged\n");

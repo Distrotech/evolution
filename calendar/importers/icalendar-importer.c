@@ -182,10 +182,10 @@ prepare_tasks (icalcomponent *icalcomp, GList *vtodos)
 static CalClientResult
 update_single_object (CalClient *client, icalcomponent *icalcomp)
 {
-	const char *uid;
+	char *uid;
 	icalcomponent *tmp_icalcomp;
 
-	uid = icalcomponent_get_uid (icalcomp);
+	uid = (char *) icalcomponent_get_uid (icalcomp);
 	
 	if (cal_client_get_object (client, uid, NULL, &tmp_icalcomp, NULL))
 		return cal_client_modify_object (client, icalcomp, CALOBJ_MOD_ALL, NULL)
@@ -366,8 +366,14 @@ load_file_fn (EvolutionImporter *importer,
 			} else
 				real_uri = g_strdup (physical_uri);
 
-			if (cal_client_open_calendar (ici->client, real_uri, TRUE)
-			    && cal_client_open_default_tasks (ici->tasks_client, FALSE)) {
+			/* create CalClient's */
+			if (!ici->client)
+				ici->client = cal_client_new (real_uri, CALOBJ_TYPE_EVENT);
+			if (!ici->tasks_client)
+				ici->tasks_client = cal_client_new ("", CALOBJ_TYPE_TODO); /* FIXME */
+
+			if (cal_client_open (ici->client, TRUE, NULL)
+			    && cal_client_open (ici->tasks_client, FALSE, NULL)) {
 				ici->icalcomp = icalcomp;
 				ret = TRUE;
 			}
@@ -388,8 +394,8 @@ ical_importer_new (void)
 	ICalImporter *ici;
 
 	ici = g_new0 (ICalImporter, 1);
-	ici->client = cal_client_new ();
-	ici->tasks_client = cal_client_new ();
+	ici->client = NULL;
+	ici->tasks_client = NULL;
 	ici->icalcomp = NULL;
 	ici->importer = evolution_importer_new (support_format_fn,
 						load_file_fn,
@@ -512,8 +518,14 @@ vcal_load_file_fn (EvolutionImporter *importer,
 		} else
 			real_uri = g_strdup (physical_uri);
 
-		if (cal_client_open_calendar (ici->client, real_uri, TRUE)
-		    && cal_client_open_default_tasks (ici->tasks_client, FALSE)) {
+		/* create CalClient's */
+		if (!ici->client)
+			ici->client = cal_client_new (real_uri, CALOBJ_TYPE_EVENT);
+		if (!ici->tasks_client)
+			ici->tasks_client = cal_client_new ("", CALOBJ_TYPE_TODO);
+
+		if (cal_client_open (ici->client, TRUE, NULL)
+		    && cal_client_open (ici->tasks_client, FALSE, NULL)) {
 			ici->icalcomp = icalcomp;
 			ret = TRUE;
 		}
@@ -532,8 +544,8 @@ vcal_importer_new (void)
 	ICalImporter *ici;
 
 	ici = g_new0 (ICalImporter, 1);
-	ici->client = cal_client_new ();
-	ici->tasks_client = cal_client_new ();
+	ici->client = NULL;
+	ici->tasks_client = NULL;
 	ici->icalcomp = NULL;
 	ici->importer = evolution_importer_new (vcal_support_format_fn,
 						vcal_load_file_fn,
@@ -596,14 +608,14 @@ gnome_calendar_import_data_fn (EvolutionIntelligentImporter *ii,
 
 	/* Try to open the default calendar & tasks folders. */
 	if (ici->do_calendar) {
-		calendar_client = cal_client_new ();
-		if (!cal_client_open_default_calendar (calendar_client, FALSE))
+		calendar_client = cal_client_new ("", CALOBJ_TYPE_EVENT); /* FIXME: use default folder */
+		if (!cal_client_open (calendar_client, FALSE, NULL))
 			goto out;
 	}
 
 	if (ici->do_tasks) {
-		tasks_client = cal_client_new ();
-		if (!cal_client_open_default_tasks (tasks_client, FALSE))
+		tasks_client = cal_client_new ("", CALOBJ_TYPE_TODO); /* FIXME: use default folder */
+		if (!cal_client_open (tasks_client, FALSE, NULL))
 			goto out;
 	}
 

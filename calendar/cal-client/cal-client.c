@@ -63,7 +63,8 @@ struct _CalClientPrivate {
 	 * NULL if we are not loaded.
 	 */
 	char *uri;
-
+	CalObjType type;
+	
 	ECalendarOp *current_op;
 
 	EMutex *mutex;
@@ -1216,6 +1217,44 @@ cal_client_get_type (void)
 	return cal_client_type;
 }
 
+
+static gboolean
+fetch_corba_cal (CalClient *client, const char *str_uri, CalObjType type)
+{
+	CalClientPrivate *priv;
+	GList *f;
+	CORBA_Environment ev;
+	
+	priv = client->priv;
+	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_NOT_LOADED, FALSE);
+	g_assert (priv->uri == NULL);
+
+	g_return_val_if_fail (str_uri != NULL, FALSE);
+
+	if (!get_factories (str_uri, &priv->factories))
+		return FALSE;
+
+	priv->uri = g_strdup (str_uri);
+	priv->type = type;
+
+	for (f = priv->factories; f; f = f->next) {
+		GNOME_Evolution_Calendar_Cal cal;
+
+		CORBA_exception_init (&ev);
+
+		cal = GNOME_Evolution_Calendar_CalFactory_getCal (f->data, priv->uri, priv->type,
+								  BONOBO_OBJREF (priv->listener), &ev);
+		if (BONOBO_EX (&ev))
+			continue;
+		
+		priv->cal = cal;
+
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 /**
  * cal_client_new:
  *
@@ -1226,12 +1265,18 @@ cal_client_get_type (void)
  * not be constructed because it could not contact the calendar server.
  **/
 CalClient *
-cal_client_new (void)
+cal_client_new (const char *uri, CalObjType type)
 {
 	CalClient *client;
 
 	client = g_object_new (CAL_CLIENT_TYPE, NULL);
 
+	if (!fetch_corba_cal (client, uri, type)) {
+		g_object_unref (client);
+
+		return NULL;
+	}
+	
 	return client;
 }
 
@@ -1263,98 +1308,6 @@ cal_client_set_auth_func (CalClient *client, CalClientAuthFunc func, gpointer da
 	client->priv->auth_user_data = data;
 }
 
-static gboolean
-real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exists, gboolean *supported)
-{
-	CalClientPrivate *priv;
-	GList *f;
-	CORBA_Environment ev;
-	
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_NOT_LOADED, FALSE);
-	g_assert (priv->uri == NULL);
-
-	g_return_val_if_fail (str_uri != NULL, FALSE);
-
-	if (!get_factories (str_uri, &priv->factories)) {
-		if (supported)
-			*supported = TRUE;
-		
-		return FALSE;
-	}
-
-	priv->load_state = CAL_CLIENT_LOAD_LOADING;
-	priv->uri = g_strdup (str_uri);
-
-	for (f = priv->factories; f; f = f->next) {
-		GNOME_Evolution_Calendar_Cal cal;
-		ECalendarOp *our_op;
-		ECalendarStatus status;
-
-		CORBA_exception_init (&ev);
-
-		cal = GNOME_Evolution_Calendar_CalFactory_getCal (f->data, priv->uri, CALOBJ_TYPE_EVENT,
-								  BONOBO_OBJREF (priv->listener), &ev);
-		if (BONOBO_EX (&ev))
-			continue;
-		
-		priv->cal = cal;
-
-		/* FIXME The lock is not so clean in this routine */
-		e_mutex_lock (client->priv->mutex);
-		
-		our_op = e_calendar_new_op (client);
-		
-		e_mutex_lock (our_op->mutex);
-		
-		e_mutex_unlock (client->priv->mutex);
-
-		GNOME_Evolution_Calendar_Cal_open (cal, only_if_exists, &ev);
-		if (BONOBO_EX (&ev)) {
-			bonobo_object_release_unref (priv->cal, NULL);
-			priv->cal = CORBA_OBJECT_NIL;
-			
-			continue;
-		}
-		
-		CORBA_exception_free (&ev);
-
-		e_mutex_cond_wait (&our_op->cond, our_op->mutex);
-
-		status = our_op->status;
-		
-		e_calendar_remove_op (client, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_calendar_free_op (our_op);
-
-		if (supported)
-			*supported = TRUE;
-
-		if (status == E_CALENDAR_STATUS_OK) {
-			priv->load_state = CAL_CLIENT_LOAD_LOADED;
-
-			priv->comp_listener = e_component_listener_new (priv->cal);
-			g_signal_connect (G_OBJECT (priv->comp_listener), "component_died",
-					  G_CALLBACK (backend_died_cb), client);
-			
-			/* FIXME This is only here temporarily */
-			g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_OPENED],
-				       0, status);
-
-			return TRUE;
-		}
-	}
-
-	if (supported)
-		*supported = FALSE;
-	
-	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
-	g_free (priv->uri);
-	priv->uri = NULL;
-
-	return FALSE;
-}
-
 /**
  * cal_client_open_calendar:
  * @client: A calendar client.
@@ -1371,87 +1324,98 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
  * Return value: TRUE on success, FALSE on failure to issue the open request.
  **/
 gboolean
-cal_client_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exists)
+cal_client_open (CalClient *client, gboolean only_if_exists, GError **error)
 {
+	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
+	
 	g_return_val_if_fail (client != NULL, FALSE);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
-	return real_open_calendar (client, str_uri, only_if_exists, NULL);
+	priv = client->priv;
+	
+	e_mutex_lock (client->priv->mutex);
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Calendar_Cal_open (priv->cal, only_if_exists, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
-static char *
-get_fall_back_uri (gboolean tasks)
+typedef struct {
+	CalClient *client;
+	
+	gboolean exists;
+} CalClientAsyncData;
+
+static gboolean
+open_async (gpointer data) 
 {
-	if (tasks)
-		return g_concat_dir_and_file (g_get_home_dir (), "evolution/local/Tasks");
-	else
-		return g_concat_dir_and_file (g_get_home_dir (), "evolution/local/Calendar");
+	CalClientAsyncData *ccad = data;
+	GError *error = NULL;
+	
+	cal_client_open (ccad->client, ccad->exists, &error);
+	
+	g_signal_emit (G_OBJECT (ccad->client), cal_client_signals[CAL_OPENED], 0, error->code);
+	g_clear_error (&error);
+
+	g_object_unref (ccad);
+	g_free (ccad);
+	
+	return FALSE;	
 }
 
-static char *
-get_default_uri (gboolean tasks)
+void
+cal_client_open_async (CalClient *client, gboolean only_if_exists)
 {
-	EConfigListener *db;
-	char *uri;
-
-	db = e_config_listener_new ();
+	CalClientAsyncData *ccad;
 	
-	if (tasks)
-		uri = e_config_listener_get_string (db, "/apps/evolution/shell/default_folders/tasks_uri");
-	else
-		uri = e_config_listener_get_string (db, "/apps/evolution/shell/default_folders/calendar_uri");
-	g_object_unref (G_OBJECT (db));
+	g_return_if_fail (client != NULL);
+	g_return_if_fail (IS_CAL_CLIENT (client));
 
-	if (!uri || *uri == '\0')
-		uri = get_fall_back_uri (tasks);
-	else
-		uri = cal_util_expand_uri (uri, tasks);
+	ccad = g_new0 (CalClientAsyncData, 1);
+	ccad->client = g_object_ref (client);
+	ccad->exists = only_if_exists;
 	
-	return uri;
-}
-
-gboolean
-cal_client_open_default_calendar (CalClient *client, gboolean only_if_exists)
-{
-	char *default_uri, *fall_back;
-	gboolean result, supported;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
-
-	default_uri = get_default_uri (FALSE);
-	fall_back = get_fall_back_uri (FALSE);
-	
-	result = real_open_calendar (client, default_uri, only_if_exists, &supported);
-	if (!supported && strcmp (fall_back, default_uri))
-		result = real_open_calendar (client, fall_back, only_if_exists, NULL);
-
-	g_free (default_uri);
-	g_free (fall_back);
-	
-	return result;
-}
-
-gboolean
-cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists)
-{
-	char *default_uri, *fall_back;
-	gboolean result, supported;
-
-	g_return_val_if_fail (client != NULL, FALSE);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
-
-	default_uri = get_default_uri (TRUE);
-	fall_back = get_fall_back_uri (TRUE);
-
-	result = real_open_calendar (client, default_uri, only_if_exists, &supported);
-	if (!supported && strcmp (fall_back, default_uri))
-		result = real_open_calendar (client, fall_back, only_if_exists, NULL);
-
-	g_free (default_uri);
-	g_free (fall_back);
-
-	return result;
+	g_idle_add (open_async, ccad);
 }
 
 gboolean 

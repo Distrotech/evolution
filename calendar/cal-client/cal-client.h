@@ -120,14 +120,12 @@ GType cal_client_open_status_enum_get_type (void);
 GType cal_client_set_mode_status_enum_get_type (void);
 GType cal_mode_enum_get_type (void);
 
-CalClient *cal_client_new (void);
+CalClient *cal_client_new (const char *uri, CalObjType type);
 
 void cal_client_set_auth_func (CalClient *client, CalClientAuthFunc func, gpointer data);
 
-gboolean cal_client_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exists);
-gboolean cal_client_open_default_calendar (CalClient *client, gboolean only_if_exists);
-gboolean cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists);
-
+gboolean cal_client_open (CalClient *client, gboolean only_if_exists, GError **error);
+void cal_client_open_async (CalClient *client, gboolean only_if_exists);
 gboolean cal_client_remove_calendar (CalClient *client, GError **error);
 
 GList *cal_client_uri_list (CalClient *client, CalMode mode);

@@ -74,10 +74,18 @@ struct _ECalViewPrivate {
 
 static void e_cal_view_class_init (ECalViewClass *klass);
 static void e_cal_view_init (ECalView *cal_view, ECalViewClass *klass);
+static void e_cal_view_get_property (GObject *object, guint property_id, GValue *value, GParamSpec *pspec);
+static void e_cal_view_set_property (GObject *object, guint property_id, const GValue *value, GParamSpec *pspec);
 static void e_cal_view_destroy (GtkObject *object);
 
 static GObjectClass *parent_class = NULL;
 static GdkAtom clipboard_atom = GDK_NONE;
+
+/* Property IDs */
+enum props {
+	PROP_0,
+	PROP_MODEL,
+};
 
 /* FIXME Why are we emitting these event signals here? Can't the model just be listened to? */
 /* Signal IDs */
@@ -92,11 +100,70 @@ enum {
 static guint e_cal_view_signals[LAST_SIGNAL] = { 0 };
 
 static void
+e_cal_view_set_property (GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
+{
+	ECalView *cal_view;
+	ECalViewPrivate *priv;
+
+	cal_view = E_CAL_VIEW (object);
+	priv = cal_view->priv;
+	
+	switch (property_id) {
+	case PROP_MODEL:
+		e_cal_view_set_model (cal_view, E_CAL_MODEL (g_value_get_object (value)));
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+static void
+e_cal_view_get_property (GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
+{
+	ECalView *cal_view;
+	ECalViewPrivate *priv;
+
+	cal_view = E_CAL_VIEW (object);
+	priv = cal_view->priv;
+
+	switch (property_id) {
+	case PROP_MODEL:
+		g_value_set_object (value, e_cal_view_get_model (cal_view));
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+static void
 e_cal_view_class_init (ECalViewClass *klass)
 {
+	GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 	GtkObjectClass *object_class = GTK_OBJECT_CLASS (klass);
 
 	parent_class = g_type_class_peek_parent (klass);
+
+	/* Method override */
+	gobject_class->set_property = e_cal_view_set_property;
+	gobject_class->get_property = e_cal_view_get_property;
+	object_class->destroy = e_cal_view_destroy;
+
+	klass->selection_changed = NULL;
+	klass->event_changed = NULL;
+	klass->event_added = NULL;
+
+	klass->get_selected_events = NULL;
+	klass->get_selected_time_range = NULL;
+	klass->set_selected_time_range = NULL;
+	klass->get_visible_time_range = NULL;
+	klass->update_query = NULL;
+
+	g_object_class_install_property (gobject_class, PROP_MODEL, 
+					 g_param_spec_object ("model", NULL, NULL, E_TYPE_CAL_MODEL,
+							      G_PARAM_READABLE | G_PARAM_WRITABLE
+							      | G_PARAM_CONSTRUCT));
 
 	/* Create class' signals */
 	e_cal_view_signals[SELECTION_CHANGED] =
@@ -135,19 +202,6 @@ e_cal_view_class_init (ECalViewClass *klass)
 			      g_cclosure_marshal_VOID__POINTER,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_POINTER);
-
-	/* Method override */
-	object_class->destroy = e_cal_view_destroy;
-
-	klass->selection_changed = NULL;
-	klass->event_changed = NULL;
-	klass->event_added = NULL;
-
-	klass->get_selected_events = NULL;
-	klass->get_selected_time_range = NULL;
-	klass->set_selected_time_range = NULL;
-	klass->get_visible_time_range = NULL;
-	klass->update_query = NULL;
 
 	/* clipboard atom */
 	if (!clipboard_atom)

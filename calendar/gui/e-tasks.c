@@ -572,7 +572,6 @@ GtkWidget *
 e_tasks_construct (ETasks *tasks)
 {
 	ETasksPrivate *priv;
-	ECalModel *model;
 
 	g_return_val_if_fail (tasks != NULL, NULL);
 	g_return_val_if_fail (E_IS_TASKS (tasks), NULL);
@@ -580,24 +579,6 @@ e_tasks_construct (ETasks *tasks)
 	priv = tasks->priv;
 
 	setup_widgets (tasks);
-
-	priv->client = cal_client_new ();
-	if (!priv->client)
-		return NULL;
-
-	g_signal_connect (priv->client, "cal_opened",
-			  G_CALLBACK (cal_opened_cb), tasks);
-	g_signal_connect (priv->client, "backend_error",
-			  G_CALLBACK (backend_error_cb), tasks);
-	g_signal_connect (priv->client, "categories_changed",
-			  G_CALLBACK (client_categories_changed_cb), tasks);
-	g_signal_connect (priv->client, "obj_updated",
-			  G_CALLBACK (client_obj_updated_cb), tasks);
-
-	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->tasks_view));
-	g_assert (model != NULL);
-
-	e_cal_model_add_client (model, priv->client);
 
 	return GTK_WIDGET (tasks);
 }
@@ -685,6 +666,8 @@ e_tasks_open			(ETasks		*tasks,
 	EUri *uri;
 	char *real_uri;
 	char *urinopwd;
+       	ECalModel *model;
+	GError *error = NULL;
 
 	g_return_val_if_fail (tasks != NULL, FALSE);
 	g_return_val_if_fail (E_IS_TASKS (tasks), FALSE);
@@ -704,10 +687,30 @@ e_tasks_open			(ETasks		*tasks,
 	g_free (message);
 	g_free (urinopwd);
 
-	if (!cal_client_open_calendar (priv->client, real_uri, FALSE)) {
-		g_message ("e_tasks_open(): Could not issue the request");
+	/* create the CalClient */
+	priv->client = cal_client_new (real_uri, CALOBJ_TYPE_TODO);
+	if (!priv->client)
+		return NULL;
+
+	g_signal_connect (priv->client, "cal_opened",
+			  G_CALLBACK (cal_opened_cb), tasks);
+	g_signal_connect (priv->client, "backend_error",
+			  G_CALLBACK (backend_error_cb), tasks);
+	g_signal_connect (priv->client, "categories_changed",
+			  G_CALLBACK (client_categories_changed_cb), tasks);
+	g_signal_connect (priv->client, "obj_updated",
+			  G_CALLBACK (client_obj_updated_cb), tasks);
+
+	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->tasks_view));
+	g_assert (model != NULL);
+
+	e_cal_model_add_client (model, priv->client);
+
+	if (cal_client_open (priv->client, FALSE, &error)) {
+		g_message ("e_tasks_open(): %s", error->message);
 		g_free (real_uri);
 		e_uri_free (uri);
+		g_error_free (error);
 
 		return FALSE;
 	}
