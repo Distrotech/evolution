@@ -23,12 +23,18 @@ typedef struct {
 
 	ETableModel  *model;
 
+	guint model_pre_change_id;
 	guint model_changed_id;
-	guint model_rows_inserted_id, model_rows_deleted_id;
+	guint model_row_changed_id;
+	guint model_cell_changed_id;
+	guint model_rows_inserted_id;
+	guint model_rows_deleted_id;
 
 	guint frozen : 1;
 	guint selection_model_changed : 1;
 	guint group_info_changed : 1;
+
+	GHashTable *hash;
 } ETableSelectionModel;
 
 typedef struct {

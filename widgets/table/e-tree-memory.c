@@ -434,7 +434,7 @@ e_tree_memory_node_insert (ETreeMemory *tree_model,
 	priv = tree_model->priv;
 
 	if (!tree_model->priv->frozen)
-		e_tree_model_pre_change(E_TREE_MODEL(etmm));
+		e_tree_model_pre_change(E_TREE_MODEL(tree_model));
 
 	new_path = g_chunk_new0 (ETreeMemoryPath, node_chunk);
 
@@ -529,7 +529,7 @@ e_tree_memory_node_remove (ETreeMemory *etree, ETreePath node)
 	g_return_val_if_fail(etree != NULL, NULL);
 
 	if (!etree->priv->frozen)
-		e_tree_model_pre_change(E_TREE_MODEL(etmm));
+		e_tree_model_pre_change(E_TREE_MODEL(etree));
 
 	/* unlink this node - we only have to unlink the root node being removed,
 	   since the others are only references from this node */
