@@ -32,6 +32,8 @@ extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
+struct _GConfClient;
+
 typedef struct _EMConfig EMConfig;
 typedef struct _EMConfigClass EMConfigClass;
 
@@ -39,15 +41,34 @@ typedef struct _EMConfigClass EMConfigClass;
 /* Types of popup tagets */
 enum _em_config_target_t {
 	EM_CONFIG_TARGET_FOLDER,
+	EM_CONFIG_TARGET_PREFS,
+	EM_CONFIG_TARGET_ACCOUNT,
 };
 
 typedef struct _EMConfigTargetFolder EMConfigTargetFolder;
+typedef struct _EMConfigTargetPrefs EMConfigTargetPrefs;
+typedef struct _EMConfigTargetAccount EMConfigTargetAccount;
 
 struct _EMConfigTargetFolder {
 	EConfigTarget target;
 
 	struct _CamelFolder *folder;
 	char *uri;
+};
+
+struct _EMConfigTargetPrefs {
+	EConfigTarget target;
+
+	/* preferences are global from gconf */
+	struct _GConfClient *gconf;
+};
+
+struct _EMConfigTargetAccount {
+	EConfigTarget target;
+
+	struct _EAccount *account;
+	/* Need also: working account, not just real account, so changes can be propagated around
+	   And some mechamism for controlling the gui if we're running inside a druid, e.g. enabling 'next' */
 };
 
 typedef struct _EConfigItem EMConfigItem;
@@ -65,9 +86,11 @@ struct _EMConfigClass {
 
 GType em_config_get_type(void);
 
-EMConfig *em_config_new(const char *menuid);
+EMConfig *em_config_new(int type, const char *menuid);
 
 EMConfigTargetFolder *em_config_target_new_folder(EMConfig *emp, struct _CamelFolder *folder, const char *uri);
+EMConfigTargetPrefs *em_config_target_new_prefs(EMConfig *emp, struct _GConfClient *gconf);
+EMConfigTargetAccount *em_config_target_new_account(EMConfig *emp, struct _EAccount *account);
 
 /* ********************************************************************** */
 

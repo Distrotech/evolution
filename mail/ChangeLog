@@ -1,4 +1,40 @@
+2004-08-13  Not Zed  <NotZed@Ximian.com>
+
+	* mail-config.glade: replaced ssl selector with custom widget
+	(gtkcombobox).  Giv the preferences, composer toplevel unique
+	names.
+
+2004-07-29  Not Zed  <NotZed@Ximian.com>
+
+	* mail-config.glade: replaced source and transport selector with
+	custom widget (gtkcombobox).
+
+	* em-account-editor.[ch]: copy over mail-account-gui.[ch] and
+	rename stuff.  Make a gobject.  Move most internals, internal.
+
 2004-07-28  Not Zed  <NotZed@Ximian.com>
+
+	* em-composer-prefs.c (em_composer_prefs_construct): get the
+	toplevel tab as the root.
+	(em_composer_prefs_construct): setup plugin metadata for composer
+	prefs.
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): setup plugin
+	metadata for mail preferences.
+
+	* em-config.c (em_config_target_new_prefs): new target for 'prefs'
+	mode, everything global via gconf.
+
+	* em-mailer-prefs.c (em_mailer_prefs_construct): get the gui from
+	the preferences_toplevel not the preferences_tab window which we
+	don't need.
+
+	* mail-config.glade: rename the preferences 'toplevel' to
+	preferences_toplevel so we can get it unparented.  And the
+	composer toplevel to composer_toplevel.
+
+	* em-folder-properties.c (em_folder_properties_show): remove test
+	code.
 
 	* em-format.h (struct _EMFormatPURI): add a free function
 	callback.

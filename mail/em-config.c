@@ -87,6 +87,17 @@ emp_target_free(EConfig *ep, EConfigTarget *t)
 		g_free(s->uri);
 		camel_object_unref(s->folder);
 		break; }
+	case EM_CONFIG_TARGET_PREFS: {
+		EMConfigTargetPrefs *s = (EMConfigTargetPrefs *)t;
+
+		if (s->gconf)
+			g_object_unref(s->gconf);
+		break; }
+	case EM_CONFIG_TARGET_ACCOUNT: {
+		EMConfigTargetAccount *s = (EMConfigTargetAccount *)t;
+
+		g_object_unref(s->account);
+		break; }
 	}
 
 	((EConfigClass *)emp_parent)->target_free(ep, t);
@@ -122,11 +133,11 @@ em_config_get_type(void)
 	return type;
 }
 
-EMConfig *em_config_new(const char *menuid)
+EMConfig *em_config_new(int type, const char *menuid)
 {
 	EMConfig *emp = g_object_new(em_config_get_type(), 0);
 
-	e_config_construct(&emp->config, menuid);
+	e_config_construct(&emp->config, type, menuid);
 
 	return emp;
 }
@@ -142,6 +153,30 @@ em_config_target_new_folder(EMConfig *emp, struct _CamelFolder *folder, const ch
 
 	return t;
 }
+
+EMConfigTargetPrefs *
+em_config_target_new_prefs(EMConfig *emp, struct _GConfClient *gconf)
+{
+	EMConfigTargetPrefs *t = e_config_target_new(&emp->config, EM_CONFIG_TARGET_PREFS, sizeof(*t));
+
+	t->gconf = gconf;
+	if (gconf)
+		g_object_ref(gconf);
+
+	return t;
+}
+
+EMConfigTargetAccount *
+em_config_target_new_account(EMConfig *emp, struct _EAccount *account)
+{
+	EMConfigTargetAccount *t = e_config_target_new(&emp->config, EM_CONFIG_TARGET_ACCOUNT, sizeof(*t));
+
+	t->account = account;
+	g_object_ref(account);
+
+	return t;
+}
+
 
 /* ********************************************************************** */
 
@@ -180,6 +215,8 @@ static const EConfigHookTargetMask emph_no_masks[] = {
 
 static const EConfigHookTargetMap emph_targets[] = {
 	{ "folder", EM_CONFIG_TARGET_FOLDER, emph_no_masks },
+	{ "prefs", EM_CONFIG_TARGET_PREFS, emph_no_masks },
+	{ "account", EM_CONFIG_TARGET_ACCOUNT, emph_no_masks },
 	{ 0 }
 };
 

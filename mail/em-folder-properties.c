@@ -120,13 +120,16 @@ emfp_free(EConfig *ec, GSList *items, void *data)
 }
 
 static GtkWidget *
-emfp_get_folder_item(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, void *data)
+emfp_get_folder_item(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
 {
 	char countstr[16];
 	GtkWidget *w, *table, *label;
 	struct _prop_data *prop_data = data;
 	int row = 0, i;
 	GSList *l;
+
+	if (old)
+		return old;
 
 	table = gtk_table_new (g_slist_length (prop_data->properties) + 2, 2, FALSE);
 	gtk_table_set_row_spacings ((GtkTable *) table, 6);
@@ -270,7 +273,7 @@ emfp_dialog_got_folder (char *uri, CamelFolder *folder, void *data)
 	gtk_widget_ensure_style (dialog);
 	gtk_container_set_border_width ((GtkContainer *) ((GtkDialog *) dialog)->vbox, 12);
 
-	ec = em_config_new("com.novell.evolution.mail.folderConfig");
+	ec = em_config_new(E_CONFIG_BOOK, "com.novell.evolution.mail.folderConfig");
 	prop_data->config = ec;
 	l = NULL;
 	for (i=0;i<sizeof(emfp_items)/sizeof(emfp_items[0]);i++)
@@ -288,58 +291,6 @@ emfp_dialog_got_folder (char *uri, CamelFolder *folder, void *data)
 	gtk_widget_show (dialog);
 }
 
-static GtkWidget *
-emfp_get_extra_folder_item(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, void *data)
-{
-	GtkWidget *w;
-
-	printf("get extra folder item\n");
-
-	w = gtk_label_new("in folder section");
-	gtk_widget_show(w);
-	gtk_box_pack_start((GtkBox *)parent, w, TRUE, TRUE, 0);
-
-	return w;
-}
-
-static GtkWidget *
-emfp_get_extra_status_item(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, void *data)
-{
-	GtkWidget *w;
-
-	printf("get extra status item\n");
-
-	w = gtk_label_new("in extra config section");
-	gtk_widget_show(w);
-	gtk_box_pack_start((GtkBox *)parent, w, TRUE, TRUE, 0);
-
-	return w;
-}
-
-static EMConfigItem emfp_extra_items[] = {
-	{ E_CONFIG_ITEM, "00.general/00.folder/00.info", NULL, emfp_get_extra_folder_item },
-	{ E_CONFIG_SECTION, "00.general/01.extra", "Extra config main" },
-	{ E_CONFIG_ITEM, "00.general/01.extra/00.status", NULL, emfp_get_extra_status_item },
-#if 0
-	{ E_CONFIG_PAGE, "01.extra", "Extended" },
-	{ E_CONFIG_SECTION, "01.extra/01.extra", "extended config section" },
-	{ E_CONFIG_ITEM, "01.extra/01.extra/00.status", NULL, emfp_get_extra_status_item },
-#endif
-};
-
-/* test only, add an item to the folder config, and store real data in it */
-static void
-emfp_config_extra_factory(EConfig *ec, EConfigTarget *t, void *data)
-{
-	GSList *l;
-	int i;
-
-	l = NULL;
-	for (i=0;i<sizeof(emfp_extra_items)/sizeof(emfp_extra_items[0]);i++)
-		l = g_slist_prepend(l, &emfp_extra_items[i]);
-	e_config_add_items((EConfig *)ec, l, NULL, NULL, NULL, NULL);
-}
-
 /**
  * em_folder_properties_show:
  * @parent: parent window for dialogue (currently unused)
@@ -352,15 +303,6 @@ emfp_config_extra_factory(EConfig *ec, EConfigTarget *t, void *data)
 void
 em_folder_properties_show(GtkWindow *parent, CamelFolder *folder, const char *uri)
 {
-	static int done = 0;
-
-	if (!done) {
-		done = 1;
-		e_config_class_add_factory((EConfigClass *)g_type_class_ref(em_config_get_type()),
-					   "com.novell.evolution.mail.folderConfig",
-					   emfp_config_extra_factory, NULL);
-	}
-
 	/* HACK: its the old behaviour, not very 'neat' but it works */
 	if (!strncmp(uri, "vfolder:", 8))
 		vfolder_edit_rule(uri);
