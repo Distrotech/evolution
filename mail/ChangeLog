@@ -1,3 +1,8 @@
+2003-08-06  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html-display.c (efhd_format_attachment): Added bonobo
+	embeddables.
+
 2003-08-01 Harry Lu  <harry.lu@sun.com>
 
 	*Fix for bug #6951

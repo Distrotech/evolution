@@ -24,11 +24,18 @@
 #include <libgnomevfs/gnome-vfs-mime.h>
 #endif
 
+#include <bonobo/bonobo-control-frame.h>
+#include <bonobo/bonobo-stream-memory.h>
+#include <bonobo/bonobo-widget.h>
+
 #include <camel/camel-stream.h>
+#include <camel/camel-stream-mem.h>
 #include <camel/camel-mime-filter-tohtml.h>
 #include <camel/camel-mime-part.h>
 #include <camel/camel-multipart.h>
 #include <camel/camel-multipart-signed.h>
+#include <camel/camel-internet-address.h>
+#include <camel/camel-mime-message.h>
 #include <camel/camel-gpg-context.h>
 
 #include <e-util/e-msgport.h>
@@ -595,6 +602,146 @@ efhd_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 	}
 }
 
+static gboolean
+efhd_bonobo_object(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *pobject)
+{
+	CamelDataWrapper *wrapper;
+	Bonobo_ServerInfo *component;
+	GtkWidget *embedded;
+	Bonobo_PersistStream persist;	
+	CORBA_Environment ev;
+	CamelStreamMem *cstream;
+	BonoboStream *bstream;
+	BonoboControlFrame *control_frame;
+	Bonobo_PropertyBag prop_bag;
+
+	component = gnome_vfs_mime_get_default_component(eb->type);
+	if (component == NULL)
+		return FALSE;
+
+	embedded = bonobo_widget_new_control(component->iid, NULL);
+	CORBA_free(component);
+	if (embedded == NULL)
+		return FALSE;
+	
+	CORBA_exception_init(&ev);
+
+	control_frame = bonobo_widget_get_control_frame((BonoboWidget *)embedded);
+	prop_bag = bonobo_control_frame_get_control_property_bag(control_frame, NULL);
+	if (prop_bag != CORBA_OBJECT_NIL) {
+		/*
+		 * Now we can take care of business. Currently, the only control
+		 * that needs something passed to it through a property bag is
+		 * the iTip control, and it needs only the From email address,
+		 * but perhaps in the future we can generalize this section of code
+		 * to pass a bunch of useful things to all embedded controls.
+		 */
+		const CamelInternetAddress *from;
+		char *from_address;
+				
+		from = camel_mime_message_get_from((CamelMimeMessage *)((EMFormat *)efh)->message);
+		from_address = camel_address_encode((CamelAddress *)from);
+		bonobo_property_bag_client_set_value_string(prop_bag, "from_address", from_address, &ev);
+		g_free(from_address);
+		
+		Bonobo_Unknown_unref(prop_bag, &ev);
+	}
+	
+	persist = (Bonobo_PersistStream)Bonobo_Unknown_queryInterface(bonobo_widget_get_objref((BonoboWidget *)embedded),
+								      "IDL:Bonobo/PersistStream:1.0", NULL);
+	if (persist == CORBA_OBJECT_NIL) {
+		gtk_object_sink((GtkObject *)embedded);
+		CORBA_exception_free(&ev);				
+		return FALSE;
+	}
+	
+	/* Write the data to a CamelStreamMem... */
+	cstream = (CamelStreamMem *)camel_stream_mem_new();
+	wrapper = camel_medium_get_content_object((CamelMedium *)pobject->part);
+ 	camel_data_wrapper_write_to_stream(wrapper, (CamelStream *)cstream);
+	
+	/* ...convert the CamelStreamMem to a BonoboStreamMem... */
+	bstream = bonobo_stream_mem_create(cstream->buffer->data, cstream->buffer->len, TRUE, FALSE);
+	camel_object_unref(cstream);
+	
+	/* ...and hydrate the PersistStream from the BonoboStream. */
+	Bonobo_PersistStream_load(persist,
+				  bonobo_object_corba_objref(BONOBO_OBJECT (bstream)),
+				  eb->type, &ev);
+	bonobo_object_unref(BONOBO_OBJECT (bstream));
+	Bonobo_Unknown_unref(persist, &ev);
+	CORBA_Object_release(persist, &ev);
+	
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		gtk_object_sink((GtkObject *)embedded);
+		CORBA_exception_free(&ev);				
+		return FALSE;
+	}
+	CORBA_exception_free(&ev);
+	
+	gtk_widget_show(embedded);
+	gtk_container_add(GTK_CONTAINER (eb), embedded);
+	
+	return TRUE;
+}
+
+static gboolean
+efhd_check_server_prop(Bonobo_ServerInfo *component, const char *propname, const char *value)
+{
+	CORBA_sequence_CORBA_string stringv;
+	Bonobo_ActivationProperty *prop;
+	int i;
+
+	prop = bonobo_server_info_prop_find(component, propname);
+	if (!prop || prop->v._d != Bonobo_ACTIVATION_P_STRINGV)
+		return FALSE;
+
+	stringv = prop->v._u.value_stringv;
+	for (i = 0; i < stringv._length; i++) {
+		if (!g_ascii_strcasecmp(value, stringv._buffer[i]))
+			return TRUE;
+	}
+
+	return FALSE;
+}
+
+static gboolean
+efhd_use_component(const char *mime_type)
+{
+	GList *components, *iter;
+	Bonobo_ServerInfo *component = NULL;
+
+	/* should this cache it? */
+
+	if (g_ascii_strcasecmp(mime_type, "text/x-vcard") != 0
+	    && g_ascii_strcasecmp(mime_type, "text/calendar") != 0) {
+		const char **mime_types;
+		int i;
+
+		mime_types = mail_config_get_allowable_mime_types();
+		for (i = 0; mime_types[i]; i++) {
+			if (!g_ascii_strcasecmp(mime_types[i], mime_type))
+				goto type_ok;
+		}
+		return FALSE;
+	}
+type_ok:
+	components = gnome_vfs_mime_get_all_components (mime_type);
+	for (iter = components; iter; iter = iter->next) {
+		Bonobo_ServerInfo *comp = iter->data;
+
+		comp = iter->data;
+		if (efhd_check_server_prop(comp, "repo_ids", "IDL:Bonobo/PersistStream:1.0")
+		    && efhd_check_server_prop(comp, "bonobo:supported_mime_types", mime_type)) {
+			component = comp;
+			break;
+		}
+	}
+	gnome_vfs_mime_component_list_free (components);
+
+	return component != NULL;
+}
+
 static void
 efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const char *mime_type, const EMFormatHandler *handle)
 {
@@ -603,6 +750,7 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 	const char *text;
 	char *html;
 	GString *stext;
+	Bonobo_ServerInfo *component;
 
 	classid = g_strdup_printf("attachment:///em-format-html-display/%p", part);
 	info = (struct _attach_puri *)em_format_add_puri(emf, sizeof(*info), classid, part, efhd_attachment_frame);
@@ -615,7 +763,6 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 				  "<table cellspacing=0 cellpadding=0><tr><td>"
 				  "<table width=10 cellspacing=0 cellpadding=0>"
 				  "<tr><td></td></tr></table></td>");
-
 
 	camel_stream_printf(stream, "<td><object classid=\"%s\"></object></td>", classid);
 
@@ -644,6 +791,15 @@ efhd_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 
 	if (handle)
 		camel_stream_printf(stream, "<iframe src=\"%s\" frameborder=1 marginheight=0 marginwidth=0>%s</iframe>\n", classid, _("Attachment content could not be loaded"));
+	else if (efhd_use_component(mime_type)) {
+		static int partid;
+
+		g_free(classid); /* messy */
+
+		classid = g_strdup_printf("bonobo-unknown:///em-formath-html-display/%p/%d", part, partid++);
+		em_format_html_add_pobject((EMFormatHTML *)emf, classid, efhd_bonobo_object, part);
+		camel_stream_printf(stream, "<object classid=\"%s\" type=\"%s\">\n", classid, mime_type);
+	}
 
 	g_free(classid);
 }
