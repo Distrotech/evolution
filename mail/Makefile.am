@@ -85,6 +85,10 @@ libevolution_mail_la_SOURCES =			\
 	e-searching-tokenizer.h			\
 	em-inline-filter.c			\
 	em-inline-filter.h			\
+	em-folder-selection.c			\
+	em-folder-selection.h			\
+	em-folder-selection-button.c		\
+	em-folder-selection-button.h		\
 	em-folder-view.c			\
 	em-folder-view.h			\
 	em-folder-browser.c			\

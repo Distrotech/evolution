@@ -322,7 +322,7 @@ mail_tool_uri_to_folder (const char *uri, guint32 flags, CamelException *ex)
 	store = camel_session_get_store (session, uri + offset, ex);
 	if (store) {
 		const char *name;
-		
+
 		/* if we have a fragment, then the path is actually used by the store,
 		   so the fragment is the path to the folder instead */
 		if (url->fragment) {

@@ -30,7 +30,7 @@
 
 #include <camel/camel-store.h>
 
-#include "e-storage.h"
+#include "e-storage-set.h"
 #include "Evolution.h"
 
 #include "filter/rule-context.h"
@@ -67,25 +67,30 @@ MailComponent *mail_component_peek  (void);
 const char  *mail_component_peek_base_directory  (MailComponent *component);
 RuleContext *mail_component_peek_search_context  (MailComponent *component);
 
-void mail_component_add_store (MailComponent *component,
-			       CamelStore *store,
-			       const char *name);
+void        mail_component_add_store              (MailComponent *component,
+						   CamelStore    *store,
+						   const char    *name);
+CamelStore *mail_component_load_storage_by_uri    (MailComponent *component,
+						   const char    *uri,
+						   const char    *name);
+void        mail_component_remove_storage         (MailComponent *component,
+						   CamelStore    *store);
+void        mail_component_remove_storage_by_uri  (MailComponent *component,
+						   const char    *uri);
+EStorage   *mail_component_lookup_storage         (MailComponent *component,
+						   CamelStore    *store);
 
-void  mail_component_load_storage_by_uri    (MailComponent *component,
-					     const char    *uri,
-					     const char    *name);
-void  mail_component_remove_storage         (MailComponent *component,
-					     CamelStore    *store);
-void  mail_component_remove_storage_by_uri  (MailComponent *component,
-					     const char    *uri);
+int          mail_component_get_storage_count  (MailComponent *component);
+EStorageSet *mail_component_peek_storage_set   (MailComponent *component);
+void         mail_component_storages_foreach   (MailComponent *component,
+						GHFunc         func,
+						void          *data);
 
-EStorage *mail_component_lookup_storage  (MailComponent *component,
-					  CamelStore    *store);
-
-int   mail_component_get_storage_count  (MailComponent *component);
-
-void  mail_component_storages_foreach   (MailComponent *component,
-					 GHFunc         func,
-					 void          *data);
+CamelFolder *mail_component_get_folder_from_evomail_uri  (MailComponent  *component,
+							  guint32         flags,
+							  const char     *evomail_uri,
+							  CamelException *ex);
+char        *mail_component_evomail_uri_from_folder      (MailComponent  *component,
+							  CamelFolder    *folder);
 
 #endif /* _MAIL_COMPONENT_H_ */

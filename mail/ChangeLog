@@ -1,3 +1,24 @@
+2003-09-29  Ettore Perazzoli  <ettore@ximian.com>
+
+	* mail-component.c: New member local_store in
+	MailComponentPrivate.
+	(impl_dispose): Unref.
+	(mail_component_load_storage_by_uri): Return the CamelStore.
+	(setup_local_folder): New.
+	(setup_local_store): New.
+	(mail_component_init): Call it.
+	(mail_component_peek_storage_set): New.
+	(mail_component_get_folder_from_evomail_uri): New.
+	(mail_component_evomail_uri_from_folder): New.
+
+	* em-folder-selection-button.c: New.
+	* em-folder-selection-button.h: New.
+
+	* em-folder-selection.c: New.
+	* em-folder-selection.h: New.
+
+	* em-marshal.list: Add NONE:POINTER.
+
 2003-09-23  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-component.c (add_storage): Remove unused arg "uri".
