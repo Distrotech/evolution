@@ -188,8 +188,14 @@ static pthread_t dispatch_thread;
  * enough.
  */
 
-#else /* defined USE_PTHREADS */
-choke on this: no thread type defined
+#elif defined( G_THREADS_IMPL_SOLARIS )
+
+#include <thread.h>
+
+static thread_t dispatch_thread;
+
+#else /* no supported thread impl */
+void f( void ) { Error_No_supported_thread_implementation_recognized(); choke on this; }
 #endif
 
 /**
@@ -596,8 +602,15 @@ static void dispatch (closure_t *clur)
 {
 	int res;
 
+#if defined( G_THREADS_IMPL_POSIX )
 	res = pthread_create (&dispatch_thread, NULL, (void *) &dispatch_func, clur);
-
+#elif defined( G_THREADS_IMPL_SOLARIS )
+	res = thr_create (NULL, 0, dispatch_func, 
+			  clur, 0, &dispatch_thread);
+#else /* no known impl */
+	Error_No_thread_create_implementation();
+	choke on this;
+#endif
 	if( res != 0 ) {
 		g_warning ("Error launching dispatch thread!");
 		/* FIXME: more error handling */
@@ -639,7 +652,14 @@ static void *dispatch_func (void *data)
 	msg.clur = clur;
 	write (WRITER, &msg, sizeof (msg));
 
+#ifdef G_THREADS_IMPL_POSIX
 	pthread_exit (0);
+#elif defined( G_THREADS_IMPL_SOLARIS )
+	thr_exit (NULL);
+#else /* no known impl */
+	Error_No_thread_exit_implemented();
+	choke on this;
+#endif
 	return NULL; /*NOTREACHED*/
 }
 
@@ -729,6 +749,14 @@ static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer u
 	case FINISHED:
 		DEBUG (("*** Message -- FINISH %s\n", msg->clur->spec->gerund));
 
+#ifdef G_THREADS_IMPL_POSIX
+		pthread_join (dispatch_thread, NULL);
+#elif defined( G_THREADS_IMPL_SOLARIS )
+		thr_join (dispatch_thread, NULL, NULL);
+#else /* no known impl */
+		Error_No_join_implemented_for_threads();
+		choke on this;
+#endif
 		if (msg->clur->spec->cleanup)
 			(msg->clur->spec->cleanup) (msg->clur->in_data,
 						    msg->clur->op_data,
