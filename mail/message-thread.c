@@ -34,6 +34,13 @@
 #include "mail-tools.h"
 #include "mail-threads.h"
 
+#define TIMEIT
+
+#ifdef TIMEIT
+#include <sys/time.h>
+#include <unistd.h>
+#endif
+
 #define d(x)
 
 /* for debug only */
@@ -416,6 +423,8 @@ sort_thread(struct _container **cp)
 	*cp = head;
 }
 
+/* NOTE: This function assumes you have obtained the relevant locks for
+   the folder, BEFORE calling it */
 struct _thread_messages *
 thread_messages(CamelFolder *folder, GPtrArray *uids)
 {
@@ -425,13 +434,18 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 	struct _header_references *ref;
 	struct _thread_messages *thread;
 
+#ifdef TIMEIT
+	struct timeval start, end;
+	unsigned long diff;
+
+	gettimeofday(&start, NULL);
+#endif
+
 	id_table = g_hash_table_new(g_str_hash, g_str_equal);
 	no_id_table = g_hash_table_new(NULL, NULL);
 	for (i=0;i<uids->len;i++) {
 		const CamelMessageInfo *mi;
-		mail_tool_camel_lock_up ();
 		mi = camel_folder_get_message_info (folder, uids->pdata[i]);
-		mail_tool_camel_lock_down ();
 
 		if (mi == NULL) {
 			g_warning("Folder doesn't contain uid %s", (char *)uids->pdata[i]);
@@ -461,7 +475,9 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 		d(printf("references:\n"));
 		while (ref) {
 			if (ref->id == NULL) {
-				printf("ref missing id!?\n");
+				/* this shouldn't actually happen, and indicates
+				   some problems in camel */
+				d(printf("ref missing id!?\n"));
 				ref = ref->next;
 				continue;
 			}
@@ -508,9 +524,22 @@ thread_messages(CamelFolder *folder, GPtrArray *uids)
 	thread = g_malloc(sizeof(*thread));
 	thread->tree = head;
 
+#ifdef TIMEIT
+	gettimeofday(&end, NULL);
+	diff = end.tv_sec * 1000 + end.tv_usec/1000;
+	diff -= start.tv_sec * 1000 + start.tv_usec/1000;
+	printf("Message threading %d messages took %d.%03d seconds\n",
+	       uids->len, diff / 1000, diff % 1000);
+#endif
 	return thread;
 }
 
+/* intended for incremental update.  Not implemented yet as, well, its probbaly
+   not worth it (memory overhead vs speed, may as well just rethread the whole
+   lot?)
+
+   But it might be implemented at a later date.
+*/
 void
 thread_messages_add(struct _thread_messages *thread, CamelFolder *folder, GPtrArray *uids)
 {
@@ -579,7 +608,9 @@ static void do_thread_messages (gpointer in_data, gpointer op_data, CamelExcepti
 	thread_messages_input_t *input = (thread_messages_input_t *) in_data;
 	thread_messages_data_t *data = (thread_messages_data_t *) op_data;
 
+	mail_tool_camel_lock_up ();
 	data->thread = thread_messages (input->ml->folder, input->uids);
+	mail_tool_camel_lock_down ();
 }
 
 static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
