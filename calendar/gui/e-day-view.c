@@ -1467,7 +1467,10 @@ e_day_view_update_event_cb (EDayView *day_view,
 					event_num);
 	}
 
+	if (event->allocated_comp_data)
+		e_cal_model_free_component_data (event->comp_data);
 	event->comp_data = comp_data;
+	event->allocated_comp_data = FALSE;
 
 	if (day == E_DAY_VIEW_LONG_EVENT) {
 		e_day_view_update_long_event_label (day_view, event_num);
@@ -1589,6 +1592,11 @@ e_day_view_remove_event_cb (EDayView *day_view,
 
 	if (event->canvas_item)
 		gtk_object_destroy (GTK_OBJECT (event->canvas_item));
+
+	if (event->allocated_comp_data) {
+		e_cal_model_free_component_data (event->comp_data);
+		event->allocated_comp_data = FALSE;
+	}
 
 	if (day == E_DAY_VIEW_LONG_EVENT) {
 		g_array_remove_index (day_view->long_events, event_num);
@@ -4036,6 +4044,11 @@ e_day_view_free_event_array (EDayView *day_view,
 		event = &g_array_index (array, EDayViewEvent, event_num);
 		if (event->canvas_item)
 			gtk_object_destroy (GTK_OBJECT (event->canvas_item));
+
+		if (event->allocated_comp_data) {
+			e_cal_model_free_component_data (event->comp_data);
+			event->allocated_comp_data = FALSE;
+		}
 	}
 
 	g_array_set_size (array, 0);
@@ -4074,7 +4087,18 @@ e_day_view_add_event (CalComponent *comp,
 	end_tt = icaltime_from_timet_with_zone (end, FALSE,
 						e_cal_view_get_timezone (E_CAL_VIEW (add_event_data->day_view)));
 
-	event.comp_data = add_event_data->comp_data;
+	if (add_event_data->comp_data) {
+		event.comp_data = add_event_data->comp_data;
+		event.allocated_comp_data = FALSE;
+	} else {
+		event.comp_data = g_new0 (ECalModelComponent, 1);
+		event.allocated_comp_data = TRUE;
+
+		event.comp_data->client = e_cal_model_get_default_client (e_cal_view_get_model (E_CAL_VIEW (add_event_data->day_view)));
+		event.comp_data->icalcomp = e_cal_model_create_component_with_defaults (
+			e_cal_view_get_model (E_CAL_VIEW (add_event_data->day_view)));
+	}
+
 	event.start = start;
 	event.end = end;
 	event.canvas_item = NULL;
@@ -4091,8 +4115,7 @@ e_day_view_add_event (CalComponent *comp,
 
 	event.different_timezone = FALSE;
 	if (!cal_comp_util_compare_event_timezones (comp,
-						    event.comp_data ? event.comp_data->client
-						    : e_cal_model_get_default_client (E_CAL_MODEL (add_event_data->day_view)),
+						    event.comp_data->client,
 						    e_cal_view_get_timezone (E_CAL_VIEW (add_event_data->day_view))))
 		event.different_timezone = TRUE;
 

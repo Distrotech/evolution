@@ -1501,3 +1501,25 @@ e_cal_model_date_value_to_string (ECalModel *model, const void *value)
 				     buffer, sizeof (buffer));
 	return g_strdup (buffer);
 }
+
+/**
+ * e_cal_model_free_component_data
+ */
+void
+e_cal_model_free_component_data (ECalModelComponent *comp_data)
+{
+	g_return_if_fail (comp_data != NULL);
+
+	if (comp_data->icalcomp)
+		icalcomponent_free (comp_data->icalcomp);
+	if (comp_data->dtstart)
+		g_free (comp_data->dtstart);
+	if (comp_data->dtend)
+		g_free (comp_data->dtend);
+	if (comp_data->due)
+		g_free (comp_data->due);
+	if (comp_data->completed)
+		g_free (comp_data->completed);
+
+	g_free (comp_data);
+}

@@ -101,6 +101,8 @@ ECalModelComponent *e_cal_model_get_component_at (ECalModel *model, gint row);
 
 gchar              *e_cal_model_date_value_to_string (ECalModel *model, const void *value);
 
+void                e_cal_model_free_component_data (ECalModelComponent *comp_data);
+
 G_END_DECLS
 
 #endif
