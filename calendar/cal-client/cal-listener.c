@@ -27,6 +27,7 @@
 struct CalListenerPrivate {
 	/* Notification functions and their closure data */
 	CalListenerCalOpenedFn cal_opened_fn;
+	CalListenerCalOpenedFn cal_removed_fn;
 	CalListenerCalSetModeFn cal_set_mode_fn;
 	CalListenerErrorOccurredFn error_occurred_fn;
 	CalListenerCategoriesChangedFn categories_changed_fn;
@@ -43,8 +44,11 @@ static void cal_listener_init (CalListener *listener, CalListenerClass *klass);
 static void cal_listener_finalize (GObject *object);
 
 static void impl_notifyCalOpened (PortableServer_Servant servant,
-				  GNOME_Evolution_Calendar_Listener_OpenStatus status,
+				  GNOME_Evolution_Calendar_Listener_FileStatus status,
 				  CORBA_Environment *ev);
+static void impl_notifyCalRemoved (PortableServer_Servant servant,
+				   GNOME_Evolution_Calendar_Listener_FileStatus status,
+				   CORBA_Environment *ev);
 static void impl_notifyCalSetMode (PortableServer_Servant servant,
 				   GNOME_Evolution_Calendar_Listener_SetModeStatus status,
 				   GNOME_Evolution_Calendar_CalMode mode,
@@ -93,6 +97,7 @@ cal_listener_init (CalListener *listener, CalListenerClass *klass)
 	listener->priv = priv;
 
 	priv->cal_opened_fn = NULL;
+	priv->cal_removed_fn = NULL;
 	priv->error_occurred_fn = NULL;
 	priv->categories_changed_fn = NULL;
 
@@ -113,6 +118,7 @@ cal_listener_finalize (GObject *object)
 	priv = listener->priv;
 
 	priv->cal_opened_fn = NULL;
+	priv->cal_removed_fn = NULL;
 	priv->error_occurred_fn = NULL;
 	priv->categories_changed_fn = NULL;
 	priv->fn_data = NULL;
@@ -133,7 +139,7 @@ cal_listener_finalize (GObject *object)
 /* ::notifyCalOpened method */
 static void
 impl_notifyCalOpened (PortableServer_Servant servant,
-		      GNOME_Evolution_Calendar_Listener_OpenStatus status,
+		      GNOME_Evolution_Calendar_Listener_FileStatus status,
 		      CORBA_Environment *ev)
 {
 	CalListener *listener;
@@ -149,6 +155,26 @@ impl_notifyCalOpened (PortableServer_Servant servant,
 
 	g_assert (priv->cal_opened_fn != NULL);
 	(* priv->cal_opened_fn) (listener, status, priv->fn_data);
+}
+
+static void
+impl_notifyCalRemoved (PortableServer_Servant servant,
+		      GNOME_Evolution_Calendar_Listener_FileStatus status,
+		      CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+	CORBA_Environment aev;
+	GNOME_Evolution_Calendar_Cal cal_copy;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_assert (priv->cal_removed_fn != NULL);
+	(* priv->cal_removed_fn) (listener, status, priv->fn_data);
 }
 
 /* ::notifyCalSetMode method */
@@ -235,6 +261,7 @@ impl_notifyCategoriesChanged (PortableServer_Servant servant,
 CalListener *
 cal_listener_construct (CalListener *listener,
 			CalListenerCalOpenedFn cal_opened_fn,
+			CalListenerCalRemovedFn cal_removed_fn,
 			CalListenerCalSetModeFn cal_set_mode_fn,
 			CalListenerErrorOccurredFn error_occurred_fn,
 			CalListenerCategoriesChangedFn categories_changed_fn,
@@ -245,6 +272,7 @@ cal_listener_construct (CalListener *listener,
 	g_return_val_if_fail (listener != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_LISTENER (listener), NULL);
 	g_return_val_if_fail (cal_opened_fn != NULL, NULL);
+	g_return_val_if_fail (cal_removed_fn != NULL, NULL);
  	g_return_val_if_fail (cal_set_mode_fn != NULL, NULL);
 	g_return_val_if_fail (error_occurred_fn != NULL, NULL);
 	g_return_val_if_fail (categories_changed_fn != NULL, NULL);
@@ -252,6 +280,7 @@ cal_listener_construct (CalListener *listener,
 	priv = listener->priv;
 
 	priv->cal_opened_fn = cal_opened_fn;
+	priv->cal_removed_fn = cal_removed_fn;
 	priv->cal_set_mode_fn = cal_set_mode_fn;
 	priv->error_occurred_fn = error_occurred_fn;
 	priv->categories_changed_fn = categories_changed_fn;
@@ -280,6 +309,7 @@ cal_listener_construct (CalListener *listener,
  **/
 CalListener *
 cal_listener_new (CalListenerCalOpenedFn cal_opened_fn,
+		  CalListenerCalRemovedFn cal_removed_fn,
 		  CalListenerCalSetModeFn cal_set_mode_fn,
 		  CalListenerErrorOccurredFn error_occurred_fn,
 		  CalListenerCategoriesChangedFn categories_changed_fn,
@@ -294,6 +324,7 @@ cal_listener_new (CalListenerCalOpenedFn cal_opened_fn,
 	listener = g_object_new (CAL_LISTENER_TYPE, NULL);
 	return cal_listener_construct (listener,
 				       cal_opened_fn,
+				       cal_removed_fn,
 				       cal_set_mode_fn,
 				       error_occurred_fn,
 				       categories_changed_fn,

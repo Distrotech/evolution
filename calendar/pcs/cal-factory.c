@@ -199,7 +199,7 @@ impl_CalFactory_getCal (PortableServer_Servant servant,
 	backend = lookup_backend (factory, uri_string);
 	if (!backend) {
 		/* There was no existing backend, create a new one */
-		backend = g_object_new (backend_type, "uri", uri_string, NULL);
+		backend = g_object_new (backend_type, "uri", uri_string, "kind", calobjtype_to_icalkind (type), NULL);
 		if (!backend) {
 			g_warning (G_STRLOC ": could not instantiate backend");
 			bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_CalFactory_UnsupportedMethod);

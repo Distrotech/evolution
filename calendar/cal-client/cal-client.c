@@ -85,6 +85,7 @@ struct _CalClientPrivate {
 /* Signal IDs */
 enum {
 	CAL_OPENED,
+	CAL_REMOVED,
 	CAL_SET_MODE,
 	OBJ_UPDATED,
 	OBJ_REMOVED,
@@ -160,6 +161,25 @@ cal_client_open_status_enum_get_type (void)
 }
 
 GType
+cal_client_remove_status_enum_get_type (void)
+{
+	static GType cal_client_remove_status_enum_type = 0;
+
+	if (!cal_client_remove_status_enum_type) {
+		static GEnumValue values [] = {
+		  { CAL_CLIENT_REMOVE_SUCCESS,              "CalClientRemoveSuccess",            "success"     },
+		  { CAL_CLIENT_REMOVE_ERROR,                "CalClientRemoveError",              "error"       },
+		  { CAL_CLIENT_REMOVE_PERMISSION_DENIED,    "CalClientRemovePermissionDenied",   "denied"      },
+		  { -1,                                   NULL,                              NULL          }
+		};
+
+		cal_client_remove_status_enum_type = g_enum_register_static ("CalClientRemoveStatusEnum", values);
+	}
+
+	return cal_client_remove_status_enum_type;
+}
+
+GType
 cal_client_set_mode_status_enum_get_type (void)
 {
 	static GType cal_client_set_mode_status_enum_type = 0;
@@ -218,6 +238,16 @@ cal_client_class_init (CalClientClass *klass)
 			      g_cclosure_marshal_VOID__ENUM,
 			      G_TYPE_NONE, 1,
 			      CAL_CLIENT_OPEN_STATUS_ENUM_TYPE);
+	cal_client_signals[CAL_REMOVED] =
+		g_signal_new ("cal_removed",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalClientClass, cal_removed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__ENUM,
+			      G_TYPE_NONE, 1,
+			      CAL_CLIENT_REMOVE_STATUS_ENUM_TYPE);
+
 	cal_client_signals[CAL_SET_MODE] =
 		g_signal_new ("cal_set_mode",
 			      G_TYPE_FROM_CLASS (klass),
@@ -486,7 +516,7 @@ backend_died_cb (EComponentListener *cl, gpointer user_data)
 /* Handle the cal_opened notification from the listener */
 static void
 cal_opened_cb (CalListener *listener,
-	       GNOME_Evolution_Calendar_Listener_OpenStatus status,
+	       GNOME_Evolution_Calendar_Listener_FileStatus status,
 	       gpointer data)
 {
 	CalClient *client;
@@ -519,10 +549,6 @@ cal_opened_cb (CalListener *listener,
 
 	case GNOME_Evolution_Calendar_Listener_NOT_FOUND:
 		client_status = CAL_CLIENT_OPEN_NOT_FOUND;
-		goto error;
-
-	case GNOME_Evolution_Calendar_Listener_METHOD_NOT_SUPPORTED:
-		client_status = CAL_CLIENT_OPEN_METHOD_NOT_SUPPORTED;
 		goto error;
 
 	case GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED :
@@ -566,6 +592,60 @@ cal_opened_cb (CalListener *listener,
 
 	g_object_unref (G_OBJECT (client));
 }
+
+static void
+cal_removed_cb (CalListener *listener,
+	       GNOME_Evolution_Calendar_Listener_FileStatus status,
+	       gpointer data)
+{
+	CalClient *client;
+	CalClientPrivate *priv;
+	CalClientRemoveStatus client_status;
+
+	client = CAL_CLIENT (data);
+	priv = client->priv;
+
+	g_assert (priv->load_state == CAL_CLIENT_LOAD_LOADING);
+	g_assert (priv->uri != NULL);
+
+	client_status = CAL_CLIENT_OPEN_ERROR;
+
+	switch (status) {
+	case GNOME_Evolution_Calendar_Listener_SUCCESS:
+		client_status = CAL_CLIENT_REMOVE_SUCCESS;
+		break;
+
+	case GNOME_Evolution_Calendar_Listener_ERROR:
+		client_status = CAL_CLIENT_REMOVE_ERROR;
+		break;
+
+	case GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED :
+		client_status = CAL_CLIENT_REMOVE_PERMISSION_DENIED;
+		break;		
+
+	default:		
+		g_assert_not_reached ();
+	}
+
+	/* We are *not* inside a signal handler (this is just a simple callback
+	 * called from the listener), so there is not a temporary reference to
+	 * the client object.  We ref() so that we can safely emit our own
+	 * signal and clean up.
+	 */
+
+	g_object_ref (G_OBJECT (client));
+
+	g_signal_emit (G_OBJECT (client), cal_client_signals[CAL_REMOVED],
+		       0, client_status);
+
+	/* FIXME How to cleanup after a removal */
+	if (client_status == CAL_CLIENT_REMOVE_SUCCESS) {
+		priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
+	}
+
+	g_object_unref (G_OBJECT (client));
+}
+
 
 /* Handle the cal_set_mode notification from the listener */
 static void
@@ -767,6 +847,7 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 	}
 	
 	priv->listener = cal_listener_new (cal_opened_cb,
+					   cal_removed_cb,
 					   cal_set_mode_cb,
 					   backend_error_cb,
 					   categories_changed_cb,
@@ -852,13 +933,9 @@ static char *
 get_fall_back_uri (gboolean tasks)
 {
 	if (tasks)
-		return g_concat_dir_and_file (g_get_home_dir (),
-					      "evolution/local/"
-					      "Tasks/tasks.ics");
+		return g_concat_dir_and_file (g_get_home_dir (), "evolution/local/Tasks");
 	else
-		return g_concat_dir_and_file (g_get_home_dir (),
-					      "evolution/local/"
-					      "Calendar/calendar.ics");
+		return g_concat_dir_and_file (g_get_home_dir (), "evolution/local/Calendar");
 }
 
 static char *
@@ -925,6 +1002,29 @@ cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists)
 	g_free (fall_back);
 
 	return result;
+}
+
+gboolean 
+cal_client_remove_calendar (CalClient *client)
+{
+	CalClientPrivate *priv;
+	CORBA_Environment ev;
+	
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
+
+	priv = client->priv;
+	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, FALSE);
+		
+	CORBA_exception_init (&ev);	
+		
+	GNOME_Evolution_Calendar_Cal_remove (priv->cal, &ev);
+	if (BONOBO_EX (&ev))
+		return FALSE;
+	
+	CORBA_exception_free (&ev);
+
+	return TRUE;
 }
 
 #if 0

@@ -108,6 +108,8 @@ cal_backend_file_events_init (CalBackendFileEvents *cbfile, CalBackendFileEvents
 
 	priv = g_new0 (CalBackendFileEventsPrivate, 1);
 	cbfile->priv = priv;
+
+	cal_backend_file_set_file_name (CAL_BACKEND_FILE (cbfile), "calendar.ics");
 }
 
 /* Dispose handler for the file backend */

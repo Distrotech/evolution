@@ -40,6 +40,9 @@ struct _CalBackendFilePrivate {
 	/* URI where the calendar data is stored */
 	char *uri;
 
+	/* Filename in the dir */
+	char *file_name;	
+
 	/* Toplevel VCALENDAR component */
 	icalcomponent *icalcomp;
 
@@ -76,9 +79,8 @@ static const char *cal_backend_file_get_cal_address (CalBackend *backend);
 static const char *cal_backend_file_get_alarm_email_address (CalBackend *backend);
 static const char *cal_backend_file_get_ldap_attribute (CalBackend *backend);
 static const char *cal_backend_file_get_static_capabilities (CalBackend *backend);
-static CalBackendOpenStatus cal_backend_file_open (CalBackend *backend,
-						   const char *uristr,
-						   gboolean only_if_exists);
+static CalBackendFileStatus cal_backend_file_open (CalBackend *backend, gboolean only_if_exists);
+static CalBackendFileStatus cal_backend_file_remove (CalBackend *backend);
 static gboolean cal_backend_file_is_loaded (CalBackend *backend);
 static Query *cal_backend_file_get_query (CalBackend *backend,
 					  GNOME_Evolution_Calendar_QueryListener ql,
@@ -181,6 +183,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	backend_class->get_ldap_attribute = cal_backend_file_get_ldap_attribute;
  	backend_class->get_static_capabilities = cal_backend_file_get_static_capabilities;
 	backend_class->open = cal_backend_file_open;
+	backend_class->remove = cal_backend_file_remove;
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->get_query = cal_backend_file_get_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
@@ -214,6 +217,7 @@ cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *class)
 	cbfile->priv = priv;
 
 	priv->uri = NULL;
+	priv->file_name = g_strdup ("calendar.ics");
 	priv->icalcomp = NULL;
 	priv->comp_uid_hash = NULL;
 	priv->comp = NULL;
@@ -223,6 +227,37 @@ cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *class)
 
 	priv->config_listener = e_config_listener_new ();
 }
+
+void
+cal_backend_file_set_file_name (CalBackendFile *cbfile, const char *file_name)
+{
+	CalBackendFilePrivate *priv;
+	
+	g_return_if_fail (cbfile != NULL);
+	g_return_if_fail (IS_CAL_BACKEND_FILE (cbfile));
+	g_return_if_fail (file_name != NULL);
+
+	priv = cbfile->priv;
+	
+	if (priv->file_name)
+		g_free (priv->file_name);
+	
+	priv->file_name = g_strdup (file_name);
+}
+
+const char *
+cal_backend_file_get_file_name (CalBackendFile *cbfile)
+{
+	CalBackendFilePrivate *priv;
+
+	g_return_val_if_fail (cbfile != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_BACKEND_FILE (cbfile), NULL);
+
+	priv = cbfile->priv;	
+
+	return priv->file_name;
+}
+
 
 /* g_hash_table_foreach() callback to destroy a CalComponent */
 static void
@@ -631,7 +666,7 @@ scan_vcalendar (CalBackendFile *cbfile)
 }
 
 /* Parses an open iCalendar file and loads it into the backend */
-static CalBackendOpenStatus
+static CalBackendFileStatus
 open_cal (CalBackendFile *cbfile, const char *uristr)
 {
 	CalBackendFilePrivate *priv;
@@ -641,7 +676,7 @@ open_cal (CalBackendFile *cbfile, const char *uristr)
 
 	icalcomp = cal_util_parse_ics_file (uristr);
 	if (!icalcomp)
-		return CAL_BACKEND_OPEN_ERROR;
+		return CAL_BACKEND_FILE_ERROR;
 
 	/* FIXME: should we try to demangle XROOT components and
 	 * individual components as well?
@@ -649,7 +684,7 @@ open_cal (CalBackendFile *cbfile, const char *uristr)
 
 	if (icalcomponent_isa (icalcomp) != ICAL_VCALENDAR_COMPONENT) {
 		icalcomponent_free (icalcomp);
-		return CAL_BACKEND_OPEN_ERROR;
+		return CAL_BACKEND_FILE_ERROR;
 	}
 
 	priv->icalcomp = icalcomp;
@@ -659,10 +694,10 @@ open_cal (CalBackendFile *cbfile, const char *uristr)
 
 	priv->uri = g_strdup (uristr);
 
-	return CAL_BACKEND_OPEN_SUCCESS;
+	return CAL_BACKEND_FILE_SUCCESS;
 }
 
-static CalBackendOpenStatus
+static CalBackendFileStatus
 create_cal (CalBackendFile *cbfile, const char *uristr)
 {
 	CalBackendFilePrivate *priv;
@@ -679,37 +714,37 @@ create_cal (CalBackendFile *cbfile, const char *uristr)
 
 	mark_dirty (cbfile);
 
-	return CAL_BACKEND_OPEN_SUCCESS;
+	return CAL_BACKEND_FILE_SUCCESS;
 }
 
-/* Open handler for the file backend */
-static CalBackendOpenStatus
-cal_backend_file_open (CalBackend *backend, const char *uristr, gboolean only_if_exists)
+static char *
+get_uri_string (CalBackend *backend)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
-	char *str_uri;
-	EUri *uri;
-	CalBackendOpenStatus status;
+	const char *master_uri;
+	char *full_uri, *str_uri;
+	GnomeVFSURI *uri;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
+	
+	master_uri = cal_backend_get_uri (backend);
+	g_message (G_STRLOC ": Trying to open %s", master_uri);
+	
+	/* FIXME Check the error conditions a little more elegantly here */
+	if (g_strrstr ("tasks.ics", master_uri) || g_strrstr ("calendar.ics", master_uri)) {
+		g_warning (G_STRLOC ": Existing file name %s", master_uri);
 
-	g_return_val_if_fail (priv->icalcomp == NULL, CAL_BACKEND_OPEN_ERROR);
-	g_return_val_if_fail (uristr != NULL, CAL_BACKEND_OPEN_ERROR);
-
-	g_assert (priv->uri == NULL);
-	g_assert (priv->comp_uid_hash == NULL);
-
-	uri = e_uri_new (uristr);
-	if (!uri)
-		return CAL_BACKEND_OPEN_ERROR;
-
-	if (!uri->protocol || strcmp (uri->protocol, "file")) {
-		e_uri_free (uri);
-
-		return CAL_BACKEND_OPEN_ERROR;
+		return NULL;
 	}
+	
+	full_uri = g_strdup_printf ("%s%s%s", master_uri, G_DIR_SEPARATOR_S, priv->file_name);
+	uri = gnome_vfs_uri_new (full_uri);
+	g_free (full_uri);
+	
+	if (!uri)
+		return NULL;
 
 	str_uri = gnome_vfs_uri_to_string (uri,
 					   (GNOME_VFS_URI_HIDE_USER_NAME
@@ -717,25 +752,82 @@ cal_backend_file_open (CalBackend *backend, const char *uristr, gboolean only_if
 					    | GNOME_VFS_URI_HIDE_HOST_NAME
 					    | GNOME_VFS_URI_HIDE_HOST_PORT
 					    | GNOME_VFS_URI_HIDE_TOPLEVEL_METHOD));
+	gnome_vfs_uri_unref (uri);
+
 	if (!str_uri || !strlen (str_uri)) {
 		g_free (str_uri);
-		gnome_vfs_uri_unref (uri);
-		return CAL_BACKEND_OPEN_ERROR;
-	}
 
+		return NULL;
+	}	
+
+	return str_uri;
+}
+
+/* Open handler for the file backend */
+static CalBackendFileStatus
+cal_backend_file_open (CalBackend *backend, gboolean only_if_exists)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+	char *str_uri;
+	CalBackendFileStatus status;
+	
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	g_return_val_if_fail (priv->icalcomp == NULL, CAL_BACKEND_FILE_ERROR);
+
+	/* Claim a succesful open if we are already open */
+	if (priv->uri && priv->comp_uid_hash)
+		return CAL_BACKEND_FILE_SUCCESS;
+	
+	str_uri = get_uri_string (backend);
+	if (!str_uri)
+		return CAL_BACKEND_FILE_ERROR;
+	
 	if (access (str_uri, R_OK) == 0)
 		status = open_cal (cbfile, str_uri);
 	else {
 		if (only_if_exists)
-			status = CAL_BACKEND_OPEN_NOT_FOUND;
+			status = CAL_BACKEND_FILE_NOT_FOUND;
 		else
 			status = create_cal (cbfile, str_uri);
 	}
 
 	g_free (str_uri);
-	gnome_vfs_uri_unref (uri);
 
 	return status;
+}
+
+static CalBackendFileStatus
+cal_backend_file_remove (CalBackend *backend)
+{
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
+	char *str_uri;
+	
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
+	str_uri = get_uri_string (backend);
+	if (!str_uri)
+		return CAL_BACKEND_FILE_ERROR;
+
+	if (access (str_uri, W_OK) != 0) {
+		g_free (str_uri);
+
+		return CAL_BACKEND_FILE_PERMISSION_DENIED;
+	}
+
+	if (unlink (str_uri) != 0) {
+		g_free (str_uri);
+
+		return CAL_BACKEND_FILE_ERROR;
+	}
+	
+	g_free (str_uri);
+	
+	return CAL_BACKEND_FILE_SUCCESS;
 }
 
 /* is_loaded handler for the file backend */

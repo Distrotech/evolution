@@ -44,11 +44,11 @@ G_BEGIN_DECLS
 
 /* Open status values */
 typedef enum {
-	CAL_BACKEND_OPEN_SUCCESS,	/* Loading OK */
-	CAL_BACKEND_OPEN_ERROR,		/* We need better error reporting in libversit */
-	CAL_BACKEND_OPEN_NOT_FOUND,
-	CAL_BACKEND_OPEN_PERMISSION_DENIED,
-} CalBackendOpenStatus;
+	CAL_BACKEND_FILE_SUCCESS,	/* Loading OK */
+	CAL_BACKEND_FILE_ERROR,		/* We need better error reporting in libversit */
+	CAL_BACKEND_FILE_NOT_FOUND,
+	CAL_BACKEND_FILE_PERMISSION_DENIED
+} CalBackendFileStatus;
 
 /* Update and Remove result values */
 typedef enum {
@@ -88,8 +88,8 @@ struct _CalBackendClass {
 	void (* last_client_gone) (CalBackend *backend);
 	void (* cal_added) (CalBackend *backend, Cal *cal);
 
-	void (* opened) (CalBackend *backend, CalBackendOpenStatus status);
-	void (* removed) (CalBackend *backend);
+	void (* opened) (CalBackend *backend, CalBackendFileStatus status);
+	void (* removed) (CalBackend *backend, CalBackendFileStatus status);
 	void (* obj_updated) (CalBackend *backend, const char *uid);
 	void (* obj_removed) (CalBackend *backend, const char *uid);
 
@@ -102,9 +102,8 @@ struct _CalBackendClass {
 	
 	const char *(* get_static_capabilities) (CalBackend *backend);
 	
-	CalBackendOpenStatus (* open) (CalBackend *backend, const char *uristr,
-				       gboolean only_if_exists);
-	CalBackendOpenStatus (* remove) (CalBackend *backend);
+	CalBackendFileStatus (* open) (CalBackend *backend, gboolean only_if_exists);
+	CalBackendFileStatus (* remove) (CalBackend *backend);
 
 	gboolean (* is_loaded) (CalBackend *backend);
 	gboolean (* is_read_only) (CalBackend *backend);
@@ -157,6 +156,7 @@ struct _CalBackendClass {
 GType cal_backend_get_type (void);
 
 const char *cal_backend_get_uri (CalBackend *backend);
+icalcomponent_kind cal_backend_get_kind (CalBackend *backend);
 
 const char *cal_backend_get_cal_address (CalBackend *backend);
 const char *cal_backend_get_alarm_email_address (CalBackend *backend);
@@ -166,8 +166,8 @@ const char *cal_backend_get_static_capabilities (CalBackend *backend);
 
 void cal_backend_add_cal (CalBackend *backend, Cal *cal);
 
-CalBackendOpenStatus cal_backend_open (CalBackend *backend, const char *uristr,
-				       gboolean only_if_exists);
+CalBackendFileStatus cal_backend_open (CalBackend *backend, gboolean only_if_exists);
+CalBackendFileStatus cal_backend_remove (CalBackend *backend);
 
 gboolean cal_backend_is_loaded (CalBackend *backend);
 
@@ -225,15 +225,14 @@ icaltimezone* cal_backend_get_timezone (CalBackend *backend, const char *tzid);
 icaltimezone* cal_backend_get_default_timezone (CalBackend *backend);
 
 void cal_backend_last_client_gone (CalBackend *backend);
-void cal_backend_opened (CalBackend *backend, CalBackendOpenStatus status);
+void cal_backend_opened (CalBackend *backend, CalBackendFileStatus status);
+void cal_backend_removed (CalBackend *backend, CalBackendFileStatus status);
 void cal_backend_obj_updated (CalBackend *backend, const char *uid);
 void cal_backend_obj_removed (CalBackend *backend, const char *uid);
 
 void cal_backend_notify_mode      (CalBackend *backend,
 				   GNOME_Evolution_Calendar_Listener_SetModeStatus status, 
 				   GNOME_Evolution_Calendar_CalMode mode);
-void cal_backend_notify_update    (CalBackend *backend, const char *uid);
-void cal_backend_notify_remove    (CalBackend *backend, const char *uid);
 void cal_backend_notify_error     (CalBackend *backend, const char *message);
 void cal_backend_ref_categories   (CalBackend *backend, GSList *categories);
 void cal_backend_unref_categories (CalBackend *backend, GSList *categories);

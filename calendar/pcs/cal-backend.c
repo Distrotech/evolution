@@ -43,6 +43,12 @@ typedef struct {
 
 /* Private part of the CalBackend structure */
 struct _CalBackendPrivate {
+	/* The uri for this backend */
+	char *uri;
+
+	/* The kind of components for this backend */
+	icalcomponent_kind kind;
+	
 	/* List of Cal objects with their listeners */
 	GList *clients;
 
@@ -53,6 +59,13 @@ struct _CalBackendPrivate {
 	GHashTable *categories;
 	GHashTable *changed_categories;
 	guint category_idle_id;
+};
+
+/* Property IDs */
+enum props {
+	PROP_0,
+	PROP_URI,
+	PROP_KIND
 };
 
 /* Signal IDs */
@@ -112,6 +125,51 @@ cal_backend_get_type (void)
 	return cal_backend_type;
 }
 
+static void
+cal_backend_set_property (GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
+{
+	CalBackend *backend;
+	CalBackendPrivate *priv;
+	
+	backend = CAL_BACKEND (object);
+	priv = backend->priv;
+	
+	switch (property_id) {
+	case PROP_URI:
+		g_free (priv->uri);
+		priv->uri = g_value_dup_string (value);
+		break;
+	case PROP_KIND:
+		priv->kind = g_value_get_ulong (value);
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+static void
+cal_backend_get_property (GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
+{
+ 	CalBackend *backend;
+	CalBackendPrivate *priv;
+	
+	backend = CAL_BACKEND (object);
+	priv = backend->priv;
+
+	switch (property_id) {
+	case PROP_URI:
+		g_value_set_string (value, cal_backend_get_uri (backend));
+		break;
+	case PROP_KIND:
+		g_value_set_ulong (value, cal_backend_get_kind (backend));
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
 /* Class initialization function for the calendar backend */
 static void
 cal_backend_class_init (CalBackendClass *class)
@@ -122,6 +180,21 @@ cal_backend_class_init (CalBackendClass *class)
 
 	object_class = (GObjectClass *) class;
 
+	object_class->set_property = cal_backend_set_property;
+	object_class->get_property = cal_backend_get_property;
+	object_class->finalize = cal_backend_finalize;
+
+	g_object_class_install_property (object_class, PROP_URI, 
+					 g_param_spec_string ("uri", NULL, NULL, "",
+							      G_PARAM_READABLE | G_PARAM_WRITABLE
+							      | G_PARAM_CONSTRUCT_ONLY));
+
+	g_object_class_install_property (object_class, PROP_KIND, 
+					 g_param_spec_ulong ("kind", NULL, NULL, 
+							     ICAL_NO_COMPONENT, ICAL_XLICMIMEPART_COMPONENT, 
+							     ICAL_NO_COMPONENT,
+							     G_PARAM_READABLE | G_PARAM_WRITABLE
+							     | G_PARAM_CONSTRUCT_ONLY));	
 	cal_backend_signals[LAST_CLIENT_GONE] =
 		g_signal_new ("last_client_gone",
 			      G_TYPE_FROM_CLASS (class),
@@ -154,9 +227,9 @@ cal_backend_class_init (CalBackendClass *class)
 			      G_SIGNAL_RUN_FIRST,
 			      G_STRUCT_OFFSET (CalBackendClass, removed),
 			      NULL, NULL,
-			      g_cclosure_marshal_VOID__VOID,
-			      G_TYPE_NONE, 0,
-			      G_TYPE_NONE);
+			      g_cclosure_marshal_VOID__ENUM,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_INT);
 	cal_backend_signals[OBJ_UPDATED] =
 		g_signal_new ("obj_updated",
 			      G_TYPE_FROM_CLASS (class),
@@ -175,8 +248,6 @@ cal_backend_class_init (CalBackendClass *class)
 			      g_cclosure_marshal_VOID__STRING,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_STRING);
-
-	object_class->finalize = cal_backend_finalize;
 
 	class->last_client_gone = NULL;
 	class->opened = NULL;
@@ -279,11 +350,27 @@ cal_backend_finalize (GObject *object)
 const char *
 cal_backend_get_uri (CalBackend *backend)
 {
+	CalBackendPrivate *priv;
+	
 	g_return_val_if_fail (backend != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
 
-	g_assert (CLASS (backend)->get_uri != NULL);
-	return (* CLASS (backend)->get_uri) (backend);
+	priv = backend->priv;
+	
+	return priv->uri;
+}
+
+icalcomponent_kind
+cal_backend_get_kind (CalBackend *backend)
+{
+	CalBackendPrivate *priv;
+	
+	g_return_val_if_fail (backend != NULL, ICAL_NO_COMPONENT);
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), ICAL_NO_COMPONENT);
+
+	priv = backend->priv;
+	
+	return priv->kind;
 }
 
 /**
@@ -396,17 +483,30 @@ cal_backend_add_cal (CalBackend *backend, Cal *cal)
  *
  * Return value: An operation status code.
  **/
-CalBackendOpenStatus
-cal_backend_open (CalBackend *backend, const char *uristr, gboolean only_if_exists)
+CalBackendFileStatus
+cal_backend_open (CalBackend *backend, gboolean only_if_exists)
 {
-	CalBackendOpenStatus result;
+	CalBackendFileStatus result;
 
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_OPEN_ERROR);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_OPEN_ERROR);
-	g_return_val_if_fail (uristr != NULL, CAL_BACKEND_OPEN_ERROR);
+	g_return_val_if_fail (backend != NULL, CAL_BACKEND_FILE_ERROR);
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_FILE_ERROR);
 
 	g_assert (CLASS (backend)->open != NULL);
-	result = (* CLASS (backend)->open) (backend, uristr, only_if_exists);
+	result = (* CLASS (backend)->open) (backend, only_if_exists);
+
+	return result;
+}
+
+CalBackendFileStatus
+cal_backend_remove (CalBackend *backend)
+{
+	CalBackendFileStatus result;
+
+	g_return_val_if_fail (backend != NULL, CAL_BACKEND_FILE_ERROR);
+	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_FILE_ERROR);
+
+	g_assert (CLASS (backend)->remove != NULL);
+	result = (* CLASS (backend)->remove) (backend);
 
 	return result;
 }
@@ -933,12 +1033,22 @@ cal_backend_last_client_gone (CalBackend *backend)
  * only by backend implementations.
  **/
 void
-cal_backend_opened (CalBackend *backend, CalBackendOpenStatus status)
+cal_backend_opened (CalBackend *backend, CalBackendFileStatus status)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (IS_CAL_BACKEND (backend));
 
 	g_signal_emit (G_OBJECT (backend), cal_backend_signals[OPENED],
+		       0, status);
+}
+
+void
+cal_backend_removed (CalBackend *backend, CalBackendFileStatus status)
+{
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+
+	g_signal_emit (G_OBJECT (backend), cal_backend_signals[REMOVED],
 		       0, status);
 }
 

@@ -52,7 +52,11 @@ struct _CalBackendFileClass {
 	CalBackendClass parent_class;
 };
 
-GType cal_backend_file_get_type (void);
+GType       cal_backend_file_get_type      (void);
+
+void        cal_backend_file_set_file_name (CalBackendFile *cbfile,
+					    const char     *file_name);
+const char *cal_backend_file_get_file_name (CalBackendFile *cbfile);
 
 
 

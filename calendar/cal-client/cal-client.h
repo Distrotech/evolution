@@ -37,6 +37,7 @@ G_BEGIN_DECLS
 #define IS_CAL_CLIENT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), CAL_CLIENT_TYPE))
 
 #define CAL_CLIENT_OPEN_STATUS_ENUM_TYPE     (cal_client_open_status_enum_get_type ())
+#define CAL_CLIENT_REMOVE_STATUS_ENUM_TYPE   (cal_client_remove_status_enum_get_type ())
 #define CAL_CLIENT_SET_MODE_STATUS_ENUM_TYPE (cal_client_set_mode_status_enum_get_type ())
 #define CAL_MODE_ENUM_TYPE                   (cal_mode_enum_get_type ())
 
@@ -52,6 +53,12 @@ typedef enum {
 	CAL_CLIENT_OPEN_PERMISSION_DENIED,
 	CAL_CLIENT_OPEN_METHOD_NOT_SUPPORTED
 } CalClientOpenStatus;
+
+typedef enum {
+	CAL_CLIENT_REMOVE_SUCCESS,
+	CAL_CLIENT_REMOVE_ERROR,
+	CAL_CLIENT_REMOVE_PERMISSION_DENIED,
+} CalClientRemoveStatus;
 
 /* Set mode status for the cal_client_set_mode function */
 typedef enum {
@@ -104,6 +111,7 @@ struct _CalClientClass {
 	/* Notification signals */
 
 	void (* cal_opened) (CalClient *client, CalClientOpenStatus status);
+	void (* cal_removed) (CalClient *client, CalClientRemoveStatus status);
 	void (* cal_set_mode) (CalClient *client, CalClientSetModeStatus status, CalMode mode);
 	
 	void (* obj_updated) (CalClient *client, const char *uid);
@@ -126,6 +134,7 @@ typedef gchar * (* CalClientAuthFunc) (CalClient *client,
 GType cal_client_get_type (void);
 
 GType cal_client_open_status_enum_get_type (void);
+GType cal_client_remove_status_enum_get_type (void);
 GType cal_client_set_mode_status_enum_get_type (void);
 GType cal_mode_enum_get_type (void);
 
@@ -142,6 +151,8 @@ gboolean cal_client_set_default_timezone (CalClient *client, icaltimezone *zone)
 gboolean cal_client_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exists);
 gboolean cal_client_open_default_calendar (CalClient *client, gboolean only_if_exists);
 gboolean cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists);
+
+gboolean cal_client_remove_calendar (CalClient *client);
 
 GList *cal_client_uri_list (CalClient *client, CalMode mode);
 

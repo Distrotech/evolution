@@ -149,7 +149,7 @@ module Calendar {
 			raises (InvalidURI, PermissionDenied);
 
 		void remove ()
-			raises (PermissionDenied);
+			raises (InvalidURI, PermissionDenied);
 
 		/* Check write permissions for calendar */
 		boolean isReadOnly ();
@@ -258,13 +258,12 @@ module Calendar {
 	/* Listener for changes in a calendar */
 	interface Listener : Bonobo::Unknown {
 		/* Return status when opening a calendar */
-		enum OpenStatus {
+		enum FileStatus {
 			SUCCESS,		/* All OK */
 			ERROR,			/* Generic error */
 			NOT_FOUND,		/* Requested opening in only_if_exists mode
 						 * when the URI did not exist.
 						 */
-			METHOD_NOT_SUPPORTED,	/* A method handler is not registered */
 			PERMISSION_DENIED
 		};
 
@@ -278,7 +277,9 @@ module Calendar {
 		/* Called from a CalFactory when a calendar is initially opened.
 		 * The listener must remember the cal object.  
 		 */
-		void notifyCalOpened (in OpenStatus status);
+		void notifyCalOpened (in FileStatus status);
+
+		void notifyCalRemoved (in FileStatus status);
 
                 /* Called from a Calendar when the mode is changed */
 		void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		

@@ -2084,11 +2084,8 @@ gboolean
 gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 {
 	GnomeCalendarPrivate *priv;
-	char *tasks_uri;
 	gboolean success;
-	EUri *uri;
 	char *message;
-	char *real_uri;
 	char *urinopwd;
 
 	g_return_val_if_fail (gcal != NULL, FALSE);
@@ -2105,22 +2102,14 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 		cal_client_get_load_state (priv->task_pad_client) == CAL_CLIENT_LOAD_NOT_LOADED,
 		FALSE);
 
-	uri = e_uri_new (str_uri);
-	if (!uri || !g_strncasecmp (uri->protocol, "file", 4))
-		real_uri = g_concat_dir_and_file (str_uri, "calendar.ics");
-	else
-		real_uri = g_strdup (str_uri);
-
-	urinopwd = get_uri_without_password (real_uri);
+	urinopwd = get_uri_without_password (str_uri);
 	message = g_strdup_printf (_("Opening calendar at %s"), urinopwd);
 	g_free (urinopwd);
 	e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), message);
 	g_free (message);
 
-	if (!cal_client_open_calendar (priv->client, real_uri, FALSE)) {
-		g_message ("gnome_calendar_open(): Could not issue the request to open the calendar folder");
-		g_free (real_uri);
-		e_uri_free (uri);
+	if (!cal_client_open_calendar (priv->client, str_uri, FALSE)) {
+		g_message (G_STRLOC ": Could not issue the request to open the calendar folder");
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
 
 		return FALSE;
@@ -2128,34 +2117,9 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 
 	/* Open the appropriate Tasks folder to show in the TaskPad */
 
-	if (!uri) {
-		tasks_uri = g_strdup_printf ("%s/local/Tasks/tasks.ics", evolution_dir);
-		message = g_strdup_printf (_("Opening tasks at %s"), tasks_uri);
-		e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), message);
-		g_free (message);
-
-		success = cal_client_open_calendar (priv->task_pad_client, tasks_uri, FALSE);
-		g_free (tasks_uri);
-	}
-	else {
-		if (!g_strncasecmp (uri->protocol, "file", 4)) {
-			tasks_uri = g_strdup_printf ("%s/local/Tasks/tasks.ics", evolution_dir);
-			message = g_strdup_printf (_("Opening tasks at %s"), tasks_uri);
-			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo), message);
-			g_free (message);
-
-			success = cal_client_open_calendar (priv->task_pad_client, tasks_uri, FALSE);
-			g_free (tasks_uri);
-		}
-		else {
-			e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
-							     _("Opening default tasks folder"));
-			success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
-		}
-	}
-
-	g_free (real_uri);
-	e_uri_free (uri);
+	e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
+					     _("Opening default tasks folder"));
+	success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
 
 	if (!success) {
 		g_message ("gnome_calendar_open(): Could not issue the request to open the tasks folder");

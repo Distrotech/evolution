@@ -1560,7 +1560,7 @@ start_cached_query_cb (gpointer data)
  * started later.
  */
 static void
-backend_opened_cb (CalBackend *backend, CalBackendOpenStatus status, gpointer data)
+backend_opened_cb (CalBackend *backend, CalBackendFileStatus status, gpointer data)
 {
 	Query *query;
 	QueryPrivate *priv;
@@ -1570,12 +1570,10 @@ backend_opened_cb (CalBackend *backend, CalBackendOpenStatus status, gpointer da
 
 	g_assert (priv->state == QUERY_WAIT_FOR_BACKEND);
 
-	g_signal_handlers_disconnect_matched (G_OBJECT (priv->backend),
-					      G_SIGNAL_MATCH_DATA,
-					      0, 0, NULL, NULL, query);
+	g_signal_handlers_disconnect_by_func (G_OBJECT (priv->backend), backend_opened_cb, query);
 	priv->state = QUERY_START_PENDING;
 
-	if (status == CAL_BACKEND_OPEN_SUCCESS) {
+	if (status == CAL_BACKEND_FILE_SUCCESS) {
 		g_assert (cal_backend_is_loaded (backend));
 
 		priv->timeout_id = g_timeout_add (100, (GSourceFunc) start_query_cb, query);
@@ -1592,6 +1590,26 @@ backend_destroyed_cb (gpointer data, GObject *where_backend_was)
 
 	cached_queries = g_list_remove (cached_queries, query);
 	bonobo_object_unref (BONOBO_OBJECT (query));
+}
+
+static void
+backend_removed_cb (CalBackend *backend, CalBackendFileStatus status, gpointer data) 
+{
+	Query *query;
+	QueryPrivate *priv;
+
+	query = QUERY (data);
+	priv = query->priv;
+
+	if (status != CAL_BACKEND_FILE_SUCCESS)
+		return;
+	
+	g_assert (cal_backend_is_loaded (backend));
+
+	cached_queries = g_list_remove (cached_queries, query);
+	bonobo_object_unref (BONOBO_OBJECT (query));
+
+	g_object_weak_unref (G_OBJECT (priv->backend), backend_destroyed_cb, query);
 }
 
 /**
@@ -1656,11 +1674,15 @@ query_construct (Query *query,
 		priv->state = QUERY_START_PENDING;
 
 		priv->timeout_id = g_timeout_add (100, (GSourceFunc) start_query_cb, query);
-	} else
+	} else {
 		g_signal_connect (G_OBJECT (priv->backend), "opened",
 				  G_CALLBACK (backend_opened_cb),
 				  query);
-
+		g_signal_connect (G_OBJECT (priv->backend), "removed",
+				  G_CALLBACK (backend_removed_cb),
+				  query);
+	}
+	
 	return query;
 }
 

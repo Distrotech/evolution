@@ -52,8 +52,12 @@ typedef struct {
 
 /* Notification functions */
 typedef void (* CalListenerCalOpenedFn) (CalListener *listener,
-					 GNOME_Evolution_Calendar_Listener_OpenStatus status,
+					 GNOME_Evolution_Calendar_Listener_FileStatus status,
 					 gpointer data);
+
+typedef void (* CalListenerCalRemovedFn) (CalListener *listener,
+					  GNOME_Evolution_Calendar_Listener_FileStatus status,
+					  gpointer data);
 
 typedef void (* CalListenerCalSetModeFn) (CalListener *listener,
 					  GNOME_Evolution_Calendar_Listener_SetModeStatus status,
@@ -73,12 +77,14 @@ GType cal_listener_get_type (void);
 
 CalListener *cal_listener_construct (CalListener *listener,
 				     CalListenerCalOpenedFn cal_opened_fn,
+				     CalListenerCalRemovedFn cal_removed_fn,
 				     CalListenerCalSetModeFn cal_set_mode_fn,
 				     CalListenerErrorOccurredFn error_occurred_fn,
 				     CalListenerCategoriesChangedFn categories_changed_fn,
 				     gpointer fn_data);
 
 CalListener *cal_listener_new (CalListenerCalOpenedFn cal_opened_fn,
+			       CalListenerCalRemovedFn cal_removed_fn,
 			       CalListenerCalSetModeFn cal_set_mode_fn,
 			       CalListenerErrorOccurredFn error_occurred_fn,
 			       CalListenerCategoriesChangedFn categories_changed_fn,

@@ -212,8 +212,6 @@ create_client (CalClient **client, const char *uri, gboolean only_if_exists)
 int
 main (int argc, char **argv)
 {
-	char *dir;
-
 	bindtextdomain (GETTEXT_PACKAGE, EVOLUTION_LOCALEDIR);
 	textdomain (GETTEXT_PACKAGE);
 
@@ -225,10 +223,8 @@ main (int argc, char **argv)
 		exit (1);
 	}
 
-	dir = g_strdup_printf ("%s/evolution/local/Calendar/calendar.ics", g_get_home_dir ());
-	create_client (&client1, dir, FALSE);
-	g_free (dir);
-	create_client (&client2, "/cvs/evolution/calendar/cal-client/test.ics", TRUE);
+	create_client (&client1, "file:///tmp/calendar", TRUE);
+	create_client (&client2, "file:///tmp/tasks", TRUE);
 
 	bonobo_main ();
 	return 0;

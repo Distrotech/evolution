@@ -56,7 +56,6 @@ GType cal_get_type (void);
 
 Cal *cal_construct (Cal *cal,
 		    CalBackend *backend,
-		    const char *uri,
 		    GNOME_Evolution_Calendar_Listener listener);
 
 Cal *cal_new (CalBackend *backend, const char *uri, GNOME_Evolution_Calendar_Listener listener);

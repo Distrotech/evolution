@@ -98,6 +98,8 @@ cal_backend_file_todos_init (CalBackendFileTodos *cbfile, CalBackendFileTodosCla
 
 	priv = g_new0 (CalBackendFileTodosPrivate, 1);
 	cbfile->priv = priv;
+
+	cal_backend_file_set_file_name (CAL_BACKEND_FILE (cbfile), "tasks.ics");
 }
 
 /* Dispose handler for the file backend */

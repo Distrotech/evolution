@@ -1,3 +1,91 @@
+2003-08-12  JP Rosevear  <jpr@ximian.com>
+
+	* cal-client/client-test.c (main): use tmp uris
+
+	* cal-client/cal-listener.h: update protos
+
+	* cal-client/cal-listener.c (cal_listener_init): init removed
+	function
+	(cal_listener_finalize): clear removed function
+	(impl_notifyCalOpened): take file status
+	(impl_notifyCalRemoved): implement
+	(cal_listener_construct): take remove function arg
+	(cal_listener_new): ditto
+
+	* cal-client/cal-client.h: update protos, add remove status
+
+	* cal-client/cal-client.c
+	(cal_client_remove_status_enum_get_type): add remove status type
+	(cal_client_class_init): add removed signal
+	(cal_opened_cb): can no longer get unsupported exception here
+	(cal_removed_cb): emit removed status
+	(real_open_calendar): pass removed callback function to listener
+	(get_fall_back_uri): no longer append tasks.ics or calendar.ics
+	(cal_client_remove_calendar): new c wrapper for corba function -
+	calendar must be open currently
+
+	* pcs/query.c (backend_opened_cb): only disconnect the open
+	callback
+	(backend_removed_cb): handle calendar removal
+	(query_construct): listen for remove signal as well
+
+	* pcs/cal.h: cal no longer takes uri during construction
+
+	* pcs/cal.c (backend_to_listener_status): convert backend to corba
+	status code
+	(impl_Cal_open): backend open no longer takes uri, use above to
+	send back status
+	(impl_Cal_remove): implement
+	(cal_construct): we no longer track the uri
+	(cal_finalize): ditto
+	(cal_class_init): set remove epv method
+
+	* pcs/cal-factory.c (impl_CalFactory_getCal): instantiate backend
+	with uri and kind properties
+
+	* pcs/cal-backend.h: list file status enum, add protos
+
+	* pcs/cal-backend.c (cal_backend_set_property): implement object
+	properties
+	(cal_backend_get_property): ditto
+	(cal_backend_class_init): add properties vmethods and uri, kind
+	properties, removed signal
+	(cal_backend_get_uri): don't get the uri from the backend
+	(cal_backend_get_kind): get the kind from the backend
+	(cal_backend_open): adapt to new open call, no uri passed in
+	(cal_backend_remove): call through to remove implementation
+	(cal_backend_opened): use new file status
+	(cal_backend_removed): emit removed signal
+
+	* pcs/cal-backend-file.h: update protos
+
+	* pcs/cal-backend-file.c (cal_backend_file_class_init): override
+	remove vmethod
+	(cal_backend_file_init): default file name to calendar.ics
+	(cal_backend_file_set_file_name): accessor for filename tacked on
+	to uri
+	(cal_backend_file_get_file_name): ditto
+	(open_cal): return "file" type status codes
+	(create_cal): ditto
+	(get_uri_string): construct the full uri string
+	(cal_backend_file_open): use above
+	(cal_backend_file_remove): implement
+
+	* pcs/cal-backend-file-todos.c (cal_backend_file_todos_init): set
+	the file name to tasks.ics
+
+	* pcs/cal-backend-file-events.c (cal_backend_file_events_init):
+	set the file name to calendar.ics
+
+	* cal-util/cal-util.c (cal_util_expand_uri): just return a copy of
+	the uri now
+
+	* idl/evolution-calendar.idl: convert OpenStatus to FileStatus so
+	remove() can use it as well
+
+	* gui/gnome-cal.c (gnome_calendar_open): just open the default
+	folder in all cases
+
 2003-08-08  JP Rosevear  <jpr@ximian.com>
 
 	* pcs/cal.c (impl_Cal_open): implement

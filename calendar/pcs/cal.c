@@ -36,12 +36,29 @@ struct _CalPrivate {
 	/* Our backend */
 	CalBackend *backend;
 
-	char *uri;
-	
 	/* Listener on the client we notify */
 	GNOME_Evolution_Calendar_Listener listener;
 };
 
+static GNOME_Evolution_Calendar_Listener_FileStatus
+backend_to_listener_status (CalBackendFileStatus status) 
+{
+	switch (status) {
+	case CAL_BACKEND_FILE_SUCCESS:
+		return GNOME_Evolution_Calendar_Listener_SUCCESS;
+		
+	case CAL_BACKEND_FILE_ERROR:
+		return GNOME_Evolution_Calendar_Listener_ERROR;
+		
+	case CAL_BACKEND_FILE_NOT_FOUND:
+		return GNOME_Evolution_Calendar_Listener_NOT_FOUND;
+
+	case CAL_BACKEND_FILE_PERMISSION_DENIED:
+		return GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED;
+	}
+
+	return GNOME_Evolution_Calendar_Listener_ERROR;
+}
 
 /* Cal::get_uri method */
 static CORBA_char *
@@ -69,101 +86,43 @@ impl_Cal_open (PortableServer_Servant servant,
 {
 	Cal *cal;
 	CalPrivate *priv;
-	CalBackendOpenStatus status;
+	CalBackendFileStatus status;
 	CORBA_Environment ev2;
 	
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	status = cal_backend_open (priv->backend, priv->uri, only_if_exists);
+	status = cal_backend_open (priv->backend, only_if_exists);
 
 	CORBA_exception_init (&ev2);
-
-	switch (status) {
-	case CAL_BACKEND_OPEN_SUCCESS:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (priv->listener, GNOME_Evolution_Calendar_Listener_SUCCESS, &ev2);
-
-		
-		if (BONOBO_EX (&ev2))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-		
-	case CAL_BACKEND_OPEN_ERROR:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (priv->listener, GNOME_Evolution_Calendar_Listener_ERROR, &ev2);
-		
-		if (BONOBO_EX (&ev2))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-		
-	case CAL_BACKEND_OPEN_NOT_FOUND:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (priv->listener, GNOME_Evolution_Calendar_Listener_NOT_FOUND, &ev2);
-		
-		if (BONOBO_EX (&ev2))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-
-	case CAL_BACKEND_OPEN_PERMISSION_DENIED:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (priv->listener, GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED, &ev2);
-		
-		if (BONOBO_EX (&ev2))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-
-	default:
-               g_assert_not_reached ();
-	}
+	
+	GNOME_Evolution_Calendar_Listener_notifyCalOpened (priv->listener, backend_to_listener_status (status), &ev2);
+	if (BONOBO_EX (&ev2))
+		g_warning (G_STRLOC ": could not notify the listener");
 
 	CORBA_exception_free (&ev2);
 }
 
-#if 0
 static void
 impl_Cal_remove (PortableServer_Servant servant,
 		 CORBA_Environment *ev)
 {
 	Cal *cal;
 	CalPrivate *priv;
-	CalBackendOpenStatus status;
+	CalBackendFileStatus status;
+	CORBA_Environment ev2;
 	
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
 	status = cal_backend_remove (priv->backend);
 
-	switch (status) {
-	case CAL_BACKEND_OPEN_SUCCESS:
-		GNOME_Evolution_Calendar_Listener_notifyCalRemoved (listener, GNOME_Evolution_Calendar_Listener_SUCCESS, &ev);
-		
-		if (BONOBO_EX (&ev))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-		
-	case CAL_BACKEND_OPEN_ERROR:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (listener, GNOME_Evolution_Calendar_Listener_ERROR, &ev);
-		
-		if (BONOBO_EX (&ev))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-		
-	case CAL_BACKEND_OPEN_NOT_FOUND:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (listener, GNOME_Evolution_Calendar_Listener_NOT_FOUND, &ev);
-		
-		if (BONOBO_EX (&ev))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
+	GNOME_Evolution_Calendar_Listener_notifyCalRemoved (priv->listener, backend_to_listener_status (status), &ev2);
+	if (BONOBO_EX (&ev2))
+		g_warning (G_STRLOC ": could not notify the listener");
 
-	case CAL_BACKEND_OPEN_PERMISSION_DENIED:
-		GNOME_Evolution_Calendar_Listener_notifyCalOpened (listener, GNOME_Evolution_Calendar_Listener_PERMISSION_DENIED, &ev);
-		
-		if (BONOBO_EX (&ev))
-			g_warning (G_STRLOC ": could not notify the listener");
-		break;
-
-	default:
-               g_assert_not_reached ();
-	}
+	CORBA_exception_free (&ev2);
 }
-#endif
 
 /* Cal::isReadOnly method */
 static CORBA_boolean
@@ -821,7 +780,6 @@ impl_Cal_getTimezoneObject (PortableServer_Servant servant,
 Cal *
 cal_construct (Cal *cal,
 	       CalBackend *backend,
-	       const char *uri,
 	       GNOME_Evolution_Calendar_Listener listener)
 {
 	CalPrivate *priv;
@@ -846,7 +804,6 @@ cal_construct (Cal *cal,
 	CORBA_exception_free (&ev);
 
 	priv->backend = backend;
-	priv->uri = g_strdup (uri);
 	
 	return cal;
 }
@@ -872,7 +829,7 @@ cal_new (CalBackend *backend, const char *uri, GNOME_Evolution_Calendar_Listener
 
 	cal = CAL (g_object_new (CAL_TYPE, NULL));
 
-	retval = cal_construct (cal, backend, uri, listener);
+	retval = cal_construct (cal, backend, listener);
 	if (!retval) {
 		g_message ("cal_new(): could not construct the calendar client interface");
 		bonobo_object_unref (BONOBO_OBJECT (cal));
@@ -897,8 +854,6 @@ cal_finalize (GObject *object)
 	priv = cal->priv;
 
 	priv->backend = NULL;
-	
-	g_free (priv->uri);
 	
 	CORBA_exception_init (&ev);
 	bonobo_object_release_unref (priv->listener, &ev);
@@ -931,6 +886,7 @@ cal_class_init (CalClass *klass)
 	/* Epv methods */
 	epv->_get_uri = impl_Cal_get_uri;
 	epv->open = impl_Cal_open;
+	epv->remove = impl_Cal_remove;
 	epv->isReadOnly = impl_Cal_isReadOnly;
 	epv->getCalAddress = impl_Cal_getCalAddress;
  	epv->getAlarmEmailAddress = impl_Cal_getAlarmEmailAddress;
