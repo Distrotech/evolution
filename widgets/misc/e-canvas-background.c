@@ -101,16 +101,16 @@ ecb_bounds (GnomeCanvasItem *item, double *x1, double *y1, double *x2, double *y
 	art_affine_point (&c2, &i2, i2c);
 
 	if (ecb->priv->x1 < 0)
-		c1.x = -1.0/0.0;
+		c1.x = -(double)UINT_MAX;
 
 	if (ecb->priv->y1 < 0)
-		c1.y = -1.0/0.0;
+		c1.y = -(double)UINT_MAX;
 
 	if (ecb->priv->x2 < 0)
-		c2.x = 1.0/0.0;
+		c2.x = (double)UINT_MAX;
 
 	if (ecb->priv->y2 < 0)
-		c2.y = 1.0/0.0;
+		c2.y = (double)UINT_MAX;
 
 	*x1 = c1.x;
 	*y1 = c1.y;
