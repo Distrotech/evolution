@@ -550,7 +550,8 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 #if 0
 			g_print ("updated object's dates unchanged\n");
 #endif
-			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp_data);
+			/* e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp_data); */
+			e_day_view_update_event_cb (day_view, day, event_num, comp_data);
 			gtk_widget_queue_draw (day_view->top_canvas);
 			gtk_widget_queue_draw (day_view->main_canvas);
 			return;

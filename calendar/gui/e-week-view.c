@@ -345,7 +345,8 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 #if 0
 			g_print ("updated object's dates unchanged\n");
 #endif
-			e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_update_event_cb, comp_data);
+			/* e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_update_event_cb, comp_data); */
+			e_week_view_update_event_cb (week_view, event_num, comp_data);
 			g_object_unref (comp);
 			g_object_unref (tmp_comp);
 			gtk_widget_queue_draw (week_view->main_canvas);
@@ -2327,10 +2328,14 @@ e_week_view_free_events (EWeekView *week_view)
 		     span_num++) {
 			span = &g_array_index (week_view->spans,
 					       EWeekViewEventSpan, span_num);
-			if (span->background_item)
+			if (span->background_item) {
 				gtk_object_destroy (GTK_OBJECT (span->background_item));
-			if (span->text_item)
+				span->background_item = NULL;
+			}
+			if (span->text_item) {
 				gtk_object_destroy (GTK_OBJECT (span->text_item));
+				span->text_item = NULL;
+			}
 		}
 		g_array_free (week_view->spans, TRUE);
 		week_view->spans = NULL;
