@@ -376,9 +376,11 @@ launch_cb (GtkWidget *widget, gpointer user_data)
 	
 	/* Yum. Too bad EPopupMenu doesn't allow per-item closures. */
 	children = gtk_container_get_children (GTK_CONTAINER (widget->parent));
-	g_return_if_fail (children != NULL && children->next != NULL && children->next->next != NULL);
-	
-	for (c = children->next->next, apps = handler->applications; c && apps; c = c->next, apps = apps->next) {
+	/* We need to bypass the first 2 menu items */
+	g_return_if_fail (children != NULL && children->next != NULL 
+		&& children->next->next != NULL && children->next->next->next != NULL);
+
+	for (c = children->next->next->next, apps = handler->applications; c && apps; c = c->next, apps = apps->next) {
 		if (c->data == widget)
 			break;
 	}
@@ -436,24 +438,127 @@ inline_cb (GtkWidget *widget, gpointer user_data)
 	mail_display_queue_redisplay (md);
 }
 
-static gboolean
-button_press (GtkWidget *widget, GdkEvent *event, CamelMimePart *part)
+static void
+save_all_parts_cb (GtkWidget *widget, gpointer user_data)
 {
-	MailDisplay *md;
+	GtkFileSelection *dir_select = (GtkFileSelection *) 
+		gtk_widget_get_ancestor (widget, GTK_TYPE_FILE_SELECTION);
+	const char *filename;
+	char *save_filename, *dir;
+	struct stat st;
+	int i;
+	GPtrArray *attachment_array;
+	CamelMimePart *part;
+	GConfClient *gconf;
 
-	if (event->type == GDK_BUTTON_PRESS)
-		g_signal_stop_emission_by_name (widget, "button_press_event");
-	else if (event->type == GDK_KEY_PRESS && event->key.keyval != GDK_Return)
-		return FALSE;
+	gtk_widget_hide (GTK_WIDGET (dir_select));
 
-	md = g_object_get_data ((GObject *) widget, "MailDisplay");
-	if (md == NULL) {
-		g_warning ("No MailDisplay on button!");
-		return TRUE;
+	/* Get the selected directory name */
+	filename = gtk_file_selection_get_filename (dir_select);
+	if (stat (filename, &st) == -1 || !S_ISDIR (st.st_mode)) {
+		GtkWidget *dialog;
+
+		dialog = gtk_message_dialog_new (NULL, 0, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+			_("%s is not a valid directory name."), filename);
+
+		/* FIXME: this should be async */
+		gtk_dialog_run ((GtkDialog *) dialog);
+		gtk_widget_destroy (dialog);
+		gtk_widget_destroy (GTK_WIDGET (dir_select));
+		return;
+	} else {
+		dir = g_strdup (filename);
 	}
-	
+						
+	/* Now save the attachment one by one */
+	attachment_array = (GPtrArray *)user_data;
+	for (i = 0; i < attachment_array->len; i++) {
+		part = g_ptr_array_index (attachment_array, i);
+		save_filename = make_safe_filename (dir, part);
+		write_data_to_file (part, save_filename, FALSE);
+		g_free (save_filename);
+	}
+							
+	/* preserve the pathname */
+	gconf = mail_config_get_gconf_client ();
+	gconf_client_set_string (gconf, "/apps/evolution/mail/save_dir", dir, NULL);
+	g_free (dir);
+							
+	gtk_widget_destroy (GTK_WIDGET (dir_select));
+}
+
+static void 
+save_all_parts (GPtrArray *attachment_array)
+{
+	GtkFileSelection *dir_select;
+	char *dir, *home, *dir2;
+	GConfClient *gconf;
+
+	g_return_if_fail (attachment_array !=  NULL);
+
+	home = getenv ("HOME");
+	gconf = mail_config_get_gconf_client ();
+	dir = gconf_client_get_string (gconf, "/apps/evolution/mail/save_dir", NULL);
+	dir = dir ? dir : (home ? g_strdup (home) : g_strdup (""));
+
+	/* Make sure dir2 has a '/' as its tail */
+	dir2 = g_strdup_printf ("%s/", dir);
+	g_free (dir);
+
+	dir_select = GTK_FILE_SELECTION (
+		gtk_file_selection_new (_("Select Directory for Attachments")));
+	gtk_file_selection_set_filename (dir_select, dir2);
+	gtk_widget_set_sensitive (dir_select->file_list, FALSE);
+	gtk_widget_hide (dir_select->selection_entry);
+	g_free (dir2);
+
+	g_signal_connect (dir_select->ok_button, "clicked", 
+		G_CALLBACK (save_all_parts_cb), attachment_array);
+	g_signal_connect_swapped (dir_select->cancel_button,
+		"clicked",
+		G_CALLBACK (gtk_widget_destroy),
+		dir_select);
+
+	gtk_widget_show (GTK_WIDGET (dir_select));
+}
+		
+static void
+save_all_cb (GtkWidget *widget, gpointer user_data)
+{
+	MailDisplay *md = g_object_get_data (user_data, "MailDisplay");
+	GPtrArray *attachment_array;
+			
+	if (md == NULL) {
+		g_warning ("No MailDisplay!");
+		return;
+	}
+
+	attachment_array = g_datalist_get_data (md->data, "attachment_array");
+	save_all_parts (attachment_array);
+}
+
+static void
+inline_toggle(MailDisplay *md, CamelMimePart *part)
+{
+	g_return_if_fail(md != NULL);
+
 	mail_part_toggle_displayed (part, md);
 	mail_display_queue_redisplay (md);
+}
+
+static void
+inline_button_clicked(GtkWidget *widget, CamelMimePart *part)
+{
+	inline_toggle((MailDisplay *)g_object_get_data((GObject *)widget, "MailDisplay"), part);
+}
+
+static gboolean
+inline_button_press(GtkWidget *widget, GdkEventKey *event, CamelMimePart *part)
+{
+	if (event->keyval != GDK_Return)
+		return FALSE;
+
+	inline_toggle((MailDisplay *)g_object_get_data((GObject *)widget, "MailDisplay"), part);
 
 	return TRUE;
 }
@@ -476,12 +581,14 @@ pixmap_press (GtkWidget *widget, GdkEvent *event, gpointer user_data)
 	EPopupMenu *menu;
 	GtkMenu *gtk_menu;
 	EPopupMenu save_item = E_POPUP_ITEM (N_("Save Attachment..."), G_CALLBACK (save_cb), 0);
+	EPopupMenu save_all_item = E_POPUP_ITEM (N_("Save all attachments..."), G_CALLBACK (save_all_cb), 0);
 	EPopupMenu view_item = E_POPUP_ITEM (N_("View Inline"), G_CALLBACK (inline_cb), 2);
 	EPopupMenu open_item = E_POPUP_ITEM (N_("Open in %s..."), G_CALLBACK (launch_cb), 1);
 	MailDisplay *md;
 	CamelMimePart *part;
 	MailMimeHandler *handler;
 	int mask = 0, i, nitems;
+	int current_item = 0;
 	
 	if (event->type == GDK_BUTTON_PRESS) {
 #ifdef USE_OLD_DISPLAY_STYLE
@@ -509,17 +616,23 @@ pixmap_press (GtkWidget *widget, GdkEvent *event, gpointer user_data)
 	handler = mail_lookup_handler (g_object_get_data ((GObject *) widget, "mime_type"));
 	
 	if (handler && handler->applications)
-		nitems = g_list_length (handler->applications) + 2;
+		nitems = g_list_length (handler->applications) + 3;
 	else
-		nitems = 3;
+		nitems = 4;
 	menu = g_new0 (EPopupMenu, nitems + 1);
 	
 	/* Save item */
-	memcpy (&menu[0], &save_item, sizeof (menu[0]));
-	menu[0].name = _(menu[0].name);
-	
+	memcpy (&menu[current_item], &save_item, sizeof (menu[current_item]));
+	menu[current_item].name = g_strdup (_(menu[current_item].name));
+	current_item++;
+
+	/* Save All item */
+	memcpy (&menu[current_item], &save_all_item, sizeof (menu[current_item]));
+	menu[current_item].name = g_strdup (_(menu[current_item].name));
+	current_item++;
+	 
 	/* Inline view item */
-	memcpy (&menu[1], &view_item, sizeof (menu[1]));
+	memcpy (&menu[current_item], &view_item, sizeof (menu[current_item]));
 	if (handler && handler->builtin) {
 		md = g_object_get_data ((GObject *) widget, "MailDisplay");
 		
@@ -537,15 +650,16 @@ pixmap_press (GtkWidget *widget, GdkEvent *event, gpointer user_data)
 					name = prop->v._u.value_string;
 				else
 					name = "bonobo";
-				menu[1].name = g_strdup_printf (_("View Inline (via %s)"), name);
+				menu[current_item].name = g_strdup_printf (_("View Inline (via %s)"), name);
 			} else
-				menu[1].name = g_strdup (_(menu[1].name));
+				menu[current_item].name = g_strdup (_(menu[current_item].name));
 		} else
-			menu[1].name = g_strdup (_("Hide"));
+			menu[current_item].name = g_strdup (_("Hide"));
 	} else {
-		menu[1].name = g_strdup (_(menu[1].name));
+		menu[current_item].name = g_strdup (_(menu[current_item].name));
 		mask |= 2;
 	}
+	current_item++;
 	
 	/* External views */
 	if (handler && handler->applications) {
@@ -554,14 +668,15 @@ pixmap_press (GtkWidget *widget, GdkEvent *event, gpointer user_data)
 		int i;
 		
 		apps = handler->applications;
-		for (i = 2; i < nitems; i++, apps = apps->next) {
+		for (i = current_item; i < nitems; i++, apps = apps->next) {
 			app = apps->data;
 			memcpy (&menu[i], &open_item, sizeof (menu[i]));
 			menu[i].name = g_strdup_printf (_(menu[i].name), app->name);
+			current_item++;
 		}
 	} else {
-		memcpy (&menu[2], &open_item, sizeof (menu[2]));
-		menu[2].name = g_strdup_printf (_(menu[2].name), _("External Viewer"));
+		memcpy (&menu[current_item], &open_item, sizeof (menu[current_item]));
+		menu[current_item].name = g_strdup_printf (_(menu[current_item].name), _("External Viewer"));
 		mask |= 1;
 	}
 	
@@ -984,6 +1099,12 @@ drag_data_delete_cb (GtkWidget *widget,
 	}
 }
 
+/* This is a wrapper function */
+void ptr_array_free_notify (gpointer array)
+{
+	g_ptr_array_free ((GPtrArray *) array, TRUE);
+}
+
 static gboolean
 do_attachment_header (GtkHTML *html, GtkHTMLEmbedded *eb,
 		      CamelMimePart *part, MailDisplay *md)
@@ -991,6 +1112,7 @@ do_attachment_header (GtkHTML *html, GtkHTMLEmbedded *eb,
 	GtkWidget *button, *mainbox, *hbox, *arrow, *popup;
 	MailMimeHandler *handler;
 	struct _PixbufLoader *pbl;
+	GPtrArray *attachment_array;
 	
 	pbl = g_new0 (struct _PixbufLoader, 1);
 	if (strncasecmp (eb->type, "image/", 6) == 0) {
@@ -1020,8 +1142,8 @@ do_attachment_header (GtkHTML *html, GtkHTMLEmbedded *eb,
 	
 	handler = mail_lookup_handler (eb->type);
 	if (handler && handler->builtin) {
-		g_signal_connect (button, "button_press_event", G_CALLBACK (button_press), part);
-		g_signal_connect (button, "key_press_event", G_CALLBACK (button_press), part);
+		g_signal_connect (button, "clicked", G_CALLBACK (inline_button_clicked), part);
+		g_signal_connect (button, "key_press_event", G_CALLBACK (inline_button_press), part);
 	} else {
 		gtk_widget_set_sensitive (button, FALSE);
 		GTK_WIDGET_UNSET_FLAGS (button, GTK_CAN_FOCUS);
@@ -1060,6 +1182,19 @@ do_attachment_header (GtkHTML *html, GtkHTMLEmbedded *eb,
 	g_object_set_data ((GObject *) popup, "MailDisplay", md);
 	g_object_set_data ((GObject *) popup, "CamelMimePart", part);
 	g_object_set_data_full ((GObject *) popup, "mime_type", g_strdup (eb->type), (GDestroyNotify) g_free);
+
+	/* Save attachment pointer in an array for "save all attachment" use */	
+	attachment_array = g_datalist_get_data (md->data, "attachment_array");
+	if (!attachment_array) {
+		attachment_array = g_ptr_array_new ();
+		g_datalist_set_data_full (md->data, "attachment_array", 
+			attachment_array, (GDestroyNotify) ptr_array_free_notify);
+	}
+	/* Since the attachment pointer might have been added to the array before,
+	remove it first anyway to avoide duplication */
+	g_ptr_array_remove (attachment_array, part);
+	g_ptr_array_add (attachment_array, part);
+		 
 	
 	g_signal_connect (popup, "button_press_event", G_CALLBACK (pixmap_press), md->scroll);
 	g_signal_connect (popup, "key_press_event", G_CALLBACK (pixmap_press), md->scroll);
@@ -1158,8 +1293,8 @@ do_signature (GtkHTML *html, GtkHTMLEmbedded *eb,
 	
 	button = gtk_button_new ();
 	g_object_set_data ((GObject *) button, "MailDisplay", md);
-	g_signal_connect (button, "button_press_event", G_CALLBACK (button_press), part);
-	g_signal_connect (button, "key_press_event", G_CALLBACK (button_press), part);
+	g_signal_connect (button, "clicked", G_CALLBACK (inline_button_clicked), part);
+	g_signal_connect (button, "key_press_event", G_CALLBACK (inline_button_press), part);
 
 	gtk_container_add (GTK_CONTAINER (button), pbl->pixmap);
 	gtk_widget_show_all (button);

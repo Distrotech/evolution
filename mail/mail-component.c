@@ -109,7 +109,8 @@ storage_async_open_folder_callback (EStorage *storage,
 	storage_connected_data->callback = callback;
 	storage_connected_data->callback_data = callback_data;
 
-	mail_note_store (store, storage, (void *) storage_connected_callback, storage_connected_data);
+	mail_note_store (store, NULL, storage,
+			 (void *) storage_connected_callback, storage_connected_data);
 }
 
 static void
@@ -203,7 +204,7 @@ storage_go_online (gpointer key, gpointer value, gpointer data)
 	     && camel_disco_store_status (CAMEL_DISCO_STORE (service)) == CAMEL_DISCO_STORE_OFFLINE)
 	    || service->status != CAMEL_SERVICE_DISCONNECTED) {
 		mail_store_set_offline (store, FALSE, NULL, NULL);
-		mail_note_store (store, NULL, NULL, NULL);
+		mail_note_store (store, NULL, NULL, NULL, NULL);
 	}
 }
 

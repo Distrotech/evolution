@@ -31,7 +31,7 @@
    The folders are scanned from the store, and/or added at
    runtime via the folder_created event */
 void
-mail_note_store(CamelStore *store, EStorage *storage,
+mail_note_store(CamelStore *store, CamelOperation *op, EStorage *storage,
 		void (*done) (CamelStore *store, CamelFolderInfo *info, void *data),
 		void *data);
 

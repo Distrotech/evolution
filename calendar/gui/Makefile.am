@@ -98,8 +98,6 @@ libevolution_calendar_la_SOURCES =		\
 	calendar-commands.h			\
 	calendar-component.c			\
 	calendar-component.h			\
-	calendar-model.c			\
-	calendar-model.h			\
 	calendar-offline-handler.c		\
 	calendar-offline-handler.h		\
 	calendar-view.c				\
@@ -114,6 +112,12 @@ libevolution_calendar_la_SOURCES =		\
 	control-factory.h			\
 	e-alarm-list.c				\
 	e-alarm-list.h				\
+	e-cal-model-calendar.c			\
+	e-cal-model-calendar.h			\
+	e-cal-model-tasks.c			\
+	e-cal-model-tasks.h			\
+	e-cal-model.c				\
+	e-cal-model.h				\
 	e-cal-view.c				\
 	e-cal-view.h				\
 	e-calendar-table.h			\

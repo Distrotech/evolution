@@ -1359,7 +1359,7 @@ storage_connect (EvolutionStorage *storage,
 		 CamelStore *store)
 {
 #if 0				/* EPFIXME */
-	mail_note_store (CAMEL_STORE (store), storage, CORBA_OBJECT_NIL,
+	mail_note_store (CAMEL_STORE (store), NULL, storage, CORBA_OBJECT_NIL,
 			 storage_connected, listener);
 #endif
 }
@@ -1384,7 +1384,7 @@ add_storage (const char *name, const char *uri, CamelService *store,
 		evolution_storage_has_subfolders (storage, "/", _("Connecting..."));
 		mail_hash_storage (store, storage);
 		/*if (auto_connect)*/
-		/* EPFIXME mail_note_store ((CamelStore *) store, storage, CORBA_OBJECT_NIL, NULL, NULL); */
+		/* EPFIXME mail_note_store ((CamelStore *) store, NULL, storage, CORBA_OBJECT_NIL, NULL, NULL); */
 		/* falllll */
 	case EVOLUTION_STORAGE_ERROR_ALREADYREGISTERED:
 	case EVOLUTION_STORAGE_ERROR_EXISTS:

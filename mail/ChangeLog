@@ -1,3 +1,57 @@
+2003-08-09  Ettore Perazzoli  <ettore@ximian.com>
+
+	* mail-component.c (storage_go_online): Pass NULL for the
+	operation pointer to mail_note_store(), to sync with Michael's
+	changes.
+
+2003-08-05  Not Zed  <NotZed@Ximian.com>
+
+	** See bug #47224.  Hook onto clicked rather than button_pressed,
+	so that dnd works.
+	
+	* mail-display.c (inline_toggle): toggle a part inline.
+	(button_press): change back to only handle button clicked events,
+	renamed to inline_button_clicked.
+	(do_attachment_header): hook onto clicked rather than
+	button_press_event, and move key_press_event to
+	inline_button_pressed.
+	(do_signature): Same.
+	(inline_button_pressed): handle inline button key press event
+	explicitly.
+
+2003-07-29  Not Zed  <NotZed@Ximian.com>
+
+	* mail-folder-cache.c (mail_note_store): add a CamelOperation for
+	overriding status handler.
+
+	* mail-send-recv.c (receive_update_got_store): Pass our own cancel
+	handle to get_folderinfo and mail_note_store.
+	(mail_send_receive, mail_receive_uri): Same for get_store.
+
+	* mail-ops.c (mail_get_store, mail_get_folderinfo): Add a
+	CamelOperation argument, for overriding the status handler.  Fixed
+	most calles to pass NULL to use the default.
+
+2003-08-01 Harry Lu  <harry.lu@sun.com>
+
+	*Fix for bug #6951
+
+	* mail-display.c (launch_cb): Bypass the new added menu item.
+	(save_all_parts_cb): New function. Do the real save-all work.
+	(save_all_parts): New function. Get the directory to save to.
+	(save_all_cb): New function. The call-back function for the new 
+	added menu item.
+	(pixmap_press): Add the new menu item "Save All Attachment...".
+	(ptr_array_free_notify): A simple wrapper function to free the
+	pointer array.
+	(do_attachment_header): Save attachment pointer in an array for 
+	"Save All Attachment" use.
+
+2003-08-01  Yuedong Du  <yuedong.du@sun.com>
+
+	* message-browser.c: (on_key_press): close mail message window
+	using 'ESC' key, fix bug #47087
+
 2003-07-28  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* mail-crypto.c: Removed smime functions as they were stale.
