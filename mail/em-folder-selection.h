@@ -36,4 +36,6 @@ char *em_folder_selection_run_dialog_uri(GtkWindow *parent_window,
 					 const char *caption,
 					 const char *default_folder_uri);
 
+void em_select_folder(GtkWindow *parent_window, const char *default_folder_uri, void (*done)(const char *uri, void *data), void *data);
+
 #endif /* EM_FOLDER_SELECTION_H */

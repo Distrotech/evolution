@@ -113,3 +113,50 @@ em_folder_selection_run_dialog_uri(GtkWindow *parent_window,
 
 	return g_strdup(e_folder_get_physical_uri(selected_e_folder));
 }
+
+
+struct _select_folder_data {
+	void (*done)(const char *uri, void *data);
+	void *data;
+};
+
+static void
+emfs_folder_selected(GtkWidget *w, const char *path, struct _select_folder_data *d)
+{
+	const char *uri = NULL;
+	EStorageSet *storage_set = mail_component_peek_storage_set (mail_component_peek ());
+	EFolder *folder;
+	
+	folder = e_storage_set_get_folder(storage_set, path);
+	if (folder)
+		uri = e_folder_get_physical_uri(folder);
+
+	gtk_widget_hide(w);
+
+	d->done(uri, d->data);
+
+	gtk_widget_destroy(w);
+}
+
+void
+em_select_folder(GtkWindow *parent_window, const char *default_folder_uri, void (*done)(const char *uri, void *data), void *data)
+{
+	EStorageSet *storage_set = mail_component_peek_storage_set (mail_component_peek ());
+	char *path;
+	GtkWidget *dialog;
+	struct _select_folder_data *d;
+
+	d = g_malloc0(sizeof(*d));
+	d->data = data;
+	d->done = done;
+
+	if (default_folder_uri)
+		path = e_storage_set_get_path_for_physical_uri(storage_set, default_folder_uri);
+	else
+		path = NULL;
+	dialog = e_folder_selection_dialog_new(storage_set, _("Select folder"), NULL, path, NULL, TRUE);
+	g_free(path);
+	g_signal_connect(dialog, "folder_selected", G_CALLBACK(emfs_folder_selected), d);
+	g_object_set_data_full((GObject *)dialog, "emfs_data", d, g_free);
+	gtk_widget_show(dialog);
+}

@@ -1,3 +1,13 @@
+2003-10-13  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-selection.c (em_select_folder): asynchornous folder
+	selection call.
+	(emfs_folder_selected): callback for folder selected.
+
+	* em-folder-view.c (emfv_popup_move): implement.
+	(emfv_popup_copy): "
+	(emfv_popup_move_cb): async folder select callback to run it.
+
 2003-10-10  Not Zed  <NotZed@Ximian.com>
 
 	* mail-account-gui.c
