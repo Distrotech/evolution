@@ -112,10 +112,7 @@ struct _CalClientClass {
 
 	void (* cal_opened) (CalClient *client, CalClientOpenStatus status);
 	void (* cal_removed) (CalClient *client, CalClientRemoveStatus status);
-	void (* cal_set_mode) (CalClient *client, CalClientSetModeStatus status, CalMode mode);
-	
-	void (* obj_updated) (CalClient *client, const char *uid);
-	void (* obj_removed) (CalClient *client, const char *uid);
+	void (* cal_set_mode) (CalClient *client, CalClientSetModeStatus status, CalMode mode);	
 
 	void (* backend_error) (CalClient *client, const char *message);
 

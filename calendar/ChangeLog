@@ -1,3 +1,15 @@
+2003-08-13  JP Rosevear  <jpr@ximian.com>
+
+	* cal-client/client-test.c (create_client): there is no more
+	object updated signal
+
+	* cal-client/cal-listener.c: clean up comment
+
+	* cal-client/cal-client.c (cal_client_class_init): remove
+	obj_updated and obj_removed signals
+
+	* cal-client/cal-client.h: ditto
+	
 2003-08-12  JP Rosevear  <jpr@ximian.com>
 
 	* pcs/cal-backend.h: remove get_uri vmethod

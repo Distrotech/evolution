@@ -153,13 +153,6 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 		g_object_unref (client);
 }
 
-/* Callback used when an object is updated */
-static void
-obj_updated_cb (CalClient *client, const char *uid, gpointer data)
-{
-	cl_printf (client, "Object updated: %s\n", uid);
-}
-
 /* Callback used when a client is destroyed */
 static void
 client_destroy_cb (GObject *object, gpointer data)
@@ -193,9 +186,6 @@ create_client (CalClient **client, const char *uri, gboolean only_if_exists)
 
 	g_signal_connect (*client, "cal_opened",
 			  G_CALLBACK (cal_opened_cb),
-			  NULL);
-	g_signal_connect (*client, "obj_updated",
-			  G_CALLBACK (obj_updated_cb),
 			  NULL);
 
 	printf ("Calendar loading `%s'...\n", uri);

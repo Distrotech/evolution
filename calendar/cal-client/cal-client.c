@@ -87,8 +87,6 @@ enum {
 	CAL_OPENED,
 	CAL_REMOVED,
 	CAL_SET_MODE,
-	OBJ_UPDATED,
-	OBJ_REMOVED,
 	BACKEND_ERROR,
 	CATEGORIES_CHANGED,
 	FORGET_PASSWORD,
@@ -258,24 +256,6 @@ cal_client_class_init (CalClientClass *klass)
 			      G_TYPE_NONE, 2,
 			      CAL_CLIENT_SET_MODE_STATUS_ENUM_TYPE,
 			      CAL_MODE_ENUM_TYPE);
-	cal_client_signals[OBJ_UPDATED] =
-		g_signal_new ("obj_updated",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, obj_updated),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
-	cal_client_signals[OBJ_REMOVED] =
-		g_signal_new ("obj_removed",
-			      G_TYPE_FROM_CLASS (klass),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalClientClass, obj_removed),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
 	cal_client_signals[BACKEND_ERROR] =
 		g_signal_new ("backend_error",
 			      G_TYPE_FROM_CLASS (klass),
@@ -313,8 +293,6 @@ cal_client_class_init (CalClientClass *klass)
 			      G_TYPE_NONE, 0);
 
 	klass->cal_opened = NULL;
-	klass->obj_updated = NULL;
-	klass->obj_removed = NULL;
 	klass->categories_changed = NULL;
 	klass->forget_password = NULL;
 	klass->backend_died = NULL;

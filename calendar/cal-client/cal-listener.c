@@ -243,10 +243,8 @@ impl_notifyCategoriesChanged (PortableServer_Servant servant,
  * @listener: A calendar listener.
  * @cal_opened_fn: Function that will be called to notify that a calendar was
  * opened.
- * @obj_updated_fn: Function that will be called to notify that an object in the
- * calendar was updated.
- * @obj_removed_fn: Function that will be called to notify that an object in the
- * calendar was removed.
+ * @cal_removed_fn: Function that will be called to notify that a calendar was
+ * removed
  * @error_occurred_fn: Function that will be called to notify errors.
  * @categories_changed_fn: Function that will be called to notify that the list
  * of categories that are present in the calendar's objects has changed.
@@ -293,10 +291,6 @@ cal_listener_construct (CalListener *listener,
  * cal_listener_new:
  * @cal_opened_fn: Function that will be called to notify that a calendar was
  * opened.
- * @obj_updated_fn: Function that will be called to notify that an object in the
- * calendar was updated.
- * @obj_removed_fn: Function that will be called to notify that an object in the
- * calendar was removed.
  * @error_occurred_fn: Function that will be called to notify errors.
  * @categories_changed_fn: Function that will be called to notify that the list
  * of categories that are present in the calendar's objects has changed.
