@@ -43,6 +43,8 @@ typedef enum {
 	E_CONTACT_EMAIL_2,     	 /* synthetic field */
 	E_CONTACT_EMAIL_3,     	 /* synthetic field */
 
+	E_CONTACT_MAILER,        /* string field */
+
 	/* Address fields */
 	E_CONTACT_ADDRESS,       /* Multi-valued structured (EContactAddress) */
 	E_CONTACT_ADDRESS_HOME,  /* synthetic structured field (EContactAddress) */
@@ -77,6 +79,14 @@ typedef enum {
 	/* Photo/Logo */
 	E_CONTACT_PHOTO,       	 /* structured field (EContactPhoto) */
 	E_CONTACT_PHOTO_URI,     /* synthetic string field */
+
+	/* Contact categories */
+	E_CONTACT_CATEGORIES,    /* string field */
+	E_CONTACT_CATEGORY_LIST, /* multi-valued */
+
+	/* misc fields */
+	E_CONTACT_SPOUSE,        /* string field */
+	E_CONTACT_NOTE,          /* string field */
 
 	E_CONTACT_FIELD_LAST
 } EContactField;

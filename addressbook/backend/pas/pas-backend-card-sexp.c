@@ -41,16 +41,14 @@ static gboolean
 compare_email (EContact *contact, const char *str,
 	       char *(*compare)(const char*, const char*))
 {
-#if notyet
 	int i;
 
-	for (i = E_CARD_SIMPLE_EMAIL_ID_EMAIL; i < E_CARD_SIMPLE_EMAIL_ID_LAST; i ++) {
-		const char *email = e_card_simple_get_email (card, i);
+	for (i = E_CONTACT_EMAIL_1; i <= E_CONTACT_EMAIL_3; i ++) {
+		const char *email = e_contact_get_const (contact, i);
 
 		if (email && compare(email, str))
 			return TRUE;
 	}
-#endif
 
 	return FALSE;
 }
@@ -101,21 +99,14 @@ static gboolean
 compare_category (EContact *contact, const char *str,
 		  char *(*compare)(const char*, const char*))
 {
-#if notyet
-	EList *categories;
-	EIterator *iterator;
-	ECard *ecard;
+	GList *categories;
+	GList *iterator;
 	gboolean ret_val = FALSE;
 
-	g_object_get (card,
-		      "card", &ecard,
-		      NULL);
-	g_object_get (ecard,
-		      "category_list", &categories,
-		      NULL);
+	categories = e_contact_get (contact, E_CONTACT_CATEGORY_LIST);
 
-	for (iterator = e_list_get_iterator(categories); e_iterator_is_valid (iterator); e_iterator_next (iterator)) {
-		const char *category = e_iterator_get (iterator);
+	for (iterator = categories; iterator; iterator = iterator->next) {
+		const char *category = iterator->data;
 
 		if (compare(category, str)) {
 			ret_val = TRUE;
@@ -123,42 +114,10 @@ compare_category (EContact *contact, const char *str,
 		}
 	}
 
-	g_object_unref (iterator);
-	e_card_free_empty_lists (ecard);
+	g_list_foreach (categories, (GFunc)g_free, NULL);
+	g_list_free (categories);
+
 	return ret_val;
-#endif
-}
-
-static gboolean
-compare_arbitrary (EContact *contact, const char *str,
-		   char *(*compare)(const char*, const char*))
-{
-#if notyet
-	EList *list;
-	EIterator *iterator;
-	ECard *ecard;
-	gboolean ret_val = FALSE;
-
-	g_object_get (card,
-		      "card", &ecard,
-		      NULL);
-	g_object_get (ecard,
-		      "arbitrary", &list,
-		      NULL);
-
-	for (iterator = e_list_get_iterator(list); e_iterator_is_valid (iterator); e_iterator_next (iterator)) {
-		const ECardArbitrary *arbitrary = e_iterator_get (iterator);
-
-		if (compare(arbitrary->key, str)) {
-			ret_val = TRUE;
-			break;
-		}
-	}
-
-	g_object_unref (iterator);
-	e_card_free_empty_lists (ecard);
-	return ret_val;
-#endif
 }
 
 static struct prop_info {
@@ -178,9 +137,7 @@ static struct prop_info {
 	NORMAL_PROP ( E_CONTACT_FILE_AS, "file_as" ),
 	LIST_PROP ( "full_name", compare_name), /* not really a list, but we need to compare both full and surname */
 	NORMAL_PROP ( E_CONTACT_HOMEPAGE_URL, "url"),
-#if notyet
 	NORMAL_PROP ( E_CONTACT_MAILER, "mailer"),
-#endif
 	NORMAL_PROP ( E_CONTACT_ORG, "org"),
 	NORMAL_PROP ( E_CONTACT_ORG_UNIT, "org_unit"),
 	NORMAL_PROP ( E_CONTACT_OFFICE, "office"),
@@ -189,16 +146,13 @@ static struct prop_info {
 	NORMAL_PROP ( E_CONTACT_MANAGER, "manager"),
 	NORMAL_PROP ( E_CONTACT_ASSISTANT, "assistant"),
 	NORMAL_PROP ( E_CONTACT_NICKNAME, "nickname"),
-#if notyet
 	NORMAL_PROP ( E_CONTACT_SPOUSE, "spouse" ),
 	NORMAL_PROP ( E_CONTACT_NOTE, "note"),
-#endif
 	NORMAL_PROP ( E_CONTACT_UID, "id"),
 	LIST_PROP ( "email", compare_email ),
 	LIST_PROP ( "phone", compare_phone ),
 	LIST_PROP ( "address", compare_address ),
 	LIST_PROP ( "category", compare_category ),
-	LIST_PROP ( "arbitrary", compare_arbitrary )
 };
 static int num_prop_infos = sizeof(prop_info_table) / sizeof(prop_info_table[0]);
 

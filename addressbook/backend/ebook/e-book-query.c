@@ -466,7 +466,7 @@ e_book_query_to_string    (EBookQuery *q)
 {
 	GString *str = g_string_new ("(");
 	int i;
-	char *s;
+	char *s = NULL;
 
 	switch (q->type) {
 	case E_BOOK_QUERY_TYPE_AND:
@@ -501,6 +501,9 @@ e_book_query_to_string    (EBookQuery *q)
 		case E_BOOK_QUERY_CONTAINS: s = "contains"; break;
 		case E_BOOK_QUERY_BEGINS_WITH: s = "beginswith"; break;
 		case E_BOOK_QUERY_ENDS_WITH: s = "endswith"; break;
+		default:
+			g_assert_not_reached();
+			break;
 		}
 
 		/* XXX need to escape q->query.field_test.value */

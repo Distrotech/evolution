@@ -28,12 +28,14 @@
 
 #define EVC_ADR             "ADR"
 #define EVC_CALURI          "CALURI"
+#define EVC_CATEGORIES      "CATEGORIES"
 #define EVC_EMAIL           "EMAIL"
 #define EVC_ENCODING        "ENCODING"
 #define EVC_FBURL           "FBURL"
 #define EVC_FN              "FN"
 #define EVC_ICSCALENDAR     "ICSCALENDAR" /* XXX should this be X-EVOLUTION-ICSCALENDAR? */
 #define EVC_LABEL           "LABEL"
+#define EVC_MAILER          "MAILER"
 #define EVC_NICKNAME        "NICKNAME"
 #define EVC_N               "N"
 #define EVC_NOTE            "NOTE"

@@ -77,10 +77,11 @@ static EContactFieldInfo field_info[] = {
 	SYNTH_STR_FIELD (E_CONTACT_ADDRESS_LABEL_OTHER,         "address_label_other", N_("Other Address Label"), NULL, FALSE),
 
 	/* Email fields */
-	GLIST_FIELD     (E_CONTACT_EMAIL,      EVC_EMAIL, "email",      N_("Email List"),       FALSE),
-	SYNTH_STR_FIELD (E_CONTACT_EMAIL_1,               "email_1",    N_("Email 1"),    NULL, FALSE),
-	SYNTH_STR_FIELD (E_CONTACT_EMAIL_2,               "email_2",    N_("Email 2"),    NULL, FALSE),
-	SYNTH_STR_FIELD (E_CONTACT_EMAIL_3,               "email_3",    N_("Email 3"),    NULL, FALSE),
+	GLIST_FIELD     (E_CONTACT_EMAIL,      EVC_EMAIL,  "email",      N_("Email List"),       FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_EMAIL_1,                "email_1",    N_("Email 1"),    NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_EMAIL_2,                "email_2",    N_("Email 2"),    NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_EMAIL_3,                "email_3",    N_("Email 3"),    NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_MAILER,     EVC_MAILER, "mailer",     N_("Mailer"),     NULL, FALSE),
 
 	/* Instant messaging fields */
 	GLIST_FIELD (E_CONTACT_IM_AIM,    EVC_X_AIM,    "im_aim",    N_("AIM Screen Name List"), FALSE),
@@ -105,6 +106,16 @@ static EContactFieldInfo field_info[] = {
 	/* Photo/Logo */
 	STRUCT_FIELD    (E_CONTACT_PHOTO,     EVC_PHOTO, "photo",      N_("Photo"),          FALSE),
 	SYNTH_STR_FIELD (E_CONTACT_PHOTO_URI,            "photo_uri",  N_("Photo URI"),              NULL, FALSE),
+
+	/* Misc fields */
+	STRING_FIELD (E_CONTACT_SPOUSE, EVC_X_SPOUSE,    "spouse", N_("Spouse's Name"), NULL, FALSE),
+	STRING_FIELD (E_CONTACT_NOTE,   EVC_NOTE,        "note",   N_("Note"),          NULL, FALSE),
+
+	/* Contact categories */
+#if notyet
+	GLIST_FIELD     (E_CONTACT_CATEGORY_LIST, EVC_X_CATEGORIES, "category_list", N_("Category List"),       FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_CATEGORIES,                      "categories",    N_("Categories"),    NULL, FALSE)
+#endif
 };
 
 #undef STRING_FIELD
