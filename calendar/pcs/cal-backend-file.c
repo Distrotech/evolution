@@ -999,8 +999,16 @@ cal_backend_file_add_timezone (CalBackendSync *backend, Cal *cal, const char *tz
 		return GNOME_Evolution_Calendar_InvalidObject;
 
 	if (icalcomponent_isa (tz_comp) == ICAL_VTIMEZONE_COMPONENT) {
-		icalcomponent_add_component (priv->icalcomp, tz_comp);
-		mark_dirty (cbfile);
+		icaltimezone *zone;
+
+		zone = icaltimezone_new ();
+		icaltimezone_set_component (zone, tz_comp);
+		if (!icalcomponent_get_timezone (priv->icalcomp, icaltimezone_get_tzid (zone))) {
+			icalcomponent_add_component (priv->icalcomp, tz_comp);
+			mark_dirty (cbfile);
+		}
+
+		icaltimezone_free (zone, 1);
 	}
 
 	return GNOME_Evolution_Calendar_Success;

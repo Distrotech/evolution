@@ -1,3 +1,8 @@
+2003-09-23  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c (cal_backend_file_add_timezone): guard against
+	adding the timezone if it's already there.
+
 2003-09-23  JP Rosevear <jpr@ximian.com>
 
 	* pcs/cal.c (cal_notify_object_created): notify with the object,
