@@ -257,7 +257,7 @@ setup_widgets (EShellWindow *window)
 
 	priv->view_notebook = gtk_notebook_new ();
 	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (priv->view_notebook), FALSE);
-	gtk_paned_pack2 (GTK_PANED (paned), priv->view_notebook, FALSE, FALSE);
+	gtk_paned_pack2 (GTK_PANED (paned), priv->view_notebook, TRUE, FALSE);
 
 	button_box = gtk_hbox_new (FALSE, 6);
 	gtk_box_pack_start (GTK_BOX (sidebar_vbox), button_box, FALSE, FALSE, 0);

@@ -1,3 +1,8 @@
+2003-08-17  Ettore Perazzoli  <ettore@ximian.com>
+
+	* e-shell-window.c (setup_widgets): Pass TRUE for @resize to
+	gtk_paned_pack2() for the view notebook.
+
 2003-07-29  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-splash.c, e-splash.h: Removed from the build.
