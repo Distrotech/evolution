@@ -31,6 +31,7 @@ SUBDIRS =			\
         mail                    \
         calendar                \
         wombat                  \
+	im			\
 	importers		\
 	my-evolution		\
         art                     \

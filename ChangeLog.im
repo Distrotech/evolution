@@ -1,0 +1,6 @@
+2001-10-27  Joe Shaw  <joe@ximian.com>
+
+	* configure.in: Add the im and im/pms directories for Makefile
+	generation.
+
+	* Makefile.am: Add im subdir.

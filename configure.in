@@ -1107,6 +1107,8 @@ filter/Makefile
 help/Makefile
 help/C/Makefile
 help/no/Makefile
+im/Makefile
+im/pms/Makefile
 importers/Makefile
 intl/Makefile
 libibex/Makefile
