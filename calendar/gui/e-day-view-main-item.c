@@ -464,6 +464,7 @@ e_day_view_main_item_draw_day_event (EDayViewMainItem *dvmitem,
 	gint item_x, item_y, item_w, item_h, bar_y1, bar_y2;
 	GtkStyle *style;
 	GdkGC *gc;
+	GdkColor bg_color;
 	CalComponent *comp;
 	gint num_icons, icon_x, icon_y, icon_x_inc, icon_y_inc;
 	gint max_icon_w, max_icon_h;
@@ -482,7 +483,6 @@ e_day_view_main_item_draw_day_event (EDayViewMainItem *dvmitem,
 	style = GTK_WIDGET (day_view)->style;
 
 	gc = day_view->main_gc;
-	gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_VBAR]);
 
 	/* Get the position of the event. If it is not shown skip it.*/
 	if (!e_day_view_get_event_position (day_view, day, event_num,
@@ -496,21 +496,33 @@ e_day_view_main_item_draw_day_event (EDayViewMainItem *dvmitem,
 	event = &g_array_index (day_view->events[day], EDayViewEvent,
 				event_num);
 
-	/* Fill in the white background. Note that for events in the first
+	/* Fill in the event background. Note that for events in the first
 	   column of the day, we might not want to paint over the vertical bar,
 	   since that is used for multiple events. But then you can't see
 	   where the event in the first column finishes. */
+
+	if (gdk_color_parse (e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (day_view)), event->comp_data),
+			     &bg_color)) {
+		GdkColormap *colormap;
+
+		colormap = gtk_widget_get_colormap (GTK_WIDGET (day_view));
+		if (gdk_colormap_alloc_color (colormap, &bg_color, TRUE, TRUE))
+			gdk_gc_set_foreground (gc, &bg_color);
+	}
+
 #if 1
 	if (event->start_row_or_col == 0)
-		gdk_draw_rectangle (drawable, style->white_gc, TRUE,
+		gdk_draw_rectangle (drawable, gc, TRUE,
 				    item_x + E_DAY_VIEW_BAR_WIDTH, item_y + 1,
 				    MAX (item_w - E_DAY_VIEW_BAR_WIDTH - 1, 0),
 				    item_h - 2);
 	else
 #endif
-		gdk_draw_rectangle (drawable, style->white_gc, TRUE,
+		gdk_draw_rectangle (drawable, gc, TRUE,
 				    item_x + 1, item_y + 1,
 				    MAX (item_w - 2, 0), item_h - 2);
+
+	gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_VBAR]);
 
 	/* Draw the right edge of the vertical bar. */
 	gdk_draw_line (drawable, style->black_gc,

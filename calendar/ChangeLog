@@ -1,5 +1,15 @@
 2003-08-12  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-day-view.c (e_day_view_update_query):
+	* gui/e-week-view.c (e_week_view_update_query): remove the status bar
+	messages when the operation is finished.
+
+	* gui/e-day-view-main-item.c (e_day_view_main_item_draw_day_event):
+	draw a rectangle filled with the color associated with the event's
+	calendar.
+
+2003-08-12  Rodrigo Moya <rodrigo@ximian.com>
+
 	* cal-util/cal-util.[ch] (cal_util_component_has_alarms): new function.
 
 	* gui/gnome-cal.[ch]:

@@ -3252,6 +3252,8 @@ e_day_view_update_query (ECalView *cal_view)
 		g_assert (comp_data != NULL);
 		process_component (day_view, comp_data);
 	}
+
+	e_cal_view_set_status_message (E_CAL_VIEW (day_view), NULL);
 }
 
 static void
