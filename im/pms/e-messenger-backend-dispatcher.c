@@ -2,6 +2,7 @@
 #include <Messenger.h>
 #include "e-messenger-backend.h"
 #include "e-messenger-backend-dispatcher.h"
+#include "../messenger/e-messenger-identity.h"
 
 #define PARENT_TYPE BONOBO_X_OBJECT_TYPE
 
@@ -24,7 +25,6 @@ impl_MessengerBackendDispatcher_signon(
 {
 	EMessengerBackendDispatcher *dispatcher;
 	GSList *i;
-	char *identity;
 
 	dispatcher = E_MESSENGER_BACKEND_DISPATCHER(
 		bonobo_object_from_servant(servant));
@@ -37,6 +37,9 @@ impl_MessengerBackendDispatcher_signon(
 		klass = E_MESSENGER_BACKEND_GET_CLASS(backend);
 
 		if (g_strcasecmp(backend->service_name, service_name) == 0) {
+			EMessengerIdentity          *identity;
+			char                        *identity_string;
+
 			identity = e_messenger_identity_create_string(
 				backend->service_name, signon, NULL);
 
@@ -52,11 +55,17 @@ impl_MessengerBackendDispatcher_signon(
 			err = (klass->signon)(
 				backend, signon, password, listener);
 
+			identity = e_messenger_identity_create (
+				backend->service_name, signon, password);
+			identity_string = e_messenger_identity_to_string (identity);
+
+			e_messenger_identity_free (identity);
+	
 			switch (err) {
 			case E_MESSENGER_BACKEND_ERROR_NONE:
 				GNOME_Evolution_Messenger_Listener_signonResult(
 					listener,
-					CORBA_string_dup(identity), 
+					CORBA_string_dup(identity_string), 
 					BONOBO_OBJREF(backend),
 					GNOME_Evolution_Messenger_Listener_SignonError_NONE,
 					ev);
@@ -64,7 +73,7 @@ impl_MessengerBackendDispatcher_signon(
 			case E_MESSENGER_BACKEND_ERROR_INVALID_LOGIN:
 				GNOME_Evolution_Messenger_Listener_signonResult(
 					listener,
-					CORBA_string_dup(identity),
+					CORBA_string_dup(identity_string),
 					BONOBO_OBJREF(backend),
 					GNOME_Evolution_Messenger_Listener_SignonError_INVALID_LOGIN,
 					ev);
@@ -72,7 +81,7 @@ impl_MessengerBackendDispatcher_signon(
 			case E_MESSENGER_BACKEND_ERROR_NET_FAILURE:
 				GNOME_Evolution_Messenger_Listener_signonResult(
 					listener,
-					CORBA_string_dup(identity),
+					CORBA_string_dup(identity_string),
 					BONOBO_OBJREF(backend),
 					GNOME_Evolution_Messenger_Listener_SignonError_NET_FAILURE,
 					ev);
@@ -82,7 +91,7 @@ impl_MessengerBackendDispatcher_signon(
 				break;
 			}
 
-			g_free(identity);
+			g_free (identity_string);
 
 			return;
 		}

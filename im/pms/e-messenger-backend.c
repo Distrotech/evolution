@@ -216,7 +216,7 @@ e_messenger_backend_event_user_info(EMessengerBackend *backend, char *signon,
 	identity = e_messenger_identity_create_string(
 		backend->service_name, signon, NULL);
 
-	GNOME_Evolution_Messenger_Listener_contactInfo(
+	GNOME_Evolution_Messenger_Listener_contactInfoResult(
 		backend->listener, CORBA_string_dup(identity), info, &ev);
 	
 	g_free(identity);
