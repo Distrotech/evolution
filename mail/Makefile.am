@@ -53,6 +53,7 @@ evolution_mail_SOURCES =		\
 	mail-tools.c			\
 	mail-tools.h			\
 	mail-types.h			\
+	mail-vfolder.c			\
 	main.c				\
 	message-list.c			\
 	message-list.h			\
@@ -76,6 +77,7 @@ evolution_mail_LDADD = 					\
 	$(top_builddir)/filter/libfilter.la		\
 	$(BONOBO_VFS_GNOME_LIBS)			\
 	$(GTKHTML_LIBS)					\
+	$(GCONF_LIBS)					\
 	$(THREADS_LIBS)					\
 	$(UNICODE_LIBS)
 
@@ -112,8 +114,12 @@ gnorba_DATA = $(GOAD_FILES)
 endif
 
 gladedir   = $(datadir)/evolution/glade
-glade_DATA = 				\
-	mail-config.glade
+glade_DATA = mail-config.glade mail-config-druid.glade
+
+schemadir = $(sysconfdir)/gconf/schemas
+schema_DATA = evolution-mail.schemas
+
+iconsdir = $(datadir)/images/evolution
 
 $(EVOLUTION_MAIL_CORBA_GENERATED): Mail.idl 
 	$(ORBIT_IDL) -I$(datadir)/idl -I`$(GNOME_CONFIG) --datadir`/idl -I$(srcdir) $(srcdir)/Mail.idl

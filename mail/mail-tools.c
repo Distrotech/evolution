@@ -142,7 +142,6 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 	gchar *dest_url;
 	gchar *dest_path;
 	int tmpfd;
-	int result;
 	const gchar *source;
 
 	g_return_val_if_fail (strncmp (source_url, "mbox:", 5) == 0, NULL);
@@ -177,11 +176,11 @@ mail_tool_do_movemail (const gchar *source_url, CamelException *ex)
 	/* Movemail from source (source_url) to dest_path */
 
 	mail_tool_camel_lock_up();
-	result = camel_movemail (source, dest_path, ex);
+	camel_movemail (source, dest_path, ex);
 	mail_tool_camel_lock_down();
 	g_free (dest_path);
 
-	if (result == 0 || result == -1) {
+	if (camel_exception_is_set (ex)) {
 		g_free (dest_url);
 		return NULL;
 	}
@@ -223,7 +222,7 @@ mail_tool_move_folder_contents (CamelFolder *source, CamelFolder *dest, CamelExc
 		
 		/* Append it to dest */
 
-		camel_folder_append_message (dest, msg, ex);
+		camel_folder_append_message (dest, msg, 0, ex);
 		if (camel_exception_is_set (ex)) {
 			camel_object_unref (CAMEL_OBJECT (msg));
 			goto cleanup;
@@ -397,6 +396,11 @@ mail_tool_fetch_mail_into_searchable (const char *source_url, CamelException *ex
 	return search_folder;
 }
 
+static CamelFolder *get_folder_func (FilterDriver *d, const char *uri, void *data)
+{
+	return mail_tool_uri_to_folder_noex (uri);
+}
+
 void
 mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest, 
 				gpointer hook_func, gpointer hook_data,
@@ -404,13 +408,17 @@ mail_tool_filter_contents_into (CamelFolder *source, CamelFolder *dest,
 {
 	gchar *userrules;
 	gchar *systemrules;
+	FilterContext *fc;
 	FilterDriver *filter;
 
         userrules = g_strdup_printf ("%s/filters.xml", evolution_dir);
         systemrules = g_strdup_printf ("%s/evolution/filtertypes.xml", EVOLUTION_DATADIR);
-        filter = filter_driver_new (systemrules, userrules, mail_tool_uri_to_folder_noex);
+	fc = filter_context_new();
+	rule_context_load ((RuleContext *)fc, systemrules, userrules);
         g_free (userrules);
         g_free (systemrules);
+
+        filter = filter_driver_new (fc, get_folder_func, 0);
 
 	if (hook_func)
 		camel_object_hook_event (CAMEL_OBJECT (dest), "folder_changed",

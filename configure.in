@@ -6,7 +6,7 @@ cflags_set=${CFLAGS+set}
 
 EVOLUTION_MAJOR_VERSION=0
 EVOLUTION_MINOR_VERSION=0
-EVOLUTION_MICRO_VERSION=2
+EVOLUTION_MICRO_VERSION=3
 VERSION=$EVOLUTION_MINOR_VERSION.$EVOLUTION_MICRO_VERSION
 PACKAGE=evolution
 
@@ -108,7 +108,7 @@ else
 	fi
 fi
 
-AC_CHECK_FUNCS(mkstemp)
+AC_CHECK_FUNCS(mkstemp mkdtemp)
 
 dnl **************************************************
 dnl ctime_r prototype
@@ -183,17 +183,16 @@ AC_SUBST(THREADS_CFLAGS)
 dnl **************************************************
 dnl * Print check
 dnl **************************************************
-AC_MSG_CHECKING(for GnomePrint libraries >= 0.20)
+AC_MSG_CHECKING(for GnomePrint libraries version 0.20)
 if gnome-config --libs print > /dev/null 2>&1; then 
-    vers=`gnome-config --modversion print | sed -e "s/gnome-print-//" | \
-        awk 'BEGIN { FS = "."; } { print $1 * 1000 + $2;}'`
-    if test "$vers" -ge 13; then
+    vers=`gnome-config --modversion print | sed -e "s/gnome-print-//"`
+    if test "$vers" = "0.20"; then
         AC_MSG_RESULT(found)
     else
-        AC_MSG_ERROR(You need at least GNOME print 0.13)
+        AC_MSG_ERROR(Please make sure you are using the released version of gnome-print-0.20.  Please note that CVS HEAD versions will not work.)
     fi
 else
-    AC_MSG_ERROR(Did not find GnomePrint installed)
+    AC_MSG_ERROR(Did not find GnomePrint installed.  Please make sure you are using the released version of gnome-print-0.20.  Please note that CVS HEAD versions will not work.)
 fi
 GNOME_PRINT_LIBS=`gnome-config --libs print`
 GNOME_PRINT_CFLAGS=`gnome-config --cflags print`
@@ -351,6 +350,14 @@ else
 	AC_MSG_ERROR(GNOME-VFS is required to compile Evolution)
 fi
 
+saved_CFLAGS="$CFLAGS"
+saved_LDFLAGS="$LDFLAGS"
+CFLAGS="$CFLAGS `gnome-config --cflags vfs`"
+LDFLAGS="$LDFLAGS `gnome-config --libs vfs`"
+AC_CHECK_FUNCS(gnome_vfs_mime_get_default_action_without_fallback)
+CFLAGS="$saved_CFLAGS"
+LDFLAGS="$saved_LDFLAGS"
+
 BONOBO_VFS_GNOME_LIBS="`gnome-config --libs bonobo libglade gdk_pixbuf gnomecanvaspixbuf vfs gnomeui `"
 BONOBO_VFS_GNOME_CFLAGS="`gnome-config --cflags bonobo libglade gdk_pixbuf gnomecanvaspixbuf vfs gnomeui `"
 AC_SUBST(BONOBO_VFS_GNOME_LIBS)
@@ -421,6 +428,14 @@ dnl *****
 
 AM_PATH_GCONF(0.5.0,,,gconf-gtk)
 
+saved_CFLAGS="$CFLAGS"
+saved_LDFLAGS="$LDFLAGS"
+CFLAGS="$CFLAGS $GCONF_CFLAGS"
+LDFLAGS="$LDFLAGS $GCONF_LIBS"
+AC_CHECK_FUNCS(gconf_client_get_default)
+CFLAGS="$saved_CFLAGS"
+LDFLAGS="$saved_LDFLAGS"
+
 dnl ********
 dnl Kerberos
 dnl ********
@@ -453,10 +468,68 @@ AC_SUBST(KRB4_LDFLAGS)
 
 
 dnl ******************************
+dnl gtk-doc
+dnl ******************************
+
+AC_CHECK_PROG(GTKDOC, gtkdoc-mkdb, true, false)
+AM_CONDITIONAL(HAVE_GTK_DOC, $GTKDOC)
+AC_SUBST(HAVE_GTK_DOC)
+
+dnl Let people disable the gtk-doc stuff.
+AC_ARG_ENABLE(gtk-doc, [  --enable-gtk-doc  Use gtk-doc to build documentation [default=auto]], enable_gtk_doc="$enableval", enable_gtk_doc=auto)
+
+if test x$enable_gtk_doc = xauto ; then
+  if test x$GTKDOC = xtrue ; then
+    enable_gtk_doc=yes
+  else
+    enable_gtk_doc=no
+  fi
+fi
+
+dnl NOTE: We need to use a separate automake conditional for this
+dnl       to make this work with the tarballs.
+AM_CONDITIONAL(ENABLE_GTK_DOC, test x$enable_gtk_doc = xyes)
+
+dnl ********
+dnl movemail
+dnl ********
+AC_ARG_WITH(movemail, [  --with-movemail=PATH    Path to a movemail binary])
+AC_MSG_CHECKING(for movemail)
+if test x$with_movemail = xyes -o x$with_movemail = x; then
+    with_movemail=no
+fi
+if test x$with_movemail != xno; then
+    AC_DEFINE_UNQUOTED(MOVEMAIL_PATH, "$with_movemail")
+    AC_MSG_RESULT($with_movemail)
+else
+    emacs_exec_dir=`emacs --batch --eval '(message exec-directory)' 2>&1`
+    case $emacs_exec_dir in
+    /*) if test -x $emacs_exec_dir/movemail; then
+	    if test -u $emacs_exec_dir/movemail -o -g $emacs_exec_dir/movemail; then
+		AC_MSG_RESULT($emacs_exec_dir/movemail)
+		AC_DEFINE_UNQUOTED(MOVEMAIL_PATH, "$emacs_exec_dir/movemail")
+	    else
+		AC_MSG_RESULT($emacs_exec_dir/movemail... not set-id: ignored)
+	    fi
+	else
+	    AC_MSG_RESULT(no)
+	fi
+	;;
+    *)
+	AC_MSG_RESULT(no)
+	;;
+    esac
+fi
+    
+
+dnl ******************************
 dnl Makefiles
 dnl ******************************
 
 AC_CONFIG_SUBDIRS(libical)
+
+EVOLUTION_DIR=`(cd $srcdir; pwd)`
+AC_SUBST(EVOLUTION_DIR)
 
 AC_OUTPUT([
 Makefile
@@ -484,6 +557,7 @@ widgets/misc/Makefile
 widgets/shortcut-bar/Makefile
 addressbook/Makefile
 addressbook/ename/Makefile
+addressbook/conduit/Makefile
 addressbook/contact-editor/Makefile
 addressbook/printing/Makefile
 addressbook/backend/Makefile
@@ -524,6 +598,9 @@ default_user/local/Trash/Makefile
 tools/Makefile
 doc/Makefile
 doc/C/Makefile
+doc/devel/Makefile
+doc/devel/calendar/Makefile
+doc/devel/calendar/cal-client/Makefile
 ])
 
 echo "WARNING WARNING WARNING WARNING WARNING WARNING WARNING"

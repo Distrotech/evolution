@@ -1,3 +1,84 @@
+2000-07-30  Valek Filippov  <frob@df.ru>
+
+	* ru.po: updated russian translation.
+
+2000-07-28  Szabolcs BAN <shooby@gnome.hu>
+
+	* hu.po: Updated Hungarian translations.
+
+2000-07-27  Fatih Demir  <kabalak@gmx.net> 
+
+        * tr.po: Updated the Turkish translation.
+
+2000-07-27  Fatih Demir  <kabalak@gmx.net> 
+
+        * tr.po: Updated the Turkish translation.
+
+2000-07-26  Valek Filippov  <frob@df.ru>
+
+	* ru.po: updated russian translation.
+
+2000-07-24  Matthias Warkus  <mawa@iname.com>
+
+	* de.po: Updated German translation.
+
+2000-07-24  Fatih Demir	<kabalak@gmx.net>
+	
+	* tr.po: Updated the Turkish translation.
+	
+2000-07-24  Szabolcs BAN  <shooby@gnome.hu>
+
+	* hu.po: updated Hungarian translations...
+
+2000-07-24  Federico Mena Quintero  <federico@helixcode.com>
+
+	* it.po: Added missing \n.
+
+2000-07-23  Valek Filippov  <frob@df.ru>
+
+	* ru.po: updated russian translation.
+
+2000-07-23  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* it.po: Updated Italian translation from Clara Tattoni
+	<clara.tattoni@libero.it>.
+
+2000-07-21  Szabolcs BAN  <shooby@gnome.hu>
+
+	* hu.po: updated Hungarian translations...
+
+2000-07-21  Andreas Hyden  <a.hyden@cyberpoint.se>
+
+	* sv.po: Fixed an error.
+
+2000-07-19  Valek Filippov  <frob@df.ru>
+
+	* ru.po: updated russian translation.
+
+2000-07-16  Jesus Bravo Alvarez  <jba@pobox.com>
+
+	* gl.po: Updated Galician translation.
+
+2000-07-16  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* no.po: Updated Norwegian translation.
+	
+2000-07-16  Andreas Hyden  <a.hyden@cyberpoint.se>
+
+	* sv.po: Updated Swedish translation.
+
+2000-07-15  Matthias Warkus  <mawa@iname.com>
+
+	* de.po: Updated. Should be complete and pretty usable.
+
+2000-07-13  Fatih Demir  <kabalak@gmx.net> 
+
+        * tr.po: Updated the Turkish translation.
+
+2000-07-13  Valek Filippov  <frob@df.ru>
+
+	* ru.po: Updated russian translation.
+
 2000-07-10  Federico Mena Quintero  <federico@helixcode.com>
 
 	* POTFILES.in: Removed several calendar/gui files that are no

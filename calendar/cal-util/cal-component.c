@@ -21,6 +21,7 @@
 
 #include <config.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include "cal-component.h"
 #include "timeutil.h"
@@ -28,7 +29,7 @@
 
 
 /* Private part of the CalComponent structure */
-typedef struct {
+struct _CalComponentPrivate {
 	/* The icalcomponent we wrap */
 	icalcomponent *icalcomp;
 
@@ -39,7 +40,7 @@ typedef struct {
 	struct categories {
 		icalproperty *prop;
 	};
-	GSList *categories_list;
+	GSList *categories_list; /* list of struct categories */
 
 	icalproperty *classification;
 
@@ -48,11 +49,12 @@ typedef struct {
 		icalparameter *altrep_param;
 	};
 
-	GSList *comment_list;
+	GSList *comment_list; /* list of struct text */
 
+	icalproperty *completed;
 	icalproperty *created;
 
-	GSList *description_list;
+	GSList *description_list; /* list of struct text */
 
 	struct datetime {
 		icalproperty *prop;
@@ -66,7 +68,20 @@ typedef struct {
 
 	struct datetime due;
 
+	GSList *exdate_list; /* list of icalproperty objects */
+	GSList *exrule_list; /* list of icalproperty objects */
+
 	icalproperty *last_modified;
+
+	struct period {
+		icalproperty *prop;
+		icalparameter *value_param;
+	};
+
+	GSList *rdate_list; /* list of struct period */
+
+	GSList *rrule_list; /* list of icalproperty objects */
+
 	icalproperty *sequence;
 
 	struct {
@@ -74,11 +89,28 @@ typedef struct {
 		icalparameter *altrep_param;
 	} summary;
 
+	icalproperty *transparency;
+	icalproperty *url;
+
 	/* Whether we should increment the sequence number when piping the
 	 * object over the wire.
 	 */
 	guint need_sequence_inc : 1;
-} CalComponentPrivate;
+};
+
+/* Private structure for alarms */
+struct _CalComponentAlarm {
+	/* Our parent component */
+	CalComponent *parent;
+
+	/* Alarm icalcomponent we wrap */
+	icalcomponent *icalcomp;
+
+	/* Properties */
+
+	icalproperty *action;
+	icalproperty *trigger;
+};
 
 
 
@@ -188,6 +220,7 @@ free_icalcomponent (CalComponent *comp)
 
 	priv->classification = NULL;
 	priv->comment_list = NULL;
+	priv->completed = NULL;
 	priv->created = NULL;
 
 	priv->description_list = free_slist (priv->description_list);
@@ -203,11 +236,26 @@ free_icalcomponent (CalComponent *comp)
 	priv->due.prop = NULL;
 	priv->due.tzid_param = NULL;
 
+	g_slist_free (priv->exdate_list);
+	priv->exdate_list = NULL;
+
+	g_slist_free (priv->exrule_list);
+	priv->exrule_list = NULL;
+
 	priv->last_modified = NULL;
+
+	priv->rdate_list = free_slist (priv->rdate_list);
+
+	g_slist_free (priv->rrule_list);
+	priv->rrule_list = NULL;
+
 	priv->sequence = NULL;
 
 	priv->summary.prop = NULL;
 	priv->summary.altrep_param = NULL;
+
+	priv->transparency = NULL;
+	priv->url = NULL;
 
 	/* Clean up */
 
@@ -305,66 +353,46 @@ scan_categories (CalComponent *comp, icalproperty *prop)
 	priv->categories_list = g_slist_append (priv->categories_list, categ);
 }
 
-/* Scans a text (i.e. text + altrep) property */
-static void
-scan_text (CalComponent *comp, GSList **text_list, icalproperty *prop)
-{
-	CalComponentPrivate *priv;
-	struct text *text;
-	icalparameter *param;
-
-	priv = comp->priv;
-
-	text = g_new (struct text, 1);
-	text->prop = prop;
-
-	for (param = icalproperty_get_first_parameter (prop, ICAL_ANY_PARAMETER);
-	     param;
-	     param = icalproperty_get_next_parameter (prop, ICAL_ANY_PARAMETER)) {
-		icalparameter_kind kind;
-
-		kind = icalparameter_isa (param);
-
-		switch (kind) {
-		case ICAL_ALTREP_PARAMETER:
-			text->altrep_param = param;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	*text_list = g_slist_append (*text_list, text);
-}
-
 /* Scans a date/time and timezone pair property */
 static void
 scan_datetime (CalComponent *comp, struct datetime *datetime, icalproperty *prop)
 {
 	CalComponentPrivate *priv;
-	icalparameter *param;
 
 	priv = comp->priv;
 
 	datetime->prop = prop;
+	datetime->tzid_param = icalproperty_get_first_parameter (prop, ICAL_TZID_PARAMETER);
+}
 
-	for (param = icalproperty_get_first_parameter (prop, ICAL_ANY_PARAMETER);
-	     param;
-	     param = icalproperty_get_next_parameter (prop, ICAL_ANY_PARAMETER)) {
-		icalparameter_kind kind;
+/* Scans an exception date property */
+static void
+scan_exdate (CalComponent *comp, icalproperty *prop)
+{
+	CalComponentPrivate *priv;
 
-		kind = icalparameter_isa (param);
+	priv = comp->priv;
+	priv->exdate_list = g_slist_append (priv->exdate_list, prop);
+}
 
-		switch (kind) {
-		case ICAL_TZID_PARAMETER:
-			datetime->tzid_param = param;
-			break;
+/* Scans an icalperiodtype property */
+static void
+scan_period (CalComponent *comp, GSList **list, icalproperty *prop)
+{
+	struct period *period;
 
-		default:
-			break;
-		}
-	}
+	period = g_new (struct period, 1);
+	period->prop = prop;
+	period->value_param = icalproperty_get_first_parameter (prop, ICAL_VALUE_PARAMETER);
+
+	*list = g_slist_append (*list, period);
+}
+
+/* Scans an icalrecurtype property */
+static void
+scan_recur (CalComponent *comp, GSList **list, icalproperty *prop)
+{
+	*list = g_slist_append (*list, prop);
 }
 
 /* Scans the summary property */
@@ -372,28 +400,24 @@ static void
 scan_summary (CalComponent *comp, icalproperty *prop)
 {
 	CalComponentPrivate *priv;
-	icalparameter *param;
 
 	priv = comp->priv;
 
 	priv->summary.prop = prop;
+	priv->summary.altrep_param = icalproperty_get_first_parameter (prop, ICAL_ALTREP_PARAMETER);
+}
 
-	for (param = icalproperty_get_first_parameter (prop, ICAL_ANY_PARAMETER);
-	     param;
-	     param = icalproperty_get_next_parameter (prop, ICAL_ANY_PARAMETER)) {
-		icalparameter_kind kind;
+/* Scans a text (i.e. text + altrep) property */
+static void
+scan_text (CalComponent *comp, GSList **text_list, icalproperty *prop)
+{
+	struct text *text;
 
-		kind = icalparameter_isa (param);
+	text = g_new (struct text, 1);
+	text->prop = prop;
+	text->altrep_param = icalproperty_get_first_parameter (prop, ICAL_ALTREP_PARAMETER);
 
-		switch (kind) {
-		case ICAL_ALTREP_PARAMETER:
-			priv->summary.altrep_param = param;
-			break;
-
-		default:
-			break;
-		}
-	}
+	*text_list = g_slist_append (*text_list, text);
 }
 
 /* Scans an icalproperty and adds its mapping to the component */
@@ -420,6 +444,10 @@ scan_property (CalComponent *comp, icalproperty *prop)
 		scan_text (comp, &priv->comment_list, prop);
 		break;
 
+	case ICAL_COMPLETED_PROPERTY:
+		priv->completed = prop;
+		break;
+
 	case ICAL_CREATED_PROPERTY:
 		priv->created = prop;
 		break;
@@ -444,8 +472,24 @@ scan_property (CalComponent *comp, icalproperty *prop)
 		scan_datetime (comp, &priv->due, prop);
 		break;
 
+	case ICAL_EXDATE_PROPERTY:
+		scan_exdate (comp, prop);
+		break;
+
+	case ICAL_EXRULE_PROPERTY:
+		scan_recur (comp, &priv->exrule_list, prop);
+		break;
+
 	case ICAL_LASTMODIFIED_PROPERTY:
 		priv->last_modified = prop;
+		break;
+
+	case ICAL_RDATE_PROPERTY:
+		scan_period (comp, &priv->rdate_list, prop);
+		break;
+
+	case ICAL_RRULE_PROPERTY:
+		scan_recur (comp, &priv->rrule_list, prop);
 		break;
 
 	case ICAL_SEQUENCE_PROPERTY:
@@ -456,8 +500,16 @@ scan_property (CalComponent *comp, icalproperty *prop)
 		scan_summary (comp, prop);
 		break;
 
+	case ICAL_TRANSP_PROPERTY:
+		priv->transparency = prop;
+		break;
+
 	case ICAL_UID_PROPERTY:
 		priv->uid = prop;
+		break;
+
+	case ICAL_URL_PROPERTY:
+		priv->url = prop;
 		break;
 
 	default:
@@ -483,7 +535,9 @@ scan_icalcomponent (CalComponent *comp)
 	     prop = icalcomponent_get_next_property (priv->icalcomp, ICAL_ANY_PROPERTY))
 		scan_property (comp, prop);
 
-	/* FIXME: parse ALARM subcomponents */
+	/* We don't scan for alarm subcomponents since they can be iterated
+	 * through using cal_component_get_{first,next}_alarm().
+	 */
 }
 
 /* Ensures that the mandatory calendar component properties (uid, dtstamp) do
@@ -690,6 +744,40 @@ cal_component_get_vtype (CalComponent *comp)
 }
 
 /**
+ * cal_component_get_as_string:
+ * @comp: A calendar component.
+ *
+ * Gets the iCalendar string representation of a calendar component.
+ *
+ * Return value: String representation of the calendar component according to
+ * RFC 2445.
+ **/
+char *
+cal_component_get_as_string (CalComponent *comp)
+{
+	CalComponentPrivate *priv;
+	char *str, *buf;
+
+	g_return_val_if_fail (comp != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_COMPONENT (comp), NULL);
+
+	priv = comp->priv;
+	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
+
+	/* Sigh, we dup and dup and dup and dup because of g_malloc() versus malloc()... */
+
+	str = icalcomponent_as_ical_string (priv->icalcomp);
+
+	if (str) {
+		buf = g_strdup (str);
+		free (str);
+	} else
+		buf = NULL;
+
+	return buf;
+}
+
+/**
  * cal_component_get_uid:
  * @comp: A calendar component object.
  * @uid: Return value for the UID string.
@@ -870,23 +958,6 @@ cal_component_set_categories_list (CalComponent *comp, GSList *categ_list)
 }
 
 /**
- * cal_component_free_categories_list:
- * @categ_list: List of category strings.
- *
- * Frees a list of category strings.
- **/
-void
-cal_component_free_categories_list (GSList *categ_list)
-{
-	GSList *l;
-
-	for (l = categ_list; l; l = l->next)
-		g_free (l->data);
-
-	g_slist_free (categ_list);
-}
-
-/**
  * cal_component_get_classification:
  * @comp: A calendar component object.
  * @classif: Return value for the classification.
@@ -982,30 +1053,6 @@ cal_component_set_classification (CalComponent *comp, CalComponentClassification
 	}
 }
 
-/**
- * cal_component_free_text_list:
- * @text_list: List of #CalComponentText structures.
- *
- * Frees a list of #CalComponentText structures.  This function should only be
- * used to free lists of text values as returned by the other getter functions
- * of #CalComponent.
- **/
-void
-cal_component_free_text_list (GSList *text_list)
-{
-	GSList *l;
-
-	for (l = text_list; l; l = l->next) {
-		CalComponentText *text;
-
-		text = l->data;
-		g_return_if_fail (text != NULL);
-		g_free (text);
-	}
-
-	g_slist_free (text_list);
-}
-
 /* Gets a text list value */
 static void
 get_text_list (GSList *text_list,
@@ -1014,12 +1061,10 @@ get_text_list (GSList *text_list,
 {
 	GSList *l;
 
-	if (!text_list) {
-		*tl = NULL;
-		return;
-	}
-
 	*tl = NULL;
+
+	if (!text_list)
+		return;
 
 	for (l = text_list; l; l = l->next) {
 		struct text *text;
@@ -1063,6 +1108,7 @@ set_text_list (CalComponent *comp,
 		g_assert (text->prop != NULL);
 
 		icalcomponent_remove_property (priv->icalcomp, text->prop);
+		icalproperty_free (text->prop);
 		g_free (text);
 	}
 
@@ -1144,21 +1190,6 @@ cal_component_set_comment_list (CalComponent *comp, GSList *text_list)
 	set_text_list (comp, icalproperty_new_comment, &priv->comment_list, text_list);
 }
 
-/**
- * cal_component_free_icaltimetype:
- * @t: An #icaltimetype structure.
- *
- * Frees a struct #icaltimetype value as returned by the calendar component
- * functions.
- **/
-void
-cal_component_free_icaltimetype (struct icaltimetype *t)
-{
-	g_return_if_fail (t != NULL);
-
-	g_free (t);
-}
-
 /* Gets a struct icaltimetype value */
 static void
 get_icaltimetype (icalproperty *prop,
@@ -1172,30 +1203,6 @@ get_icaltimetype (icalproperty *prop,
 
 	*t = g_new (struct icaltimetype, 1);
 	**t = (* get_prop_func) (prop);
-}
-
-/**
- * cal_component_get_created:
- * @comp: A calendar component object.
- * @t: Return value for the creation date.  This should be freed using the
- * cal_component_free_icaltimetype() function.
- *
- * Queries the date in which a calendar component object was created in the
- * calendar store.
- **/
-void
-cal_component_get_created (CalComponent *comp, struct icaltimetype **t)
-{
-	CalComponentPrivate *priv;
-
-	g_return_if_fail (comp != NULL);
-	g_return_if_fail (IS_CAL_COMPONENT (comp));
-	g_return_if_fail (t != NULL);
-
-	priv = comp->priv;
-	g_return_if_fail (priv->icalcomp != NULL);
-
-	get_icaltimetype (priv->created, icalproperty_get_created, t);
 }
 
 /* Sets a struct icaltimetype value */
@@ -1225,6 +1232,78 @@ set_icaltimetype (CalComponent *comp, icalproperty **prop,
 		*prop = (* prop_new_func) (*t);
 		icalcomponent_add_property (priv->icalcomp, *prop);
 	}
+}
+
+/**
+ * cal_component_get_completed:
+ * @comp: A calendar component object.
+ * @t: Return value for the completion date.  This should be freed using the
+ * cal_component_free_icaltimetype() function.
+ *
+ * Queries the date at which a calendar compoment object was completed.
+ **/
+void
+cal_component_get_completed (CalComponent *comp, struct icaltimetype **t)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (t != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	get_icaltimetype (priv->completed, icalproperty_get_completed, t);
+}
+
+/**
+ * cal_component_set_completed:
+ * @comp: A calendar component object.
+ * @t: Value for the completion date.
+ *
+ * Sets the date at which a calendar component object was completed.
+ **/
+void
+cal_component_set_completed (CalComponent *comp, struct icaltimetype *t)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	set_icaltimetype (comp, &priv->completed,
+			  icalproperty_new_completed,
+			  icalproperty_set_completed,
+			  t);
+}
+
+
+/**
+ * cal_component_get_created:
+ * @comp: A calendar component object.
+ * @t: Return value for the creation date.  This should be freed using the
+ * cal_component_free_icaltimetype() function.
+ *
+ * Queries the date in which a calendar component object was created in the
+ * calendar store.
+ **/
+void
+cal_component_get_created (CalComponent *comp, struct icaltimetype **t)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (t != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	get_icaltimetype (priv->created, icalproperty_get_created, t);
 }
 
 /**
@@ -1302,21 +1381,6 @@ cal_component_set_description_list (CalComponent *comp, GSList *text_list)
 	g_return_if_fail (priv->icalcomp != NULL);
 
 	set_text_list (comp, icalproperty_new_description, &priv->description_list, text_list);
-}
-
-/**
- * cal_component_free_datetime:
- * @dt: A date/time structure.
- *
- * Frees a date/time structure.
- **/
-void
-cal_component_free_datetime (CalComponentDateTime *dt)
-{
-	g_return_if_fail (dt != NULL);
-
-	if (dt->value)
-		g_free (dt->value);
 }
 
 /* Gets a date/time and timezone pair */
@@ -1441,7 +1505,7 @@ cal_component_set_dtend (CalComponent *comp, CalComponentDateTime *dt)
  * cal_component_get_dtstamp:
  * @comp: A calendar component object.
  * @t: Return value for the date/timestamp.
- * 
+ *
  * Queries the date/timestamp property of a calendar component object, which is
  * the last time at which the object was modified by a calendar user agent.
  **/
@@ -1467,7 +1531,7 @@ cal_component_get_dtstamp (CalComponent *comp, struct icaltimetype *t)
  * cal_component_set_dtstamp:
  * @comp: A calendar component object.
  * @t: Date/timestamp value.
- * 
+ *
  * Sets the date/timestamp of a calendar component object.  This should be
  * called whenever a calendar user agent makes a change to a component's
  * properties.
@@ -1588,11 +1652,353 @@ cal_component_set_due (CalComponent *comp, CalComponentDateTime *dt)
 	priv->need_sequence_inc = TRUE;
 }
 
+/* Builds a list of CalComponentPeriod structures based on a list of icalproperties */
+static void
+get_period_list (GSList *period_list,
+		 struct icalperiodtype (* get_prop_func) (icalproperty *prop),
+		 GSList **list)
+{
+	GSList *l;
+
+	*list = NULL;
+
+	if (!period_list)
+		return;
+
+	for (l = period_list; l; l = l->next) {
+		struct period *period;
+		CalComponentPeriod *p;
+		struct icalperiodtype ip;
+
+		period = l->data;
+		g_assert (period->prop != NULL);
+
+		p = g_new (CalComponentPeriod, 1);
+
+		/* Get value parameter */
+
+		if (period->value_param) {
+			icalparameter_value value_type;
+
+			value_type = icalparameter_get_value (period->value_param);
+
+			if (value_type == ICAL_VALUE_DATE || value_type == ICAL_VALUE_DATETIME)
+				p->type = CAL_COMPONENT_PERIOD_DATETIME;
+			else if (value_type == ICAL_VALUE_DURATION)
+				p->type = CAL_COMPONENT_PERIOD_DURATION;
+			else {
+				g_message ("get_period_list(): Unknown value for period %d; "
+					   "using DATETIME", value_type);
+				p->type = CAL_COMPONENT_PERIOD_DATETIME;
+			}
+		} else
+			p->type = CAL_COMPONENT_PERIOD_DATETIME;
+
+		/* Get start and end/duration */
+
+		ip = (* get_prop_func) (period->prop);
+
+		p->start = ip.start;
+
+		if (p->type == CAL_COMPONENT_PERIOD_DATETIME)
+			p->u.end = ip.end;
+		else if (p->type == CAL_COMPONENT_PERIOD_DURATION)
+			p->u.duration = ip.duration;
+		else
+			g_assert_not_reached ();
+
+		/* Put in list */
+
+		*list = g_slist_prepend (*list, p);
+	}
+
+	*list = g_slist_reverse (*list);
+}
+
+/* Sets a period list value */
+static void
+set_period_list (CalComponent *comp,
+		 icalproperty *(* new_prop_func) (struct icalperiodtype period),
+		 GSList **period_list,
+		 GSList *pl)
+{
+	CalComponentPrivate *priv;
+	GSList *l;
+
+	priv = comp->priv;
+
+	/* Remove old periods */
+
+	for (l = *period_list; l; l = l->next) {
+		struct period *period;
+
+		period = l->data;
+		g_assert (period->prop != NULL);
+
+		icalcomponent_remove_property (priv->icalcomp, period->prop);
+		icalproperty_free (period->prop);
+		g_free (period);
+	}
+
+	g_slist_free (*period_list);
+	*period_list = NULL;
+
+	/* Add in new periods */
+
+	for (l = pl; l; l = l->next) {
+		CalComponentPeriod *p;
+		struct period *period;
+		struct icalperiodtype ip;
+		icalparameter_value value_type;
+
+		g_assert (l->data != NULL);
+		p = l->data;
+
+		/* Create libical value */
+
+		ip.start = p->start;
+
+		if (p->type == CAL_COMPONENT_PERIOD_DATETIME) {
+			value_type = ICAL_VALUE_DATETIME;
+			ip.end = p->u.end;
+		} else if (p->type == CAL_COMPONENT_PERIOD_DURATION) {
+			value_type = ICAL_VALUE_DURATION;
+			ip.duration = p->u.duration;
+		} else {
+			g_assert_not_reached ();
+			return;
+		}
+
+		/* Create property */
+
+		period = g_new (struct period, 1);
+
+		period->prop = (* new_prop_func) (ip);
+		period->value_param = icalparameter_new_value (value_type);
+		icalproperty_add_parameter (period->prop, period->value_param);
+
+		/* Add to list */
+
+		*period_list = g_slist_prepend (*period_list, period);
+	}
+
+	*period_list = g_slist_reverse (*period_list);
+}
+
+/**
+ * cal_component_get_exdate_list:
+ * @comp: A calendar component object.
+ * @exdate_list: Return value for the list of exception dates, as a list of
+ * struct #icaltimetype structures.  This should be freed using the
+ * cal_component_free_exdate_list() function.
+ * 
+ * Queries the list of exception date properties in a calendar component object.
+ **/
+void
+cal_component_get_exdate_list (CalComponent *comp, GSList **exdate_list)
+{
+	CalComponentPrivate *priv;
+	GSList *l;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (exdate_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	*exdate_list = NULL;
+
+	for (l = priv->exdate_list; l; l = l->next) {
+		icalproperty *prop;
+		struct icaltimetype *t;
+
+		prop = l->data;
+
+		t = g_new (struct icaltimetype, 1);
+		*t = icalproperty_get_exdate (prop);
+
+		*exdate_list = g_slist_prepend (*exdate_list, t);
+	}
+
+	*exdate_list = g_slist_reverse (*exdate_list);
+}
+
+/**
+ * cal_component_set_exdate_list:
+ * @comp: A calendar component object.
+ * @exdate_list: List of struct #icaltimetype structures.
+ * 
+ * Sets the list of exception dates in a calendar component object.
+ **/
+void
+cal_component_set_exdate_list (CalComponent *comp, GSList *exdate_list)
+{
+	CalComponentPrivate *priv;
+	GSList *l;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (exdate_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	/* Remove old exception dates */
+
+	for (l = priv->exdate_list; l; l = l->next) {
+		icalproperty *prop;
+
+		prop = l->data;
+		icalcomponent_remove_property (priv->icalcomp, prop);
+		icalproperty_free (prop);
+	}
+
+	g_slist_free (priv->exdate_list);
+	priv->exdate_list = NULL;
+
+	/* Add in new exception dates */
+
+	for (l = exdate_list; l; l = l->next) {
+		icalproperty *prop;
+		struct icaltimetype *t;
+
+		g_assert (l->data != NULL);
+		t = l->data;
+
+		prop = icalproperty_new_exdate (*t);
+		icalcomponent_add_property (priv->icalcomp, prop);
+
+		priv->exdate_list = g_slist_prepend (priv->exdate_list, prop);
+	}
+
+	priv->exdate_list = g_slist_reverse (priv->exdate_list);
+
+	priv->need_sequence_inc = TRUE;
+}
+
+/* Gets a list of recurrence rules */
+static void
+get_recur_list (GSList *recur_list,
+		struct icalrecurrencetype (* get_prop_func) (icalproperty *prop),
+		GSList **list)
+{
+	GSList *l;
+
+	*list = NULL;
+
+	for (l = recur_list; l; l = l->next) {
+		icalproperty *prop;
+		struct icalrecurrencetype *r;
+
+		prop = l->data;
+
+		r = g_new (struct icalrecurrencetype, 1);
+		*r = (* get_prop_func) (prop);
+
+		*list = g_slist_prepend (*list, r);
+	}
+
+	*list = g_slist_reverse (*list);
+}
+
+/* Sets a list of recurrence rules */
+static void
+set_recur_list (CalComponent *comp,
+		icalproperty *(* new_prop_func) (struct icalrecurrencetype recur),
+		GSList **recur_list,
+		GSList *rl)
+{
+	CalComponentPrivate *priv;
+	GSList *l;
+
+	priv = comp->priv;
+
+	/* Remove old recurrences */
+
+	for (l = *recur_list; l; l = l->next) {
+		icalproperty *prop;
+
+		prop = l->data;
+		icalcomponent_remove_property (priv->icalcomp, prop);
+		icalproperty_free (prop);
+	}
+
+	g_slist_free (*recur_list);
+	*recur_list = NULL;
+
+	/* Add in new recurrences */
+
+	for (l = rl; l; l = l->next) {
+		icalproperty *prop;
+		struct icalrecurrencetype *recur;
+
+		g_assert (l->data != NULL);
+		recur = l->data;
+
+		prop = (* new_prop_func) (*recur);
+		icalcomponent_add_property (priv->icalcomp, prop);
+
+		*recur_list = g_slist_prepend (*recur_list, prop);
+	}
+
+	*recur_list = g_slist_reverse (*recur_list);
+}
+
+/**
+ * cal_component_get_exrule_list:
+ * @comp: A calendar component object.
+ * @recur_list: List of exception rules as struct #icalrecurrencetype
+ * structures.  This should be freed using the cal_component_free_recur_list()
+ * function.
+ * 
+ * Queries the list of exception rule properties of a calendar component
+ * object.
+ **/
+void
+cal_component_get_exrule_list (CalComponent *comp, GSList **recur_list)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (recur_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	get_recur_list (priv->exrule_list, icalproperty_get_exrule, recur_list);
+}
+
+/**
+ * cal_component_set_exrule_list:
+ * @comp: A calendar component object.
+ * @recur_list: List of struct #icalrecurrencetype structures.
+ * 
+ * Sets the list of exception rules in a calendar component object.
+ **/
+void
+cal_component_set_exrule_list (CalComponent *comp, GSList *recur_list)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (recur_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	set_recur_list (comp, icalproperty_new_exrule, &priv->exrule_list, recur_list);
+
+	priv->need_sequence_inc = TRUE;
+}
+
 /**
  * cal_component_get_last_modified:
  * @comp: A calendar component object.
  * @t: Return value for the last modified time value.
- * 
+ *
  * Queries the time at which a calendar component object was last modified in
  * the calendar store.
  **/
@@ -1615,7 +2021,7 @@ cal_component_get_last_modified (CalComponent *comp, struct icaltimetype **t)
  * cal_component_set_last_modified:
  * @comp: A calendar component object.
  * @t: Value for the last time modified.
- * 
+ *
  * Sets the time at which a calendar component object was last stored in the
  * calendar store.  This should not be called by plain calendar user agents.
  **/
@@ -1637,11 +2043,109 @@ cal_component_set_last_modified (CalComponent *comp, struct icaltimetype *t)
 }
 
 /**
+ * cal_component_get_rdate_list:
+ * @comp: A calendar component object.
+ * @period_list: Return value for the list of recurrence dates, as a list of
+ * #CalComponentPeriod structures.  This should be freed using the
+ * cal_component_free_period_list() function.
+ * 
+ * Queries the list of recurrence date properties in a calendar component
+ * object.
+ **/
+void
+cal_component_get_rdate_list (CalComponent *comp, GSList **period_list)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (period_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	get_period_list (priv->rdate_list, icalproperty_get_rdate, period_list);
+}
+
+/**
+ * cal_component_set_rdate_list:
+ * @comp: A calendar component object.
+ * @period_list: List of #CalComponentPeriod structures.
+ * 
+ * Sets the list of recurrence dates in a calendar component object.
+ **/
+void
+cal_component_set_rdate_list (CalComponent *comp, GSList *period_list)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (period_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	set_period_list (comp, icalproperty_new_rdate, &priv->rdate_list, period_list);
+
+	priv->need_sequence_inc = TRUE;
+}
+
+/**
+ * cal_component_get_rrule_list:
+ * @comp: A calendar component object.
+ * @recur_list: List of recurrence rules as struct #icalrecurrencetype
+ * structures.  This should be freed using the cal_component_free_recur_list()
+ * function.
+ * 
+ * Queries the list of recurrence rule properties of a calendar component
+ * object.
+ **/
+void
+cal_component_get_rrule_list (CalComponent *comp, GSList **recur_list)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (recur_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	get_recur_list (priv->rrule_list, icalproperty_get_rrule, recur_list);
+}
+
+/**
+ * cal_component_set_rrule_list:
+ * @comp: A calendar component object.
+ * @recur_list: List of struct #icalrecurrencetype structures.
+ * 
+ * Sets the list of recurrence rules in a calendar component object.
+ **/
+void
+cal_component_set_rrule_list (CalComponent *comp, GSList *recur_list)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (recur_list != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	set_recur_list (comp, icalproperty_new_rrule, &priv->rrule_list, recur_list);
+
+	priv->need_sequence_inc = TRUE;
+}
+
+/**
  * cal_component_get_sequence:
  * @comp: A calendar component object.
  * @sequence: Return value for the sequence number.  This should be freed using
  * cal_component_free_sequence().
- * 
+ *
  * Queries the sequence number of a calendar component object.
  **/
 void
@@ -1669,7 +2173,7 @@ cal_component_get_sequence (CalComponent *comp, int **sequence)
  * cal_component_set_sequence:
  * @comp: A calendar component object.
  * @sequence: Sequence number value.
- * 
+ *
  * Sets the sequence number of a calendar component object.  Normally this
  * function should not be called, since the sequence number is incremented
  * automatically at the proper times.
@@ -1703,20 +2207,6 @@ cal_component_set_sequence (CalComponent *comp, int *sequence)
 		priv->sequence = icalproperty_new_sequence (*sequence);
 		icalcomponent_add_property (priv->icalcomp, priv->sequence);
 	}
-}
-
-/**
- * cal_component_free_sequence:
- * @sequence: Sequence number value.
- * 
- * Frees a sequence number value.
- **/
-void
-cal_component_free_sequence (int *sequence)
-{
-	g_return_if_fail (sequence != NULL);
-
-	g_free (sequence);
 }
 
 /**
@@ -1808,4 +2298,696 @@ cal_component_set_summary (CalComponent *comp, CalComponentText *summary)
 #endif
 		priv->summary.altrep_param = NULL;
 	}
+}
+
+/**
+ * cal_component_get_transparency:
+ * @comp: A calendar component object.
+ * @transp: Return value for the time transparency.
+ *
+ * Queries the time transparency of a calendar component object.
+ **/
+void
+cal_component_get_transparency (CalComponent *comp, CalComponentTransparency *transp)
+{
+	CalComponentPrivate *priv;
+	const char *val;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (transp != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	if (!priv->transparency) {
+		*transp = CAL_COMPONENT_TRANSP_NONE;
+		return;
+	}
+
+	val = icalproperty_get_transp (priv->transparency);
+
+	if (strcasecmp (val, "TRANSPARENT"))
+		*transp = CAL_COMPONENT_TRANSP_TRANSPARENT;
+	else if (strcasecmp (val, "OPAQUE"))
+		*transp = CAL_COMPONENT_TRANSP_OPAQUE;
+	else
+		*transp = CAL_COMPONENT_TRANSP_UNKNOWN;
+}
+
+/**
+ * cal_component_set_transparency:
+ * @comp: A calendar component object.
+ * @transp: Time transparency value.
+ *
+ * Sets the time transparency of a calendar component object.
+ **/
+void
+cal_component_set_transparency (CalComponent *comp, CalComponentTransparency transp)
+{
+	CalComponentPrivate *priv;
+	char *str;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (transp != CAL_COMPONENT_TRANSP_UNKNOWN);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+
+	if (transp == CAL_COMPONENT_TRANSP_NONE) {
+		if (priv->transparency) {
+			icalcomponent_remove_property (priv->icalcomp, priv->transparency);
+			icalproperty_free (priv->transparency);
+			priv->transparency = NULL;
+		}
+
+		return;
+	}
+
+	switch (transp) {
+	case CAL_COMPONENT_TRANSP_TRANSPARENT:
+		str = "TRANSPARENT";
+		break;
+
+	case CAL_COMPONENT_TRANSP_OPAQUE:
+		str = "OPAQUE";
+		break;
+
+	default:
+		g_assert_not_reached ();
+		str = NULL;
+	}
+
+	if (priv->transparency)
+		icalproperty_set_transp (priv->transparency, str);
+	else {
+		priv->transparency = icalproperty_new_transp (str);
+		icalcomponent_add_property (priv->icalcomp, priv->transparency);
+	}
+}
+
+/**
+ * cal_component_get_url:
+ * @comp: A calendar component object.
+ * @url: Return value for the URL.
+ *
+ * Queries the uniform resource locator property of a calendar component object.
+ **/
+void
+cal_component_get_url (CalComponent *comp, const char **url)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+	g_return_if_fail (url != NULL);
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	if (priv->url)
+		*url = icalproperty_get_url (priv->url);
+	else
+		*url = NULL;
+}
+
+/**
+ * cal_component_set_url:
+ * @comp: A calendar component object.
+ * @url: URL value.
+ *
+ * Sets the uniform resource locator property of a calendar component object.
+ **/
+void
+cal_component_set_url (CalComponent *comp, const char *url)
+{
+	CalComponentPrivate *priv;
+
+	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_COMPONENT (comp));
+
+	priv = comp->priv;
+	g_return_if_fail (priv->icalcomp != NULL);
+
+	if (!url) {
+		if (priv->url) {
+			icalcomponent_remove_property (priv->icalcomp, priv->url);
+			icalproperty_free (priv->url);
+			priv->url = NULL;
+		}
+
+		return;
+	}
+
+	if (priv->url)
+		icalproperty_set_url (priv->url, (char *) url);
+	else {
+		priv->url = icalproperty_new_url ((char *) url);
+		icalcomponent_add_property (priv->icalcomp, priv->url);
+	}
+}
+
+
+
+/**
+ * cal_component_free_categories_list:
+ * @categ_list: List of category strings.
+ *
+ * Frees a list of category strings.
+ **/
+void
+cal_component_free_categories_list (GSList *categ_list)
+{
+	GSList *l;
+
+	for (l = categ_list; l; l = l->next)
+		g_free (l->data);
+
+	g_slist_free (categ_list);
+}
+
+/**
+ * cal_component_free_datetime:
+ * @dt: A date/time structure.
+ *
+ * Frees a date/time structure.
+ **/
+void
+cal_component_free_datetime (CalComponentDateTime *dt)
+{
+	g_return_if_fail (dt != NULL);
+
+	if (dt->value)
+		g_free (dt->value);
+}
+
+/**
+ * cal_component_free_exdate_list:
+ * @exdate_list: List of struct #icaltimetype structures.
+ * 
+ * Frees a list of struct #icaltimetype structures.
+ **/
+void
+cal_component_free_exdate_list (GSList *exdate_list)
+{
+	GSList *l;
+
+	for (l = exdate_list; l; l = l->next) {
+		struct icaltimetype *t;
+
+		g_assert (l->data != NULL);
+		t = l->data;
+
+		g_free (t);
+	}
+
+	g_slist_free (exdate_list);
+}
+
+/**
+ * cal_component_free_icaltimetype:
+ * @t: An #icaltimetype structure.
+ *
+ * Frees a struct #icaltimetype value as returned by the calendar component
+ * functions.
+ **/
+void
+cal_component_free_icaltimetype (struct icaltimetype *t)
+{
+	g_return_if_fail (t != NULL);
+
+	g_free (t);
+}
+
+/**
+ * cal_component_free_period_list:
+ * @period_list: List of #CalComponentPeriod structures.
+ *
+ * Frees a list of #CalComponentPeriod structures.
+ **/
+void
+cal_component_free_period_list (GSList *period_list)
+{
+	GSList *l;
+
+	for (l = period_list; l; l = l->next) {
+		CalComponentPeriod *period;
+
+		g_assert (l->data != NULL);
+
+		period = l->data;
+		g_free (period);
+	}
+
+	g_slist_free (period_list);
+}
+
+/**
+ * cal_component_free_recur_list:
+ * @recur_list: List of struct #icalrecurrencetype structures.
+ * 
+ * Frees a list of struct #icalrecurrencetype structures.
+ **/
+void
+cal_component_free_recur_list (GSList *recur_list)
+{
+	GSList *l;
+
+	for (l = recur_list; l; l = l->next) {
+		struct icalrecurrencetype *r;
+
+		g_assert (l->data != NULL);
+		r = l->data;
+
+		g_free (l);
+	}
+
+	g_slist_free (recur_list);
+}
+
+/**
+ * cal_component_free_sequence:
+ * @sequence: Sequence number value.
+ *
+ * Frees a sequence number value.
+ **/
+void
+cal_component_free_sequence (int *sequence)
+{
+	g_return_if_fail (sequence != NULL);
+
+	g_free (sequence);
+}
+
+/**
+ * cal_component_free_text_list:
+ * @text_list: List of #CalComponentText structures.
+ *
+ * Frees a list of #CalComponentText structures.  This function should only be
+ * used to free lists of text values as returned by the other getter functions
+ * of #CalComponent.
+ **/
+void
+cal_component_free_text_list (GSList *text_list)
+{
+	GSList *l;
+
+	for (l = text_list; l; l = l->next) {
+		CalComponentText *text;
+
+		g_assert (l->data != NULL);
+
+		text = l->data;
+		g_return_if_fail (text != NULL);
+		g_free (text);
+	}
+
+	g_slist_free (text_list);
+}
+
+
+
+/* Scans an icalproperty from a calendar component and adds its mapping to our
+ * own alarm structure.
+ */
+static void
+scan_alarm_property (CalComponentAlarm *alarm, icalproperty *prop)
+{
+	icalproperty_kind kind;
+
+	kind = icalproperty_isa (prop);
+
+	switch (kind) {
+	case ICAL_ACTION_PROPERTY:
+		alarm->action = prop;
+		break;
+
+	case ICAL_TRIGGER_PROPERTY:
+		alarm->trigger = prop;
+		break;
+
+	default:
+		break;
+	}
+}
+
+/* Creates a CalComponentAlarm from a libical alarm subcomponent */
+static CalComponentAlarm *
+make_alarm (CalComponent *comp, icalcomponent *subcomp)
+{
+	CalComponentAlarm *alarm;
+	icalproperty *prop;
+
+	alarm = g_new (CalComponentAlarm, 1);
+
+	alarm->parent = comp;
+	alarm->icalcomp = subcomp;
+
+	for (prop = icalcomponent_get_first_property (subcomp, ICAL_ANY_PROPERTY);
+	     prop;
+	     prop = icalcomponent_get_next_property (subcomp, ICAL_ANY_PROPERTY))
+		scan_alarm_property (alarm, prop);
+
+	return alarm;
+}
+
+/**
+ * cal_component_get_first_alarm:
+ * @comp: A calendar component object.
+ *
+ * Starts an iterator for the alarms in a calendar component object.  Subsequent
+ * alarms can be obtained with the cal_component_get_next_alarm() function.
+ *
+ * Return value: The first alarm in the component, or NULL if the component has
+ * no alarms.  This should be freed using the cal_component_alarm_free()
+ * function.
+ **/
+CalComponentAlarm *
+cal_component_get_first_alarm (CalComponent *comp)
+{
+	CalComponentPrivate *priv;
+	icalcomponent *subcomp;
+
+	g_return_val_if_fail (comp != NULL, NULL);
+	g_return_val_if_fail (IS_CAL_COMPONENT (comp), NULL);
+
+	priv = comp->priv;
+	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
+
+	subcomp = icalcomponent_get_first_component (priv->icalcomp, ICAL_VALARM_COMPONENT);
+	if (!subcomp)
+		return NULL;
+
+	return make_alarm (comp, subcomp);
+}
+
+/**
+ * cal_component_alarm_free:
+ * @alarm: A calendar alarm.
+ *
+ * Frees an alarm structure.
+ **/
+void
+cal_component_alarm_free (CalComponentAlarm *alarm)
+{
+	g_return_if_fail (alarm != NULL);
+
+	g_assert (alarm->icalcomp != NULL);
+
+	if (icalcomponent_get_parent (alarm->icalcomp) != NULL)
+		icalcomponent_free (alarm->icalcomp);
+
+	alarm->icalcomp = NULL;
+
+	alarm->parent = NULL;
+	alarm->action = NULL;
+
+	g_free (alarm);
+}
+
+/**
+ * cal_component_alarm_get_action:
+ * @alarm: An alarm.
+ * @action: Return value for the alarm's action type.
+ *
+ * Queries the action type of an alarm.
+ **/
+void
+cal_component_alarm_get_action (CalComponentAlarm *alarm, CalComponentAlarmAction *action)
+{
+	const char *str;
+
+	g_return_if_fail (alarm != NULL);
+	g_return_if_fail (action != NULL);
+
+	g_assert (alarm->icalcomp != NULL);
+
+	if (!alarm->action) {
+		*action = CAL_COMPONENT_ALARM_NONE;
+		return;
+	}
+
+	str = icalproperty_get_action (alarm->action);
+
+	if (strcasecmp (str, "AUDIO") == 0)
+		*action = CAL_COMPONENT_ALARM_AUDIO;
+	else if (strcasecmp (str, "DISPLAY") == 0)
+		*action = CAL_COMPONENT_ALARM_DISPLAY;
+	else if (strcasecmp (str, "EMAIL") == 0)
+		*action = CAL_COMPONENT_ALARM_EMAIL;
+	else if (strcasecmp (str, "PROCEDURE") == 0)
+		*action = CAL_COMPONENT_ALARM_PROCEDURE;
+	else
+		*action = CAL_COMPONENT_ALARM_UNKNOWN;
+}
+
+/**
+ * cal_component_alarm_set_action:
+ * @alarm: An alarm.
+ * @action: Action type.
+ *
+ * Sets the action type for an alarm.
+ **/
+void
+cal_component_alarm_set_action (CalComponentAlarm *alarm, CalComponentAlarmAction action)
+{
+	char *str;
+
+	g_return_if_fail (alarm != NULL);
+	g_return_if_fail (action != CAL_COMPONENT_ALARM_NONE);
+	g_return_if_fail (action != CAL_COMPONENT_ALARM_UNKNOWN);
+
+	g_assert (alarm->icalcomp != NULL);
+
+	switch (action) {
+	case CAL_COMPONENT_ALARM_AUDIO:
+		str = "AUDIO";
+		break;
+
+	case CAL_COMPONENT_ALARM_DISPLAY:
+		str = "DISPLAY";
+		break;
+
+	case CAL_COMPONENT_ALARM_EMAIL:
+		str = "EMAIL";
+		break;
+
+	case CAL_COMPONENT_ALARM_PROCEDURE:
+		str = "PROCEDURE";
+		break;
+
+	default:
+		g_assert_not_reached ();
+		str = NULL;
+	}
+
+	if (alarm->action)
+		icalproperty_set_action (alarm->action, str);
+	else {
+		alarm->action = icalproperty_new_action (str);
+		icalcomponent_add_property (alarm->icalcomp, alarm->action);
+	}
+}
+
+/**
+ * cal_component_alarm_get_trigger:
+ * @alarm: An alarm.
+ * @trigger: Return value for the trigger time.  This should be freed using the
+ * cal_component_alarm_free_trigger() function.
+ *
+ * Queries the trigger time for an alarm.
+ **/
+void
+cal_component_alarm_get_trigger (CalComponentAlarm *alarm, CalComponentAlarmTrigger **trigger)
+{
+	icalparameter *param;
+	union icaltriggertype t;
+
+	g_return_if_fail (alarm != NULL);
+	g_return_if_fail (trigger != NULL);
+
+	g_assert (alarm->icalcomp != NULL);
+
+	if (!alarm->trigger) {
+		*trigger = NULL;
+		return;
+	}
+
+	*trigger = g_new (CalComponentAlarmTrigger, 1);
+
+	/* Get trigger type */
+
+	param = icalproperty_get_first_parameter (alarm->trigger, ICAL_VALUE_PARAMETER);
+
+	if (param) {
+		icalparameter_value value;
+
+		value = icalparameter_get_value (param);
+
+		switch (value) {
+		case ICAL_VALUE_DURATION:
+			(*trigger)->type = CAL_COMPONENT_ALARM_TRIGGER_RELATIVE;
+			break;
+
+		case ICAL_VALUE_DATETIME:
+			(*trigger)->type = CAL_COMPONENT_ALARM_TRIGGER_ABSOLUTE;
+			break;
+
+		default:
+			g_message ("cal_component_alarm_get_trigger(): Unknown value for trigger "
+				   "value %d; using RELATIVE", value);
+
+			(*trigger)->type = CAL_COMPONENT_ALARM_TRIGGER_RELATIVE;
+			break;
+		}
+	} else
+		(*trigger)->type = CAL_COMPONENT_ALARM_TRIGGER_RELATIVE;
+
+	/* Get trigger value and the RELATED parameter */
+
+	t = icalproperty_get_trigger (alarm->trigger);
+
+	switch ((*trigger)->type) {
+	case CAL_COMPONENT_ALARM_TRIGGER_RELATIVE:
+		(*trigger)->u.relative.duration = t.duration;
+
+		param = icalproperty_get_first_parameter (alarm->trigger, ICAL_RELATED_PARAMETER);
+		if (param) {
+			icalparameter_related rel;
+
+			rel = icalparameter_get_related (param);
+
+			switch (rel) {
+			case ICAL_RELATED_START:
+				(*trigger)->u.relative.related =
+					CAL_COMPONENT_ALARM_TRIGGER_RELATED_START;
+				break;
+
+			case ICAL_RELATED_END:
+				(*trigger)->u.relative.related =
+					CAL_COMPONENT_ALARM_TRIGGER_RELATED_END;
+				break;
+
+			default:
+				g_assert_not_reached ();
+			}
+		} else
+			(*trigger)->u.relative.related = CAL_COMPONENT_ALARM_TRIGGER_RELATED_START;
+
+		break;
+
+	case CAL_COMPONENT_ALARM_TRIGGER_ABSOLUTE:
+		(*trigger)->u.absolute = t.time;
+		break;
+
+	default:
+		g_assert_not_reached ();
+	}
+}
+
+/**
+ * cal_component_alarm_set_trigger:
+ * @alarm: An alarm.
+ * @trigger: Trigger time structure.
+ *
+ * Sets the trigger time of an alarm.
+ **/
+void
+cal_component_alarm_set_trigger (CalComponentAlarm *alarm, CalComponentAlarmTrigger *trigger)
+{
+	union icaltriggertype t;
+	icalparameter *param;
+	icalparameter_value value_type;
+	icalparameter_related related;
+
+	g_return_if_fail (alarm != NULL);
+	g_return_if_fail (trigger != NULL);
+
+	g_assert (alarm->icalcomp != NULL);
+
+	/* Delete old trigger */
+
+	if (alarm->trigger) {
+		icalcomponent_remove_property (alarm->icalcomp, alarm->trigger);
+		icalproperty_free (alarm->trigger);
+		alarm->trigger = NULL;
+	}
+
+	/* Set the value */
+
+	value_type = ICAL_DURATION_VALUE; /* Keep GCC happy */
+	related = ICAL_RELATED_START; /* Ditto */
+
+	switch (trigger->type) {
+	case CAL_COMPONENT_ALARM_TRIGGER_RELATIVE:
+		t.duration = trigger->u.relative.duration;
+		value_type = ICAL_DURATION_VALUE;
+
+		switch (trigger->u.relative.related) {
+		case CAL_COMPONENT_ALARM_TRIGGER_RELATED_START:
+			related = ICAL_RELATED_START;
+			break;
+
+		case CAL_COMPONENT_ALARM_TRIGGER_RELATED_END:
+			related = ICAL_RELATED_END;
+			break;
+
+		default:
+			g_assert_not_reached ();
+			return;
+		}
+
+		break;
+
+	case CAL_COMPONENT_ALARM_TRIGGER_ABSOLUTE:
+		t.time = trigger->u.absolute;
+		value_type = ICAL_DATETIME_VALUE;
+		break;
+
+	default:
+		g_assert_not_reached ();
+		return;
+	}
+
+	alarm->trigger = icalproperty_new_trigger (t);
+	icalcomponent_add_property (alarm->icalcomp, alarm->trigger);
+
+	/* Value parameters */
+
+	param = icalproperty_get_first_parameter (alarm->trigger, ICAL_VALUE_PARAMETER);
+	if (param)
+		icalparameter_set_value (param, value_type);
+	else {
+		param = icalparameter_new_value (value_type);
+		icalproperty_add_parameter (alarm->trigger, param);
+	}
+
+	/* Related parameter */
+
+	if (trigger->type == CAL_COMPONENT_ALARM_TRIGGER_RELATIVE) {
+		param = icalproperty_get_first_parameter (alarm->trigger, ICAL_RELATED_PARAMETER);
+
+		if (param)
+			icalparameter_set_related (param, related);
+		else {
+			param = icalparameter_new_related (related);
+			icalproperty_add_parameter (alarm->trigger, param);
+		}
+	}
+}
+
+/**
+ * cal_component_alarm_free_trigger:
+ * @trigger: A #CalComponentAlarmTrigger structure.
+ *
+ * Frees a #CalComponentAlarmTrigger structure.
+ **/
+void
+cal_component_alarm_free_trigger (CalComponentAlarmTrigger *trigger)
+{
+	g_return_if_fail (trigger != NULL);
+
+	g_free (trigger);
 }

@@ -12,18 +12,23 @@ noinst_LIBRARIES =				\
 	libeminicard.a
 
 libeminicard_a_SOURCES =			\
-	e-minicard.c				\
-	e-minicard.h				\
+	e-minicard-control.c			\
+	e-minicard-control.h			\
 	e-minicard-label.c			\
 	e-minicard-label.h			\
 	e-minicard-view.c			\
 	e-minicard-view.h			\
+	e-minicard-widget.c			\
+	e-minicard-widget.h			\
+	e-minicard.c				\
+	e-minicard.h				\
 	e-reflow-sorted.c			\
 	e-reflow-sorted.h			\
 	e-reflow.c				\
 	e-reflow.h
 
 noinst_PROGRAMS =				\
+	minicard-widget-test			\
 	minicard-label-test			\
 	minicard-test				\
 	reflow-test				\
@@ -53,6 +58,7 @@ minicard_test_LDADD =							\
 	$(top_builddir)/libversit/libversit.la				\
 	$(top_builddir)/addressbook/ename/libename.la			\
 	$(top_builddir)/addressbook/contact-editor/libecontacteditor.a	\
+	$(top_builddir)/addressbook/printing/libecontactprint.a		\
 	$(top_builddir)/widgets/e-table/libetable.a			\
 	$(top_builddir)/widgets/misc/libemiscwidgets.a 			\
 	$(top_builddir)/e-util/libeutil.la				\
@@ -71,6 +77,7 @@ reflow_test_LDADD =							\
 	$(top_builddir)/libversit/libversit.la				\
 	$(top_builddir)/addressbook/ename/libename.la			\
 	$(top_builddir)/addressbook/contact-editor/libecontacteditor.a	\
+	$(top_builddir)/addressbook/printing/libecontactprint.a		\
 	$(top_builddir)/widgets/e-table/libetable.a			\
 	$(top_builddir)/widgets/misc/libemiscwidgets.a 			\
 	$(top_builddir)/e-util/libeutil.la				\
@@ -89,6 +96,26 @@ minicard_view_test_LDADD =						\
 	$(top_builddir)/libversit/libversit.la				\
 	$(top_builddir)/addressbook/ename/libename.la			\
 	$(top_builddir)/addressbook/contact-editor/libecontacteditor.a	\
+	$(top_builddir)/addressbook/printing/libecontactprint.a		\
+	$(top_builddir)/widgets/e-table/libetable.a			\
+	$(top_builddir)/widgets/misc/libemiscwidgets.a 			\
+	$(top_builddir)/e-util/libeutil.la				\
+	$(top_builddir)/widgets/e-text/libetext.a
+
+minicard_widget_test_SOURCES = 	\
+	e-minicard-widget-test.c
+
+minicard_widget_test_LDADD =				\
+	$(EXTRA_GNOME_LIBS)						\
+	$(GNOMEGNORBA_LIBS)						\
+	$(BONOBO_GNOME_LIBS)						\
+	libeminicard.a							\
+	$(top_builddir)/addressbook/backend/ebook/libebook.la		\
+	$(top_builddir)/e-util/libeutil.la				\
+	$(top_builddir)/libversit/libversit.la				\
+	$(top_builddir)/addressbook/ename/libename.la			\
+	$(top_builddir)/addressbook/contact-editor/libecontacteditor.a	\
+	$(top_builddir)/addressbook/printing/libecontactprint.a		\
 	$(top_builddir)/widgets/e-table/libetable.a			\
 	$(top_builddir)/widgets/misc/libemiscwidgets.a 			\
 	$(top_builddir)/e-util/libeutil.la				\

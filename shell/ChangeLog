@@ -1,3 +1,73 @@
+2000-07-27  Dan Winship  <danw@helixcode.com>
+
+	* main.c (idle_cb): work with either gconf 0.5 or newer
+
+2000-07-26  Peter Williams  <peterw@helixcode.com>
+
+	* e-storage.c (e_storage_new_folder): Fix tiny mem leak.
+
+2000-07-26  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-view.c (disconnect_popup_signals): Disconnect the "map"
+	signal handler too.
+
+2000-07-25  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-folder-creation-dialog.c (add_folder_types): Work around
+	GtkOptionMenu utter brokenness by destroying the associated
+	Glade-built GtkMenu and creating a new one from scratch.
+
+2000-07-24  Dan Winship  <danw@helixcode.com>
+
+	* e-shell.c, main.c: Remove GOAD support.
+
+	* evolution-shell-component-client.c: Remove GOAD support.
+	(evolution_shell_component_client_new): Give the "maybe
+	OAF_INFO_PATH" message if no oafinfo file was found, and give a
+	"consult previous error messages" message if the component was
+	found but not activated. Abort in either case.
+
+2000-07-23  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-view-menu.c: Converted to use `bonobo_ui_handler_*()'
+	stuff directly, instead of converting from GnomeUIInfo.
+	(command_quit): Update arg types for BonoboUIHandler.
+	(command_run_bugbuddy): Likewise.
+	(command_about_box): Likewise.
+	(command_new_task): Removed.
+	(command_new_journal_entry): Removed.
+	(menu_create_file_new): New.
+	(menu_create_file): New.
+	(menu_create_edit): New.
+	(menu_create_view): New.
+	(menu_create_tools): New.
+	(menu_create_actions): New.
+	(e_shell_view_menu_setup): Create menus using them instead of
+	converting from GnomeUIInfo.
+
+2000-07-22  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell.c (e_shell_construct): Don't unref NULL shortcuts, you
+	idiot.
+
+2000-07-22  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-view.c (e_shell_view_set_folder_bar_mode): Make the
+	title bar non-clickable when the folder tree is visible.
+
+	* e-shell-folder-title-bar.c: New members `button_arrow' and
+	`clickable' in `EShellFolderTitleBarPrivate'.  Renamed `label'
+	into `button_label'.  Added `label'.
+	(init): Init them.
+	(e_shell_folder_title_bar_construct): Pass a pointer to the title
+	bar as the user data for the "realize" signal.  Create `label'.
+	(title_button_box_realize_cb): Use the `button_arrow' member
+	instead of using `gtk_object_{set,get}_data()'.
+	(setup_style): Set the style for `label' too.
+	(e_shell_folder_title_bar_set_clickable): New.
+	(e_shell_folder_title_bar_set_title): Set both `label' and
+	`button_label'.
+
 2000-07-21  Peter Williams  <peterw@helixcode.com>
 
 	* evolution-shell-client.c (user_select_folder): Don't use
@@ -8,6 +78,136 @@
 	(impl_FolderSelectionListener_selected): Same.
 	(impl_FolderSelectionListener_cancel): Same.
 	(struct _FolderSelectionListenerServant): No more main_loop member.
+
+2000-07-21  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-view.c (storage_set_view_box_button_release_event_cb):
+	Set the toggle state to FALSE on the title bar.
+
+	* e-shell-folder-title-bar.c: Signal "title_clicked" replaced by
+	"title_toggled".
+	(setup_style): Change the style for the button too.
+	(e_shell_folder_title_bar_construct): Use a GtkToggleButton, not a
+	GtkButton.
+	(e_shell_folder_title_bar_set_toggle_state): New.
+
+2000-07-21  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-folder-title-bar.c (create_icon_pixmap): New.  Create a
+	small arrow-shaped GtkPixmap.
+	(title_button_box_realize_cb): New.  Callback for the "realize"
+	signal of the button's inner box.
+
+	* e-shell-view.c (title_bar_clicked_cb): New function, callback
+	for the "title_clicked" signal of the title bar.
+	(setup_widgets): Connect it.
+
+	* e-shell-view.c: New member `storage_set_title_bar' in
+	`EShellViewPrivate'.
+	(setup_storage_set_subwindow): Set it.
+
+	* e-shell-folder-title-bar.c: Use a GtkLabel instead of an
+	EClippedLabel for the title.
+	(title_button_clicked_cb): New.
+	(e_shell_folder_title_bar_construct): Put the label into a button.
+	Connect the button's "clicked" signal to
+	`title_button_clicked_cb'.
+
+2000-07-21  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* evolution-shell-component.c
+	(impl_ShellComponent_populate_folder_context_menu): If the pointer
+	to the function to populate the folder context menu is NULL, don't
+	do anything.
+
+2000-07-21  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-storage-set-view.c (popup_folder_menu): New.  Create a
+	BonoboUIHandler-managed pop-up menu, let the component fill it in
+	with `::populate_folder_context_menu', and display it.  Then
+	destroy it with the associated BonoboUIHandler.
+	(handle_right_button_selection): New.
+	(handle_left_button_selection): New.  This pops up the right-click
+	menu.
+	(button_release_event): Use them.
+	(init): Set the `GTK_BUTTON_SELECTS' flag for button #3's actions.
+
+	* evolution-shell-component-client.c
+	(evolution_shell_component_client_populate_folder_context_menu):
+	New.
+	(evolution_shell_component_client_async_create_folder): Added
+	preconditions.
+
+	* e-shell-view.c (e_shell_view_save_settings): Add missing cast.
+
+	* evolution-shell-component.c: New member
+	`populate_folder_context_menu' in
+	`EvolutionShellComponentPrivate'.
+	(impl_ShellComponent_populate_folder_context_menu): New,
+	implementation for
+	`Evolution::ShellComponent::populate_folder_context_menu'.
+	(corba_class_init): Install it.
+	(evolution_shell_component_new): New arg
+	@populate_folder_context_menu.
+	(evolution_shell_component_construct): Likewise.
+
+	* Evolution-ShellComponent.idl: New method
+	`::populate_folder_context_menu'.
+
+2000-07-20  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell-view.c (e_shell_view_save_settings): Save the paned
+	positions.
+	(e_shell_view_load_settings): Restore them.
+
+2000-07-20  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* e-shell.c (save_settings_for_views): New.  Code moved out of
+	`e_shell_save_settings'.
+	(e_shell_save_settings): Use it.
+	(save_settings_for_component): New.
+	(save_settings_for_components): New.
+	(e_shell_save_settings): Use it, so that we make all the
+	components save settings too.
+
+	* e-component-registry.c
+	(e_component_registry_get_id_list): New.
+	(e_component_registry_get_component_by_id): New.
+
+	* Makefile.am (libeshell_a_SOURCES): Add
+	`evolution-shell-component-client' and `evolution-session'.
+
+	* evolution-session.c: New.
+	* evolution-session.h: New.
+
+	* Makefile.am (evolution_SOURCES): Removed files that were already
+	in `libeshell.a'.
+
+	* Evolution.idl: #include <Evolution-Session.idl>.
+
+	* Evolution-Session.idl: New.
+
+2000-07-20  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* main.c (no_views_left_cb): Call `e_shell_quit()' on the shell
+	before getting out of the GTK+ main loop.
+	(view_delete_event_cb): Removed.
+	(idle_cb): Don't call it.
+
+	* e-shell-view-menu.c (command_new_view): New, implementation of
+	the "New view" command.
+
+2000-07-16  Damon Chaplin  <damon@helixcode.com>
+
+	* e-shortcuts-view.c (e_shortcuts_view_construct): created a model
+	for the EShortcutBar. This will probably have to be moved to support
+	multiple views.
+	(class_init): #if'd out overriding the class functions. They don't
+	exist any more (they are in the model instead).
+
+2000-07-12  Christopher James Lahey  <clahey@helixcode.com>
+
+	* main.c: Fixed to match gconf API change.
 
 2000-07-10  Dan Winship  <danw@helixcode.com>
 

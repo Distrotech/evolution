@@ -1,3 +1,181 @@
+2000-07-31  Not Zed  <NotZed@HelixCode.com>
+
+	* mail-vfolder.h: Header for vfolder functions.
+
+	* folder-browser.c (mail_uri_to_folder): Use new scheme to open
+	vfolders.
+	(search_save): New button/function to save a search as a vfolder.
+
+	* mail-vfolder.c (vfolder_edit): Made asynchronous.
+	(vfolder_uri_to_folder): New function for loading vfolders and
+	setting up their source folders.
+	(vfolder_refresh): Change shell vfolder uri's to indirect
+	references rather than the real vfolder uri.
+	(vfolder_gui_add_rule): Add a rule with user confirmation.
+	(vfolder_create_part): Get a new part by name, for creating rules
+	in code.
+
+	* message-thread.c (thread_messages): Check for uid lookup
+	failure, which indicates an error in the folder or calling code.
+
+2000-07-29  Not Zed  <NotZed@HelixCode.com>
+
+	* component-factory.c (create_view): Remove hack to pass the
+	storage around.
+
+	* folder-browser-factory.c (control_activate): Changed to call
+	renamed vfolder editor.
+
+	* mail-ops.c (vfolder_edit_vfolders): renamed from vfolder_edit,
+	call new edit function.
+	(vfolder_editor_clicked): Removed.
+	(filter_druid_clicked):
+	(filter_edit): Updated for api change.
+	(real_fetch_mail): Fixed up for api change and fucked up indent.
+	(filter_get_folder): callback for filter driver.
+
+	* mail-vfolder.c: New file to manage virtual folders.
+
+2000-07-29  JP Rosevear  <jpr@helixcode.com>
+
+	* mail-format.c (mail_generate_reply): Use new mail config stuff
+
+	* component-factory.c (create_imap_storage): Use new mail config
+	stuff
+	(create_news_storage): ditto
+
+	* evolution-mail.schemas: Gconf schema for evolution mail
+
+	* mail-config-druid.glade: Gladification of config druid
+
+	* mail-config.h: New header with config structs.
+
+	* mail-config.c: Rewrite of GUI configuration tools to use 
+	new config structs.  Stores multiple identities and sources now.
+	Still only uses the first one found.
+	(mail_config_fetch): Returns MailConfig struct to caller
+	for configuration queries.
+	(mail_config): Renamed function to show mail config dialog.
+	(mail_config_druid): Renamed function to show mail config druid.
+
+	* mail-ops.c (create_msg_composer): Use 
+	e_msg_composer_new_with_sig_file and new config stuff
+	(check_configured): Use new config stuff
+	(fetch_mail): ditto
+	(composer_send_cb): ditto
+
+2000-07-28  Cody Russell  <bratsche@gnome.org>
+        * mail-ops.c, mail.h: Added mark_all_seen(), to mark every
+        message in the list with CAMEL_MESSAGE_SEEN.
+
+        * folder-browser-factory.c: Added "Actions/Mark all seen".
+
+2000-07-27  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-config.c: Lets fix Dan's kludge the Right Way (tm)
+	(set_service_url): Only strip off the leading "/" from the 
+	url->path if url->host is NULL
+	(get_service_url): Only prepend a leading "/" to the path if the
+	host is NULL
+
+2000-07-27  Dan Winship  <danw@helixcode.com>
+
+	* mail-config.c (get_service_url): toss in a kludge to deal with
+	the IMAP vs mbox path problem for now.
+
+2000-07-26  Christopher James Lahey  <clahey@helixcode.com>
+
+	* message-list.c, message-list.h: Removed counting of selected
+	messages.
+
+2000-07-26  Dan Winship  <danw@helixcode.com>
+
+	* mail-ops.c (real_fetch_mail): Don't create the tmp_mbox before
+	calling movemail, because the external movemail requires it to not
+	exist. Contrariwise, delete it in the cleanup code if it's empty.
+	Update for camel_movemail interface change. Do the "No new
+	messages" dialog in the mbox case as well as the remote mail
+	issue.
+
+2000-07-26  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-ops.c: s/struct refile_data/struct move_data
+	(real_move_msg): Renamed from real_refile_msg()
+	(move_msg): Renamed from refile_msg()
+
+	* folder-browser-factory.c: Changed Refile to Move.
+
+2000-07-26  Dan Winship  <danw@helixcode.com>
+
+	* mail-format.c (lookup_handler): Update for OAF and for external
+	apps as well as components.
+	(handle_via_external): Handler to set up for data that can be
+	displayed by an external application.
+
+	* mail-display.c (on_link_clicked, etc): Refactor the save_data()
+	code and add launch_external() as a handler for
+	x-evolution-external URLs.
+	(embeddable_destroy_cb): Remove this, since it seems like it's all
+	wrong.
+	(on_object_requested): Update for OAF, and fix some bugs.
+
+2000-07-25  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-config.c (get_service_url): Always prepend a leading "/" to
+	the url->path.
+	(set_service_url): Added more error checking and also strip the
+	leading '/' from the url->path
+	(create_identity_page): Set the signature file to the one specified in
+	the identity record, else set the default path to ~/.sugnature
+
+2000-07-25  Michael Meeks  <michael@helixcode.com>
+
+	* mail-config.c (create_identity_page): set default signature to
+	~/.signature
+
+2000-07-25  Peter Williams  <peterw@helixcode.com>
+
+	* mail-ops.c (reply): Check for the case of fb->mail_display->
+	current_message = NULL, which shouldn't happen, but has happened
+	to me.
+
+2000-07-25  Dan Winship  <danw@helixcode.com>
+
+	* message-thread.c (group_root_set): Don't group together messages
+	with the same non-Re: subject and no References/In-Reply-To. More
+	often than not, they're unrelated. (eg, "[No subject]".)
+	(thread_messages): Handle messages with no Message-Id. "This
+	shouldn't happen", but it does sometimes, and it's not much code
+	to make it just work.
+
+2000-07-25  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* mail-config.c (create_service_page): Call
+	`gtk_option_menu_set_menu()' as the last thing, as `GtkOptionMenu'
+	is fscking broken.  Also, `gtk_widget_show()' the individual menu
+	items.
+
+2000-07-24  Dan Winship  <danw@helixcode.com>
+
+	* message-list.c (mark_msg_seen, ml_tree_set_value_at,
+	message_list_regenerate): Update for CamelFolder API changes.
+	(Certain functions no longer take a CamelException.)
+
+	* mail-ops.c (real_fetch_mail, real_send_mail, real_delete_msg):
+	ditto
+
+	* component-factory.c (real_create_imap_storage,
+	real_create_news_storage): ditto
+
+2000-07-24  Dan Winship  <danw@helixcode.com>
+
+	* component-factory.c, folder-browser-factory.c, test-mail.c:
+	Remove GOAD support.
+
+	* main.c: Remove GOAD support.
+	(main): More "guess the build mistake" fun, this time for the
+	failure to initialize Bonobo case.
+
 2000-07-24  Peter Williams  <peterw@helixcode.com>
 
 	* mail-tools.c (mail_tool_set_uid_flags): Change
@@ -24,6 +202,16 @@
 	copy of get_message_info, except gets only the
 	UID, as that's all that most functions want, and
 	we avoid a Camel call.
+
+2000-07-23  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* mail-ops.c (create_message_composer): New.
+	(compose_msg): Use it.
+	(send_to_url): Likewise.
+	(forward_msg): Likewise.
+
+	* folder-browser-factory.c (control_activate): Use `_()' instead
+	of `N_()'.
 
 2000-07-21  Peter Williams  <peterw@helixcode.com>
 
@@ -113,6 +301,15 @@
 	(cleanup_send_mail): Destroy the composer on success; re-show it on
 	error. I'm so clever!
 	
+2000-07-20  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* component-factory.c (factory_fn): Updated for the new
+	`evolution_shell_component_new()' arg.
+
+2000-07-19  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* message-thread.c (thread_messages): What if message info is NULL?
+
 2000-07-17  Peter Williams  <peterw@helixcode.com>
 
 	* component-factory.c (real_create_{imap,news}_storage): Instead of
@@ -131,6 +328,18 @@
 	* mail-display.c: replace 'gtk_object_get_data( message, "urls" )'
 	with 'mail_lookup_url_table( message )'
 
+2000-07-16  Jeffrey Stedfast <fejj@helixcode.com>
+
+	* folder-browser.c, component-factory.c: Initial code to support
+	IMAP folders that don't use "/" as a directory separator.
+
+2000-07-15  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* mail-ops.c (set_x_mailer_header): New helper function to set the
+	`X-Mailer:' header to to `Evolution <version> [Developer
+	Preview]".
+	(real_send_mail): Call it.
+
 2000-07-14  Peter Williams  <peterw@curious-george.helixcode.com>
 
 	* message-list.c (message_list_set_folder): Ported to CamelObject:
@@ -141,9 +350,102 @@
 	(mail_uri_to_folder): likewise.
 	(folder_browser_load_folder): likewise.
 	
+2000-07-14  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* Makefile.am (evolution_mail_LDADD): Add `GCONF_LIBS'.
+
+2000-07-14  Dan Winship  <danw@helixcode.com>
+
+	* mail-format.c (write_headers): put a <p> at the end of the
+	header table. (I think there used to be whitespace after it, but
+	then some gtkhtml change got rid of it...)
+	(handle_text_plain): Don't do this <PRE>. Instead, CONVERT_NL and
+	CONVERT_SPACES and wrap it in <TT>. Now if the sender didn't
+	include any newlines, it will be wrapped to the width of the
+	window instead of extending off into infinity.
+
+2000-07-13  Dan Winship  <danw@helixcode.com>
+
+	* message-list.c (message_list_destroy): Only unref the folder if
+	it's been set.
+
+	* folder-browser.c (folder_browser_destroy): Only sync the folder
+	if it's been set.
+
+2000-07-13  Jonathan Blandford  <jrb@redhat.com>
+
+	* mail-config.c (create_transport):
+	s/CAMEL_SERVICE_NEED_HOST/CAMEL_SERVICE_URL_NEED_HOST.
+
+2000-07-13  Dan Winship  <danw@helixcode.com>
+
+	* mail-config.c (add_row): Add a "gboolean required" argument, and
+	set its value on the entry.
+	(create_source, create_transport): Create rows for URL elements if
+	the URL ALLOWs them. Mark them required if it NEEDs them.
+	(service_note_doneness): Only require the required fields to be
+	filled in.
+
+	Now the IMAP config page allows the user to enter a path, but
+	doesn't require it.
+	
+2000-07-13  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-ops.c (real_fetch_mail): Back to the old way to avoid
+	g_warnings, yay. Also fix append to send a flags argument (0)
+
+2000-07-12  Chris Toshok  <toshok@helixcode.com>
+
+	* mail-config.c (providers_config_new): fix some cut & paste bung.
+
+2000-07-12  Chris Toshok  <toshok@helixcode.com>
+	
+	* mail-format.c (setup_function_table): add "message/news" to the
+	mime_function_table using the same handler as message/rfc822.
+
+2000-07-12  Chris Toshok  <toshok@helixcode.com>
+
+	* mail-config.glade*: add news server tab to dialog.
+
+	* mail-config.c (on_NewsServerConfigDialogButton_clicked): new function.
+	(on_clistNewsServers_select_row): new function.
+	(on_cmdNewsServersAdd_clicked): new function.
+	(on_cmdNewsServersEdit_clicked): new function.
+	(on_cmdNewsServersDelete_clicked): new function.
+	(providers_config_new): mirror the source tab's code to fill in
+	the news server tab.
+	(write_config): save out the news server.
+	(create_news_server_config_dialog): new function.
+	(create_news_server_page): new function.
+
+2000-07-12  Peter Williams  <peterw@helixcode.com>
+
+	* mail-display.c (save_data): Change from evolution_dir to
+	g_get_home_dir() for default location of save file.
+
 2000-07-11  Dan Winship  <danw@helixcode.com>
 
 	* Update for CamelFolder API changes
+
+2000-07-11  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-ops.c (real_fetch_mail): Changed to use 
+	camel_folder_move_message_to () rather than get_message () and then
+	append_message (). This also makes it so we don't have to worry about
+	fetching message flags to pass to the new append_message () method.
+
+	* folder-browser.c (folder_browser_load_folder): Disable
+	Search capability menu/entry if folder doesn't support it.
+
+	* message-list.c (message_list_regenerate): Don't perform
+	a search if the folder doesn't support it.
+
+2000-07-11  Dan Winship  <danw@helixcode.com>
+
+	* mail-ops.c (real_send_mail): Set the post_send_data flag rather
+	than toggling it. (Maybe we'll need more control over it later,
+	but for now, the only flag we set is "replied", and we want
+	that set, not toggled.)
 
 2000-07-10  Dan Winship  <danw@helixcode.com>
 

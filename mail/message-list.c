@@ -60,8 +60,6 @@ static BonoboObjectClass *message_list_parent_class;
 static POA_Evolution_MessageList__vepv evolution_message_list_vepv;
 
 static void on_cursor_change_cmd (ETableScrolled *table, int row, gpointer user_data);
-static void on_row_selection (ETableScrolled *table, int row, gboolean selected,
-			      gpointer user_data);
 static void select_row (ETableScrolled *table, gpointer user_data);
 static void select_msg (MessageList *message_list, gint row);
 static char *filter_date (const void *data);
@@ -583,9 +581,6 @@ message_list_init (GtkObject *object)
 	gtk_signal_connect (GTK_OBJECT (message_list->etable), "cursor_change",
 			   GTK_SIGNAL_FUNC (on_cursor_change_cmd), message_list);
 
-	gtk_signal_connect (GTK_OBJECT (message_list->etable), "row_selection",
-			   GTK_SIGNAL_FUNC (on_row_selection), message_list);
-
 	gtk_widget_show (message_list->etable);
 	
 	gtk_object_ref (GTK_OBJECT (message_list->table_model));
@@ -638,7 +633,8 @@ message_list_destroy (GtkObject *object)
 	if (message_list->idle_id != 0)
 		g_source_remove(message_list->idle_id);
 
-	camel_object_unref (CAMEL_OBJECT (message_list->folder));
+	if (message_list->folder)
+		camel_object_unref (CAMEL_OBJECT (message_list->folder));
 
 	GTK_OBJECT_CLASS (message_list_parent_class)->destroy (object);
 }
@@ -800,7 +796,6 @@ static void
 folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
 	MessageList *message_list = MESSAGE_LIST (user_data);
-
 	GDK_THREADS_ENTER(); /* Very important!!!! */
 	mail_do_regenerate_messagelist (message_list, message_list->search);
 	GDK_THREADS_LEAVE(); /* Very important!!!! */
@@ -886,19 +881,6 @@ on_cursor_change_cmd (ETableScrolled *table, int row, gpointer user_data)
 	if (!message_list->idle_id)
 		message_list->idle_id = g_idle_add_full (G_PRIORITY_LOW, on_cursor_change_idle, message_list, NULL);
 }
-
-static void
-on_row_selection (ETableScrolled *table, int row, gboolean selected,
-		  gpointer user_data)
-{
-	MessageList *message_list = user_data;
-
-	if (selected)
-		message_list->rows_selected++;
-	else
-		message_list->rows_selected--;
-}
-
 
 /* FIXME: this is all a kludge. */
 static gint
@@ -1064,7 +1046,6 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 	}
 
 	e_table_model_changed (input->ml->table_model);
-	input->ml->rows_selected = 0;
 	select_msg (input->ml, 0);
 	g_free (input->search);
 	gtk_object_unref (GTK_OBJECT (input->ml));

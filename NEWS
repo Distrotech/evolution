@@ -1,5 +1,98 @@
-Version 0.2
------------
+Version 0.3 "Jellyfish"
+-----------------------
+
+Shell:
+
+  - Pop-up folder selection.  (Ettore)
+
+  - Added support for multiple views.  (Ettore)
+
+  - Added support for saving component-specific settings, and
+    some initial code to save the view's configuration.
+    (Ettore)
+
+  - Fixed the Bonobo menu code so that it works with all the
+    locales.  (Ettore)
+
+Mailer:
+
+   - Lots of IMAP fixes.  (Jeff) 
+
+   - You can use an external setuid/setgid movemail program
+    (although we don't ship our own yet). If you have one
+    installed with emacs, the configure script will find
+    that. Otherwise, you can specify --with-movemail=/path.
+    (Dan)
+
+  - You can toggle HTML/plain text for an individual message
+    in the composer now.  (Ettore)
+
+  - Bonobo embedding sort of works again, but there are
+    problems with size allocation somewhere. Attachments can now
+    also be handled by external applications.  (Dan)
+
+  - text/plain mail is now line-wrapped in the mail display,
+    to deal with people who don't put newlines in their mail.
+    (Dan)
+
+  - Allow user to specify IMAP namespace in the mail config
+    dialog.  (Dan, Jeff)
+
+  - Quoted-printable encoder fixes.  (Michael Zucchi)
+
+  - Various NNTP fixes, include a news pane in the config
+    dialog.  (Chris Toshok)
+
+  - Some memory corruption fixes.  (Peter Williams)
+
+  - Fix for message not being re-drawn as deleted.  (Peter
+    Williams, Jeff)
+
+  - Moving a message to another folder copies the flags now
+    (Jeff)
+
+  - Close signature in HTML mail with </PRE>, not <PRE>, and
+    default to ~/.signature.  (Michael Meeks)
+
+  - Fixed some confusing behavior in the message threading
+    algorithm.  (Dan)
+
+  - Improvements to the item selection code.  (Chris Lahey)
+
+Calendar:
+
+  - Added support for a bunch of previously unsupported iCalendar
+    properties.  (Federico)
+
+  - Conduit for synchronizing the calendar with gnome-pilot
+    (requires gnome-pilot from CVS).  (Seth)
+
+  - ETable-based to-do list view ("taskpad"), for your viewing
+    pleasure.
+
+Addressbook:
+
+  - Conduit for synchronizing the addressbook with gnome-pilot
+    (requires gnome-pilot from CVS).  (Chris Toshok)
+
+  - Conduit for synchronizing the addressbook with gnome-pilot
+    (requires gnome-pilot from CVS).  (Chris Toshok)
+
+  - Fixed some random crashes.  (Chris Lahey)
+
+  - Implemented a vCard Bonobo control so that we can support
+    inline vCard viewing in the mailer.  (Chris Lahey)
+
+  - Quick search looks at both the name and the company name now.
+    (Chris Lahey)
+
+  - Added more functionality to the contact editor's toolbar.  (Chris
+    Lahey)
+
+  - Support for printing single cards.  (Chris Lahey)
+
+Version 0.2 "Saccharomices"
+---------------------------
 
 Shell:
 
@@ -21,7 +114,6 @@ Addressbook:
     Lahey).
   
   * Many miscellaneous bugs fixed (everyone).
-
 
 Calendar:
 

@@ -436,7 +436,6 @@ cal_client_construct (CalClient *client)
 
 /**
  * cal_client_new:
- * @void:
  *
  * Creates a new calendar client.  It should be initialized by calling
  * cal_client_load_calendar() or cal_client_create_calendar().
@@ -551,6 +550,16 @@ cal_client_create_calendar (CalClient *client, const char *str_uri)
 	return load_or_create (client, str_uri, FALSE);
 }
 
+/**
+ * cal_client_get_n_objects:
+ * @client: A calendar client.
+ * @type: Type of objects that will be counted.
+ * 
+ * Counts the number of calendar components of the specified @type.  This can be
+ * used to count how many events, to-dos, or journals there are, for example.
+ * 
+ * Return value: Number of components.
+ **/
 int
 cal_client_get_n_objects (CalClient *client, CalObjType type)
 {
@@ -568,7 +577,6 @@ cal_client_get_n_objects (CalClient *client, CalObjType type)
 	t = (((type & CALOBJ_TYPE_EVENT) ? Evolution_Calendar_TYPE_EVENT : 0)
 	     | ((type & CALOBJ_TYPE_TODO) ? Evolution_Calendar_TYPE_TODO : 0)
 	     | ((type & CALOBJ_TYPE_JOURNAL) ? Evolution_Calendar_TYPE_JOURNAL : 0)
-	     | ((type & CALOBJ_TYPE_OTHER) ? Evolution_Calendar_TYPE_OTHER : 0)
 	     /*
 	     | ((type & CALOBJ_TYPE_ANY) ? Evolution_Calendar_TYPE_ANY : 0)
 	     */
@@ -591,12 +599,11 @@ cal_client_get_n_objects (CalClient *client, CalObjType type)
  * cal_client_get_object:
  * @client: A calendar client.
  * @uid: Unique identifier for a calendar object.
+ * @ico: Return value for the calendar object.
  *
  * Queries a calendar for a calendar object based on its unique identifier.
  *
- * Return value: The string representation of a complete calendar wrapping the
- * sought object, or NULL if no object had the specified UID.  A complete
- * calendar is returned because you also need the timezone data.
+ * Return value: Result code based on the status of the operation.
  **/
 CalClientGetStatus
 cal_client_get_object (CalClient *client, const char *uid, iCalObject **ico)
@@ -789,7 +796,6 @@ cal_client_get_uids (CalClient *client, CalObjType type)
 	t = (((type & CALOBJ_TYPE_EVENT) ? Evolution_Calendar_TYPE_EVENT : 0)
 	     | ((type & CALOBJ_TYPE_TODO) ? Evolution_Calendar_TYPE_TODO : 0)
 	     | ((type & CALOBJ_TYPE_JOURNAL) ? Evolution_Calendar_TYPE_JOURNAL : 0)
-	     | ((type & CALOBJ_TYPE_OTHER) ? Evolution_Calendar_TYPE_OTHER : 0)
 	     /*
 	     | ((type & CALOBJ_TYPE_ANY) ? Evolution_Calendar_TYPE_ANY : 0)
 	     */

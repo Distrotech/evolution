@@ -89,23 +89,29 @@ names. Most (but not all) of them are also available as tarballs on
 ftp.gnome.org. The (*)ed packages are available in Helix GNOME.
 (http://www.helixcode.com/desktop/)
 
- - gnome-xml - currently, only 1.8.7 works. Earlier versions have a
-   bug in code that Evolution needs, and the 2.0 branch is not source
-   or binary compatible. If you get this from GNOME CVS, use the tag
-   "LIB_XML_1_X". (*)
+ - gnome-xml - 1.8.7 (If you get this from GNOME CVS, use the tag
+   "LIB_XML_1_X".) (*)
 
- - gnome-print (whatever version is currently needed by gtkhtml) (*)
+ - gnome-print - 0.20 (*). The gnome-print CVS HEAD will NOT work.
 
  - gdk-pixbuf - 0.7.0 or later (*)
 
- - ORBit - 0.5.2 or later (*, but 0.5.2 is very new, so be sure to
-   check if you have 0.5.1 and update if you do.)
+ - ORBit - 0.5.3 or later (*)
 
- - oaf - 0.3 or later (0.4 will not build with ORBit 0.5.1)
+ - oaf - 0.3 or later
 
- - gnome-vfs - 0.2 or later
+   *** You should use the flag "--disable-more-warnings" when
+   *** configuring oaf, or it may fail to build.
 
- - bonobo - 0.15 or later
+ - gnome-vfs - from CVS (0.2 mostly works, but has a bug where it
+   doesn't install one of its header files
+   [libgnomevfs/gnome-vfs-file-size.h] so you have to install it by
+   hand if you use that version.)
+
+   *** You should use the flag "--disable-more-warnings" when
+   *** configuring gnome-vfs, or it may fail to build.
+
+ - bonobo - 0.16 or later
 
    *** Note that bonobo must be installed with the same --prefix as
    *** either gnome-libs or evolution for the Makefiles to work
@@ -114,13 +120,16 @@ ftp.gnome.org. The (*)ed packages are available in Helix GNOME.
  - libunicode - 0.4 or later, available from
    http://www.pango.org/download.shtml
 
- - gconf - 0.5 or later
+ - gconf - 0.6 (Note that if you have an earlier version of gconf
+   installed, you will need to remove the gconf.m4 file at least,
+   since it has a different name now.)
 
  - gtkhtml - 0.5 or later
 
  - libglade (*)
 
 If you want support for PalmPilot syncing (currently only supported by
+
 the calendar and not yet very stable/functional), you will also need
 the following packages:
 

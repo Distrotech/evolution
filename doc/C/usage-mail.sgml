@@ -1,4 +1,4 @@
-<!-- uncomment the declaration during validation and debugging
+<!--
 <!DOCTYPE Chapter PUBLIC "-//GNOME//DTD DocBook PNG Variant V1.1//EN">
 -->
 
@@ -18,14 +18,14 @@
        </listitem>
        <listitem>
 	 <para>
-	  It can send and recieve mail in HTML or as plain text, and
+	  It can send and receive mail in HTML or as plain text, and
 	  supports file attachments.
 	 </para>
        </listitem>
        <listitem>
 	 <para>
 	   It supports multiple mail sources, including IMAP, POP3,
-	   and local mbox files.
+	   and local <filename>mbox</filename> files.
 	 </para>
        </listitem>
      </itemizedlist>
@@ -101,19 +101,35 @@
     </sect2>
 
     <sect2 id="usage-mail-getnsend-get">
-      <title>Getting Mail</title>
+      <title>Checking Mail</title>
       <para>
 	To check your email, just click <guibutton>Get
 	mail</guibutton> in the toolbar.  If this is the first time
 	you've done so, the <interface>mail setup
 	assistant</interface> will ask you for the information it
 	needs to check your mail (see <xref
-	linkend="config-setupassist"> for more information).  Then,
+	linkend="config-setupassist"> for more information).  If
+	you're checking mail over a network (instead of from local
+	<filename>mbox</filename> files), you'll need to enter your
+	email password.  Type it in, click <guibutton>OK</guibutton> and
 	<application>Evolution</application> will download your mail.
 	New mail will appear in your <interface>Inbox</interface>.
-        <!-- FIXME: add mention of Today if Today feature appears -->
+	<!-- FIXME: add mention of Today if Today feature appears -->
       </para>
-
+      <para>
+        Once you've entered your password,
+        <application>Evolution</application> will hold it in memory so
+        that you don't have to retype it every time you want to check
+        mail.  It will only remember the password until you quit the
+        application; each time you run
+        <application>Evolution</application>, you need to re-enter
+        your password.  If you'd like
+        <application>Evolution</application> to forget your password
+        sooner, select
+        <menuchoice><guimenu>Tools</guimenu><guimenuitem>Forget
+        Passwords</guimenuitem></menuchoice>, and it will do so
+        immediately.
+      </para>
       <para>
 	If you get an error message instead of mail, you probably
 	need to change your network settings.  To learn how to
@@ -125,14 +141,15 @@
       <sect3 id="usage-mail-getnsend-get-attach">
 	<title>Attachments, HTML Mail, and Live Documents</title>
 	<para>
-	  If you receive a file attached to an email,
-	  <application>Evolution</application> will display it at the
-	  bottom of the message to which it's attached.  Text, HTML,
-	  and most images will be displayed in the message itself.
-	  For other files, <application>Evolution</application> will
-	  provide a link and icon at the end of the message.  Click on
-	  that, and <application>Evolution</application> will ask you
-	  where you want to put the file.  Once you've chosen one and
+	  If someone sends you a file attached to an email (an
+	  "attachment"), <application>Evolution</application> will
+	  display the file at the bottom of the message to which it's
+	  attached.  Text, HTML, and most images will be displayed in
+	  the message itself.  For other files,
+	  <application>Evolution</application> will provide a link and
+	  icon at the end of the message.  Click on that, and
+	  <application>Evolution</application> will ask you where you
+	  want to put the file.  Once you've chosen a location and
 	  saved the file, you can open, move, copy, or execute it just
 	  like any other, using <application>Nautilus</application> or
 	  your favorite shell or file manager.
@@ -162,22 +179,21 @@
       <title>Writing and Sending Mail</title>
       <para>
 	 You can start writing a new email message by selecting
-	 <guimenuitem>New Mail</guimenuitem> from the <guimenu>File
-	 Menu</guimenu>, or by pressing the
-	 <guibutton>Send</guibutton> in the Inbox toolbar.  <!-- THIS
-	 IS A BAD BUTTON NAME AND MUST BE FIXED --> When you do so,
-	 the <interface>New Message</interface> window will open, as
-	 shown in <xref linkend="usage-mail-newmsg-fig">.
+	 <menuchoice> <guimenu>File</guimenu>
+	 <guisubmenu>New</guisubmenu> <guimenuitem>
+	 Mail</guimenuitem></menuchoice>, or by pressing the
+	 <guibutton>Compose</guibutton> button in the Inbox toolbar.
+	 When you do so, the <interface>New Message</interface> window
+	 will open, as shown in <xref
+	 linkend="usage-mail-newmsg-fig">.
       </para>
-
-
 
 <!--   ==============Figure=================================== -->
       <figure id="usage-mail-newmsg-fig">
 	<title>New Message Window</title>
 	<screenshot>
 	  <screeninfo>Evolution Main Window</screeninfo>
-	  <graphic fileref="fig/newmsg-pic" format="png" srccredit="Aaron Weber">
+	  <graphic fileref="fig/newmsg-pic" format="png" srccredit="Kevin Breit">
 	</graphic>
 	</screenshot>
       </figure>
@@ -235,11 +251,20 @@
 	  feature, once it is decided upon). -->  If you enter a name or
 	  nickname that can go with more than one card, Evolution will
 	  open a dialog box to ask you which person you meant.
-	  <!-- (QUESTION: will users be able to drag & drop address cards
-	  to send email?). -->  For more information about using email
-	  together with the contact manager and the calendar, see
-	  <xref linkend="usage-contact-automate"> and <xref
-	  linkend="usage-calendar-apts-group">.
+        </para>
+        <para>
+          Alternately, you can click on the
+          <guibutton>To:</guibutton>, <guibutton>Cc:</guibutton>, or
+          <guibutton>Bcc:</guibutton> buttons to get a list of email
+          addresses.  Click the check-boxes next to the addresses, then
+          click <guibutton>OK</guibutton>, and the address will be
+          added to the appropriate form field.
+        </para>
+	<para>
+          For more information about using email together with the
+	  contact manager and the calendar, see <xref
+	  linkend="usage-contact-automate"> and <xref
+	  linkend="usage-calendar-apts">.
 	</para>
 
 	<sect4 id="usage-mail-getnsend-send-to-mult">
@@ -265,7 +290,7 @@
 	         She puts her co-worker, Tim, in the in the
 	         <guilabel>Cc:</guilabel> field, so that he know
 	         what's going on.  The client can see that Tim also
-	         recieved the message, and know that they can talk to
+	         received the message, and knows that he can talk to
 	         Tim about the message as well.
 	      </para>
 	    </example>
@@ -279,20 +304,21 @@
 	    <guilabel>Bcc:</guilabel> field get the message, but
 	    nobody else sees their email address.  They will still see
 	    the list of addresses from the <guilabel>To:</guilabel>
-	    and <guilabel>Cc:</guilabel> fields.
+	    and <guilabel>Cc:</guilabel> fields, though.
 
 	    <example id="ex-mail-bcc">
 	      <title>Using the Bcc: field</title>
 	      <para>
-	         Tim is sending out a message to all of his company's
-	         clients, some of whom are in competition with each
-	         other, and all of whom value their privacy.  If he
-	         puts every address from his address book's "Clients"
+	         Tim is sending an email announcement to all of his
+	         company's clients, some of whom are in competition
+	         with each other, and all of whom value their
+	         privacy. He needs to use the
+	         <guilabel>Bcc:</guilabel> field here.  If he puts
+	         every address from his address book's "Clients"
 	         category into the <guilabel>To:</guilabel> or
-	         <guilabel>Cc:</guilabel> fields, he'll have made the
-	         <emphasis>entire</emphasis> client list public.
-	         Don't assume it won't happen to you; I got careless
-	         one day and did it myself.
+	         <guilabel>Cc:</guilabel> fields, he'll make the
+	         company's <emphasis>entire</emphasis> client list
+	         public.  Don't assume it won't happen to you!
 	     </para>
 	    </example>
 	  </para>
@@ -383,9 +409,9 @@ with quoted materials and the relevant replies interspersed-->
             If you format a message with HTML, but do not have
 	    <guilabel>Send Messages as HTML</guilabel> enabled in your
 	    mail settings, the composer will remove your text styles.
-	    It will, however, preserve indentation and lists.  It will
-	    do the same thing for any individuals in your address book
-	    whom you have marked as preferring not to receive HTML.
+	    It will, however, preserve indentation and lists.  The
+	    same is true for individuals in your address book whom you
+	    have not marked as wanting to receive HTML mail.
            </para>
 	</note>
 	<para>
@@ -399,12 +425,13 @@ with quoted materials and the relevant replies interspersed-->
             The icons in the toolbar are explained in tool-tips, which
             appear when you hold your mouse over the buttons.  The
             buttons fall into four categories:
-            <itemizedlist>
+            <variablelist>
+             <varlistentry>
+             <term>Headers and lists</term>
 	      <listitem>
 		<para>
-                  Headers and lists: Choose
-                  <guilabel>Normal</guilabel> for your default text
-                  style, or <guilabel>Header 1</guilabel> through
+                  Choose <guilabel>Normal</guilabel> for a default
+                  text style, or <guilabel>Header 1</guilabel> through
                   <guilabel>Header 6</guilabel> for varying sizes of
                   header.  You can also select
                   <guilabel>pre</guilabel> for preformatted text
@@ -412,19 +439,25 @@ with quoted materials and the relevant replies interspersed-->
                   Item</guilabel>.
                 </para>
 	      </listitem>
-
+           </varlistentry>
+           <varlistentry>
+             <term>Text style</term>
 	      <listitem>
 		<para>
-                  Text style: <guilabel>B</guilabel> is for bold text,
-                  <guilabel>I</guilabel> for italics,
-                  <guilabel>U</guilabel> for an underline, and
-                  <guilabel>S</guilabel> for a strikethrough.
-                </para>
+                  <itemizedlist mark="none">      
+		  <listitem><para><guibutton>B</guibutton> is for bold text</para></listitem>   
+                  <listitem><para><guibutton>I</guibutton> for italics</para></listitem>
+		  <listitem><para><guibutton>U</guibutton> to underline</para></listitem>
+		  <listitem><para><guibutton>S</guibutton> for a strikethrough.</para></listitem>
+                 </itemizedlist>
+               </para>               
 	      </listitem>    
-
+	    </varlistentry>
+	    <varlistentry>
+	      <term>Alignment</term>
 	      <listitem>
 		<para>
-                   Alignment: Located next to the text style buttons,
+                   Located next to the text style buttons,
                    these three paragraph icons should be familiar to
                    users of most word processing software.  The
                    leftmost button will make your text left-justified,
@@ -432,23 +465,29 @@ with quoted materials and the relevant replies interspersed-->
                    button, right-justified.
                 </para>
 	      </listitem>
+	      </varlistentry>
 
+	    <varlistentry>
+	      <term>Indentation rules</term>
 	      <listitem>
 		<para>
-                  Indentation rules: The button with the arrow
-                  pointing left will reduce a paragraph's indentation,
-                  and the right arrow will increase its indentation.
+                  The button with the arrow pointing left will reduce
+                  a paragraph's indentation, and the right arrow will
+                  increase its indentation.
                </para>
 	    </listitem>
-	  </itemizedlist>
+	  </varlistentry>
+	  </variablelist>
         </para>
 	<para>
-           There are two tools that you can find only in the
+           There are three tools that you can find only in the
            <guimenu>Insert</guimenu> menu.
-           <itemizedlist>
-	    <listitem>
-	      <para>
-                 <guilabel>Insert Link</guilabel>: Use this tool to
+           <variablelist>
+             <varlistentry>
+               <term><guimenuitem>Insert Link</guimenuitem>:</term>
+	       <listitem>
+	        <para>
+                 Use this tool to
                  put hyperlinks in your HTML messages.  When you
                  select it, <application>Evolution</application> will
                  prompt you for the <guilabel>Text</guilabel> that
@@ -456,15 +495,30 @@ with quoted materials and the relevant replies interspersed-->
                  you should enter the actual web address (URL).
               </para>
 	    </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term> <guimenuitem>Insert Image</guimenuitem>:</term>
 	    <listitem>
 	      <para>
-               <guilabel>Insert Image</guilabel>: Select this item to
-               embed image into your email, as was done in the welcome
+               <guimenuitem>Insert Image</guimenuitem>: Select this item to
+               embed an image into your email, as was done in the welcome
                message.  Images will appear at the location of the
                cursor.
               </para>
 	    </listitem>
-	  </itemizedlist>
+           </varlistentry>
+          <varlistentry>
+             <term><guimenuitem>Insert Rule</guimenuitem>:</term>
+             <listitem><para>
+               This will insert a horizontal line, or rule, into your document.
+               You'll be presented with a dialog box which gives you
+               the choice of size, percentage of screen, shading, and
+               alignment; if you leave everything at the default
+               values you'll get a thin black rule all the way across
+               the screen.</para></listitem>
+	</varlistentry>
+
+	  </variablelist>
           </para>
 	  <note>
 	    <title>A Technical note on HTML Tags</title>
@@ -477,18 +531,24 @@ with quoted materials and the relevant replies interspersed-->
 	      of characters, and not "make this text bold," as an HTML
 	      composition tool or text editor would.
 	    </para>
-	  </note>
-	</sect3>
-	<sect3 id="usage-mail-getnsend-send-attach">
-	  <title>Attachments</title>
-	  <para>
-	    If you want to attach a file to your email message, just
-	    click the button with a paper clip on it, labelled
-	    <guibutton>Attach</guibutton>.
-	    <application>Evolution</application> will then ask you to
-	    select the file.  Do so, and then send the message.  Be
-	    aware that big attachments can take a long time to
-	    download.  
+	</note>
+      </sect3>
+      <sect3 id="usage-mail-getnsend-send-attach">
+	<title>Attachments</title>
+	<para>
+	    If you want to attach a file to your email message, you
+	    can drag it from your desktop into the message window, or
+	    click the button in the toolbar with a paper clip on it,
+	    labelled <guibutton>Attach</guibutton>.  If you click the
+	    <guibutton>Attach</guibutton> button,
+	    <application>Evolution</application> will open a file
+	    selection dialog box, to ask you which file you want to
+	    send.  Select the file and click <guilabel>OK</guilabel>.
+          </para>
+	<para>
+            When you send the message, a copy of the file will
+	    go with it.  Be aware that big attachments can take a long
+	    time to download.
           </para>
 	</sect3>
 
@@ -512,11 +572,11 @@ possibly never will be due to security evil. -->
 	<para>
 	  The post office forwards your mail for you when you change
 	  addresses, and you can forward mail when you get a letter by
-	  mistake.  The email <guilabel>Forward</guilabel> command
+	  mistake.  The email <guilabel>Forward</guilabel> button
 	  works in much the same way.  It's particularly useful if you
 	  have received a message and you think someone else would
 	  like to see it.  You can forward a message as an attachment
-	  to a new message (this is the default way of forwarding) or
+	  to a new message (this is the default) or
 	  you can send it <glossterm>inline</glossterm> as a quoted
 	  portion of the message you are sending.  Attachment
 	  forwarding is best if you want to send the full, unaltered
@@ -528,17 +588,19 @@ possibly never will be due to security evil. -->
 	  altered content.
 	</para>
 	<para>
-	  To forward a message, first make sure it is selected by
-	  clicking it once in the message list.  Then, press
+	  To forward a message you are reading, press
 	  <guibutton>Forward</guibutton> on the toolbar, or select
-	  SOMETHING.  To forward a message
-	  <glossterm>inline</glossterm> instead of attached, select
-	  <guimenuitem>Forward Inline </guimenuitem> from the
-	  <guimenu>Message</guimenu> menu.  Choose an addressee as you
-	  would when sending a new message; the subject will already
-	  be entered, but you can alter it.  Enter your comments on
-	  the message in the <interface>composition frame</interface>,
-	  and press <guibutton>Send</guibutton>.
+	  <menuchoice> <guimenu>Message</guimenu>
+	  <guimenuitem>Forward</guimenuitem> </menuchoice>.  If you
+	  prefer to forward the message <glossterm>inline</glossterm>
+	  instead of attached, select <menuchoice>
+	  <guimenu>Message</guimenu> <guimenuitem>Forward
+	  Inline</guimenuitem> </menuchoice> from the menu.  Choose an
+	  addressee as you would when sending a new message; the
+	  subject will already be entered, but you can alter it.
+	  Enter your comments on the message in the
+	  <interface>composition frame</interface>, and press
+	  <guibutton>Send</guibutton>.
 	</para>
       </sect3>
       <sect3 id="usage-mail-getnsend-ettiquette">
@@ -596,7 +658,7 @@ possibly never will be due to security evil. -->
 	    <listitem>
 	      <para>
 		 When you reply or forward, include just enough of
-		 the previous message to provide context. Not too
+		 the previous message to provide context: not too
 		 much, not too little.
 	       </para>
 	    </listitem>
@@ -632,15 +694,7 @@ possibly never will be due to security evil. -->
 	<application>Evolution</application> will as you for the name
 	and the type of the folder, and will provide you with a folder
 	tree so you can pick where it goes.
-        <note>
-	  <title>Folders have Limits</title>
-	  <para>
-            A folder can hold mail, calendars, or address cards, but
-	    you can't mix them up.  Also, an email message can be in
-	    only one folder at a time, just like real mail in real
-	    folders.  If you need more flexibility, try vFolders.
-          </para>
-	</note>
+       
       </para>
       <para>
         When you click <guibutton>OK</guibutton>, your new folder will
@@ -663,49 +717,57 @@ possibly never will be due to security evil. -->
       <para>
 	To start searching, enter a word or phrase in the text area
 	right below the toolbar, and choose a search type:
-	<itemizedlist>
+	<variablelist>
+	  <varlistentry>
+	    <term><guilabel>Body or subject contains:</guilabel></term>
 	  <listitem>
-	    <para>
-	      <guilabel>Body or subject contains:</guilabel> This
-	      will search message subjects and the messages
-	      themselves for the word or phrase you've entered in
-	      the search field.
-	   </para>
-	 </listitem>
-
-	  <listitem>
-	    <para>
-	      <guilabel>Body contains:</guilabel> This will search
-	       only in message text, not the subject lines.
-	   </para>
-	 </listitem>
-
-	  <listitem>
-	    <para>
-	      <guilabel>Subject contains:</guilabel> This will
-	      show you messages where the search text is in the
-	      subject line.  It will not search in the message body.
-	   </para>
-	 </listitem>
-
-	  <listitem>
-	    <para>
-	      <guilabel>Body does not contain:</guilabel> This
-	      finds every email message that does not have the
-	      search text in the message body.  It will still show
-	      messages that have the search text in the subject
-	      line, if it is not also in the body.
-	   </para>
-	 </listitem>
-
-	  <listitem>
-	    <para>
-	      <guilabel>Subject does not contain:</guilabel>This
-	      finds every mail whose subject does not
-	      contain the search text.
-	   </para>
-	 </listitem>
-	</itemizedlist>
+	      <para>
+	        This will search message subjects and the messages
+	        themselves for the word or phrase you've entered in
+	        the search field.
+   	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term> <guilabel>Body contains:</guilabel> </term>
+	    <listitem>
+	      <para>
+	        This will search only in message text, not the subject
+	        lines.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><guilabel>Subject contains:</guilabel></term>
+	    <listitem>
+	      <para>
+	        This will show you messages where the search text is
+	        in the subject line.  It will not search in the
+	        message body.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><guilabel>Body does not contain:</guilabel></term>
+	    <listitem>
+	      <para>
+	        This finds every email message that does not have the
+	        search text in the message body.  It will still show
+	        messages that have the search text in the subject
+	        line, if it is not also in the body.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><guilabel>Subject does not contain:</guilabel></term>
+	    <listitem>
+	      <para>
+	        This finds every mail whose subject does not contain
+	        the search text.
+	      </para>
+	    </listitem>
+	  </varlistentry>
+	</variablelist>
 
         Then, press <keycap>Enter</keycap>.
         <application>Evolution</application> will show your search
@@ -717,18 +779,20 @@ possibly never will be due to security evil. -->
     <sect2 id="usage-mail-organize-filters">
       <title>Staying organized: Mail Filters in Evolution</title>
       <para>
-	Filters sort your email for you.  People who subscribe to
-	multiple mailing lists, or who often need to refer to messages
-	they have sent, find filters especially helpful to seperate
-	personal from list-related mail, but they're good for anybody
-	who gets more than a few messages a day.  To create a filter,
-	go to your <interface>Inbox</interface>.  Then select
-	<guimenuitem>Filter Assistant</guimenuitem> from the
-	<guimenu>Tools</guimenu> menu. This will bring up a window
-	which will guide you through filter creation.  The
-	<interface>filter assistant</interface> is shown in <xref
-	linkend="usage-mail-filters-fig-new">
-
+	Filters sort your email for you as it arrives.  Most often,
+	you'll want to have <application>Evolution</application> put
+	mail into different folders, but you can have it do anything
+	you like.  People who subscribe to multiple mailing lists, or
+	who often need to refer to messages they have sent, find
+	filters especially helpful to separate personal from
+	list-related mail, but they're good for anybody who gets more
+	than a few messages a day.  To create a filter, select
+	<menuchoice>
+	<guimenu>Tools</guimenu> <guimenuitem>Filter
+         Assistant</guimenuitem> </menuchoice>. This will bring up a
+         window which will guide you through filter creation.  The
+         <interface>filter assistant</interface> is shown in <xref
+         linkend="usage-mail-filters-fig-new">
 
        <figure id="usage-mail-filters-fig-new">
 	 <title>Creating a new Filter</title>
@@ -769,7 +833,7 @@ possibly never will be due to security evil. -->
       <para>
        Then, the filter assistant will ask you which emails it should
        act upon.  You can set criteria based on message size, the
-       sender, primary addressee or cc: list, or words in the subject
+       sender, primary addressee or Cc: list, or words in the subject
        or body of the message.  Once you've decided which messages to
        filter, the assistant will ask you the sort of action you wish
        to take.  You can file, delete, or forward the message, and you
@@ -863,23 +927,21 @@ possibly never will be due to security evil. -->
       <example id="usage-mail-organize-vFolders-ex">
 	<title>Using Folders, Searches, and vFolders</title>
 	<para>
-	   To organize my mail box, I can set up a vFolder
-	   for emails from my friend Vince, by doing (INSERT
-	   PROCESS HERE).  Then, whenever I want to see the
-	   messages Vince has sent me, I open the vFolder, and
-	   every message he's sent me shows up, no matter where
-	   I've actually filed it.  If I want, I can also create a
-	   vFolder containing any message from my list of
-	   co-workers which also has the name of the project in
-	   it.  That way, when Vince sends me mail about the
-	   project, I can see that message both in the "Vince"
-	   vFolder and in the "Project" vFolder.  That's because
-	   when I open up the "Vince" folder, I'm really
-	   performing a search for all the mail from Vince, and
-	   when I open the "Project" folder I'm really performing
+	   To organize my mail box, I can set up a vFolder for emails
+	   from my friend Vince.  Then, whenever I want to see the
+	   messages Vince has sent me, I open the vFolder, and every
+	   message he's sent me shows up, no matter where I've
+	   actually filed it.  If I want, I can also create a vFolder
+	   containing any message from my list of co-workers which
+	   also has the name of the project in it.  That way, when
+	   Vince sends me mail about the project, I can see that
+	   message both in the "Vince" vFolder and in the "Project"
+	   vFolder.  That's because when I open up the "Vince" folder,
+	   I'm really performing a search for all the mail from Vince,
+	   and when I open the "Project" folder I'm really performing
 	   a search for all the mail about the project.
 
-	  (INSERT SCREENSHOT HERE)
+	<!--  (INSERT SCREENSHOT HERE) -->
 
 	</para>
       </example>
@@ -898,40 +960,51 @@ possibly never will be due to security evil. -->
 	 click <guibutton>Add</guibutton> to add a new vFolder.
       </para>
       <para>
-	 You'll be prompted to create a filtering rule. To do so,
-	 select one of the base rules, and click
-	 <guibutton>Next</guibutton> to customize it.  Your options are:
-    <itemizedlist>
-	 <listitem>
-	    <para>
-	       For matching messages: you may select one or more
-	       search criteria; the vFolder you create will
-	       contain messages that match all of
-	       them.
+	 You'll be prompted to create a filtering rule.  You can build
+	 your own from the ground up, or select one of several base
+	 rules to customize.  Your options are:
+    <variablelist>
+	 <varlistentry>
+	    <term><guilabel>For matching messages:</guilabel></term>
+	    <listitem>
+	      <para>
+	        You may select one or more search criteria; the
+	        vFolder you create will contain messages that match
+	        all of them.
+	     </para>
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><guilabel>Messages from a certain person:</guilabel></term>
+	    <listitem>
+	      <para>
+		 The vFolder will contain messages from an address
+		 you enter.
 	     </para>
 	   </listitem>
-	   <listitem>
-	     <para>
-		Messages from a certain person: you enter an email
-		address, and the vFolder will contain any messages
-		from that address.
-	     </para>
-	   </listitem>
-	   <listitem>
-	     <para>
-	       Messages to a certain address: any messages sent
-	       directly to this address will be in the vFolder you create.
+	  </varlistentry>
+	  <varlistentry>
+	    <term><guilabel>Messages to a certain address:</guilabel</term>
+	    <listitem>
+	      <para>
+	         Any messages sent directly to this address will be in
+	         the vFolder you create.
 	      </para>
-	   </listitem>
-	   <listitem>
-	     <para>
-		Messages with a given subject: enter a subject,
-		and the vFolder will contain messages with that
-		subject.
+	    </listitem>
+	  </varlistentry>
+	  <varlistentry>
+	    <term><guilabel>Messages with a given subject:</guilabel></term>
+	    <listitem>
+	      <para>
+		Enter a subject, and the vFolder will contain messages
+		with that subject.
 	     </para>
-	   </listitem>
-	  </itemizedlist>
-	as is shown in <xref linkend="usage-mail-vfolder-fig-createrule">
+	    </listitem>
+	  </varlistentry>
+	</variablelist>
+
+        The selection window is shown in <xref
+	linkend="usage-mail-vfolder-fig-createrule">
 
        <figure id="usage-mail-vfolder-fig-createrule">
 	 <title>Selecting a vFolder Rule</title>

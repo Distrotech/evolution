@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2000 Helix Code Inc.
  *
- *  Authors: Michael Zucchi <notzed@helixcode.com>
+ *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public License
@@ -22,37 +22,40 @@
 #define _FILTER_EDITOR_H
 
 #include <gtk/gtk.h>
-#include <gnome.h>
-#include "filter-xml.h"
+#include <libgnomeui/gnome-dialog.h>
 
-#define FILTER_EDITOR(obj)         GTK_CHECK_CAST (obj, filter_editor_get_type (), FilterEditor)
-#define FILTER_EDITOR_CLASS(klass) GTK_CHECK_CLASS_CAST (klass, filter_editor_get_type (), FilterEditorClass)
+#if 0
+/* NOTE: object stuff not used (yet?), this is just a holder file for a static factory */
+
+#define FILTER_EDITOR(obj)	GTK_CHECK_CAST (obj, filter_editor_get_type (), FilterEditor)
+#define FILTER_EDITOR_CLASS(klass)	GTK_CHECK_CLASS_CAST (klass, filter_editor_get_type (), FilterEditorClass)
 #define IS_FILTER_EDITOR(obj)      GTK_CHECK_TYPE (obj, filter_editor_get_type ())
 
-typedef struct _FilterEditor      FilterEditor;
-typedef struct _FilterEditorClass FilterEditorClass;
+typedef struct _FilterEditor	FilterEditor;
+typedef struct _FilterEditorClass	FilterEditorClass;
 
 struct _FilterEditor {
 	GnomeDialog parent;
-
 	struct _FilterEditorPrivate *priv;
 
-	GList *rules;
-	GList *systemoptions;
-	GList *useroptions;
-
-	struct filter_option *option_current;
 };
 
 struct _FilterEditorClass {
 	GnomeDialogClass parent_class;
+
+	/* virtual methods */
+
+	/* signals */
 };
 
 guint		filter_editor_get_type	(void);
-FilterEditor      *filter_editor_new	(void);
+FilterEditor	*filter_editor_new	(void);
+#endif
 
-void filter_editor_set_rules(FilterEditor *e, GList *rules, GList *systemoptions, GList *useroptions);
-void filter_editor_set_rule_files(FilterEditor *e, const char *systemrules, const char *userrules);
-int filter_editor_save_rules(FilterEditor *e, const char *userrules);
+struct _FilterContext;
+
+/* methods */
+GtkWidget	*filter_editor_construct	(struct _FilterContext *f);
 
 #endif /* ! _FILTER_EDITOR_H */
+

@@ -40,6 +40,7 @@
 #include <glade/glade.h>
 #include <gnome.h>
 #include <libgnorba/gnorba.h>
+#include <gtkhtml/gtkhtml.h>
 
 #include <camel/camel.h>
 
@@ -54,13 +55,9 @@
 #include "e-msg-composer-hdrs.h"
 #include "e-msg-composer-select-file.h"
 
-#ifdef USING_OAF
 #define HTML_EDITOR_CONTROL_ID "OAFIID:control:html-editor:63c5499b-8b0c-475a-9948-81ec96a9662c"
-#else
-#define HTML_EDITOR_CONTROL_ID "control:html-editor"
-#endif
 
-
+
 #define DEFAULT_WIDTH 600
 #define DEFAULT_HEIGHT 500
 
@@ -74,6 +71,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 static GnomeAppClass *parent_class = NULL;
 
+
 static GtkWidget *
 create_editor (EMsgComposer *composer)
 {
@@ -82,25 +80,11 @@ create_editor (EMsgComposer *composer)
 	control = bonobo_widget_new_control (HTML_EDITOR_CONTROL_ID,
 					     bonobo_object_corba_objref (BONOBO_OBJECT (composer->uih)));
 	if (control == NULL) {
-		g_error ("Cannot get `%s'.", HTML_EDITOR_CONTROL_ID);
+		g_error ("Cannot activate `%s'. Did you build gtkhtml with Bonobo and OAF support?", HTML_EDITOR_CONTROL_ID);
 		return NULL;
 	}
 
 	return control;
-}
-
-static void
-free_string_list (GList *list)
-{
-	GList *p;
-
-	if (list == NULL)
-		return;
-
-	for (p = list; p != NULL; p = p->next)
-		g_free (p->data);
-
-	g_list_free (list);
 }
 
 static char *
@@ -117,7 +101,8 @@ get_text (Bonobo_PersistStream persist, char *format)
 	Bonobo_PersistStream_save (persist, (Bonobo_Stream)bonobo_object_corba_objref (BONOBO_OBJECT (stream)),
 				   format, &ev);
 	if (ev._major != CORBA_NO_EXCEPTION) {
-		/* FIXME. Some error message. */
+		g_warning ("Exception getting mail '%s'",
+			   bonobo_exception_get_txt (&ev));
 		return NULL;
 	}
 	
@@ -221,20 +206,15 @@ build_message (EMsgComposer *composer)
 	CamelMimePart *part;
 	char *html = NULL, *plain = NULL, *fmt = NULL;
 	int i;
-	char *string;
 	MsgFormat type = MSG_FORMAT_ALTERNATIVE;
-	char *path;
 
 	if (composer->persist_stream_interface == CORBA_OBJECT_NIL)
 		return NULL;
 
-	path = g_strdup_printf ("=%s/config=/mail/msg_format", evolution_dir);
-	string = gnome_config_get_string (path);
-	g_free (path);
-	if (string) {
-		if (!strcasecmp(string, "plain"))
-			type = MSG_FORMAT_PLAIN;
-	}
+	if (composer->send_html)
+		type = MSG_FORMAT_ALTERNATIVE;
+	else
+		type = MSG_FORMAT_PLAIN;
 
 	new = camel_mime_message_new ();
 
@@ -324,17 +304,14 @@ build_message (EMsgComposer *composer)
 }
 
 static char *
-get_signature ()
+get_signature (char *sigfile)
 {
-	char *path, *sigfile, *rawsig;
+	char *rawsig;
 	static char *htmlsig = NULL;
 	static time_t sigmodtime = -1;
 	struct stat st;
 	int fd;
 
-	path = g_strdup_printf ("=%s/config=/mail/id_sig", evolution_dir);
-	sigfile = gnome_config_get_string (path);
-	g_free (path);
 	if (!sigfile || !*sigfile) {
 		return NULL;
 	}
@@ -377,17 +354,21 @@ get_signature ()
 }
 
 static void
-set_editor_text (BonoboWidget *editor, const char *text)
+set_editor_text (BonoboWidget *editor, char *sig_file, const char *text)
 {
 	Bonobo_PersistStream persist;
 	BonoboStream *stream;
 	CORBA_Environment ev;
 	char *sig, *fulltext;
 
-	sig = get_signature ();
+	sig = get_signature (sig_file);
 	if (sig) {
-		fulltext = g_strdup_printf ("%s<BR>\n<PRE>\n--\n%s<PRE>",
-					    text, sig);
+		if (!strncmp ("--\n", sig, sizeof ("--\n")))
+			fulltext = g_strdup_printf ("%s<BR>\n<PRE>\n%s</PRE>",
+						    text, sig);
+		else
+			fulltext = g_strdup_printf ("%s<BR>\n<PRE>\n--\n%s</PRE>",
+						    text, sig);
 	} else {
 		if (!*text)
 			return;
@@ -515,43 +496,12 @@ do_exit (EMsgComposer *composer)
 }
 
 
-/* Address dialog callbacks.  */
+/* Menu callbacks.  */
 
 static void
-address_dialog_destroy_cb (GtkWidget *widget,
-			   gpointer data)
-{
-	EMsgComposer *composer;
-
-	composer = E_MSG_COMPOSER (data);
-	composer->address_dialog = NULL;
-}
-
-static void
-address_dialog_apply_cb (EMsgComposerAddressDialog *dialog,
-			 gpointer data)
-{
-	EMsgComposerHdrs *hdrs;
-	GList *list;
-
-	hdrs = E_MSG_COMPOSER_HDRS (E_MSG_COMPOSER (data)->hdrs);
-
-	list = e_msg_composer_address_dialog_get_to_list (dialog);
-	e_msg_composer_hdrs_set_to (hdrs, list);
-
-	list = e_msg_composer_address_dialog_get_cc_list (dialog);
-	e_msg_composer_hdrs_set_cc (hdrs, list);
-
-	list = e_msg_composer_address_dialog_get_bcc_list (dialog);
-	e_msg_composer_hdrs_set_bcc (hdrs, list);
-}
-
-
-/* Message composer window callbacks.  */
-
-static void
-open_cb (GtkWidget *widget,
-	 gpointer data)
+menu_file_open_cb (BonoboUIHandler *uih,
+		   void *data,
+		   const char *path)
 {
 	EMsgComposer *composer;
 	char *file_name;
@@ -568,8 +518,9 @@ open_cb (GtkWidget *widget,
 }
 
 static void
-save_cb (GtkWidget *widget,
-	 gpointer data)
+menu_file_save_cb (BonoboUIHandler *uih,
+		   void *data,
+		   const char *path)
 {
 	EMsgComposer *composer;
 	CORBA_char *file_name;
@@ -592,8 +543,9 @@ save_cb (GtkWidget *widget,
 }
 
 static void
-save_as_cb (GtkWidget *widget,
-	    gpointer data)
+menu_file_save_as_cb (BonoboUIHandler *uih,
+		      void *data,
+		      const char *path)
 {
 	EMsgComposer *composer;
 
@@ -603,14 +555,18 @@ save_as_cb (GtkWidget *widget,
 }
 
 static void
-send_cb (GtkWidget *widget, gpointer data)
+menu_file_send_cb (BonoboUIHandler *uih,
+		   void *data,
+		   const char *path)
 {
 	/* FIXME: We should really write this to Outbox in the future? */
 	gtk_signal_emit (GTK_OBJECT (data), signals[SEND]);
 }
 
 static void
-exit_cb (GtkWidget *widget, gpointer data)
+menu_file_close_cb (BonoboUIHandler *uih,
+		    void *data,
+		    const char *path)
 {
 	EMsgComposer *composer;
 
@@ -619,24 +575,9 @@ exit_cb (GtkWidget *widget, gpointer data)
 }
 	
 static void
-menu_view_attachments_activate_cb (GtkWidget *widget, gpointer data)
-{
-	e_msg_composer_show_attachments (E_MSG_COMPOSER (data),
-					 GTK_CHECK_MENU_ITEM (widget)->active);
-}
-
-static void
-toolbar_view_attachments_clicked_cb (GtkWidget *widget, gpointer data)
-{
-	EMsgComposer *composer;
-
-	composer = E_MSG_COMPOSER (data);
-
-	e_msg_composer_show_attachments (composer, !composer->attachment_bar_visible);
-}
-
-static void
-add_attachment_cb (GtkWidget *widget, gpointer data)
+menu_file_add_attachment_cb (BonoboUIHandler *uih,
+			     void *data,
+			     const char *path)
 {
 	EMsgComposer *composer;
 
@@ -647,56 +588,381 @@ add_attachment_cb (GtkWidget *widget, gpointer data)
 		 NULL);
 }
 
-/* Create the address dialog if not created already.  */
 static void
-setup_address_dialog (EMsgComposer *composer)
+menu_view_attachments_activate_cb (BonoboUIHandler *uih,
+				   void *data,
+				   const char *path)
 {
-	EMsgComposerAddressDialog *dialog;
-	EMsgComposerHdrs *hdrs;
-	GList *list;
+	gboolean state;
 
-	if (composer->address_dialog != NULL)
-		return;
-
-	composer->address_dialog = e_msg_composer_address_dialog_new ();
-	dialog = E_MSG_COMPOSER_ADDRESS_DIALOG (composer->address_dialog);
-	hdrs = E_MSG_COMPOSER_HDRS (composer->hdrs);
-
-	gtk_signal_connect (GTK_OBJECT (dialog),
-			    "destroy", address_dialog_destroy_cb, composer);
-	gtk_signal_connect (GTK_OBJECT (dialog),
-			    "apply", address_dialog_apply_cb, composer);
-
-	list = e_msg_composer_hdrs_get_to (hdrs);
-	e_msg_composer_address_dialog_set_to_list (dialog, list);
-
-	list = e_msg_composer_hdrs_get_cc (hdrs);
-	e_msg_composer_address_dialog_set_cc_list (dialog, list);
-
-	list = e_msg_composer_hdrs_get_bcc (hdrs);
-	e_msg_composer_address_dialog_set_bcc_list (dialog, list);
+	state = bonobo_ui_handler_menu_get_toggle_state (uih, path);
+	e_msg_composer_show_attachments (E_MSG_COMPOSER (data), state);
 }
 
+#if 0
 static void
-address_dialog_cb (GtkWidget *widget,
-		   gpointer data)
+insert_file_ok_cb (GtkWidget *widget, void *user_data)
 {
+	GtkFileSelection *fs;
+	GdkAtom selection_atom = GDK_NONE;
+	char *name;
 	EMsgComposer *composer;
+	struct stat sb;
+	int fd;
+	guint8 *buffer;
+	size_t bufsz, actual;
 
-	/* FIXME maybe we should hide the dialog on Cancel/OK instead of
-           destroying it.  */
+	fs = GTK_FILE_SELECTION (gtk_widget_get_ancestor (widget,
+							  GTK_TYPE_FILE_SELECTION));
+	composer = E_MSG_COMPOSER (user_data);
+	name = gtk_file_selection_get_filename (fs);
+									   
+	if (stat (name, &sb) < 0) {
+		GtkWidget *dlg;
+
+		dlg = gnome_error_dialog_parented( _("That file does not exist."),
+						   GTK_WINDOW (fs));
+		gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+		gtk_widget_destroy (GTK_WIDGET (dlg));
+		return;
+	}
+
+	if( !(S_ISREG (sb.st_mode)) ) {
+		GtkWidget *dlg;
+
+		dlg = gnome_error_dialog_parented( _("That is not a regular file."),
+						   GTK_WINDOW (fs));
+		gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+		gtk_widget_destroy (GTK_WIDGET (dlg));
+		return;
+	}
+
+	if (access (name, R_OK) != 0) {
+		GtkWidget *dlg;
+
+		dlg = gnome_error_dialog_parented( _("That file exists but is not readable."),
+						   GTK_WINDOW (fs));
+		gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+		gtk_widget_destroy (GTK_WIDGET (dlg));
+		return;
+	}
+
+	if ((fd = open (name, O_RDONLY)) < 0) {
+		GtkWidget *dlg;
+
+		dlg = gnome_error_dialog_parented( _("That file appeared accesible but open(2) failed."),
+						   GTK_WINDOW (fs));
+		gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+		gtk_widget_destroy (GTK_WIDGET (dlg));
+		return;
+	}
+
+	buffer = NULL;
+	bufsz = 0;
+	actual = 0;
+	#define CHUNK 5120
+
+	while( 1 ) {
+		ssize_t chunk;
+
+		if( bufsz - actual < CHUNK ) {
+			bufsz += CHUNK;
+
+			if( bufsz >= 102400 ) {
+				GtkWidget *dlg;
+				gint result;
+
+				dlg = gnome_dialog_new( _("The file is very large (more than 100K).\n"
+							  "Are you sure you wish to insert it?"),
+							GNOME_STOCK_BUTTON_YES,
+							GNOME_STOCK_BUTTON_NO,
+							NULL);
+				gnome_dialog_set_parent (GNOME_DIALOG (dlg), GTK_WINDOW (fs));
+				result = gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+				gtk_widget_destroy (GTK_WIDGET (dlg));
+				
+				if (result == 1)
+					goto cleanup;
+			}
+
+			buffer = g_realloc (buffer, bufsz * sizeof (guint8));
+		}
+
+		chunk = read (fd, &(buffer[actual]), CHUNK);
+
+		if (chunk < 0) {
+			GtkWidget *dlg;
+
+			dlg = gnome_error_dialog_parented( _("An error occurred while reading the file."),
+							   GTK_WINDOW (fs));
+			gnome_dialog_run_and_close (GNOME_DIALOG (dlg));
+			gtk_widget_destroy (GTK_WIDGET (dlg));
+			goto cleanup;
+		}
+
+		if( chunk == 0 )
+			break;
+
+		actual += chunk;
+	}
+
+	buffer[actual] = '\0';
+
+	if (selection_atom == GDK_NONE)
+		selection_atom = gdk_atom_intern ("TEMP_PASTE", FALSE);
+	gtk_object_set_data (GTK_OBJECT (fs), "ev_file_buffer", buffer);
+	gtk_selection_owner_set (GTK_WIDGET (fs), selection_atom, GDK_CURRENT_TIME);
+	/*gtk_html_paste (composer->send_html);*/
+
+ cleanup:
+	close( fd );
+	g_free( buffer );
+	gtk_widget_destroy (GTK_WIDGET(fs));
+}
+
+static void fs_selection_get (GtkWidget *widget, GtkSelectionData *sdata,
+			      guint info, guint time)
+{
+	gchar *buffer;
+	GdkAtom encoding;
+	gint format;
+	guchar *ctext;
+	gint length;
+
+	buffer = gtk_object_get_data (GTK_OBJECT (widget), "ev_file_buffer");
+	if (gdk_string_to_compound_text (buffer, &encoding, &format, &ctext,
+					 &length) == Success)
+		gtk_selection_data_set (sdata, encoding, format, ctext, length);
+	g_free (buffer);
+	gtk_object_remove_data (GTK_OBJECT (widget), "ev_file_buffer");
+}
+
+#endif
+static void
+menu_file_insert_file_cb (BonoboUIHandler *uih,
+		void *data,
+		const char *path)
+{
+#if 0
+	EMsgComposer *composer;
+	GtkFileSelection *fs;
 
 	composer = E_MSG_COMPOSER (data);
 
-	setup_address_dialog (composer);
-
-	gtk_widget_show (composer->address_dialog);
-	gdk_window_show (composer->address_dialog->window);
+	fs = GTK_FILE_SELECTION (gtk_file_selection_new ("Choose File"));
+	/* FIXME: remember the location or something */
+	/*gtk_file_selection_set_filename( fs, g_get_home_dir() );*/
+	gtk_signal_connect (GTK_OBJECT (fs->ok_button), "clicked",
+			    GTK_SIGNAL_FUNC (insert_file_ok_cb), data);
+	gtk_signal_connect_object (GTK_OBJECT (fs->cancel_button), 
+				   "clicked",
+				   GTK_SIGNAL_FUNC (gtk_widget_destroy), 
+				   GTK_OBJECT (fs));
+	gtk_widget_show (GTK_WIDGET(fs));
+#else
+	g_message ("Insert file is unimplemented! oh no!");
+#endif
 }
 
 static void
+menu_format_html_cb (BonoboUIHandler *uih,
+		     void *data,
+		     const char *path)
+{
+	EMsgComposer *composer;
+	gboolean new_state;
+
+	composer = E_MSG_COMPOSER (data);
+
+	new_state = bonobo_ui_handler_menu_get_toggle_state (uih, path);
+	if ((new_state && composer->send_html) || (! new_state && ! composer->send_html))
+		return;
+
+	e_msg_composer_set_send_html (composer, new_state);
+}
+
+
+/* Menu bar creation.  */
+
+static void
+create_menubar_file (EMsgComposer *composer,
+		     BonoboUIHandler *uih)
+{
+	bonobo_ui_handler_menu_new_subtree (uih, "/File",
+					    _("_File"),
+					    NULL, -1,
+					    BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					    0, 0);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Open",
+					 _("_Open..."),
+					 _("Load a previously saved message"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_OPEN,
+					 0, 0,
+					 menu_file_open_cb, composer);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Save",
+					 _("_Save..."),
+					 _("Save message"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_SAVE,
+					 0, 0,
+					 menu_file_save_cb, composer);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Save as",
+					 _("_Save as..."),
+					 _("Save message with a different name"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_SAVE_AS,
+					 0, 0,
+					 menu_file_save_as_cb, composer);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Save in folder",
+					 _("Save in _folder..."),
+					 _("Save the message in a specified folder"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					 0, 0,
+					 NULL, composer);
+
+	bonobo_ui_handler_menu_new_separator (uih, "/File/Separator1", -1);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Insert text file",
+					 _("_Insert text file... (FIXME)"),
+					 _("Insert a file as text into the message"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					 0, 0,
+					 menu_file_insert_file_cb, composer);
+
+	bonobo_ui_handler_menu_new_separator (uih, "/File/Separator2", -1);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Send",
+					 _("_Send"),
+					 _("Send the message"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_MAIL_SND,
+					 0, 0,
+					 menu_file_send_cb, composer);
+
+	bonobo_ui_handler_menu_new_separator (uih, "/File/Separator3", -1);
+
+	bonobo_ui_handler_menu_new_item (uih, "/File/Close",
+					 _("_Close..."),
+					 _("Quit the message composer"),
+					 -1,
+					 BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					 GNOME_STOCK_MENU_CLOSE,
+					 0, 0,
+					 menu_file_close_cb, composer);
+}
+
+static void
+create_menubar_edit (EMsgComposer *composer,
+		     BonoboUIHandler *uih)
+{
+	bonobo_ui_handler_menu_new_subtree (uih, "/Edit",
+					    _("_Edit"),
+					    NULL, -1,
+					    BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					    0, 0);
+}
+
+static void
+create_menubar_format (EMsgComposer *composer,
+		       BonoboUIHandler *uih)
+{
+	bonobo_ui_handler_menu_new_subtree (uih, "/Format",
+					    _("_Format"),
+					    NULL, -1,
+					    BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					    0, 0);
+
+	bonobo_ui_handler_menu_new_toggleitem (uih, "/Format/HTML",
+					       _("HTML"),
+					       _("Send the mail in HTML format"),
+					       -1,
+					       0, 0,
+					       menu_format_html_cb, composer);
+
+	bonobo_ui_handler_menu_set_toggle_state (uih, "/Format/HTML", composer->send_html);
+}
+
+static void
+create_menubar_view (EMsgComposer *composer,
+		     BonoboUIHandler *uih)
+{
+	bonobo_ui_handler_menu_new_subtree (uih, "/View",
+					    _("_View"),
+					    NULL, -1,
+					    BONOBO_UI_HANDLER_PIXMAP_NONE, NULL,
+					    0, 0);
+
+	bonobo_ui_handler_menu_new_toggleitem (uih, "/View/Show attachments",
+					       _("Show _attachments"),
+					       _("Show/hide attachments"),
+					       -1,
+					       0, 0,
+					       menu_view_attachments_activate_cb, composer);
+}
+
+static void
+create_menubar (EMsgComposer *composer)
+{
+	BonoboUIHandler *uih;
+
+	uih = composer->uih;
+	bonobo_ui_handler_create_menubar (uih);
+
+	create_menubar_file   (composer, uih);
+	create_menubar_edit   (composer, uih);
+	create_menubar_format (composer, uih);
+	create_menubar_view   (composer, uih);
+}
+
+
+/* Toolbar implementation.  */
+
+static void
+create_toolbar (EMsgComposer *composer)
+{
+	BonoboUIHandler *uih;
+
+	uih = composer->uih;
+	bonobo_ui_handler_create_toolbar (uih, "Toolbar");
+
+	bonobo_ui_handler_toolbar_new_item (uih,
+					    "/Toolbar/Send",
+					    _("Send"),
+					    _("Send this message"),
+					    -1,
+					    BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					    GNOME_STOCK_PIXMAP_MAIL_SND,
+					    0, 0,
+					    menu_file_send_cb, composer);
+
+	bonobo_ui_handler_toolbar_new_item (uih,
+					    "/Toolbar/Attach",
+					    _("Attach"),
+					    _("Attach a file"),
+					    -1,
+					    BONOBO_UI_HANDLER_PIXMAP_STOCK,
+					    GNOME_STOCK_PIXMAP_ATTACH,
+					    0, 0,
+					    menu_file_add_attachment_cb, composer);
+}
+
+
+/* Miscellaneous callbacks.  */
+
+static void
 attachment_bar_changed_cb (EMsgComposerAttachmentBar *bar,
-			   gpointer data)
+			   void *data)
 {
 	EMsgComposer *composer;
 	
@@ -706,85 +972,6 @@ attachment_bar_changed_cb (EMsgComposerAttachmentBar *bar,
 		e_msg_composer_show_attachments (composer, TRUE);
 	else
 		e_msg_composer_show_attachments (composer, FALSE);
-}
-
-
-/* Menu bar implementation.  */
-
-static GnomeUIInfo file_tree[] = {
-	GNOMEUIINFO_MENU_OPEN_ITEM (open_cb, NULL),
-	GNOMEUIINFO_MENU_SAVE_ITEM (save_cb, NULL),
-	GNOMEUIINFO_MENU_SAVE_AS_ITEM (save_as_cb, NULL),
-	GNOMEUIINFO_ITEM_NONE (N_("Save in _folder..."), N_("Save the message in a specified folder"),
-			       NULL),
-	GNOMEUIINFO_SEPARATOR,
-	GNOMEUIINFO_ITEM_STOCK (N_("Send"), N_("Send the message"),
-				send_cb, GNOME_STOCK_MENU_MAIL_SND),
-	GNOMEUIINFO_SEPARATOR,
-	GNOMEUIINFO_MENU_CLOSE_ITEM (exit_cb, NULL),
-	GNOMEUIINFO_END
-};
-
-static GnomeUIInfo edit_tree[] = {
-	GNOMEUIINFO_END
-};
-
-static GnomeUIInfo view_tree[] = {
-	GNOMEUIINFO_ITEM_STOCK (N_("View _attachments"), N_("View/hide attachments"),
-				menu_view_attachments_activate_cb, GNOME_STOCK_MENU_ATTACH),
-	GNOMEUIINFO_END
-};
-
-static GnomeUIInfo menubar_info[] = {
-	GNOMEUIINFO_MENU_FILE_TREE (file_tree),
-	GNOMEUIINFO_MENU_EDIT_TREE (edit_tree),
-	GNOMEUIINFO_MENU_VIEW_TREE (view_tree),
-	GNOMEUIINFO_END
-};
-
-static void
-create_menubar (EMsgComposer *composer)
-{
-	BonoboUIHandler *uih;
-	BonoboUIHandlerMenuItem *list;
-
-	uih = composer->uih;
-
-	bonobo_ui_handler_create_menubar (uih);
-
-	list = bonobo_ui_handler_menu_parse_uiinfo_list_with_data (menubar_info, composer);
-	bonobo_ui_handler_menu_add_list (uih, "/", list);
-}
-
-
-/* Toolbar implementation.  */
-
-static GnomeUIInfo toolbar_info[] = {
-	GNOMEUIINFO_ITEM_STOCK (N_("Send"), N_("Send this message"), send_cb, GNOME_STOCK_PIXMAP_MAIL_SND),
-#if 0
-	GNOMEUIINFO_SEPARATOR,
-	GNOMEUIINFO_ITEM_STOCK (N_("Cut"), N_("Cut selected region into the clipboard"), NULL, GNOME_STOCK_PIXMAP_CUT),
-	GNOMEUIINFO_ITEM_STOCK (N_("Copy"), N_("Copy selected region into the clipboard"), NULL, GNOME_STOCK_PIXMAP_COPY),
-	GNOMEUIINFO_ITEM_STOCK (N_("Paste"), N_("Paste selected region into the clipboard"), NULL, GNOME_STOCK_PIXMAP_PASTE),
-	GNOMEUIINFO_ITEM_STOCK (N_("Undo"), N_("Undo last operation"), NULL, GNOME_STOCK_PIXMAP_UNDO),
-#endif
-	GNOMEUIINFO_SEPARATOR,
-	GNOMEUIINFO_ITEM_STOCK (N_("Attach"), N_("Attach a file"), add_attachment_cb, GNOME_STOCK_PIXMAP_ATTACH),
-	GNOMEUIINFO_END
-};
-
-static void
-create_toolbar (EMsgComposer *composer)
-{
-	BonoboUIHandler *uih;
-	BonoboUIHandlerToolbarItem *list;
-
-	uih = composer->uih;
-
-	bonobo_ui_handler_create_toolbar (uih, "Toolbar");
-
-	list = bonobo_ui_handler_toolbar_parse_uiinfo_list_with_data (toolbar_info, composer);
-	bonobo_ui_handler_toolbar_add_list (uih, "/Toolbar", list);
 }
 
 
@@ -902,8 +1089,12 @@ init (EMsgComposer *composer)
 
 	composer->persist_file_interface   = CORBA_OBJECT_NIL;
 	composer->persist_stream_interface = CORBA_OBJECT_NIL;
+
+	composer->attachment_bar_visible   = FALSE;
+	composer->send_html                = FALSE;
 }
 
+
 GtkType
 e_msg_composer_get_type (void)
 {
@@ -1022,11 +1213,37 @@ e_msg_composer_new (void)
 	e_msg_composer_construct (E_MSG_COMPOSER (new));
 
 	/* Load the signature, if any. */
-	set_editor_text (BONOBO_WIDGET (E_MSG_COMPOSER (new)->editor), "");
+	set_editor_text (BONOBO_WIDGET (E_MSG_COMPOSER (new)->editor), 
+			 NULL, "");
 
 	return new;
 }
 
+/**
+ * e_msg_composer_new_with_sig_file:
+ *
+ * Create a new message composer widget.  This function must be called
+ * within the GTK+ main loop, or it will fail.  Sets the signature
+ * file.
+ * 
+ * Return value: A pointer to the newly created widget
+ **/
+GtkWidget *
+e_msg_composer_new_with_sig_file (char *sig_file)
+{
+	GtkWidget *new;
+
+	g_return_val_if_fail (gtk_main_level () > 0, NULL);
+ 
+	new = gtk_type_new (e_msg_composer_get_type ());
+	e_msg_composer_construct (E_MSG_COMPOSER (new));
+
+	/* Load the signature, if any. */
+	set_editor_text (BONOBO_WIDGET (E_MSG_COMPOSER (new)->editor), 
+			 sig_file, "");
+
+	return new;
+}
 
 static GList *
 add_recipients (GList *list, const char *recips, gboolean decode)
@@ -1143,7 +1360,8 @@ e_msg_composer_new_from_url (const char *url)
 
 	if (body) {
 		char *htmlbody = e_text_to_html (body, E_TEXT_TO_HTML_PRE);
-		set_editor_text (BONOBO_WIDGET (composer->editor), htmlbody);
+		set_editor_text (BONOBO_WIDGET (composer->editor), 
+				 NULL, htmlbody);
 		g_free (htmlbody);
 	}
 
@@ -1207,7 +1425,8 @@ e_msg_composer_set_body_text (EMsgComposer *composer, const char *text)
 {
 	g_return_if_fail (E_IS_MSG_COMPOSER (composer));
 
-	set_editor_text (BONOBO_WIDGET (composer->editor), text);
+	set_editor_text (BONOBO_WIDGET (composer->editor), 
+			 composer->sig_file, text);
 }
 
 
@@ -1271,4 +1490,80 @@ e_msg_composer_get_message (EMsgComposer *composer)
 	g_return_val_if_fail (E_IS_MSG_COMPOSER (composer), NULL);
 
 	return build_message (composer);
+}
+
+
+
+/**
+ * e_msg_composer_set_sig:
+ * @composer: A message composer widget
+ * @path: Signature file
+ * 
+ * Set a signature
+ **/
+void
+e_msg_composer_set_sig_file (EMsgComposer *composer, const char *sig_file)
+{
+	g_return_if_fail (composer != NULL);
+	g_return_if_fail (E_IS_MSG_COMPOSER (composer));
+
+	composer->sig_file = g_strdup (sig_file);
+}
+
+/**
+ * e_msg_composer_get_sig_file:
+ * @composer: A message composer widget
+ * 
+ * Get the signature file
+ * 
+ * Return value: The signature file.
+ **/
+char *
+e_msg_composer_get_sig_file (EMsgComposer *composer)
+{
+	g_return_val_if_fail (composer != NULL, NULL);
+	g_return_val_if_fail (E_IS_MSG_COMPOSER (composer), NULL);
+
+	return composer->sig_file;
+}
+
+
+/**
+ * e_msg_composer_set_send_html:
+ * @composer: A message composer widget
+ * @send_html: Whether the composer should have the "Send HTML" flag set
+ * 
+ * Set the status of the "Send HTML" toggle item.  The user can override it.
+ **/
+void
+e_msg_composer_set_send_html (EMsgComposer *composer,
+			      gboolean send_html)
+{
+	g_return_if_fail (composer != NULL);
+	g_return_if_fail (E_IS_MSG_COMPOSER (composer));
+
+	if (composer->send_html && send_html)
+		return;
+	if (! composer->send_html && ! send_html)
+		return;
+
+	composer->send_html = send_html;
+	bonobo_ui_handler_menu_set_toggle_state (composer->uih, "/Format/HTML", send_html);
+}
+
+/**
+ * e_msg_composer_get_send_html:
+ * @composer: A message composer widget
+ * 
+ * Get the status of the "Send HTML mail" flag.
+ * 
+ * Return value: The status of the "Send HTML mail" flag.
+ **/
+gboolean
+e_msg_composer_get_send_html (EMsgComposer *composer)
+{
+	g_return_val_if_fail (composer != NULL, FALSE);
+	g_return_val_if_fail (E_IS_MSG_COMPOSER (composer), FALSE);
+
+	return composer->send_html;
 }

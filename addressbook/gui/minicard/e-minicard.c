@@ -30,6 +30,7 @@
 #include <e-util/e-util.h>
 #include <e-util/e-canvas-utils.h>
 #include <e-util/e-popup-menu.h>
+#include "addressbook/printing/e-contact-print.h"
 #include "e-contact-editor.h"
 #include "e-contact-save-as.h"
 #include "e-minicard-view.h"
@@ -329,6 +330,34 @@ save_as (GtkWidget *widget, EMinicard *minicard)
 	e_contact_save_as(_("Save as VCard"), minicard->card);
 }
 
+static void
+delete (GtkWidget *widget, EMinicard *minicard)
+{
+	EBook *book;
+	
+	if (e_contact_editor_confirm_delete()) {
+		e_card_simple_sync_card(minicard->simple);
+		
+		gtk_object_get(GTK_OBJECT(GNOME_CANVAS_ITEM(minicard)->parent),
+			       "book", &book,
+			       NULL);
+		
+		/* Add the card in the contact editor to our ebook */
+		e_book_remove_card (book,
+				    minicard->card,
+				    card_changed_cb,
+				    NULL);
+	}
+}
+
+static void
+print (GtkWidget *widget, EMinicard *minicard)
+{
+	e_card_simple_sync_card(minicard->simple);
+				
+	gtk_widget_show(e_contact_print_card_dialog_new(minicard->card));
+}
+
 /* Callback for the add_card signal from the contact editor */
 static void
 add_card_cb (EContactEditor *ce, ECard *card, gpointer data)
@@ -347,6 +376,16 @@ commit_card_cb (EContactEditor *ce, ECard *card, gpointer data)
 
 	book = E_BOOK (data);
 	e_book_commit_card (book, card, card_changed_cb, NULL);
+}
+
+/* Callback for the commit_card signal from the contact editor */
+static void
+delete_card_cb (EContactEditor *ce, ECard *card, gpointer data)
+{
+	EBook *book;
+
+	book = E_BOOK (data);
+	e_book_remove_card (book, card, card_changed_cb, NULL);
 }
 
 /* Callback used when the contact editor is closed */
@@ -379,20 +418,30 @@ e_minicard_event (GnomeCanvasItem *item, GdkEvent *event)
 						       NULL );
 				e_minicard->has_focus = TRUE;
 			} else {
-				EBook *book;
+				EBook *book = NULL;
 				
 				e_card_simple_sync_card(e_minicard->simple);
-				
-				gtk_object_get(GTK_OBJECT(GNOME_CANVAS_ITEM(e_minicard)->parent),
-					       "book", &book,
-					       NULL);
-				
-				/* Add the card in the contact editor to our ebook */
-				e_book_commit_card (book,
-						    e_minicard->card,
-						    card_changed_cb,
-						    NULL);
 
+				if (E_IS_MINICARD_VIEW(GNOME_CANVAS_ITEM(e_minicard)->parent)) {
+					
+					gtk_object_get(GTK_OBJECT(GNOME_CANVAS_ITEM(e_minicard)->parent),
+						       "book", &book,
+						       NULL);
+					
+				}
+				
+				if (book) {
+					
+				/* Add the card in the contact editor to our ebook */
+					e_book_commit_card (book,
+							    e_minicard->card,
+							    card_changed_cb,
+							    NULL);
+				} else {
+					remodel(e_minicard);
+					e_canvas_item_request_reflow(GNOME_CANVAS_ITEM(e_minicard));
+				}
+					
 				gnome_canvas_item_set( e_minicard->rect, 
 						       "outline_color", NULL, 
 						       NULL );
@@ -410,30 +459,44 @@ e_minicard_event (GnomeCanvasItem *item, GdkEvent *event)
 		if (event->button.button == 1) {
 			e_canvas_item_grab_focus(item);
 		} else if (event->button.button == 3) {
-			EPopupMenu menu[] = { {"Save as VCard", NULL, GTK_SIGNAL_FUNC(save_as), 0}, {NULL, NULL, NULL, 0} };
-			e_popup_menu_run (menu, (GdkEventButton *)event, 0, e_minicard);
+			if (E_IS_MINICARD_VIEW(item->parent)) {
+				EPopupMenu menu[] = { {"Save as VCard", NULL, GTK_SIGNAL_FUNC(save_as), 0}, 
+						      {"Print", NULL, GTK_SIGNAL_FUNC(print), 0},
+						      {"Delete", NULL, GTK_SIGNAL_FUNC(delete), 0},
+						      {NULL, NULL, NULL, 0}};
+				e_popup_menu_run (menu, (GdkEventButton *)event, 0, e_minicard);
+			} else {
+				EPopupMenu menu[] = { {"Save as VCard", NULL, GTK_SIGNAL_FUNC(save_as), 0}, 
+						      {"Print", NULL, GTK_SIGNAL_FUNC(print), 0},
+						      {NULL, NULL, NULL, 0}};
+				e_popup_menu_run (menu, (GdkEventButton *)event, 0, e_minicard);
+			}
 		}
 		break;
 
 	case GDK_2BUTTON_PRESS:
 		if (event->button.button == 1 && E_IS_MINICARD_VIEW(item->parent)) {
 			EContactEditor *ce;
-			EBook *book;
-
-			gtk_object_get(GTK_OBJECT(item->parent),
-				       "book", &book,
-				       NULL);
-			g_assert (E_IS_BOOK (book));
-
+			EBook *book = NULL;
+			if (E_IS_MINICARD_VIEW(item->parent)) {
+				
+				gtk_object_get(GTK_OBJECT(item->parent),
+					       "book", &book,
+					       NULL);
+			}
 			ce = e_contact_editor_new (e_minicard->card, FALSE);
 
-			gtk_signal_connect (GTK_OBJECT (ce), "add_card",
-					    GTK_SIGNAL_FUNC (add_card_cb), book);
-			gtk_signal_connect (GTK_OBJECT (ce), "commit_card",
-					    GTK_SIGNAL_FUNC (commit_card_cb), book);
+			if (book != NULL) {
+				gtk_signal_connect (GTK_OBJECT (ce), "add_card",
+						    GTK_SIGNAL_FUNC (add_card_cb), book);
+				gtk_signal_connect (GTK_OBJECT (ce), "commit_card",
+						    GTK_SIGNAL_FUNC (commit_card_cb), book);
+				gtk_signal_connect (GTK_OBJECT (ce), "delete_card",
+						    GTK_SIGNAL_FUNC (delete_card_cb), book);
+			}
+
 			gtk_signal_connect (GTK_OBJECT (ce), "editor_closed",
 					    GTK_SIGNAL_FUNC (editor_closed_cb), NULL);
-
 			return TRUE;
 		}
 		break;
@@ -480,17 +543,17 @@ e_minicard_event (GnomeCanvasItem *item, GdkEvent *event)
 static void
 e_minicard_resize_children( EMinicard *e_minicard )
 {
-	if ( GTK_OBJECT_FLAGS( e_minicard ) & GNOME_CANVAS_ITEM_REALIZED ) {
-		GList *list;
-		
+	GList *list;
+	
+	if (e_minicard->header_text) {
 		gnome_canvas_item_set( e_minicard->header_text,
 				       "width", (double) e_minicard->width - 12,
 				       NULL );
-		for ( list = e_minicard->fields; list; list = g_list_next( list ) ) {
-			gnome_canvas_item_set( E_MINICARD_FIELD( list->data )->label,
-					       "width", (double) e_minicard->width - 4.0,
-					       NULL );
-		}
+	}
+	for ( list = e_minicard->fields; list; list = g_list_next( list ) ) {
+		gnome_canvas_item_set( E_MINICARD_FIELD( list->data )->label,
+				       "width", (double) e_minicard->width - 4.0,
+				       NULL );
 	}
 }
 

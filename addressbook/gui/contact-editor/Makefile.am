@@ -1,6 +1,7 @@
 CPPFLAGS =					\
 	-DEVOLUTION_GLADEDIR=\""$(gladedir)"\"	\
-	-DDATADIR=\""$(datadir)"\"
+	-DDATADIR=\""$(datadir)"\"		\
+	-DEVOLUTIONDIR=\""$(evolutiondir)"\"
 
 INCLUDES =					\
 	$(BONOBO_GNOME_CFLAGS)			\
@@ -32,6 +33,7 @@ contact_editor_test_SOURCES = 	\
 contact_editor_test_LDADD =					\
 	libecontacteditor.a					\
 	$(top_builddir)/e-util/libeutil.la			\
+	$(top_builddir)/addressbook/printing/libecontactprint.a	\
 	$(top_builddir)/addressbook/backend/ebook/libebook.la	\
 	$(top_builddir)/addressbook/ename/libename.la		\
 	$(top_builddir)/libversit/libversit.la			\
@@ -43,14 +45,21 @@ contact_editor_test_LDADD =					\
 	$(top_builddir)/widgets/e-text/libetext.a		\
 	$(EXTRA_GNOME_LIBS)
 
+evolutiondir = $(datadir)/evolution
+
+evolution_DATA = arrow.png
+
 gladedir   = $(datadir)/evolution/glade
 
 glade_DATA = 				\
 	contact-editor.glade		\
 	fullname.glade			\
-	categories.glade
+	categories.glade		\
+	e-contact-editor-confirm-delete.glade
 
-EXTRA_DIST = $(glade_DATA)		\
+EXTRA_DIST = $(evolution_DATA)		\
+	$(glade_DATA)			\
 	e-contact-editor-strings.h	\
 	fullname-strings.h		\
-	categories-strings.h
+	categories-strings.h		\
+	e-contact-editor-confirm-delete.glade.h

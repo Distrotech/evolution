@@ -25,6 +25,8 @@
 #define str_val(obj) (the_str = (vObjectValueType (obj))? fakeCString (vObjectUStringZValue (obj)) : calloc (1, 1))
 #define has(obj,prop) (vo = isAPropertyOf ((obj), (prop)))
 
+#define XEV_PILOT_ID "X-EVOLUTION-PILOTID"
+#define XEV_PILOT_STATUS "X-EVOLUTION-PILOTSTATUS"
 #define XEV_ARBITRARY "X-EVOLUTION-ARBITRARY"
 
 /* Object argument IDs */
@@ -54,8 +56,10 @@ enum {
 	ARG_NOTE,
 	ARG_CATEGORIES,
 	ARG_CATEGORY_LIST,
+	ARG_PILOTID,
+	ARG_PILOTSTATUS,
 	ARG_ARBITRARY,
-	ARG_ID
+	ARG_ID,
 };
 
 #if 0
@@ -96,6 +100,8 @@ static void parse_mailer(ECard *card, VObject *object);
 static void parse_fburl(ECard *card, VObject *object);
 static void parse_note(ECard *card, VObject *object);
 static void parse_categories(ECard *card, VObject *object);
+static void parse_pilot_id(ECard *card, VObject *object);
+static void parse_pilot_status(ECard *card, VObject *object);
 static void parse_arbitrary(ECard *card, VObject *object);
 static void parse_id(ECard *card, VObject *object);
 
@@ -133,6 +139,8 @@ struct {
 	{ "FBURL",                   parse_fburl },
 	{ VCNoteProp,                parse_note },
 	{ "CATEGORIES",              parse_categories },
+	{ XEV_PILOT_ID,              parse_pilot_id },
+	{ XEV_PILOT_STATUS,          parse_pilot_status },
 	{ XEV_ARBITRARY,             parse_arbitrary },
 	{ VCUniqueStringProp,        parse_id }
 };
@@ -423,6 +431,20 @@ char
 		g_free(string);
 	}
 
+	if (card->pilot_id) {
+		gchar *pilotid_str;
+		pilotid_str = g_strdup_printf ("%d", card->pilot_id);
+		addPropValue (vobj, XEV_PILOT_ID, pilotid_str);
+		g_free (pilotid_str);
+	}
+
+	if (card->pilot_status) {
+		gchar *pilotstatus_str;
+		pilotstatus_str = g_strdup_printf ("%d", card->pilot_status);
+		addPropValue (vobj, XEV_PILOT_STATUS, pilotstatus_str);
+		g_free (pilotstatus_str);
+	}
+
 	if (card->arbitrary) {
 		EIterator *iterator;
 		for (iterator = e_list_get_iterator(card->arbitrary); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
@@ -444,7 +466,6 @@ char
 
 	if (card->id)
 		addPropValue (vobj, VCUniqueStringProp, card->id);
-	
 #if 0
 	
 	
@@ -814,6 +835,26 @@ parse_categories(ECard *card, VObject *vobj)
 	}
 }
 
+static void
+parse_pilot_id(ECard *card, VObject *vobj)
+{
+	if ( vObjectValueType (vobj) ) {
+		char *str = fakeCString (vObjectUStringZValue (vobj));
+		card->pilot_id = atoi(str);
+		free(str);
+	}
+}
+
+static void
+parse_pilot_status(ECard *card, VObject *vobj)
+{
+	if ( vObjectValueType (vobj) ) {
+		char *str = fakeCString (vObjectUStringZValue (vobj));
+		card->pilot_status = atoi(str);
+		free(str);
+	}
+}
+
 typedef union ValueItem {
     const char *strs;
     const wchar_t *ustrs;
@@ -967,6 +1008,10 @@ e_card_class_init (ECardClass *klass)
 				 GTK_TYPE_STRING, GTK_ARG_READWRITE, ARG_CATEGORIES);
 	gtk_object_add_arg_type ("ECard::category_list",
 				 GTK_TYPE_OBJECT, GTK_ARG_READWRITE, ARG_CATEGORY_LIST);
+	gtk_object_add_arg_type ("ECard::pilot_id",
+				 GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_PILOTID);
+	gtk_object_add_arg_type ("ECard::pilot_status",
+				 GTK_TYPE_INT, GTK_ARG_READWRITE, ARG_PILOTSTATUS);
 	gtk_object_add_arg_type ("ECard::arbitrary",
 				 GTK_TYPE_OBJECT, GTK_ARG_READWRITE, ARG_ARBITRARY);
 	gtk_object_add_arg_type ("ECard::id",
@@ -1393,6 +1438,12 @@ e_card_set_arg (GtkObject *object, GtkArg *arg, guint arg_id)
 		g_free (card->note);
 		card->note = g_strdup(GTK_VALUE_STRING(*arg));
 		break;
+	case ARG_PILOTID:
+		card->pilot_id = GTK_VALUE_INT(*arg);
+		break;
+	case ARG_PILOTSTATUS:
+		card->pilot_status = GTK_VALUE_INT(*arg);
+		break;
 	case ARG_ARBITRARY:
 		if (card->arbitrary)
 			gtk_object_unref(GTK_OBJECT(card->arbitrary));
@@ -1527,6 +1578,12 @@ e_card_get_arg (GtkObject *object, GtkArg *arg, guint arg_id)
 	case ARG_NOTE:
 		GTK_VALUE_STRING(*arg) = card->note;
 		break;
+	case ARG_PILOTID:
+		GTK_VALUE_INT(*arg) = card->pilot_id;
+		break;
+	case ARG_PILOTSTATUS:
+		GTK_VALUE_INT(*arg) = card->pilot_status;
+		break;
 	case ARG_ARBITRARY:
 		if (!card->arbitrary)
 			card->arbitrary = e_list_new((EListCopyFunc) e_card_arbitrary_copy,
@@ -1576,6 +1633,8 @@ e_card_init (ECard *card)
 	card->fburl = NULL;
 	card->note = NULL;
 	card->categories = NULL;
+	card->pilot_id = 0;
+	card->pilot_status = 0;
 	card->arbitrary = NULL;
 #if 0
 
@@ -1628,6 +1687,24 @@ e_card_init (ECard *card)
 	
 	return c;
 #endif
+}
+
+GList *
+e_card_load_cards_from_file(const char *filename)
+{
+	VObject *vobj = Parse_MIME_FromFileName(filename);
+	GList *list = NULL;
+	while(vobj) {
+		VObject *next;
+		ECard *card = E_CARD(gtk_type_new(e_card_get_type()));
+		parse(card, vobj);
+		next = nextVObjectInList(vobj);
+		cleanVObject(vobj);
+		vobj = next;
+		list = g_list_prepend(list, card);
+	}
+	list = g_list_reverse(list);
+	return list;
 }
 
 static void
@@ -3054,36 +3131,6 @@ card_to_string (Card *crd)
 	g_string_free (string, TRUE);
 	
 	return ret;
-}
-
-char *
-card_to_vobj_string (Card *crd)
-{
-	VObject *object;
-	char *data, *ret_val;
-	
-	g_assert (crd != NULL);
-
-	object = card_convert_to_vobject (crd);
-	data = writeMemVObject (0, 0, object);
-        ret_val = g_strdup (data);
-	free (data);
-		
-	cleanVObject (object);
-
-	return ret_val;
-}
-
-void 
-card_save (Card *crd, FILE *fp)
-{
-	VObject *object;
-	
-	g_return_if_fail (crd != NULL);
-
-	object = card_convert_to_vobject (crd);
-	writeVObject (fp, object);
-	cleanVObject (object);
 }
 #endif
 

@@ -1,5 +1,4 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-/* $Id$ */
 
 #include <config.h>
 #include <sys/stat.h>
@@ -58,7 +57,46 @@ void local_record_from_icalobject (GCalLocalRecord *local, iCalObject *obj);
   }
 
 
-gboolean load_success;
+
+
+/* Destroys any data allocated by gcalconduit_load_configuration
+   and deallocates the given configuration. */
+static void 
+gcalconduit_destroy_configuration(GCalConduitCfg **c) 
+{
+	g_return_if_fail(c!=NULL);
+	g_return_if_fail(*c!=NULL);
+	g_free(*c);
+	*c = NULL;
+}
+
+
+/* Given a GCalConduitContxt*, allocates the structure */
+static void
+gcalconduit_new_context(GCalConduitContext **ctxt,
+			GCalConduitCfg *c) 
+{
+	*ctxt = g_new0(GCalConduitContext,1);
+	g_assert(ctxt!=NULL);
+	(*ctxt)->cfg = c;
+	CORBA_exception_init (&((*ctxt)->ev));
+}
+
+
+/* Destroys any data allocated by gcalconduit_new_context
+   and deallocates its data. */
+static void
+gcalconduit_destroy_context(GCalConduitContext **ctxt)
+{
+	g_return_if_fail(ctxt!=NULL);
+	g_return_if_fail(*ctxt!=NULL);
+/*
+	if ((*ctxt)->cfg!=NULL)
+		gcalconduit_destroy_configuration(&((*ctxt)->cfg));
+*/
+	g_free(*ctxt);
+	*ctxt = NULL;
+}
 
 
 static void
@@ -67,21 +105,23 @@ gnome_calendar_load_cb (GtkWidget *cal_client,
 			GCalConduitContext *ctxt)
 {
 	CalClient *client = CAL_CLIENT (cal_client);
-	static int tried = 0;
 
-	printf ("intering gnome_calendar_load_cb, tried=%d\n", tried);
+	printf ("entering gnome_calendar_load_cb, tried=%d\n",
+		ctxt->calendar_load_tried);
 
 	if (status == CAL_CLIENT_LOAD_SUCCESS) {
-		load_success = TRUE;
+		ctxt->calendar_load_success = TRUE;
 		printf ("  success\n");
+		gtk_main_quit (); /* end the sub event loop */
 	} else {
-		if (tried) {
+		if (ctxt->calendar_load_tried) {
 			printf ("load and create of calendar failed\n");
+			gtk_main_quit (); /* end the sub event loop */
 			return;
 		}
 
 		cal_client_create_calendar (client, ctxt->calendar_file);
-		tried = 1;
+		ctxt->calendar_load_tried = 1;
 	}
 }
 
@@ -103,41 +143,28 @@ start_calendar_server (GnomePilotConduitStandardAbs *conduit,
 	ctxt->calendar_file = g_concat_dir_and_file (g_get_home_dir (),
 			       "evolution/local/Calendar/calendar.vcf");
 
-	/* hmm. */
 	gtk_signal_connect (GTK_OBJECT (ctxt->client), "cal_loaded",
 			    gnome_calendar_load_cb, ctxt);
 
-	load_success = FALSE;
-
+	printf ("calling cal_client_load_calendar\n");
 	cal_client_load_calendar (ctxt->client, ctxt->calendar_file);
 
-	/*
-	ctxt->calendar = goad_server_activate_with_id (NULL, 
-						       "IDL:GNOME:Calendar:Repository:1.0",
-						       0, NULL);
-	if (ctxt->calendar == CORBA_OBJECT_NIL) {
-		g_warning ("Can not communicate with GnomeCalendar server");
-		return -1;
-	}
-  
-	if (ctxt->ev._major != CORBA_NO_EXCEPTION){
-		show_exception(&(ctxt->ev));
-		CORBA_exception_free(&(ctxt->ev));
-		return -1;
-	}
-	*/
-	return 0;
+	/* run a sub event loop to turn cal-client's async load
+	   notification into a synchronous call */
+	gtk_main ();
+
+	if (ctxt->calendar_load_success)
+		return 0;
+
+	return -1;
 }
 
 
+#if 0
 /* Just a stub to link with */
-
 void calendar_notify (time_t time, CalendarAlarm *which, void *data);
-
-void
-calendar_notify (time_t time, CalendarAlarm *which, void *data)
-{
-}
+void calendar_notify (time_t time, CalendarAlarm *which, void *data) { }
+#endif /* 0 */
 
 
 static GSList * 
@@ -146,12 +173,16 @@ get_calendar_objects(GnomePilotConduitStandardAbs *conduit,
 		     GCalConduitContext *ctxt) 
 {
 	GList *uids;
-	GSList *result;
+	GSList *result = NULL;
 
 	g_return_val_if_fail (conduit != NULL, NULL);
 	g_return_val_if_fail (ctxt != NULL, NULL);
 
-	uids = cal_client_get_uids (ctxt->client, CALOBJ_TYPE_ANY);
+	/* uids = cal_client_get_uids (ctxt->client, CALOBJ_TYPE_ANY); */
+	uids = cal_client_get_uids (ctxt->client,
+				    CALOBJ_TYPE_EVENT |
+				    /*CALOBJ_TYPE_TODO |*/
+				    CALOBJ_TYPE_JOURNAL);
 
 	if (status != NULL)
 		(*status) = TRUE;
@@ -201,7 +232,6 @@ local_record_from_icalobject(GCalLocalRecord *local,
 
 	local->ical = obj;
 	local->local.ID = local->ical->pilot_id;
-  
 /*
 	LOG ("local->Id = %ld [%s], status = %d",
 		  local->local.ID,obj->summary,local->ical->pilot_status);
@@ -229,6 +259,7 @@ local_record_from_icalobject(GCalLocalRecord *local,
  
 	local->local.archived = 0;  
 }
+
 
 /*
  * Given a PilotRecord, find the matching record in
@@ -265,35 +296,8 @@ find_record_in_repository(GnomePilotConduitStandardAbs *conduit,
 
 	INFO ("Object did not exist");
 	return NULL;
-
-
-#if 0
-	vcal_string = 
-		GNOME_Calendar_Repository_get_object_by_pilot_id (ctxt->calendar, remote->ID, &(ctxt->ev));
-  
-	if (ctxt->ev._major == CORBA_USER_EXCEPTION){
-		INFO ("Object did not exist");
-		show_exception(&(ctxt->ev));
-		CORBA_exception_free(&(ctxt->ev)); 
-		return NULL;
-	} else if(ctxt->ev._major != CORBA_NO_EXCEPTION) {
-		WARN (_("Error while communicating with calendar server"));
-		show_exception(&(ctxt->ev));
-		CORBA_exception_free(&(ctxt->ev)); 
-		return NULL;
-	} else {
-		LOG ("Found");
-		loc = g_new0(GCalLocalRecord,1);
-		/* memory allocated in new_from_string is freed in free_match */
-		local_record_from_icalobject(loc,
-					     ical_object_new_from_string (vcal_string));
-		/* g_free(vcal_string); FIXME: this coredumps, but won't it leak without ? */
-		return loc;
-	}
-
-	return NULL;
-#endif /* 0 */
 }
+
 
 /* 
  * updates an given iCalObject in the repository
@@ -309,28 +313,8 @@ update_calendar_entry_in_repository(GnomePilotConduitStandardAbs *conduit,
 	g_return_if_fail(obj!=NULL);
 
 	success = cal_client_update_object (ctxt->client, obj);
-
-
-	/*
-	str = calendar_string_from_object (obj);
-  
-	GNOME_Calendar_Repository_update_object (ctxt->calendar, obj->uid, str, &(ctxt->ev));
-
-  	if (ctxt->ev._major == CORBA_USER_EXCEPTION){
-		INFO ("Object did not exist");
-		show_exception(&(ctxt->ev));
-		CORBA_exception_free(&(ctxt->ev)); 
-		return;
-	} else if(ctxt->ev._major != CORBA_NO_EXCEPTION) {
-		WARN (_("Error while communicating with calendar server"));
-		show_exception(&(ctxt->ev));
-		CORBA_exception_free(&(ctxt->ev)); 
-		return;
-	} 
-
-	free (str);
-	*/
 }
+
 
 static iCalObject *
 ical_from_remote_record(GnomePilotConduitStandardAbs *conduit,
@@ -509,6 +493,7 @@ ical_from_remote_record(GnomePilotConduitStandardAbs *conduit,
 	return obj;
 }
 
+
 /* Code blatantly stolen from
  * calendar-pilot-sync.c:
  *   
@@ -534,6 +519,7 @@ update_record (GnomePilotConduitStandardAbs *conduit,
 	unpack_Appointment(&a,remote->record,remote->length);
 
 	LOG ("requesting %ld [%s]", remote->ID, a.description);
+	printf ("requesting %ld [%s]\n", remote->ID, a.description);
 
 	status = cal_client_get_uid_by_pilot_id(ctxt->client, remote->ID, &uid);
 	if (status == CAL_CLIENT_GET_SUCCESS)
@@ -543,6 +529,7 @@ update_record (GnomePilotConduitStandardAbs *conduit,
 		time_t now = time (NULL);
 
 		LOG ("Object did not exist, creating a new one");
+		printf ("Object did not exist, creating a new one\n");
 
 		obj = ical_new (a.note ? a.note : "",
 				g_get_user_name (),
@@ -556,13 +543,18 @@ update_record (GnomePilotConduitStandardAbs *conduit,
 		obj->pilot_id = remote->ID;
 		obj->pilot_status = ICAL_PILOT_SYNC_NONE;
 	} else {
+		iCalObject *new_obj;
 		LOG ("Found");
-		ical_from_remote_record (conduit, remote, obj);
+		printf ("Found\n");
+		new_obj = ical_from_remote_record (conduit, remote, obj);
+		obj = new_obj;
 	}
 
 	/* update record on server */
 	
 	update_calendar_entry_in_repository (conduit, obj, ctxt);
+	cal_client_update_pilot_id (ctxt->client, obj->uid, obj->pilot_id,
+				    ICAL_PILOT_SYNC_NONE);
 
 	/*
 	 * Shutdown
@@ -579,10 +571,16 @@ check_for_slow_setting (GnomePilotConduit *c, GCalConduitContext *ctxt)
 	GList *uids;
 	unsigned long int entry_number;
 
-	uids = cal_client_get_uids (ctxt->client, CALOBJ_TYPE_ANY);
+	/* get all but TODOs, those are handled by the todo conduit */
+	/* uids = cal_client_get_uids (ctxt->client, CALOBJ_TYPE_ANY); */
+	uids = cal_client_get_uids (ctxt->client,
+				    CALOBJ_TYPE_EVENT |
+				    /*CALOBJ_TYPE_TODO |*/
+				    CALOBJ_TYPE_JOURNAL);
+
 	entry_number = g_list_length (uids);
 
-	LOG (_("Calendar holds %d entries"),entry_number);
+	LOG (_("Calendar holds %d entries"), entry_number);
 	/* If the local base is empty, do a slow sync */
 	if (entry_number == 0) {
 		GnomePilotConduitStandard *conduit;
@@ -592,40 +590,37 @@ check_for_slow_setting (GnomePilotConduit *c, GCalConduitContext *ctxt)
 }
 
 static gint
-pre_sync(GnomePilotConduit *c, 
-	 GnomePilotDBInfo *dbi,
-	 GCalConduitContext *ctxt) 
+pre_sync (GnomePilotConduit *c,
+	  GnomePilotDBInfo *dbi,
+	  GCalConduitContext *ctxt)
 {
 	int l;
-	gint num_records;
 	unsigned char *buf;
-	GList *uids;
 	GnomePilotConduitStandardAbs *conduit;
+	/* gint num_records; */
+	//GList *uids;
+
+
+	/*
+	g_log_set_always_fatal (G_LOG_LEVEL_ERROR |
+				G_LOG_LEVEL_CRITICAL |
+				G_LOG_LEVEL_WARNING);
+	*/
+
 
 	conduit = GNOME_PILOT_CONDUIT_STANDARD_ABS(c);
   
 	g_message ("GnomeCal Conduit v.%s",CONDUIT_VERSION);
 
-	//ctxt->calendar = CORBA_OBJECT_NIL;
 	ctxt->client = NULL;
 	
-	if (start_calendar_server(GNOME_PILOT_CONDUIT_STANDARD_ABS(c),ctxt) != 0) {
+	if (start_calendar_server (GNOME_PILOT_CONDUIT_STANDARD_ABS(c), ctxt) != 0) {
 		WARN(_("Could not start gnomecal server"));
 		gnome_pilot_conduit_error(GNOME_PILOT_CONDUIT(c),
 					  _("Could not start gnomecal server"));
 		return -1;
 	}
 
-
-
-	/* FIX ME */
-	uids = cal_client_get_uids (ctxt->client, CALOBJ_TYPE_ANY);
-	num_records = g_list_length (uids);
-
-	gnome_pilot_conduit_standard_abs_set_num_local_records (conduit, num_records);
-	gnome_pilot_conduit_standard_abs_set_num_updated_local_records (conduit, num_records);
-	gnome_pilot_conduit_standard_abs_set_num_new_local_records (conduit, num_records);
-	gnome_pilot_conduit_standard_abs_set_num_deleted_local_records (conduit, num_records);
 
 #if 0  
 	/* Set the counters for the progress bar crap */
@@ -737,8 +732,8 @@ archive_remote (GnomePilotConduitStandardAbs *conduit,
 {
 	LOG ("entering archive_remote");
 
-        g_return_val_if_fail(remote!=NULL,-1);
-	g_return_val_if_fail(local!=NULL,-1);
+        //g_return_val_if_fail(remote!=NULL,-1);
+	//g_return_val_if_fail(local!=NULL,-1);
 
 	return -1;
 }
@@ -788,7 +783,7 @@ iterate (GnomePilotConduitStandardAbs *conduit,
 		hest = 0;
 		
 		if(events!=NULL) {
-			LOG ("iterating over %d records",g_slist_length(events));
+			LOG ("iterating over %d records", g_slist_length (events));
 			*local = g_new0(GCalLocalRecord,1);
 
 			local_record_from_ical_uid(*local,(gchar*)events->data,ctxt);
@@ -798,7 +793,7 @@ iterate (GnomePilotConduitStandardAbs *conduit,
 			(*local) = NULL;
 		}
 	} else {
-		/*LOG ("continuing iteration");*/
+		/* printf ("continuing iteration\n"); */
 		hest++;
 		if(g_slist_next(iterator)==NULL) {
 			GSList *l;
@@ -807,7 +802,7 @@ iterate (GnomePilotConduitStandardAbs *conduit,
 			/** free stuff allocated for iteration */
 			g_free((*local));
 
-			LOG ("iterated over %d records",hest);
+			LOG ("iterated over %d records", hest);
 			for(l=events;l;l=l->next)
 				g_free(l->data);
 
@@ -823,6 +818,7 @@ iterate (GnomePilotConduitStandardAbs *conduit,
 	}
 	return 1;
 }
+
 
 static gint
 iterate_specific (GnomePilotConduitStandardAbs *conduit,
@@ -840,7 +836,7 @@ iterate_specific (GnomePilotConduitStandardAbs *conduit,
 		case GnomePilotRecordNew: tmp = g_strdup("RecordNew"); break;
 		default: tmp = g_strdup_printf("0x%x",flag); break;
 		}
-		LOG ("entering iterate_specific(flag = %s)",tmp);
+		printf ("entering iterate_specific(flag = %s)\n", tmp);
 		g_free(tmp);
 	}
 #endif
@@ -862,11 +858,11 @@ purge (GnomePilotConduitStandardAbs *conduit,
 {
 	LOG ("entering purge");
 
-
 	/* HEST, gem posterne her */
 
 	return -1;
 }
+
 
 static gint
 set_status (GnomePilotConduitStandardAbs *conduit,
@@ -948,14 +944,6 @@ set_pilot_id (GnomePilotConduitStandardAbs *conduit,
 				    local->ical->uid,
 				    local->local.ID,
 				    local->ical->pilot_status);
-
-	/*
-	GNOME_Calendar_Repository_update_pilot_id(ctxt->calendar,
-						  local->ical->uid,
-						  local->local.ID,
-						  local->ical->pilot_status,
-						  &(ctxt->ev));
-	*/
 
         return 0;
 }
@@ -1387,7 +1375,6 @@ conduit_get_gpilot_conduit (guint32 pilotId)
 	GCalConduitCfg *cfg;
 	GCalConduitContext *ctxt;
 
-
 	retval = gnome_pilot_conduit_standard_abs_new ("DatebookDB", 0x64617465);
 	g_assert (retval != NULL);
 	gnome_pilot_conduit_construct(GNOME_PILOT_CONDUIT(retval),"GnomeCalConduit");
@@ -1431,7 +1418,7 @@ conduit_destroy_gpilot_conduit (GnomePilotConduit *conduit)
 
 	if (ctxt->client != NULL) {
 		gtk_object_unref (GTK_OBJECT (ctxt->client));
-		//pi_close (link);
+		//pi_close (ctxt->link);
 		//GNOME_Calendar_Repository_done (ctxt->calendar, &(ctxt->ev));
 	}
 

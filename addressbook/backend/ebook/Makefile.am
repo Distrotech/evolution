@@ -1,4 +1,4 @@
-noinst_PROGRAMS = test-card test-client test-client-list load-pine-addressbook
+noinst_PROGRAMS = test-card test-client test-client-list load-pine-addressbook load-gnomecard-addressbook
 
 CORBA_SOURCE =						\
 	addressbook.h					\
@@ -50,6 +50,15 @@ libebookinclude_HEADERS =				\
 	e-card-types.h					\
 	e-card.h
 
+
+#
+# make a static library for use by addressbook's conduit's shared library
+#
+noinst_LTLIBRARIES = libebook-static.la
+libebook_static_la_SOURCES = $(libebook_la_SOURCES)
+libebook_static_la_LDFLAGS = --all-static
+
+
 test_client_SOURCES =					\
 	test-client.c
 
@@ -81,10 +90,21 @@ test_card_LDADD =					\
 	$(top_builddir)/e-util/libeutil.la
 
 
-load_pine_addressbook_SOURCES =					\
+load_pine_addressbook_SOURCES =				\
 	load-pine-addressbook.c
 
-load_pine_addressbook_LDADD =					\
+load_pine_addressbook_LDADD =				\
+	libebook.la					\
+	$(BONOBO_GNOME_LIBS)				\
+	$(top_builddir)/addressbook/ename/libename.la	\
+	$(top_builddir)/libversit/libversit.la		\
+	$(top_builddir)/e-util/libeutil.la
+
+
+load_gnomecard_addressbook_SOURCES =			\
+	load-gnomecard-addressbook.c
+
+load_gnomecard_addressbook_LDADD =			\
 	libebook.la					\
 	$(BONOBO_GNOME_LIBS)				\
 	$(top_builddir)/addressbook/ename/libename.la	\

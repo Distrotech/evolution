@@ -22,18 +22,35 @@
   <bookinfo>
     <title>A User's Guide to Evolution</title>
     <authorgroup>
-     <author><firstname>Aaron</firstname><surname>Weber</surname></author>
+      <author><firstname>Aaron</firstname><surname>Weber</surname></author>
       <author><firstname>Kevin</firstname><surname>Breit</surname></author>
-
-   </authorgroup>
+    </authorgroup>
     <copyright>
-      <year>2000</year><holder>Helix Code, Inc.</holder>
+      <year>2000</year>
+      <holder>Helix Code, Inc., </holder>
       <holder>Kevin Breit</holder>
     </copyright>
     
     <legalnotice>
       <para>
-        PUT THE RIGHT LEGALNOTICE IN HERE
+        Permission is granted to copy, distribute and/or modify this
+        document under the terms of the <citetitle>GNU Free
+        Documentation License</citetitle>, Version 1.1 or any later
+        version published by the Free Software Foundation with no
+        Invariant Sections, no Front-Cover Texts, and no Back-Cover
+        Texts. The license is included with this document in <xref
+        linkend="fdl">, and you may also obtain a copy from the Free
+        Software Foundation by visiting <ulink type="http"
+        url="http://www.fsf.org">their Web site</ulink> or by writing
+        to: Free Software Foundation, Inc., 59 Temple Place - Suite
+        330, Boston, MA 02111-1307, USA.
+      </para>
+      <para>
+        Many of the names used by companies to distinguish their
+        products and services are claimed as trademarks. Where those
+        names appear in any GNOME documentation, and those trademarks
+        are made aware to the members of the GNOME Documentation
+        Project, the names have been printed in caps or initial caps.
       </para>
     </legalnotice>
 
@@ -42,23 +59,12 @@
     </releaseinfo> 
     <!-- this is version of manual, not application -->
 
-<!-- ########## TO DO LIST: ########### -->
- <!--
-finish content.
-standardize capitalization/formatting of titles, interface and
-component names.
-standardize spelling of buzzwords & techterms like email
-add glossterms and glossary
-standardize on second person, not 1st pers. plural.
--->
-
   </bookinfo>
 
   &PREFACE;
   
   <part id="usage">
     <title>Using Evolution</title>
-    <subtitle>A Guide for Everybody</subtitle> 
      <partintro>
       <para>
         Part one of the <application>Evolution</application> manual
@@ -80,7 +86,6 @@ standardize on second person, not 1st pers. plural.
   </part>
   <part id="config">
   <title>Configuring and Managing Evolution</title>
-    <subtitle>A guide for Power Users and Administrators</subtitle>
     <partintro>
       <para>
         <application>Evolution</application> is highly configurable.

@@ -1,3 +1,41 @@
+2000-07-27  Peter Williams  <peterw@helixcode.com>
+
+	* e-canvas.c (e_canvas_destroy): Chain the
+	destroy handler.
+	
+2000-07-25  Peter Williams  <peterw@helixcode.com>	
+	
+	* e-canvas.c (emit_event): Don't bother with 
+	dereferencing the event pointer.
+	(e_canvas_item_set_cursor): Reference our selection
+	item; print a debug message. Deref when destroying
+	(e_canvas_item_add_selection): Same.
+	(e_canvas_item_remove_selection): Same.
+	
+2000-07-25  Peter Williams  <peterw@helixcode.com>
+
+	* Makefile.am (libeutil_static_la_LDFLAGS): Build both libraries
+	(a typo didn't build libeutil.la, only -static.)
+
+2000-07-25  Seth Alves  <alves@hungry.com>
+
+	* Makefile.am (libeutil_static_la_LDFLAGS): build static version
+	of library for conduit to use
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-util.c, e-util.h: Added a bunch of e_marshal functions.
+
+2000-07-12  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-util.c, e-util.h: Added e_strstrcase function.
+
+2000-07-11  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-canvas-vbox.c: Removed some debugging printfs.
+	
+	* e-canvas.c (e_canvas_unrealize): Call parent unrealize method.
+
 2000-07-10  Ettore Perazzoli  <ettore@helixcode.com>
 
 	* e-sexp.c (eval_dump_result): `#if 0'ed out.

@@ -26,6 +26,7 @@
 #include <bonobo.h>
 #include <libgnomeui/gnome-window-icon.h>
 #include <glade/glade.h>
+#include <liboaf/liboaf.h>
 
 #include "e-util/e-gui-utils.h"
 #include "e-setup.h"
@@ -39,6 +40,7 @@ static EShell *shell;
 static void
 no_views_left_cb (EShell *shell, gpointer data)
 {
+	e_shell_quit (shell);
 	gtk_main_quit ();
 }
 
@@ -47,41 +49,6 @@ destroy_cb (GtkObject *object, gpointer data)
 {
 	gtk_main_quit ();
 }
-
-#ifdef USING_OAF
-
-#include <liboaf/liboaf.h>
-
-static void
-init_corba (int *argc, char **argv)
-{
-	gnome_init_with_popt_table ("Evolution", VERSION, *argc, argv, oaf_popt_options, 0, NULL);
-
-	oaf_init (*argc, argv);
-}
-
-#else  /* USING_OAF */
-
-#include <libgnorba/gnorba.h>
-
-static void
-init_corba (int *argc, char **argv)
-{
-	CORBA_Environment ev;
-	
-	CORBA_exception_init (&ev);
-
-	gnome_CORBA_init_with_popt_table ("Evolution", VERSION, argc, argv,
-					  NULL, 0, NULL,
-					  GNORBA_INIT_SERVER_FUNC, &ev);
-
-	if (ev._major != CORBA_NO_EXCEPTION)
-		g_error ("Cannot initialize GNOME");
-
-	CORBA_exception_free (&ev);
-}
-
-#endif /* USING_OAF */
 
 static void
 development_warning ()
@@ -138,21 +105,6 @@ development_warning ()
 		gtk_object_destroy (GTK_OBJECT (warning_dialog));
 }
 
-static void
-view_delete_event_cb (GtkWidget *widget,
-		      GdkEventAny *event,
-		      void *data)
-{
-	EShell *shell;
-
-	shell = E_SHELL (data);
-
-	gtk_widget_destroy (widget);
-
-	/* FIXME we should keep track of the number of views and exit when all the views are gone.  */
-	e_shell_quit (shell);
-}
-
 static gint
 idle_cb (gpointer data)
 {
@@ -162,7 +114,11 @@ idle_cb (gpointer data)
 
 	evolution_directory = (char *) data;
 
+#ifdef HAVE_GCONF_CLIENT_GET_DEFAULT
 	gconf_client = gconf_client_get_default ();
+#else
+	gconf_client = gconf_client_new ();
+#endif
 
 	shell = e_shell_new (evolution_directory, gconf_client);
 	g_free (evolution_directory);
@@ -178,13 +134,8 @@ idle_cb (gpointer data)
 	gtk_signal_connect (GTK_OBJECT (shell), "destroy",
 			    GTK_SIGNAL_FUNC (destroy_cb), NULL);
 
-	if (! e_shell_restore_from_settings (shell)) {
+	if (! e_shell_restore_from_settings (shell))
 		view = e_shell_new_view (shell, STARTUP_URI);
-		/* FIXME: Do this for all the shell views even when the shell
-                   is restored.  */
-		gtk_signal_connect (GTK_OBJECT (view), "delete_event",
-				    GTK_SIGNAL_FUNC (view_delete_event_cb), shell);
-	}
 
 	if (!getenv ("EVOLVE_ME_HARDER"))
 		development_warning ();
@@ -203,7 +154,8 @@ main (int argc, char **argv)
 	bindtextdomain (PACKAGE, EVOLUTION_LOCALEDIR);
 	textdomain (PACKAGE);
 
-	init_corba (&argc, argv);
+	gnome_init_with_popt_table ("Evolution", VERSION, argc, argv, oaf_popt_options, 0, NULL);
+	oaf_init (argc, argv);
 
 	glade_gnome_init ();
 

@@ -1,3 +1,185 @@
+2000-07-29  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-click-to-add.c: Made enter key destroy and recreate the
+	ETableItem.
+
+	* e-table-item.c: Grab focus when person clicks even if cursor
+	isn't changing.
+
+2000-07-28  Dan Winship  <danw@helixcode.com>
+
+	* e-table-header.c (eth_destroy): Remove the idle handler before
+	destroying the data it operates on.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-item.c: Fixed up the table behavior so that it's not
+	always in an edit mode.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: Added a comment.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: Fixed shift click selections.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: Allocate correctly in the insert and
+	delete methods.
+
+	* e-table-click-to-add.c: Removed the line that was causing this
+	to do bad things.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-item.c (eti_cursor_change): Grab focus properly.
+
+	* e-table-item.c, e-table-click-to-add.c: Fixed ETableClickToAdd
+	to handle carriage return.  This still doesn't quite work right.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-click-to-add.c: Clear the selection model when
+	activating.
+
+	* e-table-item.c: Fixed a bunch of model column vs. view column
+	issues.
+
+	* e-table-selection-model.c: Set the cursor to -1, -1 and emi a
+	"cursor_changed" signal.
+
+2000-07-26  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-click-to-add.c: Fixed a reference.
+
+	* e-table-selection-model.c, e-table-selection-model.h: Added a
+	clear function.
+
+	* e-table.c, e-table.h: Made going from click to add to the main
+	table and back work better.
+
+2000-07-26  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-click-to-add.c, e-table-click-to-add.h: Added an
+	ETableSelectionModel so this won't crash.
+
+2000-07-26  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-item.c: Fixed the model/view row confusion.
+
+	* e-table-selection-model.c: Changed one expression to use a
+	#define properly.
+
+2000-07-26  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-group-container.c, e-table-group-container.h,
+	e-table-group-leaf.c, e-table-group-leaf.h: Added "table_selection_model"
+	argument.  Removed foreach function and selection notification.
+
+	* e-table-group.c, e-table-group.h: Removed foreach function and
+	selection notification.
+	
+	* e-table-header.c: Fixed header width calculation to include the
+	last column.
+
+	* e-table-item.c, e-table-item.h: Fixed this to use the new
+	selection model.
+
+	* e-table-scrolled.c, e-table-scrolled.h: Removed selection
+	notification.
+
+	* e-table-selection-model.c, e-table-selection-model.h: Finished
+	notification signals and fixed a bunch of bit manipulations.
+	Implemented do_something method.
+
+	* e-table.c, e-table.h: Create an ETableSelectionModel and use it
+	properly.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: Made foreach call the callback in top
+	to bottom order.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c, e-table-selection-model.h: Replaced
+	get_selection_list with foreach.
+
+	* e-table.h: Add a ETableSelectionModel.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* Makefile.am: Added e-table-selection-model.c and
+	e-table-selection-model.h.
+
+	* e-table-selection-model.c: Added the get_selection_list and
+	is_row_selected functions.  Removed some unused code.
+
+	* e-table-selection-model.h: Removed some unused code.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: Added comments to the bit field code.
+
+	* e-table-selection-model.h: Made the selection data guint32s.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: More fixes.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c: Fixed up the bit manipulation a bit
+	here.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-selection-model.c, e-table-selection-model.h: New files
+	for doing a selection model.  Not finished yet and thus not in
+	Makefile.am.
+
+	* e-table.c, e-table.h: Renamed the new dnd signals so that they
+	won't conflict with the widget signals.
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table.c, e-table.h: Implemented some of the drag & drop code.
+	Drops all report as being on row 0, col 0.  Also, automatic drags
+	don't set the row and column being dragged from.
+
+2000-07-23  Damon Chaplin  <damon@helixcode.com>
+
+	* e-cell-text.c: added a color_column where the color can be specified
+	as a string, e.g. "red" or "rgb:F/0/0".
+
+	* e-cell-text.c (ect_leave_edit): don't call unbuild_current_cell()
+	since the CellEdit struct has been freed in ect_stop_editing() and so
+	has the text.
+
+	* e-cell-text.c (unbuild_current_cell): set cell->text to NULL to make
+	sure we	don't try to free it again.
+
+2000-07-21  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table.h: Added some unused declarations for drag and drop
+	work.
+
+2000-07-14  Michael Meeks  <michael@helixcode.com>
+
+	* e-table-subset.c (etss_destroy): g_free things we g_malloc.
+
+2000-07-13  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-header-item.c: Changed the background color of the
+	header.
+
+2000-07-12  Christopher James Lahey  <clahey@helixcode.com>
+
+	* e-table-header-item.c: Made scroll wheel work properly in
+	header.
+
 2000-07-10  Ettore Perazzoli  <ettore@helixcode.com>
 
 	* e-table.c (set_scroll_adjustments): Be safe if @vadjustment is

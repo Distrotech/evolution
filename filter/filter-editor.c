@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2000 Helix Code Inc.
  *
- *  Authors: Michael Zucchi <notzed@helixcode.com>
+ *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public License
@@ -18,30 +18,29 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <gnome-xml/parser.h>
-#include "filter-druid.h"
+#include <gtk/gtk.h>
+#include <gnome.h>
+#include <glade/glade.h>
+
 #include "filter-editor.h"
+#include "filter-context.h"
+#include "filter-filter.h"
 
+#define d(x)
 
-static void filter_editor_class_init (FilterEditorClass *klass);
-static void filter_editor_init       (FilterEditor *obj);
-
-static GnomeDialogClass *filter_editor_parent;
+#if 0
+static void filter_editor_class_init	(FilterEditorClass *class);
+static void filter_editor_init	(FilterEditor *gspaper);
+static void filter_editor_finalise	(GtkObject *obj);
 
 #define _PRIVATE(x) (((FilterEditor *)(x))->priv)
 
 struct _FilterEditorPrivate {
-	FilterDruid *druid;
-
-	GtkWidget *edit, *add, *remove, *up, *down;
-
-	/* for sub-druid */
-	struct filter_option *druid_option;
-	GtkWidget *druid_dialogue;
-	FilterDruid *druid_druid;
 };
 
-enum SIGNALS {
+static GnomeDialogClass *parent_class;
+
+enum {
 	LAST_SIGNAL
 };
 
@@ -55,354 +54,296 @@ filter_editor_get_type (void)
 	if (!type) {
 		GtkTypeInfo type_info = {
 			"FilterEditor",
-			sizeof (FilterEditor),
-			sizeof (FilterEditorClass),
-			(GtkClassInitFunc) filter_editor_class_init,
-			(GtkObjectInitFunc) filter_editor_init,
-			(GtkArgSetFunc) NULL,
-			(GtkArgGetFunc) NULL
+			sizeof(FilterEditor),
+			sizeof(FilterEditorClass),
+			(GtkClassInitFunc)filter_editor_class_init,
+			(GtkObjectInitFunc)filter_editor_init,
+			(GtkArgSetFunc)NULL,
+			(GtkArgGetFunc)NULL
 		};
 		
-		type = gtk_type_unique (gnome_dialog_get_type (), &type_info);
+		type = gtk_type_unique(gnome_dialog_get_type (), &type_info);
 	}
 	
 	return type;
 }
 
 static void
-object_destroy(GtkObject *obj)
+filter_editor_class_init (FilterEditorClass *class)
 {
-	struct _FilterEditorPrivate *p = _PRIVATE(obj);
-
-	if (p->druid_druid)
-		gtk_object_unref(GTK_OBJECT (p->druid_dialogue));
-
-	GTK_OBJECT_CLASS(filter_editor_parent)->destroy(GTK_OBJECT (obj));
-}
-
-static void
-filter_editor_class_init (FilterEditorClass *klass)
-{
-	GtkObjectClass *object_class = (GtkObjectClass *) klass;
+	GtkObjectClass *object_class;
 	
-	filter_editor_parent = gtk_type_class (gnome_dialog_get_type ());
+	object_class = (GtkObjectClass *)class;
+	parent_class = gtk_type_class(gnome_dialog_get_type ());
 
-	object_class->destroy = object_destroy;
+	object_class->finalize = filter_editor_finalise;
+	/* override methods */
 
-	gtk_object_class_add_signals (object_class, signals, LAST_SIGNAL);
+	/* signals */
+
+	gtk_object_class_add_signals(object_class, signals, LAST_SIGNAL);
 }
 
 static void
-filter_editor_init (FilterEditor *obj)
+filter_editor_init (FilterEditor *o)
 {
-	obj->priv = g_malloc0(sizeof(*obj->priv));
-}
-
-
-static void
-sensitise(FilterEditor *e)
-{
-	struct _FilterEditorPrivate *p = _PRIVATE(e);
-
-	gtk_widget_set_sensitive(p->add, TRUE);
-	gtk_widget_set_sensitive(p->edit, e->option_current != NULL);
-	gtk_widget_set_sensitive(p->remove, e->option_current != NULL);
-	gtk_widget_set_sensitive(p->up, g_list_index(e->useroptions, e->option_current)>0);
-	gtk_widget_set_sensitive(p->down, g_list_index(e->useroptions, e->option_current)!=g_list_length(e->useroptions)-1);
+	o->priv = g_malloc0(sizeof(*o->priv));
 }
 
 static void
-druid_option_selected(FilterDruid *f, struct filter_option *option, FilterEditor *e)
+filter_editor_finalise(GtkObject *obj)
 {
-	e->option_current = option;
-	sensitise(e);
+	FilterEditor *o = (FilterEditor *)obj;
+
+        ((GtkObjectClass *)(parent_class))->finalize(obj);
 }
-
-static void
-druid_dialogue_clicked(GnomeDialog *d, int button, FilterEditor *e)
-{
-	struct _FilterEditorPrivate *p = _PRIVATE(e);
-	int page = filter_druid_get_page(p->druid_druid);
-
-	switch(button) {
-	case 1:
-		if (page<4) {
-			page++;
-		}
-		break;
-	case 0:
-		if (page>0) {
-			page--;
-		}
-		break;
-	case 2:
-		if (p->druid_druid->option_current) {
-#warning "what is going on here?"
-		        /* FIXME: should this be struct filter_option?? */
-			struct filter_option *or;
-
-			printf("refcount = %d\n", ((GtkObject *)p->druid_druid)->ref_count);
-
-			or = p->druid_druid->option_current;
-			if (p->druid_option) {
-				GList *node;
-
-				node = g_list_find(e->useroptions, p->druid_option);
-				if (node) {
-					/* FIXME: free old one */
-					/* we need to know what type or is supposed to be before
-					   we can free old data */
-					node->data = or;
-				} else {
-					g_warning("Cannot find node I edited, appending instead");
-					e->useroptions = g_list_append(e->useroptions, or);
-				}
-			} else {
-				e->useroptions = g_list_append(e->useroptions, or);
-			}
-			filter_druid_set_rules(p->druid, e->useroptions, e->rules, or);
-		}
-	case 3:
-		p->druid_dialogue = NULL;
-		gnome_dialog_close(d);
-		return;
-	}
-	filter_druid_set_page(p->druid_druid, page);
-
-	gnome_dialog_set_sensitive(GNOME_DIALOG (p->druid_dialogue), 0, page > 0);
-	gnome_dialog_set_sensitive(GNOME_DIALOG (p->druid_dialogue), 1, page < 4);
-	/* FIXME: make this depenedant on when the rules are actually done */
-	gnome_dialog_set_sensitive(GNOME_DIALOG (p->druid_dialogue), 2, page == 4);
-}
-
-static void
-druid_dialogue_option_selected(FilterDruid *f, struct filter_option *option, FilterEditor *e)
-{
-	struct _FilterEditorPrivate *p = _PRIVATE(e);
-
-	gnome_dialog_set_sensitive(GNOME_DIALOG (p->druid_dialogue), 1, TRUE);
-}
-
-static void
-add_or_edit(FilterEditor *e, struct filter_option *option)
-{
-	GnomeDialog *dialogue;
-	FilterDruid *druid;
-	struct _FilterEditorPrivate *p = _PRIVATE(e);
-
-	if (p->druid_dialogue) {
-		gdk_window_raise(GTK_WIDGET(p->druid_dialogue)->window);
-		return;
-	}
-
-	dialogue = GNOME_DIALOG (gnome_dialog_new (option ? _("Edit Filter") : _("Create filter"), NULL));
-	p->druid_dialogue = GTK_WIDGET (dialogue);
-	{
-		const char *pixmaps[] = {
-			GNOME_STOCK_BUTTON_PREV,
-			GNOME_STOCK_BUTTON_NEXT,
-			GNOME_STOCK_BUTTON_APPLY,
-			GNOME_STOCK_BUTTON_CANCEL,
-			NULL
-		};
-		const char *names[] = {
-			N_("Back"),
-			N_("Next"),
-			N_("Finish"),
-			N_("Cancel"),
-			NULL
-		};
-		if (option)
-			names[2] = N_("Apply");
-		gnome_dialog_append_buttons_with_pixmaps(dialogue, names, pixmaps);
-	}
-
-	gnome_dialog_set_close(dialogue, FALSE);
-	gnome_dialog_set_sensitive(dialogue, 0, FALSE);
-	gnome_dialog_set_sensitive(dialogue, 1, FALSE);
-	gnome_dialog_set_sensitive(dialogue, 2, FALSE);
-	gnome_dialog_set_default(dialogue, 1);
-
-	gtk_signal_connect(GTK_OBJECT (dialogue), "clicked", druid_dialogue_clicked, e);
-
-	druid = FILTER_DRUID (filter_druid_new());
-
-	p->druid_druid = druid;
-
-	filter_druid_set_default_html(p->druid_druid,
-				      _("<h2>Create Filtering Rule</h2>"
-					"<p>Select one of the base rules above, then continue "
-					"forwards to customise it.</p>"));
-
-	filter_druid_set_rules(druid, e->systemoptions, e->rules, option);
-	gtk_box_pack_start(GTK_BOX (dialogue->vbox), GTK_WIDGET (druid), TRUE, TRUE, 0);
-
-	if (option) {
-		druid_dialogue_clicked(dialogue, 1, e);
-	}
-
-	p->druid_option = option;
-
-	gtk_signal_connect(GTK_OBJECT (druid), "option_selected", druid_dialogue_option_selected, e);
-
-	gtk_widget_show(GTK_WIDGET (druid));
-	gtk_widget_show(GTK_WIDGET (dialogue));
-}
-
-static void
-add_clicked(GtkWidget *w, FilterEditor *e)
-{
-	add_or_edit(e, NULL);
-}
-
-static void
-edit_clicked(GtkWidget *w, FilterEditor *e)
-{
-	add_or_edit(e, e->option_current);
-}
-
-static void
-remove_clicked(GtkWidget *w, FilterEditor *e)
-{
-	printf("remove current ...\n");
-}
-
-static void
-up_clicked(GtkWidget *w, FilterEditor *e)
-{
-	printf("up ...\n");
-}
-
-static void
-down_clicked(GtkWidget *w, FilterEditor *e)
-{
-	printf("down ...\n");
-}
-
-/* build the contents of the editor */
-static void
-build_editor(FilterEditor *e)
-{
-	struct _FilterEditorPrivate *p = _PRIVATE(e);
-	GtkWidget *hbox;
-	GtkWidget *vbox;
-
-	hbox = gtk_hbox_new(FALSE, 3);
-
-	p->druid = FILTER_DRUID (filter_druid_new());
-	gtk_box_pack_start(GTK_BOX (hbox), GTK_WIDGET (p->druid), TRUE, TRUE, 0);
-
-	vbox = gtk_vbox_new(FALSE, 0);
-	
-	p->edit = gtk_button_new_with_label ("Edit");
-	p->add = gtk_button_new_with_label ("Add");
-	p->remove = gtk_button_new_with_label ("Remove");
-	p->up = gtk_button_new_with_label ("Up");
-	p->down = gtk_button_new_with_label ("Down");
-
-	gtk_box_pack_start(GTK_BOX (vbox), p->edit, FALSE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX (vbox), p->add, FALSE, TRUE, 3);
-	gtk_box_pack_start(GTK_BOX (vbox), p->remove, FALSE, TRUE, 0);
-	gtk_box_pack_start(GTK_BOX (vbox), p->up, FALSE, TRUE, 3);
-	gtk_box_pack_start(GTK_BOX (vbox), p->down, FALSE, TRUE, 0);
-
-	gtk_box_pack_start(GTK_BOX (hbox), vbox, FALSE, FALSE, 0);
-
-	gtk_box_pack_start(GTK_BOX (e->parent.vbox), hbox, TRUE, TRUE, 0);
-
-	gtk_signal_connect(GTK_OBJECT (p->druid), "option_selected", druid_option_selected, e);
-
-	gtk_signal_connect(GTK_OBJECT (p->edit), "clicked", edit_clicked, e);
-	gtk_signal_connect(GTK_OBJECT (p->add), "clicked", add_clicked, e);
-	gtk_signal_connect(GTK_OBJECT (p->remove), "clicked", remove_clicked, e);
-	gtk_signal_connect(GTK_OBJECT (p->up), "clicked", up_clicked, e);
-	gtk_signal_connect(GTK_OBJECT (p->down), "clicked", down_clicked, e);
-
-	filter_druid_set_default_html(p->druid, "<h2>Filtering Rules</h2>"
-				      "<p>Select one of the rules above to <i>view</i>, and "
-				      "<i>edit</i>.  Or <i>Add</i> a new rule.</p>");
-
-	gtk_widget_show_all(hbox);
-	sensitise(e);
-}
-
 
 /**
  * filter_editor_new:
  *
  * Create a new FilterEditor object.
  * 
- * Return value: A new FilterEditor widget.
+ * Return value: A new #FilterEditor object.
  **/
 FilterEditor *
-filter_editor_new (void)
+filter_editor_new(void)
 {
-	FilterEditor *new = FILTER_EDITOR ( gtk_type_new (filter_editor_get_type ()));
-
-	build_editor(new);
-
-	return new;
-}
-
-void
-filter_editor_set_rules(FilterEditor *e, GList *rules, GList *systemoptions, GList *useroptions)
-{
-	struct _FilterEditorPrivate *p = _PRIVATE(e);
-
-	e->rules= rules;
-	e->systemoptions = systemoptions;
-	e->useroptions = useroptions;
-
-	filter_druid_set_rules(p->druid, useroptions, rules, NULL);
-}
-
-void
-filter_editor_set_rule_files(FilterEditor *e, const char *systemrules, const char *userrules)
-{
-	GList *rules, *options = NULL, *options2;
-	xmlDocPtr doc, out;
-
-	doc = xmlParseFile(systemrules);
-	if( doc == NULL ) {
-		g_warning( "Couldn't load system rules file %s", systemrules );
-		rules = NULL;
-		options2 = NULL;
-	} else {
-		rules = filter_load_ruleset(doc);
-		options2 = filter_load_optionset(doc, rules);
-	}
-
-	out = xmlParseFile(userrules);
-	if (out)
-		options = filter_load_optionset(out, rules);
-
-	filter_editor_set_rules(e, rules, options2, options);
-}
-
-int
-filter_editor_save_rules(FilterEditor *e, const char *userrules)
-{
-	return filter_write_optionset_file(userrules, e->useroptions);
-}
-
-#ifdef STANDALONE
-
-int main(int argc, char **argv)
-{
-	FilterEditor *fe;
-
- 	gnome_init("Test", "0.0", argc, argv);
- 	gdk_rgb_init ();
- 	gtk_widget_set_default_colormap (gdk_rgb_get_cmap ());
- 	gtk_widget_set_default_visual (gdk_rgb_get_visual ());
-
-	fe = filter_editor_new();
-	filter_editor_set_rule_files(fe, "/home/notzed/gnome/evolution/filter/filterdescription.xml", "/home/notzed/filters.xml");
-	gtk_widget_show(fe);
-
-	gtk_main();
-
-	return 0;
+	FilterEditor *o = (FilterEditor *)gtk_type_new(filter_editor_get_type ());
+	return o;
 }
 
 #endif
+
+
+enum {
+	BUTTON_ADD,
+	BUTTON_EDIT,
+	BUTTON_DELETE,
+	BUTTON_UP,
+	BUTTON_DOWN,
+	BUTTON_LAST
+};
+
+struct _editor_data {
+	RuleContext *f;
+	FilterRule *current;
+	GtkList *list;
+	GtkButton *buttons[BUTTON_LAST];
+};
+
+static void set_sensitive(struct _editor_data *data);
+
+static void rule_add(GtkWidget *widget, struct _editor_data *data)
+{
+	FilterFilter *rule;
+	int result;
+	GnomeDialog *gd;
+	GtkWidget *w;
+	FilterPart *part;
+
+	d(printf("add rule\n"));
+	/* create a new rule with 1 match and 1 action */
+	rule = filter_filter_new();
+
+	part = rule_context_next_part(data->f, NULL);
+	filter_rule_add_part((FilterRule *)rule, filter_part_clone(part));
+	part = filter_context_next_action((FilterContext *)data->f, NULL);
+	filter_filter_add_action(rule, filter_part_clone(part));
+
+	w = filter_rule_get_widget((FilterRule *)rule, data->f);
+	gd = (GnomeDialog *)gnome_dialog_new("Add Rule", "Ok", "Cancel", NULL);
+	gtk_box_pack_start((GtkBox *)gd->vbox, w, FALSE, TRUE, 0);
+	gtk_widget_show((GtkWidget *)gd);
+	result = gnome_dialog_run_and_close(gd);
+	if (result == 0) {
+		GtkListItem *item = (GtkListItem *)gtk_list_item_new_with_label(((FilterRule *)rule)->name);
+		GList *l = NULL;
+
+		gtk_object_set_data((GtkObject *)item, "rule", rule);
+		gtk_widget_show((GtkWidget *)item);
+		l = g_list_append(l, item);
+		gtk_list_append_items(data->list, l);
+		gtk_list_select_child(data->list, (GtkWidget *)item);
+		data->current = (FilterRule *)rule;
+		rule_context_add_rule(data->f, (FilterRule *)rule);
+		set_sensitive(data);
+	} else {
+		gtk_object_unref((GtkObject *)rule);
+	}
+}
+
+static void rule_edit(GtkWidget *widget, struct _editor_data *data)
+{
+	GtkWidget *w;
+	int result;
+	GnomeDialog *gd;
+	FilterRule *rule;
+	int pos;
+
+	d(printf("edit rule\n"));
+	rule = data->current;
+	w = filter_rule_get_widget(rule, data->f);
+	gd = (GnomeDialog *)gnome_dialog_new("Edit Rule", "Ok", NULL);
+	gtk_box_pack_start((GtkBox *)gd->vbox, w, FALSE, TRUE, 0);
+	gtk_widget_show((GtkWidget *)gd);
+	result = gnome_dialog_run_and_close(gd);
+
+	if (result == 0) {
+		pos = rule_context_get_rank_rule(data->f, data->current);
+		if (pos != -1) {
+			GtkListItem *item = g_list_nth_data(data->list->children, pos);
+			gtk_label_set_text((GtkLabel *)(((GtkBin *)item)->child), data->current->name);
+		}
+	 }
+}
+
+static void rule_delete(GtkWidget *widget, struct _editor_data *data)
+{
+	int pos;
+	GList *l;
+	GtkListItem *item;
+
+	d(printf("ddelete rule\n"));
+	pos = rule_context_get_rank_rule(data->f, data->current);
+	if (pos != -1) {
+		rule_context_remove_rule(data->f, data->current);
+
+		item = g_list_nth_data(data->list->children, pos);
+		l = g_list_append(NULL, item);
+		gtk_list_remove_items(data->list, l);
+		g_list_free(l);
+
+		gtk_object_unref((GtkObject *)data->current);
+		data->current = NULL;
+	}
+	set_sensitive(data);
+}
+
+static void rule_move(struct _editor_data *data, int from, int to)
+{
+	GList *l;
+	GtkListItem *item;
+
+	d(printf("moving %d to %d\n", from, to));
+	rule_context_rank_rule(data->f, data->current, to);
+	
+	item = g_list_nth_data(data->list->children, from);
+	l = g_list_append(NULL, item);
+	gtk_list_remove_items_no_unref(data->list, l);
+	gtk_list_insert_items(data->list, l, to);			      
+	gtk_list_select_child(data->list, (GtkWidget *)item);
+	set_sensitive(data);
+}
+
+static void rule_up(GtkWidget *widget, struct _editor_data *data)
+{
+	int pos;
+
+	d(printf("up rule\n"));
+	pos = rule_context_get_rank_rule(data->f, data->current);
+	if (pos>0) {
+		rule_move(data, pos, pos-1);
+	}
+}
+
+static void rule_down(GtkWidget *widget, struct _editor_data *data)
+{
+	int pos;
+
+	d(printf("down rule\n"));
+	pos = rule_context_get_rank_rule(data->f, data->current);
+	rule_move(data, pos, pos+1);
+}
+
+static struct {
+	char *name;
+	GtkSignalFunc func;
+} edit_buttons[] = {
+	{ "rule_add", rule_add },
+	{ "rule_edit", rule_edit },
+	{ "rule_delete", rule_delete },
+	{ "rule_up", rule_up },
+	{ "rule_down", rule_down },
+};
+
+static void
+set_sensitive(struct _editor_data *data)
+{
+	FilterRule *rule = NULL;
+	int index=-1, count=0;
+
+	while ((rule = rule_context_next_rule(data->f, rule))) {
+		if (rule == data->current)
+			index=count;
+		count++;
+	}
+	d(printf("index = %d count=%d\n", index, count));
+	count--;
+	gtk_widget_set_sensitive((GtkWidget *)data->buttons[BUTTON_EDIT], index != -1);
+	gtk_widget_set_sensitive((GtkWidget *)data->buttons[BUTTON_DELETE], index != -1);
+	gtk_widget_set_sensitive((GtkWidget *)data->buttons[BUTTON_UP], index > 0);
+	gtk_widget_set_sensitive((GtkWidget *)data->buttons[BUTTON_DOWN], index >=0 && index<count);
+}
+
+static void
+select_rule(GtkWidget *w, GtkWidget *child, struct _editor_data *data)
+{
+	data->current = gtk_object_get_data((GtkObject *)child, "rule");
+	if (data->current)
+		d(printf("seledct rule: %s\n", data->current->name));
+	else
+		d(printf("bad data?\n"));
+	set_sensitive(data);
+}
+
+GtkWidget	*filter_editor_construct	(struct _FilterContext *f)
+{
+	GladeXML *gui;
+	GtkWidget *d, *w;
+	GList *l;
+	FilterRule *rule = NULL;
+	struct _editor_data *data;
+	int i;
+
+	g_assert(IS_FILTER_CONTEXT(f));
+
+	data = g_malloc0(sizeof(*data));
+	data->f = (RuleContext *)f;
+
+	gui = glade_xml_new(FILTER_GLADEDIR "/filter.glade", "edit_filter");
+        d = glade_xml_get_widget (gui, "edit_filter");
+	gtk_object_set_data_full((GtkObject *)d, "data", data, g_free);
+
+	gtk_window_set_title((GtkWindow *)d, "Edit Filters");
+	for (i=0;i<BUTTON_LAST;i++) {
+		data->buttons[i] = (GtkButton *)w = glade_xml_get_widget (gui, edit_buttons[i].name);
+		gtk_signal_connect((GtkObject *)w, "clicked", edit_buttons[i].func, data);
+	}
+
+	/* to be defined yet */
+#if 0
+        w = glade_xml_get_widget (gui, "filter_source");
+	l = GTK_MENU_SHELL(GTK_OPTION_MENU(w)->menu)->children;
+	while (l) {
+		b = l->data;
+		l = l->next;
+	}
+#endif
+
+        w = glade_xml_get_widget (gui, "rule_list");
+	data->list = (GtkList *)w;
+	l = NULL;
+	while ((rule = rule_context_next_rule((RuleContext *)f, rule))) {
+		GtkListItem *item = (GtkListItem *)gtk_list_item_new_with_label(rule->name);
+		gtk_object_set_data((GtkObject *)item, "rule", rule);
+		gtk_widget_show((GtkWidget *)item);
+		l = g_list_append(l, item);
+	}
+	gtk_list_append_items(data->list, l);
+	gtk_signal_connect((GtkObject *)w, "select_child", select_rule, data);
+
+	set_sensitive(data);
+	gtk_object_unref((GtkObject *)gui);
+
+	return d;
+}

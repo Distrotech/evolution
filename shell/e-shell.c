@@ -70,15 +70,9 @@ struct _EShellPrivate {
 #define SHORTCUTS_FILE_NAME     "shortcuts.xml"
 #define LOCAL_STORAGE_DIRECTORY "local"
 
-#ifdef USING_OAF
 #define MAIL_COMPONENT_ID	 "OAFIID:evolution-shell-component:evolution-mail:d3cb3ed6-a654-4337-8aa0-f443751d6d1b"
 #define CALENDAR_COMPONENT_ID    "OAFIID:evolution-shell-component:evolution-calendar:2eb9eb63-d305-4918-9c35-faae5db19e51"
 #define ADDRESSBOOK_COMPONENT_ID "OAFIID:evolution-shell-component:addressbook:b7a26547-7014-4bb5-98ab-2bcac2bb55ca"
-#else
-#define MAIL_COMPONENT_ID	 "evolution-shell-component:evolution-mail"
-#define CALENDAR_COMPONENT_ID    "evolution-shell-component:evolution-calendar"
-#define ADDRESSBOOK_COMPONENT_ID "evolution-shell-component:addressbook"
-#endif
 
 
 enum {
@@ -349,8 +343,12 @@ view_destroy_cb (GtkObject *object,
 	shell = E_SHELL (data);
 	shell->priv->views = g_list_remove (shell->priv->views, object);
 
-	if (shell->priv->views == NULL)
+	if (shell->priv->views == NULL) {
+		/* FIXME: This looks like a Bonobo bug to me.  */
+		bonobo_object_ref (BONOBO_OBJECT (shell));
 		gtk_signal_emit (GTK_OBJECT (shell), signals[NO_VIEWS_LEFT]);
+		bonobo_object_unref (BONOBO_OBJECT (shell));
+	}
 }
 
 
@@ -513,12 +511,8 @@ e_shell_construct (EShell *shell,
 					   priv->folder_type_registry,
 					   shortcut_path);
 
-	if (priv->shortcuts == NULL) {
-		gtk_object_unref (GTK_OBJECT (priv->shortcuts));
-		priv->shortcuts = NULL;
-
+	if (priv->shortcuts == NULL)
 		g_warning ("Cannot load shortcuts -- %s", shortcut_path);
-	}
 
 	g_free (shortcut_path);
 }
@@ -606,30 +600,16 @@ e_shell_get_folder_type_registry (EShell *shell)
 }
 
 
-/**
- * e_shell_save_settings:
- * @shell: 
- * 
- * Save the settings for this shell.
- * 
- * Return value: %TRUE if it worked, %FALSE otherwise.  Even if %FALSE is
- * returned, it is possible that at least part of the settings for the views
- * have been saved.
- **/
-gboolean
-e_shell_save_settings (EShell *shell)
+static gboolean
+save_settings_for_views (EShell *shell)
 {
 	EShellPrivate *priv;
+	GConfError *err = NULL;
 	GList *p;
 	gboolean retval;
-	GConfError *err = NULL;
 	int i;
 
-	g_return_val_if_fail (shell != NULL, FALSE);
-	g_return_val_if_fail (E_IS_SHELL (shell), FALSE);
-
 	priv = shell->priv;
-
 	retval = TRUE;
 
 	for (p = priv->views, i = 0; p != NULL; p = p->next, i++) {
@@ -652,7 +632,99 @@ e_shell_save_settings (EShell *shell)
 			      g_list_length (priv->views), &err);
 	gconf_client_suggest_sync (priv->gconf_client, NULL);
 
+	return TRUE;
+}
+
+static gboolean
+save_settings_for_component (EShell *shell,
+			     const char *id,
+			     EvolutionShellComponentClient *client)
+{
+	Bonobo_Unknown unknown_interface;
+	Evolution_Session session_interface;
+	CORBA_Environment ev;
+	char *prefix;
+	gboolean retval;
+
+	unknown_interface = bonobo_object_corba_objref (BONOBO_OBJECT (client));
+	g_assert (unknown_interface != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+
+	session_interface = Bonobo_Unknown_query_interface (unknown_interface, "IDL:Evolution/Session:1.0", &ev);
+	if (ev._major != CORBA_NO_EXCEPTION || CORBA_Object_is_nil (session_interface, &ev)) {
+		CORBA_exception_free (&ev);
+		return TRUE;
+	}
+
+	prefix = g_strconcat ("/apps/Evolution/Shell/Components/", id, NULL);
+	Evolution_Session_save_configuration (session_interface, prefix, &ev);
+
+	if (ev._major == CORBA_NO_EXCEPTION)
+		retval = TRUE;
+	else
+		retval = FALSE;
+
+	g_free (prefix);
+
+	CORBA_exception_free (&ev);
+
 	return retval;
+}
+
+static gboolean
+save_settings_for_components (EShell *shell)
+{
+	EShellPrivate *priv;
+	GList *component_ids;
+	GList *p;
+	gboolean retval;
+
+	priv = shell->priv;
+
+	g_assert (priv->component_registry);
+	component_ids = e_component_registry_get_id_list (priv->component_registry);
+
+	retval = TRUE;
+	for (p = component_ids; p != NULL; p = p->next) {
+		EvolutionShellComponentClient *client;
+		const char *id;
+
+		id = p->data;
+		client = e_component_registry_get_component_by_id (priv->component_registry, id);
+
+		if (! save_settings_for_component (shell, id, client))
+			retval = FALSE;
+	}
+
+	e_free_string_list (component_ids);
+
+	return retval;
+}
+
+/**
+ * e_shell_save_settings:
+ * @shell: 
+ * 
+ * Save the settings for this shell.
+ * 
+ * Return value: %TRUE if it worked, %FALSE otherwise.  Even if %FALSE is
+ * returned, it is possible that at least part of the settings for the views
+ * have been saved.
+ **/
+gboolean
+e_shell_save_settings (EShell *shell)
+{
+	gboolean views_saved;
+	gboolean components_saved;
+
+	g_return_val_if_fail (shell != NULL, FALSE);
+	g_return_val_if_fail (E_IS_SHELL (shell), FALSE);
+
+	views_saved      = save_settings_for_views (shell);
+	components_saved = save_settings_for_components (shell);
+
+	return views_saved && components_saved;
 }
 
 /**

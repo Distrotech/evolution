@@ -1,12 +1,65 @@
+2000-07-27  Dan Winship  <danw@helixcode.com>
+
+	* configure.in: Check for gconf_client_get_default (gconf 0.5 vs
+	newer)
+
+2000-07-26  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* configure.in: Bump version number to 0.3.
+
+2000-07-26  Peter Williams  <peterw@helixcode.com>
+
+	* widgets/e-table/e-table-scrolled.c (right_click_proxy): Default
+	the return value to 0.
+
+2000-07-25  Dan Winship  <danw@helixcode.com>
+
+	* configure.in: some unrelated changes: check for mkdtemp,
+	gnome_vfs_mime_get_default_action_without_fallback, and a
+	setuid/setgid movemail binary.
+
+	* acconfig.h: add MOVEMAIL_PATH
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* configure.in: Added addressbook/conduit/Makefile.
+
+2000-07-21  Christopher James Lahey  <clahey@helixcode.com>
+
+	* widgets/e-text/e-text.c: Made focus in not change your selection
+	position.
+
+2000-07-21  Szabolcs BAN <shooby@gnome.hu>
+
+	* calendar/gui/event-editor.c: Typo fix
+
 2000-07-20  Peter Williams  <peterw@helixcode.com>
 
 	* configure.in (THREADS_CFLAGS): Make threads mandatory
 	again.
 
+2000-07-19  Fatih Demir	<kabalak@gmx.net>
+	
+	* evolution.desktop & data/evolution.desktop: Added
+		the Turkish desktop entries.
+
+2000-07-17  Federico Mena Quintero  <federico@helixcode.com>
+
+	* configure.in (EVOLUTION_DIR): Typo fix.
+
+	* configure.in (AC_OUTPUT): Added the doc/devel Makefiles.
+	(EVOLUTION_DIR): Substitute EVOLUTION_DIR for the top_srcdir.
+	Added checks for gtk-doc.
+
 2000-07-13  Peter Williams  <peterw@curious-george.helixcode.com>
 
 	* configure.in (end): Bigass warnings for camel-async branch
 	(remove them later).
+
+2000-07-12  Federico Mena Quintero  <federico@helixcode.com>
+
+	* configure.in: Make gnome-print-0.20 mandatory.  We will bail out
+	with CVS HEAD versions to avoid breakage.
 
 2000-07-10  Ettore Perazzoli  <ettore@helixcode.com>
 

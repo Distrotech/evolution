@@ -1,3 +1,252 @@
+2000-07-29  Christopher James Lahey  <clahey@helixcode.com>
+
+	* backend/ebook/Makefile.am: Added load-gnomecard-addressbook
+	compilation.
+
+	* backend/ebook/e-card.c, backend/ebook/e-card.h: Added
+	e_card_load_cards_from_file helper function to load multiple cards
+	from a single file.
+
+	* backend/ebook/load-gnomecard-addressbook.c: New file to load
+	vcard files.  I think this is the format that gnomecard uses so if
+	you copy your gnomecard file to gnomecard.vcf and then run this
+	program in the same directory, it'll copy all your gnome contacts
+	into evolution.  It needs to be changed to take a filename as a
+	parameter.  Some fields (phone and address information, for
+	example) aren't displayed properly, but are saved.  This is new
+	code, so some other than phone and address may be lost.
+
+2000-07-28  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* backend/pas/Makefile.am: Add `pas-backend-ldap.c' and
+	`pas-backend-ldap.h' to `EXTRA_DIST' so they get distributed even
+	if the OpenLDAP support is not enabled.
+
+2000-07-27  Christopher James Lahey  <clahey@helixcode.com>
+
+	* backend/ebook/load-pine-addressbook.c: Changed the URI to load
+	to.
+
+2000-07-26  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/minicard/e-minicard-widget-test.c: Fixed a warning.
+
+2000-07-26  Chris Toshok  <toshok@helixcode.com>
+
+	* backend/pas/pas-backend-ldap.c (view_destroy): wait to free the
+	view until we've taken care of freeing its internals.  also, close
+	the ldap connection here.
+	(pas_backend_ldap_connect): rename p_b_l_ensure_connected to this,
+	since it's always called when we create a view.
+	(pas_backend_ldap_build_all_cards_list): open an ldap connection
+	in this function and close it at the end.
+	(poll_ldap): make sure to call ldap_unbind to close the view's
+	connection here.
+	(pas_backend_ldap_search): call pas_backend_ldap_connect here -
+	ldap_unbind will either be called from poll_ldap or from
+	view_destroy.
+	(pas_backend_ldap_get_vcard): the PASBackendLDAP no longer has an
+	LDAP*.
+
+2000-07-26  Chris Toshok  <toshok@helixcode.com>
+
+	* backend/pas/pas-backend-ldap.c
+	(pas_backend_ldap_build_all_cards_list): add support for user settable scope.
+	(pas_backend_ldap_search): same.
+	(pas_backend_ldap_load_uri): same.
+
+2000-07-26  Dan Winship  <danw@helixcode.com>
+
+	* gui/component/addressbook.oafinfo: lowercasify the
+	supported_mime_types
+
+2000-07-25  Chris Toshok  <toshok@helixcode.com>
+
+	* backend/ebook/e-card-types.h: add enum for e-card pilot status.
+
+	* conduit/address-conduit.c: #ifdef out all the archiving code with SUPPORT_ARCHIVING.
+	(purge): implement correctly - deleting ecards whose pilot status is DELETED.
+	(set_status): implement.
+	(set_pilot_id): add gtk_main call here to change commit_card into a synchronous
+	(delete_all): implement correctly - don't delete the records, just set their status to DELETED.
+	(local_record_from_ecard): get the current status from the ecard.
+
+	* backend/ebook/e-card.c (e_card_get_vcard): add vcard support for pilot status.
+	(parse_pilot_status): new function.
+	(e_card_class_init): add pilot status object arg.
+	(e_card_set_arg): add pilot status support.
+	(e_card_get_arg): same.
+	(e_card_init): initialize pilot_status to 0.
+
+2000-07-25  Chris Toshok  <toshok@helixcode.com>
+
+	* conduit/address-conduit.c: add comment headers to signals that
+	didn't have any.
+	
+2000-07-25  Chris Toshok  <toshok@helixcode.com>
+
+	* conduit/address-conduit.c (start_address_server): use the user's
+	Contact db.  not toshok's.
+
+2000-07-25  Michael Meeks  <michael@helixcode.com>
+
+	* backend/ebook/load-pine-addressbook.c (book_open_cb): check we
+	opened ok.
+
+2000-07-25  Seth Alves  <alves@hungry.com>
+
+	* ename/Makefile.am (libename_static_la_LDFLAGS): build static
+	version of the library for address conduit to use
+
+	* backend/ebook/Makefile.am: build a static version of the library
+	to link into the conduit
+
+2000-07-25  Christopher James Lahey  <clahey@helixcode.com>
+
+	* backend/ebook/e-card.c: Added a #define for
+	"X-EVOLUTION-PILOTID".  Added a parse_pilot_id to read pilot id's
+	in properly from VCards.  Rearranged some field orders.  Added a
+	get_arg case for ARG_PILOTID.  Initialize pilot_id field to 0.
+
+2000-07-24  Chris Toshok  <toshok@helixcode.com>
+
+	* backend/ebook/e-card.h: add pilot_id.
+
+	* backend/ebook/e-card.c (e_card_get_vcard): add support for
+	X-EVOLUTION-PILOTD vcard field.
+	(e_card_class_init): add pilot_id arg.
+	(e_card_set_arg): handle pilot_id arg.
+
+2000-07-23  Christopher James Lahey  <clahey@helixcode.com>
+
+	* backend/ebook/e-book-view-listener.c: Remove the idle handler
+	when we're destroyed.
+
+	* printing/e-contact-print.c: Fixed the spacing on the card
+	header.
+
+2000-07-20  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/component/addressbook.oafinfo: Fixed the oaf info.
+
+	* gui/minicard/.cvsignore, gui/minicard/Makefile.am,
+	gui/minicard/e-minicard-widget-test.c: Added a test for the
+	minicard widget.
+
+	* gui/minicard/e-minicard-control.c: Fixed the mime type.
+
+	* gui/minicard/e-minicard.c: Fixed some crashes if your parent
+	isn't a minicard view.
+
+	* gui/minicard/e-minicard-control.oafinfo: Removed.
+
+2000-07-20  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* gui/component/addressbook-component.c (factory_fn): Update for
+	the new `evolution_shell_component_new()'.
+
+2000-07-19  Fatih Demir	<kabalak@gmx.net>
+	
+	* conduit/address-conduit-control-applet.desktop:
+		Added the Turkish desktop entry.
+
+2000-07-18  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/minicard/e-minicard-control.c: Added "text/vCard" to the
+	list of mime types we support.
+
+2000-07-18  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/minicard/Makefile.am: Added
+	gui/minicard/e-minicard-control.c,
+	gui/minicard/e-minicard-control.h,
+	gui/minicard/e-minicard-widget.c, and
+	gui/minicard/e-minicard-widget.h.
+
+	* gui/minicard/e-minicard-control.c,
+	gui/minicard/e-minicard-control.h,
+	gui/minicard/e-minicard-widget.c,
+	gui/minicard/e-minicard-widget.h: Got these to compile.
+
+	* gui/minicard/e-minicard-control.gnorba,
+	gui/minicard/e-minicard-control.oafinfo: Copied directly from
+	bonobo-clock-control.  These aren't done yet.
+
+2000-07-18  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/minicard/e-minicard-control.c,
+	gui/minicard/e-minicard-control.h,
+	gui/minicard/e-minicard-widget.c,
+	gui/minicard/e-minicard-widget.h: New files for using a minicard
+	as a widget or a bonobo control.
+
+2000-07-14  Chris Toshok  <toshok@helixcode.com>
+
+	* gui/component/e-ldap-storage.c (ldap_server_foreach): duh.
+	don't save the port in the host slot either.
+
+2000-07-13  Christopher James Lahey  <clahey@helixcode.com>
+
+	* contact-editor/e-contact-editor-confirm-delete.glade,
+	contact-editor/e-contact-editor-confirm-delete.glade.h: Added
+	these.
+
+2000-07-13  Christopher James Lahey  <clahey@helixcode.com>
+
+	* Makefile.am: Switched the order of compilation of printing and
+	contact-editor.
+
+	* contact-editor/Makefile.am: Added printing libraries and a
+	confirm delete dialog glade file.
+
+	* contact-editor/e-contact-editor.c,
+	contact-editor/e-contact-editor.h: Enabled the delete and print
+	functions as well as providing a confirm delete dialog to the
+	outside world.
+
+	* gui/component/addressbook.c: Made the delete button on new cards
+	active.
+
+	* gui/minicard/Makefile.am: Added printing libraries to a number
+	of test programs.
+
+	* gui/minicard/e-minicard.c: Added print and delete to the right
+	click menu.  Made the delete button on the card editor active.
+
+	* printing/e-contact-print.c, printing/e-contact-print.h: Added a
+	function to print a single card.
+
+2000-07-12  Chris Toshok  <toshok@helixcode.com>
+
+	* gui/component/e-ldap-storage.c (ldap_server_foreach): oops.  fix
+	typo that was saving the port in the rootdn spot.
+	(save_ldap_data): make this a bit safer - writing to a new file
+	and renaming it.
+	(load_ldap_data): make this a bit smarter - if parsing the
+	ldapservers.xml file fails and there's a .new file there,
+	rename it.
+	
+2000-07-12  Christopher James Lahey  <clahey@helixcode.com>
+
+	* backend/pas/pas-backend-file.c: Do case insensitive compares.
+
+	* addressbook/gui/component/addressbook.c: Make quick search
+	search both name and company name.
+
+2000-07-12  Christopher James Lahey  <clahey@helixcode.com>
+
+	* contact-editor/e-contact-editor.c: Add icons to the toolbars.
+
+2000-07-12  Christopher James Lahey  <clahey@helixcode.com>
+
+	* contact-editor/Makefile.am: Added installation of arrow.png.
+
+	* contact-editor/e-contact-editor.c: Use EVOLUTIONDIR #define.
+
+2000-07-11  Christopher James Lahey  <clahey@helixcode.com>
+
+	* gui/component/addressbook.c: Removed an unused function
+
 2000-07-10  Dan Winship  <danw@helixcode.com>
 
 	* gui/component/select-names/Makefile.am (EXTRA_DIST): add idl

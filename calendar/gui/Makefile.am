@@ -26,10 +26,11 @@ LINK_FLAGS =							\
 	dialogs/libcal-dialogs.a				\
 	$(top_builddir)/calendar/cal-client/libcal-client.la	\
 	$(top_builddir)/calendar/cal-util/libcal-util.la	\
-	$(top_builddir)/e-util/libeutil.la			\
 	$(top_builddir)/widgets/e-paned/libepaned.a		\
 	$(top_builddir)/widgets/e-text/libetext.a		\
 	$(top_builddir)/widgets/e-table/libetable.a		\
+	$(top_builddir)/widgets/misc/libemiscwidgets.a		\
+	$(top_builddir)/e-util/libeutil.la			\
 	$(top_builddir)/libversit/libversit.la			\
 	$(top_builddir)/libical/src/libical/libical.a
 
@@ -51,6 +52,8 @@ evolution_calendar_SOURCES =			\
 	control-factory.h			\
 	component-factory.c			\
 	component-factory.h			\
+	e-calendar-table.h			\
+	e-calendar-table.c			\
 	e-day-view-main-item.c			\
 	e-day-view-main-item.h			\
 	e-day-view-time-item.c			\
@@ -111,12 +114,16 @@ EXTRA_DIST =	 			\
 	$(OAF_GNORBA_EXTRAS)		\
 	$(glade_DATA)			\
 	bell.xpm			\
-	recur.xpm			\
-	jump.xpm			\
 	dayview.xpm			\
-	workweekview.xpm		\
-	weekview.xpm			\
+	jump.xpm			\
 	monthview.xpm			\
+	recur.xpm			\
+	task-assigned-to.xpm		\
+	task-assigned.xpm		\
+	task-recurring.xpm		\
+	task.xpm			\
+	weekview.xpm			\
+	workweekview.xpm		\
 	yearview.xpm			\
 	calendar-control.gnorba		\
 	calendar-control.oafinfo

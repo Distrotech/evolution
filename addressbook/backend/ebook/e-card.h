@@ -69,6 +69,8 @@ struct _ECard {
 
 	EList       *arbitrary;     /* Arbitrary fields.                */
 
+	guint32         pilot_id;       /* id of the corresponding pilot */
+	guint32         pilot_status;   /* status information */
 #if 0
 	ECardPhoto      *logo;          /* This person's org's logo.        */
 
@@ -130,6 +132,8 @@ ECardName *e_card_name_from_string (const char      *full_name);
 ECardArbitrary *e_card_arbitrary_new  (void);
 ECardArbitrary *e_card_arbitrary_copy (const ECardArbitrary *arbitrary);
 void            e_card_arbitrary_free (      ECardArbitrary *arbitrary);
+
+GList *e_card_load_cards_from_file(const char *filename);
 
 /* Standard Gtk function */
 GtkType        e_card_get_type (void);

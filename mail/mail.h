@@ -21,6 +21,7 @@
 #include <gtkhtml/gtkhtml.h>
 #include "camel/camel.h"
 #include "composer/e-msg-composer.h"
+#include "mail-config.h"
 
 /* FIXME FIXME FIXME this sucks sucks sucks sucks */
 
@@ -50,15 +51,14 @@ void forward_msg (GtkWidget *button, gpointer user_data);
 void reply_to_sender (GtkWidget *button, gpointer user_data);
 void reply_to_all (GtkWidget *button, gpointer user_data);
 void delete_msg (GtkWidget *button, gpointer user_data);
-void refile_msg (GtkWidget *button, gpointer user_data);
+void move_msg (GtkWidget *button, gpointer user_data);
 void print_msg (GtkWidget *button, gpointer user_data);
 
+void mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path);
 void expunge_folder (BonoboUIHandler *uih, void *user_data, const char *path);
 void filter_edit (BonoboUIHandler *uih, void *user_data, const char *path);
-void vfolder_edit (BonoboUIHandler *uih, void *user_data, const char *path);
+void vfolder_edit_vfolders (BonoboUIHandler *uih, void *user_data, const char *path);
 void providers_config (BonoboUIHandler *uih, void *user_data, const char *path);
-
-GtkWidget *providers_config_new (void);
 
 /* session */
 void session_init (void);

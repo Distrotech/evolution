@@ -23,7 +23,7 @@
 #include "e-util/e-canvas-utils.h"
 
 enum {
-	ROW_SELECTION,
+	CURSOR_CHANGE,
 	LAST_SIGNAL
 };
 
@@ -45,11 +45,11 @@ enum {
 };
 
 static void
-etcta_row_selection (GtkObject *object, gint row, gboolean selected, ETableClickToAdd *etcta)
+etcta_cursor_change (GtkObject *object, gint row, gint col, ETableClickToAdd *etcta)
 {
 	gtk_signal_emit (GTK_OBJECT (etcta),
-			 etcta_signals [ROW_SELECTION],
-			 row, selected);
+			 etcta_signals [CURSOR_CHANGE],
+			 row, col);
 }
 
 static void
@@ -88,6 +88,9 @@ etcta_add_one (ETableClickToAdd *etcta, ETableModel *one)
 		gnome_canvas_item_set(GNOME_CANVAS_ITEM(etcta->row),
 				      "ETableModel", one,
 				      NULL);
+	gtk_object_set(GTK_OBJECT(etcta->selection),
+		       "model", one,
+		       NULL);
 }
 
 static void
@@ -97,6 +100,9 @@ etcta_drop_one (ETableClickToAdd *etcta)
 		return;
 	gtk_object_unref (GTK_OBJECT(etcta->one));
 	etcta->one = NULL;
+	gtk_object_set(GTK_OBJECT(etcta->selection),
+		       "model", NULL,
+		       NULL);
 }
 
 static void
@@ -138,6 +144,7 @@ etcta_destroy (GtkObject *object){
 	etcta_drop_table_header (etcta);
 	etcta_drop_model (etcta);
 	etcta_drop_message (etcta);
+	gtk_object_unref(GTK_OBJECT(etcta->selection));
 
 	if (GTK_OBJECT_CLASS (etcta_parent_class)->destroy)
 		(*GTK_OBJECT_CLASS (etcta_parent_class)->destroy) (object);
@@ -278,6 +285,8 @@ etcta_event (GnomeCanvasItem *item, GdkEvent *e)
 			one = e_table_one_new(etcta->model);
 			etcta_add_one (etcta, one);
 			gtk_object_unref(GTK_OBJECT(one));
+			
+			e_table_selection_model_clear(etcta->selection);
 
 			etcta->row = gnome_canvas_item_new(GNOME_CANVAS_GROUP(item),
 							   e_table_item_get_type(),
@@ -285,10 +294,9 @@ etcta_event (GnomeCanvasItem *item, GdkEvent *e)
 							   "ETableModel", etcta->one,
 							   "minimum_width", etcta->width,
 							   "drawgrid", TRUE,
+							   "table_selection_model", etcta->selection,
 							   NULL);
 
-			gtk_signal_connect(GTK_OBJECT(etcta->row), "row_selection",
-					   GTK_SIGNAL_FUNC(etcta_row_selection), etcta);
 		}
 		/* Fall through.  No break; */
 	case GDK_BUTTON_RELEASE:
@@ -302,7 +310,43 @@ etcta_event (GnomeCanvasItem *item, GdkEvent *e)
 			gnome_canvas_item_w2i (item, &e->button.x, &e->button.y);
 		}
 		break;
-		
+
+	case GDK_KEY_PRESS:
+		switch (e->key.keyval) {
+		case GDK_Return:
+		case GDK_KP_Enter:
+		case GDK_ISO_Enter:
+		case GDK_3270_Enter:
+			if (etcta->row) {
+				ETableModel *one;
+
+				e_table_one_commit(E_TABLE_ONE(etcta->one));
+				etcta_drop_one (etcta);
+				gtk_object_destroy(GTK_OBJECT(etcta->row));
+				etcta->row = NULL;
+
+				one = e_table_one_new(etcta->model);
+				etcta_add_one (etcta, one);
+				gtk_object_unref(GTK_OBJECT(one));
+
+				e_table_selection_model_clear(etcta->selection);
+
+				etcta->row = gnome_canvas_item_new(GNOME_CANVAS_GROUP(item),
+								   e_table_item_get_type(),
+								   "ETableHeader", etcta->eth,
+								   "ETableModel", etcta->one,
+								   "minimum_width", etcta->width,
+								   "drawgrid", TRUE,
+								   "table_selection_model", etcta->selection,
+								   NULL);
+
+				e_table_item_set_cursor(E_TABLE_ITEM(etcta->row), 0, 0);
+			}
+			break;
+		default:
+			break;
+		}
+			
 	default:
 		return FALSE;
 	}
@@ -345,7 +389,7 @@ etcta_class_init (ETableClickToAddClass *klass)
 
 	etcta_parent_class = gtk_type_class (PARENT_OBJECT_TYPE);
 
-	klass->row_selection = NULL;
+	klass->cursor_change = NULL;
 
 	object_class->destroy = etcta_destroy;
 	object_class->set_arg = etcta_set_arg;
@@ -367,11 +411,11 @@ etcta_class_init (ETableClickToAddClass *klass)
 	gtk_object_add_arg_type ("ETableClickToAdd::height", GTK_TYPE_DOUBLE,
 				 GTK_ARG_READABLE, ARG_HEIGHT);
 
-	etcta_signals [ROW_SELECTION] =
-		gtk_signal_new ("row_selection",
+	etcta_signals [CURSOR_CHANGE] =
+		gtk_signal_new ("cursor_change",
 				GTK_RUN_LAST,
 				object_class->type,
-				GTK_SIGNAL_OFFSET (ETableClickToAddClass, row_selection),
+				GTK_SIGNAL_OFFSET (ETableClickToAddClass, cursor_change),
 				gtk_marshal_NONE__INT_INT,
 				GTK_TYPE_NONE, 2, GTK_TYPE_INT, GTK_TYPE_INT);
 
@@ -392,6 +436,10 @@ etcta_init (GnomeCanvasItem *item)
 	etcta->row = NULL;
 	etcta->text = NULL;
 	etcta->rect = NULL;
+
+	etcta->selection = e_table_selection_model_new();
+	gtk_signal_connect(GTK_OBJECT(etcta->selection), "cursor_changed",
+			   GTK_SIGNAL_FUNC(etcta_cursor_change), etcta);
 
 	e_canvas_item_set_reflow_callback(item, etcta_reflow);
 }
@@ -422,30 +470,30 @@ e_table_click_to_add_get_type (void)
 void
 e_table_click_to_add_commit (ETableClickToAdd *etcta)
 {
-		if (etcta->row) {
-			e_table_one_commit(E_TABLE_ONE(etcta->one));
-			gtk_object_destroy(GTK_OBJECT(etcta->row));
-			etcta_drop_one (etcta);
-			etcta->row = NULL;
-		}
-		if (!etcta->text) {
-			etcta->text = gnome_canvas_item_new(GNOME_CANVAS_GROUP(etcta),
-							    e_text_get_type(),
-							    "text", etcta->message ? etcta->message : "",
-							    "anchor", GTK_ANCHOR_NW,
-							    "width", etcta->width - 4,
-							    NULL);
-			e_canvas_item_move_absolute (etcta->text, 2, 2);
-		}
-		if (!etcta->rect) {
-			etcta->rect = gnome_canvas_item_new(GNOME_CANVAS_GROUP(etcta),
-							    gnome_canvas_rect_get_type(),
-							    "x1", (double) 0,
-							    "y1", (double) 0,
-							    "x2", (double) etcta->width - 1,
-							    "y2", (double) etcta->height - 1,
-							    "outline_color", "black", 
-							    "fill_color", NULL,
-							    NULL);
-		}
+	if (etcta->row) {
+		e_table_one_commit(E_TABLE_ONE(etcta->one));
+		etcta_drop_one (etcta);
+		gtk_object_destroy(GTK_OBJECT(etcta->row));
+		etcta->row = NULL;
+	}
+	if (!etcta->text) {
+		etcta->text = gnome_canvas_item_new(GNOME_CANVAS_GROUP(etcta),
+						    e_text_get_type(),
+						    "text", etcta->message ? etcta->message : "",
+						    "anchor", GTK_ANCHOR_NW,
+						    "width", etcta->width - 4,
+						    NULL);
+		e_canvas_item_move_absolute (etcta->text, 2, 2);
+	}
+	if (!etcta->rect) {
+		etcta->rect = gnome_canvas_item_new(GNOME_CANVAS_GROUP(etcta),
+						    gnome_canvas_rect_get_type(),
+						    "x1", (double) 0,
+						    "y1", (double) 0,
+						    "x2", (double) etcta->width - 1,
+						    "y2", (double) etcta->height - 1,
+						    "outline_color", "black", 
+						    "fill_color", NULL,
+						    NULL);
+	}
 }

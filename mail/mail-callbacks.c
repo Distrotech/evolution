@@ -308,7 +308,7 @@ forward_msg (GtkWidget *button, gpointer user_data)
 }
 
 void
-refile_msg (GtkWidget *button, gpointer user_data)
+move_msg (GtkWidget *button, gpointer user_data)
 {
 	FolderBrowser *fb = user_data;
 	MessageList *ml = fb->message_list;
@@ -322,7 +322,7 @@ refile_msg (GtkWidget *button, gpointer user_data)
 		last = g_strdup ("");
 
 	evolution_shell_client_user_select_folder  (global_shell_client,
-						    _("Refile message(s) to"),
+						    _("Move message(s) to"),
 						    last, allowed_types, &uri, &physical);
 	if (!uri)
 		return;
@@ -353,6 +353,18 @@ delete_msg (GtkWidget *button, gpointer user_data)
 }
 
 void
+mark_all_seen (BonoboUIHandler *uih, void *user_data, const char *path)
+{
+        FolderBrowser *fb = FOLDER_BROWSER(user_data);
+        MessageList *ml = fb->message_list;
+        GPtrArray *uids;
+
+        uids = camel_folder_get_uids (ml->folder);
+	mail_do_flag_messages (ml->folder, uids, CAMEL_MESSAGE_SEEN,
+			       CAMEL_MESSAGE_SEEN);
+}
+
+void
 expunge_folder (BonoboUIHandler *uih, void *user_data, const char *path)
 {
 	FolderBrowser *fb = FOLDER_BROWSER(user_data);
@@ -362,18 +374,21 @@ expunge_folder (BonoboUIHandler *uih, void *user_data, const char *path)
 }
 
 static void
-filter_druid_clicked (FilterEditor *fe, int button, FolderBrowser *fb)
+filter_druid_clicked (GtkWidget *w, int button, FolderBrowser *fb)
 {
+	FilterContext *fc;
+
 	if (button == 0) {
 		char *user;
 
+		fc = gtk_object_get_data (GTK_OBJECT (w), "context");
 		user = g_strdup_printf ("%s/filters.xml", evolution_dir);
-		filter_editor_save_rules (fe, user);
+		rule_context_save ((RuleContext *)fc, user);
 		g_free (user);
 	}
 	
 	if (button != -1) {
-		gnome_dialog_close (GNOME_DIALOG (fe));
+		gnome_dialog_close (GNOME_DIALOG (w));
 	}
 }
 
@@ -381,112 +396,60 @@ void
 filter_edit (BonoboUIHandler *uih, void *user_data, const char *path)
 {
 	FolderBrowser *fb = FOLDER_BROWSER (user_data);
-	FilterEditor *fe;
+	FilterContext *fc;
 	char *user, *system;
+	GtkWidget *w;
 
-	fe = filter_editor_new ();
-
+	fc = filter_context_new();
 	user = g_strdup_printf ("%s/filters.xml", evolution_dir);
 	system = g_strdup_printf ("%s/evolution/filtertypes.xml", EVOLUTION_DATADIR);
-	filter_editor_set_rule_files (fe, system, user);
+	rule_context_load ((RuleContext *)fc, system, user);
 	g_free (user);
 	g_free (system);
-	gnome_dialog_append_buttons (GNOME_DIALOG (fe), GNOME_STOCK_BUTTON_OK, GNOME_STOCK_BUTTON_CANCEL, 0);
-	gtk_signal_connect (GTK_OBJECT (fe), "clicked", filter_druid_clicked, fb);
-	gtk_widget_show (GTK_WIDGET (fe));
-}
 
-static void
-vfolder_editor_clicked(FilterEditor *fe, int button, FolderBrowser *fb)
-{
-	if (button == 0) {
-		char *user;
+	if (((RuleContext *)fc)->error) {
+		GtkWidget *dialog;
+		gchar *err;
 
-		user = g_strdup_printf ("%s/vfolders.xml", evolution_dir);
-		filter_editor_save_rules (fe, user);
-		g_free (user);
-
-		/* FIXME: this is also not the way to do this, see also
-		   component-factory.c */
-		{
-			EvolutionStorage *storage;
-			FilterDriver *fe;
-			int i, count;
-			char *user, *system;
-			extern char *evolution_dir;
-
-			storage = gtk_object_get_data (GTK_OBJECT (fb), "e-storage");
-	
-			user = g_strdup_printf ("%s/vfolders.xml", evolution_dir);
-			system = g_strdup_printf ("%s/evolution/vfoldertypes.xml", EVOLUTION_DATADIR);
-			fe = filter_driver_new (system, user, mail_tool_uri_to_folder_noex);
-			g_free (user);
-			g_free (system);
-			count = filter_driver_rule_count (fe);
-			for (i = 0; i < count; i++) {
-				struct filter_option *fo;
-				GString *query;
-				struct filter_desc *desc = NULL;
-				char *desctext, descunknown[64];
-				char *name;
-				
-				fo = filter_driver_rule_get (fe, i);
-				if (fo == NULL)
-					continue;
-				query = g_string_new ("");
-				if (fo->description)
-					desc = fo->description->data;
-				if (desc)
-					desctext = desc->data;
-				else {
-					sprintf (descunknown, "volder-%p", fo);
-					desctext = descunknown;
-				}
-				g_string_sprintf (query, "vfolder:/%s/vfolder/%s?", evolution_dir, desctext);
-				filter_driver_expand_option (fe, query, NULL, fo);
-				name = g_strdup_printf ("/%s", desctext);
-				evolution_storage_new_folder (storage, name, "mail",
-							      query->str, name + 1);
-				g_string_free (query, TRUE);
-				g_free (name);
-			}
-			gtk_object_unref (GTK_OBJECT (fe));
-		}
-
+		err = g_strdup_printf (_("Error loading filter information:\n"
+					 "%s"), ((RuleContext *)fc)->error);
+		dialog = gnome_warning_dialog (err);
+		g_free (err);
+		
+		/* These are necessary because gtk_main, called by
+		 * g_d_r_a_c, does a LEAVE/ENTER pair when running
+		 * a main loop recursively. I don't know why the threads
+		 * lock isn't being held at this point, as we're in a
+		 * callback, but I don't ask questions. It works, and
+		 * threads are enabled so we know that it works.
+		 */
+		GDK_THREADS_ENTER();
+		gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
+		GDK_THREADS_LEAVE();
+		return;
 	}
-	if (button != -1) {
-		gnome_dialog_close (GNOME_DIALOG (fe));
-	}
+
+	w = filter_editor_construct (fc);
+	gtk_object_set_data_full (GTK_OBJECT (w), "context", fc, (GtkDestroyNotify)gtk_object_unref);
+	gtk_signal_connect (GTK_OBJECT (w), "clicked", filter_druid_clicked, fb);
+	gtk_widget_show (GTK_WIDGET (w));
 }
 
 void
-vfolder_edit (BonoboUIHandler *uih, void *user_data, const char *path)
+vfolder_edit_vfolders (BonoboUIHandler *uih, void *user_data, const char *path)
 {
-	FolderBrowser *fb = FOLDER_BROWSER (user_data);
-	FilterEditor *fe;
-	char *user, *system;
+        void vfolder_edit(void);
 
-	fe = filter_editor_new ();
-
-	user = g_strdup_printf ("%s/vfolders.xml", evolution_dir);
-	system = g_strdup_printf ("%s/evolution/vfoldertypes.xml", EVOLUTION_DATADIR);
-	filter_editor_set_rule_files (fe, system, user);
-	g_free (user);
-	g_free (system);
-	gnome_dialog_append_buttons (GNOME_DIALOG (fe), GNOME_STOCK_BUTTON_OK, GNOME_STOCK_BUTTON_CANCEL, 0);
-	gtk_signal_connect (GTK_OBJECT (fe), "clicked", vfolder_editor_clicked, fb);
-	gtk_widget_show (GTK_WIDGET (fe));
+        vfolder_edit();
 }
 
-void
-providers_config (BonoboUIHandler *uih, void *user_data, const char *path)
-{
-	GtkWidget *pc;
-
-	pc = providers_config_new ();
-
-	gtk_widget_show (pc);
-}
+/*
+ *void
+ *providers_config (BonoboUIHandler *uih, void *user_data, const char *path)
+ *{
+ *	mail_config();
+ *}
+ */
 
 void
 print_msg (GtkWidget *button, gpointer user_data)

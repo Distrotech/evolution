@@ -6,7 +6,7 @@ INCLUDES =					\
 	-DEVOLUTION_IMAGES=\""$(imagesdir)"\"	\
 	-DG_LOG_DOMAIN=\"e-utils\"
 
-noinst_LTLIBRARIES = libeutil.la
+noinst_LTLIBRARIES = libeutil.la libeutil-static.la
 
 libeutil_la_SOURCES =			\
 	e-canvas.c			\
@@ -41,3 +41,6 @@ libeutil_la_SOURCES =			\
 	e-util.h			\
 	e-xml-utils.c			\
 	e-xml-utils.h
+
+libeutil_static_la_SOURCES = $(libeutil_la_SOURCES)
+libeutil_static_la_LDFLAGS = --all-static

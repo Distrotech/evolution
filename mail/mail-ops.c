@@ -935,6 +935,9 @@ static void cleanup_load_folder (gpointer in_data, gpointer op_data, CamelExcept
 {
 	load_folder_input_t *input = (load_folder_input_t *) in_data;
 
+	gtk_widget_set_sensitive (GTK_WIDGET (input->fb->search_entry), camel_folder_has_search_capability (input->fb->folder));
+	gtk_widget_set_sensitive (GTK_WIDGET (input->fb->search_menu), camel_folder_has_search_capability (input->fb->folder));
+
 	message_list_set_folder (input->fb->message_list, input->fb->folder);
 
 	/*g_free (input->url); = fb->uri now*/
