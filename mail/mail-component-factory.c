@@ -39,9 +39,9 @@
 #include <string.h>
 
 
-#define FACTORY_ID	"OAFIID:GNOME_Evolution_Mail_Factory2"
+#define FACTORY_ID	"OAFIID:GNOME_Evolution_Mail_Factory_2"
 
-#define COMPONENT_ID	"OAFIID:GNOME_Evolution_Mail_Component2"
+#define COMPONENT_ID	"OAFIID:GNOME_Evolution_Mail_Component_2"
 #define COMPOSER_ID	"OAFIID:GNOME_Evolution_Mail_Composer"
 #define FOLDER_INFO_ID	"OAFIID:GNOME_Evolution_FolderInfo"
 #define MAIL_CONFIG_ID	"OAFIID:GNOME_Evolution_MailConfig"

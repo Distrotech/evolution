@@ -408,7 +408,6 @@ static void
 mail_component_class_init (MailComponentClass *class)
 {
 	POA_GNOME_Evolution_Component__epv *epv = &class->epv;
-
 	GObjectClass *object_class = G_OBJECT_CLASS (class);
 
 	parent_class = g_type_class_peek_parent (class);

@@ -1,3 +1,11 @@
+2003-08-18  Ettore Perazzoli  <ettore@ximian.com>
+
+	* GNOME_Evolution_Mail.server.in.in: Rename
+	GNOME_Evolution_Mail_Component2 to
+	GNOME_Evolution_Mail_Component_2 and GNOME_Evolution_Mail_Factory2
+	to GNOME_Evolution_Mail_Factory_2.
+	* mail-component-factory.c: Update accordingly.
+
 2003-08-09  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-component.c (storage_go_online): Pass NULL for the

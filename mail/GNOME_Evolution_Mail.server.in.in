@@ -3,7 +3,7 @@
   <!-- Folder display control -->
 
   <!-- (factory) -->
-  <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Factory2"
+  <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Factory_2"
 	      type="shlib"
 	      location="@COMPONENTDIR@/libevolution-mail.so">
 
@@ -31,9 +31,9 @@
 
   <!-- Component Interface -->
 
-  <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Component2"
+  <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Component_2"
 	      type="factory"
-	      location="OAFIID:GNOME_Evolution_Mail_Factory2">
+	      location="OAFIID:GNOME_Evolution_Mail_Factory_2">
 
     <oaf_attribute name="repo_ids" type="stringv">
       <item value="IDL:GNOME/Evolution/Component:1.0"/>
