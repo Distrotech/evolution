@@ -128,12 +128,14 @@ get_dtend (ECalModelCalendar *model, ECalModelComponent *comp_data)
 		    && e_cal_get_timezone (comp_data->client, icaltime_get_tzid (tt_end), &zone, NULL))
 			got_zone = TRUE;
 
-		if ((e_cal_model_get_flags (E_CAL_MODEL (model)) & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES) &&
-		    (e_cal_util_component_has_recurrences (comp_data->icalcomp))) {
+		if (e_cal_util_component_has_recurrences (comp_data->icalcomp)) {
 			if (got_zone)
 				tt_end = icaltime_from_timet_with_zone (comp_data->instance_end, tt_end.is_date, zone);
 			else
 				tt_end = icaltime_from_timet (comp_data->instance_end, tt_end.is_date);
+		} else {
+			if (got_zone)
+				tt_end = icaltime_from_timet_with_zone (icaltime_as_timet (tt_end), tt_end.is_date, zone);
 		}
 
 		if (!icaltime_is_valid_time (tt_end) || icaltime_is_null_time (tt_end))
