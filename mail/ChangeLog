@@ -1,3 +1,56 @@
+2004-09-06  Not Zed  <NotZed@Ximian.com>
+
+	* em-account-editor.c (emae_receive_options_extra_item): store the
+	config widgets in the item entry itself.
+	(emae_auto_detect): wasted a whole lot of time on this crap.
+
+	* em-account-prefs.c (account_able_clicked): removed some redundant logic.
+
+	* mail-send-recv.c (mail_autoreceive_setup): renamed to
+	mail_autoreceive_init and rewrote all the callbacks.  now it
+	listens to events on the accountlist directly and doesn't need
+	invoking manually.  It also runs relative to the account always,
+	rather than copying the uri.  Removed all callers except the mail
+	component one.
+
+	* em-account-editor.c (em_account_editor_provider_selector_new):
+	removed becaus eof below.
+	(em_account_editor_construct): copy the account to a working
+	object if supplied, else create a new one.
+
+	* mail-config.glade: make the provider selectors just use
+	em_account_editor_dropdown new for the dropdown menu.
+
+	* em-account-editor.c (prepare_signatures): removed, merged into
+	the identity page code.
+	(sig_fill_menu): removed.
+	(emae_setup_signatures): new function to setup signatures on a
+	gtkcombobox.
+	(clear_menu): removed.
+	(signature_changed): removed.
+	(emae_signature_changed): new function for changed.
+	(signature_removed): removed.
+	(emae_signature_removed): new function for removed.
+	(emae_signature_get_iter): helper for finding the right row for
+	this signature.
+	(signature_added): removed.
+	(emae_signature_added): new function for added.
+	(sig_activate): removed.
+	(emae_signaturetype_changed): new function to update the account
+	info immediately.
+	(sig_add_new_signature): renamed to emae_signature_new.
+	(select_account_signature): no longer needed, this happens in the
+	setup.
+
+	* mail-config.glade: changed the signature thing to a custom
+	widget (gtkcombobox).
+
+	* em-account-editor.c (em_account_editor_construct): updates for
+	api change, table sections require table items.
+	(emae_setup_service): handle host:port hostname syntax.
+	(emae_hostname_changed): and here too.
+	(emae_commit): fill this out, and implement it.
+
 2004-09-04  Not Zed  <NotZed@Ximian.com>
 
 	* *.c: include gnome i18.h if needed since camel-object.h was

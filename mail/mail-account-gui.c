@@ -2388,8 +2388,6 @@ mail_account_gui_save (MailAccountGui *gui)
 	
 	mail_config_save_accounts ();
 	
-	mail_autoreceive_setup ();
-	
 	return TRUE;
 }
 

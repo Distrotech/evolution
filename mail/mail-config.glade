@@ -606,7 +606,7 @@ For example: &quot;Work&quot; or &quot;Personal&quot;</property>
 			  <property name="yalign">0.5</property>
 			  <property name="xpad">0</property>
 			  <property name="ypad">0</property>
-			  <property name="mnemonic_widget">sigOption</property>
+			  <property name="mnemonic_widget">signature_dropdown</property>
 			</widget>
 			<packing>
 			  <property name="left_attach">0</property>
@@ -625,24 +625,12 @@ For example: &quot;Work&quot; or &quot;Personal&quot;</property>
 			  <property name="spacing">6</property>
 
 			  <child>
-			    <widget class="GtkOptionMenu" id="sigOption">
+			    <widget class="Custom" id="signature_dropdown">
 			      <property name="visible">True</property>
-			      <property name="can_focus">True</property>
-			      <property name="history">0</property>
-
-			      <child internal-child="menu">
-				<widget class="GtkMenu" id="convertwidget1">
-				  <property name="visible">True</property>
-
-				  <child>
-				    <widget class="GtkMenuItem" id="convertwidget2">
-				      <property name="visible">True</property>
-				      <property name="label" translatable="yes">Default</property>
-				      <property name="use_underline">True</property>
-				    </widget>
-				  </child>
-				</widget>
-			      </child>
+			      <property name="creation_function">em_account_editor_dropdown_new</property>
+			      <property name="int1">0</property>
+			      <property name="int2">0</property>
+			      <property name="last_modification_time">Mon, 06 Sep 2004 01:00:22 GMT</property>
 			    </widget>
 			    <packing>
 			      <property name="padding">0</property>
@@ -937,7 +925,7 @@ For example: &quot;Work&quot; or &quot;Personal&quot;</property>
 		  <child>
 		    <widget class="Custom" id="source_type_dropdown">
   		      <property name="visible">True</property>
-		      <property name="creation_function">em_account_editor_provider_selector_new</property>
+		      <property name="creation_function">em_account_editor_dropdown_new</property>
 		      <property name="int1">0</property>
 		      <property name="int2">0</property>
 		      <property name="last_modification_time">Thu, 29 Jul 2004 05:31:24 GMT</property>
@@ -1652,7 +1640,7 @@ For example: &quot;Work&quot; or &quot;Personal&quot;</property>
 		  <child>
 		    <widget class="Custom" id="transport_type_dropdown">
 		      <property name="visible">True</property>
-		      <property name="creation_function">em_account_editor_provider_selector_new</property>
+		      <property name="creation_function">em_account_editor_dropdown_new</property>
 		      <property name="int1">0</property>
 		      <property name="int2">0</property>
 		      <property name="last_modification_time">Thu, 29 Jul 2004 05:42:00 GMT</property>

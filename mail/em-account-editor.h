@@ -50,8 +50,10 @@ struct _EMAccountEditor {
 	em_account_editor_t type;
 	struct _GtkWidget *editor; /* gtknotebook or druid, depending on type */
 
-	struct _EMConfig *config;
+	struct _EMConfig *config; /* driver object */
+
 	struct _EAccount *account; /* working account, must instant apply to this */
+	struct _EAccount *original; /* original account, not changed unless commit is invoked */
 
 	int do_signature:1;	/* allow editing signature */
 };

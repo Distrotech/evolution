@@ -319,7 +319,8 @@ mc_startup(MailComponent *mc)
 	vfolder_load_storage();
 
 #ifdef ENABLE_MONO
-	e_plugin_register_type(e_plugin_mono_get_type());
+	if (getenv("EVOLUTION_DISABLE_MONO") == NULL)
+		e_plugin_register_type(e_plugin_mono_get_type());
 #endif
 	e_plugin_register_type(e_plugin_lib_get_type());
 	e_plugin_hook_register_type(em_popup_hook_get_type());
@@ -874,7 +875,7 @@ mail_component_init (MailComponent *component)
 	priv->async_event = mail_async_event_new();
 	priv->store_hash = g_hash_table_new (NULL, NULL);
 	
-	mail_autoreceive_setup();
+	mail_autoreceive_init();
 	
 	offline = mail_offline_handler_new();
 	bonobo_object_add_interface((BonoboObject *)component, (BonoboObject *)offline);
