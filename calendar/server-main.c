@@ -1,6 +1,9 @@
 #include <glib.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "calserv.h"
 
 void

@@ -5,7 +5,8 @@ cs_cmdarg_new(CSCmdArg *prev, CSCmdArg *parent)
 {
   CSCmdArg *retval = g_new0(CSCmdArg, 1);
 
-  prev->next = retval;
+  if(prev)
+    prev->next = retval;
   if(parent)
     retval->up = parent;
   else if(prev)
@@ -23,6 +24,8 @@ cs_cmdarg_nargs(CSCmdArg *arglist)
 void
 cs_cmdarg_destroy(CSCmdArg *arg)
 {
+  if(!arg) return;
+
   switch(arg->type) {
   case ITEM_STRING:
     g_free(arg->data); break;

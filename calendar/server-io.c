@@ -25,6 +25,11 @@ cs_server_new(void)
   rv->servfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(rv->servfd < 0) goto errout;
 
+  {
+    int n = 1;
+    setsockopt(rv->servfd, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
+  }
+
   addr.sin_family = AF_INET;
   addr.sin_port = htons(7668);
   addr.sin_addr.s_addr = INADDR_ANY;
@@ -90,8 +95,8 @@ cs_connection_process(gpointer data, GIOCondition cond,
   readbuf[rsize] = '\0';
   g_string_append(cnx->rdbuf, readbuf);
 
-  found_something = FALSE;
   do {
+    found_something = FALSE;
     switch(cnx->rs) {
     case RS_ID:
       ctmp = strchr(cnx->rdbuf->str, ' ');

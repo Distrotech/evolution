@@ -56,7 +56,7 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
     daterange = ci->args->next->data;
 
   if(cs_calendar_authenticate(cnx, calname)) {
-    fprintf(cnx->fh, "%s NO %s can't access Calendar store\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s NO %s can't access Calendar store\r\n", ci->id, ci->name);
     return;
   }
 
@@ -67,7 +67,7 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
   
   newcal = backend_open_calendar (cnx->authid, calname);
   if(!newcal) {
-    fprintf(cnx->fh, "%s NO %s can't access Calendar store\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s NO %s can't access Calendar store\r\n", ci->id, ci->name);
     return;
   }
 
@@ -75,9 +75,9 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
     backend_close_calendar(cnx->active_cal);
   cnx->active_cal = newcal;
   cnx->active_is_readonly = activate_rdonly;
-  fprintf(cnx->fh, "* %s EXISTS\n", ci->id);
-  fprintf(cnx->fh, "* FLAGS ()\n");
-  fprintf(cnx->fh, "%s OK %s Completed\n", ci->id, ci->name);  
+  fprintf(cnx->fh, "* %s EXISTS\r\n", ci->id);
+  fprintf(cnx->fh, "* FLAGS ()\r\n");
+  fprintf(cnx->fh, "%s OK %s Completed\r\n", ci->id, ci->name);  
 }
 
 static void
@@ -98,18 +98,18 @@ cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci)
   char *calname;
 
   if(!cnx->authid) {
-    fprintf(cnx->fh, "%s NO %s login, luser\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s NO %s login, luser\r\n", ci->id, ci->name);
     return;
   }
 
   calname = ci->args->data;
   if(!calname) {
-    fprintf(cnx->fh, "%s BAD %s not enough args\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s BAD %s not enough args\r\n", ci->id, ci->name);
     return;
   }
 
   backend_calendar_create(cnx->authid, calname);
-  fprintf(cnx->fh, "%s OK %s Calendar store created\n", ci->id, ci->name);
+  fprintf(cnx->fh, "%s OK %s Calendar store created\r\n", ci->id, ci->name);
 }
 
 static void
@@ -118,23 +118,23 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
   char *calname;
 
   if(!cnx->authid) {
-    fprintf(cnx->fh, "%s NO %s login, luser\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s NO %s login, luser\r\n", ci->id, ci->name);
     return;
   }
 
   calname = ci->args->data;
   if(!calname) {
-    fprintf(cnx->fh, "%s BAD %s not enough args\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s BAD %s not enough args\r\n", ci->id, ci->name);
     return;
   }
 
   if (backend_calendar_inuse (cnx->authid, calname)){
-     fprintf (cnx->fh, "%s BAD calendar in use\n", ci->id);
+     fprintf (cnx->fh, "%s BAD calendar in use\r\n", ci->id);
      return;
   }
 
   backend_delete_calendar (cnx->authid, calname);
-  fprintf(cnx->fh, "%s OK %s Calendar store deleted\n", ci->id, ci->name);
+  fprintf(cnx->fh, "%s OK %s Calendar store deleted\r\n", ci->id, ci->name);
 }
 
 static void
@@ -146,37 +146,37 @@ cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci)
   calname = ci->args->data;
 
   if(strcmp(calname, "<*>")) {
-    fprintf(cnx->fh, "%s NO %s failed, we suck at listing.\n", ci->id, ci->name);
+    fprintf(cnx->fh, "%s NO %s failed, we suck at listing.\r\n", ci->id, ci->name);
     return;
   }
 
   users = backend_list_users();
   for(ltmp = users; ltmp; ltmp = g_list_next(ltmp)) {
-    fprintf(cnx->fh, "* LIST () <%s>\n", (char *)ltmp->data);
+    fprintf(cnx->fh, "* LIST () <%s>\r\n", (char *)ltmp->data);
   }
   g_list_foreach(ltmp, (GFunc)g_free, NULL);
   g_list_free(ltmp);
-  fprintf(cnx->fh, "%s OK %s Completed\n", ci->id, ci->name);
+  fprintf(cnx->fh, "%s OK %s Completed\r\n", ci->id, ci->name);
 }
 
 static void
 cs_command_LSUB(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "%s NO LSUB subscription not yet implemented\n",
+  fprintf(cnx->fh, "%s NO LSUB subscription not yet implemented\r\n",
 	  ci->id);
 }
 
 static void
 cs_command_SUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "%s NO %s subscription not yet implemented\n",
+  fprintf(cnx->fh, "%s NO %s subscription not yet implemented\r\n",
 	  ci->id, ci->name);
 }
 
 static void
 cs_command_UNSUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "%s NO %s subscription not yet implemented\n",
+  fprintf(cnx->fh, "%s NO %s subscription not yet implemented\r\n",
 	  ci->id, ci->name);
 }
 
@@ -192,12 +192,36 @@ cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci)
   obj = ci->args->next->next->data;
 
   if(!cnx->active_cal) {
-    fprintf(cnx->fh, "%s NO %s no current calendar\n",
+    fprintf(cnx->fh, "%s NO %s no current calendar\r\n",
 	    ci->id, ci->name);
     return;
   }
   backend_add_object(cnx->active_cal, NULL);
-  fprintf(cnx->fh, "%s OK %s completed\n", ci->id, ci->name);
+  fprintf(cnx->fh, "%s OK %s completed\r\n", ci->id, ci->name);
+}
+
+static void
+cs_command_ATTRIBUTE(CSConnection *cnx, CSCmdInfo *ci)
+{
+  fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
+}
+
+static void
+cs_command_FREEBUSY(CSConnection *cnx, CSCmdInfo *ci)
+{
+  fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
+}
+
+static void
+cs_command_FETCH(CSConnection *cnx, CSCmdInfo *ci)
+{
+  fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
+}
+
+static void
+cs_command_STORE(CSConnection *cnx, CSCmdInfo *ci)
+{
+  fprintf(cnx->fh, "%s NO %s NYI\r\n", ci->id, ci->name);
 }
 
 typedef struct {
@@ -232,6 +256,20 @@ static ArgDef APPEND_ARGS[] = {{ITEM_STRING, 1},
 			       {ITEM_SUBLIST, 1},
 			       {ITEM_STRING, 1},
 			       END_ARGS};
+static ArgDef ATTRIBUTE_ARGS[] = {{ITEM_STRING, 1},
+				  {ITEM_SUBLIST, 1},
+				  END_ARGS};
+static ArgDef FREEBUSY_ARGS[] = {{ITEM_SUBLIST, 1},
+				 {ITEM_STRING, 1},
+				 {ITEM_STRING, 1},
+				 END_ARGS};
+static ArgDef FETCH_ARGS[] = {{ITEM_STRING, 1},
+			      {ITEM_SUBLIST, 1},
+			      END_ARGS};
+static ArgDef STORE_ARGS[] = {{ITEM_STRING, 1},
+			      {ITEM_STRING, 1},
+			      {ITEM_SUBLIST, 1},
+			      END_ARGS};
 
 static const CmdDef commands[] = {
   {"NOOP", NO_ARGS, cs_command_NOOP},
@@ -248,6 +286,10 @@ static const CmdDef commands[] = {
   {"SUBSCRIBE", SUBSCRIBE_ARGS, cs_command_SUBSCRIBE},
   {"UNSUBSCRIBE", SUBSCRIBE_ARGS, cs_command_UNSUBSCRIBE},
   {"APPEND", APPEND_ARGS, cs_command_APPEND},
+  {"ATTRIBUTE", ATTRIBUTE_ARGS, cs_command_ATTRIBUTE},
+  {"FREEBUSY", FREEBUSY_ARGS, cs_command_FREEBUSY},
+  {"FETCH", FETCH_ARGS, cs_command_FETCH},
+  {"STORE", STORE_ARGS, cs_command_STORE},
   {NULL, NULL, NULL}
 };
 
@@ -262,8 +304,7 @@ cs_connection_process_command(CSConnection *cnx)
       /* check args */
       for(j = 0, arg = cnx->curcmd.args;
 	  commands[i].args[j].argtype && arg; arg = arg->next, j++) {
-	if(commands[i].args[j].argtype == ITEM_STRING
-	   && arg->type != ITEM_STRING)
+	if(commands[i].args[j].argtype != arg->type)
 	  goto errout;
       }
       if(!commands[i].args[j].argtype) goto errout; /* too many args */
@@ -275,5 +316,5 @@ cs_connection_process_command(CSConnection *cnx)
   }
  errout:
   g_warning("Unknown command %s", cnx->curcmd.name);
-  fprintf(cnx->fh, "%s BAD unknown command\n", cnx->curcmd.id);
+  fprintf(cnx->fh, "%s BAD unknown command\r\n", cnx->curcmd.id);
 }
