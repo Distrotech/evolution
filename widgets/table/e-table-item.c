@@ -252,7 +252,7 @@ eti_get_cell_background_color (ETableItem *eti, int row, int col, gboolean selec
 		if (row % 2) {
 		
 		} else {
-			static double h = 0.0f, s = 0.0f, v = -0.5f;
+			static double h = 0.0f, s = 0.0f, v = -0.05f;
 			static gboolean set = FALSE;
 
 			if (!allocated) {
