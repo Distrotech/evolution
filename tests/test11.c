@@ -5,11 +5,10 @@
   */
 
 
-#include "camel.h"
-#include "camel-log.h"
-#include "camel-exception.h"
-#include "camel-folder.h"
-#include "md5-utils.h"
+#include <camel/camel.h>
+#include <camel/camel-exception.h>
+#include <camel/camel-folder.h>
+#include <camel/md5-utils.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
