@@ -54,10 +54,10 @@ typedef struct {
 	
 } MessageBrowserClass;
 
-GtkType    message_browser_get_type (void);
+GtkType  message_browser_get_type  (void);
 
-GtkWidget *message_browser_new      (const GNOME_Evolution_Shell shell,
-				     const char *uri, const char *uid);
+GtkWidget *message_browser_new  (const char *uri,
+				 const char *uid);
 
 #endif /* _MESSAGE_BROWSER_H_ */
 

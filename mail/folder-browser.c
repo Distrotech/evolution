@@ -212,11 +212,6 @@ folder_browser_destroy (GtkObject *object)
 		folder_browser->sensitize_timeout_id = 0;
 	}
 	
-	if (folder_browser->shell != CORBA_OBJECT_NIL) {
-		CORBA_Object_release (folder_browser->shell, &ev);
-		folder_browser->shell = CORBA_OBJECT_NIL;
-	}
-	
 	if (folder_browser->shell_view != CORBA_OBJECT_NIL) {
 		CORBA_Object_release (folder_browser->shell_view, &ev);
 		folder_browser->shell_view = CORBA_OBJECT_NIL;
@@ -2381,7 +2376,7 @@ paned_realised(GtkWidget *w, FolderBrowser *fb)
 static void
 folder_browser_gui_init (FolderBrowser *fb)
 {
-	const RuleContext *search_context = mail_component_peek_search_context (mail_component_peek ());
+	RuleContext *search_context = mail_component_peek_search_context (mail_component_peek ());
 	ESelectionModel *esm;
 	
 	/* The panned container */
@@ -2656,7 +2651,7 @@ my_folder_browser_init (FolderBrowser *fb)
 }
 
 GtkWidget *
-folder_browser_new (const GNOME_Evolution_Shell shell, const char *uri)
+folder_browser_new (const char *uri)
 {
 	CORBA_Environment ev;
 	FolderBrowser *folder_browser;
@@ -2666,14 +2661,6 @@ folder_browser_new (const GNOME_Evolution_Shell shell, const char *uri)
 	folder_browser = g_object_new (folder_browser_get_type (), NULL);
 	
 	my_folder_browser_init (folder_browser);
-	
-	folder_browser->shell = CORBA_Object_duplicate (shell, &ev);
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		folder_browser->shell = CORBA_OBJECT_NIL;
-		gtk_widget_destroy (GTK_WIDGET (folder_browser));
-		CORBA_exception_free (&ev);
-		return NULL;
-	}
 	
 	CORBA_exception_free (&ev);
 	

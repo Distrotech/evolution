@@ -272,20 +272,16 @@ create_view_callback (EStorageBrowser *browser,
 		
 		url = camel_url_new (physical_uri, NULL);
 		noselect = url ? camel_url_get_param (url, "noselect") : NULL;
-		if (noselect && !strcasecmp (noselect, "yes")) {
+		if (noselect && !strcasecmp (noselect, "yes"))
 			control = create_noselect_control ();
-		} else {
-			/* EPFIXME: We are passing a CORBA_OBJECT_NIL where it expects a non-null shell
-			   objref...  When we refactor FolderBrowser it should be able to do without
-			   the shell.  */
-			control = folder_browser_factory_new_control (physical_uri, CORBA_OBJECT_NIL);
-		}
+		else
+			control = folder_browser_factory_new_control (physical_uri);
 		camel_url_free (url);
 	} else if (type_is_vtrash (folder_type)) {
 		if (!strncasecmp (physical_uri, "file:", 5))
-			control = folder_browser_factory_new_control ("vtrash:file:/", CORBA_OBJECT_NIL);
+			control = folder_browser_factory_new_control ("vtrash:file:/");
 		else
-			control = folder_browser_factory_new_control (physical_uri, CORBA_OBJECT_NIL);
+			control = folder_browser_factory_new_control (physical_uri);
 	} else
 		return NULL;
 	

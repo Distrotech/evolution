@@ -1,5 +1,29 @@
 2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
 
+	* mail-callbacks.c (do_view_message): No need to pass a shell
+	argument to message_browser_new() anymore.
+
+	* message-browser.c (message_browser_new): Removed arg shell.  No
+	need to pass it to folder_browser_new() either.
+
+	* mail-component.c (create_view_callback): No need to pass a shell
+	arg to folder_browser_factory_new_control() anymore.
+
+	* folder-browser-factory.c (folder_browser_factory_new_control):
+	Removed arg shell; folder_browser_browser_new() doesn't need it
+	anymore.
+
+	* folder-browser.c (folder_browser_destroy): No need to unref
+	->shell anymore.
+	(folder_browser_new): Removed shell arg.
+	(folder_browser_gui_init): Removed a const qualifier that was not
+	supposed to be there.
+
+	* folder-browser.h: Removed member shell from struct
+	FolderBrowser.
+
+2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
+
 	* folder-browser.c (folder_browser_gui_init): Get the search
 	context through mail_component_peek_search_context(), since it's
 	no longer a global variable.

@@ -329,7 +329,7 @@ set_bonobo_ui (GtkWidget *widget, FolderBrowser *fb)
 }
 
 GtkWidget *
-message_browser_new (const GNOME_Evolution_Shell shell, const char *uri, const char *uid)
+message_browser_new (const char *uri, const char *uid)
 {
 	GtkWidget *vbox;
 	MessageBrowser *new;
@@ -339,7 +339,7 @@ message_browser_new (const GNOME_Evolution_Shell shell, const char *uri, const c
 	
 	g_object_set_data_full (G_OBJECT (new), "uid", g_strdup (uid), g_free);
 	
-	fb = FOLDER_BROWSER (folder_browser_new (shell, uri));
+	fb = FOLDER_BROWSER (folder_browser_new (uri));
 	g_object_ref (fb);
 	gtk_object_sink ((GtkObject *) fb);
 	

@@ -39,7 +39,6 @@ struct  _FolderBrowser {
 	
 	BonoboPropertyBag *properties;
 	
-	GNOME_Evolution_Shell shell;
 	GNOME_Evolution_ShellView shell_view;
 	
 	BonoboUIComponent *uicomp;
@@ -115,8 +114,7 @@ struct fb_ondemand_closure {
 };
 
 GtkType    folder_browser_get_type             (void);
-GtkWidget *folder_browser_new                  (const GNOME_Evolution_Shell  shell,
-						const char *uri);
+GtkWidget *folder_browser_new                  (const char *uri);
 
 void       folder_browser_set_folder           (FolderBrowser *fb, CamelFolder *folder, const char *uri);
 
