@@ -644,8 +644,8 @@ control_util_show_settings (GnomeCalendar *gcal)
  * is FALSE, all will be disabled.  Otherwise, the currently-selected number of
  * events will be used.
  */
-static void
-sensitize_calendar_commands (GnomeCalendar *gcal, BonoboControl *control, gboolean enable)
+void
+calendar_control_sensitize_calendar_commands (BonoboControl *control, GnomeCalendar *gcal, gboolean enable)
 {
 	BonoboUIComponent *uic;
 	ECalViewEvent *event;
@@ -773,7 +773,7 @@ gcal_calendar_selection_changed_cb (GnomeCalendar *gcal, gpointer data)
 
 	control = BONOBO_CONTROL (data);
 
-	sensitize_calendar_commands (gcal, control, TRUE);
+	calendar_control_sensitize_calendar_commands (control, gcal, TRUE);
 }
 
 /* Callback used when the selection in the taskpad changes */
@@ -802,13 +802,13 @@ gcal_calendar_focus_change_cb (GnomeCalendar *gcal, gboolean in, gpointer data)
 	if (in) {
 		g_signal_connect (gcal, "calendar_selection_changed",
 				  G_CALLBACK (gcal_calendar_selection_changed_cb), control);
-		sensitize_calendar_commands (gcal, control, TRUE);
+		calendar_control_sensitize_calendar_commands (control, gcal, TRUE);
 		focus->calendar_focused = TRUE;
 	} else if (focus->calendar_focused) {
 		gtk_signal_disconnect_by_func (GTK_OBJECT (gcal),
 					       G_CALLBACK (gcal_calendar_selection_changed_cb),
 					       control);
-		sensitize_calendar_commands (gcal, control, FALSE);
+		calendar_control_sensitize_calendar_commands (control, gcal, FALSE);
 		focus->calendar_focused = FALSE;
 	}
 }
@@ -930,7 +930,7 @@ calendar_control_activate (BonoboControl *control,
 	g_signal_connect (gcal, "taskpad_focus_change",
 			  G_CALLBACK (gcal_taskpad_focus_change_cb), control);
 
-	sensitize_calendar_commands (gcal, control, FALSE);
+	calendar_control_sensitize_calendar_commands (control, gcal, FALSE);
 	sensitize_taskpad_commands (gcal, control, FALSE);
 
 	bonobo_ui_component_thaw (uic, NULL);

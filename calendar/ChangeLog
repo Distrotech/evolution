@@ -1,5 +1,18 @@
 2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/control-factory.c (calendar_properties_init): pass the
+	BonoboControl to get_prop/set_prop.
+	(get_prop): obtain the GnomeCalendar from the control.
+	(set_prop): ditto, and when the URI property is changed,
+	sensitize the UI as approppriate.
+
+	* gui/calendar-commands.c (calendar_control_sensitize_calendar_commands):
+	made this function public.
+
+	* gui/calendar-commands.h: added new prototype.
+
+2003-10-10  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/calendar-commands.c (file_new_calendar_cb,
 	file_new_appointment_cb, file_new_event_cb, file_new_meeting_cb,
 	file_new_task_cb): callbacks for "New..." verbs.
