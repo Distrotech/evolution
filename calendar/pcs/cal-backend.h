@@ -78,7 +78,7 @@ struct _CalBackendClass {
 	/* Object related virtual methods */
 	void (* create_object) (CalBackend *backend, Cal *cal, const char *calobj);
 	void (* modify_object) (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
-	void (* remove_object) (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
+	void (* remove_object) (CalBackend *backend, Cal *cal, const char *uid, const char *rid, CalObjModType mod);
 
 	void (* discard_alarm) (CalBackend *backend, Cal *cal, const char *uid, const char *auid);
 
@@ -130,7 +130,7 @@ void cal_backend_remove (CalBackend *backend, Cal *cal);
 
 void cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj);
 void cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
-void cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
+void cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, const char *rid, CalObjModType mod);
 
 void cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, const char *auid);
 

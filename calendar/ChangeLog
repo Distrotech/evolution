@@ -1,3 +1,17 @@
+2003-10-09  Rodrigo Moya <rodrigo@ximian.com>
+
+	* idl/evolution-calendar.idl: added missing 'rid' argument to the
+	removeObject method.
+
+	* cal-client/cal-client.c (cal_client_remove_object_with_mod):
+	* pcs/cal-backend.h:
+	* pcs/cal-backend.c (cal_backend_remove_object):
+	* pcs/cal-backend-sync.h:
+	* pcs/cal-backend-sync.c (cal_backend_sync_remove_object,
+	_cal_backend_remove_object):
+	* pcs/cal-backend-file.c (cal_backend_file_remove_object):
+	* pcs/cal.c (impl_cal_removeObject): adapted to changes in IDL.
+
 2003-10-08  Chris Toshok  <toshok@ximian.com>
 
 	* gui/dialogs/e-delegate-dialog.c (e_delegate_dialog_construct):

@@ -192,7 +192,7 @@ module Calendar {
 		/* Methods for manipulating iCalendar objects */
 		oneway void createObject (in CalObj calobj);
 		oneway void modifyObject (in CalObj calobj, in CalObjModType mod);
-		oneway void removeObject (in CalObjUID uid, in CalObjModType mod);
+		oneway void removeObject (in CalObjUID uid, in CalRecurID rid, in CalObjModType mod);
 
 		/* Methods for getting/sending iCalendar VCALENDARS via iTip/iMip */
 		oneway void receiveObjects (in CalObj calobj);

@@ -307,6 +307,7 @@ impl_Cal_modifyObject (PortableServer_Servant servant,
 static void
 impl_Cal_removeObject (PortableServer_Servant servant,
 		       const CORBA_char *uid,
+		       const CORBA_char *rid,
 		       const GNOME_Evolution_Calendar_CalObjModType mod,
 		       CORBA_Environment *ev)
 {
@@ -316,7 +317,7 @@ impl_Cal_removeObject (PortableServer_Servant servant,
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	cal_backend_remove_object (priv->backend, cal, uid, mod);
+	cal_backend_remove_object (priv->backend, cal, uid, rid, mod);
 }
 
 static void

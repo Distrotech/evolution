@@ -1338,7 +1338,7 @@ cal_backend_file_modify_object (CalBackendSync *backend, Cal *cal, const char *c
 
 /* Remove_object handler for the file backend */
 static CalBackendSyncStatus
-cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, 
+cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, const char *rid,
 				CalObjModType mod, char **object)
 {
 	CalBackendFile *cbfile;

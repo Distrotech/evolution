@@ -776,20 +776,21 @@ cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, Ca
  * cal_backend_remove_object:
  * @backend: A calendar backend.
  * @uid: Unique identifier of the object to remove.
+ * @rid: A recurrence ID.
  * 
  * Removes an object in a calendar backend.  The backend will notify all of its
  * clients about the change.
  * 
  **/
 void
-cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod)
+cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, const char *rid, CalObjModType mod)
 {
 	g_return_if_fail (backend != NULL);
 	g_return_if_fail (IS_CAL_BACKEND (backend));
 	g_return_if_fail (uid != NULL);
 
 	g_assert (CLASS (backend)->remove_object != NULL);
-	(* CLASS (backend)->remove_object) (backend, cal, uid, mod);
+	(* CLASS (backend)->remove_object) (backend, cal, uid, rid, mod);
 }
 
 void

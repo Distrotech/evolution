@@ -3188,7 +3188,8 @@ cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModT
 }
 
 gboolean
-cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjModType mod, GError **error)
+cal_client_remove_object_with_mod (CalClient *client, const char *uid,
+				   const char *rid, CalObjModType mod, GError **error)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
@@ -3221,7 +3222,7 @@ cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjMod
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Calendar_Cal_removeObject (priv->cal, uid, mod, &ev);
+	GNOME_Evolution_Calendar_Cal_removeObject (priv->cal, uid, rid ? rid : "", mod, &ev);
 	if (BONOBO_EX (&ev)) {
 		e_calendar_remove_op (client, our_op);
 		e_mutex_unlock (our_op->mutex);

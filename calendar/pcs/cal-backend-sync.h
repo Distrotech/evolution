@@ -44,7 +44,7 @@ struct _CalBackendSyncClass {
 
 	CalBackendSyncStatus (*create_object_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, char **uid);
 	CalBackendSyncStatus (*modify_object_sync)  (CalBackendSync *backend, Cal *cal, const char *calobj, CalObjModType mod, char **old_object);
-	CalBackendSyncStatus (*remove_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod, char **object);
+	CalBackendSyncStatus (*remove_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, const char *rid, CalObjModType mod, char **object);
 
 	CalBackendSyncStatus (*discard_alarm_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, const char *auid);
 
@@ -105,6 +105,7 @@ CalBackendSyncStatus cal_backend_sync_modify_object           (CalBackendSync  *
 CalBackendSyncStatus cal_backend_sync_remove_object           (CalBackendSync  *backend,
 							       Cal             *cal,
 							       const char      *uid,
+							       const char      *rid,
 							       CalObjModType    mod,
 							       char **object);
 CalBackendSyncStatus cal_backend_sync_discard_alarm (CalBackendSync *backend, Cal *cal, const char *uid, const char *auid);
