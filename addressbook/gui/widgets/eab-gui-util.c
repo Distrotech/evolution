@@ -90,7 +90,7 @@ eab_load_error_dialog (GtkWidget *parent, ESource *source, EBookStatus status)
 		label_string = _("We were unable to open this addressbook. This either means "
                                  "this book is not marked for offline usage or not yet downloaded "
                                  "for offline usage. Please load the addressbook once in online mode "
-                                 "to download its conents");
+                                 "to download its contents");
 	}
 		
 	else if (!strncmp (uri, "file:", 5)) {
