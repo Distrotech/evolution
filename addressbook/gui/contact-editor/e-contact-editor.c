@@ -2142,13 +2142,11 @@ static struct {
 	{ "label-spouse", E_CONTACT_SPOUSE },
 	{ "entry-spouse", E_CONTACT_SPOUSE, TRUE },
 
-#if notyet
 	{ "label-birthday", E_CONTACT_BIRTH_DATE },
 	{ "dateedit-birthday", E_CONTACT_BIRTH_DATE, TRUE },
 
 	{ "label-anniversary", E_CONTACT_ANNIVERSARY },
 	{ "dateedit-anniversary", E_CONTACT_ANNIVERSARY, TRUE },
-#endif
 
 	{ "label-comments", E_CONTACT_NOTE },
 	{ "text-comments", E_CONTACT_NOTE, TRUE },
@@ -2347,22 +2345,17 @@ fill_in_info(EContactEditor *editor)
 	if (contact) {
 		char *file_as;
 		EContactName *name;
-#if notyet
-		const ECardDate *anniversary;
-		const ECardDate *bday;
-#endif
+		EContactDate *anniversary;
+		EContactDate *bday;
 		int i;
 		GtkWidget *widget;
-		GList *list;
 		gboolean wants_html;
 
 		g_object_get (contact,
 			      "file_as",          &file_as,
 			      "name",             &name,
-#if notyet
 			      "anniversary",      &anniversary,
 			      "birth_date",       &bday,
-#endif
 			      "wants_html",       &wants_html,
 			      NULL);
 
@@ -2389,7 +2382,6 @@ fill_in_info(EContactEditor *editor)
 			e_contact_name_free(editor->name);
 		editor->name = name;
 
-#if notyet
 		widget = glade_xml_get_widget(editor->gui, "dateedit-anniversary");
 		if (widget && E_IS_DATE_EDIT(widget)) {
 			EDateEdit *dateedit;
@@ -2415,7 +2407,9 @@ fill_in_info(EContactEditor *editor)
 			else
 				e_date_edit_set_time (dateedit, -1);
 		}
-#endif
+
+		e_contact_date_free (anniversary);
+		e_contact_date_free (bday);
 
 		set_fields(editor);
 	}
@@ -2459,13 +2453,10 @@ extract_info(EContactEditor *editor)
 {
 	EContact *contact = editor->contact;
 	if (contact) {
-#if notyet
-		ECardDate anniversary;
-		ECardDate bday;
-#endif
+		EContactDate anniversary;
+		EContactDate bday;
 		int i;
 		GtkWidget *widget;
-		GList *list;
 
 		widget = glade_xml_get_widget(editor->gui, "entry-file-as");
 		if (widget && GTK_IS_EDITABLE(widget)) {
@@ -2485,7 +2476,6 @@ extract_info(EContactEditor *editor)
 		if (editor->name)
 			e_contact_set (contact, E_CONTACT_NAME, editor->name);
 
-#if notyet
 		widget = glade_xml_get_widget(editor->gui, "dateedit-anniversary");
 		if (widget && E_IS_DATE_EDIT(widget)) {
 			if (e_date_edit_get_date (E_DATE_EDIT (widget),
@@ -2493,13 +2483,9 @@ extract_info(EContactEditor *editor)
 						  &anniversary.month,
 						  &anniversary.day)) {
 				/* g_print ("%d %d %d\n", anniversary.year, anniversary.month, anniversary.day); */
-				g_object_set (card,
-					       "anniversary", &anniversary,
-					       NULL);
+				e_contact_set (contact, E_CONTACT_ANNIVERSARY, &anniversary);
 			} else
-				g_object_set (card,
-					       "anniversary", NULL,
-					       NULL);
+				e_contact_set (contact, E_CONTACT_ANNIVERSARY, NULL);
 		}
 
 		widget = glade_xml_get_widget(editor->gui, "dateedit-birthday");
@@ -2509,15 +2495,10 @@ extract_info(EContactEditor *editor)
 						  &bday.month,
 						  &bday.day)) {
 				/* g_print ("%d %d %d\n", bday.year, bday.month, bday.day); */
-				g_object_set (card,
-					       "birth_date", &bday,
-					       NULL);
+				e_contact_set (contact, E_CONTACT_BIRTH_DATE, &bday);
 			} else
-				g_object_set (card,
-					       "birth_date", NULL,
-					       NULL);
+				e_contact_set (contact, E_CONTACT_BIRTH_DATE, NULL);
 		}
-#endif
 	}
 }
 

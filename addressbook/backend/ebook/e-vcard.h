@@ -27,6 +27,7 @@
 #include <glib-object.h>
 
 #define EVC_ADR             "ADR"
+#define EVC_BDAY            "BDAY"
 #define EVC_CALURI          "CALURI"
 #define EVC_CATEGORIES      "CATEGORIES"
 #define EVC_EMAIL           "EMAIL"

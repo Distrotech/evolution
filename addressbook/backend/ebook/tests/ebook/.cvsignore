@@ -1,5 +1,6 @@
 Makefile
 Makefile.in
+test-date
 test-ebook
 test-changes
 test-photo

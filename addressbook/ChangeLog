@@ -1,3 +1,37 @@
+2003-10-10  Chris Toshok  <toshok@ximian.com>
+
+	* gui/contact-editor/e-contact-editor.c (fill_in_info): un-ifdef
+	the date handling code.
+	(extract_info): same.
+
+	* backend/pas/pas-backend-ldap.c (prop_info): add the address
+	labels and dates to the build.
+	(anniversary_populate): un-ifdef and get this working.
+	(anniversary_ber): same.
+	(anniversary_compare): same.
+	(birthday_populate): same.
+	(birthday_ber): same.
+	(birthday_compare): same.
+
+	* backend/ebook/tests/ebook/.cvsignore,
+	backend/ebook/tests/ebook/Makefile.am
+	backend/ebook/tests/ebook/test-date.c: add a test for EContactDate
+	getting/setting.
+	
+	* backend/ebook/e-vcard.h: add EVC_BDAY.
+
+	* backend/ebook/e-contact.h: add prototypes for the
+	e_contact_date_* functions.
+
+	* backend/ebook/e-contact.c (field_info): add
+	BIRTH_DATE/ANNIVERSARY fields.
+	(date_getter): new
+	(date_setter): new
+	(e_contact_date_new): new
+	(e_contact_date_from_string): new
+	(e_contact_date_to_string): new
+	(e_contact_date_free): new
+
 2003-10-10  Not Zed  <NotZed@Ximian.com>
 
 	*

@@ -124,6 +124,9 @@ typedef enum {
 
 	E_CONTACT_WANTS_HTML,    /* boolean field */
 
+	E_CONTACT_BIRTH_DATE,    /* structured field (EContactDate) */
+	E_CONTACT_ANNIVERSARY,   /* structured field (EContactDate) */
+
 	E_CONTACT_FIELD_LAST,
 
 	/* useful constants */
@@ -165,6 +168,12 @@ typedef struct {
 	char *country;
 } EContactAddress;
 
+typedef struct {
+	int year;
+	int month;
+	int day;
+} EContactDate;
+
 struct _EContact {
 	EVCard parent;
 
@@ -194,12 +203,18 @@ const gpointer          e_contact_get_const        (EContact *contact, EContactF
 void                    e_contact_set              (EContact *contact, EContactField field_id, gpointer value);
 
 /* misc functions for structured values */
+EContactDate           *e_contact_date_new         (void);
+EContactDate           *e_contact_date_from_string (const char *str);
+char                   *e_contact_date_to_string   (EContactDate *dt);
+
 EContactName           *e_contact_name_new         (void);
 char                   *e_contact_name_to_string   (const EContactName *name);
 EContactName           *e_contact_name_from_string (const char *name_str);
 EContactName           *e_contact_name_copy        (EContactName *name);
 
+
 /* destructors for structured values */
+void                    e_contact_date_free        (EContactDate *date);
 void                    e_contact_name_free        (EContactName *name);
 void                    e_contact_photo_free       (EContactPhoto *photo);
 void                    e_contact_address_free     (EContactAddress *address);

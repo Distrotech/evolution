@@ -70,6 +70,8 @@ static void* n_getter (EContact *contact, EVCardAttribute *attr);
 static void n_setter (EContact *contact, EVCardAttribute *attr, void *data);
 static void* adr_getter (EContact *contact, EVCardAttribute *attr);
 static void adr_setter (EContact *contact, EVCardAttribute *attr, void *data);
+static void* date_getter (EContact *contact, EVCardAttribute *attr);
+static void date_setter (EContact *contact, EVCardAttribute *attr, void *data);
 
 #define STRING_FIELD(id,vc,n,pn,ro)  { E_CONTACT_FIELD_TYPE_STRING, (id), (vc), (n), (pn), (ro) }
 #define BOOLEAN_FIELD(id,vc,n,pn,ro)  { E_CONTACT_FIELD_TYPE_BOOLEAN, (id), (vc), (n), (pn), (ro) }
@@ -173,6 +175,9 @@ static EContactFieldInfo field_info[] = {
 	STRING_FIELD (E_CONTACT_SPOUSE, EVC_X_SPOUSE,    "spouse", N_("Spouse's Name"), FALSE),
 	STRING_FIELD (E_CONTACT_NOTE,   EVC_NOTE,        "note",   N_("Note"),          FALSE),
 
+	STRUCT_FIELD (E_CONTACT_BIRTH_DATE,  EVC_BDAY,    "birth_date",  N_("Birth Date"), FALSE, date_getter, date_setter),
+	STRUCT_FIELD (E_CONTACT_ANNIVERSARY, EVC_BDAY,    "anniversary", N_("Anniversary"), FALSE, date_getter, date_setter),
+	
 	BOOLEAN_FIELD (E_CONTACT_IS_LIST,             EVC_X_LIST, "list", N_("List"), FALSE),
 	BOOLEAN_FIELD (E_CONTACT_LIST_SHOW_ADDRESSES, EVC_X_LIST_SHOW_ADDRESSES, "list_show_addresses", N_("List Show Addresses"), FALSE)
 };
@@ -412,6 +417,31 @@ adr_setter (EContact *contact, EVCardAttribute *attr, void *data)
 {
 	/* XXX */
 	g_assert_not_reached ();
+}
+
+
+
+static void*
+date_getter (EContact *contact, EVCardAttribute *attr)
+{
+	if (attr) {
+		GList *p = e_vcard_attribute_get_values (attr);
+		EContactDate *date = e_contact_date_from_string (p && p->data ? (char*)p->data : "");
+
+		return date;
+	}
+
+	return NULL;
+}
+
+static void
+date_setter (EContact *contact, EVCardAttribute *attr, void *data)
+{
+	EContactDate *date = data;
+	char *str = e_contact_date_to_string (date);
+
+	e_vcard_attribute_add_value (attr, str);
+	g_free (str);
 }
 
 
@@ -1124,6 +1154,52 @@ e_contact_name_free (EContactName *name)
 
 	g_free (name);
 }
+
+EContactDate*
+e_contact_date_new (void)
+{
+	return g_new0 (EContactDate, 1);
+}
+
+EContactDate*
+e_contact_date_from_string (const char *str)
+{
+	EContactDate* date = e_contact_date_new();
+	int length;
+
+	length = strlen(str);
+	
+	if (length == 10 ) {
+		date->year = str[0] * 1000 + str[1] * 100 + str[2] * 10 + str[3] - '0' * 1111;
+		date->month = str[5] * 10 + str[6] - '0' * 11;
+		date->day = str[8] * 10 + str[9] - '0' * 11;
+	} else if ( length == 8 ) {
+		date->year = str[0] * 1000 + str[1] * 100 + str[2] * 10 + str[3] - '0' * 1111;
+		date->month = str[4] * 10 + str[5] - '0' * 11;
+		date->day = str[6] * 10 + str[7] - '0' * 11;
+	}
+	
+	return date;
+}
+
+char *
+e_contact_date_to_string (EContactDate *dt)
+{
+	if (dt) 
+		return g_strdup_printf ("%04d-%02d-%02d",
+					CLAMP(dt->year, 1000, 9999),
+					CLAMP(dt->month, 1, 12),
+					CLAMP(dt->day, 1, 31));
+	else
+		return NULL;
+}
+
+void
+e_contact_date_free (EContactDate *dt)
+{
+	g_free (dt);
+}
+
 
 void
 e_contact_photo_free (EContactPhoto *photo)

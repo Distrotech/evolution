@@ -245,11 +245,9 @@ struct prop_info {
 	E_STRING_PROP (E_CONTACT_ASSISTANT, "assistantName"), 
 
 	/* addresses */
-#if notyet
-	STRING_PROP   (E_CONTACT_ADDRESS_BUSINESS, "postalAddress"),
-	STRING_PROP   (E_CONTACT_ADDRESS_HOME,     "homePostalAddress"),
-	E_STRING_PROP (E_CONTACT_ADDRESS_OTHER,    "otherPostalAddress"),
-#endif
+	STRING_PROP   (E_CONTACT_ADDRESS_LABEL_WORK,  "postalAddress"),
+	STRING_PROP   (E_CONTACT_ADDRESS_LABEL_HOME,  "homePostalAddress"),
+	E_STRING_PROP (E_CONTACT_ADDRESS_LABEL_OTHER, "otherPostalAddress"),
 
 	/* photos */
 	BINARY_PROP  (E_CONTACT_PHOTO,       "jpegPhoto", photo_populate, NULL/*XXX*/, NULL/*XXX*/),
@@ -260,10 +258,8 @@ struct prop_info {
 	STRING_PROP    (E_CONTACT_NICKNAME,    "displayName"),
 	E_STRING_PROP  (E_CONTACT_SPOUSE,      "spouseName"), 
 	E_STRING_PROP  (E_CONTACT_NOTE,        "note"), 
-#if notyet
 	E_COMPLEX_PROP (E_CONTACT_ANNIVERSARY, "anniversary", anniversary_populate, anniversary_ber, anniversary_compare), 
 	E_COMPLEX_PROP (E_CONTACT_BIRTH_DATE,  "birthDate", birthday_populate, birthday_ber, birthday_compare), 
-#endif
 	E_STRING_PROP  (E_CONTACT_MAILER,      "mailer"), 
 
 	E_STRING_PROP  (E_CONTACT_FILE_AS,     "fileAs"),
@@ -1888,31 +1884,24 @@ business_compare (EContact *contact1, EContact *contact2)
 static void
 anniversary_populate (EContact *contact, char **values)
 {
-#if notyet
 	if (values[0]) {
-		EContactDate dt = e_card_date_from_string (values[0]);
-		g_object_set (card->card,
-			      "anniversary", &dt,
-			      NULL);
+		EContactDate *dt = e_contact_date_from_string (values[0]);
+		e_contact_set (contact, E_CONTACT_ANNIVERSARY, &dt);
 	}
-#endif
 }
 
 struct berval**
 anniversary_ber (EContact *contact)
 {
-#if notyet
 	EContactDate *dt;
 	struct berval** result = NULL;
 
-	g_object_get (card->card,
-		      "anniversary", &dt,
-		      NULL);
+	dt = e_contact_get (contact, E_CONTACT_ANNIVERSARY);
 
 	if (dt) {
 		char *anniversary;
 
-		anniversary = e_card_date_to_string (dt);
+		anniversary = e_contact_date_to_string (dt);
 
 		result = g_new (struct berval*, 2);
 		result[0] = g_new (struct berval, 1);
@@ -1920,31 +1909,31 @@ anniversary_ber (EContact *contact)
 		result[0]->bv_len = strlen (anniversary);
 
 		result[1] = NULL;
+
+		e_contact_date_free (dt);
 	}
 
 	return result;
-#endif
 }
 
 static gboolean
 anniversary_compare (EContact *contact1, EContact *contact2)
 {
-#if notyet
 	EContactDate *dt;
 	char *date1 = NULL, *date2 = NULL;
 	gboolean equal;
 
-	g_object_get (ecard1->card,
-		      "anniversary", &dt,
-		      NULL);
-	if (dt)
-		date1 = e_card_date_to_string (dt);
-
-	g_object_get (ecard2->card,
-		      "anniversary", &dt,
-		      NULL);
-	if (dt)
-		date2 = e_card_date_to_string (dt);
+	dt = e_contact_get (contact1, E_CONTACT_ANNIVERSARY);
+	if (dt) {
+		date1 = e_contact_date_to_string (dt);
+		e_contact_date_free (dt);
+	}
+	
+	dt = e_contact_get (contact2, E_CONTACT_ANNIVERSARY);
+	if (dt) {
+		date2 = e_contact_date_to_string (dt);
+		e_contact_date_free (dt);
+	}
 
 	if (date1 && date2)
 		equal = !strcmp (date1, date2);
@@ -1955,37 +1944,29 @@ anniversary_compare (EContact *contact1, EContact *contact2)
 	g_free (date2);
 
 	return equal;
-#endif
 }
 
 static void
 birthday_populate (EContact *contact, char **values)
 {
-#if notyet
 	if (values[0]) {
-		EContactDate dt = e_card_date_from_string (values[0]);
-		g_object_set (card->card,
-			      "birth_date", &dt,
-			      NULL);
+		EContactDate *dt = e_contact_date_from_string (values[0]);
+		e_contact_set (contact, E_CONTACT_BIRTH_DATE, dt);
+		e_contact_date_free (dt);
 	}
-#endif
 }
 
 struct berval**
 birthday_ber (EContact *contact)
 {
-#if notyet
 	EContactDate *dt;
 	struct berval** result = NULL;
 
-	g_object_get (card->card,
-		      "birth_date", &dt,
-		      NULL);
-
+	dt = e_contact_get (contact, E_CONTACT_BIRTH_DATE);
 	if (dt) {
 		char *birthday;
 
-		birthday = e_card_date_to_string (dt);
+		birthday = e_contact_date_to_string (dt);
 
 		result = g_new (struct berval*, 2);
 		result[0] = g_new (struct berval, 1);
@@ -1993,31 +1974,31 @@ birthday_ber (EContact *contact)
 		result[0]->bv_len = strlen (birthday);
 
 		result[1] = NULL;
+
+		e_contact_date_free (dt);
 	}
 
 	return result;
-#endif
 }
 
 static gboolean
 birthday_compare (EContact *contact1, EContact *contact2)
 {
-#if notyet
 	EContactDate *dt;
 	char *date1 = NULL, *date2 = NULL;
 	gboolean equal;
 
-	g_object_get (ecard1->card,
-		      "birth_date", &dt,
-		      NULL);
-	if (dt)
-		date1 = e_card_date_to_string (dt);
+	dt = e_contact_get (contact1, E_CONTACT_BIRTH_DATE);
+	if (dt) {
+		date1 = e_contact_date_to_string (dt);
+		e_contact_date_free (dt);
+	}
 
-	g_object_get (ecard2->card,
-		      "birth_date", &dt,
-		      NULL);
-	if (dt)
-		date2 = e_card_date_to_string (dt);
+	dt = e_contact_get (contact2, E_CONTACT_BIRTH_DATE);
+	if (dt) {
+		date2 = e_contact_date_to_string (dt);
+		e_contact_date_free (dt);
+	}
 
 	if (date1 && date2)
 		equal = !strcmp (date1, date2);
@@ -2028,7 +2009,6 @@ birthday_compare (EContact *contact1, EContact *contact2)
 	g_free (date2);
 
 	return equal;
-#endif
 }
 
 static void
