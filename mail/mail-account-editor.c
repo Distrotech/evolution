@@ -86,10 +86,27 @@ mail_account_editor_finalise (GtkObject *obj)
         ((GtkObjectClass *)(parent_class))->finalize (obj);
 }
 
+/* callbacks */
 static void
-apply_clicked (GtkWidget *widget, gpointer data)
+entry_changed (GtkEntry *entry, gpointer data)
 {
 	MailAccountEditor *editor = data;
+	char *account_name, *name, *address;
+	gboolean sensitive;
+	
+	account_name = gtk_entry_get_text (editor->account_name);
+	name = gtk_entry_get_text (editor->name);
+	address = gtk_entry_get_text (editor->email);
+	
+	sensitive = account_name && *account_name && name && *name && address && *address;
+	
+	gnome_dialog_set_sensitive (GNOME_DIALOG (editor), 0, sensitive);
+	gnome_dialog_set_sensitive (GNOME_DIALOG (editor), 1, sensitive);
+}
+
+static gboolean
+apply_changes (MailAccountEditor *editor)
+{
 	MailConfigAccount *account;
 	char *host, *pport;
 	CamelURL *url;
@@ -143,6 +160,14 @@ apply_clicked (GtkWidget *widget, gpointer data)
 	account->source->save_passwd = GTK_TOGGLE_BUTTON (editor->save_passwd)->active;
 	account->source->keep_on_server = GTK_TOGGLE_BUTTON (editor->keep_on_server)->active;
 	
+	/* check to make sure the source works */
+	if (!mail_config_check_service (url, CAMEL_PROVIDER_STORE, NULL)) {
+		camel_url_free (url);
+		account_destroy (account);
+		return FALSE;
+	}
+	
+	/* now that we know this url works, set it */
 	g_free (account->source->url);
 	account->source->url = camel_url_to_string (url, account->source->save_passwd);
 	camel_url_free (url);
@@ -164,11 +189,29 @@ apply_clicked (GtkWidget *widget, gpointer data)
 	url->host = host;
 	url->port = port;
 	
+	/* check to make sure the transport works */
+	if (!mail_config_check_service (url, CAMEL_PROVIDER_TRANSPORT, NULL)) {
+		camel_url_free (url);
+		account_destroy (account);
+		return FALSE;
+	}
+	
+	/* now that we know this url works, set it */
 	g_free (account->transport->url);
 	account->transport->url = camel_url_to_string (url, FALSE);
 	camel_url_free (url);
 	
 	mail_config_write ();
+	
+	return TRUE;
+}
+
+static void
+apply_clicked (GtkWidget *widget, gpointer data)
+{
+	MailAccountEditor *editor = data;
+	
+	apply_changes (editor);
 }
 
 static void
@@ -176,9 +219,8 @@ ok_clicked (GtkWidget *widget, gpointer data)
 {
 	MailAccountEditor *editor = data;
 	
-	apply_clicked (widget, data);
-	
-	gtk_widget_destroy (GTK_WIDGET (editor));
+	if (apply_changes (editor))
+		gtk_widget_destroy (GTK_WIDGET (editor));
 }
 
 static void
@@ -435,10 +477,13 @@ construct (MailAccountEditor *editor, const MailConfigAccount *account)
 	/* General */
 	editor->account_name = GTK_ENTRY (glade_xml_get_widget (gui, "txtAccountName"));
 	gtk_entry_set_text (editor->account_name, account->name);
+	gtk_signal_connect (GTK_OBJECT (editor->account_name), "changed", entry_changed, editor);
 	editor->name = GTK_ENTRY (glade_xml_get_widget (gui, "txtName"));
 	gtk_entry_set_text (editor->name, account->id->name);
+	gtk_signal_connect (GTK_OBJECT (editor->name), "changed", entry_changed, editor);
 	editor->email = GTK_ENTRY (glade_xml_get_widget (gui, "txtAddress"));
 	gtk_entry_set_text (editor->email, account->id->address);
+	gtk_signal_connect (GTK_OBJECT (editor->email), "changed", entry_changed, editor);
 	editor->reply_to = GTK_ENTRY (glade_xml_get_widget (gui, "txtReplyTo"));
 	gtk_entry_set_text (editor->reply_to, account->id->reply_to);
 	editor->organization = GTK_ENTRY (glade_xml_get_widget (gui, "txtOrganization"));
