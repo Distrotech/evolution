@@ -129,8 +129,8 @@ efh_init(GObject *o)
 
 	efh->header_colour = 0xeeeeee;
 	efh->text_colour = 0;
-	efh->text_html_flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES;
-	/* CAMEL_MIME_FILTER_TOHTML_MARK_CITATION ? */
+	efh->text_html_flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES |
+		CAMEL_MIME_FILTER_TOHTML_MARK_CITATION;
 }
 
 static void

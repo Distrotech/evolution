@@ -1,5 +1,8 @@
 2003-09-03  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-format-html.c (efh_init): Set the CITATION bit for the
+	default html flags.
+
 	* em-format-html-display.c: Fixed some compiler warnings by adding
 	appropriate includes.
 	(efhd_multipart_signed): Don't write "inlined signature...".
