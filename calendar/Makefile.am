@@ -2,8 +2,6 @@ SUBDIRS = doc
 
 help_base = $(datadir)/gnome/help/cal
 
-CFLAGS += -Wall
-
 INCLUDES = 			\
 	-I$(includedir)					\
 	$(GNOME_INCLUDEDIR)				\
