@@ -1,5 +1,17 @@
 2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-day-view.c: more adaptation to changes in ECalViewEvent.
+	(e_day_view_update_event_cb): use an ECalModelComponent, not a
+	CalComponent.
+	(process_component): pass an ECalModelComponent to
+	e_day_view_update_event_cb().
+	
+	* gui/e-week-view.c: more adaptation to changes in ECalViewEvent.
+	(e_week_view_update_event_cb, e_week_view_reshape_event_span):
+	set the	background color on the event's summary text.
+
+2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-week-view.c (e_day_view_update_query): no more query
 	management here.
 	(query_obj_updated_cb, query_obj_removed_cb, query_query_done_cb,

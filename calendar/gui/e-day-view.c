@@ -1452,9 +1452,9 @@ e_day_view_update_event_cb (EDayView *day_view,
 			    gpointer data)
 {
 	EDayViewEvent *event;
-	CalComponent *comp;
+	ECalModelComponent *comp_data;
 
-	comp = data;
+	comp_data = data;
 #if 0
 	g_print ("In e_day_view_update_event_cb day:%i event_num:%i\n",
 		 day, event_num);
@@ -1467,9 +1467,7 @@ e_day_view_update_event_cb (EDayView *day_view,
 					event_num);
 	}
 
-	g_object_unref (event->comp);
-	event->comp = comp;
-	g_object_ref (comp);
+	event->comp_data = comp_data;
 
 	if (day == E_DAY_VIEW_LONG_EVENT) {
 		e_day_view_update_long_event_label (day_view, event_num);
@@ -1712,6 +1710,7 @@ e_day_view_update_long_event_label (EDayView *day_view,
 {
 	EDayViewEvent *event;
 	CalComponentText summary;
+	const gchar *color;
 
 	event = &g_array_index (day_view->long_events, EDayViewEvent,
 				event_num);
@@ -3268,7 +3267,7 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 #if 0
 			g_print ("updated object's dates unchanged\n");
 #endif
-			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp);
+			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp_data);
 			g_object_unref (comp);
 			gtk_widget_queue_draw (day_view->top_canvas);
 			gtk_widget_queue_draw (day_view->main_canvas);
@@ -4364,7 +4363,7 @@ e_day_view_reshape_long_event (EDayView *day_view,
 					       "editable", TRUE,
 					       "use_ellipsis", TRUE,
 					       "draw_background", FALSE,
-					       "fill_color_rgba", GNOME_CANVAS_COLOR(0, 0, 0),
+					       "fill_color_rgba", GNOME_CANVAS_COLOR (0, 0, 0),
 					       "im_context", E_CANVAS (day_view->top_canvas)->im_context,
 					       NULL);
 		g_signal_connect (event->canvas_item, "event",
@@ -4453,11 +4452,9 @@ e_day_view_reshape_day_event (EDayView *day_view,
 	EDayViewEvent *event;
 	gint item_x, item_y, item_w, item_h;
 	gint num_icons, icons_offset;
-	CalComponent *comp;
 
 	event = &g_array_index (day_view->events[day], EDayViewEvent,
 				event_num);
-	comp = event->comp;
 
 	if (!e_day_view_get_event_position (day_view, day, event_num,
 					    &item_x, &item_y,

@@ -1081,17 +1081,22 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 	   update the event fairly easily without changing the events arrays
 	   or computing a new layout. */
 	if (e_week_view_find_event_from_uid (week_view, uid, &event_num)) {
+		CalComponent *tmp_comp;
+
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
 
+		tmp_comp = cal_component_new ();
+		cal_component_set_icalcomponent (tmp_comp, icalcomponent_new_clone (comp_data->icalcomp));
 		if (!cal_component_has_recurrences (comp)
-		    && !cal_component_has_recurrences (event->comp)
-		    && cal_component_event_dates_match (comp, event->comp)) {
+		    && !cal_component_has_recurrences (tmp_comp)
+		    && cal_component_event_dates_match (comp, tmp_comp)) {
 #if 0
 			g_print ("updated object's dates unchanged\n");
 #endif
-			e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_update_event_cb, comp);
+			e_week_view_foreach_event_with_uid (week_view, uid, e_week_view_update_event_cb, comp_data);
 			g_object_unref (comp);
+			g_object_unref (tmp_comp);
 			gtk_widget_queue_draw (week_view->main_canvas);
 			return;
 		}
@@ -1104,6 +1109,8 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 		e_week_view_foreach_event_with_uid (week_view, uid,
 						    e_week_view_remove_event_cb,
 						    NULL);
+
+		g_object_unref (tmp_comp);
 	}
 
 	/* Add the occurrences of the event. */
@@ -1741,28 +1748,27 @@ e_week_view_update_event_cb (EWeekView *week_view,
 	EWeekViewEventSpan *span;
 	gint span_num;
 	gchar *text;
-	CalComponent *comp;
+	ECalModelComponent *comp_data;
 
-	comp = data;
+	comp_data = data;
 
 	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
 
-	g_object_unref (event->comp);
-	event->comp = comp;
-	g_object_ref (comp);
+	event->comp_data = comp_data;
 
 	for (span_num = 0; span_num < event->num_spans; span_num++) {
 		span = &g_array_index (week_view->spans, EWeekViewEventSpan,
 				       event->spans_index + span_num);
 
 		if (span->text_item) {
-			CalComponentText t;
-
-			cal_component_get_summary (event->comp, &t);
-			text = (char*) t.value;
+			text = icalcomponent_get_summary (comp_data->icalcomp);
 			gnome_canvas_item_set (span->text_item,
 					       "text", text ? text : "",
 					       NULL);
+
+			text = e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (week_view)), comp_data);
+			gnome_canvas_item_set (span->text_item, "background", text ? text : "", NULL);
+								    
 
 			e_week_view_reshape_event_span (week_view, event_num,
 							span_num);
@@ -2495,6 +2501,9 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 	/* Create the text item if necessary. */
 	if (!span->text_item) {
 		CalComponentText text;
+		const gchar *color;
+
+		color = e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (week_view)), comp_data);
 
 		cal_component_get_summary (comp, &text);
 		span->text_item =
@@ -2507,8 +2516,10 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 					       "text", text.value ? text.value : "",
 					       "use_ellipsis", TRUE,
 					       "fill_color_rgba", GNOME_CANVAS_COLOR(0, 0, 0),
+					       "background", color ? color : "white",
 					       "im_context", E_CANVAS (week_view->main_canvas)->im_context,
 					       NULL);
+
 		g_signal_connect (span->text_item, "event",
 				  G_CALLBACK (e_week_view_on_text_item_event),
 				  week_view);
