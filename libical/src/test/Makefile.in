@@ -1,4 +1,4 @@
-# Makefile.in generated automatically by automake 1.4a from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
 # Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
@@ -46,10 +46,9 @@ AUTOMAKE = @AUTOMAKE@
 AUTOHEADER = @AUTOHEADER@
 
 INSTALL = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
-INSTALL_STRIP_FLAG =
 transform = @program_transform_name@
 
 NORMAL_INSTALL = :
@@ -68,18 +67,21 @@ RANLIB = @RANLIB@
 VERSION = @VERSION@
 YACC = @YACC@
 
-noinst_PROGRAMS = usecases copycluster regression parser findobj storage stow
+noinst_PROGRAMS = copycluster regression parser findobj storage stow testvcal recur testmime
 
-LDADD = ../libical/libical.a ../libicalss/libicalss.a
-INCLUDES = -I . -I../libical -I../libicalss
+LDADD = ../libical/libical.a ../libicalss/libicalss.a ../libicalvcal/libicalvcal.a 
+INCLUDES = -I . -I../libical -I../libicalss -I../libicalvcal
+LIBS = 
 
 findobj_SOURCES = findobj.c
-usecases_SOURCES = usecases.c
 copycluster_SOURCES = copycluster.c
 regression_SOURCES = regression.c
 parser_SOURCES = icaltestparser.c
 storage_SOURCES = storage.c
 stow_SOURCES = stow.c
+testvcal_SOURCES = testvcal.c
+recur_SOURCES = recur.c 
+test_mime = testmime.c
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../../config.h
 CONFIG_CLEAN_FILES = 
@@ -89,36 +91,52 @@ PROGRAMS =  $(noinst_PROGRAMS)
 DEFS = @DEFS@ -I. -I$(srcdir) -I../..
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
-LIBS = @LIBS@
-usecases_OBJECTS =  usecases.o
-usecases_LDADD = $(LDADD)
-usecases_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a
-usecases_LDFLAGS = 
 copycluster_OBJECTS =  copycluster.o
 copycluster_LDADD = $(LDADD)
 copycluster_DEPENDENCIES =  ../libical/libical.a \
-../libicalss/libicalss.a
+../libicalss/libicalss.a ../libicalvcal/libicalvcal.a
 copycluster_LDFLAGS = 
 regression_OBJECTS =  regression.o
 regression_LDADD = $(LDADD)
-regression_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a
+regression_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
 regression_LDFLAGS = 
 parser_OBJECTS =  icaltestparser.o
 parser_LDADD = $(LDADD)
-parser_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a
+parser_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
 parser_LDFLAGS = 
 findobj_OBJECTS =  findobj.o
 findobj_LDADD = $(LDADD)
-findobj_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a
+findobj_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
 findobj_LDFLAGS = 
 storage_OBJECTS =  storage.o
 storage_LDADD = $(LDADD)
-storage_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a
+storage_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
 storage_LDFLAGS = 
 stow_OBJECTS =  stow.o
 stow_LDADD = $(LDADD)
-stow_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a
+stow_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
 stow_LDFLAGS = 
+testvcal_OBJECTS =  testvcal.o
+testvcal_LDADD = $(LDADD)
+testvcal_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
+testvcal_LDFLAGS = 
+recur_OBJECTS =  recur.o
+recur_LDADD = $(LDADD)
+recur_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
+recur_LDFLAGS = 
+testmime_SOURCES = testmime.c
+testmime_OBJECTS =  testmime.o
+testmime_LDADD = $(LDADD)
+testmime_DEPENDENCIES =  ../libical/libical.a ../libicalss/libicalss.a \
+../libicalvcal/libicalvcal.a
+testmime_LDFLAGS = 
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
@@ -130,8 +148,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
-SOURCES = $(usecases_SOURCES) $(copycluster_SOURCES) $(regression_SOURCES) $(parser_SOURCES) $(findobj_SOURCES) $(storage_SOURCES) $(stow_SOURCES)
-OBJECTS = $(usecases_OBJECTS) $(copycluster_OBJECTS) $(regression_OBJECTS) $(parser_OBJECTS) $(findobj_OBJECTS) $(storage_OBJECTS) $(stow_OBJECTS)
+SOURCES = $(copycluster_SOURCES) $(regression_SOURCES) $(parser_SOURCES) $(findobj_SOURCES) $(storage_SOURCES) $(stow_SOURCES) $(testvcal_SOURCES) $(recur_SOURCES) testmime.c
+OBJECTS = $(copycluster_OBJECTS) $(regression_OBJECTS) $(parser_OBJECTS) $(findobj_OBJECTS) $(storage_OBJECTS) $(stow_OBJECTS) $(testvcal_OBJECTS) $(recur_OBJECTS) testmime.o
 
 all: all-redirect
 .SUFFIXES:
@@ -172,10 +190,6 @@ distclean-compile:
 
 maintainer-clean-compile:
 
-usecases: $(usecases_OBJECTS) $(usecases_DEPENDENCIES)
-	@rm -f usecases
-	$(LINK) $(usecases_LDFLAGS) $(usecases_OBJECTS) $(usecases_LDADD) $(LIBS)
-
 copycluster: $(copycluster_OBJECTS) $(copycluster_DEPENDENCIES)
 	@rm -f copycluster
 	$(LINK) $(copycluster_LDFLAGS) $(copycluster_OBJECTS) $(copycluster_LDADD) $(LIBS)
@@ -199,6 +213,18 @@ storage: $(storage_OBJECTS) $(storage_DEPENDENCIES)
 stow: $(stow_OBJECTS) $(stow_DEPENDENCIES)
 	@rm -f stow
 	$(LINK) $(stow_LDFLAGS) $(stow_OBJECTS) $(stow_LDADD) $(LIBS)
+
+testvcal: $(testvcal_OBJECTS) $(testvcal_DEPENDENCIES)
+	@rm -f testvcal
+	$(LINK) $(testvcal_LDFLAGS) $(testvcal_OBJECTS) $(testvcal_LDADD) $(LIBS)
+
+recur: $(recur_OBJECTS) $(recur_DEPENDENCIES)
+	@rm -f recur
+	$(LINK) $(recur_LDFLAGS) $(recur_OBJECTS) $(recur_LDADD) $(LIBS)
+
+testmime: $(testmime_OBJECTS) $(testmime_DEPENDENCIES)
+	@rm -f testmime
+	$(LINK) $(testmime_LDFLAGS) $(testmime_OBJECTS) $(testmime_LDADD) $(LIBS)
 
 tags: TAGS
 
@@ -244,6 +270,89 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
+copycluster.o: copycluster.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libicalss/icalfileset.h
+findobj.o: findobj.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libicalss/icalcalendar.h \
+	../libicalss/icalset.h ../libicalss/icaldirset.h
+icaltestparser.o: icaltestparser.c ../libical/ical.h \
+	../libical/icalversion.h ../libical/icalenums.h \
+	../libical/icalvalue.h ../libical/icaltypes.h \
+	../libical/icaltime.h ../libical/icalparameter.h \
+	../libical/icalproperty.h ../libical/icalcomponent.h \
+	../libical/pvl.h ../libical/icalparser.h \
+	../libical/icalmemory.h ../libical/icalerror.h \
+	../libical/icalrestriction.h ../libical/icalrecur.h
+recur.o: recur.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libicalss/icaldirset.h \
+	../libicalss/icalfileset.h
+regression.o: regression.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libicalss/icalcalendar.h \
+	../libicalss/icalset.h ../libicalss/icalgauge.h \
+	../libicalss/icaldirset.h ../libicalss/icalfileset.h
+storage.o: storage.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libicalss/icaldirset.h \
+	../libicalss/icalfileset.h ../libicalss/icalcalendar.h \
+	../libicalss/icalset.h
+stow.o: stow.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libicalss/icalcalendar.h \
+	../libicalss/icalset.h ../libicalss/icalfileset.h \
+	../libical/icalmime.h
+testmime.o: testmime.c ../libical/ical.h ../libical/icalversion.h \
+	../libical/icalenums.h ../libical/icalvalue.h \
+	../libical/icaltypes.h ../libical/icaltime.h \
+	../libical/icalparameter.h ../libical/icalproperty.h \
+	../libical/icalcomponent.h ../libical/pvl.h \
+	../libical/icalparser.h ../libical/icalmemory.h \
+	../libical/icalerror.h ../libical/icalrestriction.h \
+	../libical/icalrecur.h ../libical/sspm.h ../libical/icalmime.h
+testvcal.o: testvcal.c ../libicalvcal/icalvcal.h ../libical/ical.h \
+	../libical/icalversion.h ../libical/icalenums.h \
+	../libical/icalvalue.h ../libical/icaltypes.h \
+	../libical/icaltime.h ../libical/icalparameter.h \
+	../libical/icalproperty.h ../libical/icalcomponent.h \
+	../libical/pvl.h ../libical/icalparser.h \
+	../libical/icalmemory.h ../libical/icalerror.h \
+	../libical/icalrestriction.h ../libical/icalrecur.h \
+	../libicalvcal/vcc.h ../libicalvcal/vobject.h \
+	../libicalvcal/port.h
+
 info-am:
 info: info-am
 dvi-am:
@@ -266,7 +375,7 @@ uninstall: uninstall-am
 all-am: Makefile $(PROGRAMS)
 all-redirect: all-am
 install-strip:
-	$(MAKE) $(AM_MAKEFLAGS) INSTALL_STRIP_FLAG=-s install
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
 installdirs:
 
 
