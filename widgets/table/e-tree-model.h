@@ -49,6 +49,9 @@ struct ETreeModelClass {
 	gboolean   (*get_expanded_default) (ETreeModel *etm);
 	gint       (*column_count)         (ETreeModel *etm);
 
+	gboolean   (*has_save_id)          (ETreeModel *etm);
+	gchar     *(*get_save_id)          (ETreeModel *etm, ETreePath node);
+
 	/*
 	 * ETable analogs
 	 */
@@ -65,6 +68,7 @@ struct ETreeModelClass {
 	/*
 	 * Signals
 	 */
+	void       (*pre_change)           (ETreeModel *etm);
 	void       (*node_changed)         (ETreeModel *etm, ETreePath node);
 	void       (*node_data_changed)    (ETreeModel *etm, ETreePath node);
 	void       (*node_col_changed)     (ETreeModel *etm, ETreePath node,   int col);
@@ -101,6 +105,12 @@ GdkPixbuf  *e_tree_model_icon_at               (ETreeModel     *etree,
 						ETreePath       path);
 gboolean    e_tree_model_get_expanded_default  (ETreeModel     *model);
 gint        e_tree_model_column_count          (ETreeModel     *model);
+
+
+gboolean    e_tree_model_has_save_id           (ETreeModel     *model);
+gchar      *e_tree_model_get_save_id           (ETreeModel     *model,
+						ETreePath       node);
+
 void       *e_tree_model_value_at              (ETreeModel     *etree,
 						ETreePath       node,
 						int             col);
@@ -135,6 +145,7 @@ void        e_tree_model_node_traverse         (ETreeModel     *model,
 /*
 ** Routines for emitting signals on the ETreeModel
 */
+void        e_tree_model_pre_change            (ETreeModel     *tree_model);
 void        e_tree_model_node_changed          (ETreeModel     *tree_model,
 						ETreePath       node);
 void        e_tree_model_node_data_changed     (ETreeModel     *tree_model,

@@ -33,6 +33,7 @@
 static GtkObjectClass *parent_class;
 
 enum {
+	PRE_CHANGE,
 	NODE_CHANGED,
 	NODE_DATA_CHANGED,
 	NODE_COL_CHANGED,
@@ -50,6 +51,14 @@ e_tree_model_class_init (GtkObjectClass *klass)
 	ETreeModelClass *tree_class = (ETreeModelClass *) klass;
 
 	parent_class = gtk_type_class (PARENT_TYPE);
+
+	e_tree_model_signals [PRE_CHANGE] =
+		gtk_signal_new ("pre_change",
+				GTK_RUN_LAST,
+				klass->type,
+				GTK_SIGNAL_OFFSET (ETreeModelClass, pre_change),
+				gtk_marshal_NONE__NONE,
+				GTK_TYPE_NONE, 0);
 
 	e_tree_model_signals [NODE_CHANGED] =
 		gtk_signal_new ("node_changed",
@@ -93,39 +102,43 @@ e_tree_model_class_init (GtkObjectClass *klass)
 
 	gtk_object_class_add_signals (klass, e_tree_model_signals, LAST_SIGNAL);
 
-	tree_class->get_root         = NULL;
+	tree_class->get_root             = NULL;
 
-	tree_class->get_parent       = NULL;
-	tree_class->get_first_child  = NULL;
-	tree_class->get_last_child   = NULL;
-	tree_class->get_next         = NULL;
-	tree_class->get_prev         = NULL;
+	tree_class->get_parent           = NULL;
+	tree_class->get_first_child      = NULL;
+	tree_class->get_last_child       = NULL;
+	tree_class->get_next             = NULL;
+	tree_class->get_prev             = NULL;
 
-	tree_class->is_root          = NULL;
-	tree_class->is_expandable    = NULL;
-	tree_class->get_children     = NULL;
-	tree_class->depth            = NULL;
+	tree_class->is_root              = NULL;
+	tree_class->is_expandable        = NULL;
+	tree_class->get_children         = NULL;
+	tree_class->depth                = NULL;
 
-	tree_class->icon_at          = NULL;
+	tree_class->icon_at              = NULL;
 
 	tree_class->get_expanded_default = NULL;
-	tree_class->column_count     = NULL;
+	tree_class->column_count         = NULL;
 
-	tree_class->value_at         = NULL;
-	tree_class->set_value_at     = NULL;
-	tree_class->is_editable      = NULL;
+	tree_class->has_save_id          = NULL;
+	tree_class->get_save_id          = NULL;
 
-	tree_class->duplicate_value  = NULL;
-	tree_class->free_value       = NULL;
-	tree_class->initialize_value = NULL;
-	tree_class->value_is_empty   = NULL;
-	tree_class->value_to_string  = NULL;
+	tree_class->value_at             = NULL;
+	tree_class->set_value_at         = NULL;
+	tree_class->is_editable          = NULL;
 
-	tree_class->node_changed     = NULL;
-	tree_class->node_data_changed= NULL;
-	tree_class->node_col_changed = NULL;
-	tree_class->node_inserted    = NULL;
-	tree_class->node_removed     = NULL;
+	tree_class->duplicate_value      = NULL;
+	tree_class->free_value           = NULL;
+	tree_class->initialize_value     = NULL;
+	tree_class->value_is_empty       = NULL;
+	tree_class->value_to_string      = NULL;
+
+	tree_class->pre_change           = NULL;
+	tree_class->node_changed         = NULL;
+	tree_class->node_data_changed    = NULL;
+	tree_class->node_col_changed     = NULL;
+	tree_class->node_inserted        = NULL;
+	tree_class->node_removed         = NULL;
 }
 
 static void
@@ -137,6 +150,25 @@ E_MAKE_TYPE(e_tree_model, "ETreeModel", ETreeModel, e_tree_model_class_init, e_t
 
 
 /* signals */
+
+/**
+ * e_tree_model_node_changed:
+ * @tree_model: 
+ * @node: 
+ * 
+ * 
+ * 
+ * Return value: 
+ **/
+void
+e_tree_model_pre_change  (ETreeModel *tree_model)
+{
+	g_return_if_fail (tree_model != NULL);
+	g_return_if_fail (E_IS_TREE_MODEL (tree_model));
+	
+	gtk_signal_emit (GTK_OBJECT (tree_model),
+			 e_tree_model_signals [PRE_CHANGE]);
+}
 
 /**
  * e_tree_model_node_changed:
@@ -508,6 +540,47 @@ e_tree_model_column_count (ETreeModel *etree)
 		return ETM_CLASS(etree)->column_count (etree);
 	else
 		return 0;
+}
+
+/**
+ * e_tree_model_has_save_id
+ * @etree: The ETreeModel.
+ *
+ * XXX docs here.
+ *
+ * return values: Whether this tree has valid save id data.
+ */
+gboolean
+e_tree_model_has_save_id (ETreeModel *etree)
+{
+	g_return_val_if_fail (etree != NULL, FALSE);
+	g_return_val_if_fail (E_IS_TREE_MODEL (etree), FALSE);
+
+	if (ETM_CLASS(etree)->has_save_id)
+		return ETM_CLASS(etree)->has_save_id (etree);
+	else
+		return FALSE;
+}
+
+/**
+ * e_tree_model_get_save_id
+ * @etree: The ETreeModel.
+ * @node: The ETreePath.
+ *
+ * XXX docs here.
+ *
+ * return values: The save id for this path.
+ */
+gchar *
+e_tree_model_get_save_id (ETreeModel *etree, ETreePath node)
+{
+	g_return_val_if_fail (etree != NULL, NULL);
+	g_return_val_if_fail (E_IS_TREE_MODEL (etree), NULL);
+
+	if (ETM_CLASS(etree)->get_save_id)
+		return ETM_CLASS(etree)->get_save_id (etree, node);
+	else
+		return NULL;
 }
 
 /**

@@ -67,6 +67,7 @@ struct ETreeSortedPriv {
 	ETableSortInfo   *sort_info;
 	ETableHeader     *full_header;
 
+	int          tree_model_pre_change_id;
 	int          tree_model_node_changed_id;
 	int          tree_model_node_data_changed_id;
 	int          tree_model_node_col_changed_id;
@@ -355,7 +356,9 @@ resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_childr
 	gboolean needs_resort;
 	if (path) {
 		needs_resort = path->needs_resort || resort_all_children;
-		if (needs_resort || resort_all_children) {
+		if (needs_resort && send_signals)
+			e_tree_model_pre_change(E_TREE_MODEL(ets));
+		if (needs_resort) {
 			int i;
 			d(g_print("Start sort of node %p\n", path));
 			if (path->needs_regen_to_sort)
@@ -444,6 +447,8 @@ ets_destroy (GtkObject *object)
 
 	if (priv->source) {
 		gtk_signal_disconnect (GTK_OBJECT (priv->source),
+				       priv->tree_model_pre_change_id);
+		gtk_signal_disconnect (GTK_OBJECT (priv->source),
 				       priv->tree_model_node_changed_id);
 		gtk_signal_disconnect (GTK_OBJECT (priv->source),
 				       priv->tree_model_node_data_changed_id);
@@ -457,6 +462,7 @@ ets_destroy (GtkObject *object)
 		gtk_object_unref (GTK_OBJECT (priv->source));
 		priv->source = NULL;
 
+		priv->tree_model_pre_change_id = 0;
 		priv->tree_model_node_changed_id = 0;
 		priv->tree_model_node_data_changed_id = 0;
 		priv->tree_model_node_col_changed_id = 0;
@@ -703,6 +709,25 @@ ets_column_count (ETreeModel *etm)
 }
 
 
+static gboolean
+ets_has_save_id (ETreeModel *etm)
+{
+	return TRUE;
+}
+
+static gchar *
+ets_get_save_id (ETreeModel *etm, ETreePath node)
+{
+	ETreeSorted *ets = E_TREE_SORTED(etm);
+	ETreeSortedPath *path = node;
+
+	if (e_tree_model_has_save_id(ets->priv->source))
+		return e_tree_model_get_save_id(ets->priv->source, path->corresponding);
+	else
+		return g_strdup_printf("%p", path->corresponding);
+}
+
+
 static void *
 ets_value_at (ETreeModel *etm, ETreePath node, int col)
 {
@@ -775,6 +800,12 @@ ets_value_to_string (ETreeModel *etm, int col, const void *value)
 
 
 /* Proxy functions */
+
+static void
+ets_proxy_pre_change (ETreeModel *etm, ETreeSorted *ets)
+{
+	e_tree_model_pre_change(E_TREE_MODEL(ets));
+}
 
 static void
 ets_proxy_node_changed (ETreeModel *etm, ETreePath node, ETreeSorted *ets)
@@ -925,6 +956,9 @@ e_tree_sorted_class_init (GtkObjectClass *klass)
 	tree_class->get_expanded_default = ets_get_expanded_default;
 	tree_class->column_count         = ets_column_count;
 
+	tree_class->has_save_id          = ets_has_save_id;
+	tree_class->get_save_id          = ets_get_save_id;
+
 
 
 
@@ -958,6 +992,7 @@ e_tree_sorted_init (GtkObject *object)
 	priv->sort_info                       = NULL;
 	priv->full_header                     = NULL;
 
+	priv->tree_model_pre_change_id      = 0;
 	priv->tree_model_node_changed_id      = 0;
 	priv->tree_model_node_data_changed_id = 0;
 	priv->tree_model_node_col_changed_id  = 0;
@@ -990,6 +1025,8 @@ e_tree_sorted_construct (ETreeSorted *ets, ETreeModel *source, ETableHeader *ful
 	ets->priv->sort_info   = sort_info;
 	if (sort_info)   gtk_object_ref(GTK_OBJECT(sort_info));
 
+	ets->priv->tree_model_pre_change_id      = gtk_signal_connect (GTK_OBJECT (source), "pre_change",
+								       GTK_SIGNAL_FUNC (ets_proxy_pre_change), ets);
 	ets->priv->tree_model_node_changed_id      = gtk_signal_connect (GTK_OBJECT (source), "node_changed",
 									 GTK_SIGNAL_FUNC (ets_proxy_node_changed), ets);
 	ets->priv->tree_model_node_data_changed_id = gtk_signal_connect (GTK_OBJECT (source), "node_data_changed",

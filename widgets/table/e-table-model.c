@@ -172,13 +172,13 @@ e_table_model_free_value (ETableModel *e_table_model, int col, void *value)
 }
 
 char *
-e_table_model_row_save_id(ETableModel *e_table_model, int row)
+e_table_model_get_save_id(ETableModel *e_table_model, int row)
 {
 	g_return_val_if_fail (e_table_model != NULL, "/");
 	g_return_val_if_fail (E_IS_TABLE_MODEL (e_table_model), "/");
 
-	if (ETM_CLASS (e_table_model)->row_save_id)
-		return ETM_CLASS (e_table_model)->row_save_id (e_table_model, row);
+	if (ETM_CLASS (e_table_model)->get_save_id)
+		return ETM_CLASS (e_table_model)->get_save_id (e_table_model, row);
 	else
 		return NULL;
 }
@@ -304,7 +304,7 @@ e_table_model_class_init (GtkObjectClass *object_class)
 	klass->set_value_at = NULL;     
 	klass->is_cell_editable = NULL; 
 
-	klass->row_save_id = NULL;
+	klass->get_save_id = NULL;
 	klass->has_save_id = NULL;
 
 	klass->duplicate_value = NULL;  
