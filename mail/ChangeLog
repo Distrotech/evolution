@@ -1,6 +1,19 @@
+2003-08-28  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-view.c (emfv_destroy): override the destroy method for
+	GtkObject - unregister the mark-as-seen timeout if one is
+	currently registered.
+	(emfv_list_done_message_selected): Add the mark-as-seen timeout
+	functionality here.
+
+2003-08-27  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-utils.c (get_reply_list): Implemented.
+
 2003-08-27  Not Zed  <NotZed@Ximian.com>
 
-	* em-message-browser.c (emmb_activate): disable Edit->Paste menu always.
+	* em-message-browser.c (emmb_activate): disable Edit->Paste menu
+	always.
 
 	* em-folder-browser.c (emfb_edit_paste): do a message-list paste,
 	not a html one.

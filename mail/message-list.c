@@ -61,6 +61,8 @@
 #include "mail-tools.h"
 #include "mail-ops.h"
 
+#include "em-utils.h"
+
 #include "art/mail-new.xpm"
 #include "art/mail-read.xpm"
 #include "art/mail-replied.xpm"

@@ -186,6 +186,7 @@ void           message_list_invert_selection (MessageList *ml);
 /* clipboard stuff */
 void	       message_list_copy(MessageList *ml, gboolean cut);
 gboolean       message_list_has_primary_selection(MessageList *ml);
+void           message_list_paste (MessageList *ml);
 
 /* info */
 unsigned int   message_list_length (MessageList *ml);

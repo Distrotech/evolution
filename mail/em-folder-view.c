@@ -78,7 +78,7 @@ static void emfv_set_message(EMFolderView *emfv, const char *uid);
 static void emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
 
 struct _EMFolderViewPrivate {
-	int dummy;
+	guint seen_id;
 };
 
 static GtkVBoxClass *emfv_parent;
@@ -119,10 +119,25 @@ emfv_finalise(GObject *o)
 }
 
 static void
+emfv_destroy (GtkObject *o)
+{
+	EMFolderView *emfv = (EMFolderView *) o;
+	
+	if (emfv->priv->seen_id) {
+		gtk_timeout_remove (emfv->priv->seen_id);
+		emfv->priv->seen_id = 0;
+	}
+	
+	((GtkObjectClass *) emfv_parent)->destroy (o);
+}
+
+static void
 emfv_class_init(GObjectClass *klass)
 {
 	klass->finalize = emfv_finalise;
-
+	
+	((GtkObjectClass *) klass)->destroy = emfv_destroy;
+	
 	((EMFolderViewClass *)klass)->set_folder = emfv_set_folder;
 	((EMFolderViewClass *)klass)->set_folder_uri = emfv_set_folder_uri;
 	((EMFolderViewClass *)klass)->set_message = emfv_set_message;
@@ -1029,16 +1044,68 @@ int em_folder_view_print(EMFolderView *emfv, int preview)
 	return res;
 }
 
+struct mst_t {
+	EMFolderView *emfv;
+	char *uid;
+};
+
+static void
+mst_free (struct mst_t *mst)
+{
+	mst->emfv->priv->seen_id = 0;
+	
+	g_free (mst->uid);
+	g_free (mst);
+}
+
+static int
+do_mark_seen (gpointer user_data)
+{
+	struct mst_t *mst = user_data;
+	EMFolderView *emfv = mst->emfv;
+	MessageList *list = emfv->list;
+	
+	if (mst->uid && list->cursor_uid && !strcmp (mst->uid, list->cursor_uid))
+		camel_folder_set_message_flags (emfv->folder, mst->uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+	
+	return FALSE;
+}
+
 static void
 emfv_list_done_message_selected(CamelFolder *folder, const char *uid, CamelMimeMessage *msg, void *data)
 {
 	EMFolderView *emfv = data;
-
-	/* FIXME: mark_seen timeout */
+	GConfClient *gconf;
+	gboolean mark_seen;
+	int timeout;
+	
+	em_format_format((EMFormat *) emfv->preview, (struct _CamelMedium *)msg);
+	
+	gconf = mail_config_get_gconf_client ();
+	mark_seen = gconf_client_get_bool (gconf, "/apps/evolution/mail/display/mark_seen", NULL);
+	
+	if (emfv->priv->seen_id)
+		gtk_timeout_remove (emfv->priv->seen_id);
+	
+	if (msg && mark_seen) {
+		struct mst_t *mst;
+		
+		mst = g_new (struct mst_t, 1);
+		mst->emfv = emfv;
+		mst->uid = g_strdup (uid);
+		
+		timeout = gconf_client_get_int (gconf, "/apps/evolution/mail/display/mark_seen_timeout", NULL);
+		
+		if (timeout > 0) {
+			emfv->priv->seen_id = gtk_timeout_add_full (timeout, do_mark_seen, NULL, mst, (GtkDestroyNotify) mst_free);
+		} else {
+			do_mark_seen (mst);
+			mst_free (mst);
+		}
+	}
+	
 	/* FIXME: asynchronous stuff */
 	/* FIXME: enable/disable menu's */
-
-	em_format_format((EMFormat *) emfv->preview, (struct _CamelMedium *)msg);
 }
 
 static void

@@ -33,6 +33,7 @@
 #include <time.h>
 
 #include <camel/camel-stream-fs.h>
+#include <camel/camel-url-scanner.h>
 
 #include <filter/filter-editor.h>
 
@@ -702,8 +703,44 @@ get_reply_sender (CamelMimeMessage *message, CamelInternetAddress **to)
 static gboolean
 get_reply_list (CamelMimeMessage *message, CamelInternetAddress **to)
 {
-	/* FIXME: implement me */
-	return FALSE;
+	const char *header, *p;
+	char *addr;
+	
+	/* Examples:
+	 * 
+	 * List-Post: <mailto:list@host.com>
+	 * List-Post: <mailto:moderator@host.com?subject=list%20posting>
+	 * List-Post: NO (posting not allowed on this list)
+	 */
+	if (!(header = camel_medium_get_header ((CamelMedium *) message, "List-Post")))
+		return FALSE;
+	
+	while (*header == ' ' || *header == '\t')
+		header++;
+	
+	/* check for NO */
+	if (!strncasecmp (header, "NO", 2))
+		return FALSE;
+	
+	/* Search for the first mailto angle-bracket enclosed URL.
+	 * (See rfc2369, Section 2, paragraph 3 for details) */
+	if (!(header = camel_strstrcase (header, "<mailto:")))
+		return FALSE;
+	
+	header += 8;
+	
+	p = header;
+	while (*p && !strchr ("?>", *p))
+		p++;
+	
+	addr = g_strndup (header, p - header);
+	
+	*to = camel_internet_address_new ();
+	camel_internet_address_add (*to, NULL, addr);
+	
+	g_free (addr);
+	
+	return TRUE;
 }
 
 static void
