@@ -1,0 +1,606 @@
+<?xml version='1.0'?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+                  "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
+
+<!ENTITY Evolution "<application>Evolution</application>">
+<!ENTITY GNOME "<application>GNOME</application>">
+<!ENTITY eclipse "<application>Eclipse</application>">
+<!ENTITY Camel "<application>Camel</application>">
+<!ENTITY EPlugin "<application>EPlugin</application>">
+<!ENTITY e-popup-reference SYSTEM "e-popup.sgml">
+<!ENTITY e-plugin-reference SYSTEM "e-plugin.sgml">
+]>
+<?xml-stylesheet href="sdocbook.css" type="text/css"?>
+
+<book lang="en">
+  <!-- DocBook file was created by LyX 1.3
+  See http://www.lyx.org/ for more information -->
+  <bookinfo>
+    <title>
+      &Evolution; Plugin Development Manual
+    </title>
+    
+    <authorgroup>
+      <corpauthor>
+	Novell, Inc.
+      </corpauthor>
+      <author>
+	<firstname>Michael</firstname><surname>Zucchi</surname>
+      </author>
+    </authorgroup>
+
+    <copyright>
+      <year>2004</year>
+      <holder>Novell, Inc.</holder>
+    </copyright>
+
+  </bookinfo>
+
+  <preface id="preface">
+    <title>Preface</title>
+
+    <para>
+      This document is work-in-progress.  Its structure and design is still as
+      fluid as the underlying strucutre and design of some parts of EPlugin.
+      There's no guarantee it will be updated at regular intervals,
+      particularly this version.
+    </para>
+    <para>
+      The API documentation is currently generated using the Linux kernel-doc
+      script.  The stylesheets used to generate the HTML you're seeing seems to
+      have bugs which duplicates some sections.  It is also ugly and difficult
+      to navigate.
+    </para>
+  </preface>
+
+  <part id="informational">
+    <title>
+      EPlugin
+    </title>
+    <chapter>
+      <title>
+	Introduction
+      </title>
+      <para>
+	This book aims to be a comprehensive technical manual for the
+	development of plugins for &Evolution;, a personal information manager
+	for &GNOME;.
+      </para>
+      <para>
+	Up-to, and including, &Evolution; version 2.0, &Evolution; contained
+	limited extensibility interfaces. There were only two ways to extend
+	&Evolution;; by implementing a new top-level component, or by
+	implementing a &Camel; provider. When implementing a top-level component,
+	there was still little integration, and in effect it was merely a more
+	complex way of writing a separate &GNOME; application. &Camel; providers
+	were only designed to be e-mail storage backends, so were of limited
+	use for general extensibility. Despite this, both mechanisms were used
+	for example for the Exchange Connector, although the system made the
+	integration clumsy and difficult.
+      </para>
+      <para>
+	This lack of extensibility has severaly stifled external developer
+	contributions by forcing any extensions to be considered as core
+	features. &Evolution; being a commercial product, it has tight usability
+	and quality requirements that limits the ability to experiment with
+	the core feature set in this way. As a result, very few lines of code
+	or new features have been implemented by external contributors.
+      </para>
+      <para>
+	One of the major goals for the 2.2 release was to implement an
+	extensibility system, given the working name of EPlugin, which must
+	provide a frame-work for both providing extensibility hooks, and for
+	extending the functionality of &Evolution;.
+      </para>
+      <sect1>
+	<title>
+	  Plugin System
+	</title>
+	<para>
+	  Any plugin system will generally have a number of goals:
+	</para>
+	<itemizedlist>
+	  <listitem>
+	    <para>
+	      Provide a language independent invocation mechanism
+	    </para>
+
+	  </listitem>
+	  <listitem>
+	    <para>
+	      Allow extension of parts of the user interface and processing elements
+	    </para>
+
+	  </listitem>
+	  <listitem>
+	    <para>
+	      Require minimal extra or foreign code to implement in the core application
+	    </para>
+
+	  </listitem>
+	  <listitem>
+	    <para>
+	      Require minimal interface code to implement the extensions
+	    </para>
+
+	  </listitem>
+	  <listitem>
+	    <para>
+	      Not to impact performance or increase resource usage unduly
+	    </para>
+
+	  </listitem>
+	  <listitem>
+	    <para>
+	      Versioning
+	    </para>
+
+	  </listitem>
+	  <listitem>
+	    <para>
+	      Be able to be extended itself fairly easily.
+	    </para>
+
+	  </listitem>
+
+	</itemizedlist>
+	<para>
+	  EPlugin manages to fulfill these goals in most cases. EPlugin isn't a
+	  single object or interface in itself, although there is an object
+	  titled EPlugin, it is a synergistic collection of integrated and
+	  continually evolving objects which work together to achieve these
+	  goals (and that will definitly be the end of the MarketSpeak). It
+	  consists of a loader to invoke extension callbacks, hooks to resolve
+	  these callbacks, targets to identify context, and managers which are
+	  used by the core code to provide functionality and merging points for
+	  the extensions.
+	</para>
+	<para>
+	  EPlugin's design was inspired and influenced by the &eclipse;
+	  project. It aims at a lower target however, so it was more easily
+	  implemented in a practical time-frame.
+	</para>
+	<para>
+	  The EPlugin world is awash with its own language. The next few
+	  sections will introduce the basic plugin nomenclature and high-level
+	  view of this world.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Loaders
+	</title>
+	<para>
+	  The core of EPlugin is a light-weight object loader and callback
+	  invocation system. Because of the varied calling conventions of
+	  different languages, and to reduce the overhead of the plugin system
+	  itself, all callbacks only receive and return a single argument. By
+	  using structures to pass complex arguments, native C plugins require
+	  no extra overhead, and marshalling details are moved into the plugin
+	  implementation itself where required. It also simplifies memory
+	  management issues significantly. For example, the C plugin handler
+	  merely loads a shared library using GModule, and resolves a symbol by
+	  name; and is so all of 50 lines of code, total. The loaders are the
+	  only modules which need to interace with non-native code or
+	  conventions.
+	</para>
+	<para>
+	  The other task of the plugin core is to load XML definitions of the
+	  plugins. Extension hooks are registered with the plugin core before
+	  the plugins are scanned, and are automatically instantiated to load
+	  each definition appropriately as they are encountered.
+	</para>
+	<para>
+	  At each layer, a level of indirection is used so that new loaders and
+	  new hooks can be added transparently, and extend the plugin
+	  definition freely with any information they require.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Hooks
+	</title>
+	<para>
+	  The hooks which are registered with the loader provide meta-data for
+	  the management implementation layer for extending it at
+	  run-time. Their primary
+	  functions are to load the detail of the XML plugin definition, map it
+	  to the implementation, and marshal the implementation callbacks to
+	  the common plugin interface. How they do this depends on the
+	  implementation itself, and ranges from registering factory methods to
+	  simply adding the items directly.
+	</para>
+	<para>
+	  In most cases the physical object need not be loaded until the
+	  callback is invoked, since the plugin definitions provide enough
+	  contextual information to build the interface or determine when they
+	  need to be invoked.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Managers
+	</title>
+	<para>
+	  Managers
+	  <footnote>
+	    <para>
+	      Unlike real managers, these are the ones that do the heavy lifting.
+	    </para>
+	  </footnote>
+	  provide tools for the core code to extend itself at specific
+	  points, and in many cases are the objects used directly in the code
+	  to implement core features. In other cases they simply provide the
+	  hooks with an entry point into &Evolution;. For example, for the main
+	  menu hook, the manager is a thin layer to BonoboUI. On the other
+	  hand, EPopup is a complete implementation of a popup menu management
+	  system which was already used in &Evolution; 2.0. Some managers are
+	  one-off objects used as constructors for other objects, others are
+	  view-dependent, and some are static objects, such as the Event
+	  routers.
+	</para>
+      </sect1>
+
+      <sect1>
+	<title>
+	  Items
+	</title>
+	<para>
+	  Each manager uses a number of items to describe the object they
+	  control or create. The items are added to each manager instance from
+	  the plugins or from core code. The items from all of these sources
+	  are then merged together when required and processed accordingly. For
+	  example, menu items are merged into the display format. Events on the
+	  other hand are simply ordered and then invoked in the order of their
+	  priority. Items are part of the manager implementation, and in
+	  EPlugin they are all extensible objects too, which the hooks use to
+	  perform mapping to the plugin. Items may be extended by code hooking
+	  into the implementation, either the plugin hooks, or the core code.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Targets
+	</title>
+	<para>
+	  Targets are view or component specific context objects. They contain
+	  enough information to be used as stand-alone contexts to implement
+	  callbacks for both core functions and plugin hooks. For example for
+	  the mail view, a select target contains a folder and a list of
+	  selected messages. An attachment (part) target contains the
+	  &Camel; representation of the part and the mime-type for
+	  that part. Targets are part of the manager implementation and are
+	  extended by subclassing the manager.
+	</para>
+
+      </sect1>
+
+
+    </chapter>
+
+    <chapter>
+      <title>
+	Plugin Hooks
+      </title>
+      <para>
+	This chapter will introduce the available plugin hook types. A given
+	plugin can hook into any of these hooks any number of times. Some refer
+	to specific instances of objects and others are implicitly defined.
+      </para>
+      <sect1>
+	<title>
+	  Popup Menus
+	</title>
+	<para>
+	  The popup menu hook lets you hook into any of the context menus in
+	  &Evolution;, by name and context. Complex, dynamic, and multi-level
+	  menus are created on the fly by merging the items for a given menu as
+	  it is being shown. Each component provides its own context targets to
+	  self-describe the situation under which the menu is invoked. Plugins
+	  and core code alike are then invoked at the user's direction. The
+	  popup manager and all context data lives as long as the menu and
+	  until a choice is made, simplifying memory management.
+	</para>
+	<para>
+	  The menu is merged from multiple plugins and core application code by
+	  using a simple lexiographical sort of an absolute path to the menu
+	  item. This merged list is then scanned and expanded into a tree of
+	  menus. Individual items can be hidden or inactive based on the target
+	  and a simple mask which is defined by the component itself. A rich
+	  collection of menu item types are possible, from simple, to
+	  checkboxes or images. The popup code is simple, and easy to use, and
+	  simplifies the use of popup menu's in the core application anyway,
+	  that they are pluggable is a free-bonus.
+	</para>
+	<sect2>
+	  <title>Defining a hook</title>
+	  <para>
+	    Not sure if this fits here as such.  Probably temporary placeholder.
+	  </para>
+	  <para>
+	    The following XML is annotated with BNF-style optons after each tag
+	    or parameter.  * means the preceeding item can occur 0 or many
+	    times, and ? means the preceeding item can occur 0 or 1 time.
+	    Unannotated items must be supplied once.
+
+	    <programlisting>
+	    <![CDATA[
+<hook class="com.ximian.evolution.mail.popup:1.0">
+ <menu id="menuid" target="targettype">
+  <item
+   type="item | toggle | radio | image | submenu | bar"
+   active ?
+   path="foo/bar"
+   label="menu text"
+   icon="icon name" ?
+   mask="target mask" ?
+   activate="function spec"/> *
+ </menu> *
+</hook>]]></programlisting>
+	    (insert explanation of hook element here, or drop it from above)
+
+	    <!-- this is all too bloody verbose, is there a better way? -->
+	    <variablelist>
+	      <varlistentry>
+		<term><parameter>type</parameter></term>
+		<listitem>
+		  <para>
+		    The menu item type.  The type maps directly to the
+		    EPopupItem types.
+		  </para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+		<term><parameter>active</parameter></term>
+		<listitem>
+		  <para>
+		    If present, then radio or toggle menu items are active when
+		    first shown.  After the first instantiation, they will
+		    remember their active state.
+		  </para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+		<term><parameter>path</parameter></term>
+		<listitem>
+		  <para>
+		    A '/' separated path used to position the item within menu
+		    and in the right submenu.  Each menu and plugin should
+		    define how its menu's are layed out so other plugins can
+		    determine what value to use here.
+		  </para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+		<term><parameter>label</parameter></term>
+		<listitem>
+		  <para>
+		    The text to be displayed on the menu item.  This will be
+		    translated based on the plugin translation domain (FIXME:
+		    domain's are not yet available).
+		  </para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+		<term><parameter>icon</parameter></term>
+		<listitem>
+		  <para>
+		    The name of a gnome-icon-theme standard icon, or the full
+		    path-name of an icon image to use as menu item icon.  This
+		    will be blank if not supplied.
+		  </para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+		<term><parameter>mask</parameter></term>
+		<listitem>
+		  <para>
+		    A comma separated list of mask enumeration values used to
+		    define when this item is shown.  What values are valid
+		    depend on the menu hook class of the menu being hooked
+		    onto.
+		  </para>
+		</listitem>
+	      </varlistentry>
+	      <varlistentry>
+		<term><parameter>activate</parameter></term>
+		<listitem>
+		  <para>
+		    A plugin-type specific function specification.  This
+		    function will be resolved and called when the menu item is
+		    activated.
+		  </para>
+		</listitem>
+	      </varlistentry>
+	    </variablelist>
+	  </para>
+	</sect2>
+      </sect1>
+
+      <sect1>
+	<title>
+	  Main menus
+	</title>
+	<para>
+	  The main menu hook lets you hook into various main menus in
+	  &Evolution;, based on the current active view (component). The system
+	  works by piggy-backing on the existing use of the BonoboUI menu
+	  system used by all of the &Evolution; components. Bonobo handles the
+	  menu merging and user input, and the hook resolves the verb being
+	  invoked and redirects it to the plugin. Each view defines a single
+	  target which describes the appropriate context. For the Mail view,
+	  this is the current folder and currently selected message(s).
+	</para>
+	<para>
+	  Each view keeps track of its own manager object. When it is
+	  (de)activated, it also (de)activates the management object which
+	  dynamically adds and removes the menu items from the
+	  BonoboUIContainer via a supplied BonoboUI XML definition file
+	  &lt;perhaps it should embed the bonobouixml&gt;. If the target
+	  changes, the view lets the manager know, and it updates the
+	  visibility and sensitivity of objects appropriately, allowing
+	  reasonably dynamic user-interfaces to be managed automatically. The
+	  plugin itself isn't loaded until the menu item in question is invoked
+	</para>
+	<para>
+	  Simple menu items and toggle menu items are supported currently.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Configuration Pages and Wizards
+	</title>
+	<para>
+	  Configuration pages are somewhat more complex than any of the other
+	  types of hookable object. This is reflected in the complexity of the
+	  items and callbacks involved. Since it isn't completely defined yet,
+	  no more details will be forthcoming.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Events
+	</title>
+	<para>
+	  No extensibility framework would be complete without an event
+	  system. Events are used to reflect changes in internal state of the
+	  application, and track actions by the user. They can contain any
+	  information and additionally can be filtered based on the information
+	  itself. Special targets are used, as in the other plugin hooks, to
+	  hold this information.
+	</para>
+	<para>
+	  Event managers are defined to contain the different event types that
+	  a given component can export. Only one event manager object is
+	  instantiated for each component, and each plugin listening to events
+	  from that component are registered on that event manager directly.
+	</para>
+	<para>
+	  Events handlers have priorities, and can swallow events, allowing
+	  some level of complexity of event routing. This feature might not
+	  prove useful and may be removed in the future if it isn't.
+	</para>
+
+      </sect1>
+
+      <sect1>
+	<title>
+	  Mail Formatter
+	</title>
+	<para>
+	  The mail formatter plugin will invoke plugin code to format any part
+	  of an email based on mime-type. There are several formatters used
+	  internally by the mailer for different contexts, and each can be
+	  hooked into separately, providing extensible mail formatting for
+	  everything from the primary mail display, to printing, to reply
+	  quoting and more. If you are implementing a handler for a given
+	  mime-type, each formatter appropriate for the data-type should be
+	  hooked into, so that it displays properly in all contexts.
+	</para>
+	<para>
+	  Since the management object in this case is the same formatting
+	  object as used by the core mail display engine, a plugin may override
+	  or reimplement complete new functionality seamlessly.
+	</para>
+	<para>
+	  This plugin hook isn't strictly part of the core functionality as it
+	  is provided by the mail component. It however demonstrates that the
+	  plugin system is extensible itself.
+	</para>
+
+      </sect1>
+
+
+    </chapter>
+
+
+  </part>
+
+  <part id="reference">
+    <title>
+      Reference
+    </title>
+    <partintro>
+      <para>
+	This section of the book is a detailed API reference of the
+	objects and methods that implement the core plugin system and hooks.
+      </para>
+      <para>
+	It contains the detailed information required for all uses of the
+	plugin system. That is, implementors
+	of new hook types, application developers providing hook points, and
+	plugin developers.
+      </para>
+    </partintro>
+    <chapter>
+      <title>
+	EPlugin
+      </title>
+      &e-plugin-reference;
+
+      <sect1>
+	<title>
+	  EPluginMono
+	</title>
+	<para>
+	  details
+	</para>
+      </sect1>
+    </chapter>
+
+    <chapter>
+      <title>
+	EPopup
+      </title>
+	&e-popup-reference;
+    </chapter>
+
+    <chapter>
+      <title>
+	EMenu
+      </title>
+      <para>
+	Insert definition here.
+      </para>
+    </chapter>
+
+    <chapter>
+      <title>
+	EEvent
+      </title>
+      <para>
+	Insert definition here.
+      </para>
+    </chapter>
+
+  </part>
+
+  <part>
+    <title>
+      Hook points
+    </title>
+    <para>
+      Mail
+    </para>
+    <para>
+      Popups
+    </para>
+
+  </part>
+
+
+
+
+</book>
