@@ -1,3 +1,36 @@
+2001-08-31  Peter Williams  <peterw@ximian.com>
+
+	* mail-local.c (mail_local_reconfigure_folder): Use (NULL, NULL)
+	as the arguments to g_hash_table_new instead of g_direct_foo.
+	Instead of checking the URI, check MAIL_IS_LOCAL_FOLDER (fb->folder)
+	to check whether we can reconfigure the folder. Instead of
+	gnome_dialog_run_and_close, use gnome_dialog_run...
+	(reconfigure_clicked): And deal with removing the hash table
+	elements here.
+	(local_storage_new_folder_cb): Set the folder's name to the
+	displayName to i18nize correctly (after shell patch is applied).
+
+2001-08-30  Peter Williams  <peterw@ximian.com>
+
+	* mail-local.c: Rewrite as a more complete CamelStore.
+	
+	* component-factory.c (create_folder): We can now chuck out most
+	of this function and just call mail_get_folder.
+	(xfer_folder_done): If we succeeded in moving the messages, now
+	delete the source folder as we should be.
+	(xfer_folder): In order to do so, create a new xfer_folder_data
+	struct that records the value of 'remove_source' Fix a leak by
+	unreffing the source folder.
+
+	* mail-ops.[ch]: We no longer need the mail_new_folder operation.
+	
+	* folder-browser.[ch]: Don't need the 'reconfigure' member 
+	anymore, because the loaded folder's URL doesn't change.
+	(do_message_selected): Don't check it
+	(on_right_click): Same.
+	(folder_browser_set_uri): Same.
+	(got_folder): Same.
+	
 2001-08-31  Zbigniew Chyla  <cyba@gnome.pl>
 
 	* mail-vfolder.c (vfolder_create_storage):

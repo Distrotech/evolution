@@ -26,40 +26,27 @@
  * USA
  */
 
-/*
-  TODO:
-
-  If we are going to have all this LocalStore stuff, then the LocalStore
-  should have a reconfigure_folder method on it, as, in reality, it is
-  the maintainer of this information.
-
-*/
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+#include <unistd.h>
+#include <errno.h>
 
 #include <gnome-xml/xmlmemory.h>
 #include <libgnomeui/gnome-dialog.h>
 #include <libgnomeui/gnome-dialog-util.h>
 #include <glade/glade.h>
 
+#include "gal/widgets/e-gui-utils.h"
+#include "e-util/e-path.h"
+
 #include "Evolution.h"
 #include "evolution-storage.h"
 #include "evolution-shell-component.h"
 #include "evolution-storage-listener.h"
 
-#include "gal/widgets/e-gui-utils.h"
-#include "e-util/e-path.h"
-
 #include "camel/camel.h"
-#include "camel/camel-vee-store.h"
-#include "camel/camel-vee-folder.h"
-#include "camel/camel-vtrash-folder.h"
-
-#include "filter/vfolder-context.h"
-#include "filter/vfolder-rule.h"
-#include "filter/vfolder-editor.h"
 
 #include "mail.h"
 #include "mail-local.h"
@@ -69,107 +56,17 @@
 #include "mail-folder-cache.h"
 #include "mail-vfolder.h"
 
-#define d(x)
+#define d(x) x
 
+/* ** MailLocalStore ** (protos) ************************************************** */
 
-/* Local folder metainfo */
+/* If this is passed to get_folder, then don't actually open the inner folder;
+ * just load the metadata. This is a hack for delete_folder; we don't want to
+ * create the actual folder just to retrieve the appropriate CamelStore.
+ */
 
-struct _local_meta {
-	char *path;		/* path of metainfo file */
+#define MAIL_LOCAL_STORE_LIGHTWEIGHT (CAMEL_STORE_FOLDER_INFO_SUBSCRIBED << 4)
 
-	char *format;		/* format of mailbox */
-	char *name;		/* name of mbox itself */
-	int indexed;		/* do we index the body? */
-};
-
-static struct _local_meta *
-load_metainfo (const char *path)
-{
-	xmlDocPtr doc;
-	xmlNodePtr node;
-	struct _local_meta *meta;
-	
-	meta = g_malloc0 (sizeof (*meta));
-	meta->path = g_strdup (path);
-	
-	d(printf("Loading folder metainfo from : %s\n", meta->path));
-	
-	doc = xmlParseFile (meta->path);
-	if (doc == NULL) {
-		goto dodefault;
-	}
-	node = doc->root;
-	if (strcmp (node->name, "folderinfo")) {
-		goto dodefault;
-	}
-	node = node->childs;
-	while (node) {
-		if (!strcmp (node->name, "folder")) {
-			char *index, *txt;
-			
-			txt = xmlGetProp (node, "type");
-			meta->format = g_strdup (txt ? txt : "mbox");
-			xmlFree (txt);
-			
-			txt = xmlGetProp (node, "name");
-			meta->name = g_strdup (txt ? txt : "mbox");
-			xmlFree (txt);
-			
-			index = xmlGetProp (node, "index");
-			if (index) {
-				meta->indexed = atoi (index);
-				xmlFree (index);
-			} else
-				meta->indexed = TRUE;
-			
-		}
-		node = node->next;
-	}
-	xmlFreeDoc (doc);
-	return meta;
-
- dodefault:
-	meta->format = g_strdup ("mbox"); /* defaults */
-	meta->name = g_strdup ("mbox");
-	meta->indexed = TRUE;
-	xmlFreeDoc (doc);
-	return meta;
-}
-
-static void
-free_metainfo (struct _local_meta *meta)
-{
-	g_free (meta->path);
-	g_free (meta->format);
-	g_free (meta->name);
-	g_free (meta);
-}
-
-static int
-save_metainfo(struct _local_meta *meta)
-{
-	xmlDocPtr doc;
-	xmlNodePtr root, node;
-	int ret;
-
-	d(printf("Saving folder metainfo to : %s\n", meta->path));
-
-	doc = xmlNewDoc("1.0");
-	root = xmlNewDocNode(doc, NULL, "folderinfo", NULL);
-	xmlDocSetRootElement(doc, root);
-
-	node  = xmlNewChild(root, NULL, "folder", NULL);
-	xmlSetProp(node, "type", meta->format);
-	xmlSetProp(node, "name", meta->name);
-	xmlSetProp(node, "index", meta->indexed?"1":"0");
-
-	ret = xmlSaveFile(meta->path, doc);
-	xmlFreeDoc(doc);
-	return ret;
-}
-
-
-/* MailLocalStore implementation */
 #define MAIL_LOCAL_STORE_TYPE     (mail_local_store_get_type ())
 #define MAIL_LOCAL_STORE(obj)     (CAMEL_CHECK_CAST((obj), MAIL_LOCAL_STORE_TYPE, MailLocalStore))
 #define MAIL_LOCAL_STORE_CLASS(k) (CAMEL_CHECK_CLASS_CAST ((k), MAIL_LOCAL_STORE_TYPE, MailLocalStoreClass))
@@ -177,117 +74,732 @@ save_metainfo(struct _local_meta *meta)
 
 typedef struct {
 	CamelStore parent_object;	
-	
-	EvolutionStorage *storage;
-	GNOME_Evolution_Storage corba_storage;
-	EvolutionStorageListener *local_storage_listener;
-	
-	char *local_path;
-	int local_pathlen;
-	GHashTable *folders; /* points to MailLocalFolder */
 } MailLocalStore;
 
 typedef struct {
 	CamelStoreClass parent_class;
 } MailLocalStoreClass;
 
-typedef struct {
-	CamelFolder *folder;
-	MailLocalStore *local_store;
-	char *path, *name, *uri;
-} MailLocalFolder;
-
-static MailLocalStore *local_store;
-
 CamelType mail_local_store_get_type (void);
 
-static char *get_name (CamelService *service, gboolean brief);
+/* ** MailLocalFolder ** (protos) ************************************************* */
 
-static CamelFolder *get_folder (CamelStore *store, const char *folder_name,
-				guint32 flags, CamelException *ex);
-static CamelFolderInfo *get_folder_info (CamelStore *store, const char *top,
-					 guint32 flags, CamelException *ex);
-static void delete_folder (CamelStore *store, const char *folder_name,
-			   CamelException *ex);
-static void rename_folder (CamelStore *store, const char *old_name,
-			   const char *new_name, CamelException *ex);
+#define MAIL_LOCAL_FOLDER_TYPE     (mail_local_folder_get_type ())
+#define MAIL_LOCAL_FOLDER(obj)     (CAMEL_CHECK_CAST((obj), MAIL_LOCAL_FOLDER_TYPE, MailLocalFolder))
+#define MAIL_LOCAL_FOLDER_CLASS(k) (CAMEL_CHECK_CLASS_CAST ((k), MAIL_LOCAL_FOLDER_TYPE, MailLocalFolderClass))
+#define MAIL_IS_LOCAL_FOLDER(o)    (CAMEL_CHECK_TYPE((o), MAIL_LOCAL_FOLDER_TYPE))
 
-static void init_trash (CamelStore *store);
+typedef struct {
+	CamelFolder parent_object;
 
-static CamelStoreClass *local_parent_class;
+	CamelFolder *real_folder;
+
+	gchar *metadata_path; /* where our metadata is */
+	gchar *file_path; /* absolute pathname of mailbox */
+	gchar *format; /* mbox, maildir, mh... */
+	gchar *store_name; /* the name of the mailbox in the 'real' store */
+	gchar *url;
+	int    indexed;
+
+	GMutex *real_folder_lock; /* no way to use the CamelFolder's lock, so... */
+} MailLocalFolder;
+
+typedef struct {
+	CamelFolderClass parent_class;
+} MailLocalFolderClass;
+
+CamelType        mail_local_folder_get_type       (void);
+MailLocalFolder *mail_local_folder_construct      (MailLocalFolder *mlf,
+						   MailLocalStore  *parent_store,
+						   const char      *full_name,
+						   const char      *file_path);
+
+gboolean         mail_local_folder_set_folder     (MailLocalFolder *mlf, 
+						   guint32          flags, 
+						   CamelException  *ex);
+
+CamelStore      *mail_local_folder_get_real_store (MailLocalFolder *mlf);
+
+gboolean         mail_local_folder_reconfigure    (MailLocalFolder *mlf, 
+						   const char      *new_format, 
+						   CamelException  *ex);
+
+#ifdef ENABLE_THREADS
+#define LOCAL_FOLDER_LOCK(folder)   (g_mutex_lock   (((MailLocalFolder *)folder)->real_folder_lock))
+#define LOCAL_FOLDER_UNLOCK(folder) (g_mutex_unlock (((MailLocalFolder *)folder)->real_folder_lock))
+#else
+#define LOCAL_FOLDER_LOCK(folder)
+#define LOCAL_FOLDER_UNLOCK(folder)
+#endif
+
+/* ** Misc ************************************************************************ */
+
+void mail_local_provider_init (void);
+
+/* ** MailLocalFolder ************************************************************* */
 
 static void
-mail_local_store_class_init (MailLocalStoreClass *mail_local_store_class)
+mlf_load_metainfo (MailLocalFolder *mlf)
+{
+	xmlDocPtr doc;
+	xmlNodePtr node;
+	
+	d(printf("Loading folder metainfo from : %s\n", mlf->metadata_path));
+	
+	doc = xmlParseFile (mlf->metadata_path);
+	if (doc == NULL)
+		goto dodefault;
+
+	node = doc->root;
+	if (strcmp (node->name, "folderinfo"))
+		goto dodefault;
+
+	node = node->childs;
+	while (node) {
+		if (!strcmp (node->name, "folder")) {
+			char *index, *txt;
+			
+			txt = xmlGetProp (node, "type");
+			mlf->format = g_strdup (txt ? txt : "mbox");
+			xmlFree (txt);
+			
+			txt = xmlGetProp (node, "name");
+			mlf->store_name = g_strdup (txt ? txt : "mbox");
+			xmlFree (txt);
+			
+			index = xmlGetProp (node, "index");
+			if (index) {
+				mlf->indexed = atoi (index);
+				xmlFree (index);
+			} else
+				mlf->indexed = TRUE;
+			
+		}
+		node = node->next;
+	}
+	xmlFreeDoc (doc);
+	return;
+
+ dodefault:
+	mlf->format = g_strdup ("mbox"); /* defaults */
+	mlf->store_name = g_strdup ("mbox");
+	mlf->indexed = TRUE;
+	xmlFreeDoc (doc);
+}
+
+static gboolean
+mlf_save_metainfo(MailLocalFolder *mlf)
+{
+	xmlDocPtr doc;
+	xmlNodePtr root, node;
+	int ret;
+
+	d(printf("Saving folder metainfo to : %s\n", mlf->metadata_path));
+
+	doc = xmlNewDoc("1.0");
+	root = xmlNewDocNode(doc, NULL, "folderinfo", NULL);
+	xmlDocSetRootElement(doc, root);
+
+	node  = xmlNewChild(root, NULL, "folder", NULL);
+	xmlSetProp(node, "type", mlf->format);
+	xmlSetProp(node, "name", mlf->store_name);
+	xmlSetProp(node, "index", mlf->indexed?"1":"0");
+
+	ret = xmlSaveFile(mlf->metadata_path, doc);
+	xmlFreeDoc(doc);
+	if (ret == -1)
+		return FALSE;
+	return TRUE;
+}
+
+/* forward a bunch of functions to the real folder. This pretty
+ * much sucks but I haven't found a better way of doing it.
+ */
+
+static void
+mlf_refresh_info (CamelFolder *folder, CamelException *ex)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_refresh_info (mlf->real_folder, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+static void
+mlf_sync (CamelFolder *folder, gboolean expunge, CamelException *ex)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+/*
+	if (mlf_save_metainfo (mlf) == FALSE) {
+		camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
+				      _("Couldn't save metainfo file %s for folder %s"),
+				      mlf->metadata_path,
+				      CAMEL_FOLDER (mlf)->full_name);
+		return;
+	}
+*/
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_sync (mlf->real_folder, expunge, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+static void
+mlf_expunge (CamelFolder *folder, CamelException *ex)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_expunge (mlf->real_folder, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+static void
+mlf_append_message (CamelFolder *folder, CamelMimeMessage *message, 
+		    const CamelMessageInfo *info, CamelException *ex)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_append_message (mlf->real_folder, message, 
+				     info, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+static CamelMimeMessage *
+mlf_get_message (CamelFolder *folder, const char *uid, CamelException *ex)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+	CamelMimeMessage *ret;
+
+	LOCAL_FOLDER_LOCK (mlf);
+	ret = camel_folder_get_message (mlf->real_folder, uid, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+	return ret;
+}
+
+static GPtrArray *
+mlf_search_by_expression (CamelFolder *folder, const char *expression, CamelException *ex)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+	GPtrArray *ret;
+
+	LOCAL_FOLDER_LOCK (mlf);
+	ret = camel_folder_search_by_expression (mlf->real_folder, expression, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+	return ret;
+}
+
+static void
+mlf_search_free (CamelFolder *folder, GPtrArray *result)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_search_free (mlf->real_folder, result);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+static void
+mlf_set_message_user_flag (CamelFolder *folder, const char *uid, const char *name, gboolean value)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_set_message_user_flag (mlf->real_folder, uid, name, value);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+static void
+mlf_set_message_user_tag (CamelFolder *folder, const char *uid, const char *name, const char *value)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (folder);
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_folder_set_message_user_tag (mlf->real_folder, uid, name, value);
+	LOCAL_FOLDER_UNLOCK (mlf);
+}
+
+/* and, conversely, forward the real folder's signals. */
+
+static void
+mlf_proxy_message_changed (CamelObject *real_folder, gpointer event_data, gpointer user_data)
+{
+	camel_object_trigger_event (CAMEL_OBJECT (user_data), "message_changed", event_data);
+}
+
+static void
+mlf_proxy_folder_changed (CamelObject *real_folder, gpointer event_data, gpointer user_data)
+{
+	camel_object_trigger_event (CAMEL_OBJECT (user_data), "folder_changed", event_data);
+}
+
+
+static void
+mlf_unset_folder (MailLocalFolder *mlf)
+{
+	g_return_if_fail (mlf->real_folder);
+
+	camel_object_unhook_event (CAMEL_OBJECT (mlf->real_folder),
+				   "message_changed",
+				   mlf_proxy_message_changed,
+				   mlf);
+	camel_object_unhook_event (CAMEL_OBJECT (mlf->real_folder),
+				   "folder_changed",
+				   mlf_proxy_folder_changed,
+				   mlf);
+
+	camel_object_unref (CAMEL_OBJECT (CAMEL_FOLDER (mlf)->summary));
+	CAMEL_FOLDER (mlf)->summary = NULL;
+	camel_object_unref (CAMEL_OBJECT (mlf->real_folder));
+	mlf->real_folder = NULL;
+
+	CAMEL_FOLDER (mlf)->permanent_flags        = 0;
+	CAMEL_FOLDER (mlf)->has_summary_capability = 0;
+	CAMEL_FOLDER (mlf)->has_search_capability  = 0;
+}
+
+static gboolean
+mlf_set_folder (MailLocalFolder *mlf, guint32 flags, CamelException *ex)
+{
+	CamelStore *store;
+
+	g_return_val_if_fail (mlf->real_folder == NULL, FALSE);
+
+	d(g_message ("Setting folder from url %s", mlf->url));
+	store = camel_session_get_store (session, mlf->url, ex);
+	if (store == NULL)
+		return FALSE;
+
+	if (mlf->indexed)
+		flags |= CAMEL_STORE_FOLDER_BODY_INDEX;
+
+	mlf->real_folder = camel_store_get_folder (store, mlf->store_name, flags, ex);
+	camel_object_unref (CAMEL_OBJECT (store));
+	if (mlf->real_folder == NULL)
+		return FALSE;
+
+	CAMEL_FOLDER (mlf)->summary = mlf->real_folder->summary;
+	camel_object_ref (CAMEL_OBJECT (mlf->real_folder->summary));
+
+	CAMEL_FOLDER (mlf)->permanent_flags        = mlf->real_folder->permanent_flags;
+	CAMEL_FOLDER (mlf)->has_summary_capability = mlf->real_folder->has_summary_capability;
+	CAMEL_FOLDER (mlf)->has_search_capability  = mlf->real_folder->has_search_capability;
+
+	camel_object_hook_event (CAMEL_OBJECT (mlf->real_folder), "message_changed",
+				 mlf_proxy_message_changed, mlf);
+	camel_object_hook_event (CAMEL_OBJECT (mlf->real_folder), "folder_changed",
+				 mlf_proxy_folder_changed, mlf);
+
+	return TRUE;
+}
+
+static void 
+mlf_class_init (CamelObjectClass *camel_object_class)
+{
+	CamelFolderClass *camel_folder_class = CAMEL_FOLDER_CLASS (camel_object_class);
+
+	/* override all the functions subclassed in providers/local/ */
+
+	camel_folder_class->refresh_info   = mlf_refresh_info;
+	camel_folder_class->sync           = mlf_sync;
+	camel_folder_class->expunge        = mlf_expunge;
+	camel_folder_class->append_message = mlf_append_message;
+	camel_folder_class->get_message    = mlf_get_message;
+	camel_folder_class->search_free    = mlf_search_free;
+
+	camel_folder_class->search_by_expression  = mlf_search_by_expression;
+	camel_folder_class->set_message_user_flag = mlf_set_message_user_flag;
+	camel_folder_class->set_message_user_tag  = mlf_set_message_user_tag;
+}
+
+static void
+mlf_init (CamelObject *obj)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (obj);
+
+#ifdef ENABLE_THREADS
+	mlf->real_folder_lock = g_mutex_new ();
+#else
+	choke on this
+#endif
+}
+
+static void
+mlf_finalize (CamelObject *obj)
+{
+	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER (obj);
+
+	if (mlf->real_folder)
+		mlf_unset_folder (mlf);
+
+	g_free (mlf->file_path);
+
+	if (mlf->metadata_path)
+		g_free (mlf->metadata_path);
+
+	if (mlf->format) {
+		g_free (mlf->format);
+		g_free (mlf->store_name);
+	}
+	
+#ifdef ENABLE_THREADS
+	g_mutex_free (mlf->real_folder_lock);
+#endif
+}
+
+CamelType
+mail_local_folder_get_type (void)
+{
+	static CamelType mail_local_folder_type = CAMEL_INVALID_TYPE;
+
+	if (mail_local_folder_type == CAMEL_INVALID_TYPE) {
+		mail_local_folder_type = camel_type_register (CAMEL_FOLDER_TYPE,
+							      "MailLocalFolder",
+							      sizeof (MailLocalFolder),
+							      sizeof (MailLocalFolderClass),
+							      mlf_class_init,
+							      NULL,
+							      mlf_init,
+							      mlf_finalize);
+	}
+
+	return mail_local_folder_type;
+}
+
+static void
+mlf_set_url (MailLocalFolder *mlf)
+{
+	if (mlf->url)
+		g_free (mlf->url);
+
+	mlf->url = g_strdup_printf ("%s:%s#%s",
+				    mlf->format,
+				    mlf->file_path,
+				    mlf->store_name);
+}
+
+MailLocalFolder *
+mail_local_folder_construct (MailLocalFolder *mlf,
+			     MailLocalStore  *parent_store,
+			     const char      *full_name,
+			     const char      *file_path)
+{
+	const char *name;
+
+	if (file_path[0] != '/') {
+		camel_object_unref (CAMEL_OBJECT (mlf));
+		return NULL;
+	}
+
+	name = strrchr (full_name, '/');
+	if (name == NULL)
+		name = full_name;
+	name = name + 1;
+
+	d(g_message ("constructing local folder at \"%s\": full = %s, name = %s",
+		     file_path, full_name, name));
+
+	camel_folder_construct (CAMEL_FOLDER (mlf),
+				CAMEL_STORE (parent_store),
+				full_name,
+				name);
+
+	mlf->file_path = g_strdup (file_path);
+	mlf->metadata_path = g_strconcat (file_path, "/local-metadata.xml", NULL);
+
+	d(g_message ("local metadata at %s", mlf->metadata_path));
+
+	mlf_load_metainfo (mlf);
+	mlf_set_url (mlf);
+
+	return mlf;
+}
+
+gboolean
+mail_local_folder_set_folder (MailLocalFolder *mlf, guint32 flags, CamelException *ex)
+{
+	gboolean ret;
+
+	LOCAL_FOLDER_LOCK (mlf);
+	ret = mlf_set_folder (mlf, flags, ex);
+	LOCAL_FOLDER_UNLOCK (mlf);
+	return ret;
+}
+
+CamelStore *
+mail_local_folder_get_real_store (MailLocalFolder *mlf)
+{
+	CamelStore *store;
+
+	LOCAL_FOLDER_LOCK (mlf);
+
+	if (mlf->real_folder)
+		store = camel_folder_get_parent_store (mlf->real_folder);
+	else
+		store = CAMEL_STORE (camel_session_get_service (session, mlf->url, 
+								CAMEL_PROVIDER_STORE,
+								NULL));
+
+	LOCAL_FOLDER_UNLOCK (mlf);
+
+	return store;
+}
+
+gboolean
+mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, CamelException *ex)
+{
+	CamelException local_ex;
+	CamelStore *fromstore = NULL;
+	CamelFolder *fromfolder = NULL;
+	gchar *oldformat = NULL;
+	gchar *tmpname;
+	GPtrArray *uids;
+	gboolean real_folder_frozen = FALSE;
+
+	/* first things first */
+
+	LOCAL_FOLDER_LOCK (mlf);
+	camel_exception_init (&local_ex);
+
+	/* first, 'close' the old folder */
+
+	if (mlf->real_folder) {
+		camel_folder_sync (mlf->real_folder, FALSE, &local_ex);
+		if (camel_exception_is_set (&local_ex))
+			goto cleanup;
+		mlf_unset_folder (mlf);
+	}
+
+	fromstore = camel_session_get_store (session, mlf->url, &local_ex);
+	if (fromstore == NULL)
+		goto cleanup;
+
+	oldformat = mlf->format;
+	mlf->format = g_strdup (new_format);
+	mlf_set_url (mlf);
+
+	/* rename the old mbox and open it again, without indexing */
+	tmpname = g_strdup_printf ("%s_reconfig", mlf->store_name);
+	d(printf("renaming %s to %s, and opening it\n", mlf->store_name, tmpname));
+	
+	camel_store_rename_folder (fromstore, mlf->store_name, tmpname, &local_ex);
+	if (camel_exception_is_set (&local_ex)) {
+		goto cleanup;
+	}
+	
+	/* we dont need to set the create flag ... or need an index if it has one */
+	fromfolder = camel_store_get_folder (fromstore, tmpname, 0, &local_ex);
+	if (fromfolder == NULL || camel_exception_is_set (&local_ex)) {
+		/* try and recover ... */
+		camel_exception_clear (&local_ex);
+		camel_store_rename_folder (fromstore, tmpname, mlf->store_name, &local_ex);
+		goto cleanup;
+	}
+	
+	/* create a new mbox */
+	d(printf("Creating the destination mbox\n"));
+
+	mlf_set_folder (mlf, CAMEL_STORE_FOLDER_CREATE, &local_ex);
+	if (camel_exception_is_set (&local_ex)) {
+		d(printf("cannot open destination folder\n"));
+		/* try and recover ... */
+		camel_exception_clear (&local_ex);
+		camel_store_rename_folder (fromstore, tmpname, mlf->store_name, &local_ex);
+		goto cleanup;
+	}
+
+	real_folder_frozen = TRUE;
+	camel_folder_freeze (mlf->real_folder);
+
+	uids = camel_folder_get_uids (fromfolder);
+	camel_folder_move_messages_to (fromfolder, uids, mlf->real_folder, &local_ex);
+	camel_folder_free_uids (fromfolder, uids);
+	if (camel_exception_is_set (&local_ex))
+		goto cleanup;
+	
+	camel_folder_expunge (fromfolder, &local_ex);
+	
+	d(printf("delete old mbox ...\n"));
+	camel_object_unref (CAMEL_OBJECT (fromfolder));
+	fromfolder = NULL;
+	camel_store_delete_folder (fromstore, tmpname, &local_ex);
+	
+	/* switch format */
+	g_free (oldformat);
+	oldformat = NULL;
+	if (mlf_save_metainfo (mlf) == FALSE) {
+		camel_exception_setv (&local_ex, CAMEL_EXCEPTION_SYSTEM,
+				      _("Cannot save folder metainfo; "
+					"you'll probably find you can't\n"
+					"open this folder anymore: %s"),
+				      mlf->url);
+	}
+	
+ cleanup:
+	if (oldformat) {
+		g_free (mlf->format);
+		mlf->format = oldformat;
+		mlf_set_url (mlf);
+	}
+	if (mlf->real_folder == NULL)
+		mlf_set_folder (mlf, CAMEL_STORE_FOLDER_CREATE, &local_ex);
+	if (fromfolder)
+		camel_object_unref (CAMEL_OBJECT (fromfolder));
+	if (fromstore)
+		camel_object_unref (CAMEL_OBJECT (fromstore));
+
+	LOCAL_FOLDER_UNLOCK (mlf);
+
+	if (real_folder_frozen)
+		camel_folder_thaw (mlf->real_folder);
+
+	if (camel_exception_is_set (&local_ex)) {
+		camel_exception_xfer (ex, &local_ex);
+		return FALSE;
+	}
+	
+	return TRUE;
+}
+		
+/* ******************************************************************************** */
+
+static CamelObjectClass *local_store_parent_class = NULL;
+
+static gchar *
+mls_make_file_path (MailLocalStore *local_store, const char *folder_name)
+{
+	char *path = CAMEL_SERVICE (local_store)->url->path;
+
+	return g_strconcat (path, folder_name, NULL);
+}
+
+static gchar *
+mls_make_physical_uri (MailLocalStore *local_store, const char *folder_name)
+{
+	char *path = CAMEL_SERVICE (local_store)->url->path;
+
+	return g_strconcat ("file://", path, folder_name, NULL);
+}
+
+static CamelFolder *
+mls_get_folder (CamelStore *store,
+		const char *folder_name,
+		guint32 flags,
+		CamelException *ex)
+{
+	MailLocalStore *local_store = MAIL_LOCAL_STORE (store);
+	MailLocalFolder *folder;
+	gchar *file_path, *physical_uri;
+
+	d(g_message ("get_folder: %s", folder_name));
+
+	file_path = mls_make_file_path (local_store, folder_name);
+
+	folder = MAIL_LOCAL_FOLDER (camel_object_new (MAIL_LOCAL_FOLDER_TYPE));
+
+	folder = mail_local_folder_construct (folder,
+					      local_store,
+					      folder_name,
+					      file_path);
+
+	g_free (file_path);
+
+	if ((flags & MAIL_LOCAL_STORE_LIGHTWEIGHT) == 0) {
+		if (mail_local_folder_set_folder (folder, flags, ex) == FALSE) {
+			camel_object_unref (CAMEL_OBJECT (folder));
+			return NULL;
+		}
+
+		physical_uri = mls_make_physical_uri (local_store, folder_name);
+		mail_folder_cache_note_folder (physical_uri, CAMEL_FOLDER (folder));
+		g_free (physical_uri);
+	}
+
+	if (flags & CAMEL_STORE_FOLDER_CREATE) {
+		if (mlf_save_metainfo (folder) == FALSE) {
+			camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
+					      _("Cannot save folder metainfo to \%s\""),
+					      folder->metadata_path);
+			camel_object_unref (CAMEL_OBJECT (folder));
+			return NULL;
+		}
+	}
+
+	return (CamelFolder *) folder;
+}
+
+static void
+mls_delete_folder (CamelStore *store, const char *folder_name, CamelException *ex)
+{
+	MailLocalFolder *mlf;
+	CamelStore *real_store;
+	gchar *metadata_path, *store_name;
+	CamelException local_ex;
+
+	d(g_message ("delete_folder: %s", folder_name));
+
+	/* temporarily create the folder so that we can grab
+	 * its store, metadata path, and store name. */
+
+	mlf = (MailLocalFolder *) mls_get_folder (store, folder_name, MAIL_LOCAL_STORE_LIGHTWEIGHT, ex);
+	real_store = mail_local_folder_get_real_store (mlf);
+
+	metadata_path = g_strdup (mlf->metadata_path);
+	store_name    = g_strdup (mlf->store_name);
+
+	camel_object_ref   (CAMEL_OBJECT (real_store));
+	camel_object_unref (CAMEL_OBJECT (mlf));
+
+	/* delete the actual folder */
+
+	camel_exception_init (&local_ex);
+	camel_store_delete_folder (real_store, store_name, &local_ex);
+	camel_object_unref (CAMEL_OBJECT (real_store));
+	g_free (store_name);
+
+	if (camel_exception_is_set (&local_ex)) {
+		camel_exception_xfer (ex, &local_ex);
+		g_free (metadata_path);
+		return;
+	}
+
+	/* now delete the metadata */
+
+	if (unlink (metadata_path)) {
+		camel_exception_setv (ex, CAMEL_EXCEPTION_SYSTEM,
+				      _("Error unlinking metadata file at %s"),
+				      metadata_path);
+	}
+
+	g_free (metadata_path);
+	return;
+}
+
+static char *
+mls_get_name (CamelService *service, gboolean brief)
+{
+	if (brief)
+		return g_strdup ("local");
+	return g_strdup ("Local mail folders");
+}
+
+static void
+mls_class_init (CamelObjectClass *camel_object_class)
 {
 	CamelStoreClass *camel_store_class =
-		CAMEL_STORE_CLASS (mail_local_store_class);
+		CAMEL_STORE_CLASS (camel_object_class);
 	CamelServiceClass *camel_service_class =
-		CAMEL_SERVICE_CLASS (mail_local_store_class);
+		CAMEL_SERVICE_CLASS (camel_object_class);
 	
-	/* virtual method overload */
-	camel_service_class->get_name = get_name;
-	
-	/* Don't cache folders */
-	camel_store_class->hash_folder_name = NULL;
-	camel_store_class->compare_folder_name = NULL;
-	
-	camel_store_class->init_trash = init_trash;
-	camel_store_class->get_folder = get_folder;
-	camel_store_class->get_folder_info = get_folder_info;
-	camel_store_class->free_folder_info = camel_store_free_folder_info_full;
-	camel_store_class->delete_folder = delete_folder;
-	camel_store_class->rename_folder = rename_folder;
-	
-	local_parent_class = (CamelStoreClass *)camel_type_get_global_classfuncs (camel_store_get_type ());
-}
+	/* virtual method overload -- the bare minimum */
+	camel_service_class->get_name    = mls_get_name;
+	camel_store_class->get_folder    = mls_get_folder;
+	camel_store_class->delete_folder = mls_delete_folder;
 
-static void
-mail_local_store_init (gpointer object, gpointer klass)
-{
-	MailLocalStore *local_store = MAIL_LOCAL_STORE (object);
-	
-	local_store->corba_storage = CORBA_OBJECT_NIL;
-}
-
-static void
-free_local_folder (MailLocalFolder *lf)
-{
-	if (lf->folder)
-		camel_object_unref ((CamelObject *)lf->folder);
-	
-	g_free (lf->path);
-	g_free (lf->name);
-	g_free (lf->uri);
-	camel_object_unref ((CamelObject *)lf->local_store);
-}
-
-static void
-free_folder (gpointer key, gpointer data, gpointer user_data)
-{
-	MailLocalFolder *lf = data;
-	
-	g_free (key);
-	free_local_folder (lf);
-}
-
-static void
-mail_local_store_finalize (gpointer object)
-{
-	MailLocalStore *local_store = MAIL_LOCAL_STORE (object);
-	CORBA_Environment ev;
-
-	CORBA_exception_init (&ev);
-	if (!CORBA_Object_is_nil (local_store->corba_storage, &ev))
-		bonobo_object_release_unref (local_store->corba_storage, &ev);
-	CORBA_exception_free (&ev);
-
-	if (local_store->local_storage_listener)
-		gtk_object_unref (GTK_OBJECT (local_store->local_storage_listener));
-
-	g_hash_table_foreach (local_store->folders, free_folder, NULL);
-	g_hash_table_destroy (local_store->folders);
-
-	g_free (local_store->local_path);
+	local_store_parent_class = camel_type_get_global_classfuncs (CAMEL_STORE_TYPE);
 }
 
 CamelType
@@ -300,319 +812,16 @@ mail_local_store_get_type (void)
 			CAMEL_STORE_TYPE, "MailLocalStore",
 			sizeof (MailLocalStore),
 			sizeof (MailLocalStoreClass),
-			(CamelObjectClassInitFunc) mail_local_store_class_init,
+			(CamelObjectClassInitFunc) mls_class_init,
 			NULL,
-			(CamelObjectInitFunc) mail_local_store_init,
-			(CamelObjectFinalizeFunc) mail_local_store_finalize);
+			NULL,
+			NULL);
 	}
 
 	return mail_local_store_type;
 }
 
-static CamelFolder *
-get_folder (CamelStore *store,
-	    const char *folder_name,
-	    guint32 flags,
-	    CamelException *ex)
-{
-	MailLocalStore *local_store = (MailLocalStore *)store;
-	MailLocalFolder *local_folder;
-	CamelFolder *folder;
-	
-	local_folder = g_hash_table_lookup (local_store->folders, folder_name);
-	
-	if (local_folder) {
-		folder = local_folder->folder;
-		camel_object_ref (CAMEL_OBJECT (folder));
-	} else {
-		folder = NULL;
-		camel_exception_setv (ex, CAMEL_EXCEPTION_STORE_NO_FOLDER,
-				      _("No such folder /%s"), folder_name);
-	}
-	
-	return folder;
-}
-
-static void
-trash_add_folder (gpointer key, gpointer value, gpointer data)
-{
-	MailLocalFolder *local_folder = (MailLocalFolder *) value;
-	CamelFolder *folder = local_folder->folder;
-	CamelStore *store = CAMEL_STORE (data);
-	
-	camel_vee_folder_add_folder (CAMEL_VEE_FOLDER (store->vtrash), folder);
-}
-
-static void
-trash_finalize (CamelObject *trash, gpointer event_data, gpointer user_data)
-{
-	CamelStore *store = CAMEL_STORE (user_data);
-	
-	store->vtrash = NULL;
-}
-						  
-static void
-init_trash (CamelStore *store)
-{
-	MailLocalStore *local_store = MAIL_LOCAL_STORE (store);
-	
-	store->vtrash = camel_vtrash_folder_new (store, CAMEL_VTRASH_NAME);
-	
-	if (store->vtrash) {
-		/* attach to the finalize event of the vtrash */
-		camel_object_hook_event (CAMEL_OBJECT (store->vtrash), "finalize",
-					 trash_finalize, store);
-		
-		/* add all the pre-opened folders to the vtrash */
-		if (local_store->folders) {
-			/* lock? */
-			g_hash_table_foreach (local_store->folders, trash_add_folder, store);
-			/* unlock? */
-		}
-
-		/* would prefer not to special-case this, but... */
-		mail_folder_cache_note_folder ("vtrash:file:/", store->vtrash);
-		mail_folder_cache_set_update_lstorage ("vtrash:file:/", 
-						       local_store->corba_storage,
-						       "/Trash");
-	}
-}
-
-static void
-populate_folders (gpointer key, gpointer data, gpointer user_data)
-{
-	GPtrArray *folders = user_data;
-	MailLocalFolder *folder;
-	CamelFolderInfo *fi;
-	
-	folder = data;
-	
-	fi = g_new0 (CamelFolderInfo, 1);
-	fi->full_name = g_strdup (folder->path);
-	fi->name = g_strdup (folder->name);
-	fi->url = g_strdup (folder->uri);
-	fi->unread_message_count = -1;
-	
-	g_ptr_array_add (folders, fi);
-}
-
-static CamelFolderInfo *
-get_folder_info (CamelStore *store, const char *top,
-		 guint32 flags, CamelException *ex)
-{
-	MailLocalStore *local_store = MAIL_LOCAL_STORE (store);
-	CamelFolderInfo *fi = NULL;
-	GPtrArray *folders;
-	
-	folders = g_ptr_array_new ();
-	g_hash_table_foreach (local_store->folders, populate_folders, folders);
-	
-	fi = camel_folder_info_build (folders, top, '/', TRUE);
-	g_ptr_array_free (folders, TRUE);
-	
-	return fi;
-}
-
-static void
-delete_folder (CamelStore *store, const char *folder_name, CamelException *ex)
-{
-	/* No-op. The shell local storage deals with this. */
-}
-
-static void
-rename_folder (CamelStore *store, const char *old, const char *new,
-	       CamelException *ex)
-{
-	/* Probable no-op... */
-}
-
-static char *
-get_name (CamelService *service, gboolean brief)
-{
-	return g_strdup ("Local mail folders");
-}
-
-
-/* Callbacks for the EvolutionStorageListner signals.  */
-
-static void
-local_storage_destroyed_cb (EvolutionStorageListener *storage_listener,
-			    void *data)
-{
-	/* FIXME: Dunno how to handle this yet.  */
-	g_warning ("%s -- The LocalStorage has gone?!", __FILE__);
-}
-
-/* ********************************************************************** */
-/* Register folder */
-
-struct _register_msg {
-	struct _mail_msg msg;
-
-	MailLocalFolder *local_folder;
-};
-
-static char *
-register_folder_desc (struct _mail_msg *mm, int done)
-{
-	struct _register_msg *m = (struct _register_msg *)mm;
-	
-	return g_strdup_printf (_("Registering '%s'"), m->local_folder->uri);
-}
-
-static void
-register_folder_register (struct _mail_msg *mm)
-{
-	struct _register_msg *m = (struct _register_msg *)mm;
-	MailLocalFolder *local_folder = m->local_folder;
-	char *name, *path = local_folder->uri + 7;
-	struct _local_meta *meta;
-	CamelStore *store;
-	guint32 flags;
-	
-	name = g_strdup_printf ("%s/local-metadata.xml", path);
-	meta = load_metainfo (name);
-	g_free (name);
-	
-	name = g_strdup_printf ("%s:%s", meta->format, path);
-	store = camel_session_get_store (session, name, &mm->ex);
-	g_free (name);
-	
-	if (!store) {
-		free_metainfo (meta);
-		return;
-	}
-	
-	flags = CAMEL_STORE_FOLDER_CREATE;
-	if (meta->indexed)
-		flags |= CAMEL_STORE_FOLDER_BODY_INDEX;
-	local_folder->folder = camel_store_get_folder (store, meta->name, flags, &mm->ex);
-	
-	camel_object_unref (CAMEL_OBJECT (store));
-	free_metainfo (meta);
-}
-
-static void
-register_folder_registered (struct _mail_msg *mm)
-{
-	struct _register_msg *m = (struct _register_msg *)mm;
-	MailLocalFolder *local_folder = m->local_folder;
-	
-	if (local_folder->folder) {
-		gchar *name;
-		
-		g_hash_table_insert (local_folder->local_store->folders,
-				     local_folder->uri + 8,
-				     local_folder);
-		
-		/* Remove the circular ref once the local store knows about the folder */
-		camel_object_unref ((CamelObject *)local_folder->local_store);
-		
-		/* add the folder to the vfolder lists FIXME: merge stuff above with this */
-		vfolder_register_source (local_folder->folder);
-		
-		mail_folder_cache_set_update_lstorage (local_folder->uri, 
-						       local_folder->local_store->corba_storage,
-						       local_folder->path);
-		
-		name = strrchr (local_folder->path, '/');
-		if (name) /* should always be true... */ {
-			name += 1; /* skip the slash */
-			mail_folder_cache_note_name (local_folder->uri, name);
-		}
-		
-		/* Do this after specifying the name so it isn't 'mbox' */
-		mail_folder_cache_note_folder (local_folder->uri, local_folder->folder);
-		
-		m->local_folder = NULL;
-	}
-}
-
-static void 
-register_folder_free (struct _mail_msg *mm)
-{
-	struct _register_msg *m = (struct _register_msg *)mm;
-	
-	if (m->local_folder)
-		free_local_folder (m->local_folder);
-}
-
-static struct _mail_msg_op register_folder_op = {
-	register_folder_desc,
-	register_folder_register,
-	register_folder_registered,
-	register_folder_free,
-};
-
-static void
-local_storage_new_folder_cb (EvolutionStorageListener *storage_listener,
-			     const char *path,
-			     const GNOME_Evolution_Folder *folder,
-			     void *data)
-{
-	MailLocalStore *local_store = data;
-	MailLocalFolder *local_folder;
-	struct _register_msg *m;
-	int id;
-	
-	if (strcmp (folder->type, "mail") != 0 ||
-	    strncmp (folder->physicalUri, "file://", 7) != 0 ||
-	    strncmp (folder->physicalUri + 7, local_store->local_path,
-		     local_store->local_pathlen) != 0)
-		return;
-	
-	local_folder = g_new0 (MailLocalFolder, 1);
-	local_folder->name = g_strdup (strrchr (path, '/') + 1);
-	local_folder->path = g_strdup (path);
-	local_folder->uri = g_strdup (folder->physicalUri);
-	local_folder->local_store = local_store;
-	camel_object_ref ((CamelObject *)local_store);
-	
-	m = mail_msg_new (&register_folder_op, NULL, sizeof (*m));
-	
-	m->local_folder = local_folder;
-	
-	/* run synchronous, the shell expects it (I think) */
-	id = m->msg.seq;
-	e_thread_put (mail_thread_queued, (EMsg *)m);
-	mail_msg_wait (id);
-}
-
-static void
-local_storage_removed_folder_cb (EvolutionStorageListener *storage_listener,
-				 const char *path,
-				 void *data)
-{
-	MailLocalStore *local_store = data;
-	MailLocalFolder *local_folder;
-	char *physical_path;
-	char *tmpname;
-	
-	physical_path = e_path_to_physical (local_store->local_path, path);
-	
-	if (strncmp (physical_path, local_store->local_path,
-		     local_store->local_pathlen) != 0)
-		return;
-	
-	tmpname = strchr (physical_path, '/');
-	if (tmpname) {
-		while (*tmpname == '/')
-			tmpname++;
-		local_folder = g_hash_table_lookup (local_store->folders, tmpname);
-		camel_object_ref ((CamelObject *)local_store); /* When we go to free_local_folder() the
-								  local_store will be unref'd */
-	}
-	else
-		local_folder = NULL;
-	
-	if (local_folder) {
-		g_hash_table_remove (local_store->folders, tmpname);
-		
-		free_local_folder (local_folder);
-	}
-	
-	g_free (physical_path);
-}
+/* ** Local Provider ************************************************************** */
 
 static CamelProvider local_provider = {
 	"file", "Local mail", NULL, "mail",
@@ -634,32 +843,68 @@ non_equal (gconstpointer a, gconstpointer b)
 }
 
 void
-mail_local_storage_startup (EvolutionShellClient *shellclient,
-			    const char *evolution_path)
+mail_local_provider_init (void)
 {
-	EvolutionStorageListener *local_storage_listener;
-	GNOME_Evolution_StorageListener corba_local_storage_listener;
-	CORBA_Environment ev;
-
 	/* Register with Camel to handle file: URLs */
-	local_provider.object_types[CAMEL_PROVIDER_STORE] =
-		mail_local_store_get_type();
+	local_provider.object_types[CAMEL_PROVIDER_STORE] = MAIL_LOCAL_STORE_TYPE;
 
 	local_provider.service_cache = g_hash_table_new (non_hash, non_equal);
 	camel_session_register_provider (session, &local_provider);
-	
-	/* Now build the storage. */
-	local_store = (MailLocalStore *)camel_session_get_service (
-		session, "file:/", CAMEL_PROVIDER_STORE, NULL);
-	if (!local_store) {
-		g_warning ("No local store!");
+}
+
+/* ** Local Storage Listener ****************************************************** */
+
+static void
+local_storage_destroyed_cb (EvolutionStorageListener *storage_listener,
+			    void *data)
+{
+	CORBA_Environment ev;
+
+	CORBA_exception_init (&ev);
+	bonobo_object_release_unref (data, &ev);
+	CORBA_exception_free (&ev);
+}
+
+
+static void
+local_storage_new_folder_cb (EvolutionStorageListener *storage_listener,
+			     const char *path,
+			     const GNOME_Evolution_Folder *folder,
+			     void *data)
+{
+	if (strcmp (folder->type, "mail") != 0)
 		return;
-	}
-	
-	local_store->corba_storage = evolution_shell_client_get_local_storage (shellclient);
-	if (local_store->corba_storage == CORBA_OBJECT_NIL) {
-		g_warning ("No local storage!");
-		camel_object_unref (CAMEL_OBJECT (local_store));
+
+	mail_folder_cache_set_update_lstorage (folder->physicalUri,
+					       data,
+					       path);
+	mail_folder_cache_note_name (folder->physicalUri, folder->displayName);
+}
+
+#if 0
+static void
+local_storage_removed_folder_cb (EvolutionStorageListener *storage_listener,
+				 const char *path,
+				 void *data)
+{
+	if (strcmp (folder->type, "mail") != 0)
+		return;
+
+	/* anything to do? */
+}
+#endif
+
+static void
+storage_listener_startup (EvolutionShellClient *shellclient)
+{
+	EvolutionStorageListener *local_storage_listener;
+	GNOME_Evolution_StorageListener corba_local_storage_listener;
+	GNOME_Evolution_Storage corba_storage;
+	CORBA_Environment ev;
+
+	corba_storage = evolution_shell_client_get_local_storage (shellclient);
+	if (corba_storage == CORBA_OBJECT_NIL) {
+		g_warning ("No local storage available from shell client!");
 		return;
 	}
 	
@@ -670,34 +915,46 @@ mail_local_storage_startup (EvolutionShellClient *shellclient,
 	gtk_signal_connect (GTK_OBJECT (local_storage_listener),
 			    "destroyed",
 			    GTK_SIGNAL_FUNC (local_storage_destroyed_cb),
-			    local_store);
+			    corba_storage);
 	gtk_signal_connect (GTK_OBJECT (local_storage_listener),
 			    "new_folder",
 			    GTK_SIGNAL_FUNC (local_storage_new_folder_cb),
-			    local_store);
-	gtk_signal_connect (GTK_OBJECT (local_storage_listener),
-			    "removed_folder",
-			    GTK_SIGNAL_FUNC (local_storage_removed_folder_cb),
-			    local_store);
-
-	local_store->local_storage_listener = local_storage_listener;
-
-	local_store->local_path = g_strdup_printf ("%s/local",
-						   evolution_path);
-	local_store->local_pathlen = strlen (local_store->local_path);
-
-	local_store->folders = g_hash_table_new (g_str_hash, g_str_equal);
+			    corba_storage);
+	/*gtk_signal_connect (GTK_OBJECT (local_storage_listener),
+	 *		    "removed_folder",
+	 *		    GTK_SIGNAL_FUNC (local_storage_removed_folder_cb),
+	 *		    corba_storage);
+	 */
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Storage_addListener (local_store->corba_storage,
+	GNOME_Evolution_Storage_addListener (corba_storage,
 					     corba_local_storage_listener, &ev);
 	if (ev._major != CORBA_NO_EXCEPTION) {
 		g_warning ("Cannot add a listener to the Local Storage.");
-		camel_object_unref (CAMEL_OBJECT (local_store));
 		CORBA_exception_free (&ev);
 		return;
 	}
 	CORBA_exception_free (&ev);
+}
+
+/* ** The rest ******************************************************************** */
+
+static MailLocalStore *global_local_store;
+
+void
+mail_local_storage_startup (EvolutionShellClient *shellclient,
+			    const char *evolution_path)
+{
+	mail_local_provider_init ();
+
+	global_local_store = MAIL_LOCAL_STORE (camel_session_get_service (session, "file:/", CAMEL_PROVIDER_STORE, NULL));
+
+	if (!global_local_store) {
+		g_warning ("No local store!");
+		return;
+	}
+
+	storage_listener_startup (shellclient);
 }
 
 
@@ -724,8 +981,6 @@ mail_local_storage_startup (EvolutionShellClient *shellclient,
 
 */
 
-/* ******************** */
-
 /* we should have our own progress bar for this */
 
 struct _reconfigure_msg {
@@ -737,6 +992,7 @@ struct _reconfigure_msg {
 	GtkWidget *apply;
 	GtkWidget *cancel;
 	GtkOptionMenu *optionlist;
+	CamelFolder *folder_out;
 };
 
 static char *
@@ -753,174 +1009,47 @@ static void
 reconfigure_folder_reconfigure (struct _mail_msg *mm)
 {
 	struct _reconfigure_msg *m = (struct _reconfigure_msg *)mm;
-	MailLocalFolder *local_folder = NULL;
-	CamelStore *fromstore = NULL, *tostore = NULL;
-	char *fromurl = NULL, *tourl = NULL;
-	CamelFolder *fromfolder = NULL, *tofolder = NULL;
-	GPtrArray *uids;
-	char *metapath;
-	char *tmpname;
-	CamelURL *url = NULL;
-	struct _local_meta *meta = NULL;
-	guint32 flags;
-	
+	CamelFolder *local_folder = NULL;
+
 	d(printf("reconfiguring folder: %s to type %s\n", m->fb->uri, m->newtype));
 	
-	/* NOTE: This var is cleared by the folder_browser via the set_uri method */
-	m->fb->reconfigure = TRUE;
-	
-	/* get the actual location of the mailbox */
-	url = camel_url_new (m->fb->uri, &mm->ex);
+	if (strncmp (m->fb->uri, "file:", 5)) {
+		camel_exception_setv (&mm->ex, CAMEL_EXCEPTION_SERVICE_UNAVAILABLE,
+				      _("%s may not be reconfigured because it is not a local folder"), 
+				      m->fb->uri);
+		return;
+	}
+
+	local_folder = mail_tool_uri_to_folder (m->fb->uri, &mm->ex);
 	if (camel_exception_is_set (&mm->ex)) {
-		g_warning ("%s is not a workable url!", m->fb->uri);
-		goto cleanup;
+		g_warning ("Can't resolve URI \"%s\" for reconfiguration!", m->fb->uri);
+		return;
 	}
-	
-	tmpname = strchr (m->fb->uri, '/');
-	if (tmpname) {
-		while (*tmpname == '/')
-			tmpname++;
-		local_folder = g_hash_table_lookup (local_store->folders, tmpname);
-	} else
-		local_folder = NULL;
-	if (!local_folder) {
-		g_warning ("%s is not a registered local folder!", m->fb->uri);
-		goto cleanup;
-	}
-	
-	metapath = g_strdup_printf ("%s/local-metadata.xml", url->path);
-	meta = load_metainfo (metapath);
-	g_free (metapath);
-	
-	/* first, 'close' the old folder */
-	camel_folder_sync (local_folder->folder, FALSE, &mm->ex);
-	
-	/* Once for the FolderBrowser, once for the local store */
-	camel_object_unref (CAMEL_OBJECT (local_folder->folder));
-	camel_object_unref (CAMEL_OBJECT (local_folder->folder));
-	local_folder->folder = m->fb->folder = NULL;
-	
-	camel_url_set_protocol (url, meta->format);
-	fromurl = camel_url_to_string (url, CAMEL_URL_HIDE_ALL);
-	camel_url_set_protocol (url, m->newtype);
-	tourl = camel_url_to_string (url, CAMEL_URL_HIDE_ALL);
-	
-	d(printf("opening stores %s and %s\n", fromurl, tourl));
-	
-	fromstore = camel_session_get_store (session, fromurl, &mm->ex);
-	
-	if (camel_exception_is_set (&mm->ex))
-		goto cleanup;
-	
-	tostore = camel_session_get_store (session, tourl, &mm->ex);
-	if (camel_exception_is_set (&mm->ex))
-		goto cleanup;
-	
-	/* rename the old mbox and open it again, without indexing */
-	tmpname = g_strdup_printf ("%s_reconfig", meta->name);
-	d(printf("renaming %s to %s, and opening it\n", meta->name, tmpname));
-	
-	camel_store_rename_folder (fromstore, meta->name, tmpname, &mm->ex);
-	if (camel_exception_is_set (&mm->ex)) {
-		goto cleanup;
-	}
-	
-	/* we dont need to set the create flag ... or need an index if it has one */
-	fromfolder = camel_store_get_folder (fromstore, tmpname, 0, &mm->ex);
-	if (fromfolder == NULL || camel_exception_is_set (&mm->ex)) {
-		/* try and recover ... */
-		camel_exception_clear (&mm->ex);
-		camel_store_rename_folder (fromstore, tmpname, meta->name, &mm->ex);
-		goto cleanup;
-	}
-	
-	/* create a new mbox */
-	d(printf("Creating the destination mbox\n"));
-	
-	flags = CAMEL_STORE_FOLDER_CREATE;
-	if (meta->indexed)
-		flags |= CAMEL_STORE_FOLDER_BODY_INDEX;
-	tofolder = camel_store_get_folder (tostore, meta->name, flags, &mm->ex);
-	if (tofolder == NULL || camel_exception_is_set (&mm->ex)) {
-		d(printf("cannot open destination folder\n"));
-		/* try and recover ... */
-		camel_exception_clear (&mm->ex);
-		camel_store_rename_folder (fromstore, tmpname, meta->name, &mm->ex);
-		goto cleanup;
-	}
-	
-	uids = camel_folder_get_uids (fromfolder);
-	camel_folder_move_messages_to (fromfolder, uids, tofolder, &mm->ex);
-	camel_folder_free_uids (fromfolder, uids);
-	if (camel_exception_is_set (&mm->ex))
-		goto cleanup;
-	
-	camel_folder_expunge (fromfolder, &mm->ex);
-	
-	d(printf("delete old mbox ...\n"));
-	camel_store_delete_folder (fromstore, tmpname, &mm->ex);
-	
-	/* switch format */
-	g_free (meta->format);
-	meta->format = g_strdup (m->newtype);
-	if (save_metainfo (meta) == -1) {
-		camel_exception_setv (&mm->ex, CAMEL_EXCEPTION_SYSTEM,
-				      _("Cannot save folder metainfo; "
-					"you'll probably find you can't\n"
-					"open this folder anymore: %s"),
-				      tourl);
-	}
-	
- cleanup:
-	if (local_folder && !local_folder->folder) {
-		struct _register_msg *rm = mail_msg_new (&register_folder_op, NULL, sizeof (*m));
-		
-		/* fake the internal part of this operation, nasty hackish thing */
-		rm->local_folder = local_folder;
-		register_folder_register ((struct _mail_msg *)rm);
-		rm->local_folder = NULL;
-		mail_msg_free ((struct _mail_msg *)rm);
-	}
-	
-	if (tofolder)
-		camel_object_unref (CAMEL_OBJECT (tofolder));
-	if (fromfolder)
-		camel_object_unref (CAMEL_OBJECT (fromfolder));
-	if (fromstore)
-		camel_object_unref (CAMEL_OBJECT (fromstore));
-	if (tostore)
-		camel_object_unref (CAMEL_OBJECT (tostore));
-	if (meta)
-		free_metainfo (meta);
-	g_free (fromurl);
-	g_free (tourl);
-	if (url)
-		camel_url_free (url);
+
+	mail_local_folder_reconfigure (MAIL_LOCAL_FOLDER (local_folder), m->newtype, &mm->ex);
+	m->folder_out = local_folder;
 }
 
 static void
 reconfigure_folder_reconfigured (struct _mail_msg *mm)
 {
 	struct _reconfigure_msg *m = (struct _reconfigure_msg *)mm;
-	char *uri;
+	/*char *uri;*/
 	
 	if (camel_exception_is_set (&mm->ex)) {
 		gnome_error_dialog (_("If you can no longer open this mailbox, then\n"
 				      "you may need to repair it manually."));
 	}
-	
-	/* force a reload of the newly formatted folder */
-	d(printf("opening new source\n"));
-	uri = g_strdup (m->fb->uri);
-	folder_browser_set_uri (m->fb, uri);
-	g_free (uri);
+
+	message_list_set_folder (m->fb->message_list, m->folder_out, FALSE);
 }
 
 static void
 reconfigure_folder_free (struct _mail_msg *mm)
 {
 	struct _reconfigure_msg *m = (struct _reconfigure_msg *)mm;
-	
+
+	camel_object_unref (CAMEL_OBJECT (m->folder_out));
 	gtk_object_unref (GTK_OBJECT (m->fb));
 	g_free (m->newtype);
 }
@@ -944,6 +1073,8 @@ reconfigure_clicked (GnomeDialog *dialog, int button, struct _reconfigure_msg *m
 		char *types[] = { "mbox", "maildir", "mh" };
 		
 		/* hack to clear the message list during update */
+		/* we need to do this because the message list caches
+		 * CamelMessageInfos from the old folder. */
 		message_list_set_folder (m->fb->message_list, NULL, FALSE);
 		
 		menu = gtk_option_menu_get_menu (m->optionlist);
@@ -961,14 +1092,22 @@ reconfigure_clicked (GnomeDialog *dialog, int button, struct _reconfigure_msg *m
 	} else
 		mail_msg_free ((struct _mail_msg *)m);
 	
-	if (button != -1)
+	if (button != -1) {
+		/* remove this folder from our hash since we are done with it */
+		g_hash_table_remove (reconfigure_folder_hash, m->fb->folder);
+		if (g_hash_table_size (reconfigure_folder_hash) == 0) {
+			/* additional cleanup */
+			g_hash_table_destroy (reconfigure_folder_hash);
+			reconfigure_folder_hash = NULL;
+		}
+
 		gnome_dialog_close (dialog);
+	}
 }
 
 void
 mail_local_reconfigure_folder (FolderBrowser *fb)
 {
-	CamelStore *store;
 	GladeXML *gui;
 	GnomeDialog *gd;
 	struct _reconfigure_msg *m;
@@ -980,7 +1119,7 @@ mail_local_reconfigure_folder (FolderBrowser *fb)
 	}
 	
 	if (!reconfigure_folder_hash)
-		reconfigure_folder_hash = g_hash_table_new (g_direct_hash, g_direct_equal);
+		reconfigure_folder_hash = g_hash_table_new (NULL, NULL);
 	
 	if ((gd = g_hash_table_lookup (reconfigure_folder_hash, fb->folder))) {
 		gdk_window_raise (GTK_WIDGET (gd)->window);
@@ -988,22 +1127,13 @@ mail_local_reconfigure_folder (FolderBrowser *fb)
 	}
 	
 	/* check if we can work on this folder */
-	name = strchr (fb->uri, '/');
-	if (name) {
-		while (*name == '/')
-			name++;
-		/* we just want to see if it's NULL or not */
-		name = (char *) g_hash_table_lookup (local_store->folders, name);
-	}
-	
-	if (name == NULL) {
+	if (!MAIL_IS_LOCAL_FOLDER (fb->folder)) {
 		e_notice (NULL, GNOME_MESSAGE_BOX_WARNING,
 			  _("You cannot change the format of a non-local folder."));
 		return;
 	}
 	
 	m = mail_msg_new (&reconfigure_folder_op, NULL, sizeof (*m));
-	store = camel_folder_get_parent_store (fb->folder);
 	
 	gui = glade_xml_new (EVOLUTION_GLADEDIR "/local-config.glade", "dialog_format");
 	gd = (GnomeDialog *)glade_xml_get_widget (gui, "dialog_format");
@@ -1020,23 +1150,16 @@ mail_local_reconfigure_folder (FolderBrowser *fb)
 	m->optionlist = (GtkOptionMenu *)glade_xml_get_widget (gui, "option_format");
 	m->newtype = NULL;
 	m->fb = fb;
+	m->folder_out = NULL;
 	gtk_object_ref (GTK_OBJECT (fb));
 	
 	gtk_label_set_text ((GtkLabel *)glade_xml_get_widget (gui, "label_format"),
-			    ((CamelService *)store)->url->protocol);
+			    MAIL_LOCAL_FOLDER (fb->folder)->format);
 	
 	gtk_signal_connect (GTK_OBJECT (gd), "clicked", reconfigure_clicked, m);
 	gtk_object_unref (GTK_OBJECT (gui));
 	
 	g_hash_table_insert (reconfigure_folder_hash, (gpointer) fb->folder, (gpointer) gd);
 	
-	gnome_dialog_run_and_close (GNOME_DIALOG (gd));
-	
-	/* remove this folder from our hash since we are done with it */
-	g_hash_table_remove (reconfigure_folder_hash, fb->folder);
-	if (g_hash_table_size (reconfigure_folder_hash) == 0) {
-		/* additional cleanup */
-		g_hash_table_destroy (reconfigure_folder_hash);
-		reconfigure_folder_hash = NULL;
-	}
+	gnome_dialog_run (GNOME_DIALOG (gd));
 }

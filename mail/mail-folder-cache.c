@@ -896,6 +896,28 @@ mail_folder_cache_try_folder (const gchar *uri)
 	return ret;
 }
 
+gchar *
+mail_folder_cache_try_name (const gchar *uri)
+{
+	mail_folder_info *mfi;
+	gchar *ret;
+
+	g_return_val_if_fail (uri, NULL);
+
+	LOCK_FOLDERS ();
+
+	mfi = get_folder_info (uri);
+
+	if (mfi->flags & MAIL_FIF_NAME_VALID)
+		ret = g_strdup (mfi->name);
+	else
+		ret = NULL;
+
+	UNLOCK_FOLDERS ();
+
+	return ret;
+}
+
 void
 mail_folder_cache_set_shell_view (GNOME_Evolution_ShellView sv)
 {
