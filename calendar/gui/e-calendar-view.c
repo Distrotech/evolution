@@ -781,7 +781,8 @@ e_cal_view_delete_selected_occurrence (ECalView *cal_view)
 	event = (ECalViewEvent *) selected->data;
 
 	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
-	cal_client_remove_object_with_mod (event->comp_data->client, uid, CALOBJ_MOD_THIS, &error);
+	/* FIXME: use 'rid' argument */
+	cal_client_remove_object_with_mod (event->comp_data->client, uid, NULL, CALOBJ_MOD_THIS, &error);
 
 	delete_error_dialog (error, CAL_COMPONENT_EVENT);
 	g_clear_error (&error);
