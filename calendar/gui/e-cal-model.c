@@ -1150,6 +1150,35 @@ search_by_uid_and_client (ECalModelPrivate *priv, ECal *client, const char *uid)
 	return NULL;
 }
 
+static ECalModelComponent *
+search_instance (ECalModelPrivate *priv, ECal *client, const char *uid, const char *rid)
+{
+	gint i;
+
+	g_return_val_if_fail (uid != NULL, NULL);
+	g_return_val_if_fail (rid != NULL, NULL);
+
+	for (i = 0; i < priv->objects->len; i++) {
+		ECalModelComponent *comp_data = g_ptr_array_index (priv->objects, i);
+
+		if (comp_data) {
+			const char *tmp_uid;
+
+			tmp_uid = icalcomponent_get_uid (comp_data->icalcomp);
+			if (tmp_uid && *tmp_uid) {
+				if ((!client || comp_data->client == client) && !strcmp (uid, tmp_uid)) {
+					if (e_cal_util_component_is_instance (comp_data->icalcomp) &&
+					    strcmp (rid, icaltime_as_ical_string (
+							    icalcomponent_get_recurrenceid (comp_data->icalcomp))) == 0)
+						return comp_data;
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+
 static gint
 get_position_in_array (GPtrArray *objects, gpointer item)
 {
@@ -1256,46 +1285,39 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 		e_table_model_pre_change (E_TABLE_MODEL (model));
 
 		if (e_cal_util_component_is_instance (l->data)) {
-			const char *rid, *instance_rid;
+			const char *rid;
 
 			rid = icaltime_as_ical_string (icalcomponent_get_recurrenceid (l->data));
-			for (pos = 0; pos < priv->objects->len; pos++) {
-				comp_data = g_ptr_array_index (priv->objects, pos);
-				if (strcmp (icalcomponent_get_uid (l->data), icalcomponent_get_uid (comp_data->icalcomp)) == 0) {
-					if (!e_cal_util_component_is_instance (comp_data->icalcomp))
-						continue;
-
-					instance_rid = icaltime_as_ical_string (icalcomponent_get_recurrenceid (comp_data->icalcomp));
-					if (strcmp (rid, instance_rid) == 0) {
-						if (comp_data->icalcomp)
-							icalcomponent_free (comp_data->icalcomp);
-						if (comp_data->dtstart) {
-							g_free (comp_data->dtstart);
-							comp_data->dtstart = NULL;
-						}
-						if (comp_data->dtend) {
-							g_free (comp_data->dtend);
-							comp_data->dtend = NULL;
-						}
-						if (comp_data->due) {
-							g_free (comp_data->due);
-							comp_data->due = NULL;
-						}
-						if (comp_data->completed) {
-							g_free (comp_data->completed);
-							comp_data->completed = NULL;
-						}
-						if (comp_data->color) {
-							g_free (comp_data->color);
-							comp_data->color = NULL;
-						}
-		     
-						comp_data->icalcomp = icalcomponent_new_clone (l->data);
-
-						e_table_model_row_changed (E_TABLE_MODEL (model),
-									   get_position_in_array (priv->objects, comp_data));
-					}
+			comp_data = search_instance (model->priv, e_cal_view_get_client (query),
+						     icalcomponent_get_uid (l->data), rid);
+			if (comp_data) {
+				if (comp_data->icalcomp)
+					icalcomponent_free (comp_data->icalcomp);
+				if (comp_data->dtstart) {
+					g_free (comp_data->dtstart);
+					comp_data->dtstart = NULL;
 				}
+				if (comp_data->dtend) {
+					g_free (comp_data->dtend);
+					comp_data->dtend = NULL;
+				}
+				if (comp_data->due) {
+					g_free (comp_data->due);
+					comp_data->due = NULL;
+				}
+				if (comp_data->completed) {
+					g_free (comp_data->completed);
+					comp_data->completed = NULL;
+				}
+				if (comp_data->color) {
+					g_free (comp_data->color);
+					comp_data->color = NULL;
+				}
+		     
+				comp_data->icalcomp = icalcomponent_new_clone (l->data);
+
+				e_table_model_row_changed (E_TABLE_MODEL (model),
+							   get_position_in_array (priv->objects, comp_data));
 			}
 		} else {
 			GList sl;
