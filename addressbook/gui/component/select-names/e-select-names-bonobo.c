@@ -62,9 +62,6 @@ enum _EntryPropertyID {
 	ENTRY_PROPERTY_ID_TEXT,
 	ENTRY_PROPERTY_ID_ADDRESSES,
 	ENTRY_PROPERTY_ID_DESTINATIONS,
-#if notyet
-	ENTRY_PROPERTY_ID_SIMPLE_CARD_LIST,
-#endif
 	ENTRY_PROPERTY_ID_ALLOW_CONTACT_LISTS,
 	ENTRY_PROPERTY_ID_ENTRY_CHANGED
 };
@@ -123,40 +120,6 @@ entry_get_property_fn (BonoboPropertyBag *bag,
 		}
 		break;
 
-#if notyet
-	case ENTRY_PROPERTY_ID_SIMPLE_CARD_LIST:
-		{
-			ESelectNamesModel *model;
-			int count;
-			int i;
-			GNOME_Evolution_Addressbook_SimpleCardList *card_list;
-
-			model = E_SELECT_NAMES_MODEL (g_object_get_data (G_OBJECT (w), "select_names_model"));
-			g_assert (model != NULL);
-
-			count = e_select_names_model_count (model);
-
-			card_list = GNOME_Evolution_Addressbook_SimpleCardList__alloc ();
-			card_list->_buffer = CORBA_sequence_GNOME_Evolution_Addressbook_SimpleCard_allocbuf (count);
-			card_list->_maximum = count;
-			card_list->_length = count;
-
-			for (i = 0; i < count; i++) {
-				const EABDestination *destination = e_select_names_model_get_destination (model, i);
-				const ECard *card = eab_destination_get_card (destination);
-				ECardSimple *simple = e_card_simple_new ((ECard *) card);
-				ESimpleCardBonobo *simple_card = e_simple_card_bonobo_new (simple);
-				g_object_unref (simple);
-
-				card_list->_buffer[i] = bonobo_object_corba_objref (BONOBO_OBJECT (simple_card));
-			}
-
-			CORBA_free (*(GNOME_Evolution_Addressbook_SimpleCardList **)arg->_value);
-			BONOBO_ARG_SET_GENERAL (arg, *card_list, TC_GNOME_Evolution_Addressbook_SimpleCardList, GNOME_Evolution_Addressbook_SimpleCardList, NULL);
-		}
-		break;
-
-#endif
 	case ENTRY_PROPERTY_ID_ALLOW_CONTACT_LISTS:
 		{
 			ESelectNamesCompletion *comp;
@@ -502,11 +465,6 @@ impl_SelectNames_get_entry_for_section (PortableServer_Servant servant,
 	bonobo_property_bag_add (property_bag, "destinations", ENTRY_PROPERTY_ID_DESTINATIONS,
 				 BONOBO_ARG_STRING, NULL, NULL,
 				 BONOBO_PROPERTY_READABLE | BONOBO_PROPERTY_WRITEABLE);
-#if notyet
-	bonobo_property_bag_add (property_bag, "simple_card_list", ENTRY_PROPERTY_ID_SIMPLE_CARD_LIST,
-				 TC_GNOME_Evolution_Addressbook_SimpleCardList, NULL, NULL,
-				 BONOBO_PROPERTY_READABLE);
-#endif
 	bonobo_property_bag_add (property_bag, "allow_contact_lists", ENTRY_PROPERTY_ID_ALLOW_CONTACT_LISTS,
 				 BONOBO_ARG_BOOLEAN, NULL, NULL,
 				 BONOBO_PROPERTY_READABLE | BONOBO_PROPERTY_WRITEABLE);

@@ -1,3 +1,20 @@
+2003-10-08  Chris Toshok  <toshok@ximian.com>
+
+	* gui/component/select-names/e-select-names.c (contact_key): add a
+	descriptive comment about this "#if notyet".
+
+	* gui/component/select-names/e-select-names-model.h
+	(e_select_names_model_thaw): add prorotype for
+	e_select_names_model_cancel_all_contact_load.
+
+	* gui/component/select-names/e-select-names-bonobo.c
+	(_EntryPropertyID): remove the SIMPLE_CARD_LIST property.
+	(entry_get_property_fn): same.
+	(impl_SelectNames_get_entry_for_section): same.
+
+	* backend/ebook/e-contact.h: add prototype for
+	e_contact_name_to_string.
+
 2003-10-07  Chris Toshok  <toshok@ximian.com>
 
 	* util/eab-book-util.c: remove a bunch of ifdef'ed code (that's

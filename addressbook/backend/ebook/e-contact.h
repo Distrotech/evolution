@@ -195,6 +195,7 @@ void                    e_contact_set              (EContact *contact, EContactF
 
 /* misc functions for structured values */
 EContactName           *e_contact_name_new         (void);
+char                   *e_contact_name_to_string   (const EContactName *name);
 EContactName           *e_contact_name_from_string (const char *name_str);
 EContactName           *e_contact_name_copy        (EContactName *name);
 

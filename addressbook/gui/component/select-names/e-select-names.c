@@ -162,6 +162,9 @@ contact_key (const EContact *contact)
 	g_assert (E_IS_CONTACT (contact));
 
 #if notyet
+	/* XXX we need a way to reproduce this here somehow.. or at
+	   least make sure we never collide between two contacts in
+	   different books. */
 	book = e_contact_get_book (contact);
 #endif
 	book_uri = book ? e_book_get_uri (book) : "NoBook";

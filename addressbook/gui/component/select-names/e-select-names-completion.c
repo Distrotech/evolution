@@ -36,6 +36,7 @@
 
 #include <addressbook/util/eab-book-util.h>
 #include <addressbook/util/eab-destination.h>
+#include <addressbook/gui/merging/eab-contact-compare.h>
 #include <addressbook/backend/ebook/e-contact.h>
 
 typedef struct {
@@ -304,77 +305,80 @@ sexp_name (ESelectNamesCompletion *comp)
 static ECompletionMatch *
 match_name (ESelectNamesCompletion *comp, EABDestination *dest)
 {
-#if notyet
 	ECompletionMatch *final_match = NULL;
 	gchar *menu_text = NULL;
-	ECard *card;
+	EContact *contact;
 	const gchar *email;
 	gint match_len = 0;
-	ECardMatchType match;
-	ECardMatchPart first_match;
+	EABContactMatchType match;
+	EABContactMatchPart first_match;
 	double score = 0;
 	gboolean have_given, have_additional, have_family;
+	EContactName *contact_name;
 
-	card = eab_destination_get_card (dest);
-	
-	if (card->name == NULL)
+	contact = eab_destination_get_contact (dest);
+
+	contact_name = e_contact_get (contact, E_CONTACT_NAME);
+	if (!contact_name)
 		return NULL;
 
 	email = eab_destination_get_email (dest);
 
-	match = e_card_compare_name_to_string_full (card, comp->priv->query_text, TRUE /* yes, allow partial matches */,
-						    NULL, &first_match, &match_len);
+	match = eab_contact_compare_name_to_string_full (contact, comp->priv->query_text, TRUE /* yes, allow partial matches */,
+							 NULL, &first_match, &match_len);
 
-	if (match <= E_CARD_MATCH_NONE)
+	if (match <= EAB_CONTACT_MATCH_NONE) {
+		e_contact_name_free (contact_name);
 		return NULL;
+	}
 
 	score = match_len * 3; /* three points per match character */
 
-	have_given       = card->name->given && *card->name->given;
-	have_additional  = card->name->additional && *card->name->additional;
-	have_family      = card->name->family && *card->name->family;
+	have_given       = contact_name->given && *contact_name->given;
+	have_additional  = contact_name->additional && *contact_name->additional;
+	have_family      = contact_name->family && *contact_name->family;
 
-	if (e_card_evolution_list (card)) {
+	if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
 
-		menu_text = e_card_name_to_string (card->name);
+		menu_text = e_contact_name_to_string (contact_name);
 
-	} else if (first_match == E_CARD_MATCH_PART_GIVEN_NAME) {
+	} else if (first_match == EAB_CONTACT_MATCH_PART_GIVEN_NAME) {
 
 		if (have_family)
-			menu_text = g_strdup_printf ("%s %s <%s>", card->name->given, card->name->family, email);
+			menu_text = g_strdup_printf ("%s %s <%s>", contact_name->given, contact_name->family, email);
 		else
-			menu_text = g_strdup_printf ("%s <%s>", card->name->given, email);
+			menu_text = g_strdup_printf ("%s <%s>", contact_name->given, email);
 
-	} else if (first_match == E_CARD_MATCH_PART_ADDITIONAL_NAME) {
+	} else if (first_match == EAB_CONTACT_MATCH_PART_ADDITIONAL_NAME) {
 
 		if (have_given) {
 
 			menu_text = g_strdup_printf ("%s%s%s, %s <%s>",
-						     card->name->additional,
+						     contact_name->additional,
 						     have_family ? " " : "",
-						     have_family ? card->name->family : "",
-						     card->name->given,
+						     have_family ? contact_name->family : "",
+						     contact_name->given,
 						     email);
 		} else {
 
 			menu_text = g_strdup_printf ("%s%s%s <%s>",
-						     card->name->additional,
+						     contact_name->additional,
 						     have_family ? " " : "",
-						     have_family ? card->name->family : "",
+						     have_family ? contact_name->family : "",
 						     email);
 		}
 
-	} else if (first_match == E_CARD_MATCH_PART_FAMILY_NAME) { 
+	} else if (first_match == EAB_CONTACT_MATCH_PART_FAMILY_NAME) { 
 
 		if (have_given)
 			menu_text = g_strdup_printf ("%s, %s%s%s <%s>",
-						     card->name->family,
-						     card->name->given,
+						     contact_name->family,
+						     contact_name->given,
 						     have_additional ? " " : "",
-						     have_additional ? card->name->additional : "",
+						     have_additional ? contact_name->additional : "",
 						     email);
 		else
-			menu_text = g_strdup_printf ("%s <%s>", card->name->family, email);
+			menu_text = g_strdup_printf ("%s <%s>", contact_name->family, email);
 
 	} else { /* something funny happened */
 
@@ -388,10 +392,9 @@ match_name (ESelectNamesCompletion *comp, EABDestination *dest)
 		g_free (menu_text);
 	}
 	
+	e_contact_name_free (contact_name);
+
 	return final_match;
-#else
-	return NULL;
-#endif
 }
 
 /*
