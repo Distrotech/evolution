@@ -255,7 +255,7 @@ gboolean evolution_mail_config_factory_init (void);
 
 GList * mail_config_get_signature_list (void);
 gint    mail_config_get_signatures_random (void);
-MailConfigSignature *mail_config_signature_add (void);
+MailConfigSignature *mail_config_signature_add (gboolean html);
 void mail_config_signature_delete (MailConfigSignature *sig);
 void mail_config_signature_write (MailConfigSignature *sig);
 void mail_config_signature_set_name (MailConfigSignature *sig, const gchar *name);

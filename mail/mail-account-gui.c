@@ -1069,19 +1069,39 @@ sig_edit_html (GtkWidget *w, MailAccountGui *gui)
 }
 
 static void
+sig_switch_to_list (GtkWidget *w, MailAccountGui *gui)
+{
+	gtk_window_set_transient_for (GTK_WINDOW (gtk_widget_get_toplevel (w)), NULL);
+	gdk_window_raise (GTK_WIDGET (gui->dialog)->window);
+	gtk_notebook_set_page (GTK_NOTEBOOK (glade_xml_get_widget (gui->dialog->gui, "notebook")), 3);
+}
+
+static void
 sig_new_text (GtkWidget *w, MailAccountGui *gui)
 {
 	if (!gui->dialog)
 		return;
 
-	gui->text_signature = mail_accounts_dialog_new_signature (gui->dialog);
+	gui->text_signature = mail_accounts_dialog_new_signature (gui->dialog, FALSE);
 	gui->text_random = FALSE;
 	
 	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_index (gui->text_signature));
 
-	gtk_window_set_transient_for (GTK_WINDOW (gtk_widget_get_toplevel (w)), NULL);
-	gdk_window_raise (GTK_WIDGET (gui->dialog)->window);
-	gtk_notebook_set_page (GTK_NOTEBOOK (glade_xml_get_widget (gui->dialog->gui, "notebook")), 3);
+	sig_switch_to_list (w, gui);
+}
+
+static void
+sig_new_html (GtkWidget *w, MailAccountGui *gui)
+{
+	if (!gui->dialog)
+		return;
+
+	gui->html_signature = mail_accounts_dialog_new_signature (gui->dialog, TRUE);
+	gui->html_random = FALSE;
+	
+	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_index (gui->html_signature));
+
+	sig_switch_to_list (w, gui);
 }
 
 static void
@@ -1170,6 +1190,7 @@ prepare_signatures (MailAccountGui *gui)
 	gui->sig_new_text = glade_xml_get_widget (gui->xml, "button-sig-new-text");
 	gtk_signal_connect (GTK_OBJECT (gui->sig_new_text), "clicked", GTK_SIGNAL_FUNC (sig_new_text), gui);
 	gui->sig_new_html = glade_xml_get_widget (gui->xml, "button-sig-new-html");
+	gtk_signal_connect (GTK_OBJECT (gui->sig_new_html), "clicked", GTK_SIGNAL_FUNC (sig_new_html), gui);
 	gui->sig_edit_text = glade_xml_get_widget (gui->xml, "button-sig-edit-text");
 	gtk_signal_connect (GTK_OBJECT (gui->sig_edit_text), "clicked", GTK_SIGNAL_FUNC (sig_edit_text), gui);
 	gui->sig_edit_html = glade_xml_get_widget (gui->xml, "button-sig-edit-html");
@@ -1514,8 +1535,6 @@ mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top)
 		gui->transport.provider_type = CAMEL_PROVIDER_TRANSPORT;
 		g_free (transport_proto);
 	}
-
-	setup_signatures (gui);
 }
 
 static void

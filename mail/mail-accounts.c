@@ -856,13 +856,13 @@ sig_current_sig (MailAccountsDialog *dialog)
 }
 
 MailConfigSignature *
-mail_accounts_dialog_new_signature (MailAccountsDialog *dialog)
+mail_accounts_dialog_new_signature (MailAccountsDialog *dialog, gboolean html)
 {
 	MailConfigSignature *sig;
 	gchar *name [1];
 	gint row;
 
-	sig = mail_config_signature_add ();
+	sig = mail_config_signature_add (html);
 
 	name [0] = sig->name;
 	row = gtk_clist_append (GTK_CLIST (dialog->sig_clist), name);
@@ -876,7 +876,7 @@ mail_accounts_dialog_new_signature (MailAccountsDialog *dialog)
 static void
 sig_add (GtkWidget *w, MailAccountsDialog *dialog)
 {
-	mail_accounts_dialog_new_signature (dialog);
+	mail_accounts_dialog_new_signature (dialog, FALSE);
 }
 
 static void sig_row_unselect (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog);

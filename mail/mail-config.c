@@ -2751,7 +2751,7 @@ get_new_signature_filename ()
 }
 
 MailConfigSignature *
-mail_config_signature_add (void)
+mail_config_signature_add (gboolean html)
 {
 	MailConfigSignature *sig;
 
@@ -2760,6 +2760,7 @@ mail_config_signature_add (void)
 	sig->name = g_strdup (_("Unnamed"));
 	sig->filename = get_new_signature_filename ();
 	sig->id = config->signatures;
+	sig->html = html;
 
 	config->signature_list = g_list_append (config->signature_list, sig);
 	config->signatures ++;

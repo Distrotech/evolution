@@ -140,7 +140,7 @@ typedef struct {
 GtkType mail_accounts_dialog_get_type (void);
 
 MailAccountsDialog *mail_accounts_dialog_new (GNOME_Evolution_Shell shell);
-MailConfigSignature *mail_accounts_dialog_new_signature (MailAccountsDialog *dialog);
+MailConfigSignature *mail_accounts_dialog_new_signature (MailAccountsDialog *dialog, gboolean html);
 
 #ifdef __cplusplus
 }
