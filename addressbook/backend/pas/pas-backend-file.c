@@ -857,16 +857,7 @@ pas_backend_file_maybe_upgrade_db (PASBackendFile *bf)
 	return ret_val;
 }
 
-#define INITIAL_VCARD "BEGIN:VCARD\n\
-X-EVOLUTION-FILE-AS:Ximian, Inc.\n\
-LABEL;WORK:401 Park Drive  3 West\n Boston, MA 02215\n USA\n\
-TEL;WORK;VOICE:(617) 375-3800\n\
-TEL;WORK;FAX:(617) 236-8630\n\
-EMAIL;INTERNET:hello@ximian.com\n\
-URL:www.ximian.com/\n\
-ORG:Ximian, Inc.;\n\
-NOTE:Welcome to the Ximian Addressbook.\n\
-END:VCARD"
+#include "ximian-vcard.h"
 
 static GNOME_Evolution_Addressbook_CallStatus
 pas_backend_file_load_uri (PASBackend             *backend,
@@ -929,7 +920,7 @@ pas_backend_file_load_uri (PASBackend             *backend,
 			/* the database didn't exist, so we create the
 			   directory then the .db */
 			rv = mkdir (dirname, 0777);
-			if (rv == -1) {
+			if (rv == -1 && errno != EEXIST) {
 				g_warning ("failed to make directory %s: %s", dirname, strerror (errno));
 				if (errno == EACCES || errno == EPERM)
 					return GNOME_Evolution_Addressbook_PermissionDenied;
@@ -941,7 +932,7 @@ pas_backend_file_load_uri (PASBackend             *backend,
 
 			if (db_error == 0 && !only_if_exists) {
 				char *id;
-				id = do_create(bf, INITIAL_VCARD);
+				id = do_create(bf, XIMIAN_VCARD);
 				g_free (id);
 				/* XXX check errors here */
 

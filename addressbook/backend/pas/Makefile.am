@@ -68,7 +68,8 @@ libpas_a_SOURCES =					\
 	pas-backend.c					\
 	pas-backend-summary.c				\
 	pas-backend-sync.c				\
-	pas-marshal.c
+	pas-marshal.c					\
+	ximian-vcard.h
 
 libpasfile_a_SOURCES =					\
 	pas-backend-file.c				\

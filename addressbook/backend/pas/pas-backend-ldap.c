@@ -1682,30 +1682,31 @@ pas_backend_ldap_process_get_contact (PASBackend *backend,
 }
 
 
+
+static EContactField email_ids[3] = {
+	E_CONTACT_EMAIL_1,
+	E_CONTACT_EMAIL_2,
+	E_CONTACT_EMAIL_3
+};
+
 /* List property functions */
 static void
 email_populate(EContact *contact, char **values)
 {
-#if notyet
 	int i;
-
-	for (i = 0; values[i] && i < 3; i ++) {
-		e_card_simple_set_email (card, i, values[i]);
-	}
-#endif
+	for (i = 0; values[i] && i < 3; i ++)
+		e_contact_set (contact, email_ids[i], values[i]);
 }
 
 struct berval**
 email_ber(EContact *contact)
 {
-#if notyet
 	struct berval** result;
 	const char *emails[3];
-	int i, j, num;
+	int i, j, num = 0;
 
-	num = 0;
 	for (i = 0; i < 3; i ++) {
-		emails[i] = e_card_simple_get_email (card, E_CARD_SIMPLE_EMAIL_ID_EMAIL + i);
+		emails[i] = e_contact_get (contact, email_ids[i]);
 		if (emails[i])
 			num++;
 	}
@@ -1729,20 +1730,18 @@ email_ber(EContact *contact)
 	result[num] = NULL;
 
 	return result;
-#endif
 }
 
 static gboolean
 email_compare (EContact *contact1, EContact *contact2)
 {
-#if notyet
 	const char *email1, *email2;
 	int i;
 
 	for (i = 0; i < 3; i ++) {
 		gboolean equal;
-		email1 = e_card_simple_get_email (ecard1, E_CARD_SIMPLE_EMAIL_ID_EMAIL + i);
-		email2 = e_card_simple_get_email (ecard2, E_CARD_SIMPLE_EMAIL_ID_EMAIL + i);
+		email1 = e_contact_get_const (contact1, email_ids[i]);
+		email2 = e_contact_get_const (contact2, email_ids[i]);
 
 		if (email1 && email2)
 			equal = !strcmp (email1, email2);
@@ -1754,7 +1753,6 @@ email_compare (EContact *contact1, EContact *contact2)
 	}
 
 	return TRUE;
-#endif
 }
 
 static void

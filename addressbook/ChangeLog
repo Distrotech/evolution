@@ -1,5 +1,28 @@
 2003-09-06  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-contact.c (e_contact_set_property): implement
+	E_CONTACT_EMAIL_*.
+
+	* backend/pas/pas-backend-ldap.c (email_ber): EContact-ify and
+	re-enable this code.
+	(email_compare): same.
+	(email_populate): same.
+
+	* backend/pas/pas-backend-vcf.c (pas_backend_vcf_load_uri): use
+	XIMIAN_VCARD.
+
+	* backend/pas/pas-backend-file.c (pas_backend_file_load_uri): use
+	XIMIAN_VCARD, and don't fail if the directory already exists.
+	just try to create the db anyway.
+
+	* backend/pas/Makefile.am (libpas_a_SOURCES): add ximian-vcard.h
+
+	* backend/pas/ximian-vcard.h (XIMIAN_VCARD): put the initial vcard
+	here, so we can share 1 #define between file/vcf backends.  Also,
+	add a jpeg photo.
+
+2003-09-06  Chris Toshok  <toshok@ximian.com>
+
 	* gui/widgets/Makefile.am (libeminicard_la_SOURCES): add
 	eab-contact-display.[ch]
 

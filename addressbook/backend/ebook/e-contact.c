@@ -250,23 +250,54 @@ e_contact_set_property (GObject *object,
 
 	if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
 		switch (info->field_id) {
-		default:
-			g_warning ("setting unhandled synthetic field 0x%02x", info->field_id);
-		}
-	}
-#if notyet
-	if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
-		switch (info->field_id) {
 		case E_CONTACT_EMAIL_1:
 		case E_CONTACT_EMAIL_2:
 		case E_CONTACT_EMAIL_3: {
-			GList *emails = e_contact_get_email_list (contact);
+			EVCardAttribute *attr = NULL;
+			gboolean found = FALSE;
+			int num_left;
+			GList *attrs = e_vcard_get_attributes (E_VCARD (contact));
+			GList *l;
 
-			g_value_set_string (value, g_list_nth_data (emails, info->field_id - E_CONTACT_EMAIL_1));
-					
-			g_list_foreach (emails, (GFunc)g_free, NULL);
-			g_list_free (emails);
+			if (info->field_id == E_CONTACT_EMAIL_1)
+				num_left = 1;
+			else if (info->field_id == E_CONTACT_EMAIL_2)
+				num_left = 2;
+			else
+				num_left = 3;
+
+			for (l = attrs; l; l = l->next) {
+				const char *name, *group;
+
+				attr = l->data;
+				group = e_vcard_attribute_get_group (attr);
+				name = e_vcard_attribute_get_name (attr);
+
+				/* all the attributes we care about should be in group "" */
+				if ((!group || !*group) && !strcasecmp (name, EVC_EMAIL)) {
+					num_left --;
+
+					if (num_left == 0) {
+						found = TRUE;
+						break;
+					}
+				}
+			}
+
+			if (found) {
+				/* we found it, overwrite it */
+				e_vcard_attribute_remove_values (attr);
+			}
+			else {
+				/* we didn't find it - add a new attribute */
+				attr = e_vcard_attribute_new (NULL, EVC_EMAIL);
+				e_vcard_add_attribute (E_VCARD (contact), attr);
+			}
+
+			e_vcard_attribute_add_value (attr, g_value_get_string (value));
 			break;
+		}
+#if notyet
 		case E_CONTACT_GIVEN_NAME:
 		case E_CONTACT_FAMILY_NAME: {
 			EContactName *name = e_contact_get (contact, E_CONTACT_NAME);
@@ -276,11 +307,12 @@ e_contact_set_property (GObject *object,
 			e_contact_name_free (name);
 			break;
 		}
-		}
+#endif
 		default:
 			g_warning ("unhandled synthetic field 0x%02x", info->field_id);
 		}
 	}
+#if notyet
 	else if (info->t & E_CONTACT_FIELD_TYPE_STRUCT) {
 		switch (info->field_id) {
 		case E_CONTACT_NAME: {
