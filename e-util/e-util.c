@@ -55,6 +55,19 @@ g_str_compare(const void *x, const void *y)
 			return x ? -1 : 1;
 	} 
 
+	return strcmp (x, y);
+}
+
+int
+g_collate_compare (const void *x, const void *y)
+{
+	if (x == NULL || y == NULL) {
+		if (x == y)
+			return 0;
+		else
+			return x ? -1 : 1;
+	} 
+	
 	return g_utf8_collate (x, y);
 }
 
