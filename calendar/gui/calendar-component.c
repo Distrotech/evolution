@@ -33,6 +33,7 @@
 #include <libical/icalvcal.h>
 #include <libecal/e-cal-time-util.h>
 #include <shell/e-user-creatable-items-handler.h>
+#include <shell/e-component-view.h>
 #include "e-pub-utils.h"
 #include "e-calendar-view.h"
 #include "calendar-config-keys.h"
@@ -1176,16 +1177,15 @@ view_destroyed_cb (gpointer data, GObject *where_the_object_was)
 	}
 }
 
-static void
-impl_createControls (PortableServer_Servant servant,
-		     Bonobo_Control *corba_sidebar_control,
-		     Bonobo_Control *corba_view_control,
-		     Bonobo_Control *corba_statusbar_control,
-		     CORBA_Environment *ev)
+static GNOME_Evolution_ComponentView
+impl_createView (PortableServer_Servant servant,
+		 GNOME_Evolution_ShellView parent,
+		 CORBA_Environment *ev)
 {
 	CalendarComponent *calendar_component = CALENDAR_COMPONENT (bonobo_object_from_servant (servant));
 	CalendarComponentPrivate *priv;
 	CalendarComponentView *component_view;
+	EComponentView *ecv;
 	
 	priv = calendar_component->priv;
 
@@ -1195,18 +1195,18 @@ impl_createControls (PortableServer_Servant servant,
 		/* FIXME Should we describe the problem in a control? */
 		bonobo_exception_set (ev, ex_GNOME_Evolution_Component_Failed);
 
-		return;
+		return CORBA_OBJECT_NIL;
 	}
 
 	g_object_weak_ref (G_OBJECT (component_view->view_control), view_destroyed_cb, calendar_component);
 	priv->views = g_list_append (priv->views, component_view);
-	
-	/* Return the controls */
-	*corba_sidebar_control = CORBA_Object_duplicate (BONOBO_OBJREF (component_view->sidebar_control), ev);
-	*corba_view_control = CORBA_Object_duplicate (BONOBO_OBJREF (component_view->view_control), ev);
-	*corba_statusbar_control = CORBA_Object_duplicate (BONOBO_OBJREF (component_view->statusbar_control), ev);
-}
 
+	/* TODO: Make CalendarComponentView just subclass EComponentView */
+	ecv = e_component_view_new_controls (parent, "calendar", component_view->sidebar_control,
+					     component_view->view_control, component_view->statusbar_control);
+
+	return BONOBO_OBJREF(ecv);
+}
 
 static GNOME_Evolution_CreatableItemTypeList *
 impl__get_userCreatableItems (PortableServer_Servant servant,
@@ -1348,7 +1348,7 @@ calendar_component_class_init (CalendarComponentClass *class)
 	parent_class = g_type_class_peek_parent (class);
 
 	epv->upgradeFromVersion      = impl_upgradeFromVersion;
-	epv->createControls          = impl_createControls;
+	epv->createView              = impl_createView;
 	epv->_get_userCreatableItems = impl__get_userCreatableItems;
 	epv->requestCreateItem       = impl_requestCreateItem;
 

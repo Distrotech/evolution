@@ -1,3 +1,10 @@
+2004-06-28  Not Zed  <NotZed@Ximian.com>
+
+	* gui/tasks-component.c (impl_createControls): same.
+
+	* gui/calendar-component.c (impl_createControls): ->createView for
+	new shell apis.
+
 2004-06-24  JP Rosevear  <jpr@novell.com>
 
 	* gui/dialogs/alarm-list-dialog.c (selection_changed_cb):
