@@ -57,7 +57,7 @@
 #include "art/empty.xpm"
 #include "art/mark.xpm"
 
-#define d(x) 
+#define d(x) x
 
 #define NEW_SUBSCRIBE
 
@@ -1687,6 +1687,7 @@ struct _ZSubscribeEditor {
 	GtkWidget *vbox;	/* where new stores are added */
 	GtkWidget *optionmenu;
 	GtkWidget *none_selected; /* 'please select a xxx' message */
+	GtkWidget *none_selected_item;
 	GtkWidget *subscribe_button;
 	GtkWidget *unsubscribe_button;
 	GtkWidget *progress;
@@ -1771,8 +1772,8 @@ sub_unref(ZSubscribe *sub)
 			l = n;
 		}
 		if (sub->folders) {
-			g_hash_table_destroy(sub->folders);
 			g_hash_table_foreach(sub->folders, (GHFunc)sub_node_free, sub);
+			g_hash_table_destroy(sub->folders);
 		}
 		if (sub->store)
 			camel_object_unref(sub->store);
@@ -1938,7 +1939,9 @@ sub_folderinfo_get (struct _mail_msg *mm)
 {
 	struct _zget_folderinfo_msg *m = (struct _zget_folderinfo_msg *) mm;
 
+	camel_operation_register(mm->cancel);
 	m->info = camel_store_get_folder_info (m->sub->store, m->node?m->node->info->full_name:"", CAMEL_STORE_FOLDER_INFO_FAST, &mm->ex);
+	camel_operation_unregister(mm->cancel);
 }
 
 static void
@@ -2191,9 +2194,56 @@ static void
 sub_editor_destroy(GtkWidget *w, ZSubscribeEditor *se)
 {
 	/* need to clean out pending store opens */
-	d(printf("editor destroyed\n"));
+	d(printf("editor destroyed, freeing editor\n"));
 	if (se->busy_id)
 		g_source_remove(se->busy_id);
+
+	g_free(se);
+}
+
+static void
+sub_editor_close(GtkWidget *w, ZSubscribeEditor *se)
+{
+	gtk_widget_destroy((GtkWidget *)se->dialog);
+}
+
+static void
+sub_editor_refresh(GtkWidget *w, ZSubscribeEditor *se)
+{
+	ZSubscribe *sub = se->current;
+	struct _zsubscribe_msg *m;
+	GSList *l;
+
+	printf("sub editor refresh?\n");
+	if (sub == NULL || sub->store == NULL)
+		return;
+
+	/* drop any currently pending */
+	if (sub->pending_id != -1)
+		mail_msg_cancel(sub->pending_id);
+
+	while ( (m = (struct _zsubscribe_msg *)e_dlist_remhead(&sub->pending)) )
+		mail_msg_free(m);
+
+	gtk_tree_store_clear((GtkTreeStore *)gtk_tree_view_get_model(sub->tree));
+
+	l = sub->info_list;
+	sub->info_list = NULL;
+	while (l) {
+		GSList *n = l->next;
+		
+		camel_store_free_folder_info(sub->store, (CamelFolderInfo *)l->data);
+		g_slist_free_1(l);
+		l = n;
+	}
+
+	if (sub->folders) {
+		g_hash_table_foreach(sub->folders, (GHFunc)sub_node_free, sub);
+		g_hash_table_destroy(sub->folders);
+	}
+	sub->folders = g_hash_table_new(g_str_hash, g_str_equal);
+
+	sub_queue_fill_level(sub, NULL);
 }
 
 static void
@@ -2236,8 +2286,10 @@ sub_editor_menu_changed(GtkWidget *w, ZSubscribeEditor *se)
 	n = gtk_option_menu_get_history((GtkOptionMenu *)se->optionmenu);
 	if (n == 0)
 		gtk_widget_show(se->none_selected);
-	else
+	else {
 		gtk_widget_hide(se->none_selected);
+		gtk_widget_hide(se->none_selected_item);
+	}
 
 	se->current = NULL;
 	sub = (struct _ZSubscribe *)se->stores.head;
@@ -2379,15 +2431,21 @@ GtkWidget *subscribe_editor_new(void)
 
 	se->progress = glade_xml_get_widget(xml, "progress_bar");
 	gtk_widget_hide(se->progress);
+
+	w = glade_xml_get_widget(xml, "close_button");
+	g_signal_connect(w, "clicked", G_CALLBACK(sub_editor_close), se);
+
+	w = glade_xml_get_widget(xml, "refresh_button");
+	g_signal_connect(w, "clicked", G_CALLBACK(sub_editor_refresh), se);
 #if 0
-	sc->priv->close_button   = glade_xml_get_widget (xml, "close_button");
 	sc->priv->refresh_button = glade_xml_get_widget (xml, "refresh_button");
 #endif
 
 	/* setup stores menu */
 	se->optionmenu = glade_xml_get_widget(xml, "store_menu");
 	menu = gtk_menu_new();
-	w = gtk_menu_item_new_with_label("No server selected");
+	se->none_selected_item = w = gtk_menu_item_new_with_label(_("No server has been selected"));
+	gtk_widget_show(w);
 	gtk_menu_shell_append ((GtkMenuShell *)menu, w);
 
 	accounts = mail_config_get_accounts ();
