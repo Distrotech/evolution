@@ -587,6 +587,13 @@ print_show (GtkWidget * wid)
  */
 
 static void
+queue_window_delete_event_cb (GtkWindow *window,
+			      void *data)
+{
+	/* Do nothing.  Just prevent GTK+ from destroying the window.  */
+}
+
+static void
 create_queue_window (void)
 {
 	GtkWidget *vbox;
@@ -599,6 +606,9 @@ create_queue_window (void)
 
 	queue_window = gtk_window_new (GTK_WINDOW_DIALOG);
 	gtk_container_set_border_width (GTK_CONTAINER (queue_window), 8);
+
+	gtk_signal_connect (GTK_OBJECT (queue_window), "delete_event",
+			    GTK_SIGNAL_FUNC (queue_window_delete_event_cb), NULL);
 
 	vbox = gtk_vbox_new (FALSE, 4);
 
