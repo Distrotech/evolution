@@ -322,6 +322,11 @@ void e_config_target_changed(EConfig *emp)
 
 	printf("target changed, rebuilding:\n");
 
+	/* FIXME: The asserts in this code are for setting up the code
+	 * in the first place.  Since the data here may come from
+	 * external sources - plugins, 	it shouldn't abort in the long
+	 * term, merely display warnings */
+
 	for (wn = (struct _widget_node *)p->widgets.head;wn->next;wn=wn->next) {
 		struct _EConfigItem *item = wn->item;
 		GtkWidget *w;
@@ -331,7 +336,13 @@ void e_config_target_changed(EConfig *emp)
 		switch (item->type) {
 		case E_CONFIG_BOOK:
 		case E_CONFIG_DRUID:
+			/* Only one of BOOK or DRUID may be define, it
+			   is used by the defining code to mark the
+			   type of the config window.  It is
+			   cross-checked with the code's defined
+			   type. */
 			g_assert(root == NULL);
+
 			if (wn->widget == NULL) {
 				g_assert(item->type == emp->type);
 				if (item->factory) {
@@ -364,6 +375,16 @@ void e_config_target_changed(EConfig *emp)
 			sectionno = 0;
 			break;
 		case E_CONFIG_PAGE:
+			/* CONFIG_PAGEs depend on the config type.
+			   E_CONFIG_BOOK:
+			   	The page is a VBox, stored in the notebook.
+			   E_CONFIG_DRUID
+			   	The page is a GnomeDruidPageStandard,
+				any sections automatically added are added to
+				the vbox inside it. */
+
+			g_assert(root != NULL);
+
 			if (pagenode != NULL && sectionno == 0) {
 				printf("hiding empty page\n");
 				if (sectionno == 0)
@@ -384,6 +405,8 @@ void e_config_target_changed(EConfig *emp)
 			if (item->factory) {
 				page = item->factory(emp, item, root, wn->widget, wn->context->data);
 				wn->frame = page;
+				if (emp->type == E_CONFIG_DRUID)
+					page = ((GnomeDruidPageStandard *)page)->vbox;
 				sectionno = 1;
 			} else if (wn->widget == NULL) {
 				if (book) {
@@ -415,6 +438,11 @@ void e_config_target_changed(EConfig *emp)
 			break;
 		case E_CONFIG_SECTION:
 		case E_CONFIG_SECTION_TABLE:
+			/* The section factory is always called with
+			   the parent vbox object.  Even for druid
+			   pages. */
+			g_assert(page != NULL);
+
 			if (sectionnode != NULL) {
 				printf("%sing empty section 1\n", itemno==0?"hid":"show");
 				if (itemno == 0)
@@ -470,6 +498,11 @@ void e_config_target_changed(EConfig *emp)
 			wn->widget = section;
 			break;
 		case E_CONFIG_ITEM:
+			/* ITEMs are called with the section parent.
+			   The type depends on the section type,
+			   either a GtkTable, or a GtkVBox */
+			g_assert(section != NULL);
+
 			if (item->factory)
 				w = item->factory(emp, item, section, wn->widget, wn->context->data);
 			else
@@ -531,7 +564,7 @@ gboolean e_config_page_check(EConfig *ec, const char *pageid)
 	struct _EConfigPrivate *p = ec->priv;
 	struct _check_node *mnode;
 
-	for (mnode = (struct _check_node *)p->menus.head;mnode->next;mnode=mnode->next)
+	for (mnode = (struct _check_node *)p->checks.head;mnode->next;mnode=mnode->next)
 		if ((pageid == NULL
 		     || mnode->pageid == NULL
 		     || strcmp(mnode->pageid, pageid) == 0)

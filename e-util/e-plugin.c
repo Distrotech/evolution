@@ -302,6 +302,17 @@ static void *epl_parent_class;
 
 #define epl ((EPluginLib *)ep)
 
+/* TODO:
+   We need some way to manage lifecycle.
+   We need some way to manage state.
+
+   Maybe just the g module init method will do, or we could add
+   another which returns context.
+
+   There is also the question of per-instance context, e.g. for config
+   pages.
+*/
+
 static void *
 epl_invoke(EPlugin *ep, const char *name, void *data)
 {

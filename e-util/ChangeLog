@@ -1,3 +1,13 @@
+2004-08-17  Not Zed  <NotZed@Ximian.com>
+
+	* e-config.c (e_config_page_check): fix a past-o.
+	(e_config_target_changed): treat the returned page for a druid
+	page factory as a gnomedruidpagestandard, so get_page works, etc.
+
+2004-08-16  Not Zed  <NotZed@Ximian.com>
+
+	* e-event.[ch]: Added event hook and dispatch router.
+
 2004-08-13  Not Zed  <NotZed@Ximian.com>
 
 	* e-plugin.c (e_plugin_load_plugins): don't take a path, load all

@@ -29,6 +29,7 @@ eutilinclude_HEADERS = 				\
 	e-corba-utils.h				\
 	e-dialog-utils.h			\
 	e-dialog-widgets.h			\
+	e-event.h				\
 	e-folder-map.h				\
 	e-fsutils.h				\
 	e-gtk-utils.h				\
@@ -72,6 +73,7 @@ libeutil_la_SOURCES =				\
 	e-corba-utils.c				\
 	e-dialog-utils.c			\
 	e-dialog-widgets.c			\
+	e-event.c				\
 	e-folder-map.c				\
 	e-fsutils.c				\
 	e-gtk-utils.c				\
