@@ -165,25 +165,6 @@ cal_client_open_status_enum_get_type (void)
 }
 
 GType
-cal_client_remove_status_enum_get_type (void)
-{
-	static GType cal_client_remove_status_enum_type = 0;
-
-	if (!cal_client_remove_status_enum_type) {
-		static GEnumValue values [] = {
-		  { CAL_CLIENT_REMOVE_SUCCESS,              "CalClientRemoveSuccess",            "success"     },
-		  { CAL_CLIENT_REMOVE_ERROR,                "CalClientRemoveError",              "error"       },
-		  { CAL_CLIENT_REMOVE_PERMISSION_DENIED,    "CalClientRemovePermissionDenied",   "denied"      },
-		  { -1,                                   NULL,                              NULL          }
-		};
-
-		cal_client_remove_status_enum_type = g_enum_register_static ("CalClientRemoveStatusEnum", values);
-	}
-
-	return cal_client_remove_status_enum_type;
-}
-
-GType
 cal_client_set_mode_status_enum_get_type (void)
 {
 	static GType cal_client_set_mode_status_enum_type = 0;

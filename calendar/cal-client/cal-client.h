@@ -55,12 +55,6 @@ typedef enum {
 	CAL_CLIENT_OPEN_METHOD_NOT_SUPPORTED
 } CalClientOpenStatus;
 
-typedef enum {
-	CAL_CLIENT_REMOVE_SUCCESS,
-	CAL_CLIENT_REMOVE_ERROR,
-	CAL_CLIENT_REMOVE_PERMISSION_DENIED,
-} CalClientRemoveStatus;
-
 /* Set mode status for the cal_client_set_mode function */
 typedef enum {
 	CAL_CLIENT_SET_MODE_SUCCESS,
@@ -131,7 +125,6 @@ typedef gchar * (* CalClientAuthFunc) (CalClient *client,
 GType cal_client_get_type (void);
 
 GType cal_client_open_status_enum_get_type (void);
-GType cal_client_remove_status_enum_get_type (void);
 GType cal_client_set_mode_status_enum_get_type (void);
 GType cal_mode_enum_get_type (void);
 
@@ -206,14 +199,6 @@ gboolean cal_client_get_alarms_for_object (CalClient *client, const char *uid,
 					   CalComponentAlarms **alarms);
 
 CalClientResult cal_client_discard_alarm (CalClient *client, CalComponent *comp, const char *auid);
-
-/* Add or update a single object. When adding an object only builtin timezones
-   are allowed. To use external VTIMEZONE data call update_objects() instead.*/
-CalClientResult cal_client_update_object (CalClient *client, CalComponent *comp);
-CalClientResult cal_client_update_object_with_mod (CalClient *client, CalComponent *comp, CalObjModType mod);
-
-/* Add or update multiple objects, possibly including VTIMEZONE data. */
-CalClientResult cal_client_update_objects (CalClient *client, icalcomponent *icalcomp);
 
 gboolean cal_client_create_object (CalClient *client, icalcomponent *icalcomp, char **uid, GError **error);
 gboolean cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModType mod, GError **error);
