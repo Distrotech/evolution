@@ -32,7 +32,7 @@
 #include <gtk/gtkobject.h>
 #include <gtk/gtkwidget.h>
 #include <addressbook/backend/ebook/e-book-util.h>
-#include <addressbook/backend/ebook/e-card.h>
+#include <addressbook/backend/ebook/e-contact.h>
 
 G_BEGIN_DECLS
 
@@ -58,7 +58,7 @@ struct _EAddressWidget {
 	guint query_idle_tag;
 	guint query_tag;
 
-	ECard *card;
+	EContact *contact;
 	gboolean known_email;
 };
 

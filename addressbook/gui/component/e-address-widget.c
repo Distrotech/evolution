@@ -263,7 +263,7 @@ e_address_widget_cardify (EAddressWidget *addr, ECard *card, gboolean known_emai
 }
 
 static void
-query_results_cb (EBook *book, EBookSimpleQueryStatus status, const GList *cards, gpointer user_data)
+query_results_cb (EBook *book, EBookStatus status, const GList *cards, gpointer user_data)
 {
 	EAddressWidget *addr = user_data;
 

@@ -30,8 +30,7 @@
 
 #include <addressbook/gui/widgets/e-addressbook-model.h>
 #include <addressbook/gui/widgets/e-addressbook-table-adapter.h>
-#include <addressbook/gui/component/e-cardlist-model.h>
-#include <addressbook/backend/ebook/e-book.h>
+#include <addressbook/backend/ebook/e-book-async.h>
 #include <addressbook/backend/ebook/e-book-util.h>
 #include <addressbook/gui/component/addressbook-component.h>
 #include <addressbook/gui/component/addressbook-storage.h>
@@ -113,7 +112,7 @@ GtkWidget *e_addressbook_create_ebook_table(char *name, char *string1, char *str
 GtkWidget *e_addressbook_create_folder_selector(char *name, char *string1, char *string2, int num1, int num2);
 
 static void
-search_result (EAddressbookModel *model, EBookViewStatus status, ESelectNames *esn)
+search_result (EABModel *model, EBookViewStatus status, ESelectNames *esn)
 {
 	sync_table_and_models (NULL, esn);
 }
@@ -131,19 +130,15 @@ set_book(EBook *book, EBookStatus status, ESelectNames *esn)
 }
 
 static void
-addressbook_model_set_uri(ESelectNames *e_select_names, EAddressbookModel *model, const char *uri)
+addressbook_model_set_uri(ESelectNames *e_select_names, EABModel *model, const char *uri)
 {
 	EBook *book;
-	char *book_uri;
-
-	book_uri = e_book_expand_uri (uri);
 
 	/* If uri == the current uri, then we don't have to do anything */
 	book = e_addressbook_model_get_ebook (model);
 	if (book) {
 		const gchar *current_uri = e_book_get_uri (book);
-		if (current_uri && !strcmp (book_uri, current_uri)) {
-			g_free (book_uri);
+		if (current_uri && !strcmp (uri, current_uri)) {
 			return;
 		}
 	}
@@ -152,9 +147,7 @@ addressbook_model_set_uri(ESelectNames *e_select_names, EAddressbookModel *model
 
 	g_object_ref(e_select_names);
 	g_object_ref(model);
-	addressbook_load_uri(book, book_uri, (EBookCallback) set_book, e_select_names);
-
-	g_free (book_uri);
+	addressbook_load_uri(book, uri, (EBookCallback) set_book, e_select_names);
 }
 
 static void *
@@ -266,7 +259,7 @@ selection_change (ETable *table, ESelectNames *names)
 static void *
 esn_get_key_fn (ETableModel *source, int row, void *closure)
 {
-	EAddressbookModel *model = E_ADDRESSBOOK_MODEL (closure);
+	EABModel *model = E_ADDRESSBOOK_MODEL (closure);
 	ECard *card = e_addressbook_model_get_card (model, row);
 	void *key = card_key (card);
 	g_object_unref (card);
@@ -297,7 +290,7 @@ e_addressbook_create_ebook_table(char *name, char *string1, char *string2, int n
 {
 	ETableModel *adapter;
 	ETableModel *without;
-	EAddressbookModel *model;
+	EABModel *model;
 	GtkWidget *table;
 
 	model = e_addressbook_model_new ();
@@ -392,7 +385,7 @@ update_query (GtkWidget *widget, ESelectNames *e_select_names)
 }
 
 static void
-status_message (EAddressbookModel *model, const gchar *message, ESelectNames *e_select_names)
+status_message (EABModel *model, const gchar *message, ESelectNames *e_select_names)
 {
 	if (message == NULL)
 		gtk_label_set_text (GTK_LABEL (e_select_names->status_message), "");

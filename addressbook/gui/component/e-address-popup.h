@@ -28,8 +28,8 @@
 #define __E_ADDRESS_POPUP_H__
 
 #include <gtk/gtk.h>
-#include <addressbook/backend/ebook/e-book.h>
-#include <addressbook/backend/ebook/e-card.h>
+#include <addressbook/backend/ebook/e-book-async.h>
+#include <addressbook/backend/ebook/e-contact.h>
 #include <bonobo/bonobo-event-source.h>
 
 G_BEGIN_DECLS
@@ -63,7 +63,7 @@ struct _EAddressPopup {
 	EBook *book;
 	guint query_tag;
 	gboolean multiple_matches;
-	ECard *card;
+	EContact *contact;
 
 	BonoboEventSource *es;
 };

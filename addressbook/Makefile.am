@@ -3,4 +3,6 @@ CONDUIT_SUBDIR=conduit
 endif
 
 SUBDIRS =	\
-	backend printing gui tools $(CONDUIT_SUBDIR)
+	backend printing gui $(CONDUIT_SUBDIR)
+
+# XXX tools

@@ -1,5 +1,44 @@
 2003-09-02  Chris Toshok  <toshok@ximian.com>
 
+	* gui/component/Makefile.am: comment out a buncha stuff just to
+	get this building.
+
+	* gui/component/select-names/e-select-names.c: #include
+	e-book-async.h
+	(search_result): EAddressbookModel -> EABModel.
+	(addressbook_model_set_uri): same, and don't use
+	e_book_expand_uri, as it's dead.
+	(esn_get_key_fn): EAddressbookModel -> EABModel.
+	(e_addressbook_create_ebook_table): same.
+	(status_message): same.
+
+	* gui/component/select-names/e-select-names.h (struct
+	_ESelectNames): EAddressbookModel -> EABModel.
+
+	* gui/component/addressbook-component.c (new_item_cb): ifdef out
+	for now.
+	(dnd_drop_book_open_cb): s/card/contact.
+	(destination_folder_handle_drop): ifdef out.
+	(request_quit): same.
+
+	* gui/component/addressbook.c: track api changes - e_addressbook_
+	-> eab_, and e_book_* becomes e_book_async_*.
+
+	* gui/component/addressbook.h: #include e-book-async.h
+
+	* gui/component/e-address-widget.c (query_results_cb):
+	e/EBookSimpleQueryStatus/EBookStatus
+
+	* gui/component/e-address-widget.h: s/ECard/EContact.
+
+	* gui/component/e-cardlist-model.[ch]: nuke.
+	
+	* gui/component/e-address-popup.c: s/e-book.h/e-book-async.h
+
+	* gui/component/e-address-popup.h: s/ECard/EContact
+
+2003-09-02  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/Makefile.am (libebook_la_SOURCES): remove
 	e-card.c,e-card.simple.c
 

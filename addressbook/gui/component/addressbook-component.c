@@ -44,8 +44,8 @@
 #include "evolution-storage.h"
 #include "e-folder-list.h"
 
-#include "ebook/e-book.h"
-#include "ebook/e-card.h"
+#include "ebook/e-book-async.h"
+#include "ebook/e-contact.h"
 #include "ebook/e-book-util.h"
 
 #include "addressbook-config.h"
@@ -406,6 +406,7 @@ owner_unset_cb (EvolutionShellComponent *shell_component,
 static void
 new_item_cb (EBook *book, gpointer closure)
 {
+#if notyet
 	gboolean is_list = GPOINTER_TO_INT (closure);
 	if (book == NULL)
 		return;
@@ -413,6 +414,7 @@ new_item_cb (EBook *book, gpointer closure)
 		e_addressbook_show_contact_list_editor (book, e_card_new(""), TRUE, TRUE);
 	else
 		e_addressbook_show_contact_editor (book, e_card_new(""), TRUE, TRUE);
+#endif
 }
 
 static void
@@ -455,14 +457,14 @@ destination_folder_handle_motion (EvolutionShellComponentDndDestinationFolder *f
 }
 
 static void
-dnd_drop_book_open_cb (EBook *book, EBookStatus status, GList *card_list)
+dnd_drop_book_open_cb (EBook *book, EBookStatus status, GList *contact_list)
 {
 	GList *l;
 
-	for (l = card_list; l; l = l->next) {
-		ECard *card = l->data;
+	for (l = contact_list; l; l = l->next) {
+		EContact *contact = l->data;
 
-		e_card_merging_book_add_card (book, card, NULL /* XXX */, NULL);
+		e_card_merging_book_add_card (book, contact, NULL /* XXX */, NULL);
 	}
 }
 
@@ -475,9 +477,9 @@ destination_folder_handle_drop (EvolutionShellComponentDndDestinationFolder *fol
 				const GNOME_Evolution_ShellComponentDnd_Data * data,
 				gpointer user_data)
 {
+#if notyet
 	EBook *book;
-	GList *card_list;
-	char *expanded_uri;
+	GList *contact_list;
 
 	if (action == GNOME_Evolution_ShellComponentDnd_ACTION_LINK)
 		return FALSE; /* we can't create links in our addressbook format */
@@ -486,14 +488,10 @@ destination_folder_handle_drop (EvolutionShellComponentDndDestinationFolder *fol
 
 	card_list = e_card_load_cards_from_string_with_default_charset (data->bytes._buffer, "ISO-8859-1");
 
-	expanded_uri = e_book_expand_uri (physical_uri);
-
 	book = e_book_new ();
-	addressbook_load_uri (book, expanded_uri,
+	addressbook_load_uri (book, physical_uri,
 			      (EBookCallback)dnd_drop_book_open_cb, card_list);
-
-	g_free (expanded_uri);
-
+#endif
 	return TRUE;
 }
 
@@ -504,10 +502,12 @@ static gboolean
 request_quit (EvolutionShellComponent *shell_component,
 	      void *data)
 {
+#if notyet
 	if (! e_contact_editor_request_close_all ()
 	    || ! e_contact_list_editor_request_close_all ())
 		return FALSE;
 	else
+#endif
 		return TRUE;
 }
 
