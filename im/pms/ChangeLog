@@ -1,3 +1,9 @@
+2001-10-27  Joe Shaw  <joe@ximian.com>
+
+	* aol-toc-backend.c (aol_toc_signon): Dup the CORBA objref.
+
+	* test-backend.c: Listen to some events.
+
 2001-10-27  Nat Friedman  <nat@ximian.com>
 
 	* Makefile.am (test_pms_LDADD): Link in libemessenger.
