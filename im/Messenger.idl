@@ -50,12 +50,12 @@ module Messenger {
 		/* Async responses */
 		void signonResult(in Identity id, in Backend backend,
 				  in SignonError error);
+		void contactInfo(in Identity id, in string info);
 		
 		/* Async incoming events */
 		void receiveMessage(in Identity id, in string contact,
 				    in boolean autoresponse,
 				    in string message);
-		void contactInfo(in Identity id, in string info);
 		void contactUpdate(in Identity id, in string contact,
 				   in boolean online, in UserStatus status);
 	};

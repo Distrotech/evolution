@@ -10,7 +10,7 @@ INCLUDES = 								\
 	-DEVOLUTION_LOCALEDIR=\""$(localedir)"\"   		\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"            		\
 	-DEVOLUTION_GLADEDIR=\"$(datadir)/evolution/glade\"		\
-	-DG_LOG_DOMAIN=\"evolution-shell\"
+	-DG_LOG_DOMAIN=\"evolution-messenger\"
 
 noinst_LIBRARIES =			\
 	libemessengerbackend.a		\
