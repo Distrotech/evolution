@@ -1,0 +1,4 @@
+2001-10-27  Nat Friedman  <nat@ximian.com>
+
+	* e-messenger-listener.h: Made these paths less relative.
+

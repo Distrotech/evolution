@@ -16,8 +16,8 @@
 #include <bonobo/bonobo-object.h>
 
 #include <Messenger.h>
-#include <e-messenger-types.h>
-#include <e-messenger-identity.h>
+#include <messenger/e-messenger-types.h>
+#include <messenger/e-messenger-identity.h>
 
 BEGIN_GNOME_DECLS
 
