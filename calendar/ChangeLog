@@ -1,3 +1,9 @@
+2003-08-25 Bolian Yin <bolian.yin@sun.com>
+
+      Fixes #47779
+
+      * gnome-cal.c (gnome_calendar_get_visible_time_range): fix the return value bug.
+
 2003-08-12 Andrew Wu <Yang.Wu@sun.com>
        * gui/e-day-view.c
        (e_day_view_change_duration_to_start_of_work_day):
