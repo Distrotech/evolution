@@ -1,3 +1,9 @@
+2004-07-29  Not Zed  <NotZed@Ximian.com>
+
+	* e-account.c (e_account_get_string, e_account_get_int) 
+	(e_account_get_bool, e_account_set_string, e_account_set_int) 
+	(e_account_set_bool): implement.  completely table driven.
+
 2004-07-02  Chris Toshok  <toshok@ximian.com>
 
 	[ fixes #60691 ]
