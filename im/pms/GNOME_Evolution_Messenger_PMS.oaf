@@ -1,0 +1,20 @@
+<oaf_info>
+
+<oaf_server iid="OAFIID:GNOME_Evolution_Messenger_BackendDispatcherFactory"
+	type="exe"
+	location="pms">
+	<oaf_attribute name="repo_ids" type="stringv">
+		<item value="IDL:GNOME/ObjectFactory:1.0"/>
+	</oaf_attribute>
+</oaf_server>
+
+<oaf_server iid="OAFIID:GNOME_Evolution_Messenger_BackendDispatcher"
+	type="factory"
+	location="OAFIID:GNOME_Evolution_Messenger_BackendDispatcherFactory">
+
+	<oaf_attribute name="repo_ids" type="stringv">
+		<item value="IDL:GNOME/Evolution/Messenger/BackendDispatcher:1.0"/>
+	</oaf_attribute>
+</oaf_server>
+
+</oaf_info>
