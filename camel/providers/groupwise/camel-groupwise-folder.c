@@ -4,6 +4,7 @@
 /* 
  * Authors:
  *  Sivaiah Nallagatla <snallagatla@novell.com>
+ *  parthasarathi susarla <sparthasarathi@novell.com>
  *   
  *
  * Copyright (C) 2004, Novell Inc.
@@ -119,16 +120,12 @@ static CamelMimeMessage
 	
 	type = e_gw_item_get_item_type(item) ;
 	if (type == E_GW_ITEM_TYPE_MAIL) {
-		printf ("MAIL\n") ;
 
 	} else if (type == E_GW_ITEM_TYPE_APPOINTMENT) {
-		printf ("APPOINTMENT\n") ;
 
 	} else if (type == E_GW_ITEM_TYPE_TASK) {
-		printf ("TASK\n") ;
 
 	} else if (type == E_GW_ITEM_TYPE_UNKNOWN) {
-		printf ("UNKNOWN\n") ;
 		/*XXX: Free memory allocations*/
 		return NULL ;
 	}
@@ -202,7 +199,6 @@ static CamelMimeMessage
 		int count = g_slist_length (attach_list) ;
 		
 
-		printf ("||Attachments present : %d ||\n", count) ;
 
 		for (al = attach_list ; al != NULL ; al = al->next) {
 			EGwItemAttachment *attach = (EGwItemAttachment *)al->data ;
@@ -249,19 +245,17 @@ static CamelMimeMessage
 
 GPtrArray *groupwise_folder_get_summary ( CamelFolder *folder )
 {
-	printf("||| Getting the summary ||| \n") ;
 	return NULL ;
 }
 
 void groupwise_folder_free_summary ( CamelFolder *folder, GPtrArray *summary)
 {
-	printf("||| Freeing the summary - is this necessary |||\n") ;
+	return ;
 }
 
 static void
 groupwise_folder_rename (CamelFolder *folder, const char *new)
 {
-	printf("Renaming folder....\n") ;
 }
 
 static GPtrArray *
@@ -326,7 +320,6 @@ camel_gw_folder_new(CamelStore *store, const char *folder_name, const char *fold
 	char *summary_file, *state_file ;
 	char *short_name;
 
-	printf(" Opening Groupwise Folder.\n") ;
 
 	folder = CAMEL_FOLDER (camel_object_new(camel_groupwise_folder_get_type ()) ) ;
 
@@ -335,7 +328,7 @@ camel_gw_folder_new(CamelStore *store, const char *folder_name, const char *fold
 	if (short_name)
 		short_name++;
 	else
-		short_name = folder_name;
+		short_name = (char *) folder_name;
 	camel_folder_construct (folder, store, folder_name, short_name) ;
 
 	summary_file = g_strdup_printf ("%s/summary",folder_dir) ;
@@ -381,7 +374,6 @@ static void groupwise_refresh_info(CamelFolder *folder, CamelException *ex)
 	GList *list ;
 	int summary_count = camel_folder_summary_count(folder->summary) ;*/
 	
-	printf(">>> Refresh Info Called <<<\n") ; 
 
 /*	if (camel_folder_is_frozen (folder) ) {
 		gw_folder->need_refresh = TRUE ;
@@ -475,20 +467,15 @@ gw_update_summary ( CamelFolder *folder, GList *item_list,CamelException *ex)
 		type = e_gw_item_get_item_type (item) ;
 
 		if (type == E_GW_ITEM_TYPE_MAIL) {
-		//	printf ("Its an e-mail\n") ;
 			
 		} else if (type == E_GW_ITEM_TYPE_APPOINTMENT) {
-		//	printf ("Its an appointment\n") ;
 
 		} else if (type == E_GW_ITEM_TYPE_TASK) {
-		//	printf ("Its a task\n") ;
 
 		} else if (type == E_GW_ITEM_TYPE_CONTACT) {
-		//	printf ("Its a contact\n") ;
 			continue ;
 		
 		} else if (type == E_GW_ITEM_TYPE_UNKNOWN) {
-			printf ("UNKNOWN ITEM...\n") ;
 			continue ;
 
 		}
@@ -568,7 +555,6 @@ void groupwise_transfer_messages_to ( CamelFolder *source, GPtrArray *uids, Came
 
 
 	count = camel_folder_summary_count (destination->summary) ;
-	printf ("|| Transferring messages called : %d||\n", count) ;
 
 	qsort (uids->pdata, uids->len, sizeof (void *), uid_compar) ;
 
@@ -657,7 +643,6 @@ camel_groupwise_folder_init (gpointer object, gpointer klass)
 
 	gw_folder->need_rescan = TRUE;
 
-	printf("Came Groupwise folder init" ) ;
 
 }
 
@@ -679,7 +664,6 @@ camel_groupwise_folder_get_type (void)
 {
 	static CamelType camel_groupwise_folder_type = CAMEL_INVALID_TYPE;
 
-	printf("||| CAMEL GW FOLDER GET TYPE |||\n") ;
 	
 	if (camel_groupwise_folder_type == CAMEL_INVALID_TYPE) {
 			camel_groupwise_folder_type =

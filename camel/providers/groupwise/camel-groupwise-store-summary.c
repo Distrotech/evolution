@@ -110,7 +110,6 @@ CamelGroupwiseStoreSummary *
 camel_groupwise_store_summary_new (void)
 {
 	CamelGroupwiseStoreSummary *new = CAMEL_GW_STORE_SUMMARY ( camel_object_new (camel_groupwise_store_summary_get_type ()));
-	printf(" +++ Store summary New +++ \n") ;
 
 	return new;
 }
@@ -119,14 +118,12 @@ camel_groupwise_store_summary_new (void)
 static int
 summary_header_load(CamelStoreSummary *s, FILE *in)
 {
-	printf("|| Summary header load ||\n") ;
 }
 
 
 static int
 summary_header_save(CamelStoreSummary *s, FILE *out)
 {
-	printf("|| Summary header save||\n") ;
 }
 
 

@@ -24,6 +24,7 @@
 
 #include <camel/camel-folder-summary.h>
 #include <camel/camel-exception.h>
+#include <camel/camel-store.h>
 
 #define CAMEL_GROUPWISE_SUMMARY(obj)         CAMEL_CHECK_CAST (obj, camel_groupwise_summary_get_type (), CamelGroupwiseSummary)
 #define CAMEL_GROUPWISE_SUMMARY_CLASS(klass) CAMEL_CHECK_CLASS_CAST (klass, camel_groupwise_summary_get_type (), CamelGroupwiseSummaryClass)

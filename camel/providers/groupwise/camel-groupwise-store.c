@@ -4,7 +4,7 @@
 /*
  *  Authors:
  *  Sivaiah Nallagatla <snallagatla@novell.com>
- *  Parthasarathi Susarla <sparthasarathi@novell.com>
+ *  parthasarathi susarla <sparthasarathi@novell.com>
  *
  *  Copyright 2004 Novell, Inc.
  *
@@ -275,7 +275,6 @@ groupwise_store_construct (CamelService *service, CamelSession *session,
 	CamelGroupwiseStorePrivate *priv = groupwise_store->priv ;
 	
 	d("in groupwise store constrcut\n");
-	printf("in groupwise store constrcut\n");
 
 	CAMEL_SERVICE_CLASS (parent_class)->construct (service, session, provider, url, ex);
 	if (camel_exception_is_set (ex))
@@ -296,7 +295,6 @@ groupwise_store_construct (CamelService *service, CamelSession *session,
 	/*host and user*/
 	priv->server_name = g_strdup (url->host);
 	priv->user = g_strdup (url->user);
-	printf("server_name:%s \n user:%s \n",url->host,url->user) ;
 
 	/*base url*/
 	base_url = camel_url_to_string (service->url, (CAMEL_URL_HIDE_PASSWORD |
@@ -304,7 +302,6 @@ groupwise_store_construct (CamelService *service, CamelSession *session,
 						       CAMEL_URL_HIDE_AUTH)  ) ;
 	priv->base_url = g_strdup (base_url) ;								       
 
-	printf("<<< groupwise_store base url :%s >>>\n", priv->base_url) ;
 	/*soap port*/
 	property_value =  camel_url_get_param (url, "soap_port");
 	if (property_value == NULL)
@@ -321,7 +318,6 @@ groupwise_store_construct (CamelService *service, CamelSession *session,
 
 	/*ssl*/
 	priv->use_ssl = g_strdup (camel_url_get_param (url, "soap_ssl"));
-	printf("||| priv->use_ssl : %s\n", priv->use_ssl) ;
 	
 	store->flags = 0; //XXX: Shouldnt do this....
 	
@@ -362,7 +358,6 @@ groupwise_connect_online (CamelService *service, CamelException *ex)
 	char *prompt;
 	char *path;
 	d("in groupwise store connect\n");
-	printf("in groupwise store connect\n");
 	CAMEL_SERVICE_LOCK (service, connect_lock);
 	if (priv->cnc) {
 		CAMEL_SERVICE_UNLOCK (service, connect_lock);
@@ -391,7 +386,6 @@ groupwise_connect_online (CamelService *service, CamelException *ex)
 	service->url->passwd = NULL;
 	//path = g_strdup_printf ("%s/journal", "/root/.evolution/mail/groupwise/snallagatla@wal-3.novell.com");
 	path = g_strdup_printf ("%s/journal", priv->storage_path);
-	printf ("storage path %s\n", path);
 	disco_store->diary = camel_disco_diary_new (disco_store, path, ex);
 	g_free (path);
 	CAMEL_SERVICE_UNLOCK (service, connect_lock);
@@ -461,7 +455,6 @@ groupwise_store_query_auth_types (CamelService *service, CamelException *ex)
 	GList *auth_types = NULL;
 	
 	d("in query auth types\n");
-	printf("in query auth types\n");
 	auth_types = g_list_prepend (auth_types,  &camel_groupwise_password_authtype);
 	return auth_types;
 }
@@ -482,7 +475,6 @@ groupwise_get_folder_online( CamelStore *store,
 	EGwConnectionStatus status ;
 	GList *list = NULL ;
 
-	printf("||| Get FOLDER : %s ||| \n",folder_name) ;
 	temp_name = folder_name ;
 	temp_str = strrchr(folder_name,'/') ;
 	if(temp_str == NULL) {
@@ -492,7 +484,6 @@ groupwise_get_folder_online( CamelStore *store,
 		temp_str++ ;
 		container_id = 	g_strdup (g_hash_table_lookup (priv->name_hash, g_strdup(temp_str))) ;
 	}
-	printf("|| Container id: %s ||\n",container_id) ;
 
 	camel_operation_start (NULL, _("Fetching summary information for new messages"));
 
@@ -518,11 +509,9 @@ groupwise_get_folder_online( CamelStore *store,
 		/*gw_folder_selected() ;*/
 		
 		count = camel_folder_summary_count (folder->summary) ;
-		printf(" |||| COUNT : %d ||||\n", count) ;
 		gw_update_summary (folder, list,  ex) ;
 
 		count = camel_folder_summary_count (folder->summary) ;
-		printf(" |||| COUNT : %d ||||\n", count) ;
 		/*gw_rescan() ;*/
 		camel_folder_summary_save(folder->summary) ;
 	}
@@ -591,8 +580,6 @@ groupwise_build_folder_info(CamelGroupwiseStore *gw_store, const char *parent_na
 			fi->full_name = g_strdup(folder_name) ;
 	}
 
-	printf("<<< FOLDER NAME : %s >>>\n",folder_name) ;
-	printf("<<< GROUPWISE_STORE BASE URL : %s >>>\n", priv->base_url) ;
 	url = camel_url_new(priv->base_url,NULL) ;
 	g_free(url->path) ;
 	url->path = g_strdup_printf("/%s", fi->full_name) ;
@@ -614,7 +601,6 @@ groupwise_build_folder_info(CamelGroupwiseStore *gw_store, const char *parent_na
 static GPtrArray *
 get_folders (CamelStore *store, const char *top, guint32 flags, CamelException *ex)
 {
-	printf(" >> Get Folders - Not implemented <<\n") ;
 }
 
 
@@ -650,7 +636,6 @@ groupwise_get_folder_info_online (CamelStore *store,
 	if (top == NULL)
 		top_folder = "folders" ;
 	else {
-		printf ("\n================== LOOKING UP A HASH TABLE =========================== \n") ;
 		temp_str = strrchr (top, '/') ;
 		if (temp_str) {
 			temp_str++ ;
@@ -664,13 +649,11 @@ groupwise_get_folder_info_online (CamelStore *store,
 	status = e_gw_connection_get_container_list (priv->cnc, top_folder, &folder_list);
 	if (status != E_GW_CONNECTION_STATUS_OK) {
 		/*FIX ME set the camel exception id*/
-		printf (" Returnning NULL") ;
 		return NULL;
 	}
 	status = e_gw_connection_get_container_list (priv->cnc, top_folder, &temp_list);
 	if (status != E_GW_CONNECTION_STATUS_OK) {
 		/*FIX ME set the camel exception id*/
-		printf (" Returnning NULL") ;
 		return NULL;
 	}
 	//	*temp_list = &folder_list ;
@@ -701,16 +684,11 @@ groupwise_get_folder_info_online (CamelStore *store,
 		/*parent_hash returns the parent container id, given an id*/
 		g_hash_table_insert (priv->parent_hash, g_strdup(id), g_strdup(parent)) ;
 
-		g_free (name) ;
+/*		g_free (name) ;
 		g_free (id) ;
-		g_free (parent) ;
+		g_free (parent) ;*/
 	}
 
-	/*printf (" \n ID HASH \n") ;
-	  g_hash_table_foreach (priv->id_hash,print_entry,NULL) ;
-	  g_hash_table_foreach (priv->name_hash,print_entry,NULL) ;
-	  printf (" \n PARENT  HASH \n") ;
-	  g_hash_table_foreach (priv->parent_hash,print_entry,NULL) ;*/
 	
 
 	for (; folder_list != NULL; folder_list = g_list_next(folder_list)) {
@@ -730,9 +708,7 @@ groupwise_get_folder_info_online (CamelStore *store,
 		*/
 
 		parent = e_gw_container_get_parent_id (E_GW_CONTAINER (folder_list->data)) ;
-		//printf (" Parent id: %s ||\n", parent) ;
 		par_name = g_hash_table_lookup (priv->id_hash, parent) ;
-		//printf (" Parent Name : %s ||\n", par_name) ;
 
 		if (par_name != NULL) {
 			gchar *temp_parent = NULL, *temp = NULL ;
@@ -743,7 +719,6 @@ groupwise_get_folder_info_online (CamelStore *store,
 			temp_parent = g_hash_table_lookup (priv->parent_hash, parent) ;
 			while (temp_parent) {
 				temp = g_hash_table_lookup (priv->id_hash, temp_parent ) ;
-				printf (" ||| str :%s |||\n",str) ;
 				if (temp == NULL) {
 					break ;
 				}	
@@ -768,10 +743,6 @@ groupwise_get_folder_info_online (CamelStore *store,
 		
 		g_ptr_array_add (folders, fi);
 
-		printf("|| Folder Name : %s || \n",fi->name) ;
-		printf("|| Full  Name : %s || \n",fi->full_name) ;
-		printf("|| Folder Uri  : %s || \n",fi->uri) ;
-		printf("================\n") ;
 		
 		//g_free (parent) ;
 		//g_free (par_name) ;
@@ -779,7 +750,6 @@ groupwise_get_folder_info_online (CamelStore *store,
 		fi = NULL ;
 		
 	}
-	printf (" Returnning NOW") ;
 	if ( (top != NULL) && (folders->len == 0)) {
 		/*temp_str already contains the value if any*/
 		if (temp_str)
@@ -854,7 +824,6 @@ groupwise_create_folder(CamelStore *store,
 	  GList *folder_list = NULL;
 	  const char *url;*/
 
-	printf("||| In create folder |||\n") ;
 	if(parent_name == NULL)
 		parent_name = "" ;
 
@@ -887,7 +856,6 @@ groupwise_create_folder(CamelStore *store,
 		g_hash_table_insert (priv->name_hash, g_strdup(folder_name), g_strdup(child_container_id)) ;
 		g_hash_table_insert (priv->parent_hash, g_strdup(child_container_id), g_strdup(parent_id)) ;
 
-		printf(">>> Folder Successfully created <<<\n") ;
 		camel_object_trigger_event (CAMEL_OBJECT (store), "folder_created", root);
 	}
 	return root ;
@@ -912,12 +880,10 @@ groupwise_delete_folder(CamelStore *store,
 	} else
 		container = g_hash_table_lookup (priv->name_hash, folder_name) ;
 
-	printf("||| DELETING FOLDER : %s|||\n", container) ;
 	
 	status = e_gw_connection_remove_item (priv->cnc, container, container) ;
 
 	if (status == E_GW_CONNECTION_STATUS_OK) {
-		printf(" ||| Deleted Successfully : %s|||\n", folder_name) ;
 		groupwise_forget_folder(groupwise_store,folder_name,ex) ;
 		
 		g_hash_table_remove (priv->id_hash, container) ;
@@ -949,7 +915,6 @@ groupwise_rename_folder(CamelStore *store,
 	  2. check if there are any subscriptions
 	*/
 
-	printf(" << Renaming the folder >>\n") ;
 }
 
 char * 
@@ -984,7 +949,6 @@ groupwise_forget_folder (CamelGroupwiseStore *gw_store, const char *folder_name,
 
 	if (access(folder_dir, F_OK) != 0) {
 		g_free(folder_dir) ;
-		printf("Folder  %s does not exist\n", folder_dir) ;
 		return ;
 	}
 
@@ -1051,7 +1015,6 @@ gw_get_path (CamelGroupwiseStore *gw_store, const char *folder_name)
 		temp_parent = NULL ;
 	while (temp_parent) {
 		temp = g_hash_table_lookup (priv->id_hash, temp_parent ) ;
-		printf (" ||| str :%s |||\n",str) ;
 		if (temp == NULL) {
 			break ;
 		}	
