@@ -103,6 +103,8 @@ enum _e_config_target_change_t {
  * @E_CONFIG_SECTION but the content object is a GtkTable instead.
  * @E_CONFIG_ITEM: A configuration item.  It must have a parent
  * section defined in the configuration system.
+ * @E_CONFIG_ITEM_TABLE: A configuration item with a parent
+ * @E_CONFIG_SECTION_TABLE.
  * 
  * A configuration item type for each configuration item added to the
  * EConfig object.  These are merged from all contributors to the
@@ -120,6 +122,7 @@ enum _e_config_t {
 	E_CONFIG_SECTION,
 	E_CONFIG_SECTION_TABLE,
 	E_CONFIG_ITEM,
+	E_CONFIG_ITEM_TABLE,	/* only allowed in table sections */
 };
 
 /**

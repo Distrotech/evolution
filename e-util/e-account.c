@@ -432,6 +432,8 @@ e_account_set_from_xml (EAccount *account, const char *xml)
 
 	xmlFreeDoc (doc);
 
+	g_signal_emit(account, signals[CHANGED], 0, -1);
+
 	return changed;
 }
 
@@ -500,8 +502,9 @@ e_account_import (EAccount *dest, EAccount *src)
 	dest->smime_encrypt_to_self = src->smime_encrypt_to_self;
 	g_free (dest->smime_encrypt_key);
 	dest->smime_encrypt_key = g_strdup (src->smime_encrypt_key);
-}
 
+	g_signal_emit(dest, signals[CHANGED], 0, -1);
+}
 
 /**
  * e_account_to_xml:
@@ -832,6 +835,7 @@ void e_account_set_string(EAccount *ea, e_account_item_t type, const char *val)
 		g_warning("Trying to set non-writable option account value");
 	} else {
 		p = (char **)addr(ea, type);
+		printf("Setting string %d: old '%s' new '%s'\n", type, *p, val);
 		if (*p != val
 		    && (*p == NULL || val == NULL || strcmp(*p, val) != 0)) {
 			g_free(*p);

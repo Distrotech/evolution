@@ -417,14 +417,10 @@ ec_rebuild(EConfig *emp)
 
 	printf("target changed, rebuilding:\n");
 
-	/* FIXME: The asserts in this code are for setting up the code
-	 * in the first place.  Since the data here may come from
-	 * external sources - plugins, 	it shouldn't abort in the long
-	 * term, merely display warnings */
-
 	/* TODO: This code is pretty complex, and will probably just
-	 * become more complex with time.  I don't know how to fix
-	 * this issue. */
+	 * become more complex with time.  It could possibly be split
+	 * into the two base types, but there would be a lot of code
+	 * duplication */
 
 	for (wn = (struct _widget_node *)p->widgets.head;wn->next;wn=wn->next) {
 		struct _EConfigItem *item = wn->item;
@@ -469,9 +465,16 @@ ec_rebuild(EConfig *emp)
 			   type of the config window.  It is
 			   cross-checked with the code's defined
 			   type. */
-			g_assert(root == NULL);
+			if (root != NULL) {
+				g_warning("EConfig book/druid redefined at: %s", item->path);
+				break;
+			}
+
 			if (wn->widget == NULL) {
-				g_assert(item->type == emp->type);
+				if (item->type != emp->type) {
+					g_warning("EConfig book/druid type mismatch");
+					break;
+				}
 				if (item->factory) {
 					root = item->factory(emp, item, NULL, wn->widget, wn->context->data);
 				} else if (item->type == E_CONFIG_BOOK) {
@@ -506,8 +509,15 @@ ec_rebuild(EConfig *emp)
 			break;
 		case E_CONFIG_PAGE_START:
 		case E_CONFIG_PAGE_FINISH:
-			g_assert(emp->type == E_CONFIG_DRUID);
-			g_assert(root != NULL);
+			if (root == NULL) {
+				g_warning("EConfig page defined before container widget: %s", item->path);
+				break;
+			}
+			if (emp->type != E_CONFIG_DRUID) {
+				g_warning("EConfig druid start/finish pages can't be used on E_CONFIG_BOOKs");
+				break;
+			}
+
 			if (wn->widget == NULL) {
 				if (item->factory) {
 					page = item->factory(emp, item, root, wn->frame, wn->context->data);
@@ -532,7 +542,9 @@ ec_rebuild(EConfig *emp)
 			sectionnode = NULL;
 			sectionno = 1; /* never want to hide these */
 			break;
-		case E_CONFIG_PAGE:
+		case E_CONFIG_PAGE: {
+			int connect = 0; /* connect druid signals */
+
 			/* CONFIG_PAGEs depend on the config type.
 			   E_CONFIG_BOOK:
 			   	The page is a VBox, stored in the notebook.
@@ -540,23 +552,23 @@ ec_rebuild(EConfig *emp)
 			   	The page is a GnomeDruidPageStandard,
 				any sections automatically added are added to
 				the vbox inside it. */
-			g_assert(root != NULL);
 			sectionno = 0;
+			if (root == NULL) {
+				g_warning("EConfig page defined before container widget: %s", item->path);
+				break;
+			}
+
 			if (item->factory) {
+				page = item->factory(emp, item, root, wn->widget, wn->context->data);
 				if (emp->type == E_CONFIG_DRUID) {
-					page = item->factory(emp, item, root, wn->frame, wn->context->data);
-					if (wn->frame != page && page) {
-						g_signal_connect(page, "next", G_CALLBACK(ec_druid_next), wn);
-						g_signal_connect(page, "back", G_CALLBACK(ec_druid_prev), wn);
-						/* GnomeDruid bug, need to connect_after */
-						g_signal_connect_after(page, "prepare", G_CALLBACK(ec_druid_prepare), wn);
-					}
-					g_assert(page == NULL || GNOME_IS_DRUID_PAGE_STANDARD(page));
-					wn->frame = page;
-					if (page)
+					if (page) {
+						g_assert(GNOME_IS_DRUID_PAGE_STANDARD(page));
+						connect = wn->frame != page;
+						wn->frame = page;
 						page = ((GnomeDruidPageStandard *)page)->vbox;
+					} else
+						wn->frame = page;
 				} else {
-					page = item->factory(emp, item, root, wn->widget, wn->context->data);
 					wn->frame = page;
 				}
 				if (page)
@@ -569,6 +581,7 @@ ec_rebuild(EConfig *emp)
 					gnome_druid_insert_page((GnomeDruid *)druid, pagenode?(GnomeDruidPage *)pagenode->frame:NULL, (GnomeDruidPage *)w);
 					wn->frame = w;
 					page = ((GnomeDruidPageStandard *)w)->vbox;
+					connect = TRUE;
 				} else {
 					w = gtk_label_new(item->label);
 					gtk_widget_show(w);
@@ -581,9 +594,18 @@ ec_rebuild(EConfig *emp)
 			} else
 				page = wn->widget;
 
+			printf("page %d:%s widget %p\n", pageno, item->path, w);
+
 			if (wn->widget && wn->widget != page) {
 				printf("destroy old widget for page '%s'\n", item->path);
 				gtk_widget_destroy(wn->widget);
+			}
+
+			if (connect) {
+				g_signal_connect(wn->frame, "next", G_CALLBACK(ec_druid_next), wn);
+				g_signal_connect(wn->frame, "back", G_CALLBACK(ec_druid_prev), wn);
+				/* GnomeDruid bug, need to connect_after */
+				g_signal_connect_after(wn->frame, "prepare", G_CALLBACK(ec_druid_prepare), wn);
 			}
 
 			pageno++;
@@ -591,13 +613,17 @@ ec_rebuild(EConfig *emp)
 			section = NULL;
 			sectionnode = NULL;
 			wn->widget = page;
-			break;
+			break; }
 		case E_CONFIG_SECTION:
 		case E_CONFIG_SECTION_TABLE:
 			/* The section factory is always called with
 			   the parent vbox object.  Even for druid
 			   pages. */
-			g_assert(page != NULL);
+			if (page == NULL) {
+				g_warning("EConfig section '%s' has no parent page", item->path);
+				section = NULL;
+				goto nopage;
+			}
 
 			itemno = 0;
 			if (item->factory) {
@@ -605,9 +631,10 @@ ec_rebuild(EConfig *emp)
 				wn->frame = section;
 				itemno = 1;
 
-				g_assert(section == NULL
-					 || (item->type == E_CONFIG_SECTION && GTK_IS_BOX(section))
-					 || (item->type == E_CONFIG_SECTION_TABLE && GTK_IS_TABLE(section)));
+				if (section
+				    && ((item->type == E_CONFIG_SECTION && !GTK_IS_BOX(section))
+					|| (item->type == E_CONFIG_SECTION_TABLE && !GTK_IS_TABLE(section))))
+					g_warning("ECofnig section type is wrong");
 			} else if (wn->widget == NULL) {
 				GtkWidget *frame;
 				GtkWidget *label = NULL;
@@ -638,12 +665,10 @@ ec_rebuild(EConfig *emp)
 				gtk_widget_show_all(frame);
 				gtk_box_pack_start((GtkBox *)page, frame, FALSE, FALSE, 0);
 				wn->frame = frame;
-				sectionnode = wn;
 			} else {
-				sectionnode = wn;
 				section = wn->widget;
 			}
-
+		nopage:
 			if (wn->widget && wn->widget != section) {
 				printf("destroy old widget for section '%s'\n", item->path);
 				gtk_widget_destroy(wn->widget);
@@ -654,15 +679,18 @@ ec_rebuild(EConfig *emp)
 			sectionnode = wn;
 			break;
 		case E_CONFIG_ITEM:
+		case E_CONFIG_ITEM_TABLE:
 			/* ITEMs are called with the section parent.
 			   The type depends on the section type,
 			   either a GtkTable, or a GtkVBox */
-			g_assert(section != NULL);
-
-			if (item->factory)
+			w = NULL;
+			if (section == NULL)
+				g_warning("EConfig item has no parent section: %s", item->path);
+			else if ((item->type == E_CONFIG_ITEM && !GTK_IS_BOX(section))
+				 || (item->type == E_CONFIG_ITEM_TABLE && !GTK_IS_TABLE(section)))
+				g_warning("EConfig item parent type is incorrect: %s", item->path);
+			else if (item->factory)
 				w = item->factory(emp, item, section, wn->widget, wn->context->data);
-			else
-				w = NULL;
 
 			printf("item %d:%s widget %p\n", itemno, item->path, w);
 
@@ -687,6 +715,17 @@ ec_rebuild(EConfig *emp)
 	}
 }
 
+/**
+ * e_config_set_target:
+ * @emp: An initialised EConfig.
+ * @target: A target allocated from @emp.
+ * 
+ * Sets the target object for the config window.  Generally the target
+ * is set only once, and will supply its own "changed" signal which
+ * can be used to drive the modal.  This is a virtual method so that
+ * the implementing class can connect to the changed signal and
+ * initiate a e_config_target_changed() call where appropriate.
+ **/
 void
 e_config_set_target(EConfig *emp, EConfigTarget *target)
 {
@@ -1116,6 +1155,7 @@ static const EPluginHookTargetKey ech_item_types[] = {
 	{ "section", E_CONFIG_SECTION },
 	{ "section_table", E_CONFIG_SECTION_TABLE },
 	{ "item", E_CONFIG_ITEM },
+	{ "item_table", E_CONFIG_ITEM_TABLE },
 	{ 0 },
 };
 

@@ -1,3 +1,12 @@
+2004-09-06  Not Zed  <NotZed@Ximian.com>
+
+	* e-account.c (e_account_import): emit a changed event on the dest.
+	(e_account_set_from_xml): emit a changed event if we were.
+
+	* e-config.c (ec_rebuild): add a table item for some type-safety.
+	remove/alter the asserts so the code attemps to fail gracefully
+	rather than just fail.
+
 2004-09-01  Not Zed  <NotZed@Ximian.com>
 
 	* e-menu.[ch]:
