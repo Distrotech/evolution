@@ -2767,6 +2767,8 @@ mail_config_signature_add (void)
 	config_write_signature (sig, sig->id);
 	config_write_signatures_num ();
 
+	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_ADDED, sig);
+
 	return sig;
 }
 
@@ -2841,14 +2843,27 @@ mail_config_signature_set_filename (MailConfigSignature *sig, const gchar *filen
 }
 
 void
+mail_config_signature_set_name (MailConfigSignature *sig, const gchar *name)
+{
+	g_free (sig->name);
+	sig->name = g_strdup (name);
+
+	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_NAME_CHANGED, sig);
+}
+
+void
 mail_config_signature_set_random (MailConfigSignature *sig, gboolean random)
 {
 	if (random != sig->random) {
-		if (random && !sig->random)
+		if (random && !sig->random) {
 			config->signatures_random ++;
-		else if (!random && sig->random)
+			if (config->signatures_random == 1)
+				mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_RANDOM_ON, sig);
+		} else if (!random && sig->random) {
 			config->signatures_random --;
-
+			if (config->signatures_random == 0)
+				mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_RANDOM_OFF, sig);
+		}
 		sig->random = random;
 	}
 }

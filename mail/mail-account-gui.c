@@ -942,6 +942,12 @@ clear_menu (GtkWidget *menu)
 		gtk_container_remove (GTK_CONTAINER (menu), GTK_MENU_SHELL (menu)->children->data);
 }
 
+static inline gint
+sig_get_index (MailConfigSignature *sig)
+{
+	return sig->id + (mail_config_get_signatures_random () ? 2 : 1);
+}
+
 static void
 sig_fill_options (MailAccountGui *gui)
 {
@@ -984,8 +990,7 @@ sig_select_text_sig (MailAccountGui *gui)
 	else if (!gui->text_signature)
 		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), 0);
 	else
-		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text),
-					     gui->text_signature->id + (mail_config_get_signatures_random () ? 2 : 1));
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_index (gui->text_signature));
 }
 
 static void
@@ -996,8 +1001,7 @@ sig_select_html_sig (MailAccountGui *gui)
 	else if (!gui->html_signature)
 		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), 0);
 	else
-		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html),
-					     gui->html_signature->id + (mail_config_get_signatures_random () ? 2 : 1));
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), sig_get_index (gui->html_signature));
 }
 
 static void
@@ -1063,28 +1067,17 @@ sig_edit_html (GtkWidget *w, MailAccountGui *gui)
 static void
 sig_new_text (GtkWidget *w, MailAccountGui *gui)
 {
-	GtkWidget *mi;
-
 	if (!gui->dialog)
 		return;
-
-	gtk_window_set_transient_for (GTK_WINDOW (gtk_widget_get_toplevel (w)), NULL);
-	gdk_window_raise (GTK_WIDGET (gui->dialog)->window);
-	gtk_notebook_set_page (GTK_NOTEBOOK (glade_xml_get_widget (gui->dialog->gui, "notebook")), 3);
 
 	gui->text_signature = mail_accounts_dialog_new_signature (gui->dialog);
 	gui->text_random = FALSE;
 	
-	mi = gtk_menu_item_new_with_label (gui->text_signature->name);
-	gtk_object_set_data (GTK_OBJECT (mi), "sig", gui->text_signature);
-	gtk_menu_append (GTK_MENU (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text))), mi);
+	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), sig_get_index (gui->text_signature));
 
-	mi = gtk_menu_item_new_with_label (gui->text_signature->name);
-	gtk_object_set_data (GTK_OBJECT (mi), "sig", gui->text_signature);
-	gtk_menu_append (GTK_MENU (GTK_MENU (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html)))), mi);
-
-	gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text),
-				     gui->text_signature->id + (mail_config_get_signatures_random () ? 2 : 1));
+	gtk_window_set_transient_for (GTK_WINDOW (gtk_widget_get_toplevel (w)), NULL);
+	gdk_window_raise (GTK_WIDGET (gui->dialog)->window);
+	gtk_notebook_set_page (GTK_NOTEBOOK (glade_xml_get_widget (gui->dialog->gui, "notebook")), 3);
 }
 
 static void
@@ -1100,6 +1093,48 @@ setup_signatures (MailAccountGui *gui)
 
 	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), gui->text_signature != NULL);
 	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), gui->html_signature != NULL);
+}
+
+static void
+sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, MailAccountGui *gui)
+{
+	switch (event) {
+	case MAIL_CONFIG_SIG_EVENT_ADDED: {
+
+		GtkWidget *mi;
+
+		printf ("accounts ADDED\n");
+		mi = gtk_menu_item_new_with_label (sig->name);
+		gtk_object_set_data (GTK_OBJECT (mi), "sig", gui->text_signature);
+		gtk_menu_append (GTK_MENU (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text))), mi);
+
+		mi = gtk_menu_item_new_with_label (sig->name);
+		gtk_object_set_data (GTK_OBJECT (mi), "sig", gui->text_signature);
+		gtk_menu_append (GTK_MENU (GTK_MENU (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html)))), mi);
+
+		break;
+	}
+	case MAIL_CONFIG_SIG_EVENT_NAME_CHANGED: {
+		GtkWidget *menu;
+		GtkWidget *mi;
+
+		printf ("gui NAME CHANGED\n");
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text));
+		mi = g_list_nth_data (GTK_MENU_SHELL (menu)->children, sig_get_index (sig));
+		gtk_label_set_text (GTK_LABEL (GTK_BIN (mi)->child), sig->name);
+		if (sig == gui->text_signature)
+			gtk_menu_set_active (GTK_MENU (menu), sig_get_index (sig));
+
+		menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html));
+		mi = g_list_nth_data (GTK_MENU_SHELL (menu), sig_get_index (sig));
+		gtk_label_set_text (GTK_LABEL (GTK_BIN (mi)->child), sig->name);
+		if (sig == gui->html_signature)
+			gtk_menu_set_active (GTK_MENU (menu), sig_get_index (sig));
+		break;
+	}
+	default:
+		;
+	}
 }
 
 static void
@@ -1132,6 +1167,8 @@ prepare_signatures (MailAccountGui *gui)
 		gtk_widget_hide (gui->sig_new_html);
 		gtk_widget_hide (gui->sig_edit_text);
 		gtk_widget_hide (gui->sig_edit_html);
+	} else {
+		mail_config_signature_register_client ((MailConfigSignatureClient) sig_event_client, gui);
 	}
 }
 
@@ -1671,6 +1708,9 @@ mail_account_gui_save (MailAccountGui *gui)
 void
 mail_account_gui_destroy (MailAccountGui *gui)
 {
+	if (gui->dialog)
+		mail_config_signature_unregister_client ((MailConfigSignatureClient) sig_event_client, gui);
+
 	gtk_object_unref (GTK_OBJECT (gui->xml));
 	if (gui->extra_config)
 		g_hash_table_destroy (gui->extra_config);

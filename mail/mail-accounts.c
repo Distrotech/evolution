@@ -998,9 +998,7 @@ sig_name_changed (GtkWidget *w, MailAccountsDialog *dialog)
 	if (dialog->sig_switch)
 		return;
 
-	g_free (sig->name);
-	sig->name = g_strdup (gtk_entry_get_text (GTK_ENTRY (dialog->sig_name)));
-
+	mail_config_signature_set_name (sig, gtk_entry_get_text (GTK_ENTRY (dialog->sig_name)));
 	gtk_clist_set_text (GTK_CLIST (dialog->sig_clist), dialog->sig_row, 0, sig->name);
 
 	sig_write_and_update_preview (dialog, sig);
@@ -1089,11 +1087,9 @@ static void
 sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, MailAccountsDialog *dialog)
 {
 	switch (event) {
-	case MAIL_CONFIG_SIG_EVENT_CHANGED:
-		gtk_clist_set_text (GTK_CLIST (dialog->sig_clist), sig->id, 0, sig->name);
-		if (sig->id == dialog->sig_row) {
-			gtk_entry_set_text (GTK_ENTRY (dialog->sig_name), sig->name);
-		}
+	case MAIL_CONFIG_SIG_EVENT_NAME_CHANGED:
+		printf ("accounts NAME CHANGED\n");
+		break;
 	default:
 		;
 	}

@@ -258,11 +258,14 @@ gint    mail_config_get_signatures_random (void);
 MailConfigSignature *mail_config_signature_add (void);
 void mail_config_signature_delete (MailConfigSignature *sig);
 void mail_config_signature_write (MailConfigSignature *sig);
+void mail_config_signature_set_name (MailConfigSignature *sig, const gchar *name);
 void mail_config_signature_set_filename (MailConfigSignature *sig, const gchar *filename);
 void mail_config_signature_set_random (MailConfigSignature *sig, gboolean random);
 
 typedef enum {
-	MAIL_CONFIG_SIG_EVENT_CHANGED,
+	MAIL_CONFIG_SIG_EVENT_NAME_CHANGED,
+	MAIL_CONFIG_SIG_EVENT_RANDOM_ON,
+	MAIL_CONFIG_SIG_EVENT_RANDOM_OFF,
 	MAIL_CONFIG_SIG_EVENT_ADDED,
 	MAIL_CONFIG_SIG_EVENT_DELETED
 } MailConfigSigEvent;
