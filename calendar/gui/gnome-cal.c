@@ -150,6 +150,9 @@ struct _GnomeCalendarPrivate {
 	GalViewInstance *view_instance;
 	GalViewMenus *view_menus;
 
+	/* Our current week start */
+	int week_start;
+	
 	/* Our current timezone. */
 	icaltimezone *zone;
 
@@ -462,12 +465,11 @@ get_times_for_views (GnomeCalendar *gcal, GnomeCalendarViewType view_type, time_
 		*end_time = time_add_day_with_zone (*start_time, days_shown, priv->zone);
 		break;
 	case GNOME_CAL_WORK_WEEK_VIEW:
-		*start_time = time_day_begin_with_zone (*start_time, priv->zone);
+		*start_time = time_week_begin_with_zone (*start_time, priv->week_start, priv->zone);
 		*end_time = time_add_day_with_zone (*start_time, 5, priv->zone);
 		break;
 	case GNOME_CAL_WEEK_VIEW:
-		/* FIXME Get the real week begin */
-		*start_time = time_week_begin_with_zone (*start_time, 1, priv->zone);
+		*start_time = time_week_begin_with_zone (*start_time, priv->week_start, priv->zone);
 		*end_time = time_add_week_with_zone (*start_time, 1, priv->zone);
 		break;
 	case GNOME_CAL_MONTH_VIEW:
@@ -842,6 +844,25 @@ table_selection_change_cb (ETable *etable, gpointer data)
 }
 
 static void
+set_week_start (GnomeCalendar *calendar)
+{
+	GnomeCalendarPrivate *priv;
+
+	priv = calendar->priv;
+	
+	/* FIXME we should adjust the week and work week views */
+	priv->week_start = calendar_config_get_week_start_day ();
+}
+
+static void
+week_start_changed_cb (GConfClient *client, guint id, GConfEntry *entry, gpointer data)
+{
+	GnomeCalendar *calendar = data;
+	
+	set_week_start (calendar);
+}
+
+static void
 set_timezone (GnomeCalendar *calendar) 
 {
 	GnomeCalendarPrivate *priv;
@@ -882,10 +903,14 @@ setup_config (GnomeCalendar *calendar)
 	guint not;
 
 	priv = calendar->priv;
-	
+
+	/* Week Start */
+	set_week_start (calendar);
+	not = calendar_config_add_notification_week_start_day (week_start_changed_cb, calendar);
+	priv->notifications = g_list_prepend (priv->notifications, GUINT_TO_POINTER (not));
+
 	/* Timezone */
-	set_timezone (calendar);
-	
+	set_timezone (calendar);	
 	not = calendar_config_add_notification_timezone (timezone_changed_cb, calendar);
 	priv->notifications = g_list_prepend (priv->notifications, GUINT_TO_POINTER (not));
 
@@ -1220,15 +1245,11 @@ gnome_calendar_goto_date (GnomeCalendar *gcal,
 		need_updating = TRUE;
 		break;
 	case GNOME_CAL_GOTO_FIRST_DAY_OF_WEEK:
-		/* 1 for Monday */
-		/* FIXME Don't hardcode the week start */
-		new_time = time_week_begin_with_zone (priv->base_view_time, 1, priv->zone);
+		new_time = time_week_begin_with_zone (priv->base_view_time, priv->week_start, priv->zone);
 		need_updating = TRUE;
 		break;
 	case GNOME_CAL_GOTO_LAST_DAY_OF_WEEK:
-		/* 1 for Monday */
-		/* FIXME Don't hard code last day of week */
-		new_time = time_week_begin_with_zone (priv->base_view_time, 1, priv->zone);
+		new_time = time_week_begin_with_zone (priv->base_view_time, priv->week_start, priv->zone);
 		if (priv->current_view_type == GNOME_CAL_DAY_VIEW ||
 		    priv->current_view_type == GNOME_CAL_WORK_WEEK_VIEW) {
 			/* goto Friday of this week */
@@ -2390,7 +2411,7 @@ gnome_calendar_update_date_navigator (GnomeCalendar *gcal)
 		return;
 
 	get_days_shown (gcal, &start_date, &days_shown);
-	g_message ("Days shown %d", days_shown);
+
 	end_date = start_date;
 	g_date_add_days (&end_date, days_shown - 1);
 
@@ -2398,15 +2419,14 @@ gnome_calendar_update_date_navigator (GnomeCalendar *gcal)
 				       &start_date, &end_date);
 }
 
-
 static void
-gnome_calendar_on_date_navigator_selection_changed (ECalendarItem    *calitem,
-						    GnomeCalendar    *gcal)
+gnome_calendar_on_date_navigator_selection_changed (ECalendarItem *calitem, GnomeCalendar *gcal)
 {
 	GnomeCalendarPrivate *priv;
 	GDate start_date, end_date, new_start_date, new_end_date;
 	gint days_shown, new_days_shown;
 	gboolean starts_on_week_start_day;
+	time_t new_time;
 	struct icaltimetype tt;
 
 	priv = gcal->priv;
@@ -2424,7 +2444,7 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem    *calitem,
 	if (!g_date_compare (&start_date, &new_start_date)
 	    && !g_date_compare (&end_date, &new_end_date))
 		return;
-
+	
 	new_days_shown = g_date_julian (&new_end_date) - g_date_julian (&new_start_date) + 1;
 
 	/* If a complete week is selected we show the Week view.
@@ -2439,10 +2459,11 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem    *calitem,
 	tt.year = g_date_year (&new_start_date);
 	tt.month  = g_date_month (&new_start_date);
 	tt.day = g_date_day (&new_start_date);
-	priv->base_view_time = icaltime_as_timet_with_zone (tt, priv->zone);
+	new_time = icaltime_as_timet_with_zone (tt, priv->zone);
 
 	/* Make the views display things properly */
-	update_view_times (gcal, priv->base_view_time);
+	g_message ("Updating view times %d:%d:%d", tt.year, tt.month, tt.day);
+	update_view_times (gcal, new_time);
 	
 	/* Switch views as appropriate, and change the number of days or weeks
 	   shown. */
@@ -2470,10 +2491,8 @@ gnome_calendar_on_date_navigator_selection_changed (ECalendarItem    *calitem,
 	focus_current_view (gcal);
 }
 
-
 static void
-gnome_calendar_on_date_navigator_date_range_changed (ECalendarItem *calitem,
-						     GnomeCalendar *gcal)
+gnome_calendar_on_date_navigator_date_range_changed (ECalendarItem *calitem, GnomeCalendar *gcal)
 {
 	update_query (gcal);
 }
