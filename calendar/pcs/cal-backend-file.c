@@ -1428,7 +1428,6 @@ cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 	priv = cbfile->priv;
 
 	g_return_val_if_fail (priv->icalcomp != NULL, CAL_BACKEND_RESULT_INVALID_OBJECT);
-
 	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
 
 	/* FIXME we need to handle mod types here */
@@ -1436,12 +1435,12 @@ cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 	comp = lookup_component (cbfile, uid);
 	if (!comp)
 		return GNOME_Evolution_Calendar_ObjectNotFound;
-	
+
 	*object = cal_component_get_as_string (comp);
 	remove_component (cbfile, comp);
-	
+
 	mark_dirty (cbfile);
-		
+
 	return GNOME_Evolution_Calendar_Success;
 }
 

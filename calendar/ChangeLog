@@ -1,3 +1,8 @@
+2003-09-24  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-util.[ch] (cal_backend_util_fill_alarm_instances_seq):
+	removed unneeded function.
+
 2003-09-24  JP Rosevear  <jpr@ximian.com>
 
 	* conduits/*/*.c: adjust to new timezone api calls
