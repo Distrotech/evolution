@@ -45,6 +45,7 @@ void mail_do_forward_message (CamelMimeMessage *basis,
 			      CamelFolder *source, 
 			      GPtrArray *uids, /*array of allocated gchar *, will all be freed */
 			      EMsgComposer *composer);
+void mail_do_load_folder (FolderBrowser *fb, const char *url);
 
 /* This actually lives in message-list.c */
 void mail_do_regenerate_messagelist (MessageList *list, const gchar *search);

@@ -290,7 +290,7 @@ void mail_do_send_mail (const char *xport_uri,
 	mail_operation_queue (&op_send_mail, input, TRUE);
 }
 
-/* ** EXPUNGE ************************************************************* */
+/* ** EXPUNGE FOLDER ****************************************************** */
 
 static void setup_expunge_folder   (gpointer in_data, gpointer op_data, CamelException *ex);
 static void do_expunge_folder      (gpointer in_data, gpointer op_data, CamelException *ex);
@@ -864,4 +864,88 @@ void mail_do_forward_message (CamelMimeMessage *basis,
 	input->composer = composer;
 
 	mail_operation_queue (&op_forward_messages, input, TRUE);
+}
+
+/* ** LOAD FOLDER ********************************************************* */
+
+typedef struct load_folder_input_s {
+	FolderBrowser *fb;
+	gchar *url;
+} load_folder_input_t;
+
+static void setup_load_folder   (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_load_folder      (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_load_folder (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static void setup_load_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	load_folder_input_t *input = (load_folder_input_t *) in_data;
+
+	if (!IS_FOLDER_BROWSER(input->fb)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No folder browser specified to load into.");
+		return;
+	}
+
+	if (!input->url) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No URL to load was specified.");
+		return;
+	}
+
+	gtk_object_ref (GTK_OBJECT (input->fb));
+
+	if (input->fb->uri)
+		g_free (input->fb->uri);
+
+	input->fb->uri = input->url;
+}
+
+static void do_load_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	load_folder_input_t *input = (load_folder_input_t *) in_data;
+
+	CamelFolder *folder;
+
+	folder = mail_tool_uri_to_folder (input->url, ex);
+	if (!folder)
+		return;
+
+	if (input->fb->folder) {
+		mail_tool_camel_lock_up ();
+		camel_object_unref (CAMEL_OBJECT (input->fb->folder));
+		mail_tool_camel_lock_down ();
+	}
+
+	input->fb->folder = folder;
+}
+
+static void cleanup_load_folder (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	load_folder_input_t *input = (load_folder_input_t *) in_data;
+
+	message_list_set_folder (input->fb->message_list, input->fb->folder);
+
+	/*g_free (input->url); = fb->uri now*/
+}
+
+static const mail_operation_spec op_load_folder =
+{
+	"Load a folder",
+	"Loading a folder",
+	0,
+	setup_load_folder,
+	do_load_folder,
+	cleanup_load_folder
+};
+
+void mail_do_load_folder (FolderBrowser *fb, const char *url)
+{
+	load_folder_input_t *input;
+
+	input = g_new (load_folder_input_t, 1);
+	input->fb = fb;
+	input->url= g_strdup (url);
+
+	mail_operation_queue (&op_load_folder, input, TRUE);
 }

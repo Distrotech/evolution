@@ -1,5 +1,16 @@
 2000-07-20  Peter Williams  <peterw@helixcode.com>
 
+	* message-list.c (message_list_set_folder): Don't call
+	folder_changed, call mail_do_regenerate_messagelist, as
+	the GDK_THREADS_ENTER in the former can deadlock us!
+
+	* folder-browser.c (folder_browser_set_uri): Ah, screw it.
+	Make 'load folder' asynchronous and pretend that it always
+	succeeds.
+
+	* mail-ops-new.c (mail_do_load_folder): New operation, loads
+	a folder into a FolderBrowser.
+	
 	* mail-threads.c (read_msg): Check if the exception is
 	a user cancel; don't complain if it is.
 	(mail_operation_queue): Same.

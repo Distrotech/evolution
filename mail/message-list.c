@@ -845,7 +845,8 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder)
 	camel_object_ref (CAMEL_OBJECT (camel_folder));
 
 	/*gtk_idle_add (regen_message_list, message_list);*/
-	folder_changed (CAMEL_OBJECT (camel_folder), 0, message_list);
+	/*folder_changed (CAMEL_OBJECT (camel_folder), 0, message_list);*/
+	mail_do_regenerate_messagelist (message_list, message_list->search);
 }
 
 GtkWidget *

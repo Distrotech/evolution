@@ -80,11 +80,16 @@ folder_browser_load_folder (FolderBrowser *fb, const char *name)
 
 gboolean folder_browser_set_uri (FolderBrowser *folder_browser, const char *uri)
 {
-	if (folder_browser->uri)
-		g_free (folder_browser->uri);
+	/*
+	 * if (folder_browser->uri)
+	 * 	g_free (folder_browser->uri);
+	 * 
+	 * folder_browser->uri = g_strdup (uri);
+	 * return folder_browser_load_folder (folder_browser, folder_browser->uri);
+	 */
 
-	folder_browser->uri = g_strdup (uri);
-	return folder_browser_load_folder (folder_browser, folder_browser->uri);
+	mail_do_load_folder (folder_browser, uri);
+	return TRUE;
 }
 
 void
