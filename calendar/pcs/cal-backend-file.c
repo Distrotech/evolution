@@ -635,12 +635,14 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	obj->recurrences = g_hash_table_new (g_str_hash, g_str_equal);
 
 	/* expand recurrences */
-	cal_recur_generate_instances (comp, -1, -1,
-				      add_recurrence_to_object,
-				      obj,
-				      resolve_tzid,
-				      cal_component_get_icalcomponent (obj->top_comp),
-				      priv->default_zone);
+	if (cal_component_has_recurrences (obj->top_comp)) {
+		cal_recur_generate_instances (comp, -1, -1,
+					      add_recurrence_to_object,
+					      obj,
+					      resolve_tzid,
+					      cal_component_get_icalcomponent (obj->top_comp),
+					      priv->default_zone);
+	}
 
 	g_hash_table_insert (priv->comp_uid_hash, g_strdup (uid), obj);
 
@@ -1045,38 +1047,72 @@ cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid)
 		return NULL;
 }
 
+typedef struct {
+	GList *obj_list;
+	gboolean search_needed;
+	const char *query;
+	CalBackendObjectSExp *obj_sexp;
+	CalBackend *backend;
+} MatchObjectData;
+
+static void
+match_recurrence_sexp (gpointer key, gpointer value, gpointer data)
+{
+	MatchObjectData *match_data = data;
+
+	if ((!match_data->search_needed) ||
+	    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, value, match_data->backend))) {
+		match_data->obj_list = g_list_append (match_data->obj_list,
+							      cal_component_get_as_string (value));
+	}
+}
+
+static void
+match_object_sexp (gpointer key, gpointer value, gpointer data)
+{
+	CalBackendFileObject *obj = value;
+	MatchObjectData *match_data = data;
+
+	if (cal_component_has_recurrences (obj->top_comp)) {
+		g_hash_table_foreach (obj->recurrences, (GHFunc) match_recurrence_sexp, match_data);
+	} else {
+		if ((!match_data->search_needed) ||
+		    (cal_backend_object_sexp_match_comp (match_data->obj_sexp, obj->top_comp, match_data->backend)))
+			match_data->obj_list = g_list_append (match_data->obj_list,
+							      cal_component_get_as_string (obj->top_comp));
+	}
+}
+
 /* Get_objects_in_range handler for the file backend */
 static GList *
 cal_backend_file_get_object_list (CalBackend *backend, const char *query)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
-	CalBackendObjectSExp *obj_sexp = NULL;
-	gboolean search_needed;
-	GList *obj_list = NULL, *l;
+	MatchObjectData match_data;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
 	g_message (G_STRLOC ": Getting object list (%s)", query);
 
-	search_needed = TRUE;
+	match_data.search_needed = TRUE;
+	match_data.query = query;
+	match_data.obj_list = NULL;
+	match_data.backend = backend;
 
 	if (!strcmp (query, "#t"))
-		search_needed = FALSE;
+		match_data.search_needed = FALSE;
 
-	obj_sexp = cal_backend_object_sexp_new (query);
-	if (!obj_sexp) {
+	match_data.obj_sexp = cal_backend_object_sexp_new (query);
+	if (!match_data.obj_sexp) {
 		/* FIXME this needs to be an invalid query error of some sort*/
 		return NULL;
 	}
 
-	for (l = priv->comp; l; l = l->next) {		
-		if ((!search_needed) || (cal_backend_object_sexp_match_comp (obj_sexp, l->data, backend)))
-			obj_list = g_list_append (obj_list, cal_component_get_as_string (l->data));
-	}
+	g_hash_table_foreach (priv->comp_uid_hash, (GHFunc) match_object_sexp, &match_data);
 
-	return obj_list;
+	return match_data.obj_list;
 }
 
 static gboolean

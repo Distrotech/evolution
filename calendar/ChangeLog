@@ -1,3 +1,12 @@
+2003-09-02  Rodrigo Moya <rodrigo@ximian.com>
+
+	* pcs/cal-backend-file.c (match_recurrence_sexp, match_object_sexp):
+	new callbacks for g_hash_table_foreach in get_object_list.
+	(cal_backend_file_get_object_list): don't use the priv->comp list
+	to check the components, use the hash table, which contains all
+	the recurrences already expanded.
+	(add_component): only expand recurrences for recurrent components.
+
 2003-08-29  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-file.c (lookup_component): take into account the 'rid'
