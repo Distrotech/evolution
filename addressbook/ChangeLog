@@ -1,3 +1,19 @@
+2003-08-07  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-book-factory.c
+	(pas_book_factory_get_n_backends): lock map_mutex around hash
+	table work.
+	(pas_book_factory_dump_active_backends): same.
+	(backend_last_client_gone_cb): same.
+	(_pas_book_factory_send_open_book_response): track CallStatus idl
+	change.
+	(start_backend): simplify this greatly, since the factory is
+	tagged with HINT_PER_THREAD.
+	(impl_GNOME_Evolution_Addressbook_BookFactory_openBook): lock
+	around hash table.
+	(pas_book_factory_init): initialize map_mutex.
+	(pas_book_factory_dispose): free map_mutex.
+
 2003-08-06  Chris Toshok  <toshok@ximian.com>
 
 	* backend/pas/pas-backend-file.c
