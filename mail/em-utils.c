@@ -1384,6 +1384,41 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 	return res;
 }
 
+/* This kind of sucks, because for various reasons most callers need to run synchronously
+   in the gui thread, however this could take a long, blocking time, to run */
+static int
+em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
+{
+	CamelException *ex = camel_exception_new();
+	CamelMimeParser *mp = camel_mime_parser_new();
+
+	camel_mime_parser_scan_from(mp, TRUE);
+	camel_mime_parser_init_with_stream(mp, stream);
+	camel_object_unref(stream);
+
+	while (camel_mime_parser_step(mp, 0, 0) == HSCAN_FROM) {
+		CamelMimeMessage *msg;
+
+		/* NB: de-from filter, once written */
+		msg = camel_mime_message_new();
+		if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp) == -1) {
+			camel_object_unref(msg);
+			break;
+		}
+		
+		camel_folder_append_message(folder, msg, NULL, NULL, ex);
+		camel_object_unref(msg);
+		
+		if (camel_exception_is_set (ex))
+			break;
+		
+		camel_mime_parser_step(mp, 0, 0);
+	}
+	
+	camel_object_unref(mp);
+	camel_exception_free(ex);
+}
+
 /**
  * em_utils_selection_set_mailbox:
  * @data: 
@@ -1405,6 +1440,31 @@ em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtr
 				       ((CamelStreamMem *)stream)->buffer->data,
 				       ((CamelStreamMem *)stream)->buffer->len);
 
+	camel_object_unref(stream);
+}
+
+/**
+ * em_utils_selection_get_mailbox:
+ * @data: 
+ * @folder: 
+ * 
+ * Receive a mailbox selection/dnd
+ * Warning: Could be BIG!
+ * Warning: This could block the ui for an extended period.
+ * FIXME: Exceptions?
+ **/
+void
+em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder)
+{
+	CamelStream *stream;
+
+	if (data->data == NULL || data->length == -1)
+		return;
+
+	/* TODO: a stream mem with read-only access to existing data? */
+	/* NB: Although copying would let us run this async ... which it should */
+	stream = camel_stream_mem_new_with_buffer(data->data, data->length);
+	em_utils_read_messages_from_stream(folder, stream);
 	camel_object_unref(stream);
 }
 
@@ -1529,4 +1589,86 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 
 		camel_object_unref(fstream);
 	}
+}
+
+extern CamelFolder *drafts_folder, *sent_folder, *outbox_folder;
+
+/**
+ * em_utils_folder_is_drafts:
+ * @folder: folder
+ * @uri: uri for this folder, if known
+ * 
+ * Returns true if the folder is a drafts folder.
+ * 
+ * Return value: 
+ **/
+gboolean
+em_utils_folder_is_drafts(CamelFolder *folder, const char *uri)
+{
+	EAccountList *accounts;
+	EAccount *account;
+	EIterator *iter;
+	int is = FALSE;
+
+	if (folder == drafts_folder)
+		return TRUE;
+
+	if (uri == NULL)
+		return FALSE;
+
+	accounts = mail_config_get_accounts();
+	iter = e_list_get_iterator((EList *)accounts);
+	while (e_iterator_is_valid(iter)) {
+		account = (EAccount *)e_iterator_get(iter);
+		if (account->drafts_folder_uri &&
+		    camel_store_uri_cmp(folder->parent_store, account->drafts_folder_uri, uri)) {
+			is = TRUE;
+			break;
+		}
+		
+		e_iterator_next(iter);
+	}
+	
+	g_object_unref(iter);
+	
+	return is;
+}
+
+gboolean
+em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
+{
+	EAccountList *accounts;
+	EAccount *account;
+	EIterator *iter;
+	int is = FALSE;
+
+	if (folder == sent_folder)
+		return TRUE;
+
+	if (uri == NULL)
+		return FALSE;
+
+	accounts = mail_config_get_accounts();
+	iter = e_list_get_iterator((EList *)accounts);
+	while (e_iterator_is_valid(iter)) {
+		account = (EAccount *)e_iterator_get(iter);
+		if (account->sent_folder_uri &&
+		    camel_store_uri_cmp(folder->parent_store, account->sent_folder_uri, uri)) {
+			is = TRUE;
+			break;
+		}
+		
+		e_iterator_next(iter);
+	}
+	
+	g_object_unref(iter);
+	
+	return is;
+}
+
+gboolean
+em_utils_folder_is_outbox(CamelFolder *folder, const char *uri)
+{
+	/* There can be only one. */
+	return folder == outbox_folder;
 }

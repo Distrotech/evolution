@@ -38,6 +38,7 @@ struct _EMFolderBrowser {
 	EMFolderView view;
 
 	GtkWidget *vpane;
+	struct _EFilterBar *search;
 
 	struct _EMFolderBrowserPrivate *priv;
 };

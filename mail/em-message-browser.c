@@ -147,6 +147,9 @@ GtkWidget *em_message_browser_window_new(void)
 
 	em_folder_view_activate((EMFolderView *)emmb, uic, TRUE);
 
+	/* FIXME: keep track of size changes for next instantation */
+	gtk_window_set_default_size(emmb->window, 600, 400);
+
 	/* cleanup? */
 
 	return (GtkWidget *)emmb;

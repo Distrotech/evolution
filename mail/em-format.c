@@ -767,7 +767,9 @@ em_format_format_text(EMFormat *emf, CamelStream *stream, CamelDataWrapper *dw)
 	CamelMimeFilterCharset *filter;
 	const char *charset;
 	char *fallback_charset = NULL;
-	
+
+	/* FIXME: This should be an em_utils method */
+
 	if (emf->charset) {
 		charset = emf->charset;
 	} else if (dw->mime_type

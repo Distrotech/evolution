@@ -563,6 +563,8 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	   How can i do this with plugins!?
 	   extension point=com.ximian.evolution.mail.attachmentPopup?? */
 
+	/* FIXME: need copy to clipboard too */
+
 	d(printf("attachment popup, button %d\n", event->button));
 
 	if (event->button != 1 && event->button != 3) {
@@ -611,12 +613,100 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	return TRUE;
 }
 
+static void
+efhd_drag_data_get(GtkWidget *w, GdkDragContext *drag, GtkSelectionData *data, guint info, guint time, EMFormatHTMLPObject *pobject)
+{
+	const char *filename, *tmpdir;
+	CamelMimePart *part = pobject->part;
+	char *uri;
+	CamelStream *stream;
+	int fd;
+
+	switch (info) {
+	case 0: /* mime/type request */
+		stream = camel_stream_mem_new();
+		/* TODO: shoudl format_format_text run on the content-object? */
+		/* TODO: should we just do format_content? */
+		if (header_content_type_is(((CamelDataWrapper *)part)->mime_type, "text", "*"))
+			/* FIXME: this should be an em_utils method, it only needs a default charset param */
+			em_format_format_text((EMFormat *)pobject->format, stream, (CamelDataWrapper *)part);
+		else {
+			CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)part);
+
+			camel_data_wrapper_decode_to_stream(dw, stream);
+		}
+
+		gtk_selection_data_set(data, data->target, 8,
+				       ((CamelStreamMem *)stream)->buffer->data,
+				       ((CamelStreamMem *)stream)->buffer->len);
+		camel_object_unref(stream);
+		break;
+	case 1: /* text-uri-list request */
+		/* Kludge around Nautilus requesting the same data many times */
+		uri = g_object_get_data((GObject *)w, "e-drag-uri");
+		if (uri) {
+			gtk_selection_data_set(data, data->target, 8, uri, strlen(uri));
+			return;
+		}
+
+		/* TODO: any way to make this more re-usable */
+		/* FIXME: needs some error boxes - but not in this copy ... */
+		tmpdir = e_mkdtemp("drag-n-drop-XXXXXX");
+		if (tmpdir == NULL)
+			return;
+
+		filename = camel_mime_part_get_filename(part);
+		/* This is the default filename used for dnd temporary target of attachment */
+		if (filename == NULL)
+			filename = _("Unknown");
+
+		uri = g_strdup_printf("file:///%s/%s", tmpdir, filename);
+
+		printf("dnd uri '%s'\n", uri);
+
+		fd = open(uri + 7, O_WRONLY | O_CREAT | O_EXCL, 0666);
+		if (fd == -1)
+			return;
+
+		stream = camel_stream_fs_new_with_fd(fd);
+		if (stream) {
+			em_format_format_content((EMFormat *)pobject->format, stream, part);
+			camel_object_unref(stream);
+			gtk_selection_data_set(data, data->target, 8, uri, strlen(uri));
+			g_object_set_data_full((GObject *)w, "e-drag-uri", uri, g_free);
+		} else
+			g_free(uri);
+
+		break;
+	default:
+		abort();
+	}
+}
+
+static void
+efhd_drag_data_delete(GtkWidget *w, GdkDragContext *drag, EMFormatHTMLPObject *pobject)
+{
+	char *uri;
+	
+	uri = g_object_get_data((GObject *)w, "e-drag-uri");
+	if (uri) {
+		/* NB: this doesn't kill the dnd directory */
+		/* NB: is this ever called? */
+		unlink(uri+7);
+		g_object_set_data((GObject *)w, "e-drag-uri", NULL);
+	}
+}
+
 /* attachment button callback */
 static gboolean
 efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *pobject)
 {
 	struct _attach_puri *info;
 	GtkWidget *hbox, *w, *button, *mainbox;
+	GtkTargetEntry drag_types[] = {
+		{ NULL, 0, 0 },
+		{ "text/uri-list", 0, 1 },
+	};
 
 	/* FIXME: handle default shown case */
 	d(printf("adding attachment button/content\n"));
@@ -648,6 +738,13 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	gtk_box_pack_start((GtkBox *)hbox, w, TRUE, TRUE, 0);
 	gtk_container_add((GtkContainer *)button, hbox);
 	gtk_box_pack_start((GtkBox *)mainbox, button, TRUE, TRUE, 0);
+
+	drag_types[0].target = header_content_type_simple(((CamelDataWrapper *)pobject->part)->mime_type);
+	camel_strdown(drag_types[0].target);
+	gtk_drag_source_set(button, GDK_BUTTON1_MASK, drag_types, sizeof(drag_types)/sizeof(drag_types[0]), GDK_ACTION_COPY);
+	g_signal_connect(button, "drag-data-get", G_CALLBACK(efhd_drag_data_get), pobject);
+	g_signal_connect (button, "drag-data-delete", G_CALLBACK(efhd_drag_data_delete), pobject);
+	g_free(drag_types[0].target);
 
 	button = gtk_button_new();
 	GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);

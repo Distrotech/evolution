@@ -1458,17 +1458,11 @@ ml_selection_clear_event(GtkWidget *widget, GdkEventSelection *event, MessageLis
 }
 
 static void
-ml_selection_received(GtkWidget *widget, GtkSelectionData *data, guint time, MessageList *ml)
+ml_selection_received_uidlist(MessageList *ml, GtkSelectionData *data)
 {
 	CamelFolder *folder;
 	GPtrArray *uids;
 	char *uri;
-
-	if (data->target != gdk_atom_intern("x-evolution-message", FALSE)) {
-		printf("Unknown selection received by message-list\n");
-
-		return;
-	}
 
 	if (em_utils_selection_get_uidlist(data, &uri, &uids) == 0)
 		return;
@@ -1484,6 +1478,76 @@ ml_selection_received(GtkWidget *widget, GtkSelectionData *data, guint time, Mes
 	}
 
 	g_free(uri);
+}
+
+static void
+ml_selection_received(GtkWidget *widget, GtkSelectionData *data, guint time, MessageList *ml)
+{
+	if (data->target != gdk_atom_intern("x-evolution-message", FALSE)) {
+		printf("Unknown selection received by message-list\n");
+
+		return;
+	}
+
+	ml_selection_received_uidlist(ml, data);
+}
+
+static GtkTargetEntry ml_drag_types[] = {
+	{ "x-evolution-message", 0, 0 },
+	{ "message/rfc822", 0, 1 },
+	/* not included in dest types */
+	{ "text/uri-list", 0, 2 },
+};
+
+static void
+ml_tree_drag_data_get (ETree *tree, int row, ETreePath path, int col,
+		       GdkDragContext *context, GtkSelectionData *data,
+		       guint info, guint time, MessageList *ml)
+{
+	GPtrArray *uids;
+
+	uids = message_list_get_selected(ml);
+
+	if (uids->len > 0) {
+		switch (info) {
+		case 0 /*DND_TARGET_TYPE_X_EVOLUTION_MESSAGE*/:
+			em_utils_selection_set_uidlist(data, ml->folder_uri, uids);
+			break;
+		case 1 /*DND_TARGET_TYPE_MESSAGE_RFC822*/:
+			em_utils_selection_set_mailbox(data, ml->folder, uids);
+			break;
+		case 2 /*DND_TARGET_TYPE_TEXT_URI_LIST*/:
+			em_utils_selection_set_urilist(data, ml->folder, uids);
+			break;
+		}
+	}
+
+	message_list_free_uids(ml, uids);
+}
+
+static void
+ml_tree_drag_data_received (ETree *tree, int row, ETreePath path, int col,
+			    GdkDragContext *context, gint x, gint y,
+			    GtkSelectionData *data, guint info,
+			    guint time, MessageList *ml)
+{
+	/* this means we are receiving no data */
+	if (data->data == NULL || data->length == -1)
+		return;
+
+	/* Note: we don't receive text/uri-list, since we have no
+	   guarantee on what the content would be */
+	
+	switch (info) {
+	case 1 /*DND_TARGET_TYPE_MESSAGE_RFC822*/:
+		em_utils_selection_get_mailbox(data, ml->folder);
+		break;
+	case 0 /*DND_TARGET_TYPE_X_EVOLUTION_MESSAGE*/:
+		ml_selection_received_uidlist(ml, data);
+		break;
+	}
+	
+	gtk_drag_finish(context, TRUE, TRUE, time);
 }
 
 /*
@@ -1715,8 +1779,22 @@ message_list_construct (MessageList *message_list)
 	g_signal_connect((message_list->tree), "selection_change",
 			 G_CALLBACK (on_selection_changed_cmd), message_list);
 
-}
 
+	e_tree_drag_source_set(message_list->tree, GDK_BUTTON1_MASK,
+			       ml_drag_types, sizeof(ml_drag_types)/sizeof(ml_drag_types[0]),
+			       GDK_ACTION_MOVE|GDK_ACTION_COPY);
+	
+	g_signal_connect(message_list->tree, "tree_drag_data_get",
+			 G_CALLBACK(ml_tree_drag_data_get), message_list);
+
+	/* note, we only include 2 types, we don't include text/uri-list as a receiver */
+	e_tree_drag_dest_set(message_list->tree, GTK_DEST_DEFAULT_ALL,
+			     ml_drag_types, 2,
+			     GDK_ACTION_MOVE|GDK_ACTION_COPY);
+	
+	g_signal_connect(message_list->tree, "tree_drag_data_received",
+			 G_CALLBACK(ml_tree_drag_data_received), message_list);
+}
 
 /**
  * message_list_new:

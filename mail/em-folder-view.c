@@ -65,6 +65,11 @@
 #include "message-list.h"
 #include "em-utils.h"
 
+#include <gtkhtml/gtkhtml.h>
+#include <gtkhtml/htmlobject.h>
+#include <gtkhtml/htmlengine.h>
+#include <gtkhtml/htmlengine-save.h>
+
 #include "mail-mt.h"
 #include "mail-ops.h"
 #include "mail-config.h"	/* hrm, pity we need this ... */
@@ -210,18 +215,27 @@ em_folder_view_open_selected(EMFolderView *emfv)
 
 	uids = message_list_get_selected(emfv->list);
 
-	/* FIXME: 'are you sure' for > 10 messages; is this even necessary? */
+	if (em_utils_folder_is_drafts(emfv->folder, emfv->folder_uri)
+	    || em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri)) {
+		em_utils_edit_messages((GtkWidget *)emfv, emfv->folder, uids);
+	} else {
+		/* TODO: have an em_utils_open_messages call? */
 
-	for (i=0; i<uids->len; i++) {
-		EMMessageBrowser *emmb;
+		/* FIXME: 'are you sure' for > 10 messages; is this even necessary? */
 
-		emmb = (EMMessageBrowser *)em_message_browser_window_new();
-		/* FIXME: session needs to be passed easier than this */
-		em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, ((EMFormat *)emfv->preview)->session);
-		em_folder_view_set_folder((EMFolderView *)emmb, emfv->folder, emfv->folder_uri);
-		printf("opening message '%s'\n", (char *)uids->pdata[i]);
-		em_folder_view_set_message((EMFolderView *)emmb, uids->pdata[i]);
-		gtk_widget_show(emmb->window);
+		for (i=0; i<uids->len; i++) {
+			EMMessageBrowser *emmb;
+
+			emmb = (EMMessageBrowser *)em_message_browser_window_new();
+			/* FIXME: session needs to be passed easier than this */
+			em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, ((EMFormat *)emfv->preview)->session);
+			em_folder_view_set_folder((EMFolderView *)emmb, emfv->folder, emfv->folder_uri);
+			printf("opening message '%s'\n", (char *)uids->pdata[i]);
+			em_folder_view_set_message((EMFolderView *)emmb, uids->pdata[i]);
+			gtk_widget_show(emmb->window);
+		}
+
+		message_list_free_uids(emfv->list, uids);
 	}
 
 	return i;
@@ -494,45 +508,83 @@ emfv_message_post_reply (BonoboUIComponent *uic, void *data, const char *path)
 }
 
 static void
-emfv_message_reply_all (BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_reply(EMFolderView *emfv, int mode)
 {
-	EMFolderView *emfv = data;
-	
+	/* GtkClipboard *clip; */
+
 	if (emfv->list->cursor_uid == NULL)
 		return;
 	
 	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
 		return;
-	
-	em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_ALL);
+
+	/*  Look away!  Look away! */
+
+	/* HACK: Nasty internal gtkhtml poking going on here */
+
+	/* Disabled since there's no simple way to find out if
+	   gtkhtml has the primary selection right now */
+
+	/* Ugh, to use the clipboard we need to request the selection
+	   and have an async callback - painful to deal with */
+
+	/*clip = gtk_clipboard_get(GDK_SELECTION_PRIMARY);*/
+	if (FALSE /*gtk_clipboard_get_owner(clip) == (GObject *)emfv->preview*/
+	    && ((EMFormatHTML *)emfv->preview)->html->engine->primary) {
+		CamelMimeMessage *msg, *src;
+		struct _header_raw *header;
+		HTMLEngineSaveState *state;
+
+		src = (CamelMimeMessage *)((EMFormat *)emfv->preview)->message;
+		msg = camel_mime_message_new();
+
+		header = ((CamelMimePart *)src)->headers;
+		while (header) {
+			if (g_ascii_strcasecmp(header->name, "content-type") != 0)
+				camel_medium_add_header((CamelMedium *)msg, header->name, header->value);
+			header = header->next;
+		}
+
+		state = html_engine_save_buffer_new(((EMFormatHTML *)emfv->preview)->html->engine, TRUE);
+		html_object_save(((EMFormatHTML *)emfv->preview)->html->engine->primary, state);
+		camel_mime_part_set_content((CamelMimePart *)msg,
+					    ((GString *)state->user_data)->str,
+					    ((GString *)state->user_data)->len,
+					    "text/html");
+
+		html_engine_save_buffer_free(state);
+
+		em_utils_reply_to_message((GtkWidget *)emfv, msg, mode);
+		camel_object_unref(msg);
+	} else {
+		em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, mode);
+	}
+
+	/*g_object_unref(clip);*/
+}
+
+static void
+emfv_message_reply_all (BonoboUIComponent *uic, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	emfv_message_reply(emfv, REPLY_MODE_ALL);
 }
 
 static void
 emfv_message_reply_list (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	
-	if (emfv->list->cursor_uid == NULL)
-		return;
-	
-	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
-		return;
-	
-	em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_LIST);
+
+	emfv_message_reply(emfv, REPLY_MODE_LIST);
 }
 
 static void
 emfv_message_reply_sender (BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	
-	if (emfv->list->cursor_uid == NULL)
-		return;
-	
-	if (!em_utils_check_user_can_send_mail ((GtkWidget *) emfv))
-		return;
-	
-	em_utils_reply_to_message_by_uid ((GtkWidget *) emfv, emfv->folder, emfv->list->cursor_uid, REPLY_MODE_SENDER);
+
+	emfv_message_reply(emfv, REPLY_MODE_SENDER);
 }
 
 static void
@@ -951,7 +1003,7 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 	if (state) {
 		GConfClient *gconf = mail_config_get_gconf_client ();
 		em_format_mode_t style;
-		gboolean caret_mode;
+		gboolean state;
 		GSList *l;
 
 		printf("activate folder viewer %p\n", emfv);
@@ -967,8 +1019,8 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 		/* FIXME: view menu's? */
 
 		/* FIXME: Need to implement or monitor in em-format-html-display */
-		caret_mode = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/caret_mode", NULL);
-		bonobo_ui_component_set_prop(uic, "/commands/CaretMode", "state", caret_mode?"1":"0", NULL);
+		state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/caret_mode", NULL);
+		bonobo_ui_component_set_prop(uic, "/commands/CaretMode", "state", state?"1":"0", NULL);
 		bonobo_ui_component_add_listener(uic, "CaretMode", emfv_caret_mode, emfv);
 
 		style = gconf_client_get_int(gconf, "/apps/evolution/mail/display/message_style", NULL);
@@ -979,10 +1031,10 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 		bonobo_ui_component_add_listener(uic, "ViewFullHeaders", emfv_view_mode, emfv);
 		bonobo_ui_component_add_listener(uic, "ViewSource", emfv_view_mode, emfv);
 		em_format_set_mode((EMFormat *)emfv->preview, style);
+
+		if (emfv->folder && !em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
+			bonobo_ui_component_set_prop(uic, "/commands/MessageResend", "sensitive", "0", NULL);
 #if 0	
-		/* Resend Message */
-		if (fb->folder && !folder_browser_is_sent (fb)) 
-			fbui_sensitise_item (fb, "MessageResend", FALSE);
 	
 		/* sensitivity of message-specific commands */
 		prev_state = fb->selection_state;
@@ -999,6 +1051,9 @@ emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 		/* TODO: Should this just rm /? */
 		for (v = &emfv_message_verbs[0]; v->cname; v++)
 			bonobo_ui_component_remove_verb(uic, v->cname);
+
+		if (emfv->folder)
+			mail_sync_folder(emfv->folder, NULL, NULL);
 	}
 }
 

@@ -1,3 +1,38 @@
+2003-08-28  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-browser.c (emfb_search_menu_activated)
+	(emfb_search_config_search, emfb_search_search_activated)
+	(emfb_search__query_changed): Implement search-bar callbacks.
+	(emfb_init): setup search bar.
+
+2003-08-28  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.c (emfv_message_reply): common reply code entry
+	point, also implement simple reply-to-highlighted text (currently
+	disabled).
+	(emfv_activate): disable resend message on non-sent folders.
+	(emfv_message_reply_all, emfv_message_reply_list)
+	(emfv_message_reply_sender): use message_reply for common code.
+	(em_folder_view_open_selected): in drafts or outbox, edit the
+	message instead.
+	(emfv_activate): force a sync on deactivate.
+
+	* em-utils.c (em_utils_selection_get_mailbox): get mailbox
+	(message/rfc822?) selection data.
+	(em_utils_read_messages_from_stream): helper to move stuff from a
+	mbox stream to a folder.
+	(em_utils_folder_is_drafts, em_utils_folder_is_sent)
+	(em_utils_folder_is_outbox): from folder browser helpers for
+	customising the user experience.
+
+	* message-list.c (message_list_construct): hook onto dnd stufd.
+	(ml_tree_drag_data_get): implement drag sending.
+	(ml_tree_drag_data_received): implement drag recieving.
+
+	* em-format-html-display.c (efhd_drag_data_get): implemented.
+	(efhd_drag_data_delete): implemented.
+	(efhd_attachment_button): setup dnd callbacks.
+
 2003-08-28  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-view.c (emfv_destroy): override the destroy method for

@@ -26,6 +26,8 @@
 #include <config.h>
 #endif
 
+#include <string.h>
+
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkscrolledwindow.h>
 #include <gtk/gtkbutton.h>
@@ -57,6 +59,11 @@
 #include <bonobo/bonobo-ui-component.h>
 #include <bonobo/bonobo-ui-util.h>
 
+/* for efilterbar stuff */
+#include "filter/vfolder-rule.h"
+#include <widgets/misc/e-filter-bar.h>
+#include <camel/camel-search-private.h>
+
 #include "em-utils.h"
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
@@ -66,6 +73,8 @@
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
+#define d(x)
+
 struct _EMFolderBrowserPrivate {
 	GtkWidget *preview;	/* container for message display */
 
@@ -73,9 +82,28 @@ struct _EMFolderBrowserPrivate {
 	int show_list:1;
 };
 
-
 static void emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
 static void emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri);
+
+/* FilterBar stuff ... */
+static void emfb_search_config_search(EFilterBar *efb, FilterRule *rule, int id, const char *query, void *data);
+static void emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser *fb);
+static void emfb_search_search_activated(ESearchBar *esb, EMFolderBrowser *emfb);
+static void emfb_search_query_changed(ESearchBar *esb, EMFolderBrowser *fb);
+
+enum {
+	ESB_SAVE,
+};
+
+static ESearchBarItem emfb_search_items[] = {
+	E_FILTERBAR_ADVANCED,
+	{ NULL, 0, NULL },
+	E_FILTERBAR_SAVE,
+	E_FILTERBAR_EDIT,
+	{ NULL, 0, NULL },
+	{ N_("Create _Virtual Folder From Search..."), ESB_SAVE, NULL  },
+	{ NULL, -1, NULL }
+};
 
 static EMFolderViewClass *emfb_parent;
 
@@ -94,6 +122,8 @@ emfb_init(GObject *o)
 {
 	EMFolderBrowser *emfb = (EMFolderBrowser *)o;
 	struct _EMFolderBrowserPrivate *p;
+	/* FIXME ... */
+	extern RuleContext *search_context;
 
 	printf("em folder browser init\n");
 
@@ -105,6 +135,20 @@ emfb_init(GObject *o)
 	emfb->view.ui_files = g_slist_append(emfb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 
 	/* FIXME: setup search bar */
+	if (search_context) {
+		const char *systemrules = g_object_get_data (G_OBJECT (search_context), "system");
+		const char *userrules = g_object_get_data (G_OBJECT (search_context), "user");
+		
+		emfb->search = e_filter_bar_new(search_context, systemrules, userrules, emfb_search_config_search, emfb);
+		e_search_bar_set_menu ((ESearchBar *)emfb->search, emfb_search_items);
+		gtk_widget_show((GtkWidget *)emfb->search);
+
+		g_signal_connect(emfb->search, "menu_activated", G_CALLBACK(emfb_search_menu_activated), emfb);
+		g_signal_connect(emfb->search, "search_activated", G_CALLBACK(emfb_search_search_activated), emfb);
+		g_signal_connect(emfb->search, "query_changed", G_CALLBACK(emfb_search_query_changed), emfb);
+
+		gtk_box_pack_start((GtkBox *)emfb, (GtkWidget *)emfb->search, FALSE, TRUE, 0);
+	}
 
 	emfb->vpane = gtk_vpaned_new();
 	g_signal_connect(emfb->vpane, "realize", G_CALLBACK(paned_realised), emfb);
@@ -126,6 +170,7 @@ emfb_init(GObject *o)
 
 	gtk_paned_add2((GtkPaned *)emfb->vpane, p->preview);
 	gtk_widget_show(p->preview);
+
 
 	/* FIXME: setup selection */
 	/* FIXME: setup dnd */
@@ -204,6 +249,114 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 		mail_display_set_message (emfb->mail_display, NULL, NULL, NULL);
 		emfb_ui_message_loaded (emfb);*/
 	}
+}
+
+/* ********************************************************************** */
+
+/* FIXME: Need to separate system rules from user ones */
+/* FIXME: Ugh! */
+
+static void
+emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser *emfb)
+{
+	EFilterBar *efb = (EFilterBar *)esb;
+	
+	d(printf("menu activated\n"));
+	
+	switch (id) {
+	case ESB_SAVE:
+		d(printf("Save vfolder\n"));
+		if (efb->current_query) {
+			FilterRule *rule = vfolder_clone_rule(efb->current_query);			
+			char *name, *text;
+			
+			text = e_search_bar_get_text(esb);
+			name = g_strdup_printf("%s %s", rule->name, (text&&text[0])?text:"''");
+			g_free (text);
+			filter_rule_set_name(rule, name);
+			g_free (name);
+			
+			filter_rule_set_source(rule, FILTER_SOURCE_INCOMING);
+			vfolder_rule_add_source((VfolderRule *)rule, emfb->view.folder_uri);
+			vfolder_gui_add_rule((VfolderRule *)rule);
+		}
+		break;
+	}
+}
+
+static void
+emfb_search_config_search(EFilterBar *efb, FilterRule *rule, int id, const char *query, void *data)
+{
+	EMFolderBrowser *emfb = data;
+	GList *partl;
+	struct _camel_search_words *words;
+	int i;
+	GSList *strings = NULL;
+
+	/* we scan the parts of a rule, and set all the types we know about to the query string */
+	partl = rule->parts;
+	while (partl) {
+		FilterPart *part = partl->data;
+		
+		if (!strcmp(part->name, "subject")) {
+			FilterInput *input = (FilterInput *)filter_part_find_element(part, "subject");
+			if (input)
+				filter_input_set_value(input, query);
+		} else if (!strcmp(part->name, "body")) {
+			FilterInput *input = (FilterInput *)filter_part_find_element(part, "word");
+			if (input)
+				filter_input_set_value(input, query);
+			
+			words = camel_search_words_split(query);
+			for (i=0;i<words->len;i++)
+				strings = g_slist_prepend(strings, g_strdup(words->words[i]->word));
+			camel_search_words_free (words);
+		} else if(!strcmp(part->name, "sender")) {
+			FilterInput *input = (FilterInput *)filter_part_find_element(part, "sender");
+			if (input)
+				filter_input_set_value(input, query);
+		} else if(!strcmp(part->name, "to")) {
+			FilterInput *input = (FilterInput *)filter_part_find_element(part, "recipient");
+			if (input)
+				filter_input_set_value(input, query);
+		}
+		
+		partl = partl->next;
+	}
+
+	em_format_html_display_set_search(emfb->view.preview,
+					  EM_FORMAT_HTML_DISPLAY_SEARCH_SECONDARY|EM_FORMAT_HTML_DISPLAY_SEARCH_ICASE,
+					  strings);
+	while (strings) {
+		GSList *n = strings->next;
+
+		g_free(strings->data);
+		g_slist_free_1(strings);
+		strings = n;
+	}
+}
+
+static void
+emfb_search_search_activated(ESearchBar *esb, EMFolderBrowser *emfb)
+{
+	char *search_word;
+	
+	if (emfb->view.list == NULL)
+		return;
+	
+	g_object_get (esb, "query", &search_word, NULL);
+	message_list_set_search(emfb->view.list, search_word);
+	g_free(search_word);
+}
+
+static void
+emfb_search_query_changed(ESearchBar *esb, EMFolderBrowser *emfb)
+{
+	int id;
+	
+	id = e_search_bar_get_item_id(esb);
+	if (id == E_FILTERBAR_ADVANCED_ID)
+		emfb_search_search_activated(esb, emfb);
 }
 
 /* ********************************************************************** */
@@ -530,6 +683,9 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 			message_list_set_hidedeleted (emfv->list, state);
 		else
 			bonobo_ui_component_set_prop(uic, "/commands/HideDeleted", "sensitive", state?"1":"0", NULL);
+
+		/* FIXME: If we have no folder, we can't do a few of the lookups we need,
+		   perhaps we should postpone till we can */
 
 		if (emfv->folder == NULL)
 			g_warning("Have activate called before folder is loaded\n");
