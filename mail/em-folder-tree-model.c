@@ -130,7 +130,7 @@ em_folder_tree_model_class_init (EMFolderTreeModelClass *klass)
 	signals[DRAG_DATA_RECEIVED] =
 		g_signal_new ("drag-data-received",
 			      G_OBJECT_CLASS_TYPE (object_class),
-			      G_SIGNAL_RUN_FIRST,
+			      G_SIGNAL_NO_HOOKS,
 			      G_STRUCT_OFFSET (EMFolderTreeModelClass, drag_data_received),
 			      NULL, NULL,
 			      em_marshal_BOOLEAN__POINTER_POINTER,
@@ -141,7 +141,7 @@ em_folder_tree_model_class_init (EMFolderTreeModelClass *klass)
 	signals[ROW_DROP_POSSIBLE] =
 		g_signal_new ("row-drop-possible",
 			      G_OBJECT_CLASS_TYPE (object_class),
-			      G_SIGNAL_RUN_FIRST,
+			      G_SIGNAL_NO_HOOKS,
 			      G_STRUCT_OFFSET (EMFolderTreeModelClass, row_drop_possible),
 			      NULL, NULL,
 			      em_marshal_BOOLEAN__POINTER_POINTER,
@@ -152,7 +152,7 @@ em_folder_tree_model_class_init (EMFolderTreeModelClass *klass)
 	signals[ROW_DRAGGABLE] =
 		g_signal_new ("row-draggable",
 			      G_OBJECT_CLASS_TYPE (object_class),
-			      G_SIGNAL_RUN_FIRST,
+			      G_SIGNAL_NO_HOOKS,
 			      G_STRUCT_OFFSET (EMFolderTreeModelClass, row_draggable),
 			      NULL, NULL,
 			      em_marshal_BOOLEAN__POINTER,
@@ -162,7 +162,7 @@ em_folder_tree_model_class_init (EMFolderTreeModelClass *klass)
 	signals[DRAG_DATA_GET] =
 		g_signal_new ("drag-data-get",
 			      G_OBJECT_CLASS_TYPE (object_class),
-			      G_SIGNAL_RUN_FIRST,
+			      G_SIGNAL_NO_HOOKS,
 			      G_STRUCT_OFFSET (EMFolderTreeModelClass, drag_data_get),
 			      NULL, NULL,
 			      em_marshal_BOOLEAN__POINTER_POINTER,
@@ -173,7 +173,7 @@ em_folder_tree_model_class_init (EMFolderTreeModelClass *klass)
 	signals[DRAG_DATA_DELETE] =
 		g_signal_new ("drag-data-delete",
 			      G_OBJECT_CLASS_TYPE (object_class),
-			      G_SIGNAL_RUN_FIRST,
+			      G_SIGNAL_NO_HOOKS,
 			      G_STRUCT_OFFSET (EMFolderTreeModelClass, drag_data_delete),
 			      NULL, NULL,
 			      em_marshal_BOOLEAN__POINTER,

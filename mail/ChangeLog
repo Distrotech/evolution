@@ -1,5 +1,9 @@
 2003-11-12  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-folder-selection-button.c
+	(em_folder_selection_button_clicked): Fixed. Now completely
+	implemented.
+
 	* em-folder-tree.c (em_folder_tree_destroy): disconnect from d&d
 	signals.
 

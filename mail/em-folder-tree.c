@@ -878,7 +878,7 @@ em_folder_tree_new (void)
 	priv->ddd = g_signal_connect (model, "drag-data-delete", G_CALLBACK (drag_data_delete_cb), emft);
 	
 	gtk_drag_source_set ((GtkWidget *) emft, 0, drag_types, num_drag_types, GDK_ACTION_COPY | GDK_ACTION_MOVE);
-	gtk_drag_dest_set ((GtkWidget *) emft, GTK_DEST_DEFAULT_ALL, drop_types, num_drop_types);
+	gtk_drag_dest_set ((GtkWidget *) emft, GTK_DEST_DEFAULT_ALL, drop_types, num_drop_types, GDK_ACTION_COPY | GDK_ACTION_MOVE);
 	
 	return (GtkWidget *) emft;
 }

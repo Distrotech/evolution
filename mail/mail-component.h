@@ -30,6 +30,8 @@
 #include <filter/rule-context.h>
 #include <bonobo/bonobo-object.h>
 
+#include "em-folder-tree-model.h"
+
 #include "Evolution.h"
 
 
@@ -79,6 +81,8 @@ int          mail_component_get_storage_count  (MailComponent *component);
 void         mail_component_storages_foreach   (MailComponent *component,
 						GHFunc         func,
 						void          *data);
+
+EMFolderTreeModel *mail_component_get_tree_model (MailComponent *component);
 
 char *em_uri_from_camel (const char *curi);
 char *em_uri_to_camel (const char *euri);

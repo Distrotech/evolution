@@ -33,9 +33,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "e-storage-browser.h"
-
 #include "em-folder-tree.h"
+#include "em-folder-browser.h"
 #include "em-folder-selector.h"
 #include "em-folder-selection.h"
 
@@ -244,20 +243,16 @@ create_noselect_control (void)
 
 	label = gtk_label_new (_("This folder cannot contain messages."));
 	gtk_widget_show (label);
+	
 	return bonobo_control_new (label);
 }
 
 static GtkWidget *
-create_view_callback (EStorageBrowser *browser, const char *path, void *unused_data)
+create_view_widget (EMFolderTree *emft, const char *path, const char *uri)
 {
-	EMFolderTree *emft = (EMFolderTree *) e_storage_browser_peek_tree_widget (browser);
 	BonoboControl *control;
 	const char *noselect;
-	const char *uri;
 	CamelURL *url;
-	
-	if ((uri = em_folder_tree_get_selected_uri (emft)))
-		return gtk_label_new ("(You should not be seeing this label)");
 	
 	url = camel_url_new (uri, NULL);
 	noselect = url ? camel_url_get_param (url, "noselect") : NULL;
@@ -275,29 +270,23 @@ create_view_callback (EStorageBrowser *browser, const char *path, void *unused_d
 }
 
 static void
-browser_page_switched_callback (EStorageBrowser *browser,
-				GtkWidget *old_page,
-				GtkWidget *new_page,
-				BonoboControl *parent_control)
+folder_selected_cb (EMFolderTree *emft, const char *path, const char *uri, GtkBox *vbox)
 {
-	if (BONOBO_IS_WIDGET (old_page)) {
-		BonoboControlFrame *control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (old_page));
-		
-		bonobo_control_frame_control_deactivate (control_frame);
+	GtkWidget *view;
+	GList *l, *n;
+	
+	/* there should only ever be 1 child */
+	l = gtk_container_get_children (GTK_CONTAINER (vbox));
+	while (l != NULL) {
+		n = l->next;
+		gtk_widget_destroy (l->data);
+		g_list_free_1 (l);
+		l = n;
 	}
 	
-	if (BONOBO_IS_WIDGET (new_page)) {
-		BonoboControlFrame *control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (new_page));
-		Bonobo_UIContainer ui_container = bonobo_control_get_remote_ui_container (parent_control, NULL);
-		
-		/* This is necessary because we are not embedding the folder browser control
-		   directly; we are putting the folder browser control into a notebook which
-		   is then exported to the shell as a control.  So we need to forward the
-		   notebook's UIContainer to the folder browser.  */
-		bonobo_control_frame_set_ui_container (control_frame, ui_container, NULL);
-		
-		bonobo_control_frame_control_activate (control_frame);
-	}
+	view = create_view_widget (emft, path, uri);
+	
+	gtk_box_pack_start_defaults (vbox, view);
 }
 
 
@@ -359,34 +348,30 @@ impl_finalize (GObject *object)
 
 static void
 impl_createControls (PortableServer_Servant servant,
-		     Bonobo_Control *corba_sidebar_control,
+		     Bonobo_Control *corba_tree_control,
 		     Bonobo_Control *corba_view_control,
 		     CORBA_Environment *ev)
 {
 	MailComponent *mail_component = MAIL_COMPONENT (bonobo_object_from_servant (servant));
 	MailComponentPrivate *priv = mail_component->priv;
-	EStorageBrowser *browser;
+	BonoboControl *tree_control;
+	BonoboControl *view_control;
 	GtkWidget *tree_widget;
 	GtkWidget *view_widget;
-	BonoboControl *sidebar_control;
-	BonoboControl *view_control;
 	
-	browser = e_storage_browser_new (priv->storage_set, "/", create_view_callback, NULL);
-	
-	tree_widget = e_storage_browser_peek_tree_widget (browser);
-	view_widget = e_storage_browser_peek_view_widget (browser);
+	tree_widget = (GtkWidget *) priv->emft;
+	view_widget = gtk_vbox_new (0, TRUE);
 	
 	gtk_widget_show (tree_widget);
 	gtk_widget_show (view_widget);
 	
-	sidebar_control = bonobo_control_new (tree_widget);
+	tree_control = bonobo_control_new (tree_widget);
 	view_control = bonobo_control_new (view_widget);
 	
-	*corba_sidebar_control = CORBA_Object_duplicate (BONOBO_OBJREF (sidebar_control), ev);
+	*corba_tree_control = CORBA_Object_duplicate (BONOBO_OBJREF (tree_control), ev);
 	*corba_view_control = CORBA_Object_duplicate (BONOBO_OBJREF (view_control), ev);
 	
-	g_signal_connect_object (browser, "page_switched",
-				 G_CALLBACK (browser_page_switched_callback), view_control, 0);
+	g_signal_connect (tree_widget, "folder-selected", G_CALLBACK (folder_selected_cb), view_widget);
 }
 
 
@@ -420,6 +405,8 @@ mail_component_init (MailComponent *component)
 	priv->base_directory = g_build_filename (g_get_home_dir (), ".evolution", NULL);
 	if (camel_mkdir (priv->base_directory, 0777) == -1 && errno != EEXIST)
 		abort ();
+	
+	priv->emft = em_folder_tree_new ();
 	
 	/* EPFIXME: Turn into an object?  */
 	mail_session_init (priv->base_directory);
@@ -658,6 +645,18 @@ void
 mail_component_storages_foreach (MailComponent *component, GHFunc func, void *user_data)
 {
 	g_hash_table_foreach (component->priv->store_hash, func, user_data);
+}
+
+
+EMFolderTreeModel *
+mail_component_get_tree_model (MailComponent *component)
+{
+	EMFolderTreeModel *model;
+	
+	model = (EMFolderTreeModel *) gtk_tree_view_get_model ((GtkTreeView *) component->priv->emft);
+	g_object_ref (model);
+	
+	return model;
 }
 
 extern struct _CamelSession *session;

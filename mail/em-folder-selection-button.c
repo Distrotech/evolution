@@ -208,14 +208,15 @@ static void
 em_folder_selection_button_clicked (GtkButton *button)
 {
 	struct _EMFolderSelectionButtonPrivate *priv = EM_FOLDER_SELECTION_BUTTON (button)->priv;
+	EMFolderTreeModel *model;
 	EMFolderTree *emft;
 	GtkWidget *dialog;
 	
 	if (GTK_BUTTON_CLASS (parent_class)->clicked != NULL)
 		(* GTK_BUTTON_CLASS (parent_class)->clicked) (button);
 	
-	/* FIXME: need to create an em-folder-tree with all the store's... */
-	/*emft = mail_component_clone_folder_tree (mail_component_peek ());*/
+	model = mail_component_get_tree_model (mail_component_peek ());
+	emft = em_folder_tree_new_with_model (model);
 	
 	dialog = em_folder_selector_new (emft, EM_FOLDER_SELECTOR_CAN_CREATE, priv->title, priv->caption);
 	em_folder_selector_set_selected ((EMFolderSelector *) dialog, priv->uri);
