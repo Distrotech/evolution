@@ -1166,6 +1166,17 @@ reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *messag
 	e_msg_composer_unset_changed (composer);
 }
 
+
+/**
+ * em_utils_reply_to_message_by_uid:
+ * @parent: parent window
+ * @folder: folder containing message to reply to
+ * @uid: message uid
+ * @mode: reply mode
+ *
+ * Creates a new composer ready to reply to the message referenced by
+ * @folder and @uid.
+ **/
 void
 em_utils_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid, int mode)
 {
@@ -1261,6 +1272,17 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	e_msg_composer_unset_changed (composer);
 }
 
+
+/**
+ * em_utils_post_reply_to_message_by_uid:
+ * @parent: parent window
+ * @folder: folder containing message to reply to
+ * @uid: message uid
+ * @mode: reply mode
+ *
+ * Creates a new composer (post mode) ready to reply to the message
+ * referenced by @folder and @uid.
+ **/
 void
 em_utils_post_reply_to_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid)
 {
@@ -1361,6 +1383,15 @@ emu_save_part_response(GtkFileSelection *filesel, int response, CamelMimePart *p
 	camel_object_unref(part);
 }
 
+
+/**
+ * em_utils_save_part:
+ * @parent: parent window
+ * @prompt: prompt string
+ * @part: part to save
+ *
+ * Saves a mime part to disk (prompting the user for filename).
+ **/
 void
 em_utils_save_part(GtkWidget *parent, const char *prompt, CamelMimePart *part)
 {
@@ -1411,6 +1442,16 @@ emu_save_messages_response(GtkFileSelection *filesel, int response, struct _save
 	gtk_widget_destroy((GtkWidget *)filesel);
 }
 
+
+/**
+ * em_utils_save_messages:
+ * @parent: parent window
+ * @folder: folder containing messages to save
+ * @uids: uids of messages to save
+ *
+ * Saves a group of messages to disk in mbox format (prompting the
+ * user for filename).
+ **/
 void
 em_utils_save_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -1473,6 +1514,16 @@ tag_editor_response (GtkWidget *dialog, int button, struct ted_t *ted)
 	gtk_widget_destroy (dialog);
 }
 
+
+/**
+ * em_utils_flag_for_followup:
+ * @parent: parent window
+ * @folder: folder containing messages to flag
+ * @uids: uids of messages to flag
+ *
+ * Open the Flag-for-Followup editor for the messages specified by
+ * @folder and @uids.
+ **/
 void
 em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -1522,6 +1573,16 @@ em_utils_flag_for_followup (GtkWidget *parent, CamelFolder *folder, GPtrArray *u
 	gtk_widget_show (editor);
 }
 
+
+/**
+ * em_utils_flag_for_followup_clear:
+ * @parent: parent window
+ * @folder: folder containing messages to unflag
+ * @uids: uids of messages to unflag
+ *
+ * Clears the Flag-for-Followup flag on the messages referenced by
+ * @folder and @uids.
+ **/
 void
 em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -1541,6 +1602,17 @@ em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrAr
 	em_utils_uids_free (uids);
 }
 
+
+/**
+ * em_utils_flag_for_followup_completed:
+ * @parent: parent window
+ * @folder: folder containing messages to 'complete'
+ * @uids: uids of messages to 'complete'
+ *
+ * Sets the completed state (and date/time) for each message
+ * referenced by @folder and @uids that is marked for
+ * Flag-for-Followup.
+ **/
 void
 em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -1659,11 +1731,12 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 	return res;
 }
 
+
 /**
  * em_utils_selection_set_mailbox:
- * @data: 
- * @folder: 
- * @uids: 
+ * @data: selection data
+ * @folder: folder containign messages to copy into the selection
+ * @uids: uids of the messages to copy into the selection
  * 
  * Creates a mailbox-format selection.
  * Warning: Could be BIG!
@@ -1683,9 +1756,10 @@ em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtr
 	camel_object_unref(stream);
 }
 
+
 /**
  * em_utils_selection_get_mailbox:
- * @data: 
+ * @data: selection data
  * @folder: 
  * 
  * Receive a mailbox selection/dnd
@@ -1708,9 +1782,10 @@ em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder)
 	camel_object_unref(stream);
 }
 
+
 /**
  * em_utils_selection_set_uidlist:
- * @data: 
+ * @data: selection data
  * @uri:
  * @uids: 
  * 
@@ -1738,7 +1813,7 @@ em_utils_selection_set_uidlist(GtkSelectionData *data, const char *uri, GPtrArra
 
 /**
  * em_utils_selection_get_uidlist:
- * @data: 
+ * @data: selection data
  * @urip: Pointer to uri string, to be free'd by caller
  * @uidsp: Pointer to an array of uid's.
  * 
@@ -1890,14 +1965,15 @@ em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 
 extern CamelFolder *drafts_folder, *sent_folder, *outbox_folder;
 
+
 /**
  * em_utils_folder_is_drafts:
  * @folder: folder
  * @uri: uri for this folder, if known
+ *
+ * Decides if @folder is a Drafts folder.
  * 
- * Returns true if the folder is a drafts folder.
- * 
- * Return value: 
+ * Returns %TRUE if this is a Drafts folder or %FALSE otherwise.
  **/
 gboolean
 em_utils_folder_is_drafts(CamelFolder *folder, const char *uri)
@@ -1931,6 +2007,16 @@ em_utils_folder_is_drafts(CamelFolder *folder, const char *uri)
 	return is;
 }
 
+
+/**
+ * em_utils_folder_is_sent:
+ * @folder: folder
+ * @uri: uri for this folder, if known
+ *
+ * Decides if @folder is a Sent folder
+ * 
+ * Returns %TRUE if this is a Sent folder or %FALSE otherwise.
+ **/
 gboolean
 em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
 {
@@ -1963,12 +2049,23 @@ em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
 	return is;
 }
 
+
+/**
+ * em_utils_folder_is_outbox:
+ * @folder: folder
+ * @uri: uri for this folder, if known
+ *
+ * Decides if @folder is an Outbox folder
+ * 
+ * Returns %TRUE if this is an Outbox folder or %FALSE otherwise.
+ **/
 gboolean
 em_utils_folder_is_outbox(CamelFolder *folder, const char *uri)
 {
 	/* <Highlander>There can be only one.</Highlander> */
 	return folder == outbox_folder;
 }
+
 
 /**
  * em_utils_adjustment_page:
