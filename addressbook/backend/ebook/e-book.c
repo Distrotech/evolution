@@ -51,7 +51,7 @@ static GObjectClass *parent_class;
 		return TRUE;						\
 	}								\
 	else {								\
-		g_set_error ((error), E_BOOK_ERROR, (status), "this space intentionally left blank");	\
+		g_set_error ((error), E_BOOK_ERROR, (status), "EBookStatus returned %d", (status));	\
 		return FALSE;						\
 	}				}G_STMT_END
 
@@ -150,7 +150,7 @@ e_book_get_op (EBook *book)
 }
 
 static void
-e_book_free_op (EBookOp *op)
+e_book_op_free (EBookOp *op)
 {
 	/* XXX more stuff here */
 	pthread_cond_destroy (&op->cond);
@@ -159,13 +159,22 @@ e_book_free_op (EBookOp *op)
 }
 
 static void
-e_book_remove_op (EBook *book,
+e_book_op_remove (EBook *book,
 		  EBookOp *op)
 {
 	if (book->priv->current_op != op)
 		g_warning ("cannot remove op, it's not current");
 
 	book->priv->current_op = NULL;
+}
+
+static void
+e_book_clear_op (EBook *book,
+		 EBookOp *op)
+{
+	e_book_op_remove (book, op);
+	e_mutex_unlock (op->mutex);
+	e_book_op_free (op);
 }
 
 
@@ -228,9 +237,7 @@ e_book_add_contact (EBook           *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -249,9 +256,7 @@ e_book_add_contact (EBook           *book,
 	e_contact_set (contact, E_CONTACT_UID, our_op->id);
 	g_free (our_op->id);
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -341,9 +346,7 @@ e_book_commit_contact (EBook           *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -363,9 +366,7 @@ e_book_commit_contact (EBook           *book,
 	g_free (our_op->id);
 
 	/* remove the op from the book's hash of operations */
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -422,9 +423,7 @@ e_book_get_supported_fields  (EBook            *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -443,9 +442,7 @@ e_book_get_supported_fields  (EBook            *book,
 	status = our_op->status;
 	*fields = our_op->list;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -526,9 +523,7 @@ e_book_get_supported_auth_methods (EBook            *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -547,9 +542,7 @@ e_book_get_supported_auth_methods (EBook            *book,
 	status = our_op->status;
 	*auth_methods = our_op->list;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -642,9 +635,7 @@ e_book_authenticate_user (EBook         *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -661,9 +652,7 @@ e_book_authenticate_user (EBook         *book,
 
 	status = our_op->status;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -724,9 +713,7 @@ e_book_get_contact (EBook       *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -744,9 +731,7 @@ e_book_get_contact (EBook       *book,
 	status = our_op->status;
 	*contact = our_op->contact;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -895,9 +880,7 @@ e_book_remove_contacts (EBook    *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -914,9 +897,7 @@ e_book_remove_contacts (EBook    *book,
 
 	status = our_op->status;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -1002,9 +983,7 @@ e_book_get_book_view (EBook       *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -1024,9 +1003,7 @@ e_book_get_book_view (EBook       *book,
 	status = our_op->status;
 	*book_view = our_op->view;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -1115,9 +1092,7 @@ e_book_get_contacts (EBook       *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -1137,9 +1112,7 @@ e_book_get_contacts (EBook       *book,
 	status = our_op->status;
 	*contacts = our_op->list;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -1213,9 +1186,7 @@ e_book_get_changes (EBook       *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		CORBA_exception_free (&ev);
 
@@ -1235,9 +1206,7 @@ e_book_get_changes (EBook       *book,
 	status = our_op->status;
 	*changes = our_op->list;
 
-	e_book_remove_op (book, our_op);
-	e_mutex_unlock (our_op->mutex);
-	e_book_free_op (our_op);
+	e_book_clear_op (book, our_op);
 
 	E_BOOK_CHECK_STATUS (status, error);
 }
@@ -1383,7 +1352,6 @@ static void
 e_book_response_open (EBook       *book,
 		      EBookStatus  status)
 {
-
 	EBookOp *op;
 
 	op = e_book_get_op (book);
@@ -1401,6 +1369,95 @@ e_book_response_open (EBook       *book,
 
 	e_mutex_unlock (op->mutex);
 }
+
+
+
+gboolean
+e_book_remove (EBook   *book,
+	       GError **error)
+{
+	CORBA_Environment ev;
+	EBookOp *our_op;
+	EBookStatus status;
+
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+
+	e_mutex_lock (book->priv->mutex);
+
+	if (book->priv->load_state != URILoaded) {
+		e_mutex_unlock (book->priv->mutex);
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_remove on book before e_book_load_uri"));
+		return FALSE;
+	}
+
+	if (book->priv->current_op != NULL) {
+		e_mutex_unlock (book->priv->mutex);
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
+	}
+
+	our_op = e_book_new_op (book);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (book->priv->mutex);
+
+	CORBA_exception_init (&ev);
+
+	/* will eventually end up calling e_book_response_remove */
+	GNOME_Evolution_Addressbook_Book_remove (book->priv->corba_book, &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+
+		e_book_clear_op (book, our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::remove call"));
+		return FALSE;
+	}
+
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+
+	e_book_clear_op (book, our_op);
+
+	E_BOOK_CHECK_STATUS (status, error);
+}
+
+static void
+e_book_response_remove (EBook       *book,
+			EBookStatus  status)
+{
+	EBookOp *op;
+
+	printf ("e_book_response_remove\n");
+
+	op = e_book_get_op (book);
+
+	if (op == NULL) {
+	  g_warning ("e_book_response_remove: Cannot find operation ");
+	  return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+
 
 static void
 e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EBook *book)
@@ -1430,6 +1487,9 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		break;
 	case OpenBookResponse:
 		e_book_response_open (book, resp->status);
+		break;
+	case RemoveBookResponse:
+		e_book_response_remove (book, resp->status);
 		break;
 	case GetSupportedFieldsResponse:
 		e_book_response_get_supported_fields (book, resp->status, resp->list);
@@ -1551,6 +1611,7 @@ activate_factories_for_uri (EBook *book, const char *uri)
 gboolean
 e_book_load_uri (EBook        *book,
 		 const char   *uri,
+		 gboolean      only_if_exists,
 		 GError      **error)
 {
 	GList *factories;
@@ -1608,16 +1669,14 @@ e_book_load_uri (EBook        *book,
 
 		if (ev._major != CORBA_NO_EXCEPTION) {
 
-			e_book_remove_op (book, our_op);
-			e_mutex_unlock (our_op->mutex);
-			e_book_free_op (our_op);
+			e_book_clear_op (book, our_op);
 
 			CORBA_exception_free (&ev);
 			continue;
 		}
 
 		GNOME_Evolution_Addressbook_Book_open (corba_book,
-						       TRUE /* XXX need to add this as an arg */,
+						       only_if_exists,
 						       &ev);
 
 		if (ev._major != CORBA_NO_EXCEPTION) {
@@ -1626,9 +1685,7 @@ e_book_load_uri (EBook        *book,
 			bonobo_object_unref (book->priv->listener);
 			book->priv->listener = NULL;
 
-			e_book_remove_op (book, our_op);
-			e_mutex_unlock (our_op->mutex);
-			e_book_free_op (our_op);
+			e_book_clear_op (book, our_op);
 
 			CORBA_exception_free (&ev);
 			continue;
@@ -1643,9 +1700,7 @@ e_book_load_uri (EBook        *book,
 		status = our_op->status;
 
 		/* remove the op from the book's hash of operations */
-		e_book_remove_op (book, our_op);
-		e_mutex_unlock (our_op->mutex);
-		e_book_free_op (our_op);
+		e_book_clear_op (book, our_op);
 
 		if (status == E_BOOK_ERROR_CANCELLED
 		    || status == E_BOOK_ERROR_OK) {
@@ -1687,7 +1742,7 @@ e_book_load_local_addressbook (EBook   *book,
 
 	g_free (filename);
 	
-	rv = e_book_load_uri (book, uri, error);
+	rv = e_book_load_uri (book, uri, TRUE, error);
 	
 	g_free (uri);
 

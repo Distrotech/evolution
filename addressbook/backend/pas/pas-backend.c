@@ -413,6 +413,43 @@ pas_backend_set_is_removed (PASBackend *backend, gboolean is_removed)
 	backend->priv->removed = is_removed;
 }
 
+
+
+GNOME_Evolution_Addressbook_BookChangeItem*
+pas_backend_change_add_new     (const char *vcard)
+{
+	GNOME_Evolution_Addressbook_BookChangeItem* new_change = GNOME_Evolution_Addressbook_BookChangeItem__alloc();
+
+	new_change->_d = GNOME_Evolution_Addressbook_CardAdded;
+	new_change->_u.add_vcard = CORBA_string_dup (vcard);
+
+	return new_change;
+}
+
+GNOME_Evolution_Addressbook_BookChangeItem*
+pas_backend_change_modify_new  (const char *vcard)
+{
+	GNOME_Evolution_Addressbook_BookChangeItem* new_change = GNOME_Evolution_Addressbook_BookChangeItem__alloc();
+
+	new_change->_d = GNOME_Evolution_Addressbook_CardModified;
+	new_change->_u.mod_vcard = CORBA_string_dup (vcard);
+
+	return new_change;
+}
+
+GNOME_Evolution_Addressbook_BookChangeItem*
+pas_backend_change_delete_new  (const char *id)
+{
+	GNOME_Evolution_Addressbook_BookChangeItem* new_change = GNOME_Evolution_Addressbook_BookChangeItem__alloc();
+
+	new_change->_d = GNOME_Evolution_Addressbook_CardDeleted;
+	new_change->_u.del_id = CORBA_string_dup (id);
+
+	return new_change;
+}
+
+
+
 static void
 pas_backend_init (PASBackend *backend)
 {

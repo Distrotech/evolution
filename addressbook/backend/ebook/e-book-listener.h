@@ -49,6 +49,7 @@ struct _EBookListenerClass {
 typedef enum {
 	/* Async responses */
 	OpenBookResponse,
+	RemoveBookResponse,
 	CreateCardResponse,
 	RemoveCardResponse,
 	ModifyCardResponse,

@@ -24,10 +24,15 @@ module Addressbook {
 		CardDeleted
 	};
 
-	struct BookChangeItem {
-		BookChangeType change_type;
-		VCard          contact;
+	union BookChangeItem switch (BookChangeType) {
+	case CardAdded:
+		VCard add_vcard;
+	case CardModified:
+		VCard mod_vcard;
+	case CardDeleted:
+		CardId del_id;
 	};
+
 	typedef sequence<BookChangeItem> BookChangeList;
 
 	enum CallStatus {

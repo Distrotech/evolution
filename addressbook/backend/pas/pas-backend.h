@@ -150,5 +150,10 @@ void        pas_backend_set_is_writable          (PASBackend             *backen
 void        pas_backend_set_is_removed           (PASBackend             *backend,
 						  gboolean                is_removed);
 
+/* useful for implementing _get_changes in backends */
+GNOME_Evolution_Addressbook_BookChangeItem* pas_backend_change_add_new     (const char *vcard);
+GNOME_Evolution_Addressbook_BookChangeItem* pas_backend_change_modify_new  (const char *vcard);
+GNOME_Evolution_Addressbook_BookChangeItem* pas_backend_change_delete_new  (const char *id);
+
 #endif /* ! __PAS_BACKEND_H__ */
 

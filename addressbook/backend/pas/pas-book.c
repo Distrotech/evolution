@@ -260,6 +260,26 @@ pas_book_respond_open (PASBook                           *book,
 }
 
 /**
+ * pas_book_respond_remove:
+ */
+void
+pas_book_respond_remove (PASBook                           *book,
+			 GNOME_Evolution_Addressbook_CallStatus  status)
+{
+	CORBA_Environment ev;
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Addressbook_BookListener_notifyBookRemoved (book->priv->listener, status, &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		g_warning ("pas_book_respond_remove: Exception "
+			   "responding to BookListener!\n");
+	}
+
+	CORBA_exception_free (&ev);
+}
+
+/**
  * pas_book_respond_create:
  */
 void
@@ -445,29 +465,26 @@ pas_book_respond_get_supported_fields (PASBook *book,
 				       GNOME_Evolution_Addressbook_CallStatus  status,
 				       GList   *fields)
 {
-#if notyet
 	CORBA_Environment ev;
 	GNOME_Evolution_Addressbook_stringlist stringlist;
 	int num_fields;
-	EIterator *iter;
 	int i;
+	GList *iter;
 
 	CORBA_exception_init (&ev);
 
-	num_fields = e_list_length (fields);
+	num_fields = g_list_length (fields);
 
 	stringlist._buffer = CORBA_sequence_CORBA_string_allocbuf (num_fields);
 	stringlist._maximum = num_fields;
 	stringlist._length = num_fields;
 
-	iter = e_list_get_iterator (fields);
-
-	for (i = 0; e_iterator_is_valid (iter); e_iterator_next (iter), i ++) {
-		stringlist._buffer[i] = CORBA_string_dup (e_iterator_get(iter));
+	for (i = 0, iter = fields; iter; iter = iter->next, i ++) {
+		stringlist._buffer[i] = CORBA_string_dup ((char*)iter->data);
 	}
 
-	g_object_unref (iter);
-	g_object_unref (fields);
+	g_list_foreach (fields, (GFunc)g_free, NULL);
+	g_list_free (fields);
 
 	GNOME_Evolution_Addressbook_BookListener_notifySupportedFields (
 			book->priv->listener, status,
@@ -477,7 +494,6 @@ pas_book_respond_get_supported_fields (PASBook *book,
 	CORBA_exception_free (&ev);
 
 	CORBA_free(stringlist._buffer);
-#endif
 }
 
 void
@@ -485,28 +501,26 @@ pas_book_respond_get_supported_auth_methods (PASBook *book,
 					     GNOME_Evolution_Addressbook_CallStatus  status,
 					     GList   *auth_methods)
 {
-#if notyet
 	CORBA_Environment ev;
 	GNOME_Evolution_Addressbook_stringlist stringlist;
 	int num_auth_methods;
-	EIterator *iter;
+	GList *iter;
 	int i;
 
 	CORBA_exception_init (&ev);
 
-	num_auth_methods = e_list_length (auth_methods);
+	num_auth_methods = g_list_length (auth_methods);
 
 	stringlist._buffer = CORBA_sequence_CORBA_string_allocbuf (num_auth_methods);
 	stringlist._maximum = num_auth_methods;
 	stringlist._length = num_auth_methods;
 
-	iter = e_list_get_iterator (auth_methods);
-
-	for (i = 0; e_iterator_is_valid (iter); e_iterator_next (iter), i ++) {
-		stringlist._buffer[i] = CORBA_string_dup (e_iterator_get(iter));
+	for (i = 0, iter = auth_methods; iter; iter = iter->next, i ++) {
+		stringlist._buffer[i] = CORBA_string_dup ((char*)iter->data);
 	}
 
-	g_object_unref (auth_methods);
+	g_list_foreach (auth_methods, (GFunc)g_free, NULL);
+	g_list_free (auth_methods);
 
 	GNOME_Evolution_Addressbook_BookListener_notifySupportedAuthMethods (
 			book->priv->listener, status,
@@ -516,7 +530,6 @@ pas_book_respond_get_supported_auth_methods (PASBook *book,
 	CORBA_exception_free (&ev);
 
 	CORBA_free(stringlist._buffer);
-#endif
 }
 
 static void
@@ -648,24 +661,50 @@ pas_book_respond_get_changes (PASBook                                *book,
 			      GNOME_Evolution_Addressbook_CallStatus  status,
 			      GList                                  *changes)
 {
-#if notyet
 	CORBA_Environment ev;
-	CORBA_Object      object;
+	GNOME_Evolution_Addressbook_BookChangeList changelist;
+	int num_changes;
+	int i;
+	GList *l;
 
 	CORBA_exception_init (&ev);
-	
-	object = bonobo_object_corba_objref(BONOBO_OBJECT(book_view));
 
-	GNOME_Evolution_Addressbook_BookListener_notifyChangesRequested (
-		book->priv->listener, status, object, &ev);
+	num_changes = g_list_length (changes);
 
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning ("pas_book_respond_get_changes: Exception "
-			   "responding to BookListener!\n");
+	changelist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_BookChangeItem_allocbuf (num_changes);
+	changelist._maximum = num_changes;
+	changelist._length = num_changes;
+
+	for (i = 0, l = changes; l; l = l->next, i ++) {
+		GNOME_Evolution_Addressbook_BookChangeItem *change = (GNOME_Evolution_Addressbook_BookChangeItem*)l->data;
+		changelist._buffer[i] = *change;
+		switch (change->_d) {
+		case GNOME_Evolution_Addressbook_CardAdded:
+			changelist._buffer[i]._u.add_vcard = CORBA_string_dup (change->_u.add_vcard);
+			break;
+		case GNOME_Evolution_Addressbook_CardModified:
+			changelist._buffer[i]._u.mod_vcard = CORBA_string_dup (change->_u.mod_vcard);
+			break;
+		case GNOME_Evolution_Addressbook_CardDeleted:
+			changelist._buffer[i]._u.del_id = CORBA_string_dup (change->_u.del_id);
+			break;
+		}
 	}
 
+	g_list_foreach (changes, (GFunc)CORBA_free, NULL);
+	g_list_free (changes);
+
+	GNOME_Evolution_Addressbook_BookListener_notifyChangesRequested (book->priv->listener,
+									 status,
+									 &changelist,
+									 &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION)
+		g_message ("could not notify listener of get-changes response");
+
 	CORBA_exception_free (&ev);
-#endif
+
+	CORBA_free(changelist._buffer);
 }
 
 /**

@@ -1295,9 +1295,9 @@ remove_card_handler (LDAPOp *op, LDAPMessage *res)
 
 	if (LDAP_RES_DELETE != ldap_msgtype (res)) {
 		g_warning ("incorrect msg type %d passed to remove_card_handler", ldap_msgtype (res));
-		pas_book_respond_remove (op->book,
-					 GNOME_Evolution_Addressbook_OtherError,
-					 NULL);
+		pas_book_respond_remove_cards (op->book,
+					       GNOME_Evolution_Addressbook_OtherError,
+					       NULL);
 		ldap_op_finished (op);
 		return;
 	}
@@ -1306,9 +1306,9 @@ remove_card_handler (LDAPOp *op, LDAPMessage *res)
 			   NULL, NULL, NULL, NULL, 0);
 
 	ids = g_list_append (ids, remove_op->id);
-	pas_book_respond_remove (remove_op->op.book,
-				 ldap_error_to_response (ldap_error),
-				 ids);
+	pas_book_respond_remove_cards (remove_op->op.book,
+				       ldap_error_to_response (ldap_error),
+				       ids);
 	g_list_free (ids);
 }
 
@@ -1350,9 +1350,9 @@ pas_backend_ldap_process_remove_cards (PASBackend *backend,
 	} while (pas_backend_ldap_reconnect (bl, book_view, ldap_error));
 
 	if (ldap_error != LDAP_SUCCESS) {
-		pas_book_respond_remove (remove_op->op.book,
-					 ldap_error_to_response (ldap_error),
-					 NULL);
+		pas_book_respond_remove_cards (remove_op->op.book,
+					       ldap_error_to_response (ldap_error),
+					       NULL);
 		remove_card_dtor ((LDAPOp*)remove_op);
 		return;
 	}

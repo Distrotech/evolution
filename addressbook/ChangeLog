@@ -1,3 +1,79 @@
+2003-08-28  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/e-book.c (e_book_op_free): rename from
+	e_book_free_op.
+	(e_book_op_remove): rename from e_book_remove_op.
+	(e_book_clear_op): new function, remove the op, unlock its mutex,
+	and free it.
+	(e_book_add_contact): use e_book_clear_op.
+	(e_book_commit_contact): same.
+	(e_book_get_supported_fields): same.
+	(e_book_get_supported_auth_methods): same.
+	(e_book_authenticate_user): same.
+	(e_book_get_contact): same.
+	(e_book_remove_contacts): same.
+	(e_book_get_book_view): same.
+	(e_book_get_contacts): same.
+	(e_book_get_changes): same.
+	(e_book_load_uri): same.
+	(e_book_remove): new function.
+	(e_book_response_remove): new function.
+	(e_book_handle_response): add handling for RemoveBookResponse.
+	(e_book_load_local_addressbook): pass TRUE for e_book_load_uri
+	@only_if_exists.
+
+	* backend/ebook/e-book.h: add @only_if_exists arg to
+	e_book_load_uri so we can support folder creation at load_uri
+	time, and add prototype for e_book_remove.
+
+	* backend/ebook/e-book-types.h: add an "id" slot in EBookChange.
+
+	* backend/ebook/e-book-listener.c
+	(impl_BookListener_respond_get_changes): handle union in idl.
+	(impl_BookListener_respond_open_book): remove unnecessary
+	exception check.
+	(impl_BookListener_respond_remove_book): new function.
+	(impl_BookListener_respond_get_supported_fields): rename this from
+	_response_.
+	(impl_BookListener_respond_get_supported_auth_methods): same.
+	(e_book_listener_class_init): add _remove_book and track change to
+	get_supported_fields/get_supported_auth_methods names.
+
+	* backend/ebook/e-book-listener.h: add RemoveBookResponse to
+	EBookListenerOperation enum.
+
+	* backend/idl/addressbook.idl: make BookChangeItem a union that
+	switches over BookChangeType.
+
+	* backend/pas/pas-backend.c (pas_backend_change_add_new): new
+	function, create a BookChangeItem representing the addition of a
+	contact.
+	(pas_backend_change_modify_new): same, but for modifications.
+	(pas_backend_change_delete_new): same, but for deletions.
+
+	* backend/pas/pas-backend.h: add prototypes for
+	pas_backend_change_{add,modify,delete}_new
+
+	* backend/pas/pas-backend-file.c (pas_backend_file_changes): nuke.
+	(do_create): fix memory corruption.
+	(pas_backend_file_get_changes): copy the body of
+	pas_backend_file_changes here, and rework so that it's synchronous
+	and return a list instead of the book view hack.
+	(pas_backend_file_load_uri): mkdir the directory (we need a mkdir
+	-p here).
+	(select_changes): new function, scandir helper.
+	(pas_backend_file_remove): NULL out bf->priv->summary to quiet
+	valgrind, and call scandir to accumulate the .changes.db files
+	then unlink them.
+
+	* backend/pas/pas-book.c (pas_book_respond_remove): new function.
+	(pas_book_respond_get_supported_fields): unifdef this, and make it
+	use a glist.
+	(pas_book_respond_get_supported_auth_methods): same.
+	(pas_book_respond_get_changes): this code is kinda gross... lots
+	of copying going on, there's got to be a better way.  but it
+	works.
+
 2003-08-26  Chris Toshok  <toshok@ximian.com>
 
 	* backend/idl/addressbook.idl: add oneway void Book::remove() and

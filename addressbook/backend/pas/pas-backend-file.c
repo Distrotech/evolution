@@ -17,6 +17,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include <time.h>
 #include <errno.h>
 #include <db.h>
@@ -38,6 +39,8 @@
 #include <e-util/e-db3-utils.h>
 #include <libgnome/gnome-i18n.h>
 
+#define CHANGES_DB_SUFFIX ".changes.db"
+
 #define PAS_BACKEND_FILE_VERSION_NAME "PAS-DB-VERSION"
 #define PAS_BACKEND_FILE_VERSION "0.2"
 
@@ -45,8 +48,6 @@
 #define SUMMARY_FLUSH_TIMEOUT 5000
 
 static PASBackendSyncClass *pas_backend_file_parent_class;
-typedef struct _PASBackendFileSearchContext PASBackendFileSearchContext;
-typedef struct _PasBackendFileChangeContext PASBackendFileChangeContext;
 
 struct _PASBackendFilePrivate {
 	char     *uri;
@@ -55,16 +56,6 @@ struct _PASBackendFilePrivate {
 	char     *summary_filename;
 	DB       *file_db;
 	PASBackendSummary *summary;
-};
-
-struct _PasBackendFileChangeContext {
-	DB *db;
-
-	GList *add_cards;
-	GList *add_ids;
-	GList *mod_cards;
-	GList *mod_ids;
-	GList *del_ids;
 };
 
 static void
@@ -267,153 +258,6 @@ pas_backend_file_search (PASBackendFile  	      *bf,
 	}
 }
 
-static void
-pas_backend_file_changes_foreach_key (const char *key, gpointer user_data)
-{
-	PASBackendFileChangeContext *ctx = user_data;
-	DB      *db = ctx->db;
-	DBT     id_dbt, vcard_dbt;
-	int     db_error = 0;
-	
-	string_to_dbt (key, &id_dbt);
-	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
-	db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
-	
-	if (db_error != 0) {
-		char *id = id_dbt.data;
-		
-		ctx->del_ids = g_list_append (ctx->del_ids, g_strdup (id));
-	}
-}
-
-#if notyet
-static void
-pas_backend_file_changes (PASBackendFile  	      *bf,
-			  PASBook         	      *book,
-			  const PASBackendFileBookView *cnstview)
-{
-	int     db_error = 0;
-	DBT     id_dbt, vcard_dbt;
-	char    *filename;
-	EDbHash *ehash;
-	GList *i, *v;
-	DB      *db = bf->priv->file_db;
-	DBC *dbc;
-	PASBackendFileBookView *view = (PASBackendFileBookView *)cnstview;
-	PASBackendFileChangeContext *ctx = cnstview->change_context;
-	char *dirname, *slash;
-
-	memset (&id_dbt, 0, sizeof (id_dbt));
-	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
-
-	/* Find the changed ids */
-	dirname = g_strdup (bf->priv->filename);
-	slash = strrchr (dirname, '/');
-	*slash = '\0';
-
-	filename = g_strdup_printf ("%s/%s.db", dirname, view->change_id);
-	ehash = e_dbhash_new (filename);
-	g_free (filename);
-	g_free (dirname);
-
-	db_error = db->cursor (db, NULL, &dbc, 0);
-
-	if (db_error != 0) {
-		g_warning ("pas_backend_file_changes: error building list\n");
-	} else {
-		db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_FIRST);
-
-		while (db_error == 0) {
-
-			/* don't include the version in the list of cards */
-			if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
-			    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
-				EContact *contact;
-				char *id = id_dbt.data;
-				char *vcard_string;
-				
-				/* Remove fields the user can't change
-				 * and can change without the rest of the
-				 * card changing 
-				 */
-				contact = e_contact_new_from_string (vcard_dbt.data);
-#if notyet
-				g_object_set (card, "last_use", NULL, "use_score", 0.0, NULL);
-#endif
-				vcard_string = e_vcard_to_string (E_VCARD (contact));
-				g_object_unref (contact);
-				
-				/* check what type of change has occurred, if any */
-				switch (e_dbhash_compare (ehash, id, vcard_string)) {
-				case E_DBHASH_STATUS_SAME:
-					break;
-				case E_DBHASH_STATUS_NOT_FOUND:
-					ctx->add_cards = g_list_append (ctx->add_cards, 
-									vcard_string);
-					ctx->add_ids = g_list_append (ctx->add_ids, g_strdup(id));
-					break;
-				case E_DBHASH_STATUS_DIFFERENT:
-					ctx->mod_cards = g_list_append (ctx->mod_cards, 
-									vcard_string);
-					ctx->mod_ids = g_list_append (ctx->mod_ids, g_strdup(id));
-					break;
-				}
-			}
-
-			db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
-		}
-		dbc->c_close (dbc);
-	}
-
-   	e_dbhash_foreach_key (ehash, (EDbHashFunc)pas_backend_file_changes_foreach_key, view->change_context);
-
-	/* Send the changes */
-	if (db_error != DB_NOTFOUND) {
-		g_warning ("pas_backend_file_changes: error building list\n");
-	} else {
-  		if (ctx->add_cards != NULL)
-  			pas_book_view_notify_add (view->book_view, ctx->add_cards);
-		
-		if (ctx->mod_cards != NULL)
-			pas_book_view_notify_change (view->book_view, ctx->mod_cards);
-
-		for (v = ctx->del_ids; v != NULL; v = v->next){
-			char *id = v->data;
-			pas_book_view_notify_remove_1 (view->book_view, id);
-		}
-		
-		pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_Success);
-	}
-
-	/* Update the hash */
-	for (i = ctx->add_ids, v = ctx->add_cards; i != NULL; i = i->next, v = v->next){
-		char *id = i->data;
-		char *vcard = v->data;
-
-		e_dbhash_add (ehash, id, vcard);
-		g_free (i->data);
-		g_free (v->data);		
-	}	
-	for (i = ctx->mod_ids, v = ctx->mod_cards; i != NULL; i = i->next, v = v->next){
-		char *id = i->data;
-		char *vcard = v->data;
-
-		e_dbhash_add (ehash, id, vcard);
-		g_free (i->data);
-		g_free (v->data);		
-	}	
-	for (i = ctx->del_ids; i != NULL; i = i->next){
-		char *id = i->data;
-
-		e_dbhash_remove (ehash, id);
-		g_free (i->data);
-	}
-
-	e_dbhash_write (ehash);
-  	e_dbhash_destroy (ehash);
-}
-#endif
-
 static char *
 do_create(PASBackendFile  *bf,
 	  const char      *vcard_req)
@@ -436,9 +280,9 @@ do_create(PASBackendFile  *bf,
 
 	string_to_dbt (vcard, &vcard_dbt);
 
-	g_free (vcard);
-
 	db_error = db->put (db, NULL, &id_dbt, &vcard_dbt, 0);
+
+	g_free (vcard);
 
 	if (0 == db_error) {
 		db_error = db->sync (db, 0);
@@ -692,60 +536,171 @@ pas_backend_file_start_book_view (PASBackend  *backend,
 	pas_backend_file_search (PAS_BACKEND_FILE (backend), book_view);
 }
 
+typedef struct {
+	DB *db;
+
+	GList *add_cards;
+	GList *add_ids;
+	GList *mod_cards;
+	GList *mod_ids;
+	GList *del_ids;
+} PASBackendFileChangeContext;
+
+static void
+pas_backend_file_changes_foreach_key (const char *key, gpointer user_data)
+{
+	PASBackendFileChangeContext *ctx = user_data;
+	DB      *db = ctx->db;
+	DBT     id_dbt, vcard_dbt;
+	int     db_error = 0;
+	
+	string_to_dbt (key, &id_dbt);
+	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
+	db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
+	
+	if (db_error != 0) {
+		char *id = id_dbt.data;
+
+		ctx->del_ids = g_list_append (ctx->del_ids,
+					      g_strdup (id));
+	}
+}
+
 static PASBackendSyncStatus
 pas_backend_file_get_changes (PASBackendSync *backend,
 			      PASBook    *book,
 			      const char *change_id,
 			      GList **changes_out)
 {
-#if notyet
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-	PASBookView       *book_view;
-	PASBackendFileBookView view;
+	int     db_error = 0;
+	DBT     id_dbt, vcard_dbt;
+	char    *filename;
+	EDbHash *ehash;
+	GList *i, *v;
+	DB      *db = bf->priv->file_db;
+	DBC *dbc;
+	GList *changes = NULL;
 	PASBackendFileChangeContext ctx;
-	EIterator *iterator;
+	PASBackendSyncStatus result;
 
-	bonobo_object_ref(BONOBO_OBJECT(book));
+	memset (&id_dbt, 0, sizeof (id_dbt));
+	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
 
-	book_view = pas_book_view_new (req->listener);
+	memset (&ctx, 0, sizeof (ctx));
 
-	g_object_weak_ref (G_OBJECT (book_view), view_destroy, book);
+	ctx.db = db;
 
-	pas_book_respond_get_changes (book,
-		   (book_view != NULL
-		    ? GNOME_Evolution_Addressbook_Success 
-		    : GNOME_Evolution_Addressbook_CardNotFound /* XXX */),
-		   book_view);
+	/* Find the changed ids */
+	filename = g_strdup_printf ("%s/%s" CHANGES_DB_SUFFIX, bf->priv->dirname, change_id);
+	ehash = e_dbhash_new (filename);
+	g_free (filename);
 
-	view.book_view = book_view;
-	view.change_id = change_id;
-	view.change_context = &ctx;
-	ctx.db = bf->priv->file_db;
-	ctx.add_cards = NULL;
-	ctx.add_ids = NULL;
-	ctx.mod_cards = NULL;
-	ctx.mod_ids = NULL;
-	ctx.del_ids = NULL;
-	view.search = NULL;
-	
-	e_list_append(bf->priv->book_views, &view);
+	db_error = db->cursor (db, NULL, &dbc, 0);
 
-	if (!pas_backend_is_loaded (backend))
-		return;
+	if (db_error != 0) {
+		g_warning ("pas_backend_file_changes: error building list\n");
+	} else {
+		db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_FIRST);
 
-	iterator = e_list_get_iterator(bf->priv->book_views);
-	e_iterator_last(iterator);
-	pas_backend_file_changes (bf, book, e_iterator_get(iterator));
-	g_object_unref(iterator);
+		while (db_error == 0) {
+
+			/* don't include the version in the list of cards */
+			if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
+			    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
+				EContact *contact;
+				char *id = id_dbt.data;
+				char *vcard_string;
+				
+				/* Remove fields the user can't change
+				 * and can change without the rest of the
+				 * card changing 
+				 */
+				contact = e_contact_new_from_vcard (vcard_dbt.data);
+#if notyet
+				g_object_set (card, "last_use", NULL, "use_score", 0.0, NULL);
 #endif
+				vcard_string = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
+				g_object_unref (contact);
+				
+				/* check what type of change has occurred, if any */
+				switch (e_dbhash_compare (ehash, id, vcard_string)) {
+				case E_DBHASH_STATUS_SAME:
+					break;
+				case E_DBHASH_STATUS_NOT_FOUND:
+					ctx.add_cards = g_list_append (ctx.add_cards, vcard_string);
+					ctx.add_ids = g_list_append (ctx.add_ids, g_strdup(id));
+					break;
+				case E_DBHASH_STATUS_DIFFERENT:
+					ctx.mod_cards = g_list_append (ctx.mod_cards, vcard_string);
+					ctx.mod_ids = g_list_append (ctx.mod_ids, g_strdup(id));
+					break;
+				}
+			}
+
+			db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
+		}
+		dbc->c_close (dbc);
+	}
+
+   	e_dbhash_foreach_key (ehash, (EDbHashFunc)pas_backend_file_changes_foreach_key, &ctx);
+
+	/* Send the changes */
+	if (db_error != DB_NOTFOUND) {
+		g_warning ("pas_backend_file_changes: error building list\n");
+		*changes_out = NULL;
+		result = GNOME_Evolution_Addressbook_OtherError;
+	}
+	else {
+		/* Update the hash and build our changes list */
+		for (i = ctx.add_ids, v = ctx.add_cards; i != NULL; i = i->next, v = v->next){
+			char *id = i->data;
+			char *vcard = v->data;
+
+			e_dbhash_add (ehash, id, vcard);
+			changes = g_list_prepend (changes,
+						  pas_backend_change_add_new (vcard));
+
+			g_free (i->data);
+			g_free (v->data);
+		}	
+		for (i = ctx.mod_ids, v = ctx.mod_cards; i != NULL; i = i->next, v = v->next){
+			char *id = i->data;
+			char *vcard = v->data;
+
+			e_dbhash_add (ehash, id, vcard);
+			changes = g_list_prepend (changes,
+						  pas_backend_change_modify_new (vcard));
+
+			g_free (i->data);
+			g_free (v->data);		
+		}	
+		for (i = ctx.del_ids; i != NULL; i = i->next){
+			char *id = i->data;
+
+			e_dbhash_remove (ehash, id);
+			changes = g_list_prepend (changes,
+						  pas_backend_change_delete_new (id));
+			g_free (i->data);
+		}
+
+		e_dbhash_write (ehash);
+
+		result = GNOME_Evolution_Addressbook_Success;
+		*changes_out = changes;
+	}
+
+	e_dbhash_destroy (ehash);
+
+	return GNOME_Evolution_Addressbook_Success;
 }
 
 static char *
 pas_backend_file_extract_path_from_uri (const char *uri)
 {
-	g_assert (strncasecmp (uri, "file:", 5) == 0);
+	g_assert (strncasecmp (uri, "file://", 7) == 0);
 
-	return g_strdup (uri + 5);
+	return g_strdup (uri + 7);
 }
 
 static PASBackendSyncStatus
@@ -769,7 +724,7 @@ pas_backend_file_get_supported_fields (PASBackendSync *backend,
 	/* XXX we need a way to say "we support everything", since the
 	   file backend does */
 	for (i = 0; i < E_CONTACT_FIELD_LAST; i ++)
-		fields = g_list_append (fields, (char*)e_contact_field_name (i));		
+		fields = g_list_append (fields, g_strdup (e_contact_field_name (i)));
 
 	*fields_out = fields;
 	return GNOME_Evolution_Addressbook_Success;
@@ -903,7 +858,7 @@ pas_backend_file_maybe_upgrade_db (PASBackendFile *bf)
 
 #define INITIAL_VCARD "BEGIN:VCARD\n\
 X-EVOLUTION-FILE-AS:Ximian, Inc.\n\
-LABEL;WORK;QUOTED-PRINTABLE:401 Park Drive  3 West=0ABoston, MA 02215=0AUSA\n\
+LABEL;WORK:401 Park Drive  3 West\n Boston, MA 02215\n USA\n\
 TEL;WORK;VOICE:(617) 375-3800\n\
 TEL;WORK;FAX:(617) 236-8630\n\
 EMAIL;INTERNET:hello@ximian.com\n\
@@ -968,6 +923,19 @@ pas_backend_file_load_uri (PASBackend             *backend,
 		db_error = db->open (db, filename, NULL, DB_HASH, DB_RDONLY, 0666);
 
 		if (db_error != 0) {
+			int rv;
+
+			/* the database didn't exist, so we create the
+			   directory then the .db */
+			rv = mkdir (dirname, 0777);
+			if (rv == -1) {
+				g_warning ("failed to make directory %s: %s", dirname, strerror (errno));
+				if (errno == EACCES || errno == EPERM)
+					return GNOME_Evolution_Addressbook_PermissionDenied;
+				else
+					return GNOME_Evolution_Addressbook_OtherError;
+			}
+
 			db_error = db->open (db, filename, NULL, DB_HASH, DB_CREATE, 0666);
 
 			if (db_error == 0 && !only_if_exists) {
@@ -1018,11 +986,31 @@ pas_backend_file_load_uri (PASBackend             *backend,
 	return GNOME_Evolution_Addressbook_Success;
 }
 
+static int
+select_changes (const struct dirent *d)
+{
+	char *p;
+
+	if (strlen (d->d_name) < strlen (CHANGES_DB_SUFFIX))
+		return 0;
+
+	p = strstr (d->d_name, CHANGES_DB_SUFFIX);
+	if (!p)
+		return 0;
+
+	if (strlen (p) != strlen (CHANGES_DB_SUFFIX))
+		return 0;
+
+	return 1;
+}
+
 static PASBackendSyncStatus
 pas_backend_file_remove (PASBackendSync *backend,
 			 PASBook        *book)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
+	struct dirent **namelist;
+	int n;
 
 	if (-1 == unlink (bf->priv->filename)) {
 		if (errno == EACCES || errno == EPERM)
@@ -1033,8 +1021,27 @@ pas_backend_file_remove (PASBackendSync *backend,
 
 	/* unref the summary before we remove the file so it's not written out again */
 	g_object_unref (bf->priv->summary);
+	bf->priv->summary = NULL;
 	if (-1 == unlink (bf->priv->filename))
 		g_warning ("failed to remove summary file `%s`: %s", bf->priv->summary_filename, strerror (errno));
+
+	/* scandir to select all the "*.changes.db" files, then remove them */
+	n = scandir (bf->priv->dirname,
+		     &namelist, select_changes, alphasort);
+	if (n < 0) {
+		g_warning ("scandir of directory `%s' failed: %s", bf->priv->dirname, strerror (errno));
+	}
+	else {
+		while (n -- ) {
+			char *full_path = g_build_filename (bf->priv->dirname, namelist[n]->d_name, NULL);
+			if (-1 == unlink (full_path)) {
+				g_warning ("failed to remove change db `%s': %s", full_path, strerror (errno));
+			}
+			g_free (full_path);
+			free (namelist[n]);
+		}
+		free (namelist);
+	}
 
 	if (-1 == rmdir (bf->priv->dirname))
 		g_warning ("failed to remove directory `%s`: %s", bf->priv->dirname, strerror (errno));

@@ -187,15 +187,18 @@ impl_BookListener_respond_get_changes (PortableServer_Servant servant,
 		EBookChange *change = g_new (EBookChange, 1);
 		GNOME_Evolution_Addressbook_BookChangeItem corba_change = changes->_buffer[i];
 
-		switch (corba_change.change_type) {
+		switch (corba_change._d) {
 		case GNOME_Evolution_Addressbook_CardAdded:
 			change->change_type = E_BOOK_CHANGE_CARD_ADDED;
+			change->vcard = g_strdup (corba_change._u.add_vcard);
 			break;
 		case GNOME_Evolution_Addressbook_CardDeleted:
 			change->change_type = E_BOOK_CHANGE_CARD_DELETED;
+			change->id = g_strdup (corba_change._u.del_id);
 			break;
 		case GNOME_Evolution_Addressbook_CardModified:
 			change->change_type = E_BOOK_CHANGE_CARD_MODIFIED;
+			change->vcard = g_strdup (corba_change._u.mod_vcard);
 			break;
 		}
 
@@ -213,12 +216,21 @@ impl_BookListener_respond_open_book (PortableServer_Servant servant,
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
 
-	if (ev->_major != CORBA_NO_EXCEPTION) {
-		g_warning ("EBookListener: Exception while duplicating Book!\n");
-		return;
-	}
-
 	response.op       = OpenBookResponse;
+	response.status   = e_book_listener_convert_status (status);
+
+	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
+}
+
+static void
+impl_BookListener_respond_remove_book (PortableServer_Servant servant,
+				       const GNOME_Evolution_Addressbook_CallStatus status,
+				       CORBA_Environment *ev)
+{
+	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
+	EBookListenerResponse response;
+
+	response.op       = RemoveBookResponse;
 	response.status   = e_book_listener_convert_status (status);
 
 	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
@@ -239,10 +251,10 @@ impl_BookListener_respond_authentication_result (PortableServer_Servant servant,
 }
 
 static void
-impl_BookListener_response_get_supported_fields (PortableServer_Servant servant,
-						 const GNOME_Evolution_Addressbook_CallStatus status,
-						 const GNOME_Evolution_Addressbook_stringlist *fields,
-						 CORBA_Environment *ev)
+impl_BookListener_respond_get_supported_fields (PortableServer_Servant servant,
+						const GNOME_Evolution_Addressbook_CallStatus status,
+						const GNOME_Evolution_Addressbook_stringlist *fields,
+						CORBA_Environment *ev)
 {
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
@@ -259,10 +271,10 @@ impl_BookListener_response_get_supported_fields (PortableServer_Servant servant,
 }
 
 static void
-impl_BookListener_response_get_supported_auth_methods (PortableServer_Servant servant,
-						       const GNOME_Evolution_Addressbook_CallStatus status,
-						       const GNOME_Evolution_Addressbook_stringlist *auth_methods,
-						       CORBA_Environment *ev)
+impl_BookListener_respond_get_supported_auth_methods (PortableServer_Servant servant,
+						      const GNOME_Evolution_Addressbook_CallStatus status,
+						      const GNOME_Evolution_Addressbook_stringlist *auth_methods,
+						      CORBA_Environment *ev)
 {
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
@@ -361,12 +373,13 @@ e_book_listener_class_init (EBookListenerClass *klass)
 	epv = &klass->epv;
 	epv->notifyProgress             = impl_BookListener_respond_progress;
 	epv->notifyBookOpened           = impl_BookListener_respond_open_book;
+	epv->notifyBookRemoved          = impl_BookListener_respond_remove_book;
 	epv->notifyCardCreated          = impl_BookListener_respond_create_card;
 	epv->notifyCardsRemoved         = impl_BookListener_respond_remove_cards;
 	epv->notifyCardModified         = impl_BookListener_respond_modify_card;
 	epv->notifyAuthenticationResult = impl_BookListener_respond_authentication_result;
-	epv->notifySupportedFields      = impl_BookListener_response_get_supported_fields;
-	epv->notifySupportedAuthMethods = impl_BookListener_response_get_supported_auth_methods;
+	epv->notifySupportedFields      = impl_BookListener_respond_get_supported_fields;
+	epv->notifySupportedAuthMethods = impl_BookListener_respond_get_supported_auth_methods;
 	epv->notifyCardRequested        = impl_BookListener_respond_get_vcard;
 	epv->notifyCardListRequested    = impl_BookListener_respond_get_card_list;
 	epv->notifyViewRequested        = impl_BookListener_respond_get_view;

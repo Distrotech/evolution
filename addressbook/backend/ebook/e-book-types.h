@@ -59,7 +59,8 @@ typedef enum {
 
 typedef struct {
 	EBookChangeType  change_type;
-	char            *vcard;
+	char            *vcard; /* used in the ADDED/MODIFIED case */
+	char            *id;    /* used in the DELETED case */
 } EBookChange;
 
 G_END_DECLS
