@@ -51,8 +51,8 @@ static hashid_t hash_find(struct _IBEXIndex *index, const char *key, int keylen)
 static void hash_remove(struct _IBEXIndex *index, const char *key, int keylen);
 static hashid_t hash_insert(struct _IBEXIndex *index, const char *key, int keylen);
 static char *hash_get_key(struct _IBEXIndex *index, hashid_t hashbucket, int *len);
-static void hash_set_data_block(struct _IBEXIndex *index, hashid_t keyid, blockid_t blockid);
-static blockid_t hash_get_data_block(struct _IBEXIndex *index, hashid_t keyid);
+static void hash_set_data_block(struct _IBEXIndex *index, hashid_t keyid, blockid_t blockid, blockid_t tail);
+static blockid_t hash_get_data_block(struct _IBEXIndex *index, hashid_t keyid, blockid_t *tail);
 
 struct _IBEXIndexClass ibex_hash_class = {
 	hash_create, hash_open,
@@ -65,16 +65,14 @@ struct _IBEXIndexClass ibex_hash_class = {
 	hash_get_data_block,
 };
 
+/* the reason we have the tail here is that otherwise we need to
+   have a 32 bit blockid for the root node; which would make this
+   structure the same size anyway, with about 24 wasted bits */
 struct _hashkey {
 	blockid_t next;		/* next in hash chain */
-#if 1
+	blockid_t tail;
 	unsigned int root:32-BLOCK_BITS;
 	unsigned int keyoffset:BLOCK_BITS;
-#else
-	blockid_t root;		/* data link */
-	int keyoffset;
-#endif
-
 };
 
 struct _hashblock {
@@ -161,6 +159,7 @@ hash_create(struct _memcache *bc, int size)
 		memset(table, 0, sizeof(table));
 		ibex_block_dirty((struct _block *)table);
 	}
+
 	return index;
 }
 
@@ -423,34 +422,41 @@ hash_remove(struct _IBEXIndex *index, const char *key, int keylen)
 
 /* set where the datablock is located */
 static void
-hash_set_data_block(struct _IBEXIndex *index, hashid_t keyid, blockid_t blockid)
+hash_set_data_block(struct _IBEXIndex *index, hashid_t keyid, blockid_t blockid, blockid_t tail)
 {
 	struct _hashblock *bucket;
 
-	d(printf("setting data block hash %d to %d\n", keyid, blockid));
+	d(printf("setting data block hash %d to %d tail %d\n", keyid, blockid, tail));
 
 	/* map to a block number */
 	g_assert((blockid & (BLOCK_SIZE-1)) == 0);
 	blockid >>= BLOCK_BITS;
 
 	bucket = (struct _hashblock *)ibex_block_read(index->blocks, HASH_BLOCK(keyid));
-	if (bucket->hb_keys[HASH_INDEX(keyid)].root != blockid) {
+	if (bucket->hb_keys[HASH_INDEX(keyid)].root != blockid
+	    || bucket->hb_keys[HASH_INDEX(keyid)].tail != tail) {
+		bucket->hb_keys[HASH_INDEX(keyid)].tail = tail;
 		bucket->hb_keys[HASH_INDEX(keyid)].root = blockid;
 		ibex_block_dirty((struct _block *)bucket);
 	}
 }
 
 static blockid_t
-hash_get_data_block(struct _IBEXIndex *index, hashid_t keyid)
+hash_get_data_block(struct _IBEXIndex *index, hashid_t keyid, blockid_t *tail)
 {
 	struct _hashblock *bucket;
 
 	d(printf("getting data block hash %d\n", keyid));
 
-	if (keyid == 0)
+	if (keyid == 0) {
+		if (tail)
+			*tail = 0;
 		return 0;
+	}
 
 	bucket = (struct _hashblock *)ibex_block_read(index->blocks, HASH_BLOCK(keyid));
+	if (tail)
+		*tail = bucket->hb_keys[HASH_INDEX(keyid)].tail;
 	return bucket->hb_keys[HASH_INDEX(keyid)].root << BLOCK_BITS;
 }
 
@@ -540,6 +546,7 @@ hash_insert(struct _IBEXIndex *index, const char *key, int keylen)
 			/* link into the hash chain */
 			bucket->hb_keys[HASH_INDEX(keybucket)].next = hashbucket;
 			bucket->hb_keys[HASH_INDEX(keybucket)].root = 0;
+			bucket->hb_keys[HASH_INDEX(keybucket)].tail = 0;
 			table->buckets[hashentry] = keybucket;
 			ibex_block_dirty((struct _block *)table);
 			ibex_block_dirty((struct _block *)bucket);
@@ -569,6 +576,7 @@ hash_insert(struct _IBEXIndex *index, const char *key, int keylen)
 	memcpy(&bucket->hb_keydata[bucket->hb_keys[0].keyoffset], key, keylen);
 	bucket->hb_keys[0].next = hashbucket;
 	bucket->hb_keys[0].root = 0;
+	bucket->hb_keys[0].tail = 0;
 
 	table->buckets[hashentry] = HASH_KEY(keybucket, 0);
 
@@ -622,7 +630,9 @@ ibex_hash_dump(struct _IBEXIndex *index)
 			printf("'%.*s' = %d next=%d\n", len, &bucket->hb_keydata[bucket->hb_keys[HASH_INDEX(hashbucket)].keyoffset],
 			       bucket->hb_keys[HASH_INDEX(hashbucket)].root,
 			       bucket->hb_keys[HASH_INDEX(hashbucket)].next);
-			ibex_diskarray_dump(index->blocks, bucket->hb_keys[HASH_INDEX(hashbucket)].root << BLOCK_BITS);
+			ibex_diskarray_dump(index->blocks,
+					    bucket->hb_keys[HASH_INDEX(hashbucket)].root << BLOCK_BITS,
+					    bucket->hb_keys[HASH_INDEX(hashbucket)].tail);
 
 			hashbucket = bucket->hb_keys[HASH_INDEX(hashbucket)].next;
 		}
@@ -647,7 +657,7 @@ int main(int argc, char **argv)
 	struct _IBEXIndex *hash;
 	int i;
 
-	bc = block_cache_open("index.db", O_CREAT|O_RDWR, 0600);
+	bc = ibex_block_cache_open("index.db", O_CREAT|O_RDWR, 0600);
 	hash = ibex_hash_class.create(bc, 1024);
 	for (i=0;i<10000;i++) {
 		char key[16];
@@ -668,21 +678,23 @@ int main(int argc, char **argv)
 	}
 
 
-	walk_hash(hash);
+	ibex_hash_dump(hash);
 
 	for (i=0;i<2000;i++) {
 		char key[16], *lookup;
 		hashid_t keyid;
+		blockid_t root, tail;
 
 		sprintf(key, "key %d", i);
 		keyid = ibex_hash_class.find(hash, key, strlen(key));
 		lookup = ibex_hash_class.get_key(hash, keyid, 0);
-		printf("key %s = %d = '%s'\n", key, keyid, lookup);
+		root = ibex_hash_class.get_data(hash, keyid, &tail);
+		printf("key %s = %d = '%s' root:%d tail:%d \n", key, keyid, lookup, root, tail);
 		g_free(lookup);
 	}
 
 	ibex_hash_class.close(hash);
-	block_cache_close(bc);
+	ibex_block_cache_close(bc);
 	return 0;
 }
 

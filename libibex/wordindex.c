@@ -24,27 +24,8 @@
 /* includes a cache for word index writes,
    but not for name index writes (currently), or any reads.
 
-   Mainly because name index writes are fewer and bigger.
-
-   And there is no real reason to cache reads, since they are
-   few and far between usually, and effectively cached
-   by the block cache (and makes the code more complex :)
-
-   Basic memory usage for a 256 block block cache, and a 256
-   word wordcache.
-
-block cache: 65536 data
-             3072  ghash table
-	     4096  LRU cache/flags/overhead
-
-word cache:  4096  LRI cache/flags/overhead
-             33792 file matches
-	     2048  for average 5 byte keyword, w/malloc rounding.
-
-total: 112640 bytes
-
 Note the word cache is only needed during indexing of lots
-of words, and could then be discarded.
+of words, and could then be discarded (:flush()).
 
 */
 
@@ -63,10 +44,16 @@ of words, and could then be discarded.
 
 #define d(x)
 
-#define WORDCACHE_SIZE (256)
+/*#define WORDCACHE_SIZE (256)*/
+#define WORDCACHE_SIZE (4096)
 
 extern struct _IBEXStoreClass ibex_diskarray_class;
 extern struct _IBEXIndexClass ibex_hash_class;
+
+/* need 2 types of hash key?
+   one that just stores the wordid / wordblock
+   and one that stores the filecount/files?
+*/
 
 
 struct _wordcache {
@@ -74,8 +61,10 @@ struct _wordcache {
 	struct _wordcache *prev;
 	nameid_t wordid;	/* disk wordid */
 	blockid_t wordblock;	/* head of disk list */
+	blockid_t wordtail;	/* and the tail data */
 	int filecount;		/* how many we have in memory */
-	nameid_t files[32];	/* memory cache of files */
+	/*nameid_t files[32];*/	/* memory cache of files */
+	nameid_t files[62];	/* memory cache of files */
 	char word[1];		/* actual word follows */
 };
 
@@ -132,40 +121,52 @@ ibex_create_word_index(struct _memcache *bc, blockid_t *wordroot, blockid_t *nam
 	return idx;
 }
 
+static void
+cache_sanity(struct _wordcache *head)
+{
+	while (head->next) {
+		g_assert(head->filecount <= sizeof(head->files)/sizeof(head->files[0]));
+		g_assert(strlen(head->word) != 0);
+		head = head->next;
+	}
+}
+
 /* unindex all entries for name */
 static void unindex_name(struct _IBEXWord *idx, const char *name)
 {
 	GArray *words;
 	int i;
 	nameid_t nameid, wordid;
-	blockid_t nameblock, wordblock, newblock;
+	blockid_t nameblock, wordblock, newblock, nametail, wordtail, newtail;
 
 	d(printf("unindexing %s\n", name));
 
 	/* lookup the hash key */
 	nameid = idx->nameindex->klass->find(idx->nameindex, name, strlen(name));
 	/* get the block for this key */
-	nameblock = idx->nameindex->klass->get_data(idx->nameindex, nameid);
+	nameblock = idx->nameindex->klass->get_data(idx->nameindex, nameid, &nametail);
 	/* and the data for this block */
-	words = idx->namestore->klass->get(idx->namestore, nameblock);
+	words = idx->namestore->klass->get(idx->namestore, nameblock, nametail);
 	/* walk it ... */
 	for (i=0;i<words->len;i++) {
 		/* get the word */
 		wordid = g_array_index(words, nameid_t, i);
 		d(printf(" word %d\n", wordid));
 		/* get the data block */
-		wordblock = idx->wordindex->klass->get_data(idx->wordindex, wordid);
+		wordblock = idx->wordindex->klass->get_data(idx->wordindex, wordid, &wordtail);
 		/* clear this name from it */
-		newblock = idx->wordstore->klass->remove(idx->wordstore, wordblock, nameid);
-		if (newblock != wordblock)
-			idx->wordindex->klass->set_data(idx->wordindex, wordid, newblock);
+		newblock = wordblock;
+		newtail = wordtail;
+		idx->wordstore->klass->remove(idx->wordstore, &newblock, &newtail, nameid);
+		if (newblock != wordblock || newtail != wordtail)
+			idx->wordindex->klass->set_data(idx->wordindex, wordid, newblock, newtail);
 
 		/* FIXME: check cache as well */
 	}
 	g_array_free(words, TRUE);
 
 	/* and remove name data and itself */
-	idx->namestore->klass->free(idx->namestore, nameblock);
+	idx->namestore->klass->free(idx->namestore, nameblock, nametail);
 	idx->nameindex->klass->remove(idx->nameindex, name, strlen(name));
 }
 
@@ -184,7 +185,7 @@ static GPtrArray *find(struct _IBEXWord *idx, const char *word)
 	int i;
 	char *new;
 	struct _wordcache *cache;
-	blockid_t wordblock;
+	blockid_t wordblock, wordtail;
 
 	res = g_ptr_array_new();
 
@@ -195,14 +196,15 @@ static GPtrArray *find(struct _IBEXWord *idx, const char *word)
 		ibex_list_addtail(&idx->wordnodes, (struct _listnode *)cache);
 		wordid = cache->wordid;
 		wordblock = cache->wordblock;
+		wordtail = cache->wordtail;
 	} else {
 		/* lookup the hash key */
 		wordid = idx->wordindex->klass->find(idx->wordindex, word, strlen(word));
 		/* get the block for this key */
-		wordblock = idx->wordindex->klass->get_data(idx->wordindex, wordid);
+		wordblock = idx->wordindex->klass->get_data(idx->wordindex, wordid, &wordtail);
 	}
 	/* and the data for this block */
-	names = idx->wordstore->klass->get(idx->wordstore, wordblock);
+	names = idx->wordstore->klass->get(idx->wordstore, wordblock, wordtail);
 	/* .. including any memory-only data */
 	if (cache) {
 		g_array_append_vals(names, cache->files, cache->filecount);
@@ -223,14 +225,14 @@ static GPtrArray *find(struct _IBEXWord *idx, const char *word)
 static gboolean find_name(struct _IBEXWord *idx, const char *name, const char *word)
 {
 	nameid_t wordid, nameid;
-	blockid_t nameblock;
+	blockid_t nameblock, nametail;
 	struct _wordcache *cache;
 	int i;
 
 	/* lookup the hash key for the name */
 	nameid = idx->nameindex->klass->find(idx->nameindex, name, strlen(name));
 	/* get the block for this name */
-	nameblock = idx->nameindex->klass->get_data(idx->nameindex, nameid);
+	nameblock = idx->nameindex->klass->get_data(idx->nameindex, nameid, &nametail);
 
 	/* check if there is an in-memory cache for this word, check its file there first */
 	cache = g_hash_table_lookup(idx->wordcache, word);
@@ -250,7 +252,7 @@ static gboolean find_name(struct _IBEXWord *idx, const char *name, const char *w
 	}
 
 	/* see if wordid is in nameblock */
-	return idx->namestore->klass->find(idx->namestore, nameblock, wordid);
+	return idx->namestore->klass->find(idx->namestore, nameblock, nametail, wordid);
 }
 
 /* cache helper functions */
@@ -259,28 +261,32 @@ static void
 sync_cache_entry(struct _IBEXWord *idx, struct _wordcache *cache)
 {
 	GArray array; /* just use this as a header */
-	blockid_t newblock;
+	blockid_t oldblock, oldtail;
 
+	d(printf("syncing cache entry '%s'\n", cache->word));
 	array.data = (char *)cache->files;
 	array.len = cache->filecount;
-	newblock = idx->wordstore->klass->add_list(idx->wordstore, cache->wordblock, &array);
-	if (newblock != cache->wordblock) {
-		idx->wordindex->klass->set_data(idx->wordindex, cache->wordid, newblock);
+	oldblock = cache->wordblock;
+	oldtail = cache->wordtail;
+	idx->wordstore->klass->add_list(idx->wordstore, &cache->wordblock, &cache->wordtail, &array);
+	if (oldblock != cache->wordblock || oldtail != cache->wordtail) {
+		idx->wordindex->klass->set_data(idx->wordindex, cache->wordid, cache->wordblock, cache->wordtail);
 	}
 	cache->filecount = 0;
 }
 
 /* create a new key in an index, returning its id and head block */
 static void
-add_index_key(struct _IBEXIndex *wordindex, const char *word, nameid_t *wordid, blockid_t *wordblock)
+add_index_key(struct _IBEXIndex *wordindex, const char *word, nameid_t *wordid, blockid_t *wordblock, blockid_t *wordtail)
 {
 	/* initialise cache entry - id of word entry and head block */
 	*wordid = wordindex->klass->find(wordindex, word, strlen(word));
 	if (*wordid == 0) {
 		*wordid = wordindex->klass->insert(wordindex, word, strlen(word));
 		*wordblock = 0;
+		*wordtail = 0;
 	} else {
-		*wordblock = wordindex->klass->get_data(wordindex, *wordid);
+		*wordblock = wordindex->klass->get_data(wordindex, *wordid, wordtail);
 	}
 }
 
@@ -290,6 +296,8 @@ static struct _wordcache *
 add_index_cache(struct _IBEXWord *idx, const char *word)
 {
 	struct _wordcache *cache;
+
+	d(printf("adding %s to cache\n", word));
 
 	cache = g_hash_table_lookup(idx->wordcache, word);
 	if (cache == 0) {
@@ -306,7 +314,7 @@ add_index_cache(struct _IBEXWord *idx, const char *word)
 		}
 		cache = g_malloc0(sizeof(*cache)+strlen(word));
 		/* initialise cache entry - id of word entry and head block */
-		add_index_key(idx->wordindex, word, &cache->wordid, &cache->wordblock);
+		add_index_key(idx->wordindex, word, &cache->wordid, &cache->wordblock, &cache->wordtail);
 		/* other fields */
 		strcpy(cache->word, word);
 		cache->filecount = 0;
@@ -325,13 +333,16 @@ add_index_cache(struct _IBEXWord *idx, const char *word)
 static void add(struct _IBEXWord *idx, const char *name, const char *word)
 {
 	nameid_t nameid;
-	blockid_t nameblock, newblock;
+	blockid_t nameblock, newblock, nametail, newtail;
 	struct _wordcache *cache;
+
+	g_error("Dont use wordindex::add()");
+	abort();
 
 	cache = add_index_cache(idx, word);
 
 	/* get the nameid and block start for this name */
-	add_index_key(idx->nameindex, name, &nameid, &nameblock);
+	add_index_key(idx->nameindex, name, &nameid, &nameblock, &nametail);
 
 	/* check for repeats of the last name - dont add anything */
 	if (cache->files[cache->filecount] == nameid)
@@ -341,13 +352,15 @@ static void add(struct _IBEXWord *idx, const char *name, const char *word)
 	cache->files[cache->filecount] = nameid;
 	cache->filecount++;
 	/* if we are full, force a flush now */
-	if (cache->filecount >= sizeof(cache->filecount)) {
+	if (cache->filecount >= sizeof(cache->files)/sizeof(cache->files[0])) {
 		sync_cache_entry(idx, cache);
 	}
 
-	newblock = idx->namestore->klass->add(idx->namestore, nameblock, cache->wordid);
-	if (newblock != nameblock) {
-		idx->nameindex->klass->set_data(idx->nameindex, nameid, newblock);
+	newtail = nametail;
+	newblock = nameblock;
+	idx->namestore->klass->add(idx->namestore, &newblock, &newtail, cache->wordid);
+	if (newblock != nameblock || newtail != nametail) {
+		idx->nameindex->klass->set_data(idx->nameindex, nameid, newblock, newtail);
 	}
 }
 
@@ -356,37 +369,55 @@ static void add_list(struct _IBEXWord *idx, const char *name, GPtrArray *words)
 {
 	int i;
 	GArray *data = g_array_new(0, 0, sizeof(nameid_t));
-	blockid_t nameblock, newblock;
+	blockid_t nameblock, newblock, nametail, newtail;
 	nameid_t nameid;
 	struct _wordcache *cache;
 
+	d(cache_sanity((struct _wordcache *)idx->wordnodes.head));
+
 	/* get the nameid and block start for this name */
-	add_index_key(idx->nameindex, name, &nameid, &nameblock);
+	add_index_key(idx->nameindex, name, &nameid, &nameblock, &nametail);
+
+	d(cache_sanity((struct _wordcache *)idx->wordnodes.head));
 
 	for (i=0;i<words->len;i++) {
 		char *word = words->pdata[i];
 
 		cache = add_index_cache(idx, word);
+
+		/*d(cache_sanity((struct _wordcache *)idx->wordnodes.head));*/
+
 		/* check for duplicates; doesn't catch duplicates over an overflow
 		   boundary.  Watch me care. */
-		if (cache->files[cache->filecount] != nameid) {
+		if (cache->filecount == 0
+		    || cache->files[cache->filecount-1] != nameid) {
 			cache->files[cache->filecount] = nameid;
 			cache->filecount++;
 			/* if we are full, force a flush now */
-			if (cache->filecount >= sizeof(cache->filecount)) {
+			if (cache->filecount >= sizeof(cache->files)/sizeof(cache->files[0])) {
 				sync_cache_entry(idx, cache);
 			}
+
+			/*d(cache_sanity((struct _wordcache *)idx->wordnodes.head));*/
 
 			/* and append this wordid for this name in memory */
 			g_array_append_val(data, cache->wordid);
 		}
+
+		/*d(cache_sanity((struct _wordcache *)idx->wordnodes.head));*/
 	}
 
+	d(cache_sanity((struct _wordcache *)idx->wordnodes.head));
+
 	/* and append these word id's in one go */
-	newblock = idx->namestore->klass->add_list(idx->namestore, nameblock, data);
-	if (newblock != nameblock) {
-		idx->nameindex->klass->set_data(idx->nameindex, nameid, newblock);
+	newblock = nameblock;
+	newtail = nametail;
+	idx->namestore->klass->add_list(idx->namestore, &newblock, &newtail, data);
+	if (newblock != nameblock || newtail != nametail) {
+		idx->nameindex->klass->set_data(idx->nameindex, nameid, newblock, newtail);
 	}
+
+	d(cache_sanity((struct _wordcache *)idx->wordnodes.head));
 
 	g_array_free(data, TRUE);
 }
@@ -402,8 +433,8 @@ word_sync(struct _IBEXWord *idx)
 		cache = cache->next;
 	}
 
-	/*ibex_hash_dump(idx->wordindex);
-	  ibex_hash_dump(idx->nameindex);*/
+	/*ibex_hash_dump(idx->wordindex);*/
+	/*ibex_hash_dump(idx->nameindex);*/
 
 	return 0;
 }
@@ -442,6 +473,7 @@ static int word_close(struct _IBEXWord *idx)
 	/*same as namestore:
 	  idx->wordstore->klass->close(idx->wordstore);*/
 	idx->wordindex->klass->close(idx->wordindex);
+	g_hash_table_destroy(idx->wordcache);
 	g_free(idx);
 
 	return 0;

@@ -4,10 +4,11 @@ noinst_LTLIBRARIES = libibex.la
 
 libibex_la_SOURCES = \
 	wordindex.c \
-	diskarray.c \
-	hash.c \
 	block.c ibex.h \
+	hash.c \
+	disktail.c \
 	ibex_block.c
+
 libibex_la_LDFLAGS = -static
 
 noinst_HEADERS = \
@@ -21,8 +22,8 @@ INCLUDES = -I$(srcdir) $(GLIB_CFLAGS) $(UNICODE_CFLAGS) \
 
 
 #noinst_PROGRAMS = hash
-#
-#hash_SOURCES = ibex_block.c 
+
+#hash_SOURCES = disktail.c
 #hash_LDADD = libibex.la $(GLIB_LIBS) $(UNICODE_LIBS)
 
 #noinst_PROGRAMS = mkindex lookup

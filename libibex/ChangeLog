@@ -1,3 +1,21 @@
+2000-09-15  Not Zed  <NotZed@HelixCode.com>
+
+	* wordindex.c (word_close): Free hashtable on exit too.
+
+	* disktail.c: Implemented tail-node storage for the end of long
+	lists, or for short lists.  Should save significant disk space
+	(5x?).
+	Implemented special case for 1-item lists, where the tailnode
+	pointer is used to store the index entry.
+
+2000-09-14  Not Zed  <NotZed@HelixCode.com>
+
+	* wordindex.c (add_index_key): Keys also handle tails.
+
+	* hash.c (hash_set_data_block): Added new parameter to keys - a
+	tail block (a full 32 bit block pointer).
+	(hash_get_data_block): And same here.
+
 2000-09-12  Not Zed  <NotZed@HelixCode.com>
 
 	* wordindex.c (word_close): Dont close namestore twice.

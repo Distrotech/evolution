@@ -52,10 +52,10 @@ struct _IBEXIndexClass {
 	char *(*get_key)(struct _IBEXIndex *, guint32 keyid, int *keylenptr);
 
 	/* set the key contents based on the keyid */
-	void (*set_data)(struct _IBEXIndex *, guint32 keyid, blockid_t datablock);
+	void (*set_data)(struct _IBEXIndex *, guint32 keyid, blockid_t datablock, blockid_t tail);
 
 	/* get the key contents based on the keyid */
-	blockid_t (*get_data)(struct _IBEXIndex *, guint32 keyid);
+	blockid_t (*get_data)(struct _IBEXIndex *, guint32 keyid, blockid_t *tail);
 };
 
 /* a storage class, stores lists of lists of id's */
@@ -70,13 +70,13 @@ struct _IBEXStoreClass {
 	int (*sync)(struct _IBEXStore *store);
 	int (*close)(struct _IBEXStore *store);
 
-	blockid_t (*add)(struct _IBEXStore *store, blockid_t head, nameid_t data);
-	blockid_t (*add_list)(struct _IBEXStore *store, blockid_t head, GArray *data);
-	blockid_t (*remove)(struct _IBEXStore *store, blockid_t head, nameid_t data);
-	void (*free)(struct _IBEXStore *store, blockid_t head);
+	blockid_t (*add)(struct _IBEXStore *store, blockid_t *head, blockid_t *tail, nameid_t data);
+	blockid_t (*add_list)(struct _IBEXStore *store, blockid_t *head, blockid_t *tail, GArray *data);
+	blockid_t (*remove)(struct _IBEXStore *store, blockid_t *head, blockid_t *tail, nameid_t data);
+	void (*free)(struct _IBEXStore *store, blockid_t head, blockid_t tail);
 
-	gboolean (*find)(struct _IBEXStore *store, blockid_t head, nameid_t data);
-	GArray *(*get)(struct _IBEXStore *store, blockid_t head);
+	gboolean (*find)(struct _IBEXStore *store, blockid_t head, blockid_t tail, nameid_t data);
+	GArray *(*get)(struct _IBEXStore *store, blockid_t head, blockid_t tail);
 };
 
 #endif

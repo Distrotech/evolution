@@ -4,6 +4,8 @@
 #ifndef _BLOCK_H
 #define _BLOCK_H
 
+/*#define IBEX_STATS*/		/* define to get/dump block access stats */
+
 #include <glib.h>
 
 typedef guint32 nameid_t;
@@ -19,6 +21,7 @@ struct _root {
 
 	blockid_t free;		/* list of free blocks */
 	blockid_t roof;		/* top of allocated space, everything below is in a free or used list */
+	blockid_t tail;		/* list of 'tail' blocks */
 
 	blockid_t words;	/* root of words index */
 	blockid_t names;	/* root of names index */
@@ -79,9 +82,21 @@ struct _memcache {
 	GHashTable *index;	/* blockid->memblock mapping */
 	int fd;			/* file fd */
 
+#ifdef IBEX_STATS
+	GHashTable *stats;
+#endif
 	/* temporary here */
 	struct _IBEXWord *words; /* word index */
 };
+
+#ifdef IBEX_STATS
+struct _stat_info {
+	int read;
+	int write;
+	int cache_hit;
+	int cache_miss;
+};
+#endif /* IBEX_STATS */
 
 struct _memcache *ibex_block_cache_open(const char *name, int flags, int mode);
 void ibex_block_cache_close(struct _memcache *block_cache);

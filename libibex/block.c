@@ -38,8 +38,82 @@
 #define d(x)
 /*#define DEBUG*/
 
-/* simple list routines (for simplified memory management of cache/lists) */
 
+#ifdef IBEX_STATS
+static void
+init_stats(struct _memcache *index)
+{
+	index->stats = g_hash_table_new(g_direct_hash, g_direct_equal);
+}
+
+static void
+dump_1_stat(int id, struct _stat_info *info, struct _memcache *index)
+{
+	printf("%d %d %d %d %d\n", id, info->read, info->write, info->cache_hit, info->cache_miss);
+}
+
+static void
+dump_stats(struct _memcache *index)
+{
+	printf("Block reads writes hits misses\n");
+	g_hash_table_foreach(index->stats, dump_1_stat, index);
+}
+
+static void
+add_read(struct _memcache *index, int id)
+{
+	struct _stat_info *info;
+
+	info = g_hash_table_lookup(index->stats, (void *)id);
+	if (info == NULL) {
+		info = g_malloc0(sizeof(*info));
+		g_hash_table_insert(index->stats, (void *)id, info);
+	}
+	info->read++;
+}
+
+static void
+add_write(struct _memcache *index, int id)
+{
+	struct _stat_info *info;
+
+	info = g_hash_table_lookup(index->stats, (void *)id);
+	if (info == NULL) {
+		info = g_malloc0(sizeof(*info));
+		g_hash_table_insert(index->stats, (void *)id, info);
+	}
+	info->write++;
+}
+
+static void
+add_hit(struct _memcache *index, int id)
+{
+	struct _stat_info *info;
+
+	info = g_hash_table_lookup(index->stats, (void *)id);
+	if (info == NULL) {
+		info = g_malloc0(sizeof(*info));
+		g_hash_table_insert(index->stats, (void *)id, info);
+	}
+	info->cache_hit++;
+}
+
+static void
+add_miss(struct _memcache *index, int id)
+{
+	struct _stat_info *info;
+
+	info = g_hash_table_lookup(index->stats, (void *)id);
+	if (info == NULL) {
+		info = g_malloc0(sizeof(*info));
+		g_hash_table_insert(index->stats, (void *)id, info);
+	}
+	info->cache_miss++;
+}
+#endif /* IBEX_STATS */
+
+
+/* simple list routines (for simplified memory management of cache/lists) */
 
 /**
  * ibex_list_new:
@@ -132,6 +206,9 @@ sync_block(struct _memcache *block_cache, struct _memblock *memblock)
 	if (write(block_cache->fd, &memblock->data, sizeof(memblock->data)) != -1) {
 		memblock->flags &= ~BLOCK_DIRTY;
 	}
+#ifdef IBEX_STATS
+	add_write(block_cache, memblock->block);
+#endif
 }
 
 /**
@@ -153,6 +230,11 @@ ibex_block_cache_sync(struct _memcache *block_cache)
 		memblock = memblock->next;
 	}
 	fsync(block_cache->fd);
+
+#ifdef IBEX_STATS
+	dump_stats(block_cache);
+#endif
+
 }
 
 /**
@@ -212,8 +294,15 @@ ibex_block_read(struct _memcache *block_cache, blockid_t blockid)
 		/* 'access' page */
 		ibex_list_remove((struct _listnode *)memblock);
 		ibex_list_addtail(&block_cache->nodes, (struct _listnode *)memblock);
+#ifdef IBEX_STATS
+		add_hit(block_cache, memblock->block);
+#endif
 		return &memblock->data;
 	}
+#ifdef IBEX_STATS
+	add_miss(block_cache, blockid);
+	add_read(block_cache, blockid);
+#endif
 	d(printf("loading blockid from disk %d\n", blockid));
 	memblock = g_malloc(sizeof(*memblock));
 	memblock->block = blockid;
@@ -284,6 +373,7 @@ ibex_block_cache_open(const char *name, int flags, int mode)
 		root->free = 0;
 		root->words = 0;
 		root->names = 0;
+		root->tail = 0;	/* list of tail blocks */
 		ibex_block_dirty((struct _block *)root);
 	} else {
 		d(printf("superblock already initialised:\n"
@@ -296,6 +386,10 @@ ibex_block_cache_open(const char *name, int flags, int mode)
 
 		block_cache->words = ibex_create_word_index(block_cache, &root->words, &root->names);
 	}
+
+#ifdef IBEX_STATS
+	init_stats(block_cache);
+#endif
 
 	return block_cache;
 }
