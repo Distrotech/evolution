@@ -303,6 +303,7 @@ reposition_path (ETreeSorted *ets, ETreeSortedPath *path)
 
 				if (new_index > old_index) {
 					int i;
+					e_tree_model_pre_change(E_TREE_MODEL(ets));
 					memmove(parent->children + old_index, parent->children + old_index + 1, sizeof (ETreePath) * (new_index - old_index));
 					parent->children[new_index] = path;
 					for (i = old_index; i <= new_index; i++)
@@ -310,6 +311,7 @@ reposition_path (ETreeSorted *ets, ETreeSortedPath *path)
 					e_tree_model_node_changed(E_TREE_MODEL(ets), parent);
 				} else if (new_index < old_index) {
 					int i;
+					e_tree_model_pre_change(E_TREE_MODEL(ets));
 					memmove(parent->children + new_index + 1, parent->children + new_index, sizeof (ETreePath) * (old_index - new_index));
 					parent->children[new_index] = path;
 					for (i = new_index; i <= old_index; i++)
