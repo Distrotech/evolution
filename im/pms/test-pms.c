@@ -2,6 +2,7 @@
 #include <liboaf/liboaf.h>
 #include <bonobo/bonobo-exception.h>
 #include <bonobo/bonobo-main.h>
+#include <messenger/e-messenger-listener.h>
 #include "Messenger.h"
 
 static gboolean
@@ -11,6 +12,9 @@ go_go_gadget(gpointer data)
 	CORBA_Environment ev;
 	Bonobo_Unknown corba_object;
 	GNOME_Evolution_Messenger_BackendDispatcher dispatcher;
+	EMessengerListener *listener;
+
+	listener = e_messenger_listener_new ();
 
 	corba_object = oaf_activate_from_id(
 		"OAFIID:GNOME_Evolution_Messenger_BackendDispatcher",
@@ -30,7 +34,7 @@ go_go_gadget(gpointer data)
 
 	GNOME_Evolution_Messenger_BackendDispatcher_signon(
 		dispatcher, "AIM", argv[1], argv[2],
-		CORBA_OBJECT_NIL, &ev);
+		BONOBO_OBJREF (listener), &ev);
 
 	if (BONOBO_EX(&ev)) {
 		g_error("Exception on signon");

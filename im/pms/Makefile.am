@@ -51,7 +51,9 @@ test_pms_SOURCES =		\
 	test-pms.c
 
 test_pms_LDADD =		\
-	../libMessenger.a	\
+	-L../ -L../messenger	\
+	-lemessenger		\
+	-lMessenger		\
 	$(BONOBO_GNOME_LIBS)
 
 oafdir = $(datadir)/oaf

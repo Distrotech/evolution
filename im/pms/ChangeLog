@@ -1,0 +1,7 @@
+2001-10-27  Nat Friedman  <nat@ximian.com>
+
+	* Makefile.am (test_pms_LDADD): Link in libemessenger.
+
+	* test-pms.c (go_go_gadget): Create a listener and pass it to the
+	BackendDispatcher.
+
