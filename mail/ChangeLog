@@ -1,3 +1,10 @@
+2001-03-16  Christopher James Lahey  <clahey@ximian.com>
+
+	* message-list.c: Added a call to
+	e_tree_memory_set_expanded_default to TRUE.  Removed all calls to
+	set_expanded on nodes while the tree is frozen since this fails
+	miserably now.
+
 2001-03-13  Christopher James Lahey  <clahey@ximian.com>
 
 	* message-list.c (message_list_get_layout): Turned off draw-grid.

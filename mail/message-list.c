@@ -1342,6 +1342,8 @@ message_list_construct (MessageList *message_list)
 					     message_list);
 	gtk_object_ref (GTK_OBJECT (message_list->model));
 	gtk_object_sink (GTK_OBJECT (message_list->model));
+
+	e_tree_memory_set_expanded_default(E_TREE_MEMORY(message_list->model), TRUE);
 	
 	/*
 	 * The etree
@@ -1412,7 +1414,6 @@ clear_tree (MessageList *ml)
 	}
 
 	ml->tree_root = e_tree_memory_node_insert (E_TREE_MEMORY(etm), NULL, 0, NULL);
-	e_tree_node_set_expanded (ml->tree, ml->tree_root, TRUE);
 
 #ifdef TIMEIT
 	gettimeofday(&end, NULL);
@@ -1553,7 +1554,6 @@ build_tree (MessageList *ml, CamelFolderThread *thread, CamelFolderChangeInfo *c
 
 	if (ml->tree_root == NULL) {
 		ml->tree_root =	e_tree_memory_node_insert(E_TREE_MEMORY(etm), NULL, 0, NULL);
-		e_tree_node_set_expanded(ml->tree, ml->tree_root, TRUE);
 	}
 
 	/*#define BROKEN_ETREE	
@@ -1647,31 +1647,17 @@ build_subtree (MessageList *ml, ETreePath parent, CamelFolderThreadNode *c, int 
 	ETreeModel *tree = ml->model;
 	ETreePath node;
 	char *id;
-	int expanded = FALSE;
 
 	while (c) {
 		if (c->message) {
 			id = new_id_from_uid(ml, camel_message_info_uid(c->message));
 			g_hash_table_insert(ml->uid_rowmap, id_uid(id), GINT_TO_POINTER ((*row)++));
-			if (c->child) {
-				if (c->message) {
-					char key[17];
-					sprintf(key, "%08x%08x", c->message->message_id.id.part.hi, c->message->message_id.id.part.lo);
-					expanded = !g_hash_table_lookup(expanded_nodes, key) != 0;
-				} else
-					expanded = TRUE;
-			}
 		} else {
 			id = new_id_from_subject(ml, c->root_subject);
-			if (c->child) {
-				expanded = !g_hash_table_lookup(expanded_nodes, id) != 0;
-			}
 		}
 		node = e_tree_memory_node_insert(E_TREE_MEMORY(tree), parent, -1, id);
 		if (c->child) {
 			/* by default, open all trees */
-			if (expanded)
-				e_tree_node_set_expanded(ml->tree, node, expanded);
 			build_subtree(ml, node, c->child, row, expanded_nodes);
 		}
 		c = c->next;
@@ -1757,26 +1743,14 @@ add_node_diff(MessageList *ml, ETreePath parent, ETreePath path, CamelFolderThre
 	ETreeModel *etm = ml->model;
 	ETreePath node;
 	char *id;
-	int expanded = FALSE;
 
 	if (c->message) {
 		id = new_id_from_uid(ml, camel_message_info_uid(c->message));
 		/* need to remove the id first, as GHashTable' wont replace the key pointer for us */
 		g_hash_table_remove(ml->uid_rowmap, id_uid(id));
 		g_hash_table_insert(ml->uid_rowmap, id_uid(id), GINT_TO_POINTER (*row));
-		if (c->child) {
-			if (c->message) {
-				char key[17];
-				sprintf(key, "%08x%08x", c->message->message_id.id.part.hi, c->message->message_id.id.part.lo);
-				expanded = !g_hash_table_lookup(expanded_nodes, key) != 0;
-			} else
-				expanded = TRUE;
-		}
 	} else {
 		id = new_id_from_subject(ml, c->root_subject);
-		if (c->child) {
-			expanded = !g_hash_table_lookup(expanded_nodes, id) != 0;
-		}
 	}
 
 	t(printf("Adding node: %s row %d\n", id, myrow));
@@ -1784,7 +1758,6 @@ add_node_diff(MessageList *ml, ETreePath parent, ETreePath path, CamelFolderThre
 	node = e_tree_memory_node_insert(E_TREE_MEMORY(etm), parent, myrow, id);
 	(*row)++;
 	if (c->child) {
-		e_tree_node_set_expanded(ml->tree, node, expanded);
 		t(printf("Building subtree ...\n"));
 		build_subtree_diff(ml, node, NULL, c->child, row, expanded_nodes);
 	}
