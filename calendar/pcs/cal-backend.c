@@ -798,16 +798,16 @@ cal_backend_get_changes (CalBackend *backend, CalObjType type, const char *chang
  * Return value: a #CalBackendResult value, which indicates the
  * result of the operation.
  **/
-CalBackendResult
-cal_backend_discard_alarm (CalBackend *backend, const char *uid, const char *auid)
+void
+cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, const char *auid)
 {
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (auid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (CLASS (backend)->discard_alarm != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (uid != NULL);
+	g_return_if_fail (auid != NULL);
 
-	return (* CLASS (backend)->discard_alarm) (backend, uid, auid);
+	g_assert (CLASS (backend)->discard_alarm != NULL);
+	(* CLASS (backend)->discard_alarm) (backend, cal, uid, auid);
 }
 
 void

@@ -165,12 +165,12 @@ module Calendar {
 		oneway void getStaticCapabilities ();
 
 		/* Return the cal address associated with this calendar, if any. */
-		oneway void getCalAddress ()
+		oneway void getCalAddress ();		
 
-		oneway void getAlarmEmailAddress ()
+		oneway void getAlarmEmailAddress ();
 
 		/* Returns the LDAP attribute to get attendees from */
-		oneway void getLdapAttribute ()
+		oneway void getLdapAttribute ();
 
 		/* For going online/offline */
 		void setMode (in CalMode mode);
@@ -198,9 +198,7 @@ module Calendar {
 			raises (NotFound, InvalidRange);
 
 		/* Discards an alarm from a given component */
-		void discardAlarm (in CalObjUID uid, in CalAlarmUID auid)
-			raises (NotFound);
-
+		oneway void discardAlarm (in CalObjUID uid, in CalAlarmUID auid);
 
 		/* Methods for manipulating iCalendar objects */
 		oneway void createObject (in CalObj calobj);
@@ -236,6 +234,8 @@ module Calendar {
 		oneway void notifyObjectCreated (in CallStatus status, in string uid);
 		oneway void notifyObjectModified (in CallStatus status);
 		oneway void notifyObjectRemoved (in CallStatus status);
+
+		oneway void notifyAlarmDiscarded (in CallStatus status);
 	
 		oneway void notifyObjectsReceived (in CallStatus status);
 		oneway void notifyObjectsSent (in CallStatus status);

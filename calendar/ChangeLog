@@ -1,3 +1,42 @@
+2003-09-25    <jpr@ximian.com>
+
+	* pcs/cal.c (impl_Cal_discardAlarm): just call the backend
+	function, it does the notification
+	(cal_notify_alarm_discarded): notify of discard alarm call
+
+	* pcs/cal-backend.h: update proto
+
+	* pcs/cal-backend.c (cal_backend_discard_alarm): call through
+
+	* pcs/cal-backend-sync.h: add proto, vmethod
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_discard_alarm): call
+	through
+	(_cal_backend_discard_alarm): call through and notify
+	(cal_backend_sync_class_init): set discard alarm implementation
+
+	* pcs/cal-backend-file.c (cal_backend_file_discard_alarm): match
+	sync backend vmethod
+	(cal_backend_file_class_init): set alarm vmethod implementation
+
+	* idl/evolution-calendar.idl: switch discardAlarm to new api
+
+	* gui/alarm-notify/alarm-queue.c (remove_queued_alarm): match new
+	api
+
+	* cal-client/cal-listener.h: add signal
+
+	* cal-client/cal-listener.c (impl_notifyAlarmDiscarded): implement
+	(cal_listener_class_init): add alarm, send, receive epv functions,
+	alarm signal
+
+	* cal-client/cal-client.h: update proto
+
+	* cal-client/cal-client.c (cal_alarm_discarded_cb): discardAlarm
+	callback
+	(cal_client_init): listen to discard alarm signal
+	(cal_client_discard_alarm): implement with new threaded sync api
+
 2003-09-25  JP Rosevear <jpr@ximian.com>
 
 	* idl/evolution-calendar.idl: remove unused user exceptions

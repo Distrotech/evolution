@@ -178,12 +178,12 @@ gboolean cal_client_get_alarms_for_object (CalClient *client, const char *uid,
 					   time_t start, time_t end,
 					   CalComponentAlarms **alarms);
 
-CalClientResult cal_client_discard_alarm (CalClient *client, CalComponent *comp, const char *auid);
-
 gboolean cal_client_create_object (CalClient *client, icalcomponent *icalcomp, char **uid, GError **error);
 gboolean cal_client_modify_object (CalClient *client, icalcomponent *icalcomp, CalObjModType mod, GError **error);
 gboolean cal_client_remove_object (CalClient *client, const char *uid, GError **error);
 gboolean cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjModType mod, GError **error);
+
+gboolean cal_client_discard_alarm (CalClient *client, CalComponent *comp, const char *auid, GError **error);
 
 gboolean cal_client_receive_objects (CalClient *client, icalcomponent *icalcomp, GError **error);
 gboolean cal_client_send_objects (CalClient *client, icalcomponent *icalcomp, GError **error);

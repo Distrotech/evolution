@@ -50,6 +50,7 @@ enum {
 	CREATE_OBJECT,
 	MODIFY_OBJECT,
 	REMOVE_OBJECT,
+	DISCARD_ALARM,
 	RECEIVE_OBJECTS,
 	SEND_OBJECTS,
 	OBJECT_LIST,
@@ -265,6 +266,23 @@ impl_notifyObjectRemoved (PortableServer_Servant servant,
 		return;
 
 	g_signal_emit (G_OBJECT (listener), signals[REMOVE_OBJECT], 0, convert_status (status));
+}
+
+static void
+impl_notifyAlarmDiscarded (PortableServer_Servant servant,
+			   GNOME_Evolution_Calendar_CallStatus status,
+			   CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[DISCARD_ALARM], 0, convert_status (status));
 }
 
 static void
@@ -545,6 +563,9 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyObjectCreated = impl_notifyObjectCreated;
 	klass->epv.notifyObjectModified = impl_notifyObjectModified;
 	klass->epv.notifyObjectRemoved = impl_notifyObjectRemoved;
+	klass->epv.notifyAlarmDiscarded = impl_notifyAlarmDiscarded;
+	klass->epv.notifyObjectsReceived = impl_notifyObjectsReceived;
+	klass->epv.notifyObjectsSent = impl_notifyObjectsSent;
 	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
 	klass->epv.notifyTimezoneRequested = impl_notifyTimezoneRequested;
 	klass->epv.notifyTimezoneAdded = impl_notifyTimezoneAdded;
@@ -633,6 +654,14 @@ cal_listener_class_init (CalListenerClass *klass)
 			      G_TYPE_FROM_CLASS (klass),
 			      G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (CalListenerClass, remove_object),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);
+	signals[DISCARD_ALARM] =
+		g_signal_new ("discard_alarm",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, discard_alarm),
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
 			      G_TYPE_NONE, 1, G_TYPE_INT);

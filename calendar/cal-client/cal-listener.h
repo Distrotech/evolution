@@ -64,6 +64,8 @@ typedef struct {
 	void (*modify_object) (CalListener *listener, ECalendarStatus status);
 	void (*remove_object) (CalListener *listener, ECalendarStatus status);
 
+	void (*discard_alarm) (CalListener *listener, ECalendarStatus status);
+
  	void (*receive_objects) (CalListener *listener, ECalendarStatus status);
  	void (*send_objects) (CalListener *listener, ECalendarStatus status);
 

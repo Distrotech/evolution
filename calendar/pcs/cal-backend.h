@@ -95,6 +95,8 @@ struct _CalBackendClass {
 	void (* modify_object) (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
 	void (* remove_object) (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
 
+	void (* discard_alarm) (CalBackend *backend, Cal *cal, const char *uid, const char *auid);
+
 	void (* receive_objects) (CalBackend *backend, Cal *cal, const char *calobj);
 	void (* send_objects) (CalBackend *backend, Cal *cal, const char *calobj);
 	
@@ -123,9 +125,6 @@ struct _CalBackendClass {
 	GNOME_Evolution_Calendar_CalObjChangeSeq * (* get_changes) (
 		CalBackend *backend, CalObjType type, const char *change_id);
 
-	/* Alarm related virtual methods */
-	CalBackendResult (* discard_alarm) (CalBackend *backend, const char *uid, const char *auid);
-
 	/* Internal methods for use only in the pcs */
 	icaltimezone *(* internal_get_default_timezone) (CalBackend *backend);
 	icaltimezone *(* internal_get_timezone) (CalBackend *backend, const char *tzid);
@@ -148,6 +147,8 @@ void cal_backend_remove (CalBackend *backend, Cal *cal);
 void cal_backend_create_object (CalBackend *backend, Cal *cal, const char *calobj);
 void cal_backend_modify_object (CalBackend *backend, Cal *cal, const char *calobj, CalObjModType mod);
 void cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
+
+void cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, const char *auid);
 
 void cal_backend_receive_objects (CalBackend *backend, Cal *cal, const char *calobj);
 void cal_backend_send_objects (CalBackend *backend, Cal *cal, const char *calobj);
@@ -183,7 +184,7 @@ GList *cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t star
 GNOME_Evolution_Calendar_CalObjChangeSeq * cal_backend_get_changes (
 	CalBackend *backend, CalObjType type, const char *change_id);
 
-CalBackendResult cal_backend_discard_alarm (CalBackend *backend, const char *uid, const char *auid);
+
 
 void cal_backend_add_cal (CalBackend *backend, Cal *cal);
 

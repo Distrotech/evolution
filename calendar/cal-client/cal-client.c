@@ -569,6 +569,28 @@ cal_object_removed_cb (CalListener *listener, ECalendarStatus status, gpointer d
 }
 
 static void
+cal_alarm_discarded_cb (CalListener *listener, ECalendarStatus status, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
 cal_objects_received_cb (CalListener *listener, ECalendarStatus status, gpointer data)
 {
 	CalClient *client = data;
@@ -899,6 +921,7 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "create_object", G_CALLBACK (cal_object_created_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "modify_object", G_CALLBACK (cal_object_modified_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "remove_object", G_CALLBACK (cal_object_removed_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "discard_alarm", G_CALLBACK (cal_alarm_discarded_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "receive_objects", G_CALLBACK (cal_objects_received_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "send_objects", G_CALLBACK (cal_objects_sent_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
@@ -2666,33 +2689,68 @@ cal_client_get_alarms_for_object (CalClient *client, const char *uid,
  * Return value: a #CalClientResult value indicating the result of the
  * operation.
  */
-CalClientResult
-cal_client_discard_alarm (CalClient *client, CalComponent *comp, const char *auid)
+gboolean
+cal_client_discard_alarm (CalClient *client, CalComponent *comp, const char *auid, GError **error)
 {
 	CalClientPrivate *priv;
-	CalClientResult retval;
 	CORBA_Environment ev;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 	const char *uid;
-
-	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_RESULT_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_COMPONENT (comp), CAL_CLIENT_RESULT_NOT_FOUND);
-	g_return_val_if_fail (auid != NULL, CAL_CLIENT_RESULT_NOT_FOUND);
+	
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
+
+	e_mutex_lock (client->priv->mutex);
+
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_URI_NOT_LOADED, error);
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_BUSY, error);
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
 
 	cal_component_get_uid (comp, &uid);
 
 	CORBA_exception_init (&ev);
+
 	GNOME_Evolution_Calendar_Cal_discardAlarm (priv->cal, uid, auid, &ev);
-	if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		retval = CAL_CLIENT_RESULT_NOT_FOUND;
-	else if (BONOBO_EX (&ev))
-		retval = CAL_CLIENT_RESULT_CORBA_ERROR;
-	else
-		retval = CAL_CLIENT_RESULT_SUCCESS;
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		E_CALENDAR_CHECK_STATUS (E_CALENDAR_STATUS_CORBA_EXCEPTION, error);
+	}
 
 	CORBA_exception_free (&ev);
-	return retval;
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 typedef struct _ForeachTZIDCallbackData ForeachTZIDCallbackData;

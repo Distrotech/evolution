@@ -347,14 +347,11 @@ impl_Cal_discardAlarm (PortableServer_Servant servant,
 {
 	Cal *cal;
 	CalPrivate *priv;
-	CalBackendResult result;
 
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	result = cal_backend_discard_alarm (priv->backend, uid, auid);
-	if (result == CAL_BACKEND_RESULT_NOT_FOUND)
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
+	cal_backend_discard_alarm (priv->backend, cal, uid, auid);
 }
 
 static void
@@ -1011,6 +1008,26 @@ cal_notify_objects_received (Cal *cal, GNOME_Evolution_Calendar_CallStatus statu
 	CORBA_exception_free (&ev);
 }
 
+void
+cal_notify_alarm_discarded (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyAlarmDiscarded (priv->listener, status, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": could not notify the listener of alarm discarded");
+
+	CORBA_exception_free (&ev);	
+}
 
 void
 cal_notify_objects_sent (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
@@ -1032,7 +1049,6 @@ cal_notify_objects_sent (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
 
 	CORBA_exception_free (&ev);	
 }
-
 
 void
 cal_notify_object_list (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, GList *objects)

@@ -1287,11 +1287,11 @@ cal_backend_file_get_changes (CalBackend *backend, CalObjType type, const char *
 }
 
 /* Discard_alarm handler for the file backend */
-static CalBackendResult
-cal_backend_file_discard_alarm (CalBackend *backend, const char *uid, const char *auid)
+static CalBackendSyncStatus
+cal_backend_file_discard_alarm (CalBackendSync *backend, Cal *cal, const char *uid, const char *auid)
 {
 	/* we just do nothing with the alarm */
-	return CAL_BACKEND_RESULT_SUCCESS;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 static CalBackendSyncStatus
@@ -1703,6 +1703,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	sync_class->create_object_sync = cal_backend_file_create_object;
 	sync_class->modify_object_sync = cal_backend_file_modify_object;
 	sync_class->remove_object_sync = cal_backend_file_remove_object;
+	sync_class->discard_alarm_sync = cal_backend_file_discard_alarm;
 	sync_class->receive_objects_sync = cal_backend_file_receive_objects;
 	sync_class->send_objects_sync = cal_backend_file_send_objects;
 	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
@@ -1718,7 +1719,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	backend_class->get_object_component = cal_backend_file_get_object_component;
 	backend_class->get_free_busy = cal_backend_file_get_free_busy;
 	backend_class->get_changes = cal_backend_file_get_changes;
-	backend_class->discard_alarm = cal_backend_file_discard_alarm;
+
 
 	backend_class->internal_get_default_timezone = cal_backend_file_internal_get_default_timezone;
 	backend_class->internal_get_timezone = cal_backend_file_internal_get_timezone;

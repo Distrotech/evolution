@@ -139,6 +139,16 @@ cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *u
 }
 
 CalBackendSyncStatus
+cal_backend_sync_discard_alarm (CalBackendSync *backend, Cal *cal, const char *uid, const char *auid)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->discard_alarm_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->discard_alarm_sync) (backend, cal, uid, auid);
+}
+
+CalBackendSyncStatus
 cal_backend_sync_receive_objects (CalBackendSync *backend, Cal *cal, const char *calobj,
 				  GList **created, GList **modified, GList **removed)
 {
@@ -321,6 +331,16 @@ _cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalO
 }
 
 static void
+_cal_backend_discard_alarm (CalBackend *backend, Cal *cal, const char *uid, const char *auid)
+{
+	CalBackendSyncStatus status;
+	
+	status = cal_backend_sync_discard_alarm (CAL_BACKEND_SYNC (backend), cal, uid, auid);
+
+	cal_notify_alarm_discarded (cal, status, uid, auid);
+}
+
+static void
 _cal_backend_receive_objects (CalBackend *backend, Cal *cal, const char *calobj)
 {
 	CalBackendSyncStatus status;
@@ -434,6 +454,7 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->create_object = _cal_backend_create_object;
 	backend_class->modify_object = _cal_backend_modify_object;
 	backend_class->remove_object = _cal_backend_remove_object;
+	backend_class->discard_alarm = _cal_backend_discard_alarm;
 	backend_class->receive_objects = _cal_backend_receive_objects;
 	backend_class->send_objects = _cal_backend_send_objects;
 	backend_class->get_object_list = _cal_backend_get_object_list;
