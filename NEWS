@@ -1,3 +1,56 @@
+Evolution 1.5.94, 2004-08-27
+----------------------------
+
+Bugzilla bugs fixed (see http://bugzilla.ximian.com/show_bug.cgi):
+
+ * Addressbook
+
+   #61833 - Blank names in name selector (Hans Petter)
+   #62715 - Free-form addresses not loading in contact editor (Hans Petter)
+
+ * Calendar
+
+   #62869 - Crash: attempt to access GW tasks from evolution (Siva)
+   #62706 - Changing time-zone doesn't refresh calendar correctly (JP)
+   #62063 - Meeting description does not wrap (Jeff)
+   #58824 - Stray message or failing to open tasks? (Rodrigo)
+   #62911 - ITIP control blocks mailer opening calendar (JP)
+   #54101 - In itip control had "Birthdays & Anniversaries" as calendar (JP)
+
+ * Mail
+
+   #63189 - Deleting IMAP folders is too aggressive  (Michael)
+   #63504 - Don't send IMAP commands to a disconnected socket  (Jeff)
+   #63177 - Can't drag folder to "On This Computer"  (Jeff)
+   #62812 - Crash when parent of search window is closed  (Jeff)
+   #62963 - C99-isms in smime/gui/cert-trust-dialog.c  (Michael)
+
+Other bugs
+
+  * Addressbook
+
+    - Confirmation dialog was showing up on contact-editor close,
+      even if there were no changes (Hans Petter)
+
+  * Calendar
+
+    - Fixed problems in alarm daemon (JP, Siva, Rodrigo)
+    - Clean up of stray status messages for tasks (Chen)
+    - Don't remove GtkDialog's separator if using GTK >= 2.4.0 (Frederic)
+    - Fix copy/move problems when pilot syncing (JP)
+    - Don't mark menu accels for translation (Christian)
+
+  * Mail
+
+    - Crash in em-utils on GtkFileChooser with no name selected (Hans Petter)
+
+  * Misc
+
+    - avoid warnings on dialogs with GTK 2.4 (Frederic)
+    - upgrade egg tray icon (Rodrigo)
+    - fix memory corruption when pilot syncing tasks/events (JP)
+   	
+
 Evolution 1.4.1, 2003-06-25
 ---------------------------
 
