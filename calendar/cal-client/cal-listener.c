@@ -110,7 +110,7 @@ impl_notifyReadOnly (PortableServer_Servant servant,
 	if (!priv->notify)
 		return;
 
-	g_signal_emit (G_OBJECT (listener), signals[READ_ONLY], 0, convert_status (status), &read_only);
+	g_signal_emit (G_OBJECT (listener), signals[READ_ONLY], 0, convert_status (status), read_only);
 }
 
 static void

@@ -1,5 +1,9 @@
 2003-09-26  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-listener.c (impl_notifyReadOnly): pass the
+	'read_only' argument to the signal callback correctly (a gboolean
+	not a 'gboolean *').
+
 	* gui/comp-editor-factory.c (resolve_pending_requests): removed
 	the g_assert on 'oc->pending != NULL', since there are now cases
 	(local calendar) where we get to call this function (cal_opened_cb)
