@@ -134,7 +134,8 @@ new_calendar_dialog (GtkWindow *parent)
 					  _("A group must be selected"));
 				continue;
 			}
-		}
+		} else
+			retry = FALSE; /* user pressed Cancel */
 	} while (retry);
 
 	/* free memory */
