@@ -12,38 +12,6 @@ e_messenger_backend_destroy(GtkObject *obj)
 	(* GTK_OBJECT_CLASS(parent_class)->destroy)(obj);
 } /* e_messenger_backend_destroy */
 
-static GNOME_Evolution_Messenger_Backend_SignonList *
-impl_MessengerBackend_get_signon_list(PortableServer_Servant servant,
-				      CORBA_Environment *ev)
-{
-	EMessengerBackend *backend;
-	EMessengerBackendClass *klass;
-	GSList *signons = NULL;
-	GSList *s;
-	int i;
-	GNOME_Evolution_Messenger_Backend_SignonList *signon_list;
-       
-	backend = E_MESSENGER_BACKEND(bonobo_object_from_servant(servant));
-	klass = E_MESSENGER_BACKEND_GET_CLASS(backend);
-
-	signons = (klass->get_signon_list)(backend);
-
-	signon_list = GNOME_Evolution_Messenger_Backend_SignonList__alloc();
-	CORBA_sequence_set_release(signon_list, TRUE);
-	signon_list->_length = g_slist_length(signons);
-	signon_list->_maximum = signon_list->_length;
-	signon_list->_buffer = 
-		CORBA_sequence_CORBA_string_allocbuf(signon_list->_maximum);
-
-	for (s = signons, i = 0; s; s = s->next, i++) {
-		CORBA_char *name = s->data;
-
-		signon_list->_buffer[i] = CORBA_string_dup(name);
-	}
-
-	return signon_list;
-} /* impl_MessengerBackend_get_signon_list */	
-
 static void
 impl_MessengerBackend_signoff(PortableServer_Servant servant, const char *id,
 			      CORBA_Environment *ev)
@@ -80,7 +48,7 @@ static void
 impl_MessengerBackend_change_status(
 	PortableServer_Servant servant,
 	const char *id,
-	const GNOME_Evolution_Messenger_Backend_Status status,
+	const GNOME_Evolution_Messenger_UserStatus status,
 	const CORBA_char *data,
 	CORBA_Environment *ev)
 {
@@ -177,7 +145,6 @@ e_messenger_backend_class_init(EMessengerBackendClass *klass)
 
 	/* Initialize CORBA class functions */
 	epv = &klass->epv;
-	epv->getSignons         = impl_MessengerBackend_get_signon_list;
 	epv->signoff            = impl_MessengerBackend_signoff;
 	epv->signoffAll         = impl_MessengerBackend_signoff_all;
 	epv->changeStatus       = impl_MessengerBackend_change_status;
@@ -260,9 +227,11 @@ e_messenger_backend_event_user_info(EMessengerBackend *backend, char *signon,
 } /* e_messenger_backend_event_user_info */
 
 void
-e_messenger_backend_event_user_update(EMessengerBackend *backend,
-				      char *signon, char *contact,
-				      gboolean online)
+e_messenger_backend_event_user_update(
+	EMessengerBackend *backend,
+	char *signon, char *contact,
+	gboolean online,
+	GNOME_Evolution_Messenger_UserStatus status)
 {
 	CORBA_Environment ev;
 	char *identity;
@@ -273,7 +242,7 @@ e_messenger_backend_event_user_update(EMessengerBackend *backend,
 
 	GNOME_Evolution_Messenger_Listener_contactUpdate(
 		backend->listener, CORBA_string_dup(identity), contact,
-		online, &ev);
+		online, status, &ev);
 	
 	g_free(identity);
 

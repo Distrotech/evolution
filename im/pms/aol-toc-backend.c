@@ -63,14 +63,24 @@ user_info_cb(TOCConnection *conn, char *info, AOLTOCBackend *backend)
 } /* user_info_cb */
 
 static void
-user_update_cb(TOCConnection *conn, char *contact, gboolean online, 
-	       AOLTOCBackend *backend)
+user_update_cb(TOCConnection *conn, char *contact,
+	       TOCConnectionUserFlags flags, int evil, time_t conn_time,
+	       int idle, AOLTOCBackend *backend)
 {
 	char *id;
+	gboolean online;
+	GNOME_Evolution_Messenger_UserStatus status;
+
+	online = flags & USER_FLAGS_CONNECTED;
+	
+	if (flags & USER_FLAGS_UNAVAILABLE)
+		status = GNOME_Evolution_Messenger_UserStatus_AWAY;
+	else
+		status = GNOME_Evolution_Messenger_UserStatus_ONLINE;
 
 	id = gtk_object_get_user_data(GTK_OBJECT(conn));
 	e_messenger_backend_event_user_update(
-		E_MESSENGER_BACKEND(backend), id, contact, online);
+		E_MESSENGER_BACKEND(backend), id, contact, online, status);
 } /* user_update_cb */
 
 static void
@@ -92,11 +102,17 @@ aol_toc_get_signons(EMessengerBackend *b)
 } /* aol_toc_get_signons */
 
 static EMessengerBackendError
-aol_toc_signon(EMessengerBackend *b, const char *name, const char *password)
+aol_toc_signon(EMessengerBackend *b, const char *name, const char *password,
+	       GNOME_Evolution_Messenger_Listener listener)
 {
 	AOLTOCBackend *backend = AOL_TOC_BACKEND(b);
 	TOCConnection *conn;
 	TOCConnectionStatus s;
+
+	if (b->listener)
+		g_warning("There is already a listener for backend %p\n", b);
+			  
+	b->listener = listener;
 
 	conn = toc_connection_new();
 	gtk_object_set_user_data(GTK_OBJECT(conn), g_strdup(name));
@@ -146,7 +162,7 @@ aol_toc_signoff(EMessengerBackend *b, const char *id)
 
 static void
 aol_toc_change_status(EMessengerBackend *b, const char *id,
-		      const GNOME_Evolution_Messenger_Backend_Status status,
+		      const GNOME_Evolution_Messenger_UserStatus status,
 		      const CORBA_char *data)
 {
 	AOLTOCBackend *backend = AOL_TOC_BACKEND(b);
@@ -156,14 +172,14 @@ aol_toc_change_status(EMessengerBackend *b, const char *id,
 	conn = g_hash_table_lookup(backend->priv->connections, id);
 
 	switch (status) {
-	case GNOME_Evolution_Messenger_Backend_ONLINE:
+	case GNOME_Evolution_Messenger_UserStatus_ONLINE:
 		toc_connection_set_away(conn, NULL);
 		break;
-	case GNOME_Evolution_Messenger_Backend_IDLE:
+	case GNOME_Evolution_Messenger_UserStatus_IDLE:
 		idle = atoi(data);
 		toc_connection_set_idle(conn, idle);
 		break;
-	case GNOME_Evolution_Messenger_Backend_AWAY:
+	case GNOME_Evolution_Messenger_UserStatus_AWAY:
 		toc_connection_set_away(conn, data);
 		break;
 	default:

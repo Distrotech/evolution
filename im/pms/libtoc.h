@@ -10,13 +10,24 @@
 #define IS_TOC_CONNECTION_CLASS(klass)  (GTK_CHECK_CLASS_TYPE((klass), TOC_CONNECTION_TYPE))
 #define TOC_CONNECTION_GET_CLASS(obj)   (TOC_CONNECTION_CLASS(GTK_OBJECT(obj)->klass))
 
-typedef   enum _TOCConnectionStatus TOCConnectionStatus;
-typedef struct _TOCConnection       TOCConnection;
-typedef struct _TOCConnectionClass  TOCConnectionClass;
+typedef   enum _TOCConnectionStatus    TOCConnectionStatus;
+typedef   enum _TOCConnectionUserFlags TOCConnectionUserFlags;
+typedef struct _TOCConnection          TOCConnection;
+typedef struct _TOCConnectionClass     TOCConnectionClass;
 
 enum _TOCConnectionStatus {
 	TOC_CONNECTION_OK,
 	TOC_CONNECTION_ERROR
+};
+
+enum _TOCConnectionUserFlags {
+	USER_FLAGS_NONE              = 0,
+	USER_FLAGS_CONNECTED         = 1 << 0,
+	USER_FLAGS_ON_AOL            = 1 << 1,
+	USER_FLAGS_OSCAR_ADMIN       = 1 << 2,
+	USER_FLAGS_OSCAR_UNCONFIRMED = 1 << 3,
+	USER_FLAGS_OSCAR_NORMAL      = 1 << 4,
+	USER_FLAGS_UNAVAILABLE       = 1 << 5
 };
 
 struct _TOCConnection {
@@ -40,7 +51,9 @@ struct _TOCConnectionClass {
 	void (*user_info)(
 		TOCConnection *conn, char *info);
 	void (*user_update)(
-		TOCConnection *conn, char *contact, gboolean online);
+		TOCConnection *conn, char *contact,
+		TOCConnectionUserFlags flags, int evil_amount,
+		time_t connection_time, int idle_time);
 };
 
 GtkType toc_connection_get_type(void);

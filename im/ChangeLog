@@ -1,3 +1,13 @@
 2001-10-27  Joe Shaw  <joe@ximian.com>
 
+	* Messenger.idl: Move the "Status" enum out of the Backend
+	interface and into the toplevel Messenger module.  Change the name
+	to UserStatus and prefix all of the enumerators with "UserStatus_"
+	because CORBA C bindings suck.  Change the Listener:SignonError
+	enum accordingly because, again, CORBA C bindings suck.
+	(contactUpdate): Take a UserStatus argument.
+	(getSignons): delete.
+
+2001-10-27  Joe Shaw  <joe@ximian.com>
+
 	* Initial import

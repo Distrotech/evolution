@@ -3,31 +3,28 @@
 module GNOME {
 module Evolution {
 module Messenger {
+	enum UserStatus {
+		UserStatus_ONLINE,
+		UserStatus_IDLE,
+		UserStatus_AWAY,
+		UserStatus_NOT_AVAILABLE,
+		UserStatus_OCCUPIED,
+		UserStatus_INVISIBLE,
+		UserStatus_FREE_CHAT
+	};
+	
 	typedef string Identity;
 
 	interface Backend : Bonobo::Unknown {
 		exception UnknownContact {};
 
-		enum Status {
-			ONLINE,
-			IDLE,
-			AWAY,
-			NOT_AVAILABLE,
-			OCCUPIED,
-			INVISIBLE,
-			FREE_CHAT
-		};
-
 		typedef sequence<string> SignonList;
-
-		/* Get a list of the signons in this backend */
-		SignonList getSignons();
 
 		void signoff(in string signon);
 
 		void signoffAll();
 
-		void changeStatus(in string signon, in Status status,
+		void changeStatus(in string signon, in UserStatus status,
 				  in string data);
 
 		void sendMessage(in string signon, in string contact, 
@@ -45,9 +42,9 @@ module Messenger {
 
 	interface Listener : Bonobo::Unknown {
 		enum SignonError {
-			NONE,
-			INVALID_LOGIN,
-			NET_FAILURE
+			SignonError_NONE,
+			SignonError_INVALID_LOGIN,
+			SignonError_NET_FAILURE
 		};
 
 		/* Async responses */
@@ -60,7 +57,7 @@ module Messenger {
 				    in string message);
 		void contactInfo(in Identity id, in string info);
 		void contactUpdate(in Identity id, in string contact,
-				   in boolean online);
+				   in boolean online, in UserStatus status);
 	};
 		
 

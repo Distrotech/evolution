@@ -1,7 +1,9 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <gtk/gtk.h>
 #include "libtoc.h"
 
@@ -55,6 +57,28 @@ toc_connection_destroy(GtkObject *obj)
 	(* GTK_OBJECT_CLASS(parent_class)->destroy)(obj);
 } /* toc_connection_destroy */
 
+typedef void (*GtkSignal_NONE__POINTER_INT_INT_INT_INT)(GtkObject *object,
+							gpointer arg1,
+							int arg2,
+							int arg3,
+							int arg4,
+							int arg5,
+							gpointer user_data);
+
+static void
+e_marshal_NONE__POINTER_INT_INT_INT_INT(GtkObject *object,
+					GtkSignalFunc func,
+					gpointer func_data,
+					GtkArg *args)
+{
+	GtkSignal_NONE__POINTER_INT_INT_INT_INT rfunc;
+	rfunc = (GtkSignal_NONE__POINTER_INT_INT_INT_INT) func;
+	(*rfunc)(
+		object, GTK_VALUE_POINTER(args[0]), GTK_VALUE_INT(args[1]),
+		GTK_VALUE_INT(args[2]), GTK_VALUE_INT(args[3]),
+		GTK_VALUE_INT(args[4]), func_data);
+} /* e_marshal_NONE__POINTER_INT_INT_INT_INT */
+
 static void
 toc_connection_class_init(TOCConnectionClass *klass)
 {
@@ -101,9 +125,12 @@ toc_connection_class_init(TOCConnectionClass *klass)
 			       object_class->type,
 			       GTK_SIGNAL_OFFSET(
 				       TOCConnectionClass, user_update),
-			       gtk_marshal_NONE__POINTER_INT,
-			       GTK_TYPE_NONE, 2,
+			       e_marshal_NONE__POINTER_INT_INT_INT_INT,
+			       GTK_TYPE_NONE, 5,
 			       GTK_TYPE_POINTER,
+			       GTK_TYPE_INT,
+			       GTK_TYPE_INT,
+			       GTK_TYPE_INT,
 			       GTK_TYPE_INT);
 
 	gtk_object_class_add_signals(object_class, signals, LAST_SIGNAL);
@@ -368,12 +395,40 @@ read_data(GIOChannel *channel, GIOCondition cond, TOCConnection *conn)
 			
 	}
 	else if (len >= 12 && strncmp(in, "UPDATE_BUDDY", 12) == 0) {
+		/* UPDATE_BUDDY:<Buddy User>:<Online? T/F>:<Evil Amount>:
+		 * <Signon Time>:<IdleTime>:<UC>
+		 */
+
 		char **v;
+		TOCConnectionUserFlags flags = USER_FLAGS_NONE;
+		int evil, idle;
+		time_t conn_time;
 
 		v = g_strsplit(in, ":", 6);
+
+		if (v[2][0] == 'T')
+			flags |= USER_FLAGS_CONNECTED;
+
+		evil = atoi(v[3]);
+		conn_time = atoi(v[4]);
+		idle = atoi(v[5]);
+
+		if (v[6][0] == 'A')
+			flags |= USER_FLAGS_ON_AOL;
+
+		if (v[6][1] == 'A')
+			flags |= USER_FLAGS_OSCAR_ADMIN;
+		else if (v[6][1] == 'U')
+			flags |= USER_FLAGS_OSCAR_UNCONFIRMED;
+		else if (v[6][1] == 'O')
+			flags |= USER_FLAGS_OSCAR_NORMAL;
+
+		if (v[6][2] == 'U')
+			flags |= USER_FLAGS_UNAVAILABLE;
+
 		gtk_signal_emit(
 			GTK_OBJECT(conn), signals[USER_UPDATE], v[1], 
-			v[2][0] == 'T' ? TRUE : FALSE);
+			flags, evil, conn_time, idle);
 		g_strfreev(v);
 	}
 	else if (len >= 8 && strncmp(in, "GOTO_URL", 8) == 0) {
@@ -433,8 +488,6 @@ aim_encode(const char *s)
 void
 toc_connection_keepalive(TOCConnection *conn)
 {
-	char *req;
-
 	sflap_send(conn, FRAME_TYPE_KEEP_ALIVE, NULL);
 } /* toc_connection_keepalive */
 

@@ -36,38 +36,38 @@ struct _EMessengerBackendClass {
 	POA_GNOME_Evolution_Messenger_Backend__epv epv;
 
 	/* Virtual functions */
-	GSList *(*get_signon_list)(EMessengerBackend *backend);
+	GSList *(* get_signon_list)(EMessengerBackend *backend);
 	EMessengerBackendError (*signon)(
 		EMessengerBackend *backend, 
 		const char *signon, 
 		const char *password,
-		Bonobo_Listener listener);
-	void (*signoff)(
+		GNOME_Evolution_Messenger_Listener listener);
+	void (* signoff)(
 		EMessengerBackend *backend, 
 		const char *signon);
-	void (*change_status)(
+	void (* change_status)(
 		EMessengerBackend *backend,
 		const char *signon,
-		const GNOME_Evolution_Messenger_Backend_Status status,
+		const GNOME_Evolution_Messenger_UserStatus status,
 		const CORBA_char *data);
-	void (*send_message)(
+	void (* send_message)(
 		EMessengerBackend *backend,
 		const char *signon,
 		const CORBA_char *contact,
 		const CORBA_char *message);
-	void (*contact_info)(
+	void (* contact_info)(
 		EMessengerBackend *backend, 
 		const char *signon, 
 		const char *contact);
-	void (*add_contact)(
+	void (* add_contact)(
 		EMessengerBackend *backend, 
 		const char *signon,
 		const char *contact);
-	void (*remove_contact)(
+	void (* remove_contact)(
 		EMessengerBackend *backend, 
 		const char *signon, 
 		const char *contact);
-	void (*keepalive)(
+	void (* keepalive)(
 		EMessengerBackend *backend, 
 		const char *signon);
 };
@@ -82,6 +82,7 @@ void e_messenger_backend_event_receive_message(
 void e_messenger_backend_event_user_info(
 	EMessengerBackend *backend, char *id, char *info);
 void e_messenger_backend_event_user_update(
-	EMessengerBackend *backend, char *id, char *contact, gboolean online);
+	EMessengerBackend *backend, char *id, char *contact, gboolean online,
+	GNOME_Evolution_Messenger_UserStatus status);
 
 #endif /* E_MESSENGER_BACKEND_H */

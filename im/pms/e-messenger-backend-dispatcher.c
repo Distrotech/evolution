@@ -110,6 +110,9 @@ BONOBO_X_TYPE_FUNC_FULL(EMessengerBackendDispatcher,
 			GNOME_Evolution_Messenger_BackendDispatcher,
 			PARENT_TYPE, e_messenger_backend_dispatcher);
 
+/* Temporary.  See below. */
+#include "aol-toc-backend.h"
+
 EMessengerBackendDispatcher *
 e_messenger_backend_dispatcher_new(void)
 {
