@@ -57,7 +57,7 @@ struct _event_node {
 
 	GSList *events;
 	void *data;
-	EEventFreeFunc freefunc;
+	EEventItemsFunc freefunc;
 };
 
 struct _event_info {
@@ -68,7 +68,7 @@ struct _event_info {
 struct _EEventPrivate {
 	EDList events;
 
-	GSList *sorted;
+	GSList *sorted;		/* sorted list of struct _event_info's */
 };
 
 static GObjectClass *ep_parent;
@@ -98,7 +98,7 @@ ep_finalise(GObject *o)
 
 	while ((node = (struct _event_node *)e_dlist_remhead(&p->events))) {
 		if (node->freefunc)
-			node->freefunc(node->events, node->data);
+			node->freefunc(emp, node->events, node->data);
 
 		g_free(node);
 	}
@@ -127,6 +127,13 @@ ep_class_init(GObjectClass *klass)
 	((EEventClass *)klass)->target_free = ep_target_free;
 }
 
+/**
+ * e_event_get_type:
+ * 
+ * Standard GObject type function.  Used to subclass EEvent.
+ * 
+ * Return value: The EEvent type.
+ **/
 GType
 e_event_get_type(void)
 {
@@ -147,6 +154,15 @@ e_event_get_type(void)
 	return type;
 }
 
+/**
+ * e_event_construct:
+ * @ep: An instantiated but uninitialised EEvent.
+ * @id: Event manager id.
+ * 
+ * Construct the base event instance with standard parameters.
+ * 
+ * Return value: Returns @ep.
+ **/
 EEvent *e_event_construct(EEvent *ep, const char *id)
 {
 	ep->id = g_strdup(id);
@@ -156,22 +172,17 @@ EEvent *e_event_construct(EEvent *ep, const char *id)
 
 /**
  * e_event_add_items:
- * @emp: 
- * @items: 
- * @freefunc: 
+ * @emp: An initialised EEvent structure.
+ * @items: A list of EEventItems event listeners to register on this event manager.
+ * @freefunc: A function called when the @items list is no longer needed.
+ * @data: callback data for @freefunc and for item event handlers.
  * 
- * Add new EEventItems to the menu's.  Any with the same path
- * will override previously defined menu items, at menu building
- * time.
+ * Adds @items to the list of events listened to on the event manager @emp.
  **/
 void
-e_event_add_items(EEvent *emp, GSList *items, EEventFreeFunc freefunc, void *data)
+e_event_add_items(EEvent *emp, GSList *items, EEventItemsFunc freefunc, void *data)
 {
 	struct _event_node *node;
-	GSList *l;
-
-	for (l=items;l;l=g_slist_next(l))
-		((EEventItem *)l->data)->event = emp;
 
 	node = g_malloc(sizeof(*node));
 	node->events = items;
@@ -202,8 +213,9 @@ ee_cmp(const void *ap, const void *bp)
 
 /**
  * e_event_emit:
- * @ee: 
- * @target: 
+ * @ee: An initialised EEvent, potentially with registered event listeners.
+ * @id: Event name.  This will be compared against EEventItem.id.
+ * @target: The target describing the event context.  This will be implementation defined.
  * 
  * Emit an event.  @target will automatically be freed once its
  * emission is complete.
@@ -216,6 +228,9 @@ e_event_emit(EEvent *emp, const char *id, EEventTarget *target)
 
 	printf("emit event %s\n", id);
 
+	g_assert(emp->target == NULL);
+
+	emp->target = target;
 	events = p->sorted;
 	if (events == NULL) {
 		struct _event_node *node = (struct _event_node *)p->events.head;
@@ -246,7 +261,7 @@ e_event_emit(EEvent *emp, const char *id, EEventTarget *target)
 			continue;
 
 		if (strcmp(event->id, id) == 0) {
-			event->handle(event, target, event->handle_data);
+			event->handle(emp, event, info->parent->data);
 
 			if (event->type == E_EVENT_SINK)
 				break;
@@ -254,15 +269,18 @@ e_event_emit(EEvent *emp, const char *id, EEventTarget *target)
 	}
 
 	e_event_target_free(emp, target);
+	emp->target = NULL;
 }
 
 /**
  * e_event_target_new:
- * @klass: 
+ * @ep: An initialised EEvent instance.
  * @type: type, up to implementor
- * @size: 
+ * @size: The size of memory to allocate.  This must be >= sizeof(EEventTarget).
  * 
- * Allocate a new event target suitable for this class.
+ * Allocate a new event target suitable for this class.  It is up to
+ * the implementation to define the available target types and their
+ * structure.
  **/
 void *e_event_target_new(EEvent *ep, int type, size_t size)
 {
@@ -280,10 +298,10 @@ void *e_event_target_new(EEvent *ep, int type, size_t size)
 
 /**
  * e_event_target_free:
- * @ep: 
- * @o: 
+ * @ep: An initialised EEvent instance on which this target was allocated.
+ * @o: The target to free.
  * 
- * Free a target 
+ * Free a target.  This invokes the virtual free method on the EEventClass.
  **/
 void
 e_event_target_free(EEvent *ep, void *o)
@@ -346,22 +364,23 @@ static const EPluginHookTargetKey emph_item_types[] = {
 };
 
 static void
-emph_event_handle(EEventItem *eitem, EEventTarget *target, void *data)
+emph_event_handle(EEvent *ee, EEventItem *item, void *data)
 {
-	struct _EEventHookItem *item = (EEventHookItem *)eitem;
+	struct _EEventHook *hook = data;
 
-	e_plugin_invoke(item->hook->hook.plugin, item->handle, target);
+	e_plugin_invoke(hook->hook.plugin, (char *)item->user_data, ee->target);
 }
 
 static void
-emph_free_item(struct _EEventHookItem *item)
+emph_free_item(struct _EEventItem *item)
 {
-	g_free(item->handle);
+	g_free((char *)item->id);
+	g_free(item->user_data);
 	g_free(item);
 }
 
 static void
-emph_free_items(GSList *items, void *data)
+emph_free_items(EEvent *ee, GSList *items, void *data)
 {
 	/*EPluginHook *eph = data;*/
 
@@ -369,10 +388,10 @@ emph_free_items(GSList *items, void *data)
 	g_slist_free(items);
 }
 
-static struct _EEventHookItem *
+static struct _EEventItem *
 emph_construct_item(EPluginHook *eph, xmlNodePtr root, EEventHookClass *klass)
 {
-	struct _EEventHookItem *item;
+	struct _EEventItem *item;
 	EEventHookTargetMap *map;
 	char *tmp;
 
@@ -385,21 +404,19 @@ emph_construct_item(EPluginHook *eph, xmlNodePtr root, EEventHookClass *klass)
 	xmlFree(tmp);
 	if (map == NULL)
 		goto error;
-	item->item.target_type = map->id;
-	item->item.type = e_plugin_hook_id(root, emph_item_types, "type");
-	if (item->item.type == -1)
-		item->item.type = E_EVENT_PASS;
-	item->item.priority = e_plugin_xml_int(root, "priority", 0);
-	item->item.id = e_plugin_xml_prop(root, "id");
-	item->item.enable = e_plugin_hook_mask(root, map->mask_bits, "enable");
-	item->handle = e_plugin_xml_prop(root, "handle");
+	item->target_type = map->id;
+	item->type = e_plugin_hook_id(root, emph_item_types, "type");
+	if (item->type == -1)
+		item->type = E_EVENT_PASS;
+	item->priority = e_plugin_xml_int(root, "priority", 0);
+	item->id = e_plugin_xml_prop(root, "id");
+	item->enable = e_plugin_hook_mask(root, map->mask_bits, "enable");
+	item->user_data = e_plugin_xml_prop(root, "handle");
 
-	if (item->handle == NULL || item->item.id == NULL)
+	if (item->user_data == NULL || item->id == NULL)
 		goto error;
 
-	item->item.handle = emph_event_handle;
-	item->item.handle_data = item;
-	item->hook = emph;
+	item->handle = emph_event_handle;
 
 	return item;
 error:
@@ -426,7 +443,7 @@ emph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 	node = root->children;
 	while (node) {
 		if (strcmp(node->name, "event") == 0) {
-			struct _EEventHookItem *item;
+			struct _EEventItem *item;
 
 			item = emph_construct_item(eph, node, klass);
 			if (item)
@@ -465,6 +482,14 @@ emph_class_init(EPluginHookClass *klass)
 	((EEventHookClass *)klass)->target_map = g_hash_table_new(g_str_hash, g_str_equal);
 }
 
+/**
+ * e_event_hook_get_type:
+ * 
+ * Standard GObject function to get the EEvent object type.  Used to
+ * subclass EEventHook.
+ * 
+ * Return value: The type of the event hook class.
+ **/
 GType
 e_event_hook_get_type(void)
 {
@@ -483,6 +508,16 @@ e_event_hook_get_type(void)
 	return type;
 }
 
+/**
+ * e_event_hook_class_add_target_map:
+ * @klass: The derived EEventHook class.
+ * @map: A map used to describe a single EEventTarget type for this
+ * class.
+ * 
+ * Add a target map to a concrete derived class of EEvent.  The target
+ * map enumerates a single target type and th eenable mask bit names,
+ * so that the type can be loaded automatically by the base EEvent class.
+ **/
 void e_event_hook_class_add_target_map(EEventHookClass *klass, const EEventHookTargetMap *map)
 {
 	g_hash_table_insert(klass->target_map, (void *)map->type, (void *)map);

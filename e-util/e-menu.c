@@ -44,11 +44,23 @@ struct _EMenuFactory {
 	void *factory_data;
 };
 
+struct _item_node {
+	struct _item_node *next;
+
+	EMenuItem *item;
+	struct _menu_node *menu;
+};
+
 struct _menu_node {
 	struct _menu_node *next, *prev;
 
+	EMenu *parent;
+
 	GSList *menu;
-	GDestroyNotify freefunc;
+	EMenuItemsFunc freefunc;
+	void *data;
+
+	struct _item_node *items;
 };
 
 struct _pixmap_node {
@@ -67,7 +79,6 @@ struct _ui_node {
 	char *appname;
 	char *filename;
 };
-
 
 struct _EMenuPrivate {
 	EDList menus;
@@ -104,8 +115,19 @@ em_finalise(GObject *o)
 	g_free(em->menuid);
 
 	while ((mnode = (struct _menu_node *)e_dlist_remhead(&p->menus))) {
+		struct _item_node *inode;
+
 		if (mnode->freefunc)
-			mnode->freefunc(mnode->menu);
+			mnode->freefunc(em, mnode->menu, mnode->data);
+
+		inode = mnode->items;
+		while (inode) {
+			struct _item_node *nnode = inode->next;
+
+			g_free(inode);
+			inode = nnode;
+		}
+
 		g_free(mnode);
 	}
 
@@ -153,6 +175,13 @@ em_base_init(GObjectClass *klass)
 	e_dlist_init(&((EMenuClass *)klass)->factories);
 }
 
+/**
+ * e_menu_get_type:
+ * 
+ * Standard GObject type function.  Used to subclass this type only.
+ * 
+ * Return value: The EMenu object type.
+ **/
 GType
 e_menu_get_type(void)
 {
@@ -174,6 +203,15 @@ e_menu_get_type(void)
 	return type;
 }
 
+/**
+ * e_menu_construct:
+ * @em: An instantiated but uninitislied EPopup.
+ * @menuid: The unique identifier for this menu.
+ * 
+ * Construct the base menu instance based on the parameters.
+ * 
+ * Return value: Returns @em.
+ **/
 EMenu *e_menu_construct(EMenu *em, const char *menuid)
 {
 	struct _EMenuFactory *f;
@@ -205,6 +243,18 @@ EMenu *e_menu_construct(EMenu *em, const char *menuid)
 	return em;
 }
 
+/**
+ * e_menu_add_ui:
+ * @em: An initialised EMenu.
+ * @appdir: Application directory passed eo bonobo_ui_util_set_ui().
+ * @appname: Application name passed to bonobo_ui_util_set_ui().
+ * @filename: Filename of BonoboUI XML file, passed to
+ * bonobo_ui_util_set_ui().
+ * 
+ * Add a BonoboUI file to the list which will be loaded when the
+ * parent control is activated.  @appdir, @appname and @filename will
+ * be passed unaltered to bonobo_ui_util_set_ui().
+ **/
 void
 e_menu_add_ui(EMenu *em, const char *appdir, const char *appname, const char *filename)
 {
@@ -218,13 +268,25 @@ e_menu_add_ui(EMenu *em, const char *appdir, const char *appname, const char *fi
 	e_dlist_addtail(&p->uis, (EDListNode*)ap);
 }
 
+/**
+ * e_menu_add_pixmap:
+ * @em: An initialised EMenu.
+ * @cmd: The command to which this pixmap should be associated.
+ * @name: The name of the pixmap, an icon theme name or stock icon
+ * name or full pathname of an icon file.
+ * @size: The e-icon-factory icon size.
+ * 
+ * Adds a pixmap descriptor to the menu @em.  The icon @name will be
+ * converted to an xml string and set on the UIComponent when the view
+ * is activated.  This is used to allow stock pixmap names to be used
+ * in the UI files.
+ **/
 void
 e_menu_add_pixmap(EMenu *em, const char *cmd, const char *name, int size)
 {
 	struct _EMenuPrivate *p = em->priv;
 	struct _pixmap_node *pn;
 	GdkPixbuf *pixbuf;
-	char *pixbufstr;
 
 	pixbuf = e_icon_factory_get_icon(name, size);
 	if (pixbuf == NULL) {
@@ -232,36 +294,48 @@ e_menu_add_pixmap(EMenu *em, const char *cmd, const char *name, int size)
 		return;
 	}
 
-	pixbufstr = bonobo_ui_util_pixbuf_to_xml(pixbuf);
-	g_object_unref(pixbuf);
-
 	pn = g_malloc0(sizeof(*pn));
-	pn->pixmap = pixbufstr;
+	pn->pixmap = bonobo_ui_util_pixbuf_to_xml(pixbuf);
 	pn->cmd = g_strdup(cmd);
+
+	g_object_unref(pixbuf);
 
 	e_dlist_addtail(&p->pixmaps, (EDListNode *)pn);
 }
 
 /**
  * e_menu_add_items:
- * @emp: 
- * @items: 
- * @freefunc: 
+ * @emp: An initialised EMenu.
+ * @items: A list of EMenuItems or derived structures defining a group
+ * of menu items for this menu.
+ * @freefunc: If supplied, called when the menu items are no longer needed.
+ * @data: user-data passed to @freefunc and activate callbacks.
  * 
- * Add new EMenuItems to the menu's.
+ * Add new EMenuItems to the menu's.  This may be called any number of
+ * times before the menu is first activated to hook onto any of the
+ * menu items defined for that view.
  **/
 void
-e_menu_add_items(EMenu *emp, GSList *items, GDestroyNotify freefunc)
+e_menu_add_items(EMenu *emp, GSList *items, EMenuItemsFunc freefunc, void *data)
 {
 	struct _menu_node *node;
 	GSList *l;
 
-	for (l=items;l;l=g_slist_next(l))
-		((EMenuItem *)l->data)->menu = emp;
-
 	node = g_malloc(sizeof(*node));
+	node->parent = emp;
 	node->menu = items;
 	node->freefunc = freefunc;
+	node->data = data;
+
+	for (l=items;l;l=g_slist_next(l)) {
+		struct _item_node *inode = g_malloc0(sizeof(*inode));
+		EMenuItem *item = l->data;
+
+		inode->item = item;
+		inode->menu = node;
+		inode->next = node->items;
+		node->items = inode;
+	}
 
 	e_dlist_addtail(&emp->priv->menus, (EDListNode *)node);
 }
@@ -269,22 +343,36 @@ e_menu_add_items(EMenu *emp, GSList *items, GDestroyNotify freefunc)
 static void
 em_activate_toggle(BonoboUIComponent *component, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
 {
-	EMenuItem *item = data;
+	struct _item_node *inode = data;
 
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
-	((EMenuToggleActivateFunc)item->activate)(item, state[0] != '0', item->activate_data);
+	((EMenuToggleActivateFunc)inode->item->activate)(inode->menu->parent, inode->item, state[0] != '0', inode->menu->data);
 }
 
 static void
 em_activate(BonoboUIComponent *uic, void *data, const char *cname)
 {
-	EMenuItem *item = data;
+	struct _item_node *inode = data;
 
-	((EMenuActivateFunc)item->activate)(item, item->activate_data);
+	((EMenuActivateFunc)inode->item->activate)(inode->menu->parent, inode->item, inode->menu->data);
 }
 
+/**
+ * e_menu_activate:
+ * @em: An initialised EMenu.
+ * @uic: The BonoboUI component for this views menu's.
+ * @act: If %TRUE, then the control is being activated.
+ * 
+ * This is called by the owner of the component, control, or view to
+ * pass on the activate or deactivate control signals.  If the view is
+ * being activated then the callbacks and menu items are setup,
+ * otherwise they are removed.
+ *
+ * This should always be called in the strict sequence of activate, then
+ * deactivate, repeated any number of times.
+ **/
 void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 {
 	struct _EMenuPrivate *p = em->priv;
@@ -295,6 +383,7 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 		GArray *verbs;
 		int i;
 		struct _ui_node *ui;
+		struct _pixmap_node *pn;
 
 		em->uic = uic;
 
@@ -305,8 +394,10 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 
 		verbs = g_array_new(TRUE, FALSE, sizeof(BonoboUIVerb));
 		for (mw = (struct _menu_node *)p->menus.head;mw->next;mw=mw->next) {
-			for (l = mw->menu;l;l=g_slist_next(l)) {
-				EMenuItem *item = l->data;
+			struct _item_node *inode;
+
+			for (inode = mw->items; inode; inode=inode->next) {
+				EMenuItem *item = inode->item;
 				BonoboUIVerb *verb;
 
 				printf("adding menu verb '%s'\n", item->verb);
@@ -319,11 +410,11 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 
 					verb->cname = item->verb;
 					verb->cb = em_activate;
-					verb->user_data = item;
+					verb->user_data = inode;
 					break;
 				case E_MENU_TOGGLE:
 					bonobo_ui_component_set_prop(uic, item->path, "state", item->type & E_MENU_ACTIVE?"1":"0", NULL);
-					bonobo_ui_component_add_listener(uic, item->verb, em_activate_toggle, item);
+					bonobo_ui_component_add_listener(uic, item->verb, em_activate_toggle, inode);
 					break;
 				}
 			}
@@ -333,6 +424,10 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 			bonobo_ui_component_add_verb_list(uic, (BonoboUIVerb *)verbs->data);
 
 		g_array_free(verbs, TRUE);
+
+		/* TODO: maybe we only need to do this once? */
+		for (pn = (struct _pixmap_node *)p->pixmaps.head;pn->next;pn=pn->next)
+			bonobo_ui_component_set_prop(uic, pn->cmd, "pixmap", pn->pixmap, NULL);
 	} else {
 		for (mw = (struct _menu_node *)p->menus.head;mw->next;mw=mw->next) {
 			for (l = mw->menu;l;l=g_slist_next(l)) {
@@ -348,10 +443,15 @@ void e_menu_activate(EMenu *em, struct _BonoboUIComponent *uic, int act)
 
 /**
  * e_menu_update_target:
- * @em: 
+ * @em: An initialised EMenu.
  * @tp: Target, after this call the menu owns the target.
  * 
- * Set the target for updating the menu.
+ * Change the target for the menu.  Once the target is changed, the
+ * sensitivity state of the menu items managed by @em is re-evaluated
+ * and the physical menu's updated to reflect it.
+ *
+ * This is used by the owner of the menu and view to update the menu
+ * system based on user input or changed system state.
  **/
 void e_menu_update_target(EMenu *em, void *tp)
 {
@@ -361,7 +461,7 @@ void e_menu_update_target(EMenu *em, void *tp)
 	struct _menu_node *mw;
 	GSList *l;
 
-	if (em->target)
+	if (em->target && em->target != t)
 		e_menu_target_free(em, em->target);
 
 	/* if we unset the target, should we disable/hide all the menu items? */
@@ -393,13 +493,15 @@ void e_menu_update_target(EMenu *em, void *tp)
 
 /**
  * e_menu_class_add_factory:
- * @klass:
- * @menuid: 
- * @func: 
- * @data: 
+ * @klass: An EMenuClass type to which this factory applies.
+ * @menuid: The identifier of the menu for this factory, or NULL to be
+ * called on all menus.
+ * @func: An EMenuFactoryFunc callback.
+ * @data: Callback data for @func.
  * 
- * Add a menu factory which will be called to add_items() any
- * extra menu's for a given menu.
+ * Add a menu factory which will be called when the menu @menuid is
+ * created.  The factory is free to add new items as it wishes to the
+ * menu provided in the callback.
  *
  * TODO: Make the menuid a pattern?
  * 
@@ -432,9 +534,12 @@ e_menu_class_add_factory(EMenuClass *klass, const char *menuid, EMenuFactoryFunc
 
 /**
  * e_menu_class_remove_factory:
- * @f: 
+ * @klass: Class on which the factory was originally added.
+ * @f: Factory handle.
  * 
- * Remove a popup factory.
+ * Remove a popup factory.  This must only be called once, and must
+ * only be called using a valid factory handle @f.  After this call,
+ * @f is undefined.
  **/
 void
 e_menu_class_remove_factory(EMenuClass *klass, EMenuFactory *f)
@@ -446,11 +551,13 @@ e_menu_class_remove_factory(EMenuClass *klass, EMenuFactory *f)
 
 /**
  * e_menu_target_new:
- * @klass: 
- * @type: type, up to implementor
- * @size: 
+ * @ep: An EMenu to which this target applies.
+ * @type: Target type, up to implementation.
+ * @size: Size of memory to allocate.  Must be >= sizeof(EMenuTarget).
  * 
- * Allocate a new menu target suitable for this class.
+ * Allocate a new menu target suitable for this class.  @size is used
+ * to specify the actual target size, which may vary depending on the
+ * implementing class.
  **/
 void *e_menu_target_new(EMenu *ep, int type, size_t size)
 {
@@ -468,10 +575,10 @@ void *e_menu_target_new(EMenu *ep, int type, size_t size)
 
 /**
  * e_menu_target_free:
- * @ep: 
- * @o: 
+ * @ep: EMenu on which the target was allocated.
+ * @o: Tareget to free.
  * 
- * Free a target 
+ * Free a target.
  **/
 void
 e_menu_target_free(EMenu *ep, void *o)
@@ -520,9 +627,6 @@ static const EPluginHookTargetKey emph_item_types[] = {
 	{ "item", E_MENU_ITEM },
 	{ "toggle", E_MENU_TOGGLE },
 	{ "radio", E_MENU_RADIO },
-	{ "image", E_MENU_IMAGE },
-	{ "submenu", E_MENU_SUBMENU },
-	{ "bar", E_MENU_BAR },
 	{ 0 }
 };
 
@@ -538,13 +642,24 @@ static const EPluginHookTargetKey emph_pixmap_sizes[] = {
 };
 
 static void
-emph_menu_activate(void *widget, void *data)
+emph_menu_activate(EMenu *em, EMenuItem *item, void *data)
 {
-	struct _EMenuHookItem *item = data;
+	EMenuHook *hook = data;
 
-	printf("invoking plugin hook '%s' %p\n", item->activate, item->item.menu->target);
+	printf("invoking plugin hook '%s' %p\n", (char *)item->user_data, em->target);
 
-	e_plugin_invoke(item->hook->hook.plugin, item->activate, item->item.menu->target);
+	e_plugin_invoke(hook->hook.plugin, item->user_data, em->target);
+}
+
+static void
+emph_menu_toggle_activate(EMenu *em, EMenuItem *item, int state, void *data)
+{
+	EMenuHook *hook = data;
+
+	/* FIXME: where does the toggle state go? */
+	printf("invoking plugin hook '%s' %p\n", (char *)item->user_data, em->target);
+
+	e_plugin_invoke(hook->hook.plugin, item->user_data, em->target);
 }
 
 static void
@@ -555,9 +670,8 @@ emph_menu_factory(EMenu *emp, void *data)
 
 	printf("menu factory, adding %d items\n", g_slist_length(menu->items));
 
-	/* FIXME: we need to copy the items */
 	if (menu->items)
-		e_menu_add_items(emp, menu->items, NULL);
+		e_menu_add_items(emp, menu->items, NULL, menu->hook);
 
 	for (l = menu->uis;l;l=g_slist_next(l))
 		e_menu_add_ui(emp, "/tmp", "evolution-mail", (char *)l->data);
@@ -566,11 +680,11 @@ emph_menu_factory(EMenu *emp, void *data)
 }
 
 static void
-emph_free_item(struct _EMenuHookItem *item)
+emph_free_item(struct _EMenuItem *item)
 {
-	g_free(item->item.path);
-	g_free(item->item.verb);
-	g_free(item->activate);
+	g_free(item->path);
+	g_free(item->verb);
+	g_free(item->user_data);
 	g_free(item);
 }
 
@@ -592,28 +706,29 @@ emph_free_menu(struct _EMenuHookMenu *menu)
 	g_free(menu);
 }
 
-static struct _EMenuHookItem *
+static struct _EMenuItem *
 emph_construct_item(EPluginHook *eph, EMenuHookMenu *menu, xmlNodePtr root, EMenuHookTargetMap *map)
 {
-	struct _EMenuHookItem *item;
+	struct _EMenuItem *item;
 
 	printf("  loading menu item\n");
 	item = g_malloc0(sizeof(*item));
-	if ((item->item.type = e_plugin_hook_id(root, emph_item_types, "type")) == -1
-	    || item->item.type == E_MENU_IMAGE)
+	item->type = e_plugin_hook_id(root, emph_item_types, "type");
+	item->path = e_plugin_xml_prop(root, "path");
+	item->verb = e_plugin_xml_prop(root, "verb");
+	item->visible = e_plugin_hook_mask(root, map->mask_bits, "visible");
+	item->enable = e_plugin_hook_mask(root, map->mask_bits, "enable");
+	item->user_data = e_plugin_xml_prop(root, "activate");
+	if ((item->type & E_MENU_TYPE_MASK) == E_MENU_TOGGLE)
+		item->activate = G_CALLBACK(emph_menu_toggle_activate);
+	else
+		item->activate = G_CALLBACK(emph_menu_activate);
+
+	if (item->type == -1 || item->user_data == NULL)
 		goto error;
-	item->item.path = e_plugin_xml_prop(root, "path");
-	item->item.verb = e_plugin_xml_prop(root, "verb");
-	item->item.mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
-	item->item.enable = e_plugin_hook_mask(root, map->mask_bits, "enable");
-	item->activate = e_plugin_xml_prop(root, "activate");
 
-	item->item.activate = G_CALLBACK(emph_menu_activate);
-	item->item.activate_data = item;
-	item->hook = emph;
-
-	printf("   path=%s\n", item->item.path);
-	printf("   verb=%s\n", item->item.verb);
+	printf("   path=%s\n", item->path);
+	printf("   verb=%s\n", item->verb);
 
 	return item;
 error:
@@ -668,7 +783,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 	node = root->children;
 	while (node) {
 		if (0 == strcmp(node->name, "item")) {
-			struct _EMenuHookItem *item;
+			struct _EMenuItem *item;
 
 			item = emph_construct_item(eph, menu, node, map);
 			if (item)
@@ -756,6 +871,14 @@ emph_class_init(EPluginHookClass *klass)
 	((EMenuHookClass *)klass)->menu_class = g_type_class_ref(e_menu_get_type());
 }
 
+/**
+ * e_menu_hook_get_type:
+ * 
+ * Standard GObject function to get the object type.  Used to subclass
+ * EMenuHook.
+ * 
+ * Return value: The type of the menu hook class.
+ **/
 GType
 e_menu_hook_get_type(void)
 {
@@ -774,6 +897,15 @@ e_menu_hook_get_type(void)
 	return type;
 }
 
+/**
+ * e_menu_hook_class_add_target_map:
+ * @klass: The derived EMenuHook class.
+ * @map: A map used to describe a single EMenuTarget for this class.
+ * 
+ * Adds a target map to a concrete derived class of EMenu.  The target
+ * map enumerates a single target type, and the enable mask bit names,
+ * so that the type can be loaded automatically by the EMenu class.
+ **/
 void e_menu_hook_class_add_target_map(EMenuHookClass *klass, const EMenuHookTargetMap *map)
 {
 	g_hash_table_insert(klass->target_map, (void *)map->type, (void *)map);

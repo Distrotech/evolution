@@ -85,7 +85,7 @@ enum _e_popup_t {
  * for possible values.
  * @path: An absolute path, which when sorted using a simple ASCII
  * sort, will put the menu item in the right place in the menu
- * heirarchy.  '/' is used to separate menu's from submenu items.
+ * heirarchy.  '/' is used to separate menus from submenu items.
  * @label: The text of the menyu item.
  * @activate: A function conforming to &EPopupActivateFunc which will
  * be called when the menu item is activated.
@@ -94,7 +94,7 @@ enum _e_popup_t {
  * @image: For most types, the name of the icon in the icon theme to
  * display next to the menu item, if required.  For the %E_POPUP_IMAGE
  * type, it is a pointer to the &GtkWidget instead.
- * @mask: Visibility mask.  Used together with the &EPopupTarget mask
+ * @visible: Visibility mask.  Used together with the &EPopupTarget mask
  * to determine if the item should be part of the menu or not.
  * @enable: Sensitivity mask. Similar to the visibility mask, but
  * currently unimplemented.
@@ -115,7 +115,7 @@ struct _EPopupItem {
 	EPopupActivateFunc activate;
 	void *user_data;	/* user data, not passed directly to @activate */
 	void *image;		/* char* for item type, GtkWidget * for image type */
-	guint32 mask;		/* visibility mask */
+	guint32 visible;		/* visibility mask */
 	guint32 enable;		/* sensitivity mask, unimplemented */
 };
 
@@ -127,7 +127,7 @@ struct _EPopupItem {
  * type of this object is part of the published api for the target.
  * @type: The target type.  This will be defined by the
  * implementation.
- * @mask: Visibility mask. This is used to sensitise and enable items
+ * @mask: Target mask. This is used to sensitise and show items
  * based on their definition in EPopupItem.
  *
  * An EPopupTarget defines the context for a specific popup menu
@@ -147,7 +147,7 @@ struct _EPopupTarget {
 };
 
 /**
- * struct _EPopup - 
+ * struct _EPopup - A Popup menu manager.
  * 
  * @object: Superclass, GObject.
  * @priv: Private data.
@@ -174,12 +174,12 @@ struct _EPopup {
  * @factories: A list of factories for this particular class of popup
  * menu.
  * @target_free: Virtual method to free the popup target.  The base
- * class free's the allocation and unref's the popup pointer
+ * class frees the allocation and unrefs the popup pointer
  * structure.
  * 
  * The EPopup class definition.  This should be sub-classed for each
- * component that wants to provide hookable popup menu's.  The
- * sub-class needs to know how to allocate and free the various target
+ * component that wants to provide hookable popup menus.  The
+ * sub-class only needs to know how to allocate and free the various target
  * types it supports.
  */
 struct _EPopupClass {
@@ -232,7 +232,7 @@ typedef void (*EPopupHookFunc)(struct _EPlugin *plugin, EPopupTarget *target);
  * @id: The identifier of the menu to which these items belong.
  * @target_type: The target number of the type of target these menu
  * items expect. It will generally also be defined by the menu id.
- * @items: A list of EPopupItem's.
+ * @items: A list of EPopupItems.
  * 
  * The structure used to keep track of all of the items that a plugin
  * wishes to add to a given menu. This is used internally by a factory
@@ -246,14 +246,14 @@ struct _EPopupHookMenu {
 };
 
 /**
- * struct _EPopupHook - 
+ * struct _EPopupHook - A popup menu hook.
  * 
  * @hook: Superclass.
- * @menus: A list of EPopupHookMenu's, for all menu's registered on
+ * @menus: A list of EPopupHookMenus, for all menus registered on
  * this hook type.
  *
  * The EPopupHook class loads and manages the meta-data required to
- * map plugin definitions to physical menu's.
+ * map plugin definitions to physical menus.
  */
 struct _EPopupHook {
 	EPluginHook hook;
@@ -265,7 +265,7 @@ struct _EPopupHook {
  * struct _EPopupHookClass - 
  * 
  * @hook_class: Superclass.
- * @target_map: Table of EPluginHookTargetMap's which enumerate the
+ * @target_map: Table of EPluginHookTargetMaps which enumerate the
  * target types and enable bits of the implementing class.
  * @popup_class: The EPopupClass of the corresponding popup manager
  * for the implementing class.
@@ -274,7 +274,7 @@ struct _EPopupHook {
  * own.  It needs to be sub-classed and initialised appropriately.
  *
  * The EPluginHookClass.id must be set to the name and version of the
- * hook handler itself.  The @target_map must be initialised to the
+ * hook handler itself.  The @target_map must be initialised with the
  * data required to enumerate the target types and enable flags
  * supported by the implementing class.
  */
@@ -283,7 +283,7 @@ struct _EPopupHookClass {
 
 	/* EPopupHookTargetMap by .type */
 	GHashTable *target_map;
-	/* the popup class these popups's belong to */
+	/* the popup class these popups belong to */
 	EPopupClass *popup_class;
 };
 

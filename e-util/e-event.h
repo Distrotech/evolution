@@ -44,28 +44,69 @@ typedef struct _EEventItem EEventItem;
 typedef struct _EEventFactory EEventFactory; /* anonymous type */
 typedef struct _EEventTarget EEventTarget;
 
-typedef void (*EEventFreeFunc)(GSList *items, void *data);
-typedef void (*EEventFunc)(EEventItem *item, EEventTarget *target, void *data);
-typedef void (*EEventFactoryFunc)(EEvent *ee, EEventTarget *target, void *);
+typedef void (*EEventItemsFunc)(EEvent *ee, GSList *items, void *data);
+typedef void (*EEventFunc)(EEvent *ee, EEventItem *item, void *data);
+typedef void (*EEventFactoryFunc)(EEvent *ee, void *);
 
-/* event type, not sure we need this */
+/**
+ * enum _e_event_t - Event type.
+ * 
+ * @E_EVENT_PASS: A passthrough event handler which only receives the event.
+ * @E_EVENT_SINK: A sink event handler swallows all events it processes.
+ * 
+ * The event type defines what type of event listener this is.
+ *
+ * Events should normally be @E_EVENT_PASS.
+ **/
 enum _e_event_t {
 	E_EVENT_PASS,		/* passthrough */
 	E_EVENT_SINK,		/* sink events */
 };
 
+/**
+ * struct _EEventItem - An event listener item.
+ * 
+ * @type: The type of the event listener.
+ * @priority: A signed number signifying the priority of the event
+ * listener.  0 should be used normally.  This is used to order event
+ * receipt when multiple listners are present.
+ * @id: The name of the event to listen to.  By convention events are of the form
+ * "component.subcomponent".  The target mask provides further
+ * sub-event type qualification.
+ * @target_type: Target type for this event.  This is implementation
+ * specific.
+ * @handle: Event handler callback.
+ * @user_data: Callback data.
+ * @enable: Target-specific mask to qualify the receipt of events.
+ * This is target and implementation specific.
+ * 
+ * An EEventItem defines a specific event listening point on a given
+ * EEvent object.  When an event is broadcast onto an EEvent handler,
+ * any matching EEventItems will be invoked in priority order.
+ **/
 struct _EEventItem {
 	enum _e_event_t type;
 	int priority;		/* priority of event */
 	const char *id;		/* event id */
 	int target_type;
 	EEventFunc handle;
-	void *handle_data;
+	void *user_data;
 	guint32 enable;		/* enable mask */
-	EEvent *event;		/* parent, set by eevent */
 };
 
-/* base event target type */
+/**
+ * struct _EEventTarget - Base EventTarget.
+ * 
+ * @event: Parent object.
+ * @type: Target type.  Defined by the implementation.
+ * @mask: Mask of this target.  This is defined by the implementation,
+ * the type, and the actual content of the target.
+ *
+ * This defined a base EventTarget.  This must be subclassed by
+ * implementations to provide contextual data for events, and define
+ * the enablement qualifiers.
+ * 
+ **/
 struct _EEventTarget {
 	struct _EEvent *event;	/* used for virtual methods */
 
@@ -75,17 +116,38 @@ struct _EEventTarget {
 	/* implementation fields follow */
 };
 
-/* The object */
+/**
+ * struct _EEvent - An Event Manager.
+ * 
+ * @object: Superclass.
+ * @priv: Private data.
+ * @id: Id of this event manager.
+ * @target: The current target, only set during event emission.
+ *
+ * The EEvent manager object.  Each component which defines event
+ * types supplies a single EEvent manager object.  This manager routes
+ * all events invoked on this object to all registered listeners based
+ * on their qualifiers.
+ **/
 struct _EEvent {
 	GObject object;
 
 	struct _EEventPrivate *priv;
-
 	char *id;
-
-	EEventTarget *target;
+	EEventTarget *target;	/* current target during event emission */
 };
 
+/**
+ * struct _EEventClass - Event management type.
+ * 
+ * @object_class: Superclass.
+ * @target_free: Virtual method to free the target.
+ *
+ * The EEvent class definition.  This must be sub-classed for each
+ * component that wishes to provide hookable events.  The subclass
+ * only needs to know how to allocate and free each target type it
+ * supports.
+ **/
 struct _EEventClass {
 	GObjectClass object_class;
 
@@ -96,7 +158,7 @@ GType e_event_get_type(void);
 
 EEvent *e_event_construct(EEvent *, const char *id);
 
-void e_event_add_items(EEvent *emp, GSList *items, EEventFreeFunc freefunc, void *data);
+void e_event_add_items(EEvent *emp, GSList *items, EEventItemsFunc freefunc, void *data);
 
 void e_event_emit(EEvent *, const char *id, EEventTarget *);
 
@@ -115,8 +177,6 @@ void e_event_target_free(EEvent *, void *);
 
 #include "e-util/e-plugin.h"
 
-typedef struct _EEventHookItem EEventHookItem;
-typedef struct _EEventHookGroup EEventHookGroup;
 typedef struct _EEventHook EEventHook;
 typedef struct _EEventHookClass EEventHookClass;
 
@@ -125,17 +185,37 @@ typedef struct _EPluginHookTargetKey EEventHookTargetMask;
 
 typedef void (*EEventHookFunc)(struct _EPlugin *plugin, EEventTarget *target);
 
-struct _EEventHookItem {
-	EEventItem item;
-
-	struct _EEventHook *hook; /* parent pointer */
-	char *handle;		/* activate handler */
-};
-
+/**
+ * struct _EEventHook - An event hook.
+ * 
+ * @hook: Superclass.
+ *
+ * The EEventHook class loads and manages the meta-data required to
+ * track event listeners.  Unlike other hook types, there is a 1:1
+ * match between an EEventHook instance class and its EEvent instance.
+ *
+ * When the hook is loaded, all of its event hooks are stored directly
+ * on the corresponding EEvent which is stored in its class static area.
+ **/
 struct _EEventHook {
 	EPluginHook hook;
 };
 
+/**
+ * struct _EEventHookClass - 
+ * 
+ * @hook_class: 
+ * @target_map: Table of EPluginHookTargetMaps which enumerate the
+ * target types and enable bits of the implementing class.
+ * @event: The EEvent instance on which all loaded events must be registered.
+ * 
+ * The EEventHookClass is an empty event hooking class, which must be
+ * subclassed and initialised before use.
+ *
+ * The EPluginHookClass.id must be set to the name and version of the
+ * hook handler itself, and then the type must be registered with the
+ * EPlugin hook list before any plugins are loaded.
+ **/
 struct _EEventHookClass {
 	EPluginHookClass hook_class;
 

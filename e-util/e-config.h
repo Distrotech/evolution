@@ -43,7 +43,7 @@ typedef struct _EConfigItem EConfigItem;
 typedef struct _EConfigFactory EConfigFactory;
 typedef struct _EConfigTarget EConfigTarget;
 
-typedef void (*EConfigFactoryFunc)(EConfig *ec, EConfigTarget *t, void *data);
+typedef void (*EConfigFactoryFunc)(EConfig *ec, void *data);
 
 typedef gboolean (*EConfigCheckFunc)(EConfig *ec, const char *pageid, void *data);
 
@@ -134,7 +134,6 @@ enum _e_config_t {
  * @factory: If supplied, this will be invoked instead to create the
  * appropriate item.
  * @user_data: User data for the factory.
- * @config: Setup by &EConfig to point to the parent object.
  *
  * The basic descriptor of a configuration item.  This may be
  * subclassed to store extra context information for each item.
@@ -145,7 +144,6 @@ struct _EConfigItem {
 	char *label;
 	EConfigItemFactoryFunc factory;
 	void *user_data;
-	EConfig *config;	/* set to parent always */
 };
 
 /**
@@ -228,10 +226,10 @@ struct _EConfigClass {
 GType e_config_get_type(void);
 
 /* Static class methods */
-EConfigFactory *e_config_class_add_factory(EConfigClass *klass, const char *menuid, EConfigFactoryFunc func, void *data);
+EConfigFactory *e_config_class_add_factory(EConfigClass *klass, const char *id, EConfigFactoryFunc func, void *data);
 void e_config_class_remove_factory(EConfigClass *klass, EConfigFactory *f);
 
-EConfig *e_config_construct(EConfig *, int type, const char *menuid);
+EConfig *e_config_construct(EConfig *, int type, const char *id);
 
 void e_config_add_items(EConfig *, GSList *items, EConfigItemsFunc commitfunc, EConfigItemsFunc abortfunc, EConfigItemsFunc freefunc, void *data);
 void e_config_add_page_check(EConfig *, const char *pageid, EConfigCheckFunc, void *data);
@@ -263,7 +261,6 @@ void e_config_target_free(EConfig *, void *);
 
 #include "e-util/e-plugin.h"
 
-typedef struct _EConfigHookItem EConfigHookItem;
 typedef struct _EConfigHookGroup EConfigHookGroup;
 typedef struct _EConfigHook EConfigHook;
 typedef struct _EConfigHookClass EConfigHookClass;
@@ -301,22 +298,6 @@ struct _EConfigHookItemFactoryData {
 };
 
 /**
- * struct _EConfigHookItem - A configuration page hook item.
- * 
- * @item: Superclass.
- * @hook: The parent object.
- * @factory: The name of the factory handler, if one is supplied.
- * 
- * This is loaded from the XML definition into memory
- **/
-struct _EConfigHookItem {
-	EConfigItem item;
-
-	struct _EConfigHook *hook; /* parent pointer */
-	char *factory;		/* factory handler */
-};
-
-/**
  * struct _EConfigHookGroup - A group of configuration items.
  * 
  * @hook: Parent object.
@@ -334,9 +315,9 @@ struct _EConfigHookItem {
  **/
 struct _EConfigHookGroup {
 	struct _EConfigHook *hook; /* parent pointer */
-	char *id;		/* target menu id for these menu items */
-	int target_type;	/* target type of this menu */
-	GSList *items;		/* items to add to menu */
+	char *id;		/* target menu id for these config items */
+	int target_type;	/* target type of this group */
+	GSList *items;		/* items to add to group */
 	char *commit;		/* commit handler, if set */
 	char *abort;		/* abort handler, if set */
 };
@@ -345,14 +326,14 @@ struct _EConfigHookGroup {
  * struct _EConfigHook - Plugin hook for configuration windows.
  * 
  * @hook: Superclass.
- * @menus: A list of EConfigHookGroup's of all configuration windows
+ * @groups: A list of EConfigHookGroup's of all configuration windows
  * this plugin hooks into.
  * 
  **/
 struct _EConfigHook {
 	EPluginHook hook;
 
-	GSList *menus;		/* FIXME: rename 'groups' */
+	GSList *groups;
 };
 
 /**

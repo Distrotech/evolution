@@ -180,7 +180,7 @@ e_popup_get_type(void)
 
 /**
  * e_popup_construct:
- * @ep: The instantiated but uninitialised EPopup.
+ * @ep: An instantiated but uninitialised EPopup.
  * @menuid: The menu identifier.
  * 
  * Construct the base popup instance with standard parameters.
@@ -318,11 +318,11 @@ e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint3
 		char *tmp;
 
 		/* for bar's, the mask is exclusive or */
-		if (item->mask) {
+		if (item->visible) {
 			if ((item->type & E_POPUP_TYPE_MASK) == E_POPUP_BAR) {
-				if ((item->mask & hide_mask) == item->mask)
+				if ((item->visible & hide_mask) == item->visible)
 					continue;
-			} else if (item->mask & hide_mask)
+			} else if (item->visible & hide_mask)
 				continue;
 		}
 
@@ -394,7 +394,7 @@ e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint3
 
 		gtk_menu_shell_append((GtkMenuShell *)thismenu, (GtkWidget *)menuitem);
 
-		if (item->mask & disable_mask)
+		if (item->visible & disable_mask)
 			gtk_widget_set_sensitive((GtkWidget *)menuitem, FALSE);
 
 		gtk_widget_show((GtkWidget *)menuitem);
@@ -561,7 +561,7 @@ e_popup_target_free(EPopup *ep, void *o)
     path="foo/bar"
     label="label"
     icon="foo"
-    mask="select_one"
+    visible="select_one"
     activate="ep_view_emacs"/>
   </menu>
   </extension>
@@ -637,7 +637,8 @@ emph_construct_item(EPluginHook *eph, EPopupHookMenu *menu, xmlNodePtr root, EPo
 	item->path = e_plugin_xml_prop(root, "path");
 	item->label = e_plugin_xml_prop_domain(root, "label", eph->plugin->domain);
 	item->image = e_plugin_xml_prop(root, "icon");
-	item->mask = e_plugin_hook_mask(root, map->mask_bits, "mask");
+	item->visible = e_plugin_hook_mask(root, map->mask_bits, "visible");
+	item->enable = e_plugin_hook_mask(root, map->mask_bits, "enable");
 	item->user_data = e_plugin_xml_prop(root, "activate");
 
 	item->activate = emph_popup_activate;
@@ -756,7 +757,8 @@ emph_class_init(EPluginHookClass *klass)
 /**
  * e_popup_hook_get_type:
  * 
- * Standard GObject function to get the object type.
+ * Standard GObject function to get the object type.  Used to subclass
+ * EPopupHook.
  *
  * Return value: The type of the popup hook class.
  **/

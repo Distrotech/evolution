@@ -1,3 +1,12 @@
+2004-09-01  Not Zed  <NotZed@Ximian.com>
+
+	* e-menu.[ch]:
+	* e-popup.[ch]:
+	* e-config.[ch]:
+	* e-event.[ch]: API syncrhonisation.  Item callbacks now get the
+	root object, the item, and user-supplied data.  Removed
+	now-redundant data and structures. Documentation updates.
+
 2004-08-30  Not Zed  <NotZed@Ximian.com>
 
 	* e-popup.c (emph_construct_item): just build a popupitem

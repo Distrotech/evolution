@@ -244,10 +244,6 @@ void
 e_config_add_items(EConfig *ec, GSList *items, EConfigItemsFunc commitfunc, EConfigItemsFunc abortfunc, EConfigItemsFunc freefunc, void *data)
 {
 	struct _menu_node *node;
-	GSList *l;
-
-	for (l=items;l;l=g_slist_next(l))
-		((EConfigItem *)l->data)->config = ec;
 
 	node = g_malloc(sizeof(*node));
 	node->menu = items;
@@ -290,7 +286,7 @@ e_config_add_page_check(EConfig *ec, const char *pageid, EConfigCheckFunc check,
 }
 
 static void
-ec_add_static_items(EConfig *ec, EConfigTarget *t)
+ec_add_static_items(EConfig *ec)
 {
 	struct _EConfigFactory *f;
 	EConfigClass *klass = (EConfigClass *)G_OBJECT_GET_CLASS(ec);
@@ -299,7 +295,7 @@ ec_add_static_items(EConfig *ec, EConfigTarget *t)
 	while (f->next) {
 		if (f->id == NULL
 		    || !strcmp(f->id, ec->id)) {
-			f->factory(ec, t, f->factory_data);
+			f->factory(ec, f->factory_data);
 		}
 		f = f->next;
 	}
@@ -727,7 +723,7 @@ e_config_create_widget(EConfig *emp)
 
 	g_assert(emp->target != NULL);
 
-	ec_add_static_items(emp, emp->target);
+	ec_add_static_items(emp);
 
 	/* FIXME: need to override old ones with new names */
 	for (mnode = (struct _menu_node *)p->menus.head;mnode->next;mnode=mnode->next)
@@ -1101,7 +1097,6 @@ e_config_target_free(EConfig *ep, void *o)
     path="foo/bar"
     label="label"
     icon="foo"
-    mask="select_one"
     activate="ep_view_emacs"/>
   </menu>
   </extension>
@@ -1127,58 +1122,58 @@ static const EPluginHookTargetKey ech_item_types[] = {
 static void
 ech_commit(EConfig *ec, GSList *items, void *data)
 {
-	struct _EConfigHookGroup *menu = data;
+	struct _EConfigHookGroup *group = data;
 
-	if (menu->commit)
-		e_plugin_invoke(menu->hook->hook.plugin, menu->commit, ec->target);
+	if (group->commit)
+		e_plugin_invoke(group->hook->hook.plugin, group->commit, ec->target);
 }
 
 static void
 ech_abort(EConfig *ec, GSList *items, void *data)
 {
-	struct _EConfigHookGroup *menu = data;
+	struct _EConfigHookGroup *group = data;
 
-	if (menu->abort)
-		e_plugin_invoke(menu->hook->hook.plugin, menu->abort, ec->target);
+	if (group->abort)
+		e_plugin_invoke(group->hook->hook.plugin, group->abort, ec->target);
 }
 
 static void
-ech_config_factory(EConfig *emp, EConfigTarget *target, void *data)
+ech_config_factory(EConfig *emp, void *data)
 {
-	struct _EConfigHookGroup *menu = data;
+	struct _EConfigHookGroup *group = data;
 
-	printf("config factory called %s\n", menu->id?menu->id:"all menus");
+	printf("config factory called %s\n", group->id?group->id:"all menus");
 
-	if (target->type != menu->target_type)
+	if (emp->target->type != group->target_type)
 		return;
 
-	if (menu->items)
-		e_config_add_items(emp, menu->items, ech_commit, ech_abort, NULL, menu);
+	if (group->items)
+		e_config_add_items(emp, group->items, ech_commit, ech_abort, NULL, group);
 }
 
 static void
-emph_free_item(struct _EConfigHookItem *item)
+emph_free_item(struct _EConfigItem *item)
 {
-	g_free(item->item.path);
-	g_free(item->item.label);
-	g_free(item->factory);
+	g_free(item->path);
+	g_free(item->label);
+	g_free(item->user_data);
 	g_free(item);
 }
 
 static void
-emph_free_menu(struct _EConfigHookGroup *menu)
+emph_free_group(struct _EConfigHookGroup *group)
 {
-	g_slist_foreach(menu->items, (GFunc)emph_free_item, NULL);
-	g_slist_free(menu->items);
+	g_slist_foreach(group->items, (GFunc)emph_free_item, NULL);
+	g_slist_free(group->items);
 
-	g_free(menu->id);
-	g_free(menu);
+	g_free(group->id);
+	g_free(group);
 }
 
 static struct _GtkWidget *
 ech_config_widget_factory(EConfig *ec, EConfigItem *item, GtkWidget *parent, GtkWidget *old, void *data)
 {
-	EConfigHookItem *hitem = (EConfigHookItem *)item;
+	struct _EConfigHookGroup *group = data;
 	EConfigHookItemFactoryData hdata;
 
 	hdata.config = ec;
@@ -1187,32 +1182,30 @@ ech_config_widget_factory(EConfig *ec, EConfigItem *item, GtkWidget *parent, Gtk
 	hdata.parent = parent;
 	hdata.old = old;
 
-	return (struct _GtkWidget *)e_plugin_invoke(hitem->hook->hook.plugin, hitem->factory, &hdata);
+	return (struct _GtkWidget *)e_plugin_invoke(group->hook->hook.plugin, (char *)item->user_data, &hdata);
 }
 
-static struct _EConfigHookItem *
+static struct _EConfigItem *
 emph_construct_item(EPluginHook *eph, EConfigHookGroup *menu, xmlNodePtr root, EConfigHookTargetMap *map)
 {
-	struct _EConfigHookItem *item;
+	struct _EConfigItem *item;
 
 	printf("  loading config item\n");
 	item = g_malloc0(sizeof(*item));
-	if ((item->item.type = e_plugin_hook_id(root, ech_item_types, "type")) == -1)
+	if ((item->type = e_plugin_hook_id(root, ech_item_types, "type")) == -1)
 		goto error;
-	item->item.path = e_plugin_xml_prop(root, "path");
-	item->item.label = e_plugin_xml_prop_domain(root, "label", eph->plugin->domain);
-	item->factory = e_plugin_xml_prop(root, "factory");
+	item->path = e_plugin_xml_prop(root, "path");
+	item->label = e_plugin_xml_prop_domain(root, "label", eph->plugin->domain);
+	item->user_data = e_plugin_xml_prop(root, "factory");
 
-	if (item->item.path == NULL
-	    || (item->item.label == NULL && item->factory == NULL))
+	if (item->path == NULL
+	    || (item->label == NULL && item->user_data == NULL))
 		goto error;
 
-	if (item->factory)
-		item->item.factory = ech_config_widget_factory;
-	item->item.user_data = 0; /* we don't need/use this for plugins */
-	item->hook = emph;
+	if (item->user_data)
+		item->factory = ech_config_widget_factory;
 
-	printf("   path=%s label=%s factory=%s\n", item->item.path, item->item.label, item->factory);
+	printf("   path=%s label=%s factory=%s\n", item->path, item->label, (char *)item->user_data);
 
 	return item;
 error:
@@ -1249,7 +1242,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 	node = root->children;
 	while (node) {
 		if (0 == strcmp(node->name, "item")) {
-			struct _EConfigHookItem *item;
+			struct _EConfigItem *item;
 
 			item = emph_construct_item(eph, menu, node, map);
 			if (item)
@@ -1260,7 +1253,7 @@ emph_construct_menu(EPluginHook *eph, xmlNodePtr root)
 
 	return menu;
 error:
-	emph_free_menu(menu);
+	emph_free_group(menu);
 	return NULL;
 }
 
@@ -1280,12 +1273,12 @@ emph_construct(EPluginHook *eph, EPlugin *ep, xmlNodePtr root)
 	node = root->children;
 	while (node) {
 		if (strcmp(node->name, "group") == 0) {
-			struct _EConfigHookGroup *menu;
+			struct _EConfigHookGroup *group;
 
-			menu = emph_construct_menu(eph, node);
-			if (menu) {
-				e_config_class_add_factory(klass, menu->id, ech_config_factory, menu);
-				emph->menus = g_slist_append(emph->menus, menu);
+			group = emph_construct_menu(eph, node);
+			if (group) {
+				e_config_class_add_factory(klass, group->id, ech_config_factory, group);
+				emph->groups = g_slist_append(emph->groups, group);
 			}
 		}
 		node = node->next;
@@ -1301,8 +1294,8 @@ emph_finalise(GObject *o)
 {
 	EPluginHook *eph = (EPluginHook *)o;
 
-	g_slist_foreach(emph->menus, (GFunc)emph_free_menu, NULL);
-	g_slist_free(emph->menus);
+	g_slist_foreach(emph->groups, (GFunc)emph_free_group, NULL);
+	g_slist_free(emph->groups);
 
 	((GObjectClass *)emph_parent_class)->finalize(o);
 }
