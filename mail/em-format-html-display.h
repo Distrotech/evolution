@@ -45,6 +45,10 @@ void em_format_html_display_goto_anchor(EMFormatHTMLDisplay *efhd, const char *n
 
 void em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *strings);
 
+void em_format_html_display_cut (EMFormatHTMLDisplay *efhd);
+void em_format_html_display_copy (EMFormatHTMLDisplay *efhd);
+void em_format_html_display_paste (EMFormatHTMLDisplay *efhd);
+
 void em_format_html_display_zoom_in (EMFormatHTMLDisplay *efhd);
 void em_format_html_display_zoom_out (EMFormatHTMLDisplay *efhd);
 void em_format_html_display_zoom_reset (EMFormatHTMLDisplay *efhd);

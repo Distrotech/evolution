@@ -298,6 +298,24 @@ em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *s
 
 
 void
+em_format_html_display_cut (EMFormatHTMLDisplay *efhd)
+{
+	gtk_html_cut (((EMFormatHTML *) efhd)->html);
+}
+
+void
+em_format_html_display_copy (EMFormatHTMLDisplay *efhd)
+{
+	gtk_html_copy (((EMFormatHTML *) efhd)->html);
+}
+
+void
+em_format_html_display_paste (EMFormatHTMLDisplay *efhd)
+{
+	gtk_html_paste (((EMFormatHTML *) efhd)->html, FALSE);
+}
+
+void
 em_format_html_display_zoom_in (EMFormatHTMLDisplay *efhd)
 {
 	gtk_html_zoom_in (((EMFormatHTML *) efhd)->html);

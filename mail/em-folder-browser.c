@@ -209,19 +209,25 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 static void
 emfb_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
 {
-	printf("editcut\n");
+	EMFolderView *emfv = data;
+	
+	em_format_html_display_cut (emfv->preview);
 }
 
 static void
 emfb_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
 {
-	printf("editcopy\n");
+	EMFolderView *emfv = data;
+	
+	em_format_html_display_copy (emfv->preview);
 }
 
 static void
 emfb_edit_paste(BonoboUIComponent *uid, void *data, const char *path)
 {
-	printf("editpaste\n");
+	EMFolderView *emfv = data;
+	
+	em_format_html_display_paste (emfv->preview);
 }
 
 static void
@@ -259,8 +265,9 @@ emfb_folder_properties(BonoboUIComponent *uid, void *data, const char *path)
 static void
 emfb_folder_expunge(BonoboUIComponent *uid, void *data, const char *path)
 {
-	/* This is a lot trickier than it should be ... */
-	printf("folderexpunge\n");
+	/* FIXME: This is a lot trickier than it should be ... */
+	EMFolderBrowser *emfb = data;
+	emfb = emfb;
 }
 
 static void

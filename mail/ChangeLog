@@ -1,5 +1,19 @@
 2003-08-25  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-folder-view.c (em_folder_view_print): Use
+	e_dialog_set_transient_for().
+	(emfv_message_delete): Fixed a FIXME.
+
+	* em-folder-browser.c (emfb_edit_cut): Implemented.
+	(emfb_edit_copy): Implemented.
+	(emfb_edit_paste): Implemented.
+
+	* em-format-html-display.c (em_format_html_display_cut): New function.
+	(em_format_html_display_copy): New.
+	(em_format_html_display_paste): New.
+
+2003-08-25  Jeffrey Stedfast  <fejj@ximian.com>
+
 	* em-utils.c (em_utils_flag_for_followup): Use
 	e_dialog_set_transient_for().
 	(em_utils_filesel_prompt): Same.

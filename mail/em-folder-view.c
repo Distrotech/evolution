@@ -52,6 +52,8 @@
 
 #include "widgets/misc/e-charset-picker.h"
 
+#include <e-util/e-dialog-utils.h>
+
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
 #include "em-folder-view.h"
@@ -517,16 +519,18 @@ emfv_message_mark_unimportant(BonoboUIComponent *uic, void *data, const char *pa
 }
 
 static void
-emfv_message_delete(BonoboUIComponent *uic, void *data, const char *path)
+emfv_message_delete (BonoboUIComponent *uic, void *data, const char *path)
 {
-	/* FIXME: make a 'mark messages' function? */
 	EMFolderView *emfv = data;
-
-	printf("messagedelete\n");
-
-	em_folder_view_mark_selected(emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED);
-
-	/* FIXME: select the next message if we just deleted 1 message */
+	GPtrArray *uids;
+	
+	uids = message_list_get_selected (emfv->list);
+	em_folder_view_mark_selected (emfv, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED);
+	
+	if (uids->len == 1)
+		message_list_select (emfv->list, MESSAGE_LIST_SELECT_NEXT, 0, 0, FALSE);
+	
+	em_utils_uids_free (uids);
 }
 
 static void
@@ -959,7 +963,7 @@ int em_folder_view_print(EMFolderView *emfv, int preview)
 		GtkDialog *dialog = (GtkDialog *)gnome_print_dialog_new(NULL, _("Print Message"), GNOME_PRINT_DIALOG_COPIES);
 
 		gtk_dialog_set_default_response(dialog, GNOME_PRINT_DIALOG_RESPONSE_PRINT);
-		gtk_window_set_transient_for((GtkWindow *)dialog, (GtkWindow *)gtk_widget_get_toplevel((GtkWidget *)emfv));
+		e_dialog_set_transient_for ((GtkWindow *) dialog, (GtkWidget *) emfv);
 		
 		switch (gtk_dialog_run(dialog)) {
 		case GNOME_PRINT_DIALOG_RESPONSE_PRINT:
