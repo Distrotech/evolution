@@ -14,6 +14,12 @@ cs_cmdarg_new(CSCmdArg *prev, CSCmdArg *parent)
   return retval;
 }
 
+gint
+cs_cmdarg_nargs(CSCmdArg *arglist)
+{
+  return 1 + cs_cmdarg_nargs(arglist->next);
+}
+
 void
 cs_cmdarg_destroy(CSCmdArg *arg)
 {

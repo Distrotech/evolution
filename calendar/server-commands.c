@@ -3,52 +3,43 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+#define cs_command_RENAME cs_command_NOOP
+
 static void
 cs_command_NOOP(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "%s OK NOOP\n", ci->id);
+  fprintf(cnx->fh, "%s OK NOOP\r\n", ci->id);
 }
 
 static void
 cs_command_LOGOUT(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "* BYE ICAP Server thinks you suck anyways\n");
-  fprintf(cnx->fh, "%s OK LOGOUT Completed\n", ci->id);
+  fprintf(cnx->fh, "* BYE ICAP Server thinks you suck anyways\r\n");
+  fprintf(cnx->fh, "%s OK LOGOUT Completed\r\n", ci->id);
   cs_connection_destroy(cnx);
 }
 
 static void
 cs_command_CAPABILITY(CSConnection *cnx, CSCmdInfo *ci)
 {
-  fprintf(cnx->fh, "* CAPABILITY "CS_capabilities"\n");
+  fprintf(cnx->fh, "* CAPABILITY "CS_capabilities"\r\n");
 
-  fprintf(cnx->fh, "%s OK CAPABILITY Completed\n", ci->id);
+  fprintf(cnx->fh, "%s OK CAPABILITY Completed\r\n", ci->id);
 }
 
 static void
 cs_command_LOGIN(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *ctmp;
   char *username, *password;
 
-  ctmp = ci->rol;
-
-  username = ctmp;
-  ctmp = strchr(ctmp, ' ');
-  g_return_if_fail(ctmp);
-  *ctmp = '\0'; ctmp++;
-
-  password = ctmp;
-  ctmp = strchr(ctmp, ' ');
-  if(ctmp) {
-    fprintf(cnx->fh, "%s BAD LOGIN You type worse than raster\n", ci->id);
-    return;
-  }
+  username = ci->args->data;
+  password = ci->args->next->data;
 
   if(cs_user_authenticate(cnx, username, password)) {
-    fprintf(cnx->fh, "%s NO LOGIN for 31337 d00dz\n", ci->id);
+    fprintf(cnx->fh, "%s NO LOGIN for 31337 d00dz\r\n", ci->id);
   } else {
-    fprintf(cnx->fh, "%s OK LOGIN completed", ci->id);
+    fprintf(cnx->fh, "%s OK LOGIN completed\r\n", ci->id);
+    if(cnx->authid) g_free(cnx->authid);
     cnx->authid = g_strdup(username);
   }
 }
@@ -57,26 +48,12 @@ static void
 cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
 		      gboolean activate_rdonly)
 {
-  char *ctmp;
   char *calname, *daterange = NULL;
   Calendar *newcal;
 
-  ctmp = ci->rol;
-
-  calname = ctmp;
-  if(ctmp) {
-    ctmp = strchr(ctmp, ' ');
-    if(ctmp) {
-      *ctmp = '\0'; ctmp++;
-      
-      daterange = ctmp;
-      ctmp = strchr(ctmp, ' ');
-      if(ctmp) {
-	fprintf(cnx->fh, "%s BAD %s too many args\n", ci->id, ci->name);
-	return;
-      }
-    }
-  }
+  calname = ci->args->data;
+  if(ci->args->next)
+    daterange = ci->args->next->data;
 
   if(cs_calendar_authenticate(cnx, calname)) {
     fprintf(cnx->fh, "%s NO %s can't access Calendar store\n", ci->id, ci->name);
@@ -118,7 +95,6 @@ cs_command_EXAMINE(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *ctmp;
   char *calname;
 
   if(!cnx->authid) {
@@ -126,9 +102,7 @@ cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci)
     return;
   }
 
-  ctmp = ci->rol;
-
-  calname = ctmp;
+  calname = ci->args->data;
   if(!calname) {
     fprintf(cnx->fh, "%s BAD %s not enough args\n", ci->id, ci->name);
     return;
@@ -141,7 +115,6 @@ cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *ctmp;
   char *calname;
 
   if(!cnx->authid) {
@@ -149,9 +122,7 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
     return;
   }
 
-  ctmp = ci->rol;
-
-  calname = ctmp;
+  calname = ci->args->data;
   if(!calname) {
     fprintf(cnx->fh, "%s BAD %s not enough args\n", ci->id, ci->name);
     return;
@@ -169,20 +140,10 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *ctmp;
   char *calname;
   GList *users, *ltmp;
 
-  ctmp = ci->rol;
-
-  calname = ctmp;
-  if(!calname) {
-    fprintf(cnx->fh, "%s BAD %s not enough args\n", ci->id, ci->name);
-    return;
-  } else {
-    ctmp = strchr(ctmp, ' ');
-    if(ctmp) { *ctmp = '\0'; }
-  }
+  calname = ci->args->data;
 
   if(strcmp(calname, "<*>")) {
     fprintf(cnx->fh, "%s NO %s failed, we suck at listing.\n", ci->id, ci->name);
@@ -191,9 +152,9 @@ cs_command_LIST(CSConnection *cnx, CSCmdInfo *ci)
 
   users = backend_list_users();
   for(ltmp = users; ltmp; ltmp = g_list_next(ltmp)) {
-    fprintf(cnx->fh, "* LIST () <%s>\n", ltmp->data);
+    fprintf(cnx->fh, "* LIST () <%s>\n", (char *)ltmp->data);
   }
-  g_list_foreach(ltmp, g_free, NULL);
+  g_list_foreach(ltmp, (GFunc)g_free, NULL);
   g_list_free(ltmp);
   fprintf(cnx->fh, "%s OK %s Completed\n", ci->id, ci->name);
 }
@@ -222,33 +183,14 @@ cs_command_UNSUBSCRIBE(CSConnection *cnx, CSCmdInfo *ci)
 static void
 cs_command_APPEND(CSConnection *cnx, CSCmdInfo *ci)
 {
-  char *ctmp;
-  char *calname, *flags;
+  char *calname;
+  CSCmdArg *flags;
+  char *obj;
 
-  ctmp = ci->rol;
+  calname = ci->args->data;
+  flags = ci->args->next->data;
+  obj = ci->args->next->next->data;
 
-  calname = ctmp;
-  ctmp = strchr(ctmp, ' ');
-  g_return_if_fail(ctmp);
-  *ctmp = '\0'; ctmp++;
-
-  flags = ctmp;
-  ctmp = strchr(ctmp, ' ');
-  g_return_if_fail(ctmp);
-  *ctmp = '\0'; ctmp++;
-
-  if(sscanf(ctmp, "{%d}", &cnx->reading_literal) < 1) {
-    fprintf(cnx->fh, "%s BAD %s sscanf failed, blah\n",
-	    ci->id, ci->name);
-    return;
-  }
-
-  cnx->curcmd = cs_cmdinfo_dup(ci);
-}
-
-static void
-cs_literal_APPEND(CSConnection *cnx, CSCmdInfo *ci)
-{
   if(!cnx->active_cal) {
     fprintf(cnx->fh, "%s NO %s no current calendar\n",
 	    ci->id, ci->name);
@@ -256,29 +198,82 @@ cs_literal_APPEND(CSConnection *cnx, CSCmdInfo *ci)
   }
   backend_add_object(cnx->active_cal, NULL);
   fprintf(cnx->fh, "%s OK %s completed\n", ci->id, ci->name);
-  cs_cmdinfo_destroy(cnx->curcmd); cnx->curcmd = NULL;
 }
+
+typedef struct {
+  int argtype;
+  guchar is_required;
+} ArgDef;
+
+typedef struct {
+  const char *name;
+  const ArgDef *args;
+  void (*handler)(CSConnection *cnx, CSCmdInfo *ci);
+} CmdDef;
+
+#define END_ARGS {ITEM_UNKNOWN, 0}
+static ArgDef NO_ARGS[] = {END_ARGS};
+static ArgDef LOGIN_ARGS[] = {{ITEM_STRING, 1},
+			      {ITEM_STRING, 1},
+			      END_ARGS};
+static ArgDef SELECT_ARGS[] = {{ITEM_STRING, 1},
+			       {ITEM_STRING, 0},
+			       END_ARGS};
+static ArgDef CREATE_ARGS[] = {{ITEM_STRING, 1},
+			       END_ARGS};
+static ArgDef RENAME_ARGS[] = {{ITEM_STRING, 1},
+			       {ITEM_STRING, 1},
+			       END_ARGS};
+static ArgDef LIST_ARGS[] = {{ITEM_STRING, 1},
+			     END_ARGS};
+static ArgDef SUBSCRIBE_ARGS[] = {{ITEM_STRING, 1},
+				  END_ARGS};
+static ArgDef APPEND_ARGS[] = {{ITEM_STRING, 1},
+			       {ITEM_SUBLIST, 1},
+			       {ITEM_STRING, 1},
+			       END_ARGS};
+
+static const CmdDef commands[] = {
+  {"NOOP", NO_ARGS, cs_command_NOOP},
+  {"LOGOUT", NO_ARGS, cs_command_LOGOUT},
+  {"CAPABILITY", NO_ARGS, cs_command_CAPABILITY},
+  {"LOGIN", LOGIN_ARGS, cs_command_LOGIN},
+  {"SELECT", SELECT_ARGS, cs_command_SELECT},
+  {"EXAMINE", SELECT_ARGS, cs_command_EXAMINE},
+  {"CREATE", CREATE_ARGS, cs_command_CREATE},
+  {"DELETE", CREATE_ARGS, cs_command_DELETE},
+  {"RENAME", RENAME_ARGS, cs_command_RENAME},
+  {"LIST", LIST_ARGS, cs_command_LIST},
+  {"LSUB", LIST_ARGS, cs_command_LSUB},
+  {"SUBSCRIBE", SUBSCRIBE_ARGS, cs_command_SUBSCRIBE},
+  {"UNSUBSCRIBE", SUBSCRIBE_ARGS, cs_command_UNSUBSCRIBE},
+  {"APPEND", APPEND_ARGS, cs_command_APPEND},
+  {NULL, NULL, NULL}
+};
 
 void
 cs_connection_process_command(CSConnection *cnx)
 {
-#define CHECK_CMD(x) if(!strcasecmp(cnx->cmd, #x)) \
-cs_command_##x(cnx, &cnx->curcmd)
+  int i, j;
+  CSCmdArg *arg;
 
-  CHECK_CMD(NOOP);
-  else CHECK_CMD(LOGOUT);
-  else CHECK_CMD(CAPABILITY);
-  else CHECK_CMD(LOGIN);
-  else CHECK_CMD(SELECT);
-  else CHECK_CMD(EXAMINE);
-  else CHECK_CMD(CREATE);
-  else CHECK_CMD(DELETE);
-  else CHECK_CMD(LIST);
-  else CHECK_CMD(LSUB);
-  else CHECK_CMD(SUBSCRIBE);
-  else CHECK_CMD(UNSUBSCRIBE);
-  else {
-    g_warning("Unknown command %s", cnx->curcmd.name);
-    fprintf(cnx->fh, "%s BAD unknown command\n", cnx->curcmd.id);
+  for(i = 0; commands[i].name; i++) {
+    if(!strcasecmp(commands[i].name, cnx->curcmd.name)) {
+      /* check args */
+      for(j = 0, arg = cnx->curcmd.args;
+	  commands[i].args[j].argtype && arg; arg = arg->next, j++) {
+	if(commands[i].args[j].argtype == ITEM_STRING
+	   && arg->type != ITEM_STRING)
+	  goto errout;
+      }
+      if(!commands[i].args[j].argtype) goto errout; /* too many args */
+      if(!arg && commands[i].args[j].is_required) goto errout; /* too few */
+
+      /* do it */
+      commands[i].handler(cnx, &cnx->curcmd);
+    }
   }
+ errout:
+  g_warning("Unknown command %s", cnx->curcmd.name);
+  fprintf(cnx->fh, "%s BAD unknown command\n", cnx->curcmd.id);
 }

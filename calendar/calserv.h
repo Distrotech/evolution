@@ -29,6 +29,7 @@ struct _CSCmdArg {
   CSCmdArg *next, *up;
 };
 CSCmdArg *cs_cmdarg_new(CSCmdArg *prev, CSCmdArg *parent);
+gint cs_cmdarg_nargs(CSCmdArg *arglist);
 void cs_cmdarg_destroy(CSCmdArg *arg);
 
 typedef struct {

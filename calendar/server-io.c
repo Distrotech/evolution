@@ -12,7 +12,6 @@ void cs_connection_accept(gpointer data, GIOCondition cond,
 static void cs_connection_process(gpointer data, GIOCondition cond,
 				  CSConnection *cnx);
 static void cs_connection_greet(CSConnection *cnx);
-static void cs_connection_process_line(CSConnection *cnx, char *l);
 
 CSServer *
 cs_server_new(void)
@@ -78,7 +77,6 @@ cs_connection_process(gpointer data, GIOCondition cond,
   char readbuf[257], *ctmp;
   int rsize, itmp;
   gboolean found_something, is_eol;
-  char *ctmp;
 
   if(cond & (G_IO_HUP|G_IO_NVAL|G_IO_ERR)) {
     cs_connection_destroy(cnx);
@@ -122,8 +120,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	cnx->rs = RS_DONE;
       else {
 	cnx->rs = RS_ARG;
-	cnx->curarg = cnx->args = NULL;
-	cnx->args->type = ITEM_SUBLIST;
+	cnx->curarg = cnx->curcmd.args = NULL;
       }
 
       cnx->curcmd.name = g_strndup(cnx->rdbuf->str, itmp);
@@ -176,8 +173,8 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	if(!ctmp) break;
 	found_something = TRUE;
 	cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
-	cnx->type = ITEM_STRING;
-	cnx->data = g_strndup(cnx->rdbuf->str + 1, ctmp - cnx->rdbuf->str - 1);
+	cnx->curarg->type = ITEM_STRING;
+	cnx->curarg->data = g_strndup(cnx->rdbuf->str + 1, ctmp - cnx->rdbuf->str - 1);
 	g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
 	break;
       case ' ':
@@ -217,8 +214,8 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	  found_something = TRUE;
 	  cnx->rs = RS_DONE;
 	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
-	  cnx->type = ITEM_STRING;
-	  cnx->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
+	  cnx->curarg->type = ITEM_STRING;
+	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
 	  g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
 	  break;
 	}
@@ -229,7 +226,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
     }
 
     if(cnx->rs == RS_DONE) {
-      cs_connection_process_command(CSConnection *cnx);
+      cs_connection_process_command(cnx);
       cs_cmdarg_destroy(cnx->curcmd.args); cnx->curcmd.args = NULL;
       g_free(cnx->curcmd.id);
       g_free(cnx->curcmd.name);
