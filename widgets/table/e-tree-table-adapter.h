@@ -28,26 +28,37 @@ typedef struct {
 	ETableModelClass parent_class;
 } ETreeTableAdapterClass;
 
-GtkType      e_tree_table_adapter_get_type  (void);
-ETableModel *e_tree_table_adapter_new       (ETreeModel *source);
-ETableModel *e_tree_table_adapter_construct (ETreeTableAdapter *ets, ETreeModel *source);
+GtkType      e_tree_table_adapter_get_type                   (void);
+ETableModel *e_tree_table_adapter_new                        (ETreeModel        *source);
+ETableModel *e_tree_table_adapter_construct                  (ETreeTableAdapter *ets,
+							      ETreeModel        *source);
 
-gboolean     e_tree_table_adapter_node_is_expanded (ETreeTableAdapter *etta, ETreePath path);
-void         e_tree_table_adapter_node_set_expanded (ETreeTableAdapter *etta, ETreePath path, gboolean expanded);
-void         e_tree_table_adapter_node_set_expanded_recurse (ETreeTableAdapter *etta, ETreePath path, gboolean expanded);
-void         e_tree_table_adapter_root_node_set_visible (ETreeTableAdapter *etta, gboolean visible);
-ETreePath    e_tree_table_adapter_node_at_row (ETreeTableAdapter *etta, int row);
-int          e_tree_table_adapter_row_of_node (ETreeTableAdapter *etta, ETreePath path);
-gboolean     e_tree_table_adapter_root_node_is_visible(ETreeTableAdapter *etta);
+gboolean     e_tree_table_adapter_node_is_expanded           (ETreeTableAdapter *etta,
+							      ETreePath          path);
+void         e_tree_table_adapter_node_set_expanded          (ETreeTableAdapter *etta,
+							      ETreePath          path,
+							      gboolean           expanded);
+void         e_tree_table_adapter_node_set_expanded_recurse  (ETreeTableAdapter *etta,
+							      ETreePath          path,
+							      gboolean           expanded);
+void         e_tree_table_adapter_root_node_set_visible      (ETreeTableAdapter *etta,
+							      gboolean           visible);
+ETreePath    e_tree_table_adapter_node_at_row                (ETreeTableAdapter *etta,
+							      int                row);
+int          e_tree_table_adapter_row_of_node                (ETreeTableAdapter *etta,
+							      ETreePath          path);
+gboolean     e_tree_table_adapter_root_node_is_visible       (ETreeTableAdapter *etta);
 
-void         e_tree_table_adapter_show_node (ETreeTableAdapter *etta, ETreePath path);
+void         e_tree_table_adapter_show_node                  (ETreeTableAdapter *etta,
+							      ETreePath          path);
 
-void   	     e_tree_table_adapter_save_expanded_state (ETreeTableAdapter *etta, char *string);
-void   	     e_tree_table_adapter_load_expanded_state (ETreeTableAdapter *etta, char *string);
+void         e_tree_table_adapter_save_expanded_state        (ETreeTableAdapter *etta,
+							      const char        *filename);
+void         e_tree_table_adapter_load_expanded_state        (ETreeTableAdapter *etta,
+							      const char        *filename);
 
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
 
 #endif /* _E_TREE_TABLE_ADAPTER_H_ */
-

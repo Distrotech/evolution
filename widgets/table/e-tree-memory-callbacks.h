@@ -18,8 +18,10 @@ extern "C" {
 
 typedef GdkPixbuf* (*ETreeMemoryCallbacksIconAtFn)             (ETreeModel *etree, ETreePath path, void *model_data);
 
-typedef gboolean   (*ETreeMemoryCallbacksGetExpandedDefaultFn) (ETreeModel *etree, void *model_data);
 typedef gint       (*ETreeMemoryCallbacksColumnCountFn)        (ETreeModel *etree, void *model_data);
+
+typedef gboolean   (*ETreeMemoryCallbacksHasSaveIdFn)          (ETreeModel *etree, void *model_data);
+typedef gchar     *(*ETreeMemoryCallbacksGetSaveIdFn)          (ETreeModel *etree, ETreePath path, void *model_data);
 
 typedef void*      (*ETreeMemoryCallbacksValueAtFn)            (ETreeModel *etree, ETreePath path, int col, void *model_data);
 typedef void       (*ETreeMemoryCallbacksSetValueAtFn)         (ETreeModel *etree, ETreePath path, int col, const void *val, void *model_data);
@@ -38,9 +40,12 @@ typedef struct {
 
 	ETreeMemoryCallbacksColumnCountFn     column_count;
 
-	ETreeMemoryCallbacksValueAtFn value_at;
-	ETreeMemoryCallbacksSetValueAtFn set_value_at;
-	ETreeMemoryCallbacksIsEditableFn is_editable;
+	ETreeMemoryCallbacksHasSaveIdFn       has_save_id;
+	ETreeMemoryCallbacksGetSaveIdFn       get_save_id;
+
+	ETreeMemoryCallbacksValueAtFn         value_at;
+	ETreeMemoryCallbacksSetValueAtFn      set_value_at;
+	ETreeMemoryCallbacksIsEditableFn      is_editable;
 
 	ETreeMemoryCallbacksDuplicateValueFn  duplicate_value;
 	ETreeMemoryCallbacksFreeValueFn       free_value;
@@ -60,6 +65,9 @@ GtkType e_tree_memory_callbacks_get_type (void);
 ETreeModel *e_tree_memory_callbacks_new  (ETreeMemoryCallbacksIconAtFn icon_at,
 
 					  ETreeMemoryCallbacksColumnCountFn        column_count,
+
+					  ETreeMemoryCallbacksHasSaveIdFn          has_save_id,
+					  ETreeMemoryCallbacksGetSaveIdFn          get_save_id,
 
 					  ETreeMemoryCallbacksValueAtFn            value_at,
 					  ETreeMemoryCallbacksSetValueAtFn         set_value_at,

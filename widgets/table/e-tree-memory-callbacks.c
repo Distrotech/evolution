@@ -35,6 +35,29 @@ etmc_column_count (ETreeModel *etm)
 }
 
 
+static gboolean
+etmc_has_save_id (ETreeModel *etm)
+{
+	ETreeMemoryCallbacks *etmc = E_TREE_MEMORY_CALLBACKS(etm);
+
+	if (etmc->has_save_id)
+		return etmc->has_save_id (etm, etmc->model_data);
+	else
+		return FALSE;
+}
+
+static char *
+etmc_get_save_id (ETreeModel *etm, ETreePath node)
+{
+	ETreeMemoryCallbacks *etmc = E_TREE_MEMORY_CALLBACKS(etm);
+
+	if (etmc->get_save_id)
+		return etmc->get_save_id (etm, node, etmc->model_data);
+	else
+		return NULL;
+}
+
+
 static void *
 etmc_value_at (ETreeModel *etm, ETreePath node, int col)
 {
@@ -123,6 +146,9 @@ e_tree_memory_callbacks_class_init (GtkObjectClass *object_class)
 
 	model_class->column_count     = etmc_column_count;
 
+	model_class->has_save_id      = etmc_has_save_id;
+	model_class->get_save_id      = etmc_get_save_id;
+
 	model_class->value_at         = etmc_value_at;
 	model_class->set_value_at     = etmc_set_value_at;
 	model_class->is_editable      = etmc_is_editable;
@@ -162,6 +188,9 @@ e_tree_memory_callbacks_new  (ETreeMemoryCallbacksIconAtFn icon_at,
 
 			      ETreeMemoryCallbacksColumnCountFn        column_count,
 
+			      ETreeMemoryCallbacksHasSaveIdFn          has_save_id,
+			      ETreeMemoryCallbacksGetSaveIdFn          get_save_id,
+
 			      ETreeMemoryCallbacksValueAtFn            value_at,
 			      ETreeMemoryCallbacksSetValueAtFn         set_value_at,
 			      ETreeMemoryCallbacksIsEditableFn         is_editable,
@@ -181,6 +210,9 @@ e_tree_memory_callbacks_new  (ETreeMemoryCallbacksIconAtFn icon_at,
 	etmc->icon_at          = icon_at;
 
 	etmc->column_count     = column_count;
+
+	etmc->has_save_id      = has_save_id;
+	etmc->get_save_id      = get_save_id;
 
 	etmc->value_at         = value_at;
 	etmc->set_value_at     = set_value_at;

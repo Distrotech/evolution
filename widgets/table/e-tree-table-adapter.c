@@ -13,7 +13,10 @@
 #include <string.h>
 #include <gtk/gtksignal.h>
 #include "gal/util/e-util.h"
+#include "gal/util/e-xml-utils.h"
 #include "e-tree-table-adapter.h"
+#include "gnome-xml/tree.h"
+#include "gnome-xml/parser.h"
 
 #define PARENT_TYPE E_TABLE_MODEL_TYPE
 #define d(x)
@@ -45,6 +48,7 @@ struct ETreeTableAdapterPriv {
 typedef struct ETreeTableAdapterNode {
 	guint expanded : 1;
 	guint expandable : 1;
+	guint expandable_set : 1;
 
 	/* parent/child/sibling pointers */
 	guint32                num_visible_children;
@@ -62,6 +66,10 @@ find_node(ETreeTableAdapter *adapter, ETreePath path)
 		g_free(save_id);
 	} else {
 		node = g_hash_table_lookup(adapter->priv->attributes, path);
+	}
+	if (node && !node->expandable_set) {
+		node->expandable = e_tree_model_node_is_expandable(adapter->priv->source, path);
+		node->expandable_set = 1;
 	}
 
 	return node;
@@ -81,6 +89,7 @@ find_or_create_node(ETreeTableAdapter *etta, ETreePath path)
 		else
 			node->expanded = e_tree_model_get_expanded_default(etta->priv->source);
 		node->expandable = e_tree_model_node_is_expandable(etta->priv->source, path);
+		node->expandable_set = 1;
 		node->num_visible_children = 0;
 
 		if (e_tree_model_has_save_id(etta->priv->source)) {
@@ -93,6 +102,29 @@ find_or_create_node(ETreeTableAdapter *etta, ETreePath path)
 	}
 
 	return node;
+}
+
+static void
+add_expanded_node(ETreeTableAdapter *etta, char *save_id, gboolean expanded)
+{
+	ETreeTableAdapterNode *node;
+
+	node = g_hash_table_lookup(etta->priv->attributes, save_id);
+
+	if (node) {
+		node->expandable_set = 0;
+		node->expanded = expanded;
+		return;
+	}
+
+	node = g_new(ETreeTableAdapterNode, 1);
+
+	node->expanded = expanded;
+	node->expandable = 0;
+	node->expandable_set = 0;
+	node->num_visible_children = 0;
+
+	g_hash_table_insert(etta->priv->attributes, save_id, node);
 }
 
 static void
@@ -699,12 +731,107 @@ e_tree_table_adapter_new (ETreeModel *source)
 	return (ETableModel *) etta;
 }
 
-void   	     e_tree_table_adapter_save_expanded_state (ETreeTableAdapter *etta, char *string)
+typedef struct {
+	xmlNode *root;
+	ETreeModel *tree;
+} TreeAndRoot;
+
+static void
+save_expanded_state_func (gpointer keyp, gpointer value, gpointer data)
 {
+	gchar *key = keyp;
+	ETreeTableAdapterNode *node = value;
+	TreeAndRoot *tar = data;
+	xmlNode *root = tar->root;
+	ETreeModel *etm = tar->tree;
+	xmlNode *xmlnode;
+
+	if (node->expanded != e_tree_model_get_expanded_default(etm)) {
+		xmlnode = xmlNewChild (root, NULL, "node", NULL);
+		e_xml_set_string_prop_by_name(xmlnode, "id", key);
+	}
 }
 
-void   	     e_tree_table_adapter_load_expanded_state (ETreeTableAdapter *etta, char *string)
+void
+e_tree_table_adapter_save_expanded_state (ETreeTableAdapter *etta, const char *filename)
 {
+	xmlDoc *doc;
+	xmlNode *root;
+	ETreeTableAdapterPriv *priv;
+	TreeAndRoot tar;
+
+	g_return_if_fail(etta != NULL);
+
+	priv = etta->priv; 
+
+	doc = xmlNewDoc ((xmlChar*) "1.0");
+	root = xmlNewDocNode (doc, NULL,
+			      (xmlChar *) "expanded_state",
+			      NULL);
+	xmlDocSetRootElement (doc, root);
+
+	e_xml_set_integer_prop_by_name(root, "vers", 1);
+
+	tar.root = root;
+	tar.tree = etta->priv->source;
+
+	g_hash_table_foreach (priv->attributes,
+			      save_expanded_state_func,
+			      &tar);
+
+	xmlSaveFile (filename, doc);
+
+	xmlFreeDoc (doc);
+}
+
+void
+e_tree_table_adapter_load_expanded_state (ETreeTableAdapter *etta, const char *filename)
+{
+	ETreeTableAdapterPriv *priv;
+	xmlDoc *doc;
+	xmlNode *root;
+	xmlNode *child;
+	int vers;
+
+	g_return_if_fail(etta != NULL);
+
+	priv = etta->priv;
+
+	doc = xmlParseFile (filename);
+	if (!doc)
+		return;
+
+	root = xmlDocGetRootElement (doc);
+	if (root == NULL || strcmp (root->name, "expanded_state")) {
+		xmlFreeDoc (doc);
+		return;
+	}
+
+	vers = e_xml_get_integer_prop_by_name_with_default(root, "vers", 0);
+	if (vers != 1) {
+		xmlFreeDoc (doc);
+		return;
+	}
+
+	for (child = root->childs; child; child = child->next) {
+		char *id;
+
+		if (strcmp (child->name, "node")) {
+			d(g_warning ("unknown node '%s' in %s", child->name, filename));
+			continue;
+		}
+
+		id = e_xml_get_string_prop_by_name_with_default (child, "id", "");
+
+		if (!strcmp(id, "")) {
+			g_free(id);
+			return;
+		}
+
+		add_expanded_node(etta, id, !e_tree_model_get_expanded_default(etta->priv->source));
+	}
+
+	xmlFreeDoc (doc);
 }
 
 void         e_tree_table_adapter_root_node_set_visible (ETreeTableAdapter *etta, gboolean visible)
