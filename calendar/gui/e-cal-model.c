@@ -808,25 +808,29 @@ ecm_value_to_string (ETableModel *etm, int col, const void *value)
 
 /* ECalModel class methods */
 
+typedef struct {
+	const gchar *color;
+	GList *uris;
+} AssignedColorData;
+
 static const char *
 ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 {
 	ECalModelPrivate *priv;
-	gint i, pos;
-	GList *l;
-	gchar *colors[] = {
-		"#718DA9", /* 113 141 169 */
-		"#C6E2E2", /* 198 226 226 */
-		"#8DC671", /* 141 198 113 */
-		"#C6E2A9", /* 198 226 169 */
-		"#C6A971", /* 198 169 113 */
-		"#FFE271", /* 255 226 113 */
-		"#E27171", /* 226 113 113 */
-		"#FFA9A9", /* 255 169 169 */
-		"#C68DC6", /* 198 141 198 */
-		"#E2C6E2", /* 226 198 226 */
-		"#D6D684", /* 214 214 132 */
-		"#5B5B84"  /* 91 91 132 */
+	gint i, first_empty = 0;
+	static AssignedColorData assigned_colors[] = {
+		{ "#718DA9" /* 113 141 169 */, NULL },
+		{ "#C6E2E2" /* 198 226 226 */, NULL },
+		{ "#8DC671" /* 141 198 113 */, NULL },
+		{ "#C6E2A9" /* 198 226 169 */, NULL },
+		{ "#C6A971" /* 198 169 113 */, NULL },
+		{ "#FFE271" /* 255 226 113 */, NULL },
+		{ "#E27171" /* 226 113 113 */, NULL },
+		{ "#FFA9A9" /* 255 169 169 */, NULL },
+		{ "#C68DC6" /* 198 141 198 */, NULL },
+		{ "#E2C6E2" /* 226 198 226 */, NULL },
+		{ "#D6D684" /* 214 214 132 */, NULL },
+		{ "#5B5B84"  /* 91 91 132 */, NULL }
 	};
 
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
@@ -834,16 +838,26 @@ ecm_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
 
 	priv = model->priv;
 
-	for (l = priv->clients, i = 0; l != NULL; l = l->next, i++) {
-		ECalModelClient *client_data = (ECalModelClient *) l->data;
+	for (i = 0; i < G_N_ELEMENTS (assigned_colors); i++) {
+		GList *l;
 
-		if (client_data->client == comp_data->client) {
-			pos = i % G_N_ELEMENTS (colors);
-			return colors[pos];
+		if (assigned_colors[i].uris == NULL) {
+			first_empty = i;
+			continue;
+		}
+
+		for (l = assigned_colors[i].uris; l != NULL; l = l->next) {
+			if (!strcmp ((const char *) l->data,
+				     cal_client_get_uri (comp_data->client)))
+				return assigned_colors[i].color;
 		}
 	}
 
-	return NULL;
+	/* return the first unused color */
+	assigned_colors[first_empty].uris = g_list_append (assigned_colors[first_empty].uris,
+							   g_strdup (cal_client_get_uri (comp_data->client)));
+
+	return assigned_colors[first_empty].color;
 }
 
 /**
