@@ -132,7 +132,7 @@ set_contents (EMFolderSelectionButton *button)
 		return;
 	}
 	
-	url = camel_url_new (uri, NULL);
+	url = camel_url_new (priv->uri, NULL);
 	path = url->fragment ? url->fragment : url->path;
 	
 	if (path == NULL) {
