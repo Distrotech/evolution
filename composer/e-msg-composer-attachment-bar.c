@@ -32,6 +32,7 @@
 #include <gconf/gconf-client.h>
 #include <gdk/gdkkeysyms.h>
 #include <libgnomevfs/gnome-vfs-mime-handlers.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "e-msg-composer.h"
 #include "e-msg-composer-select-file.h"

@@ -34,6 +34,7 @@
 #include <gtk/gtksignal.h>
 
 #include <libgnomeui/gnome-uidefs.h>
+#include <libgnome/gnome-i18n.h>
 
 #include "e-msg-composer-select-file.h"
 #include <e-util/e-icon-factory.h>

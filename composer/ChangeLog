@@ -1,3 +1,7 @@
+2004-09-04  Not Zed  <NotZed@Ximian.com>
+
+	* e-msg-composer-*.c: include gnome-i18n.h if required.
+
 2004-08-30  Not Zed  <NotZed@Ximian.com>
 
 	* e-msg-composer-attachment-bar.c (emcab_popup): em-popup based
