@@ -2,7 +2,7 @@
 #  FILE: Makefile.am
 #  CREATOR: eric 
 #  
-#  $Id: Makefile.am,v 1.35.12.1 2003/09/23 19:43:48 ettore Exp $
+#  $Id: Makefile.am,v 1.35.12.2 2003/10/14 21:31:31 ettore Exp $
 #
 #
 # (C) COPYRIGHT 2000, Eric Busboom, http://www.softwarestudio.org
@@ -36,15 +36,9 @@ endif
 
 privlib_LTLIBRARIES = libical-evolution.la $(cxx_lib)
 
-noinst_LTLIBRARIES = libical-evolution-static.la
-libical_evolution_static_la_SOURCES = $(libical_evolution_la_SOURCES)
-libical_evolution_static_la_LDFLAGS = --all-static
-
 CPPFLAGS = -DPACKAGE_DATA_DIR=\""$(privdatadir)"\"
 
 # CFLAGS = -g
-
-all: ical.h
 
 INCLUDES =			\
 	-I$(top_builddir)	\
@@ -165,23 +159,6 @@ BUILT_SOURCES =			\
 	icalrestriction.c	\
 	icalderivedvalue.c
 
-ical.h: $(COMBINEDHEADERS)
-	echo '#ifdef __cplusplus'         >  ical.h
-	echo 'extern "C" {'               >> ical.h
-	echo '#endif'                     >> ical.h
-	echo '/*'                         >> ical.h
-	echo ' $$''Id''$$'                >> ical.h
-	echo '*/'                         >> ical.h
-	cat $(COMBINEDHEADERS)				\
-	| egrep -v "#include.*\"ical"			\
-	| egrep -v "#include.*\"config"			\
-	| egrep -v "#include.*\"pvl\.h\""		\
-	| egrep -v '\$$(Id|Locker): .+\$$'>> ical.h
-	echo '#ifdef __cplusplus'         >> ical.h
-	echo '};'                         >> ical.h
-	echo '#endif'                     >> ical.h
-
-
 # parameters
 
 PARAMETERDEPS =	\
@@ -257,7 +234,7 @@ CLEANFILES = $(BUILT_SOURCES) $(BUILT_COMBINEDHEADERS)
 
 dist-hook:
 	cd $(distdir); rm -f $(BUILT_SOURCES)
-	cd $(distdir); rm -f ical.h icalversion.h 
+	cd $(distdir); rm -f icalversion.h 
 
 EXTRA_DIST =			\
 	icalderivedparameter.c.in \

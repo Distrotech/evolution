@@ -2,7 +2,7 @@
 #  FILE: Makefile.am
 #  CREATOR: acampi 
 #  
-#  $Id: Makefile.am,v 1.3.2.1 2003/09/23 19:43:43 ettore Exp $
+#  $Id: Makefile.am,v 1.3.2.2 2003/10/14 21:31:30 ettore Exp $
 #
 #
 # (C) COPYRIGHT 2003, Andrea Campi, mailto:a.campi@inet.it
@@ -24,10 +24,6 @@
 
 
 lib_LTLIBRARIES = libicalcap-evolution.la
-
-noinst_LTLIBRARIES = libicalcap-evolution-static.la
-libicalcap_evolution_static_la_SOURCES = $(libicalcap_evolution_la_SOURCES)
-libicalcap_evolution_static_la_LDFLAGS = --all-static
 
 INCLUDES =			\
 	-I$(top_builddir)	\
