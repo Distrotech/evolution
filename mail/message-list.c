@@ -508,6 +508,30 @@ ml_column_count (ETreeModel *etm, void *data)
 	return COL_LAST;
 }
 
+/*
+ * SimpleTableModel::has_save_id
+ */
+static gboolean
+ml_has_save_id (ETreeModel *etm, void *data)
+{
+	return TRUE;
+}
+
+/*
+ * SimpleTableModel::get_save_id
+ */
+static char *
+ml_get_save_id (ETreeModel *etm, ETreePath path, void *data)
+{
+	char *uid;
+	if (e_tree_model_node_is_root(etm, path))
+		return g_strdup("root");
+	uid = e_tree_memory_node_get_data (E_TREE_MEMORY(etm), path);
+	if (uid == NULL)
+		return NULL;
+	return g_strdup (uid);
+}
+
 static void *
 ml_duplicate_value (ETreeModel *etm, int col, const void *value, void *data)
 {
@@ -1328,6 +1352,9 @@ message_list_construct (MessageList *message_list)
 		e_tree_memory_callbacks_new (ml_tree_icon_at,
 
 					     ml_column_count,
+
+					     ml_has_save_id,
+					     ml_get_save_id,
 					     
 					     ml_tree_value_at,
 					     ml_tree_set_value_at,

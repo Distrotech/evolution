@@ -965,6 +965,9 @@ subscribe_dialog_gui_init (SubscribeDialog *sc)
 
 							folder_etree_column_count,
 
+							NULL,
+							NULL,
+
 							folder_etree_value_at,
 							folder_etree_set_value_at,
 							folder_etree_is_editable,

@@ -1,3 +1,11 @@
+2001-03-18  Christopher James Lahey  <clahey@ximian.com>
+
+	* message-list.c: Added has_save_id and get_save_id methods.
+
+	* subscribe-dialog.c: Added arguments for
+	e_tree_memory_callbacks_new of get_save_id and has_save_id to
+	NULL.
+
 2001-03-16  Christopher James Lahey  <clahey@ximian.com>
 
 	* message-list.c: Added a call to
