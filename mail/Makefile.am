@@ -67,6 +67,8 @@ evolution_mail_SOURCES =		\
 	mail-autofilter.h		\
 	mail-callbacks.c		\
 	mail-callbacks.h		\
+	mail-composer-prefs.c		\
+	mail-composer-prefs.h		\
 	mail-config.c			\
 	mail-config.h			\
 	mail-config-druid.c		\
@@ -89,6 +91,8 @@ evolution_mail_SOURCES =		\
 	mail-offline-handler.h		\
 	mail-ops.c			\
 	mail-ops.h			\
+	mail-preferences.c		\
+	mail-preferences.h		\
 	mail-search.c			\
 	mail-search.h			\
 	mail-search-dialogue.c		\

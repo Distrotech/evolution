@@ -21,8 +21,8 @@
  */
 
 
-#ifndef __MAIL_ACCOUNTS_H__
-#define __MAIL_ACCOUNTS_H__
+#ifndef __MAIL_ACCOUNTS_TAB_H__
+#define __MAIL_ACCOUNTS_TAB_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,29 +33,31 @@ extern "C" {
 #include <gtk/gtkbutton.h>
 #include <glade/glade.h>
 
-#include <mail-config-druid.h>
-#include <mail-account-editor.h>
+#include <gal/e-table/e-table.h>
+
+#include "evolution-config-control.h"
 
 #include <shell/Evolution.h>
 
-#define MAIL_ACCOUNTS_TYPE        (mail_accounts_get_type ())
-#define MAIL_ACCOUNTS(o)          (GTK_CHECK_CAST ((o), MAIL_ACCOUNTS_TYPE, MailAccountsDialog))
-#define MAIL_ACCOUNTS_CLASS(k)    (GTK_CHECK_CLASS_CAST((k), MAIL_ACCOUNTS_TYPE, MailAccountsDialogClass))
-#define IS_MAIL_ACCOUNTS(o)       (GTK_CHECK_TYPE ((o), MAIL_ACCOUNTS_TYPE))
-#define IS_MAIL_ACCOUNTS_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), MAIL_ACCOUNTS_TYPE))
 
-typedef struct _MailAccounts MailAccounts;
-typedef struct _MailAccountsClass MailAccountsClass;
+#define MAIL_ACCOUNTS_TAB_TYPE        (mail_accounts_tab_get_type ())
+#define MAIL_ACCOUNTS_TAB(o)          (GTK_CHECK_CAST ((o), MAIL_ACCOUNTS_TAB_TYPE, MailAccountsTab))
+#define MAIL_ACCOUNTS_TAB_CLASS(k)    (GTK_CHECK_CLASS_CAST((k), MAIL_ACCOUNTS_TAB_TYPE, MailAccountsTabClass))
+#define IS_MAIL_ACCOUNTS_TAB(o)       (GTK_CHECK_TYPE ((o), MAIL_ACCOUNTS_TAB_TYPE))
+#define IS_MAIL_ACCOUNTS_TAB_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), MAIL_ACCOUNTS_TAB_TYPE))
 
-struct _MailAccounts {
-	GtkVbox parent_object;
+typedef struct _MailAccountsTab MailAccountsTab;
+typedef struct _MailAccountsTabClass MailAccountsTabClass;
+
+struct _MailAccountsTab {
+	GtkVBox parent_object;
 	
 	GNOME_Evolution_Shell shell;
 	
 	GladeXML *gui;
 	
-	MailConfigDruid *druid;
-	MailAccountEditor *editor;
+	GtkWidget *druid;
+	GtkWidget *editor;
 	
 	ETable *table;
 	ETableModel *model;
@@ -67,26 +69,26 @@ struct _MailAccounts {
 	GtkButton *mail_able;
 };
 
-struct _MailAccounts {
-	GtkVboxClass parent_class;
+struct _MailAccountsTabClass {
+	GtkVBoxClass parent_class;
 	
 	/* signals */
 	
 };
 
 
-GtkType mail_accounts_get_type (void);
+GtkType mail_accounts_tab_get_type (void);
 
-GtkWidget *mail_accounts_new (void);
+GtkWidget *mail_accounts_tab_new (GNOME_Evolution_Shell shell);
 
-void mail_accounts_apply (MailAccounts *accounts);
+void mail_accounts_tab_apply (MailAccountsTab *accounts);
 
 /* needed by global config */
 
-gboolean mail_accounts_register_factory (GNOME_Evolution_Shell shell);
+gboolean mail_accounts_tab_register_factory (GNOME_Evolution_Shell shell);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __MAIL_ACCOUNTS_H__ */
+#endif /* __MAIL_ACCOUNTS_TAB_H__ */

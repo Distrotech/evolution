@@ -2738,36 +2738,6 @@ vfolder_edit_vfolders (BonoboUIComponent *uih, void *user_data, const char *path
 }
 
 
-static MailAccountsDialog *accounts_dialog = NULL;
-
-static void
-accounts_dialog_close (GtkWidget *widget, gpointer user_data)
-{
-	accounts_dialog = NULL;
-}
-
-void
-providers_config (BonoboUIComponent *uih, void *user_data, const char *path)
-{
-	FolderBrowser *fb = FOLDER_BROWSER (user_data);
-	
-	if (FOLDER_BROWSER_IS_DESTROYED (fb))
-		return;
-	
-	if (!accounts_dialog) {
-		accounts_dialog = mail_accounts_dialog_new (fb->shell);
-		gtk_widget_set_parent_window (GTK_WIDGET (accounts_dialog),
-					      GTK_WIDGET (FB_WINDOW (fb))->window);
-		gtk_signal_connect (GTK_OBJECT (accounts_dialog), "destroy",
-				    accounts_dialog_close, NULL);
-		gnome_dialog_set_close (GNOME_DIALOG (accounts_dialog), TRUE);
-		gtk_widget_show (GTK_WIDGET (accounts_dialog));
-	} else {
-		gdk_window_raise (GTK_WIDGET (accounts_dialog)->window);
-		gtk_widget_grab_focus (GTK_WIDGET (accounts_dialog));
-	}
-}
-
 /* static void
 header_print_cb (GtkHTML *html, GnomePrintContext *print_context,
 		 double x, double y, double width, double height, gpointer user_data)

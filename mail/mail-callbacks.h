@@ -112,7 +112,6 @@ void open_message          (BonoboUIComponent *uih, void *user_data, const char 
 void expunge_folder        (BonoboUIComponent *uih, void *user_data, const char *path);
 void filter_edit           (BonoboUIComponent *uih, void *user_data, const char *path);
 void vfolder_edit_vfolders (BonoboUIComponent *uih, void *user_data, const char *path);
-void providers_config      (BonoboUIComponent *uih, void *user_data, const char *path);
 void manage_subscriptions  (BonoboUIComponent *uih, void *user_data, const char *path);
 
 void configure_folder      (BonoboUIComponent *uih, void *user_data, const char *path);

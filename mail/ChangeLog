@@ -1,3 +1,30 @@
+2002-03-22  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-account-gui.c (sig_new_text): Temporarily #if 0 this
+	function out.
+	(sig_new_html): Same.
+
+	* mail-config.c (config_read): Read in the default reply style
+	setting.
+	(mail_config_write_on_exit): Same the default reply style.
+	(mail_config_get_default_reply_style): New function to get the
+	default reply style.
+	(mail_config_set_default_reply_style): New function to set the
+	default reply style.
+
+	* folder-browser-ui.c: There is no longer a Tools/Mail Settings
+	menu item.
+
+	* mail-account-gui.c: Updated the widget types for the
+	MailAccountsDialog->MailAccountsTab change.
+
+	* mail_account_editor.c: Same.
+
+	* mail-callbacks.c (providers_config): Removed.
+
+	* mail-composer-prefs.c: New file that implements the composer
+	preferences tab of anna's new config design.
+
 2002-03-21  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* mail-accounts.c: Reimplemented. This time we only have to worry

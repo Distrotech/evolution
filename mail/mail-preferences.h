@@ -29,19 +29,21 @@ extern "C" {
 #pragma }
 #endif
 
-#include <gtk/gtkvbox.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkspinbutton.h>
+#include <gtk/gtk.h>
 #include <libgnomeui/gnome-color-picker.h>
 #include <libgnomeui/gnome-dialog.h>
 #include <libgnomeui/gnome-file-entry.h>
 #include <glade/glade.h>
+
+#include <gconf/gconf-client.h>
+
+#include "evolution-config-control.h"
+
 #include <shell/Evolution.h>
 
 #define MAIL_PREFERENCES_TYPE        (mail_preferences_get_type ())
-#define MAIL_PREFERENCES(o)          (GTK_CHECK_CAST ((o), MAIL_PREFERENCES_TYPE, MailAccountsDialog))
-#define MAIL_PREFERENCES_CLASS(k)    (GTK_CHECK_CLASS_CAST((k), MAIL_PREFERENCES_TYPE, MailAccountsDialogClass))
+#define MAIL_PREFERENCES(o)          (GTK_CHECK_CAST ((o), MAIL_PREFERENCES_TYPE, MailPreferences))
+#define MAIL_PREFERENCES_CLASS(k)    (GTK_CHECK_CLASS_CAST((k), MAIL_PREFERENCES_TYPE, MailPreferencesClass))
 #define IS_MAIL_PREFERENCES(o)       (GTK_CHECK_TYPE ((o), MAIL_PREFERENCES_TYPE))
 #define IS_MAIL_PREFERENCES_CLASS(k) (GTK_CHECK_CLASS_TYPE ((k), MAIL_PREFERENCES_TYPE))
 
@@ -49,7 +51,7 @@ typedef struct _MailPreferences MailPreferences;
 typedef struct _MailPreferencesClass MailPreferencesClass;
 
 struct _MailPreferences {
-	GtkVbox parent;
+	GtkVBox parent_object;
 	
 	GNOME_Evolution_Shell shell;
 	
@@ -90,8 +92,8 @@ struct _MailPreferences {
 	GnomeFileEntry *pgp_path;
 };
 
-struct _MailPreferences {
-	GtkVboxClass parent_class;
+struct _MailPreferencesClass {
+	GtkVBoxClass parent_class;
 	
 	/* signals */
 	
@@ -106,9 +108,7 @@ void mail_preferences_apply (MailPreferences *prefs);
 
 /* needed by global config */
 
-void  mail_preferences (GNOME_Evolution_Shell  shell);
-
-gboolean  mail_preferences_register_factory  (GNOME_Evolution_Shell shell);
+gboolean mail_preferences_register_factory (GNOME_Evolution_Shell shell);
 
 #ifdef __cplusplus
 }
