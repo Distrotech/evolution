@@ -281,7 +281,8 @@ emfp_dialog_got_folder (char *uri, CamelFolder *folder, void *data)
 	e_config_add_items((EConfig *)ec, l, emfp_commit, NULL, emfp_free, prop_data);
 
 	target = em_config_target_new_folder(ec, folder, uri);
-	w = e_config_create_widget((EConfig *)ec, (EConfigTarget *)target);
+	e_config_set_target((EConfig *)ec, (EConfigTarget *)target);
+	w = e_config_create_widget((EConfig *)ec);
 
 	gtk_box_pack_start ((GtkBox *) ((GtkDialog *) dialog)->vbox, w, TRUE, TRUE, 0);
 

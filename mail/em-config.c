@@ -65,21 +65,54 @@
 
 static GObjectClass *emp_parent;
 
+struct _EMConfigPrivate {
+	gint account_changed_id;
+};
+
 static void
 emp_init(GObject *o)
 {
-	/*EMConfig *emp = (EMConfig *)o; */
+	EMConfig *emp = (EMConfig *)o;
+
+	emp->priv = g_malloc0(sizeof(*emp->priv));
 }
 
 static void
 emp_finalise(GObject *o)
 {
+	struct _EMConfigPrivate *p = ((EMConfig *)o)->priv;
+
+	/* Note we can't be unreffed if a target exists, so the target
+	 * will need to be freed first which will clean up any
+	 * listeners */
+
+	g_free(p);
+
 	((GObjectClass *)emp_parent)->finalize(o);
 }
 
 static void
 emp_target_free(EConfig *ep, EConfigTarget *t)
 {
+	if (ep->target == t) {
+		switch (t->type) {
+		case EM_CONFIG_TARGET_FOLDER: {
+			/*EMConfigTargetFolder *s = (EMConfigTargetFolder *)t;*/
+			break; }
+		case EM_CONFIG_TARGET_PREFS: {
+			/*EMConfigTargetPrefs *s = (EMConfigTargetPrefs *)t;*/
+			break; }
+		case EM_CONFIG_TARGET_ACCOUNT: {
+			EMConfigTargetAccount *s = (EMConfigTargetAccount *)t;
+			
+			if (((EMConfig *)ep)->priv->account_changed_id) {
+				g_signal_handler_disconnect(s->account, ((EMConfig *)ep)->priv->account_changed_id);
+				((EMConfig *)ep)->priv->account_changed_id = 0;
+			}
+			break; }
+		}
+	}
+
 	switch (t->type) {
 	case EM_CONFIG_TARGET_FOLDER: {
 		EMConfigTargetFolder *s = (EMConfigTargetFolder *)t;
@@ -104,12 +137,39 @@ emp_target_free(EConfig *ep, EConfigTarget *t)
 }
 
 static void
+emp_account_changed(struct _EAccount *ea, int id, EMConfig *emc)
+{
+	e_config_target_changed((EConfig *)emc, E_CONFIG_TARGET_CHANGED_STATE);
+}
+
+static void
+emp_set_target(EConfig *ep, EConfigTarget *t)
+{
+	((EConfigClass *)emp_parent)->set_target(ep, t);
+
+	if (t) {
+		switch (t->type) {
+		case EM_CONFIG_TARGET_FOLDER: {
+			/*EMConfigTargetFolder *s = (EMConfigTargetFolder *)t;*/
+			break; }
+		case EM_CONFIG_TARGET_PREFS: {
+			/*EMConfigTargetPrefs *s = (EMConfigTargetPrefs *)t;*/
+			break; }
+		case EM_CONFIG_TARGET_ACCOUNT: {
+			EMConfigTargetAccount *s = (EMConfigTargetAccount *)t;
+			
+			((EMConfig *)ep)->priv->account_changed_id = g_signal_connect(s->account, "changed", G_CALLBACK(emp_account_changed), ep);
+			break; }
+		}
+	}
+}
+
+static void
 emp_class_init(GObjectClass *klass)
 {
 	klass->finalize = emp_finalise;
+	((EConfigClass *)klass)->set_target = emp_set_target;
 	((EConfigClass *)klass)->target_free = emp_target_free;
-
-	/*e_config_class_add_factory((EConfigClass *)klass, NULL, (EConfigFactoryFunc)emp_standard_menu_factory, NULL);*/
 }
 
 GType

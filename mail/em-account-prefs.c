@@ -134,60 +134,17 @@ account_add_finished (EMAccountPrefs *prefs, GObject *deadbeef)
 	g_object_unref (prefs);
 }
 
-#include <libgnomeui/gnome-druid.h>
-#include <libgnomeui/gnome-druid-page.h>
 #include "em-config.h"
-
-static gboolean
-emap_druid_next(GnomeDruidPage *page, GnomeDruid *druid, void *data)
-{
-	EMAccountEditor *emae = data;
-	const char *pageid = g_object_get_data((GObject *)page, "pageid");
-
-	printf("druid next from page '%s' ", pageid);
-	pageid = e_config_page_next((EConfig *)emae->config, pageid);
-	printf("to '%s'\n", pageid?pageid:"no next");
-
-	return pageid != NULL;
-}
-
-static gboolean
-emap_druid_prev(GnomeDruidPage *page, GnomeDruid *druid, void *data)
-{
-	EMAccountEditor *emae = data;
-	const char *pageid = g_object_get_data((GObject *)page, "pageid");
-
-	printf("druid prev from page '%s' ", pageid);
-	pageid = e_config_page_prev((EConfig *)emae->config, pageid);
-	printf("to '%s'\n", pageid?pageid:"no prev");
-
-	return pageid != NULL;
-}
-
-static void
-emap_druid_prepare(GnomeDruidPage *page, GnomeDruid *druid, void *data)
-{
-	EMAccountEditor *emae = data;
-	const char *pageid = g_object_get_data((GObject *)page, "pageid");
-
-	/* ?? */
-	printf("druid prepare page '%s'\n", pageid);
-
-	if (e_config_page_check((EConfig *)emae->config, pageid)) {
-		gtk_widget_set_sensitive(druid->next, TRUE);
-	} else {
-		gtk_widget_set_sensitive(druid->next, FALSE);
-	}
-}
 
 static void
 account_add_clicked (GtkButton *button, gpointer user_data)
 {
 	EMAccountPrefs *prefs = (EMAccountPrefs *) user_data;
-	GtkWidget *parent;
 	
 	if (prefs->druid == NULL) {
 #if 0
+		GtkWidget *parent;
+
 		prefs->druid = (GtkWidget *) mail_config_druid_new ();
 		
 		parent = gtk_widget_get_toplevel ((GtkWidget *) prefs);
@@ -202,34 +159,11 @@ account_add_clicked (GtkButton *button, gpointer user_data)
 #else
 		EMAccountEditor *emae;
 		EAccount *ea;
-		const char *pageid, *firstid = NULL;
-		GtkWidget *w;
 
 		ea = e_account_new();
 		emae = em_account_editor_new(ea, EMAE_DRUID);
 		g_object_unref(ea);
 		gtk_widget_show(emae->editor);
-
-		printf("setting up pages\n");
-		for (pageid = NULL; (pageid = e_config_page_next((EConfig *)emae->config, pageid));) {
-			printf(" %s\n", pageid);
-			if (firstid == NULL)
-				firstid = pageid;
-			w = e_config_page_get((EConfig *)emae->config, pageid);
-			/* FIXME:
-			   if account changed: re-check validity of page for next/prev buttons */
-			g_object_set_data((GObject *)w, "pageid", (void *)pageid);
-			g_signal_connect(w, "back", G_CALLBACK(emap_druid_prev), emae);
-			g_signal_connect(w, "next", G_CALLBACK(emap_druid_next), emae);
-			/* bug in gnome-druid, need to connect-after */
-			g_signal_connect_after(w, "prepare", G_CALLBACK(emap_druid_prepare), emae);
-		}
-		printf("done\n");
-
-		if (firstid) {
-			w = e_config_page_get((EConfig *)emae->config, firstid);
-			gnome_druid_set_page((GnomeDruid *)emae->editor, (GnomeDruidPage *)w);
-		}
 #endif
 	} else {
 		gdk_window_raise (prefs->druid->window);
@@ -263,8 +197,9 @@ account_edit_clicked (GtkButton *button, gpointer user_data)
 			gtk_tree_model_get (model, &iter, 3, &account, -1);
 		
 		if (account) {
-			GtkWidget *parent;
 #if 0
+			GtkWidget *parent;
+
 			parent = gtk_widget_get_toplevel ((GtkWidget *) prefs);
 			parent = GTK_WIDGET_TOPLEVEL (parent) ? parent : NULL;
 			
@@ -276,7 +211,6 @@ account_edit_clicked (GtkButton *button, gpointer user_data)
 #endif
 			/* test foo */
 			{
-				GtkWidget *d, *w;
 				EAccount *ea;
 				EMAccountEditor *emae;
 				char *txt;
@@ -285,12 +219,9 @@ account_edit_clicked (GtkButton *button, gpointer user_data)
 				ea = e_account_new_from_xml(txt);
 				g_free(txt);
 
-				d = gtk_dialog_new();
 				emae = em_account_editor_new(ea, EMAE_NOTEBOOK);
 				g_object_unref(ea);
 				gtk_widget_show(emae->editor);
-				gtk_box_pack_start(((GtkDialog *)d)->vbox, emae->editor, TRUE, TRUE, 0);
-				gtk_widget_show(d);
 			}
 
 		}

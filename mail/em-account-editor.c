@@ -126,12 +126,9 @@ typedef struct _EMAccountEditorPrivate {
 	
 	/* incoming mail */
 	EMAccountEditorService source;
-	struct _GtkToggleButton *source_auto_check;
-	struct _GtkSpinButton *source_auto_check_min;
 	
 	/* extra incoming config */
 	GHashTable *extra_config;
-	GSList *extra_widgets;
 
 	/* outgoing mail */
 	EMAccountEditorService transport;
@@ -198,7 +195,6 @@ emae_finalise(GObject *o)
 	g_list_free(p->transport.authtypes);
 
 	g_list_free(p->providers);
-	g_slist_free(p->extra_widgets);
 	g_free(p);
 
 	g_object_unref(emae->account);
@@ -758,6 +754,7 @@ transport_provider_set_available (EMAccountEditor *emae, CamelProvider *provider
 	}
 }
 
+/* TBD */
 static void
 source_type_changed (GtkWidget *widget, gpointer user_data)
 {
@@ -2125,16 +2122,22 @@ emae_account_toggle_changed(GtkToggleButton *toggle, EMAccountEditor *emae)
 	e_account_set_bool(emae->account, item, gtk_toggle_button_get_active(toggle));
 }
 
+static void
+emae_account_toggle_widget(EMAccountEditor *emae, GtkToggleButton *toggle, int item)
+{
+	gtk_toggle_button_set_active(toggle, e_account_get_bool(emae->account, item));
+	g_object_set_data((GObject *)toggle, "account-item", GINT_TO_POINTER(item));
+	g_signal_connect(toggle, "toggled", G_CALLBACK(emae_account_toggle_changed), emae);
+	gtk_widget_set_sensitive((GtkWidget *)toggle, e_account_writable(emae->account, item));
+}
+
 static GtkToggleButton *
 emae_account_toggle(EMAccountEditor *emae, const char *name, int item)
 {
 	GtkToggleButton *toggle;
 
 	toggle = (GtkToggleButton *)glade_xml_get_widget(emae->priv->xml, name);
-	gtk_toggle_button_set_active(toggle, e_account_get_bool(emae->account, item));
-	g_object_set_data((GObject *)toggle, "account-item", GINT_TO_POINTER(item));
-	g_signal_connect(toggle, "toggled", G_CALLBACK(emae_account_toggle_changed), emae);
-	gtk_widget_set_sensitive((GtkWidget *)toggle, e_account_writable(emae->account, item));
+	emae_account_toggle_widget(emae, toggle, item);
 
 	return toggle;
 }
@@ -2147,16 +2150,22 @@ emae_account_spinint_changed(GtkSpinButton *spin, EMAccountEditor *emae)
 	e_account_set_int(emae->account, item, gtk_spin_button_get_value(spin));
 }
 
+static void
+emae_account_spinint_widget(EMAccountEditor *emae, GtkSpinButton *spin, int item)
+{
+	gtk_spin_button_set_value(spin, e_account_get_int(emae->account, item));
+	g_object_set_data((GObject *)spin, "account-item", GINT_TO_POINTER(item));
+	g_signal_connect(spin, "value_changed", G_CALLBACK(emae_account_spinint_changed), emae);
+	gtk_widget_set_sensitive((GtkWidget *)spin, e_account_writable(emae->account, item));
+}
+
 static GtkSpinButton *
 emae_account_spinint(EMAccountEditor *emae, const char *name, int item)
 {
 	GtkSpinButton *spin;
 
 	spin = (GtkSpinButton *)glade_xml_get_widget(emae->priv->xml, name);
-	gtk_spin_button_set_value(spin, e_account_get_int(emae->account, item));
-	g_object_set_data((GObject *)spin, "account-item", GINT_TO_POINTER(item));
-	g_signal_connect(spin, "value_changed", G_CALLBACK(emae_account_spinint_changed), emae);
-	gtk_widget_set_sensitive((GtkWidget *)spin, e_account_writable(emae->account, item));
+	emae_account_spinint_widget(emae, spin, item);
 
 	return spin;
 }
@@ -2555,7 +2564,7 @@ emae_provider_changed(GtkComboBox *dropdown, EMAccountEditorService *service)
 
 	emae_service_provider_changed(service);
 
-	e_config_target_changed((EConfig *)service->emae->priv->config);
+	e_config_target_changed((EConfig *)service->emae->priv->config, E_CONFIG_TARGET_CHANGED_REBUILD);
 }
 
 static GtkWidget *
@@ -2901,9 +2910,6 @@ emae_receive_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, str
 	gui->source.type = CAMEL_PROVIDER_STORE;
 	emae_setup_service(emae, &gui->source);
 
-	emae_account_toggle(emae, "extra_auto_check", E_ACCOUNT_SOURCE_AUTO_CHECK);
-	emae_account_spinint(emae, "extra_auto_check_min", E_ACCOUNT_SOURCE_AUTO_CHECK_TIME);
-
 	w = glade_xml_get_widget(gui->xml, item->label);
 	if (((EConfig *)gui->config)->type == E_CONFIG_DRUID) {
 		GtkWidget *page = glade_xml_get_widget(gui->druidxml, "source_page");
@@ -2936,50 +2942,6 @@ emae_remove_childen(EMAccountEditor *emae, const char *container, const char *ke
 	}
 }
 
-static GtkWidget *
-emae_receive_options_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
-{
-	EMAccountEditor *emae = data;
-	GtkWidget *w;
-
-	/* this is really crap-o */
-	emae_remove_childen(emae, "extra_table", "extra_mailcheck_frame");
-	emae_remove_childen(emae, "extra_mailcheck_table", "extra_mailcheck_hbox");
-
-	/* FIXME: need to hide it in druid if it isn't needed, e.g. recieve type none */
-	/*uri = e_account_get_string(emae->account, E_ACCOUNT_SOURCE_URL); */
-
-	{
-		GtkWidget *w, *l;
-		char *tmp;
-		const char *uri;
-
-		uri = e_account_get_string(emae->account, E_ACCOUNT_SOURCE_URL);
-		tmp = g_strdup_printf("account url is: %s", uri?uri:"unset");
-
-		l = gtk_label_new(tmp);
-		g_free(tmp);
-		gtk_widget_show(l);
-		w = glade_xml_get_widget(emae->priv->xml, "extra_table");
-		gtk_table_attach((GtkTable *)w, l, 0, 2, 1, 2, GTK_EXPAND|GTK_FILL, 0, 0, 0);
-	}
-
-	if (old)
-		return old;
-
-	w = glade_xml_get_widget(emae->priv->xml, item->label);
-	if (((EConfig *)emae->priv->config)->type == E_CONFIG_DRUID) {
-		GtkWidget *page = glade_xml_get_widget(emae->priv->druidxml, "extra_page");
-
-		/* need to set packing? */
-		gtk_widget_reparent(w, ((GnomeDruidPageStandard *)page)->vbox);
-
-		return page;
-	}
-
-	return w;
-}
-
 static void
 emae_option_toggle_changed(GtkToggleButton *toggle, EMAccountEditorService *service)
 {
@@ -3005,6 +2967,7 @@ emae_option_toggle(EMAccountEditorService *service, const char *text, const char
 			 NULL);
 	g_object_set_data((GObject *)w, "option-name", (void *)name);
 	g_signal_connect(w, "toggled", G_CALLBACK(emae_option_toggle_changed), service);
+	gtk_widget_show(w);
 
 	printf("adding option toggle '%s'\n", text);
 
@@ -3031,10 +2994,11 @@ emae_option_entry(EMAccountEditorService *service, const char *name, const char 
 		def = "";
 
 	w = g_object_new(gtk_entry_get_type(),
-			 "label", def,
+			 "text", def,
 			 NULL);
 	g_object_set_data((GObject *)w, "option-name", (void *)name);
 	g_signal_connect(w, "changed", G_CALLBACK(emae_option_entry_changed), service);
+	gtk_widget_show(w);
 
 	return w;
 }
@@ -3114,7 +3078,45 @@ emae_option_checkspin(EMAccountEditorService *service, const char *name, const c
 	g_signal_connect(spin, "value_changed", G_CALLBACK(emae_option_checkspin_changed), service);
 	g_signal_connect(check, "toggled", G_CALLBACK(emae_option_checkspin_check_changed), service);
 
+	gtk_widget_show_all(hbox);
+
 	return hbox;
+}
+
+static GtkWidget *
+emae_receive_options_item(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
+{
+	EMAccountEditor *emae = data;
+	GtkWidget *w, *box;
+	int row;
+
+	if (emae->priv->source.provider == NULL
+	    || emae->priv->source.provider->extra_conf == NULL)
+		return NULL;
+
+	if (old)
+		return old;
+
+	/* We have to add the automatic mail check item with the rest of the receive options */
+	row = ((GtkTable *)parent)->nrows;
+
+	box = gtk_hbox_new(FALSE, 4);
+	w = gtk_check_button_new_with_label(_("Automatically check for _new mail every"));
+	emae_account_toggle_widget(emae, (GtkToggleButton *)w, E_ACCOUNT_SOURCE_AUTO_CHECK);
+	gtk_box_pack_start((GtkBox *)box, w, FALSE, FALSE, 0);
+
+	w = gtk_spin_button_new_with_range(1.0, 1440.0, 1.0);
+	emae_account_spinint_widget(emae, (GtkSpinButton *)w, E_ACCOUNT_SOURCE_AUTO_CHECK_TIME);
+	gtk_box_pack_start((GtkBox *)box, w, FALSE, TRUE, 0);
+
+	w = gtk_label_new(_("minutes"));
+	gtk_box_pack_start((GtkBox *)box, w, FALSE, FALSE, 0);
+
+	gtk_widget_show_all(box);
+
+	gtk_table_attach((GtkTable *)parent, box, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
+
+	return box;
 }
 
 static GtkWidget *
@@ -3123,19 +3125,21 @@ emae_receive_options_extra_item(EConfig *ec, EConfigItem *item, struct _GtkWidge
 	EMAccountEditor *emae = data;
 	GtkWidget *w, *l;
 	CamelProviderConfEntry *entries;
-	GtkWidget *table, *depw;
-	GSList *depl = NULL;
+	GtkWidget *depw;
+	GSList *depl = NULL, *widgets = NULL, *n;
 	EMAccountEditorService *service = &emae->priv->source;
 	int row, i;
 	GHashTable *extra;
 
-	if (emae->priv->extra_widgets) {
-		g_slist_foreach(emae->priv->extra_widgets, (GFunc)gtk_widget_destroy, NULL);
-		g_slist_free(emae->priv->extra_widgets);
-		emae->priv->extra_widgets = NULL;
+	/* Clean up any widgets we had setup before */
+	if (old
+	    && (widgets = g_object_get_data((GObject *)old, "extra-widgets"))) {
+		g_slist_foreach(widgets, (GFunc)gtk_widget_destroy, NULL);
+		widgets = NULL;
 	}
 
-	if (emae->priv->source.provider == NULL)
+	if (emae->priv->source.provider == NULL
+	    || emae->priv->source.provider->extra_conf == NULL)
 		return NULL;
 
 	entries = emae->priv->source.provider->extra_conf;
@@ -3149,7 +3153,6 @@ emae_receive_options_extra_item(EConfig *ec, EConfigItem *item, struct _GtkWidge
 section:
 	printf("Building extra section '%s'\n", item->path);
 
-	table = gtk_table_new(1, 1, FALSE);
 	extra = g_hash_table_new(g_str_hash, g_str_equal);
 	row = ((GtkTable *)parent)->nrows;
 
@@ -3169,28 +3172,33 @@ section:
 			break;
 		case CAMEL_PROVIDER_CONF_CHECKBOX:
 			w = emae_option_toggle(service, entries[i].text, entries[i].name, atoi(entries[i].value));
-			gtk_table_attach((GtkTable *)table, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
+			gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			g_hash_table_insert(extra, entries[i].name, w);
 			if (depw)
 				depl = g_slist_prepend(depl, w);
+			widgets = g_slist_prepend(widgets, w);
 			row++;
 			break;
 		case CAMEL_PROVIDER_CONF_ENTRY:
 			l = g_object_new(gtk_label_get_type(), "label", entries[i].text, "xalign", 0.0, NULL);
+			gtk_widget_show(l);
 			w = emae_option_entry(service, entries[i].name, entries[i].value);
-			gtk_table_attach((GtkTable *)table, l, 0, 1, row, row+1, GTK_FILL, 0, 0, 0);
-			gtk_table_attach((GtkTable *)table, w, 1, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
+			gtk_table_attach((GtkTable *)parent, l, 0, 1, row, row+1, GTK_FILL, 0, 0, 0);
+			gtk_table_attach((GtkTable *)parent, w, 1, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			if (depw) {
 				depl = g_slist_prepend(depl, w);
 				depl = g_slist_prepend(depl, l);
 			}
+			widgets = g_slist_prepend(widgets, w);
+			widgets = g_slist_prepend(widgets, l);
 			row++;
 			break;
 		case CAMEL_PROVIDER_CONF_CHECKSPIN:
 			w = emae_option_checkspin(service, entries[i].name, entries[i].text, entries[i].value);
-			gtk_table_attach((GtkTable *)table, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
+			gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, GTK_EXPAND|GTK_FILL, 0, 0, 0);
 			if (depw)
 				depl = g_slist_prepend(depl, w);
+			widgets = g_slist_prepend(widgets, w);
 			row++;
 			break;
 		default:
@@ -3198,7 +3206,6 @@ section:
 		}
 
 		if (depw && depl) {
-			GSList *n = depl;
 			int act = gtk_toggle_button_get_active((GtkToggleButton *)depw);
 
 			g_object_set_data_full((GObject *)depw, "dependent-list", depl, (GDestroyNotify)g_slist_free);
@@ -3208,11 +3215,18 @@ section:
 	}
 
 	g_hash_table_destroy(extra);
-	gtk_widget_show_all(table);
 
-	gtk_box_pack_start((GtkBox *)parent, table, FALSE, TRUE, 0);
+	/* Since EConfig destroys the factory widget when it changes, we
+	 * need to destroy our own ones as well, and add a dummy item
+	 * so it knows this section isn't empty */
 
-	return table;
+	w = gtk_label_new("");
+	gtk_widget_hide(w);
+	gtk_table_attach((GtkTable *)parent, w, 0, 2, row, row+1, 0, 0, 0, 0);
+
+	g_object_set_data_full((GObject *)w, "extra-widgets", widgets, (GDestroyNotify)g_slist_free);
+
+	return w;
 }
 
 static GtkWidget *
@@ -3349,10 +3363,10 @@ static EMConfigItem emae_editor_items[] = {
 	{ E_CONFIG_SECTION, "10.receive/20.security", "vbox181", emae_widget_glade },
 	{ E_CONFIG_SECTION, "10.receive/30.auth", "vbox179", emae_widget_glade },
 
-	{ E_CONFIG_PAGE, "20.receive_options", "vboxExtraTableBorder", emae_receive_options_page },
-	/* the structure of this is fucked, needs fixing */
-	/* table not vbox: { E_CONFIG_SECTION, "20.receive_options/00.mailcheck", "extra_mailcheck_table", emcp_widget_glade }, */
-	/* table not vbox: { E_CONFIG_SECTION, "20.receive_options/10.extra", "extra_table", emcp_widget_glade }, */
+	/* Most sections for this is auto-generated fromt the camel config */
+	{ E_CONFIG_PAGE, "20.receive_options", N_("Receiving Options"), },
+	{ E_CONFIG_SECTION_TABLE, "20.receive_options/10.mailcheck", N_("Checking for New Mail"), },
+	{ E_CONFIG_ITEM, "20.receive_options/10.mailcheck/00.autocheck", NULL, emae_receive_options_item, },
 
 	{ E_CONFIG_PAGE, "30.send", "vboxTransportBorder", emae_send_page },
 	/* table not vbox: { E_CONFIG_SECTION, "30.send/00.type", "transport_type_table", emcp_widget_glade }, */
@@ -3371,21 +3385,51 @@ static EMConfigItem emae_editor_items[] = {
 };
 
 static GtkWidget *
+emae_management_page(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
+{
+	EMAccountEditor *emae = data;
+	EMAccountEditorPrivate *gui = emae->priv;
+	GtkWidget *w;
+
+	if (old)
+		return old;
+
+	w = glade_xml_get_widget(gui->xml, item->label);
+	if (((EConfig *)gui->config)->type == E_CONFIG_DRUID) {
+		GtkWidget *page = glade_xml_get_widget(gui->druidxml, "management_page");
+
+		/* need to set packing? */
+		gtk_widget_reparent(w, ((GnomeDruidPageStandard *)page)->vbox);
+
+		return page;
+	}
+
+	return w;
+}
+
+static GtkWidget *
 emae_widget_druid_glade(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
 {
 	EMAccountEditor *emae = data;
+	GtkWidget *w;
 
 	if (old)
 		return old;
 
 	printf("getting widget '%s' = %p\n", item->label, glade_xml_get_widget(emae->priv->druidxml, item->label));
 
-	return glade_xml_get_widget(emae->priv->druidxml, item->label);
+	w = glade_xml_get_widget(emae->priv->druidxml, item->label);
+	/* i think the glade file has issues, we need to show all on at least the end page */
+	gtk_widget_show_all(w);
+
+	return w;
 }
 
 /* plugin meta-data for "com.novell.evolution.mail.config.accountDruid" */
 static EMConfigItem emae_druid_items[] = {
-	{ E_CONFIG_DRUID, "", "account_druid", emae_widget_druid_glade },
+	{ E_CONFIG_DRUID, "", "druid", emae_widget_druid_glade },
+	{ E_CONFIG_PAGE_START, "0.start", "start_page", emae_widget_druid_glade },
+
 	{ E_CONFIG_PAGE, "00.identity", "vboxIdentityBorder", emae_identity_page },
 	{ E_CONFIG_SECTION, "00.identity/00.name", "account_vbox", emae_widget_glade },
 	/* table not vbox: { E_CONFIG_SECTION, "00.identity/10.required", "identity_required_table", emae_widget_glade }, */
@@ -3397,10 +3441,10 @@ static EMConfigItem emae_druid_items[] = {
 	{ E_CONFIG_SECTION, "10.receive/20.security", "vbox181", emae_widget_glade },
 	{ E_CONFIG_SECTION, "10.receive/30.auth", "vbox179", emae_widget_glade },
 
-	{ E_CONFIG_PAGE, "20.receive_options", "vboxExtraTableBorder", emae_receive_options_page },
-	/* the structure of this is fucked, needs fixing */
-	/* table not vbox: { E_CONFIG_SECTION, "20.receive_options/00.mailcheck", "extra_mailcheck_table", emcp_widget_glade }, */
-	/* table not vbox: { E_CONFIG_SECTION, "20.receive_options/10.extra", "extra_table", emcp_widget_glade }, */
+	/* Most sections for this is auto-generated fromt the camel config */
+	{ E_CONFIG_PAGE, "20.receive_options", N_("Receiving Options"), },
+	{ E_CONFIG_SECTION_TABLE, "20.receive_options/10.mailcheck", N_("Checking for New Mail"), },
+	{ E_CONFIG_ITEM, "20.receive_options/10.mailcheck/00.autocheck", NULL, emae_receive_options_item, },
 
 	{ E_CONFIG_PAGE, "30.send", "vboxTransportBorder", emae_send_page },
 	/* table not vbox: { E_CONFIG_SECTION, "30.send/00.type", "transport_type_table", emcp_widget_glade }, */
@@ -3408,6 +3452,9 @@ static EMConfigItem emae_druid_items[] = {
 	{ E_CONFIG_SECTION, "30.send/20.security", "vbox183", emae_widget_glade },
 	{ E_CONFIG_SECTION, "30.send/30.auth", "vbox61", emae_widget_glade },
 
+	{ E_CONFIG_PAGE, "40.management", "management_frame", emae_management_page },
+
+	{ E_CONFIG_PAGE_FINISH, "999.end", "finish_page", emae_widget_druid_glade },
 	{ 0 },
 };
 
@@ -3440,6 +3487,9 @@ emae_service_complete(EMAccountEditor *emae, EMAccountEditorService *service)
 	int ok = TRUE;
 	const char *uri;
 
+	if (service->provider == NULL)
+		return TRUE;
+
 	uri = e_account_get_string(emae->account, emae_service_info[service->type].account_uri_key);
 	if (uri == NULL || (url = camel_url_new(uri, NULL)) == NULL)
 		return FALSE;
@@ -3448,8 +3498,12 @@ emae_service_complete(EMAccountEditor *emae, EMAccountEditorService *service)
 	    && (url->host == NULL || url->host[0] == 0))
 		ok = FALSE;
 
+	/* We only need the user if the service needs auth as well, i think */
 	if (ok
-	    && CAMEL_PROVIDER_NEEDS(service->provider, CAMEL_URL_PART_HOST)
+	    && (service->needs_auth == NULL
+		|| CAMEL_PROVIDER_NEEDS(service->provider, CAMEL_URL_PART_AUTH)
+		|| gtk_toggle_button_get_active(service->needs_auth))
+	    && CAMEL_PROVIDER_NEEDS(service->provider, CAMEL_URL_PART_USER)
 	    && (url->user == NULL || url->user[0] == 0))
 		ok = FALSE;
 
@@ -3469,13 +3523,14 @@ emae_check_complete(EConfig *ec, const char *pageid, void *data)
 	EMAccountEditor *emae = data;
 	int ok = TRUE;
 	const char *tmp;
+	EAccount *ea;
 
 	if (pageid == NULL || !strcmp(pageid, "00.identity")) {
 		/* TODO: check the account name is set, and unique in the account list */
 		ok = (tmp = e_account_get_string(emae->account, E_ACCOUNT_ID_NAME))
 			&& tmp[0]
 			&& (tmp = e_account_get_string(emae->account, E_ACCOUNT_ID_ADDRESS))
-			&& tmp[0]
+			&& is_email(tmp)
 			&& ((tmp = e_account_get_string(emae->account, E_ACCOUNT_ID_REPLY_TO)) == NULL
 			    || is_email(tmp));
 	}
@@ -3486,7 +3541,24 @@ emae_check_complete(EConfig *ec, const char *pageid, void *data)
 	if (ok && (pageid == NULL || !strcmp(pageid, "30.send")))
 		ok = emae_service_complete(emae, &emae->priv->transport);
 
+	if (ok && (pageid == NULL || !strcmp(pageid, "40.management")))
+		ok = (tmp = e_account_get_string(emae->account, E_ACCOUNT_NAME))
+			&& tmp[0]
+			&& ((ea = mail_config_get_account_by_name(tmp)) == NULL
+			    || ea == emae->account);
+
 	return ok;
+}
+
+static void
+emae_commit(EConfig *ec, GSList *items, void *data)
+{
+	EMAccountEditor *emae = data;
+
+	if (ec->type == E_CONFIG_BOOK)
+		printf("Committing account '%s'\n", e_account_get_string(emae->account, E_ACCOUNT_NAME));
+	else
+		printf("Adding new account '%s'\n", e_account_get_string(emae->account, E_ACCOUNT_NAME));
 }
 
 void
@@ -3506,7 +3578,7 @@ em_account_editor_construct(EMAccountEditor *emae, EAccount *account, em_account
 	g_object_ref(account);
 	gui->xml = glade_xml_new(EVOLUTION_GLADEDIR "/mail-config.glade", "account_editor_notebook", NULL);
 	if (type == EMAE_DRUID)
-		gui->druidxml = glade_xml_new(EVOLUTION_GLADEDIR "/mail-config.glade", "account_druid", NULL);
+		gui->druidxml = glade_xml_new(EVOLUTION_GLADEDIR "/mail-config.glade", "druid", NULL);
 
 	/* sort the providers, remote first */
 	gui->providers = g_list_sort(camel_provider_list(TRUE), (GCompareFunc)provider_compare);
@@ -3523,34 +3595,39 @@ em_account_editor_construct(EMAccountEditor *emae, EAccount *account, em_account
 	l = NULL;
 	for (i=0;items[i].path;i++)
 		l = g_slist_prepend(l, &items[i]);
-	e_config_add_items((EConfig *)ec, l, NULL, NULL, emae_free, emae);
+	e_config_add_items((EConfig *)ec, l, emae_commit, NULL, emae_free, emae);
 
 	/* This is kinda yuck, we're dynamically mapping from the 'old style' extensibility api to the new one */
 	l = NULL;
 	have = g_hash_table_new(g_str_hash, g_str_equal);
-	index = 10;
+	index = 20;
 	for (prov=gui->providers;prov;prov=g_list_next(prov)) {
 		CamelProviderConfEntry *entries = ((CamelProvider *)prov->data)->extra_conf;
 
 		for (i=0;entries && entries[i].type != CAMEL_PROVIDER_CONF_END;i++) {
 			EMConfigItem *item;
 			char *name = entries[i].name;
+			int myindex = index;
 
 			if (entries[i].type != CAMEL_PROVIDER_CONF_SECTION_START
 			    || name == NULL
 			    || g_hash_table_lookup(have, name))
 				continue;
 
+			/* override mailcheck since we also insert our own mailcheck item at this index */
+			if (name && !strcmp(name, "mailcheck"))
+				myindex = 10;
+
 			item = g_malloc0(sizeof(*item));
-			item->type = E_CONFIG_SECTION;
-			item->path = g_strdup_printf("20.receive_options/%02d.%s", index, name?name:"unnamed");
+			item->type = E_CONFIG_SECTION_TABLE;
+			item->path = g_strdup_printf("20.receive_options/%02d.%s", myindex, name?name:"unnamed");
 			item->label = entries[i].text;
 
 			l = g_slist_prepend(l, item);
 
 			item = g_malloc0(sizeof(*item));
 			item->type = E_CONFIG_ITEM;
-			item->path = g_strdup_printf("20.receive_options/%02d.%s/00.auto", index, name?name:"unnamed");
+			item->path = g_strdup_printf("20.receive_options/%02d.%s/80.camelitem", myindex, name?name:"unnamed");
 			item->factory = emae_receive_options_extra_item;
 			item->user_data = entries[i].name;
 
@@ -3566,8 +3643,8 @@ em_account_editor_construct(EMAccountEditor *emae, EAccount *account, em_account
 	e_config_add_page_check((EConfig *)ec, NULL, emae_check_complete, emae);
 
 	target = em_config_target_new_account(ec, account);
-	emae->editor = e_config_create_widget((EConfig *)ec, (EConfigTarget *)target);
-	gtk_widget_show((GtkWidget *)emae->editor);
+	e_config_set_target((EConfig *)ec, (EConfigTarget *)target);
+	emae->editor = e_config_create_window((EConfig *)ec, NULL, type==EMAE_NOTEBOOK?_("Account Editor"):_("Evolution Account Assistant"));
 
 	/* FIXME: need to hook onto destroy as required */
 }

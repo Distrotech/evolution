@@ -1004,7 +1004,8 @@ em_mailer_prefs_construct (EMMailerPrefs *prefs)
 
 	/* get our toplevel widget */
 	target = em_config_target_new_prefs(ec, prefs->gconf);
-	toplevel = e_config_create_widget((EConfig *)ec, (EConfigTarget *)target);
+	e_config_set_target((EConfig *)ec, (EConfigTarget *)target);
+	toplevel = e_config_create_widget((EConfig *)ec);
 	gtk_container_add (GTK_CONTAINER (prefs), toplevel);
 }
 
