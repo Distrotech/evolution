@@ -25,8 +25,6 @@
 #ifndef _MAIL_THREADS_H_
 #define _MAIL_THREADS_H_
 
-#ifdef USE_BROKEN_THREADS
-
 #include <camel/camel-exception.h>
 #include <stdlib.h> /*size_t*/
 
@@ -60,7 +58,5 @@ gboolean mail_op_get_password (gchar *prompt, gboolean secret, gchar **dest);
 void mail_operation_wait_for_finish (void);
 
 gboolean mail_operations_are_executing (void);
-
-#endif /* defined USE_BROKEN_THREADS */
 
 #endif /* defined _MAIL_THREADS_H_ */

@@ -1060,9 +1060,7 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 		g_strfreev ((char **)data->uids->pdata);
 		g_ptr_array_free (data->uids, FALSE);
 	} else {
-		mail_tool_camel_lock_up();
 		camel_folder_free_uids (input->ml->folder, data->uids);
-		mail_tool_camel_lock_down();
 	}
 
 	e_table_model_changed (input->ml->table_model);

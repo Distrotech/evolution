@@ -1,3 +1,8 @@
+2000-07-20  Peter Williams  <peterw@helixcode.com>
+
+	* configure.in (THREADS_CFLAGS): Make threads mandatory
+	again.
+
 2000-07-13  Peter Williams  <peterw@curious-george.helixcode.com>
 
 	* configure.in (end): Bigass warnings for camel-async branch

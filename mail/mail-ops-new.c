@@ -70,9 +70,7 @@ setup_fetch_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->destination));
-	mail_tool_camel_lock_down();
 }
 
 static void
@@ -100,9 +98,7 @@ do_fetch_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	}
 
 	mail_tool_filter_contents_into (search_folder, input->destination, ex);
-	mail_tool_camel_lock_up();
 	camel_object_unref (CAMEL_OBJECT (search_folder));
-	mail_tool_camel_lock_down();
 }
 
 static void cleanup_fetch_mail (gpointer in_data, gpointer op_data, CamelException *ex)
@@ -178,9 +174,7 @@ setup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	}
 
 	if (input->done_folder == NULL) {
-		mail_tool_camel_lock_up();
 		camel_object_ref (CAMEL_OBJECT (input->message));
-		mail_tool_camel_lock_down();
 		return;
 	}
 
@@ -202,10 +196,8 @@ setup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->message));
 	camel_object_ref (CAMEL_OBJECT (input->done_folder));
-	mail_tool_camel_lock_down();
 	gtk_object_ref (GTK_OBJECT (input->composer));
 }
 
@@ -252,11 +244,9 @@ cleanup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 {
 	send_mail_input_t *input = (send_mail_input_t *) in_data;
 
-	mail_tool_camel_lock_up();
 	camel_object_unref (CAMEL_OBJECT (input->message));
 	if (input->done_folder)
 		camel_object_unref (CAMEL_OBJECT (input->done_folder));
-	mail_tool_camel_lock_down();
 
 	g_free (input->xport_uri);
 	g_free (input->done_uid);
@@ -315,9 +305,7 @@ static void setup_expunge_folder (gpointer in_data, gpointer op_data, CamelExcep
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (in_data));
-	mail_tool_camel_lock_down();
 }
 
 static void do_expunge_folder (gpointer in_data, gpointer op_data, CamelException *ex)
@@ -329,9 +317,7 @@ static void do_expunge_folder (gpointer in_data, gpointer op_data, CamelExceptio
 
 static void cleanup_expunge_folder (gpointer in_data, gpointer op_data, CamelException *ex)
 {
-	mail_tool_camel_lock_up();
 	camel_object_unref (CAMEL_OBJECT (in_data));
-	mail_tool_camel_lock_down();
 }	
 
 static const mail_operation_spec op_expunge_folder =
@@ -383,9 +369,7 @@ static void setup_refile_messages (gpointer in_data, gpointer op_data, CamelExce
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->source));
-	mail_tool_camel_lock_down();
 }
 
 static void do_refile_messages (gpointer in_data, gpointer op_data, CamelException *ex)
@@ -415,9 +399,7 @@ static void cleanup_refile_messages (gpointer in_data, gpointer op_data, CamelEx
 {
 	refile_messages_input_t *input = (refile_messages_input_t *) in_data;
 
-	mail_tool_camel_lock_up();
 	camel_object_unref (CAMEL_OBJECT (input->source));
-	mail_tool_camel_lock_down();
 	g_free (input->dest_uri);
 	g_ptr_array_free (input->uids, TRUE);
 }
@@ -472,9 +454,7 @@ static void setup_flag_messages (gpointer in_data, gpointer op_data, CamelExcept
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->source));
-	mail_tool_camel_lock_down();
 }
 
 static void do_flag_messages (gpointer in_data, gpointer op_data, CamelException *ex)
@@ -492,9 +472,7 @@ static void cleanup_flag_messages (gpointer in_data, gpointer op_data, CamelExce
 {
 	flag_messages_input_t *input = (flag_messages_input_t *) in_data;
 
-	mail_tool_camel_lock_up();
 	camel_object_unref (CAMEL_OBJECT (input->source));
-	mail_tool_camel_lock_down();
 	g_ptr_array_free (input->uids, TRUE);
 }
 
@@ -558,9 +536,7 @@ static void setup_scan_subfolders (gpointer in_data, gpointer op_data, CamelExce
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->storage));
-	mail_tool_camel_lock_down();
 	data->new_folders = g_ptr_array_new ();
 }
 
@@ -605,10 +581,8 @@ static void do_scan_subfolders (gpointer in_data, gpointer op_data, CamelExcepti
 		g_ptr_array_add (data->new_folders, info);
 	}
 	
-	mail_tool_camel_lock_up();
 	camel_folder_free_subfolder_names (folder, lsub);
 	camel_object_unref (CAMEL_OBJECT (folder));
-	mail_tool_camel_lock_down();
 }
 
 static void cleanup_scan_subfolders (gpointer in_data, gpointer op_data, CamelException *ex)
@@ -696,9 +670,7 @@ static void setup_attach_message (gpointer in_data, gpointer op_data, CamelExcep
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->folder));
-	mail_tool_camel_lock_down();
 	gtk_object_ref (GTK_OBJECT (input->composer));
 }
 
@@ -732,10 +704,8 @@ static void cleanup_attach_message (gpointer in_data, gpointer op_data, CamelExc
 	attach_message_data_t *data = (attach_message_data_t *) op_data;
 
 	e_msg_composer_attach (input->composer, data->part);
-	mail_tool_camel_lock_up();
 	camel_object_unref (CAMEL_OBJECT (data->part));
 	camel_object_unref (CAMEL_OBJECT (input->folder));
-	mail_tool_camel_lock_down();
 	gtk_object_unref (GTK_OBJECT (input->composer));
 	g_free (input->uid);
 }
@@ -808,10 +778,8 @@ static void setup_forward_messages (gpointer in_data, gpointer op_data, CamelExc
 		return;
 	}
 
-	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->basis));
 	camel_object_ref (CAMEL_OBJECT (input->source));
-	mail_tool_camel_lock_down();
 	gtk_object_ref (GTK_OBJECT (input->composer));
 }
 
@@ -858,13 +826,11 @@ static void cleanup_forward_messages (gpointer in_data, gpointer op_data, CamelE
 
 	int i;
 
-	mail_tool_camel_lock_up();
 	for (i = 0; i < data->parts->len; i++) {
 		e_msg_composer_attach (input->composer, data->parts->pdata[i]);
 		camel_object_unref (CAMEL_OBJECT (data->parts->pdata[i]));
 	}
 	camel_object_unref (CAMEL_OBJECT (input->source));
-	mail_tool_camel_lock_down();
 
 	e_msg_composer_set_headers (input->composer, NULL, NULL, NULL, data->subject);
 

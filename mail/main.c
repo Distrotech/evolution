@@ -70,9 +70,8 @@ main (int argc, char *argv [])
 	bindtextdomain (PACKAGE, EVOLUTION_LOCALEDIR);
 	textdomain (PACKAGE);
 
-#ifdef USE_BROKEN_THREADS
 	g_thread_init( NULL );
-#endif
+
 	init_corba (&argc, argv);
 	init_bonobo ();
 	gconf_init (argc, argv, NULL);
@@ -84,13 +83,9 @@ main (int argc, char *argv [])
 
 	component_factory_init ();
 
-#ifdef USE_BROKEN_THREADS
-	GDK_THREADS_ENTER ();
-#endif
+	/*GDK_THREADS_ENTER ();*/
 	bonobo_main ();
-#ifdef USE_BROKEN_THREADS
-	GDK_THREADS_LEAVE ();
-#endif
+	/*GDK_THREADS_LEAVE ();*/
 
 	return 0;
 }

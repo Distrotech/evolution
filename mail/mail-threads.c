@@ -24,8 +24,6 @@
 
 #include <config.h>
 
-#ifdef USE_BROKEN_THREADS
-
 #include <string.h>
 #include <glib.h>
 #include "mail.h"
@@ -941,5 +939,3 @@ timeout_toggle (gboolean active)
 		}
 	}
 }
-
-#endif
