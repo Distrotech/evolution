@@ -1305,20 +1305,27 @@ set_instance_times (ECalModelComponent *comp_data, icaltimezone *zone)
 
 	if (zone) {
 		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
-			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, icaltimezone_get_utc_timezone ());
+			icaltimezone_convert_time (&recur_time, icaltimezone_get_utc_timezone (), zone);
+			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, zone);
 			icaltimezone_convert_time (&comp_data->instance_start, icaltimezone_get_utc_timezone (), zone);
 			comp_data->instance_end = comp_data->instance_start +
 				(icaltime_as_timet_with_zone (end_time, zone) -
 				 icaltime_as_timet_with_zone (start_time, zone));
 		} else {
-			comp_data->instance_start = icaltime_as_timet_with_zone (
-				icalcomponent_get_dtstart (comp_data->icalcomp), zone);
-			comp_data->instance_end = icaltime_as_timet_with_zone (
-				icalcomponent_get_dtend (comp_data->icalcomp), zone);
+			icaltimezone_convert_time (&start_time,
+						   start_time.zone ? start_time.zone : icaltimezone_get_utc_timezone (),
+						   zone);
+			comp_data->instance_start = icaltime_as_timet_with_zone (start_time, zone);
+
+			icaltimezone_convert_time (&end_time,
+						   end_time.zone ? end_time.zone : icaltimezone_get_utc_timezone (),
+						   zone);
+			comp_data->instance_end = icaltime_as_timet_with_zone (end_time, zone);
 		}
 	} else {
 		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
-			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, icaltimezone_get_utc_timezone ());
+			icaltimezone_convert (&recur_time, icaltimezone_get_utc_timezone (), zone);
+			comp_data->instance_start = icaltime_as_timet_with_zone (recur_time, zone);
 			comp_data->instance_end = comp_data->instance_start +
 				(icaltime_as_timet (end_time) -
 				 icaltime_as_timet (start_time));
@@ -1339,8 +1346,7 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 	priv = model->priv;
 
 	for (l = objects; l; l = l->next) {
-		if ((priv->flags & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES) &&
-		    e_cal_util_component_has_recurrences (l->data)) {
+		if ((priv->flags & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES)) {
 			RecurrenceExpansionData rdata;
 
 			rdata.client = e_cal_view_get_client (query);
