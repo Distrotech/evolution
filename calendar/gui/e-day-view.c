@@ -165,7 +165,7 @@ static GList *e_day_view_get_selected_events (ECalendarView *cal_view);
 static gboolean e_day_view_get_selected_time_range (ECalendarView *cal_view, time_t *start_time, time_t *end_time);
 static void e_day_view_set_selected_time_range (ECalendarView *cal_view, time_t start_time, time_t end_time);
 static gboolean e_day_view_get_visible_time_range (ECalendarView *cal_view, time_t *start_time, time_t *end_time);
-static void e_day_view_update_query (ECalendarView *cal_view);
+static void e_day_view_update_query (EDayView *day_view);
 static void e_day_view_goto_start_of_work_day (EDayView *day_view);
 static void e_day_view_goto_end_of_work_day (EDayView *day_view);
 static void e_day_view_change_duration_to_start_of_work_day (EDayView *day_view);
@@ -480,7 +480,6 @@ e_day_view_class_init (EDayViewClass *class)
 	view_class->get_selected_time_range = e_day_view_get_selected_time_range;
 	view_class->set_selected_time_range = e_day_view_set_selected_time_range;
 	view_class->get_visible_time_range = e_day_view_get_visible_time_range;
-	view_class->update_query        = e_day_view_update_query;
 	view_class->event_move		= e_day_view_event_move;
 
 	/* init the accessibility support for e_day_view */
@@ -492,8 +491,6 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 {
 	EDayView *day_view = E_DAY_VIEW (user_data);
 	time_t lower;
-	gint start_row, start_col, end_row, end_col;
-	gboolean need_redraw = FALSE, start_in_grid, end_in_grid;
 
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
 
@@ -512,8 +509,147 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 	/* See if we need to change the days shown. */
 	if (lower != day_view->lower) {
 		e_day_view_recalc_day_starts (day_view, lower);
-		e_day_view_update_query ((ECalendarView *) day_view);
+
+		/* FIXME I think we can take this out */
+		e_day_view_update_query (day_view);
 	}
+}
+
+
+static void
+process_component (EDayView *day_view, ECalModelComponent *comp_data)
+{
+	EDayViewEvent *event;
+	gint day, event_num;
+	const char *uid;
+	ECalComponent *comp;
+	AddEventData add_event_data;
+
+	/* If our time hasn't been set yet, just return. */
+	if (day_view->lower == 0 && day_view->upper == 0)
+		return;
+
+	/* If the event already exists and the dates didn't change, we can
+	   update the event fairly easily without changing the events arrays
+	   or computing a new layout. */
+	uid = icalcomponent_get_uid (comp_data->icalcomp);
+
+	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
+		if (day == E_DAY_VIEW_LONG_EVENT)
+			event = &g_array_index (day_view->long_events,
+						EDayViewEvent, event_num);
+		else
+			event = &g_array_index (day_view->events[day],
+						EDayViewEvent, event_num);
+
+		if (!e_cal_util_component_has_recurrences (comp_data->icalcomp)
+		    && e_cal_util_event_dates_match (event->comp_data->icalcomp, comp_data->icalcomp)) {
+#if 0
+			g_print ("updated object's dates unchanged\n");
+#endif
+			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp_data);
+			gtk_widget_queue_draw (day_view->top_canvas);
+			gtk_widget_queue_draw (day_view->main_canvas);
+			return;
+		}
+
+		/* The dates have changed, so we need to remove the
+		   old occurrrences before adding the new ones. */
+#if 0
+		g_print ("dates changed - removing occurrences\n");
+#endif
+		e_day_view_foreach_event_with_uid (day_view, uid,
+						   e_day_view_remove_event_cb,
+						   NULL);
+	}
+
+	/* Add the occurrences of the event */
+	comp = e_cal_component_new ();
+	e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (comp_data->icalcomp));
+
+	add_event_data.day_view = day_view;
+	add_event_data.comp_data = comp_data;
+	e_cal_recur_generate_instances (comp, day_view->lower,
+				      day_view->upper,
+				      e_day_view_add_event, &add_event_data,
+				      e_cal_resolve_tzid_cb, comp_data->client,
+				      e_calendar_view_get_timezone (E_CALENDAR_VIEW (day_view)));
+
+	g_object_unref (comp);
+}
+
+static void
+model_changed_cb (ETableModel *etm, gpointer user_data)
+{
+	EDayView *day_view = E_DAY_VIEW (user_data);
+
+	e_day_view_update_query (day_view);
+}
+
+static void
+update_row (EDayView *day_view, int row)
+{
+	ECalModelComponent *comp_data;
+	ECalModel *model;
+
+	e_day_view_stop_editing_event (day_view);
+
+	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
+	comp_data = e_cal_model_get_component_at (model, row);
+	g_assert (comp_data != NULL);
+	process_component (day_view, comp_data);
+
+	gtk_widget_queue_draw (day_view->top_canvas);
+	gtk_widget_queue_draw (day_view->main_canvas);
+	e_day_view_queue_layout (day_view);
+}
+
+static void
+model_row_changed_cb (ETableModel *etm, int row, gpointer user_data)
+{
+	EDayView *day_view = E_DAY_VIEW (user_data);
+
+	update_row (day_view, row);
+}
+
+static void
+model_cell_changed_cb (ETableModel *etm, int col, int row, gpointer user_data)
+{
+	EDayView *day_view = E_DAY_VIEW (user_data);
+
+	update_row (day_view, row);
+}
+
+static void
+model_rows_inserted_cb (ETableModel *etm, int row, int count, gpointer user_data)
+{
+	EDayView *day_view = E_DAY_VIEW (user_data);
+	ECalModel *model;
+	int i;
+
+	e_day_view_stop_editing_event (day_view);
+
+	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
+	for (i = 0; i < count; i++) {
+		ECalModelComponent *comp_data;
+
+		comp_data = e_cal_model_get_component_at (model, row + i);
+		g_assert (comp_data != NULL);
+		process_component (day_view, comp_data);
+	}
+
+	gtk_widget_queue_draw (day_view->top_canvas);
+	gtk_widget_queue_draw (day_view->main_canvas);
+	e_day_view_queue_layout (day_view);
+
+}
+
+static void
+model_rows_deleted_cb (ETableModel *etm, int row, int count, gpointer user_data)
+{
+	EDayView *day_view = E_DAY_VIEW (user_data);
+
+	e_day_view_update_query (day_view);
 }
 
 static void
@@ -538,7 +674,7 @@ timezone_changed_cb (ECalendarView *cal_view, icaltimezone *old_zone,
 	lower = icaltime_as_timet_with_zone (tt, new_zone);
 
 	e_day_view_recalc_day_starts (day_view, lower);
-	e_day_view_update_query ((ECalendarView *) day_view);
+	e_day_view_update_query (day_view);
 }
 
 static void
@@ -862,6 +998,16 @@ e_day_view_init (EDayView *day_view)
 	/* connect to ECalModel's signals */
 	g_signal_connect (G_OBJECT (model), "time_range_changed",
 			  G_CALLBACK (time_range_changed_cb), day_view);
+	g_signal_connect (G_OBJECT (model), "model_changed",
+			  G_CALLBACK (model_changed_cb), day_view);
+	g_signal_connect (G_OBJECT (model), "model_row_changed",
+			  G_CALLBACK (model_row_changed_cb), day_view);
+	g_signal_connect (G_OBJECT (model), "model_cell_changed",
+			  G_CALLBACK (model_cell_changed_cb), day_view);
+	g_signal_connect (G_OBJECT (model), "model_rows_inserted",
+			  G_CALLBACK (model_rows_inserted_cb), day_view);
+	g_signal_connect (G_OBJECT (model), "model_rows_deleted",
+			  G_CALLBACK (model_rows_deleted_cb), day_view);
 
 	/* connect to ECalendarView's signals */
 	g_signal_connect (G_OBJECT (day_view), "timezone_changed",
@@ -2114,7 +2260,7 @@ e_day_view_recalc_day_starts (EDayView *day_view,
 	day_view->lower = start_time;
 	day_view->upper = day_view->day_starts[day_view->days_shown];
 
-	e_day_view_update_query ((ECalendarView *) day_view);
+	e_day_view_update_query (day_view);
 }
 
 
@@ -2174,7 +2320,7 @@ e_day_view_set_days_shown	(EDayView	*day_view,
 	e_day_view_recalc_day_starts (day_view, day_view->lower);
 	e_day_view_recalc_cell_sizes (day_view);
 
-	e_day_view_update_query ((ECalendarView *) day_view);
+	e_day_view_update_query (day_view);
 }
 
 
@@ -2417,7 +2563,7 @@ e_day_view_recalc_work_week	(EDayView	*day_view)
 		day_view->selection_start_day = -1;
 
 		e_day_view_recalc_day_starts (day_view, lower);
-		e_day_view_update_query ((ECalendarView *) day_view);
+		e_day_view_update_query (day_view);
 
 		/* This updates the date navigator. */
 		e_day_view_update_calendar_selection_time (day_view);
@@ -3135,76 +3281,11 @@ e_day_view_get_selected_events (ECalendarView *cal_view)
 	return list;
 }
 
-static void
-process_component (EDayView *day_view, ECalModelComponent *comp_data)
-{
-	EDayViewEvent *event;
-	gint day, event_num;
-	const char *uid;
-	ECalComponent *comp;
-	AddEventData add_event_data;
-
-	/* If our time hasn't been set yet, just return. */
-	if (day_view->lower == 0 && day_view->upper == 0)
-		return;
-
-	/* If the event already exists and the dates didn't change, we can
-	   update the event fairly easily without changing the events arrays
-	   or computing a new layout. */
-	uid = icalcomponent_get_uid (comp_data->icalcomp);
-
-	if (e_day_view_find_event_from_uid (day_view, uid, &day, &event_num)) {
-		if (day == E_DAY_VIEW_LONG_EVENT)
-			event = &g_array_index (day_view->long_events,
-						EDayViewEvent, event_num);
-		else
-			event = &g_array_index (day_view->events[day],
-						EDayViewEvent, event_num);
-
-		if (!e_cal_util_component_has_recurrences (comp_data->icalcomp)
-		    && e_cal_util_event_dates_match (event->comp_data->icalcomp, comp_data->icalcomp)) {
-#if 0
-			g_print ("updated object's dates unchanged\n");
-#endif
-			e_day_view_foreach_event_with_uid (day_view, uid, e_day_view_update_event_cb, comp_data);
-			gtk_widget_queue_draw (day_view->top_canvas);
-			gtk_widget_queue_draw (day_view->main_canvas);
-			return;
-		}
-
-		/* The dates have changed, so we need to remove the
-		   old occurrrences before adding the new ones. */
-#if 0
-		g_print ("dates changed - removing occurrences\n");
-#endif
-		e_day_view_foreach_event_with_uid (day_view, uid,
-						   e_day_view_remove_event_cb,
-						   NULL);
-	}
-
-	/* Add the occurrences of the event */
-	comp = e_cal_component_new ();
-	e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (comp_data->icalcomp));
-
-	add_event_data.day_view = day_view;
-	add_event_data.comp_data = comp_data;
-	e_cal_recur_generate_instances (comp, day_view->lower,
-				      day_view->upper,
-				      e_day_view_add_event, &add_event_data,
-				      e_cal_resolve_tzid_cb, comp_data->client,
-				      e_calendar_view_get_timezone (E_CALENDAR_VIEW (day_view)));
-
-	g_object_unref (comp);
-
-	e_day_view_queue_layout (day_view);
-}
-
 /* Restarts a query for the day view */
 static void
-e_day_view_update_query (ECalendarView *cal_view)
+e_day_view_update_query (EDayView *day_view)
 {
 	gint rows, r;
-	EDayView *day_view = E_DAY_VIEW (cal_view);
 
 	e_day_view_stop_editing_event (day_view);
 
