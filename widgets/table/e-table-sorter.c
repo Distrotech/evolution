@@ -354,6 +354,9 @@ ets_sorted_to_model (ESorter *es, int row)
 	ETableSorter *ets = E_TABLE_SORTER(es);
 	int rows = e_table_model_row_count(ets->source);
 
+	if (row == -1)
+		return -1;
+
 	g_return_val_if_fail(row >= 0, -1);
 	g_return_val_if_fail(row < rows, -1);
 

@@ -41,6 +41,7 @@
 #include "gal/widgets/e-canvas-utils.h"
 #include "gal/util/e-util.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define PARENT_OBJECT_TYPE gnome_canvas_item_get_type ()
 
@@ -211,6 +212,15 @@ eti_editing (ETableItem *eti)
 		return TRUE;
 }
 
+static void
+set_value (const char *string, double *value)
+{
+	char *temp = getenv (string);
+	if (temp) {
+		*value = atof (temp);
+	}
+}
+
 inline static GdkColor *
 eti_get_cell_background_color (ETableItem *eti, int row, int col, gboolean selected, gboolean *allocatedp)
 {
@@ -220,7 +230,7 @@ eti_get_cell_background_color (ETableItem *eti, int row, int col, gboolean selec
 	gchar *color_spec = NULL;
 	gboolean allocated = FALSE;
 
-	if (selected){
+	if (selected) {
 		if (GTK_WIDGET_HAS_FOCUS(canvas))
 			background = &canvas->style->bg [GTK_STATE_SELECTED];
 		else
@@ -242,11 +252,21 @@ eti_get_cell_background_color (ETableItem *eti, int row, int col, gboolean selec
 		if (row % 2) {
 		
 		} else {
+			static double h = 0.0f, s = 0.0f, v = -0.5f;
+			static gboolean set = FALSE;
+
 			if (!allocated) {
 				background = gdk_color_copy (background);
 				allocated = TRUE;
 			}
-			e_hsv_tweak (background, 0.0f, 0.0f, -0.05f);
+
+			if (!set) {
+				set_value ("GAL_H_CHANGE", &h);
+				set_value ("GAL_S_CHANGE", &s);
+				set_value ("GAL_V_CHANGE", &v);
+				set = TRUE;
+			}
+			e_hsv_tweak (background, h, s, v);
 			gdk_color_alloc (gtk_widget_get_colormap (GTK_WIDGET (canvas)), background);
 		}
 	}
@@ -973,13 +993,15 @@ static void
 eti_freeze (ETableItem *eti)
 {
 	eti->frozen_count ++;
+	d(g_print ("%s: %d\n", __FUNCTION__, eti->frozen_count));
 }
 
 static void
 eti_unfreeze (ETableItem *eti)
 {
-	g_return_if_fail (eti->frozen_count != 0);
+	g_return_if_fail (eti->frozen_count > 0);
 	eti->frozen_count --;
+	d(g_print ("%s: %d\n", __FUNCTION__, eti->frozen_count));
 	if (eti->frozen_count == 0 && eti->queue_show_cursor) {
 		eti_show_cursor (eti, 0);
 		eti_check_cursor_bounds (eti);
@@ -2663,7 +2685,7 @@ eti_event (GnomeCanvasItem *item, GdkEvent *e)
 	default:
 		return_val = FALSE;
 	}
-	d(g_print("%s: returning: %s\n", __FUNCTION__, return_val?"true":"false"));
+	/* d(g_print("%s: returning: %s\n", __FUNCTION__, return_val?"true":"false"));*/
 
 	return return_val;
 }
