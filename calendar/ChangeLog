@@ -1,5 +1,10 @@
 2003-09-22  JP Rosevear <jpr@ximian.com>
 
+	* gui/e-week-view.c (e_week_view_on_editing_stopped): create the
+	object if its not on the server or modify it if it is
+
+2003-09-22  JP Rosevear <jpr@ximian.com>
+
 	* gui/gnome-cal.h: remove proto
 
 	* gui/gnome-cal.c: remove gnome_calendar_unrecur_selection
