@@ -1008,6 +1008,9 @@
 	      <imagedata fileref="images/e-config-flow.pic" format="PIC"/>
 	    </imageobject>
 	    <imageobject>
+	      <imagedata fileref="images/e-config-flow.eps" format="EPS"/>
+	    </imageobject>
+	    <imageobject>
 	      <imagedata fileref="images/e-config-flow.png" format="PNG"/>
 	    </imageobject>
 	    <textobject>
@@ -1235,25 +1238,8 @@
 	      </row>
 	      <row>
 		<entry>Target</entry>
-		<entry>Which C structure defines the target this hook uses.
-		  The name used in a plugin to identify this target, and the
-		  plugin names used to define the target qualifiers if they
-		  exist for this hook type.
-		  Whether the
-		  <structname>Target</structname><structfield>widget</structfield> field has a known value.
-		</entry>
-	      </row>
-	      <row>
-		<entry>Qualifiers</entry>
-		<entry><para>
-		    A list showing the mapping of the plugin qualifier name,
-		    and the actual qualifier value.  This is only defined where
-		    qualifiers exist.
-		    </para>
-		  <para><emphasis>These should actually just be defined by
-		      target descriptions, since multiple hook points can use
-		      the same target</emphasis>
-		  </para>
+		<entry>The target which this hook uses for its context data.
+		  Targets are described in a following section.
 		</entry>
 	      </row>
 	      <row>
@@ -1285,17 +1271,20 @@
       <sect1 id="mail-hooks-popup">
 	<title>Popup menus</title>
 
-	  <para>
-	    The mail popup menu class is
-	    <interfacename>com.ximian.evolution.mail.popup:1.0</interfacename>.
-	  </para>
-	  <para>
-	    The plugin callback data will be the target matching the plugin
-	    menu itself, and the callback returns no value.
-	  </para>
+	<para>
+	  The mail popup menu class is
+	  <interfacename>com.ximian.evolution.mail.popup:1.0</interfacename>.
+	</para>
+	<para>
+	  The plugin callback data will be the target matching the plugin
+	  menu itself, and the callback returns no value.
+	</para>
 
 	<sect2>
 	  <title>Folder Tree Context Menu</title>
+	  <para>
+	    This is the context menu shown on the folder tree.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1307,31 +1296,19 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMPopupTargetFolder">EMPopupTargetFolder</link>, plugin target is &quot;<constant>folder</constant>&quot;.
-		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>
-		    <simplelist>
-		      <member><constant>folder</constant> = <constant>EM_POPUP_FOLDER_FOLDER</constant></member>
-		      <member><constant>store</constant> = <constant>EM_POPUP_FOLDER_STORE</constant></member>
-		      <member><constant>inferiors</constant> = <constant>EM_POPUP_FOLDER_INFERIORS</constant></member>
-		      <member><constant>delete</constant> = <constant>EM_POPUP_FOLDER_DELETE</constant></member>
-		      <member><constant>select</constant> = <constant>EM_POPUP_FOLDER_SELECT</constant></member>
-		    </simplelist>
+		      linkend="mail-hooks-popup-EMPopupTargetFolder">EMPopupTargetFolder</link>
 		  </entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the context menu shown on the folder tree.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Message List Context Menu</title>
+	  <para>
+	    This is the context menu shown on the message list.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1343,47 +1320,21 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMPopupTargetSelect">EMPopupTargetSelect</link>, plugin target is &quot;<constant>select</constant>&quot;.  The <structfield>widget</structfield> is an <link linkend="API-struct--EMFolderView">EMFolderView</link>
-		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>
-		    <para><emphasis>This info should probably just be in the target
-		      reference info, otherwise it may be redundant.  It could
-		      also be auto-generated from the source.</emphasis>
-		    </para>
-		    <simplelist>
-		      <member><constant>one</constant> = <constant>EM_POPUP_SELECT_ONE</constant></member>
-		      <member><constant>many</constant> = <constant>EM_POPUP_SELECT_MANY</constant></member>
-		      <member><constant>mark_read</constant> = <constant>EM_POPUP_SELECT_MARK_READ</constant></member>
-		      <member><constant>mark_unread</constant> = <constant>EM_POPUP_SELECT_MARK_UNREAD</constant></member>
-		      <member><constant>delete</constant> = <constant>EM_POPUP_SELECT_DELETE</constant></member>
-		      <member><constant>undelete</constant> = <constant>EM_POPUP_SELECT_UNDELETE</constant></member>
-		      <member><constant>mailing_list</constant> = <constant>EM_POPUP_SELECT_MAILING_LIST</constant></member>
-		      <member><constant>resend</constant> = <constant>EM_POPUP_SELECT_EDIT</constant></member>
-		      <member><constant>mark_important</constant> = <constant>EM_POPUP_SELECT_MARK_IMPORTANT</constant></member>
-		      <member><constant>mark_unimportant</constant> = <constant>EM_POPUP_SELECT_MARK_UNIMPORTANT</constant></member>
-		      <member><constant>flag_followup</constant> = <constant>EM_POPUP_SELECT_FLAG_FOLLOWUP</constant></member>
-		      <member><constant>flag_completed</constant> = <constant>EM_POPUP_SELECT_FLAG_COMPLETED</constant></member>
-		      <member><constant>flag_clear</constant> = <constant>EM_POPUP_SELECT_FLAG_CLEAR</constant></member>
-		      <member><constant>add_sender</constant> = <constant>EM_POPUP_SELECT_ADD_SENDER</constant></member>
-		      <member><constant>mark_junk</constant> = <constant>EM_POPUP_SELECT_MARK_JUNK</constant></member>
-		      <member><constant>mark_nojunk</constant> = <constant>EM_POPUP_SELECT_MARK_NOJUNK</constant></member>
-		      <member><constant>folder</constant> = <constant>EM_POPUP_SELECT_FOLDER</constant></member>
-		    </simplelist>
+		      linkend="mail-hooks-popup-EMPopupTargetSelect">EMPopupTargetSelect</link>
 		  </entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the context menu shown on the message list.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Inline URI Context Menu</title>
+	  <para>
+	    This is the context menu shown when clicking on inline URIs,
+	    including addresses or normal HTML links that are displayed inside
+	    the message view.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1394,30 +1345,19 @@
 		<row>
 		  <entry>Target</entry>
 		  <entry><link
-		      linkend="API-struct--EMPopupTargetURI">EMPopupTargetURI</link>, plugin target is &quot;<constant>uri</constant>&quot;</entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>
-		    <simplelist>
-		      <member><constant>http</constant> = <constant>EM_POPUP_URI_HTTP</constant></member>
-		      <member><constant>mailto</constant> = <constant>EM_POPUP_URI_MAILTO</constant></member>
-		      <member><constant>notmailto</constant> = <constant>EM_POPUP_URI_NOT_MAILTO</constant></member>
-		    </simplelist>
-		  </entry>
+		      linkend="mail-hooks-popup-EMPopupTargetURI">EMPopupTargetURI</link></entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the context menu shown when clicking on inline URIs,
-	    including addresses or normal HTML links that are displayed inside
-	    the message view.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Inline Content and Attachment Context Menu</title>
+	  <para>
+	    This context menu is shown when right-clicking on inline images, or
+	    when clicking on the attachment expander button.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1428,28 +1368,19 @@
 		<row>
 		  <entry>Target</entry>
 		  <entry><link
-		      linkend="API-struct--EMPopupTargetPart">EMPopupTargetPart</link>, plugin target is &quot;<constant>part</constant>&quot;</entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>
-		    <simplelist>
-		      <member><constant>message</constant> = <constant>EM_POPUP_PART_MESSAGE</constant></member>
-		      <member><constant>image</constant> = <constant>EM_POPUP_PART_IMAGE</constant></member>
-		    </simplelist>
-		  </entry>
+		      linkend="mail-hooks-popup-EMPopupTargetPart">EMPopupTargetPart</link></entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This context menu is shown when right-clicking on inline images, or
-	    when clicking on the attachment expander button.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Composer Attachment Bar Context Menu</title>
+	  <para>
+	    This context menu is displayed when the user brings up a context
+	    menu on the attachment bar displayed in the composer.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1460,8 +1391,7 @@
 		<row>
 		  <entry>Target</entry>
 		  <entry><link
-		      linkend="API-struct--EMPopupTargetAttachments">EMPopupTargetAttachments</link>, plugin target is &quot;<constant>attachments</constant>&quot;.  The <structfield>widget</structfield> is an <link linkend="API-struct--EMsgComposerAttachmentBar">EMsgComposerAttachmentBar</link>.
-</entry>
+		      linkend="mail-hooks-popup-EMPopupTargetAttachments">EMPopupTargetAttachments</link></entry>
 		</row>
 		<row>
 		  <entry>Qualifiers</entry>
@@ -1475,10 +1405,6 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This context menu is displayed when the user brings up a context
-	    menu on the attachment bar displayed in the composer.
-	  </para>
 	</sect2>
 
 	<sect2>
@@ -1497,22 +1423,228 @@
 	    is used for the ASK drop type on the folder tree.
 	  </para>
 	</sect2>
+
+	<sect2>
+	  <title>Mail Popup Targets</title>
+
+	  <para>
+	    <emphasis>
+	      Not sure if this needs to explain the qualifier meanings, or
+	      leave it to the in-line comment stuff in the enumeration
+	      definition.  Maybe it just needs a direct link to the
+	      enumeration.
+	    </emphasis>
+	  </para>
+
+	  <sect3 id="mail-hooks-popup-EMPopupTargetFolder">
+	    <title>Folder Target</title>
+
+	    <para>
+	      This target is used to define actions on a folder context.
+	      Normally associated with the folder tree.
+	    </para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>folder</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMPopupTargetFolder">EMPopupTargetFolder</link>
+		    </entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>
+		      <simplelist>
+			<member><constant>folder</constant> = <constant>EM_POPUP_FOLDER_FOLDER</constant></member>
+			<member><constant>store</constant> = <constant>EM_POPUP_FOLDER_STORE</constant></member>
+			<member><constant>inferiors</constant> = <constant>EM_POPUP_FOLDER_INFERIORS</constant></member>
+			<member><constant>delete</constant> = <constant>EM_POPUP_FOLDER_DELETE</constant></member>
+			<member><constant>select</constant> = <constant>EM_POPUP_FOLDER_SELECT</constant></member>
+		      </simplelist>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+
+	  <sect3 id="mail-hooks-popup-EMPopupTargetSelect">
+	    <title>Selection Target</title>
+
+	    <para>This target is used to define context for actions associated
+	      with a selection of mail messages from a specific folder.</para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>select</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMPopupTargetSelect">EMPopupTargetSelect</link>
+		    </entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>
+		      <simplelist>
+			<member><constant>one</constant> = <constant>EM_POPUP_SELECT_ONE</constant></member>
+			<member><constant>many</constant> = <constant>EM_POPUP_SELECT_MANY</constant></member>
+			<member><constant>mark_read</constant> = <constant>EM_POPUP_SELECT_MARK_READ</constant></member>
+			<member><constant>mark_unread</constant> = <constant>EM_POPUP_SELECT_MARK_UNREAD</constant></member>
+			<member><constant>delete</constant> = <constant>EM_POPUP_SELECT_DELETE</constant></member>
+			<member><constant>undelete</constant> = <constant>EM_POPUP_SELECT_UNDELETE</constant></member>
+			<member><constant>mailing_list</constant> = <constant>EM_POPUP_SELECT_MAILING_LIST</constant></member>
+			<member><constant>resend</constant> = <constant>EM_POPUP_SELECT_EDIT</constant></member>
+			<member><constant>mark_important</constant> = <constant>EM_POPUP_SELECT_MARK_IMPORTANT</constant></member>
+			<member><constant>mark_unimportant</constant> = <constant>EM_POPUP_SELECT_MARK_UNIMPORTANT</constant></member>
+			<member><constant>flag_followup</constant> = <constant>EM_POPUP_SELECT_FLAG_FOLLOWUP</constant></member>
+			<member><constant>flag_completed</constant> = <constant>EM_POPUP_SELECT_FLAG_COMPLETED</constant></member>
+			<member><constant>flag_clear</constant> = <constant>EM_POPUP_SELECT_FLAG_CLEAR</constant></member>
+			<member><constant>add_sender</constant> = <constant>EM_POPUP_SELECT_ADD_SENDER</constant></member>
+			<member><constant>mark_junk</constant> = <constant>EM_POPUP_SELECT_MARK_JUNK</constant></member>
+			<member><constant>mark_nojunk</constant> = <constant>EM_POPUP_SELECT_MARK_NOJUNK</constant></member>
+			<member><constant>folder</constant> = <constant>EM_POPUP_SELECT_FOLDER</constant></member>
+		      </simplelist>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+
+	  <sect3 id="mail-hooks-popup-EMPopupTargetURI">
+	    <title>URI Target</title>
+
+	    <para>This target defines context for operations on a URI, normally
+	      displayed inline somewhere in the message view.</para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>uri</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry><link
+			linkend="API-struct--EMPopupTargetURI">EMPopupTargetURI</link></entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>
+		      <simplelist>
+			<member><constant>http</constant> = <constant>EM_POPUP_URI_HTTP</constant></member>
+			<member><constant>mailto</constant> = <constant>EM_POPUP_URI_MAILTO</constant></member>
+			<member><constant>notmailto</constant> = <constant>EM_POPUP_URI_NOT_MAILTO</constant></member>
+		      </simplelist>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+
+	  <sect3 id="mail-hooks-popup-EMPopupTargetPart">
+	    <title>Message Part Target</title>
+
+	    <para>This target defines context for operations on messages, or
+	      individual message parts.  The same target is used for inline
+	      images or other content which can be encapsulated in a MIME part
+	      (i.e. anything).</para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>part</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry><link
+			linkend="API-struct--EMPopupTargetPart">EMPopupTargetPart</link></entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>
+		      <simplelist>
+			<member><constant>message</constant> = <constant>EM_POPUP_PART_MESSAGE</constant></member>
+			<member><constant>image</constant> = <constant>EM_POPUP_PART_IMAGE</constant></member>
+		      </simplelist>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+
+	  <sect3 id="mail-hooks-popup-EMPopupTargetAttachments">
+	    <title>Attachments Target</title>
+
+	    <para>This target is used to define context for operations on the
+	      mail composer attachment bar.</para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>attachments</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry><link
+			linkend="API-struct--EMPopupTargetAttachments">EMPopupTargetAttachments</link></entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>
+		      <simplelist>
+			<member><constant>one</constant> = <constant>EM_POPUP_ATTACHMENTS_ONE</constant></member>
+			<member><constant>many</constant> = <constant>EM_POPUP_ATTACHMENTS_MANY</constant></member>
+		      </simplelist>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+
+	</sect2>
       </sect1>
 
       <sect1 id="mail-hooks-menu">
 	<title>Main menus</title>
 
-	  <para>
-	    The mail popup menu class is
-	    <interfacename>com.ximian.evolution.mail.bonobomenu:1.0</interfacename>.
-	  </para>
-	  <para>
-	    The plugin callback data will be the target matching the plugin
-	    menu itself, and the callback returns no value.
-	  </para>
+	<para>
+	  The mail popup menu class is
+	  <interfacename>com.ximian.evolution.mail.bonobomenu:1.0</interfacename>.
+	</para>
+	<para>
+	  The plugin callback data will be the target matching the plugin
+	  menu itself, and the callback returns no value.
+	</para>
 
 	<sect2>
 	  <title>Main Mail Menu</title>
+
+	  <para>
+	    This is the main mail view embedded in the &Evolution; Shell.
+	  </para>
+
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1524,43 +1656,21 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMMenuTargeSelect">EMMenuTargetSelect</link>, plugin target is &quot;<constant>select</constant>&quot;.
-		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>
-		    <simplelist>
-		      <member><constant>one</constant> = <constant>EM_MENU_SELECT_ONE</constant></member>
-		      <member><constant>many</constant> = <constant>EM_MENU_SELECT_MANY</constant></member>
-		      <member><constant>mark_read</constant> = <constant>EM_MENU_SELECT_MARK_READ</constant></member>
-		      <member><constant>mark_unread</constant> = <constant>EM_MENU_SELECT_MARK_UNREAD</constant></member>
-		      <member><constant>delete</constant> = <constant>EM_MENU_SELECT_DELETE</constant></member>
-		      <member><constant>undelete</constant> = <constant>EM_MENU_SELECT_UNDELETE</constant></member>
-		      <member><constant>mailing_list</constant> = <constant>EM_MENU_SELECT_MAILING_LIST</constant></member>
-		      <member><constant>resend</constant> = <constant>EM_MENU_SELECT_EDIT</constant></member>
-		      <member><constant>mark_important</constant> = <constant>EM_MENU_SELECT_MARK_IMPORTANT</constant></member>
-		      <member><constant>mark_unimportant</constant> = <constant>EM_MENU_SELECT_MARK_UNIMPORTANT</constant></member>
-		      <member><constant>flag_followup</constant> = <constant>EM_MENU_SELECT_FLAG_FOLLOWUP</constant></member>
-		      <member><constant>flag_completed</constant> = <constant>EM_MENU_SELECT_FLAG_COMPLETED</constant></member>
-		      <member><constant>flag_clear</constant> = <constant>EM_MENU_SELECT_FLAG_CLEAR</constant></member>
-		      <member><constant>add_sender</constant> = <constant>EM_MENU_SELECT_ADD_SENDER</constant></member>
-		      <member><constant>mark_junk</constant> = <constant>EM_MENU_SELECT_MARK_JUNK</constant></member>
-		      <member><constant>mark_nojunk</constant> = <constant>EM_MENU_SELECT_MARK_NOJUNK</constant></member>
-		      <member><constant>folder</constant> = <constant>EM_MENU_SELECT_FOLDER</constant></member>
-		    </simplelist>
+		      linkend="mail-hooks-menu-EMMenuTargetSelect">EMMenuTargetSelect</link>
 		  </entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the main mail view embedded in the &Evolution; Shell.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Standalone Message View Menu</title>
+
+	  <para>
+	    This is the popup mail-message view.
+	  </para>
+
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1572,25 +1682,19 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMMenuTargeSelect">EMMenuTargetSelect</link>, plugin target is &quot;<constant>select</constant>&quot;.
-		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>
-		    See the previous section.
+		      linkend="mail-hooks-menu-EMMenuTargetSelect">EMMenuTargetSelect</link>,
 		  </entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the popup mail-message view.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Composer Menu</title>
+	  <para>
+	    This is the mail message composer.  This is currently not implemented.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1609,22 +1713,75 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the mail message composer.  This is currently not implemented.
-	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Mail Menu Targets</title>
+
+	  <sect3 id="mail-hooks-menu-EMMenuTargetSelect">
+	    <title>Message Selection Target</title>
+
+	    <para>This target is used to define context for operations on a
+	      selection of messages in the view's message list.</para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>select</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMMenuTargeSelect">EMMenuTargetSelect</link>
+		    </entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>
+		      <simplelist>
+			<member><constant>one</constant> = <constant>EM_MENU_SELECT_ONE</constant></member>
+			<member><constant>many</constant> = <constant>EM_MENU_SELECT_MANY</constant></member>
+			<member><constant>mark_read</constant> = <constant>EM_MENU_SELECT_MARK_READ</constant></member>
+			<member><constant>mark_unread</constant> = <constant>EM_MENU_SELECT_MARK_UNREAD</constant></member>
+			<member><constant>delete</constant> = <constant>EM_MENU_SELECT_DELETE</constant></member>
+			<member><constant>undelete</constant> = <constant>EM_MENU_SELECT_UNDELETE</constant></member>
+			<member><constant>mailing_list</constant> = <constant>EM_MENU_SELECT_MAILING_LIST</constant></member>
+			<member><constant>resend</constant> = <constant>EM_MENU_SELECT_EDIT</constant></member>
+			<member><constant>mark_important</constant> = <constant>EM_MENU_SELECT_MARK_IMPORTANT</constant></member>
+			<member><constant>mark_unimportant</constant> = <constant>EM_MENU_SELECT_MARK_UNIMPORTANT</constant></member>
+			<member><constant>flag_followup</constant> = <constant>EM_MENU_SELECT_FLAG_FOLLOWUP</constant></member>
+			<member><constant>flag_completed</constant> = <constant>EM_MENU_SELECT_FLAG_COMPLETED</constant></member>
+			<member><constant>flag_clear</constant> = <constant>EM_MENU_SELECT_FLAG_CLEAR</constant></member>
+			<member><constant>add_sender</constant> = <constant>EM_MENU_SELECT_ADD_SENDER</constant></member>
+			<member><constant>mark_junk</constant> = <constant>EM_MENU_SELECT_MARK_JUNK</constant></member>
+			<member><constant>mark_nojunk</constant> = <constant>EM_MENU_SELECT_MARK_NOJUNK</constant></member>
+			<member><constant>folder</constant> = <constant>EM_MENU_SELECT_FOLDER</constant></member>
+		      </simplelist>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
 	</sect2>
       </sect1>
 
       <sect1 id="mail-hooks-config">
 	<title>Config Windows and Druids</title>
 
-	  <para>
-	    The mail config class is
-	    <interfacename>com.novell.evolution.mail.config:1.0</interfacename>.
-	  </para>
+	<para>
+	  The mail config class is
+	  <interfacename>com.novell.evolution.mail.config:1.0</interfacename>.
+	</para>
 
 	<sect2>
 	  <title>Account Editor Druid</title>
+	  <para>
+	    This is the GnomeDruid which is shown when you create a new mail account.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1636,7 +1793,7 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMConfigTargetAccount">EMConfigTargetAccount</link>, plugin target is &quot;<constant>account</constant>&quot;.
+		      linkend="mail-hooks-config-EMConfigTargetAccount">EMConfigTargetAccount</link>
 		  </entry>
 		</row>
 		<row>
@@ -1647,13 +1804,14 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the GnomeDruid which is shown when you create a new mail account.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Account Editor Window</title>
+	  <para>
+	    This is the editor notebook which is shown when you edit an
+	    existing mail account.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1676,14 +1834,14 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the editor notebook which is shown when you edit an
-	    existing mail account.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Composer Preferences</title>
+	  <para>
+	    This is the notebook of configuration items for the composer which
+	    are accessed via the main settings window under the Composer tab.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1695,7 +1853,7 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMConfigTargetPrefs">EMConfigTargetPrefs</link>, plugin target is &quot;<constant>prefs</constant>&quot;.
+		      linkend="mail-hooks-config-EMConfigTargetPrefs">EMConfigTargetPrefs</link>
 		  </entry>
 		</row>
 		<row>
@@ -1706,14 +1864,14 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the notebook of configuration items for the composer which
-	    are accessed via the main settings window under the Composer tab.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Mail Preferences</title>
+	  <para>
+	    This is the notebook of configuration items for the mailer which
+	    are accessed via the main settings window under the Mail Settings tab.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1725,7 +1883,7 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMConfigTargetPrefs">EMConfigTargetPrefs</link>, plugin target is &quot;<constant>prefs</constant>&quot;.
+		      linkend="mail-hooks-config-EMConfigTargetPrefs">EMConfigTargetPrefs</link>
 		  </entry>
 		</row>
 		<row>
@@ -1736,14 +1894,15 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the notebook of configuration items for the mailer which
-	    are accessed via the main settings window under the Mail Settings tab.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>Folder Properties</title>
+	  <para>
+	    This is the notebook of configuration items for a given mail folder
+	    which is accessed via the Folder Properties item in the main menu item or
+	    folder-tree context menu.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1755,7 +1914,7 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMConfigTargetFolder">EMConfigTargetFolder</link>, plugin target is &quot;<constant>folder</constant>&quot;.
+		      linkend="mail-hooks-config-EMConfigTargetFolder">EMConfigTargetFolder</link>
 		  </entry>
 		</row>
 		<row>
@@ -1766,21 +1925,101 @@
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-	  <para>
-	    This is the notebook of configuration items for a given mail folder
-	    which is accessed via the Folder Properties item in the main menu item or
-	    folder-tree context menu.
-	  </para>
+	</sect2>
+
+	<sect2>
+	  <title>Mail Config Targets</title>
+
+	  <sect3 id="mail-hooks-config-EMConfigTargetAccount">
+	    <title>Account Target</title>
+
+	    <para>The account target is used for configuring accounts, and so
+	      has a pointer to the EAccount being configured.  This is a copy
+	      of the actual account object, and is copied to the original once
+	      the data is ready to commit.</para>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>account</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMConfigTargetAccount">EMConfigTargetAccount</link>
+		    </entry>
+		  </row>
+		  <row>
+		    <entry>Items</entry>
+		    <entry>Define some of the items available and where they fit
+		      in the gui</entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+
+	  <sect3 id="mail-hooks-config-EMConfigTargetPrefs">
+	    <title>Preferences Target</title>
+
+	    <para>The preferences target is used for global preferences.  As
+	      such it just contains a pointer to the global configuration store
+	      - a GConfClient.</para>
+	    
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>prefs</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMConfigTargetPrefs">EMConfigTargetPrefs</link>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+	  
+	  <sect3 id="mail-hooks-config-EMConfigTargetFolder">
+	    <title>Folder Target</title>
+
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>folder</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMConfigTargetFolder">EMConfigTargetFolder</link>
+		    </entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+	  
 	</sect2>
       </sect1>
 
       <sect1 id="mail-hooks-event">
 	<title>Events</title>
 
-	  <para>
-	    The mail event class is
-	    <interfacename>com.ximian.evolution.mail.events:1.0</interfacename>.
-	  </para>
+	<para>
+	  The mail event class is
+	  <interfacename>com.ximian.evolution.mail.events:1.0</interfacename>.
+	</para>
 
 	<sect2>
 	  <title>Folder Changed Event</title>
@@ -1795,30 +2034,63 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMEventTargetFolder">EMEventTargetFolder</link>, plugin target is &quot;<constant>folder</constant>&quot;.
+		      linkend="mail-hooks-event-EMEventTargetFolder">EMEventTargetFolder</link>
 		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>List qualifiers</entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
 	</sect2>
 
+	<sect2>
+	  <title>Mail Event Targets</title>
+
+	  <sect3 id="mail-hooks-event-EMEventTargetFolder">
+	    <title>Folder Target</title>
+	    
+	    <informaltable>
+	      <tgroup cols="2">
+		<tbody valign="top">
+		  <row>
+		    <entry>Name</entry>
+		    <entry><constant>folder</constant></entry>
+		  </row>
+		  <row>
+		    <entry>Structure</entry>
+		    <entry>
+		      <link
+			linkend="API-struct--EMEventTargetFolder">EMEventTargetFolder</link>
+		    </entry>
+		  </row>
+		  <row>
+		    <entry>Qualifiers</entry>
+		    <entry>List qualifiers</entry>
+		  </row>
+		</tbody>
+	      </tgroup>
+	    </informaltable>
+	  </sect3>
+	</sect2>
       </sect1>
 
       <sect1 id="mail-hooks-format">
 	<title>Formatters</title>
 
-	  <para>
-	    The mail formatter hook class is
-	    <interfacename>com.novell.evolution.mail.format:1.0</interfacename>.
-	  </para>
+	<para>
+	  The mail formatter hook class is
+	  <interfacename>com.novell.evolution.mail.format:1.0</interfacename>.
+	</para>
 
 	<sect2>
 	  <title>Base Formatter</title>
+
+	  <para>
+	    The EMFormat class is the base class for all formatting types.
+	    It should only be used to define compound and complex types which
+	    do not rely on outputting any textual information, or rely on any
+	    screen or print output differences.
+	  </para>
+
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1830,48 +2102,16 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMFormatHookTarget">EMFormatHookTarget</link>, plugin target is implied.
+		      linkend="mail-hooks-format-EMFormatHookTarget">EMFormatHookTarget</link>
 		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>List qualifiers?</entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
-
-	  <para>
-	    The EMFormat class is the base class for all formatting types.
-	    It should only be used to define compound and complex types which
-	    do not rely on outputting any textual information, or rely on any
-	    screen or print output differences.
-	  </para>
 	</sect2>
 
 	<sect2>
 	  <title>HTML Formatter</title>
-	  <informaltable>
-	    <tgroup cols="2">
-	      <tbody valign="top">
-		<row>
-		  <entry>Name</entry>
-		  <entry><constant>EMFormatHTML</constant></entry>
-		</row>
-		<row>
-		  <entry>Target</entry>
-		  <entry>
-		    <link
-		      linkend="API-struct--EMFormatHookTarget">EMFormatHookTarget</link>, plugin target is implied.
-		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>List qualifiers?</entry>
-		</row>
-	      </tbody>
-	    </tgroup>
-	  </informaltable>
 
 	  <para>
 	    The EMFormatHTML class is the base class for most formatting types
@@ -1883,6 +2123,25 @@
 	    and Widgets may not be used from formatters which hook onto this
 	    entry point.
 	  </para>
+
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody valign="top">
+		<row>
+		  <entry>Name</entry>
+		  <entry><constant>EMFormatHTML</constant></entry>
+		</row>
+		<row>
+		  <entry>Target</entry>
+		  <entry>
+		    <link
+		      linkend="mail-hooks-format-EMFormatHookTarget">EMFormatHookTarget</link>
+		  </entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+
 	  <para>
 	    <emphasis>This section needs a huge amount of
 	      explanation, and/or more detail needs to be added to another
@@ -1892,6 +2151,14 @@
 
 	<sect2>
 	  <title>HTML Display Formatter</title>
+
+	  <para>
+	    The EMFormatHTMLDisplay class is a subclass of EMFormatHTML, and is
+	    used as a mail display widget.  As such, it has access to all of
+	    the facilities of GtkHTML, such as embedded widgets.  Like the
+	    EMFormatHTML class, this uses a complex multi-thread architecture.
+	  </para>
+
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1903,23 +2170,13 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMFormatHookTarget">EMFormatHookTarget</link>, plugin target is implied.
+		      linkend="mail-hooks-format-EMFormatHookTarget">EMFormatHookTarget</link>
 		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>List qualifiers?</entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
 
-	  <para>
-	    The EMFormatHTMLDisplay class is a subclass of EMFormatHTML, and is
-	    used as a mail display widget.  As such, it has access to all of
-	    the facilities of GtkHTML, such as embedded widgets.  Like the
-	    EMFormatHTML class, this uses a complex multi-thread architecture.
-	  </para>
 	  <para>
 	    <emphasis>This section needs a huge amount of
 	      explanation, and/or more detail needs to be added to another
@@ -1929,6 +2186,16 @@
 
 	<sect2>
 	  <title>HTML Print Formatter</title>
+
+	  <para>
+	    The EMFormatHTMLPrint class is a subclass of EMFormatHTML, and is
+	    used as a mail printing widget.  It cannot access embedded
+	    widgets.  For most purposes you would normally only connect to the
+	    EMFormatHTML hook, and generate generic HTML output which could be
+	    printed or shown on-screen if it isn't overriden by the display
+	    formatter.
+	  </para>
+
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1940,25 +2207,13 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMFormatHookTarget">EMFormatHookTarget</link>, plugin target is implied.
+		      linkend="mail-hooks-format-EMFormatHookTarget">EMFormatHookTarget</link>
 		  </entry>
-		</row>
-		<row>
-		  <entry>Qualifiers</entry>
-		  <entry>List qualifiers?</entry>
 		</row>
 	      </tbody>
 	    </tgroup>
 	  </informaltable>
 
-	  <para>
-	    The EMFormatHTMLPrint class is a subclass of EMFormatHTML, and is
-	    used as a mail printing widget.  It cannot access embedded
-	    widgets.  For most purposes you would normally only connect to the
-	    EMFormatHTML hook, and generate generic HTML output which could be
-	    printed or shown on-screen if it isn't overriden by the display
-	    formatter.
-	  </para>
 	  <para>
 	    <emphasis>This section needs a huge amount of
 	      explanation, and/or more detail needs to be added to another
@@ -1968,6 +2223,13 @@
 
 	<sect2>
 	  <title>Mail Quote Formatter</title>
+	  <para>
+	    The EMFormatQuote class is a subclass of EMFormat, and is
+	    used as generator for quoted mail content and for
+	    inline-forwarding.  This formatter converts message objects into
+	    a pure HTML stream, which is not parsed directly, but normally fed
+	    to the message composer.
+	  </para>
 	  <informaltable>
 	    <tgroup cols="2">
 	      <tbody valign="top">
@@ -1979,7 +2241,28 @@
 		  <entry>Target</entry>
 		  <entry>
 		    <link
-		      linkend="API-struct--EMFormatHookTarget">EMFormatHookTarget</link>, plugin target is implied.
+		      linkend="mail-hooks-EMFormatHookTarget">EMFormatHookTarget</link>
+		  </entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </informaltable>
+	</sect2>
+
+	<sect2 id="mail-hooks-format-EMFormatHookTarget">
+	  <title>Mail Formatter Targets</title>
+
+	  <para>There is only one target for all mail formatters, and it is
+	    implied automatically for all formatter hooks.</para>
+
+	  <informaltable>
+	    <tgroup cols="2">
+	      <tbody valign="top">
+		<row>
+		  <entry>Structure</entry>
+		  <entry>
+		    <link
+		      linkend="API-struct--EMFormatHookTarget">EMFormatHookTarget</link>
 		  </entry>
 		</row>
 		<row>
@@ -1990,17 +2273,8 @@
 	    </tgroup>
 	  </informaltable>
 
-	  <para>
-	    The EMFormatQuote class is a subclass of EMFormat, and is
-	    used as generator for quoted mail content and for
-	    inline-forwarding.  This formatter converts message objects into
-	    a pure HTML stream, which is not parsed directly, but normally fed
-	    to the message composer.
-	  </para>
 	</sect2>
-
       </sect1>
-
     </chapter>
 
     <chapter id="contacts-hooks">
