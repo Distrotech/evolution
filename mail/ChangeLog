@@ -1,3 +1,8 @@
+2004-11-08  Not Zed  <NotZed@Ximian.com>
+
+	* mail-vfolder.c (uri_is_spethal): fix the special check for local
+	folders.
+
 2004-10-30  Not Zed  <NotZed@Ximian.com>
 
 	* */*.c, *.c: camel api changes.
