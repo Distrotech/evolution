@@ -60,10 +60,11 @@ static EContactFieldInfo field_info[] = {
 	STRING_FIELD (E_CONTACT_FILE_AS,    EVC_X_FILE_AS, "file_as",    N_("File As"),    NULL, FALSE),
 
 	/* Name fields */
-	STRING_FIELD    (E_CONTACT_FULL_NAME,  EVC_FN,     "full_name",   N_("Full Name"),   NULL, FALSE),
-	STRUCT_FIELD    (E_CONTACT_NAME,       EVC_N,      "name",        N_("Name"),              FALSE),
-	SYNTH_STR_FIELD (E_CONTACT_GIVEN_NAME,             "given_name",  N_("Given Name"),  NULL, FALSE),
-	SYNTH_STR_FIELD (E_CONTACT_FAMILY_NAME,            "family_name", N_("Family Name"), NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_FULL_NAME,  EVC_FN,       "full_name",   N_("Full Name"),   NULL, FALSE),
+	STRUCT_FIELD    (E_CONTACT_NAME,       EVC_N,        "name",        N_("Name"),              FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_GIVEN_NAME,               "given_name",  N_("Given Name"),  NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_FAMILY_NAME,              "family_name", N_("Family Name"), NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_NICKNAME,   EVC_NICKNAME, "nickname",    N_("Nickname"),    NULL, FALSE),
 
 	/* Address fields */
 	GLIST_FIELD        (E_CONTACT_ADDRESS,      EVC_ADR,    "address",       N_("Address List"),  FALSE),
@@ -82,6 +83,19 @@ static EContactFieldInfo field_info[] = {
 	GLIST_FIELD (E_CONTACT_IM_JABBER, EVC_X_JABBER, "im_jabber", N_("Jabber Id List"), FALSE),
 	GLIST_FIELD (E_CONTACT_IM_YAHOO,  EVC_X_YAHOO,  "im_yahoo",  N_("Yahoo! Screen Name List"), FALSE),
 	GLIST_FIELD (E_CONTACT_IM_MSN,    EVC_X_MSN,    "im_msn",    N_("MSN Screen Name List"), FALSE),
+	GLIST_FIELD (E_CONTACT_IM_ICQ,    EVC_X_ICQ,    "im_icq",    N_("ICQ Id List"), FALSE),
+
+	/* Organizational fields */
+	STRING_FIELD    (E_CONTACT_ORG,       EVC_ORG,       "org",       N_("Organization"),        NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_ORG_UNIT,                 "org_unit",  N_("Organizational Unit"), NULL, FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_OFFICE,                   "office",    N_("Office"),              NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_TITLE,     EVC_TITLE,     "title",     N_("Title"),               NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_ROLE,      EVC_ROLE,      "role",      N_("Role"),                NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_MANAGER,   EVC_X_MANAGER, "manager",   N_("Manager"),             NULL, FALSE),
+	STRING_FIELD    (E_CONTACT_ASSISTANT, EVC_X_MANAGER, "assistant", N_("Assistant"),           NULL, FALSE),
+
+	/* Web fields */
+	STRING_FIELD (E_CONTACT_HOMEPAGE_URL, EVC_URL, "homepage_url", N_("Homepage"), NULL, FALSE),
 };
 
 #undef STRING_FIELD
@@ -301,17 +315,12 @@ e_contact_get_property (GObject *object,
 			EVCardAttribute *attr = e_contact_get_first_attr (contact, EVC_N);
 			EContactName *name = g_new0 (EContactName, 1);
 			if (attr) {
-				GList *v = e_vcard_attribute_get_values (attr);
-				GList *p = v;
-				name->family = g_strdup (p && p->data ? p->data : "");
-				if (p) p = p->next;
-				name->given = g_strdup (p && p->data ? p->data : "");
-				if (p) p = p->next;
-				name->additional = g_strdup (p && p->data ? p->data : "");
-				if (p) p = p->next;
-				name->prefixes = g_strdup (p && p->data ? p->data : "");
-				if (p) p = p->next;
-				name->suffixes = g_strdup (p && p->data ? p->data : "");
+				GList *p = e_vcard_attribute_get_values (attr);
+				name->family     = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->given      = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->additional = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->prefixes   = g_strdup (p && p->data ? p->data : ""); if (p) p = p->next;
+				name->suffixes   = g_strdup (p && p->data ? p->data : "");
 			}
 			
 			g_value_set_pointer (value, name);

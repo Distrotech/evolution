@@ -45,6 +45,13 @@ struct _EBookClass {
 	 */
 	void (* writable_status) (EBook *book, gboolean writable);
 	void (* backend_died)    (EBook *book);
+
+	/* Padding for future expansion */
+	void (*_ebook_reserved0) (void);
+	void (*_ebook_reserved1) (void);
+	void (*_ebook_reserved2) (void);
+	void (*_ebook_reserved3) (void);
+	void (*_ebook_reserved4) (void);
 };
 
 /* Creating a new addressbook. */

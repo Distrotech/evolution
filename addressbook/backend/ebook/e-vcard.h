@@ -26,27 +26,31 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#define EVC_UID     "UID"
-#define EVC_FN      "FN"
-#define EVC_N       "N"
-#define EVC_ORG     "ORG"
-#define EVC_URL     "URL"
-#define EVC_VERSION "VERSION"
-#define EVC_REV     "REV"
-#define EVC_PRODID  "PRODID"
-#define EVC_TYPE    "TYPE"
-#define EVC_ADR     "ADR"
-#define EVC_TEL     "TEL"
-#define EVC_EMAIL   "EMAIL"
-
-#define EVC_ENCODING "ENCODING"
+#define EVC_ADR             "ADR"
+#define EVC_EMAIL           "EMAIL"
+#define EVC_ENCODING        "ENCODING"
+#define EVC_FN              "FN"
+#define EVC_NICKNAME        "NICKNAME"
+#define EVC_N               "N"
+#define EVC_ORG             "ORG"
+#define EVC_PRODID          "PRODID"
 #define EVC_QUOTEDPRINTABLE "QUOTED-PRINTABLE"
-
-#define EVC_X_FILE_AS "X-EVOLUTION-FILE-AS"
-#define EVC_X_AIM     "X-AIM"
-#define EVC_X_JABBER  "X-JABBER"
-#define EVC_X_YAHOO   "X-YAHOO"
-#define EVC_X_MSN     "X-MSN"
+#define EVC_REV             "REV"
+#define EVC_ROLE            "ROLE"
+#define EVC_TEL             "TEL"
+#define EVC_TITLE           "TITLE"
+#define EVC_TYPE            "TYPE"
+#define EVC_UID             "UID"
+#define EVC_URL             "URL"
+#define EVC_VERSION         "VERSION"
+#define EVC_X_AIM           "X-AIM"
+#define EVC_X_ASSISTANT     "X-EVOLUTION-ASSISTANT"
+#define EVC_X_FILE_AS       "X-EVOLUTION-FILE-AS"
+#define EVC_X_ICQ           "X-ICQ"
+#define EVC_X_JABBER        "X-JABBER"
+#define EVC_X_MANAGER       "X-EVOLUTION-MANAGER"
+#define EVC_X_MSN           "X-MSN"
+#define EVC_X_YAHOO         "X-YAHOO"
 
 #define E_TYPE_VCARD            (e_vcard_get_type ())
 #define E_VCARD(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_VCARD, EVCard))
@@ -69,6 +73,13 @@ struct _EVCard {
 
 struct _EVCardClass {
 	GObjectClass parent_class;
+
+	/* Padding for future expansion */
+	void (*_ebook_reserved0) (void);
+	void (*_ebook_reserved1) (void);
+	void (*_ebook_reserved2) (void);
+	void (*_ebook_reserved3) (void);
+	void (*_ebook_reserved4) (void);
 };
 
 GType   e_vcard_get_type                     (void);

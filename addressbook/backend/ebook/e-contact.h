@@ -27,29 +27,47 @@ typedef struct _EContactClass EContactClass;
 typedef struct _EContactPrivate EContactPrivate;
 
 typedef enum {
-	E_CONTACT_UID = 1,    /* string field */
 
-	E_CONTACT_FILE_AS,    /* string field */
+	E_CONTACT_UID = 1,     	 /* string field */
+	E_CONTACT_FILE_AS,     	 /* string field */
 
-	E_CONTACT_FULL_NAME,  /* string field */
-	E_CONTACT_NAME,       /* structured field (EContactName) */
-	E_CONTACT_GIVEN_NAME,  /* synthetic field */
-	E_CONTACT_FAMILY_NAME, /* synthetic field */
+	/* Name fields */
+	E_CONTACT_FULL_NAME,   	 /* string field */
+	E_CONTACT_NAME,        	 /* structured field (EContactName) */
+	E_CONTACT_GIVEN_NAME,  	 /* synthetic field */
+	E_CONTACT_FAMILY_NAME, 	 /* synthetic field */
+	E_CONTACT_NICKNAME,    	 /* string field */
 
-	E_CONTACT_EMAIL,      /* Multi-valued */
-	E_CONTACT_EMAIL_1,    /* synthetic field */
-	E_CONTACT_EMAIL_2,    /* synthetic field */
-	E_CONTACT_EMAIL_3,    /* synthetic field */
+	/* Email fields */
+	E_CONTACT_EMAIL,       	 /* Multi-valued */
+	E_CONTACT_EMAIL_1,     	 /* synthetic field */
+	E_CONTACT_EMAIL_2,     	 /* synthetic field */
+	E_CONTACT_EMAIL_3,     	 /* synthetic field */
 
-	E_CONTACT_ADDRESS,       /* Multi-valued */
-	E_CONTACT_ADDRESS_HOME,  /* synthetic field */
-	E_CONTACT_ADDRESS_WORK,  /* synthetic field */
-	E_CONTACT_ADDRESS_OTHER, /* synthetic field */
+	/* Address fields */
+	E_CONTACT_ADDRESS,       /* Multi-valued structured (EContactAddress) */
+	E_CONTACT_ADDRESS_HOME,  /* synthetic structured field (EContactAddress) */
+	E_CONTACT_ADDRESS_WORK,  /* synthetic structured field (EContactAddress) */
+	E_CONTACT_ADDRESS_OTHER, /* synthetic structured field (EContactAddress) */
 
-	E_CONTACT_IM_AIM,     /* Multi-valued */
-	E_CONTACT_IM_JABBER,  /* Multi-valued */
-	E_CONTACT_IM_YAHOO,   /* Multi-valued */
-	E_CONTACT_IM_MSN,     /* Multi-valued */
+	/* Instant Messaging fields */
+	E_CONTACT_IM_AIM,     	 /* Multi-valued */
+	E_CONTACT_IM_JABBER,  	 /* Multi-valued */
+	E_CONTACT_IM_YAHOO,   	 /* Multi-valued */
+	E_CONTACT_IM_MSN,     	 /* Multi-valued */
+	E_CONTACT_IM_ICQ,     	 /* Multi-valued */
+
+	/* Organizational fields */
+	E_CONTACT_ORG,        	 /* string field */
+	E_CONTACT_ORG_UNIT,   	 /* string field */
+	E_CONTACT_OFFICE,     	 /* string field */
+	E_CONTACT_TITLE,      	 /* string field */
+	E_CONTACT_ROLE,       	 /* string field */
+	E_CONTACT_MANAGER,    	 /* string field */
+	E_CONTACT_ASSISTANT,  	 /* string field */
+
+	/* Web fields */
+	E_CONTACT_HOMEPAGE_URL,  /* string field */
 
 	E_CONTACT_FIELD_LAST
 } EContactField;
@@ -70,6 +88,13 @@ struct _EContact {
 
 struct _EContactClass {
 	EVCardClass parent_class;
+
+	/* Padding for future expansion */
+	void (*_ebook_reserved0) (void);
+	void (*_ebook_reserved1) (void);
+	void (*_ebook_reserved2) (void);
+	void (*_ebook_reserved3) (void);
+	void (*_ebook_reserved4) (void);
 };
 
 GType                   e_contact_get_type (void);
