@@ -1,5 +1,11 @@
 2003-08-15  Ettore Perazzoli  <ettore@ximian.com>
 
+	* e-source-selector.c (cell_toggled_callback): Call
+	gtk_tree_model_row_changed() to let the model know that we changed
+	the data.
+
+2003-08-15  Ettore Perazzoli  <ettore@ximian.com>
+
 	* test-source-selector.c: New test program.
 
 	* e-source-selector.c: New file.
