@@ -1,3 +1,38 @@
+2004-07-07  Chris Toshok  <toshok@ximian.com>
+
+	* gui/widgets/gal-view-minicard.h (GalViewMinicard): column_width
+	is an int now.
+
+	* gui/widgets/gal-view-minicard.c (gal_view_minicard_load):
+	column_width is an int now.
+	(gal_view_minicard_save): same.
+	(column_width_changed): same.
+
+	* gui/widgets/eab-minicard-view.c (get_label_layout): put a ':'
+	after the field name.
+	(draw_minicard): make this take an EABMinicard instead of an
+	index.
+	(reflow_columns): fix view/model columns.
+	(reflow_on_idle_handler): new function, reflow the columns.
+	(reflow_on_idle): register an idle handler if we need to, and save
+	off the reflow column if it's lower than the current one.
+	(item_changed): clean this up a bit.
+	(items_inserted): view/model column cleanup.
+	(eab_minicard_view_get_selection_model): implement.
+	(selection_changed): new function.
+	(selection_row_changed): new function.
+	(cursor_changed): new function.
+	(eab_minicard_view_init): hook up selection signals.
+	(eab_minicard_view_set_property): disconnect the
+	comparison_changed_signal from the old adapter and connect it to
+	the new one.
+	(eab_minicard_view_expose): pass the minicard to draw_minicard.
+	(eab_minicard_view_size_allocate): do an idle reflow here to make
+	resizing more responsive.
+	(_over_contact): view/model index cleanup.
+	(eab_minicard_view_button_press): same.
+	(eab_minicard_view_motion): remove spew.
+
 2004-07-02  Hans Petter Jansson  <hpj@ximian.com>
 
 	* gui/contact-list-editor/e-contact-list-editor.c

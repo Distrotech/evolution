@@ -80,6 +80,7 @@ struct _EABMinicardViewPrivate {
 
 	int writable_status_id;
 	int model_changed_id;
+	int comparison_changed_id;
 	int model_items_inserted_id;
 	int model_item_removed_id;
 	int model_item_changed_id;
@@ -88,6 +89,11 @@ struct _EABMinicardViewPrivate {
 
 	int orig_column_x;
 	int orig_column_width;
+
+	int reflow_on_idle_id;
+	int reflow_on_idle_from_column;
+
+	int prev_height;
 
 	gboolean in_column_drag;
 	gint column_dragged;
@@ -98,6 +104,7 @@ struct _EABMinicardViewPrivate {
 	GArray *column_starts;
 	GArray *minicards;
 
+	gboolean maybe_did_something;
 	ESelectionModel *selection;
 	guint selection_changed_id;
 	guint selection_row_changed_id;
@@ -127,9 +134,11 @@ get_label_layout (EABMinicardView *view, EContactField field_id)
 
 	g_return_val_if_fail (field_id > 0 && field_id <= E_CONTACT_LAST_SIMPLE_STRING, NULL);
 
-	if (!priv->label_layout_cache[field_id])
-		priv->label_layout_cache[field_id] = gtk_widget_create_pango_layout (GTK_WIDGET (view),
-										     e_contact_pretty_name (field_id));
+	if (!priv->label_layout_cache[field_id]) {
+		char *label = g_strdup_printf ("%s:", e_contact_pretty_name (field_id));
+		priv->label_layout_cache[field_id] = gtk_widget_create_pango_layout (GTK_WIDGET (view), label);
+		g_free (label);
+	}
 
 	return priv->label_layout_cache[field_id];
 }
@@ -225,21 +234,14 @@ draw_minicard_fields (EABMinicardView *view, EABMinicard *minicard,
 }
 
 static void
-draw_minicard (EABMinicardView *view, int i, gboolean selected)
+draw_minicard (EABMinicardView *view, EABMinicard *minicard, gboolean selected)
 {
 	EABMinicardViewPrivate *priv = view->priv;
-	EContact *contact = e_addressbook_reflow_adapter_contact_at (priv->adapter, i);
 	PangoLayout *layout;
 	GdkGC *header_gc, *text_gc;
-	EABMinicard *minicard;
 	const char *string;
 	GdkRectangle clip_rect;
 	int x, y;
-
-	if (!contact)
-		return;
-
-	minicard = &g_array_index (priv->minicards, EABMinicard, i);
 
 	x = minicard->x;
 	y = minicard->y;
@@ -266,7 +268,7 @@ draw_minicard (EABMinicardView *view, int i, gboolean selected)
 
 	gdk_gc_set_clip_rectangle (text_gc, &clip_rect);
 
-	string = e_contact_get_const(contact, E_CONTACT_FILE_AS);
+	string = e_contact_get_const(minicard->contact, E_CONTACT_FILE_AS);
 	layout = gtk_widget_create_pango_layout (GTK_WIDGET (view), string ? string : "");
 	gdk_draw_layout (GTK_WIDGET (view)->window, text_gc, x + 5, y + 5, layout);
 
@@ -286,6 +288,7 @@ reflow_columns (EABMinicardView *view, int from_column)
 	int i;
 	int c, column_start;
 	double running_height;
+	EABMinicard *start_minicard;
 
 	if (from_column <= 1) {
 		start = 0;
@@ -307,8 +310,7 @@ reflow_columns (EABMinicardView *view, int from_column)
 
 	count = priv->minicards->len - start;
 	for (i = start; i < count; i++) {
-		int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
-		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, unsorted);
+		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, i);
 		if (i != 0 && running_height + minicard->total_height + VBORDER > view->parent.allocation.height) {
 			g_array_append_val (priv->column_starts, i);
 			c ++;
@@ -321,8 +323,46 @@ reflow_columns (EABMinicardView *view, int from_column)
 	g_array_insert_val (priv->column_starts, start, column_start);
 
 	/* queue up a redraw for the columns we've reflowed */
-	/* XXX for now just redraw everything */
-	gtk_widget_queue_draw (GTK_WIDGET (view));
+	if (priv->minicards->len) {
+		start_minicard = &g_array_index (priv->minicards, EABMinicard, start);
+		gtk_widget_queue_draw_area (GTK_WIDGET (view),
+					    start_minicard->x, 0,
+					    GTK_WIDGET (view)->allocation.width,
+					    GTK_WIDGET (view)->allocation.height);
+	}
+}
+
+static gboolean
+reflow_on_idle_handler (gpointer data)
+{
+	EABMinicardView *view = data;
+	EABMinicardViewPrivate *priv = view->priv;
+	int oldcolumncount;
+
+	oldcolumncount = priv->column_starts->len;
+
+	reflow_columns (view, priv->reflow_on_idle_from_column);
+
+	if (oldcolumncount != priv->column_starts->len)
+		gtk_widget_queue_resize (GTK_WIDGET (view));
+
+	priv->reflow_on_idle_id = 0;
+	return FALSE;
+}
+
+static void
+reflow_on_idle (EABMinicardView *view, int from_column)
+{
+	EABMinicardViewPrivate *priv = view->priv;
+	gboolean new_reflow = FALSE;
+
+	if (priv->reflow_on_idle_id == 0)
+		new_reflow = TRUE;
+
+	if (new_reflow)
+		priv->reflow_on_idle_id = g_idle_add (reflow_on_idle_handler, view);
+	if (new_reflow || priv->reflow_on_idle_from_column > from_column)
+		priv->reflow_on_idle_from_column = from_column;
 }
 
 static void
@@ -339,13 +379,8 @@ item_changed (EReflowModel *model, int i, EABMinicardView *view)
 		g_object_unref (minicard->contact);
 	minicard->contact = g_object_ref (e_addressbook_reflow_adapter_contact_at (priv->adapter, i));
 	measure_minicard (view, minicard);
-#if notyet
-	if (reflow->items[i] != NULL)
-		e_reflow_model_reincarnate (model, i, reflow->items[i]);
-#endif
 	e_sorter_array_clean (priv->sorter);
 
-	/* XXX do this in an idle? */
 	reflow_columns (view, -1);
 }
 
@@ -402,7 +437,7 @@ items_inserted (EReflowModel *model, int position, int count, EABMinicardView *v
 	values = g_new (EABMinicard, count);
 
 	for (i = 0; i < count; i ++) {
-		values[i].contact = g_object_ref (e_addressbook_reflow_adapter_contact_at (priv->adapter, i));
+		values[i].contact = g_object_ref (e_addressbook_reflow_adapter_contact_at (priv->adapter, position + i));
 		measure_minicard (view, &values[i]);
 	}
 
@@ -452,8 +487,9 @@ model_changed (EReflowModel *model, EABMinicardView *view)
 	g_array_set_size (priv->minicards, e_reflow_model_count (E_REFLOW_MODEL (priv->adapter)));
 
 	for (i = 0; i < priv->minicards->len; i++) {
-		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, i);
-		minicard->contact = g_object_ref (e_addressbook_reflow_adapter_contact_at (priv->adapter, i));
+		int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
+		EABMinicard *minicard = &g_array_index (priv->minicards, EABMinicard, unsorted);
+		minicard->contact = g_object_ref (e_addressbook_reflow_adapter_contact_at (priv->adapter, unsorted));
 		measure_minicard (view, minicard);
 	}
 
@@ -492,9 +528,45 @@ eab_minicard_view_new_with_adapter (EAddressbookReflowAdapter *adapter)
 }
 
 ESelectionModel *
-eab_minicard_view_get_selection_model  (EABMinicardView       *view)
+eab_minicard_view_get_selection_model (EABMinicardView *view)
 {
-	return NULL; /* XXX */
+	g_return_val_if_fail (EAB_IS_MINICARD_VIEW (view), NULL);
+
+	return view->priv->selection;
+}
+
+
+static void
+selection_changed (ESelectionModel *selection, EABMinicardView *view)
+{
+	printf ("selection_changed\n");
+	gtk_widget_queue_draw (GTK_WIDGET (view));
+	g_signal_emit (view, signals[SELECTION_CHANGE], 0, NULL);
+}
+
+static void
+selection_row_changed (ESelectionModel *selection, int row, EABMinicardView *view)
+{
+	EABMinicardViewPrivate *priv = view->priv;
+	EABMinicard *minicard;
+	int sorted;
+
+	sorted = e_sorter_model_to_sorted (E_SORTER (view->priv->sorter), row);
+	minicard = &g_array_index(priv->minicards, EABMinicard, sorted);
+
+	/* redraw the contact */
+	gtk_widget_queue_draw_area (GTK_WIDGET (view),
+				    minicard->x - SELECTION_SPACING,
+				    minicard->y - SELECTION_SPACING,
+				    priv->column_width + 2 * SELECTION_SPACING + 1,
+				    minicard->total_height + 2 * SELECTION_SPACING + 1);
+	g_signal_emit (view, signals[SELECTION_CHANGE], 0, NULL);
+}
+
+static void
+cursor_changed (ESelectionModel *selection, int row, int col, EABMinicardView *view)
+{
+	//	printf ("cursor_changed\n");
 }
 
 
@@ -527,6 +599,16 @@ eab_minicard_view_init (GObject *object)
 	g_object_set (view->priv->selection,
 		      "sorter", view->priv->sorter,
 		      NULL);
+
+	view->priv->selection_changed_id = 
+		g_signal_connect(view->priv->selection, "selection_changed",
+				 G_CALLBACK (selection_changed), view);
+	view->priv->selection_row_changed_id = 
+		g_signal_connect(view->priv->selection, "selection_row_changed",
+				 G_CALLBACK (selection_row_changed), view);
+	view->priv->cursor_changed_id = 
+		g_signal_connect(view->priv->selection, "cursor_changed",
+				 G_CALLBACK (cursor_changed), view);
 }
 
 
@@ -547,6 +629,7 @@ eab_minicard_view_set_property (GObject *object,
 	case PROP_ADAPTER:
 		if (priv->adapter) {
 			g_signal_handler_disconnect (priv->adapter, priv->model_changed_id);
+			g_signal_handler_disconnect (priv->adapter, priv->comparison_changed_id);
 			g_signal_handler_disconnect (priv->adapter, priv->model_items_inserted_id);
 			g_signal_handler_disconnect (priv->adapter, priv->model_item_removed_id);
 			g_signal_handler_disconnect (priv->adapter, priv->model_item_changed_id);
@@ -571,6 +654,8 @@ eab_minicard_view_set_property (GObject *object,
 
 			priv->model_changed_id = g_signal_connect (priv->adapter,
 								   "model_changed", G_CALLBACK (model_changed), view);
+			priv->comparison_changed_id = g_signal_connect (priv->adapter, "comparison_changed",
+									G_CALLBACK (comparison_changed), view);
 			priv->model_items_inserted_id = g_signal_connect (priv->adapter,
 									  "model_items_inserted",
 									  G_CALLBACK (items_inserted), view);
@@ -714,10 +799,11 @@ eab_minicard_view_expose (GtkWidget *widget,
 		y = VBORDER;
 		if (gdk_rectangle_intersect (&column_rect, &event->area, &intersection)) {
 			for (j = start_idx; j < end_idx; j ++) {
+				int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), j);
 				EABMinicard *minicard;
 				GdkRectangle minicard_rect, unused;
 
-				minicard = &g_array_index(priv->minicards, EABMinicard, j);
+				minicard = &g_array_index(priv->minicards, EABMinicard, unsorted);
 
 				minicard_rect.x = x;
 				minicard_rect.y = y;
@@ -728,8 +814,8 @@ eab_minicard_view_expose (GtkWidget *widget,
 					minicard->x = x;
 					minicard->y = y;
 					/* XXX we should use the resulting intersection as a clip rect, shouldn't we? */
-					draw_minicard (view, j,
-						       e_selection_model_is_row_selected (priv->selection, j));
+					draw_minicard (view, minicard,
+						       e_selection_model_is_row_selected (priv->selection, unsorted));
 				}
 
 				y += INTERCONTACT_SPACING + minicard->total_height;
@@ -777,14 +863,11 @@ eab_minicard_view_size_allocate (GtkWidget     *widget,
 {
 	EABMinicardView *view = EAB_MINICARD_VIEW (widget);
 	EABMinicardViewPrivate *priv = view->priv;
-	int oldcolumncount;
 
-	oldcolumncount = priv->column_starts->len;
+	if (priv->prev_height != allocation->height)
+		reflow_on_idle (EAB_MINICARD_VIEW (widget), -1);
 
-	reflow_columns (EAB_MINICARD_VIEW (widget), -1);
-
-	if (oldcolumncount != priv->column_starts->len)
-		gtk_widget_queue_resize (GTK_WIDGET (view));
+	priv->prev_height = allocation->height;
 
 	if (GTK_WIDGET_CLASS (parent_class)->size_allocate)
 		GTK_WIDGET_CLASS (parent_class)->size_allocate (widget, allocation);
@@ -866,7 +949,7 @@ _over_contact (EABMinicardView *view,
 		if (column_x <= x && x <= column_x + priv->column_width) {
 			/* k, we're in this column (col).  find out if we're over one of the contacts in it */
 			int start_idx, end_idx;
-			int con;
+			int view_idx;
 			int current_y;
 
 			printf ("click in column %d\n", col);
@@ -879,13 +962,12 @@ _over_contact (EABMinicardView *view,
 
 			current_y = VBORDER;
 
-			for (con = start_idx; con < end_idx; con ++) {
-				EABMinicard *minicard = &g_array_index(priv->minicards, EABMinicard, con);
+			for (view_idx = start_idx; view_idx < end_idx; view_idx ++) {
+				EABMinicard *minicard = &g_array_index(priv->minicards, EABMinicard, view_idx);
 
 				if (current_y <= y && y <= current_y + minicard->total_height) {
 					/* k, found the contact */
-					printf ("click in contact %d\n", con);
-					return con;
+					return view_idx;
 				}
 
 				current_y += minicard->total_height + INTERCONTACT_SPACING;
@@ -926,18 +1008,14 @@ eab_minicard_view_button_press (GtkWidget      *widget,
 		}
 		else {
 			/* are we over a contact?  if so, select it */
-			int idx = _over_contact (view, x, y);
+			int view_idx = _over_contact (view, x, y);
 
-			if (idx != -1) {
-				EABMinicard *minicard = &g_array_index(priv->minicards, EABMinicard, idx);
+			if (view_idx != -1) {
+				int model_idx = e_sorter_sorted_to_model (E_SORTER (priv->sorter), view_idx);
 
-				e_selection_model_select_single_row (priv->selection, idx);
-				/* redraw the contact */
-				gtk_widget_queue_draw_area (widget,
-							    minicard->x - SELECTION_SPACING,
-							    minicard->y - SELECTION_SPACING,
-							    priv->column_width + 2 * SELECTION_SPACING + 1,
-							    minicard->total_height + 2 * SELECTION_SPACING + 1);
+				printf (" + model_idx = %d\n", model_idx);
+
+				e_selection_model_maybe_do_something(priv->selection, model_idx, 0, event->state);
 			}
 		}
 	}
@@ -979,8 +1057,6 @@ eab_minicard_view_motion (GtkWidget      *widget,
 	if (priv->in_column_drag) {
 		int delta = (x - priv->orig_column_x) / (priv->column_dragged + 1);
 		int new_column_width = priv->orig_column_width + delta;
-
-		printf ("MOTION!  delta = %d, new_column_width = %d\n", delta, new_column_width);
 
 		if (new_column_width < MIN_COLUMN_WIDTH)
 			new_column_width = MIN_COLUMN_WIDTH;
@@ -1167,7 +1243,7 @@ e_reflow_event (GnomeCanvasItem *item, GdkEvent *event)
 				int count;
 				count = reflow->count;
 				for (i = 0; i < count; i++) {
-					int unsorted = e_sorter_sorted_to_model (E_SORTER (reflow->sorter), i);
+					int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
 					GnomeCanvasItem *item = reflow->items[unsorted];
 					EFocus has_focus;
 					if (item) {
@@ -1185,7 +1261,7 @@ e_reflow_event (GnomeCanvasItem *item, GdkEvent *event)
 								i++;
 							}
 							
-							unsorted = e_sorter_sorted_to_model (E_SORTER (reflow->sorter), i);
+							unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
 							if (reflow->items[unsorted] == NULL) {
 								reflow->items[unsorted] = e_reflow_model_incarnate (reflow->model, unsorted, GNOME_CANVAS_GROUP (reflow));
 							}
@@ -1545,7 +1621,7 @@ e_reflow_reflow( GnomeCanvasItem *item, int flags )
 	next_column = 1;
 
 	for (i = 0; i < reflow->count; i++) {
-		int unsorted = e_sorter_sorted_to_model (E_SORTER (reflow->sorter), i);
+		int unsorted = e_sorter_sorted_to_model (E_SORTER (priv->sorter), i);
 		if (next_column < reflow->column_count && i == reflow->columns[next_column]) {
 			running_height = E_REFLOW_BORDER_WIDTH;
 			running_width += reflow->column_width + E_REFLOW_FULL_GUTTER;

@@ -31,7 +31,7 @@ gal_view_minicard_load (GalView *view,
 	doc = xmlParseFile (filename);
 	if (doc) {
 		xmlNode *root = xmlDocGetRootElement(doc);
-		GAL_VIEW_MINICARD (view)->column_width = e_xml_get_double_prop_by_name_with_default (root, "column_width", 150);
+		GAL_VIEW_MINICARD (view)->column_width = e_xml_get_integer_prop_by_name_with_default (root, "column_width", 150);
 		xmlFreeDoc(doc);
 	}
 }
@@ -45,7 +45,7 @@ gal_view_minicard_save (GalView *view,
 
 	doc = xmlNewDoc("1.0");
 	root = xmlNewNode (NULL, "EMinicardViewState");
-	e_xml_set_double_prop_by_name (root, "column_width", GAL_VIEW_MINICARD (view)->column_width);
+	e_xml_set_integer_prop_by_name (root, "column_width", GAL_VIEW_MINICARD (view)->column_width);
 	xmlDocSetRootElement(doc, root);
 	xmlSaveFile(filename, doc);
 	xmlFreeDoc(doc);
@@ -185,9 +185,9 @@ gal_view_minicard_get_type        (void)
 }
 
 static void
-column_width_changed (EABMinicardView *w, double width, GalViewMinicard *view)
+column_width_changed (EABMinicardView *w, int width, GalViewMinicard *view)
 {
-	d(g_print("%s: Old width = %f, New width = %f\n", G_GNUC_FUNCTION, view->column_width, width));
+	d(g_print("%s: Old width = %d, New width = %d\n", G_GNUC_FUNCTION, view->column_width, width));
 	if (view->column_width != width) {
 		view->column_width = width;
 		gal_view_changed(GAL_VIEW(view));

@@ -81,6 +81,13 @@ dist-hook:
 
 etspec_DATA= e-addressbook-view.etspec
 
+noinst_PROGRAMS= gen-view-etspec
+
+gen_view_etspec_LDADD=$(EVOLUTION_ADDRESSBOOK_LIBS) $(LDAP_LIBS)
+
+e-addressbook-view.etspec: $(top_builddir)/addressbook/gui/widgets/gen-view-etspec
+	$(top_builddir)/addressbook/gui/widgets/gen-view-etspec
+
 EXTRA_DIST = 			\
 	$(etspec_DATA)		\
 	eab-marshal.list

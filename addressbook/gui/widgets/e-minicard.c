@@ -752,12 +752,12 @@ add_field (EMinicard *e_minicard, EContactField field, gdouble left_width)
 	GnomeCanvasGroup *group;
 	EMinicardField *minicard_field;
 	char *name;
-	char *string;
+	const char *string;
 	
 	group = GNOME_CANVAS_GROUP( e_minicard );
 	
 	name = g_strdup_printf("%s:", e_contact_pretty_name (field));
-	string = e_contact_get (e_minicard->contact, field);
+	string = e_contact_get_const (e_minicard->contact, field);
 
 	new_item = e_minicard_label_new(group);
 	gnome_canvas_item_set( new_item,
@@ -783,7 +783,6 @@ add_field (EMinicard *e_minicard, EContactField field, gdouble left_width)
 	e_minicard->fields = g_list_append( e_minicard->fields, minicard_field);
 	e_canvas_item_move_absolute(new_item, 2, e_minicard->height);
 	g_free(name);
-	g_free(string);
 }
 
 static int
@@ -821,15 +820,14 @@ remodel( EMinicard *e_minicard )
 	if (e_minicard->contact) {
 		EContactField field;
 		GList *list;
-		char *file_as;
+		const char *file_as;
 		int left_width = -1;
 
 		if (e_minicard->header_text) {
-			file_as = e_contact_get (e_minicard->contact, E_CONTACT_FILE_AS);
+			file_as = e_contact_get_const (e_minicard->contact, E_CONTACT_FILE_AS);
 			gnome_canvas_item_set (e_minicard->header_text,
 					       "text", file_as ? file_as : "",
 					       NULL );
-			g_free(file_as);
 		}
 
 		if (e_minicard->contact && e_contact_get (e_minicard->contact, E_CONTACT_IS_LIST))
@@ -850,9 +848,9 @@ remodel( EMinicard *e_minicard )
 				minicard_field = list->data;
 			if (minicard_field && minicard_field->field == field) {
 				GList *this_list = list;
-				char *string;
+				const char *string;
 
-				string = e_contact_get(e_minicard->contact, field);
+				string = e_contact_get_const (e_minicard->contact, field);
 				if (string && *string) {
 					e_minicard->fields = g_list_append(e_minicard->fields, minicard_field);
 					g_object_set(minicard_field->label,
@@ -864,19 +862,17 @@ remodel( EMinicard *e_minicard )
 				}
 				list = g_list_remove_link(list, this_list);
 				g_list_free_1(this_list);
-				g_free(string);
 			} else {
-				char *string;
+				const char *string;
 				if (left_width == -1) {
 					left_width = get_left_width(e_minicard);
 				}
 
-				string = e_contact_get(e_minicard->contact, field);
+				string = e_contact_get_const(e_minicard->contact, field);
 				if (string && *string) {
 					add_field(e_minicard, field, left_width);
 					count++;
 				}
-				g_free(string);
 			}
 		}
 

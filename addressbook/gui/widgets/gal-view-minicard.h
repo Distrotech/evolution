@@ -23,7 +23,7 @@ typedef struct {
 	GalView              base;
 
 	char                *title;
-	double               column_width;
+	int                  column_width;
 
 	EABMinicardView     *emv;
 	guint                emv_column_width_changed_id;

@@ -449,12 +449,12 @@ eab_contact_save (char *title, EContact *contact, GtkWindow *parent_window)
 {
 	GtkFileSelection *filesel;
 	char *file;
-	char *name;
+	const char *name;
 	SaveAsInfo *info = g_new(SaveAsInfo, 1);
 
 	filesel = GTK_FILE_SELECTION(gtk_file_selection_new(title));
 
-	name = e_contact_get (contact, E_CONTACT_FILE_AS);
+	name = e_contact_get_const (contact, E_CONTACT_FILE_AS);
 	file = make_safe_filename (g_get_home_dir(), name);
 	gtk_file_selection_set_filename (filesel, file);
 	g_free (file);
@@ -487,10 +487,11 @@ eab_contact_list_save (char *title, GList *list, GtkWindow *parent_window)
 
 	/* This is a filename. Translators take note. */
 	if (list && list->data && list->next == NULL) {
-		char *name, *file;
-		name = e_contact_get (E_CONTACT (list->data), E_CONTACT_FILE_AS);
+		const char *name;
+		char *file;
+		name = e_contact_get_const (E_CONTACT (list->data), E_CONTACT_FILE_AS);
 		if (!name)
-			name = e_contact_get (E_CONTACT (list->data), E_CONTACT_FULL_NAME);
+			name = e_contact_get_const (E_CONTACT (list->data), E_CONTACT_FULL_NAME);
 
 		file = make_safe_filename (g_get_home_dir(), name);
 		gtk_file_selection_set_filename (filesel, file);
@@ -867,11 +868,10 @@ eab_send_contact_list_as_attachment (GList *contacts)
 	if (contacts->next) {
 		description = CORBA_string_dup (_("Multiple VCards"));
 	} else {
-		char *file_as = e_contact_get (E_CONTACT (contacts->data), E_CONTACT_FILE_AS);
+		const char *file_as = e_contact_get_const (E_CONTACT (contacts->data), E_CONTACT_FILE_AS);
 		tempstr = g_strdup_printf (_("VCard for %s"), file_as);
 		description = CORBA_string_dup (tempstr);
 		g_free (tempstr);
-		g_free (file_as);
 	}
 
 	show_inline = FALSE;

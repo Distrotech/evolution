@@ -29,6 +29,7 @@
 #include <string.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnome/gnome-url.h>
+#include <glib/grand.h>
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-stream.h>
 #include <gtk/gtkscrolledwindow.h>
@@ -40,6 +41,7 @@
 struct _EABContactDisplayPrivate {
 	GtkHTML *html;
 	EContact *contact;
+	GRand *rand;
 };
 
 
@@ -63,16 +65,36 @@ static void
 on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 		  EABContactDisplay *display)
 {
-	if (!strcmp (url, "internal-contact-photo:")) {
-		EContactPhoto *photo;
+	if (!strncmp (url, "internal-contact-photo:", strlen ("internal-contact-photo:"))) {
+		int photo_number;
+		GList *photos;
+		EVCardAttribute *attr;
 
-		photo = e_contact_get (display->priv->contact, E_CONTACT_PHOTO);
-		if (!photo)
-			photo = e_contact_get (display->priv->contact, E_CONTACT_LOGO);
+		photos = e_contact_get_attributes (display->priv->contact, E_CONTACT_PHOTO);
+		if (!photos)
+			photos = e_contact_get_attributes (display->priv->contact, E_CONTACT_LOGO);
 
-		gtk_html_stream_write (handle, photo->data, photo->length);
+		photo_number = atoi (url + strlen ("internal-contact-photo:"));
 
-		gtk_html_end (html, handle, GTK_HTML_STREAM_OK);
+		if (photo_number > g_list_length (photos))
+			photo_number = 0;
+
+		attr = g_list_nth_data (photos, photo_number);
+		if (attr) {
+			GList *values = e_vcard_attribute_get_values_decoded (attr);
+
+			if (values && values->data) {
+				GString *s = values->data;
+
+				if (s->len) {
+					gtk_html_stream_write (handle, s->str, s->len);
+
+					gtk_html_end (html, handle, GTK_HTML_STREAM_OK);
+				}
+			}
+		}
+
+		g_list_free (photos);
 	}
 	else if (!strncmp (url, "evo-icon:", strlen ("evo-icon:"))) {
 		gchar *data;
@@ -396,15 +418,19 @@ eab_contact_display_render_normal (EABContactDisplay *display, EContact *contact
 
 	if (contact) {
 		char *str, *html;
-		EContactPhoto *photo;
+		GList *photos;
 
 		gtk_html_stream_printf (html_stream, "<table cellspacing=\"20\" border=\"0\"><td valign=\"top\">");
-		photo = e_contact_get (contact, E_CONTACT_PHOTO);
-		if (!photo)
-			photo = e_contact_get (contact, E_CONTACT_LOGO);
-		if (photo) {
-			gtk_html_stream_printf (html_stream, "<img border=\"1\" src=\"internal-contact-photo:\">");
-			e_contact_photo_free (photo);
+		photos = e_contact_get_attributes (contact, E_CONTACT_PHOTO);
+		if (!photos)
+			photos = e_contact_get_attributes (contact, E_CONTACT_LOGO);
+		if (photos) {
+			int photo_number = g_random_int_range (0, g_list_length (photos));
+			printf ("showing photo %d (out of [0,%d)\n", photo_number, g_list_length (photos));
+
+			gtk_html_stream_printf (html_stream, "<img border=\"1\" src=\"internal-contact-photo:%d\">",
+						photo_number);
+			g_list_free (photos);
 		}
 		
 		gtk_html_stream_printf (html_stream, "</td><td valign=\"top\">\n");
@@ -619,7 +645,7 @@ eab_contact_display_new (void)
 	gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW (scrolled_window), GTK_SHADOW_IN);
 
 	display->priv->html = GTK_HTML (gtk_html_new ());
-	
+
 	gtk_html_set_default_content_type (display->priv->html, "text/html; charset=utf-8");
 	
 	gtk_html_set_editable (display->priv->html, FALSE);
@@ -661,8 +687,25 @@ eab_contact_display_init (GObject *object)
 }
 
 static void
-eab_contact_display_class_init (GtkObjectClass *object_class)
+eab_contact_display_dispose (GObject *object)
 {
+	EABContactDisplay *display = EAB_CONTACT_DISPLAY (object);
+	if (display->priv) {
+		if (display->priv->html)
+			g_object_unref (display->priv->html);
+		if (display->priv->contact)
+			g_object_unref (display->priv->contact);
+
+		g_free (display->priv);
+		display->priv = NULL;
+	}
+}
+
+static void
+eab_contact_display_class_init (GObjectClass *object_class)
+{
+	object_class->dispose = eab_contact_display_dispose;
+
 	/*	object_class->destroy = mail_display_destroy;*/
 }
 

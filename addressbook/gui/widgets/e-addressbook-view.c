@@ -877,6 +877,43 @@ get_has_email_address (ContactAndBook *contact_and_book)
 }
 
 static void
+is_list_1(gint model_row,
+	  gpointer closure)
+{
+	ContactAndBook *contact_and_book;
+	gboolean *is_list;
+	EABView *view;
+	const EContact *contact;
+
+	contact_and_book = closure;
+	is_list = contact_and_book->closure;
+	view = contact_and_book->view;
+
+	if (*is_list)
+		return;
+
+	contact = eab_model_contact_at(view->model, model_row);
+
+	*is_list = e_contact_get (E_CONTACT (contact), E_CONTACT_IS_LIST) ? TRUE : FALSE;
+}
+
+static gboolean
+get_is_list (ContactAndBook *contact_and_book)
+{
+	ESelectionModel *selection;
+	gboolean is_list = FALSE;
+
+	selection = contact_and_book_get_selection_model (contact_and_book);
+
+	if (selection) {
+		contact_and_book->closure = &is_list;
+		e_selection_model_foreach (selection, is_list_1, contact_and_book);
+	}
+
+	return is_list;
+}
+
+static void
 save_as (GtkWidget *widget, ContactAndBook *contact_and_book)
 {
 	GList *contacts = get_contact_list (contact_and_book);
@@ -1074,9 +1111,11 @@ sources (GtkWidget *widget, ContactAndBook *contact_and_book)
 }
 #endif
 
-#define POPUP_READONLY_MASK 0x1
-#define POPUP_NOSELECTION_MASK 0x2
-#define POPUP_NOEMAIL_MASK 0x4
+#define POPUP_READONLY_MASK    0x01
+#define POPUP_NOSELECTION_MASK 0x02
+#define POPUP_NOEMAIL_MASK     0x04
+#define POPUP_NOLIST_MASK      0x08
+#define POPUP_LIST_MASK        0x10
 
 static void
 do_popup_menu(EABView *view, GdkEvent *event)
@@ -1103,7 +1142,8 @@ do_popup_menu(EABView *view, GdkEvent *event)
 		E_POPUP_SEPARATOR,
 		E_POPUP_ITEM (N_("Save as VCard..."), G_CALLBACK(save_as), POPUP_NOSELECTION_MASK),
 		E_POPUP_ITEM (N_("Forward Contact"), G_CALLBACK(send_as), POPUP_NOSELECTION_MASK),
-		E_POPUP_ITEM (N_("Send Message to Contact"), G_CALLBACK(send_to), POPUP_NOSELECTION_MASK | POPUP_NOEMAIL_MASK),
+		E_POPUP_ITEM (N_("Send Message to Contact"), G_CALLBACK(send_to), POPUP_NOSELECTION_MASK | POPUP_NOEMAIL_MASK | POPUP_NOLIST_MASK),
+		E_POPUP_ITEM (N_("Send Message to List"), G_CALLBACK(send_to), POPUP_NOSELECTION_MASK | POPUP_NOEMAIL_MASK | POPUP_LIST_MASK),
 		E_POPUP_ITEM (N_("Print"), G_CALLBACK(print), POPUP_NOSELECTION_MASK),
 #if 0 /* Envelope printing is disabled for Evolution 1.0. */
 		E_POPUP_ITEM (N_("Print Envelope"), G_CALLBACK(print_envelope), POPUP_NOSELECTION_MASK),
@@ -1140,7 +1180,8 @@ do_popup_menu(EABView *view, GdkEvent *event)
 				     0,
 				     (eab_model_editable (view->model) ? 0 : POPUP_READONLY_MASK) +
 				     (selection ? 0 : POPUP_NOSELECTION_MASK) +
-				     (get_has_email_address (contact_and_book) ? 0 : POPUP_NOEMAIL_MASK),
+				     (get_has_email_address (contact_and_book) ? 0 : POPUP_NOEMAIL_MASK) +
+				     (get_is_list (contact_and_book) ? POPUP_NOLIST_MASK : POPUP_LIST_MASK),
 				     contact_and_book);
 
 	g_signal_connect (popup, "selection-done",
@@ -1153,6 +1194,8 @@ static void
 render_contact (int row, EABView *view)
 {
 	EContact *contact = eab_model_get_contact (view->model, row);
+
+	printf ("rendering contact %d\n", row);
 
 	view->displayed_contact = row;
 

@@ -389,7 +389,7 @@ email_table_init (MiniWizard *wiz, EContact *contact, const gchar *extra_address
 {
 	EMailTable *et;
 
-	gchar *name_str;
+	const char *name_str;
 	gint xpad, ypad;
 	GtkAttachOptions label_x_opts, label_y_opts;
 	GtkAttachOptions menu_x_opts, menu_y_opts;
@@ -420,12 +420,11 @@ email_table_init (MiniWizard *wiz, EContact *contact, const gchar *extra_address
 	xpad = 3;
 	ypad = 3;
 
-	name_str = e_contact_get (et->contact, E_CONTACT_FULL_NAME);
+	name_str = e_contact_get_const (et->contact, E_CONTACT_FULL_NAME);
 	gtk_table_attach (GTK_TABLE (et->table),
 			  gtk_label_new (name_str),
 			  0, 2, 0, 1, 
 			  label_x_opts, label_y_opts, xpad, ypad);
-	g_free (name_str);
 
 	gtk_table_attach (GTK_TABLE (et->table),
 			  gtk_label_new (_("Primary Email")),
@@ -583,7 +582,7 @@ contact_picker_init (MiniWizard *wiz, const GList *contacts, const gchar *new_na
 	pick->contacts = NULL;
 	while (contacts) {
 		EContact *contact = (EContact *) contacts->data;
-		gchar *name_str = e_contact_get (contact, E_CONTACT_FULL_NAME);
+		const char *name_str = e_contact_get_const (contact, E_CONTACT_FULL_NAME);
 
 		pick->contacts = g_list_append (pick->contacts, contact);
 		g_object_ref (contact);
