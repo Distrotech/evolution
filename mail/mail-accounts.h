@@ -84,8 +84,7 @@ GtkWidget *mail_accounts_tab_new (GNOME_Evolution_Shell shell);
 void mail_accounts_tab_apply (MailAccountsTab *accounts);
 
 /* needed by global config */
-
-gboolean mail_accounts_tab_register_factory (GNOME_Evolution_Shell shell);
+#define MAIL_ACCOUNTS_CONTROL_ID "OAFIID:GNOME_Evolution_Mail_Accounts_ConfigControl"
 
 #ifdef __cplusplus
 }

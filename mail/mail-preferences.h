@@ -107,8 +107,7 @@ GtkWidget *mail_preferences_new (void);
 void mail_preferences_apply (MailPreferences *prefs);
 
 /* needed by global config */
-
-gboolean mail_preferences_register_factory (GNOME_Evolution_Shell shell);
+#define MAIL_PREFERENCES_CONTROL_ID "OAFIID:GNOME_Evolution_Mail_Preferences_ConfigControl"
 
 #ifdef __cplusplus
 }

@@ -93,8 +93,7 @@ GtkWidget *mail_composer_prefs_new (void);
 void mail_composer_prefs_apply (MailComposerPrefs *prefs);
 
 /* needed by global config */
-
-gboolean mail_composer_prefs_register_factory (GNOME_Evolution_Shell shell);
+#define MAIL_COMPOSER_PREFS_CONTROL_ID "OAFIID:GNOME_Evolution_Mail_ComposerPrefs_ConfigControl"
 
 #ifdef __cplusplus
 }

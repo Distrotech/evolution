@@ -73,6 +73,8 @@ evolution_mail_SOURCES =		\
 	mail-config.h			\
 	mail-config-druid.c		\
 	mail-config-druid.h		\
+	mail-config-factory.c		\
+	mail-config-factory.h		\
 	mail-crypto.c			\
 	mail-crypto.h			\
 	mail-display.c			\

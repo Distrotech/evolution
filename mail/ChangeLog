@@ -1,5 +1,20 @@
 2002-03-22  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* GNOME_Evolution_Mail.oaf.in: Add info about the new config
+	controls.
+
+	* mail-config-factory.c: New file to handle the creation/etc of
+	the config controls.
+
+	* mail-accounts.c: 
+
+	* mail-preferences.c:
+
+	* mail-composer-prefs.c: No longer handle their own bonobo control
+	creation.
+
+2002-03-22  Jeffrey Stedfast  <fejj@ximian.com>
+
 	* mail-account-gui.c (sig_new_text): Temporarily #if 0 this
 	function out.
 	(sig_new_html): Same.
