@@ -140,7 +140,7 @@ create_months (int month)
 		gtk_container_add (GTK_CONTAINER (w), gtk_label_new (buf));
 
 		if (i == month)
-			gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (w), TRUE);
+			gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (w), TRUE);
 
 		gtk_signal_connect (GTK_OBJECT (w), "toggled",
 				    (GtkSignalFunc) month_toggled,

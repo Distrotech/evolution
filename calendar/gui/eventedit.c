@@ -94,9 +94,9 @@ ee_check_all_day (EventEditor *ee)
 	ev_end   = gnome_date_edit_get_date (GNOME_DATE_EDIT (ee->end_time)); 
 	
 	if (get_time_t_hour (ev_start) <= day_begin && get_time_t_hour (ev_end) >= day_end)
-		gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (ee->general_allday), 1);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ee->general_allday), 1);
 	else
-		gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (ee->general_allday), 0);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ee->general_allday), 0);
 }
 
 /*
@@ -356,7 +356,7 @@ ee_create_ae (GtkTable *table, char *str, CalendarAlarm *alarm, enum AlarmType t
 	default:
 		break;
 	}
-	gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (alarm->w_enabled), alarm->enabled);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (alarm->w_enabled), alarm->enabled);
 	ee_alarm_setting (alarm, alarm->enabled);
 }
 
@@ -405,11 +405,11 @@ ee_classification_widgets (EventEditor *ee)
 	gtk_box_pack_start (GTK_BOX (hbox), rconf, FALSE, FALSE, 0);
 
 	if (strcmp (ee->ical->class, class_names[0]) == 0)
-		gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (rpub), TRUE);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rpub), TRUE);
 	else if (strcmp (ee->ical->class, class_names[1]) == 0)
-		gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (rpriv), TRUE);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rpriv), TRUE);
 	else if (strcmp (ee->ical->class, class_names[2]) == 0)
-		gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (rconf), TRUE);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (rconf), TRUE);
 
 	ee->general_radios = rpub;
 
@@ -1026,7 +1026,7 @@ ee_rp_init_rule (EventEditor *ee)
 		r = gtk_radio_button_new_with_label (group, _(recurrence_types [i].name));
 		group = gtk_radio_button_group (GTK_RADIO_BUTTON (r));
 
-		gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (r), i == page);
+		gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (r), i == page);
 		gtk_signal_connect (GTK_OBJECT (r), "toggled", GTK_SIGNAL_FUNC (recurrence_toggled), ee);
 		gtk_box_pack_start (GTK_BOX (vbox), r, FALSE, FALSE, 0);
 
@@ -1077,7 +1077,7 @@ ee_rp_init_rule (EventEditor *ee)
 		gtk_box_pack_start (GTK_BOX (week_day), ee->recur_rr_week_days [i], FALSE, FALSE, 0);
 
 		if (week_vector & (1 << ((i + 1) % 7))) /* on the spec, Sunday is 0 */
-			gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (ee->recur_rr_week_days [i]), TRUE);
+			gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (ee->recur_rr_week_days [i]), TRUE);
 	}
 
 	/* 3. The monthly recurrence */
@@ -1118,7 +1118,7 @@ ee_rp_init_rule (EventEditor *ee)
 
 	if (ee->ical->recur) {
 		if (ee->ical->recur->type == RECUR_MONTHLY_BY_POS)
-			gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (r1), 1);
+			gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (r1), 1);
 	} else
 		recur_month_enable_date (GTK_TOGGLE_BUTTON (re), ee);
 
@@ -1245,15 +1245,15 @@ ee_rp_init_ending_date (EventEditor *ee)
 	if (ee->ical->recur) {
 		if (ee->ical->recur->_enddate == 0) {
 			if (ee->ical->recur->duration == 0)
-				gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (radio0), TRUE);
+				gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (radio0), TRUE);
 			else {
 				gtk_spin_button_set_value (GTK_SPIN_BUTTON (ee->recur_ed_end_after),
 							   ee->ical->recur->duration);
-				gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (radio2), TRUE);
+				gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (radio2), TRUE);
 			}
 		} else {
 			gnome_date_edit_set_time (GNOME_DATE_EDIT (ee->recur_ed_end_on), ee->ical->recur->enddate);
-			gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (radio1), TRUE);
+			gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (radio1), TRUE);
 		}
 	}
 

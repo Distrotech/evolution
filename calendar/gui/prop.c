@@ -158,8 +158,8 @@ build_two_radio_group (char *title,
 								       radio_2_title);
 	gtk_box_pack_start (GTK_BOX (vbox), *radio_2_widget, FALSE, FALSE, 0);
 
-	gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (*radio_1_widget), radio_1_value);
-	gtk_toggle_button_set_state (GTK_TOGGLE_BUTTON (*radio_2_widget), !radio_1_value);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (*radio_1_widget), radio_1_value);
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (*radio_2_widget), !radio_1_value);
 
 	gtk_signal_connect (GTK_OBJECT (*radio_1_widget), "toggled",
 			    (GtkSignalFunc) prop_changed,
