@@ -21,4 +21,3 @@ libevolution_a11y_la_SOURCES =				\
 libevolution_a11y_la_LIBADD =				\
 	$(A11Y_LIBS)					\
 	$(top_builddir)/a11y/calendar/libevolution-calendar-a11y.la \
-	$(top_builddir)/calendar/gui/libevolution-calendar.la
