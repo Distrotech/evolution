@@ -354,13 +354,7 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 #if 0
 		g_print ("dates changed - removing occurrences\n");
 #endif
-		if (!e_cal_component_is_instance (comp)) {
-			/* if it's the top-level object, remove all instances */
-			e_week_view_foreach_event_with_uid (week_view, uid,
-							    e_week_view_remove_event_cb,
-							    NULL);
-		} else
-			e_week_view_remove_event_cb (week_view, event_num, comp_data);
+		e_week_view_remove_event_cb (week_view, event_num, comp_data);
 
 		g_object_unref (tmp_comp);
 	}
@@ -1969,6 +1963,7 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 	}
 
 	e_cal_model_free_component_data (event->comp_data);
+	event->comp_data = NULL;
 
 	g_array_remove_index (week_view->events, event_num);
 	week_view->events_need_layout = TRUE;
