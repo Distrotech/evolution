@@ -4167,7 +4167,7 @@ e_day_view_add_event (CalComponent *comp,
 				   skip it here so it gets added to the top
 				   canvas. */
 				if (start == day_view->day_starts[day])
-				    break;
+					break;
 
 				event.end_minute = 24 * 60;
 			}

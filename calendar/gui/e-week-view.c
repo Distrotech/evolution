@@ -1056,46 +1056,24 @@ e_week_view_get_selected_events (ECalView *cal_view)
 	return list;
 }
 
-/* Callback used when a component is updated in the live query */
 static void
-query_obj_updated_cb (CalQuery *query, const char *uid,
-		      gboolean query_in_progress, int n_scanned, int total,
-		      gpointer data)
+process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 {
-	EWeekView *week_view;
 	EWeekViewEvent *event;
 	gint event_num, num_days;
 	CalComponent *comp = NULL;
 	icalcomponent *icalcomp;
-	CalClientGetStatus status;
-
-	week_view = E_WEEK_VIEW (data);
 
 	/* If we don't have a valid date set yet, just return. */
 	if (!g_date_valid (&week_view->first_day_shown))
 		return;
 
-	/* Get the event from the server. */
-	status = cal_client_get_object (e_cal_view_get_cal_client (E_CAL_VIEW (week_view)), uid, &icalcomp);
+	comp = cal_component_new ();
+	if (!cal_component_set_icalcomponent (comp, icalcomponent_new_clone (comp_data->icalcomp))) {
+		g_object_unref (comp);
+		icalcomponent_free (icalcomp);
 
-	switch (status) {
-	case CAL_CLIENT_GET_SUCCESS:
-		comp = cal_component_new ();
-		if (!cal_component_set_icalcomponent (comp, icalcomp)) {
-			g_object_unref (comp);
-			icalcomponent_free (icalcomp);
-
-			g_message ("query_obj_updated_cb(): Could not set icalcomponent on CalComponent");
-			return;
-		}
-		break;
-
-	case CAL_CLIENT_GET_SYNTAX_ERROR:
-		g_message ("obj_updated_cb(): Syntax error when getting object `%s'", uid);
-		return;
-
-	case CAL_CLIENT_GET_NOT_FOUND:
-		/* The object is no longer in the server, so do nothing */
+		g_message ("process_component(): Could not set icalcomponent on CalComponent");
 		return;
 	}
 
@@ -1144,132 +1122,26 @@ query_obj_updated_cb (CalQuery *query, const char *uid,
 	e_week_view_queue_layout (week_view);
 }
 
-/* Callback used when a component is removed from the live query */
-static void
-query_obj_removed_cb (CalClient *client, const char *uid, gpointer data)
-{
-	EWeekView *week_view;
-
-	week_view = E_WEEK_VIEW (data);
-
-	e_week_view_foreach_event_with_uid (week_view, uid,
-					    e_week_view_remove_event_cb, NULL);
-
-	gtk_widget_queue_draw (week_view->main_canvas);
-	e_week_view_check_layout (week_view);
-}
-
-/* Callback used when a query ends */
-static void
-query_query_done_cb (CalQuery *query, CalQueryDoneStatus status, const char *error_str, gpointer data)
-{
-	EWeekView *week_view;
-
-	week_view = E_WEEK_VIEW (data);
-
-	/* FIXME */
-
-	e_cal_view_set_status_message (E_CAL_VIEW (week_view), NULL);
-
-	if (status != CAL_QUERY_DONE_SUCCESS)
-		fprintf (stderr, "query done: %s\n", error_str);
-
-	gtk_widget_queue_draw (week_view->main_canvas);
-}
-
-/* Callback used when an evaluation error occurs when running a query */
-static void
-query_eval_error_cb (CalQuery *query, const char *error_str, gpointer data)
-{
-	EWeekView *week_view;
-
-	week_view = E_WEEK_VIEW (data);
-
-	/* FIXME */
-
-	e_cal_view_set_status_message (E_CAL_VIEW (week_view), NULL);
-
-	fprintf (stderr, "eval error: %s\n", error_str);
-
-	gtk_widget_queue_draw (week_view->main_canvas);
-}
-
-/* Builds a complete query sexp for the week view by adding the predicates to
- * filter only for VEVENTS that fit in the week view's time range.
- */
-static char *
-adjust_query_sexp (EWeekView *week_view, const char *sexp)
-{
-	int num_days;
-	char *start, *end;
-	char *new_sexp;
-
-	/* If the dates have not been set yet, we just want an empty query. */
-	if (!g_date_valid (&week_view->first_day_shown))
-		return NULL;
-
-	num_days = week_view->multi_week_view ? week_view->weeks_shown * 7 : 7;
-
-	start = isodate_from_time_t (week_view->day_starts[0]);
-	end = isodate_from_time_t (week_view->day_starts[num_days]);
-
-	new_sexp = g_strdup_printf ("(and (= (get-vtype) \"VEVENT\")"
-				    "     (occur-in-time-range? (make-time \"%s\")"
-				    "                           (make-time \"%s\"))"
-				    "     %s)",
-				    start, end,
-				    sexp);
-
-	g_free (start);
-	g_free (end);
-
-	return new_sexp;
-}
-
 /* Restarts a query for the week view */
 static void
 e_week_view_update_query (EWeekView *week_view)
 {
-	CalQuery *old_query;
-	char *real_sexp;
+	gint rows, r;
 
 	gtk_widget_queue_draw (week_view->main_canvas);
 	e_week_view_free_events (week_view);
 	e_week_view_queue_layout (week_view);
 
-	old_query = week_view->query;
-	week_view->query = NULL;
-
-	if (old_query) {
-		g_signal_handlers_disconnect_matched (old_query, G_SIGNAL_MATCH_DATA,
-						      0, 0, NULL, NULL, week_view);
-		g_object_unref (old_query);
-	}
-
-	g_assert (e_cal_view_get_query (E_CAL_VIEW (week_view)) != NULL);
-
-	real_sexp = adjust_query_sexp (week_view, e_cal_view_get_query (E_CAL_VIEW (week_view)));
-	if (!real_sexp) {
-		return; /* No time range is set, so don't start a query */
-	}
-
 	e_cal_view_set_status_message (E_CAL_VIEW (week_view), _("Searching"));
-	week_view->query = cal_client_get_query (e_cal_view_get_cal_client (E_CAL_VIEW (week_view)), real_sexp);
-	g_free (real_sexp);
 
-	if (!week_view->query) {
-		g_message ("e_week_view_update_query(): Could not create the query");
-		return;
+	rows = e_table_model_row_count (E_TABLE_VIEW (e_cal_view_get_model (E_CAL_VIEW (day_view))));
+	for (r = 0; r < rows; r++) {
+		ECalModelComponent *comp_data;
+
+		comp_data = e_cal_model_get_component_at (e_cal_view_get_model (E_CAL_VIEW (week_view)), r);
+		g_assert (comp_data != NULL);
+		process_component (week_view, comp_data);
 	}
-
-	g_signal_connect (week_view->query, "obj_updated",
-			  G_CALLBACK (query_obj_updated_cb), week_view);
-	g_signal_connect (week_view->query, "obj_removed",
-			  G_CALLBACK (query_obj_removed_cb), week_view);
-	g_signal_connect (week_view->query, "query_done",
-			  G_CALLBACK (query_query_done_cb), week_view);
-	g_signal_connect (week_view->query, "eval_error",
-			  G_CALLBACK (query_eval_error_cb), week_view);
 }
 
 static void
