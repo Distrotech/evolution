@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <stdio.h>
+
 #include "e-msgport.h"
 
 #include <pthread.h>
@@ -76,6 +78,21 @@ int e_dlist_empty(EDList *l)
 	return (l->head == (EDListNode *)&l->tail);
 }
 
+int e_dlist_length(EDList *l)
+{
+	EDListNode *n, *nn;
+	int count = 0;
+
+	n = l->head;
+	nn = n->next;
+	while (nn) {
+		count++;
+		n = nn;
+		nn = n->next;
+	}
+
+	return 0;
+}
 
 struct _EMsgPort {
 	EDList queue;
@@ -174,6 +191,7 @@ EMsg *e_msgport_wait(EMsgPort *mp)
 			FD_SET(mp->pipe.fd.read, &rfds);
 			g_mutex_unlock(mp->lock);
 			select(mp->pipe.fd.read+1, &rfds, NULL, NULL, NULL);
+			pthread_testcancel();
 			g_mutex_lock(mp->lock);
 			m(printf("wait: got pipe\n"));
 		}
@@ -208,6 +226,327 @@ void e_msgport_reply(EMsg *msg)
 	/* else lost? */
 }
 
+struct _EThread {
+	EMsgPort *server_port;
+	EMsgPort *reply_port;
+	pthread_mutex_t mutex;
+	e_thread_t type;
+	int queue_limit;
+
+	int waiting;		/* if we are waiting for a new message */
+	pthread_t id;		/* id of our running child thread */
+	GList *id_list;		/* if THREAD_NEW, then a list of our child threads */
+
+	EThreadFunc destroy;
+	void *destroy_data;
+
+	EThreadFunc received;
+	void *received_data;
+
+	EThreadFunc lost;
+	void *lost_data;
+};
+
+static void thread_destroy_msg(EThread *e, EMsg *m);
+
+EThread *e_thread_new(e_thread_t type)
+{
+	EThread *e;
+
+	e = g_malloc0(sizeof(*e));
+	pthread_mutex_init(&e->mutex, 0);
+	e->type = type;
+	e->server_port = e_msgport_new();
+	e->id = ~0;
+	e->queue_limit = INT_MAX;
+
+	return e;
+}
+
+/* close down the threads & resources etc */
+void e_thread_destroy(EThread *e)
+{
+	int tries = 0;
+	int busy = FALSE;
+	EMsg *msg;
+
+	/* make sure we soak up all the messages first */
+	while ( (msg = e_msgport_get(e->server_port)) ) {
+		thread_destroy_msg(e, msg);
+	}
+
+	pthread_mutex_lock(&e->mutex);
+
+	switch(e->type) {
+	case E_THREAD_QUEUE:
+	case E_THREAD_DROP:
+		/* if we have a thread, 'kill' it */
+		while (e->id != ~0 && tries < 5) {
+			if (e->waiting == 1) {
+				pthread_t id = e->id;
+				e->id = ~0;
+				pthread_mutex_unlock(&e->mutex);
+				if (pthread_cancel(id) == 0)
+					pthread_join(id, 0);
+				pthread_mutex_lock(&e->mutex);
+			} else {
+				printf("thread still active, waiting for it to finish\n");
+				pthread_mutex_unlock(&e->mutex);
+				sleep(1);
+				pthread_mutex_lock(&e->mutex);
+			}
+			tries++;
+		}
+		busy = e->id != ~0;
+		break;
+	case E_THREAD_NEW:
+		while (g_list_length(e->id_list) && tries < 5) {
+			printf("thread(s) still active, waiting for them to finish\n");
+			pthread_mutex_unlock(&e->mutex);
+			sleep(1);
+			pthread_mutex_lock(&e->mutex);
+		}
+		busy = g_list_length(e->id_list) != 0;
+		break;
+	}
+
+	pthread_mutex_unlock(&e->mutex);
+
+	/* and clean up, if we can */
+	if (busy) {
+		g_warning("threads were busy, leaked EThread");
+		return;
+	}
+
+	e_msgport_destroy(e->server_port);
+	g_free(e);
+}
+
+/* set the queue maximum depth, what happens when the queue
+   fills up depends on the queue type */
+void e_thread_set_queue_limit(EThread *e, int limit)
+{
+	e->queue_limit = limit;
+}
+
+/* set a msg destroy callback, this can not call any e_thread functions on @e */
+void e_thread_set_msg_destroy(EThread *e, EThreadFunc destroy, void *data)
+{
+	pthread_mutex_lock(&e->mutex);
+	e->destroy = destroy;
+	e->destroy_data = data;
+	pthread_mutex_unlock(&e->mutex);
+}
+
+/* set a message lost callback, called if any message is discarded */
+void e_thread_set_msg_lost(EThread *e, EThreadFunc lost, void *data)
+{
+	pthread_mutex_lock(&e->mutex);
+	e->lost = lost;
+	e->lost_data = lost;
+	pthread_mutex_unlock(&e->mutex);
+}
+
+/* set a reply port, if set, then send messages back once finished */
+void e_thread_set_reply_port(EThread *e, EMsgPort *reply_port)
+{
+	e->reply_port = reply_port;
+}
+
+/* set a received data callback */
+void e_thread_set_msg_received(EThread *e, EThreadFunc received, void *data)
+{
+	pthread_mutex_lock(&e->mutex);
+	e->received = received;
+	e->received_data = data;
+	pthread_mutex_unlock(&e->mutex);
+}
+
+static void
+thread_destroy_msg(EThread *e, EMsg *m)
+{
+	EThreadFunc func;
+	void *func_data;
+
+	/* we do this so we never get an incomplete/unmatched callback + data */
+	pthread_mutex_lock(&e->mutex);
+	func = e->destroy;
+	func_data = e->destroy_data;
+	pthread_mutex_unlock(&e->mutex);
+	
+	if (func)
+		func(e, m, func_data);
+}
+
+static void
+thread_received_msg(EThread *e, EMsg *m)
+{
+	EThreadFunc func;
+	void *func_data;
+
+	/* we do this so we never get an incomplete/unmatched callback + data */
+	pthread_mutex_lock(&e->mutex);
+	func = e->received;
+	func_data = e->received_data;
+	pthread_mutex_unlock(&e->mutex);
+	
+	if (func)
+		func(e, m, func_data);
+	else
+		g_warning("No processing callback for EThread, message unprocessed");
+}
+
+static void
+thread_lost_msg(EThread *e, EMsg *m)
+{
+	EThreadFunc func;
+	void *func_data;
+
+	/* we do this so we never get an incomplete/unmatched callback + data */
+	pthread_mutex_lock(&e->mutex);
+	func = e->lost;
+	func_data = e->lost_data;
+	pthread_mutex_unlock(&e->mutex);
+	
+	if (func)
+		func(e, m, func_data);
+}
+
+/* the actual thread dispatcher */
+static void *
+thread_dispatch(void *din)
+{
+	EThread *e = din;
+	EMsg *m;
+
+	printf("dispatch thread started: %ld\n", pthread_self());
+
+	while (1) {
+		pthread_mutex_lock(&e->mutex);
+		m = e_msgport_get(e->server_port);
+		if (m == NULL) {
+			/* nothing to do?  If we are a 'new' type thread, just quit.
+			   Otherwise, go into waiting (can be cancelled here) */
+			switch (e->type) {
+			case E_THREAD_QUEUE:
+			case E_THREAD_DROP:
+				e->waiting = 1;
+				pthread_mutex_unlock(&e->mutex);
+				e_msgport_wait(e->server_port);
+				e->waiting = 0;
+				break;
+			case E_THREAD_NEW:
+				e->id_list = g_list_remove(e->id_list, (void *)pthread_self());
+				pthread_mutex_unlock(&e->mutex);
+				return 0;
+			}
+
+			continue;
+		}
+		pthread_mutex_unlock(&e->mutex);
+
+		printf("got message in dispatch thread\n");
+
+		/* process it */
+		thread_received_msg(e, m);
+
+		/* if we have a reply port, send it back, otherwise, lose it */
+		if (m->reply_port) {
+			e_msgport_reply(m);
+		} else {
+			thread_destroy_msg(e, m);
+		}
+	}
+
+	/* if we run out of things to process we could conceivably 'hang around' for a bit,
+	   but to do this we need to use the fd interface of the msgport, and its utility
+	   is probably debatable anyway */
+
+	/* signify we are no longer running */
+	/* This code isn't used yet, but would be if we ever had a 'quit now' message implemented */
+	pthread_mutex_lock(&e->mutex);
+	switch (e->type) {
+	case E_THREAD_QUEUE:
+	case E_THREAD_DROP:
+		e->id = ~0;
+		break;
+	case E_THREAD_NEW:
+		e->id_list = g_list_remove(e->id_list, (void *)pthread_self());
+		break;
+	}
+	pthread_mutex_unlock(&e->mutex);
+
+	return 0;
+}
+
+/* send a message to the thread, start thread if necessary */
+void e_thread_put(EThread *e, EMsg *msg)
+{
+	pthread_t id;
+	EMsg *dmsg = NULL;
+
+	pthread_mutex_lock(&e->mutex);
+
+	/* the caller forgot to tell us what to do, well, we can't do anything can we */
+	if (e->received == NULL) {
+		pthread_mutex_unlock(&e->mutex);
+		g_warning("EThread called with no receiver function, no work to do!");
+		thread_destroy_msg(e, msg);
+		return;
+	}
+
+	msg->reply_port = e->reply_port;
+
+	switch(e->type) {
+	case E_THREAD_QUEUE:
+		/* if the queue is full, lose this new addition */
+		if (e_dlist_length(&e->server_port->queue) < e->queue_limit) {
+			e_msgport_put(e->server_port, msg);
+		} else {
+			printf("queue limit reached, dropping new message\n");
+			dmsg = msg;
+		}
+		break;
+	case E_THREAD_DROP:
+		/* if the queue is full, lose the oldest (unprocessed) message */
+		if (e_dlist_length(&e->server_port->queue) < e->queue_limit) {
+			e_msgport_put(e->server_port, msg);
+		} else {
+			printf("queue limit reached, dropping old message\n");
+			e_msgport_put(e->server_port, msg);
+			dmsg = e_msgport_get(e->server_port);
+		}
+		break;
+	case E_THREAD_NEW:
+		/* it is possible that an existing thread can catch this message, so
+		   we might create a thread with no work to do.
+		   but that doesn't matter, the other alternative that it be lost is worse */
+		e_msgport_put(e->server_port, msg);
+		if (g_list_length(e->id_list) < e->queue_limit
+		    && pthread_create(&id, NULL, thread_dispatch, e) == 0) {
+			e->id_list = g_list_append(e->id_list, (void *)id);
+		}
+		pthread_mutex_unlock(&e->mutex);
+		return;
+	}
+
+	/* create the thread, if there is none to receive it yet */
+	if (e->id == ~0) {
+		if (pthread_create(&e->id, NULL, thread_dispatch, e) == -1) {
+			g_warning("Could not create dispatcher thread, message queued?: %s", strerror(errno));
+			e->id = ~0;
+		}
+	}
+
+	pthread_mutex_unlock(&e->mutex);
+
+	if (dmsg) {
+		thread_lost_msg(e, dmsg);
+		thread_destroy_msg(e, dmsg);
+	}
+}
+
+/* yet-another-mutex interface */
 struct _EMutex {
 	int type;
 	pthread_t owner;

@@ -1,3 +1,9 @@
+2000-12-23  Not Zed  <NotZed@HelixCode.com>
+
+	* e-msgport.c (e_dlist_length): Util function.
+	(e_thread_new): Another new thread primitive.  This one is a
+	re-usable 'server thread' thingy.
+
 2000-12-21  Not Zed  <NotZed@HelixCode.com>
 
 	* Makefile.am (libeutil_la_SOURCES): Added msgport stuff.

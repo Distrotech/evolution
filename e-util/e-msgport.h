@@ -21,6 +21,7 @@ EDListNode *e_dlist_remove(EDListNode *n);
 EDListNode *e_dlist_remhead(EDList *l);
 EDListNode *e_dlist_remtail(EDList *l);
 int e_dlist_empty(EDList *l);
+int e_dlist_length(EDList *l);
 
 /* message ports - a simple inter-thread 'ipc' primitive */
 /* opaque handle */
@@ -40,6 +41,27 @@ void e_msgport_put(EMsgPort *mp, EMsg *msg);
 EMsg *e_msgport_wait(EMsgPort *mp);
 EMsg *e_msgport_get(EMsgPort *mp);
 void e_msgport_reply(EMsg *msg);
+
+/* e threads, a server thread with a message based request-response, and flexible queuing */
+typedef struct _EThread EThread;
+
+typedef enum {
+	E_THREAD_QUEUE = 0,	/* run one by one, until done, if the queue_limit is reached, discard new request */
+	E_THREAD_DROP,		/* run one by one, until done, if the queue_limit is reached, discard oldest requests */
+	E_THREAD_NEW,		/* always run in a new thread, if the queue limit is reached, new requests are
+				   stored in the queue until a thread becomes available for it, creating a thread pool */
+} e_thread_t;
+
+typedef void (*EThreadFunc)(EThread *, EMsg *, void *data);
+
+EThread *e_thread_new(e_thread_t type);
+void e_thread_destroy(EThread *e);
+void e_thread_set_queue_limit(EThread *e, int limit);
+void e_thread_set_msg_lost(EThread *e, EThreadFunc destroy, void *data);
+void e_thread_set_msg_destroy(EThread *e, EThreadFunc destroy, void *data);
+void e_thread_set_reply_port(EThread *e, EMsgPort *reply_port);
+void e_thread_set_msg_received(EThread *e, EThreadFunc received, void *data);
+void e_thread_put(EThread *e, EMsg *msg);
 
 /* sigh, another mutex interface, this one allows different mutex types, portably */
 typedef struct _EMutex EMutex;
