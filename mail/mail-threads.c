@@ -163,6 +163,20 @@ static GCond *modal_cond = NULL;
 static gboolean modal_may_proceed = FALSE;
 
 /**
+ * @ready_for_op: A lock that the main thread only releases
+ * when it is ready for the dispatch thread to do its thing
+ *
+ * @ready_cond: A condition for this ... condition
+ *
+ * @ready_may_proceed: a gboolean telling the dispatch thread
+ * when it may proceed.
+ **/
+
+G_LOCK_DEFINE_STATIC (ready_for_op);
+static GCond *ready_cond = NULL;
+static gboolean ready_may_proceed = FALSE;
+
+/**
  * Static prototypes
  **/
 
@@ -284,6 +298,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 	}
 
 	if (queue_len == 0) {
+		check_cond ();
 		check_compipes ();
 		check_dispatcher ();
 		create_queue_window ();
@@ -301,6 +316,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 		gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
 		gtk_box_pack_start (GTK_BOX (queue_window_pending), label,
 				    FALSE, TRUE, 2);
+		gtk_widget_show (label);
 
 		/* If we want the next op to be on the bottom, uncomment this */
 		/* 1 = first on list always (0-based) */
@@ -410,8 +426,6 @@ mail_op_get_password (gchar * prompt, gboolean secret, gchar ** dest)
 	com_msg_t msg;
 	gboolean result;
 
-	check_cond ();
-
 	msg.type = PASSWORD;
 	msg.secret = secret;
 	msg.message = prompt;
@@ -449,8 +463,6 @@ mail_op_error (gchar * fmt, ...)
 {
 	com_msg_t msg;
 	va_list val;
-
-	check_cond ();
 
 	va_start (val, fmt);
 	msg.type = ERROR;
@@ -674,6 +686,9 @@ check_cond (void)
 {
 	if (modal_cond == NULL)
 		modal_cond = g_cond_new ();
+
+	if (ready_cond == NULL)
+		ready_cond = g_cond_new ();
 }
 
 /**
@@ -732,7 +747,16 @@ dispatch (void *unused)
 
 		msg.type = FINISHED;
 		msg.clur = clur;
+
+		G_LOCK (ready_for_op);
 		write (MAIN_WRITER, &msg, sizeof (msg));
+
+		ready_may_proceed = FALSE;
+		while (ready_may_proceed == FALSE)
+			g_cond_wait (ready_cond,
+				     g_static_mutex_get_mutex (&G_LOCK_NAME
+							       (ready_for_op)));
+		G_UNLOCK (ready_for_op);
 	}
 
 #ifdef G_THREADS_IMPL_POSIX
@@ -848,6 +872,11 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 			(msg->clur->spec->cleanup) (msg->clur->in_data,
 						    msg->clur->op_data,
 						    msg->clur->ex);
+
+		G_LOCK (ready_for_op);
+		ready_may_proceed = TRUE;
+		g_cond_signal (ready_cond);
+		G_UNLOCK (ready_for_op);
 
 		if (camel_exception_is_set (msg->clur->ex) &&
 		    msg->clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {

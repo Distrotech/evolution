@@ -2,6 +2,8 @@
 
 	* mail-threads.c (remove_next_pending): Sanity check for
 	job queue, which seems to have some issues.
+	(read_msg): Make sure that the next operation isn't started
+	before the last one is cleaned up.
 
 	* mail-callbacks.c (fetch_mail): Fix erroneous free.
 
