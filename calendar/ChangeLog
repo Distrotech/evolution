@@ -1,3 +1,11 @@
+2003-09-22  JP Rosevear <jpr@ximian.com>
+
+	* gui/e-day-view.c (e_day_view_finish_long_event_resize): modify
+	the object instead of update, simplify the instance handling
+	(e_day_view_finish_resize): ditto
+	(e_day_view_on_top_canvas_drag_data_received): ditto
+	(e_day_view_on_main_canvas_drag_data_received): ditto
+
 2003-09-22  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client.c (cal_client_get_alarms_in_range): use

@@ -3782,7 +3782,9 @@ e_day_view_finish_long_event_resize (EDayView *day_view)
 	struct icaltimetype itt;
 	time_t dt;
 	CalClient *client;
-
+	CalObjModType mod = CALOBJ_MOD_ALL;
+	GtkWindow *toplevel;
+	
 	event_num = day_view->resize_event_num;
 	event = &g_array_index (day_view->long_events, EDayViewEvent,
 				event_num);
@@ -3811,31 +3813,26 @@ e_day_view_finish_long_event_resize (EDayView *day_view)
 							     e_cal_view_get_timezone (E_CAL_VIEW (day_view)));
 		cal_component_set_dtend (comp, &date);
 	}
-
- 	if (cal_component_is_instance (comp)) {
- 		CalObjModType mod;
- 
- 		if (recur_component_dialog (comp, &mod, NULL)) {
- 			if (cal_client_update_object_with_mod (client, comp, mod) == CAL_CLIENT_RESULT_SUCCESS) {
- 				if (itip_organizer_is_user (comp, client) &&
-				    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-							   client, comp, FALSE))
- 					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL);
- 			} else {
- 				g_message ("e_day_view_finish_resize(): Could not update the object!");
- 			}
- 		} else {
+	
+ 	if (cal_component_has_recurrences (comp)) {
+ 		if (!recur_component_dialog (comp, &mod, NULL)) {
  			gtk_widget_queue_draw (day_view->top_canvas);
- 		}		
- 	} else if (cal_client_update_object (client, comp) == CAL_CLIENT_RESULT_SUCCESS) {
- 		if (itip_organizer_is_user (comp, client) &&
-		    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-					   client, comp, TRUE))
-  			itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL);
-  	} else {
-  		g_message ("e_day_view_finish_long_event_resize(): Could not update the object!");
-  	}
-  
+			goto out;
+ 		}
+	}
+	
+	toplevel = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (day_view)));
+	
+ 	if (cal_client_modify_object (client, cal_component_get_icalcomponent (comp), mod, NULL)) {
+		if (itip_organizer_is_user (comp, client) &&
+		    send_component_dialog (toplevel, client, comp, TRUE)) {
+			itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL);
+		} else {
+			g_message (G_STRLOC ": Could not update the object!");
+		}
+	}
+	
+ out:
  	gnome_canvas_item_hide (day_view->resize_long_event_rect_item);
  
  	day_view->resize_drag_pos = E_CAL_VIEW_POS_NONE;
@@ -3856,6 +3853,8 @@ e_day_view_finish_resize (EDayView *day_view)
 	struct icaltimetype itt;
 	time_t dt;
 	CalClient *client;
+	CalObjModType mod = CALOBJ_MOD_ALL;
+	GtkWindow *toplevel;
 
 	day = day_view->resize_event_day;
 	event_num = day_view->resize_event_num;
@@ -3898,29 +3897,25 @@ e_day_view_finish_resize (EDayView *day_view)
 
 	day_view->resize_drag_pos = E_CAL_VIEW_POS_NONE;
 
-	if (cal_component_is_instance (comp)) {
-		CalObjModType mod;
-
-		if (recur_component_dialog (comp, &mod, NULL)) {
-			if (cal_client_update_object_with_mod (client, comp, mod) == CAL_CLIENT_RESULT_SUCCESS) {
-				if (itip_organizer_is_user (comp, client) &&
-				    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-							   client, comp, FALSE))
-					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL);
-			} else {
-				g_message ("e_day_view_finish_resize(): Could not update the object!");
-			}
-		} else {
-			gtk_widget_queue_draw (day_view->main_canvas);
-		}		
-	} else if (cal_client_update_object (client, comp) == CAL_CLIENT_RESULT_SUCCESS) {
-		if (itip_organizer_is_user (comp, client) &&
-		    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)), client, comp, FALSE))
-			itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL);
-	} else {
-		g_message ("e_day_view_finish_resize(): Could not update the object!");
+ 	if (cal_component_has_recurrences (comp)) {
+ 		if (!recur_component_dialog (comp, &mod, NULL)) {
+ 			gtk_widget_queue_draw (day_view->top_canvas);
+			goto out;
+ 		}
 	}
 	
+	toplevel = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (day_view)));
+	
+ 	if (cal_client_modify_object (client, cal_component_get_icalcomponent (comp), mod, NULL)) {
+		if (itip_organizer_is_user (comp, client) &&
+		    send_component_dialog (toplevel, client, comp, TRUE)) {
+			itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL);
+		} else {
+			g_message (G_STRLOC ": Could not update the object!");
+		}
+	}	
+
+ out:	
 	g_object_unref (comp);
 }
 
@@ -6646,7 +6641,10 @@ e_day_view_on_top_canvas_drag_data_received  (GtkWidget          *widget,
 								 x, y, &day,
 								 NULL);
 		if (pos != E_CAL_VIEW_POS_OUTSIDE) {
+			CalObjModType mod = CALOBJ_MOD_ALL;
+			GtkWindow *toplevel;
 			const char *uid;
+
 			num_days = 1;
 			start_offset = 0;
 			end_offset = 0;
@@ -6737,33 +6735,20 @@ e_day_view_on_top_canvas_drag_data_received  (GtkWidget          *widget,
 			if (event->canvas_item)
 				gnome_canvas_item_show (event->canvas_item);
 
-			if (cal_component_is_instance (comp)) {
-				CalObjModType mod;
-				
-				if (recur_component_dialog (comp, &mod, NULL)) {
-					if (cal_client_update_object_with_mod (client, comp, mod) == CAL_CLIENT_RESULT_SUCCESS) {
-						if (itip_organizer_is_user (comp, client) 
-						    && send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-									      client, comp, FALSE))
-							itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
-									client, NULL);
-					} else {
-						g_message ("e_day_view_on_top_canvas_drag_data_received(): Could "
-							   "not update the object!");
-					}
-				}
-			} else if (cal_client_update_object (client, comp)
-			    == CAL_CLIENT_RESULT_SUCCESS) {
-				if (itip_organizer_is_user (comp, client) &&
-				    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-							   client, comp, FALSE))
-					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
-							client, NULL);
-			} else {
-				g_message ("e_day_view_on_top_canvas_drag_data_received(): Could "
-					   "not update the object!");
+			if (cal_component_has_recurrences (comp)) {
+				if (!recur_component_dialog (comp, &mod, NULL))
+					return;
 			}
 
+			toplevel = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (day_view)));
+	
+			if (cal_client_modify_object (client, cal_component_get_icalcomponent (comp), mod, NULL)) {
+				if (itip_organizer_is_user (comp, client) 
+				    && send_component_dialog (toplevel, client, comp, FALSE))
+					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
+							client, NULL);
+			}
+			
 			g_object_unref (comp);
 
 			return;
@@ -6809,7 +6794,10 @@ e_day_view_on_main_canvas_drag_data_received  (GtkWidget          *widget,
 								  x, y, &day,
 								  &row, NULL);
 		if (pos != E_CAL_VIEW_POS_OUTSIDE) {
+			CalObjModType mod = CALOBJ_MOD_ALL;
+			GtkWindow *toplevel;
 			const char *uid;
+
 			num_rows = 1;
 			start_offset = 0;
 			end_offset = 0;
@@ -6874,30 +6862,20 @@ e_day_view_on_main_canvas_drag_data_received  (GtkWidget          *widget,
 			if (event->canvas_item)
 				gnome_canvas_item_show (event->canvas_item);
 
-			if (cal_component_is_instance (comp)) {
-				CalObjModType mod;
-				
-				if (recur_component_dialog (comp, &mod, NULL)) {
-					if (cal_client_update_object_with_mod (client, comp, mod) == CAL_CLIENT_RESULT_SUCCESS) {
-						if (itip_organizer_is_user (comp, client) 
-						    && send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-									      client, comp, FALSE))
-							itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
-									client, NULL);
-					} else {
-						g_message ("e_day_view_on_top_canvas_drag_data_received(): Could "
-							   "not update the object!");
-					}
+			if (cal_component_has_recurrences (comp)) {
+				if (!recur_component_dialog (comp, &mod, NULL)) {
+					g_object_unref (comp);
+					return;
 				}
-			} else if (cal_client_update_object (client, comp) == CAL_CLIENT_RESULT_SUCCESS) {
-				if (itip_organizer_is_user (comp, client) &&
-				    send_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (day_view)),
-							   client, comp, FALSE))
-					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
+			}
+
+			toplevel = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (day_view)));
+	
+			if (cal_client_modify_object (client, cal_component_get_icalcomponent (comp), mod, NULL)) {
+				if (itip_organizer_is_user (comp, client) 
+				    && send_component_dialog (toplevel, client, comp, FALSE))
+					itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
 							client, NULL);
-			} else {
-				g_message ("e_day_view_on_main_canvas_drag_data_received(): "
-					   "Could not update the object!");
 			}
 
 			g_object_unref (comp);
