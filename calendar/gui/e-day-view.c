@@ -1083,6 +1083,7 @@ e_day_view_new (void)
 	GObject *day_view;
 
 	day_view = g_object_new (e_day_view_get_type (), NULL);
+	e_cal_model_set_flags (e_calendar_view_get_model (E_CALENDAR_VIEW (day_view)), E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES);
 	
 	return GTK_WIDGET (day_view);
 }

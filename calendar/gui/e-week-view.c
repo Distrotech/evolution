@@ -649,6 +649,7 @@ e_week_view_new (void)
 	GtkWidget *week_view;
 	
 	week_view = GTK_WIDGET (g_object_new (e_week_view_get_type (), NULL));
+	e_cal_model_set_flags (e_calendar_view_get_model (E_CALENDAR_VIEW (week_view)), E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES);
 	
 	return week_view;
 }
