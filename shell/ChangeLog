@@ -1,3 +1,8 @@
+2001-03-09  Christopher James Lahey  <clahey@ximian.com>
+
+	* e-storage-set-view.c, e-storage-set-view.h: Chaned this to use
+	ETree instead of ETable.
+
 2001-03-08  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-storage-set-view.c (get_folder_at_row): New helper function.
