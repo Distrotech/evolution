@@ -1,3 +1,8 @@
+2000-07-13  Peter Williams  <peterw@curious-george.helixcode.com>
+
+	* configure.in (end): Bigass warnings for camel-async branch
+	(remove them later).
+
 2000-07-10  Ettore Perazzoli  <ettore@helixcode.com>
 
 	* Version 0.2.

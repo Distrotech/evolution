@@ -535,3 +535,10 @@ tools/Makefile
 doc/Makefile
 doc/C/Makefile
 ])
+
+echo "WARNING WARNING WARNING WARNING"
+echo "the compile will be broken in the camel-async branch for a while"
+echo "try ./camel/make-test.sh && ./camel/temp-test"
+echo "the only camel files that compile are:"
+echo "camel-object.c, camel-stream.c, camel-seekable-stream.c, camel-stream-mem.c"
+echo "WARNING WARNING WARNING WARNING"
