@@ -108,7 +108,6 @@ fetch_mail (GtkWidget *button, gpointer user_data)
 	}
 
 	mail_do_fetch_mail (url, NULL, select_first_unread, user_data);
-	g_free (url);
 }
 
 static gboolean
