@@ -1,3 +1,14 @@
+2001-03-13  Christopher James Lahey  <clahey@ximian.com>
+
+	* message-list.c (message_list_get_layout): Turned off draw-grid.
+
+2001-03-09  Christopher James Lahey  <clahey@ximian.com>
+
+	* folder-browser-factory.c, folder-browser.c, message-list.c,
+	message-list.h, subscribe-dialog.c, subscribe-dialog.h,
+	mail-callbacks.c: Converted these all to use ETree instead of
+	ETable.
+
 2001-03-08  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* folder-browser-factory.c: Set the Forward->Quoted callback.
