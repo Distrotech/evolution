@@ -1,3 +1,9 @@
+2003-10-10  Not Zed  <NotZed@Ximian.com>
+
+	*
+	gui/component/select-names/GNOME_Evolution_Addressbook_SelectNames.server.in.in:
+	Use the main factory on the .so file, so it can be found.
+
 2003-10-08  Chris Toshok  <toshok@ximian.com>
 
 	* gui/component/select-names/e-select-names.c (contact_key): add a
