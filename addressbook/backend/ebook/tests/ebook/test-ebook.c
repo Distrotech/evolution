@@ -35,13 +35,7 @@ print_all_emails (EBook *book)
 	gboolean status;
 	GList *cards, *c;
 
-	/*
-	  this should be:
-	    query = e_book_query_field_exists (E_CARD_SIMPLE_FIELD_FULL_NAME);
-	  but backends don't handle "exists" yet.
-	*/
-	query = e_book_query_field_test (E_CONTACT_FULL_NAME,
-					 E_BOOK_QUERY_CONTAINS, "");
+	query = e_book_query_field_exists (E_CONTACT_FULL_NAME);
 
 	status = e_book_get_contacts (book, query, &cards, NULL);
 

@@ -1,3 +1,25 @@
+2003-09-01  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-book-view.c (pas_book_view_notify_change): guard
+	pending adds foo.
+	(pas_book_view_notify_remove): same.
+	(pas_book_view_notify_add): same.
+	(pas_book_view_notify_complete): same.
+	(pas_book_view_construct): init mutex
+	(pas_book_view_dispose): free mutex
+
+	* backend/pas/pas-backend-ldap.c (func_exists): new function.
+	(send_pending_adds): remove
+	(ldap_search_handler): let the BookView stuff handle the pending
+	adds for us.
+	(ldap_search_dtor): remove pending adds stuff.
+	(pas_backend_ldap_search): same
+
+	* backend/pas/pas-backend-card-sexp.c (func_exists): new function.
+	
+	* backend/ebook/tests/ebook/test-ebook.c (print_all_emails): use
+	an exists query.
+
 2003-08-31  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-book-query.c (func_and, func_or, func_not)

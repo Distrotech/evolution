@@ -234,10 +234,12 @@ entry_compare(SearchContext *ctx, struct _ESExp *f,
 						truth = TRUE;
 					}
 					g_free (prop);
-				} else if (info->prop_type == PROP_TYPE_LIST) {
+				}
+				else if (info->prop_type == PROP_TYPE_LIST) {
 				/* the special searches that match any of the list elements */
 					truth = info->list_compare (ctx->card, argv[1]->value.string, compare);
-				} else if (info->prop_type == PROP_TYPE_ID) {
+				}
+				else if (info->prop_type == PROP_TYPE_ID) {
 					const char *prop = NULL;
 					/* searches where the query's property
 					   maps directly to an ecard property */
@@ -331,6 +333,57 @@ func_beginswith(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *da
 	return entry_compare (ctx, f, argc, argv, beginswith_helper);
 }
 
+static ESExpResult *
+func_exists(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *data)
+{
+	SearchContext *ctx = data;
+	ESExpResult *r;
+	int truth = FALSE;
+
+	if (argc == 1
+	    && argv[0]->type == ESEXP_RES_STRING) {
+		char *propname;
+		struct prop_info *info = NULL;
+		int i;
+
+		propname = argv[0]->value.string;
+
+		for (i = 0; i < num_prop_infos; i ++) {
+			if (!strcmp (prop_info_table[i].query_prop, propname)) {
+				info = &prop_info_table[i];
+				
+				if (info->prop_type == PROP_TYPE_NORMAL) {
+					char *prop = NULL;
+					/* searches where the query's property
+					   maps directly to an ecard property */
+					
+					prop = e_card_simple_get (ctx->card, info->field_id);
+
+					if (prop && *prop)
+						truth = TRUE;
+
+					g_free (prop);
+				}
+				else if (info->prop_type == PROP_TYPE_LIST) {
+				/* the special searches that match any of the list elements */
+					truth = info->list_compare (ctx->card, "", (char *(*)(const char*, const char*)) e_utf8_strstrcase);
+				}
+				else if (info->prop_type == PROP_TYPE_ID) {
+					/* trivially true, since all contacts have id's */
+					truth = TRUE;
+				}
+
+				break;
+			}
+		}
+		
+	}
+	r = e_sexp_result_new(f, ESEXP_RES_BOOL);
+	r->value.bool = truth;
+
+	return r;
+}
+
 /* 'builtin' functions */
 static struct {
 	char *name;
@@ -342,6 +395,7 @@ static struct {
 	{ "is", func_is, 0 },
 	{ "beginswith", func_beginswith, 0 },
 	{ "endswith", func_endswith, 0 },
+	{ "exists", func_exists, 0 },
 };
 
 gboolean
@@ -400,7 +454,8 @@ pas_backend_card_sexp_new (const char *text)
 		if (symbols[i].type == 1) {
 			e_sexp_add_ifunction(sexp->priv->search_sexp, 0, symbols[i].name,
 					     (ESExpIFunc *)symbols[i].func, sexp->priv->search_context);
-		} else {
+		}
+		else {
 			e_sexp_add_function(sexp->priv->search_sexp, 0, symbols[i].name,
 					    symbols[i].func, sexp->priv->search_context);
 		}

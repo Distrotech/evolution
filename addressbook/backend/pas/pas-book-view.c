@@ -18,9 +18,10 @@ struct _PASBookViewPrivate {
 	GNOME_Evolution_Addressbook_BookViewListener  listener;
 
 #define INITIAL_THRESHOLD 20
-	int    card_count;
-	int    card_threshold;
-	int    card_threshold_max;
+	GMutex *pending_mutex;
+	int     card_count;
+	int     card_threshold;
+	int     card_threshold_max;
 	GList  *cards;
 
 	PASBackend *backend;
@@ -77,8 +78,12 @@ pas_book_view_notify_change (PASBookView                *book_view,
 	gint i, length;
 	CORBA_sequence_GNOME_Evolution_Addressbook_VCard card_sequence;
 
+	g_mutex_lock (book_view->priv->pending_mutex);
+
 	if (book_view->priv->cards)
 		send_pending_adds (book_view);
+
+	g_mutex_unlock (book_view->priv->pending_mutex);
 
 	length = g_list_length((GList *) cards);
 
@@ -124,8 +129,12 @@ pas_book_view_notify_remove (PASBookView  *book_view,
 	const GList *l;
 	int num_ids, i;
 
+	g_mutex_lock (book_view->priv->pending_mutex);
+
 	if (book_view->priv->cards)
 		send_pending_adds (book_view);
+
+	g_mutex_unlock (book_view->priv->pending_mutex);
 
 	num_ids = g_list_length ((GList*)ids);
 	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_ContactId_allocbuf (num_ids);
@@ -171,6 +180,8 @@ pas_book_view_notify_add (PASBookView          *book_view,
 {
 	PASBookViewPrivate *priv = book_view->priv;
 
+	g_mutex_lock (book_view->priv->pending_mutex);
+
 	priv->card_count += g_list_length (cards);
 	priv->cards = g_list_concat (cards, priv->cards);
 
@@ -182,6 +193,8 @@ pas_book_view_notify_add (PASBookView          *book_view,
 		if (priv->card_threshold < priv->card_threshold_max)
 			priv->card_threshold = MIN (2*priv->card_threshold, priv->card_threshold_max);
 	}
+
+	g_mutex_unlock (book_view->priv->pending_mutex);
 }
 
 void
@@ -198,8 +211,12 @@ pas_book_view_notify_complete (PASBookView *book_view,
 {
 	CORBA_Environment ev;
 
+	g_mutex_lock (book_view->priv->pending_mutex);
+
 	if (book_view->priv->cards)
 		send_pending_adds (book_view);
+
+	g_mutex_unlock (book_view->priv->pending_mutex);
 
 	CORBA_exception_init (&ev);
 
@@ -273,6 +290,7 @@ pas_book_view_construct (PASBookView                *book_view,
 	priv->card_threshold_max = 3000;
 	priv->card_query = g_strdup (card_query);
 	priv->card_sexp = card_sexp;
+	priv->pending_mutex = g_mutex_new();
 }
 
 /**
@@ -342,6 +360,9 @@ pas_book_view_dispose (GObject *object)
 
 		g_free (book_view->priv->card_query);
 		g_object_unref (book_view->priv->card_sexp);
+
+		g_mutex_free (book_view->priv->pending_mutex);
+		book_view->priv->pending_mutex = NULL;
 
 		g_free (book_view->priv);
 		book_view->priv = NULL;

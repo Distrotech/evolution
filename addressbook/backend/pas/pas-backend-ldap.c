@@ -59,14 +59,6 @@ typedef enum {
 /* timeout for ldap_result */
 #define LDAP_RESULT_TIMEOUT_MILLIS 10
 
-/* smart grouping stuff */
-#define GROUPING_INITIAL_SIZE 1
-#define GROUPING_MAXIMUM_SIZE 200
-
-/* the next two are in milliseconds */
-#define GROUPING_MINIMUM_WAIT 0  /* we never send updates faster than this, to avoid totally spamming the UI */
-#define GROUPING_MAXIMUM_WAIT 250 /* we always send updates (if there are pending cards) when we hit this */
-
 #define TV_TO_MILLIS(timeval) ((timeval).tv_sec * 1000 + (timeval).tv_usec / 1000)
 
 /* the objectClasses we need */
@@ -2403,6 +2395,58 @@ func_endswith(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *data
 	return r;
 }
 
+static ESExpResult *
+func_exists(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *data)
+{
+	PASBackendLDAPSExpData *ldap_data = data;
+	ESExpResult *r;
+
+	if (argc == 1
+	    && argv[0]->type == ESEXP_RES_STRING) {
+		char *propname = argv[0]->value.string;
+
+		if (!strcmp (propname, "x-evolution-any-field")) {
+			int i;
+			int query_length;
+			char *big_query;
+			char *match_str;
+
+			match_str = g_strdup("=*)");
+
+			query_length = 3; /* strlen ("(|") + strlen (")") */
+
+			for (i = 0; i < num_prop_infos; i ++) {
+				query_length += 1 /* strlen ("(") */ + strlen(prop_info[i].ldap_attr) + strlen (match_str);
+			}
+
+			big_query = g_malloc0(query_length + 1);
+			strcat (big_query, "(|");
+			for (i = 0; i < num_prop_infos; i ++) {
+				strcat (big_query, "(");
+				strcat (big_query, prop_info[i].ldap_attr);
+				strcat (big_query, match_str);
+			}
+			strcat (big_query, ")");
+
+			ldap_data->list = g_list_prepend(ldap_data->list, big_query);
+
+			g_free (match_str);
+		}
+		else {
+			char *ldap_attr = query_prop_to_ldap(propname);
+
+			if (ldap_attr)
+				ldap_data->list = g_list_prepend(ldap_data->list,
+								 g_strdup_printf("(%s=*)", ldap_attr));
+		}
+	}
+
+	r = e_sexp_result_new(f, ESEXP_RES_BOOL);
+	r->value.bool = FALSE;
+
+	return r;
+}
+
 /* 'builtin' functions */
 static struct {
 	char *name;
@@ -2417,6 +2461,7 @@ static struct {
 	{ "is", func_is, 0 },
 	{ "beginswith", func_beginswith, 0 },
 	{ "endswith", func_endswith, 0 },
+	{ "exists", func_exists, 0 },
 };
 
 static gchar *
@@ -2487,14 +2532,6 @@ typedef struct {
 	LDAPOp op;
 	PASBookView *view;
 
-	/* grouping stuff */
-	GList    *pending_adds;        /* the cards we're sending */
-	int       num_pending_adds;    /* the number waiting to be sent */
-	int       target_pending_adds; /* the cutoff that forces a flush to the client, if it happens before the timeout */
-	int       num_sent_this_time;  /* the number of cards we sent to the client before the most recent timeout */
-	int       num_sent_last_time;  /* the number of cards we sent to the client before the previous timeout */
-	glong     grouping_time_start;
-	
 	/* used by search_handler to only send the status messages once */
 	gboolean notified_receiving_results;
 } LDAPSearchOp;
@@ -2614,17 +2651,6 @@ poll_ldap (PASBackendLDAP *bl)
 }
 
 static void
-send_pending_adds (LDAPSearchOp *search_op)
-{
-	search_op->num_sent_this_time += search_op->num_pending_adds;
-	pas_book_view_notify_add (search_op->op.view, search_op->pending_adds);
-	g_list_foreach (search_op->pending_adds, (GFunc)g_free, NULL);
-	g_list_free (search_op->pending_adds);
-	search_op->pending_adds = NULL;
-	search_op->num_pending_adds = 0;
-}
-
-static void
 ldap_search_handler (LDAPOp *op, LDAPMessage *res)
 {
 	LDAPSearchOp *search_op = (LDAPSearchOp*)op;
@@ -2648,9 +2674,7 @@ ldap_search_handler (LDAPOp *op, LDAPMessage *res)
 		while (NULL != e) {
 			ECardSimple *card = build_card_from_entry (ldap, e, NULL);
 
-			search_op->pending_adds = g_list_append (search_op->pending_adds,
-								 e_card_simple_get_vcard_assume_utf8 (card));
-			search_op->num_pending_adds ++;
+			pas_book_view_notify_add_1 (view, e_card_simple_get_vcard_assume_utf8 (card));
 
 			g_object_unref (card);
 
@@ -2665,10 +2689,6 @@ ldap_search_handler (LDAPOp *op, LDAPMessage *res)
 
 		g_warning ("search returned %d\n", ldap_error);
 
-		/* the entry that marks the end of our search */
-		if (search_op->num_pending_adds)
-			send_pending_adds (search_op);
-
 		if (ldap_error == LDAP_TIMELIMIT_EXCEEDED)
 			pas_book_view_notify_complete (search_op->op.view, GNOME_Evolution_Addressbook_SearchTimeLimitExceeded);
 		else if (ldap_error == LDAP_SIZELIMIT_EXCEEDED)
@@ -2682,8 +2702,6 @@ ldap_search_handler (LDAPOp *op, LDAPMessage *res)
 	}
 	else {
 		g_warning ("unhandled search result type %d returned", msg_type);
-		if (search_op->num_pending_adds)
-			send_pending_adds (search_op);
 		pas_book_view_notify_complete (search_op->op.view, GNOME_Evolution_Addressbook_OtherError);
 		ldap_op_finished (op);
 	}
@@ -2703,11 +2721,6 @@ ldap_search_dtor (LDAPOp *op)
 		search_op->view->search_op = NULL;
 #endif
 
-	g_list_foreach (search_op->pending_adds, (GFunc)g_free, NULL);
-	g_list_free (search_op->pending_adds);
-	search_op->pending_adds = NULL;
-	search_op->num_pending_adds = 0;
-
 	g_free (search_op);
 }
 
@@ -2723,7 +2736,6 @@ pas_backend_ldap_search (PASBackendLDAP  	*bl,
 	if (ldap_query != NULL) {
 		LDAP *ldap = bl->priv->ldap;
 		int ldap_err;
-		GTimeVal search_start;
 		int search_msgid;
 		
 		printf ("searching server using filter: %s\n", ldap_query);
@@ -2754,11 +2766,6 @@ pas_backend_ldap_search (PASBackendLDAP  	*bl,
 		}
 		else {
 			LDAPSearchOp *op = g_new0 (LDAPSearchOp, 1);
-
-			op->target_pending_adds = GROUPING_INITIAL_SIZE;
-
-			g_get_current_time (&search_start);
-			op->grouping_time_start = TV_TO_MILLIS (search_start);
 
 			op->view = view;
 
