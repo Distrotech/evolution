@@ -30,10 +30,15 @@
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
+#include <camel/camel-session.h>
+#include <camel/camel-store.h>
+#include <camel/camel-folder.h>
+
 #include "em-popup.h"
 #include "em-marshal.h"
 #include "em-folder-tree.h"
 #include "em-folder-selector.h"
+#include "em-folder-selection.h"
 
 
 #define d(x) x
@@ -93,6 +98,9 @@ enum {
 };
 
 static guint signals[LAST_SIGNAL] = { 0 };
+
+
+extern CamelSession *session;
 
 
 static void em_folder_tree_class_init (EMFolderTreeClass *klass);
@@ -543,7 +551,7 @@ em_copy_folders (CamelStore *tostore, const char *tobase, CamelStore *fromstore,
 					camel_store_subscribe_folder (tostore, toname->str, NULL);
 				
 				uids = camel_folder_get_uids (fromfolder);
-				camel_folder_transfer_messages_to (fromfolder, uids, tofolder, NULL, delete, ex);
+				camel_folder_transfer_messages_to (fromfolder, uids, tofolder, NULL, delete, &ex);
 				camel_folder_free_uids (fromfolder, uids);
 				
 				camel_object_unref (fromfolder);
@@ -631,11 +639,11 @@ emft_popup_copy_folder_selected (const char *uri, void *data)
 	if (url->fragment)
 		tobase = url->fragment;
 	else if (url->path && url->path[0])
-		tobase = url->path+1;
+		tobase = url->path + 1;
 	else
 		tobase = "";
 	
-	em_copy_folders (tostore, tobase, fromstore, frombase, d->delete);
+	em_copy_folders (tostore, tobase, fromstore, frombase, cfd->delete);
 	
 	camel_url_free (url);
 	g_free (cfd);
@@ -674,7 +682,7 @@ emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTr
 {
 	/* FIXME: ugh, kludge-a-licious: EMFolderSelector uses EMFolderTree so we can poke emfs->emft internals */
 	struct _EMFolderTreePrivate *priv = emfs->emft->priv;
-	char *uri, *path, *name, *parent;
+	const char *uri, *name, *parent;
 	struct _emft_store_info *si;
 	CamelStore *store;
 	CamelException ex;
@@ -685,13 +693,14 @@ emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTr
 	}
 	
 	uri = em_folder_selector_get_selected_uri (emfs);
-	path = em_folder_selector_get_selected_path (emfs);
+	path = (char *) em_folder_selector_get_selected_path (emfs);
 	d(printf ("Creating folder: %s (%s)\n", path, uri));
 	
 	if (!(si = g_hash_table_lookup (priv->store_hash, uri)))
 		goto done;
 	
 	/* FIXME: camel_store_create_folder should just take full path names */
+	path = g_strdup (path);
 	if (!(name = strrchr (path, '/'))) {
 		name = path;
 		parent = "";
@@ -719,7 +728,6 @@ emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTr
 	
  done:
 	
-	g_free (uri);
 	g_free (path);
 	
 	gtk_widget_destroy ((GtkWidget *) emfs);
