@@ -11,7 +11,6 @@
 	* e-source-list.h: New file.
 	* e-source-list.c: New file.
 	* e-source.c: New file.
-
 	* e-source.h: New file.
 	* test-source-list.c: New file to test the above.
 
