@@ -126,13 +126,11 @@ EXTRA_DIST =				\
 	e-util-marshal.list
 
 edb3include_HEADERS =			\
-	e-db3-utils.h			\
-	e-dbhash.h
+	e-db3-utils.h
 
 libedb3util_la_SOURCES =		\
 	$(edb3include_HEADERS)		\
-	e-db3-utils.c			\
-	e-dbhash.c
+	e-db3-utils.c
 
 BUILT_SOURCES = $(MARSHAL_GENERATED)
 CLEANFILES    = $(BUILT_SOURCES)
