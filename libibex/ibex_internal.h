@@ -21,11 +21,11 @@
 #include <glib.h>
 
 #include "ibex.h"
+#include "block.h"
 
-#define IBEX_VERSION "ibex2"
+#define IBEX_VERSION "ibex3"
 
 struct ibex {
 	char *path;
-	DB *words;
-	DB *names;
+	struct _memcache *blocks;
 };

@@ -2,10 +2,10 @@
 
 noinst_LTLIBRARIES = libibex.la
 
-libibex_la_SOURCES = ibex_db.c ibex.h
+libibex_la_SOURCES = ibex_block.c block.c ibex.h
 libibex_la_LDFLAGS = -static
 
-noinst_HEADERS = ibex_internal.h
+noinst_HEADERS = ibex_internal.h block.h
 
 INCLUDES = -I$(srcdir) $(GLIB_CFLAGS) $(UNICODE_CFLAGS) \
 		-DG_LOG_DOMAIN=\"libibex\"
