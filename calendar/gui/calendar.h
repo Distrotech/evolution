@@ -54,12 +54,17 @@ void      calendar_iterate              (Calendar *cal, time_t start, time_t end
 GList *calendar_get_events_in_range (Calendar *cal, time_t start, time_t end);
 
 /* Destroy list returned by calendar_get_events_in_range() with this function */
-void calendar_destroy_event_list (GList *l);
+void calendar_destroy_event_list    (GList *l);
 
 /* Informs the calendar that obj information has changed */
-void      calendar_object_changed       (Calendar *cal, iCalObject *obj, int flags);
+void      calendar_object_changed   (Calendar *cal, iCalObject *obj, int flags);
 
-void      calendar_notify (time_t time, CalendarAlarm *which, void *data);
+void      calendar_notify           (time_t time, CalendarAlarm *which, void *data);
+
+void      ical_object_try_alarms    (iCalObject *obj);
+
+extern time_t calendar_day_begin, calendar_day_end;
+
 END_GNOME_DECLS
 
 #endif

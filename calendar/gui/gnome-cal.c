@@ -309,7 +309,7 @@ execute (char *command, int close_standard)
 	sigaction (SIGQUIT, &save_quit, NULL);
 }
 
-void
+static void
 mail_notify (char *mail_address, char *text, time_t app_time)
 {
 	pid_t pid;
@@ -482,3 +482,4 @@ gnome_calendar_colors_changed (GnomeCalendar *gcal)
 	month_view_colors_changed (MONTH_VIEW (gcal->month_view));
 	year_view_colors_changed (YEAR_VIEW (gcal->year_view));
 }
+

@@ -1,13 +1,13 @@
 help_base = $(datadir)/gnome/help/cal
 
-CFLAGS += -Wall
+CFLAGS += -Wall -Wmissing-prototypes 
 
 INCLUDES = 			\
 	-I$(includedir)					\
 	$(GNOME_INCLUDEDIR)				\
         -DGNOMELOCALEDIR=\""$(datadir)/locale"\"
 
-bin_PROGRAMS = gnomecal
+bin_PROGRAMS = gnomecal gnome-cal-server
 
 gnomecal_SOURCES = \
 	alarm.c			\
@@ -34,6 +34,7 @@ gnomecal_SOURCES = \
 	gnome-cal.c		\
 	gnome-cal.h		\
 	goto.c			\
+	gui-alarms.c		\
 	layout.c		\
 	layout.h		\
 	main.c			\
@@ -53,6 +54,22 @@ gnomecal_SOURCES = \
 	view-utils.c		\
 	year-view.c		\
 	year-view.h
+
+gnome_cal_server_SOURCES =	\
+	backend.c		\
+	backend.h		\
+	calendar.c		\
+	calendar.h		\
+	calobj.c		\
+	calobj.h		\
+	timeutil.c		\
+	timeutil.h		\
+	server.c
+
+gnome_cal_server_LDADD =	\
+	$(GNOME_LIBDIR) 	\
+	$(GNOME_LIBS) 		\
+	../libversit/libversit.a
 
 LINK_FLAGS = \
 	$(GNOME_LIBDIR) \
