@@ -1425,7 +1425,8 @@ cal_client_open_async (CalClient *client, gboolean only_if_exists)
 	ccad = g_new0 (CalClientAsyncData, 1);
 	ccad->client = g_object_ref (client);
 	ccad->exists = only_if_exists;
-	
+
+	/* FIXME This should really spawn a new thread */
 	g_idle_add (open_async, ccad);
 }
 

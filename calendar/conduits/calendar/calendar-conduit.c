@@ -407,16 +407,24 @@ start_calendar_server_cb (CalClient *cal_client,
 static int
 start_calendar_server (ECalConduitContext *ctxt)
 {
+	char *uri;
 	gboolean success = FALSE;
 	
 	g_return_val_if_fail (ctxt != NULL, -2);
 
-	ctxt->client = cal_client_new ();
-
+	/* FIXME Need a mechanism for the user to select uri's */
+	/* FIXME Can we use the cal model? */
+	uri = g_strdup_printf ("file://%s/local/Calendar/", g_get_home_dir ());
+	ctxt->client = cal_client_new (uri, CALOBJ_TYPE_EVENT);
+	g_free (uri);
+	
+	if (!ctxt->client)
+		return -1;
+	
 	g_signal_connect (ctxt->client, "cal_opened",
 			  G_CALLBACK (start_calendar_server_cb), &success);
 
-	if (!cal_client_open_default_calendar (ctxt->client, FALSE))
+	if (!cal_client_open (ctxt->client, FALSE, NULL))
 		return -1;
 
 	/* run a sub event loop to turn cal-client's async load
@@ -1356,7 +1364,7 @@ pre_sync (GnomePilotConduit *conduit,
 	}
 
 	/* Get the default component */
-	if (!cal_client_get_default_object (ctxt->client, CALOBJ_TYPE_EVENT, &icalcomp, NULL))
+	if (!cal_client_get_default_object (ctxt->client, &icalcomp, NULL))
 		return -1;
 
 	ctxt->default_comp = cal_component_new ();

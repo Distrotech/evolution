@@ -69,7 +69,7 @@ get_prop (BonoboPropertyBag *bag,
 	  CORBA_Environment *ev,
 	  gpointer           user_data)
 {
-	GnomeCalendar *gcal;;
+	GnomeCalendar *gcal;
 	const char *uri;
 	BonoboControl *control = user_data;
 
@@ -125,7 +125,7 @@ set_prop (BonoboPropertyBag *bag,
 	switch (arg_id) {
 	case PROPERTY_CALENDAR_URI_IDX:
 		string = BONOBO_ARG_GET_STRING (arg);
-		if (gnome_calendar_open (gcal, string)) {
+		if (gnome_calendar_add_event_uri (gcal, string)) {
 			calendar_control_sensitize_calendar_commands (control, gcal, TRUE);
 		} else {
 			char *msg;
