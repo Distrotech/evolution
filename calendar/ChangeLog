@@ -1,3 +1,11 @@
+2003-08-01  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.[ch] (e_cal_model_get_component_at): new function.
+	(ecm_append_row): use the client from the source model.
+	(e_cal_model_get_timezone, e_cal_model_set_timezone): new functions.
+
+	* gui/e-cal-model-tasks.[ch]: new class for the tasks model.
+
 2003-07-31  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.[ch]: new class, based on CalendarModel to be

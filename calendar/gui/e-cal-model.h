@@ -36,16 +36,16 @@ G_BEGIN_DECLS
 typedef struct _ECalModelPrivate ECalModelPrivate;
 
 typedef enum {
-	E_CAL_MODEL_FIELD_UID,
-	E_CAL_MODEL_FIELD_SUMMARY,
-	E_CAL_MODEL_FIELD_DTSTART,
-	E_CAL_MODEL_FIELD_DESCRIPTION,
-	E_CAL_MODEL_FIELD_CLASSIFICATION,
 	E_CAL_MODEL_FIELD_CATEGORIES,
-	E_CAL_MODEL_FIELD_HAS_ALARMS,       /* not a real field */
-	E_CAL_MODEL_FIELD_ICON,             /* not a real field */
+	E_CAL_MODEL_FIELD_CLASSIFICATION,
 	E_CAL_MODEL_FIELD_COLOR,            /* not a real field */
 	E_CAL_MODEL_FIELD_COMPONENT,        /* not a real field */
+	E_CAL_MODEL_FIELD_DESCRIPTION,
+	E_CAL_MODEL_FIELD_DTSTART,
+	E_CAL_MODEL_FIELD_HAS_ALARMS,       /* not a real field */
+	E_CAL_MODEL_FIELD_ICON,             /* not a real field */
+	E_CAL_MODEL_FIELD_SUMMARY,
+	E_CAL_MODEL_FIELD_UID,
 	E_CAL_MODEL_FIELD_LAST
 } ECalModelField;
 
@@ -66,14 +66,18 @@ typedef struct {
 	icalcomponent * (* create_component_with_defaults) (ECalModel *model);
 } ECalModelClass;
 
-GType              e_cal_model_get_type (void);
+GType               e_cal_model_get_type (void);
 
-icalcomponent_kind e_cal_model_get_component_kind (ECalModel *model);
-void               e_cal_model_set_component_kind (ECalModel *model, icalcomponent_kind kind);
+icalcomponent_kind  e_cal_model_get_component_kind (ECalModel *model);
+void                e_cal_model_set_component_kind (ECalModel *model, icalcomponent_kind kind);
+icaltimezone       *e_cal_model_get_timezone (ECalModel *model);
+void                e_cal_model_set_timezone (ECalModel *model, icaltimezone *zone);
 
-void               e_cal_model_add_client (ECalModel *model, CalClient *client);
-void               e_cal_model_remove_client (ECalModel *model, CalClient *client);
-void               e_cal_model_remove_all_clients (ECalModel *model);
+void                e_cal_model_add_client (ECalModel *model, CalClient *client);
+void                e_cal_model_remove_client (ECalModel *model, CalClient *client);
+void                e_cal_model_remove_all_clients (ECalModel *model);
+
+ECalModelComponent *e_cal_model_get_component_at (ECalModel *model, gint row);
 
 G_END_DECLS
 

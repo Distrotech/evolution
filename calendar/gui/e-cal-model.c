@@ -39,7 +39,9 @@ struct _ECalModelPrivate {
 
 	/* Array for storing the objects. Each element is of type ECalModelComponent */
 	GPtrArray *objects;
+
 	icalcomponent_kind kind;
+	icaltimezone *zone;
 
 	/* The search regular expression */
 	gchar *sexp;
@@ -444,16 +446,15 @@ ecm_is_cell_editable (ETableModel *etm, int col, int row)
 static void
 ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 {
-	ECalModelPrivate *priv;
 	ECalModelComponent *comp_data;
 	icalcomponent *icalcomp;
+	ECalModel *source_model = (ECalModel *) source;
 	ECalModel *model = (ECalModel *) etm;
 
 	g_return_if_fail (E_IS_CAL_MODEL (model));
+	g_return_if_fail (E_IS_CAL_MODEL (source_model));
 
-	priv = model->priv;
-
-	comp_data = g_ptr_array_index (priv->objects, 0);
+	comp_data = g_ptr_array_index (source_model->priv->objects, row);
 	g_assert (comp_data != NULL);
 
 	/* guard against saving before the calendar is open */
@@ -651,6 +652,37 @@ e_cal_model_set_component_kind (ECalModel *model, icalcomponent_kind kind)
 	priv->kind = kind;
 }
 
+/**
+ * e_cal_model_get_timezone
+ */
+icaltimezone *
+e_cal_model_get_timezone (ECalModel *model)
+{
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+	return model->priv->zone;
+}
+
+/**
+ * e_cal_model_set_timezone
+ */
+void
+e_cal_model_set_timezone (ECalModel *model, icaltimezone *zone)
+{
+	ECalModelPrivate *priv;
+
+	g_return_if_fail (E_IS_CAL_MODEL (model));
+
+	priv = model->priv;
+	if (priv->zone != zone) {
+		e_table_model_pre_change (E_TABLE_MODEL (model));
+		priv->zone = zone;
+
+		/* the timezone affects the times shown for date fields,
+		   so we need to redisplay everything */
+		e_table_model_changed (E_TABLE_MODEL (model));
+	}
+}
+
 static void
 query_obj_updated_cb (CalQuery *query, const char *uid,
 		      gboolean query_in_progress,
@@ -826,4 +858,21 @@ void
 e_cal_model_remove_all_clients (ECalModel *model)
 {
 	g_return_if_fail (E_IS_CAL_MODEL (model));
+}
+
+/**
+ * e_cal_model_get_component_at
+ */
+ECalModelComponent *
+e_cal_model_get_component_at (ECalModel *model, gint row)
+{
+	ECalModelPrivate *priv;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	priv = model->priv;
+
+	g_return_val_if_fail (row >= 0 && row < priv->objects->len, NULL);
+
+	return g_ptr_array_index (priv->objects, row);
 }
