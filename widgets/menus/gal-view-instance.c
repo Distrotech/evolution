@@ -51,7 +51,7 @@ static const EPopupMenu separator = E_POPUP_SEPARATOR;
 static const EPopupMenu terminator = E_POPUP_TERMINATOR;
 
 
-#define d(x) x
+#define d(x)
 
 enum {
 	DISPLAY_VIEW,
@@ -154,13 +154,8 @@ gal_view_instance_destroy (GtkObject *object)
 {
 	GalViewInstance *instance = GAL_VIEW_INSTANCE(object);
 
-	if (instance->collection) {
-		if (instance->collection_changed_id) {
-			gtk_signal_disconnect (GTK_OBJECT (instance->collection),
-					       instance->collection_changed_id);
-		}
+	if (instance->collection)
 		gtk_object_unref (GTK_OBJECT (instance->collection));
-	}
 
 	g_free (instance->instance_id);
 	g_free (instance->custom_filename);
@@ -256,17 +251,6 @@ gal_view_instance_get_type (void)
 }
 
 static void
-collection_changed (GalView *view, GalViewInstance *instance)
-{
-	if (instance->current_id) {
-		char *view_id = instance->current_id;
-		instance->current_id = NULL;
-		gal_view_instance_set_current_view_id (instance, view_id);
-		g_free (view_id);
-	}
-}
-
-static void
 load_current_view (GalViewInstance *instance)
 {
 	xmlDoc *doc;
@@ -351,9 +335,7 @@ gal_view_instance_construct (GalViewInstance *instance, GalViewCollection *colle
 	instance->collection = collection;
 	if (collection)
 		gtk_object_ref (GTK_OBJECT (collection));
-	instance->collection_changed_id =
-		gtk_signal_connect (GTK_OBJECT (collection), "changed",
-				    GTK_SIGNAL_FUNC (collection_changed), instance);
+
 	instance->instance_id = g_strdup (instance_id);
 
 	safe_id = g_strdup (instance->instance_id);
