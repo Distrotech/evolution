@@ -39,6 +39,7 @@
 #include "folder-browser.h"
 #include "mail.h"
 #include "mail-config.h"
+#include "mail-config-factory.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
 #include "mail-offline-handler.h"
@@ -703,11 +704,13 @@ owner_set_cb (EvolutionShellComponent *shell_component,
 	const GSList *news;
 #endif
 	int i;
-	
+
 	/* FIXME: should we ref this? */
 	global_shell_client = shell_client;
 	gtk_signal_connect (GTK_OBJECT (shell_client), "destroy",
 			    shell_client_destroy, NULL);
+	
+	mail_config_register_factory (bonobo_object_corba_objref (BONOBO_OBJECT (shell_client)));
 	
 	evolution_dir = g_strdup (evolution_homedir);
 	mail_session_init ();

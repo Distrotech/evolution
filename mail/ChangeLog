@@ -1,3 +1,11 @@
+2002-03-26  Ettore Perazzoli  <ettore@ximian.com>
+
+	* component-factory.c (owner_set_cb): Call
+	`mail_config_register_factory' here.
+
+	* GNOME_Evolution_Mail.oaf.in: Clean up and fix repo_ids in
+	GNOME_Evolution_Mail_ConfigControlFactory.
+
 2002-03-24  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-send-recv.c: Remove member current_folder from struct
