@@ -217,8 +217,6 @@ evolution_SOURCES =				\
 	e-shell-window.h			\
 	e-shell.c				\
 	e-shell.h				\
-	e-splash.c				\
-	e-splash.h				\
 	e-task-bar.c				\
 	e-task-bar.h				\
 	e-task-widget.c				\
