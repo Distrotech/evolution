@@ -90,6 +90,24 @@
 #define r(x)			/* run debug */
 #define d(x)			/* general debug */
 
+struct _ESExpAnd {
+	struct _ESExpAnd *next;
+
+	struct _ESExpResult *result;
+};
+
+struct _ESExpPrivate {
+	/* private stuff */
+	jmp_buf failenv;
+	char *error;
+
+	/* TODO: may also need a pool allocator for term strings, so we dont lose them
+	   in error conditions? */
+	struct _EMemChunk *term_chunks;
+	struct _EMemChunk *result_chunks;
+
+	struct _ESExpAnd *and;	/* stack of and operations */
+};
 
 static struct _ESExpTerm * parse_list(ESExp *f, int gotbrace);
 static struct _ESExpTerm * parse_value(ESExp *f);
@@ -137,32 +155,32 @@ static GScannerConfig scanner_config =
 	FALSE			/* scope_0_fallback */,
 };
 
-/* jumps back to the caller of f->failenv, only to be called from inside a callback */
+/* jumps back to the caller of f->priv->failenv, only to be called from inside a callback */
 void
 e_sexp_fatal_error(struct _ESExp *f, char *why, ...)
 {
 	va_list args;
 
-	if (f->error)
-		g_free(f->error);
+	if (f->priv->error)
+		g_free(f->priv->error);
 	
 	va_start(args, why);
-	f->error = g_strdup_vprintf(why, args);
+	f->priv->error = g_strdup_vprintf(why, args);
 	va_end(args);
 
-	longjmp(f->failenv, 1);
+	longjmp(f->priv->failenv, 1);
 }
 
 const char *
 e_sexp_error(struct _ESExp *f)
 {
-	return f->error;
+	return f->priv->error;
 }
 
 struct _ESExpResult *
 e_sexp_result_new(struct _ESExp *f, int type)
 {
-	struct _ESExpResult *r = e_memchunk_alloc0(f->result_chunks);
+	struct _ESExpResult *r = e_memchunk_alloc0(f->priv->result_chunks);
 	r->type = type;
 	return r;
 }
@@ -189,7 +207,7 @@ e_sexp_result_free(struct _ESExp *f, struct _ESExpResult *t)
 	default:
 		g_assert_not_reached();
 	}
-	e_memchunk_free(f->result_chunks, t);
+	e_memchunk_free(f->priv->result_chunks, t);
 }
 
 /* used in normal functions if they have to abort, and free their arguments */
@@ -237,15 +255,21 @@ term_eval_and(struct _ESExp *f, int argc, struct _ESExpTerm **argv, void *data)
 	int type=-1;
 	int bool = TRUE;
 	int i;
-	
+	struct _ESExpAnd *and = NULL;
+
 	r(printf("( and\n"));
 
 	r = e_sexp_result_new(f, ESEXP_RES_UNDEFINED);
 	
 	for (i=0;bool && i<argc;i++) {
 		r1 = e_sexp_term_eval(f, argv[i]);
-		if (type == -1)
+		if (type == -1) {
+			and = g_malloc(sizeof(*and));
+			and->next = f->priv->and;
+			and->result = r1;
+			f->priv->and = and;
 			type = r1->type;
+		}
 		if (type != r1->type) {
 			e_sexp_result_free(f, r);
 			e_sexp_result_free(f, r1);
@@ -746,7 +770,7 @@ parse_dump_term(struct _ESExpTerm *t, int depth)
 static struct _ESExpTerm *
 parse_term_new(struct _ESExp *f, int type)
 {
-	struct _ESExpTerm *s = e_memchunk_alloc0(f->term_chunks);
+	struct _ESExpTerm *s = e_memchunk_alloc0(f->priv->term_chunks);
 	s->type = type;
 	return s;
 }
@@ -782,7 +806,7 @@ parse_term_free(struct _ESExp *f, struct _ESExpTerm *t)
 	default:
 		printf("parse_term_free: unknown type: %d\n", t->type);
 	}
-	e_memchunk_free(f->term_chunks, t);
+	e_memchunk_free(f->priv->term_chunks, t);
 }
 
 static struct _ESExpTerm **
@@ -994,8 +1018,8 @@ e_sexp_finalise(void *o)
 		s->tree = NULL;
 	}
 
-	e_memchunk_destroy(s->term_chunks);
-	e_memchunk_destroy(s->result_chunks);
+	e_memchunk_destroy(s->priv->term_chunks);
+	e_memchunk_destroy(s->priv->result_chunks);
 
 	g_scanner_scope_foreach_symbol(s->scanner, 0, free_symbol, 0);
 	g_scanner_destroy(s->scanner);
@@ -1011,8 +1035,6 @@ e_sexp_init (ESExp *s)
 	int i;
 
 	s->scanner = g_scanner_new(&scanner_config);
-	s->term_chunks = e_memchunk_new(16, sizeof(struct _ESExpTerm));
-	s->result_chunks = e_memchunk_new(16, sizeof(struct _ESExpResult));
 
 	/* load in builtin symbols? */
 	for(i=0;i<sizeof(symbols)/sizeof(symbols[0]);i++) {
@@ -1026,6 +1048,10 @@ e_sexp_init (ESExp *s)
 #ifndef E_SEXP_IS_GTK_OBJECT
 	s->refcount = 1;
 #endif
+	s->priv = g_malloc0(sizeof(*s->priv));
+
+	s->priv->term_chunks = e_memchunk_new(16, sizeof(struct _ESExpTerm));
+	s->priv->result_chunks = e_memchunk_new(16, sizeof(struct _ESExpResult));
 }
 
 #ifdef E_SEXP_IS_GTK_OBJECT
@@ -1178,8 +1204,8 @@ e_sexp_parse(ESExp *f)
 {
 	g_return_val_if_fail(FILTER_IS_SEXP(f), -1);
 
-	if (setjmp(f->failenv)) {
-		g_warning("Error in parsing: %s", f->error);
+	if (setjmp(f->priv->failenv)) {
+		g_warning("Error in parsing: %s", f->priv->error);
 		return -1;
 	}
 
@@ -1198,8 +1224,8 @@ e_sexp_eval(ESExp *f)
 	g_return_val_if_fail(FILTER_IS_SEXP(f), NULL);
 	g_return_val_if_fail(f->tree != NULL, NULL);
 
-	if (setjmp(f->failenv)) {
-		g_warning("Error in execution: %s", f->error);
+	if (setjmp(f->priv->failenv)) {
+		g_warning("Error in execution: %s", f->priv->error);
 		return NULL;
 	}
 
