@@ -1,3 +1,8 @@
+1999-10-19  Russell Steinthal  <rms39@columbia.edu>
+
+	* gnome-cal.c (calendar_notify): Use aalarm.trigger and
+	aalarm.offset for audio alarms, not dalarm values; fixes bug #2561
+
 1999-10-18  Martin Norbäck  <norpan@bigfoot.com>
 
 	* gncal.desktop: Added swedish translation
