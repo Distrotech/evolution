@@ -45,6 +45,7 @@
 #include "em-migrate.h"
 
 #include "widgets/misc/e-info-label.h"
+#include "widgets/misc/e-error.h"
 
 #include "filter/rule-context.h"
 #include "mail-config.h"
@@ -68,7 +69,6 @@
 #include <gtk/gtklabel.h>
 
 #include <e-util/e-mktemp.h>
-#include <e-util/e-dialog-utils.h>
 
 #include <gal/e-table/e-tree.h>
 #include <gal/e-table/e-tree-memory.h>
@@ -572,20 +572,9 @@ impl_requestQuit(PortableServer_Servant servant, CORBA_Environment *ev)
 	folder = mc_default_folders[MAIL_COMPONENT_FOLDER_OUTBOX].folder;
 	if (folder != NULL
 	    && camel_folder_get_message_count(folder) != 0
-	    && camel_session_is_online(session)) {
-		GtkWidget *dialog;
-		guint resp;
-
-		/* FIXME: HIG? */
-		dialog = gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_INFO, GTK_BUTTONS_YES_NO,
-						_("You have unsent messages, do you wish to quit anyway?"));
-		gtk_dialog_set_default_response((GtkDialog *)dialog, GTK_RESPONSE_NO);
-		resp = gtk_dialog_run((GtkDialog *)dialog);
-		gtk_widget_destroy(dialog);
-
-		if (resp != GTK_RESPONSE_YES)
-			return FALSE;
-	}
+	    && camel_session_is_online(session)
+	    && e_error_run(NULL, "mail:exit-unsaved", NULL) != GTK_RESPONSE_YES)
+		return FALSE;
 
 	return TRUE;
 }

@@ -91,6 +91,7 @@
 #include "e-util/e-signature-list.h"
 #include "widgets/misc/e-charset-picker.h"
 #include "widgets/misc/e-expander.h"
+#include "widgets/misc/e-error.h"
 
 #include <camel/camel-session.h>
 #include <camel/camel-charset-map.h>
@@ -1433,6 +1434,7 @@ autosave_manager_query_load_orphans (AutosaveManager *am, GtkWindow *parent)
 	closedir (dir);
 	
 	if (match != NULL) {
+#if 0
 		GtkWidget *dialog;
 
 		dialog = gtk_message_dialog_new (parent,
@@ -1443,6 +1445,9 @@ autosave_manager_query_load_orphans (AutosaveManager *am, GtkWindow *parent)
 		gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_YES);
 		load = gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_YES;
 		gtk_widget_destroy (dialog);
+#else
+		load = e_error_run(parent, "mail-composer:recover-autosave", NULL) == GTK_RESPONSE_YES;
+#endif
 	}
 	
 	while (match != NULL) {
@@ -1598,7 +1603,8 @@ do_exit (EMsgComposer *composer)
 	gdk_window_raise (GTK_WIDGET (composer)->window);
 	
 	subject = e_msg_composer_hdrs_get_subject (E_MSG_COMPOSER_HDRS (composer->hdrs));
-	
+
+#if 0	
 	dialog = gtk_message_dialog_new (GTK_WINDOW (composer),
 					 GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
 					 GTK_MESSAGE_ERROR, GTK_BUTTONS_NONE,
@@ -1615,7 +1621,10 @@ do_exit (EMsgComposer *composer)
 	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_YES);
 	button = gtk_dialog_run (GTK_DIALOG (dialog));
 	gtk_widget_destroy (dialog);
-	
+#else
+	button = e_error_run((GtkWindow *)composer, "mail-composer:exit-unsaved",
+			     subject && subject[0] ? subject : _("Untitled Message"));
+#endif
 	switch (button) {
 	case GTK_RESPONSE_YES:
 		/* Save */

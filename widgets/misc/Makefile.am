@@ -2,6 +2,7 @@ INCLUDES =								\
 	-I$(top_srcdir)							\
 	-I$(top_srcdir)/a11y/widgets/					\
 	-DMAP_DIR=\""$(imagesdir)"\"					\
+	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"			\
 	-DG_LOG_DOMAIN=__FILE__						\
 	$(SOURCE_SEL_CFLAGS)
 
@@ -24,6 +25,7 @@ widgetsinclude_HEADERS =			\
 	e-combo-button.h			\
 	e-dateedit.h				\
 	e-dropdown-button.h			\
+	e-error.h				\
 	e-expander.h				\
 	e-image-chooser.h			\
 	e-info-label.h				\
@@ -53,6 +55,7 @@ libemiscwidgets_la_SOURCES =			\
 	e-combo-button.c			\
 	e-dateedit.c				\
 	e-dropdown-button.c			\
+	e-error.c				\
 	e-expander.c				\
 	e-image-chooser.c			\
 	e-info-label.c				\
