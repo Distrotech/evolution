@@ -1,3 +1,7 @@
+2003-10-17  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* conduits/calendar/Makefile.am: Fixed for libical build changes.
+
 2003-10-17  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-view.c (on_print): call
@@ -53,6 +57,7 @@
 	* gui/dialogs/new-calendar.c (create_new_source_with_group): use
 	e_mkdir_hier instead of mkdir.
 
+>>>>>>> 1.1833.2.51
 2003-10-16  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/calendar-component.c (calendar_component_init): if no groups
