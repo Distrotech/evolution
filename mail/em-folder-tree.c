@@ -368,7 +368,7 @@ em_folder_tree_finalize (GObject *obj)
 	g_hash_table_foreach (emft->priv->store_hash, store_hash_free, NULL);
 	g_hash_table_destroy (emft->priv->store_hash);
 	
-	g_hash_table_foreach (emft->priv->uri_hash, path_hash_free, NULL);
+	g_hash_table_foreach (emft->priv->uri_hash, uri_hash_free, NULL);
 	g_hash_table_destroy (emft->priv->uri_hash);
 	
 	g_free (emft->priv->selected_uri);
@@ -1300,7 +1300,7 @@ remove_folders (EMFolderTree *emft, GtkTreeModel *model, struct _emft_store_info
 	gtk_tree_store_remove ((GtkTreeStore *) model, toplevel);
 	
 	if (is_store) {
-		g_hash_table_remove (priv->store_hash, store);
+		g_hash_table_remove (priv->store_hash, si->store);
 		store_info_free (si);
 	}
 }
@@ -1414,11 +1414,12 @@ em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char *dis
 			    -1);
 	
 	/* listen to store events */
-	si->created_id = camel_object_hook_event (store, "folder_created", folder_created_cb, emft);
-	si->deleted_id = camel_object_hook_event (store, "folder_deleted", folder_deleted_cb, emft);
-	si->renamed_id = camel_object_hook_event (store, "folder_renamed", folder_renamed_cb, emft);
-	si->subscribed_id = camel_object_hook_event (store, "folder_subscribed", folder_subscribed_cb, emft);
-	si->unsubscribed_id = camel_object_hook_event (store, "folder_unsubscribed", folder_unsubscribed_cb, emft);
+#define CAMEL_CALLBACK(func) ((CamelObjectEventHookFunc) func)
+	si->created_id = camel_object_hook_event (store, "folder_created", CAMEL_CALLBACK (folder_created_cb), emft);
+	si->deleted_id = camel_object_hook_event (store, "folder_deleted", CAMEL_CALLBACK (folder_deleted_cb), emft);
+	si->renamed_id = camel_object_hook_event (store, "folder_renamed", CAMEL_CALLBACK (folder_renamed_cb), emft);
+	si->subscribed_id = camel_object_hook_event (store, "folder_subscribed", CAMEL_CALLBACK (folder_subscribed_cb), emft);
+	si->unsubscribed_id = camel_object_hook_event (store, "folder_unsubscribed", CAMEL_CALLBACK (folder_unsubscribed_cb), emft);
 }
 
 
@@ -1437,7 +1438,7 @@ em_folder_tree_remove_store (EMFolderTree *emft, CamelStore *store)
 	model = gtk_tree_view_get_model (priv->treeview);
 	
 	if (!(si = g_hash_table_lookup (priv->store_hash, store))) {
-		g_warning ("the store `%s' is not in the folder tree", display_name);
+		g_warning ("the store `%s' is not in the folder tree", si->display_name);
 		
 		return;
 	}
