@@ -124,13 +124,13 @@ add_storage (MailComponent *component,
 	EStorage *storage;
 	EFolder *root_folder;
 
-	camel_object_ref (CAMEL_OBJECT (store));
-	g_hash_table_insert (component->priv->storages_hash, store, storage);
-
 	root_folder = e_folder_new (name, "noselect", "");
 	storage = e_storage_new (name, root_folder);
 	/* EPFIXME? */
 	/* e_storage_declare_has_subfolders (storage, "/", _("Connecting...")); */
+
+	camel_object_ref (CAMEL_OBJECT (store));
+	g_hash_table_insert (component->priv->storages_hash, store, storage);
 
 	g_signal_connect(storage, "async_open_folder",
 			 G_CALLBACK (storage_async_open_folder_callback), store);
@@ -803,6 +803,12 @@ mail_component_get_folder_from_evomail_uri (MailComponent *component,
 	uid = g_strndup (p, q - p);
 	folder_name = q + 1;
 
+	/* since we have no explicit account for 'local' folders, make one up */
+	if (strcmp(uid, "local") == 0) {
+		g_free(uid);
+		return camel_store_get_folder(component->priv->local_store, folder_name, flags, ex);
+	}
+
 	accounts = mail_config_get_accounts ();
 	iter = e_list_get_iterator ((EList *) accounts);
 	while (e_iterator_is_valid (iter)) {
@@ -841,6 +847,7 @@ mail_component_evomail_uri_from_folder (MailComponent *component,
 	EAccount *account;
 	char *service_url;
 	char *evomail_uri;
+	const char *uid;
 
 	if (store == NULL)
 		return NULL;
@@ -849,11 +856,16 @@ mail_component_evomail_uri_from_folder (MailComponent *component,
 	account = mail_config_get_account_by_source_url (service_url);
 
 	if (account == NULL) {
-		g_free (service_url);
-		return NULL;
+		/* since we have no explicit account for 'local' folders, make one up */
+		/* TODO: check the folder is really a local one, folder->parent_store == local_store? */
+		uid = "local";
+		/*g_free (service_url);
+		return NULL;*/
+	} else {
+		uid = account->uid;
 	}
 
-	evomail_uri = g_strconcat ("evomail:///", account->uid, "/", camel_folder_get_full_name (folder), NULL);
+	evomail_uri = g_strconcat ("evomail:///", uid, "/", camel_folder_get_full_name (folder), NULL);
 	g_free (service_url);
 
 	return evomail_uri;

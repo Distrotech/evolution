@@ -1,5 +1,14 @@
 2003-10-02  Not Zed  <NotZed@Ximian.com>
 
+	* mail-component.c (add_storage): Add the storage to the hash
+	after we've initialised it.
+	(mail_component_evomail_uri_from_folder): hardcode "local" account
+	pseudo-id for local folders.
+	(mail_component_get_folder_from_evomail_uri): handle the "local"
+	account case.
+
+2003-10-02  Not Zed  <NotZed@Ximian.com>
+
 	* mail-component.c (setup_local_store): use mbox:/path rather than
 	mbox:///path - the mbox code is 'wrong', but this is easier to
 	fix.  fixes local unread counts.  maybe the provider url-compare
