@@ -1,4 +1,208 @@
+2000-07-26  Peter Williams  <peterw@helixcode.com>
+
+	* gui/calendar-model.c: compile fix for Solaris
+	(works under Linux, too; don't know about others)
+
+	* this is a test of whether CVS merge does what I
+	think it will do.
+	
+2000-07-26  Federico Mena Quintero  <federico@helixcode.com>
+
+	OK, it seems that we have all the interesting properties for
+	single-user calendars now.  RFC 2445 can bite me.
+
+	* cal-util/cal-component.c (scan_property): Handle the RRULE
+	property.  Yay!.
+	(scan_recur): Likewise, yow!
+	(get_recur_list): Likewise, yeehaw!
+	(get_recur_list): Likewise, honk honk!
+	(set_recur_list): Likewise, booooga booooga!
+	(cal_component_get_rrule_list): Likewise, squeek squeek!
+	(cal_component_set_rrule_list): That's it, I ran out of sounds.
+	(cal_component_free_recur_list): Likewise.
+	(scan_property): Handle the EXRULE property.
+	(free_icalcomponent): Likewise.
+	(cal_component_get_exrule_list): Likewise.
+	(cal_component_set_exrule_list): Likewise.
+	(set_period_list): Oops, free the old properties as well as
+	removing them.
+	(set_text_list): Ditto.
+	(cal_component_set_exdate_list): Ditto.
+
+	* cal-util/cal-component.c: Put all the functions used to free
+	returned values all together.
+	(cal_component_set_rdate_list): Oops, mark SEQUENCE property to be
+	incremented since the RFC requires it.
+	(scan_property): Handle the EXDATE property.
+	(scan_exdate): Likewise.
+	(free_icalcomponent): Likewise.
+	(cal_component_get_exdate_list): Likewise.
+	(cal_component_set_exdate_list): Likewise.
+	(cal_component_free_exdate_list): Likewise.
+
+2000-07-26  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* gui/Makefile.am: Fixed a typo
+
+2000-07-26  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* gui/Makefile.am: Added a few xpm files to the EXTRA DIST section
+
+2000-07-25  Federico Mena Quintero  <federico@helixcode.com>
+
+	* cal-util/cal-component.c (cal_component_free_period_list): New function.
+	(scan_property): Handle the RDATE property.
+	(scan_period): Likewise.
+	(free_icalcomponent): Likewise.
+	(get_period_list): Likewise.
+	(set_period_list): Likewise.
+	(cal_component_get_rdate_list): Likewise.
+	(cal_component_set_rdate_list): Likewise.
+	(scan_text): Simplify a bit since we only handle the ALTREP
+	parameter; there is no need to iterate over all parameters.
+	(scan_datetime): Simplify; just handle the TZID parameter.
+	(scan_summary): Simplify; just handle the ALTREP parameter.
+	(cal_component_get_as_string): New function.
+
+	* idl/evolution-calendar.idl (CalObjType): Removed the TYPE_OTHER;
+	now we only expose the types of objects we know about.
+
+	* cal-util/cal-util.h (CalObjType): Likewise.
+
+	* cal-client/cal-client.c (cal_client_get_n_objects): Likewise.
+	(cal_client_get_uids): Likewise.
+
+	* conduits/calendar/calendar-conduit.c (get_calendar_objects): Likewise.
+	(check_for_slow_setting): Likewise.
+
+	* pcs/cal-backend-imc.c (count_objects): Likewise.
+	(build_uids_list): Likewise.
+
+	* pcs/cal.c (Cal_get_uids): Likewise.
+	(Cal_get_n_objects): Likewise.
+
+2000-07-25  Damon Chaplin  <damon@helixcode.com>
+
+	* gui/e-calendar-table.[hc]: new ECalendarTable to show an ETable view
+	for Todo/Event items.
+
+	* gui/task-assigned-to.xpm: 
+	* gui/task-recurring.xpm: 
+	* gui/task-assigned.xpm: 
+	* gui/task.xpm: new pixmaps (all the same at present) to go in the
+	icon column of the ETable.
+
+	* gui/event-editor.c: hid the silly 'Calendar' labels on the
+	GnomeDateEdits and hid the times when you select 'All day event'.
+	Also adjusted the time_t's so that when an all day event finishes on
+	say midnight 13th May, we show 12th May in the dialog, since it
+	implicitly includes all of that day up to midnight.
+
+	* gui/dialogs/task-editor-dialog.glade: 
+	* gui/dialogs/task-editor.[hc]: unfinished dialog to edit tasks.
+
+	* gui/gncal-todo.c: temporary hack so that we can use the simple dialog
+	with our new ETable.
+
+2000-07-23  Damon Chaplin  <damon@helixcode.com>
+
+	* cal-util/calobj.h: added a few more fields.
+
+	* cal-util/calobj.c (ical_object_create_from_vobject): check for a
+	NULL return from vObjectUStringZValue for URL property to avoid SEGV.
+	For some reason an empty 'URL:' property appears and causes trouble.
+	
+2000-07-20  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* gui/component-factory.c (factory_fn): Update for the new
+	`evolution_shell_component_new()' arg.
+
+2000-07-19  Federico Mena Quintero  <federico@helixcode.com>
+
+	* cal-util/cal-component.c (cal_component_alarm_set_trigger):
+	Finish filling the trigger.  What a pain, again.
+	(cal_component_alarm_free_trigger): Implemented.
+
+2000-07-19  Fatih Demir	<kabalak@gmx.net>
+	
+	* conduits/calendar/calendar-conduit-control-applet.desktop:
+	
+	* conduits/todo/todo-conduit-control-applet.desktop:
+		Added the Turkish desktop entries.
+
+2000-07-18  Federico Mena Quintero  <federico@helixcode.com>
+
+	* cal-util/cal-component.c (cal_component_alarm_free): Free the
+	icalcomponent if this is an unattached alarm.
+	(scan_alarm_property): Handle the TRIGGER property.
+	(cal_component_alarm_get_trigger): Ditto.  Royal pain.
+	(cal_component_alarm_set_trigger): Ditto.  Less pain.
+
+2000-07-17  Federico Mena Quintero  <federico@helixcode.com>
+
+	* cal-client/cal-client.c (cal_client_get_object): Fixed inline
+	docs.
+	(cal_client_new): Ditto.
+	(cal_client_get_n_objects): Added inline docs.
+
+2000-07-14  Federico Mena Quintero  <federico@helixcode.com>
+
+	* cal-util/cal-component.c (CalComponentAlarm): New internal
+	represntation for alarm components.  We really don't map them to a
+	CalComponent because it is more convenient to handle them as
+	"child" structures.
+	(make_alarm): New function to create a CalComponentAlarm from an
+	icalcomponent representing a VALARM.
+	(scan_alarm_property): New function to scan a property from an
+	alarm component.  We support ACTION.
+	(cal_component_get_first_alarm): New function to start an iterator
+	over the alarms in a calendar component.
+	(cal_component_alarm_get_action): New function.
+	(cal_component_alarm_set_action): New function.
+
+2000-07-13  Seth Alves  <alves@hungry.com>
+
+	* conduits/todo/todo-conduit.c: conduit based on the calendar conduit.
+	this conduit syncs a pilot's ToDoDB database to wombat's list of "todo"
+	events.
+
+	* gui/gncal-todo.c (simple_todo_editor): set todo's priority control
+	based on value from ical object during edit.
+
+2000-07-12  Federico Mena Quintero  <federico@helixcode.com>
+
+	* gui/print.c: Revert Michael's GnomeFont patch until the
+	gnome-print API stabilizes.
+
+2000-07-12  Michael Meeks  <michael@helixcode.com>
+
+	* gui/print.c (titled_box, print_text, print_month_small),
+	(bound_text): GnomeFont update.
+
+2000-07-12  Seth Alves  <alves@hungry.com>
+
+	* conduits/calendar/calendar-conduit.c: fixed various problems
+
+	* cal-client/Makefile.am: build a static version of the library
+	to link with the conduits
+
+	* cal-util/Makefile.am: same
+
 2000-07-11  Federico Mena Quintero  <federico@helixcode.com>
+
+	* cal-util/cal-component.c (scan_property): Handle the COMPLETED
+	property.
+	(free_icalcomponent): Ditto.
+	(cal_component_get_completed): Ditto.
+	(cal_component_set_completed): Ditto.
+	(scan_property): Handle the TRANSPARENCY property.
+	(free_icalcomponent): Ditto.
+	(cal_component_get_transparency): Ditto.
+	(cal_component_set_transparency): Ditto.
+	(scan_property): Handle the URL property.
+	(free_icalcomponent): Ditto.
+	(cal_component_get_url): Ditto.
+	(cal_component_set_url): Ditto.
 
 	* pcs/cal-factory.c (queue_load_create_job): Removed unneeded
 	check for the URI.
