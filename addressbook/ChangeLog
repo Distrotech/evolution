@@ -1,5 +1,28 @@
 2003-08-06  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-backend-file.c
+	(pas_backend_file_book_view_copy): nuke.
+	(pas_backend_file_book_view_free): same.
+	(view_destroy): same.
+	(pas_backend_file_changes): #if notyet
+	(do_create): e-card -> e-contact.
+	(pas_backend_file_process_create_card): remove view handling from
+	here.
+	(pas_backend_file_process_remove_cards): same.
+	(pas_backend_file_process_modify_card): convert to e-contact, and
+	remove view handling.
+	(pas_backend_file_get_book_view): nuke.
+	(pas_backend_file_process_get_supported_fields): e-card-simple ->
+	e-contact.
+	(pas_backend_file_upgrade_db): e-card -> e-contact.
+	(pas_backend_file_cancel_operation): implement, just return
+	CouldNotCancel.
+	(pas_backend_file_class_init): assign cancel_operation, and remove
+	get_book_view assignment.
+	(pas_backend_file_init): remove book_views assignment.
+
+2003-08-06  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-backend-vcf.c (pas_backend_vcf_book_view_copy):
 	nuke.
 	(pas_backend_vcf_book_view_free): same.

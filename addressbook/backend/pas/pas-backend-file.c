@@ -32,7 +32,7 @@
 #include <gal/util/e-util.h>
 #include <gal/widgets/e-unicode.h>
 
-#include <ebook/e-card-simple.h>
+#include <ebook/e-contact.h>
 #include <e-util/e-dbhash.h>
 #include <e-util/e-db3-utils.h>
 #include <libgnome/gnome-i18n.h>
@@ -44,7 +44,6 @@
 #define SUMMARY_FLUSH_TIMEOUT 5000
 
 static PASBackendSyncClass *pas_backend_file_parent_class;
-typedef struct _PASBackendFileBookView PASBackendFileBookView;
 typedef struct _PASBackendFileSearchContext PASBackendFileSearchContext;
 typedef struct _PasBackendFileChangeContext PASBackendFileChangeContext;
 
@@ -52,15 +51,7 @@ struct _PASBackendFilePrivate {
 	char     *uri;
 	char     *filename;
 	DB       *file_db;
-	EList    *book_views;
 	PASBackendSummary *summary;
-};
-
-struct _PASBackendFileBookView {
-	PASBookView                 *book_view;
-	gchar                       *search;
-	gchar                       *change_id;
-	PASBackendFileChangeContext *change_context;
 };
 
 struct _PasBackendFileChangeContext {
@@ -155,82 +146,11 @@ do_summary_query (PASBackendFile *bf,
 
 	g_ptr_array_free (ids, TRUE);
 
-	pas_book_view_notify_complete (view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-}
-
-static PASBackendFileBookView *
-pas_backend_file_book_view_copy(const PASBackendFileBookView *book_view, void *closure)
-{
-	PASBackendFileBookView *new_book_view;
-	new_book_view = g_new (PASBackendFileBookView, 1);
-	new_book_view->book_view = book_view->book_view;
-
-	new_book_view->search = g_strdup(book_view->search);
-	
-	new_book_view->change_id = g_strdup(book_view->change_id);
-	if (book_view->change_context) {
-		new_book_view->change_context = g_new(PASBackendFileChangeContext, 1);
-		new_book_view->change_context->db = book_view->change_context->db;
-		new_book_view->change_context->add_cards = book_view->change_context->add_cards;
-		new_book_view->change_context->add_ids = book_view->change_context->add_ids;
-		new_book_view->change_context->mod_cards = book_view->change_context->mod_cards;
-		new_book_view->change_context->mod_ids = book_view->change_context->mod_ids;
-		new_book_view->change_context->del_ids = book_view->change_context->del_ids;
-	} else
-		new_book_view->change_context = NULL;
-	
-	return new_book_view;
-}
-
-static void
-pas_backend_file_book_view_free(PASBackendFileBookView *book_view, void *closure)
-{
-	g_free(book_view->search);
-
-	g_free(book_view->change_id);
-	if (book_view->change_context) {
-		g_list_foreach (book_view->change_context->add_cards, (GFunc)g_free, NULL);
-		g_list_foreach (book_view->change_context->add_ids, (GFunc)g_free, NULL);
-		g_list_foreach (book_view->change_context->mod_cards, (GFunc)g_free, NULL);
-		g_list_foreach (book_view->change_context->mod_ids, (GFunc)g_free, NULL);
-		g_list_foreach (book_view->change_context->del_ids, (GFunc)g_free, NULL);
-		g_list_free (book_view->change_context->add_cards);
-		g_list_free (book_view->change_context->add_ids);
-		g_list_free (book_view->change_context->mod_cards);
-		g_list_free (book_view->change_context->mod_ids);
-		g_list_free (book_view->change_context->del_ids);
-	}
-	g_free(book_view->change_context);
-
-	g_free(book_view);
-}
-
-static void
-view_destroy(gpointer data, GObject *where_object_was)
-{
-	PASBook           *book = (PASBook *)data;
-	PASBackendFile    *bf;
-	EIterator         *iterator;
-	gboolean success = FALSE;
-
-	bf = PAS_BACKEND_FILE(pas_book_get_backend(book));
-	for (iterator = e_list_get_iterator(bf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-		const PASBackendFileBookView *view = e_iterator_get(iterator);
-		if (view->book_view == (PASBookView*)where_object_was) {
-			e_iterator_delete(iterator);
-			success = TRUE;
-			break;
-		}
-	}
-	if (!success)
-		g_warning ("Failed to remove from book_views list");
-	g_object_unref(iterator);
-
-	bonobo_object_unref(BONOBO_OBJECT(book));
+	pas_book_view_notify_complete (view, GNOME_Evolution_Addressbook_Success);
 }
 
 static char *
-pas_backend_file_create_unique_id (char *vcard)
+pas_backend_file_create_unique_id (void)
 {
 	/* use a 32 counter and the 32 bit timestamp to make an id.
 	   it's doubtful 2^32 id's will be created in a second, so we
@@ -298,7 +218,7 @@ pas_backend_file_search_timeout (gpointer data)
 		free_search_closure (closure);
 	}
 
-	pas_book_view_notify_complete (closure->view, GNOME_Evolution_Addressbook_BookViewListener_Success);
+	pas_book_view_notify_complete (closure->view, GNOME_Evolution_Addressbook_Success);
 
 	free_search_closure (closure);
 
@@ -363,6 +283,7 @@ pas_backend_file_changes_foreach_key (const char *key, gpointer user_data)
 	}
 }
 
+#if notyet
 static void
 pas_backend_file_changes (PASBackendFile  	      *bf,
 			  PASBook         	      *book,
@@ -404,7 +325,7 @@ pas_backend_file_changes (PASBackendFile  	      *bf,
 			/* don't include the version in the list of cards */
 			if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
 			    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
-				ECard *card;
+				EContact *contact;
 				char *id = id_dbt.data;
 				char *vcard_string;
 				
@@ -412,10 +333,12 @@ pas_backend_file_changes (PASBackendFile  	      *bf,
 				 * and can change without the rest of the
 				 * card changing 
 				 */
-				card = e_card_new (vcard_dbt.data);
+				contact = e_contact_new_from_string (vcard_dbt.data);
+#if notyet
 				g_object_set (card, "last_use", NULL, "use_score", 0.0, NULL);
-				vcard_string = e_card_get_vcard_assume_utf8 (card);
-				g_object_unref (card);
+#endif
+				vcard_string = e_vcard_to_string (E_VCARD (contact));
+				g_object_unref (contact);
 				
 				/* check what type of change has occurred, if any */
 				switch (e_dbhash_compare (ehash, id, vcard_string)) {
@@ -456,7 +379,7 @@ pas_backend_file_changes (PASBackendFile  	      *bf,
 			pas_book_view_notify_remove_1 (view->book_view, id);
 		}
 		
-		pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
+		pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_Success);
 	}
 
 	/* Update the hash */
@@ -486,29 +409,31 @@ pas_backend_file_changes (PASBackendFile  	      *bf,
 	e_dbhash_write (ehash);
   	e_dbhash_destroy (ehash);
 }
+#endif
 
 static char *
 do_create(PASBackendFile  *bf,
-	  char            *vcard_req,
-	  char           **vcard_ptr)
+	  const char      *vcard_req)
 {
 	DB             *db = bf->priv->file_db;
 	DBT            id_dbt, vcard_dbt;
 	int            db_error;
 	char           *id;
-	ECard          *card;
+	EContact       *contact;
 	char           *vcard;
 	char           *ret_val;
 
-	id = pas_backend_file_create_unique_id (vcard_req);
+	id = pas_backend_file_create_unique_id ();
 
 	string_to_dbt (id, &id_dbt);
-	
-	card = e_card_new(vcard_req);
-	e_card_set_id(card, id);
-	vcard = e_card_get_vcard_assume_utf8(card);
+
+	contact = e_contact_new_from_vcard (vcard_req);
+	e_contact_set(contact, E_CONTACT_UID, id);
+	vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 
 	string_to_dbt (vcard, &vcard_dbt);
+
+	g_free (vcard);
 
 	db_error = db->put (db, NULL, &id_dbt, &vcard_dbt, 0);
 
@@ -524,13 +449,7 @@ do_create(PASBackendFile  *bf,
 		ret_val = NULL;
 	}
 
-	g_object_unref(card);
-	card = NULL;
-
-	if (vcard_ptr && ret_val)
-		*vcard_ptr = vcard;
-	else
-		g_free (vcard);
+	g_object_unref(contact);
 
 	return ret_val;
 }
@@ -542,26 +461,11 @@ pas_backend_file_process_create_card (PASBackendSync *backend,
 				      char **id_out)
 {
 	char *id;
-	char *vcard;
-	EIterator *iterator;
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 
-	id = do_create(bf, req->vcard, &vcard);
+	id = do_create(bf, req->vcard);
 	if (id) {
-		for (iterator = e_list_get_iterator(bf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-			const PASBackendFileBookView *view = e_iterator_get(iterator);
-			if (pas_book_view_vcard_matches (view->book_view, vcard)) {
-				bonobo_object_ref (BONOBO_OBJECT (view->book_view));
-				pas_book_view_notify_add_1 (view->book_view, vcard);
-				pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-				bonobo_object_unref (BONOBO_OBJECT (view->book_view));
-			}
-		}
-		g_object_unref(iterator);
-		
-		pas_backend_summary_add_card (bf->priv->summary, vcard);
-
-		g_free(vcard);
+		pas_backend_summary_add_card (bf->priv->summary, req->vcard);
 
 		*id_out = id;
 		return GNOME_Evolution_Addressbook_Success;
@@ -577,17 +481,17 @@ pas_backend_file_process_create_card (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_file_process_remove_cards (PASBackendSync *backend,
 				       PASBook    *book,
-				       PASRemoveCardsRequest *req)
+				       PASRemoveCardsRequest *req,
+				       GList **ids)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
 	DBT            id_dbt, vcard_dbt;
 	int            db_error;
-	EIterator     *iterator;
-	const char    *id;
+	char          *id;
 	GList         *l;
 	GList         *removed_cards = NULL;
-	GNOME_Evolution_Addressbook_BookListenerCallStatus rv = GNOME_Evolution_Addressbook_Success;
+	GNOME_Evolution_Addressbook_CallStatus rv = GNOME_Evolution_Addressbook_Success;
 
 	for (l = req->ids; l; l = l->next) {
 		id = l->data;
@@ -607,7 +511,7 @@ pas_backend_file_process_remove_cards (PASBackendSync *backend,
 			continue;
 		}
 
-		removed_cards = g_list_prepend (removed_cards, e_card_new (vcard_dbt.data));
+		removed_cards = g_list_prepend (removed_cards, id);
 	}
 
 	/* if we actually removed some, try to sync */
@@ -617,32 +521,11 @@ pas_backend_file_process_remove_cards (PASBackendSync *backend,
 			g_warning ("db->sync failed.\n");
 	}
 
-	for (iterator = e_list_get_iterator (bf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-		const PASBackendFileBookView *view = e_iterator_get(iterator);
-		GList *view_removed = NULL;
-		for (l = removed_cards; l; l = l->next) {
-			ECard *removed_card = l->data;
-			char *vcard = e_card_get_vcard (removed_card);
+	*ids = removed_cards;
 
-			if (pas_book_view_vcard_matches (view->book_view, vcard))
-				view_removed = g_list_prepend (view_removed, (char*)e_card_get_id (removed_card));
-
-			g_free (vcard);
-		}
-		if (view_removed) {
-			bonobo_object_ref (BONOBO_OBJECT (view->book_view));
-			pas_book_view_notify_remove (view->book_view, view_removed);
-			pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-			bonobo_object_unref (BONOBO_OBJECT (view->book_view));
-			g_list_free (view_removed);
-		}
-	}
-	g_object_unref(iterator);
-	
 	for (l = removed_cards; l; l = l->next) {
-		ECard *c = l->data;
-		pas_backend_summary_remove_card (bf->priv->summary, e_card_get_id (c));
-		g_object_unref (c);
+		char *id = l->data;
+		pas_backend_summary_remove_card (bf->priv->summary, id);
 	}
 
 	g_list_free (removed_cards);
@@ -653,20 +536,19 @@ pas_backend_file_process_remove_cards (PASBackendSync *backend,
 static PASBackendSyncStatus
 pas_backend_file_process_modify_card (PASBackendSync *backend,
 				      PASBook    *book,
-				      PASModifyCardRequest *req)
+				      PASModifyCardRequest *req,
+				      char **old_vcard)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
 	DBT            id_dbt, vcard_dbt;
 	int            db_error;
-	EIterator     *iterator;
-	ECard         *card;
-	const char    *id, *lookup_id;
-	char          *old_vcard_string;
+	EContact      *contact;
+	char          *id, *lookup_id;
 
 	/* create a new ecard from the request data */
-	card = e_card_new(req->vcard);
-	id = e_card_get_id(card);
+	contact = e_contact_new_from_vcard (req->vcard);
+	id = e_contact_get(contact, E_CONTACT_UID);
 
 	/* This is disgusting, but for a time cards were added with
            ID's that are no longer used (they contained both the uri
@@ -680,6 +562,7 @@ pas_backend_file_process_modify_card (PASBackendSync *backend,
 		lookup_id = id;
 
 	string_to_dbt (lookup_id, &id_dbt);	
+	g_free (id);
 	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
 
 	/* get the old ecard - the one that's presently in the db */
@@ -687,7 +570,7 @@ pas_backend_file_process_modify_card (PASBackendSync *backend,
 	if (0 != db_error)
 		return GNOME_Evolution_Addressbook_CardNotFound;
 
-	old_vcard_string = g_strdup(vcard_dbt.data);
+	*old_vcard = g_strdup(vcard_dbt.data);
 
 	string_to_dbt (req->vcard, &vcard_dbt);	
 
@@ -698,40 +581,11 @@ pas_backend_file_process_modify_card (PASBackendSync *backend,
 		if (db_error != 0)
 			g_warning ("db->sync failed.\n");
 
-		for (iterator = e_list_get_iterator(bf->priv->book_views); e_iterator_is_valid(iterator); e_iterator_next(iterator)) {
-			CORBA_Environment ev;
-			const PASBackendFileBookView *view = e_iterator_get(iterator);
-			gboolean old_match, new_match;
-
-			CORBA_exception_init(&ev);
-
-			bonobo_object_dup_ref(bonobo_object_corba_objref(BONOBO_OBJECT(view->book_view)), &ev);
-
-			old_match = pas_book_view_vcard_matches (view->book_view, old_vcard_string);
-			new_match = pas_book_view_vcard_matches (view->book_view, req->vcard);
-			if (old_match && new_match)
-				pas_book_view_notify_change_1 (view->book_view, req->vcard);
-			else if (new_match)
-				pas_book_view_notify_add_1 (view->book_view, req->vcard);
-			else /* if (old_match) */
-				pas_book_view_notify_remove_1 (view->book_view, id);
-
-			pas_book_view_notify_complete (view->book_view, GNOME_Evolution_Addressbook_BookViewListener_Success);
-
-			bonobo_object_release_unref(bonobo_object_corba_objref(BONOBO_OBJECT(view->book_view)), &ev);
-
-			CORBA_exception_free (&ev);
-		}
-
-		g_object_unref(iterator);
-
 		pas_backend_summary_remove_card (bf->priv->summary, id);
 		pas_backend_summary_add_card (bf->priv->summary, req->vcard);
 	}
 
-	g_free(old_vcard_string);
-
-	g_object_unref(card);
+	g_object_unref(contact);
 
 	if (0 == db_error)
 		return GNOME_Evolution_Addressbook_Success;
@@ -828,60 +682,6 @@ pas_backend_file_process_get_card_list (PASBackendSync *backend,
 		: GNOME_Evolution_Addressbook_Success;
 }
 
-static PASBackendSyncStatus
-pas_backend_file_process_get_book_view (PASBackendSync *backend,
-					PASBook        *book,
-					PASGetBookViewRequest *req,
-					PASBookView   **view_out)
-{
-	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
-	PASBookView       *book_view;
-	PASBackendFileBookView view;
-	PASBackendCardSExp *card_sexp;
-	bonobo_object_ref(BONOBO_OBJECT(book));
-
-	printf ("pas_backend_file_process_get_book_view (%s)\n", req->search);
-
-	card_sexp = pas_backend_card_sexp_new (req->search);
-	if (!card_sexp) {
-		*view_out = NULL;
-		/* XXX this needs to be an invalid query error of some sort*/
-		return GNOME_Evolution_Addressbook_CardNotFound;
-	}
-
-	printf ("pas_book_view_new\n");
-	book_view = pas_book_view_new (PAS_BACKEND (backend), req->listener, req->search, card_sexp);
-	printf ("done\n");
-	if (!book_view) {
-		g_object_unref (card_sexp);
-		*view_out = NULL;
-		
-		/* XXX this needs to be something else */
-		return GNOME_Evolution_Addressbook_CardNotFound;
-	}
-
-	g_object_weak_ref (G_OBJECT (book_view), view_destroy, book);
-
-	view.book_view = book_view;
-	view.search = g_strdup (req->search);
-	view.change_id = NULL;
-	view.change_context = NULL;	
-
-	e_list_append(bf->priv->book_views, &view);
-
-#if 0
-	iterator = e_list_get_iterator(bf->priv->book_views);
-	e_iterator_last(iterator);
-	printf ("calling pas_backend_file_search\n");
-	pas_backend_file_search (bf, book, e_iterator_get(iterator));
-	g_object_unref(iterator);
-#endif
-
-	*view_out = book_view;
-
-	return GNOME_Evolution_Addressbook_Success;
-}
-
 static void
 pas_backend_file_start_book_view (PASBackend  *backend,
 				  PASBookView *book_view)
@@ -934,7 +734,7 @@ static PASBackendSyncStatus
 pas_backend_file_process_get_changes (PASBackendSync *backend,
 				      PASBook    *book,
 				      PASGetChangesRequest *req,
-				      PASBookView **view_out)
+				      GList **changes_out)
 {
 #if notyet
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
@@ -1001,21 +801,12 @@ pas_backend_file_process_get_supported_fields (PASBackendSync *backend,
 					       GList **fields_out)
 {
 	GList *fields = NULL;
-	ECardSimple *simple;
-	ECard *card;
 	int i;
 
-	/* we support everything, so instantiate an e-card, and loop
-           through all fields, adding their ecard_fields. */
-
-	card = e_card_new ("");
-	simple = e_card_simple_new (card);
-
-	for (i = 0; i < E_CARD_SIMPLE_FIELD_LAST; i ++)
-		fields = g_list_append (fields, (char*)e_card_simple_get_ecard_field (simple, i));
-
-	g_object_unref (card);
-	g_object_unref (simple);
+	/* XXX we need a way to say "we support everything", since the
+	   file backend does */
+	for (i = 0; i < E_CONTACT_FIELD_LAST; i ++)
+		fields = g_list_append (fields, (char*)e_contact_field_name (i));		
 
 	*fields_out = fields;
 	return GNOME_Evolution_Addressbook_Success;
@@ -1068,9 +859,9 @@ pas_backend_file_upgrade_db (PASBackendFile *bf, char *old_version)
 		while (db_error == 0) {
 			if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
 			    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
-				ECard *card;
+				EContact *contact;
 
-				card = e_card_new (vcard_dbt.data);
+				contact = e_contact_new_from_vcard (vcard_dbt.data);
 
 				/* the cards we're looking for are
 				   created with a normal id dbt, but
@@ -1078,12 +869,12 @@ pas_backend_file_upgrade_db (PASBackendFile *bf, char *old_version)
 				   to something that doesn't match.
 				   so, we need to modify the card to
 				   have the same id as the the dbt. */
-				if (strcmp (id_dbt.data, e_card_get_id (card))) {
+				if (strcmp (id_dbt.data, e_contact_get_const (contact, E_CONTACT_UID))) {
 					char *vcard;
 
-					e_card_set_id (card, id_dbt.data);
+					e_contact_set (contact, E_CONTACT_UID, id_dbt.data);
 
-					vcard = e_card_get_vcard (card);
+					vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 					string_to_dbt (vcard, &vcard_dbt);
 
 					db_error = db->put (db, NULL,
@@ -1095,7 +886,7 @@ pas_backend_file_upgrade_db (PASBackendFile *bf, char *old_version)
 						card_failed++;
 				}
 
-				g_object_unref (card);
+				g_object_unref (contact);
 			}
 
 			db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
@@ -1158,7 +949,7 @@ ORG:Ximian, Inc.;\n\
 NOTE:Welcome to the Ximian Addressbook.\n\
 END:VCARD"
 
-static GNOME_Evolution_Addressbook_BookListenerCallStatus
+static GNOME_Evolution_Addressbook_CallStatus
 pas_backend_file_load_uri (PASBackend             *backend,
 			   const char             *uri)
 {
@@ -1224,7 +1015,7 @@ pas_backend_file_load_uri (PASBackend             *backend,
 
 				if (g_file_test(create_initial_file, G_FILE_TEST_EXISTS)) {
 					char *id;
-					id = do_create(bf, INITIAL_VCARD, NULL);
+					id = do_create(bf, INITIAL_VCARD);
 					g_free (id);
 				}
 
@@ -1277,6 +1068,12 @@ pas_backend_file_get_static_capabilities (PASBackend *backend)
 	return g_strdup("local,do-initial-query,bulk-removes");
 }
 
+static GNOME_Evolution_Addressbook_CallStatus
+pas_backend_file_cancel_operation (PASBackend *backend, PASBook *book, PASCancelOperationRequest *req)
+{
+	return GNOME_Evolution_Addressbook_CouldNotCancel;
+}
+
 static gboolean
 pas_backend_file_construct (PASBackendFile *backend)
 {
@@ -1316,7 +1113,6 @@ pas_backend_file_dispose (GObject *object)
 	bf = PAS_BACKEND_FILE (object);
 
 	if (bf->priv) {
-		g_object_unref(bf->priv->book_views);
 		if (bf->priv->summary)
 			g_object_unref(bf->priv->summary);
 		g_free (bf->priv->uri);
@@ -1345,13 +1141,13 @@ pas_backend_file_class_init (PASBackendFileClass *klass)
 	backend_class->load_uri                = pas_backend_file_load_uri;
 	backend_class->get_static_capabilities = pas_backend_file_get_static_capabilities;
 	backend_class->start_book_view         = pas_backend_file_start_book_view;
+	backend_class->cancel_operation        = pas_backend_file_cancel_operation;
 
 	sync_class->create_card_sync           = pas_backend_file_process_create_card;
 	sync_class->remove_cards_sync          = pas_backend_file_process_remove_cards;
 	sync_class->modify_card_sync           = pas_backend_file_process_modify_card;
 	sync_class->get_vcard_sync             = pas_backend_file_process_get_vcard;
 	sync_class->get_card_list_sync         = pas_backend_file_process_get_card_list;
-	sync_class->get_book_view_sync         = pas_backend_file_process_get_book_view;
 	sync_class->get_changes_sync           = pas_backend_file_process_get_changes;
 	sync_class->authenticate_user_sync     = pas_backend_file_process_authenticate_user;
 	sync_class->get_supported_fields_sync  = pas_backend_file_process_get_supported_fields;
@@ -1365,7 +1161,6 @@ pas_backend_file_init (PASBackendFile *backend)
 	PASBackendFilePrivate *priv;
 
 	priv             = g_new0 (PASBackendFilePrivate, 1);
-	priv->book_views = e_list_new((EListCopyFunc) pas_backend_file_book_view_copy, (EListFreeFunc) pas_backend_file_book_view_free, NULL);
 	priv->uri        = NULL;
 
 	backend->priv = priv;
