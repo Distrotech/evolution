@@ -1,5 +1,5 @@
 #include <bonobo.h>
-#include "Messenger.h"
+#include <Messenger.h>
 #include "e-messenger-backend.h"
 #include "e-messenger-backend-dispatcher.h"
 

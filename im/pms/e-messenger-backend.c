@@ -1,5 +1,6 @@
 #include <bonobo.h>
-#include "Messenger.h"
+#include <Messenger.h>
+#include <messenger/e-messenger-identity.h>
 #include "e-messenger-backend.h"
 
 #define PARENT_TYPE BONOBO_X_OBJECT_TYPE
@@ -184,13 +185,14 @@ e_messenger_backend_event_receive_message(EMessengerBackend *backend,
 
 	CORBA_exception_init(&ev);
 
-	identity = g_strdup_printf("%s@%s", signon, backend->service_name);
+	identity = e_messenger_identity_create_string(
+		backend->service_name, signon, NULL);
 
 	GNOME_Evolution_Messenger_Listener_receiveMessage(
 		backend->listener, CORBA_string_dup(identity), contact,
 		autoresponse, message, &ev);
 
-	g_free(identity);
+	e_messenger_identity_free(identity);
 
 	if (BONOBO_EX(&ev)) {
 		g_warning("Unable to notify listeners of received message");
@@ -211,12 +213,13 @@ e_messenger_backend_event_user_info(EMessengerBackend *backend, char *signon,
 
 	CORBA_exception_init(&ev);
 
-	identity = g_strdup_printf("%s@%s", signon, backend->service_name);
+	identity = e_messenger_identity_create_string(
+		backend->service_name, signon, NULL);
 
 	GNOME_Evolution_Messenger_Listener_contactInfo(
 		backend->listener, CORBA_string_dup(identity), info, &ev);
 	
-	g_free(identity);
+	e_messenger_identity_free(identity);
 
 	if (BONOBO_EX(&ev)) {
 		g_warning("Unable to notify listeners of event");
@@ -238,7 +241,8 @@ e_messenger_backend_event_user_update(
 
 	CORBA_exception_init(&ev);
 
-	identity = g_strdup_printf("%s@%s", signon, backend->service_name);
+	identity = e_messenger_identity_create_string(
+		backend->service_name, signon, NULL);
 
 	GNOME_Evolution_Messenger_Listener_contactUpdate(
 		backend->listener, CORBA_string_dup(identity), contact,

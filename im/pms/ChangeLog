@@ -1,5 +1,10 @@
 2001-10-27  Joe Shaw  <joe@ximian.com>
 
+	* e-messenger-backend.c: Fix some includes, use the
+	EMessengerIdentity functions all over.
+
+2001-10-27  Joe Shaw  <joe@ximian.com>
+
 	* aol-toc-backend.c (aol_toc_signon): Dup the CORBA objref.
 
 	* test-backend.c: Listen to some events.
