@@ -71,9 +71,14 @@ MAKEINFO = @MAKEINFO@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
 PERL = @PERL@
+PY_CFLAGS = @PY_CFLAGS@
+PY_EXTRA_LIBS = @PY_EXTRA_LIBS@
+PY_LIBS = @PY_LIBS@
+PY_LIB_LOC = @PY_LIB_LOC@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
 YACC = @YACC@
+python_val = @python_val@
 
 lib_LTLIBRARIES = libicalss.la
 
@@ -86,12 +91,12 @@ INCLUDES =  	-I$(top_builddir)		-I$(top_srcdir)/src		-I$(top_builddir)/src		-I$(
 
 libicalss_la_LDFLAGS = -version-info 0:0:0
 
-libicalss_la_SOURCES =  	icalclassify.c			icalgauge.c			icalgaugeimpl.h			icaldirset.c			icaldirsetimpl.h		icalfileset.c			icalfilesetimpl.h		icalset.c			icalsslexer.l			icalssutil.c			icalssyacc.h			icalssyacc.y			icalspanlist.c			icalmessage.c			icalcstp.c
+libicalss_la_SOURCES =  	icalclassify.c			icalgauge.c			icalgaugeimpl.h			icaldirset.c			icaldirsetimpl.h		icalfileset.c			icalfilesetimpl.h		icalset.c			icalsslexer.l			icalssyacc.h			icalssyacc.y			icalspanlist.c			icalmessage.c			icalcstpclient.c        	icalcstpclient.h        	icalcstpserver.c        	icalcstpserver.h 		icalcstp.c
 
 
 libicalssincludedir = $(includedir)
 
-COMBINEDHEADERS =          icalgauge.h         icalset.h         icalfileset.h         icaldirset.h         icalcalendar.h          icalssutil.h         icalclassify.h 	icalspanlist.h		icalmessage.h 	icalcstp.h
+COMBINEDHEADERS =          icalgauge.h         icalset.h         icalfileset.h         icaldirset.h         icalcalendar.h          icalclassify.h 	icalspanlist.h		icalmessage.h 	icalcstp.h 	icalcstpclient.h 	icalcstpserver.h
 
 
 libicalssinclude_HEADERS = icalss.h
@@ -110,8 +115,8 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libicalss_la_LIBADD = 
 libicalss_la_OBJECTS =  icalclassify.lo icalgauge.lo icaldirset.lo \
-icalfileset.lo icalset.lo icalsslexer.lo icalssutil.lo icalssyacc.lo \
-icalspanlist.lo icalmessage.lo icalcstp.lo
+icalfileset.lo icalset.lo icalsslexer.lo icalssyacc.lo icalspanlist.lo \
+icalmessage.lo icalcstpclient.lo icalcstpserver.lo icalcstp.lo
 LEXLIB = @LEXLIB@
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -127,6 +132,11 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = gtar
 GZIP_ENV = --best
+DEP_FILES =  .deps/icalclassify.P .deps/icalcstp.P \
+.deps/icalcstpclient.P .deps/icalcstpserver.P .deps/icaldirset.P \
+.deps/icalfileset.P .deps/icalgauge.P .deps/icalmessage.P \
+.deps/icalset.P .deps/icalspanlist.P .deps/icalsslexer.P \
+.deps/icalssyacc.P
 SOURCES = $(libicalss_la_SOURCES)
 OBJECTS = $(libicalss_la_OBJECTS)
 
@@ -134,9 +144,9 @@ all: all-redirect
 .SUFFIXES:
 .SUFFIXES: .S .c .l .lo .o .s .y
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
-	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps src/libicalss/Makefile
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu src/libicalss/Makefile
 
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
@@ -166,9 +176,6 @@ uninstall-libLTLIBRARIES:
 	  $(LIBTOOL)  --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p; \
 	done
 
-.c.o:
-	$(COMPILE) -c $<
-
 .s.o:
 	$(COMPILE) -c $<
 
@@ -184,9 +191,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 maintainer-clean-compile:
-
-.c.lo:
-	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
 
 .s.lo:
 	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
@@ -265,6 +269,11 @@ distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
 subdir = src/libicalss
 
 distdir: $(DISTFILES)
+	here=`cd $(top_builddir) && pwd`; \
+	top_distdir=`cd $(top_distdir) && pwd`; \
+	distdir=`cd $(distdir) && pwd`; \
+	cd $(top_srcdir) \
+	  && $(AUTOMAKE) --include-deps --build-dir=$$here --srcdir-name=$(top_srcdir) --output-dir=$$top_distdir --gnu src/libicalss/Makefile
 	@for file in $(DISTFILES); do \
 	  d=$(srcdir); \
 	  if test -d $$d/$$file; then \
@@ -275,38 +284,38 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
-icalclassify.lo icalclassify.o : icalclassify.c ../../config.h \
-	../../src/libical/ical.h icalclassify.h icalset.h \
-	../../src/libical/icalerror.h ../../src/libical/icalmemory.h
-icalcstp.lo icalcstp.o : icalcstp.c ../../config.h \
-	../../src/libical/ical.h icalcstp.h ../../src/libical/pvl.h
-icaldirset.lo icaldirset.o : icaldirset.c ../../config.h \
-	../../src/libical/ical.h icaldirset.h ../../src/libical/pvl.h \
-	../../src/libical/icalerror.h ../../src/libical/icalparser.h \
-	icalfileset.h icalgauge.h icalfilesetimpl.h icaldirsetimpl.h
-icalfileset.lo icalfileset.o : icalfileset.c ../../config.h \
-	icalfileset.h ../../src/libical/ical.h icalgauge.h \
-	icalfilesetimpl.h
-icalgauge.lo icalgauge.o : icalgauge.c ../../src/libical/ical.h \
-	../../config.h icalgauge.h icalgaugeimpl.h \
-	../../src/libical/pvl.h
-icalmessage.lo icalmessage.o : icalmessage.c ../../config.h \
-	icalmessage.h ../../src/libical/ical.h \
-	../../src/libical/icalenums.h
-icalset.lo icalset.o : icalset.c ../../src/libical/ical.h ../../config.h \
-	icalset.h ../../src/libical/icalerror.h icalfileset.h \
-	icalgauge.h icalfilesetimpl.h icaldirset.h icaldirsetimpl.h
-icalspanlist.lo icalspanlist.o : icalspanlist.c ../../config.h \
-	../../src/libical/ical.h icalspanlist.h icalset.h \
-	../../src/libical/icalerror.h ../../src/libical/pvl.h
-icalsslexer.lo icalsslexer.o : icalsslexer.c icalssyacc.h \
-	icalgaugeimpl.h ../../src/libical/ical.h ../../config.h \
-	../../src/libical/pvl.h
-icalssutil.lo icalssutil.o : icalssutil.c ../../config.h
-icalssyacc.lo icalssyacc.o : icalssyacc.c ../../src/libical/ical.h \
-	../../config.h ../../src/libical/pvl.h icalgauge.h \
-	icalgaugeimpl.h
 
+DEPS_MAGIC := $(shell mkdir .deps > /dev/null 2>&1 || :)
+
+-include $(DEP_FILES)
+
+mostlyclean-depend:
+
+clean-depend:
+
+distclean-depend:
+	-rm -rf .deps
+
+maintainer-clean-depend:
+
+%.o: %.c
+	@echo '$(COMPILE) -c $<'; \
+	$(COMPILE) -Wp,-MD,.deps/$(*F).pp -c $<
+	@-cp .deps/$(*F).pp .deps/$(*F).P; \
+	tr ' ' '\012' < .deps/$(*F).pp \
+	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
+	    >> .deps/$(*F).P; \
+	rm .deps/$(*F).pp
+
+%.lo: %.c
+	@echo '$(LTCOMPILE) -c $<'; \
+	$(LTCOMPILE) -Wp,-MD,.deps/$(*F).pp -c $<
+	@-sed -e 's/^\([^:]*\)\.o[ 	]*:/\1.lo \1.o :/' \
+	  < .deps/$(*F).pp > .deps/$(*F).P; \
+	tr ' ' '\012' < .deps/$(*F).pp \
+	  | sed -e 's/^\\$$//' -e '/^$$/ d' -e '/:$$/ d' -e 's/$$/ :/' \
+	    >> .deps/$(*F).P; \
+	rm -f .deps/$(*F).pp
 info-am:
 info: info-am
 dvi-am:
@@ -345,27 +354,27 @@ distclean-generic:
 maintainer-clean-generic:
 	-test -z "icalsslexerlicalssyacchicalssyaccc" || rm -f icalsslexerl icalssyacch icalssyaccc
 mostlyclean-am:  mostlyclean-libLTLIBRARIES mostlyclean-compile \
-		mostlyclean-libtool mostlyclean-tags \
+		mostlyclean-libtool mostlyclean-tags mostlyclean-depend \
 		mostlyclean-generic
 
 mostlyclean: mostlyclean-am
 
 clean-am:  clean-libLTLIBRARIES clean-compile clean-libtool clean-tags \
-		clean-generic mostlyclean-am
+		clean-depend clean-generic mostlyclean-am
 
 clean: clean-am
 
 distclean-am:  distclean-libLTLIBRARIES distclean-compile \
-		distclean-libtool distclean-tags distclean-generic \
-		clean-am
+		distclean-libtool distclean-tags distclean-depend \
+		distclean-generic clean-am
 	-rm -f libtool
 
 distclean: distclean-am
 
 maintainer-clean-am:  maintainer-clean-libLTLIBRARIES \
 		maintainer-clean-compile maintainer-clean-libtool \
-		maintainer-clean-tags maintainer-clean-generic \
-		distclean-am
+		maintainer-clean-tags maintainer-clean-depend \
+		maintainer-clean-generic distclean-am
 	@echo "This command is intended for maintainers to use;"
 	@echo "it deletes files that may require special tools to rebuild."
 
@@ -378,12 +387,13 @@ distclean-compile clean-compile maintainer-clean-compile \
 mostlyclean-libtool distclean-libtool clean-libtool \
 maintainer-clean-libtool uninstall-libicalssincludeHEADERS \
 install-libicalssincludeHEADERS tags mostlyclean-tags distclean-tags \
-clean-tags maintainer-clean-tags distdir info-am info dvi-am dvi check \
-check-am installcheck-am installcheck install-exec-am install-exec \
-install-data-am install-data install-am install uninstall-am uninstall \
-all-redirect all-am all installdirs mostlyclean-generic \
-distclean-generic clean-generic maintainer-clean-generic clean \
-mostlyclean distclean maintainer-clean
+clean-tags maintainer-clean-tags distdir mostlyclean-depend \
+distclean-depend clean-depend maintainer-clean-depend info-am info \
+dvi-am dvi check check-am installcheck-am installcheck install-exec-am \
+install-exec install-data-am install-data install-am install \
+uninstall-am uninstall all-redirect all-am all installdirs \
+mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
 all: icalss.h
