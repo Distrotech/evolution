@@ -13,6 +13,18 @@ typedef struct _EPluginClass EPluginClass;
 
 #define E_PLUGIN_CLASSID "com.ximian.evolution.plugin"
 
+/**
+ * struct _EPlugin - 
+ * 
+ * @object: Superclass.
+ * @description: A description of the plugin's purpose.
+ * @name: The name of the plugin.
+ * @hooks: A list of the EPluginHooks this plugin requires.
+ * 
+ * The base EPlugin object is used to represent each plugin directly.
+ * All of the plugin's hooks are loaded and managed through this
+ * object.
+ **/
 struct _EPlugin {
 	GObject object;
 
@@ -21,6 +33,27 @@ struct _EPlugin {
 	GSList *hooks;
 };
 
+/**
+ * struct _EPluginClass - 
+ * 
+ * @class: Superclass.
+ * @type: The plugin type.  This is used by the plugin loader to
+ * determine which plugin object to instantiate to handle the plugin.
+ * This must be overriden by each subclass to provide a unique name.
+ * @construct: The construct virtual method scans the XML tree to
+ * initialise itself.
+ * @invoke: The invoke virtual method loads the plugin code, resolves
+ * the function name, and marshals a simple pointer to execute the
+ * plugin.
+ *
+ * The EPluginClass represents each plugin type.  The type of each class is
+ * registered in a global table and is used to instantiate a
+ * container for each plugin.
+ *
+ * It provides two main functions, to load the plugin definition, and
+ * to invoke a function.  Each plugin class is used to handle mappings
+ * to different languages.
+ **/
 struct _EPluginClass {
 	GObjectClass class;
 
@@ -52,6 +85,17 @@ char *e_plugin_xml_content(xmlNodePtr node);
 typedef struct _EPluginLib EPluginLib;
 typedef struct _EPluginLibClass EPluginLibClass;
 
+/**
+ * struct _EPluginLib - 
+ * 
+ * @plugin: Superclass.
+ * @location: The filename of the shared object.
+ * @module: The GModule once it is loaded.
+ * 
+ * This is a concrete EPlugin class.  It loads and invokes dynamically
+ * loaded libraries using GModule.  The shared object isn't loaded
+ * until the first callback is invoked.
+ **/
 struct _EPluginLib {
 	EPlugin plugin;
 
@@ -59,6 +103,13 @@ struct _EPluginLib {
 	GModule *module;
 };
 
+/**
+ * struct _EPluginLibClass - 
+ * 
+ * @plugin_class: Superclass.
+ * 
+ * The plugin library needs no additional class data.
+ **/
 struct _EPluginLibClass {
 	EPluginClass plugin_class;
 };
@@ -74,24 +125,68 @@ typedef struct _EPluginHookClass EPluginHookClass;
 typedef struct _EPluginHookTargetMap EPluginHookTargetMap;
 typedef struct _EPluginHookTargetKey EPluginHookTargetKey;
 
+/**
+ * struct _EPluginHookTargetKey - 
+ * 
+ * @key: Enumeration value as a string.
+ * @value: Enumeration value as an integer.
+ * 
+ * A multi-purpose string to id mapping structure used with various
+ * helper functions to simplify plugin hook subclassing.
+ **/
+struct _EPluginHookTargetKey {
+	const char *key;
+	guint32 value;
+};
+
+/**
+ * struct _EPluginHookTargetMap - 
+ * 
+ * @type: The string id of the target.
+ * @id: The integer id of the target.  Maps directly to the type field
+ * of the various plugin type target id's.
+ * @mask_bits: A zero-fill terminated array of EPluginHookTargetKeys.
+ *
+ * Used by EPluginHook to define mappings of target type enumerations
+ * to and from strings.  Also used to define the mask option names
+ * when reading the XML plugin hook definitions.
+ **/
 struct _EPluginHookTargetMap {
 	const char *type;
 	int id;
 	const struct _EPluginHookTargetKey *mask_bits;	/* null terminated array */
 };
 
-/* maps a field name in xml to bit(s) or id */
-struct _EPluginHookTargetKey {
-	const char *key;
-	guint32 value;
-};
-
+/**
+ * struct _EPluginHook - 
+ * 
+ * @object: Superclass.
+ * @plugin: The parent object.
+ * 
+ * An EPluginHook is used as a container for each hook a given plugin
+ * is listening to.
+ **/
 struct _EPluginHook {
 	GObject object;
 
 	struct _EPlugin *plugin;
 };
 
+/**
+ * struct _EPluginHookClass - 
+ * 
+ * @class: Superclass.
+ * @id: The plugin hook type. This must be overriden by each subclass
+ * and is used as a key when loading hook definitions.  This string
+ * should contain a globally unique name followed by a : and a version
+ * specification.  This is to ensure plugins only hook into hooks with
+ * the right API.
+ * @construct: Virtual method used to initialise the object when loaded.
+ * 
+ * The EPluginHookClass represents each hook type.  The type of the
+ * class is registered in a global table and is used to instantiate a
+ * container for each hook.
+ **/
 struct _EPluginHookClass {
 	GObjectClass class;
 

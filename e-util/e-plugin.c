@@ -95,6 +95,14 @@ ep_class_init(EPluginClass *klass)
 	klass->construct = ep_construct;
 }
 
+/**
+ * e_plugin_get_type:
+ * 
+ * Standard GObject type function.  This is only an abstract class, so
+ * you can only use this to subclass EPlugin.
+ * 
+ * Return value: The type.
+ **/
 GType
 e_plugin_get_type(void)
 {
@@ -180,12 +188,33 @@ fail:
 	return res;
 }
 
+/**
+ * e_plugin_add_load_path:
+ * @path: The path to add to search for plugins.
+ * 
+ * Add a path to be searched when e_plugin_load_plugins() is called.
+ * By default ~/.eplug is used as the search path unless overriden by
+ * the environmental variable %EVOLUTION_PLUGIN_PATH.
+ *
+ * %EVOLUTION_PLUGIN_PATH is a : separated list of paths to search for
+ * plugin definitions in order.
+ *
+ * Plugin definitions are XML files ending in the extension ".eplug".
+ **/
 void
 e_plugin_add_load_path(const char *path)
 {
 	ep_path = g_slist_append(ep_path, g_strdup(path));
 }
 
+/**
+ * e_plugin_load_plugins:
+ * 
+ * Scan the search path, looking for plugin definitions, and load them
+ * into memory.
+ * 
+ * Return value: Returns -1 if an error occured.
+ **/
 int
 e_plugin_load_plugins(void)
 {
@@ -226,6 +255,14 @@ e_plugin_load_plugins(void)
 	return 0;
 }
 
+/**
+ * e_plugin_register_type:
+ * @type: The GObject type of the plugin loader.
+ * 
+ * Register a new plugin type with the plugin system.  Each type must
+ * subclass EPlugin and must override the type member of the
+ * EPluginClass with a unique name.
+ **/
 void
 e_plugin_register_type(GType type)
 {
@@ -241,19 +278,53 @@ e_plugin_register_type(GType type)
 	g_hash_table_insert(ep_types, (void *)klass->type, klass);
 }
 
+/**
+ * e_plugin_construct:
+ * @ep: An EPlugin derived object.
+ * @root: The XML root node of the sub-tree containing the plugin
+ * definition.
+ * 
+ * Helper to invoke the construct virtual method.
+ * 
+ * Return value: The return from the construct virtual method.
+ **/
 int
 e_plugin_construct(EPlugin *ep, xmlNodePtr root)
 {
 	return ((EPluginClass *)G_OBJECT_GET_CLASS(ep))->construct(ep, root);
 }
 
+/**
+ * e_plugin_invoke:
+ * @ep: 
+ * @name: The name of the function to invoke. The format of this name
+ * will depend on the EPlugin type and its language conventions.
+ * @data: The argument to the function. Its actual type depends on
+ * the hook on which the function resides. It is up to the called
+ * function to get this right.
+ * 
+ * Helper to invoke the invoke virtual method.
+ * 
+ * Return value: The return of the plugin invocation.
+ **/
 void *
 e_plugin_invoke(EPlugin *ep, const char *name, void *data)
 {
 	return ((EPluginClass *)G_OBJECT_GET_CLASS(ep))->invoke(ep, name, data);
 }
 
-/* crappy utils to map between xml and 'system' memory */
+/**
+ * e_plugin_xml_prop:
+ * @node: An XML node.
+ * @id: The name of the property to retrieve.
+ * 
+ * A static helper function to look up a property on an XML node, and
+ * ensure it is allocated in GLib system memory.  If GLib isn't using
+ * the system malloc then it must copy the property value.
+ * 
+ * Return value: The property, allocated in GLib memory, or NULL if no
+ * such property exists.
+ **/
 char *
 e_plugin_xml_prop(xmlNodePtr node, const char *id)
 {
@@ -270,6 +341,19 @@ e_plugin_xml_prop(xmlNodePtr node, const char *id)
 	}
 }
 
+/**
+ * e_plugin_xml_int:
+ * @node: An XML node.
+ * @id: The name of the property to retrieve.
+ * @def: A default value if the property doesn't exist.  Can be used
+ * to determine if the property isn't set.
+ * 
+ * A static helper function to look up a property on an XML node as an
+ * integer.  If the property doesn't exist, then @def is returned as a
+ * default value instead.
+ * 
+ * Return value: The value if set, or @def if not.
+ **/
 int
 e_plugin_xml_int(xmlNodePtr node, const char *id, int def)
 {
@@ -281,6 +365,16 @@ e_plugin_xml_int(xmlNodePtr node, const char *id, int def)
 		return def;
 }
 
+/**
+ * e_plugin_xml_content:
+ * @node: 
+ * 
+ * A static helper function to retrieve the entire textual content of
+ * an XML node, and ensure it is allocated in GLib system memory.  If
+ * GLib isn't using the system malloc them it must copy the content.
+ * 
+ * Return value: The node content, allocated in GLib memory.
+ **/
 char *
 e_plugin_xml_content(xmlNodePtr node)
 {
@@ -366,6 +460,15 @@ epl_class_init(EPluginClass *klass)
 	klass->type = "shlib";
 }
 
+/**
+ * e_plugin_lib_get_type:
+ * 
+ * Standard GObject function to retrieve the EPluginLib type.  Use to
+ * register the type with the plugin system if you want to use shared
+ * library plugins.
+ * 
+ * Return value: The EPluginLib type.
+ **/
 GType
 e_plugin_lib_get_type(void)
 {
@@ -409,6 +512,14 @@ eph_class_init(EPluginHookClass *klass)
 	klass->construct = eph_construct;
 }
 
+/**
+ * e_plugin_hook_get_type:
+ * 
+ * Standard GObject function to retrieve the EPluginHook type.  Since
+ * EPluginHook is an abstract class, this is only used to subclass it.
+ * 
+ * Return value: The EPluginHook type.
+ **/
 GType
 e_plugin_hook_get_type(void)
 {
@@ -427,6 +538,17 @@ e_plugin_hook_get_type(void)
 	return type;
 }
 
+/**
+ * e_plugin_hook_new:
+ * @ep: The parent EPlugin this hook belongs to.
+ * @root: The XML node of the root of the hook definition.
+ * 
+ * This is a static factory method to instantiate a new EPluginHook
+ * object to represent a plugin hook.
+ * 
+ * Return value: The EPluginHook appropriate for the XML definition at
+ * @root.  NULL is returned if a syntax error is encountered.
+ **/
 EPluginHook *
 e_plugin_hook_new(EPlugin *ep, xmlNodePtr root)
 {
@@ -455,6 +577,14 @@ e_plugin_hook_new(EPlugin *ep, xmlNodePtr root)
 	return hook;
 }
 
+/**
+ * e_plugin_hook_register_type:
+ * @type: 
+ * 
+ * Register a new plugin hook type with the plugin system.  Each type
+ * must subclass EPluginHook and must override the id member of the
+ * EPluginHookClass with a unique identification string.
+ **/
 void
 e_plugin_hook_register_type(GType type)
 {
@@ -470,6 +600,21 @@ e_plugin_hook_register_type(GType type)
 	g_hash_table_insert(eph_types, (void *)klass->id, klass);
 }
 
+/**
+ * e_plugin_hook_mask:
+ * @root: An XML node.
+ * @map: A zero-fill terminated array of EPluginHookTargeKeys used to
+ * map a string with a bit value.
+ * @prop: The property name.
+ * 
+ * This is a static helper function which looks up a property @prop on
+ * the XML node @root, and then uses the @map table to convert it into
+ * a bitmask.  The property value is a comma separated list of
+ * enumeration strings which are indexed into the @map table.
+ *
+ * Return value: A bitmask representing the inclusive-or of all of the
+ * integer values of the corresponding string id's stored in the @map.
+ **/
 guint32
 e_plugin_hook_mask(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop)
 {
@@ -505,6 +650,22 @@ e_plugin_hook_mask(xmlNodePtr root, const struct _EPluginHookTargetKey *map, con
 	return mask;
 }
 
+/**
+ * e_plugin_hook_id:
+ * @root: 
+ * @map: 
+ * @prop: 
+ * 
+ * This is a static helper function which looks up a property @prop on
+ * the XML node @root, and then uses the @map table to convert it into
+ * an integer.
+ *
+ * This is used as a helper wherever you need to represent an
+ * enumerated value in the XML.
+ * 
+ * Return value: If the @prop value is in @map, then the corresponding
+ * integer value, if not, then ~0.
+ **/
 guint32
 e_plugin_hook_id(xmlNodePtr root, const struct _EPluginHookTargetKey *map, const char *prop)
 {

@@ -126,6 +126,13 @@ ep_base_init(GObjectClass *klass)
 	e_dlist_init(&((EPopupClass *)klass)->factories);
 }
 
+/**
+ * e_popup_get_type:
+ * 
+ * Standard GObject type function.
+ * 
+ * Return value: The EPopup object type.
+ **/
 GType
 e_popup_get_type(void)
 {
@@ -146,6 +153,15 @@ e_popup_get_type(void)
 	return type;
 }
 
+/**
+ * e_popup_construct:
+ * @ep: The instantiated but uninitialised EPopup.
+ * @menuid: The menu identifier.
+ * 
+ * Construct the base popup instance with standard parameters.
+ * 
+ * Return value: Returns @ep.
+ **/
 EPopup *e_popup_construct(EPopup *ep, const char *menuid)
 {
 	ep->menuid = g_strdup(menuid);
@@ -155,13 +171,15 @@ EPopup *e_popup_construct(EPopup *ep, const char *menuid)
 
 /**
  * e_popup_add_items:
- * @emp: 
- * @items: 
- * @freefunc: 
+ * @emp: An EPopup derived object.
+ * @items: A list of EPopupItem's to add to the current popup menu.
+ * @freefunc: A function which will be called when the items are no
+ * longer needed.
  * 
- * Add new EPopupItems to the menu's.  Any with the same path
+ * Add new EPopupItems to the menus.  Any with the same path
  * will override previously defined menu items, at menu building
- * time.
+ * time.  This may be called any number of times before the menu is
+ * built to create a complex heirarchy of menus.
  **/
 void
 e_popup_add_items(EPopup *emp, GSList *items, GDestroyNotify freefunc)
@@ -180,12 +198,16 @@ e_popup_add_items(EPopup *emp, GSList *items, GDestroyNotify freefunc)
 
 /**
  * e_popup_add_static_items:
- * @emp: 
+ * @emp: An EPopup derived object.
  * @target: Target of this menu.
  * 
- * Will load up any matching menu items from an installed
- * popup factory.  If the menuid of @emp is NULL, then this
- * has no effect.
+ * Will call all of the factorys' registered for the menu @emp.  They
+ * are free to do nothing, or will usually call e_popup_add_items() as
+ * appropriate to register menu items.
+ *
+ * Note that this function will be called automatically if a @target
+ * is supplied to the menu creation functions.  It will not normally
+ * be called directly.
  *
  **/
 void
@@ -225,18 +247,18 @@ ep_activate(GtkWidget *w, EPopupItem *item)
 
 /**
  * e_popup_create:
- * @menuitems: 
+ * @emp: An EPopup derived object.
  * @target: popup target, if set, then factories will be invoked.
  * This is then owned by the menu.
  * @hide_mask: used to hide menu items, not sure of it's utility,
  * since you could just 'not add them' in the first place.  Saves
  * copying logic anyway.
  * @disable_mask: used to disable menu items.
- * 
- * The menu items are merged based on their path element, and
- * built into a menu tree.
  *
- * Return value: 
+ * All of the menu items registered on @emp are sorted by path, and
+ * then converted into a menu heirarchy.
+ *
+ * Return value: A GtkMenu which can be popped up when ready.
  **/
 GtkMenu *
 e_popup_create_menu(EPopup *emp, EPopupTarget *target, guint32 hide_mask, guint32 disable_mask)
@@ -390,7 +412,8 @@ ep_popup_done(GtkWidget *w, EPopup *emp)
  * 
  * Like popup_create_menu, but automatically sets up the menu
  * so that it is destroyed once a selection takes place, and
- * the EPopup is unreffed.
+ * the EPopup is unreffed.  This is the normal entry point as it
+ * automates most memory management for popup menus.
  * 
  * Return value: A menu, to popup.
  **/
@@ -410,17 +433,21 @@ e_popup_create_menu_once(EPopup *emp, EPopupTarget *target, guint32 hide_mask, g
 
 /**
  * e_popup_class_add_factory:
- * @klass:
- * @menuid: 
- * @func: 
- * @data: 
- * 
- * Add a popup factory which will be called to add_items() any
- * extra menu's if wants to do the current PopupTarget.
+ * @klass: The EPopup derived class which you're interested in.
+ * @menuid: The identifier of the menu you're interested in, or NULL
+ * to be called for all menus on this class.
+ * @func: The factory called when the menu @menuid is being created.
+ * @data: User-data for the factory callback.
  *
- * TODO: Make the menuid a pattern?
+ * This is a class-static method used to register factory callbacks
+ * against specific menu's.
  * 
- * Return value: A handle to the factory.
+ * The factory method will be invoked before the menu is created.
+ * This way, the factory may add any additional menu items it wishes
+ * based on the context supplied in the @target.
+ * 
+ * Return value: A handle to the factory which can be used to remove
+ * it later.
  **/
 EPopupFactory *
 e_popup_class_add_factory(EPopupClass *klass, const char *menuid, EPopupFactoryFunc func, void *data)
@@ -437,9 +464,15 @@ e_popup_class_add_factory(EPopupClass *klass, const char *menuid, EPopupFactoryF
 
 /**
  * e_popup_class_remove_factory:
- * @f: 
+ * @klass: The EPopup derived class.
+ * @f: The factory handle returned by e_popup_class_add_factory().
  * 
- * Remove a popup factory.
+ * Remove a popup menu factory. If it has not been added, or it has
+ * already been removed, then the result is undefined (i.e. it will
+ * crash).
+ *
+ * Generally factories are static for the life of the application, and
+ * so do not need to be removed.
  **/
 void
 e_popup_class_remove_factory(EPopupClass *klass, EPopupFactory *f)
@@ -451,11 +484,12 @@ e_popup_class_remove_factory(EPopupClass *klass, EPopupFactory *f)
 
 /**
  * e_popup_target_new:
- * @klass: 
- * @type: type, up to implementor
- * @size: 
+ * @ep: An EPopup derived object.
+ * @type: type, defined by the implementing class.
+ * @size: The size of memory to allocate for the target.  It must be
+ * equal or greater than the size of EPopupTarget.
  * 
- * Allocate a new popup target suitable for this class.
+ * Allocate a new popup target suitable for this popup type.
  **/
 void *e_popup_target_new(EPopup *ep, int type, size_t size)
 {
@@ -473,10 +507,12 @@ void *e_popup_target_new(EPopup *ep, int type, size_t size)
 
 /**
  * e_popup_target_free:
- * @ep: 
- * @o: 
+ * @ep: An EPopup derived object.
+ * @o: The target, previously allocated by e_popup_target_new().
  * 
- * Free a target 
+ * Free the target against @ep. Note that targets are automatically
+ * freed if they are passed to the menu creation functions, so this is
+ * only required if you are using the target for other purposes.
  **/
 void
 e_popup_target_free(EPopup *ep, void *o)
@@ -699,6 +735,13 @@ emph_class_init(EPluginHookClass *klass)
 	((EPopupHookClass *)klass)->popup_class = g_type_class_ref(e_popup_get_type());
 }
 
+/**
+ * e_popup_hook_get_type:
+ * 
+ * Standard GObject function to get the object type.
+ *
+ * Return value: The type of the popup hook class.
+ **/
 GType
 e_popup_hook_get_type(void)
 {
@@ -717,6 +760,16 @@ e_popup_hook_get_type(void)
 	return type;
 }
 
+/**
+ * e_popup_hook_class_add_target_map:
+ * @klass: The derived EPopupHook class.
+ * @map: A map used to describe a single EPopupTarget type for this
+ * class.
+ * 
+ * Add a target map to a concrete derived class of EPopup.  The target
+ * map enumerates a single target type and the enable mask bit names,
+ * so that the type can be loaded automatically by the EPopup class.
+ **/
 void e_popup_hook_class_add_target_map(EPopupHookClass *klass, const EPopupHookTargetMap *map)
 {
 	g_hash_table_insert(klass->target_map, (void *)map->type, (void *)map);
