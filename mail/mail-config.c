@@ -2900,9 +2900,21 @@ void
 mail_config_signature_delete (MailConfigSignature *sig)
 {
 	GList *l, *next;
+	GSList *al;
 	gboolean after = FALSE;
 
 	/* FIXME remove it from all accounts */
+
+	for (al = config->accounts; al; al = al->next) {
+		MailConfigAccount *account;
+
+		account = (MailConfigAccount *) al->data;
+
+		if (account->id->text_signature == sig)
+			account->id->text_signature = NULL;
+		if (account->id->html_signature == sig)
+			account->id->html_signature = NULL;
+	}
 
 	for (l = config->signature_list; l; l = next) {
 		next = l->next;

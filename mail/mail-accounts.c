@@ -805,6 +805,8 @@ dialog_destroy (GtkWidget *dialog, gpointer user_data)
 		gtk_widget_destroy (GTK_WIDGET (news_editor));
 #endif
 	mail_config_signature_unregister_client ((MailConfigSignatureClient) sig_event_client, dialog);
+	gtk_widget_unref (((MailAccountsDialog *) dialog)->sig_advanced_button);
+	gtk_widget_unref (((MailAccountsDialog *) dialog)->sig_simple_button);
 }
 
 /* Signatures */
@@ -912,12 +914,22 @@ sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
 static void
 sig_level (GtkWidget *w, MailAccountsDialog *dialog)
 {
-	dialog->sig_level = 1 - dialog->sig_level;
+	GtkWidget *button;
+	gboolean level;
 
-	gtk_label_set_text (GTK_LABEL (GTK_BIN (dialog->sig_level_button)->child),
-			    dialog->sig_level ? _("Simple") : _("Advanced"));
-	dialog->sig_level ? gtk_widget_hide (dialog->sig_preview) : gtk_widget_show (dialog->sig_preview);
-	dialog->sig_level ? gtk_widget_show (dialog->sig_advanced_table) : gtk_widget_hide (dialog->sig_advanced_table);
+	if (!GTK_WIDGET_VISIBLE (w))
+		return;
+
+	level = w == dialog->sig_advanced_button;
+
+	button = level ? dialog->sig_simple_button : dialog->sig_advanced_button;
+	gtk_widget_hide (w);
+	gtk_container_remove (GTK_CONTAINER (dialog->sig_level_bbox), w);
+	gtk_box_pack_start (GTK_BOX (dialog->sig_level_bbox), button, FALSE, FALSE, 0);
+	gtk_widget_show (button);
+			    
+	level ? gtk_widget_hide (dialog->sig_preview) : gtk_widget_show (dialog->sig_preview);
+	level ? gtk_widget_show (dialog->sig_advanced_table) : gtk_widget_hide (dialog->sig_advanced_table);
 }
 
 static void
@@ -1108,8 +1120,17 @@ signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 	dialog->sig_edit = glade_xml_get_widget (gui, "button-sig-edit");
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_edit), "clicked", GTK_SIGNAL_FUNC (sig_edit), dialog);
 
-	dialog->sig_level_button = glade_xml_get_widget (gui, "button-sig-level");
-	gtk_signal_connect (GTK_OBJECT (dialog->sig_level_button), "clicked", GTK_SIGNAL_FUNC (sig_level), dialog);
+	dialog->sig_advanced_button = glade_xml_get_widget (gui, "button-sig-advanced");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced_button), "clicked", GTK_SIGNAL_FUNC (sig_level), dialog);
+
+	dialog->sig_simple_button = glade_xml_get_widget (gui, "button-sig-simple");
+	gtk_signal_connect (GTK_OBJECT (dialog->sig_simple_button), "clicked", GTK_SIGNAL_FUNC (sig_level), dialog);
+	dialog->sig_level_bbox = glade_xml_get_widget (gui, "vbbox-sig-level");
+
+	gtk_widget_ref (dialog->sig_advanced_button);
+	gtk_widget_ref (dialog->sig_simple_button);
+	gtk_widget_hide (dialog->sig_simple_button);
+	gtk_container_remove (GTK_CONTAINER (dialog->sig_level_bbox), dialog->sig_simple_button);
 
 	dialog->sig_clist = glade_xml_get_widget (gui, "clist-sig");
 	sig_fill_clist (dialog->sig_clist);

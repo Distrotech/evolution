@@ -104,8 +104,9 @@ struct _MailAccountsDialog {
 	GtkWidget *sig_delete;
 	GtkWidget *sig_edit;
 
-	GtkWidget *sig_level_button;
-	gboolean   sig_level;
+	GtkWidget *sig_simple_button;
+	GtkWidget *sig_advanced_button;
+	GtkWidget *sig_level_bbox;
 	GtkWidget *sig_advanced_table;
 	gboolean   sig_switch;
 	gint       sig_row;
