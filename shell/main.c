@@ -682,8 +682,9 @@ main (int argc, char **argv)
 				      GNOME_PARAM_POPT_TABLE, options,
 				      GNOME_PARAM_HUMAN_READABLE_NAME, _("Evolution"),
 				      NULL);
-
+	/* the old method will be removed 
 	init_a11y (program);
+	*/
 
 	if (start_online && start_offline) {
 		fprintf (stderr, _("%s: --online and --offline cannot be used together.\n  Use %s --help for more information.\n"),
