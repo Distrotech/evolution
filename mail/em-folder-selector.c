@@ -116,7 +116,7 @@ em_folder_selector_finalize (GObject *obj)
 }
 
 static void
-em_folder_selector_response (GtkDialog *dialog, int response, gpointer user_data)
+em_folder_selector_response (GtkDialog *dialog, int response)
 {
 	EMFolderSelector *emfs = (EMFolderSelector *) dialog;
 	
