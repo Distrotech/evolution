@@ -113,6 +113,7 @@ static void cmm_destroyed (CamelObject *cmm, gpointer event_data, gpointer user_
 	ht = g_hash_table_lookup (cmm_to_urls, cmm);
 	g_hash_table_foreach (ht, free_url, NULL);
 	g_hash_table_destroy (ht);
+	g_hash_table_insert (cmm_to_urls, cmm, NULL);
 }
 
 GHashTable *mail_lookup_url_table (CamelMimeMessage *mime_message)

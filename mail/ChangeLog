@@ -1,5 +1,8 @@
 2000-07-21  Peter Williams  <peterw@helixcode.com>
 
+	* mail-format.c (cmm_destroyed): Remove the url hashtable from
+	the larger hashtable when it gets destroyed.
+
 	* mail-callbacks.c (fetch_mail): Pass a hook function and data
 	down the chain to pick up the folder_changed and change the view.
 
