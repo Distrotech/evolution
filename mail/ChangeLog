@@ -19,6 +19,25 @@
 
 	* em-marshal.list: Add NONE:POINTER.
 
+2003-09-25  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-account-gui.c (mail_account_gui_save): Allow any file: uri
+	to point to a sent or drafts folder.
+
+2003-09-25  Rodney Dawes  <dobey@ximian.com>
+
+	* mail-send-recv.c: Make the dialog more HIG-compliant by fixing
+	widget alignment/spacing issues, and removing separators
+
+2003-09-24  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-preferences.c (mail_preferences_construct): Same as below.
+
+	* mail-composer-prefs.c (mail_composer_prefs_construct): gconf can
+	return empty string if the charset has not been set, so if the
+	charset string is empty, default the charset to the user's locale
+	charset. Partial fix for bug #47638.
+
 2003-09-23  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-component.c (add_storage): Remove unused arg "uri".
@@ -45,6 +64,26 @@
 
 	* em-folder-browser.c (emfb_init): Get the search context through
 	mail_component_peek_search_context().
+
+2003-09-23  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* evolution-mbox-upgrade.c (get_local_store): Don't xmlFree (name)
+	until after we've g_strdup'd it.
+	(em_migrate_dir): If the metadata file doesn't exist, don't even
+	bother trying subfolers (the shell just ignores them so we should
+	too).
+
+2003-09-23  Jeffrey Stedfast  <fejj@ximian.com>
+
+	Fix for bug #48791 (and also fixes a FIXME)
+
+	* em-format.c (emf_init): Setup a gconf listener for changes to
+	the charset setting.
+	(gconf_charset_changed): Update the cached gconf charset value.
+	(emf_finalise): Free the EMFormatPrivate data, unref the gconf
+	client, disconnect the charset notify id, and free the cached
+	gconf charset value.
+	(em_format_format_text): Use the cached gconf charset value.
 
 2003-09-22  Not Zed  <NotZed@Ximian.com>
 
