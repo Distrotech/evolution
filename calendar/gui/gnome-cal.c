@@ -253,13 +253,12 @@ server_input (gpointer data, gint source, GdkInputCondition condition)
 {
 	GnomeCalendar *gcal = data;
 	char readbuf [128], *p = readbuf;
+	int n;
 	
 	do {
-		int n;
-		
 		n = read (source, p, sizeof (readbuf) - 1);
 		p [n] = 0;
-		g_string_append (gcal->server.string, p);
+/*		g_string_append (gcal->server.string, p); */
 	} while (n == sizeof (readbuf) - 1);
 
 	

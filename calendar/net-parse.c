@@ -65,8 +65,8 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
       switch(*parse->rdbuf->str) {
       case '(': /* open list */
 	parse->curarg = cs_cmdarg_new(NULL, parse->curarg);
-	if (!cnx->curcmd.args)
-		cnx->curcmd.args = cnx->curarg;
+	if (!parse->curcmd.args)
+		parse->curcmd.args = parse->curarg;
 	parse->curarg->type = ITEM_SUBLIST;
 	g_string_erase(parse->rdbuf, 0, 1);
 	found_something = TRUE;
@@ -99,8 +99,8 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 	if(!ctmp) break;
 	found_something = TRUE;
 	parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	if(!cnx->curcmd.args)
-	  cnx->curcmd.args = cnx->curarg;
+	if(!parse->curcmd.args)
+	  parse->curcmd.args = parse->curarg;
 	parse->curarg->type = ITEM_STRING;
 	parse->curarg->data = g_strndup(parse->rdbuf->str + 1, ctmp - parse->rdbuf->str - 1);
 	g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
@@ -122,8 +122,8 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 	if(ctmp) {
 	  found_something = TRUE;
 	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	  if(!cnx->curcmd.args)
-	    cnx->curcmd.args = cnx->curarg;
+	  if(!parse->curcmd.args)
+	    parse->curcmd.args = parse->curarg;
 	  parse->curarg->type = ITEM_STRING;
 	  parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
 	  g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
@@ -133,8 +133,8 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 	if(ctmp) {
 	  found_something = TRUE;
 	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	  if(!cnx->curcmd.args)
-	    cnx->curcmd.args = cnx->curarg;
+	  if(!parse->curcmd.args)
+	    parse->curcmd.args = parse->curarg;
 	  parse->curarg->type = ITEM_STRING;
 	  parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
 	  parse->curarg = parse->curarg->up;
@@ -146,8 +146,8 @@ try_to_parse (StreamParse *parse, int rsize, gboolean *error, gboolean *cont)
 	  found_something = TRUE;
 	  parse->rs = RS_DONE;
 	  parse->curarg = cs_cmdarg_new(parse->curarg, NULL);
-	  if(!cnx->curcmd.args)
-	    cnx->curcmd.args = cnx->curarg;
+	  if(!parse->curcmd.args)
+	    parse->curcmd.args = parse->curarg;
 	  parse->curarg->type = ITEM_STRING;
 	  parse->curarg->data = g_strndup(parse->rdbuf->str, ctmp - parse->rdbuf->str);
 	  g_string_erase(parse->rdbuf, 0, ctmp - parse->rdbuf->str);
