@@ -45,6 +45,7 @@ pcsinclude_HEADERS = 		\
 	cal.h			\
 	cal-backend.h		\
 	cal-backend-util.h	\
+	cal-backend-object-sexp.h\
 	cal-common.h		\
 	cal-factory.h		\
 	query-backend.h		\
@@ -56,6 +57,7 @@ libpcs_a_SOURCES =		\
 	cal.c			\
 	cal-backend.c		\
 	cal-backend-util.c	\
+	cal-backend-object-sexp.c\
 	cal-factory.c		\
 	query-backend.c		\
 	query.c

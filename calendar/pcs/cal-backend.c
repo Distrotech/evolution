@@ -266,8 +266,7 @@ cal_backend_class_init (CalBackendClass *class)
 	class->get_object = get_object;
 	class->get_object_component = NULL;
 	class->get_timezone_object = NULL;
-	class->get_uids = NULL;
-	class->get_objects_in_range = NULL;
+	class->get_object_list = NULL;
 	class->get_free_busy = NULL;
 	class->get_changes = NULL;
 	class->get_alarms_in_range = NULL;
@@ -758,51 +757,22 @@ cal_backend_get_type_by_uid (CalBackend *backend, const char *uid)
 }
 
 /**
- * cal_backend_get_uids:
- * @backend: A calendar backend.
- * @type: Bitmask with types of objects to return.
- *
- * Builds a list of unique identifiers corresponding to calendar objects whose
- * type matches one of the types specified in the @type flags.
- *
- * Return value: A list of strings that are the sought UIDs.  The list should be
- * freed using the cal_obj_uid_list_free() function.
+ * cal_backend_get_object_list:
+ * @backend: 
+ * @type: 
+ * 
+ * 
+ * 
+ * Return value: 
  **/
 GList *
-cal_backend_get_uids (CalBackend *backend, CalObjType type)
+cal_backend_get_object_list (CalBackend *backend, const char *query)
 {
 	g_return_val_if_fail (backend != NULL, NULL);
 	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
 
-	g_assert (CLASS (backend)->get_uids != NULL);
-	return (* CLASS (backend)->get_uids) (backend, type);
-}
-
-
-/**
- * cal_backend_get_objects_in_range:
- * @backend: A calendar backend.
- * @type: Bitmask with types of objects to return.
- * @start: Start time for query.
- * @end: End time for query.
- * 
- * Builds a list of unique identifiers corresponding to calendar objects of the
- * specified type that occur or recur within the specified time range.
- * 
- * Return value: A list of UID strings.  The list should be freed using the
- * cal_obj_uid_list_free() function.
- **/
-GList *
-cal_backend_get_objects_in_range (CalBackend *backend, CalObjType type,
-				  time_t start, time_t end)
-{
-	g_return_val_if_fail (backend != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), NULL);
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
-
-	g_assert (CLASS (backend)->get_objects_in_range != NULL);
-	return (* CLASS (backend)->get_objects_in_range) (backend, type, start, end);
+	g_assert (CLASS (backend)->get_object_list != NULL);
+	return (* CLASS (backend)->get_object_list) (backend, query);
 }
 
 /**

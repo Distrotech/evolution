@@ -22,6 +22,7 @@
 #include <config.h>
 #endif
 
+#include <pthread.h>
 #include <string.h>
 #include <bonobo-activation/bonobo-activation.h>
 #include <bonobo/bonobo-exception.h>
@@ -30,12 +31,26 @@
 #include "e-util/e-component-listener.h"
 #include "e-util/e-config-listener.h"
 #include "e-util/e-url.h"
+#include "e-util/e-msgport.h"
 #include "cal-util/cal-util-marshal.h"
 #include "cal-client-types.h"
 #include "cal-client.h"
 #include "cal-listener.h"
 
 
+
+typedef struct {
+	EMutex *mutex;
+	pthread_cond_t cond;
+	ECalendarStatus status;
+
+//	char *id;
+	GList *list;
+//	EContact *contact;
+
+//	EBookView *view;
+//	EBookViewListener *listener;
+} ECalendarOp;
 
 /* Private part of the CalClient structure */
 struct _CalClientPrivate {
@@ -47,6 +62,10 @@ struct _CalClientPrivate {
 	 */
 	char *uri;
 
+	ECalendarOp *current_op;
+
+	EMutex *mutex;
+	
 	/* Email address associated with this calendar, or NULL */
 	char *cal_address;
 	char *alarm_email_address;
@@ -217,6 +236,50 @@ cal_mode_enum_get_type (void)
 	return cal_mode_enum_type;
 }
 
+/* EBookOp calls */
+
+static ECalendarOp*
+e_calendar_new_op (CalClient *client)
+{
+	ECalendarOp *op = g_new0 (ECalendarOp, 1);
+
+	op->mutex = e_mutex_new (E_MUTEX_SIMPLE);
+	pthread_cond_init (&op->cond, 0);
+
+	client->priv->current_op = op;
+
+	return op;
+}
+
+static ECalendarOp*
+e_calendar_get_op (CalClient *client)
+{
+	if (!client->priv->current_op) {
+		g_warning (G_STRLOC ": Unexpected response");
+		return NULL;
+	}
+		
+	return client->priv->current_op;
+}
+
+static void
+e_calendar_free_op (ECalendarOp *op)
+{
+	/* XXX more stuff here */
+	pthread_cond_destroy (&op->cond);
+	e_mutex_destroy (op->mutex);
+	g_free (op);
+}
+
+static void
+e_calendar_remove_op (CalClient *client, ECalendarOp *op)
+{
+	if (client->priv->current_op != op)
+		g_warning (G_STRLOC ": Cannot remove op, it's not current");
+
+	client->priv->current_op = NULL;
+}
+
 /* Class initialization function for the calendar client */
 static void
 cal_client_class_init (CalClientClass *klass)
@@ -311,6 +374,7 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 
 	priv->load_state = CAL_CLIENT_LOAD_NOT_LOADED;
 	priv->uri = NULL;
+	priv->mutex = e_mutex_new (E_MUTEX_REC);
 	priv->cal_address = NULL;
 	priv->alarm_email_address = NULL;
 	priv->ldap_attribute = NULL;
@@ -447,6 +511,11 @@ cal_client_finalize (GObject *object)
 		priv->uri = NULL;
 	}
 
+	if (priv->mutex) {
+		e_mutex_destroy (priv->mutex);
+		priv->mutex = NULL;
+	}
+	
 	if (priv->cal_address) {
 		g_free (priv->cal_address);
 		priv->cal_address = NULL;
@@ -624,6 +693,52 @@ cal_removed_cb (CalListener *listener,
 	g_object_unref (G_OBJECT (client));
 }
 
+/* Builds a GList of CalObjInstance structures from the CORBA sequence */
+static GList *
+build_object_list (const GNOME_Evolution_Calendar_stringlist *seq)
+{
+	GList *list;
+	int i;
+
+	list = NULL;
+	for (i = 0; i < seq->_length; i++) {
+		icalcomponent *comp;
+		
+		comp = icalcomponent_new_from_string (seq->_buffer[i]);
+		if (!comp)
+			continue;
+		
+		list = g_list_prepend (list, comp);
+	}
+
+	return list;
+}
+
+static void
+cal_object_list_cb (CalListener *listener,
+		    const GNOME_Evolution_Calendar_CallStatus status,
+		    const GNOME_Evolution_Calendar_stringlist *objects,
+		    gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+	
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+	  g_warning ("e_book_response_get_contacts: Cannot find operation ");
+	  return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->list = build_object_list (objects);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
 
 /* Handle the cal_set_mode notification from the listener */
 static void
@@ -826,6 +941,7 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 	
 	priv->listener = cal_listener_new (cal_opened_cb,
 					   cal_removed_cb,
+					   cal_object_list_cb,
 					   cal_set_mode_cb,
 					   backend_error_cb,
 					   categories_changed_cb,
@@ -1369,11 +1485,12 @@ cal_client_get_default_object (CalClient *client, CalObjType type, icalcomponent
 
 	g_return_val_if_fail (client != NULL, CAL_CLIENT_GET_NOT_FOUND);
 	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_GET_NOT_FOUND);
+	g_return_val_if_fail (icalcomp != NULL, CAL_CLIENT_GET_NOT_FOUND);
 
 	priv = client->priv;
 	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, CAL_CLIENT_GET_NOT_FOUND);
 
-	g_return_val_if_fail (icalcomp != NULL, CAL_CLIENT_GET_NOT_FOUND);
+
 
 	retval = CAL_CLIENT_GET_NOT_FOUND;
 	*icalcomp = NULL;
@@ -1617,67 +1734,6 @@ cal_client_resolve_tzid_cb (const char *tzid, gpointer data)
 	return zone;
 }
 
-
-/* Builds an UID list out of a CORBA UID sequence */
-static GList *
-build_uid_list (GNOME_Evolution_Calendar_CalObjUIDSeq *seq)
-{
-	GList *uids;
-	int i;
-
-	uids = NULL;
-
-	for (i = 0; i < seq->_length; i++)
-		uids = g_list_prepend (uids, g_strdup (seq->_buffer[i]));
-
-	return uids;
-}
-
-/**
- * cal_client_get_uids:
- * @client: A calendar client.
- * @type: Bitmask with types of objects to return.
- *
- * Queries a calendar for a list of unique identifiers corresponding to calendar
- * objects whose type matches one of the types specified in the @type flags.
- *
- * Return value: A list of strings that are the sought UIDs.  This should be
- * freed using the cal_obj_uid_list_free() function.
- **/
-GList *
-cal_client_get_uids (CalClient *client, CalObjType type)
-{
-	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalObjUIDSeq *seq;
-	int t;
-	GList *uids;
-
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
-
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
-
-	t = corba_obj_type (type);
-
-	CORBA_exception_init (&ev);
-
-	seq = GNOME_Evolution_Calendar_Cal_getUIDs (priv->cal, t, &ev);
-	if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_uids(): could not get the list of UIDs");
-		CORBA_exception_free (&ev);
-		return NULL;
-	}
-
-	CORBA_exception_free (&ev);
-
-	uids = build_uid_list (seq);
-	CORBA_free (seq);
-
-	return uids;
-}
-
 /* Builds a GList of CalClientChange structures from the CORBA sequence */
 static GList *
 build_change_list (GNOME_Evolution_Calendar_CalObjChangeSeq *seq)
@@ -1747,85 +1803,121 @@ cal_client_get_changes (CalClient *client, CalObjType type, const char *change_i
 	return changes;
 }
 
-/* FIXME: Not used? */
-#if 0
-/* Builds a GList of CalObjInstance structures from the CORBA sequence */
-static GList *
-build_object_instance_list (GNOME_Evolution_Calendar_CalObjInstanceSeq *seq)
-{
-	GList *list;
-	int i;
-
-	/* Create the list in reverse order */
-
-	list = NULL;
-	for (i = 0; i < seq->_length; i++) {
-		GNOME_Evolution_Calendar_CalObjInstance *corba_icoi;
-		CalObjInstance *icoi;
-
-		corba_icoi = &seq->_buffer[i];
-		icoi = g_new (CalObjInstance, 1);
-
-		icoi->uid = g_strdup (corba_icoi->uid);
-		icoi->start = corba_icoi->start;
-		icoi->end = corba_icoi->end;
-
-		list = g_list_prepend (list, icoi);
-	}
-
-	list = g_list_reverse (list);
-	return list;
-}
-#endif
 
 /**
- * cal_client_get_objects_in_range:
- * @client: A calendar client.
- * @type: Bitmask with types of objects to return.
- * @start: Start time for query.
- * @end: End time for query.
- *
- * Queries a calendar for the objects that occur or recur in the specified range
- * of time.
- *
- * Return value: A list of UID strings.  This should be freed using the
- * cal_obj_uid_list_free() function.
+ * cal_client_get_object_list:
+ * @client: 
+ * @query: 
+ * 
+ * 
+ * 
+ * Return value: 
  **/
-GList *
-cal_client_get_objects_in_range (CalClient *client, CalObjType type, time_t start, time_t end)
+ECalendarStatus
+cal_client_get_object_list (CalClient *client, const char *query, GList **objects)
 {
-	CalClientPrivate *priv;
+
 	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_CalObjUIDSeq *seq;
-	GList *uids;
-	int t;
+	ECalendarOp *our_op;
+	ECalendarStatus status;
 
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
+	g_return_val_if_fail (client != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (query != NULL, E_CALENDAR_STATUS_INVALID_ARG);
 
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, NULL);
+	e_mutex_lock (client->priv->mutex);
 
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
 
 	CORBA_exception_init (&ev);
 
-	t = corba_obj_type (type);
+	/* will eventually end up calling e_book_response_get_contacts */
+	GNOME_Evolution_Calendar_Cal_getObjectList (client->priv->cal, query, &ev);
 
-	seq = GNOME_Evolution_Calendar_Cal_getObjectsInRange (priv->cal, t, start, end, &ev);
 	if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_objects_in_range(): could not get the objects");
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
 		CORBA_exception_free (&ev);
-		return NULL;
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
 	}
+	
 	CORBA_exception_free (&ev);
 
-	uids = build_uid_list (seq);
-	CORBA_free (seq);
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
 
-	return uids;
+	status = our_op->status;
+	*objects = our_op->list;
+
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	return status;
 }
+
+ECalendarStatus
+cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects)
+{
+	ECalendarStatus status;	
+	GList *ical_objects = NULL;
+	
+	g_return_val_if_fail (client != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (query != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	g_return_val_if_fail (objects != NULL, E_CALENDAR_STATUS_INVALID_ARG);
+	
+	status = cal_client_get_object_list (client, query, &ical_objects);
+
+	if (status == E_CALENDAR_STATUS_OK) {
+		GList *l;
+		
+		*objects = NULL;
+		for (l = ical_objects; l; l = l->next) {
+			CalComponent *comp;
+			
+			comp = cal_component_new ();
+			cal_component_set_icalcomponent (comp, l->data);
+			*objects = g_list_prepend (*objects, comp);
+		}
+			
+		g_list_free (ical_objects);
+	}
+
+	return status;
+}
+
+void 
+cal_client_free_object_list (GList *objects)
+{
+	GList *l;
+	
+	for (l = objects; l; l = l->next)
+		icalcomponent_free (l->data);
+
+	g_list_free (objects);
+}
+
 
 /**
  * cal_client_get_free_busy
@@ -1913,174 +2005,6 @@ cal_client_get_free_busy (CalClient *client, GList *users,
 	return comp_list;
 }
 
-/* Callback used when an object is updated and we must update the copy we have */
-static void
-generate_instances_obj_updated_cb (CalClient *client, const char *uid, gpointer data)
-{
-	GHashTable *uid_comp_hash;
-	CalComponent *comp;
-	icalcomponent *icalcomp;
-	CalClientGetStatus status;
-	const char *comp_uid;
-
-	uid_comp_hash = data;
-
-	comp = g_hash_table_lookup (uid_comp_hash, uid);
-	if (!comp)
-		/* OK, so we don't care about new objects that may indeed be in
-		 * the requested time range.  We only care about the ones that
-		 * were returned by the first query to
-		 * cal_client_get_objects_in_range().
-		 */
-		return;
-
-	g_hash_table_remove (uid_comp_hash, uid);
-	g_object_unref (G_OBJECT (comp));
-
-	status = cal_client_get_object (client, uid, &icalcomp);
-
-	switch (status) {
-	case CAL_CLIENT_GET_SUCCESS:
-		comp = cal_component_new ();
-		if (cal_component_set_icalcomponent (comp, icalcomp)) {
-			/* The hash key comes from the component's internal data */
-			cal_component_get_uid (comp, &comp_uid);
-			g_hash_table_insert (uid_comp_hash, (char *) comp_uid, comp);
-		} else {
-			g_object_unref (comp);
-			icalcomponent_free (icalcomp);
-		}
-		break;
-
-	case CAL_CLIENT_GET_NOT_FOUND:
-		/* No longer in the server, too bad */
-		break;
-
-	case CAL_CLIENT_GET_SYNTAX_ERROR:
-		g_message ("obj_updated_cb(): Syntax error when getting "
-			   "object `%s'; ignoring...", uid);
-		break;
-		
-	}
-}
-
-/* Callback used when an object is removed and we must delete the copy we have */
-static void
-generate_instances_obj_removed_cb (CalClient *client, const char *uid, gpointer data)
-{
-	GHashTable *uid_comp_hash;
-	CalComponent *comp;
-
-	uid_comp_hash = data;
-
-	comp = g_hash_table_lookup (uid_comp_hash, uid);
-	if (!comp)
-		return;
-
-	g_hash_table_remove (uid_comp_hash, uid);
-	g_object_unref (G_OBJECT (comp));
-}
-
-/* Adds a component to the list; called from g_hash_table_foreach() */
-static void
-add_component (gpointer key, gpointer value, gpointer data)
-{
-	CalComponent *comp;
-	GList **list;
-
-	comp = CAL_COMPONENT (value);
-	list = data;
-
-	*list = g_list_prepend (*list, comp);
-}
-
-/* Gets a list of components that recur within the specified range of time.  It
- * ensures that the resulting list of CalComponent objects contains only objects
- * that are actually in the server at the time the initial
- * cal_client_get_objects_in_range() query ends.
- */
-static GList *
-get_objects_atomically (CalClient *client, CalObjType type, time_t start, time_t end)
-{
-	GList *uids;
-	GHashTable *uid_comp_hash;
-	GList *objects;
-	guint obj_updated_id;
-	guint obj_removed_id;
-	GList *l;
-
-	uids = cal_client_get_objects_in_range (client, type, start, end);
-
-	uid_comp_hash = g_hash_table_new (g_str_hash, g_str_equal);
-
-	/* While we are getting the actual object data, keep track of changes */
-
-	obj_updated_id = g_signal_connect (G_OBJECT (client), "obj_updated",
-					   G_CALLBACK (generate_instances_obj_updated_cb),
-					   uid_comp_hash);
-
-	obj_removed_id = g_signal_connect (G_OBJECT (client), "obj_removed",
-					   G_CALLBACK (generate_instances_obj_removed_cb),
-					   uid_comp_hash);
-
-	/* Get the objects */
-
-	for (l = uids; l; l = l->next) {
-		CalComponent *comp;
-		icalcomponent *icalcomp;
-		CalClientGetStatus status;
-		char *uid;
-		const char *comp_uid;
-
-		uid = l->data;
-
-		status = cal_client_get_object (client, uid, &icalcomp);
-
-		switch (status) {
-		case CAL_CLIENT_GET_SUCCESS:
-			comp = cal_component_new ();
-			if (cal_component_set_icalcomponent (comp, icalcomp)) {
-				/* The hash key comes from the component's internal data
-				 * instead of the duped UID from the list of UIDS.
-				 */
-				cal_component_get_uid (comp, &comp_uid);
-				g_hash_table_insert (uid_comp_hash, (char *) comp_uid, comp);
-			} else {
-				g_object_unref (comp);
-				icalcomponent_free (icalcomp);
-			}
-			break;
-
-		case CAL_CLIENT_GET_NOT_FOUND:
-			/* Object disappeared from the server, so don't log it */
-			break;
-
-		case CAL_CLIENT_GET_SYNTAX_ERROR:
-			g_message ("get_objects_atomically(): Syntax error when getting "
-				   "object `%s'; ignoring...", uid);
-			break;
-
-		default:
-			g_assert_not_reached ();
-		}
-	}
-
-	cal_obj_uid_list_free (uids);
-
-	/* Now our state is consistent with the server, so disconnect from the
-	 * notification signals and generate the final list of components.
-	 */
-
-	g_signal_handler_disconnect (client, obj_updated_id);
-	g_signal_handler_disconnect (client, obj_removed_id);
-
-	objects = NULL;
-	g_hash_table_foreach (uid_comp_hash, add_component, &objects);
-	g_hash_table_destroy (uid_comp_hash);
-
-	return objects;
-}
-
 struct comp_instance {
 	CalComponent *comp;
 	time_t start;
@@ -2132,10 +2056,8 @@ compare_comp_instance (gconstpointer a, gconstpointer b)
  * @cb: Callback for each generated instance.
  * @cb_data: Closure data for the callback.
  * 
- * Does a combination of cal_client_get_objects_in_range() and
- * cal_recur_generate_instances().  It fetches the list of objects in an atomic
- * way so that the generated instances are actually in the server at the time
- * the initial cal_client_get_objects_in_range() query ends.
+ * Does a combination of cal_client_get_object_list () and
+ * cal_recur_generate_instances().  
  *
  * The callback function should do a g_object_ref() of the calendar component
  * it gets passed if it intends to keep it around.
@@ -2149,7 +2071,8 @@ cal_client_generate_instances (CalClient *client, CalObjType type,
 	GList *objects;
 	GList *instances;
 	GList *l;
-
+	char *query;
+	
 	g_return_if_fail (client != NULL);
 	g_return_if_fail (IS_CAL_CLIENT (client));
 
@@ -2161,8 +2084,11 @@ cal_client_generate_instances (CalClient *client, CalObjType type,
 	g_return_if_fail (cb != NULL);
 
 	/* Generate objects */
+	query = g_strdup_printf ("(occur-in-time-range? (%lu) (%lu))", start, end);
+	/* FIXME Check return status */
+	cal_client_get_object_list (client, query, &objects);
+	g_free (query);
 
-	objects = get_objects_atomically (client, type, start, end);
 	instances = NULL;
 
 	for (l = objects; l; l = l->next) {

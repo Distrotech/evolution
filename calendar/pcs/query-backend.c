@@ -228,11 +228,14 @@ static void
 foreach_uid_cb (gpointer data, gpointer user_data)
 {
 	QueryBackend *qb = (QueryBackend *) user_data;
-
+	icalcomponent *comp;
+	
 	g_return_if_fail (data != NULL);
 	g_return_if_fail (IS_QUERY_BACKEND (qb));
 
-	object_updated_cb (qb->priv->backend, (const char *) data, qb);
+	comp = icalcomponent_new_from_string (data);
+	object_updated_cb (qb->priv->backend, icalcomponent_get_uid (data), qb);
+	icalcomponent_free (comp);
 }
 
 /**
@@ -262,7 +265,7 @@ query_backend_new (Query *query, CalBackend *backend)
 	qb = g_hash_table_lookup (loaded_backends,
 				  cal_backend_get_uri (backend));
 	if (!qb) {
-		GList *uidlist;
+		GList *objlist, *l;
 
 		qb = g_object_new (QUERY_BACKEND_TYPE, NULL);
 
@@ -270,9 +273,10 @@ query_backend_new (Query *query, CalBackend *backend)
 		qb->priv->backend = backend;
 
 		/* load all UIDs */
-		uidlist = cal_backend_get_uids (backend, CALOBJ_TYPE_ANY);
-		g_list_foreach (uidlist, foreach_uid_cb, qb);
-		cal_obj_uid_list_free (uidlist);
+		objlist = cal_backend_get_object_list (backend, "#t");
+		g_list_foreach (objlist, foreach_uid_cb, qb);
+		for (l = objlist; l; l = l->next)
+			g_free (l->data);		
 
 		g_object_weak_ref (G_OBJECT (backend), backend_destroyed_cb, qb);
 		g_signal_connect (G_OBJECT (backend), "obj_updated",

@@ -23,6 +23,8 @@ module Calendar {
 	typedef string CalObj;
 	typedef sequence<CalObj> CalObjSeq;
 
+	typedef sequence<string> stringlist;
+
 	/* A unique identifier for a calendar component */
 	typedef string CalObjUID;
 
@@ -126,6 +128,32 @@ module Calendar {
 	typedef string User;
 	typedef sequence<User> UserList;
 
+	enum CallStatus {
+		Success,
+		RepositoryOffline,
+		PermissionDenied,
+		CardNotFound,
+		CardIdAlreadyExists,
+		AuthenticationFailed,
+		AuthenticationRequired,
+		UnsupportedField,
+		UnsupportedAuthenticationMethod,
+		TLSNotAvailable,
+		NoSuchBook,
+
+		/* These can be returned for successful searches, but
+		   indicate the result set was truncated */
+		SearchSizeLimitExceeded,
+		SearchTimeLimitExceeded,
+
+		InvalidQuery,
+		QueryRefused,
+
+		CouldNotCancel,
+		
+		OtherError
+	};
+
 	interface Query;
 
 	interface Listener;
@@ -145,7 +173,7 @@ module Calendar {
 		/* A calendar is identified by its URI */
 		readonly attribute string uri;
 
-		void open (in boolean only_if_exists)
+		oneway void open (in boolean only_if_exists)
 			raises (InvalidURI, PermissionDenied);
 
 		void remove ()
@@ -179,6 +207,8 @@ module Calendar {
 		CalObj getObject (in CalObjUID uid)
 			raises (NotFound);
 
+		oneway void getObjectList (in string query);
+		
 		/* Sets the default timezone to be used for resolving DATE
 		   and floating DATE-TIME values. */
 		void setDefaultTimezone (in CalTimezoneObjUID tzid)
@@ -188,16 +218,9 @@ module Calendar {
 		CalTimezoneObj getTimezoneObject (in CalTimezoneObjUID tzid)
 			raises (NotFound);
 
-		/* Gets a list of UIDs based on component type */
-		CalObjUIDSeq getUIDs (in CalObjType type);
-
 		/* Gets a list of components that changed based on object type */
 		CalObjChangeSeq getChanges (in CalObjType type, in string change_id);
 
-		/* Gets a list of components that occur or recur in the specified time range */
-		CalObjUIDSeq getObjectsInRange (in CalObjType type, 
-						in Time_t start, in Time_t end)
-			raises (InvalidRange);
 
 		/* Gets a list of the components that have alarms that trigger
 		 * in the specified range of time, and the trigger/occurrence
@@ -277,9 +300,11 @@ module Calendar {
 		/* Called from a CalFactory when a calendar is initially opened.
 		 * The listener must remember the cal object.  
 		 */
-		void notifyCalOpened (in FileStatus status);
+		oneway void notifyCalOpened (in FileStatus status);
 
-		void notifyCalRemoved (in FileStatus status);
+		oneway void notifyCalRemoved (in FileStatus status);
+
+		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 
                 /* Called from a Calendar when the mode is changed */
 		void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		

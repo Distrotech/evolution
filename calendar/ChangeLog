@@ -1,3 +1,84 @@
+2003-08-19  JP Rosevear  <jpr@ximian.com>
+
+	* gui/gnome-cal.c (setup_widgets): set up models here
+	(gnome_calendar_construct): not here
+
+	* conduits/calendar/calendar-conduit.c
+	(e_calendar_context_destroy): we have a list of calcomponents
+	rather than uids now
+	(process_multi_day): build a list of components rather than uids
+	(pre_sync): use get_object_list instead of getting uids
+	(for_each): create local records from calcomponents
+
+	* conduits/todo/todo-conduit.c: as above
+	
+	* gui/print.c (instance_cb): mark as true if we found an instance
+	(print_month_small): see if atleast one instance exists in a
+	slight different way
+
+	* cal-client/client-test.c (list_uids): use get_object_list
+
+	* cal-client/cal-listener.h: update protos
+
+	* cal-client/cal-listener.c (cal_listener_class_init): set object
+	list callback implementation
+	(impl_notifyObjectListRequested): implement
+	(cal_listener_construct): take object list callback function
+	(cal_listener_new): ditto
+
+	* cal-client/cal-client.h: update protos, add status
+
+	* cal-client/cal-client.c (e_calendar_new_op): create new op
+	(e_calendar_get_op): retrieve current op
+	(e_calendar_free_op): free the op
+	(e_calendar_remove_op): clear current op
+	(cal_client_init): create new mutex
+	(cal_client_finalize): destroy mutex
+	(build_object_list): build list of icalcomponents
+	(cal_object_list_cb): handle getObjectList response
+	(real_open_calendar): pass extra listener arg
+	(cal_client_get_object_list): implement using thread safe mutex
+	locking
+	(cal_client_get_object_list_as_comp): return calcomponents instead
+	of icalcomponents
+	(cal_client_generate_instances): just get the object list - no
+	need to make it atomic since get_object_list is already atomic
+
+	* pcs/query.c (query_finalize): free new sexp class
+	(parse_sexp): use new sexp class
+	(match_component): ditto
+
+	* pcs/query-backend.c (foreach_uid_cb): use icalcomponent to
+	extract uid
+	(query_backend_new): get all objects using object list call
+
+	* pcs/cal.c (impl_Cal_getObjectList): implement
+	(cal_class_init): adjust for idl method changes
+
+	* pcs/cal-backend.h: update vmethods, add proto
+
+	* pcs/cal-backend.c (cal_backend_class_init): remove get_uids and
+	get_objects_in_range vmethods, add get_object_list vmethod
+	(cal_backend_get_object_list): call through to vmethod implementation
+
+	* pcs/cal-backend-object-sexp.[hc]: nice class to represent a sexp
+	and search cal components
+
+	* pcs/cal-backend-file.c (cal_backend_file_class_init): remove
+	get_uids and get_objects_in_range calls and set get_object_list
+	call
+	(cal_backend_file_get_object_list): implement
+	(create_user_free_busy): use sexp ops to implement
+	(cal_backend_file_compute_changes): just iterate over the
+	component list rather than fetching uids
+	
+	* pcs/Makefile.am: build new files
+
+	* idl/evolution-calendar.idl: make opening a oneway call, add
+	getObjectList call, remove getUIDS and getObjectsInRange call -
+	both can be done with getObjectList; make listener callbacks
+	oneway
+
 2003-08-19  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/gnome-cal.c (gnome_calendar_purge): don't leak the client list.

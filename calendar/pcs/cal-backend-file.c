@@ -32,6 +32,7 @@
 #include "cal-util/cal-util.h"
 #include "cal-backend-file-events.h"
 #include "cal-backend-util.h"
+#include "cal-backend-object-sexp.h"
 
 
 
@@ -84,16 +85,13 @@ static gboolean cal_backend_file_is_loaded (CalBackend *backend);
 static Query *cal_backend_file_get_query (CalBackend *backend,
 					  GNOME_Evolution_Calendar_QueryListener ql,
 					  const char *sexp);
-
+static GList *cal_backend_file_get_object_list (CalBackend *backend, const char *query);
 static CalMode cal_backend_file_get_mode (CalBackend *backend);
 static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
 
 static char *cal_backend_file_get_default_object (CalBackend *backend, CalObjType type);
 static CalComponent *cal_backend_file_get_object_component (CalBackend *backend, const char *uid);
 static char *cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid);
-static GList *cal_backend_file_get_uids (CalBackend *backend, CalObjType type);
-static GList *cal_backend_file_get_objects_in_range (CalBackend *backend, CalObjType type,
-						     time_t start, time_t end);
 static GList *cal_backend_file_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
 static GNOME_Evolution_Calendar_CalObjChangeSeq *cal_backend_file_get_changes (
 	CalBackend *backend, CalObjType type, const char *change_id);
@@ -189,8 +187,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	backend_class->get_default_object = cal_backend_file_get_default_object;
 	backend_class->get_object_component = cal_backend_file_get_object_component;
 	backend_class->get_timezone_object = cal_backend_file_get_timezone_object;
-	backend_class->get_uids = cal_backend_file_get_uids;
-	backend_class->get_objects_in_range = cal_backend_file_get_objects_in_range;
+	backend_class->get_object_list = cal_backend_file_get_object_list;
 	backend_class->get_free_busy = cal_backend_file_get_free_busy;
 	backend_class->get_changes = cal_backend_file_get_changes;
 	backend_class->get_alarms_in_range = cal_backend_file_get_alarms_in_range;
@@ -951,41 +948,6 @@ cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid)
 		return NULL;
 }
 
-/* Builds a list of UIDs from a list of CalComponent objects */
-static void
-build_uids_list (GList **list, GList *components)
-{
-	GList *l;
-
-	for (l = components; l; l = l->next) {
-		CalComponent *comp;
-		const char *uid;
-
-		comp = CAL_COMPONENT (l->data);
-		cal_component_get_uid (comp, &uid);
-		*list = g_list_prepend (*list, g_strdup (uid));
-	}
-}
-
-/* Get_uids handler for the file backend */
-static GList *
-cal_backend_file_get_uids (CalBackend *backend, CalObjType type)
-{
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-	GList *list;
-
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
-
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
-
-	list = NULL;
-	build_uids_list (&list, priv->comp);
-
-	return list;
-}
-
 /* function to resolve timezones */
 static icaltimezone *
 resolve_tzid (const char *tzid, gpointer user_data)
@@ -1000,100 +962,38 @@ resolve_tzid (const char *tzid, gpointer user_data)
 	return icalcomponent_get_timezone (vcalendar_comp, tzid);
 }
 
-/* Callback used from cal_recur_generate_instances(); adds the component's UID
- * to our hash table.
- */
-static gboolean
-add_instance (CalComponent *comp, time_t start, time_t end, gpointer data)
-{
-	GHashTable *uid_hash;
-	const char *uid;
-	const char *old_uid;
-
-	uid_hash = data;
-
-	/* We only care that the component's UID is listed in the hash table;
-	 * that's why we only allow generation of one instance (i.e. return
-	 * FALSE every time).
-	 */
-
-	cal_component_get_uid (comp, &uid);
-
-	old_uid = g_hash_table_lookup (uid_hash, uid);
-	if (old_uid)
-		return FALSE;
-
-	g_hash_table_insert (uid_hash, (char *) uid, NULL);
-	return FALSE;
-}
-
-/* Populates a hash table with the UIDs of the components that occur or recur
- * within a specific time range.
- */
-static void
-get_instances_in_range (GHashTable *uid_hash, GList *components, time_t start, time_t end, icaltimezone *default_zone)
-{
-	GList *l;
-
-	for (l = components; l; l = l->next) {
-		CalComponent *comp;
-		icalcomponent *icalcomp, *vcalendar_comp;
-
-		comp = CAL_COMPONENT (l->data);
-
-		/* Get the parent VCALENDAR component, so we can resolve
-		   TZIDs. */
-		icalcomp = cal_component_get_icalcomponent (comp);
-		vcalendar_comp = icalcomponent_get_parent (icalcomp);
-		g_assert (vcalendar_comp != NULL);
-
-		cal_recur_generate_instances (comp, start, end, add_instance, uid_hash, resolve_tzid, vcalendar_comp, default_zone);
-	}
-}
-
-/* Used from g_hash_table_foreach(), adds a UID from the hash table to our list */
-static void
-add_uid_to_list (gpointer key, gpointer value, gpointer data)
-{
-	GList **list;
-	const char *uid;
-	char *uid_copy;
-
-	list = data;
-
-	uid = key;
-	uid_copy = g_strdup (uid);
-
-	*list = g_list_prepend (*list, uid_copy);
-}
-
 /* Get_objects_in_range handler for the file backend */
 static GList *
-cal_backend_file_get_objects_in_range (CalBackend *backend, CalObjType type,
-				       time_t start, time_t end)
+cal_backend_file_get_object_list (CalBackend *backend, const char *query)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
-	GList *event_list;
-	GHashTable *uid_hash;
+	CalBackendObjectSExp *obj_sexp = NULL;
+	gboolean search_needed;
+	GList *obj_list = NULL, *l;
 
 	cbfile = CAL_BACKEND_FILE (backend);
 	priv = cbfile->priv;
 
-	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
+	g_message (G_STRLOC ": Getting object list (%s)", query);
 
-	g_return_val_if_fail (start != -1 && end != -1, NULL);
-	g_return_val_if_fail (start <= end, NULL);
+	search_needed = TRUE;
 
-	uid_hash = g_hash_table_new (g_str_hash, g_str_equal);
+	if (!strcmp (query, "#t"))
+		search_needed = FALSE;
 
-	get_instances_in_range (uid_hash, priv->comp, start, end, priv->default_zone);
+	obj_sexp = cal_backend_object_sexp_new (query);
+	if (!obj_sexp) {
+		/* FIXME this needs to be an invalid query error of some sort*/
+		return NULL;
+	}
 
-	event_list = NULL;
-	g_hash_table_foreach (uid_hash, add_uid_to_list, &event_list);
-	g_hash_table_destroy (uid_hash);
+	for (l = priv->comp; l; l = l->next) {		
+		if ((!search_needed) || (cal_backend_object_sexp_match_comp (obj_sexp, l->data, backend)))
+			obj_list = g_list_append (obj_list, cal_component_get_as_string (l->data));
+	}
 
-	return event_list;
+	return obj_list;
 }
 
 static gboolean
@@ -1131,10 +1031,11 @@ create_user_free_busy (CalBackendFile *cbfile, const char *address, const char *
 		       time_t start, time_t end)
 {	
 	CalBackendFilePrivate *priv;
-	GList *uids;
 	GList *l;
 	icalcomponent *vfb;
 	icaltimezone *utc_zone;
+	CalBackendObjectSExp *obj_sexp;
+	char *query;
 	
 	priv = cbfile->priv;
 
@@ -1157,20 +1058,18 @@ create_user_free_busy (CalBackendFile *cbfile, const char *address, const char *
 	icalcomponent_set_dtend (vfb, icaltime_from_timet_with_zone (end, FALSE, utc_zone));
 
 	/* add all objects in the given interval */
+	query = g_strdup_printf ("occur-in-time-range? %lu %lu", start, end);
+	obj_sexp = cal_backend_object_sexp_new (query);
+	g_free (query);
 
-	uids = cal_backend_get_objects_in_range (CAL_BACKEND (cbfile),
-						 CALOBJ_TYPE_ANY, start, end);
-	for (l = uids; l != NULL; l = l->next) {
-		CalComponent *comp;
+	if (!obj_sexp)
+		return vfb;
+
+	for (l = priv->comp; l; l = l->next) {
+		CalComponent *comp = l->data;
 		icalcomponent *icalcomp, *vcalendar_comp;
 		icalproperty *prop;
-		char *uid = (char *) l->data;
-
-		/* get the component from our internal list */
-		comp = lookup_component (cbfile, uid);
-		if (!comp)
-			continue;
-
+		
 		icalcomp = cal_component_get_icalcomponent (comp);
 		if (!icalcomp)
 			continue;
@@ -1180,11 +1079,13 @@ create_user_free_busy (CalBackendFile *cbfile, const char *address, const char *
 							 ICAL_TRANSP_PROPERTY);
 		if (prop) {
 			const char *transp_val = icalproperty_get_transp (prop);
-			if (transp_val
-			    && !strcasecmp (transp_val, "TRANSPARENT"))
+			if (transp_val && !strcasecmp (transp_val, "TRANSPARENT"))
 				continue;
 		}
-
+	
+		if (!cal_backend_object_sexp_match_comp (obj_sexp, l->data, CAL_BACKEND (cbfile)))
+			continue;
+		
 		vcalendar_comp = icalcomponent_get_parent (icalcomp);
 		cal_recur_generate_instances (comp, start, end,
 					      free_busy_instance,
@@ -1192,9 +1093,7 @@ create_user_free_busy (CalBackendFile *cbfile, const char *address, const char *
 					      resolve_tzid,
 					      vcalendar_comp,
 					      priv->default_zone);
-		
 	}
-	cal_obj_uid_list_free (uids);
 
 	return vfb;	
 }
@@ -1285,14 +1184,19 @@ cal_backend_file_compute_changes_foreach_key (const char *key, gpointer data)
 static GNOME_Evolution_Calendar_CalObjChangeSeq *
 cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const char *change_id)
 {
+	CalBackendFile *cbfile;
+	CalBackendFilePrivate *priv;
 	char    *filename;
 	EXmlHash *ehash;
 	CalBackendFileComputeChangesData be_data;
 	GNOME_Evolution_Calendar_CalObjChangeSeq *seq;
-	GList *uids, *changes = NULL, *change_ids = NULL;
+	GList *changes = NULL, *change_ids = NULL;
 	GList *i, *j;
-	int n;
-	
+	int n;	
+
+	cbfile = CAL_BACKEND_FILE (backend);
+	priv = cbfile->priv;
+
 	/* Find the changed ids - FIX ME, path should not be hard coded */
 	if (type == GNOME_Evolution_Calendar_TYPE_TODO)
 		filename = g_strdup_printf ("%s/evolution/local/Tasks/%s.db", g_get_home_dir (), change_id);
@@ -1301,13 +1205,14 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 	ehash = e_xmlhash_new (filename);
 	g_free (filename);
 	
-	uids = cal_backend_get_uids (backend, type);
-	
 	/* Calculate adds and modifies */
-	for (i = uids; i != NULL; i = i->next) {
+	for (i = priv->comp; i != NULL; i = i->next) {
 		GNOME_Evolution_Calendar_CalObjChange *coc;
-		char *uid = i->data;
-		char *calobj = cal_backend_get_object (backend, uid);
+		const char *uid;
+		char *calobj;
+
+		cal_component_get_uid (i->data, &uid);
+		calobj = cal_component_get_as_string (i->data);
 
 		g_assert (calobj != NULL);
 
@@ -1330,6 +1235,8 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 			change_ids = g_list_prepend (change_ids, g_strdup (uid));
 			break;
 		}
+
+		g_free (calobj);
 	}
 
 	/* Calculate deletions */
@@ -1373,7 +1280,6 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 	e_xmlhash_write (ehash);
   	e_xmlhash_destroy (ehash);
 
-	cal_obj_uid_list_free (uids);
 	g_list_free (change_ids);
 	g_list_free (changes);
 	

@@ -330,83 +330,38 @@ build_uid_seq (GList *uids)
 	return seq;
 }
 
-/* Cal::getUIDs method */
-static GNOME_Evolution_Calendar_CalObjUIDSeq *
-impl_Cal_getUIDs (PortableServer_Servant servant,
-		  GNOME_Evolution_Calendar_CalObjType type,
-		  CORBA_Environment *ev)
+/* Cal::getObjectsInRange method */
+static void
+impl_Cal_getObjectList (PortableServer_Servant servant,
+			const CORBA_char *query,
+			CORBA_Environment *ev)
 {
 	Cal *cal;
 	CalPrivate *priv;
-	GList *uids;
-	GNOME_Evolution_Calendar_CalObjUIDSeq *seq;
-	int t;
 
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	t = uncorba_obj_type (type);
-
-	uids = cal_backend_get_uids (priv->backend, t);
-	seq = build_uid_seq (uids);
-
-	cal_obj_uid_list_free (uids);
-
-	return seq;
+	cal_backend_get_object_list (priv->backend, query);
 }
 
 /* Cal::getChanges method */
 static GNOME_Evolution_Calendar_CalObjChangeSeq *
 impl_Cal_getChanges (PortableServer_Servant servant,
-		     GNOME_Evolution_Calendar_CalObjType type,
-		     const CORBA_char *change_id,
-		     CORBA_Environment *ev)
+                    GNOME_Evolution_Calendar_CalObjType type,
+                    const CORBA_char *change_id,
+                    CORBA_Environment *ev)
 {
-	Cal *cal;
-	CalPrivate *priv;
-	int t;
+       Cal *cal;
+       CalPrivate *priv;
+       int t;
 
-	cal = CAL (bonobo_object_from_servant (servant));
-	priv = cal->priv;
+       cal = CAL (bonobo_object_from_servant (servant));
+       priv = cal->priv;
 
-	t = uncorba_obj_type (type);
-	
-	return cal_backend_get_changes (priv->backend, t, change_id);
-}
+       t = uncorba_obj_type (type);
 
-/* Cal::getObjectsInRange method */
-static GNOME_Evolution_Calendar_CalObjUIDSeq *
-impl_Cal_getObjectsInRange (PortableServer_Servant servant,
-			    GNOME_Evolution_Calendar_CalObjType type,
-			    GNOME_Evolution_Calendar_Time_t start,
-			    GNOME_Evolution_Calendar_Time_t end,
-			    CORBA_Environment *ev)
-{
-	Cal *cal;
-	CalPrivate *priv;
-	int t;
-	time_t t_start, t_end;
-	GNOME_Evolution_Calendar_CalObjUIDSeq *seq;
-	GList *uids;
-
-	cal = CAL (bonobo_object_from_servant (servant));
-	priv = cal->priv;
-
-	t = uncorba_obj_type (type);
-	t_start = (time_t) start;
-	t_end = (time_t) end;
-
-	if (t_start > t_end || t_start == -1 || t_end == -1) {
-		bonobo_exception_set (ev,  ex_GNOME_Evolution_Calendar_Cal_InvalidRange);
-		return NULL;
-	}
-
-	uids = cal_backend_get_objects_in_range (priv->backend, t, t_start, t_end);
-	seq = build_uid_seq (uids);
-
-	cal_obj_uid_list_free (uids);
-
-	return seq;
+       return cal_backend_get_changes (priv->backend, t, change_id);
 }
 
 static GNOME_Evolution_Calendar_CalObjSeq *
@@ -897,9 +852,8 @@ cal_class_init (CalClass *klass)
 	epv->getObject = impl_Cal_getObject;
 	epv->setDefaultTimezone = impl_Cal_setDefaultTimezone;
 	epv->getTimezoneObject = impl_Cal_getTimezoneObject;
-	epv->getUIDs = impl_Cal_getUIDs;
+	epv->getObjectList = impl_Cal_getObjectList;
 	epv->getChanges = impl_Cal_getChanges;
-	epv->getObjectsInRange = impl_Cal_getObjectsInRange;
 	epv->getFreeBusy = impl_Cal_getFreeBusy;
 	epv->getAlarmsInRange = impl_Cal_getAlarmsInRange;
 	epv->getAlarmsForObject = impl_Cal_getAlarmsForObject;

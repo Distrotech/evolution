@@ -45,72 +45,43 @@ cl_printf (CalClient *client, const char *format, ...)
 	va_end (args);
 }
 
-/* Dumps some interesting data from a component */
-static void
-dump_component (CalComponent *comp)
-{
-	const char *uid;
-	CalComponentText summary;
-
-	cal_component_get_uid (comp, &uid);
-
-	printf ("UID %s\n", uid);
-
-	cal_component_get_summary (comp, &summary);
-	if (summary.value)
-		printf ("\tSummary: `%s', altrep `%s'\n",
-			summary.value,
-			summary.altrep ? summary.altrep : "NONE");
-	else
-		printf ("\tNo summary\n");
-}
-
 /* Lists the UIDs of objects in a calendar, called as an idle handler */
 static gboolean
 list_uids (gpointer data)
 {
 	CalClient *client;
-	GList *uids;
+	GList *objects = NULL;
 	GList *l;
-
+	
 	client = CAL_CLIENT (data);
 
-	uids = cal_client_get_uids (client, CALOBJ_TYPE_ANY);
+	g_message ("Blah");
+	
+	/* FIXME Check return status */
+	cal_client_get_object_list (client, "#t", &objects);
+	
+	cl_printf (client, "UIDS: ");
 
-	cl_printf (client, "UIDs: ");
-
-	if (!uids)
+	if (!objects)
 		printf ("none\n");
 	else {
-		for (l = uids; l; l = l->next) {
-			char *uid;
+		for (l = objects; l; l = l->next) {
+			const char *uid;
 
-			uid = l->data;
+			uid = icalcomponent_get_uid (l->data);
 			printf ("`%s' ", uid);
 		}
 
 		printf ("\n");
 
-		for (l = uids; l; l = l->next) {
-			char *uid;
-			CalComponent *comp;
-			CalClientGetStatus status;
-
-			uid = l->data;
-			status = cal_client_get_object (client, uid, &comp);
-
-			if (status == CAL_CLIENT_GET_SUCCESS) {
-				printf ("------------------------------\n");
-				dump_component (comp);
-				printf ("------------------------------\n");
-				g_object_unref (comp);
-			} else {
-				printf ("FAILED: %d\n", status);
-			}
+		for (l = objects; l; l = l->next) {
+			printf ("------------------------------\n");
+			printf ("%s", icalcomponent_as_ical_string (l->data));
+			printf ("------------------------------\n");
 		}
 	}
 
-	cal_obj_uid_list_free (uids);
+	cal_client_free_object_list (objects);
 
 	g_object_unref (client);
 
@@ -131,6 +102,7 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 	if (status == CAL_CLIENT_OPEN_SUCCESS) {
 		GList *comp_list;
 
+#if 0
 		/* get free/busy information */
 		comp_list = cal_client_get_free_busy (client, NULL, 0, time (NULL));
 		if (comp_list) {
@@ -147,6 +119,8 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 			g_list_free (comp_list);
 		}
 
+		g_message ("Idling");
+#endif		
 		g_idle_add (list_uids, client);
 	}
 	else
@@ -155,7 +129,7 @@ cal_opened_cb (CalClient *client, CalClientOpenStatus status, gpointer data)
 
 /* Callback used when a client is destroyed */
 static void
-client_destroy_cb (GObject *object, gpointer data)
+client_destroy_cb (gpointer data, GObject *object)
 {
 	if (CAL_CLIENT (object) == client1)
 		client1 = NULL;
@@ -180,9 +154,7 @@ create_client (CalClient **client, const char *uri, gboolean only_if_exists)
 		exit (1);
 	}
 
-	g_signal_connect (*client, "destroy",
-			  G_CALLBACK (client_destroy_cb),
-			  NULL);
+	g_object_weak_ref (G_OBJECT (*client), client_destroy_cb, NULL);
 
 	g_signal_connect (*client, "cal_opened",
 			  G_CALLBACK (cal_opened_cb),
@@ -213,8 +185,8 @@ main (int argc, char **argv)
 		exit (1);
 	}
 
-	create_client (&client1, "file:///tmp/calendar", TRUE);
-	create_client (&client2, "file:///tmp/tasks", TRUE);
+	create_client (&client1, "file:///home/jpr/evolution/local/Calendar", FALSE);
+//	create_client (&client2, "file:///tmp/tasks", TRUE);
 
 	bonobo_main ();
 	return 0;

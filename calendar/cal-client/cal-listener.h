@@ -59,6 +59,11 @@ typedef void (* CalListenerCalRemovedFn) (CalListener *listener,
 					  GNOME_Evolution_Calendar_Listener_FileStatus status,
 					  gpointer data);
 
+typedef void (* CalListenerCalObjectListFn) (CalListener *listener,
+					     const GNOME_Evolution_Calendar_CallStatus status,
+					     const GNOME_Evolution_Calendar_stringlist *objects,
+					     gpointer data);
+
 typedef void (* CalListenerCalSetModeFn) (CalListener *listener,
 					  GNOME_Evolution_Calendar_Listener_SetModeStatus status,
 					  GNOME_Evolution_Calendar_CalMode mode,
@@ -78,6 +83,7 @@ GType cal_listener_get_type (void);
 CalListener *cal_listener_construct (CalListener *listener,
 				     CalListenerCalOpenedFn cal_opened_fn,
 				     CalListenerCalRemovedFn cal_removed_fn,
+				     CalListenerCalObjectListFn cal_object_list_fn,
 				     CalListenerCalSetModeFn cal_set_mode_fn,
 				     CalListenerErrorOccurredFn error_occurred_fn,
 				     CalListenerCategoriesChangedFn categories_changed_fn,
@@ -85,6 +91,7 @@ CalListener *cal_listener_construct (CalListener *listener,
 
 CalListener *cal_listener_new (CalListenerCalOpenedFn cal_opened_fn,
 			       CalListenerCalRemovedFn cal_removed_fn,
+			       CalListenerCalObjectListFn cal_object_list_fn,
 			       CalListenerCalSetModeFn cal_set_mode_fn,
 			       CalListenerErrorOccurredFn error_occurred_fn,
 			       CalListenerCategoriesChangedFn categories_changed_fn,

@@ -30,6 +30,7 @@
 #include <gal/widgets/e-unicode.h>
 #include <e-util/e-component-listener.h>
 #include <e-util/e-sexp.h>
+#include <pcs/cal-backend-object-sexp.h>
 #include <cal-util/cal-recur.h>
 #include <cal-util/timeutil.h>
 #include "cal-backend.h"
@@ -61,16 +62,13 @@ struct _QueryPrivate {
 	/* The cache backend */
 	QueryBackend *qb;
 
-	/* The default timezone for the calendar. */
-	icaltimezone *default_zone;
-
 	/* Listeners to which we report changes in the live query */
 	GList *listeners;
 	GList *component_listeners;
 
 	/* Sexp that defines the query */
 	char *sexp;
-	ESExp *esexp;
+	CalBackendObjectSExp *esexp;
 
 	/* Timeout handler ID for asynchronous queries and current state of the query */
 	guint timeout_id;
@@ -136,7 +134,6 @@ query_init (Query *query, QueryClass *class)
 
 	priv->backend = NULL;
 	priv->qb = NULL;
-	priv->default_zone = NULL;
 	priv->listeners = NULL;
 	priv->component_listeners = NULL;
 	priv->sexp = NULL;
@@ -226,7 +223,7 @@ query_finalize (GObject *object)
 	}
 
 	if (priv->esexp) {
-		e_sexp_unref (priv->esexp);
+		g_object_unref (priv->esexp);
 		priv->esexp = NULL;
 	}
 
@@ -270,692 +267,6 @@ query_finalize (GObject *object)
 
 	if (G_OBJECT_CLASS (parent_class)->finalize)
 		(* G_OBJECT_CLASS (parent_class)->finalize) (object);
-}
-
-
-
-/* E-Sexp functions */
-
-/* (time-now)
- *
- * Returns a time_t of time (NULL).
- */
-static ESExpResult *
-func_time_now (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	ESExpResult *result;
-
-	if (argc != 0) {
-		e_sexp_fatal_error (esexp, _("time-now expects 0 arguments"));
-		return NULL;
-	}
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_TIME);
-	result->value.time = time (NULL);
-
-	return result;
-}
-
-/* (make-time ISODATE)
- *
- * ISODATE - string, ISO 8601 date/time representation
- *
- * Constructs a time_t value for the specified date.
- */
-static ESExpResult *
-func_make_time (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	const char *str;
-	time_t t;
-	ESExpResult *result;
-
-	if (argc != 1) {
-		e_sexp_fatal_error (esexp, _("make-time expects 1 argument"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_STRING) {
-		e_sexp_fatal_error (esexp, _("make-time expects argument 1 "
-					     "to be a string"));
-		return NULL;
-	}
-	str = argv[0]->value.string;
-
-	t = time_from_isodate (str);
-	if (t == -1) {
-		e_sexp_fatal_error (esexp, _("make-time argument 1 must be an "
-					     "ISO 8601 date/time string"));
-		return NULL;
-	}
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_TIME);
-	result->value.time = t;
-
-	return result;
-}
-
-/* (time-add-day TIME N)
- *
- * TIME - time_t, base time
- * N - int, number of days to add
- *
- * Adds the specified number of days to a time value.
- *
- * FIXME: TIMEZONES - need to use a timezone or daylight saving changes will
- * make the result incorrect.
- */
-static ESExpResult *
-func_time_add_day (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	ESExpResult *result;
-	time_t t;
-	int n;
-
-	if (argc != 2) {
-		e_sexp_fatal_error (esexp, _("time-add-day expects 2 arguments"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_TIME) {
-		e_sexp_fatal_error (esexp, _("time-add-day expects argument 1 "
-					     "to be a time_t"));
-		return NULL;
-	}
-	t = argv[0]->value.time;
-
-	if (argv[1]->type != ESEXP_RES_INT) {
-		e_sexp_fatal_error (esexp, _("time-add-day expects argument 2 "
-					     "to be an integer"));
-		return NULL;
-	}
-	n = argv[1]->value.number;
-	
-	result = e_sexp_result_new (esexp, ESEXP_RES_TIME);
-	result->value.time = time_add_day (t, n);
-
-	return result;
-}
-
-/* (time-day-begin TIME)
- *
- * TIME - time_t, base time
- *
- * Returns the start of the day, according to the local time.
- *
- * FIXME: TIMEZONES - this uses the current Unix timezone.
- */
-static ESExpResult *
-func_time_day_begin (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	time_t t;
-	ESExpResult *result;
-
-	if (argc != 1) {
-		e_sexp_fatal_error (esexp, _("time-day-begin expects 1 argument"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_TIME) {
-		e_sexp_fatal_error (esexp, _("time-day-begin expects argument 1 "
-					     "to be a time_t"));
-		return NULL;
-	}
-	t = argv[0]->value.time;
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_TIME);
-	result->value.time = time_day_begin (t);
-
-	return result;
-}
-
-/* (time-day-end TIME)
- *
- * TIME - time_t, base time
- *
- * Returns the end of the day, according to the local time.
- *
- * FIXME: TIMEZONES - this uses the current Unix timezone.
- */
-static ESExpResult *
-func_time_day_end (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	time_t t;
-	ESExpResult *result;
-
-	if (argc != 1) {
-		e_sexp_fatal_error (esexp, _("time-day-end expects 1 argument"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_TIME) {
-		e_sexp_fatal_error (esexp, _("time-day-end expects argument 1 "
-					     "to be a time_t"));
-		return NULL;
-	}
-	t = argv[0]->value.time;
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_TIME);
-	result->value.time = time_day_end (t);
-
-	return result;
-}
-
-/* (get-vtype)
- *
- * Returns a string indicating the type of component (VEVENT, VTODO, VJOURNAL,
- * VFREEBUSY, VTIMEZONE, UNKNOWN).
- */
-static ESExpResult *
-func_get_vtype (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	Query *query;
-	QueryPrivate *priv;
-	CalComponent *comp;
-	CalComponentVType vtype;
-	char *str;
-	ESExpResult *result;
-
-	query = QUERY (data);
-	priv = query->priv;
-
-	g_assert (priv->next_comp != NULL);
-	comp = priv->next_comp;
-
-	/* Check argument types */
-
-	if (argc != 0) {
-		e_sexp_fatal_error (esexp, _("get-vtype expects 0 arguments"));
-		return NULL;
-	}
-
-	/* Get the type */
-
-	vtype = cal_component_get_vtype (comp);
-
-	switch (vtype) {
-	case CAL_COMPONENT_EVENT:
-		str = g_strdup ("VEVENT");
-		break;
-
-	case CAL_COMPONENT_TODO:
-		str = g_strdup ("VTODO");
-		break;
-
-	case CAL_COMPONENT_JOURNAL:
-		str = g_strdup ("VJOURNAL");
-		break;
-
-	case CAL_COMPONENT_FREEBUSY:
-		str = g_strdup ("VFREEBUSY");
-		break;
-
-	case CAL_COMPONENT_TIMEZONE:
-		str = g_strdup ("VTIMEZONE");
-		break;
-
-	default:
-		str = g_strdup ("UNKNOWN");
-		break;
-	}
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_STRING);
-	result->value.string = str;
-
-	return result;
-}
-
-/* Sets a boolean value in the data to TRUE; called from
- * cal_recur_generate_instances() to indicate that at least one instance occurs
- * in the sought time range.  We always return FALSE because we want the
- * recurrence engine to finish as soon as possible.
- */
-static gboolean
-instance_occur_cb (CalComponent *comp, time_t start, time_t end, gpointer data)
-{
-	gboolean *occurs;
-
-	occurs = data;
-	*occurs = TRUE;
-
-	return FALSE;
-}
-
-/* Call the backend function to get a timezone from a TZID. */
-static icaltimezone*
-resolve_tzid (const char *tzid, gpointer data)
-{
-	Query *query = data;
-
-	if (!tzid || !tzid[0])
-		return NULL;
-	else
-		return cal_backend_get_timezone (query->priv->backend, tzid);
-}
-
-
-/* (occur-in-time-range? START END)
- *
- * START - time_t, start of the time range
- * END - time_t, end of the time range
- *
- * Returns a boolean indicating whether the component has any occurrences in the
- * specified time range.
- */
-static ESExpResult *
-func_occur_in_time_range (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	Query *query;
-	QueryPrivate *priv;
-	CalComponent *comp;
-	time_t start, end;
-	gboolean occurs;
-	ESExpResult *result;
-
-	query = QUERY (data);
-	priv = query->priv;
-
-	g_assert (priv->next_comp != NULL);
-	comp = priv->next_comp;
-
-	/* Check argument types */
-
-	if (argc != 2) {
-		e_sexp_fatal_error (esexp, _("occur-in-time-range? expects 2 arguments"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_TIME) {
-		e_sexp_fatal_error (esexp, _("occur-in-time-range? expects argument 1 "
-					     "to be a time_t"));
-		return NULL;
-	}
-	start = argv[0]->value.time;
-
-	if (argv[1]->type != ESEXP_RES_TIME) {
-		e_sexp_fatal_error (esexp, _("occur-in-time-range? expects argument 2 "
-					     "to be a time_t"));
-		return NULL;
-	}
-	end = argv[1]->value.time;
-
-	/* See if there is at least one instance in that range */
-
-	occurs = FALSE;
-
-	cal_recur_generate_instances (comp, start, end,
-				      instance_occur_cb, &occurs,
-				      resolve_tzid, query, priv->default_zone);
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-	result->value.bool = occurs;
-
-	return result;
-}
-
-/* Returns whether a list of CalComponentText items matches the specified string */
-static gboolean
-matches_text_list (GSList *text_list, const char *str)
-{
-	GSList *l;
-	gboolean matches;
-
-	matches = FALSE;
-
-	for (l = text_list; l; l = l->next) {
-		CalComponentText *text;
-
-		text = l->data;
-		g_assert (text->value != NULL);
-
-		if (e_utf8_strstrcasedecomp (text->value, str) != NULL) {
-			matches = TRUE;
-			break;
-		}
-	}
-
-	return matches;
-}
-
-/* Returns whether the comments in a component matches the specified string */
-static gboolean
-matches_comment (CalComponent *comp, const char *str)
-{
-	GSList *list;
-	gboolean matches;
-
-	cal_component_get_comment_list (comp, &list);
-	matches = matches_text_list (list, str);
-	cal_component_free_text_list (list);
-
-	return matches;
-}
-
-/* Returns whether the description in a component matches the specified string */
-static gboolean
-matches_description (CalComponent *comp, const char *str)
-{
-	GSList *list;
-	gboolean matches;
-
-	cal_component_get_description_list (comp, &list);
-	matches = matches_text_list (list, str);
-	cal_component_free_text_list (list);
-
-	return matches;
-}
-
-/* Returns whether the summary in a component matches the specified string */
-static gboolean
-matches_summary (CalComponent *comp, const char *str)
-{
-	CalComponentText text;
-
-	cal_component_get_summary (comp, &text);
-
-	if (!text.value)
-		return FALSE;
-
-	return e_utf8_strstrcasedecomp (text.value, str) != NULL;
-}
-
-/* Returns whether any text field in a component matches the specified string */
-static gboolean
-matches_any (CalComponent *comp, const char *str)
-{
-	/* As an optimization, and to make life easier for the individual
-	 * predicate functions, see if we are looking for the empty string right
-	 * away.
-	 */
-	if (strlen (str) == 0)
-		return TRUE;
-
-	return (matches_comment (comp, str)
-		|| matches_description (comp, str)
-		|| matches_summary (comp, str));
-}
-
-/* (contains? FIELD STR)
- *
- * FIELD - string, name of field to match (any, comment, description, summary)
- * STR - string, match string
- *
- * Returns a boolean indicating whether the specified field contains the
- * specified string.
- */
-static ESExpResult *
-func_contains (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	Query *query;
-	QueryPrivate *priv;
-	CalComponent *comp;
-	const char *field;
-	const char *str;
-	gboolean matches;
-	ESExpResult *result;
-
-	query = QUERY (data);
-	priv = query->priv;
-
-	g_assert (priv->next_comp != NULL);
-	comp = priv->next_comp;
-
-	/* Check argument types */
-
-	if (argc != 2) {
-		e_sexp_fatal_error (esexp, _("contains? expects 2 arguments"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_STRING) {
-		e_sexp_fatal_error (esexp, _("contains? expects argument 1 "
-					     "to be a string"));
-		return NULL;
-	}
-	field = argv[0]->value.string;
-
-	if (argv[1]->type != ESEXP_RES_STRING) {
-		e_sexp_fatal_error (esexp, _("contains? expects argument 2 "
-					     "to be a string"));
-		return NULL;
-	}
-	str = argv[1]->value.string;
-
-	/* See if it matches */
-
-	if (strcmp (field, "any") == 0)
-		matches = matches_any (comp, str);
-	else if (strcmp (field, "comment") == 0)
-		matches = matches_comment (comp, str);
-	else if (strcmp (field, "description") == 0)
-		matches = matches_description (comp, str);
-	else if (strcmp (field, "summary") == 0)
-		matches = matches_summary (comp, str);
-	else {
-		e_sexp_fatal_error (esexp, _("contains? expects argument 1 to "
-					     "be one of \"any\", \"summary\", \"description\""));
-		return NULL;
-	}
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-	result->value.bool = matches;
-
-	return result;
-}
-
-/* (has-categories? STR+)
- * (has-categories? #f)
- *
- * STR - At least one string specifying a category
- * Or you can specify a single #f (boolean false) value for components
- * that have no categories assigned to them ("unfiled").
- *
- * Returns a boolean indicating whether the component has all the specified
- * categories.
- */
-static ESExpResult *
-func_has_categories (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	Query *query;
-	QueryPrivate *priv;
-	CalComponent *comp;
-	gboolean unfiled;
-	int i;
-	GSList *categories;
-	gboolean matches;
-	ESExpResult *result;
-
-	query = QUERY (data);
-	priv = query->priv;
-
-	g_assert (priv->next_comp != NULL);
-	comp = priv->next_comp;
-
-	/* Check argument types */
-
-	if (argc < 1) {
-		e_sexp_fatal_error (esexp, _("has-categories? expects at least 1 argument"));
-		return NULL;
-	}
-
-	if (argc == 1 && argv[0]->type == ESEXP_RES_BOOL)
-		unfiled = TRUE;
-	else
-		unfiled = FALSE;
-
-	if (!unfiled)
-		for (i = 0; i < argc; i++)
-			if (argv[i]->type != ESEXP_RES_STRING) {
-				e_sexp_fatal_error (esexp, _("has-categories? expects all arguments "
-							     "to be strings or one and only one "
-							     "argument to be a boolean false (#f)"));
-				return NULL;
-			}
-
-	/* Search categories.  First, if there are no categories we return
-	 * whether unfiled components are supposed to match.
-	 */
-
-	cal_component_get_categories_list (comp, &categories);
-	if (!categories) {
-		result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-		result->value.bool = unfiled;
-
-		return result;
-	}
-
-	/* Otherwise, we *do* have categories but unfiled components were
-	 * requested, so this component does not match.
-	 */
-	if (unfiled) {
-		result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-		result->value.bool = FALSE;
-
-		return result;
-	}
-
-	matches = TRUE;
-
-	for (i = 0; i < argc; i++) {
-		const char *sought;
-		GSList *l;
-		gboolean has_category;
-
-		sought = argv[i]->value.string;
-
-		has_category = FALSE;
-
-		for (l = categories; l; l = l->next) {
-			const char *category;
-
-			category = l->data;
-
-			if (strcmp (category, sought) == 0) {
-				has_category = TRUE;
-				break;
-			}
-		}
-
-		if (!has_category) {
-			matches = FALSE;
-			break;
-		}
-	}
-
-	cal_component_free_categories_list (categories);
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-	result->value.bool = matches;
-
-	return result;
-}
-
-/* (is-completed?)
- *
- * Returns a boolean indicating whether the component is completed (i.e. has
- * a COMPLETED property. This is really only useful for TODO components.
- */
-static ESExpResult *
-func_is_completed (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	Query *query;
-	QueryPrivate *priv;
-	CalComponent *comp;
-	ESExpResult *result;
-	struct icaltimetype *t;
-	gboolean complete = FALSE;
-
-	query = QUERY (data);
-	priv = query->priv;
-
-	g_assert (priv->next_comp != NULL);
-	comp = priv->next_comp;
-
-	/* Check argument types */
-
-	if (argc != 0) {
-		e_sexp_fatal_error (esexp, _("is-completed? expects 0 arguments"));
-		return NULL;
-	}
-
-	cal_component_get_completed (comp, &t);
-	if (t) {
-		complete = TRUE;
-		cal_component_free_icaltimetype (t);
-	}
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-	result->value.bool = complete;
-
-	return result;
-}
-
-/* (completed-before? TIME)
- *
- * TIME - time_t
- *
- * Returns a boolean indicating whether the component was completed on or
- * before the given time (i.e. it checks the COMPLETED property).
- * This is really only useful for TODO components.
- */
-static ESExpResult *
-func_completed_before (ESExp *esexp, int argc, ESExpResult **argv, void *data)
-{
-	Query *query;
-	QueryPrivate *priv;
-	CalComponent *comp;
-	ESExpResult *result;
-	struct icaltimetype *tt;
-	icaltimezone *zone;
-	gboolean retval = FALSE;
-	time_t before_time, completed_time;
-
-	query = QUERY (data);
-	priv = query->priv;
-
-	g_assert (priv->next_comp != NULL);
-	comp = priv->next_comp;
-
-	/* Check argument types */
-
-	if (argc != 1) {
-		e_sexp_fatal_error (esexp, _("completed-before? expects 1 argument"));
-		return NULL;
-	}
-
-	if (argv[0]->type != ESEXP_RES_TIME) {
-		e_sexp_fatal_error (esexp, _("completed-before? expects argument 1 "
-					     "to be a time_t"));
-		return NULL;
-	}
-	before_time = argv[0]->value.time;
-
-	cal_component_get_completed (comp, &tt);
-	if (tt) {
-		/* COMPLETED must be in UTC. */
-		zone = icaltimezone_get_utc_timezone ();
-		completed_time = icaltime_as_timet_with_zone (*tt, zone);
-
-#if 0
-		g_print ("Query Time    : %s", ctime (&before_time));
-		g_print ("Completed Time: %s", ctime (&completed_time));
-#endif
-
-		/* We want to return TRUE if before_time is after
-		   completed_time. */
-		if (difftime (before_time, completed_time) > 0) {
-#if 0
-			g_print ("  Returning TRUE\n");
-#endif
-			retval = TRUE;
-		}
-
-		cal_component_free_icaltimetype (tt);
-	}
-
-	result = e_sexp_result_new (esexp, ESEXP_RES_BOOL);
-	result->value.bool = retval;
-
-	return result;
 }
 
 
@@ -1076,41 +387,6 @@ remove_from_pending (Query *query, const char *remove_uid)
 	}
 }
 
-static struct {
-	char *name;
-	ESExpFunc *func;
-} functions[] = {
-	/* Time-related functions */
-	{ "time-now", func_time_now },
-	{ "make-time", func_make_time },
-	{ "time-add-day", func_time_add_day },
-	{ "time-day-begin", func_time_day_begin },
-	{ "time-day-end", func_time_day_end },
-
-	/* Component-related functions */
-	{ "get-vtype", func_get_vtype },
-	{ "occur-in-time-range?", func_occur_in_time_range },
-	{ "contains?", func_contains },
-	{ "has-categories?", func_has_categories },
-	{ "is-completed?", func_is_completed },
-	{ "completed-before?", func_completed_before }
-};
-
-/* Initializes a sexp by interning our own symbols */
-static ESExp *
-create_sexp (Query *query)
-{
-	ESExp *esexp;
-	int i;
-
-	esexp = e_sexp_new ();
-
-	for (i = 0; i < (sizeof (functions) / sizeof (functions[0])); i++)
-		e_sexp_add_function (esexp, 0, functions[i].name, functions[i].func, query);
-
-	return esexp;
-}
-
 /* Creates the ESexp and parses the esexp.  If a parse error occurs, it sets the
  * query state to QUERY_PARSE_ERROR and returns FALSE.
  */
@@ -1122,41 +398,29 @@ parse_sexp (Query *query)
 	priv = query->priv;
 
 	/* Compile the query string */
-
-	priv->esexp = create_sexp (query);
-
 	g_assert (priv->sexp != NULL);
-	e_sexp_input_text (priv->esexp, priv->sexp, strlen (priv->sexp));
+	priv->esexp = cal_backend_object_sexp_new (priv->sexp);
 
-	if (e_sexp_parse (priv->esexp) == -1) {
-		const char *error_str;
+	if (!priv->esexp) {
 		CORBA_Environment ev;
 		GList *l;
 
 		priv->state = QUERY_PARSE_ERROR;
 
 		/* Report the error to the listeners */
-
-		error_str = e_sexp_error (priv->esexp);
-		g_assert (error_str != NULL);
-
 		CORBA_exception_init (&ev);
 		for (l = priv->listeners; l != NULL; l = l->next) {
 			GNOME_Evolution_Calendar_QueryListener_notifyQueryDone (
 				l->data,
 				GNOME_Evolution_Calendar_QueryListener_PARSE_ERROR,
-				error_str,
+				"",
 				&ev);
 
 			if (BONOBO_EX (&ev))
-				g_message ("parse_sexp(): Could not notify the listener of "
-					   "a parse error");
+				g_warning (G_STRLOC ": Could not notify the listener of a parse error");
 		}
 
 		CORBA_exception_free (&ev);
-
-		e_sexp_unref (priv->esexp);
-		priv->esexp = NULL;
 
 		/* remove the query from the list of cached queries */
 		cached_queries = g_list_remove (cached_queries, query);
@@ -1177,8 +441,7 @@ match_component (Query *query, const char *uid,
 {
 	QueryPrivate *priv;
 	CalComponent *comp;
-	ESExpResult *result;
-
+	
 	priv = query->priv;
 
 	g_assert (priv->state == QUERY_IN_PROGRESS || priv->state == QUERY_DONE);
@@ -1190,62 +453,11 @@ match_component (Query *query, const char *uid,
 
 	/* Eval the sexp */
 
-	g_assert (priv->next_comp == NULL);
-
-	priv->next_comp = comp;
-	result = e_sexp_eval (priv->esexp);
-	priv->next_comp = NULL;
-
-	if (!result) {
-		const char *error_str;
-		CORBA_Environment ev;
-		GList *l;
-
-		error_str = e_sexp_error (priv->esexp);
-		g_assert (error_str != NULL);
-
-		CORBA_exception_init (&ev);
-		for (l = priv->listeners; l != NULL; l = l->next) {
-			GNOME_Evolution_Calendar_QueryListener_notifyEvalError (
-				l->data,
-				error_str,
-				&ev);
-
-			if (BONOBO_EX (&ev))
-				g_message ("match_component(): Could not notify the listener of "
-					   "an evaluation error");
-		}
-
-		CORBA_exception_free (&ev);
-		return;
-	} else if (result->type != ESEXP_RES_BOOL) {
-		CORBA_Environment ev;
-		GList *l;
-
-		CORBA_exception_init (&ev);
-		for (l = priv->listeners; l != NULL; l = l->next) {
-			GNOME_Evolution_Calendar_QueryListener_notifyEvalError (
-				l->data,
-				_("Evaluation of the search expression did not yield a boolean value"),
-				&ev);
-
-			if (BONOBO_EX (&ev))
-				g_message ("match_component(): Could not notify the listener of "
-					   "an unexpected result value type when evaluating the "
-					   "search expression");
-		}
-
-		CORBA_exception_free (&ev);
-	} else {
-		/* Success; process the component accordingly */
-
-		if (result->value.bool)
-			add_component (query, uid, query_in_progress, n_scanned, total);
-		else
-			remove_component (query, uid);
-	}
-
-	e_sexp_result_free (priv->esexp, result);
+	
+	if (cal_backend_object_sexp_match_comp (priv->esexp, comp, priv->backend))
+		add_component (query, uid, query_in_progress, n_scanned, total);
+	else
+		remove_component (query, uid);
 }
 
 /* Processes all components that are queued in the list */
@@ -1664,7 +876,6 @@ query_construct (Query *query,
 	g_object_ref (priv->backend);
 
 	priv->qb = query_backend_new (query, backend);
-	priv->default_zone = cal_backend_get_default_timezone (backend);
 
 	priv->sexp = g_strdup (sexp);
 

@@ -45,6 +45,27 @@ typedef struct _CalClientClass CalClientClass;
 
 typedef struct _CalClientPrivate CalClientPrivate;
 
+typedef enum {
+	E_CALENDAR_STATUS_OK,
+	E_CALENDAR_STATUS_INVALID_ARG,
+	E_CALENDAR_STATUS_BUSY,
+	E_CALENDAR_STATUS_REPOSITORY_OFFLINE,
+	E_CALENDAR_STATUS_NO_SUCH_CALENDAR,
+	E_CALENDAR_STATUS_URI_NOT_LOADED,
+	E_CALENDAR_STATUS_URI_ALREADY_LOADED,
+	E_CALENDAR_STATUS_PERMISSION_DENIED,
+	E_CALENDAR_STATUS_CARD_NOT_FOUND,
+	E_CALENDAR_STATUS_CARD_ID_ALREADY_EXISTS,
+	E_CALENDAR_STATUS_PROTOCOL_NOT_SUPPORTED,
+	E_CALENDAR_STATUS_CANCELLED,
+	E_CALENDAR_STATUS_COULD_NOT_CANCEL,
+	E_CALENDAR_STATUS_AUTHENTICATION_FAILED,
+	E_CALENDAR_STATUS_AUTHENTICATION_REQUIRED,
+	E_CALENDAR_STATUS_TLS_NOT_AVAILABLE,
+	E_CALENDAR_STATUS_CORBA_EXCEPTION,
+	E_CALENDAR_STATUS_OTHER_ERROR
+} ECalendarStatus;
+
 /* Open status for the cal_opened signal */
 typedef enum {
 	CAL_CLIENT_OPEN_SUCCESS,
@@ -184,11 +205,11 @@ CalClientGetStatus cal_client_get_timezone (CalClient *client,
 					    const char *tzid,
 					    icaltimezone **zone);
 
-GList *cal_client_get_uids (CalClient *client, CalObjType type);
 GList *cal_client_get_changes (CalClient *client, CalObjType type, const char *change_id);
 
-GList *cal_client_get_objects_in_range (CalClient *client, CalObjType type,
-					time_t start, time_t end);
+ECalendarStatus cal_client_get_object_list (CalClient *client, const char *query, GList **objects);
+ECalendarStatus cal_client_get_object_list_as_comp (CalClient *client, const char *query, GList **objects);
+void cal_client_free_object_list (GList *objects);
 
 GList *cal_client_get_free_busy (CalClient *client, GList *users,
 				 time_t start, time_t end);

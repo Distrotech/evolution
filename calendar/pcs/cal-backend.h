@@ -119,10 +119,7 @@ struct _CalBackendClass {
 	char *(* get_object) (CalBackend *backend, const char *uid);
 	CalComponent *(* get_object_component) (CalBackend *backend, const char *uid);
 	char *(* get_timezone_object) (CalBackend *backend, const char *tzid);
-	GList *(* get_uids) (CalBackend *backend, CalObjType type);
-
-	GList *(* get_objects_in_range) (CalBackend *backend, CalObjType type,
-					 time_t start, time_t end);
+	GList *(* get_object_list) (CalBackend *backend, const char *query);
 	GList *(* get_free_busy) (CalBackend *backend, GList *users, time_t start, time_t end);
 
 	/* Change related virtual methods */
@@ -190,10 +187,7 @@ char *cal_backend_get_timezone_object (CalBackend *backend, const char *tzid);
 
 CalObjType cal_backend_get_type_by_uid (CalBackend *backend, const char *uid);
 
-GList *cal_backend_get_uids (CalBackend *backend, CalObjType type);
-
-GList *cal_backend_get_objects_in_range (CalBackend *backend, CalObjType type,
-					 time_t start, time_t end);
+GList *cal_backend_get_object_list (CalBackend *backend, const char *query);
 
 GList *cal_backend_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
 
