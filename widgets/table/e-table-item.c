@@ -418,14 +418,25 @@ eti_row_height_real (ETableItem *eti, int row)
 	return max_h;
 }
 
+static void
+confirm_height_cache (ETableItem *eti)
+{
+	int i;
+
+	if (eti->height_cache)
+		return;
+	eti->height_cache = g_new(int, eti->rows);
+	for (i = 0; i < eti->rows; i++) {
+		eti->height_cache[i] = -1;
+	}
+}
+
 static gboolean
 height_cache_idle(ETableItem *eti)
 {
 	int changed = 0;
 	int i;
-	if (!eti->height_cache) {
-		eti->height_cache = g_new(int, eti->rows);
-	}
+	confirm_height_cache(eti);
 	for (i = eti->height_cache_idle_count; i < eti->rows; i++) {
 		if (eti->height_cache[i] == -1) {
 			eti_row_height(eti, i);
@@ -457,12 +468,8 @@ free_height_cache (ETableItem *eti)
 static void
 calculate_height_cache (ETableItem *eti)
 {
-	int i;
 	free_height_cache(eti);
-	eti->height_cache = g_new(int, eti->rows);
-	for (i = 0; i < eti->rows; i++) {
-		eti->height_cache[i] = -1;
-	}
+	confirm_height_cache(eti);
 }
 
 

@@ -115,13 +115,16 @@ find_next_node(ETreeTableAdapter *adapter, int row)
 static int
 find_first_child_node(ETreeTableAdapter *adapter, int row)
 {
-	ETreePath path = adapter->priv->map_table[row];
-	ETreePath first_child = e_tree_model_node_get_first_child(adapter->priv->source, path);
-	ETreeTableAdapterNode *current = find_node (adapter, path);
-	if (first_child && current && current->expanded)
-		return row + 1;
-	else
-		return -1;
+	if (row != -1) {
+		ETreePath path = adapter->priv->map_table[row];
+		ETreePath first_child = e_tree_model_node_get_first_child(adapter->priv->source, path);
+		ETreeTableAdapterNode *current = find_node (adapter, path);
+		if (first_child && current && current->expanded)
+			return row + 1;
+		else
+			return -1;
+	} else
+		return 0;
 }
 
 static int
