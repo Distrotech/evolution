@@ -44,10 +44,19 @@
 #include <camel/camel-stream-mem.h>
 #include <camel/camel-url.h>
 
+#include <bonobo/bonobo-main.h>
+#include <bonobo/bonobo-object.h>
+#include <bonobo/bonobo-generic-factory.h>
+#include <bonobo/bonobo-control.h>
+#include <bonobo/bonobo-ui-component.h>
+#include <bonobo/bonobo-ui-util.h>
+
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
 #include "em-folder-browser.h"
 #include "message-list.h"
+
+#include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
 struct _EMFolderBrowserPrivate {
 	GtkWidget *preview;	/* container for message display */
@@ -56,7 +65,10 @@ struct _EMFolderBrowserPrivate {
 	int show_list:1;
 };
 
-static GtkVBoxClass *emfb_parent;
+
+static void emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
+
+static EMFolderViewClass *emfb_parent;
 
 /* Needed since the paned wont take the position its given otherwise ... */
 static void
@@ -73,6 +85,8 @@ emfb_init(GObject *o)
 {
 	EMFolderBrowser *emfb = (EMFolderBrowser *)o;
 	struct _EMFolderBrowserPrivate *p;
+
+	printf("em folder browser init\n");
 
 	p = emfb->priv = g_malloc0(sizeof(struct _EMFolderBrowserPrivate));
 
@@ -119,6 +133,7 @@ static void
 emfb_class_init(GObjectClass *klass)
 {
 	klass->finalize = emfb_finalise;
+	((EMFolderViewClass *)klass)->activate = emfb_activate;
 }
 
 GType
@@ -174,5 +189,171 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 		/*
 		mail_display_set_message (emfb->mail_display, NULL, NULL, NULL);
 		emfb_ui_message_loaded (emfb);*/
+	}
+}
+
+/* ********************************************************************** */
+
+static void
+emfb_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
+{
+	printf("editcut\n");
+}
+
+static void
+emfb_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
+{
+	printf("editcopy\n");
+}
+
+static void
+emfb_edit_paste(BonoboUIComponent *uid, void *data, const char *path)
+{
+	printf("editpaste\n");
+}
+
+static void
+emfb_edit_invert_selection(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	printf("editinvertselection: %s\n", path);
+	message_list_invert_selection(emfv->list);
+}
+
+static void
+emfb_edit_select_all(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	printf("editselectall\n");
+	message_list_select_all(emfv->list);
+}
+
+static void
+emfb_edit_select_thread(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	printf("editselectthread\n");
+	message_list_select_thread(emfv->list);
+}
+
+static void
+emfb_folder_properties(BonoboUIComponent *uid, void *data, const char *path)
+{
+	/* If only we could remove this ... */
+	/* Should it be part of the factory? */
+	printf("folderproperties\n");
+}
+
+static void
+emfb_folder_expunge(BonoboUIComponent *uid, void *data, const char *path)
+{
+	/* This is a lot trickier than it should be ... */
+	printf("folderexpunge\n");
+}
+
+static void
+emfb_mark_all_read(BonoboUIComponent *uid, void *data, const char *path)
+{
+	/* FIXME: make a 'mark messages' function? */
+
+	EMFolderView *emfv = data;
+	GPtrArray *uids;
+	int i;
+
+	printf("markallread\n");
+
+	uids = camel_folder_get_uids(emfv->folder);
+	camel_folder_freeze(emfv->folder);
+	for (i=0;i<uids->len;i++)
+		camel_folder_set_message_flags(emfv->folder, uids->pdata[i], CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+	camel_folder_thaw(emfv->folder);
+	camel_folder_free_uids(emfv->folder, uids);
+}
+
+static void
+emfb_view_hide_read(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	printf("viewhideread\n");
+	message_list_hide_add(emfv->list, "(match-all (system-flag \"seen\"))", ML_HIDE_SAME, ML_HIDE_SAME);
+}
+
+static void
+emfb_view_hide_selected(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+	GPtrArray *uids;
+
+	/* TODO: perhaps this should sit directly on message_list? */
+	/* is it worth it, it's so trivial */
+	printf("viewhideselected\n");
+	uids = message_list_get_selected(emfv->list);
+	message_list_hide_uids(emfv->list, uids);
+	message_list_free_uids(emfv->list, uids);
+}
+
+static void
+emfb_view_show_all(BonoboUIComponent *uid, void *data, const char *path)
+{
+	EMFolderView *emfv = data;
+
+	printf("viewshowall\n");
+	message_list_hide_clear(emfv->list);
+}
+
+static BonoboUIVerb emfb_verbs[] = {
+	BONOBO_UI_UNSAFE_VERB ("EditCut", emfb_edit_cut),
+	BONOBO_UI_UNSAFE_VERB ("EditCopy", emfb_edit_copy),
+	BONOBO_UI_UNSAFE_VERB ("EditPaste", emfb_edit_paste),
+	BONOBO_UI_UNSAFE_VERB ("EditInvertSelection", emfb_edit_invert_selection),
+	BONOBO_UI_UNSAFE_VERB ("EditSelectAll", emfb_edit_select_all),
+        BONOBO_UI_UNSAFE_VERB ("EditSelectThread", emfb_edit_select_thread),
+	BONOBO_UI_UNSAFE_VERB ("ChangeFolderProperties", emfb_folder_properties),
+	BONOBO_UI_UNSAFE_VERB ("FolderExpunge", emfb_folder_expunge),
+	/* HideDeleted is a toggle */
+	BONOBO_UI_UNSAFE_VERB ("MessageMarkAllAsRead", emfb_mark_all_read),
+	BONOBO_UI_UNSAFE_VERB ("ViewHideRead", emfb_view_hide_read),
+	BONOBO_UI_UNSAFE_VERB ("ViewHideSelected", emfb_view_hide_selected),
+	BONOBO_UI_UNSAFE_VERB ("ViewShowAll", emfb_view_show_all),
+	/* ViewThreaded is a toggle */
+
+	BONOBO_UI_VERB_END
+};
+
+static EPixmap emfb_pixmaps[] = {
+	E_PIXMAP ("/commands/ChangeFolderProperties", "configure_16_folder.xpm"),
+	E_PIXMAP ("/commands/ViewHideRead", "hide_read_messages.xpm"),
+	E_PIXMAP ("/commands/ViewHideSelected", "hide_selected_messages.xpm"),
+	E_PIXMAP ("/commands/ViewShowAll", "show_all_messages.xpm"),
+	
+	E_PIXMAP ("/commands/EditCut", "16_cut.png"),
+	E_PIXMAP ("/commands/EditCopy", "16_copy.png"),
+	E_PIXMAP ("/commands/EditPaste", "16_paste.png"),
+
+	E_PIXMAP_END
+};
+
+static void
+emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
+{
+	if (state) {
+		emfb_parent->activate(emfv, uic, state);
+
+		bonobo_ui_component_add_verb_list_with_data(uic, emfb_verbs, emfv);
+		bonobo_ui_util_set_ui(uic, PREFIX, EVOLUTION_UIDIR "/evolution-mail-list.xml", "evolution-mail", NULL);
+		e_pixmaps_update(uic, emfb_pixmaps);
+
+		/* FIXME: toggles */
+		/* FIXME: conf settings */
+	} else {
+		const BonoboUIVerb *v;
+		
+		for (v = &emfb_verbs[0]; v->cname; v++)
+			bonobo_ui_component_remove_verb(uic, v->cname);
+
+		emfb_parent->activate(emfv, uic, state);
 	}
 }

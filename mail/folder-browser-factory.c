@@ -159,13 +159,24 @@ control_activate_cb (BonoboControl *control,
 {
 	BonoboUIComponent *uic;
 
-	uic = bonobo_control_get_ui_component (control);
+	uic = bonobo_control_get_ui_component(control);
 	g_assert (uic != NULL);
 
-	if (activate)
-		control_activate (control, uic, user_data);
-	else
-		control_deactivate (control, uic, user_data);
+	if (activate) {
+		Bonobo_UIContainer container;
+
+		container = bonobo_control_get_remote_ui_container(control, NULL);
+		bonobo_ui_component_set_container(uic, container, NULL);
+		bonobo_object_release_unref(container, NULL);
+
+		g_assert(container == bonobo_ui_component_get_container(uic));
+		g_return_if_fail(container != CORBA_OBJECT_NIL);
+
+		em_folder_view_activate(user_data, uic, activate);
+	} else {
+		em_folder_view_activate(user_data, uic, activate);
+		bonobo_ui_component_unset_container(uic, NULL);
+	}
 }
 
 static void
@@ -189,7 +200,7 @@ folder_browser_factory_new_control (const char *uri,
 #endif
 	fb = em_folder_browser_new();
 	gtk_widget_show (fb);
-	em_folder_view_set_folder((EMFolderView *)fb, uri);
+	em_folder_view_set_folder_uri((EMFolderView *)fb, uri);
 	em_format_set_session((EMFormat *)((EMFolderView *)fb)->preview, session);
 
 	control = bonobo_control_new (fb);

@@ -36,6 +36,8 @@
 
 #include "mail-mt.h"
 
+#define d(x) 
+
 enum _write_msg_t {
 	EMCS_WRITE,
 	EMCS_FLUSH,
@@ -101,10 +103,10 @@ emcs_gui_received(GIOChannel *source, GIOCondition cond, void *data)
 	struct _write_msg *msg;
 	int go = TRUE;
 
-	printf("%p: gui sync op job waiting\n", estream);
+	d(printf("%p: gui sync op job waiting\n", estream));
 
 	while (go && (msg = (struct _write_msg *)e_msgport_get(estream->data_port)) ) {
-		printf("%p: running sync op %d\n", estream, msg->op);
+		d(printf("%p: running sync op %d\n", estream, msg->op));
 
 		switch (msg->op) {
 		case EMCS_WRITE:
@@ -131,10 +133,10 @@ emcs_gui_received(GIOChannel *source, GIOCondition cond, void *data)
 		}
 
 		e_msgport_reply((EMsg *)msg);
-		printf("%p: checking more sync ops\n", estream);
+		d(printf("%p: checking more sync ops\n", estream));
 	}
 
-	printf("%p: gui sync op jobs done\n", estream);
+	d(printf("%p: gui sync op jobs done\n", estream));
 
 	return TRUE;
 }
@@ -150,7 +152,7 @@ em_camel_stream_init (CamelObject *object)
 	estream->gui_channel = g_io_channel_unix_new(e_msgport_fd(estream->data_port));
 	estream->gui_watch = g_io_add_watch(estream->gui_channel, G_IO_IN, emcs_gui_received, estream);
 
-	printf("%p: new estream\n", estream);
+	d(printf("%p: new estream\n", estream));
 }
 
 static void
@@ -158,7 +160,7 @@ sync_op(EMCamelStream *estream, enum _write_msg_t op, const char *data, size_t n
 {
 	struct _write_msg msg;
 
-	printf("%p: launching sync op %d\n", estream, op);
+	d(printf("%p: launching sync op %d\n", estream, op));
 	/* we do everything synchronous, we should never have any locks, and
 	   this prevents overflow from banked up data */
 	msg.msg.reply_port = estream->reply_port;
@@ -168,7 +170,7 @@ sync_op(EMCamelStream *estream, enum _write_msg_t op, const char *data, size_t n
 	e_msgport_put(estream->data_port, &msg.msg);
 	e_msgport_wait(estream->reply_port);
 	g_assert(e_msgport_get(msg.msg.reply_port) == &msg.msg);
-	printf("%p: returned sync op %d\n", estream, op);
+	d(printf("%p: returned sync op %d\n", estream, op));
 }
 
 static void
@@ -176,9 +178,9 @@ em_camel_stream_finalize (CamelObject *object)
 {
 	EMCamelStream *estream = (EMCamelStream *)object;
 
-	printf("%p: finalising stream\n", object);
+	d(printf("%p: finalising stream\n", object));
 	if (estream->html_stream) {
-		printf("%p: html stream still open - error\n", object);
+		d(printf("%p: html stream still open - error\n", object));
 		if (pthread_self() == mail_gui_thread)
 			gtk_html_stream_close(estream->html_stream, GTK_HTML_STREAM_ERROR);
 		else
@@ -230,7 +232,7 @@ stream_close(CamelStream *stream)
 {
 	EMCamelStream *estream = (EMCamelStream *)stream;
 
-	printf("%p: closing stream\n", stream);
+	d(printf("%p: closing stream\n", stream));
 
 	if (estream->html_stream) {
 		if (pthread_self() == mail_gui_thread) {

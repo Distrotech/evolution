@@ -114,7 +114,7 @@ struct _EMFormatClass {
 	GHashTable *type_handlers;
 
 	/* start formatting a message */
-	void (*format)(EMFormat *, struct _CamelMedium *);
+	void (*format_clone)(EMFormat *, struct _CamelMedium *, EMFormat *);
 	/* some internel error/inconsistency */
 	void (*format_error)(EMFormat *, struct _CamelStream *, const char *msg);
 
@@ -126,10 +126,7 @@ struct _EMFormatClass {
 	void (*format_source)(EMFormat *, struct _CamelStream *, struct _CamelMimePart *);
 };
 
-/* clones inline state/view, or use to redraw */
-void em_format_format_clone(EMFormat *emf, struct _CamelMedium *msg, EMFormat *emfsource);
 /* helper entry point */
-#define em_format_format(emf, msg) em_format_format_clone((emf), (msg), NULL)
 void em_format_set_session(EMFormat *emf, struct _CamelSession *s);
 
 void em_format_clear_headers(EMFormat *emf); /* also indicates to show all headers */
@@ -160,6 +157,10 @@ void em_format_clear_puri_tree(EMFormat *emf);
 void em_format_push_level(EMFormat *emf);
 void em_format_pull_level(EMFormat *emf);
 
+/* clones inline state/view and format, or use to redraw */
+#define em_format_format_clone(emf, msg, src) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_clone((emf), (msg), (src))
+/* formats a new message */
+#define em_format_format(emf, msg) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_clone((emf), (msg), NULL)
 #define em_format_format_error(emf, stream, txt) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_error((emf), (stream), (txt))
 #define em_format_format_attachment(emf, stream, msg, type, info) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_attachment((emf), (stream), (msg), (type), (info))
 #define em_format_format_message(emf, stream, msg) ((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format_message((emf), (stream), (msg))

@@ -126,6 +126,7 @@ struct _MessageList {
 
 	/* list of outstanding regeneration requests */
 	GList *regen;
+	char *pending_select_uid; /* set if we were busy regnerating while we had a select come in */
 
 	/* the current camel folder thread tree, if any */
 	struct _CamelFolderThread *thread_tree;
@@ -160,6 +161,9 @@ void           message_list_set_folder (MessageList *message_list,
 void           message_list_foreach    (MessageList *message_list,
 					MessageListForeachFunc callback,
 					gpointer user_data);
+
+GPtrArray     *message_list_get_selected(MessageList *ml);
+void	       message_list_free_uids(MessageList *ml, GPtrArray *uids);
 
 /* select next/prev message helpers */
 gboolean       message_list_select     (MessageList *message_list,

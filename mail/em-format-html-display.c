@@ -72,6 +72,8 @@
 #include "em-marshal.h"
 #include "e-searching-tokenizer.h"
 
+#define d(x)
+
 #define EFHD_TABLE_OPEN "<table>"
 
 struct _EMFormatHTMLDisplayPrivate {
@@ -98,7 +100,7 @@ static void efhd_iframe_created(GtkHTML *html, GtkHTML *iframe, EMFormatHTMLDisp
 /*static void efhd_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTMLDisplay *efh);
   static gboolean efhd_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTMLDisplay *efh);*/
 
-static void efhd_format(EMFormat *, CamelMedium *);
+static void efhd_format_clone(EMFormat *, CamelMedium *, EMFormat *);
 static void efhd_format_error(EMFormat *emf, CamelStream *stream, const char *txt);
 static void efhd_format_message(EMFormat *, CamelStream *, CamelMedium *);
 static void efhd_format_source(EMFormat *, CamelStream *, CamelMimePart *);
@@ -195,7 +197,7 @@ efhd_bool_accumulator(GSignalInvocationHint *ihint, GValue *out, const GValue *i
 static void
 efhd_class_init(GObjectClass *klass)
 {
-	((EMFormatClass *)klass)->format = efhd_format;
+	((EMFormatClass *)klass)->format_clone = efhd_format_clone;
 	((EMFormatClass *)klass)->format_error = efhd_format_error;
 	((EMFormatClass *)klass)->format_message = efhd_format_message;
 	((EMFormatClass *)klass)->format_source = efhd_format_source;
@@ -290,7 +292,7 @@ em_format_html_display_set_search(EMFormatHTMLDisplay *efhd, int type, GSList *s
 		break;
 	}
 
-	printf("redrawing with search\n");
+	d(printf("redrawing with search\n"));
 	em_format_format_clone((EMFormat *)efhd, ((EMFormat *)efhd)->message, (EMFormat *)efhd);
 }
 
@@ -318,7 +320,7 @@ em_format_html_display_zoom_reset (EMFormatHTMLDisplay *efhd)
 static void
 efhd_iframe_created(GtkHTML *html, GtkHTML *iframe, EMFormatHTMLDisplay *efh)
 {
-	printf("Iframe created %p ... \n", iframe);
+	d(printf("Iframe created %p ... \n", iframe));
 
 	g_signal_connect(iframe, "button_press_event", G_CALLBACK (efhd_html_button_press_event), efh);
 
@@ -341,7 +343,7 @@ efhd_html_button_press_event (GtkWidget *widget, GdkEventButton *event, EMFormat
 	if (point == NULL)
 		return FALSE;
 
-	printf("popup button pressed\n");
+	d(printf("popup button pressed\n"));
 
 	if ( (url = html_object_get_src(point->object)) != NULL
 	     || (url = html_object_get_url(point->object)) != NULL) {
@@ -351,7 +353,7 @@ efhd_html_button_press_event (GtkWidget *widget, GdkEventButton *event, EMFormat
 		uri = gtk_html_get_url_object_relative((GtkHTML *)widget, point->object, url);
 		puri = em_format_find_puri((EMFormat *)efhd, uri);
 
-		printf("poup event, uri = '%s' part = '%p'\n", uri, puri?puri->part:NULL);
+		d(printf("poup event, uri = '%s' part = '%p'\n", uri, puri?puri->part:NULL));
 
 		g_signal_emit((GtkObject *)efhd, efhd_signals[EFHD_POPUP_EVENT], 0, event, uri, puri?puri->part:NULL, &res);
 		g_free(uri);
@@ -365,7 +367,7 @@ efhd_html_button_press_event (GtkWidget *widget, GdkEventButton *event, EMFormat
 static void
 efhd_html_link_clicked (GtkHTML *html, const char *url, EMFormatHTMLDisplay *efhd)
 {
-	printf("link clicked event '%s'\n", url);
+	d(printf("link clicked event '%s'\n", url));
 	g_signal_emit((GObject *)efhd, efhd_signals[EFHD_LINK_CLICKED], 0, url);
 }
 
@@ -374,7 +376,7 @@ efhd_html_link_clicked (GtkHTML *html, const char *url, EMFormatHTMLDisplay *efh
 static void
 efhd_signature_check(GtkWidget *w, EMFormatHTMLPObject *pobject)
 {
-	printf("insert signature check here ... redraw ?  or what ?\n");
+	d(printf("insert signature check here ... redraw ?  or what ?\n"));
 	/* blah, do the old way for now, force a complete re-draw */
 	em_format_set_inline((EMFormat *)pobject->format, pobject->part, TRUE);
 	em_format_format_clone((EMFormat *)pobject->format, ((EMFormat *)pobject->format)->message, (EMFormat *)pobject->format);
@@ -467,14 +469,14 @@ efhd_builtin_init(EMFormatHTMLDisplayClass *efhc)
 
 /* ********************************************************************** */
 
-/* just inherit at the moment ...? */
-static void efhd_format(EMFormat *emf, CamelMedium *part)
+static void efhd_format_clone(EMFormat *emf, CamelMedium *part, EMFormat *src)
 {
-	((EMFormatClass *)efhd_parent)->format(emf, part);
+	((EMFormatClass *)efhd_parent)->format_clone(emf, part, src);
 
 	((EMFormatHTMLDisplay *)emf)->search_matches = e_searching_tokenizer_match_count(((EMFormatHTMLDisplay *)emf)->search_tok);
 }
 
+/* TODO: if these aren't going to do anything should remove */
 static void efhd_format_error(EMFormat *emf, CamelStream *stream, const char *txt)
 {
 	((EMFormatClass *)efhd_parent)->format_error(emf, stream, txt);
@@ -496,7 +498,7 @@ static void efhd_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart
 static void
 efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 {
-	printf("show attachment button called\n");
+	d(printf("show attachment button called\n"));
 
 	info->shown = ~info->shown;
 	em_format_set_inline(info->puri.format, info->puri.part, info->shown);
@@ -506,14 +508,14 @@ efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 	/* FIXME: track shown state in parent */
 
 	if (info->shown) {
-		printf("hiding\n");
+		d(printf("hiding\n"));
 		info->shown = FALSE;
 		if (info->frame)
 			gtk_widget_hide((GtkWidget *)info->frame);
 		gtk_widget_show(info->forward);
 		gtk_widget_hide(info->down);
 	} else {
-		printf("showing\n");
+		d(printf("showing\n"));
 		info->shown = TRUE;
 		if (info->frame)
 			gtk_widget_show((GtkWidget *)info->frame);
@@ -543,7 +545,7 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 	   How can i do this with plugins!?
 	   extension point=com.ximian.evolution.mail.attachmentPopup?? */
 
-	printf("attachment popup, button %d\n", event->button);
+	d(printf("attachment popup, button %d\n", event->button));
 
 	if (event->button != 1 && event->button != 3) {
 		/* ?? gtk_propagate_event(GTK_WIDGET (user_data), (GdkEvent *)event);*/
@@ -599,7 +601,7 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	GtkWidget *hbox, *w, *button, *mainbox;
 
 	/* FIXME: handle default shown case */
-	printf("adding attachment button/content\n");
+	d(printf("adding attachment button/content\n"));
 
 	info = (struct _attach_puri *)em_format_find_puri((EMFormat *)efh, pobject->classid);
 	g_assert(info != NULL);
@@ -647,6 +649,7 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 	return TRUE;
 }
 
+/* not used currently */
 /* frame source callback */
 static void
 efhd_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
@@ -654,7 +657,7 @@ efhd_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 	struct _attach_puri *info = (struct _attach_puri *)puri;
 
 	if (info->shown) {
-		printf("writing to frame content, handler is '%s'\n", info->handle->mime_type);
+		d(printf("writing to frame content, handler is '%s'\n", info->handle->mime_type));
 		info->handle->handler(emf, stream, info->puri.part, info->handle);
 		camel_stream_close(stream);
 	} else {

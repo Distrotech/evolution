@@ -79,6 +79,7 @@ struct _EMFormatHTML {
 	guint32 citation_colour;
 	guint32 xmailer_mask;	/* this should probably die? */
 	unsigned int load_http:1;
+	unsigned int load_http_now:1;
 	unsigned int mark_citations:1;
 };
 
@@ -88,6 +89,8 @@ struct _EMFormatHTMLClass {
 
 GType em_format_html_get_type(void);
 EMFormatHTML *em_format_html_new(void);
+
+void em_format_html_load_http(EMFormatHTML *emf);
 
 /* retrieves a pseudo-part icon wrapper for a file */
 struct _CamelMimePart *em_format_html_file_part(EMFormatHTML *efh, const char *mime_type, const char *path, const char *name);

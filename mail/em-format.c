@@ -46,8 +46,12 @@
 
 #include "em-format.h"
 
+#define d(x)
+
 static void emf_builtin_init(EMFormatClass *);
 static const char *emf_snoop_part(CamelMimePart *part);
+
+static void emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource);
 
 static GObjectClass *emf_parent;
 
@@ -84,7 +88,9 @@ emf_class_init(GObjectClass *klass)
 {
 	((EMFormatClass *)klass)->type_handlers = g_hash_table_new(g_str_hash, g_str_equal);
 	emf_builtin_init((EMFormatClass *)klass);
+
 	klass->finalize = emf_finalise;
+	((EMFormatClass *)klass)->format_clone = emf_format_clone;
 }
 
 GType
@@ -230,7 +236,7 @@ em_format_add_puri(EMFormat *emf, size_t size, const char *cid, CamelMimePart *p
 		else
 			puri->cid = g_strdup_printf("em-no-cid-%u", uriid++);
 
-		printf("built cid '%s'\n", puri->cid);
+		d(printf("built cid '%s'\n", puri->cid));
 
 		/* not quite same as old behaviour, it also put in the relative uri and a fallback for no parent uri */
 		tmp = camel_mime_part_get_content_location(part);
@@ -319,15 +325,14 @@ em_format_find_visible_puri(EMFormat *emf, const char *uri)
 {
 	EMFormatPURI *pw;
 	struct _EMFormatPURITree *ptree;
-	int nocid;
 
-	printf("checking for visible uri '%s'\n", uri);
+	d(printf("checking for visible uri '%s'\n", uri));
 
 	ptree = emf->pending_uri_level;
 	while (ptree) {
 		pw = (EMFormatPURI *)ptree->uri_list.head;
 		while (pw->next) {
-			printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid);
+			d(printf(" pw->uri = '%s' pw->cid = '%s\n", pw->uri?pw->uri:"", pw->cid));
 			if ((pw->uri && !strcmp(pw->uri, uri)) || !strcmp(pw->cid, uri))
 				return pw;
 			pw = pw->next;
@@ -400,7 +405,7 @@ emf_clear_puri_node(struct _EMFormatPURITree *node)
 void
 em_format_clear_puri_tree(EMFormat *emf)
 {
-	printf("clearing pending uri's\n");
+	d(printf("clearing pending uri's\n"));
 
 	if (emf->pending_uri_table) {
 		g_hash_table_destroy(emf->pending_uri_table);
@@ -428,11 +433,11 @@ em_format_part_as(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const
 
 		if (handle != NULL
 		    && !em_format_is_attachment(emf, part)) {
-			printf("running handler for type '%s'\n", mime_type);
+			d(printf("running handler for type '%s'\n", mime_type));
 			handle->handler(emf, stream, part, handle);
 			return;
 		}
-		printf("this type is an attachment? '%s'\n", mime_type);
+		d(printf("this type is an attachment? '%s'\n", mime_type));
 	} else {
 		mime_type = "application/octet-stream";
 	}
@@ -459,22 +464,8 @@ emf_clone_inlines(void *key, void *val, void *data)
 	g_hash_table_insert(((EMFormat *)data)->inline_table, key, val);
 }
 
-/**
- * em_format_format_clone:
- * @emf: Mail formatter.
- * @msg: Mail message.
- * @emfsource: Used as a basis for user-altered layout, e.g. inline viewed
- * attachments.
- * 
- * Format a message @msg.  If @emfsource is non NULL, then the status of
- * inlined expansion and so forth is copied direction from @emfsource.
- *
- * By passing the same value for @emf and @emfsource, you can perform
- * a display refresh, or it can be used to generate an identical layout,
- * e.g. to print what the user has shown inline.
- **/
-void
-em_format_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
+static void
+emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
 {
 	em_format_clear_puri_tree(emf);
 
@@ -494,9 +485,23 @@ em_format_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
 			camel_object_ref(msg);
 		emf->message = msg;
 	}
-
-	((EMFormatClass *)G_OBJECT_GET_CLASS(emf))->format((EMFormat *)(emf), (msg));
 }
+
+/**
+ * em_format_format_clone:
+ * @emf: Mail formatter.
+ * @msg: Mail message.
+ * @emfsource: Used as a basis for user-altered layout, e.g. inline viewed
+ * attachments.
+ * 
+ * Format a message @msg.  If @emfsource is non NULL, then the status of
+ * inlined expansion and so forth is copied direction from @emfsource.
+ *
+ * By passing the same value for @emf and @emfsource, you can perform
+ * a display refresh, or it can be used to generate an identical layout,
+ * e.g. to print what the user has shown inline.
+ **/
+/* e_format_format_clone is a macro */
 
 /**
  * em_format_set_session:
@@ -706,7 +711,6 @@ em_format_describe_part(CamelMimePart *part, const char *mime_type)
 	return out;
 }
 
-
 /* ********************************************************************** */
 
 /* originally from mail-identify.c */
@@ -734,7 +738,7 @@ emf_snoop_part(CamelMimePart *part)
 		camel_object_unref(mem);
 	}
 
-	printf("snooped part, magic_type '%s' name_type '%s'\n", magic_type, name_type);
+	d(printf("snooped part, magic_type '%s' name_type '%s'\n", magic_type, name_type));
 
 	/* If GNOME-VFS doesn't recognize the data by magic, but it
 	 * contains English words, it will call it text/plain. If the
@@ -926,7 +930,7 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	/* stack of present location and pending uri's */
 	location = camel_mime_part_get_content_location(part);
 	if (location) {
-		printf("setting content location %s\n", location);
+		d(printf("setting content location %s\n", location));
 		base_save = emf->base;
 		emf->base = camel_url_new(location, NULL);
 	}
@@ -947,7 +951,7 @@ emf_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	purin = puri->next;
 	while (purin) {
 		if (purin->use_count == 0) {
-			printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count);
+			d(printf("part '%s' '%s' used '%d'\n", purin->uri?purin->uri:"", purin->cid, purin->use_count));
 			if (purin->func == emf_write_related)
 				em_format_part(emf, stream, puri->part);
 			else

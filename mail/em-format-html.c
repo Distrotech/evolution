@@ -20,7 +20,6 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -62,15 +61,24 @@
 
 #include <e-util/e-msgport.h>
 #include "mail-mt.h"
+/* FIXME: how to remove depency on mail-config */
+#include "mail-config.h"
 
 #include "em-format-html.h"
 #include "em-camel-stream.h"
+
+#include "mail-config.h"
+
+#define d(x) 
 
 #define EFH_TABLE_OPEN "<table>"
 
 struct _EMFormatHTMLPrivate {
 	struct _CamelMedium *last_part;	/* not reffed, DO NOT dereference */
-	int format_id;		/* format thread id */
+	volatile int format_id;		/* format thread id */
+	guint format_timeout_id;
+	struct _format_msg *format_timeout_msg;
+
 	EDList pending_jobs;
 	GMutex *lock;
 };
@@ -92,11 +100,10 @@ struct _EMFormatHTMLJob {
 	} u;
 };
 
-
 static void efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTML *efh);
 static gboolean efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh);
 
-static void efh_format(EMFormat *, CamelMedium *);
+static void efh_format_clone(EMFormat *, CamelMedium *, EMFormat *);
 static void efh_format_error(EMFormat *emf, CamelStream *stream, const char *txt);
 static void efh_format_message(EMFormat *, CamelStream *, CamelMedium *);
 static void efh_format_source(EMFormat *, CamelStream *, CamelMimePart *);
@@ -149,6 +156,13 @@ efh_finalise(GObject *o)
 	if (efh->html)
 		g_object_unref(efh->html);
 
+	if (efh->priv->format_timeout_id != 0) {
+		g_source_remove(efh->priv->format_timeout_id);
+		efh->priv->format_timeout_id = 0;
+		mail_msg_free(efh->priv->format_timeout_msg);
+		efh->priv->format_timeout_msg = NULL;
+	}
+
 	g_free(efh->priv);
 
 	((GObjectClass *)efh_parent)->finalize(o);
@@ -159,7 +173,7 @@ efh_class_init(GObjectClass *klass)
 {
 	efh_builtin_init((EMFormatHTMLClass *)klass);
 
-	((EMFormatClass *)klass)->format = efh_format;
+	((EMFormatClass *)klass)->format_clone = efh_format_clone;
 	((EMFormatClass *)klass)->format_error = efh_format_error;
 	((EMFormatClass *)klass)->format_message = efh_format_message;
 	((EMFormatClass *)klass)->format_source = efh_format_source;
@@ -206,6 +220,18 @@ EMFormatHTML *em_format_html_new(void)
 	efh = g_object_new(em_format_html_get_type(), 0);
 
 	return efh;
+}
+
+/* force loading of http images */
+void em_format_html_load_http(EMFormatHTML *emfh)
+{
+	if (emfh->load_http)
+		return;
+
+	/* This will remain set while we're still rendering the same message, then it wont be */
+	emfh->load_http_now = TRUE;
+	d(printf("redrawing with images forced on\n"));
+	em_format_format_clone((EMFormat *)emfh, emfh->format.message, (EMFormat *)emfh);
 }
 
 CamelMimePart *
@@ -303,7 +329,7 @@ em_format_html_remove_pobject(EMFormatHTML *emf, EMFormatHTMLPObject *pobject)
 void
 em_format_html_clear_pobject(EMFormatHTML *emf)
 {
-	printf("clearing pending objects\n");
+	d(printf("clearing pending objects\n"));
 	while (!e_dlist_empty(&emf->pending_object_list))
 		em_format_html_remove_pobject(emf, (EMFormatHTMLPObject *)emf->pending_object_list.head);
 }
@@ -312,7 +338,7 @@ em_format_html_clear_pobject(EMFormatHTML *emf)
 
 static void emfh_getpuri(struct _EMFormatHTMLJob *job)
 {
-	printf(" running getpuri task\n");
+	d(printf(" running getpuri task\n"));
 	job->u.puri->func((EMFormat *)job->format, job->estream, job->u.puri);
 }
 
@@ -323,7 +349,7 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 	ssize_t n;
 	char buffer[1500];
 
-	printf(" running load uri task: %s\n", job->u.uri);
+	d(printf(" running load uri task: %s\n", job->u.uri));
 
 	url = camel_url_new(job->u.uri, NULL);
 	if (url == NULL)
@@ -332,9 +358,19 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 	if (emfh_http_cache)
 		instream = cistream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
 
-	/* FIXME: proxy */
-	if (instream == NULL)
+	if (instream == NULL) {
+		if (!job->format->load_http_now) {
+			/* TODO: Ideally we would put the http requests into another queue and only send them out
+			   if the user selects 'load images', when they do.  The problem is how to maintain this
+			   state with multiple renderings, and how to adjust the thread dispatch/setup routine to handle it */
+			/* FIXME: Need to handle 'load if sender in addressbook' case too */
+			camel_url_free(url);
+			goto done;
+		}
+
+		/* FIXME: proxy */
 		instream = camel_http_stream_new(CAMEL_HTTP_METHOD_GET, ((EMFormat *)job->format)->session, url);
+	}
 	camel_url_free(url);
 
 	if (instream == NULL)
@@ -347,7 +383,7 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job)
 		/* FIXME: progress reporting */
 		n = camel_stream_read(instream, buffer, 1500);
 		if (n > 0) {
-			printf("  read %d bytes\n", n);
+			d(printf("  read %d bytes\n", n));
 			if (costream && camel_stream_write(costream, buffer, n) == -1) {
 				camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
 				camel_object_unref(costream);
@@ -382,23 +418,23 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 	EMFormatPURI *puri;
 	struct _EMFormatHTMLJob *job = NULL;
 
-	printf("url requested, html = %p, url '%s'\n", html, url);
+	d(printf("url requested, html = %p, url '%s'\n", html, url));
 
 	puri = em_format_find_visible_puri((EMFormat *)efh, url);
 	if (puri) {
 		puri->use_count++;
 
-		printf(" adding puri job\n");
+		d(printf(" adding puri job\n"));
 		job = g_malloc0(sizeof(*job));
 		job->u.puri = puri;
 		job->callback = emfh_getpuri;
 	} else if (g_ascii_strncasecmp(url, "http:", 5) == 0 || g_ascii_strncasecmp(url, "https:", 6) == 0) {
-		printf(" adding job, get %s\n", url);
+		d(printf(" adding job, get %s\n", url));
 		job = g_malloc0(sizeof(*job));
 		job->callback = emfh_gethttp;
 		job->u.uri = g_strdup(url);
 	} else {
-		printf("HTML Includes reference to unknown uri '%s'\n", url);
+		d(printf("HTML Includes reference to unknown uri '%s'\n", url));
 		gtk_html_stream_close(handle, GTK_HTML_STREAM_ERROR);
 	}
 
@@ -531,7 +567,7 @@ efh_text_html(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFor
 
 	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_wrapper);
 	location = puri->uri?puri->uri:puri->cid;
-	printf("adding iframe, location %s\n", location);
+	d(printf("adding iframe, location %s\n", location));
 	camel_stream_printf ( stream,
 			     "<iframe src=\"%s\" frameborder=0 scrolling=no>could not get %s</iframe>",
 			      location, location);
@@ -719,7 +755,7 @@ efh_write_data(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 {
 	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)puri->part);
 
-	printf("writing image '%s'\n", puri->uri?puri->uri:puri->cid);
+	d(printf("writing image '%s'\n", puri->uri?puri->uri:puri->cid));
 	camel_data_wrapper_decode_to_stream(dw, stream);
 	camel_stream_close(stream);
 }
@@ -732,7 +768,7 @@ efh_image(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFormatH
 
 	puri = em_format_add_puri((EMFormat *)efh, sizeof(EMFormatPURI), NULL, part, efh_write_data);
 	location = puri->uri?puri->uri:puri->cid;
-	printf("adding image '%s'\n", location);
+	d(printf("adding image '%s'\n", location));
 	camel_stream_printf(stream, "<img hspace=10 vspace=10 src=\"%s\">", location);
 }
 
@@ -772,12 +808,11 @@ efh_builtin_init(EMFormatHTMLClass *efhc)
 /* ********************************************************************** */
 
 /* Sigh, this is so we have a cancellable, async rendering thread */
-/* Issue: How to sequence operations */
-/* Issue: How to handle reset */
 struct _format_msg {
 	struct _mail_msg msg;
 
 	EMFormatHTML *format;
+	EMFormat *format_source;
 	EMCamelStream *estream;
 	CamelMedium *message;
 };
@@ -792,11 +827,8 @@ static void efh_format_do(struct _mail_msg *mm)
 	struct _format_msg *m = (struct _format_msg *)mm;
 	struct _EMFormatHTMLJob *job;
 	int cancelled = FALSE;
-
-	em_format_html_clear_pobject(m->format);
 	
 	/* <insert top-header stuff here> */
-	/* How to sub-class ?  Might need to adjust api ... */
 	
 	em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, m->message);
 	camel_stream_flush((CamelStream *)m->estream);
@@ -811,39 +843,42 @@ static void efh_format_do(struct _mail_msg *mm)
 		if (!cancelled)
 			cancelled = camel_operation_cancel_check(NULL);
 		if (!cancelled) {
-			printf("Performing job %p\n", job);
+			d(printf("Performing job %p\n", job));
 			job->callback(job);
 		} else {
-			printf("Job cancelled %p\n", job);
+			d(printf("Job cancelled %p\n", job));
 		}
 		camel_object_unref(job->estream);
 		g_free(job);
 		g_mutex_lock(m->format->priv->lock);
 	}
 	g_mutex_unlock(m->format->priv->lock);
-	printf("out of jobs, done\n");
+	d(printf("out of jobs, done\n"));
 }
 
 static void efh_format_done(struct _mail_msg *mm)
 {
 	struct _format_msg *m = (struct _format_msg *)mm;
 
-	printf("formatting finished\n");
-	/* noop? */m = m;
+	d(printf("formatting finished\n"));
+
+	m->format->priv->format_id = -1;
 }
 
 static void efh_format_free(struct _mail_msg *mm)
 {
 	struct _format_msg *m = (struct _format_msg *)mm;
 
-	printf("formatter freed\n");
-
+	d(printf("formatter freed\n"));
 	g_object_unref(m->format);
 	if (m->estream) {
 		camel_stream_close((CamelStream *)m->estream);
 		camel_object_unref(m->estream);
 	}
-	camel_object_unref(m->message);
+	if (m->message)
+		camel_object_unref(m->message);
+	if (m->format_source)
+		g_object_unref(m->format_source);
 }
 
 static struct _mail_msg_op efh_format_op = {
@@ -853,45 +888,93 @@ static struct _mail_msg_op efh_format_op = {
 	efh_format_free,
 };
 
-static void efh_format(EMFormat *emf, CamelMedium *part)
+static gboolean
+efh_format_timeout(struct _format_msg *m)
 {
-	EMFormatHTML *efh = (EMFormatHTML *)emf;
 	GtkHTMLStream *hstream;
-	struct _format_msg *m;
+	EMFormatHTML *efh = m->format;
+	/* FIXME: how to remove dependency on mail_config??? */
+	GConfClient *gconf = mail_config_get_gconf_client();
 
-	if (efh->priv->format_id != -1) {
-		mail_msg_cancel(efh->priv->format_id);
-		mail_msg_wait(efh->priv->format_id);
-		efh->priv->format_id = -1;
+	d(printf("timeout called ...\n"));
+	if (m->format->priv->format_id != -1) {
+		d(printf(" still waiting for cancellation to take effect, waiting ...\n"));
+		return TRUE;
 	}
 
 	g_assert(e_dlist_empty(&efh->priv->pending_jobs));
 
-	/* FIXME: what happens if we have a render in progress!? */
+	d(printf(" ready to go, firing off format thread\n"));
 
-	if (part == NULL) {
+	/* call super-class to kick it off */
+	efh_parent->format_clone((EMFormat *)efh, m->message, m->format_source);
+	em_format_html_clear_pobject(m->format);
+
+	if (m->message == NULL) {
 		hstream = gtk_html_begin(efh->html);
 		gtk_html_stream_close(hstream, GTK_HTML_STREAM_OK);
-		return;
+		mail_msg_free(m);
+	} else {
+		hstream = gtk_html_begin(efh->html);
+		m->estream = (EMCamelStream *)em_camel_stream_new(hstream);
+
+		if (efh->priv->last_part == m->message) {
+			/* HACK: so we redraw in the same spot */
+			/* FIXME: It doesn't work! */
+			efh->html->engine->newPage = FALSE;
+		} else {
+			efh->priv->last_part = m->message;
+			/* FIXME: Need to handle 'load if sender in addressbook' case too */
+			efh->load_http = gconf_client_get_int(gconf, "/apps/evolution/mail/display/load_http_images", NULL) == MAIL_CONFIG_HTTP_ALWAYS;
+			efh->load_http_now = efh->load_http;
+		}
+		
+		efh->priv->format_id = m->msg.seq;
+		e_thread_put(mail_thread_new, (EMsg *)m);
+	}
+
+	efh->priv->format_timeout_id = 0;
+	efh->priv->format_timeout_msg = NULL;
+
+	return FALSE;
+}
+
+static void efh_format_clone(EMFormat *emf, CamelMedium *part, EMFormat *emfsource)
+{
+	EMFormatHTML *efh = (EMFormatHTML *)emf;
+	struct _format_msg *m;
+
+	/* How to sub-class ?  Might need to adjust api ... */
+
+	d(printf("efh_format called\n"));
+	if (efh->priv->format_timeout_id != 0) {
+		d(printf(" timeout for last still active, removing ...\n"));
+		g_source_remove(efh->priv->format_timeout_id);
+		efh->priv->format_timeout_id = 0;
+		mail_msg_free(efh->priv->format_timeout_msg);
+		efh->priv->format_timeout_msg = NULL;
 	}
 
 	m = mail_msg_new(&efh_format_op, NULL, sizeof(*m));
 	m->format = (EMFormatHTML *)emf;
 	g_object_ref(emf);
+	m->format_source = emfsource;
+	if (emfsource)
+		g_object_ref(emfsource);
 	m->message = part;
-	camel_object_ref(part);
-	hstream = gtk_html_begin(efh->html);
-	m->estream = (EMCamelStream *)em_camel_stream_new(hstream);
+	if (part)
+		camel_object_ref(part);
 
-	if (efh->priv->last_part == part) {
-		/* HACK: so we redraw in the same spot */
-		efh->html->engine->newPage = FALSE;
-	} else
-		efh->priv->last_part = part;
-
-	efh->priv->format_id = m->msg.seq;
-
-	e_thread_put(mail_thread_new, (EMsg *)m);
+	if (efh->priv->format_id == -1) {
+		d(printf(" idle, forcing format\n"));
+		efh_format_timeout(m);
+	} else {
+		d(printf(" still busy, cancelling and queuing wait\n"));
+		/* cancel and poll for completion */
+		mail_msg_cancel(efh->priv->format_id);
+		efh->priv->format_timeout_msg = m;
+		efh->priv->format_timeout_id = g_timeout_add(100, (GSourceFunc)efh_format_timeout, m);
+	}
 }
 
 static void efh_format_error(EMFormat *emf, CamelStream *stream, const char *txt)

@@ -1,3 +1,36 @@
+2003-08-19  Not Zed  <NotZed@Ximian.com>
+
+	* em-*.c: stacks more changes, added some bonobo menu setup, and
+	implemented the trivial functions.
+
+	* em-message-browser.[ch]: New message browser, inherits from
+	em-folder-view.  Basically works.
+	
+	* message-list.c (message_list_select_uid): if we're selecting
+	while still loading, setup a pending select.
+	(regen_list_free): Check for a pending select, and select the
+	message if we're now idle.
+
+	* em-folder-view.c (em_folder_view_set_message,
+	em_folder_view_set_folder): Make virtual macro's.
+	(emfv_control_activate): added hook to enable bonobo state when setup.
+
+	* em-format.c (emf_format_clone): base implementation, just clears
+	state data.
+
+	* em-format.h: change ::format to ::format_clone.  Make
+	em_format_format_clone a macro/virtual method.
+
+	* mail-mt.c (em_channel_setup): new function to setup i/o
+	channels, so we can control the recursive flag.  leave off for
+	now.
+	(mail_msg_init): setup MsgPort channels using above.
+
+	* em-format-html.c (efh_format): serialise/de-recursify formatting
+	via a timeout function.
+	(efh_format_timeout): keep polling to find out if cancellation is
+	complete, then kick off a new render.
+
 2003-08-18  Not Zed  <NotZed@Ximian.com>
 
 	* em-*.c: more updates, incl threaded formatting queue.

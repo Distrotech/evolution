@@ -508,6 +508,11 @@ void
 message_list_select_uid (MessageList *message_list, const char *uid)
 {
 	ETreePath node;
+
+	if (message_list->regen) {
+		g_free(message_list->pending_select_uid);
+		message_list->pending_select_uid = g_strdup(uid);
+	}
 	
 	node = g_hash_table_lookup (message_list->uid_nodemap, uid);
 	if (node) {
@@ -2488,6 +2493,47 @@ message_list_foreach (MessageList *message_list,
 				      mlfe_callback, &mlfe_data);
 }
 
+struct _ml_selected_data {
+	MessageList *ml;
+	GPtrArray *uids;
+};
+
+static void
+ml_getselected_cb(ETreePath path, void *user_data)
+{
+	struct _ml_selected_data *data = user_data;
+	const char *uid;
+
+	if (e_tree_model_node_is_root (data->ml->model, path))
+		return;
+	
+	uid = get_message_uid(data->ml, path);
+	g_assert(uid != NULL);
+	g_ptr_array_add(data->uids, g_strdup(uid));
+}
+
+GPtrArray *
+message_list_get_selected(MessageList *ml)
+{
+	struct _ml_selected_data data = {
+		ml,
+		g_ptr_array_new()
+	};
+
+	e_tree_selected_path_foreach(ml->tree, ml_getselected_cb, &data);
+
+	return data.uids;
+}
+
+void message_list_free_uids(MessageList *ml, GPtrArray *uids)
+{
+	int i;
+
+	for (i=0;i<uids->len;i++)
+		g_free(uids->pdata[i]);
+	g_ptr_array_free(uids, TRUE);
+}
+
 /* set whether we are in threaded view or flat view */
 void
 message_list_set_threaded (MessageList *ml, gboolean threaded)
@@ -2964,6 +3010,14 @@ regen_list_free (struct _mail_msg *mm)
 	/* This should probably lock the list.
 	   However, since we have a received function, this will always be called in gui thread */
 	m->ml->regen = g_list_remove(m->ml->regen, m);
+
+	if (m->ml->regen == NULL && m->ml->pending_select_uid) {
+		char *uid = m->ml->pending_select_uid;
+
+		m->ml->pending_select_uid = NULL;
+		message_list_select_uid(m->ml, uid);
+		g_free(uid);
+	}
 
 	g_object_unref(m->ml);
 }
