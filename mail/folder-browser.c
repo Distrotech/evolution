@@ -229,7 +229,7 @@ folder_browser_destroy (GtkObject *object)
 					   folder_changed, folder_browser);
 		camel_object_unhook_event (CAMEL_OBJECT (folder_browser->folder), "message_changed",
 					   folder_changed, folder_browser);
-		mail_sync_folder (folder_browser->folder, NULL, NULL);
+		mail_sync_folder (folder_browser->folder, 0, NULL, NULL);
 		camel_object_unref (CAMEL_OBJECT (folder_browser->folder));
 		folder_browser->folder = NULL;
 	}

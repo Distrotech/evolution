@@ -71,8 +71,6 @@ EvolutionShellClient *global_shell_client = NULL;
 
 RuleContext *search_context = NULL;
 
-static MailAsyncEvent *async_event = NULL;
-
 static GHashTable *storages_hash;
 static EvolutionShellComponent *shell_component;
 
@@ -648,7 +646,7 @@ unref_standard_folders (void)
 			
 			*standard_folders[i].folder = NULL;
 			
-			if (CAMEL_OBJECT (folder)->ref_count == 1)
+			if (CAMEL_OBJECT (folder)->ref == 1)
 				d(printf ("About to finalise folder %s\n", folder->full_name));
 			else
 				d(printf ("Folder %s still has %d extra ref%s on it\n", folder->full_name,
@@ -713,8 +711,6 @@ owner_set_cb (EvolutionShellComponent *shell_component,
 	
 	evolution_dir = g_strdup (evolution_homedir);
 	mail_session_init ();
-
-	async_event = mail_async_event_new();
 
 	storages_hash = g_hash_table_new (NULL, NULL);
 	
@@ -851,9 +847,6 @@ idle_quit (gpointer user_data)
 			mail_vfolder_shutdown();
 			return TRUE;
 		}
-
-		if (mail_async_event_destroy(async_event) == -1)
-			return TRUE;
 
 		shutdown_shutdown = TRUE;
 		g_hash_table_foreach (storages_hash, free_storage, NULL);
@@ -1301,11 +1294,11 @@ mail_add_storage (CamelStore *store, const char *name, const char *uri)
 	if (name == NULL) {
 		char *service_name;
 		
-		service_name = camel_service_get_name (store, TRUE);
-		add_storage (service_name, uri, store, shell, &ex);
+		service_name = camel_service_get_name ((CamelService *)store, TRUE);
+		add_storage (service_name, uri, (CamelService *)store, shell, &ex);
 		g_free (service_name);
 	} else {
-		add_storage (name, uri, store, shell, &ex);
+		add_storage (name, uri, (CamelService *)store, shell, &ex);
 	}
 	
 	camel_exception_clear (&ex);
@@ -1462,7 +1455,7 @@ mail_remove_storage (CamelStore *store)
 	
 	evolution_storage_deregister_on_shell (storage, corba_shell);
 	
-	mail_async_event_emit(async_event, MAIL_ASYNC_THREAD, (MailAsyncFunc)store_disconnect, store, NULL, NULL);
+	mail_async_event_emit(mail_async_event, MAIL_ASYNC_THREAD, (MailAsyncFunc)store_disconnect, store, NULL, NULL);
 }
 
 void

@@ -36,6 +36,7 @@
 #include "composer/evolution-composer.h"
 #include "mail.h"
 #include "mail-mt.h"
+#include "camel/camel-object.h"
 
 /*#define DO_MCHECK*/
 
@@ -155,6 +156,11 @@ main (int argc, char *argv [])
 	bonobo_main ();
 
 	mail_msg_cleanup();
+
+#ifdef CAMEL_OBJECT_TRACK_INSTANCES
+	printf("Dump of all outstanding object instances:\n");
+	camel_object_class_dump_tree(camel_object_type);
+#endif
 
 	GDK_THREADS_LEAVE ();
 	

@@ -513,6 +513,7 @@ mail_msg_received(EThread *e, EMsg *msg, void *data)
 
 void mail_msg_cleanup(void)
 {
+	mail_async_event_destroy(mail_async_event);
 	mail_msg_wait_all();
 
 	e_thread_destroy(mail_thread_queued_slow);

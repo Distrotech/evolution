@@ -246,7 +246,7 @@ mlf_refresh_info(CamelFolder *folder, CamelException *ex)
 }
 
 static void
-mlf_sync(CamelFolder *folder, gboolean expunge, CamelException *ex)
+mlf_sync(CamelFolder *folder, guint32 flags, CamelException *ex)
 {
 	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER(folder);
 	CamelFolder *f;
@@ -256,22 +256,7 @@ mlf_sync(CamelFolder *folder, gboolean expunge, CamelException *ex)
 	camel_object_ref((CamelObject *)f);
 	LOCAL_FOLDER_UNLOCK(mlf);
 
-	camel_folder_sync(f, expunge, ex);
-	camel_object_unref((CamelObject *)f);
-}
-
-static void
-mlf_expunge(CamelFolder *folder, CamelException *ex)
-{
-	MailLocalFolder *mlf = MAIL_LOCAL_FOLDER(folder);
-	CamelFolder *f;
-
-	LOCAL_FOLDER_LOCK(mlf);
-	f = mlf->real_folder;
-	camel_object_ref((CamelObject *)f);
-	LOCAL_FOLDER_UNLOCK(mlf);
-
-	camel_folder_expunge(f, ex);
+	camel_folder_sync(f, flags, ex);
 	camel_object_unref((CamelObject *)f);
 }
 
@@ -564,7 +549,6 @@ mlf_class_init (CamelObjectClass *camel_object_class)
 
 	camel_folder_class->refresh_info = mlf_refresh_info;
 	camel_folder_class->sync = mlf_sync;
-	camel_folder_class->expunge = mlf_expunge;
 	camel_folder_class->append_message = mlf_append_message;
 	camel_folder_class->get_message = mlf_get_message;
 	camel_folder_class->search_free = mlf_search_free;
@@ -675,7 +659,7 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, int
 
 	/* first, 'close' the old folder */
 	if (mlf->real_folder) {
-		camel_folder_sync(mlf->real_folder, FALSE, ex);
+		camel_folder_sync(mlf->real_folder, 0, ex);
 		if (camel_exception_is_set (ex))
 			goto cleanup;
 		mlf_unset_folder(mlf);
@@ -736,7 +720,7 @@ mail_local_folder_reconfigure (MailLocalFolder *mlf, const char *new_format, int
 	if (camel_exception_is_set(ex))
 		goto cleanup;
 	
-	camel_folder_expunge(fromfolder, ex);
+	camel_folder_sync(fromfolder, 0, ex);
 	
 	d(printf("delete old mbox ...\n"));
 	camel_object_unref(CAMEL_OBJECT(fromfolder));

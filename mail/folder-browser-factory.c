@@ -116,7 +116,7 @@ control_deactivate (BonoboControl     *control,
 	/*bonobo_ui_component_thaw (uic, NULL);*/
 	
 	if (fb->folder)
-		mail_sync_folder (fb->folder, NULL, NULL);
+		mail_sync_folder (fb->folder, 0, NULL, NULL);
 	
 	folder_browser_set_ui_component (fb, NULL);
 	folder_browser_set_shell_view (fb, CORBA_OBJECT_NIL);

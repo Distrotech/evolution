@@ -7,6 +7,24 @@
 
 2002-06-11  Not Zed  <NotZed@Ximian.com>
 
+	* mail-callbacks.c (empty_trash): Use an async event to empty the trash.
+
+	* mail-local.c (mlf_sync): Fixed for api change.
+	(mlf_expunge): Removed.
+
+	* component-factory.c (async_event): removed, use global
+	mail_async_event handler instead of a redundant copy, fixed code
+	that used it.
+	(unref_standard_folders): Use an async_event to unref these.
+	They'll go on the same queue as emptying trash, so they aren't
+	unreffed before the trash is emptied.
+
+	* mail-mt.c (mail_msg_cleanup): Destroy mail_async_event, when done.
+
+	* mail-ops.c (mail_sync_folder): Added flags arg.  Fixed all callers.
+	(mail_expunge_folder): Killed.  Fixed all callers to use sync_folder.
+	(): Fixed calls to camel_folder_sync() for api changes.
+
 	* folder-info.c (do_get_info): If we dont get a folder, dont try
 	and get details off it.  Should get rid of most of those annoying
 	summary warnings, but not the cause of them.

@@ -75,15 +75,11 @@ void mail_build_attachment (CamelFolder *folder, GPtrArray *uids,
 					 CamelMimePart *part, char *subject, void *data),
 			    void *data);
 
-void mail_sync_folder (CamelFolder *folder,
+void mail_sync_folder (CamelFolder *folder, guint32 flags,
 		       void (*done) (CamelFolder *folder, void *data),
 		       void *data);
 
 void mail_refresh_folder (CamelFolder *folder,
-			  void (*done) (CamelFolder *folder, void *data),
-			  void *data);
-
-void mail_expunge_folder (CamelFolder *folder,
 			  void (*done) (CamelFolder *folder, void *data),
 			  void *data);
 

@@ -2714,7 +2714,7 @@ expunge_folder (BonoboUIComponent *uih, void *user_data, const char *path)
 		}
 		
 		fb->expunging = fb->folder;
-		mail_expunge_folder (fb->folder, expunged_folder, fb);
+		mail_sync_folder(fb->folder, CAMEL_STORE_SYNC_EXPUNGE, expunged_folder, fb);
 	}
 }
 
@@ -3256,7 +3256,7 @@ empty_trash (BonoboUIComponent *uih, void *user_data, const char *path)
 					vtrash = mail_tool_get_trash (account->source->url, FALSE, &ex);
 					
 					if (vtrash) {
-						mail_expunge_folder (vtrash, empty_trash_expunged_cb, NULL);
+						mail_sync_folder (vtrash, CAMEL_STORE_SYNC_EXPUNGE, empty_trash_expunged_cb, NULL);
 					}
 				}
 			}
@@ -3270,7 +3270,7 @@ empty_trash (BonoboUIComponent *uih, void *user_data, const char *path)
 	/* Now empty the local trash folder */
 	vtrash = mail_tool_get_trash ("file:/", TRUE, &ex);
 	if (vtrash) {
-		mail_expunge_folder (vtrash, empty_trash_expunged_cb, NULL);
+		mail_sync_folder (vtrash, CAMEL_STORE_SYNC_EXPUNGE, empty_trash_expunged_cb, NULL);
 	}
 	
 	camel_exception_clear (&ex);

@@ -129,7 +129,7 @@ filter_folder_filter (struct _mail_msg *mm)
 	
 	/* sync our source folder */
 	if (!m->cache)
-		camel_folder_sync (folder, FALSE, camel_exception_is_set (&mm->ex) ? NULL : &mm->ex);
+		camel_folder_sync (folder, 0, camel_exception_is_set (&mm->ex) ? NULL : &mm->ex);
 	camel_folder_thaw (folder);
 	
 	if (m->destination)
@@ -337,7 +337,7 @@ fetch_mail_fetch (struct _mail_msg *mm)
 							camel_folder_delete_message (folder, folder_uids->pdata[i]);
 						
 						/* sync and expunge */
-						camel_folder_sync (folder, TRUE, &mm->ex);
+						camel_folder_sync (folder, CAMEL_STORE_SYNC_EXPUNGE, &mm->ex);
 						
 						camel_folder_thaw (folder);
 					}
@@ -567,7 +567,7 @@ mail_send_message (CamelMimeMessage *message, const char *destination,
 					      _("However, the message was successfully sent."));
 		}
 		
-		camel_folder_sync (folder, FALSE, NULL);
+		camel_folder_sync (folder, 0, NULL);
 		camel_object_unref (CAMEL_OBJECT (folder));
 	}
 	
@@ -751,10 +751,10 @@ send_queue_send(struct _mail_msg *mm)
 	camel_folder_free_uids (m->queue, uids);
 	
 	if (!camel_exception_is_set (&mm->ex))
-		camel_folder_expunge (m->queue, &mm->ex);
+		camel_folder_sync(m->queue, CAMEL_STORE_SYNC_EXPUNGE, &mm->ex);
 	
 	if (sent_folder)
-		camel_folder_sync (sent_folder, FALSE, NULL);
+		camel_folder_sync (sent_folder, 0, NULL);
 	
 	if (m->cancel)
 		camel_operation_unregister (m->cancel);
@@ -943,7 +943,7 @@ transfer_messages_transfer (struct _mail_msg *mm)
 	
 	camel_folder_thaw (m->source);
 	camel_folder_thaw (dest);
-	camel_folder_sync (dest, FALSE, NULL);
+	camel_folder_sync (dest, 0, NULL);
 	camel_object_unref (CAMEL_OBJECT (dest));
 }
 
@@ -1414,7 +1414,7 @@ remove_folder_get (struct _mail_msg *mm)
 	camel_folder_freeze(folder);
 	for (i = 0; i < uids->len; i++)
 		camel_folder_delete_message (folder, uids->pdata[i]);
-	camel_folder_sync (folder, TRUE, NULL);
+	camel_folder_sync (folder, CAMEL_STORE_SYNC_EXPUNGE, NULL);
 	camel_folder_thaw(folder);
 	camel_folder_free_uids (folder, uids);
 	
@@ -1475,6 +1475,7 @@ struct _sync_folder_msg {
 	struct _mail_msg msg;
 
 	CamelFolder *folder;
+	guint32 flags;
 	void (*done) (CamelFolder *folder, void *data);
 	void *data;
 };
@@ -1483,7 +1484,7 @@ static char *sync_folder_desc(struct _mail_msg *mm, int done)
 {
 	struct _sync_folder_msg *m = (struct _sync_folder_msg *)mm;
 
-	return g_strdup_printf (_("Storing folder \'%s\'"), 
+	return g_strdup_printf ((m->flags & CAMEL_STORE_SYNC_EXPUNGE) == 0?_("Storing folder \'%s\'"):_("Expunging folder '%s'"),
 			       camel_folder_get_full_name (m->folder));
 }
 
@@ -1491,7 +1492,7 @@ static void sync_folder_sync(struct _mail_msg *mm)
 {
 	struct _sync_folder_msg *m = (struct _sync_folder_msg *)mm;
 
-	camel_folder_sync(m->folder, FALSE, &mm->ex);
+	camel_folder_sync(m->folder, m->flags, &mm->ex);
 }
 
 static void sync_folder_synced(struct _mail_msg *mm)
@@ -1517,13 +1518,14 @@ static struct _mail_msg_op sync_folder_op = {
 };
 
 void
-mail_sync_folder(CamelFolder *folder, void (*done) (CamelFolder *folder, void *data), void *data)
+mail_sync_folder(CamelFolder *folder, guint32 flags, void (*done) (CamelFolder *folder, void *data), void *data)
 {
 	struct _sync_folder_msg *m;
 
 	m = mail_msg_new(&sync_folder_op, NULL, sizeof(*m));
 	m->folder = folder;
 	camel_object_ref((CamelObject *)folder);
+	m->flags = flags;
 	m->data = data;
 	m->done = done;
 
@@ -1564,42 +1566,6 @@ mail_refresh_folder(CamelFolder *folder, void (*done) (CamelFolder *folder, void
 	m->done = done;
 
 	e_thread_put(mail_thread_new, (EMsg *)m);
-}
-
-/* ******************************************************************************** */
-
-static char *expunge_folder_desc(struct _mail_msg *mm, int done)
-{
-	return g_strdup(_("Expunging folder"));
-}
-
-static void expunge_folder_expunge(struct _mail_msg *mm)
-{
-	struct _sync_folder_msg *m = (struct _sync_folder_msg *)mm;
-
-	camel_folder_expunge(m->folder, &mm->ex);
-}
-
-/* we just use the sync stuff where we can, since it would be the same */
-static struct _mail_msg_op expunge_folder_op = {
-	expunge_folder_desc,
-	expunge_folder_expunge,
-	sync_folder_synced,
-	sync_folder_free,
-};
-
-void
-mail_expunge_folder(CamelFolder *folder, void (*done) (CamelFolder *folder, void *data), void *data)
-{
-	struct _sync_folder_msg *m;
-
-	m = mail_msg_new(&expunge_folder_op, NULL, sizeof(*m));
-	m->folder = folder;
-	camel_object_ref((CamelObject *)folder);
-	m->data = data;
-	m->done = done;
-
-	e_thread_put(mail_thread_queued, (EMsg *)m);
 }
 
 /* ** GET MESSAGE(s) ***************************************************** */
@@ -2113,7 +2079,7 @@ static void prep_offline_do(struct _mail_msg *mm)
 		}
 		/* prepare_for_offline should do this? */
 		/* of course it should all be atomic, but ... */
-		camel_folder_sync(folder, FALSE, NULL);
+		camel_folder_sync(folder, 0, NULL);
 		camel_object_unref((CamelObject *)folder);
 	}
 
