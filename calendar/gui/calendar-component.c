@@ -31,6 +31,7 @@
 #include "widgets/misc/e-source-selector.h"
 
 #include <bonobo/bonobo-control.h>
+#include <bonobo/bonobo-i18n.h>
 #include <gal/util/e-util.h>
 
 #include <errno.h>
@@ -198,6 +199,7 @@ static void
 calendar_component_init (CalendarComponent *component)
 {
 	CalendarComponentPrivate *priv;
+	GSList *groups;
 
 	priv = g_new0 (CalendarComponentPrivate, 1);
 
@@ -211,6 +213,29 @@ calendar_component_init (CalendarComponent *component)
 
 	priv->source_list = e_source_list_new_for_gconf (priv->gconf_client,
 							 "/apps/evolution/calendar/sources");
+
+	/* create default calendars if there are no groups */
+	groups = e_source_list_peek_groups (priv->source_list);
+	if (!groups) {
+		ESourceGroup *group;
+		ESource *source;
+		char *base_uri;
+
+		/* create the source group */
+		base_uri = g_build_filename (g_get_home_dir (),
+					     "./evolution/local/OnThisComputer");
+		group = e_source_group_new (_("On This Computer"), base_uri);
+		e_source_list_add_group (priv->source_list, group, -1);
+
+		/* create default calendars */
+		source = e_source_new (_("Personal"), "Personal");
+		e_source_group_add_source (group, source, -1);
+
+		source = e_source_new (_("Work"), "Work");
+		e_source_group_add_source (group, source, -1);
+
+		g_free (base_uri);
+	}
 
 	component->priv = priv;
 }

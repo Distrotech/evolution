@@ -1,5 +1,9 @@
 2003-10-16  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/calendar-component.c (calendar_component_init): if no groups
+	are present in the configuration, create the "On This Computer"
+	group and the "Personal" and "Work" calendars on it.
+
 	* gui/dialogs/new-calendar.c (new_calendar_dialog): moved the
 	source creation...
 	(create_new_source_with_group): ...here, and made the code create
