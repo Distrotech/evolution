@@ -120,7 +120,32 @@ message_destroy_notify (gpointer data)
 
 
 
+static void
+show_new_message (CamelFolder *folder, CamelMimeMessage *message, gpointer user_data)
+{
+	GtkWidget *message_clist;
+	const gchar *clist_row_text[3];
+	const char *sent_date, *subject, *sender;
+	gint current_row;
+	
 
+	message_clist = glade_xml_get_widget (xml, "message-clist");
+	gtk_object_ref (GTK_OBJECT (message));
+	sent_date = camel_mime_message_get_sent_date (message);
+	sender = camel_mime_message_get_from (message);
+	subject = camel_mime_message_get_subject (message);
+	
+	
+	if (sent_date) clist_row_text [0] = sent_date;
+	else clist_row_text [0] = NULL;
+	if (sender) clist_row_text [1] = sender;
+	else clist_row_text [1] = NULL;
+	if (subject) clist_row_text [2] = subject;
+	else clist_row_text [2] = NULL;
+	
+	current_row = gtk_clist_append (GTK_CLIST (message_clist), clist_row_text);
+	gtk_clist_set_row_data_full (GTK_CLIST (message_clist), current_row, (gpointer)message, message_destroy_notify);
+}
 
 static void
 show_folder_messages (CamelFolder *folder)
@@ -129,10 +154,6 @@ show_folder_messages (CamelFolder *folder)
 	gint folder_message_count;
 	CamelMimeMessage *message;
 	gint i;
-	const gchar *clist_row_text[3];
-	const char *sent_date, *subject, *sender;
-	gint current_row;
-
 	message_clist = glade_xml_get_widget (xml, "message-clist");
 
 	/* clear old message list */
@@ -140,22 +161,7 @@ show_folder_messages (CamelFolder *folder)
 
 	folder_message_count = camel_folder_get_message_count (folder);
 	for (i=0; i<folder_message_count; i++) {
-		message = camel_folder_get_message (folder, i);
-		gtk_object_ref (GTK_OBJECT (message));
-		sent_date = camel_mime_message_get_sent_date (message);
-		sender = camel_mime_message_get_from (message);
-		subject = camel_mime_message_get_subject (message);
-
-		
-		if (sent_date) clist_row_text [0] = sent_date;
-		else clist_row_text [0] = NULL;
-		if (sender) clist_row_text [1] = sender;
-		else clist_row_text [1] = NULL;
-		if (subject) clist_row_text [2] = subject;
-		else clist_row_text [2] = NULL;
-
-		current_row = gtk_clist_append (GTK_CLIST (message_clist), clist_row_text);
-		gtk_clist_set_row_data_full (GTK_CLIST (message_clist), current_row, (gpointer)message, message_destroy_notify);
+		camel_folder_get_message (folder, i);
 	}
 
 	
@@ -204,6 +210,7 @@ add_mail_store (const gchar *store_url)
 	while (subfolder_list) {
 		new_tree_text[0] = subfolder_list->data;
 		new_folder = camel_store_get_folder (store, subfolder_list->data);
+		gtk_signal_connect (GTK_OBJECT (new_folder), "new_message", show_new_message, NULL);
 		new_folder_node = gtk_ctree_insert_node (GTK_CTREE (mailbox_and_store_tree),
 							 new_store_node,
 							 NULL,

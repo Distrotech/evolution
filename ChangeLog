@@ -1,3 +1,32 @@
+1999-08-22  bertrand  <Bertrand.Guiheneuf@aful.org>
+
+	* camel/providers/MH/camel-mh-folder.c (_get_message): 
+	added a 1 second pause to see async behaviour. 
+
+	* tests/ui-tests/store_listing.c (show_folder_messages): 
+	do not show the messages directly. Only call camel_folder_get_message()
+	(show_new_message): new function. Responsible of showing the
+	new messages in response to the "CamelFolder::new_message"
+	signal.
+
+	* camel/camel-folder.c (camel_folder_class_init): 
+	added "new message" signal emitted when the 
+	get_message method retrieves a new message.
+	(_async_get_message): new method. Meant
+	to be called in a thread. 
+	(_async_notify_new_message): emit the "new_message"
+	signal when the async_get_message() retrieves a 
+	new message. async_get_message() can not emit the 
+	signal itself cause it would be emited in the child
+	thread.
+
+	* camel/camel.c (camel_init): evil call to 
+	g_thread_init.
+	
+	* camel/camel-folder.c (camel_folder_get_message): 
+	This method is now asynchrone, thus, it does not return anything.
+	Client should be notified of message arrival with a signal. 
+
 1999-08-20  bertrand  <Bertrand.Guiheneuf@aful.org>
 
 	* camel/camel-stream-fs.c (camel_stream_fs_new_with_name): 
