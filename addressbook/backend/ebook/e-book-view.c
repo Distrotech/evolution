@@ -25,7 +25,7 @@ struct _EBookViewPrivate {
 	
 	EBookViewListener     *listener;
 
-	int                    responses_queued_id;
+	int                    response_id;
 };
 
 enum {
@@ -111,16 +111,9 @@ e_book_view_do_status_message_event (EBookView                 *book_view,
 }
 
 
-/*
- * Reading notices out of the EBookViewListener's queue.
- */
 static void
-e_book_view_check_listener_queue (EBookViewListener *listener, EBookView *book_view)
+e_book_view_handle_response (EBookViewListener *listener, EBookViewListenerResponse *resp, EBookView *book_view)
 {
-	EBookViewListenerResponse *resp;
-
-	resp = e_book_view_listener_pop_response (listener);
-	
 	if (resp == NULL)
 		return;
 
@@ -176,8 +169,8 @@ e_book_view_construct (EBookView *book_view, GNOME_Evolution_Addressbook_BookVie
 	 * Create our local BookListener interface.
 	 */
 	book_view->priv->listener = listener;
-	book_view->priv->responses_queued_id = g_signal_connect (book_view->priv->listener, "responses_queued",
-								 G_CALLBACK (e_book_view_check_listener_queue), book_view);
+	book_view->priv->response_id = g_signal_connect (book_view->priv->listener, "response",
+							 G_CALLBACK (e_book_view_handle_response), book_view);
 
 	bonobo_object_ref(BONOBO_OBJECT(book_view->priv->listener));
 
@@ -214,6 +207,22 @@ e_book_view_set_book (EBookView *book_view, EBook *book)
 }
 
 void
+e_book_view_start (EBookView *book_view)
+{
+	CORBA_Environment ev;
+
+	g_return_if_fail (book_view && E_IS_BOOK_VIEW (book_view));
+
+	CORBA_exception_init (&ev);
+
+	GNOME_Evolution_Addressbook_BookView_start (book_view->priv->corba_book_view, &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		g_warning ("corba exception._major = %d\n", ev._major);
+	}
+}
+
+void
 e_book_view_stop (EBookView *book_view)
 {
 	g_return_if_fail (book_view && E_IS_BOOK_VIEW (book_view));
@@ -228,7 +237,7 @@ e_book_view_init (EBookView *book_view)
 	book_view->priv->book                = NULL;
 	book_view->priv->corba_book_view     = CORBA_OBJECT_NIL;
 	book_view->priv->listener            = NULL;
-	book_view->priv->responses_queued_id = 0;
+	book_view->priv->response_id = 0;
 }
 
 static void
@@ -255,9 +264,9 @@ e_book_view_dispose (GObject *object)
 		}
 
 		if (book_view->priv->listener) {
-			if (book_view->priv->responses_queued_id)
+			if (book_view->priv->response_id)
 				g_signal_handler_disconnect(book_view->priv->listener,
-							    book_view->priv->responses_queued_id);
+							    book_view->priv->response_id);
 			e_book_view_listener_stop (book_view->priv->listener);
 			bonobo_object_unref (BONOBO_OBJECT(book_view->priv->listener));
 		}

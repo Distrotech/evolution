@@ -41,6 +41,9 @@ typedef struct {
 	GList *list;
 	EContact *contact;
 
+	EBookView *view;
+	EBookViewListener *listener;
+
 	GNOME_Evolution_Addressbook_Book corba_book;
 } EBookOp;
 
@@ -824,6 +827,134 @@ e_book_remove_contacts (EBook    *book,
 }
 
 
+/**
+ * e_book_get_book_view:
+ * @book: an #EBook
+ * @query: an #EBookQuery
+ * @requested_fields a #GList containing the names of fields to return, or NULL for all
+ * @max_results the maximum number of contacts to show (or 0 for all)
+ *
+ * need docs here..
+ *
+ * Return value: a #EBookStatus value.
+ **/
+EBookStatus
+e_book_get_book_view (EBook       *book,
+		      EBookQuery  *query,
+		      GList       *requested_fields,
+		      int          max_results,
+		      EBookView  **book_view)
+{
+	GNOME_Evolution_Addressbook_stringlist stringlist;
+	CORBA_Environment ev;
+	EBookOp *our_op;
+	EBookStatus status;
+	char *query_string;
+	int num_fields, i;
+	GList *iter;
+
+	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (query,                          E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (book_view,                      E_BOOK_STATUS_INVALID_ARG);
+
+	e_mutex_lock (book->priv->mutex);
+
+	if (book->priv->load_state != URILoaded) {
+		e_mutex_unlock (book->priv->mutex);
+		return E_BOOK_STATUS_URI_NOT_LOADED;
+	}
+
+	if (book->priv->current_op != NULL) {
+		e_mutex_unlock (book->priv->mutex);
+		return E_BOOK_STATUS_BUSY;
+	}
+
+	our_op = e_book_new_op (book);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (book->priv->mutex);
+
+	CORBA_exception_init (&ev);
+
+	query_string = e_book_query_to_string (query);
+
+	our_op->listener = e_book_view_listener_new();
+
+	num_fields = g_list_length (requested_fields);
+
+	stringlist._buffer = CORBA_sequence_CORBA_string_allocbuf (num_fields);
+	stringlist._maximum = num_fields;
+	stringlist._length = num_fields;
+
+	for (i = 0, iter = requested_fields; iter; iter = iter->next, i ++) {
+		stringlist._buffer[i] = CORBA_string_dup ((char*)iter->data);
+	}
+
+	/* will eventually end up calling e_book_response_get_book_view */
+	GNOME_Evolution_Addressbook_Book_getBookView (book->priv->corba_book,
+						      bonobo_object_corba_objref(BONOBO_OBJECT(our_op->listener)),
+						      query_string,
+						      &stringlist, max_results, &ev);
+
+	g_free (query_string);
+
+	CORBA_free(stringlist._buffer);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		e_book_remove_op (book, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_book_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning ("corba exception._major = %d\n", ev._major);
+
+		return E_BOOK_STATUS_CORBA_EXCEPTION;
+	}
+	
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*book_view = our_op->view;
+
+	e_mutex_unlock (our_op->mutex);
+
+	e_book_free_op (our_op);
+
+	return status;
+}
+
+static void
+e_book_response_get_book_view (EBook       *book,
+			       EBookStatus  status,
+			       GNOME_Evolution_Addressbook_BookView corba_book_view)
+{
+
+	EBookOp *op;
+
+	op = e_book_get_op (book);
+
+	if (op == NULL) {
+	  g_warning ("e_book_response_get_book_view: Cannot find operation ");
+	  return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->view = e_book_view_new (corba_book_view, op->listener);
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+
 
 /**
  * e_book_get_contacts:
@@ -876,6 +1007,7 @@ e_book_get_contacts (EBook       *book,
 	g_free (query_string);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
+		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
@@ -895,8 +1027,8 @@ e_book_get_contacts (EBook       *book,
 	status = our_op->status;
 	*contacts = our_op->list;
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
 	return status;
@@ -1127,10 +1259,10 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 	case GetCardListResponse:
 		e_book_response_get_contacts (book, resp->status, resp->list);
 		break;
-#if notyet
 	case GetBookViewResponse:
-		e_book_do_response_get_view(book, resp);
+		e_book_response_get_book_view(book, resp->status, resp->book_view);
 		break;
+#if notyet
 	case GetChangesResponse:
 		e_book_do_response_get_changes(book, resp);
 		break;
@@ -1164,7 +1296,7 @@ e_book_unload_uri (EBook *book)
 	CORBA_Environment ev;
 
 	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (book->priv->current_op != NULL, E_BOOK_STATUS_URI_NOT_LOADED);
+	g_return_val_if_fail (book->priv->load_state != URINotLoaded, E_BOOK_STATUS_URI_NOT_LOADED);
 
 	/* Release the remote GNOME_Evolution_Addressbook_Book in the PAS. */
 	CORBA_exception_init (&ev);
@@ -1177,11 +1309,8 @@ e_book_unload_uri (EBook *book)
 
 	CORBA_exception_free (&ev);
 
-#if 0
 	e_book_listener_stop (book->priv->listener);
 	bonobo_object_unref (BONOBO_OBJECT (book->priv->listener));
-#endif
-	g_object_unref (book->priv->listener);
 
 	book->priv->listener   = NULL;
 	book->priv->load_state = URINotLoaded;
@@ -1426,7 +1555,7 @@ e_book_dispose (GObject *object)
 		CORBA_exception_free (&ev);
 
 		if (book->priv->listener) {
-			g_signal_handler_disconnect (book->priv->comp_listener, book->priv->listener_signal);
+			g_signal_handler_disconnect (book->priv->listener, book->priv->listener_signal);
 			bonobo_object_unref (book->priv->listener);
 			book->priv->listener = NULL;
 		}

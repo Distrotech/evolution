@@ -1,5 +1,43 @@
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-book.c (e_book_get_book_view): new function,
+	implement this.
+	(e_book_response_get_book_view): same.
+	(e_book_get_contacts): remove the op so we don't see BUSY after
+	this request.
+	(e_book_handle_response): unifdef a few things.
+	(e_book_unload_uri): fix the assertion about URI_NOT_LOADED, and
+	unifdef some code.
+	(e_book_dispose): fix a typo.
+
+	* backend/ebook/e-book-view.c (e_book_view_handle_response):
+	rename _check_listener_queue to this.  we don't need to pop the
+	response either, it's passed as an arg.
+	(e_book_view_construct): "response_queued" -> "response"
+	(e_book_view_start): new function, call BookView.start.
+	(e_book_view_dispose): track the signal id change.
+
+	* backend/ebook/e-book-view.h: add prototype for
+	e_book_view_start.
+
+	* backend/ebook/e-book-view-listener.c
+	(e_book_view_listener_check_queue): remove.
+	(e_book_view_listener_queue_response): just emit the signal.
+	(impl_BookViewListener_notify_card_added): spew.
+	(impl_BookViewListener_notify_card_changed): spew.
+	(impl_BookViewListener_notify_sequence_complete): spew.
+	(impl_BookViewListener_notify_progress): spew.
+	(e_book_view_listener_check_pending): remove
+	(e_book_view_listener_check_pop_response): remove
+	(e_book_view_listener_new): use the ALL_AT_IDLE poa policy.
+	(e_book_view_listener_init): remove the queue/timeout stuff.
+	(e_book_view_listener_dispose): remove the queue/timeout stuff.
+
+	* backend/ebook/e-book-view-listener.h: remove _check_pending and
+	_pop_response.
+
+2003-07-23  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-backend-file.c (do_summary_query): remove the
 	completion_search argument, and remove the aggregating stuff.
 	just call pas_book_view_notify_add_1.
