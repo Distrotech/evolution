@@ -1,3 +1,15 @@
+2003-10-15  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-meeting-list-view.c: adapted to new addressbook API.
+
+	* gui/e-meeting-store.c: adapted to new addressbook API.
+	(find_zone): fixed usage of icalcomponent where an icalproperty
+	is expected.
+	(refresh_busy_periods): fixed call to cal_client_get_free_busy().
+
+	* gui/e-meeting-time-sel.c (e_meeting_time_selector_construct):
+	added missing variable.
+	
 2003-10-15  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* gui/dialogs/meeting-page.c: #include <gal/e-table/e-table.h>

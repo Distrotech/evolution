@@ -265,6 +265,7 @@ e_meeting_time_selector_init (EMeetingTimeSelector * mts)
 void
 e_meeting_time_selector_construct (EMeetingTimeSelector * mts, EMeetingStore *ems)
 {
+	char *filename;
 	GtkWidget *hbox, *vbox, *separator, *button, *label, *table;
 	GtkWidget *alignment, *child_hbox, *arrow, *menuitem;
 	GSList *group;
