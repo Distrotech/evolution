@@ -187,7 +187,7 @@ get_message_tree_ctrl (CamelMimeMessage* message)
         gtk_scrolled_window_set_policy (
 		GTK_SCROLLED_WINDOW (scroll_wnd),
 		GTK_POLICY_AUTOMATIC,
-		GTK_POLICY_ALWAYS);	
+		GTK_POLICY_AUTOMATIC);	
 	return scroll_wnd;
 }
 
@@ -221,7 +221,7 @@ filename_to_camel_msg (gchar* filename)
  *----------------------------------------------------------------------*/
 
 static void
-mime_message_to_html (CamelDataWrapper *msg, gchar** body_string)
+data_wrapper_to_html (CamelDataWrapper *msg, gchar** body_string)
 {
 	CamelFormatter* cmf = camel_formatter_new();
 	CamelStream* body_stream =
@@ -237,15 +237,37 @@ mime_message_to_html (CamelDataWrapper *msg, gchar** body_string)
 		CAMEL_STREAM_MEM (body_stream)->buffer->len);
 }
 
+static void
+mime_message_header_to_html (CamelMimeMessage *msg, gchar** header_string)
+{
+	CamelFormatter* cmf = camel_formatter_new();
+	CamelStream* header_stream =
+		camel_stream_mem_new (CAMEL_STREAM_FS_WRITE);
+
+	g_assert (header_string);
+
+	camel_formatter_mime_message_to_html (
+		cmf, CAMEL_MIME_MESSAGE (msg), header_stream, NULL);
+
+	*header_string = g_strndup (
+		CAMEL_STREAM_MEM (header_stream)->buffer->data,
+		CAMEL_STREAM_MEM (header_stream)->buffer->len);
+
+	printf ("\n\n>>>\n%s\n", *header_string);
+}
+
 
 static GtkWidget*
 get_gtk_html_contents_window (CamelDataWrapper* data)
 {
+	static GtkWidget* frame_wnd = NULL;
 	static GtkWidget* scroll_wnd = NULL;
 	static GtkWidget* html_widget = NULL;
 	HTMLStream* html_stream;
 	gchar *body_string;
 
+	g_assert (data);
+		
 	/* create the html widget and scroll window, if they haven't
            already been created */
 	if (!html_widget) {
@@ -254,70 +276,120 @@ get_gtk_html_contents_window (CamelDataWrapper* data)
 		gtk_container_add (GTK_CONTAINER (scroll_wnd), html_widget);
 	}
 
-	if (data) {
-		
-		html_stream =
-			HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
-		
-		/* turn the mime message into html, and
+	html_stream =
+		HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
+	
+	/* turn the mime message into html, and
 		   write it to the html stream */
-		mime_message_to_html (data, &body_string);
+	data_wrapper_to_html (data, &body_string);
+	
+	camel_stream_write (CAMEL_STREAM (html_stream),
+			    body_string,
+			    strlen (body_string));
+	
+	camel_stream_close (CAMEL_STREAM (html_stream));
+	
+	g_free (body_string);
+
+	if (!frame_wnd) {
 		
-		camel_stream_write (CAMEL_STREAM (html_stream),
-				    body_string,
-				    strlen (body_string));
+		frame_wnd = gtk_frame_new (NULL);
+		gtk_frame_set_shadow_type (
+			GTK_FRAME (frame_wnd), GTK_SHADOW_IN);
 		
-		camel_stream_close (CAMEL_STREAM (html_stream));
+		gtk_widget_set_usize (scroll_wnd, 500, 400);
+		gtk_scrolled_window_set_policy (
+			GTK_SCROLLED_WINDOW (scroll_wnd),
+			GTK_POLICY_AUTOMATIC,
+			GTK_POLICY_AUTOMATIC);
 		
-		g_free (body_string);
+		gtk_container_add (GTK_CONTAINER (frame_wnd), scroll_wnd);
 	}
 	
-	gtk_widget_set_usize (scroll_wnd, 500, 400);
-        gtk_scrolled_window_set_policy (
-		GTK_SCROLLED_WINDOW (scroll_wnd),
-		GTK_POLICY_AUTOMATIC,
-		GTK_POLICY_ALWAYS);
-	return scroll_wnd;
+	return frame_wnd;
 }
 
 
 static GtkWidget*
 get_gtk_html_header_window (CamelMimeMessage* mime_message)
 {
-	static GtkWidget* hbox = NULL;
-	gchar* subj_string = NULL;
-	gchar* to_string = NULL;
-	gchar* from_string = NULL;	
+	static GtkWidget* frame_wnd = NULL;
+	static GtkWidget* scroll_wnd = NULL;	
+	static GtkWidget* html_widget = NULL;
+	HTMLStream*       html_stream;
+	gchar*            header_string;
 
-	if (!hbox) {
-		hbox = gtk_hbox_new (FALSE, 0);
-		gtk_box_pack_start (GTK_BOX (hbox),
-				    gtk_button_new_with_label("hello"),
-				    FALSE, TRUE, 5);
+	g_assert (mime_message);
+
+        /* create the html widget and scroll window, if they haven't
+           already been created */
+	if (!html_widget) {
+		html_widget = gtk_html_new();
+		scroll_wnd = gtk_scrolled_window_new (NULL, NULL);
+		gtk_container_add (GTK_CONTAINER (scroll_wnd), html_widget);
+	}
+
+	html_stream =
+		HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
+	
+	/* turn the mime message into html, and
+	   write it to the html stream */
+	mime_message_header_to_html (mime_message, &header_string);
+	
+	camel_stream_write (CAMEL_STREAM (html_stream),
+			    header_string,
+			    strlen (header_string));
+	
+	camel_stream_close (CAMEL_STREAM (html_stream));
+
+	g_free (header_string);
+
+	if (!frame_wnd) {
+		
+		frame_wnd = gtk_frame_new (NULL);
+		gtk_frame_set_shadow_type (
+			GTK_FRAME (frame_wnd), GTK_SHADOW_OUT);
+		
+		gtk_widget_set_usize (scroll_wnd, 500, 75);
+		gtk_scrolled_window_set_policy (
+			GTK_SCROLLED_WINDOW (scroll_wnd),
+			GTK_POLICY_AUTOMATIC,
+			GTK_POLICY_AUTOMATIC);
+		
+		gtk_container_add (GTK_CONTAINER (frame_wnd), scroll_wnd);
 	}
 	
-	return hbox;
+	
+	return frame_wnd;
 }
 
 static GtkWidget*
-get_gtk_html_window (CamelDataWrapper* data)
+get_gtk_html_window (CamelMimeMessage* mime_message)
 {
 	static GtkWidget* vbox = NULL;
-	CamelMimeMessage* msg = NULL;
-
-	if (CAMEL_IS_MIME_MESSAGE (data))
-		msg = CAMEL_MIME_MESSAGE (data);
-
-	if (!vbox) vbox = gtk_vbox_new (FALSE, 0);
-	if (msg)
+	GtkWidget* html_header_window = NULL;
+	GtkWidget* html_content_window = NULL;	
+	
+	html_content_window =
+		get_gtk_html_contents_window (
+			CAMEL_DATA_WRAPPER (mime_message));
+	
+	html_header_window =
+		get_gtk_html_header_window (mime_message);	
+	
+	if (!vbox) {
+		vbox = gtk_vbox_new (FALSE, 0);
+		
 		gtk_box_pack_start (
 			GTK_BOX (vbox),
-			get_gtk_html_header_window(msg),
-			FALSE, TRUE, 5);
-
-	gtk_box_pack_start (GTK_BOX (vbox),
-			    get_gtk_html_contents_window(data),
-			    FALSE, TRUE, 5);
+			html_header_window,
+			TRUE, TRUE, 5);
+		
+		gtk_box_pack_start (
+			GTK_BOX (vbox),
+			html_content_window,
+			TRUE, FALSE, 5);
+	}
 
 	return vbox;
 }
@@ -358,7 +430,7 @@ open_ok (GtkWidget *widget, GtkFileSelection *fs)
 		if (message) {
 			fileselection_prev_file = g_strdup (filename);
 			get_message_tree_ctrl (message);
-			get_gtk_html_window (CAMEL_DATA_WRAPPER (message));
+			get_gtk_html_window (message);
 		}
 		else
 			gnome_message_box_new ("Couldn't load message.",
@@ -452,7 +524,7 @@ main (int argc, char *argv[])
         gtk_paned_add1 (GTK_PANED (hpane), tree_ctrl_window);	
 
 	/* add the HTML view of the message */
-	html_window = get_gtk_html_window (CAMEL_DATA_WRAPPER (message));
+	html_window = get_gtk_html_window (message);
         gtk_paned_add2 (GTK_PANED (hpane), html_window);		
 	
 	/* rock n roll */

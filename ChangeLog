@@ -1,10 +1,20 @@
 2000-02-16  Matt Loper  <matt@helixcode.com>
 
+	* tests/ui-tests/message-browser.c (mime_message_header_to_html):
+	New function; converts a mime message's header into html.
+	(get_gtk_html_contents_window): Enclose window in a frame.
+	(get_gtk_html_header_window): same.
+
+	* camel/camel-formatter.h (CAMEL_IS_FORMATTER): changed from
+	CAMEL_IS_CAMEL_FORMATTER.
+
 	* camel/camel-formatter.c (handle_mime_part): Renamed from
 	handle_mime_message, as it can now handle CamelMimeBodyParts.
 	(camel_formatter_class_init): Handle text/richtext as text/plain
 	(ugly, but at least it's visible). Give body parts to
 	handle_mime_part.
+	(write_field_to_stream): Added an 'as_table_row' param.
+	(write_recipients_to_stream): same.
 
 	* tests/ui-tests/message-browser.c (handle_tree_item): Associate
 	each tree item with a CamelDataWrapper.
