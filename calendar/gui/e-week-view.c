@@ -3050,7 +3050,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 
 	on_server = cal_comp_is_on_server (comp, event->comp_data->client);
 	
-	if (string_is_empty (text) && on_server) {
+	if (string_is_empty (text) && !on_server) {
 		const char *uid;
 		
 		cal_component_get_uid (comp, &uid);

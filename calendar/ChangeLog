@@ -1,5 +1,13 @@
 2003-09-22  JP Rosevear <jpr@ximian.com>
 
+	* gui/e-day-view.c (e_day_view_on_editing_stopped): create the
+	object if its not on the server or modify it if it is
+
+	* gui/e-week-view.c (e_week_view_on_editing_stopped): we return if
+	there is no text and it *not* on the server
+
+2003-09-22  JP Rosevear <jpr@ximian.com>
+
 	* gui/e-week-view.c (e_week_view_on_editing_stopped): create the
 	object if its not on the server or modify it if it is
 
