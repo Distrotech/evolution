@@ -23,7 +23,12 @@
 #endif
 
 #include <gtk/gtkdialog.h>
+#include <gtk/gtkmenu.h>
+#include <gtk/gtkmenuitem.h>
+#include <gtk/gtkoptionmenu.h>
 #include <glade/glade.h>
+#include <e-util/e-source-list.h>
+#include "new-calendar.h"
 
 /**
  * new_calendar_dialog
@@ -35,6 +40,8 @@ new_calendar_dialog (GtkWindow *parent)
 {
 	GtkWidget *dialog, *cal_group, *cal_name;
 	GladeXML *xml;
+	ESourceList *source_list;
+	GConfClient *gconf_client;
 	gboolean result = FALSE;
 
 	/* load the Glade file */
@@ -49,12 +56,36 @@ new_calendar_dialog (GtkWindow *parent)
 	cal_name = glade_xml_get_widget (xml, "calendar-name");
 
 	if (dialog && cal_group && cal_name) {
+		GSList *groups, *sl;
+
 		/* set up widgets */
+		gconf_client = gconf_client_get_default ();
+		source_list = e_source_list_new_for_gconf (gconf_client, "/apps/evolution/calendar/sources");
+
+		groups = e_source_list_peek_groups (source_list);
+		for (sl = groups; sl != NULL; sl = sl->next) {
+			GtkWidget *menu_item, *menu;
+			ESourceGroup *group = sl->data;
+
+			menu = gtk_option_menu_get_menu (GTK_OPTION_MENU (cal_group));
+			if (!GTK_IS_MENU (menu)) {
+				menu = gtk_menu_new ();
+				gtk_option_menu_set_menu (GTK_OPTION_MENU (cal_group), menu);
+				gtk_widget_show (menu);
+			}
+
+			menu_item = gtk_menu_item_new_with_label (e_source_group_peek_name (group));
+			gtk_widget_show (menu_item);
+			gtk_menu_shell_append (GTK_MENU_SHELL (menu), menu_item);
+		}
 
 		/* run the dialog */
 		if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK) {
 		}
 
+		/* free memory */
+		g_object_unref (gconf_client);
+		g_object_unref (source_list);
 		gtk_widget_destroy (dialog);
 	}
 

@@ -85,7 +85,6 @@ static void
 primary_source_selection_changed_callback (ESourceSelector *selector,
 					   BonoboControl *view_control)
 {
-
 }
 
 /* GObject methods.  */
