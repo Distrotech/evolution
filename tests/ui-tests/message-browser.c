@@ -253,7 +253,7 @@ mime_message_header_to_html (CamelMimeMessage *msg, gchar** header_string)
 		CAMEL_STREAM_MEM (header_stream)->buffer->data,
 		CAMEL_STREAM_MEM (header_stream)->buffer->len);
 
-	printf ("\n\n>>>\n%s\n", *header_string);
+//	printf ("\n\n>>>\n%s\n", *header_string);
 }
 
 
@@ -266,8 +266,6 @@ get_gtk_html_contents_window (CamelDataWrapper* data)
 	HTMLStream* html_stream;
 	gchar *body_string;
 
-	g_assert (data);
-		
 	/* create the html widget and scroll window, if they haven't
            already been created */
 	if (!html_widget) {
@@ -276,20 +274,24 @@ get_gtk_html_contents_window (CamelDataWrapper* data)
 		gtk_container_add (GTK_CONTAINER (scroll_wnd), html_widget);
 	}
 
-	html_stream =
-		HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
-	
-	/* turn the mime message into html, and
+	if (data) {
+		
+		html_stream =
+			HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
+
+		/* turn the mime message into html, and
 		   write it to the html stream */
-	data_wrapper_to_html (data, &body_string);
+		data_wrapper_to_html (data, &body_string);
+		
+		camel_stream_write (CAMEL_STREAM (html_stream),
+				    body_string,
+				    strlen (body_string));
+		
+		camel_stream_close (CAMEL_STREAM (html_stream));
+		
+		g_free (body_string);
+	}
 	
-	camel_stream_write (CAMEL_STREAM (html_stream),
-			    body_string,
-			    strlen (body_string));
-	
-	camel_stream_close (CAMEL_STREAM (html_stream));
-	
-	g_free (body_string);
 
 	if (!frame_wnd) {
 		
@@ -319,8 +321,6 @@ get_gtk_html_header_window (CamelMimeMessage* mime_message)
 	HTMLStream*       html_stream;
 	gchar*            header_string;
 
-	g_assert (mime_message);
-
         /* create the html widget and scroll window, if they haven't
            already been created */
 	if (!html_widget) {
@@ -329,21 +329,24 @@ get_gtk_html_header_window (CamelMimeMessage* mime_message)
 		gtk_container_add (GTK_CONTAINER (scroll_wnd), html_widget);
 	}
 
-	html_stream =
-		HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
+	if (mime_message) {
+		
+		html_stream =
+			HTML_STREAM (html_stream_new (GTK_HTML (html_widget)));
+		
+		/* turn the mime message into html, and
+		   write it to the html stream */
+		mime_message_header_to_html (mime_message, &header_string);
+		
+		camel_stream_write (CAMEL_STREAM (html_stream),
+				    header_string,
+				    strlen (header_string));
+		
+		camel_stream_close (CAMEL_STREAM (html_stream));
+		
+		g_free (header_string);
+	}
 	
-	/* turn the mime message into html, and
-	   write it to the html stream */
-	mime_message_header_to_html (mime_message, &header_string);
-	
-	camel_stream_write (CAMEL_STREAM (html_stream),
-			    header_string,
-			    strlen (header_string));
-	
-	camel_stream_close (CAMEL_STREAM (html_stream));
-
-	g_free (header_string);
-
 	if (!frame_wnd) {
 		
 		frame_wnd = gtk_frame_new (NULL);
@@ -369,7 +372,7 @@ get_gtk_html_window (CamelMimeMessage* mime_message)
 	static GtkWidget* vbox = NULL;
 	GtkWidget* html_header_window = NULL;
 	GtkWidget* html_content_window = NULL;	
-	
+
 	html_content_window =
 		get_gtk_html_contents_window (
 			CAMEL_DATA_WRAPPER (mime_message));

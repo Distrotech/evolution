@@ -4,6 +4,9 @@
 	New function; converts a mime message's header into html.
 	(get_gtk_html_contents_window): Enclose window in a frame.
 	(get_gtk_html_header_window): same.
+	(get_gtk_html_header_window): Return a window properly even if
+	passed a NULL mime_message param.
+	(get_gtk_html_contents_window): same, with the data_wrapper param.
 
 	* camel/camel-formatter.h (CAMEL_IS_FORMATTER): changed from
 	CAMEL_IS_CAMEL_FORMATTER.
