@@ -1,3 +1,8 @@
+2004-04-23  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-calendar-view.c (e_calendar_view_delete_selected_occurrence):
+	use the correct start time to get the recurrence-ID.
+
 2004-04-22  JP Rosevear  <jpr@ximian.com>
 
 	Fixes #56092

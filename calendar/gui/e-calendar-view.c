@@ -871,15 +871,16 @@ e_calendar_view_delete_selected_occurrence (ECalendarView *cal_view)
 		rid = e_cal_component_get_recurid_as_string (comp);
 	else {
 		ECalComponentDateTime dt;
+		icaltimezone *zone;
 
 		/* get the RECUR-ID from the start date */
 		e_cal_component_get_dtstart (comp, &dt);
-		if (dt.value) {
-			rid = icaltime_as_ical_string (*dt.value);
-			e_cal_component_free_datetime (&dt);
+		if (e_cal_get_timezone (event->comp_data->client, dt.tzid, &zone, NULL)) {
+			rid = icaltime_as_ical_string (
+				icaltime_from_timet_with_zone (event->start, dt.value->is_date, zone));
 		} else {
-			g_object_unref (comp);
-			return;
+			rid = icaltime_as_ical_string (
+				icaltime_from_timet (event->start, dt.value->is_date));
 		}
 	}
 
