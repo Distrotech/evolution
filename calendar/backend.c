@@ -12,9 +12,9 @@
 static char *base_directory;
 
 void
-backend_init (char *base_directory)
+backend_init (char *my_base_directory)
 {
-	base_directory = base_directory;
+	base_directory = my_base_directory;
 }
 
 /**

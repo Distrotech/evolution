@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <gnome.h>
 
 void cs_connection_accept(gpointer data, GIOCondition cond,
 			  CSServer *server);
@@ -21,7 +22,7 @@ cs_server_new(void)
 
   rv = g_new0(CSServer, 1);
 
-  rv->mainloop = g_main_new();
+  rv->mainloop = g_main_new(FALSE);
   rv->servfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(rv->servfd < 0) goto errout;
 
@@ -31,7 +32,7 @@ cs_server_new(void)
   }
 
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(7668);
+  addr.sin_port = htons(gnome_config_get_int("/gncal/server/port=7668"));
   addr.sin_addr.s_addr = INADDR_ANY;
   if(bind(rv->servfd, &addr, sizeof(addr))) goto errout;
   if(listen(rv->servfd, 1)) goto errout;
