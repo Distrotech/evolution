@@ -1973,6 +1973,7 @@ add_field_callback(GtkWidget *widget, EContactEditor *editor)
 		"checkbutton-htmlmail",
 		"entry-caluri",
 		"entry-fburl",
+		"aim",
 		NULL
 	};
 	name = glade_get_widget_name(widget);
@@ -2006,6 +2007,7 @@ static struct {
 	{ "entry-categories", "categories" },
 	{ "entry-caluri", "caluri" },
 	{ "entry-fburl", "fburl" },
+	{ "entry-aim", "aim_name" },
 };
 
 static void

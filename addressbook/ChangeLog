@@ -1,3 +1,144 @@
+2001-10-28  Nat Friedman  <nat@ximian.com>
+
+	* backend/ebook/e-destination.c: Changed some gbooleans to guint
+	[from clahey].
+	(e_destination_use_card): Call the callback if there is no book
+	URI [from clahey].
+	(name_and_email_simple_query_cb): Get the book URI and emit the
+	cardified signal [from clahey].
+	(nickname_simple_query_cb): Likewise [and likewise from clahey].
+
+	* backend/ebook/e-card.h (ECard): Added aim_name field.
+
+	* backend/ebook/e-card.c (XEV_AIM_NAME): New macro.
+	Added the ARG_AIM_NAME identity to the ARG_* enum.
+	(parse_aim_name): New function.
+	(attribute_jump_array): Added aim name.
+	(e_card_get_vobject): Check for aim_name.
+	(e_card_class_init): Check for ARG_AIM_NAME.
+	(e_card_destroy): Free the aim_name.
+	(e_card_set_arg): Handle aim_name.
+	(e_card_get_arg): Likewise.
+	(e_card_init): Init the aim_name to NULL.
+
+	* gui/contact-editor/contact-editor.glade: Added some temporary
+	aim_name ui.
+
+	* gui/contact-editor/e-contact-editor.c (add_field_callback): Added aim.
+
+	* backend/ebook/test-card.c: Added support for aim_name.
+
+	* backend/ebook/e-card-simple.c (field_data): Added the AIM_NAME
+	field.
+	* backend/ebook/e-card-simple.h (_ECardSimpleField): Added
+	the AIM_NAME field.
+
+	* backend/ebook/e-book.c (activate_factories_for_uri): Free the
+	query if the oaf response is of zero length.
+
+2001-10-28  Jon Trowbridge  <trow@ximian.com>
+
+	* backend/ebook/e-card.c (e_card_date_from_string): Expose this
+	function.
+	(e_card_date_to_string): ...and this one.  Fixes build problem in
+	pas-backend-ldap.c.
+
+2001-10-28  Jon Trowbridge  <trow@ximian.com>
+
+	* gui/component/select-names/e-select-names.c
+	(e_select_names_hookup_shell_listeners): Change "this should never
+	happen" dialog to not give my name/e-mail.  Sorry translators.
+	But this really should never happen, thanks to my fix below.
+
+	* gui/component/addressbook-component.c: Initialize
+	global_shell_client to NULL. (Bug #6625)
+
+2001-10-27  Chris Toshok  <toshok@ximian.com>
+
+	[ bug #12979 ]
+	* backend/pas/pas-backend-ldap.c (anniversary_populate): new
+	function.
+	(anniversary_ber): new function.
+	(anniversary_compare): new function.
+	(birthday_populate): new function.
+	(birthday_ber): new function.
+	(birthday_compare): new function.
+
+2001-10-27  Chris Toshok  <toshok@ximian.com>
+
+	* gui/component/select-names/e-select-names-completion.c
+	(e_select_names_completion_destroy): free up all the book_data
+	list stuff.
+	(e_select_names_completion_got_book_view_cb): deal with book_data
+	being passed as the closure, and increment the
+	pending_completion_seq counter.
+	(e_select_names_completion_card_added_cb): deal with book_data
+	being passwd as the closure.
+	(e_select_names_completion_seq_complete_cb): same, and decrement
+	the pending_completion_seq if we haven't gotten one for this book
+	view before.
+	(e_select_names_completion_stop_query): cancel all the
+	book_data's.
+	(e_select_names_completion_start_query): use the books_not_ready
+	counter instead of book_ready.  also, do e_book_get_book_view on
+	each of the book's in our list.
+	(e_select_names_completion_do_query): change to deal with our
+	list.
+	(e_select_names_completion_book_ready): decrement the
+	book_not_ready counter.
+	(e_select_names_completion_new): add the book we're created with
+	to our list.
+	(e_select_names_completion_add_book): implement.
+
+	* gui/component/select-names/e-select-names-completion.h: add
+	prototype for e_select_names_completion_add_book.
+
+	* gui/component/select-names/e-select-names-manager.c
+	(e_select_names_manager_new): use addressbook_config_data, and
+	don't unref the db.
+	(e_select_names_manager_create_entry): always add NULL for a book
+	(which corresponds to the local book), and if the completion_book
+	is present, add it to the list of books to complete again.
+
+2001-10-27  Chris Toshok  <toshok@ximian.com>
+
+	* gui/contact-editor/e-contact-quick-add.c (merge_cb): change to
+	EBookCallback signature, and unref the book.
+	(quick_add_merge_card): use addressbook_load_default_book.
+	(ce_have_book): change to EBookCallback signature, and unref the
+	book.
+	(edit_card): use addressbook_load_default_book.
+
+	* gui/component/e-address-popup.c (email_table_save_card_cb):
+	change to EBookCallback signature, and unref the book.
+	(add_card_idle_cb): use addressbook_load_default_book, and call
+	the cb if it fails.
+	(e_address_popup_cleanup): fix type -- should be "pop->card =
+	NULL", not "pop = NULL".
+	(contact_editor_cb): change to EBookCallback signature.
+	(edit_contact_info_cb): use addressbook_load_default_book.
+	(start_query): change to EBookCallback signature.
+	(e_address_popup_query): use addressbook_load_default_book.
+
+	* gui/widgets/e-minicard-control.c (book_open_cb): change to
+	EBookCallback signature, and unref the book.
+	(save_in_addressbook): use addressbook_load_default_book instead
+	of e_book_use_local_address_book.
+
+	* gui/widgets/Makefile.am (INCLUDES): change includes since we're
+	including addressbook.h which has it's own set of funky include
+	path requirements.
+
+2001-10-27  Jon Trowbridge  <trow@ximian.com>
+
+	* backend/ebook/e-book.c (activate_factories_for_uri): Don't leak
+	stuff. (Bug #13709)
+
+2001-10-27  Christopher James Lahey  <clahey@ximian.com>
+
+	* backend/ebook/e-destination.c (name_and_email_simple_query_cb,
+	nickname_simple_query_cb): Set book_uri when cardification occurs.
+
 2001-10-27  Christopher James Lahey  <clahey@ximian.com>
 
 	* gui/component/select-names/e-select-names.c

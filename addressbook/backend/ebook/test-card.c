@@ -74,6 +74,7 @@ main (int argc, char **argv)
 	char *role;
 	char *nickname;
 	char *fburl;
+	char *aim_name;
 	ECardName *name;
 	EList *address;
 	EList *phone;
@@ -112,6 +113,7 @@ main (int argc, char **argv)
 		       "role",       &role,
 		       "nickname",   &nickname,
 		       "fburl",      &fburl,
+		       "aim_name",   &aim_name,
 		       "birth_date", &bday,
 		       NULL);
 	if ( fname ) {
@@ -148,6 +150,9 @@ main (int argc, char **argv)
         }
 	if ( fburl ) {
 	  printf("Free Busy URL : %s\n", fburl);
+	}
+	if ( aim_name ) {
+	  printf("AIM Name : %s\n", aim_name);
         }
 	if ( bday ) {
 	  printf("BDay : %4d-%02d-%02d\n", bday->year, bday->month, bday->day);

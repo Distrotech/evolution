@@ -36,6 +36,7 @@
 #define str_val(obj) (the_str = (vObjectValueType (obj))? fakeCString (vObjectUStringZValue (obj)) : calloc (1, 1))
 #define has(obj,prop) (vo = isAPropertyOf ((obj), (prop)))
 
+#define XEV_AIM_NAME "X-EVOLUTION-AIM-NAME"
 #define XEV_WANTS_HTML "X-MOZILLA-HTML"
 #define XEV_ARBITRARY "X-EVOLUTION-ARBITRARY"
 #define XEV_LIST "X-EVOLUTION-LIST"
@@ -67,6 +68,7 @@ enum {
 	ARG_MAILER,
 	ARG_CALURI,
 	ARG_FBURL,
+	ARG_AIM_NAME,
 	ARG_NOTE,
 	ARG_RELATED_CONTACTS,
 	ARG_CATEGORIES,
@@ -118,6 +120,7 @@ static void parse_anniversary(ECard *card, VObject *object, char *default_charse
 static void parse_mailer(ECard *card, VObject *object, char *default_charset);
 static void parse_caluri(ECard *card, VObject *object, char *default_charset);
 static void parse_fburl(ECard *card, VObject *object, char *default_charset);
+static void parse_aim_name(ECard *card, VObject *object, char *default_charset);
 static void parse_note(ECard *card, VObject *object, char *default_charset);
 static void parse_related_contacts(ECard *card, VObject *object, char *default_charset);
 static void parse_categories(ECard *card, VObject *object, char *default_charset);
@@ -162,6 +165,7 @@ struct {
 	{ VCMailerProp,              parse_mailer },
 	{ "CALURI",                  parse_caluri },
 	{ "FBURL",                   parse_fburl },
+	{ XEV_AIM_NAME,              parse_aim_name },
 	{ VCNoteProp,                parse_note },
 	{ XEV_RELATED_CONTACTS,      parse_related_contacts },
 	{ "CATEGORIES",              parse_categories },
@@ -651,6 +655,9 @@ e_card_get_vobject (const ECard *card, gboolean assumeUTF8)
 	if (card->fburl)
 		ADD_PROP_VALUE(vobj, "FBURL", card->fburl);
 	
+	if (card->aim_name)
+		ADD_PROP_VALUE(vobj, XEV_AIM_NAME, card->aim_name);
+	
 	if (card->note) {
 		VObject *noteprop;
 
@@ -1088,6 +1095,13 @@ parse_fburl(ECard *card, VObject *vobj, char *default_charset)
 }
 
 static void
+parse_aim_name(ECard *card, VObject *vobj, char *default_charset)
+{
+	g_free(card->aim_name);
+	assign_string(vobj, default_charset, &(card->aim_name));
+}
+
+static void
 parse_note(ECard *card, VObject *vobj, char *default_charset)
 {
 	g_free(card->note);
@@ -1391,6 +1405,8 @@ e_card_class_init (ECardClass *klass)
 				 GTK_TYPE_STRING, GTK_ARG_READWRITE, ARG_CALURI);
 	gtk_object_add_arg_type ("ECard::fburl",
 				 GTK_TYPE_STRING, GTK_ARG_READWRITE, ARG_FBURL);
+	gtk_object_add_arg_type ("ECard::aim_name",
+				 GTK_TYPE_STRING, GTK_ARG_READWRITE, ARG_AIM_NAME);
 	gtk_object_add_arg_type ("ECard::note",
 				 GTK_TYPE_STRING, GTK_ARG_READWRITE, ARG_NOTE);
 	gtk_object_add_arg_type ("ECard::related_contacts",
@@ -1908,6 +1924,7 @@ e_card_destroy (GtkObject *object)
 	g_free(card->anniversary);
 	g_free(card->caluri);
 	g_free(card->fburl);
+	g_free(card->aim_name);
 	g_free(card->note);
 	g_free(card->related_contacts);
 
@@ -2054,6 +2071,10 @@ e_card_set_arg (GtkObject *object, GtkArg *arg, guint arg_id)
 	case ARG_FBURL:
 		g_free(card->fburl);
 		card->fburl = g_strdup(GTK_VALUE_STRING(*arg));
+		break;
+	case ARG_AIM_NAME:
+		g_free(card->aim_name);
+		card->aim_name = g_strdup(GTK_VALUE_STRING(*arg));
 		break;
 	case ARG_NOTE:
 		g_free (card->note);
@@ -2221,6 +2242,9 @@ e_card_get_arg (GtkObject *object, GtkArg *arg, guint arg_id)
 	case ARG_FBURL:
 		GTK_VALUE_STRING(*arg) = card->fburl;
 		break;
+	case ARG_AIM_NAME:
+		GTK_VALUE_STRING(*arg) = card->aim_name;
+		break;
 	case ARG_NOTE:
 		GTK_VALUE_STRING(*arg) = card->note;
 		break;
@@ -2294,6 +2318,7 @@ e_card_init (ECard *card)
 	card->mailer = NULL;
 	card->caluri = NULL;
 	card->fburl = NULL;
+	card->aim_name = NULL;
 	card->note = NULL;
 	card->related_contacts = NULL;
 	card->categories = NULL;
