@@ -26,7 +26,10 @@
 #include <libgnome/gnome-i18n.h>
 #include "e-cal-model-calendar.h"
 #include "e-cell-date-edit-text.h"
+#include "itip-utils.h"
 #include "misc.h"
+#include "dialogs/recur-comp.h"
+#include "dialogs/send-comp.h"
 
 struct _ECalModelCalendarPrivate {
 };
@@ -353,7 +356,7 @@ ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value)
 	}
 
 	/* ask about mod type */
-	if (e_cal_util_component_is_instance (comp)) {
+	if (e_cal_component_is_instance (comp)) {
 		if (!recur_component_dialog (comp_data->client, comp, &mod, NULL)) {
 			g_object_unref (comp);
 			return;
@@ -372,7 +375,11 @@ ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value)
 		break;
 	}
 
-	if (!e_cal_modify_object (comp_data->client, comp_data->icalcomp, CALOBJ_MOD_ALL, NULL)) {
+	if (e_cal_modify_object (comp_data->client, comp_data->icalcomp, CALOBJ_MOD_ALL, NULL)) {
+		if (itip_organizer_is_user (comp, comp_data->client) &&
+		    send_component_dialog (NULL, comp_data->client, comp, FALSE))
+			itip_send_comp (E_CAL_COMPONENT_METHOD_REQUEST, comp, comp_data->client, NULL);
+	} else {
 		g_warning (G_STRLOC ": Could not modify the object!");
 		
 		/* FIXME Show error dialog */
