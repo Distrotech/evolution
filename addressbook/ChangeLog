@@ -1,3 +1,7 @@
+2003-08-13  JP Rosevear  <jpr@ximian.com>
+
+	* backend/pas/pas-backend-file.c: convert db3 hashes to xml hashes
+
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
 	* printing/e-contact-print.c (e_contact_print_response): deal with
