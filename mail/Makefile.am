@@ -205,7 +205,7 @@ server_DATA = $(server_in_files:.server.in.in=.server)
 MARSHAL_GENERATED = em-marshal.c em-marshal.h
 @EVO_MARSHAL_RULE@
 
-glade_DATA = mail-config.glade local-config.glade subscribe-dialog.glade message-tags.glade
+glade_DATA = mail-config.glade local-config.glade subscribe-dialog.glade message-tags.glade mail-search.glade
 
 etspec_DATA = mail-accounts.etspec message-list.etspec subscribe-dialog.etspec
 

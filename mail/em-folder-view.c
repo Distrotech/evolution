@@ -267,7 +267,6 @@ emfv_got_folder(char *uri, CamelFolder *folder, void *data)
 	em_folder_view_set_folder(emfv, folder, uri);
 }
 
-/* FIXME: do i really need both api's? */
 static void
 emfv_set_folder_uri(EMFolderView *emfv, const char *uri)
 {
@@ -290,7 +289,6 @@ emfv_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	printf("editcut\n");
 	if (message_list_has_primary_selection(emfv->list))
 		message_list_copy(emfv->list, TRUE);
 	else
@@ -302,7 +300,6 @@ emfv_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	printf("editcopy\n");
 	if (message_list_has_primary_selection(emfv->list))
 		message_list_copy(emfv->list, FALSE);
 	else
@@ -315,7 +312,6 @@ emfv_edit_paste(BonoboUIComponent *uid, void *data, const char *path)
 	EMFolderView *emfv = data;
 
 	message_list_paste(emfv->list);
-	/*em_format_html_display_paste (emfv->preview);*/
 }
 
 static void
@@ -713,9 +709,8 @@ static void
 emfv_message_search(BonoboUIComponent *uic, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
-	
-	/* FIXME: new search code in formathtmldisplay ? */
+
+	em_format_html_display_search(emfv->preview);
 }
 
 static void
@@ -761,6 +756,7 @@ emfv_text_zoom_reset(BonoboUIComponent *uic, void *data, const char *path)
 		em_format_html_display_zoom_reset(emfv->preview);
 }
 
+/* ********************************************************************** */
 
 struct _filter_data {
 	CamelFolder *folder;
@@ -811,8 +807,8 @@ filter_type_current (EMFolderView *emfv, int type)
 	const char *source;
 	GPtrArray *uids;
 	
-	if (em_utils_folder_is_sent (emfv->folder, emfv->folder_uri) ||
-	    em_utils_folder_is_outbox (emfv->folder, emfv->folder_uri))
+	if (em_utils_folder_is_sent (emfv->folder, emfv->folder_uri)
+	    || em_utils_folder_is_outbox (emfv->folder, emfv->folder_uri))
 		source = FILTER_SOURCE_OUTGOING;
 	else
 		source = FILTER_SOURCE_INCOMING;
@@ -925,6 +921,8 @@ emfv_tools_vfolder_subject(BonoboUIComponent *uic, void *data, const char *path)
 	
 	vfolder_type_current (emfv, AUTO_SUBJECT);
 }
+
+/* ********************************************************************** */
 
 static void
 emfv_view_load_images(BonoboUIComponent *uic, void *data, const char *path)

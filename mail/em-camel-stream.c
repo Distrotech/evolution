@@ -39,6 +39,8 @@
 
 #define EMCS_BUFFER_SIZE (4096)
 
+/*#define LOG_STREAM*/
+
 #define d(x) 
 
 enum _write_msg_t {
@@ -219,6 +221,11 @@ stream_write (CamelStream *stream, const char *buffer, size_t n)
 	if (estream->html_stream == NULL)
 		return -1;
 
+#ifdef LOG_STREAM
+	if (estream->save)
+		fwrite(buffer, sizeof(char), n, estream->save);
+#endif
+
 	if (pthread_self() == mail_gui_thread)
 		gtk_html_stream_write(estream->html_stream, buffer, n);
 	else {
@@ -267,6 +274,13 @@ stream_close(CamelStream *stream)
 
 	d(printf("%p: closing stream\n", stream));
 
+#ifdef LOG_STREAM
+	if (estream->save) {
+		fclose(estream->save);
+		estream->save = NULL;
+	}
+#endif
+
 	if (estream->html_stream) {
 		if (pthread_self() == mail_gui_thread) {
 			gtk_html_stream_close(estream->html_stream, GTK_HTML_STREAM_OK);
@@ -298,5 +312,15 @@ em_camel_stream_new(struct _GtkHTML *html, struct _GtkHTMLStream *html_stream)
 	new->html_stream = html_stream;
 	g_signal_connect(html, "destroy", G_CALLBACK(emcs_gtkhtml_destroy), new);
 
+#ifdef LOG_STREAM
+	{
+		static int count;
+		char name[32];
+
+		sprintf(name, "camel-stream.%d.html", count++);
+		printf("saving raw html to '%s'\n", name);
+		new->save = fopen(name, "w");
+	}
+#endif
 	return CAMEL_STREAM (new);
 }

@@ -134,7 +134,6 @@ emfb_init(GObject *o)
 	emfb->view.ui_files = g_slist_append(emfb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-list.xml");
 	emfb->view.ui_files = g_slist_append(emfb->view.ui_files, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 
-	/* FIXME: setup search bar */
 	if (search_context) {
 		const char *systemrules = g_object_get_data (G_OBJECT (search_context), "system");
 		const char *userrules = g_object_get_data (G_OBJECT (search_context), "user");
@@ -170,10 +169,6 @@ emfb_init(GObject *o)
 
 	gtk_paned_add2((GtkPaned *)emfb->vpane, p->preview);
 	gtk_widget_show(p->preview);
-
-
-	/* FIXME: setup selection */
-	/* FIXME: setup dnd */
 }
 
 static void
@@ -224,7 +219,7 @@ GtkWidget *em_folder_browser_new(void)
 
 void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 {
-	if (emfb->priv->show_preview
+	if ((emfb->priv->show_preview ^ state) == 0
 	    || emfb->view.list == NULL)
 		return;
 	
@@ -243,7 +238,6 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 		/*do_message_selected (emfb);*/
 		/*set_cursor_pos (emfb, y);*/
 	} else {
-		printf("preview turned off ...\n");
 		gtk_widget_hide(emfb->priv->preview);
 		/*
 		mail_display_set_message (emfb->mail_display, NULL, NULL, NULL);
@@ -422,7 +416,6 @@ emfb_view_hide_read(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	printf("viewhideread\n");
 	message_list_hide_add(emfv->list, "(match-all (system-flag \"seen\"))", ML_HIDE_SAME, ML_HIDE_SAME);
 }
 
@@ -434,7 +427,6 @@ emfb_view_hide_selected(BonoboUIComponent *uid, void *data, const char *path)
 
 	/* TODO: perhaps this should sit directly on message_list? */
 	/* is it worth it, it's so trivial */
-	printf("viewhideselected\n");
 	uids = message_list_get_selected(emfv->list);
 	message_list_hide_uids(emfv->list, uids);
 	message_list_free_uids(emfv->list, uids);
@@ -445,7 +437,6 @@ emfb_view_show_all(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 
-	printf("viewshowall\n");
 	message_list_hide_clear(emfv->list);
 }
 

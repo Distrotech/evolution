@@ -50,6 +50,7 @@ typedef struct _EMCamelStream {
 	guint gui_watch;
 	char *buffer;
 	int used;
+	void *save;
 } EMCamelStream;
 
 typedef struct {

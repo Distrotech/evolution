@@ -1,3 +1,38 @@
+2003-08-29  Not Zed  <NotZed@Ximian.com>
+
+	* em-camel-stream.c (em_camel_stream_new): Added some optional
+	logging code.
+	(stream_close): and here.
+	(stream_write): and here.
+
+	* em-folder-browser.c (emfb_init): remove fixme about search bar,
+	its there now.  also fixme's about dnd/selection, they are handled
+	in lower-level widgets.
+	(em_folder_browser_show_preview): dont exit if show preview set,
+	but only if it hasn't changed.
+	(emfb_view_hide_selected, emfb_view_show_all) 
+	(emfb_view_hide_read): removed some spurious printfs.
+
+	* Makefile.am (glade_DATA): Added mail-search.glade.  FIXME:
+	should all glade files be merged into 1?
+
+	* em-format-html-display.c (efhd_format_clone): remove search
+	match count code from here - wont be finished rendering at this
+	point anyway.
+	(em_format_html_display_search): new api for running an
+	interactive search popup.
+	(efhd_update_matches, efhd_update_search)
+	(efhd_search_entry_activate, efhd_search_case_toggled)
+	(efhd_search_response): helpers/callbacks for search popup.
+	(efhd_class_init): hook into complete signal on EMFormat.
+	(efhd_complete): complete rendering handler, update match count.
+
+	* em-folder-view.c: removed fixme about api's - yes, do need two
+	set_folder api's.
+	(emfv_edit_cut, emfv_edit_copy): removed printfs
+	(emfv_edit_paste): removed commented call to html_paste, we never
+	want to do that.
+
 2003-08-29  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-view.c (emfv_message_mark_unread): If there is a
