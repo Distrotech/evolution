@@ -402,13 +402,13 @@ tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *path, 
 	CamelStore *store;
 	GtkTreeStore *model;
 	GtkTreeIter iter;
-	char *full_name;
 	gboolean load;
+	char *path;
 	
 	model = (GtkTreeStore *) gtk_tree_view_get_model (treeview);
 	
 	gtk_tree_model_get ((GtkTreeModel *) model, root,
-			    COL_STRING_FOLDER_NAME, &full_name,
+			    COL_STRING_FOLDER_PATH, &path,
 			    COL_POINTER_CAMEL_STORE, &store,
 			    COL_BOOL_LOAD_SUBDIRS, &load,
 			    -1);
@@ -423,7 +423,7 @@ tree_row_expanded (GtkTreeView *treeview, GtkTreeIter *root, GtkTreePath *path, 
 	
 	/* FIXME: are there any flags we want to pass when getting folder-info's? */
 	camel_exception_init (&ex);
-	if (!(fi = camel_store_get_folder_info (store, full_name, 0, &ex))) {
+	if (!(fi = camel_store_get_folder_info (store, path, 0, &ex))) {
 		/* FIXME: report error to user? or simply re-collapse node? or both? */
 		camel_exception_clear (&ex);
 		return;
@@ -1148,7 +1148,7 @@ tree_selection_changed (GtkTreeSelection *selection, EMFolderTree *emft)
 	
 	selection = gtk_tree_view_get_selection (priv->treeview);
 	gtk_tree_selection_get_selected (selection, &model, &iter);
-	gtk_tree_model_get (model, &iter, COL_STRING_FOLDER_NAME, &path,
+	gtk_tree_model_get (model, &iter, COL_STRING_FOLDER_PATH, &path,
 			    COL_STRING_URI, &uri, -1);
 	
 	g_free (priv->selected_uri);
