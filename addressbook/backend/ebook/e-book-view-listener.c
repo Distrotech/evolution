@@ -16,7 +16,7 @@
 #include "e-contact.h"
 #include "e-book-marshal.h"
 
-static EBookViewStatus e_book_view_listener_convert_status (GNOME_Evolution_Addressbook_BookViewListener_CallStatus status);
+static EBookViewStatus e_book_view_listener_convert_status (GNOME_Evolution_Addressbook_CallStatus status);
 
 enum {
 	RESPONSE,
@@ -190,7 +190,7 @@ impl_BookViewListener_notify_card_changed (PortableServer_Servant servant,
 
 static void
 impl_BookViewListener_notify_sequence_complete (PortableServer_Servant servant,
-						const GNOME_Evolution_Addressbook_BookViewListener_CallStatus status,
+						const GNOME_Evolution_Addressbook_CallStatus status,
 						CORBA_Environment *ev)
 {
 	EBookViewListener *listener = E_BOOK_VIEW_LISTENER (bonobo_object (servant));
@@ -215,20 +215,20 @@ impl_BookViewListener_notify_progress (PortableServer_Servant  servant,
 }
 
 static EBookViewStatus
-e_book_view_listener_convert_status (const GNOME_Evolution_Addressbook_BookViewListener_CallStatus status)
+e_book_view_listener_convert_status (const GNOME_Evolution_Addressbook_CallStatus status)
 {
 	switch (status) {
-	case GNOME_Evolution_Addressbook_BookViewListener_Success:
+	case GNOME_Evolution_Addressbook_Success:
 		return E_BOOK_VIEW_STATUS_OK;
-	case GNOME_Evolution_Addressbook_BookViewListener_SearchTimeLimitExceeded:
+	case GNOME_Evolution_Addressbook_SearchTimeLimitExceeded:
 		return E_BOOK_VIEW_STATUS_TIME_LIMIT_EXCEEDED;
-	case GNOME_Evolution_Addressbook_BookViewListener_SearchSizeLimitExceeded:
+	case GNOME_Evolution_Addressbook_SearchSizeLimitExceeded:
 		return E_BOOK_VIEW_STATUS_SIZE_LIMIT_EXCEEDED;
-	case GNOME_Evolution_Addressbook_BookViewListener_InvalidQuery:
+	case GNOME_Evolution_Addressbook_InvalidQuery:
 		return E_BOOK_VIEW_STATUS_INVALID_QUERY;
-	case GNOME_Evolution_Addressbook_BookViewListener_QueryRefused:
+	case GNOME_Evolution_Addressbook_QueryRefused:
 		return E_BOOK_VIEW_STATUS_QUERY_REFUSED;
-	case GNOME_Evolution_Addressbook_BookViewListener_OtherError:
+	case GNOME_Evolution_Addressbook_OtherError:
 	default:
 		return E_BOOK_VIEW_STATUS_OTHER_ERROR;
 	}

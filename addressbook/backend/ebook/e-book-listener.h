@@ -98,8 +98,6 @@ struct _EBookListenerResponse {
 
 
 EBookListener         *e_book_listener_new            (void);
-int                    e_book_listener_check_pending  (EBookListener *listener);
-EBookListenerResponse *e_book_listener_pop_response   (EBookListener *listener);
 GType                  e_book_listener_get_type       (void);
 void                   e_book_listener_stop           (EBookListener *listener);
 

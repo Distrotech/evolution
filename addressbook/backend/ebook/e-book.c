@@ -704,7 +704,7 @@ e_book_response_get_contact (EBook       *book,
 
 
 /**
- * e_book_remove_contact_by_id:
+ * e_book_remove_contact:
  * @book: an #EBook
  * @id: a string
  *
@@ -1060,6 +1060,110 @@ e_book_response_get_contacts (EBook       *book,
 }
 
 
+EBookStatus
+e_book_get_changes (EBook       *book,
+		    char        *changeid,
+		    GList      **changes)
+{
+	CORBA_Environment ev;
+	EBookOp *our_op;
+	EBookStatus status;
+
+	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (changeid,                       E_BOOK_STATUS_INVALID_ARG);
+	g_return_val_if_fail (changes,                        E_BOOK_STATUS_INVALID_ARG);
+
+	e_mutex_lock (book->priv->mutex);
+
+	if (book->priv->load_state != URILoaded) {
+		e_mutex_unlock (book->priv->mutex);
+		return E_BOOK_STATUS_URI_NOT_LOADED;
+	}
+
+	if (book->priv->current_op != NULL) {
+		e_mutex_unlock (book->priv->mutex);
+		return E_BOOK_STATUS_BUSY;
+	}
+
+	our_op = e_book_new_op (book);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (book->priv->mutex);
+
+	CORBA_exception_init (&ev);
+
+	/* will eventually end up calling e_book_response_get_changes */
+	GNOME_Evolution_Addressbook_Book_getChanges (book->priv->corba_book, changeid, &ev);
+
+	if (ev._major != CORBA_NO_EXCEPTION) {
+		e_book_remove_op (book, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_book_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning ("corba exception._major = %d\n", ev._major);
+
+		return E_BOOK_STATUS_CORBA_EXCEPTION;
+	}
+	
+	CORBA_exception_free (&ev);
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	*changes = our_op->list;
+
+	e_book_remove_op (book, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_book_free_op (our_op);
+
+	return status;
+}
+
+static void
+e_book_response_get_changes (EBook       *book,
+			     EBookStatus  status,
+			     GList       *change_list)
+{
+
+	EBookOp *op;
+
+	op = e_book_get_op (book);
+
+	if (op == NULL) {
+	  g_warning ("e_book_response_get_contacts: Cannot find operation ");
+	  return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+	op->list = change_list;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+void
+e_book_free_change_list (GList *change_list)
+{
+	GList *l;
+	for (l = change_list; l; l = l->next) {
+		EBookChange *change = l->data;
+
+		g_free (change->vcard);
+		g_free (change);
+	}
+
+	g_list_free (change_list);
+}
+
+
 
 static void
 e_book_response_generic (EBook       *book,
@@ -1252,7 +1356,7 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 		e_book_response_generic (book, resp->status);
 		break;
 	case GetCardResponse: {
-		EContact *contact = contact = e_contact_new_from_vcard (resp->vcard);
+		EContact *contact = e_contact_new_from_vcard (resp->vcard);
 		e_book_response_get_contact (book, resp->status, contact);
 		break;
 	}
@@ -1262,11 +1366,9 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 	case GetBookViewResponse:
 		e_book_response_get_book_view(book, resp->status, resp->book_view);
 		break;
-#if notyet
 	case GetChangesResponse:
-		e_book_do_response_get_changes(book, resp);
+		e_book_response_get_changes(book, resp->status, resp->list);
 		break;
-#endif
 	case OpenBookResponse:
 		e_book_response_open (book, resp->status, resp->book);
 		break;

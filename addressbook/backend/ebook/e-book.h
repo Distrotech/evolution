@@ -110,7 +110,9 @@ EBookStatus e_book_get_contacts          (EBook       *book,
 
 EBookStatus e_book_get_changes           (EBook       *book,
 					  char        *changeid,
-					  EBookView  **book_view);
+					  GList      **changes);
+
+void        e_book_free_change_list      (GList       *change_list);
 
 const char *e_book_get_uri               (EBook       *book);
 

@@ -1,3 +1,38 @@
+2003-07-29  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/e-book-view-listener.c: track collapsing of
+	Addressbook::BookListenerCallStatus and
+	Addressbook::BookView::CallStatus enums into
+	Addressbook::CallStatus.
+
+	* backend/ebook/e-book-listener.c track collapsing of
+	Addressbook::BookListenerCallStatus and
+	Addressbook::BookView::CallStatus enums into
+	Addressbook::CallStatus.
+	(response_free): nuked
+	(e_book_listener_check_queue): nuked
+	(e_book_listener_queue_response): nuked
+	(e_book_listener_queue_progress): nuked
+	(e_book_listener_queue_get_view_response): nuked
+	(e_book_listener_queue_get_changes_response): nuked
+	(e_book_listener_queue_writable_status): nuked
+	(e_book_listener_queue_authentication_response): nuked
+	(e_book_listener_queue_get_supported_fields_response): nuked
+	(e_book_listener_queue_get_supported_auth_methods_response): nuked
+	(e_book_listener_dispose): nuked
+	
+	* backend/ebook/e-book-listener.h: remove prototypes for
+	check_pending and pop_response.
+
+	* backend/ebook/e-book.c (e_book_get_changes): new function.
+	implement this as more of a getCardList type function, instead of
+	getBookView.
+	(e_book_response_get_changes): new function.
+	(e_book_free_change_list): new function.
+
+	* backend/ebook/e-book.h: add prototype for
+	e_book_free_change_list.
+
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-book.c (e_book_get_book_view): new function,
