@@ -1,3 +1,12 @@
+2004-08-24  JP Rosevear  <jpr@novell.com>
+
+	* Makefile.am: define EVOLUTION_PLUGINDIR
+
+	* e-plugin.c (e_plugin_get_type): add both a global and user
+	specifc eplug path as defaults
+	(e_plugin_load_plugins): just skip a directory if it can't be
+	opened
+
 2004-09-10  Not Zed  <NotZed@Ximian.com>
 
 	* e-popup.c (emph_construct_menu): duh, setup the hook pointer.

@@ -11,6 +11,7 @@ INCLUDES =								\
 	-DEVOLUTION_IMAGES=\""$(imagesdir)"\"				\
 	-DEVOLUTION_ICONSDIR=\""$(imagesdir)"\"				\
 	-DEVOLUTION_CATEGORY_ICONS=\""$(imagesdir)/categories"\"	\
+	-DEVOLUTION_PLUGINDIR=\""$(plugindir)"\"			\
 	-DG_LOG_DOMAIN=\"e-utils\"					\
 	$(GNOME_PILOT_CFLAGS)						\
 	$(E_UTIL_CFLAGS)

@@ -132,9 +132,15 @@ e_plugin_get_type(void)
 		ep_parent_class = g_type_class_ref(G_TYPE_OBJECT);
 		type = g_type_register_static(G_TYPE_OBJECT, "EPlugin", &info, 0);
 
+		/* Add paths in the environment variable or default global and user specific paths */
 		path = g_strdup(getenv("EVOLUTION_PLUGIN_PATH"));
-		if (path == NULL)
+		if (path == NULL) {
+			/* Add the global path */
+			e_plugin_add_load_path(EVOLUTION_PLUGINDIR);
+
 			path = g_build_filename(g_get_home_dir(), ".eplug", NULL);
+		}
+		
 		p = path;
 		while ((col = strchr(p, ':'))) {
 			*col++ = 0;
@@ -248,7 +254,7 @@ e_plugin_load_plugins(void)
 		dir = opendir(path);
 		if (dir == NULL) {
 			g_warning("Could not find plugin path: %s", path);
-			return -1;
+			continue;
 		}
 
 		while ( (d = readdir(dir)) ) {
