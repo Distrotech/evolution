@@ -22,6 +22,10 @@ struct _EMFolderView {
 	char *folder_uri;
 
 	struct _EMFolderViewPrivate *priv;
+
+	/* used to load ui from base activate implementation */
+	GSList *ui_files;	/* const char * list */
+	const char *ui_app_name;
 };
 
 struct _EMFolderViewClass {

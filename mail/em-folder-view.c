@@ -20,10 +20,11 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+#include <string.h>
 
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkscrolledwindow.h>
@@ -49,6 +50,8 @@
 #include <bonobo/bonobo-ui-component.h>
 #include <bonobo/bonobo-ui-util.h>
 
+#include "widgets/misc/e-charset-picker.h"
+
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
 #include "em-folder-view.h"
@@ -57,6 +60,8 @@
 
 #include "mail-mt.h"
 #include "mail-ops.h"
+
+#include "mail-config.h"	/* hrm, pity we need this ... */
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
@@ -90,6 +95,9 @@ emfv_init(GObject *o)
 
 	emfv->list = (MessageList *)message_list_new();
 	g_signal_connect(emfv->list, "message_selected", G_CALLBACK(emfv_list_message_selected), emfv);
+
+	emfv->ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-message.xml");
+	emfv->ui_app_name = "evolution-mail";
 
 	/* setup selection?  etc? */
 #if 0
@@ -191,7 +199,7 @@ em_folder_view_open_selected(EMFolderView *emfv)
 		/* FIXME: session needs to be passed easier than this */
 		em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, ((EMFormat *)emfv->preview)->session);
 		em_folder_view_set_folder((EMFolderView *)emmb, emfv->folder, emfv->folder_uri);
-		printf("opening message '%s'\n", uids->pdata[i]);
+		printf("opening message '%s'\n", (char *)uids->pdata[i]);
 		em_folder_view_set_message((EMFolderView *)emmb, uids->pdata[i]);
 		gtk_widget_show(emmb->window);
 	}
@@ -676,19 +684,124 @@ static EPixmap emfv_message_pixmaps[] = {
 	E_PIXMAP_END
 };
 
+/* must match em_format_mode_t order */
+static const char * const emfv_display_styles[] = {
+	"/commands/ViewNormal",
+	"/commands/ViewFullHeaders",
+	"/commands/ViewSource"
+};
+
+static void
+emfv_view_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
+{
+	EMFolderView *emfv = data;
+	int i;
+
+	if (type != Bonobo_UIComponent_STATE_CHANGED
+	    || state[0] == '0')
+		return;
+
+	/* TODO: I don't like this stuff much, is there any way we can move listening for such events
+	   elsehwere?  Probably not I guess, unless there's a EMFolderViewContainer for bonobo usage
+	   of a folder view */
+
+	printf("view mode enabled '%s'\n", path);
+
+	for (i=0;i<= EM_FORMAT_SOURCE;i++) {
+		if (strcmp(emfv_display_styles[i]+strlen("/commands/"), path) == 0) {
+			em_format_set_mode((EMFormat *)emfv->preview, i);
+
+			if (TRUE /* set preferences but not for EMMessageBrowser? */) {
+				GConfClient *gconf = gconf_client_get_default();
+				
+				gconf_client_set_int (gconf, "/apps/evolution/mail/display/message_style", i, NULL);
+				g_object_unref(gconf);
+			}
+			break;
+		}
+	}
+}
+
+static void
+emfv_caret_mode(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
+{
+	GConfClient *gconf;
+
+	if (type != Bonobo_UIComponent_STATE_CHANGED)
+		return;
+
+	gconf = gconf_client_get_default();
+	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/caret_mode", state[0] != '0', NULL);
+	g_object_unref(gconf);
+}
+
+static void
+emfv_charset_changed(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_EventType type, const char *state, void *data)
+{
+	if (type != Bonobo_UIComponent_STATE_CHANGED)
+		return;
+
+	/* menu items begin with "Charset-" = 8 characters */
+	if (state[0] != '0' && strlen(path) > 8) {
+		path += 8;
+		/* default charset used in mail view */
+		if (!strcmp(path, _("Default")))
+			path = NULL;
+
+		/* FIXME: Need to implement charset stuff in em-format(-html) */
+
+		printf("charset set to '%s'\n", path);
+	}
+}
+
 static void
 emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 {
 	if (state) {
+		GConfClient *gconf = gconf_client_get_default();
+		em_format_mode_t style;
+		gboolean caret_mode;
+		GSList *l;
+
 		printf("activate folder viewer %p\n", emfv);
 
+		for (l = emfv->ui_files;l;l = l->next)
+			bonobo_ui_util_set_ui(uic, PREFIX, (char *)l->data, emfv->ui_app_name, NULL);
+
 		bonobo_ui_component_add_verb_list_with_data(uic, emfv_message_verbs, emfv);
-		bonobo_ui_util_set_ui(uic, PREFIX, EVOLUTION_UIDIR "/evolution-mail-message.xml", "evolution-mail", NULL);
 		e_pixmaps_update(uic, emfv_message_pixmaps);
 
 		/* FIXME: global menu's? */
 		/* FIXME: toggled states, hidedeleted, view threaded */
 		/* FIXME: view menu's? */
+
+		/* FIXME: Need to implement or monitor in em-format-html-display */
+		caret_mode = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/caret_mode", NULL);
+		bonobo_ui_component_set_prop(uic, "/commands/CaretMode", "state", caret_mode?"1":"0", NULL);
+		bonobo_ui_component_add_listener(uic, "CaretMode", emfv_caret_mode, emfv);
+
+		style = gconf_client_get_int(gconf, "/apps/evolution/mail/display/message_style", NULL);
+		if (style < EM_FORMAT_NORMAL || style > EM_FORMAT_SOURCE)
+			style = EM_FORMAT_NORMAL;
+		bonobo_ui_component_set_prop(uic, emfv_display_styles[style], "state", "1", NULL);
+		bonobo_ui_component_add_listener(uic, "ViewNormal", emfv_view_mode, emfv);
+		bonobo_ui_component_add_listener(uic, "ViewFullHeaders", emfv_view_mode, emfv);
+		bonobo_ui_component_add_listener(uic, "ViewSource", emfv_view_mode, emfv);
+		em_format_set_mode((EMFormat *)emfv->preview, style);
+#if 0	
+		/* Resend Message */
+		if (fb->folder && !folder_browser_is_sent (fb)) 
+			fbui_sensitise_item (fb, "MessageResend", FALSE);
+	
+		/* sensitivity of message-specific commands */
+		prev_state = fb->selection_state;
+		fb->selection_state = FB_SELSTATE_UNDEFINED;
+		folder_browser_ui_set_selection_state (fb, prev_state);
+#endif
+		/* default charset used in mail view */
+		e_charset_picker_bonobo_ui_populate (uic, "/menu/View", _("Default"), emfv_charset_changed, emfv);
+
+		g_object_unref(gconf);
 	} else {
 		const BonoboUIVerb *v;
 
@@ -738,12 +851,10 @@ int em_folder_view_print(EMFolderView *emfv, int preview)
 	}
 
 	print = em_format_html_print_new();
-
-	/* FIXME: We need to know when the formatting is completely finished ... damn! */
-
-	em_format_format_clone((EMFormat *)print, msg, (EMFormat *)emfv->preview);
-	res = em_format_html_print_print(print, config, preview);
+	res = em_format_html_print_print(print, msg, (EMFormatHTML *)emfv->preview, config, preview);
 	g_object_unref(print);
+	if (config)
+		g_object_unref(config);
 
 	return res;
 }

@@ -79,6 +79,9 @@ emmb_init(GObject *o)
 
 	emmb->view.preview = (EMFormatHTMLDisplay *)em_format_html_display_new();
 
+	g_slist_free(emmb->view.ui_files);
+	emmb->view.ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-messagedisplay.xml");
+
 	/* currently: just use a scrolledwindow for preview widget */
 	p->preview = gtk_scrolled_window_new(NULL, NULL);
 	gtk_scrolled_window_set_policy((GtkScrolledWindow *)p->preview, GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -144,16 +147,15 @@ GtkWidget *em_message_browser_new(void)
 
 GtkWidget *em_message_browser_window_new(void)
 {
-	BonoboWindow *win;
 	EMMessageBrowser *emmb;
 	BonoboUIContainer *uicont;
 	BonoboUIComponent *uic;
 
-	emmb = em_message_browser_new();
-	gtk_widget_show(emmb);
+	emmb = (EMMessageBrowser *)em_message_browser_new();
+	gtk_widget_show((GtkWidget *)emmb);
 	/* FIXME: title set elsewhere? */
 	emmb->window = g_object_new(bonobo_window_get_type(), "title", "Ximian Evolution", NULL);
-	bonobo_window_set_contents((BonoboWindow *)emmb->window, emmb);
+	bonobo_window_set_contents((BonoboWindow *)emmb->window, (GtkWidget *)emmb);
 
 	uicont = bonobo_window_get_ui_container((BonoboWindow *)emmb->window);
 	uic = bonobo_ui_component_new_default();

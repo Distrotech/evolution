@@ -742,6 +742,7 @@ efh_multipart_signed(EMFormat *emf, CamelStream *stream, CamelMimePart *part, co
 	mps = (CamelMultipartSigned *)camel_medium_get_content_object((CamelMedium *)part);
 	if (!CAMEL_IS_MULTIPART_SIGNED(mps)
 	    || (cpart = camel_multipart_get_part((CamelMultipart *)mps, CAMEL_MULTIPART_SIGNED_CONTENT)) == NULL) {
+		em_format_format_error(emf, stream, _("Could not parse MIME message. Displaying as source."));
 		em_format_format_source(emf, stream, part);
 		return;
 	}
@@ -829,8 +830,11 @@ static void efh_format_do(struct _mail_msg *mm)
 	int cancelled = FALSE;
 	
 	/* <insert top-header stuff here> */
-	
-	em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, m->message);
+
+	if (((EMFormat *)m->format)->mode == EM_FORMAT_SOURCE)
+		em_format_format_source((EMFormat *)m->format, (CamelStream *)m->estream, (CamelMimePart *)m->message);
+	else
+		em_format_format_message((EMFormat *)m->format, (CamelStream *)m->estream, m->message);
 	camel_stream_flush((CamelStream *)m->estream);
 	camel_stream_close((CamelStream *)m->estream);
 	camel_object_unref(m->estream);
@@ -863,6 +867,7 @@ static void efh_format_done(struct _mail_msg *mm)
 	d(printf("formatting finished\n"));
 
 	m->format->priv->format_id = -1;
+	g_signal_emit_by_name(m->format, "complete");
 }
 
 static void efh_format_free(struct _mail_msg *mm)
@@ -1106,7 +1111,7 @@ static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *
 
 	/* dump selected headers */
 	h = (EMFormatHeader *)emf->header_list.head;
-	if (h->next == NULL) {
+	if (h->next == NULL || emf->mode == EM_FORMAT_ALLHEADERS) {
 		struct _header_raw *header;
 		
 		header = ((CamelMimePart *)part)->headers;
@@ -1139,7 +1144,6 @@ static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *
 
 static void efh_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
 {
-	camel_stream_printf(stream, "<em><font color=\"red\">%s</font></em>", _("Could not parse MIME message. Displaying as source."));
 	efh_text_plain((EMFormatHTML *)emf, stream, part, NULL);
 }
 

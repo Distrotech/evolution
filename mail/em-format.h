@@ -44,6 +44,12 @@ typedef struct _EMFormatHeader EMFormatHeader;
 
 typedef void (*EMFormatFunc) (EMFormat *md, struct _CamelStream *stream, struct _CamelMimePart *part, const EMFormatHandler *info);
 
+typedef enum _em_format_mode_t {
+	EM_FORMAT_NORMAL,
+	EM_FORMAT_ALLHEADERS,
+	EM_FORMAT_SOURCE,
+} em_format_mode_t;
+
 /* can be subclassed/extended ... */
 struct _EMFormatHandler {
 	char *mime_type;
@@ -106,6 +112,8 @@ struct _EMFormat {
 	struct _EMFormatPURITree *pending_uri_tree;
 	/* current level to search from */
 	struct _EMFormatPURITree *pending_uri_level;
+
+	em_format_mode_t mode;
 };
 
 struct _EMFormatClass {
@@ -124,10 +132,15 @@ struct _EMFormatClass {
 	void (*format_message)(EMFormat *, struct _CamelStream *, struct _CamelMedium *);
 	/* use for unparsable content */
 	void (*format_source)(EMFormat *, struct _CamelStream *, struct _CamelMimePart *);
+
+	/* signals */
+	void (*complete)(EMFormat *);
 };
 
 /* helper entry point */
 void em_format_set_session(EMFormat *emf, struct _CamelSession *s);
+
+void em_format_set_mode(EMFormat *emf, em_format_mode_t type);
 
 void em_format_clear_headers(EMFormat *emf); /* also indicates to show all headers */
 void em_format_default_headers(EMFormat *emf);

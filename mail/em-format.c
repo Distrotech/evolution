@@ -53,6 +53,12 @@ static const char *emf_snoop_part(CamelMimePart *part);
 
 static void emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource);
 
+enum {
+	EMF_COMPLETE,
+	EMF_LAST_SIGNAL,
+};
+
+static guint emf_signals[EMF_LAST_SIGNAL];
 static GObjectClass *emf_parent;
 
 static void
@@ -91,6 +97,15 @@ emf_class_init(GObjectClass *klass)
 
 	klass->finalize = emf_finalise;
 	((EMFormatClass *)klass)->format_clone = emf_format_clone;
+
+	emf_signals[EMF_COMPLETE] =
+		g_signal_new("complete",
+			     G_OBJECT_CLASS_TYPE (klass),
+			     G_SIGNAL_RUN_LAST,
+			     G_STRUCT_OFFSET (EMFormatClass, complete),
+			     NULL, NULL,
+			     g_cclosure_marshal_VOID__VOID,
+			     G_TYPE_NONE, 0);
 }
 
 GType
@@ -474,8 +489,10 @@ emf_format_clone(EMFormat *emf, CamelMedium *msg, EMFormat *emfsource)
 	if (emf != emfsource) {
 		g_hash_table_destroy(emf->inline_table);
 		emf->inline_table = g_hash_table_new(NULL, NULL);
-		if (emfsource)
+		if (emfsource) {
 			g_hash_table_foreach(emfsource->inline_table, emf_clone_inlines, emf);
+			emf->mode = emfsource->mode;
+		}
 	}
 
 	if (msg != emf->message) {
@@ -520,6 +537,19 @@ em_format_set_session(EMFormat *emf, struct _CamelSession *s)
 	if (emf->session)
 		camel_object_unref(emf->session);
 	emf->session = s;
+}
+
+void
+em_format_set_mode(EMFormat *emf, em_format_mode_t type)
+{
+	if (emf->mode == type)
+		return;
+
+	emf->mode = type;
+
+	/* force redraw if type changed afterwards */
+	if (emf->message)
+		em_format_format_clone(emf, emf->message, emf);
 }
 
 /**

@@ -36,6 +36,8 @@ efhp_finalise(GObject *o)
 	EMFormatHTMLPrint *efhp = (EMFormatHTMLPrint *)o;
 
 	gtk_widget_destroy(efhp->window);
+	if (efhp->config)
+		g_object_unref(efhp->config);
 
 	((GObjectClass *)efhp_parent)->finalize(o);
 }
@@ -110,8 +112,8 @@ efhp_footer_cb(GtkHTML *html, GnomePrintContext *print_context, double x, double
 
 /* perform preview, or print */
 /* returns GNOME_PRINT_OK on success */
-int
-em_format_html_print_print(EMFormatHTMLPrint *efhp, GnomePrintConfig *print_config, int preview)
+static void
+emfhp_complete(EMFormatHTMLPrint *efhp, void *data)
 {
 	GnomePrintContext *print_context;
 	GnomePrintJob *print_job;
@@ -119,7 +121,9 @@ em_format_html_print_print(EMFormatHTMLPrint *efhp, GnomePrintConfig *print_conf
 	struct footer_info info;
 	int res = GNOME_PRINT_OK;
 
-	print_job = gnome_print_job_new(print_config);
+	printf("formatting complete, running print ...\n");
+
+	print_job = gnome_print_job_new(efhp->config);
 	print_context = gnome_print_job_get_context(print_job);
 
 	gtk_html_print_set_master(efhp->formathtml.html, print_job);
@@ -137,14 +141,31 @@ em_format_html_print_print(EMFormatHTMLPrint *efhp, GnomePrintConfig *print_conf
 
 	gnome_print_job_close(print_job);
 
-	if (preview)
+	if (efhp->preview)
 		gtk_widget_show(gnome_print_job_preview_new(print_job, _("Print Preview")));
 	else
 		res = gnome_print_job_print(print_job);
 
 	g_object_unref(print_job);
+	g_object_unref(efhp);
+}
 
-	return res;
+int em_format_html_print_print(EMFormatHTMLPrint *efhp, struct _CamelMedium *msg, EMFormatHTML *source, struct _GnomePrintConfig *print_config, int preview)
+{
+	efhp->config = print_config;
+	g_object_ref(print_config);
+	efhp->preview = preview;
+
+	((EMFormatHTML *)efhp)->load_http = source->load_http_now;
+
+	g_signal_connect(efhp, "complete", G_CALLBACK(emfhp_complete), efhp);
+
+	printf("running html print clone\n");
+
+	g_object_ref(efhp);
+	em_format_format_clone((EMFormat *)efhp, msg, (EMFormat *)source);
+
+	return 0;		/* damn async ... */
 }
 
 /* ********************************************************************** */

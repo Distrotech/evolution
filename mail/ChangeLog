@@ -1,3 +1,17 @@
+2003-08-20  Not Zed  <NotZed@Ximian.com>
+
+	* em-subscribe-editor.[ch]: new widget, a dialog for editing
+	subscriptions.
+
+	* em-format-html.c (efh_format_done): emit a complete when done.
+
+	* em-format.c (emf_class_init): Added a 'complete' signal, so that
+	printing knows when to print.
+
+	* em-format-html-print.c (em_format_html_print_print): Changed to
+	take the message and source formatter too.  Runs an async render
+	then prints.
+
 2003-08-19  Not Zed  <NotZed@Ximian.com>
 
 	* em-*.c: stacks more changes, added some bonobo menu setup, and

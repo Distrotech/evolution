@@ -89,6 +89,8 @@ libevolution_mail_la_SOURCES =		\
 	em-marshal.h			\
 	em-message-browser.c		\
 	em-message-browser.h		\
+	em-subscribe-editor.c		\
+	em-subscribe-editor.h		\
 	folder-browser.c		\
 	folder-browser.h		\
 	folder-browser-factory.c	\
