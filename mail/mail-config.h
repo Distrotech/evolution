@@ -44,8 +44,11 @@ typedef struct {
 	char *name;
 	char *address;
 	char *organization;
+
 	MailConfigSignature *text_signature;
+	gboolean text_random;
 	MailConfigSignature *html_signature;
+	gboolean html_random;
 } MailConfigIdentity;
 
 typedef struct {
@@ -251,11 +254,27 @@ gboolean mail_config_check_service (const char *url, CamelProviderType type, GLi
 gboolean evolution_mail_config_factory_init (void);
 
 GList * mail_config_get_signature_list (void);
+gint    mail_config_get_signatures_random (void);
 MailConfigSignature *mail_config_signature_add (void);
 void mail_config_signature_delete (MailConfigSignature *sig);
 void mail_config_signature_write (MailConfigSignature *sig);
 void mail_config_signature_set_filename (MailConfigSignature *sig, const gchar *filename);
 void mail_config_signature_set_random (MailConfigSignature *sig, gboolean random);
+
+typedef enum {
+	MAIL_CONFIG_SIG_EVENT_CHANGED,
+	MAIL_CONFIG_SIG_EVENT_ADDED,
+	MAIL_CONFIG_SIG_EVENT_DELETED
+} MailConfigSigEvent;
+
+typedef void (*MailConfigSignatureClient)(MailConfigSigEvent, MailConfigSignature *sig, gpointer data);
+
+void mail_config_signature_register_client (MailConfigSignatureClient client, gpointer data);
+void mail_config_signature_unregister_client (MailConfigSignatureClient client, gpointer data);
+void mail_config_signature_emit_event (MailConfigSigEvent event, MailConfigSignature *sig);
+
+void mail_config_write_account_sig (MailConfigAccount *account, gint i);
+
 
 #ifdef __cplusplus
 }

@@ -36,6 +36,7 @@
 #include "mail-account-gui.h"
 #include "mail-session.h"
 #include "mail-send-recv.h"
+#include "mail-signature-editor.h"
 
 #define d(x)
 
@@ -935,29 +936,164 @@ provider_compare (const CamelProvider *p1, const CamelProvider *p2)
 }
 
 static void
-edit_signature (GtkWidget *w, MailAccountGui *gui)
+clear_menu (GtkWidget *menu)
 {
-	/* FIXME rodo launch_signature_editor (gui, gtk_entry_get_text (GTK_ENTRY (gnome_file_entry_gtk_entry (gui->signature))), FALSE); */
+	while (GTK_MENU_SHELL (menu)->children)
+		gtk_container_remove (GTK_CONTAINER (menu), GTK_MENU_SHELL (menu)->children->data);
 }
 
 static void
-edit_html_signature (GtkWidget *w, MailAccountGui *gui)
+sig_fill_options (MailAccountGui *gui)
 {
-	/* FIXME rodo launch_signature_editor (gui, gtk_entry_get_text (GTK_ENTRY (gnome_file_entry_gtk_entry (gui->html_signature))), TRUE); */
+	GtkWidget *menu_text, *menu_html;
+	GtkWidget *mi;
+	GList *l;
+	MailConfigSignature *sig;
+
+	menu_text = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text));
+	menu_html = gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html));
+
+	clear_menu (menu_text);
+	clear_menu (menu_html);
+
+	gtk_menu_append (GTK_MENU (menu_text), gtk_menu_item_new_with_label (_("None")));
+	gtk_menu_append (GTK_MENU (menu_html), gtk_menu_item_new_with_label (_("None")));
+
+	if (mail_config_get_signatures_random ()) {
+		gtk_menu_append (GTK_MENU (menu_text), gtk_menu_item_new_with_label (_("Random")));
+		gtk_menu_append (GTK_MENU (menu_html), gtk_menu_item_new_with_label (_("Random")));
+	}
+
+	for (l = mail_config_get_signature_list (); l; l = l->next) {
+		sig = l->data;
+		mi = gtk_menu_item_new_with_label (sig->name);
+		gtk_object_set_data (GTK_OBJECT (mi), "sig", sig);
+		gtk_menu_append (GTK_MENU (menu_text), mi);
+
+		mi = gtk_menu_item_new_with_label (sig->name);
+		gtk_object_set_data (GTK_OBJECT (mi), "sig", sig);
+		gtk_menu_append (GTK_MENU (menu_html), mi);
+	}
 }
 
 static void
-signature_changed (GtkWidget *entry, MailAccountGui *gui)
+sig_select_text_sig (MailAccountGui *gui)
 {
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->edit_signature),
-				  *gtk_entry_get_text (GTK_ENTRY (gnome_file_entry_gtk_entry (gui->signature))) != 0);
+	if (gui->text_random)
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), 1);
+	else if (!gui->text_signature)
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text), 0);
+	else
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_text),
+					     gui->text_signature->id + (mail_config_get_signatures_random () ? 2 : 1));
 }
 
 static void
-html_signature_changed (GtkWidget *entry, MailAccountGui *gui)
+sig_select_html_sig (MailAccountGui *gui)
 {
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->edit_html_signature),
-				  *gtk_entry_get_text (GTK_ENTRY (gnome_file_entry_gtk_entry (gui->html_signature))) != 0);
+	if (gui->html_random)
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), 1);
+	else if (!gui->html_signature)
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html), 0);
+	else
+		gtk_option_menu_set_history (GTK_OPTION_MENU (gui->sig_option_html),
+					     gui->html_signature->id + (mail_config_get_signatures_random () ? 2 : 1));
+}
+
+static void
+sig_changed_text (GtkWidget *w, MailAccountGui *gui)
+{
+	GtkWidget *active;
+	gint index;
+
+	active = gtk_menu_get_active (GTK_MENU (w));
+	index = g_list_index (GTK_MENU_SHELL (w)->children, active);
+
+	gui->text_signature = (MailConfigSignature *) gtk_object_get_data (GTK_OBJECT (active), "sig");
+	gui->text_random = index == 1;
+
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), !gui->text_random);
+}
+
+static void
+sig_changed_html (GtkWidget *w, MailAccountGui *gui)
+{
+	GtkWidget *active;
+	gint index;
+
+	active = gtk_menu_get_active (GTK_MENU (w));
+	index = g_list_index (GTK_MENU_SHELL (w)->children, active);
+
+	gui->html_signature = (MailConfigSignature *) gtk_object_get_data (GTK_OBJECT (active), "sig");
+	gui->html_random = index == 1;
+
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), !gui->html_random);
+}
+
+static void
+sig_edit_text (GtkWidget *w, MailAccountGui *gui)
+{
+	MailConfigSignature *sig = gui->text_signature;
+
+	if (!sig)
+		return;
+
+	if (sig->filename && *sig->filename)
+		mail_signature_editor (sig->filename, sig->html);
+	else
+		e_notice (NULL, GNOME_MESSAGE_BOX_ERROR,
+			  _("Please specify signature filename\nin Andvanced section of signature settings."));
+}
+
+static void
+sig_edit_html (GtkWidget *w, MailAccountGui *gui)
+{
+	MailConfigSignature *sig = gui->html_signature;
+
+	if (!sig)
+		return;
+
+	if (sig->filename && *sig->filename)
+		mail_signature_editor (sig->filename, sig->html);
+	else
+		e_notice (NULL, GNOME_MESSAGE_BOX_ERROR,
+			  _("Please specify signature filename\nin Andvanced section of signature settings."));
+}
+
+static void
+setup_signatures (MailAccountGui *gui)
+{
+	gui->text_signature = gui->account->id->text_signature;
+	gui->text_random = gui->account->id->text_random;
+	gui->html_signature = gui->account->id->html_signature;
+	gui->html_random = gui->account->id->html_random;
+
+	sig_select_text_sig (gui);
+	sig_select_html_sig (gui);
+
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_text), !gui->text_random);
+	gtk_widget_set_sensitive (GTK_WIDGET (gui->sig_edit_html), !gui->html_random);		
+}
+
+static void
+prepare_signatures (MailAccountGui *gui)
+{
+	gui->sig_option_text = glade_xml_get_widget (gui->xml, "option-sig-text");
+	gui->sig_option_html = glade_xml_get_widget (gui->xml, "option-sig-html");
+
+	sig_fill_options (gui);
+
+	gtk_signal_connect (GTK_OBJECT (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_text))),
+			    "selection-done", sig_changed_text, gui);
+	gtk_signal_connect (GTK_OBJECT (gtk_option_menu_get_menu (GTK_OPTION_MENU (gui->sig_option_html))),
+			    "selection-done", sig_changed_html, gui);
+
+	gui->sig_new_text = glade_xml_get_widget (gui->xml, "button-sig-new-text");
+	gui->sig_new_html = glade_xml_get_widget (gui->xml, "button-sig-new-html");
+	gui->sig_edit_text = glade_xml_get_widget (gui->xml, "button-sig-edit-text");
+	gtk_signal_connect (GTK_OBJECT (gui->sig_edit_text), "clicked", GTK_SIGNAL_FUNC (sig_edit_text), gui);
+	gui->sig_edit_html = glade_xml_get_widget (gui->xml, "button-sig-edit-html");
+	gtk_signal_connect (GTK_OBJECT (gui->sig_edit_html), "clicked", GTK_SIGNAL_FUNC (sig_edit_html), gui);
 }
 
 MailAccountGui *
@@ -982,21 +1118,8 @@ mail_account_gui_new (MailConfigAccount *account)
 	gui->full_name = GTK_ENTRY (glade_xml_get_widget (gui->xml, "identity_full_name"));
 	gui->email_address = GTK_ENTRY (glade_xml_get_widget (gui->xml, "identity_address"));
 	gui->organization = GTK_ENTRY (glade_xml_get_widget (gui->xml, "identity_organization"));
-	gui->signature = GNOME_FILE_ENTRY (glade_xml_get_widget (gui->xml, "fileentry_signature"));
-	gui->html_signature = GNOME_FILE_ENTRY (glade_xml_get_widget (gui->xml, "fileentry_html_signature"));
-	gui->has_html_signature = GTK_TOGGLE_BUTTON (glade_xml_get_widget (gui->xml, "check_html_signature"));
-	gnome_file_entry_set_default_path (gui->signature, g_get_home_dir ());
-	gnome_file_entry_set_default_path (gui->html_signature, g_get_home_dir ());
-	gui->edit_signature = GTK_BUTTON (glade_xml_get_widget (gui->xml, "button_edit_signature"));
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->edit_signature), FALSE);
-	gui->edit_html_signature = GTK_BUTTON (glade_xml_get_widget (gui->xml, "button_edit_html_signature"));
-	gtk_widget_set_sensitive (GTK_WIDGET (gui->edit_html_signature), FALSE);
-	
-	gtk_signal_connect (GTK_OBJECT (gnome_file_entry_gtk_entry (gui->signature)), "changed", signature_changed, gui);
-	gtk_signal_connect (GTK_OBJECT (gnome_file_entry_gtk_entry (gui->html_signature)), "changed",
-			    html_signature_changed, gui);
-	gtk_signal_connect (GTK_OBJECT (gui->edit_signature), "clicked", edit_signature, gui);
-	gtk_signal_connect (GTK_OBJECT (gui->edit_html_signature), "clicked", edit_html_signature, gui);
+
+	prepare_signatures (gui);
 	
 	if (account->id) {
 		if (account->id->name)
@@ -1005,17 +1128,8 @@ mail_account_gui_new (MailConfigAccount *account)
 			gtk_entry_set_text (gui->email_address, account->id->address);
 		if (account->id->organization)
 			e_utf8_gtk_entry_set_text (gui->organization, account->id->organization);
-		/* FIXME if (account->id->signature) {
-			gnome_file_entry_set_default_path (gui->signature, account->id->signature);
-			gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (gui->signature)),
-					    account->id->signature);
-		}
-		if (account->id->html_signature) {
-			gnome_file_entry_set_default_path (gui->html_signature, account->id->html_signature);
-			gtk_entry_set_text (GTK_ENTRY (gnome_file_entry_gtk_entry (gui->html_signature)),
-					    account->id->html_signature);
-		}
-		gtk_toggle_button_set_active (gui->has_html_signature, account->id->has_html_signature); */
+
+		setup_signatures (gui);
 	}
 	
 	/* Source */
@@ -1306,6 +1420,8 @@ mail_account_gui_setup (MailAccountGui *gui, GtkWidget *top)
 		gui->transport.provider_type = CAMEL_PROVIDER_TRANSPORT;
 		g_free (transport_proto);
 	}
+
+	setup_signatures (gui);
 }
 
 static void
@@ -1417,10 +1533,14 @@ mail_account_gui_save (MailAccountGui *gui)
 	account->id->name = e_utf8_gtk_entry_get_text (gui->full_name);
 	account->id->address = e_utf8_gtk_entry_get_text (gui->email_address);
 	account->id->organization = e_utf8_gtk_entry_get_text (gui->organization);
-	/* FIXME account->id->signature = gnome_file_entry_get_full_path (gui->signature, TRUE);
-	account->id->html_signature = gnome_file_entry_get_full_path (gui->html_signature, TRUE);
-	account->id->has_html_signature = gtk_toggle_button_get_active (gui->has_html_signature); */
-	
+
+	account->id->text_signature = gui->text_signature;
+	account->id->text_random = gui->text_random;
+	account->id->html_signature = gui->html_signature;
+	account->id->html_random = gui->html_random;
+
+	mail_config_write_account_sig (gui->account, -1);
+
 	old_enabled = account->source && account->source->enabled;
 	service_destroy (account->source);
 	account->source = g_new0 (MailConfigService, 1);

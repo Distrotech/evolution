@@ -168,9 +168,11 @@ identity_copy (const MailConfigIdentity *id)
 	new->name = g_strdup (id->name);
 	new->address = g_strdup (id->address);
 	new->organization = g_strdup (id->organization);
-	new->text_signature = signature_copy (id->text_signature);
-	new->html_signature = signature_copy (id->html_signature);
-	
+	new->text_signature = id->text_signature;
+	new->text_random = id->text_random;
+	new->html_signature = id->html_signature;
+	new->html_random = id->html_random;
+
 	return new;
 }
 
@@ -183,8 +185,6 @@ identity_destroy (MailConfigIdentity *id)
 	g_free (id->name);
 	g_free (id->address);
 	g_free (id->organization);
-	signature_destroy (id->text_signature);
-	signature_destroy (id->html_signature);
 	
 	g_free (id);
 }
@@ -463,6 +463,24 @@ config_write_signatures ()
 	config_write_signatures_num ();
 }
 
+static MailConfigSignature *
+lookup_signature (gint i)
+{
+	MailConfigSignature *sig;
+	GList *l;
+
+	if (i == -1)
+		return NULL;
+
+	for (l = config->signature_list; l; l = l->next) {
+		sig = (MailConfigSignature *) l->data;
+		if (sig->id == i)
+			return sig;
+	}
+
+	return NULL;
+}
+
 static void
 config_read (void)
 {
@@ -604,17 +622,23 @@ config_read (void)
 		id->organization = bonobo_config_get_string (config->db, path, NULL);
 		g_free (path);
 		
-		/* FIXME path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
-		id->signature = bonobo_config_get_string (config->db, path, NULL);
+		/* id signatures */
+		path = g_strdup_printf ("/Mail/Accounts/identity_signature_text_%d", i);
+		id->text_signature = lookup_signature (bonobo_config_get_long_with_default (config->db, path, -1, NULL));
 		g_free (path);
-		path = g_strdup_printf ("/Mail/Accounts/identity_html_signature_%d", i);
-		id->html_signature = bonobo_config_get_string (config->db, path, NULL);
+
+		path = g_strdup_printf ("/Mail/Accounts/identity_signature_html_%d", i);
+		id->html_signature = lookup_signature (bonobo_config_get_long_with_default (config->db, path, -1, NULL));
 		g_free (path);
-		path = g_strdup_printf ("/Mail/Accounts/identity_has_html_signature_%d", i);
-		id->has_html_signature = bonobo_config_get_boolean_with_default (
-			config->db, path, FALSE, NULL);
-			g_free (path); */
-		
+
+		path = g_strdup_printf ("/Mail/Accounts/identity_signature_text_random_%d", i);
+		id->text_random = bonobo_config_get_boolean_with_default (config->db, path, FALSE, NULL);
+		g_free (path);
+
+		path = g_strdup_printf ("/Mail/Accounts/identity_signature_html_random_%d", i);
+		id->html_random = bonobo_config_get_boolean_with_default (config->db, path, FALSE, NULL);
+		g_free (path);
+
 		/* get the source */
 		source = g_new0 (MailConfigService, 1);
 		
@@ -825,6 +849,42 @@ config_read (void)
 #define bonobo_config_set_string_wrapper(db, path, val, ev) bonobo_config_set_string (db, path, val ? val : "", ev)
 
 void
+mail_config_write_account_sig (MailConfigAccount *account, gint i)
+{
+	char *path;
+
+	if (i == -1) {
+		GSList *link;
+
+		link = g_slist_find (config->accounts, account);
+		if (!link) {
+			g_warning ("Can't find account in accounts list");
+			return;
+		}
+		i = g_slist_position (config->accounts, link);
+	}
+
+	/* id signatures */
+	path = g_strdup_printf ("/Mail/Accounts/identity_signature_text_%d", i);
+	bonobo_config_set_long (config->db, path, account->id->text_signature
+				? account->id->text_signature->id : -1, NULL);
+	g_free (path);
+
+	path = g_strdup_printf ("/Mail/Accounts/identity_signature_html_%d", i);
+	bonobo_config_set_long (config->db, path, account->id->html_signature
+				? account->id->html_signature->id : -1, NULL);
+	g_free (path);
+
+	path = g_strdup_printf ("/Mail/Accounts/identity_signature_text_random_%d", i);
+	bonobo_config_set_boolean (config->db, path, account->id->text_random, NULL);
+	g_free (path);
+
+	path = g_strdup_printf ("/Mail/Accounts/identity_signature_html_random_%d", i);
+	bonobo_config_set_boolean (config->db, path, account->id->html_random, NULL);
+	g_free (path);
+}
+
+void
 mail_config_write (void)
 {
 	CORBA_Environment ev;
@@ -941,18 +1001,8 @@ mail_config_write (void)
 		bonobo_config_set_string_wrapper (config->db, path, account->id->organization, NULL);
 		g_free (path);
 		
-		/* FIXME path = g_strdup_printf ("/Mail/Accounts/identity_signature_%d", i);
-		bonobo_config_set_string_wrapper (config->db, path, account->id->signature, NULL);
-		g_free (path);
-		
-		path = g_strdup_printf ("/Mail/Accounts/identity_html_signature_%d", i);
-		bonobo_config_set_string_wrapper (config->db, path, account->id->html_signature, NULL);
-		g_free (path);
-		
-		path = g_strdup_printf ("/Mail/Accounts/identity_has_html_signature_%d", i);
-		bonobo_config_set_boolean (config->db, path, account->id->has_html_signature, NULL);
-		g_free (path); */
-		
+		mail_config_write_account_sig (account, i);
+
 		/* source info */
 		path = g_strdup_printf ("/Mail/Accounts/source_url_%d", i);
 		bonobo_config_set_string_wrapper (config->db, path, account->source->url, NULL);
@@ -2752,6 +2802,7 @@ mail_config_signature_delete (MailConfigSignature *sig)
 	gboolean after = FALSE;
 
 	/* FIXME remove it from all accounts */
+	/* FIXME update identity dialog combos */
 
 	for (l = config->signature_list; l; l = next) {
 		next = l->next;
@@ -2799,5 +2850,41 @@ mail_config_signature_set_random (MailConfigSignature *sig, gboolean random)
 			config->signatures_random --;
 
 		sig->random = random;
+	}
+}
+
+gint
+mail_config_get_signatures_random (void)
+{
+	return config->signatures_random;
+}
+
+static GList *clients = NULL;
+
+void
+mail_config_signature_register_client (MailConfigSignatureClient client, gpointer data)
+{
+	clients = g_list_append (clients, client);
+	clients = g_list_append (clients, data);
+}
+
+void
+mail_config_signature_unregister_client (MailConfigSignatureClient client, gpointer data)
+{
+	GList *link;
+
+	link = g_list_find (clients, data);
+	clients = g_list_remove_link (clients, link->prev);
+	clients = g_list_remove_link (clients, link);
+}
+
+void
+mail_config_signature_emit_event (MailConfigSigEvent event, MailConfigSignature *sig)
+{
+	GList *l, *next;
+
+	for (l = clients; l; l = next) {
+		next = l->next->next;
+		(*((MailConfigSignatureClient) l->data)) (event, sig, l->next->data);
 	}
 }

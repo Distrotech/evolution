@@ -67,12 +67,19 @@ typedef struct {
 	GtkEntry *full_name;
 	GtkEntry *email_address;
 	GtkEntry *organization;
-	GnomeFileEntry *signature;
-	GnomeFileEntry *html_signature;
-	GtkToggleButton *has_html_signature;
-	GtkButton *edit_signature;
-	GtkButton *edit_html_signature;
-	
+
+	/* signatures */
+	GtkWidget *sig_option_text;
+	GtkWidget *sig_option_html;
+	GtkWidget *sig_new_text;
+	GtkWidget *sig_new_html;
+	GtkWidget *sig_edit_text;
+	GtkWidget *sig_edit_html;
+	MailConfigSignature *text_signature;
+	gboolean text_random;
+	MailConfigSignature *html_signature;
+	gboolean html_random;
+
 	/* incoming mail */
 	MailAccountGuiService source;
 	GtkToggleButton *source_auto_check;

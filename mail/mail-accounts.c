@@ -789,6 +789,8 @@ charset_menu_deactivate (GtkWidget *menu, gpointer data)
 	}
 }
 
+static void sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, MailAccountsDialog *dialog);
+
 static void
 dialog_destroy (GtkWidget *dialog, gpointer user_data)
 {
@@ -802,6 +804,7 @@ dialog_destroy (GtkWidget *dialog, gpointer user_data)
 	if (news_editor)
 		gtk_widget_destroy (GTK_WIDGET (news_editor));
 #endif
+	mail_config_signature_unregister_client ((MailConfigSignatureClient) sig_event_client, dialog);
 }
 
 /* Signatures */
@@ -1074,6 +1077,20 @@ url_requested (GtkHTML *html, const gchar *url, GtkHTMLStream *handle)
 }
 
 static void
+sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, MailAccountsDialog *dialog)
+{
+	switch (event) {
+	case MAIL_CONFIG_SIG_EVENT_CHANGED:
+		gtk_clist_set_text (GTK_CLIST (dialog->sig_clist), sig->id, 0, sig->name);
+		if (sig->id == dialog->sig_row) {
+			gtk_entry_set_text (GTK_ENTRY (dialog->sig_name), sig->name);
+		}
+	default:
+		;
+	}
+}
+
+static void
 signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 {
 	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-add");
@@ -1122,6 +1139,8 @@ signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 
 	if (GTK_CLIST (dialog->sig_clist)->rows)
 		gtk_clist_select_row (GTK_CLIST (dialog->sig_clist), 0, 0);
+
+	mail_config_signature_register_client ((MailConfigSignatureClient) sig_event_client, dialog);
 }
 
 static void
