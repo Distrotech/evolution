@@ -1,5 +1,19 @@
 2000-08-03  Peter Williams  <peterw@helixcode.com>
 
+	* mail-ops.c (op_forward_messages): Use the new dynamic
+	operation naming.
+
+	* message-thread.c (describe_thread_messages): Ditto.
+
+	* message-list.c (describe_regenerate_messagelist): Ditto.
+
+	* mail-threads.c (get_password_clicked): Dynamic generation
+	of descriptive text for mail operations. "Opening a folder" ->
+	"Opening INBOX". Supported only so far, will be implemented
+	quickly.
+	g_strdup() the old_message when changing the queue_window_label's
+	text.
+
 	* main.c (main): One more gconf reference to take out...
 
 	* mail-ops.c (composer_send_cb): Check for an identity before

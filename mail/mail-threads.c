@@ -49,6 +49,8 @@ typedef struct closure_s
 	gpointer op_data;
 	const mail_operation_spec *spec;
 	CamelException *ex;
+	gchar *infinitive;
+	gchar *gerund;
 }
 closure_t;
 
@@ -58,10 +60,16 @@ closure_t;
 
 typedef struct com_msg_s
 {
-	enum com_msg_type_e
-	{ STARTING, PERCENTAGE, HIDE_PBAR, SHOW_PBAR, MESSAGE, PASSWORD,
-			ERROR, FINISHED }
-	type;
+	enum com_msg_type_e { 
+		STARTING, 
+		PERCENTAGE, 
+		HIDE_PBAR, 
+		SHOW_PBAR, 
+		MESSAGE, 
+		PASSWORD,
+		ERROR, 
+		FINISHED 
+	} type;
 	gfloat percentage;
 	gchar *message;
 
@@ -245,6 +253,8 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 	clur->op_data = g_malloc (spec->datasize);
 	clur->ex = camel_exception_new ();
 	camel_exception_init (clur->ex);
+	clur->infinitive = (spec->describe) (input, FALSE);
+	clur->gerund = (spec->describe) (input, TRUE);
 
 	if (spec->setup)
 		(spec->setup) (clur->in_data, clur->op_data, clur->ex);
@@ -257,7 +267,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 			msg =
 				g_strdup_printf
 				("Error while preparing to %s:\n" "%s",
-				 spec->infinitive,
+				 clur->infinitive,
 				 camel_exception_get_description (clur->ex));
 			err_dialog = gnome_error_dialog (msg);
 			g_free (msg);
@@ -268,7 +278,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 			gtk_widget_show_all (GTK_WIDGET (err_dialog));
 
 			g_warning ("Setup failed for `%s': %s",
-				   spec->infinitive,
+				   clur->infinitive,
 				   camel_exception_get_description (clur->
 								    ex));
 		}
@@ -276,6 +286,8 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 		camel_exception_free (clur->ex);
 		if (free_in_data)
 			g_free (input);
+		g_free (clur->infinitive);
+		g_free (clur->gerund);
 		g_free (clur);
 		return FALSE;
 	}
@@ -309,7 +321,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 		op_queue = g_slist_append (op_queue, clur);
 
 		/* Show us in the pending window. */
-		label = gtk_label_new (spec->infinitive);
+		label = gtk_label_new (clur->infinitive);
 		gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
 		gtk_box_pack_start (GTK_BOX (queue_window_pending), label,
 				    FALSE, TRUE, 2);
@@ -674,7 +686,7 @@ dispatch_func (void *data)
 	closure_t *clur = (closure_t *) data;
 
 	msg.type = STARTING;
-	msg.message = g_strdup (clur->spec->gerund);
+	msg.message = g_strdup (clur->gerund);
 	write (WRITER, &msg, sizeof (msg));
 
 	mail_op_hide_progressbar ();
@@ -684,11 +696,11 @@ dispatch_func (void *data)
 	if (camel_exception_is_set (clur->ex)) {
 		if (clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
 			g_warning ("Callback failed for `%s': %s",
-				   clur->spec->infinitive,
+				   clur->infinitive,
 				   camel_exception_get_description (clur->
 								    ex));
 			mail_op_error ("Error while `%s':\n" "%s",
-				       clur->spec->gerund,
+				       clur->gerund,
 				       camel_exception_get_description (clur->
 									ex));
 		}
@@ -805,7 +817,7 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 	case FINISHED:
 		DEBUG (
 		       ("*** Message -- FINISH %s\n",
-			msg->clur->spec->gerund));
+			msg->clur->gerund));
 
 #ifdef G_THREADS_IMPL_POSIX
 		pthread_join (dispatch_thread, NULL);
@@ -823,7 +835,7 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 		if (camel_exception_is_set (msg->clur->ex) &&
 		    msg->clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
 			g_warning ("Error on cleanup of `%s': %s",
-				   msg->clur->spec->infinitive,
+				   msg->clur->infinitive,
 				   camel_exception_get_description (msg->
 								    clur->
 								    ex));
@@ -833,6 +845,8 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 		if (msg->clur->free_in_data)
 			g_free (msg->clur->in_data);
 		camel_exception_free (msg->clur->ex);
+		g_free (msg->clur->infinitive);
+		g_free (msg->clur->gerund);
 		g_free (msg->clur);
 
 		if (op_queue == NULL) {
@@ -923,7 +937,7 @@ show_error (com_msg_t * msg)
 	/* Save the old message, but display a new one right now */
 	gtk_label_get (GTK_LABEL (queue_window_message), &old_message);
 	gtk_object_set_data (GTK_OBJECT (err_dialog), "old_message",
-			     old_message);
+			     g_strdup (old_message));
 	gtk_label_set_text (GTK_LABEL (queue_window_message),
 			    _("Waiting for user to close error dialog"));
 
@@ -950,9 +964,13 @@ show_error (com_msg_t * msg)
 static void
 show_error_clicked (GtkObject * obj)
 {
+	gchar *old_message;
+
 	/* Restore the old message */
+	old_message = gtk_object_get_data (obj, "old_message");
 	gtk_label_set_text (GTK_LABEL (queue_window_message),
-			    gtk_object_get_data (obj, "old_message"));
+			    old_message);
+	g_free (old_message);
 
 	modal_may_proceed = TRUE;
 	timeout_toggle (TRUE);
@@ -980,7 +998,7 @@ get_password (com_msg_t * msg)
 
 	/* Save the old message, but display a new one right now */
 	gtk_label_get (GTK_LABEL (queue_window_message), &old_message);
-	gtk_object_set_data (GTK_OBJECT (dialog), "old_message", old_message);
+	gtk_object_set_data (GTK_OBJECT (dialog), "old_message", g_strdup(old_message));
 	gtk_label_set_text (GTK_LABEL (queue_window_message),
 			    _("Waiting for user to enter data"));
 
@@ -1022,11 +1040,13 @@ static void
 get_password_clicked (GnomeDialog * dialog, gint button, gpointer user_data)
 {
 	com_msg_t *msg = (com_msg_t *) user_data;
+	gchar *old_message;
 
 	/* Restore the old message */
+	old_message = gtk_object_get_data (GTK_OBJECT (dialog), "old_message");
 	gtk_label_set_text (GTK_LABEL (queue_window_message),
-			    gtk_object_get_data (GTK_OBJECT (dialog),
-						 "old_message"));
+			    old_message);
+	g_free (old_message);
 
 	if (button == 1 || *(msg->reply) == NULL) {
 		*(msg->success) = FALSE;

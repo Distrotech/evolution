@@ -48,6 +48,7 @@ typedef struct {
 } filter_mail_input_t;
 
 /* mail-thread filter functions */
+static gchar *describe_filter_mail (gpointer in_data, gboolean gerund);
 static void setup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex);
 static void do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex);
 static void cleanup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex);
@@ -404,8 +405,7 @@ free_key (gpointer key, gpointer value, gpointer user_data)
 
 static const mail_operation_spec op_filter_mail =
 {
-	"Filter email",
-	"Filtering email",
+	describe_filter_mail,
 	0,
 	setup_filter_mail,
 	do_filter_mail,
@@ -427,6 +427,18 @@ filter_driver_run (FilterDriver *d, CamelFolder *source, CamelFolder *inbox,
 	input->unhook_data = unhook_data;
 
 	mail_operation_queue (&op_filter_mail, input, TRUE);
+}
+
+static gchar *describe_filter_mail (gpointer in_data, gboolean gerund)
+{
+	filter_mail_input_t *input = (filter_mail_input_t *) in_data;
+
+	if (gerund)
+		return g_strdup_printf ("Filtering messages into \"%s\"",
+					input->inbox->full_name);
+	else
+		return g_strdup_printf ("Filter messages into \"%s\"",
+					input->inbox->full_name);
 }
 
 static void

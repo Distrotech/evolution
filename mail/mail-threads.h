@@ -28,12 +28,15 @@
 #include <camel/camel-exception.h>
 #include <stdlib.h>		/*size_t */
 
+/* Returns a g_strdup'ed string that describes what's going to happen,
+ * tersely but specifically.
+ */
+typedef gchar *(*mail_op_describe_func) (gpointer /*input_data*/, gboolean /*gerund*/);
 typedef void (*mail_op_func) (gpointer, gpointer, CamelException *);
 
 typedef struct _mail_operation_spec
 {
-	const gchar *infinitive;	/* error while attempting to %s, infinitive */
-	const gchar *gerund;	/* error while %s, gerund */
+	mail_op_describe_func describe;
 	size_t datasize;
 	mail_op_func setup;
 	mail_op_func callback;

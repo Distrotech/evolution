@@ -523,9 +523,18 @@ typedef struct thread_messages_data_s {
 	int row;
 } thread_messages_data_t;
 
+static gchar *describe_thread_messages (gpointer in_data, gboolean gerund);
 static void setup_thread_messages   (gpointer in_data, gpointer op_data, CamelException *ex);
 static void do_thread_messages      (gpointer in_data, gpointer op_data, CamelException *ex);
 static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static gchar *describe_thread_messages (gpointer in_data, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Threading message list");
+	else
+		return g_strdup ("Thread message list");
+}
 
 static void setup_thread_messages (gpointer in_data, gpointer op_data, CamelException *ex)
 {
@@ -583,8 +592,7 @@ static void cleanup_thread_messages (gpointer in_data, gpointer op_data, CamelEx
 
 static const mail_operation_spec op_thread_messages =
 {
-	"Thread messages",
-	"Threading messages",
+	describe_thread_messages,
 	sizeof (thread_messages_data_t),
 	setup_thread_messages,
 	do_thread_messages,

@@ -964,9 +964,18 @@ typedef struct regenerate_messagelist_data_s {
 	GPtrArray *uids;
 } regenerate_messagelist_data_t;
 
+static gchar *describe_regenerate_messagelist (gpointer in_data, gboolean gerund);
 static void setup_regenerate_messagelist   (gpointer in_data, gpointer op_data, CamelException *ex);
 static void do_regenerate_messagelist      (gpointer in_data, gpointer op_data, CamelException *ex);
 static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static gchar *describe_regenerate_messagelist (gpointer in_data, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Rebuilding message view");
+	else
+		return g_strdup ("Rebuild message view");
+}
 
 static void setup_regenerate_messagelist (gpointer in_data, gpointer op_data, CamelException *ex)
 {
@@ -1062,8 +1071,7 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 
 static const mail_operation_spec op_regenerate_messagelist =
 {
-	"Read folder",
-	"Reading folder",
+	describe_regenerate_messagelist,
 	sizeof (regenerate_messagelist_data_t),
 	setup_regenerate_messagelist,
 	do_regenerate_messagelist,

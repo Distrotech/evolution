@@ -1,3 +1,8 @@
+2000-08-03  Peter Williams  <peterw@helixcode.com>
+
+	* filter-driver.c (op_filter_mail): Conform to the new mail-threads
+	interface.
+
 2000-08-01  Not Zed  <NotZed@HelixCode.com>
 
 	* vfolder-editor.c (rule_add): Oops, create a vfolder_rule when we

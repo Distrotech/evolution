@@ -8,31 +8,31 @@
 #include <stdio.h>
 #include "mail-threads.h"
 
+static gchar *desc_1 (gpointer in, gboolean gerund);
 static void op_1( gpointer in, gpointer op, CamelException *ex );
+static gchar *desc_2 (gpointer in, gboolean gerund);
 static void op_2( gpointer in, gpointer op, CamelException *ex );
+static gchar *desc_3 (gpointer in, gboolean gerund);
 static void op_3( gpointer in, gpointer op, CamelException *ex );
+static gchar *desc_4 (gpointer in, gboolean gerund);
 static void op_4( gpointer in, gpointer op, CamelException *ex );
+static gchar *desc_5 (gpointer in, gboolean gerund);
 static void op_5( gpointer in, gpointer op, CamelException *ex );
+static gchar *desc_6 (gpointer in, gboolean gerund);
+static gchar *desc_7 (gpointer in, gboolean gerund);
+static gchar *desc_8 (gpointer in, gboolean gerund);
 static void done( gpointer in, gpointer op, CamelException *ex );
 static void exception( gpointer in, gpointer op, CamelException *ex );
 static gboolean queue_ops( void );
 
-const mail_operation_spec spec1 = { "Show The Crawling Progress Bar of Doom", "Crawling",
-				    0, NULL, op_1, done };
-const mail_operation_spec spec2 = { "Explore The Mysterious Message Setter", "Exploring",
-				    0, NULL, op_2, done };
-const mail_operation_spec spec3 = { "Dare The Error Dialog of No Return", "Daring",
-				    0, NULL, op_3, done };
-const mail_operation_spec spec4 = { "Queue Filler", "Queueing",
-				    0, NULL, op_4, NULL };
-const mail_operation_spec spec5 = { "Avoid the Dastardly Password Stealer", "Avoiding",
-				    0, NULL, op_5, done };
-const mail_operation_spec spec6 = { "Exception on setup", "Exceptioning",
-				    0, exception, op_4, NULL };
-const mail_operation_spec spec7 = { "Exception during op", "Exceptioning",
-				    0, NULL, exception, NULL };
-const mail_operation_spec spec8 = { "Exception in cleanup", "Exceptioning",
-				    0, NULL, op_4, exception };
+const mail_operation_spec spec1 = { desc_1, 0, NULL, op_1, done };
+const mail_operation_spec spec2 = { desc_2, 0, NULL, op_2, done };
+const mail_operation_spec spec3 = { desc_3, 0, NULL, op_3, done };
+const mail_operation_spec spec4 = { desc_4, 0, NULL, op_4, NULL };
+const mail_operation_spec spec5 = { desc_5, 0, NULL, op_5, done };
+const mail_operation_spec spec6 = { desc_6, 0, exception, op_4, NULL };
+const mail_operation_spec spec7 = { desc_7, 0, NULL, exception, NULL };
+const mail_operation_spec spec8 = { desc_8, 0, NULL, op_4, exception };
 
 static gboolean queue_ops( void )
 {
@@ -154,6 +154,71 @@ static void done( gpointer in, gpointer op, CamelException *ex )
 {
 	g_message( "Operation done: %s", (gchar *) in );
 }
+
+static gchar *desc_1 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Showing the Crawling Progress Bar of Doom");
+	else
+		return g_strdup ("Progress Bar");
+}
+
+static gchar *desc_2 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Exploring the Mysterious Message Setter");
+	else
+		return g_strdup ("Explore");
+}
+
+static gchar *desc_3 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Dare the Error Dialog of No Return");
+	else
+		return g_strdup ("Dare");
+}
+
+static gchar *desc_4 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup_printf ("Filling Queue Space -- %d", GPOINTER_TO_INT (in));
+	else
+		return g_strdup_printf ("Filler -- %d", GPOINTER_TO_INT (in));
+}
+
+static gchar *desc_5 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Stealing your Password");
+	else
+		return g_strdup ("The Dastardly Password Stealer");
+}
+
+static gchar *desc_6 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Setting exception on setup");
+	else
+		return g_strdup ("Exception on setup");
+}
+
+static gchar *desc_7 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Setting exception in process");
+	else
+		return g_strdup ("Exception coming soon");
+}
+
+static gchar *desc_8 (gpointer in, gboolean gerund)
+{
+	if (gerund)
+		return g_strdup ("Setting exception in cleanup");
+	else
+		return g_strdup ("Exception in cleanup");
+}
+
 
 int main( int argc, char **argv )
 {
