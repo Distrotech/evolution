@@ -59,7 +59,7 @@ ea_day_view_get_type (void)
     GType derived_atk_type;
 
     if (!type) {
-        static const GTypeInfo tinfo = {
+        static GTypeInfo tinfo = {
             sizeof (EaDayViewClass),
             (GBaseInitFunc) NULL, /* base init */
             (GBaseFinalizeFunc) NULL, /* base finalize */

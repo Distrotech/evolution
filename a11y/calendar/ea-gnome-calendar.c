@@ -59,7 +59,7 @@ ea_gnome_calendar_get_type (void)
     GType derived_atk_type;
 
     if (!type) {
-        static const GTypeInfo tinfo = {
+        static GTypeInfo tinfo = {
             sizeof (EaGnomeCalendarClass),
             (GBaseInitFunc) NULL, /* base init */
             (GBaseFinalizeFunc) NULL, /* base finalize */
@@ -249,7 +249,7 @@ ea_gnome_ref_child (AtkObject *obj, gint i)
     if (i < 0 || i >2 )
         return NULL;
 
-    calendarWidget = GTK_ACCESSIBLE (obj)->widget;
+    calendarWidget = GNOME_CALENDAR (GTK_ACCESSIBLE (obj)->widget);
 
     switch (i) {
     case 0:
@@ -265,7 +265,7 @@ ea_gnome_ref_child (AtkObject *obj, gint i)
         break;
     case 2:
         /* for todo list */
-        childWidget = gnome_calendar_get_task_pad (calendarWidget);
+        childWidget = GTK_WIDGET ((gnome_calendar_get_task_pad (calendarWidget)));
         child = gtk_widget_get_accessible (childWidget);
         break;
     default:
