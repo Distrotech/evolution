@@ -1,3 +1,12 @@
+2004-05-05  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (add_instance_to_model, e_cal_view_objects_added_cb,
+	e_cal_view_objects_removed_c): call e_table_model_pre_change in the
+	correct places.
+
+	* gui/dialogs/recur-comp.c (recur_component_dialog): when modifying all
+	instances, remove the RECURRENCE-ID from the component.
+
 2004-05-05  Larry Ewing  <lewing@ximian.com>
 
 	* gui/dialogs/calendar-setup.c: make sure that we don't crash if

@@ -1206,6 +1206,8 @@ add_instance_to_model (ECalComponent *comp, time_t start, time_t end, gpointer u
 
 	priv = aid->model->priv;
 
+	e_table_model_pre_change (E_TABLE_MODEL (aid->model));
+
 	comp_data = g_new0 (ECalModelComponent, 1);
 	comp_data->client = g_object_ref (aid->client);
 	comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
@@ -1245,8 +1247,6 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 	for (l = objects; l; l = l->next) {
 		AddInstanceData aid;
 
-		e_table_model_pre_change (E_TABLE_MODEL (model));
-
 		switch (icalcomponent_isa (l->data)) {
 		case ICAL_VEVENT_COMPONENT :
 			aid.client = e_cal_view_get_client (query);
@@ -1256,6 +1256,7 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 							     add_instance_to_model, &aid);
 			break;
 		case ICAL_VTODO_COMPONENT :
+			e_table_model_pre_change (E_TABLE_MODEL (model));
 			comp_data = g_new0 (ECalModelComponent, 1);
 			comp_data->client = g_object_ref (e_cal_view_get_client (query));
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
@@ -1339,10 +1340,9 @@ e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
 		ECalModelComponent *comp_data;
 		int pos;
 
-		e_table_model_pre_change (E_TABLE_MODEL (model));
-
 		/* remove all objects with this UID */
 		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {		
+			e_table_model_pre_change (E_TABLE_MODEL (model));
 			pos = get_position_in_array (priv->objects, comp_data);
 		
 			g_ptr_array_remove (priv->objects, comp_data);

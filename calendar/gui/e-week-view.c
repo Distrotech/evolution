@@ -387,7 +387,7 @@ process_component (EWeekView *week_view, ECalModelComponent *comp_data)
 			e_week_view_foreach_event_with_uid (week_view, uid,
 							    e_week_view_remove_event_cb,
 							    NULL);
-		} else {
+		} else
 			e_week_view_remove_event_cb (week_view, event_num, comp_data);
 
 		g_object_unref (tmp_comp);
