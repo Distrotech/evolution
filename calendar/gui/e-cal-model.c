@@ -160,41 +160,6 @@ e_cal_model_init (ECalModel *model, ECalModelClass *klass)
 }
 
 static void
-free_comp_data (ECalModelComponent *comp_data)
-{
-	g_return_if_fail (comp_data != NULL);
-
-	comp_data->client = NULL;
-
-	if (comp_data->icalcomp) {
-		icalcomponent_free (comp_data->icalcomp);
-		comp_data->icalcomp = NULL;
-	}
-
-	if (comp_data->dtstart) {
-		g_free (comp_data->dtstart);
-		comp_data->dtstart = NULL;
-	}
-
-	if (comp_data->dtend) {
-		g_free (comp_data->dtend);
-		comp_data->dtend = NULL;
-	}
-
-	if (comp_data->due) {
-		g_free (comp_data->due);
-		comp_data->due = NULL;
-	}
-
-	if (comp_data->completed) {
-		g_free (comp_data->completed);
-		comp_data->completed = NULL;
-	}
-
-	g_free (comp_data);
-}
-
-static void
 clear_objects_array (ECalModelPrivate *priv)
 {
 	gint i;
@@ -204,7 +169,7 @@ clear_objects_array (ECalModelPrivate *priv)
 
 		comp_data = g_ptr_array_index (priv->objects, i);
 		g_assert (comp_data != NULL);
-		free_comp_data (comp_data);
+		e_cal_model_free_component_data (comp_data);
 	}
 
 	
@@ -1065,8 +1030,6 @@ void
 e_cal_model_set_default_client (ECalModel *model, ECal *client)
 {
 	ECalModelPrivate *priv;
-	GList *l;
-	gboolean found = FALSE;
 	
 	g_return_if_fail (model != NULL);
 	g_return_if_fail (E_IS_CAL_MODEL (model));
@@ -1179,27 +1142,51 @@ get_position_in_array (GPtrArray *objects, gpointer item)
 	return -1;
 }
 
+typedef struct {
+	ECal *client;
+	ECalModel *model;
+} AddInstanceData;
+
+static void
+add_instance_to_model (ECalComponent *comp, time_t start, time_t end, gpointer user_data)
+{
+	ECalModelComponent *comp_data;
+	ECalModelPrivate *priv;
+	AddInstanceData *aid = user_data;
+
+	priv = aid->model->priv;
+
+	comp_data = g_new0 (ECalModelComponent, 1);
+	comp_data->client = g_object_ref (aid->client);
+	comp_data->icalcomp = icalcomponent_new_clone (e_cal_component_get_icalcomponent (comp));
+
+	g_ptr_array_add (priv->objects, comp_data);
+
+	e_table_model_row_inserted (E_TABLE_MODEL (aid->model), priv->objects->len - 1);
+}
+
 static void
 e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data)
 {
 	ECalModel *model = (ECalModel *) user_data;
 	ECalModelPrivate *priv;
 	GList *l;
+	time_t start, end;
 
 	priv = model->priv;
 
+	e_cal_model_get_time_range (model, &start, &end);
+
 	for (l = objects; l; l = l->next) {
-		ECalModelComponent *comp_data;
+		AddInstanceData aid;
 
 		e_table_model_pre_change (E_TABLE_MODEL (model));
 
-		comp_data = g_new0 (ECalModelComponent, 1);
-		comp_data->client = g_object_ref (e_cal_view_get_client (query));
-		comp_data->icalcomp = icalcomponent_new_clone (l->data);
-
-		g_ptr_array_add (priv->objects, comp_data);
-
-		e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
+		aid.client = e_cal_view_get_client (query);
+		aid.model = model;
+		e_cal_generate_instances_for_object (e_cal_view_get_client (query),
+						     l->data, start, end,
+						     add_instance_to_model, &aid);
 	}
 }
 
@@ -1267,7 +1254,7 @@ e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
 		pos = get_position_in_array (priv->objects, comp_data);
 		
 		g_ptr_array_remove (priv->objects, comp_data);
-		free_comp_data (comp_data);
+		e_cal_model_free_component_data (comp_data);
 		
 		e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
 	}
@@ -1319,7 +1306,7 @@ update_e_cal_view_for_client (ECalModel *model, ECalModelClient *client_data)
 		g_warning (G_STRLOC ": Unable to get query");
 
 		return;
-	}	
+	}
 
 	g_signal_connect (client_data->query, "objects_added", G_CALLBACK (e_cal_view_objects_added_cb), model);
 	g_signal_connect (client_data->query, "objects_modified", G_CALLBACK (e_cal_view_objects_modified_cb), model);
@@ -1429,7 +1416,7 @@ remove_client (ECalModel *model, ECalModelClient *client_data)
 			e_table_model_pre_change (E_TABLE_MODEL (model));
 			
 			g_ptr_array_remove (model->priv->objects, comp_data);
-			free_comp_data (comp_data);
+			e_cal_model_free_component_data (comp_data);
 
 			e_table_model_row_deleted (E_TABLE_MODEL (model), i - 1);
 		}
@@ -1778,7 +1765,7 @@ copy_ecdv (ECellDateEditValue *ecdv)
 }
 
 /**
- * e_cal_model_free_component_data
+ * e_cal_model_copy_component_data
  */
 ECalModelComponent *
 e_cal_model_copy_component_data (ECalModelComponent *comp_data)

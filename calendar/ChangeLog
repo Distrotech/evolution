@@ -1,3 +1,14 @@
+2004-04-26  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (e_cal_view_objects_added_cb):
+	expand recurrences here.
+	(free_comp_data): removed, since there's already
+	e_cal_model_free_component_data, which unrefs correctly the
+	client.
+	(clear_objects_array, e_cal_view_objects_removed_cb, remove_client):
+	use e_cal_model_free_component_data.
+	(e_cal_model_set_default_client): fixed warnings.
+	
 2004-04-25  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-day-view.c (e_day_view_add_event):
