@@ -1914,6 +1914,7 @@ generate_instances_obj_updated_cb (CalClient *client, const char *uid, gpointer 
 {
 	GHashTable *uid_comp_hash;
 	CalComponent *comp;
+	icalcomponent *icalcomp;
 	CalClientGetStatus status;
 	const char *comp_uid;
 
@@ -1931,13 +1932,19 @@ generate_instances_obj_updated_cb (CalClient *client, const char *uid, gpointer 
 	g_hash_table_remove (uid_comp_hash, uid);
 	g_object_unref (G_OBJECT (comp));
 
-	status = cal_client_get_object (client, uid, &comp);
+	status = cal_client_get_object (client, uid, &icalcomp);
 
 	switch (status) {
 	case CAL_CLIENT_GET_SUCCESS:
-		/* The hash key comes from the component's internal data */
-		cal_component_get_uid (comp, &comp_uid);
-		g_hash_table_insert (uid_comp_hash, (char *) comp_uid, comp);
+		comp = cal_component_new ();
+		if (cal_component_set_icalcomponent (comp, icalcomp)) {
+			/* The hash key comes from the component's internal data */
+			cal_component_get_uid (comp, &comp_uid);
+			g_hash_table_insert (uid_comp_hash, (char *) comp_uid, comp);
+		} else {
+			g_object_unref (comp);
+			icalcomponent_free (icalcomp);
+		}
 		break;
 
 	case CAL_CLIENT_GET_NOT_FOUND:
@@ -2015,21 +2022,28 @@ get_objects_atomically (CalClient *client, CalObjType type, time_t start, time_t
 
 	for (l = uids; l; l = l->next) {
 		CalComponent *comp;
+		icalcomponent *icalcomp;
 		CalClientGetStatus status;
 		char *uid;
 		const char *comp_uid;
 
 		uid = l->data;
 
-		status = cal_client_get_object (client, uid, &comp);
+		status = cal_client_get_object (client, uid, &icalcomp);
 
 		switch (status) {
 		case CAL_CLIENT_GET_SUCCESS:
-			/* The hash key comes from the component's internal data
-			 * instead of the duped UID from the list of UIDS.
-			 */
-			cal_component_get_uid (comp, &comp_uid);
-			g_hash_table_insert (uid_comp_hash, (char *) comp_uid, comp);
+			comp = cal_component_new ();
+			if (cal_component_set_icalcomponent (comp, icalcomp)) {
+				/* The hash key comes from the component's internal data
+				 * instead of the duped UID from the list of UIDS.
+				 */
+				cal_component_get_uid (comp, &comp_uid);
+				g_hash_table_insert (uid_comp_hash, (char *) comp_uid, comp);
+			} else {
+				g_object_unref (comp);
+				icalcomponent_free (icalcomp);
+			}
 			break;
 
 		case CAL_CLIENT_GET_NOT_FOUND:

@@ -68,6 +68,7 @@ typedef struct {
 
 	/* virtual methods */
 	icalcomponent * (* create_component_with_defaults) (ECalModel *model);
+	const gchar * (* get_color_for_component) (ECalModel *model, ECalModelComponent *comp_data);
 } ECalModelClass;
 
 GType               e_cal_model_get_type (void);

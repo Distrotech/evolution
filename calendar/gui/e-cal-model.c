@@ -26,6 +26,7 @@
 #include <e-util/e-time-utils.h>
 #include <cal-util/timeutil.h>
 #include "e-cal-model.h"
+#include "itip-utils.h"
 #include "misc.h"
 
 typedef struct {
@@ -48,6 +49,9 @@ struct _ECalModelPrivate {
 
 	/* The default category */
 	gchar *default_category;
+
+	/* Addresses for determining icons */
+	EAccountList *accounts;
 };
 
 static void e_cal_model_class_init (ECalModelClass *klass);
@@ -92,6 +96,9 @@ e_cal_model_class_init (ECalModelClass *klass)
 	etm_class->initialize_value = ecm_initialize_value;
 	etm_class->value_is_empty = ecm_value_is_empty;
 	etm_class->value_to_string = ecm_value_to_string;
+
+	klass->create_component_with_defaults = NULL;
+	klass->get_color_for_component = NULL;
 }
 
 static void
@@ -106,6 +113,8 @@ e_cal_model_init (ECalModel *model, ECalModelClass *klass)
 
 	priv->objects = g_ptr_array_new ();
 	priv->kind = ICAL_NO_COMPONENT;
+
+	priv->accounts = itip_addresses_get ();
 }
 
 static void
@@ -176,6 +185,10 @@ e_cal_model_finalize (GObject *object)
 			priv->objects = NULL;
 		}
 		
+		if (priv->accounts) {
+			g_object_unref (priv->accounts);
+			priv->accounts = NULL;
+		}
 
 		g_free (priv);
 		model->priv = NULL;
@@ -229,6 +242,20 @@ get_classification (ECalModelComponent *comp_data)
 		return (char *) icalproperty_get_class (prop);
 
 	return _("Public");
+}
+
+static const char *
+get_color (ECalModel *model, ECalModelComponent *comp_data)
+{
+	ECalModelClass *model_class;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	model_class = E_CAL_MODEL_CLASS (G_OBJECT_GET_CLASS (model));
+	if (model_class && model_class->get_color_for_component)
+		return model_class->get_color_for_component (model, comp_data);
+
+	return NULL;
 }
 
 static char *
@@ -322,7 +349,7 @@ ecm_value_at (ETableModel *etm, int col, int row)
 	case E_CAL_MODEL_FIELD_CLASSIFICATION :
 		return get_classification (comp_data);
 	case E_CAL_MODEL_FIELD_COLOR :
-		break; /* FIXME */
+		return get_color (model, comp_data);
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		return comp_data->icalcomp;
 	case E_CAL_MODEL_FIELD_DESCRIPTION :
@@ -333,7 +360,45 @@ ecm_value_at (ETableModel *etm, int col, int row)
 		return GINT_TO_POINTER ((icalcomponent_get_first_component (comp_data->icalcomp,
 									    ICAL_VALARM_COMPONENT) != NULL));
 	case E_CAL_MODEL_FIELD_ICON :
-		break; /* FIXME */
+	{
+		CalComponent *comp;
+		icalcomponent *icalcomp;
+		gint retval = 0;
+
+		comp = cal_component_new ();
+		icalcomp = icalcomponent_new_clone (comp_data->icalcomp);
+		if (cal_component_set_icalcomponent (comp, icalcomp)) {
+			if (cal_component_has_recurrences (comp))
+				retval = 1;
+			else if (itip_organizer_is_user (comp, comp_data->client))
+				retval = 3;
+			else {
+				GSList *attendees = NULL, *sl;
+
+				cal_component_get_attendee_list (comp, &attendees);
+				for (sl = attendees; sl != NULL; sl = sl->next) {
+					CalComponentAttendee *ca = sl->data;
+					const char *text;
+
+					text = itip_strip_mailto (ca->value);
+					if (e_account_list_find (priv->accounts, E_ACCOUNT_FIND_ID_ADDRESS, text) != NULL) {
+						if (ca->delto != NULL)
+							retval = 3;
+						else
+							retval = 2;
+						break;
+					}
+				}
+
+				cal_component_free_attendee_list (attendees);
+			}
+		} else
+			icalcomponent_free (icalcomp);
+
+		g_object_unref (comp);
+
+		return GINT_TO_POINTER (retval);
+	}
 	case E_CAL_MODEL_FIELD_SUMMARY :
 		return get_summary (comp_data);
 	case E_CAL_MODEL_FIELD_UID :

@@ -45,6 +45,7 @@ static void ecmt_free_value (ETableModel *etm, int col, void *value);
 static void *ecmt_initialize_value (ETableModel *etm, int col);
 static gboolean ecmt_value_is_empty (ETableModel *etm, int col, const void *value);
 static char *ecmt_value_to_string (ETableModel *etm, int col, const void *value);
+static const char *ecmt_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data);
 
 static GObjectClass *parent_class = NULL;
 
@@ -869,6 +870,26 @@ ecmt_value_to_string (ETableModel *etm, int col, const void *value)
 			return g_strdup ("N/A");
 		else
 			return g_strdup_printf ("%i%%", GPOINTER_TO_INT (value));
+	}
+
+	return NULL;
+}
+
+static const char *
+ecmt_get_color_for_component (ECalModel *model, ECalModelComponent *comp_data)
+{
+	g_return_val_if_fail (E_IS_CAL_MODEL_TASKS (model), NULL);
+	g_return_val_if_fail (comp_data != NULL, NULL);
+
+	switch (get_due_status ((ECalModelTasks *) model, comp_data)) {
+	case E_CAL_MODEL_TASKS_DUE_NEVER:
+	case E_CAL_MODEL_TASKS_DUE_FUTURE:
+	case E_CAL_MODEL_TASKS_DUE_COMPLETE:
+		return NULL;
+	case E_CAL_MODEL_TASKS_DUE_TODAY:
+		return calendar_config_get_tasks_due_today_color ();
+	case E_CAL_MODEL_TASKS_DUE_OVERDUE:
+		return calendar_config_get_tasks_overdue_color ();
 	}
 
 	return NULL;

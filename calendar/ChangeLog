@@ -1,5 +1,20 @@
 2003-08-05  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-client/cal-client.c (generate_instances_obj_updated_cb): fixed
+	parameters in call to cal_client_get_object().
+	(get_objects_atomatically): same.
+
+	* gui/e-cal-model.[ch]: added "get_color_for_component" virtual method.
+	(get_color): new function to return the color. It calls the virtual
+	method of the current class.
+	(ecm_value_at): return a value for the color and icon columns.
+	(e_cal_model_class_init): initialize virtual methods.
+
+	* gui/e-cal-model-tasks.c (ecmt_get_color_for_component): implemented
+	new class' virtual method.
+
+2003-08-05  Rodrigo Moya <rodrigo@ximian.com>
+
 	* cal-client_/cal-client.c (cal_client_get_default_object): use
 	correctly the pointer to pointer.
 
