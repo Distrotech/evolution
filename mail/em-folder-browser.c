@@ -30,6 +30,7 @@
 #include <gtk/gtkscrolledwindow.h>
 #include <gtk/gtkbutton.h>
 #include <gtk/gtkvpaned.h>
+#include <gtkhtml/gtkhtml.h>
 
 #include <libgnomeprintui/gnome-print-dialog.h>
 
@@ -74,6 +75,7 @@ struct _EMFolderBrowserPrivate {
 
 
 static void emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
+static void emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri);
 
 static EMFolderViewClass *emfb_parent;
 
@@ -96,8 +98,6 @@ emfb_init(GObject *o)
 	printf("em folder browser init\n");
 
 	p = emfb->priv = g_malloc0(sizeof(struct _EMFolderBrowserPrivate));
-
-	emfb->view.preview = (EMFormatHTMLDisplay *)em_format_html_display_new();
 
 	g_slist_free(emfb->view.ui_files);
 	emfb->view.ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-global.xml");
@@ -145,6 +145,7 @@ static void
 emfb_class_init(GObjectClass *klass)
 {
 	klass->finalize = emfb_finalise;
+	((EMFolderViewClass *)klass)->set_folder = emfb_set_folder;
 	((EMFolderViewClass *)klass)->activate = emfb_activate;
 }
 
@@ -197,6 +198,7 @@ void em_folder_browser_show_preview(EMFolderBrowser *emfb, gboolean state)
 		/*do_message_selected (emfb);*/
 		/*set_cursor_pos (emfb, y);*/
 	} else {
+		printf("preview turned off ...\n");
 		gtk_widget_hide(emfb->priv->preview);
 		/*
 		mail_display_set_message (emfb->mail_display, NULL, NULL, NULL);
@@ -210,16 +212,24 @@ static void
 emfb_edit_cut(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	
-	em_format_html_display_cut (emfv->preview);
+
+	printf("editcut\n");
+	if (message_list_has_primary_selection(emfv->list))
+		message_list_copy(emfv->list, TRUE);
+	else
+		em_format_html_display_cut(emfv->preview);
 }
 
 static void
 emfb_edit_copy(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	
-	em_format_html_display_copy (emfv->preview);
+
+	printf("editcopy\n");
+	if (message_list_has_primary_selection(emfv->list))
+		message_list_copy(emfv->list, FALSE);
+	else
+		em_format_html_display_copy(emfv->preview);
 }
 
 static void
@@ -235,7 +245,7 @@ emfb_edit_invert_selection(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	message_list_invert_selection (emfv->list);
+	message_list_invert_selection(emfv->list);
 }
 
 static void
@@ -243,7 +253,7 @@ emfb_edit_select_all(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	message_list_select_all (emfv->list);
+	message_list_select_all(emfv->list);
 }
 
 static void
@@ -251,7 +261,7 @@ emfb_edit_select_thread(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
 	
-	message_list_select_thread (emfv->list);
+	message_list_select_thread(emfv->list);
 }
 
 static void
@@ -452,12 +462,13 @@ emfb_view_threaded(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
-	/* ??
-	bstate = atoi(state);
-	e_meta_set_bool(fb->meta, "thread_list", bstate);*/
-
 	gconf = mail_config_get_gconf_client ();
 	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/thread_list", state[0] != '0', NULL);
+
+	if (camel_object_meta_set(emfv->folder, "evolution:thread_list", state))
+		camel_object_state_write(emfv->folder);
+
+	/* FIXME: do set_threaded via meta-data listener on folder? */
 	message_list_set_threaded(emfv->list, state[0] != '0');
 	
 	/* FIXME: update selection state? */
@@ -472,13 +483,39 @@ emfb_view_preview(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_E
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
-	/*bstate = atoi(state);
-	  e_meta_set_bool(fb->meta, "show_preview", bstate);*/
-
 	gconf = mail_config_get_gconf_client ();
 	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/show_preview", state[0] != '0', NULL);
 
+	if (camel_object_meta_set(emfv->folder, "evolution:show_preview", state))
+		camel_object_state_write(emfv->folder);
+
+	/* FIXME: do this via folder listener */
 	em_folder_browser_show_preview((EMFolderBrowser *)emfv, state[0] != '0');
+}
+
+static void
+emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
+{
+	printf("set folder called\n");
+
+	/* This is required since we get activated the first time
+	   before the folder is open and need to override the
+	   defaults */
+	if (folder) {
+		char *sstate;
+
+		if ((sstate = camel_object_meta_get(folder, "evolution:show_preview"))) {
+			printf("forcing folder show_preview to '%s'\n", sstate);
+			em_folder_browser_show_preview((EMFolderBrowser *)emfv, sstate[0] != '0');
+		}
+
+		if ((sstate = camel_object_meta_get(folder, "evolution:thread_list"))) {
+			printf("forcing folder thread_list to '%s'\n", sstate);
+			message_list_set_threaded(emfv->list, sstate[0] == '1');
+		}
+	}
+
+	emfb_parent->set_folder(emfv, folder, uri);
 }
 
 static void
@@ -487,7 +524,8 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 	if (state) {
 		GConfClient *gconf;
 		gboolean state;
-		
+		char *sstate;
+
 		gconf = mail_config_get_gconf_client ();
 
 		/* parent loads all ui files via ui_files */
@@ -507,9 +545,14 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 #endif
 	
 		/* (Pre)view toggle */
-		state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/show_preview", NULL);
-		/*if (fb->meta)
-		  show_preview = e_meta_get_bool(fb->meta, "show_preview", show_preview);*/
+		if (emfv->folder
+		    && (sstate = camel_object_meta_get(emfv->folder, "evolution:show_preview"))) {
+			state = sstate[0] == '1';
+			g_free(sstate);
+		} else {
+			state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/show_preview", NULL);
+		}
+
 		bonobo_ui_component_set_prop(uic, "/commands/ViewPreview", "state", state?"1":"0", NULL);
 		em_folder_browser_show_preview((EMFolderBrowser *)emfv, state);
 		bonobo_ui_component_add_listener(uic, "ViewPreview", emfb_view_preview, emfv);
@@ -526,12 +569,19 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 			message_list_set_hidedeleted (emfv->list, state);
 		else
 			bonobo_ui_component_set_prop(uic, "/commands/HideDeleted", "sensitive", state?"1":"0", NULL);
-	
+
+		if (emfv->folder == NULL)
+			g_warning("Have activate called before folder is loaded\n");
+
 		/* ViewThreaded */
-		state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/thread_list", NULL);
-		/* FIXME: what to do about the messy 'meta' stuff ... */
-		/*if (fb->meta)
-		  state = e_meta_get_bool(fb->meta, "thread_list", state);*/
+		if (emfv->folder
+		    && (sstate = camel_object_meta_get(emfv->folder, "evolution:thread_list"))) {
+			state = sstate[0] == '1';
+			g_free(sstate);
+		} else {
+			state = gconf_client_get_bool(gconf, "/apps/evolution/mail/display/thread_list", NULL);
+		}
+
 		bonobo_ui_component_set_prop(uic, "/commands/ViewThreaded", "state", state?"1":"0", NULL);
 		bonobo_ui_component_add_listener(uic, "ViewThreaded", emfb_view_threaded, emfv);
 		message_list_set_threaded(emfv->list, state);

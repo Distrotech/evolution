@@ -82,6 +82,8 @@ enum {
 struct _MessageList {
 	ETreeScrolled parent;
 
+	struct _MessageListPrivate *priv;
+
 	/* The table */
 	ETreeModel   *model;
 	ETree        *tree;
@@ -181,6 +183,10 @@ void           message_list_select_next_thread (MessageList *ml);
 void           message_list_select_all (MessageList *ml);
 void           message_list_select_thread (MessageList *ml);
 void           message_list_invert_selection (MessageList *ml);
+
+/* clipboard stuff */
+void	       message_list_copy(MessageList *ml, gboolean cut);
+gboolean       message_list_has_primary_selection(MessageList *ml);
 
 /* info */
 unsigned int   message_list_length (MessageList *ml);

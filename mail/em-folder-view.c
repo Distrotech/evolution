@@ -95,18 +95,17 @@ emfv_init(GObject *o)
 
 	p = emfv->priv = g_malloc0(sizeof(struct _EMFolderViewPrivate));
 
-	emfv->list = (MessageList *)message_list_new();
-	g_signal_connect(emfv->list, "message_selected", G_CALLBACK(emfv_list_message_selected), emfv);
-
 	emfv->ui_files = g_slist_append(NULL, EVOLUTION_UIDIR "/evolution-mail-message.xml");
 	emfv->ui_app_name = "evolution-mail";
 
-	/* setup selection?  etc? */
-#if 0
-	/* duh, preview is never setup yet ... */
+	emfv->list = (MessageList *)message_list_new();
+	g_signal_connect(emfv->list, "message_selected", G_CALLBACK(emfv_list_message_selected), emfv);
+
+	emfv->preview = (EMFormatHTMLDisplay *)em_format_html_display_new();
 	g_signal_connect(emfv->preview, "link_clicked", G_CALLBACK(emfv_format_link_clicked), emfv);
 	g_signal_connect(emfv->preview, "popup_event", G_CALLBACK(emfv_format_popup_event), emfv);
-#endif
+
+	/* setup selection?  etc? */
 }
 
 static void

@@ -53,6 +53,8 @@ struct _EMFolderView {
 	/* used to load ui from base activate implementation */
 	GSList *ui_files;	/* const char * list */
 	const char *ui_app_name;
+
+	int preview_active:1;
 };
 
 struct _EMFolderViewClass {

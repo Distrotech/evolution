@@ -1,3 +1,28 @@
+2003-08-27  Not Zed  <NotZed@Ximian.com>
+
+	* message-list.c (on_selection_changed_cmd): own/deown the primary
+	selection when it changes.
+	(message_list_init): init private data and invisible for
+	selection.
+	(message_list_destroy): free invisible.
+	(message_list_finalise): free private data.
+	(get_selected_cb): removed.
+	(message_list_copy): new method to do copy and cut.  cut/copy to
+	the clipboard.
+	(ml_selection_clear_event): clear the right selection when
+	requested.
+	(message_list_has_primary_selection): helper to find out if the
+	message-list has the selection.  is there a gtk way for this?
+
+2003-08-26  Not Zed  <NotZed@Ximian.com>
+
+	* mail-local.c (mlf_meta_set, mlf_meta_get): proxy meta-data stuff
+	to subservient folder.
+
+2003-08-23  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-view.c (emfv_init): init preview here always.
+
 2003-08-25  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-view.c (em_folder_view_print): Use
