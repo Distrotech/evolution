@@ -41,11 +41,18 @@ struct _EBookViewClass {
 	/*
 	 * Signals.
 	 */
-	void (* card_changed)      (EBookView *book_view, const GList *cards);
-	void (* card_removed)      (EBookView *book_view, const GList *ids);
-	void (* card_added)        (EBookView *book_view, const GList *cards);
+	void (* contacts_changed)  (EBookView *book_view, const GList *contacts);
+	void (* contacts_removed)  (EBookView *book_view, const GList *ids);
+	void (* contacts_added)    (EBookView *book_view, const GList *contacts);
 	void (* sequence_complete) (EBookView *book_view, EBookViewStatus status);
 	void (* status_message)    (EBookView *book_view, const char *message);
+
+	/* Padding for future expansion */
+	void (*_ebook_reserved0) (void);
+	void (*_ebook_reserved1) (void);
+	void (*_ebook_reserved2) (void);
+	void (*_ebook_reserved3) (void);
+	void (*_ebook_reserved4) (void);
 };
 
 /* Creating a new addressbook. */

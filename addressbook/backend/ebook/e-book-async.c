@@ -104,11 +104,17 @@ _load_uri_handler (EBookMsg *msg)
 {
 	LoadUriMsg *uri_msg = (LoadUriMsg *)msg;
 	LoadUriResponse *response;
+	GError *error = NULL;
 
 	response = g_new (LoadUriResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _load_uri_response_handler, _load_uri_response_dtor);
 
-	response->status = e_book_load_uri (uri_msg->book, uri_msg->uri);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_load_uri (uri_msg->book, uri_msg->uri, TRUE, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
+
 	response->book = uri_msg->book;
 	response->open_response = uri_msg->open_response;
 	response->closure = uri_msg->closure;
@@ -199,11 +205,16 @@ _get_fields_handler (EBookMsg *msg)
 {
 	GetFieldsMsg *fields_msg = (GetFieldsMsg *)msg;
 	GetFieldsResponse *response;
+	GError *error = NULL;
 
 	response = g_new (GetFieldsResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _get_fields_response_handler, _get_fields_response_dtor);
 
-	response->status = e_book_get_supported_fields (fields_msg->book, &response->fields);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_get_supported_fields (fields_msg->book, &response->fields, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = fields_msg->book;
 	response->cb = fields_msg->cb;
 	response->closure = fields_msg->closure;
@@ -285,11 +296,17 @@ _get_methods_handler (EBookMsg *msg)
 {
 	GetMethodsMsg *methods_msg = (GetMethodsMsg *)msg;
 	GetMethodsResponse *response;
+	GError *error = NULL;
 
 	response = g_new (GetMethodsResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _get_methods_response_handler, _get_methods_response_dtor);
 
-	response->status = e_book_get_supported_auth_methods (methods_msg->book, &response->methods);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_get_supported_auth_methods (methods_msg->book, &response->methods, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
+
 	response->book = methods_msg->book;
 	response->cb = methods_msg->cb;
 	response->closure = methods_msg->closure;
@@ -362,11 +379,16 @@ _auth_user_handler (EBookMsg *msg)
 {
 	AuthUserMsg *auth_msg = (AuthUserMsg *)msg;
 	AuthUserResponse *response;
+	GError *error = NULL;
 
 	response = g_new (AuthUserResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _auth_user_response_handler, _auth_user_response_dtor);
 
-	response->status = e_book_authenticate_user (auth_msg->book, auth_msg->user, auth_msg->passwd, auth_msg->auth_method);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_authenticate_user (auth_msg->book, auth_msg->user, auth_msg->passwd, auth_msg->auth_method, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = auth_msg->book;
 	response->cb = auth_msg->cb;
 	response->closure = auth_msg->closure;
@@ -456,11 +478,16 @@ _get_card_handler (EBookMsg *msg)
 {
 	GetCardMsg *get_card_msg = (GetCardMsg *)msg;
 	GetCardResponse *response;
+	GError *error = NULL;
 
 	response = g_new (GetCardResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _get_card_response_handler, _get_card_response_dtor);
 
-	response->status = e_book_get_contact (get_card_msg->book, get_card_msg->id, &response->contact);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_get_contact (get_card_msg->book, get_card_msg->id, &response->contact, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = get_card_msg->book;
 	response->cb = get_card_msg->cb;
 	response->closure = get_card_msg->closure;
@@ -567,11 +594,16 @@ _remove_cards_handler (EBookMsg *msg)
 {
 	RemoveCardsMsg *remove_cards_msg = (RemoveCardsMsg *)msg;
 	RemoveCardsResponse *response;
+	GError *error = NULL;
 
 	response = g_new (RemoveCardsResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _remove_cards_response_handler, _remove_cards_response_dtor);
 
-	response->status = e_book_remove_contacts (remove_cards_msg->book, remove_cards_msg->id_list);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_remove_contacts (remove_cards_msg->book, remove_cards_msg->id_list, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = remove_cards_msg->book;
 	response->cb = remove_cards_msg->cb;
 	response->closure = remove_cards_msg->closure;
@@ -675,12 +707,17 @@ _add_vcard_handler (EBookMsg *msg)
 	AddVCardMsg *add_vcard_msg = (AddVCardMsg *)msg;
 	AddVCardResponse *response;
 	EContact *contact;
+	GError *error = NULL;
 
 	response = g_new (AddVCardResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _add_vcard_response_handler, _add_vcard_response_dtor);
 
 	contact = e_contact_new_from_vcard (add_vcard_msg->vcard);
-	response->status = e_book_add_contact (add_vcard_msg->book, contact);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_add_contact (add_vcard_msg->book, contact, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = add_vcard_msg->book;
 	response->cb = add_vcard_msg->cb;
 	response->closure = add_vcard_msg->closure;
@@ -782,12 +819,17 @@ _commit_vcard_handler (EBookMsg *msg)
 	CommitVCardMsg *commit_vcard_msg = (CommitVCardMsg *)msg;
 	CommitVCardResponse *response;
 	EContact *contact;
+	GError *error = NULL;
 
 	response = g_new (CommitVCardResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _commit_vcard_response_handler, _commit_vcard_response_dtor);
 
 	contact = e_contact_new_from_vcard (commit_vcard_msg->vcard);
-	response->status = e_book_commit_contact (commit_vcard_msg->book, contact);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_commit_contact (commit_vcard_msg->book, contact, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = commit_vcard_msg->book;
 	response->cb = commit_vcard_msg->cb;
 	response->closure = commit_vcard_msg->closure;
@@ -833,7 +875,7 @@ typedef struct {
 	EBookMsg msg;
 
 	EBook *book;
-	char *query;
+	EBookQuery *query;
 	EBookBookViewCallback cb;
 	gpointer closure;
 } GetBookViewMsg;
@@ -870,11 +912,16 @@ _get_book_view_handler (EBookMsg *msg)
 {
 	GetBookViewMsg *view_msg = (GetBookViewMsg *)msg;
 	GetBookViewResponse *response;
+	GError *error = NULL;
 
 	response = g_new (GetBookViewResponse, 1);
 	e_book_msg_init ((EBookMsg*)response, _get_book_view_response_handler, _get_book_view_response_dtor);
 
-	response->status = e_book_get_book_view (view_msg->book, view_msg->query, NULL, -1, &response->book_view);
+	response->status = E_BOOK_ERROR_OK;
+	if (!e_book_get_book_view (view_msg->book, view_msg->query, NULL, -1, &response->book_view, &error)) {
+		response->status = error->code;
+		g_error_free (error);
+	}
 	response->book = view_msg->book;
 	response->cb = view_msg->cb;
 	response->closure = view_msg->closure;
@@ -887,7 +934,7 @@ _get_book_view_dtor (EBookMsg *msg)
 {
 	GetBookViewMsg *view_msg = (GetBookViewMsg *)msg;
 	
-	g_free (view_msg->query);
+	e_book_query_unref (view_msg->query);
 	g_free (view_msg);
 }
 
@@ -905,7 +952,7 @@ e_book_async_get_book_view (EBook                 *book,
 	e_book_msg_init ((EBookMsg*)msg, _get_book_view_handler, _get_book_view_dtor);
 
 	msg->book = g_object_ref (book);
-	msg->query = g_strdup (query);
+	msg->query = e_book_query_from_string (query);
 	msg->cb = cb;
 	msg->closure = closure;
 

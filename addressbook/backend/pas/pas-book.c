@@ -48,27 +48,27 @@ impl_GNOME_Evolution_Addressbook_Book_remove (PortableServer_Servant servant,
 }
 
 static void
-impl_GNOME_Evolution_Addressbook_Book_getVCard (PortableServer_Servant servant,
-						const CORBA_char *id,
-						CORBA_Environment *ev)
+impl_GNOME_Evolution_Addressbook_Book_getContact (PortableServer_Servant servant,
+						  const CORBA_char *id,
+						  CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
 
-	printf ("impl_GNOME_Evolution_Addressbook_Book_getVCard\n");
+	printf ("impl_GNOME_Evolution_Addressbook_Book_getContact\n");
 
-	pas_backend_get_vcard (pas_book_get_backend (book), book, id);
+	pas_backend_get_contact (pas_book_get_backend (book), book, id);
 }
 
 static void
-impl_GNOME_Evolution_Addressbook_Book_getCardList (PortableServer_Servant servant,
-						   const CORBA_char *query,
-						   CORBA_Environment *ev)
+impl_GNOME_Evolution_Addressbook_Book_getContactList (PortableServer_Servant servant,
+						      const CORBA_char *query,
+						      CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
 
-	printf ("impl_GNOME_Evolution_Addressbook_Book_getCardList\n");
+	printf ("impl_GNOME_Evolution_Addressbook_Book_getContactList\n");
 
-	pas_backend_get_card_list (pas_book_get_backend (book), book, query);
+	pas_backend_get_contact_list (pas_book_get_backend (book), book, query);
 }
 
 static void
@@ -85,19 +85,19 @@ impl_GNOME_Evolution_Addressbook_Book_authenticateUser (PortableServer_Servant s
 }
 
 static void
-impl_GNOME_Evolution_Addressbook_Book_addCard (PortableServer_Servant servant,
-					       const CORBA_char *vcard,
-					       CORBA_Environment *ev)
+impl_GNOME_Evolution_Addressbook_Book_addContact (PortableServer_Servant servant,
+						  const CORBA_char *vcard,
+						  CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
 
-	pas_backend_create_card (pas_book_get_backend (book), book, vcard);
+	pas_backend_create_contact (pas_book_get_backend (book), book, vcard);
 }
 
 static void
-impl_GNOME_Evolution_Addressbook_Book_removeCards (PortableServer_Servant servant,
-						   const GNOME_Evolution_Addressbook_CardIdList *ids,
-						   CORBA_Environment *ev)
+impl_GNOME_Evolution_Addressbook_Book_removeContacts (PortableServer_Servant servant,
+						      const GNOME_Evolution_Addressbook_ContactIdList *ids,
+						      CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
 	int i;
@@ -106,19 +106,19 @@ impl_GNOME_Evolution_Addressbook_Book_removeCards (PortableServer_Servant servan
 	for (i = 0; i < ids->_length; i ++)
 		id_list = g_list_append (id_list, ids->_buffer[i]);
 
-	pas_backend_remove_cards (pas_book_get_backend (book), book, id_list);
+	pas_backend_remove_contacts (pas_book_get_backend (book), book, id_list);
 
 	g_list_free (id_list);
 }
 
 static void
-impl_GNOME_Evolution_Addressbook_Book_modifyCard (PortableServer_Servant servant,
-						  const CORBA_char *vcard,
-						  CORBA_Environment *ev)
+impl_GNOME_Evolution_Addressbook_Book_modifyContact (PortableServer_Servant servant,
+						     const CORBA_char *vcard,
+						     CORBA_Environment *ev)
 {
 	PASBook *book = PAS_BOOK (bonobo_object (servant));
 
-	pas_backend_modify_card (pas_book_get_backend (book), book, vcard);
+	pas_backend_modify_contact (pas_book_get_backend (book), book, vcard);
 }
 
 static void
@@ -320,7 +320,7 @@ pas_book_respond_create (PASBook                                *book,
 		g_object_unref (views);
 	}
 
-	GNOME_Evolution_Addressbook_BookListener_notifyCardCreated (
+	GNOME_Evolution_Addressbook_BookListener_notifyContactCreated (
 		book->priv->listener, status, (char *)id, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
@@ -332,12 +332,12 @@ pas_book_respond_create (PASBook                                *book,
 }
 
 /**
- * pas_book_respond_remove_cards:
+ * pas_book_respond_remove_contacts:
  */
 void
-pas_book_respond_remove_cards (PASBook                                *book,
-			       GNOME_Evolution_Addressbook_CallStatus  status,
-			       GList                                  *ids)
+pas_book_respond_remove_contacts (PASBook                                *book,
+				  GNOME_Evolution_Addressbook_CallStatus  status,
+				  GList                                  *ids)
 {
 	CORBA_Environment ev;
 	GList *i;
@@ -367,7 +367,7 @@ pas_book_respond_remove_cards (PASBook                                *book,
 		g_object_unref (views);
 	}
 
-	GNOME_Evolution_Addressbook_BookListener_notifyCardsRemoved (
+	GNOME_Evolution_Addressbook_BookListener_notifyContactsRemoved (
 		book->priv->listener, status, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
@@ -427,7 +427,7 @@ pas_book_respond_modify (PASBook                                *book,
 		g_object_unref (views);
 	}
 
-	GNOME_Evolution_Addressbook_BookListener_notifyCardModified (
+	GNOME_Evolution_Addressbook_BookListener_notifyContactModified (
 		book->priv->listener, status, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
@@ -589,35 +589,35 @@ pas_book_respond_get_book_view (PASBook                           *book,
 }
 
 /**
- * pas_book_respond_get_vcard:
+ * pas_book_respond_get_contact:
  */
 void
-pas_book_respond_get_vcard (PASBook                           *book,
-			    GNOME_Evolution_Addressbook_CallStatus  status,
-			    char                              *vcard)
+pas_book_respond_get_contact (PASBook                           *book,
+			      GNOME_Evolution_Addressbook_CallStatus  status,
+			      char                              *vcard)
 {
 	CORBA_Environment ev;
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Addressbook_BookListener_notifyCardRequested (book->priv->listener,
-								      status,
-								      vcard,
-								      &ev);
+	GNOME_Evolution_Addressbook_BookListener_notifyContactRequested (book->priv->listener,
+									 status,
+									 vcard,
+									 &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION)
-		g_message ("could not notify listener of get-vcard response");
+		g_message ("could not notify listener of get-contact response");
 
 	CORBA_exception_free (&ev);
 }
 
 /**
- * pas_book_respond_get_card_list:
+ * pas_book_respond_get_contact_list:
  */
 void
-pas_book_respond_get_card_list (PASBook                           *book,
-				GNOME_Evolution_Addressbook_CallStatus  status,
-				GList                             *card_list)
+pas_book_respond_get_contact_list (PASBook                           *book,
+				   GNOME_Evolution_Addressbook_CallStatus  status,
+				   GList                             *card_list)
 {
 	CORBA_Environment ev;
 	GNOME_Evolution_Addressbook_stringlist stringlist;
@@ -640,13 +640,13 @@ pas_book_respond_get_card_list (PASBook                           *book,
 	g_list_free (card_list);
 
 
-	GNOME_Evolution_Addressbook_BookListener_notifyCardListRequested (book->priv->listener,
-									  status,
-									  &stringlist,
-									  &ev);
+	GNOME_Evolution_Addressbook_BookListener_notifyContactListRequested (book->priv->listener,
+									     status,
+									     &stringlist,
+									     &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION)
-		g_message ("could not notify listener of get-card-list response");
+		g_message ("could not notify listener of get-contact-list response");
 
 	CORBA_exception_free (&ev);
 
@@ -679,13 +679,13 @@ pas_book_respond_get_changes (PASBook                                *book,
 		GNOME_Evolution_Addressbook_BookChangeItem *change = (GNOME_Evolution_Addressbook_BookChangeItem*)l->data;
 		changelist._buffer[i] = *change;
 		switch (change->_d) {
-		case GNOME_Evolution_Addressbook_CardAdded:
+		case GNOME_Evolution_Addressbook_ContactAdded:
 			changelist._buffer[i]._u.add_vcard = CORBA_string_dup (change->_u.add_vcard);
 			break;
-		case GNOME_Evolution_Addressbook_CardModified:
+		case GNOME_Evolution_Addressbook_ContactModified:
 			changelist._buffer[i]._u.mod_vcard = CORBA_string_dup (change->_u.mod_vcard);
 			break;
-		case GNOME_Evolution_Addressbook_CardDeleted:
+		case GNOME_Evolution_Addressbook_ContactDeleted:
 			changelist._buffer[i]._u.del_id = CORBA_string_dup (change->_u.del_id);
 			break;
 		}
@@ -819,12 +819,12 @@ pas_book_class_init (PASBookClass *klass)
 
 	epv->open                    = impl_GNOME_Evolution_Addressbook_Book_open;
 	epv->remove                  = impl_GNOME_Evolution_Addressbook_Book_remove;
-	epv->getVCard                = impl_GNOME_Evolution_Addressbook_Book_getVCard;
-	epv->getCardList             = impl_GNOME_Evolution_Addressbook_Book_getCardList;
+	epv->getContact              = impl_GNOME_Evolution_Addressbook_Book_getContact;
+	epv->getContactList          = impl_GNOME_Evolution_Addressbook_Book_getContactList;
 	epv->authenticateUser        = impl_GNOME_Evolution_Addressbook_Book_authenticateUser;
-	epv->addCard                 = impl_GNOME_Evolution_Addressbook_Book_addCard;
-	epv->removeCards             = impl_GNOME_Evolution_Addressbook_Book_removeCards;
-	epv->modifyCard              = impl_GNOME_Evolution_Addressbook_Book_modifyCard;
+	epv->addContact              = impl_GNOME_Evolution_Addressbook_Book_addContact;
+	epv->removeContacts          = impl_GNOME_Evolution_Addressbook_Book_removeContacts;
+	epv->modifyContact           = impl_GNOME_Evolution_Addressbook_Book_modifyContact;
 	epv->getStaticCapabilities   = impl_GNOME_Evolution_Addressbook_Book_getStaticCapabilities;
 	epv->getSupportedFields      = impl_GNOME_Evolution_Addressbook_Book_getSupportedFields;
 	epv->getSupportedAuthMethods = impl_GNOME_Evolution_Addressbook_Book_getSupportedAuthMethods;

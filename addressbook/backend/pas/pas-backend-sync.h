@@ -31,16 +31,16 @@ struct _PASBackendSyncClass {
 
 	/* Virtual methods */
 	PASBackendSyncStatus (*remove_sync) (PASBackendSync *backend, PASBook *book);
-	PASBackendSyncStatus (*create_card_sync)  (PASBackendSync *backend, PASBook *book,
-						   const char *vcard, char **id);
-	PASBackendSyncStatus (*remove_cards_sync) (PASBackendSync *backend, PASBook *book,
-						   GList *id_list, GList **removed_ids);
-	PASBackendSyncStatus (*modify_card_sync)  (PASBackendSync *backend, PASBook *book,
-						   const char *vcard, char **old_vcard);
-	PASBackendSyncStatus (*get_vcard_sync) (PASBackendSync *backend, PASBook *book,
-						const char *id, char **vcard);
-	PASBackendSyncStatus (*get_card_list_sync) (PASBackendSync *backend, PASBook *book,
-						    const char *query, GList **cards);
+	PASBackendSyncStatus (*create_contact_sync)  (PASBackendSync *backend, PASBook *book,
+						      const char *vcard, char **id);
+	PASBackendSyncStatus (*remove_contacts_sync) (PASBackendSync *backend, PASBook *book,
+						      GList *id_list, GList **removed_ids);
+	PASBackendSyncStatus (*modify_contact_sync)  (PASBackendSync *backend, PASBook *book,
+						      const char *vcard, char **old_vcard);
+	PASBackendSyncStatus (*get_contact_sync) (PASBackendSync *backend, PASBook *book,
+						  const char *id, char **vcard);
+	PASBackendSyncStatus (*get_contact_list_sync) (PASBackendSync *backend, PASBook *book,
+						       const char *query, GList **contacts);
 	PASBackendSyncStatus (*get_changes_sync) (PASBackendSync *backend, PASBook *book,
 						  const char *change_id, GList **changes);
 	PASBackendSyncStatus (*authenticate_user_sync) (PASBackendSync *backend, PASBook *book,
@@ -68,11 +68,11 @@ gboolean    pas_backend_sync_construct                (PASBackendSync           
 GType       pas_backend_sync_get_type                 (void);
 
 PASBackendSyncStatus pas_backend_sync_remove  (PASBackendSync *backend, PASBook *book);
-PASBackendSyncStatus pas_backend_sync_create_card  (PASBackendSync *backend, PASBook *book, const char *vcard, char **id);
-PASBackendSyncStatus pas_backend_sync_remove_cards (PASBackendSync *backend, PASBook *book, GList *id_list, GList **removed_ids);
-PASBackendSyncStatus pas_backend_sync_modify_card  (PASBackendSync *backend, PASBook *book, const char *vcard, char **old_vcard);
-PASBackendSyncStatus pas_backend_sync_get_vcard (PASBackendSync *backend, PASBook *book, const char *id, char **vcard);
-PASBackendSyncStatus pas_backend_sync_get_card_list (PASBackendSync *backend, PASBook *book, const char *query, GList **cards);
+PASBackendSyncStatus pas_backend_sync_create_contact  (PASBackendSync *backend, PASBook *book, const char *vcard, char **id);
+PASBackendSyncStatus pas_backend_sync_remove_contacts (PASBackendSync *backend, PASBook *book, GList *id_list, GList **removed_ids);
+PASBackendSyncStatus pas_backend_sync_modify_contact  (PASBackendSync *backend, PASBook *book, const char *vcard, char **old_vcard);
+PASBackendSyncStatus pas_backend_sync_get_contact (PASBackendSync *backend, PASBook *book, const char *id, char **vcard);
+PASBackendSyncStatus pas_backend_sync_get_contact_list (PASBackendSync *backend, PASBook *book, const char *query, GList **contacts);
 PASBackendSyncStatus pas_backend_sync_get_changes (PASBackendSync *backend, PASBook *book, const char *change_id, GList **changes);
 PASBackendSyncStatus pas_backend_sync_authenticate_user (PASBackendSync *backend, PASBook *book, const char *user, const char *passwd, const char *auth_method);
 PASBackendSyncStatus pas_backend_sync_get_supported_fields (PASBackendSync *backend, PASBook *book, GList **fields);

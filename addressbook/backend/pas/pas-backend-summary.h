@@ -56,8 +56,8 @@ gboolean           pas_backend_summary_load             (PASBackendSummary *summ
 /* returns FALSE if the save fails, TRUE if it succeeds (or isn't required due to no changes) */
 gboolean           pas_backend_summary_save              (PASBackendSummary *summary);
 
-void               pas_backend_summary_add_card          (PASBackendSummary *summary, const char *vcard);
-void               pas_backend_summary_remove_card       (PASBackendSummary *summary, const char *id);
+void               pas_backend_summary_add_contact       (PASBackendSummary *summary, const char *vcard);
+void               pas_backend_summary_remove_contact    (PASBackendSummary *summary, const char *id);
 
 void               pas_backend_summary_touch             (PASBackendSummary *summary);
 

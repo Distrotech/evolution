@@ -274,10 +274,10 @@ do_create(PASBackendVCF  *bvcf,
 }
 
 static PASBackendSyncStatus
-pas_backend_vcf_process_create_card (PASBackendSync *backend,
-				     PASBook    *book,
-				     const char *vcard,
-				     char **id_out)
+pas_backend_vcf_process_create_contact (PASBackendSync *backend,
+					PASBook    *book,
+					const char *vcard,
+					char **id_out)
 {
 	char *id;
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
@@ -291,22 +291,22 @@ pas_backend_vcf_process_create_card (PASBackendSync *backend,
 		/* XXX need a different call status for this case, i
                    think */
 		*id_out = g_strdup ("");
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 }
 
 static PASBackendSyncStatus
-pas_backend_vcf_process_remove_cards (PASBackendSync *backend,
-				      PASBook    *book,
-				      GList *id_list,
-				      GList **ids)
+pas_backend_vcf_process_remove_contacts (PASBackendSync *backend,
+					 PASBook    *book,
+					 GList *id_list,
+					 GList **ids)
 {
 	/* FIXME: make this handle bulk deletes like the file backend does */
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	char *id = id_list->data;
 
 	if (!g_hash_table_remove (bvcf->priv->contacts, id)) {
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 	else {
 		bvcf->priv->dirty = TRUE;
@@ -321,10 +321,10 @@ pas_backend_vcf_process_remove_cards (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_vcf_process_modify_card (PASBackendSync *backend,
-				     PASBook    *book,
-				     const char *vcard,
-				     char **old_vcard)
+pas_backend_vcf_process_modify_contact (PASBackendSync *backend,
+					PASBook    *book,
+					const char *vcard,
+					char **old_vcard)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	char          *old_vcard_string, *old_id;
@@ -339,7 +339,7 @@ pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 
 	if (!g_hash_table_lookup_extended (bvcf->priv->contacts, id, (gpointer)&old_id, (gpointer)&old_vcard_string)) {
 		g_free (id);
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 	else {
 		*old_vcard = g_strdup (old_vcard_string);
@@ -354,10 +354,10 @@ pas_backend_vcf_process_modify_card (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_vcf_process_get_vcard (PASBackendSync *backend,
-				   PASBook    *book,
-				   const char *id,
-				   char **vcard)
+pas_backend_vcf_process_get_contact (PASBackendSync *backend,
+				     PASBook    *book,
+				     const char *id,
+				     char **vcard)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	char *v;
@@ -369,7 +369,7 @@ pas_backend_vcf_process_get_vcard (PASBackendSync *backend,
 		return GNOME_Evolution_Addressbook_Success;
 	} else {
 		*vcard = g_strdup ("");
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 }
 
@@ -379,10 +379,10 @@ typedef struct {
 	gboolean            search_needed;
 	PASBackendCardSExp *card_sexp;
 	GList              *list;
-} GetCardListClosure;
+} GetContactListClosure;
 
 static void
-foreach_get_card_compare (char *id, char *vcard_string, GetCardListClosure *closure)
+foreach_get_contact_compare (char *id, char *vcard_string, GetContactListClosure *closure)
 {
 	if ((!closure->search_needed) || pas_backend_card_sexp_match_vcard  (closure->card_sexp, vcard_string)) {
 		closure->list = g_list_append (closure->list, g_strdup (vcard_string));
@@ -390,25 +390,25 @@ foreach_get_card_compare (char *id, char *vcard_string, GetCardListClosure *clos
 }
 
 static PASBackendSyncStatus
-pas_backend_vcf_process_get_card_list (PASBackendSync *backend,
+pas_backend_vcf_process_get_contact_list (PASBackendSync *backend,
 				       PASBook    *book,
 				       const char *query,
-				       GList **cards)
+				       GList **contacts)
 {
 	PASBackendVCF *bvcf = PAS_BACKEND_VCF (backend);
 	const char *search = query;
-	GetCardListClosure closure;
+	GetContactListClosure closure;
 
 	closure.bvcf = bvcf;
 	closure.search_needed = strcmp (search, "(contains \"x-evolution-any-field\" \"\")");
 	closure.card_sexp = pas_backend_card_sexp_new (search);
 	closure.list = NULL;
 
-	g_hash_table_foreach (bvcf->priv->contacts, (GHFunc)foreach_get_card_compare, &closure);
+	g_hash_table_foreach (bvcf->priv->contacts, (GHFunc)foreach_get_contact_compare, &closure);
 
 	g_object_unref (closure.card_sexp);
 
-	*cards = closure.list;
+	*contacts = closure.list;
 	return GNOME_Evolution_Addressbook_Success;
 }
 
@@ -610,11 +610,11 @@ pas_backend_vcf_class_init (PASBackendVCFClass *klass)
 	backend_class->start_book_view         = pas_backend_vcf_start_book_view;
 	backend_class->cancel_operation        = pas_backend_vcf_cancel_operation;
 
-	sync_class->create_card_sync           = pas_backend_vcf_process_create_card;
-	sync_class->remove_cards_sync          = pas_backend_vcf_process_remove_cards;
-	sync_class->modify_card_sync           = pas_backend_vcf_process_modify_card;
-	sync_class->get_vcard_sync             = pas_backend_vcf_process_get_vcard;
-	sync_class->get_card_list_sync         = pas_backend_vcf_process_get_card_list;
+	sync_class->create_contact_sync        = pas_backend_vcf_process_create_contact;
+	sync_class->remove_contacts_sync       = pas_backend_vcf_process_remove_contacts;
+	sync_class->modify_contact_sync        = pas_backend_vcf_process_modify_contact;
+	sync_class->get_contact_sync           = pas_backend_vcf_process_get_contact;
+	sync_class->get_contact_list_sync      = pas_backend_vcf_process_get_contact_list;
 	sync_class->authenticate_user_sync     = pas_backend_vcf_process_authenticate_user;
 	sync_class->get_supported_fields_sync  = pas_backend_vcf_process_get_supported_fields;
 

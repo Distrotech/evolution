@@ -13,7 +13,6 @@
 #include <glib-object.h>
 #include <stdio.h>
 #include <ebook/e-vcard.h>
-#include <e-util/e-list.h>
 
 #define E_TYPE_CONTACT            (e_contact_get_type ())
 #define E_CONTACT(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_CONTACT, EContact))

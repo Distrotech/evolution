@@ -230,8 +230,8 @@ e_book_add_contact (EBook           *book,
 	CORBA_exception_init (&ev);
 
 	/* will eventually end up calling e_book_response_add_contact */
-	GNOME_Evolution_Addressbook_Book_addCard (book->priv->corba_book,
-						  (const GNOME_Evolution_Addressbook_VCard) vcard_str, &ev);
+	GNOME_Evolution_Addressbook_Book_addContact (book->priv->corba_book,
+						     (const GNOME_Evolution_Addressbook_VCard) vcard_str, &ev);
 
 	g_free (vcard_str);
 
@@ -242,7 +242,7 @@ e_book_add_contact (EBook           *book,
 		CORBA_exception_free (&ev);
 
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
-			     _("Corba exception making Book::addCard call"));
+			     _("Corba exception making Book::addContact call"));
 		return FALSE;
 	}
 
@@ -339,8 +339,8 @@ e_book_commit_contact (EBook           *book,
 	CORBA_exception_init (&ev);
 
 	/* will eventually end up calling _e_book_response_generic */
-	GNOME_Evolution_Addressbook_Book_modifyCard (book->priv->corba_book,
-						     (const GNOME_Evolution_Addressbook_VCard) vcard_str, &ev);
+	GNOME_Evolution_Addressbook_Book_modifyContact (book->priv->corba_book,
+							(const GNOME_Evolution_Addressbook_VCard) vcard_str, &ev);
 
 	g_free (vcard_str);
 
@@ -351,7 +351,7 @@ e_book_commit_contact (EBook           *book,
 		CORBA_exception_free (&ev);
 
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
-			     _("Corba exception making Book::modifyCard call"));
+			     _("Corba exception making Book::modifyContact call"));
 		return FALSE;
 	}
 
@@ -708,8 +708,8 @@ e_book_get_contact (EBook       *book,
 	CORBA_exception_init (&ev);
 
 	/* will eventually end up calling e_book_response_generic */
-	GNOME_Evolution_Addressbook_Book_getVCard (book->priv->corba_book,
-						   (const GNOME_Evolution_Addressbook_VCard) id, &ev);
+	GNOME_Evolution_Addressbook_Book_getContact (book->priv->corba_book,
+						     (const GNOME_Evolution_Addressbook_VCard) id, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
@@ -718,7 +718,7 @@ e_book_get_contact (EBook       *book,
 		CORBA_exception_free (&ev);
 
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
-			     _("Corba exception making Book::getVCard call"));
+			     _("Corba exception making Book::getContact call"));
 		return FALSE;
 	}
 
@@ -831,7 +831,7 @@ e_book_remove_contacts (EBook    *book,
 			GList    *ids,
 			GError  **error)
 {
-	GNOME_Evolution_Addressbook_CardIdList idlist;
+	GNOME_Evolution_Addressbook_ContactIdList idlist;
 	CORBA_Environment ev;
 	GList *iter;
 	int num_ids, i;
@@ -866,7 +866,7 @@ e_book_remove_contacts (EBook    *book,
 	CORBA_exception_init (&ev);
 
 	num_ids = g_list_length (ids);
-	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_CardId_allocbuf (num_ids);
+	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_ContactId_allocbuf (num_ids);
 	idlist._maximum = num_ids;
 	idlist._length = num_ids;
 
@@ -874,7 +874,7 @@ e_book_remove_contacts (EBook    *book,
 		idlist._buffer[i++] = CORBA_string_dup (iter->data);
 
 	/* will eventually end up calling e_book_response_generic */
-	GNOME_Evolution_Addressbook_Book_removeCards (book->priv->corba_book, &idlist, &ev);
+	GNOME_Evolution_Addressbook_Book_removeContacts (book->priv->corba_book, &idlist, &ev);
 
 	CORBA_free(idlist._buffer);
 
@@ -885,7 +885,7 @@ e_book_remove_contacts (EBook    *book,
 		CORBA_exception_free (&ev);
 
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
-			     _("Corba exception making Book::removeCards call"));
+			     _("Corba exception making Book::removeContacts call"));
 		return FALSE;
 	}
 	
@@ -1086,7 +1086,7 @@ e_book_get_contacts (EBook       *book,
 	query_string = e_book_query_to_string (query);
 
 	/* will eventually end up calling e_book_response_get_contacts */
-	GNOME_Evolution_Addressbook_Book_getCardList (book->priv->corba_book, query_string, &ev);
+	GNOME_Evolution_Addressbook_Book_getContactList (book->priv->corba_book, query_string, &ev);
 
 	g_free (query_string);
 
@@ -1099,7 +1099,7 @@ e_book_get_contacts (EBook       *book,
 		g_warning ("corba exception._major = %d\n", ev._major);
 
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
-			     _("Corba exception making Book::getCardList call"));
+			     _("Corba exception making Book::getContactList call"));
 		return FALSE;
 	}
 	
@@ -1463,20 +1463,20 @@ static void
 e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EBook *book)
 {
 	switch (resp->op) {
-	case CreateCardResponse:
+	case CreateContactResponse:
 		e_book_response_add_contact (book, resp->status, resp->id);
 		break;
-	case RemoveCardResponse:
-	case ModifyCardResponse:
+	case RemoveContactResponse:
+	case ModifyContactResponse:
 	case AuthenticationResponse:
 		e_book_response_generic (book, resp->status);
 		break;
-	case GetCardResponse: {
+	case GetContactResponse: {
 		EContact *contact = e_contact_new_from_vcard (resp->vcard);
 		e_book_response_get_contact (book, resp->status, contact);
 		break;
 	}
-	case GetCardListResponse:
+	case GetContactListResponse:
 		e_book_response_get_contacts (book, resp->status, resp->list);
 		break;
 	case GetBookViewResponse:

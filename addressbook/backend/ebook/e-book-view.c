@@ -29,9 +29,9 @@ struct _EBookViewPrivate {
 };
 
 enum {
-	CARD_CHANGED,
-	CARD_REMOVED,
-	CARD_ADDED,
+	CONTACTS_CHANGED,
+	CONTACTS_REMOVED,
+	CONTACTS_ADDED,
 	SEQUENCE_COMPLETE,
 	STATUS_MESSAGE,
 	LAST_SIGNAL
@@ -59,11 +59,11 @@ e_book_view_do_added_event (EBookView                 *book_view,
 		g_list_foreach (resp->cards, add_book_iterator, book_view->priv->book);
 #endif
 
-	g_signal_emit (book_view, e_book_view_signals [CARD_ADDED], 0,
-		       resp->cards);
+	g_signal_emit (book_view, e_book_view_signals [CONTACTS_ADDED], 0,
+		       resp->contacts);
 
-	g_list_foreach (resp->cards, (GFunc) g_object_unref, NULL);
-	g_list_free (resp->cards);
+	g_list_foreach (resp->contacts, (GFunc) g_object_unref, NULL);
+	g_list_free (resp->contacts);
 }
 
 static void
@@ -75,18 +75,18 @@ e_book_view_do_modified_event (EBookView                 *book_view,
 		g_list_foreach (resp->cards, add_book_iterator, book_view->priv->book);
 #endif
 
-	g_signal_emit (book_view, e_book_view_signals [CARD_CHANGED], 0,
-		       resp->cards);
+	g_signal_emit (book_view, e_book_view_signals [CONTACTS_CHANGED], 0,
+		       resp->contacts);
 
-	g_list_foreach (resp->cards, (GFunc) g_object_unref, NULL);
-	g_list_free (resp->cards);
+	g_list_foreach (resp->contacts, (GFunc) g_object_unref, NULL);
+	g_list_free (resp->contacts);
 }
 
 static void
 e_book_view_do_removed_event (EBookView                 *book_view,
 			      EBookViewListenerResponse *resp)
 {
-	g_signal_emit (book_view, e_book_view_signals [CARD_REMOVED], 0,
+	g_signal_emit (book_view, e_book_view_signals [CONTACTS_REMOVED], 0,
 		       resp->ids);
 
 	g_list_foreach (resp->ids, (GFunc) g_free, NULL);
@@ -118,13 +118,13 @@ e_book_view_handle_response (EBookViewListener *listener, EBookViewListenerRespo
 		return;
 
 	switch (resp->op) {
-	case CardAddedEvent:
+	case ContactsAddedEvent:
 		e_book_view_do_added_event (book_view, resp);
 		break;
-	case CardModifiedEvent:
+	case ContactsModifiedEvent:
 		e_book_view_do_modified_event (book_view, resp);
 		break;
-	case CardsRemovedEvent:
+	case ContactsRemovedEvent:
 		e_book_view_do_removed_event (book_view, resp);
 		break;
 	case SequenceCompleteEvent:
@@ -285,31 +285,31 @@ e_book_view_class_init (EBookViewClass *klass)
 
 	parent_class = g_type_class_ref (G_TYPE_OBJECT);
 
-	e_book_view_signals [CARD_CHANGED] =
-		g_signal_new ("card_changed",
+	e_book_view_signals [CONTACTS_CHANGED] =
+		g_signal_new ("contacts_changed",
 			      G_OBJECT_CLASS_TYPE (object_class),
 			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EBookViewClass, card_changed),
+			      G_STRUCT_OFFSET (EBookViewClass, contacts_changed),
 			      NULL, NULL,
 			      e_book_marshal_NONE__POINTER,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_POINTER);
 
-	e_book_view_signals [CARD_ADDED] =
-		g_signal_new ("card_added",
+	e_book_view_signals [CONTACTS_ADDED] =
+		g_signal_new ("contacts_added",
 			      G_OBJECT_CLASS_TYPE (object_class),
 			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EBookViewClass, card_added),
+			      G_STRUCT_OFFSET (EBookViewClass, contacts_added),
 			      NULL, NULL,
 			      e_book_marshal_NONE__POINTER,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_POINTER);
 
-	e_book_view_signals [CARD_REMOVED] =
-		g_signal_new ("card_removed",
+	e_book_view_signals [CONTACTS_REMOVED] =
+		g_signal_new ("contacts_removed",
 			      G_OBJECT_CLASS_TYPE (object_class),
 			      G_SIGNAL_RUN_LAST,
-			      G_STRUCT_OFFSET (EBookViewClass, card_removed),
+			      G_STRUCT_OFFSET (EBookViewClass, contacts_removed),
 			      NULL, NULL,
 			      e_book_marshal_NONE__POINTER,
 			      G_TYPE_NONE, 1,

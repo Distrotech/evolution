@@ -77,7 +77,8 @@ build_summary (PASBackendFilePrivate *bfpriv)
 	db_error = db->cursor (db, NULL, &dbc, 0);
 
 	if (db_error != 0) {
-		g_warning ("pas_backend_file_build_all_cards_list: error building list\n");
+		g_warning ("build_summary: error building list\n");
+		return;
 	}
 
 	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
@@ -90,7 +91,7 @@ build_summary (PASBackendFilePrivate *bfpriv)
 		if (id_dbt.size != strlen(PAS_BACKEND_FILE_VERSION_NAME) + 1
 		    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
 
-			pas_backend_summary_add_card (bfpriv->summary, vcard_dbt.data);
+			pas_backend_summary_add_contact (bfpriv->summary, vcard_dbt.data);
 		}
 
 		db_error = dbc->c_get(dbc, &id_dbt, &vcard_dbt, DB_NEXT);
@@ -302,17 +303,17 @@ do_create(PASBackendFile  *bf,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_create_card (PASBackendSync *backend,
-			      PASBook    *book,
-			      const char *vcard,
-			      char **id_out)
+pas_backend_file_create_contact (PASBackendSync *backend,
+				 PASBook    *book,
+				 const char *vcard,
+				 char **id_out)
 {
 	char *id;
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 
 	id = do_create(bf, vcard);
 	if (id) {
-		pas_backend_summary_add_card (bf->priv->summary, vcard);
+		pas_backend_summary_add_contact (bf->priv->summary, vcard);
 
 		*id_out = id;
 		return GNOME_Evolution_Addressbook_Success;
@@ -321,15 +322,15 @@ pas_backend_file_create_card (PASBackendSync *backend,
 		/* XXX need a different call status for this case, i
                    think */
 		*id_out = g_strdup ("");
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 }
 
 static PASBackendSyncStatus
-pas_backend_file_remove_cards (PASBackendSync *backend,
-			       PASBook    *book,
-			       GList *id_list,
-			       GList **ids)
+pas_backend_file_remove_contacts (PASBackendSync *backend,
+				  PASBook    *book,
+				  GList *id_list,
+				  GList **ids)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
@@ -348,13 +349,13 @@ pas_backend_file_remove_cards (PASBackendSync *backend,
 
 		db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
 		if (0 != db_error) {
-			rv = GNOME_Evolution_Addressbook_CardNotFound;
+			rv = GNOME_Evolution_Addressbook_ContactNotFound;
 			continue;
 		}
 	
 		db_error = db->del (db, NULL, &id_dbt, 0);
 		if (0 != db_error) {
-			rv = GNOME_Evolution_Addressbook_CardNotFound;
+			rv = GNOME_Evolution_Addressbook_ContactNotFound;
 			continue;
 		}
 
@@ -372,7 +373,7 @@ pas_backend_file_remove_cards (PASBackendSync *backend,
 
 	for (l = removed_cards; l; l = l->next) {
 		char *id = l->data;
-		pas_backend_summary_remove_card (bf->priv->summary, id);
+		pas_backend_summary_remove_contact (bf->priv->summary, id);
 	}
 
 	g_list_free (removed_cards);
@@ -381,10 +382,10 @@ pas_backend_file_remove_cards (PASBackendSync *backend,
 }
 
 static PASBackendSyncStatus
-pas_backend_file_modify_card (PASBackendSync *backend,
-			      PASBook    *book,
-			      const char *vcard,
-			      char **old_vcard)
+pas_backend_file_modify_contact (PASBackendSync *backend,
+				 PASBook    *book,
+				 const char *vcard,
+				 char **old_vcard)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
@@ -415,7 +416,7 @@ pas_backend_file_modify_card (PASBackendSync *backend,
 	/* get the old ecard - the one that's presently in the db */
 	db_error = db->get (db, NULL, &id_dbt, &vcard_dbt, 0);
 	if (0 != db_error)
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 
 	*old_vcard = g_strdup(vcard_dbt.data);
 
@@ -428,8 +429,8 @@ pas_backend_file_modify_card (PASBackendSync *backend,
 		if (db_error != 0)
 			g_warning ("db->sync failed.\n");
 
-		pas_backend_summary_remove_card (bf->priv->summary, id);
-		pas_backend_summary_add_card (bf->priv->summary, vcard);
+		pas_backend_summary_remove_contact (bf->priv->summary, id);
+		pas_backend_summary_add_contact (bf->priv->summary, vcard);
 	}
 
 	g_object_unref(contact);
@@ -437,14 +438,14 @@ pas_backend_file_modify_card (PASBackendSync *backend,
 	if (0 == db_error)
 		return GNOME_Evolution_Addressbook_Success;
 	else
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 }
 
 static PASBackendSyncStatus
-pas_backend_file_get_vcard (PASBackendSync *backend,
-			    PASBook    *book,
-			    const char *id,
-			    char **vcard)
+pas_backend_file_get_contact (PASBackendSync *backend,
+			      PASBook    *book,
+			      const char *id,
+			      char **vcard)
 {
 	PASBackendFile *bf;
 	DB             *db;
@@ -464,15 +465,15 @@ pas_backend_file_get_vcard (PASBackendSync *backend,
 		return GNOME_Evolution_Addressbook_Success;
 	} else {
 		*vcard = g_strdup ("");
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 }
 
 static PASBackendSyncStatus
-pas_backend_file_get_card_list (PASBackendSync *backend,
-				PASBook    *book,
-				const char *query,
-				GList **cards)
+pas_backend_file_get_contact_list (PASBackendSync *backend,
+				   PASBook    *book,
+				   const char *query,
+				   GList **contacts)
 {
 	PASBackendFile *bf = PAS_BACKEND_FILE (backend);
 	DB             *db = bf->priv->file_db;
@@ -482,9 +483,9 @@ pas_backend_file_get_card_list (PASBackendSync *backend,
 	PASBackendCardSExp *card_sexp = NULL;
 	gboolean search_needed;
 	const char *search = query;
-	GList *card_list = NULL;
+	GList *contact_list = NULL;
 
-	printf ("pas_backend_file_get_card_list (%s)\n", search);
+	printf ("pas_backend_file_get_contact_list (%s)\n", search);
 
 	search_needed = TRUE;
 
@@ -494,14 +495,14 @@ pas_backend_file_get_card_list (PASBackendSync *backend,
 	card_sexp = pas_backend_card_sexp_new (search);
 	if (!card_sexp) {
 		/* XXX this needs to be an invalid query error of some sort*/
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 
 	db_error = db->cursor (db, NULL, &dbc, 0);
 
 	if (db_error != 0) {
 		/* XXX this needs to be some CouldNotOpen error */
-		return GNOME_Evolution_Addressbook_CardNotFound;
+		return GNOME_Evolution_Addressbook_ContactNotFound;
 	}
 
 	memset (&vcard_dbt, 0, sizeof (vcard_dbt));
@@ -515,7 +516,7 @@ pas_backend_file_get_card_list (PASBackendSync *backend,
 		    || strcmp (id_dbt.data, PAS_BACKEND_FILE_VERSION_NAME)) {
 
 			if ((!search_needed) || (card_sexp != NULL && pas_backend_card_sexp_match_vcard  (card_sexp, vcard_dbt.data))) {
-				card_list = g_list_append (card_list, g_strdup (vcard_dbt.data));
+				contact_list = g_list_append (contact_list, g_strdup (vcard_dbt.data));
 			}
 		}
 
@@ -523,7 +524,7 @@ pas_backend_file_get_card_list (PASBackendSync *backend,
 
 	}
 
-	*cards = card_list;
+	*contacts = contact_list;
 	return db_error != DB_NOTFOUND
 		? GNOME_Evolution_Addressbook_OtherError
 		: GNOME_Evolution_Addressbook_Success;
@@ -1138,11 +1139,11 @@ pas_backend_file_class_init (PASBackendFileClass *klass)
 	backend_class->cancel_operation        = pas_backend_file_cancel_operation;
 
 	sync_class->remove_sync                = pas_backend_file_remove;
-	sync_class->create_card_sync           = pas_backend_file_create_card;
-	sync_class->remove_cards_sync          = pas_backend_file_remove_cards;
-	sync_class->modify_card_sync           = pas_backend_file_modify_card;
-	sync_class->get_vcard_sync             = pas_backend_file_get_vcard;
-	sync_class->get_card_list_sync         = pas_backend_file_get_card_list;
+	sync_class->create_contact_sync        = pas_backend_file_create_contact;
+	sync_class->remove_contacts_sync       = pas_backend_file_remove_contacts;
+	sync_class->modify_contact_sync        = pas_backend_file_modify_contact;
+	sync_class->get_contact_sync           = pas_backend_file_get_contact;
+	sync_class->get_contact_list_sync      = pas_backend_file_get_contact_list;
 	sync_class->get_changes_sync           = pas_backend_file_get_changes;
 	sync_class->authenticate_user_sync     = pas_backend_file_authenticate_user;
 	sync_class->get_supported_fields_sync  = pas_backend_file_get_supported_fields;

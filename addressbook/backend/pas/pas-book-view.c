@@ -52,7 +52,7 @@ send_pending_adds (PASBookView *book_view)
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Addressbook_BookViewListener_notifyCardAdded (
+	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsAdded (
 		book_view->priv->listener, &card_sequence, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
@@ -91,7 +91,7 @@ pas_book_view_notify_change (PASBookView                *book_view,
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Addressbook_BookViewListener_notifyCardChanged (
+	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsChanged (
 		book_view->priv->listener, &card_sequence, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
@@ -119,7 +119,7 @@ void
 pas_book_view_notify_remove (PASBookView  *book_view,
 			     const GList  *ids)
 {
-	GNOME_Evolution_Addressbook_CardIdList idlist;
+	GNOME_Evolution_Addressbook_ContactIdList idlist;
 	CORBA_Environment ev;
 	const GList *l;
 	int num_ids, i;
@@ -128,7 +128,7 @@ pas_book_view_notify_remove (PASBookView  *book_view,
 		send_pending_adds (book_view);
 
 	num_ids = g_list_length ((GList*)ids);
-	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_CardId_allocbuf (num_ids);
+	idlist._buffer = CORBA_sequence_GNOME_Evolution_Addressbook_ContactId_allocbuf (num_ids);
 	idlist._maximum = num_ids;
 	idlist._length = num_ids;
 
@@ -137,7 +137,7 @@ pas_book_view_notify_remove (PASBookView  *book_view,
 
 	CORBA_exception_init (&ev);
 
-	GNOME_Evolution_Addressbook_BookViewListener_notifyCardsRemoved (
+	GNOME_Evolution_Addressbook_BookViewListener_notifyContactsRemoved (
 		book_view->priv->listener, &idlist, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {

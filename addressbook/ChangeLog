@@ -1,3 +1,174 @@
+2003-08-29  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-backend-ldap.c (ldap_error_to_response):
+	s/card/contact.
+	(pas_backend_ldap_process_create_contact): same.
+	(remove_contact_handler): same.
+	(remove_contact_dtor): same.
+	(pas_backend_ldap_process_remove_contacts): same.
+	(modify_contact_modify_handler): same.
+	(modify_contact_dtor): same.
+	(pas_backend_ldap_process_modify_contact): same.
+	(get_contact_handler): same.
+	(get_contact_dtor): same.
+	(pas_backend_ldap_process_get_contact): same.
+	(pas_backend_ldap_class_init): same.
+
+	* backend/pas/pas-backend-summary.c
+	(pas_backend_summary_add_contact): s/card/contact, and mostly
+	switch from ECard{Simple} to EContact.
+	(pas_backend_summary_get_summary_vcard): same.
+	(pas_backend_summary_remove_contact): s/card/contact
+
+	* backend/pas/pas-backend-summary.h: s/card/contact.
+
+	* backend/pas/pas-backend-file.c (build_summary): fix g_warning,
+	and return immediately if the db->cursor call fails.
+	(pas_backend_file_create_contact): s/card/contact
+	(pas_backend_file_remove_contacts): same.
+	(pas_backend_file_modify_contact): same.
+	(pas_backend_file_get_contact): same.
+	(pas_backend_file_get_contact_list): same.
+	(pas_backend_file_class_init): same.
+
+	* backend/pas/pas-backend-vcf.c
+	(pas_backend_vcf_process_create_contact): s/card/contact.
+	(pas_backend_vcf_process_remove_contacts): same.
+	(pas_backend_vcf_process_modify_contact): same.
+	(pas_backend_vcf_process_get_contact): same.
+	(pas_backend_vcf_process_get_contact_list): same.
+	(pas_backend_vcf_class_init): same.
+
+	* backend/pas/pas-backend-sync.c (pas_backend_sync_create_contact): s/card/contact.
+	(pas_backend_sync_remove_contacts): same.
+	(pas_backend_sync_modify_contact): same.
+	(pas_backend_sync_get_contact): same.
+	(pas_backend_sync_get_contact_list): same.
+	(_pas_backend_create_contact): same.
+	(_pas_backend_remove_contacts): same.
+	(_pas_backend_modify_contact): same.
+	(_pas_backend_get_contact): same.
+	(_pas_backend_get_contact_list): same.
+	(pas_backend_sync_class_init): same.
+
+	* backend/pas/pas-backend-sync.h: s/card/contact.
+
+	* backend/pas/pas-backend.c (pas_backend_create_contact): s/card/contact.
+	(pas_backend_remove_contacts): same.
+	(pas_backend_modify_contact): same.
+	(pas_backend_get_contact): same.
+	(pas_backend_get_contact_list): same.
+	(pas_backend_change_add_new): same.
+	(pas_backend_change_modify_new): same.
+	(pas_backend_change_delete_new): same.
+
+	* backend/pas/pas-backend.h: s/card/contact.
+
+	* backend/pas/pas-book-view.c (send_pending_adds): s/card/contact
+	(pas_book_view_notify_change): same.
+	(pas_book_view_notify_remove): same.
+
+	* backend/pas/pas-book.c
+	(impl_GNOME_Evolution_Addressbook_Book_getContact): s/card/contact
+	(impl_GNOME_Evolution_Addressbook_Book_getContactList): same.
+	(impl_GNOME_Evolution_Addressbook_Book_addContact): same.
+	(impl_GNOME_Evolution_Addressbook_Book_removeContacts): same.
+	(impl_GNOME_Evolution_Addressbook_Book_modifyContact): same.
+	(pas_book_respond_create): same.
+	(pas_book_respond_remove_contacts): same.
+	(pas_book_respond_modify): same.
+	(pas_book_respond_get_contact): same.
+	(pas_book_respond_get_contact_list): same.
+	(pas_book_respond_get_changes): same.
+	(pas_book_class_init): same.
+
+	* backend/pas/pas-book.h: s/card/contact
+
+	* backend/ebook/tests/vcard/dump-vcard.c: #include
+	"ebook/e-vcard.h"
+
+	* backend/ebook/tests/vcard/Makefile.am (TEST_LIBS): use
+	top_builddir.
+	(CFLAGS): same.
+
+	* backend/ebook/tests/ebook/Makefile.am (TEST_LIBS): use
+	top_builddir.
+	(CFLAGS): use srcdir
+
+	* backend/ebook/test-card.c, backend/ebook/test-client-list.c,
+	backend/ebook/test-client.c, backend/ebook/test-ebook.c: remove.
+	
+	* backend/ebook/e-card-cursor.[ch]: remove.
+
+	* backend/ebook/e-card-pairs.h: remove.
+	
+	* backend/ebook/e-book.c (e_book_add_contact): s/Card/Contact.
+	(e_book_commit_contact): same
+	(e_book_get_contact): same.
+	(e_book_remove_contacts): same.
+	(e_book_get_contacts): same.
+	(e_book_handle_response): same.
+
+	* backend/ebook/e-book-view.c (e_book_view_do_added_event):
+	s/card/contact
+	(e_book_view_do_modified_event): same.
+	(e_book_view_do_removed_event): same.
+	(e_book_view_handle_response): same.
+	(e_book_view_class_init): same.
+
+	* backend/ebook/e-book-view.h: s/card/contact and pad the class
+	struct.
+
+	* backend/ebook/e-book-view-listener.c
+	(e_book_view_listener_queue_response): s/Card/Contact.
+	(e_book_view_listener_queue_status_event): no need to assign
+	things to NULL, we g_new0.
+	(e_book_view_listener_queue_idlist_event): s/Card/Contact, and no
+	need to assign things to NULL, we g_new0.
+	(e_book_view_listener_queue_sequence_event): same.
+	(e_book_view_listener_queue_message_event): same.
+	(impl_BookViewListener_notify_contacts_added): s/Card/Contact.
+	(impl_BookViewListener_notify_contacts_removed): same.
+	(impl_BookViewListener_notify_contacts_changed): same.
+	(e_book_view_listener_class_init): same.
+
+	* backend/ebook/e-book-view-listener.h: s/Card/Contact
+
+	* backend/ebook/e-book-types.h: s/CARD/CONTACT
+
+	* backend/ebook/e-book-listener.c
+	(e_book_listener_convert_status): s/Card/Contact
+	(impl_BookListener_respond_create_contact): same.
+	(impl_BookListener_respond_remove_contacts): same.
+	(impl_BookListener_respond_modify_contact): same.
+	(impl_BookListener_respond_get_contact): same.
+	(impl_BookListener_respond_get_contact_list): same.
+	(impl_BookListener_respond_get_changes): same.
+	(e_book_listener_class_init): same.
+
+	* backend/ebook/e-book-listener.h: pad the class struct, and
+	s/Card/Contact.
+
+	* backend/ebook/e-book-async.c (_load_uri_handler): GError
+	changes.
+	(_get_fields_handler): same.
+	(_get_methods_handler): same.
+	(_auth_user_handler): same.
+	(_get_card_handler): same.
+	(_remove_cards_handler): same.
+	(_add_vcard_handler): same.
+	(_commit_vcard_handler): same.
+	(_get_book_view_handler): same.
+	(e_book_async_get_book_view): use an EBookQuery instead of a char*.
+
+	* backend/ebook/Makefile.am: remove the test handling.
+	(SUBDIRS): set to ". tests"
+	(libebook_la_SOURCES): add e-book-async.c
+
+	* backend/idl/addressbook.idl: possibly gratuitous renaming, but i
+	was sick of seeing "Card" being used everywhere.  "Contact" is the
+	new "Card".
+
 2003-08-28  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-book.c (e_book_op_free): rename from

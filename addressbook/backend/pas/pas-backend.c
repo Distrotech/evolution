@@ -114,73 +114,73 @@ pas_backend_remove (PASBackend *backend,
 }
 
 void
-pas_backend_create_card (PASBackend *backend,
-			 PASBook    *book,
-			 const char *vcard)
+pas_backend_create_contact (PASBackend *backend,
+			    PASBook    *book,
+			    const char *vcard)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
 	g_return_if_fail (vcard);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->create_card);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->create_contact);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->create_card) (backend, book, vcard);
+	(* PAS_BACKEND_GET_CLASS (backend)->create_contact) (backend, book, vcard);
 }
 
 void
-pas_backend_remove_cards (PASBackend *backend,
-			  PASBook *book,
-			  GList *id_list)
+pas_backend_remove_contacts (PASBackend *backend,
+			     PASBook *book,
+			     GList *id_list)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
 	g_return_if_fail (id_list);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->remove_cards);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->remove_contacts);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->remove_cards) (backend, book, id_list);
+	(* PAS_BACKEND_GET_CLASS (backend)->remove_contacts) (backend, book, id_list);
 }
 
 void
-pas_backend_modify_card (PASBackend *backend,
-			 PASBook *book,
-			 const char *vcard)
+pas_backend_modify_contact (PASBackend *backend,
+			    PASBook *book,
+			    const char *vcard)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
 	g_return_if_fail (vcard);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->modify_card);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->modify_contact);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->modify_card) (backend, book, vcard);
+	(* PAS_BACKEND_GET_CLASS (backend)->modify_contact) (backend, book, vcard);
 }
 
 void
-pas_backend_get_vcard (PASBackend *backend,
-		       PASBook *book,
-		       const char *id)
+pas_backend_get_contact (PASBackend *backend,
+			 PASBook *book,
+			 const char *id)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
 	g_return_if_fail (id);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_vcard);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_contact);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_vcard) (backend, book, id);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_contact) (backend, book, id);
 }
 
 void
-pas_backend_get_card_list (PASBackend *backend,
-			   PASBook *book,
-			   const char *query)
+pas_backend_get_contact_list (PASBackend *backend,
+			      PASBook *book,
+			      const char *query)
 {
 	g_return_if_fail (backend && PAS_IS_BACKEND (backend));
 	g_return_if_fail (book && PAS_IS_BOOK (book));
 	g_return_if_fail (query);
 
-	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_card_list);
+	g_assert (PAS_BACKEND_GET_CLASS (backend)->get_contact_list);
 
-	(* PAS_BACKEND_GET_CLASS (backend)->get_card_list) (backend, book, query);
+	(* PAS_BACKEND_GET_CLASS (backend)->get_contact_list) (backend, book, query);
 }
 
 void
@@ -420,7 +420,7 @@ pas_backend_change_add_new     (const char *vcard)
 {
 	GNOME_Evolution_Addressbook_BookChangeItem* new_change = GNOME_Evolution_Addressbook_BookChangeItem__alloc();
 
-	new_change->_d = GNOME_Evolution_Addressbook_CardAdded;
+	new_change->_d = GNOME_Evolution_Addressbook_ContactAdded;
 	new_change->_u.add_vcard = CORBA_string_dup (vcard);
 
 	return new_change;
@@ -431,7 +431,7 @@ pas_backend_change_modify_new  (const char *vcard)
 {
 	GNOME_Evolution_Addressbook_BookChangeItem* new_change = GNOME_Evolution_Addressbook_BookChangeItem__alloc();
 
-	new_change->_d = GNOME_Evolution_Addressbook_CardModified;
+	new_change->_d = GNOME_Evolution_Addressbook_ContactModified;
 	new_change->_u.mod_vcard = CORBA_string_dup (vcard);
 
 	return new_change;
@@ -442,7 +442,7 @@ pas_backend_change_delete_new  (const char *id)
 {
 	GNOME_Evolution_Addressbook_BookChangeItem* new_change = GNOME_Evolution_Addressbook_BookChangeItem__alloc();
 
-	new_change->_d = GNOME_Evolution_Addressbook_CardDeleted;
+	new_change->_d = GNOME_Evolution_Addressbook_ContactDeleted;
 	new_change->_u.del_id = CORBA_string_dup (id);
 
 	return new_change;

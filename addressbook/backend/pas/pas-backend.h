@@ -51,11 +51,11 @@ struct _PASBackendClass {
 	void (*remove) (PASBackend *backend, PASBook *book);
         char *(*get_static_capabilities) (PASBackend *backend);
 
-	void (*create_card)  (PASBackend *backend, PASBook *book, const char *vcard);
-	void (*remove_cards) (PASBackend *backend, PASBook *book, GList *id_list);
-	void (*modify_card)  (PASBackend *backend, PASBook *book, const char *vcard);
-	void (*get_vcard) (PASBackend *backend, PASBook *book, const char *id);
-	void (*get_card_list) (PASBackend *backend, PASBook *book, const char *query);
+	void (*create_contact)  (PASBackend *backend, PASBook *book, const char *vcard);
+	void (*remove_contacts) (PASBackend *backend, PASBook *book, GList *id_list);
+	void (*modify_contact)  (PASBackend *backend, PASBook *book, const char *vcard);
+	void (*get_contact) (PASBackend *backend, PASBook *book, const char *id);
+	void (*get_contact_list) (PASBackend *backend, PASBook *book, const char *query);
 	void (*start_book_view) (PASBackend *backend, PASBookView *book_view);
 	void (*get_changes) (PASBackend *backend, PASBook *book, const char *change_id);
 	void (*authenticate_user) (PASBackend *backend, PASBook *book, const char *user, const char *passwd, const char *auth_method);
@@ -101,19 +101,19 @@ void        pas_backend_open                     (PASBackend             *backen
 						  gboolean                only_if_exists);
 void        pas_backend_remove                   (PASBackend *backend,
 						  PASBook    *book);
-void        pas_backend_create_card              (PASBackend             *backend,
+void        pas_backend_create_contact           (PASBackend             *backend,
 						  PASBook                *book,
 						  const char             *vcard);
-void        pas_backend_remove_cards             (PASBackend             *backend,
+void        pas_backend_remove_contacts          (PASBackend             *backend,
 						  PASBook                *book,
 						  GList                  *id_list);
-void        pas_backend_modify_card              (PASBackend             *backend,
+void        pas_backend_modify_contact           (PASBackend             *backend,
 						  PASBook                *book,
 						  const char             *vcard);
-void        pas_backend_get_vcard                (PASBackend             *backend,
+void        pas_backend_get_contact              (PASBackend             *backend,
 						  PASBook                *book,
 						  const char             *id);
-void        pas_backend_get_card_list            (PASBackend             *backend,
+void        pas_backend_get_contact_list         (PASBackend             *backend,
 						  PASBook                *book,
 						  const char             *query);
 void        pas_backend_get_changes              (PASBackend             *backend,

@@ -1,6 +1,6 @@
-noinst_PROGRAMS = test-ebook
-
 # CORBA stuff
+
+SUBDIRS = . tests
 
 CORBA_ADDRESSBOOK_SOURCE_H =			\
 	addressbook.h
@@ -54,6 +54,7 @@ libebook_la_SOURCES =					\
 	e-book-view.c					\
 	e-book-listener.c				\
 	e-book.c					\
+	e-book-async.c					\
 	e-contact.c					\
 	e-card.c					\
 	e-card-simple.c					\
@@ -98,15 +99,7 @@ e-book-marshal.c: e-book-marshal.h
 	&& mv e-book-marshal.c.tmp e-book-marshal.c ) \
 	|| ( rm -f e-book-marshal.c.tmp && exit 1 )
 
-test_ebook_SOURCES =					\
-	test-ebook.c
-
-test_ebook_LDADD =					\
-	libebook.la					\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
 MARSHAL_GENERATED = e-book-marshal.c e-book-marshal.h
-
 
 BUILT_SOURCES = $(CORBA_SOURCE) $(MARSHAL_GENERATED)
 CLEANFILES    = $(BUILT_SOURCES)

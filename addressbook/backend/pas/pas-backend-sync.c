@@ -23,19 +23,19 @@ pas_backend_sync_construct (PASBackendSync *backend)
 }
 
 PASBackendSyncStatus
-pas_backend_sync_create_card (PASBackendSync *backend,
-			      PASBook    *book,
-			      const char *vcard,
-			      char **id)
+pas_backend_sync_create_contact (PASBackendSync *backend,
+				 PASBook    *book,
+				 const char *vcard,
+				 char **id)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (id, GNOME_Evolution_Addressbook_OtherError);
 
-	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->create_card_sync);
+	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->create_contact_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->create_card_sync) (backend, book, vcard, id);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->create_contact_sync) (backend, book, vcard, id);
 }
 
 PASBackendSyncStatus
@@ -51,67 +51,67 @@ pas_backend_sync_remove (PASBackendSync *backend,
 }
 
 PASBackendSyncStatus
-pas_backend_sync_remove_cards (PASBackendSync *backend,
-			       PASBook *book,
-			       GList *id_list,
-			       GList **removed_ids)
+pas_backend_sync_remove_contacts (PASBackendSync *backend,
+				  PASBook *book,
+				  GList *id_list,
+				  GList **removed_ids)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (id_list, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (removed_ids, GNOME_Evolution_Addressbook_OtherError);
 
-	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync);
+	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_contacts_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_cards_sync) (backend, book, id_list, removed_ids);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->remove_contacts_sync) (backend, book, id_list, removed_ids);
 }
 
 PASBackendSyncStatus
-pas_backend_sync_modify_card (PASBackendSync *backend,
-			      PASBook *book,
-			      const char *vcard,
-			      char **old_vcard)
+pas_backend_sync_modify_contact (PASBackendSync *backend,
+				 PASBook *book,
+				 const char *vcard,
+				 char **old_vcard)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (old_vcard, GNOME_Evolution_Addressbook_OtherError);
 
-	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync);
+	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_contact_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_card_sync) (backend, book, vcard, old_vcard);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->modify_contact_sync) (backend, book, vcard, old_vcard);
 }
 
 PASBackendSyncStatus
-pas_backend_sync_get_vcard (PASBackendSync *backend,
-			    PASBook *book,
-			    const char *id,
-			    char **vcard)
+pas_backend_sync_get_contact (PASBackendSync *backend,
+			      PASBook *book,
+			      const char *id,
+			      char **vcard)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (id, GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (vcard, GNOME_Evolution_Addressbook_OtherError);
 
-	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_vcard_sync);
+	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_contact_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_vcard_sync) (backend, book, id, vcard);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_contact_sync) (backend, book, id, vcard);
 }
 
 PASBackendSyncStatus
-pas_backend_sync_get_card_list (PASBackendSync *backend,
-				PASBook *book,
-				const char *query,
-				GList **cards)
+pas_backend_sync_get_contact_list (PASBackendSync *backend,
+				   PASBook *book,
+				   const char *query,
+				   GList **contacts)
 {
 	g_return_val_if_fail (backend && PAS_IS_BACKEND_SYNC (backend), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (book && PAS_IS_BOOK (book), GNOME_Evolution_Addressbook_OtherError);
 	g_return_val_if_fail (query, GNOME_Evolution_Addressbook_OtherError);
-	g_return_val_if_fail (cards, GNOME_Evolution_Addressbook_OtherError);
+	g_return_val_if_fail (contacts, GNOME_Evolution_Addressbook_OtherError);
 
-	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_card_list_sync);
+	g_assert (PAS_BACKEND_SYNC_GET_CLASS (backend)->get_contact_list_sync);
 
-	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_card_list_sync) (backend, book, query, cards);
+	return (* PAS_BACKEND_SYNC_GET_CLASS (backend)->get_contact_list_sync) (backend, book, query, contacts);
 }
 
 PASBackendSyncStatus
@@ -186,14 +186,14 @@ _pas_backend_remove (PASBackend *backend,
 }
 
 static void
-_pas_backend_create_card (PASBackend *backend,
-			  PASBook    *book,
-			  const char *vcard)
+_pas_backend_create_contact (PASBackend *backend,
+			     PASBook    *book,
+			     const char *vcard)
 {
 	PASBackendSyncStatus status;
 	char *id;
 
-	status = pas_backend_sync_create_card (PAS_BACKEND_SYNC (backend), book, vcard, &id);
+	status = pas_backend_sync_create_contact (PAS_BACKEND_SYNC (backend), book, vcard, &id);
 
 	pas_book_respond_create (book, status, id, vcard);
 
@@ -201,57 +201,57 @@ _pas_backend_create_card (PASBackend *backend,
 }
 
 static void
-_pas_backend_remove_cards (PASBackend *backend,
-			   PASBook    *book,
-			   GList      *id_list)
+_pas_backend_remove_contacts (PASBackend *backend,
+			      PASBook    *book,
+			      GList      *id_list)
 {
 	PASBackendSyncStatus status;
 	GList *ids = NULL;
 
-	status = pas_backend_sync_remove_cards (PAS_BACKEND_SYNC (backend), book, id_list, &ids);
+	status = pas_backend_sync_remove_contacts (PAS_BACKEND_SYNC (backend), book, id_list, &ids);
 
-	pas_book_respond_remove_cards (book, status, ids);
+	pas_book_respond_remove_contacts (book, status, ids);
 }
 
 static void
-_pas_backend_modify_card (PASBackend *backend,
-			  PASBook    *book,
-			  const char *vcard)
+_pas_backend_modify_contact (PASBackend *backend,
+			     PASBook    *book,
+			     const char *vcard)
 {
 	PASBackendSyncStatus status;
 	char *old_vcard;
 
-	status = pas_backend_sync_modify_card (PAS_BACKEND_SYNC (backend), book, vcard, &old_vcard);
+	status = pas_backend_sync_modify_contact (PAS_BACKEND_SYNC (backend), book, vcard, &old_vcard);
 
 	pas_book_respond_modify (book, status, old_vcard, vcard);
 }
 
 static void
-_pas_backend_get_vcard (PASBackend *backend,
-			PASBook    *book,
-			const char *id)
+_pas_backend_get_contact (PASBackend *backend,
+			  PASBook    *book,
+			  const char *id)
 {
 	PASBackendSyncStatus status;
 	char *vcard;
 
-	status = pas_backend_sync_get_vcard (PAS_BACKEND_SYNC (backend), book, id, &vcard);
+	status = pas_backend_sync_get_contact (PAS_BACKEND_SYNC (backend), book, id, &vcard);
 
-	pas_book_respond_get_vcard (book, status, vcard);
+	pas_book_respond_get_contact (book, status, vcard);
 
 	g_free (vcard);
 }
 
 static void
-_pas_backend_get_card_list (PASBackend *backend,
-			    PASBook    *book,
-			    const char *query)
+_pas_backend_get_contact_list (PASBackend *backend,
+			       PASBook    *book,
+			       const char *query)
 {
 	PASBackendSyncStatus status;
 	GList *cards = NULL;
 
-	status = pas_backend_sync_get_card_list (PAS_BACKEND_SYNC (backend), book, query, &cards);
+	status = pas_backend_sync_get_contact_list (PAS_BACKEND_SYNC (backend), book, query, &cards);
 
-	pas_book_respond_get_card_list (book, status, cards);
+	pas_book_respond_get_contact_list (book, status, cards);
 }
 
 static void
@@ -350,11 +350,11 @@ pas_backend_sync_class_init (PASBackendSyncClass *klass)
 	object_class = (GObjectClass *) klass;
 
 	backend_class->remove = _pas_backend_remove;
-	backend_class->create_card = _pas_backend_create_card;
-	backend_class->remove_cards = _pas_backend_remove_cards;
-	backend_class->modify_card = _pas_backend_modify_card;
-	backend_class->get_vcard = _pas_backend_get_vcard;
-	backend_class->get_card_list = _pas_backend_get_card_list;
+	backend_class->create_contact = _pas_backend_create_contact;
+	backend_class->remove_contacts = _pas_backend_remove_contacts;
+	backend_class->modify_contact = _pas_backend_modify_contact;
+	backend_class->get_contact = _pas_backend_get_vcard;
+	backend_class->get_contact_list = _pas_backend_get_contact_list;
 	backend_class->get_changes = _pas_backend_get_changes;
 	backend_class->authenticate_user = _pas_backend_authenticate_user;
 	backend_class->get_supported_fields = _pas_backend_get_supported_fields;

@@ -61,9 +61,9 @@ void                    pas_book_respond_create         (PASBook                
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 const char                             *id,
 							 const char                             *vcard);
-void                    pas_book_respond_remove_cards   (PASBook                                *book,
-							 GNOME_Evolution_Addressbook_CallStatus  status,
-							 GList                                  *ids);
+void                    pas_book_respond_remove_contacts (PASBook                                *book,
+							  GNOME_Evolution_Addressbook_CallStatus  status,
+							  GList                                  *ids);
 void                    pas_book_respond_modify         (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 const char                             *old_vcard,
@@ -80,12 +80,12 @@ void                    pas_book_respond_get_supported_auth_methods (PASBook    
 void                    pas_book_respond_get_book_view  (PASBook                           *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 PASBookView                       *book_view);
-void                    pas_book_respond_get_vcard      (PASBook                           *book,
+void                    pas_book_respond_get_contact    (PASBook                           *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 char                              *vcard);
-void                    pas_book_respond_get_card_list  (PASBook                           *book,
-							 GNOME_Evolution_Addressbook_CallStatus  status,
-							 GList *cards);
+void                    pas_book_respond_get_contact_list (PASBook                           *book,
+							   GNOME_Evolution_Addressbook_CallStatus  status,
+							   GList *cards);
 void                    pas_book_respond_get_changes    (PASBook                                *book,
 							 GNOME_Evolution_Addressbook_CallStatus  status,
 							 GList                                  *changes);

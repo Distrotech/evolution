@@ -40,21 +40,30 @@ struct _EBookListenerClass {
 	BonoboObjectClass parent;
 
 	POA_GNOME_Evolution_Addressbook_BookListener__epv epv;
+
 	/*
 	 * Signals
 	 */
+
 	void (*response) (EBookListener *listener, EBookListenerResponse *response);
+
+	/* Padding for future expansion */
+	void (*_ebook_reserved0) (void);
+	void (*_ebook_reserved1) (void);
+	void (*_ebook_reserved2) (void);
+	void (*_ebook_reserved3) (void);
+	void (*_ebook_reserved4) (void);
 };
 
 typedef enum {
 	/* Async responses */
 	OpenBookResponse,
 	RemoveBookResponse,
-	CreateCardResponse,
-	RemoveCardResponse,
-	ModifyCardResponse,
-	GetCardResponse,
-	GetCardListResponse,
+	CreateContactResponse,
+	RemoveContactResponse,
+	ModifyContactResponse,
+	GetContactResponse,
+	GetContactListResponse,
 	GetBookViewResponse,
 	GetChangesResponse,
 	AuthenticationResponse,

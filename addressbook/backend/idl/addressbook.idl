@@ -12,25 +12,25 @@
 module GNOME {
 module Evolution {
 module Addressbook {
-	typedef string CardId;
+	typedef string ContactId;
 	typedef string VCard;
 	typedef sequence<VCard> VCardList;
-	typedef sequence<CardId> CardIdList;
+	typedef sequence<ContactId> ContactIdList;
 	typedef sequence<string> stringlist;
 
 	enum BookChangeType {
-		CardAdded,
-		CardModified,
-		CardDeleted
+		ContactAdded,
+		ContactModified,
+		ContactDeleted
 	};
 
 	union BookChangeItem switch (BookChangeType) {
-	case CardAdded:
+	case ContactAdded:
 		VCard add_vcard;
-	case CardModified:
+	case ContactModified:
 		VCard mod_vcard;
-	case CardDeleted:
-		CardId del_id;
+	case ContactDeleted:
+		ContactId del_id;
 	};
 
 	typedef sequence<BookChangeItem> BookChangeList;
@@ -39,8 +39,8 @@ module Addressbook {
 		Success,
 		RepositoryOffline,
 		PermissionDenied,
-		CardNotFound,
-		CardIdAlreadyExists,
+		ContactNotFound,
+		ContactIdAlreadyExists,
 		AuthenticationFailed,
 		AuthenticationRequired,
 		UnsupportedField,
@@ -64,16 +64,16 @@ module Addressbook {
 
 	/* 
 	 * A book view is a live view of a book.  It's either a view
-	 * of all the cards in the book or a view of a query.  When
-	 * created, it will get a series of signal_card_added calls
+	 * of all the contacts in the book or a view of a query.  When
+	 * created, it will get a series of notifyContactsAdded calls
 	 * for all objects in the initial set.  After that, it will
 	 * get added, removed, or changed signals whenever the book
-	 * changes (if it affects the set of viewed cards.)
+	 * changes (if it affects the set of viewed contacts.)
 	 */
 	interface BookViewListener : Bonobo::Unknown {
-		oneway void notifyCardAdded        (in VCardList cards);
-		oneway void notifyCardsRemoved     (in CardIdList ids);
-		oneway void notifyCardChanged      (in VCardList cards);
+		oneway void notifyContactsAdded    (in VCardList vcards);
+		oneway void notifyContactsRemoved  (in ContactIdList ids);
+		oneway void notifyContactsChanged  (in VCardList vcards);
 		oneway void notifySequenceComplete (in CallStatus status);
 		oneway void notifyProgress         (in string message, in short percent);
 	};
@@ -95,23 +95,23 @@ module Addressbook {
 		oneway void remove ();
 
 		/*
-		 * Fetching cards in the addresbook.
+		 * Fetching contacts in the addresbook.
 		 */
-		oneway void getVCard (in CardId id);
+		oneway void getContact (in ContactId id);
 
 		oneway void authenticateUser (in string user, in string passwd,
 					      in string authMethod);
 
 		/*
-		 * Adding and deleting cards in the book.
+		 * Adding and deleting contacts in the book.
 		 */
-		oneway void addCard    (in VCard vcard);
-		oneway void removeCards (in CardIdList Id);
+		oneway void addContact    (in VCard vcard);
+		oneway void removeContacts (in ContactIdList Id);
 	        
 		/*
-		 * Modifying cards in the addressbook.
+		 * Modifying contacts in the addressbook.
 		 */
-		oneway void modifyCard (in VCard vcard);
+		oneway void modifyContact (in VCard vcard);
 		
 		/*
 		 * These two functions return a book view to the book
@@ -123,7 +123,7 @@ module Addressbook {
 
 		oneway void getChanges  (in string change_id);
 
-		oneway void getCardList (in string query);
+		oneway void getContactList (in string query);
 
 		oneway void getSupportedFields ();
 
@@ -162,16 +162,16 @@ module Addressbook {
 
 	interface BookListener : Bonobo::Unknown {
 
-		oneway void notifyCardCreated          (in CallStatus status, in CardId Id);
-		oneway void notifyCardsRemoved         (in CallStatus status);
-		oneway void notifyCardModified         (in CallStatus status);
+		oneway void notifyContactCreated       (in CallStatus status, in ContactId Id);
+		oneway void notifyContactsRemoved      (in CallStatus status);
+		oneway void notifyContactModified      (in CallStatus status);
 		oneway void notifyProgress             (in string status_message, in short precent);
 		oneway void notifyBookOpened           (in CallStatus status);
 		oneway void notifyBookRemoved          (in CallStatus status);
 		oneway void notifyViewRequested        (in CallStatus status, in BookView view);
 		oneway void notifyChangesRequested     (in CallStatus status, in BookChangeList changes);
-		oneway void notifyCardRequested        (in CallStatus status, in VCard card);
-		oneway void notifyCardListRequested    (in CallStatus status, in stringlist cards);
+		oneway void notifyContactRequested     (in CallStatus status, in VCard vcard);
+		oneway void notifyContactListRequested (in CallStatus status, in stringlist contacts);
 		oneway void notifySupportedFields      (in CallStatus status, in stringlist fields);
 		oneway void notifyAuthenticationResult (in CallStatus status);
 		oneway void notifySupportedAuthMethods (in CallStatus status, in stringlist auth_methods);

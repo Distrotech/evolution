@@ -45,13 +45,21 @@ struct _EBookViewListenerClass {
 	 * Signals
 	 */
 	void (*response) (EBookViewListener *listener, EBookViewListenerResponse *response);
+
+
+	/* Padding for future expansion */
+	void (*_ebook_reserved0) (void);
+	void (*_ebook_reserved1) (void);
+	void (*_ebook_reserved2) (void);
+	void (*_ebook_reserved3) (void);
+	void (*_ebook_reserved4) (void);
 };
 
 typedef enum {
 	/* Async events */
-	CardAddedEvent,
-	CardsRemovedEvent,
-	CardModifiedEvent,
+	ContactsAddedEvent,
+	ContactsRemovedEvent,
+	ContactsModifiedEvent,
 	SequenceCompleteEvent,
 	StatusMessageEvent,
 } EBookViewListenerOperation;
@@ -62,11 +70,11 @@ struct _EBookViewListenerResponse {
 	/* For SequenceComplete */
 	EBookViewStatus             status;
 
-	/* For CardsRemovedEvent */
+	/* For ContactsRemovedEvent */
 	GList                  *ids;
 
-	/* For Card[Added|Modified]Event */
-	GList                  *cards; /* Of type ECard. */
+	/* For Contact[sAdded|Modified]Event */
+	GList                  *contacts; /* Of type EContact. */
 
 	/* For StatusMessageEvent */
 	char                   *message;

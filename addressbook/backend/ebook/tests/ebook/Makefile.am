@@ -1,9 +1,9 @@
 
-TESTS_LIBS=../../libebook.la
+TEST_LIBS=$(top_builddir)/addressbook/backend/ebook/libebook.la
 
-CFLAGS=-I../../.. @EVOLUTION_ADDRESSBOOK_CFLAGS@
+CFLAGS=-I$(srcdir)/../../.. @EVOLUTION_ADDRESSBOOK_CFLAGS@
 
 noinst_PROGRAMS= test-changes test-ebook
 
-test_ebook_LDFLAGS=$(TESTS_LIBS)
-test_changes_LDFLAGS=$(TESTS_LIBS)
+test_ebook_LDFLAGS=$(TEST_LIBS)
+test_changes_LDFLAGS=$(TEST_LIBS)
