@@ -22,10 +22,17 @@
 
 #include <glib.h>
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 #include "e-vcard.h"
 
 #define CRLF "\r\n"
+
+typedef enum {
+	EVC_ENCODING_RAW,    /* no encoding */
+	EVC_ENCODING_BASE64, /* base64 */
+	EVC_ENCODING_QP      /* quoted-printable */
+} EVCardEncoding;
 
 struct _EVCardPrivate {
 	GList *attributes;
@@ -36,6 +43,9 @@ struct _EVCardAttribute {
 	char  *name;
 	GList *params; /* EVCardParam */
 	GList *values;
+	GList *decoded_values;
+	EVCardEncoding encoding;
+	gboolean encoding_set;
 };
 
 struct _EVCardAttributeParam {
@@ -44,6 +54,12 @@ struct _EVCardAttributeParam {
 };
 
 static GObjectClass *parent_class;
+
+static void   _evc_base64_init(void);
+static size_t _evc_base64_decode_simple (char *data, size_t len);
+static char  *_evc_base64_encode_simple (const char *data, size_t len);
+static size_t _evc_base64_encode_step(unsigned char *in, size_t len, gboolean break_lines, unsigned char *out, int *state, int *save);
+static size_t _evc_base64_decode_step(unsigned char *in, size_t len, unsigned char *out, int *state, unsigned int *save);
 
 static void
 e_vcard_dispose (GObject *object)
@@ -73,6 +89,8 @@ e_vcard_class_init (EVCardClass *klass)
 	parent_class = g_type_class_ref (G_TYPE_OBJECT);
 
 	object_class->dispose = e_vcard_dispose;
+
+	_evc_base64_init();
 }
 
 static void
@@ -839,6 +857,33 @@ e_vcard_attribute_add_value (EVCardAttribute *attr, const char *value)
 }
 
 void
+e_vcard_attribute_add_value_decoded (EVCardAttribute *attr, const char *value, int len)
+{
+	switch (attr->encoding) {
+	case EVC_ENCODING_RAW:
+		g_warning ("can't add_value_decoded with an attribute using RAW encoding.  you must set the ENCODING parameter first");
+		break;
+	case EVC_ENCODING_BASE64: {
+		char *b64_data = _evc_base64_encode_simple (value, len);
+		GString *decoded = g_string_new_len (value, len);
+
+		/* make sure the decoded list is up to date */
+		e_vcard_attribute_get_values_decoded (attr);
+
+		printf ("base64 encoded value: %s\n", b64_data);
+		printf ("original length: %d\n", len);
+
+		attr->values = g_list_append (attr->values, b64_data);
+		attr->decoded_values = g_list_append (attr->decoded_values, decoded);
+		break;
+	}
+	case EVC_ENCODING_QP:
+		g_warning ("need to implement quoted printable decoding");
+		break;
+	}
+}
+
+void
 e_vcard_attribute_add_values (EVCardAttribute *attr,
 			      ...)
 {
@@ -898,6 +943,31 @@ e_vcard_attribute_add_param (EVCardAttribute *attr,
 			     EVCardAttributeParam *param)
 {
 	attr->params = g_list_append (attr->params, param);
+
+	/* we handle our special encoding stuff here */
+
+	if (!strcasecmp (param->name, EVC_ENCODING)) {
+		if (attr->encoding_set) {
+			g_warning ("ENCODING specified twice");
+			return;
+		}
+
+		if (param->values && param->values->data) {
+			if (!strcasecmp ((char*)param->values->data, "b"))
+				attr->encoding = EVC_ENCODING_BASE64;
+			else if (!strcasecmp ((char*)param->values->data, EVC_QUOTEDPRINTABLE))
+				attr->encoding = EVC_ENCODING_QP;
+			else {
+				g_warning ("Unknown value `%s' for ENCODING parameter.  values will be treated as raw",
+					   (char*)param->values->data);
+			}
+
+			attr->encoding_set = TRUE;
+		}
+		else {
+			g_warning ("ENCODING parameter added with no value");
+		}
+	}
 }
 
 void
@@ -975,6 +1045,33 @@ e_vcard_attribute_get_values (EVCardAttribute *attr)
 }
 
 GList*
+e_vcard_attribute_get_values_decoded (EVCardAttribute *attr)
+{
+	if (!attr->decoded_values) {
+		GList *l;
+		switch (attr->encoding) {
+		case EVC_ENCODING_RAW:
+			for (l = attr->values; l; l = l->next)
+				attr->decoded_values = g_list_append (attr->decoded_values, g_string_new ((char*)l->data));
+			break;
+		case EVC_ENCODING_BASE64:
+			for (l = attr->values; l; l = l->next) {
+				char *decoded = g_strdup ((char*)l->data);
+				int len = _evc_base64_decode_simple (decoded, strlen (decoded));
+				attr->decoded_values = g_list_append (attr->decoded_values, g_string_new_len (decoded, len));
+				g_free (decoded);
+			}
+			break;
+		case EVC_ENCODING_QP:
+			g_warning ("need to implement quoted printable decoding");
+			break;
+		}
+	}
+
+	return attr->decoded_values;
+}
+
+GList*
 e_vcard_attribute_get_params (EVCardAttribute *attr)
 {
 	return attr->params;
@@ -990,4 +1087,238 @@ GList*
 e_vcard_attribute_param_get_values (EVCardAttributeParam *param)
 {
 	return param->values;
+}
+
+
+
+/* encoding/decoding stuff ripped from camel-mime-utils.c */
+
+static char *_evc_base64_alphabet =
+"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static unsigned char _evc_base64_rank[256];
+
+static void
+_evc_base64_init(void)
+{
+	int i;
+
+	memset(_evc_base64_rank, 0xff, sizeof(_evc_base64_rank));
+	for (i=0;i<64;i++) {
+		_evc_base64_rank[(unsigned int)_evc_base64_alphabet[i]] = i;
+	}
+	_evc_base64_rank['='] = 0;
+}
+
+/* call this when finished encoding everything, to
+   flush off the last little bit */
+static size_t
+_evc_base64_encode_close(unsigned char *in, size_t inlen, gboolean break_lines, unsigned char *out, int *state, int *save)
+{
+	int c1, c2;
+	unsigned char *outptr = out;
+
+	if (inlen>0)
+		outptr += _evc_base64_encode_step(in, inlen, break_lines, outptr, state, save);
+
+	c1 = ((unsigned char *)save)[1];
+	c2 = ((unsigned char *)save)[2];
+	
+#if 0
+	d(printf("mode = %d\nc1 = %c\nc2 = %c\n",
+		 (int)((char *)save)[0],
+		 (int)((char *)save)[1],
+		 (int)((char *)save)[2]));
+#endif
+
+	switch (((char *)save)[0]) {
+	case 2:
+		outptr[2] = _evc_base64_alphabet[ ( (c2 &0x0f) << 2 ) ];
+		g_assert(outptr[2] != 0);
+		goto skip;
+	case 1:
+		outptr[2] = '=';
+	skip:
+		outptr[0] = _evc_base64_alphabet[ c1 >> 2 ];
+		outptr[1] = _evc_base64_alphabet[ c2 >> 4 | ( (c1&0x3) << 4 )];
+		outptr[3] = '=';
+		outptr += 4;
+		break;
+	}
+	if (break_lines)
+		*outptr++ = '\n';
+
+	*save = 0;
+	*state = 0;
+
+	return outptr-out;
+}
+
+/*
+  performs an 'encode step', only encodes blocks of 3 characters to the
+  output at a time, saves left-over state in state and save (initialise to
+  0 on first invocation).
+*/
+static size_t
+_evc_base64_encode_step(unsigned char *in, size_t len, gboolean break_lines, unsigned char *out, int *state, int *save)
+{
+	register unsigned char *inptr, *outptr;
+
+	if (len<=0)
+		return 0;
+
+	inptr = in;
+	outptr = out;
+
+#if 0
+	d(printf("we have %d chars, and %d saved chars\n", len, ((char *)save)[0]));
+#endif
+
+	if (len + ((char *)save)[0] > 2) {
+		unsigned char *inend = in+len-2;
+		register int c1, c2, c3;
+		register int already;
+
+		already = *state;
+
+		switch (((char *)save)[0]) {
+		case 1:	c1 = ((unsigned char *)save)[1]; goto skip1;
+		case 2:	c1 = ((unsigned char *)save)[1];
+			c2 = ((unsigned char *)save)[2]; goto skip2;
+		}
+		
+		/* yes, we jump into the loop, no i'm not going to change it, it's beautiful! */
+		while (inptr < inend) {
+			c1 = *inptr++;
+		skip1:
+			c2 = *inptr++;
+		skip2:
+			c3 = *inptr++;
+			*outptr++ = _evc_base64_alphabet[ c1 >> 2 ];
+			*outptr++ = _evc_base64_alphabet[ c2 >> 4 | ( (c1&0x3) << 4 ) ];
+			*outptr++ = _evc_base64_alphabet[ ( (c2 &0x0f) << 2 ) | (c3 >> 6) ];
+			*outptr++ = _evc_base64_alphabet[ c3 & 0x3f ];
+			/* this is a bit ugly ... */
+			if (break_lines && (++already)>=19) {
+				*outptr++='\n';
+				already = 0;
+			}
+		}
+
+		((char *)save)[0] = 0;
+		len = 2-(inptr-inend);
+		*state = already;
+	}
+
+#if 0
+	d(printf("state = %d, len = %d\n",
+		 (int)((char *)save)[0],
+		 len));
+#endif
+
+	if (len>0) {
+		register char *saveout;
+
+		/* points to the slot for the next char to save */
+		saveout = & (((char *)save)[1]) + ((char *)save)[0];
+
+		/* len can only be 0 1 or 2 */
+		switch(len) {
+		case 2:	*saveout++ = *inptr++;
+		case 1:	*saveout++ = *inptr++;
+		}
+		((char *)save)[0]+=len;
+	}
+
+#if 0
+	d(printf("mode = %d\nc1 = %c\nc2 = %c\n",
+		 (int)((char *)save)[0],
+		 (int)((char *)save)[1],
+		 (int)((char *)save)[2]));
+#endif
+
+	return outptr-out;
+}
+
+
+/**
+ * base64_decode_step: decode a chunk of base64 encoded data
+ * @in: input stream
+ * @len: max length of data to decode
+ * @out: output stream
+ * @state: holds the number of bits that are stored in @save
+ * @save: leftover bits that have not yet been decoded
+ *
+ * Decodes a chunk of base64 encoded data
+ **/
+static size_t
+_evc_base64_decode_step(unsigned char *in, size_t len, unsigned char *out, int *state, unsigned int *save)
+{
+	register unsigned char *inptr, *outptr;
+	unsigned char *inend, c;
+	register unsigned int v;
+	int i;
+
+	inend = in+len;
+	outptr = out;
+
+	/* convert 4 base64 bytes to 3 normal bytes */
+	v=*save;
+	i=*state;
+	inptr = in;
+	while (inptr<inend) {
+		c = _evc_base64_rank[*inptr++];
+		if (c != 0xff) {
+			v = (v<<6) | c;
+			i++;
+			if (i==4) {
+				*outptr++ = v>>16;
+				*outptr++ = v>>8;
+				*outptr++ = v;
+				i=0;
+			}
+		}
+	}
+
+	*save = v;
+	*state = i;
+
+	/* quick scan back for '=' on the end somewhere */
+	/* fortunately we can drop 1 output char for each trailing = (upto 2) */
+	i=2;
+	while (inptr>in && i) {
+		inptr--;
+		if (_evc_base64_rank[*inptr] != 0xff) {
+			if (*inptr == '=' && outptr>out)
+				outptr--;
+			i--;
+		}
+	}
+
+	/* if i!= 0 then there is a truncation error! */
+	return outptr-out;
+}
+
+static char *
+_evc_base64_encode_simple (const char *data, size_t len)
+{
+	unsigned char *out;
+	int state = 0, outlen;
+	unsigned int save = 0;
+	
+	out = g_malloc (len * 4 / 3 + 5);
+	outlen = _evc_base64_encode_close ((unsigned char *)data, len, FALSE,
+				      out, &state, &save);
+	out[outlen] = '\0';
+	return (char *)out;
+}
+
+static size_t
+_evc_base64_decode_simple (char *data, size_t len)
+{
+	int state = 0;
+	unsigned int save = 0;
+
+	return _evc_base64_decode_step ((unsigned char *)data, len,
+					(unsigned char *)data, &state, &save);
 }

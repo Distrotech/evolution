@@ -68,6 +68,10 @@ typedef enum {
 	/* Web fields */
 	E_CONTACT_HOMEPAGE_URL,  /* string field */
 
+	/* Photo/Logo */
+	E_CONTACT_PHOTO,       	 /* structured field (EContactPhoto) */
+	E_CONTACT_PHOTO_URI,     /* synthetic string field */
+
 	E_CONTACT_FIELD_LAST
 } EContactField;
 
@@ -78,6 +82,11 @@ typedef struct {
 	char *prefixes;
 	char *suffixes;
 } EContactName;
+
+typedef struct {
+	int length;
+	char *data;
+} EContactPhoto;
 
 struct _EContact {
 	EVCard parent;
@@ -109,6 +118,7 @@ void                    e_contact_set             (EContact *contact, EContactFi
 
 /* destructors for structured values */
 void                    e_contact_name_free       (EContactName *name);
+void                    e_contact_photo_free      (EContactPhoto *photo);
 
 
 const char*             e_contact_field_name      (EContactField field_id);

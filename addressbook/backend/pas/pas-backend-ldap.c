@@ -177,14 +177,17 @@ static void category_populate (EContact *contact, char **values);
 struct berval** category_ber (EContact *contact);
 static gboolean category_compare (EContact *contact1, EContact *contact2);
 
+static void photo_populate (EContact *contact, struct berval **ber_values);
+
 struct prop_info {
 	EContactField field_id;
 	char *query_prop;
 	char *ldap_attr;
 #define PROP_TYPE_STRING   0x01
-#define PROP_TYPE_COMPLEX     0x02
-#define PROP_DN            0x04
-#define PROP_EVOLVE        0x08
+#define PROP_TYPE_COMPLEX  0x02
+#define PROP_TYPE_BINARY   0x04
+#define PROP_DN            0x08
+#define PROP_EVOLVE        0x10
 	int prop_type;
 
 	/* the remaining items are only used for the TYPE_COMPLEX props */
@@ -196,8 +199,11 @@ struct prop_info {
 	/* used to compare list attributes */
 	gboolean (*compare_func)(EContact *contact1, EContact *contact2);
 
+	void (*binary_populate_contact_func)(EContact *contact, struct berval **ber_values);
+
 } prop_info[] = {
 
+#define BINARY_PROP(fid,q,a,ctor,ber,cmp) {fid, q, a, PROP_TYPE_BINARY, NULL, ber, cmp, ctor}
 #define COMPLEX_PROP(fid,q,a,ctor,ber,cmp) {fid, q, a, PROP_TYPE_COMPLEX, ctor, ber, cmp}
 #define E_COMPLEX_PROP(fid,q,a,ctor,ber,cmp) {fid, q, a, PROP_TYPE_COMPLEX | PROP_EVOLVE, ctor, ber, cmp}
 #define STRING_PROP(fid,q,a) {fid, q, a, PROP_TYPE_STRING}
@@ -247,6 +253,9 @@ struct prop_info {
 	STRING_PROP   (E_CONTACT_ADDRESS_HOME,     "home_address",     "homePostalAddress"),
 	E_STRING_PROP (E_CONTACT_ADDRESS_OTHER,    "other_address",    "otherPostalAddress"),
 #endif
+
+	/* photos */
+	BINARY_PROP  (E_CONTACT_PHOTO,       "photo", "jpegPhoto", photo_populate, NULL/*XXX*/, NULL/*XXX*/),
 
 	/* misc fields */
 	STRING_PROP (E_CONTACT_HOMEPAGE_URL,  "url", "labeledURI"),
@@ -2127,6 +2136,18 @@ category_compare (EContact *contact1, EContact *contact2)
 #endif
 }
 
+static void
+photo_populate (EContact *contact, struct berval **ber_values)
+{
+        if (ber_values && ber_values[0]) {
+                EContactPhoto photo;
+                photo.data = ber_values[0]->bv_val;
+                photo.length = ber_values[0]->bv_len;
+
+                e_contact_set (contact, E_CONTACT_PHOTO, &photo);
+        }
+}
+
 typedef struct {
 	GList *list;
 	PASBackendLDAP *bl;
@@ -2609,24 +2630,34 @@ build_contact_from_entry (LDAP *ldap, LDAPMessage *e, GList **existing_objectcla
 			printf ("info = %p\n", info);
 
 			if (info) {
-				values = ldap_get_values (ldap, e, attr);
+				if (info->prop_type & PROP_TYPE_BINARY) {
+					struct berval **ber_values = ldap_get_values_len (ldap, e, attr);
 
-				if (values) {
-					if (info->prop_type & PROP_TYPE_STRING) {
-						printf ("value = %s\n", values[0]);
-						/* if it's a normal property just set the string */
-						if (values[0])
-							e_contact_set (contact, info->field_id, values[0]);
+					if (ber_values) {
+						info->binary_populate_contact_func (contact, ber_values);
 
+						ldap_value_free_len (ber_values);
 					}
-					else if (info->prop_type & PROP_TYPE_COMPLEX) {
-						/* if it's a list call the contact-populate function,
-						   which calls g_object_set to set the property */
-						info->populate_contact_func(contact,
-									    values);
-					}
+				}
+				else {
+					values = ldap_get_values (ldap, e, attr);
 
-					ldap_value_free (values);
+					if (values) {
+						if (info->prop_type & PROP_TYPE_STRING) {
+							printf ("value = %s\n", values[0]);
+							/* if it's a normal property just set the string */
+							if (values[0])
+								e_contact_set (contact, info->field_id, values[0]);
+						}
+						else if (info->prop_type & PROP_TYPE_COMPLEX) {
+							/* if it's a list call the contact-populate function,
+							   which calls g_object_set to set the property */
+							info->populate_contact_func(contact,
+										    values);
+						}
+
+						ldap_value_free (values);
+					}
 				}
 			}
 		}

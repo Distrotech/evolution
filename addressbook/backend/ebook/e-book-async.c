@@ -109,7 +109,7 @@ _load_uri_handler (EBookMsg *msg)
 	e_book_msg_init ((EBookMsg*)response, _load_uri_response_handler, _load_uri_response_dtor);
 
 	response->status = E_BOOK_ERROR_OK;
-	if (!e_book_load_uri (uri_msg->book, uri_msg->uri, TRUE, &error)) {
+	if (!e_book_load_uri (uri_msg->book, uri_msg->uri, FALSE, &error)) {
 		response->status = error->code;
 		g_error_free (error);
 	}

@@ -1,3 +1,48 @@
+2003-09-06  Chris Toshok  <toshok@ximian.com>
+
+	* backend/pas/pas-backend-ldap.c (BINARY_PROP): new type of
+	property, for specifying data coming back from the ldap server
+	with both data/length (like photos).
+	(photo_populate): set the contact's photo.
+	(build_contact_from_entry): add PROP_TYPE_BINARY handling.
+
+	* backend/ebook/e-vcard.c (EVCardEncoding): new enum for use with
+	the ENCODING attribute parameter.  Right now, just "raw",
+	"base64", and "quoted-printable".
+	(struct _EVCardAttribute): add a "decoded_values" list of
+	GString*'s, as well as fields to hold encoding/encoding_set.
+	(e_vcard_class_init): call _evc_base64_init.
+	(e_vcard_attribute_add_value_decoded): based on what encoding the
+	attribute uses, add the value properly.
+	(e_vcard_attribute_add_param): if the parameter is ENCODING, work
+	our magic.
+	(e_vcard_attribute_get_values_decoded): spit out properly decoded
+	values depending on the decoding type.
+	(_evc_base64*): copy the camel base64 routines here.
+
+	* backend/ebook/e-vcard.h: add prototypes for
+	e_vcard_attribute_add_value_decoded and
+	e_vcard_attribute_get_values_decoded.
+
+	* backend/ebook/e-contact.c (e_contact_get_first_attr): move this
+	to above _set_property so we can make use of it there.
+	(e_contact_set_property): fix up the generic STRING field handler,
+	and implement E_CONTACT_PHOTO setting.
+	(e_contact_get_property): add handling for
+	E_CONTACT_PHOTO/E_CONTACT_PHOTO_URI.
+	(e_contact_photo_free): new function.
+
+	* backend/ebook/e-contact.h: add EContactPhoto struct, a prototype
+	for e_contact_photo_free, and two new EContactField elements (PHOTO and
+	PHOTO_URI).
+
+	* backend/ebook/tests/ebook/.cvsignore: ignore test-photo
+
+	* backend/ebook/tests/ebook/Makefile.am (noinst_PROGRAMS): add test-photo
+
+	* backend/ebook/tests/ebook/test-photo.c: test for the photo
+	set/get routines (which do base64 encoding/decoding).
+
 2003-09-02  Chris Toshok  <toshok@ximian.com>
 
 	* gui/component/Makefile.am: comment out a buncha stuff just to

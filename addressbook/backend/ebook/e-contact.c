@@ -96,6 +96,10 @@ static EContactFieldInfo field_info[] = {
 
 	/* Web fields */
 	STRING_FIELD (E_CONTACT_HOMEPAGE_URL, EVC_URL, "homepage_url", N_("Homepage"), NULL, FALSE),
+
+	/* Photo/Logo */
+	STRUCT_FIELD    (E_CONTACT_PHOTO,     EVC_PHOTO, "photo",      N_("Photo"),          FALSE),
+	SYNTH_STR_FIELD (E_CONTACT_PHOTO_URI,            "photo_uri",  N_("Photo URI"),              NULL, FALSE),
 };
 
 #undef STRING_FIELD
@@ -193,6 +197,28 @@ e_contact_get_type (void)
 	return contact_type;
 }
 
+static EVCardAttribute*
+e_contact_get_first_attr (EContact *contact, const char *attr_name)
+{
+	GList *attrs, *l;
+
+	attrs = e_vcard_get_attributes (E_VCARD (contact));
+
+	for (l = attrs; l; l = l->next) {
+		EVCardAttribute *attr = l->data;
+		const char *name, *group;
+
+		group = e_vcard_attribute_get_group (attr);
+		name = e_vcard_attribute_get_name (attr);
+
+		/* all the attributes we care about should be in group "" */
+		if ((!group || !*group) && !strcasecmp (name, attr_name))
+			return attr;
+	}
+
+	return NULL;
+}
+
 /* Set_arg handler for the contact */
 static void
 e_contact_set_property (GObject *object,
@@ -221,7 +247,13 @@ e_contact_set_property (GObject *object,
 		g_warning ("unknown field %d", prop_id);
 		return;
 	}
-	
+
+	if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
+		switch (info->field_id) {
+		default:
+			g_warning ("setting unhandled synthetic field 0x%02x", info->field_id);
+		}
+	}
 #if notyet
 	if (info->t & E_CONTACT_FIELD_TYPE_SYNTHETIC) {
 		switch (info->field_id) {
@@ -266,41 +298,71 @@ e_contact_set_property (GObject *object,
 			g_value_set_pointer (value, name);
 			break;
 		}
+
 		default:
 			g_warning ("unhandled structured field 0x%02x", info->field_id);
 		}		
 	}
-	else
 #endif
-		if (info->t & E_CONTACT_FIELD_TYPE_STRING) {
-			gboolean found = FALSE;
+	else if (info->t & E_CONTACT_FIELD_TYPE_STRING) {
+		EVCardAttribute *attr;
 
-			GList *attrs, *l;
-			attrs = e_vcard_get_attributes (E_VCARD (contact));
+		/* first we search for an attribute we can overwrite */
+		attr = e_contact_get_first_attr (contact, info->vcard_field_name);
+		if (attr) {
+			printf ("setting %s to `%s'\n", info->vcard_field_name, g_value_get_string (value));
+			e_vcard_attribute_remove_values (attr);
+			e_vcard_attribute_add_value (attr, g_value_get_string (value));
+		}
+		else {
+			/* and if we don't find one we create a new attribute */
+			e_vcard_add_attribute_with_value (E_VCARD (contact),
+							  e_vcard_attribute_new (NULL, info->vcard_field_name),
+							  g_value_get_string (value));
+		}
+	}
+	else if (info->t & E_CONTACT_FIELD_TYPE_STRUCT) {
+		switch (info->field_id) {
+		case E_CONTACT_PHOTO: {
+			EVCardAttribute *attr = e_contact_get_first_attr (contact, EVC_PHOTO);
+			EContactPhoto *photo = g_value_get_pointer (value);
 
 			/* first we search for an attribute we can overwrite */
-			for (l = attrs; l; l = l->next) {
-				EVCardAttribute *attr = l->data;
-				const char *name, *group;
-
-				group = e_vcard_attribute_get_group (attr);
-				name = e_vcard_attribute_get_name (attr);
-
-				/* all the attributes we care about should be in group "" */
-				if ((!group || !*group) && !strcmp (name, info->vcard_field_name)) {
-					printf ("setting %s to `%s'\n", name, g_value_get_string (value));
-					e_vcard_attribute_remove_values (attr);
-					e_vcard_attribute_add_value (attr, g_value_get_string (value));
-					found = TRUE;
-					break;
-				}
+			if (attr) {
+				printf ("overwriting existing PHOTO\n");
+				e_vcard_attribute_remove_values (attr);
+				/* XXX we might need to modify the
+				   parameters here - especially if the
+				   image type changes, and we need to
+				   make sure it has ENCODING=b */
 			}
-			/* and if we don't find one we create a new attribute */
-			if (!found)
-				e_vcard_add_attribute_with_value (E_VCARD (contact),
-								  e_vcard_attribute_new (NULL, info->vcard_field_name),
-								  g_value_get_string (value));
+			else {
+				/* and if we don't find one we create
+				   a new attribute */
+
+				attr = e_vcard_attribute_new (NULL, EVC_PHOTO);
+				e_vcard_attribute_add_param_with_value (attr,
+									e_vcard_attribute_param_new (EVC_ENCODING),
+									"b");
+
+				/* XXX we need to do some detection
+				   here, it might not be jpeg data */
+				e_vcard_attribute_add_param_with_value (attr,
+									e_vcard_attribute_param_new (EVC_TYPE),
+									"JPEG");
+				
+				e_vcard_add_attribute (E_VCARD (contact), attr);
+			}
+
+			printf ("adding photo of length %d\n", photo->length);
+			e_vcard_attribute_add_value_decoded (attr, photo->data, photo->length);
+
+			break;
 		}
+		default:
+			g_warning ("unhandled structured field 0x%02x", info->field_id);
+		}
+	}
 }
 
 static GList *
@@ -319,7 +381,7 @@ e_contact_get_email_list (EContact *contact)
 		name = e_vcard_attribute_get_name (attr);
 
 		/* all the attributes we care about should be in group "" */
-		if ((!group || !*group) && !strcmp (name, EVC_EMAIL)) {
+		if ((!group || !*group) && !strcasecmp (name, EVC_EMAIL)) {
 			GList *v = e_vcard_attribute_get_values (attr);
 
 			rv = g_list_append (rv, v ? g_strdup (v->data) : NULL);
@@ -327,28 +389,6 @@ e_contact_get_email_list (EContact *contact)
 	}
 
 	return rv;
-}
-
-static EVCardAttribute*
-e_contact_get_first_attr (EContact *contact, const char *attr_name)
-{
-	GList *attrs, *l;
-
-	attrs = e_vcard_get_attributes (E_VCARD (contact));
-
-	for (l = attrs; l; l = l->next) {
-		EVCardAttribute *attr = l->data;
-		const char *name, *group;
-
-		group = e_vcard_attribute_get_group (attr);
-		name = e_vcard_attribute_get_name (attr);
-
-		/* all the attributes we care about should be in group "" */
-		if ((!group || !*group) && !strcmp (name, attr_name))
-			return attr;
-	}
-
-	return NULL;
 }
 
 static void
@@ -399,6 +439,32 @@ e_contact_get_property (GObject *object,
 			e_contact_name_free (name);
 			break;
 		}
+		case E_CONTACT_PHOTO_URI: {
+			EVCardAttribute *attr = e_contact_get_first_attr (contact, EVC_PHOTO);
+			char *uri = NULL;
+
+			if (attr) {
+				GList *params;
+
+				for (params = e_vcard_attribute_get_params (attr);
+				     params;
+				     params = params->next) {
+					EVCardAttributeParam *param = params->data;
+					const char *name;
+
+					name = e_vcard_attribute_param_get_name (param);
+
+					if (!strcasecmp (name, EVC_VALUE)) {
+						GList *values = e_vcard_attribute_param_get_values (param);
+						if (values && values->data && strncmp ((char*)values->data, "uri:", 4))
+							uri = (char*)values->data + 4;
+					}
+				}
+			}
+
+			g_value_set_string (value, uri);
+			break;
+		}
 		}
 		default:
 			g_warning ("unhandled synthetic field 0x%02x", info->field_id);
@@ -419,6 +485,27 @@ e_contact_get_property (GObject *object,
 			}
 			
 			g_value_set_pointer (value, name);
+			break;
+		}
+		case E_CONTACT_PHOTO: {
+			EVCardAttribute *attr = e_contact_get_first_attr (contact, EVC_PHOTO);
+			GList *values;
+			EContactPhoto *photo = NULL;
+
+			if (attr) {
+				values = e_vcard_attribute_get_values_decoded (attr);
+
+				if (values && values->data) {
+					GString *s = values->data;
+
+					photo = g_new (EContactPhoto, 1);
+					photo->length = s->len;
+					photo->data = malloc (photo->length);
+					memcpy (photo->data, s->str, photo->length);
+				}
+			}
+
+			g_value_set_pointer (value, photo);
 			break;
 		}
 		default:
@@ -588,4 +675,11 @@ e_contact_name_free (EContactName *name)
 	g_free (name->suffixes);
 
 	g_free (name);
+}
+
+void
+e_contact_photo_free (EContactPhoto *photo)
+{
+	g_free (photo->data);
+	g_free (photo);
 }
