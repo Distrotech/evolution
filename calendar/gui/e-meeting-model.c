@@ -1424,8 +1424,13 @@ cursor_cb (EBook *book, EBookStatus status, ECardCursor *cursor, gpointer data)
 		GnomeVFSAsyncHandle *handle;
 		ECard *card = e_card_cursor_get_nth (cursor, i);
 		const char *addr;
-		
-		if (card->fburl == NULL)
+		const char *fburl;
+
+		g_object_get (card,
+			      "fburl", &fburl,
+			      NULL);
+
+		if (fburl == NULL)
 			continue;
 
 		addr = itip_strip_mailto (e_meeting_attendee_get_address (qdata->ia));
@@ -1433,7 +1438,7 @@ cursor_cb (EBook *book, EBookStatus status, ECardCursor *cursor, gpointer data)
 			continue;
 
 		/* Read in free/busy data from the url */
-		gnome_vfs_async_open (&handle, card->fburl, GNOME_VFS_OPEN_READ, 
+		gnome_vfs_async_open (&handle, fburl, GNOME_VFS_OPEN_READ, 
 				      GNOME_VFS_PRIORITY_DEFAULT, async_open, qdata);
 		return;
 	}
