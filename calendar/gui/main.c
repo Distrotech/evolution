@@ -49,9 +49,9 @@
 #include "tasks-control.h"
 
 
-#define FACTORY_ID "OAFIID:GNOME_Evolution_Calendar_Factory"
+#define FACTORY_ID "OAFIID:GNOME_Evolution_Calendar_Factory_2"
 
-#define CALENDAR_COMPONENT_ID  "OAFIID:GNOME_Evolution_Calendar_ShellComponent"
+#define CALENDAR_COMPONENT_ID  "OAFIID:GNOME_Evolution_Calendar_Component"
 #define CALENDAR_CONTROL_ID    "OAFIID:GNOME_Evolution_Calendar_Control"
 #define TASKS_CONTROL_ID       "OAFIID:GNOME_Evolution_Tasks_Control"
 #define ITIP_CONTROL_ID        "OAFIID:GNOME_Evolution_Calendar_iTip_Control"
@@ -156,7 +156,7 @@ factory (BonoboGenericFactory *factory,
 	}
 
 	if (strcmp (component_id, CALENDAR_COMPONENT_ID) == 0)
-		return calendar_component_get_object ();
+		return BONOBO_OBJECT (calendar_component_peek ());
 	else if (strcmp (component_id, CALENDAR_CONTROL_ID) == 0)
 		return BONOBO_OBJECT (control_factory_new_control ());
 	else if (strcmp (component_id, TASKS_CONTROL_ID) == 0)
