@@ -25,8 +25,8 @@ INCLUDES =						\
 privlib_LTLIBRARIES = libevolution-a11y.la 
 
 libevolution_a11y_la_SOURCES =				\
-	$(CALENDAR_IDL_GENERATED_H)			\
-	init.c
+	$(CALENDAR_IDL_GENERATED_H)			
+
 
 BUILT_SOURCES = $(CALENDAR_IDL_GENERATED_H)
 
