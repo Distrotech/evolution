@@ -1,3 +1,12 @@
+2003-07-16  Bolian Yin <bolian.yin@sun.com>
+
+	Fixes 46435
+
+	* gui/Makefile.am: add dependency on a11y
+	* gui/e-day-view.c (e_day_view_class_init): init a11y for e_day_view
+	* gui/gnome-cal.c (gnome_calendar_class_init): init a11y for
+	  gnome_calendar
+
 2003-06-30  Bolian Yin <bolian.yin@sun.com>
 	Fixes #45328, #45329
 
