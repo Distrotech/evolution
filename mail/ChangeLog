@@ -1,3 +1,44 @@
+2004-04-29  Not Zed  <NotZed@Ximian.com>
+
+	* mail-errors.xml.in: change all the session-message-* things to
+	just be secondary, otherwise they look awful all big fonted.
+
+	* mail-session.c (error_type[]): forgot to prefix error type with
+	"mail:"
+
+	* em-account-prefs.c (account_delete_clicked): duh, use the right
+	error id.
+
+	* mail-send-recv.c (receive_update_got_store): call
+	mail_note_store rather than get_folder_info so that unread counts
+	are propagated to the ui too.
+
+	* mail-errors.xml.in: fix the password dialogue text.
+
+2004-04-28  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-tree-model.c (sort_cb): Sort the VFolders. Fixes bug
+	#56636.
+
+	* em-mailer-prefs.c (citation_color_set): We only want 8bits per
+	color. Fixes bug #57588.
+
+	* em-folder-tree-model.c (em_folder_tree_model_remove_store):
+	Duh. If the lookup of si fails, don't use si->display_name in the
+	warning message. Actually, don't bother with a warning message at
+	all, this is a perfectly valid situation. Fixes bug #57746.
+
+	* mail-ops.c (mail_send_message): Don't set the Date header here
+	anymore. It has either already been set (when written to the
+	Outbox) or will automagially be set to the current time if a Date
+	hasn't already been set when the transport sends it. Fixes bug
+	#57599.
+
+	* em-composer-prefs.c (sig_add_script_response): Use
+	g_shell_parse_argv() to get the actual script path and then check
+	that we can exec argv[0] rather than treating the entire
+	command-line as the signature script. Fixes bug #57305.
+
 2004-04-28  Not Zed  <NotZed@Ximian.com>
 
 	* message-list.c (ml_selection_clear_event): return the right

@@ -6,7 +6,7 @@
 # Martin Norbäck <d95mback@dtek.chalmers.se>, 2001.
 # Johan Dahlin <zilch.am@home.se>, 2001.
 #
-# $Id: sv.po,v 1.193.4.4 2004/04/28 10:43:04 rodrigo Exp $
+# $Id: sv.po,v 1.193.4.5 2004/04/29 12:15:40 rodrigo Exp $
 #
 msgid ""
 msgstr ""

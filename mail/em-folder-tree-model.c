@@ -198,39 +198,11 @@ sort_cb (GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpointer user_data
 		if (!strcmp (bname, _("VFolders")))
 			return -1;
 	} else if (store == vfolder_store) {
-		/* perform no sorting, we want to display in the same
-		 * order as they appear in the VFolder editor - UNMATCHED is always last */
-		GtkTreePath *path;
-		int ret;
-		
+		/* UNMATCHED is always last */
 		if (aname && !strcmp (aname, _("UNMATCHED")))
 			return 1;
 		if (bname && !strcmp (bname, _("UNMATCHED")))
 			return -1;
-		
-		path = gtk_tree_model_get_path (model, a);
-		if (path) {
-			aname = gtk_tree_path_to_string (path);
-			gtk_tree_path_free (path);
-		} else {
-			return 1;
-		}
-		
-		path = gtk_tree_model_get_path (model, b);
-		if (path) {
-			bname = gtk_tree_path_to_string (path);
-			gtk_tree_path_free (path);
-		} else {
-			g_free(aname);
-			return -1;
-		}
-
-		ret = strcmp (aname, bname);
-
-		g_free (aname);
-		g_free (bname);
-		
-		return ret;
 	} else {
 		/* Inbox is always first */
 		if (aname && (!strcmp (aname, "INBOX") || !strcmp (aname, _("Inbox"))))
@@ -901,11 +873,8 @@ em_folder_tree_model_remove_store (EMFolderTreeModel *model, CamelStore *store)
 	g_return_if_fail (EM_IS_FOLDER_TREE_MODEL (model));
 	g_return_if_fail (CAMEL_IS_STORE (store));
 	
-	if (!(si = g_hash_table_lookup (model->store_hash, store))) {
-		g_warning ("the store `%s' is not in the folder tree", si->display_name);
-		
+	if (!(si = g_hash_table_lookup (model->store_hash, store)))
 		return;
-	}
 	
 	path = gtk_tree_row_reference_get_path (si->row);
 	gtk_tree_model_get_iter ((GtkTreeModel *) model, &iter, path);
