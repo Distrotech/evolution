@@ -133,14 +133,23 @@ void e_config_target_free(EConfig *, void *);
 #include "e-util/e-plugin.h"
 
 typedef struct _EConfigHookItem EConfigHookItem;
-typedef struct _EConfigHookMenu EConfigHookMenu;
+typedef struct _EConfigHookGroup EConfigHookGroup;
 typedef struct _EConfigHook EConfigHook;
 typedef struct _EConfigHookClass EConfigHookClass;
 
 typedef struct _EPluginHookTargetMap EConfigHookTargetMap;
 typedef struct _EPluginHookTargetKey EConfigHookTargetMask;
 
+typedef struct _EConfigHookItemFactoryData EConfigHookItemFactoryData;
+
 typedef void (*EConfigHookFunc)(struct _EPlugin *plugin, EConfigTarget *target);
+typedef void (*EConfigHookItemFactoryFunc)(struct _EPlugin *plugin, EConfigHookItemFactoryData *data);
+
+struct _EConfigHookItemFactoryData {
+	EConfigItem *item;
+	EConfigTarget *target;
+	struct _GtkWidget *parent;
+};
 
 struct _EConfigHookItem {
 	EConfigItem item;
@@ -149,11 +158,13 @@ struct _EConfigHookItem {
 	char *factory;		/* factory handler */
 };
 
-struct _EConfigHookMenu {
+struct _EConfigHookGroup {
 	struct _EConfigHook *hook; /* parent pointer */
 	char *id;		/* target menu id for these menu items */
 	int target_type;	/* target type of this menu */
 	GSList *items;		/* items to add to menu */
+	char *commit;		/* commit handler, if set */
+	char *abort;		/* abort handler, if set */
 };
 
 struct _EConfigHook {

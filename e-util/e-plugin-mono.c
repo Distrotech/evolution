@@ -53,8 +53,11 @@ epm_invoke(EPlugin *ep, const char *name, void *data)
 	EPluginMonoPrivate *p = epm->priv;
 	MonoMethodDesc *d;
 	MonoMethod *m;
-	MonoObject *x = NULL;
+	MonoObject *x = NULL, *res;
 	void **params;
+
+	/* we need to do this every time since we may be called from any thread for some uses */
+	mono_thread_attach(domain);
 
 	if (p->assembly == NULL) {
 		p->assembly = mono_domain_assembly_open(domain, epm->location);
@@ -110,13 +113,18 @@ epm_invoke(EPlugin *ep, const char *name, void *data)
 
 	params = g_malloc0(sizeof(*params)*1);
 	params[0] = &data;
-	mono_runtime_invoke(m, p->plugin, params, &x);
+	res = mono_runtime_invoke(m, p->plugin, params, &x);
 	/* do i need to free params?? */
 
 	if (x)
 		mono_print_unhandled_exception(x);
 
-	return NULL;
+	if (res) {
+		void **p = mono_object_unbox(res);
+		printf("mono method returned '%p' %ld\n", *p, *p);
+		return *p;
+	} else
+		return NULL;
 }
 
 static int

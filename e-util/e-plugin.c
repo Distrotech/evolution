@@ -58,8 +58,13 @@ ep_construct(EPlugin *ep, xmlNodePtr root)
 			hook = e_plugin_hook_new(ep, node);
 			if (hook)
 				ep->hooks = g_slist_prepend(ep->hooks, hook);
-			else
-				g_warning("Plugin '%s' failed to load hook", ep->name);
+			else {
+				char *tmp = xmlGetProp(node, "class");
+
+				g_warning("Plugin '%s' failed to load hook '%s'", ep->name, tmp?tmp:"unknown");
+				if (tmp)
+					xmlFree(tmp);
+			}
 		}
 		node = node->next;
 	}
