@@ -1646,11 +1646,11 @@ ml_drop_popup_cancel(GtkWidget *item, struct _drop_msg *m)
 	mail_msg_free(&m->msg);
 }
 
-static EMPopupItem ml_drop_popup_menu[] = {
-	{ EM_POPUP_ITEM, "00.emc.02", N_("_Copy"), G_CALLBACK(ml_drop_popup_copy), NULL, "stock_folder-copy", 0 },
-	{ EM_POPUP_ITEM, "00.emc.03", N_("_Move"), G_CALLBACK(ml_drop_popup_move), NULL, "stock_folder-move", 0 },
-	{ EM_POPUP_BAR, "10.emc" },
-	{ EM_POPUP_ITEM, "99.emc.00", N_("Cancel _Drag"), G_CALLBACK(ml_drop_popup_cancel), NULL, NULL, 0 },
+static EPopupItem ml_drop_popup_menu[] = {
+	{ E_POPUP_ITEM, "00.emc.02", N_("_Copy"), G_CALLBACK(ml_drop_popup_copy), NULL, "stock_folder-copy", 0 },
+	{ E_POPUP_ITEM, "00.emc.03", N_("_Move"), G_CALLBACK(ml_drop_popup_move), NULL, "stock_folder-move", 0 },
+	{ E_POPUP_BAR, "10.emc" },
+	{ E_POPUP_ITEM, "99.emc.00", N_("Cancel _Drag"), G_CALLBACK(ml_drop_popup_cancel), NULL, NULL, 0 },
 };
 
 static void
@@ -1687,13 +1687,13 @@ ml_tree_drag_data_received (ETree *tree, int row, ETreePath path, int col,
 
 		emp = em_popup_new("com.ximian.mail.messagelist.popup.drop");
 		for (i=0;i<sizeof(ml_drop_popup_menu)/sizeof(ml_drop_popup_menu[0]);i++) {
-			EMPopupItem *item = &ml_drop_popup_menu[i];
+			EPopupItem *item = &ml_drop_popup_menu[i];
 
 			item->activate_data = m;
 			menus = g_slist_append(menus, item);
 		}
-		em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
-		menu = em_popup_create_menu_once(emp, NULL, 0, 0);
+		e_popup_add_items((EPopup *)emp, menus, (GDestroyNotify)g_slist_free);
+		menu = e_popup_create_menu_once((EPopup *)emp, NULL, 0, 0);
 		gtk_menu_popup(menu, NULL, NULL, NULL, NULL, 0, gtk_get_current_event_time());
 	} else {
 		ml_drop_action(m);

@@ -25,6 +25,8 @@
 
 #include <glib-object.h>
 
+#include "e-util/e-popup.h"
+
 #ifdef __cplusplus
 extern "C" {
 #pragma }
@@ -34,34 +36,6 @@ extern "C" {
 
 typedef struct _EMPopup EMPopup;
 typedef struct _EMPopupClass EMPopupClass;
-
-typedef struct _EMPopupItem EMPopupItem;
-typedef struct _EMPopupFactory EMPopupFactory; /* anonymous type */
-typedef struct _EMPopupTarget EMPopupTarget;
-
-typedef void (*EMPopupFactoryFunc)(EMPopup *emp, EMPopupTarget *target, void *data);
-
-/* Menu item descriptions */
-enum _em_popup_t {
-	EM_POPUP_ITEM = 0,
-	EM_POPUP_TOGGLE,
-	EM_POPUP_RADIO,
-	EM_POPUP_IMAGE,
-	EM_POPUP_SUBMENU,
-	EM_POPUP_BAR,
-	EM_POPUP_TYPE_MASK = 0xffff,
-	EM_POPUP_ACTIVE = 0x10000,
-};
-
-struct _EMPopupItem {
-	enum _em_popup_t type;
-	char *path;		/* absolute path! must sort ascii-lexographically into the right spot */
-	char *label;
-	GCallback activate;
-	void *activate_data;
-	void *image;		/* char* for item type, GtkWidget * for image type */
-	guint32 mask;
-};
 
 /* Current target description */
 /* Types of popup tagets */
@@ -116,30 +90,39 @@ enum {
 	EM_POPUP_FOLDER_SELECT = 1<<4, /* folder can be selected/opened */
 };
 
-struct _EMPopupTarget {
-	enum _em_popup_target_t type;
-	guint32 mask;		/* depends on type, see above */
-	struct _GtkWidget *widget;	/* used if you need a parent toplevel, if available */
-	union {
-		char *uri;
-		struct {
-			struct _CamelFolder *folder;
-			char *folder_uri;
-			GPtrArray *uids;
-		} select;
-		struct {
-			char *mime_type;
-			struct _CamelMimePart *part;
-		} part;
-		struct {
-			char *folder_uri;
-		} folder;
-	} data;
+typedef struct _EMPopupTargetSelect EMPopupTargetSelect;
+typedef struct _EMPopupTargetURI EMPopupTargetURI;
+typedef struct _EMPopupTargetPart EMPopupTargetPart;
+typedef struct _EMPopupTargetFolder EMPopupTargetFolder;
+
+struct _EMPopupTargetURI {
+	EPopupTarget target;
+	char *uri;
 };
+
+struct _EMPopupTargetSelect {
+	EPopupTarget target;
+	struct _CamelFolder *folder;
+	char *uri;
+	GPtrArray *uids;
+};
+
+struct _EMPopupTargetPart {
+	EPopupTarget target;
+	char *mime_type;
+	struct _CamelMimePart *part;
+};
+
+struct _EMPopupTargetFolder {
+	EPopupTarget target;
+	char *uri;
+};
+
+typedef struct _EPopupItem EMPopupItem;
 
 /* The object */
 struct _EMPopup {
-	GObject object;
+	EPopup popup;
 
 	struct _EMPopupPrivate *priv;
 
@@ -147,64 +130,32 @@ struct _EMPopup {
 };
 
 struct _EMPopupClass {
-	GObjectClass object_class;
+	EPopupClass popup_class;
 };
 
 GType em_popup_get_type(void);
 
-/* Static class methods */
-EMPopupFactory *em_popup_static_add_factory(const char *menuid, EMPopupFactoryFunc func, void *data);
-void em_popup_static_remove_factory(EMPopupFactory *f);
-
 EMPopup *em_popup_new(const char *menuid);
-void em_popup_add_items(EMPopup *, GSList *items, GDestroyNotify freefunc);
-void em_popup_add_static_items(EMPopup *emp, EMPopupTarget *target);
-struct _GtkMenu *em_popup_create_menu(EMPopup *, guint32 hide_mask, guint32 disable_mask);
-struct _GtkMenu *em_popup_create_menu_once(EMPopup *emp, EMPopupTarget *, guint32 hide_mask, guint32 disable_mask);
 
-EMPopupTarget *em_popup_target_new_uri(const char *uri);
-EMPopupTarget *em_popup_target_new_select(struct _CamelFolder *folder, const char *folder_uri, GPtrArray *uids);
-EMPopupTarget *em_popup_target_new_part(struct _CamelMimePart *part, const char *mime_type);
-EMPopupTarget *em_popup_target_new_folder(const char *uri, guint32 info_flags, guint32 popup_flags);
-void em_popup_target_free(EMPopupTarget *target);
+EMPopupTargetURI *em_popup_target_new_uri(EMPopup *emp, const char *uri);
+EMPopupTargetSelect *em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char *folder_uri, GPtrArray *uids);
+EMPopupTargetPart *em_popup_target_new_part(EMPopup *emp, struct _CamelMimePart *part, const char *mime_type);
+EMPopupTargetFolder *em_popup_target_new_folder(EMPopup *emp, const char *uri, guint32 info_flags, guint32 popup_flags);
 
 /* ********************************************************************** */
 
-/* Implement an em popup target - this is temporary, this should all go into an e-popup? */
-
-#include "e-util/e-plugin.h"
-
-typedef struct _EMPopupHookItem EMPopupHookItem;
-typedef struct _EMPopupHookMenu EMPopupHookMenu;
 typedef struct _EMPopupHook EMPopupHook;
 typedef struct _EMPopupHookClass EMPopupHookClass;
 
-typedef void (*EMPopupHookFunc)(struct _EPlugin *plugin, EMPopupTarget *target);
-
-struct _EMPopupHookItem {
-	EMPopupItem item;
-
-	struct _EMPopupHook *hook; /* parent pointer */
-	char *activate;		/* activate handler */
-
-	struct _EMPopupTarget *target; /* to save the target during menu popup */
-};
-
-struct _EMPopupHookMenu {
-	struct _EMPopupHook *hook; /* parent pointer */
-	char *id;		/* target menu id for these menu items */
-	int target_type;	/* target type of this menu */
-	GSList *items;		/* items to add to menu */
-};
-
 struct _EMPopupHook {
-	EPluginHook hook;
+	EPopupHook hook;
 
 	GSList *menus;
 };
 
 struct _EMPopupHookClass {
-	EPluginHookClass hook_class;};
+	EPopupHookClass hook_class;
+};
 
 GType em_popup_hook_get_type(void);
 
