@@ -24,7 +24,6 @@ EXTRA_DIST = 			\
 	$(pkgconfig_DATA:.pc=.pc.in)
 
 SUBDIRS = 			\
-	a11y			\
         data                    \
         e-util                  \
 	libical			\
@@ -45,6 +44,7 @@ SUBDIRS = 			\
 	views			\
 	wombat			\
 	tools			\
+	a11y			\
 	help			\
 	po
 
