@@ -44,10 +44,12 @@
 #include "mail-config-druid.h"
 #include "message-tag-followup.h"
 
+#include <e-util/e-mktemp.h>
 #include <e-util/e-dialog-utils.h>
 
 #include "em-utils.h"
 #include "em-composer-utils.h"
+#include "em-format-html-quote.h"
 
 static EAccount *guess_account (CamelMimeMessage *message);
 
@@ -486,7 +488,8 @@ forward_non_attached (GtkWidget *parent, GPtrArray *messages, int style)
 	for (i = 0; i < messages->len; i++) {
 		message = messages->pdata[i];
 		subject = mail_tool_generate_forward_subject (message);
-		text = mail_tool_forward_message (message, style == MAIL_CONFIG_FORWARD_QUOTED);
+		
+		text = em_utils_quote_message (message, _("-------- Forwarded Message --------"));
 		
 		if (text) {
 			composer = create_new_composer (parent);
@@ -1030,8 +1033,8 @@ static void
 composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 {
 	const CamelInternetAddress *sender;
+	char *text, *credits, format[256];
 	const char *name, *addr;
-	char *text, format[256];
 	CamelMimePart *part;
 	GConfClient *gconf;
 	time_t date;
@@ -1060,11 +1063,15 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 		
 		date = camel_mime_message_get_date (message, NULL);
 		e_utf8_strftime (format, sizeof (format), _("On %a, %Y-%m-%d at %H:%M, %%s wrote:"), localtime (&date));
-		text = mail_tool_quote_message (message, format, name && *name ? name : addr);
-		if (text) {
+		credits = g_strdup_printf (format, name && *name ? name : addr);
+		
+		if ((text = em_utils_quote_message (message, credits))) {
 			e_msg_composer_set_body_text (composer, text);
 			g_free (text);
 		}
+		
+		g_free (credits);
+		
 		break;
 	}
 	
@@ -1926,7 +1933,7 @@ char *
 em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 {
 	const char *tmpdir, *filename;
-	char *mfilename, *path;
+	char *path, *mfilename = NULL;
 	int done;
 
 	tmpdir = e_mkdtemp("evolution-tmp-XXXXXX");
@@ -1938,7 +1945,7 @@ em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 		return NULL;
 	}
 
-	filename = mfilename = camel_mime_part_get_filename(part);
+	filename = camel_mime_part_get_filename (part);
 	if (filename == NULL) {
 		/* This is the default filename used for temporary file creation */
 		filename = _("Unknown");
@@ -2094,4 +2101,39 @@ em_utils_adjustment_page(GtkAdjustment *adj, gboolean down)
 	}
 
 	gtk_adjustment_value_changed(adj);
+}
+
+
+/**
+ * em_utils_quote_message:
+ * @message: message to quote
+ * @credits: leading credits
+ *
+ * Quotes a message suitable for forwarding or replying.
+ *
+ * Returns the quoted html text to feed into the composer.
+ **/
+char *
+em_utils_quote_message (CamelMimeMessage *message, const char *credits)
+{
+	EMFormatHTMLQuote *emfq;
+	CamelStreamMem *mem;
+	GByteArray *buf;
+	char *text;
+	
+	buf = g_byte_array_new ();
+	mem = (CamelStreamMem *) camel_stream_mem_new ();
+	camel_stream_mem_set_byte_array (mem, buf);
+	
+	emfq = em_format_html_quote_new_with_credits (credits);
+	em_format_format_message ((EMFormat *) emfq, (CamelStream *) mem, (CamelMedium *) message);
+	g_object_unref (emfq);
+	
+	camel_stream_write ((CamelStream *) mem, "", 1);
+	camel_object_unref (mem);
+	
+	text = buf->data;
+	g_byte_array_free (buf, FALSE);
+	
+	return text;
 }

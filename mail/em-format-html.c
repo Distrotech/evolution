@@ -506,9 +506,7 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 	camel_stream_write_string(stream, EFH_TABLE_OPEN "<tr><td><tt>\n");
 
 	flags = efh->text_html_flags;
-
-	/* FIXME: citation stuff ?*/
-
+	
 	/* Check for RFC 2646 flowed text. */
 	type = camel_mime_part_get_content_type(part);
 	if (header_content_type_is(type, "text", "plain")
@@ -546,7 +544,7 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	}
 	
 	enriched = camel_mime_filter_enriched_new(flags);
-	filtered_stream = camel_stream_filter_new_with_stream( stream);
+	filtered_stream = camel_stream_filter_new_with_stream (stream);
 	camel_stream_filter_add(filtered_stream, enriched);
 	camel_object_unref(enriched);
 
@@ -1312,7 +1310,7 @@ static void efh_format_message(EMFormat *emf, CamelStream *stream, CamelMedium *
 	const char *charset;
 	CamelContentType *ct;
 #define efh ((EMFormatHTML *)emf)
-		
+	
 	ct = camel_mime_part_get_content_type((CamelMimePart *)part);
 	charset = header_content_type_param(ct, "charset");
 	charset = e_iconv_charset_name(charset);	

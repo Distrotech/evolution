@@ -162,6 +162,7 @@ char *em_format_describe_part(struct _CamelMimePart *part, const char *mimetype)
 GType em_format_get_type(void);
 
 void em_format_class_add_handler(EMFormatClass *emfc, EMFormatHandler *info);
+void em_format_class_remove_handler (EMFormatClass *emfc, const char *mime_type);
 const EMFormatHandler *em_format_find_handler(EMFormat *emf, const char *mime_type);
 const EMFormatHandler *em_format_fallback_handler(EMFormat *emf, const char *mime_type);
 

@@ -85,6 +85,8 @@ libevolution_mail_la_SOURCES =		\
 	em-format-html-display.h	\
 	em-format-html-print.c		\
 	em-format-html-print.h		\
+	em-format-html-quote.c		\
+	em-format-html-quote.h		\
 	em-marshal.c			\
 	em-marshal.h			\
 	em-message-browser.c		\

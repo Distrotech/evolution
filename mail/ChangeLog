@@ -1,4 +1,21 @@
+2003-09-04  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format-html-quote.[c,h]: New formatter for quoting
+	replies/forwards/etc.
+
+	* em-utils.c (em_utils_quote_message): New function.
+	(composer_set_body): Use the new em_utils_quote_message()
+	function.
+	(em_utils_temp_save_part): Only g_free mfilename if it was
+	malloc'd.
+
+	* mail-tools.c (mail_tool_quote_message): Removed.
+	(mail_tool_forward_message): Removed.
+
 2003-09-03  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-format.c (em_format_class_remove_handler): New function to
+	remove a mime-type handler from a class.
 
 	* em-format-html.c (efh_init): Set the CITATION bit for the
 	default html flags.

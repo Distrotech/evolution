@@ -97,6 +97,9 @@ gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder, const char *uri)
 
 void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 
+
+char *em_utils_quote_message (CamelMimeMessage *message, const char *credits);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

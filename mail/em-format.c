@@ -138,7 +138,7 @@ em_format_get_type(void)
 
 /**
  * em_format_class_add_handler:
- * @emfc: 
+ * @emfc: EMFormatClass
  * @info: Callback information.
  * 
  * Add a mime type handler to this class.  This is only used by implementing
@@ -159,6 +159,22 @@ em_format_class_add_handler(EMFormatClass *emfc, EMFormatHandler *info)
 	  if (info->applications == NULL)
 	  info->applications = gnome_vfs_mime_get_short_list_applications(info->mime_type);*/
 }
+
+
+/**
+ * em_format_class_remove_handler:
+ * @emfc: EMFormatClass
+ * @mime_type: mime-type of handler to remove
+ *
+ * Remove a mime type handler from this class. This is only used by
+ * implementing classes.
+ **/
+void
+em_format_class_remove_handler (EMFormatClass *emfc, const char *mime_type)
+{
+	g_hash_table_remove (emfc->type_handlers, mime_type);
+}
+
 
 /**
  * em_format_find_handler:
