@@ -600,7 +600,7 @@ impl_Cal_addTimezone (PortableServer_Servant servant,
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	if (!cal_backend_add_timezone (cal, tz))
+	if (!cal_backend_add_timezone (priv->backend, cal, tz))
 		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidObject);
 }
 
@@ -1174,6 +1174,26 @@ cal_notify_query (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, Query *q
 		g_message (G_STRLOC ": could not notify the listener of query");
 
 	CORBA_exception_free (&ev);	
+}
+
+void
+cal_notify_timezone_added (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, const char *tzid)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyTimezoneAdded (priv->listener, status, tzid, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": could not notify the listener of timezone added");
+
+	CORBA_exception_free (&ev);
 }
 
 /**

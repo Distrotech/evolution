@@ -170,6 +170,16 @@ cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char 
 	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->get_object_list_sync) (backend, cal, sexp, objects);
 }
 
+CalBackendSyncStatus
+cal_backend_sync_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj)
+{
+	g_return_val_if_fail (CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->add_timezone_sync != NULL);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->add_timezone_sync) (backend, cal, tzobj);
+}
+
 static void
 _cal_backend_is_read_only (CalBackend *backend, Cal *cal)
 {
@@ -326,6 +336,16 @@ _cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp)
 }
 
 static void
+_cal_backend_add_timezone (CalBackend *backend, Cal *cal, const char *tzobj)
+{
+	CalBackendSyncStatus status;
+
+	status = cal_backend_sync_add_timezone (CAL_BACKEND_SYNC (backend), cal, tzobj);
+
+	cal_notify_timezone_added (cal, status, tzobj);
+}
+
+static void
 cal_backend_sync_init (CalBackendSync *backend)
 {
 	CalBackendSyncPrivate *priv;
@@ -374,6 +394,7 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->receive_objects = _cal_backend_receive_objects;
 	backend_class->send_objects = _cal_backend_send_objects;
 	backend_class->get_object_list = _cal_backend_get_object_list;
+	backend_class->add_timezone = _cal_backend_add_timezone;
 
 	object_class->dispose = cal_backend_sync_dispose;
 }

@@ -1,3 +1,21 @@
+2003-09-18  Rodrigo Moya <rodrigo@ximian.com>
+
+	* idl/evolution-calendar.idl: added 'notifyTimezoneAdded' method
+	to the Calendar::Listener interface.
+
+	* pcs/cal-backend-sync.[ch] (cal_backend_sync_add_timezone):
+	(_cal_backend_add_timezone): new functions for the new virtual
+	method implementation.
+
+	* pcs/cal.[ch] (cal_notify_timezone_added): new function.
+
+	* pcs/cal-backend-file.c (cal_backend_add_timezone): converted to
+	return a CalBackendSyncStatus.
+	(cal_backend_file_class_init): the 'add_timezone' method we implement
+	is the one in the CalBackendSync class.
+	(cancel_receive_object): added missing 'return'.
+	(free_cal_component): removed unused function.
+
 2003-09-17  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/cal-backend-file.c (cal_backend_add_timezone): added new

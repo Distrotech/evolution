@@ -101,7 +101,7 @@ static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
 static char *cal_backend_file_get_default_object (CalBackend *backend, CalObjType type);
 static CalComponent *cal_backend_file_get_object_component (CalBackend *backend, const char *uid, const char *rid);
 static char *cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid);
-static gboolean cal_backend_file_add_timezone (CalBackend *backend, const char *tzobj);
+static CalBackendSyncStatus cal_backend_file_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj);
 static GList *cal_backend_file_get_free_busy (CalBackend *backend, GList *users, time_t start, time_t end);
 static GNOME_Evolution_Calendar_CalObjChangeSeq *cal_backend_file_get_changes (
 	CalBackend *backend, CalObjType type, const char *change_id);
@@ -191,6 +191,7 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	sync_class->receive_objects_sync = cal_backend_file_receive_objects;
 	sync_class->send_objects_sync = cal_backend_file_send_objects;
 	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
+	sync_class->add_timezone_sync = cal_backend_file_add_timezone;
 
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->start_query = cal_backend_file_start_query;
@@ -199,7 +200,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	backend_class->get_default_object = cal_backend_file_get_default_object;
 	backend_class->get_object_component = cal_backend_file_get_object_component;
 	backend_class->get_timezone_object = cal_backend_file_get_timezone_object;
-	backend_class->add_timezone = cal_backend_file_add_timezone;
 	backend_class->get_free_busy = cal_backend_file_get_free_busy;
 	backend_class->get_changes = cal_backend_file_get_changes;
 	backend_class->get_alarms_in_range = cal_backend_file_get_alarms_in_range;
@@ -260,18 +260,6 @@ cal_backend_file_get_file_name (CalBackendFile *cbfile)
 	priv = cbfile->priv;	
 
 	return priv->file_name;
-}
-
-/* g_hash_table_foreach() callback to destroy a CalComponent */
-static void
-free_cal_component (gpointer key, gpointer value, gpointer data)
-{
-	CalComponent *comp;
-
-	g_free (key);
-
-	comp = CAL_COMPONENT (value);
-	g_object_unref (comp);
 }
 
 /* g_hash_table_foreach() callback to destroy a CalComponent */
@@ -604,7 +592,7 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	check_dup_uid (cbfile, comp);
 	cal_component_get_uid (comp, &uid);
 
-	g_hash_table_insert (priv->comp_uid_hash, uid, comp);
+	g_hash_table_insert (priv->comp_uid_hash, (gpointer) uid, comp);
 
 	priv->comp = g_list_prepend (priv->comp, comp);
 
@@ -1001,8 +989,8 @@ cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid)
 }
 
 /* Add_timezone handler for the file backend */
-static gboolean
-cal_backend_file_add_timezone (CalBackend *backend, const char *tzobj)
+static CalBackendSyncStatus
+cal_backend_file_add_timezone (CalBackendSync *backend, Cal *cal, const char *tzobj)
 {
 	icalcomponent *tz_comp;
 	CalBackendFile *cbfile;
@@ -1010,21 +998,21 @@ cal_backend_file_add_timezone (CalBackend *backend, const char *tzobj)
 
 	cbfile = (CalBackendFile *) backend;
 
-	g_return_val_if_fail (IS_CAL_BACKEND_FILE (cbfile), FALSE);
-	g_return_val_if_fail (tzobj != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_BACKEND_FILE (cbfile), GNOME_Evolution_Calendar_OtherError);
+	g_return_val_if_fail (tzobj != NULL, GNOME_Evolution_Calendar_OtherError);
 
 	priv = cbfile->priv;
 
 	tz_comp = icalparser_parse_string (tzobj);
 	if (!tz_comp)
-		return FALSE;
+		return GNOME_Evolution_Calendar_InvalidObject;
 
 	if (icalcomponent_isa (tz_comp) == ICAL_VTIMEZONE_COMPONENT) {
 		icalcomponent_add_component (priv->icalcomp, tz_comp);
 		mark_dirty (cbfile);
 	}
 
-	return FALSE;
+	return GNOME_Evolution_Calendar_Success;
 }
 
 typedef struct {
@@ -1744,6 +1732,8 @@ cancel_received_object (CalBackendFile *cbfile, icalcomponent *icalcomp)
 
 	/* And remove it */
 	remove_component (cbfile, old_comp);
+
+	return TRUE;
 }
 
 typedef struct {

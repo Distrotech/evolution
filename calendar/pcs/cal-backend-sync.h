@@ -51,6 +51,8 @@ struct _CalBackendSyncClass {
 
 	CalBackendSyncStatus (*get_object_list_sync)  (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
+	CalBackendSyncStatus (*add_timezone_sync) (CalBackendSync *backend, Cal *cal, const char *tzobj);
+
 	/* Padding for future expansion */
 	void (*_cal_reserved0) (void);
 	void (*_cal_reserved1) (void);

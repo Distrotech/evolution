@@ -295,6 +295,8 @@ module Calendar {
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 		oneway void notifyQuery (in CallStatus status, in Query query);
 
+		oneway void notifyTimezoneAdded (in CallStatus status, in CalTimezoneObjUID tzid);
+
                 /* Called from a Calendar when the mode is changed */
 		oneway void notifyCalSetMode (in SetModeStatus status, in CalMode mode);		
 
