@@ -2438,12 +2438,9 @@ main_folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 			}
 		}
 		
-		if (ml->hidejunk)
-			mail_folder_hide_by_flag (folder, ml, &changes, CAMEL_MESSAGE_JUNK);
-
 		/* check if the hidden state has changed, if so modify accordingly, then regenerate */
-		if (ml->hidedeleted)
-			mail_folder_hide_by_flag (folder, ml, &changes, CAMEL_MESSAGE_DELETED);
+		if (ml->hidejunk || ml->hidedeleted)
+			mail_folder_hide_by_flag (folder, ml, &changes, (ml->hidejunk ? CAMEL_MESSAGE_JUNK : 0) | (ml->hidedeleted ? CAMEL_MESSAGE_DELETED : 0));
 
 		if (changes->uid_added->len == 0 && changes->uid_removed->len == 0 && changes->uid_changed->len < 100) {
 			for (i = 0; i < changes->uid_changed->len; i++) {

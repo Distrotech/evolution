@@ -255,14 +255,15 @@ em_junk_sa_check_junk (CamelMimeMessage *msg)
 		   : g_strdup_printf ("spamc"
 				      " -c"        /* Exit with a non-zero exit code if the
 						      tested message was junk */
-				      " -p %d", em_junk_sa_spamd_port)
-)
+				      " -p %d", em_junk_sa_spamd_port))
 		: g_strdup ("spamassassin"
 			    " --exit-code"         /* Exit with a non-zero exit code if the
 						      tested message was junk */
 			    " --local");           /* Local tests only (no online tests) */
 
 	retval = pipe_to_sa (msg, NULL, 3, args);
+
+	g_free (args [2]);
 
 	return retval;
 }

@@ -1061,7 +1061,7 @@ get_folderinfo_desc (struct _mail_msg *mm, int done)
 static void
 add_vtrash_or_vjunk_info (CamelStore *store, CamelFolderInfo *info, gchar *name, gchar *full_name, gchar *url_base, gboolean unread_count)
 {
-	CamelFolderInfo *fi, *folder_info, *parent;
+	CamelFolderInfo *fi, *vinfo, *parent;
 	char *uri, *path;
 	CamelURL *url;
 	
@@ -1087,28 +1087,28 @@ add_vtrash_or_vjunk_info (CamelStore *store, CamelFolderInfo *info, gchar *name,
 	
 	if (fi) {
 		/* We're going to replace the physical Trash/Junk folder with our vTrash/vJunk folder */
-		folder_info = fi;
-		g_free (folder_info->full_name);
-		g_free (folder_info->name);
-		g_free (folder_info->url);
+		vinfo = fi;
+		g_free (vinfo->full_name);
+		g_free (vinfo->name);
+		g_free (vinfo->url);
 	} else {
 		/* There wasn't a Trash/Junk folder so create a new folder entry */
-		folder_info = g_new0 (CamelFolderInfo, 1);
+		vinfo = g_new0 (CamelFolderInfo, 1);
 
 		g_assert(parent != NULL);
 
 		/* link it into the right spot */
-		folder_info->sibling = parent->sibling;
-		parent->sibling = folder_info;
+		vinfo->sibling = parent->sibling;
+		parent->sibling = vinfo;
 	}
 	
 	/* Fill in the new fields */
-	folder_info->full_name = g_strdup (full_name);
-	folder_info->name = g_strdup(folder_info->full_name);
-	folder_info->url = g_strdup_printf ("%s:%s", url_base, uri);
+	vinfo->full_name = g_strdup (full_name);
+	vinfo->name = g_strdup(vinfo->full_name);
+	vinfo->url = g_strdup_printf ("%s:%s", url_base, uri);
 	if (!unread_count)
-		folder_info->unread_message_count = -1;
-	folder_info->path = g_strdup_printf("/%s", folder_info->name);
+		vinfo->unread_message_count = -1;
+	vinfo->path = g_strdup_printf("/%s", vinfo->name);
 	g_free (uri);
 }
 
