@@ -100,10 +100,10 @@ static gboolean
 ets_sort_idle(gpointer user_data)
 {
 	ETreeSorted *ets = user_data;
+	ets->priv->sort_idle_id = 0;
 	if (ets->priv->root) {
 		resort_node (ets, ets->priv->root, FALSE, TRUE);
 	}
-	ets->priv->sort_idle_id = 0;
 	return FALSE;
 }
 
@@ -346,7 +346,7 @@ generate_children(ETreeSorted *ets, ETreeSortedPath *path, gboolean needs_resort
 		path->children[i]->position = i;
 	}
 	if (needs_resort)
-		schedule_resort (ets, path, FALSE, FALSE);
+		schedule_resort (ets, path, FALSE, TRUE);
 }
 
 static void
@@ -354,8 +354,8 @@ resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_childr
 {
 	gboolean needs_resort;
 	if (path) {
-		needs_resort = path->needs_resort;
-		if (path->needs_resort) {
+		needs_resort = path->needs_resort || resort_all_children;
+		if (needs_resort || resort_all_children) {
 			int i;
 			d(g_print("Start sort of node %p\n", path));
 			if (path->needs_regen_to_sort)
@@ -379,7 +379,7 @@ resort_node (ETreeSorted *ets, ETreeSortedPath *path, gboolean resort_all_childr
 		if ((resort_all_children || path->child_needs_resort) && path->num_children >= 0) {
 			int i;
 			for (i = 0; i < path->num_children; i++) {
-				resort_node(ets, path->children[i], resort_all_children, !needs_resort);
+				resort_node(ets, path->children[i], resort_all_children, send_signals && !needs_resort);
 			}
 			path->child_needs_resort = 0;
 		}
@@ -834,7 +834,7 @@ ets_proxy_node_inserted (ETreeModel *etm, ETreePath parent, ETreePath child, ETr
 			ets->priv->insert_count++;
 			if (ets->priv->insert_count > ETS_INSERT_MAX) {
 				/* schedule a sort, and append instead */
-				schedule_resort(ets, parent_path, TRUE, TRUE);
+				schedule_resort(ets, parent_path, TRUE, FALSE);
 			} else {
 				/* make sure we have an idle handler to reset the count every now and then */
 				if (ets->priv->insert_idle_id == 0) {
