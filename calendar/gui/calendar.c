@@ -31,7 +31,7 @@ static void calendar_init_alarms (Calendar *cal);
 static void calendar_set_day (void);
 
 Calendar *
-calendar_new (char *title)
+calendar_new (char *title,CalendarNewOptions options)
 {
 	Calendar *cal;
 
@@ -42,7 +42,9 @@ calendar_new (char *title)
 	if ((calendar_day_begin == 0) || (calendar_day_end == 0))
 		calendar_set_day ();
 
-	calendar_init_alarms (cal);
+        if (options & CALENDAR_INIT_ALARMS) {
+                calendar_init_alarms (cal);
+        }
 	
 	return cal;
 }
