@@ -124,7 +124,7 @@ calendar_add_object (Calendar *cal, iCalObject *obj)
 	
 	cal->modified = TRUE;
 
-	/* FIXME: do we have to set the last_mod field in the object? */
+	obj->last_mod = time (NULL);
 }
 
 void
@@ -433,6 +433,8 @@ calendar_get_events_in_range (Calendar *cal, time_t start, time_t end)
 void
 calendar_object_changed (Calendar *cal, iCalObject *obj, int flags)
 {
+	obj->last_mod = time (NULL);
+	
 	if (!(flags & CHANGE_DATES))
 		return;
 	
