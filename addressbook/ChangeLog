@@ -1,5 +1,16 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* gui/search/e-addressbook-search-dialog.[ch]: convert everything
+	from e_addressbook_search_dialog to eab_search_dialog, and
+	EAddressbookSearchDialog to EABSearchDialog.
+
+	* gui/component/addressbook.c (search_cb):
+	e_addressbook_search_dialog -> eab_search_dialog.
+	(addressbook_search_activated): same.
+	(addressbook_query_changed): same.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-book.c (pas_book_respond_get_supported_fields):
 	don't free the fields here - the backends hold onto them.
 	(pas_book_respond_get_supported_auth_methods): don't free the

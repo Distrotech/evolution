@@ -114,7 +114,7 @@ search_cb (BonoboUIComponent *uih, void *user_data, const char *path)
 	AddressbookView *view = (AddressbookView *) user_data;
 
 	if (view->view)
-		gtk_widget_show(e_addressbook_search_dialog_new(view->view));
+		gtk_widget_show(eab_search_dialog_new(view->view));
 }
 
 static void
@@ -804,7 +804,7 @@ addressbook_search_activated (ESearchBar *esb, AddressbookView *view)
 		     NULL);
 
 	if (search_type == ESB_ADVANCED) {
-		gtk_widget_show(e_addressbook_search_dialog_new(view->view));
+		gtk_widget_show(eab_search_dialog_new(view->view));
 	}
 	else {
 		if ((search_word && strlen (search_word)) || search_type == ESB_CATEGORY) {
@@ -864,7 +864,7 @@ addressbook_query_changed (ESearchBar *esb, AddressbookView *view)
 		     NULL);
 
 	if (search_type == ESB_ADVANCED) {
-		gtk_widget_show(e_addressbook_search_dialog_new(view->view));
+		gtk_widget_show(eab_search_dialog_new(view->view));
 	}
 }
 
