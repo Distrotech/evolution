@@ -145,12 +145,17 @@
             location="evolution-mail">
 
 	<oaf_attribute name="repo_ids" type="stringv">
-		<item value="IDL:GNOME/ObjectFactory:1.0"/>
+		<item value="IDL:GNOME/Evolution/ConfigControl:1.0"/>
 	</oaf_attribute>
 
-	<oaf_attribute name="description" type="string"
-		_value="Factory for the configuration control for the Evolution Mailer."/>
+	<oaf_attribute name="evolution:config_item:title" type="string"
+		       _value="Mail Settings"/>
 
+	<oaf_attribute name="evolution:config_item:description" type="string"
+		       _value="This page can be used to configure your mailer settings"/>
+
+	<oaf_attribute name="evolution:config_item:icon_name" type="string"
+		       value="evolution-mail-settings.png"/>
 </oaf_server>
 
 <oaf_server iid="OAFIID:GNOME_Evolution_Mail_Accounts_ConfigControl"

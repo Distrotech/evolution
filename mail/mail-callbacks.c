@@ -130,7 +130,7 @@ check_send_configuration (FolderBrowser *fb)
 	
 	/* Check general */
 	if (!mail_config_is_configured () && !configure_mail (fb))
-			return FALSE;
+		return FALSE;
 	
 	/* Get the default account */
 	account = mail_config_get_default_account ();

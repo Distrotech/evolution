@@ -22,7 +22,7 @@
 	* mail-config-factory.c: New file to handle the creation/etc of
 	the config controls.
 
-	* mail-accounts.c: 
+	* mail-accounts.c:
 
 	* mail-preferences.c:
 
