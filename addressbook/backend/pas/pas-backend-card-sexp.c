@@ -57,17 +57,20 @@ static gboolean
 compare_phone (EContact *contact, const char *str,
 	       char *(*compare)(const char*, const char*))
 {
-#if notyet
 	int i;
+	gboolean rv = FALSE;
 
-	for (i = E_CARD_SIMPLE_PHONE_ID_ASSISTANT; i < E_CARD_SIMPLE_PHONE_ID_LAST; i ++) {
-		const ECardPhone *phone = e_card_simple_get_phone (card, i);
+	for (i = E_CONTACT_FIRST_PHONE_ID; i <= E_CONTACT_LAST_PHONE_ID; i ++) {
+		char *phone = e_contact_get (contact, i);
 
-		if (phone && compare(phone->number, str))
-			return TRUE;
+		rv = phone && compare(phone, str);
+		g_free (phone);
+
+		if (rv)
+			break;
 	}
-#endif
-	return FALSE;
+
+	return rv;
 }
 
 static gboolean

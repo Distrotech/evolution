@@ -707,12 +707,9 @@ pas_backend_summary_add_contact (PASBackendSummary *summary, const char *vcard)
 	new_item->email_1    = e_contact_get (contact, E_CONTACT_EMAIL_1);
 	new_item->email_2    = e_contact_get (contact, E_CONTACT_EMAIL_2);
 	new_item->email_3    = e_contact_get (contact, E_CONTACT_EMAIL_3);
-#if notyet
-	new_item->list       = e_card_evolution_list (card);
-	new_item->list_show_addresses = e_card_evolution_list_show_addresses (card);
-	new_item->wants_html = card->wants_html;
-	new_item->wants_html_set = card->wants_html_set;
-#endif
+	new_item->list       = GPOINTER_TO_INT (e_contact_get (contact, E_CONTACT_IS_LIST));
+	new_item->list_show_addresses = GPOINTER_TO_INT (e_contact_get (contact, E_CONTACT_LIST_SHOW_ADDRESSES));
+	new_item->wants_html = GPOINTER_TO_INT (e_contact_get (contact, E_CONTACT_WANTS_HTML));
 
 	g_ptr_array_add (summary->priv->items, new_item);
 	g_hash_table_insert (summary->priv->id_to_item, new_item->id, new_item);
@@ -1068,12 +1065,9 @@ pas_backend_summary_get_summary_vcard(PASBackendSummary *summary, const char *id
 		e_contact_set (contact, E_CONTACT_EMAIL_2, item->email_2);
 		e_contact_set (contact, E_CONTACT_EMAIL_3, item->email_3);
 
-#if notyet
-		card->list = item->list;
-		card->wants_html = item->wants_html;
-		card->wants_html_set = item->wants_html_set;
-		card->list_show_addresses = item->list_show_addresses;
-#endif
+		e_contact_set (contact, E_CONTACT_IS_LIST, GINT_TO_POINTER (item->list));
+		e_contact_set (contact, E_CONTACT_LIST_SHOW_ADDRESSES, GINT_TO_POINTER (item->list_show_addresses));
+		e_contact_set (contact, E_CONTACT_WANTS_HTML, GINT_TO_POINTER (item->wants_html));
 
 		vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
 

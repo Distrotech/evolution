@@ -94,8 +94,6 @@ typedef enum {
 	E_CONTACT_SPOUSE,        /* string field */
 	E_CONTACT_NOTE,          /* string field */
 
-	E_CONTACT_LAST_SIMPLE_STRING = E_CONTACT_NOTE,
-
 	/* fields used for describing contact lists.  a contact list
 	   is just a contact with _IS_LIST set to true.  the members
 	   are listed in the _EMAIL field. */
@@ -126,7 +124,18 @@ typedef enum {
 
 	E_CONTACT_WANTS_HTML,    /* boolean field */
 
-	E_CONTACT_FIELD_LAST
+	E_CONTACT_FIELD_LAST,
+
+	/* useful constants */
+	E_CONTACT_LAST_SIMPLE_STRING = E_CONTACT_NOTE,
+	E_CONTACT_FIRST_PHONE_ID     = E_CONTACT_PHONE_ASSISTANT,
+	E_CONTACT_LAST_PHONE_ID      = E_CONTACT_PHONE_TTYTDD,
+	E_CONTACT_FIRST_EMAIL_ID     = E_CONTACT_EMAIL_1,
+	E_CONTACT_LAST_EMAIL_ID      = E_CONTACT_EMAIL_3,
+	E_CONTACT_FIRST_ADDRESS_ID   = E_CONTACT_ADDRESS_HOME,
+	E_CONTACT_LAST_ADDRESS_ID    = E_CONTACT_ADDRESS_OTHER,
+	E_CONTACT_FIRST_LABEL_ID     = E_CONTACT_ADDRESS_LABEL_HOME,
+	E_CONTACT_LAST_LABEL_ID      = E_CONTACT_ADDRESS_LABEL_OTHER
 
 } EContactField;
 

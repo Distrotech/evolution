@@ -181,7 +181,6 @@ static void photo_populate (EContact *contact, struct berval **ber_values);
 
 struct prop_info {
 	EContactField field_id;
-	char *query_prop;
 	char *ldap_attr;
 #define PROP_TYPE_STRING   0x01
 #define PROP_TYPE_COMPLEX  0x02
@@ -203,83 +202,78 @@ struct prop_info {
 
 } prop_info[] = {
 
-#define BINARY_PROP(fid,q,a,ctor,ber,cmp) {fid, q, a, PROP_TYPE_BINARY, NULL, ber, cmp, ctor}
-#define COMPLEX_PROP(fid,q,a,ctor,ber,cmp) {fid, q, a, PROP_TYPE_COMPLEX, ctor, ber, cmp}
-#define E_COMPLEX_PROP(fid,q,a,ctor,ber,cmp) {fid, q, a, PROP_TYPE_COMPLEX | PROP_EVOLVE, ctor, ber, cmp}
-#define STRING_PROP(fid,q,a) {fid, q, a, PROP_TYPE_STRING}
-#define E_STRING_PROP(fid,q,a) {fid, q, a, PROP_TYPE_STRING | PROP_EVOLVE}
+#define BINARY_PROP(fid,a,ctor,ber,cmp) {fid, a, PROP_TYPE_BINARY, NULL, ber, cmp, ctor}
+#define COMPLEX_PROP(fid,a,ctor,ber,cmp) {fid, a, PROP_TYPE_COMPLEX, ctor, ber, cmp}
+#define E_COMPLEX_PROP(fid,a,ctor,ber,cmp) {fid, a, PROP_TYPE_COMPLEX | PROP_EVOLVE, ctor, ber, cmp}
+#define STRING_PROP(fid,a) {fid, a, PROP_TYPE_STRING}
+#define E_STRING_PROP(fid,a) {fid, a, PROP_TYPE_STRING | PROP_EVOLVE}
 
 
 	/* name fields */
-	STRING_PROP (E_CONTACT_FULL_NAME,   "full_name", "cn" ),
-	STRING_PROP (E_CONTACT_FAMILY_NAME, "family_name", "sn" ),
+	STRING_PROP (E_CONTACT_FULL_NAME,   "cn" ),
+	STRING_PROP (E_CONTACT_FAMILY_NAME, "sn" ),
 
 	/* email addresses */
-	COMPLEX_PROP   (E_CONTACT_EMAIL, "email", "mail", email_populate, email_ber, email_compare),
+	COMPLEX_PROP   (E_CONTACT_EMAIL, "mail", email_populate, email_ber, email_compare),
 
 	/* phone numbers */
-#if notyet
-	E_STRING_PROP (E_CONTACT_PHONE_PRIMARY,      "primary_phone", "primaryPhone"),
-	COMPLEX_PROP     (E_CONTACT_PHONE_BUSINESS,     "business_phone", "telephoneNumber", business_populate, business_ber, business_compare),
-	COMPLEX_PROP     (E_CONTACT_PHONE_HOME,         "home_phone", "homePhone", homephone_populate, homephone_ber, homephone_compare),
-	STRING_PROP   (E_CONTACT_PHONE_MOBILE,       "mobile_phone", "mobile"),
-	E_STRING_PROP (E_CONTACT_PHONE_CAR,          "car_phone", "carPhone"),
-	STRING_PROP   (E_CONTACT_PHONE_BUSINESS_FAX, "business_fax", "facsimileTelephoneNumber"), 
-	E_STRING_PROP (E_CONTACT_PHONE_HOME_FAX,     "home_fax", "homeFacsimileTelephoneNumber"), 
-	E_STRING_PROP (E_CONTACT_PHONE_OTHER,        "other_phone", "otherPhone"), 
-	E_STRING_PROP (E_CONTACT_PHONE_OTHER_FAX,    "other_fax", "otherFacsimileTelephoneNumber"), 
-	STRING_PROP   (E_CONTACT_PHONE_ISDN,         "isdn", "internationaliSDNNumber"), 
-	STRING_PROP   (E_CONTACT_PHONE_PAGER,        "pager", "pager"),
-	E_STRING_PROP (E_CONTACT_PHONE_RADIO,        "radio", "radio"),
-	E_STRING_PROP (E_CONTACT_PHONE_TELEX,        "telex", "telex"),
-	E_STRING_PROP (E_CONTACT_PHONE_ASSISTANT,    "assistant_phone", "assistantPhone"),
-	E_STRING_PROP (E_CONTACT_PHONE_COMPANY,      "company_phone", "companyPhone"),
-	E_STRING_PROP (E_CONTACT_PHONE_CALLBACK,     "callback_phone", "callbackPhone"),
-	E_STRING_PROP (E_CONTACT_PHONE_TTYTDD,       "tty", "tty"),
-#endif
+	E_STRING_PROP (E_CONTACT_PHONE_PRIMARY,      "primaryPhone"),
+	COMPLEX_PROP  (E_CONTACT_PHONE_BUSINESS,     "telephoneNumber", business_populate, business_ber, business_compare),
+	COMPLEX_PROP  (E_CONTACT_PHONE_HOME,         "homePhone", homephone_populate, homephone_ber, homephone_compare),
+	STRING_PROP   (E_CONTACT_PHONE_MOBILE,       "mobile"),
+	E_STRING_PROP (E_CONTACT_PHONE_CAR,          "carPhone"),
+	STRING_PROP   (E_CONTACT_PHONE_BUSINESS_FAX, "facsimileTelephoneNumber"), 
+	E_STRING_PROP (E_CONTACT_PHONE_HOME_FAX,     "homeFacsimileTelephoneNumber"), 
+	E_STRING_PROP (E_CONTACT_PHONE_OTHER,        "otherPhone"), 
+	E_STRING_PROP (E_CONTACT_PHONE_OTHER_FAX,    "otherFacsimileTelephoneNumber"), 
+	STRING_PROP   (E_CONTACT_PHONE_ISDN,         "internationaliSDNNumber"), 
+	STRING_PROP   (E_CONTACT_PHONE_PAGER,        "pager"),
+	E_STRING_PROP (E_CONTACT_PHONE_RADIO,        "radio"),
+	E_STRING_PROP (E_CONTACT_PHONE_TELEX,        "telex"),
+	E_STRING_PROP (E_CONTACT_PHONE_ASSISTANT,    "assistantPhone"),
+	E_STRING_PROP (E_CONTACT_PHONE_COMPANY,      "companyPhone"),
+	E_STRING_PROP (E_CONTACT_PHONE_CALLBACK,     "callbackPhone"),
+	E_STRING_PROP (E_CONTACT_PHONE_TTYTDD,       "tty"),
 
 	/* org information */
-	STRING_PROP   (E_CONTACT_ORG,       "org",       "o"),
-	STRING_PROP   (E_CONTACT_ORG_UNIT,  "org_unit",  "ou"),
-	STRING_PROP   (E_CONTACT_OFFICE,    "office",    "roomNumber"),
-	STRING_PROP   (E_CONTACT_TITLE,     "title",     "title"),
-	E_STRING_PROP (E_CONTACT_ROLE,      "role",      "businessRole"), 
-	E_STRING_PROP (E_CONTACT_MANAGER,   "manager",   "managerName"), 
-	E_STRING_PROP (E_CONTACT_ASSISTANT, "assistant", "assistantName"), 
+	STRING_PROP   (E_CONTACT_ORG,       "o"),
+	STRING_PROP   (E_CONTACT_ORG_UNIT,  "ou"),
+	STRING_PROP   (E_CONTACT_OFFICE,    "roomNumber"),
+	STRING_PROP   (E_CONTACT_TITLE,     "title"),
+	E_STRING_PROP (E_CONTACT_ROLE,      "businessRole"), 
+	E_STRING_PROP (E_CONTACT_MANAGER,   "managerName"), 
+	E_STRING_PROP (E_CONTACT_ASSISTANT, "assistantName"), 
 
 	/* addresses */
 #if notyet
-	STRING_PROP   (E_CONTACT_ADDRESS_BUSINESS, "business_address", "postalAddress"),
-	STRING_PROP   (E_CONTACT_ADDRESS_HOME,     "home_address",     "homePostalAddress"),
-	E_STRING_PROP (E_CONTACT_ADDRESS_OTHER,    "other_address",    "otherPostalAddress"),
+	STRING_PROP   (E_CONTACT_ADDRESS_BUSINESS, "postalAddress"),
+	STRING_PROP   (E_CONTACT_ADDRESS_HOME,     "homePostalAddress"),
+	E_STRING_PROP (E_CONTACT_ADDRESS_OTHER,    "otherPostalAddress"),
 #endif
 
 	/* photos */
-	BINARY_PROP  (E_CONTACT_PHOTO,       "photo", "jpegPhoto", photo_populate, NULL/*XXX*/, NULL/*XXX*/),
+	BINARY_PROP  (E_CONTACT_PHOTO,       "jpegPhoto", photo_populate, NULL/*XXX*/, NULL/*XXX*/),
 
 	/* misc fields */
-	STRING_PROP (E_CONTACT_HOMEPAGE_URL,  "url", "labeledURI"),
+	STRING_PROP    (E_CONTACT_HOMEPAGE_URL,  "labeledURI"),
 	/* map nickname to displayName */
-	STRING_PROP   (E_CONTACT_NICKNAME,    "nickname",  "displayName"),
+	STRING_PROP    (E_CONTACT_NICKNAME,    "displayName"),
+	E_STRING_PROP  (E_CONTACT_SPOUSE,      "spouseName"), 
+	E_STRING_PROP  (E_CONTACT_NOTE,        "note"), 
 #if notyet
-	E_STRING_PROP (E_CONTACT_SPOUSE,      "spouse", "spouseName"), 
-	E_STRING_PROP (E_CONTACT_NOTE,        "note", "note"), 
-	E_COMPLEX_PROP (E_CONTACT_ANNIVERSARY, "anniversary", "anniversary", anniversary_populate, anniversary_ber, anniversary_compare), 
-	E_COMPLEX_PROP (E_CONTACT_BIRTH_DATE,  "birth_date", "birthDate", birthday_populate, birthday_ber, birthday_compare), 
-	E_STRING_PROP (E_CONTACT_MAILER,      "mailer", "mailer"), 
+	E_COMPLEX_PROP (E_CONTACT_ANNIVERSARY, "anniversary", anniversary_populate, anniversary_ber, anniversary_compare), 
+	E_COMPLEX_PROP (E_CONTACT_BIRTH_DATE,  "birthDate", birthday_populate, birthday_ber, birthday_compare), 
 #endif
+	E_STRING_PROP  (E_CONTACT_MAILER,      "mailer"), 
 
-	E_STRING_PROP (E_CONTACT_FILE_AS,     "file_as", "fileAs"),
+	E_STRING_PROP  (E_CONTACT_FILE_AS,     "fileAs"),
 #if notyet
-	E_COMPLEX_PROP (E_CONTACT_CATEGORIES,  "categories", "category", category_populate, category_ber, category_compare),
+	E_COMPLEX_PROP (E_CONTACT_CATEGORIES,  "category", category_populate, category_ber, category_compare),
 
-	STRING_PROP (E_CONTACT_CALURI,      "caluri", "calCalURI"),
-	STRING_PROP (E_CONTACT_FBURL,       "fburl", "calFBURL"),
-	STRING_PROP (E_CONTACT_ICSCALENDAR, "icscalendar", "icsCalendar"),
+	STRING_PROP (E_CONTACT_CALURI,         "calCalURI"),
+	STRING_PROP (E_CONTACT_FBURL,          "calFBURL"),
+	STRING_PROP (E_CONTACT_ICSCALENDAR,    "icsCalendar"),
 #endif
-
-/*  	E_CONTACT_NAME_OR_ORG, */
-
 
 #undef E_STRING_PROP
 #undef STRING_PROP
@@ -415,7 +409,7 @@ add_oc_attributes_to_supported_fields (PASBackendLDAP *bl, LDAPObjectClass *oc)
 	GHashTable *attr_hash = g_hash_table_new (g_str_hash, g_str_equal);
 
 	for (i = 0; i < num_prop_infos; i ++)
-		g_hash_table_insert (attr_hash, prop_info[i].ldap_attr, prop_info[i].query_prop);
+		g_hash_table_insert (attr_hash, prop_info[i].ldap_attr, (char*)e_contact_field_name (prop_info[i].field_id));
 
 	if (oc->oc_at_oids_must)
 		add_to_supported_fields (bl, oc->oc_at_oids_must, attr_hash);
@@ -1758,27 +1752,24 @@ email_compare (EContact *contact1, EContact *contact2)
 static void
 homephone_populate(EContact *contact, char **values)
 {
-#if notyet
 	if (values[0]) {
-		e_card_simple_set (card, E_CONTACT_PHONE_HOME, values[0]);
+		e_contact_set (contact, E_CONTACT_PHONE_HOME, values[0]);
 		if (values[1])
-			e_card_simple_set (card, E_CONTACT_PHONE_HOME_2, values[1]);
+			e_contact_set (contact, E_CONTACT_PHONE_HOME_2, values[1]);
 	}
-#endif
 }
 
 struct berval**
 homephone_ber(EContact *contact)
 {
-#if notyet
 	struct berval** result;
 	const char *homephones[3];
 	int i, j, num;
 
 	num = 0;
-	if ((homephones[0] = e_card_simple_get (card, E_CONTACT_PHONE_HOME)))
+	if ((homephones[0] = e_contact_get (contact, E_CONTACT_PHONE_HOME)))
 		num++;
-	if ((homephones[1] = e_card_simple_get (card, E_CONTACT_PHONE_HOME_2)))
+	if ((homephones[1] = e_contact_get (contact, E_CONTACT_PHONE_HOME_2)))
 		num++;
 
 	if (num == 0)
@@ -1800,21 +1791,19 @@ homephone_ber(EContact *contact)
 	result[num] = NULL;
 
 	return result;
-#endif
 }
 
 static gboolean
 homephone_compare (EContact *contact1, EContact *contact2)
 {
-#if notyet
 	int phone_ids[2] = { E_CONTACT_PHONE_HOME, E_CONTACT_PHONE_HOME_2 };
 	const char *phone1, *phone2;
 	int i;
 
 	for (i = 0; i < 2; i ++) {
 		gboolean equal;
-		phone1 = e_card_simple_get (ecard1, phone_ids[i]);
-		phone2 = e_card_simple_get (ecard2, phone_ids[i]);
+		phone1 = e_contact_get (contact1, phone_ids[i]);
+		phone2 = e_contact_get (contact2, phone_ids[i]);
 
 		if (phone1 && phone2)
 			equal = !strcmp (phone1, phone2);
@@ -1826,33 +1815,29 @@ homephone_compare (EContact *contact1, EContact *contact2)
 	}
 
 	return TRUE;
-#endif
 }
 
 static void
 business_populate(EContact *contact, char **values)
 {
-#if notyet
 	if (values[0]) {
-		e_card_simple_set (card, E_CONTACT_PHONE_BUSINESS, values[0]);
+		e_contact_set (contact, E_CONTACT_PHONE_BUSINESS, values[0]);
 		if (values[1])
-			e_card_simple_set (card, E_CONTACT_PHONE_BUSINESS_2, values[1]);
+			e_contact_set (contact, E_CONTACT_PHONE_BUSINESS_2, values[1]);
 	}
-#endif
 }
 
 struct berval**
 business_ber(EContact *contact)
 {
-#if notyet
 	struct berval** result;
 	const char *business_phones[3];
 	int i, j, num;
 
 	num = 0;
-	if ((business_phones[0] = e_card_simple_get (card, E_CONTACT_PHONE_BUSINESS)))
+	if ((business_phones[0] = e_contact_get (contact, E_CONTACT_PHONE_BUSINESS)))
 		num++;
-	if ((business_phones[1] = e_card_simple_get (card, E_CONTACT_PHONE_BUSINESS_2)))
+	if ((business_phones[1] = e_contact_get (contact, E_CONTACT_PHONE_BUSINESS_2)))
 		num++;
 
 	if (num == 0)
@@ -1874,21 +1859,19 @@ business_ber(EContact *contact)
 	result[num] = NULL;
 
 	return result;
-#endif
 }
 
 static gboolean
 business_compare (EContact *contact1, EContact *contact2)
 {
-#if notyet
 	int phone_ids[2] = { E_CONTACT_PHONE_BUSINESS, E_CONTACT_PHONE_BUSINESS_2 };
 	const char *phone1, *phone2;
 	int i;
 
 	for (i = 0; i < 2; i ++) {
 		gboolean equal;
-		phone1 = e_card_simple_get (ecard1, phone_ids[i]);
-		phone2 = e_card_simple_get (ecard2, phone_ids[i]);
+		phone1 = e_contact_get (contact1, phone_ids[i]);
+		phone2 = e_contact_get (contact2, phone_ids[i]);
 
 		if (phone1 && phone2)
 			equal = !strcmp (phone1, phone2);
@@ -1900,7 +1883,6 @@ business_compare (EContact *contact1, EContact *contact2)
 	}
 
 	return TRUE;
-#endif
 }
 
 static void
@@ -2577,7 +2559,7 @@ query_prop_to_ldap(gchar *query_prop)
 	int i;
 
 	for (i = 0; i < num_prop_infos; i ++)
-		if (!strcmp (query_prop, prop_info[i].query_prop))
+		if (!strcmp (query_prop, e_contact_field_name (prop_info[i].field_id)))
 			return prop_info[i].ldap_attr;
 
 	return NULL;
