@@ -275,29 +275,39 @@ etmm_depth (ETreeModel *etm, ETreePath path)
 	return e_tree_memory_path_depth(path);
 }
 
+static gboolean
+etmm_get_expanded_default (ETreeModel *etm)
+{
+	ETreeMemory *etmm = E_TREE_MEMORY (etm);
+	ETreeMemoryPriv *priv = etmm->priv;
+
+	return priv->expanded_default;
+}
+
 
 static void
 e_tree_memory_class_init (GtkObjectClass *klass)
 {
 	ETreeModelClass *tree_class = (ETreeModelClass *) klass;
 
-	parent_class = gtk_type_class (PARENT_TYPE);
+	parent_class                     = gtk_type_class (PARENT_TYPE);
 	
-	node_chunk = g_mem_chunk_create (ETreeMemoryPath, TREEPATH_CHUNK_AREA_SIZE, G_ALLOC_AND_FREE);
+	node_chunk                       = g_mem_chunk_create (ETreeMemoryPath, TREEPATH_CHUNK_AREA_SIZE, G_ALLOC_AND_FREE);
 
-	klass->destroy = etmm_destroy;
+	klass->destroy                   = etmm_destroy;
 
-	tree_class->get_root         = etmm_get_root;
-	tree_class->get_prev         = etmm_get_prev;
-	tree_class->get_next         = etmm_get_next;
-	tree_class->get_first_child  = etmm_get_first_child;
-	tree_class->get_last_child   = etmm_get_last_child;
-	tree_class->get_parent       = etmm_get_parent;
+	tree_class->get_root             = etmm_get_root;
+	tree_class->get_prev             = etmm_get_prev;
+	tree_class->get_next             = etmm_get_next;
+	tree_class->get_first_child      = etmm_get_first_child;
+	tree_class->get_last_child       = etmm_get_last_child;
+	tree_class->get_parent           = etmm_get_parent;
 
-	tree_class->is_root          = etmm_is_root      ;
-	tree_class->is_expandable    = etmm_is_expandable;
-	tree_class->get_children     = etmm_get_children ;
-	tree_class->depth            = etmm_depth        ;
+	tree_class->is_root              = etmm_is_root;
+	tree_class->is_expandable        = etmm_is_expandable;
+	tree_class->get_children         = etmm_get_children;
+	tree_class->depth                = etmm_depth;
+	tree_class->get_expanded_default = etmm_get_expanded_default;
 }
 
 static void

@@ -17,6 +17,7 @@
 
 #include <gal/e-table/e-tree-model.h>
 #include <gal/e-table/e-tree-table-adapter.h>
+#include <gal/e-table/e-tree-sorted.h>
 
 BEGIN_GNOME_DECLS
 
@@ -32,6 +33,7 @@ typedef struct {
 	GtkTable parent;
 
 	ETreeModel *model;
+	ETreeSorted *sorted;
 	ETreeTableAdapter *etta;
 
 	ETableHeader *full_header, *header;

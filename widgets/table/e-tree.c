@@ -125,6 +125,7 @@ et_destroy (GtkObject *object)
 	et->reflow_idle_id = 0;
 
 	gtk_object_unref (GTK_OBJECT (et->model));
+	gtk_object_unref (GTK_OBJECT (et->sorted));
 	gtk_object_unref (GTK_OBJECT (et->full_header));
 	gtk_object_unref (GTK_OBJECT (et->header));
 	gtk_object_unref (GTK_OBJECT (et->sort_info));
@@ -321,6 +322,7 @@ static void
 item_cursor_change (ETableItem *eti, int row, ETree *et)
 {
 	ETreePath path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [CURSOR_CHANGE],
 			 row, path);
@@ -330,6 +332,7 @@ static void
 item_cursor_activated (ETableItem *eti, int row, ETree *et)
 {
 	ETreePath path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [CURSOR_ACTIVATED],
 			 row, path);
@@ -339,6 +342,7 @@ static void
 item_double_click (ETableItem *eti, int row, int col, GdkEvent *event, ETree *et)
 {
 	ETreePath path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [DOUBLE_CLICK],
 			 row, path, col, event);
@@ -349,6 +353,7 @@ item_right_click (ETableItem *eti, int row, int col, GdkEvent *event, ETree *et)
 {
 	int return_val = 0;
 	ETreePath path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [RIGHT_CLICK],
 			 row, path, col, event, &return_val);
@@ -360,6 +365,7 @@ item_click (ETableItem *eti, int row, int col, GdkEvent *event, ETree *et)
 {
 	int return_val = 0;
 	ETreePath path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [CLICK],
 			 row, path, col, event, &return_val);
@@ -373,6 +379,9 @@ item_key_press (ETableItem *eti, int row, int col, GdkEvent *event, ETree *et)
 	ETreePath path = e_tree_table_adapter_node_at_row(et->etta, row);
 	GdkEventKey *key = (GdkEventKey *) event;
 	GdkEventButton click;
+
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
+
 	switch (key->keyval) {
 	case GDK_Page_Down:
 		gtk_adjustment_set_value(
@@ -706,10 +715,21 @@ et_real_construct (ETree *e_tree, ETreeModel *etm, ETableExtras *ete,
 	e_tree->cursor_mode = specification->cursor_mode;
 	e_tree->full_header = e_table_spec_to_full_header(specification, ete);
 
+	e_tree->header = e_table_state_to_header (GTK_WIDGET(e_tree), e_tree->full_header, state);
+	e_tree->horizontal_scrolling = specification->horizontal_scrolling;
+
+	e_tree->sort_info = state->sort_info;
+
+	gtk_object_set(GTK_OBJECT(e_tree->header),
+		       "sort_info", e_tree->sort_info,
+		       NULL);
+
 	e_tree->model = etm;
 	gtk_object_ref (GTK_OBJECT (etm));
 
-	e_tree->etta = E_TREE_TABLE_ADAPTER(e_tree_table_adapter_new(etm));
+	e_tree->sorted = e_tree_sorted_new(etm, e_tree->full_header, e_tree->sort_info);
+
+	e_tree->etta = E_TREE_TABLE_ADAPTER(e_tree_table_adapter_new(E_TREE_MODEL(e_tree->sorted)));
 
 	gtk_object_set(GTK_OBJECT(e_tree->selection),
 		       "model", E_TABLE_MODEL(e_tree->etta),
@@ -719,15 +739,6 @@ et_real_construct (ETree *e_tree, ETreeModel *etm, ETableExtras *ete,
 
 	gtk_widget_push_visual (gdk_rgb_get_visual ());
 	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
-
-	e_tree->header = e_table_state_to_header (GTK_WIDGET(e_tree), e_tree->full_header, state);
-	e_tree->horizontal_scrolling = specification->horizontal_scrolling;
-
-	e_tree->sort_info = state->sort_info;
-
-	gtk_object_set(GTK_OBJECT(e_tree->header),
-		       "sort_info", e_tree->sort_info,
-		       NULL);
 
 	e_tree->sorter = e_sorter_new();
 
@@ -895,6 +906,8 @@ e_tree_set_cursor (ETree *e_tree, ETreePath path)
 	g_return_if_fail(E_IS_TREE(e_tree));
 	g_return_if_fail(path != NULL);
 
+	path = e_tree_sorted_model_to_view_path(e_tree->sorted, path);
+
 	row = e_tree_table_adapter_row_of_node(E_TREE_TABLE_ADAPTER(e_tree->etta), path);
 
 	if (row == -1)
@@ -909,13 +922,16 @@ ETreePath
 e_tree_get_cursor (ETree *e_tree)
 {
 	int row;
+	ETreePath path;
 	g_return_val_if_fail(e_tree != NULL, NULL);
 	g_return_val_if_fail(E_IS_TREE(e_tree), NULL);
 
 	gtk_object_get(GTK_OBJECT(e_tree->selection),
 		       "cursor_row", &row,
 		       NULL);
-	return e_tree_table_adapter_node_at_row(E_TREE_TABLE_ADAPTER(e_tree->etta), row);
+	path = e_tree_table_adapter_node_at_row(E_TREE_TABLE_ADAPTER(e_tree->etta), row);
+	path = e_tree_sorted_view_to_model_path(e_tree->sorted, path);
+	return path;
 }
 
 void
@@ -1044,7 +1060,7 @@ e_tree_get_next_row      (ETree *e_tree,
 
 gint
 e_tree_get_prev_row      (ETree *e_tree,
-			   gint    model_row)
+			  gint    model_row)
 {
 	g_return_val_if_fail(e_tree != NULL, -1);
 	g_return_val_if_fail(E_IS_TREE(e_tree), -1);
@@ -1091,6 +1107,8 @@ e_tree_view_to_model_row        (ETree *e_tree,
 gboolean
 e_tree_node_is_expanded (ETree *et, ETreePath path)
 {
+	path = e_tree_sorted_model_to_view_path(et->sorted, path);
+
 	return e_tree_table_adapter_node_is_expanded (et->etta, path);
 }
 
@@ -1100,6 +1118,8 @@ e_tree_node_set_expanded (ETree *et, ETreePath path, gboolean expanded)
 	g_return_if_fail (et != NULL);
 	g_return_if_fail (E_IS_TREE(et));
 
+	path = e_tree_sorted_model_to_view_path(et->sorted, path);
+
 	e_tree_table_adapter_node_set_expanded (et->etta, path, expanded);
 }
 
@@ -1108,6 +1128,8 @@ e_tree_node_set_expanded_recurse (ETree *et, ETreePath path, gboolean expanded)
 {
 	g_return_if_fail (et != NULL);
 	g_return_if_fail (E_IS_TREE(et));
+
+	path = e_tree_sorted_model_to_view_path(et->sorted, path);
 
 	e_tree_table_adapter_node_set_expanded_recurse (et->etta, path, expanded);
 }
@@ -1124,12 +1146,18 @@ e_tree_root_node_set_visible (ETree *et, gboolean visible)
 ETreePath
 e_tree_node_at_row (ETree *et, int row)
 {
-	return e_tree_table_adapter_node_at_row (et->etta, row);
+	ETreePath path;
+
+	path = e_tree_table_adapter_node_at_row (et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
+
+	return path;
 }
 
 int
 e_tree_row_of_node (ETree *et, ETreePath path)
 {
+	path = e_tree_sorted_model_to_view_path(et->sorted, path);
 	return e_tree_table_adapter_row_of_node (et->etta, path);
 }
 
@@ -1144,6 +1172,8 @@ e_tree_show_node (ETree *et, ETreePath path)
 {
 	g_return_if_fail (et != NULL);
 	g_return_if_fail (E_IS_TREE(et));
+
+	path = e_tree_sorted_model_to_view_path(et->sorted, path);
 
 	e_tree_table_adapter_show_node (et->etta, path);
 }
@@ -1251,6 +1281,7 @@ e_tree_drag_get_data (ETree         *tree,
 	g_return_if_fail(E_IS_TREE(tree));
 
 	path = e_tree_table_adapter_node_at_row(tree->etta, row);
+	path = e_tree_sorted_view_to_model_path(tree->sorted, path);
 
 	gtk_drag_get_data(GTK_WIDGET(tree),
 			  context,
@@ -1418,6 +1449,7 @@ e_tree_drag_begin (ETree            *tree,
 	g_return_val_if_fail (E_IS_TREE(tree), NULL);
 
 	path = e_tree_table_adapter_node_at_row(tree->etta, row);
+	path = e_tree_sorted_view_to_model_path(tree->sorted, path);
 
 	tree->drag_row = row;
 	tree->drag_path = path;
@@ -1562,6 +1594,7 @@ et_drag_motion(GtkWidget *widget,
 	}
 
 	path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 
 	et->drop_row = row;
 	et->drop_path = path;
@@ -1597,6 +1630,7 @@ et_drag_drop(GtkWidget *widget,
 			   &row,
 			   &col);
 	path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 
 	if (et->drop_row >= 0 && et->drop_col >= 0 &&
 	    row != et->drop_row && col != et->drop_row) {
@@ -1657,6 +1691,7 @@ et_drag_data_received(GtkWidget *widget,
 			   &row,
 			   &col);
 	path = e_tree_table_adapter_node_at_row(et->etta, row);
+	path = e_tree_sorted_view_to_model_path(et->sorted, path);
 	gtk_signal_emit (GTK_OBJECT (et),
 			 et_signals [TREE_DRAG_DATA_RECEIVED],
 			 row,

@@ -172,7 +172,7 @@ static void
 ets_proxy_model_cell_changed (ETableSubset *subset, ETableModel *source, int col, int row)
 {
 	ETableSorted *ets = E_TABLE_SORTED(subset);
-	if (e_table_sorting_utils_affects_sort(source, ets->sort_info, ets->full_header, col))
+	if (e_table_sorting_utils_affects_sort(ets->sort_info, ets->full_header, col))
 		ets_proxy_model_row_changed(subset, source, row);
 	else if (ets_parent_class->proxy_model_cell_changed)
 		(ets_parent_class->proxy_model_cell_changed) (subset, source, col, row);

@@ -149,6 +149,12 @@ static void
 eti_realize_cell_views (ETableItem *eti)
 {
 	int i;
+
+	if (eti->cell_views_realized)
+		return;
+
+	if (!(GTK_OBJECT_FLAGS(eti) & GNOME_CANVAS_ITEM_REALIZED))
+		return;
 	
 	for (i = 0; i < eti->n_cells; i++)
 		e_cell_realize (eti->cell_views [i]);

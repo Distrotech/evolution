@@ -31,18 +31,18 @@ struct ETreeModelClass {
 	/*
 	 * Virtual methods
 	 */
-	ETreePath (*get_root)      (ETreeModel *etm);
+	ETreePath (*get_root)              (ETreeModel *etm);
 
-	ETreePath (*get_parent)      (ETreeModel *etm, ETreePath node);
-	ETreePath (*get_first_child) (ETreeModel *etm, ETreePath node);
-	ETreePath (*get_last_child)  (ETreeModel *etm, ETreePath node);
-	ETreePath (*get_next)        (ETreeModel *etm, ETreePath node);
-	ETreePath (*get_prev)        (ETreeModel *etm, ETreePath node);
+	ETreePath (*get_parent)            (ETreeModel *etm, ETreePath node);
+	ETreePath (*get_first_child)       (ETreeModel *etm, ETreePath node);
+	ETreePath (*get_last_child)        (ETreeModel *etm, ETreePath node);
+	ETreePath (*get_next)              (ETreeModel *etm, ETreePath node);
+	ETreePath (*get_prev)              (ETreeModel *etm, ETreePath node);
 
-	gboolean   (*is_root)         (ETreeModel *etm, ETreePath node);
-	gboolean   (*is_expandable)   (ETreeModel *etm, ETreePath node);
-	guint      (*get_children)    (ETreeModel *etm, ETreePath node, ETreePath **paths);
-	guint      (*depth)           (ETreeModel *etm, ETreePath node);
+	gboolean   (*is_root)              (ETreeModel *etm, ETreePath node);
+	gboolean   (*is_expandable)        (ETreeModel *etm, ETreePath node);
+	guint      (*get_children)         (ETreeModel *etm, ETreePath node, ETreePath **paths);
+	guint      (*depth)                (ETreeModel *etm, ETreePath node);
 
 	GdkPixbuf *(*icon_at)              (ETreeModel *etm, ETreePath node);
 
@@ -52,69 +52,102 @@ struct ETreeModelClass {
 	/*
 	 * ETable analogs
 	 */
-	void      *(*value_at)         (ETreeModel *etm, ETreePath node, int col);
-	void       (*set_value_at)     (ETreeModel *etm, ETreePath node, int col, const void *val);
-	gboolean   (*is_editable)      (ETreeModel *etm, ETreePath node, int col);
+	void      *(*value_at)             (ETreeModel *etm, ETreePath node, int col);
+	void       (*set_value_at)         (ETreeModel *etm, ETreePath node, int col, const void *val);
+	gboolean   (*is_editable)          (ETreeModel *etm, ETreePath node, int col);
 
-	void      *(*duplicate_value)  (ETreeModel *etm, int col, const void *value);
-	void       (*free_value)       (ETreeModel *etm, int col, void *value);
-	void	  *(*initialize_value) (ETreeModel *etm, int col);
-	gboolean   (*value_is_empty)   (ETreeModel *etm, int col, const void *value);
-	char      *(*value_to_string)  (ETreeModel *etm, int col, const void *value);
+	void      *(*duplicate_value)      (ETreeModel *etm, int col, const void *value);
+	void       (*free_value)           (ETreeModel *etm, int col, void *value);
+	void	  *(*initialize_value)     (ETreeModel *etm, int col);
+	gboolean   (*value_is_empty)       (ETreeModel *etm, int col, const void *value);
+	char      *(*value_to_string)      (ETreeModel *etm, int col, const void *value);
 
 	/*
 	 * Signals
 	 */
-	void       (*node_changed)      (ETreeModel *etm, ETreePath node);
-	void       (*node_data_changed) (ETreeModel *etm, ETreePath node);
-	void       (*node_col_changed)  (ETreeModel *etm, ETreePath node,   int col);
-	void       (*node_inserted)     (ETreeModel *etm, ETreePath parent, ETreePath inserted_node);
-	void       (*node_removed)      (ETreeModel *etm, ETreePath parent, ETreePath removed_node);
+	void       (*node_changed)         (ETreeModel *etm, ETreePath node);
+	void       (*node_data_changed)    (ETreeModel *etm, ETreePath node);
+	void       (*node_col_changed)     (ETreeModel *etm, ETreePath node,   int col);
+	void       (*node_inserted)        (ETreeModel *etm, ETreePath parent, ETreePath inserted_node);
+	void       (*node_removed)         (ETreeModel *etm, ETreePath parent, ETreePath removed_node);
 };
-
-GtkType     e_tree_model_get_type  (void);
-ETreeModel *e_tree_model_new       (void);
+GtkType     e_tree_model_get_type              (void);
+ETreeModel *e_tree_model_new                   (void);
 
 /* tree traversal operations */
-ETreePath e_tree_model_get_root             (ETreeModel *etree);
-ETreePath e_tree_model_node_get_parent      (ETreeModel *etree, ETreePath path);
-ETreePath e_tree_model_node_get_first_child (ETreeModel *etree, ETreePath path);
-ETreePath e_tree_model_node_get_last_child  (ETreeModel *etree, ETreePath path);
-ETreePath e_tree_model_node_get_next        (ETreeModel *etree, ETreePath path);
-ETreePath e_tree_model_node_get_prev        (ETreeModel *etree, ETreePath path);
+ETreePath   e_tree_model_get_root              (ETreeModel     *etree);
+ETreePath   e_tree_model_node_get_parent       (ETreeModel     *etree,
+						ETreePath       path);
+ETreePath   e_tree_model_node_get_first_child  (ETreeModel     *etree,
+						ETreePath       path);
+ETreePath   e_tree_model_node_get_last_child   (ETreeModel     *etree,
+						ETreePath       path);
+ETreePath   e_tree_model_node_get_next         (ETreeModel     *etree,
+						ETreePath       path);
+ETreePath   e_tree_model_node_get_prev         (ETreeModel     *etree,
+						ETreePath       path);
 
 /* node accessors */
-gboolean e_tree_model_node_is_root                 (ETreeModel *etree, ETreePath path);
-gboolean e_tree_model_node_is_expandable           (ETreeModel *etree, ETreePath path);
-guint    e_tree_model_node_get_children            (ETreeModel *etree, ETreePath path, ETreePath **paths);
-guint    e_tree_model_node_depth                   (ETreeModel *etree, ETreePath path);
-
-GdkPixbuf *e_tree_model_icon_at                    (ETreeModel *etree, ETreePath path);
-
-gboolean e_tree_model_get_expanded_default (ETreeModel *model);
-gint     e_tree_model_column_count         (ETreeModel *model);
-
-void *e_tree_model_value_at (ETreeModel *etree, ETreePath node, int col);
-void e_tree_model_set_value_at (ETreeModel *etree, ETreePath node, int col, const void *val);
-gboolean e_tree_model_node_is_editable (ETreeModel *etree, ETreePath node, int col);
-
-void *e_tree_model_duplicate_value (ETreeModel *etree, int col, const void *value);
-void e_tree_model_free_value (ETreeModel *etree, int col, void *value);
-void *e_tree_model_initialize_value (ETreeModel *etree, int col);
-gboolean e_tree_model_value_is_empty (ETreeModel *etree, int col, const void *value);
-char *e_tree_model_value_to_string (ETreeModel *etree, int col, const void *value);
+gboolean    e_tree_model_node_is_root          (ETreeModel     *etree,
+						ETreePath       path);
+gboolean    e_tree_model_node_is_expandable    (ETreeModel     *etree,
+						ETreePath       path);
+guint       e_tree_model_node_get_children     (ETreeModel     *etree,
+						ETreePath       path,
+						ETreePath     **paths);
+guint       e_tree_model_node_depth            (ETreeModel     *etree,
+						ETreePath       path);
+GdkPixbuf  *e_tree_model_icon_at               (ETreeModel     *etree,
+						ETreePath       path);
+gboolean    e_tree_model_get_expanded_default  (ETreeModel     *model);
+gint        e_tree_model_column_count          (ETreeModel     *model);
+void       *e_tree_model_value_at              (ETreeModel     *etree,
+						ETreePath       node,
+						int             col);
+void        e_tree_model_set_value_at          (ETreeModel     *etree,
+						ETreePath       node,
+						int             col,
+						const void     *val);
+gboolean    e_tree_model_node_is_editable      (ETreeModel     *etree,
+						ETreePath       node,
+						int             col);
+void       *e_tree_model_duplicate_value       (ETreeModel     *etree,
+						int             col,
+						const void     *value);
+void        e_tree_model_free_value            (ETreeModel     *etree,
+						int             col,
+						void           *value);
+void       *e_tree_model_initialize_value      (ETreeModel     *etree,
+						int             col);
+gboolean    e_tree_model_value_is_empty        (ETreeModel     *etree,
+						int             col,
+						const void     *value);
+char       *e_tree_model_value_to_string       (ETreeModel     *etree,
+						int             col,
+						const void     *value);
 
 /* depth first traversal of path's descendents, calling func on each one */
-void e_tree_model_node_traverse (ETreeModel *model, ETreePath path, ETreePathFunc func, gpointer data);
+void        e_tree_model_node_traverse         (ETreeModel     *model,
+						ETreePath       path,
+						ETreePathFunc   func,
+						gpointer        data);
 
 /*
 ** Routines for emitting signals on the ETreeModel
 */
-void  e_tree_model_node_changed  (ETreeModel *tree_model, ETreePath node);
-void  e_tree_model_node_data_changed  (ETreeModel *tree_model, ETreePath node);
-void  e_tree_model_node_col_changed  (ETreeModel *tree_model, ETreePath node, int col);
-void  e_tree_model_node_inserted (ETreeModel *tree_model, ETreePath parent_node, ETreePath inserted_node);
-void  e_tree_model_node_removed  (ETreeModel *tree_model, ETreePath parent_node, ETreePath removed_node);
+void        e_tree_model_node_changed          (ETreeModel     *tree_model,
+						ETreePath       node);
+void        e_tree_model_node_data_changed     (ETreeModel     *tree_model,
+						ETreePath       node);
+void        e_tree_model_node_col_changed      (ETreeModel     *tree_model,
+						ETreePath       node,
+						int             col);
+void        e_tree_model_node_inserted         (ETreeModel     *tree_model,
+						ETreePath       parent_node,
+						ETreePath       inserted_node);
+void        e_tree_model_node_removed          (ETreeModel     *tree_model,
+						ETreePath       parent_node,
+						ETreePath       removed_node);
 
 #ifdef __cplusplus
 }

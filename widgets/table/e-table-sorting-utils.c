@@ -115,16 +115,13 @@ e_table_sorting_utils_sort(ETableModel *source, ETableSortInfo *sort_info, ETabl
 }
 
 gboolean
-e_table_sorting_utils_affects_sort  (ETableModel    *source,
-				     ETableSortInfo *sort_info,
+e_table_sorting_utils_affects_sort  (ETableSortInfo *sort_info,
 				     ETableHeader   *full_header,
 				     int             col)
 {
 	int j;
 	int cols;
 
-	g_return_val_if_fail(source != NULL, TRUE);
-	g_return_val_if_fail(E_IS_TABLE_MODEL(source), TRUE);
 	g_return_val_if_fail(sort_info != NULL, TRUE);
 	g_return_val_if_fail(E_IS_TABLE_SORT_INFO(sort_info), TRUE);
 	g_return_val_if_fail(full_header != NULL, TRUE);
