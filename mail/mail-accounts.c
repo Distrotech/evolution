@@ -820,8 +820,6 @@ sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
 static void
 sig_advanced (GtkWidget *w, MailAccountsDialog *dialog)
 {
-	printf ("sig_advanced\n");
-
 	gtk_widget_hide (dialog->sig_advanced);
 	gtk_widget_show (dialog->sig_simple);
 	gtk_widget_show (dialog->sig_advanced_table);
@@ -830,8 +828,6 @@ sig_advanced (GtkWidget *w, MailAccountsDialog *dialog)
 static void
 sig_simple (GtkWidget *w, MailAccountsDialog *dialog)
 {
-	printf ("sig_simple\n");
-
 	gtk_widget_hide (dialog->sig_simple);
 	gtk_widget_show (dialog->sig_advanced);
 	gtk_widget_hide (dialog->sig_advanced_table);
@@ -840,8 +836,6 @@ sig_simple (GtkWidget *w, MailAccountsDialog *dialog)
 static void
 signatures_page_construct (MailAccountsDialog *dialog, GladeXML *gui)
 {
-	printf ("signatures_page_construct\n");
-
 	dialog->sig_add = glade_xml_get_widget (gui, "button-sig-add");
 	gtk_signal_connect (GTK_OBJECT (dialog->sig_advanced), "clicked", GTK_SIGNAL_FUNC (sig_add), dialog);
 
