@@ -85,31 +85,6 @@ struct _EMFormatHTMLPrivate {
 	GMutex *lock;
 };
 
-/* To simplify threading and contention, all pending tasks are serialised
-   into a single execution queue, run from a single thread instance which lasts
-   as long as there is work to do and then quits */
-struct _EMFormatHTMLJob {
-	struct _EMFormatHTMLJob *next, *prev;
-
-	EMFormatHTML *format;
-	CamelStream *estream;
-
-	/* We need to track the state of the visibility tree at
-	   the point this uri was generated */
-	struct _EMFormatPURITree *puri_level;
-	CamelURL *base;
-
-	/* FIXME: add 'cancelled' argument, to perform a noop/clean up */
-	void (*callback)(struct _EMFormatHTMLJob *job);
-	union {
-		char *uri;
-		CamelMedium *msg;
-		EMFormatPURI *puri;
-		struct _EMFromatPURITree *puri_level;
-		void *data;
-	} u;
-};
-
 static void efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMFormatHTML *efh);
 static gboolean efh_object_requested(GtkHTML *html, GtkHTMLEmbedded *eb, EMFormatHTML *efh);
 static void efh_gtkhtml_destroy(GtkHTML *html, EMFormatHTML *efh);
@@ -358,26 +333,50 @@ em_format_html_clear_pobject(EMFormatHTML *emf)
 		em_format_html_remove_pobject(emf, (EMFormatHTMLPObject *)emf->pending_object_list.head);
 }
 
-/* ********************************************************************** */
-
-static void emfh_getpuri(struct _EMFormatHTMLJob *job)
+struct _EMFormatHTMLJob *
+em_format_html_job_new(EMFormatHTML *emfh, void (*callback)(struct _EMFormatHTMLJob *job, int cancelled), void *data)
 {
-	d(printf(" running getpuri task\n"));
-	job->u.puri->func((EMFormat *)job->format, job->estream, job->u.puri);
+	struct _EMFormatHTMLJob *job = g_malloc0(sizeof(*job));
+
+	job->format = emfh;
+	job->puri_level = ((EMFormat *)emfh)->pending_uri_level;
+	job->callback = callback;
+	job->u.data = data;
+	if (((EMFormat *)emfh)->base)
+		job->base = camel_url_copy(((EMFormat *)emfh)->base);
+
+	return job;
 }
 
-static void emfh_gethttp(struct _EMFormatHTMLJob *job)
+void
+em_format_html_job_queue(EMFormatHTML *emfh, struct _EMFormatHTMLJob *job)
+{
+	g_mutex_lock(emfh->priv->lock);
+	e_dlist_addtail(&emfh->priv->pending_jobs, (EDListNode *)job);
+	g_mutex_unlock(emfh->priv->lock);
+}
+
+/* ********************************************************************** */
+
+static void emfh_getpuri(struct _EMFormatHTMLJob *job, int cancelled)
+{
+	d(printf(" running getpuri task\n"));
+	if (!cancelled)
+		job->u.puri->func((EMFormat *)job->format, job->estream, job->u.puri);
+}
+
+static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 {
 	CamelStream *cistream = NULL, *costream = NULL, *instream = NULL;
 	CamelURL *url;
 	ssize_t n, total = 0;
 	char buffer[1500];
 
-	d(printf(" running load uri task: %s\n", job->u.uri));
-
-	url = camel_url_new(job->u.uri, NULL);
-	if (url == NULL)
+	if (cancelled
+	    || (url = camel_url_new(job->u.uri, NULL)) == NULL)
 		goto badurl;
+
+	d(printf(" running load uri task: %s\n", job->u.uri));
 
 	if (emfh_http_cache)
 		instream = cistream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
@@ -441,30 +440,6 @@ badurl:
 	g_free(job->u.uri);
 }
 
-/* FIXME: need to expose job api for subclasses */
-static struct _EMFormatHTMLJob *
-emfh_new_job(EMFormatHTML *emfh, void (*callback)(struct _EMFormatHTMLJob *job), void *data)
-{
-	struct _EMFormatHTMLJob *job = g_malloc0(sizeof(*job));
-
-	job->format = emfh;
-	job->puri_level = ((EMFormat *)emfh)->pending_uri_level;
-	job->callback = callback;
-	job->u.data = data;
-	if (((EMFormat *)emfh)->base)
-		job->base = camel_url_copy(((EMFormat *)emfh)->base);
-
-	return job;
-}
-
-static void
-emfh_queue_job(EMFormatHTML *emfh, struct _EMFormatHTMLJob *job)
-{
-	g_mutex_lock(emfh->priv->lock);
-	e_dlist_addtail(&emfh->priv->pending_jobs, (EDListNode *)job);
-	g_mutex_unlock(emfh->priv->lock);
-}
-
 /* ********************************************************************** */
 
 static void
@@ -480,10 +455,10 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 		puri->use_count++;
 
 		d(printf(" adding puri job\n"));
-		job = emfh_new_job(efh, emfh_getpuri, puri);
+		job = em_format_html_job_new(efh, emfh_getpuri, puri);
 	} else if (g_ascii_strncasecmp(url, "http:", 5) == 0 || g_ascii_strncasecmp(url, "https:", 6) == 0) {
 		d(printf(" adding job, get %s\n", url));
-		job = emfh_new_job(efh, emfh_gethttp, g_strdup(url));
+		job = em_format_html_job_new(efh, emfh_gethttp, g_strdup(url));
 	} else {
 		d(printf("HTML Includes reference to unknown uri '%s'\n", url));
 		gtk_html_stream_close(handle, GTK_HTML_STREAM_ERROR);
@@ -491,7 +466,7 @@ efh_url_requested(GtkHTML *html, const char *url, GtkHTMLStream *handle, EMForma
 
 	if (job) {
 		job->estream = em_camel_stream_new(html, handle);
-		emfh_queue_job(efh, job);
+		em_format_html_job_queue(efh, job);
 	}
 }
 
@@ -719,10 +694,13 @@ emfh_write_related(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 }
 
 static void
-emfh_multipart_related_check(struct _EMFormatHTMLJob *job)
+emfh_multipart_related_check(struct _EMFormatHTMLJob *job, int cancelled)
 {
 	struct _EMFormatPURITree *ptree;
 	EMFormatPURI *puri, *purin;
+
+	if (cancelled)
+		return;
 
 	d(printf(" running multipart/related check task\n"));
 
@@ -811,10 +789,10 @@ efh_multipart_related(EMFormat *emf, CamelStream *stream, CamelMimePart *part, c
 	camel_stream_flush(stream);
 
 	/* queue a job to check for un-referenced parts to add as attachments */
-	job = emfh_new_job((EMFormatHTML *)emf, emfh_multipart_related_check, NULL);
+	job = em_format_html_job_new((EMFormatHTML *)emf, emfh_multipart_related_check, NULL);
 	job->estream = stream;
 	camel_object_ref(stream);
-	emfh_queue_job((EMFormatHTML *)emf, job);
+	em_format_html_job_queue((EMFormatHTML *)emf, job);
 
 	em_format_pull_level(emf);
 	
@@ -1027,18 +1005,12 @@ static void efh_format_do(struct _mail_msg *mm)
 		if (!cancelled)
 			cancelled = camel_operation_cancel_check(NULL);
 
-		if (!cancelled) {
-			d(printf("Performing job %p\n", job));
-			((EMFormat *)m->format)->pending_uri_level = job->puri_level;
-			if (job->base)
-				((EMFormat *)m->format)->base = job->base;
-			job->callback(job);
-			((EMFormat *)m->format)->base = base;
-		} else {
-			d(printf("Job cancelled %p\n", job));
-		}
-
-		/* FIXME: this will leak in case of some cancelled jobs */
+		/* call jobs even if cancelled, so they can clean up resources */
+		((EMFormat *)m->format)->pending_uri_level = job->puri_level;
+		if (job->base)
+			((EMFormat *)m->format)->base = job->base;
+		job->callback(job, cancelled);
+		((EMFormat *)m->format)->base = base;
 
 		/* clean up the job */
 		camel_object_unref(job->estream);

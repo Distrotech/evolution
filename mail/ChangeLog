@@ -1,3 +1,27 @@
+2003-09-03  Not Zed  <NotZed@Ximian.com>
+
+	* em-icon-stream.[ch]: New subclass of emsyncstream, write camel
+	stream one side, creates an icon on the other.
+
+	* em-sync-stream.[ch]: New file, an abstract class for creating
+	write-any-thread-act-gui-thread stuff.  'em-camel-stream' will
+	subclass this.
+
+	* em-format-html-display.c (efhd_attachment_button): setup a job
+	to write out an icon if the type is an image type, otherwise try
+	and get the icon directly.  no caching yet.  the system icons
+	aren't scaled properly either.
+	(efhd_write_icon_job): async job to write out image content.
+
+2003-09-02  Not Zed  <NotZed@Ximian.com>
+
+	* em-format-html.c (emfh_new_job): renamed to
+	em_format_html_job_new and made public.
+	(emfh_queue_job): renamed to em_format_html_job_queue, and made
+	public.
+
+	* em-format-html.h: Made EMFormatHTMLJob a public structure.
+
 2003-09-02  Not Zed  <NotZed@Ximian.com>
 
 	* em-folder-view.h (struct _EMFolderView): track the uicomponent

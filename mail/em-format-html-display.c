@@ -984,12 +984,28 @@ efhd_drag_data_delete(GtkWidget *w, GdkDragContext *drag, EMFormatHTMLPObject *p
 	}
 }
 
+static void
+efhd_write_icon_job(struct _EMFormatHTMLJob *job, int cancelled)
+{
+	EMFormatHTMLPObject *pobject;
+	CamelDataWrapper *dw;
+
+	if (cancelled)
+		return;
+
+	pobject = job->u.data;
+	dw = camel_medium_get_content_object((CamelMedium *)pobject->part);
+	camel_data_wrapper_decode_to_stream(dw, job->estream);
+	camel_stream_close(job->estream);
+}
+
 /* attachment button callback */
 static gboolean
 efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObject *pobject)
 {
 	struct _attach_puri *info;
 	GtkWidget *hbox, *w, *button, *mainbox;
+	char *simple_type;
 	GtkTargetEntry drag_types[] = {
 		{ NULL, 0, 0 },
 		{ "text/uri-list", 0, 1 },
@@ -1020,19 +1036,37 @@ efhd_attachment_button(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPObje
 		info->down = gtk_image_new_from_stock(GTK_STOCK_GO_DOWN, GTK_ICON_SIZE_BUTTON);
 		gtk_box_pack_start((GtkBox *)hbox, info->down, TRUE, TRUE, 0);
 	}
-	/* FIXME: Pixmap loader */
+
 	w = gtk_image_new();
 	gtk_widget_set_size_request(w, 24, 24);
 	gtk_box_pack_start((GtkBox *)hbox, w, TRUE, TRUE, 0);
 	gtk_container_add((GtkContainer *)button, hbox);
 	gtk_box_pack_start((GtkBox *)mainbox, button, TRUE, TRUE, 0);
 
-	drag_types[0].target = header_content_type_simple(((CamelDataWrapper *)pobject->part)->mime_type);
-	camel_strdown(drag_types[0].target);
+	/* FIXME: loses any snoop info */
+	simple_type = header_content_type_simple(((CamelDataWrapper *)pobject->part)->mime_type);
+	camel_strdown(simple_type);
+
+	/* cache? */
+	/* FIXME: offline parts, just get icon */
+	if (header_content_type_is(((CamelDataWrapper *)pobject->part)->mime_type, "image", "*")) {
+		EMFormatHTMLJob *job;
+
+		job = em_format_html_job_new(efh, efhd_write_icon_job, pobject);
+		job->estream = em_icon_stream_new((GtkImage *)w);
+		em_format_html_job_queue(efh, job);
+	} else {
+		GdkPixbuf *pixbuf = e_icon_for_mime_type(simple_type, 24);
+
+		gtk_image_set_from_pixbuf((GtkImage *)w, pixbuf);
+		g_object_unref(pixbuf);
+	}
+
+	drag_types[0].target = simple_type;
 	gtk_drag_source_set(button, GDK_BUTTON1_MASK, drag_types, sizeof(drag_types)/sizeof(drag_types[0]), GDK_ACTION_COPY);
 	g_signal_connect(button, "drag-data-get", G_CALLBACK(efhd_drag_data_get), pobject);
 	g_signal_connect (button, "drag-data-delete", G_CALLBACK(efhd_drag_data_delete), pobject);
-	g_free(drag_types[0].target);
+	g_free(simple_type);
 
 	button = gtk_button_new();
 	/*GTK_WIDGET_UNSET_FLAGS(button, GTK_CAN_FOCUS);*/

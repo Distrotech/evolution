@@ -43,7 +43,34 @@ struct _GtkHTMLEmbedded;
 struct _CamelMimePart;
 struct _CamelStream;
 
-/* its ugly but ... oh well */
+/* A HTMLJob will be executed in another thread, in sequence,
+   It's job is to write to its stream, close it if successful,
+   then exit */
+
+typedef struct _EMFormatHTMLJob EMFormatHTMLJob;
+
+struct _EMFormatHTMLJob {
+	struct _EMFormatHTMLJob *next, *prev;
+
+	EMFormatHTML *format;
+	struct _CamelStream *estream;
+
+	/* We need to track the state of the visibility tree at
+	   the point this uri was generated */
+	struct _EMFormatPURITree *puri_level;
+	struct _CamelURL *base;
+
+	void (*callback)(struct _EMFormatHTMLJob *job, int cancelled);
+	union {
+		char *uri;
+		struct _CamelMedium *msg;
+		EMFormatPURI *puri;
+		struct _EMFormatPURITree *puri_level;
+		void *data;
+	} u;
+};
+
+/* Pending object (classid: url) */
 typedef struct _EMFormatHTMLPObject EMFormatHTMLPObject;
 
 typedef gboolean (*EMFormatHTMLPObjectFunc)(EMFormatHTML *md, struct _GtkHTMLEmbedded *eb, EMFormatHTMLPObject *pobject);
@@ -102,6 +129,10 @@ EMFormatHTMLPObject * em_format_html_find_pobject(EMFormatHTML *emf, const char 
 EMFormatHTMLPObject *em_format_html_find_pobject_func(EMFormatHTML *emf, struct _CamelMimePart *part, EMFormatHTMLPObjectFunc func);
 void em_format_html_remove_pobject(EMFormatHTML *emf, EMFormatHTMLPObject *pobject);
 void em_format_html_clear_pobject(EMFormatHTML *emf);
+
+EMFormatHTMLJob *em_format_html_job_new(EMFormatHTML *emfh, void (*callback)(struct _EMFormatHTMLJob *job, int cancelled), void *data)
+;
+void em_format_html_job_queue(EMFormatHTML *emfh, struct _EMFormatHTMLJob *job);
 
 /* outputs a signature test */
 void em_format_html_multipart_signed_sign(EMFormat *emf, struct _CamelStream *stream, struct _CamelMimePart *part);

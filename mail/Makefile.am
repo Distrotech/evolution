@@ -97,6 +97,10 @@ libevolution_mail_la_SOURCES =		\
 	em-utils.h			\
 	em-subscribe-editor.c		\
 	em-subscribe-editor.h		\
+	em-sync-stream.c		\
+	em-sync-stream.h		\
+	em-icon-stream.c		\
+	em-icon-stream.h		\
 	folder-browser.c		\
 	folder-browser.h		\
 	folder-browser-factory.c	\
