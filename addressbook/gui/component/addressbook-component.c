@@ -53,7 +53,7 @@
 #include "addressbook-component.h"
 #include "addressbook.h"
 #include "addressbook/gui/merging/e-card-merging.h"
-#include "addressbook/gui/widgets/e-addressbook-util.h"
+#include "addressbook/gui/widgets/eab-gui-util.h"
 
 
 

@@ -19,7 +19,7 @@
 
 #include <addressbook/gui/contact-editor/e-contact-editor.h>
 #include "e-select-names-text-model.h"
-#include "e-addressbook-util.h"
+#include "eab-gui-util.h"
 
 static FILE *out = NULL; /* stream for debugging spew */
 

@@ -43,7 +43,7 @@
 #include <addressbook/gui/contact-editor/e-contact-editor.h>
 #include <addressbook/gui/contact-list-editor/e-contact-list-editor.h>
 #include <addressbook/gui/contact-editor/e-contact-quick-add.h>
-#include "e-addressbook-util.h"
+#include "eab-gui-util.h"
 #include "e-select-names-popup.h"
 
 #define LIST_ICON_FILENAME "contact-list-16.png"

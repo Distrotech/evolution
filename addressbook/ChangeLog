@@ -1,5 +1,30 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* gui/component/select-names/e-select-names-text-model.c:
+	e-addressbook-util.h -> eab-gui-util.h.
+
+	* gui/component/select-names/e-select-names-popup.c:
+	e-addressbook-util.h -> eab-gui-util.h.
+
+	* gui/component/e-address-popup.c: e-addressbook-util.h ->
+	eab-gui-util.h.
+
+	* gui/component/component-factory.c: #if notyet the minicard
+	control stuff, since it's been completely nuked from the tree.
+
+	* gui/component/addressbook.c: e-addressbook-util.h ->
+	eab-gui-util.h.
+
+	* gui/component/addressbook-component.c: e-addressbook-util.h ->
+	eab-gui-util.h.
+
+	* gui/component/Makefile.am (libevolution_addressbook_la_LIBADD):
+	rename libeminicard to libeabwidgets.
+
+	* Makefile.am (SUBDIRS): add util/ to the build.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* gui/widgets/e-addressbook-treeview-adapter.c:
 	e-addressbook-util.h -> eab-gui-util.h, and convert some
 	EDestination code to EABDestination.

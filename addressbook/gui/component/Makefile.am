@@ -52,7 +52,7 @@ libevolution_addressbook_la_SOURCES = 	\
 libevolution_addressbook_la_LIBADD =							\
 	$(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
 	$(top_builddir)/shell/libeshell.la						\
-	$(top_builddir)/addressbook/gui/widgets/libeminicard.la				\
+	$(top_builddir)/addressbook/gui/widgets/libeabwidgets.la			\
 	$(top_builddir)/addressbook/gui/search/libeaddressbooksearch.la			\
 	$(top_builddir)/filter/libfilter.la						\
 	$(top_builddir)/addressbook/util/libeabutil.la					\

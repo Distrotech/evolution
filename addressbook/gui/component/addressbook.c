@@ -50,7 +50,7 @@
 #include "addressbook-component.h"
 #include "addressbook/gui/search/e-addressbook-search-dialog.h"
 #include "addressbook/gui/widgets/e-addressbook-view.h"
-#include "addressbook/gui/widgets/e-addressbook-util.h"
+#include "addressbook/gui/widgets/eab-gui-util.h"
 #include "addressbook/printing/e-contact-print.h"
 #include "addressbook/util/eab-book-util.h"
 

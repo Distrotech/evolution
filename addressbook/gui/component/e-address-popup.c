@@ -41,7 +41,7 @@
 #include <addressbook/gui/contact-editor/e-contact-editor.h>
 #include <addressbook/gui/contact-editor/e-contact-quick-add.h>
 #include <addressbook/gui/widgets/e-minicard-widget.h>
-#include <addressbook/gui/widgets/e-addressbook-util.h>
+#include <addressbook/gui/widgets/eab-gui-util.h>
 #include "e-util/e-gui-utils.h"
 
 /*
