@@ -23,7 +23,12 @@ INCLUDES =						\
 
 libevolution_calendar_a11y_la_SOURCES =		\
 	ea-calendar.c				\
+	ea-calendar.h				\
 	ea-day-view.c				\
+	ea-day-view.h				\
 	ea-day-view-event.c				\
+	ea-day-view-event.h				\
 	ea-day-view-event-factory.c				\
-	ea-gnome-calendar.c
+	ea-day-view-event-factory.h				\
+	ea-gnome-calendar.c 			\
+	ea-gnome-calendar.h
