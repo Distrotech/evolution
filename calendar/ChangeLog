@@ -1,10 +1,68 @@
+2004-04-19  Michael Terry  <mike@mterry.name>
+
+	* gui/GNOME_Evolution_Calendar.server.in.in:
+	* gui/calendar-commands.c:
+	* gui/calendar-component.c:
+	* gui/e-calendar-table.c:
+	* gui/e-calendar-view.c:
+	* gui/e-day-view-main-item.c:
+	* gui/e-day-view-top-item.c:
+	* gui/e-day-view.c:
+	* gui/e-day-view.h:
+	* gui/e-itip-control.c:
+	* gui/e-timezone-entry.c:
+	* gui/e-week-view-event-item.c:
+	* gui/e-week-view.c:
+	* gui/e-week-view.h:
+	* gui/tasks-component.c:
+	* gui/alarm-notify/alarm-notify-dialog.c:
+	* gui/alarm-notify/alarm-queue.c:
+	* gui/dialogs/comp-editor.c:
+	* gui/dialogs/event-editor.c: Update the calendar to use the icon theme
+	through the EIconFactory object in e-util
+
+2004-04-19  JP Rosevear <jpr@ximian.com>
+
+	* gui/gnome-cal.c (set_view): take a range_selected boolean for
+	internal use
+	(gnome_calendar_set_view): use above
+	(display_view): use priv->range_selected, we'll set it correctly
+	before this
+	(display_view_cb): only pass focus boolean
+	(gnome_calendar_on_date_navigator_selection_changed): set the view
+	so the view menu is accurate
+
+2004-04-18  JP Rosevear <jpr@ximian.com>
+
+	Fixes #54021
+	
+	* importers/icalendar-importer.c (update_single_object): ensure
+	UID exists
+
+2004-04-18  JP Rosevear <jpr@ximian.com>
+
+	Fixes #53124
+	
+	* gui/e-tasks.c: remove preview pieces, they are in their own
+	class now; use the new class for preview
+
+	* gui/e-cal-component-preview.[hc]: implement a preview area for
+	tasks and events
+
+2004-04-17  Trent Lloyd  <lathiat@sixlabs.org>
+
+	* gui/e-calendar-view.c: include libecal/e-cal-component.h to kill
+	implicit declaration of e_cal_component_get_recur_id_as_string at line
+	869.
+
 2004-04-15 Gary Ekker <gekker@novell.com>
 
 	Fixes #52271
 
-	* gui/e-cal-model-tasks.c: (set_percent): shouldn't call
-	ensure_task_not_complete here, it removes the percent property that
+	* gui/e-cal-model-tasks.c: (set_percent): shouldn't call 
+	ensure_task_not_complete here, it removes the percent property that 
 	we just set.
+	
 
 2004-04-15  JP Rosevear  <jpr@ximian.com>
 
@@ -15,14 +73,14 @@
 2004-04-15  JP Rosevear  <jpr@ximian.com>
 
 	Fixes #53903
-
+	
 	* gui/dialogs/meeting-page.c (meeting_page_fill_widgets):
 	show/hide add button properly
 	(change_clicked_cb): ditto
 
 	* gui/dialogs/comp-editor.c (needs_send_cb): call back when "needs_send"
 	(page_changed_cb): use accessor
-
+	
 2004-04-15  JP Rosevear  <jpr@ximian.com>
 
 	* gui/dialogs/comp-editor.c (save_comp): stop listening to changes

@@ -39,11 +39,6 @@
 #include <libgnome/gnome-util.h>
 #include <libgnome/gnome-i18n.h>
 
-#if 0
-#include <bonobo/bonobo-ui-container.h>
-#include <bonobo/bonobo-ui-util.h>
-#include <bonobo/bonobo-window.h>
-#endif
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gal/widgets/e-categories.h>
 #include <gal/widgets/e-gui-utils.h>
@@ -195,6 +190,8 @@ im_location [] =
 	{ "OTHER", N_ ("Other") }
 };
 
+#define nonempty(x) ((x) && *(x))
+
 GType
 e_contact_editor_get_type (void)
 {
@@ -288,11 +285,6 @@ e_contact_editor_class_init (EContactEditorClass *klass)
 							       G_PARAM_READWRITE));
 }
 
-
-
-
-
-
 static void
 init_email_record_location (EContactEditor *editor, gint record)
 {
@@ -374,19 +366,6 @@ extract_email_record (EContactEditor *editor, gint record, gchar **address, gint
 	*location = gtk_option_menu_get_history (GTK_OPTION_MENU (location_option_menu));
 }
 
-static gint
-email_location_to_index (const gchar *location)
-{
-	gint i;
-
-	for (i = 0; i < G_N_ELEMENTS (im_location); i++) {
-		if (!strcasecmp (location, im_location [i].name))
-			return i;
-	}
-
-	return -1;
-}
-
 static const gchar *
 email_index_to_location (gint index)
 {
@@ -439,7 +418,6 @@ fill_in_email (EContactEditor *editor)
 	for (l = email_attr_list; l && record_n <= 4; l = g_list_next (l)) {
 		EVCardAttribute *attr = l->data;
 		gchar *email_address;
-		gchar *email_location;
 
 		email_address  = e_vcard_attribute_get_value (attr);
 
@@ -463,22 +441,26 @@ extract_email (EContactEditor *editor)
 	gint   i;
 
 	for (i = 1; i <= 4; i++) {
-		EVCardAttribute *attr;
 		gchar           *address;
 		gint             location;
 
 		extract_email_record (editor, i, &address, &location);
 
-		attr = e_vcard_attribute_new ("", e_contact_vcard_attribute (E_CONTACT_EMAIL));
+		if (nonempty (address)) {
+			EVCardAttribute *attr;
+			attr = e_vcard_attribute_new ("", e_contact_vcard_attribute (E_CONTACT_EMAIL));
 
-		if (location >= 0)
-			e_vcard_attribute_add_param_with_value (attr,
-								e_vcard_attribute_param_new (EVC_TYPE),
-								email_index_to_location (location));
+			if (location >= 0)
+				e_vcard_attribute_add_param_with_value (attr,
+									e_vcard_attribute_param_new (EVC_TYPE),
+									email_index_to_location (location));
 
-		e_vcard_attribute_add_value (attr, address);
+			e_vcard_attribute_add_value (attr, address);
 
-		attr_list = g_list_append (attr_list, attr);
+			attr_list = g_list_append (attr_list, attr);
+		}
+
+		g_free (address);
 	}
 
 	e_contact_set_attributes (editor->contact, E_CONTACT_EMAIL, attr_list);
@@ -599,7 +581,6 @@ fill_in_im (EContactEditor *editor)
 		for (l = im_attr_list; l && record_n <= 3; l = g_list_next (l)) {
 			EVCardAttribute *attr = l->data;
 			gchar *im_name;
-			gchar *im_location;
 
 			im_name = e_vcard_attribute_get_value (attr);
 
@@ -658,16 +639,20 @@ extract_im (EContactEditor *editor)
 
 		extract_im_record (editor, i, &service, &name, &location);
 
-		attr = e_vcard_attribute_new ("", e_contact_vcard_attribute (im_service [service].field));
+		if (nonempty (name)) {
+			attr = e_vcard_attribute_new ("", e_contact_vcard_attribute (im_service [service].field));
 
-		if (location >= 0)
-			e_vcard_attribute_add_param_with_value (attr,
-								e_vcard_attribute_param_new (EVC_TYPE),
-								im_index_to_location (location));
+			if (location >= 0)
+				e_vcard_attribute_add_param_with_value (attr,
+									e_vcard_attribute_param_new (EVC_TYPE),
+									im_index_to_location (location));
 
-		e_vcard_attribute_add_value (attr, name);
+			e_vcard_attribute_add_value (attr, name);
 
-		service_attr_list [service] = g_list_append (service_attr_list [service], attr);
+			service_attr_list [service] = g_list_append (service_attr_list [service], attr);
+		}
+
+		g_free (name);
 	}
 
 	for (i = 0; i < G_N_ELEMENTS (im_service); i++) {
@@ -778,7 +763,15 @@ extract_address_record (EContactEditor *editor, gint record)
 	address->code     = extract_address_field (editor, record, "zip");
 	address->country  = extract_address_field (editor, record, "country");
 
-	e_contact_set (editor->contact, addresses [record], address);
+	if (nonempty (address->street) ||
+	    nonempty (address->ext) ||
+	    nonempty (address->locality) ||
+	    nonempty (address->region) ||
+	    nonempty (address->code) ||
+	    nonempty (address->country))
+		e_contact_set (editor->contact, addresses [record], address);
+	else
+		e_contact_set (editor->contact, addresses [record], NULL);
 
 	g_boxed_free (e_contact_address_get_type (), address);
 }
@@ -842,16 +835,6 @@ phone_entry_changed (GtkWidget *widget, EContactEditor *editor)
 		return;
 
 	e_contact_set(editor->contact, phones [editor->phone_choice [which - 1]], (char*)gtk_entry_get_text(entry));
-
-	widget_changed (widget, editor);
-}
-
-static void
-email_entry_changed (GtkWidget *widget, EContactEditor *editor)
-{
-	GtkEntry *entry = GTK_ENTRY(widget);
-
-	e_contact_set (editor->contact, emails[editor->email_choice], (char*)gtk_entry_get_text(entry));
 
 	widget_changed (widget, editor);
 }
@@ -1139,15 +1122,6 @@ set_entry_changed_signal_phone(EContactEditor *editor, char *id)
 	if (widget && GTK_IS_ENTRY(widget))
 		g_signal_connect(widget, "changed",
 				 G_CALLBACK (phone_entry_changed), editor);
-}
-
-static void
-set_entry_changed_signal_email(EContactEditor *editor, char *id)
-{
-	GtkWidget *widget = glade_xml_get_widget(editor->gui, id);
-	if (widget && GTK_IS_ENTRY(widget))
-		g_signal_connect(widget, "changed",
-				 G_CALLBACK (email_entry_changed), editor);
 }
 
 static void
@@ -1502,18 +1476,6 @@ e_contact_editor_get_window (EABEditor *editor)
 }
 
 
-/* Menu callbacks */
-
-/* File/Save callback */
-static void
-file_save_cb (GtkWidget *widget, gpointer data)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-	save_contact (ce, FALSE);
-}
-
 static void
 file_save_and_close_cb (GtkWidget *widget, gpointer data)
 {
@@ -1530,183 +1492,6 @@ file_cancel_cb (GtkWidget *widget, gpointer data)
 
 	eab_editor_close (EAB_EDITOR (ce));
 }
-
-/* File/Close callback */
-static void
-file_close_cb (GtkWidget *widget, gpointer data)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-	if (!eab_editor_prompt_to_save_changes (EAB_EDITOR (ce), GTK_WINDOW (ce->app)))
-		return;
-
-	eab_editor_close (EAB_EDITOR (ce));
-}
-
-static void
-file_save_as_cb (GtkWidget *widget, gpointer data)
-{
-	EContactEditor *ce;
-	EContact *contact;
-
-	ce = E_CONTACT_EDITOR (data);
-
-	extract_info (ce);
-
-	contact = ce->contact;
-	eab_contact_save(_("Save Contact as VCard"), contact, GTK_WINDOW (ce->app));
-}
-
-static void
-file_send_as_cb (GtkWidget *widget, gpointer data)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-
-	extract_info (ce);
-
-	eab_send_contact(ce->contact, EAB_DISPOSITION_AS_ATTACHMENT);
-}
-
-static void
-file_send_to_cb (GtkWidget *widget, gpointer data)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-
-	extract_info (ce);
-
-	eab_send_contact(ce->contact, EAB_DISPOSITION_AS_TO);
-}
-
-static void
-contact_deleted_cb (EBook *book, EBookStatus status, EContactEditor *ce)
-{
-	gtk_widget_set_sensitive (ce->app, TRUE);
-	ce->in_async_call = FALSE;
-
-	eab_editor_contact_deleted (EAB_EDITOR (ce), status, ce->contact);
-
-	/* always close the dialog after we successfully delete a card */
-	if (status == E_BOOK_ERROR_OK)
-		eab_editor_close (EAB_EDITOR (ce));
-}
-
-static void
-delete_cb (GtkWidget *widget, gpointer data)
-{
-	EContactEditor *ce = E_CONTACT_EDITOR (data);
-	EContact *contact = ce->contact;
-
-	g_object_ref(contact);
-
-	if (eab_editor_confirm_delete(GTK_WINDOW(ce->app))) {
-
-		extract_info (ce);
-		
-		if (!ce->is_new_contact && ce->source_book) {
-			gtk_widget_set_sensitive (ce->app, FALSE);
-			ce->in_async_call = TRUE;
-
-			e_book_async_remove_contact (ce->source_book, contact, (EBookCallback)contact_deleted_cb, ce);
-		}
-	}
-
-	g_object_unref(contact);
-}
-
-#if 0
-/* Emits the signal to request printing a card */
-static void
-print_cb (BonoboUIComponent *uih, void *data, const char *path)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-
-	extract_info (ce);
-
-	gtk_widget_show(e_contact_print_contact_dialog_new(ce->contact));
-}
-#endif
-
-#if 0 /* Envelope printing is disabled for Evolution 1.0. */
-/* Emits the signal to request printing a card */
-static void
-print_envelope_cb (BonoboUIComponent *uih, void *data, const char *path)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-
-	extract_info (ce);
-	e_card_simple_sync_card (ce->simple);
-
-	gtk_widget_show(e_contact_print_envelope_dialog_new(ce->card));
-}
-#endif
-
-#if 0
-/* Toolbar/Save and Close callback */
-static void
-tb_save_and_close_cb (BonoboUIComponent *uih, void *data, const char *path)
-{
-	EContactEditor *ce;
-
-	ce = E_CONTACT_EDITOR (data);
-	save_contact (ce, TRUE);
-}
-
-static
-BonoboUIVerb verbs [] = {
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorSave", file_save_cb),
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorSaveAs", file_save_as_cb),
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorSaveClose", tb_save_and_close_cb),
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorSendAs", file_send_as_cb),
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorSendTo", file_send_to_cb),
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorDelete", delete_cb),
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorPrint", print_cb),
-#if 0 /* Envelope printing is disabled for Evolution 1.0. */
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorPrintEnvelope", print_envelope_cb),
-#endif
-	/*	BONOBO_UI_UNSAFE_VERB ("ContactEditorPageSetup", file_page_setup_menu), */
-	BONOBO_UI_UNSAFE_VERB ("ContactEditorClose", file_close_cb),
-	
-	BONOBO_UI_VERB_END
-};
-
-EPixmap pixmaps[] = {
-	E_PIXMAP ("/commands/ContactEditorSave", "save-16.png"),
-	E_PIXMAP ("/commands/ContactEditorSaveClose", "save-16.png"),
-	E_PIXMAP ("/commands/ContactEditorSaveAs", "save-as-16.png"),
-	E_PIXMAP ("/commands/ContactEditorDelete", "evolution-trash-mini.png"),
-	E_PIXMAP ("/commands/ContactEditorPrint", "print.xpm"),
-#if 0 /* Envelope printing is disabled for Evolution 1.0. */
-	E_PIXMAP ("/commands/ContactEditorPrintEnvelope", "print.xpm"),
-#endif
-	E_PIXMAP ("/Toolbar/ContactEditorSaveClose", "buttons/save-24.png"),
-	E_PIXMAP ("/Toolbar/ContactEditorDelete", "buttons/delete-message.png"),
-	E_PIXMAP ("/Toolbar/ContactEditorPrint", "buttons/print.png"),
-
-	E_PIXMAP_END
-};
-
-static void
-create_ui (EContactEditor *ce)
-{
-	bonobo_ui_component_add_verb_list_with_data (ce->uic, verbs, ce);
-
-	bonobo_ui_util_set_ui (ce->uic, PREFIX,
-			       EVOLUTION_UIDIR "/evolution-contact-editor.xml",
-			       "evolution-contact-editor", NULL);
-
-	e_pixmaps_update (ce->uic, pixmaps);
-}
-
-#endif
 
 /* Callback used when the dialog box is destroyed */
 static gint
@@ -1769,13 +1554,7 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 {
 	GladeXML *gui;
 	GtkWidget *widget;
-#if 0
-	GtkWidget *bonobo_win;
-#endif
 	GtkWidget *wants_html;
-#if 0
-	BonoboUIContainer *container;
-#endif
 	char *icon_path;
 
 	e_contact_editor->email_info = NULL;
@@ -1846,42 +1625,6 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 
 	widget = glade_xml_get_widget (e_contact_editor->gui, "button-cancel");
 	g_signal_connect (widget, "clicked", G_CALLBACK (file_cancel_cb), e_contact_editor);
-
-#if 0
-	/* Construct the app */
-	bonobo_win = bonobo_window_new ("contact-editor-dialog", _("Contact Editor"));
-
-	/* FIXME: The sucking bit */
-	{
-		GtkWidget *contents;
-
-		contents = bonobo_dock_get_client_area (gnome_app_get_dock (GNOME_APP(e_contact_editor->app)));
-
-		if (!contents) {
-			g_message ("contact_editor_construct(): Could not get contents");
-			return;
-		}
-		g_object_ref (contents);
-		gtk_container_remove (GTK_CONTAINER (contents->parent), contents);
-		bonobo_window_set_contents (BONOBO_WINDOW (bonobo_win), contents);
-		gtk_widget_destroy (e_contact_editor->app);
-		e_contact_editor->app = bonobo_win;
-	}
-
-	/* Build the menu and toolbar */
-	container = bonobo_window_get_ui_container (BONOBO_WINDOW (e_contact_editor->app));
-
-	e_contact_editor->uic = bonobo_ui_component_new_default ();
-	if (!e_contact_editor->uic) {
-		g_message ("e_contact_editor_init(): eeeeek, could not create the UI handler!");
-		return;
-	}
-	bonobo_ui_component_set_container (e_contact_editor->uic,
-					   bonobo_object_corba_objref (BONOBO_OBJECT (container)),
-					   NULL);
-
-	create_ui (e_contact_editor);
-#endif
 
 	widget = glade_xml_get_widget(e_contact_editor->gui, "entry-fullname");
 	if (widget)
@@ -1995,21 +1738,6 @@ command_state_changed (EContactEditor *ce)
 
 	widget = glade_xml_get_widget (ce->gui, "button-ok");
 	gtk_widget_set_sensitive (widget, allow_save);
-
-#if 0
-	bonobo_ui_component_set_prop (ce->uic,
-				      "/commands/ContactEditorSaveClose",
-				      "sensitive",
-				      (ce->target_editable && ce->changed) ? "1" : "0", NULL);
-	bonobo_ui_component_set_prop (ce->uic,
-				      "/commands/ContactEditorSave",
-				      "sensitive",
-				      (ce->target_editable && ce->changed) ? "1" : "0", NULL);
-	bonobo_ui_component_set_prop (ce->uic,
-				      "/commands/ContactEditorDelete",
-				      "sensitive",
-				      (ce->source_editable && !ce->is_new_contact) ? "1" : "0", NULL);
-#endif
 }
 
 static void
