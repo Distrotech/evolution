@@ -1321,8 +1321,15 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 			comp_data = g_new0 (ECalModelComponent, 1);
 			comp_data->client = g_object_ref (e_cal_view_get_client (query));
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
-			comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
-			comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
+			if (priv->zone) {
+				comp_data->instance_start = icaltime_as_timet_with_zone (
+					icalcomponent_get_dtstart (comp_data->icalcomp), priv->zone);
+				comp_data->instance_end = icaltime_as_timet_with_zone (
+					icalcomponent_get_dtend (comp_data->icalcomp), priv->zone);
+			} else {
+				comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
+				comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
+			}
 
 			g_ptr_array_add (priv->objects, comp_data);
 			e_table_model_row_inserted (E_TABLE_MODEL (model), priv->objects->len - 1);
@@ -1394,8 +1401,15 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 			}
 		     
 			comp_data->icalcomp = icalcomponent_new_clone (l->data);
-			comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
-			comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
+			if (priv->zone) {
+				comp_data->instance_start = icaltime_as_timet_with_zone (
+					icalcomponent_get_dtstart (comp_data->icalcomp), priv->zone);
+				comp_data->instance_end = icaltime_as_timet_with_zone (
+					icalcomponent_get_dtend (comp_data->icalcomp), priv->zone);
+			} else {
+				comp_data->instance_start = icaltime_as_timet (icalcomponent_get_dtstart (comp_data->icalcomp));
+				comp_data->instance_end = icaltime_as_timet (icalcomponent_get_dtend (comp_data->icalcomp));
+			}
 
 			e_table_model_row_changed (E_TABLE_MODEL (model), get_position_in_array (priv->objects, comp_data));
 		}
