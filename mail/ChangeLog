@@ -1,3 +1,31 @@
+2000-07-20  Peter Williams  <peterw@helixcode.com>
+
+	* test-thread.c: Fit the new mail_operation_spec prototype.
+
+	* mail-callbacks.c (composer_send_cb): Hide the composer upon
+	start of send operation.
+
+	* folder-browser.c: #include "mail-ops-new.h"
+
+	* mail-threads.h: Change text fields of mail_operation_spec to
+	provide two forms of the name.
+
+	* mail-threads.c: Use appropriate new string fields.
+	(dispatch_func): Hide the progressbar by default.
+	
+	* message-list.c (op_regenerate_messagelist): Fix the datasize from
+	0 -> sizeof (regenerate_messagelist_data_t). Add the new gerund and
+	infinitive strings.
+	(do_regenerate_messagelist): Include some code that fell between the
+	cracks.
+
+	* mail-ops-new.c (op_scan_subfolders): Same datasize fix for 
+	scan_subfolders.
+	(op_forward_message): Same.	
+	(all): Add new gerund and inifinitive strings for mail_operation_spec.
+	(cleanup_send_mail): Destroy the composer on success; re-show it on
+	error. I'm so clever!
+	
 2000-07-17  Peter Williams  <peterw@helixcode.com>
 
 	* component-factory.c (real_create_{imap,news}_storage): Instead of

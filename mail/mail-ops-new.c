@@ -114,7 +114,8 @@ static void cleanup_fetch_mail (gpointer in_data, gpointer op_data, CamelExcepti
 
 static const mail_operation_spec op_fetch_mail =
 {
-	"fetch email",
+	"Fetch email",
+	"Fetching email",
 	0,
 	setup_fetch_mail,
 	do_fetch_mail,
@@ -145,6 +146,8 @@ typedef struct send_mail_input_s {
 	CamelFolder *done_folder;
 	char *done_uid;
 	guint32 done_flags;
+
+	GtkWidget *composer;
 } send_mail_input_t;
 
 static void setup_send_mail   (gpointer in_data, gpointer op_data, CamelException *ex);
@@ -193,10 +196,17 @@ setup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 		return;
 	}
 
+	if (!GTK_IS_WIDGET (input->composer)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No composer specified for send_mail operation.");
+		return;
+	}
+
 	mail_tool_camel_lock_up();
 	camel_object_ref (CAMEL_OBJECT (input->message));
 	camel_object_ref (CAMEL_OBJECT (input->done_folder));
 	mail_tool_camel_lock_down();
+	gtk_object_ref (GTK_OBJECT (input->composer));
 }
 
 static void
@@ -250,11 +260,19 @@ cleanup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 
 	g_free (input->xport_uri);
 	g_free (input->done_uid);
+
+	gtk_object_unref (input->composer);
+
+	if (!camel_exception_is_set (ex))
+		gtk_widget_destroy (input->composer);
+	else
+		gtk_widget_show (input->composer);
 }
 
 static const mail_operation_spec op_send_mail =
 {
-	"send a message",
+	"Send a message",
+	"Sending a message",
 	0,
 	setup_send_mail,
 	do_send_mail,
@@ -266,7 +284,8 @@ void mail_do_send_mail (const char *xport_uri,
 			CamelInternetAddress *from,
 			CamelFolder *done_folder,
 			const char *done_uid,
-			guint32 done_flags)
+			guint32 done_flags,
+			GtkWidget *composer)
 {
 	send_mail_input_t *input;
 
@@ -277,6 +296,7 @@ void mail_do_send_mail (const char *xport_uri,
 	input->done_folder = done_folder;
 	input->done_uid = g_strdup (done_uid);
 	input->done_flags = done_flags;
+	input->composer = composer;
 
 	mail_operation_queue (&op_send_mail, input, TRUE);
 }
@@ -316,7 +336,8 @@ static void cleanup_expunge_folder (gpointer in_data, gpointer op_data, CamelExc
 
 static const mail_operation_spec op_expunge_folder =
 {
-	"expunge a folder",
+	"Expunge a folder",
+	"Expunging a folder",
 	0,
 	setup_expunge_folder,
 	do_expunge_folder,
@@ -403,7 +424,8 @@ static void cleanup_refile_messages (gpointer in_data, gpointer op_data, CamelEx
 
 static const mail_operation_spec op_refile_messages =
 {
-	"refile messages",
+	"Refile messages",
+	"Refiling messages",
 	0,
 	setup_refile_messages,
 	do_refile_messages,
@@ -478,7 +500,8 @@ static void cleanup_flag_messages (gpointer in_data, gpointer op_data, CamelExce
 
 static const mail_operation_spec op_flag_messages =
 {
-	"flag messages",
+	"Flag messages",
+	"Flagging messages",
 	0,
 	setup_flag_messages,
 	do_flag_messages,
@@ -615,8 +638,9 @@ static void cleanup_scan_subfolders (gpointer in_data, gpointer op_data, CamelEx
 
 static const mail_operation_spec op_scan_subfolders =
 {
-	"scan a folder tree",
-	0,
+	"Scan a folder tree",
+	"Scanning a folder tree",
+	sizeof (scan_subfolders_op_t),
 	setup_scan_subfolders,
 	do_scan_subfolders,
 	cleanup_scan_subfolders
@@ -718,7 +742,8 @@ static void cleanup_attach_message (gpointer in_data, gpointer op_data, CamelExc
 
 static const mail_operation_spec op_attach_message =
 {
-	"attach a message",
+	"Attach a message",
+	"Attaching a message",
 	0,
 	setup_attach_message,
 	do_attach_message,
@@ -852,8 +877,9 @@ static void cleanup_forward_messages (gpointer in_data, gpointer op_data, CamelE
 
 static const mail_operation_spec op_forward_messages =
 {
-	"forward some messages",
-	0,
+	"Forward messages",
+	"Forwarding messages",
+	sizeof (forward_messages_data_t),
 	setup_forward_messages,
 	do_forward_messages,
 	cleanup_forward_messages

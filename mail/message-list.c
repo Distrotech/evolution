@@ -992,6 +992,18 @@ static void do_regenerate_messagelist (gpointer in_data, gpointer op_data, Camel
 	regenerate_messagelist_input_t *input = (regenerate_messagelist_input_t *) in_data;
 	regenerate_messagelist_data_t *data = (regenerate_messagelist_data_t *) op_data;
 
+        if (input->ml->search) {
+                g_free (input->ml->search);
+                input->ml->search = NULL;
+        }
+
+        if (input->ml->uid_rowmap) {
+                g_hash_table_foreach (input->ml->uid_rowmap,
+                                      free_key, NULL);
+                g_hash_table_destroy (input->ml->uid_rowmap);
+        }
+        input->ml->uid_rowmap = g_hash_table_new (g_str_hash, g_str_equal);
+
 	mail_tool_camel_lock_up();
 
 	if (input->search) {
@@ -1061,8 +1073,9 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 
 static const mail_operation_spec op_regenerate_messagelist =
 {
-	"rebuild the message list",
-	0,
+	"Read folder",
+	"Reading folder",
+	sizeof (regenerate_messagelist_data_t),
 	setup_regenerate_messagelist,
 	do_regenerate_messagelist,
 	cleanup_regenerate_messagelist

@@ -17,6 +17,7 @@
 #include "mail-tools.h"
 #include "message-list.h"
 #include "mail-threads.h"
+#include "mail-ops-new.h"
 #include <widgets/e-paned/e-vpaned.h>
 
 #define PARENT_TYPE (gtk_table_get_type ())

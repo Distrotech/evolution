@@ -19,14 +19,22 @@ static void done( gpointer in, gpointer op, CamelException *ex );
 static void exception( gpointer in, gpointer op, CamelException *ex );
 static gboolean queue_ops( void );
 
-const mail_operation_spec spec1 = { "The Crawling Progress Bar of Doom", 0, NULL, op_1, done };
-const mail_operation_spec spec2 = { "The Mysterious Message Setter", 0, NULL, op_2, done };
-const mail_operation_spec spec3 = { "The Error Dialog of No Return", 0, NULL, op_3, done };
-const mail_operation_spec spec4 = { "Queue Filler", 0, NULL, op_4, NULL };
-const mail_operation_spec spec5 = { "Dastardly Password Stealer", 0, NULL, op_5, done };
-const mail_operation_spec spec6 = { "Exception on setup", 0, exception, op_4, NULL };
-const mail_operation_spec spec7 = { "Exception during op", 0, NULL, exception, NULL };
-const mail_operation_spec spec8 = { "Exception in cleanup", 0, NULL, op_4, exception };
+const mail_operation_spec spec1 = { "Show The Crawling Progress Bar of Doom", "Crawling",
+				    0, NULL, op_1, done };
+const mail_operation_spec spec2 = { "Explore The Mysterious Message Setter", "Exploring",
+				    0, NULL, op_2, done };
+const mail_operation_spec spec3 = { "Dare The Error Dialog of No Return", "Daring",
+				    0, NULL, op_3, done };
+const mail_operation_spec spec4 = { "Queue Filler", "Queueing",
+				    0, NULL, op_4, NULL };
+const mail_operation_spec spec5 = { "Avoid the Dastardly Password Stealer", "Avoiding",
+				    0, NULL, op_5, done };
+const mail_operation_spec spec6 = { "Exception on setup", "Exceptioning",
+				    0, exception, op_4, NULL };
+const mail_operation_spec spec7 = { "Exception during op", "Exceptioning",
+				    0, NULL, exception, NULL };
+const mail_operation_spec spec8 = { "Exception in cleanup", "Exceptioning",
+				    0, NULL, op_4, exception };
 
 static gboolean queue_ops( void )
 {

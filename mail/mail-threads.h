@@ -33,7 +33,8 @@
 typedef void (*mail_op_func) (gpointer, gpointer, CamelException *);
 
 typedef struct _mail_operation_spec {
-	const gchar *simple_desc;
+	const gchar *infinitive; /* error while attempting to %s, infinitive */
+	const gchar *gerund; /* error while %s, gerund */
 	size_t datasize;
 	mail_op_func setup;
 	mail_op_func callback;

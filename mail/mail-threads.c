@@ -230,8 +230,8 @@ mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean 
 		GtkWidget *err_dialog;
 		gchar *msg;
 
-		msg = g_strdup_printf ("Error while attempting to %s:\n"
-				       "%s", spec->simple_desc,
+		msg = g_strdup_printf ("Error while preparing to %s:\n"
+				       "%s", spec->infinitive,
 				       camel_exception_get_description (clur->ex));
 		err_dialog = gnome_error_dialog (msg);
 		g_free (msg);
@@ -240,7 +240,7 @@ mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean 
 		/*gtk_widget_destroy (err_dialog);*/
 		gtk_widget_show (GTK_WIDGET (err_dialog));
 
-		g_warning ("Setup failed for `%s': %s", spec->simple_desc,
+		g_warning ("Setup failed for `%s': %s", spec->infinitive,
 			   camel_exception_get_description (clur->ex));
 		g_free (clur->op_data);
 		camel_exception_free (clur->ex);
@@ -287,7 +287,7 @@ mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean 
 		op_queue = g_slist_append (op_queue, clur);
 
 		/* Show us in the pending window. */
-		label = gtk_label_new (spec->simple_desc);
+		label = gtk_label_new (spec->infinitive);
 		gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
 		gtk_box_pack_start (GTK_BOX(queue_window_pending), label,
 				    FALSE, TRUE, 2);
@@ -598,17 +598,19 @@ static void *dispatch_func (void *data)
 	closure_t *clur = (closure_t *) data;
 
 	msg.type = STARTING;
-	msg.message = g_strdup (clur->spec->simple_desc);
+	msg.message = g_strdup (clur->spec->gerund);
 	write (WRITER, &msg, sizeof (msg));
+
+	mail_op_hide_progressbar ();
 
 	(clur->spec->callback) (clur->in_data, clur->op_data, clur->ex);
 
 	if (camel_exception_is_set (clur->ex)) {
 		g_warning ("Callback failed for `%s': %s",
-			   clur->spec->simple_desc,
+			   clur->spec->infinitive,
 			   camel_exception_get_description (clur->ex));
-		mail_op_error ("Error in attempt to %s:\n"
-			       "%s", clur->spec->simple_desc,
+		mail_op_error ("Error while `%s':\n"
+			       "%s", clur->spec->gerund,
 			       camel_exception_get_description (clur->ex));
 	}
 
@@ -713,7 +715,7 @@ static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer u
 
 		if (camel_exception_is_set (msg->clur->ex)) {
 			g_warning ("Error on cleanup of `%s': %s",
-				   msg->clur->spec->simple_desc,
+				   msg->clur->spec->infinitive,
 				   camel_exception_get_description (msg->clur->ex));
 		}
 
