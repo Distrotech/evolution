@@ -42,6 +42,8 @@ struct _CalBackendSyncClass {
 	CalBackendSyncStatus (*open_sync)  (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
 	CalBackendSyncStatus (*remove_sync)  (CalBackendSync *backend, Cal *cal);
 
+	CalBackendSyncStatus (*remove_object_sync)  (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
+
 	CalBackendSyncStatus (*get_object_list_sync)  (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
 	/* Padding for future expansion */
@@ -74,6 +76,8 @@ CalBackendSyncStatus cal_backend_sync_get_static_capabilities (CalBackendSync  *
 
 CalBackendSyncStatus cal_backend_sync_open (CalBackendSync  *backend, Cal *cal, gboolean only_if_exists);
 CalBackendSyncStatus cal_backend_sync_remove (CalBackendSync  *backend, Cal *cal);
+
+CalBackendSyncStatus cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
 
 CalBackendSyncStatus cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 

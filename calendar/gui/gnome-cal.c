@@ -2990,8 +2990,8 @@ gnome_calendar_purge (GnomeCalendar *gcal, time_t older_than)
 
 			/* FIXME Better error handling */
 			if (remove)
-				cal_client_remove_object (client, icalcomponent_get_uid (l->data));
-
+				cal_client_remove_object (client, icalcomponent_get_uid (l->data), NULL);
+			
 			g_object_unref (comp);
 		}
 	}

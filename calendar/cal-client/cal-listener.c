@@ -47,6 +47,7 @@ enum {
 	STATIC_CAPABILITIES,
 	OPEN,
 	REMOVE,
+	REMOVE_OBJECT,
 	OBJECT_LIST,
 	QUERY,
 	LAST_SIGNAL
@@ -203,6 +204,23 @@ impl_notifyCalRemoved (PortableServer_Servant servant,
 		return;
 
 	g_signal_emit (G_OBJECT (listener), signals[REMOVE], 0, convert_status (status));
+}
+
+static void
+impl_notifyObjectRemoved (PortableServer_Servant servant,
+			  GNOME_Evolution_Calendar_CallStatus status,
+			  CORBA_Environment *ev)
+{
+	CalListener *listener;
+	CalListenerPrivate *priv;
+
+	listener = CAL_LISTENER (bonobo_object_from_servant (servant));
+	priv = listener->priv;
+
+	if (!priv->notify)
+		return;
+
+	g_signal_emit (G_OBJECT (listener), signals[REMOVE_OBJECT], 0, convert_status (status));
 }
 
 static GList *
@@ -393,6 +411,7 @@ cal_listener_class_init (CalListenerClass *klass)
 	klass->epv.notifyStaticCapabilities = impl_notifyStaticCapabilities;
 	klass->epv.notifyCalOpened = impl_notifyCalOpened;
 	klass->epv.notifyCalRemoved = impl_notifyCalRemoved;
+	klass->epv.notifyObjectRemoved = impl_notifyObjectRemoved;
 	klass->epv.notifyObjectListRequested = impl_notifyObjectListRequested;
 	klass->epv.notifyQuery = impl_notifyQuery;
 	klass->epv.notifyCalSetMode = impl_notifyCalSetMode;
@@ -454,6 +473,14 @@ cal_listener_class_init (CalListenerClass *klass)
 			      G_TYPE_FROM_CLASS (klass),
 			      G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (CalListenerClass, remove),
+			      NULL, NULL,
+			      cal_marshal_VOID__INT,
+			      G_TYPE_NONE, 1, G_TYPE_INT);	
+	signals[REMOVE_OBJECT] =
+		g_signal_new ("remove_object",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (CalListenerClass, remove_object),
 			      NULL, NULL,
 			      cal_marshal_VOID__INT,
 			      G_TYPE_NONE, 1, G_TYPE_INT);	

@@ -1,3 +1,72 @@
+2003-09-11    <jpr@ximian.com>
+
+	* gui/dialogs/delete-error.c (delete_error_dialog): accept GError
+	and base error messages on that
+
+	* gui/dialogs/delete-error.h: update proto
+
+	* gui/e-tasks.c (e_tasks_delete_completed): pass extra param to
+	cal_client_remove_object
+
+	* conduits/todo/todo-conduit.c (delete_record): ditto
+
+	* conduits/calendar/calendar-conduit.c (process_multi_day): ditto
+	(delete_record): ditto
+	
+	* gui/gnome-cal.c (gnome_calendar_purge): ditto
+
+	* gui/dialogs/comp-editor.c (delete_comp): ditto
+	
+	* gui/e-cal-view.c (e_cal_view_cut_clipboard): pass the error to
+	delete_error_dialog
+	(delete_event): ditto
+	(e_cal_view_delete_selected_occurrence): ditto
+	
+	* gui/e-itip-control.c (remove_item): ditto
+
+	* gui/e-calendar-table.c (delete_selected_components): ditto
+
+	* cal-client/cal-listener.h: add signal
+
+	* cal-client/cal-listener.c (impl_notifyObjectRemoved): implement
+	(cal_listener_class_init): set object removed implementation and
+	create signal
+
+	* cal-client/cal-client.h: update protos
+
+	* cal-client/cal-client.c (cal_object_removed_cb): object removal
+	callback
+	(cal_client_init): listen for object removal signal
+	(cal_client_remove_object_with_mod): make call synchronous
+	(cal_client_remove_object): pass new params
+
+	* pcs/cal.h: add proto
+
+	* pcs/cal.c (impl_Cal_removeObject): just call the backend
+	function
+	(cal_notify_object_removed): notify of removal
+
+	* pcs/cal-backend.h: remove and update protos, remove signal
+
+	* pcs/cal-backend.c (cal_backend_class_init): kill obj_removed
+	signal
+	(cal_backend_remove_object): there is no return value now
+
+	* pcs/cal-backend-sync.h: add vmethod, proto
+
+	* pcs/cal-backend-sync.c (cal_backend_sync_remove_object): call
+	through
+	(_cal_backend_remove_object): remove the object and then do the
+	notification
+
+	* pcs/cal-backend-file.c (cal_backend_file_class_init): remove
+	object is not part of the sync class
+	(cal_backend_file_update_objects): there is no more removed signal
+	(cal_backend_file_remove_object): return sync status codes
+
+	* idl/evolution-calendar.idl: make removeObject oneway and and a
+	notification method in the listener
+
 2003-09-11  Rodrigo Moya <rodrigo@ximian.com>
 
 	* pcs/query.[ch] (query_get_text): new function.

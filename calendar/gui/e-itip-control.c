@@ -2049,7 +2049,7 @@ remove_item (EItipControl *itip)
 	CalComponentVType type;
 	const char *uid;
 	GtkWidget *dialog;
-	CalClientResult result;
+	GError *error = NULL;
 	
 	priv = itip->priv;
 
@@ -2063,13 +2063,15 @@ remove_item (EItipControl *itip)
 		return;
 	
 	cal_component_get_uid (priv->comp, &uid);
-	result = cal_client_remove_object (client, uid);
-	if (result == CAL_CLIENT_RESULT_SUCCESS || result == CAL_CLIENT_RESULT_NOT_FOUND) {
+	cal_client_remove_object (client, uid, &error);
+	if (!error || error->code == E_CALENDAR_STATUS_OBJECT_NOT_FOUND) {
 		dialog = gnome_ok_dialog (_("Removal Complete"));
 		gnome_dialog_run_and_close (GNOME_DIALOG (dialog));
 	} else {
-		delete_error_dialog (result, type);
-	}	
+		delete_error_dialog (error, type);
+	}
+	
+	g_clear_error (&error);
 }
 
 static void

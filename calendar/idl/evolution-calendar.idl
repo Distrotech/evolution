@@ -266,8 +266,7 @@ module Calendar {
 			raises (NotFound, InvalidObject, PermissionDenied);
 
 		/* Removes a component */
-		void removeObject (in CalObjUID uid, in CalObjModType mod)
-			raises (NotFound, PermissionDenied);
+		oneway void removeObject (in CalObjUID uid, in CalObjModType mod);
 
 		/* Sends a component */
 		CalObj sendObject (in CalObj calobj, out UserList users)
@@ -295,6 +294,8 @@ module Calendar {
 		oneway void notifyCalOpened (in CallStatus status);
 		oneway void notifyCalRemoved (in CallStatus status);
 
+		oneway void notifyObjectRemoved (in CallStatus status);
+		
 		oneway void notifyObjectListRequested (in CallStatus status, in stringlist objects);
 		oneway void notifyQuery (in CallStatus status, in Query query);
 

@@ -469,25 +469,11 @@ impl_Cal_removeObject (PortableServer_Servant servant,
 {
 	Cal *cal;
 	CalPrivate *priv;
-	CalBackendResult result;
 
 	cal = CAL (bonobo_object_from_servant (servant));
 	priv = cal->priv;
 
-	result = cal_backend_remove_object (priv->backend, uid, mod);
-	switch (result) {
-	case CAL_BACKEND_RESULT_INVALID_OBJECT :
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_InvalidObject);
-		break;
-	case CAL_BACKEND_RESULT_NOT_FOUND :
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_NotFound);
-		break;
-	case CAL_BACKEND_RESULT_PERMISSION_DENIED :
-		bonobo_exception_set (ev, ex_GNOME_Evolution_Calendar_Cal_PermissionDenied);
-		break;
-	default :
-		break;
-	}
+	cal_backend_remove_object (priv->backend, cal, uid, mod);
 }
 
 /* Cal::sendObject method */
@@ -935,6 +921,27 @@ cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
 
 	if (BONOBO_EX (&ev))
 		g_message (G_STRLOC ": could not notify the listener of remove");
+
+	CORBA_exception_free (&ev);
+}
+
+void
+cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status)
+{
+	CalPrivate *priv;
+	CORBA_Environment ev;
+
+	g_return_if_fail (cal != NULL);
+	g_return_if_fail (IS_CAL (cal));
+
+	priv = cal->priv;
+	g_return_if_fail (priv->listener != CORBA_OBJECT_NIL);
+
+	CORBA_exception_init (&ev);
+	GNOME_Evolution_Calendar_Listener_notifyObjectRemoved (priv->listener, status, &ev);
+
+	if (BONOBO_EX (&ev))
+		g_message (G_STRLOC ": could not notify the listener of object removal");
 
 	CORBA_exception_free (&ev);
 }

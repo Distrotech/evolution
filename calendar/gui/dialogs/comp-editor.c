@@ -391,7 +391,7 @@ delete_comp (CompEditor *editor)
 
 	cal_component_get_uid (priv->comp, &uid);
 	priv->updating = TRUE;
-	cal_client_remove_object (priv->client, uid);
+	cal_client_remove_object (priv->client, uid, NULL);
 	priv->updating = FALSE;
 	close_dialog (editor);
 }

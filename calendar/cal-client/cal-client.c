@@ -520,6 +520,28 @@ cal_removed_cb (CalListener *listener, ECalendarStatus status, gpointer data)
 }
 
 static void
+cal_object_removed_cb (CalListener *listener, ECalendarStatus status, gpointer data)
+{
+	CalClient *client = data;
+	ECalendarOp *op;
+
+	op = e_calendar_get_op (client);
+
+	if (op == NULL) {
+		g_warning (G_STRLOC ": Cannot find operation ");
+		return;
+	}
+
+	e_mutex_lock (op->mutex);
+
+	op->status = status;
+
+	pthread_cond_signal (&op->cond);
+
+	e_mutex_unlock (op->mutex);
+}
+
+static void
 cal_object_list_cb (CalListener *listener, ECalendarStatus status, GList *objects, gpointer data)
 {
 	CalClient *client = data;
@@ -733,6 +755,7 @@ cal_client_init (CalClient *client, CalClientClass *klass)
 	g_signal_connect (G_OBJECT (priv->listener), "static_capabilities", G_CALLBACK (cal_static_capabilities_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "open", G_CALLBACK (cal_opened_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "remove", G_CALLBACK (cal_removed_cb), client);
+	g_signal_connect (G_OBJECT (priv->listener), "remove_object", G_CALLBACK (cal_object_removed_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "object_list", G_CALLBACK (cal_object_list_cb), client);
 	g_signal_connect (G_OBJECT (priv->listener), "query", G_CALLBACK (cal_query_cb), client);
 }
@@ -2971,39 +2994,66 @@ cal_client_update_objects (CalClient *client, icalcomponent *icalcomp)
 	return retval;
 }
 
-CalClientResult
-cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjModType mod)
+gboolean
+cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjModType mod, GError **error)
 {
 	CalClientPrivate *priv;
 	CORBA_Environment ev;
-	CalClientResult retval;
+	ECalendarStatus status;
+	ECalendarOp *our_op;
 
-	g_return_val_if_fail (client != NULL, CAL_CLIENT_RESULT_INVALID_OBJECT);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), CAL_CLIENT_RESULT_INVALID_OBJECT);
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
 
 	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, CAL_CLIENT_RESULT_INVALID_OBJECT);
 
-	g_return_val_if_fail (uid != NULL, CAL_CLIENT_RESULT_NOT_FOUND);
+	e_mutex_lock (client->priv->mutex);
+
+	if (client->priv->load_state != CAL_CLIENT_LOAD_LOADED) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_URI_NOT_LOADED;
+	}
+
+	if (client->priv->current_op != NULL) {
+		e_mutex_unlock (client->priv->mutex);
+		return E_CALENDAR_STATUS_BUSY;
+	}
+
+	our_op = e_calendar_new_op (client);
+
+	e_mutex_lock (our_op->mutex);
+
+	e_mutex_unlock (client->priv->mutex);
+
 
 	CORBA_exception_init (&ev);
-	GNOME_Evolution_Calendar_Cal_removeObject (priv->cal, (char *) uid, mod, &ev);
 
-	if (BONOBO_USER_EX (&ev,  ex_GNOME_Evolution_Calendar_Cal_InvalidObject))
-		retval = CAL_CLIENT_RESULT_INVALID_OBJECT;
-	else if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_NotFound))
-		retval = CAL_CLIENT_RESULT_NOT_FOUND;
-	else if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_Cal_PermissionDenied))
-		retval = CAL_CLIENT_RESULT_PERMISSION_DENIED;
-	else if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_remove_object(): could not remove the object");
-		retval = CAL_CLIENT_RESULT_CORBA_ERROR;
+	GNOME_Evolution_Calendar_Cal_removeObject (priv->cal, uid, mod, &ev);
+	if (BONOBO_EX (&ev)) {
+		e_calendar_remove_op (client, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_calendar_free_op (our_op);
+
+		CORBA_exception_free (&ev);
+
+		g_warning (G_STRLOC ": Unable to contact backend");
+
+		return E_CALENDAR_STATUS_CORBA_EXCEPTION;
 	}
-	else
-		retval = CAL_CLIENT_RESULT_SUCCESS;
 
 	CORBA_exception_free (&ev);
-	return retval;
+
+	/* wait for something to happen (both cancellation and a
+	   successful response will notity us via our cv */
+	e_mutex_cond_wait (&our_op->cond, our_op->mutex);
+
+	status = our_op->status;
+	
+	e_calendar_remove_op (client, our_op);
+	e_mutex_unlock (our_op->mutex);
+	e_calendar_free_op (our_op);
+
+	E_CALENDAR_CHECK_STATUS (status, error);
 }
 
 /**
@@ -3018,10 +3068,13 @@ cal_client_remove_object_with_mod (CalClient *client, const char *uid, CalObjMod
  * Return value: a #CalClientResult value indicating the result of the
  * operation.
  **/
-CalClientResult
-cal_client_remove_object (CalClient *client, const char *uid)
+gboolean
+cal_client_remove_object (CalClient *client, const char *uid, GError **error)
 {
-	return cal_client_remove_object_with_mod (client, uid, CALOBJ_MOD_ALL);
+	g_return_val_if_fail (client != NULL, FALSE);
+	g_return_val_if_fail (IS_CAL_CLIENT (client), FALSE);
+
+	return cal_client_remove_object_with_mod (client, uid, CALOBJ_MOD_ALL, error);
 }
 
 CalClientResult

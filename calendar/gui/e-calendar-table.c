@@ -725,10 +725,12 @@ delete_selected_components (ECalendarTable *cal_table)
 
 	for (l = objs; l; l = l->next) {
 		ECalModelComponent *comp_data = (ECalModelComponent *) l->data;
-
-		delete_error_dialog (cal_client_remove_object (comp_data->client,
-							       icalcomponent_get_uid (comp_data->icalcomp)),
-				     CAL_COMPONENT_TODO);
+		GError *error = NULL;
+		
+		cal_client_remove_object (comp_data->client, 
+					  icalcomponent_get_uid (comp_data->icalcomp), &error);
+		delete_error_dialog (error, CAL_COMPONENT_TODO);
+		g_clear_error (&error);
 	}
 
 	e_calendar_table_set_status_message (cal_table, NULL);

@@ -531,9 +531,9 @@ e_cal_view_cut_clipboard (ECalView *cal_view)
 	e_cal_view_copy_clipboard (cal_view);
 	for (l = selected; l != NULL; l = l->next) {
 		CalComponent *comp;
-
 		ECalViewEvent *event = (ECalViewEvent *) l->data;
-
+		GError *error = NULL;
+		
 		if (!event)
 			continue;
 
@@ -547,8 +547,8 @@ e_cal_view_cut_clipboard (ECalView *cal_view)
 					event->comp_data->client, NULL);
 
 		cal_component_get_uid (comp, &uid);
-		delete_error_dialog (cal_client_remove_object (event->comp_data->client, uid),
-				     CAL_COMPONENT_EVENT);
+		cal_client_remove_object (event->comp_data->client, uid, &error);
+		delete_error_dialog (error, CAL_COMPONENT_EVENT);
 
 		g_object_unref (comp);
 	}
@@ -624,7 +624,8 @@ delete_event (ECalView *cal_view, ECalViewEvent *event)
 
 	if (delete_component_dialog (comp, FALSE, 1, vtype, GTK_WIDGET (cal_view))) {
 		const char *uid;
-
+		GError *error = NULL;
+		
 		if (itip_organizer_is_user (comp, event->comp_data->client) 
 		    && cancel_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (GTK_WIDGET (cal_view)),
 						event->comp_data->client,
@@ -637,9 +638,10 @@ delete_event (ECalView *cal_view, ECalViewEvent *event)
 			g_object_unref (comp);
 			return;
 		}
-
-		delete_error_dialog (
-			cal_client_remove_object (event->comp_data->client, uid), CAL_COMPONENT_EVENT);
+		
+		cal_client_remove_object (event->comp_data->client, uid, &error);
+		delete_error_dialog (error, CAL_COMPONENT_EVENT);
+		g_clear_error (&error);
 	}
 
 	g_object_unref (comp);
@@ -695,11 +697,13 @@ e_cal_view_delete_selected_occurrence (ECalView *cal_view)
 
 	if (cal_util_component_is_instance (event->comp_data->icalcomp)) {
 		const char *uid;
-
+		GError *error = NULL;
+		
 		uid = icalcomponent_get_uid (event->comp_data->icalcomp);
-		delete_error_dialog (
-			cal_client_remove_object_with_mod (event->comp_data->client, uid, CALOBJ_MOD_THIS),
-			CAL_COMPONENT_EVENT);
+
+		cal_client_remove_object_with_mod (event->comp_data->client, uid, CALOBJ_MOD_THIS, &error);
+		delete_error_dialog (error, CAL_COMPONENT_EVENT);
+		g_clear_error (&error);
 	} else {
 		CalComponent *comp;
 

@@ -85,6 +85,8 @@ static CalBackendSyncStatus cal_backend_file_get_static_capabilities (CalBackend
 static CalBackendSyncStatus cal_backend_file_open (CalBackendSync *backend, Cal *cal, gboolean only_if_exists);
 static CalBackendSyncStatus cal_backend_file_remove (CalBackendSync *backend, Cal *cal);
 
+static CalBackendSyncStatus cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod);
+
 static CalBackendSyncStatus cal_backend_file_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects);
 
 static gboolean cal_backend_file_is_loaded (CalBackend *backend);
@@ -114,7 +116,6 @@ static CalBackendResult cal_backend_file_discard_alarm (CalBackend *backend,
 static CalBackendResult cal_backend_file_update_objects (CalBackend *backend,
 							 const char *calobj,
 							 CalObjModType mod);
-static CalBackendResult cal_backend_file_remove_object (CalBackend *backend, const char *uid, CalObjModType mod);
 
 static CalBackendSendResult cal_backend_file_send_object (CalBackend *backend, 
 							  const char *calobj, gchar **new_calobj,
@@ -186,7 +187,9 @@ cal_backend_file_class_init (CalBackendFileClass *class)
  	sync_class->get_static_capabilities_sync = cal_backend_file_get_static_capabilities;
 	sync_class->open_sync = cal_backend_file_open;
 	sync_class->remove_sync = cal_backend_file_remove;
+	sync_class->remove_object_sync = cal_backend_file_remove_object;
 	sync_class->get_object_list_sync = cal_backend_file_get_object_list;
+
 	backend_class->is_loaded = cal_backend_file_is_loaded;
 	backend_class->start_query = cal_backend_file_start_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
@@ -200,7 +203,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	backend_class->get_alarms_for_object = cal_backend_file_get_alarms_for_object;
 	backend_class->discard_alarm = cal_backend_file_discard_alarm;
 	backend_class->update_objects = cal_backend_file_update_objects;
-	backend_class->remove_object = cal_backend_file_remove_object;
 	backend_class->send_object = cal_backend_file_send_object;
 
 	backend_class->get_timezone = cal_backend_file_get_timezone;
@@ -1702,17 +1704,15 @@ cal_backend_file_update_objects (CalBackend *backend, const char *calobj, CalObj
 
 	for (elem = removed_uids; elem; elem = elem->next) {
 		char *comp_uid = elem->data;
-		cal_backend_obj_removed (backend, comp_uid);
 	}
 	g_list_free (removed_uids);
 
 	return retval;
 }
 
-
 /* Remove_object handler for the file backend */
-static CalBackendResult
-cal_backend_file_remove_object (CalBackend *backend, const char *uid, CalObjModType mod)
+static CalBackendSyncStatus
+cal_backend_file_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod)
 {
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
@@ -1727,15 +1727,13 @@ cal_backend_file_remove_object (CalBackend *backend, const char *uid, CalObjModT
 
 	comp = lookup_component (cbfile, uid);
 	if (!comp)
-		return CAL_BACKEND_RESULT_NOT_FOUND;
-
+		return GNOME_Evolution_Calendar_ObjectNotFound;
+	
 	remove_component (cbfile, comp);
-
+	
 	mark_dirty (cbfile);
-
-	cal_backend_obj_removed (backend, uid);
-
-	return CAL_BACKEND_RESULT_SUCCESS;
+		
+	return GNOME_Evolution_Calendar_Success;
 }
 
 static CalBackendSendResult

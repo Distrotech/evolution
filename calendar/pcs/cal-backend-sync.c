@@ -106,6 +106,16 @@ cal_backend_sync_remove  (CalBackendSync *backend, Cal *cal)
 }
 
 CalBackendSyncStatus
+cal_backend_sync_remove_object (CalBackendSync *backend, Cal *cal, const char *uid, CalObjModType mod)
+{
+	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
+
+	g_assert (CAL_BACKEND_SYNC_GET_CLASS (backend)->remove_object_sync);
+
+	return (* CAL_BACKEND_SYNC_GET_CLASS (backend)->remove_object_sync) (backend, cal, uid, mod);
+}
+
+CalBackendSyncStatus
 cal_backend_sync_get_object_list (CalBackendSync *backend, Cal *cal, const char *sexp, GList **objects)
 {
 	g_return_val_if_fail (backend && CAL_IS_BACKEND_SYNC (backend), GNOME_Evolution_Calendar_OtherError);
@@ -200,6 +210,16 @@ _cal_backend_remove (CalBackend *backend, Cal *cal)
 }
 
 static void
+_cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod)
+{
+	CalBackendSyncStatus status;
+
+	status = cal_backend_sync_remove_object (CAL_BACKEND_SYNC (backend), cal, uid, mod);
+
+	cal_notify_object_removed (cal, status);
+}
+
+static void
 _cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp)
 {
 	CalBackendSyncStatus status;
@@ -257,6 +277,7 @@ cal_backend_sync_class_init (CalBackendSyncClass *klass)
 	backend_class->get_static_capabilities = _cal_backend_get_static_capabilities;
 	backend_class->open = _cal_backend_open;
 	backend_class->remove = _cal_backend_remove;
+	backend_class->remove_object = _cal_backend_remove_object;
 	backend_class->get_object_list = _cal_backend_get_object_list;
 
 	object_class->dispose = cal_backend_sync_dispose;

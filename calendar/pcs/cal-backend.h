@@ -84,7 +84,6 @@ struct _CalBackendClass {
 	void (* opened) (CalBackend *backend, int status);
 	void (* removed) (CalBackend *backend, int status);
 	void (* obj_updated) (CalBackend *backend, const char *uid);
-	void (* obj_removed) (CalBackend *backend, const char *uid);
 
 	/* Virtual methods */
 	void (* is_read_only) (CalBackend *backend, Cal *cal);
@@ -95,6 +94,8 @@ struct _CalBackendClass {
 	
 	void (* open) (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 	void (* remove) (CalBackend *backend, Cal *cal);
+
+	void (* remove_object) (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
 
 	void (* get_object_list) (CalBackend *backend, Cal *cal, const char *sexp);
 
@@ -128,7 +129,6 @@ struct _CalBackendClass {
 
 	/* Object manipulation virtual methods */
 	CalBackendResult (* update_objects) (CalBackend *backend, const char *calobj, CalObjModType mod);
-	CalBackendResult (* remove_object) (CalBackend *backend, const char *uid, CalObjModType mod);
 
 	CalBackendSendResult (* send_object) (CalBackend *backend, const char *calobj, char **new_calobj,
 					      GNOME_Evolution_Calendar_UserList **user_list,
@@ -153,6 +153,8 @@ void cal_backend_get_static_capabilities (CalBackend *backend, Cal *cal);
 
 void  cal_backend_open (CalBackend *backend, Cal *cal, gboolean only_if_exists);
 void cal_backend_remove (CalBackend *backend, Cal *cal);
+
+void cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod);
 
 void cal_backend_get_object_list (CalBackend *backend, Cal *cal, const char *sexp);
 
@@ -195,8 +197,6 @@ CalBackendResult cal_backend_discard_alarm (CalBackend *backend, const char *uid
 
 CalBackendResult cal_backend_update_objects (CalBackend *backend, const char *calobj, CalObjModType mod);
 
-CalBackendResult cal_backend_remove_object (CalBackend *backend, const char *uid, CalObjModType mod);
-
 CalBackendSendResult cal_backend_send_object (CalBackend *backend, const char *calobj, char **new_calobj,
 					      GNOME_Evolution_Calendar_UserList **user_list, 
 					      char error_msg[256]);
@@ -213,7 +213,6 @@ void cal_backend_opened (CalBackend *backend, int status);
 void cal_backend_removed (CalBackend *backend, int status);
 
 void cal_backend_obj_updated (CalBackend *backend, const char *uid);
-void cal_backend_obj_removed (CalBackend *backend, const char *uid);
 
 void cal_backend_notify_mode      (CalBackend *backend,
 				   GNOME_Evolution_Calendar_Listener_SetModeStatus status, 

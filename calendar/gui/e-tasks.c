@@ -970,7 +970,7 @@ e_tasks_delete_completed (ETasks *tasks)
 	
 	for (l = objects; l; l = l->next) {
 		/* FIXME Better error handling */
-		cal_client_remove_object (priv->client, icalcomponent_get_uid (l->data));
+		cal_client_remove_object (priv->client, icalcomponent_get_uid (l->data), NULL);
 	}
 
 	set_status_message (tasks, NULL);

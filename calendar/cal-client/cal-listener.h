@@ -60,6 +60,8 @@ typedef struct {
 	void (*open) (CalListener *listener, ECalendarStatus status);
 	void (*remove) (CalListener *listener, ECalendarStatus status);
 
+	void (*remove_object) (CalListener *listener, ECalendarStatus status);
+
 	void (*object_list) (CalListener *listener, ECalendarStatus status, GList **objects);
 	void (*query) (CalListener *listener, ECalendarStatus status, GNOME_Evolution_Calendar_Query query);
 } CalListenerClass;

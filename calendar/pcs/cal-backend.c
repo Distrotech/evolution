@@ -78,7 +78,6 @@ enum {
 	OPENED,
 	REMOVED,
 	OBJ_UPDATED,
-	OBJ_REMOVED,
 	LAST_SIGNAL
 };
 static guint cal_backend_signals[LAST_SIGNAL];
@@ -242,20 +241,10 @@ cal_backend_class_init (CalBackendClass *class)
 			      g_cclosure_marshal_VOID__STRING,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_STRING);
-	cal_backend_signals[OBJ_REMOVED] =
-		g_signal_new ("obj_removed",
-			      G_TYPE_FROM_CLASS (class),
-			      G_SIGNAL_RUN_FIRST,
-			      G_STRUCT_OFFSET (CalBackendClass, obj_removed),
-			      NULL, NULL,
-			      g_cclosure_marshal_VOID__STRING,
-			      G_TYPE_NONE, 1,
-			      G_TYPE_STRING);
 
 	class->last_client_gone = NULL;
 	class->opened = NULL;
 	class->obj_updated = NULL;
-	class->obj_removed = NULL;
 
 	class->get_cal_address = NULL;
 	class->get_alarm_email_address = NULL;
@@ -961,15 +950,15 @@ cal_backend_update_objects (CalBackend *backend, const char *calobj, CalObjModTy
  * Return value: a #CalBackendResult value, which indicates the
  * result of the operation.
  **/
-CalBackendResult
-cal_backend_remove_object (CalBackend *backend, const char *uid, CalObjModType mod)
+void
+cal_backend_remove_object (CalBackend *backend, Cal *cal, const char *uid, CalObjModType mod)
 {
-	g_return_val_if_fail (backend != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), CAL_BACKEND_RESULT_NOT_FOUND);
-	g_return_val_if_fail (uid != NULL, CAL_BACKEND_RESULT_NOT_FOUND);
+	g_return_if_fail (backend != NULL);
+	g_return_if_fail (IS_CAL_BACKEND (backend));
+	g_return_if_fail (uid != NULL);
 
 	g_assert (CLASS (backend)->remove_object != NULL);
-	return (* CLASS (backend)->remove_object) (backend, uid, mod);
+	(* CLASS (backend)->remove_object) (backend, cal, uid, mod);
 }
 
 CalBackendSendResult
@@ -1044,25 +1033,6 @@ cal_backend_obj_updated (CalBackend *backend, const char *uid)
 	g_return_if_fail (uid != NULL);
 
 	g_signal_emit (G_OBJECT (backend), cal_backend_signals[OBJ_UPDATED],
-		       0, uid);
-}
-
-/**
- * cal_backend_obj_removed:
- * @backend: A calendar backend.
- * @uid: Unique identifier of the component that was removed.
- * 
- * Emits the "obj_removed" signal of a calendar backend.  This function is to be
- * used only by backend implementations.
- **/
-void
-cal_backend_obj_removed (CalBackend *backend, const char *uid)
-{
-	g_return_if_fail (backend != NULL);
-	g_return_if_fail (IS_CAL_BACKEND (backend));
-	g_return_if_fail (uid != NULL);
-
-	g_signal_emit (G_OBJECT (backend), cal_backend_signals[OBJ_REMOVED],
 		       0, uid);
 }
 

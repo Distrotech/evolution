@@ -1245,7 +1245,8 @@ delete_record (GnomePilotConduitSyncAbs *conduit,
 	LOG (g_message ( "delete_record: deleting %s\n", uid ));
 
 	e_pilot_map_remove_by_uid (ctxt->map, uid);
-	cal_client_remove_object (ctxt->client, uid);
+	/* FIXME Error handling */
+	cal_client_remove_object (ctxt->client, uid, NULL);
 	
         return 0;
 }

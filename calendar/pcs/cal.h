@@ -70,6 +70,8 @@ void cal_notify_static_capabilities (Cal *cal, GNOME_Evolution_Calendar_CallStat
 void cal_notify_open (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
 void cal_notify_remove (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
 
+void cal_notify_object_removed (Cal *cal, GNOME_Evolution_Calendar_CallStatus status);
+
 void cal_notify_object_list (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, GList *objects);
 
 void cal_notify_query (Cal *cal, GNOME_Evolution_Calendar_CallStatus status, Query *query);
