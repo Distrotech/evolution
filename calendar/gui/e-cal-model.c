@@ -1283,22 +1283,46 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 		ECalModelComponent *comp_data;
 		int pos;
 		GList sl;
+		icalcomponent *icalcomp;
 
-		/* remove all objects with this UID */
-		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {
-			e_table_model_pre_change (E_TABLE_MODEL (model));
-			pos = get_position_in_array (priv->objects, comp_data);
+		icalcomp = icalparser_parse_string (l->data);
+		if (!icalcomp)
+			continue;
+
+		if (e_cal_util_component_is_instance (icalcomp)) {
+			comp_data = search_instance (priv, e_cal_view_get_client (query),
+						     icalcomponent_get_uid (icalcomp),
+						     icaltime_as_ical_string (icalcomponent_get_recurrenceid (icalcomp)));
+			if (comp_data) {
+				e_table_model_pre_change (E_TABLE_MODEL (model));
+				pos = get_position_in_array (priv->objects, comp_data);
+
+				icalcomponent_free (comp_data->icalcomp);
+				comp_data->icalcomp = icalcomp;
+				e_table_model_row_changed (E_TABLE_MODEL (model), pos);
+				continue;
+			}
+		} else {
+			/* remove all objects with this UID */
+			while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query),
+								      icalcomponent_get_uid (icalcomp)))) {
+				e_table_model_pre_change (E_TABLE_MODEL (model));
+				pos = get_position_in_array (priv->objects, comp_data);
 		
-			g_ptr_array_remove (priv->objects, comp_data);
-			e_cal_model_free_component_data (comp_data);
+				g_ptr_array_remove (priv->objects, comp_data);
+				e_cal_model_free_component_data (comp_data);
 				
-			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+				e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
+			}
 		}
 
 		/* re-add all occurrences */
 		sl.next = sl.prev = NULL;
 		sl.data = l->data;
 		e_cal_view_objects_added_cb (query, &sl, model);
+
+		/* free memory */
+		icalcomponent_free (icalcomp);
 	}
 }
 
