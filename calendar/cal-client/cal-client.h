@@ -40,7 +40,6 @@ G_BEGIN_DECLS
 #define CAL_CLIENT_SET_MODE_STATUS_ENUM_TYPE (cal_client_set_mode_status_enum_get_type ())
 #define CAL_MODE_ENUM_TYPE                   (cal_mode_enum_get_type ())
 
-typedef struct _CalClient CalClient;
 typedef struct _CalClientClass CalClientClass;
 
 typedef struct _CalClientPrivate CalClientPrivate;

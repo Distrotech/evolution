@@ -2912,7 +2912,7 @@ cal_client_get_query (CalClient *client, const char *sexp)
 
 	g_return_val_if_fail (sexp != NULL, NULL);
 
-	return cal_query_new (priv->cal, sexp);
+	return cal_query_new (client, priv->cal, sexp);
 }
 
 
