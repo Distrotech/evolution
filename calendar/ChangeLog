@@ -1,3 +1,21 @@
+2003-08-06  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (get_dtstart, set_dtstart): implemented.
+	(ecm_value_at, ecm_set_value_at, ecm_duplicate_value,
+	 ecm_free_value, ecm_value_to_string): added case for DTSTART
+	 field.
+	(free_comp_data): free also the other date values in the
+	ECalModelComponent struct.
+	(e_cal_model_date_value_to_string): new function.
+
+	* gui/e-cal-model.h: added new prototypes.
+
+	* gui/e-cal-model-calendar.[ch]: new ECalModel-based class for
+	containing events.
+
+	* gui/e-cal-model-tasks.c (ecmt_value_to_string): implemented
+	the case for date fields.
+
 2003-08-05  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-client/cal-client.c (generate_instances_obj_updated_cb): fixed

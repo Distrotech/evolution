@@ -134,6 +134,11 @@ free_comp_data (ECalModelComponent *comp_data)
 		comp_data->dtstart = NULL;
 	}
 
+	if (comp_data->dtend) {
+		g_free (comp_data->dtend);
+		comp_data->dtend = NULL;
+	}
+
 	g_free (comp_data);
 }
 
@@ -349,7 +354,7 @@ ecm_value_at (ETableModel *etm, int col, int row)
 	case E_CAL_MODEL_FIELD_CLASSIFICATION :
 		return get_classification (comp_data);
 	case E_CAL_MODEL_FIELD_COLOR :
-		return get_color (model, comp_data);
+		return GPOINTER_TO_INT (get_color (model, comp_data));
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		return comp_data->icalcomp;
 	case E_CAL_MODEL_FIELD_DESCRIPTION :
@@ -475,6 +480,22 @@ set_description (icalcomponent *icalcomp, const char *value)
 }
 
 static void
+set_dtstart (ECalModel *model, ECalModelComponent *comp_data, const void *value)
+{
+	icalproperty *prop;
+	ECellDateEditValue *dv = (ECellDateEditValue *) value;
+
+	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_DTSTART_PROPERTY);
+	if (!dv) {
+		if (prop) {
+			icalcomponent_remove_property (comp_data->icalcomp, prop);
+			icalproperty_free (prop);
+		}
+	} else
+		icalcomponent_set_dtstart (comp_data->icalcomp, dv->tt);
+}
+
+static void
 set_summary (icalcomponent *icalcomp, const char *value)
 {
 	icalcomponent_set_summary (icalcomp, value);
@@ -505,7 +526,7 @@ ecm_set_value_at (ETableModel *etm, int col, int row, const void *value)
 	case E_CAL_MODEL_FIELD_DESCRIPTION :
 		set_description (comp_data, value);
 	case E_CAL_MODEL_FIELD_DTSTART :
-		break; /* FIXME */
+		set_dtstart (model, comp_data, value);
 	case E_CAL_MODEL_FIELD_SUMMARY :
 		set_summary (comp_data, value);
 	}
@@ -593,7 +614,15 @@ ecm_duplicate_value (ETableModel *etm, int col, const void *value)
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		return icalcomponent_new_clone ((icalcomponent *) value);
 	case E_CAL_MODEL_FIELD_DTSTART :
-		/* FIXME */
+		if (value) {
+			ECellDateEditValue *dv, *orig_dv;
+
+			orig_dv = (ECellDateEditValue *) value;
+			dv = g_new0 (ECellDateEditValue, 1);
+			*dv = *orig_dv;
+
+			return dv;
+		}
 		break;
 	}
 
@@ -618,7 +647,8 @@ ecm_free_value (ETableModel *etm, int col, void *value)
 	case E_CAL_MODEL_FIELD_COLOR :
 		break;
 	case E_CAL_MODEL_FIELD_DTSTART :
-		/* FIXME */
+		if (value)
+			g_free (value);
 		break;
 	case E_CAL_MODEL_FIELD_COMPONENT :
 		if (value)
@@ -707,11 +737,14 @@ ecm_value_to_string (ETableModel *etm, int col, const void *value)
 	case E_CAL_MODEL_FIELD_SUMMARY :
 		return g_strdup (value);
 	case E_CAL_MODEL_FIELD_DTSTART :
-		/* FIXME */
-		break;
+		return e_cal_model_date_value_to_string (etm, value);
 	case E_CAL_MODEL_FIELD_ICON :
-		/* FIXME */
-		break;
+		if (GPOINTER_TO_INT (value) == 0)
+			return _("Normal");
+		else if (GPOINTER_TO_INT (value) == 1)
+			return _("Recurring");
+		else
+			return _("Assigned");
 	case E_CAL_MODEL_FIELD_HAS_ALARMS :
 		return value ? _("Yes") : _("No");
 	case E_CAL_MODEL_FIELD_COLOR :
@@ -1089,4 +1122,43 @@ e_cal_model_get_component_at (ECalModel *model, gint row)
 	g_return_val_if_fail (row >= 0 && row < priv->objects->len, NULL);
 
 	return g_ptr_array_index (priv->objects, row);
+}
+
+/**
+ * e_cal_model_date_value_to_string
+ */
+gchar*
+e_cal_model_date_value_to_string (ECalModel *model, const void *value)
+{
+	ECalModelPrivate *priv;
+	ECellDateEditValue *dv = (ECellDateEditValue *) value;
+	struct icaltimetype tt;
+	struct tm tmp_tm;
+	char buffer[64];
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	priv = model->priv;
+
+	if (!dv)
+		return g_strdup ("");
+
+	/* We currently convert all the dates to the current timezone. */
+	tt = dv->tt;
+	icaltimezone_convert_time (&tt, dv->zone, priv->zone);
+
+	tmp_tm.tm_year = tt.year - 1900;
+	tmp_tm.tm_mon = tt.month - 1;
+	tmp_tm.tm_mday = tt.day;
+	tmp_tm.tm_hour = tt.hour;
+	tmp_tm.tm_min = tt.minute;
+	tmp_tm.tm_sec = tt.second;
+	tmp_tm.tm_isdst = -1;
+
+	tmp_tm.tm_wday = time_day_of_week (tt.day, tt.month - 1, tt.year);
+
+	e_time_format_date_and_time (&tmp_tm, calendar_config_get_24_hour_format (),
+				     TRUE, FALSE,
+				     buffer, sizeof (buffer));
+	return g_strdup (buffer);
 }

@@ -56,6 +56,7 @@ typedef struct {
 
 	/* private data */
 	ECellDateEditValue *dtstart;
+	ECellDateEditValue *dtend;
 } ECalModelComponent;
 
 typedef struct {
@@ -83,6 +84,8 @@ void                e_cal_model_remove_client (ECalModel *model, CalClient *clie
 void                e_cal_model_remove_all_clients (ECalModel *model);
 
 ECalModelComponent *e_cal_model_get_component_at (ECalModel *model, gint row);
+
+gchar              *e_cal_model_date_value_to_string (ECalModel *model, const void *value);
 
 G_END_DECLS
 

@@ -860,8 +860,7 @@ ecmt_value_to_string (ETableModel *etm, int col, const void *value)
 		return g_strdup (value);
 	case E_CAL_MODEL_TASKS_FIELD_COMPLETED :
 	case E_CAL_MODEL_TASKS_FIELD_DUE :
-		/* FIXME */
-		break;
+		return e_cal_model_date_value_to_string (E_CAL_MODEL (model), value);
 	case E_CAL_MODEL_TASKS_FIELD_COMPLETE :
 	case E_CAL_MODEL_TASKS_FIELD_OVERDUE :
 		return value ? _("Yes") : _("No");
