@@ -13,7 +13,6 @@ static void cs_connection_process(gpointer data, GIOCondition cond,
 				  CSConnection *cnx);
 static void cs_connection_greet(CSConnection *cnx);
 static void cs_connection_process_line(CSConnection *cnx, char *l);
-static void cs_connection_process_literal(CSConnection *cnx, char *l);
 
 CSServer *
 cs_server_new(void)

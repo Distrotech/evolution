@@ -85,8 +85,10 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
 
   /* XXX todo - date range */
   /* OK we've done all the checks, now make it so */
-  if(!strcmp(calname, cnx->authid)) calname = NULL;
-  newcal = backend_open_calendar(cnx->authid, calname);
+  if (!strcmp (calname, cnx->authid))
+	  calname = NULL;
+  
+  newcal = backend_open_calendar (cnx->authid, calname);
   if(!newcal) {
     fprintf(cnx->fh, "%s NO %s can't access Calendar store\n", ci->id, ci->name);
     return;
@@ -96,7 +98,7 @@ cs_command_switchcals(CSConnection *cnx, CSCmdInfo *ci,
     backend_close_calendar(cnx->active_cal);
   cnx->active_cal = newcal;
   cnx->active_is_readonly = activate_rdonly;
-  fprintf(cnx->fh, "* %s EXISTS\n", newcal->id);
+  fprintf(cnx->fh, "* %s EXISTS\n", ci->id);
   fprintf(cnx->fh, "* FLAGS ()\n");
   fprintf(cnx->fh, "%s OK %s Completed\n", ci->id, ci->name);  
 }
@@ -132,12 +134,12 @@ cs_command_CREATE(CSConnection *cnx, CSCmdInfo *ci, char *l)
     return;
   }
 
-  backend_create_calendar(cnx->authid, calname);
+  backend_calendar_create(cnx->authid, calname);
   fprintf(cnx->fh, "%s OK %s Calendar store created\n", ci->id, ci->name);
 }
 
 static void
-cs_command_DELETE(CSConnection *cnx, CSCmdInfo *cmd, char *l)
+cs_command_DELETE(CSConnection *cnx, CSCmdInfo *ci, char *l)
 {
   char *ctmp;
   char *calname;
@@ -155,7 +157,12 @@ cs_command_DELETE(CSConnection *cnx, CSCmdInfo *cmd, char *l)
     return;
   }
 
-  backend_delete_calendar(cnx->authid, calname);
+  if (backend_calendar_inuse (cnx->authid, calname)){
+     fprintf (cnx->fh, "%s BAD calendar in use\n", ci->id);
+     return;
+  }
+
+  backend_delete_calendar (cnx->authid, calname);
   fprintf(cnx->fh, "%s OK %s Calendar store deleted\n", ci->id, ci->name);
 }
 
@@ -262,7 +269,7 @@ cs_literal_##x(cnx, cnx->curcmd, line)
 
   CHECK_LIT(APPEND);
   else {
-    g_warning("Unknown command %s", cmd_name);
+    g_warning("Unknown command %s", line);
     fprintf(cnx->fh, "%s BAD unknown literal handler\n", cnx->curcmd->name);
   }
 }

@@ -289,6 +289,8 @@ Calendar *
 calendar_get (char *fname)
 {
 	Calendar *cal;
+
+	g_return_val_if_fail (fname != NULL, NULL);
 	
 	if (!all_calendars)
 		calendar_init();
@@ -300,6 +302,19 @@ calendar_get (char *fname)
 	calendar_load (cal, fname);
 
 	return cal;
+}
+
+gboolean
+calendar_loaded (char *fname)
+{
+	g_return_val_if_fail (fname, FALSE);
+	
+	if (!all_calendars)
+		return FALSE;
+
+	if (g_hash_table_lookup (all_calendars, fname))
+		return TRUE;
+	return FALSE;
 }
 
 void

@@ -1,21 +1,25 @@
 #ifndef CALSERV_H
 #define CALSERV_H 1
 
+#include <config.h>
 #include <glib.h>
 #include <stdio.h>
 #include "calendar.h"
+#include "backend.h"
 
 #define CS_capabilities "ICAP AUTH=PLAINTEXT"
+
 typedef struct {
   int servfd;
   GList *connections;
   GMainLoop *mainloop;
   GIOChannel *gioc;
 } CSServer;
+
 /* in server-io.c */
-CSServer *cs_server_new(void);
-void cs_server_run(CSServer *server);
-void cs_server_destroy(CSServer *server);
+CSServer *cs_server_new     (void);
+void      cs_server_run     (CSServer *server);
+void      cs_server_destroy (CSServer *server);
 
 /* for bandying around info on a command */
 typedef struct {
@@ -24,6 +28,7 @@ typedef struct {
   char *rol;
   gpointer cmd_specific_data;
 } CSCmdInfo;
+
 CSCmdInfo *cs_cmdinfo_dup(CSCmdInfo *ci);
 void cs_cmdinfo_destroy(CSCmdInfo *ci);
 
@@ -46,7 +51,7 @@ typedef struct {
 
 /* in server-commands.c */
 void cs_connection_process_line(CSConnection *cnx, char *line);
-static void cs_connection_process_literal(CSConnection *cnx, char *line);
+void cs_connection_process_literal(CSConnection *cnx, char *line);
 
 /* in server-io.c */
 void cs_connection_destroy(CSConnection *cnx);

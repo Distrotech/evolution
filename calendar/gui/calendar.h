@@ -16,7 +16,8 @@ typedef struct {
 	char    *title;
 
 	/* backing store for this calendar object */
-	char    *filename;
+	char           *filename;
+	CalendarServer *server;
 
 	/* The list of events;  todo's and journal entries */
 	GList  	*events;
@@ -29,8 +30,6 @@ typedef struct {
 	/* If the calendar was last modified */
 	int     modified;
 	void    *temp;
-
-	CalendarServer *server;
 } Calendar;
 
 /* This is only used by the calendar_get_events_in_range routine to get
@@ -74,6 +73,7 @@ void      calendar_notify           (time_t time, CalendarAlarm *which, void *da
 void      ical_object_try_alarms    (iCalObject *obj);
 
 int       calendar_get_id           (Calendar *cal);
+gboolean  calendar_loaded           (char *fname);
 
 extern time_t calendar_day_begin, calendar_day_end;
 

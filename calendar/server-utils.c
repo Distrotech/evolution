@@ -20,3 +20,4 @@ cs_cmdinfo_destroy(CSCmdInfo *ci)
   g_free(ci->rol);
   g_free(ci);
 }
+

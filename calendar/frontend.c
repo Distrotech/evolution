@@ -13,12 +13,15 @@ calendar_get_id (Calendar *cal)
 	if (cal->server){
 		g_warning ("Should ask the calendar server here to get me a unique ID\n");
 	} else {
+		int id;
+		
 		id = gnome_config_get_int ("/calendar/Calendar/ID=0");
 		id++;
 		gnome_config_set_int ("/calendar/Calendar/ID", id);
 		
 		return id++;
 	}
+	return 0;
 }
 
 		 
