@@ -876,12 +876,6 @@ mail_accounts_dialog_new_signature (MailAccountsDialog *dialog, gboolean html)
 	return sig;
 }
 
-static void
-sig_add (GtkWidget *w, MailAccountsDialog *dialog)
-{
-	mail_accounts_dialog_new_signature (dialog, FALSE);
-}
-
 static void sig_row_unselect (GtkWidget *w, gint row, gint col, GdkEvent *event, MailAccountsDialog *dialog);
 
 static void
@@ -912,6 +906,13 @@ sig_edit (GtkWidget *w, MailAccountsDialog *dialog)
 }
 
 static void
+sig_add (GtkWidget *w, MailAccountsDialog *dialog)
+{
+	mail_accounts_dialog_new_signature (dialog, FALSE);
+	sig_edit (NULL, dialog);
+}
+
+static void
 sig_level (GtkWidget *w, MailAccountsDialog *dialog)
 {
 	GtkWidget *button;
@@ -925,9 +926,9 @@ sig_level (GtkWidget *w, MailAccountsDialog *dialog)
 	button = level ? dialog->sig_simple_button : dialog->sig_advanced_button;
 	gtk_widget_hide (w);
 	gtk_container_remove (GTK_CONTAINER (dialog->sig_level_bbox), w);
-	gtk_box_pack_start (GTK_BOX (dialog->sig_level_bbox), button, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (dialog->sig_level_bbox), button, FALSE, 0, FALSE);
 	gtk_widget_show (button);
-			    
+
 	level ? gtk_widget_hide (dialog->sig_preview) : gtk_widget_show (dialog->sig_preview);
 	level ? gtk_widget_show (dialog->sig_advanced_table) : gtk_widget_hide (dialog->sig_advanced_table);
 }

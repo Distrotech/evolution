@@ -3310,7 +3310,7 @@ Quoted
 	  <sensitive>False</sensitive>
 	  <tooltip>If selected signature will be included in random signature list</tooltip>
 	  <can_focus>True</can_focus>
-	  <label>include in _random signatures list</label>
+	  <label>Include in _random signatures list</label>
 	  <active>False</active>
 	  <draw_indicator>True</draw_indicator>
 	  <child>
@@ -3504,17 +3504,6 @@ Quoted
 
 	<widget>
 	  <class>GtkButton</class>
-	  <name>button-sig-delete</name>
-	  <sensitive>False</sensitive>
-	  <tooltip>Delete selected signature</tooltip>
-	  <can_default>True</can_default>
-	  <can_focus>True</can_focus>
-	  <label>_Delete</label>
-	  <relief>GTK_RELIEF_NORMAL</relief>
-	</widget>
-
-	<widget>
-	  <class>GtkButton</class>
 	  <name>button-sig-edit</name>
 	  <sensitive>False</sensitive>
 	  <tooltip>Edit signature content in editor</tooltip>
@@ -3525,15 +3514,14 @@ Quoted
 	</widget>
 
 	<widget>
-	  <class>GtkLabel</class>
-	  <name>label66</name>
-	  <label>                   </label>
-	  <justify>GTK_JUSTIFY_CENTER</justify>
-	  <wrap>False</wrap>
-	  <xalign>0.5</xalign>
-	  <yalign>0.5</yalign>
-	  <xpad>0</xpad>
-	  <ypad>0</ypad>
+	  <class>GtkButton</class>
+	  <name>button-sig-delete</name>
+	  <sensitive>False</sensitive>
+	  <tooltip>Delete selected signature</tooltip>
+	  <can_default>True</can_default>
+	  <can_focus>True</can_focus>
+	  <label>_Delete</label>
+	  <relief>GTK_RELIEF_NORMAL</relief>
 	</widget>
       </widget>
 
@@ -3560,6 +3548,7 @@ Quoted
 	<widget>
 	  <class>GtkButton</class>
 	  <name>button-sig-advanced</name>
+	  <tooltip>Show advanced settings</tooltip>
 	  <can_default>True</can_default>
 	  <can_focus>True</can_focus>
 	  <label>Ad_vanced</label>
@@ -3574,6 +3563,7 @@ Quoted
 	<widget>
 	  <class>GtkButton</class>
 	  <name>button-sig-simple</name>
+	  <tooltip>Hide advanced settings</tooltip>
 	  <can_default>True</can_default>
 	  <can_focus>True</can_focus>
 	  <label>S_imple</label>
