@@ -208,8 +208,8 @@ ea_cal_view_event_get_name (AtkObject *accessible)
 
 		cal_component_get_summary (event->comp, &comp_text);
 		if (comp_text.value) {
-			tmp_name = new_name;
 			char *text = (char*) comp_text.value;
+			tmp_name = new_name;
 			new_name = g_strconcat (new_name, text, NULL);
 			g_free (tmp_name);
 		}
