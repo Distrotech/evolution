@@ -1,3 +1,11 @@
+2003-09-15  Not Zed  <NotZed@Ximian.com>
+
+	* em-folder-browser.c (emfb_activate): remove warning about folder
+	not being loaded yet - it basically never is.
+
+	* em-popup.c (emp_standard_menu_factory): dont setup any global
+	select menu's yet.  they're all handled by folderview atm.
+
 2003-09-11  Not Zed  <NotZed@Ximian.com>
 
 	* em-format-html.c (efh_finalise, efh_format_timeout): Use a

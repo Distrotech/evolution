@@ -555,12 +555,12 @@ em_popup_target_free(EMPopupTarget *t)
 /* ********************************************************************** */
 
 #if 0
+/* TODO: flesh these out where possible */
 static void
 emp_popup_open(GtkWidget *w, EMFolderView *emfv)
 {
 	em_folder_view_open_selected(emfv);
 }
-#endif
 
 static void
 emp_popup_resend(GtkWidget *w, EMPopupTarget *t)
@@ -582,6 +582,7 @@ static EMPopupItem emp_standard_select_popups[] = {
 	{ EM_POPUP_ITEM, "00.select.01", N_("_Edit as New Message..."), G_CALLBACK(emp_popup_resend), NULL, NULL, EM_POPUP_SELECT_RESEND },
 	{ EM_POPUP_ITEM, "00.select.02", N_("_Save As..."), G_CALLBACK(emp_popup_saveas), NULL, "save-as-16.png", 0 },	
 };
+#endif
 
 /* ********************************************************************** */
 
@@ -745,9 +746,12 @@ emp_standard_menu_factory(EMPopup *emp, EMPopupTarget *target, void *data)
 
 	switch (target->type) {
 	case EM_POPUP_TARGET_SELECT:
+		return;
+#if 0
 		items = emp_standard_select_popups;
 		len = LEN(emp_standard_select_popups);
 		break;
+#endif
 	case EM_POPUP_TARGET_URI:
 		items = emp_standard_uri_popups;
 		len = LEN(emp_standard_uri_popups);

@@ -899,9 +899,6 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 		/* FIXME: If we have no folder, we can't do a few of the lookups we need,
 		   perhaps we should postpone till we can */
 
-		if (emfv->folder == NULL)
-			g_warning("Have activate called before folder is loaded\n");
-
 		/* ViewThreaded */
 		if (emfv->folder
 		    && (sstate = camel_object_meta_get(emfv->folder, "evolution:thread_list"))) {
