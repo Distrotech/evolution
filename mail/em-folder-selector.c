@@ -100,7 +100,8 @@ em_folder_selector_class_init (EMFolderSelectorClass *klass)
 static void
 em_folder_selector_init (EMFolderSelector *emfs)
 {
-	;
+	emfs->selected_path = NULL;
+	emfs->selected_uri = NULL;
 }
 
 static void
@@ -112,6 +113,11 @@ em_folder_selector_destroy (GtkObject *obj)
 static void
 em_folder_selector_finalize (GObject *obj)
 {
+	EMFolderSelector *emfs = (EMFolderSelector *) obj;
+	
+	g_free (emfs->selected_path);
+	g_free (emfs->selected_uri);
+	
 	G_OBJECT_CLASS (parent_class)->finalize (obj);
 }
 
@@ -238,40 +244,70 @@ em_folder_selector_create_new (EMFolderTree *emft, guint32 flags, const char *ti
 	return (GtkWidget *) emfs;
 }
 
+
 void
 em_folder_selector_set_selected (EMFolderSelector *emfs, const char *uri)
 {
 	em_folder_tree_set_selected (emfs->emft, uri);
 }
 
+
 const char *
 em_folder_selector_get_selected_uri (EMFolderSelector *emfs)
 {
 	const char *uri;
 	
-	if (!(uri = em_folder_tree_get_selected (emfs->emft))) {
+	if (!(uri = em_folder_tree_get_selected_uri (emfs->emft))) {
 		d(printf ("no selected folder?\n"));
 		return NULL;
 	}
 	
-	/* FIXME: finish porting this... */
-	path = e_folder_get_physical_uri(folder);
-	if (path && emfs->name_entry) {
+	if (uri && emfs->name_entry) {
 		CamelURL *url;
 		char *newpath;
-
-		url = camel_url_new(path, NULL);
-		newpath = g_strdup_printf("%s/%s", url->fragment?url->fragment:url->path, gtk_entry_get_text(emfs->name_entry));
+		
+		url = camel_url_new (uri, NULL);
+		newpath = g_strdup_printf ("%s/%s", url->fragment ? url->fragment : url->path, gtk_entry_get_text (emfs->name_entry));
 		if (url->fragment)
-			camel_url_set_fragment(url, newpath);
+			camel_url_set_fragment (url, newpath);
 		else
-			camel_url_set_path(url, newpath);
-		g_free(emfs->selected_uri);
-		emfs->selected_uri = camel_url_to_string(url, 0);
-		camel_url_free(url);
-		path = emfs->selected_uri;
+			camel_url_set_path (url, newpath);
+		
+		g_free (emfs->selected_path);
+		emfs->selected_path = newpath;
+		
+		g_free (emfs->selected_uri);
+		emfs->selected_uri = camel_url_to_string (url, 0);
+		
+		camel_url_free (url);
+		uri = emfs->selected_uri;
 	}
-
-	return path;
+	
+	return uri;
 }
 
+
+const char *
+em_folder_selector_get_selected_path (EMFolderSelector *emfs)
+{
+	const char *path;
+	
+	if (emfs->selected_path) {
+		/* already did the work in a previous call */
+		return emfs->selected_path;
+	}
+	
+	if (!(path = em_folder_tree_get_selected_path (emfs->emft))) {
+		d(printf ("no selected folder?\n"));
+		return NULL;
+	}
+	
+	if (path && emfs->name_entry) {
+		char *newpath;
+		
+		path = newpath = g_strdup_printf ("%s/%s", path, gtk_entry_get_text (emfs->name_entry));
+		emfs->selected_path = newpath;
+	}
+	
+	return path;
+}

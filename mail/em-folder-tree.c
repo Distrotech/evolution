@@ -677,7 +677,7 @@ emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTr
 		return;
 	}
 	
-	uri = em_folder_selector_get_selected (emfs);
+	uri = em_folder_selector_get_selected_uri (emfs);
 	path = em_folder_selector_get_selected_path (emfs);
 	d(printf ("Creating folder: %s (%s)\n", path, uri));
 	
@@ -1441,7 +1441,7 @@ em_folder_tree_set_selected (EMFolderTree *emft, const char *uri)
 
 
 const char *
-em_folder_tree_get_selected (EMFolderTree *emft)
+em_folder_tree_get_selected_uri (EMFolderTree *emft)
 {
 	g_return_val_if_fail (EM_IS_FOLDER_TREE (emft), NULL);
 	

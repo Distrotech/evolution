@@ -64,7 +64,7 @@ void em_folder_tree_add_store (EMFolderTree *emft, CamelStore *store, const char
 void em_folder_tree_remove_store (EMFolderTree *emft, CamelStore *store);
 
 void em_folder_tree_set_selected (EMFolderTree *emft, const char *uri);
-const char *em_folder_tree_get_selected (EMFolderTree *emft);
+const char *em_folder_tree_get_selected_uri (EMFolderTree *emft);
 const char *em_folder_tree_get_selected_path (EMFolderTree *emft);
 
 #ifdef __cplusplus

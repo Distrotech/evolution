@@ -48,7 +48,7 @@ struct _EMFolderSelector {
 	struct _EMFolderTree *emft;
 	
 	struct _GtkEntry *name_entry;
-	char *selected;
+	char *selected_path;
 	char *selected_uri;
 };
 
