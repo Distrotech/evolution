@@ -975,13 +975,23 @@ CalClient *
 e_cal_model_get_default_client (ECalModel *model)
 {
 	ECalModelPrivate *priv;
+	ECalModelClient *client_data;
 
 	g_return_val_if_fail (model != NULL, NULL);
 	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
 	
 	priv = model->priv;
 
-	return priv->default_client;
+	/* we always return a valid CalClient, since we rely on it in many places */
+	if (priv->default_client)
+		return priv->default_client;
+
+	if (!priv->clients)
+		return NULL;
+
+	client_data = (ECalModelClient *) priv->clients->data;
+
+	return client_data ? client_data->client : NULL;
 }
 
 void

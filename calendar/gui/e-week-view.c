@@ -3300,6 +3300,8 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 
 	/* Add a new event covering the selected range. */
 	icalcomp = e_cal_model_create_component_with_defaults (e_cal_view_get_model (E_CAL_VIEW (week_view)));
+	if (!icalcomp)
+		return FALSE;
 	uid = icalcomponent_get_uid (icalcomp);
 
 	comp = cal_component_new ();

@@ -1,3 +1,15 @@
+2003-10-07  Rodrigo Moya <rodrigo@ximian.com>
+
+	* gui/e-cal-model.c (e_cal_model_get_default_client): make sure we
+	always return a default client, if possible, since we rely on having
+	a default client in many places.
+
+	* gui/e-day-view.c (e_day_view_do_key_press): dont create event if
+	e_cal_model_create_component_with_defaults returns NULL.
+
+	* gui/e-week-view.c (e_week_view_do_key_press): dont create event if
+	e_cal_model_create_component_with_defaults returns NULL.
+	
 2003-10-06  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model.c (e_cal_model_create_component_with_defaults):
