@@ -41,11 +41,15 @@
 #include "mail-session.h"
 #include "mail-send-recv.h"
 #include "mail-signature-editor.h"
+#include "mail-component.h"
 #include "mail-composer-prefs.h"
 #include "mail-config.h"
 #include "mail-ops.h"
 #include "mail-mt.h"
 #include "mail.h"
+
+#include "e-storage.h"
+
 
 #define d(x)
 
@@ -1842,18 +1846,21 @@ static void
 add_new_store (char *uri, CamelStore *store, void *user_data)
 {
 	EAccount *account = user_data;
-	EvolutionStorage *storage;
+	MailComponent *component = mail_component_peek ();
+	EStorage *storage;
 	
 	if (store == NULL)
 		return;
+
+	/* EPFIXME: Strange refcounting semantics here?!  */
 	
-	storage = mail_lookup_storage (store);
+	storage = mail_component_lookup_storage (component, store);
 	if (storage) {
 		/* store is already in the folder tree, so do nothing */
-		bonobo_object_unref (BONOBO_OBJECT (storage));
+		g_object_unref (storage);
 	} else {
 		/* store is *not* in the folder tree, so lets add it. */
-		mail_add_storage (store, account->name, account->source->url);
+		mail_component_add_store (component, store, account->name, account->source->url);
 	}
 }
 
@@ -1982,7 +1989,7 @@ mail_account_gui_save (MailAccountGui *gui)
 #define sources_equal(old,new) (new->url && !strcmp (old->url, new->url))
 		if (!sources_equal (account->source, new->source)) {
 			/* Remove the old storage from the folder-tree */
-			mail_remove_storage_by_uri (account->source->url);
+			mail_component_remove_storage_by_uri (mail_component_peek (), account->source->url);
 		}
 	}
 	

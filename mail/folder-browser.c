@@ -166,12 +166,12 @@ folder_browser_destroy (GtkObject *object)
 	CORBA_exception_init (&ev);
 	
 	if (folder_browser->seen_id != 0) {
-		gtk_timeout_remove (folder_browser->seen_id);
+		g_source_remove (folder_browser->seen_id);
 		folder_browser->seen_id = 0;
 	}
 	
 	if (folder_browser->loading_id != 0) {
-		gtk_timeout_remove(folder_browser->loading_id);
+		g_source_remove(folder_browser->loading_id);
 		folder_browser->loading_id = 0;
 	}
 	
@@ -2403,22 +2403,27 @@ folder_browser_gui_init (FolderBrowser *fb)
 					       folder_browser_config_search, fb);
 		e_search_bar_set_menu ((ESearchBar *)fb->search, folder_browser_search_menu_items);
 	}
+
+	/* EPFIXME: This added if() is necessary because currently we are not
+	   initializing search_context.  We have to get rid of the nasty global
+	   variable and refactor more.  */
+	if (fb->search != NULL) {
+		gtk_widget_show (GTK_WIDGET (fb->search));
 	
-	gtk_widget_show (GTK_WIDGET (fb->search));
+		g_signal_connect (fb->search, "menu_activated",
+				  G_CALLBACK (folder_browser_search_menu_activated), fb);
+		g_signal_connect (fb->search, "search_activated",
+				  G_CALLBACK (folder_browser_search_do_search), fb);
+		g_signal_connect (fb->search, "query_changed",
+				  G_CALLBACK (folder_browser_query_changed), fb);
 	
-	g_signal_connect (fb->search, "menu_activated",
-			  G_CALLBACK (folder_browser_search_menu_activated), fb);
-	g_signal_connect (fb->search, "search_activated",
-			  G_CALLBACK (folder_browser_search_do_search), fb);
-	g_signal_connect (fb->search, "query_changed",
-			  G_CALLBACK (folder_browser_query_changed), fb);
-	
-	gtk_table_attach (GTK_TABLE (fb), GTK_WIDGET (fb->search),
-			  0, 1, 0, 1,
-			  GTK_FILL | GTK_EXPAND,
-			  0,
-			  0, 0);
-	
+		gtk_table_attach (GTK_TABLE (fb), GTK_WIDGET (fb->search),
+				  0, 1, 0, 1,
+				  GTK_FILL | GTK_EXPAND,
+				  0,
+				  0, 0);
+	}
+
 	esm = e_tree_get_selection_model (E_TREE (fb->message_list->tree));
 	g_signal_connect (esm, "selection_changed", G_CALLBACK (on_selection_changed), fb);
 	g_signal_connect (esm, "cursor_activated", G_CALLBACK (on_cursor_activated), fb);
@@ -2492,11 +2497,11 @@ done_message_selected (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 	
 	/* if we are still on the same message, do the 'idle read' thing */
 	if (fb->seen_id)
-		gtk_timeout_remove (fb->seen_id);
+		g_source_remove (fb->seen_id);
 	
 	if (msg && gconf_client_get_bool (gconf, "/apps/evolution/mail/display/mark_seen", NULL)) {
 		if (timeout > 0)
-			fb->seen_id = gtk_timeout_add (timeout, do_mark_seen, fb);
+			fb->seen_id = g_timeout_add (timeout, do_mark_seen, fb);
 		else
 			do_mark_seen (fb);
 	}
@@ -2537,13 +2542,13 @@ on_message_selected (MessageList *ml, const char *uid, FolderBrowser *fb)
 	d(printf ("%p: selecting uid %s (direct)\n", fb, uid ? uid : "NONE"));
 	
 	if (fb->loading_id != 0)
-		gtk_timeout_remove (fb->loading_id);
+		g_source_remove (fb->loading_id);
 	
 	g_free (fb->new_uid);
 	fb->new_uid = g_strdup (uid);
 	
 	if (fb->preview_shown)
-		fb->loading_id = gtk_timeout_add (100, (GtkFunction)do_message_selected, fb);
+		fb->loading_id = g_timeout_add (100, (GtkFunction)do_message_selected, fb);
 }
 
 static gboolean

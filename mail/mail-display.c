@@ -74,6 +74,7 @@
 #include "folder-browser-factory.h"
 #include "mail-display-stream.h"
 #include "folder-browser.h"
+#include "mail-component.h"
 #include "mail-config.h"
 #include "mail-display.h"
 #include "mail-format.h"
@@ -2084,7 +2085,7 @@ mail_display_destroy (GtkObject *object)
 	mail_display->data = NULL;
 	
 	if (mail_display->idle_id) {
-		gtk_timeout_remove (mail_display->idle_id);
+		g_source_remove (mail_display->idle_id);
 		mail_display->idle_id = 0;
 	}
 	
@@ -2148,12 +2149,11 @@ mail_display_class_init (GtkObjectClass *object_class)
 	object_class->destroy = mail_display_destroy;
 	
 	if (mail_display_parent_class == NULL) {
-		/* blah, this is an unecessary dependency ... */
-		extern char *evolution_dir;
+		const char *base_directory = mail_component_peek_base_directory (mail_component_peek ());
 		char *path;
 		
-		path = g_alloca (strlen (evolution_dir) + 16);
-		sprintf (path, "%s/cache", evolution_dir);
+		path = g_alloca (strlen (base_directory) + 16);
+		sprintf (path, "%s/cache", base_directory);
 		
 		/* cache expiry - 2 hour access, 1 day max */
 		fetch_cache = camel_data_cache_new(path, 0, NULL);
@@ -2295,7 +2295,7 @@ popup_enter_cb (GtkWidget *w, GdkEventCrossing *ev, gpointer user_data)
 	PopupInfo *pop = (PopupInfo *) user_data;
 	
 	if (pop->destroy_timeout)
-		gtk_timeout_remove (pop->destroy_timeout);
+		g_source_remove (pop->destroy_timeout);
 	pop->destroy_timeout = 0;
 	
 	return 0;
@@ -2307,10 +2307,10 @@ popup_leave_cb (GtkWidget *w, GdkEventCrossing *ev, gpointer user_data)
 	PopupInfo *pop = (PopupInfo *) user_data;
 	
 	if (pop->destroy_timeout)
-		gtk_timeout_remove (pop->destroy_timeout);
+		g_source_remove (pop->destroy_timeout);
 	
 	if (!pop->hidden)
-		pop->destroy_timeout = gtk_timeout_add (500, popup_timeout_cb, pop);
+		pop->destroy_timeout = g_timeout_add (500, popup_timeout_cb, pop);
 	
 	return 0;
 }
@@ -2324,7 +2324,7 @@ popup_realize_cb (GtkWidget *widget, gpointer user_data)
 	
 	if (pop->destroy_timeout == 0) {
 		if (!pop->hidden) {
-			pop->destroy_timeout = gtk_timeout_add (5000, popup_timeout_cb, pop);
+			pop->destroy_timeout = g_timeout_add (5000, popup_timeout_cb, pop);
 		} else {
 			pop->destroy_timeout = 0;
 		}
@@ -2384,7 +2384,7 @@ listener_cb (BonoboListener    *listener,
 	pop = user_data;
 	
 	if (pop->destroy_timeout)
-		gtk_timeout_remove (pop->destroy_timeout);
+		g_source_remove (pop->destroy_timeout);
 	pop->destroy_timeout = 0;
 	
 	type = bonobo_event_subtype (event_name);

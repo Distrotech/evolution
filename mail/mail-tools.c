@@ -46,6 +46,7 @@
 #include "e-util/e-meta.h"
 
 #include "mail.h" /*session*/
+#include "mail-component.h"
 #include "mail-config.h"
 #include "mail-vfolder.h"
 #include "mail-format.h"
@@ -62,7 +63,8 @@ mail_tool_get_local_inbox (CamelException *ex)
 	CamelFolder *folder;
 	char *url;
 	
-	url = g_strdup_printf("file://%s/local/Inbox", evolution_dir);
+	url = g_strdup_printf("file://%s/local/Inbox",
+			      mail_component_peek_base_directory (mail_component_peek ()));
 	folder = mail_tool_uri_to_folder (url, 0, ex);
 	g_free (url);
 	
@@ -120,7 +122,9 @@ mail_tool_get_local_movemail_path (const unsigned char *uri)
 		if (strchr ("/:;=|%&#!*^()\\, ", *c) || !isprint ((int) *c))
 			*c = '_';
 	
-	path = g_strdup_printf ("%s/local/Inbox/movemail.%s", evolution_dir, safe_uri);
+	path = g_strdup_printf ("%s/local/Inbox/movemail.%s",
+				mail_component_peek_base_directory (mail_component_peek ()),
+				safe_uri);
 	g_free (safe_uri);
 	
 	return path;
@@ -541,6 +545,7 @@ mail_tools_folder_to_url (CamelFolder *folder)
 
 static char *meta_data_key(const char *uri, char **pathp)
 {
+	const char *base_directory = mail_component_peek_base_directory (mail_component_peek ());
 	CamelURL *url;
 	GString *path;
 	const char *key;
@@ -550,12 +555,12 @@ static char *meta_data_key(const char *uri, char **pathp)
 
 	if (url == NULL) {
 		g_warning("Trying to retrieve meta-data for unparsable uri: %s", uri);
-		*pathp = g_build_path(evolution_dir, "meta/unknown", NULL);
+		*pathp = g_build_path(base_directory, "meta/unknown", NULL);
 
 		return g_strdup("folder");
 	}
 
-	path = g_string_new(evolution_dir);
+	path = g_string_new(base_directory);
 	g_string_append_printf(path, "/meta/%s/", url->protocol);
 
 	if (url->host && url->host[0]) {

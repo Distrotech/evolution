@@ -1,3 +1,86 @@
+2003-07-23  Ettore Perazzoli  <ettore@ximian.com>
+
+	* subscribe-dialog.c: Converted to use EStorages instead of
+	EvolutionStorages and the new MailComponent object.
+
+	* mail.h: Nuked a bunch of stuff.  This will go away when I am
+	done refactoring.
+
+	* mail-offline-handler.c: Use the new MailComponent object.
+
+	* mail-folder-cache.c, mail-folder-cache.h: Converted to use
+	EStorages instead of EvolutionStorages.
+
+	* mail-display.c: Use g_timeout and g_source functions instead of
+	gtk_timeout functions.
+
+	* mail-send-recv.c: Use g_timeout and g_source functions instead
+	of gtk_timeout functions.
+	(receive_update_got_store): Updated for the new mail_note_store().
+
+	* mail-session.c: Use g_timeout and g_source functions instead of
+	gtk_timeout functions.
+
+	* mail-config-factory.c (factory): Removed.
+
+	* folder-browser.c (folder_browser_destroy): Use GLib
+	timeout/source functions instead of the deprecated GTK ones.
+	(done_message_selected): Likewise.
+	(folder_browser_gui_init): Protect against fb->search being NULL.
+
+	* mail-account-gui.c (add_new_store): Use new MailComponent object
+	and EStorages instead of EvolutionStorages.
+	(mail_account_gui_save): Likewise.
+
+	* mail-accounts.c (account_delete_clicked): Use new MailComponent
+	object and EStorages instead of EvolutionStorages.
+	(account_able_clicked): Likewise.
+	(account_able_toggled): Likewise.
+
+	* mail-autofilter.c: Use mail_component_peek_base_directory()
+	instead of the evolution_dir global.
+	* mail-callbacks.c: Likewise.
+	* mail-config.c (uri_to_evname): Likewise.
+	(mail_config_get_signature_list): Likewise.
+	(delete_unused_signature_file): Likewise.
+	* mail-display.c (mail_display_class_init): Likewise.
+	* mail-importer.c (mail_importer_make_local_folder): Likewise.
+	* mail-local.c (mlf_getv): Likewise.
+	* mail-ops.c (uid_cachename_hack): Likewise.
+	* mail-summary.c (generate_folder_summaries): Likewise.
+	* mail-tools.c (mail_tool_get_local_inbox): Likewise.
+	(mail_tools_folder_to_url): Likewise.
+	* mail-vfolder.c (mail_vfolder_delete_uri): Likewise.
+	(mail_vfolder_rename_uri): Likewise.
+	(context_rule_removed): Likewise.
+	(store_folder_deleted): Likewise.
+	(store_folder_renamed): Likewise.
+	(vfolder_load_storage): Likewise.
+	(vfolder_editor_response): Likewise.
+	(edit_rule_response): Likewise.
+	(new_rule_clicked): Likewise.
+	(vfolder_gui_add_rule): Likewise.
+	* mail-session.c (main_get_filter_driver): Likewise.
+	(mail_session_forget_password): Likewise.
+	(mail_session_init): Get a base_directory arg.
+
+	* component-factory.c, component-factory.h: Disabled a bunch of
+	stuff to get it to compile in the new configuration.  These files
+	will eventually go away when I am done refactoring this.
+
+	* Makefile.am: Do not build importers, compile generate
+	skels/stubs for Evolution.
+
+	* GNOME_Evolution_Mail.server.in.in: Rename control factory to
+	OAFIID:GNOME_Evolution_Mail_Factory2.  Add new component
+	GNOME_Evolution_Mail_Component2.
+
+	* mail-component-factory.c: New file implementing the Bonobo
+	factory.
+
+	* mail-component.c, mail-component.h: New files implementing the
+	new mail component, using the new Evolution::Component IDL.
+
 2003-07-23  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* mail-format.c (mail_format_data_wrapper_write_to_stream): Revert

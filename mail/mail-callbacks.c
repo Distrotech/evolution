@@ -52,6 +52,7 @@
 #include "mail.h"
 #include "message-browser.h"
 #include "mail-callbacks.h"
+#include "mail-component.h"
 #include "mail-config.h"
 #include "mail-accounts.h"
 #include "mail-config-druid.h"
@@ -675,18 +676,6 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 		ccd_unref (sdi->ccd);
 	g_free (info);
 	g_free (sdi);
-}
-
-static void
-use_default_drafts_cb (int reply, gpointer data)
-{
-	extern CamelFolder *drafts_folder;
-	CamelFolder **folder = data;
-	
-	if (reply == 0) {
-		*folder = drafts_folder;
-		camel_object_ref (drafts_folder);
-	}
 }
 
 static void
@@ -2742,7 +2731,7 @@ filter_editor_response (GtkWidget *dialog, int button, FolderBrowser *fb)
 		char *user;
 		
 		fc = g_object_get_data(G_OBJECT(dialog), "context");
-		user = g_strdup_printf ("%s/filters.xml", evolution_dir);
+		user = g_strdup_printf ("%s/filters.xml", mail_component_peek_base_directory (mail_component_peek ()));
 		rule_context_save ((RuleContext *)fc, user);
 		g_free (user);
 	}
@@ -2771,7 +2760,7 @@ filter_edit (BonoboUIComponent *uih, void *user_data, const char *path)
 	}
 	
 	fc = filter_context_new ();
-	user = g_strdup_printf ("%s/filters.xml", evolution_dir);
+	user = g_strdup_printf ("%s/filters.xml", mail_component_peek_base_directory (mail_component_peek ()));
 	system = EVOLUTION_PRIVDATADIR "/filtertypes.xml";
 	rule_context_load ((RuleContext *)fc, system, user);
 	g_free (user);

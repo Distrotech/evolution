@@ -45,6 +45,7 @@
 
 #include "evolution-shell-component-utils.h"
 #include "mail.h"
+#include "mail-component.h"
 #include "mail-tools.h"
 #include "mail-ops.h"
 #include "mail-mt.h"
@@ -140,7 +141,7 @@ struct _FolderETree {
 	GHashTable *node_full_name;
 
 	CamelStore *store;
-	EvolutionStorage *e_storage;
+	EStorage *e_storage;
 	char *service_name;
 	
 	FolderETreeActivityCallback activity_cb;
@@ -177,14 +178,15 @@ static GtkObjectClass *ftree_extras_parent_class = NULL;
 /* util */
 
 static void
-recursive_add_folder (EvolutionStorage *storage, const char *path, const char *name, const char *url)
+recursive_add_folder (EStorage *storage, const char *path, const char *name, const char *url)
 {
+	EFolder *folder;
 	char *parent, *pname, *p;
 
 	p = strrchr (path, '/');
 	if (p && p != path) {
 		parent = g_strndup (path, p - path);
-		if (!evolution_storage_folder_exists (storage, parent)) {
+		if (! e_storage_get_folder (storage, parent)) {
 			p = strrchr (parent, '/');
 			if (p)
 				pname = g_strdup (p + 1);
@@ -196,7 +198,11 @@ recursive_add_folder (EvolutionStorage *storage, const char *path, const char *n
 		g_free (parent);
 	}
 
-	evolution_storage_new_folder (storage, path, name, "mail", url, name, NULL, FALSE, TRUE, 0);
+	folder = e_folder_new (name, "mail", NULL);
+	e_folder_set_physical_uri (folder, url);
+	e_folder_set_can_sync_offline (folder, TRUE);
+
+	e_storage_new_folder (storage, path, folder);
 }
 
 /* ** Get one level of folderinfo ****************************************** */
@@ -876,7 +882,7 @@ fe_finalise (GObject *obj)
 	g_hash_table_destroy(ftree->node_full_name);
 
 	camel_object_unref (ftree->store);
-	bonobo_object_unref (BONOBO_OBJECT (ftree->e_storage));
+	g_object_unref (ftree->e_storage);
 	
 	g_free (ftree->service_name);
 
@@ -937,7 +943,7 @@ folder_etree_construct (FolderETree *ftree,
 	
 	ftree->service_name = camel_service_get_name (CAMEL_SERVICE (store), FALSE);
 	
-	ftree->e_storage = mail_lookup_storage (store); /* this gives us a ref */
+	ftree->e_storage = mail_component_lookup_storage (mail_component_peek (), store); /* this gives us a ref */
 
 	ftree->activity_cb = activity_cb;
 	ftree->activity_data = activity_data;
