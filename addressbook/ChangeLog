@@ -1,5 +1,42 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* gui/widgets/e-addressbook-treeview-adapter.c:
+	e-addressbook-util.h -> eab-gui-util.h, and convert some
+	EDestination code to EABDestination.
+
+	* gui/widgets/e-addressbook-table-adapter.c: e-addressbook-util.h
+	-> eab-gui-util.h, and include util/eab-destination.h.
+	(addressbook_value_at): un-#if 0 some code.
+
+	* gui/widgets/e-addressbook-model.c: e-addressbook-util.h ->
+	eab-gui-util.h
+
+	* gui/widgets/e-addressbook-view.c: e-addressbook-util.h ->
+	eab-gui-util.h
+
+	* gui/widgets/e-minicard-control.c,
+	gui/widgets/e-minicard-control.h, gui/widgets/e-minicard-label.c,
+	gui/widgets/e-minicard-label.h,
+	gui/widgets/e-minicard-view-widget.c,
+	gui/widgets/e-minicard-view-widget.h,
+	gui/widgets/e-minicard-view.c, gui/widgets/e-minicard-view.h,
+	gui/widgets/e-minicard-widget-test.c,
+	gui/widgets/e-minicard-widget.c, gui/widgets/e-minicard-widget.h,
+	gui/widgets/e-minicard.c, gui/widgets/e-minicard.h,
+	test-minicard-label.c, test-minicard-view.c, test-minicard.c: nuke
+	all of the old minicard stuff.
+	
+	* gui/widgets/eab-gui-util.[ch]: rename e-addressbook-util.[ch] to
+	this and nuke e-addressbook-util.[ch].
+	
+	* gui/widgets/Makefile.am (INCLUDES): change G_LOG_DOMAIN to
+	eab-widgets, and add -I$(top_srcdir)/addressbook.
+	(noinst_LTLIBRARIES): rename to libeabwidgets.la
+	(libeabwidgets_la_SOURCES): rename e-addressbook-util.[ch] to
+	eab-gui-util.[ch].
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* gui/widgets/eab-contact-display.c (eab_contact_display_new):
 	track change from E_TYPE_AB_CONTACT_DISPLAY to
 	EAB_TYPE_CONTACT_DISPLAY.

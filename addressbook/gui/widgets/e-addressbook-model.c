@@ -15,7 +15,7 @@
 #include <libxml/xmlmemory.h>
 #include <gnome.h>
 #include <gal/widgets/e-gui-utils.h>
-#include "e-addressbook-util.h"
+#include "eab-gui-util.h"
 
 #define PARENT_TYPE G_TYPE_OBJECT
 static GObjectClass *parent_class;

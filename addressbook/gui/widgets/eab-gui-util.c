@@ -20,17 +20,13 @@
  */
 
 #include <config.h>
-#include "e-addressbook-util.h"
-#if notyet
-#include "ebook/e-destination.h"
-#endif
+#include "eab-gui-util.h"
+#include "util/eab-book-util.h"
+#include "util/eab-destination.h"
 
 #include <gnome.h>
 
 #include <shell/evolution-shell-client.h>
-#if 0
-#include <addressbook/backend/ebook/e-book-util.h>
-#endif
 
 #include "addressbook/gui/contact-editor/e-contact-editor.h"
 #include "addressbook/gui/contact-list-editor/e-contact-list-editor.h"
@@ -69,7 +65,7 @@ eab_error_dialog (const gchar *msg, EBookStatus status)
 }
 
 gint
-e_addressbook_prompt_save_dialog (GtkWindow *parent)
+eab_prompt_save_dialog (GtkWindow *parent)
 {
 	GtkWidget *dialog;
 	gint response;
@@ -129,14 +125,14 @@ editor_closed_cb (GtkObject *editor, gpointer data)
 	g_object_unref (editor);
 }
 
-EContactEditor *
-e_addressbook_show_contact_editor (EBook *book, EContact *contact,
-				   gboolean is_new_contact,
-				   gboolean editable)
+EABContactEditor *
+eab_show_contact_editor (EBook *book, EContact *contact,
+			 gboolean is_new_contact,
+			 gboolean editable)
 {
-	EContactEditor *ce;
+	EABContactEditor *ce;
 
-	ce = e_contact_editor_new (book, contact, is_new_contact, editable);
+	ce = eab_contact_editor_new (book, contact, is_new_contact, editable);
 
 	g_signal_connect (ce, "contact_added",
 			  G_CALLBACK (added_cb), GINT_TO_POINTER (FALSE));
@@ -151,9 +147,9 @@ e_addressbook_show_contact_editor (EBook *book, EContact *contact,
 }
 
 EContactListEditor *
-e_addressbook_show_contact_list_editor (EBook *book, EContact *contact,
-					gboolean is_new_contact,
-					gboolean editable)
+eab_show_contact_list_editor (EBook *book, EContact *contact,
+			      gboolean is_new_contact,
+			      gboolean editable)
 {
 	EContactListEditor *ce;
 
@@ -188,9 +184,9 @@ view_contacts (EBook *book, GList *list, gboolean editable)
 }
 
 void
-e_addressbook_show_multiple_contacts (EBook *book,
-				      GList *list,
-				      gboolean editable)
+eab_show_multiple_contacts (EBook *book,
+			    GList *list,
+			    gboolean editable)
 {
 	if (list) {
 		int length = g_list_length (list);
@@ -318,7 +314,7 @@ got_book_cb (EBook *book, gpointer closure)
 extern EvolutionShellClient *global_shell_client;
 
 void
-e_addressbook_transfer_cards (EBook *source, GList *cards /* adopted */, gboolean delete_from_source, GtkWindow *parent_window)
+eab_transfer_cards (EBook *source, GList *cards /* adopted */, gboolean delete_from_source, GtkWindow *parent_window)
 {
 	const char *allowed_types[] = { "contacts/*", NULL };
 	GNOME_Evolution_Folder *folder;
@@ -378,7 +374,7 @@ e_addressbook_transfer_cards (EBook *source, GList *cards /* adopted */, gboolea
 #define COMPOSER_OAFID "OAFIID:GNOME_Evolution_Mail_Composer"
 
 void
-e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
+eab_send_card_list (GList *cards, EAddressbookDisposition disposition)
 {
 	GNOME_Evolution_Composer composer_server;
 	CORBA_Environment ev;
@@ -390,7 +386,7 @@ e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
 	
 	composer_server = bonobo_activation_activate_from_id (COMPOSER_OAFID, 0, NULL, &ev);
 
-	if (disposition == E_ADDRESSBOOK_DISPOSITION_AS_TO) {
+	if (disposition == EAB_DISPOSITION_AS_TO) {
 		GNOME_Evolution_Composer_RecipientList *to_list, *cc_list, *bcc_list;
 		CORBA_char *subject;
 		int to_i, bcc_i;
@@ -461,16 +457,14 @@ e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
 					if (e_iterator_is_valid (iterator)) {
 						
 						if (is_list) {
-#if notyet
-							/* We need to decode the list entries, which are XMLified EDestinations. */
-							EDestination *dest = e_destination_import (e_iterator_get (iterator));
+							/* We need to decode the list entries, which are XMLified EABDestinations. */
+							EABDestination *dest = eab_destination_import (e_iterator_get (iterator));
 							if (dest != NULL) {
-								name = g_strdup (e_destination_get_name (dest));
-								addr = g_strdup (e_destination_get_email (dest));
+								name = g_strdup (eab_destination_get_name (dest));
+								addr = g_strdup (eab_destination_get_email (dest));
 								free_name_addr = TRUE;
 								g_object_unref (dest);
 							}
-#endif
 							
 						} else { /* is just a plain old card */
 							if (card->name)
@@ -512,7 +506,7 @@ e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
 		CORBA_free (cc_list);
 		CORBA_free (bcc_list);
 		CORBA_free (subject);
-	} else if (disposition == E_ADDRESSBOOK_DISPOSITION_AS_ATTACHMENT) {
+	} else if (disposition == EAB_DISPOSITION_AS_ATTACHMENT) {
 		CORBA_char *content_type, *filename, *description;
 		GNOME_Evolution_Composer_AttachmentData *attach_data;
 		CORBA_boolean show_inline;
@@ -631,7 +625,7 @@ e_addressbook_send_card_list (GList *cards, EAddressbookDisposition disposition)
 }
 
 void
-e_addressbook_send_card (ECard *card, EAddressbookDisposition disposition)
+eab_send_card (ECard *card, EAddressbookDisposition disposition)
 {
 	GList *list;
 	list = g_list_prepend (NULL, card);

@@ -4,7 +4,7 @@
 #include "e-addressbook-model.h"
 #include "e-addressbook-treeview-adapter.h"
 #include "e-card-merging.h"
-#include "e-addressbook-util.h"
+#include "eab-gui-util.h"
 #include <gtk/gtktreednd.h>
 #include <libxml/tree.h>
 #include <libxml/parser.h>

@@ -3,10 +3,8 @@
 #include <config.h>
 #include "e-addressbook-model.h"
 #include "e-addressbook-table-adapter.h"
-#include "e-addressbook-util.h"
-#if notyet
-#include "ebook/e-destination.h"
-#endif
+#include "eab-gui-util.h"
+#include "util/eab-destination.h"
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/xmlmemory.h>
@@ -90,16 +88,14 @@ addressbook_value_at (ETableModel *etc, int col, int row)
 
 	value = e_contact_get_const((EContact*)eab_model_contact_at (priv->model, row), col);
 
-#if 0
 	if (value && !strncmp (value, "<?xml", 5)) {
-		EDestination *dest = e_destination_import (value);
+		EABDestination *dest = eab_destination_import (value);
 		if (dest) {
 			/* XXX blech, we leak this */
-			value = g_strdup (e_destination_get_textrep (dest, TRUE));
+			value = g_strdup (eab_destination_get_textrep (dest, TRUE));
 			g_object_unref (dest);
 		}
 	}
-#endif
 
 
 	return (void *)(value ? value : "");

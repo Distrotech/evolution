@@ -52,7 +52,7 @@
 #include "e-addressbook-marshal.h"
 #include "e-addressbook-view.h"
 #include "e-addressbook-model.h"
-#include "e-addressbook-util.h"
+#include "eab-gui-util.h"
 #include "e-addressbook-table-adapter.h"
 #ifdef WITH_ADDRESSBOOK_VIEW_TREEVIEW
 #include "e-addressbook-treeview-adapter.h"

@@ -1,9 +1,10 @@
 INCLUDES =										\
-	-DG_LOG_DOMAIN=\"e-minicard\"			\
+	-DG_LOG_DOMAIN=\"eab-widgets\"			\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
 	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"	\
 	-DEVOLUTION_GALVIEWSDIR=\""$(viewsdir)"\"	\
 	-I$(top_srcdir)					\
+	-I$(top_srcdir)/addressbook			\
 	-I$(top_srcdir)/addressbook/backend		\
 	-I$(top_builddir)/addressbook/backend		\
 	-I$(top_srcdir)/addressbook/gui/contact-editor	\
@@ -35,19 +36,19 @@ CORBA_SOURCE_C = $(CORBA_COMPOSER_SOURCE_C)
 CORBA_SOURCE = $(CORBA_SOURCE_H) $(CORBA_SOURCE_C)
 
 noinst_LTLIBRARIES =				\
-	libeminicard.la
+	libeabwidgets.la
 
-libeminicard_la_SOURCES =			\
+libeabwidgets_la_SOURCES =			\
 	$(CORBA_SOURCE)				\
 	eab-contact-display.c			\
 	eab-contact-display.h			\
+	eab-gui-util.c				\
+	eab-gui-util.h				\
 	e-addressbook-marshal.c			\
 	e-addressbook-table-adapter.c		\
 	e-addressbook-table-adapter.h		\
 	e-addressbook-model.c			\
 	e-addressbook-model.h			\
-	e-addressbook-util.c			\
-	e-addressbook-util.h			\
 	e-addressbook-view.c			\
 	e-addressbook-view.h
 
@@ -77,72 +78,6 @@ CLEANFILES = $(BUILT_SOURCES)
 
 dist-hook:
 	cd $(distdir); rm -f $(BUILT_SOURCES)
-
-#noinst_PROGRAMS =				\
-#	 minicard-widget-test			\
-#	 minicard-label-test			\
-#	 minicard-test
-##	reflow-test
-##	minicard-view-test
-#
-#minicard_label_test_SOURCES = 	\
-#	 test-minicard-label.c
-#
-#minicard_label_test_LDADD =				\
-#	 libeminicard.a					\
-#	 $(EVOLUTION_ADDRESSBOOK_LIBS)			\
-#	 $(top_builddir)/e-util/libeutil.la
-#
-#minicard_test_SOURCES = 	\
-#	 test-minicard.c
-#
-#minicard_test_LDADD =							\
-#	 libeminicard.a							\
-#	 $(top_builddir)/addressbook/backend/ebook/libebook.la		\
-#	 $(top_builddir)/addressbook/gui/contact-editor/libecontacteditor.a \
-#	 $(top_builddir)/addressbook/gui/contact-list-editor/libecontactlisteditor.a \
-#	 $(top_builddir)/addressbook/printing/libecontactprint.a		\
-#	 $(top_builddir)/addressbook/gui/merging/libecardmerging.a	\
-#	 $(top_builddir)/widgets/misc/libemiscwidgets.la 			\
-#	 $(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
-#	$(EVOLUTION_ADDRESSBOOK_LIBS)					\
-#	 libeminicard.a
-#
-#reflow_test_SOURCES = 	\
-#	 test-reflow.c
-#
-#reflow_test_LDADD =							\
-#	 libeminicard.a							\
-#	 $(top_builddir)/addressbook/backend/ebook/libebook.la		\
-#	 $(top_builddir)/addressbook/contact-editor/libecontacteditor.a	\
-#	 $(top_builddir)/addressbook/printing/libecontactprint.a		\
-#	 $(top_builddir)/widgets/misc/libemiscwidgets.la 			\
-#	$(EVOLUTION_ADDRESSBOOK_LIBS)
-
-#minicard_view_test_SOURCES = 	\
-#	test-minicard-view.c
-
-#minicard_view_test_LDADD =						\
-#	$(EVOLUTION_ADDRESSBOOK_LIBS)
-#	libeminicard.a							\
-#	$(top_builddir)/addressbook/backend/ebook/libebook.la		\
-#	$(top_builddir)/addressbook/contact-editor/libecontacteditor.a	\
-#	$(top_builddir)/addressbook/printing/libecontactprint.a		\
-#	$(top_builddir)/widgets/misc/libemiscwidgets.la
-#
-#minicard_widget_test_SOURCES = 	\
-#	 e-minicard-widget-test.c
-#
-#minicard_widget_test_LDADD =						\
-#	 libeminicard.a							\
-#	 $(top_builddir)/addressbook/backend/ebook/libebook.la		\
-#	 $(top_builddir)/addressbook/gui/contact-editor/libecontacteditor.a \
-#	 $(top_builddir)/addressbook/gui/contact-list-editor/libecontactlisteditor.a \
-#	 $(top_builddir)/addressbook/gui/component/select-names/libeselectnames.la	\
-#	 $(top_builddir)/addressbook/printing/libecontactprint.a		\
-#	 $(top_builddir)/widgets/misc/libemiscwidgets.la 			\
-#	 $(top_builddir)/addressbook/gui/merging/libecardmerging.a	\
-#	$(EVOLUTION_ADDRESSBOOK_LIBS)
 
 etspec_DATA= e-addressbook-view.etspec
 
