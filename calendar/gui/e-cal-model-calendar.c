@@ -329,6 +329,8 @@ static void
 ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value)
 {
 	ECalModelComponent *comp_data;
+	CalObjModType mod = CALOBJ_MOD_ALL;
+	ECalComponent *comp;
 	ECalModelCalendar *model = (ECalModelCalendar *) etm;
 
 	g_return_if_fail (E_IS_CAL_MODEL_CALENDAR (model));
@@ -344,6 +346,20 @@ ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value)
 	if (!comp_data)
 		return;
 
+	comp = e_cal_component_new ();
+	if (!e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (comp_data->icalcomp))) {
+		g_object_unref (comp);
+		return;
+	}
+
+	/* ask about mod type */
+	if (e_cal_util_component_is_instance (comp)) {
+		if (!recur_component_dialog (comp_data->client, comp, &mod, NULL)) {
+			g_object_unref (comp);
+			return;
+		}
+	}
+
 	switch (col) {
 	case E_CAL_MODEL_CALENDAR_FIELD_DTEND :
 		set_dtend (comp_data, value);
@@ -356,12 +372,13 @@ ecmc_set_value_at (ETableModel *etm, int col, int row, const void *value)
 		break;
 	}
 
-	/* FIXME ask about mod type */
 	if (!e_cal_modify_object (comp_data->client, comp_data->icalcomp, CALOBJ_MOD_ALL, NULL)) {
 		g_warning (G_STRLOC ": Could not modify the object!");
 		
 		/* FIXME Show error dialog */
 	}
+
+	g_object_unref (comp);
 }
 
 static gboolean

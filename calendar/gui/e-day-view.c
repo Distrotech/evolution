@@ -1791,6 +1791,9 @@ e_day_view_remove_event_cb (EDayView *day_view,
 		event = &g_array_index (day_view->events[day],
 					EDayViewEvent, event_num);
 
+	if (!event)
+		return TRUE;
+
 	/* If we were editing this event, set editing_event_day to -1 so
 	   on_editing_stopped doesn't try to update the event. */
 	if (day_view->editing_event_day == day

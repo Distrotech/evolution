@@ -1981,6 +1981,8 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 	gint span_num;
 
 	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
+	if (!event)
+		return TRUE;
 
 	/* If we were editing this event, set editing_event_num to -1 so
 	   on_editing_stopped doesn't try to update the event. */
