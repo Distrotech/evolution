@@ -181,6 +181,14 @@ init_view (EShellWindow *window,
 	GNOME_Evolution_Component_createControls (view->component_iface, &sidebar_control, &view_control, &ev);
 	if (BONOBO_EX (&ev)) {
 		g_warning ("Cannot create view for %s", view->component_id);
+
+		/* The rest of the code assumes that the component is valid and can create
+		   controls; if this fails something is really wrong in the component
+		   (e.g. methods not implemented)...  So handle it as if there was no
+		   component at all.  */
+		bonobo_object_release_unref (view->component_iface, NULL);
+		view->component_iface = CORBA_OBJECT_NIL;
+
 		CORBA_exception_free (&ev);
 		return;
 	}

@@ -10,6 +10,8 @@
 	(component_view_deactivate): New.
 	(init_view): Deactivate existing view, activate new selected view.
 	(component_button_clicked_callback): Likewise.
+	(init_view): Set the component_iface to CORBA_OBJECT_NIL in the
+	view if you cannot create the controls.
 
 2003-08-17  Ettore Perazzoli  <ettore@ximian.com>
 
