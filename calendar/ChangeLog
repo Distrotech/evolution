@@ -1,3 +1,43 @@
+2003-08-12  Rodrigo Moya <rodrigo@ximian.com>
+
+	* cal-util/cal-util.[ch] (cal_util_component_has_organizer):
+	new function.
+
+	* gui/e-day-view-main-item.c:
+	* gui/e-day-view-top-item.c:
+	* gui/e-week-view-event-item.c:
+	* gui/e-week-view.c: adaptated to changes in ECalViewEvent.
+
+	* gui/e-cal-model.[ch] (e_cal_model_get_client_list): new function.
+	(ecm_append_row): fixed usage of icalcomponent variable.
+
+	* gui/e-cal-view.c (e_cal_view_class_init): removed unused variable.
+	(selection_received): use default client for pasting from clipboard.
+	(e_cal_view_cut_clipboard): cut the appointment from its client.
+	(e_cal_view_copy_clipboard, delete_event, on_save_as, om_print_event,
+	e_cal_view_delete_selected_occurrence, on_meeting, on_forward,
+	e_cal_view_create_popup_menu): adapted to changes in ECalViewEvent.
+	(e_cal_view_delete_selected_event, e_cal_view_delete_selected_events):
+	pass the ECalViewEvent to delete_event, so that it knows which
+	CalClient to use.
+	(on_edit_appointment): pass CalClient and icalcomponent to
+	gnome_calendar_edit_object.
+	(on_publish): publish F/B info for all the clients currently loaded
+	in the view.
+	(setup_popup_icons): added missing argument to gtk_image_new_from_stock.
+
+	* gui/calendar-commands.c (publish_freebusy_cmd): publish F/B info
+	for all the clients currently loaded in the view.
+	(sensitize_calendar_commands): use icalcomponent functions.
+
+	* gui/e-day-view.c:
+	* gui/comp-editor-factory.c (impl_editExisting):
+	* gui/calendar-offline-handler.c (backend_cal_opened_online):
+	* gui/e-alarm-list.c (e_alarm_list_finalize):
+	* gui/e-cal-model-tasks.c (ecmt_get_color_for_component):
+	* gui/e-date-time-list.c (e_date_time_list_finalize):
+	* gui/control-factory.c (get_prop): fixed warnings.
+
 2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
 
 	* cal-util/cal-util.[ch] (cal_util_component_is_instance,

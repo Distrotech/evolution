@@ -1799,7 +1799,7 @@ e_week_view_foreach_event_with_uid (EWeekView *week_view,
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
 
-		cal_component_get_uid (event->comp, &u);
+		u = icalcomponent_get_uid (event->comp_data->icalcomp);
 		if (u && !strcmp (uid, u)) {
 			if (!(*callback) (week_view, event_num, data))
 				return;
@@ -1839,8 +1839,6 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 			span->background_item = NULL;
 		}
 	}
-
-	g_object_unref (event->comp);
 
 	g_array_remove_index (week_view->events, event_num);
 	week_view->events_need_layout = TRUE;
@@ -2196,7 +2194,6 @@ e_week_view_free_events (EWeekView *week_view)
 	for (event_num = 0; event_num < week_view->events->len; event_num++) {
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
-		g_object_unref (event->comp);
 	}
 
 	g_array_set_size (week_view->events, 0);
@@ -2427,7 +2424,8 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
 	span = &g_array_index (week_view->spans, EWeekViewEventSpan,
 			       event->spans_index + span_num);
-	comp = event->comp;
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 
 	one_day_event = e_week_view_is_one_day_event (week_view, event_num);
 
@@ -2441,6 +2439,8 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 			gtk_object_destroy (GTK_OBJECT (span->text_item));
 		span->background_item = NULL;
 		span->text_item = NULL;
+
+		g_object_unref (comp);
 		return;
 	}
 
@@ -2501,9 +2501,6 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 	/* Create the text item if necessary. */
 	if (!span->text_item) {
 		CalComponentText text;
-		const gchar *color;
-
-		color = e_cal_model_get_color_for_component (e_cal_view_get_model (E_CAL_VIEW (week_view)), comp_data);
 
 		cal_component_get_summary (comp, &text);
 		span->text_item =
@@ -2516,7 +2513,6 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 					       "text", text.value ? text.value : "",
 					       "use_ellipsis", TRUE,
 					       "fill_color_rgba", GNOME_CANVAS_COLOR(0, 0, 0),
-					       "background", color ? color : "white",
 					       "im_context", E_CANVAS (week_view->main_canvas)->im_context,
 					       NULL);
 
@@ -2660,6 +2656,7 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 			       NULL);
 	e_canvas_item_move_absolute (span->text_item, text_x, text_y);
 
+	g_object_unref (comp);
 	g_object_unref (layout);
 	pango_font_metrics_unref (font_metrics);
 }
@@ -2787,7 +2784,7 @@ cancel_editing (EWeekView *week_view)
 	int event_num, span_num;
 	EWeekViewEvent *event;
 	EWeekViewEventSpan *span;
-	CalComponentText summary;
+	const gchar *summary;
 
 	event_num = week_view->editing_event_num;
 	span_num = week_view->editing_span_num;
@@ -2799,8 +2796,8 @@ cancel_editing (EWeekView *week_view)
 
 	/* Reset the text to what was in the component */
 
-	cal_component_get_summary (event->comp, &summary);
-	g_object_set (G_OBJECT (span->text_item), "text", summary.value ? summary.value : "", NULL);
+	summary = icalcomponent_get_summary (event->comp_data->icalcomp);
+	g_object_set (G_OBJECT (span->text_item), "text", summary ? summary : "", NULL);
 
 	/* Stop editing */
 	e_week_view_stop_editing_event (week_view);
@@ -2863,7 +2860,7 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 					event_num);
 
 		if (calendar)
-			gnome_calendar_edit_object (calendar, event->comp, FALSE);
+			gnome_calendar_edit_object (calendar, event->comp_data->client, event->comp_data->icalcomp, FALSE);
 		else
 			g_warning ("Calendar not set");
 
@@ -3004,6 +3001,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	EWeekViewEvent *event;
 	EWeekViewEventSpan *span;
 	gchar *text = NULL;
+	CalComponent *comp;
 	CalComponentText summary;
 	const char *uid;
 
@@ -3025,7 +3023,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	week_view->editing_event_num = -1;
 
 	/* Check that the event is still valid. */
-	cal_component_get_uid (event->comp, &uid);
+	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
 	if (!uid)
 		return;
 
@@ -3033,12 +3031,15 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	g_object_get (G_OBJECT (span->text_item), "text", &text, NULL);
 	g_assert (text != NULL);
 
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
+
 	if (string_is_empty (text) &&
-	    !cal_comp_is_on_server (event->comp,
+	    !cal_comp_is_on_server (comp,
 				    e_cal_view_get_cal_client (E_CAL_VIEW (week_view)))) {
 		const char *uid;
 		
-		cal_component_get_uid (event->comp, &uid);
+		cal_component_get_uid (comp, &uid);
 		
 		e_week_view_foreach_event_with_uid (week_view, uid,
 						    e_week_view_remove_event_cb, NULL);
@@ -3048,39 +3049,37 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	}
 
 	/* Only update the summary if necessary. */
-	cal_component_get_summary (event->comp, &summary);
+	cal_component_get_summary (comp, &summary);
 	if (summary.value && !strcmp (text, summary.value)) {
 		if (!e_week_view_is_one_day_event (week_view, event_num))
 			e_week_view_reshape_event_span (week_view, event_num,
 							span_num);
 	} else if (summary.value || !string_is_empty (text)) {
-		CalClient *client;
 		summary.value = text;
 		summary.altrep = NULL;
-		cal_component_set_summary (event->comp, &summary);
+		cal_component_set_summary (comp, &summary);
 
-		client = e_cal_view_get_cal_client (E_CAL_VIEW (week_view));
-		if (cal_component_is_instance (event->comp)) {
+		if (cal_component_is_instance (comp)) {
 			CalObjModType mod;
 
-			if (recur_component_dialog (event->comp, &mod, NULL)) {
-				if (cal_client_update_object_with_mod (client, event->comp, mod)
+			if (recur_component_dialog (comp, &mod, NULL)) {
+				if (cal_client_update_object_with_mod (event->comp_data->client, comp, mod)
 				    == CAL_CLIENT_RESULT_SUCCESS) {
-					if (itip_organizer_is_user (event->comp, client) 
+					if (itip_organizer_is_user (comp, event->comp_data->client) 
 					    && send_component_dialog (gtk_widget_get_toplevel (week_view),
-								      client, event->comp, FALSE))
-						itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, event->comp, 
-								client, NULL);
+								      event->comp_data->client, comp, FALSE))
+						itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp, 
+								event->comp_data->client, NULL);
 				} else {
 					g_message ("e_week_view_on_editing_stopped(): Could not update the object!");
 				}
 			}
-		} else if (cal_client_update_object (client, event->comp) == CAL_CLIENT_RESULT_SUCCESS) {
-			if (itip_organizer_is_user (event->comp, client) &&
+		} else if (cal_client_update_object (event->comp_data->client, comp) == CAL_CLIENT_RESULT_SUCCESS) {
+			if (itip_organizer_is_user (comp, event->comp_data->client) &&
 			    send_component_dialog (gtk_widget_get_toplevel (week_view),
-						   client, event->comp, FALSE))
-				itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, event->comp,
-						client, NULL);
+						   event->comp_data->client, comp, FALSE))
+				itip_send_comp (CAL_COMPONENT_METHOD_REQUEST, comp,
+						event->comp_data->client, NULL);
 		} else {
 			g_message ("e_week_view_on_editing_stopped(): Could not update the object!");
 		}
@@ -3089,6 +3088,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
  out:
 
 	g_free (text);
+	g_object_unref (comp);
 
 	g_signal_emit_by_name (week_view, "selection_changed");
 }
@@ -3145,7 +3145,7 @@ e_week_view_find_event_from_uid (EWeekView	  *week_view,
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
 
-		cal_component_get_uid (event->comp, &u);
+		u = icalcomponent_get_uid (event->comp_data->icalcomp);
 		if (u && !strcmp (uid, u)) {
 			*event_num_return = event_num;
 			return TRUE;
@@ -3324,13 +3324,15 @@ e_week_view_unrecur_appointment (EWeekView *week_view)
 
 	/* For the recurring object, we add a exception to get rid of the
 	   instance. */
-	comp = cal_component_clone (event->comp);
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 	cal_comp_util_add_exdate (comp, event->start, e_cal_view_get_timezone (E_CAL_VIEW (week_view)));
 
 	/* For the unrecurred instance we duplicate the original object,
 	   create a new uid for it, get rid of the recurrence rules, and set
 	   the start & end times to the instances times. */
-	new_comp = cal_component_clone (event->comp);
+	new_comp = cal_component_new ();
+	cal_component_set_icalcomponent (new_comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 	cal_component_set_uid (new_comp, cal_component_gen_uid ());
 	cal_component_set_rdate_list (new_comp, NULL);
 	cal_component_set_rrule_list (new_comp, NULL);

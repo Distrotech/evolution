@@ -326,11 +326,16 @@ e_day_view_main_item_draw_events_in_vbars (EDayViewMainItem *dvmitem,
 	/* Draw the busy times corresponding to the events in the day. */
 	for (event_num = 0; event_num < day_view->events[day]->len;
 	     event_num++) {
+		CalComponent *comp;
+
 		event = &g_array_index (day_view->events[day], EDayViewEvent,
 					event_num);
 
+		comp = cal_component_new ();
+		cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
+
 		/* If the event is TRANSPARENT, skip it. */
-		cal_component_get_transparency (event->comp, &transparency);
+		cal_component_get_transparency (comp, &transparency);
 		if (transparency == CAL_COMPONENT_TRANSP_TRANSPARENT)
 			continue;
 
@@ -350,6 +355,8 @@ e_day_view_main_item_draw_events_in_vbars (EDayViewMainItem *dvmitem,
 		gdk_draw_rectangle (drawable, gc, TRUE,
 				    grid_x, bar_y,
 				    E_DAY_VIEW_BAR_WIDTH - 2, bar_h);
+
+		g_object_unref (comp);
 	}
 }
 
@@ -373,11 +380,16 @@ e_day_view_main_item_draw_long_events_in_vbars (EDayViewMainItem *dvmitem,
 
 	for (event_num = 0; event_num < day_view->long_events->len;
 	     event_num++) {
+		CalComponent *comp;
+
 		event = &g_array_index (day_view->long_events, EDayViewEvent,
 					event_num);
 
+		comp = cal_component_new ();
+		cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
+
 		/* If the event is TRANSPARENT, skip it. */
-		cal_component_get_transparency (event->comp, &transparency);
+		cal_component_get_transparency (comp, &transparency);
 		if (transparency == CAL_COMPONENT_TRANSP_TRANSPARENT)
 			continue;
 
@@ -416,6 +428,7 @@ e_day_view_main_item_draw_long_events_in_vbars (EDayViewMainItem *dvmitem,
 		}
 
 
+		g_object_unref (comp);
 	}
 }
 
@@ -521,8 +534,11 @@ e_day_view_main_item_draw_day_event (EDayViewMainItem *dvmitem,
 			bar_y2 = item_y + item_h - 1;
 	}
 
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
+
 	/* Only fill it in if the event isn't TRANSPARENT. */
-	cal_component_get_transparency (event->comp, &transparency);
+	cal_component_get_transparency (comp, &transparency);
 	if (transparency != CAL_COMPONENT_TRANSP_TRANSPARENT) {
 		gdk_draw_rectangle (drawable, gc, TRUE,
 				    item_x + 1, bar_y1,
@@ -560,7 +576,6 @@ e_day_view_main_item_draw_day_event (EDayViewMainItem *dvmitem,
 	icon_x = item_x + E_DAY_VIEW_BAR_WIDTH + E_DAY_VIEW_ICON_X_PAD;
 	icon_y = item_y + E_DAY_VIEW_EVENT_BORDER_HEIGHT
 		+ E_DAY_VIEW_ICON_Y_PAD;
-	comp = event->comp;
 
 	if (cal_component_has_alarms (comp)) {
 		draw_reminder_icon = TRUE;
@@ -724,6 +739,7 @@ e_day_view_main_item_draw_day_event (EDayViewMainItem *dvmitem,
 
 	/* free memory */
 	cal_component_free_categories_list (categories_list);
+	g_object_unref (comp);
 }
 
 

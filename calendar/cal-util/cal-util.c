@@ -674,6 +674,17 @@ cal_util_component_is_instance (icalcomponent *icalcomp)
 }
 
 gboolean
+cal_util_component_has_organizer (icalcomponent *icalcomp)
+{
+	icalproperty *prop;
+
+	g_return_val_if_fail (icalcomp != NULL, FALSE);
+
+	prop = icalcomponent_get_first_property (icalcomp, ICAL_ORGANIZER_PROPERTY);
+	return prop ? TRUE : FALSE;
+}
+
+gboolean
 cal_util_component_has_recurrences (icalcomponent *icalcomp)
 {
 	g_return_val_if_fail (icalcomp != NULL, FALSE);

@@ -88,6 +88,7 @@ void                e_cal_model_set_default_category (ECalModel *model, const gc
 void                e_cal_model_set_use_24_hour_format (ECalModel *model, gboolean use24);
 
 CalClient          *e_cal_model_get_default_client (ECalModel *model);
+GList              *e_cal_model_get_client_list (ECalModel *model);
 void                e_cal_model_add_client (ECalModel *model, CalClient *client);
 void                e_cal_model_remove_client (ECalModel *model, CalClient *client);
 void                e_cal_model_remove_all_clients (ECalModel *model);

@@ -572,7 +572,8 @@ e_week_view_event_item_draw_icons (EWeekViewEventItem *wveitem,
 				wveitem->event_num);
 	span = &g_array_index (week_view->spans, EWeekViewEventSpan,
 			       event->spans_index + wveitem->span_num);
-	comp = event->comp;
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 
 	gc = week_view->main_gc;
 
@@ -870,7 +871,7 @@ e_week_view_event_item_double_click (EWeekViewEventItem *wveitem,
 
 	calendar = e_cal_view_get_calendar (E_CAL_VIEW (week_view));
 	if (calendar)
-		gnome_calendar_edit_object (calendar, event->comp, FALSE);
+		gnome_calendar_edit_object (calendar, event->comp_data->client, event->comp_data->icalcomp, FALSE);
 	else
 		g_warning ("Calendar not set");
 

@@ -138,8 +138,9 @@ void	   gnome_calendar_get_selected_time_range (GnomeCalendar *gcal,
 						   time_t	 *end_time);
 
 void       gnome_calendar_edit_object           (GnomeCalendar *gcal,
-						 CalComponent  *comp,
-						 gboolean meeting);
+						 CalClient     *client,
+						 icalcomponent *icalcomp,
+						 gboolean       meeting);
 
 void       gnome_calendar_new_appointment       (GnomeCalendar *gcal);
 void       gnome_calendar_new_appointment_for   (GnomeCalendar *cal,

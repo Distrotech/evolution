@@ -222,7 +222,6 @@ row_updated (EDateTimeList *date_time_list, gint n)
 static void
 e_date_time_list_finalize (GObject *object)
 {
-	EDateTimeList *date_time_list = E_DATE_TIME_LIST (object);
 }
 
 /* Fulfill the GtkTreeModel requirements */

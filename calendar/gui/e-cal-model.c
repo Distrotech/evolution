@@ -615,7 +615,6 @@ ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 {
 	ECalModelClass *model_class;
 	ECalModelComponent comp_data;
-	icalcomponent *icalcomp;
 	ECalModel *source_model = (ECalModel *) source;
 	ECalModel *model = (ECalModel *) etm;
 
@@ -644,11 +643,9 @@ ecm_append_row (ETableModel *etm, ETableModel *source, int row)
 		model_class->fill_component_from_model (model, &comp_data, source_model, row);
 	}
 
-	if (cal_client_update_objects (comp_data.client, icalcomp) != CAL_CLIENT_RESULT_SUCCESS) {
+	if (cal_client_update_objects (comp_data.client, comp_data.icalcomp) != CAL_CLIENT_RESULT_SUCCESS) {
 		/* FIXME: show error dialog */
 	}
-
-	icalcomponent_free (icalcomp);
 }
 
 static void *
@@ -985,6 +982,25 @@ e_cal_model_get_default_client (ECalModel *model)
 
 	client_data = (ECalModelClient *) priv->clients->data;
 	return client_data->client;
+}
+
+/**
+ * e_cal_model_get_client_list
+ */
+GList *
+e_cal_model_get_client_list (ECalModel *model)
+{
+	GList *list = NULL, *l;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	for (l = model->priv->clients; l != NULL; l = l->next) {
+		ECalModelClient *client_data = (ECalModelClient *) l->data;
+
+		list = g_list_append (list, client_data->client);
+	}
+
+	return list;
 }
 
 static ECalModelComponent *

@@ -375,7 +375,8 @@ e_day_view_top_item_draw_long_event (EDayViewTopItem *dvtitem,
 	gc = day_view->main_gc;
 	fg_gc = style->fg_gc[GTK_STATE_NORMAL];
 	bg_gc = style->bg_gc[GTK_STATE_NORMAL];
-	comp = event->comp;
+	comp = cal_component_new ();
+	cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 
 	/* Draw the lines across the top & bottom of the entire event. */
 	gdk_gc_set_foreground (gc, &day_view->colors[E_DAY_VIEW_COLOR_LONG_EVENT_BORDER]);
@@ -594,6 +595,7 @@ e_day_view_top_item_draw_long_event (EDayViewTopItem *dvtitem,
 	}
 
 	cal_component_free_categories_list (categories_list);
+	g_object_unref (comp);
 
 	gdk_gc_set_clip_mask (gc, NULL);
 }

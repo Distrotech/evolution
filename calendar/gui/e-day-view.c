@@ -152,10 +152,10 @@ static gboolean e_day_view_do_key_press (GtkWidget *widget,
 					 GdkEventKey *event);
 static gboolean e_day_view_popup_menu (GtkWidget *widget);
 static GList *e_day_view_get_selected_events (ECalView *cal_view);
-static void e_day_view_get_selected_time_range (EDayView *day_view, time_t *start_time, time_t *end_time);
-static void e_day_view_set_selected_time_range (EDayView *day_view, time_t start_time, time_t end_time);
-static gboolean e_day_view_get_visible_time_range (EDayView *day_view, time_t *start_time, time_t *end_time);
-static void e_day_view_update_query (EDayView *day_view);
+static void e_day_view_get_selected_time_range (ECalView *cal_view, time_t *start_time, time_t *end_time);
+static void e_day_view_set_selected_time_range (ECalView *cal_view, time_t start_time, time_t end_time);
+static gboolean e_day_view_get_visible_time_range (ECalView *cal_view, time_t *start_time, time_t *end_time);
+static void e_day_view_update_query (ECalView *cal_view);
 static void e_day_view_goto_start_of_work_day (EDayView *day_view);
 static void e_day_view_goto_end_of_work_day (EDayView *day_view);
 static void e_day_view_cursor_key_up_shifted (EDayView *day_view,
@@ -497,7 +497,7 @@ timezone_changed_cb (ECalView *cal_view, icaltimezone *old_zone,
 	lower = icaltime_as_timet_with_zone (tt, new_zone);
 
 	e_day_view_recalc_day_starts (day_view, lower);
-	e_day_view_update_query (day_view);
+	e_day_view_update_query ((ECalView *) day_view);
 }
 
 static void
@@ -859,11 +859,6 @@ e_day_view_destroy (GtkObject *object)
 	e_day_view_cancel_layout (day_view);
 
 	e_day_view_stop_auto_scroll (day_view);
-
-	if (e_cal_view_get_cal_client (E_CAL_VIEW (day_view))) {
-		g_signal_handlers_disconnect_matched (e_cal_view_get_cal_client (E_CAL_VIEW (day_view)),
-						      G_SIGNAL_MATCH_DATA, 0, 0, NULL, NULL, day_view);
-	}
 
 	if (day_view->query) {
 		g_signal_handlers_disconnect_matched (day_view->query, G_SIGNAL_MATCH_DATA,
@@ -1815,13 +1810,14 @@ e_day_view_find_event_from_uid (EDayView *day_view,
    and are both visible in the view, then the selection is set to those times,
    otherwise it is set to 1 hour from the start of the working day. */
 static void
-e_day_view_set_selected_time_range	(EDayView	*day_view,
+e_day_view_set_selected_time_range	(ECalView	*cal_view,
 					 time_t		 start_time,
 					 time_t		 end_time)
 {
 	time_t lower;
 	gint start_row, start_col, end_row, end_col;
 	gboolean need_redraw = FALSE, start_in_grid, end_in_grid;
+	EDayView *day_view = E_DAY_VIEW (cal_view);
 
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
 
@@ -1838,7 +1834,7 @@ e_day_view_set_selected_time_range	(EDayView	*day_view,
 	/* See if we need to change the days shown. */
 	if (lower != day_view->lower) {
 		e_day_view_recalc_day_starts (day_view, lower);
-		e_day_view_update_query (day_view);
+		e_day_view_update_query ((ECalView *) day_view);
 	}
 
 	/* Set the selection. */
@@ -2034,12 +2030,11 @@ e_day_view_find_work_week_start		(EDayView	*day_view,
 
 /* Returns the selected time range. */
 static void
-e_day_view_get_selected_time_range	(EDayView	*day_view,
-					 time_t		*start_time,
-					 time_t		*end_time)
+e_day_view_get_selected_time_range (ECalView *cal_view, time_t *start_time, time_t *end_time)
 {
 	gint start_col, start_row, end_col, end_row;
 	time_t start, end;
+	EDayView *day_view = E_DAY_VIEW (cal_view);
 
 	start_col = day_view->selection_start_day;
 	start_row = day_view->selection_start_row;
@@ -2073,10 +2068,12 @@ e_day_view_get_selected_time_range	(EDayView	*day_view,
 
 /* Gets the visible time range. Returns FALSE if no time range has been set. */
 static gboolean
-e_day_view_get_visible_time_range	(EDayView	*day_view,
+e_day_view_get_visible_time_range	(ECalView	*cal_view,
 					 time_t		*start_time,
 					 time_t		*end_time)
 {
+	EDayView *day_view = E_DAY_VIEW (cal_view);
+
 	/* If the date isn't set, return FALSE. */
 	if (day_view->lower == 0 && day_view->upper == 0)
 		return FALSE;
@@ -2164,7 +2161,7 @@ e_day_view_set_days_shown	(EDayView	*day_view,
 	e_day_view_recalc_day_starts (day_view, day_view->lower);
 	e_day_view_recalc_cell_sizes (day_view);
 
-	e_day_view_update_query (day_view);
+	e_day_view_update_query ((ECalView *) day_view);
 }
 
 
@@ -2441,7 +2438,7 @@ e_day_view_recalc_work_week	(EDayView	*day_view)
 		day_view->selection_start_day = -1;
 
 		e_day_view_recalc_day_starts (day_view, lower);
-		e_day_view_update_query (day_view);
+		e_day_view_update_query ((ECalView *) day_view);
 
 		/* This updates the date navigator. */
 		e_day_view_update_calendar_selection_time (day_view);
@@ -2569,8 +2566,7 @@ e_day_view_on_top_canvas_button_press (GtkWidget *widget,
 		if (event->type == GDK_2BUTTON_PRESS) {
 			time_t dtstart, dtend;
 
-			e_day_view_get_selected_time_range (day_view, &dtstart,
-							    &dtend);
+			e_day_view_get_selected_time_range ((ECalView *) day_view, &dtstart, &dtend);
 			gnome_calendar_new_appointment_for (e_cal_view_get_calendar (E_CAL_VIEW (day_view)),
 							    dtstart, dtend,
 							    TRUE, FALSE);
@@ -2691,8 +2687,7 @@ e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 		if (event->type == GDK_2BUTTON_PRESS) {
 			time_t dtstart, dtend;
 
-			e_day_view_get_selected_time_range (day_view, &dtstart,
-							    &dtend);
+			e_day_view_get_selected_time_range ((ECalView *) day_view, &dtstart, &dtend);
 			gnome_calendar_new_appointment_for (e_cal_view_get_calendar (E_CAL_VIEW (day_view)),
 							    dtstart, dtend,
 							    FALSE, FALSE);
@@ -2739,6 +2734,7 @@ e_day_view_on_main_canvas_scroll (GtkWidget *widget,
 		e_day_view_scroll (day_view, -E_DAY_VIEW_WHEEL_MOUSE_STEP_SIZE);
 		return TRUE;
 	default:
+		break;
 	}
 
 	return FALSE;
@@ -2759,6 +2755,7 @@ e_day_view_on_time_canvas_scroll (GtkWidget      *widget,
 		e_day_view_scroll (day_view, -E_DAY_VIEW_WHEEL_MOUSE_STEP_SIZE);
 		return TRUE;
 	default:
+		break;
 	}
 
 	return FALSE;
@@ -2787,24 +2784,17 @@ e_day_view_on_long_event_button_press (EDayView		*day_view,
 		}
 	} else if (event->button == 3) {
 		EDayViewEvent *e;
-		gboolean destroyed;
 
 		e = &g_array_index (day_view->long_events, EDayViewEvent, event_num);
-		destroyed = FALSE;
-		g_object_weak_ref ((GObject *) e->comp, comp_destroy_cb, &destroyed);
 
 		if (!GTK_WIDGET_HAS_FOCUS (day_view))
 			gtk_widget_grab_focus (GTK_WIDGET (day_view));
 
-		if (!destroyed) {
-			g_object_weak_unref ((GObject *) e->comp, comp_destroy_cb, &destroyed);
-
-			e_day_view_set_selected_time_range_in_top_visible (day_view, e->start, e->end);
+		e_day_view_set_selected_time_range_in_top_visible (day_view, e->start, e->end);
 			
-			e_day_view_on_event_right_click (day_view, event,
-							 E_DAY_VIEW_LONG_EVENT,
-							 event_num);
-		}
+		e_day_view_on_event_right_click (day_view, event,
+						 E_DAY_VIEW_LONG_EVENT,
+						 event_num);
 
 		return TRUE;
 	}
@@ -3239,9 +3229,10 @@ process_component (EDayView *day_view, ECalModelComponent *comp_data)
 
 /* Restarts a query for the day view */
 static void
-e_day_view_update_query (EDayView *day_view)
+e_day_view_update_query (ECalView *cal_view)
 {
 	gint rows, r;
+	EDayView *day_view = E_DAY_VIEW (cal_view);
 
 	e_day_view_stop_editing_event (day_view);
 

@@ -224,7 +224,6 @@ row_updated (EAlarmList *alarm_list, gint n)
 static void
 e_alarm_list_finalize (GObject *object)
 {
-	EAlarmList *alarm_list = E_ALARM_LIST (object);
 }
 
 /* Fulfill the GtkTreeModel requirements */
