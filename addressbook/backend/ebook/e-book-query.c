@@ -13,6 +13,7 @@ typedef enum {
 	E_BOOK_QUERY_TYPE_NOT,
 	E_BOOK_QUERY_TYPE_FIELD_EXISTS,
 	E_BOOK_QUERY_TYPE_FIELD_TEST,
+	E_BOOK_QUERY_TYPE_ANY_FIELD_CONTAINS
 } EBookQueryType;
 
 struct EBookQuery {
@@ -38,6 +39,10 @@ struct EBookQuery {
 		struct {
 			EContactField  field;
 		} exist;
+
+		struct {
+			char          *value;
+		} any_field_contains;
 	} query;
 };
 
@@ -149,6 +154,17 @@ e_book_query_field_exists (EContactField field)
 	return ret;
 }
 
+EBookQuery *
+e_book_query_any_field_contains (const char *value)
+{
+	EBookQuery *ret = g_new0 (EBookQuery, 1);
+
+	ret->type = E_BOOK_QUERY_TYPE_ANY_FIELD_CONTAINS;
+	ret->query.any_field_contains.value = g_strdup (value);
+
+	return ret;
+}
+
 void
 e_book_query_unref (EBookQuery *q)
 {
@@ -171,6 +187,10 @@ e_book_query_unref (EBookQuery *q)
 
 	case E_BOOK_QUERY_TYPE_FIELD_TEST:
 		g_free (q->query.field_test.value);
+		break;
+
+	case E_BOOK_QUERY_TYPE_ANY_FIELD_CONTAINS:
+		g_free (q->query.any_field_contains.value);
 		break;
 
 	default:
@@ -240,7 +260,11 @@ e_book_query_to_string    (EBookQuery *q)
 					e_contact_field_name (q->query.field_test.field),
 					q->query.field_test.value);
 		break;
+	case E_BOOK_QUERY_TYPE_ANY_FIELD_CONTAINS:
+		g_string_append_printf (str, "contains \"x-evolution-any-field\" \"%s\"", q->query.any_field_contains.value);
+		break;
 	}
+	 
 
 	g_string_append (str, ")");
 

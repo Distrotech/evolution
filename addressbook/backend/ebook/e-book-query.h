@@ -41,6 +41,9 @@ EBookQuery* e_book_query_field_test   (EContactField   field,
 				       EBookQueryTest     test,
 				       const char        *value);
 
+/* a special any field contains query */
+EBookQuery* e_book_query_any_field_contains (const char  *value);
+
 G_END_DECLS
 
 #endif /* __E_BOOK_QUERY_H__ */

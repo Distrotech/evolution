@@ -225,12 +225,12 @@ e_book_view_listener_convert_status (const GNOME_Evolution_Addressbook_CallStatu
 	case GNOME_Evolution_Addressbook_SearchSizeLimitExceeded:
 		return E_BOOK_VIEW_STATUS_SIZE_LIMIT_EXCEEDED;
 	case GNOME_Evolution_Addressbook_InvalidQuery:
-		return E_BOOK_VIEW_STATUS_INVALID_QUERY;
+		return E_BOOK_VIEW_ERROR_INVALID_QUERY;
 	case GNOME_Evolution_Addressbook_QueryRefused:
-		return E_BOOK_VIEW_STATUS_QUERY_REFUSED;
+		return E_BOOK_VIEW_ERROR_QUERY_REFUSED;
 	case GNOME_Evolution_Addressbook_OtherError:
 	default:
-		return E_BOOK_VIEW_STATUS_OTHER_ERROR;
+		return E_BOOK_VIEW_ERROR_OTHER_ERROR;
 	}
 }
 

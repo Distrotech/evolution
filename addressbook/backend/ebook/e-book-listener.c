@@ -35,26 +35,26 @@ e_book_listener_convert_status (const GNOME_Evolution_Addressbook_CallStatus sta
 {
 	switch (status) {
 	case GNOME_Evolution_Addressbook_Success:
-		return E_BOOK_STATUS_OK;
+		return E_BOOK_ERROR_OK;
 	case GNOME_Evolution_Addressbook_RepositoryOffline:
-		return E_BOOK_STATUS_REPOSITORY_OFFLINE;
+		return E_BOOK_ERROR_REPOSITORY_OFFLINE;
 	case GNOME_Evolution_Addressbook_PermissionDenied:
-		return E_BOOK_STATUS_PERMISSION_DENIED;
+		return E_BOOK_ERROR_PERMISSION_DENIED;
 	case GNOME_Evolution_Addressbook_CardNotFound:
-		return E_BOOK_STATUS_CARD_NOT_FOUND;
+		return E_BOOK_ERROR_CARD_NOT_FOUND;
 	case GNOME_Evolution_Addressbook_CardIdAlreadyExists:
-		return E_BOOK_STATUS_CARD_ID_ALREADY_EXISTS;
+		return E_BOOK_ERROR_CARD_ID_ALREADY_EXISTS;
 	case GNOME_Evolution_Addressbook_AuthenticationFailed:
-		return E_BOOK_STATUS_AUTHENTICATION_FAILED;
+		return E_BOOK_ERROR_AUTHENTICATION_FAILED;
 	case GNOME_Evolution_Addressbook_AuthenticationRequired:
-		return E_BOOK_STATUS_AUTHENTICATION_REQUIRED;
+		return E_BOOK_ERROR_AUTHENTICATION_REQUIRED;
 	case GNOME_Evolution_Addressbook_TLSNotAvailable:
-		return E_BOOK_STATUS_TLS_NOT_AVAILABLE;
+		return E_BOOK_ERROR_TLS_NOT_AVAILABLE;
 	case GNOME_Evolution_Addressbook_NoSuchBook:
-		return E_BOOK_STATUS_NO_SUCH_BOOK;
+		return E_BOOK_ERROR_NO_SUCH_BOOK;
 	case GNOME_Evolution_Addressbook_OtherError:
 	default:
-		return E_BOOK_STATUS_OTHER_ERROR;
+		return E_BOOK_ERROR_OTHER_ERROR;
 	}
 }
 

@@ -1,3 +1,36 @@
+2003-08-21  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/test-ebook.c: track GError case.
+
+	* backend/ebook/e-book.[ch]: GError-ify the api, and clean up some
+	cases where we weren't removing the current op.
+
+	* backend/ebook/e-book-view-listener.c
+	(e_book_view_listener_convert_status): track change from
+	E_BOOK_VIEW_STATUS_* to E_BOOK_VIEW_ERROR_*.
+
+	* backend/ebook/e-book-types.h: track change from E_BOOK_STATUS_*
+	to E_BOOK_ERROR_*, and some E_BOOK_VIEW_STATUS_* to
+	E_BOOK_VIEW_ERROR_*.
+
+	* backend/ebook/e-book-listener.c
+	(e_book_listener_convert_status): track change from
+	E_BOOK_STATUS_* to E_BOOK_ERROR_*.
+
+	* backend/ebook/e-book-query.c (e_book_query_any_field_contains):
+	new function.
+	(e_book_query_unref): handle the any_field_contains case.
+	(e_book_query_to_string): same.
+
+	* backend/ebook/e-book-query.h: add prototype for
+	e_book_query_any_field_contains.
+
+	* backend/ebook/e-card.c (e_card_load_uri): ifdef this out for
+	now.
+
+	* backend/ebook/e-contact.[ch] (e_contact_get_const): new
+	function/prototype.
+
 2003-08-07  Chris Toshok  <toshok@ximian.com>
 
 	* backend/ebook/e-vcard.c (e_vcard_to_string_vcard_21): new,

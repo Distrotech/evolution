@@ -428,6 +428,23 @@ e_contact_get (EContact *contact, EContactField field_id)
 	return value;
 }
 
+/* XXX this won't work for structure/list types... */
+static void
+free_const_data (gpointer data, GObject *where_object_was)
+{
+	g_free (data);
+}
+
+const gpointer
+e_contact_get_const (EContact *contact, EContactField field_id)
+{
+	gpointer value = e_contact_get (contact, field_id);
+
+	g_object_weak_ref (G_OBJECT (contact), free_const_data, value);
+
+	return value;
+}
+
 void
 e_contact_set (EContact *contact, EContactField field_id, gpointer value)
 {

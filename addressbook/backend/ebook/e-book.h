@@ -55,75 +55,93 @@ struct _EBookClass {
 };
 
 /* Creating a new addressbook. */
-EBook      *e_book_new                   (void);
+EBook    *e_book_new                       (void);
 
 /* loading arbitrary addressbooks */
-EBookStatus e_book_load_uri              (EBook       *book,
-					  const char  *uri);
+gboolean e_book_load_uri                   (EBook       *book,
+					    const char  *uri,
+					    GError     **error);
 
-EBookStatus e_book_unload_uri            (EBook       *book);
+gboolean e_book_unload_uri                 (EBook       *book,
+					    GError     **error);
 
 /* convenience function for loading the "local" contact folder */
-EBookStatus e_book_load_local_addressbook (EBook *book);
+gboolean e_book_load_local_addressbook     (EBook   *book,
+					    GError **error);
 
-EBookStatus e_book_get_supported_fields  (EBook       *book,
-					  GList      **fields);
+gboolean e_book_get_supported_fields       (EBook       *book,
+					    GList      **fields,
+					    GError     **error);
 
-EBookStatus e_book_get_supported_auth_methods (EBook       *book,
-					       GList      **auth_methods);
+gboolean e_book_get_supported_auth_methods (EBook       *book,
+					    GList      **auth_methods,
+					    GError     **error);
 
 /* User authentication. */
-EBookStatus e_book_authenticate_user     (EBook       *book,
-					  const char  *user,
-					  const char  *passwd,
-					  const char  *auth_method);
+gboolean e_book_authenticate_user          (EBook       *book,
+					    const char  *user,
+					    const char  *passwd,
+					    const char  *auth_method,
+					    GError     **error);
 
 /* Fetching contacts. */
-EBookStatus e_book_get_contact           (EBook       *book,
-					  const char  *id,
-					  EContact   **contact);
+gboolean e_book_get_contact                (EBook       *book,
+					    const char  *id,
+					    EContact   **contact,
+					    GError     **error);
 
 /* Deleting contacts. */
-EBookStatus e_book_remove_contact        (EBook       *book,
-					  const char  *id);
+gboolean e_book_remove_contact             (EBook       *book,
+					    const char  *id,
+					    GError     **error);
 
-EBookStatus e_book_remove_contacts       (EBook       *book,
-					  GList       *id_list);
+gboolean e_book_remove_contacts            (EBook       *book,
+					    GList       *id_list,
+					    GError     **error);
 
 /* Adding contacts. */
-EBookStatus e_book_add_contact           (EBook       *book,
-					  EContact    *contact);
+gboolean e_book_add_contact                (EBook       *book,
+					    EContact    *contact,
+					    GError     **error);
 
 /* Modifying contacts. */
-EBookStatus e_book_commit_contact        (EBook       *book,
-					  EContact       *contact);
+gboolean e_book_commit_contact             (EBook       *book,
+					    EContact    *contact,
+					    GError     **error);
 
-EBookStatus e_book_get_book_view         (EBook       *book,
-					  const char  *query_string,
-					  GList       *requested_fields,
-					  int          max_results,
-					  EBookView  **book_view);
+/* Returns a live view of a query. */
+gboolean e_book_get_book_view              (EBook       *book,
+					    EBookQuery  *query,
+					    GList       *requested_fields,
+					    int          max_results,
+					    EBookView  **book_view,
+					    GError     **error);
 
-EBookStatus e_book_get_contacts          (EBook       *book,
-					  const char  *query_string,
-					  GList       **contacts);
+/* Returns a static snapshot of a query. */
+gboolean e_book_get_contacts               (EBook       *book,
+					    EBookQuery  *query,
+					    GList      **contacts,
+					    GError     **error);
 
-EBookStatus e_book_get_changes           (EBook       *book,
-					  char        *changeid,
-					  GList      **changes);
+gboolean e_book_get_changes                (EBook       *book,
+					    char        *changeid,
+					    GList      **changes,
+					    GError     **error);
 
-void        e_book_free_change_list      (GList       *change_list);
+void     e_book_free_change_list           (GList       *change_list);
 
-const char *e_book_get_uri               (EBook       *book);
+const char *e_book_get_uri                 (EBook       *book);
 
-const char *e_book_get_static_capabilities (EBook       *book);
+const char *e_book_get_static_capabilities (EBook    *book,
+					    GError  **error);
 gboolean    e_book_check_static_capability (EBook       *book,
 					    const char  *cap);
 
 /* Cancel a pending operation. */
-EBookStatus e_book_cancel                  (EBook *book);
+gboolean    e_book_cancel                  (EBook   *book,
+					    GError **error);
 
-GType     e_book_get_type                (void);
+GType     e_book_get_type                  (void);
 
 G_END_DECLS
 

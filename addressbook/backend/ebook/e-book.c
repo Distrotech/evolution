@@ -14,6 +14,8 @@
 #include <bonobo/bonobo-exception.h>
 #include <bonobo/bonobo-main.h>
 
+#include <libgnome/gnome-i18n.h>
+
 #include "e-book-marshal.h"
 #include "e-book-listener.h"
 #include "addressbook.h"
@@ -23,6 +25,35 @@
 static GObjectClass *parent_class;
 
 #define CARDSERVER_OAF_ID "OAFIID:GNOME_Evolution_Wombat_ServerFactory"
+
+#define e_return_error_if_fail(expr,error_code)	G_STMT_START{		\
+     if G_LIKELY(expr) { } else						\
+       {								\
+	 g_log (G_LOG_DOMAIN,						\
+		G_LOG_LEVEL_CRITICAL,					\
+		"file %s: line %d (%s): assertion `%s' failed",		\
+		__FILE__,						\
+		__LINE__,						\
+		__PRETTY_FUNCTION__,					\
+		#expr);							\
+	 g_set_error (error, E_BOOK_ERROR, (error_code),                \
+		"file %s: line %d (%s): assertion `%s' failed",		\
+		__FILE__,						\
+		__LINE__,						\
+		__PRETTY_FUNCTION__,					\
+		#expr);							\
+	 return FALSE;							\
+       };				}G_STMT_END
+
+/* XXX we need a better error message here */
+#define E_BOOK_CHECK_STATUS(status,error) G_STMT_START{			\
+	if ((status) == E_BOOK_ERROR_OK) {				\
+		return TRUE;						\
+	}								\
+	else {								\
+		g_set_error ((error), E_BOOK_ERROR, (status), "this space intentionally left blank");	\
+		return FALSE;						\
+	}				}G_STMT_END
 
 enum {
 	OPEN_PROGRESS,
@@ -77,6 +108,18 @@ struct _EBookPrivate {
 	gulong listener_signal;
 	gulong died_signal;
 };
+
+
+/* Error quark */
+GQuark
+e_book_error_quark (void)
+{
+  static GQuark q = 0;
+  if (q == 0)
+    q = g_quark_from_static_string ("e-book-error-quark");
+
+  return q;
+}
 
 
 
@@ -136,9 +179,10 @@ e_book_remove_op (EBook *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_add_contact (EBook           *book,
-		    EContact           *contact)
+		    EContact        *contact,
+		    GError         **error)
 {
 	EBookOp *our_op;
 	EBookStatus status;
@@ -147,19 +191,23 @@ e_book_add_contact (EBook           *book,
 
 	printf ("e_book_add_contact\n");
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (contact && E_IS_CONTACT (contact), E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (contact && E_IS_CONTACT (contact), E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_add_contact called on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	vcard_str = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
@@ -180,12 +228,15 @@ e_book_add_contact (EBook           *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-	  e_mutex_unlock (our_op->mutex);
-	  e_book_free_op (our_op);
+		e_book_remove_op (book, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_book_free_op (our_op);
 
-	  CORBA_exception_free (&ev);
+		CORBA_exception_free (&ev);
 
-	  return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::addCard call"));
+		return FALSE;
 	}
 
 	CORBA_exception_free (&ev);
@@ -198,11 +249,11 @@ e_book_add_contact (EBook           *book,
 	e_contact_set (contact, E_CONTACT_UID, our_op->id);
 	g_free (our_op->id);
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -243,28 +294,33 @@ e_book_response_add_contact (EBook       *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_commit_contact (EBook           *book,
-		       EContact           *contact)
+		       EContact        *contact,
+		       GError         **error)
 {
 	EBookOp *our_op;
 	EBookStatus status;
 	CORBA_Environment ev;
 	char *vcard_str;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (contact && E_IS_CONTACT (contact), E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (contact && E_IS_CONTACT (contact), E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_commit_contact called on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	vcard_str = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
@@ -285,12 +341,15 @@ e_book_commit_contact (EBook           *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
-	  e_mutex_unlock (our_op->mutex);
-	  e_book_free_op (our_op);
+		e_book_remove_op (book, our_op);
+		e_mutex_unlock (our_op->mutex);
+		e_book_free_op (our_op);
 
-	  CORBA_exception_free (&ev);
+		CORBA_exception_free (&ev);
 
-	  return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::modifyCard call"));
+		return FALSE;
 	}
 
 	CORBA_exception_free (&ev);
@@ -305,12 +364,10 @@ e_book_commit_contact (EBook           *book,
 
 	/* remove the op from the book's hash of operations */
 	e_book_remove_op (book, our_op);
-
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 
@@ -324,27 +381,31 @@ e_book_commit_contact (EBook           *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_get_supported_fields  (EBook            *book,
-			      GList           **fields)
+			      GList           **fields,
+			      GError          **error)
 {
 	EBookOp *our_op;
 	EBookStatus status;
 	CORBA_Environment ev;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (fields,                   E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (fields,                   E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_get_supported_fields on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
 	}
 
 	our_op = e_book_new_op (book);
@@ -361,12 +422,15 @@ e_book_get_supported_fields  (EBook            *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
+		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
 		CORBA_exception_free (&ev);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::getSupportedFields call"));
+		return FALSE;
 	}
 
 
@@ -379,11 +443,11 @@ e_book_get_supported_fields  (EBook            *book,
 	status = our_op->status;
 	*fields = our_op->list;
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -420,27 +484,32 @@ e_book_response_get_supported_fields (EBook       *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_get_supported_auth_methods (EBook            *book,
-				   GList           **auth_methods)
+				   GList           **auth_methods,
+				   GError          **error)
 {
 	EBookOp *our_op;
 	EBookStatus status;
 	CORBA_Environment ev;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (auth_methods,             E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (auth_methods,             E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_get_supported_auth_methods on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -457,12 +526,15 @@ e_book_get_supported_auth_methods (EBook            *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
+		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
 		CORBA_exception_free (&ev);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::getSupportedAuthMethods call"));
+		return FALSE;
 	}
 
 
@@ -475,11 +547,11 @@ e_book_get_supported_auth_methods (EBook            *book,
 	status = our_op->status;
 	*auth_methods = our_op->list;
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -521,31 +593,36 @@ e_book_response_get_supported_auth_methods (EBook                 *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_authenticate_user (EBook         *book,
 			  const char    *user,
 			  const char    *passwd,
-			  const char    *auth_method)
+			  const char    *auth_method,
+			  GError       **error)
 {
 	EBookOp *our_op;
 	EBookStatus status;
 	CORBA_Environment ev;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (user,                     E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (passwd,                   E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (auth_method,              E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (user,                     E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (passwd,                   E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (auth_method,              E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_authenticate_user on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -565,12 +642,15 @@ e_book_authenticate_user (EBook         *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
+		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
 		CORBA_exception_free (&ev);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::authenticateUser call"));
+		return FALSE;
 	}
 
 	CORBA_exception_free (&ev);
@@ -581,11 +661,11 @@ e_book_authenticate_user (EBook         *book,
 
 	status = our_op->status;
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 
@@ -600,29 +680,34 @@ e_book_authenticate_user (EBook         *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus 
+gboolean
 e_book_get_contact (EBook       *book,
-		 const char  *id,
-		 EContact      **contact)
+		    const char  *id,
+		    EContact   **contact,
+		    GError     **error)
 {
 	EBookOp *our_op;
 	EBookStatus status;
 	CORBA_Environment ev;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (id,                       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (contact,                     E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (id,                       E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (contact,                     E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_get_contact on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -639,12 +724,15 @@ e_book_get_contact (EBook       *book,
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
 
+		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
 		CORBA_exception_free (&ev);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::getVCard call"));
+		return FALSE;
 	}
 
 	CORBA_exception_free (&ev);
@@ -657,12 +745,10 @@ e_book_get_contact (EBook       *book,
 	*contact = our_op->contact;
 
 	e_book_remove_op (book, our_op);
-
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -707,33 +793,38 @@ e_book_response_get_contact (EBook       *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
-e_book_remove_contact (EBook      *book,
-		       const char *id)
+gboolean
+e_book_remove_contact (EBook       *book,
+		       const char  *id,
+		       GError     **error)
 {
 	GList *list;
 	gboolean rv;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (id,                       E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (id,                       E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_remove_contact on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	e_mutex_lock (book->priv->mutex);
 
 	list = g_list_append (NULL, (char*)id);
 
-	rv = e_book_remove_contacts (book, list);
+	rv = e_book_remove_contacts (book, list, error);
 
 	return rv;
 }
@@ -750,9 +841,10 @@ e_book_remove_contact (EBook      *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_remove_contacts (EBook    *book,
-			GList    *ids)
+			GList    *ids,
+			GError  **error)
 {
 	GNOME_Evolution_Addressbook_CardIdList idlist;
 	CORBA_Environment ev;
@@ -761,19 +853,23 @@ e_book_remove_contacts (EBook    *book,
 	EBookOp *our_op;
 	EBookStatus status;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (ids,                      E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (ids,                      E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_remove_contacts on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -798,12 +894,16 @@ e_book_remove_contacts (EBook    *book,
 	CORBA_free(idlist._buffer);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
+
+		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
 		CORBA_exception_free (&ev);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::removeCards call"));
+		return FALSE;
 	}
 	
 	CORBA_exception_free (&ev);
@@ -814,11 +914,11 @@ e_book_remove_contacts (EBook    *book,
 
 	status = our_op->status;
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 
@@ -833,12 +933,13 @@ e_book_remove_contacts (EBook    *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_get_book_view (EBook       *book,
-		      const char  *query_string,
+		      EBookQuery  *query,
 		      GList       *requested_fields,
 		      int          max_results,
-		      EBookView  **book_view)
+		      EBookView  **book_view,
+		      GError     **error)
 {
 	GNOME_Evolution_Addressbook_stringlist stringlist;
 	CORBA_Environment ev;
@@ -846,21 +947,26 @@ e_book_get_book_view (EBook       *book,
 	EBookStatus status;
 	int num_fields, i;
 	GList *iter;
+	char *query_string;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (query_string,                   E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (book_view,                      E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book),       E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (query,                          E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (book_view,                      E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_get_book_view on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -883,6 +989,8 @@ e_book_get_book_view (EBook       *book,
 		stringlist._buffer[i] = CORBA_string_dup ((char*)iter->data);
 	}
 
+	query_string = e_book_query_to_string (query);
+
 	/* will eventually end up calling e_book_response_get_book_view */
 	GNOME_Evolution_Addressbook_Book_getBookView (book->priv->corba_book,
 						      bonobo_object_corba_objref(BONOBO_OBJECT(our_op->listener)),
@@ -890,8 +998,10 @@ e_book_get_book_view (EBook       *book,
 						      &stringlist, max_results, &ev);
 
 	CORBA_free(stringlist._buffer);
+	g_free (query_string);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
+
 		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
@@ -900,7 +1010,9 @@ e_book_get_book_view (EBook       *book,
 
 		g_warning ("corba exception._major = %d\n", ev._major);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::getBookView call"));
+		return FALSE;
 	}
 	
 	CORBA_exception_free (&ev);
@@ -912,11 +1024,11 @@ e_book_get_book_view (EBook       *book,
 	status = our_op->status;
 	*book_view = our_op->view;
 
+	e_book_remove_op (book, our_op);
 	e_mutex_unlock (our_op->mutex);
-
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -955,29 +1067,35 @@ e_book_response_get_book_view (EBook       *book,
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
+gboolean
 e_book_get_contacts (EBook       *book,
-		     const char  *query_string,
-		     GList       **contacts)
+		     EBookQuery  *query,
+		     GList      **contacts,
+		     GError     **error)
 {
 	CORBA_Environment ev;
 	EBookOp *our_op;
 	EBookStatus status;
+	char *query_string;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (query_string,                   E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (contacts,                       E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book),       E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (query,                          E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (contacts,                       E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_get_contacts on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -988,10 +1106,15 @@ e_book_get_contacts (EBook       *book,
 
 	CORBA_exception_init (&ev);
 
+	query_string = e_book_query_to_string (query);
+
 	/* will eventually end up calling e_book_response_get_contacts */
 	GNOME_Evolution_Addressbook_Book_getCardList (book->priv->corba_book, query_string, &ev);
 
+	g_free (query_string);
+
 	if (ev._major != CORBA_NO_EXCEPTION) {
+
 		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
@@ -1000,7 +1123,9 @@ e_book_get_contacts (EBook       *book,
 
 		g_warning ("corba exception._major = %d\n", ev._major);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::getCardList call"));
+		return FALSE;
 	}
 	
 	CORBA_exception_free (&ev);
@@ -1016,7 +1141,7 @@ e_book_get_contacts (EBook       *book,
 	e_mutex_unlock (our_op->mutex);
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -1045,29 +1170,34 @@ e_book_response_get_contacts (EBook       *book,
 }
 
 
-EBookStatus
+gboolean
 e_book_get_changes (EBook       *book,
 		    char        *changeid,
-		    GList      **changes)
+		    GList      **changes,
+		    GError     **error)
 {
 	CORBA_Environment ev;
 	EBookOp *our_op;
 	EBookStatus status;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book),       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (changeid,                       E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (changes,                        E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book),       E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (changeid,                       E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (changes,                        E_BOOK_ERROR_INVALID_ARG);
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->load_state != URILoaded) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_URI_NOT_LOADED;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
+			     _("e_book_get_changes on book before e_book_load_uri"));
+		return FALSE;
 	}
 
 	if (book->priv->current_op != NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_BUSY;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_BUSY,
+			     _("book busy"));
+		return FALSE;
 	}
 
 	our_op = e_book_new_op (book);
@@ -1082,6 +1212,7 @@ e_book_get_changes (EBook       *book,
 	GNOME_Evolution_Addressbook_Book_getChanges (book->priv->corba_book, changeid, &ev);
 
 	if (ev._major != CORBA_NO_EXCEPTION) {
+
 		e_book_remove_op (book, our_op);
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
@@ -1090,7 +1221,9 @@ e_book_get_changes (EBook       *book,
 
 		g_warning ("corba exception._major = %d\n", ev._major);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::getChanges call"));
+		return FALSE;
 	}
 	
 	CORBA_exception_free (&ev);
@@ -1106,7 +1239,7 @@ e_book_get_changes (EBook       *book,
 	e_mutex_unlock (our_op->mutex);
 	e_book_free_op (our_op);
 
-	return status;
+	E_BOOK_CHECK_STATUS (status, error);
 }
 
 static void
@@ -1182,24 +1315,28 @@ e_book_response_generic (EBook       *book,
  * transiently or permanently) or had already comopleted on the wombat
  * side, this function will return E_BOOK_STATUS_COULD_NOT_CANCEL, and
  * the operation will continue uncancelled.  If the operation could be
- * cancelled, this function will return E_BOOK_STATUS_OK, and the
+ * cancelled, this function will return E_BOOK_ERROR_OK, and the
  * blocked e_book function corresponding to current operation will
  * return with a status of E_BOOK_STATUS_CANCELLED.
  *
  * Return value: a #EBookStatus value.
  **/
-EBookStatus
-e_book_cancel (EBook *book)
+gboolean
+e_book_cancel (EBook   *book,
+	       GError **error)
 {
 	EBookOp *op;
-	EBookStatus status, rv;
+	EBookStatus status;
+	gboolean rv;
 	CORBA_Environment ev;
 
 	e_mutex_lock (book->priv->mutex);
 
 	if (book->priv->current_op == NULL) {
 		e_mutex_unlock (book->priv->mutex);
-		return E_BOOK_STATUS_COULD_NOT_CANCEL;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_COULD_NOT_CANCEL,
+			     _("e_book_cancel: there is no current operation"));
+		return FALSE;
 	}
 
 	op = book->priv->current_op;
@@ -1216,20 +1353,25 @@ e_book_cancel (EBook *book)
 
 		CORBA_exception_free (&ev);
 
-		return E_BOOK_STATUS_CORBA_EXCEPTION;
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CORBA_EXCEPTION,
+			     _("Corba exception making Book::cancelOperation call"));
+		return FALSE;
 	}
 
 	CORBA_exception_free (&ev);
 
-	if (status == E_BOOK_STATUS_OK) {
-		op->status = E_BOOK_STATUS_CANCELLED;
+	if (status == E_BOOK_ERROR_OK) {
+		op->status = E_BOOK_ERROR_CANCELLED;
 
 		pthread_cond_signal (&op->cond);
 
-		rv = E_BOOK_STATUS_OK;
+		rv = TRUE;
 	}
-	else
-		rv = E_BOOK_STATUS_COULD_NOT_CANCEL;
+	else {
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_COULD_NOT_CANCEL,
+			     _("e_book_cancel: couldn't cancel"));
+		rv = FALSE;
+	}
 
 	e_mutex_unlock (op->mutex);
 
@@ -1308,13 +1450,14 @@ e_book_handle_response (EBookListener *listener, EBookListenerResponse *resp, EB
 
 
 
-EBookStatus
-e_book_unload_uri (EBook *book)
+gboolean
+e_book_unload_uri (EBook   *book,
+		   GError **error)
 {
 	CORBA_Environment ev;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (book->priv->load_state != URINotLoaded, E_BOOK_STATUS_URI_NOT_LOADED);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (book->priv->load_state != URINotLoaded, E_BOOK_ERROR_URI_NOT_LOADED);
 
 	/* Release the remote GNOME_Evolution_Addressbook_Book in the PAS. */
 	CORBA_exception_init (&ev);
@@ -1333,7 +1476,7 @@ e_book_unload_uri (EBook *book)
 	book->priv->listener   = NULL;
 	book->priv->load_state = URINotLoaded;
 
-	return E_BOOK_STATUS_OK;
+	return TRUE;
 }
 
 
@@ -1358,7 +1501,7 @@ activate_factories_for_uri (EBook *book, const char *uri)
 	}
 
 	protocol = g_strndup (uri, colon-uri);
-	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/BookFactory:1.0')"
+	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/BookFactory:2.0')"
 				 " AND addressbook:supported_protocols.has ('%s')", protocol
 				 );
 
@@ -1405,24 +1548,28 @@ activate_factories_for_uri (EBook *book, const char *uri)
 	return factories;
 }
 
-EBookStatus
-e_book_load_uri (EBook                     *book,
-		 const char                *uri)
+gboolean
+e_book_load_uri (EBook        *book,
+		 const char   *uri,
+		 GError      **error)
 {
 	GList *factories;
 	GList *l;
-	EBookStatus rv = E_BOOK_STATUS_PROTOCOL_NOT_SUPPORTED;
+	gboolean rv = FALSE;
 	GNOME_Evolution_Addressbook_Book corba_book = CORBA_OBJECT_NIL;
 
-	g_return_val_if_fail (book && E_IS_BOOK (book), E_BOOK_STATUS_INVALID_ARG);
-	g_return_val_if_fail (uri,                      E_BOOK_STATUS_INVALID_ARG);
+	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
+	e_return_error_if_fail (uri,                      E_BOOK_ERROR_INVALID_ARG);
 
 	/* XXX this needs to happen while holding the book's lock i would think... */
-	g_return_val_if_fail (book->priv->load_state == URINotLoaded, E_BOOK_STATUS_URI_ALREADY_LOADED);
+	e_return_error_if_fail (book->priv->load_state == URINotLoaded, E_BOOK_ERROR_URI_ALREADY_LOADED);
 
 	/* try to find a list of factories that can handle the protocol */
-	if (! (factories = activate_factories_for_uri (book, uri)))
-		return E_BOOK_STATUS_PROTOCOL_NOT_SUPPORTED;
+	if (! (factories = activate_factories_for_uri (book, uri))) {
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_PROTOCOL_NOT_SUPPORTED,
+			     _("e_book_load_uri: no factories available for uri `%s'"), uri);
+		return FALSE;
+	}
 
 
 	book->priv->load_state = URILoading;
@@ -1433,7 +1580,9 @@ e_book_load_uri (EBook                     *book,
 	book->priv->listener = e_book_listener_new ();
 	if (book->priv->listener == NULL) {
 		g_warning ("e_book_load_uri: Could not create EBookListener!\n");
-		return E_BOOK_STATUS_OTHER_ERROR; /* XXX need a new status code here */
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_OTHER_ERROR,
+			     _("e_book_load_uri: Could not create EBookListener"));
+		return FALSE;
 	}
 	book->priv->listener_signal = g_signal_connect (book->priv->listener, "response",
 							G_CALLBACK (e_book_handle_response), book);
@@ -1458,6 +1607,7 @@ e_book_load_uri (EBook                     *book,
 								      &ev);
 
 		if (ev._major != CORBA_NO_EXCEPTION) {
+
 			e_book_remove_op (book, our_op);
 			e_mutex_unlock (our_op->mutex);
 			e_book_free_op (our_op);
@@ -1497,9 +1647,9 @@ e_book_load_uri (EBook                     *book,
 		e_mutex_unlock (our_op->mutex);
 		e_book_free_op (our_op);
 
-		if (status == E_BOOK_STATUS_CANCELLED
-		    || status == E_BOOK_STATUS_OK) {
-			rv = status;
+		if (status == E_BOOK_ERROR_CANCELLED
+		    || status == E_BOOK_ERROR_OK) {
+			rv = TRUE;
 			break;
 		}
 	}
@@ -1508,33 +1658,40 @@ e_book_load_uri (EBook                     *book,
 	for (l = factories; l; l = l->next)
 		CORBA_Object_release ((CORBA_Object)l->data, NULL);
 
-	if (rv == E_BOOK_STATUS_OK) {
+	if (rv == TRUE) {
 		book->priv->corba_book = corba_book;
 		book->priv->load_state = URILoaded;
+		return TRUE;
+	}
+	else {
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_PROTOCOL_NOT_SUPPORTED,
+			     _("e_book_load_uri: no factories available for uri `%s'"), uri);
+		return FALSE;
 	}
 		
 	return rv;
 }
 
-EBookStatus
-e_book_load_local_addressbook (EBook *book)
+gboolean
+e_book_load_local_addressbook (EBook   *book,
+			       GError **error)
 {
 	char *filename;
 	char *uri;
-	EBookStatus status;
+	gboolean rv;
 
 	filename = g_build_filename (g_get_home_dir(),
-				     "evolution/local/Contacts/addressbook.db",
+				     "evolution/local/Contacts",
 				     NULL);
 	uri = g_strdup_printf ("file://%s", filename);
 
 	g_free (filename);
 	
-	status = e_book_load_uri (book, uri);
-
+	rv = e_book_load_uri (book, uri, error);
+	
 	g_free (uri);
 
-	return status;
+	return rv;
 }
 
 const char *
@@ -1544,7 +1701,8 @@ e_book_get_uri (EBook *book)
 }
 
 const char *
-e_book_get_static_capabilities (EBook *book)
+e_book_get_static_capabilities (EBook   *book,
+				GError **error)
 {
 	if (!book->priv->cap_queried) {
 		CORBA_Environment ev;
@@ -1581,7 +1739,7 @@ gboolean
 e_book_check_static_capability (EBook *book,
 				const char  *cap)
 {
-	const char *caps = e_book_get_static_capabilities (book);
+	const char *caps = e_book_get_static_capabilities (book, NULL);
 
 	/* XXX this is an inexact test but it works for our use */
 	if (caps && strstr (caps, cap))
@@ -1643,7 +1801,7 @@ e_book_dispose (GObject *object)
 		GList *l;
 
 		if (book->priv->load_state == URILoaded)
-			e_book_unload_uri (book);
+			e_book_unload_uri (book, NULL);
 
 		CORBA_exception_init (&ev);
 

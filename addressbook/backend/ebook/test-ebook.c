@@ -4,16 +4,7 @@
 #include "e-card-simple.h"
 #include <libgnome/gnome-init.h>
 #include <bonobo/bonobo-main.h>
-#include <pthread.h>
 #include <stdlib.h>
-
-static pthread_t mainloop_thread;
-
-static void*
-run_mainloop (void *data)
-{
-	bonobo_main();
-}
 
 static void
 print_email (EContact *contact)
@@ -41,9 +32,8 @@ static void
 print_all_emails (EBook *book)
 {
 	EBookQuery *query;
-	EBookStatus status;
+	gboolean status;
 	GList *cards, *c;
-
 
 	/*
 	  this should be:
@@ -53,11 +43,11 @@ print_all_emails (EBook *book)
 	query = e_book_query_field_test (E_CONTACT_FULL_NAME,
 					 E_BOOK_QUERY_CONTAINS, "");
 
-	status = e_book_get_contacts (book, query, &cards);
+	status = e_book_get_contacts (book, query, &cards, NULL);
 
 	e_book_query_unref (query);
 
-	if (status != E_BOOK_STATUS_OK) {
+	if (status == FALSE) {
 		printf ("error %d getting card list\n", status);
 		exit(0);
 	}
@@ -75,13 +65,12 @@ print_all_emails (EBook *book)
 static void
 print_one_email (EBook *book)
 {
-	EBookStatus status;
 	EContact *contact;
+	GError *error = NULL;
 
-	status = e_book_get_contact (book, "pas-id-0002023", &contact);
-
-	if (status != E_BOOK_STATUS_OK) {
-		printf ("error %d getting card\n", status);
+	if (!e_book_get_contact (book, "pas-id-0002023", &contact, &error)) {
+		printf ("error %d getting card: %s\n", error->code, error->message);
+		g_clear_error (&error);
 		return;
 	}
 
@@ -94,15 +83,12 @@ int
 main (int argc, char **argv)
 {
 	EBook *book;
-	EBookStatus status;
+	gboolean status;
 
 	gnome_program_init("test-ebook", "0.0", LIBGNOME_MODULE, argc, argv, NULL);
 
 	if (bonobo_init (&argc, argv) == FALSE)
 		g_error ("Could not initialize Bonobo");
-
-	pthread_create(&mainloop_thread, NULL, run_mainloop, NULL);
-
 
 	/*
 	** the actual ebook foo
@@ -111,8 +97,8 @@ main (int argc, char **argv)
 	book = e_book_new ();
 
 	printf ("loading addressbook\n");
-	status = e_book_load_local_addressbook (book);
-	if (status != E_BOOK_STATUS_OK) {
+	status = e_book_load_local_addressbook (book, NULL);
+	if (status == FALSE) {
 		printf ("failed to open local addressbook\n");
 		exit(0);
 	}

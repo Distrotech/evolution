@@ -2748,14 +2748,15 @@ e_card_evolution_list_show_addresses (ECard *card)
 	return card->list_show_addresses;
 }
 
-EBookStatus
+/* XXX this function needs rethinking, or needs to go away entirely */
+#if 0
+gboolean
 e_card_load_uri (const gchar *book_uri, const gchar *uid, ECard **card)
 {
 	EBook *book = e_book_new ();
-	EBookStatus status;
+	gboolean status;
 
-	status = e_book_load_uri (book, book_uri);
-	if (status != E_BOOK_STATUS_OK) {
+	if (FALSE == e_book_load_uri (book, book_uri, NULL)) {
 		g_object_unref (book);
 		return status;
 	}
@@ -2765,3 +2766,4 @@ e_card_load_uri (const gchar *book_uri, const gchar *uid, ECard **card)
 	g_object_unref (book);
 	return status;
 }
+#endif

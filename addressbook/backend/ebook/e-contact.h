@@ -12,7 +12,7 @@
 #include <time.h>
 #include <glib-object.h>
 #include <stdio.h>
-#include <e-vcard.h>
+#include <ebook/e-vcard.h>
 #include <e-util/e-list.h>
 
 #define E_TYPE_CONTACT            (e_contact_get_type ())
@@ -103,6 +103,7 @@ EContact*               e_contact_new             (void);
 EContact*               e_contact_new_from_vcard  (const char *vcard);
 
 gpointer                e_contact_get             (EContact *contact, EContactField field_id);
+const gpointer          e_contact_get_const       (EContact *contact, EContactField field_id);
 void                    e_contact_set             (EContact *contact, EContactField field_id, gpointer value);
 
 /* destructors for structured values */
