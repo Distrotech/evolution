@@ -1,3 +1,34 @@
+2000-08-03  Peter Williams  <peterw@helixcode.com>
+
+	* main.c (main): One more gconf reference to take out...
+
+	* mail-ops.c (composer_send_cb): Check for an identity before
+	sending.
+	
+2000-08-03  JP Rosevear  <jpr@helixcode.com>
+
+	* mail-config.glade: Increase window size slightly, rename
+	"Transport" to "Mail Transport"
+
+	* mail-config.c (init_config): Remove gconf references
+	(clear_config): ditto
+	(read_config): ditto
+	(write_config): ditto
+	(mail_config): Null provider lists before filling them
+	(mail_config_druid): ditto
+	(identity_page_new): Increase spacing of vbox
+	(service_page_new): ditto
+
+	* Makefile.am: Remove gconf references. 
+
+2000-08-02  Dan Winship  <danw@helixcode.com>
+
+	* mail-config.c (service_page_item_new): Make the "test settings"
+	button FILL rather than SHRINK so it doesn't end up oddly-placed.
+
+	* mail-config-druid.glade: Make the icon background dark blue
+	like the surrounding area.
+
 2000-08-02  Peter Williams  <peterw@helixcode.com>
 
 	* component-factory.c (owner_unset_cb): Wait for async operations

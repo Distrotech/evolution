@@ -15,6 +15,7 @@ INCLUDES = \
 	$(GNOME_VFS_CFLAGS)				\
 	$(UNICODE_CFLAGS)				\
 	$(GCONF_CFLAGS)					\
+	$(GTKHTML_CFLAGS)				\
 	-DEVOLUTION_VERSION=\""$(VERSION)"\"		\
 	-DEVOLUTION_GLADEDIR=\""$(gladedir)"\"		\
 	-DEVOLUTION_ICONSDIR=\""$(iconsdir)"\"		\
@@ -64,7 +65,6 @@ evolution_mail_SOURCES =		\
 	session.c			\
 	mail.h
 
-
 evolution_mail_LDADD = 					\
 	$(top_builddir)/shell/libeshell.a		\
 	$(top_builddir)/composer/libcomposer.la		\
@@ -79,7 +79,6 @@ evolution_mail_LDADD = 					\
 	$(top_builddir)/filter/libfilter.la		\
 	$(BONOBO_VFS_GNOME_LIBS)			\
 	$(GTKHTML_LIBS)					\
-	$(GCONF_LIBS)					\
 	$(THREADS_LIBS)					\
 	$(UNICODE_LIBS)
 
@@ -117,9 +116,6 @@ endif
 
 gladedir   = $(datadir)/evolution/glade
 glade_DATA = mail-config.glade mail-config-druid.glade
-
-schemadir = $(sysconfdir)/gconf/schemas
-schema_DATA = evolution-mail.schemas
 
 iconsdir = $(datadir)/images/evolution
 
