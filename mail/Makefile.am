@@ -71,6 +71,22 @@ libevolution_mail_la_SOURCES =		\
 	component-factory.h		\
 	e-searching-tokenizer.c		\
 	e-searching-tokenizer.h		\
+	em-camel-stream.c		\
+	em-camel-stream.h		\
+	em-folder-view.c		\
+	em-folder-view.h		\
+	em-folder-browser.c		\
+	em-folder-browser.h		\
+	em-format.c			\
+	em-format.h			\
+	em-format-html.c		\
+	em-format-html.h		\
+	em-format-html-display.c	\
+	em-format-html-display.h	\
+	em-format-html-print.c		\
+	em-format-html-print.h		\
+	em-marshal.c			\
+	em-marshal.h			\
 	folder-browser.c		\
 	folder-browser.h		\
 	folder-browser-factory.c	\
@@ -177,6 +193,9 @@ server_DATA = $(server_in_files:.server.in.in=.server)
 %.server.in: %.server.in.in
 	sed -e "s|\@COMPONENTDIR\@|$(componentdir)|" $< > $@
 @INTLTOOL_SERVER_RULE@
+
+MARSHAL_GENERATED = em-marshal.c em-marshal.h
+@EVO_MARSHAL_RULE@
 
 glade_DATA = mail-config.glade local-config.glade subscribe-dialog.glade message-tags.glade
 
