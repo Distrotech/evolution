@@ -164,6 +164,12 @@ efh_gtkhtml_destroy(GtkHTML *html, EMFormatHTML *efh)
 }
 
 static void
+efh_free_inline_parts(void *key, void *data, void *user)
+{
+	camel_object_unref(data);
+}
+
+static void
 efh_finalise(GObject *o)
 {
 	EMFormatHTML *efh = (EMFormatHTML *)o;
@@ -174,7 +180,7 @@ efh_finalise(GObject *o)
 
 	efh_gtkhtml_destroy(efh->html, efh);
 
-	g_hash_table_foreach(efh->priv->text_inline_parts, (GHFunc)camel_object_free, NULL);
+	g_hash_table_foreach(efh->priv->text_inline_parts, efh_free_inline_parts, NULL);
 	g_hash_table_destroy(efh->priv->text_inline_parts);
 
 	g_free(efh->priv);
@@ -564,6 +570,11 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 
 	/* FIXME: We should discard this multipart if it only contains
 	   the original text, but it makes this hash lookup more complex */
+
+	/* TODO: We could probably put this in the superclass, since
+	   no knowledge of html is required - but this messes with
+	   filters a bit.  Perhaps the superclass should just deal with
+	   html anyway and be done with it ... */
 
 	mp = g_hash_table_lookup(efh->priv->text_inline_parts, part);
 	if (mp == NULL) {
@@ -1194,7 +1205,7 @@ efh_format_timeout(struct _format_msg *m)
 			efh->html->engine->newPage = FALSE;
 		} else {
 			/* clear cache of inline-scanned text parts */
-			g_hash_table_foreach(p->text_inline_parts, (GHFunc)camel_object_free, NULL);
+			g_hash_table_foreach(p->text_inline_parts, efh_free_inline_parts, NULL);
 			g_hash_table_destroy(p->text_inline_parts);
 			p->text_inline_parts = g_hash_table_new(NULL, NULL);
 

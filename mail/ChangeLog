@@ -1,5 +1,10 @@
 2003-09-11  Not Zed  <NotZed@Ximian.com>
 
+	* em-format-html.c (efh_finalise, efh_format_timeout): Use a
+	proper hash free func, otherwise it dont work.
+
+2003-09-11  Not Zed  <NotZed@Ximian.com>
+
 	* em-inline-filter.[ch]: A new class which implements an inline
 	snooper via a mime filter, so it is fully streamable.  contents
 	merely passes through the filter.
