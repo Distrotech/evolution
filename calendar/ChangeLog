@@ -1,3 +1,12 @@
+2003-10-22  JP Rosevear <jpr@ximian.com>
+
+	* cal-client/cal-client.c (cal_client_get_object): only change to
+	invalid object error code if we got the object but couldn't parse
+	it, and only check for timezones if we had success
+
+	* gui/comp-util.c (cal_comp_is_on_server): don't throw a warning
+	if the object simply does not exist
+
 2003-10-21  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/calendar-component.c (calendar_component_init): fixed
