@@ -1,3 +1,9 @@
+2000-10-19  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* configure.in (EVOLUTION_MICRO_VERSION): 0.6.
+
+	* Makefile.am: Remove `evolution.spec' stuff.
+
 2000-10-17  Tuomas Kuosmanen  <tigert@helixcode.com>
 
 	* art/splash.png: This looks happier than the dark piece of rusty
