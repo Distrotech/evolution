@@ -505,6 +505,8 @@ e_selection_model_select_as_key_press (ESelectionModel *selection,
 
 	switch (selection->mode) {
 	case GTK_SELECTION_BROWSE:
+	case GTK_SELECTION_MULTIPLE:
+	case GTK_SELECTION_EXTENDED:
 		if (shift_p) {
 			e_selection_model_set_selection_end (selection, row);
 		} else if (!ctrl_p) {
@@ -513,8 +515,6 @@ e_selection_model_select_as_key_press (ESelectionModel *selection,
 			cursor_activated = FALSE;
 		break;
 	case GTK_SELECTION_SINGLE:
-	case GTK_SELECTION_MULTIPLE:
-	case GTK_SELECTION_EXTENDED:
 		e_selection_model_select_single_row (selection, row);
 		break;
 	}

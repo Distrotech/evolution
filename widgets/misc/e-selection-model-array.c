@@ -71,6 +71,7 @@ e_selection_model_array_delete_rows(ESelectionModelArray *esma, int row, int cou
 			e_bit_array_change_one_row(esma->eba, esma->cursor_row, TRUE);
 
 		esma->selected_row = -1;
+		esma->selected_range_end = -1;
 		e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 		e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), esma->cursor_row, esma->cursor_col);
 	}
@@ -86,6 +87,7 @@ e_selection_model_array_insert_rows(ESelectionModelArray *esma, int row, int cou
 			esma->cursor_row += count;
 
 		esma->selected_row = -1;
+		esma->selected_range_end = -1;
 		e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 		e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), esma->cursor_row, esma->cursor_col);
 	}
@@ -117,6 +119,7 @@ e_selection_model_array_move_row(ESelectionModelArray *esma, int old_row, int ne
 			esma->cursor_row = new_row;
 		}
 		esma->selected_row = -1;
+		esma->selected_range_end = -1;
 		e_selection_model_selection_changed(esm);
 		e_selection_model_cursor_changed(esm, esma->cursor_row, esma->cursor_col);
 	}
@@ -227,6 +230,7 @@ esma_clear(ESelectionModel *selection)
 	esma->cursor_row = -1;
 	esma->cursor_col = -1;
 	esma->selected_row = -1;
+	esma->selected_range_end = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), -1, -1);
 }
@@ -272,6 +276,7 @@ esma_select_all (ESelectionModel *selection)
 	esma->cursor_row = 0;
 	esma->selection_start_row = 0;
 	esma->selected_row = -1;
+	esma->selected_range_end = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), 0, 0);
 }
@@ -296,6 +301,7 @@ esma_invert_selection (ESelectionModel *selection)
 	esma->cursor_row = -1;
 	esma->selection_start_row = 0;
 	esma->selected_row = -1;
+	esma->selected_range_end = -1;
 	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
 	e_selection_model_cursor_changed(E_SELECTION_MODEL(esma), -1, -1);
 }
@@ -362,10 +368,9 @@ esma_cursor_col (ESelectionModel *selection)
 }
 
 static void
-esma_select_single_row (ESelectionModel *selection, int row)
+esma_real_select_single_row (ESelectionModel *selection, int row)
 {
 	ESelectionModelArray *esma = E_SELECTION_MODEL_ARRAY(selection);
-	int selected_row = esma->selected_row;
 
 	e_selection_model_array_confirm_row_count(esma);
 	
@@ -373,13 +378,22 @@ esma_select_single_row (ESelectionModel *selection, int row)
 
 	esma->selection_start_row = row;
 	esma->selected_row = row;
+	esma->selected_range_end = row;
+}
+
+static void
+esma_select_single_row (ESelectionModel *selection, int row)
+{
+	int selected_row = E_SELECTION_MODEL_ARRAY(selection)->selected_row;
+	esma_real_select_single_row (selection, row);
+
 	if (selected_row != -1) {
 		if (selected_row != row) {
-			e_selection_model_selection_row_changed(E_SELECTION_MODEL(esma), selected_row);
-			e_selection_model_selection_row_changed(E_SELECTION_MODEL(esma), row);
+			e_selection_model_selection_row_changed(selection, selected_row);
+			e_selection_model_selection_row_changed(selection, row);
 		}
 	} else {
-		e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
+		e_selection_model_selection_changed(selection);
 	}
 }
 
@@ -393,11 +407,12 @@ esma_toggle_single_row (ESelectionModel *selection, int row)
 
 	esma->selection_start_row = row;
 	esma->selected_row = -1;
+	esma->selected_range_end = -1;
 	e_selection_model_selection_row_changed(E_SELECTION_MODEL(esma), row);
 }
 
 static void
-esma_move_selection_end (ESelectionModel *selection, int row)
+esma_real_move_selection_end (ESelectionModel *selection, int row)
 {
 	ESelectionModelArray *esma = E_SELECTION_MODEL_ARRAY(selection);
 	int old_start;
@@ -429,16 +444,37 @@ esma_move_selection_end (ESelectionModel *selection, int row)
 	if (new_end < old_end)
 		esma_change_range(selection, new_end, old_end, FALSE);
 	esma->selected_row = -1;
-	e_selection_model_selection_changed(E_SELECTION_MODEL(esma));
+	esma->selected_range_end = -1;
+}
+
+static void
+esma_move_selection_end (ESelectionModel *selection, int row)
+{
+	esma_real_move_selection_end (selection, row);
+	e_selection_model_selection_changed(selection);
 }
 
 static void
 esma_set_selection_end (ESelectionModel *selection, int row)
 {
 	ESelectionModelArray *esma = E_SELECTION_MODEL_ARRAY(selection);
-	esma_select_single_row(selection, esma->selection_start_row);
+	int selected_range_end = esma->selected_range_end;
+	int view_row = e_sorter_model_to_sorted(selection->sorter, row);
+
+	esma_real_select_single_row(selection, esma->selection_start_row);
 	esma->cursor_row = esma->selection_start_row;
-	esma_move_selection_end(selection, row);
+	esma_real_move_selection_end(selection, row);
+
+	esma->selected_range_end = view_row;
+	if (selected_range_end != -1 && view_row != -1) {
+		if (selected_range_end == view_row - 1 ||
+		    selected_range_end == view_row + 1) {
+			e_selection_model_selection_row_changed(selection, selected_range_end);
+			e_selection_model_selection_row_changed(selection, view_row);
+			return;
+		}
+	}
+	e_selection_model_selection_changed(selection);
 }
 
 int
@@ -463,6 +499,7 @@ e_selection_model_array_init (ESelectionModelArray *esma)
 	esma->cursor_col = -1;
 
 	esma->selected_row = -1;
+	esma->selected_range_end = -1;
 }
 
 static void

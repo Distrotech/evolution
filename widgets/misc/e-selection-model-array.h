@@ -53,6 +53,11 @@ typedef struct {
 	/* Anything other than -1 means that the selection is a single
 	 * row.  This being -1 does not impart any information. */
 	gint        selected_row;
+	/* Anything other than -1 means that the selection is a all
+	 * rows between selection_start_path and cursor_path where
+	 * selected_range_end is the rwo number of cursor_path.  This
+	 * being -1 does not impart any information. */
+	gint        selected_range_end;
 
 	guint frozen : 1;
 	guint selection_model_changed : 1;
