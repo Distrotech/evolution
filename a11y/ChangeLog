@@ -1,3 +1,8 @@
+2004-11-15  Not Zed  <NotZed@Ximian.com>
+
+	* addressbook/ea-minicard.c (atk_action_interface_do_action): fix
+	typo w/ e_minicard_activate_editor.
+
 2004-11-08  Steven Zhang <steven.zhang@sun.com>
 
 	Implement accessible feature for e-minicard and e-mini-card-view.
