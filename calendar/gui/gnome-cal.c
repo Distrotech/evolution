@@ -2301,37 +2301,42 @@ gnome_calendar_get_selected_time_range (GnomeCalendar *gcal,
 }
 
 void
-gnome_calendar_edit_object (GnomeCalendar *gcal, CalComponent *comp, 
-			    gboolean meeting)
+gnome_calendar_edit_object (GnomeCalendar *gcal, CalClient *client, icalcomponent *icalcomp, gboolean meeting)
 {
 	GnomeCalendarPrivate *priv;
 	CompEditor *ce;
 	const char *uid;
+	CalComponent *comp;
 
-	g_return_if_fail (gcal != NULL);
 	g_return_if_fail (GNOME_IS_CALENDAR (gcal));
-	g_return_if_fail (comp != NULL);
+	g_return_if_fail (IS_CAL_CLIENT (client));
+	g_return_if_fail (icalcomp != NULL);
 
 	priv = gcal->priv;
 
-	cal_component_get_uid (comp, &uid);
+	uid = icalcomponent_get_uid (comp);
 
 	ce = e_comp_editor_registry_find (comp_editor_registry, uid);
 	if (!ce) {
 		EventEditor *ee;
 
-		ee = event_editor_new (priv->client);
+		ee = event_editor_new (client);
 		if (!ee) {
 			g_message ("gnome_calendar_edit_object(): Could not create the event editor");
 			return;
 		}
 		ce = COMP_EDITOR (ee);
-		
+
+		comp = cal_component_new ();
+		cal_component_set_icalcomponent (comp, icalcomponent_new_clone (icalcomp));
+
 		comp_editor_edit_comp (ce, comp);
 		if (meeting)
 			event_editor_show_meeting (ee);
 
 		e_comp_editor_registry_add (comp_editor_registry, ce, FALSE);
+
+		g_object_unref (comp);
 	}
 
 	comp_editor_focus (ce);

@@ -1,5 +1,19 @@
 2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
 
+	* cal-util/cal-util.[ch] (cal_util_component_is_instance,
+	cal_util_component_has_recurrences, cal_util_component_has_rdates,
+	cal_util_component_has_rrules, cal_util_event_dates_match):
+	new functions needed for the CalComponent->icalcomponent
+	transition.
+
+	* gui/e-day-view.[ch]:
+	* gui/e-week-view.[ch]: more adaptation to changes in ECalViewEvent.
+
+	* gui/gnome-cal.c (gnome_calendar_edit_object): use icalcomponent's
+	instead of CalComponent's.
+
+2003-08-11  Rodrigo Moya <rodrigo@ximian.com>
+
 	* gui/e-day-view.c: more adaptation to changes in ECalViewEvent.
 	(e_day_view_update_event_cb): use an ECalModelComponent, not a
 	CalComponent.
