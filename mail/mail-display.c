@@ -132,7 +132,7 @@ part_for_url (const char *url, CamelMimeMessage *message)
 {
 	GHashTable *urls;
 
-	urls = gtk_object_get_data (GTK_OBJECT (message), "urls");
+	urls = mail_lookup_url_table (message);
 	g_return_val_if_fail (urls != NULL, NULL);
 	return g_hash_table_lookup (urls, url);
 }
@@ -486,14 +486,10 @@ mail_display_class_init (GtkObjectClass *object_class)
 }
 
 GtkWidget *
-mail_display_new (FolderBrowser *parent_folder_browser)
+mail_display_new (void)
 {
 	MailDisplay *mail_display = gtk_type_new (mail_display_get_type ());
 	GtkWidget *scroll, *html;
-
-	g_assert (parent_folder_browser);
-
-	mail_display->parent_folder_browser = parent_folder_browser;
 
 	gtk_box_set_homogeneous (GTK_BOX (mail_display), FALSE);
 	gtk_widget_show (GTK_WIDGET (mail_display));

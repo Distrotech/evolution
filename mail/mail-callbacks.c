@@ -54,7 +54,7 @@
 
 struct post_send_data {
 	CamelFolder *folder;
-	const char *uid;
+	gchar *uid;
 	guint32 flags;
 };
 
@@ -132,7 +132,7 @@ ask_confirm_for_empty_subject (EMsgComposer *composer)
 		return FALSE;
 }
 
-static void
+void
 composer_send_cb (EMsgComposer *composer, gpointer data)
 {
 	static CamelInternetAddress *ciaddr = NULL;
@@ -200,6 +200,7 @@ composer_send_cb (EMsgComposer *composer, gpointer data)
 		mail_do_send_mail (xport->url, message, ciaddr,
 				   psd->folder, psd->uid, psd->flags, 
 				   GTK_WIDGET (composer));
+		g_free (psd->uid);
 	} else {
 		mail_do_send_mail (xport->url, message, ciaddr,
 				   NULL, NULL, 0,
@@ -273,23 +274,23 @@ send_to_url (const char *url)
 	gtk_widget_show (composer);
 }	
 
-static void
-reply (FolderBrowser *fb, gboolean to_all)
+void
+mail_reply (CamelFolder *folder, CamelMimeMessage *msg, const char *uid, gboolean to_all)
 {
 	EMsgComposer *composer;
 	struct post_send_data *psd;
 
-	if (!check_configured () || !fb->message_list->cursor_uid ||
-	    !fb->mail_display->current_message)
+	if (!check_configured () || !folder ||
+	    !msg || !uid)
 		return;
 
 	psd = g_new (struct post_send_data, 1);
-	psd->folder = fb->folder;
+	psd->folder = folder;
 	camel_object_ref (CAMEL_OBJECT (psd->folder));
-	psd->uid = fb->message_list->cursor_uid;
+	psd->uid = g_strdup (uid);
 	psd->flags = CAMEL_MESSAGE_ANSWERED;
 
-	composer = mail_generate_reply (fb->mail_display->current_message, to_all);
+	composer = mail_generate_reply (msg, to_all);
 
 	gtk_signal_connect (GTK_OBJECT (composer), "send",
 			    GTK_SIGNAL_FUNC (composer_send_cb), psd); 
@@ -302,13 +303,19 @@ reply (FolderBrowser *fb, gboolean to_all)
 void
 reply_to_sender (GtkWidget *widget, gpointer user_data)
 {
-	reply (FOLDER_BROWSER (user_data), FALSE);
+	FolderBrowser *fb = FOLDER_BROWSER (user_data);
+
+	mail_reply (fb->folder, fb->mail_display->current_message, 
+	       fb->message_list->cursor_uid, FALSE);
 }
 
 void
 reply_to_all (GtkWidget *widget, gpointer user_data)
 {
-	reply (FOLDER_BROWSER (user_data), TRUE);
+	FolderBrowser *fb = FOLDER_BROWSER (user_data);
+
+	mail_reply (fb->folder, fb->mail_display->current_message, 
+	       fb->message_list->cursor_uid, FALSE);
 }
 
 static void
@@ -517,9 +524,8 @@ vfolder_edit_vfolders (BonoboUIHandler *uih, void *user_data, const char *path)
  */
 
 void
-print_msg (GtkWidget *button, gpointer user_data)
+mail_print_msg (MailDisplay *md)
 {
-	FolderBrowser *fb = user_data;
 	GnomePrintMaster *print_master;
 	GnomePrintContext *print_context;
 	GtkWidget *preview;
@@ -527,13 +533,21 @@ print_msg (GtkWidget *button, gpointer user_data)
 	print_master = gnome_print_master_new ();
 
 	print_context = gnome_print_master_get_context (print_master);
-	gtk_html_print (fb->mail_display->html, print_context);
+	gtk_html_print (md->html, print_context);
 
 	preview = GTK_WIDGET (gnome_print_master_preview_new (
 		print_master, "Mail Print Preview"));
 	gtk_widget_show (preview);
 
 	gtk_object_unref (GTK_OBJECT (print_master));
+}
+
+void
+print_msg (GtkWidget *button, gpointer user_data)
+{
+	FolderBrowser *fb = user_data;
+
+	mail_print_msg (fb->mail_display);
 }
 
 void

@@ -20,8 +20,47 @@
  *
  */
 
-#include <mail.h>
-#include <camel.h>
+#include <config.h>
+#include "mail.h"
+#include "mail-ops.h"
+#include "camel/camel.h"
+
+typedef struct mail_view_data_s {
+	CamelFolder *source;
+	gchar *uid;
+	CamelMimeMessage *msg;
+	MailDisplay *md;
+} mail_view_data;
+
+static void
+mail_view_data_free (gpointer mvd)
+{
+	mail_view_data *data = (mail_view_data *) mvd;
+
+	if (data->uid)
+		g_free (data->uid);
+	if (data->msg)
+		camel_object_unref (CAMEL_OBJECT (data->msg));
+	if (data->source)
+		camel_object_unref (CAMEL_OBJECT (data->source));
+
+	g_free (data);
+}
+
+static mail_view_data *
+mail_view_data_new (CamelFolder *source, const gchar *uid, CamelMimeMessage *msg)
+{
+	mail_view_data *data;
+
+	data = g_new (mail_view_data, 1);
+	data->source = source;
+	camel_object_ref (CAMEL_OBJECT (data->source));
+	data->msg = msg;
+	camel_object_ref (CAMEL_OBJECT (data->msg));
+	data->uid = g_strdup (uid);
+
+	return data;
+}
 
 static void
 on_close (GtkWidget *menuitem, gpointer user_data)
@@ -33,24 +72,79 @@ on_close (GtkWidget *menuitem, gpointer user_data)
 	gtk_widget_destroy (GTK_WIDGET (view_window));
 }
 
+static void
+view_reply_to_sender (GtkWidget *widget, gpointer user_data)
+{
+	mail_view_data *data = (mail_view_data *) user_data;
+
+	mail_reply (data->source, data->msg, data->uid, FALSE);
+}
+
+static void
+view_reply_to_all (GtkWidget *widget, gpointer user_data)
+{
+	mail_view_data *data = (mail_view_data *) user_data;
+
+	mail_reply (data->source, data->msg, data->uid, TRUE);
+}
+
+static void
+view_forward_msg (GtkWidget *widget, gpointer user_data)
+{
+	mail_view_data *data = (mail_view_data *) user_data;
+
+	GPtrArray *uids;
+	EMsgComposer *composer;
+
+	uids = g_ptr_array_new();
+	g_ptr_array_add (uids, g_strdup (data->uid));
+
+	composer = E_MSG_COMPOSER (e_msg_composer_new ());
+	gtk_signal_connect (GTK_OBJECT (composer), "send",
+			    GTK_SIGNAL_FUNC (composer_send_cb), NULL);
+
+	mail_do_forward_message (data->msg, data->source, uids, composer);
+}
+
+static void
+view_print_msg (GtkWidget *widget, gpointer user_data)
+{
+	mail_view_data *data = (mail_view_data *) user_data;
+
+	mail_print_msg (data->md);
+}
+
+static void
+view_delete_msg (GtkWidget *button, gpointer user_data)
+{
+	mail_view_data *data = (mail_view_data *) user_data;
+
+	GPtrArray *uids;
+
+	uids = g_ptr_array_new();
+	g_ptr_array_add (uids, g_strdup (data->uid));
+	mail_do_flag_messages (data->source, uids, TRUE,
+			       CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_DELETED);
+}
+
 static GnomeUIInfo mail_view_toolbar [] = {
 	
 	/*GNOMEUIINFO_ITEM_STOCK (N_("Save"), N_("Save this message"),
 	  save_msg, GNOME_STOCK_PIXMAP_SAVE),*/
 	
 	GNOMEUIINFO_ITEM_STOCK (N_("Reply"), N_("Reply to the sender of this message"),
-				reply_to_sender, GNOME_STOCK_PIXMAP_MAIL_RPL),
+				view_reply_to_sender, GNOME_STOCK_PIXMAP_MAIL_RPL),
 	
 	GNOMEUIINFO_ITEM_STOCK (N_("Reply to All"), N_("Reply to all recipients of this message"),
-				reply_to_all, GNOME_STOCK_PIXMAP_MAIL_RPL),
+				view_reply_to_all, GNOME_STOCK_PIXMAP_MAIL_RPL),
 	
-	GNOMEUIINFO_ITEM_STOCK (N_("Forward"), N_("Forward this message"), forward_msg, GNOME_STOCK_PIXMAP_MAIL_FWD),
+	GNOMEUIINFO_ITEM_STOCK (N_("Forward"), N_("Forward this message"), view_forward_msg, GNOME_STOCK_PIXMAP_MAIL_FWD),
 	
 	GNOMEUIINFO_SEPARATOR,
 	
-	GNOMEUIINFO_ITEM_STOCK (N_("Print"), N_("Print the selected message"), print_msg, GNOME_STOCK_PIXMAP_PRINT),
+	GNOMEUIINFO_ITEM_STOCK (N_("Print"), N_("Print the selected message"), view_print_msg, GNOME_STOCK_PIXMAP_PRINT),
 	
-	GNOMEUIINFO_ITEM_STOCK (N_("Delete"), N_("Delete this message"), delete_msg, GNOME_STOCK_PIXMAP_TRASH),
+	GNOMEUIINFO_ITEM_STOCK (N_("Delete"), N_("Delete this message"), view_delete_msg, GNOME_STOCK_PIXMAP_TRASH),
 	
 	/*GNOMEUIINFO_SEPARATOR,*/
 	
@@ -82,13 +176,16 @@ static GnomeUIInfo mail_view_menubar[] =
 };
 
 GtkWidget *
-mail_view_create (CamelMimeMessage *msg, FolderBrowser *folder_browser)
+mail_view_create (CamelFolder *source, const char *uid, CamelMimeMessage *msg)
 {
 	GtkWidget *window;
 	GtkWidget *toolbar;
 	GtkWidget *mail_display;
 	char *subject;
-	
+	mail_view_data *data;
+
+	data = mail_view_data_new (source, uid, msg);
+
 	subject = (char *) camel_mime_message_get_subject (msg);
 	if (!subject)
 		subject = "";
@@ -99,12 +196,15 @@ mail_view_create (CamelMimeMessage *msg, FolderBrowser *folder_browser)
 	
 	gnome_app_fill_toolbar_with_data (GTK_TOOLBAR (toolbar),
 					  mail_view_toolbar,
-					  NULL, folder_browser);
+					  NULL, data);
 
 	gnome_app_set_toolbar (GNOME_APP (window), GTK_TOOLBAR (toolbar));
 	
 	gnome_app_create_menus (GNOME_APP (window), mail_view_menubar);
-	
+
+	gtk_object_set_data_full (GTK_OBJECT (window), "mvd", data,
+				  mail_view_data_free);
+
 	gtk_widget_ref (mail_view_menubar[0].widget);
 	gtk_object_set_data_full (GTK_OBJECT (window), "file",
 				  mail_view_menubar[0].widget,
@@ -121,11 +221,14 @@ mail_view_create (CamelMimeMessage *msg, FolderBrowser *folder_browser)
 				  mail_view_menubar[1].widget,
 				  (GtkDestroyNotify) gtk_widget_unref);
 	
-	mail_display = mail_display_new (folder_browser);
+	mail_display = mail_display_new ();
 	mail_display_set_message (MAIL_DISPLAY (mail_display), CAMEL_MEDIUM (msg));
 	gtk_widget_set_usize (mail_display, 600, 600);
-	
+	data->md = MAIL_DISPLAY (mail_display);
 	gnome_app_set_contents (GNOME_APP (window), mail_display);
 	
 	return window;
 }
+
+
+

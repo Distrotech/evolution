@@ -179,7 +179,9 @@ message_list_select (MessageList *message_list, int base_row,
 		last = e_table_model_row_count (message_list->table_model);
 
 	vrow = e_table_model_to_view_row (ets->table, base_row);
-	while (vrow < last) {
+
+	/* We don't know whether to use < or > due to "direction" */
+	while (vrow != last) {
 		mrow = e_table_view_to_model_row (ets->table, vrow);
 		info = get_message_info (message_list, mrow);
 		if (info && (info->flags & mask) == flags) {

@@ -1758,7 +1758,6 @@ typedef struct view_messages_input_s {
 } view_messages_input_t;
 
 typedef struct view_messages_data_s {
-	FolderBrowser *newfb;
 	GPtrArray *messages;
 } view_messages_data_t;
 
@@ -1788,7 +1787,6 @@ static void
 setup_view_messages (gpointer in_data, gpointer op_data, CamelException * ex)
 {
 	view_messages_input_t *input = (view_messages_input_t *) in_data;
-	view_messages_data_t *data = (view_messages_data_t *) op_data;
 
 	if (!input->uids) {
 		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
@@ -1811,9 +1809,6 @@ setup_view_messages (gpointer in_data, gpointer op_data, CamelException * ex)
 
 	camel_object_ref (CAMEL_OBJECT (input->folder));
 	gtk_object_ref (GTK_OBJECT (input->fb));
-
-	data->newfb = FOLDER_BROWSER (folder_browser_new ());
-	folder_browser_set_uri (data->newfb, input->fb->uri);
 }
 
 static void
@@ -1833,10 +1828,7 @@ do_view_messages (gpointer in_data, gpointer op_data, CamelException * ex)
 		message = camel_folder_get_message (input->folder, input->uids->pdata[i], ex);
 		mail_tool_camel_lock_down ();
 
-		if (message)
-			g_ptr_array_add (data->messages, message);
-
-		g_free (input->uids->pdata[i]);
+		g_ptr_array_add (data->messages, message);
 	}
 }
 
@@ -1850,11 +1842,22 @@ cleanup_view_messages (gpointer in_data, gpointer op_data,
 	int i;
 
 	for (i = 0; i < data->messages->len; i++) {
+		CamelMimeMessage *msg;
+		gchar *uid;
 		GtkWidget *view;
 
-		view = mail_view_create (data->messages->pdata[i], data->newfb);
+		if (data->messages->pdata[i] == NULL)
+			continue;
+
+		msg = data->messages->pdata[i];
+		uid = input->uids->pdata[i];
+
+		view = mail_view_create (input->folder, uid, msg);
 		gtk_widget_show (view);
+
+		/*Owned by the mail_display now*/
 		camel_object_unref (CAMEL_OBJECT (data->messages->pdata[i]));
+		g_free (uid);
 	}
 
 	g_ptr_array_free (input->uids, TRUE);

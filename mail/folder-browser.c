@@ -394,7 +394,7 @@ my_folder_browser_init (GtkObject *object)
 	 * Our instance data
 	 */
 	fb->message_list = MESSAGE_LIST (message_list_new (fb));
-	fb->mail_display = MAIL_DISPLAY (mail_display_new (fb));
+	fb->mail_display = MAIL_DISPLAY (mail_display_new ());
 
 	gtk_signal_connect (GTK_OBJECT (fb->message_list->etable),
 			    "key_press", GTK_SIGNAL_FUNC (etable_key), fb);
