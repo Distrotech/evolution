@@ -6,6 +6,7 @@
 #define __PAS_BACKEND_SYNC_H__
 
 #include <glib.h>
+#include <pas/pas-types.h>
 #include <pas/pas-backend.h>
 #include <pas/addressbook.h>
 
@@ -16,19 +17,16 @@
 #define PAS_IS_BACKEND_SYNC_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE ((k), PAS_TYPE_BACKEND_SYNC))
 #define PAS_BACKEND_SYNC_GET_CLASS(k) (G_TYPE_INSTANCE_GET_CLASS ((k), PAS_TYPE_BACKEND_SYNC, PASBackendSyncClass))
 
-typedef struct _PASBackendSync        PASBackendSync;
 typedef struct _PASBackendSyncPrivate PASBackendSyncPrivate;
 
 typedef GNOME_Evolution_Addressbook_BookListenerCallStatus PASBackendSyncStatus;
-
-#include <pas/pas-book.h>
 
 struct _PASBackendSync {
 	PASBackend parent_object;
 	PASBackendSyncPrivate *priv;
 };
 
-typedef struct {
+struct _PASBackendSyncClass {
 	PASBackendClass parent_class;
 
 	/* Virtual methods */
@@ -62,7 +60,7 @@ typedef struct {
 	void (*_pas_reserved3) (void);
 	void (*_pas_reserved4) (void);
 
-} PASBackendSyncClass;
+};
 
 typedef PASBackendSync * (*PASBackendSyncFactoryFn) (void);
 

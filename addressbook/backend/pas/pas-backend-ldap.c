@@ -137,7 +137,6 @@ struct _PASBackendLDAPBookView {
 	PASBookView           *book_view;
 	PASBackendLDAPPrivate *blpriv;
 	gchar                 *search;
-	PASBackendCardSExp    *card_sexp;
 	int                    limit;
 
 	LDAPOp                *search_op;
@@ -320,7 +319,6 @@ view_destroy(gpointer data, GObject *where_object_was)
 
 			/* free up the view structure */
 			g_free (view->search);
-			g_object_unref (view->card_sexp);
 			g_free (view);
 
 			/* and remove it from our list */
@@ -1152,8 +1150,8 @@ create_card_handler (LDAPOp *op, LDAPMessage *res)
 
 			new_vcard = e_card_simple_get_vcard_assume_utf8 (create_op->new_card);
 
-			match = pas_backend_card_sexp_match_vcard (view->card_sexp,
-								   new_vcard);
+			match = pas_book_view_vcard_matches (view->book_view,
+							     new_vcard);
 			if (match) {
 				pas_book_view_notify_add_1 (view->book_view,
 							    new_vcard);
@@ -1472,10 +1470,10 @@ modify_card_modify_handler (LDAPOp *op, LDAPMessage *res)
 
 			bonobo_object_dup_ref(bonobo_object_corba_objref(BONOBO_OBJECT(view->book_view)), &ev);
 
-			old_match = pas_backend_card_sexp_match_vcard (view->card_sexp,
-								       modify_op->current_vcard);
-			new_match = pas_backend_card_sexp_match_vcard (view->card_sexp,
-								       modify_op->vcard);
+			old_match = pas_book_view_vcard_matches (view->book_view,
+								 modify_op->current_vcard);
+			new_match = pas_book_view_vcard_matches (view->book_view,
+								 modify_op->vcard);
 			if (old_match && new_match)
 				pas_book_view_notify_change_1 (view->book_view, modify_op->vcard);
 			else if (new_match)
@@ -3105,8 +3103,18 @@ ldap_get_view (PASBackend *backend,
 	PASBackendLDAP *bl = PAS_BACKEND_LDAP (backend);
 	PASBookView       *book_view;
 	PASBackendLDAPBookView *view;
+	PASBackendCardSExp *card_sexp;
 
-	book_view = pas_book_view_new (listener);
+	card_sexp = pas_backend_card_sexp_new (search);
+	if (!card_sexp) {
+		pas_book_respond_get_book_view (book,
+						/* XXX this needs to be an invalid query error of some sort*/
+						GNOME_Evolution_Addressbook_CardNotFound,
+						book_view);
+		return;
+	}
+
+	book_view = pas_book_view_new (backend, listener, search, card_sexp);
 
 	bonobo_object_ref(BONOBO_OBJECT(book));
 	g_object_weak_ref (G_OBJECT (book_view), view_destroy, book);
@@ -3114,7 +3122,6 @@ ldap_get_view (PASBackend *backend,
 	view = g_new0(PASBackendLDAPBookView, 1);
 	view->book_view = book_view;
 	view->search = g_strdup(search);
-	view->card_sexp = pas_backend_card_sexp_new (view->search);
 	view->blpriv = bl->priv;
 	view->limit = limit;
 
@@ -3363,16 +3370,6 @@ pas_backend_ldap_load_uri (PASBackend             *backend,
 		return GNOME_Evolution_Addressbook_OtherError;
 }
 
-/* Get_uri handler for the addressbook LDAP backend */
-static const char *
-pas_backend_ldap_get_uri (PASBackend *backend)
-{
-	PASBackendLDAP *bl;
-
-	bl = PAS_BACKEND_LDAP (backend);
-	return bl->priv->uri;
-}
-
 static char*
 pas_backend_ldap_get_static_capabilities (PASBackend *backend)
 {
@@ -3469,7 +3466,6 @@ pas_backend_ldap_class_init (PASBackendLDAPClass *klass)
 
 	/* Set the virtual methods. */
 	parent_class->load_uri                = pas_backend_ldap_load_uri;
-	parent_class->get_uri                 = pas_backend_ldap_get_uri;
 	parent_class->get_static_capabilities = pas_backend_ldap_get_static_capabilities;
 
 	parent_class->create_card             = pas_backend_ldap_process_create_card;

@@ -247,9 +247,6 @@ _pas_backend_get_card_list (PASBackend *backend,
   status = pas_backend_sync_get_card_list (PAS_BACKEND_SYNC (backend), book, req, &cards);
 
   pas_book_respond_get_card_list (book, status, cards);
-
-  g_list_foreach (cards, (GFunc)g_free, NULL);
-  g_list_free (cards);
 }
 
 static void

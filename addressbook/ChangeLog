@@ -1,5 +1,48 @@
 2003-07-23  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-backend-file.c (do_summary_query): remove the
+	completion_search argument, and remove the aggregating stuff.
+	just call pas_book_view_notify_add_1.
+	(pas_backend_file_book_view_copy): remove card_sexp crap.
+	(pas_backend_file_book_view_free): same.
+	(get_length): remove
+	(get_nth): remove
+	(cursor_destroy): remove
+	(vcard_matches_search): remove
+	(ecard_matches_search): remove
+	(pas_backend_file_search_timeout): remove the aggregating stuff.
+	just call pas_book_view_notify_add_1.
+	(pas_backend_file_search): simplify this a bunch.
+	(do_create): use pas_book_view_vcard_matches.
+	(pas_backend_file_process_get_card_list): add some more error
+	checks.
+	(pas_backend_file_process_get_book_view): unifdef this, and
+	implement it.
+	(pas_backend_file_start_book_view): kick off the search.
+	(pas_backend_file_get_uri): remove.
+	(pas_backend_file_class_init): remove get_uri, add
+	start_book_view.
+
+	* backend/pas/pas-backend-ldap.c (view_destroy): don't need to
+	unref the card_sexp, as the PASBookView owns it now.
+	(create_card_handler): use pas_book_view_vcard_matches.
+	(modify_card_modify_handler): same.
+	(ldap_get_view): initialize the view properly.
+	(pas_backend_ldap_get_uri): remove.
+	(pas_backend_ldap_class_init): remove the get_uri assignment.
+
+	* backend/pas/pas-backend-sync.c (_pas_backend_get_card_list):
+	don't free this, it's freed in the pas_book code.
+
+	* backend/pas/pas-backend-sync.h: make use of pas-types.h and
+	remove some typedefs.
+
+	* backend/pas/pas-backend-summary.h: same.
+
+	* backend/pas/pas-backend-card-sexp.h: same.
+
+2003-07-23  Chris Toshok  <toshok@ximian.com>
+
 	* backend/pas/pas-book.c
 	(impl_GNOME_Evolution_Addressbook_Book_getBookView): spew.
 	(pas_book_respond_create): unifdef this.
