@@ -2104,7 +2104,9 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 {
 	GnomeCalendarPrivate *priv;
 	gboolean success;
+	EUri *uri;
 	char *message;
+	char *real_uri;
 	char *urinopwd;
 	CalClient *client;
 
@@ -2118,6 +2120,12 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 		cal_client_get_load_state (priv->task_pad_client) == CAL_CLIENT_LOAD_NOT_LOADED,
 		FALSE);
 
+	uri = e_uri_new (str_uri);
+        if (!uri || !g_strncasecmp (uri->protocol, "file", 4))
+                real_uri = g_concat_dir_and_file (str_uri, "calendar.ics");
+        else
+                real_uri = g_strdup (str_uri);
+
 	urinopwd = get_uri_without_password (str_uri);
 	message = g_strdup_printf (_("Opening calendar at %s"), urinopwd);
 	g_free (urinopwd);
@@ -2130,7 +2138,7 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	g_signal_connect (G_OBJECT (client), "categories_changed", G_CALLBACK (client_categories_changed_cb), gcal);
 	g_signal_connect (G_OBJECT (client), "backend_died", G_CALLBACK (backend_died_cb), gcal);
 
-	if (!cal_client_open_calendar (client, str_uri, FALSE)) {
+	if (!cal_client_open_calendar (client, real_uri, FALSE)) {
 		g_warning (G_STRLOC ": Could not issue the request to open the calendar folder");
 		g_object_unref (client);
 		e_cal_view_set_status_message (E_CAL_VIEW (priv->week_view), NULL);
@@ -2142,6 +2150,9 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 	e_calendar_table_set_status_message (E_CALENDAR_TABLE (priv->todo),
 					     _("Opening default tasks folder"));
 	success = cal_client_open_default_tasks (priv->task_pad_client, FALSE);
+
+	g_free (real_uri);
+        e_uri_free (uri);
 
 	if (!success) {
 		g_message ("gnome_calendar_open(): Could not issue the request to open the tasks folder");
