@@ -817,7 +817,7 @@ get_signature_html (EMsgComposer *composer)
 		return NULL;
 	printf ("sig file: %s\n", sig_file);
 	text = e_msg_composer_get_sig_file_content (sig_file, format_html);
-	printf ("text: %s\n", text);
+	/* printf ("text: %s\n", text); */
 	if (text) {
 		/* The signature dash convention ("-- \n") is specified in the
 		 * "Son of RFC 1036": http://www.chemie.fu-berlin.de/outerspace/netnews/son-of-1036.html,
@@ -1677,10 +1677,15 @@ signature_cb (BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Event
 	EMsgComposer *composer = (EMsgComposer *) user_data;
 
 	printf ("signature_cb: %s (%s)\n", path, state);
-	if (composer->block_signature_cb)
-		return;
+
 	if (state && *state == '1') {
 		if (path && !strncmp (path, "Signature", 9)) {
+			MailConfigSignature *old_sig;
+			gboolean old_random;
+
+			old_sig = composer->signature;
+			old_random = composer->random_signature;
+
 			printf ("I'm going to set signature (%d)\n", atoi (path + 9));
 			if (path [10] == 'N') {
 				composer->signature = NULL;
@@ -1691,9 +1696,57 @@ signature_cb (BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_Event
 			} else {
 				composer->signature = g_list_nth_data (mail_config_get_signature_list (), atoi (path + 9));
 			}
-			e_msg_composer_show_sig_file (composer);
+			if (old_sig != composer->signature || old_random != composer->random_signature)
+				e_msg_composer_show_sig_file (composer);
 		}
 	}
+
+	printf ("signature_cb end\n");
+}
+
+static void setup_signatures_menu (EMsgComposer *composer);
+
+static void
+remove_signature_list (EMsgComposer *composer)
+{
+	gchar path [64];
+	gint len = g_list_length (mail_config_get_signature_list ());
+
+	bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SeparatorList", NULL);
+	for (; len; len --) {
+		g_snprintf (path, 64, "/menu/Edit/EditMisc/EditSignaturesSubmenu/Signature%d", len - 1);
+		bonobo_ui_component_rm (composer->uic, path, NULL);
+	}
+}
+
+static void
+sig_event_client (MailConfigSigEvent event, MailConfigSignature *sig, EMsgComposer *composer)
+{
+	gchar *path;
+
+	bonobo_ui_component_freeze (composer->uic, NULL);
+	switch (event) {
+	case MAIL_CONFIG_SIG_EVENT_DELETED:
+		path = g_strdup_printf ("/menu/Edit/EditMisc/EditSignaturesSubmenu/Signature%d",
+					g_list_length (mail_config_get_signature_list ()));
+		bonobo_ui_component_rm (composer->uic, path, NULL);
+		g_free (path);
+		setup_signatures_menu (composer);
+		break;
+	case MAIL_CONFIG_SIG_EVENT_RANDOM_OFF:
+		bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SignatureRandom", NULL);
+		bonobo_ui_component_rm (composer->uic, "/menu/Edit/EditMisc/EditSignaturesSubmenu/SeparatorRandom", NULL);
+		setup_signatures_menu (composer);
+		break;
+	case MAIL_CONFIG_SIG_EVENT_RANDOM_ON:
+		remove_signature_list (composer);
+		setup_signatures_menu (composer);
+		break;
+	case MAIL_CONFIG_SIG_EVENT_ADDED:
+	case MAIL_CONFIG_SIG_EVENT_NAME_CHANGED:
+		setup_signatures_menu (composer);
+	}
+	bonobo_ui_component_thaw (composer->uic, NULL);
 }
 
 static void
@@ -1709,7 +1762,7 @@ setup_signatures_menu (EMsgComposer *composer)
 			    " type=\"radio\" group=\"signatures_group\"/>\n");
 	if (mail_config_get_signatures_random ()) {
 		g_string_append (str,
-				 "<separator/>\n"
+				 "<separator name=\"SeparatorRandom\"/>\n"
 				 "<menuitem name=\"SignatureRandom\" _label=\"Random\" verb=\"SignatureRandom\""
 				 " type=\"radio\" group=\"signatures_group\"/>\n");
 	}
@@ -1717,7 +1770,7 @@ setup_signatures_menu (EMsgComposer *composer)
 	list = mail_config_get_signature_list ();
 	if (list) {
 
-		g_string_append (str, "<separator/>");
+		g_string_append (str, "<separator name=\"SeparatorList\"/>");
 
 		for (l = list; l; len ++, l = l->next) {
 			line = g_strdup_printf ("<menuitem name=\"Signature%d\" _label=\"%s\""
@@ -1895,6 +1948,7 @@ setup_ui (EMsgComposer *composer)
 		menu_view_attachments_activate_cb, composer);
 
 	setup_signatures_menu (composer);
+	mail_config_signature_register_client ((MailConfigSignatureClient) sig_event_client, composer);
 	
 	bonobo_ui_component_thaw (composer->uic, NULL);
 }
@@ -2099,6 +2153,8 @@ destroy (GtkObject *object)
 	CORBA_Environment ev;
 	
 	composer = E_MSG_COMPOSER (object);
+
+	mail_config_signature_register_client ((MailConfigSignatureClient) sig_event_client, composer);
 
 	CORBA_exception_init (&ev);
 
@@ -2645,9 +2701,10 @@ create_composer (void)
 static void
 set_editor_signature (EMsgComposer *composer)
 {
+	printf ("set_editor_signature\n");
 	if (E_MSG_COMPOSER_HDRS (composer->hdrs)->account->id) {
 		MailConfigIdentity *id;
-		gchar *verb;
+		gchar *verb, *name;
 		
 		id = E_MSG_COMPOSER_HDRS (composer->hdrs)->account->id;
 
@@ -2657,17 +2714,20 @@ set_editor_signature (EMsgComposer *composer)
 		else
 			composer->signature = composer->send_html ? id->html_signature : id->text_signature;
 
-		composer->block_signature_cb = TRUE;
-		if (composer->random_signature)
+		if (composer->random_signature) {
 			verb = g_strdup ("/commands/SignatureRandom");
-		else if (composer->signature == NULL)
+			name = g_strdup ("SignatureRandom");
+		} else if (composer->signature == NULL) {
 			verb = g_strdup ("/commands/SignatureNone");
-		else
+			name = g_strdup ("SignatureNone");
+		} else {
 			verb = g_strdup_printf ("/commands/Signature%d", composer->signature->id);
+			name = g_strdup_printf ("Signature%d", composer->signature->id);
+		}
 		bonobo_ui_component_set_prop (composer->uic, verb, "state", "1", NULL);
 		g_free (verb);
-		composer->block_signature_cb = FALSE;
 	}
+	printf ("set_editor_signature end\n");
 }
 
 /**
@@ -3575,6 +3635,7 @@ e_msg_composer_show_sig_file (EMsgComposer *composer)
 	g_return_if_fail (composer != NULL);
 	g_return_if_fail (E_IS_MSG_COMPOSER (composer));
 
+	printf ("e_msg_composer_show_sig_file\n");
 	/* printf ("set sig '%s' '%s'\n", sig_file, composer->sig_file); */
 
 	composer->in_signature_insert = TRUE;
@@ -3598,11 +3659,14 @@ e_msg_composer_show_sig_file (EMsgComposer *composer)
 		GNOME_GtkHTML_Editor_Engine_insertHTML (composer->editor_engine, html, &ev);
 		g_free (html);
 	}
+
 	GNOME_GtkHTML_Editor_Engine_undoEnd (composer->editor_engine, &ev);
 	GNOME_GtkHTML_Editor_Engine_runCommand (composer->editor_engine, "cursor-position-restore", &ev);
 	GNOME_GtkHTML_Editor_Engine_thaw (composer->editor_engine, &ev);
 	CORBA_exception_free (&ev);
 	composer->in_signature_insert = FALSE;
+
+	printf ("e_msg_composer_show_sig_file end\n");
 }
 
 /**

@@ -2627,9 +2627,6 @@ impl_GNOME_Evolution_MailConfig_addAccount (PortableServer_Servant servant,
 	mail_id->name = g_strdup (id.name);
 	mail_id->address = g_strdup (id.address);
 	mail_id->organization = g_strdup (id.organization);
-	/* FIXME mail_id->signature = g_strdup (id.signature);
-	   mail_id->html_signature = g_strdup (id.html_signature);
-	   mail_id->has_html_signature = id.has_html_signature; */
 	
 	mail_account->id = mail_id;
 	
@@ -2804,8 +2801,6 @@ mail_config_signature_delete (MailConfigSignature *sig)
 	GList *l, *next;
 	gboolean after = FALSE;
 
-	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_DELETED, sig);
-
 	/* FIXME remove it from all accounts */
 
 	for (l = config->signature_list; l; l = next) {
@@ -2820,10 +2815,12 @@ mail_config_signature_delete (MailConfigSignature *sig)
 				config->signatures_random --;
 		}
 	}
-	delete_unused_signature_file (sig->filename);
-	signature_destroy (sig);
-	printf ("signatures: %d\n", config->signatures);
+
 	config_write_signatures ();
+	delete_unused_signature_file (sig->filename);
+	printf ("signatures: %d\n", config->signatures);
+	mail_config_signature_emit_event (MAIL_CONFIG_SIG_EVENT_DELETED, sig);
+	signature_destroy (sig);
 }
 
 void
