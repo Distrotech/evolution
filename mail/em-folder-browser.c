@@ -32,6 +32,7 @@
 
 #include <libgnomeprintui/gnome-print-dialog.h>
 
+#include "mail-tools.h"
 #include "mail-config.h"
 
 #include <camel/camel-mime-message.h>
@@ -51,6 +52,7 @@
 #include <bonobo/bonobo-ui-component.h>
 #include <bonobo/bonobo-ui-util.h>
 
+#include "em-utils.h"
 #include "em-format-html-display.h"
 #include "em-format-html-print.h"
 #include "em-folder-browser.h"
@@ -312,6 +314,13 @@ emfb_view_show_all(BonoboUIComponent *uid, void *data, const char *path)
 
 /* ********************************************************************** */
 
+static GtkWindow *
+emfb_get_parent_window (EMFolderBrowser *emfb)
+{
+	/* FIXME: implement me */
+	return NULL;
+}
+
 static void
 emfb_empty_trash(BonoboUIComponent *uid, void *data, const char *path)
 {
@@ -329,8 +338,12 @@ emfb_forget_passwords(BonoboUIComponent *uid, void *data, const char *path)
 static void
 emfb_mail_compose(BonoboUIComponent *uid, void *data, const char *path)
 {
-	EMFolderView *emfv = data;
-	emfv = emfv;
+	EMFolderBrowser *emfb = data;
+	GtkWindow *parent;
+	
+	parent = emfb_get_parent_window (emfb);
+	
+	em_utils_compose_new_message (parent);
 }
 
 static void
@@ -343,7 +356,14 @@ static void
 emfb_mail_post(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderView *emfv = data;
-	emfv = emfv;
+	GtkWindow *parent;
+	char *url;
+	
+	parent = emfb_get_parent_window ((EMFolderBrowser *) emfv);
+	
+	url = mail_tools_folder_to_url (emfv->folder);
+	em_utils_post_to_url (parent, url);
+	g_free (url);
 }
 
 static void
@@ -425,11 +445,10 @@ emfb_hide_deleted(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_E
 	if (type != Bonobo_UIComponent_STATE_CHANGED)
 		return;
 
-	gconf = gconf_client_get_default();
+	gconf = mail_config_get_gconf_client ();
 	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/show_deleted", state[0] == '0', NULL);
 	if (!(emfv->folder && (emfv->folder->folder_flags & CAMEL_FOLDER_IS_TRASH)))
 		message_list_set_hidedeleted(emfv->list, state[0] != '0');
-	g_object_unref(gconf);
 }
 
 static void
@@ -445,11 +464,10 @@ emfb_view_threaded(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_
 	bstate = atoi(state);
 	e_meta_set_bool(fb->meta, "thread_list", bstate);*/
 
-	gconf = gconf_client_get_default();
+	gconf = mail_config_get_gconf_client ();
 	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/thread_list", state[0] != '0', NULL);
 	message_list_set_threaded(emfv->list, state[0] != '0');
-	g_object_unref(gconf);
-
+	
 	/* FIXME: update selection state? */
 }
 
@@ -465,9 +483,8 @@ emfb_view_preview(BonoboUIComponent *uic, const char *path, Bonobo_UIComponent_E
 	/*bstate = atoi(state);
 	  e_meta_set_bool(fb->meta, "show_preview", bstate);*/
 
-	gconf = gconf_client_get_default();
+	gconf = mail_config_get_gconf_client ();
 	gconf_client_set_bool(gconf, "/apps/evolution/mail/display/show_preview", state[0] != '0', NULL);
-	g_object_unref(gconf);
 
 	em_folder_browser_show_preview((EMFolderBrowser *)emfv, state[0] != '0');
 }
@@ -476,8 +493,10 @@ static void
 emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 {
 	if (state) {
+		GConfClient *gconf;
 		gboolean state;
-		GConfClient *gconf = gconf_client_get_default();
+		
+		gconf = mail_config_get_gconf_client ();
 
 		/* parent loads all ui files via ui_files */
 		emfb_parent->activate(emfv, uic, state);
@@ -534,8 +553,6 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state)
 		/*if (fb->view_instance == NULL)
 		  folder_browser_ui_setup_view_menus (fb);
 		  FIXME: The galview instance should be setup earlier, when we have the folder, when we setup a meta? */
-
-		g_object_unref(gconf);
 	} else {
 		const BonoboUIVerb *v;
 		

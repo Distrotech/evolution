@@ -39,6 +39,11 @@ void em_utils_uids_free (GPtrArray *uids);
 gboolean em_utils_configure_account (GtkWindow *parent);
 gboolean em_utils_check_user_can_send_mail (GtkWindow *parent);
 
+void em_utils_compose_new_message (GtkWindow *window);
+void em_utils_compose_new_message_with_mailto (GtkWindow *window, const char *url);
+
+void em_utils_post_to_url (GtkWindow *parent, const char *url);
+
 void em_utils_edit_message (GtkWindow *parent, CamelMimeMessage *message);
 void em_utils_edit_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids);
 

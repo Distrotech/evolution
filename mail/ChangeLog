@@ -1,3 +1,12 @@
+2003-08-22  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-browser.c (emfb_mail_compose): Implemented.
+	(emfb_mail_post): Implemented.
+
+	* em-utils.c (em_utils_compose_new_message): New function.
+	(em_utils_compose_new_message_with_mailto): New.
+	(em_utils_post_to_url): New.
+
 2003-08-21  Not Zed  <NotZed@Ximian.com>
 
 	* subscribe-dialog.glade: removed the text in the progress thing.

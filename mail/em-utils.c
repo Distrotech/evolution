@@ -149,6 +149,73 @@ em_utils_check_user_can_send_mail (GtkWindow *parent)
 }
 
 
+/* Composing messages... */
+
+static EMsgComposer *
+create_new_composer (GtkWindow *parent)
+{
+	EMsgComposer *composer;
+	
+	composer = e_msg_composer_new ();
+	
+	if (parent != NULL)
+		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+	
+	em_composer_utils_setup_default_callbacks (composer);
+	
+	return composer;
+}
+
+void
+em_utils_compose_new_message (GtkWindow *parent)
+{
+	GtkWidget *composer;
+	
+	composer = (GtkWidget *) create_new_composer (parent);
+	
+	gtk_widget_show (composer);
+}
+
+void
+em_utils_compose_new_message_with_mailto (GtkWindow *parent, const char *url)
+{
+	EMsgComposer *composer;
+	
+	if (url != NULL)
+		composer = e_msg_composer_new_from_url (url);
+	else
+		composer = e_msg_composer_new ();
+	
+	if (parent != NULL)
+		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+	
+	em_composer_utils_setup_default_callbacks (composer);
+	
+	gtk_widget_show ((GtkWidget *) composer);
+}
+
+void
+em_utils_post_to_url (GtkWindow *parent, const char *url)
+{
+	EMsgComposer *composer;
+	
+	composer = e_msg_composer_new_post ();
+	
+	if (parent != NULL)
+		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
+	
+	if (url != NULL)
+		e_msg_composer_hdrs_set_post_to ((EMsgComposerHdrs *) ((EMsgComposer *) composer)->hdrs, url);
+	
+	em_composer_utils_setup_default_callbacks (composer);
+	
+	e_msg_composer_unset_changed (composer);
+	e_msg_composer_drop_editor_undo (composer);
+	
+	gtk_widget_show ((GtkWidget *) composer);
+}
+
+
 /* Editing messages... */
 
 static void
@@ -198,21 +265,6 @@ em_utils_edit_messages (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids)
 
 /* Forwarding messages... */
 
-static EMsgComposer *
-forward_get_composer (GtkWindow *parent)
-{
-	EMsgComposer *composer;
-	
-	composer = e_msg_composer_new ();
-	
-	if (parent != NULL)
-		gtk_window_set_transient_for ((GtkWindow *) composer, parent);
-	
-	em_composer_utils_setup_default_callbacks (composer);
-	
-	return composer;
-}
-
 static void
 forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part, char *subject, void *user_data)
 {
@@ -221,7 +273,7 @@ forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part,
 	if (part == NULL)
 		return;
 	
-	composer = forward_get_composer ((GtkWindow *) user_data);
+	composer = create_new_composer ((GtkWindow *) user_data);
 	e_msg_composer_set_headers (composer, NULL, NULL, NULL, NULL, subject);
 	e_msg_composer_attach (composer, part);
 	
@@ -259,7 +311,7 @@ forward_non_attached (GtkWindow *parent, CamelFolder *folder, GPtrArray *uids, G
 		text = mail_tool_forward_message (message, style == MAIL_CONFIG_FORWARD_QUOTED);
 		
 		if (text) {
-			composer = forward_get_composer (parent);
+			composer = create_new_composer (parent);
 			e_msg_composer_set_headers (composer, NULL, NULL, NULL, NULL, subject);
 			e_msg_composer_set_body_text (composer, text);
 			
