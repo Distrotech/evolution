@@ -377,10 +377,10 @@ adapter_get_value (GtkTreeModel *tree_model,
 	v = e_card_simple_get_const(simple, column);
 
 	if (v && !strncmp (v, "<?xml", 5)) {
-		EDestination *dest = e_destination_import (v);
+		EABDestination *dest = eab_destination_import (v);
 		if (dest) {
 			/* XXX blech, we leak this */
-			v = g_strdup (e_destination_get_textrep (dest, TRUE));
+			v = g_strdup (eab_destination_get_textrep (dest, TRUE));
 			g_object_unref (dest);
 		}
 	}
