@@ -53,7 +53,8 @@ FilterDriver      *filter_driver_new	(const char *system, const char *user, Filt
 void filter_driver_set_global(FilterDriver *, const char *name, const char *value);
 
 /* apply rules to a folder, unmatched messages goto inbox, if not NULL */
-int filter_driver_run(FilterDriver *d, CamelFolder *source, CamelFolder *inbox);
+void filter_driver_run(FilterDriver *d, CamelFolder *source, CamelFolder *inbox,
+		       gboolean self_destruct, gpointer unhook_func, gpointer unhook_data);
 
 /* generate the search query/action string for a filter option */
 void filter_driver_expand_option(FilterDriver *d, GString *s, GString *action, struct filter_option *op);

@@ -37,12 +37,16 @@
 #include "filter-format.h"
 
 #include <camel/camel.h>
+#include "mail/mail-tools.h" /*mail_tool_camel_lock_up*/
 
 /* mail-thread filter input data type */
 typedef struct {
 	FilterDriver *driver;
 	CamelFolder *source;
 	CamelFolder *inbox;
+	gboolean self_destruct;
+	gpointer unhook_func;
+	gpointer unhook_data;
 } filter_mail_input_t;
 
 /* mail-thread filter functions */
@@ -159,7 +163,8 @@ filter_driver_init (FilterDriver *obj)
 
 	p->globals = g_hash_table_new (g_str_hash, g_str_equal);
 
-	p->ex = camel_exception_new ();
+	/* Will get set in filter_driver_run */
+	p->ex = NULL;
 }
 
 static void
@@ -180,7 +185,9 @@ filter_driver_finalise (GtkObject *obj)
 
 	gtk_object_unref (GTK_OBJECT (p->eval));
 
-	camel_exception_free (p->ex);
+	/*Was set to the mail_operation_queue exception,
+	 * not our responsibility to free it.*/
+	/*camel_exception_free (p->ex);*/
 	
 	g_free (p);
 
@@ -361,7 +368,9 @@ do_delete (struct _ESExp *f, int argc, struct _ESExpResult **argv, FilterDriver 
 		uid = p->matches->pdata[i];
 		printf (" %s\n", uid);
 
+		mail_tool_camel_lock_up ();
 		camel_folder_delete_message (p->source, uid);
+		mail_tool_camel_lock_down ();
 	}
 	return NULL;
 }
@@ -443,7 +452,9 @@ open_folder (FilterDriver *driver, const char *folder_url)
 	camelfolder = p->fetcher (folder_url);
 	if (camelfolder) {
 		g_hash_table_insert (p->folders, g_strdup (folder_url), camelfolder);
+		mail_tool_camel_lock_up ();
 		camel_folder_freeze (camelfolder);
+		mail_tool_camel_lock_down ();
 	}
 
 	return camelfolder;
@@ -457,8 +468,10 @@ close_folder (void *key, void *value, void *data)
 	struct _FilterDriverPrivate *p = _PRIVATE (driver);
 
 	g_free (key);
+	mail_tool_camel_lock_up ();
 	camel_folder_sync (folder, FALSE, p->ex);
 	camel_folder_thaw (folder);
+	mail_tool_camel_lock_down ();
 	gtk_object_unref (GTK_OBJECT (folder));
 }
 
@@ -506,8 +519,9 @@ static const mail_operation_spec op_filter_mail =
 	cleanup_filter_mail
 };
 
-int
-filter_driver_run (FilterDriver *d, CamelFolder *source, CamelFolder *inbox)
+void
+filter_driver_run (FilterDriver *d, CamelFolder *source, CamelFolder *inbox,
+		   gboolean self_destruct, gpointer unhook_func, gpointer unhook_data)
 {
 	filter_mail_input_t *input;
 
@@ -515,10 +529,11 @@ filter_driver_run (FilterDriver *d, CamelFolder *source, CamelFolder *inbox)
 	input->driver = d;
 	input->source = source;
 	input->inbox = inbox;
+	input->self_destruct = self_destruct;
+	input->unhook_func = unhook_func;
+	input->unhook_data = unhook_data;
 
 	mail_operation_queue (&op_filter_mail, input, TRUE);
-
-	return 0;
 }
 
 static void
@@ -572,8 +587,12 @@ do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	p->processed = g_hash_table_new (g_str_hash, g_str_equal);
 	p->copies = g_hash_table_new (g_str_hash, g_str_equal);
 
-	camel_exception_init (p->ex);
+	/*camel_exception_init (p->ex);*/
+	p->ex = ex;
+
+	mail_tool_camel_lock_up ();
 	camel_folder_freeze (inbox);
+	mail_tool_camel_lock_down ();
 
 	options = p->options;
 	while (options) {
@@ -583,7 +602,9 @@ do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 		a = g_string_new ("");
 		filter_driver_expand_option (d, s, a, fo);
 
+		mail_tool_camel_lock_up ();
 		p->matches = camel_folder_search_by_expression (p->source, s->str, p->ex);
+		mail_tool_camel_lock_down ();
 
 		/* remove uid's for which processing is complete ... */
 		for (i = 0; i < p->matches->len; i++) {
@@ -618,7 +639,9 @@ do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	 * the source. If we have an inbox, anything that didn't get
 	 * processed otherwise goes there.
 	 */
+	mail_tool_camel_lock_up ();
 	all = camel_folder_get_uids (p->source);
+	mail_tool_camel_lock_down ();
 	for (i = 0; i < all->len; i++) {
 		char *uid = all->pdata[i], *procuid;
 		GList *copies, *tmp;
@@ -627,6 +650,7 @@ do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 		copies = g_hash_table_lookup (p->copies, uid);
 		procuid = g_hash_table_lookup (p->processed, uid);
 
+		mail_tool_camel_lock_up ();
 		if (copies || !procuid) {
 			mm = camel_folder_get_message (p->source, uid, p->ex);
 
@@ -645,8 +669,15 @@ do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 			gtk_object_unref (GTK_OBJECT (mm));
 		}
 		camel_folder_delete_message (p->source, uid);
+		mail_tool_camel_lock_down ();
+
 	}
+	mail_tool_camel_lock_up ();
 	camel_folder_free_uids (p->source, all);
+	if (input->unhook_func)
+		camel_object_unhook_event (CAMEL_OBJECT (input->inbox), "folder_changed", 
+					   input->unhook_func, input->unhook_data);
+	mail_tool_camel_lock_down ();
 
 	g_hash_table_foreach (p->copies, free_key, NULL);
 	g_hash_table_destroy (p->copies);
@@ -656,7 +687,9 @@ do_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	g_hash_table_destroy (p->terminated);
 	close_folders (d);
 	g_hash_table_destroy (p->folders);
+	mail_tool_camel_lock_up ();
 	camel_folder_thaw (inbox);
+	mail_tool_camel_lock_down ();
 }
 
 static void
@@ -666,6 +699,9 @@ cleanup_filter_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 
 	camel_object_unref (CAMEL_OBJECT (input->source));
 	camel_object_unref (CAMEL_OBJECT (input->inbox));
+
+	if (input->self_destruct)
+		gtk_object_unref (GTK_OBJECT (input->driver));
 }
 
 #if 0

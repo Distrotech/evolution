@@ -1,3 +1,11 @@
+2000-07-21  Peter Williams  <peterw@helixcode.com>
+
+	* filter-driver.c (cleanup_filter_mail): Use the exception
+	provided to us by the async manager instead of allocating
+	our own; use mail_tool_camel_lock_{up,down} around camel
+	operations.
+	(filter_driver_run): Make it return void.
+
 2000-07-20  Jeffrey Stedfast  <fejj@helixcode.com>
 
 	* filter-driver.c: Update to make "async".
