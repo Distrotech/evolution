@@ -213,9 +213,8 @@ go_online (MailComponent *component)
 }
 
 
-/* Creating new views.  */
+/* EStorageBrowser callbacks.  */
 
-/* FIXME: Should just return a widget.  */
 static BonoboControl *
 create_noselect_control (void)
 {
@@ -245,9 +244,6 @@ create_view_callback (EStorageBrowser *browser,
 	folder_type  = e_folder_get_type_string (folder);
 	physical_uri = e_folder_get_physical_uri (folder);
 
-	/* FIXME TODO folder_browser_factory should return a widget instead of
-	   a control now.  */
-
 	if (type_is_mail (folder_type)) {
 		const char *noselect;
 		CamelURL *url;
@@ -274,10 +270,34 @@ create_view_callback (EStorageBrowser *browser,
 	if (!control)
 		return NULL;
 
-	/* FIXME: This leaks the control, but we don't care for now.  See the
-	   above comment about folder_browser_factory anyways.  */
-
+	/* FIXME: This leaks the control.  */
 	return bonobo_widget_new_control_from_objref (BONOBO_OBJREF (control), CORBA_OBJECT_NIL);
+}
+
+static void
+browser_page_switched_callback (EStorageBrowser *browser,
+				GtkWidget *old_page,
+				GtkWidget *new_page,
+				BonoboControl *parent_control)
+{
+	if (BONOBO_IS_WIDGET (old_page)) {
+		BonoboControlFrame *control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (old_page));
+
+		bonobo_control_frame_control_deactivate (control_frame);
+	}
+
+	if (BONOBO_IS_WIDGET (new_page)) {
+		BonoboControlFrame *control_frame = bonobo_widget_get_control_frame (BONOBO_WIDGET (new_page));
+		Bonobo_UIContainer ui_container = bonobo_control_get_remote_ui_container (parent_control, NULL);
+
+		/* This is necessary because we are not embedding the folder browser control
+		   directly; we are putting the folder browser control into a notebook which
+		   is then exported to the shell as a control.  So we need to forward the
+		   notebook's UIContainer to the folder browser.  */
+		bonobo_control_frame_set_ui_container (control_frame, ui_container, NULL);
+
+		bonobo_control_frame_control_activate (control_frame);
+	}
 }
 
 
@@ -331,7 +351,8 @@ impl_createControls (PortableServer_Servant servant,
 		     Bonobo_Control *corba_view_control,
 		     CORBA_Environment *ev)
 {
-	MailComponentPrivate *priv = MAIL_COMPONENT (bonobo_object_from_servant (servant))->priv;
+	MailComponent *mail_component = MAIL_COMPONENT (bonobo_object_from_servant (servant));
+	MailComponentPrivate *priv = mail_component->priv;
 	EStorageBrowser *browser;
 	GtkWidget *tree_widget;
 	GtkWidget *view_widget;
@@ -351,6 +372,9 @@ impl_createControls (PortableServer_Servant servant,
 
 	*corba_sidebar_control = CORBA_Object_duplicate (BONOBO_OBJREF (sidebar_control), ev);
 	*corba_view_control = CORBA_Object_duplicate (BONOBO_OBJREF (view_control), ev);
+
+	g_signal_connect_object (browser, "page_switched",
+				 G_CALLBACK (browser_page_switched_callback), view_control, 0);
 }
 
 
