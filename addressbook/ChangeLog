@@ -1,5 +1,21 @@
 2003-08-31  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-book-query.c (func_and, func_or, func_not)
+	(func_contains, func_is, func_beginswith, func_endswith)
+	(e_book_query_from_string): adapt the pas ldap backend sexp
+	parsing code to this, build up an EBookQuery that represents the
+	sexp.
+
+	* backend/ebook/e-contact.h (e_contact_field_id): add prototype.
+
+	* backend/ebook/e-contact.c (e_contact_field_id): new function.
+
+	* backend/ebook/Makefile.am (libebook_la_SOURCES): add
+	e-book-util.c back into the build, if only for the config_database
+	thingy.
+
+2003-08-31  Chris Toshok  <toshok@ximian.com>
+
 	* backend/ebook/e-contact.c (e_contact_duplicate): new function.
 
 	* backend/ebook/e-contact.h: add prototype for

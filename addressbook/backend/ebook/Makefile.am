@@ -50,6 +50,7 @@ libebook_la_SOURCES =					\
 	$(CORBA_SOURCE)					\
 	e-book-marshal.c				\
 	e-book-query.c					\
+	e-book-util.c					\
 	e-book-view-listener.c				\
 	e-book-view.c					\
 	e-book-listener.c				\

@@ -424,6 +424,20 @@ e_contact_pretty_name (EContactField field_id)
 	return "";
 }
 
+EContactField
+e_contact_field_id (const char *field_name)
+{
+	int i;
+
+	for (i = 0; i < G_N_ELEMENTS (field_info); i ++) {
+		if (!strcmp (field_info[i].field_name, field_name))
+			return field_info[i].field_id;
+	}
+
+	g_warning ("unknown field name `%s'", field_name);
+	return 0;
+}
+
 gpointer
 e_contact_get (EContact *contact, EContactField field_id)
 {
