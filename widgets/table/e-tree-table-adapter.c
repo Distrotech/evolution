@@ -23,6 +23,9 @@
  */
 
 #include <config.h>
+
+#include "e-tree-table-adapter.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <gtk/gtksignal.h>
@@ -30,7 +33,7 @@
 #include <gnome-xml/parser.h>
 #include "gal/util/e-util.h"
 #include "gal/util/e-xml-utils.h"
-#include "e-tree-table-adapter.h"
+#include "e-tree-sorted.h"
 
 #define PARENT_TYPE E_TABLE_MODEL_TYPE
 #define d(x)
@@ -117,6 +120,52 @@ find_or_create_node(ETreeTableAdapter *etta, ETreePath path)
 		} else {
 			g_hash_table_insert(etta->priv->attributes, path, node);
 		}
+	}
+
+	return node;
+}
+
+static ETreeTableAdapterNode *
+find_node_from_source(ETreeTableAdapter *adapter, ETreeModel *source, ETreePath path)
+{
+	ETreeTableAdapterNode *node;
+	char *save_id;
+
+	if (path == NULL)
+		return NULL;
+
+	save_id = e_tree_model_get_save_id(source, path);
+	node = g_hash_table_lookup(adapter->priv->attributes, save_id);
+	g_free(save_id);
+
+	if (node && !node->expandable_set) {
+		node->expandable = e_tree_model_node_is_expandable(adapter->priv->source, path);
+		node->expandable_set = 1;
+	}
+
+	return node;
+}
+
+static ETreeTableAdapterNode *
+find_or_create_node_from_source(ETreeTableAdapter *etta, ETreeModel *source, ETreePath path)
+{
+	ETreeTableAdapterNode *node;
+
+	node = find_node_from_source(etta, source, path);
+
+	if (!node) {
+		char *save_id;
+		node = g_new(ETreeTableAdapterNode, 1);
+		if (e_tree_model_node_is_root(source, path))
+			node->expanded = TRUE;
+		else
+			node->expanded = e_tree_model_get_expanded_default(source);
+		node->expandable = e_tree_model_node_is_expandable(source, path);
+		node->expandable_set = 1;
+		node->num_visible_children = 0;
+
+		save_id = e_tree_model_get_save_id(etta->priv->source, path);
+		g_hash_table_insert(etta->priv->attributes, save_id, node);
 	}
 
 	return node;
@@ -1118,4 +1167,25 @@ gboolean     e_tree_table_adapter_node_is_expanded (ETreeTableAdapter *etta, ETr
 		return node->expanded;
 	} else
 		return FALSE;
+}
+
+gboolean     e_tree_table_adapter_source_node_is_expanded (ETreeTableAdapter *etta, ETreePath path)
+{
+	ETreeModel *source;
+	g_return_val_if_fail (E_IS_TREE_SORTED (etta->priv->source), FALSE);
+
+	gtk_object_get (GTK_OBJECT (etta->priv->source),
+			"source", &source,
+			NULL);
+
+	if (e_tree_model_has_save_id(source)) {
+		if (e_tree_model_node_is_expandable(source, path)) {
+			ETreeTableAdapterNode *node = find_or_create_node_from_source(etta, source, path);
+			return node->expanded;
+		} else
+			return FALSE;
+	} else {
+		return e_tree_table_adapter_node_is_expanded
+			(etta, e_tree_sorted_model_to_view_path (E_TREE_SORTED (etta->priv->source), path));
+	}
 }

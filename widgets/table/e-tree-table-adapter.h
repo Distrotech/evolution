@@ -71,8 +71,11 @@ ETreePath    e_tree_table_adapter_node_at_row                (ETreeTableAdapter 
 int          e_tree_table_adapter_row_of_node                (ETreeTableAdapter *etta,
 							      ETreePath          path);
 gboolean     e_tree_table_adapter_root_node_is_visible       (ETreeTableAdapter *etta);
-
 void         e_tree_table_adapter_show_node                  (ETreeTableAdapter *etta,
+							      ETreePath          path);
+
+/* This function assumes that etta->priv->source is an ETreeSorted. */
+gboolean     e_tree_table_adapter_source_node_is_expanded    (ETreeTableAdapter *etta,
 							      ETreePath          path);
 
 void         e_tree_table_adapter_save_expanded_state        (ETreeTableAdapter *etta,

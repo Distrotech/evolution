@@ -114,6 +114,7 @@ enum {
 	ARG_0,
 
 	ARG_SORT_INFO,
+	ARG_SOURCE,
 };
 
 static void ets_sort_info_changed (ETableSortInfo *sort_info, ETreeSorted *ets);
@@ -704,6 +705,10 @@ ets_get_arg (GtkObject *object, GtkArg *arg, guint arg_id)
 			GTK_VALUE_OBJECT (*arg) = NULL;
 		break;
 
+	case ARG_SOURCE:
+		GTK_VALUE_OBJECT (*arg) = (GtkObject *) ets->priv->source;
+		break;
+
 	default:
 		arg->type = GTK_TYPE_INVALID;
 		break;
@@ -1231,6 +1236,8 @@ e_tree_sorted_class_init (ETreeSortedClass *klass)
 
 	gtk_object_add_arg_type ("ETreeSorted::sort_info", E_TABLE_SORT_INFO_TYPE,
 				 GTK_ARG_READWRITE, ARG_SORT_INFO);
+	gtk_object_add_arg_type ("ETreeSorted::source", E_TREE_MODEL_TYPE,
+				 GTK_ARG_READABLE, ARG_SOURCE);
 
 	signals [NODE_RESORTED] =
 		gtk_signal_new ("node_resorted",
