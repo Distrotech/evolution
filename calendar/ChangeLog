@@ -1,5 +1,14 @@
 2003-10-14  Rodrigo Moya <rodrigo@ximian.com>
 
+	* gui/e-cal-view.c (e_cal_view_init): connect to signals on the
+	model we create here, so that we get notifications for changes.
+
+	* gui/gnome-cal.c (gnome_calendar_set_query): set the query
+	on all models.
+	(gnome_calendar_open): update the date navigator query.
+
+2003-10-14  Rodrigo Moya <rodrigo@ximian.com>
+
 	* pcs/cal.c (cal_notify_timezone_requested): never send NULL
 	strings to ORBit.
 

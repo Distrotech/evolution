@@ -663,8 +663,10 @@ gnome_calendar_set_query (GnomeCalendar *gcal, const char *sexp)
 	update_query (gcal);
 
 	/* Set the query on the main view */
-	model = e_cal_view_get_model (E_CAL_VIEW (gnome_calendar_get_current_view_widget (gcal)));
-	e_cal_model_set_query (model, sexp);
+	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->day_view)), sexp);
+	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->work_week_view)), sexp);
+	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->week_view)), sexp);
+	e_cal_model_set_query (e_cal_view_get_model (E_CAL_VIEW (priv->month_view)), sexp);
 
 	/* Set the query on the task pad */
 	model = e_calendar_table_get_model (E_CALENDAR_TABLE (priv->todo));
@@ -2132,6 +2134,9 @@ gnome_calendar_open (GnomeCalendar *gcal, const char *str_uri)
 			return FALSE;
 		}
 	}
+
+	/* update date navigator query */
+	update_query (gcal);
 
 	return TRUE;
 }

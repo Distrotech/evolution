@@ -381,6 +381,14 @@ e_cal_view_init (ECalView *cal_view, ECalViewClass *klass)
 	cal_view->priv = g_new0 (ECalViewPrivate, 1);
 
 	cal_view->priv->model = (ECalModel *) e_cal_model_calendar_new ();
+	g_signal_connect (G_OBJECT (cal_view->priv->model), "model_changed",
+			  G_CALLBACK (model_changed_cb), cal_view);
+	g_signal_connect (G_OBJECT (cal_view->priv->model), "model_row_changed",
+			  G_CALLBACK (model_row_changed_cb), cal_view);
+	g_signal_connect (G_OBJECT (cal_view->priv->model), "model_rows_inserted",
+			  G_CALLBACK (model_rows_changed_cb), cal_view);
+	g_signal_connect (G_OBJECT (cal_view->priv->model), "model_rows_deleted",
+			  G_CALLBACK (model_rows_changed_cb), cal_view);
 
 	/* Set up the invisible widget for the clipboard selections */
 	cal_view->priv->invisible = gtk_invisible_new ();
