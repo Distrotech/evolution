@@ -307,13 +307,16 @@ cs_connection_process_command(CSConnection *cnx)
 	if(commands[i].args[j].argtype != arg->type)
 	  goto errout;
       }
-      if(!commands[i].args[j].argtype) goto errout; /* too many args */
+      if(commands[i].args[j].argtype) goto errout; /* too many args */
       if(!arg && commands[i].args[j].is_required) goto errout; /* too few */
 
       /* do it */
       commands[i].handler(cnx, &cnx->curcmd);
     }
   }
+
+  return;
+
  errout:
   g_warning("Unknown command %s", cnx->curcmd.name);
   fprintf(cnx->fh, "%s BAD unknown command\r\n", cnx->curcmd.id);

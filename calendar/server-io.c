@@ -92,6 +92,10 @@ cs_connection_process(gpointer data, GIOCondition cond,
 
   /* read the data */
   rsize = read(cnx->fd, readbuf, sizeof(readbuf) - 1);
+  if(!rsize) {
+    cs_connection_destroy(cnx);
+    return;
+  }
   readbuf[rsize] = '\0';
   g_string_append(cnx->rdbuf, readbuf);
 
@@ -148,6 +152,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
       switch(*cnx->rdbuf->str) {
       case '(': /* open list */
 	cnx->curarg = cs_cmdarg_new(NULL, cnx->curarg);
+	if(!cnx->curcmd.args) cnx->curcmd.args = cnx->curarg;
 	cnx->curarg->type = ITEM_SUBLIST;
 	g_string_erase(cnx->rdbuf, 0, 1);
 	found_something = TRUE;
@@ -178,6 +183,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	if(!ctmp) break;
 	found_something = TRUE;
 	cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	if(!cnx->curcmd.args) cnx->curcmd.args = cnx->curarg;
 	cnx->curarg->type = ITEM_STRING;
 	cnx->curarg->data = g_strndup(cnx->rdbuf->str + 1, ctmp - cnx->rdbuf->str - 1);
 	g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
@@ -199,6 +205,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	if(ctmp) {
 	  found_something = TRUE;
 	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	  if(!cnx->curcmd.args) cnx->curcmd.args = cnx->curarg;
 	  cnx->curarg->type = ITEM_STRING;
 	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
 	  g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
@@ -208,6 +215,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	if(ctmp) {
 	  found_something = TRUE;
 	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	  if(!cnx->curcmd.args) cnx->curcmd.args = cnx->curarg;
 	  cnx->curarg->type = ITEM_STRING;
 	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
 	  cnx->curarg = cnx->curarg->up;
@@ -219,6 +227,7 @@ cs_connection_process(gpointer data, GIOCondition cond,
 	  found_something = TRUE;
 	  cnx->rs = RS_DONE;
 	  cnx->curarg = cs_cmdarg_new(cnx->curarg, NULL);
+	  if(!cnx->curcmd.args) cnx->curcmd.args = cnx->curarg;
 	  cnx->curarg->type = ITEM_STRING;
 	  cnx->curarg->data = g_strndup(cnx->rdbuf->str, ctmp - cnx->rdbuf->str);
 	  g_string_erase(cnx->rdbuf, 0, ctmp - cnx->rdbuf->str);
