@@ -182,6 +182,8 @@ ecb_destroy (GtkObject *object)
 		gdk_bitmap_unref (ecb->priv->stipple);
 	ecb->priv->stipple = NULL;
 
+	g_free (ecb->priv);
+
 	if (GTK_OBJECT_CLASS (parent_class)->destroy)
                 GTK_OBJECT_CLASS (parent_class)->destroy (object);
 }
