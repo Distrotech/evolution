@@ -37,11 +37,8 @@ typedef struct _EShellClass   EShellClass;
 
 #include "Evolution.h"
 
-#include "e-component-registry.h"
-#include "e-uri-schema-registry.h"
 #include "e-shell-user-creatable-items-handler.h"
-#include "e-local-storage.h"
-#include "e-storage-set.h"
+#include "e-uri-schema-registry.h"
 #include "e-shell-window.h"
 
 
@@ -100,10 +97,8 @@ GtkType                e_shell_get_type   (void);
 EShellConstructResult  e_shell_construct  (EShell                *shell,
 					   const char            *iid,
 					   const char            *local_directory,
-					   gboolean               show_splash,
 					   EShellStartupLineMode  startup_line_mode);
 EShell                *e_shell_new        (const char            *local_directory,
-					   gboolean               show_splash,
 					   EShellStartupLineMode  startup_line_mode,
 					   EShellConstructResult *construct_result_return);
 
@@ -114,9 +109,6 @@ gboolean      e_shell_request_close_window  (EShell       *shell,
 
 
 const char          *e_shell_get_local_directory       (EShell          *shell);
-EStorageSet         *e_shell_get_storage_set           (EShell          *shell);
-ELocalStorage       *e_shell_get_local_storage         (EShell          *shell);
-EFolderTypeRegistry *e_shell_get_folder_type_registry  (EShell          *shell);
 EUriSchemaRegistry  *e_shell_get_uri_schema_registry   (EShell          *shell);
 
 gboolean             e_shell_save_settings             (EShell          *shell);
@@ -125,23 +117,16 @@ void                 e_shell_destroy_all_windows       (EShell          *shell);
 
 void                 e_shell_unregister_all            (EShell          *shell);
 
-void                 e_shell_component_maybe_crashed   (EShell          *shell,
-							const char      *uri,
-							const char      *type_name,
-							EShellWindow    *shell_window);
-
 EShellLineStatus  e_shell_get_line_status  (EShell       *shell);
 void              e_shell_go_offline       (EShell       *shell,
 					    EShellWindow *action_window);
 void              e_shell_go_online        (EShell       *shell,
 					    EShellWindow *action_window);
 
-void e_shell_send_receive  (EShell     *shell);
 void e_shell_show_settings (EShell     *shell,
 			    const char *type,
 			    EShellWindow *shell_window);
 
-EComponentRegistry              *e_shell_get_component_registry            (EShell *shell);
 EShellUserCreatableItemsHandler *e_shell_get_user_creatable_items_handler  (EShell *shell);
 
 gboolean e_shell_prepare_for_quit (EShell *shell);

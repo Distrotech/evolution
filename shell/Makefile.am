@@ -184,8 +184,6 @@ evolution_SOURCES =				\
 	$(WOMBAT_IDL_GENERATED)			\
 	e-component-info.c			\
 	e-component-info.h			\
-	e-component-registry.c			\
-	e-component-registry.h			\
 	e-config-upgrade.c			\
 	e-config-upgrade.h			\
 	e-corba-config-page.c			\
@@ -205,10 +203,6 @@ evolution_SOURCES =				\
 	e-shell-about-box.c			\
 	e-shell-about-box.h			\
 	e-shell-constants.h			\
-	e-shell-folder-creation-dialog.c	\
-	e-shell-folder-creation-dialog.h	\
-	e-shell-folder-selection-dialog.c	\
-	e-shell-folder-selection-dialog.h	\
 	e-shell-folder-title-bar.c		\
 	e-shell-folder-title-bar.h		\
 	e-shell-settings-dialog.c		\
@@ -229,10 +223,6 @@ evolution_SOURCES =				\
 	e-task-widget.h				\
 	e-uri-schema-registry.c			\
 	e-uri-schema-registry.h			\
-	evolution-storage-set-view.c		\
-	evolution-storage-set-view.h		\
-	evolution-storage-set-view-factory.c	\
-	evolution-storage-set-view-factory.h	\
 	main.c
 
 evolution_LDADD =							\

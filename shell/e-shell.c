@@ -28,25 +28,16 @@
 
 #include "e-util/e-dialog-utils.h"
 
-#include "e-component-registry.h"
-#include "e-corba-storage-registry.h"
-#include "e-folder-type-registry.h"
-#include "e-local-storage.h"
 #include "e-setup.h"
 #include "e-shell-constants.h"
-#include "e-shell-corba-icon-utils.h"
-#include "e-shell-folder-selection-dialog.h"
 #include "e-shell-settings-dialog.h"
 #include "e-shell-startup-wizard.h"
-#include "e-splash.h"
-#include "e-storage-set.h"
 #include "e-uri-schema-registry.h"
 
 #include "e-shell-marshal.h"
 
 #include "evolution-shell-component-client.h"
 #include "evolution-shell-component-utils.h"
-#include "evolution-storage-set-view-factory.h"
 
 #include "importer/intelligent.h"
 
@@ -88,19 +79,10 @@ struct _EShellPrivate {
 
 	GList *windows;
 
-	EStorageSet *storage_set;
-	ELocalStorage *local_storage;
-	EStorage *summary_storage;
-
-	EFolderTypeRegistry *folder_type_registry;
 	EUriSchemaRegistry *uri_schema_registry;
 
-	EComponentRegistry *component_registry;
-
-	/* ::StorageRegistry interface handler.  */
-	ECorbaStorageRegistry *corba_storage_registry; /* <aggregate> */
-
 	/* Names for the types of the folders that have maybe crashed.  */
+	/* FIXME TODO */
 	GList *crash_type_names; /* char * */
 
 	/* Line status.  */
@@ -125,12 +107,7 @@ struct _EShellPrivate {
 };
 
 
-/* Constants.  */
-
-/* FIXME: We need a component repository instead.  */
-
-#define LOCAL_STORAGE_DIRECTORY "local"
-
+/* Signals.  */
 
 enum {
 	NO_WINDOWS_LEFT,
@@ -143,22 +120,6 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 
 /* Utility functions.  */
-
-static void
-pop_up_activation_error_dialog (ESplash *splash,
-				const char *id,
-				CORBA_Environment *ev)
-{
-	char *error_message;
-
-	error_message = e_get_activation_failure_msg (ev);
-	e_notice (splash, GTK_MESSAGE_ERROR,
-		  _("Cannot activate component %s :\n"
-		    "The error from the activation system is:\n"
-		    "%s"),
-		  id, error_message);
-	g_free (error_message);
-}
 
 static gboolean
 get_config_start_offline (void)
@@ -182,49 +143,7 @@ static void
 set_interactive (EShell *shell,
 		 gboolean interactive)
 {
-	EShellPrivate *priv;
-	GList *id_list, *p;
-	Window new_window_xid;
-
-	priv = shell->priv;
-
-	if (!! priv->is_interactive == !! interactive)
-		return;
-
-	priv->is_interactive = interactive;
-
-	if (interactive) {
-		GtkWidget *new_window;
-
-		g_return_if_fail (priv->windows && priv->windows->data);
-		new_window = priv->windows->data;
-
-		new_window_xid = GDK_WINDOW_XWINDOW (new_window->window);
-	} else
-		new_window_xid = None;
-
-	id_list = e_component_registry_get_id_list (priv->component_registry);
-	for (p = id_list; p != NULL; p = p->next) {
-		EvolutionShellComponentClient *shell_component_client;
-		GNOME_Evolution_ShellComponent shell_component_objref;
-		const char *id;
-		CORBA_Environment ev;
-
-		id = (const char *) p->data;
-		shell_component_client = e_component_registry_get_component_by_id (priv->component_registry, id);
-		shell_component_objref = evolution_shell_component_client_corba_objref (shell_component_client);
-
-		CORBA_exception_init (&ev);
-
-		GNOME_Evolution_ShellComponent_interactive (shell_component_objref, interactive, new_window_xid, &ev);
-		if (ev._major != CORBA_NO_EXCEPTION)
-			g_warning ("Error changing interactive status of component %s to %s -- %s\n",
-				   id, interactive ? "TRUE" : "FALSE", BONOBO_EX_REPOID (&ev));
-
-		CORBA_exception_free (&ev);
-	}
-
-	e_free_string_list (id_list);
+	/* FIXME TODO */
 }
 
 
@@ -367,71 +286,10 @@ impl_Shell_setLineStatus (PortableServer_Servant servant,
 }
 
 
-/* Initialization of the storages.  */
-
-static gboolean
-setup_corba_storages (EShell *shell)
-{
-	EShellPrivate *priv;
-	ECorbaStorageRegistry *corba_storage_registry;
-
-	priv = shell->priv;
-
-	g_assert (priv->storage_set != NULL);
-	corba_storage_registry = e_corba_storage_registry_new (priv->storage_set);
-
-	if (corba_storage_registry == NULL)
-		return FALSE;
-
-	bonobo_object_add_interface (BONOBO_OBJECT (shell),
-				     BONOBO_OBJECT (corba_storage_registry));
-
-	priv->corba_storage_registry = corba_storage_registry;
-
-	return TRUE;
-}
-
-static gboolean
-setup_local_storage (EShell *shell)
-{
-	EStorage *local_storage;
-	EShellPrivate *priv;
-	gchar *local_storage_path;
-	EFolder *summary_folder;
-
-	priv = shell->priv;
-
-	g_assert (priv->folder_type_registry != NULL);
-	g_assert (priv->local_storage == NULL);
-
-	local_storage_path = g_build_filename (priv->local_directory, LOCAL_STORAGE_DIRECTORY, NULL);
-	local_storage = e_local_storage_open (priv->folder_type_registry, local_storage_path);
-	if (local_storage == NULL) {
-		g_warning (_("Cannot set up local storage -- %s"), local_storage_path);
-		g_free (local_storage_path);
-		return FALSE;
-	}
-	g_free (local_storage_path);
-
-	e_storage_set_add_storage (priv->storage_set, local_storage);
-	priv->local_storage = E_LOCAL_STORAGE (local_storage);
-
-	summary_folder = e_folder_new (_("Summary"), "summary", "");
-	e_folder_set_physical_uri (summary_folder, "/");
-	e_folder_set_is_stock (summary_folder, TRUE);
-	priv->summary_storage = e_storage_new (E_SUMMARY_STORAGE_NAME,
-					       summary_folder);
-	e_storage_set_add_storage (priv->storage_set, priv->summary_storage);
-
-	return TRUE;
-}
-
-
 /* Initialization of the components.  */
 
 static void
-setup_components (EShell *shell,
-		  ESplash *splash)
+setup_components (EShell *shell)
 {
 	EShellPrivate *priv;
 	char *const selection_order[] = { "0-evolution:shell_component_launch_order", NULL };
@@ -442,7 +300,6 @@ setup_components (EShell *shell,
 	CORBA_exception_init (&ev);
 
 	priv = shell->priv;
-	priv->component_registry = e_component_registry_new (shell);
 
 #if 0				/* FIXME */
 	info_list = bonobo_activation_query ("repo_ids.has ('IDL:GNOME/Evolution/ShellComponent:1.0')", selection_order, &ev);
@@ -498,64 +355,6 @@ setup_components (EShell *shell,
 #endif
 
 	CORBA_exception_free (&ev);
-}
-
-/* FIXME what if anything fails here?  */
-static void
-set_owner_on_components (EShell *shell,
-			 ESplash *splash)
-{
-	GNOME_Evolution_Shell corba_shell;
-	EShellPrivate *priv;
-	const char *local_directory;
-	GList *id_list;
-	GList *p;
-
-	priv = shell->priv;
-	local_directory = e_shell_get_local_directory (shell);
-
-	corba_shell = BONOBO_OBJREF (shell);
-
-	id_list = e_component_registry_get_id_list (priv->component_registry);
-	for (p = id_list; p != NULL; p = p->next) {
-		EvolutionShellComponentClient *component_client;
-		EvolutionShellComponentResult result;
-		const char *id;
-
-		id = (const char *) p->data;
-		component_client = e_component_registry_get_component_by_id (priv->component_registry, id);
-
-		result = evolution_shell_component_client_set_owner (component_client, corba_shell, local_directory);
-		if (result != EVOLUTION_SHELL_COMPONENT_OK) {
-			g_warning ("Error setting owner on component %s -- %s",
-				   id, evolution_shell_component_result_to_string (result));
-
-			if (result == EVOLUTION_SHELL_COMPONENT_OLDOWNERHASDIED) {
-				CORBA_Environment ev;
-
-				CORBA_exception_init (&ev);
-
-				component_client = e_component_registry_restart_component (priv->component_registry,
-											   id, &ev);
-
-				if (component_client == NULL) {
-					pop_up_activation_error_dialog (splash, id, &ev);
-				} else {
-					result = evolution_shell_component_client_set_owner (component_client, corba_shell,
-											     local_directory);
-					if (result != EVOLUTION_SHELL_COMPONENT_OK) {
-						g_warning ("Error re-setting owner on component %s -- %s",
-							   id, evolution_shell_component_result_to_string (result));
-						/* (At this point, we give up.)  */
-					}
-				}
-
-				CORBA_exception_free (&ev);
-			}
-		}
-	}
-
-	e_free_string_list (id_list);
 }
 
 
@@ -624,7 +423,7 @@ create_window (EShell *shell,
 
 	priv = shell->priv;
 
-	window = e_shell_window_new (shell);
+	window = E_SHELL_WINDOW (e_shell_window_new (shell));
 
 	g_signal_connect (window, "delete_event", G_CALLBACK (window_delete_event_cb), shell);
 	g_object_weak_ref (G_OBJECT (window), window_weak_notify, shell);
@@ -651,34 +450,9 @@ impl_dispose (GObject *object)
 
 	priv->is_initialized = FALSE;
 
-	if (priv->storage_set != NULL) {
-		g_object_unref (priv->storage_set);
-		priv->storage_set = NULL;
-	}
-
-	if (priv->local_storage != NULL) {
-		g_object_unref (priv->local_storage);
-		priv->local_storage = NULL;
-	}
-
-	if (priv->summary_storage != NULL) {
-		g_object_unref (priv->summary_storage);
-		priv->summary_storage = NULL;
-	}
-
-	if (priv->folder_type_registry != NULL) {
-		g_object_unref (priv->folder_type_registry);
-		priv->folder_type_registry = NULL;
-	}
-
 	if (priv->uri_schema_registry != NULL) {
 		g_object_unref (priv->uri_schema_registry);
 		priv->uri_schema_registry = NULL;
-	}
-
-	if (priv->component_registry != NULL) {
-		g_object_unref (priv->component_registry);
-		priv->component_registry = NULL;
 	}
 
 	for (p = priv->windows; p != NULL; p = p->next) {
@@ -789,13 +563,7 @@ e_shell_init (EShell *shell)
 
 	priv->iid                          = NULL;
 	priv->local_directory              = NULL;
-	priv->storage_set                  = NULL;
-	priv->local_storage                = NULL;
-	priv->summary_storage              = NULL;
-	priv->component_registry           = NULL;
-	priv->folder_type_registry         = NULL;
 	priv->uri_schema_registry          = NULL;
-	priv->corba_storage_registry       = NULL;
 	priv->crash_type_names             = NULL;
 	priv->line_status                  = E_SHELL_LINE_STATUS_OFFLINE;
 	priv->settings_dialog              = NULL;
@@ -812,7 +580,6 @@ e_shell_init (EShell *shell)
  * @shell: An EShell object to construct
  * @iid: OAFIID for registering the shell into the name server
  * @local_directory: Local directory for storing local information and folders
- * @show_splash: Whether to display a splash screen.
  * @startup_line_mode: How to set up the line mode (online or offline) initally.
  * 
  * Construct @shell so that it uses the specified @local_directory and
@@ -824,7 +591,6 @@ EShellConstructResult
 e_shell_construct (EShell *shell,
 		   const char *iid,
 		   const char *local_directory,
-		   gboolean show_splash,
 		   EShellStartupLineMode startup_line_mode)
 {
 	GtkWidget *splash = NULL;
@@ -843,25 +609,8 @@ e_shell_construct (EShell *shell,
 	
 	priv = shell->priv;
 
-	priv->iid                  = g_strdup (iid);
-	priv->local_directory      = g_strdup (local_directory);
-	priv->folder_type_registry = e_folder_type_registry_new ();
-	priv->uri_schema_registry  = e_uri_schema_registry_new ();
-	priv->storage_set          = e_storage_set_new (priv->folder_type_registry);
-
-	e_folder_type_registry_register_type (priv->folder_type_registry,
-					      "noselect", "empty.gif",
-					      "noselect", "", FALSE,
-					      0, NULL, 0, NULL);
-	e_folder_type_registry_register_type (priv->folder_type_registry,
-					      "working", "working-16.png",
-					      "working", "", FALSE,
-					      0, NULL, 0, NULL);
-
-	/* CORBA storages must be set up before the components, because otherwise components
-           cannot register their own storages.  */
-	if (! setup_corba_storages (shell))
-		return FALSE;
+	priv->iid             = g_strdup (iid);
+	priv->local_directory = g_strdup (local_directory);
 
 	e_setup_check_config (local_directory);
 	
@@ -873,24 +622,10 @@ e_shell_construct (EShell *shell,
 	if (bonobo_activation_active_server_register (iid, corba_object) != Bonobo_ACTIVATION_REG_SUCCESS)
 		return E_SHELL_CONSTRUCT_RESULT_CANNOTREGISTER;
 
-	if (show_splash
-	    && (splash = e_splash_new ())) {
-		g_signal_connect (splash, "delete_event",
-				  G_CALLBACK (gtk_widget_hide_on_delete), NULL);
-		gtk_widget_show (splash);
-	}
-
 	while (gtk_events_pending ())
 		gtk_main_iteration ();
 	
-	setup_components (shell, (ESplash *)splash);
-	
-	/* The local storage depends on the component registry.  */
-	setup_local_storage (shell);
-	
-	/* Now that we have a local storage and all the interfaces set up, we
-	   can tell the components we are here.  */
-	set_owner_on_components (shell, (ESplash *)splash);
+	setup_components (shell);
 	
 	if (splash)
 		gtk_widget_destroy (splash);
@@ -928,7 +663,6 @@ e_shell_construct (EShell *shell,
 /**
  * e_shell_new:
  * @local_directory: Local directory for storing local information and folders.
- * @show_splash: Whether to display a splash screen.
  * @start_online: Whether to start in on-line mode or not.
  * @construct_result_return: A pointer to an EShellConstructResult variable into
  * which the result of the operation will be stored.
@@ -939,7 +673,6 @@ e_shell_construct (EShell *shell,
  **/
 EShell *
 e_shell_new (const char *local_directory,
-	     gboolean show_splash,
 	     EShellStartupLineMode startup_line_mode,
 	     EShellConstructResult *construct_result_return)
 {
@@ -955,7 +688,6 @@ e_shell_new (const char *local_directory,
 	construct_result = e_shell_construct (new,
 					      E_SHELL_OAFIID,
 					      local_directory,
-					      show_splash,
 					      startup_line_mode);
 
 	if (construct_result != E_SHELL_CONSTRUCT_RESULT_OK) {
@@ -965,13 +697,6 @@ e_shell_new (const char *local_directory,
 	}
 
 	priv = new->priv;
-
-	if (priv->storage_set == NULL) {
-		/* FIXME? */
-		*construct_result_return = E_SHELL_CONSTRUCT_RESULT_GENERICERROR;
-		bonobo_object_unref (BONOBO_OBJECT (new));
-		return NULL;
-	}
 
 	*construct_result_return = E_SHELL_CONSTRUCT_RESULT_OK;
 	return new;
@@ -1056,39 +781,6 @@ e_shell_get_local_directory (EShell *shell)
 	return shell->priv->local_directory;
 }
 
-/**
- * e_shell_get_storage_set:
- * @shell: An EShell object.
- * 
- * Get the storage set associated to @shell.
- * 
- * Return value: A pointer to the EStorageSet associated to @shell.
- **/
-EStorageSet *
-e_shell_get_storage_set (EShell *shell)
-{
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->storage_set;
-}
-
-/**
- * e_shell_get_folder_type_registry:
- * @shell: An EShell object.
- * 
- * Get the folder type registry associated to @shell.
- * 
- * Return value: A pointer to the EFolderTypeRegistry associated to @shell.
- **/
-EFolderTypeRegistry *
-e_shell_get_folder_type_registry (EShell *shell)
-{
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->folder_type_registry;
-}
 
 /**
  * e_shell_get_uri_schema_registry:
@@ -1107,111 +799,6 @@ e_shell_get_uri_schema_registry (EShell *shell)
 	return shell->priv->uri_schema_registry;
 }
 
-/**
- * e_shell_get_local_storage:
- * @shell: An EShell object.
- *
- * Get the local storage associated to @shell.
- *
- * Return value: A pointer to the ELocalStorage associated to @shell.
- **/
-ELocalStorage *
-e_shell_get_local_storage (EShell *shell)
-{
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->local_storage;
-}
-
-
-static gboolean
-save_settings_for_component (EShell *shell,
-			     const char *id,
-			     EvolutionShellComponentClient *client)
-{
-	Bonobo_Unknown unknown_interface;
-	GNOME_Evolution_Session session_interface;
-	CORBA_Environment ev;
-	char *prefix;
-	gboolean retval;
-
-	unknown_interface = evolution_shell_component_client_corba_objref (client);
-	g_assert (unknown_interface != CORBA_OBJECT_NIL);
-
-	CORBA_exception_init (&ev);
-
-	session_interface = Bonobo_Unknown_queryInterface (unknown_interface,
-							   "IDL:GNOME/Evolution/Session:1.0", &ev);
-	if (ev._major != CORBA_NO_EXCEPTION || CORBA_Object_is_nil (session_interface, &ev)) {
-		CORBA_exception_free (&ev);
-		return TRUE;
-	}
-
-	prefix = g_strconcat ("/apps/evolution/shell/components/", id, NULL);
-	GNOME_Evolution_Session_saveConfiguration (session_interface, prefix, &ev);
-
-	if (ev._major == CORBA_NO_EXCEPTION)
-		retval = TRUE;
-	else
-		retval = FALSE;
-
-	g_free (prefix);
-
-	CORBA_exception_free (&ev);
-
-	bonobo_object_release_unref (session_interface, NULL);
-
-	return retval;
-}
-
-static gboolean
-save_settings_for_components (EShell *shell)
-{
-	EShellPrivate *priv;
-	GList *component_ids;
-	GList *p;
-	gboolean retval;
-
-	priv = shell->priv;
-
-	g_assert (priv->component_registry);
-	component_ids = e_component_registry_get_id_list (priv->component_registry);
-
-	retval = TRUE;
-	for (p = component_ids; p != NULL; p = p->next) {
-		EvolutionShellComponentClient *client;
-		const char *id;
-
-		id = p->data;
-		client = e_component_registry_get_component_by_id (priv->component_registry, id);
-
-		if (! save_settings_for_component (shell, id, client))
-			retval = FALSE;
-	}
-
-	e_free_string_list (component_ids);
-
-	return retval;
-}
-
-static gboolean
-save_misc_settings (EShell *shell)
-{
-	GConfClient *client;
-	EShellPrivate *priv;
-	gboolean is_offline;
-
-	priv = shell->priv;
-
-	is_offline = ( e_shell_get_line_status (shell) == E_SHELL_LINE_STATUS_OFFLINE );
-
-	client = gconf_client_get_default ();
-	gconf_client_set_bool (client, "/apps/evolution/shell/start_offline", is_offline, NULL);
-	g_object_unref (client);
-
-	return TRUE;
-}
 
 /**
  * e_shell_save_settings:
@@ -1226,16 +813,19 @@ save_misc_settings (EShell *shell)
 gboolean
 e_shell_save_settings (EShell *shell)
 {
-	gboolean components_saved;
-	gboolean misc_saved;
+	GConfClient *client;
+	EShellPrivate *priv;
+	gboolean is_offline;
 
-	g_return_val_if_fail (shell != NULL, FALSE);
-	g_return_val_if_fail (E_IS_SHELL (shell), FALSE);
+	priv = shell->priv;
 
-	components_saved = save_settings_for_components (shell);
-	misc_saved       = save_misc_settings (shell);
+	is_offline = ( e_shell_get_line_status (shell) == E_SHELL_LINE_STATUS_OFFLINE );
 
-	return components_saved && misc_saved;
+	client = gconf_client_get_default ();
+	gconf_client_set_bool (client, "/apps/evolution/shell/start_offline", is_offline, NULL);
+	g_object_unref (client);
+
+	return TRUE;
 }
 
 /**
@@ -1259,76 +849,6 @@ e_shell_destroy_all_windows (EShell *shell)
 	priv = shell->priv;
 	for (p = priv->windows; p != NULL; p = pnext)
 		gtk_widget_destroy (GTK_WIDGET (p->data));
-}
-
-
-/**
- * e_shell_component_maybe_crashed:
- * @shell: A pointer to an EShell object
- * @uri: URI that caused the crash
- * @type_name: The type of the folder that caused the crash
- * @shell_window: Pointer to the EShellWindow over which we want the modal dialog
- * to appear.
- * 
- * Report that a maybe crash happened when trying to display a folder of type
- * @type_name.  The shell will pop up a crash dialog whose parent will be the
- * @shell_window.
- **/
-void
-e_shell_component_maybe_crashed   (EShell *shell,
-				   const char *uri,
-				   const char *type_name,
-				   EShellWindow *shell_window)
-{
-	EShellPrivate *priv;
-	EvolutionShellComponentClient *component;
-	GList *p;
-
-	g_return_if_fail (E_IS_SHELL (shell));
-	g_return_if_fail (type_name != NULL);
-	g_return_if_fail (E_IS_SHELL_WINDOW (shell_window));
-
-	priv = shell->priv;
-
-	if (strncmp (uri, E_SHELL_URI_PREFIX, E_SHELL_URI_PREFIX_LEN) == 0) {
-		const char *path;
-
-		path = uri + E_SHELL_URI_PREFIX_LEN;
-		if (e_storage_set_get_folder (priv->storage_set, path) == NULL)
-			return;
-	}
-
-	component = e_folder_type_registry_get_handler_for_type (priv->folder_type_registry, type_name);
-	if (component != NULL
-	    && bonobo_unknown_ping (evolution_shell_component_client_corba_objref (component), NULL))
-		return;
-
-	/* See if that type has caused a crash already.  */
-
-	for (p = priv->crash_type_names; p != NULL; p = p->next) {
-		const char *crash_type_name;
-
-		crash_type_name = (const char *) p->data;
-		if (strcmp (type_name, crash_type_name) == 0) {
-			/* This type caused a crash already.  */
-			return;
-		}
-	}
-
-	/* New crash.  */
-
-	priv->crash_type_names = g_list_prepend (priv->crash_type_names, g_strdup (type_name));
-
-	e_notice (shell_window, GTK_MESSAGE_ERROR,
-		  _("The Evolution component that handles folders of type \"%s\"\n"
-		    "has unexpectedly quit. You will need to quit Evolution and restart\n"
-		    "in order to access that data again."),
-		  type_name);
-
-	if (shell_window)
-		bonobo_ui_engine_deregister_dead_components (bonobo_window_get_ui_engine (BONOBO_WINDOW (shell_window)));
-
-	/* FIXME: we should probably re-start the component here */
 }
 
 
@@ -1443,41 +963,6 @@ e_shell_go_online (EShell *shell,
 
 
 void
-e_shell_send_receive (EShell *shell)
-{
-	EShellPrivate *priv;
-	GList *id_list;
-	GList *p;
-
-	g_return_if_fail (E_IS_SHELL (shell));
-
-	priv = shell->priv;
-
-	id_list = e_component_registry_get_id_list (priv->component_registry);
-
-	for (p = id_list; p != NULL; p = p->next) {
-		EvolutionShellComponentClient *component_client;
-		CORBA_Environment ev;
-		const char *id;
-
-		id = (const char *) p->data;
-		component_client = e_component_registry_get_component_by_id (priv->component_registry, id);
-
-		CORBA_exception_init (&ev);
-
-		GNOME_Evolution_ShellComponent_sendReceive
-			(evolution_shell_component_client_corba_objref (component_client), TRUE, &ev);
-
-		if (BONOBO_EX (&ev))
-			g_warning ("Error invoking Send/Receive on %s -- %s", id, BONOBO_EX_REPOID (&ev));
-
-		CORBA_exception_free (&ev);
-	}
-
-	e_free_string_list (id_list);
-}
-
-void
 e_shell_show_settings (EShell *shell,
 		       const char *type,
 		       EShellWindow *shell_window)
@@ -1506,15 +991,6 @@ e_shell_show_settings (EShell *shell,
 }
 
 
-EComponentRegistry *
-e_shell_get_component_registry (EShell *shell)
-{
-	g_return_val_if_fail (shell != NULL, NULL);
-	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
-
-	return shell->priv->component_registry;
-}
-
 EShellUserCreatableItemsHandler *
 e_shell_get_user_creatable_items_handler (EShell *shell)
 {
@@ -1535,11 +1011,7 @@ e_shell_unregister_all (EShell *shell)
 	/* FIXME: This really really sucks.  */
 
 	priv = shell->priv;
-
 	priv->is_initialized = FALSE;
-
-	g_object_unref (priv->component_registry);
-	priv->component_registry = NULL;
 }
 
 
@@ -1563,20 +1035,14 @@ e_shell_construct_result_to_string (EShellConstructResult result)
 }
 
 
-static void
-prepare_for_quit_callback (EvolutionShellComponentClient *client,
-			   EvolutionShellComponentResult result,
-			   void *data)
-{
-	GNOME_Evolution_ShellComponentListener_Result *result_return;
-
-	result_return = (GNOME_Evolution_ShellComponentListener_Result *) data;
-	*result_return = result;
-}
-
 gboolean
 e_shell_prepare_for_quit (EShell *shell)
 {
+	/* FIXME TODO */
+
+	return TRUE;
+
+#if 0
 	EShellPrivate *priv;
 	GList *component_ids;
 	GList *p;
@@ -1625,6 +1091,7 @@ e_shell_prepare_for_quit (EShell *shell)
 
 	e_free_string_list (component_ids);
 	return retval;
+#endif
 }
 
 

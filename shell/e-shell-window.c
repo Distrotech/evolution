@@ -20,6 +20,12 @@
  * Author: Ettore Perazzoli <ettore@ximian.com>
  */
 
+/* TODO
+
+	- e_shell_component_maybe_crashed() replacement.
+
+*/
+
 #include <config.h>
 
 #include "Evolution.h"

@@ -1,5 +1,56 @@
 2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
 
+	* main.c: Removed global variable "no_splash".
+	(idle_cb): Updated to not pass the splash argument to
+	e_shell_new().
+	(main): Removed "--no-splash" option.
+
+	* e-shell.c: Removed members storage_set, local_storage,
+	summary_storage, folder_type_registry, component_registry,
+	corba_storage_registry from struct EShellPrivate.
+	(setup_corba_storages): Removed.
+	(e_shell_construct): Don't invoke.
+	(setup_local_storage): Removed.
+	(e_shell_construct): Don't invoke.  Also, removed initialization
+	for all the removed members.
+	(e_shell_new): No priv->storage_set anymore.
+	(e_shell_get_storage_set): Removed.
+	(e_shell_get_local_storage): Removed.
+	(e_shell_get_folder_type_registry): Removed.
+	(set_owner_on_components): Removed.
+	(set_interactive): Removed contents; do nothing for now.
+	(pop_up_activation_error_dialog): Removed.
+	(e_shell_construct): Removed arg show_splash.  Do not create a
+	splash dialog at all.
+	(e_shell_new): Removed arg show_splash here as well.
+	(e_shell_construct): No folder type registry handling here
+	anymore.
+	(setup_components): Removed splash arg.
+	(save_settings_for_components): Removed.
+	(save_settings_for_component): Removed.
+	(save_misc_settings): Removed.
+	(e_shell_save_settings): Moved the code in here.
+	(e_shell_component_maybe_crashed): Removed.
+	(e_shell_send_receive): Removed.
+	(e_shell_get_component_registry): Removed.
+	(prepare_for_quit_callback): Removed.
+
+	* evolution-storage-set-view.c: Removed from build.
+	* evolution-storage-set-view.h: Removed from build.
+	* evolution-storage-set-view-factory.c: Removed from build.
+	* evolution-storage-set-view-factory.h: Removed from build.
+
+	* e-component-registry.c, e-component-registry.h: Removed from
+	build.
+
+	* e-shell-folder-creation-dialog.c: Removed from build.
+	* e-shell-folder-creation-dialog.h: Removed from build.
+
+	* e-shell-folder-selection-dialog.c: Removed from build.
+	* e-shell-folder-selection-dialog.h: Removed from build.
+
+2003-07-24  Ettore Perazzoli  <ettore@ximian.com>
+
 	* e-setup.c: Do not #include "e-shell-config.h".
 
 	* main.c (idle_cb): Do not register the config factory.

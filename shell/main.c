@@ -83,7 +83,6 @@ static EShell *shell = NULL;
 static char *evolution_directory = NULL;
 
 /* Command-line options.  */
-static gboolean no_splash = FALSE;
 static gboolean start_online = FALSE;
 static gboolean start_offline = FALSE;
 static gboolean setup_only = FALSE;
@@ -374,7 +373,7 @@ idle_cb (void *data)
 	else
 		startup_line_mode = E_SHELL_STARTUP_LINE_MODE_OFFLINE;
 
-	shell = e_shell_new (evolution_directory, ! no_splash, startup_line_mode, &result);
+	shell = e_shell_new (evolution_directory, startup_line_mode, &result);
 	g_free (evolution_directory);
 
 	switch (result) {
@@ -540,8 +539,6 @@ int
 main (int argc, char **argv)
 {
 	struct poptOption options[] = {
-		{ "no-splash", '\0', POPT_ARG_NONE, &no_splash, 0,
-		  N_("Disable splash screen"), NULL },
 		{ "offline", '\0', POPT_ARG_NONE, &start_offline, 0, 
 		  N_("Start in offline mode"), NULL },
 		{ "online", '\0', POPT_ARG_NONE, &start_online, 0, 
