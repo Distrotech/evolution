@@ -36,6 +36,7 @@
 #include <errno.h>
 
 #include "em-popup.h"
+#include "em-menu.h"
 #include "em-utils.h"
 #include "em-composer-utils.h"
 #include "em-format.h"
@@ -321,6 +322,7 @@ mc_startup(MailComponent *mc)
 #endif
 	e_plugin_register_type(e_plugin_lib_get_type());
 	e_plugin_hook_register_type(em_popup_hook_get_type());
+	e_plugin_hook_register_type(em_menu_hook_get_type());
 
 	e_plugin_load_plugins("/home/notzed/src/mono-plugin");
 }

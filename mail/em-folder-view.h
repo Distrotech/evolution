@@ -73,6 +73,9 @@ struct _EMFolderView {
 	GSList *ui_files;	/* const char * list, TODO: should this be on class? */
 	const char *ui_app_name;
 
+	/* used to manage some menus, particularly plugins */
+	struct _EMMenu *menu;
+
 	/* for proxying jobs to main or other threads */
 	struct _MailAsyncEvent *async;
 

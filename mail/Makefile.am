@@ -110,6 +110,8 @@ libevolution_mail_la_SOURCES =			\
 	em-migrate.h				\
 	em-composer-utils.c			\
 	em-composer-utils.h			\
+	em-menu.c				\
+	em-menu.h				\
 	em-popup.c				\
 	em-popup.h				\
 	em-utils.c				\

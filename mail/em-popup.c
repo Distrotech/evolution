@@ -136,8 +136,8 @@ em_popup_get_type(void)
 			sizeof(EMPopup), 0,
 			(GInstanceInitFunc)emp_init
 		};
-		emp_parent = g_type_class_ref(G_TYPE_OBJECT);
-		type = g_type_register_static(G_TYPE_OBJECT, "EMPopup", &info, 0);
+		emp_parent = g_type_class_ref(e_popup_get_type());
+		type = g_type_register_static(e_popup_get_type(), "EMPopup", &info, 0);
 	}
 
 	return type;
@@ -731,7 +731,7 @@ emp_standard_menu_factory(EPopup *emp, EPopupTarget *target, void *data)
 static void *emph_parent_class;
 #define emph ((EMPopupHook *)eph)
 
-struct _EPopupHookTargetMask emph_select_masks[] = {
+static struct _EPopupHookTargetMask emph_select_masks[] = {
 	{ "one", EM_POPUP_SELECT_ONE },
 	{ "many", EM_POPUP_SELECT_MANY },
 	{ "mark_read", EM_POPUP_SELECT_MARK_READ },
@@ -799,6 +799,8 @@ emph_class_init(EPluginHookClass *klass)
 
 	for (i=0;emph_targets[i].type;i++)
 		e_popup_hook_class_add_target_map((EPopupHookClass *)klass, &emph_targets[i]);
+
+	((EPopupHookClass *)klass)->popup_class = g_type_class_ref(em_popup_get_type());
 }
 
 GType
@@ -812,8 +814,8 @@ em_popup_hook_get_type(void)
 			sizeof(EMPopupHook), 0, (GInstanceInitFunc) NULL,
 		};
 
-		emph_parent_class = g_type_class_ref(e_plugin_hook_get_type());
-		type = g_type_register_static(e_plugin_hook_get_type(), "EMPopupHook", &info, 0);
+		emph_parent_class = g_type_class_ref(e_popup_hook_get_type());
+		type = g_type_register_static(e_popup_hook_get_type(), "EMPopupHook", &info, 0);
 	}
 	
 	return type;

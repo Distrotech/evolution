@@ -77,6 +77,7 @@
 #include "em-utils.h"
 #include "em-composer-utils.h"
 #include "em-marshal.h"
+#include "em-menu.h"
 
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/htmlobject.h>
@@ -1625,6 +1626,19 @@ emfv_enable_menus(EMFolderView *emfv)
 	if (emfv->uic == NULL)
 		return;
 
+	{
+		if (emfv->menu) {
+			if (emfv->folder) {
+				EMMenuTargetSelect *t;
+
+				t = em_menu_target_new_select(emfv->menu, emfv->folder, emfv->folder_uri, message_list_get_selected(emfv->list));
+				e_menu_update_target((EMenu *)emfv->menu, t);
+			} else {
+				e_menu_update_target((EMenu *)emfv->menu, NULL);
+			}
+		}
+	}
+
 	if (emfv->folder) {
 		EMPopup *emp = em_popup_new("dummy");
 		EMPopupTargetSelect *t;
@@ -1725,6 +1739,9 @@ static void
 emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 {
 	struct _EMFolderViewPrivate *p = emfv->priv;
+
+	if (emfv->menu)
+		e_menu_activate((EMenu *)emfv->menu, uic, act);
 
 	if (act) {
 		em_format_mode_t style;

@@ -32,8 +32,6 @@ extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
-/* NB: This is TEMPORARY, to be replaced by EggMenu, if it does what we need? */
-
 typedef struct _EMPopup EMPopup;
 typedef struct _EMPopupClass EMPopupClass;
 
@@ -125,8 +123,6 @@ struct _EMPopup {
 	EPopup popup;
 
 	struct _EMPopupPrivate *priv;
-
-	char *menuid;
 };
 
 struct _EMPopupClass {
@@ -149,8 +145,6 @@ typedef struct _EMPopupHookClass EMPopupHookClass;
 
 struct _EMPopupHook {
 	EPopupHook hook;
-
-	GSList *menus;
 };
 
 struct _EMPopupHookClass {
