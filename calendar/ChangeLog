@@ -1,3 +1,12 @@
+2003-08-13  JP Rosevear  <jpr@ximian.com>
+
+	* cal-client/cal-client.c (real_open_calendar): set the priv->cal
+	pointer in a slightly different spot so we have it in the call
+	back
+
+	* gui/e-cal-model.c (e_cal_model_get_client_list): merge this in
+	properly
+
 2003-08-13  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-week-view-event-item.c (e_week_view_event_item_draw): draw

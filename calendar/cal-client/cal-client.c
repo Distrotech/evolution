@@ -854,16 +854,17 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 		if (BONOBO_EX (&ev))
 			continue;
 		
+		priv->cal = cal;
+
 		GNOME_Evolution_Calendar_Cal_open (cal, only_if_exists, &ev);
 		if (BONOBO_EX (&ev)) {
-			bonobo_object_release_unref (cal, NULL);
+			bonobo_object_release_unref (priv->cal, NULL);
+			priv->cal = CORBA_OBJECT_NIL;
 			
 			continue;
 		}
 		
 		CORBA_exception_free (&ev);
-		
-		priv->cal = cal;
 
 		if (supported)
 			*supported = TRUE;

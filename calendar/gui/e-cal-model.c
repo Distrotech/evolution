@@ -987,6 +987,25 @@ e_cal_model_get_default_client (ECalModel *model)
 	return client_data->client;
 }
 
+/**
+ * e_cal_model_get_client_list
+ */
+GList *
+e_cal_model_get_client_list (ECalModel *model)
+{
+	GList *list = NULL, *l;
+
+	g_return_val_if_fail (E_IS_CAL_MODEL (model), NULL);
+
+	for (l = model->priv->clients; l != NULL; l = l->next) {
+		ECalModelClient *client_data = (ECalModelClient *) l->data;
+
+		list = g_list_append (list, client_data->client);
+	}
+
+	return list;
+}
+
 static ECalModelComponent *
 search_by_uid_and_client (ECalModelPrivate *priv, CalClient *client, const char *uid)
 {
