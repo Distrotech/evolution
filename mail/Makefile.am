@@ -91,6 +91,8 @@ libevolution_mail_la_SOURCES =		\
 	em-message-browser.h		\
 	em-composer-utils.c		\
 	em-composer-utils.h		\
+	em-popup.c			\
+	em-popup.h			\
 	em-utils.c			\
 	em-utils.h			\
 	em-subscribe-editor.c		\

@@ -1,3 +1,25 @@
+2003-09-01  Not Zed  <NotZed@Ximian.com>
+
+	* em-popup.c: New, simple menu-merging popup menu implementation.
+	NOTE: should be temporary, but needs something that has similar
+	merging facilities.
+
+	* em-folder-view.c (emfv_popup*): added popup callbacks, implement
+	a popup menu, using em_popup.
+	(emfv_message_*): replaced a whole bunch of one-line, or simple
+	functions with macro's to map to the popup implementation.
+	(emfv_tools_vfolder*, emfv_tools_filter*): map to popup
+	equivalents.
+	(emfv_init): drop printf
+
+	* em-format-html-display.c (efhd_attachment_popup): use the
+	em_popup stuff to build a dynamic menu.
+
+	* em-utils.c (em_utils_temp_save_part): change assignment order ot
+	kill warning.
+	(emu_get_save_filesel): handle null/empty name by appending / to
+	the filename.
+
 2003-08-30  Not Zed  <NotZed@Ximian.com>
 
 	* mail-search.glade: forgot to add this yesterday.

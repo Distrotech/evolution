@@ -77,6 +77,7 @@
 #include "em-marshal.h"
 #include "e-searching-tokenizer.h"
 #include "em-utils.h"
+#include "em-popup.h"
 
 #define d(x)
 
@@ -746,23 +747,26 @@ efhd_attachment_show(GtkWidget *w, struct _attach_puri *info)
 #endif
 }
 
+struct _open_in_item {
+	EMPopupItem item;
+	struct _attach_puri *info;
+	GnomeVFSMimeApplication *app;
+};
+
 static void
-efhd_open_in(GtkWidget *w, struct _attach_puri *info)
+efhd_open_in(GtkWidget *w, struct _open_in_item *item)
 {
-	GnomeVFSMimeApplication *app = g_object_get_data((GObject *)w, "app");
 	char *path;
 
-	g_return_if_fail(app != NULL);
+	printf("running '%s' on part\n", item->app->name);
 
-	printf("running '%s' on part\n", app->name);
-
-	path = em_utils_temp_save_part((GtkWidget *)((EMFormatHTML *)info->puri.format)->html, info->puri.part);
+	path = em_utils_temp_save_part((GtkWidget *)((EMFormatHTML *)item->info->puri.format)->html, item->info->puri.part);
 	if (path) {
 		char *command;
 
-		command = g_strdup_printf(app->expects_uris == GNOME_VFS_MIME_APPLICATION_ARGUMENT_TYPE_URIS
+		command = g_strdup_printf(item->app->expects_uris == GNOME_VFS_MIME_APPLICATION_ARGUMENT_TYPE_URIS
 					  ?"%s %s &":"%s file://%s &",
-					  app->command, path);
+					  item->app->command, path);
 		/* FIXME: Do not use system here */
 		system(command);
 		g_free(command);
@@ -770,12 +774,54 @@ efhd_open_in(GtkWidget *w, struct _attach_puri *info)
 	}
 }
 
+static void
+efhd_popup_free_items(GSList *free_list)
+{
+	while (free_list) {
+		GSList *n = free_list->next;
+		struct _open_in_item *item = free_list->data;
+
+		g_free(item->item.path);
+		g_free(item->item.label);
+		g_free(item);
+		g_slist_free_1(free_list);
+
+		free_list = n;
+	}
+}
+
+enum {
+	HIDE_MESSAGE = 1<<0,
+	HIDE_ATTACH = 1<<1,
+	HIDE_VIEW = 1<<2,
+	HIDE_HIDE = 1<<3,
+};
+
+static EMPopupItem efhd_menu_items[] = {
+	{ EM_POPUP_ITEM, "00.display.00", N_("_Save Message..."), G_CALLBACK(efhd_save_message), NULL, "/save-as-16.png", HIDE_MESSAGE },
+	{ EM_POPUP_ITEM, "00.display.00", N_("_Save Attachment..."), G_CALLBACK(efhd_save_attachment), NULL, "/save-as-16.png", HIDE_ATTACH },
+	{ EM_POPUP_BAR, "05.display", NULL, NULL, NULL, NULL, HIDE_VIEW|HIDE_HIDE },
+	{ EM_POPUP_ITEM, "05.display.00", N_("_View Inline"), G_CALLBACK(efhd_attachment_show), NULL, NULL, HIDE_VIEW },
+	{ EM_POPUP_ITEM, "05.display.00", N_("_Hide"), G_CALLBACK(efhd_attachment_show), NULL, NULL, HIDE_HIDE },
+	{ EM_POPUP_BAR, "10.display", NULL, NULL, NULL, NULL, HIDE_MESSAGE },
+	{ EM_POPUP_ITEM, "10.display.00", N_("_Reply to sender"), G_CALLBACK(efhd_popup_reply_sender), NULL, "/reply.xpm" , HIDE_MESSAGE },
+	{ EM_POPUP_ITEM, "10.display.01", N_("Reply to _List"), G_CALLBACK(efhd_popup_reply_list), NULL, NULL, HIDE_MESSAGE},
+	{ EM_POPUP_ITEM, "10.display.03", N_("Reply to _All"), G_CALLBACK(efhd_popup_reply_all), NULL, NULL, HIDE_MESSAGE},
+	{ EM_POPUP_BAR, "20.display", NULL, NULL, NULL, NULL, HIDE_MESSAGE },
+	{ EM_POPUP_ITEM, "20.display.00", N_("_Forward"), G_CALLBACK(efhd_popup_forward), NULL, "/reply_to_all.xpm", HIDE_MESSAGE },
+};
+
+static EMPopupItem efhd_menu_apps_bar = { EM_POPUP_BAR, "99.display" };
+
 static gboolean
 efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *info)
 {
 	GtkMenu *menu;
-	GtkWidget *item;
 	CamelDataWrapper *dw;
+	GSList *menus = NULL;
+	guint32 hide_mask;
+	EMPopup *emp;
+	int i;
 
 	/* FIXME FIXME
 	   How can i do this with plugins!?
@@ -790,76 +836,67 @@ efhd_attachment_popup(GtkWidget *w, GdkEventButton *event, struct _attach_puri *
 		return FALSE;
 	}
 
+	emp = em_popup_new();
+
 	dw = camel_medium_get_content_object((CamelMedium *)info->puri.part);
 
-	menu = (GtkMenu *)gtk_menu_new();
-	if (CAMEL_IS_MIME_MESSAGE(dw)) {
-		/* FIXME: temprary hack ... */
-		item = gtk_menu_item_new_with_mnemonic(_("Save Message..."));
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_save_message), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+	if (CAMEL_IS_MIME_MESSAGE(dw))
+		hide_mask = HIDE_ATTACH;
+	else
+		hide_mask = HIDE_MESSAGE;
 
-		item = gtk_separator_menu_item_new();
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
-
-		item = gtk_menu_item_new_with_mnemonic(_("_Reply to Sender"));
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_reply_sender), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
-		item = gtk_menu_item_new_with_mnemonic(_("Reply to _List"));
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_reply_list), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
-		item = gtk_menu_item_new_with_mnemonic(_("Reply to _All"));
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_reply_all), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
-		item = gtk_menu_item_new_with_mnemonic(_("_Forward"));
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_popup_forward), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
-	} else {
-		item = gtk_menu_item_new_with_mnemonic(_("Save Attachment..."));
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_save_attachment), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+	for (i=0;i<sizeof(efhd_menu_items)/sizeof(efhd_menu_items[0]);i++) {
+		efhd_menu_items[i].activate_data = info;
+		menus = g_slist_prepend(menus, &efhd_menu_items[i]);
 	}
-
-	item = gtk_separator_menu_item_new();
-	gtk_menu_shell_append((GtkMenuShell *)menu, item);
 
 	/* FIXME: bonobo component handlers? */
 	if (info->handle) {
 		GList *apps;
 
-		if (info->shown) {
-			item = gtk_menu_item_new_with_mnemonic(_("Hide"));
-		} else {
-			item = gtk_menu_item_new_with_mnemonic(_("View Inline"));
-		}
-		g_signal_connect(item, "activate", G_CALLBACK(efhd_attachment_show), info);
-		gtk_menu_shell_append((GtkMenuShell *)menu, item);
+		if (info->shown)
+			hide_mask |= HIDE_VIEW;
+		else
+			hide_mask |= HIDE_HIDE;
 
 		apps = gnome_vfs_mime_get_short_list_applications(info->handle->mime_type);
 		if (apps) {
 			GList *l = apps;
 			GString *label = g_string_new("");
+			GSList *open_menus = NULL;
 
-			item = gtk_separator_menu_item_new();
-			gtk_menu_shell_append((GtkMenuShell *)menu, item);
+			menus = g_slist_prepend(menus, &efhd_menu_apps_bar);
 
 			while (l) {
 				GnomeVFSMimeApplication *app = l->data;
-			
-				g_string_printf(label, _("Open in %s..."), app->name);
-				item = gtk_menu_item_new_with_label(label->str);
-				g_object_set_data((GObject *)item, "app", app);
-				g_signal_connect(item, "activate", G_CALLBACK(efhd_open_in), info);
-				gtk_menu_shell_append((GtkMenuShell *)menu, item);
+				struct _open_in_item *item;
+
+				item = g_malloc0(sizeof(*item));
+				item->item.type = EM_POPUP_ITEM;
+				item->item.path = g_strdup_printf("99.display.%02d", i);
+				item->item.label = g_strdup_printf(_("Open in %s..."), app->name);
+				item->item.activate = G_CALLBACK(efhd_open_in);
+				item->item.activate_data = item;
+				item->info = info;
+				item->app = app;
+
+				open_menus = g_slist_prepend(open_menus, item);
+				
 				l = l->next;
 			}
+
+			em_popup_add_items(emp, open_menus, (GDestroyNotify)efhd_popup_free_items);
+
 			g_string_free(label, TRUE);
 			g_list_free(apps);
 		}
+	} else {
+		hide_mask |= HIDE_VIEW | HIDE_HIDE;
 	}
 
-	gtk_widget_show_all((GtkWidget *)menu);
-	g_signal_connect(menu, "selection_done", G_CALLBACK(gtk_widget_destroy), menu);
+	em_popup_add_items(emp, menus, (GDestroyNotify)g_slist_free);
+
+	menu = em_popup_create_menu_once(emp, hide_mask, 0);
 	gtk_menu_popup(menu, NULL, NULL, NULL, NULL, event->button, event->time);
 
 	return TRUE;

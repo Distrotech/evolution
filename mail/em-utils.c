@@ -1093,8 +1093,8 @@ static GtkFileSelection *
 emu_get_save_filesel(GtkWidget *parent, const char *title, const char *name)
 {
 	GtkFileSelection *filesel;
-	char *gdir;
-	const char *dir;
+	char *gdir, *mname = NULL, *filename;
+	const char *realname, *dir;
 	GConfClient *gconf;
 
 	filesel = (GtkFileSelection *)gtk_file_selection_new(title);
@@ -1107,19 +1107,17 @@ emu_get_save_filesel(GtkWidget *parent, const char *title, const char *name)
 	if (dir == NULL)
 		dir = g_get_home_dir();
 
-	if (name) {
-		char *mname = g_strdup(name);
-		char *filename;
-
+	if (name && name[0]) {
+		realname = mname = g_strdup(name);
 		e_filename_make_safe(mname);
-		filename = g_build_filename(dir, mname, NULL);
-		gtk_file_selection_set_filename(filesel, filename);
-		g_free(filename);
-		g_free(mname);
 	} else {
-		gtk_file_selection_set_filename(filesel, dir);
+		realname = "/";
 	}
 
+	filename = g_build_filename(dir, realname, NULL);
+	gtk_file_selection_set_filename(filesel, filename);
+	g_free(filename);
+	g_free(mname);
 	g_free (gdir);
 
 	return filesel;
@@ -1682,7 +1680,7 @@ em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 		return NULL;
 	}
 
-	mfilename = filename = camel_mime_part_get_filename(part);
+	filename = mfilename = camel_mime_part_get_filename(part);
 	if (filename == NULL) {
 		/* This is the default filename used for temporary file creation */
 		filename = _("Unknown");
