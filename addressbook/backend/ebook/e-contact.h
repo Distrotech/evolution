@@ -32,36 +32,42 @@ typedef enum {
 
 	/* Name fields */
 	E_CONTACT_FULL_NAME,   	 /* string field */
-	E_CONTACT_NAME,        	 /* structured field (EContactName) */
-	E_CONTACT_GIVEN_NAME,  	 /* synthetic field */
-	E_CONTACT_FAMILY_NAME, 	 /* synthetic field */
+	E_CONTACT_GIVEN_NAME,  	 /* synthetic string field */
+	E_CONTACT_FAMILY_NAME, 	 /* synthetic string field */
 	E_CONTACT_NICKNAME,    	 /* string field */
 
 	/* Email fields */
-	E_CONTACT_EMAIL,       	 /* Multi-valued */
-	E_CONTACT_EMAIL_1,     	 /* synthetic field */
-	E_CONTACT_EMAIL_2,     	 /* synthetic field */
-	E_CONTACT_EMAIL_3,     	 /* synthetic field */
+	E_CONTACT_EMAIL_1,     	 /* synthetic string field */
+	E_CONTACT_EMAIL_2,     	 /* synthetic string field */
+	E_CONTACT_EMAIL_3,     	 /* synthetic string field */
 
 	E_CONTACT_MAILER,        /* string field */
-
-	/* Address fields */
-	E_CONTACT_ADDRESS,       /* Multi-valued structured (EContactAddress) */
-	E_CONTACT_ADDRESS_HOME,  /* synthetic structured field (EContactAddress) */
-	E_CONTACT_ADDRESS_WORK,  /* synthetic structured field (EContactAddress) */
-	E_CONTACT_ADDRESS_OTHER, /* synthetic structured field (EContactAddress) */
 
 	/* Address Labels */
 	E_CONTACT_ADDRESS_LABEL_HOME,  /* synthetic string field */
 	E_CONTACT_ADDRESS_LABEL_WORK,  /* synthetic string field */
 	E_CONTACT_ADDRESS_LABEL_OTHER, /* synthetic string field */
 
-	/* Instant Messaging fields */
-	E_CONTACT_IM_AIM,     	 /* Multi-valued */
-	E_CONTACT_IM_JABBER,  	 /* Multi-valued */
-	E_CONTACT_IM_YAHOO,   	 /* Multi-valued */
-	E_CONTACT_IM_MSN,     	 /* Multi-valued */
-	E_CONTACT_IM_ICQ,     	 /* Multi-valued */
+	/* Phone fields */
+	E_CONTACT_PHONE_ASSISTANT,
+	E_CONTACT_PHONE_BUSINESS,
+	E_CONTACT_PHONE_BUSINESS_2,
+	E_CONTACT_PHONE_BUSINESS_FAX,
+	E_CONTACT_PHONE_CALLBACK,
+	E_CONTACT_PHONE_CAR,
+	E_CONTACT_PHONE_COMPANY,
+	E_CONTACT_PHONE_HOME,
+	E_CONTACT_PHONE_HOME_2,
+	E_CONTACT_PHONE_HOME_FAX,
+	E_CONTACT_PHONE_ISDN,
+	E_CONTACT_PHONE_MOBILE,
+	E_CONTACT_PHONE_OTHER,
+	E_CONTACT_PHONE_OTHER_FAX,
+	E_CONTACT_PHONE_PAGER,
+	E_CONTACT_PHONE_PRIMARY,
+	E_CONTACT_PHONE_RADIO,
+	E_CONTACT_PHONE_TELEX,
+	E_CONTACT_PHONE_TTYTDD,
 
 	/* Organizational fields */
 	E_CONTACT_ORG,        	 /* string field */
@@ -76,19 +82,47 @@ typedef enum {
 	E_CONTACT_HOMEPAGE_URL,  /* string field */
 	E_CONTACT_BLOG_URL,      /* string field */
 
-	/* Photo/Logo */
-	E_CONTACT_PHOTO,       	 /* structured field (EContactPhoto) */
-	E_CONTACT_PHOTO_URI,     /* synthetic string field */
-
 	/* Contact categories */
 	E_CONTACT_CATEGORIES,    /* string field */
-	E_CONTACT_CATEGORY_LIST, /* multi-valued */
 
 	/* misc fields */
 	E_CONTACT_SPOUSE,        /* string field */
 	E_CONTACT_NOTE,          /* string field */
 
+	E_CONTACT_LAST_SIMPLE_STRING = E_CONTACT_NOTE,
+
+	/* fields used for describing contact lists.  a contact list
+	   is just a contact with _IS_LIST set to true.  the members
+	   are listed in the _EMAIL field. */
+	E_CONTACT_IS_LIST,             /* boolean field */
+	E_CONTACT_LIST_SHOW_ADDRESSES, /* boolean field */
+
+	/* Instant Messaging fields */
+	E_CONTACT_IM_AIM,     	 /* Multi-valued */
+	E_CONTACT_IM_JABBER,  	 /* Multi-valued */
+	E_CONTACT_IM_YAHOO,   	 /* Multi-valued */
+	E_CONTACT_IM_MSN,     	 /* Multi-valued */
+	E_CONTACT_IM_ICQ,     	 /* Multi-valued */
+
+	/* Address fields */
+	E_CONTACT_ADDRESS,       /* Multi-valued structured (EContactAddress) */
+	E_CONTACT_ADDRESS_HOME,  /* synthetic structured field (EContactAddress) */
+	E_CONTACT_ADDRESS_WORK,  /* synthetic structured field (EContactAddress) */
+	E_CONTACT_ADDRESS_OTHER, /* synthetic structured field (EContactAddress) */
+
+	E_CONTACT_CATEGORY_LIST, /* multi-valued */
+
+	/* Photo/Logo */
+	E_CONTACT_PHOTO,       	 /* structured field (EContactPhoto) */
+	E_CONTACT_LOGO,       	 /* structured field (EContactPhoto) */
+
+	E_CONTACT_NAME,        	 /* structured field (EContactName) */
+	E_CONTACT_EMAIL,       	 /* Multi-valued */
+
+	E_CONTACT_WANTS_HTML,    /* boolean field */
+
 	E_CONTACT_FIELD_LAST
+
 } EContactField;
 
 typedef struct {

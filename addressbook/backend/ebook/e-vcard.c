@@ -56,10 +56,10 @@ struct _EVCardAttributeParam {
 static GObjectClass *parent_class;
 
 static void   _evc_base64_init(void);
-static size_t _evc_base64_decode_simple (char *data, size_t len);
-static char  *_evc_base64_encode_simple (const char *data, size_t len);
 static size_t _evc_base64_encode_step(unsigned char *in, size_t len, gboolean break_lines, unsigned char *out, int *state, int *save);
 static size_t _evc_base64_decode_step(unsigned char *in, size_t len, unsigned char *out, int *state, unsigned int *save);
+size_t _evc_base64_decode_simple (char *data, size_t len);
+char  *_evc_base64_encode_simple (const char *data, size_t len);
 
 static void
 e_vcard_dispose (GObject *object)
@@ -813,9 +813,10 @@ e_vcard_attribute_copy (EVCardAttribute *attr)
 }
 
 void
-e_card_remove_attribute (EVCard *evc, const char *attr_group, const char *attr_value)
+e_vcard_remove_attribute (EVCard *evc, const char *attr_group, const char *attr_value)
 {
 	/* XXX need to write this */
+	g_assert_not_reached ();
 }
 
 void
@@ -1299,7 +1300,7 @@ _evc_base64_decode_step(unsigned char *in, size_t len, unsigned char *out, int *
 	return outptr-out;
 }
 
-static char *
+char *
 _evc_base64_encode_simple (const char *data, size_t len)
 {
 	unsigned char *out;
@@ -1313,7 +1314,7 @@ _evc_base64_encode_simple (const char *data, size_t len)
 	return (char *)out;
 }
 
-static size_t
+size_t
 _evc_base64_decode_simple (char *data, size_t len)
 {
 	int state = 0;

@@ -18,6 +18,9 @@
 #include <ebook/e-book-query.h>
 #include <ebook/e-book-view.h>
 #include <ebook/e-book-types.h>
+#if notyet
+#include <e-util/e-source-list.h>
+#endif
 
 #define E_TYPE_BOOK        (e_book_get_type ())
 #define E_BOOK(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_BOOK, EBook))
@@ -150,13 +153,12 @@ gboolean    e_book_get_self                (EContact **contact, EBook **book, GE
 gboolean    e_book_set_self                (EBook   *book, const char *id, GError **error);
 
 /* Addressbook Discovery */
-
+gboolean    e_book_get_default_addressbook (EBook **book, GError **error);
 #if notyet
-char*        e_book_get_default_addressbook (GError **error);
-ESourceList* e_book_get_addressbooks        (GError **error);
+gboolean    e_book_get_addressbooks        (ESourceList** addressbook_sources, GError **error);
 #endif
 
-GType     e_book_get_type                  (void);
+GType        e_book_get_type                  (void);
 
 G_END_DECLS
 

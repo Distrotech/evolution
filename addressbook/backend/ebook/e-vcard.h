@@ -35,6 +35,7 @@
 #define EVC_FN              "FN"
 #define EVC_ICSCALENDAR     "ICSCALENDAR" /* XXX should this be X-EVOLUTION-ICSCALENDAR? */
 #define EVC_LABEL           "LABEL"
+#define EVC_LOGO            "LOGO"
 #define EVC_MAILER          "MAILER"
 #define EVC_NICKNAME        "NICKNAME"
 #define EVC_N               "N"
@@ -65,6 +66,10 @@
 #define EVC_X_MSN           "X-MSN"
 #define EVC_X_SPOUSE        "X-EVOLUTION-SPOUSE"
 #define EVC_X_YAHOO         "X-YAHOO"
+
+#define EVC_X_WANTS_HTML          "X-MOZILLA-HTML"
+#define EVC_X_LIST                "X-EVOLUTION-LIST"
+#define EVC_X_LIST_SHOW_ADDRESSES "X-EVOLUTION-LIST-SHOW_ADDRESSES"
 
 typedef enum {
 	EVC_FORMAT_VCARD_21,

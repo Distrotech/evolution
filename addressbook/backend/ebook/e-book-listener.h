@@ -15,7 +15,6 @@
 #include <bonobo/bonobo-object.h>
 #include <ebook/addressbook.h>
 #include <ebook/e-book-types.h>
-#include <e-util/e-list.h>
 
 #define E_TYPE_BOOK_LISTENER        (e_book_listener_get_type ())
 #define E_BOOK_LISTENER(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), E_TYPE_BOOK_LISTENER, EBookListener))

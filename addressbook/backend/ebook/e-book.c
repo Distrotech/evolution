@@ -78,9 +78,9 @@ typedef struct {
 } EBookOp;
 
 typedef enum {
-	URINotLoaded,
-	URILoading,
-	URILoaded
+	E_BOOK_URI_NOT_LOADED,
+	E_BOOK_URI_LOADING,
+	E_BOOK_URI_LOADED
 } EBookLoadState;
 
 struct _EBookPrivate {
@@ -205,7 +205,7 @@ e_book_add_contact (EBook           *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_add_contact called on book before e_book_load_uri"));
@@ -314,7 +314,7 @@ e_book_commit_contact (EBook           *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_commit_contact called on book before e_book_load_uri"));
@@ -396,7 +396,7 @@ e_book_get_supported_fields  (EBook            *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_get_supported_fields on book before e_book_load_uri"));
@@ -495,7 +495,7 @@ e_book_get_supported_auth_methods (EBook            *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_get_supported_auth_methods on book before e_book_load_uri"));
@@ -604,7 +604,7 @@ e_book_authenticate_user (EBook         *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_authenticate_user on book before e_book_load_uri"));
@@ -685,7 +685,7 @@ e_book_get_contact (EBook       *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_get_contact on book before e_book_load_uri"));
@@ -757,11 +757,6 @@ e_book_response_get_contact (EBook       *book,
 	op->status = status;
 	op->contact = contact;
 
-#if notyet
-	if (op->contact)
-		e_contact_set_book (op->contact, book);
-#endif
-
 	pthread_cond_signal (&op->cond);
 
 	e_mutex_unlock (op->mutex);
@@ -790,7 +785,7 @@ e_book_remove_contact (EBook       *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_remove_contact on book before e_book_load_uri"));
@@ -842,7 +837,7 @@ e_book_remove_contacts (EBook    *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_remove_contacts on book before e_book_load_uri"));
@@ -935,7 +930,7 @@ e_book_get_book_view (EBook       *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_get_book_view on book before e_book_load_uri"));
@@ -1062,7 +1057,7 @@ e_book_get_contacts (EBook       *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_get_contacts on book before e_book_load_uri"));
@@ -1160,7 +1155,7 @@ e_book_get_changes (EBook       *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_get_changes on book before e_book_load_uri"));
@@ -1385,7 +1380,7 @@ e_book_remove (EBook   *book,
 
 	e_mutex_lock (book->priv->mutex);
 
-	if (book->priv->load_state != URILoaded) {
+	if (book->priv->load_state != E_BOOK_URI_LOADED) {
 		e_mutex_unlock (book->priv->mutex);
 		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_URI_NOT_LOADED,
 			     _("e_book_remove on book before e_book_load_uri"));
@@ -1518,7 +1513,7 @@ e_book_unload_uri (EBook   *book,
 	CORBA_Environment ev;
 
 	e_return_error_if_fail (book && E_IS_BOOK (book), E_BOOK_ERROR_INVALID_ARG);
-	e_return_error_if_fail (book->priv->load_state != URINotLoaded, E_BOOK_ERROR_URI_NOT_LOADED);
+	e_return_error_if_fail (book->priv->load_state != E_BOOK_URI_NOT_LOADED, E_BOOK_ERROR_URI_NOT_LOADED);
 
 	/* Release the remote GNOME_Evolution_Addressbook_Book in the PAS. */
 	CORBA_exception_init (&ev);
@@ -1535,7 +1530,7 @@ e_book_unload_uri (EBook   *book,
 	bonobo_object_unref (BONOBO_OBJECT (book->priv->listener));
 
 	book->priv->listener   = NULL;
-	book->priv->load_state = URINotLoaded;
+	book->priv->load_state = E_BOOK_URI_NOT_LOADED;
 
 	return TRUE;
 }
@@ -1624,7 +1619,7 @@ e_book_load_uri (EBook        *book,
 	e_return_error_if_fail (uri,                      E_BOOK_ERROR_INVALID_ARG);
 
 	/* XXX this needs to happen while holding the book's lock i would think... */
-	e_return_error_if_fail (book->priv->load_state == URINotLoaded, E_BOOK_ERROR_URI_ALREADY_LOADED);
+	e_return_error_if_fail (book->priv->load_state == E_BOOK_URI_NOT_LOADED, E_BOOK_ERROR_URI_ALREADY_LOADED);
 
 	/* try to find a list of factories that can handle the protocol */
 	if (! (factories = activate_factories_for_uri (book, uri))) {
@@ -1634,7 +1629,7 @@ e_book_load_uri (EBook        *book,
 	}
 
 
-	book->priv->load_state = URILoading;
+	book->priv->load_state = E_BOOK_URI_LOADING;
 
 	/*
 	 * Create our local BookListener interface.
@@ -1716,7 +1711,7 @@ e_book_load_uri (EBook        *book,
 
 	if (rv == TRUE) {
 		book->priv->corba_book = corba_book;
-		book->priv->load_state = URILoaded;
+		book->priv->load_state = E_BOOK_URI_LOADED;
 		return TRUE;
 	}
 	else {
@@ -1766,7 +1761,7 @@ e_book_get_static_capabilities (EBook   *book,
 
 		CORBA_exception_init (&ev);
 
-		if (book->priv->load_state != URILoaded) {
+		if (book->priv->load_state != E_BOOK_URI_LOADED) {
 			g_warning ("e_book_unload_uri: No URI is loaded!\n");
 			return g_strdup("");
 		}
@@ -1809,6 +1804,13 @@ e_book_check_static_capability (EBook *book,
 gboolean
 e_book_get_self (EContact **contact, EBook **book, GError **error)
 {
+	GError *e = NULL;
+
+	if (!e_book_get_default_addressbook (book, &e)) {
+		g_propagate_error (error, e);
+		return FALSE;
+	}
+
 #if notyet
 	EBook *b;
 	char *self_uri, *self_uid;
@@ -1842,12 +1844,20 @@ e_book_set_self (EBook *book, const char *id, GError **error)
 
 
 
-#if notyet
-char*
-e_book_get_default_addressbook (GError **error)
+gboolean
+e_book_get_default_addressbook (EBook **book, GError **error)
 {
+#if notyet
+	EConfigListener *listener = e_config_listener_new ();
+	ESourceList *sources = ...;
+	ESource *default_source;
+
+	default_source = e_source_list_peek_source_by_uid (sources,
+							   "default_");
+#endif
 }
 
+#if notyet
 ESourceList*
 e_book_get_addressbooks (GError **error)
 {
@@ -1892,7 +1902,7 @@ static void
 e_book_init (EBook *book)
 {
 	book->priv             = g_new0 (EBookPrivate, 1);
-	book->priv->load_state = URINotLoaded;
+	book->priv->load_state = E_BOOK_URI_NOT_LOADED;
 	book->priv->uri        = NULL;
 	book->priv->mutex      = e_mutex_new (E_MUTEX_REC);
 }
@@ -1906,7 +1916,7 @@ e_book_dispose (GObject *object)
 		CORBA_Environment  ev;
 		GList *l;
 
-		if (book->priv->load_state == URILoaded)
+		if (book->priv->load_state == E_BOOK_URI_LOADED)
 			e_book_unload_uri (book, NULL);
 
 		CORBA_exception_init (&ev);

@@ -28,6 +28,7 @@ typedef void (*EBookOpenProgressCallback)     (EBook          *book,
 					       gpointer        closure);
 typedef void (*EBookIdCallback)       (EBook *book, EBookStatus status, const char *id, gpointer closure);
 typedef void (*EBookContactCallback)  (EBook *book, EBookStatus status, EContact *contact, gpointer closure);
+typedef void (*EBookContactsCallback) (EBook *book, EBookStatus status, GList *contacts, gpointer closure);
 typedef void (*EBookBookViewCallback) (EBook *book, EBookStatus status, EBookView *book_view, gpointer closure);
 typedef void (*EBookFieldsCallback)   (EBook *book, EBookStatus status, EList *fields, gpointer closure);
 typedef void (*EBookAuthMethodsCallback) (EBook *book, EBookStatus status, EList *auth_methods, gpointer closure);
@@ -58,7 +59,12 @@ void      e_book_async_authenticate_user        (EBook                 *book,
 /* Fetching cards. */
 guint     e_book_async_get_contact              (EBook                 *book,
 						 const char            *id,
-						 EBookContactCallback      cb,
+						 EBookContactCallback   cb,
+						 gpointer               closure);
+
+guint     e_book_async_get_contacts             (EBook                 *book,
+						 const char            *query,
+						 EBookContactsCallback  cb,
 						 gpointer               closure);
 
 /* Deleting cards. */

@@ -1,5 +1,67 @@
 2003-09-29  Chris Toshok  <toshok@ximian.com>
 
+	* backend/ebook/e-contact.h: reorder fields such that all the
+	string fields are first in the enum (and add a
+	E_CONTACT_LAST_SIMPLE_STRING value, ala the old e-card-simple
+	stuff.)  Also, add E_CONTACT_LOGO, WANTS_HTML, IS_LIST, and
+	LIST_SHOW_ADDRESSES.  remove E_CONTACT_PHOTO_URI.
+
+	* backend/ebook/e-vcard.c (e_vcard_remove_attribute): rename from
+	e_card_remove_attribute, and add a g_assert_not_reached.
+	(_evc_base64_encode_simple): make this not static (we need it for
+	a test.)
+	(_evc_base64_decode_simple): same.
+
+	* backend/ebook/e-vcard.h: add LOGO, X-MOZILLA-HTML,
+	X-EVOLUTION-LIST, and X-EVOLUTION-LIST-SHOW_ADDRESSES #defines.
+																
+	* backend/ebook/e-book.c (EBookLoadState): change from
+	UriNotLoaded to E_BOOK_URI_NOT_LOADED, etc.
+	(e_book_add_contact): track _URI_ change.
+	(e_book_get_supported_fields): same.
+	(e_book_get_supported_auth_methods): same.
+	(e_book_authenticate_user): same.
+	(e_book_get_contact): same.
+	(e_book_response_get_contact): remove the ifdefed call to
+	e_contact_set_book.
+	(e_book_remove_contacts): track _URI_ change.
+	(e_book_get_book_view): same.
+	(e_book_get_contacts): same.
+	(e_book_get_changes): same.
+	(e_book_remove): same.
+	(e_book_unload_uri): same.
+	(e_book_load_uri): same.
+	(e_book_load_uri): same.
+	(e_book_get_self): start the implementation of this.
+	(e_book_get_default_addressbook): ifdef out a possible
+	implementation of this (it's broken.)
+	(e_book_init): track _URI_ change.
+	(e_book_dispose): same.
+																
+	* backend/ebook/e-book.h: move get_default_addressbook out of the
+	ifdef, and change get_default_addressbook/get_addressbooks to be
+	more like the rest of the api.
+																
+	* backend/ebook/e-book-util.[ch]: nuke.
+																
+	* backend/ebook/e-card-compare.[ch]: nuke.
+																
+	* backend/ebook/e-destination.[ch]: nuke.
+																
+	* backend/ebook/e-book-query.c (func_and): fix valgrind error.
+	(func_or): same.
+																
+	* backend/ebook/e-book-listener.h: drop #include of e-list.h
+																
+	* backend/ebook/e-book-async.c (_get_contacts_response_handler)
+	(_get_contacts_response_dtor, _get_contacts_handler)
+	(_get_contacts_dtor, e_book_async_get_contacts): new functions,
+	implementing e_book_async_get_contacts.
+																
+	* backend/ebook/e-book-async.h: add e_book_async_get_contacts.
+
+2003-09-29  Chris Toshok  <toshok@ximian.com>
+
 	* util/eab-marshal.list: new file.
 
 	* util/eab-destination.[ch]: rename
