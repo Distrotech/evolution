@@ -34,6 +34,8 @@
 #include <camel/camel-store.h>
 #include <camel/camel-folder.h>
 
+#include "e-util/e-dialog-utils.h"
+
 #include "mail-mt.h"
 #include "mail-ops.h"
 
@@ -685,11 +687,10 @@ emft_popup_new_folder_response (EMFolderSelector *emfs, int response, EMFolderTr
 {
 	/* FIXME: ugh, kludge-a-licious: EMFolderSelector uses EMFolderTree so we can poke emfs->emft internals */
 	struct _EMFolderTreePrivate *priv = emfs->emft->priv;
-	const char *uri, *name, *parent;
 	struct _emft_store_info *si;
-	CamelStore *store;
+	const char *uri, *parent;
 	CamelException ex;
-	char *path;
+	char *path, *name;
 	
 	if (response != GTK_RESPONSE_OK) {
 		gtk_widget_destroy ((GtkWidget *) emfs);
@@ -1184,9 +1185,9 @@ tree_button_press (GtkWidget *treeview, GdkEventButton *event, EMFolderTree *emf
 	
 	if (event == NULL || event->type == GDK_KEY_PRESS) {
 		/* FIXME: menu pos function */
-		gtk_menu_popup (menu, NULL, NULL, NULL, NULL, 0, event->key.time);
+		gtk_menu_popup (menu, NULL, NULL, NULL, NULL, 0, event->time);
 	} else {
-		gtk_menu_popup (menu, NULL, NULL, NULL, NULL, event->button.button, event->button.time);
+		gtk_menu_popup (menu, NULL, NULL, NULL, NULL, event->button, event->time);
 	}
 	
 	return TRUE;
@@ -1197,12 +1198,10 @@ static void
 tree_selection_changed (GtkTreeSelection *selection, EMFolderTree *emft)
 {
 	struct _EMFolderTreePrivate *priv = emft->priv;
-	GtkTreeSelection *selection;
 	GtkTreeModel *model;
 	GtkTreeIter iter;
 	char *path, *uri;
 	
-	selection = gtk_tree_view_get_selection (priv->treeview);
 	gtk_tree_selection_get_selected (selection, &model, &iter);
 	gtk_tree_model_get (model, &iter, COL_STRING_FOLDER_PATH, &path,
 			    COL_STRING_URI, &uri, -1);
