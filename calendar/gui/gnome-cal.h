@@ -122,6 +122,8 @@ void gnome_calendar_set_view (GnomeCalendar *gcal, GnomeCalendarViewType view_ty
 			      gboolean range_selected, gboolean grab_focus);
 
 GtkWidget *gnome_calendar_get_current_view_widget (GnomeCalendar *gcal);
+GtkWidget *gnome_calendar_get_e_calendar_widget (GnomeCalendar *gcal);
+
 void gnome_calendar_setup_view_menus (GnomeCalendar *gcal, BonoboUIComponent *uic);
 void gnome_calendar_discard_view_menus (GnomeCalendar *gcal);
 
