@@ -60,6 +60,8 @@ libcal_dialogs_la_SOURCES =	\
 	e-delegate-dialog.h	\
 	event-editor.c		\
 	event-editor.h		\
+	send-options.c		\
+	send-options.h		\
 	event-page.c		\
 	event-page.h		\
 	meeting-page.c		\
@@ -91,6 +93,7 @@ glade_DATA =				\
 	cal-prefs-dialog.glade		\
 	e-delegate-dialog.glade		\
 	event-page.glade		\
+	send-options.glade		\
 	meeting-page.glade		\
 	recurrence-page.glade		\
 	schedule-page.glade		\

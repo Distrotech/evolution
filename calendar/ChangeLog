@@ -1,3 +1,21 @@
+2004-11-09  Chenthill Palanisamy  <pchenthill@novell.com>
+	
+	* gui/dialogs/MakeFile.am
+	 Added three new files for the Send-options GUI send-options.c,
+	 send-options.h, send-options.glade.
+	 * gui/dialogs/event-page.c 
+	 (_EventPagePrivate): Added a two new elements for storing the label
+	 and the button and a element to store the send options data.
+	 (event_page_init): Initialized the same.
+	 (event_page_finalize): called send_options_finalize to free the structure
+	 which has the data for the send options.
+	 (event_page_fill_widgets): Display the senoptions widgets checking for the 
+	 static capability and if it is new calendar item.
+	 (send_options_clicked_cb): The callback function which runs the send options 
+	 dialog.
+	 * gui/send-options.glade: The file which has the GUI interface.
+	 * gui/send-options.[ch]: The files necessary for the send options dialog.
+
 2004-11-04  Rodrigo Moya <rodrigo@novell.com>
 
 	* gui/dialogs/event-page.glade:

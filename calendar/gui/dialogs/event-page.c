@@ -46,6 +46,7 @@
 #include "../e-alarm-list.h"
 #include "alarm-list-dialog.h"
 #include "event-page.h"
+#include "send-options.h"
 
 
 
@@ -84,7 +85,11 @@ struct _EventPagePrivate {
 	GtkWidget *categories;
 
 	GtkWidget *source_selector;
+	
+	GtkWidget *send_options_label;
+	GtkWidget *send_options_button;
 
+	ESendOptionsData *options_data;
 	EAlarmList *alarm_list_store;
 	
 	gboolean updating;
@@ -163,11 +168,15 @@ event_page_init (EventPage *epage)
 	priv->alarm_custom = NULL;
 	priv->categories_btn = NULL;
 	priv->categories = NULL;
+	priv->send_options_label = NULL;
+	priv->send_options_button = NULL;
+	priv->options_data = NULL;
 
 	priv->alarm_interval =  -1;
 	
 	priv->updating = FALSE;
 	priv->sync_timezones = FALSE;
+
 }
 
 /* Destroy handler for the event page */
@@ -196,6 +205,10 @@ event_page_finalize (GObject *object)
 		priv->alarm_list_store = NULL;
 	}
 
+	if (priv->options_data) {
+		send_options_finalize (priv->options_data);
+		priv->options_data = NULL;
+	}
 	g_free (priv->old_summary);
 	
 	g_free (priv);
@@ -632,6 +645,8 @@ event_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
 	ECalComponentDateTime start_date, end_date;
 	const char *location;
 	const char *categories;
+	const char *uid;
+	icalcomponent *icalcomp = NULL;
 	ESource *source;
 	GSList *l;
 	gboolean validated = TRUE;
@@ -748,6 +763,15 @@ event_page_fill_widgets (CompEditorPage *page, ECalComponent *comp)
 	e_source_option_menu_select (E_SOURCE_OPTION_MENU (priv->source_selector), source);
 
 	priv->updating = FALSE;
+
+	e_cal_component_get_uid (comp, &uid);
+	if (!e_cal_get_save_schedules (page->client) ||
+		       	e_cal_get_object(page->client, uid, NULL, &icalcomp, NULL )) {
+		gtk_widget_hide (priv->send_options_label);
+		gtk_widget_hide (priv->send_options_button);
+		icalcomponent_free (icalcomp);
+	}
+		
 
 	sensitize_widgets (epage);
 
@@ -1120,6 +1144,9 @@ get_widgets (EventPage *epage)
 
 	priv->source_selector = GW ("source");
 
+	priv->send_options_label = GW ("send-options-label");
+	priv->send_options_button = GW ("send-options-button");
+
 #undef GW
 
 	return (priv->summary
@@ -1137,7 +1164,9 @@ get_widgets (EventPage *epage)
 		&& priv->alarm_warning
 		&& priv->alarm_custom
 		&& priv->categories_btn
-		&& priv->categories);
+		&& priv->categories
+		&& priv->send_options_label
+		&& priv->send_options_button);
 }
 
 /* Callback used when the summary changes; we emit the notification signal. */
@@ -1546,6 +1575,26 @@ categories_clicked_cb (GtkWidget *button, gpointer data)
 	e_categories_config_open_dialog_for_entry (GTK_ENTRY (entry));
 }
 
+static void
+send_options_clicked_cb (GtkWidget *button, gpointer data)
+{
+	EventPage *epage;
+	EventPagePrivate *priv;
+	GtkWidget *toplevel;
+	gboolean result;
+	
+	epage = EVENT_PAGE (data);
+	priv = epage->priv;
+	
+	if (!priv->options_data)
+		priv->options_data = send_options_new ();
+
+	toplevel = gtk_widget_get_toplevel (priv->main);
+	result = send_options_run_dialog (toplevel, COMP_EDITOR_PAGE (epage)->client, priv->options_data);
+	priv->options_data->initialized = TRUE;
+	
+}
+
 /* This is called when any field is changed; it notifies upstream. */
 static void
 field_changed_cb (GtkWidget *widget, gpointer data)
@@ -1766,6 +1815,10 @@ init_widgets (EventPage *epage)
 	/* Categories button */
 	g_signal_connect((priv->categories_btn), "clicked",
 			    G_CALLBACK (categories_clicked_cb), epage);
+
+	/* send options button */
+	g_signal_connect((priv->send_options_button), "clicked", 
+			    G_CALLBACK (send_options_clicked_cb), epage);
 
 	/* Source selector */
 	g_signal_connect((priv->source_selector), "source_selected",
