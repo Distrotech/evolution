@@ -1,10 +1,9 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* subscribe-dialog.c: Subscribe dialog */
 /*
- *  Authors: Chris Toshok <toshok@ximian.com>
- *           Peter Williams <peterw@ximian.com>
+ *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2000 Ximian, Inc. (www.ximian.com)
+ *  Copyright 2003 Ximian, Inc. (www.ximian.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
