@@ -234,6 +234,11 @@ impl_Listener_receive_message (PortableServer_Servant                           
 	char               *message; 
 	
 	id = e_messenger_identity_create_from_string ((const char *)corba_id);
+	if (id == NULL) {
+		g_warning ("The PMS you are using is broken.");
+		return;
+	}
+	
 	sender = e_messenger_identity_create_from_me_and_username (id, corba_sender);
 
 	message = g_strdup ((const char *)corba_message);
@@ -259,6 +264,11 @@ impl_Listener_contact_update (PortableServer_Servant                            
 	EMessengerIdentity                *contact;
 	
 	id = e_messenger_identity_create_from_string ((const char *)corba_id);
+	if (id == NULL) {
+		g_warning ("The PMS you are using is broken.");
+		return;
+	}
+
 	contact = e_messenger_identity_create_from_me_and_username (id, (const char *)corba_contact);
 	
 	e_messenger_listener_queue_contact_update (

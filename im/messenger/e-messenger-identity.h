@@ -29,6 +29,9 @@ typedef char * EMessengerIdentity;
 EMessengerIdentity *e_messenger_identity_create                      (const char *service_type,
 							              const char *username,
 							              const char *password);
+char               *e_messenger_identity_create_string               (const char *service_type,
+								      const char *username,
+								      const char *password);
 EMessengerIdentity *e_messenger_identity_create_from_string          (const char *id_string);
 EMessengerIdentity *e_messenger_identity_create_from_me_and_username (EMessengerIdentity *me,
 								      const char         *username);

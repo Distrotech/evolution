@@ -49,6 +49,24 @@ e_messenger_identity_create (const char *service_type,
 	return emi;
 }
 
+char *
+e_messenger_identity_create_string (const char *service_type,
+				    const char *username,
+				    const char *password)
+{
+	EMessengerIdentity *emi;
+	char               *emi_string;
+
+	emi = e_messenger_identity_create (
+		service_type, username, password);
+
+	emi_string = e_messenger_identity_to_string (emi);
+
+	e_messenger_identity_free (emi);
+
+	return emi_string;
+}
+
 EMessengerIdentity *
 e_messenger_identity_create_from_string (const char *id_string)
 {
