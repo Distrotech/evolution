@@ -251,10 +251,12 @@ cleanup_send_mail (gpointer in_data, gpointer op_data, CamelException *ex)
 	g_free (input->xport_uri);
 	g_free (input->done_uid);
 
+	gtk_widget_show (input->composer);
+
 	if (!camel_exception_is_set (ex))
 		gtk_widget_destroy (input->composer);
-	else
-		gtk_widget_show (input->composer);
+		/*	else
+			gtk_widget_show (input->composer);*/
 }
 
 static const mail_operation_spec op_send_mail =
