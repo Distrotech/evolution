@@ -85,6 +85,7 @@ typedef struct {
 	
 	guint font_notify_id;
 	guint spell_notify_id;
+	guint caret_mode_notify_id;
 
 	GPtrArray *mime_types;
 	guint mime_types_notify_id;
@@ -435,6 +436,7 @@ config_write_style (void)
 	char *fix_font;
 	char *var_font;
 	gint red, green, blue;
+	gboolean caret_mode;
 	
 	/*
 	 * This is the wrong way to get the path but it needs to 
@@ -457,12 +459,13 @@ config_write_style (void)
 	custom = gconf_client_get_bool (config->gconf, "/apps/evolution/mail/display/fonts/use_custom", NULL);
 	var_font = gconf_client_get_string (config->gconf, "/apps/evolution/mail/display/fonts/variable", NULL);
 	fix_font = gconf_client_get_string (config->gconf, "/apps/evolution/mail/display/fonts/monospace", NULL);
-
+	caret_mode = gconf_client_get_bool (config->gconf, "/apps/evolution/mail/display/caret_mode", NULL);
 	red   = gconf_client_get_int (config->gconf, "/GNOME/Spell/spell_error_color_red", NULL);
 	green = gconf_client_get_int (config->gconf, "/GNOME/Spell/spell_error_color_green", NULL);
 	blue  = gconf_client_get_int (config->gconf, "/GNOME/Spell/spell_error_color_blue", NULL);
 
 	fprintf (rc, "style \"evolution-mail-custom-fonts\" {\n");
+	fprintf (rc, "        GtkHTML::caret_mode = %d\n", caret_mode ? 1 :0);
 	fprintf (rc, "        GtkHTML::spell_error_color = \"#%02x%02x%02x\"\n",
 		 red >> 8, green >> 8, blue >> 8);
 
@@ -536,6 +539,8 @@ mail_config_init (void)
 							  gconf_style_changed, NULL, NULL, NULL);
 	config->spell_notify_id = gconf_client_notify_add (config->gconf, "/GNOME/Spell",
 							   gconf_style_changed, NULL, NULL, NULL);
+	config->caret_mode_notify_id = gconf_client_notify_add (config->gconf, "/apps/evolution/mail/display/caret_mode",
+							        gconf_style_changed, NULL, NULL, NULL);
 
 	gconf_client_add_dir (config->gconf, "/apps/evolution/mail/labels",
 			      GCONF_CLIENT_PRELOAD_ONELEVEL, NULL);
