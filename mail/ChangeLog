@@ -1,3 +1,46 @@
+2000-08-04  Peter Williams  <peterw@helixcode.com>
+
+	* mail-threads.c (mail_operation_queue): Centralize the clur
+	handling functions; fix a race condition where the dispatcher
+	would overwrite the closure before the main thread could
+	free the old one.
+
+	* mail-ops.c (cleanup_display_message): Fix improper handling
+	of displaying a NULL message (which means clear the message
+	display).
+
+2000-08-04  Ettore Perazzoli  <ettore@helixcode.com>
+
+	* message-list.c (message_list_regenerate): Free the GPtrArray
+	correctly instead of using `g_strfreev()'.
+
+2000-08-04  Michael Meeks  <michael@helixcode.com>
+
+	* folder-browser-factory.c (control_activate): release the ui_handler
+	after set_container.
+
+2000-08-03  Michael Meeks  <michael@helixcode.com>
+
+	* mail-config.c (identity_page_new): only whack the sig in if the
+	file exists.
+
+	* component-factory.c (factory_fn): count running instances,
+	attach destroy signal (factory_destroy): add. 
+
+	* main.c (main): pass orb around.
+
+2000-08-03  Jeffrey Stedfast  <fejj@helixcode.com>
+
+	* mail-ops.c (composer_send_cb): Yay, no more compiler warnings
+
+	* mail-config.c: set config = NULL
+	(provider_list) Eek! Initialize news to NULL!  Also, use
+	g_slist_prepend() for "performance" gains ;-)
+	(init_config): Set the config member data to NULL just to be on
+	the safe side
+	(clear_config): Don't bother freeing slist data if the slist is
+	NULL
+
 2000-08-03  Peter Williams  <peterw@helixcode.com>
 
 	* mail-ops.c (op_forward_messages): Use the new dynamic

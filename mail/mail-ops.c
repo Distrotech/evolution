@@ -1445,11 +1445,17 @@ describe_display_message (gpointer in_data, gboolean gerund)
 	display_message_input_t *input = (display_message_input_t *) in_data;
 
 	if (gerund) {
-		return g_strdup_printf ("Displaying message UID \"%s\"",
-					input->uid);
+		if (input->uid)
+			return g_strdup_printf ("Displaying message UID \"%s\"",
+						input->uid);
+		else
+			return g_strdup ("Clearing message display");
 	} else {
-		return g_strdup_printf ("Display message UID \"%s\"",
-					input->uid);
+		if (input->uid)
+			return g_strdup_printf ("Display message UID \"%s\"",
+						input->uid);
+		else
+			return g_strdup ("Clear message dispaly");
 	}
 }
 
@@ -1482,8 +1488,10 @@ do_display_message (gpointer in_data, gpointer op_data, CamelException * ex)
 	display_message_input_t *input = (display_message_input_t *) in_data;
 	display_message_data_t *data = (display_message_data_t *) op_data;
 
-	if (input->uid == NULL)
+	if (input->uid == NULL) {
+		data->msg = NULL;
 		return;
+	}
 
 	data->msg = camel_folder_get_message (input->ml->folder,
 					      input->uid, ex);

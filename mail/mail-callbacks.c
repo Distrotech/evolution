@@ -354,9 +354,8 @@ move_msg (GtkWidget *button, gpointer user_data)
 	GPtrArray *uids;
 	char *uri, *physical, *path;
 	const char *allowed_types[] = { "mail", NULL };
-
 	extern EvolutionShellClient *global_shell_client;
-	static char *last;
+	static char *last = NULL;
 
 	if (last == NULL)
 		last = g_strdup ("");

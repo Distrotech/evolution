@@ -68,7 +68,7 @@ typedef struct com_msg_s
 		MESSAGE, 
 		PASSWORD,
 		ERROR, 
-		FINISHED 
+		FINISHED
 	} type;
 	gfloat percentage;
 	gchar *message;
@@ -82,10 +82,16 @@ typedef struct com_msg_s
 }
 com_msg_t;
 
+/**
+ * @dispatch_thread_started: gboolean that tells us whether
+ * the dispatch thread has been launched.
+ **/
+
+static gboolean dispatch_thread_started = FALSE;
+
 /** 
- * @mail_operation_in_progress: When true, there's
- * another thread executing a major ev-mail operation:
- * fetch_mail, etc.
+ * @queue_len : the number of operations pending
+ * and being executed.
  *
  * Because camel is not thread-safe we work
  * with the restriction that more than one mailbox
@@ -93,7 +99,7 @@ com_msg_t;
  * concurrently check mail and move messages, etc.
  **/
 
-static gboolean mail_operation_in_progress;
+static gint queue_len = 0;
 
 /**
  * @queue_window: The little window on the screen that
@@ -121,27 +127,22 @@ static GtkWidget *queue_window_progress = NULL;
 static int progress_timeout_handle = -1;
 
 /**
- * @op_queue: The list of operations the are scheduled
- * to proceed after the currently executing one. When
- * only one operation is going, this is NULL.
- **/
-
-static GSList *op_queue = NULL;
-
-/**
- * @compipe: The pipe through which the dispatcher communicates
+ * @main_compipe: The pipe through which the dispatcher communicates
  * with the main thread for GTK+ calls
  *
  * @chan_reader: the GIOChannel that reads our pipe
  *
- * @READER: the fd in our pipe that.... reads!
- * @WRITER: the fd in our pipe that.... writes!
+ * @MAIN_READER: the fd in our main pipe that.... reads!
+ * @MAIN_WRITER: the fd in our main pipe that.... writes!
  */
 
-#define READER compipe[0]
-#define WRITER compipe[1]
+#define MAIN_READER main_compipe[0]
+#define MAIN_WRITER main_compipe[1]
+#define DISPATCH_READER dispatch_compipe[0]
+#define DISPATCH_WRITER dispatch_compipe[1]
 
-static int compipe[2] = { -1, -1 };
+static int main_compipe[2] = { -1, -1 };
+static int dispatch_compipe[2] = { -1, -1 };
 
 GIOChannel *chan_reader = NULL;
 
@@ -166,9 +167,9 @@ static gboolean modal_may_proceed = FALSE;
  **/
 
 static void create_queue_window (void);
-static void dispatch (closure_t * clur);
-static void *dispatch_func (void *data);
-static void check_compipe (void);
+static void *dispatch (void * data);
+static void check_dispatcher (void);
+static void check_compipes (void);
 static void check_cond (void);
 static gboolean read_msg (GIOChannel * source, GIOCondition condition,
 			  gpointer userdata);
@@ -184,6 +185,9 @@ static gboolean progress_timeout (gpointer data);
 static void timeout_toggle (gboolean active);
 static gboolean display_timeout (gpointer data);
 static gboolean hide_queue_window (gpointer data);
+static closure_t *new_closure (const mail_operation_spec * spec, gpointer input,
+			       gboolean free_in_data);
+static void free_closure (closure_t *clur);
 
 /* Pthread code */
 /* FIXME: support other thread types!!!! */
@@ -246,15 +250,7 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 
 	g_assert (spec);
 
-	clur = g_new (closure_t, 1);
-	clur->spec = spec;
-	clur->in_data = input;
-	clur->free_in_data = free_in_data;
-	clur->op_data = g_malloc (spec->datasize);
-	clur->ex = camel_exception_new ();
-	camel_exception_init (clur->ex);
-	clur->infinitive = (spec->describe) (input, FALSE);
-	clur->gerund = (spec->describe) (input, TRUE);
+	clur = new_closure (spec, input, free_in_data);
 
 	if (spec->setup)
 		(spec->setup) (clur->in_data, clur->op_data, clur->ex);
@@ -282,43 +278,23 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 				   camel_exception_get_description (clur->
 								    ex));
 		}
-		g_free (clur->op_data);
-		camel_exception_free (clur->ex);
-		if (free_in_data)
-			g_free (input);
-		g_free (clur->infinitive);
-		g_free (clur->gerund);
-		g_free (clur);
+
+		free_closure (clur);
 		return FALSE;
 	}
 
-	if (mail_operation_in_progress == FALSE) {
-		/* No operations are going on, none are pending. So
-		 * we check to see if we're initialized (create the
-		 * window and the pipes), and send off the operation
-		 * on its merry way.
-		 */
-
-		mail_operation_in_progress = TRUE;
-
-		check_compipe ();
+	if (queue_len == 0) {
+		check_compipes ();
+		check_dispatcher ();
 		create_queue_window ();
 		/*gtk_widget_show_all (queue_window); */
 		gtk_timeout_add (1000, display_timeout, NULL);
-
-		dispatch (clur);
 	} else {
 		GtkWidget *label;
 
-		/* Zut. We already have an operation running. Well,
-		 * queue ourselves up.
-		 *
-		 * Yes, g_slist_prepend is faster down here.. But we pop
-		 * operations off the beginning of the list later and
-		 * that's a lot faster.
+		/* We already have an operation running. Well,
+		 * queue ourselves up. (visually)
 		 */
-
-		op_queue = g_slist_append (op_queue, clur);
 
 		/* Show us in the pending window. */
 		label = gtk_label_new (clur->infinitive);
@@ -332,6 +308,8 @@ mail_operation_queue (const mail_operation_spec * spec, gpointer input,
 		gtk_widget_show_all (queue_window_pending);
 	}
 
+	write (DISPATCH_WRITER, clur, sizeof (closure_t));
+	queue_len++;
 	return TRUE;
 }
 
@@ -350,7 +328,7 @@ mail_op_set_percentage (gfloat percentage)
 
 	msg.type = PERCENTAGE;
 	msg.percentage = percentage;
-	write (WRITER, &msg, sizeof (msg));
+	write (MAIN_WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -371,7 +349,7 @@ mail_op_hide_progressbar (void)
 	com_msg_t msg;
 
 	msg.type = HIDE_PBAR;
-	write (WRITER, &msg, sizeof (msg));
+	write (MAIN_WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -387,7 +365,7 @@ mail_op_show_progressbar (void)
 	com_msg_t msg;
 
 	msg.type = SHOW_PBAR;
-	write (WRITER, &msg, sizeof (msg));
+	write (MAIN_WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -411,7 +389,7 @@ mail_op_set_message (gchar * fmt, ...)
 	msg.message = g_strdup_vprintf (fmt, val);
 	va_end (val);
 
-	write (WRITER, &msg, sizeof (msg));
+	write (MAIN_WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -444,7 +422,7 @@ mail_op_get_password (gchar * prompt, gboolean secret, gchar ** dest)
 
 	G_LOCK (modal_lock);
 
-	write (WRITER, &msg, sizeof (msg));
+	write (MAIN_WRITER, &msg, sizeof (msg));
 	modal_may_proceed = FALSE;
 
 	while (modal_may_proceed == FALSE)
@@ -482,7 +460,7 @@ mail_op_error (gchar * fmt, ...)
 	G_LOCK (modal_lock);
 
 	modal_may_proceed = FALSE;
-	write (WRITER, &msg, sizeof (msg));
+	write (MAIN_WRITER, &msg, sizeof (msg));
 
 	while (modal_may_proceed == FALSE)
 		g_cond_wait (modal_cond,
@@ -502,9 +480,10 @@ mail_op_error (gchar * fmt, ...)
 void
 mail_operation_wait_for_finish (void)
 {
-	while (mail_operation_in_progress) {
+	while (queue_len) {
 		while (gtk_events_pending ())
 			gtk_main_iteration ();
+		/* Sigh. Otherwise we deadlock upon exit. */
 		GDK_THREADS_LEAVE ();
 	}
 }
@@ -519,17 +498,33 @@ mail_operation_wait_for_finish (void)
 gboolean
 mail_operations_are_executing (void)
 {
-	return mail_operation_in_progress;
+	return (queue_len > 0);
 }
 
 /* ** Static functions **************************************************** */
 
-/**
- * create_queue_window:
- *
- * Creates the queue_window widget that displays the progress of the
- * current operation.
- */
+static void check_dispatcher (void)
+{
+	int res;
+
+	if (dispatch_thread_started)
+		return;
+
+#if defined( G_THREADS_IMPL_POSIX )
+	res = pthread_create (&dispatch_thread, NULL,
+			      (void *) &dispatch, NULL);
+#elif defined( G_THREADS_IMPL_SOLARIS )
+	res = thr_create (NULL, 0, (void *) &dispatch, NULL, 0, &dispatch_thread);
+#else /* no known impl */
+	Error_No_thread_create_implementation ();
+	choke on this;
+#endif
+	if (res != 0) {
+		g_warning ("Error launching dispatch thread!");
+		/* FIXME: more error handling */
+	} else
+		dispatch_thread_started = TRUE;
+}
 
 static void
 print_hide (GtkWidget * wid)
@@ -554,6 +549,13 @@ print_show (GtkWidget * wid)
 {
 	g_message ("$$$ show signal emitted");
 }
+
+/**
+ * create_queue_window:
+ *
+ * Creates the queue_window widget that displays the progress of the
+ * current operation.
+ */
 
 static void
 create_queue_window (void)
@@ -607,27 +609,35 @@ create_queue_window (void)
 }
 
 /**
- * check_compipe:
+ * check_compipes:
  *
  * Check and see if our pipe has been opened and open
  * it if necessary.
  **/
 
 static void
-check_compipe (void)
+check_compipes (void)
 {
-	if (READER > 0)
-		return;
+	if (MAIN_READER < 0) {
+		if (pipe (main_compipe) < 0) {
+			g_warning ("Call to pipe(2) failed!");
 
-	if (pipe (compipe) < 0) {
-		g_warning ("Call to pipe(2) failed!");
-
-		/* FIXME: better error handling. How do we react? */
-		return;
+			/* FIXME: better error handling. How do we react? */
+			return;
+		}
+		
+		chan_reader = g_io_channel_unix_new (MAIN_READER);
+		g_io_add_watch (chan_reader, G_IO_IN, read_msg, NULL);
 	}
 
-	chan_reader = g_io_channel_unix_new (READER);
-	g_io_add_watch (chan_reader, G_IO_IN, read_msg, NULL);
+	if (DISPATCH_READER < 0) {
+		if (pipe (dispatch_compipe) < 0) {
+			g_warning ("Call to pipe(2) failed!");
+
+			/* FIXME: better error handling. How do we react? */
+			return;
+		}
+	}
 }
 
 /**
@@ -651,64 +661,53 @@ check_cond (void)
  * it when done.
  */
 
-static void
-dispatch (closure_t * clur)
-{
-	int res;
-
-#if defined( G_THREADS_IMPL_POSIX )
-	res =
-		pthread_create (&dispatch_thread, NULL,
-				(void *) &dispatch_func, clur);
-#elif defined( G_THREADS_IMPL_SOLARIS )
-	res = thr_create (NULL, 0, dispatch_func, clur, 0, &dispatch_thread);
-#else /* no known impl */
-	Error_No_thread_create_implementation ();
-	choke on this;
-#endif
-	if (res != 0) {
-		g_warning ("Error launching dispatch thread!");
-		/* FIXME: more error handling */
-	}
-}
-
-/**
- * dispatch_func:
- * @data: the closure to run
- *
- * Runs the closure and exits the thread.
- */
-
 static void *
-dispatch_func (void *data)
+dispatch (void *unused)
 {
+	size_t len;
+	closure_t *clur;
 	com_msg_t msg;
-	closure_t *clur = (closure_t *) data;
 
-	msg.type = STARTING;
-	msg.message = g_strdup (clur->gerund);
-	write (WRITER, &msg, sizeof (msg));
+	/* Let the compipes be created */
+	sleep (1);
 
-	mail_op_hide_progressbar ();
+	while (1) {
+		clur = g_new (closure_t, 1);
+		len = read (DISPATCH_READER, clur, sizeof (closure_t));
 
-	(clur->spec->callback) (clur->in_data, clur->op_data, clur->ex);
+		if (len <= 0)
+			break;
 
-	if (camel_exception_is_set (clur->ex)) {
-		if (clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
-			g_warning ("Callback failed for `%s': %s",
-				   clur->infinitive,
-				   camel_exception_get_description (clur->
-								    ex));
-			mail_op_error ("Error while `%s':\n" "%s",
-				       clur->gerund,
-				       camel_exception_get_description (clur->
-									ex));
+		if (len != sizeof (closure_t)) {
+			g_warning ("dispatcher: Didn't read full message!");
+			continue;
 		}
-	}
 
-	msg.type = FINISHED;
-	msg.clur = clur;
-	write (WRITER, &msg, sizeof (msg));
+		msg.type = STARTING;
+		msg.message = g_strdup (clur->gerund);
+		write (MAIN_WRITER, &msg, sizeof (msg));
+
+		mail_op_hide_progressbar ();
+		
+		(clur->spec->callback) (clur->in_data, clur->op_data, clur->ex);
+
+		if (camel_exception_is_set (clur->ex)) {
+			if (clur->ex->id != CAMEL_EXCEPTION_USER_CANCEL) {
+				g_warning ("Callback failed for `%s': %s",
+					   clur->infinitive,
+					   camel_exception_get_description (clur->
+									    ex));
+				mail_op_error ("Error while `%s':\n" "%s",
+					       clur->gerund,
+					       camel_exception_get_description (clur->
+										ex));
+			}
+		}
+
+		msg.type = FINISHED;
+		msg.clur = clur;
+		write (MAIN_WRITER, &msg, sizeof (msg));
+	}
 
 #ifdef G_THREADS_IMPL_POSIX
 	pthread_exit (0);
@@ -719,7 +718,8 @@ dispatch_func (void *data)
 	choke on this;
 #endif
 	return NULL;
-/*NOTREACHED*/}
+	/*NOTREACHED*/
+}
 
 /**
  * read_msg:
@@ -735,8 +735,6 @@ static gboolean
 read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 {
 	com_msg_t *msg;
-	closure_t *clur;
-	GSList *temp;
 	guint size;
 
 	msg = g_new0 (com_msg_t, 1);
@@ -819,14 +817,6 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 		       ("*** Message -- FINISH %s\n",
 			msg->clur->gerund));
 
-#ifdef G_THREADS_IMPL_POSIX
-		pthread_join (dispatch_thread, NULL);
-#elif defined( G_THREADS_IMPL_SOLARIS )
-		thr_join (dispatch_thread, NULL, NULL);
-#else /* no known impl */
-		Error_No_join_implemented_for_threads ();
-		choke on this;
-#endif
 		if (msg->clur->spec->cleanup)
 			(msg->clur->spec->cleanup) (msg->clur->in_data,
 						    msg->clur->op_data,
@@ -841,15 +831,10 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 								    ex));
 		}
 
-		g_free (msg->clur->op_data);
-		if (msg->clur->free_in_data)
-			g_free (msg->clur->in_data);
-		camel_exception_free (msg->clur->ex);
-		g_free (msg->clur->infinitive);
-		g_free (msg->clur->gerund);
-		g_free (msg->clur);
+		free_closure (msg->clur);
+		queue_len--;
 
-		if (op_queue == NULL) {
+		if (queue_len == 0) {
 			g_print ("\tNo more ops -- hide %p.\n", queue_window);
 			/* All done! */
 			/* gtk_widget_hide seems to have problems sometimes 
@@ -858,23 +843,13 @@ read_msg (GIOChannel * source, GIOCondition condition, gpointer userdata)
 			 * til an idle. */
 			gtk_idle_add (hide_queue_window, NULL);
 			/*gtk_widget_hide (queue_window); */
-			mail_operation_in_progress = FALSE;
 		} else {
 			g_print ("\tOperation(s) left.\n");
 
-			/* There's another operation left */
-
-			/* Pop it off the front */
-			clur = op_queue->data;
-			temp = g_slist_next (op_queue);
-			g_slist_free_1 (op_queue);
-			op_queue = temp;
-
-			/* Clear it out of the 'pending' vbox */
+			/* There's another operation left :
+			 * Clear it out of the 'pending' vbox 
+			 */
 			remove_next_pending ();
-
-			/* Run run run little process */
-			dispatch (clur);
 		}
 		g_free (msg);
 		break;
@@ -1117,7 +1092,7 @@ timeout_toggle (gboolean active)
 static gboolean
 display_timeout (gpointer data)
 {
-	if (mail_operation_in_progress) {
+	if (queue_len > 0) {
 		gtk_widget_show_all (queue_window);
 		gnome_win_hints_set_layer (queue_window, WIN_LAYER_ONTOP);
 		gnome_win_hints_set_state (queue_window,
@@ -1127,7 +1102,7 @@ display_timeout (gpointer data)
 					   WIN_HINTS_SKIP_WINLIST |
 					   WIN_HINTS_SKIP_TASKBAR);
 
-		if (op_queue == NULL)
+		if (queue_len == 1)
 			gtk_widget_hide_all (queue_window_pending);
 	}
 
@@ -1140,4 +1115,47 @@ hide_queue_window (gpointer data)
 	timeout_toggle (FALSE);
 	gtk_widget_hide_all (queue_window);
 	return FALSE;
+}
+
+static closure_t *
+new_closure (const mail_operation_spec * spec, gpointer input,
+	     gboolean free_in_data)
+{
+	closure_t *clur;
+
+	clur = g_new0 (closure_t, 1);
+	clur->spec = spec;
+	clur->in_data = input;
+	clur->free_in_data = free_in_data;
+	clur->ex = camel_exception_new ();
+
+	clur->op_data = g_malloc (spec->datasize);
+
+	camel_exception_init (clur->ex);
+
+	clur->infinitive = (spec->describe) (input, FALSE);
+	clur->gerund = (spec->describe) (input, TRUE);
+
+	return clur;
+}
+
+static void
+free_closure (closure_t *clur)
+{
+	clur->spec = NULL;
+
+	if (clur->free_in_data)
+		g_free (clur->in_data);
+	clur->in_data = NULL;
+
+	g_free (clur->op_data);
+	clur->op_data = NULL;
+
+	camel_exception_free (clur->ex);
+	clur->ex = NULL;
+
+	g_free (clur->infinitive);
+	g_free (clur->gerund);
+
+	g_free (clur);
 }

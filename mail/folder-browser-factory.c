@@ -51,7 +51,8 @@ control_activate (BonoboControl *control, BonoboUIHandler *uih,
 	char *toolbar_name = g_strdup_printf ("/Toolbar%d", fb->serial);
 
 	remote_uih = bonobo_control_get_remote_ui_handler (control);
-	bonobo_ui_handler_set_container (uih, remote_uih);		
+	bonobo_ui_handler_set_container (uih, remote_uih);
+	bonobo_object_release_unref (remote_uih, NULL);
 
 	folder_browser = bonobo_control_get_widget (control);
 
@@ -191,7 +192,7 @@ folder_browser_factory_new_control (const char *uri)
 	
 	control = bonobo_control_new (folder_browser);
 	
-	if (control == NULL){
+	if (control == NULL) {
 		gtk_object_destroy (GTK_OBJECT (folder_browser));
 		return NULL;
 	}

@@ -1056,7 +1056,10 @@ static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, 
 		build_flat (input->ml, input->ml->tree_root, data->uids);
 
 		if (input->search) {
-			g_strfreev ((char **)data->uids->pdata);
+			int i;
+
+			for (i = 0; i < data->uids->len; i++)
+				g_free (data->uids->pdata[i]);
 			g_ptr_array_free (data->uids, FALSE);
 		} else {
 			camel_folder_free_uids (input->ml->folder, data->uids);

@@ -49,6 +49,7 @@ static void create_news_storage (EvolutionShellComponent *shell_component);
 #define COMPONENT_FACTORY_ID "OAFIID:evolution-shell-component-factory:evolution-mail:0ea887d5-622b-4b8c-b525-18aa1cbe18a6"
 
 static BonoboGenericFactory *factory = NULL;
+static gint running_objects = 0;
 
 static const EvolutionShellComponentFolderType folder_types[] = {
 	{ "mail", "evolution-inbox.png" },
@@ -119,12 +120,29 @@ owner_unset_cb (EvolutionShellComponent *shell_component, gpointer user_data)
 	gtk_main_quit ();
 }
 
-/* The factory function.  */
+static void
+factory_destroy (BonoboEmbeddable *embeddable,
+		 gpointer          dummy)
+{
+	running_objects--;
+	if (running_objects > 0)
+		return;
+
+	if (factory)
+		bonobo_object_unref (BONOBO_OBJECT (factory));
+	else
+		g_warning ("Serious ref counting error");
+	factory = NULL;
+
+	gtk_main_quit ();
+}
 
 static BonoboObject *
 factory_fn (BonoboGenericFactory *factory, void *closure)
 {
 	EvolutionShellComponent *shell_component;
+
+	running_objects++;
 
 	shell_component = evolution_shell_component_new (folder_types,
 							 create_view,
@@ -133,6 +151,8 @@ factory_fn (BonoboGenericFactory *factory, void *closure)
 							 NULL,
 							 NULL);
 
+	gtk_signal_connect (GTK_OBJECT (shell_component), "destroy",
+			    GTK_SIGNAL_FUNC (factory_destroy), NULL);
 	gtk_signal_connect (GTK_OBJECT (shell_component), "owner_set",
 			    GTK_SIGNAL_FUNC (owner_set_cb), NULL);
 	gtk_signal_connect (GTK_OBJECT (shell_component), "owner_unset",
