@@ -1,3 +1,8 @@
+2003-11-11  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* em-folder-tree-model.[c,h]: New source files subclassing
+	GtkTreeStore for handling the mess that is drag&drop.
+
 2003-11-10  Jeffrey Stedfast  <fejj@ximian.com>
 
 	* em-folder-selection-button.c (set_contents): Don't use e_storage
