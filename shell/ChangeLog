@@ -259,6 +259,11 @@
 
 	* e-activity-handler.c, e-activity-handler.h: Removed.
 
+2003-07-24  Yuedong Du  <yuedong.du@sun.com>
+
+	* e-shell-offline-handler.c: (dialog_response_cb): fix crash when
+	user escape the dialog. see bug #46700.
+
 2003-07-23  Ettore Perazzoli  <ettore@ximian.com>
 
 	* e-folder.c (e_folder_new): Accept a NULL description.

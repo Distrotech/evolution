@@ -132,17 +132,6 @@ typedef enum
 	E_WEEK_VIEW_TIME_BOTH_SMALL_MIN
 } EWeekViewTimeFormat;
 
-/* Specifies the position of the mouse. */
-typedef enum
-{
-	E_WEEK_VIEW_POS_OUTSIDE,
-	E_WEEK_VIEW_POS_NONE,
-	E_WEEK_VIEW_POS_EVENT,
-	E_WEEK_VIEW_POS_LEFT_EDGE,
-	E_WEEK_VIEW_POS_RIGHT_EDGE
-} EWeekViewPosition;
-
-
 typedef struct _EWeekViewEventSpan EWeekViewEventSpan;
 struct _EWeekViewEventSpan {
 	guint start_day : 6;
@@ -154,17 +143,9 @@ struct _EWeekViewEventSpan {
 
 typedef struct _EWeekViewEvent EWeekViewEvent;
 struct _EWeekViewEvent {
-	CalComponent *comp;
-	time_t start;
-	time_t end;
-	guint16 start_minute;	/* Minutes from the start of the day. */
-	guint16 end_minute;
+	E_CAL_VIEW_EVENT_FIELDS
 	gint spans_index;
 	guint8 num_spans;
-
-	/* TRUE if the event is at a different UTC offset than our current
-	   timezone, i.e. it is in a different timezone. */
-	guint different_timezone : 1;
 };
 
 
@@ -211,9 +192,6 @@ struct _EWeekView
 
 	/* The start of each day displayed. */
 	time_t day_starts[E_WEEK_VIEW_MAX_WEEKS * 7 + 1];
-
-	/* The timezone. */
-	icaltimezone *zone;
 
 	/* The base date, where the adjustment value is 0. */
 	GDate base_date;
@@ -415,12 +393,6 @@ gboolean   e_week_view_get_24_hour_format	(EWeekView	*week_view);
 void	   e_week_view_set_24_hour_format	(EWeekView	*week_view,
 						 gboolean	 use_24_hour);
 
-/* The current timezone. */
-icaltimezone* e_week_view_get_timezone		(EWeekView	*week_view);
-void	      e_week_view_set_timezone		(EWeekView	*week_view,
-						 icaltimezone	*zone);
-
-void       e_week_view_delete_event		(EWeekView      *week_view);
 void       e_week_view_delete_occurrence        (EWeekView      *week_view);
 
 /* Returns the number of selected events (0 or 1 at present). */

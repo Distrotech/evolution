@@ -167,25 +167,9 @@ typedef enum
 	E_DAY_VIEW_DRAG_END
 } EDayViewDragPosition;
 
-/* Specifies the position of the mouse. */
-typedef enum
-{
-	E_DAY_VIEW_POS_OUTSIDE,
-	E_DAY_VIEW_POS_NONE,
-	E_DAY_VIEW_POS_EVENT,
-	E_DAY_VIEW_POS_LEFT_EDGE,
-	E_DAY_VIEW_POS_RIGHT_EDGE,
-	E_DAY_VIEW_POS_TOP_EDGE,
-	E_DAY_VIEW_POS_BOTTOM_EDGE
-} EDayViewPosition;
-
 typedef struct _EDayViewEvent EDayViewEvent;
 struct _EDayViewEvent {
-	CalComponent *comp;
-
-	/* These are the times of this specific occurrence of the event. */
-	time_t start;
-	time_t end;
+	E_CAL_VIEW_EVENT_FIELDS
 
 	/* For events in the main canvas, this contains the start column.
 	   For long events in the top canvas, this is its row. */
@@ -197,20 +181,6 @@ struct _EDayViewEvent {
 	   i.e. it couldn't fit into the display. Currently long events are
 	   always shown as we just increase the height of the top canvas. */
 	guint8 num_columns;
-
-	/* TRUE if the event is at a different UTC offset than our current
-	   timezone, i.e. it is in a different timezone. */
-	guint different_timezone : 1;
-
-	/* These are minute offsets from the first time shown in the view.
-	   They range from 0 to 24 * 60. Currently the main canvas always
-	   starts at 12am  and the code to handle starting at other times
-	   isn't finished. */
-	guint16 start_minute;
-	guint16 end_minute;
-
-	/* This is the EText item containing the event summary. */
-	GnomeCanvasItem *canvas_item;
 };
 
 
@@ -257,9 +227,6 @@ struct _EDayView
 
 	/* The start of each day & an extra element to hold the last time. */
 	time_t day_starts[E_DAY_VIEW_MAX_DAYS + 1];
-
-	/* The timezone. */
-	icaltimezone *zone;
 
 	/* An array of EDayViewEvent elements for the top view and each day. */
 	GArray *long_events;
@@ -444,7 +411,7 @@ struct _EDayView
 	/* These are used when resizing events. */
 	gint resize_event_day;
 	gint resize_event_num;
-	EDayViewPosition resize_drag_pos;
+	ECalViewPosition resize_drag_pos;
 	gint resize_start_row;
 	gint resize_end_row;
 
@@ -560,13 +527,6 @@ gint	   e_day_view_get_week_start_day	(EDayView	*day_view);
 void	   e_day_view_set_week_start_day	(EDayView	*day_view,
 						 gint		 week_start_day);
 
-/* The current timezone. */
-icaltimezone* e_day_view_get_timezone		(EDayView	*day_view);
-void	      e_day_view_set_timezone		(EDayView	*day_view,
-						 icaltimezone	*zone);
-
-
-void       e_day_view_delete_event		(EDayView       *day_view);
 void       e_day_view_delete_occurrence         (EDayView       *day_view);
 
 

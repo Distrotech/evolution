@@ -1,3 +1,12 @@
+2003-07-28  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* mail-crypto.c: Removed smime functions as they were stale.
+
+2003-07-25  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* message-browser.c (message_browser_new): Handle our own Delete
+	key presses. Fixes bug #45597.
+
 2003-07-25  Ettore Perazzoli  <ettore@ximian.com>
 
 	* mail-callbacks.c (do_view_message): No need to pass a shell

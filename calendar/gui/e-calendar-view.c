@@ -24,9 +24,11 @@
 #include <config.h>
 #include <string.h>
 #include <gtk/gtkinvisible.h>
+#include <gtk/gtkstock.h>
 #include <libgnome/gnome-i18n.h>
 #include <gal/util/e-util.h>
 #include "e-util/e-dialog-utils.h"
+#include "cal-util/cal-util-marshal.h"
 #include "cal-util/timeutil.h"
 #include "evolution-activity-client.h"
 #include "calendar-commands.h"
@@ -64,6 +66,9 @@ struct _ECalViewPrivate {
 
 	/* The popup menu */
 	EPopupMenu *view_menu;
+
+	/* The timezone. */
+	icaltimezone *zone;
 };
 
 static void e_cal_view_class_init (ECalViewClass *klass);
@@ -76,6 +81,7 @@ static GdkAtom clipboard_atom = GDK_NONE;
 /* Signal IDs */
 enum {
 	SELECTION_CHANGED,
+	TIMEZONE_CHANGED,
 	LAST_SIGNAL
 };
 
@@ -98,6 +104,14 @@ e_cal_view_class_init (ECalViewClass *klass)
 			      NULL, NULL,
 			      g_cclosure_marshal_VOID__VOID,
 			      G_TYPE_NONE, 0);
+	e_cal_view_signals[TIMEZONE_CHANGED] =
+		g_signal_new ("timezone_changed",
+			      G_TYPE_FROM_CLASS (klass),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (ECalViewClass, timezone_changed),
+			      NULL, NULL,
+			      cal_util_marshal_VOID__POINTER_POINTER,
+			      G_TYPE_NONE, 2, G_TYPE_POINTER, G_TYPE_POINTER);
 
 	/* Method override */
 	object_class->destroy = e_cal_view_destroy;
@@ -409,6 +423,29 @@ e_cal_view_set_query (ECalView *cal_view, const gchar *sexp)
 	e_cal_view_update_query (cal_view);
 }
 
+icaltimezone *
+e_cal_view_get_timezone (ECalView *cal_view)
+{
+	g_return_val_if_fail (E_IS_CAL_VIEW (cal_view), NULL);
+	return cal_view->priv->zone;
+}
+
+void
+e_cal_view_set_timezone (ECalView *cal_view, icaltimezone *zone)
+{
+	icaltimezone *old_zone;
+
+	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
+
+	if (zone == cal_view->priv->zone)
+		return;
+
+	old_zone = cal_view->priv->zone;
+	cal_view->priv->zone = zone;
+	g_signal_emit (G_OBJECT (cal_view), e_cal_view_signals[TIMEZONE_CHANGED], 0,
+		       old_zone, cal_view->priv->zone);
+}
+
 void
 e_cal_view_set_status_message (ECalView *cal_view, const gchar *message)
 {
@@ -508,14 +545,18 @@ e_cal_view_cut_clipboard (ECalView *cal_view)
 
 	e_cal_view_copy_clipboard (cal_view);
 	for (l = selected; l != NULL; l = l->next) {
-		CalComponent *comp = l->data;
+		ECalViewEvent *event = (ECalViewEvent *) l->data;
 
-		if (itip_organizer_is_user (comp, cal_view->priv->client) 
+		if (!event)
+			continue;
+
+		if (itip_organizer_is_user (event->comp, cal_view->priv->client) 
 		    && cancel_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (cal_view),
-						cal_view->priv->client, comp, TRUE))
-			itip_send_comp (CAL_COMPONENT_METHOD_CANCEL, comp, cal_view->priv->client, NULL);
+						cal_view->priv->client, event->comp, TRUE))
+			itip_send_comp (CAL_COMPONENT_METHOD_CANCEL, event->comp,
+					cal_view->priv->client, NULL);
 
-		cal_component_get_uid (comp, &uid);
+		cal_component_get_uid (event->comp, &uid);
 		delete_error_dialog (cal_client_remove_object (cal_view->priv->client, uid),
 				     CAL_COMPONENT_EVENT);
 	}
@@ -532,6 +573,7 @@ e_cal_view_copy_clipboard (ECalView *cal_view)
 	gchar *comp_str;
 	icalcomponent *vcal_comp;
 	icalcomponent *new_icalcomp;
+	ECalViewEvent *event;
 
 	g_return_if_fail (E_IS_CAL_VIEW (cal_view));
 
@@ -541,13 +583,17 @@ e_cal_view_copy_clipboard (ECalView *cal_view)
 
 	/* create top-level VCALENDAR component and add VTIMEZONE's */
 	vcal_comp = cal_util_new_top_level ();
-	for (l = selected; l != NULL; l = l->next)
-		cal_util_add_timezones_from_component (vcal_comp, (CalComponent *) l->data);
+	for (l = selected; l != NULL; l = l->next) {
+		event = (ECalViewEvent *) l->data;
+
+		if (event)
+			cal_util_add_timezones_from_component (vcal_comp, event->comp);
+	}
 
 	for (l = selected; l != NULL; l = l->next) {
-		CalComponent *comp = (CalComponent *) l->data;
+		event = (ECalViewEvent *) l->data;
 
-		new_icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (comp));
+		new_icalcomp = icalcomponent_new_clone (cal_component_get_icalcomponent (event->comp));
 		icalcomponent_add_component (vcal_comp, new_icalcomp);
 	}
 
@@ -572,6 +618,106 @@ e_cal_view_paste_clipboard (ECalView *cal_view)
 			       clipboard_atom,
 			       GDK_SELECTION_TYPE_STRING,
 			       GDK_CURRENT_TIME);
+}
+
+static void
+delete_event (ECalView *cal_view, CalComponent *comp)
+{
+	CalComponentVType vtype;
+
+	vtype = cal_component_get_vtype (comp);
+
+	if (delete_component_dialog (comp, FALSE, 1, vtype, GTK_WIDGET (cal_view))) {
+		const char *uid;
+
+		if (itip_organizer_is_user (comp, cal_view->priv->client) 
+		    && cancel_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (cal_view),
+						cal_view->priv->client,
+						comp, TRUE))
+			itip_send_comp (CAL_COMPONENT_METHOD_CANCEL, comp,
+					cal_view->priv->client, NULL);
+
+		cal_component_get_uid (comp, &uid);
+		if (!uid || !*uid)
+			return;
+
+		delete_error_dialog (
+			cal_client_remove_object (cal_view->priv->client, uid), CAL_COMPONENT_EVENT);
+	}
+}
+
+void
+e_cal_view_delete_selected_event (ECalView *cal_view)
+{
+	GList *selected;
+	ECalViewEvent *event;
+
+	selected = e_cal_view_get_selected_events (cal_view);
+	if (!selected)
+		return;
+
+	event = (ECalViewEvent *) selected->data;
+	if (event)
+		delete_event (cal_view, event->comp);
+
+	g_list_free (selected);
+}
+
+void
+e_cal_view_delete_selected_events (ECalView *cal_view)
+{
+	GList *selected, *l;
+	ECalViewEvent *event;
+
+	selected = e_cal_view_get_selected_events (cal_view);
+	if (!selected)
+		return;
+
+	for (l = selected; l != NULL; l = l->next) {
+		event = (ECalViewEvent *) l->data;
+		if (event)
+			delete_event (cal_view, event->comp);
+	}
+
+	g_list_free (selected);
+}
+
+void
+e_cal_view_delete_selected_occurrence (ECalView *cal_view)
+{
+	ECalViewEvent *event;
+	GList *selected;
+
+	selected = e_cal_view_get_selected_events (cal_view);
+	if (!selected)
+		return;
+
+	event = (ECalViewEvent *) selected->data;
+
+	if (cal_component_is_instance (event->comp)) {
+		const char *uid;
+
+		cal_component_get_uid (event->comp, &uid);
+		delete_error_dialog (
+			cal_client_remove_object_with_mod (cal_view->priv->client, uid, CALOBJ_MOD_THIS),
+			CAL_COMPONENT_EVENT);
+	} else {
+		CalComponent *comp;
+
+		/* we must duplicate the CalComponent, or we won't know it has changed
+		   when we get the "update_event" signal */
+		comp = cal_component_clone (event->comp);
+		cal_comp_util_add_exdate (comp, event->start, cal_view->priv->zone);
+
+		if (cal_client_update_object (cal_view->priv->client, comp)
+		    != CAL_CLIENT_RESULT_SUCCESS)
+			g_message ("e_cal_view_delete_selected_occurrence(): Could not update the object!");
+
+		g_object_unref (comp);
+	}
+
+	/* free memory */
+	g_list_free (selected);
 }
 
 static void
@@ -635,7 +781,10 @@ on_edit_appointment (GtkWidget *widget, gpointer user_data)
 
 	selected = e_cal_view_get_selected_events (cal_view);
 	if (selected) {
-		gnome_calendar_edit_object (cal_view->priv->calendar, CAL_COMPONENT (selected->data), FALSE);
+		ECalViewEvent *event = (ECalViewEvent *) selected->data;
+
+		if (event)
+			gnome_calendar_edit_object (cal_view->priv->calendar, event->comp, FALSE);
 
 		g_list_free (selected);
 	}
@@ -655,6 +804,11 @@ on_print (GtkWidget *widget, gpointer user_data)
 	view_type = gnome_calendar_get_view (cal_view->priv->calendar);
 
 	switch (view_type) {
+	case GNOME_CAL_DAY_VIEW :
+		print_view = PRINT_VIEW_DAY;
+		break;
+
+	case GNOME_CAL_WORK_WEEK_VIEW :
 	case GNOME_CAL_WEEK_VIEW:
 		print_view = PRINT_VIEW_WEEK;
 		break;
@@ -679,6 +833,7 @@ on_save_as (GtkWidget *widget, gpointer user_data)
 	char *filename;
 	char *ical_string;
 	FILE *file;
+	ECalViewEvent *event;
 
 	cal_view = E_CAL_VIEW (user_data);
 
@@ -690,8 +845,8 @@ on_save_as (GtkWidget *widget, gpointer user_data)
 	if (filename == NULL)
 		return;
 	
-	ical_string = cal_client_get_component_as_string (cal_view->priv->client,
-							  CAL_COMPONENT (selected->data));
+	event = (ECalViewEvent *) selected->data;
+	ical_string = cal_client_get_component_as_string (cal_view->priv->client, event->comp);
 	if (ical_string == NULL) {
 		g_warning ("Couldn't convert item to a string");
 		return;
@@ -715,13 +870,15 @@ on_print_event (GtkWidget *widget, gpointer user_data)
 {
 	ECalView *cal_view;
 	GList *selected;
+	ECalViewEvent *event;
 
 	cal_view = E_CAL_VIEW (user_data);
 	selected = e_cal_view_get_selected_events (cal_view);
 	if (!selected)
 		return;
 
-	print_comp (CAL_COMPONENT (selected->data), cal_view->priv->client, FALSE);
+	event = (ECalViewEvent *) selected->data;
+	print_comp (event->comp, cal_view->priv->client, FALSE);
 }
 
 static void
@@ -732,7 +889,8 @@ on_meeting (GtkWidget *widget, gpointer user_data)
 
 	selected = e_cal_view_get_selected_events (cal_view);
 	if (selected) {
-		gnome_calendar_edit_object (cal_view->priv->calendar, CAL_COMPONENT (selected->data), TRUE);
+		ECalViewEvent *event = (ECalViewEvent *) selected->data;
+		gnome_calendar_edit_object (cal_view->priv->calendar, event->comp, TRUE);
 
 		g_list_free (selected);
 	}
@@ -746,8 +904,8 @@ on_forward (GtkWidget *widget, gpointer user_data)
 
 	selected = e_cal_view_get_selected_events (cal_view);
 	if (selected) {
-		itip_send_comp (CAL_COMPONENT_METHOD_PUBLISH, CAL_COMPONENT (selected->data),
-				cal_view->priv->client, NULL);
+		ECalViewEvent *event = (ECalViewEvent *) selected->data;
+		itip_send_comp (CAL_COMPONENT_METHOD_PUBLISH, event->comp, cal_view->priv->client, NULL);
 
 		g_list_free (selected);
 	}
@@ -791,44 +949,13 @@ on_settings (GtkWidget *widget, gpointer user_data)
 	control_util_show_settings (cal_view->priv->calendar);
 }
 
-void
-e_cal_view_delete_event_internal (ECalView *cal_view, CalComponent *comp)
-{
-	CalComponentVType vtype;
-
-	vtype = cal_component_get_vtype (comp);
-
-	if (delete_component_dialog (comp, FALSE, 1, vtype, GTK_WIDGET (cal_view))) {
-		const char *uid;
-
-		if (itip_organizer_is_user (comp, cal_view->priv->client) 
-		    && cancel_component_dialog ((GtkWindow *) gtk_widget_get_toplevel (cal_view),
-						cal_view->priv->client,
-						comp, TRUE))
-			itip_send_comp (CAL_COMPONENT_METHOD_CANCEL, comp,
-					cal_view->priv->client, NULL);
-
-		cal_component_get_uid (comp, &uid);
-
-		delete_error_dialog (
-			cal_client_remove_object (cal_view->priv->client, uid), CAL_COMPONENT_EVENT);
-	}
-}
-
-
 static void
 on_delete_appointment (GtkWidget *widget, gpointer user_data)
 {
 	ECalView *cal_view;
-	GList *selected;
 
 	cal_view = E_CAL_VIEW (user_data);
-
-	selected = e_cal_view_get_selected_events (cal_view);
-	if (selected) {
-		e_cal_view_delete_event_internal (cal_view, CAL_COMPONENT (selected->data));
-		g_list_free (selected);
-	}
+	e_cal_view_delete_selected_event (cal_view);
 }
 
 static void
@@ -837,7 +964,7 @@ on_delete_occurrence (GtkWidget *widget, gpointer user_data)
 	ECalView *cal_view;
 
 	cal_view = E_CAL_VIEW (user_data);
-	gnome_calendar_delete_selected_occurrence (cal_view->priv->calendar);
+	e_cal_view_delete_selected_occurrence (cal_view);
 }
 
 static void
@@ -984,6 +1111,23 @@ free_view_popup (GtkWidget *widget, gpointer data)
 	cal_view->priv->view_menu = NULL;
 }
 
+static void
+setup_popup_icons (EPopupMenu *context_menu)
+{
+	gint i;
+
+	for (i = 0; context_menu[i].name; i++) {
+		GtkWidget *pixmap_widget = NULL;
+
+		if (!strcmp (context_menu[i].name, _("_Print...")))
+			pixmap_widget = gtk_image_new_from_stock (GTK_STOCK_PRINT);
+
+		if (pixmap_widget)
+			gtk_widget_show (pixmap_widget);
+		context_menu[i].pixmap_widget = pixmap_widget;
+	}
+}
+
 GtkMenu *
 e_cal_view_create_popup_menu (ECalView *cal_view)
 {
@@ -1006,21 +1150,23 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 		main_items[9].submenu = cal_view->priv->view_menu;
 		context_menu = main_items;
 	} else {
+		ECalViewEvent *event;
+
 		context_menu = child_items;
 
-		if (cal_component_has_recurrences (CAL_COMPONENT (selected->data)))
+		event = (ECalViewEvent *) selected->data;
+		if (cal_component_has_recurrences (event->comp))
 			hide_mask |= MASK_SINGLE;
 		else
 			hide_mask |= MASK_RECURRING;
 
-		if (cal_component_is_instance (CAL_COMPONENT (selected->data)))
+		if (cal_component_is_instance (event->comp))
 			hide_mask |= MASK_INSTANCE;
 
-		if (cal_component_has_organizer (CAL_COMPONENT (selected->data))) {
+		if (cal_component_has_organizer (event->comp)) {
 			disable_mask |= MASK_MEETING;
 
-			if (!itip_organizer_is_user (CAL_COMPONENT (selected->data),
-						     cal_view->priv->client))
+			if (!itip_organizer_is_user (event->comp, cal_view->priv->client))
 				disable_mask |= MASK_MEETING_ORGANIZER;
 		}
 	}
@@ -1031,6 +1177,7 @@ e_cal_view_create_popup_menu (ECalView *cal_view)
 	if (being_edited)
 		disable_mask |= MASK_EDITING;
 
+	setup_popup_icons (context_menu);
 	popup = e_popup_menu_create (context_menu, disable_mask, hide_mask, cal_view);
 	g_signal_connect (popup, "selection-done", G_CALLBACK (free_view_popup), cal_view);
 

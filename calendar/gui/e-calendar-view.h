@@ -37,6 +37,30 @@ G_BEGIN_DECLS
 #define E_CAL_VIEW_CLASS(klass)  GTK_CHECK_CLASS_CAST (klass, e_cal_view_get_type (), ECalViewClass)
 #define E_IS_CAL_VIEW(obj)       GTK_CHECK_TYPE (obj, e_cal_view_get_type ())
 
+typedef enum {
+	E_CAL_VIEW_POS_OUTSIDE,
+	E_CAL_VIEW_POS_NONE,
+	E_CAL_VIEW_POS_EVENT,
+	E_CAL_VIEW_POS_LEFT_EDGE,
+	E_CAL_VIEW_POS_RIGHT_EDGE,
+	E_CAL_VIEW_POS_TOP_EDGE,
+	E_CAL_VIEW_POS_BOTTOM_EDGE
+} ECalViewPosition;
+
+#define E_CAL_VIEW_EVENT_FIELDS \
+        GnomeCanvasItem *canvas_item; \
+        CalClient *client; \
+        CalComponent *comp; \
+        time_t start; \
+        time_t end; \
+        guint16 start_minute; \
+        guint16 end_minute; \
+        guint different_timezone : 1;
+
+typedef struct {
+	E_CAL_VIEW_EVENT_FIELDS
+} ECalViewEvent;
+        
 typedef struct _ECalView        ECalView;
 typedef struct _ECalViewClass   ECalViewClass;
 typedef struct _ECalViewPrivate ECalViewPrivate;
@@ -51,9 +75,10 @@ struct _ECalViewClass {
 
 	/* Notification signals */
 	void (* selection_changed) (ECalView *cal_view);
+	void (* timezone_changed) (ECalView *cal_view, icaltimezone *old_zone, icaltimezone *new_zone);
 
 	/* Virtual methods */
-	GList * (* get_selected_events) (ECalView *cal_view);
+	GList * (* get_selected_events) (ECalView *cal_view); /* a GList of ECalViewEvent's */
 	void (* get_selected_time_range) (ECalView *cal_view, time_t *start_time, time_t *end_time);
 	void (* set_selected_time_range) (ECalView *cal_view, time_t start_time, time_t end_time);
 	gboolean (* get_visible_time_range) (ECalView *cal_view, time_t *start_time, time_t *end_time);
@@ -68,6 +93,8 @@ CalClient     *e_cal_view_get_cal_client (ECalView *cal_view);
 void           e_cal_view_set_cal_client (ECalView *cal_view, CalClient *client);
 const gchar   *e_cal_view_get_query (ECalView *cal_view);
 void           e_cal_view_set_query (ECalView *cal_view, const gchar *sexp);
+icaltimezone  *e_cal_view_get_timezone (ECalView *cal_view);
+void           e_cal_view_set_timezone (ECalView *cal_view, icaltimezone *zone);
 
 void           e_cal_view_set_status_message (ECalView *cal_view, const gchar *message);
 
@@ -80,7 +107,9 @@ void           e_cal_view_update_query (ECalView *cal_view);
 void           e_cal_view_cut_clipboard (ECalView *cal_view);
 void           e_cal_view_copy_clipboard (ECalView *cal_view);
 void           e_cal_view_paste_clipboard (ECalView *cal_view);
-void           e_cal_view_delete_event_internal (ECalView *cal_view, CalComponent *comp);
+void           e_cal_view_delete_selected_event (ECalView *cal_view);
+void           e_cal_view_delete_selected_events (ECalView *cal_view);
+void           e_cal_view_delete_selected_occurrence (ECalView *cal_view);
 
 GtkMenu       *e_cal_view_create_popup_menu (ECalView *cal_view);
 
