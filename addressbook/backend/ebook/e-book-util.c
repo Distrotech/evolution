@@ -39,38 +39,13 @@ struct _CommonBookInfo {
 	gpointer closure;
 };
 
-char *
-e_book_expand_uri (const char *uri)
-{
-	if (!strncmp (uri, "file:", 5)) {
-		int length = strlen (uri);
-		int offset = 5;
-
-		if (!strncmp (uri, "file://", 7))
-			offset = 7;
-
-		if (length < 3 || strcmp (uri + length - 3, ".db")) {
-			/* we assume it's a dir and glom addressbook.db onto the end. */
-
-			char *ret_val;
-			char *file_name;
-
-			file_name = g_build_filename(uri + offset, "addressbook.db", NULL);
-			ret_val = g_strdup_printf("file://%s", file_name);
-			g_free(file_name);
-			return ret_val; 
-		}
-	}
-
-	return g_strdup (uri);
-}
-
+#if notyet
 static void
 got_uri_book_cb (EBook *book, EBookStatus status, gpointer closure)
 {
 	CommonBookInfo *info = (CommonBookInfo *) closure;
 
-	if (status == E_BOOK_STATUS_SUCCESS) {
+	if (status == E_BOOK_ERROR_OK) {
 		info->cb (book, info->closure);
 	} else {
 		if (book)
@@ -112,6 +87,8 @@ e_book_use_address_book_by_uri (const char *uri, EBookCommonCallback cb, gpointe
 	e_book_load_address_book_by_uri (book, uri, got_uri_book_cb, info);
 }
 
+#endif
+
 EConfigListener *
 e_book_get_config_database ()
 {
@@ -123,6 +100,7 @@ e_book_get_config_database ()
 	return config_db;
 }
 
+#if notyet
 static EBook *common_default_book = NULL;
 
 static void
@@ -130,7 +108,7 @@ got_default_book_cb (EBook *book, EBookStatus status, gpointer closure)
 {
 	CommonBookInfo *info = (CommonBookInfo *) closure;
 
-	if (status == E_BOOK_STATUS_SUCCESS) {
+	if (status == E_BOOK_ERROR_OK) {
 
 		/* We try not to leak in a race condition where the
 		   default book got loaded twice. */
@@ -176,6 +154,7 @@ e_book_use_default_book (EBookCommonCallback cb, gpointer closure)
 	e_book_load_default_book (book, got_default_book_cb, info);
 }
 
+
 static char *default_book_uri;
 
 static char*
@@ -201,7 +180,9 @@ set_default_book_uri_local (void)
 
 	default_book_uri = get_local_book_uri ();
 }
+#endif
 
+#if notyet
 static void
 set_default_book_uri (char *val)
 {
@@ -216,7 +197,9 @@ set_default_book_uri (char *val)
 		set_default_book_uri_local ();
 	}
 }
+#endif
 
+#if notyet
 #define DEFAULT_CONTACTS_URI_PATH "/apps/evolution/shell/default_folders/contacts_uri"
 static void
 default_folder_listener (EConfigListener *cl, const char *key, gpointer data)
@@ -805,4 +788,4 @@ e_utf8_casefold_collate (const gchar *str1, const gchar *str2)
 {
 	return e_utf8_casefold_collate_len (str1, str2, -1);
 }
-
+#endif

@@ -27,7 +27,7 @@
 #ifndef __E_BOOK_UTIL_H__
 #define __E_BOOK_UTIL_H__
 
-#include "e-book.h"
+#include "e-book-async.h"
 #include "e-util/e-config-listener.h"
 #include <bonobo/bonobo-object.h>
 #include <bonobo/bonobo-moniker-util.h>
@@ -36,11 +36,8 @@ G_BEGIN_DECLS
 
 /* Callbacks for asynchronous functions. */
 typedef void (*EBookCommonCallback)      (EBook *book, gpointer closure);
-typedef void (*EBookSimpleQueryCallback) (EBook *book, EBookSimpleQueryStatus status, const GList *cards, gpointer closure);
+typedef void (*EBookSimpleQueryCallback) (EBook *book, EBookStatus status, const GList *cards, gpointer closure);
 typedef void (*EBookHaveAddressCallback) (EBook *book, const gchar *addr, ECard *card, gpointer closure);
-
-/* expand file:///foo/foo/ to file:///foo/foo/addressbook.db */
-char                  *e_book_expand_uri                (const char               *uri);
 
 void                   e_book_load_address_book_by_uri  (EBook                    *book,
 							 const char               *uri,

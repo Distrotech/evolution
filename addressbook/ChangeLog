@@ -1,3 +1,32 @@
+2003-08-31  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/e-contact.c (e_contact_duplicate): new function.
+
+	* backend/ebook/e-contact.h: add prototype for
+	e_contact_duplicate.
+
+	* backend/ebook/e-book-util.[ch]: massive ifdeffing.  most of this
+	is either gone or will be unnecessary soon.
+
+	* backend/ebook/e-book-query.c (e_book_query_from_string): hack
+	this so it'll at least generate a query.
+
+	* backend/ebook/e-book-listener.c
+	(impl_BookListener_respond_get_view): add some debug spew and
+	remove a c&p'ed comment.
+
+	* backend/ebook/e-book-async.h: add prototype for
+	e_book_async_unload_uri.
+
+	* backend/ebook/e-book-async.c (e_book_async_unload_uri): new
+	function.
+
+	* backend/pas/pas-book-view.c (pas_book_view_construct): switch to
+	CORBA_Object_duplicate, ala pas_book.
+
+	* backend/pas/pas-backend-sync.c (pas_backend_sync_class_init):
+	fix typo and the build.
+
 2003-08-29  Chris Toshok  <toshok@ximian.com>
 
 	* backend/pas/pas-backend-ldap.c (ldap_error_to_response):

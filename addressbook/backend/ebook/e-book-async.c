@@ -152,6 +152,12 @@ e_book_async_load_uri (EBook                 *book,
 	g_async_queue_push (to_worker_queue, msg);
 }
 
+void
+e_book_async_unload_uri (EBook                 *book)
+{
+	e_book_unload_uri (book, NULL);
+}
+
 
 
 typedef struct {

@@ -21,6 +21,7 @@ G_BEGIN_DECLS
 
 /* #defines to rename things so they don't conflict */
 #define e_book_load_uri                   e_book_async_load_uri
+#define e_book_unload_uri                 e_book_async_unload_uri
 #define e_book_get_supported_fields       e_book_async_get_supported_fields
 #define e_book_get_supported_auth_methods e_book_async_get_supported_auth_methods
 #define e_book_authenticate_user          e_book_async_authenticate_user
@@ -50,6 +51,8 @@ void      e_book_load_uri                 (EBook                 *book,
 					   const char            *uri,
 					   EBookCallback          open_response,
 					   gpointer               closure);
+
+void      e_book_unload_uri               (EBook                 *book);
 
 guint     e_book_get_supported_fields     (EBook                 *book,
 					   EBookFieldsCallback    cb,
@@ -115,6 +118,7 @@ guint     e_book_get_book_view            (EBook                 *book,
 
 #ifdef BUILDING_E_BOOK_ASYNC
 #undef e_book_load_uri
+#undef e_book_unload_uri
 #undef e_book_get_supported_fields
 #undef e_book_get_supported_auth_methods
 #undef e_book_authenticate_user

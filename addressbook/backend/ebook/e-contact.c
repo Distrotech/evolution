@@ -381,6 +381,17 @@ e_contact_new_from_vcard  (const char *vcard)
 	return contact;
 }
 
+EContact*
+e_contact_duplicate (EContact *contact)
+{
+	char *vcard = e_vcard_to_string (E_VCARD (contact), EVC_FORMAT_VCARD_30);
+	EContact *c = e_contact_new_from_vcard (vcard);
+
+	g_free (vcard);
+
+	return c;
+}
+
 const char *
 e_contact_field_name (EContactField field_id)
 {

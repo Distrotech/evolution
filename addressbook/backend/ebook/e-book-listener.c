@@ -157,6 +157,8 @@ impl_BookListener_respond_get_view (PortableServer_Servant servant,
 	EBookListener *listener = E_BOOK_LISTENER (bonobo_object (servant));
 	EBookListenerResponse response;
 
+	printf ("impl_BookListener_respond_get_view\n");
+
 	if (listener->priv->stopped)
 		return;
 
@@ -165,8 +167,6 @@ impl_BookListener_respond_get_view (PortableServer_Servant servant,
 	response.book_view = bonobo_object_dup_ref (book_view, ev);
 
 	g_signal_emit (listener, e_book_listener_signals [RESPONSE], 0, &response);
-
-	/* XXX free response.list? */
 }
 
 static void

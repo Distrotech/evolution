@@ -353,7 +353,7 @@ pas_backend_sync_class_init (PASBackendSyncClass *klass)
 	backend_class->create_contact = _pas_backend_create_contact;
 	backend_class->remove_contacts = _pas_backend_remove_contacts;
 	backend_class->modify_contact = _pas_backend_modify_contact;
-	backend_class->get_contact = _pas_backend_get_vcard;
+	backend_class->get_contact = _pas_backend_get_contact;
 	backend_class->get_contact_list = _pas_backend_get_contact_list;
 	backend_class->get_changes = _pas_backend_get_changes;
 	backend_class->authenticate_user = _pas_backend_authenticate_user;

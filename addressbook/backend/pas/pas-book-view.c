@@ -258,9 +258,9 @@ pas_book_view_construct (PASBookView                *book_view,
 
 	CORBA_exception_init (&ev);
 
-	bonobo_object_dup_ref (listener, &ev);
+	priv->listener = CORBA_Object_duplicate (listener, &ev);
 	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_warning("Unable to duplicate & ref listener object in pas-book-view.c\n");
+		g_warning("Unable to duplicate listener object in pas-book-view.c\n");
 		CORBA_exception_free (&ev);
 		return;
 	}
@@ -268,7 +268,6 @@ pas_book_view_construct (PASBookView                *book_view,
 	CORBA_exception_free (&ev);
 
 	priv->backend = backend;
-	priv->listener  = listener;
 	priv->cards = NULL;
 	priv->card_threshold = INITIAL_THRESHOLD;
 	priv->card_threshold_max = 3000;

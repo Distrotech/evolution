@@ -210,6 +210,8 @@ e_book_query_ref (EBookQuery *q)
 EBookQuery*
 e_book_query_from_string  (const char *sexp)
 {
+	/* XXX hack alert */
+	return e_book_query_any_field_contains ("");
 }
 
 char*
