@@ -1,5 +1,20 @@
 2003-09-02  Chris Toshok  <toshok@ximian.com>
 
+	* backend/pas/pas-backend-card-sexp.[ch]
+	(pas_backend_card_sexp_match_contact): rename
+	pas_backend_card_sexp_match_card, and it takes an EContact now.
+	Also, port this file to use EContact instead of ECard, and ifdef
+	out lots of stuff.
+
+	* backend/pas/pas-backend-ldap.c: convert this to use EContact
+	instead of ECard, and ifdef great swaths of code to make it
+	compile.
+
+	* backend/pas/pas-book.c (pas_book_respond_modify): convert this
+	from ECard to EContact.
+
+2003-09-02  Chris Toshok  <toshok@ximian.com>
+
 	* gui/widgets/Makefile.am (libeminicard_la_SOURCES): remove all
 	the reflow/minicard stuff from the build.
 	(e-addressbook-marshal.[ch]): change the prefix on the marshallers to

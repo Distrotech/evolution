@@ -22,7 +22,6 @@
 
 #include <string.h>
 #include <e-util/e-sexp.h>
-#include <ebook/e-card-simple.h>
 #include <gal/widgets/e-unicode.h>
 
 static GObjectClass *parent_class;
@@ -35,13 +34,14 @@ struct _PASBackendCardSExpPrivate {
 };
 
 struct _SearchContext {
-	ECardSimple *card;
+	EContact *contact;
 };
 
 static gboolean
-compare_email (ECardSimple *card, const char *str,
+compare_email (EContact *contact, const char *str,
 	       char *(*compare)(const char*, const char*))
 {
+#if notyet
 	int i;
 
 	for (i = E_CARD_SIMPLE_EMAIL_ID_EMAIL; i < E_CARD_SIMPLE_EMAIL_ID_LAST; i ++) {
@@ -50,14 +50,16 @@ compare_email (ECardSimple *card, const char *str,
 		if (email && compare(email, str))
 			return TRUE;
 	}
+#endif
 
 	return FALSE;
 }
 
 static gboolean
-compare_phone (ECardSimple *card, const char *str,
+compare_phone (EContact *contact, const char *str,
 	       char *(*compare)(const char*, const char*))
 {
+#if notyet
 	int i;
 
 	for (i = E_CARD_SIMPLE_PHONE_ID_ASSISTANT; i < E_CARD_SIMPLE_PHONE_ID_LAST; i ++) {
@@ -66,21 +68,21 @@ compare_phone (ECardSimple *card, const char *str,
 		if (phone && compare(phone->number, str))
 			return TRUE;
 	}
-
+#endif
 	return FALSE;
 }
 
 static gboolean
-compare_name (ECardSimple *card, const char *str,
+compare_name (EContact *contact, const char *str,
 	      char *(*compare)(const char*, const char*))
 {
 	const char *name;
 
-	name = e_card_simple_get_const (card, E_CARD_SIMPLE_FIELD_FULL_NAME);
+	name = e_contact_get_const (contact, E_CONTACT_FULL_NAME);
 	if (name && compare (name, str))
 		return TRUE;
 
-	name = e_card_simple_get_const (card, E_CARD_SIMPLE_FIELD_FAMILY_NAME);
+	name = e_contact_get_const (contact, E_CONTACT_FAMILY_NAME);
 	if (name && compare (name, str))
 		return TRUE;
 
@@ -88,7 +90,7 @@ compare_name (ECardSimple *card, const char *str,
 }
 
 static gboolean
-compare_address (ECardSimple *card, const char *str,
+compare_address (EContact *contact, const char *str,
 		 char *(*compare)(const char*, const char*))
 {
 	g_warning("address searching not implemented\n");
@@ -96,9 +98,10 @@ compare_address (ECardSimple *card, const char *str,
 }
 
 static gboolean
-compare_category (ECardSimple *card, const char *str,
+compare_category (EContact *contact, const char *str,
 		  char *(*compare)(const char*, const char*))
 {
+#if notyet
 	EList *categories;
 	EIterator *iterator;
 	ECard *ecard;
@@ -123,12 +126,14 @@ compare_category (ECardSimple *card, const char *str,
 	g_object_unref (iterator);
 	e_card_free_empty_lists (ecard);
 	return ret_val;
+#endif
 }
 
 static gboolean
-compare_arbitrary (ECardSimple *card, const char *str,
+compare_arbitrary (EContact *contact, const char *str,
 		   char *(*compare)(const char*, const char*))
 {
+#if notyet
 	EList *list;
 	EIterator *iterator;
 	ECard *ecard;
@@ -153,46 +158,47 @@ compare_arbitrary (ECardSimple *card, const char *str,
 	g_object_unref (iterator);
 	e_card_free_empty_lists (ecard);
 	return ret_val;
+#endif
 }
 
 static struct prop_info {
-	ECardSimpleField field_id;
+	EContactField field_id;
 	const char *query_prop;
-	const char *ecard_prop;
 #define PROP_TYPE_NORMAL   0x01
 #define PROP_TYPE_LIST     0x02
-#define PROP_TYPE_LISTITEM 0x03
-#define PROP_TYPE_ID 0x04
 	int prop_type;
-	gboolean (*list_compare)(ECardSimple *ecard, const char *str,
+	gboolean (*list_compare)(EContact *contact, const char *str,
 				 char *(*compare)(const char*, const char*));
 
 } prop_info_table[] = {
-#define NORMAL_PROP(f,q,e) {f, q, e, PROP_TYPE_NORMAL, NULL}
-#define ID_PROP {0, "id", NULL, PROP_TYPE_ID, NULL}
-#define LIST_PROP(q,e,c) {0, q, e, PROP_TYPE_LIST, c}
+#define NORMAL_PROP(f,q) {f, q, PROP_TYPE_NORMAL, NULL}
+#define LIST_PROP(q,c) {0, q, PROP_TYPE_LIST, c}
 
-	/* query prop,  ecard prop,   type,              list compare function */
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_FILE_AS, "file_as", "file_as" ),
-	LIST_PROP ( "full_name", "full_name", compare_name), /* not really a list, but we need to compare both full and surname */
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_URL, "url", "url" ),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_MAILER, "mailer", "mailer"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_ORG, "org", "org"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_ORG_UNIT, "org_unit", "org_unit"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_OFFICE, "office", "office"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_TITLE, "title", "title"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_ROLE, "role", "role"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_MANAGER, "manager", "manager"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_ASSISTANT, "assistant", "assistant"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_NICKNAME, "nickname", "nickname"),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_SPOUSE, "spouse", "spouse" ),
-	NORMAL_PROP ( E_CARD_SIMPLE_FIELD_NOTE, "note", "note"),
-	ID_PROP,
-	LIST_PROP ( "email", "email", compare_email ),
-	LIST_PROP ( "phone", "phone", compare_phone ),
-	LIST_PROP ( "address", "address", compare_address ),
-	LIST_PROP ( "category", "category", compare_category ),
-	LIST_PROP ( "arbitrary", "arbitrary", compare_arbitrary )
+	/* query prop,   type,              list compare function */
+	NORMAL_PROP ( E_CONTACT_FILE_AS, "file_as" ),
+	LIST_PROP ( "full_name", compare_name), /* not really a list, but we need to compare both full and surname */
+	NORMAL_PROP ( E_CONTACT_HOMEPAGE_URL, "url"),
+#if notyet
+	NORMAL_PROP ( E_CONTACT_MAILER, "mailer"),
+#endif
+	NORMAL_PROP ( E_CONTACT_ORG, "org"),
+	NORMAL_PROP ( E_CONTACT_ORG_UNIT, "org_unit"),
+	NORMAL_PROP ( E_CONTACT_OFFICE, "office"),
+	NORMAL_PROP ( E_CONTACT_TITLE, "title"),
+	NORMAL_PROP ( E_CONTACT_ROLE, "role"),
+	NORMAL_PROP ( E_CONTACT_MANAGER, "manager"),
+	NORMAL_PROP ( E_CONTACT_ASSISTANT, "assistant"),
+	NORMAL_PROP ( E_CONTACT_NICKNAME, "nickname"),
+#if notyet
+	NORMAL_PROP ( E_CONTACT_SPOUSE, "spouse" ),
+	NORMAL_PROP ( E_CONTACT_NOTE, "note"),
+#endif
+	NORMAL_PROP ( E_CONTACT_UID, "id"),
+	LIST_PROP ( "email", compare_email ),
+	LIST_PROP ( "phone", compare_phone ),
+	LIST_PROP ( "address", compare_address ),
+	LIST_PROP ( "category", compare_category ),
+	LIST_PROP ( "arbitrary", compare_arbitrary )
 };
 static int num_prop_infos = sizeof(prop_info_table) / sizeof(prop_info_table[0]);
 
@@ -221,11 +227,10 @@ entry_compare(SearchContext *ctx, struct _ESExp *f,
 				info = &prop_info_table[i];
 				
 				if (info->prop_type == PROP_TYPE_NORMAL) {
-					char *prop = NULL;
-					/* searches where the query's property
-					   maps directly to an ecard property */
+					const char *prop = NULL;
+					/* straight string property matches */
 					
-					prop = e_card_simple_get (ctx->card, info->field_id);
+					prop = e_contact_get_const (ctx->contact, info->field_id);
 
 					if (prop && compare(prop, argv[1]->value.string)) {
 						truth = TRUE;
@@ -233,25 +238,10 @@ entry_compare(SearchContext *ctx, struct _ESExp *f,
 					if ((!prop) && compare("", argv[1]->value.string)) {
 						truth = TRUE;
 					}
-					g_free (prop);
 				}
 				else if (info->prop_type == PROP_TYPE_LIST) {
-				/* the special searches that match any of the list elements */
-					truth = info->list_compare (ctx->card, argv[1]->value.string, compare);
-				}
-				else if (info->prop_type == PROP_TYPE_ID) {
-					const char *prop = NULL;
-					/* searches where the query's property
-					   maps directly to an ecard property */
-					
-					prop = e_card_get_id (ctx->card->card);
-
-					if (prop && compare(prop, argv[1]->value.string)) {
-						truth = TRUE;
-					}
-					if ((!prop) && compare("", argv[1]->value.string)) {
-						truth = TRUE;
-					}
+					/* the special searches that match any of the list elements */
+					truth = info->list_compare (ctx->contact, argv[1]->value.string, compare);
 				}
 
 				/* if we're looking at all fields and find a match,
@@ -353,24 +343,18 @@ func_exists(struct _ESExp *f, int argc, struct _ESExpResult **argv, void *data)
 				info = &prop_info_table[i];
 				
 				if (info->prop_type == PROP_TYPE_NORMAL) {
-					char *prop = NULL;
+					const char *prop = NULL;
 					/* searches where the query's property
 					   maps directly to an ecard property */
 					
-					prop = e_card_simple_get (ctx->card, info->field_id);
+					prop = e_contact_get_const (ctx->contact, info->field_id);
 
 					if (prop && *prop)
 						truth = TRUE;
-
-					g_free (prop);
 				}
 				else if (info->prop_type == PROP_TYPE_LIST) {
 				/* the special searches that match any of the list elements */
-					truth = info->list_compare (ctx->card, "", (char *(*)(const char*, const char*)) e_utf8_strstrcase);
-				}
-				else if (info->prop_type == PROP_TYPE_ID) {
-					/* trivially true, since all contacts have id's */
-					truth = TRUE;
+					truth = info->list_compare (ctx->contact, "", (char *(*)(const char*, const char*)) e_utf8_strstrcase);
 				}
 
 				break;
@@ -399,22 +383,23 @@ static struct {
 };
 
 gboolean
-pas_backend_card_sexp_match_ecard (PASBackendCardSExp *sexp, ECard *ecard)
+pas_backend_card_sexp_match_contact (PASBackendCardSExp *sexp, EContact *contact)
 {
 	ESExpResult *r;
 	gboolean retval;
 
-	sexp->priv->search_context->card = e_card_simple_new (ecard);
-
-	/* if it's not a valid vcard why is it in our db? :) */
-	if (!sexp->priv->search_context->card)
+	if (!contact) {
+		g_warning ("null EContact passed to pas_backend_card_sexp_match_contact");
 		return FALSE;
+	}
+
+	sexp->priv->search_context->contact = g_object_ref (contact);
 
 	r = e_sexp_eval(sexp->priv->search_sexp);
 
 	retval = (r && r->type == ESEXP_RES_BOOL && r->value.bool);
 
-	g_object_unref(sexp->priv->search_context->card);
+	g_object_unref(sexp->priv->search_context->contact);
 
 	e_sexp_result_free(sexp->priv->search_sexp, r);
 
@@ -424,14 +409,14 @@ pas_backend_card_sexp_match_ecard (PASBackendCardSExp *sexp, ECard *ecard)
 gboolean
 pas_backend_card_sexp_match_vcard (PASBackendCardSExp *sexp, const char *vcard)
 {
-	ECard *card;
+	EContact *contact;
 	gboolean retval;
 
-	card = e_card_new ((char*)vcard);
+	contact = e_contact_new_from_vcard (vcard);
 
-	retval = pas_backend_card_sexp_match_ecard (sexp, card);
+	retval = pas_backend_card_sexp_match_contact (sexp, contact);
 
-	g_object_unref(card);
+	g_object_unref(contact);
 
 	return retval;
 }

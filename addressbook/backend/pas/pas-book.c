@@ -9,7 +9,7 @@
 #include <bonobo/bonobo-main.h>
 #include <bonobo/bonobo-arg.h>
 #include "e-util/e-list.h"
-#include "ebook/e-card.h"
+#include "ebook/e-contact.h"
 #include "pas-book-view.h"
 #include "pas-backend.h"
 #include "pas-backend-card-sexp.h"
@@ -413,9 +413,9 @@ pas_book_respond_modify (PASBook                                *book,
 			else if (new_match)
 				pas_book_view_notify_add_1 (view, new_vcard);
 			else /* if (old_match) */ {
-				ECard *card = e_card_new ((char*)old_vcard);
-				pas_book_view_notify_remove_1 (view, e_card_get_id (card));
-				g_object_unref (card);
+				EContact *contact = e_contact_new_from_vcard (old_vcard);
+				pas_book_view_notify_remove_1 (view, e_contact_get_const (contact, E_CONTACT_UID));
+				g_object_unref (contact);
 			}
 			pas_book_view_notify_complete (view, GNOME_Evolution_Addressbook_Success);
 
