@@ -7,6 +7,7 @@
 #include <gnome-xml/tree.h>
 #include <gal/e-table/e-table-model.h>
 #include <gal/e-table/e-table-header.h>
+#include <gal/e-table/e-table-column-set.h>
 #include <gal/e-table/e-table-group.h>
 #include <gal/e-table/e-table-sort-info.h>
 #include <gal/e-table/e-table-item.h>
@@ -34,10 +35,11 @@ typedef struct {
 
 	ETableModel *model;
 
-	ETableHeader *full_header, *header;
+	ETableColumnSet *columns;
+	ETableHeader    *header;
 
 	GnomeCanvasItem *canvas_vbox;
-	ETableGroup  *group;
+	ETableGroup     *group;
 
 	ETableSortInfo *sort_info;
 	ETableSorter   *sorter;
@@ -158,16 +160,16 @@ typedef struct {
 
 GtkType     e_table_get_type   		    (void);
 	   
-ETable     *e_table_construct  		    (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
+ETable     *e_table_construct  		    (ETable *e_table, ETableColumnSet *columns, ETableModel *etm,
 	   				      const char *spec);
-GtkWidget  *e_table_new        		    (ETableHeader *full_header, ETableModel *etm,
+GtkWidget  *e_table_new        		    (ETableColumnSet *columns, ETableModel *etm,
 	   				      const char *spec);
 	   
 ETable     *e_table_construct_from_spec_file (ETable *e_table,
-	   				      ETableHeader *full_header,
+	   				      ETableColumnSet *columns,
 	   				      ETableModel *etm,
 	   				      const char *filename);
-GtkWidget  *e_table_new_from_spec_file       (ETableHeader *full_header,
+GtkWidget  *e_table_new_from_spec_file       (ETableColumnSet *columns,
 	   				      ETableModel *etm,
 	   				      const char *filename);
 	   

@@ -25,26 +25,27 @@ enum _ETableColArrow {
  * Information about a single column
  */
 struct _ETableCol {
-	GtkObject    base;
-	char        *text;
-	GdkPixbuf   *pixbuf;
-	int          min_width;
-	int          width;
-	double       expansion;
-	short        x;
-	GCompareFunc compare;
-	unsigned int is_pixbuf:1;
-	unsigned int selected:1;
-	unsigned int resizeable:1;
-	unsigned int sortable:1;
-	unsigned int groupable:1;
-	int          col_idx;
+	GtkObject         base;
+	char             *text;
+	GdkPixbuf        *pixbuf;
+	int               min_width;
+	int               width;
+	double            expansion;
+	short             x;
+	GCompareFunc      compare;
+	unsigned int      is_pixbuf:1;
+	unsigned int      selected:1;
+	unsigned int      resizeable:1;
+	unsigned int      sortable:1;
+	unsigned int      groupable:1;
+	const char       *col_id;
+	int               col_idx;
 
-	GtkJustification justification;
+	GtkJustification  justification;
 
-	ETableColArrow arrow;
+	ETableColArrow    arrow;
 
-	ECell         *ecell;
+	ECell            *ecell;
 };
 
 struct _ETableColClass {
@@ -52,20 +53,18 @@ struct _ETableColClass {
 };
 
 GtkType        e_table_col_get_type        (void);
-ETableCol     *e_table_col_new             (const char *col_id, const char *model_col,
-					    const char *text, 
+ETableCol     *e_table_col_new             (const char *col_id, const char *text, 
 					    double expansion, int min_width,
 					    ECell *ecell, GCompareFunc compare,
 					    gboolean resizable);
-ETableCol     *e_table_col_new_with_pixbuf (const char *col_id, const char *model_col,
-					    GdkPixbuf *pixbuf,
+ETableCol     *e_table_col_new_with_pixbuf (const char *col_id, GdkPixbuf *pixbuf,
 					    double expansion, int min_width,
 					    ECell *ecell, GCompareFunc compare,
 					    gboolean resizable);
-void           e_table_col_destroy         (ETableCol *etc);
+ETableCol     *e_table_col_copy            (ETableCol *col);
+
 void           e_table_col_set_arrow       (ETableCol *col, ETableColArrow arrow);
 ETableColArrow e_table_col_get_arrow       (ETableCol *col);
 
 
 #endif /* _E_TABLE_COL_H_ */
-

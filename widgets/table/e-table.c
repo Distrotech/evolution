@@ -142,7 +142,7 @@ et_destroy (GtkObject *object)
 	et->reflow_idle_id = 0;
 
 	gtk_object_unref (GTK_OBJECT (et->model));
-	gtk_object_unref (GTK_OBJECT (et->full_header));
+	gtk_object_unref (GTK_OBJECT (et->columns));
 	gtk_object_unref (GTK_OBJECT (et->header));
 	gtk_object_unref (GTK_OBJECT (et->sort_info));
 	gtk_object_unref (GTK_OBJECT (et->sorter));
@@ -235,7 +235,7 @@ e_table_setup_header (ETable *e_table)
 		gnome_canvas_root (e_table->header_canvas),
 		e_table_header_item_get_type (),
 		"ETableHeader", e_table->header,
-		"full_header", e_table->full_header,
+		"columns", e_table->columns,
 		"sort_info", e_table->sort_info,
 		"dnd_code", "(unset)",
 		NULL);
@@ -401,7 +401,7 @@ changed_idle (gpointer data)
 	if (et->need_rebuild) {
 		gtk_object_destroy (GTK_OBJECT (et->group));
 		et->group = e_table_group_new (GNOME_CANVAS_GROUP (et->canvas_vbox),
-					       et->full_header,
+					       et->columns,
 					       et->header,
 					       et->model,
 					       et->sort_info,
@@ -484,7 +484,7 @@ et_table_row_deleted (ETableModel *table_model, int row, ETable *et)
 }
 
 static void
-e_table_setup_table (ETable *e_table, ETableHeader *full_header, ETableHeader *header,
+e_table_setup_table (ETable *e_table, ETableColumnSet *columns, ETableHeader *header,
 		     ETableModel *model)
 {
 	e_table->table_canvas = GNOME_CANVAS (e_canvas_new ());
@@ -543,7 +543,7 @@ e_table_setup_table (ETable *e_table, ETableHeader *full_header, ETableHeader *h
 
 	e_table->group = e_table_group_new (
 		GNOME_CANVAS_GROUP (e_table->canvas_vbox),
-		full_header, header,
+		columns, header,
 		model, e_table->sort_info, 0);
 	e_canvas_vbox_add_item(E_CANVAS_VBOX(e_table->canvas_vbox), GNOME_CANVAS_ITEM(e_table->group));
 
@@ -595,30 +595,29 @@ e_table_fill_table (ETable *e_table, ETableModel *model)
 }
 
 static ETableHeader *
-et_xml_to_header (ETable *e_table, ETableHeader *full_header, xmlNode *xmlColumns)
+et_xml_to_header (ETable *e_table, ETableColumnSet *columns, xmlNode *xmlColumns)
 {
 	ETableHeader *nh;
 	xmlNode *column;
-	const int max_cols = e_table_header_count (full_header);
 
 	g_return_val_if_fail (e_table, NULL);
-	g_return_val_if_fail (full_header, NULL);
+	g_return_val_if_fail (columns != NULL, NULL);
 	g_return_val_if_fail (xmlColumns, NULL);
 	
 	nh = e_table_header_new ();
 
 	for (column = xmlColumns->childs; column; column = column->next) {
-		gchar *content;
-		int col;
+		gchar *name;
+		ETableCol *col;
 
-		content = xmlNodeListGetString (column->doc, column->childs, 1);
-		col = atoi (content);
-		xmlFree (content);
+		name = xmlNodeListGetString (column->doc, column->childs, 1);
 
-		if (col >= max_cols)
-			continue;
+		col = e_table_header_get_column (columns, name);
 
-		e_table_header_add_column (nh, e_table_header_get_column (full_header, col), -1);
+		if (col)
+			e_table_header_add_column (nh, col, -1);
+
+		xmlFree(name);
 	}
 
 	return nh;
@@ -658,7 +657,7 @@ et_grouping_xml_to_sort_info (ETable *table, xmlNode *grouping)
 }
 
 static ETable *
-et_real_construct (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
+et_real_construct (ETable *e_table, ETableColumnSet *columns, ETableModel *etm,
 		   xmlDoc *xmlSpec)
 {
 	xmlNode *xmlRoot;
@@ -678,8 +677,8 @@ et_real_construct (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
 	e_table->use_click_to_add = e_xml_get_integer_prop_by_name(xmlRoot, "click-to-add");
 
 	
-	e_table->full_header = full_header;
-	gtk_object_ref (GTK_OBJECT (full_header));
+	e_table->columns = columns;
+	gtk_object_ref (GTK_OBJECT (columns));
 
 	e_table->model = etm;
 	gtk_object_ref (GTK_OBJECT (etm));
@@ -687,14 +686,14 @@ et_real_construct (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
 	gtk_widget_push_visual (gdk_rgb_get_visual ());
 	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
 
-	e_table->header = et_xml_to_header (e_table, full_header, xmlColumns);
+	e_table->header = et_xml_to_header (e_table, columns, xmlColumns);
 	et_grouping_xml_to_sort_info (e_table, xmlGrouping);
 	
 	gtk_object_set(GTK_OBJECT(e_table->header),
 		       "sort_info", e_table->sort_info,
 		       NULL);
 
-	e_table->sorter = e_table_sorter_new(etm, e_table->full_header, e_table->sort_info);
+	e_table->sorter = e_table_sorter_new(etm, e_table->columns, e_table->sort_info);
 
 	gtk_object_set (GTK_OBJECT (e_table->selection),
 			"model", etm,
@@ -704,7 +703,7 @@ et_real_construct (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
 	if (!no_header) {
 		e_table_setup_header (e_table);
 	}
-	e_table_setup_table (e_table, full_header, e_table->header, etm);
+	e_table_setup_table (e_table, columns, e_table->header, etm);
 	e_table_fill_table (e_table, etm);
 
 	gtk_layout_get_vadjustment (GTK_LAYOUT (e_table->table_canvas))->step_increment = 20;
@@ -733,7 +732,7 @@ et_real_construct (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
 }
 
 ETable *
-e_table_construct (ETable *e_table, ETableHeader *full_header,
+e_table_construct (ETable *e_table, ETableColumnSet *columns,
 		   ETableModel *etm, const char *spec)
 {
 	xmlDoc *xmlSpec;
@@ -741,8 +740,8 @@ e_table_construct (ETable *e_table, ETableHeader *full_header,
 
 	g_return_val_if_fail(e_table != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE(e_table), NULL);
-	g_return_val_if_fail(full_header != NULL, NULL);
-	g_return_val_if_fail(E_IS_TABLE_HEADER(full_header), NULL);
+	g_return_val_if_fail(columns != NULL, NULL);
+	g_return_val_if_fail(E_IS_TABLE_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(spec != NULL, NULL);
@@ -750,7 +749,7 @@ e_table_construct (ETable *e_table, ETableHeader *full_header,
 	copy = g_strdup (spec);
 
 	xmlSpec = xmlParseMemory (copy, strlen(copy));
-	e_table = et_real_construct (e_table, full_header, etm, xmlSpec);
+	e_table = et_real_construct (e_table, columns, etm, xmlSpec);
 	xmlFreeDoc (xmlSpec);
 	g_free (copy);
 
@@ -758,58 +757,58 @@ e_table_construct (ETable *e_table, ETableHeader *full_header,
 }
 
 ETable *
-e_table_construct_from_spec_file (ETable *e_table, ETableHeader *full_header, ETableModel *etm,
+e_table_construct_from_spec_file (ETable *e_table, ETableColumnSet *columns, ETableModel *etm,
 				  const char *filename)
 {
 	xmlDoc *xmlSpec;
 
 	g_return_val_if_fail(e_table != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE(e_table), NULL);
-	g_return_val_if_fail(full_header != NULL, NULL);
-	g_return_val_if_fail(E_IS_TABLE_HEADER(full_header), NULL);
+	g_return_val_if_fail(columns != NULL, NULL);
+	g_return_val_if_fail(E_IS_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(filename != NULL, NULL);
 
 	xmlSpec = xmlParseFile (filename);
-	e_table = et_real_construct (e_table, full_header, etm, xmlSpec);
+	e_table = et_real_construct (e_table, columns, etm, xmlSpec);
 	xmlFreeDoc (xmlSpec);
 
 	return e_table;
 }
 
 GtkWidget *
-e_table_new (ETableHeader *full_header, ETableModel *etm, const char *spec)
+e_table_new (ETableColumnSet *columns, ETableModel *etm, const char *spec)
 {
 	ETable *e_table;
 
-	g_return_val_if_fail(full_header != NULL, NULL);
-	g_return_val_if_fail(E_IS_TABLE_HEADER(full_header), NULL);
+	g_return_val_if_fail(columns != NULL, NULL);
+	g_return_val_if_fail(E_IS_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(spec != NULL, NULL);
 
 	e_table = gtk_type_new (e_table_get_type ());
 
-	e_table = e_table_construct (e_table, full_header, etm, spec);
+	e_table = e_table_construct (e_table, columns, etm, spec);
 		
 	return GTK_WIDGET (e_table);
 }
 
 GtkWidget *
-e_table_new_from_spec_file (ETableHeader *full_header, ETableModel *etm, const char *filename)
+e_table_new_from_spec_file (ETableColumnSet *columns, ETableModel *etm, const char *filename)
 {
 	ETable *e_table;
 
-	g_return_val_if_fail(full_header != NULL, NULL);
-	g_return_val_if_fail(E_IS_TABLE_HEADER(full_header), NULL);
+	g_return_val_if_fail(columns != NULL, NULL);
+	g_return_val_if_fail(E_IS_COLUMN_SET(columns), NULL);
 	g_return_val_if_fail(etm != NULL, NULL);
 	g_return_val_if_fail(E_IS_TABLE_MODEL(etm), NULL);
 	g_return_val_if_fail(filename != NULL, NULL);
 
 	e_table = gtk_type_new (e_table_get_type ());
 
-	e_table = e_table_construct_from_spec_file (e_table, full_header, etm, filename);
+	e_table = e_table_construct_from_spec_file (e_table, columns, etm, filename);
 		
 	return (GtkWidget *) e_table;
 }
