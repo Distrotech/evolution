@@ -1,3 +1,9 @@
+2003-08-01  Chris Toshok  <toshok@ximian.com>
+
+	* backend/ebook/e-book-async.[ch]: new files, create async methods
+	similar to the old ebook api that use GThread/GAsyncQueue to
+	simulate the old async behavior.
+
 2003-07-29  Chris Toshok  <toshok@ximian.com>
 
 	* backend/idl/addressbook.idl: collapse
