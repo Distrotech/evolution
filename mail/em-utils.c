@@ -83,6 +83,16 @@ e_question (GtkWindow *parent, int def, gboolean *again, const char *fmt, ...)
 }
 
 
+/**
+ * em_utils_uids_copy:
+ * @uids: array of uids
+ *
+ * Duplicates the array of uids held by @uids into a new
+ * GPtrArray. Use em_utils_uids_free() to free the resultant uid
+ * array.
+ *
+ * Returns a duplicate copy of @uids.
+ **/
 GPtrArray *
 em_utils_uids_copy (GPtrArray *uids)
 {
@@ -98,6 +108,13 @@ em_utils_uids_copy (GPtrArray *uids)
 	return copy;
 }
 
+
+/**
+ * em_utils_uids_free:
+ * @uids: array of uids
+ *
+ * Frees the array of uids pointed to by @uids back to the system.
+ **/
 void
 em_utils_uids_free (GPtrArray *uids)
 {
@@ -115,12 +132,28 @@ druid_destroy_cb (gpointer user_data, GObject *deadbeef)
 	gtk_main_quit ();
 }
 
+
+/**
+ * em_utils_configure_account:
+ * @parent: parent window for the druid to be a child of.
+ *
+ * Displays a druid allowing the user to configure an account. If
+ * @parent is non-NULL, then the druid will be created as a child
+ * window of @parent's toplevel window.
+ *
+ * Returns %TRUE if an account has been configured or %FALSE
+ * otherwise.
+ **/
 gboolean
 em_utils_configure_account (GtkWidget *parent)
 {
 	MailConfigDruid *druid;
 	
 	druid = mail_config_druid_new ();
+	
+	if (parent != NULL)
+		e_dialog_set_transient_for ((GtkWindow *) druid, parent);
+	
 	g_object_weak_ref ((GObject *) druid, (GWeakNotify) druid_destroy_cb, NULL);
 	gtk_widget_show ((GtkWidget *) druid);
 	gtk_grab_add ((GtkWidget *) druid);
@@ -129,6 +162,20 @@ em_utils_configure_account (GtkWidget *parent)
 	return mail_config_is_configured ();
 }
 
+
+/**
+ * em_utils_check_user_can_send_mail:
+ * @parent: parent window for the druid to be a child of.
+ *
+ * If no accounts have been configured, the user will be given a
+ * chance to configure an account. In the case that no accounts are
+ * configured, a druid will be created. If @parent is non-NULL, then
+ * the druid will be created as a child window of @parent's toplevel
+ * window.
+ *
+ * Returns %TRUE if the user has an account configured (to send mail)
+ * or %FALSE otherwise.
+ **/
 gboolean
 em_utils_check_user_can_send_mail (GtkWidget *parent)
 {
@@ -179,6 +226,15 @@ static const char *filter_source_names[] = {
 	NULL,
 };
 
+
+/**
+ * em_utils_edit_filters:
+ * @parent: parent window
+ *
+ * Opens or raises the filters editor dialog so that the user may edit
+ * his/her filters. If @parent is non-NULL, then the dialog will be
+ * created as a child window of @parent's toplevel window.
+ **/
 void
 em_utils_edit_filters (GtkWidget *parent)
 {
@@ -231,6 +287,14 @@ create_new_composer (GtkWidget *parent)
 	return composer;
 }
 
+
+/**
+ * em_utils_compose_new_message:
+ * @parent: parent window
+ *
+ * Opens a new composer window as a child window of @parent's toplevel
+ * window.
+ **/
 void
 em_utils_compose_new_message (GtkWidget *parent)
 {
@@ -241,6 +305,16 @@ em_utils_compose_new_message (GtkWidget *parent)
 	gtk_widget_show (composer);
 }
 
+
+/**
+ * em_utils_compose_new_message_with_mailto:
+ * @parent: parent window
+ * @url: mailto url
+ *
+ * Opens a new composer window as a child window of @parent's toplevel
+ * window. If @url is non-NULL, the composer fields will be filled in
+ * according to the values in the mailto url.
+ **/
 void
 em_utils_compose_new_message_with_mailto (GtkWidget *parent, const char *url)
 {
@@ -259,6 +333,16 @@ em_utils_compose_new_message_with_mailto (GtkWidget *parent, const char *url)
 	gtk_widget_show ((GtkWidget *) composer);
 }
 
+
+/**
+ * em_utils_post_to_url:
+ * @parent: parent window
+ * @url: mailto url
+ *
+ * Opens a new composer window as a child window of @parent's toplevel
+ * window. If @url is non-NULL, the composer will default to posting
+ * mail to the folder specified by @url.
+ **/
 void
 em_utils_post_to_url (GtkWidget *parent, const char *url)
 {
@@ -295,6 +379,15 @@ edit_message (GtkWidget *parent, CamelMimeMessage *message, CamelFolder *drafts,
 	gtk_widget_show (GTK_WIDGET (composer));
 }
 
+
+/**
+ * em_utils_edit_message:
+ * @parent: parent window
+ * @message: message to edit
+ *
+ * Opens a composer filled in with the headers/mime-parts/etc of
+ * @message.
+ **/
 void
 em_utils_edit_message (GtkWidget *parent, CamelMimeMessage *message)
 {
@@ -318,6 +411,15 @@ edit_messages (CamelFolder *folder, GPtrArray *uids, GPtrArray *msgs, void *user
 	}
 }
 
+
+/**
+ * em_utils_edit_messages:
+ * @parent: parent window
+ * @folder: folder containing messages to edit
+ * @uids: uids of messages to edit
+ *
+ * Opens a composer for each message to be edited.
+ **/
 void
 em_utils_edit_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -347,6 +449,19 @@ forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part,
 	gtk_widget_show (GTK_WIDGET (composer));
 }
 
+
+/**
+ * em_utils_forward_attached:
+ * @parent: parent window
+ * @folder: folder containing messages to forward
+ * @uids: uids of messages to forward
+ *
+ * If there is more than a single message in @uids, a multipart/digest
+ * will be constructed and attached to a new composer window preset
+ * with the appropriate header defaults for forwarding the first
+ * message in the list. If only one message is to be forwarded, it is
+ * forwarded as a simple message/rfc822 attachment.
+ **/
 void
 em_utils_forward_attached (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -400,6 +515,15 @@ forward_inline (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void 
 	forward_non_attached ((GtkWidget *) user_data, messages, MAIL_CONFIG_FORWARD_INLINE);
 }
 
+
+/**
+ * em_utils_forward_inline:
+ * @parent: parent window
+ * @folder: folder containing messages to forward
+ * @uids: uids of messages to forward
+ *
+ * Forwards each message in the 'inline' form, each in its own composer window.
+ **/
 void
 em_utils_forward_inline (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -415,6 +539,16 @@ forward_quoted (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void 
 	forward_non_attached ((GtkWidget *) user_data, messages, MAIL_CONFIG_FORWARD_QUOTED);
 }
 
+
+/**
+ * em_utils_forward_quoted:
+ * @parent: parent window
+ * @folder: folder containing messages to forward
+ * @uids: uids of messages to forward
+ *
+ * Forwards each message in the 'quoted' form (each line starting with
+ * a "> "), each in its own composer window.
+ **/
 void
 em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
@@ -424,29 +558,40 @@ em_utils_forward_quoted (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids
 	mail_get_messages (folder, uids, forward_quoted, parent);
 }
 
+
+/**
+ * em_utils_forward_message:
+ * @parent: parent window
+ * @message: message to be forwarded
+ *
+ * Forwards a message in the user's configured default style.
+ **/
 void
-em_utils_forward_message(GtkWidget *parent, CamelMimeMessage *message)
+em_utils_forward_message (GtkWidget *parent, CamelMimeMessage *message)
 {
-	GConfClient *gconf;
-	int mode;
 	GPtrArray *messages;
-
-	messages = g_ptr_array_new();
-	g_ptr_array_add(messages, message);
-
+	CamelMimePart *part;
+	GConfClient *gconf;
+	char *subject;
+	int mode;
+	
+	messages = g_ptr_array_new ();
+	g_ptr_array_add (messages, message);
+	
 	gconf = mail_config_get_gconf_client ();
 	mode = gconf_client_get_int (gconf, "/apps/evolution/mail/format/forward_style", NULL);
-
+	
 	switch (mode) {
 	case MAIL_CONFIG_FORWARD_ATTACHED:
-	default: {
-		CamelMimePart *part = mail_tool_make_message_attachment(message);
-		char *subject = mail_tool_generate_forward_subject(message);
-
-		forward_attached(NULL, messages, part, subject, parent);
-		g_free(subject);
-		camel_object_unref(part);
-		break; }
+	default:
+		part = mail_tool_make_message_attachment (message);
+		
+		subject = mail_tool_generate_forward_subject (message);
+		
+		forward_attached (NULL, messages, part, subject, parent);
+		camel_object_unref (part);
+		g_free (subject);
+		break;
 	case MAIL_CONFIG_FORWARD_INLINE:
 		forward_non_attached(parent, messages, MAIL_CONFIG_FORWARD_INLINE);
 		break;
@@ -454,12 +599,22 @@ em_utils_forward_message(GtkWidget *parent, CamelMimeMessage *message)
 		forward_non_attached(parent, messages, MAIL_CONFIG_FORWARD_QUOTED);
 		break;
 	}
-
-	g_ptr_array_free(messages, TRUE);
+	
+	g_ptr_array_free (messages, TRUE);
 }
 
+
+/**
+ * em_utils_forward_messages:
+ * @parent: parent window
+ * @folder: folder containing messages to forward
+ * @uids: uids of messages to forward
+ *
+ * Forwards a group of messages in the user's configured default
+ * style.
+ **/
 void
-em_utils_forward_messages(GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
+em_utils_forward_messages (GtkWidget *parent, CamelFolder *folder, GPtrArray *uids)
 {
 	GConfClient *gconf;
 	int mode;
@@ -470,13 +625,13 @@ em_utils_forward_messages(GtkWidget *parent, CamelFolder *folder, GPtrArray *uid
 	switch (mode) {
 	case MAIL_CONFIG_FORWARD_ATTACHED:
 	default:
-		em_utils_forward_attached(parent, folder, uids);
+		em_utils_forward_attached (parent, folder, uids);
 		break;
 	case MAIL_CONFIG_FORWARD_INLINE:
-		em_utils_forward_inline(parent, folder, uids);
+		em_utils_forward_inline (parent, folder, uids);
 		break;
 	case MAIL_CONFIG_FORWARD_QUOTED:
-		em_utils_forward_quoted(parent, folder, uids);
+		em_utils_forward_quoted (parent, folder, uids);
 		break;
 	}
 }
@@ -507,6 +662,15 @@ redirect_get_composer (GtkWidget *parent, CamelMimeMessage *message)
 	return composer;
 }
 
+
+/**
+ * em_utils_redirect_message:
+ * @parent: parent window
+ * @message: message to redirect
+ *
+ * Opens a composer to redirect @message (Note: only headers will be
+ * editable). Adds Resent-From/Resent-To/etc headers.
+ **/
 void
 em_utils_redirect_message (GtkWidget *parent, CamelMimeMessage *message)
 {
@@ -535,6 +699,16 @@ redirect_msg (CamelFolder *folder, const char *uid, CamelMimeMessage *message, v
 	em_utils_redirect_message ((GtkWidget *) user_data, message);
 }
 
+
+/**
+ * em_utils_redirect_message_by_uid:
+ * @parent: parent window
+ * @folder: folder containing message to be redirected
+ * @uid: uid of message to be redirected
+ *
+ * Opens a composer to redirect the message (Note: only headers will
+ * be editable). Adds Resent-From/Resent-To/etc headers.
+ **/
 void
 em_utils_redirect_message_by_uid (GtkWidget *parent, CamelFolder *folder, const char *uid)
 {
@@ -897,6 +1071,15 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message)
 	e_msg_composer_drop_editor_undo (composer);
 }
 
+
+/**
+ * em_utils_reply_to_message:
+ * @parent: parent window
+ * @message: message to reply to
+ * @mode: reply mode
+ *
+ * Creates a new composer ready to reply to @message.
+ **/
 void
 em_utils_reply_to_message (GtkWidget *parent, CamelMimeMessage *message, int mode)
 {
@@ -1783,6 +1966,6 @@ em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
 gboolean
 em_utils_folder_is_outbox(CamelFolder *folder, const char *uri)
 {
-	/* There can be only one. */
+	/* <Highlander>There can be only one.</Highlander> */
 	return folder == outbox_folder;
 }
