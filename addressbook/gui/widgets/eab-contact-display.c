@@ -23,6 +23,8 @@
 #include "eab-contact-display.h"
 
 #include <string.h>
+#include <libgnome/gnome-i18n.h>
+#include <libgnome/gnome-url.h>
 #include <gtk/gtkscrolledwindow.h>
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-stream.h>
@@ -40,10 +42,8 @@ struct _EABContactDisplayPrivate {
 
 static void
 on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
-		  gpointer user_data)
+		  EABContactDisplay *display)
 {
-	EABContactDisplay *display = user_data;
-
 	printf ("on_url_requested (%s)\n", url);
 	if (!strcmp (url, "internal-contact-photo:")) {
 		EContactPhoto *photo;
@@ -59,6 +59,19 @@ on_url_requested (GtkHTML *html, const char *url, GtkHTMLStream *handle,
 }
 
 static void
+on_link_clicked (GtkHTML *html, const char *url, EABContactDisplay *display)
+{
+	GError *err = NULL;
+		
+	gnome_url_show (url, &err);
+		
+	if (err) {
+		g_warning ("gnome_url_show: %s", err->message);
+		g_error_free (err);
+	}
+}
+
+static void
 render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_label, EContactField adr_field, EContactField label_field)
 {
 	EContactAddress *adr;
@@ -66,11 +79,25 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 
 	label = e_contact_get_const (contact, label_field);
 	if (label) {
+		char *lf;
+		const char *start = label;
+
 		gtk_html_stream_printf (html_stream, "<table border=\"0\" cellspacing=\"0\" cellpadding=\"0\"><tr valign=\"top\"><td>");
-		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td><pre>", html_label);
-		gtk_html_stream_write (html_stream, label, strlen (label));
-		gtk_html_stream_printf (html_stream, "</pre><br>");
-		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">Map It</a>");
+		gtk_html_stream_printf (html_stream, "<b>%s</b>:&nbsp;<td>", html_label);
+
+		do {
+			lf = strchr (start, '\n');
+			
+			if (lf) {
+				if (lf != start) {
+					gtk_html_stream_write (html_stream, start, lf - start);
+					gtk_html_stream_write (html_stream, "<br>", 4);
+				}
+				start = lf + 1;
+			}
+		} while (lf);
+
+		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">%s</a>", _("Map It"));
 		gtk_html_stream_printf (html_stream, "</td></tr></table>");
 		return;
 	}
@@ -90,7 +117,7 @@ render_address (GtkHTMLStream *html_stream, EContact *contact, const char *html_
 		if (adr->code && *adr->code) gtk_html_stream_printf (html_stream, "%s<br>", adr->code);
 		if (adr->country && *adr->country) gtk_html_stream_printf (html_stream, "%s<br>", adr->country);
 
-		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">Map It</a>");
+		gtk_html_stream_printf (html_stream, "<a href=\"http://www.mapquest.com/\">%s</a>", _("Map It"));
 		gtk_html_stream_printf (html_stream, "</td></tr></table>");
 	}
 	if (adr)
@@ -112,7 +139,7 @@ eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 	gtk_html_stream_write (html_stream, HTML_HEADER, sizeof (HTML_HEADER) - 1);
 	gtk_html_stream_write (html_stream, "<body>\n", 7);
 
-	/* XXX we need to entity-ize the strings we're passing to gtkhtml */
+	/* XXX we need to entity-ize the strings we're passing to gtkhtml (escape &'s, <'s, etc) */
 
 	if (contact) {
 		char *str;
@@ -138,34 +165,34 @@ eab_contact_display_render (EABContactDisplay *display, EContact *contact)
 
 		str = e_contact_get_const (contact, E_CONTACT_TITLE);
 		if (str)
-			gtk_html_stream_printf (html_stream, "<b>Job Title</b>: %s<br>", str);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Job Title"), str);
 
 		str = e_contact_get_const (contact, E_CONTACT_EMAIL_1);
 		if (str)
-			gtk_html_stream_printf (html_stream, "<b>Email</b>: %s<br>", str);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
 		str = e_contact_get_const (contact, E_CONTACT_EMAIL_2);
 		if (str)
-			gtk_html_stream_printf (html_stream, "<b>Email</b>: %s<br>", str);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
 		str = e_contact_get_const (contact, E_CONTACT_EMAIL_3);
 		if (str)
-			gtk_html_stream_printf (html_stream, "<b>Email</b>: %s<br>", str);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: %s<br>", _("Email"), str);
 
 
-		render_address (html_stream, contact, "Home Address",  E_CONTACT_ADDRESS_HOME,  E_CONTACT_ADDRESS_LABEL_HOME);
-		render_address (html_stream, contact, "Work Address",  E_CONTACT_ADDRESS_WORK,  E_CONTACT_ADDRESS_LABEL_WORK);
-		render_address (html_stream, contact, "Other Address", E_CONTACT_ADDRESS_OTHER, E_CONTACT_ADDRESS_LABEL_OTHER);
+		render_address (html_stream, contact, _("Home Address"),  E_CONTACT_ADDRESS_HOME,  E_CONTACT_ADDRESS_LABEL_HOME);
+		render_address (html_stream, contact, _("Work Address"),  E_CONTACT_ADDRESS_WORK,  E_CONTACT_ADDRESS_LABEL_WORK);
+		render_address (html_stream, contact, _("Other Address"), E_CONTACT_ADDRESS_OTHER, E_CONTACT_ADDRESS_LABEL_OTHER);
 
 		gtk_html_stream_printf (html_stream, "<hr>");
 
 		str = e_contact_get_const (contact, E_CONTACT_HOMEPAGE_URL);
 		if (str)
-			gtk_html_stream_printf (html_stream, "<b>Home page</b>: <a href=\"%s\">%s</a><br>",
-						str, str);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: <a href=\"%s\">%s</a><br>",
+						_("Home page"), str, str);
 
 		str = e_contact_get_const (contact, E_CONTACT_BLOG_URL);
 		if (str)
-			gtk_html_stream_printf (html_stream, "<b>Blog</b>: <a href=\"%s\">%s</a><br>",
-						str, str);
+			gtk_html_stream_printf (html_stream, "<b>%s</b>: <a href=\"%s\">%s</a><br>",
+						_("Blog"), str, str);
 
 		gtk_html_stream_printf (html_stream, "</td></tr></table>\n");
 	}
@@ -201,12 +228,12 @@ eab_contact_display_new (void)
 	g_signal_connect (html, "url_requested",
 			  G_CALLBACK (on_url_requested),
 			  display);
+	g_signal_connect (html, "link_clicked",
+			  G_CALLBACK (on_link_clicked),
+			  display);
 #if 0
 	g_signal_connect (html, "object_requested",
 			  G_CALLBACK (on_object_requested),
-			  mail_display);
-	g_signal_connect (html, "link_clicked",
-			  G_CALLBACK (on_link_clicked),
 			  mail_display);
 	g_signal_connect (html, "button_press_event",
 			  G_CALLBACK (html_button_press_event), mail_display);

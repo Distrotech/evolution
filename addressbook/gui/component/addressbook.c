@@ -24,7 +24,6 @@
 
 #include <string.h>
 #include <glib.h>
-#include <gtk/gtkframe.h>
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkwidget.h>
 #include <gtk/gtkmessagedialog.h>
@@ -1054,10 +1053,6 @@ BonoboControl *
 addressbook_new_control (void)
 {
 	AddressbookView *view;
-	GtkWidget *frame;
-
-	frame = gtk_frame_new (NULL);
-	gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_IN);
 
 	view = g_new0 (AddressbookView, 1);
 	view->refs = 1;
@@ -1082,14 +1077,12 @@ addressbook_new_control (void)
 			  G_CALLBACK (addressbook_search_activated), view);
 
 	view->view = EAB_VIEW(eab_view_new());
-	gtk_container_add (GTK_CONTAINER (frame), GTK_WIDGET (view->view));
-	gtk_box_pack_start (GTK_BOX (view->vbox), frame,
+	gtk_box_pack_start (GTK_BOX (view->vbox), GTK_WIDGET (view->view),
 			    TRUE, TRUE, 0);
 
 	/* create the initial view */
 	change_view_type (view, EAB_VIEW_TABLE);
 
-	gtk_widget_show (frame);
 	gtk_widget_show (view->vbox);
 	gtk_widget_show (GTK_WIDGET(view->view));
 	gtk_widget_show (GTK_WIDGET(view->search));
@@ -1104,25 +1097,17 @@ addressbook_new_control (void)
 				       bonobo_object_corba_objref (BONOBO_OBJECT (view->properties)),
 				       NULL);
 
-	g_signal_connect (view->view,
-			  "status_message",
-			  G_CALLBACK(set_status_message),
-			  view);
+	g_signal_connect (view->view, "status_message",
+			  G_CALLBACK(set_status_message), view);
 
-	g_signal_connect (view->view,
-			  "search_result",
-			  G_CALLBACK(search_result),
-			  view);
+	g_signal_connect (view->view, "search_result",
+			  G_CALLBACK(search_result), view);
 
-	g_signal_connect (view->view,
-			  "folder_bar_message",
-			  G_CALLBACK(set_folder_bar_label),
-			  view);
+	g_signal_connect (view->view, "folder_bar_message",
+			  G_CALLBACK(set_folder_bar_label), view);
 
-	g_signal_connect (view->view,
-			  "command_state_change",
-			  G_CALLBACK(update_command_state),
-			  view);
+	g_signal_connect (view->view, "command_state_change",
+			  G_CALLBACK(update_command_state), view);
 	
 	view->uri = NULL;
 
