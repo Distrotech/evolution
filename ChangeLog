@@ -1,3 +1,19 @@
+2004-10-25  Radek Doulik  <rodo@ximian.com>
+
+	* configure.in: added audio-inline plugin, added gstreamer check
+	for it
+
+	if gstreamer is not available, remove audio-inline plugin from the
+	plugins list
+
+2004-10-22  Harish K  <kharish@novell.com>
+
+	* configure.in: Added mark-calendar-offline plugin
+
+2004-10-22  Jeffrey Stedfast  <fejj@ximian.com>
+
+	* configure.in: Added folder-unsubscribe plugin
+
 2004-10-22  Nat Friedman <nat@novell.com>
 
 	* configure.in: Added the bbdb plugin.
