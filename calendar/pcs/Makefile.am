@@ -9,6 +9,12 @@ INCLUDES =						\
 	-I$(top_builddir)/libwombat			\
 	$(EVOLUTION_CALENDAR_CFLAGS)
 
+AM_CFLAGS = 								\
+	-DGTK_DISABLE_DEPRECATED=1					\
+	-DGDK_DISABLE_DEPRECATED=1					\
+	-DG_DISABLE_DEPRECATED=1					\
+	-DGNOME_DISABLE_DEPRECATED=1
+
 CORBA_GENERATED_H =				\
 	evolution-calendar.h
 
@@ -41,7 +47,6 @@ pcsinclude_HEADERS = 		\
 	cal-backend-util.h	\
 	cal-common.h		\
 	cal-factory.h		\
-	job.h			\
 	query-backend.h		\
 	query.h
 
@@ -52,11 +57,14 @@ libpcs_a_SOURCES =		\
 	cal-backend.c		\
 	cal-backend-util.c	\
 	cal-factory.c		\
-	job.c			\
 	query-backend.c		\
 	query.c
 
 libpcsfile_a_SOURCES =		\
+	cal-backend-file-events.c\
+	cal-backend-file-events.h\
+	cal-backend-file-todos.c\
+	cal-backend-file-todos.h\
 	cal-backend-file.c	\
 	cal-backend-file.h
 

@@ -129,8 +129,6 @@ GType cal_client_open_status_enum_get_type (void);
 GType cal_client_set_mode_status_enum_get_type (void);
 GType cal_mode_enum_get_type (void);
 
-CalClient *cal_client_construct (CalClient *client);
-
 CalClient *cal_client_new (void);
 
 void cal_client_set_auth_func (CalClient *client, CalClientAuthFunc func, gpointer data);

@@ -56,15 +56,14 @@ GType cal_get_type (void);
 
 Cal *cal_construct (Cal *cal,
 		    CalBackend *backend,
+		    const char *uri,
 		    GNOME_Evolution_Calendar_Listener listener);
 
-Cal *cal_new (CalBackend *backend, GNOME_Evolution_Calendar_Listener listener);
+Cal *cal_new (CalBackend *backend, const char *uri, GNOME_Evolution_Calendar_Listener listener);
 
 void cal_notify_mode (Cal *cal, 
 		      GNOME_Evolution_Calendar_Listener_SetModeStatus status, 
 		      GNOME_Evolution_Calendar_CalMode mode);
-void cal_notify_update (Cal *cal, const char *uid);
-void cal_notify_remove (Cal *cal, const char *uid);
 void cal_notify_error (Cal *cal, const char *message);
 
 void cal_notify_categories_changed (Cal *cal, GNOME_Evolution_Calendar_StringSeq *categories);

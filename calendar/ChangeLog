@@ -1,3 +1,91 @@
+2003-08-08  JP Rosevear  <jpr@ximian.com>
+
+	* pcs/cal.c (impl_Cal_open): implement
+	(cal_new): take uri as arg
+	(cal_construct): ditto
+
+	* pcs/cal.h: update protos
+
+	* idl/evolution-calendar.idl: add open and remove methods to
+	calendar idl and remove countObjects method; remove
+	updated/removed listener methods; add getCal method to factory and
+	remove uriList and open methods
+
+	* pcs/cal-factory.c (calobjtype_to_icalkind): convert to a libical
+	enum
+	(get_backend_type): use kind to determine type as well
+	(impl_CalFactory_getCal): new method to access the calendar
+
+	* pcs/cal-factory.h: you know register both a method and an ical
+	type you support
+
+	* pcs/cal-backend.c (cal_backend_class_init): add removed signal
+	(cal_backend_class_init): don't init deleted vmethod
+	(cal_backend_get_n_objects): remove
+	(cal_backend_notify_update): remove
+	(cal_backend_notify_remove): remove
+
+	* pcs/cal-backend.h: add "remove" vmethod and "removed" signal,
+	remove get_n_objects vmethod
+
+	* pcs/cal-backend-file.c (cal_backend_file_get_n_objects): remove
+	(cal_backend_file_init): we only have a single list of components
+	now
+	(cal_backend_file_dispose): ditto
+	(add_component): ditto
+	(remove_component): ditto
+	(cal_backend_file_open): use e-uri to process uri
+	(cal_backend_file_get_uids): we only have a single list of
+	components now
+	(cal_backend_file_get_objects_in_range): ditto
+	(cal_backend_file_compute_changes): convert to exmlhash instead of
+	db hash
+	(cal_backend_file_get_alarms_in_range): we only have a single list
+	of components now
+	(cal_backend_file_update_objects): just emit removed/updated
+	signals (for the queries)
+
+	* pcs/cal-backend-file-todos.[hc]: subclass of cal-backend-file
+	for todos
+
+	* pcs/cal-backend-file-events.[hc]: subclass of cal-backend-file
+	for events
+
+	* pcs/Makefile.am: don't build deleted sources
+
+	* pcs/job.[hc]: remove, queueing will be done by poa policy
+
+	* conduits/calendar/calendar-conduit.c (pre_sync): just get the
+	number from the list length
+
+	* conduits/todo/todo-conduit.c (pre_sync): ditto
+	
+	* cal-client/cal-listener.h: update protos and method signatures
+
+	* cal-client/cal-listener.c (cal_listener_finalize): don't cleanup
+	deleted struct members
+	(impl_notifyCalOpened): we don't get a calendar to pass back now
+	(impl_notifyObjUpdated): idl listener method removed
+	(impl_notifyObjRemoved): ditto
+	(cal_listener_construct): no more updated/removed callbacks
+	(cal_listener_new): ditto
+
+	* cal-client/cal-client.h: update protos
+
+	* cal-client/cal-client.c (cal_opened_cb): we don't get the object
+	in the signal, we already obtained it
+	(obj_updated_cb): remove, the idl no longer supports this (use
+	queries)
+	(obj_removed_cb): ditto
+	(get_factories): determine available factories based on oaf
+	properties in the .server file like the addressbook does
+	(cal_client_construct): remove, its useless now
+	(real_open_calendar): get the factories here and both obtain the
+	cal from the factory and then open it
+	(cal_client_uri_list): comment out most of this as it will be
+	going away
+	(cal_client_get_n_objects): remove useless call
+
 2003-08-08  Rodrigo Moya <rodrigo@ximian.com>
 
 	* gui/e-cal-model-calendar.c (ecmc_fill_component_from_model):

@@ -27,10 +27,10 @@
 #include <bonobo/bonobo-moniker-util.h>
 #include <libgnome/gnome-i18n.h>
 #include <libgnomevfs/gnome-vfs.h>
-#include "e-util/e-dbhash.h"
+#include "e-util/e-xml-hash-utils.h"
 #include "cal-util/cal-recur.h"
 #include "cal-util/cal-util.h"
-#include "cal-backend-file.h"
+#include "cal-backend-file-events.h"
 #include "cal-backend-util.h"
 
 
@@ -50,15 +50,8 @@ struct _CalBackendFilePrivate {
 	 */
 	GHashTable *comp_uid_hash;
 
-	/* All event, to-do, and journal components in the calendar; they are
-	 * here just for easy access (i.e. so that you don't have to iterate
-	 * over the comp_uid_hash).  If you need *all* the components in the
-	 * calendar, iterate over the hash instead.
-	 */
-	GList *events;
-	GList *todos;
-	GList *journals;
-
+	GList *comp;
+	
 	/* Config database handle for free/busy organizer information */
 	EConfigListener *config_listener;
 	
@@ -94,7 +87,6 @@ static Query *cal_backend_file_get_query (CalBackend *backend,
 static CalMode cal_backend_file_get_mode (CalBackend *backend);
 static void cal_backend_file_set_mode (CalBackend *backend, CalMode mode);
 
-static int cal_backend_file_get_n_objects (CalBackend *backend, CalObjType type);
 static char *cal_backend_file_get_default_object (CalBackend *backend, CalObjType type);
 static CalComponent *cal_backend_file_get_object_component (CalBackend *backend, const char *uid);
 static char *cal_backend_file_get_timezone_object (CalBackend *backend, const char *tzid);
@@ -193,7 +185,6 @@ cal_backend_file_class_init (CalBackendFileClass *class)
 	backend_class->get_query = cal_backend_file_get_query;
 	backend_class->get_mode = cal_backend_file_get_mode;
 	backend_class->set_mode = cal_backend_file_set_mode;	
-	backend_class->get_n_objects = cal_backend_file_get_n_objects;
  	backend_class->get_default_object = cal_backend_file_get_default_object;
 	backend_class->get_object_component = cal_backend_file_get_object_component;
 	backend_class->get_timezone_object = cal_backend_file_get_timezone_object;
@@ -225,9 +216,7 @@ cal_backend_file_init (CalBackendFile *cbfile, CalBackendFileClass *class)
 	priv->uri = NULL;
 	priv->icalcomp = NULL;
 	priv->comp_uid_hash = NULL;
-	priv->events = NULL;
-	priv->todos = NULL;
-	priv->journals = NULL;
+	priv->comp = NULL;
 
 	/* The timezone defaults to UTC. */
 	priv->default_zone = icaltimezone_get_utc_timezone ();
@@ -346,12 +335,8 @@ cal_backend_file_dispose (GObject *object)
 		priv->comp_uid_hash = NULL;
 	}
 
-	g_list_free (priv->events);
-	g_list_free (priv->todos);
-	g_list_free (priv->journals);
-	priv->events = NULL;
-	priv->todos = NULL;
-	priv->journals = NULL;
+	g_list_free (priv->comp);
+	priv->comp = NULL;
 
 	if (priv->icalcomp) {
 		icalcomponent_free (priv->icalcomp);
@@ -539,29 +524,10 @@ static void
 add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_toplevel)
 {
 	CalBackendFilePrivate *priv;
-	GList **list;
 	const char *uid;
 	GSList *categories;
 
 	priv = cbfile->priv;
-
-	switch (cal_component_get_vtype (comp)) {
-	case CAL_COMPONENT_EVENT:
-		list = &priv->events;
-		break;
-
-	case CAL_COMPONENT_TODO:
-		list = &priv->todos;
-		break;
-
-	case CAL_COMPONENT_JOURNAL:
-		list = &priv->journals;
-		break;
-
-	default:
-		g_assert_not_reached ();
-		return;
-	}
 
 	/* Ensure that the UID is unique; some broken implementations spit
 	 * components with duplicated UIDs.
@@ -570,7 +536,7 @@ add_component (CalBackendFile *cbfile, CalComponent *comp, gboolean add_to_tople
 	cal_component_get_uid (comp, &uid);
 	g_hash_table_insert (priv->comp_uid_hash, (char *)uid, comp);
 
-	*list = g_list_prepend (*list, comp);
+	priv->comp = g_list_prepend (priv->comp, comp);
 
 	/* Put the object in the toplevel component if required */
 
@@ -599,7 +565,7 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 	CalBackendFilePrivate *priv;
 	icalcomponent *icalcomp;
 	const char *uid;
-	GList **list, *l;
+	GList *l;
 	GSList *categories;
 
 	priv = cbfile->priv;
@@ -615,31 +581,10 @@ remove_component (CalBackendFile *cbfile, CalComponent *comp)
 
 	cal_component_get_uid (comp, &uid);
 	g_hash_table_remove (priv->comp_uid_hash, uid);
-	
-	switch (cal_component_get_vtype (comp)) {
-	case CAL_COMPONENT_EVENT:
-		list = &priv->events;
-		break;
 
-	case CAL_COMPONENT_TODO:
-		list = &priv->todos;
-		break;
-
-	case CAL_COMPONENT_JOURNAL:
-		list = &priv->journals;
-		break;
-
-	default:
-                /* Make the compiler shut up. */
-	        list = NULL;
-		g_assert_not_reached ();
-	}
-
-	l = g_list_find (*list, comp);
+	l = g_list_find (priv->comp, comp);
 	g_assert (l != NULL);
-
-	*list = g_list_remove_link (*list, l);
-	g_list_free_1 (l);
+	priv->comp = g_list_delete_link (priv->comp, l);
 
 	/* Update the set of categories */
 	cal_component_get_categories_list (comp, &categories);
@@ -744,7 +689,7 @@ cal_backend_file_open (CalBackend *backend, const char *uristr, gboolean only_if
 	CalBackendFile *cbfile;
 	CalBackendFilePrivate *priv;
 	char *str_uri;
-	GnomeVFSURI *uri;
+	EUri *uri;
 	CalBackendOpenStatus status;
 
 	cbfile = CAL_BACKEND_FILE (backend);
@@ -756,12 +701,13 @@ cal_backend_file_open (CalBackend *backend, const char *uristr, gboolean only_if
 	g_assert (priv->uri == NULL);
 	g_assert (priv->comp_uid_hash == NULL);
 
-	uri = gnome_vfs_uri_new (uristr);
+	uri = e_uri_new (uristr);
 	if (!uri)
 		return CAL_BACKEND_OPEN_ERROR;
 
-	if (!uri->method_string || strcmp (uri->method_string, "file")) {
-		gnome_vfs_uri_unref (uri);
+	if (!uri->protocol || strcmp (uri->protocol, "file")) {
+		e_uri_free (uri);
+
 		return CAL_BACKEND_OPEN_ERROR;
 	}
 
@@ -839,33 +785,6 @@ cal_backend_file_set_mode (CalBackend *backend, CalMode mode)
 				 GNOME_Evolution_Calendar_Listener_MODE_NOT_SUPPORTED,
 				 GNOME_Evolution_Calendar_MODE_LOCAL);
 	
-}
-
-/* Get_n_objects handler for the file backend */
-static int
-cal_backend_file_get_n_objects (CalBackend *backend, CalObjType type)
-{
-	CalBackendFile *cbfile;
-	CalBackendFilePrivate *priv;
-	int n;
-
-	cbfile = CAL_BACKEND_FILE (backend);
-	priv = cbfile->priv;
-
-	g_return_val_if_fail (priv->icalcomp != NULL, -1);
-
-	n = 0;
-
-	if (type & CALOBJ_TYPE_EVENT)
-		n += g_list_length (priv->events);
-
-	if (type & CALOBJ_TYPE_TODO)
-		n += g_list_length (priv->todos);
-
-	if (type & CALOBJ_TYPE_JOURNAL)
-		n += g_list_length (priv->journals);
-
-	return n;
 }
 
 static char *
@@ -987,15 +906,7 @@ cal_backend_file_get_uids (CalBackend *backend, CalObjType type)
 	g_return_val_if_fail (priv->icalcomp != NULL, NULL);
 
 	list = NULL;
-
-	if (type & CALOBJ_TYPE_EVENT)
-		build_uids_list (&list, priv->events);
-
-	if (type & CALOBJ_TYPE_TODO)
-		build_uids_list (&list, priv->todos);
-
-	if (type & CALOBJ_TYPE_JOURNAL)
-		build_uids_list (&list, priv->journals);
+	build_uids_list (&list, priv->comp);
 
 	return list;
 }
@@ -1101,17 +1012,7 @@ cal_backend_file_get_objects_in_range (CalBackend *backend, CalObjType type,
 
 	uid_hash = g_hash_table_new (g_str_hash, g_str_equal);
 
-	if (type & CALOBJ_TYPE_EVENT)
-		get_instances_in_range (uid_hash, priv->events, start, end,
-					priv->default_zone);
-
-	if (type & CALOBJ_TYPE_TODO)
-		get_instances_in_range (uid_hash, priv->todos, start, end,
-					priv->default_zone);
-
-	if (type & CALOBJ_TYPE_JOURNAL)
-		get_instances_in_range (uid_hash, priv->journals, start, end,
-					priv->default_zone);
+	get_instances_in_range (uid_hash, priv->comp, start, end, priv->default_zone);
 
 	event_list = NULL;
 	g_hash_table_foreach (uid_hash, add_uid_to_list, &event_list);
@@ -1310,7 +1211,7 @@ static GNOME_Evolution_Calendar_CalObjChangeSeq *
 cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const char *change_id)
 {
 	char    *filename;
-	EDbHash *ehash;
+	EXmlHash *ehash;
 	CalBackendFileComputeChangesData be_data;
 	GNOME_Evolution_Calendar_CalObjChangeSeq *seq;
 	GList *uids, *changes = NULL, *change_ids = NULL;
@@ -1322,7 +1223,7 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 		filename = g_strdup_printf ("%s/evolution/local/Tasks/%s.db", g_get_home_dir (), change_id);
 	else 
 		filename = g_strdup_printf ("%s/evolution/local/Calendar/%s.db", g_get_home_dir (), change_id);
-	ehash = e_dbhash_new (filename);
+	ehash = e_xmlhash_new (filename);
 	g_free (filename);
 	
 	uids = cal_backend_get_uids (backend, type);
@@ -1336,17 +1237,17 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 		g_assert (calobj != NULL);
 
 		/* check what type of change has occurred, if any */
-		switch (e_dbhash_compare (ehash, uid, calobj)) {
-		case E_DBHASH_STATUS_SAME:
+		switch (e_xmlhash_compare (ehash, uid, calobj)) {
+		case E_XMLHASH_STATUS_SAME:
 			break;
-		case E_DBHASH_STATUS_NOT_FOUND:
+		case E_XMLHASH_STATUS_NOT_FOUND:
 			coc = GNOME_Evolution_Calendar_CalObjChange__alloc ();
 			coc->calobj =  CORBA_string_dup (calobj);
 			coc->type = GNOME_Evolution_Calendar_ADDED;
 			changes = g_list_prepend (changes, coc);
 			change_ids = g_list_prepend (change_ids, g_strdup (uid));
 			break;
-		case E_DBHASH_STATUS_DIFFERENT:
+		case E_XMLHASH_STATUS_DIFFERENT:
 			coc = GNOME_Evolution_Calendar_CalObjChange__alloc ();
 			coc->calobj =  CORBA_string_dup (calobj);
 			coc->type = GNOME_Evolution_Calendar_MODIFIED;
@@ -1361,7 +1262,7 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 	be_data.type = type;	
 	be_data.changes = changes;
 	be_data.change_ids = change_ids;
-   	e_dbhash_foreach_key (ehash, (EDbHashFunc)cal_backend_file_compute_changes_foreach_key, &be_data);
+   	e_xmlhash_foreach_key (ehash, (EXmlHashFunc)cal_backend_file_compute_changes_foreach_key, &be_data);
 	changes = be_data.changes;
 	change_ids = be_data.change_ids;
 	
@@ -1386,16 +1287,16 @@ cal_backend_file_compute_changes (CalBackend *backend, CalObjType type, const ch
 		/* hash updating */
 		if (coc->type == GNOME_Evolution_Calendar_ADDED 
 		    || coc->type == GNOME_Evolution_Calendar_MODIFIED) {
-			e_dbhash_add (ehash, uid, coc->calobj);
+			e_xmlhash_add (ehash, uid, coc->calobj);
 		} else {
-			e_dbhash_remove (ehash, uid);
+			e_xmlhash_remove (ehash, uid);
 		}		
 
 		CORBA_free (coc);
 		g_free (uid);
 	}	
-	e_dbhash_write (ehash);
-  	e_dbhash_destroy (ehash);
+	e_xmlhash_write (ehash);
+  	e_xmlhash_destroy (ehash);
 
 	cal_obj_uid_list_free (uids);
 	g_list_free (change_ids);
@@ -1438,15 +1339,8 @@ cal_backend_file_get_alarms_in_range (CalBackend *backend,
 	g_return_val_if_fail (start <= end, NULL);
 
 	/* Per RFC 2445, only VEVENTs and VTODOs can have alarms */
-
-	n_comp_alarms = 0;
 	comp_alarms = NULL;
-
-	n_comp_alarms += cal_util_generate_alarms_for_list (priv->events, start, end, omit,
-							    &comp_alarms, resolve_tzid,
-							    priv->icalcomp,
-							    priv->default_zone);
-	n_comp_alarms += cal_util_generate_alarms_for_list (priv->todos, start, end, omit,
+	n_comp_alarms = cal_util_generate_alarms_for_list (priv->comp, start, end, omit,
 							    &comp_alarms, resolve_tzid,
 							    priv->icalcomp,
 							    priv->default_zone);
@@ -1692,15 +1586,14 @@ cal_backend_file_update_objects (CalBackend *backend, const char *calobj, CalObj
 	   stable state before emitting signals. */
 	for (elem = updated_uids; elem; elem = elem->next) {
 		char *comp_uid = elem->data;
-		cal_backend_notify_update (backend, comp_uid);
+		cal_backend_obj_updated (backend, comp_uid);
 		g_free (comp_uid);
 	}
 	g_list_free (updated_uids);
 
 	for (elem = removed_uids; elem; elem = elem->next) {
 		char *comp_uid = elem->data;
-		cal_backend_notify_remove (backend, comp_uid);
-		g_free (comp_uid);
+		cal_backend_obj_removed (backend, comp_uid);
 	}
 	g_list_free (removed_uids);
 
@@ -1731,7 +1624,7 @@ cal_backend_file_remove_object (CalBackend *backend, const char *uid, CalObjModT
 
 	mark_dirty (cbfile);
 
-	cal_backend_notify_remove (backend, uid);
+	cal_backend_obj_removed (backend, uid);
 
 	return CAL_BACKEND_RESULT_SUCCESS;
 }

@@ -60,6 +60,7 @@ enum {
 	LAST_CLIENT_GONE,
 	CAL_ADDED,
 	OPENED,
+	REMOVED,
 	OBJ_UPDATED,
 	OBJ_REMOVED,
 	LAST_SIGNAL
@@ -147,6 +148,15 @@ cal_backend_class_init (CalBackendClass *class)
 			      g_cclosure_marshal_VOID__ENUM,
 			      G_TYPE_NONE, 1,
 			      G_TYPE_INT);
+	cal_backend_signals[REMOVED] =
+		g_signal_new ("removed",
+			      G_TYPE_FROM_CLASS (class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (CalBackendClass, removed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__VOID,
+			      G_TYPE_NONE, 0,
+			      G_TYPE_NONE);
 	cal_backend_signals[OBJ_UPDATED] =
 		g_signal_new ("obj_updated",
 			      G_TYPE_FROM_CLASS (class),
@@ -183,7 +193,6 @@ cal_backend_class_init (CalBackendClass *class)
 	class->get_query = NULL;
 	class->get_mode = NULL;
 	class->set_mode = NULL;	
-	class->get_n_objects = NULL;
 	class->get_object = get_object;
 	class->get_object_component = NULL;
 	class->get_timezone_object = NULL;
@@ -512,25 +521,6 @@ cal_backend_set_mode (CalBackend *backend, CalMode mode)
 
 	g_assert (CLASS (backend)->set_mode != NULL);
 	(* CLASS (backend)->set_mode) (backend, mode);
-}
-
-/**
- * cal_backend_get_n_objects:
- * @backend: A calendar backend.
- * @type: Types of objects that will be included in the count.
- * 
- * Queries the number of calendar objects of a particular type.
- * 
- * Return value: Number of objects of the specified @type.
- **/
-int
-cal_backend_get_n_objects (CalBackend *backend, CalObjType type)
-{
-	g_return_val_if_fail (backend != NULL, -1);
-	g_return_val_if_fail (IS_CAL_BACKEND (backend), -1);
-
-	g_assert (CLASS (backend)->get_n_objects != NULL);
-	return (* CLASS (backend)->get_n_objects) (backend, type);
 }
 
 /* Default cal_backend_get_object implementation */
@@ -1076,44 +1066,6 @@ cal_backend_notify_mode (CalBackend *backend,
 
 	for (l = priv->clients; l; l = l->next)
 		cal_notify_mode (l->data, status, mode);
-}
-
-/**
- * cal_backend_notify_update:
- * @backend: A calendar backend.
- * @uid: UID of object that was updated.
- * 
- * Notifies each of the backend's listeners about an update to a
- * calendar object.
- **/
-void
-cal_backend_notify_update (CalBackend *backend, const char *uid)
-{
-	CalBackendPrivate *priv = backend->priv;
-	GList *l;
-
-	cal_backend_obj_updated (backend, uid);
-	for (l = priv->clients; l; l = l->next)
-		cal_notify_update (l->data, uid);
-}
-
-/**
- * cal_backend_notify_remove:
- * @backend: A calendar backend.
- * @uid: UID of object that was removed.
- * 
- * Notifies each of the backend's listeners about a calendar object
- * that was removed.
- **/
-void
-cal_backend_notify_remove (CalBackend *backend, const char *uid)
-{
-	CalBackendPrivate *priv = backend->priv;
-	GList *l;
-
-	cal_backend_obj_removed (backend, uid);
-	for (l = priv->clients; l; l = l->next)
-		cal_notify_remove (l->data, uid);
 }
 
 /**

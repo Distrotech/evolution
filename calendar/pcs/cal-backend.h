@@ -89,6 +89,7 @@ struct _CalBackendClass {
 	void (* cal_added) (CalBackend *backend, Cal *cal);
 
 	void (* opened) (CalBackend *backend, CalBackendOpenStatus status);
+	void (* removed) (CalBackend *backend);
 	void (* obj_updated) (CalBackend *backend, const char *uid);
 	void (* obj_removed) (CalBackend *backend, const char *uid);
 
@@ -103,6 +104,7 @@ struct _CalBackendClass {
 	
 	CalBackendOpenStatus (* open) (CalBackend *backend, const char *uristr,
 				       gboolean only_if_exists);
+	CalBackendOpenStatus (* remove) (CalBackend *backend);
 
 	gboolean (* is_loaded) (CalBackend *backend);
 	gboolean (* is_read_only) (CalBackend *backend);
@@ -116,7 +118,6 @@ struct _CalBackendClass {
 	void    (* set_mode) (CalBackend *backend, CalMode mode);	
 
 	/* General object acquirement and information related virtual methods */
-	int (* get_n_objects) (CalBackend *backend, CalObjType type);
 	char *(* get_default_object) (CalBackend *backend, CalObjType type);
 	char *(* get_object) (CalBackend *backend, const char *uid);
 	CalComponent *(* get_object_component) (CalBackend *backend, const char *uid);
@@ -178,8 +179,6 @@ Query *cal_backend_get_query (CalBackend *backend,
 
 CalMode cal_backend_get_mode (CalBackend *backend);
 void cal_backend_set_mode (CalBackend *backend, CalMode mode);
-
-int cal_backend_get_n_objects (CalBackend *backend, CalObjType type);
 
 char *cal_backend_get_default_object (CalBackend *backend, CalObjType type);
 

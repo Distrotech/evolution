@@ -29,6 +29,7 @@
 
 #include "e-util/e-component-listener.h"
 #include "e-util/e-config-listener.h"
+#include "e-util/e-url.h"
 #include "cal-util/cal-util-marshal.h"
 #include "cal-client-types.h"
 #include "cal-client.h"
@@ -486,13 +487,10 @@ backend_died_cb (EComponentListener *cl, gpointer user_data)
 static void
 cal_opened_cb (CalListener *listener,
 	       GNOME_Evolution_Calendar_Listener_OpenStatus status,
-	       GNOME_Evolution_Calendar_Cal cal,
 	       gpointer data)
 {
 	CalClient *client;
 	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	GNOME_Evolution_Calendar_Cal cal_copy;
 	CalClientOpenStatus client_status;
 
 	client = CAL_CLIENT (data);
@@ -505,17 +503,6 @@ cal_opened_cb (CalListener *listener,
 
 	switch (status) {
 	case GNOME_Evolution_Calendar_Listener_SUCCESS:
-		CORBA_exception_init (&ev);
-		cal_copy = CORBA_Object_duplicate (cal, &ev);
-		if (BONOBO_EX (&ev)) {
-			g_message ("cal_opened_cb(): could not duplicate the "
-				   "calendar client interface");
-			CORBA_exception_free (&ev);
-			goto error;
-		}
-		CORBA_exception_free (&ev);
-
-		priv->cal = cal_copy;
 		priv->load_state = CAL_CLIENT_LOAD_LOADED;
 
 		client_status = CAL_CLIENT_OPEN_SUCCESS;
@@ -624,26 +611,6 @@ cal_set_mode_cb (CalListener *listener,
 	g_object_unref (G_OBJECT (client));
 }
 
-/* Handle the obj_updated signal from the listener */
-static void
-obj_updated_cb (CalListener *listener, const CORBA_char *uid, gpointer data)
-{
-	CalClient *client;
-
-	client = CAL_CLIENT (data);
-	g_signal_emit (G_OBJECT (client), cal_client_signals[OBJ_UPDATED], 0, uid);
-}
-
-/* Handle the obj_removed signal from the listener */
-static void
-obj_removed_cb (CalListener *listener, const CORBA_char *uid, gpointer data)
-{
-	CalClient *client;
-
-	client = CAL_CLIENT (data);
-	g_signal_emit (G_OBJECT (client), cal_client_signals[OBJ_REMOVED], 0, uid);
-}
-
 /* Handle the error_occurred signal from the listener */
 static void
 backend_error_cb (CalListener *listener, const char *message, gpointer data)
@@ -678,73 +645,57 @@ categories_changed_cb (CalListener *listener, const GNOME_Evolution_Calendar_Str
 
 
 
-static GList *
-get_factories (void)
+static gboolean 
+get_factories (const char *str_uri, GList **factories)
 {
-	GList *factories = NULL;
 	GNOME_Evolution_Calendar_CalFactory factory;
 	Bonobo_ServerInfoList *servers;
-	CORBA_Environment ev;
+	EUri *uri;
+	char *query;
 	int i;
 
-	CORBA_exception_init (&ev);
 
-	servers = bonobo_activation_query ("repo_ids.has ('IDL:GNOME/Evolution/Calendar/CalFactory:1.0')", NULL, &ev);
-	if (ev._major != CORBA_NO_EXCEPTION) {
-		g_message ("Cannot perform OAF query for Calendar servers.");
-		CORBA_exception_free (&ev);
-		return NULL;
+	/* Determine the protocol and query for factory supporting that */
+	uri = e_uri_new (str_uri);
+	if (!uri) {
+		g_warning (G_STRLOC ": Invalid uri string");
+		
+		return FALSE;
 	}
 
-	if (servers->_length == 0)
-		g_warning ("No Calendar servers installed.");
+	query = g_strdup_printf ("repo_ids.has ('IDL:GNOME/Evolution/Calendar/CalFactory:1.0')"
+				 " AND calendar:supported_protocols.has ('%s')", uri->protocol);
 
+	
+	servers = bonobo_activation_query (query, NULL, NULL);
+
+	g_free (query);
+	e_uri_free (uri);
+
+	if (!servers) {
+		g_warning (G_STRLOC ": Unable to query for calendar factories");
+		
+		return FALSE;
+	}	
+	
+	/* Try to activate the servers for the protocol */
 	for (i = 0; i < servers->_length; i++) {
 		const Bonobo_ServerInfo *info;
 
 		info = servers->_buffer + i;
 
-		factory = (GNOME_Evolution_Calendar_CalFactory)
-			bonobo_activation_activate_from_id (info->iid, 0, NULL, &ev);
-		if (BONOBO_EX (&ev)) {
-#if 0
-			g_warning ("cal_client_construct: Could not activate calendar server %s", info->iid);
-			CORBA_free (servers);
-			CORBA_exception_free (&ev);
-			return NULL;
-#endif
-		}
+		g_message (G_STRLOC ": Activating calendar factory (%s)", info->iid);
+		factory = bonobo_activation_activate_from_id (info->iid, 0, NULL, NULL);
+		
+		if (factory == CORBA_OBJECT_NIL)
+			g_warning (G_STRLOC ": Could not activate calendar factory (%s)", info->iid);
 		else
-		  factories = g_list_prepend (factories, factory);
+			*factories = g_list_append (*factories, factory);
 	}
 
 	CORBA_free (servers);
-	CORBA_exception_free (&ev);
-	return factories;
-}
 
-/**
- * cal_client_construct:
- * @client: A calendar client.
- *
- * Constructs a calendar client object by contacting all available
- * calendar factories.
- *
- * Return value: The same object as the @client argument, or NULL if the
- * calendar factory could not be contacted.
- **/
-CalClient *
-cal_client_construct (CalClient *client)
-{
-	CalClientPrivate *priv;
-
-	g_return_val_if_fail (client != NULL, NULL);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), NULL);
-
-	priv = client->priv;
-	priv->factories = get_factories ();
-
-	return client;
+	return TRUE;
 }
 
 /**
@@ -762,12 +713,6 @@ cal_client_new (void)
 	CalClient *client;
 
 	client = g_object_new (CAL_CLIENT_TYPE, NULL);
-
-	if (!cal_client_construct (client)) {
-		g_message ("cal_client_new(): could not construct the calendar client");
-		g_object_unref (G_OBJECT (client));
-		return NULL;
-	}
 
 	return client;
 }
@@ -805,7 +750,6 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 {
 	CalClientPrivate *priv;
 	GNOME_Evolution_Calendar_Listener corba_listener;
-	int unsupported;
 	GList *f;
 	CORBA_Environment ev;
 	
@@ -815,15 +759,24 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 
 	g_return_val_if_fail (str_uri != NULL, FALSE);
 
+	if (!get_factories (str_uri, &priv->factories)) {
+		if (supported)
+			*supported = TRUE;
+		
+		return FALSE;
+	}
+	
 	priv->listener = cal_listener_new (cal_opened_cb,
 					   cal_set_mode_cb,
-					   obj_updated_cb,
-					   obj_removed_cb,
 					   backend_error_cb,
 					   categories_changed_cb,
 					   client);
 	if (!priv->listener) {
 		g_message ("cal_client_open_calendar(): could not create the listener");
+
+		if (supported)
+			*supported = TRUE;		
+
 		return FALSE;
 	}
 
@@ -832,30 +785,35 @@ real_open_calendar (CalClient *client, const char *str_uri, gboolean only_if_exi
 	priv->load_state = CAL_CLIENT_LOAD_LOADING;
 	priv->uri = g_strdup (str_uri);
 
-	unsupported = 0;
 	for (f = priv->factories; f; f = f->next) {
+		GNOME_Evolution_Calendar_Cal cal;
+		
 		CORBA_exception_init (&ev);
 
-		GNOME_Evolution_Calendar_CalFactory_open (f->data, str_uri,
-							  only_if_exists,
-							  corba_listener, &ev);
-		if (!BONOBO_EX (&ev)) {
-			if (supported != NULL)
-				*supported = TRUE;
-			return TRUE;
+		cal = GNOME_Evolution_Calendar_CalFactory_getCal (f->data, priv->uri, CALOBJ_TYPE_EVENT,
+								  BONOBO_OBJREF (priv->listener), &ev);
+		if (BONOBO_EX (&ev))
+			continue;
+		
+		GNOME_Evolution_Calendar_Cal_open (cal, only_if_exists, &ev);
+		if (BONOBO_EX (&ev)) {
+			bonobo_object_release_unref (cal, NULL);
+			
+			continue;
 		}
-
-		if (BONOBO_USER_EX (&ev, ex_GNOME_Evolution_Calendar_CalFactory_UnsupportedMethod))
-			unsupported++;
+		
 		CORBA_exception_free (&ev);
+		
+		priv->cal = cal;
+
+		if (supported)
+			*supported = TRUE;
+		
+		return TRUE;
 	}
 
-	if (supported != NULL) {
-		if (unsupported == g_list_length (priv->factories))
-			*supported = FALSE;
-		else
-			*supported = TRUE;
-	}
+	if (supported)
+		*supported = FALSE;
 	
 	bonobo_object_unref (BONOBO_OBJECT (priv->listener));
 	priv->listener = NULL;
@@ -969,6 +927,7 @@ cal_client_open_default_tasks (CalClient *client, gboolean only_if_exists)
 	return result;
 }
 
+#if 0
 /* Builds an URI list out of a CORBA string sequence */
 static GList *
 build_uri_list (GNOME_Evolution_Calendar_StringSeq *seq)
@@ -981,6 +940,7 @@ build_uri_list (GNOME_Evolution_Calendar_StringSeq *seq)
 
 	return uris;
 }
+#endif
 
 /**
  * cal_client_uri_list:
@@ -993,6 +953,7 @@ build_uri_list (GNOME_Evolution_Calendar_StringSeq *seq)
 GList *
 cal_client_uri_list (CalClient *client, CalMode mode)
 {
+#if 0
 	CalClientPrivate *priv;
 	GNOME_Evolution_Calendar_StringSeq *uri_seq;
 	GList *uris = NULL;	
@@ -1026,7 +987,11 @@ cal_client_uri_list (CalClient *client, CalMode mode)
 	}
 	
 	return uris;	
+#endif
+
+	return NULL;
 }
+
 
 /**
  * cal_client_get_load_state:
@@ -1300,45 +1265,6 @@ cal_client_set_mode (CalClient *client, CalMode mode)
 	CORBA_exception_free (&ev);
 
 	return retval;
-}
-
-/**
- * cal_client_get_n_objects:
- * @client: A calendar client.
- * @type: Type of objects that will be counted.
- * 
- * Counts the number of calendar components of the specified @type.  This can be
- * used to count how many events, to-dos, or journals there are, for example.
- * 
- * Return value: Number of components.
- **/
-int
-cal_client_get_n_objects (CalClient *client, CalObjType type)
-{
-	CalClientPrivate *priv;
-	CORBA_Environment ev;
-	int n;
-	int t;
-
-	g_return_val_if_fail (client != NULL, -1);
-	g_return_val_if_fail (IS_CAL_CLIENT (client), -1);
-
-	priv = client->priv;
-	g_return_val_if_fail (priv->load_state == CAL_CLIENT_LOAD_LOADED, -1);
-
-	t = corba_obj_type (type);
-
-	CORBA_exception_init (&ev);
-	n = GNOME_Evolution_Calendar_Cal_countObjects (priv->cal, t, &ev);
-
-	if (BONOBO_EX (&ev)) {
-		g_message ("cal_client_get_n_objects(): could not get the number of objects");
-		CORBA_exception_free (&ev);
-		return -1;
-	}
-
-	CORBA_exception_free (&ev);
-	return n;
 }
 
 

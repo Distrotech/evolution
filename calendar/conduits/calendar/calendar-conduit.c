@@ -1442,7 +1442,7 @@ pre_sync (GnomePilotConduit *conduit,
 	}
 	
 	/* Set the count information */
-	num_records = cal_client_get_n_objects (ctxt->client, CALOBJ_TYPE_EVENT);
+	num_records = g_list_length (ctxt->uids);
 	gnome_pilot_conduit_sync_abs_set_num_local_records(abs_conduit, num_records);
 	gnome_pilot_conduit_sync_abs_set_num_new_local_records (abs_conduit, add_records);
 	gnome_pilot_conduit_sync_abs_set_num_updated_local_records (abs_conduit, mod_records);
