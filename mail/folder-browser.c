@@ -14,6 +14,7 @@
 #include "e-util/e-sexp.h"
 #include "folder-browser.h"
 #include "mail.h"
+#include "mail-tools.h"
 #include "message-list.h"
 #include "mail-threads.h"
 #include <widgets/e-paned/e-vpaned.h>
@@ -21,13 +22,6 @@
 #define PARENT_TYPE (gtk_table_get_type ())
 
 static GtkObjectClass *folder_browser_parent_class;
-
-static void 
-real_mail_uri_to_folder (gpointer data);
-static void 
-cleanup_mail_uri_to_folder (gpointer data);
-static void 
-load_folder_done (CamelFolder *result, gpointer user_data);
 
 static void
 folder_browser_destroy (GtkObject *object)
@@ -64,188 +58,12 @@ folder_browser_class_init (GtkObjectClass *object_class)
 	folder_browser_parent_class = gtk_type_class (PARENT_TYPE);
 }
 
-typedef struct _uri2folder_data {
-	const char *name;
-	void (*callback) (CamelFolder *, gpointer);
-	gpointer user_data;
-	CamelFolder *result;
-} uri2folder_data;
-
-void
-mail_uri_to_folder (const char *name, void (*callback) (CamelFolder *, gpointer), gpointer user_data)
-{
-	uri2folder_data *ufd;
-
-	ufd = g_new (uri2folder_data, 1);
-	ufd->name = name;
-	ufd->callback = callback;
-	ufd->user_data = user_data;
-	ufd->result = NULL;
-
-	mail_operation_queue ("Open folder", real_mail_uri_to_folder, cleanup_mail_uri_to_folder, ufd);
-}
-
-CamelFolder *
-mail_uri_to_folder_sync (const char *name)
-{
-	uri2folder_data ufd;
-
-	ufd.name = name;
-	ufd.callback = NULL;
-	ufd.user_data = NULL;
-	ufd.result = NULL;
-
-	real_mail_uri_to_folder (&ufd);
-	return ufd.result;
-}
-
-static void 
-real_mail_uri_to_folder (gpointer data)
-{
-	uri2folder_data *ufd = (uri2folder_data *) data;
-	const char *name;
-	char *store_name /*, *msg*/;
-	CamelStore *store = NULL;
-	CamelFolder *folder = NULL;
-	CamelException *ex;
-
-	name = ufd->name;
-	ex = camel_exception_new ();
-
-	if (!strncmp (name, "vfolder:", 8)) {
-		char *query, *newquery;
-		store_name = g_strdup (name);
-		query = strchr (store_name, '?');
-		if (query) {
-			*query++ = 0;
-		} else {
-			query = "";
-		}
-		newquery = g_strdup_printf("mbox?%s", query);
-		store = camel_session_get_store (session, store_name, ex);
-
-		if (store) {
-			folder = camel_store_get_folder (store, newquery, TRUE, ex);
-			/* FIXME: do this properly rather than hardcoding */
-			/* FIXME: Now we REALLY need to do this properly... */
-#warning "Find a way not to hardcode vfolder source"
-			{
-				char *source_name;
-				extern char *evolution_dir;
-				uri2folder_data ufd;
-
-				source_name = g_strdup_printf ("file://%s/local/Inbox", evolution_dir);
-				ufd.name = source_name;
-				ufd.result = NULL;
-				real_mail_uri_to_folder (&ufd);
-				g_free (source_name);
-				if (ufd.result)
-					camel_vee_folder_add_folder (folder, ufd.result);
-			}
-		}
-		g_free (newquery);
-		g_free (store_name);
-
-	} else if (!strncmp (name, "imap:", 5)) {
-		char *service, *ptr;
-		
-		service = g_strdup_printf ("%s/", name);
-		for (ptr = service + 7; *ptr && *ptr != '/'; ptr++);
-		ptr++;
-		*ptr = '\0';
-		store = camel_session_get_store (session, service, ex);
-		g_free (service);
-		if (store) {
-			CamelURL *url = CAMEL_SERVICE (store)->url;
-			char *folder_name;
-
-			for (ptr = (char *)(name + 7); *ptr && *ptr != '/'; ptr++);
-			if (*ptr == '/') {
-				if (url && url->path) {
-					ptr += strlen (url->path);
-					if (*ptr == '/')
-						ptr++;
-				}
-
-				if (*ptr == '/')
-					ptr++;
-				/*for ( ; *ptr && *ptr == '/'; ptr++);*/
-
-				folder_name = g_strdup (ptr);
-				
-				folder = camel_store_get_folder (store, folder_name, TRUE, ex);
-				g_free (folder_name);
-			}
-		}
-	} else if (!strncmp(name, "news:", 5)) {
-		store = camel_session_get_store (session, name, ex);
-		if (store) {
-			const char *folder_name;
-
-			folder_name = name + 5;
-
-			folder = camel_store_get_folder (store, folder_name, FALSE, ex);
-		}
-	} else if (!strncmp (name, "file:", 5)) {
-		/* Change "file:" to "mbox:". */
-		store_name = g_strdup_printf ("mbox:%s", name + 5);
-		store = camel_session_get_store (session, store_name, ex);
-		g_free (store_name);
-		if (store) {
-			folder = camel_store_get_folder (store, "mbox", FALSE, ex);
-		}
-	} else {
-		/*msg = g_strdup_printf ("Can't open URI %s", name);
-		 *gnome_error_dialog (msg);
-		 *g_free (msg);
-		 */
-		mail_op_error ("Can't open URI %s", name);
-	}
-
-	if (camel_exception_get_id (ex)) {
-		/*msg = g_strdup_printf ("Unable to get folder %s: %s\n", name,
-		 *	       camel_exception_get_description (ex));
-		 * gnome_error_dialog (msg);
-		 */
-
-		mail_op_error ("Unable to get folder %s: %s", name,
-			       camel_exception_get_description (ex));
-
-		if (folder) {
-			camel_object_unref (CAMEL_OBJECT (folder));
-			folder = NULL;
-		}
-	}
-	camel_exception_free (ex);
-
-	if (store)
-		camel_object_unref (CAMEL_OBJECT (store));
-
-	ufd->result = folder;
-}
-
-static void 
-cleanup_mail_uri_to_folder (gpointer data)
-{
-	uri2folder_data *ufd = (uri2folder_data *) data;
-
-	if (ufd->callback)
-		(ufd->callback) (ufd->result, ufd->user_data);
-	g_free (ufd);
-}
-
-typedef struct load_folder_data_s {
-	FolderBrowser *fb;
-	void (*callback)( gboolean, gpointer );
-	gpointer user_data;
-} load_folder_data;
-
 static gboolean
-folder_browser_load_folder_sync (FolderBrowser *fb, const char *name)
+folder_browser_load_folder (FolderBrowser *fb, const char *name)
 {
 	CamelFolder *new_folder;
 
-	new_folder = mail_uri_to_folder_sync (name);
+	new_folder = mail_tool_uri_to_folder_noex (name);
 
 	if (!new_folder)
 		return FALSE;
@@ -257,64 +75,15 @@ folder_browser_load_folder_sync (FolderBrowser *fb, const char *name)
 	return TRUE;
 }
 
-static void
-folder_browser_load_folder (FolderBrowser *fb, const char *name, 
-			    void (*callback)( gboolean, gpointer ),
-			    gpointer user_data)
-{
-	load_folder_data *lfd;
-
-	lfd = g_new (load_folder_data, 1);
-	lfd->fb = fb;
-	lfd->callback = callback;
-	lfd->user_data = user_data;
-
-	mail_uri_to_folder (name, load_folder_done, lfd);
-}
-
-static void load_folder_done (CamelFolder *result, gpointer user_data)
-{
-	load_folder_data *lfd = (load_folder_data *) user_data;
-
-	if (!result) {
-		if (lfd->callback)
-			(lfd->callback) (FALSE, lfd->user_data);
-		g_free (lfd);
-		return;
-	}
-
-	if (lfd->fb->folder)
-		camel_object_unref (CAMEL_OBJECT (lfd->fb->folder));
-	lfd->fb->folder = result;
-
-	message_list_set_folder (lfd->fb->message_list, result);
-	if (lfd->callback)
-		(lfd->callback) (TRUE, lfd->user_data);
-	g_free (lfd);
-}
-
-
 #define EQUAL(a,b) (strcmp (a,b) == 0)
 
-void
-folder_browser_set_uri (FolderBrowser *folder_browser, const char *uri, 
-			void (*callback) (gboolean, gpointer),
-			gpointer user_data)
+gboolean folder_browser_set_uri (FolderBrowser *folder_browser, const char *uri)
 {
 	if (folder_browser->uri)
 		g_free (folder_browser->uri);
 
 	folder_browser->uri = g_strdup (uri);
-	folder_browser_load_folder (folder_browser, folder_browser->uri, callback, user_data);
-}
-
-gboolean folder_browser_set_uri_sync (FolderBrowser *folder_browser, const char *uri)
-{
-	if (folder_browser->uri)
-		g_free (folder_browser->uri);
-
-	folder_browser->uri = g_strdup (uri);
-	return folder_browser_load_folder_sync (folder_browser, folder_browser->uri);
+	return folder_browser_load_folder (folder_browser, folder_browser->uri);
 }
 
 void
@@ -357,7 +126,7 @@ search_set(FolderBrowser *fb)
 	text = gtk_entry_get_text((GtkEntry *)fb->search_entry);
 
 	if (text == NULL || text[0] == 0) {
-		message_list_regenerate (fb->message_list, NULL);
+		mail_do_regenerate_messagelist (fb->message_list, NULL);
 		return;
 	}
 
@@ -377,7 +146,7 @@ search_set(FolderBrowser *fb)
 			str++;
 		}
 	}
-	message_list_regenerate (fb->message_list, out->str);
+	mail_do_regenerate_messagelist (fb->message_list, out->str);
 	g_string_free(out, TRUE);
 }
 
@@ -428,7 +197,7 @@ folder_browser_clear_search (FolderBrowser *fb)
 {
 	gtk_entry_set_text (GTK_ENTRY (fb->search_entry), "");
 	gtk_option_menu_set_history (GTK_OPTION_MENU (fb->search_menu), 0);
-	message_list_regenerate (fb->message_list, NULL);
+	mail_do_regenerate_messagelist (fb->message_list, NULL);
 }
 
 static int

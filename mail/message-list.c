@@ -19,6 +19,8 @@
 #include "message-list.h"
 #include "message-thread.h"
 #include "mail-threads.h"
+#include "mail-tools.h"
+#include "mail-ops-new.h"
 #include "Mail.h"
 #include "widgets/e-table/e-table-header-item.h"
 #include "widgets/e-table/e-table-item.h"
@@ -63,9 +65,6 @@ static void on_row_selection (ETableScrolled *table, int row, gboolean selected,
 static void select_row (ETableScrolled *table, gpointer user_data);
 static void select_msg (MessageList *message_list, gint row);
 static char *filter_date (const void *data);
-
-static void real_message_list_regenerate (gpointer userdata);
-static void cleanup_message_list_regenerate (gpointer userdata);
 
 static struct {
 	char **image_base;
@@ -794,122 +793,20 @@ build_flat (MessageList *ml, ETreePath *parent, GPtrArray *uids)
 	}
 }
 
-typedef struct regen_data_s {
-	MessageList *ml;
-	const char *search;
-	GPtrArray *uids;
-
-} regen_data_t;
-
-void
-message_list_regenerate (MessageList *message_list, const char *search)
-{
-	regen_data_t *rd;
-
-	if (message_list->search) {
-		g_free (message_list->search);
-		message_list->search = NULL;
-	}
-
-	if (message_list->uid_rowmap) {
-		g_hash_table_foreach (message_list->uid_rowmap,
-				      free_key, NULL);
-		g_hash_table_destroy (message_list->uid_rowmap);
-	}
-
-	message_list->uid_rowmap = g_hash_table_new (g_str_hash, g_str_equal);
-
-	rd = g_new (regen_data_t, 1);
-	rd->ml = message_list;
-	rd->search = g_strdup (search);
-	rd->uids = NULL;
-
-	mail_operation_queue ("Fetching UIDs", real_message_list_regenerate, 
-			    cleanup_message_list_regenerate, rd);
-}
-
-static void real_message_list_regenerate (gpointer userdata)
-{
-	MessageList *message_list;
-	regen_data_t *rd = (regen_data_t *) userdata;
-
-	message_list = rd->ml;
-
-	if (rd->search) {
-		CamelException ex;
-
-		camel_exception_init (&ex);
-		rd->uids = camel_folder_search_by_expression (message_list->folder,
-							      rd->search, &ex);
-		if (camel_exception_is_set (&ex)) {
-			/*
-			 * e_notice (NULL, GNOME_MESSAGE_BOX_ERROR,
-			 *	  "Search failed: %s",
-			 *	  camel_exception_get_description (&ex));
-			 */
-			mail_op_error ("Search failed: %s",
-				       camel_exception_get_description (&ex));
-			camel_exception_clear (&ex);
-			rd->uids = NULL;
-		} else
-			message_list->search = g_strdup (rd->search);
-	} else
-		rd->uids = camel_folder_get_uids (message_list->folder);
-}
-
-static void cleanup_message_list_regenerate (gpointer userdata)
-{
-	ETreeModel *etm;
-	int row = 0;
-	MessageList *message_list;
-	regen_data_t *rd = (regen_data_t *) userdata;
-
-	message_list = rd->ml;
-	etm = E_TREE_MODEL (message_list->table_model);
-
-	/* FIXME: free the old tree data */
-
-	if (rd->uids == NULL) /*exception*/
-		return;
-
-	/* Clear the old contents, build the new */
-	if (message_list->tree_root)
-		e_tree_model_node_remove(etm, message_list->tree_root);
-	message_list->tree_root =
-		e_tree_model_node_insert(etm, NULL, 0, message_list);
-	e_tree_model_node_set_expanded (etm, message_list->tree_root, TRUE);
-
-	if (threaded_view) {
-		struct _container *head;
-
-		head = thread_messages (message_list->folder, rd->uids);
-		build_tree (message_list, message_list->tree_root, head, &row);
-		thread_messages_free (head);
-	} else
-		build_flat (message_list, message_list->tree_root, rd->uids);
-
-	if (rd->search) {
-		g_strfreev ((char **)rd->uids->pdata);
-		g_ptr_array_free (rd->uids, FALSE);
-	} else
-		camel_folder_free_uids (message_list->folder, rd->uids);
-
-	e_table_model_changed (message_list->table_model);
-	message_list->rows_selected = 0;
-	select_msg (message_list, 0);
-}
-
 static void
-folder_changed (CamelFolder *f, gpointer event_data, MessageList *message_list)
+folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
+	MessageList *message_list = MESSAGE_LIST (user_data);
+
 	GDK_THREADS_ENTER(); /* Very important!!!! */
-	message_list_regenerate (message_list, message_list->search);
+	mail_do_regenerate_messagelist (message_list, message_list->search);
 	GDK_THREADS_LEAVE(); /* Very important!!!! */
 }
 
 static void
-message_changed (CamelFolder *f, const char *uid, MessageList *message_list)
+message_changed (CamelObject *o, gpointer uid, gpointer user_data)
 {
+	MessageList *message_list = MESSAGE_LIST (user_data);
 	int row;
 
 	GDK_THREADS_ENTER(); /* Very important!!!! */
@@ -948,7 +845,7 @@ message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder)
 	camel_object_ref (CAMEL_OBJECT (camel_folder));
 
 	/*gtk_idle_add (regen_message_list, message_list);*/
-	folder_changed (camel_folder, 0, message_list);
+	folder_changed (CAMEL_OBJECT (camel_folder), 0, message_list);
 }
 
 GtkWidget *
@@ -1059,5 +956,125 @@ message_list_toggle_threads (BonoboUIHandler *uih, void *user_data,
 	MessageList *ml = user_data;
 
 	threaded_view = bonobo_ui_handler_menu_get_toggle_state (uih, path);
-	message_list_regenerate (ml, ml->search);
+	mail_do_regenerate_messagelist (ml, ml->search);
+}
+
+/* ** REGENERATE MESSAGELIST ********************************************** */
+
+typedef struct regenerate_messagelist_input_s {
+	MessageList *ml;
+	char *search;
+} regenerate_messagelist_input_t;
+
+typedef struct regenerate_messagelist_data_s {
+	GPtrArray *uids;
+} regenerate_messagelist_data_t;
+
+static void setup_regenerate_messagelist   (gpointer in_data, gpointer op_data, CamelException *ex);
+static void do_regenerate_messagelist      (gpointer in_data, gpointer op_data, CamelException *ex);
+static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, CamelException *ex);
+
+static void setup_regenerate_messagelist (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	regenerate_messagelist_input_t *input = (regenerate_messagelist_input_t *) in_data;
+
+	if (!IS_MESSAGE_LIST (input->ml)) {
+		camel_exception_set (ex, CAMEL_EXCEPTION_INVALID_PARAM,
+				     "No messagelist specified to regenerate");
+		return;
+	}
+	
+	gtk_object_ref (GTK_OBJECT (input->ml));
+}
+
+static void do_regenerate_messagelist (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	regenerate_messagelist_input_t *input = (regenerate_messagelist_input_t *) in_data;
+	regenerate_messagelist_data_t *data = (regenerate_messagelist_data_t *) op_data;
+
+	mail_tool_camel_lock_up();
+
+	if (input->search) {
+		data->uids = camel_folder_search_by_expression (input->ml->folder,
+								input->search, ex);
+		if (camel_exception_is_set (ex)) {
+			mail_tool_camel_lock_down();
+			return;
+		}
+
+		input->ml->search = g_strdup (input->search);
+	} else
+		data->uids = camel_folder_get_uids (input->ml->folder);
+
+	mail_tool_camel_lock_down();
+}
+
+static void cleanup_regenerate_messagelist (gpointer in_data, gpointer op_data, CamelException *ex)
+{
+	regenerate_messagelist_input_t *input = (regenerate_messagelist_input_t *) in_data;
+	regenerate_messagelist_data_t *data = (regenerate_messagelist_data_t *) op_data;
+
+	ETreeModel *etm;
+	int row = 0;
+
+	g_free (input->search);
+
+	etm = E_TREE_MODEL (input->ml->table_model);
+
+	/* FIXME: free the old tree data */
+
+	if (data->uids == NULL) { /*exception*/
+		gtk_object_unref (GTK_OBJECT (input->ml));
+		return;
+	}
+
+	/* Clear the old contents, build the new */
+	if (input->ml->tree_root)
+		e_tree_model_node_remove(etm, input->ml->tree_root);
+	input->ml->tree_root =
+		e_tree_model_node_insert(etm, NULL, 0, input->ml);
+	e_tree_model_node_set_expanded (etm, input->ml->tree_root, TRUE);
+
+	if (threaded_view) {
+		struct _container *head;
+
+		head = thread_messages (input->ml->folder, data->uids);
+		build_tree (input->ml, input->ml->tree_root, head, &row);
+		thread_messages_free (head);
+	} else
+		build_flat (input->ml, input->ml->tree_root, data->uids);
+
+	if (input->search) {
+		g_strfreev ((char **)data->uids->pdata);
+		g_ptr_array_free (data->uids, FALSE);
+	} else {
+		mail_tool_camel_lock_up();
+		camel_folder_free_uids (input->ml->folder, data->uids);
+		mail_tool_camel_lock_down();
+	}
+
+	e_table_model_changed (input->ml->table_model);
+	input->ml->rows_selected = 0;
+	select_msg (input->ml, 0);
+	gtk_object_unref (GTK_OBJECT (input->ml));
+}
+
+static const mail_operation_spec op_regenerate_messagelist =
+{
+	"rebuild the message list",
+	0,
+	setup_regenerate_messagelist,
+	do_regenerate_messagelist,
+	cleanup_regenerate_messagelist
+};
+
+void mail_do_regenerate_messagelist (MessageList *list, const gchar *search)
+{
+	regenerate_messagelist_input_t *input;
+
+	input = g_new (regenerate_messagelist_input_t, 1);
+	input->ml = list;
+	input->search = g_strdup (search);
+
+	mail_operation_queue (&op_regenerate_messagelist, input, TRUE);
 }

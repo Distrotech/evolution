@@ -28,10 +28,6 @@
 void           folder_browser_factory_init         (void);
 BonoboControl *folder_browser_factory_new_control  (const char *uri);
 
-/* folder-browser */
-void mail_uri_to_folder (const char *uri, void (*callback)(CamelFolder *, gpointer), gpointer user_data);
-CamelFolder *mail_uri_to_folder_sync (const char *name);
-
 /* mail-config */
 void mail_config_druid (void);
 

@@ -23,15 +23,28 @@
  */
 
 #include <camel/camel.h>
-#include "mail-thread.h"
+#include "mail-threads.h"
+#include "evolution-storage.h" /*EvolutionStorage*/
+#include "composer/e-msg-composer.h" /*EMsgComposer*/
+#include "message-list.h" /*MessageList*/
 
-/* ** FETCH MAIL ********************************************************** */
+void mail_do_fetch_mail (const gchar *source_url, CamelFolder *destination);
+void mail_do_send_mail (const char *xport_uri,
+			CamelMimeMessage *message,
+			CamelInternetAddress *from,
+			CamelFolder *done_folder,
+			const char *done_uid,
+			guint32 done_flags);
+void mail_do_expunge_folder (CamelFolder *folder);
+void mail_do_refile_messages (CamelFolder *source, GPtrArray *uids, gchar *dest_uri);
+void mail_do_flag_messages (CamelFolder *source, GPtrArray *uids, guint32 flags);
+void mail_do_scan_subfolders (const gchar *source_uri, gboolean add_INBOX, EvolutionStorage *storage);
+void mail_do_attach_message (CamelFolder *folder, const char *uid, EMsgComposer *composer);
+void mail_do_forward_message (CamelMimeMessage *basis, 
+			      CamelFolder *source, 
+			      GPtrArray *uids, /*array of allocated gchar *, will all be freed */
+			      EMsgComposer *composer);
 
-typedef struct fetch_mail_input_s {
-	const gchar *source;
-	CamelFolder *destination; /*NULL -> default inbox*/
-} fetch_mail_input_t;
-
-extern mail_operation_spec op_fetch_mail;
-
+/* This actually lives in message-list.c */
+void mail_do_regenerate_messagelist (MessageList *list, const gchar *search);
 

@@ -45,12 +45,11 @@
  **/
 
 typedef struct closure_s {
-	void (*callback)( gpointer );
-	void (*cleanup)( gpointer );
-	gpointer data;
-	
-	gchar *prettyname;
-	/* gboolean gets_window; */
+	gpointer in_data;
+	gboolean free_in_data;
+	gpointer op_data;
+	const mail_operation_spec *spec;
+	CamelException *ex;
 } closure_t;
 
 /**
@@ -62,8 +61,7 @@ typedef struct com_msg_s {
 	gfloat percentage;
 	gchar *message;
 
-	void (*func)( gpointer );
-	gpointer userdata;
+	closure_t *clur;
 
 	/* Password stuff */
 	gchar **reply;
@@ -146,7 +144,7 @@ GIOChannel *chan_reader = NULL;
  * the dispatch thread may proceed its operations.
  */
 
-G_LOCK_DEFINE_STATIC( modal_lock );
+G_LOCK_DEFINE_STATIC (modal_lock);
 static GCond *modal_cond = NULL;
 static gboolean modal_may_proceed = FALSE;
 
@@ -154,20 +152,20 @@ static gboolean modal_may_proceed = FALSE;
  * Static prototypes
  **/
 
-static void create_queue_window( void );
-static void dispatch( closure_t *clur );
-static void *dispatch_func( void *data );
-static void check_compipe( void );
-static void check_cond( void );
-static gboolean read_msg( GIOChannel *source, GIOCondition condition, gpointer userdata );
-static void remove_next_pending( void );
-static void show_error( com_msg_t *msg );
-static void show_error_clicked( void );
-static void get_password( com_msg_t *msg );
-static void get_password_cb( gchar *string, gpointer data );
-static void get_password_clicked( GnomeDialog *dialog, gint button, gpointer user_data );
-static gboolean progress_timeout( gpointer data );
-static void timeout_toggle( gboolean active );
+static void create_queue_window (void);
+static void dispatch (closure_t *clur);
+static void *dispatch_func (void *data);
+static void check_compipe (void);
+static void check_cond (void);
+static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer userdata);
+static void remove_next_pending (void);
+static void show_error (com_msg_t *msg);
+static void show_error_clicked (void);
+static void get_password (com_msg_t *msg);
+static void get_password_cb (gchar *string, gpointer data);
+static void get_password_clicked (GnomeDialog *dialog, gint button, gpointer user_data);
+static gboolean progress_timeout (gpointer data);
+static void timeout_toggle (gboolean active);
 
 /* Pthread code */
 /* FIXME: support other thread types!!!! */
@@ -196,11 +194,8 @@ choke on this: no thread type defined
 
 /**
  * mail_operation_queue:
- * @description: A user-friendly string describing the operation.
- * @callback: the function to call in another thread to start the operation
- * @cleanup: the function to call in the main thread when the callback is finished.
- *    NULL is allowed.
- * @user_data: extra data passed to the callback
+ * @spec: describes the operation to be performed
+ * @input: input data for the operation.
  *
  * Runs a mail operation asynchronously. If no other operation is running,
  * we start another thread and call the callback in that thread. The function
@@ -215,17 +210,45 @@ choke on this: no thread type defined
  **/
 
 gboolean
-mail_operation_queue( const gchar *description, void (*callback)( gpointer ), 
-		    void (*cleanup)( gpointer ), gpointer user_data )
+mail_operation_queue (const mail_operation_spec *spec, gpointer input, gboolean free_in_data)
 {
 	closure_t *clur;
-	g_assert( callback );
+	g_assert (spec);
 
-	clur = g_new( closure_t, 1 );
-	clur->callback = callback;
-	clur->cleanup = cleanup;
-	clur->data = user_data;
-	clur->prettyname = g_strdup( description );
+	clur = g_new (closure_t, 1);
+	clur->spec = spec;
+	clur->in_data = input;
+	clur->free_in_data = free_in_data;
+	clur->op_data = g_malloc (spec->datasize);
+	clur->ex = camel_exception_new ();
+	camel_exception_init (clur->ex);
+
+	if (spec->setup)
+		(spec->setup) (clur->in_data, clur->op_data, clur->ex);
+
+	if (camel_exception_is_set (clur->ex)) {
+		GtkWidget *err_dialog;
+		gchar *msg;
+
+		msg = g_strdup_printf ("Error while attempting to %s:\n"
+				       "%s", spec->simple_desc,
+				       camel_exception_get_description (clur->ex));
+		err_dialog = gnome_error_dialog (msg);
+		g_free (msg);
+		gnome_dialog_set_close (GNOME_DIALOG (err_dialog), TRUE);
+		/*gnome_dialog_run_and_close (GNOME_DIALOG (err_dialog));*/
+		/*gtk_widget_destroy (err_dialog);*/
+		gtk_widget_show (GTK_WIDGET (err_dialog));
+
+		g_warning ("Setup failed for `%s': %s", spec->simple_desc,
+			   camel_exception_get_description (clur->ex));
+		g_free (clur->op_data);
+		camel_exception_free (clur->ex);
+		if (free_in_data)
+			g_free (input);
+		g_free (clur);
+		return FALSE;
+	}
 
 	if( mail_operation_in_progress == FALSE ) {
 		/* No operations are going on, none are pending. So
@@ -236,20 +259,20 @@ mail_operation_queue( const gchar *description, void (*callback)( gpointer ),
 
 		mail_operation_in_progress = TRUE;
 
-		check_compipe();
-		create_queue_window();
-		gtk_widget_show_all( queue_window );
-		gnome_win_hints_set_layer( queue_window, 
-					   WIN_LAYER_ONTOP );
-		gnome_win_hints_set_state( queue_window, 
-					   WIN_STATE_ARRANGE_IGNORE );
-		gnome_win_hints_set_hints( queue_window, 
+		check_compipe ();
+		create_queue_window ();
+		gtk_widget_show_all (queue_window);
+		gnome_win_hints_set_layer (queue_window, 
+					   WIN_LAYER_ONTOP);
+		gnome_win_hints_set_state (queue_window, 
+					   WIN_STATE_ARRANGE_IGNORE);
+		gnome_win_hints_set_hints (queue_window, 
 					   WIN_HINTS_SKIP_FOCUS |
 					   WIN_HINTS_SKIP_WINLIST |
-					   WIN_HINTS_SKIP_TASKBAR );
-		gtk_widget_hide( queue_window_pending );
+					   WIN_HINTS_SKIP_TASKBAR);
+		gtk_widget_hide (queue_window_pending);
 
-		dispatch( clur );
+		dispatch (clur);
 	} else {
 		GtkWidget *label;
 
@@ -261,18 +284,18 @@ mail_operation_queue( const gchar *description, void (*callback)( gpointer ),
 		 * that's a lot faster.
 		 */
 
-		op_queue = g_slist_append( op_queue, clur );
+		op_queue = g_slist_append (op_queue, clur);
 
 		/* Show us in the pending window. */
-		label = gtk_label_new( description );
-		gtk_misc_set_alignment( GTK_MISC( label ), 1.0, 0.5 );
-		gtk_box_pack_start( GTK_BOX( queue_window_pending ), label,
-				    FALSE, TRUE, 2 );
+		label = gtk_label_new (spec->simple_desc);
+		gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
+		gtk_box_pack_start (GTK_BOX(queue_window_pending), label,
+				    FALSE, TRUE, 2);
 
 		/* If we want the next op to be on the bottom, uncomment this */
 		/* 1 = first on list always (0-based) */
 		/* gtk_box_reorder_child( GTK_BOX( queue_window_pending ), label, 1 ); */
-		gtk_widget_show_all( queue_window_pending );
+		gtk_widget_show_all (queue_window_pending);
 	}
 
 	return TRUE;
@@ -286,13 +309,13 @@ mail_operation_queue( const gchar *description, void (*callback)( gpointer ),
  * Threadsafe for, nay, intended to be called by, the dispatching thread.
  **/
 
-void mail_op_set_percentage( gfloat percentage )
+void mail_op_set_percentage (gfloat percentage)
 {
 	com_msg_t msg;
 
 	msg.type = PERCENTAGE;
 	msg.percentage = percentage;
-	write( WRITER, &msg, sizeof( msg ) );
+	write (WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -307,12 +330,12 @@ void mail_op_set_percentage( gfloat percentage )
  * that, right? 
  */
 
-void mail_op_hide_progressbar( void )
+void mail_op_hide_progressbar (void)
 {
 	com_msg_t msg;
 
 	msg.type = HIDE_PBAR;
-	write( WRITER, &msg, sizeof( msg ) );
+	write (WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -322,12 +345,12 @@ void mail_op_hide_progressbar( void )
  * Threadsafe for, nay, intended to be called by, the dispatching thread.
  **/
 
-void mail_op_show_progressbar( void )
+void mail_op_show_progressbar (void)
 {
 	com_msg_t msg;
 
 	msg.type = SHOW_PBAR;
-	write( WRITER, &msg, sizeof( msg ) );
+	write (WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -340,17 +363,17 @@ void mail_op_show_progressbar( void )
  * Threadsafe for, nay, intended to be called by, the dispatching thread.
  **/
 
-void mail_op_set_message( gchar *fmt, ... )
+void mail_op_set_message (gchar *fmt, ...)
 {
 	com_msg_t msg;
 	va_list val;
 
-	va_start( val, fmt );
+	va_start (val, fmt);
 	msg.type = MESSAGE;
-	msg.message = g_strdup_vprintf( fmt, val );
-	va_end( val );
+	msg.message = g_strdup_vprintf (fmt, val);
+	va_end (val);
 
-	write( WRITER, &msg, sizeof( msg ) );
+	write (WRITER, &msg, sizeof (msg));
 }
 
 /**
@@ -365,12 +388,12 @@ void mail_op_set_message( gchar *fmt, ... )
  * message.
  **/
 
-gboolean mail_op_get_password( gchar *prompt, gboolean secret, gchar **dest )
+gboolean mail_op_get_password (gchar *prompt, gboolean secret, gchar **dest)
 {
 	com_msg_t msg;
 	gboolean result;
 
-	check_cond();
+	check_cond ();
 
 	msg.type = PASSWORD;
 	msg.secret = secret;
@@ -380,15 +403,15 @@ gboolean mail_op_get_password( gchar *prompt, gboolean secret, gchar **dest )
 	
 	(*dest) = NULL;
 
-	G_LOCK( modal_lock );
+	G_LOCK (modal_lock);
 
-	write( WRITER, &msg, sizeof( msg ) );
+	write (WRITER, &msg, sizeof (msg));
 	modal_may_proceed = FALSE;
 
-	while( modal_may_proceed == FALSE )
-		g_cond_wait( modal_cond, g_static_mutex_get_mutex( &G_LOCK_NAME( modal_lock ) ) );
+	while (modal_may_proceed == FALSE)
+		g_cond_wait (modal_cond, g_static_mutex_get_mutex (&G_LOCK_NAME (modal_lock)));
 
-	G_UNLOCK( modal_lock );
+	G_UNLOCK (modal_lock);
 
 	return result;
 }
@@ -402,27 +425,27 @@ gboolean mail_op_get_password( gchar *prompt, gboolean secret, gchar **dest )
  * Threadsafe for, nay, intended to be called by, the dispatching thread.
  **/
 
-void mail_op_error( gchar *fmt, ... )
+void mail_op_error (gchar *fmt, ...)
 {
 	com_msg_t msg;
 	va_list val;
 
-	check_cond();
+	check_cond ();
 
-	va_start( val, fmt );
+	va_start (val, fmt);
 	msg.type = ERROR;
-	msg.message = g_strdup_vprintf( fmt, val );
-	va_end( val );
+	msg.message = g_strdup_vprintf (fmt, val);
+	va_end (val);
 
-	G_LOCK( modal_lock );
+	G_LOCK (modal_lock);
 
 	modal_may_proceed = FALSE;
-	write( WRITER, &msg, sizeof( msg ) );
+	write (WRITER, &msg, sizeof (msg));
 
-	while( modal_may_proceed == FALSE )
-		g_cond_wait( modal_cond, g_static_mutex_get_mutex( &G_LOCK_NAME( modal_lock ) ) );
+	while (modal_may_proceed == FALSE)
+		g_cond_wait (modal_cond, g_static_mutex_get_mutex (&G_LOCK_NAME (modal_lock)));
 
-	G_UNLOCK( modal_lock );
+	G_UNLOCK (modal_lock);
 }
 
 /**
@@ -432,11 +455,11 @@ void mail_op_error( gchar *fmt, ... )
  * to finish executing
  */
 
-void mail_operation_wait_for_finish( void )
+void mail_operation_wait_for_finish (void)
 {
-	while( mail_operation_in_progress ) {
-		while( gtk_events_pending() )
-			gtk_main_iteration();
+	while (mail_operation_in_progress) {
+		while (gtk_events_pending ())
+			gtk_main_iteration ();
 	}
 }
 
@@ -447,7 +470,7 @@ void mail_operation_wait_for_finish( void )
  * when called, FALSE if not.
  */
 
-gboolean mail_operations_are_executing( void )
+gboolean mail_operations_are_executing (void)
 {
 	return mail_operation_in_progress;
 }
@@ -462,49 +485,49 @@ gboolean mail_operations_are_executing( void )
  */
 
 static void
-create_queue_window( void )
+create_queue_window (void)
 {
 	GtkWidget *vbox;
 	GtkWidget *pending_vb, *pending_lb;
 	GtkWidget *progress_lb, *progress_bar;
 
 	/* Check to see if we've only hidden it */
-	if( queue_window != NULL )
+	if (queue_window != NULL)
 		return;
 
-	queue_window = gtk_window_new( GTK_WINDOW_DIALOG );
-	gtk_container_set_border_width( GTK_CONTAINER( queue_window ), 8 );
+	queue_window = gtk_window_new (GTK_WINDOW_DIALOG);
+	gtk_container_set_border_width (GTK_CONTAINER(queue_window), 8);
 
-	vbox = gtk_vbox_new( FALSE, 4 );
+	vbox = gtk_vbox_new (FALSE, 4);
 
-	pending_vb = gtk_vbox_new( FALSE, 2 );
+	pending_vb = gtk_vbox_new (FALSE, 2);
 	queue_window_pending = pending_vb;
 
-	pending_lb = gtk_label_new( _("Currently pending operations:") );
-	gtk_misc_set_alignment( GTK_MISC( pending_lb ), 0.0, 0.0 );
-	gtk_box_pack_start( GTK_BOX( pending_vb ), pending_lb,
-			    FALSE, TRUE, 0 );
+	pending_lb = gtk_label_new (_("Currently pending operations:"));
+	gtk_misc_set_alignment (GTK_MISC (pending_lb), 0.0, 0.0);
+	gtk_box_pack_start (GTK_BOX (pending_vb), pending_lb,
+			    FALSE, TRUE, 0);
 
-	gtk_box_pack_start( GTK_BOX( vbox ), pending_vb,
-			    TRUE, TRUE, 4 );
+	gtk_box_pack_start (GTK_BOX (vbox), pending_vb,
+			    TRUE, TRUE, 4);
 
 	/* FIXME: 'operation' is not the warmest cuddliest word. */
-	progress_lb = gtk_label_new( "" );
+	progress_lb = gtk_label_new ("");
 	queue_window_message = progress_lb;
-	gtk_box_pack_start( GTK_BOX( vbox ), progress_lb,
-			    FALSE, TRUE, 4 );
+	gtk_box_pack_start (GTK_BOX (vbox), progress_lb,
+			    FALSE, TRUE, 4);
 
-	progress_bar = gtk_progress_bar_new();
+	progress_bar = gtk_progress_bar_new ();
 	queue_window_progress = progress_bar;
 	/* FIXME: is this fit for l10n? */
-	gtk_progress_bar_set_orientation( GTK_PROGRESS_BAR( progress_bar ), 
-					  GTK_PROGRESS_LEFT_TO_RIGHT );
-	gtk_progress_bar_set_bar_style( GTK_PROGRESS_BAR( progress_bar ), 
-					GTK_PROGRESS_CONTINUOUS );
-	gtk_box_pack_start( GTK_BOX( vbox ), progress_bar,
-			    FALSE, TRUE, 4 );
+	gtk_progress_bar_set_orientation (GTK_PROGRESS_BAR(progress_bar),
+					  GTK_PROGRESS_LEFT_TO_RIGHT);
+	gtk_progress_bar_set_bar_style (GTK_PROGRESS_BAR (progress_bar), 
+					GTK_PROGRESS_CONTINUOUS);
+	gtk_box_pack_start (GTK_BOX (vbox), progress_bar,
+			    FALSE, TRUE, 4);
 
-	gtk_container_add( GTK_CONTAINER( queue_window ), vbox );
+	gtk_container_add (GTK_CONTAINER (queue_window), vbox);
 }
 
 /**
@@ -514,20 +537,20 @@ create_queue_window( void )
  * it if necessary.
  **/
 
-static void check_compipe( void )
+static void check_compipe (void)
 {
-	if( READER > 0 )
+	if (READER > 0)
 		return;
 
-	if( pipe( compipe ) < 0 ) { 
-		g_warning( "Call to pipe(2) failed!" );
+	if (pipe (compipe) < 0) { 
+		g_warning ("Call to pipe(2) failed!");
 		
 		/* FIXME: better error handling. How do we react? */
 		return;
 	}
 
-	chan_reader = g_io_channel_unix_new( READER );
-	g_io_add_watch( chan_reader, G_IO_IN, read_msg, NULL );
+	chan_reader = g_io_channel_unix_new (READER);
+	g_io_add_watch (chan_reader, G_IO_IN, read_msg, NULL);
 }
 
 /**
@@ -536,28 +559,28 @@ static void check_compipe( void )
  * See if our condition is initialized and do so if necessary
  **/
 
-static void check_cond( void )
+static void check_cond (void)
 {
-	if( modal_cond == NULL )
-		modal_cond = g_cond_new();
+	if (modal_cond == NULL)
+		modal_cond = g_cond_new ();
 }
 
 /**
  * dispatch:
- * @clur: The function to execute and its userdata
+ * @clur: The operation to execute and its parameters
  *
  * Start a thread that executes the closure and exit
  * it when done.
  */
 
-static void dispatch( closure_t *clur )
+static void dispatch (closure_t *clur)
 {
 	int res;
 
-	res = pthread_create( &dispatch_thread, NULL, (void *) &dispatch_func, clur );
+	res = pthread_create (&dispatch_thread, NULL, (void *) &dispatch_func, clur);
 
 	if( res != 0 ) {
-		g_warning( "Error launching dispatch thread!" );
+		g_warning ("Error launching dispatch thread!");
 		/* FIXME: more error handling */
 	}
 }
@@ -569,28 +592,31 @@ static void dispatch( closure_t *clur )
  * Runs the closure and exits the thread.
  */
 
-static void *dispatch_func( void *data )
+static void *dispatch_func (void *data)
 {
 	com_msg_t msg;
 	closure_t *clur = (closure_t *) data;
 
 	msg.type = STARTING;
-	msg.message = clur->prettyname;
-	write( WRITER, &msg, sizeof( msg ) );
+	msg.message = g_strdup (clur->spec->simple_desc);
+	write (WRITER, &msg, sizeof (msg));
 
-	/*GDK_THREADS_ENTER ();*/
-	(clur->callback)( clur->data );
-	/*GDK_THREADS_LEAVE ();*/
+	(clur->spec->callback) (clur->in_data, clur->op_data, clur->ex);
+
+	if (camel_exception_is_set (clur->ex)) {
+		g_warning ("Callback failed for `%s': %s",
+			   clur->spec->simple_desc,
+			   camel_exception_get_description (clur->ex));
+		mail_op_error ("Error in attempt to %s:\n"
+			       "%s", clur->spec->simple_desc,
+			       camel_exception_get_description (clur->ex));
+	}
 
 	msg.type = FINISHED;
-	msg.func = clur->cleanup; /* NULL is ok */
-	msg.userdata = clur->data;
-	write( WRITER, &msg, sizeof( msg ) );
+	msg.clur = clur;
+	write (WRITER, &msg, sizeof (msg));
 
-	g_free( clur->prettyname );
-	g_free( data );
-
-	pthread_exit( 0 );
+	pthread_exit (0);
 	return NULL; /*NOTREACHED*/
 }
 
@@ -604,23 +630,23 @@ static void *dispatch_func( void *data )
  * action.
  **/
 
-static gboolean read_msg( GIOChannel *source, GIOCondition condition, gpointer userdata )
+static gboolean read_msg (GIOChannel *source, GIOCondition condition, gpointer userdata)
 {
 	com_msg_t *msg;
 	closure_t *clur;
 	GSList *temp;
 	guint size;
 
-	msg = g_new0( com_msg_t, 1 );
+	msg = g_new0 (com_msg_t, 1);
 
-	g_io_channel_read( source, (gchar *) msg, 
-			   sizeof( com_msg_t ) / sizeof( gchar ), 
-			   &size );
+	g_io_channel_read (source, (gchar *) msg, 
+			   sizeof (com_msg_t) / sizeof (gchar), 
+			   &size);
 
-	if( size != sizeof( com_msg_t ) ) {
-		g_warning( _("Incomplete message written on pipe!") );
+	if (size != sizeof (com_msg_t)) {
+		g_warning (_("Incomplete message written on pipe!"));
 		msg->type = ERROR;
-		msg->message = g_strdup( _("Error reading commands from dispatching thread.") );
+		msg->message = g_strdup (_("Error reading commands from dispatching thread."));
 	}
 
 	/* This is very important, though I'm not quite sure why
@@ -629,50 +655,48 @@ static gboolean read_msg( GIOChannel *source, GIOCondition condition, gpointer u
 
 	GDK_THREADS_ENTER();
 
-	switch( msg->type ) {
+	switch (msg->type) {
 	case STARTING:
 		DEBUG (("*** Message -- STARTING\n"));
-		gtk_label_set_text( GTK_LABEL( queue_window_message ), msg->message );
-		gtk_progress_bar_update( GTK_PROGRESS_BAR( queue_window_progress ), 0.0 );
-		g_free( msg );
+		gtk_label_set_text (GTK_LABEL (queue_window_message), msg->message);
+		gtk_progress_bar_update (GTK_PROGRESS_BAR (queue_window_progress), 0.0);
+		g_free (msg);
 		break;
 	case PERCENTAGE:
 		DEBUG (("*** Message -- PERCENTAGE\n"));
-		gtk_progress_bar_update( GTK_PROGRESS_BAR( queue_window_progress ), msg->percentage );
-		g_free( msg );
+		gtk_progress_bar_update (GTK_PROGRESS_BAR (queue_window_progress), msg->percentage);
+		g_free (msg);
 		break;
 	case HIDE_PBAR:
 		DEBUG (("*** Message -- HIDE_PBAR\n"));
-		gtk_progress_set_activity_mode( GTK_PROGRESS( queue_window_progress ), TRUE );
-		timeout_toggle( TRUE );
-
-		g_free( msg );
+		gtk_progress_set_activity_mode (GTK_PROGRESS (queue_window_progress), TRUE);
+		timeout_toggle(TRUE);
+		g_free(msg);
 		break;
 	case SHOW_PBAR:
 		DEBUG (("*** Message -- SHOW_PBAR\n"));
-		timeout_toggle( FALSE );
-		gtk_progress_set_activity_mode( GTK_PROGRESS( queue_window_progress ), FALSE );
-
-		g_free( msg );
+		timeout_toggle (FALSE);
+		gtk_progress_set_activity_mode (GTK_PROGRESS (queue_window_progress), FALSE);
+		g_free (msg);
 		break;
 	case MESSAGE:
 		DEBUG (("*** Message -- MESSAGE\n"));
-		gtk_label_set_text( GTK_LABEL( queue_window_message ),
-				    msg->message );
-		g_free( msg->message );
-		g_free( msg );
+		gtk_label_set_text (GTK_LABEL (queue_window_message),
+				    msg->message);
+		g_free (msg->message);
+		g_free (msg);
 		break;
 	case PASSWORD:
 		DEBUG (("*** Message -- PASSWORD\n"));
-		g_assert( msg->reply );
-		g_assert( msg->success );
-		get_password( msg );
+		g_assert (msg->reply);
+		g_assert (msg->success);
+		get_password (msg);
 		/* don't free msg! done later */
 		break;
 	case ERROR:
 		DEBUG (("*** Message -- ERROR\n"));
-		show_error( msg );
-		g_free( msg );
+		show_error (msg);
+		g_free (msg);
 		break;
 
 		/* Don't fall through; dispatch_func does the FINISHED
@@ -681,35 +705,50 @@ static gboolean read_msg( GIOChannel *source, GIOCondition condition, gpointer u
 
 	case FINISHED:
 		DEBUG (("*** Message -- FINISH\n"));
-		if( msg->func )
-			(msg->func)( msg->userdata );
 
-		if( op_queue == NULL ) {
-			g_print("\tNo more ops -- hide %p.\n", queue_window);
+		if (msg->clur->spec->cleanup)
+			(msg->clur->spec->cleanup) (msg->clur->in_data,
+						    msg->clur->op_data,
+						    msg->clur->ex);
+
+		if (camel_exception_is_set (msg->clur->ex)) {
+			g_warning ("Error on cleanup of `%s': %s",
+				   msg->clur->spec->simple_desc,
+				   camel_exception_get_description (msg->clur->ex));
+		}
+
+		g_free (msg->clur->op_data);
+		if (msg->clur->free_in_data)
+			g_free (msg->clur->in_data);
+		camel_exception_free (msg->clur->ex);
+		g_free (msg->clur);
+
+		if (op_queue == NULL) {
+			g_print ("\tNo more ops -- hide %p.\n", queue_window);
 			/* All done! */
-			gtk_widget_hide( queue_window );
+			gtk_widget_hide (queue_window);
 			mail_operation_in_progress = FALSE;
 		} else {
-			g_print("\tOperation left.\n");
+			g_print ("\tOperation(s) left.\n");
 
 			/* There's another operation left */
 			
 			/* Pop it off the front */
 			clur = op_queue->data;
-			temp = g_slist_next( op_queue );
-			g_slist_free_1( op_queue );
+			temp = g_slist_next (op_queue);
+			g_slist_free_1 (op_queue);
 			op_queue = temp;
 
 			/* Clear it out of the 'pending' vbox */
-			remove_next_pending();
+			remove_next_pending ();
 
 			/* Run run run little process */
-			dispatch( clur );
+			dispatch (clur);
 		}
-		g_free( msg );
+		g_free (msg);
 		break;
 	default:
-		g_warning( _("Corrupted message from dispatching thread?") );
+		g_warning (_("Corrupted message from dispatching thread?"));
 		break;
 	}
 
@@ -725,23 +764,23 @@ static gboolean read_msg( GIOChannel *source, GIOCondition condition, gpointer u
  * 'pending' message.
  **/
 
-static void remove_next_pending( void )
+static void remove_next_pending (void)
 {
 	GList *children;
 
-	children = gtk_container_children( GTK_CONTAINER( queue_window_pending ) );
+	children = gtk_container_children (GTK_CONTAINER (queue_window_pending));
 
 	/* Skip past the header label */
-	children = g_list_first( children );
-	children = g_list_next( children );
+	children = g_list_first (children);
+	children = g_list_next (children);
 
 	/* Nuke the one on top */
-	gtk_container_remove( GTK_CONTAINER( queue_window_pending ),
-			      GTK_WIDGET( children->data ) );
+	gtk_container_remove (GTK_CONTAINER (queue_window_pending),
+			      GTK_WIDGET (children->data));
 
 	/* Hide it? */
-	if( g_list_next( children ) == NULL )
-		gtk_widget_hide( queue_window_pending );
+	if (g_list_next(children) == NULL)
+		gtk_widget_hide (queue_window_pending);
 }
 
 /**
@@ -750,28 +789,28 @@ static void remove_next_pending( void )
  * Show the error dialog and wait for user OK
  **/
 
-static void show_error( com_msg_t *msg )
+static void show_error (com_msg_t *msg)
 {
 	GtkWidget *err_dialog;
 
-	err_dialog = gnome_error_dialog( msg->message );
-	gnome_dialog_set_close( GNOME_DIALOG(err_dialog), TRUE );
-	gtk_signal_connect( GTK_OBJECT( err_dialog ), "clicked", (GtkSignalFunc) show_error_clicked, NULL );
-	g_free( msg->message );
+	err_dialog = gnome_error_dialog (msg->message);
+	gnome_dialog_set_close (GNOME_DIALOG(err_dialog), TRUE);
+	gtk_signal_connect (GTK_OBJECT (err_dialog), "clicked", (GtkSignalFunc) show_error_clicked, NULL);
+	g_free (msg->message);
 
-	G_LOCK( modal_lock );
+	G_LOCK (modal_lock);
 
-	timeout_toggle( FALSE );
+	timeout_toggle (FALSE);
 	modal_may_proceed = FALSE;
-	gtk_widget_show( GTK_WIDGET( err_dialog ) );
-	gnome_win_hints_set_layer( err_dialog, 
-				   WIN_LAYER_ONTOP );
-	gnome_win_hints_set_state( err_dialog, 
-				   WIN_STATE_ARRANGE_IGNORE );
-	gnome_win_hints_set_hints( err_dialog, 
+	gtk_widget_show (GTK_WIDGET (err_dialog));
+	gnome_win_hints_set_layer (err_dialog, 
+				   WIN_LAYER_ONTOP);
+	gnome_win_hints_set_state (err_dialog, 
+				   WIN_STATE_ARRANGE_IGNORE);
+	gnome_win_hints_set_hints (err_dialog, 
 				   WIN_HINTS_SKIP_FOCUS |
 				   WIN_HINTS_SKIP_WINLIST |
-				   WIN_HINTS_SKIP_TASKBAR );
+				   WIN_HINTS_SKIP_TASKBAR);
 }
 
 /**
@@ -781,12 +820,12 @@ static void show_error( com_msg_t *msg )
  * the dispatch thread is allowed to continue.
  **/
 
-static void show_error_clicked( void )
+static void show_error_clicked (void)
 {
 	modal_may_proceed = TRUE;
-	timeout_toggle( TRUE );
-	g_cond_signal( modal_cond );
-	G_UNLOCK( modal_lock );
+	timeout_toggle (TRUE);
+	g_cond_signal (modal_cond);
+	G_UNLOCK (modal_lock);
 }
 
 /**
@@ -795,66 +834,66 @@ static void show_error_clicked( void )
  * Ask for a password and put the answer in *(msg->reply)
  **/
 
-static void get_password( com_msg_t *msg )
+static void get_password (com_msg_t *msg)
 {
 	GtkWidget *dialog;
 
-	dialog = gnome_request_dialog( msg->secret, msg->message, NULL,
+	dialog = gnome_request_dialog (msg->secret, msg->message, NULL,
 				       0, get_password_cb, msg,
-				       NULL );
-	gnome_dialog_set_close( GNOME_DIALOG(dialog), TRUE );
-	gtk_signal_connect( GTK_OBJECT( dialog ), "clicked", get_password_clicked, msg );
+				       NULL);
+	gnome_dialog_set_close (GNOME_DIALOG(dialog), TRUE);
+	gtk_signal_connect (GTK_OBJECT(dialog), "clicked", get_password_clicked, msg);
 
-	G_LOCK( modal_lock );
+	G_LOCK (modal_lock);
 
 	modal_may_proceed = FALSE;
 
 	if( dialog == NULL ) {
 		*(msg->success) = FALSE;
-		*(msg->reply) = g_strdup( _("Could not create dialog box.") );
+		*(msg->reply) = g_strdup (_("Could not create dialog box."));
 		modal_may_proceed = TRUE;
-		g_cond_signal( modal_cond );
-		G_UNLOCK( modal_lock );
+		g_cond_signal (modal_cond);
+		G_UNLOCK (modal_lock);
 	} else {
 		*(msg->reply) = NULL;
-		timeout_toggle( FALSE );
-		gtk_widget_show( GTK_WIDGET( dialog ) );
-		gnome_win_hints_set_layer( dialog, 
-					   WIN_LAYER_ONTOP );
-		gnome_win_hints_set_state( dialog, 
-					   WIN_STATE_ARRANGE_IGNORE );
-		gnome_win_hints_set_hints( dialog, 
+		timeout_toggle (FALSE);
+		gtk_widget_show (GTK_WIDGET (dialog));
+		gnome_win_hints_set_layer (dialog, 
+					   WIN_LAYER_ONTOP);
+		gnome_win_hints_set_state (dialog, 
+					   WIN_STATE_ARRANGE_IGNORE);
+		gnome_win_hints_set_hints (dialog, 
 					   WIN_HINTS_SKIP_FOCUS |
 					   WIN_HINTS_SKIP_WINLIST |
-					   WIN_HINTS_SKIP_TASKBAR );
+					   WIN_HINTS_SKIP_TASKBAR);
 	}
 }
 
-static void get_password_cb( gchar *string, gpointer data )
+static void get_password_cb (gchar *string, gpointer data)
 {
 	com_msg_t *msg = (com_msg_t *) data;
 
         if (string)
-                *(msg->reply) = g_strdup( string );
+                *(msg->reply) = g_strdup (string);
         else
                 *(msg->reply) = NULL;
 }
 
-static void get_password_clicked( GnomeDialog *dialog, gint button, gpointer user_data )
+static void get_password_clicked (GnomeDialog *dialog, gint button, gpointer user_data)
 {
 	com_msg_t *msg = (com_msg_t *) user_data;
 
-	if( button == 1 || *(msg->reply) == NULL ) {
+	if (button == 1 || *(msg->reply) == NULL) {
 		*(msg->success) = FALSE;
-		*(msg->reply) = g_strdup( _("User cancelled query.") );
+		*(msg->reply) = g_strdup (_("User cancelled query."));
 	} else
 		*(msg->success) = TRUE;
 
-	g_free( msg );
+	g_free (msg);
 	modal_may_proceed = TRUE;
-	timeout_toggle( TRUE );
-	g_cond_signal( modal_cond );
-	G_UNLOCK( modal_lock );
+	timeout_toggle (TRUE);
+	g_cond_signal (modal_cond);
+	G_UNLOCK (modal_lock);
 }
 
 /* NOT totally copied from gtk+/gtk/testgtk.c, really! */
@@ -885,17 +924,17 @@ progress_timeout (gpointer data)
  **/
 
 static void
-timeout_toggle( gboolean active )
+timeout_toggle (gboolean active)
 {
-	if( (GTK_PROGRESS( queue_window_progress ))->activity_mode == 0 )
+	if ((GTK_PROGRESS (queue_window_progress))->activity_mode == 0)
 		return;
 
-	if( active ) {
-		if( progress_timeout_handle < 0 )
-			progress_timeout_handle = gtk_timeout_add( 80, progress_timeout, queue_window_progress );
+	if (active) {
+		if (progress_timeout_handle < 0)
+			progress_timeout_handle = gtk_timeout_add (80, progress_timeout, queue_window_progress);
 	} else {
-		if( progress_timeout_handle >= 0 ) {
-			gtk_timeout_remove( progress_timeout_handle );
+		if (progress_timeout_handle >= 0) {
+			gtk_timeout_remove (progress_timeout_handle);
 			progress_timeout_handle = -1;
 		}
 	}

@@ -10,28 +10,36 @@
 
 #ifdef USE_BROKEN_THREADS
 
-static void op_1( gpointer userdata );
-static void op_2( gpointer userdata );
-static void op_3( gpointer userdata );
-static void op_4( gpointer userdata );
-static void op_5( gpointer userdata );
-static void done( gpointer userdata );
+static void op_1( gpointer in, gpointer op, CamelException *ex );
+static void op_2( gpointer in, gpointer op, CamelException *ex );
+static void op_3( gpointer in, gpointer op, CamelException *ex );
+static void op_4( gpointer in, gpointer op, CamelException *ex );
+static void op_5( gpointer in, gpointer op, CamelException *ex );
+static void done( gpointer in, gpointer op, CamelException *ex );
+static void exception( gpointer in, gpointer op, CamelException *ex );
 static gboolean queue_ops( void );
+
+const mail_operation_spec spec1 = { "The Crawling Progress Bar of Doom", 0, NULL, op_1, done };
+const mail_operation_spec spec2 = { "The Mysterious Message Setter", 0, NULL, op_2, done };
+const mail_operation_spec spec3 = { "The Error Dialog of No Return", 0, NULL, op_3, done };
+const mail_operation_spec spec4 = { "Queue Filler", 0, NULL, op_4, NULL };
+const mail_operation_spec spec5 = { "Dastardly Password Stealer", 0, NULL, op_5, done };
+const mail_operation_spec spec6 = { "Exception on setup", 0, exception, op_4, NULL };
+const mail_operation_spec spec7 = { "Exception during op", 0, NULL, exception, NULL };
+const mail_operation_spec spec8 = { "Exception in cleanup", 0, NULL, op_4, exception };
 
 static gboolean queue_ops( void )
 {
 	int i;
-	gchar buf[32];
 
 	g_message( "Top of queue_ops" );
 
-	mail_operation_queue( "The Crawling Progress Bar of Doom", op_1, done, "op1 finished" );
-	mail_operation_queue( "The Mysterious Message Setter", op_2, done, "op2 finished" );
-	mail_operation_queue( "The Error Dialog of No Return", op_3, done, "op3 finished" );
+	mail_operation_queue( &spec1, "op1 finished", FALSE );
+	mail_operation_queue( &spec2, "op2 finished", FALSE );
+	mail_operation_queue( &spec3, "op3 finished", FALSE );
 
 	for( i = 0; i < 3; i++ ) {
-		sprintf( buf, "Queue Filler %d", i );
-		mail_operation_queue( buf, op_4, NULL, GINT_TO_POINTER( i ) );
+		mail_operation_queue( &spec4, GINT_TO_POINTER( i ), FALSE );
 	}
 
 	g_message( "Waiting for finish..." );
@@ -39,19 +47,22 @@ static gboolean queue_ops( void )
 
 	g_message( "Ops done -- queue some more!" );
 
-	mail_operation_queue( "Progress Bar Redux", op_1, NULL, NULL );
+	mail_operation_queue( &spec1, "done a second time", FALSE );
 
 	g_message( "Waiting for finish again..." );
 	mail_operation_wait_for_finish();
 
 	g_message( "Ops done -- more, more!" );
 
-	mail_operation_queue( "Dastardly Password Stealer", op_5, NULL, NULL );
+	mail_operation_queue( &spec5, "passwords stolen", FALSE );
 
 	for( i = 0; i < 3; i++ ) {
-		sprintf( buf, "Queue Filler %d", i );
-		mail_operation_queue( buf, op_4, NULL, GINT_TO_POINTER( i ) );
+		mail_operation_queue( &spec4, GINT_TO_POINTER( i ), FALSE );
 	}
+
+	mail_operation_queue( &spec6, NULL, FALSE );
+	mail_operation_queue( &spec7, NULL, FALSE );
+	mail_operation_queue( &spec8, NULL, FALSE );
 
 	g_message( "Waiting for finish AGAIN..." );
 	mail_operation_wait_for_finish();
@@ -60,7 +71,12 @@ static gboolean queue_ops( void )
 	return FALSE;
 }
 
-static void op_1( gpointer userdata )
+static void exception( gpointer in, gpointer op, CamelException *ex )
+{
+	camel_exception_set (ex, CAMEL_EXCEPTION_SYSTEM, "I don't feel like it.");
+}
+
+static void op_1( gpointer in, gpointer op, CamelException *ex )
 {
 	gfloat pct;
 
@@ -73,7 +89,7 @@ static void op_1( gpointer userdata )
 	}
 }
 
-static void op_2( gpointer userdata )
+static void op_2( gpointer in, gpointer op, CamelException *ex )
 {
 	int i;
 
@@ -87,7 +103,7 @@ static void op_2( gpointer userdata )
 	sleep( 1 );
 }
 
-static void op_3( gpointer userdata )
+static void op_3( gpointer in, gpointer op, CamelException *ex )
 {
 	gfloat pct;
 
@@ -103,14 +119,14 @@ static void op_3( gpointer userdata )
 	sleep( 1 );
 }
 
-static void op_4( gpointer userdata )
+static void op_4( gpointer in, gpointer op, CamelException *ex )
 {
 	mail_op_hide_progressbar();
-	mail_op_set_message( "Filler # %d", GPOINTER_TO_INT( userdata ) );
+	mail_op_set_message( "Filler # %d", GPOINTER_TO_INT( in ) );
 	sleep( 1 );
 }
 
-static void op_5( gpointer userdata )
+static void op_5( gpointer in, gpointer op, CamelException *ex )
 {
 	gchar *pass;
 	gboolean ret;
@@ -128,9 +144,9 @@ static void op_5( gpointer userdata )
 	sleep( 1 );
 }
 
-static void done( gpointer userdata )
+static void done( gpointer in, gpointer op, CamelException *ex )
 {
-	g_message( "Operation done: %s", (gchar *) userdata );
+	g_message( "Operation done: %s", (gchar *) in );
 }
 
 int main( int argc, char **argv )

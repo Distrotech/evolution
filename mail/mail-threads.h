@@ -30,34 +30,35 @@
 #include <camel/camel-exception.h>
 #include <stdlib.h> /*size_t*/
 
+typedef void (*mail_op_func) (gpointer, gpointer, CamelException *);
+
 typedef struct _mail_operation_spec {
 	const gchar *simple_desc;
 	size_t datasize;
-	void (*setup) (gpointer, gpointer, CamelException *);
-	void (*callback) (gpointer, CamelException *);
-	void (*cleanup) (gpointer, CamelException *);
+	mail_op_func setup;
+	mail_op_func callback;
+	mail_op_func cleanup;
 } mail_operation_spec;
 
 /* Schedule to operation to happen eventually */
 
-gboolean mail_operation_queue( const gchar *description, 
-			       void (*callback)( gpointer ), 
-			       void (*cleanup)( gpointer ),
-			       gpointer user_data );
+gboolean mail_operation_queue (const mail_operation_spec *spec,
+			       gpointer input,
+			       gboolean free_in_data);
 
 /* User interface hooks for the other thread */
 
-void mail_op_set_percentage( gfloat percentage );
-void mail_op_hide_progressbar( void );
-void mail_op_show_progressbar( void );
-void mail_op_set_message( gchar *fmt, ... ) G_GNUC_PRINTF( 1, 2 );
-void mail_op_error( gchar *fmt, ... ) G_GNUC_PRINTF( 1, 2 );
-gboolean mail_op_get_password( gchar *prompt, gboolean secret, gchar **dest );
+void mail_op_set_percentage (gfloat percentage);
+void mail_op_hide_progressbar (void);
+void mail_op_show_progressbar (void);
+void mail_op_set_message (gchar *fmt, ...) G_GNUC_PRINTF (1, 2);
+void mail_op_error (gchar *fmt, ...) G_GNUC_PRINTF (1, 2);
+gboolean mail_op_get_password (gchar *prompt, gboolean secret, gchar **dest);
 
 /* Wait for the async operations to finish */
-void mail_operation_wait_for_finish( void );
+void mail_operation_wait_for_finish (void);
 
-gboolean mail_operations_are_executing( void );
+gboolean mail_operations_are_executing (void);
 
 #endif /* defined USE_BROKEN_THREADS */
 
