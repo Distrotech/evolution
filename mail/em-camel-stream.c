@@ -26,6 +26,7 @@
 #include <config.h>
 #endif
 
+#include <stdio.h>
 #include <camel/camel-stream.h>
 #include <camel/camel-object.h>
 #include <gtkhtml/gtkhtml.h>
