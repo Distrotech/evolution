@@ -1,5 +1,7 @@
 2003-08-12  Jeffrey Stedfast  <fejj@ximian.com>
 
+	* em-format-html-display.c: Fixed some compiler warnings.
+
 	* mail-session.c (remove_timeout): Removed.
 	(register_timeout): Removed.
 
