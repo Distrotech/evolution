@@ -106,6 +106,8 @@ em_filter_folder_element_describe (struct _mail_msg *mm, int complete)
 static void
 em_filter_folder_element_filter (struct _mail_msg *mm)
 {
+#warning "fix this"
+#if 0
 	struct _filter_mail_msg *m = (struct _filter_mail_msg *)mm;
 	CamelFolder *folder;
 	GPtrArray *uids, *folder_uids = NULL;
@@ -154,6 +156,7 @@ em_filter_folder_element_filter (struct _mail_msg *mm)
 	
 	if (m->cancel)
 		camel_operation_unregister (m->cancel);
+#endif
 }
 
 static void
@@ -265,6 +268,8 @@ fetch_mail_describe (struct _mail_msg *mm, int complete)
 static void
 fetch_mail_fetch (struct _mail_msg *mm)
 {
+#warning "fix this"
+#if 0
 	struct _fetch_mail_msg *m = (struct _fetch_mail_msg *)mm;
 	struct _filter_mail_msg *fm = (struct _filter_mail_msg *)mm;
 	int i;
@@ -365,6 +370,7 @@ fail:
 		camel_object_unref (fm->driver);
 		fm->driver = NULL;
 	}
+#endif
 }
 
 static void
@@ -443,7 +449,7 @@ static char *resent_recipients[] = {
 
 /* send 1 message to a specific transport */
 static void
-mail_send_message(CamelFolder *queue, const char *uid, const char *destination, CamelFilterDriver *driver, CamelException *ex)
+mail_send_message(CamelFolder *queue, const CamelMessageInfo *sourceinfo, const char *destination, CamelFilterDriver *driver, CamelException *ex)
 {
 	EAccount *account = NULL;
 	const CamelInternetAddress *iaddr;
@@ -459,7 +465,7 @@ mail_send_message(CamelFolder *queue, const char *uid, const char *destination, 
 	CamelMimeMessage *message;
 	int i;
 
-	message = camel_folder_get_message(queue, uid, ex);
+	message = camel_folder_get_message(queue, camel_message_info_uid(sourceinfo), ex);
 	if (!message)
 		return;
 
@@ -621,8 +627,9 @@ mail_send_message(CamelFolder *queue, const char *uid, const char *destination, 
 			}
 		}
 	}
+
 	if (!camel_exception_is_set(ex))
-		camel_folder_set_message_flags (queue, uid, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
+		camel_message_info_set_flags((CamelMessageInfo *)sourceinfo, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
 
 	if (err->len) {
 		/* set the culmulative exception report */
@@ -688,35 +695,20 @@ send_queue_send(struct _mail_msg *mm)
 {
 	struct _send_queue_msg *m = (struct _send_queue_msg *)mm;
 	CamelFolder *sent_folder = mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_SENT);
-	GPtrArray *uids, *send_uids = NULL;
 	CamelException ex;
-	int i, j;
-	
+	int i, j, total;
+	const CamelMessageInfo *mi;
+	CamelMessageIterator *iter;
+
 	d(printf("sending queue\n"));
-	
-	if (!(uids = camel_folder_get_uids (m->queue)))
+
+	iter = camel_folder_search(m->queue, NULL, NULL, &mm->ex);
+	if (iter == NULL)
 		return;
-	
-	send_uids = g_ptr_array_sized_new (uids->len);
-	for (i = 0, j = 0; i < uids->len; i++) {
-		CamelMessageInfo *info;
-		
-		info = camel_folder_get_message_info (m->queue, uids->pdata[i]);
-		if (info) {
-			if ((camel_message_info_flags(info) & CAMEL_MESSAGE_DELETED) == 0)
-				send_uids->pdata[j++] = uids->pdata[i];
-			camel_folder_free_message_info(m->queue, info);
-		}
-	}
-	
-	send_uids->len = j;
-	if (send_uids->len == 0) {
-		/* nothing to send */
-		camel_folder_free_uids (m->queue, uids);
-		g_ptr_array_free (send_uids, TRUE);
-		return;
-	}
-	
+
+	camel_object_get(m->queue, NULL, CAMEL_FOLDER_TOTAL, &total, CAMEL_FOLDER_DELETED, &i, 0);
+	total -= i;
+
 	if (m->cancel)
 		camel_operation_register (m->cancel);
 	
@@ -725,12 +717,15 @@ send_queue_send(struct _mail_msg *mm)
 	/* NB: This code somewhat abuses the 'exception' stuff.  Apart from fatal problems, it is also
 	   used as a mechanism to accumualte warning messages and present them back to the user. */
 
-	for (i = 0, j = 0; i < send_uids->len; i++) {
-		int pc = (100 * i) / send_uids->len;
-		
-		report_status (m, CAMEL_FILTER_STATUS_START, pc, _("Sending message %d of %d"), i+1, send_uids->len);
-		
-		mail_send_message (m->queue, send_uids->pdata[i], m->destination, m->driver, &ex);
+	while ((mi = camel_message_iterator_next(iter))) {
+		int pc = (100 * i) / total;
+
+		if (camel_message_info_flags(mi) & CAMEL_MESSAGE_DELETED)
+			continue;
+
+		report_status(m, CAMEL_FILTER_STATUS_START, pc, _("Sending message %d of %d"), i+1, total);
+
+		mail_send_message (m->queue, mi, m->destination, m->driver, &ex);
 		if (camel_exception_is_set (&ex)) {
 			if (ex.id != CAMEL_EXCEPTION_USER_CANCEL) {
 				/* merge exceptions into one */
@@ -748,12 +743,18 @@ send_queue_send(struct _mail_msg *mm)
 				break;
 			}
 		}
+
+		/* incase we get another one while we're processing */
+		i++;
+		if (i>total)
+			total = i;
 	}
-	
-	j += (send_uids->len - i);
+	camel_message_iterator_free(iter);
+
+	j += (total - i);
 	
 	if (j > 0)
-		report_status (m, CAMEL_FILTER_STATUS_END, 100, _("Failed to send %d of %d messages"), j, send_uids->len);
+		report_status (m, CAMEL_FILTER_STATUS_END, 100, _("Failed to send %d of %d messages"), j, total);
 	else if (mm->ex.id == CAMEL_EXCEPTION_USER_CANCEL)
 		report_status (m, CAMEL_FILTER_STATUS_END, 100, _("Cancelled."));
 	else
@@ -763,9 +764,6 @@ send_queue_send(struct _mail_msg *mm)
 		camel_object_unref (m->driver);
 		m->driver = NULL;
 	}
-	
-	camel_folder_free_uids (m->queue, uids);
-	g_ptr_array_free (send_uids, TRUE);
 	
 	camel_folder_sync (m->queue, TRUE, &ex);
 	camel_exception_clear (&ex);
@@ -964,16 +962,6 @@ transfer_messages_transfer (struct _mail_msg *mm)
 	camel_folder_freeze (dest);
 
 	camel_folder_transfer_messages_to (m->source, m->uids, dest, NULL, m->delete, &mm->ex);
-
-	/* make sure all deleted messages are marked as seen */
-
-	if (m->delete) {
-		int i;
-
-		for (i = 0; i < m->uids->len; i++)
-			camel_folder_set_message_flags (m->source, m->uids->pdata[i], 
-							CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
-	}
 
 	camel_folder_thaw (m->source);
 	camel_folder_thaw (dest);
@@ -1367,7 +1355,8 @@ remove_folder_get (struct _mail_msg *mm)
 	struct _remove_folder_msg *m = (struct _remove_folder_msg *)mm;
 	CamelStore *store;
 	CamelFolder *folder;
-	GPtrArray *uids;
+	CamelMessageIterator *iter;
+	const CamelMessageInfo *mi;
 	int i;
 	
 	m->removed = FALSE;
@@ -1379,13 +1368,13 @@ remove_folder_get (struct _mail_msg *mm)
 	store = folder->parent_store;
 	
 	/* Delete every message in this folder, then expunge it */
-	uids = camel_folder_get_uids (folder);
 	camel_folder_freeze(folder);
-	for (i = 0; i < uids->len; i++)
-		camel_folder_delete_message (folder, uids->pdata[i]);
+	iter = camel_folder_search(folder, NULL, NULL, NULL);
+	while ((mi = camel_message_iterator_next(iter)))
+		camel_message_info_set_flags((CamelMessageInfo *)mi, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, ~0);
+	camel_message_iterator_free(iter);
 	camel_folder_sync (folder, TRUE, NULL);
 	camel_folder_thaw(folder);
-	camel_folder_free_uids (folder, uids);
 	
 	/* if the store supports subscriptions, unsubscribe from this folder... */
 	if (camel_store_supports_subscriptions (store))

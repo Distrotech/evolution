@@ -1,3 +1,17 @@
+2005-06-10  Not Zed  <NotZed@Ximian.com>
+
+	* mail-ops.c (mail_send_message): take the source messageinfo
+	instead of uid.
+	(send_queue_send): use iterator & simplify code somewhat.
+	(transfer_messages_transfer): removed the code which marked
+	deleted stuff also seen.
+
+	* em-folder-tree-model.c (em_folder_tree_model_set_folder_info):
+	use camel_object_get interface to get the counts.  assume they're
+	accurate now.
+
+	** Fix for camel api changes.
+
 2005-06-08  Not Zed  <NotZed@Ximian.com>
 
 	* mail-component.c (view_changed_cb): make this run a timeout so

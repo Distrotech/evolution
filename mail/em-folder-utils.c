@@ -175,11 +175,12 @@ emft_copy_folders__copy (struct _mail_msg *mm)
 						camel_object_unref (fromfolder);
 						goto exception;
 					}
-					
+#warning "fix this"
+#if 0
 					uids = camel_folder_get_uids (fromfolder);
 					camel_folder_transfer_messages_to (fromfolder, uids, tofolder, NULL, m->delete, &mm->ex);
 					camel_folder_free_uids (fromfolder, uids);
-					
+#endif
 					if (m->delete)
 						camel_folder_sync(fromfolder, TRUE, NULL);
 					
@@ -405,7 +406,8 @@ emfu_delete_rec (CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
 		
 		if (!(folder = camel_store_get_folder (store, fi->full_name, 0, ex)))
 			return;
-		
+#warning "fix this!"
+#if 0
 		if (!CAMEL_IS_VEE_FOLDER (folder)) {
 			GPtrArray *uids = camel_folder_get_uids (folder);
 			int i;
@@ -419,7 +421,7 @@ emfu_delete_rec (CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
 			camel_folder_sync (folder, TRUE, NULL);
 			camel_folder_thaw (folder);
 		}
-		
+#endif
 		camel_store_delete_folder (store, fi->full_name, ex);
 		if (camel_exception_is_set (ex))
 			return;

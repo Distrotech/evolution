@@ -682,10 +682,18 @@ emfb_mark_all_read(BonoboUIComponent *uid, void *data, const char *path)
 	if (emfv->folder == NULL)
 		return;
 
+	// FIXME: get an iterator ...?
+
 	uids = message_list_get_uids(emfv->list);
 	camel_folder_freeze(emfv->folder);
-	for (i=0;i<uids->len;i++)
-		camel_folder_set_message_flags(emfv->folder, uids->pdata[i], CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+	for (i=0;i<uids->len;i++) {
+		CamelMessageInfo *mi = camel_folder_get_message_info(emfv->folder, uids->pdata[i]);
+
+		if (mi) {
+			camel_message_info_set_flags(mi, CAMEL_MESSAGE_SEEN, ~0);
+			camel_message_info_free(mi);
+		}
+	}
 	camel_folder_thaw(emfv->folder);
 	message_list_free_uids(emfv->list, uids);
 }
@@ -930,7 +938,7 @@ emfb_gui_folder_changed(CamelFolder *folder, void *dummy, EMFolderBrowser *emfb)
 
 		mi = camel_folder_get_message_info(emfb->view.folder, emfb->priv->select_uid);
 		if (mi) {
-			camel_folder_free_message_info(emfb->view.folder, mi);
+			camel_message_info_free(mi);
 			em_folder_view_set_message(&emfb->view, emfb->priv->select_uid, TRUE);
 			g_free (emfb->priv->select_uid);
 			emfb->priv->select_uid = NULL;
@@ -966,7 +974,7 @@ emfb_list_built (MessageList *ml, EMFolderBrowser *emfb)
 			   folder_changed, at some later date */
 			mi = camel_folder_get_message_info(emfv->folder, emfb->priv->select_uid);
 			if (mi) {
-				camel_folder_free_message_info(emfv->folder, mi);
+				camel_message_info_free(mi);
 				em_folder_view_set_message(emfv, emfb->priv->select_uid, TRUE);
 				g_free (emfb->priv->select_uid);
 				emfb->priv->select_uid = NULL;

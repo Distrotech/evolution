@@ -168,7 +168,7 @@ emmb_list_message_selected (struct _MessageList *ml, const char *uid, EMMessageB
 	if (uid && (info = camel_folder_get_message_info (emfv->folder, uid))) {
 		gtk_window_set_title ((GtkWindow *) emmb->window, camel_message_info_subject (info));
 		gtk_widget_grab_focus ((GtkWidget *) (emmb->view.preview->formathtml.html));
-		camel_folder_free_message_info (emfv->folder, info);
+		camel_message_info_free(info);
 	}
 }
 
@@ -251,15 +251,15 @@ emmb_set_message(EMFolderView *emfv, const char *uid, int nomarkseen)
 		gtk_widget_destroy((GtkWidget *)emfv);
 		return;
 	}
-	
-	if ((info = camel_folder_get_message_info (emfv->folder, uid))) {
+
+	info = camel_folder_get_message_info(emfv->folder, uid);
+	if (info) {
 		gtk_window_set_title ((GtkWindow *) emmb->window, camel_message_info_subject (info));
-		camel_folder_free_message_info (emfv->folder, info);
+		/* Well we don't know if it got displayed (yet) ... but whatever ... */
+		if (!nomarkseen)
+			camel_message_info_set_flags(info, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+		camel_message_info_free(info);
 	}
-	
-	/* Well we don't know if it got displayed (yet) ... but whatever ... */
-	if (!nomarkseen)
-		camel_folder_set_message_flags(emfv->folder, uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 }
 
 static void

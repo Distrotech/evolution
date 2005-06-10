@@ -179,10 +179,12 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 	
 	if (queued) {
 		if (emcs && emcs->drafts_folder) {
-			/* delete the old draft message */
-			camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
-							CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
-							CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
+			CamelMessageInfo *mi = camel_folder_get_message_info(emcs->drafts_folder, emcs->drafts_uid);
+
+			if (mi) {
+				camel_message_info_set_flags(mi, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
+				camel_message_info_free(mi);
+			}
 			camel_object_unref (emcs->drafts_folder);
 			emcs->drafts_folder = NULL;
 			g_free (emcs->drafts_uid);
@@ -190,9 +192,14 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 		}
 		
 		if (emcs && emcs->folder) {
-			/* set any replied flags etc */
-			camel_folder_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
-			camel_folder_set_message_user_flag (emcs->folder, emcs->uid, "receipt-handled", TRUE);
+			CamelMessageInfo *mi = camel_folder_get_message_info(emcs->folder, emcs->uid);
+
+			if (mi) {
+				/* set any replied flags etc */
+				camel_message_info_set_flags(mi, emcs->flags, emcs->set);
+				camel_message_info_set_user_flag(mi, "receipt-handled", TRUE);
+				camel_message_info_free(mi);
+			}
 			camel_object_unref (emcs->folder);
 			emcs->folder = NULL;
 			g_free (emcs->uid);
@@ -441,12 +448,14 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 		/* reconnect to the signals using a non-NULL emcs for the callback data */
 		em_composer_utils_setup_default_callbacks (sdi->composer);
 	}
-	
+
 	if (emcs->drafts_folder) {
-		/* delete the original draft message */
-		camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
-						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
-						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
+		CamelMessageInfo *mi = camel_folder_get_message_info(emcs->drafts_folder, emcs->drafts_uid);
+
+		if (mi) {
+			camel_message_info_set_flags(mi, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
+			camel_message_info_free(mi);
+		}
 		camel_object_unref (emcs->drafts_folder);
 		emcs->drafts_folder = NULL;
 		g_free (emcs->drafts_uid);
@@ -454,8 +463,13 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 	}
 	
 	if (emcs->folder) {
-		/* set the replied flags etc */
-		camel_folder_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
+		CamelMessageInfo *mi = camel_folder_get_message_info(emcs->folder, emcs->uid);
+
+		if (mi) {
+			/* set any replied flags etc */
+			camel_message_info_set_flags(mi, emcs->flags, emcs->set);
+			camel_message_info_free(mi);
+		}
 		camel_object_unref (emcs->folder);
 		emcs->folder = NULL;
 		g_free (emcs->uid);
@@ -1974,7 +1988,7 @@ post_reply_to_message (CamelFolder *folder, const char *uid, CamelMimeMessage *m
 		
 		info = camel_folder_get_message_info (folder, uid);
 		real_folder = camel_vee_folder_get_location ((CamelVeeFolder *) folder, (struct _CamelVeeMessageInfo *) info, &real_uid);
-		camel_folder_free_message_info (folder, info);
+		camel_message_info_free(info);
 	} else {
 		real_folder = folder;
 		camel_object_ref (folder);

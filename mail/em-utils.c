@@ -1063,7 +1063,7 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 		info = camel_folder_get_message_info(folder, uids->pdata[0]);
 		if (info) {
 			file = g_strdup(camel_message_info_subject(info));
-			camel_folder_free_message_info(folder, info);
+			camel_message_info_free(info);
 		}
 	}
 

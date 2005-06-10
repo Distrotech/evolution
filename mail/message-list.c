@@ -780,6 +780,8 @@ message_list_copy(MessageList *ml, gboolean cut)
 	uids = message_list_get_selected(ml);
 
 	if (uids->len > 0) {
+#warning "fix me, iterators?"
+#if 0
 		if (cut) {
 			int i;
 
@@ -791,7 +793,7 @@ message_list_copy(MessageList *ml, gboolean cut)
 
 			camel_folder_thaw(ml->folder);
 		}
-
+#endif
 		p->clipboard.uids = uids;
 		p->clipboard.folder = ml->folder;
 		camel_object_ref(p->clipboard.folder);
@@ -2096,7 +2098,7 @@ clear_info(char *key, ETreePath *node, MessageList *ml)
 	CamelMessageInfo *info;
 
 	info = e_tree_memory_node_get_data((ETreeMemory *)ml->model, node);
-	camel_folder_free_message_info(ml->folder, info);
+	camel_message_info_free(info);
 	e_tree_memory_node_set_data((ETreeMemory *)ml->model, node, NULL);
 }
 
@@ -2287,7 +2289,7 @@ build_subtree (MessageList *ml, ETreePath parent, CamelFolderThreadNode *c, int 
 
 		node = e_tree_memory_node_insert(E_TREE_MEMORY(tree), parent, -1, (void *)c->message);
 		g_hash_table_insert(ml->uid_nodemap, (void *)camel_message_info_uid(c->message), node);
-		camel_folder_ref_message_info(ml->folder, (CamelMessageInfo *)c->message);
+		camel_message_info_ref((CamelMessageInfo *)c->message);
 
 		if (c->child) {
 			build_subtree(ml, node, c->child, row);
@@ -2365,7 +2367,7 @@ add_node_diff(MessageList *ml, ETreePath parent, ETreePath path, CamelFolderThre
 	g_hash_table_remove(ml->uid_nodemap, camel_message_info_uid(c->message));
 	node = e_tree_memory_node_insert(E_TREE_MEMORY(etm), parent, myrow, (void *)c->message);
 	g_hash_table_insert(ml->uid_nodemap, (void *)camel_message_info_uid(c->message), node);
-	camel_folder_ref_message_info(ml->folder, (CamelMessageInfo *)c->message);
+	camel_message_info_ref((CamelMessageInfo *)c->message);
 	(*row)++;
 
 	if (c->child) {
@@ -2400,7 +2402,7 @@ remove_node_diff(MessageList *ml, ETreePath node, int depth)
 
 	g_assert(info);
 	g_hash_table_remove(ml->uid_nodemap, camel_message_info_uid(info));
-	camel_folder_free_message_info(ml->folder, info);
+	camel_message_info_free(info);
 }
 
 /* applies a new tree structure to an existing tree, but only by changing things
@@ -2555,7 +2557,7 @@ build_flat (MessageList *ml, GPtrArray *summary, CamelFolderChangeInfo *changes)
 
 			node = e_tree_memory_node_insert(E_TREE_MEMORY(etm), ml->tree_root, -1, info);
 			g_hash_table_insert(ml->uid_nodemap, (void *)camel_message_info_uid(info), node);
-			camel_folder_ref_message_info(ml->folder, info);
+			camel_message_info_ref(info);
 		}
 		e_tree_memory_thaw(E_TREE_MEMORY(etm));
 #ifdef BROKEN_ETREE
@@ -2627,7 +2629,7 @@ build_flat_diff(MessageList *ml, CamelFolderChangeInfo *changes)
 		if (node) {
 			info = e_tree_memory_node_get_data(E_TREE_MEMORY(ml->model), node);
 			e_tree_memory_node_remove(E_TREE_MEMORY(ml->model), node);
-			camel_folder_free_message_info(ml->folder, info);
+			camel_message_info_free(info);
 			g_hash_table_remove(ml->uid_nodemap, changes->uid_removed->pdata[i]);
 		}
 	}
@@ -2689,7 +2691,8 @@ mail_folder_hide_by_flag (CamelFolder *folder, MessageList *ml, CamelFolderChang
 			camel_folder_change_info_add_uid (newchanges, oldchanges->uid_changed->pdata[i]);
 		else
 			camel_folder_change_info_change_uid (newchanges, oldchanges->uid_changed->pdata[i]);
-		camel_folder_free_message_info (folder, info);
+		if (info)
+			camel_message_info_free(info);
 	}
 
 	if (newchanges->uid_added->len > 0 || newchanges->uid_removed->len > 0) {
@@ -2983,7 +2986,7 @@ on_click (ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, Mess
 			flag |= CAMEL_MESSAGE_DELETED;
 	}
 	
-	camel_folder_set_message_flags (list->folder, camel_message_info_uid (info), flag, ~flags);
+	camel_message_info_set_flags(info, flag, ~flags);
 	
 	if (flag == CAMEL_MESSAGE_SEEN && list->seen_id) {
 		g_source_remove (list->seen_id);
@@ -3152,7 +3155,7 @@ glib_crapback(void *key, void *data, void *x)
 	mi = camel_folder_get_message_info(y->folder, key);
 	if (mi) {
 		y->count++;
-		camel_folder_free_message_info(y->folder, mi);
+		camel_message_info_free(mi);
 	}
 }
 
@@ -3391,22 +3394,17 @@ static void
 regen_list_regen (struct _mail_msg *mm)
 {
 	struct _regen_list_msg *m = (struct _regen_list_msg *)mm;
-	GPtrArray *uids, *uidnew, *showuids, *searchuids = NULL;
 	CamelMessageInfo *info;
+	CamelMessageIterator *iter;
 	int i;
+	char *expr = NULL;
 	
 	if (m->folder != m->ml->folder)
 		return;
 
 	e_profile_event_emit("list.getuids", m->folder->full_name, 0);
 
-	/* if we have hidedeleted on, use a search to find it out, merge with existing search if set */
-	if (!camel_folder_has_search_capability(m->folder)) {
-		/* if we have no search capability, dont let search or hide deleted work */
-		uids = camel_folder_get_uids(m->folder);
-	} else if (m->hidedel) {
-		char *expr;
-
+	if (m->hidedel) {
 		if (m->hidejunk) {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 92);
@@ -3420,28 +3418,23 @@ regen_list_regen (struct _mail_msg *mm)
 			} else
 				expr = "(match-all (not (system-flag \"deleted\")))";
 		}
-		searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &mm->ex);
 	} else {
-		char *expr;
-
 		if (m->hidejunk) {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 64);
 				sprintf(expr, "(and (match-all (not (system-flag \"junk\")))\n %s)", m->search);
 			} else
 				expr = "(match-all (not (system-flag \"junk\")))";
-			searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &mm->ex);
 		} else {
-			if (m->search)
-				searchuids = uids = camel_folder_search_by_expression (m->folder, m->search, &mm->ex);
-			else
-				uids = camel_folder_get_uids (m->folder);
+			expr = m->search;
 		}
 	}
-	
+
+	iter = camel_folder_search(m->folder, expr, NULL, &mm->ex);
 	if (camel_exception_is_set (&mm->ex))
 		return;
-	
+// dunno whats going on with hiding
+#if 0	
 	/* perform hiding */
 	if (m->hideexpr && camel_folder_has_search_capability(m->folder)) {
 		uidnew = camel_folder_search_by_expression (m->ml->folder, m->hideexpr, &mm->ex);
@@ -3468,7 +3461,10 @@ regen_list_regen (struct _mail_msg *mm)
 			camel_folder_search_free (m->ml->folder, uidnew);
 		}
 	}
-	
+#endif
+
+// afik this was never used anyway
+#if 0
 	MESSAGE_LIST_LOCK(m->ml, hide_lock);
 	
 	m->ml->hide_unhidden = uids->len;
@@ -3518,35 +3514,38 @@ regen_list_regen (struct _mail_msg *mm)
 	}
 	
 	MESSAGE_LIST_UNLOCK(m->ml, hide_lock);
+#endif
 
 	e_profile_event_emit("list.threaduids", m->folder->full_name, 0);
 	
 	if (!camel_operation_cancel_check(mm->cancel)) {
 		/* update/build a new tree */
 		if (m->dotree) {
+			GPtrArray *showuids = g_ptr_array_new();
+#warning "Fixme, make thread messages use iterators or at least accept messageinfo array"
+			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter)))
+				g_ptr_array_add(showuids, g_strdup(camel_message_info_uid(info)));
+
 			if (m->tree)
 				camel_folder_thread_messages_apply (m->tree, showuids);
 			else
 				m->tree = camel_folder_thread_messages_new (m->folder, showuids, m->thread_subject);
+
+			for (i=0;i<showuids->len;i++)
+				g_free(showuids->pdata[i]);
+			g_ptr_array_free(showuids, TRUE);
 		} else {
-			m->summary = g_ptr_array_new ();
-			for (i = 0; i < showuids->len; i++) {
-				info = camel_folder_get_message_info (m->folder, showuids->pdata[i]);
-				if (info)
-					g_ptr_array_add(m->summary, info);
+			m->summary = g_ptr_array_new();
+			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter))) {
+				camel_message_info_ref(info);
+				g_ptr_array_add(m->summary, info);
 			}
 		}
 		
 		m->complete = TRUE;
 	}
 
-	if (uidnew)
-		g_ptr_array_free (uidnew, TRUE);
-
-	if (searchuids)
-		camel_folder_search_free (m->folder, searchuids);
-	else
-		camel_folder_free_uids (m->folder, uids);
+	camel_message_iterator_free(iter);
 }
 
 static void
@@ -3611,7 +3610,7 @@ regen_list_free (struct _mail_msg *mm)
 
 	if (m->summary) {
 		for (i = 0; i < m->summary->len; i++)
-			camel_folder_free_message_info (m->folder, m->summary->pdata[i]);
+			camel_message_info_free(m->summary->pdata[i]);
 		g_ptr_array_free (m->summary, TRUE);
 	}
 	

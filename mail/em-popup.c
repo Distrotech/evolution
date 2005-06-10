@@ -242,7 +242,7 @@ em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char
 		    && tmp[0] != 0)
 			mask &= ~EM_POPUP_SELECT_MAILING_LIST;
 
-		camel_folder_free_message_info(folder, info);
+		camel_message_info_free(info);
 	}
 
 	t->target.mask = mask;

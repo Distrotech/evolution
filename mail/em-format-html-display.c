@@ -976,16 +976,22 @@ static void efhd_message_prefix(EMFormat *emf, CamelStream *stream, CamelMimePar
 	char due_date[128];
 	struct tm due_tm;
 	char *iconpath;
+	CamelMessageInfo *mi;
 
 	if (emf->folder == NULL || emf->uid == NULL
-	    || (flag = camel_folder_get_message_user_tag(emf->folder, emf->uid, "follow-up")) == NULL
-	    || flag[0] == 0)
+	    || (mi = camel_folder_get_message_info(emf->folder, emf->uid)) == NULL)
 		return;
+
+	flag = camel_message_info_user_tag(mi, "follow-up");
+	if (flag == NULL || flag[0] == 0) {
+		camel_message_info_free(mi);
+		return;
+	}
 
 	/* header displayed for message-flags in mail display */
 	camel_stream_printf(stream, "<table border=1 width=\"100%%\" cellspacing=2 cellpadding=2><tr>");
 
-	comp = camel_folder_get_message_user_tag(emf->folder, emf->uid, "completed-on");
+	comp = camel_message_info_user_tag(mi, "completed-on");
 	iconpath = e_icon_factory_get_icon_filename (comp && comp[0] ? "stock_flag-for-followup-done" : "stock_flag-for-followup", E_ICON_SIZE_MENU);
 	if (iconpath) {
 		CamelMimePart *iconpart;
@@ -1010,7 +1016,7 @@ static void efhd_message_prefix(EMFormat *emf, CamelStream *stream, CamelMimePar
 		localtime_r(&date, &due_tm);
 		e_utf8_strftime_fix_am_pm(due_date, sizeof (due_date), _("Completed on %B %d, %Y, %l:%M %p"), &due_tm);
 		camel_stream_printf(stream, "%s, %s", flag, due_date);
-	} else if ((due = camel_folder_get_message_user_tag(emf->folder, emf->uid, "due-by")) != NULL && due[0]) {
+	} else if ((due = camel_message_info_user_tag(mi, "due-by")) != NULL && due[0]) {
 		time_t now;
 
 		date = camel_header_decode_date(due, NULL);
@@ -1026,6 +1032,7 @@ static void efhd_message_prefix(EMFormat *emf, CamelStream *stream, CamelMimePar
 	}
 
 	camel_stream_printf(stream, "</td></tr></table>");
+	camel_message_info_free(mi);
 }
 
 /* TODO: if these aren't going to do anything should remove */

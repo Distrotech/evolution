@@ -1720,6 +1720,10 @@ em_migrate_folder(EMMigrateSession *session, const char *dirname, const char *fu
 			cp (src->str, dest->str, FALSE, CP_OVERWRITE);
 		}
 	} else {
+#warning "this is totally @#$@'d up code.  we can't go opening old folders with potentially different implementations, wtf were you thinking jeff"
+		goto fatal;
+#if 0
+
 		guint32 flags = CAMEL_STORE_FOLDER_CREATE;
 
 		if (!(local_store = camel_session_get_store ((CamelSession *) session, uri, ex))
@@ -1734,7 +1738,7 @@ em_migrate_folder(EMMigrateSession *session, const char *dirname, const char *fu
 			camel_object_meta_set (new_folder, "evolution:thread_list", thread_list ? "1" : "0");
 			camel_object_state_write (new_folder);
 		}
-		
+
 		uids = camel_folder_get_uids (old_folder);
 		for (i = 0; i < uids->len; i++) {
 			CamelMimeMessage *message;
@@ -1763,6 +1767,7 @@ em_migrate_folder(EMMigrateSession *session, const char *dirname, const char *fu
 		
 		if (camel_exception_is_set (ex))
 			goto fatal;
+#endif
 	}
 	res = 0;
 fatal:

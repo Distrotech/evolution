@@ -344,22 +344,23 @@ update_1folder(struct _folder_info *mfi, int new, CamelFolderInfo *info)
 
 	folder = mfi->folder;
 	if (folder) {
+		int total;
+
+		camel_object_get(folder, NULL, CAMEL_FOLDER_TOTAL, &total, CAMEL_FOLDER_UNREAD, &unread, CAMEL_FOLDER_DELETED, &deleted, 0);
+
 		d(printf("update 1 folder '%s'\n", folder->full_name));
 		if ((count_trash && (CAMEL_IS_VTRASH_FOLDER (folder)))
 		    || folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX)
 		    || (count_sent && folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_SENT))) {
 			d(printf(" total count\n"));
-			unread = camel_folder_get_message_count (folder);
+			unread = total;
 			if (folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX)) {
-				if ((deleted = camel_folder_get_deleted_message_count (folder)) > 0)
-					unread -= deleted;
+				unread -= deleted;
 			}
 		} else {
 			d(printf(" unread count\n"));
 			if (info)
 				unread = info->unread;
-			else
-				unread = camel_folder_get_unread_message_count (folder);
 		}
 	} else if (info)
 		unread = info->unread;

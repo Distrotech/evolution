@@ -779,6 +779,8 @@ tree_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData 
 		gtk_selection_data_set(selection, drag_atoms[info], 8, uri, strlen (uri) + 1);
 		break;
 	case DND_DRAG_TYPE_TEXT_URI_LIST:
+#warning "fix this"
+#if 0
 		/* dragging to nautilus or something, probably */
 		if ((folder = camel_store_get_folder(store, full_name, 0, &ex))) {
 			GPtrArray *uids = camel_folder_get_uids(folder);
@@ -787,6 +789,7 @@ tree_drag_data_get(GtkWidget *widget, GdkDragContext *context, GtkSelectionData 
 			camel_folder_free_uids(folder, uids);
 			camel_object_unref(folder);
 		}
+#endif
 		break;
 	default:
 		abort();
@@ -843,7 +846,8 @@ emft_drop_folder_rec (CamelStore *store, CamelFolderInfo *fi, const char *parent
 			
 			if (camel_store_supports_subscriptions (store))
 				camel_store_subscribe_folder (store, new_name, ex);
-			
+#warning "fix this"
+#if 0
 			/* copy the folder to the new location */
 			if ((dest = camel_store_get_folder (store, new_name, 0, ex))) {
 				GPtrArray *uids;
@@ -854,6 +858,7 @@ emft_drop_folder_rec (CamelStore *store, CamelFolderInfo *fi, const char *parent
 				
 				camel_object_unref (dest);
 			}
+#endif
 		}
 		
 		camel_object_unref (src);
