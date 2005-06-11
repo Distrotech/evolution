@@ -1,3 +1,18 @@
+2005-06-11  Not Zed  <NotZed@Ximian.com>
+
+	* message-list.c (message_list_copy): converted to use iterator.
+
+	* em-folder-view.c (em_folder_view_mark_selected): convert to
+	using iterator.
+	(emfv_set_label): "
+	(emfv_popup_add_sender): fix a messageinfo leak.
+	(emfv_list_key_press): convert to iterator.
+
+	* message-list.c (regen_list_regen): optimise hide hunk/deleted by
+	not performing it using a search.
+	(message_list_get_selected_iter): added new interface to get
+	selected messages as an iterator.
+
 2005-06-10  Not Zed  <NotZed@Ximian.com>
 
 	* mail-ops.c (mail_send_message): take the source messageinfo

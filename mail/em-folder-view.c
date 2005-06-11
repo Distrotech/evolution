@@ -364,26 +364,24 @@ GtkWidget *em_folder_view_new(void)
 int
 em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 {
-#warning "FIXME: messageinfo iterator?  uid iterator?"
-	return 0;
-#if 0
-	GPtrArray *uids;
-	int i;
+	CamelMessageIterator *iter;
+	const CamelMessageInfo *info;
+	int i = 0;
 
 	if (emfv->folder == NULL)
 		return 0;
 
-	uids = message_list_get_selected(emfv->list);
 	camel_folder_freeze(emfv->folder);
 
-	for (i=0; i<uids->len; i++)
-		camel_folder_set_message_flags(emfv->folder, uids->pdata[i], mask, set);
+	iter = message_list_get_selected_iter(emfv->list);
+	while ((info = camel_message_iterator_next(iter, NULL)))
+		if (camel_message_info_set_flags((CamelMessageInfo *)info, mask, set))
+			i++;
+	camel_message_iterator_free(iter);
 
-	message_list_free_uids(emfv->list, uids);
 	camel_folder_thaw(emfv->folder);
 	
 	return i;
-#endif
 }
 
 /* should this be elsewhere/take a uid list? */
@@ -392,6 +390,8 @@ em_folder_view_open_selected(EMFolderView *emfv)
 {
 	GPtrArray *uids, *views;
 	int i = 0;
+
+	/* TODO: this needs some cleaning up. */
 	
 	uids = message_list_get_selected(emfv->list);
 
@@ -951,16 +951,12 @@ emfv_popup_copy(EPopup *ep, EPopupItem *pitem, void *data)
 static void
 emfv_set_label(EMFolderView *emfv, const char *label)
 {
-#if 0
-#warning "messagelist info iterator"
-	GPtrArray *uids = message_list_get_selected(emfv->list);
-	int i;
+	CamelMessageIterator *iter = message_list_get_selected_iter(emfv->list);
+	const CamelMessageInfo *info;
 
-	for (i=0;i<uids->len;i++)
-		camel_folder_set_message_user_tag(emfv->folder, uids->pdata[i], "label", label);
-
-	message_list_free_uids(emfv->list, uids);
-#endif
+	while ((info = camel_message_iterator_next(iter, NULL)))
+		camel_message_info_set_user_tag((CamelMessageInfo *)info, "label", label);
+	camel_message_iterator_free(iter);
 }
 
 static void
@@ -993,6 +989,8 @@ emfv_popup_add_sender(EPopup *ep, EPopupItem *pitem, void *data)
 		em_utils_add_address((GtkWidget *)emfv, addr);
 
 	em_utils_uids_free(uids);
+	if (info)
+		camel_message_info_free(info);
 }
 
 static void
@@ -2307,8 +2305,8 @@ emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent 
 static int
 emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderView *emfv)
 {
-	GPtrArray *uids;
-	int i;
+	CamelMessageIterator *iter;
+	const CamelMessageInfo *info;
 	guint32 flags;
 
 	if ((ev->key.state & GDK_CONTROL_MASK) != 0)
@@ -2321,22 +2319,18 @@ emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev,
 		em_folder_view_open_selected(emfv);
 		break;
 	case '!':
-#warning "FIXME: messagelist iterator"
-#if 0
-		uids = message_list_get_selected(emfv->list);
-
 		camel_folder_freeze(emfv->folder);
-		for (i = 0; i < uids->len; i++) {
-			flags = camel_folder_get_message_flags(emfv->folder, uids->pdata[i]) ^ CAMEL_MESSAGE_FLAGGED;
+
+		iter = message_list_get_selected_iter(emfv->list);
+		while ((info = camel_message_iterator_next(iter, NULL))) {
+			flags = camel_message_info_flags(info) ^ CAMEL_MESSAGE_FLAGGED;
 			if (flags & CAMEL_MESSAGE_FLAGGED)
 				flags &= ~CAMEL_MESSAGE_DELETED;
-			camel_folder_set_message_flags(emfv->folder, uids->pdata[i],
-						       CAMEL_MESSAGE_FLAGGED|CAMEL_MESSAGE_DELETED, flags);
+			camel_message_info_set_flags((CamelMessageInfo *)info, CAMEL_MESSAGE_FLAGGED|CAMEL_MESSAGE_DELETED, flags);
 		}
-		camel_folder_thaw(emfv->folder);
+		camel_message_iterator_free(iter);
 
-		message_list_free_uids(emfv->list, uids);
-#endif
+		camel_folder_thaw(emfv->folder);
 		break;
 	default:
 		return FALSE;

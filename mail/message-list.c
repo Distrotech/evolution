@@ -780,20 +780,18 @@ message_list_copy(MessageList *ml, gboolean cut)
 	uids = message_list_get_selected(ml);
 
 	if (uids->len > 0) {
-#warning "fix me, iterators?"
-#if 0
+		/* not the most efficient, but all this code should use iterators anyway */
 		if (cut) {
-			int i;
+			CamelMessageIterator *iter = camel_message_iterator_uids_new(ml->folder, uids, FALSE);
+			const CamelMessageInfo *info;
 
 			camel_folder_freeze(ml->folder);
-			for (i=0;i<uids->len;i++)
-				camel_folder_set_message_flags(ml->folder, uids->pdata[i],
-							       CAMEL_MESSAGE_SEEN | CAMEL_MESSAGE_DELETED,
-							       CAMEL_MESSAGE_SEEN | CAMEL_MESSAGE_DELETED);
-
+			while ((info = camel_message_iterator_next(iter, NULL)))
+				camel_message_info_set_flags((CamelMessageInfo *)info, CAMEL_MESSAGE_SEEN | CAMEL_MESSAGE_DELETED, ~0);
 			camel_folder_thaw(ml->folder);
+
+			camel_message_iterator_free(iter);
 		}
-#endif
 		p->clipboard.uids = uids;
 		p->clipboard.folder = ml->folder;
 		camel_object_ref(p->clipboard.folder);
@@ -3041,6 +3039,35 @@ message_list_get_selected(MessageList *ml)
 	return data.uids;
 }
 
+static void
+ml_getselectedinfo_cb(ETreePath path, void *user_data)
+{
+	struct _ml_selected_data *data = user_data;
+	CamelMessageInfo *info;
+
+	if (e_tree_model_node_is_root (data->ml->model, path))
+		return;
+
+	info = get_message_info(data->ml, path);
+	g_ptr_array_add(data->uids, info);
+	camel_message_info_ref(info);
+}
+
+/* We already have all of the messageinfo's in memory, more efficient
+   to just get an array of those rather than copying them to uids,
+   then looking up the info's later anyway ... and if it turns out we
+   dont keep everything in memory at some point, this interface
+   doesn't need to change */
+
+CamelMessageIterator *message_list_get_selected_iter(MessageList *ml)
+{
+	struct _ml_selected_data data = { ml, g_ptr_array_new()	};
+
+	e_tree_selected_path_foreach(ml->tree, ml_getselectedinfo_cb, &data);
+
+	return camel_message_iterator_infos_new(data.uids, TRUE);
+}
+
 void
 message_list_set_selected(MessageList *ml, GPtrArray *uids)
 {
@@ -3396,41 +3423,21 @@ regen_list_regen (struct _mail_msg *mm)
 	struct _regen_list_msg *m = (struct _regen_list_msg *)mm;
 	CamelMessageInfo *info;
 	CamelMessageIterator *iter;
+	guint32 hidemask = 0;
 	int i;
-	char *expr = NULL;
 	
 	if (m->folder != m->ml->folder)
 		return;
 
 	e_profile_event_emit("list.getuids", m->folder->full_name, 0);
 
-	if (m->hidedel) {
-		if (m->hidejunk) {
-			if (m->search) {
-				expr = alloca(strlen(m->search) + 92);
-				sprintf(expr, "(and (match-all (and (not (system-flag \"deleted\")) (not (system-flag \"junk\"))))\n %s)", m->search);
-			} else
-				expr = "(match-all (and (not (system-flag \"deleted\")) (not (system-flag \"junk\"))))";
-		} else {
-			if (m->search) {
-				expr = alloca(strlen(m->search) + 64);
-				sprintf(expr, "(and (match-all (not (system-flag \"deleted\")))\n %s)", m->search);
-			} else
-				expr = "(match-all (not (system-flag \"deleted\")))";
-		}
-	} else {
-		if (m->hidejunk) {
-			if (m->search) {
-				expr = alloca(strlen(m->search) + 64);
-				sprintf(expr, "(and (match-all (not (system-flag \"junk\")))\n %s)", m->search);
-			} else
-				expr = "(match-all (not (system-flag \"junk\")))";
-		} else {
-			expr = m->search;
-		}
-	}
+	/* optimise hide junk/deleted so we dont need do it in a search */
+	if (m->hidedel)
+		hidemask |= CAMEL_MESSAGE_DELETED;
+	if (m->hidejunk)
+		hidemask |= CAMEL_MESSAGE_JUNK;
 
-	iter = camel_folder_search(m->folder, expr, NULL, &mm->ex);
+	iter = camel_folder_search(m->folder, m->search, NULL, &mm->ex);
 	if (camel_exception_is_set (&mm->ex))
 		return;
 // dunno whats going on with hiding
@@ -3522,9 +3529,10 @@ regen_list_regen (struct _mail_msg *mm)
 		/* update/build a new tree */
 		if (m->dotree) {
 			GPtrArray *showuids = g_ptr_array_new();
-#warning "Fixme, make thread messages use iterators or at least accept messageinfo array"
-			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter)))
-				g_ptr_array_add(showuids, g_strdup(camel_message_info_uid(info)));
+#warning "Fixme, make thread messages use iterators or at least accept messageinfo array?"
+			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL)))
+				if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0)
+					g_ptr_array_add(showuids, g_strdup(camel_message_info_uid(info)));
 
 			if (m->tree)
 				camel_folder_thread_messages_apply (m->tree, showuids);
@@ -3536,9 +3544,11 @@ regen_list_regen (struct _mail_msg *mm)
 			g_ptr_array_free(showuids, TRUE);
 		} else {
 			m->summary = g_ptr_array_new();
-			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter))) {
-				camel_message_info_ref(info);
-				g_ptr_array_add(m->summary, info);
+			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL))) {
+				if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0) {
+					camel_message_info_ref(info);
+					g_ptr_array_add(m->summary, info);
+				}
 			}
 		}
 		

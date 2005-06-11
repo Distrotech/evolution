@@ -717,7 +717,8 @@ send_queue_send(struct _mail_msg *mm)
 	/* NB: This code somewhat abuses the 'exception' stuff.  Apart from fatal problems, it is also
 	   used as a mechanism to accumualte warning messages and present them back to the user. */
 
-	while ((mi = camel_message_iterator_next(iter))) {
+	// FIXME: exception on iterator
+	while ((mi = camel_message_iterator_next(iter, NULL))) {
 		int pc = (100 * i) / total;
 
 		if (camel_message_info_flags(mi) & CAMEL_MESSAGE_DELETED)
@@ -1357,7 +1358,6 @@ remove_folder_get (struct _mail_msg *mm)
 	CamelFolder *folder;
 	CamelMessageIterator *iter;
 	const CamelMessageInfo *mi;
-	int i;
 	
 	m->removed = FALSE;
 	
@@ -1370,7 +1370,7 @@ remove_folder_get (struct _mail_msg *mm)
 	/* Delete every message in this folder, then expunge it */
 	camel_folder_freeze(folder);
 	iter = camel_folder_search(folder, NULL, NULL, NULL);
-	while ((mi = camel_message_iterator_next(iter)))
+	while ((mi = camel_message_iterator_next(iter, NULL)))
 		camel_message_info_set_flags((CamelMessageInfo *)mi, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, ~0);
 	camel_message_iterator_free(iter);
 	camel_folder_sync (folder, TRUE, NULL);
