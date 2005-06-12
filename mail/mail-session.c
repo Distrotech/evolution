@@ -46,6 +46,7 @@
 
 #include "em-filter-context.h"
 #include "em-filter-rule.h"
+#include "em-utils.h"
 #include "mail-component.h"
 #include "mail-config.h"
 #include "mail-session.h"
@@ -88,6 +89,9 @@ typedef struct _MailSessionClass {
 
 static CamelSessionClass *ms_parent_class;
 
+static CamelService *ms_get_service(CamelSession *session, const char *uri, CamelProviderType type, CamelException *ex);
+static char *ms_get_uri(CamelSession *session, CamelService *service);
+
 static char *get_password(CamelSession *session, CamelService *service, const char *domain, const char *prompt, const char *item, guint32 flags, CamelException *ex);
 static void forget_password(CamelSession *session, CamelService *service, const char *domain, const char *item, CamelException *ex);
 static gboolean alert_user(CamelSession *session, CamelSessionAlertType type, const char *prompt, gboolean cancel);
@@ -118,8 +122,10 @@ static void
 class_init (MailSessionClass *mail_session_class)
 {
 	CamelSessionClass *camel_session_class = CAMEL_SESSION_CLASS (mail_session_class);
+
+	camel_session_class->get_service = ms_get_service;
+	camel_session_class->get_uri = ms_get_uri;
 	
-	/* virtual method override */
 	camel_session_class->get_password = get_password;
 	camel_session_class->forget_password = forget_password;
 	camel_session_class->alert_user = alert_user;
@@ -151,6 +157,30 @@ mail_session_get_type (void)
 	return mail_session_type;
 }
 
+static CamelService *ms_get_service(CamelSession *session, const char *uri, CamelProviderType type, CamelException *ex)
+{
+	char *tmp;
+	CamelService *service;
+
+	/* FIXME: this isn't mt-safe */
+	tmp = em_uri_to_camel(uri);
+	service = ms_parent_class->get_service(session, tmp, type, ex);
+	g_free(tmp);
+
+	return service;
+}
+
+static char *ms_get_uri(CamelSession *session, CamelService *service)
+{
+	char *tmp, *uri;
+
+	tmp = ms_parent_class->get_uri(session, service);
+	/* FIXME: this isn't mt-safe */
+	uri = em_uri_from_camel(tmp);
+	g_free(tmp);
+
+	return uri;
+}
 
 static char *
 make_key (CamelService *service, const char *item)
