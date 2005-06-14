@@ -702,7 +702,7 @@ send_queue_send(struct _mail_msg *mm)
 
 	d(printf("sending queue\n"));
 
-	iter = camel_folder_search(m->queue, NULL, NULL, &mm->ex);
+	iter = camel_folder_search(m->queue, NULL, NULL, NULL, &mm->ex);
 	if (iter == NULL)
 		return;
 
@@ -1369,7 +1369,9 @@ remove_folder_get (struct _mail_msg *mm)
 	
 	/* Delete every message in this folder, then expunge it */
 	camel_folder_freeze(folder);
-	iter = camel_folder_search(folder, NULL, NULL, NULL);
+	// FIXME: we need a folder-delete operation, so it doesn't try to uselessly
+	// sync up all the sub-indices along the way ...
+	iter = camel_folder_search(folder, NULL, NULL, NULL, NULL);
 	while ((mi = camel_message_iterator_next(iter, NULL)))
 		camel_message_info_set_flags((CamelMessageInfo *)mi, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, ~0);
 	camel_message_iterator_free(iter);

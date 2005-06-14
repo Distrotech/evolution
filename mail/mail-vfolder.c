@@ -316,7 +316,10 @@ vfolder_adduri(const char *uri, GList *folders, int remove)
 {
 	struct _adduri_msg *m;
 	int id;
-	
+
+	return;
+#warning "Vfolders are off"	
+
 	m = mail_msg_new(&vfolder_adduri_op, NULL, sizeof (*m));
 	m->folders = folders;
 	m->uri = g_strdup(uri);
@@ -440,6 +443,9 @@ mail_vfolder_add_uri(CamelStore *store, const char *curi, int remove)
 	int remote = (((CamelService *)store)->provider->flags & CAMEL_PROVIDER_IS_REMOTE) != 0;
 	int is_ignore;
 	char *uri;
+#warning "Vfolders are off"
+	return;
+
 
 	uri = em_uri_from_camel(curi);
 	if (context == NULL || uri_is_spethal(store, curi)) {
@@ -535,6 +541,9 @@ mail_vfolder_delete_uri(CamelStore *store, const char *curi)
 	char *uri;
 	GList *link;
 
+	return;
+#warning "Vfolders are off"
+
 	if (context == NULL || uri_is_spethal(store, curi))
 		return;
 
@@ -611,6 +620,9 @@ mail_vfolder_rename_uri(CamelStore *store, const char *cfrom, const char *cto)
 	CamelVeeFolder *vf;
 	int changed = 0;
 	char *from, *to;
+
+	return;
+#warning "Vfolders are off"
 
 	d(printf("vfolder rename uri: %s to %s\n", from, to));
 

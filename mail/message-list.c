@@ -3437,7 +3437,7 @@ regen_list_regen (struct _mail_msg *mm)
 	if (m->hidejunk)
 		hidemask |= CAMEL_MESSAGE_JUNK;
 
-	iter = camel_folder_search(m->folder, m->search, NULL, &mm->ex);
+	iter = camel_folder_search(m->folder, NULL, m->search, NULL, &mm->ex);
 	if (camel_exception_is_set (&mm->ex))
 		return;
 // dunno whats going on with hiding
