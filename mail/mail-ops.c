@@ -1607,7 +1607,7 @@ static void expunge_folder_expunge(struct _mail_msg *mm)
 {
 	struct _sync_folder_msg *m = (struct _sync_folder_msg *)mm;
 
-	camel_folder_expunge(m->folder, &mm->ex);
+	camel_folder_sync(m->folder, TRUE, &mm->ex);
 }
 
 /* we just use the sync stuff where we can, since it would be the same */
@@ -1618,6 +1618,7 @@ static struct _mail_msg_op expunge_folder_op = {
 	sync_folder_free,
 };
 
+#warning "remove this, its redundant"
 void
 mail_expunge_folder(CamelFolder *folder, void (*done) (CamelFolder *folder, void *data), void *data)
 {
@@ -1672,7 +1673,7 @@ static void empty_trash_empty(struct _mail_msg *mm)
 	}
 	
 	if (trash)
-		camel_folder_expunge (trash, &mm->ex);
+		camel_folder_expunge(trash, TRUE, &mm->ex);
 	
 	camel_object_unref (trash);
 }
