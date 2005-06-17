@@ -3524,37 +3524,44 @@ regen_list_regen (struct _mail_msg *mm)
 #endif
 
 	e_profile_event_emit("list.threaduids", m->folder->full_name, 0);
-	
-	if (!camel_operation_cancel_check(mm->cancel)) {
-		/* update/build a new tree */
-		if (m->dotree) {
-			GPtrArray *showuids = g_ptr_array_new();
+
+	/* This is somewhat shitty, but works for now, we do a cancel check every 256
+	   ops to see if we need to abort processing, should be a good compromise
+	   between over head and responsiveness */
+
+	/* update/build a new tree */
+	if (m->dotree) {
+		GPtrArray *showuids = g_ptr_array_new();
 #warning "Fixme, make thread messages use iterators or at least accept messageinfo array?"
-			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL)))
-				if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0)
-					g_ptr_array_add(showuids, g_strdup(camel_message_info_uid(info)));
+		while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL)))
+			if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0) {
+				g_ptr_array_add(showuids, g_strdup(camel_message_info_uid(info)));
+				if ((showuids->len & 0xff) == 0xff && camel_operation_cancel_check(mm->cancel))
+					goto cancelled;
+			}
 
-			if (m->tree)
-				camel_folder_thread_messages_apply (m->tree, showuids);
-			else
-				m->tree = camel_folder_thread_messages_new (m->folder, showuids, m->thread_subject);
+		if (m->tree)
+			camel_folder_thread_messages_apply (m->tree, showuids);
+		else
+			m->tree = camel_folder_thread_messages_new (m->folder, showuids, m->thread_subject);
 
-			for (i=0;i<showuids->len;i++)
-				g_free(showuids->pdata[i]);
-			g_ptr_array_free(showuids, TRUE);
-		} else {
-			m->summary = g_ptr_array_new();
-			while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL))) {
-				if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0) {
-					camel_message_info_ref(info);
-					g_ptr_array_add(m->summary, info);
-				}
+		for (i=0;i<showuids->len;i++)
+			g_free(showuids->pdata[i]);
+		g_ptr_array_free(showuids, TRUE);
+	} else {
+		m->summary = g_ptr_array_new();
+		while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL))) {
+			if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0) {
+				camel_message_info_ref(info);
+				g_ptr_array_add(m->summary, info);
+				if ((m->summary->len & 0xff) == 0xf && camel_operation_cancel_check(mm->cancel))
+					goto cancelled;
+
 			}
 		}
-		
-		m->complete = TRUE;
 	}
-
+cancelled:
+	m->complete = TRUE;
 	camel_message_iterator_free(iter);
 }
 
@@ -3654,7 +3661,7 @@ ml_regen_timeout(struct _regen_list_msg *m)
 
 	m->ml->regen = g_list_prepend(m->ml->regen, m);
 	/* TODO: we should manage our own thread stuff, would make cancelling outstanding stuff easier */
-	e_thread_put (mail_thread_queued, (EMsg *)m);
+	e_thread_put (mail_thread_new, (EMsg *)m);
 
 	m->ml->regen_timeout_msg = NULL;
 	m->ml->regen_timeout_id = 0;
