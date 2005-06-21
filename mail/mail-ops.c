@@ -74,12 +74,13 @@ struct _filter_mail_msg {
 	struct _mail_msg msg;
 	
 	CamelFolder *source_folder; /* where they come from */
-	GPtrArray *source_uids;	/* uids to copy, or NULL == copy all */
-	CamelUIDCache *cache;  /* UID cache if we are to cache the uids, NULL otherwise */
+	CamelMessageIterator *iter; /* and what they are */
 	CamelOperation *cancel;
 	CamelFilterDriver *driver;
-	int delete;		/* delete messages after filtering them? */
 	CamelFolder *destination; /* default destination for any messages, NULL for none */
+
+	int delete:1;		/* delete messages after filtering them? */
+	int expunge:1;		/* expunge messages afterwards? */
 };
 
 /* since fetching also filters, we subclass the data here */
@@ -106,45 +107,30 @@ em_filter_folder_element_describe (struct _mail_msg *mm, int complete)
 static void
 em_filter_folder_element_filter (struct _mail_msg *mm)
 {
-#warning "fix this"
-#if 0
 	struct _filter_mail_msg *m = (struct _filter_mail_msg *)mm;
 	CamelFolder *folder;
-	GPtrArray *uids, *folder_uids = NULL;
+
+	g_assert(m->source_folder);
 	
 	if (m->cancel)
 		camel_operation_register (m->cancel);
 	
 	folder = m->source_folder;
-	
-	if (folder == NULL || camel_folder_get_message_count (folder) == 0) {
-		if (m->cancel)
-			camel_operation_unregister (m->cancel);
-		return;
-	}
-	
 	if (m->destination) {
 		camel_folder_freeze (m->destination);
 		camel_filter_driver_set_default_folder (m->driver, m->destination);
 	}
 	
-	camel_folder_freeze (folder);
-	
-	if (m->source_uids)
-		uids = m->source_uids;
-	else
-		folder_uids = uids = camel_folder_get_uids (folder);
-	
-	camel_filter_driver_filter_folder (m->driver, folder, m->cache, uids, m->delete, &mm->ex);
-	camel_filter_driver_flush (m->driver, &mm->ex);
-	
-	if (folder_uids)
-		camel_folder_free_uids (folder, folder_uids);
-	
-	/* sync our source folder */
-	if (!m->cache)
-		camel_folder_sync (folder, FALSE, camel_exception_is_set (&mm->ex) ? NULL : &mm->ex);
-	camel_folder_thaw (folder);
+	if (m->iter == NULL)
+		m->iter = camel_folder_search(folder, NULL, NULL, NULL, &mm->ex);
+
+	if (m->iter) {
+		camel_folder_freeze(folder);
+		camel_filter_driver_filter_folder(m->driver, folder, m->iter, m->delete, &mm->ex);
+		camel_filter_driver_flush(m->driver, &mm->ex);
+		camel_folder_sync(folder, m->expunge, camel_exception_is_set (&mm->ex) ? NULL : &mm->ex);
+		camel_folder_thaw(folder);
+	}
 	
 	if (m->destination)
 		camel_folder_thaw (m->destination);
@@ -156,7 +142,6 @@ em_filter_folder_element_filter (struct _mail_msg *mm)
 	
 	if (m->cancel)
 		camel_operation_unregister (m->cancel);
-#endif
 }
 
 static void
@@ -172,8 +157,8 @@ em_filter_folder_element_free (struct _mail_msg *mm)
 	if (m->source_folder)
 		camel_object_unref (m->source_folder);
 	
-	if (m->source_uids)
-		em_utils_uids_free (m->source_uids);
+	if (m->iter)
+		camel_message_iterator_free(m->iter);
 	
 	if (m->cancel)
 		camel_operation_unref (m->cancel);
@@ -204,8 +189,7 @@ mail_filter_folder (CamelFolder *source_folder, GPtrArray *uids,
 	m = mail_msg_new (&em_filter_folder_element_op, NULL, sizeof (*m));
 	m->source_folder = source_folder;
 	camel_object_ref (source_folder);
-	m->source_uids = uids;
-	m->cache = NULL;
+	m->iter = camel_message_iterator_uids_new(source_folder, uids, TRUE);
 	m->delete = FALSE;
 	if (cancel) {
 		m->cancel = cancel;
@@ -238,27 +222,6 @@ mail_filter_junk (CamelFolder *folder, GPtrArray *uids)
 
 /* ********************************************************************** */
 
-/* Temporary workaround for various issues. Gone before 0.11 */
-static char *
-uid_cachename_hack (CamelStore *store)
-{
-	CamelURL *url = CAMEL_SERVICE (store)->url;
-	char *encoded_url, *filename;
-	const char *evolution_dir;
-	
-	encoded_url = g_strdup_printf ("%s%s%s@%s", url->user,
-				       url->authmech ? ";auth=" : "",
-				       url->authmech ? url->authmech : "",
-				       url->host);
-	e_filename_make_safe (encoded_url);
-	
-	evolution_dir = mail_component_peek_base_directory (mail_component_peek ());
-	filename = g_build_filename (evolution_dir, "mail", "pop", encoded_url, "uid-cache", NULL);
-	g_free (encoded_url);
-	
-	return filename;
-}
-
 static char *
 fetch_mail_describe (struct _mail_msg *mm, int complete)
 {
@@ -268,11 +231,8 @@ fetch_mail_describe (struct _mail_msg *mm, int complete)
 static void
 fetch_mail_fetch (struct _mail_msg *mm)
 {
-#warning "fix this"
-#if 0
 	struct _fetch_mail_msg *m = (struct _fetch_mail_msg *)mm;
 	struct _filter_mail_msg *fm = (struct _filter_mail_msg *)mm;
-	int i;
 
 	if (m->cancel)
 		camel_operation_register (m->cancel);
@@ -300,62 +260,14 @@ fetch_mail_fetch (struct _mail_msg *mm)
 		CamelFolder *folder = fm->source_folder = mail_tool_get_inbox (m->source_uri, &mm->ex);
 		
 		if (folder) {
-			/* this handles 'keep on server' stuff, if we have any new uid's to copy
-			   across, we need to copy them to a new array 'cause of the way fetch_mail_free works */
-			CamelUIDCache *cache = NULL;
-			char *cachename;
-			
-			cachename = uid_cachename_hack (folder->parent_store);
-			cache = camel_uid_cache_new (cachename);
-			g_free (cachename);
-			
-			if (cache) {
-				GPtrArray *folder_uids, *cache_uids, *uids;
-				
-				folder_uids = camel_folder_get_uids (folder);
-				cache_uids = camel_uid_cache_get_new_uids (cache, folder_uids);
-				if (cache_uids) {
-					/* need to copy this, sigh */
-					fm->source_uids = uids = g_ptr_array_new ();
-					g_ptr_array_set_size (uids, cache_uids->len);
-					for (i = 0; i < cache_uids->len; i++)
-						uids->pdata[i] = g_strdup (cache_uids->pdata[i]);
-					camel_uid_cache_free_uids (cache_uids);
-					
-					fm->cache = cache;
-					em_filter_folder_element_filter (mm);
-					
-					/* need to uncancel so writes/etc. don't fail */
-					if (mm->ex.id == CAMEL_EXCEPTION_USER_CANCEL)
-						camel_operation_uncancel(NULL);
-
-					/* save the cache of uids that we've just downloaded */
-					camel_uid_cache_save (cache);
-				}
-
-				if (fm->delete && mm->ex.id == CAMEL_EXCEPTION_NONE) {
-					/* not keep on server - just delete all the actual messages on the server */
-					for (i=0;i<folder_uids->len;i++) {
-						d(printf("force delete uid '%s'\n", (char *)folder_uids->pdata[i]));
-						camel_folder_delete_message(folder, folder_uids->pdata[i]);
-					}
-				}
-
-				if (fm->delete || cache_uids) {
-					/* expunge messages (downloaded so far) */
-					camel_folder_sync(folder, fm->delete, NULL);
-				}
-
-				camel_uid_cache_destroy (cache);
-				camel_folder_free_uids (folder, folder_uids);
-			} else {
-				em_filter_folder_element_filter (mm);
-			}
+			fm->expunge = TRUE;
+			fm->delete = TRUE;
+			em_filter_folder_element_filter(mm);
 			
 			/* we unref the source folder here since we
 			   may now block in finalize (we try to
 			   disconnect cleanly) */
-			camel_object_unref (fm->source_folder);
+			camel_object_unref(fm->source_folder);
 			fm->source_folder = NULL;
 		}
 	}
@@ -370,7 +282,6 @@ fail:
 		camel_object_unref (fm->driver);
 		fm->driver = NULL;
 	}
-#endif
 }
 
 static void
@@ -415,7 +326,6 @@ mail_fetch_mail (const char *source, int keep, const char *type, CamelOperation 
 	fm = (struct _filter_mail_msg *)m;
 	m->source_uri = g_strdup (source);
 	fm->delete = !keep;
-	fm->cache = NULL;
 	if (cancel) {
 		m->cancel = cancel;
 		camel_operation_ref (cancel);
@@ -558,7 +468,7 @@ mail_send_message(CamelFolder *queue, const CamelMessageInfo *sourceinfo, const 
 	
 	if (driver) {
 		camel_filter_driver_filter_message (driver, message, info,
-						    NULL, NULL, NULL, "", ex);
+						    NULL, NULL, "", ex);
 		
 		if (camel_exception_is_set (ex)) {
 			if (camel_exception_get_id (ex) == CAMEL_EXCEPTION_USER_CANCEL)
@@ -1673,7 +1583,7 @@ static void empty_trash_empty(struct _mail_msg *mm)
 	}
 	
 	if (trash)
-		camel_folder_expunge(trash, TRUE, &mm->ex);
+		camel_folder_sync(trash, TRUE, &mm->ex);
 	
 	camel_object_unref (trash);
 }

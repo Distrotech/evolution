@@ -1,5 +1,11 @@
 2005-06-21  Not Zed  <NotZed@Ximian.com>
 
+	* mail-ops.c (em_filter_folder_element_filter): fix for
+	filter-driver changes.
+	(fetch_mail_fetch): same.  remove all the 'uidcache' rubbish.
+	(uid_cachename_hack): finally removed a 'gone before 0.11 (?)
+	function.
+
 	* em-format-html.c (emfh_gethttp): fixed for data-cache changes.
 
 2005-06-17  Not Zed  <NotZed@Ximian.com>
