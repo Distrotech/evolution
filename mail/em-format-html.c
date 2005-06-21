@@ -435,7 +435,7 @@ static void emfh_getpuri(struct _EMFormatHTMLJob *job, int cancelled)
 
 static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 {
-	CamelStream *cistream = NULL, *costream = NULL, *instream = NULL;
+	CamelStream *costream = NULL, *instream = NULL;
 	CamelURL *url;
 	ssize_t n, total = 0;
 	char buffer[1500];
@@ -447,11 +447,10 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 	d(printf(" running load uri task: %s\n", job->u.uri));
 
 	if (emfh_http_cache)
-		instream = cistream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
+		instream = camel_data_cache_get(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, &costream, NULL);
 
 	if (instream == NULL) {
 		char *proxy;
-
 
 		if (!(job->format->load_http_now
 		      || job->format->load_http == MAIL_CONFIG_HTTP_ALWAYS
@@ -477,9 +476,6 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 	if (instream == NULL)
 		goto done;
 
-	if (emfh_http_cache != NULL && cistream == NULL)
-		costream = camel_data_cache_add(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
-
 	do {
 		/* FIXME: progress reporting in percentage, can we get the length always?  do we care? */
 		n = camel_stream_read(instream, buffer, sizeof (buffer));
@@ -488,29 +484,32 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 			total += n;
 			d(printf("  read %d bytes\n", n));
 			if (costream && camel_stream_write(costream, buffer, n) == -1) {
-				camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
-				camel_object_unref(costream);
+				camel_data_cache_abort(emfh_http_cache, costream);
 				costream = NULL;
 			}
 
 			camel_stream_write(job->stream, buffer, n);
 		} else if (n < 0 && costream) {
-			camel_data_cache_remove(emfh_http_cache, EMFH_HTTP_CACHE_PATH, job->u.uri, NULL);
-			camel_object_unref(costream);
-			costream = NULL;			
+			camel_data_cache_abort(emfh_http_cache, costream);
+			costream = NULL;
 		}
 	} while (n>0);
 
 	/* indicates success */
-	if (n == 0)
+	if (n == 0) {
 		camel_stream_close(job->stream);
-
-	if (costream)
-		camel_object_unref(costream);
+		if (costream) {
+			camel_data_cache_commit(emfh_http_cache, costream, NULL);
+			costream = NULL;
+		}
+	}
 
 	camel_object_unref(instream);
 done:
 	camel_operation_end(NULL);
+
+	if (costream)
+		camel_data_cache_abort(emfh_http_cache, costream);
 badurl:
 	g_free(job->u.uri);
 }
