@@ -364,7 +364,7 @@ GtkWidget *em_folder_view_new(void)
 int
 em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 {
-	CamelMessageIterator *iter;
+	CamelIterator *iter;
 	const CamelMessageInfo *info;
 	int i = 0;
 
@@ -374,10 +374,10 @@ em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 	camel_folder_freeze(emfv->folder);
 
 	iter = message_list_get_selected_iter(emfv->list);
-	while ((info = camel_message_iterator_next(iter, NULL)))
+	while ((info = camel_iterator_next(iter, NULL)))
 		if (camel_message_info_set_flags((CamelMessageInfo *)info, mask, set))
 			i++;
-	camel_message_iterator_free(iter);
+	camel_iterator_free(iter);
 
 	camel_folder_thaw(emfv->folder);
 	
@@ -951,12 +951,12 @@ emfv_popup_copy(EPopup *ep, EPopupItem *pitem, void *data)
 static void
 emfv_set_label(EMFolderView *emfv, const char *label)
 {
-	CamelMessageIterator *iter = message_list_get_selected_iter(emfv->list);
+	CamelIterator *iter = message_list_get_selected_iter(emfv->list);
 	const CamelMessageInfo *info;
 
-	while ((info = camel_message_iterator_next(iter, NULL)))
+	while ((info = camel_iterator_next(iter, NULL)))
 		camel_message_info_set_user_tag((CamelMessageInfo *)info, "label", label);
-	camel_message_iterator_free(iter);
+	camel_iterator_free(iter);
 }
 
 static void
@@ -2305,7 +2305,7 @@ emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent 
 static int
 emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderView *emfv)
 {
-	CamelMessageIterator *iter;
+	CamelIterator *iter;
 	const CamelMessageInfo *info;
 	guint32 flags;
 
@@ -2322,13 +2322,13 @@ emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev,
 		camel_folder_freeze(emfv->folder);
 
 		iter = message_list_get_selected_iter(emfv->list);
-		while ((info = camel_message_iterator_next(iter, NULL))) {
+		while ((info = camel_iterator_next(iter, NULL))) {
 			flags = camel_message_info_flags(info) ^ CAMEL_MESSAGE_FLAGGED;
 			if (flags & CAMEL_MESSAGE_FLAGGED)
 				flags &= ~CAMEL_MESSAGE_DELETED;
 			camel_message_info_set_flags((CamelMessageInfo *)info, CAMEL_MESSAGE_FLAGGED|CAMEL_MESSAGE_DELETED, flags);
 		}
-		camel_message_iterator_free(iter);
+		camel_iterator_free(iter);
 
 		camel_folder_thaw(emfv->folder);
 		break;

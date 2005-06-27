@@ -782,15 +782,15 @@ message_list_copy(MessageList *ml, gboolean cut)
 	if (uids->len > 0) {
 		/* not the most efficient, but all this code should use iterators anyway */
 		if (cut) {
-			CamelMessageIterator *iter = camel_message_iterator_uids_new(ml->folder, uids, FALSE);
+			CamelIterator *iter = camel_message_iterator_uids_new(ml->folder, uids, FALSE);
 			const CamelMessageInfo *info;
 
 			camel_folder_freeze(ml->folder);
-			while ((info = camel_message_iterator_next(iter, NULL)))
+			while ((info = camel_iterator_next(iter, NULL)))
 				camel_message_info_set_flags((CamelMessageInfo *)info, CAMEL_MESSAGE_SEEN | CAMEL_MESSAGE_DELETED, ~0);
 			camel_folder_thaw(ml->folder);
 
-			camel_message_iterator_free(iter);
+			camel_iterator_free(iter);
 		}
 		p->clipboard.uids = uids;
 		p->clipboard.folder = ml->folder;
@@ -3059,7 +3059,7 @@ ml_getselectedinfo_cb(ETreePath path, void *user_data)
    dont keep everything in memory at some point, this interface
    doesn't need to change */
 
-CamelMessageIterator *message_list_get_selected_iter(MessageList *ml)
+CamelIterator *message_list_get_selected_iter(MessageList *ml)
 {
 	struct _ml_selected_data data = { ml, g_ptr_array_new()	};
 
@@ -3422,7 +3422,7 @@ regen_list_regen (struct _mail_msg *mm)
 {
 	struct _regen_list_msg *m = (struct _regen_list_msg *)mm;
 	CamelMessageInfo *info;
-	CamelMessageIterator *iter;
+	CamelIterator *iter;
 	guint32 hidemask = 0;
 	int i;
 	
@@ -3533,11 +3533,11 @@ regen_list_regen (struct _mail_msg *mm)
 	if (m->dotree) {
 		GPtrArray *showuids = g_ptr_array_new();
 #warning "Fixme, make thread messages use iterators or at least accept messageinfo array?"
-		while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL)))
+		while ((info = (CamelMessageInfo *)camel_iterator_next(iter, NULL)))
 			if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0) {
 				g_ptr_array_add(showuids, g_strdup(camel_message_info_uid(info)));
-				if ((showuids->len & 0xff) == 0xff && camel_operation_cancel_check(mm->cancel))
-					goto cancelled;
+//				if ((showuids->len & 0xff) == 0xff && camel_operation_cancel_check(mm->cancel))
+//					goto cancelled;
 			}
 
 		if (m->tree)
@@ -3550,19 +3550,19 @@ regen_list_regen (struct _mail_msg *mm)
 		g_ptr_array_free(showuids, TRUE);
 	} else {
 		m->summary = g_ptr_array_new();
-		while ((info = (CamelMessageInfo *)camel_message_iterator_next(iter, NULL))) {
+		while ((info = (CamelMessageInfo *)camel_iterator_next(iter, NULL))) {
 			if (hidemask == 0 || (camel_message_info_flags(info) & hidemask) == 0) {
 				camel_message_info_ref(info);
 				g_ptr_array_add(m->summary, info);
-				if ((m->summary->len & 0xff) == 0xf && camel_operation_cancel_check(mm->cancel))
-					goto cancelled;
+//				if ((m->summary->len & 0xff) == 0xf && camel_operation_cancel_check(mm->cancel))
+//					goto cancelled;
 
 			}
 		}
 	}
 cancelled:
 	m->complete = TRUE;
-	camel_message_iterator_free(iter);
+	camel_iterator_free(iter);
 }
 
 static void

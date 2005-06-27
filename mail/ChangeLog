@@ -1,3 +1,7 @@
+2005-06-27    <NotZed@Ximian.com>
+
+	* *.[ch]: Fixes for messageiterator removal.
+
 2005-06-21  Not Zed  <NotZed@Ximian.com>
 
 	* mail-ops.c (em_filter_folder_element_filter): fix for

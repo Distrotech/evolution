@@ -74,7 +74,7 @@ struct _filter_mail_msg {
 	struct _mail_msg msg;
 	
 	CamelFolder *source_folder; /* where they come from */
-	CamelMessageIterator *iter; /* and what they are */
+	CamelIterator *iter; /* and what they are */
 	CamelOperation *cancel;
 	CamelFilterDriver *driver;
 	CamelFolder *destination; /* default destination for any messages, NULL for none */
@@ -158,7 +158,7 @@ em_filter_folder_element_free (struct _mail_msg *mm)
 		camel_object_unref (m->source_folder);
 	
 	if (m->iter)
-		camel_message_iterator_free(m->iter);
+		camel_iterator_free(m->iter);
 	
 	if (m->cancel)
 		camel_operation_unref (m->cancel);
@@ -608,7 +608,7 @@ send_queue_send(struct _mail_msg *mm)
 	CamelException ex;
 	int i, j, total;
 	const CamelMessageInfo *mi;
-	CamelMessageIterator *iter;
+	CamelIterator *iter;
 
 	d(printf("sending queue\n"));
 
@@ -628,7 +628,7 @@ send_queue_send(struct _mail_msg *mm)
 	   used as a mechanism to accumualte warning messages and present them back to the user. */
 
 	// FIXME: exception on iterator
-	while ((mi = camel_message_iterator_next(iter, NULL))) {
+	while ((mi = camel_iterator_next(iter, NULL))) {
 		int pc = (100 * i) / total;
 
 		if (camel_message_info_flags(mi) & CAMEL_MESSAGE_DELETED)
@@ -660,7 +660,7 @@ send_queue_send(struct _mail_msg *mm)
 		if (i>total)
 			total = i;
 	}
-	camel_message_iterator_free(iter);
+	camel_iterator_free(iter);
 
 	j += (total - i);
 	
@@ -1266,7 +1266,7 @@ remove_folder_get (struct _mail_msg *mm)
 	struct _remove_folder_msg *m = (struct _remove_folder_msg *)mm;
 	CamelStore *store;
 	CamelFolder *folder;
-	CamelMessageIterator *iter;
+	CamelIterator *iter;
 	const CamelMessageInfo *mi;
 	
 	m->removed = FALSE;
@@ -1282,9 +1282,9 @@ remove_folder_get (struct _mail_msg *mm)
 	// FIXME: we need a folder-delete operation, so it doesn't try to uselessly
 	// sync up all the sub-indices along the way ...
 	iter = camel_folder_search(folder, NULL, NULL, NULL, NULL);
-	while ((mi = camel_message_iterator_next(iter, NULL)))
+	while ((mi = camel_iterator_next(iter, NULL)))
 		camel_message_info_set_flags((CamelMessageInfo *)mi, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, ~0);
-	camel_message_iterator_free(iter);
+	camel_iterator_free(iter);
 	camel_folder_sync (folder, TRUE, NULL);
 	camel_folder_thaw(folder);
 	
@@ -1353,8 +1353,7 @@ static char *sync_folder_desc(struct _mail_msg *mm, int done)
 {
 	struct _sync_folder_msg *m = (struct _sync_folder_msg *)mm;
 
-	return g_strdup_printf (_("Storing folder \'%s\'"), 
-			       camel_folder_get_full_name (m->folder));
+	return g_strdup_printf (_("Storing folder \'%s\'"), m->folder->full_name);
 }
 
 static void sync_folder_sync(struct _mail_msg *mm)
