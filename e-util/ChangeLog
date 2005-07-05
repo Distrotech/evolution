@@ -1,3 +1,7 @@
+2005-07-05  Not Zed  <NotZed@Ximian.com>
+
+	* e-import.c: cleaned up/finished api.
+
 2005-06-18  Tor Lillqvist  <tml@novell.com>
 
 	* Makefile.am (WIN32_BOOTSTRAP_LIBS): Use bootstrap library for
