@@ -1,3 +1,10 @@
+2005-07-01  Not Zed  <NotZed@Ximian.com>
+
+	* importers/Makefile.am: remove shell/importer link & take out
+	netscape & outlook temporarily.
+
+	* Makefile.am: Removed importer link.
+
 2005-06-24	Matt Brown	<matt@mattb.net.nz>
 
 	* em-inline-filter.c: implement extraction of inline signed/encrypted pgp

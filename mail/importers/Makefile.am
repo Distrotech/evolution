@@ -17,12 +17,13 @@ libevolution_mail_importers_la_SOURCES =	\
 	mail-importer.h				\
 	elm-importer.c				\
 	pine-importer.c				\
-	netscape-importer.c			\
-	evolution-outlook-importer.c		\
 	evolution-mbox-importer.c
 
+# these haven't been converted to plugins yet
+#	netscape-importer.c
+#	evolution-outlook-importer.c
+
 libevolution_mail_importers_la_LIBADD =				\
-	$(top_builddir)/shell/importer/libevolution-importer.la	\
 	$(top_builddir)/e-util/libeutil.la			\
 	$(top_builddir)/filter/libfilter.la			\
 	$(top_builddir)/shell/libeshell.la			\
