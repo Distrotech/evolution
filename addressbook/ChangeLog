@@ -1,3 +1,12 @@
+2005-07-01  Not Zed  <NotZed@Ximian.com>
+
+	* gui/component/addressbook-component.c
+	(addressbook_component_init): hookup the builtin importer
+	'plugins'.
+
+	* importers/*: fix for importers->eplugin, also added a
+	window/progress dialog and cancel button.
+
 2005-06-25  Harish Krishnaswamy <kharish@novell.com>
 
 	* gui/contact-list-editor/Makefile.am: The previous commit breaks
