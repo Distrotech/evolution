@@ -37,13 +37,8 @@
 #include <gtk/gtknotebook.h>
 #include <libgnome/gnome-util.h>
 #include <libgnome/gnome-i18n.h>
-#include <bonobo/bonobo-control.h>
-#include <bonobo/bonobo-exception.h>
 #include <libecal/e-cal.h>
 #include <libedataserverui/e-source-selector.h>
-#include <importer/evolution-importer.h>
-#include <importer/evolution-intelligent-importer.h>
-#include <importer/GNOME_Evolution_Importer.h>
 #include <libical/icalvcal.h>
 #include <e-util/e-dialog-widgets.h>
 #include "evolution-calendar-importer.h"
@@ -441,14 +436,25 @@ ical_importer_new (void)
  */
 
 static gboolean
-vcal_support_format_fn (EvolutionImporter *importer,
-			const char *filename,
-			void *closure)
+vcal_supported(EImport *ei, EImportTarget *target, EImportImporter *im)
 {
 	char *contents;
 	gboolean ret = FALSE;
+	EImportTargetURI *s;
 
-	if (g_file_get_contents (filename, &contents, NULL, NULL)) {
+	if (s->type != E_IMPORT_TARGET_URI)
+		return FALSE;
+
+	s = (EImportTargetURI *)target;
+	if (s->uri_src == NULL)
+		return TRUE;
+
+	if (strncmp(s->uri_src, "file:///", 8) != 0)
+		return FALSE;
+
+	/* Z: Wow, this is *efficient* */
+
+	if (g_file_get_contents(s->uri_src+7, &contents, NULL, NULL)) {
 		VObject *vcal;
 
 		/* parse the file */
@@ -531,6 +537,24 @@ vcal_load_file_fn (EvolutionImporter *importer,
 	return ret;
 }
 
+static EImportImporter vcal_importer = {
+	E_IMPORT_TARGET_URI,
+	0,
+	vcal_supported,
+	vcal_getwidget,
+	vcal_import,
+};
+
+EImportImporter *
+evolution_vcal_importer_peek(void)
+{
+	vcal_importer.name = _("vCalendarfiles (.vcf)");
+	vcal_importer.description = _("Evolution vCalendar importer");
+
+	return &vcal_importer;
+}
+
+#if 0
 BonoboObject *
 vcal_importer_new (void)
 {
@@ -549,11 +573,7 @@ vcal_importer_new (void)
 
 	return BONOBO_OBJECT (ici->importer);
 }
-
-
-
-
-
+#endif
 
 static void
 gnome_calendar_importer_destroy_cb (gpointer user_data)
