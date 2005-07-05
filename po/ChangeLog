@@ -1,8 +1,7 @@
-2005-06-28  Kaushal Kumar  <kakumar@novell.com>
+2005-07-01  Not Zed  <NotZed@Ximian.com>
 
-	* POTFILES.in: Added the remaining relevant gal files.
-	
-	* POTFILES.skip: Added the gal files which need to be skipped.
+	* POTFILES.in: move import.glade to shell/ and remove
+	intelligent.c
 
 2005-06-27  Francisco Javier F. Serrador  <serrador@cvs.gnome.org>
 
