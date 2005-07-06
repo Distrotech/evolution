@@ -49,6 +49,7 @@
 #include <e-util/e-dialog-utils.h>
 #include <e-util/e-icon-factory.h>
 #include <e-util/e-import.h>
+#include <e-util/e-error.h>
 
 #include "e-shell-importer.h"
 
@@ -105,6 +106,13 @@ typedef struct _ImportData {
 	GtkWidget *vbox;
 
 	EImport *import;
+
+	/* Used for importing phase of operation */
+	EImportTarget *import_target;
+	EImportImporter *import_importer;
+	GtkWidget *import_dialog;
+	GtkWidget *import_label;
+	GtkWidget *import_progress;
 } ImportData;
 
 /*#define IMPORTER_DEBUG*/
@@ -448,10 +456,27 @@ import_druid_weak_notify (void *blah,
 }
 
 static void
+import_status(EImport *import, const char *what, int pc, void *d)
+{
+	ImportData *data = d;
+
+	gtk_progress_bar_set_fraction((GtkProgressBar *)data->import_progress, (gfloat)(pc/100.0));
+	gtk_progress_bar_set_text((GtkProgressBar *)data->import_progress, what);
+}
+
+static void
+import_dialog_response(GtkDialog *d, guint button, ImportData *data)
+{
+	if (button == GTK_RESPONSE_CANCEL)
+		e_import_cancel(data->import, data->import_target, data->import_importer);
+}
+
+static void
 import_done(EImport *ei, void *d)
 {
 	ImportData *data = d;
 
+	gtk_widget_destroy(data->import_dialog);
 	gtk_widget_destroy(data->dialog);
 }
 
@@ -461,10 +486,12 @@ import_intelligent_done(EImport *ei, void *d)
 	ImportData *data = d;
 
 	if (data->importerpage->current
-	    && (data->importerpage->current = data->importerpage->current->next))
-		e_import_import(data->import, (EImportTarget *)data->importerpage->target, data->importerpage->current->data, import_intelligent_done, data);
-	else
-		gtk_widget_destroy(data->dialog);
+	    && (data->importerpage->current = data->importerpage->current->next)) {
+		import_status(ei, "", 0, d);
+		data->import_importer = data->importerpage->current->data;
+		e_import_import(data->import, (EImportTarget *)data->importerpage->target, data->import_importer, import_status, import_intelligent_done, data);
+	} else
+		import_done(ei, d);
 }
 				
 static void
@@ -472,17 +499,39 @@ import_druid_finish (GnomeDruidPage *page,
 		     GnomeDruid *druid,
 		     ImportData *data)
 {
+	EImportCompleteFunc done = NULL;
+
 	if (gtk_toggle_button_get_active((GtkToggleButton *)data->typepage->intelligent)) {
 		data->importerpage->current = data->importerpage->importers;
-		if (data->importerpage->current)
-			e_import_import(data->import, (EImportTarget *)data->importerpage->target, data->importerpage->current->data, import_intelligent_done, data);
-		else
-			gtk_widget_destroy(data->dialog);
+		if (data->importerpage->current) {
+			data->import_target = (EImportTarget *)data->importerpage->target;
+			data->import_importer = data->importerpage->current->data;
+			done = import_intelligent_done;
+		}
 	} else {
-		if (data->filepage->importer)
-			e_import_import(data->import, (EImportTarget *)data->filepage->target, data->filepage->importer, import_done, data);
-		else
-			gtk_widget_destroy(data->dialog);
+		if (data->filepage->importer) {
+			data->import_importer = data->filepage->importer;
+			data->import_target = (EImportTarget *)data->filepage->target;
+			done = import_done;
+		}
+	}
+
+	if (done) {
+		// _("Importing `%s'"), ((EImportTargetURI *)target)->uri_src);
+		// gtk_window_set_title (GTK_WINDOW (importer->dialog), _("Importing..."));
+
+		// FIXME: error + message is wrong
+		data->import_dialog = e_error_new(NULL, "mail:importing", _("Evolution is importing your old Elm mail"), NULL);
+		g_signal_connect(data->import_dialog, "response", G_CALLBACK(import_dialog_response), data);
+		data->import_label = gtk_label_new(_("Please wait"));
+		data->import_progress = gtk_progress_bar_new();
+		gtk_box_pack_start(GTK_BOX(((GtkDialog *)data->import_dialog)->vbox), data->import_label, FALSE, FALSE, 0);
+		gtk_box_pack_start(GTK_BOX(((GtkDialog *)data->import_dialog)->vbox), data->import_progress, FALSE, FALSE, 0);
+		gtk_widget_show_all(data->import_dialog);
+
+		e_import_import(data->import, data->import_target, data->import_importer, import_status, import_done, data);
+	} else {
+		gtk_widget_destroy(data->dialog);
 	}
 }
 
