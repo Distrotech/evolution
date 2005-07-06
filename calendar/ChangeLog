@@ -1,5 +1,9 @@
 2005-07-06  Not Zed  <NotZed@Ximian.com>
 
+	* importers/icalendar-importer.c (ivcal_getwidget): fix a missing
+	init on sd.
+	(ivcal_getwidget): pack the notebook with fill on.
+
 	* importers/Makefile.am: remove -module flags.
 
 	* Makefile.am: build importers before the gui.

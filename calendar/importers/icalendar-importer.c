@@ -223,7 +223,7 @@ ivcal_getwidget(EImport *ei, EImportTarget *target, EImportImporter *im)
 
 	nb = gtk_notebook_new ();
 	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (nb), FALSE);
-	gtk_container_add (GTK_CONTAINER (vbox), nb);
+	gtk_box_pack_start (GTK_BOX (vbox), nb, TRUE, TRUE, 6);
 
 	/* Type of icalendar items */
 	for (i = 0; import_type_map[i] != -1; i++) {
@@ -254,6 +254,7 @@ ivcal_getwidget(EImport *ei, EImportTarget *target, EImportImporter *im)
 		gtk_box_pack_start (GTK_BOX (hbox), rb, FALSE, FALSE, 6);
 
 		sd = g_malloc0(sizeof(*sd));
+		sd->target = target;
 		sd->selector = selector;
 		sd->notebook = nb;
 		sd->page = i;
