@@ -439,8 +439,6 @@ import_druid_weak_notify (void *blah,
 {
 	ImportData *data = (ImportData *) blah;
 
-	printf("import druid weak notify\n");
-
 	if (data->importerpage->target)
 		e_import_target_free(data->import, data->importerpage->target);
 	g_slist_free(data->importerpage->importers);
@@ -500,6 +498,7 @@ import_druid_finish (GnomeDruidPage *page,
 		     ImportData *data)
 {
 	EImportCompleteFunc done = NULL;
+	char *msg = NULL;
 
 	if (gtk_toggle_button_get_active((GtkToggleButton *)data->typepage->intelligent)) {
 		data->importerpage->current = data->importerpage->importers;
@@ -507,21 +506,19 @@ import_druid_finish (GnomeDruidPage *page,
 			data->import_target = (EImportTarget *)data->importerpage->target;
 			data->import_importer = data->importerpage->current->data;
 			done = import_intelligent_done;
+			msg = g_strdup_printf(_("Importing data."));
 		}
 	} else {
 		if (data->filepage->importer) {
 			data->import_importer = data->filepage->importer;
 			data->import_target = (EImportTarget *)data->filepage->target;
 			done = import_done;
+			msg = g_strdup_printf(_("Importing `%s'"), data->filepage->target->uri_src);
 		}
 	}
 
 	if (done) {
-		// _("Importing `%s'"), ((EImportTargetURI *)target)->uri_src);
-		// gtk_window_set_title (GTK_WINDOW (importer->dialog), _("Importing..."));
-
-		// FIXME: error + message is wrong
-		data->import_dialog = e_error_new(NULL, "mail:importing", _("Evolution is importing your old Elm mail"), NULL);
+		data->import_dialog = e_error_new(NULL, "shell:importing", msg, NULL);
 		g_signal_connect(data->import_dialog, "response", G_CALLBACK(import_dialog_response), data);
 		data->import_label = gtk_label_new(_("Please wait"));
 		data->import_progress = gtk_progress_bar_new();
@@ -533,6 +530,8 @@ import_druid_finish (GnomeDruidPage *page,
 	} else {
 		gtk_widget_destroy(data->dialog);
 	}
+
+	g_free(msg);
 }
 
 static gboolean
@@ -601,7 +600,7 @@ prepare_dest_page (GnomeDruidPage *dpage,
 		gtk_widget_show(page->control);
 	}
 
-	gtk_box_pack_start((GtkBox *)data->destpage->vbox, page->control, FALSE, FALSE, 0);
+	gtk_box_pack_start((GtkBox *)data->destpage->vbox, page->control, TRUE, TRUE, 0);
 
 	return FALSE;
 }
