@@ -1,3 +1,16 @@
+2005-07-06  Not Zed  <NotZed@Ximian.com>
+
+	* Makefile.am: build importers before the gui.
+
+	* gui/main.c (initialize): register the inbuild calendar importers.
+
+	* importers/icalendar-importer.c: Converted to eplugin, cleaned up
+	some stuff as well.  Put the selectors in scrolledwindows so they
+	dont grow unbounded.
+	(gnome_calendar_getwidget): set the default actions based on
+	wether we've run or not.
+	(update_single_object): removed dead code?
+
 2005-07-05  Not Zed  <NotZed@Ximian.com>
 
 	* importers/icalendar-importer.c: start work on e-plugin importer.
