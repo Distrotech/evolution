@@ -1,3 +1,9 @@
+2005-07-06  Not Zed  <NotZed@Ximian.com>
+
+	* POTFILES.in: removed addressbook importer .server files, added
+	addressbook importer .c files.
+	remove mail & calendar importer .server file
+
 2005-07-01  Not Zed  <NotZed@Ximian.com>
 
 	* POTFILES.in: move import.glade to shell/ and remove
