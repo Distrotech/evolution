@@ -44,6 +44,7 @@ typedef struct _EImportFactory EImportFactory;
 typedef struct _EImportTarget EImportTarget;
 
 typedef void (*EImportCompleteFunc)(EImport *ei, void *data);
+typedef void (*EImportStatusFunc)(EImport *ei, const char *what, int pc, void *data);
 
 typedef void (*EImportFactoryFunc)(EImport *ei, void *data);
 typedef void (*EImportImporterFunc)(EImportImporter *importer, void *data);
@@ -78,6 +79,7 @@ struct _EImportImporter {
 	EImportSupportedFunc supported;
 	EImportWidgetFunc get_widget;
 	EImportImportFunc import;
+	EImportImportFunc cancel;
 
 	void *user_data;
 
@@ -129,8 +131,9 @@ struct _EImportTargetHome {
  * 
  * @object: Superclass.
  * @id: ID of importer.
- * @target: The current target.
- * @importer: The chosen importer for the target.
+ * @status: Status callback of current running import.
+ * @done: Completion callback of current running import.
+ * @done_data: Callback data for both of above.
  *
  **/
 struct _EImport {
@@ -138,6 +141,7 @@ struct _EImport {
 
 	char *id;
 
+	EImportStatusFunc status;
 	EImportCompleteFunc done;
 	void *done_data;
 };
@@ -175,10 +179,12 @@ GSList *e_import_get_importers(EImport *emp, EImportTarget *target);
 
 EImport *e_import_construct(EImport *, const char *id);
 
-void e_import_import(EImport *ei, EImportTarget *, EImportImporter *, EImportCompleteFunc done, void *data);
+void e_import_import(EImport *ei, EImportTarget *, EImportImporter *, EImportStatusFunc status, EImportCompleteFunc done, void *data);
+void e_import_cancel(EImport *, EImportTarget *, EImportImporter *);
 
 struct _GtkWidget *e_import_get_widget(EImport *ei, EImportTarget *, EImportImporter *);
 
+void e_import_status(EImport *, EImportTarget *, const char *what, int pc);
 void e_import_complete(EImport *, EImportTarget *);
 
 void *e_import_target_new(EImport *ep, int type, size_t size);
@@ -212,6 +218,7 @@ struct _EImportHookImporter {
 	char *supported;
 	char *get_widget;
 	char *import;
+	char *cancel;
 };
 
 /**

@@ -184,7 +184,8 @@ EImport *e_import_new(const char *id)
  * @ei: 
  * @t: Target to import.
  * @im: Importer to use.
- * @done:
+ * @status: Status callback, called with progress information.
+ * @done: Complete callback, will always be called once complete.
  * @data:
  * 
  * Run the import function of the selected importer.  Once the
@@ -195,15 +196,22 @@ EImport *e_import_new(const char *id)
  * When complete, the @done callback will be called.
  **/
 void
-e_import_import(EImport *ei, EImportTarget *t, EImportImporter *im, EImportCompleteFunc done, void *data)
+e_import_import(EImport *ei, EImportTarget *t, EImportImporter *im, EImportStatusFunc status, EImportCompleteFunc done, void *data)
 {
 	g_return_if_fail(im != NULL);
 	g_return_if_fail(im != NULL);
 
+	ei->status = status;
 	ei->done = done;
 	ei->done_data = data;
 
 	im->import(ei, t, im);
+}
+
+void e_import_cancel(EImport *ei, EImportTarget *t, EImportImporter *im)
+{
+	if (im->cancel)
+		im->cancel(ei, t, im);
 }
 
 /**
@@ -240,6 +248,12 @@ void e_import_complete(EImport *ei, EImportTarget *target)
 {
 	if (ei->done)
 		ei->done(ei, ei->done_data);
+}
+
+void e_import_status(EImport *ei, EImportTarget *target, const char *what, int pc)
+{
+	if (ei->status)
+		ei->status(ei, what, pc, ei->done_data);
 }
 
 /**
@@ -453,6 +467,14 @@ static void eih_import(EImport *ei, EImportTarget *target, EImportImporter *im)
 	e_plugin_invoke(hook->hook.plugin, ihook->import, target);
 }
 
+static void eih_cancel(EImport *ei, EImportTarget *target, EImportImporter *im)
+{
+	struct _EImportHookImporter *ihook = (EImportHookImporter *)im;
+	EImportHook *hook = im->user_data;
+
+	e_plugin_invoke(hook->hook.plugin, ihook->cancel, target);
+}
+
 static void
 eih_free_importer(EImportImporter *im, void *data)
 {
@@ -487,6 +509,7 @@ emph_construct_importer(EPluginHook *eph, xmlNodePtr root)
 	item->supported = e_plugin_xml_prop(root, "supported");
 	item->get_widget = e_plugin_xml_prop(root, "get-widget");
 	item->import = e_plugin_xml_prop(root, "import");
+	item->cancel = e_plugin_xml_prop(root, "cancel");
 
 	item->importer.name = e_plugin_xml_prop(root, "name");
 	item->importer.description = e_plugin_xml_prop(root, "description");
@@ -500,6 +523,8 @@ emph_construct_importer(EPluginHook *eph, xmlNodePtr root)
 	item->importer.import = eih_import;
 	if (item->get_widget)
 		item->importer.get_widget = eih_get_widget;
+	if (item->cancel)
+		item->importer.cancel = eih_cancel;
 
 	return item;
 error:

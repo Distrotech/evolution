@@ -1,3 +1,10 @@
+2005-07-06  Not Zed  <NotZed@Ximian.com>
+
+	* e-import.c (e_import_status): added callback for importers to
+	report status.
+	(e_import_cancel): added function for driver to abort an import.
+	(eih_cancel): implemented for hook.
+
 2005-07-05  Not Zed  <NotZed@Ximian.com>
 
 	* e-import.c: cleaned up/finished api.
