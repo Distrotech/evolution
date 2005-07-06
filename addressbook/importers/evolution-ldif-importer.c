@@ -24,18 +24,16 @@
 
 #include <glib/gi18n.h>
 
-#include <gtk/gtkwidget.h>
 #include <gtk/gtkvbox.h>
-#include <gtk/gtkprogressbar.h>
-#include <gtk/gtkdialog.h>
 
 #include <libebook/e-book.h>
 #include <libedataserverui/e-source-selector.h>
 
 #include <libebook/e-destination.h>
 
-#include "e-util/e-error.h"
 #include "e-util/e-import.h"
+
+#include "evolution-addressbook-importers.h"
 
 typedef struct {
 	EImport *import;
@@ -45,12 +43,9 @@ typedef struct {
 
 	GHashTable *dn_contact_hash;
 
-	int state;		/* 0 - initial scan, 1 - list cards */
+	int state;		/* 0 - initial scan, 1 - list cards, 2 - cancelled/complete */
 	FILE *file;
 	gulong size;
-
-	GtkWidget *dialog;
-	GtkWidget *progressbar;
 
 	EBook *book;
 
@@ -60,7 +55,6 @@ typedef struct {
 } LDIFImporter;
 
 static void ldif_import_done(LDIFImporter *gci);
-
 
 static struct {
 	char *ldif_attribute;
@@ -483,15 +477,16 @@ ldif_import_contacts(void *d)
 			count++;
 		}
 		gci->list_iterator = iter;
-		if (iter == NULL) {
-			ldif_import_done(gci);
-			return FALSE;
-		}
+		if (iter == NULL)
+			gci->state = 2;
 	}
-
-	gtk_progress_bar_set_fraction((GtkProgressBar *)gci->progressbar, 100.0 * ftell(gci->file) / gci->size);
-
-	return TRUE;
+	if (gci->state == 2) {
+		ldif_import_done(gci);
+		return FALSE;
+	} else {
+		e_import_status(gci->import, gci->target, _("Importing ..."), ftell(gci->file) * 100 / gci->size);
+		return TRUE;
+	}
 }
 
 static void
@@ -527,7 +522,7 @@ ldif_getwidget(EImport *ei, EImportTarget *target, EImportImporter *im)
 	}
 	e_source_selector_set_primary_selection (E_SOURCE_SELECTOR (selector), primary);
 	g_object_unref (source_list);
-		
+
 	g_signal_connect (selector, "primary_selection_changed", G_CALLBACK (primary_selection_changed_cb), target);
 
 	gtk_widget_show_all (vbox);
@@ -553,12 +548,15 @@ ldif_supported(EImport *ei, EImportTarget *target, EImportImporter *im)
 	if (s->uri_src == NULL)
 		return TRUE;
 
+	if (!strncmp(s->uri_src, "file:///", 8))
+		return FALSE;
+
 	ext = strrchr(s->uri_src, '.');
 	if (ext == NULL)
 		return FALSE;
 
 	for (i = 0; supported_extensions[i] != NULL; i++) {
-		if (strcmp (supported_extensions[i], ext) == 0)
+		if (g_ascii_strcasecmp(supported_extensions[i], ext) == 0)
 			return TRUE;
 	}
 
@@ -574,14 +572,10 @@ free_dn_hash(void *k, void *v, void *d)
 static void
 ldif_import_done(LDIFImporter *gci)
 {
-	if (gci->dialog)
-		gtk_widget_destroy(gci->dialog);
-
 	if (gci->idle_id)
 		g_source_remove(gci->idle_id);
 
 	g_object_unref(gci->book);
-
 	g_slist_foreach(gci->contacts, (GFunc) g_object_unref, NULL);
 	g_slist_foreach(gci->list_contacts, (GFunc) g_object_unref, NULL);
 	g_slist_free(gci->contacts);
@@ -619,6 +613,7 @@ ldif_import(EImport *ei, EImportTarget *target, EImportImporter *im)
 	}
 
 	gci = g_malloc0(sizeof(*gci));
+	g_datalist_set_data(&target->data, "ldif-data", gci);
 	gci->import = g_object_ref(ei);
 	gci->target = target;
 	gci->book = book;
@@ -627,15 +622,18 @@ ldif_import(EImport *ei, EImportTarget *target, EImportImporter *im)
 	fseek(file, 0, SEEK_SET);
 	gci->dn_contact_hash = g_hash_table_new(g_str_hash, g_str_equal);
 
-	// FIXME: right error!
-	gci->dialog = e_error_new(NULL, "mail:importing", s->uri_src, NULL);
-	gci->progressbar = gtk_progress_bar_new();
-	gtk_box_pack_start(GTK_BOX(((GtkDialog *)gci->dialog)->vbox), gci->progressbar, FALSE, FALSE, 0);
-	gtk_widget_show_all(gci->dialog);
-
 	e_book_open(gci->book, TRUE, NULL);
 
 	gci->idle_id = g_idle_add(ldif_import_contacts, gci);
+}
+
+static void
+ldif_cancel(EImport *ei, EImportTarget *target, EImportImporter *im)
+{
+	LDIFImporter *gci = g_datalist_get_data(&target->data, "ldif-data");
+
+	if (gci)
+		gci->state = 2;
 }
 
 static EImportImporter ldif_importer = {
@@ -644,15 +642,14 @@ static EImportImporter ldif_importer = {
 	ldif_supported,
 	ldif_getwidget,
 	ldif_import,
+	ldif_cancel,
 };
-
-EImportImporter *evolution_ldif_importer_peek(void);
 
 EImportImporter *
 evolution_ldif_importer_peek(void)
 {
-	ldif_importer.name = _("Evolution LDIF importer");
-	ldif_importer.description = _("Import address from LDIF file.");
+	ldif_importer.name = _("LDAP Data Interchange Format (.ldif)");
+	ldif_importer.description = _("Evolution LDIF importer");
 
 	return &ldif_importer;
 }

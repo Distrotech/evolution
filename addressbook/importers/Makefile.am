@@ -12,42 +12,10 @@ INCLUDES = 						\
 	$(EVOLUTION_ADDRESSBOOK_CFLAGS)
 
 libevolution_addressbook_importers_la_SOURCES = \
-	evolution-ldif-importer.c
+	evolution-ldif-importer.c		\
+	evolution-vcard-importer.c		\
+	evolution-addressbook-importers.h
 
 libevolution_addressbook_importers_la_LIBADD = \
 	$(top_builddir)/e-util/libeutil.la 				\
 	$(IMPORTERS_LIBS)
-
-# libevolution_addressbook_vcard_importer_la_SOURCES =	\
-# 	evolution-vcard-importer.c
-
-# libevolution_addressbook_vcard_importer_la_LDFLAGS = -avoid-version -module
-
-# libevolution_addressbook_vcard_importer_la_LIBADD = \
-# 	$(top_builddir)/e-util/libeutil.la 				\
-# 	$(IMPORTERS_LIBS)
-
-# # LDIF Importer
-# libevolution_addressbook_ldif_importer_la_SOURCES =	\
-# 	evolution-ldif-importer.c
-
-# libevolution_addressbook_ldif_importer_la_LDFLAGS = -avoid-version -module
-
-# libevolution_addressbook_ldif_importer_la_LIBADD = \
-# 	$(top_builddir)/e-util/libeutil.la 				\
-# 	$(IMPORTERS_LIBS)
-
-# server_in_files = 						\
-# 	GNOME_Evolution_Addressbook_LDIF_Importer.server.in.in	\
-# 	GNOME_Evolution_Addressbook_VCard_Importer.server.in.in
-# server_DATA = $(server_in_files:.server.in.in=_$(BASE_VERSION).server)
-# @EVO_SERVER_RULE@
-# @INTLTOOL_SERVER_RULE@
-
-#BUILT_SOURCES = $(server_DATA)
-#CLEANFILES = $(BUILT_SOURCES)
-
-#EXTRA_DIST = $(server_in_files)
-
-#dist-hook:
-#	cd $(distdir); rm -f $(BUILT_SOURCES)

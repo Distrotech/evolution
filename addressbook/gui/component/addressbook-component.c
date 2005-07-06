@@ -36,6 +36,7 @@
 #include "addressbook/gui/widgets/eab-popup.h"
 #include "addressbook/gui/widgets/eab-menu.h"
 #include "addressbook/gui/widgets/eab-config.h"
+#include "addressbook/importers/evolution-addressbook-importers.h"
 
 #include "misc/e-task-bar.h"
 #include "misc/e-info-label.h"
@@ -52,8 +53,6 @@
 
 #define LDAP_BASE_URI "ldap://"
 #define PERSONAL_RELATIVE_URI "system"
-
-EImportImporter * evolution_ldif_importer_peek(void);
 
 #define PARENT_TYPE bonobo_object_get_type ()
 static BonoboObjectClass *parent_class = NULL;
@@ -379,7 +378,7 @@ addressbook_component_init (AddressbookComponent *component)
 
 		klass = g_type_class_ref(e_import_get_type());
 		e_import_class_add_importer(klass, evolution_ldif_importer_peek(), NULL, NULL);
-		//e_import_class_add_importer(klass, evolution_vcard_importer_peek(), NULL, NULL);
+		e_import_class_add_importer(klass, evolution_vcard_importer_peek(), NULL, NULL);
 	}
 }
 
