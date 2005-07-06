@@ -37,8 +37,6 @@
 
 #include <gtk/gtkhbox.h>
 #include <gtk/gtklabel.h>
-#include <gtk/gtkmessagedialog.h>
-#include <gtk/gtkprogressbar.h>
 
 #include <glib/gi18n.h>
 
@@ -62,10 +60,6 @@ typedef struct {
 	int status_pc;
 	int status_timeout_id;
 	CamelOperation *cancel;	/* cancel/status port */
-
-	GtkWidget *selector;
-	GtkWidget *progressbar;
-	GtkWidget *dialog;
 
 	char *uri;
 } MboxImporter;
@@ -150,29 +144,17 @@ mbox_status_timeout(void *data)
 	int pc;
 	char *what;
 
-	if (!importer->status_what)
-		return TRUE;
+	if (importer->status_what) {
+		g_mutex_lock(importer->status_lock);
+		what = importer->status_what;
+		importer->status_what = NULL;
+		pc = importer->status_pc;
+		g_mutex_unlock(importer->status_lock);
 
-	g_mutex_lock(importer->status_lock);
-	what = importer->status_what;
-	importer->status_what = NULL;
-	pc = importer->status_pc;
-	g_mutex_unlock(importer->status_lock);
+		e_import_status(importer->import, (EImportTarget *)importer->target, what, pc);
+	}
 
-	gtk_progress_bar_set_fraction((GtkProgressBar *)importer->progressbar, (gfloat)(pc/100.0));
-	gtk_progress_bar_set_text((GtkProgressBar *)importer->progressbar, what);
-	
 	return TRUE;
-}
-
-static void
-mbox_importer_response(GtkWidget *w, guint button, void *data)
-{
-	MboxImporter *importer = data;
-
-	if (button == GTK_RESPONSE_CANCEL
-	    && importer->cancel)
-		camel_operation_cancel(importer->cancel);
 }
 
 static void
@@ -185,9 +167,6 @@ mbox_import_done(void *data, CamelException *ex)
 	g_mutex_free(importer->status_lock);
 	camel_operation_unref(importer->cancel);
 
-	if (importer->dialog)
-		gtk_widget_destroy(importer->dialog);
-
 	e_import_complete(importer->import, importer->target);
 	g_free(importer);
 }
@@ -195,33 +174,28 @@ mbox_import_done(void *data, CamelException *ex)
 static void
 mbox_import(EImport *ei, EImportTarget *target, EImportImporter *im)
 {
-	GtkWidget *w;
 	MboxImporter *importer;
 
 	/* TODO: do we validate target? */
 
 	importer = g_malloc0(sizeof(*importer));
+	g_datalist_set_data(&target->data, "mbox-data", importer);
 	importer->import = ei;
 	importer->target = target;
 	importer->status_lock = g_mutex_new();
-
-	// FIXME: Use e_error
-	importer->dialog = gtk_message_dialog_new(NULL, 0/*GTK_DIALOG_NO_SEPARATOR*/,
-						  GTK_MESSAGE_INFO, GTK_BUTTONS_CANCEL,
-						  _("Importing `%s'"), ((EImportTargetURI *)target)->uri_src);
-	gtk_window_set_title (GTK_WINDOW (importer->dialog), _("Importing..."));
-
-	w = gtk_label_new(_("Please wait"));
-	importer->progressbar = gtk_progress_bar_new ();
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (importer->dialog)->vbox), w, FALSE, FALSE, 0);
-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (importer->dialog)->vbox), importer->progressbar, FALSE, FALSE, 0);
-	g_signal_connect(importer->dialog, "response", G_CALLBACK(mbox_importer_response), importer);
-	gtk_widget_show_all(importer->dialog);
-
 	importer->status_timeout_id = g_timeout_add(100, mbox_status_timeout, importer);
 	importer->cancel = camel_operation_new(mbox_status, importer);
 
 	mail_importer_import_mbox(((EImportTargetURI *)target)->uri_src+strlen("file://"), ((EImportTargetURI *)target)->uri_dest, importer->cancel, mbox_import_done, importer);
+}
+
+static void
+mbox_cancel(EImport *ei, EImportTarget *target, EImportImporter *im)
+{
+	MboxImporter *importer = g_datalist_get_data(&target->data, "mbox-data");
+
+	if (importer)
+		camel_operation_cancel(importer->cancel);
 }
 
 static EImportImporter mbox_importer = {
@@ -230,6 +204,7 @@ static EImportImporter mbox_importer = {
 	mbox_supported,
 	mbox_getwidget,
 	mbox_import,
+	mbox_cancel,
 };
 
 EImportImporter *

@@ -1,3 +1,11 @@
+2005-07-06  Not Zed  <NotZed@Ximian.com>
+
+	* importers/pine-importer.c (pine_import):
+	importers/elm-importer.c (elm_import):
+	importers/evolution-mbox-importer.c (mbox_import): Dont create
+	widgets anymore, report progress through the EImport and handle
+	cancel.
+
 2005-07-01  Not Zed  <NotZed@Ximian.com>
 
 	* importers/Makefile.am: remove shell/importer link & take out

@@ -37,9 +37,6 @@
 
 #include <glib.h>
 #include <glib/gi18n.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkprogressbar.h>
-#include <gtk/gtklabel.h>
 #include <gtk/gtkvbox.h>
 #include <gtk/gtkcheckbutton.h>
 
@@ -69,10 +66,6 @@ struct _pine_import_msg {
 	int status_pc;
 	int status_timeout_id;
 	CamelOperation *status;
-
-	GtkWidget *dialog;
-	GtkWidget *label;
-	GtkWidget *progressbar;
 };
 
 static gboolean
@@ -278,10 +271,6 @@ pine_import_imported(struct _mail_msg *mm)
 		g_object_unref(gconf);
 	}
 
-	if (m->dialog)
-		gtk_widget_destroy(m->dialog);
-	m->dialog = NULL;
-
 	e_import_complete(m->import, (EImportTarget *)m->target);
 }
 
@@ -291,9 +280,6 @@ pine_import_free(struct _mail_msg *mm)
 	struct _pine_import_msg *m = (struct _pine_import_msg *)mm;
 
 	camel_operation_unref(m->status);
-
-	if (m->dialog)
-		gtk_widget_destroy(m->dialog);
 
 	g_free(m->status_what);
 	g_mutex_free(m->status_lock);
@@ -328,26 +314,17 @@ pine_status_timeout(void *data)
 	int pc;
 	char *what;
 
-	if (!importer->status_what)
-		return TRUE;
+	if (importer->status_what) {
+		g_mutex_lock(importer->status_lock);
+		what = importer->status_what;
+		importer->status_what = NULL;
+		pc = importer->status_pc;
+		g_mutex_unlock(importer->status_lock);
 
-	g_mutex_lock(importer->status_lock);
-	what = importer->status_what;
-	importer->status_what = NULL;
-	pc = importer->status_pc;
-	g_mutex_unlock(importer->status_lock);
+		e_import_status(importer->import, (EImportTarget *)importer->target, what, pc);
+	}
 
-	gtk_progress_bar_set_fraction((GtkProgressBar *)importer->progressbar, (gfloat)(pc/100.0));
-	gtk_progress_bar_set_text((GtkProgressBar *)importer->progressbar, what);
-	
 	return TRUE;
-}
-
-static void
-dialog_response(GtkDialog *d, guint button, struct _pine_import_msg *m)
-{
-	if (button == GTK_RESPONSE_CANCEL)
-		camel_operation_cancel(m->status);
 }
 
 static struct _mail_msg_op pine_import_op = {
@@ -364,16 +341,10 @@ mail_importer_pine_import(EImport *ei, EImportTarget *target)
 	int id;
 
 	m = mail_msg_new(&pine_import_op, NULL, sizeof (*m));
+	g_datalist_set_data(&target->data, "pine-msg", m);
 	m->import = ei;
 	g_object_ref(m->import);
 	m->target = target;
-	m->dialog = e_error_new(NULL, "mail:importing", _("Evolution is importing your old Pine data"), NULL);
-	g_signal_connect(m->dialog, "response", G_CALLBACK(dialog_response), m);
-	m->label = gtk_label_new(_("Please wait"));
-	m->progressbar = gtk_progress_bar_new();
-	gtk_box_pack_start(GTK_BOX(((GtkDialog *)m->dialog)->vbox), m->label, FALSE, FALSE, 0);
-	gtk_box_pack_start(GTK_BOX(((GtkDialog *)m->dialog)->vbox), m->progressbar, FALSE, FALSE, 0);
-	gtk_widget_show_all(m->dialog);
 	m->status_timeout_id = g_timeout_add(100, pine_status_timeout, m);
 	m->status_lock = g_mutex_new();
 	m->status = camel_operation_new(pine_status, m);
@@ -438,12 +409,22 @@ pine_import(EImport *ei, EImportTarget *target, EImportImporter *im)
 		e_import_complete(ei, target);
 }
 
+static void
+pine_cancel(EImport *ei, EImportTarget *target, EImportImporter *im)
+{
+	struct _pine_import_msg *m = g_datalist_get_data(&target->data, "pine-msg");
+
+	if (m)
+		camel_operation_cancel(m->status);
+}
+
 static EImportImporter pine_importer = {
 	E_IMPORT_TARGET_HOME,
 	0,
 	pine_supported,
 	pine_getwidget,
 	pine_import,
+	pine_cancel,
 };
 
 EImportImporter *
@@ -454,5 +435,3 @@ pine_importer_peek(void)
 
 	return &pine_importer;
 }
-
-
