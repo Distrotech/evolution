@@ -14,8 +14,6 @@ libevolution_calendar_importers_la_SOURCES = \
 	evolution-calendar-importer.h	     \
 	icalendar-importer.c
 
-libevolution_calendar_importers_la_LDFLAGS = -avoid-version -module $(NO_UNDEFINED)
-
 libevolution_calendar_importers_la_LIBADD = \
 	$(top_builddir)/e-util/libeutil.la 				\
 	$(top_builddir)/calendar/common/libevolution-calendarprivate.la	\

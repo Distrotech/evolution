@@ -1,5 +1,7 @@
 2005-07-06  Not Zed  <NotZed@Ximian.com>
 
+	* importers/Makefile.am: remove -module flags.
+
 	* Makefile.am: build importers before the gui.
 
 	* gui/main.c (initialize): register the inbuild calendar importers.
