@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <error-list domain="mail">
 
- <error id="importing" type="info">
-    <_title>Importing ...</_title>
-    <primary>{0}</primary>
-    <button stock="gtk-cancel" response="GTK_RESPONSE_CANCEL"/>
- </error>
-
  <error id="camel-service-auth-invalid" type="warning">
   <_primary>Invalid authentication</_primary>
   <_secondary xml:space="preserve">This server does not support this type of authentication and may not support authentication at all.</_secondary>

@@ -388,12 +388,13 @@ pine_getwidget(EImport *ei, EImportTarget *target, EImportImporter *im)
 	w = gtk_check_button_new_with_label(_("Mail"));
 	gtk_toggle_button_set_active((GtkToggleButton *)w, !done_mail);
 	g_signal_connect(w, "toggled", G_CALLBACK(checkbox_mail_toggle_cb), target);
+	gtk_box_pack_start((GtkBox *)box, w, FALSE, FALSE, 0);
 
 	w = gtk_check_button_new_with_label(_("Addressbook"));
 	gtk_toggle_button_set_active((GtkToggleButton *)w, !done_addr);
 	g_signal_connect(w, "toggled", G_CALLBACK(checkbox_addr_toggle_cb), target);
-
 	gtk_box_pack_start((GtkBox *)box, w, FALSE, FALSE, 0);
+
 	gtk_widget_show_all(box);
 
 	return box;

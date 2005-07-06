@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include <gtk/gtkhbox.h>
+#include <gtk/gtkvbox.h>
 #include <gtk/gtklabel.h>
 
 #include <glib/gi18n.h>
@@ -87,9 +88,11 @@ mbox_getwidget(EImport *ei, EImportTarget *target, EImportImporter *im)
 	g_signal_connect(w, "selected", G_CALLBACK(folder_selected), target);
 	gtk_box_pack_start((GtkBox *)hbox, w, FALSE, TRUE, 6);
 
-	gtk_widget_show_all(hbox);
+	w = gtk_vbox_new(FALSE, 0);
+	gtk_box_pack_start((GtkBox *)w, hbox, FALSE, FALSE, 0);
+	gtk_widget_show_all(w);
 
-	return hbox;
+	return w;
 }
 
 static gboolean

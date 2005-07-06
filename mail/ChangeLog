@@ -1,5 +1,11 @@
 2005-07-06  Not Zed  <NotZed@Ximian.com>
 
+	* importers/evolution-mbox-importer.c (mbox_getwidget): wrap the
+	widgets in another vbox so they display properly.
+
+	* importers/pine-importer.c (pine_getwidget): pack the 'mail'
+	widget.
+
 	* importers/pine-importer.c (pine_import):
 	importers/elm-importer.c (elm_import):
 	importers/evolution-mbox-importer.c (mbox_import): Dont create
