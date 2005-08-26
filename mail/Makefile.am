@@ -172,6 +172,10 @@ libevolution_mail_la_SOURCES =			\
 	em-subscribe-editor.c			\
 	em-subscribe-editor.h			\
 	em-sync-stream.c			\
+	em-tree-store.c				\
+	em-tree-store.h				\
+	em-tree-view.c				\
+	em-tree-view.h				\
 	em-utils.c				\
 	em-vfolder-context.c			\
 	em-vfolder-context.h			\
@@ -202,7 +206,6 @@ libevolution_mail_la_SOURCES =			\
 	mail-tools.c				\
 	mail-types.h				\
 	mail-vfolder.c				\
-	message-list.c				\
 	message-tag-editor.c			\
 	message-tag-editor.h			\
 	message-tag-followup.c			\
