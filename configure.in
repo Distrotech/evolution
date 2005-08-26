@@ -1074,7 +1074,7 @@ esac
 AM_PATH_ORBIT2(2.9.8)
 
 AC_MSG_CHECKING(for CORBA include paths)
-IDL_INCLUDES="-I "`pkg-config --variable=idldir libbonobo-2.0`" -I "`pkg-config --variable=idldir bonobo-activation-2.0`" -I "`pkg-config --variable=idldir evolution-data-server-1.2`
+IDL_INCLUDES="-I "`pkg-config --variable=idldir libbonobo-2.0`" -I "`pkg-config --variable=idldir bonobo-activation-2.0`" -I "`pkg-config --variable=idldir evolution-data-server-1.4`
 AC_MSG_RESULT($IDL_INCLUDES)
 AC_SUBST(IDL_INCLUDES)
 
@@ -1101,7 +1101,7 @@ GAL_PACKAGE=2.6
 GTKHTML_REQUIRED=3.7.0
 GTKHTML_PACKAGE=3.8
 EDS_REQUIRED=1.3.1
-EDS_PACKAGE=1.2
+EDS_PACKAGE=1.4
 BONOBOUI_REQUIRED=2.4.2
 GNOME_VFS_REQUIRED=2.4
 
@@ -1198,14 +1198,8 @@ AC_SUBST(EVOLUTION_ADDRESSBOOK_CONDUIT_LIBS)
 fi
 
 dnl --- evolution-calendar flags
-PKG_CHECK_MODULES(SOUPTEMP, libsoup-2.4, have_libsoup_24="yes", have_libsoup_24="no")
-if test $have_libsoup_24 = yes; then
-    LIBSOUP_REQUIRED=2.3.0
-    LIBSOUP=libsoup-2.4
-else
-    LIBSOUP_REQUIRED=2.2.2
+    LIBSOUP_REQUIRED=2.2.0
     LIBSOUP=libsoup-2.2
-fi
 
 EVO_SET_COMPILE_FLAGS(LIBSOUP, $LIBSOUP >= $LIBSOUP_REQUIRED)
 AC_SUBST(LIBSOUP_CFLAGS)
@@ -1229,11 +1223,11 @@ AC_SUBST(EVOLUTION_MAIL_LIBS)
 
 dnl -- evolution-data-server IDL and version
 
-AC_DEFINE(DATASERVER_API_VERSION, "1.2", evolution-data-server API version)
-AC_DEFINE_UNQUOTED(DATASERVER_VERSION, "`pkg-config --modversion evolution-data-server-1.2`", evolution-data-server version)
+AC_DEFINE(DATASERVER_API_VERSION, "1.4", evolution-data-server API version)
+AC_DEFINE_UNQUOTED(DATASERVER_VERSION, "`pkg-config --modversion evolution-data-server-1.4`", evolution-data-server version)
 
 AC_MSG_CHECKING(for evolution-data-server IDL)
-DATASERVER_IDL=`pkg-config --variable=idldir evolution-data-server-1.2`/Evolution-DataServer.idl
+DATASERVER_IDL=`pkg-config --variable=idldir evolution-data-server-1.4`/Evolution-DataServer.idl
 if test -f "$DATASERVER_IDL"; then
 	AC_MSG_RESULT($DATASERVER_IDL)
 	 AC_SUBST(DATASERVER_IDL)
