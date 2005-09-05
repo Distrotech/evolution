@@ -1199,27 +1199,25 @@ em_utils_temp_save_part(GtkWidget *parent, CamelMimePart *part)
 /**
  * em_utils_folder_is_drafts:
  * @folder: folder
- * @uri: uri for this folder, if known
  *
  * Decides if @folder is a Drafts folder.
  * 
  * Returns %TRUE if this is a Drafts folder or %FALSE otherwise.
  **/
 gboolean
-em_utils_folder_is_drafts(CamelFolder *folder, const char *uri)
+em_utils_folder_is_drafts(CamelFolder *folder)
 {
 	EAccountList *accounts;
 	EAccount *account;
 	EIterator *iter;
 	int is = FALSE;
-	char *drafts_uri;
+	char *drafts_uri, *uri;
 	
 	if (folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_DRAFTS))
 		return TRUE;
 
-	if (uri == NULL)
-		return FALSE;
-	
+	camel_object_get(folder, NULL, CAMEL_FOLDER_URI, &uri, 0);
+
 	accounts = mail_config_get_accounts();
 	iter = e_list_get_iterator((EList *)accounts);
 	while (e_iterator_is_valid(iter)) {
@@ -1239,33 +1237,32 @@ em_utils_folder_is_drafts(CamelFolder *folder, const char *uri)
 	}
 	
 	g_object_unref(iter);
-	
+	camel_object_free(folder, CAMEL_FOLDER_URI, uri);
+
 	return is;
 }
 
 /**
  * em_utils_folder_is_sent:
  * @folder: folder
- * @uri: uri for this folder, if known
  *
  * Decides if @folder is a Sent folder
  * 
  * Returns %TRUE if this is a Sent folder or %FALSE otherwise.
  **/
 gboolean
-em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
+em_utils_folder_is_sent(CamelFolder *folder)
 {
 	EAccountList *accounts;
 	EAccount *account;
 	EIterator *iter;
 	int is = FALSE;
-	char *sent_uri;
+	char *sent_uri, *uri;
 	
 	if (folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_SENT))
 		return TRUE;
-	
-	if (uri == NULL)
-		return FALSE;
+
+	camel_object_get(folder, NULL, CAMEL_FOLDER_URI, &uri, 0);
 	
 	accounts = mail_config_get_accounts();
 	iter = e_list_get_iterator((EList *)accounts);
@@ -1286,21 +1283,21 @@ em_utils_folder_is_sent(CamelFolder *folder, const char *uri)
 	}
 	
 	g_object_unref(iter);
-	
+	camel_object_free(folder, CAMEL_FOLDER_URI, uri);
+
 	return is;
 }
 
 /**
  * em_utils_folder_is_outbox:
  * @folder: folder
- * @uri: uri for this folder, if known
  *
  * Decides if @folder is an Outbox folder
  * 
  * Returns %TRUE if this is an Outbox folder or %FALSE otherwise.
  **/
 gboolean
-em_utils_folder_is_outbox(CamelFolder *folder, const char *uri)
+em_utils_folder_is_outbox(CamelFolder *folder)
 {
 	/* <Highlander>There can be only one.</Highlander> */
 	return folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX);

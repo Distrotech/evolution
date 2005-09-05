@@ -86,9 +86,10 @@ emp_target_free(EMenu *ep, EMenuTarget *t)
 	case EM_MENU_TARGET_SELECT: {
 		EMMenuTargetSelect *s = (EMMenuTargetSelect *)t;
 
-		if (s->folder)
+		if (s->folder) {
+			camel_object_free(s->folder, CAMEL_FOLDER_URI, s->uri);
 			camel_object_unref(s->folder);
-		g_free(s->uri);
+		}
 		if (s->uids)
 			em_utils_uids_free(s->uids);
 		break; }
@@ -139,7 +140,6 @@ EMMenu *em_menu_new(const char *menuid)
 /**
  * em_menu_target_new_select:
  * @folder: The selection will ref this for the life of it.
- * @folder_uri: 
  * @uids: The selection will free this when done with it.
  * 
  * Create a new selection popup target.
@@ -147,7 +147,7 @@ EMMenu *em_menu_new(const char *menuid)
  * Return value: 
  **/
 EMMenuTargetSelect *
-em_menu_target_new_select(EMMenu *emp, struct _CamelFolder *folder, const char *folder_uri, GPtrArray *uids)
+em_menu_target_new_select(EMMenu *emp, struct _CamelFolder *folder, GPtrArray *uids)
 {
 	EMMenuTargetSelect *t = e_menu_target_new(&emp->popup, EM_MENU_TARGET_SELECT, sizeof(*t));
 	guint32 mask = ~0;
@@ -158,7 +158,6 @@ em_menu_target_new_select(EMMenu *emp, struct _CamelFolder *folder, const char *
 
 	t->uids = uids;
 	t->folder = folder;
-	t->uri = g_strdup(folder_uri);
 
 	if (folder == NULL) {
 		t->target.mask = mask;
@@ -166,14 +165,16 @@ em_menu_target_new_select(EMMenu *emp, struct _CamelFolder *folder, const char *
 		return t;
 	}
 
+	camel_object_get(folder, NULL, CAMEL_FOLDER_URI, &t->uri, 0);
+
 	camel_object_ref(folder);
 	mask &= ~EM_MENU_SELECT_FOLDER;
 	
-	if (em_utils_folder_is_sent(folder, folder_uri))
+	if (em_utils_folder_is_sent(folder))
 		mask &= ~EM_MENU_SELECT_EDIT;
 	
-	if (!(em_utils_folder_is_drafts(folder, folder_uri)
-	      || em_utils_folder_is_outbox(folder, folder_uri))
+	if (!(em_utils_folder_is_drafts(folder)
+	      || em_utils_folder_is_outbox(folder))
 	    && uids->len == 1)
 		mask &= ~EM_MENU_SELECT_ADD_SENDER;
 

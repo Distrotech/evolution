@@ -263,7 +263,7 @@ GType em_popup_get_type(void);
 EMPopup *em_popup_new(const char *menuid);
 
 EMPopupTargetURI *em_popup_target_new_uri(EMPopup *emp, const char *uri);
-EMPopupTargetSelect *em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char *folder_uri, GPtrArray *uids);
+EMPopupTargetSelect *em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, GPtrArray *uids);
 EMPopupTargetPart *em_popup_target_new_part(EMPopup *emp, struct _CamelMimePart *part, const char *mime_type);
 EMPopupTargetFolder *em_popup_target_new_folder(EMPopup *emp, const char *uri, guint32 info_flags, guint32 popup_flags);
 EMPopupTargetAttachments *em_popup_target_new_attachments(EMPopup *emp, GSList *attachments);

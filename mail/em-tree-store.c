@@ -4,6 +4,8 @@
 
 #include <glib/gi18n.h>
 
+#include <string.h>
+
 #include <camel/camel-folder.h>
 
 #include <libedataserver/e-msgport.h>
@@ -21,18 +23,25 @@
 
 #define node_has_children(node) ((node->flags & EM_TREE_NODE_LEAF) == 0 && node->children.head != (EDListNode *)&node->children.tail)
 
-struct _emts_change {
-	struct _emts_change *next;
-	struct _emts_change *priv;
+struct _emts_folder {
+	struct _emts_folder *next;
+	struct _emts_folder *prev;
 
-	CamelFolderChangeInfo *changes;
+	struct _EMTreeStore *emts;
+
+	CamelFolder *folder;
+	guint32 changed_id;
+	GHashTable *uid_table;
+
+	CamelChangeInfo *changes;
 };
 
 struct _EMTreeStorePrivate {
-	CamelFolder *folder;
+	EDList folders;
+	char *view;
+	char *expr;
 
 	int update_id;
-	int changed_id;
 
 	EMemChunk *node_chunks;
 	EMemChunk *leaf_chunks;
@@ -41,7 +50,6 @@ struct _EMTreeStorePrivate {
 	pthread_mutex_t lock;
 
 	EDList aux;
-	GHashTable *uid_table;
 	GHashTable *id_table;
 };
 
@@ -376,26 +384,24 @@ emts_finalise(GObject *o)
 {
 	EMTreeStore *emts = (EMTreeStore *)o;
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-	struct _emts_change *c;
+	struct _emts_folder *f;
 
 	if (p->update_id)
 		g_source_remove(p->update_id);
 
-	camel_object_remove_event(p->folder, p->changed_id);
+	while ( ( f = (struct _emts_folder *)e_dlist_remhead(&p->folders)) ) {
+		camel_object_remove_event(f->folder, f->changed_id);
+		camel_object_unref(f->folder);
+		g_free(f);
+	}
 
 	pthread_mutex_destroy(&p->lock);
-
-	while ( ( c = (struct _emts_change *)e_dlist_remhead(&p->changes)) ) {
-		camel_folder_change_info_free(c->changes);
-		g_free(c);
-	}
 
 	emts_node_free_rec(p, emts->root);
 
 	e_memchunk_destroy(p->node_chunks);
 	e_memchunk_destroy(p->leaf_chunks);
 
-	g_hash_table_destroy(p->uid_table);
 	g_hash_table_destroy(p->id_table);
 
 	((GObjectClass *)emts_parent)->finalize(o);
@@ -428,7 +434,8 @@ emts_init(EMTreeStore *emts)
 {
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 
-	p->uid_table = g_hash_table_new(g_str_hash, g_str_equal);
+	e_dlist_init(&p->folders);
+
 	p->id_table = g_hash_table_new((GHashFunc)emts_id_hash, (GCompareFunc)emts_id_equal);
 
 	pthread_mutex_init(&p->lock, NULL);
@@ -518,7 +525,7 @@ dump_info(EMTreeNode *root)
 /* This is used along with prune_empty to build the initial model, before the model is set on any tree
    It should match the old thread algorithm exactly */
 static void
-emts_insert_info_base(EMTreeStore *emts, CamelMessageInfo *mi)
+emts_insert_info_base(EMTreeStore *emts, CamelMessageInfo *mi, struct _emts_folder *f)
 {
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 	EMTreeNode *match;
@@ -543,7 +550,7 @@ emts_insert_info_base(EMTreeStore *emts, CamelMessageInfo *mi)
 		e_dlist_addtail(&emts->root->children, (EDListNode *)match);
 	}
 
-	g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(mi), match);
+	g_hash_table_insert(f->uid_table, (void *)camel_message_info_uid(mi), match);
 
 	references = camel_message_info_references(mi);
 	if (references) {
@@ -583,7 +590,7 @@ emts_insert_info_base(EMTreeStore *emts, CamelMessageInfo *mi)
    It takes some short-cuts since we no longer have the auxillairy place-holders
    to fill out the full root tree.  It will work if messages arrive in the right order however */
 static void
-emts_insert_info_incr(EMTreeStore *emts, CamelMessageInfo *mi)
+emts_insert_info_incr(EMTreeStore *emts, CamelMessageInfo *mi, struct _emts_folder *f)
 {
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 	EMTreeNode *match;
@@ -605,7 +612,7 @@ emts_insert_info_incr(EMTreeStore *emts, CamelMessageInfo *mi)
 	match->parent = emts->root;
 	e_dlist_addtail(&emts->root->children, (EDListNode *)match);
 
-	g_hash_table_insert(p->uid_table, (void *)camel_message_info_uid(mi), match);
+	g_hash_table_insert(f->uid_table, (void *)camel_message_info_uid(mi), match);
 
 	references = camel_message_info_references(mi);
 	if (references) {
@@ -675,18 +682,18 @@ emts_prune_empty(EMTreeStore *emts, EMTreeNode *node)
 }
 
 static void
-emts_remove_uid(EMTreeStore *emts, const char *uid)
+emts_remove_info(EMTreeStore *emts, const CamelMessageInfo *mi, struct _emts_folder *f)
 {
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 	EMTreeNode *c, *d, *node;
 	GtkTreePath *path = NULL, *tpath;
 	GtkTreeIter iter;
 
-	node = g_hash_table_lookup(p->uid_table, uid);
+	node = g_hash_table_lookup(f->uid_table, camel_message_info_uid(mi));
 	if (node == NULL)
 		return;
 
-	g_hash_table_remove(p->uid_table, uid);
+	g_hash_table_remove(f->uid_table, camel_message_info_uid(mi));
 
 	iter.stamp = emts->stamp;
 	iter.user_data = node;
@@ -735,33 +742,31 @@ emts_folder_changed_idle(void *data)
 {
 	EMTreeStore *emts = data;
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-	struct _emts_change *c;
+	struct _emts_folder *f, *n;
 	int i;
 
 	pthread_mutex_lock(&p->lock);
-	while ( ( c = (struct _emts_change *)e_dlist_remhead(&p->changes)) ) {
-		pthread_mutex_unlock(&p->lock);
+	f = (struct _emts_folder *)p->folders.head;
+	n = f->next;
+	while (n) {
+		for (i=0;i<f->changes->added->len;i++) {
+			CamelMessageInfo *mi = f->changes->added->pdata[i];
 
-		for (i=0;i<c->changes->uid_added->len;i++) {
-			const char *uid = c->changes->uid_added->pdata[i];
-			CamelMessageInfo *mi;
-
-			if (g_hash_table_lookup(p->uid_table, uid) == NULL
-			    && (mi = camel_folder_get_message_info(p->folder, uid)))
-				emts_insert_info_incr(emts, mi);
+			if (g_hash_table_lookup(f->uid_table, camel_message_info_uid(mi)) == NULL)
+				emts_insert_info_incr(emts, mi, f);
 		}
 
-		for (i=0;i<c->changes->uid_removed->len;i++) {
-			const char *uid = c->changes->uid_removed->pdata[i];
+		for (i=0;i<f->changes->removed->len;i++) {
+			CamelMessageInfo *mi = f->changes->removed->pdata[i];
 
-			emts_remove_uid(emts, uid);
+			emts_remove_info(emts, mi, f);
 		}
 
-		for (i=0;i<c->changes->uid_changed->len;i++) {
-			const char *uid = c->changes->uid_changed->pdata[i];
+		for (i=0;i<f->changes->changed->len;i++) {
+			CamelMessageInfo *mi = f->changes->changed->pdata[i];
 			EMTreeNode *node;
 
-			if ((node = g_hash_table_lookup(p->uid_table, uid))) {
+			if ((node = g_hash_table_lookup(f->uid_table, camel_message_info_uid(mi)))) {
 				GtkTreeIter iter;
 				GtkTreePath *path;
 
@@ -774,9 +779,9 @@ emts_folder_changed_idle(void *data)
 			}
 		}
 
-		camel_folder_change_info_free(c->changes);
-		g_free(c);
-		pthread_mutex_lock(&p->lock);
+		camel_change_info_clear(f->changes);
+		f = n;
+		n = n->next;
 	}
 
 	p->update_id = 0;
@@ -785,43 +790,64 @@ emts_folder_changed_idle(void *data)
 	return FALSE;
 }
 
+static int
+view_eq(const char *va, const char *vb)
+{
+	if (va == NULL)
+		return (vb == NULL);
+	else if (vb == NULL)
+		return FALSE;
+
+	return strcmp(va, vb) == 0;
+}
+
 static void
 emts_folder_changed(CamelObject *o, void *event, void *data)
 {
-	EMTreeStore *emts = data;
-	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
-	struct _emts_change *c;
+	CamelChangeInfo *changes = event;
+	struct _emts_folder *f = data;
+	struct _EMTreeStorePrivate *p = _PRIVATE(f->emts);
 
-	c = g_malloc0(sizeof(*c));
-	if (event) {
-		c->changes = camel_folder_change_info_new();
-		camel_folder_change_info_cat(c->changes, (CamelFolderChangeInfo *)event);
+	if (changes && view_eq(changes->vid, p->view)) {
+		pthread_mutex_lock(&p->lock);
+		if (f->changes == NULL)
+			f->changes = camel_change_info_new(NULL);
+		camel_change_info_cat(f->changes, changes);
+		if (p->update_id == 0)
+			p->update_id = g_idle_add(emts_folder_changed_idle, f->emts);
+		pthread_mutex_unlock(&p->lock);
 	}
-	pthread_mutex_lock(&p->lock);
-	e_dlist_addtail(&p->changes, (EDListNode *)c);
-	if (p->update_id == 0)
-		p->update_id = g_idle_add(emts_folder_changed_idle, emts);
-	pthread_mutex_unlock(&p->lock);
 }
 
 EMTreeStore *
-em_tree_store_new(CamelFolder *folder)
+em_tree_store_new(GPtrArray *folders, const char *view, const char *expr)
 {
 	EMTreeStore *emts = (EMTreeStore *)g_object_new(em_tree_store_get_type(), NULL);
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 	CamelIterator *iter;
 	CamelMessageInfo *mi;
+	int i;
 
-	p->folder = folder;
-	camel_object_ref(folder);
-	p->changed_id = camel_object_hook_event(folder, "folder_changed", emts_folder_changed, emts);
+	p->view = g_strdup(view);
+	p->expr = g_strdup(expr);
+	for (i=0;i<folders->len;i++) {
+		struct _emts_folder *f = g_malloc(sizeof(*f));
 
-	iter = camel_folder_search(folder, NULL, NULL, NULL, NULL);
-	while ((mi = (CamelMessageInfo *)camel_iterator_next(iter, NULL))) {
-		camel_message_info_ref(mi);
-		emts_insert_info_base(emts, mi);
+		e_dlist_addtail(&p->folders, (EDListNode *)f);
+		f->uid_table = g_hash_table_new(g_str_hash, g_str_equal);
+		f->folder = folders->pdata[i];
+		camel_object_ref(f->folder);
+		f->emts = emts;
+		f->changed_id = camel_object_hook_event(f->folder, "folder_changed", emts_folder_changed, f);
+		f->changes = NULL;
+
+		iter = camel_folder_search(f->folder, view, expr, NULL, NULL);
+		while ((mi = (CamelMessageInfo *)camel_iterator_next(iter, NULL))) {
+			camel_message_info_ref(mi);
+			emts_insert_info_base(emts, mi, f);
+		}
+		camel_iterator_free(iter);
 	}
-	camel_iterator_free(iter);
 
 	emts_prune_empty(emts, (EMTreeNode *)emts->root->children.head);
 
@@ -830,10 +856,13 @@ em_tree_store_new(CamelFolder *folder)
 
 int em_tree_store_get_iter(EMTreeStore *emts, GtkTreeIter *iter, const char *uid)
 {
+	return FALSE;
+#if 0
 	struct _EMTreeStorePrivate *p = _PRIVATE(emts);
 
-	iter->user_data = g_hash_table_lookup(p->uid_table, uid);
+	iter->user_data = g_hash_table_lookup(f->uid_table, uid);
 	iter->stamp = emts->stamp;
 
 	return iter->user_data != NULL;
+#endif
 }

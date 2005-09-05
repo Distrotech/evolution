@@ -71,7 +71,6 @@ struct _EMFolderView {
 	struct _EMFormatHTMLDisplay *preview;
 
 	struct _CamelFolder *folder;
-	char *folder_uri;
 
 	char *displayed_uid;	/* only used to stop re-loads, don't use it to represent any selection state */
 
@@ -107,7 +106,7 @@ struct _EMFolderViewClass {
 	void (*activate)(EMFolderView *, struct _BonoboUIComponent *uic, int state);
 
 	void (*set_folder_uri)(EMFolderView *emfv, const char *uri);
-	void (*set_folder)(EMFolderView *emfv, struct _CamelFolder *folder, const char *uri);
+	void (*set_folder)(EMFolderView *emfv, struct _CamelFolder *folder);
 	void (*set_message)(EMFolderView *emfv, const char *uid, int nomarkseen);
 
 	/* Signals */
@@ -122,7 +121,7 @@ GType em_folder_view_get_type(void);
 GtkWidget *em_folder_view_new(void);
 
 #define em_folder_view_activate(emfv, uic, state) EM_FOLDER_VIEW_GET_CLASS (emfv)->activate((emfv), (uic), (state))
-#define em_folder_view_set_folder(emfv, folder, uri) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_folder((emfv), (folder), (uri))
+#define em_folder_view_set_folder(emfv, folder) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_folder((emfv), (folder))
 #define em_folder_view_set_folder_uri(emfv, uri) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_folder_uri((emfv), (uri))
 #define em_folder_view_set_message(emfv, uid, nomarkseen) EM_FOLDER_VIEW_GET_CLASS (emfv)->set_message((emfv), (uid), (nomarkseen))
 

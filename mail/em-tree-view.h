@@ -22,9 +22,8 @@ struct _EMTreeView
 {
 	GtkTreeView parent;
 
-	struct _CamelFolder *folder;
-	char *folder_uri;
-
+	GPtrArray *folders;
+	char *view;
 	char *search;
 
 	/* Hiding? */
@@ -46,7 +45,7 @@ GType em_tree_view_get_type (void);
 
 EMTreeView *em_tree_view_new(void);
 
-void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, const char *uri, em_tree_view_t type);
+void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, em_tree_view_t type);
 
 GPtrArray *em_tree_view_get_selected(EMTreeView *emtv);
 void em_tree_view_set_selected(EMTreeView *emtv, GPtrArray *uids);
@@ -66,7 +65,7 @@ typedef struct _EMTreeView MessageList;
 #define _MessageList _EMTreeView
 
 #define message_list_new() em_tree_view_new()
-#define message_list_set_folder(ml, folder, uri, outgoing) em_tree_view_set_folder(ml, folder, uri, outgoing?EM_TREE_VIEW_OUTGOING:EM_TREE_VIEW_PLAIN)
+#define message_list_set_folder(ml, folder, outgoing) em_tree_view_set_folder(ml, folder, outgoing?EM_TREE_VIEW_OUTGOING:EM_TREE_VIEW_PLAIN)
 #define message_list_foreach(ml, callback, data) abort()
 
 /* these might need implementing */

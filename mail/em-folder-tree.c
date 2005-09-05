@@ -2345,20 +2345,18 @@ em_folder_tree_get_selected_folder (EMFolderTree *emft)
 	GtkTreeModel *model;
 	GtkTreeIter iter;
 	char *full_name = NULL;
-	CamelException ex;
+	CamelException ex = { 0 };
 	CamelStore *store = NULL;
 	CamelFolder *folder = NULL;
 
 	g_return_val_if_fail (EM_IS_FOLDER_TREE (emft), NULL);
 
-	camel_exception_init (&ex);
-
 	selection = gtk_tree_view_get_selection(emft->priv->treeview);
-	if (gtk_tree_selection_get_selected(selection, &model, &iter))
-		gtk_tree_model_get (model, &iter, COL_POINTER_CAMEL_STORE, &store,
-				    COL_STRING_FULL_NAME, &full_name, -1);
-
-	folder = camel_store_get_folder (store, full_name, CAMEL_STORE_FOLDER_INFO_FAST, &ex);
+	if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
+		gtk_tree_model_get(model, &iter, COL_POINTER_CAMEL_STORE, &store,
+				   COL_STRING_FULL_NAME, &full_name, -1);
+		folder = camel_store_get_folder (store, full_name, 0, &ex);
+	}
 
 	camel_exception_clear (&ex);
 

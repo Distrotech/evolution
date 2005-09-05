@@ -434,7 +434,7 @@ create_folders(CamelFolderInfo *fi, struct _store_info *si)
 static void
 folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 {
-	CamelFolderChangeInfo *changes = event_data;
+	CamelChangeInfo *changes = event_data;
 	CamelFolder *folder = (CamelFolder *)o;
 	CamelStore *store = folder->parent_store;
 	struct _store_info *si;
@@ -447,8 +447,8 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	    && folder != mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX)
 	    && folder != mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_DRAFTS)
 	    && folder != mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_SENT)
-	    && changes && changes->uid_added)
-		new = changes->uid_added->len;
+	    && changes && changes->added)
+		new = changes->added->len;
 	
 	LOCK(info_lock);
 	if (stores != NULL

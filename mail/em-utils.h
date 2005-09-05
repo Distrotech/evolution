@@ -78,9 +78,9 @@ void em_utils_selection_get_urilist(struct _GtkSelectionData *data, struct _Came
 
 char *em_utils_temp_save_part(struct _GtkWidget *parent, struct _CamelMimePart *part);
 
-gboolean em_utils_folder_is_drafts(struct _CamelFolder *folder, const char *uri);
-gboolean em_utils_folder_is_sent(struct _CamelFolder *folder, const char *uri);
-gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder, const char *uri);
+gboolean em_utils_folder_is_drafts(struct _CamelFolder *folder);
+gboolean em_utils_folder_is_sent(struct _CamelFolder *folder);
+gboolean em_utils_folder_is_outbox(struct _CamelFolder *folder);
 
 void em_utils_adjustment_page(struct _GtkAdjustment *adj, gboolean down);
 

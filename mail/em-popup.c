@@ -88,9 +88,10 @@ emp_target_free(EPopup *ep, EPopupTarget *t)
 	case EM_POPUP_TARGET_SELECT: {
 		EMPopupTargetSelect *s = (EMPopupTargetSelect *)t;
 
-		if (s->folder)
+		if (s->folder) {
+			camel_object_free(s->folder, CAMEL_FOLDER_URI, s->uri);
 			camel_object_unref(s->folder);
-		g_free(s->uri);
+		}
 		if (s->uids)
 			em_utils_uids_free(s->uids);
 		break; }
@@ -163,7 +164,6 @@ EMPopup *em_popup_new(const char *menuid)
 /**
  * em_popup_target_new_select:
  * @folder: The selection will ref this for the life of it.
- * @folder_uri: 
  * @uids: The selection will free this when done with it.
  * 
  * Create a new selection popup target.
@@ -171,7 +171,7 @@ EMPopup *em_popup_new(const char *menuid)
  * Return value: 
  **/
 EMPopupTargetSelect *
-em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char *folder_uri, GPtrArray *uids)
+em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, GPtrArray *uids)
 {
 	EMPopupTargetSelect *t = e_popup_target_new(&emp->popup, EM_POPUP_TARGET_SELECT, sizeof(*t));
 	guint32 mask = ~0;
@@ -180,7 +180,6 @@ em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char
 
 	t->uids = uids;
 	t->folder = folder;
-	t->uri = g_strdup(folder_uri);
 
 	if (folder == NULL) {
 		t->target.mask = mask;
@@ -188,14 +187,16 @@ em_popup_target_new_select(EMPopup *emp, struct _CamelFolder *folder, const char
 		return t;
 	}
 
+	camel_object_get(folder, NULL, CAMEL_FOLDER_URI, &t->uri, 0);
+
 	camel_object_ref(folder);
 	mask &= ~EM_POPUP_SELECT_FOLDER;
 	
-	if (em_utils_folder_is_sent(folder, folder_uri))
+	if (em_utils_folder_is_sent(folder))
 		mask &= ~EM_POPUP_SELECT_EDIT;
 	
-	if (!(em_utils_folder_is_drafts(folder, folder_uri)
-	      || em_utils_folder_is_outbox(folder, folder_uri))
+	if (!(em_utils_folder_is_drafts(folder)
+	      || em_utils_folder_is_outbox(folder))
 	    && uids->len == 1)
 		mask &= ~EM_POPUP_SELECT_ADD_SENDER;
 
@@ -524,7 +525,7 @@ emp_uri_popup_address_send(EPopup *ep, EPopupItem *item, void *data)
 	EMPopupTargetURI *t = (EMPopupTargetURI *)ep->target;
 
 	/* TODO: have an emfv specific override to get the from uri */
-	em_utils_compose_new_message_with_mailto(t->uri, NULL);
+	em_utils_compose_new_message_with_mailto(NULL, t->uri);
 }
 
 static void

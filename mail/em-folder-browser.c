@@ -378,8 +378,8 @@ emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser *emfb)
 		d(printf("Save vfolder\n"));
 		if (efb->current_query) {
 			FilterRule *rule = vfolder_clone_rule(efb->current_query);			
-			char *name, *text;
-			
+			char *name, *text, *uri;
+
 			text = e_search_bar_get_text(esb);
 			name = g_strdup_printf("%s %s", rule->name, (text&&text[0])?text:"''");
 			g_free (text);
@@ -387,7 +387,9 @@ emfb_search_menu_activated(ESearchBar *esb, int id, EMFolderBrowser *emfb)
 			g_free (name);
 			
 			filter_rule_set_source(rule, FILTER_SOURCE_INCOMING);
-			em_vfolder_rule_add_source((EMVFolderRule *)rule, emfb->view.folder_uri);
+			camel_object_get(emfb->view.folder, NULL, CAMEL_FOLDER_URI, &uri, 0);
+			em_vfolder_rule_add_source((EMVFolderRule *)rule, uri);
+			camel_object_free(emfb->view.folder, CAMEL_FOLDER_URI, uri);
 			vfolder_gui_add_rule((EMVFolderRule *)rule);
 		}
 		break;
@@ -582,8 +584,13 @@ emfb_folder_properties(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
 
-	if (emfb->view.folder_uri)
-		em_folder_properties_show(NULL, emfb->view.folder, emfb->view.folder_uri);
+	if (emfb->view.folder) {
+		char *uri;
+
+		camel_object_get(emfb->view.folder, NULL, CAMEL_FOLDER_URI, &uri, 0);
+		em_folder_properties_show(NULL, emfb->view.folder, uri);
+		camel_object_free(emfb->view.folder, CAMEL_FOLDER_URI, uri);
+	}
 }
 
 static void
@@ -700,7 +707,8 @@ emfb_mark_all_read(BonoboUIComponent *uid, void *data, const char *path)
 		return;
 
 	// FIXME: get an iterator ...?
-
+#warning "fixme, message-list"
+#if 0
 	uids = message_list_get_uids(emfv->list);
 	camel_folder_freeze(emfv->folder);
 	for (i=0;i<uids->len;i++) {
@@ -713,6 +721,7 @@ emfb_mark_all_read(BonoboUIComponent *uid, void *data, const char *path)
 	}
 	camel_folder_thaw(emfv->folder);
 	message_list_free_uids(emfv->list, uids);
+#endif
 }
 
 static void
@@ -966,7 +975,7 @@ emfb_gui_folder_changed(CamelFolder *folder, void *dummy, EMFolderBrowser *emfb)
 }
 
 static void
-emfb_folder_changed(CamelFolder *folder, CamelFolderChangeInfo *changes, EMFolderBrowser *emfb)
+emfb_folder_changed(CamelFolder *folder, CamelChangeInfo *changes, EMFolderBrowser *emfb)
 {
 	g_object_ref(emfb);
 	mail_async_event_emit(emfb->view.async, MAIL_ASYNC_GUI, (MailAsyncFunc)emfb_gui_folder_changed, folder, NULL, emfb);
@@ -1040,7 +1049,7 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 		emfb->priv->folder_changed_id = 0;
 	}
 
-	emfb_parent->set_folder(emfv, folder, uri);
+	emfb_parent->set_folder(emfv, folder);
 	
 	/* This is required since we get activated the first time
 	   before the folder is open and need to override the

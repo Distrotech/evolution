@@ -594,7 +594,7 @@ em_composer_utils_setup_callbacks (EMsgComposer *composer, CamelFolder *folder, 
 /* Composing messages... */
 
 static EMsgComposer *
-create_new_composer (const char *subject, const char *fromuri)
+create_new_composer (struct _CamelFolder *folder, const char *subject)
 {
 	EMsgComposer *composer;
 	EAccount *account = NULL;
@@ -603,8 +603,13 @@ create_new_composer (const char *subject, const char *fromuri)
 	if (composer == NULL)
 		return NULL;
 
-	if (fromuri)
-		account = mail_config_get_account_by_source_url(fromuri);
+	if (folder) {
+		char *uri;
+
+		camel_object_get(folder, NULL, CAMEL_FOLDER_URI, &uri, 0);
+		account = mail_config_get_account_by_source_url(uri);
+		camel_object_free(folder, CAMEL_FOLDER_URI, uri);
+	}
 
 	e_msg_composer_set_headers (composer, account?account->name:NULL, NULL, NULL, NULL, subject);
 
@@ -615,16 +620,17 @@ create_new_composer (const char *subject, const char *fromuri)
 
 /**
  * em_utils_compose_new_message:
+ * @folder: source folder, if available.
  *
  * Opens a new composer window as a child window of @parent's toplevel
  * window.
  **/
 void
-em_utils_compose_new_message (const char *fromuri)
+em_utils_compose_new_message (struct _CamelFolder *folder)
 {
 	GtkWidget *composer;
 
-	composer = (GtkWidget *) create_new_composer ("", fromuri);
+	composer = (GtkWidget *) create_new_composer (folder, "");
 	if (composer == NULL)
 		return;
 
@@ -636,6 +642,7 @@ em_utils_compose_new_message (const char *fromuri)
 
 /**
  * em_utils_compose_new_message_with_mailto:
+ * @folder: source folder if known
  * @url: mailto url
  *
  * Opens a new composer window as a child window of @parent's toplevel
@@ -643,7 +650,7 @@ em_utils_compose_new_message (const char *fromuri)
  * according to the values in the mailto url.
  **/
 void
-em_utils_compose_new_message_with_mailto (const char *url, const char *fromuri)
+em_utils_compose_new_message_with_mailto(CamelFolder *folder, const char *url)
 {
 	EMsgComposer *composer;
 	EAccount *account = NULL;
@@ -655,9 +662,16 @@ em_utils_compose_new_message_with_mailto (const char *url, const char *fromuri)
 	
 	em_composer_utils_setup_default_callbacks (composer);
 
-	if (fromuri
-	    && (account = mail_config_get_account_by_source_url(fromuri)))
-		e_msg_composer_hdrs_set_from_account((EMsgComposerHdrs *)composer->hdrs, account->name);
+	if (folder) {
+		char *uri;
+
+		camel_object_get(folder, NULL, CAMEL_FOLDER_URI, &uri, 0);
+		account = mail_config_get_account_by_source_url(uri);
+		camel_object_free(folder, CAMEL_FOLDER_URI, uri);
+		/* FIXME: should take account id, not name */
+		if (account)
+			e_msg_composer_hdrs_set_from_account((EMsgComposerHdrs *)composer->hdrs, account->name);
+	}
 
 	e_msg_composer_unset_changed (composer);
 	e_msg_composer_drop_editor_undo (composer);
@@ -797,18 +811,18 @@ em_utils_edit_messages (CamelFolder *folder, GPtrArray *uids, gboolean replace)
 
 /* Forwarding messages... */
 static void
-forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part, char *subject, const char *fromuri)
+forward_attached (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part, char *subject)
 {
 	EMsgComposer *composer;
 	
-	composer = create_new_composer (subject, fromuri);
+	composer = create_new_composer (folder, subject);
 	if (composer == NULL)
 		return;
 
 	e_msg_composer_attach (composer, part);
 	e_msg_composer_unset_changed (composer);
 	e_msg_composer_drop_editor_undo (composer);
-	
+
 	gtk_widget_show (GTK_WIDGET (composer));
 }
 
@@ -816,15 +830,13 @@ static void
 forward_attached_cb (CamelFolder *folder, GPtrArray *messages, CamelMimePart *part, char *subject, void *user_data)
 {
 	if (part)
-		forward_attached(folder, messages, part, subject, (char *)user_data);
-	g_free(user_data);
+		forward_attached(folder, messages, part, subject);
 }
 
 /**
  * em_utils_forward_attached:
  * @folder: folder containing messages to forward
  * @uids: uids of messages to forward
- * @fromuri: from folder uri
  *
  * If there is more than a single message in @uids, a multipart/digest
  * will be constructed and attached to a new composer window preset
@@ -833,16 +845,16 @@ forward_attached_cb (CamelFolder *folder, GPtrArray *messages, CamelMimePart *pa
  * forwarded as a simple message/rfc822 attachment.
  **/
 void
-em_utils_forward_attached (CamelFolder *folder, GPtrArray *uids, const char *fromuri)
+em_utils_forward_attached(CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
 	
-	mail_build_attachment (folder, uids, forward_attached_cb, g_strdup(fromuri));
+	mail_build_attachment(folder, uids, forward_attached_cb, NULL);
 }
 
 static void
-forward_non_attached (GPtrArray *messages, int style, const char *fromuri)
+forward_non_attached (CamelFolder *folder, GPtrArray *messages, int style)
 {
 	CamelMimeMessage *message;
 	EMsgComposer *composer;
@@ -866,7 +878,7 @@ forward_non_attached (GPtrArray *messages, int style, const char *fromuri)
 		text = em_utils_message_to_html (message, _("-------- Forwarded Message --------"), flags, &len, NULL);
 		
 		if (text) {
-			composer = create_new_composer (subject, fromuri);
+			composer = create_new_composer (folder, subject);
 
 			if (composer) {
 				if (CAMEL_IS_MULTIPART(camel_medium_get_content_object((CamelMedium *)message)))
@@ -888,32 +900,29 @@ forward_non_attached (GPtrArray *messages, int style, const char *fromuri)
 static void
 forward_inline (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void *user_data)
 {
-	forward_non_attached (messages, MAIL_CONFIG_FORWARD_INLINE, (char *)user_data);
-	g_free(user_data);
+	forward_non_attached (folder, messages, MAIL_CONFIG_FORWARD_INLINE);
 }
 
 /**
  * em_utils_forward_inline:
  * @folder: folder containing messages to forward
  * @uids: uids of messages to forward
- * @fromuri: from folder/account uri
  *
  * Forwards each message in the 'inline' form, each in its own composer window.
  **/
 void
-em_utils_forward_inline (CamelFolder *folder, GPtrArray *uids, const char *fromuri)
+em_utils_forward_inline(CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
 	
-	mail_get_messages (folder, uids, forward_inline, g_strdup(fromuri));
+	mail_get_messages(folder, uids, forward_inline, NULL);
 }
 
 static void
 forward_quoted (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void *user_data)
 {
-	forward_non_attached (messages, MAIL_CONFIG_FORWARD_QUOTED, (char *)user_data);
-	g_free(user_data);
+	forward_non_attached(folder, messages, MAIL_CONFIG_FORWARD_QUOTED);
 }
 
 /**
@@ -926,24 +935,23 @@ forward_quoted (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, void 
  * a "> "), each in its own composer window.
  **/
 void
-em_utils_forward_quoted (CamelFolder *folder, GPtrArray *uids, const char *fromuri)
+em_utils_forward_quoted(CamelFolder *folder, GPtrArray *uids)
 {
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
 	
-	mail_get_messages (folder, uids, forward_quoted, g_strdup(fromuri));
+	mail_get_messages(folder, uids, forward_quoted, NULL);
 }
 
 /**
  * em_utils_forward_message:
- * @parent: parent window
+ * @folder: source of message
  * @message: message to be forwarded
- * @fromuri: from folder uri
  *
  * Forwards a message in the user's configured default style.
  **/
 void
-em_utils_forward_message (CamelMimeMessage *message, const char *fromuri)
+em_utils_forward_message(CamelFolder *folder, CamelMimeMessage *message)
 {
 	GPtrArray *messages;
 	CamelMimePart *part;
@@ -960,19 +968,17 @@ em_utils_forward_message (CamelMimeMessage *message, const char *fromuri)
 	switch (mode) {
 	case MAIL_CONFIG_FORWARD_ATTACHED:
 	default:
-		part = mail_tool_make_message_attachment (message);
-		
+		part = mail_tool_make_message_attachment (message);		
 		subject = mail_tool_generate_forward_subject (message);
-		
-		forward_attached (NULL, messages, part, subject, fromuri);
+		forward_attached(folder, messages, part, subject);
 		camel_object_unref (part);
 		g_free (subject);
 		break;
 	case MAIL_CONFIG_FORWARD_INLINE:
-		forward_non_attached (messages, MAIL_CONFIG_FORWARD_INLINE, fromuri);
+		forward_non_attached(folder, messages, MAIL_CONFIG_FORWARD_INLINE);
 		break;
 	case MAIL_CONFIG_FORWARD_QUOTED:
-		forward_non_attached (messages, MAIL_CONFIG_FORWARD_QUOTED, fromuri);
+		forward_non_attached(folder, messages, MAIL_CONFIG_FORWARD_QUOTED);
 		break;
 	}
 	
@@ -988,7 +994,7 @@ em_utils_forward_message (CamelMimeMessage *message, const char *fromuri)
  * style.
  **/
 void
-em_utils_forward_messages (CamelFolder *folder, GPtrArray *uids, const char *fromuri)
+em_utils_forward_messages(CamelFolder *folder, GPtrArray *uids)
 {
 	GConfClient *gconf;
 	int mode;
@@ -999,13 +1005,13 @@ em_utils_forward_messages (CamelFolder *folder, GPtrArray *uids, const char *fro
 	switch (mode) {
 	case MAIL_CONFIG_FORWARD_ATTACHED:
 	default:
-		em_utils_forward_attached (folder, uids, fromuri);
+		em_utils_forward_attached(folder, uids);
 		break;
 	case MAIL_CONFIG_FORWARD_INLINE:
-		em_utils_forward_inline (folder, uids, fromuri);
+		em_utils_forward_inline(folder, uids);
 		break;
 	case MAIL_CONFIG_FORWARD_QUOTED:
-		em_utils_forward_quoted (folder, uids, fromuri);
+		em_utils_forward_quoted(folder, uids);
 		break;
 	}
 }

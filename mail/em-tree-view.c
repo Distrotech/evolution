@@ -14,6 +14,7 @@
 #include <gtk/gtkcellrenderertext.h>
 
 #include <camel/camel-folder.h>
+#include <camel/camel-mime-utils.h>
 
 #include <libxml/tree.h>
 
@@ -48,6 +49,8 @@ emtv_init(GObject *o)
 	EMTreeView *emtv = (EMTreeView *)o;
 	struct _EMTreeViewPrivate *p = _PRIVATE(o);
 
+	emtv->folders = g_ptr_array_new();
+
 	p->text_renderer = gtk_cell_renderer_text_new();
 	/* Stupid gtk rubbish */
 	g_object_ref(p->text_renderer);
@@ -61,6 +64,8 @@ emtv_finalise(GObject *o)
 {
 	EMTreeView *emtv = (EMTreeView *)o;
 	struct _EMTreeViewPrivate *p = _PRIVATE(o);
+
+	//FIXME: free emtv->folders;
 
 	g_object_unref(p->text_renderer);
 
@@ -440,15 +445,15 @@ emtv_rebuild_model(EMTreeView *emtv)
 		gtk_tree_view_remove_column((GtkTreeView *)emtv, (GtkTreeViewColumn *)l->data);
 	g_list_free(columns);
 
-	if (emtv->folder == NULL)
+	if (emtv->folders->len == 0)
 		return;
 
 	/* TODO: build flat model for unthreaded mode */
-	emts = em_tree_store_new(emtv->folder);
+	emts = em_tree_store_new(emtv->folders, emtv->view, emtv->search);
 	gtk_tree_view_set_model((GtkTreeView *)emtv, (GtkTreeModel *)emts);
 
-	p->expanded_filename = mail_config_folder_to_cachename(emtv->folder, "emt-expanded-");
-	p->state_filename = mail_config_folder_to_cachename(emtv->folder, "emt-state-");
+	p->expanded_filename = mail_config_folder_to_cachename(emtv->folders->pdata[0], "emt-expanded-");
+	p->state_filename = mail_config_folder_to_cachename(emtv->folders->pdata[0], "emt-state-");
 
 	if (emtv_load_state(emtv) == -1)
 		emtv_load_state_default(emtv);
@@ -458,24 +463,22 @@ emtv_rebuild_model(EMTreeView *emtv)
 	/* TODO: Scroll to the right position in the list, should be stored in state? */
 }
 
-void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, const char *uri, em_tree_view_t type)
+void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, em_tree_view_t type)
 {
-	if (emtv->folder == folder)
-		return;
+	if (emtv->folders->len == 1) {
+		if (emtv->folders->pdata[0] == folder)
+			return;
 
-	if (emtv->folder) {
 		/*emtv_save_state(emtv);*/
 		emtv_save_state_timeout(emtv);
-		camel_object_unref(emtv->folder);
-		emtv->folder = NULL;
-		g_free(emtv->folder_uri);
-		emtv->folder_uri = NULL;
+		camel_object_unref(emtv->folders->pdata[0]);
+		g_ptr_array_set_size(emtv->folders, 0);
 	}
 
-	emtv->folder = folder;
-	emtv->folder_uri = g_strdup(uri);
-	if (folder)
+	if (folder) {
+		g_ptr_array_add(emtv->folders, folder);
 		camel_object_ref(folder);
+	}
 
 	emtv_rebuild_model(emtv);
 }
@@ -548,5 +551,18 @@ void em_tree_view_set_search(EMTreeView *emtv, const char *search)
 	g_free(emtv->search);
 	emtv->search = g_strdup(search);
 
-	/* refresh, async? */
+	emtv_rebuild_model(emtv);
 }
+
+void em_tree_view_set_view(EMTreeView *emtv, const char *view)
+{
+	if (emtv->view == view
+	    || (emtv->view && view && strcmp(emtv->view, view) == 0))
+		return;
+
+	g_free(emtv->view);
+	emtv->view = g_strdup(view);
+
+	emtv_rebuild_model(emtv);
+}
+

@@ -369,13 +369,12 @@ folder_selected_cb (EMFolderTree *emft, const char *path, const char *uri, guint
 	EMFolderTreeModel *model;
 	
 	if ((flags & CAMEL_FOLDER_NOSELECT) || !path) {
-		em_folder_view_set_folder (view, NULL, NULL);
+		em_folder_view_set_folder(view, NULL);
 	} else {
 		model = em_folder_tree_get_model (emft);
 		em_folder_tree_model_set_selected (model, uri);
 		em_folder_tree_model_save_state (model);
-		
-		em_folder_view_set_folder_uri (view, uri);
+		em_folder_view_set_folder_uri(view, uri);
 	}
 }
 
@@ -516,11 +515,11 @@ view_changed(EMFolderView *emfv, EInfoLabel *el)
 
 			selected = message_list_get_selected(emfv->list);
 
-			if (em_utils_folder_is_drafts(emfv->folder, emfv->folder_uri))
+			if (em_utils_folder_is_drafts(emfv->folder))
 				bits |= 1;
-			if (em_utils_folder_is_sent(emfv->folder, emfv->folder_uri))
+			if (em_utils_folder_is_sent(emfv->folder))
 				bits |= 2;
-			if (em_utils_folder_is_outbox(emfv->folder, emfv->folder_uri))
+			if (em_utils_folder_is_outbox(emfv->folder))
 				bits |= 4;
 			/* HACK: hardcoded inbox or maildir '.' folder */
 			if (g_ascii_strcasecmp(emfv->folder->full_name, "inbox") == 0
@@ -777,13 +776,13 @@ impl__get_userCreatableItems (PortableServer_Servant servant, CORBA_Environment 
 }
 
 static int
-create_item(const char *type, EMFolderTreeModel *model, const char *uri)
+create_item(const char *type, CamelFolder *folder)
 {
 	if (strcmp(type, "message") == 0) {
 		if (!em_utils_check_user_can_send_mail(NULL))
 			return 0;
 	
-		em_utils_compose_new_message(uri);
+		em_utils_compose_new_message(folder);
 	} else if (strcmp(type, "folder") == 0) {
 		em_folder_utils_create_folder(NULL);
 	} else
@@ -796,8 +795,10 @@ static void
 create_local_item_cb(EUserCreatableItemsHandler *handler, const char *item_type_name, void *data)
 {
 	EMFolderTree *tree = data;
-	
-	create_item(item_type_name, em_folder_tree_get_model(tree), em_folder_tree_get_selected_uri(tree));
+	CamelFolder *folder = em_folder_tree_get_selected_folder(tree);
+
+	create_item(item_type_name, folder);
+	camel_object_unref(folder);
 }
 
 static void
@@ -807,10 +808,9 @@ impl_requestCreateItem (PortableServer_Servant servant,
 {
 	MailComponent *mc = MAIL_COMPONENT(bonobo_object_from_servant(servant));
 
-	if (create_item(item_type_name, mc->priv->model, NULL) == -1) {
-		CORBA_exception_set (ev, CORBA_USER_EXCEPTION,
-				     ex_GNOME_Evolution_Component_UnknownType, NULL);
-	}
+	if (create_item(item_type_name, NULL) == -1)
+		CORBA_exception_set(ev, CORBA_USER_EXCEPTION,
+				    ex_GNOME_Evolution_Component_UnknownType, NULL);
 }
 
 static void
@@ -838,7 +838,7 @@ handleuri_got_folder(char *uri, CamelFolder *folder, void *data)
 			/*message_list_set_threaded(((EMFolderView *)emmb)->list, emfv->list->threaded);*/
 			/* FIXME: session needs to be passed easier than this */
 			em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, session);
-			em_folder_view_set_folder((EMFolderView *)emmb, folder, uri);
+			em_folder_view_set_folder((EMFolderView *)emmb, folder);
 			em_folder_view_set_message((EMFolderView *)emmb, camel_url_get_param(url, "uid"), FALSE);
 			gtk_widget_show(emmb->window);
 		}
@@ -855,7 +855,7 @@ impl_handleURI (PortableServer_Servant servant, const char *uri, CORBA_Environme
 		if (!em_utils_check_user_can_send_mail(NULL))
 			return;
 
-		em_utils_compose_new_message_with_mailto (uri, NULL);
+		em_utils_compose_new_message_with_mailto(NULL, uri);
 	} else if (!strncmp(uri, "email:", 6)) {
 		CamelURL *url = camel_url_new(uri, NULL);
 

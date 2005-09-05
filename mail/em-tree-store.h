@@ -73,7 +73,7 @@ struct _EMTreeStoreClass
 
 GType em_tree_store_get_type (void);
 
-EMTreeStore * em_tree_store_new(struct _CamelFolder *folder);
+EMTreeStore * em_tree_store_new(GPtrArray *folders, const char *vid, const char *expr);
 int em_tree_store_get_iter(EMTreeStore *store, struct _GtkTreeIter *iter, const char *uid);
 
 #endif /* _EM_TREE_STORE_H */

@@ -1,3 +1,28 @@
+2005-09-05    <NotZed@Ximian.com>
+
+	* em-folder-tree.c (em_folder_tree_get_selected_folder): duh, pass
+	the right arguments to get_folder, and make sure we don't try to
+	get a non-existant one.
+
+	* em-composer-utils.c (em_utils_forward_messages)
+	(em_utils_forward_message, em_utils_forward_quoted)
+	(forward_quoted, em_utils_forward_inline, forward_inline)
+	(forward_non_attached, forward_attached_cb, forward_attached):
+	don't take 'fromuri' anymore, calculate it from the folder if/when
+	we need it.
+
+	* em-utils.c (em_utils_folder_is_drafts, em_utils_folder_is_sent) 
+	(em_utils_folder_is_outbox): dont take a uri anymore.
+
+	* em-folder-view.h: removed folder_uri, and fixed all callers.
+
+	* *.c: Fixed for camel api changes to folder_changed event.
+
+2005-09-01    <NotZed@Ximian.com>
+
+	* em-tree-store.c (em_tree_store_new): changed to take an array of
+	folders and a view id.
+
 2005-08-26    <NotZed@Ximian.com>
 
 	** Merged in gtktreeview-branch, and fixed it enough to run.
