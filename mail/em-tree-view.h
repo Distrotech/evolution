@@ -18,8 +18,7 @@ typedef enum {
 	EM_TREE_VIEW_TRASH,
 } em_tree_view_t;
 
-struct _EMTreeView
-{
+struct _EMTreeView {
 	GtkTreeView parent;
 
 	GPtrArray *folders;
@@ -33,8 +32,7 @@ struct _EMTreeView
 	int hidejunk:1;
 };
 
-struct _EMTreeViewClass
-{
+struct _EMTreeViewClass {
 	GtkTreeViewClass parent_class;
 
 	/* signals */
@@ -48,6 +46,7 @@ EMTreeView *em_tree_view_new(void);
 void em_tree_view_set_folder(EMTreeView *emtv, struct _CamelFolder *folder, em_tree_view_t type);
 
 GPtrArray *em_tree_view_get_selected(EMTreeView *emtv);
+CamelIterator *em_tree_view_get_selected_iter(EMTreeView *emtv);
 void em_tree_view_set_selected(EMTreeView *emtv, GPtrArray *uids);
 
 void em_tree_view_select_uid(EMTreeView *emtv, const char *uid);

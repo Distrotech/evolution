@@ -107,6 +107,7 @@ static int emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, Gd
 static void emfv_list_selection_change(ETree *tree, EMFolderView *emfv);
 #else
 static void emfv_list_selection_changed(GtkTreeSelection *, EMFolderView *emfv);
+static int emfv_tree_button_press(GtkTreeView *tv, GdkEventButton *event, EMFolderView *emfv);
 #endif
 
 static void emfv_format_link_clicked(EMFormatHTMLDisplay *efhd, const char *uri, EMFolderView *);
@@ -114,7 +115,7 @@ static int emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *ev
 
 static void emfv_enable_menus(EMFolderView *emfv);
 
-static void emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri);
+static void emfv_set_folder(EMFolderView *emfv, CamelFolder *folder);
 static void emfv_set_folder_uri(EMFolderView *emfv, const char *uri);
 static void emfv_set_message(EMFolderView *emfv, const char *uid, int nomarkseen);
 static void emfv_activate(EMFolderView *emfv, BonoboUIComponent *uic, int state);
@@ -208,7 +209,8 @@ emfv_init(GObject *o)
 	emfv->list = em_tree_view_new();
 	selection = gtk_tree_view_get_selection((GtkTreeView *)emfv->list);
 	gtk_tree_selection_set_mode(selection, GTK_SELECTION_MULTIPLE);
-	g_signal_connect (selection, "changed", G_CALLBACK(emfv_list_selection_changed), emfv);
+	g_signal_connect(selection, "changed", G_CALLBACK(emfv_list_selection_changed), emfv);
+	g_signal_connect(emfv->list, "button_press_event", G_CALLBACK(emfv_tree_button_press), emfv);
 }
 #endif
 
@@ -385,15 +387,11 @@ em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 		return 0;
 
 	camel_folder_freeze(emfv->folder);
-
-#warning "message-list"
-#if 0
-	iter = message_list_get_selected_iter(emfv->list);
+	iter = em_tree_view_get_selected_iter(emfv->list);
 	while ((info = camel_iterator_next(iter, NULL)))
 		if (camel_message_info_set_flags((CamelMessageInfo *)info, mask, set))
 			i++;
 	camel_iterator_free(iter);
-#endif
 	camel_folder_thaw(emfv->folder);
 	
 	return i;
@@ -600,9 +598,9 @@ emfv_setup_view_instance(EMFolderView *emfv)
 /* ********************************************************************** */
 
 static void
-emfv_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
+emfv_set_folder(EMFolderView *emfv, CamelFolder *folder)
 {
-	int isout = (folder && uri
+	int isout = (folder
 		     && (em_utils_folder_is_drafts(folder)
 			 || em_utils_folder_is_sent(folder)
 			 || em_utils_folder_is_outbox(folder)));
@@ -2387,14 +2385,6 @@ emfv_list_double_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent
 }
 
 static int
-emfv_list_right_click(ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, EMFolderView *emfv)
-{
-	emfv_popup(emfv, event, FALSE);
-
-	return TRUE;
-}
-
-static int
 emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderView *emfv)
 {
 	CamelIterator *iter;
@@ -2431,6 +2421,17 @@ emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev,
 	return TRUE;
 }
 #endif
+
+static int
+emfv_tree_button_press(GtkTreeView *tv, GdkEventButton *event, EMFolderView *emfv)
+{
+	if (event->button == 3) {
+		emfv_popup(emfv, (GdkEvent *)event, FALSE);
+		return TRUE;
+	}
+
+	return FALSE;
+}
 
 static gboolean
 emfv_popup_menu (GtkWidget *widget)

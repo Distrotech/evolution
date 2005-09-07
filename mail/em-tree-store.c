@@ -389,6 +389,8 @@ emts_finalise(GObject *o)
 	if (p->update_id)
 		g_source_remove(p->update_id);
 
+	printf("Tree store finalise = %p\n", emts);
+
 	while ( ( f = (struct _emts_folder *)e_dlist_remhead(&p->folders)) ) {
 		camel_object_remove_event(f->folder, f->changed_id);
 		camel_object_unref(f->folder);
@@ -549,6 +551,7 @@ emts_insert_info_base(EMTreeStore *emts, CamelMessageInfo *mi, struct _emts_fold
 		match->parent = emts->root;
 		e_dlist_addtail(&emts->root->children, (EDListNode *)match);
 	}
+	camel_message_info_ref(mi);
 
 	g_hash_table_insert(f->uid_table, (void *)camel_message_info_uid(mi), match);
 
@@ -605,6 +608,7 @@ emts_insert_info_incr(EMTreeStore *emts, CamelMessageInfo *mi, struct _emts_fold
 	/* Allocating a new node, always 'parent' to root to start with */
 	match = emts_node_alloc(p);
 	match->info = mi;
+	camel_message_info_ref(mi);
 	mid = camel_message_info_message_id(mi);
 	if (mid
 	    && g_hash_table_lookup(p->id_table, mid) == NULL)
@@ -808,6 +812,8 @@ emts_folder_changed(CamelObject *o, void *event, void *data)
 	struct _emts_folder *f = data;
 	struct _EMTreeStorePrivate *p = _PRIVATE(f->emts);
 
+	printf("Folder '%s' changed vid '%s'\n", ((CamelFolder *)o)->full_name, changes->vid?changes->vid:"<root>");
+
 	if (changes && view_eq(changes->vid, p->view)) {
 		pthread_mutex_lock(&p->lock);
 		if (f->changes == NULL)
@@ -828,6 +834,8 @@ em_tree_store_new(GPtrArray *folders, const char *view, const char *expr)
 	CamelMessageInfo *mi;
 	int i;
 
+	printf("tree store new = %p\n", emts);
+
 	p->view = g_strdup(view);
 	p->expr = g_strdup(expr);
 	for (i=0;i<folders->len;i++) {
@@ -842,10 +850,8 @@ em_tree_store_new(GPtrArray *folders, const char *view, const char *expr)
 		f->changes = NULL;
 
 		iter = camel_folder_search(f->folder, view, expr, NULL, NULL);
-		while ((mi = (CamelMessageInfo *)camel_iterator_next(iter, NULL))) {
-			camel_message_info_ref(mi);
+		while ((mi = (CamelMessageInfo *)camel_iterator_next(iter, NULL)))
 			emts_insert_info_base(emts, mi, f);
-		}
 		camel_iterator_free(iter);
 	}
 

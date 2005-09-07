@@ -66,7 +66,7 @@ struct _EMFolderView {
 
 	struct _EMFolderViewPrivate *priv;
 
-	struct _MessageList *list;
+	struct _EMTreeView *list;
 
 	struct _EMFormatHTMLDisplay *preview;
 

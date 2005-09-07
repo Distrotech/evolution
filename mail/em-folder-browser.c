@@ -593,12 +593,14 @@ emfb_folder_properties(BonoboUIComponent *uid, void *data, const char *path)
 	}
 }
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 static void
 emfb_folder_copy(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
 	CamelFolderInfo *fi = NULL;
 	CamelException ex;
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 
 	/* FIXME: This function MUST become multi-threaded.
 	   FIXME: This interface should NOT use a folderinfo */
@@ -616,6 +618,7 @@ emfb_folder_copy(BonoboUIComponent *uid, void *data, const char *path)
 	return;
 }
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 static void
 emfb_folder_move(BonoboUIComponent *uid, void *data, const char *path)
 {
@@ -623,6 +626,7 @@ emfb_folder_move(BonoboUIComponent *uid, void *data, const char *path)
 	CamelFolderInfo *fi = NULL;
 	CamelException ex;
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 	camel_exception_init (&ex);
 
 	/* FIXME: This function MUST become multi-threaded.
@@ -639,26 +643,31 @@ emfb_folder_move(BonoboUIComponent *uid, void *data, const char *path)
 	return;
 }
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 static void
 emfb_folder_delete(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 	em_folder_utils_delete_folder (emfb->view.folder);
 
 	return;
 }
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 static void
 emfb_folder_rename(BonoboUIComponent *uid, void *data, const char *path)
 {
 	EMFolderBrowser *emfb = data;
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 	em_folder_utils_rename_folder (emfb->view.folder);
 
 	return;
 }
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 static void
 emfb_folder_create(BonoboUIComponent *uid, void *data, const char *path)
 {
@@ -666,6 +675,7 @@ emfb_folder_create(BonoboUIComponent *uid, void *data, const char *path)
 	CamelFolderInfo *fi = NULL;
 	CamelException ex;
 
+/* THIS MUST BE REMOVED FROM FOLDREBRO@WSER */
 	camel_exception_init (&ex);
 
 	/* FIXME: This function MUST be multithreaded
@@ -823,6 +833,15 @@ static BonoboUIVerb emfb_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("ViewShowAll", emfb_view_show_all),
 	*/
 	/* ViewThreaded is a toggle */
+
+
+
+	/*
+
+	ABSOLUTELY NONE OF THIS FOLDER SHIT SHOULD BE HERE AT ALL
+	FOLDER BROWSER IS FOR VIEWING A SINGLE FUCKING FOLDER AND A MESSAGE ONLY
+
+	*/
 
 	BONOBO_UI_UNSAFE_VERB ("FolderCopy", emfb_folder_copy),
 	BONOBO_UI_UNSAFE_VERB ("FolderMove", emfb_folder_move),

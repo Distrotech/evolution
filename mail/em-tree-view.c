@@ -451,6 +451,7 @@ emtv_rebuild_model(EMTreeView *emtv)
 	/* TODO: build flat model for unthreaded mode */
 	emts = em_tree_store_new(emtv->folders, emtv->view, emtv->search);
 	gtk_tree_view_set_model((GtkTreeView *)emtv, (GtkTreeModel *)emts);
+	g_object_unref(emts);
 
 	p->expanded_filename = mail_config_folder_to_cachename(emtv->folders->pdata[0], "emt-expanded-");
 	p->state_filename = mail_config_folder_to_cachename(emtv->folders->pdata[0], "emt-state-");
@@ -502,6 +503,30 @@ GPtrArray *em_tree_view_get_selected(EMTreeView *emtv)
 	gtk_tree_selection_selected_foreach(selection, emtv_get_selected, uids);
 
 	return uids;
+}
+
+static void
+emtv_get_selected_info(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, void *data)
+{
+	GPtrArray *uids = data;
+	CamelMessageInfo *mi = NULL;
+
+	gtk_tree_model_get(model, iter, EMTS_COL_MESSAGEINFO, &mi, -1);
+	if (mi) {
+		g_ptr_array_add(uids, mi);
+		camel_message_info_ref(mi);
+	}
+}
+
+/* NB: Should this be an iterator, or just an array? */
+CamelIterator *em_tree_view_get_selected_iter(EMTreeView *emtv)
+{
+	GPtrArray *uids = g_ptr_array_new();
+	GtkTreeSelection *selection = gtk_tree_view_get_selection((GtkTreeView *)emtv);
+
+	gtk_tree_selection_selected_foreach(selection, emtv_get_selected_info, uids);
+
+	return camel_message_iterator_infos_new(uids, TRUE);
 }
 
 void em_tree_view_set_selected(EMTreeView *emtv, GPtrArray *uids)

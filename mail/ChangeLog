@@ -1,3 +1,11 @@
+2005-09-06    <NotZed@Ximian.com>
+
+	* em-tree-store.c (emts_insert_info_base, emts_insert_info_incr):
+	ref the messageinfo always.
+
+	* em-tree-view.c (em_tree_view_get_selected_iter): helper to get
+	the selection as a info iterator.
+
 2005-09-05    <NotZed@Ximian.com>
 
 	* em-folder-tree.c (em_folder_tree_get_selected_folder): duh, pass
