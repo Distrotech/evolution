@@ -1,3 +1,7 @@
+2005-09-08    <NotZed@Ximian.com>
+
+	* em-tree-view.c (emtv_save_state_timeout): check fopen worked.
+
 2005-09-06    <NotZed@Ximian.com>
 
 	* em-tree-store.c (emts_insert_info_base, emts_insert_info_incr):

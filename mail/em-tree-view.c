@@ -369,8 +369,10 @@ emtv_save_state_timeout(void *data)
 
 	/* TODO: not here */
 	p->expanded_file = fopen(p->expanded_filename, "w");
-	gtk_tree_view_map_expanded_rows((GtkTreeView *)emtv, emtv_save_expanded_row, p);
-	fclose(p->expanded_file);
+	if (p->expanded_file) {
+		gtk_tree_view_map_expanded_rows((GtkTreeView *)emtv, emtv_save_expanded_row, p);
+		fclose(p->expanded_file);
+	}
 
 	return FALSE;
 }
