@@ -1244,22 +1244,35 @@ find_client_data (ECalModel *model, ECal *client)
 	return NULL;
 }
 
-/* Pass NULL for the client if we just want to find based on uid */
 /* FIXME how do we prevent the same UID is different calendars? */
+/* If the get_det is set, return detached instances also */
 static ECalModelComponent *
-search_by_uid_and_client (ECalModelPrivate *priv, ECal *client, const char *uid)
+search_by_id_and_client (ECalModelPrivate *priv, ECal *client, const ECalComponentId *id, gboolean get_det)
 {
 	gint i;
 
 	for (i = 0; i < priv->objects->len; i++) {
 		ECalModelComponent *comp_data = g_ptr_array_index (priv->objects, i);
 
-		if (comp_data) {
-			const char *tmp_uid;
+		if (comp_data && comp_data->client == client) {
+			const char *uid, *rid;
+			gboolean has_rid = (id->rid && *id->rid);
 
-			tmp_uid = icalcomponent_get_uid (comp_data->icalcomp);
-			if (tmp_uid && *tmp_uid) {
-				if ((!client || comp_data->client == client) && !strcmp (uid, tmp_uid)) 
+			uid = icalcomponent_get_uid (comp_data->icalcomp);
+			rid = icaltime_as_ical_string (icalcomponent_get_recurrenceid (comp_data->icalcomp));
+
+			if (!get_det && !has_rid) {
+				if (e_cal_util_component_is_instance (comp_data->icalcomp))
+					continue;
+			}
+
+			if (has_rid) {
+				if (!(rid && *rid && !strcmp (rid, id->rid)))	
+					continue;
+			}
+
+			if (uid && *uid) {
+				if ((!client || comp_data->client == client) && !strcmp (id->uid, uid)) 
 					return comp_data;
 			}
 		}
@@ -1267,6 +1280,8 @@ search_by_uid_and_client (ECalModelPrivate *priv, ECal *client, const char *uid)
 
 	return NULL;
 }
+	
+
 
 typedef struct {
 	ECal *client;
@@ -1335,10 +1350,15 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
 
 	for (l = objects; l; l = l->next) {
 		ECalModelComponent *comp_data;
+		ECalComponent *comp = e_cal_component_new ();
+		ECalComponentId *id;
+
+		e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (l->data));
+		id = e_cal_component_get_id (comp);
 
 		/* remove the components if they are already present and re-add them */
-		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query),
-							      icalcomponent_get_uid (l->data)))) {
+		while ((comp_data = search_by_id_and_client (priv, NULL,
+							      id, FALSE))) {
 			int pos;
 
 			pos = get_position_in_array (priv->objects, comp_data);
@@ -1348,9 +1368,10 @@ e_cal_view_objects_added_cb (ECalView *query, GList *objects, gpointer user_data
  			e_cal_model_free_component_data (comp_data);
  		}
 
+		e_cal_component_free_id (id);
 		ensure_dates_are_in_default_zone (l->data);
 
-		if ((priv->flags & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES)) {
+		if (e_cal_util_component_has_recurrences (l->data) && (priv->flags & E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES)) {
 			RecurrenceExpansionData rdata;
 
 			rdata.client = e_cal_view_get_client (query);
@@ -1386,28 +1407,12 @@ e_cal_view_objects_modified_cb (ECalView *query, GList *objects, gpointer user_d
 	
 	priv = model->priv;
 
-	for (l = objects; l; l = l->next) {
-		ECalModelComponent *comp_data;
-
-		/* remove all recurrences and re-add them after generating them */
-		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query),
-							      icalcomponent_get_uid (l->data)))) {
-			int pos;
-
-			pos = get_position_in_array (priv->objects, comp_data);
-			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
-
-			g_ptr_array_remove (priv->objects, comp_data);
-			e_cal_model_free_component_data (comp_data);
-		}
-	}
-
 	/* now re-add all objects */
 	e_cal_view_objects_added_cb (query, objects, model);
 }
 
 static void
-e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
+e_cal_view_objects_removed_cb (ECalView *query, GList *ids, gpointer user_data)
 {
 	ECalModelPrivate *priv;
 	ECalModel *model = (ECalModel *) user_data;
@@ -1415,14 +1420,15 @@ e_cal_view_objects_removed_cb (ECalView *query, GList *uids, gpointer user_data)
 	
 	priv = model->priv;
 
-	for (l = uids; l; l = l->next) {
-		ECalModelComponent *comp_data;
+	for (l = ids; l; l = l->next) {
+		ECalModelComponent *comp_data = NULL;
+		ECalComponentId *id = l->data;
 		int pos;
 
 		e_table_model_pre_change (E_TABLE_MODEL (model));
 		
 		/* make sure we remove all objects with this UID */
-		while ((comp_data = search_by_uid_and_client (priv, e_cal_view_get_client (query), l->data))) {
+		while ((comp_data = search_by_id_and_client (priv, e_cal_view_get_client (query), id, TRUE))) {
 			pos = get_position_in_array (priv->objects, comp_data);
 			e_table_model_row_deleted (E_TABLE_MODEL (model), pos);
 
@@ -1911,7 +1917,7 @@ e_cal_model_get_component_at (ECalModel *model, gint row)
 }
 
 ECalModelComponent *
-e_cal_model_get_component_for_uid  (ECalModel *model, const char *uid)
+e_cal_model_get_component_for_uid  (ECalModel *model, const ECalComponentId *id)
 {
 	ECalModelPrivate *priv;
 
@@ -1919,8 +1925,8 @@ e_cal_model_get_component_for_uid  (ECalModel *model, const char *uid)
 
 	priv = model->priv;
 
-	return search_by_uid_and_client (priv, NULL, uid);
-}
+	return search_by_id_and_client (priv, NULL, id, FALSE);
+} 
 
 /**
  * e_cal_model_date_value_to_string
@@ -2088,8 +2094,8 @@ e_cal_model_set_instance_times (ECalModelComponent *comp_data, icaltimezone *zon
 	start_time = icalcomponent_get_dtstart (comp_data->icalcomp);
 	end_time = icalcomponent_get_dtend (comp_data->icalcomp);
 
-	comp_data->instance_start = icaltime_as_timet (start_time);
+	comp_data->instance_start = icaltime_as_timet_with_zone (start_time, zone);
 
 	comp_data->instance_end = comp_data->instance_start +
-		(icaltime_as_timet (end_time) - icaltime_as_timet (start_time));
+		(icaltime_as_timet_with_zone (end_time, zone) - icaltime_as_timet_with_zone (start_time, zone));
 }
