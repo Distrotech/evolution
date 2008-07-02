@@ -3,7 +3,7 @@
  * Authors:
  *  JP Rosevear <jpr@ximian.com>
  *
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,8 +26,7 @@
 
 #include <glib/gi18n.h>
 #include <libedataserver/e-time-utils.h>
-#include <gtk/gtkmessagedialog.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include <libical/ical.h>
 #include <e-util/e-dialog-utils.h>
 #include <libecal/e-cal-time-util.h>
@@ -172,50 +171,16 @@ get_attendee_if_attendee_sentby_is_user (GSList *attendees, char *address)
 }
 
 static char *
-html_new_lines_for (char *string)
+html_new_lines_for (const char *string)
 {
-	char *html_string = (char *) malloc (sizeof (char)* (3500));
-	int length = strlen (string);
-	int index = 0;
-	char *index_ptr = string;
-	char *temp = string;
+	gchar **lines;
+	gchar *joined;
 
-	/*Find the first occurence*/
-	index_ptr = strstr ((const char *)temp, "\n");
+	lines = g_strsplit_set (string, "\n", -1);
+	joined = g_strjoinv ("<br>", lines);
+	g_strfreev (lines);
 
-	/*Doesn't occur*/
-	if (index_ptr == NULL) {
-		strcpy (html_string, (const char *)string);
-		html_string[length] = '\0';
-		return html_string;
-	}
-
-	/*Split into chunks inserting <br> for \n */
-	do{
-		while (temp != index_ptr){
-			html_string[index++] = *temp;
-			temp++;
-		}
-		temp++;
-
-		html_string[index++] = '<';
-		html_string[index++] = 'b';
-		html_string[index++] = 'r';
-		html_string[index++] = '>';
-
-		index_ptr = strstr ((const char *)temp, "\n");
-
-	} while (index_ptr);
-
-	/*Don't leave out the last chunk*/
-	while (*temp != '\0'){
-		html_string[index++] = *temp;
-		temp++;
-	}
-
-	html_string[index] = '\0';
-
-	return html_string;
+	return joined;
 }
 
 char *
@@ -499,7 +464,9 @@ comp_to_list (ECalComponentItipMethod method, ECalComponent *comp, GList *users,
 		for (l = attendees; l != NULL; l = l->next) {
 			ECalComponentAttendee *att = l->data;
 
-			if (users_has_attendee (users, att->value))
+			if (att->cutype != ICAL_CUTYPE_INDIVIDUAL && att->cutype != ICAL_CUTYPE_GROUP)
+				continue;
+			else if (users_has_attendee (users, att->value))
 				continue;
 			else if (att->sentby && users_has_attendee (users, att->sentby))
 				continue;
@@ -541,6 +508,9 @@ comp_to_list (ECalComponentItipMethod method, ECalComponent *comp, GList *users,
 			for (l = attendees; l != NULL; l = l->next) {
 				ECalComponentAttendee *att = l->data;
 
+				if (att->cutype != ICAL_CUTYPE_INDIVIDUAL && att->cutype != ICAL_CUTYPE_GROUP)
+					continue;
+
 				destination = e_destination_new ();
 				if (att->cn != NULL)
 					e_destination_set_name (destination, att->cn);
@@ -563,7 +533,6 @@ comp_to_list (ECalComponentItipMethod method, ECalComponent *comp, GList *users,
 			g_ptr_array_add (array, destination);
 		}
 		break;
-
 
 	case E_CAL_COMPONENT_METHOD_ADD:
 	case E_CAL_COMPONENT_METHOD_REFRESH:
@@ -591,6 +560,9 @@ comp_to_list (ECalComponentItipMethod method, ECalComponent *comp, GList *users,
 
 		for (l = attendees; l != NULL; l = l->next) {
 			ECalComponentAttendee *att = l->data;
+
+			if (att->cutype != ICAL_CUTYPE_INDIVIDUAL && att->cutype != ICAL_CUTYPE_GROUP)
+				continue;
 
 			if (!g_ascii_strcasecmp (itip_strip_mailto (att->value), sender) || (att->sentby && !g_ascii_strcasecmp (itip_strip_mailto (att->sentby), sender))){
 
@@ -1659,3 +1631,26 @@ itip_publish_comp (ECal *client, gchar *uri, gchar *username,
 	return TRUE;
 }
 
+static gboolean
+check_time (const struct icaltimetype tmval, gboolean can_null_time)
+{
+	if (icaltime_is_null_time (tmval))
+		return can_null_time;
+
+	return  icaltime_is_valid_time (tmval) &&
+		tmval.month >= 1 && tmval.month <= 12 &&
+		tmval.day >= 1 && tmval.day <= 31 &&
+		tmval.hour >= 0 && tmval.hour < 24 &&
+		tmval.minute >= 0 && tmval.minute < 60 &&
+		tmval.second >= 0 && tmval.second < 60;
+}
+
+/* returns whether the passed-in icalcomponent is valid or not. It does some sanity checks on values too. */
+gboolean
+is_icalcomp_valid (icalcomponent *icalcomp)
+{
+	return  icalcomp &&
+		icalcomponent_is_valid (icalcomp) &&
+		check_time (icalcomponent_get_dtstart (icalcomp), FALSE) &&
+		check_time (icalcomponent_get_dtend (icalcomp), TRUE);
+}

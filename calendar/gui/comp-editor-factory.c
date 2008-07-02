@@ -1,6 +1,6 @@
 /* Evolution calendar - Component editor factory object
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -22,9 +22,9 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
+#include <glib/gi18n.h>
 #include <bonobo/bonobo-exception.h>
-#include <bonobo/bonobo-i18n.h>
 #include <evolution-calendar.h>
 #include <libedataserver/e-url.h>
 #include <libecal/e-cal.h>

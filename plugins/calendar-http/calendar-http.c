@@ -1,7 +1,7 @@
 /*
  *
  *
- * Copyright (C) 2004 David Trowbridge
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,16 +19,7 @@
  *
  */
 
-#include <glib-object.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkcheckbutton.h>
+#include <gtk/gtk.h>
 #include <e-util/e-config.h>
 #include <calendar/gui/e-cal-config.h>
 #include <libedataserver/e-source.h>

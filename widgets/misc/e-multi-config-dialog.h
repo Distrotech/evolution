@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-multi-config-dialog.h
  *
- * Copyright (C) 2002  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -29,8 +29,7 @@
 
 #include "e-config-page.h"
 
-#include <gtk/gtkdialog.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gtk/gtk.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,7 +58,7 @@ struct _EMultiConfigDialogClass {
 };
 
 
-GtkType    e_multi_config_dialog_get_type (void);
+GType      e_multi_config_dialog_get_type (void);
 GtkWidget *e_multi_config_dialog_new      (void);
 
 void  e_multi_config_dialog_add_page  (EMultiConfigDialog *dialog,

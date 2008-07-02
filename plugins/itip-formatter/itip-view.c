@@ -2,7 +2,7 @@
 /*
  *  Authors: JP Rosevear <jpr@novell.com>
  *
- *  Copyright 2004 Novell, Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,8 +25,6 @@
 #endif
 
 #include <string.h>
-#include <glib.h>
-#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <gconf/gconf-client.h>
 #include <camel/camel-stream.h>
@@ -911,7 +909,7 @@ itip_view_class_init (ItipViewClass *klass)
 			      G_SIGNAL_RUN_LAST,
 			      G_STRUCT_OFFSET (ItipViewClass, source_selected),
 			      NULL, NULL,
-			      gtk_marshal_NONE__POINTER,
+			      g_cclosure_marshal_VOID__POINTER,
 			      G_TYPE_NONE, 1, G_TYPE_POINTER);
 
 	signals[RESPONSE] =

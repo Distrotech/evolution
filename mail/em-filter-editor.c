@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Copyright (C) 2000-2002 Ximian Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *           Jeffrey Stedfast <fejj@ximian.com>
@@ -45,10 +45,10 @@ static void em_filter_editor_finalise (GObject *obj);
 static RuleEditorClass *parent_class = NULL;
 
 
-GtkType
+GType
 em_filter_editor_get_type (void)
 {
-	static GtkType type = 0;
+	static GType type = 0;
 
 	if (!type) {
 		static const GTypeInfo info = {
@@ -137,6 +137,7 @@ em_filter_editor_construct (EMFilterEditor *fe, EMFilterContext *fc, GladeXML *g
 {
 	GtkWidget *menu, *item, *omenu;
 	int i;
+	GtkTreeViewColumn *column;
 
         omenu = glade_xml_get_widget (gui, "filter_source");
 	gtk_option_menu_remove_menu (GTK_OPTION_MENU (omenu));
@@ -153,6 +154,10 @@ em_filter_editor_construct (EMFilterEditor *fe, EMFilterContext *fc, GladeXML *g
 	gtk_widget_show (omenu);
 
 	rule_editor_construct ((RuleEditor *) fe, (RuleContext *) fc, gui, source_names[0].source, _("_Filter Rules"));
+
+	/* Show the Enabled column, we support it here */
+	column = gtk_tree_view_get_column (GTK_TREE_VIEW (RULE_EDITOR (fe)->list), 0);
+	gtk_tree_view_column_set_visible (column, TRUE);
 }
 
 static FilterRule *

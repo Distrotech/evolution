@@ -1,3 +1,40 @@
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* text/e-text-model-test.c: (main):
+	* text/e-text-test.c: (main):
+	gdk_rgb_get_cmap -> gdk_rgb_get_colormap
+
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* menus/gal-define-views-dialog.c: (gal_define_views_dialog_init):
+	* menus/gal-view-new-dialog.c: (gal_view_new_dialog_init):
+	gtk_window_set_policy -> gtk_window_set_resizable.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* e-timezone-dialog/e-timezone-dialog.h:
+	* menus/gal-view-instance.c:
+	* menus/gal-view-menus.h:
+	* text/e-text.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-04-25  Danny Baumann  <dannybaumann@web.de>
+
+	** Fix for bug #529893
+
+	* text/e-text.c: (_do_tooltip):
+	Properly set type hint on tooltip window.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #529641
+
+	* e-timezone-dialog/e-timezone-dialog.glade:
+	Prefer the term "drop-down combination box" to "combo box" per the
+	GNOME Documentation Style Guide.
+
 2008-02-23  Andre Klapper  <a9016009@gmx.de>
 
 	* e-timezone-dialog/e-timezone-dialog.glade:

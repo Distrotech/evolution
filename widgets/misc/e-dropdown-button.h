@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-dropdown-menu.h
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,8 +27,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkmenu.h>
+#include <gtk/gtk.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,7 +56,7 @@ struct _EDropdownButtonClass {
 };
 
 
-GtkType    e_dropdown_button_get_type   (void);
+GType      e_dropdown_button_get_type   (void);
 void       e_dropdown_button_construct  (EDropdownButton *dropdown_button,
 					 const char      *label_text,
 					 GtkMenu         *menu);

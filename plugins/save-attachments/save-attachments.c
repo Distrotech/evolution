@@ -2,7 +2,7 @@
  *
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of version 2 of the GNU General Public
@@ -28,25 +28,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
-
-#include <gtk/gtkcheckbutton.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkmessagedialog.h>
-#include <gtk/gtktreestore.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkcellrenderertoggle.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkfilechooser.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkalignment.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkfilechooserbutton.h>
 
 #include <camel/camel-folder.h>
 #include <camel/camel-exception.h>

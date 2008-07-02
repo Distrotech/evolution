@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* mail-component.c
  *
- * Copyright (C) 2003  Ximian Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Ettore Perazzoli <ettore@ximian.com>
  *	    Michael Zucchi <notzed@ximian.com>
@@ -46,13 +46,13 @@
 #include "em-folder-selection.h"
 #include "em-folder-utils.h"
 #include "em-migrate.h"
-#include "e-util/e-icon-factory.h"
 
 #include "misc/e-info-label.h"
 #include "e-util/e-util.h"
 #include "e-util/e-error.h"
 #include "e-util/e-util-private.h"
 #include "e-util/e-logger.h"
+#include "e-util/gconf-bridge.h"
 
 #include "em-search-context.h"
 #include "mail-config.h"
@@ -74,7 +74,7 @@
 
 #include "e-task-bar.h"
 
-#include <gtk/gtklabel.h>
+#include <gtk/gtk.h>
 
 #include <e-util/e-mktemp.h>
 #include <Evolution.h>
@@ -145,6 +145,9 @@ struct _MailComponentPrivate {
 	ELogger *logger;
 
 	EComponentView *component_view;
+
+	guint mail_sync_id; /* timeout id for sync call on the stores */
+	guint mail_sync_in_progress; /* is greater than 0 if still waiting to finish sync on some store */
 };
 
 /* indexed by _mail_component_folder_t */
@@ -451,6 +454,11 @@ static void
 impl_dispose (GObject *object)
 {
 	MailComponentPrivate *priv = MAIL_COMPONENT (object)->priv;
+
+	if (priv->mail_sync_id) {
+		g_source_remove (priv->mail_sync_id);
+		priv->mail_sync_id = 0;
+	}
 
 	view_changed_timeout_remove ((EComponentView *)object);
 
@@ -875,7 +883,7 @@ impl_quit(PortableServer_Servant servant, CORBA_Environment *ev)
 	}
 		/* Falls through */
 	case MC_QUIT_SYNC:
-		if (mc->priv->quit_count > 0)
+		if (mc->priv->quit_count > 0 || mc->priv->mail_sync_in_progress > 0)
 			return FALSE;
 
 		mail_cancel_all();
@@ -1067,6 +1075,43 @@ impl_upgradeFromVersion (PortableServer_Servant servant, const short major, cons
 	camel_exception_clear (&ex);
 }
 
+static void
+mc_sync_store_done (CamelStore *store, void *data)
+{
+	MailComponent *mc = (MailComponent *) data;
+
+	mc->priv->mail_sync_in_progress--;
+}
+
+static void
+mc_sync_store (gpointer key, gpointer value, gpointer user_data)
+{
+	extern int camel_application_is_exiting;
+	MailComponent *mc = (MailComponent *) user_data;
+
+	mc->priv->mail_sync_in_progress++;
+
+	if (!camel_application_is_exiting)
+		mail_sync_store (CAMEL_STORE (key), FALSE, mc_sync_store_done, mc);
+	else
+		mc_sync_store_done (CAMEL_STORE (key), mc);
+}
+
+static gboolean
+call_mail_sync (gpointer user_data)
+{
+	extern int camel_application_is_exiting;
+	MailComponent *mc = (MailComponent *)user_data;
+
+	if (camel_application_is_exiting)
+		return FALSE;
+
+	if (!mc->priv->mail_sync_in_progress && session && camel_session_is_online (session))
+		mail_component_stores_foreach (mc, mc_sync_store, mc);
+
+	return !camel_application_is_exiting;
+}
+
 struct _setline_data {
 	GNOME_Evolution_Listener listener;
 	CORBA_boolean status;
@@ -1247,6 +1292,9 @@ mail_component_init (MailComponent *component)
 		(GDestroyNotify) store_hash_free);
 
 	mail_autoreceive_init();
+
+	priv->mail_sync_in_progress = 0;
+	priv->mail_sync_id = g_timeout_add_seconds (mail_config_get_sync_timeout (), call_mail_sync, component);
 }
 
 /* Public API.  */
@@ -1529,12 +1577,12 @@ struct _log_data {
 	int level;
 	char *key;
 	char *text;
-	char *icon;
+	char *stock_id;
 	GdkPixbuf *pbuf;
 } ldata [] = {
-	{ E_LOG_ERROR, N_("Error"), N_("Errors"), "stock_dialog-error" },
-	{ E_LOG_WARNINGS, N_("Warning"), N_("Warnings and Errors"), "stock_dialog-warning" },
-	{ E_LOG_DEBUG, N_("Debug"), N_("Error, Warnings and Debug messages"), "stock_dialog-info" }
+	{ E_LOG_ERROR, N_("Error"), N_("Errors"), GTK_STOCK_DIALOG_ERROR },
+	{ E_LOG_WARNINGS, N_("Warning"), N_("Warnings and Errors"), GTK_STOCK_DIALOG_WARNING },
+	{ E_LOG_DEBUG, N_("Debug"), N_("Error, Warnings and Debug messages"), GTK_STOCK_DIALOG_INFO }
 };
 
 enum
@@ -1544,33 +1592,54 @@ enum
 	COL_DATA
 };
 
+static gboolean
+query_tooltip_cb (GtkTreeView *view,
+                  gint x,
+                  gint y,
+                  gboolean keyboard_mode,
+                  GtkTooltip *tooltip)
+{
+	GtkTreeViewColumn *column;
+	GtkTreeModel *model;
+	GtkTreePath *path;
+	GtkTreeIter iter;
+	gint level;
+
+	if (!gtk_tree_view_get_tooltip_context (
+		view, &x, &y, keyboard_mode, NULL, &path, &iter))
+		return FALSE;
+
+	/* Figure out which column we're pointing at. */
+	if (keyboard_mode)
+		gtk_tree_view_get_cursor (view, NULL, &column);
+	else
+		gtk_tree_view_get_path_at_pos (
+			view, x, y, NULL, &column, NULL, NULL);
+
+	/* Restrict the tip area to a single cell. */
+	gtk_tree_view_set_tooltip_cell (view, tooltip, path, column, NULL);
+
+	/* This only works if the tree view is NOT reorderable. */
+	if (column != gtk_tree_view_get_column (view, 0))
+		return FALSE;
+
+	model = gtk_tree_view_get_model (view);
+	gtk_tree_model_get (model, &iter, COL_LEVEL, &level, -1);
+	gtk_tooltip_set_text (tooltip, ldata[level].key);
+
+	return TRUE;
+}
+
 static void
 render_pixbuf (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
 	       GtkTreeModel *model, GtkTreeIter *iter, gpointer user_data)
 {
-	static gboolean initialised = FALSE;
-	gint level;
-	int i;
-
-	if (!initialised) {
-		for (i=E_LOG_ERROR; i<=E_LOG_DEBUG; i++) {
-			ldata[i].pbuf = e_icon_factory_get_icon (ldata[i].icon, E_ICON_SIZE_MENU);
-		}
-		initialised = TRUE;
-	}
-	
-	gtk_tree_model_get (model, iter, COL_LEVEL, &level, -1);
-	g_object_set (renderer, "pixbuf", ldata[level].pbuf, "visible", TRUE, NULL);
-}
-
-static void
-render_level (GtkTreeViewColumn *column, GtkCellRenderer *renderer,
-	      GtkTreeModel *model, GtkTreeIter *iter, gpointer user_data)
-{
 	gint level;
 
 	gtk_tree_model_get (model, iter, COL_LEVEL, &level, -1);
-	g_object_set (renderer, "text", ldata[level].key, NULL);
+	g_object_set (
+		renderer, "stock-id", ldata[level].stock_id,
+		"stock-size", GTK_ICON_SIZE_MENU, NULL);
 }
 
 static void
@@ -1594,29 +1663,19 @@ append_logs (const char *txt, GtkListStore *store)
 	
 	str = g_strsplit (txt, 	":", 3);
 	if (str[0] && str[1] && str[2]) {
-		int level;
-		time_t time;
-		char *data;
 		GtkTreeIter iter;
 
-		level = atoi (str[0]);
-		time = atol (str[1]);
-		data = strrchr (str[2], '\n');
-		*data = 0;
-		data = str[2];
-		
-		gtk_list_store_append(store, &iter);
-		gtk_list_store_set(store, &iter,
-				   COL_LEVEL, level,
-				   COL_TIME, time,
-				   COL_DATA, data,
-				   -1);
+		gtk_list_store_append (store, &iter);
+		gtk_list_store_set (
+			store, &iter,
+			COL_LEVEL, atoi (str[0]),
+			COL_TIME, atol (str[1]),
+			COL_DATA, g_strstrip (str[2]),
+			-1);
 	} else 
-		printf("Unable to decode error log: %s\n", txt);
+		g_printerr ("Unable to decode error log: %s\n", txt);
 	
 	g_strfreev (str);
-		
-
 }
 
 static void
@@ -1632,119 +1691,135 @@ void
 mail_component_show_logger (gpointer top)
 {
 	MailComponent *mc = mail_component_peek ();
-	GtkWidget *window, *hbox, *vbox, *spin, *label, *combo, *scrolled;
+	GConfBridge *bridge;
+	GtkWidget *container;
+	GtkWidget *label;
+	GtkWidget *toplevel;
+	GtkWidget *vbox;
+	GtkWidget *widget;
+	GtkWidget *window;
 	ELogger *logger = mc->priv->logger;
 	int i;
 	GtkListStore *store;
 	GtkCellRenderer *renderer;
-	GtkTreeView *treeview;
 	GtkTreeViewColumn *column;
 
+	bridge = gconf_bridge_get ();
+	toplevel = gtk_widget_get_toplevel (top);
+
 	window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_transient_for ((GtkWindow *) window, (GtkWindow *) gtk_widget_get_toplevel ((GtkWidget *) top));
-	gtk_container_set_border_width ((GtkContainer *) window, 6);
-	gtk_window_set_default_size ((GtkWindow *)window, 500, 400);
-	gtk_window_set_title ((GtkWindow *) window, _("Debug Logs"));
-	vbox = gtk_vbox_new (FALSE, 6);
-	hbox = gtk_hbox_new (FALSE, 6);	
-	gtk_container_add ((GtkContainer *) window, vbox);
-	/* Translators: This is the first part of the sentence "Show _errors in the status bar for" - XXX - "second(s)." */
-	label = gtk_label_new_with_mnemonic (_("Show _errors in the status bar for"));
-	gtk_box_pack_start ((GtkBox *) hbox, label, FALSE, FALSE, 6);
-	spin = gtk_spin_button_new_with_range(1.0, 60.0, 1.0);
-	gtk_spin_button_set_value ((GtkSpinButton *) spin, (double) mail_config_get_error_timeout ());
-	g_signal_connect (spin, "value-changed", G_CALLBACK (spin_value_changed), NULL);
-	gtk_label_set_mnemonic_widget ((GtkLabel *) label, spin);
-	gtk_box_pack_start ((GtkBox *) hbox, spin, FALSE, FALSE, 6);
-	/* Translators: This is the second part of the sentence "Show _errors in the status bar for" - XXX - "second(s)." */
-	label = gtk_label_new_with_mnemonic (_("second(s)."));
-	gtk_box_pack_start ((GtkBox *) hbox, label, FALSE, FALSE, 6);
-	gtk_box_pack_start ((GtkBox *) vbox, hbox, FALSE, FALSE, 6);
+	gtk_window_set_default_size (GTK_WINDOW (window), 500, 400);
+	gtk_window_set_title (GTK_WINDOW (window), _("Debug Logs"));
+	gtk_window_set_transient_for (
+		GTK_WINDOW (window), GTK_WINDOW (toplevel));
+	gtk_container_set_border_width (GTK_CONTAINER (window), 12);
 
-	combo = gtk_combo_box_new_text ();
-	for (i = E_LOG_ERROR; i <=E_LOG_DEBUG; i++)
-		gtk_combo_box_append_text (GTK_COMBO_BOX (combo), ldata[i].text);
-	gtk_combo_box_set_active ((GtkComboBox *) combo, mail_config_get_error_level ());
+	vbox = gtk_vbox_new (FALSE, 12);
+	gtk_container_add (GTK_CONTAINER (window), vbox);
 
-	hbox = gtk_hbox_new (FALSE, 6);	
-	label = gtk_label_new_with_mnemonic (_("Log Messages:"));
-	gtk_label_set_mnemonic_widget ((GtkLabel *) label, combo);	
-	gtk_box_pack_start ((GtkBox *) hbox, label, FALSE, FALSE, 6);
-	gtk_box_pack_start ((GtkBox *) hbox, combo, FALSE, FALSE, 6);
-	gtk_box_pack_start ((GtkBox *) vbox, hbox, FALSE, FALSE, 6);
-	
-	store = gtk_list_store_new(3, G_TYPE_INT, G_TYPE_LONG, G_TYPE_STRING);
+	container = gtk_hbox_new (FALSE, 6);	
+	gtk_box_pack_start (GTK_BOX (vbox), container, FALSE, FALSE, 0);
+
+	/* Translators: This is the first part of the sentence
+	 * "Show _errors in the status bar for" - XXX - "second(s)." */
+	widget = gtk_label_new_with_mnemonic (
+		_("Show _errors in the status bar for"));
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+	label = widget;
+
+	widget = gtk_spin_button_new_with_range (1.0, 60.0, 1.0);
+	gtk_spin_button_set_value (
+		GTK_SPIN_BUTTON (widget),
+		(gdouble) mail_config_get_error_timeout ());
+	g_signal_connect (
+		widget, "value-changed",
+		G_CALLBACK (spin_value_changed), NULL);
+	gtk_label_set_mnemonic_widget (GTK_LABEL (label), widget);
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+
+	/* Translators: This is the second part of the sentence
+	 * "Show _errors in the status bar for" - XXX - "second(s)." */
+	widget = gtk_label_new_with_mnemonic (_("second(s)."));
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+
+	container = gtk_hbox_new (FALSE, 6);
+	gtk_box_pack_start (GTK_BOX (vbox), container, FALSE, FALSE, 0);
+
+	widget = gtk_label_new_with_mnemonic (_("Log Messages:"));
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+	label = widget;
+
+	widget = gtk_combo_box_new_text ();
+	for (i = E_LOG_ERROR; i <= E_LOG_DEBUG; i++)
+		gtk_combo_box_append_text (
+			GTK_COMBO_BOX (widget), ldata[i].text);
+	gconf_bridge_bind_property (
+		bridge, "/apps/evolution/mail/display/error_level",
+		G_OBJECT (widget), "active");
+	gtk_label_set_mnemonic_widget (GTK_LABEL (label), widget);
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+
+	store = gtk_list_store_new (3, G_TYPE_INT, G_TYPE_LONG, G_TYPE_STRING);
 	e_logger_get_logs (logger, (ELogFunction) append_logs, store); 
-	if (0)
-	{
-		GtkTreeIter iter;
-		gtk_list_store_append(store, &iter);
-		gtk_list_store_set(store, &iter,
-				   COL_LEVEL, 0,
-				   COL_TIME, "21/12/07 10:55 PM",
-				   COL_DATA, "Error Refreshing Folder",
-				   -1);
-		gtk_list_store_append(store, &iter);
-		gtk_list_store_set(store, &iter,
-				   COL_LEVEL, 1,
-				   COL_TIME, "21/12/07 10:55 PM",
-				   COL_DATA, "Error refreshing folder",
-				   -1);
-		gtk_list_store_append(store, &iter);
-		gtk_list_store_set(store, &iter,
-				   COL_LEVEL, 2,
-				   COL_TIME, "21/12/07 10:55 PM",
-				   COL_DATA, "Error refreshing folder",
-				   -1);
-	}
-	gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE (store),
-					     COL_TIME, GTK_SORT_DESCENDING);
+	gtk_tree_sortable_set_sort_column_id (
+		GTK_TREE_SORTABLE (store), COL_TIME, GTK_SORT_DESCENDING);
 
+	container = gtk_scrolled_window_new (NULL, NULL);
+	gtk_scrolled_window_set_policy (
+		GTK_SCROLLED_WINDOW (container),
+		GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+	gtk_scrolled_window_set_shadow_type (
+		GTK_SCROLLED_WINDOW (container), GTK_SHADOW_IN);
+	gtk_box_pack_start (GTK_BOX (vbox), container, TRUE, TRUE, 0);
 
-	treeview = (GtkTreeView *)gtk_tree_view_new();
-	gtk_tree_view_set_rules_hint ((GtkTreeView *) treeview, TRUE);	
-	gtk_tree_view_set_reorderable(GTK_TREE_VIEW(treeview), FALSE);
-	gtk_tree_view_set_model(treeview, GTK_TREE_MODEL (store));
-	gtk_tree_view_set_search_column(treeview, COL_DATA);
-	gtk_tree_view_set_headers_visible(treeview, TRUE);
+	widget = gtk_tree_view_new();
+	gtk_tree_view_set_rules_hint (GTK_TREE_VIEW (widget), TRUE);	
+	gtk_tree_view_set_reorderable (GTK_TREE_VIEW (widget), FALSE);
+	gtk_tree_view_set_model (GTK_TREE_VIEW (widget), GTK_TREE_MODEL (store));
+	gtk_tree_view_set_search_column (GTK_TREE_VIEW (widget), COL_DATA);
+	gtk_tree_view_set_headers_visible (GTK_TREE_VIEW (widget), TRUE);
+	gtk_widget_set_has_tooltip (widget, TRUE);
+	gtk_container_add (GTK_CONTAINER (container), widget);
+
+	g_signal_connect (
+		widget, "query-tooltip",
+		G_CALLBACK (query_tooltip_cb), NULL);
 
 	column = gtk_tree_view_column_new ();
-	gtk_tree_view_append_column ((GtkTreeView *) treeview, column);
-	renderer = gtk_cell_renderer_pixbuf_new ();
-	gtk_tree_view_column_pack_start (column, renderer, FALSE);
-	gtk_tree_view_column_set_cell_data_func (column, renderer, render_pixbuf, NULL, NULL);
-
-
-	column = gtk_tree_view_column_new ();
-	gtk_tree_view_append_column ((GtkTreeView *) treeview, column);
-	renderer = gtk_cell_renderer_text_new ();
-	gtk_tree_view_column_pack_start (column, renderer, FALSE);
 	gtk_tree_view_column_set_title (column, _("Log Level"));
-	gtk_tree_view_column_set_cell_data_func (column, renderer, render_level, NULL, NULL);
+	gtk_tree_view_append_column (GTK_TREE_VIEW (widget), column);
 
+	renderer = gtk_cell_renderer_pixbuf_new ();
+	gtk_tree_view_column_pack_start (column, renderer, TRUE);
+	gtk_tree_view_column_set_cell_data_func (
+		column, renderer, render_pixbuf, NULL, NULL);
 
 	column = gtk_tree_view_column_new ();
-	gtk_tree_view_append_column ((GtkTreeView *) treeview, column);
-	renderer = gtk_cell_renderer_text_new ();
 	gtk_tree_view_column_set_title (column, _("Time"));	
-	gtk_tree_view_column_pack_start (column, renderer, FALSE);
-	gtk_tree_view_column_set_cell_data_func (column, renderer, render_date, NULL, NULL);
+	gtk_tree_view_append_column (GTK_TREE_VIEW (widget), column);
 
-	
 	renderer = gtk_cell_renderer_text_new ();
-	gtk_tree_view_insert_column_with_attributes(treeview,
-						    -1, _("Messages"),
-						    renderer, "text", COL_DATA,
-						    NULL);
-	
-	scrolled = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled),
-					GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled), GTK_SHADOW_IN);
+	gtk_tree_view_column_pack_start (column, renderer, FALSE);
+	gtk_tree_view_column_set_cell_data_func (
+		column, renderer, render_date, NULL, NULL);
 
-	gtk_container_add (GTK_CONTAINER (scrolled), (GtkWidget *) treeview);
+	renderer = gtk_cell_renderer_text_new ();
+	gtk_tree_view_insert_column_with_attributes(
+		GTK_TREE_VIEW (widget), -1, _("Messages"),
+		renderer, "markup", COL_DATA, NULL);
 
-	gtk_box_pack_start ((GtkBox *) vbox, (GtkWidget *) scrolled, TRUE, TRUE, 6);
+	container = gtk_hbutton_box_new ();
+	gtk_button_box_set_layout (
+		GTK_BUTTON_BOX (container), GTK_BUTTONBOX_END);
+	gtk_box_pack_start (GTK_BOX (vbox), container, FALSE, FALSE, 0);
+
+	widget = gtk_button_new_from_stock (GTK_STOCK_CLOSE);
+	gtk_widget_set_tooltip_text (widget, _("Close this window"));
+	g_signal_connect_swapped (
+		widget, "clicked",
+		G_CALLBACK (gtk_widget_destroy), window);
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+
 	gtk_widget_show_all (window);
 }
 

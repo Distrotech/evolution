@@ -2,7 +2,7 @@
  *
  *  Authors: Philip Van Hoof <pvanhoof@gnome.org>
  *
- *  Copyright 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of version 2 of the GNU General Public
@@ -25,6 +25,7 @@
 
 #include <glib.h>
 #include <gtk/gtk.h>
+#include <gio/gio.h>
 #include <libedataserver/e-source.h>
 #include <libedataserverui/e-source-selector.h>
 #include <libecal/e-cal.h>
@@ -45,3 +46,5 @@ struct _FormatHandler
 };
 
 FormatHandler *ical_format_handler_new (void);
+
+GOutputStream *open_for_writing (GtkWindow *parent, const char *uri, GError **error);

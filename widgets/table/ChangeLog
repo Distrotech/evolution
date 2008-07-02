@@ -1,3 +1,55 @@
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* e-table-example-1.c: (main):
+	* e-table-example-2.c: (main):
+	* e-table-size-test.c: (main):
+	* test-check.c: (check_test):
+	* test-cols.c: (multi_cols_test):
+	gdk_rgb_get_cmap -> gdk_rgb_get_colormap
+
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* test-check.c: (check_test):
+	* test-cols.c: (multi_cols_test):
+	gdk_pixbuf_unref() -> g_object_unref()
+
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* e-cell-combo.c: (e_cell_combo_init):
+	gtk_window_set_policy -> gtk_window_set_resizable
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* e-table-memory-callbacks.c:
+	* e-table-memory-store.c:
+	* e-table-model.c:
+	* e-table-simple.c:
+	* e-tree-memory-callbacks.c:
+	* e-tree-model.c:
+	* e-tree-simple.c:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #528288
+
+	* e-tree.h: (e_tree_set_info_message):
+	* e-tree.c: (struct ETreePriv), (et_dispose), (e_tree_init),
+	(tree_size_allocate), (e_tree_set_info_message):
+	Allow setting info message into the tree. It doesn't check
+	whether the tree is empty or not, so take care of that.
+
+2008-04-25  Danny Baumann  <dannybaumann@web.de>
+
+	** Fix for bug #529893
+
+	* e-table-header-item.c: (make_shaped_window_from_xpm):
+	* e-cell-combo.c: (e_cell_combo_init):
+	* e-cell-text.c: (ect_show_tooltip):
+	Properly set type hints for popup windows.
+
 2008-03-27  Milan Crha  <mcrha@redhat.com>
 
 	** Fix for bug #519292

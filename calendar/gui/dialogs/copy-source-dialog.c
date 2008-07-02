@@ -1,6 +1,6 @@
 /* Evolution calendar - Copy source dialog
  *
- * Copyright (C) 2003 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Rodrigo Moya <rodrigo@ximian.com>
  *
@@ -22,8 +22,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtkmessagedialog.h>
-#include <bonobo/bonobo-i18n.h>
+#include <glib/gi18n.h>
 #include "copy-source-dialog.h"
 #include "select-source-dialog.h"
 #include "common/authentication.h"

@@ -1,7 +1,7 @@
 /* Evolution calendar - Delete calendar component dialog
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -22,7 +22,7 @@
 #ifndef SAVE_COMP_H
 #define SAVE_COMP_H
 
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-component.h>
 
 GtkResponseType save_component_dialog (GtkWindow *parent, ECalComponent *comp);

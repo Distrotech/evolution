@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2005 Novell Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,15 +27,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <glib.h>
-
-#include <gtk/gtknotebook.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtkalignment.h>
+#include <gtk/gtk.h>
 
 #include <libgnomeui/gnome-druid.h>
 #include <libgnomeui/gnome-druid-page-standard.h>

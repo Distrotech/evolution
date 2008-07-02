@@ -1,3 +1,45 @@
+2008-06-16  Maciej Piechotka  <uzytkownik2@gmal.com>
+
+	** Fix for bug #526262
+
+	* filter-part.c: (xml_create):
+	* filter-part.c: (filter_part_xml_create):
+	Handle _title element in analogical way as title
+
+2008-06-19  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #382783
+
+	* filter-rule.c: (do_grab_focus_cb), (more_parts), (get_widget):
+	Grab focus of new rule part on adding and scroll to the bottom too.
+
+2008-06-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #201011
+
+	* filter-rule.h: (struct _FilterRule): New property 'enabled'
+	to be able to disable filter rules.
+	* filter-rule.c: (filter_rule_init), (rule_eq), (xml_encode),
+	(xml_decode), (rule_copy): Store/restore/use 'enabled' value.
+	* rule-editor.c: (add_editor_response), (rule_move), (set_source):
+	Set the 'enabled' column properly.
+	* rule-editor.c: (rule_able_toggled), (rule_editor_treeview_new):
+	Add column "Enabled" to the tree, but have it hidden by default, only
+	those whom supports it can show it.
+
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* filter-part.c: (main): gtk_window_set_policy ->
+	gtk_window_set_resizable + other cleanups.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* rule-editor.c:
+	* rule-editor.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
 2008-01-10  Milan Crha  <mcrha@redhat.com>
 
 	** Fix for bug #211353

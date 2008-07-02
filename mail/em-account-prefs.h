@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002-2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,22 +24,19 @@
 #ifndef __EM_ACCOUNT_PREFS_H__
 #define __EM_ACCOUNT_PREFS_H__
 
-#ifdef __cplusplus
-extern "C" {
-#pragma }
-#endif /* __cplusplus */
-
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkclist.h>
+#include <gtk/gtk.h>
 #include <glade/glade.h>
-#include <gtk/gtktreeview.h>
 
 #include <table/e-table.h>
 
 #include "evolution-config-control.h"
 
 #include <shell/Evolution.h>
+
+#ifdef __cplusplus
+extern "C" {
+#pragma }
+#endif /* __cplusplus */
 
 
 #define EM_ACCOUNT_PREFS_TYPE        (em_account_prefs_get_type ())
@@ -80,7 +77,7 @@ struct _EMAccountPrefsClass {
 };
 
 
-GtkType em_account_prefs_get_type (void);
+GType em_account_prefs_get_type (void);
 
 GtkWidget *em_account_prefs_new (GNOME_Evolution_Shell shell);
 

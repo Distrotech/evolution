@@ -3,7 +3,7 @@
  *
  *  Author: Johnny Jacob <jjohnny@novell.com>
  *
- *  Copyright 2006 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Copyright (C) 2003, 2004, 2005  Christian Persch
  *
@@ -35,12 +35,6 @@
 #include "config.h"
 
 #include "e-icon-entry.h"
-
-#include <gtk/gtkentry.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkeventbox.h>
-#include <gtk/gtkimage.h>
 
 #define E_ICON_ENTRY_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE ((object), E_TYPE_ICON_ENTRY, EIconEntryPrivate))
 

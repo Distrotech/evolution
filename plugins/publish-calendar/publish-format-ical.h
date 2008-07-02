@@ -1,7 +1,7 @@
 /*
  * Authors: David Trowbridge <trowbrds@cs.colorado.edu>
  *
- * Copyright (C) 2005 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,12 +19,12 @@
  *
  */
 
-#include <libgnomevfs/gnome-vfs.h>
+#include <gio/gio.h>
 #include "publish-location.h"
 
 #ifndef PUBLISH_FORMAT_ICAL_H
 #define PUBLISH_FORMAT_ICAL_H
 
-void publish_calendar_as_ical (GnomeVFSHandle *handle, EPublishUri *uri);
+void publish_calendar_as_ical (GOutputStream *stream, EPublishUri *uri);
 
 #endif

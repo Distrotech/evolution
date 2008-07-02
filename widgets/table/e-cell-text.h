@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-cell-text.h: Text cell renderer.
- * Copyright 1999, 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Miguel de Icaza <miguel@ximian.com>
@@ -36,7 +36,8 @@
 
 #ifndef _E_CELL_TEXT_H_
 #define _E_CELL_TEXT_H_
-#include <gtk/gtkmenu.h>
+
+#include <gtk/gtk.h>
 #include <libgnomecanvas/gnome-canvas.h>
 #include <table/e-cell.h>
 

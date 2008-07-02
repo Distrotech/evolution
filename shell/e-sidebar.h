@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-sidebar.h
  *
- * Copyright (C) 2003  Ettore Perazzoli
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,7 +23,7 @@
 #ifndef _E_SIDEBAR_H_
 #define _E_SIDEBAR_H_
 
-#include <gtk/gtkcontainer.h>
+#include <gtk/gtk.h>
 
 #define E_TYPE_SIDEBAR			(e_sidebar_get_type ())
 #define E_SIDEBAR(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_SIDEBAR, ESidebar))

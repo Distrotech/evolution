@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,8 +24,7 @@
 #ifndef __MESSAGE_TAG_EDITOR_H__
 #define __MESSAGE_TAG_EDITOR_H__
 
-#include <gtk/gtkwidget.h>
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include <camel/camel-folder.h>
 #include <camel/camel-folder-summary.h>
 
@@ -60,7 +59,7 @@ struct _MessageTagEditorClass {
 };
 
 
-GtkType message_tag_editor_get_type (void);
+GType message_tag_editor_get_type (void);
 
 /* methods */
 CamelTag *message_tag_editor_get_tag_list (MessageTagEditor *editor);

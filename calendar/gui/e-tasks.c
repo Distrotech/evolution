@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-tasks.c
  *
- * Copyright (C) 2001-2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,9 +26,7 @@
 #include <config.h>
 #endif
 
-#include <gnome.h>
 #include <glib/gi18n.h>
-#include <libgnomevfs/gnome-vfs-ops.h>
 #include <libedataserver/e-time-utils.h>
 #include <table/e-table-scrolled.h>
 #include <widgets/menus/gal-view-instance.h>
@@ -37,7 +35,6 @@
 
 #include "e-util/e-error.h"
 #include "e-util/e-categories-config.h"
-#include "e-util/e-config-listener.h"
 #include "e-util/e-util-private.h"
 #include "shell/e-user-creatable-items-handler.h"
 #include <libedataserver/e-url.h>
@@ -70,8 +67,6 @@ struct _ETasksPrivate {
 
 	ECalView *query;
 
-	EConfigListener *config_listener;
-
 	/* The ECalendarTable showing the tasks. */
 	GtkWidget   *tasks_view;
 	ECalendarTableConfig *tasks_view_config;
@@ -103,7 +98,7 @@ static void setup_widgets (ETasks *tasks);
 static void e_tasks_destroy (GtkObject *object);
 static void update_view (ETasks *tasks);
 
-static void config_categories_changed_cb (EConfigListener *config_listener, const char *key, gpointer user_data);
+static void categories_changed_cb (gpointer object, gpointer user_data);
 static void backend_error_cb (ECal *client, const char *message, gpointer data);
 
 /* Signal IDs */
@@ -188,8 +183,7 @@ table_selection_change_cb (ETable *etable, gpointer data)
 	tasks = E_TASKS (data);
 
 	n_selected = e_table_selected_count (etable);
-	gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SELECTION_CHANGED],
-			 n_selected);
+	g_signal_emit (tasks, e_tasks_signals[SELECTION_CHANGED], 0, n_selected);
 
 	if (n_selected != 1)
 		e_cal_component_preview_clear (E_CAL_COMPONENT_PREVIEW (tasks->priv->preview));
@@ -621,7 +615,7 @@ setup_widgets (ETasks *tasks)
 			  G_CALLBACK (search_bar_sexp_changed_cb), tasks);
 	g_signal_connect (priv->search_bar, "category_changed",
 			  G_CALLBACK (search_bar_category_changed_cb), tasks);
-	config_categories_changed_cb (priv->config_listener, "/apps/evolution/general/category_master_list", tasks);
+	categories_changed_cb (NULL, tasks);
 
 	gtk_table_attach (GTK_TABLE (tasks), priv->search_bar, 0, 1, 0, 1,
 			  GTK_EXPAND | GTK_FILL | GTK_SHRINK, 0, 0, 0);
@@ -706,13 +700,14 @@ e_tasks_class_init (ETasksClass *class)
 	object_class = (GtkObjectClass *) class;
 
 	e_tasks_signals[SELECTION_CHANGED] =
-		gtk_signal_new ("selection_changed",
-				GTK_RUN_LAST,
-				G_TYPE_FROM_CLASS (object_class),
-				GTK_SIGNAL_OFFSET (ETasksClass, selection_changed),
-				g_cclosure_marshal_VOID__INT,
-				GTK_TYPE_NONE, 1,
-				GTK_TYPE_INT);
+		g_signal_new ("selection_changed",
+			      G_TYPE_FROM_CLASS (object_class),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (ETasksClass, selection_changed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__INT,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_INT);
 
 	e_tasks_signals[SOURCE_ADDED] =
 		g_signal_new ("source_added",
@@ -745,7 +740,7 @@ e_tasks_class_init (ETasksClass *class)
 
 
 static void
-config_categories_changed_cb (EConfigListener *config_listener, const char *key, gpointer user_data)
+categories_changed_cb (gpointer object, gpointer user_data)
 {
 	GList *cat_list;
 	GPtrArray *cat_array;
@@ -776,8 +771,7 @@ e_tasks_init (ETasks *tasks)
 	priv = g_new0 (ETasksPrivate, 1);
 	tasks->priv = priv;
 
-	priv->config_listener = e_config_listener_new ();
-	g_signal_connect (priv->config_listener, "key_changed", G_CALLBACK (config_categories_changed_cb), tasks);
+	e_categories_register_change_listener (G_CALLBACK (categories_changed_cb), tasks);
 
 	setup_config (tasks);
 	setup_widgets (tasks);
@@ -830,14 +824,7 @@ e_tasks_destroy (GtkObject *object)
 	if (priv) {
 		GList *l;
 
-		/* unset the config listener */
-		if (priv->config_listener) {
-			g_signal_handlers_disconnect_matched (priv->config_listener,
-							      G_SIGNAL_MATCH_DATA,
-							      0, 0, NULL, NULL, tasks);
-			g_object_unref (priv->config_listener);
-			priv->config_listener = NULL;
-		}
+		e_categories_unregister_change_listener (G_CALLBACK (categories_changed_cb), tasks);
 
 		/* disconnect from signals on all the clients */
 		for (l = priv->clients_list; l != NULL; l = l->next) {
@@ -944,7 +931,7 @@ backend_died_cb (ECal *client, gpointer data)
 	priv->clients_list = g_list_remove (priv->clients_list, client);
 	g_hash_table_remove (priv->clients,  e_source_peek_uid (source));
 
-	gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SOURCE_REMOVED], source);
+	g_signal_emit (tasks, e_tasks_signals[SOURCE_REMOVED], 0, source);
 
 	e_calendar_table_set_status_message (E_CALENDAR_TABLE (e_tasks_get_calendar_table (tasks)), NULL, -1);
 
@@ -994,7 +981,7 @@ client_cal_opened_cb (ECal *ecal, ECalendarStatus status, ETasks *tasks)
 		/* Do this last because it unrefs the client */
 		g_hash_table_remove (priv->clients,  e_source_peek_uid (source));
 
-		gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SOURCE_REMOVED], source);
+		g_signal_emit (tasks, e_tasks_signals[SOURCE_REMOVED], 0, source);
 
 		set_status_message (tasks, NULL);
 		g_object_unref (source);
@@ -1038,7 +1025,7 @@ default_client_cal_opened_cb (ECal *ecal, ECalendarStatus status, ETasks *tasks)
 		/* Do this last because it unrefs the client */
 		g_hash_table_remove (priv->clients,  e_source_peek_uid (source));
 
-		gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SOURCE_REMOVED], source);
+		g_signal_emit (tasks, e_tasks_signals[SOURCE_REMOVED], 0, source);
 
 		set_status_message (tasks, NULL);
 		g_object_unref (priv->default_client);
@@ -1204,7 +1191,7 @@ e_tasks_add_todo_source (ETasks *tasks, ESource *source)
 	g_hash_table_insert (priv->clients, g_strdup (uid) , client);
 	priv->clients_list = g_list_prepend (priv->clients_list, client);
 
-	gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SOURCE_ADDED], source);
+	g_signal_emit (tasks, e_tasks_signals[SOURCE_ADDED], 0, source);
 
 	open_ecal (tasks, client, FALSE, client_cal_opened_cb);
 
@@ -1241,7 +1228,7 @@ e_tasks_remove_todo_source (ETasks *tasks, ESource *source)
 	g_hash_table_remove (priv->clients, uid);
 
 
-	gtk_signal_emit (GTK_OBJECT (tasks), e_tasks_signals[SOURCE_REMOVED], source);
+	g_signal_emit (tasks, e_tasks_signals[SOURCE_REMOVED], 0, source);
 
 	return TRUE;
 }

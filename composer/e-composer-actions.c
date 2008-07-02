@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * Copyright (C) 2008 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU Lesser General Public
@@ -336,7 +336,7 @@ action_send_options_cb (GtkAction *action,
 	if (!composer->priv->send_invoked)
 		e_error_run (
 			GTK_WINDOW (composer),
-			"mail-component:send-options-support", NULL);
+			"mail-composer:send-options-support", NULL);
 }
 
 static void

@@ -1,7 +1,7 @@
 /* -*- Mf (id ode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
  *
  *  Sushma Rai <rsushma@novell.com>
- *  Copyright (C) 2004 Novell, Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,10 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <glade/glade.h>
-#include <gtk/gtk.h>
-#include <gtk/gtkdialog.h>
 #include <gconf/gconf-client.h>
 #include <camel/camel-provider.h>
 #include <camel/camel-url.h>
@@ -250,34 +249,34 @@ org_gnome_exchange_settings(EPlugin *epl, EConfigHookItemFactoryData *data)
 
 	/* construct page */
 
-	vbox_settings = (GtkVBox*) gtk_object_new (GTK_TYPE_VBOX, "homogeneous", FALSE, "spacing", 6, NULL);
+	vbox_settings = (GtkVBox*) g_object_new (GTK_TYPE_VBOX, "homogeneous", FALSE, "spacing", 6, NULL);
 	gtk_container_set_border_width (GTK_CONTAINER (vbox_settings), 12);
 
-	frm_oof = (GtkFrame*) gtk_object_new (GTK_TYPE_FRAME, "label", _("Out Of Office"), NULL);
+	frm_oof = (GtkFrame*) g_object_new (GTK_TYPE_FRAME, "label", _("Out Of Office"), NULL);
 	gtk_box_pack_start (GTK_BOX (vbox_settings), GTK_WIDGET (frm_oof), FALSE, FALSE, 0);
 
-	vbox_oof = (GtkVBox*) gtk_object_new (GTK_TYPE_VBOX, NULL, "homogeneous", FALSE, "spacing", 12, NULL);
+	vbox_oof = (GtkVBox*) g_object_new (GTK_TYPE_VBOX, NULL, "homogeneous", FALSE, "spacing", 12, NULL);
 	gtk_container_set_border_width (GTK_CONTAINER (vbox_oof), 6);
 	gtk_container_add (GTK_CONTAINER (frm_oof), GTK_WIDGET (vbox_oof));
 
-	lbl_oof_desc = (GtkLabel*) gtk_object_new (GTK_TYPE_LABEL, "label", _("The message specified below will be automatically sent to \neach person who sends mail to you while you are out of the office."), "justify", GTK_JUSTIFY_LEFT, NULL);
+	lbl_oof_desc = (GtkLabel*) g_object_new (GTK_TYPE_LABEL, "label", _("The message specified below will be automatically sent to \neach person who sends mail to you while you are out of the office."), "justify", GTK_JUSTIFY_LEFT, NULL);
 	gtk_misc_set_alignment (GTK_MISC (lbl_oof_desc), 0, 0.5);
 	gtk_box_pack_start (GTK_BOX (vbox_oof), GTK_WIDGET (lbl_oof_desc), FALSE, FALSE, 0);
 
-	tbl_oof_status = (GtkTable*) gtk_object_new (GTK_TYPE_TABLE, "n-rows", 2, "n-columns", 2, "homogeneous", FALSE, "row-spacing", 6, "column-spacing", 6, NULL);
+	tbl_oof_status = (GtkTable*) g_object_new (GTK_TYPE_TABLE, "n-rows", 2, "n-columns", 2, "homogeneous", FALSE, "row-spacing", 6, "column-spacing", 6, NULL);
 	txt = g_strdup_printf ("<b>%s</b>", _("Status:"));
-	lbl_status = (GtkLabel*) gtk_object_new (GTK_TYPE_LABEL, "label", txt, "use-markup", TRUE, NULL);
+	lbl_status = (GtkLabel*) g_object_new (GTK_TYPE_LABEL, "label", txt, "use-markup", TRUE, NULL);
 	g_free (txt);
 	gtk_misc_set_alignment (GTK_MISC (lbl_status), 0, 0.5);
 	gtk_misc_set_padding (GTK_MISC (lbl_status), 0, 0);
 
 	if (oof_data->state) {
-		radio_oof = (GtkRadioButton*) gtk_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am out of the office"), NULL);
-		radio_iof = (GtkRadioButton*) gtk_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am in the office"), "group", radio_oof, NULL);
+		radio_oof = (GtkRadioButton*) g_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am out of the office"), NULL);
+		radio_iof = (GtkRadioButton*) g_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am in the office"), "group", radio_oof, NULL);
 	}
 	else {
-		radio_iof = (GtkRadioButton*) gtk_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am in the office"), NULL);
-		radio_oof = (GtkRadioButton*) gtk_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am out of the office"), "group", radio_iof, NULL);
+		radio_iof = (GtkRadioButton*) g_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am in the office"), NULL);
+		radio_oof = (GtkRadioButton*) g_object_new (GTK_TYPE_RADIO_BUTTON, "label", _("I am out of the office"), "group", radio_iof, NULL);
 	}
 	g_signal_connect (radio_oof, "toggled", G_CALLBACK (toggled_state), NULL);
 
@@ -289,9 +288,9 @@ org_gnome_exchange_settings(EPlugin *epl, EConfigHookItemFactoryData *data)
 	gtk_box_pack_start (GTK_BOX (vbox_oof), GTK_WIDGET (tbl_oof_status), FALSE, FALSE, 0);
 
 
-	scrwnd_oof = (GtkScrolledWindow*) gtk_object_new (GTK_TYPE_SCROLLED_WINDOW, "hscrollbar-policy", GTK_POLICY_AUTOMATIC, "vscrollbar-policy", GTK_POLICY_AUTOMATIC, "shadow-type", GTK_SHADOW_IN, NULL);
+	scrwnd_oof = (GtkScrolledWindow*) g_object_new (GTK_TYPE_SCROLLED_WINDOW, "hscrollbar-policy", GTK_POLICY_AUTOMATIC, "vscrollbar-policy", GTK_POLICY_AUTOMATIC, "shadow-type", GTK_SHADOW_IN, NULL);
 	gtk_box_pack_start (GTK_BOX (vbox_oof), GTK_WIDGET (scrwnd_oof), FALSE, FALSE, 0);
-	txtview_oof = (GtkTextView*) gtk_object_new (GTK_TYPE_TEXT_VIEW, "justification", GTK_JUSTIFY_LEFT, "wrap-mode", GTK_WRAP_WORD, "editable", TRUE, NULL);
+	txtview_oof = (GtkTextView*) g_object_new (GTK_TYPE_TEXT_VIEW, "justification", GTK_JUSTIFY_LEFT, "wrap-mode", GTK_WRAP_WORD, "editable", TRUE, NULL);
 	buffer = gtk_text_view_get_buffer (txtview_oof);
 	gtk_text_buffer_get_bounds (buffer, &start, &end);
 	oof_message = gtk_text_buffer_get_text (buffer, &start, &end, FALSE);
@@ -313,27 +312,27 @@ org_gnome_exchange_settings(EPlugin *epl, EConfigHookItemFactoryData *data)
 	gtk_container_add (GTK_CONTAINER (scrwnd_oof), GTK_WIDGET (txtview_oof));
 
 	/* Security settings */
-	frm_auth = (GtkFrame*) gtk_object_new (GTK_TYPE_FRAME, "label", _("Security"), NULL);
+	frm_auth = (GtkFrame*) g_object_new (GTK_TYPE_FRAME, "label", _("Security"), NULL);
 	gtk_box_pack_start (GTK_BOX (vbox_settings), GTK_WIDGET (frm_auth), FALSE, FALSE, 0);
 
-	vbox_auth = (GtkVBox*) gtk_object_new (GTK_TYPE_VBOX, "homogeneous", FALSE, "spacing", 6, NULL);
+	vbox_auth = (GtkVBox*) g_object_new (GTK_TYPE_VBOX, "homogeneous", FALSE, "spacing", 6, NULL);
 	gtk_container_set_border_width (GTK_CONTAINER (vbox_auth), 6);
 	gtk_container_add (GTK_CONTAINER (frm_auth), GTK_WIDGET (vbox_auth));
 
-	tbl_auth = (GtkTable*) gtk_object_new (GTK_TYPE_TABLE, "n-rows", 2, "n-columns", 2, "homogeneous", FALSE, "row-spacing", 6, "column-spacing", 6, NULL);
+	tbl_auth = (GtkTable*) g_object_new (GTK_TYPE_TABLE, "n-rows", 2, "n-columns", 2, "homogeneous", FALSE, "row-spacing", 6, "column-spacing", 6, NULL);
 
 #ifdef HAVE_KRB5
 	/* Change Password */
-	lbl_chpass = (GtkLabel*) gtk_object_new (GTK_TYPE_LABEL, "label", _("Change the password for Exchange account"), NULL);
+	lbl_chpass = (GtkLabel*) g_object_new (GTK_TYPE_LABEL, "label", _("Change the password for Exchange account"), NULL);
 	gtk_misc_set_alignment (GTK_MISC (lbl_chpass), 0, 0.5);
-	btn_chpass = (GtkButton*) gtk_object_new (GTK_TYPE_BUTTON, "label", _("Change Password"), NULL);
-	gtk_signal_connect (GTK_OBJECT (btn_chpass), "clicked", G_CALLBACK (btn_chpass_clicked), NULL);
+	btn_chpass = (GtkButton*) g_object_new (GTK_TYPE_BUTTON, "label", _("Change Password"), NULL);
+	g_signal_connect (GTK_OBJECT (btn_chpass), "clicked", G_CALLBACK (btn_chpass_clicked), NULL);
 #endif
 
 	/* Delegation Assistant */
-	lbl_dass = (GtkLabel*) gtk_object_new (GTK_TYPE_LABEL, "label", _("Manage the delegate settings for Exchange account"), NULL);
+	lbl_dass = (GtkLabel*) g_object_new (GTK_TYPE_LABEL, "label", _("Manage the delegate settings for Exchange account"), NULL);
 	gtk_misc_set_alignment (GTK_MISC (lbl_dass), 0, 0.5);
-	btn_dass = (GtkButton*) gtk_object_new (GTK_TYPE_BUTTON, "label", _("Delegation Assistant"), NULL);
+	btn_dass = (GtkButton*) g_object_new (GTK_TYPE_BUTTON, "label", _("Delegation Assistant"), NULL);
 	g_signal_connect (btn_dass, "clicked", G_CALLBACK (btn_dass_clicked), NULL);
 	/* Add items to the table */
 #ifdef HAVE_KRB5
@@ -345,19 +344,19 @@ org_gnome_exchange_settings(EPlugin *epl, EConfigHookItemFactoryData *data)
 	gtk_box_pack_start (GTK_BOX (vbox_auth), GTK_WIDGET (tbl_auth), FALSE, FALSE, 0);
 
 	/* Miscelleneous settings */
-	frm_misc = (GtkFrame*) gtk_object_new (GTK_TYPE_FRAME, "label", _("Miscelleneous"), NULL);
+	frm_misc = (GtkFrame*) g_object_new (GTK_TYPE_FRAME, "label", _("Miscelleneous"), NULL);
 	gtk_box_pack_start (GTK_BOX (vbox_settings), GTK_WIDGET (frm_misc), FALSE, FALSE, 0);
 
-	vbox_misc = (GtkVBox*) gtk_object_new (GTK_TYPE_VBOX, "homogeneous", FALSE, "spacing", 6, NULL);
+	vbox_misc = (GtkVBox*) g_object_new (GTK_TYPE_VBOX, "homogeneous", FALSE, "spacing", 6, NULL);
 	gtk_container_set_border_width (GTK_CONTAINER (vbox_misc), 6);
 	gtk_container_add (GTK_CONTAINER (frm_misc), GTK_WIDGET (vbox_misc));
 
-	tbl_misc = (GtkTable*) gtk_object_new (GTK_TYPE_TABLE, "n-rows", 1, "n-columns", 1, "homogeneous", FALSE, "row-spacing", 6, "column-spacing", 6, NULL);
+	tbl_misc = (GtkTable*) g_object_new (GTK_TYPE_TABLE, "n-rows", 1, "n-columns", 1, "homogeneous", FALSE, "row-spacing", 6, "column-spacing", 6, NULL);
 
 	/* Folder Size */
-	lbl_fsize = (GtkLabel*) gtk_object_new (GTK_TYPE_LABEL, "label", _("View the size of all Exchange folders"), NULL);
+	lbl_fsize = (GtkLabel*) g_object_new (GTK_TYPE_LABEL, "label", _("View the size of all Exchange folders"), NULL);
 	gtk_misc_set_alignment (GTK_MISC (lbl_fsize), 0, 0.5);
-	btn_fsize = (GtkButton*) gtk_object_new (GTK_TYPE_BUTTON, "label", _("Folders Size"), NULL);
+	btn_fsize = (GtkButton*) g_object_new (GTK_TYPE_BUTTON, "label", _("Folders Size"), NULL);
 	g_signal_connect (btn_fsize, "clicked", G_CALLBACK (btn_fsize_clicked), NULL);
 	gtk_table_attach_defaults (tbl_misc, GTK_WIDGET (lbl_fsize), 0, 1, 0, 1);
 	gtk_table_attach (tbl_misc, GTK_WIDGET (btn_fsize), 1, 2, 0, 1, GTK_FILL, GTK_FILL, 0, 0);
@@ -426,6 +425,7 @@ owa_authenticate_user(GtkWidget *button, EConfig *config)
 	char *at, *user;
 	gboolean valid = FALSE;
 	ExchangeParams *exchange_params;
+	GtkWidget *mailbox_entry = g_object_get_data (G_OBJECT (button), "mailbox-entry");
 
 	exchange_params = g_new0 (ExchangeParams, 1);
 	exchange_params->host = NULL;
@@ -467,6 +467,9 @@ owa_authenticate_user(GtkWidget *button, EConfig *config)
 	/* Supress the trailing slash */
 	key [strlen(key) -1] = 0;
 
+	/* set the mailbox before function call to let it use our, not create one */
+	exchange_params->mailbox = g_strdup (camel_url_get_param (url, "mailbox"));
+
 	valid =  e2k_validate_user (owa_url, key, &url->user, exchange_params,
 						&remember_password, &result,
 						GTK_WINDOW (gtk_widget_get_toplevel (button)));
@@ -484,6 +487,12 @@ owa_authenticate_user(GtkWidget *button, EConfig *config)
 	camel_url_set_param (url, "ad_server", valid ? exchange_params->ad_server: NULL);
 	camel_url_set_param (url, "mailbox", valid ? exchange_params->mailbox : NULL);
 	camel_url_set_param (url, "owa_path", valid ? exchange_params->owa_path : NULL);
+
+	if (mailbox_entry) {
+		const char *par = camel_url_get_param (url, "mailbox");
+
+		gtk_entry_set_text (GTK_ENTRY (mailbox_entry), par ? par : "");
+	}
 
 	g_free (exchange_params->owa_path);
 	g_free (exchange_params->mailbox);
@@ -542,6 +551,46 @@ owa_editor_entry_changed(GtkWidget *entry, EConfig *config)
 	camel_url_free (url);
 }
 
+static void
+update_mailbox_param_in_url (EAccount *account, e_account_item_t item, const char *mailbox)
+{
+	CamelURL *url;
+	char *url_string;
+	const char *target_url;
+
+	if (!account)
+		return;
+
+	target_url = e_account_get_string (account, item);
+	if (target_url && target_url[0] != '\0')
+		url = camel_url_new (target_url, NULL);
+	else
+		return;
+
+	if (mailbox && *mailbox)
+		camel_url_set_param (url, "mailbox", mailbox);
+	else
+		camel_url_set_param (url, "mailbox", NULL);
+
+	url_string = camel_url_to_string (url, 0);
+	e_account_set_string (account, item, url_string);
+	g_free (url_string);
+	camel_url_free (url);
+}
+
+static void
+mailbox_editor_entry_changed (GtkWidget *entry, EConfig *config)
+{
+	EMConfigTargetAccount *target;
+	const char *mailbox;
+
+	target = (EMConfigTargetAccount *)config->target;
+	mailbox = gtk_entry_get_text (GTK_ENTRY (entry));
+
+	update_mailbox_param_in_url (target->account, E_ACCOUNT_SOURCE_URL, mailbox);
+	update_mailbox_param_in_url (target->account, E_ACCOUNT_TRANSPORT_URL, mailbox);
+}
+
 static char *
 construct_owa_url (CamelURL *url)
 {
@@ -574,8 +623,8 @@ org_gnome_exchange_owa_url(EPlugin *epl, EConfigHookItemFactoryData *data)
 {
 	EMConfigTargetAccount *target_account;
 	const char *source_url;
-	char *owa_url = NULL;
-	GtkWidget *owa_entry;
+	char *owa_url = NULL, *mailbox_name;
+	GtkWidget *owa_entry, *mailbox_entry;
 	CamelURL *url;
 	int row;
 	GtkWidget *hbox, *label, *button;
@@ -607,6 +656,7 @@ org_gnome_exchange_owa_url(EPlugin *epl, EConfigHookItemFactoryData *data)
 	}
 
 	owa_url = g_strdup (camel_url_get_param(url, "owa_url"));
+	mailbox_name = g_strdup (camel_url_get_param (url, "mailbox"));
 
 	/* if the host is null, then user+other info is dropped silently, force it to be kept */
 	if (url->host == NULL) {
@@ -667,7 +717,26 @@ org_gnome_exchange_owa_url(EPlugin *epl, EConfigHookItemFactoryData *data)
 	/* check for correctness of the input in the owa_entry */
 	owa_editor_entry_changed (owa_entry, data->config);
 
+	row++;
+	label = gtk_label_new_with_mnemonic (_("_Mailbox:"));
+	gtk_widget_show (label);
+
+	mailbox_entry = gtk_entry_new ();
+	gtk_widget_show (mailbox_entry);
+	if (mailbox_name)
+		gtk_entry_set_text (GTK_ENTRY (mailbox_entry), mailbox_name);
+
+	gtk_label_set_mnemonic_widget (GTK_LABEL (label), mailbox_entry);
+
+	g_signal_connect (mailbox_entry, "changed", G_CALLBACK (mailbox_editor_entry_changed), data->config);
+	g_object_set_data (G_OBJECT (button), "mailbox-entry", mailbox_entry);
+
+	gtk_table_attach (GTK_TABLE (data->parent), label, 0, 1, row, row+1, 0, 0, 0, 0);
+	gtk_table_attach (GTK_TABLE (data->parent), mailbox_entry, 1, 2, row, row+1, GTK_FILL|GTK_EXPAND, GTK_FILL, 0, 0);
+
 	g_free (owa_url);
+	g_free (mailbox_name);
+
 	return hbox;
 }
 

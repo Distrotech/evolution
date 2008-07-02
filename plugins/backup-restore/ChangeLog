@@ -1,3 +1,49 @@
+2008-07-01  Milan Crha <mcrha@redhat.com>
+
+	** Fix for bug #540274
+
+	* Makefile.am: Link with libraries we require now.
+	* backup.c: (rc), (s): Exchange $HOME with g_get_home_dir in commands.
+	* backup.c: (ensure_locals), (fix_account_folder_uri), (restore):
+	After restore walk through all account, addressbook, calendar, task
+	and memo sources and fix the base uri if required. (One should be able
+	to import also into different user than one where the backup was done.)
+
+2008-06-30  Milan Crha <mcrha@redhat.com>
+
+	** Fix for bug #536488
+
+	* backup.c: (backup), (restore): Remove '~/.evolution/.running'
+	file before backup/after restore, thus Evolution will not claim
+	next start it was closed incorrectly.
+
+2008-06-30  Tobias Mueller  <muelli@auftrags-killer.org>
+
+	** Fix for bug #540516
+
+	* backup.c (backup), (restore), (check): Sanitize user input while 
+	accepting path/filename of the backup. 
+
+2008-06-20  Milan Crha <mcrha@redhat.com>
+
+	* backup.c: (main): Use Evolution icon for the window.
+
+2008-06-19  Milan Crha <mcrha@redhat.com>
+
+	** Fix for bug #478469
+
+	* backup.c: (main):
+	Changed the progress dialog to be more HIG compliant.
+
+2008-05-20  Sankar P  <psankar@novell.com>
+
+	* backup-restore.c: (epbr_perform_pre_backup_checks),
+	(org_gnome_backup_restore_backup):
+	* org-gnome-backup-restore.error.xml:
+	Indicate error if backup folder chosen lacks permissions.
+
+	** Fixes bug #534012
+
 2008-02-25  Jeff Cai<jeff.cai@sun.com>
 
 	* backup.c: (backup), (restore):

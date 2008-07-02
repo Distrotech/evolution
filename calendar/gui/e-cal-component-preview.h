@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-cal-component-preview.h
  *
- * Copyright (C) 2004  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -24,15 +24,17 @@
 #ifndef _E_CAL_COMPONENT_PREVIEW_H_
 #define _E_CAL_COMPONENT_PREVIEW_H_
 
-#include <gtk/gtktable.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal.h>
+#include <gtkhtml/gtkhtml.h>
+#include <gtkhtml/gtkhtml-stream.h>
 
 #define E_TYPE_CAL_COMPONENT_PREVIEW            (e_cal_component_preview_get_type ())
-#define E_CAL_COMPONENT_PREVIEW(obj)            (GTK_CHECK_CAST ((obj), E_TYPE_CAL_COMPONENT_PREVIEW, ECalComponentPreview))
-#define E_CAL_COMPONENT_PREVIEW_CLASS(klass)    (GTK_CHECK_CAST_CLASS ((klass), E_TYPE_CAL_COMPONENT_PREVIEW, \
+#define E_CAL_COMPONENT_PREVIEW(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_CAL_COMPONENT_PREVIEW, ECalComponentPreview))
+#define E_CAL_COMPONENT_PREVIEW_CLASS(klass)    (G_TYPE_CHECK_INSTANCE_CAST_CLASS ((klass), E_TYPE_CAL_COMPONENT_PREVIEW, \
 				                 ECalComponentPreviewClass))
-#define E_IS_CAL_COMPONENT_PREVIEW(obj)         (GTK_CHECK_TYPE ((obj), E_TYPE_CAL_COMPONENT_PREVIEW))
-#define E_IS_CAL_COMPONENT_PREVIEW_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_COMPONENT_PREVIEW))
+#define E_IS_CAL_COMPONENT_PREVIEW(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_CAL_COMPONENT_PREVIEW))
+#define E_IS_CAL_COMPONENT_PREVIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_COMPONENT_PREVIEW))
 
 typedef struct _ECalComponentPreview ECalComponentPreview;
 typedef struct _ECalComponentPreviewClass ECalComponentPreviewClass;
@@ -53,7 +55,7 @@ struct _ECalComponentPreviewClass {
 };
 
 
-GtkType    e_cal_component_preview_get_type        (void);
+GType      e_cal_component_preview_get_type        (void);
 GtkWidget *e_cal_component_preview_new             (void);
 
 icaltimezone *e_cal_component_preview_get_default_timezone (ECalComponentPreview *preview);
@@ -61,5 +63,9 @@ void e_cal_component_preview_set_default_timezone (ECalComponentPreview *preview
 
 void e_cal_component_preview_display             (ECalComponentPreview *preview, ECal *ecal, ECalComponent *comp);
 void e_cal_component_preview_clear             (ECalComponentPreview *preview);
+
+/* Callback used when GtkHTML widget requests URL */
+void e_cal_comp_preview_url_requested_cb (GtkHTML *html, const char *url, GtkHTMLStream *html_stream, gpointer data);
+
 
 #endif /* _E_CAL_COMPONENT_PREVIEW_H_ */

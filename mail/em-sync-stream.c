@@ -3,7 +3,7 @@
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *	     Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2001 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -58,6 +58,13 @@ static gboolean
 emss_process_message (struct _write_msg *msg)
 {
 	struct _EMSyncStream *emss = msg->emss;
+
+	if (emss->cancel) {
+		/* Do not pass data to the child if we are canceled. */
+		e_flag_set (msg->done);
+
+		return FALSE;
+	}
 
 	/* Force out any pending data before doing anything else. */
 	if (emss->buffer != NULL && emss->buffer->len > 0) {

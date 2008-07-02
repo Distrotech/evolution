@@ -2,7 +2,7 @@
 /*
  *  Authors: Chris Toshok <toshok@ximian.com>
  *
- *  Copyright (C) 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,8 +28,6 @@
 #include "certificate-viewer.h"
 
 #include "e-asn1-object.h"
-
-#include <gtk/gtk.h>
 
 #include <glib/gi18n.h>
 #include <glade/glade.h>

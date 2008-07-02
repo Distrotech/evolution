@@ -3,7 +3,7 @@
  * Author :
  *  JP Rosevear <jpr@ximian.com>
  *
- * Copyright 2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,9 +27,9 @@
 
 G_BEGIN_DECLS
 
-#define E_CAL_LIST_VIEW_CONFIG(obj)          GTK_CHECK_CAST (obj, e_cal_list_view_config_get_type (), ECalListViewConfig)
-#define E_CAL_LIST_VIEW_CONFIG_CLASS(klass)  GTK_CHECK_CLASS_CAST (klass, e_cal_list_view_config_get_type (), ECalListViewConfigClass)
-#define E_IS_CAL_LIST_VIEW_CONFIG(obj)       GTK_CHECK_TYPE (obj, e_cal_list_view_config_get_type ())
+#define E_CAL_LIST_VIEW_CONFIG(obj)          G_TYPE_CHECK_INSTANCE_CAST (obj, e_cal_list_view_config_get_type (), ECalListViewConfig)
+#define E_CAL_LIST_VIEW_CONFIG_CLASS(klass)  G_TYPE_CHECK_CLASS_CAST (klass, e_cal_list_view_config_get_type (), ECalListViewConfigClass)
+#define E_IS_CAL_LIST_VIEW_CONFIG(obj)       G_TYPE_CHECK_INSTANCE_TYPE (obj, e_cal_list_view_config_get_type ())
 
 typedef struct _ECalListViewConfig        ECalListViewConfig;
 typedef struct _ECalListViewConfigClass   ECalListViewConfigClass;

@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* memos-control.c
  *
- * Copyright (C) 2000, 2001, 2002, 2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,10 +26,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtksignal.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkcheckbutton.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libgnome/gnome-util.h>
 #include <libgnomeui/gnome-dialog.h>

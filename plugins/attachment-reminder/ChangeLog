@@ -1,3 +1,46 @@
+2008-06-04  Johnny Jacob  <jjohnny@novell.com>
+
+	** Fixes Bug #208943.
+	
+	* org-gnome-attachment-reminder.error.xml: Added 
+	"Add attachment" button.
+	
+	* attachment-reminder.c (ask_for_missing_attachment): activate 
+	composer's "attach" action on "Add attachment".
+	
+2008-05-23  Johnny Jacob  <jjohnny@novell.com>
+
+	** Fixes Bug 496476.
+	
+	* attachment-reminder.glade: Removed GtkTables and added simple HBoxes
+	
+	* attachment-reminder.c (e_plugin_lib_get_configure_widget): Let the
+	configure widget expand.
+
+2008-05-22  Johnny Jacob  <jjohnny@novell.com>
+	
+	** Fixes Bug #529995
+	
+	* attachment-reminder.c (ask_for_missing_attachment): Disable the plugin.
+
+	* apps-evolution-attachment-reminder.schemas.in: Removed GConf key.
+
+	* attachment-reminder.c (toggle_cb): Removed.
+	(e_plugin_lib_get_configure_widget): Remove "Remind missing attachments"
+	check button.
+	(org_gnome_evolution_attachment_reminder): Removed Gconf key 
+	for enable/disable .
+
+2008-05-22  Johnny Jacob  <jjohnny@novell.com>
+	
+	* attachment-reminder.c (strip_text_msg): Wrong condition check
+
+2008-05-20  Johnny Jacob  <jjohnny@novell.com>
+
+	** Fixes Bug #473198
+	
+	* attachment-reminder.c (strip_text_msg): Ignore signature.
+
 2008-04-07  Ambuj Chitranshi  <ambuj_1075@yahoo.co.in>
 
 	** Fix for bug #484793

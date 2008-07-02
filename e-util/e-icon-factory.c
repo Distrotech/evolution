@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@novell.com>
  *
- *  Copyright 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,8 +30,6 @@
 
 #include <pthread.h>
 
-#include <gtk/gtkicontheme.h>
-#include <gtk/gtkimage.h>
 #ifdef HAVE_LIBGNOMEUI_GNOME_THUMBNAIL_H
 #include <libgnomeui/gnome-thumbnail.h>
 #endif

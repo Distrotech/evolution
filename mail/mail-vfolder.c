@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2000-2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -430,7 +430,7 @@ mail_vfolder_add_uri(CamelStore *store, const char *curi, int remove)
 	char *uri;
 
 	uri = em_uri_from_camel(curi);
-	if (context == NULL || uri_is_spethal(store, curi)) {
+	if (uri_is_spethal (store, curi)) {
 		g_free(uri);
 		return;
 	}
@@ -469,6 +469,9 @@ mail_vfolder_add_uri(CamelStore *store, const char *curi, int remove)
 		}
 	}
 
+	if (context == NULL)
+		goto done;
+
  	rule = NULL;
 	while ((rule = rule_context_next_rule((RuleContext *)context, rule, NULL))) {
 		int found = FALSE;
@@ -505,6 +508,7 @@ mail_vfolder_add_uri(CamelStore *store, const char *curi, int remove)
 		}
 	}
 
+done:
 	UNLOCK();
 
 	if (folders != NULL)
@@ -524,7 +528,7 @@ mail_vfolder_delete_uri(CamelStore *store, const char *curi)
 	char *uri;
 	GList *link;
 
-	if (context == NULL || uri_is_spethal(store, curi))
+	if (uri_is_spethal (store, curi))
 		return;
 
 	uri = em_uri_from_camel(curi);
@@ -536,6 +540,9 @@ mail_vfolder_delete_uri(CamelStore *store, const char *curi)
 	changed = g_string_new ("");
 
 	LOCK();
+
+	if (context == NULL)
+		goto done;
 
 	/* see if any rules directly reference this removed uri */
  	rule = NULL;
@@ -569,6 +576,7 @@ mail_vfolder_delete_uri(CamelStore *store, const char *curi)
 		}
 	}
 
+done:
 	if ((link = mv_find_folder(source_folders_remote, store, curi)) != NULL) {
 		g_free(link->data);
 		source_folders_remote = g_list_remove_link(source_folders_remote, link);
@@ -902,7 +910,7 @@ vfolder_load_storage(void)
 	char *user, *storeuri;
 	FilterRule *rule;
 	char *xmlfile;
-	struct _EMFolderTreeModel *model = mail_component_peek_tree_model (mail_component_peek ());
+	GConfClient *gconf;
 
 	pthread_mutex_lock (&lock);
 
@@ -932,7 +940,6 @@ vfolder_load_storage(void)
 				(CamelObjectEventHookFunc)store_folder_renamed, NULL);
 
 	d(printf("got store '%s' = %p\n", storeuri, vfolder_store));
-	mail_component_load_store_by_uri (mail_component_peek (), storeuri, _("Search Folders"));
 
 	/* load our rules */
 	user = g_strdup_printf ("%s/vfolders.xml", mail_component_peek_base_directory (mail_component_peek ()));
@@ -951,23 +958,23 @@ vfolder_load_storage(void)
 
 	/* and setup the rules we have */
 	rule = NULL;
-
-	d(printf("rule added: %s\n", rule->name));
-
-	/* Note: We block the signal handlers to be exact folder_created, since 
-	 * there is a race betweeen folder_created emitted through camel_store_get_folder and 
-	 * the store info that is fetched and added for vfolder. Due to this, two vfolders 
-	 * appear on the search folder. See bug BGO #511488 */
-	em_folder_tree_model_signal_block (model, vfolder_store, TRUE);
 	while ( (rule = rule_context_next_rule((RuleContext *)context, rule, NULL)) ) {
-		if (rule->name)
+		if (rule->name) {
+			d(printf("rule added: %s\n", rule->name));
 			context_rule_added((RuleContext *)context, rule);
-		else
+		} else
 			d(printf("invalid rule (%p) encountered: rule->name is NULL\n", rule));
 	}
-	em_folder_tree_model_signal_block (model, vfolder_store, FALSE);	
+
+	/* load store to mail component at the end, when everything is loaded */
+	mail_component_load_store_by_uri (mail_component_peek (), storeuri, _("Search Folders"));
 
 	g_free(storeuri);
+
+	/* reenable the feature if required */
+	gconf = mail_config_get_gconf_client();
+	if (!gconf_client_get_bool (gconf, "/apps/evolution/mail/display/enable_vfolders", NULL))
+		gconf_client_set_bool (gconf, "/apps/evolution/mail/display/enable_vfolders", TRUE, NULL);
 }
 
 void
@@ -1070,8 +1077,8 @@ vfolder_edit_rule(const char *uri)
 		gtk_window_set_default_size (GTK_WINDOW (gd), 500, 500);
 		gtk_box_pack_start((GtkBox *)gd->vbox, w, TRUE, TRUE, 0);
 		gtk_widget_show((GtkWidget *)gd);
-		g_object_set_data_full(G_OBJECT(gd), "rule", newrule, (GtkDestroyNotify)g_object_unref);
-		g_object_set_data_full(G_OBJECT(gd), "orig", rule, (GtkDestroyNotify)g_object_unref);
+		g_object_set_data_full(G_OBJECT(gd), "rule", newrule, (GDestroyNotify)g_object_unref);
+		g_object_set_data_full(G_OBJECT(gd), "orig", rule, (GDestroyNotify)g_object_unref);
 		g_signal_connect(gd, "response", G_CALLBACK(edit_rule_response), NULL);
 		gtk_widget_show((GtkWidget *)gd);
 	} else {
@@ -1160,7 +1167,7 @@ vfolder_gui_add_rule(EMVFolderRule *rule)
 	gtk_window_set_default_size (GTK_WINDOW (gd), 500, 500);
 	gtk_box_pack_start((GtkBox *)gd->vbox, w, TRUE, TRUE, 0);
 	gtk_widget_show((GtkWidget *)gd);
-	g_object_set_data_full(G_OBJECT(gd), "rule", rule, (GtkDestroyNotify)g_object_unref);
+	g_object_set_data_full(G_OBJECT(gd), "rule", rule, (GDestroyNotify)g_object_unref);
 	g_signal_connect(gd, "response", G_CALLBACK(new_rule_clicked), NULL);
 	gtk_widget_show((GtkWidget *)gd);
 }

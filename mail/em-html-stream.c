@@ -3,7 +3,7 @@
  * Authors: Jeffrey Stedfast <fejj@ximian.com>
  *	    Michael Zucchi <notzed@ximian.com>
  *
- * Copyright 2003 Ximian, Inc. (www.ximian.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-stream.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include "em-html-stream.h"
 
 #define d(x)
@@ -80,6 +80,8 @@ em_html_stream_init (CamelObject *object)
 static void
 emhs_cleanup(EMHTMLStream *emhs)
 {
+	if (emhs->sync.cancel && emhs->html_stream)
+		gtk_html_stream_close (emhs->html_stream, GTK_HTML_STREAM_ERROR);
 	emhs->html_stream = NULL;
 	emhs->sync.cancel = TRUE;
 	g_signal_handler_disconnect(emhs->html, emhs->destroy_id);
@@ -147,6 +149,7 @@ static void
 emhs_gtkhtml_destroy(struct _GtkHTML *html, EMHTMLStream *emhs)
 {
 	d(printf("%p: emhs gtkhtml destroy\n", emhs));
+	emhs->sync.cancel = TRUE;
 	emhs_cleanup(emhs);
 }
 

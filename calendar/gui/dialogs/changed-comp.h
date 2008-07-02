@@ -1,6 +1,6 @@
 /* Evolution calendar - Changed calendar component dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: JP Rosevear <jpr@ximian.com>
  *
@@ -21,8 +21,7 @@
 #ifndef CHANGED_COMP_H
 #define CHANGED_COMP_H
 
-#include <glib.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-component.h>
 
 gboolean changed_component_dialog (GtkWindow *window, ECalComponent *comp, gboolean deleted, gboolean changed);

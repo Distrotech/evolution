@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ struct _MessageTagFollowUpClass {
 };
 
 
-GtkType message_tag_followup_get_type (void);
+GType message_tag_followup_get_type (void);
 
 MessageTagEditor *message_tag_followup_new (void);
 

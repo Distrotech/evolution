@@ -2,7 +2,7 @@
 /*
  *  Authors: Chris Toshok <toshok@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ struct _EABContactDisplayClass {
 	GtkHTMLClass parent_class;
 };
 
-GtkType        eab_contact_display_get_type    (void);
+GType          eab_contact_display_get_type    (void);
 GtkWidget *    eab_contact_display_new         (void);
 
 void           eab_contact_display_render      (EABContactDisplay *display, EContact *contact,

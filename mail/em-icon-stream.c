@@ -3,7 +3,7 @@
  * Authors: Jeffrey Stedfast <fejj@ximian.com>
  *	    Michael Zucchi <notzed@ximian.com>
  *
- * Copyright 2003 Ximian, Inc. (www.ximian.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -30,7 +30,7 @@
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk-pixbuf/gdk-pixbuf-loader.h>
-#include <gtk/gtkimage.h>
+#include <gtk/gtk.h>
 #include "em-icon-stream.h"
 #include "e-util/e-icon-factory.h"
 

@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 #ifndef EM_FOLDER_SELECTOR_H
 #define EM_FOLDER_SELECTOR_H
 
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 
 #ifdef cplusplus
 extern "C" {
@@ -31,10 +31,10 @@ extern "C" {
 #endif /* cplusplus */
 
 #define EM_TYPE_FOLDER_SELECTOR			(em_folder_selector_get_type ())
-#define EM_FOLDER_SELECTOR(obj)			(GTK_CHECK_CAST ((obj), EM_TYPE_FOLDER_SELECTOR, EMFolderSelector))
-#define EM_FOLDER_SELECTOR_CLASS(klass)		(GTK_CHECK_CLASS_CAST ((klass), EM_TYPE_FOLDER_SELECTOR, EMFolderSelectorClass))
-#define EM_IS_FOLDER_SELECTOR(obj)		(GTK_CHECK_TYPE ((obj), EM_TYPE_FOLDER_SELECTOR))
-#define EM_IS_FOLDER_SELECTOR_CLASS(klass)	(GTK_CHECK_CLASS_TYPE ((obj), EM_TYPE_FOLDER_SELECTOR))
+#define EM_FOLDER_SELECTOR(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), EM_TYPE_FOLDER_SELECTOR, EMFolderSelector))
+#define EM_FOLDER_SELECTOR_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), EM_TYPE_FOLDER_SELECTOR, EMFolderSelectorClass))
+#define EM_IS_FOLDER_SELECTOR(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), EM_TYPE_FOLDER_SELECTOR))
+#define EM_IS_FOLDER_SELECTOR_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((obj), EM_TYPE_FOLDER_SELECTOR))
 
 typedef struct _EMFolderSelector        EMFolderSelector;
 typedef struct _EMFolderSelectorPrivate EMFolderSelectorPrivate;

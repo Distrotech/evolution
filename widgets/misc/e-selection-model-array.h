@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-selection-model-array.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,7 +24,7 @@
 #ifndef _E_SELECTION_MODEL_ARRAY_H_
 #define _E_SELECTION_MODEL_ARRAY_H_
 
-#include <gtk/gtkobject.h>
+#include <glib-object.h>
 #include <misc/e-selection-model.h>
 #include <e-util/e-bit-array.h>
 
@@ -47,6 +47,7 @@ typedef struct {
 	gint cursor_row;
 	gint cursor_col;
 	gint selection_start_row;
+	gint cursor_row_sorted; /* cursor_row passed through base::sorter if necessary */
 
 	guint model_changed_id;
 	guint model_row_inserted_id, model_row_deleted_id;

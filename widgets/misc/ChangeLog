@@ -1,3 +1,155 @@
+2008-06-30  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for bug #519536
+
+	* e-activity-handler.c: (cancel_wrapper): Handle freeing of data
+	safely.
+
+2008-06-18  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #532597
+
+	* e-selection-model-array.c: (e_selection_model_array_delete_rows):
+	Do not leave selected more than one item if somebody else took care
+	or reposition of the cursor row before the delete.
+
+2008-06-10  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #340683
+
+	* e-attachment-bar.c: (get_system_thumbnail), (scale_pixbuf),
+	(e_attachment_bar_create_attachment_cache), (update):
+	Allow creating thumbnails of non-pictures with a gnome's thumbnailer.
+
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* e-cell-date-edit.c: (e_cell_date_edit_init):
+	* e-dateedit.c: (create_children):
+	* e-multi-config-dialog.c: (e_multi_config_dialog_init):
+	* e-unicode.h:
+	* test-calendar.c: (main):
+	* test-dateedit.c: (main):
+	* test-info-label.c: (main):
+	Migrate from gtk_window_set_policy() to gtk_window_set_resizable()
+	and clean up a bunch of coding style issues along the way.
+
+2008-05-28  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #532597
+
+	* e-selection-model-array.h: (struct ESelectionModelArray):
+	* e-selection-model-array.c: (es_row_model_to_sorted),
+	(es_row_sorted_to_model), (e_selection_model_array_delete_rows),
+	(e_selection_model_array_insert_rows), (esma_invert_selection),
+	(e_selection_model_array_move_row), (esma_clear), (esma_select_all),
+	(esma_change_cursor), (esma_set_selection_end),
+	(e_selection_model_array_init): Work with sorted cursor row to keep
+	right position after insert/delete/move row(s).
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* e-activity-handler.h:
+	* e-attachment-bar.h:
+	* e-attachment.c:
+	* e-calendar-item.c:
+	* e-calendar-item.h:
+	* e-calendar.h:
+	* e-canvas-background.h:
+	* e-canvas-vbox.h:
+	* e-canvas.c:
+	* e-canvas.h:
+	* e-cell-date-edit.c:
+	* e-cell-date-edit.h:
+	* e-combo-button.c:
+	* e-combo-button.h:
+	* e-config-page.h:
+	* e-dateedit.c:
+	* e-dateedit.h:
+	* e-dropdown-button.c:
+	* e-dropdown-button.h:
+	* e-filter-bar.c:
+	* e-gui-utils.c:
+	* e-gui-utils.h:
+	* e-image-chooser.c:
+	* e-map.c:
+	* e-map.h:
+	* e-multi-config-dialog.h:
+	* e-popup-menu.h:
+	* e-printable.h:
+	* e-reflow.h:
+	* e-send-options.h:
+	* e-task-bar.h:
+	* e-task-widget.h:
+	* e-url-entry.c:
+	* e-url-entry.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-05-14  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #311042, Patch by Milan Crha
+
+	* e-info-label.c: (el_size_allocate), (el_class_init),
+	(e_info_label_set_info), (get_text_full_width): Allocate size for
+	location and info labels differently, than GtkHBox does, to be able
+	to minimize it as much as possible and do not waste empty space.
+
+2008-05-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #424744
+
+	* e-attachment-bar.c:
+	* e-unicode.c:
+	Use camel-iconv.c instead of e-iconv.h (now deprecated).
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #528288
+
+	* e-filter-bar.c: (get_property): Do not return any query
+	with empty text from search bar.
+
+2008-04-25  Danny Baumann  <dannybaumann@web.de>
+
+	** Fix for bug #529893
+
+	* e-dateedit.c (create_children):
+	* e-combo-cell-editable.c (build_popup):
+	* e-cell-date-edit.c (e_cell_date_edit_init):
+	Properly set type hint on popup windows.
+
+2008-04-22  Matthew Barnes  <mbarnes@Redhat.com>
+
+	** Fixes part of bug #529641
+
+	* e-dateedit.c (create_children):
+	* e-map.c (e_map_new):
+	Prefer the term "drop-down combination box" to "combo box" per the
+	GNOME Documentation Style Guide.
+
+2008-04-20  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for bug #334444
+
+	* e-attachment-bar.c: (e_attachment_bar_add_attachment_silent),
+	(e_attachment_bar_refresh):
+	* e-attachment-bar.h:
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* e-attachment.h: (struct _EAttachment):
+	* e-attachment.c: (finalise), (init), (attachment_guess_mime_type),
+	(e_attachment_new), (struct DownloadInfo), (download_info_free),
+	(data_ready_cb), (download_to_local_path),
+	(e_attachment_new_remote_file):
+	Use gio instead of gnome-vfs to download remote files.
+	* e-image-chooser.c: (image_drag_data_received_cb):
+	Use new util function to read file.
+	* e-attachment-bar.c: (size_to_string): Stolen from gnome-vfs.
+
 2008-04-14  Matthew Barnes  <mbarnes@redhat.com>
 
 	* e-attachment-bar.c

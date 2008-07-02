@@ -1,6 +1,6 @@
 /* Evolution calendar - Scheduling page
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -25,11 +25,7 @@
 #include <config.h>
 #endif
 
-#include <glib.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libgnomeui/gnome-dialog-util.h>
 #include <glade/glade.h>

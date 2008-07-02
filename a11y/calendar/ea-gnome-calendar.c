@@ -3,7 +3,7 @@
  */
 /* Evolution Accessibility: ea-gnome-calendar.c
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,7 +26,7 @@
 #include "ea-gnome-calendar.h"
 #include "calendar-commands.h"
 #include <string.h>
-#include <gtk/gtknotebook.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-time-util.h>
 #include <libedataserver/e-data-server-util.h>
 #include <glib/gi18n.h>

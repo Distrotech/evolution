@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-contact-editor.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -26,15 +26,8 @@
 
 #include <string.h>
 #include <time.h>
+#include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkcheckbutton.h>
-#include <gtk/gtkcheckmenuitem.h>
-#include <gtk/gtkcombo.h>
-#include <gtk/gtktextview.h>
-#include <gtk/gtkmessagedialog.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtklabel.h>
 #include <libgnomeui/gnome-window-icon.h>
 #include <libgnome/gnome-util.h>
 #include <glib/gi18n.h>
@@ -62,7 +55,6 @@
 #include "e-util/e-util-private.h"
 
 #include "eab-contact-merging.h"
-#include <libgnomevfs/gnome-vfs-ops.h>
 
 #include "e-contact-editor-address.h"
 #include "e-contact-editor-im.h"
@@ -3386,7 +3378,7 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 	/* Connect to the deletion of the dialog */
 
 	g_signal_connect (e_contact_editor->app, "delete_event",
-			    GTK_SIGNAL_FUNC (app_delete_event_cb), e_contact_editor);
+			    G_CALLBACK (app_delete_event_cb), e_contact_editor);
 
 	/* set the icon */
 	icon_path = g_build_filename (EVOLUTION_IMAGESDIR, "evolution-contacts-mini.png", NULL);

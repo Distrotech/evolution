@@ -1,3 +1,29 @@
+2008-06-21  Roshan Kumar Singh  <roshan.singh08@yahoo.com>
+
+	** Fix for bug #395636
+
+	* evolution-mail-list.xml: Added accel key Ctrl+Shift+B for collapsing
+	all threads and Ctrl+/ for marking all messages as read. 
+
+2008-06-02  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for bug #531836
+
+	* evolution-mail-message.xml: Added bonobo accel key for Ctrl+D, Del to 
+	keep working on deleted mails, but not the toolbar/menu
+
+2008-05-19  Matthew Barnes  <mbarnes@redhat.com>
+
+	* Makefile.am:
+	* evolution-signature-editor.xml:
+	Neither is this.  Remove it from source control.
+
+2008-05-19  Matthew Barnes  <mbarnes@redhat.com>
+
+	* Makefile.am:
+	* evolution-subscribe.xml:
+	This file is no longer used.  Remove it from source control.
+
 2008-04-13  Matthew Barnes  <mbarnes@redhat.com>
 
 	* evolution-addressbook.xml:

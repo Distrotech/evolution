@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,12 +27,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <glib.h>
 #include <glib/gstdio.h>
-#include <libgnome/gnome-util.h>
-
-#include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
+#include <libgnome/gnome-util.h>
 
 #ifdef G_OS_WIN32
 /* Work around 'DATADIR' and 'interface' lossage in <windows.h> */
@@ -175,6 +172,7 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "MessageFilterJunk",        EM_POPUP_SELECT_MANY },
 	{ "MessageCopy",              EM_POPUP_SELECT_MANY },
 	{ "MessageDelete",            EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_DELETE },
+	{ "MessageDeleteKey",         EM_POPUP_SELECT_MANY},	
 	{ "MessageForward",           EM_POPUP_SELECT_MANY },
 	{ "MessageForwardAttached",   EM_POPUP_SELECT_MANY },
 	{ "MessageForwardInline",     EM_POPUP_SELECT_ONE },
@@ -185,7 +183,7 @@ static const EMFolderViewEnable emfv_enable_map[] = {
 	{ "MessageMarkAsImportant",   EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_IMPORTANT },
 	{ "MessageMarkAsUnimportant", EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_MARK_UNIMPORTANT },
 	{ "MessageMarkAsJunk",        EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_JUNK },
-	{ "MessageMarkAsNotJunk",     EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_NOT_JUNK },
+	{ "MessageMarkAsNotJunk",     EM_POPUP_SELECT_MANY},
 	{ "MessageFollowUpFlag",      EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_FLAG_FOLLOWUP },
 	{ "MessageFollowUpComplete",  EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_FLAG_COMPLETED },
 	{ "MessageFollowUpClear",     EM_POPUP_SELECT_MANY|EM_POPUP_SELECT_FLAG_CLEAR },
@@ -561,7 +559,9 @@ em_folder_view_open_selected(EMFolderView *emfv)
 
 		emmb = (EMMessageBrowser *)em_message_browser_window_new();
 		message_list_set_threaded(((EMFolderView *)emmb)->list, emfv->list->threaded);
-		message_list_set_search(((EMFolderView *)emmb)->list, emfv->list->search);
+		/* always keep actual message in a list view, even it doesn't belong to the filter anymore */
+		message_list_ensure_message (((EMFolderView *)emmb)->list, views->pdata[i]);
+		message_list_set_search (((EMFolderView *)emmb)->list, emfv->list->search);
 		em_folder_view_set_hide_deleted((EMFolderView *)emmb, emfv->hide_deleted);
 		/* FIXME: session needs to be passed easier than this */
 		em_format_set_session((EMFormat *)((EMFolderView *)emmb)->preview, ((EMFormat *)emfv->preview)->session);
@@ -2061,6 +2061,7 @@ static BonoboUIVerb emfv_message_verbs[] = {
 	BONOBO_UI_UNSAFE_VERB ("MessageFilterJunk", emfv_message_filter_junk),
 	BONOBO_UI_UNSAFE_VERB ("MessageCopy", emfv_message_copy),
 	BONOBO_UI_UNSAFE_VERB ("MessageDelete", emfv_message_delete),
+	BONOBO_UI_UNSAFE_VERB ("MessageDeleteKey", emfv_message_delete),
 	BONOBO_UI_UNSAFE_VERB ("MessageForward", emfv_message_forward),
 	BONOBO_UI_UNSAFE_VERB ("MessageForwardAttached", emfv_message_forward_attached),
 	BONOBO_UI_UNSAFE_VERB ("MessageForwardInline", emfv_message_forward_inline),

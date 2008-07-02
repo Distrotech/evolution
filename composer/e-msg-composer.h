@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-msg-composer.h
  *
- * Copyright (C) 1999, 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -125,7 +125,6 @@ CamelInternetAddress *
 
 void		e_msg_composer_clear_inlined_table
 						(EMsgComposer *composer);
-gchar *		e_msg_composer_guess_mime_type	(const gchar *filename);
 void		e_msg_composer_set_enable_autosave
 						(EMsgComposer *composer,
 						 gboolean enabled);

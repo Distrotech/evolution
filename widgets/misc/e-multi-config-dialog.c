@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-multi-config-dialog.c
  *
- * Copyright (C) 2002  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -32,8 +32,7 @@
 #include <table/e-cell-vbox.h>
 #include <table/e-cell-text.h>
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
-
+#include <libgnome/gnome-help.h>
 
 #define SWITCH_PAGE_INTERVAL 250
 
@@ -300,11 +299,7 @@ e_multi_config_dialog_init (EMultiConfigDialog *multi_config_dialog)
 				NULL);
 	gtk_dialog_set_default_response (GTK_DIALOG (multi_config_dialog), GTK_RESPONSE_OK);
 
-
-	gtk_window_set_policy (GTK_WINDOW (multi_config_dialog),
-			       FALSE /* allow_shrink */,
-			       TRUE /* allow_grow */,
-			       FALSE /* auto_shrink */);
+	gtk_window_set_resizable (GTK_WINDOW (multi_config_dialog), TRUE);
 
 	priv = g_new (EMultiConfigDialogPrivate, 1);
 	priv->pages                 = NULL;

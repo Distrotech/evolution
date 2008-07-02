@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <NotZed@ximian.com>
  *
- *  Copyright 2001 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,12 +23,13 @@
 #ifndef MAIL_SEND_RECV_H
 #define MAIL_SEND_RECV_H
 
+#include <gtk/gtk.h>
+#include "mail-config.h"
+
 #ifdef __cplusplus
 extern "C" {
 #pragma }
 #endif /* __cplusplus */
-
-#include "mail-config.h"
 
 /* send/receive all uri's */
 GtkWidget *mail_send_receive(void);

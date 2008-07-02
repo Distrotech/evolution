@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,8 +24,7 @@
 #ifndef _MESSAGE_LIST_H_
 #define _MESSAGE_LIST_H_
 
-#include <gtk/gtkobject.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 #include <table/e-table-simple.h>
 #include <table/e-tree-scrolled.h>
@@ -114,6 +113,10 @@ struct _MessageList {
 	/* Current search string, or %NULL */
 	char *search;
 
+	/* which message uid should be left in the list even not in a search after rebuild;
+	   rebuild will clear the value to NULL */
+	char *ensure_uid;
+
 	/* are we regenerating the message_list because set_folder was just called? */
 	guint just_set_folder : 1;
 
@@ -134,6 +137,9 @@ struct _MessageList {
 
 	/* Where the ETree cursor is. */
 	char *cursor_uid;
+
+	/* whether the last selection was on a single row or none/multi */
+	gboolean last_sel_single;
 
 	/* Row-selection and seen-marking timers */
 	guint idle_id, seen_id;
@@ -172,7 +178,7 @@ typedef enum {
 	MESSAGE_LIST_SELECT_WRAP = 1<<1, /* option bit */
 } MessageListSelectDirection;
 
-GtkType        message_list_get_type   (void);
+GType          message_list_get_type   (void);
 GtkWidget     *message_list_new        (void);
 void           message_list_set_folder (MessageList *message_list, CamelFolder *camel_folder, const char *uri, gboolean outgoing);
 
@@ -221,6 +227,7 @@ void           message_list_set_threaded_collapse_all (MessageList *ml);
 
 void	       message_list_set_hidedeleted (MessageList *ml, gboolean hidedeleted);
 void	       message_list_set_search (MessageList *ml, const char *search);
+void	       message_list_ensure_message (MessageList *ml, const char *uid);
 
 void           message_list_save_state (MessageList *ml);
 

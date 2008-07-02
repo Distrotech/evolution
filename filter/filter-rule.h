@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Copyright (C) 2000-2002 Ximian Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *           Jeffrey Stedfast <fejj@ximian.com>
@@ -72,6 +72,8 @@ struct _FilterRule {
 
 	unsigned int system:1;	/* this is a system rule, cannot be edited/deleted */
 	GList *parts;
+
+	gboolean enabled;
 };
 
 struct _FilterRuleClass {

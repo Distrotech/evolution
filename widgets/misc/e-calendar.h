@@ -4,7 +4,7 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 2000, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,7 +23,7 @@
 #ifndef _E_CALENDAR_H_
 #define _E_CALENDAR_H_
 
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include <misc/e-canvas.h>
 #include "e-calendar-item.h"
 
@@ -76,7 +76,7 @@ struct _ECalendarClass
 };
 
 
-GtkType	   e_calendar_get_type		(void);
+GType		   e_calendar_get_type		(void);
 GtkWidget* e_calendar_new		(void);
 
 void	   e_calendar_set_minimum_size	(ECalendar	*cal,

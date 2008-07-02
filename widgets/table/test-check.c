@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * test-check.c
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Miguel de Icaza (miguel@gnu.org)
@@ -164,7 +164,7 @@ check_test (void)
 	GdkPixbuf *pixbuf;
 	GnomeCanvasItem *item;
 
-	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
+	gtk_widget_push_colormap (gdk_rgb_get_colormap ());
 
 	e_table_model = e_table_simple_new (
 		col_count, row_count, value_at,
@@ -184,7 +184,7 @@ check_test (void)
 	cell_image_check = e_cell_checkbox_new ();
 	pixbuf = gdk_pixbuf_new_from_file ("clip.png");
 	col_0 = e_table_col_new_with_pixbuf (0, pixbuf, 0.0, 18, cell_image_check, e_int_compare, TRUE);
-	gdk_pixbuf_unref (pixbuf);
+	g_object_unref (pixbuf);
 	e_table_header_add_column (e_table_header, col_0, 0);
 
 	col_1 = e_table_col_new (1, "Item Name", 1.0, 20, cell_left_just, e_str_compare, TRUE);

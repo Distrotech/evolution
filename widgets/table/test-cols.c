@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * test-cols.c
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Miguel de Icaza (miguel@gnu.org)
@@ -163,7 +163,7 @@ multi_cols_test (void)
 	ECell *cell_left_just, *cell_image_toggle;
 	GnomeCanvasItem *item;
 
-	gtk_widget_push_colormap (gdk_rgb_get_cmap ());
+	gtk_widget_push_colormap (gdk_rgb_get_colormap ());
 
 	e_table_model = e_table_simple_new (
 		col_count, row_count, value_at,
@@ -191,7 +191,7 @@ multi_cols_test (void)
 		cell_image_toggle = e_cell_toggle_new (0, 3, images);
 
 		for (i = 0; i < 3; i++)
-			gdk_pixbuf_unref (images [i]);
+			g_object_unref (images [i]);
 
 		g_free (images);
 	}

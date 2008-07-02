@@ -1,6 +1,6 @@
 /* Evolution Accessibility: ea-expander.h
  *
- * Copyright (C) 2006 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,7 +23,7 @@
 #ifndef _EA_EXPANDER_H_
 #define _EA_EXPANDER_H_
 
-#include <gtk/gtkaccessible.h>
+#include <gtk/gtk.h>
 #include <misc/e-expander.h>
 
 #define EA_TYPE_EXPANDER           (ea_expander_get_type ())

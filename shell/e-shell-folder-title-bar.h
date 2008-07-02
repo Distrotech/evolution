@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-shell-folder-title-bar.h
  *
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,8 +23,7 @@
 #ifndef __E_SHELL_FOLDER_TITLE_BAR_H__
 #define __E_SHELL_FOLDER_TITLE_BAR_H__
 
-#include <gtk/gtkhbox.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gtk/gtk.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,10 +31,10 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define E_TYPE_SHELL_FOLDER_TITLE_BAR			(e_shell_folder_title_bar_get_type ())
-#define E_SHELL_FOLDER_TITLE_BAR(obj)			(GTK_CHECK_CAST ((obj), E_TYPE_SHELL_FOLDER_TITLE_BAR, EShellFolderTitleBar))
-#define E_SHELL_FOLDER_TITLE_BAR_CLASS(klass)		(GTK_CHECK_CLASS_CAST ((klass), E_TYPE_SHELL_FOLDER_TITLE_BAR, EShellFolderTitleBarClass))
-#define E_IS_SHELL_FOLDER_TITLE_BAR(obj)		(GTK_CHECK_TYPE ((obj), E_TYPE_SHELL_FOLDER_TITLE_BAR))
-#define E_IS_SHELL_FOLDER_TITLE_BAR_CLASS(klass)	(GTK_CHECK_CLASS_TYPE ((obj), E_TYPE_SHELL_FOLDER_TITLE_BAR))
+#define E_SHELL_FOLDER_TITLE_BAR(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_SHELL_FOLDER_TITLE_BAR, EShellFolderTitleBar))
+#define E_SHELL_FOLDER_TITLE_BAR_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_SHELL_FOLDER_TITLE_BAR, EShellFolderTitleBarClass))
+#define E_IS_SHELL_FOLDER_TITLE_BAR(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_SHELL_FOLDER_TITLE_BAR))
+#define E_IS_SHELL_FOLDER_TITLE_BAR_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((obj), E_TYPE_SHELL_FOLDER_TITLE_BAR))
 
 
 typedef struct _EShellFolderTitleBar        EShellFolderTitleBar;
@@ -58,7 +57,7 @@ struct _EShellFolderTitleBarClass {
 };
 
 
-GtkType    e_shell_folder_title_bar_get_type          (void);
+GType      e_shell_folder_title_bar_get_type          (void);
 void       e_shell_folder_title_bar_construct         (EShellFolderTitleBar *folder_title_bar);
 GtkWidget *e_shell_folder_title_bar_new               (void);
 

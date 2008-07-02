@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
  *
  *  Shakti Sen <shprasad@novell.com>
- *  Copyright (C) 2005 Novell, Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@
 
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkdialog.h>
 #include <gconf/gconf-client.h>
 #include <e-folder-exchange.h>
 #include <exchange-hierarchy.h>

@@ -1,6 +1,6 @@
 /* Evolution calendar - Framework for a calendar component editor dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -68,7 +68,7 @@ typedef enum {
 	COMP_EDITOR_IS_SHARED = 1 << 5
 } CompEditorFlags;
 
-GtkType       comp_editor_get_type         (void);
+GType         comp_editor_get_type         (void);
 void          comp_editor_set_changed      (CompEditor             *editor,
 					    gboolean                changed);
 gboolean      comp_editor_get_changed      (CompEditor             *editor);

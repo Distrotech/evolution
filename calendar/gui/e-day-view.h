@@ -4,8 +4,8 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 1999, Ximian, Inc.
- * Copyright 1999, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -25,8 +25,7 @@
 #define _E_DAY_VIEW_H_
 
 #include <time.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtktooltips.h>
+#include <gtk/gtk.h>
 #include <libgnomecanvas/gnome-canvas.h>
 
 #include "e-calendar-view.h"
@@ -182,9 +181,9 @@ struct _EDayViewEvent {
 };
 
 
-#define E_DAY_VIEW(obj)          GTK_CHECK_CAST (obj, e_day_view_get_type (), EDayView)
-#define E_DAY_VIEW_CLASS(klass)  GTK_CHECK_CLASS_CAST (klass, e_day_view_get_type (), EDayViewClass)
-#define E_IS_DAY_VIEW(obj)       GTK_CHECK_TYPE (obj, e_day_view_get_type ())
+#define E_DAY_VIEW(obj)          G_TYPE_CHECK_INSTANCE_CAST (obj, e_day_view_get_type (), EDayView)
+#define E_DAY_VIEW_CLASS(klass)  G_TYPE_CHECK_CLASS_CAST (klass, e_day_view_get_type (), EDayViewClass)
+#define E_IS_DAY_VIEW(obj)       G_TYPE_CHECK_INSTANCE_TYPE (obj, e_day_view_get_type ())
 
 
 typedef struct _EDayView       EDayView;
@@ -474,7 +473,7 @@ struct _EDayViewClass
 };
 
 
-GtkType	   e_day_view_get_type			(void);
+GType		   e_day_view_get_type			(void);
 GtkWidget* e_day_view_new			(void);
 
 /* Whether we are displaying a work-week, in which case the display always

@@ -1,6 +1,6 @@
 /* Evolution calendar - Main page of the task editor dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -55,7 +55,7 @@ typedef struct {
 	CompEditorPageClass parent_class;
 } TaskPageClass;
 
-GtkType   task_page_get_type  (void);
+GType     task_page_get_type  (void);
 TaskPage *task_page_construct (TaskPage *epage, EMeetingStore *model, ECal *client);
 TaskPage *task_page_new       (EMeetingStore *model, ECal *client, BonoboUIComponent *uic);
 ECalComponent * task_page_get_cancel_comp (TaskPage *page);

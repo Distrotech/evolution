@@ -1,6 +1,6 @@
 /* Evolution calendar - Widget utilities
  *
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: JP Rosevear <jpr@ximian.com>
  *
@@ -21,7 +21,7 @@
 #ifndef _COMP_EDITOR_UTIL_H_
 #define _COMP_EDITOR_UTIL_H_
 
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include "comp-editor-page.h"
 
 void comp_editor_dates (CompEditorPageDates *date, ECalComponent *comp);

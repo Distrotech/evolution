@@ -1,6 +1,6 @@
 /* Evolution calendar - task details page
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -25,8 +25,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtksignal.h>
-#include <gtk/gtktogglebutton.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <glade/glade.h>
 #include <misc/e-dateedit.h>

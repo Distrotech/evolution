@@ -1,7 +1,7 @@
 /* Evolution calendar - Event editor dialog
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Miguel de Icaza <miguel@ximian.com>
  *          Federico Mena-Quintero <federico@ximian.com>
@@ -24,7 +24,7 @@
 #ifndef __EVENT_EDITOR_H__
 #define __EVENT_EDITOR_H__
 
-#include <gtk/gtkobject.h>
+#include <gtk/gtk.h>
 #include "comp-editor.h"
 
 
@@ -50,7 +50,7 @@ struct _EventEditorClass {
 	CompEditorClass parent_class;
 };
 
-GtkType      event_editor_get_type     (void);
+GType        event_editor_get_type     (void);
 EventEditor *event_editor_construct    (EventEditor *ee,
 					ECal   *client);
 EventEditor *event_editor_new          (ECal   *client, CompEditorFlags flags);

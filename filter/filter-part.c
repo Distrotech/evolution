@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Copyright (C) 2000-2002 Ximian Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *           Jeffrey Stedfast <fejj@ximian.com>
@@ -28,8 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <gtk/gtkbox.h>
-#include <gtk/gtkhbox.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 
 #include "filter-part.h"
@@ -190,7 +189,7 @@ filter_part_xml_create (FilterPart *ff, xmlNodePtr node, RuleContext *rc)
 			} else {
 				g_warning ("Invalid xml format, missing/unknown input type");
 			}
-		} else if (!strcmp ((char *)n->name, "title")) {
+		} else if (!strcmp ((char *)n->name, "title") || !strcmp ((char *)n->name, "_title")) {
 			if (!ff->title) {
 				str = (char *)xmlNodeGetContent (n);
 				ff->title = g_strdup (str);
@@ -528,18 +527,18 @@ int main(int argc, char **argv)
 	w = filter_part_get_widget (ff);
 
 	dialog = gtk_dialog_new ();
-	gtk_dialog_add_buttons ((GtkDialog *) dialog, GTK_BUTTONS_OK, NULL);
-	gtk_dialog_set_has_separator ((GtkDialog *) dialog, FALSE);
-	gtk_window_set_title ((GtkWindow *) dialog, _("Test"));
-	gtk_window_set_policy ((GtkWindow *) dialog, FALSE, TRUE, FALSE);
-	gtk_box_pack_start ((GtkBox *) dialog->vbox, w, TRUE, TRUE, 0);
+	gtk_dialog_add_buttons (GTK_DIALOG (dialog), GTK_BUTTONS_OK, NULL);
+	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
+	gtk_window_set_title (GTK_WINDOW (dialog), _("Test"));
+	gtk_window_set_resizable (GTK_WINDOW (dialog), TRUE);
+	gtk_box_pack_start (GTK_BOX (dialog->vbox), w, TRUE, TRUE, 0);
 
-	gtk_dialog_run ((GtkDialog *) dialog);
+	gtk_dialog_run (GTK_DIALOG (dialog));
 	gtk_widget_destroy (dialog);
 
 	code = g_string_new ("");
 	filter_part_build_code (ff, code);
-	printf("code is:\n%s\n", code->str);
+	printf ("code is:\n%s\n", code->str);
 
 	return 0;
 }

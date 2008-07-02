@@ -2,7 +2,7 @@
  *
  *  Authors: Vivek Jain <jvivek@novell.com>
  *
- *  Copyright 2005 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,8 +43,13 @@ typedef struct _EMJunkHookTarget EMJunkHookTarget;
 
 typedef void (*EMJunkHookFunc)(struct _EPlugin *plugin, EMJunkHookTarget *data);
 
+GQuark em_junk_error_quark (void);
+
+#define EM_JUNK_ERROR em_junk_error_quark ()
+
 struct _EMJunkHookTarget {
 	struct _CamelMimeMessage *m;
+	GError *error;
 };
 
 struct _EMJunkHookItem {

@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002-2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,14 +32,15 @@
 
 #include "e-util/e-signature.h"
 #include "e-util/e-signature-list.h"
+#include "e-util/gconf-bridge.h"
 
 #include "em-composer-prefs.h"
 #include "composer/e-msg-composer.h"
-#include "composer/gconf-bridge.h"
 
 #include <bonobo/bonobo-generic-factory.h>
 
-#include <libedataserver/e-iconv.h>
+#include <camel/camel-iconv.h>
+
 #include <misc/e-gui-utils.h>
 
 #include <glib/gstdio.h>
@@ -167,8 +168,11 @@ sig_load_preview (EMComposerPrefs *prefs,
 	else
 		str = e_msg_composer_get_sig_file_content (
 			signature->filename, signature->html);
-	if (!str)
-		str = g_strdup ("");
+	if (!str || !*str) {
+		/* make html stream happy and write at least one character */
+		g_free (str);
+		str = g_strdup (" ");
+	}
 
 	if (signature->html) {
 		gtk_html_load_from_string (html, str, strlen (str));
@@ -760,7 +764,7 @@ charset_activate (GtkWidget *item,
 	string = e_charset_picker_get_charset (menu);
 
 	if (string == NULL)
-		string = g_strdup (e_iconv_locale_charset ());
+		string = g_strdup (camel_iconv_locale_charset ());
 
 	gconf_client_set_string (
 		client, "/apps/evolution/mail/composer/charset",
@@ -935,6 +939,12 @@ em_composer_prefs_construct (EMComposerPrefs *prefs)
 		gtk_widget_set_sensitive (widget, FALSE);
 	gconf_bridge_bind_property (bridge, key, G_OBJECT (widget), "active");
 
+	key = "/apps/evolution/mail/composer/reply_start_bottom";
+	widget = glade_xml_get_widget (gui, "chkReplyStartBottom");
+	if (!gconf_client_key_is_writable (client, key, NULL))
+		gtk_widget_set_sensitive (widget, FALSE);
+	gconf_bridge_bind_property (bridge, key, G_OBJECT (widget), "active");
+
 	key = "/apps/evolution/mail/composer/top_signature";
 	widget = glade_xml_get_widget (gui, "chkTopSignature");
 	if (!gconf_client_key_is_writable (client, key, NULL))
@@ -950,7 +960,7 @@ em_composer_prefs_construct (EMComposerPrefs *prefs)
 	buf = gconf_client_get_string (
 		client, "/apps/evolution/mail/composer/charset", NULL);
 	menu = e_charset_picker_new (
-		buf && *buf ? buf : e_iconv_locale_charset ());
+		buf && *buf ? buf : camel_iconv_locale_charset ());
 	gtk_option_menu_set_menu (prefs->charset, GTK_WIDGET (menu));
 	option_menu_connect (
 		prefs, prefs->charset,
@@ -1044,7 +1054,7 @@ em_composer_prefs_construct (EMComposerPrefs *prefs)
 	prefs->sig_add = GTK_BUTTON (widget);
 
 	widget = glade_xml_get_widget (gui, "cmdSignatureAddScript");
-	gtk_widget_set_sensitive (widget, sensitive);
+	gtk_widget_set_sensitive (widget, sensitive && !mail_config_scripts_disabled ());
 	g_signal_connect (
 		widget, "clicked",
 		G_CALLBACK (sig_add_script_cb), prefs);

@@ -4,7 +4,7 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -30,10 +30,6 @@
  */
 
 #include <config.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtksignal.h>
-#include <gnome.h>
 #include <widgets/e-timezone-dialog/e-timezone-dialog.h>
 #include <glib/gi18n.h>
 #include "e-timezone-entry.h"
@@ -92,14 +88,13 @@ e_timezone_entry_class_init		(ETimezoneEntryClass	*class)
 	widget_class->mnemonic_activate = e_timezone_entry_mnemonic_activate;
 	widget_class->focus = e_timezone_entry_focus;
 	timezone_entry_signals[CHANGED] =
-		gtk_signal_new ("changed",
-				GTK_RUN_LAST,
-				G_TYPE_FROM_CLASS (object_class),
-				GTK_SIGNAL_OFFSET (ETimezoneEntryClass,
-						   changed),
-				gtk_marshal_NONE__NONE,
-				GTK_TYPE_NONE, 0);
-
+		g_signal_new ("changed",
+			      G_TYPE_FROM_CLASS (object_class),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (ETimezoneEntryClass, changed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__VOID,
+			      G_TYPE_NONE, 0);
 
 	object_class->destroy		= e_timezone_entry_destroy;
 
@@ -210,7 +205,7 @@ static void
 on_entry_changed			(GtkEntry	*entry,
 					 ETimezoneEntry *tentry)
 {
-	gtk_signal_emit (GTK_OBJECT (tentry), timezone_entry_signals[CHANGED]);
+	g_signal_emit (GTK_OBJECT (tentry), timezone_entry_signals[CHANGED], 0);
 }
 
 

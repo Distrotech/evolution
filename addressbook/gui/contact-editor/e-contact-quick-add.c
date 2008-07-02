@@ -3,7 +3,7 @@
 /*
  * e-contact-quick-add.c
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Developed by Jon Trowbridge <trow@ximian.com>
  */
@@ -27,12 +27,7 @@
 #include <config.h>
 #include <ctype.h>
 #include <string.h>
-#include <glib.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkstock.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libgnomeui/gnome-app.h>
 #include <libebook/e-book.h>

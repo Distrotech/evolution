@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* Map widget.
  *
- * Copyright (C) 2000-2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Hans Petter Jansson <hpj@ximian.com>
  *
@@ -24,8 +24,6 @@
 #include <math.h>
 #include <stdlib.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtksignal.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib/gi18n.h>
 
 #include "e-util/e-util-private.h"
@@ -132,29 +130,30 @@ static GtkWidgetClass *parent_class;
  * Return value: The type ID of the #EMap class.
  **/
 
-GtkType
+GType
 e_map_get_type (void)
 {
-	static GtkType e_map_type = 0;
+	static GType type = 0;
 
-	if (!e_map_type)
-	{
-		static const GtkTypeInfo e_map_info =
-		{
-			"EMap",
-			sizeof (EMap),
+	if (G_UNLIKELY (type == 0)) {
+		static const GTypeInfo type_info = {
 			sizeof (EMapClass),
-			(GtkClassInitFunc) e_map_class_init,
-			(GtkObjectInitFunc) e_map_init,
-			NULL,	/* reserved_1 */
-			NULL,	/* reserved_2 */
-			(GtkClassInitFunc) NULL
+			(GBaseInitFunc) NULL,
+			(GBaseFinalizeFunc) NULL,
+			(GClassInitFunc) e_map_class_init,
+			(GClassFinalizeFunc) NULL,
+			NULL,  /* class_data */
+			sizeof (EMap),
+			0,     /* n_preallocs */
+			(GInstanceInitFunc) e_map_init,
+			NULL   /* value_table */
 		};
 
-		e_map_type = gtk_type_unique (GTK_TYPE_WIDGET, &e_map_info);
+		type = g_type_register_static (
+			GTK_TYPE_WIDGET, "EMap", &type_info, 0);
 	}
 
-	return e_map_type;
+	return type;
 }
 
 /* Class initialization function for the map view */
@@ -625,7 +624,7 @@ e_map_new (void)
 	a11y = gtk_widget_get_accessible (widget);
 	atk_object_set_name (a11y, _("World Map"));
 	atk_object_set_role (a11y, ATK_ROLE_IMAGE);
-	atk_object_set_description (a11y, _("Mouse-based interactive map widget for selecting timezone. Keyboard users should select the timezone from the below combo box instead."));
+	atk_object_set_description (a11y, _("Mouse-based interactive map widget for selecting timezone. Keyboard users should instead select the timezone from the drop-down combination box below."));
 	return (E_MAP (widget));
 }
 

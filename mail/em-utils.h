@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ char *em_utils_get_proxy_uri(void);
 
 /* FIXME: should this have an override charset? */
 char *em_utils_part_to_html(struct _CamelMimePart *part, ssize_t *len, struct _EMFormat *source);
-char *em_utils_message_to_html(struct _CamelMimeMessage *msg, const char *credits, guint32 flags, ssize_t *len, struct _EMFormat *source);
+char *em_utils_message_to_html(struct _CamelMimeMessage *msg, const char *credits, guint32 flags, ssize_t *len, struct _EMFormat *source, const char *append);
 
 void em_utils_expunge_folder (struct _GtkWidget *parent, struct _CamelFolder *folder);
 void em_utils_empty_trash (struct _GtkWidget *parent);
@@ -108,7 +108,7 @@ void em_utils_show_error_silent (struct _GtkWidget *widget);
 void em_utils_show_info_silent (struct _GtkWidget *widget);
 
 /* is this address in the addressbook?  caches results */
-gboolean em_utils_in_addressbook(struct _CamelInternetAddress *addr);
+gboolean em_utils_in_addressbook (struct _CamelInternetAddress *addr, gboolean local_only);
 struct _CamelMimePart *em_utils_contact_photo (struct _CamelInternetAddress *addr, gboolean local);
 
 const char *em_utils_snoop_type(struct _CamelMimePart *part);

@@ -5,8 +5,8 @@
  *  Damon Chaplin <damon@gtk.org>
  *  Rodrigo Moya <rodrigo@novell.com>
  *
- * Copyright 1999, Ximian, Inc.
- * Copyright 2004, Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -33,23 +33,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <glib.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkalignment.h>
-#include <gtk/gtkarrow.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkdrawingarea.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtkfixed.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkhscrollbar.h>
-#include <gtk/gtkhseparator.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkradiomenuitem.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkvscrollbar.h>
 #include <libgnomeui/gnome-dateedit.h>
 #include <glib/gi18n.h>
 #include <libgnomecanvas/gnome-canvas-widget.h>
@@ -224,12 +208,13 @@ e_meeting_time_selector_class_init (EMeetingTimeSelectorClass * klass)
 	widget_class = (GtkWidgetClass *) klass;
 
 	mts_signals [CHANGED] =
-		gtk_signal_new ("changed", GTK_RUN_FIRST,
-				G_TYPE_FROM_CLASS (object_class),
-				GTK_SIGNAL_OFFSET (EMeetingTimeSelectorClass,
-						   changed),
-				gtk_signal_default_marshaller,
-				GTK_TYPE_NONE, 0);
+		g_signal_new ("changed",
+			      G_TYPE_FROM_CLASS (object_class),
+			      G_SIGNAL_RUN_FIRST,
+			      G_STRUCT_OFFSET (EMeetingTimeSelectorClass, changed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__VOID,
+			      G_TYPE_NONE, 0);
 
 	object_class->destroy = e_meeting_time_selector_destroy;
 
@@ -688,7 +673,7 @@ e_meeting_time_selector_construct (EMeetingTimeSelector * mts, EMeetingStore *em
 	e_meeting_time_selector_update_end_date_edit (mts);
 	e_meeting_time_selector_update_date_popup_menus (mts);
 
-	gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+	g_signal_emit (mts, mts_signals [CHANGED], 0);
 }
 
 
@@ -707,7 +692,7 @@ e_meeting_time_selector_add_key_color (EMeetingTimeSelector * mts,
 
 	darea = gtk_drawing_area_new ();
 	gtk_box_pack_start (GTK_BOX (child_hbox), darea, FALSE, FALSE, 0);
-	gtk_object_set_user_data (GTK_OBJECT (darea), mts);
+	g_object_set_data (G_OBJECT (darea), "data", mts);
 	gtk_widget_set_size_request (darea, 14, 14);
 	gtk_widget_show (darea);
 
@@ -730,7 +715,7 @@ e_meeting_time_selector_expose_key_color (GtkWidget *darea,
 	GdkGC *gc;
 	gint width, height;
 
-	mts = gtk_object_get_user_data (GTK_OBJECT (darea));
+	mts = g_object_get_data (G_OBJECT (darea), "data");
 	gc = mts->color_key_gc;
 	width = darea->allocation.width;
 	height = darea->allocation.height;
@@ -1112,7 +1097,7 @@ e_meeting_time_selector_set_meeting_time (EMeetingTimeSelector *mts,
 	e_meeting_time_selector_update_start_date_edit (mts);
 	e_meeting_time_selector_update_end_date_edit (mts);
 
-	gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+	g_signal_emit (mts, mts_signals [CHANGED], 0);
 
 	return TRUE;
 }
@@ -1240,7 +1225,7 @@ e_meeting_time_selector_refresh_cb (gpointer data)
 	if (mts->display_main != NULL)
 		gtk_widget_queue_draw (mts->display_main);
 
-	gtk_object_unref (GTK_OBJECT (mts));
+	g_object_unref (GTK_OBJECT (mts));
 
 	return FALSE;
 }
@@ -1273,9 +1258,9 @@ e_meeting_time_selector_refresh_free_busy (EMeetingTimeSelector *mts, int row, g
 		int i;
 
 		for (i = 0; i < e_meeting_store_count_actual_attendees (mts->model); i++)
-			gtk_object_ref (GTK_OBJECT (mts));
+			g_object_ref (GTK_OBJECT (mts));
 	} else {
-		gtk_object_ref (GTK_OBJECT (mts));
+		g_object_ref (GTK_OBJECT (mts));
 	}
 
 	if (all)
@@ -1671,7 +1656,7 @@ e_meeting_time_selector_autopick (EMeetingTimeSelector *mts,
 			e_meeting_time_selector_update_start_date_edit (mts);
 			e_meeting_time_selector_update_end_date_edit (mts);
 
-			gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+			g_signal_emit (mts, mts_signals [CHANGED], 0);
 
 			return;
 		}
@@ -2237,7 +2222,7 @@ e_meeting_time_selector_on_start_time_changed (GtkWidget *widget,
 	gtk_widget_queue_draw (mts->display_top);
 	gtk_widget_queue_draw (mts->display_main);
 
-	gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+	g_signal_emit (mts, mts_signals [CHANGED], 0);
 }
 
 
@@ -2287,7 +2272,7 @@ e_meeting_time_selector_on_end_time_changed (GtkWidget *widget,
 	gtk_widget_queue_draw (mts->display_top);
 	gtk_widget_queue_draw (mts->display_main);
 
-	gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+	g_signal_emit (mts, mts_signals [CHANGED], 0);
 }
 
 
@@ -2494,7 +2479,7 @@ e_meeting_time_selector_drag_meeting_time (EMeetingTimeSelector *mts,
 	if (set_both_times
 	    || mts->dragging_position == E_MEETING_TIME_SELECTOR_POS_END
 	    || mts->dragging_position == E_MEETING_TIME_SELECTOR_POS_START)
-		gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+		g_signal_emit (mts, mts_signals [CHANGED], 0);
 }
 
 
@@ -2634,7 +2619,7 @@ e_meeting_time_selector_timeout_handler (gpointer data)
 	if (set_both_times
 	    || mts->dragging_position == E_MEETING_TIME_SELECTOR_POS_END
 	    || mts->dragging_position == E_MEETING_TIME_SELECTOR_POS_START)
-		gtk_signal_emit (GTK_OBJECT (mts), mts_signals [CHANGED]);
+		g_signal_emit (mts, mts_signals [CHANGED], 0);
 
  scroll:
 	/* Redraw the canvases. We freeze and thaw the layouts so that they

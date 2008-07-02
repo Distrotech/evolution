@@ -1,3 +1,126 @@
+2008-07-01  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #540282
+
+	* e-print.c:
+	Store printer and page settings in a key file rather than GConf.
+	Also properly apply page settings to print operations, including
+	custom margins.
+
+2008-07-01  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #540972
+
+	* e-plugin.c: (ep_load): Small memory leak fix.
+
+2008-06-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #509595
+
+	* e-logger.c: (e_logger_get_logs): Do not crash if file does not
+	exists. Also be able to read lines more than 249 characters long.
+
+2008-06-08  Matthew Barnes  <mbarnes@redhat.com>
+
+	* e-logger.[ch]: Code cleanup.
+
+2008-06-06  Tor Lillqvist  <tml@novell.com>
+
+	* e-plugin.c (epl_loadmodule): Tell which plugin it could not load
+	in the warning message.
+
+2008-05-29  Frederic Crozat  <fcrozat@mandriva.com>
+
+	** Fixes bug #535273
+	        
+	* Makefile.am:
+	Link e-util and econduit libraries with gnome-pilot.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* e-plugin.c:
+	* e-plugin.h:
+	Code cleanup.  Also add an "enabled" property to EPlugin.
+
+2008-05-19  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #530392
+
+	* e-util-labels.c (e_util_labels_add_with_dlg):
+	Pressing Enter in the entry activates the default response.
+
+2008-05-16  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #514383
+
+	* e-error.c (e_error_newv): Widget packing adjustments.
+
+2008-05-14  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #531592
+
+	* e-error.c (ee_build_label):
+	Add an 'escape_args' parameter for strings that should /not/ be
+	escaped, such as window titles and status bar messages.
+
+	* e-error.c (e_error_newv):
+	Pass an appropriate 'escape_args' value to ee_build_label().
+
+2008-05-08  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #525241 (EPluginUI)
+
+	* Makefile.am:
+	Add e-plugin-ui.[ch].
+
+	* e-plugin.h (EPluginClass):
+	Add a "get_symbol" method for extracting arbitrary symbols
+	from an EPlugin.  Implementation of the method is optional.
+
+	* e-plugin.c (e_plugin_get_symbol):
+	New function invokes the new "get_symbol" EPlugin method.
+
+	* e-plugin.c (epl_get_symbol):
+	New function implements the new "get_symbol" EPlugin method.
+	It extracts the given symbol name from the GModule.
+
+	* e-plugin-ui.[ch]:
+	New EPluginHook subclass that allows plugins to extend menus,
+	toolbars, and popups that are managed by GtkUIManager instead
+	of BonoboUI.  Should eventually replace EMenu/EPopup.
+
+2008-04-23  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #529254
+
+	* e-util.c: (e_write_file_uri):	Save file properly.
+	Handle either URI or filename. Return success or failure, not gint.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* Makefile.am:
+	Add gconf-bridge.[ch] from composer.
+
+2008-04-18  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #528817
+
+	* e-plugin.c (e_plugin_register_type):
+	Fix a typo in the logic.  This might explain why I occasionally
+	find Exchange Operations disabled on startup.
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* e-gui-utils.c: Do not include gnome-vfs.
+	* e-util.c: (e_write_file_uri), (e_file_get_save_path):
+	* e-dialog-utils.c: (e_file_can_save), (e_file_check_local):
+	Use gio instead of gnome-vfs.
+	* e-util.h:
+	* e-util.c: (e_util_guess_mime_type), (e_util_filename_to_uri),
+	(e_util_uri_to_filename), (e_util_read_file): New helper functions.
+
 2008-04-12  Matthew Barnes  <mbarnes@redhat.com>
 
 	* e-util-labels.c (e_util_labels_add_with_dlg):

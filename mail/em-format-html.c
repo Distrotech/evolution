@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,7 +41,6 @@
 #undef interface
 #endif
 
-#include <libedataserver/e-iconv.h>
 #include <libedataserver/e-data-server-util.h>	/* for e_utf8_strftime, what about e_time_format_time? */
 #include <libedataserver/e-time-utils.h>
 #include "e-util/e-icon-factory.h"
@@ -54,6 +53,7 @@
 
 #include <glib/gi18n.h>
 
+#include <camel/camel-iconv.h>
 #include <camel/camel-mime-message.h>
 #include <camel/camel-stream.h>
 #include <camel/camel-stream-filter.h>
@@ -85,6 +85,8 @@
 #define d(x)
 
 #define EFH_TABLE_OPEN "<table>"
+#define EFM_MESSAGE_START_ANAME "evolution#message#start"
+#define EFH_MESSAGE_START "<A name=\"" EFM_MESSAGE_START_ANAME "\"></A>"
 
 struct _EMFormatHTMLCache {
 	CamelMultipart *textmp;
@@ -153,6 +155,7 @@ efh_init(GObject *o)
 
 	efh->html = (GtkHTML *)gtk_html_new();
 	gtk_html_set_blocking(efh->html, FALSE);
+	gtk_html_set_caret_first_focus_anchor (efh->html, EFM_MESSAGE_START_ANAME);
 	g_object_ref_sink(efh->html);
 
 	gtk_html_set_default_content_type(efh->html, "text/html; charset=utf-8");
@@ -163,12 +166,14 @@ efh_init(GObject *o)
 	g_signal_connect(efh->html, "object_requested", G_CALLBACK(efh_object_requested), efh);
 
 	efh->body_colour = 0xeeeeee;
+	efh->header_colour = 0xeeeeee;
 	efh->text_colour = 0;
 	efh->frame_colour = 0x3f3f3f;
 	efh->content_colour = 0xffffff;
 	efh->text_html_flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
 		| CAMEL_MIME_FILTER_TOHTML_MARK_CITATION;
 	efh->show_icon = TRUE;
+	efh->state = EM_FORMAT_HTML_STATE_NONE;
 }
 
 static void
@@ -484,7 +489,7 @@ static void emfh_gethttp(struct _EMFormatHTMLJob *job, int cancelled)
 		if (!(job->format->load_http_now
 		      || job->format->load_http == MAIL_CONFIG_HTTP_ALWAYS
 		      || (job->format->load_http == MAIL_CONFIG_HTTP_SOMETIMES
-			  && em_utils_in_addressbook((CamelInternetAddress *)camel_mime_message_get_from(job->format->format.message))))) {
+			  && em_utils_in_addressbook((CamelInternetAddress *)camel_mime_message_get_from(job->format->format.message), FALSE)))) {
 			/* TODO: Ideally we would put the http requests into another queue and only send them out
 			   if the user selects 'load images', when they do.  The problem is how to maintain this
 			   state with multiple renderings, and how to adjust the thread dispatch/setup routine to handle it */
@@ -795,9 +800,9 @@ efh_text_plain(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFo
 		type = camel_mime_part_get_content_type(newpart);
 		if (camel_content_type_is (type, "text", "*") && !camel_content_type_is(type, "text", "calendar")) {
 			camel_stream_printf (stream,
-   					"<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px;\">\n",
-   					efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
-			camel_stream_write_string(stream, "<tt>\n");
+   					"<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px; color: #%06x;\">\n",
+					     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff, efh->text_colour & 0xffffff);
+			camel_stream_write_string(stream, "<tt>\n" EFH_MESSAGE_START);
 			em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, (CamelDataWrapper *)newpart);
 			camel_stream_flush((CamelStream *)filtered_stream);
 			camel_stream_write_string(stream, "</tt>\n");
@@ -835,8 +840,8 @@ efh_text_enriched(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, E
 	camel_object_unref(enriched);
 
 	camel_stream_printf (stream,
-			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px;\">\n",
-			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px; color: #%06x;\">\n" EFH_MESSAGE_START,
+			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff, efh->text_colour & 0xffffff);
 
 	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, (CamelDataWrapper *)part);
 
@@ -872,9 +877,9 @@ efh_text_html(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part, EMFor
 	char *cid = NULL;
 
 	camel_stream_printf (stream,
-			     "<div style=\"border: solid #%06x 1px; background-color: #%06x;\">\n"
-			     "<!-- text/html -->\n",
-			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; color: #%06x;\">\n"
+			     "<!-- text/html -->\n" EFH_MESSAGE_START,
+			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff, efh->text_colour & 0xffffff);
 
 	/* TODO: perhaps we don't need to calculate this anymore now base is handled better */
 	/* calculate our own location string so add_puri doesn't do it
@@ -948,7 +953,7 @@ efh_message_external(EMFormatHTML *efh, CamelStream *stream, CamelMimePart *part
 		else
 			path = g_strdup_printf("/%s", *name=='/'?name+1:name);
 
-		if (mode && &mode)
+		if (mode && *mode)
 			sprintf(ftype, ";type=%c",  *mode);
 		else
 			ftype[0] = 0;
@@ -1012,15 +1017,15 @@ efh_message_deliverystatus(EMFormatHTML *efh, CamelStream *stream, CamelMimePart
 
 	/* Yuck, this is copied from efh_text_plain */
 	camel_stream_printf (stream,
-			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px;\">\n",
-			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff);
+			     "<div style=\"border: solid #%06x 1px; background-color: #%06x; padding: 10px; color: #%06x;\">\n",
+			     efh->frame_colour & 0xffffff, efh->content_colour & 0xffffff, efh->text_colour & 0xffffff);
 
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
 	html_filter = camel_mime_filter_tohtml_new(efh->text_html_flags, rgb);
 	camel_stream_filter_add(filtered_stream, html_filter);
 	camel_object_unref(html_filter);
 
-	camel_stream_write_string(stream, "<tt>\n");
+	camel_stream_write_string(stream, "<tt>\n" EFH_MESSAGE_START);
 	em_format_format_text((EMFormat *)efh, (CamelStream *)filtered_stream, (CamelDataWrapper *)part);
 	camel_stream_flush((CamelStream *)filtered_stream);
 	camel_stream_write_string(stream, "</tt>\n");
@@ -1247,7 +1252,7 @@ efh_format_exec (struct _format_msg *m)
 			    "<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\">\n</head>\n"
 			    "<body bgcolor =\"#%06x\" text=\"#%06x\" marginwidth=6 marginheight=6>\n",
 			    m->format->body_colour & 0xffffff,
-			    m->format->text_colour & 0xffffff);
+			    m->format->header_colour & 0xffffff);
 
 	/* <insert top-header stuff here> */
 
@@ -1262,6 +1267,10 @@ efh_format_exec (struct _format_msg *m)
 		handle = em_format_find_handler((EMFormat *)m->format, "x-evolution/message/rfc822");
 		if (handle)
 			handle->handler((EMFormat *)m->format, (CamelStream *)m->estream, (CamelMimePart *)m->message, handle);
+		handle = em_format_find_handler((EMFormat *)m->format, "x-evolution/message/post-header-closure");
+		if (handle)
+			handle->handler((EMFormat *)m->format, (CamelStream *)m->estream, (CamelMimePart *)m->message, handle);
+
 	}
 
 	camel_stream_flush((CamelStream *)m->estream);
@@ -1325,6 +1334,7 @@ efh_format_done (struct _format_msg *m)
 
 	m->format->load_http_now = FALSE;
 	m->format->priv->format_id = -1;
+	m->format->state = EM_FORMAT_HTML_STATE_NONE;
 	g_signal_emit_by_name(m->format, "complete");
 }
 
@@ -1393,6 +1403,8 @@ efh_format_timeout(struct _format_msg *m)
 		mail_msg_unref(m);
 		p->last_part = NULL;
 	} else {
+		efh->state = EM_FORMAT_HTML_STATE_RENDERING;
+
 		if (p->last_part != m->message) {
 			hstream = gtk_html_begin (efh->html);
 			gtk_html_stream_printf (hstream, "<h5>%s</h5>", _("Formatting Message..."));
@@ -1482,6 +1494,7 @@ efh_format_text_header (EMFormatHTML *emfh, CamelStream *stream, const char *lab
 {
 	const char *fmt, *html;
 	char *mhtml = NULL;
+	gboolean is_rtl;
 	
 	if (value == NULL)
 		return;
@@ -1494,7 +1507,7 @@ efh_format_text_header (EMFormatHTML *emfh, CamelStream *stream, const char *lab
 	else 
 		html = value;
 	
-	gboolean is_rtl = gtk_widget_get_default_direction () == GTK_TEXT_DIR_RTL;
+	is_rtl = gtk_widget_get_default_direction () == GTK_TEXT_DIR_RTL;
 	if (emfh->simple_headers) {
 		fmt = "<b>%s</b>: %s<br>";
 	} else {
@@ -1726,7 +1739,7 @@ efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, struct 
 		g_free (buf);
 		
 		flags |= EM_FORMAT_HEADER_BOLD;
-	} else if (!strcmp(name, "X-Evolution-Mailer")) {
+	} else if (!strcmp(name, "X-evolution-mailer")) {
 		/* pseudo-header */
 		label = _("Mailer");
 		txt = value = camel_header_format_ctext (header->value, charset);
@@ -1737,7 +1750,7 @@ efh_format_header(EMFormat *emf, CamelStream *stream, CamelMedium *part, struct 
 		struct tm local;
 
 		txt = header->value;
-		while (*txt == ' ')
+		while (*txt == ' ' || *txt == '\t')
 			txt++;
 
 		/* Show the local timezone equivalent in brackets if the sender is remote */
@@ -1838,13 +1851,13 @@ efh_format_headers(EMFormatHTML *efh, CamelStream *stream, CamelMedium *part)
 
 	ct = camel_mime_part_get_content_type((CamelMimePart *)part);
 	charset = camel_content_type_param (ct, "charset");
-	charset = e_iconv_charset_name(charset);
+	charset = camel_iconv_charset_name(charset);
 
 	if (!efh->simple_headers)
 		camel_stream_printf(stream,
 				    "<font color=\"#%06x\">\n"
 				    "<table cellpadding=\"0\" width=\"100%%\">",
-				    efh->text_colour & 0xffffff);
+				    efh->header_colour & 0xffffff);
 	
 	hdr_charset = emf->charset ? emf->charset : emf->default_charset;
 	
@@ -1994,7 +2007,7 @@ efh_format_headers(EMFormatHTML *efh, CamelStream *stream, CamelMedium *part)
 			part = camel_mime_part_new ();
 			camel_mime_part_set_content ((CamelMimePart *) part, (const char *) face_header_value, face_header_len, "image/png");
 			classid = g_strdup_printf("icon:///em-format-html/face/photo/header");
-			camel_stream_printf(stream, "<td align=\"right\" valign=\"top\"><img width=64 src=\"%s\"></td>", classid);
+			camel_stream_printf(stream, "<td align=\"right\" valign=\"top\"><img width=48 src=\"%s\"></td>", classid);
 			em_format_add_puri(emf, sizeof(EMFormatPURI), classid, part, efh_write_image);
 			camel_object_unref(part);
 		}

@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002-2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,30 +29,15 @@
 #include "em-mailer-prefs.h"
 #include "em-format.h"
 
-#include <libedataserver/e-iconv.h>
+#include <camel/camel-iconv.h>
 #include <gtkhtml/gtkhtml-properties.h>
 #include <libxml/tree.h>
 #include "misc/e-charset-picker.h"
 #include <bonobo/bonobo-generic-factory.h>
 
-#include <gtk/gtkcolorbutton.h>
-#include <gtk/gtkfilechooserbutton.h>
-#include <gtk/gtkfontbutton.h>
-
 #include <glade/glade.h>
 
 #include <gconf/gconf-client.h>
-
-#include <gtk/gtkentry.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkliststore.h>
-#include <gtk/gtktreeselection.h>
-#include <gtk/gtkcellrenderertoggle.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkmenuitem.h>
 
 #include "libedataserverui/e-cell-renderer-color.h"
 
@@ -111,7 +96,7 @@ static const struct {
 	{ N_("Once per month"), 30 },
 };
 
-GtkType
+GType
 em_mailer_prefs_get_type (void)
 {
 	static GType type = 0;
@@ -825,6 +810,13 @@ photo_toggle_changed (GtkToggleButton *toggle, EMMailerPrefs *prefs)
 }
 
 static void
+junk_book_lookup_button_toggled (GtkToggleButton *toggle, EMMailerPrefs *prefs)
+{
+	toggle_button_toggled (toggle, prefs);
+	gtk_widget_set_sensitive (GTK_WIDGET (prefs->junk_lookup_local_only), gtk_toggle_button_get_active (toggle));
+}
+
+static void
 custom_junk_button_toggled (GtkToggleButton *toggle, EMMailerPrefs *prefs)
 {
 	toggle_button_toggled (toggle, prefs);
@@ -902,7 +894,7 @@ charset_activate (GtkWidget *item, EMMailerPrefs *prefs)
 
 	menu = gtk_option_menu_get_menu (prefs->charset);
 	if (!(string = e_charset_picker_get_charset (menu)))
-		string = g_strdup (e_iconv_locale_charset ());
+		string = g_strdup (camel_iconv_locale_charset ());
 
 	gconf_client_set_string (prefs->gconf, "/apps/evolution/mail/display/charset", string, NULL);
 	g_free (string);
@@ -916,7 +908,7 @@ charset_menu_init (EMMailerPrefs *prefs)
 	char *buf;
 
 	buf = gconf_client_get_string (prefs->gconf, "/apps/evolution/mail/display/charset", NULL);
-	menu = e_charset_picker_new (buf && *buf ? buf : e_iconv_locale_charset ());
+	menu = e_charset_picker_new (buf && *buf ? buf : camel_iconv_locale_charset ());
 	gtk_option_menu_set_menu (prefs->charset, GTK_WIDGET (menu));
 	g_free (buf);
 
@@ -1493,9 +1485,16 @@ em_mailer_prefs_construct (EMMailerPrefs *prefs)
 	prefs->junk_header_add = (GtkButton *)glade_xml_get_widget (gui, "junk_header_add");
 	prefs->junk_header_remove = (GtkButton *)glade_xml_get_widget (gui, "junk_header_remove");
 	prefs->junk_book_lookup = (GtkToggleButton *)glade_xml_get_widget (gui, "lookup_book");
+	prefs->junk_lookup_local_only = (GtkToggleButton *)glade_xml_get_widget (gui, "junk_lookup_local_only");
 	toggle_button_init (prefs, prefs->junk_book_lookup, FALSE,
 			    "/apps/evolution/mail/junk/lookup_addressbook",
+			    G_CALLBACK (junk_book_lookup_button_toggled));
+
+	toggle_button_init (prefs, prefs->junk_lookup_local_only, FALSE,
+			    "/apps/evolution/mail/junk/lookup_addressbook_local_only",
 			    G_CALLBACK (toggle_button_toggled));
+
+	junk_book_lookup_button_toggled (prefs->junk_book_lookup, prefs);
 
 	prefs->junk_header_list_store = init_junk_tree ((GtkWidget *)prefs->junk_header_tree, prefs);
 	toggle_button_init (prefs, prefs->junk_header_check, FALSE,

@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-contact-print.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -26,8 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <glib.h>
-
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/xmlmemory.h>
@@ -36,7 +34,6 @@
 #include <libebook/e-book.h>
 #include <libebook/e-contact.h>
 
-#include <gtk/gtk.h>
 #include <libedataserver/e-flag.h>
 #include <libedataserver/e-xml-utils.h>
 

@@ -4,7 +4,7 @@
  * Authors:
  *  Hans Petter Jansson  <hpj@ximian.com>
  *
- * Copyright 2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -35,13 +35,10 @@
 #include <math.h>
 #include <time.h>
 #include <sys/stat.h>
-#include <gdk/gdkkeysyms.h>
-#include <gtk/gtkdnd.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkvscrollbar.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
+#include <gdk/gdkkeysyms.h>
 #include <misc/e-gui-utils.h>
 #include <table/e-table-memory-store.h>
 #include <table/e-cell-checkbox.h>
@@ -50,7 +47,6 @@
 #include <table/e-cell-combo.h>
 #include <misc/e-popup-menu.h>
 #include <misc/e-cell-date-edit.h>
-#include <glib/gi18n.h>
 #include <libgnome/gnome-exec.h>
 #include <libgnome/gnome-util.h>
 #include <e-util/e-categories-config.h>

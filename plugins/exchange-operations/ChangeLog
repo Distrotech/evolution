@@ -1,3 +1,53 @@
+2008-06-16  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #273627
+
+	* exchange-account-setup.c: (owa_authenticate_user),
+	(update_mailbox_param_in_url), (mailbox_editor_entry_changed),
+	(org_gnome_exchange_owa_url): New entry to enter mailbox name in case
+	it differs from the username. The entry is updated after a validation
+	and shows the mailbox name as was used for validation.
+
+2008-06-05  Matthew Barnes  <mbarnes@redhat.com>
+
+	* exchange-permissions-dialog.c:
+	Here too.
+
+2008-06-04  Matthew Barnes  <mbarnes@redhat.com>
+
+	* exchange-delegates-user.c:
+	Don't undef DISABLE_DEPRECATED macros in source code.
+	That's just evil.
+
+2008-06-02  Jacob Brown  <jeblinux@gmail.com>
+
+	** Fix for bug #529464
+
+	* org-gnome-exchange-operations.eplug.xml: Do not use "handle"
+
+2008-05-27  Bharath Acharya  <abharath@novell.com>
+
+	* Fixes bnc #394441
+
+	* exchange-contacts.c: (e_exchange_contacts_commit): Fixes a double
+	free
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* exchange-account-setup.c:
+	* exchange-send-options.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-04-21  Bharath Acharya  <abharath@novell.com>
+
+	Fixes bnc #378203
+
+	* exchange-folder-permission.c: 
+	(org_gnome_exchange_folder_permissions): Return sanely if the path 
+	value is corrupted.
+
 2008-04-02  Matthew Barnes  <mbarnes@redhat.com>
 
 	* Makefile.am:

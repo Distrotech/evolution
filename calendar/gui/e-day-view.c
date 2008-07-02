@@ -4,7 +4,7 @@
  *  Damon Chaplin <damon@ximian.com>
  *  Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 1999-2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -35,11 +35,6 @@
 #include <math.h>
 #include <time.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkdnd.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkvscrollbar.h>
-#include <gtk/gtkwindow.h>
 #include <text/e-text.h>
 #include <misc/e-canvas-utils.h>
 #include <misc/e-popup-menu.h>
@@ -3010,8 +3005,7 @@ e_day_view_on_long_event_button_press (EDayView		*day_view,
 		} else if (event->type == GDK_2BUTTON_PRESS) {
 			e_day_view_on_event_double_click (day_view, -1,
 							  event_num);
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (day_view->top_canvas),
-						      "button_press_event");
+			g_signal_stop_emission_by_name (day_view->top_canvas, "button_press_event");
 			return TRUE;
 		}
 	} else if (event->button == 3) {
@@ -3050,8 +3044,7 @@ e_day_view_on_event_button_press (EDayView	  *day_view,
 			e_day_view_on_event_double_click (day_view, day,
 							  event_num);
 
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (day_view->main_canvas),
-						      "button_press_event");
+			g_signal_stop_emission_by_name (day_view->main_canvas, "button_press_event");
 			return TRUE;
 		}
 	} else if (event->button == 3) {
@@ -3822,6 +3815,9 @@ e_day_view_update_resize (EDayView *day_view,
 	g_print ("Updating resize Row:%i\n", row);
 #endif
 
+	if (day_view->resize_event_num == -1)
+		return;
+
 	day = day_view->resize_event_day;
 	event_num = day_view->resize_event_num;
 	event = &g_array_index (day_view->events[day], EDayViewEvent,
@@ -3972,6 +3968,9 @@ e_day_view_finish_resize (EDayView *day_view)
 	CalObjModType mod = CALOBJ_MOD_ALL;
 	GtkWindow *toplevel;
 
+	if (day_view->resize_event_num == -1)
+		return;
+	
 	day = day_view->resize_event_day;
 	event_num = day_view->resize_event_num;
 	event = &g_array_index (day_view->events[day], EDayViewEvent,
@@ -5770,12 +5769,11 @@ e_day_view_on_text_item_event (GnomeCanvasItem *item,
 
 			/* Stop the signal last or we will also stop any
 			   other events getting to the EText item. */
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item),
-						      "event");
+			g_signal_stop_emission_by_name (item, "event");
 			return TRUE;
 		} else if (event->key.keyval == GDK_Escape) {
 			cancel_editing (day_view);
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item), "event");
+			g_signal_stop_emission_by_name (item, "event");
 			/* focus should go to day view when stop editing */
 			gtk_widget_grab_focus (GTK_WIDGET (day_view));
 			return TRUE;
@@ -5810,8 +5808,7 @@ e_day_view_on_text_item_event (GnomeCanvasItem *item,
 		tooltip_destroy (day_view, item);
 		/* Only let the EText handle the event while editing. */
 		if (!E_TEXT (item)->editing)
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item),
-						      "event");
+			g_signal_stop_emission_by_name (item, "event");
 		break;
 	case GDK_FOCUS_CHANGE:
 		if (event->focus_change.in)

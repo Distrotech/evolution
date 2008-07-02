@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* calendar-component.c
  *
- * Copyright (C) 2003  Ximian, Inc
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -29,20 +29,13 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
-#include <bonobo/bonobo-i18n.h>
-#include <libgnomevfs/gnome-vfs-uri.h>
-#include <libgnomevfs/gnome-vfs-xfer.h>
-#include <gtk/gtkwidget.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkprogressbar.h>
 #include <libecal/e-cal.h>
 
-#include <libedataserver/e-dbhash.h>
+#include <libebackend/e-dbhash.h>
 #include <libedataserver/e-xml-hash-utils.h>
 #include <libedataserver/e-xml-utils.h>
 #include <libedataserver/e-account-list.h>

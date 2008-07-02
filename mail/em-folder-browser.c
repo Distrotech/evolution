@@ -3,7 +3,7 @@
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *           Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,12 +31,7 @@
 
 #include <string.h>
 
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkvpaned.h>
-#include <gtk/gtkhpaned.h>
-#include <gtkhtml/gtkhtml.h>
+#include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <gconf/gconf-client.h>
 
@@ -100,6 +95,8 @@
 
 #include "evolution-shell-component-utils.h" /* Pixmap stuff, sigh */
 
+#include <gtkhtml/gtkhtml.h>
+
 extern CamelSession *session;
 CamelStore *vfolder_store; /* the 1 static vfolder store */
 
@@ -130,6 +127,7 @@ struct _EMFolderBrowserPrivate {
 	EMMenu *menu;		/* toplevel menu manager */
 
 	guint labels_change_notify_id; /* mail_config's notify id */
+	guint labels_change_idle_id; /* rebuild menu on idle, when all know about a change */
 };
 
 typedef struct EMFBSearchBarItem {
@@ -160,6 +158,8 @@ static const EMFolderViewEnable emfb_enable_map[] = {
 	{ "FolderMove", EM_POPUP_SELECT_FOLDER },
 	{ "FolderDelete", EM_POPUP_SELECT_FOLDER },
 	{ "FolderRename", EM_POPUP_SELECT_FOLDER },
+	{ "FolderRefresh", EM_POPUP_SELECT_FOLDER },
+	{ "ChangeFolderProperties", EM_POPUP_SELECT_FOLDER },
 	{ "MailPost", EM_POPUP_SELECT_FOLDER },
 	{ "MessageMarkAllAsRead", EM_POPUP_SELECT_FOLDER },
 	{ "ViewHideSelected", EM_POPUP_SELECT_MANY },
@@ -436,13 +436,27 @@ html_scroll (GtkHTML *html,
 	}
 }
 
+static gboolean
+labels_changed_idle_cb (gpointer user_data)
+{
+	EMFolderBrowser *emfb = (EMFolderBrowser*) user_data;
+
+	emfb_realize (GTK_WIDGET (emfb));
+
+	emfb->priv->labels_change_idle_id = 0;
+
+	return FALSE;
+}
+
 static void
 gconf_labels_changed (GConfClient *client, guint cnxn_id,
 		      GConfEntry *entry, gpointer user_data)
 {
+	EMFolderBrowser *emfb = (EMFolderBrowser*) user_data;
+
 	/* regenerate menu option whenever something changed in labels */
-	if (user_data)
-		emfb_realize (user_data);
+	if (emfb && !emfb->priv->labels_change_idle_id)
+		emfb->priv->labels_change_idle_id = g_idle_add (labels_changed_idle_cb, emfb);
 }
 
 static void
@@ -515,7 +529,7 @@ emfb_init(GObject *o)
 
 	gtk_box_pack_start_defaults((GtkBox *)emfb, emfb->vpane);
 
-	gtk_paned_add1((GtkPaned *)emfb->vpane, (GtkWidget *)emfb->view.list);
+	gtk_paned_pack1 (GTK_PANED (emfb->vpane), GTK_WIDGET (emfb->view.list), FALSE, FALSE);
 	gtk_widget_show((GtkWidget *)emfb->view.list);
 
 	/* currently: just use a scrolledwindow for preview widget */
@@ -529,7 +543,7 @@ emfb_init(GObject *o)
 	gtk_widget_show((GtkWidget *)emfb->view.preview->formathtml.html);
 	gtk_box_pack_start ((GtkBox *)p->preview, p->scroll, TRUE, TRUE, 0);
 	gtk_box_pack_start ((GtkBox *)p->preview, em_format_html_get_search_dialog (emfb->view.preview), FALSE, FALSE, 0);
-	gtk_paned_add2((GtkPaned *)emfb->vpane, p->preview);
+	gtk_paned_pack2 (GTK_PANED (emfb->vpane), p->preview, TRUE, FALSE);
 	gtk_widget_show(p->preview);
 
 	g_signal_connect (((EMFolderView *) emfb)->list->tree, "key_press", G_CALLBACK(emfb_list_key_press), emfb);
@@ -578,6 +592,12 @@ emfb_destroy(GtkObject *o)
 			gconf_client_notify_remove (gconf, emfb->priv->labels_change_notify_id);
 
 		emfb->priv->labels_change_notify_id = 0;
+	}
+
+	if (emfb->priv->labels_change_idle_id) {
+		g_source_remove (emfb->priv->labels_change_idle_id);
+
+		emfb->priv->labels_change_idle_id = 0;
 	}
 
 	((GtkObjectClass *)emfb_parent)->destroy(o);
@@ -733,6 +753,8 @@ void em_folder_browser_show_wide(EMFolderBrowser *emfb, gboolean state)
 	gtk_widget_reparent((GtkWidget *)emfb->view.list, w);
 	gtk_widget_reparent((GtkWidget *)emfb->priv->preview, w);
 	gtk_widget_destroy(emfb->vpane);
+	gtk_container_child_set (GTK_CONTAINER (w), GTK_WIDGET (emfb->view.list),     "resize", FALSE, "shrink", FALSE, NULL);
+	gtk_container_child_set (GTK_CONTAINER (w), GTK_WIDGET (emfb->priv->preview), "resize", TRUE,  "shrink", FALSE, NULL);
 	gtk_container_resize_children ((GtkContainer *)w);
 	emfb->vpane = w;
 	gtk_widget_show(w);
@@ -847,6 +869,7 @@ get_view_query (ESearchBar *esb, CamelFolder *folder, const char *folder_uri)
 
 	switch (id & VIEW_ITEMS_MASK) {
 	case VIEW_ALL_MESSAGES:
+		/* one space indicates no filtering */
 		view_sexp = " ";
 		break;
 
@@ -908,7 +931,8 @@ get_view_query (ESearchBar *esb, CamelFolder *folder, const char *folder_uri)
 		break;
 
 	case VIEW_CUSTOMIZE:
-		view_sexp = " ";
+		/* one space indicates no filtering, so here use two */
+		view_sexp = "  ";
 		break;
 	}
 
@@ -1331,6 +1355,8 @@ emfb_list_message_selected (MessageList *ml, const char *uid, EMFolderBrowser *e
 
 	camel_object_meta_set (emfv->folder, "evolution:selected_uid", uid);
 	camel_object_state_write (emfv->folder);
+	g_free (emfb->priv->select_uid);
+	emfb->priv->select_uid = NULL;
 }
 
 /* ********************************************************************** */
@@ -1992,6 +2018,8 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 			if (camel_object_meta_set(emfv->folder, "evolution:show_preview", "0") &&
 			    camel_object_meta_set(emfv->folder, "evolution:selected_uid", NULL)) {
 				camel_object_state_write(emfv->folder);
+				g_free (emfb->priv->select_uid);
+				emfb->priv->select_uid = NULL;
 			}
 			gconf_client_set_bool (gconf, "/apps/evolution/mail/display/safe_list", FALSE, NULL);
 		}
@@ -2060,6 +2088,7 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 		/* set the query manually, so we dont pop up advanced or saved search stuff */
 
 		if ((sstate = camel_object_meta_get (folder, "evolution:selected_uid"))) {
+			g_free (emfb->priv->select_uid);
 			emfb->priv->select_uid = sstate;
 		} else {
 			g_free(p->select_uid);

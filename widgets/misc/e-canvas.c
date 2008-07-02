@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-canvas.c
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -649,7 +649,7 @@ ec_style_set_recursive (GnomeCanvasItem *item, GtkStyle *previous_style)
 	if (signal_id >= 1) {
 		GSignalQuery query;
 		g_signal_query (signal_id, &query);
-		if (query.return_type == GTK_TYPE_NONE && query.n_params == 1 && query.param_types[0] == GTK_TYPE_STYLE) {
+		if (query.return_type == G_TYPE_NONE && query.n_params == 1 && query.param_types[0] == GTK_TYPE_STYLE) {
 			g_signal_emit (item, signal_id, 0, previous_style);
 		}
 	}

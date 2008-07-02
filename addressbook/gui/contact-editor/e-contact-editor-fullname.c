@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * eab-contact-editor-phones.c
- * Copyright (C) 2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Toshok <toshok@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -25,10 +25,6 @@
 #include <e-util/e-util-private.h>
 #include <libgnome/gnome-util.h>
 #include <glib/gi18n.h>
-#include <gtk/gtkcombo.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtklabel.h>
 
 static void e_contact_editor_fullname_init		(EContactEditorFullname		 *card);
 static void e_contact_editor_fullname_class_init	(EContactEditorFullnameClass	 *klass);

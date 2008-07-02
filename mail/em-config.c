@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,19 +27,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <glib.h>
-
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtkimagemenuitem.h>
-#include <gtk/gtkcheckmenuitem.h>
-#include <gtk/gtkradiomenuitem.h>
-#include <gtk/gtkseparatormenuitem.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkimage.h>
+#include <gtk/gtk.h>
 
 #include <libgnome/gnome-url.h>
-#include <libgnomevfs/gnome-vfs-mime.h>
 
 #include "em-config.h"
 #include "libedataserver/e-msgport.h"

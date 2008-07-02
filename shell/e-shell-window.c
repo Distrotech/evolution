@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-shell-window.c
  *
- * Copyright (C) 2003  Ettore Perazzoli
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -38,15 +38,7 @@
 #include "es-menu.h"
 #include "es-event.h"
 
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkhpaned.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtknotebook.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkiconfactory.h>
+#include <gtk/gtk.h>
 
 #include <bonobo/bonobo-exception.h>
 #include <bonobo/bonobo-object.h>

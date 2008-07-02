@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* e-contact-editor-fullname.h
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 #ifndef __E_CONTACT_EDITOR_FULLNAME_H__
 #define __E_CONTACT_EDITOR_FULLNAME_H__
 
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include <glade/glade.h>
 #include <libebook/e-contact.h>
 

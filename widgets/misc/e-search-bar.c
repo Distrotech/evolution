@@ -2,7 +2,7 @@
 /*
  * e-search-bar.c
  *
- * Copyright (C) 2000, 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *  Chris Lahey      <clahey@ximian.com>
@@ -30,15 +30,6 @@
 #endif
 
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkdrawingarea.h>
-#include <gtk/gtkeventbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkradiomenuitem.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkversion.h>
 
 #include <misc/e-unicode.h>
 #include <misc/e-gui-utils.h>

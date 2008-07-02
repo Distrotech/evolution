@@ -1,7 +1,7 @@
 /* Evolution calendar - Alarm notification service main file
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2003 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Rodrigo Moya <rodrigo@ximian.com>
@@ -25,14 +25,12 @@
 #endif
 
 #include <string.h>
-#include <glib.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libgnome/gnome-init.h>
 #include <libgnome/gnome-sound.h>
 #include <libgnomeui/gnome-client.h>
 #include <libgnomeui/gnome-ui-init.h>
-#include <libgnomevfs/gnome-vfs-init.h>
 #include <glade/glade.h>
 #include <bonobo/bonobo-main.h>
 #include <bonobo/bonobo-generic-factory.h>

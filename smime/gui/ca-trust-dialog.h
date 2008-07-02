@@ -2,7 +2,7 @@
 /*
  *  Authors: Chris Toshok <toshok@ximian.com>
  *
- *  Copyright (C) 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 #ifndef _CA_TRUST_DIALOG_H_
 #define _CA_TRUST_DIALOG_H
 
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include "e-cert.h"
 
 GtkWidget* ca_trust_dialog_show (ECert *cert, gboolean importing);

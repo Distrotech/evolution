@@ -1,6 +1,6 @@
  /* Evolution calendar - Timezone selector dialog
  *
- * Copyright (C) 2005 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  * Shreyas Srinivasan <sshreyas@novell.com>
@@ -21,15 +21,14 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <gtk/gtkwidget.h>
 #include <libedataserver/e-account.h>
 #include <gtk/gtk.h>
 
 #define TYPE_PROXY_DIALOG       (proxy_dialog_get_type ())
-#define PROXY_DIALOG(obj)       (GTK_CHECK_CAST ((obj), TYPE_PROXY_DIALOG, proxyDialog))
-#define PROXY_DIALOG_CLASS(klass) (GTK_CHECK_CLASS_CAST ((klass), TYPE_PROXY_DIALOG, proxyDialogClass))
-#define IS_PROXY_DIALOG(obj)    (GTK_CHECK_TYPE ((obj), TYPE_PROXY_DIALOG))
-#define IS_PROXY_DIALOG_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), TYPE_PROXY_DIALOG))
+#define PROXY_DIALOG(obj)       (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_PROXY_DIALOG, proxyDialog))
+#define PROXY_DIALOG_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_PROXY_DIALOG, proxyDialogClass))
+#define IS_PROXY_DIALOG(obj)    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_PROXY_DIALOG))
+#define IS_PROXY_DIALOG_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_PROXY_DIALOG))
 
 typedef struct _proxyDialog		proxyDialog;
 typedef struct _proxyDialogClass        proxyDialogClass;

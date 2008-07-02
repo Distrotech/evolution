@@ -1,6 +1,6 @@
 /* Evolution calendar - Recurring calendar component dialog
  *
- * Copyright (C) 2002 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: JP Rosevear <jpr@ximian.com>
  *
@@ -21,7 +21,7 @@
 #ifndef RECUR_COMP_H
 #define RECUR_COMP_H
 
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal.h>
 #include <libecal/e-cal-component.h>
 #include <libecal/e-cal-util.h>

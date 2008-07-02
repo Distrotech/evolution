@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* calendar-component.c
  *
- * Copyright (C) 2003  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,8 +27,8 @@
 
 #include <string.h>
 #include <errno.h>
+#include <glib/gi18n.h>
 #include <bonobo/bonobo-control.h>
-#include <bonobo/bonobo-i18n.h>
 #include <bonobo/bonobo-exception.h>
 #include <libical/icalvcal.h>
 #include <libedataserver/e-data-server-util.h>

@@ -1,7 +1,7 @@
 /* Evolution calendar - Utilities for manipulating ECalComponent objects
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -22,9 +22,7 @@
 #ifndef COMP_UTIL_H
 #define COMP_UTIL_H
 
-#include <glib.h>
-#include <gtk/gtkwidget.h>
-#include <gtk/gtkselection.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-component.h>
 #include <libecal/e-cal.h>
 
@@ -43,6 +41,7 @@ gint     cal_comp_util_get_n_icons (ECalComponent *comp);
 
 gboolean cal_comp_is_on_server (ECalComponent *comp,
 				ECal *client);
+gboolean is_icalcomp_on_the_server (icalcomponent *icalcomp, ECal *client);
 
 ECalComponent *cal_comp_event_new_with_defaults (ECal *client);
 ECalComponent *cal_comp_event_new_with_current_time (ECal *client, gboolean all_day);

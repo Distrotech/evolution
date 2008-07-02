@@ -1,7 +1,7 @@
 /*
  * e-meeting-store.h
  *
- * Copyright (C) 2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Mike Kestner
  *
@@ -23,7 +23,7 @@
 #ifndef _E_MEETING_STORE_H_
 #define _E_MEETING_STORE_H_
 
-#include <gtk/gtkliststore.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal.h>
 #include "e-meeting-attendee.h"
 

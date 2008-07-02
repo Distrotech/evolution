@@ -1,7 +1,7 @@
 /* Evolution calendar - Task editor dialog
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Miguel de Icaza <miguel@ximian.com>
  *          Federico Mena-Quintero <federico@ximian.com>
@@ -25,7 +25,7 @@
 #ifndef __MEMO_EDITOR_H__
 #define __MEMO_EDITOR_H__
 
-#include <gtk/gtkobject.h>
+#include <gtk/gtk.h>
 #include "comp-editor.h"
 
 #define TYPE_MEMO_EDITOR            (memo_editor_get_type ())
@@ -50,7 +50,7 @@ struct _MemoEditorClass {
 	CompEditorClass parent_class;
 };
 
-GtkType     memo_editor_get_type       (void);
+GType       memo_editor_get_type       (void);
 MemoEditor *memo_editor_construct      (MemoEditor *te,
 					ECal  *client);
 MemoEditor *memo_editor_new            (ECal  *client, CompEditorFlags flags);

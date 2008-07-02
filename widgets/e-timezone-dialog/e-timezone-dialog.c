@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* Evolution calendar - Timezone selector dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Damon Chaplin <damon@ximian.com>
  *
@@ -26,13 +26,6 @@
 
 #include <string.h>
 #include <glib/gi18n.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkcombobox.h>
-#include <gtk/gtkliststore.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkcelllayout.h>
-#include <gtk/gtklabel.h>
-#include <gnome.h>
 #include <glade/glade.h>
 #include <misc/e-map.h>
 #include <libecal/e-cal-time-util.h>

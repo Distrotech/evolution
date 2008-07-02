@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,8 +24,7 @@
 #ifndef __EM_FOLDER_TREE_MODEL_H__
 #define __EM_FOLDER_TREE_MODEL_H__
 
-#include <gtk/gtktreednd.h>
-#include <gtk/gtktreestore.h>
+#include <gtk/gtk.h>
 
 #include <libxml/tree.h>
 
@@ -148,7 +147,6 @@ void em_folder_tree_model_expand_foreach (EMFolderTreeModel *model, EMFTModelExp
 void em_folder_tree_model_set_unread_count (EMFolderTreeModel *model, CamelStore *store, const char *path, int unread);
 gboolean em_folder_tree_model_is_type_inbox (EMFolderTreeModel *model, CamelStore *store, const char *full);
 char * em_folder_tree_model_get_folder_name (EMFolderTreeModel *model, CamelStore *store, const char *full);
-void em_folder_tree_model_signal_block (EMFolderTreeModel *model, CamelStore *store, gboolean block);
 
 #ifdef __cplusplus
 }

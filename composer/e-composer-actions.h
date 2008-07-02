@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * Copyright (C) 2008 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU Lesser General Public
@@ -49,6 +49,8 @@
 	E_COMPOSER_ACTION ((composer), "security-menu")
 #define E_COMPOSER_ACTION_SEND(composer) \
 	E_COMPOSER_ACTION ((composer), "send")
+#define E_COMPOSER_ACTION_SEND_OPTIONS(composer) \
+	E_COMPOSER_ACTION ((composer), "send-options")
 #define E_COMPOSER_ACTION_SMIME_ENCRYPT(composer) \
 	E_COMPOSER_ACTION ((composer), "smime-encrypt")
 #define E_COMPOSER_ACTION_SMIME_SIGN(composer) \

@@ -3,7 +3,7 @@
  */
 /* Evolution Accessibility: ea-day-view.c
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -29,7 +29,7 @@
 #include "ea-calendar-helpers.h"
 #include "ea-gnome-calendar.h"
 #include "calendar-commands.h"
-#include <glib/gstrfuncs.h>
+#include <glib.h>
 #include <glib/gi18n.h>
 
 static void ea_day_view_class_init (EaDayViewClass *klass);

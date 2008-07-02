@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* tasks-component.c
  *
- * Copyright (C) 2004  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,9 +26,9 @@
 
 #include <errno.h>
 #include <string.h>
+#include <glib/gi18n.h>
 #include <bonobo/bonobo-shlib-factory.h>
 #include <bonobo/bonobo-control.h>
-#include <bonobo/bonobo-i18n.h>
 #include <bonobo/bonobo-exception.h>
 #include <gtk/gtklabel.h>
 #include "e-task-bar.h"

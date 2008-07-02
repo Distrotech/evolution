@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * ea-addressbook_view.h
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -22,7 +22,7 @@
 #ifndef __EA_ADDRESSBOOK_VIEW_H__
 #define __EA_ADDRESSBOOK_VIEW_H__
 
-#include <gtk/gtkaccessible.h>
+#include <gtk/gtk.h>
 #include "e-addressbook-view.h"
 
 #ifdef __cplusplus

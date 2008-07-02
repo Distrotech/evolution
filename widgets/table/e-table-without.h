@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-table-without.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,7 +24,7 @@
 #ifndef _E_TABLE_WITHOUT_H_
 #define _E_TABLE_WITHOUT_H_
 
-#include <gtk/gtkobject.h>
+#include <glib-object.h>
 #include <table/e-table-subset.h>
 
 #ifdef __cplusplus

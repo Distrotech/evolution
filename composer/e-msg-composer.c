@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-msg-composer.c
  *
- * Copyright (C) 1999-2003 Ximian, Inc. (www.ximian.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -43,15 +43,15 @@
 
 #define SMIME_SUPPORTED 1
 
-#include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/types.h>
 #include <unistd.h>
+#include <ctype.h>
+#include <fcntl.h>
+#include <errno.h>
 
 #include <glib.h>
 
@@ -62,7 +62,6 @@
 #include <gconf/gconf-client.h>
 
 #include <libgnome/gnome-url.h>
-#include <libgnomevfs/gnome-vfs.h>
 
 #include <glade/glade.h>
 
@@ -70,6 +69,7 @@
 #include "misc/e-charset-picker.h"
 #include "misc/e-expander.h"
 #include "e-util/e-error.h"
+#include "e-util/e-plugin-ui.h"
 #include "e-util/e-util-private.h"
 #include "e-util/e-util.h"
 #include <mail/em-event.h>
@@ -77,6 +77,7 @@
 
 #include <camel/camel-session.h>
 #include <camel/camel-charset-map.h>
+#include <camel/camel-iconv.h>
 #include <camel/camel-stream-filter.h>
 #include <camel/camel-mime-filter-charset.h>
 #include <camel/camel-stream-mem.h>
@@ -256,7 +257,7 @@ best_encoding (GByteArray *buf, const gchar *charset)
 	if (!charset)
 		return -1;
 
-	cd = e_iconv_open (charset, "utf-8");
+	cd = camel_iconv_open (charset, "utf-8");
 	if (cd == (iconv_t) -1)
 		return -1;
 
@@ -265,13 +266,13 @@ best_encoding (GByteArray *buf, const gchar *charset)
 	do {
 		out = outbuf;
 		outlen = sizeof (outbuf);
-		status = e_iconv (cd, (const gchar **) &in, &inlen, &out, &outlen);
+		status = camel_iconv (cd, (const gchar **) &in, &inlen, &out, &outlen);
 		for (ch = out - 1; ch >= outbuf; ch--) {
 			if ((guchar) *ch > 127)
 				count++;
 		}
 	} while (status == (gsize) -1 && errno == E2BIG);
-	e_iconv_close (cd);
+	camel_iconv_close (cd);
 
 	if (status == (gsize) -1 || status > 0)
 		return -1;
@@ -620,7 +621,7 @@ build_message (EMsgComposer *composer,
 		type = camel_content_type_new ("text", "plain");
 		if ((charset = best_charset (data, p->charset, &plain_encoding))) {
 			camel_content_type_set_param (type, "charset", charset);
-			iconv_charset = e_iconv_charset_name (charset);
+			iconv_charset = camel_iconv_charset_name (charset);
 			g_free (charset);
 		}
 	}
@@ -1668,6 +1669,7 @@ msg_composer_account_changed_cb (EMsgComposer *composer)
 	ESignature *signature;
 	EAccount *account;
 	gboolean active;
+	gboolean sensitive;
 	const gchar *cc_addrs = NULL;
 	const gchar *bcc_addrs = NULL;
 	const gchar *uid;
@@ -1701,11 +1703,57 @@ msg_composer_account_changed_cb (EMsgComposer *composer)
 	signature = uid ? mail_config_get_signature_by_uid (uid) : NULL;
 	e_composer_header_table_set_signature (table, signature);
 
+	/* XXX This should be done more generically.  The composer
+	 *     should not know about particular account types. */
+	sensitive =
+		(strstr (account->transport->url, "exchange") != NULL) ||
+		(strstr (account->transport->url, "groupwise") != NULL);
+	gtk_action_set_sensitive (ACTION (SEND_OPTIONS), sensitive);
+
 exit:
 	update_auto_recipients (table, UPDATE_AUTO_CC, cc_addrs);
 	update_auto_recipients (table, UPDATE_AUTO_BCC, bcc_addrs);
 
 	e_msg_composer_show_sig_file (composer);
+}
+
+static void
+msg_composer_account_list_changed_cb (EMsgComposer *composer)
+{
+	EComposerHeaderTable *table;
+	EAccountList *account_list;
+	EIterator *iterator;
+	gboolean visible = FALSE;
+
+	/* Determine whether to show the "send-options" action by
+	 * examining the account list for account types that support it.
+	 *
+	 * XXX I'd prefer a more general way of doing this.  The composer
+	 *     should not know about particular account types.  Perhaps
+	 *     add a "supports advanced send options" flag to EAccount. */
+
+	table = E_COMPOSER_HEADER_TABLE (composer->priv->header_table);
+	account_list = e_composer_header_table_get_account_list (table);
+	iterator = e_list_get_iterator (E_LIST (account_list));
+
+	while (!visible && e_iterator_is_valid (iterator)) {
+		EAccount *account;
+		const gchar *url;
+
+		/* XXX EIterator misuses const. */
+		account = (EAccount *) e_iterator_get (iterator);
+		e_iterator_next (iterator);
+
+		if (!account->enabled)
+			continue;
+
+		url = account->transport->url;
+		visible |= (strstr (url, "exchange") != NULL);
+		visible |= (strstr (url, "groupwise") != NULL);
+	}
+
+	gtk_action_set_visible (ACTION (SEND_OPTIONS), visible);
+	g_object_unref (iterator);
 }
 
 static void
@@ -2182,14 +2230,6 @@ msg_composer_destroy (GtkObject *object)
 	EMsgComposer *composer = E_MSG_COMPOSER (object);
 
 	all_composers = g_slist_remove (all_composers, object);
-
-#if 0 /* GTKHTML-EDITOR */
-	if (composer->priv->menu) {
-		e_menu_update_target ((EMenu *)composer->priv->menu, NULL);
-		g_object_unref (composer->priv->menu);
-		composer->priv->menu = NULL;
-	}
-#endif
 
 	if (composer->priv->address_dialog != NULL) {
 		gtk_widget_destroy (composer->priv->address_dialog);
@@ -2724,17 +2764,18 @@ static void
 msg_composer_init (EMsgComposer *composer)
 {
 	EComposerHeaderTable *table;
-#if 0 /* GTKHTML-EDITOR */
-	EMMenuTargetWidget *target;
-#endif
+	GtkUIManager *manager;
+	GtkhtmlEditor *editor;
 	GtkHTML *html;
 
 	composer->priv = E_MSG_COMPOSER_GET_PRIVATE (composer);
 
 	e_composer_private_init (composer);
 
+	editor = GTKHTML_EDITOR (composer);
+	html = gtkhtml_editor_get_html (editor);
+	manager = gtkhtml_editor_get_ui_manager (editor);
 	all_composers = g_slist_prepend (all_composers, composer);
-	html = gtkhtml_editor_get_html (GTKHTML_EDITOR (composer));
 	table = E_COMPOSER_HEADER_TABLE (composer->priv->header_table);
 
 	gtk_window_set_title (GTK_WINDOW (composer), _("Compose Message"));
@@ -2751,24 +2792,6 @@ msg_composer_init (EMsgComposer *composer)
 		html, "drag-data-received",
 		G_CALLBACK (msg_composer_drag_data_received), NULL);
 
-	/* Plugin Support */
-
-#if 0 /* GTKHTML-EDITOR */
-	/** @HookPoint-EMMenu: Main Mail Menu
-	 * @Id: org.gnome.evolution.mail.composer
-	 * @Class: org.gnome.evolution.mail.bonobomenu:1.0
-	 * @Target: EMMenuTargetWidget
-	 *
-	 * The main menu of the composer window.  The widget of the
-	 * target will point to the EMsgComposer object.
-	 */
-	composer->priv->menu = em_menu_new ("org.gnome.evolution.mail.composer");
-	target = em_menu_target_new_widget (p->menu, (GtkWidget *)composer);
-	e_menu_update_target ((EMenu *)p->menu, target);
-	e_menu_activate ((EMenu *)p->menu, p->uic, TRUE);
-
-#endif
-
 	/* Configure Headers */
 
 	e_composer_header_table_set_account_list (
@@ -2779,6 +2802,9 @@ msg_composer_init (EMsgComposer *composer)
 	g_signal_connect_swapped (
 		table, "notify::account",
 		G_CALLBACK (msg_composer_account_changed_cb), composer);
+	g_signal_connect_swapped (
+		table, "notify::account-list",
+		G_CALLBACK (msg_composer_account_list_changed_cb), composer);
 	g_signal_connect_swapped (
 		table, "notify::destinations-bcc",
 		G_CALLBACK (msg_composer_notify_header_cb), composer);
@@ -2802,6 +2828,7 @@ msg_composer_init (EMsgComposer *composer)
 		G_CALLBACK (msg_composer_notify_header_cb), composer);
 
 	msg_composer_account_changed_cb (composer);
+	msg_composer_account_list_changed_cb (composer);
 
 	/* Attachment Bar */
 
@@ -2824,7 +2851,10 @@ msg_composer_init (EMsgComposer *composer)
 	e_composer_autosave_register (composer);
 
 	/* Initialization may have tripped the "changed" state. */
-	gtkhtml_editor_set_changed (GTKHTML_EDITOR (composer), FALSE);
+	gtkhtml_editor_set_changed (editor, FALSE);
+
+	e_plugin_ui_register_manager (
+		"org.gnome.evolution.composer", manager, composer);
 }
 
 GType
@@ -2859,14 +2889,12 @@ static EMsgComposer *
 create_composer (gint visible_mask)
 {
 	EMsgComposer *composer;
-	EMsgComposerPrivate *p;
 	EComposerHeaderTable *table;
 	GtkToggleAction *action;
 	gboolean active;
 
 	composer = g_object_new (E_TYPE_MSG_COMPOSER, NULL);
 	table = E_COMPOSER_HEADER_TABLE (composer->priv->header_table);
-	p = composer->priv;
 
 	/* Configure View Menu */
 
@@ -3026,12 +3054,10 @@ add_attachments_handle_mime_part (EMsgComposer *composer,
 		    camel_mime_part_get_content_location (mime_part))
 			e_msg_composer_add_inline_image_from_mime_part (
 				composer, mime_part);
-	} else if (CAMEL_IS_MIME_MESSAGE (wrapper)) {
-		/* do nothing */
 	} else if (related && camel_content_type_is (content_type, "image", "*")) {
 		e_msg_composer_add_inline_image_from_mime_part (composer, mime_part);
-	} else if (camel_content_type_is (content_type, "text", "*")) {
-		/* do nothing */
+	} else if (camel_content_type_is (content_type, "text", "*") && camel_mime_part_get_filename (mime_part) == NULL) {
+		/* do nothing if this is a text/anything without filename, otherwise attach it too */
 	} else {
 		e_msg_composer_attach (composer, mime_part);
 	}
@@ -3948,7 +3974,7 @@ handle_uri (EMsgComposer *composer,
 			return;
 
 		if (!g_ascii_strcasecmp (url->protocol, "file")) {
-			type = e_msg_composer_guess_mime_type (uri);
+			type = e_util_guess_mime_type (uri + strlen ("file://"));
 			if (!type)
 				return;
 
@@ -4180,7 +4206,7 @@ e_msg_composer_add_inline_image_from_file (EMsgComposer *composer,
 	camel_data_wrapper_construct_from_stream (wrapper, stream);
 	camel_object_unref (CAMEL_OBJECT (stream));
 
-	mime_type = e_msg_composer_guess_mime_type (dec_file_name);
+	mime_type = e_util_guess_mime_type (dec_file_name);
 	if (mime_type == NULL)
 		mime_type = g_strdup ("application/octet-stream");
 	camel_data_wrapper_set_mime_type (wrapper, mime_type);
@@ -4530,35 +4556,6 @@ e_msg_composer_get_reply_to (EMsgComposer *composer)
 	}
 
 	return address;
-}
-
-/**
- * e_msg_composer_guess_mime_type:
- * @filename: filename
- *
- * Returns the guessed mime type of the file given by @filename.
- **/
-gchar *
-e_msg_composer_guess_mime_type (const gchar *filename)
-{
-	GnomeVFSFileInfo *info;
-	GnomeVFSResult result;
-	gchar *type = NULL;
-
-	g_return_val_if_fail (filename != NULL, NULL);
-
-	info = gnome_vfs_file_info_new ();
-	result = gnome_vfs_get_file_info (
-		filename, info,
-		GNOME_VFS_FILE_INFO_GET_MIME_TYPE |
-		GNOME_VFS_FILE_INFO_FORCE_SLOW_MIME_TYPE |
-		GNOME_VFS_FILE_INFO_FOLLOW_LINKS);
-	if (result == GNOME_VFS_OK)
-		type = g_strdup (gnome_vfs_file_info_get_mime_type (info));
-
-	gnome_vfs_file_info_unref (info);
-
-	return type;
 }
 
 /**

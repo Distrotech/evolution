@@ -1,3 +1,294 @@
+2008-06-16  Maciej Piechotka <uzytkownik2@gmail.com>
+
+	* gui/caltypes.xml:
+	* gui/memotypes.xml:
+	* gui/tasktypes.xml:
+	Usage _title instead of title to allow translations.
+
+2008-06-10  Matthew Barnes  <mbarnes@redhat.com>
+
+	* common/authentication.c:
+	* gui/calendar-component.c:
+	* gui/comp-editor-factory.c:
+	* gui/dialogs/copy-source-dialog.c:
+	* gui/dialogs/select-source-dialog.c:
+	* gui/memos-component.c:
+	* gui/migration.c:
+	* gui/tasks-component.c:
+	Use <glib/gi18n.h> instead of <bonobo/bonobo-i18n.h>.
+
+2008-06-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #536813
+
+	* gui/comp-util.h: (is_icalcomp_on_the_server):
+	* gui/comp-util.c: (is_icalcomp_on_the_server): Similar helper function
+	as cal_comp_is_on_server only the parameter is icalcomponent.
+	* gui/e-week-view-event-item.c: (e_week_view_event_item_double_click):
+	* gui/e-week-view.c: (e_week_view_on_text_item_event):
+	Do not start to edit the event on the double click if the event is not
+	on the server yet. Storing the event can cause the renumbering events
+	so the result can be that the edited event would be different.
+
+2008-06-04  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes security vulnerabilities
+	   CVE-2008-1108 and CVE-2008-1109
+
+	* gui/itip-utils.c (html_new_lines_for):
+	Do not use a fixed-size buffer for parsing external data.
+	Simplify the logic to just split and rejoin the string with a
+	different line separator.
+
+	* gui/e-itip-control.c (write_label_piece), (write_recurrence_piece),
+	(set_date_label):
+	Use a GString rather than a fixed-size buffer to build the HTML
+	string to avoid the possibility of an overflow.
+
+2008-06-04  Shuai Liu <shuai.liu@sun.com>
+
+	** Fix for bug #535204
+
+	* gui/tasks-component.c: (destroy_component_view):
+	The tasks objects had been destroyed before the call of destroy_
+        component in tasks-component.c. No need to call them.
+
+2008-05-29  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #535459
+
+	* gui/itip-utils.h: (is_icalcomp_valid):
+	* gui/itip-utils.c: (is_icalcomp_valid), (check_time):
+	New function to make some sanity checks on component properties.
+	* gui/e-itip-control.c: (e_itip_control_set_data):
+	Do not use component when sanity check fails.
+
+2008-05-23  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534476
+
+	* gui/e-cal-popup.c (ecalp_standard_menu_factory):
+	Remove the special check for "winmail.dat".  GIO correctly
+	identifies it as "application/ms-tnef".
+
+2008-05-23  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #523402
+
+	* gui/e-calendar-view.c: (e_calendar_view_add_event): Do not leak.
+	* conduits/calendar/calendar-conduit.c: (process_multi_day):
+	Reassign back the old values before freeing.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gui/e-select-names-renderer.c
+	(e_select_names_renderer_focus_out_event):
+	Remove this unused function.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* conduits/calendar/calendar-conduit.c:
+	* conduits/memo/memo-conduit.c:
+	* conduits/todo/todo-conduit.c:
+	* gui/cal-search-bar.c:
+	* gui/cal-search-bar.h:
+	* gui/calendar-commands.c:
+	* gui/calendar-view-factory.h:
+	* gui/calendar-view.h:
+	* gui/comp-editor-factory.h:
+	* gui/dialogs/comp-editor-page.c:
+	* gui/dialogs/comp-editor-page.h:
+	* gui/dialogs/comp-editor.h:
+	* gui/dialogs/e-delegate-dialog.h:
+	* gui/dialogs/event-editor.h:
+	* gui/dialogs/event-page.h:
+	* gui/dialogs/memo-editor.h:
+	* gui/dialogs/memo-page.h:
+	* gui/dialogs/recurrence-page.c:
+	* gui/dialogs/recurrence-page.h:
+	* gui/dialogs/schedule-page.h:
+	* gui/dialogs/task-details-page.h:
+	* gui/dialogs/task-editor.h:
+	* gui/dialogs/task-page.h:
+	* gui/e-alarm-list.c:
+	* gui/e-alarm-list.h:
+	* gui/e-cal-component-memo-preview.h:
+	* gui/e-cal-component-preview.h:
+	* gui/e-cal-list-view-config.h:
+	* gui/e-cal-list-view.h:
+	* gui/e-calendar-table-config.h:
+	* gui/e-calendar-table.h:
+	* gui/e-cell-date-edit-config.h:
+	* gui/e-cell-date-edit-text.h:
+	* gui/e-date-edit-config.h:
+	* gui/e-date-time-list.c:
+	* gui/e-date-time-list.h:
+	* gui/e-day-view-config.h:
+	* gui/e-day-view-main-item.c:
+	* gui/e-day-view-main-item.h:
+	* gui/e-day-view-time-item.c:
+	* gui/e-day-view-time-item.h:
+	* gui/e-day-view-top-item.c:
+	* gui/e-day-view-top-item.h:
+	* gui/e-day-view.c:
+	* gui/e-day-view.h:
+	* gui/e-itip-control.h:
+	* gui/e-meeting-time-sel-item.c:
+	* gui/e-meeting-time-sel-item.h:
+	* gui/e-meeting-time-sel.c:
+	* gui/e-meeting-time-sel.h:
+	* gui/e-memo-table-config.h:
+	* gui/e-memo-table.h:
+	* gui/e-memos.c:
+	* gui/e-memos.h:
+	* gui/e-mini-calendar-config.h:
+	* gui/e-tasks.c:
+	* gui/e-tasks.h:
+	* gui/e-timezone-entry.c:
+	* gui/e-timezone-entry.h:
+	* gui/e-week-view-config.h:
+	* gui/e-week-view-event-item.c:
+	* gui/e-week-view-event-item.h:
+	* gui/e-week-view-main-item.c:
+	* gui/e-week-view-main-item.h:
+	* gui/e-week-view-titles-item.c:
+	* gui/e-week-view-titles-item.h:
+	* gui/e-week-view.c:
+	* gui/e-week-view.h:
+	* gui/gnome-cal.c:
+	* gui/gnome-cal.h:
+	* gui/weekday-picker.c:
+	* gui/weekday-picker.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-05-22  Chenthill Palanisamy  <pchenthill@novell.com>
+
+	** Fix for bug #533820
+
+	* gui/e-day-view.c: (e_day_view_update_resize),
+	(e_day_view_finish_resize): Fix for a crash on double-clicking the
+	border of meetings in day-view. 
+
+2008-05-08  Tor Lillqvist  <tml@novell.com>
+
+	* gui/alarm-notify/alarm-notify-dialog.c: Include e-util-private.h
+	for the mapping of EVOLUTION_GLADEDIR to a function call on
+	Windows. Construct the glade file pathname at run-time so that it
+	is found also on Windows where we don't use compile-time pathnames
+	at run-time.
+
+2008-05-05  Johan Euphrosine  <proppy@aminche.com>
+
+	* gui/migration.c: Fix include path for e-dbhash.h, now in libebackend.
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #316390
+
+	* calendar/gui/e-memos.c: (struct _EMemosPrivate), (categories_changed_cb),
+	(setup_widgets), (e_memos_init), (e_memos_destroy):
+	* calendar/gui/gnome-cal.c: (struct _GnomeCalendarPrivate), (setup_widgets),
+	(categories_changed_cb), (gnome_calendar_init),
+	(gnome_calendar_destroy):
+	* calendar/gui/e-tasks.c: (struct _ETasksPrivate), (categories_changed_cb),
+	(setup_widgets), (e_tasks_init), (e_tasks_destroy):
+	Listen for changes in categories setup and propagate them to UI.
+
+2008-04-30  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for bnc #363908
+	Evolution crashed during exit
+
+	* gui/tasks-component.c: (destroy_component_view):
+
+2008-04-30  Ashish Shrivastava <shashish@novell.com>
+
+	** Fix for bnc #368277
+	Can't C & P Email Addresses from an Appt. to a Mail Message
+
+	* gui/e-select-names-renderer.c:
+	(e_select_names_renderer_start_editing):
+
+2008-04-29  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #240823
+
+	* gui/itip-utils.c: (comp_to_list):
+	Send notification only to individuals and groups.
+
+2008-04-28  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #524121
+
+	* gui/e-calendar-table.c: (copy_row_cb):
+	Fixing typo from patch for bug #516408.
+
+2008-04-25  Danny Baumann  <dannybaumann@web.de>
+
+	** Fix for bug #529893
+
+	* gui/e-calendar-view.c: (e_calendar_view_get_tooltips):
+	Properly set type hint on tooltip window.
+
+2008-04-18  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #509923
+
+	* gui/dialogs/comp-editor.c: (real_send_comp):
+	* gui/e-calendar-view.c: (e_calendar_view_modify_and_send):
+	* gui/e-cal-model-calendar.c: (ecmc_set_value_at):
+	Send changes based on the user's choice of "all instances" or
+	"only this instance" for recurring events.
+	* gui/e-cal-model-calendar.c: (ecmc_set_value_at):
+	Also modify objects based on the user's choice.
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* gui/e-meeting-store.c: (start_async_read), (freebusy_async),
+	(async_read): Read data with gio, not with gnome-vfs.
+	* gui/e-meeting-store.c: (async_close): Function removed.
+	* gui/migration.c:
+	* gui/e-memos.c:
+	* gui/alarm-notify/notify-main.c:
+	* gui/e-tasks.c:
+	* gui/main.c:
+	* gui/e-meeting-list-view.c:
+	Do not include gnome-vfs.
+	* gui/dialogs/comp-editor.c: (set_attachment_list):
+	* gui/dialogs/comp-editor.c: (attachment_guess_mime_type):
+	Function removed, use e-util function instead.
+	* gui/e-cal-popup.c: (temp_save_part):
+	Reflect changes in CamelStreamVFS.
+	* gui/e-cal-popup.c: (ecalp_apps_open_in), (ecalp_apps_popup_free),
+	(ecalp_standard_menu_factory): Use gio to fill popup and launch app.
+	* gui/e-cal-component-preview.h: (e_cal_comp_preview_url_requested_cb):
+	* gui/e-cal-component-preview.c: (e_cal_comp_preview_url_requested_cb):
+	New helper function to manage file:// urls for GtkHTML component.
+	* gui/e-cal-component-preview.c: (e_cal_component_preview_init):
+	* gui/e-cal-component-memo-preview.c:
+	(e_cal_comp_preview_url_requested_cb):
+	Use above helper function.
+	* gui/e-cal-component-memo-preview.c: (url_requested_cb):
+	* gui/e-cal-component-preview.c: (url_requested_cb): Function removed.
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #523402
+
+	* gui/e-calendar-view.c: (e_calendar_view_add_event):
+	Do not free value returned by icaltimezone_get_tzid.
+
+2008-04-16  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #232594
+
+	* gui/e-meeting-list-view.c: (attendee_edited_cb):
+	Set status to Needs Action when attendee's address have been changed.
+
 2008-04-11  Suman Manjunath  <msuman@novell.com>
 
 	** Fix for bug #517134

@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-task-widget.c
  *
- * Copyright (C) 2001  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,14 +27,6 @@
 #include "e-task-widget.h"
 #include "e-spinner.h"
 #include <e-util/e-icon-factory.h>
-
-#include <gtk/gtkframe.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtktoolbutton.h>
-#include <gtk/gtkbox.h>
 
 #include <glib/gi18n.h>
 

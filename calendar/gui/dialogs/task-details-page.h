@@ -1,6 +1,6 @@
 /* Evolution calendar - Main page of the task editor dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -50,7 +50,7 @@ typedef struct {
 } TaskDetailsPageClass;
 
 
-GtkType          task_details_page_get_type        (void);
+GType            task_details_page_get_type        (void);
 TaskDetailsPage *task_details_page_construct       (TaskDetailsPage *tdpage);
 TaskDetailsPage *task_details_page_new             (void);
 

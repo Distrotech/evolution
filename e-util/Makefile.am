@@ -61,6 +61,7 @@ eutilinclude_HEADERS = 				\
 	e-mktemp.h				\
 	e-print.h				\
 	e-plugin.h				\
+	e-plugin-ui.h				\
 	e-popup.h				\
 	e-profile-event.h			\
 	e-request.h				\
@@ -100,6 +101,7 @@ libeutil_la_SOURCES =				\
 	e-menu.c				\
 	e-mktemp.c				\
 	e-plugin.c				\
+	e-plugin-ui.c				\
 	e-popup.c				\
 	e-print.c				\
 	e-profile-event.c			\
@@ -115,6 +117,8 @@ libeutil_la_SOURCES =				\
 	e-util-labels.c				\
 	e-util-private.h			\
 	e-xml-utils.c				\
+	gconf-bridge.c				\
+	gconf-bridge.h				\
 	$(PLATFORM_SOURCES)
 
 MARSHAL_GENERATED = e-util-marshal.c e-util-marshal.h
@@ -126,6 +130,7 @@ libeutil_la_LIBADD = 		\
 	$(WIN32_BOOTSTRAP_LIBS)	\
 	$(ICONV_LIBS)		\
 	$(E_UTIL_LIBS)		\
+	$(GNOME_PILOT_LIBS)	\
 	$(INTLLIBS)
 
 econdinclude_HEADERS =		\
@@ -147,7 +152,7 @@ libeconduit_la_SOURCES = $(pilot_compile)
 
 libeconduit_la_LDFLAGS = $(NO_UNDEFINED)
 
-libeconduit_la_LIBADD = $(E_UTIL_LIBS)
+libeconduit_la_LIBADD = $(E_UTIL_LIBS) 	$(GNOME_PILOT_LIBS)
 
 error_DATA = e-system.error
 errordir = $(privdatadir)/errors

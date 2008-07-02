@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-user-creatable-items-handler.h
  *
- * Copyright (C) 2001-2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -33,10 +33,10 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define E_TYPE_USER_CREATABLE_ITEMS_HANDLER		(e_user_creatable_items_handler_get_type ())
-#define E_USER_CREATABLE_ITEMS_HANDLER(obj)		(GTK_CHECK_CAST ((obj), E_TYPE_USER_CREATABLE_ITEMS_HANDLER, EUserCreatableItemsHandler))
-#define E_USER_CREATABLE_ITEMS_HANDLER_CLASS(klass)	(GTK_CHECK_CLASS_CAST ((klass), E_TYPE_USER_CREATABLE_ITEMS_HANDLER, EUserCreatableItemsHandlerClass))
-#define E_IS_USER_CREATABLE_ITEMS_HANDLER(obj)		(GTK_CHECK_TYPE ((obj), E_TYPE_USER_CREATABLE_ITEMS_HANDLER))
-#define E_IS_USER_CREATABLE_ITEMS_HANDLER_CLASS(klass)	(GTK_CHECK_CLASS_TYPE ((obj), E_TYPE_USER_CREATABLE_ITEMS_HANDLER))
+#define E_USER_CREATABLE_ITEMS_HANDLER(obj)		(G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_USER_CREATABLE_ITEMS_HANDLER, EUserCreatableItemsHandler))
+#define E_USER_CREATABLE_ITEMS_HANDLER_CLASS(klass)	(G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_USER_CREATABLE_ITEMS_HANDLER, EUserCreatableItemsHandlerClass))
+#define E_IS_USER_CREATABLE_ITEMS_HANDLER(obj)		(G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_USER_CREATABLE_ITEMS_HANDLER))
+#define E_IS_USER_CREATABLE_ITEMS_HANDLER_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((obj), E_TYPE_USER_CREATABLE_ITEMS_HANDLER))
 
 
 typedef struct _EUserCreatableItemsHandler        EUserCreatableItemsHandler;

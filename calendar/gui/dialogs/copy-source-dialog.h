@@ -1,6 +1,6 @@
 /* Evolution calendar - Copy source dialog
  *
- * Copyright (C) 2003 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Rodrigo Moya <rodrigo@ximian.com>
  *
@@ -21,7 +21,7 @@
 #ifndef COPY_SOURCE_DIALOG_H
 #define COPY_SOURCE_DIALOG_H
 
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include <libedataserver/e-source.h>
 #include <libecal/e-cal.h>
 #include <libecal/e-cal-util.h>

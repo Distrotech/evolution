@@ -1,6 +1,6 @@
 /* Evolution calendar - Alarm queueing engine
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -28,23 +28,7 @@
 #include <bonobo/bonobo-object.h>
 #include <bonobo/bonobo-exception.h>
 #include <bonobo/bonobo-main.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtkcheckbutton.h>
-#include <gtk/gtkcheckmenuitem.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkeventbox.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtkimagemenuitem.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkstatusicon.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtktooltips.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkversion.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libgnome/gnome-exec.h>
 #include <libgnome/gnome-sound.h>

@@ -1,3 +1,96 @@
+2008-06-24  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #539755
+
+	* importers/evolution-csv-importer.c: (parseLine):
+	Do not leak (introduced in bug #440818).
+	* importers/evolution-csv-importer.c: (add_to_notes),
+	(parseLine), (getNextCSVEntry): Do not access memory beyond
+	the columns array.
+
+2008-06-23  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #440818 (patch by Rodrigo Castro)
+
+	* importers/evolution-csv-importer.c: (parseLine): Convert line
+	to UTF-8 if not a valid one. Pretend it to be an ISO-8859-1 line.
+	* importers/evolution-csv-importer.c: (getNextCSVEntry):
+	Append char-by-char and check for EOF too.
+
+2008-06-13  Tor Lillqvist  <tml@novell.com>
+
+	* gui/component/Makefile.am (libevolution_addressbook_la_LIBADD):
+	Link with the bootstrap libevolution-mail library on Windows.
+
+2008-06-13  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #304029
+	
+	* gui/widgets/addresstypes.xml: changed description of default
+	search filter from "Name begins with" to "Name contains"
+	* gui/widgets/e-addressbook-view.c: (search_activated):
+	same in a filter search query itself
+
+2008-06-10  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gui/component/addressbook-component.c:
+	Use <glib/gi18n.h> instead of <bonobo/bonobo-i18n.h>.
+
+2008-06-03  Kjartan Maraas  <kmaraas@gnome.org>
+
+	* gui/merging/eab-contact-merging.c: (mergeit):
+	Use non-deprecated gtk+ api.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* conduit/address-conduit.c:
+	* gui/contact-editor/e-contact-editor.c:
+	* gui/widgets/e-addressbook-view.c:
+	* gui/widgets/e-minicard-view-widget.c:
+	* gui/widgets/e-minicard.c:
+	* gui/widgets/eab-contact-display.h:
+	* printing/e-contact-print-style-editor.c:
+	* printing/e-contact-print-style-editor.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #316390
+
+	* gui/widgets/e-addressbook-view.c: (categories_changed_cb),
+	(get_master_list), (eab_view_dispose), (eab_view_new),
+	(search_activated), (make_suboptions):
+	Listen for changes in categories setup and propagate them to UI.
+
+2008-04-28  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #529768
+
+	* gui/widgets/eab-gui-util.c (eab_send_to_contact_and_email_num_list):
+	Setup default callbacks for the newly created EMsgComposer widget.
+
+2008-04-23  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #529254
+
+	* gui/widgets/eab-gui-util.c: (save_it):
+	Prototype and return value of e_write_file_uri has been changed.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #529465
+
+	* gui/component/GNOME_Evolution_Addressbook.server.in.in:
+	Prefer "popup" to "pop-up" per the GNOME Documentation Style Guide.
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* gui/contact-editor/e-contact-editor.c: Do not include gnome-vfs.
+
 2008-04-02  Matthew Barnes <mbarnes@redhat.com>
 
 	* gui/widgets/Makefile.am:

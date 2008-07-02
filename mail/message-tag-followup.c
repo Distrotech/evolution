@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,26 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef GTK_DISABLE_DEPRECATED
-/* Gtk2's GtkCombo widget uses the deprecated GtkList widget, so
-   there's no way to use GtkCombo and still build if
-   GTK_DISABLE_DEPRECATED is defined. Yay Gtk! */
-#undef GTK_DISABLE_DEPRECATED
-#include <gtk/gtkcombo.h>
-#include <gtk/gtklist.h>
-#define GTK_ENABLE_DEPRECATED
-#else
-#include <gtk/gtkcombo.h>
-#include <gtk/gtklist.h>
-#endif /* !GTK_DISABLE_DEPRECATED */
-
-#include <gtk/gtkentry.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkliststore.h>
-#include <gtk/gtkcellrenderertext.h>
-
+#include <gtk/gtk.h>
 #include <glade/glade.h>
 
 #include <gconf/gconf.h>

@@ -6,7 +6,7 @@
  *   Christopher James Lahey <clahey@ximian.com>
  *   Chris Toshok <toshok@ximian.com>
  *
- * Copyright (C) 2001, 2002, 2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  */
 
 #include <config.h>
@@ -14,12 +14,7 @@
 #include "eab-contact-merging.h"
 #include "eab-contact-compare.h"
 #include <glade/glade.h>
-#include <gtk/gtktable.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkcombo.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkcontainer.h>
 #include <string.h>
 #include "addressbook/gui/widgets/eab-contact-display.h"
 #include "e-util/e-util-private.h"
@@ -188,7 +183,7 @@ mergeit (EContactMergingLookup *lookup)
 	int value = 0, result;
 
 	dialog = (GtkDialog *)(gtk_dialog_new_with_buttons (_("Merge Contact"), NULL, GTK_DIALOG_NO_SEPARATOR, NULL));
-	gtk_container_border_width (GTK_CONTAINER(dialog), 5);
+	gtk_container_set_border_width (GTK_CONTAINER(dialog), 5);
 
 	scrolled_window = gtk_scrolled_window_new (NULL, NULL);
 	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),

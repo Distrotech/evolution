@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-addressbook-view.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *         Chris Toshok <toshok@ximian.com>
  *
@@ -22,11 +22,8 @@
 
 #include <config.h>
 
-#include <gtk/gtk.h>
-
 #include <glib/gi18n.h>
 #include <libgnome/gnome-util.h>
-#include <gtk/gtkscrolledwindow.h>
 #include <table/e-table-scrolled.h>
 #include <table/e-table-model.h>
 #include <misc/e-gui-utils.h>
@@ -74,7 +71,7 @@
 #define d(x)
 
 static void eab_view_init		(EABView		 *card);
-static void eab_view_class_init	(EABViewClass	 *klass);
+static void eab_view_class_init	(EABViewClass	 *class);
 
 static void eab_view_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec);
 static void eab_view_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec);
@@ -102,14 +99,14 @@ static void selection_get (GtkWidget *invisible, GtkSelectionData *selection_dat
 			   guint info, guint time_stamp, EABView *view);
 static void invisible_destroyed (gpointer data, GObject *where_object_was);
 
+static void categories_changed_cb (gpointer object, gpointer user_data);
 static void make_suboptions             (EABView *view);
 static void query_changed               (ESearchBar *esb, EABView *view);
 static void search_activated            (ESearchBar *esb, EABView *view);
 static void search_menu_activated       (ESearchBar *esb, int id, EABView *view);
-static GList *get_master_list (void);
+static GList *get_master_list (gboolean force_rebuild);
 
-#define PARENT_TYPE GTK_TYPE_VBOX
-static GtkVBoxClass *parent_class = NULL;
+static gpointer parent_class;
 
 /* The arguments we take */
 enum {
@@ -193,21 +190,20 @@ eab_view_get_type (void)
 			(GInstanceInitFunc) eab_view_init,
 		};
 
-		type = g_type_register_static (PARENT_TYPE, "EABView", &info, 0);
+		type = g_type_register_static (GTK_TYPE_VBOX, "EABView", &info, 0);
 	}
 
 	return type;
 }
 
 static void
-eab_view_class_init (EABViewClass *klass)
+eab_view_class_init (EABViewClass *class)
 {
 	GObjectClass *object_class;
 
-	object_class = G_OBJECT_CLASS(klass);
+	parent_class = g_type_class_peek_parent (class);
 
-	parent_class = gtk_type_class (PARENT_TYPE);
-
+	object_class = G_OBJECT_CLASS(class);
 	object_class->set_property = eab_view_set_property;
 	object_class->get_property = eab_view_get_property;
 	object_class->dispose = eab_view_dispose;
@@ -315,6 +311,8 @@ eab_view_dispose (GObject *object)
 {
 	EABView *eav = EAB_VIEW(object);
 
+	e_categories_unregister_change_listener (G_CALLBACK (categories_changed_cb), eav);
+
 	if (eav->model) {
 		g_signal_handlers_disconnect_matched (eav->model,
 						      G_SIGNAL_MATCH_DATA,
@@ -374,8 +372,7 @@ eab_view_dispose (GObject *object)
 		eav->search_rule = NULL;
 	}
 
-	if (G_OBJECT_CLASS(parent_class)->dispose)
-		G_OBJECT_CLASS(parent_class)->dispose(object);
+	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
 static void
@@ -475,6 +472,8 @@ eab_view_new (void)
 	e_search_bar_set_menu ( (ESearchBar *) eav->search, addressbook_search_items);
 	gtk_widget_show (GTK_WIDGET (eav->search));
 	make_suboptions (eav);
+
+	e_categories_register_change_listener (G_CALLBACK (categories_changed_cb), eav);
 
 	g_signal_connect (eav->search, "query_changed",
 			  G_CALLBACK (query_changed), eav);
@@ -1383,7 +1382,7 @@ search_activated (ESearchBar *esb, EABView *v)
 								s->str);
 				break;
 			case ESB_FULL_NAME:
-				search_query = g_strdup_printf ("(beginswith \"full_name\" %s)",
+				search_query = g_strdup_printf ("(contains \"full_name\" %s)",
 								s->str);
 				break;
 			case ESB_EMAIL:
@@ -1403,7 +1402,7 @@ search_activated (ESearchBar *esb, EABView *v)
 		subid = e_search_bar_get_viewitem_id (esb);
 
 		if (subid) {
-			master_list = get_master_list ();
+			master_list = get_master_list (FALSE);
 			category_name = g_list_nth_data (master_list, subid-1);
 			view_sexp = g_strdup_printf ("(is \"category_list\" \"%s\")", category_name);
 			search_query = g_strconcat ("(and ", view_sexp, search_query, ")", NULL);
@@ -1496,6 +1495,13 @@ generate_viewoption_menu (EABSearchBarItem *subitems)
 }
 
 static void
+categories_changed_cb (gpointer object, gpointer user_data)
+{
+	get_master_list (TRUE);
+	make_suboptions (user_data);
+}
+
+static void
 make_suboptions (EABView *view)
 {
 	EABSearchBarItem *subitems, *s;
@@ -1503,7 +1509,7 @@ make_suboptions (EABView *view)
 	gint i, N;
 	GtkWidget *menu;
 
-	master_list = get_master_list ();
+	master_list = get_master_list (FALSE);
 	N = g_list_length (master_list);
 	subitems = g_new (EABSearchBarItem, N+2);
 
@@ -1534,9 +1540,14 @@ make_suboptions (EABView *view)
 }
 
 static GList *
-get_master_list (void)
+get_master_list (gboolean force_rebuild)
 {
 	static GList *category_list = NULL;
+
+	if (force_rebuild) {
+		g_list_free (category_list);
+		category_list = NULL;
+	}
 
 	if (category_list == NULL) {
 		GList *l, *p = e_categories_get_list ();

@@ -3,7 +3,7 @@
  * Authors: Peter Williams <peterw@ximian.com>
  *	    Michael Zucchi <notzed@ximian.com>
  *
- * Copyright 2000,2001 Ximian, Inc. (www.ximian.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -47,6 +47,7 @@
 #include <camel/camel-disco-store.h>
 
 #include <libedataserver/e-data-server-util.h>
+#include <libedataserver/e-msgport.h>
 #include "e-util/e-util.h"
 
 #include "mail-mt.h"

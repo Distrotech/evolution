@@ -2,7 +2,7 @@
  *
  * Authors: R.Raghavendran <raghavguru7@gmail.com>
  *
- * Copyright (C) 2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,14 +23,10 @@
 #endif
 
 #include <string.h>
-#include <glib.h>
 #include <libedataserverui/e-name-selector.h>
 #include <libedataserverui/e-contact-store.h>
 #include "exchange-operations.h"
 #include <e-util/e-error.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtk.h>
 #include <libgnome/libgnome.h>
 #include <libgnome/gnome-i18n.h>
 #include <glade/glade.h>

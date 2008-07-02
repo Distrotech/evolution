@@ -4,8 +4,8 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 1999, Ximian, Inc.
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -35,11 +35,11 @@ extern "C" {
  * the Month calendar view.
  */
 
-#define E_WEEK_VIEW_TITLES_ITEM(obj)     (GTK_CHECK_CAST((obj), \
+#define E_WEEK_VIEW_TITLES_ITEM(obj)     (G_TYPE_CHECK_INSTANCE_CAST((obj), \
         e_week_view_titles_item_get_type (), EWeekViewTitlesItem))
-#define E_WEEK_VIEW_TITLES_ITEM_CLASS(k) (GTK_CHECK_CLASS_CAST ((k),\
+#define E_WEEK_VIEW_TITLES_ITEM_CLASS(k) (G_TYPE_CHECK_CLASS_CAST ((k),\
 	e_week_view_titles_item_get_type ()))
-#define E_IS_WEEK_VIEW_TITLES_ITEM(o)    (GTK_CHECK_TYPE((o), \
+#define E_IS_WEEK_VIEW_TITLES_ITEM(o)    (G_TYPE_CHECK_INSTANCE_TYPE((o), \
 	e_week_view_titles_item_get_type ()))
 
 typedef struct {
@@ -55,7 +55,7 @@ typedef struct {
 } EWeekViewTitlesItemClass;
 
 
-GtkType  e_week_view_titles_item_get_type      (void);
+GType    e_week_view_titles_item_get_type      (void);
 
 
 

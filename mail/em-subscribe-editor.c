@@ -3,7 +3,7 @@
  *
  * Authors: Michael Zucchi <notzed@ximian.com>
  *
- * Copyright 2003 Ximian, Inc. (www.ximian.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -37,6 +37,7 @@
 #include "camel/camel-store.h"
 #include "camel/camel-session.h"
 #include "libedataserver/e-account-list.h"
+#include "libedataserver/e-msgport.h"
 #include "e-util/e-util-private.h"
 
 #include "em-subscribe-editor.h"
@@ -45,19 +46,6 @@
 
 #include <glade/glade.h>
 #include <glib/gi18n.h>
-
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtktreestore.h>
-#include <gtk/gtktreeselection.h>
-#include <gtk/gtkcellrenderertoggle.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkprogressbar.h>
-#include <gtk/gtkmenuitem.h>
 
 #define d(x)
 

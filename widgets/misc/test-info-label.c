@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-title-bar.c
  *
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -24,11 +24,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtkbox.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtklabel.h>
-
+#include <gtk/gtk.h>
 #include <libgnomeui/gnome-app.h>
 #include <libgnomeui/gnome-ui-init.h>
 #include <e-util/e-icon-factory.h>
@@ -58,9 +54,9 @@ main (int argc, char **argv)
 
 	app = gnome_app_new ("Test", "Test");
 	gtk_window_set_default_size (GTK_WINDOW (app), 400, 400);
-	gtk_window_set_policy (GTK_WINDOW (app), FALSE, TRUE, FALSE);
+	gtk_window_set_resizable (GTK_WINDOW (app), TRUE);
 
-	g_signal_connect((app), "delete_event", G_CALLBACK (delete_event_cb), NULL);
+	g_signal_connect (app, "delete_event", G_CALLBACK (delete_event_cb), NULL);
 
 	info_label = e_info_label_new ("stock_default-folder");
 	e_info_label_set_info ((EInfoLabel *) info_label, "Component Name", "An annoyingly long component message");

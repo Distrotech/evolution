@@ -2,7 +2,7 @@
 /*
  *  Authors: Veerapuram Varadhan  <vvaradhan@novell.com>
  *
- *  Copyright 2007 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,8 +29,7 @@ extern "C" {
 #pragma }
 #endif /* __cplusplus */
 
-#include <glib.h>
-#include <gtk/gtkvbox.h>
+#include <gtk/gtk.h>
 
 #define EM_NETWORK_PREFS_TYPE        (em_network_prefs_get_type ())
 #define EM_NETWORK_PREFS(o)          (G_TYPE_CHECK_INSTANCE_CAST ((o), EM_NETWORK_PREFS_TYPE, EMNetworkPrefs))

@@ -5,7 +5,7 @@
  *  Damon Chaplin <damon@ximian.com>
  *  Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 2000, 2001, 2002, 2003 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -881,7 +881,7 @@ copy_row_cb (int model_row, gpointer data)
 					     icalcomponent_new_clone (child));
 		icalcomponent_free (child);
 	}
-	g_free (child);
+	g_free (comp_str);
 }
 
 /**

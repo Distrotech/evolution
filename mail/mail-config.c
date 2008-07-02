@@ -3,7 +3,7 @@
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *           Radek Doulik     <rodo@ximian.com>
  *
- *  Copyright 2001 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -35,14 +35,13 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <glib/gstdio.h>
 
 #ifndef G_OS_WIN32
 #include <sys/wait.h>
 #endif
 
-#include <gtk/gtkdialog.h>
 #include <gtkhtml/gtkhtml.h>
 #include <glade/glade.h>
 
@@ -102,6 +101,8 @@ typedef struct {
 	GSList *jh_header;
 	gboolean jh_check;
 	gboolean book_lookup;
+	gboolean book_lookup_local_only;
+	gboolean scripts_disabled;
 } MailConfig;
 
 static MailConfig *config = NULL;
@@ -254,9 +255,11 @@ gconf_jh_check_changed (GConfClient *client, guint cnxn_id,
 	if (!config->jh_check) {
 		mail_session_set_junk_headers (NULL, NULL, 0);
 	} else {
-		config->jh_header = gconf_client_get_list (config->gconf, "/apps/evolution/mail/junk/custom_header", GCONF_VALUE_STRING, NULL);
-		GSList *node = config->jh_header;
+		GSList *node;
 		GPtrArray *name, *value;
+
+		config->jh_header = gconf_client_get_list (config->gconf, "/apps/evolution/mail/junk/custom_header", GCONF_VALUE_STRING, NULL);
+		node = config->jh_header;
 		name = g_ptr_array_new ();
 		value = g_ptr_array_new ();
 		while (node && node->data) {
@@ -276,9 +279,11 @@ static void
 gconf_jh_headers_changed (GConfClient *client, guint cnxn_id,
                           GConfEntry *entry, gpointer user_data)
 {
-	config->jh_header = gconf_client_get_list (config->gconf, "/apps/evolution/mail/junk/custom_header", GCONF_VALUE_STRING, NULL);
-	GSList *node = config->jh_header;
+	GSList *node;
 	GPtrArray *name, *value;
+
+	config->jh_header = gconf_client_get_list (config->gconf, "/apps/evolution/mail/junk/custom_header", GCONF_VALUE_STRING, NULL);
+	node = config->jh_header;
 	name = g_ptr_array_new ();
 	value = g_ptr_array_new ();
 	while (node && node->data) {
@@ -498,6 +503,22 @@ mail_config_init (void)
 	config->book_lookup =
 		gconf_client_get_bool (config->gconf, key, NULL);
 
+	key = "/apps/evolution/mail/junk/lookup_addressbook_local_only";
+	func = (GConfClientNotifyFunc) gconf_bool_value_changed;
+	gconf_client_notify_add (
+		config->gconf, key, func,
+		&config->book_lookup_local_only, NULL, NULL);
+	config->book_lookup_local_only =
+		gconf_client_get_bool (config->gconf, key, NULL);
+
+	key = "/desktop/gnome/lockdown/disable_command_line";
+	func = (GConfClientNotifyFunc) gconf_bool_value_changed;
+	gconf_client_notify_add (
+		config->gconf, key, func,
+		&config->scripts_disabled, NULL, NULL);
+	config->scripts_disabled =
+		gconf_client_get_bool (config->gconf, key, NULL);
+
 	gconf_jh_check_changed (config->gconf, 0, NULL, config);
 }
 
@@ -607,6 +628,9 @@ mail_config_write_on_exit (void)
 GConfClient *
 mail_config_get_gconf_client (void)
 {
+	if (!config)
+		mail_config_init ();
+
 	return config->gconf;
 }
 
@@ -656,6 +680,31 @@ mail_config_get_message_limit (void)
 		return -1;
 
 	return config->mlimit_size;
+}
+
+/* timeout interval, in seconds, when to call server update */
+gint
+mail_config_get_sync_timeout (void)
+{
+	GConfClient *gconf = mail_config_get_gconf_client ();
+	gint res = 60;
+
+	if (gconf) {
+		GError *error = NULL;
+
+		res = gconf_client_get_int (gconf, "/apps/evolution/mail/sync_interval", &error);
+
+		/* do not allow recheck sooner than every 30 seconds */
+		if (error || res == 0)
+			res = 60;
+		else if (res < 30)
+			res = 30;
+
+		if (error)
+			g_error_free (error);
+	}
+
+	return res;
 }
 
 gboolean
@@ -780,47 +829,48 @@ mail_config_get_account_by_source_url (const char *source_url)
 EAccount *
 mail_config_get_account_by_transport_url (const char *transport_url)
 {
-	CamelProvider *provider;
-	CamelURL *transport;
-	EAccount *account;
+	EAccount *account = NULL;
 	EIterator *iter;
 
 	g_return_val_if_fail (transport_url != NULL, NULL);
 
-	provider = camel_provider_get(transport_url, NULL);
-	if (!provider)
-		return NULL;
-
-	transport = camel_url_new (transport_url, NULL);
-	if (!transport)
-		return NULL;
-
 	iter = e_list_get_iterator ((EList *) config->accounts);
 	while (e_iterator_is_valid (iter)) {
+		CamelURL *url;
+		gchar *string;
+
 		account = (EAccount *) e_iterator_get (iter);
 
-		if (account->transport && account->transport->url && account->transport->url[0]) {
-			CamelURL *url;
-
-			url = camel_url_new (account->transport->url, NULL);
-			if (url && provider->url_equal (url, transport)) {
-				camel_url_free (url);
-				camel_url_free (transport);
-				g_object_unref (iter);
-
-				return account;
-			}
-
-			if (url)
-				camel_url_free (url);
-		}
-
 		e_iterator_next (iter);
+
+		if (account->transport == NULL)
+			continue;
+
+		else if (account->transport->url == NULL)
+			continue;
+
+		else if (*account->transport->url == '\0')
+			continue;
+
+		url = camel_url_new (account->transport->url, NULL);
+		if (url == NULL)
+			continue;
+
+		/* Simplify the account URL for comparison. */
+		string = camel_url_to_string (url, CAMEL_URL_HIDE_ALL);
+		if (string == NULL || strcmp (string, transport_url) != 0)
+			account = NULL;  /* not a match */
+
+		camel_url_free (url);
+		g_free (string);
+
+		if (account != NULL) {
+			g_object_unref (iter);
+			return account;
+		}
 	}
 
 	g_object_unref (iter);
-
-	camel_url_free (transport);
 
 	return NULL;
 }
@@ -1147,7 +1197,7 @@ mail_config_remove_signature (ESignature *signature)
 }
 
 void
-mail_config_reload_junk_headers ()
+mail_config_reload_junk_headers (void)
 {
 	/* It automatically sets in the session */
 	if (config == NULL)
@@ -1158,14 +1208,32 @@ mail_config_reload_junk_headers ()
 }
 
 gboolean
-mail_config_get_lookup_book()
+mail_config_get_lookup_book (void)
 {
 	/* It automatically sets in the session */
 	if (config == NULL)
 		mail_config_init ();
 
 	return config->book_lookup;
+}
 
+gboolean
+mail_config_get_lookup_book_local_only (void)
+{
+	/* It automatically sets in the session */
+	if (config == NULL)
+		mail_config_init ();
+
+	return config->book_lookup_local_only;
+}
+
+gboolean
+mail_config_scripts_disabled (void)
+{
+	if (config == NULL)
+		mail_config_init ();
+
+	return config->scripts_disabled;
 }
 
 char *
@@ -1175,6 +1243,9 @@ mail_config_signature_run_script (const char *script)
 	int result, status;
 	int in_fds[2];
 	pid_t pid;
+
+	if (mail_config_scripts_disabled ())
+		return NULL;
 
 	if (pipe (in_fds) == -1) {
 		g_warning ("Failed to create pipe to '%s': %s", script, g_strerror (errno));

@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2001 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -154,8 +154,13 @@ char *mail_config_folder_to_safe_url (struct _CamelFolder *folder);
 guint mail_config_get_error_timeout  (void);
 guint mail_config_get_error_level  (void);
 
+gint mail_config_get_sync_timeout (void);
+
 void mail_config_reload_junk_headers (void);
-gboolean mail_config_get_lookup_book(void);
+gboolean mail_config_get_lookup_book (void);
+gboolean mail_config_get_lookup_book_local_only (void);
+
+gboolean mail_config_scripts_disabled (void);
 
 GType evolution_mail_config_get_type (void);
 

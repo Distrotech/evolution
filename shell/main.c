@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* main.c
  *
- * Copyright (C) 2000, 2001, 2002, 2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -22,7 +22,7 @@
 
 #include <config.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <glib/gstdio.h>
 
 #ifdef G_OS_WIN32
@@ -49,18 +49,6 @@
 #include <libxml/tree.h>
 
 #include <gconf/gconf-client.h>
-
-#include <gtk/gtkalignment.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkcheckbutton.h>
 
 #include <glib/gi18n.h>
 #include <libgnome/gnome-util.h>
@@ -95,6 +83,7 @@
 #include <pthread.h>
 
 #include "e-util/e-plugin.h"
+#include "e-util/e-plugin-ui.h"
 
 #define SKIP_WARNING_DIALOG_KEY \
 	"/apps/evolution/shell/skip_warning_dialog"
@@ -245,7 +234,7 @@ show_development_warning(void)
                   "\n"
 		  "We hope that you enjoy the results of our hard work, and we\n"
 		  "eagerly await your contributions!\n"),
-		"2.12.1");
+		"2.22.1");
 	label = gtk_label_new (text);
 	g_free(text);
 
@@ -690,6 +679,17 @@ main (int argc, char **argv)
 				      GNOME_PARAM_HUMAN_READABLE_NAME, _("Evolution"),
 				      NULL);
 
+#ifdef G_OS_WIN32
+	if (strcmp (_(""), "") == 0) {
+		/* No message catalog installed for the current locale language,
+		 * so don't bother with the localisations provided by other things then
+		 * either. Reset thread locale to "en-US" and C library locale to "C".
+		 */
+		SetThreadLocale (MAKELCID (MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
+					   SORT_DEFAULT));
+		setlocale (LC_ALL, "C");
+	}
+#endif
 	if (start_online && start_offline) {
 		fprintf (stderr, _("%s: --online and --offline cannot be used together.\n  Use %s --help for more information.\n"),
 			 argv[0], argv[0]);
@@ -760,6 +760,7 @@ main (int argc, char **argv)
 #endif
 		e_plugin_hook_register_type(e_plugin_type_hook_get_type());
 		e_plugin_hook_register_type(e_import_hook_get_type());
+		e_plugin_hook_register_type(E_TYPE_PLUGIN_UI_HOOK);
 		e_plugin_load_plugins();
 	}
 

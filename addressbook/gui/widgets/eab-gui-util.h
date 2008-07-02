@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* eab-gui-util.h
- * Copyright (C) 2001-2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Toshok <toshok@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 #ifndef __E_ADDRESSBOOK_UTIL_H__
 #define __E_ADDRESSBOOK_UTIL_H__
 
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include <libebook/e-book.h>
 #include "addressbook/gui/contact-editor/e-contact-editor.h"
 #include "addressbook/gui/contact-list-editor/e-contact-list-editor.h"

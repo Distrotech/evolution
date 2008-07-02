@@ -1,7 +1,7 @@
 /* Evolution calendar - Utilities for manipulating ECalComponent objects
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -245,6 +245,29 @@ cal_comp_is_on_server (ECalComponent *comp, ECal *client)
 	g_free (rid);
 
 	return FALSE;
+}
+
+/**
+ * is_icalcomp_on_the_server:
+ * same as @cal_comp_is_on_server, only the component parameter is icalcomponent, not the ECalComponent.
+ **/
+gboolean
+is_icalcomp_on_the_server (icalcomponent *icalcomp, ECal *client)
+{
+	gboolean on_server;
+	ECalComponent *comp;
+
+	if (!icalcomp || !client || !icalcomponent_get_uid (icalcomp))
+		return FALSE;
+
+	comp = e_cal_component_new ();
+	e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (icalcomp));
+
+	on_server = cal_comp_is_on_server (comp, client);
+
+	g_object_unref (comp);
+
+	return on_server;
 }
 
 /**

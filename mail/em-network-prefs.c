@@ -2,7 +2,7 @@
 /*
  *  Authors: Veerapuram Varadhan  <vvaradhan@novell.com>
  *
- *  Copyright 2007 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,13 +38,6 @@
 #include <gconf/gconf-client.h>
 #include <glade/glade.h>
 
-#include <gtk/gtkentry.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtklabel.h>
-
-#include <gtk/gtkfilechooserbutton.h>
 #include <glib/gstdio.h>
 
 #include "e-util/e-error.h"

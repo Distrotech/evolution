@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-table-field-chooser.c
- * Copyright (C) 2001  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Toshok <toshok@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libedataserver/e-data-server-util.h>
 #include <libedataserverui/e-source-selector.h>
@@ -38,8 +39,8 @@
 #include "misc/e-image-chooser.h"
 #include <e-util/e-icon-factory.h>
 #include "eab-contact-merging.h"
-#include <gnome.h>
 #include <composer/e-msg-composer.h>
+#include <mail/em-composer-utils.h>
 
 /* we link to camel for decoding quoted printable email addresses */
 #include <camel/camel-mime-utils.h>
@@ -353,7 +354,6 @@ save_it(GtkWidget *widget, SaveAsInfo *info)
 {
 	const char *filename;
 	char *uri;
-	gint error = 0;
 	gint response = 0;
 
 
@@ -370,8 +370,7 @@ save_it(GtkWidget *widget, SaveAsInfo *info)
 		}
 	}
 
-	error = e_write_file_uri (uri, info->vcard);
-	if (error != 0) {
+	if (!e_write_file_uri (uri, info->vcard)) {
 		char *err_str_ext;
 		if (info->has_multiple_contacts) {
 			/* more than one, finding the total number of contacts might
@@ -790,6 +789,7 @@ eab_send_to_contact_and_email_num_list (GList *contact_list)
 
 	composer = e_msg_composer_new ();
 	table = e_msg_composer_get_header_table (composer);
+	em_composer_utils_setup_default_callbacks (composer);
 
 	to_array = g_ptr_array_new ();
 	bcc_array = g_ptr_array_new ();

@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
  *
  * Praveen Kumar <kpraveen@novell.com>
- * Copyright (C) 2005 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -491,6 +491,7 @@ e_exchange_contacts_commit (EPlugin *epl, EConfigTarget *target)
 		if (authtype) {
 			e_source_set_property (source, "auth-type", authtype);
 			g_free (authtype);
+			authtype=NULL;			
 		}
 		e_source_set_property (source, "auth", "plain/password");
 		if (rename) {

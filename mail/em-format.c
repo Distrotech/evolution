@@ -3,7 +3,7 @@
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *           Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,10 +28,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <libgnomevfs/gnome-vfs-mime.h>
-#include <libgnomevfs/gnome-vfs-mime-utils.h>
-#include <libgnomevfs/gnome-vfs-mime-handlers.h>
 #include <glib/gi18n.h>
+#include <gio/gio.h>
 
 #include <libedataserver/e-msgport.h>
 #include <camel/camel-url.h>
@@ -959,6 +957,7 @@ int em_format_is_attachment(EMFormat *emf, CamelMimePart *part)
 		 || camel_content_type_is(dw->mime_type, "application", "pkcs7-mime")
 		 || camel_content_type_is(dw->mime_type, "application", "x-inlinepgp-signed")
 		 || camel_content_type_is(dw->mime_type, "application", "x-inlinepgp-encrypted")
+		 || camel_content_type_is(dw->mime_type, "x-evolution", "evolution-rss-feed")
 		 || (camel_content_type_is (dw->mime_type, "text", "*")
 		     && camel_mime_part_get_filename(part) == NULL));
 }
@@ -1149,16 +1148,19 @@ char *
 em_format_describe_part(CamelMimePart *part, const char *mime_type)
 {
 	GString *stext;
-	const char *text;
-	char *out;
+	const char *filename, *description;
+	char *out, *desc;
 
 	stext = g_string_new("");
-	text = gnome_vfs_mime_get_description(mime_type);
-	g_string_append_printf(stext, _("%s attachment"), text?text:mime_type);
-	if ((text = camel_mime_part_get_filename (part)))
-		g_string_append_printf(stext, " (%s)", text);
-	if ((text = camel_mime_part_get_description(part)))
-		g_string_append_printf(stext, ", \"%s\"", text);
+	/* TODO: mime_type isn't content_type on some systems (Win32), thus this will not work there. */
+	desc = g_content_type_get_description (mime_type);
+	g_string_append_printf (stext, _("%s attachment"), desc ? desc : mime_type);
+	g_free (desc);
+	if ((filename = camel_mime_part_get_filename (part)))
+		g_string_append_printf(stext, " (%s)", filename);
+	if ((description = camel_mime_part_get_description(part)) &&
+		!(filename && (strcmp(filename, description) == 0)))
+		g_string_append_printf(stext, ", \"%s\"", description);
 
 	out = stext->str;
 	g_string_free(stext, FALSE);

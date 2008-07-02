@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-text-event-processor-types.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,11 +24,9 @@
 #ifndef __E_TEXT_EVENT_PROCESSOR_TYPES_H__
 #define __E_TEXT_EVENT_PROCESSOR_TYPES_H__
 
-#include <glib/gmacros.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
-
-#include <gdk/gdkevents.h>
 
 typedef union _ETextEventProcessorEvent ETextEventProcessorEvent;
 

@@ -2,7 +2,7 @@
 /*
  *  Authors: Harish Krishnaswamy <kharish@novell.com>
  *
- *  Copyright 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,15 +30,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtkbox.h>
-#include <gtk/gtkcheckbutton.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkversion.h>
-
-#include <gtk/gtkfilechooser.h>
-#include <gtk/gtkfilechooserdialog.h>
-#include <gtk/gtkstock.h>
+#include <gtk/gtk.h>
 
 #include <libgnomeui/gnome-uidefs.h>
 #include <glib/gi18n.h>

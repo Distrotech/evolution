@@ -3,7 +3,7 @@
  *
  * Author: Mike Kestner <mkestner@ximian.com>
  *
- * Copyright (C) 2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,7 +23,7 @@
 #ifndef _E_MEETING_LIST_VIEW_H_
 #define _E_MEETING_LIST_VIEW_H_
 
-#include <gtk/gtktreeview.h>
+#include <gtk/gtk.h>
 #include "e-meeting-store.h"
 #include <libedataserverui/e-name-selector.h>
 

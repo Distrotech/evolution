@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-corba-config-page.h
  *
- * Copyright (C) 2002  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -35,10 +35,10 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define E_TYPE_CORBA_CONFIG_PAGE			(e_corba_config_page_get_type ())
-#define E_CORBA_CONFIG_PAGE(obj)			(GTK_CHECK_CAST ((obj), E_TYPE_CORBA_CONFIG_PAGE, ECorbaConfigPage))
-#define E_CORBA_CONFIG_PAGE_CLASS(klass)		(GTK_CHECK_CLASS_CAST ((klass), E_TYPE_CORBA_CONFIG_PAGE, ECorbaConfigPageClass))
-#define E_IS_CORBA_CONFIG_PAGE(obj)			(GTK_CHECK_TYPE ((obj), E_TYPE_CORBA_CONFIG_PAGE))
-#define E_IS_CORBA_CONFIG_PAGE_CLASS(klass)		(GTK_CHECK_CLASS_TYPE ((obj), E_TYPE_CORBA_CONFIG_PAGE))
+#define E_CORBA_CONFIG_PAGE(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_CORBA_CONFIG_PAGE, ECorbaConfigPage))
+#define E_CORBA_CONFIG_PAGE_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_CORBA_CONFIG_PAGE, ECorbaConfigPageClass))
+#define E_IS_CORBA_CONFIG_PAGE(obj)			(G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_CORBA_CONFIG_PAGE))
+#define E_IS_CORBA_CONFIG_PAGE_CLASS(klass)		(G_TYPE_CHECK_CLASS_TYPE ((obj), E_TYPE_CORBA_CONFIG_PAGE))
 
 
 typedef struct _ECorbaConfigPage        ECorbaConfigPage;
@@ -56,7 +56,7 @@ struct _ECorbaConfigPageClass {
 };
 
 
-GtkType    e_corba_config_page_get_type         (void);
+GType      e_corba_config_page_get_type         (void);
 GtkWidget *e_corba_config_page_new_from_objref  (GNOME_Evolution_ConfigControl  objref);
 gboolean   e_corba_config_page_construct        (ECorbaConfigPage              *corba_config_page,
 						 GNOME_Evolution_ConfigControl  objref);

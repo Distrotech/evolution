@@ -2,7 +2,7 @@
  *
  *  Authors: Johnny Jacob <johnnyjacob@gmail.com>
  *
- *  Copyright 2006 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of version 2 of the GNU General Public
@@ -39,10 +39,6 @@
 #include <camel/camel-vee-folder.h>
 #include "e-util/e-error.h"
 #include "e-util/e-icon-factory.h"
-#include <libgnomevfs/gnome-vfs-utils.h>
-#include <libgnomevfs/gnome-vfs-mime.h>
-#include <libgnomevfs/gnome-vfs-mime-utils.h>
-#include <libgnomevfs/gnome-vfs-mime-handlers.h>
 #include <libedataserverui/e-source-selector.h>
 #include <libecal/e-cal.h>
 #include <libical/icalvcal.h>

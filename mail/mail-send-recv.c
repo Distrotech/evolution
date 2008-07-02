@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <NotZed@ximian.com>
  *
- *  Copyright 2001 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,19 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
-/* for the dialog stuff */
-#include <glib.h>
 #include <glib/gi18n.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkprogressbar.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtktable.h>
 
 #include "libedataserver/e-account-list.h"
 
@@ -59,6 +47,7 @@
 #include "mail-folder-cache.h"
 #include "em-event.h"
 #include <e-util/e-icon-factory.h>
+#include <e-util/gconf-bridge.h>
 
 #define d(x)
 
@@ -67,6 +56,9 @@
 
 /* pseudo-uri to key the send task on */
 #define SEND_URI_KEY "send-task:"
+
+/* Prefix for window size GConf keys */
+#define GCONF_KEY_PREFIX "/apps/evolution/mail/send_recv"
 
 /* send/receive email */
 
@@ -393,6 +385,10 @@ build_dialog (EAccountList *accounts, CamelFolder *outbox, const char *destinati
 	gd = (GtkDialog *)(send_recv_dialog = gtk_dialog_new_with_buttons(_("Send & Receive Mail"), NULL, GTK_DIALOG_NO_SEPARATOR, NULL));
 	gtk_window_set_modal ((GtkWindow *) gd, FALSE);
 
+	gconf_bridge_bind_window_size (
+		gconf_bridge_get (), GCONF_KEY_PREFIX,
+		GTK_WINDOW (send_recv_dialog));
+
 	gtk_widget_ensure_style ((GtkWidget *)gd);
 	gtk_container_set_border_width ((GtkContainer *)gd->vbox, 0);
 	gtk_container_set_border_width ((GtkContainer *)gd->action_area, 6);
@@ -442,7 +438,6 @@ build_dialog (EAccountList *accounts, CamelFolder *outbox, const char *destinati
 		GTK_SCROLLED_WINDOW (scrolled_window), table);
 	gtk_box_pack_start (
 		GTK_BOX (gd->vbox), scrolled_window, TRUE, TRUE, 0);
-	gtk_widget_set_size_request (gd->vbox, 600, 200);
 	gtk_widget_show (scrolled_window);
 
 	/* must bet setup after send_recv_dialog as it may re-trigger send-recv button */
@@ -545,6 +540,8 @@ build_dialog (EAccountList *accounts, CamelFolder *outbox, const char *destinati
 
 	g_object_unref (iter);
 
+	/* we also need gd during emition to be able to catch Cancel All */
+	data->gd = gd;
 	/* Hook: If some one wants to hook on to the sendreceive dialog, this is the way to go. */
 	target = em_event_target_new_send_receive (em_event_peek(), table, data, row, EM_EVENT_SEND_RECEIVE);
 	e_event_emit ((EEvent *)em_event_peek (), "mail.sendreceive", (EEventTarget *) target);
@@ -621,7 +618,6 @@ build_dialog (EAccountList *accounts, CamelFolder *outbox, const char *destinati
 	g_object_weak_ref ((GObject *) gd, (GWeakNotify) dialog_destroy_cb, data);
 
 	data->infos = list;
-	data->gd = gd;
 
 	return data;
 }
@@ -822,6 +818,8 @@ refresh_folders_exec (struct _refresh_folders_msg *m)
 	for (i=0;i<m->folders->len;i++) {
 		folder = mail_tool_uri_to_folder(m->folders->pdata[i], 0, &ex);
 		if (folder) {
+			camel_folder_sync (folder, FALSE, &ex);
+			camel_exception_clear(&ex);
 			camel_folder_refresh_info(folder, &ex);
 			camel_exception_clear(&ex);
 			camel_object_unref(folder);

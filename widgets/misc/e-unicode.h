@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-unicode.h - utf-8 support functions for gal
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Lauris Kaplinski <lauris@ximian.com>
@@ -26,10 +26,7 @@
 
 #include <sys/types.h>
 #include <glib.h>
-#include <gtk/gtkclist.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include <libxml/tree.h>
 #include <iconv.h>
 

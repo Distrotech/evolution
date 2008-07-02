@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-icon-factory.h - Icon factory for the Evolution shell.
  *
- * Copyright (C) 2002-2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,8 +23,7 @@
 #ifndef _E_ICON_FACTORY_H_
 #define _E_ICON_FACTORY_H_
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 enum {
 	E_ICON_SIZE_MENU,

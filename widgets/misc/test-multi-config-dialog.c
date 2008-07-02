@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* test-multi-config-dialog.c
  *
- * Copyright (C) 2002 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,7 +23,9 @@
 
 #include "e-multi-config-dialog.c"
 
-#include <gnome.h>
+#include <gtk/gtk.h>
+#include <libgnomeui/gnome-app.h>
+#include <libgnomeui/gnome-ui-init.h>
 
 
 #define NUM_PAGES 10

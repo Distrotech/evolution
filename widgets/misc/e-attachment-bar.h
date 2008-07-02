@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-attachment-bar.h
  *
- * Copyright (C) 2005  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -66,7 +66,7 @@ struct _EAttachmentBarClass {
 };
 
 
-GtkType e_attachment_bar_get_type (void);
+GType e_attachment_bar_get_type (void);
 
 GtkWidget *e_attachment_bar_new (GtkAdjustment *adj);
 void e_attachment_bar_to_multipart (EAttachmentBar *bar, CamelMultipart *multipart,
@@ -94,6 +94,10 @@ GtkAction *
 e_attachment_bar_recent_action_new (EAttachmentBar *bar, 
 				const gchar *action_name,
 				const gchar *action_label);
+void 
+e_attachment_bar_add_attachment_silent (EAttachmentBar *bar, EAttachment *attachment);
+void 
+e_attachment_bar_refresh (EAttachmentBar *bar);
 
 #ifdef __cplusplus
 }

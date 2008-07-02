@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-table-memory-callbacks.c
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -174,7 +174,7 @@ e_table_memory_callbacks_init (ETableMemoryCalbacks *etmc)
  * This initializes a new ETableMemoryCalbacksModel object.  ETableMemoryCalbacksModel is
  * an implementaiton of the abstract class ETableModel.  The ETableMemoryCalbacksModel
  * is designed to allow people to easily create ETableModels without having
- * to create a new GtkType derived from ETableModel every time they need one.
+ * to create a new GType derived from ETableModel every time they need one.
  *
  * Instead, ETableMemoryCalbacksModel uses a setup based in callback functions, every
  * callback function signature mimics the signature of each ETableModel method

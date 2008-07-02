@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* e-search-bar.h
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -20,8 +20,7 @@
 #ifndef __E_SEARCH_BAR_H__
 #define __E_SEARCH_BAR_H__
 
-#include <gtk/gtkhbox.h>
-#include <gtk/gtktooltips.h>
+#include <gtk/gtk.h>
 
 #include <bonobo/bonobo-ui-component.h>
 

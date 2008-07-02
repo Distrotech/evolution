@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-tree-selection-model.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,8 +24,7 @@
 #ifndef _E_TREE_SELECTION_MODEL_H_
 #define _E_TREE_SELECTION_MODEL_H_
 
-#include <gdk/gdktypes.h>
-#include <gtk/gtkobject.h>
+#include <glib-object.h>
 #include <e-util/e-sorter.h>
 #include <misc/e-selection-model.h>
 #include <table/e-tree-model.h>

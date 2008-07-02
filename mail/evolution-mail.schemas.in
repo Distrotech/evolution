@@ -102,7 +102,7 @@
     </schema>
 
     <schema>
-      <key>/schema/apps/evolution/mail/composer/spell_languages</key>
+      <key>/schemas/apps/evolution/mail/composer/spell_languages</key>
       <applyto>/apps/evolution/mail/composer/spell_languages</applyto>
       <owner>evolution-mail</owner>
       <type>list</type>
@@ -221,6 +221,20 @@
          <short>Enable or disable type ahead search feature</short>
          <long>
            Enable side bar search feature so that you can start interactive searching by typing in the text. Use is that you can easily find a folder in that side bar by just typing the folder name and the selection jumps automatically to that folder.
+         </long>
+      </locale>
+    </schema>
+
+    <schema>
+      <key>/schemas/apps/evolution/mail/display/no_folder_dots</key>
+      <applyto>/apps/evolution/mail/display/no_folder_dots</applyto>
+      <owner>evolution-mail</owner>
+      <type>bool</type>
+      <default>false</default>
+      <locale name="C">
+         <short>Disable or enable ellipsizing of folder names in folder tree</short>
+         <long>
+           Whether disable ellipsizing feature of folder names in folder tree.
          </long>
       </locale>
     </schema>
@@ -1155,6 +1169,20 @@
     </schema>
 
     <schema>
+      <key>/schemas/apps/evolution/mail/junk/lookup_addressbook_local_only</key>
+      <applyto>/apps/evolution/mail/junk/lookup_addressbook_local_only</applyto>
+      <owner>evolution-mail</owner>
+      <type>bool</type>
+      <default>false</default>
+      <locale name="C">
+         <short>Determines whether to look up addresses for junk filtering in local addressbook only</short>
+         <long>
+	 This option is related to the key lookup_addressbook and is used to determine whether to look up addresses in local addressbook only to exclude mail sent by known contacts from junk filtering.
+         </long>
+      </locale>
+    </schema>
+
+    <schema>
       <key>/schemas/apps/evolution/mail/junk/check_custom_header</key>
       <applyto>/apps/evolution/mail/junk/check_custom_header</applyto>
       <owner>evolution-mail</owner>
@@ -1175,9 +1203,10 @@
       <list_type>string</list_type>
       <default>[X-Spam-Flag=YES,X-Spam-Level=*****]</default>
       <locale name="C">
-         <short>Specifies the header to check for junk.</short>
+         <short>Custom headers to use while checking for junk.</short>
          <long>
-	 Specifies the header to check for junk. The format is headername=value in gconf.
+	 Custom headers to use while checking for junk. The list elements
+         are string in the format "headername=value".
          </long>
       </locale>
     </schema>
@@ -1251,6 +1280,72 @@
          <long>
            Directory for loading/attaching files to composer.
          </long>
+      </locale>
+    </schema>
+
+    <!-- Widget States -->
+
+    <schema>
+      <key>/schemas/apps/evolution/mail/send_recv_height</key>
+      <applyto>/apps/evolution/mail/send_recv_height</applyto>
+      <owner>evolution-mail</owner>
+      <type>int</type>
+      <default>200</default>
+      <locale name="C">
+        <short>"Send and Receive Mail" window height</short>
+        <long>
+          Initial height of the "Send and Receive Mail" window.
+          The value updates as the user resizes the window vertically.
+        </long>
+      </locale>
+    </schema>
+
+    <schema>
+      <key>/schemas/apps/evolution/mail/send_recv_maximized</key>
+      <applyto>/apps/evolution/mail/send_recv_maximized</applyto>
+      <owner>evolution-mail</owner>
+      <type>bool</type>
+      <locale name="C">
+        <short>"Send and Receive Mail" window maximize state</short>
+        <long>
+          Initial maximize state of the "Send and Receive Mail" window.
+          The value updates when the user maximizes or unmaximizes the
+          window.  Note, this particular value is not used by Evolution
+          since the "Send and Receive Mail" window cannot be maximized.
+          This key exists only as an implementation detail.
+        </long>
+      </locale>
+    </schema>
+
+    <schema>
+      <key>/schemas/apps/evolution/mail/send_recv_width</key>
+      <applyto>/apps/evolution/mail/send_recv_width</applyto>
+      <owner>evolution-mail</owner>
+      <type>int</type>
+      <default>600</default>
+      <locale name="C">
+        <short>"Send and Receive Mail" window width</short>
+        <long>
+          Initial width of the "Send and Receive Mail" window.
+          The value updates as the user resizes the window horizontally.
+        </long>
+      </locale>
+    </schema>
+
+    <!-- Others -->
+
+    <schema>
+      <key>/schemas/apps/evolution/mail/sync_interval</key>
+      <applyto>/apps/evolution/mail/sync_interval</applyto>
+      <owner>evolution-mail</owner>
+      <type>int</type>
+      <default>60</default>
+      <locale name="C">
+        <short>Time interval, in seconds, how often upload store changes to server.</short>
+        <long>
+          Time interval, in seconds, how often upload store changes to server.
+	  The actual value cannot be less than 30 seconds.
+        </long>
       </locale>
     </schema>
 

@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-attachment.h
  *
- * Copyright (C) 2005  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -25,13 +25,12 @@
 #ifndef __E_ATTACHMENT_H__
 #define __E_ATTACHMENT_H__
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <gtk/gtkwindow.h>
+#include <gio/gio.h>
+#include <gtk/gtk.h>
 #include <glade/glade-xml.h>
 #include <camel/camel-mime-part.h>
 #include <camel/camel-exception.h>
 #include <camel/camel-cipher-context.h>
-#include <libgnomevfs/gnome-vfs.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,7 +58,8 @@ struct _EAttachment {
 
 	GdkPixbuf *pixbuf_cache;
 
-	GnomeVFSAsyncHandle *handle;
+	GCancellable *cancellable;
+
 	gboolean is_available_local;
 	int percentage;
 	char *file_name;

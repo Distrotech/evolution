@@ -2,7 +2,7 @@
  *
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2004 Novell Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of version 2 of the GNU General Public
@@ -22,7 +22,7 @@
 #ifndef _E_INFO_LABEL_H
 #define _E_INFO_LABEL_H
 
-#include <gtk/gtkhbox.h>
+#include <gtk/gtk.h>
 
 #ifdef __cplusplus
 extern "C" {

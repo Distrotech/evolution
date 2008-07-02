@@ -1,21 +1,15 @@
 /* Go to date dialog for Evolution
  *
  * Copyright (C) 1998 Red Hat, Inc.
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena <federico@ximian.com>
  *          JP Rosevear <jpr@ximian.com>
  */
 
 #include <config.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include <libgnomeui/gnome-dialog.h>
 #include <glade/glade.h>
 #include "e-util/e-util-private.h"

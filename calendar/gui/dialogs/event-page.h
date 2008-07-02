@@ -1,6 +1,6 @@
 /* Evolution calendar - Main page of the event editor dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -56,7 +56,7 @@ typedef struct {
 } EventPageClass;
 
 
-GtkType    event_page_get_type  (void);
+GType      event_page_get_type  (void);
 EventPage *event_page_construct (EventPage *epage, EMeetingStore *model, ECal *client);
 EventPage *event_page_new       (EMeetingStore *model, ECal *client, BonoboUIComponent *uic);
 ECalComponent *event_page_get_cancel_comp (EventPage *page);

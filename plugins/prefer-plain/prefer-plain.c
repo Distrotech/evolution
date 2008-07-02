@@ -7,6 +7,7 @@
 #include "config.h"
 #endif
 
+#include <gtk/gtk.h>
 #include <glib/gi18n-lib.h>
 #include <string.h>
 #include <stdio.h>
@@ -17,12 +18,6 @@
 #include "mail/em-format.h"
 
 #include <gconf/gconf-client.h>
-#include <gtk/gtkcombobox.h>
-#include <gtk/gtkliststore.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkcelllayout.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtklabel.h>
 #include "mail/em-config.h"
 
 void org_gnome_prefer_plain_multipart_alternative(void *ep, EMFormatHookTarget *t);
@@ -99,7 +94,47 @@ org_gnome_prefer_plain_multipart_alternative(void *ep, EMFormatHookTarget *t)
 	int i, nparts, partidlen, displayid = 0;
 
 	if (epp_mode == EPP_NORMAL) {
-		t->item->handler.old->handler(t->format, t->stream, t->part, t->item->handler.old);
+		gboolean have_plain = FALSE;
+
+		/* Try to find text/html part even when not as last and force to show it.
+		   Old handler will show the last part of multipart/alternate, but if we
+		   can offer HTML, then offer it, regardless of position in multipart.
+		   But do this only when have text/plain in a list, because otherwise it
+		   can be something else (like outlooks meeting invites with only text/html
+		   part and calendar part).
+		*/
+		nparts = camel_multipart_get_number (mp);
+		for (i = 0; i < nparts; i++) {
+			CamelContentType *content_type;
+
+			part = camel_multipart_get_part (mp, i);
+
+			if (!part)
+				continue;
+
+			content_type = camel_mime_part_get_content_type (part);
+
+			if (camel_content_type_is (content_type, "text", "html")) {
+				displayid = i;
+				display_part = part;
+
+				if (have_plain)
+					break;
+			} else if (camel_content_type_is (content_type, "text", "plain")) {
+				have_plain = TRUE;
+
+				if (display_part)
+					break;
+			}
+		}
+
+		if (display_part && have_plain) {
+			g_string_append_printf (t->format->part_id, ".alternative.%d", displayid);
+			em_format_part_as (t->format, t->stream, display_part, "text/html");
+			g_string_truncate (t->format->part_id, partidlen);
+		} else {
+			t->item->handler.old->handler (t->format, t->stream, t->part, t->item->handler.old);
+		}
 		return;
 	} else if (!CAMEL_IS_MULTIPART(mp)) {
 		em_format_format_source(t->format, t->stream, t->part);

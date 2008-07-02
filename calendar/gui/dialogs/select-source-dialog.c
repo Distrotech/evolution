@@ -1,6 +1,6 @@
 /* Evolution calendar - Select source dialog
  *
- * Copyright (C) 2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Rodrigo Moya <rodrigo@ximian.com>
  *
@@ -22,8 +22,7 @@
 #include <config.h>
 #endif
 
-#include <bonobo/bonobo-i18n.h>
-#include <gtk/gtkstock.h>
+#include <glib/gi18n.h>
 #include <e-util/e-icon-factory.h>
 #include <libedataserverui/e-source-selector-dialog.h>
 #include "select-source-dialog.h"

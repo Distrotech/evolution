@@ -4,7 +4,7 @@
  *           Bertrand Guiheneuf (bg@aful.org)
  *           And just about everyone else in evolution ...
  *
- *  Copyright 2000-2002 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,14 +31,10 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <glib.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
 #include <gconf/gconf-client.h>
-
-#include <gtk/gtk.h>
-
-#include <glib/gi18n.h>
 
 #include <camel/camel-exception.h>
 #include <camel/camel-file-utils.h>
@@ -223,6 +219,7 @@ static struct {
 	{ "mail-unread",                       NULL },
 	{ "mail-read",                         NULL },
 	{ "mail-replied",                      NULL },
+	{ "mail-forward",                      NULL },
 	{ "stock_mail-unread-multiple",        NULL },
 	{ "stock_mail-open-multiple",          NULL },
 	{ NULL,                                NULL },
@@ -1053,6 +1050,7 @@ static const char *status_map[] = {
 	N_("Unseen"),
 	N_("Seen"),
 	N_("Answered"),
+	N_("Forwarded"),
 	N_("Multiple Unseen Messages"),
 	N_("Multiple Messages"),
 };
@@ -1076,7 +1074,7 @@ ml_value_to_string (ETreeModel *etm, int col, const void *value, void *data)
 	switch (col){
 	case COL_MESSAGE_STATUS:
 		i = GPOINTER_TO_UINT(value);
-		if (i > 4)
+		if (i > 5)
 			return g_strdup ("");
 		return g_strdup (_(status_map[i]));
 
@@ -1145,26 +1143,6 @@ subtree_unread(MessageList *ml, ETreePath node)
 		node = e_tree_model_node_get_next (ml->model, node);
 	}
 	return FALSE;
-}
-
-static int
-subtree_size(MessageList *ml, ETreePath node)
-{
-	CamelMessageInfo *info;
-	int size = 0;
-	ETreePath child;
-
-	while (node) {
-		info = e_tree_memory_node_get_data((ETreeMemory *)ml->model, node);
-		g_return_val_if_fail (info != NULL, 0);
-
-		size += camel_message_info_size(info);
-		if ((child = e_tree_model_node_get_first_child (E_TREE_MODEL (ml->model), node)))
-			size += subtree_size(ml, child);
-
-		node = e_tree_model_node_get_next (ml->model, node);
-	}
-	return size;
 }
 
 static time_t
@@ -1312,6 +1290,8 @@ ml_tree_value_at (ETreeModel *etm, ETreePath path, int col, void *model_data)
 		flags = camel_message_info_flags(msg_info);
 		if (flags & CAMEL_MESSAGE_ANSWERED)
 			return GINT_TO_POINTER (2);
+		else if (flags & CAMEL_MESSAGE_FORWARDED)
+			return GINT_TO_POINTER (3);
 		else if (flags & CAMEL_MESSAGE_SEEN)
 			return GINT_TO_POINTER (1);
 		else
@@ -1685,7 +1665,7 @@ static ECell * create_composite_cell (int col)
 	cell_hbox = e_cell_hbox_new ();
 
 	for (i = 0; i < 2; i++)
-		images [i] = states_pixmaps [i + 5].pixbuf;
+		images [i] = states_pixmaps [i + 6].pixbuf;
 	cell_attach = e_cell_toggle_new (0, 2, images);
 
 	cell_date = e_cell_date_new(NULL, GTK_JUSTIFY_RIGHT);
@@ -1739,32 +1719,32 @@ message_list_create_extras (void)
 
 	extras = e_table_extras_new ();
 	e_table_extras_add_pixbuf (extras, "status", states_pixmaps [0].pixbuf);
-	e_table_extras_add_pixbuf (extras, "score", states_pixmaps [13].pixbuf);
-	e_table_extras_add_pixbuf (extras, "attachment", states_pixmaps [6].pixbuf);
-	e_table_extras_add_pixbuf (extras, "flagged", states_pixmaps [7].pixbuf);
-	e_table_extras_add_pixbuf (extras, "followup", states_pixmaps [15].pixbuf);
+	e_table_extras_add_pixbuf (extras, "score", states_pixmaps [14].pixbuf);
+	e_table_extras_add_pixbuf (extras, "attachment", states_pixmaps [7].pixbuf);
+	e_table_extras_add_pixbuf (extras, "flagged", states_pixmaps [8].pixbuf);
+	e_table_extras_add_pixbuf (extras, "followup", states_pixmaps [16].pixbuf);
 
 	e_table_extras_add_compare (extras, "address_compare", address_compare);
 
-	for (i = 0; i < 5; i++)
+	for (i = 0; i < 6; i++)
 		images [i] = states_pixmaps [i].pixbuf;
 
-	e_table_extras_add_cell (extras, "render_message_status", e_cell_toggle_new (0, 5, images));
+	e_table_extras_add_cell (extras, "render_message_status", e_cell_toggle_new (0, 6, images));
 
 	for (i = 0; i < 2; i++)
-		images [i] = states_pixmaps [i + 5].pixbuf;
+		images [i] = states_pixmaps [i + 6].pixbuf;
 
 	e_table_extras_add_cell (extras, "render_attachment", e_cell_toggle_new (0, 2, images));
 
-	images [1] = states_pixmaps [7].pixbuf;
+	images [1] = states_pixmaps [8].pixbuf;
 	e_table_extras_add_cell (extras, "render_flagged", e_cell_toggle_new (0, 2, images));
 
-	images[1] = states_pixmaps [15].pixbuf;
-	images[2] = states_pixmaps [16].pixbuf;
+	images[1] = states_pixmaps [16].pixbuf;
+	images[2] = states_pixmaps [17].pixbuf;
 	e_table_extras_add_cell (extras, "render_flag_status", e_cell_toggle_new (0, 3, images));
 
 	for (i = 0; i < 7; i++)
-		images[i] = states_pixmaps [i + 7].pixbuf;
+		images[i] = states_pixmaps [i + 8].pixbuf;
 
 	e_table_extras_add_cell (extras, "render_score", e_cell_toggle_new (0, 7, images));
 
@@ -2179,11 +2159,15 @@ message_list_init (MessageList *message_list)
 	message_list->hide_after = ML_HIDE_NONE_END;
 
 	message_list->search = NULL;
+	message_list->ensure_uid = NULL;
 
 	message_list->hide_lock = g_mutex_new();
 
 	message_list->uid_nodemap = g_hash_table_new (g_str_hash, g_str_equal);
 	message_list->async_event = mail_async_event_new();
+
+	message_list->cursor_uid = NULL;
+	message_list->last_sel_single = FALSE;
 
 	/* TODO: Should this only get the selection if we're realised? */
 	p = message_list->priv = g_malloc0(sizeof(*message_list->priv));
@@ -2280,6 +2264,7 @@ message_list_finalise (GObject *object)
 	}
 
 	g_free(message_list->search);
+	g_free(message_list->ensure_uid);
 	g_free(message_list->frozen_search);
 	g_free(message_list->cursor_uid);
 
@@ -3333,8 +3318,13 @@ on_cursor_activated_cmd (ETree *tree, int row, ETreePath path, gpointer user_dat
 	else
 		new_uid = get_message_uid (message_list, path);
 
+	/* Do not check the cursor_uid and the new_uid values, because the selected item
+	   (set in on_selection_changed_cmd) can be different from the one with a cursor
+	   (when selecting with Ctrl, for example). This has a little side-effect, when
+	   keeping list it that state, then changing folders forth and back will select
+	   and move cursor to that selected item. Does anybody consider it as a bug? */
 	if ((message_list->cursor_uid == NULL && new_uid == NULL)
-	    || (message_list->cursor_uid != NULL && new_uid != NULL && !strcmp (message_list->cursor_uid, new_uid)))
+	    || (message_list->last_sel_single && message_list->cursor_uid != NULL && new_uid != NULL))
 		return;
 
 	g_free (message_list->cursor_uid);
@@ -3367,8 +3357,8 @@ on_selection_changed_cmd(ETree *tree, MessageList *ml)
 	/* If the selection isn't empty, then we ignore the no-uid check, since this event
 	   is also used for other updating.  If it is empty, it might just be a setup event
 	   from etree which we do need to ignore */
-	if ((newuid == NULL && ml->cursor_uid == NULL && uids->len == 0)
-	    || (uids->len == 1 && newuid != NULL && ml->cursor_uid != NULL && !strcmp(ml->cursor_uid, newuid))) {
+	if ((newuid == NULL && ml->cursor_uid == NULL && uids->len == 0) ||
+	    (ml->last_sel_single && uids->len == 1 && newuid != NULL && ml->cursor_uid != NULL && !strcmp (ml->cursor_uid, newuid))) {
 		/* noop */
 	} else {
 		g_free(ml->cursor_uid);
@@ -3376,6 +3366,8 @@ on_selection_changed_cmd(ETree *tree, MessageList *ml)
 		if (!ml->idle_id)
 			ml->idle_id = g_idle_add_full (G_PRIORITY_LOW, on_cursor_activated_idle, ml, NULL);
 	}
+
+	ml->last_sel_single = uids->len == 1;
 
 	message_list_free_uids(ml, uids);
 }
@@ -3578,6 +3570,16 @@ message_list_set_search (MessageList *ml, const char *search)
 		g_free(ml->frozen_search);
 		ml->frozen_search = g_strdup(search);
 	}
+}
+
+/* will ensure that the message with UID uid will be in the message list after the next rebuild */
+void
+message_list_ensure_message (MessageList *ml, const char *uid)
+{
+	g_return_if_fail (ml != NULL);
+
+	g_free (ml->ensure_uid);
+	ml->ensure_uid = g_strdup (uid);
 }
 
 /* returns the number of messages displayable *after* expression hiding has taken place */
@@ -3845,6 +3847,7 @@ regen_list_exec (struct _regen_list_msg *m)
 	CamelMessageInfo *info;
 	ETreePath cursor;
 	int i;
+	char *expr = NULL;
 
 	if (m->folder != m->ml->folder)
 		return;
@@ -3858,10 +3861,8 @@ regen_list_exec (struct _regen_list_msg *m)
 	/* if we have hidedeleted on, use a search to find it out, merge with existing search if set */
 	if (!camel_folder_has_search_capability(m->folder)) {
 		/* if we have no search capability, dont let search or hide deleted work */
-		uids = camel_folder_get_uids(m->folder);
+		expr = NULL;
 	} else if (m->hidedel) {
-		char *expr;
-
 		if (m->hidejunk) {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 92);
@@ -3875,22 +3876,51 @@ regen_list_exec (struct _regen_list_msg *m)
 			} else
 				expr = "(match-all (not (system-flag \"deleted\")))";
 		}
-		searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &m->base.ex);
 	} else {
-		char *expr;
-
 		if (m->hidejunk) {
 			if (m->search) {
 				expr = alloca(strlen(m->search) + 64);
 				sprintf(expr, "(and (match-all (not (system-flag \"junk\")))\n %s)", m->search);
 			} else
 				expr = "(match-all (not (system-flag \"junk\")))";
-			searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &m->base.ex);
 		} else {
-			if (m->search)
-				searchuids = uids = camel_folder_search_by_expression (m->folder, m->search, &m->base.ex);
-			else
-				uids = camel_folder_get_uids (m->folder);
+			expr = m->search;
+		}
+	}
+
+	if (expr == NULL) {
+		uids = camel_folder_get_uids (m->folder);
+	} else {
+		searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &m->base.ex);
+
+		/* If m->changes is not NULL, then it means we are called from folder_changed event,
+		   thus we will keep the selected message to be sure it doesn't disappear because
+		   it no longer belong to our search filter. */
+		if (uids && m->ml->search && ((m->changes && m->ml->cursor_uid) || m->ml->ensure_uid)) {
+			const char *looking_for = m->ml->cursor_uid;
+
+			/* ensure_uid has precedence of cursor_uid */
+			if (m->ml->ensure_uid)
+				looking_for = m->ml->ensure_uid;
+
+			for (i = 0; i < uids->len; i++) {
+				if (g_str_equal (looking_for, uids->pdata [i]))
+					break;
+			}
+
+			/* cursor_uid has been filtered out */
+			if (i == uids->len) {
+				gboolean was_deleted = (camel_folder_get_message_flags (m->folder, looking_for) & CAMEL_MESSAGE_DELETED) != 0;
+
+				/* I would really like to check for CAMEL_MESSAGE_FOLDER_FLAGGED on a message,
+				   so I would know whether it was changed locally, and then just check the changes
+				   struct whether change came from the server, but with periodical save it doesn't
+				   matter. So here just check whether the file was deleted and we show it based
+				   on the flag whether we can view deleted messages or not. */
+
+				if (!was_deleted || (was_deleted && !m->hidedel))
+					g_ptr_array_add (uids, g_strdup (looking_for));
+			}
 		}
 	}
 
@@ -4022,6 +4052,11 @@ regen_list_done (struct _regen_list_msg *m)
 	if (m->ml->priv->destroyed)
 		return;
 
+	if (m->ml->ensure_uid) {
+		g_free (m->ml->ensure_uid);
+		m->ml->ensure_uid = NULL;
+	}
+
 	if (!m->complete)
 		return;
 
@@ -4084,6 +4119,15 @@ regen_list_done (struct _regen_list_msg *m)
 				select_path (m->ml, path);
 		}
 	}
+
+	if (message_list_length (m->ml) <= 0) {
+		/* space is used to indicate no search too */
+		if (m->ml->search && strcmp (m->ml->search, " ") != 0)
+			e_tree_set_info_message (m->ml->tree, _("No message satisfies your search criteria. Either clear search with Search->Clear menu item or change it."));
+		else
+			e_tree_set_info_message (m->ml->tree, _("There are no messages in this folder."));
+	} else
+		e_tree_set_info_message (m->ml->tree, NULL);
 
 	g_signal_emit (m->ml, message_list_signals[MESSAGE_LIST_BUILT], 0);
 }
@@ -4171,6 +4215,10 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 {
 	struct _regen_list_msg *m;
 	GConfClient *gconf;
+
+	/* report empty search as NULL, not as one/two-space string */
+	if (search && (strcmp (search, " ") == 0 || strcmp (search, "  ") == 0))
+		search = NULL;
 
 	if (ml->folder == NULL) {
 		if (ml->search != search) {

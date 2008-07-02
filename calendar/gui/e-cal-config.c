@@ -1,7 +1,7 @@
 /*
  * Authors: David Trowbridge <trowbrds@cs.colorado.edu>
  *
- * Copyright (C) 2004 Novell, Inc (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include "e-cal-config.h"
 
 static GObjectClass *ecp_parent_class;

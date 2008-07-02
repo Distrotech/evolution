@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* e-minicard.h
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 #ifndef __E_MINICARD_H__
 #define __E_MINICARD_H__
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gtk/gtk.h>
 #include "addressbook/gui/contact-editor/eab-editor.h"
 #include <libgnomecanvas/gnome-canvas.h>
 #include <libebook/e-contact.h>

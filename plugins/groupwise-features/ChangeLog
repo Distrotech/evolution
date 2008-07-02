@@ -1,3 +1,37 @@
+2008-06-20  Sankar P  <psankar@novell.com>
+
+	* mail-retract.c (retract_mail_settings):
+	Multiple open dialogs is an usability issue
+	and a potential HIG violation. 
+	Thanks to Akhil for pointing out.
+
+2008-06-20  Sankar P  <psankar@novell.com>
+
+	* mail-retract.c (retract_mail_settings):
+	Check if cnc is valid before using it.
+	Fixes a crash.
+
+2008-06-19  Sankar P  <psankar@novell.com>
+
+	* mail-retract.c (retract_mail_settings):
+	Ask the user if he really wants to retract mails.
+	Re-arrange the menus a little for grouping related things.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* proxy.h:
+	* proxy-login.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-04-25  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #529855
+
+	* org-gnome-shared-folder.errors.xml: (recurrence):
+	Use proper label element name, these are localized by default.
+
 2008-04-02  Matthew Barnes  <mbarnes@redhat.com>
 
 	* mail-send-options.c (org_gnome_composer_send_options):

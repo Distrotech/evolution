@@ -1,6 +1,6 @@
 /* Evolution calendar - Send calendar component dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: JP Rosevear <jpr@ximian.com>
  *
@@ -22,7 +22,6 @@
 #include <config.h>
 #endif
 
-#include <gtk/gtkmessagedialog.h>
 #include "e-util/e-error.h"
 #include "send-comp.h"
 

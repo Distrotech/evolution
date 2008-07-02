@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-table-field-chooser.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -25,7 +25,7 @@
 #define __E_TABLE_FIELD_CHOOSER_H__
 
 #include <glade/glade.h>
-#include <gtk/gtkvbox.h>
+#include <gtk/gtk.h>
 #include <table/e-table-header.h>
 
 G_BEGIN_DECLS

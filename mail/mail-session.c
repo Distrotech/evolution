@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* mail-session.c: handles the session information and resource manipulation */
 /*
- *  Copyright 2001 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -396,7 +396,7 @@ lookup_addressbook(CamelSession *session, const char *name)
 
 	addr = camel_internet_address_new ();
 	camel_address_decode ((CamelAddress *)addr, name);
-	ret = em_utils_in_addressbook(addr);
+	ret = em_utils_in_addressbook (addr, mail_config_get_lookup_book_local_only ());
 	camel_object_unref (addr);
 
 	return ret;
@@ -547,6 +547,10 @@ main_get_filter_driver (CamelSession *session, const char *type, CamelException 
 		while ((rule = rule_context_next_rule (fc, rule, type))) {
 			g_string_truncate (fsearch, 0);
 			g_string_truncate (faction, 0);
+
+			/* skip disabled rules */
+			if (!rule->enabled)
+				continue;
 
 			filter_rule_build_code (rule, fsearch);
 			em_filter_rule_build_action ((EMFilterRule *) rule, faction);

@@ -3,7 +3,7 @@
  *
  * Author:  Mike Kestner  <mkestner@ximian.com>
  *
- * Copyright (C) 2003 Ximian Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,10 +23,6 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkarrow.h>
-#include <gtk/gtkbutton.h>
 
 #include "e-combo-cell-editable.h"
 #include "e-cell-renderer-combo.h"

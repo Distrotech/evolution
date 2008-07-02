@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * gal-view-new-dialog.c
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -22,8 +22,6 @@
  */
 
 #include <config.h>
-
-#include <gtk/gtk.h>
 
 #include "table/e-table-scrolled.h"
 #include <glib/gi18n.h>
@@ -88,21 +86,21 @@ gal_view_new_dialog_init (GalViewNewDialog *dialog)
 	g_free (filename);
 	dialog->gui = gui;
 
-	widget = glade_xml_get_widget(gui, "table-top");
+	widget = glade_xml_get_widget (gui, "table-top");
 	if (!widget) {
 		return;
 	}
-	g_object_ref(widget);
+	g_object_ref (widget);
 	gtk_container_remove (GTK_CONTAINER (widget->parent), widget);
-	gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), widget, TRUE, TRUE, 0);
-	g_object_unref(widget);
+	gtk_box_pack_start (GTK_BOX(GTK_DIALOG(dialog)->vbox), widget, TRUE, TRUE, 0);
+	g_object_unref (widget);
 
 	gtk_dialog_add_buttons (GTK_DIALOG (dialog),
 				GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
 				GTK_STOCK_OK, GTK_RESPONSE_OK,
 				NULL);
 
-	gtk_window_set_policy(GTK_WINDOW(dialog), FALSE, TRUE, FALSE);
+	gtk_window_set_resizable (GTK_WINDOW(dialog), TRUE);
 	gtk_window_set_modal (GTK_WINDOW(dialog), TRUE);
 	gtk_window_set_title (GTK_WINDOW(dialog), _("Define New View"));
 

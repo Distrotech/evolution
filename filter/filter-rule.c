@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Copyright (C) 2000-2002 Ximian Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *           Jeffrey Stedfast <fejj@ximian.com>
@@ -121,6 +121,7 @@ static void
 filter_rule_init (FilterRule *fr)
 {
 	fr->priv = g_malloc0 (sizeof (*fr->priv));
+	fr->enabled = TRUE;
 }
 
 static void
@@ -258,7 +259,8 @@ list_eq(GList *al, GList *bl)
 static int
 rule_eq (FilterRule *fr, FilterRule *cm)
 {
-	return fr->grouping == cm->grouping
+	return fr->enabled == cm->enabled
+		&& fr->grouping == cm->grouping
 		&& fr->threading == fr->threading
 		&& ((fr->name && cm->name && strcmp (fr->name, cm->name) == 0)
 		     || (fr->name == NULL && cm->name == NULL))
@@ -282,6 +284,9 @@ xml_encode (FilterRule *fr)
 	GList *l;
 
 	node = xmlNewNode (NULL, (const unsigned char *)"rule");
+
+	xmlSetProp (node, (const unsigned char *)"enabled", (const unsigned char *)(fr->enabled ? "true" : "false"));
+
 	switch (fr->grouping) {
 	case FILTER_GROUP_ALL:
 		xmlSetProp (node, (const unsigned char *)"grouping", (const unsigned char *)"all");
@@ -390,6 +395,14 @@ xml_decode (FilterRule *fr, xmlNodePtr node, RuleContext *f)
 		fr->name = NULL;
 	}
 
+	grouping = (char *)xmlGetProp (node, (const unsigned char *)"enabled");
+	if (!grouping)
+		fr->enabled = TRUE;
+	else {
+		fr->enabled = strcmp (grouping, "false") != 0;
+		xmlFree (grouping);
+	}
+
 	grouping = (char *)xmlGetProp (node, (const unsigned char *)"grouping");
 	if (!strcmp (grouping, "any"))
 		fr->grouping = FILTER_GROUP_ANY;
@@ -446,6 +459,8 @@ static void
 rule_copy (FilterRule *dest, FilterRule *src)
 {
 	GList *node;
+
+	dest->enabled = src->enabled;
 
 	g_free (dest->name);
 	dest->name = g_strdup (src->name);
@@ -729,6 +744,20 @@ attach_rule (GtkWidget *rule, struct _rule_data *data, FilterPart *part, int row
 }
 
 static void
+do_grab_focus_cb (GtkWidget *widget, gpointer data)
+{
+	gboolean *done = (gboolean *) data;
+
+	if (*done)
+		return;
+
+	if (widget && GTK_WIDGET_CAN_FOCUS (widget)) {
+		*done = TRUE;
+		gtk_widget_grab_focus (widget);
+	}
+}
+
+static void
 more_parts (GtkWidget *button, struct _rule_data *data)
 {
 	FilterPart *new;
@@ -757,6 +786,24 @@ more_parts (GtkWidget *button, struct _rule_data *data)
 		rows = GTK_TABLE (data->parts)->nrows;
 		gtk_table_resize (GTK_TABLE (data->parts), rows + 1, 2);
 		attach_rule (w, data, new, rows);
+
+		if (GTK_IS_CONTAINER (w)) {
+			gboolean done = FALSE;
+
+			gtk_container_foreach (GTK_CONTAINER (w), do_grab_focus_cb, &done);
+		} else
+			gtk_widget_grab_focus (w);
+
+		/* also scroll down to see new part */
+		w = (GtkWidget*) g_object_get_data (G_OBJECT (button), "scrolled-window");
+		if (w) {
+			GtkAdjustment *adjustment;
+
+			adjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (w));
+			if (adjustment)
+				gtk_adjustment_set_value (adjustment, adjustment->upper);
+				
+		}
 	}
 }
 
@@ -936,6 +983,8 @@ get_widget (FilterRule *fr, struct _RuleContext *f)
 	gtk_box_pack_start (GTK_BOX (inframe), scrolledwindow, TRUE, TRUE, 3);
 
 	gtk_widget_show_all (vbox);
+
+	g_object_set_data (G_OBJECT (add), "scrolled-window", scrolledwindow);
 
 	return vbox;
 }

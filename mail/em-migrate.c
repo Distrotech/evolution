@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,6 @@
 
 #include <e-util/e-util.h>
 #include <libedataserver/e-data-server-util.h>
-#include <libedataserver/e-iconv.h>
 #include <e-util/e-xml-utils.h>
 
 #include "e-util/e-bconf-map.h"

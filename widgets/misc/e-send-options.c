@@ -1,6 +1,6 @@
 /* Evolution calendar - Main page of the Groupwise send options Dialog
  *
- * Copyright (C) 2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Chenthill Palanisamy <pchenthill@novell.com>
  *
@@ -23,10 +23,6 @@
 #endif
 
 #include <string.h>
-#include <glib.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtk.h>
 #include <libgnome/libgnome.h>
 #include <glib/gi18n.h>
 #include <glade/glade.h>

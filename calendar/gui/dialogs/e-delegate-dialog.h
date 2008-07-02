@@ -1,6 +1,6 @@
 /* Evolution calendar - Delegate selector dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: JP Rosevear <jpr@ximian.com>
  *
@@ -21,7 +21,7 @@
 #ifndef __E_DELEGATE_DIALOG_H__
 #define __E_DELEGATE_DIALOG_H__
 
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 
 
@@ -48,7 +48,7 @@ struct _EDelegateDialogClass {
 	GtkObjectClass parent_class;
 };
 
-GtkType          e_delegate_dialog_get_type          (void);
+GType            e_delegate_dialog_get_type          (void);
 
 EDelegateDialog* e_delegate_dialog_construct         (EDelegateDialog *etd,
 						      const char      *name,

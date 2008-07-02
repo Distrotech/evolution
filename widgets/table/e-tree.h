@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-tree.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,8 +24,7 @@
 #ifndef _E_TREE_H_
 #define _E_TREE_H_
 
-#include <gtk/gtkdnd.h>
-#include <gtk/gtktable.h>
+#include <gtk/gtk.h>
 #include <libxml/tree.h>
 #include <libgnomecanvas/gnome-canvas.h>
 #include <misc/e-printable.h>
@@ -308,6 +307,8 @@ void            e_tree_right_click_up             (ETree                *et);
 ETableItem *	e_tree_get_item(ETree * et);
 
 GnomeCanvasItem * e_tree_get_header_item(ETree * et);
+
+void e_tree_set_info_message (ETree *tree, const char *info_message);
 
 G_END_DECLS
 

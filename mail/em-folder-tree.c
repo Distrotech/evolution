@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,8 +36,6 @@
 #include <libxml/tree.h>
 
 #include <glib/gi18n.h>
-#include <gtk/gtk.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk/gdkkeysyms.h>
 #include <glib/gi18n.h>
 
@@ -515,7 +513,8 @@ folder_tree_new (EMFolderTree *emft, EMFolderTreeModel *model)
 	gtk_tree_view_column_set_cell_data_func (column, renderer, render_pixbuf, NULL, NULL);
 
 	renderer = gtk_cell_renderer_text_new ();
-	g_object_set (G_OBJECT (renderer), "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+	if (!gconf_client_get_bool (gconf, "/apps/evolution/mail/display/no_folder_dots", NULL))
+		g_object_set (G_OBJECT (renderer), "ellipsize", PANGO_ELLIPSIZE_END, NULL);
 	gtk_tree_view_column_pack_start (column, renderer, TRUE);
 	gtk_tree_view_column_set_cell_data_func (column, renderer, render_display_name, NULL, NULL);
 
@@ -1101,6 +1100,7 @@ emft_drop_target(EMFolderTree *emft, GdkDragContext *context, GtkTreePath *path)
 	gboolean is_store;
 	GtkTreeIter iter;
 	GList *targets;
+	guint32 flags = 0;
 
 	/* This is a bit of a mess, but should handle all the cases properly */
 
@@ -1109,6 +1109,7 @@ emft_drop_target(EMFolderTree *emft, GdkDragContext *context, GtkTreePath *path)
 
 	gtk_tree_model_get((GtkTreeModel *)p->model, &iter, COL_BOOL_IS_STORE, &is_store,
 			   COL_STRING_FULL_NAME, &full_name,
+			   COL_UINT_FLAGS, &flags,
 			   COL_POINTER_CAMEL_STORE, &dstore,
 			   COL_STRING_URI, &uri, -1);
 
@@ -1144,6 +1145,9 @@ emft_drop_target(EMFolderTree *emft, GdkDragContext *context, GtkTreePath *path)
 		/* don't allow copying/moving into a vTrash/vJunk folder */
 		if (!strcmp (full_name, CAMEL_VTRASH_NAME)
 		    || !strcmp (full_name, CAMEL_VJUNK_NAME))
+			goto done;
+
+		if (flags & CAMEL_FOLDER_NOSELECT)
 			goto done;
 	}
 

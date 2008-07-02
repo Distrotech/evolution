@@ -4,7 +4,7 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 2000, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Based on the GnomeDateEdit, part of the Gnome Library.
  * Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation
@@ -41,9 +41,7 @@
 #define __E_DATE_EDIT_H_
 
 #include <time.h>
-#include <glib.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 #define E_TYPE_DATE_EDIT            (e_date_edit_get_type ())
 #define E_DATE_EDIT(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_DATE_EDIT, EDateEdit))
@@ -180,7 +178,7 @@ void       e_date_edit_set_twodigit_year_can_future (EDateEdit  *dedit,
 void	   e_date_edit_set_get_time_callback	(EDateEdit	*dedit,
 						 EDateEditGetTimeCallback cb,
 						 gpointer	 data,
-						 GtkDestroyNotify destroy);
+						 GDestroyNotify  destroy);
 
 GtkWidget* e_date_edit_get_entry       (EDateEdit      *dedit);
 

@@ -4,7 +4,7 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 2000, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Based on the GnomeDateEdit, part of the Gnome Library.
  * Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation
@@ -42,21 +42,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkarrow.h>
-#include <gtk/gtkbbox.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkcomboboxentry.h>
-#include <gtk/gtkliststore.h>
-#include <gtk/gtkcelllayout.h>
-#include <gtk/gtkdrawingarea.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtkhbbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkmessagedialog.h>
 #include <atk/atkrelation.h>
 #include <atk/atkrelationset.h>
 #include <glib/gi18n.h>
@@ -125,7 +110,7 @@ struct _EDateEditPrivate {
 
 	EDateEditGetTimeCallback time_callback;
 	gpointer time_callback_data;
-	GtkDestroyNotify time_callback_destroy;
+	GDestroyNotify time_callback_destroy;
 
 	gboolean twodigit_year_can_future;
 };
@@ -219,7 +204,7 @@ static GtkHBoxClass *parent_class;
 /**
  * e_date_edit_get_type:
  *
- * Returns the GtkType for the EDateEdit widget
+ * Returns the GType for the EDateEdit widget
  */
 GType
 e_date_edit_get_type		(void)
@@ -261,7 +246,7 @@ e_date_edit_class_init		(EDateEditClass	*class)
 			      G_STRUCT_OFFSET (EDateEditClass, changed),
 			      NULL, NULL,
 			      g_cclosure_marshal_VOID__VOID,
-			      GTK_TYPE_NONE, 0);
+			      G_TYPE_NONE, 0);
 
 	object_class->dispose = e_date_edit_dispose;
 
@@ -406,7 +391,7 @@ create_children			(EDateEdit	*dedit)
 	gtk_widget_set_name (priv->time_combo, "e-dateedit-timecombo");
 	rebuild_time_popup (dedit);
 	a11y = gtk_widget_get_accessible (priv->time_combo);
-	atk_object_set_description (a11y, _("Combo box to select time"));
+	atk_object_set_description (a11y, _("Drop-down combination box to select time"));
 	atk_object_set_name (a11y, _("Time"));
 
 	g_signal_connect (GTK_BIN (priv->time_combo)->child,
@@ -437,6 +422,8 @@ create_children			(EDateEdit	*dedit)
 		gtk_widget_show (priv->space);
 
 	priv->cal_popup = gtk_window_new (GTK_WINDOW_POPUP);
+	gtk_window_set_type_hint (GTK_WINDOW (priv->cal_popup),
+				  GDK_WINDOW_TYPE_HINT_COMBO);
 	gtk_widget_set_events (priv->cal_popup,
 			       gtk_widget_get_events (priv->cal_popup)
 			       | GDK_KEY_PRESS_MASK);
@@ -449,8 +436,7 @@ create_children			(EDateEdit	*dedit)
 	g_signal_connect (priv->cal_popup, "button_press_event",
 			  G_CALLBACK (on_date_popup_button_press),
 			  dedit);
-	gtk_window_set_policy (GTK_WINDOW (priv->cal_popup),
-			       FALSE, FALSE, TRUE);
+	gtk_window_set_resizable (GTK_WINDOW (priv->cal_popup), TRUE);
 
 	frame = gtk_frame_new (NULL);
 	gtk_frame_set_shadow_type (GTK_FRAME (frame), GTK_SHADOW_OUT);
@@ -2151,7 +2137,7 @@ void
 e_date_edit_set_get_time_callback	(EDateEdit	*dedit,
 					 EDateEditGetTimeCallback cb,
 					 gpointer	 data,
-					 GtkDestroyNotify destroy)
+					 GDestroyNotify destroy)
 {
 	EDateEditPrivate *priv;
 

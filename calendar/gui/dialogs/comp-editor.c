@@ -1,6 +1,6 @@
 /* Evolution calendar - Framework for a calendar component editor dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -27,16 +27,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <glib.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkstock.h>
 #include <bonobo/bonobo-ui-util.h>
 #include <bonobo/bonobo-widget.h>
 #include <libgnome/libgnome.h>
-#include <glib/gi18n.h>
-#include <libgnomevfs/gnome-vfs-mime.h>
-#include <libgnomevfs/gnome-vfs.h>
 #include <libgnomeui/gnome-uidefs.h>
 #include <libgnomeui/gnome-dialog.h>
 #include <libgnomeui/gnome-dialog-util.h>
@@ -2366,26 +2362,6 @@ set_icon_from_comp (CompEditor *editor)
 	}
 }
 
-static char *
-attachment_guess_mime_type (const char *file_name)
-{
-	GnomeVFSFileInfo *info;
-	GnomeVFSResult result;
-	char *type = NULL;
-
-	info = gnome_vfs_file_info_new ();
-	result = gnome_vfs_get_file_info (file_name, info,
-					  GNOME_VFS_FILE_INFO_GET_MIME_TYPE |
-					  GNOME_VFS_FILE_INFO_FORCE_SLOW_MIME_TYPE |
-					  GNOME_VFS_FILE_INFO_FOLLOW_LINKS);
-	if (result == GNOME_VFS_OK)
-		type = g_strdup (gnome_vfs_file_info_get_mime_type (info));
-
-	gnome_vfs_file_info_unref (info);
-
-	return type;
-}
-
 static void
 set_attachment_list (CompEditor *editor, GSList *attach_list)
 {
@@ -2441,7 +2417,7 @@ set_attachment_list (CompEditor *editor, GSList *attach_list)
 			return;
 		}
 
-		mime_type = attachment_guess_mime_type (file_name);
+		mime_type = e_util_guess_mime_type (file_name);
 		if (mime_type) {
 			if (!g_ascii_strcasecmp (mime_type, "message/rfc822")) {
 				wrapper = (CamelDataWrapper *) camel_mime_message_new ();
@@ -2631,7 +2607,7 @@ static gboolean
 real_send_comp (CompEditor *editor, ECalComponentItipMethod method)
 {
 	CompEditorPrivate *priv;
-	ECalComponent *send_comp;
+	ECalComponent *send_comp = NULL;
 	char *address = NULL;
 	GList *users = NULL;
 
@@ -2640,7 +2616,24 @@ real_send_comp (CompEditor *editor, ECalComponentItipMethod method)
 
 	priv = editor->priv;
 
-	send_comp = e_cal_component_clone (priv->comp);
+	if (priv->mod == CALOBJ_MOD_ALL && e_cal_component_is_instance (priv->comp)) {
+		/* Ensure we send the master object, not the instance only */
+		icalcomponent *icalcomp = NULL;
+		const char *uid = NULL;
+
+		e_cal_component_get_uid (priv->comp, &uid);
+		if (e_cal_get_object (priv->client, uid, NULL, &icalcomp, NULL) && icalcomp) {
+			send_comp = e_cal_component_new ();
+			if (!e_cal_component_set_icalcomponent (send_comp, icalcomp)) {
+				icalcomponent_free (icalcomp);
+				g_object_unref (send_comp);
+				send_comp = NULL;
+			}
+		}
+	}
+
+	if (!send_comp)
+		send_comp = e_cal_component_clone (priv->comp);
 
 	if (e_cal_component_get_vtype (send_comp) == E_CAL_COMPONENT_JOURNAL)
 		get_users_from_memo_comp (send_comp, &users);

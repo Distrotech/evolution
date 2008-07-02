@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* evolution-addressbook-export.c
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -28,7 +28,7 @@
 #include <glib/gi18n.h>
 #include <bonobo-activation/bonobo-activation.h>
 #include <bonobo/bonobo-main.h>
-#include <gnome.h>
+#include <libgnome/gnome-init.h>
 
 #include <libebook/e-book.h>
 

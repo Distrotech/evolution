@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2002 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,13 +25,9 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <glib.h>
-#include <glib/gstdio.h>
-
 #include <gtk/gtk.h>
-
 #include <glib/gi18n.h>
-#include <gtk/gtkfilechooserbutton.h>
+#include <glib/gstdio.h>
 
 #include <libedataserver/e-sexp.h>
 

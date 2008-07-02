@@ -2,7 +2,7 @@
 
 /* EAlarmList - list of calendar alarms with GtkTreeModel interface.
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,17 +23,17 @@
 #ifndef E_ALARM_LIST_H
 #define E_ALARM_LIST_H
 
-#include <gtk/gtktreemodel.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-component.h>
 
 G_BEGIN_DECLS
 
 #define E_TYPE_ALARM_LIST            (e_alarm_list_get_type ())
-#define E_ALARM_LIST(obj)	         (GTK_CHECK_CAST ((obj), E_TYPE_ALARM_LIST, EAlarmList))
-#define E_ALARM_LIST_CLASS(klass)    (GTK_CHECK_CLASS_CAST ((klass), E_TYPE_ALARM_LIST, EAlarmListClass))
-#define E_IS_ALARM_LIST(obj)         (GTK_CHECK_TYPE ((obj), E_TYPE_ALARM_LIST))
-#define E_IS_ALARM_LIST_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), E_TYPE_ALARM_LIST))
-#define E_ALARM_LIST_GET_CLASS(obj)  (GTK_CHECK_GET_CLASS ((obj), E_TYPE_ALARM_LIST, EAlarmListClass))
+#define E_ALARM_LIST(obj)	         (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_ALARM_LIST, EAlarmList))
+#define E_ALARM_LIST_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_ALARM_LIST, EAlarmListClass))
+#define E_IS_ALARM_LIST(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_ALARM_LIST))
+#define E_IS_ALARM_LIST_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_ALARM_LIST))
+#define E_ALARM_LIST_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_ALARM_LIST, EAlarmListClass))
 
 typedef struct _EAlarmList       EAlarmList;
 typedef struct _EAlarmListClass  EAlarmListClass;
@@ -63,7 +63,7 @@ struct _EAlarmListClass
 	GObjectClass parent_class;
 };
 
-GtkType                  e_alarm_list_get_type  (void);
+GType                    e_alarm_list_get_type  (void);
 EAlarmList              *e_alarm_list_new       (void);
 
 const ECalComponentAlarm *e_alarm_list_get_alarm (EAlarmList *alarm_list, GtkTreeIter *iter);

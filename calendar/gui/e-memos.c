@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-memos.c
  *
- * Copyright (C) 2001-2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -28,9 +28,7 @@
 #endif
 
 #include <string.h>
-#include <gnome.h>
 #include <glib/gi18n.h>
-#include <libgnomevfs/gnome-vfs-ops.h>
 #include <libedataserver/e-time-utils.h>
 #include <table/e-table-scrolled.h>
 #include <widgets/menus/gal-view-instance.h>
@@ -39,7 +37,6 @@
 
 #include "e-util/e-error.h"
 #include "e-util/e-categories-config.h"
-#include "e-util/e-config-listener.h"
 #include "e-util/e-util-private.h"
 #include "shell/e-user-creatable-items-handler.h"
 #include <libecal/e-cal-time-util.h>
@@ -69,8 +66,6 @@ struct _EMemosPrivate {
 
 	ECalView *query;
 
-	EConfigListener *config_listener;
-
 	/* The EMemoTable showing the memos. */
 	GtkWidget   *memos_view;
 	EMemoTableConfig *memos_view_config;
@@ -98,7 +93,7 @@ static void setup_widgets (EMemos *memos);
 static void e_memos_destroy (GtkObject *object);
 static void update_view (EMemos *memos);
 
-static void config_categories_changed_cb (EConfigListener *config_listener, const char *key, gpointer user_data);
+static void categories_changed_cb (gpointer object, gpointer user_data);
 static void backend_error_cb (ECal *client, const char *message, gpointer data);
 
 /* Signal IDs */
@@ -174,8 +169,7 @@ table_selection_change_cb (ETable *etable, gpointer data)
 	memos = E_MEMOS (data);
 
 	n_selected = e_table_selected_count (etable);
-	gtk_signal_emit (GTK_OBJECT (memos), e_memos_signals[SELECTION_CHANGED],
-			 n_selected);
+	g_signal_emit (memos, e_memos_signals[SELECTION_CHANGED], 0, n_selected);
 
 	if (n_selected != 1)
 		e_cal_component_memo_preview_clear (E_CAL_COMPONENT_MEMO_PREVIEW (memos->priv->preview));
@@ -500,8 +494,7 @@ setup_widgets (EMemos *memos)
 	g_signal_connect (priv->search_bar, "category_changed",
 			  G_CALLBACK (search_bar_category_changed_cb), memos);
 
-	/* TODO Why doesn't this work?? */
-	config_categories_changed_cb (priv->config_listener, "/apps/evolution/general/category_master_list", memos);
+	categories_changed_cb (NULL, memos);
 
 	gtk_table_attach (GTK_TABLE (memos), priv->search_bar, 0, 1, 0, 1,
 			  GTK_EXPAND | GTK_FILL | GTK_SHRINK, 0, 0, 0);
@@ -563,13 +556,14 @@ e_memos_class_init (EMemosClass *klass)
 	object_class = (GtkObjectClass *) klass;
 
 	e_memos_signals[SELECTION_CHANGED] =
-		gtk_signal_new ("selection_changed",
-				GTK_RUN_LAST,
-				G_TYPE_FROM_CLASS (object_class),
-				GTK_SIGNAL_OFFSET (EMemosClass, selection_changed),
-				g_cclosure_marshal_VOID__INT,
-				GTK_TYPE_NONE, 1,
-				GTK_TYPE_INT);
+		g_signal_new ("selection_changed",
+			      G_TYPE_FROM_CLASS (object_class),
+			      G_SIGNAL_RUN_LAST,
+			      G_STRUCT_OFFSET (EMemosClass, selection_changed),
+			      NULL, NULL,
+			      g_cclosure_marshal_VOID__INT,
+			      G_TYPE_NONE, 1,
+			      G_TYPE_INT);
 
 	e_memos_signals[SOURCE_ADDED] =
 		g_signal_new ("source_added",
@@ -602,7 +596,7 @@ e_memos_class_init (EMemosClass *klass)
 
 
 static void
-config_categories_changed_cb (EConfigListener *config_listener, const char *key, gpointer user_data)
+categories_changed_cb (gpointer object, gpointer user_data)
 {
 	GList *cat_list;
 	GPtrArray *cat_array;
@@ -636,8 +630,7 @@ e_memos_init (EMemos *memos)
 	setup_config (memos);
 	setup_widgets (memos);
 
-	priv->config_listener = e_config_listener_new ();
-	g_signal_connect (priv->config_listener, "key_changed", G_CALLBACK (config_categories_changed_cb), memos);
+	e_categories_register_change_listener (G_CALLBACK (categories_changed_cb), memos);
 
 	priv->clients = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 	priv->query = NULL;
@@ -648,23 +641,6 @@ e_memos_init (EMemos *memos)
 	priv->default_client = NULL;
 	update_view (memos);
 }
-
-/* Callback used when the set of categories changes in the calendar client */
-/* TODO this was actually taken out of tasks in 2.3.x
- *      config_categories doesn't work, but this may - trying with memos*/
-/*
-static void
-client_categories_changed_cb (ECal *client, GPtrArray *categories, gpointer data)
-{
-	EMemos *memos;
-	EMemosPrivate *priv;
-
-	memos = E_MEMOS (data);
-	priv = memos->priv;
-
-	cal_search_bar_set_categories (CAL_SEARCH_BAR (priv->search_bar), categories);
-}
-*/
 
 GtkWidget *
 e_memos_new (void)
@@ -703,14 +679,7 @@ e_memos_destroy (GtkObject *object)
 	if (priv) {
 		GList *l;
 
-		/* unset the config listener */
-		if (priv->config_listener) {
-			g_signal_handlers_disconnect_matched (priv->config_listener,
-							      G_SIGNAL_MATCH_DATA,
-							      0, 0, NULL, NULL, memos);
-			g_object_unref (priv->config_listener);
-			priv->config_listener = NULL;
-		}
+		e_categories_unregister_change_listener (G_CALLBACK (categories_changed_cb), memos);
 
 		/* disconnect from signals on all the clients */
 		for (l = priv->clients_list; l != NULL; l = l->next) {
@@ -811,7 +780,7 @@ backend_died_cb (ECal *client, gpointer data)
 	priv->clients_list = g_list_remove (priv->clients_list, client);
 	g_hash_table_remove (priv->clients,  e_source_peek_uid (source));
 
-	gtk_signal_emit (GTK_OBJECT (memos), e_memos_signals[SOURCE_REMOVED], source);
+	g_signal_emit (memos, e_memos_signals[SOURCE_REMOVED], 0, source);
 
 	e_memo_table_set_status_message (E_MEMO_TABLE (e_memos_get_calendar_table (memos)), NULL);
 
@@ -860,7 +829,7 @@ client_cal_opened_cb (ECal *ecal, ECalendarStatus status, EMemos *memos)
 		/* Do this last because it unrefs the client */
 		g_hash_table_remove (priv->clients,  e_source_peek_uid (source));
 
-		gtk_signal_emit (GTK_OBJECT (memos), e_memos_signals[SOURCE_REMOVED], source);
+		g_signal_emit (memos, e_memos_signals[SOURCE_REMOVED], 0, source);
 
 		set_status_message (memos, NULL);
 		g_object_unref (source);
@@ -902,7 +871,7 @@ default_client_cal_opened_cb (ECal *ecal, ECalendarStatus status, EMemos *memos)
 		/* Do this last because it unrefs the client */
 		g_hash_table_remove (priv->clients,  e_source_peek_uid (source));
 
-		gtk_signal_emit (GTK_OBJECT (memos), e_memos_signals[SOURCE_REMOVED], source);
+		g_signal_emit (memos, e_memos_signals[SOURCE_REMOVED], 0, source);
 
 		set_status_message (memos, NULL);
 		g_object_unref (priv->default_client);
@@ -980,14 +949,13 @@ e_memos_add_memo_source (EMemos *memos, ESource *source)
 	}
 
 	g_signal_connect (G_OBJECT (client), "backend_error", G_CALLBACK (backend_error_cb), memos);
-/*	g_signal_connect (G_OBJECT (client), "categories_changed", G_CALLBACK (client_categories_changed_cb), memos); */
 	g_signal_connect (G_OBJECT (client), "backend_died", G_CALLBACK (backend_died_cb), memos);
 
 	/* add the client to internal structure */
 	g_hash_table_insert (priv->clients, g_strdup (uid) , client);
 	priv->clients_list = g_list_prepend (priv->clients_list, client);
 
-	gtk_signal_emit (GTK_OBJECT (memos), e_memos_signals[SOURCE_ADDED], source);
+	g_signal_emit (memos, e_memos_signals[SOURCE_ADDED], 0, source);
 
 	open_ecal (memos, client, FALSE, client_cal_opened_cb);
 
@@ -1024,7 +992,7 @@ e_memos_remove_memo_source (EMemos *memos, ESource *source)
 	g_hash_table_remove (priv->clients, uid);
 
 
-	gtk_signal_emit (GTK_OBJECT (memos), e_memos_signals[SOURCE_REMOVED], source);
+	g_signal_emit (memos, e_memos_signals[SOURCE_REMOVED], 0, source);
 
 	return TRUE;
 }

@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-cal-component-memo-preview.h
  *
- * Copyright (C) 2004  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -25,15 +25,15 @@
 #ifndef _E_CAL_COMPONENT_MEMO_PREVIEW_H_
 #define _E_CAL_COMPONENT_MEMO_PREVIEW_H_
 
-#include <gtk/gtktable.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal.h>
 
 #define E_TYPE_CAL_COMPONENT_MEMO_PREVIEW            (e_cal_component_memo_preview_get_type ())
-#define E_CAL_COMPONENT_MEMO_PREVIEW(obj)            (GTK_CHECK_CAST ((obj), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW, ECalComponentMemoPreview))
-#define E_CAL_COMPONENT_MEMO_PREVIEW_CLASS(klass)    (GTK_CHECK_CAST_CLASS ((klass), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW, \
+#define E_CAL_COMPONENT_MEMO_PREVIEW(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW, ECalComponentMemoPreview))
+#define E_CAL_COMPONENT_MEMO_PREVIEW_CLASS(klass)    (G_TYPE_CHECK_INSTANCE_CAST_CLASS ((klass), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW, \
 				                 ECalComponentMemoPreviewClass))
-#define E_IS_CAL_COMPONENT_MEMO_PREVIEW(obj)         (GTK_CHECK_TYPE ((obj), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW))
-#define E_IS_CAL_COMPONENT_MEMO_PREVIEW_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW))
+#define E_IS_CAL_COMPONENT_MEMO_PREVIEW(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW))
+#define E_IS_CAL_COMPONENT_MEMO_PREVIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_COMPONENT_MEMO_PREVIEW))
 
 typedef struct _ECalComponentMemoPreview	ECalComponentMemoPreview;
 typedef struct _ECalComponentMemoPreviewClass	ECalComponentMemoPreviewClass;
@@ -54,7 +54,7 @@ struct _ECalComponentMemoPreviewClass {
 };
 
 
-GtkType    e_cal_component_memo_preview_get_type        (void);
+GType      e_cal_component_memo_preview_get_type        (void);
 GtkWidget *e_cal_component_memo_preview_new             (void);
 
 icaltimezone *e_cal_component_memo_preview_get_default_timezone (ECalComponentMemoPreview *preview);

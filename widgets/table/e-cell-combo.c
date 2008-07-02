@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-cell-combo.c: Combo cell renderer
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Damon Chaplin <damon@ximian.com>
@@ -138,8 +138,8 @@ e_cell_combo_init			(ECellCombo	*ecc)
 	   ever be one popup in use at a time. */
 	ecc->popup_window = gtk_window_new (GTK_WINDOW_POPUP);
 
-	gtk_window_set_policy (GTK_WINDOW (ecc->popup_window),
-			       TRUE, TRUE, FALSE);
+	gtk_window_set_type_hint (GTK_WINDOW (ecc->popup_window), GDK_WINDOW_TYPE_HINT_COMBO);
+	gtk_window_set_resizable (GTK_WINDOW (ecc->popup_window), TRUE);
 
 	frame = gtk_frame_new (NULL);
 	gtk_container_add (GTK_CONTAINER (ecc->popup_window), frame);

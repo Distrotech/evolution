@@ -3,7 +3,7 @@
 /*
  * eab-popup-control.c
  *
- * Copyright (C) 2001-2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Jon Trowbridge <trow@ximian.com>
  *          Chris Toshok <toshok@ximian.com>
@@ -33,18 +33,6 @@
 #include <string.h>
 #include "addressbook.h"
 #include "eab-popup-control.h"
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkframe.h>
-#include <gtk/gtkhbbox.h>
-#include <gtk/gtkhseparator.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtktreeselection.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkvbox.h>
 #include <bonobo/bonobo-control.h>
 #include <bonobo/bonobo-property-bag.h>
 #include <bonobo/bonobo-generic-factory.h>

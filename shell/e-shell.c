@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-shell.c
  *
- * Copyright (C) 2000, 2001, 2002, 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,13 +23,11 @@
 #include <config.h>
 
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <glib/gstdio.h>
-
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
 
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkprivate.h>
@@ -717,7 +715,7 @@ e_shell_construct (EShell *shell,
 	if (start_online)
 		e_shell_go_online (shell, NULL, GNOME_Evolution_USER_ONLINE);
 	else
-		e_shell_go_online (shell, NULL, GNOME_Evolution_FORCED_OFFLINE);
+		e_shell_go_online (shell, NULL, GNOME_Evolution_USER_OFFLINE);
 
 	return E_SHELL_CONSTRUCT_RESULT_OK;
 }

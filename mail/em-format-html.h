@@ -2,7 +2,7 @@
 /*
  *  Authors: Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,11 @@ enum _em_format_html_header_flags {
 	EM_FORMAT_HTML_HEADER_CC = 1<<1,
 	EM_FORMAT_HTML_HEADER_BCC = 1<<2,
 };
+
+typedef enum {
+	EM_FORMAT_HTML_STATE_NONE = 0,
+	EM_FORMAT_HTML_STATE_RENDERING
+} EMFormatHTMLState;
 
 /* A HTMLJob will be executed in another thread, in sequence,
    It's job is to write to its stream, close it if successful,
@@ -153,6 +158,7 @@ struct _EMFormatHTMLPObject {
  * @headers:
  * @text_html_flags:
  * @body_colour:
+ * @header_colour:
  * @text_colour:
  * @frame_colour:
  * @content_colour:
@@ -183,6 +189,7 @@ struct _EMFormatHTML {
 
 	guint32 text_html_flags; /* default flags for text to html conversion */
 	guint32 body_colour;	/* header box colour */
+	guint32 header_colour;
 	guint32 text_colour;
 	guint32 frame_colour;
 	guint32 content_colour;
@@ -194,6 +201,8 @@ struct _EMFormatHTML {
 	unsigned int hide_headers:1; /* no headers at all */
 	unsigned int show_icon:1; /* show an icon when the sender used Evo */
 	guint32 header_wrap_flags;
+
+	EMFormatHTMLState state; /* actual state of the object */
 };
 
 struct _EMFormatHTMLClass {

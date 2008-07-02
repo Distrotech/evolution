@@ -1,0 +1,36 @@
+2008-06-02  Matthew Barnes  <mbarnes@redhat.com>
+
+	* Makefile.am:
+	Distribute the Glade file.
+
+2008-06-02  Ashish Shrivastava  <shashish@novell.com>
+
+	** Fixes bug #536183
+
+	* email-custom-header.c:
+	* org-gnome-email-custom-header.glade:
+	Change email custom header's dialog to non-modal.
+	Remove un-used tab from dialog
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* email-custom-header.c (action_email_custom_header_cb):
+	Remove unused 'editor' variable.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* email-custom-header.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-05-19  Ashish Shrivastava  <shashish@novell.com>
+
+	* org-gnome-email-custom-header.eplug.xml:
+	* org-gnome-email-custom-header.glade:
+	* apps_evolution_email_custom_header.schemas.in:
+	* Makefile.am:
+	* email-custom-header.c:
+	* email-custom-header.h:
+	** Initial set of files. Implements Custom header support.
+	** Added custom header plugin.

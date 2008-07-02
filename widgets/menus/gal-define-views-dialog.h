@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * gal-define-views-dialog.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,9 +24,7 @@
 #ifndef __GAL_DEFINE_VIEWS_DIALOG_H__
 #define __GAL_DEFINE_VIEWS_DIALOG_H__
 
-#include <gtk/gtkdialog.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtktreemodel.h>
+#include <gtk/gtk.h>
 #include <glade/glade.h>
 
 #include <widgets/menus/gal-view-collection.h>

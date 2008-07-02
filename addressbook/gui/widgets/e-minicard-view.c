@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-minicard-view.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -27,8 +27,7 @@
 #include "eab-marshal.h"
 #include "util/eab-book-util.h"
 
-#include <gtk/gtkselection.h>
-#include <gtk/gtkdnd.h>
+#include <gtk/gtk.h>
 #include <gdk/gdkkeysyms.h>
 #include <misc/e-canvas.h>
 #include <glib/gi18n.h>

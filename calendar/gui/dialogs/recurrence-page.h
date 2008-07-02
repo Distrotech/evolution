@@ -1,6 +1,6 @@
 /* Evolution calendar - Recurrence page of the calendar component dialogs
  *
- * Copyright (C) 2001-2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -51,7 +51,7 @@ typedef struct {
 } RecurrencePageClass;
 
 
-GtkType         recurrence_page_get_type  (void);
+GType           recurrence_page_get_type  (void);
 RecurrencePage *recurrence_page_construct (RecurrencePage *rpage);
 RecurrencePage *recurrence_page_new       (void);
 

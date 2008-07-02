@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
  *
  *  Shakti Sen <shprasad@novell.com>
- *  Copyright (C) 2005 Novell, Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@
 #include <glib/gi18n.h>
 #include <glade/glade.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkdialog.h>
 #include <gconf/gconf-client.h>
 #include <exchange-account.h>
 #include <e-util/e-dialog-utils.h>
@@ -169,6 +168,10 @@ org_gnome_exchange_folder_permissions (EPlugin *ep, EMPopupTargetFolder *target)
 		return;
 
 	path = target->uri + strlen ("exchange://") + strlen (account->account_filename);
+
+	if (!path || !*path)
+		return;
+
 	fixed_path = camel_url_decode_path (path);
 	d(g_print ("exchange-folder-permission.c: path=[%s], fixed_path=[%s]\n", path, fixed_path));
 

@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * gal-define-views-dialog.c
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -22,8 +22,6 @@
  */
 
 #include <config.h>
-
-#include <gtk/gtk.h>
 
 #include <glib/gi18n.h>
 #include "e-util/e-util.h"

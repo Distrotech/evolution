@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * test-contact-print-style-editor.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -22,7 +22,7 @@
 #include "config.h"
 
 #include <stdlib.h>
-#include <gtk/gtkmain.h>
+#include <gtk/gtk.h>
 #include <libgnomeui/gnome-app.h>
 #include <libgnomeui/gnome-ui-init.h>
 #include <bonobo/bonobo-main.h>

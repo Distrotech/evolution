@@ -3,7 +3,7 @@
  *
  *  Authors: Johnny Jacob <jjohnny@novell.com>
  *
- *  Copyright 2006 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Adapted and modified from Epiphany.
  *
@@ -37,7 +37,7 @@
 #ifndef E_ICON_ENTRY_H
 #define E_ICON_ENTRY_H
 
-#include <gtk/gtkbin.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 

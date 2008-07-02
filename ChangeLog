@@ -1,3 +1,115 @@
+2008-06-24  Alp Toker  <alp@nuanti.com>
+
+	Reviewed by Jeffrey Stedfast.
+
+	* configure.in:
+	* acinclude.m4:
+	Add dolt revision 5e9eef10 to the autotools build system. Speeds up
+	the build, often by a factor of two or more on supported platforms,
+	otherwise falls back to libtool.
+
+	See http://dolt.freedesktop.org for details.
+
+2008-06-18  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #423395
+
+	* configure.in: Requires newer GtkHTML, 3.23.5.
+
+2008-06-17  Johnny Jacob  <jjohnny@novell.com>
+
+	* configure.in: Bumped to 2.23.5 .
+
+	* NEWS: Evolution 2.23.4 release updates.
+
+2008-06-16  Johnny Jacob  <jjohnny@novell.com>
+
+	* plugins/Makefile.am (DIST_SUBDIRS): Add python loader to DIST.
+
+2008-06-13  Tor Lillqvist  <tml@novell.com>
+
+	* win32/libevolution-mail.def: Add more functions used by
+	libevolution-composer.la and libevolution-calendar.la.
+
+2008-06-11  Johnny Jacob  <jjohnny@novell.com>
+
+	** Partially fixes #506393
+	* configure.in : Adding python plugin loader (--enable-python).
+
+2008-06-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Allow evolution to build with G_DISABLE_SINGLE_INCLUDES and
+	   GTK_DISABLE_SINGLE_INCLUDES defined.  (#536637)
+
+2008-06-06  Tor Lillqvist  <tml@novell.com>
+
+	* configure.in: Add -Wl,--exclude-libs=libiconv.a to ICONV_LIBS on
+	Windows to avoid auto-exporting functions from the static
+	libiconv.a implementation in win_iconv from evolution's DLLs.
+
+2008-06-05  Johnny Jacob  <jjohnny@novell.com>
+
+	Committing this on behalf Chenthill Palanisamy  <pchenthill@novell.com>
+	
+	* configure.in (EVO_SET_COMPILE_FLAGS): Add libebackend.
+
+2008-06-02  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* NEWS: Evolution 2.23.1.1 release and version bump.
+
+2008-06-02  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* NEWS: Evolution 2.23.3 release.
+
+2008-06-02  Matthew Barnes  <mbarnes@redhat.com>
+
+	* configure.in:
+	Bump eds_minimum_version to 2.23.3 for CAMEL_MESSAGE_FORWARDED.
+
+2008-05-23  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534476
+
+	* configure.in:
+	Require shared-mime-info >= 0.22 to make sure we pick up the fix
+	for correctly identifying "winmail.dat" attachments.
+
+2008-05-12  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* NEWS, configure.in : Evolution 2.23.2 release and version bump.
+
+2008-05-08  Tor Lillqvist  <tml@novell.com>
+
+	* evolution-zip.in: Include the whole etc/gconf/gconf.xml.defaults
+	tree. The intent is to do "make install" to a temporary empty
+	folder anyway, so there won't be any extra stuff in there. It is
+	essential to get all the empty %gconf.xml files, also from the
+	gconf.xml.defaults/apps folder.
+
+2008-05-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	* configure.in:
+	Bump eds_minimum_version to 2.23.2 for camel-iconv.h.
+
+2008-04-30  Rob Bradford  <rob@openedhand.com>
+
+	* configure.in:
+	Link with libebackend (see #530576.)
+
+2008-04-21  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* NEWS, configure.in: Evolution 2.23.1 release and version bump.
+
+2008-04-18  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* MAINTAINERS: Update the Mail guards.
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* configure.in: Drop dependency on gnome-vfs, depend on gio instead.
+
 2008-04-11  Suman Manjunath  <msuman@novell.com>
 
 	* configure.in: Bump glib package requirement: glib-2.0 >= 2.16.0

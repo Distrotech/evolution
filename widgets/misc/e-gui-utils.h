@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-gui-utils.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Miguel de Icaza <miguel@ximian.com>
@@ -24,9 +24,7 @@
 #ifndef GAL_GUI_UTILS_H
 #define GAL_GUI_UTILS_H
 
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkwindow.h>
-
+#include <gtk/gtk.h>
 #include <glade/glade-xml.h>
 
 G_BEGIN_DECLS
@@ -47,7 +45,7 @@ gint  e_container_change_tab_order  (GtkContainer *container,
 gboolean  e_glade_xml_connect_widget  (GladeXML      *gui,
 				       char          *name,
 				       char          *signal,
-				       GtkSignalFunc  cb,
+				       GCallback      cb,
 				       gpointer       closure);
 gboolean  e_glade_xml_set_sensitive   (GladeXML      *gui,
 				       char          *name,

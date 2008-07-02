@@ -7,7 +7,7 @@
  *   Chris Toshok (toshok@ximian.com)
  *
  * Copyright (C) 1999 Miguel de Icaza
- * Copyright (C) 2000-2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  */
 
 
@@ -20,16 +20,7 @@
 #include "e-gui-utils.h"
 #include <e-util/e-icon-factory.h>
 
-#include <glib.h>
-#include <gtk/gtkalignment.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkicontheme.h>
-
 #include <libgnome/gnome-program.h>
-#include <libgnomevfs/gnome-vfs-mime-handlers.h>
 #include <libgnomeui/gnome-icon-lookup.h>
 
 /**

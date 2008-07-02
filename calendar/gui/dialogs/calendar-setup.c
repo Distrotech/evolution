@@ -1,7 +1,7 @@
 /*
  * Authors: David Trowbridge <trowbrds@cs.colorado.edu>
  *
- * Copyright (C) 2004 Novell, Inc (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,10 +25,7 @@
 
 #include <string.h>
 
-#include <gtk/gtkbox.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtkvbox.h>
+#include <gtk/gtk.h>
 
 #include <libedataserver/e-source.h>
 #include <libedataserver/e-source-list.h>

@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-util.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -55,7 +55,7 @@ gint		e_collate_compare		(gconstpointer x,
 						 gconstpointer y);
 gint		e_int_compare                   (gconstpointer x,
 						 gconstpointer y);
-gint		e_write_file_uri		(const gchar *filename,
+gboolean	e_write_file_uri		(const gchar *filename,
 						 const gchar *data);
 
 /* This only makes a filename safe for usage as a filename.
@@ -116,6 +116,12 @@ gchar *		e_file_get_save_path		(void);
 gboolean	e_file_lock_create (void);
 void		e_file_lock_destroy (void);
 gboolean 	e_file_lock_exists (void);
+
+char *e_util_guess_mime_type (const char *filename);
+char *e_util_filename_to_uri (const char *filename);
+char *e_util_uri_to_filename (const char *uri);
+
+gboolean e_util_read_file  (const char *filename, gboolean filename_is_uri, char **buffer, gsize *read,  GError **error);
 
 #ifdef __cplusplus
 }

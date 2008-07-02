@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-dialog-utils.h
  *
- * Copyright (C) 2001  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -29,27 +29,15 @@
 #include "e-dialog-utils.h"
 
 #include <unistd.h>
-#include <glib.h>
 #include <glib/gstdio.h>
 
-#include <gdkconfig.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
 
-#include <gtk/gtkmain.h>
-#include <gtk/gtkplug.h>
-#include <gtk/gtkversion.h>
-
-#include <gtk/gtkfilechooser.h>
-#include <gtk/gtkfilechooserdialog.h>
-#include <gtk/gtkstock.h>
-
 #include <gconf/gconf-client.h>
 #include <glib/gi18n.h>
 #include <libgnome/gnome-util.h>
-
-#include <libgnomevfs/gnome-vfs-utils.h>
 
 #include "e-util/e-util.h"
 #include "e-util/e-error.h"
@@ -408,7 +396,7 @@ e_file_can_save(GtkWindow *parent, const char *uri)
 	if (!e_file_check_local(uri))
 		return TRUE;
 
-	path = gnome_vfs_get_local_path_from_uri(uri);
+	path = e_util_uri_to_filename (uri);
 	if (!path)
 		return FALSE;
 
@@ -438,7 +426,7 @@ e_file_check_local (const char *name)
 {
 	char *uri;
 
-	uri = gnome_vfs_get_local_path_from_uri(name);
+	uri = e_util_uri_to_filename (name);
 	if (uri) {
 		g_free(uri);
 		return TRUE;

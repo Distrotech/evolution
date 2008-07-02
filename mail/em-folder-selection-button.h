@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 #ifndef __EM_FOLDER_SELECTION_BUTTON_H__
 #define __EM_FOLDER_SELECTION_BUTTON_H__
 
-#include <gtk/gtkbutton.h>
+#include <gtk/gtk.h>
 
 #ifdef __cplusplus
 extern "C" {

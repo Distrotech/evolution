@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-cell.h
- * Copyright 1999, 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Miguel de Icaza <miguel@ximian.com>
@@ -25,7 +25,6 @@
 #ifndef _E_CELL_H_
 #define _E_CELL_H_
 
-#include <gdk/gdktypes.h>
 #include <gtk/gtk.h>
 #include <table/e-table-model.h>
 #include <table/e-table-tooltip.h>

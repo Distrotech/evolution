@@ -4,8 +4,8 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 2000, Ximian, Inc.
- * Copyright 2000, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -24,7 +24,7 @@
 #ifndef _E_CALENDAR_TABLE_H_
 #define _E_CALENDAR_TABLE_H_
 
-#include <gtk/gtktable.h>
+#include <gtk/gtk.h>
 #include <table/e-table-scrolled.h>
 #include <misc/e-cell-date-edit.h>
 #include "e-activity-handler.h"
@@ -38,9 +38,9 @@ G_BEGIN_DECLS
  */
 
 
-#define E_CALENDAR_TABLE(obj)          GTK_CHECK_CAST (obj, e_calendar_table_get_type (), ECalendarTable)
-#define E_CALENDAR_TABLE_CLASS(klass)  GTK_CHECK_CLASS_CAST (klass, e_calendar_table_get_type (), ECalendarTableClass)
-#define E_IS_CALENDAR_TABLE(obj)       GTK_CHECK_TYPE (obj, e_calendar_table_get_type ())
+#define E_CALENDAR_TABLE(obj)          G_TYPE_CHECK_INSTANCE_CAST (obj, e_calendar_table_get_type (), ECalendarTable)
+#define E_CALENDAR_TABLE_CLASS(klass)  G_TYPE_CHECK_CLASS_CAST (klass, e_calendar_table_get_type (), ECalendarTableClass)
+#define E_IS_CALENDAR_TABLE(obj)       G_TYPE_CHECK_INSTANCE_TYPE (obj, e_calendar_table_get_type ())
 
 
 typedef struct _ECalendarTable       ECalendarTable;
@@ -78,7 +78,7 @@ struct _ECalendarTableClass {
 };
 
 
-GtkType	   e_calendar_table_get_type (void);
+GType		   e_calendar_table_get_type (void);
 GtkWidget* e_calendar_table_new	(void);
 
 ECalModel *e_calendar_table_get_model (ECalendarTable *cal_table);

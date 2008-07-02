@@ -1,6 +1,6 @@
 /* Evolution calendar - Main page of the memo editor dialog
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -27,12 +27,7 @@
 #endif
 
 #include <string.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktextview.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <glade/glade.h>
 #include <libedataserverui/e-source-combo-box.h>

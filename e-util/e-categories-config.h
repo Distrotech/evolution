@@ -5,15 +5,13 @@
  * Author:
  *   Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  */
 
 #ifndef __E_CATEGORIES_CONFIG_H__
 #define __E_CATEGORIES_CONFIG_H__
 
-#include <glib.h>
-#include <gdk/gdk.h>
-#include <gtk/gtkentry.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 

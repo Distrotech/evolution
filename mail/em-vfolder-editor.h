@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Copyright (C) 2000-2002 Ximian Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  Authors: Not Zed <notzed@lostzed.mmc.com.au>
  *           Jeffrey Stedfast <fejj@ximian.com>
@@ -30,7 +30,7 @@
 #define EM_VFOLDER_EDITOR_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), em_vfolder_editor_get_type(), EMVFolderEditorClass))
 #define EM_IS_VFOLDER_EDITOR(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), em_vfolder_editor_get_type()))
 #define EM_IS_VFOLDER_EDITOR_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), em_vfolder_editor_get_type()))
-#define EM_VFOLDER_EDITOR_GET_CLASS(obj)  (GTK_CHECK_GET_CLASS ((obj), em_vfolder_editor_get_type(), EMVFolderEditorClass))
+#define EM_VFOLDER_EDITOR_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), em_vfolder_editor_get_type(), EMVFolderEditorClass))
 
 typedef struct _EMVFolderEditor EMVFolderEditor;
 typedef struct _EMVFolderEditorClass EMVFolderEditorClass;
@@ -44,7 +44,7 @@ struct _EMVFolderEditorClass {
 	RuleEditorClass parent_class;
 };
 
-GtkType em_vfolder_editor_get_type (void);
+GType em_vfolder_editor_get_type (void);
 
 EMVFolderEditor *em_vfolder_editor_new (EMVFolderContext *vc);
 

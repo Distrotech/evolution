@@ -4,7 +4,7 @@
  * Author :
  *  Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,17 +27,10 @@
 
 #include <string.h>
 #include <time.h>
-#include <glib.h>
-#include <glib/gstdio.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtkstock.h>
-#include <gdk/gdkkeysyms.h>
-#include <gtk/gtkbindings.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtkcontainer.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <glib/gstdio.h>
+#include <gdk/gdkkeysyms.h>
 #include <libedataserver/e-time-utils.h>
 #include <e-util/e-error.h>
 #include <e-util/e-dialog-utils.h>
@@ -364,13 +357,17 @@ e_calendar_view_add_event (ECalendarView *cal_view, ECal *client, time_t dtstart
 
 	/* set the timezone properly */
 	e_cal_component_get_dtstart (comp, &dt);
+	g_free ((char *) dt.tzid);
 	dt.tzid = icaltimezone_get_tzid (default_zone);
 	e_cal_component_set_dtstart (comp, &dt);
+	dt.tzid = NULL;
 	e_cal_component_free_datetime (&dt);
 
 	e_cal_component_get_dtend (comp, &dt);
+	g_free ((char *) dt.tzid);
 	dt.tzid = icaltimezone_get_tzid (default_zone);
 	e_cal_component_set_dtend (comp, &dt);
+	dt.tzid = NULL;
 	e_cal_component_free_datetime (&dt);
 
 	e_cal_component_commit_sequence (comp);
@@ -2050,8 +2047,30 @@ e_calendar_view_modify_and_send (ECalComponent *comp,
 {
 	if (e_cal_modify_object (client, e_cal_component_get_icalcomponent (comp), mod, NULL)) {
 		if ((itip_organizer_is_user (comp, client) || itip_sentby_is_user (comp)) &&
-		    send_component_dialog (toplevel, client, comp, new))
-			itip_send_comp (E_CAL_COMPONENT_METHOD_REQUEST, comp, client, NULL, NULL, NULL);
+		    send_component_dialog (toplevel, client, comp, new)) {
+			ECalComponent *send_comp = NULL;
+
+			if (mod == CALOBJ_MOD_ALL && e_cal_component_is_instance (comp)) {
+				/* Ensure we send the master object, not the instance only */
+				icalcomponent *icalcomp = NULL;
+				const char *uid = NULL;
+
+				e_cal_component_get_uid (comp, &uid);
+				if (e_cal_get_object (client, uid, NULL, &icalcomp, NULL) && icalcomp) {
+					send_comp = e_cal_component_new ();
+					if (!e_cal_component_set_icalcomponent (send_comp, icalcomp)) {
+						icalcomponent_free (icalcomp);
+						g_object_unref (send_comp);
+						send_comp = NULL;
+					}
+				}
+			}
+
+			itip_send_comp (E_CAL_COMPONENT_METHOD_REQUEST, send_comp ? send_comp : comp, client, NULL, NULL, NULL);
+
+			if (send_comp)
+				g_object_unref (send_comp);
+		}
 	} else {
 		g_message (G_STRLOC ": Could not update the object!");
 	}
@@ -2274,6 +2293,7 @@ e_calendar_view_get_tooltips (ECalendarViewEventData *data)
 	frame = gtk_frame_new (NULL);
 	gtk_frame_set_shadow_type ((GtkFrame *)frame, GTK_SHADOW_IN);
 
+	gtk_window_set_type_hint (GTK_WINDOW (pevent->tooltip), GDK_WINDOW_TYPE_HINT_TOOLTIP);
 	gtk_window_move ((GtkWindow *)pevent->tooltip, pevent->x +16, pevent->y+16);
 	gtk_container_add ((GtkContainer *)frame, box);
 	gtk_container_add ((GtkContainer *)pevent->tooltip, frame);

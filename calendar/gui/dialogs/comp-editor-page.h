@@ -1,6 +1,6 @@
 /* Evolution calendar - Base class for calendar component editor pages
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -22,7 +22,7 @@
 #define COMP_EDITOR_PAGE_H
 
 #include <time.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-component.h>
 #include <libecal/e-cal.h>
 
@@ -53,7 +53,7 @@ typedef enum {
 } CompEditorPageFlags;
 
 typedef struct {
-	GtkObject object;
+	GObject object;
 
 	/* Some of the pages need the ECal to access timezone data. Also,
 	 * the event page needs to know it to fill the source option menu. */
@@ -70,7 +70,7 @@ typedef struct {
 } CompEditorPage;
 
 typedef struct {
-	GtkObjectClass parent_class;
+	GObjectClass parent_class;
 
 	/* Notification signals */
 
@@ -95,7 +95,7 @@ typedef struct {
 	void (* set_dates) (CompEditorPage *page, CompEditorPageDates *dates);
 } CompEditorPageClass;
 
-GtkType    comp_editor_page_get_type               (void);
+GType      comp_editor_page_get_type               (void);
 GtkWidget *comp_editor_page_get_widget             (CompEditorPage      *page);
 void       comp_editor_page_focus_main_widget      (CompEditorPage      *page);
 void       comp_editor_page_unset_focused_widget   (CompEditorPage *page, GtkWidget *widget);

@@ -4,7 +4,7 @@
  * Author :
  *  Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -24,8 +24,7 @@
 #define _E_CALENDAR_VIEW_H_
 
 #include <libecal/e-cal.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 #include "e-cal-model.h"
 #include "gnome-cal.h"
 
@@ -36,9 +35,9 @@ G_BEGIN_DECLS
  */
 
 #define E_TYPE_CALENDAR_VIEW          (e_calendar_view_get_type ())
-#define E_CALENDAR_VIEW(obj)          GTK_CHECK_CAST (obj, e_calendar_view_get_type (), ECalendarView)
-#define E_CALENDAR_VIEW_CLASS(klass)  GTK_CHECK_CLASS_CAST (klass, e_calendar_view_get_type (), ECalendarViewClass)
-#define E_IS_CALENDAR_VIEW(obj)       GTK_CHECK_TYPE (obj, e_calendar_view_get_type ())
+#define E_CALENDAR_VIEW(obj)          G_TYPE_CHECK_INSTANCE_CAST (obj, e_calendar_view_get_type (), ECalendarView)
+#define E_CALENDAR_VIEW_CLASS(klass)  G_TYPE_CHECK_CLASS_CAST (klass, e_calendar_view_get_type (), ECalendarViewClass)
+#define E_IS_CALENDAR_VIEW(obj)       G_TYPE_CHECK_INSTANCE_TYPE (obj, e_calendar_view_get_type ())
 
 typedef enum {
 	E_CALENDAR_VIEW_POS_OUTSIDE,

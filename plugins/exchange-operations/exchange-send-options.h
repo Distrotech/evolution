@@ -1,5 +1,5 @@
  /* Evolution exchange send options
- * Copyright (C) 2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Raghavendran R <raghavguru7@gmail.com>
  *
@@ -20,16 +20,15 @@
 #ifndef __EXCHANGE_SENDOPTIONS_DIALOG_H__
 #define __EXCHANGE_SENDOPTIONS_DIALOG_H__
 
-#include <gtk/gtkwidget.h>
 #include <gtk/gtk.h>
 
 
 
 #define EXCHANGE_TYPE_SENDOPTIONS_DIALOG       (exchange_sendoptions_dialog_get_type ())
-#define EXCHANGE_SENDOPTIONS_DIALOG(obj)       (GTK_CHECK_CAST ((obj), EXCHANGE_TYPE_SENDOPTIONS_DIALOG, ExchangeSendOptionsDialog))
-#define EXCHANGE_SENDOPTIONS_DIALOG_CLASS(klass) (GTK_CHECK_CLASS_CAST ((klass), EXCHANGE_TYPE_SENDOPTIONS_DIALOG, ExchangeSendOptionsDialogClass))
-#define EXCHANGE_IS_SENDOPTIONS_DIALOG(obj)    (GTK_CHECK_TYPE ((obj), EXCHANGE_TYPE_SENDOPTIONS_DIALOG))
-#define EXCHANGE_IS_SENDOPTIONS_DIALOG_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), EXCHANGE_TYPE_SENDOPTIONS_DIALOG))
+#define EXCHANGE_SENDOPTIONS_DIALOG(obj)       (G_TYPE_CHECK_INSTANCE_CAST ((obj), EXCHANGE_TYPE_SENDOPTIONS_DIALOG, ExchangeSendOptionsDialog))
+#define EXCHANGE_SENDOPTIONS_DIALOG_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), EXCHANGE_TYPE_SENDOPTIONS_DIALOG, ExchangeSendOptionsDialogClass))
+#define EXCHANGE_IS_SENDOPTIONS_DIALOG(obj)    (G_TYPE_CHECK_INSTANCE_TYPE ((obj), EXCHANGE_TYPE_SENDOPTIONS_DIALOG))
+#define EXCHANGE_IS_SENDOPTIONS_DIALOG_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), EXCHANGE_TYPE_SENDOPTIONS_DIALOG))
 
 typedef struct _ExchangeSendOptionsDialog		ExchangeSendOptionsDialog;
 typedef struct _ExchangeSendOptionsDialogClass		ExchangeSendOptionsDialogClass;

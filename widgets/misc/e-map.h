@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* Map widget.
  *
- * Copyright (C) 2000-2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Hans Petter Jansson <hpj@ximian.com>
  *
@@ -23,7 +23,7 @@
 #ifndef E_MAP_H
 #define E_MAP_H
 
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 #define TYPE_E_MAP            (e_map_get_type ())
 #define E_MAP(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_E_MAP, EMap))
@@ -69,7 +69,7 @@ struct _EMapPoint
 
 /* --- Widget --- */
 
-GtkType e_map_get_type (void);
+GType e_map_get_type (void);
 
 EMap *e_map_new (void);
 

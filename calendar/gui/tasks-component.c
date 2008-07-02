@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* tasks-component.c
  *
- * Copyright (C) 2003  Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,8 +26,8 @@
 
 #include <errno.h>
 #include <string.h>
+#include <glib/gi18n.h>
 #include <bonobo/bonobo-control.h>
-#include <bonobo/bonobo-i18n.h>
 #include <bonobo/bonobo-exception.h>
 #include <gconf/gconf-client.h>
 #include <libecal/e-cal.h>
@@ -1160,6 +1160,9 @@ static void
 destroy_component_view (TasksComponentView *component_view)
 {
 	GList *l;
+
+	g_signal_handlers_disconnect_by_func (component_view->table, G_CALLBACK (table_selection_change_cb), component_view);
+	g_signal_handlers_disconnect_matched (component_view->model, G_SIGNAL_MATCH_DATA, 0, 0, 0, 0, component_view);
 
 	if (component_view->source_list)
 		g_object_unref (component_view->source_list);

@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-user-creatable-items-handler.c
  *
- * Copyright (C) 2001-2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -36,15 +36,8 @@
 #include <bonobo/bonobo-exception.h>
 #include <bonobo/bonobo-control.h>
 
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
-
-#include <gtk/gtkaccelgroup.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtkimagemenuitem.h>
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkseparatormenuitem.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktooltips.h>
 
 #include <stdlib.h>
 #include <ctype.h>

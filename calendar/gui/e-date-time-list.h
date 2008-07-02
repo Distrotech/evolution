@@ -2,7 +2,7 @@
 
 /* EDateTimeList - list of calendar dates/times with GtkTreeModel interface.
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,17 +23,17 @@
 #ifndef E_DATE_TIME_LIST_H
 #define E_DATE_TIME_LIST_H
 
-#include <gtk/gtktreemodel.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal-component.h>
 
 G_BEGIN_DECLS
 
 #define E_TYPE_DATE_TIME_LIST            (e_date_time_list_get_type ())
-#define E_DATE_TIME_LIST(obj)	         (GTK_CHECK_CAST ((obj), E_TYPE_DATE_TIME_LIST, EDateTimeList))
-#define E_DATE_TIME_LIST_CLASS(klass)    (GTK_CHECK_CLASS_CAST ((klass), E_TYPE_DATE_TIME_LIST, EDateTimeListClass))
-#define E_IS_DATE_TIME_LIST(obj)         (GTK_CHECK_TYPE ((obj), E_TYPE_DATE_TIME_LIST))
-#define E_IS_DATE_TIME_LIST_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), E_TYPE_DATE_TIME_LIST))
-#define E_DATE_TIME_LIST_GET_CLASS(obj)  (GTK_CHECK_GET_CLASS ((obj), E_TYPE_DATE_TIME_LIST, EDateTimeListClass))
+#define E_DATE_TIME_LIST(obj)	         (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_DATE_TIME_LIST, EDateTimeList))
+#define E_DATE_TIME_LIST_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_DATE_TIME_LIST, EDateTimeListClass))
+#define E_IS_DATE_TIME_LIST(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_DATE_TIME_LIST))
+#define E_IS_DATE_TIME_LIST_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_DATE_TIME_LIST))
+#define E_DATE_TIME_LIST_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), E_TYPE_DATE_TIME_LIST, EDateTimeListClass))
 
 typedef struct _EDateTimeList       EDateTimeList;
 typedef struct _EDateTimeListClass  EDateTimeListClass;
@@ -63,7 +63,7 @@ struct _EDateTimeListClass
 	GObjectClass parent_class;
 };
 
-GtkType                     e_date_time_list_get_type         (void);
+GType                       e_date_time_list_get_type         (void);
 EDateTimeList              *e_date_time_list_new              (void);
 
 const ECalComponentDateTime *e_date_time_list_get_date_time    (EDateTimeList *date_time_list,

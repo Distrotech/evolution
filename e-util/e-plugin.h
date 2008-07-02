@@ -2,12 +2,29 @@
 #ifndef _E_PLUGIN_H
 #define _E_PLUGIN_H
 
-#include <glib.h>
-#include <glib-object.h>
+#include <gtk/gtk.h>
 #include <libxml/tree.h>
-#include <gtk/gtkwidget.h>
 
 /* ********************************************************************** */
+
+/* Standard GObject macros */
+#define E_TYPE_PLUGIN \
+	(e_plugin_get_type ())
+#define E_PLUGIN(obj) \
+	(G_TYPE_CHECK_INSTANCE_CAST \
+	((obj), E_TYPE_PLUGIN, EPlugin))
+#define E_PLUGIN_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_CAST \
+	((cls), E_TYPE_PLUGIN, EPluginClass))
+#define E_IS_PLUGIN(obj) \
+	(G_TYPE_CHECK_INSTANCE_TYPE \
+	((obj), E_TYPE_PLUGIN))
+#define E_IS_PLUGIN_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_TYPE \
+	((cls), E_TYPE_PLUGIN))
+#define E_PLUGIN_GET_CLASS(obj) \
+	(G_TYPE_INSTANCE_GET_CLASS \
+	((obj), E_TYPE_PLUGIN, EPluginClass))
 
 typedef struct _EPlugin EPlugin;
 typedef struct _EPluginClass EPluginClass;
@@ -81,11 +98,12 @@ struct _EPlugin {
  * to different languages.
  **/
 struct _EPluginClass {
-	GObjectClass class;
+	GObjectClass parent_class;
 
 	const char *type;
 
 	int (*construct)(EPlugin *, xmlNodePtr root);
+	void *(*get_symbol)(EPlugin *, const char *name);
 	void *(*invoke)(EPlugin *, const char *name, void *data);
 	void (*enable)(EPlugin *, int state);
 	GtkWidget *(*get_configure_widget)(EPlugin *);
@@ -100,6 +118,7 @@ GSList * e_plugin_list_plugins(void);
 
 void e_plugin_register_type(GType type);
 
+void *e_plugin_get_symbol(EPlugin *ep, const char *name);
 void *e_plugin_invoke(EPlugin *ep, const char *name, void *data);
 void e_plugin_enable(EPlugin *eph, int state);
 
@@ -115,6 +134,25 @@ char *e_plugin_xml_content_domain(xmlNodePtr node, const char *domain);
 
 /* ********************************************************************** */
 #include <gmodule.h>
+
+/* Standard GObject macros */
+#define E_TYPE_PLUGIN_LIB \
+	(e_plugin_lib_get_type ())
+#define E_PLUGIN_LIB(obj) \
+	(G_TYPE_CHECK_INSTANCE_CAST \
+	((obj), E_TYPE_PLUGIN_LIB, EPluginLib))
+#define E_PLUGIN_LIB_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_CAST \
+	((cls), E_TYPE_PLUGIN_LIB, EPluginLibClass))
+#define E_IS_PLUGIN_LIB(obj) \
+	(G_TYPE_CHECK_INSTANCE_TYPE \
+	((obj), E_TYPE_PLUGIN_LIB))
+#define E_IS_PLUGIN_LIB_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_TYPE \
+	((cls), E_TYPE_PLUGIN_LIB))
+#define E_PLUGIN_LIB_GET_CLASS(obj) \
+	(G_TYPE_INSTANCE_GET_CLASS \
+	((obj), E_TYPE_PLUGIN_LIB, EPluginLibClass))
 
 typedef struct _EPluginLib EPluginLib;
 typedef struct _EPluginLibClass EPluginLibClass;
@@ -162,6 +200,25 @@ struct _EPluginLibClass {
 GType e_plugin_lib_get_type(void);
 
 /* ********************************************************************** */
+
+/* Standard GObject macros */
+#define E_TYPE_PLUGIN_HOOK \
+	(e_plugin_hook_get_type ())
+#define E_PLUGIN_HOOK(obj) \
+	(G_TYPE_CHECK_INSTANCE_CAST \
+	((obj), E_TYPE_PLUGIN_HOOK, EPluginHook))
+#define E_PLUGIN_HOOK_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_CAST \
+	((cls), E_TYPE_PLUGIN_HOOK, EPluginHookClass))
+#define E_IS_PLUGIN_HOOK(obj) \
+	(G_TYPE_CHECK_INSTANCE_TYPE \
+	((obj), E_TYPE_PLUGIN_HOOK))
+#define E_IS_PLUGIN_HOOK_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_TYPE \
+	((cls), E_TYPE_PLUGIN_HOOK))
+#define E_PLUGIN_HOOK_GET_CLASS(obj) \
+	(G_TYPE_INSTANCE_GET_CLASS \
+	((obj), E_TYPE_PLUGIN_HOOK, EPluginHookClass))
 
 typedef struct _EPluginHook EPluginHook;
 typedef struct _EPluginHookClass EPluginHookClass;
@@ -235,7 +292,7 @@ struct _EPluginHook {
  * container for each hook.
  **/
 struct _EPluginHookClass {
-	GObjectClass class;
+	GObjectClass parent_class;
 
 	const char *id;
 
@@ -261,6 +318,26 @@ guint32 e_plugin_hook_id(xmlNodePtr root, const struct _EPluginHookTargetKey *ma
    <plugin-type get-type="e_plugin_mono_get_type/>
   </hook>
 */
+
+/* Standard GObject macros */
+#define E_TYPE_PLUGIN_TYPE_HOOK \
+	(e_plugin_type_hook_get_type ())
+#define E_PLUGIN_TYPE_HOOK(obj) \
+	(G_TYPE_CHECK_INSTANCE_CAST \
+	((obj), E_TYPE_PLUGIN_TYPE_HOOK, EPluginTypeHook))
+#define E_PLUGIN_TYPE_HOOK_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_CAST \
+	((cls), E_TYPE_PLUGIN_TYPE_HOOK, EPluginTypeHookClass))
+#define E_IS_PLUGIN_TYPE_HOOK(obj) \
+	(G_TYPE_CHECK_INSTANCE_TYPE \
+	((obj), E_TYPE_PLUGIN_TYPE_HOOK))
+#define E_IS_PLUGIN_TYPE_HOOK_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_TYPE \
+	((cls), E_TYPE_PLUGIN_TYPE_HOOK))
+#define E_PLUGIN_TYPE_HOOK_GET_CLASS(obj) \
+	(G_TYPE_INSTANCE_GET_CLASS \
+	((obj), E_TYPE_PLUGIN_TYPE_HOOK, EPluginTypeHookClass))
+
 typedef struct _EPluginTypeHook EPluginTypeHook;
 typedef struct _EPluginTypeHookClass EPluginTypeHookClass;
 

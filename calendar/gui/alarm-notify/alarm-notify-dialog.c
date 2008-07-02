@@ -1,7 +1,7 @@
 /* Evolution calendar - alarm notification dialog
  *
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Author: Federico Mena-Quintero <federico@ximian.com>
  *
@@ -22,17 +22,6 @@
 #include <config.h>
 #include <stdio.h>
 #include <string.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #if 0
 #  include <libgnomeui/gnome-winhints.h>
@@ -43,7 +32,8 @@
 #include "alarm-notify-dialog.h"
 #include "config-data.h"
 #include "util.h"
-#include <e-util/e-icon-factory.h>
+#include "e-util/e-icon-factory.h"
+#include "e-util/e-util-private.h"
 
 
 
@@ -242,7 +232,13 @@ notified_alarms_dialog_new (void)
 
 			G_TYPE_POINTER /* FuncInfo*/));
 
-	an->xml = glade_xml_new (EVOLUTION_GLADEDIR "/alarm-notify.glade", NULL, NULL);
+	char *gladefile;
+
+	gladefile = g_build_filename (EVOLUTION_GLADEDIR,
+				      "alarm-notify.glade",
+				      NULL);
+	an->xml = glade_xml_new (gladefile, NULL, NULL);
+	g_free (gladefile);
 	if (!an->xml) {
 		g_message ("alarm_notify_dialog(): Could not load the Glade XML file!");
 		g_free (an);

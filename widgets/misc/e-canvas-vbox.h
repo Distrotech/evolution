@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-canvas-vbox.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,7 +24,7 @@
 #ifndef __E_CANVAS_VBOX_H__
 #define __E_CANVAS_VBOX_H__
 
-#include <gtk/gtktypeutils.h>
+#include <gtk/gtk.h>
 #include <libgnomecanvas/gnome-canvas.h>
 
 #ifdef __cplusplus
@@ -83,7 +83,7 @@ struct _ECanvasVboxClass
  */
 void       e_canvas_vbox_add_item(ECanvasVbox *e_canvas_vbox, GnomeCanvasItem *item);
 void       e_canvas_vbox_add_item_start(ECanvasVbox *e_canvas_vbox, GnomeCanvasItem *item);
-GtkType    e_canvas_vbox_get_type (void);
+GType      e_canvas_vbox_get_type (void);
 
 #ifdef __cplusplus
 }

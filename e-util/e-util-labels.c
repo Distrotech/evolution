@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*  e-util-labels.c
  *
- *  Copyright (C) 2007 Novell, Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -19,21 +19,13 @@
  *  Boston, MA 02110-1301, USA.
  */
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 
 #include <stdio.h>
 #include <string.h>
 
 #include <gconf/gconf-client.h>
-
-#include <gtk/gtkbox.h>
-#include <gtk/gtkcolorbutton.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtktable.h>
 
 #include <camel/camel-utf8.h>
 
@@ -326,6 +318,7 @@ e_util_labels_add_with_dlg (GtkWindow *parent, const char *tag)
 	if (name)
 		gtk_entry_set_text (GTK_ENTRY (e), name);
 
+	gtk_entry_set_activates_default (GTK_ENTRY (e), TRUE);
 	gtk_label_set_mnemonic_widget (GTK_LABEL (l), e);
 	gtk_misc_set_alignment (GTK_MISC (l), 0.0, 0.0);
 	gtk_color_button_set_color (GTK_COLOR_BUTTON (c), &color);
@@ -344,6 +337,7 @@ e_util_labels_add_with_dlg (GtkWindow *parent, const char *tag)
 					      NULL);
 
 	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
+	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_ACCEPT);
 	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (dialog)->vbox), table, TRUE, TRUE, 0);
 
 	while (!new_tag) {

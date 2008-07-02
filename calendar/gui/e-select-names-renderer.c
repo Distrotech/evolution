@@ -3,7 +3,7 @@
  *
  * Author:  Mike Kestner  <mkestner@ximian.com>
  *
- * Copyright (C) 2003 Ximian Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -21,7 +21,6 @@
  */
 
 #include <config.h>
-#include <gtk/gtkcellrenderertext.h>
 
 #include "e-calendar-marshal.h"
 
@@ -81,15 +80,6 @@ e_select_names_renderer_editing_done (GtkCellEditable *editable, ESelectNamesRen
 	cell->priv->editable = NULL;
 }
 
-static gboolean
-e_select_names_renderer_focus_out_event (GtkWidget *entry, GdkEvent  *event, ESelectNamesRenderer *cell)
-{
-	e_select_names_renderer_editing_done (GTK_CELL_EDITABLE (cell->priv->editable), cell);
-
-	/* entry needs focus-out-event */
-	return FALSE;
-}
-
 static GtkCellEditable *
 e_select_names_renderer_start_editing (GtkCellRenderer *cell, GdkEvent *event, GtkWidget *widget, const gchar *path,
 		    GdkRectangle *bg_area, GdkRectangle *cell_area, GtkCellRendererState flags)
@@ -109,7 +99,9 @@ e_select_names_renderer_start_editing (GtkCellRenderer *cell, GdkEvent *event, G
 	gtk_widget_show (GTK_WIDGET (editable));
 
 	g_signal_connect (editable, "editing_done", G_CALLBACK (e_select_names_renderer_editing_done), sn_cell);
-	g_signal_connect (editable, "focus_out_event", G_CALLBACK (e_select_names_renderer_focus_out_event), sn_cell);
+
+	/* Removed focus-out-event. focus out event already listen by base class. 
+           We don't need to listen for the focus out event any more */
 
 	sn_cell->priv->editable = g_object_ref (editable);
 	sn_cell->priv->path = g_strdup (path);

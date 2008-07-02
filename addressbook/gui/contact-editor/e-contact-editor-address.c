@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-contact-editor-address.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -25,14 +25,9 @@
 #include <e-util/e-icon-factory.h>
 #include <e-util/e-util-private.h>
 
-#include <glib.h>
 #include <glib/gi18n.h>
 #include <libgnome/gnome-util.h>
 #include <misc/e-gui-utils.h>
-#include <gtk/gtkcombo.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtklabel.h>
 #include <string.h>
 #include <stdlib.h>
 #include <locale.h>

@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-popup-menu.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Miguel de Icaza <miguel@ximian.com>
@@ -26,8 +26,7 @@
 #ifndef E_POPUP_MENU_H
 #define E_POPUP_MENU_H
 
-#include <gtk/gtkmenu.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 
@@ -97,7 +96,7 @@ typedef struct _EPopupMenu EPopupMenu;
 struct _EPopupMenu {
 	char *name;
 	char *pixname;
-	GtkSignalFunc fn;
+	GCallback fn;
 
 	EPopupMenu *submenu;
 	guint32 disable_mask;

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * Copyright (C) 2008 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU Lesser General Public
@@ -24,14 +24,14 @@
 
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
-#include "gconf-bridge.h"
 
-#include <libedataserver/e-iconv.h>
+#include <camel/camel-iconv.h>
 
 #include "e-attachment-bar.h"
 #include "e-composer-actions.h"
 #include "e-composer-autosave.h"
 #include "e-composer-header-table.h"
+#include "e-util/gconf-bridge.h"
 
 #define E_MSG_COMPOSER_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \

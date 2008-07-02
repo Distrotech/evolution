@@ -2,7 +2,7 @@
 /*
  *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright 2003 Ximian, Inc. (www.ximian.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -855,24 +855,6 @@ em_folder_tree_model_add_store (EMFolderTreeModel *model, CamelStore *store, con
 
 	g_signal_emit (model, signals[LOADED_ROW], 0, path, &root);
 	gtk_tree_path_free (path);
-}
-
-void
-em_folder_tree_model_signal_block (EMFolderTreeModel *model, CamelStore *store, gboolean block)
-{
-	struct _EMFolderTreeModelStoreInfo *si;
-
-	si = g_hash_table_lookup (model->store_hash, store);
-	if (!si)
-		return;
-
-	if (block) {
-		if (si->created_id) 
-			camel_object_unhook_event (store, "folder_created", CAMEL_CALLBACK (folder_created_cb), model);
-		si->created_id = 0;
-	} else {
-		si->created_id = camel_object_hook_event (store, "folder_created", CAMEL_CALLBACK (folder_created_cb), model);
-	}
 }
 
 static void

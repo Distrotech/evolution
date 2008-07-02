@@ -1,3 +1,77 @@
+2008-06-30  Matthew Barnes  <mbarnes@redhat.com>
+
+	* e-composer-post-header.c (composer_post_header_finalize):
+	Add a finalize() method to free priv->base_url, which was leaking.
+
+2008-06-21  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #310988
+
+	* e-msg-composer.c:
+	Don't even show the "send-options" action unless an Exchange
+	or GroupWise account appears in the From combo box.
+
+2008-06-20  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #538908
+
+	* e-composer-actions.h:
+	Define E_COMPOSER_ACTION_SEND_OPTIONS.
+
+	* e-msg-composer.c (msg_composer_account_changed_cb):
+	Desensitize the "send-options" action unless we've selected an
+	Exchange or GroupWise account.  Based on a patch by Paul Bolle.
+
+2008-06-13  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #330597
+
+	* e-msg-composer.c: (add_attachments_handle_mime_part): Add all
+	text/* parts which has a filename set and also attach all submessages.
+
+2008-05-08  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #525241 (EPluginUI)
+
+	* e-msg-composer.c (msg_composer_destroy), (msg_composer_init):
+	Rip out the EMenu logic.
+
+	* e-msg-composer.c (msg_composer_init):
+	Register the GtkUIManager with EPluginUI.
+
+2008-05-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #424744
+
+	* e-composer-private.c:
+	* e-composer-private.h:
+	* e-msg-composer.c:
+	Use camel-iconv.c instead of e-iconv.h (now deprecated).
+
+2008-04-28  Matthew Barnes  <mbarnes@redhat.com>
+
+	* e-composer-actions.c (action_send_options_cb):
+	Fix a typo in the EError tag.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gconf-bridge.c:
+	* gconf-bridge.h:
+	Move these files to e-util.
+
+	* Makefile.am:
+	* e-composer-private.h:
+	Adapt.
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* e-msg-composer.h: (e_msg_composer_guess_mime_type):
+	* e-msg-composer.c: (e_msg_composer_guess_mime_type), (handle_uri),
+	(e_msg_composer_add_inline_image_from_file):
+	Use shared e_util_guess_mime_type instead of its own.
+
 2008-04-14  Matthew Barnes  <mbarnes@redhat.com>
 
 	* e-composer-autosave.c (e_composer_autosave_unregister):

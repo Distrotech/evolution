@@ -2,7 +2,7 @@
 /*
  *  Author: Vivek Jain <jvivek@novell.com>
  *
- *  Copyright 2004 Novell, Inc.
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of version 2 of the GNU General Public
@@ -24,18 +24,7 @@
 #endif
 #include <glade/glade.h>
 #include "share-folder.h"
-#include <glib/gmain.h>
 #include <glib/gi18n-lib.h>
-#include <gtk/gtktreemodel.h>
-#include <gtk/gtkliststore.h>
-#include <gtk/gtktreeselection.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtkbutton.h>
-#include <gtk/gtk.h>
-#include <gtk/gtktogglebutton.h>
-#include <gtk/gtkcellrenderertoggle.h>
-#include <gtk/gtkcellrenderertext.h>
 #include <libedataserverui/e-contact-store.h>
 #include <libgnomeui/gnome-ui-init.h>
 #include <libgnome/gnome-init.h>

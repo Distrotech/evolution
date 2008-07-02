@@ -3,7 +3,7 @@
  */
 /* Evolution Accessibility: ea-cal-view.c
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -29,7 +29,7 @@
 #include "e-week-view.h"
 #include "calendar-commands.h"
 #include "goto.h"
-#include <glib/gstrfuncs.h>
+#include <glib.h>
 #include <glib/gi18n.h>
 
 static void ea_cal_view_class_init (EaCalViewClass *klass);

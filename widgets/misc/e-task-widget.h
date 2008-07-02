@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-task-widget.h
  *
- * Copyright (C) 2001  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,8 +23,7 @@
 #ifndef _E_TASK_WIDGET_H_
 #define _E_TASK_WIDGET_H_
 
-#include <gtk/gtkeventbox.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gtk/gtk.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,10 +31,10 @@ extern "C" {
 #endif /* __cplusplus */
 
 #define E_TYPE_TASK_WIDGET			(e_task_widget_get_type ())
-#define E_TASK_WIDGET(obj)			(GTK_CHECK_CAST ((obj), E_TYPE_TASK_WIDGET, ETaskWidget))
-#define E_TASK_WIDGET_CLASS(klass)		(GTK_CHECK_CLASS_CAST ((klass), E_TYPE_TASK_WIDGET, ETaskWidgetClass))
-#define E_IS_TASK_WIDGET(obj)			(GTK_CHECK_TYPE ((obj), E_TYPE_TASK_WIDGET))
-#define E_IS_TASK_WIDGET_CLASS(klass)		(GTK_CHECK_CLASS_TYPE ((obj), E_TYPE_TASK_WIDGET))
+#define E_TASK_WIDGET(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_TASK_WIDGET, ETaskWidget))
+#define E_TASK_WIDGET_CLASS(klass)		(G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_TASK_WIDGET, ETaskWidgetClass))
+#define E_IS_TASK_WIDGET(obj)			(G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_TASK_WIDGET))
+#define E_IS_TASK_WIDGET_CLASS(klass)		(G_TYPE_CHECK_CLASS_TYPE ((obj), E_TYPE_TASK_WIDGET))
 
 
 typedef struct _ETaskWidget        ETaskWidget;
@@ -54,7 +53,7 @@ struct _ETaskWidgetClass {
 };
 
 
-GtkType    e_task_widget_get_type   (void);
+GType      e_task_widget_get_type   (void);
 void       e_task_widget_construct  (ETaskWidget *task_widget,
 				     GdkPixbuf   *icon_pixbuf,
 				     const char  *component_id,

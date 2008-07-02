@@ -3,7 +3,7 @@
  *
  * Author: Mike Kestner  <mkestner@ximian.com>
  *
- * Copyright (C) 2003 Ximian Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -23,7 +23,7 @@
 #ifndef __E_SELECT_NAMES_RENDERER_H__
 #define __E_SELECT_NAMES_RENDERER_H__
 
-#include <gtk/gtkcellrenderertext.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 

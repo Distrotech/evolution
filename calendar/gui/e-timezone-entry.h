@@ -4,7 +4,7 @@
  * Author :
  *  Damon Chaplin <damon@ximian.com>
  *
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -32,17 +32,17 @@
 #ifndef __E_TIMEZONE_ENTRY_H_
 #define __E_TIMEZONE_ENTRY_H_
 
-#include <gtk/gtkhbox.h>
+#include <gtk/gtk.h>
 #include <libecal/e-cal.h>
 
 G_BEGIN_DECLS
 
 
 #define E_TYPE_TIMEZONE_ENTRY            (e_timezone_entry_get_type ())
-#define E_TIMEZONE_ENTRY(obj)            (GTK_CHECK_CAST ((obj), E_TYPE_TIMEZONE_ENTRY, ETimezoneEntry))
-#define E_TIMEZONE_ENTRY_CLASS(klass)    (GTK_CHECK_CLASS_CAST ((klass), E_TYPE_TIMEZONE_ENTRY, ETimezoneEntryClass))
-#define E_IS_TIMEZONE_ENTRY(obj)         (GTK_CHECK_TYPE ((obj), E_TYPE_TIMEZONE_ENTRY))
-#define E_IS_TIMEZONE_ENTRY_CLASS(klass) (GTK_CHECK_CLASS_TYPE ((klass), E_TYPE_TIMEZONE_ENTRY))
+#define E_TIMEZONE_ENTRY(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_TIMEZONE_ENTRY, ETimezoneEntry))
+#define E_TIMEZONE_ENTRY_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_TIMEZONE_ENTRY, ETimezoneEntryClass))
+#define E_IS_TIMEZONE_ENTRY(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_TIMEZONE_ENTRY))
+#define E_IS_TIMEZONE_ENTRY_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_TIMEZONE_ENTRY))
 
 
 typedef struct _ETimezoneEntry        ETimezoneEntry;

@@ -5,8 +5,8 @@
  *  Damon Chaplin <damon@ximian.com>
  *  Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 1999, Ximian, Inc.
- * Copyright 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -36,15 +36,9 @@
 
 #include <math.h>
 #include <gdk/gdkkeysyms.h>
-#include <gtk/gtkselection.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkvscrollbar.h>
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkmain.h>
 #include <glib/gi18n.h>
 #include <libgnome/gnome-exec.h>
 #include <libgnome/gnome-util.h>
-#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <libgnomecanvas/gnome-canvas-pixbuf.h>
 #include <text/e-text.h>
 #include <misc/e-canvas-utils.h>
@@ -3088,12 +3082,11 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 
 			/* Stop the signal last or we will also stop any
 			   other events getting to the EText item. */
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item),
-						      "event");
+			g_signal_stop_emission_by_name (GTK_OBJECT (item), "event");
 			return TRUE;
 		} else if (gdkevent->key.keyval == GDK_Escape) {
 			cancel_editing (week_view);
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item), "event");
+			g_signal_stop_emission_by_name (GTK_OBJECT (item), "event");
 			/* focus should go to week view when stop editing */
 			gtk_widget_grab_focus (GTK_WIDGET (week_view));
 			return TRUE;
@@ -3107,11 +3100,16 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 		event = &g_array_index (week_view->events, EWeekViewEvent,
 					event_num);
 
+		/* if we started to editing new item on the canvas, then do not open editing dialog until it's saved,
+		   because the save of the event recalculates event numbers and you can edit different one */
+		if (!is_icalcomp_on_the_server (event->comp_data->icalcomp, event->comp_data->client))
+			return TRUE;
+
 		e_calendar_view_edit_appointment (E_CALENDAR_VIEW (week_view),
 					     event->comp_data->client,
 					     event->comp_data->icalcomp, FALSE);
 
-		gtk_signal_emit_stop_by_name (GTK_OBJECT (item), "event");
+		g_signal_stop_emission_by_name (GTK_OBJECT (item), "event");
 		return TRUE;
 	case GDK_BUTTON_PRESS:
 		tooltip_destroy (week_view, item);
@@ -3139,8 +3137,8 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 						     (GdkEventButton*) gdkevent,
 						     event_num);
 
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item->canvas),
-						      "button_press_event");
+			g_signal_stop_emission_by_name (GTK_OBJECT (item->canvas),
+						    "button_press_event");
 			return TRUE;
 		}
 
@@ -3151,8 +3149,7 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 
 		/* Only let the EText handle the event while editing. */
 		if (!E_TEXT (item)->editing) {
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item),
-						      "event");
+			g_signal_stop_emission_by_name (GTK_OBJECT (item), "event");
 
 			if (gdkevent) {
 				week_view->drag_event_x = gdkevent->button.x;
@@ -3187,8 +3184,7 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 
 			/* Stop the signal last or we will also stop any
 			   other events getting to the EText item. */
-			gtk_signal_emit_stop_by_name (GTK_OBJECT (item),
-						      "event");
+			g_signal_stop_emission_by_name (GTK_OBJECT (item), "event");
 			return TRUE;
 		}
 		week_view->pressed_event_num = -1;

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* e-addressbook-view.h
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -20,7 +20,7 @@
 #ifndef __EAB_VIEW_H__
 #define __EAB_VIEW_H__
 
-#include <gtk/gtkvbox.h>
+#include <gtk/gtk.h>
 #include <bonobo/bonobo-ui-component.h>
 #include <widgets/menus/gal-view-instance.h>
 #include <libebook/e-book.h>

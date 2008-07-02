@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* e-contact-editor.h
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Chris Lahey <clahey@ximian.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -30,8 +30,7 @@
 #include <libebook/e-book.h>
 #include <libebook/e-contact.h>
 
-#include <gtk/gtktreeview.h>
-#include <gtk/gtkliststore.h>
+#include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 

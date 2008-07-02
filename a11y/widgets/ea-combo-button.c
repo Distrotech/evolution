@@ -1,13 +1,12 @@
 /*
  * Authors: Harry Lu  <harry.lu@sun.com>
  *
- * Copyright (C) 2004 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  */
 
 #include <config.h>
 #include "ea-combo-button.h"
-#include <gtk/gtkbutton.h>
-#include <gtk/gtklabel.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 
 static AtkObjectClass *parent_class;

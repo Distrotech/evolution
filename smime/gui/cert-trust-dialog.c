@@ -3,7 +3,7 @@
  *  Authors: Chris Toshok <toshok@ximian.com>
  *           Michael Zucchi <notzed@ximian.com>
  *
- *  Copyright (C) 2004 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,10 +31,7 @@
 #include "cert-trust-dialog.h"
 #include "ca-trust-dialog.h"
 
-#include <gtk/gtkwidget.h>
-#include <gtk/gtkradiobutton.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtklabel.h>
+#include <gtk/gtk.h>
 
 #include <glib/gi18n.h>
 #include <glade/glade.h>

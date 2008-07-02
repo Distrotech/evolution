@@ -1,8 +1,8 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /* addressbook-view.c
  *
- * Copyright (C) 2000, 2001, 2002, 2003 Ximian, Inc.
- * Copyright (C) 2004 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,11 +26,7 @@
 #endif
 
 #include <string.h>
-#include <glib.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtknotebook.h>
-#include <gtk/gtkwidget.h>
-#include <gtk/gtkmessagedialog.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <libgnomeui/gnome-app.h>
 #include <libgnomeui/gnome-href.h>

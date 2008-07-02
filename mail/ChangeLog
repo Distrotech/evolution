@@ -1,3 +1,584 @@
+2008-06-26  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #540160
+
+	* message-list.h: (struct _MessageList):
+	* message-list.c: (message_list_init), (on_cursor_activated_cmd),
+	(on_selection_changed_cmd): Remember whether we come from none/multi
+	select to single select and properly update the preview.
+	(Reverting patch for bug #337160 and doing that with other approach.)
+
+2008-06-24  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #537275
+
+	* em-html-stream.c: (emhs_cleanup): Close GtkHTMLStream on cancel.
+	* em-html-stream.c: (emhs_gtkhtml_destroy): Set the cancel.
+	* em-sync-stream.c: (emss_process_message):
+	Do not pass data to the child structure if we were canceled.
+
+2008-06-21  Paul Bolle  <pebolle@tiscali.nl>
+
+	** Fix for bug #539268
+
+	* em-format.c: (em_format_describe_part): do not use both filename
+	and description if these are identical.
+
+2008-06-21  Paul Bolle  <pebolle@tiscali.nl>
+
+	** Fix for bug #538741
+
+	* em-format-html.c: (efh_format_header):
+	Strip preceding tabs from Date headers too.
+
+2008-06-21  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #537725
+
+	* em-composer-utils.c (save_draft_done):
+	Set the autosaved flag so we don't get pestered with a save dialog
+	if the user then decides to close the composer window.
+
+2008-06-20  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #534039
+
+	* em-folder-tree-model.h: (em_folder_tree_model_signal_block):
+	* em-folder-tree-model.c: (em_folder_tree_model_signal_block):
+	Removed obsolete function.
+	* mail-vfolder.c: (vfolder_load_storage):
+	Add storage to the tree model when everything is loaded, thus
+	everything will be shown when enabling the Search Folders on demand.
+	Also ensure the Search Folders to be enabled next start.
+	* mail-vfolder.c: (mail_vfolder_add_uri), (mail_vfolder_delete_uri):
+	Track folders even when Search Folders disabled, to have them
+	known when enabling Search Folders on demand.
+
+2008-06-19  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #382783
+
+	* em-filter-rule.c: (do_grab_focus_cb), (more_parts), (get_widget):
+	Grab focus of new rule part on adding and scroll to the bottom too.
+
+2008-06-18  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #423395
+
+	* em-format-html.c: (efh_init), (efh_text_plain), (efh_text_enriched),
+	(efh_text_html), (efh_message_deliverystatus): Put the anchor where
+	the message body begins and let GtkHTML know the anchor name to place
+	the cursor there in caret mode on the first focus.
+
+2008-06-18  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #532472
+
+	* mail-config.c (mail_config_get_account_by_transport_url):
+	Strip the account URL (via CAMEL_URL_HIDE_ALL) before comparing
+	it to the already-stripped 'transport_url', to avoid unnecessary
+	password prompts.
+
+2008-06-16  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #467892
+
+	* message-list.h: (struct _MessageList), (message_list_ensure_message):
+	* message-list.c: (message_list_init), (message_list_finalise),
+	(message_list_ensure_message), (regen_list_exec), (regen_list_done):
+	Be able to set a message uid to keep in a list after regeneration.
+	* em-folder-view.c: (em_folder_view_open_selected):
+	Inherit search criteria and ensure keeping the selected message
+	in the view even it may not belong to the filter anymore.
+
+2008-06-13  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #337160
+
+	* message-list.c: (on_cursor_activated_cmd): Do not pretend the row
+	with a cursor is selected when it isn't. Also take care of multiselect.
+	* message-list.c: (on_selection_changed_cmd):
+	Do not pretend the row with a cursor is selected when it isn't.
+
+2008-06-13  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #538002
+
+	* em-folder-tree.c: (emft_drop_target): Do not allow dropping messages
+	on folders with CAMEL_FOLDER_NOSELECT flag set.
+
+2008-06-13  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #314467
+
+	* em-account-editor.c: (emae_url_set_hostport):
+	Reset port when setting host name without it.
+
+2008-06-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #535791
+
+	* mail-config.glade:
+	* em-composer-prefs.c: (em_composer_prefs_construct):
+	New UI option to let uset choose whether start typing at the bottom
+	of the document or not on replying.
+	* em-utils.h: (em_utils_message_to_html):
+	* em-utils.c: (em_utils_message_to_html):
+	* em-composer-utils.c: (forward_non_attached), (composer_set_body):
+	Take care of /apps/evolution/mail/composer/reply_start_bottom.
+
+2008-06-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #201011
+
+	* em-filter-editor.c: (em_filter_editor_construct):
+	Show Enabled column in the editor, because we support it here.
+	* mail-session.c: (main_get_filter_driver): Skip disabled rules.
+
+2008-06-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #536772
+
+	* em-folder-browser.c: (EMFolderViewEnable emfb_enable_map):
+	Disable Folder menu items consistently with a popup menu over folder.
+
+2008-06-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	* evolution-mail.schemas.in: Fix a typo.
+
+2008-06-05  Matthew Barnes  <mbarnes@redhat.com>
+
+	* message-tag-followup.c:
+	Never undefine DISABLE_DEPRECATED macros in source code.
+	Yes, it will break the build if it's defined.  That's the point!
+
+2008-06-02  Jacob Brown  <jeblinux@gmail.com>
+
+	** Fix for bug #529464
+
+	* em-format-html-display.c: (efhd_format_optional): Do not use "handle"
+
+2008-06-02  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #535749
+
+	* message-list.c: (regen_list_exec): Use better condition whether
+	keep cursor_uid in the message list or not on regeneration.
+
+2008-06-02  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for bug #531836
+
+	* em-folder-view.c:  Added bonobo accel key for Ctrl+D, Del to keep
+	working on deleted mails, but not the toolbar/menu
+
+2008-06-02  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #525966
+
+	* em-composer-utils.c: (composer_set_no_change):
+	New helper function to set composers state properly to "no change".
+	* em-composer-utils.c: (em_utils_compose_new_message),
+	(em_utils_compose_new_message_with_mailto), (em_utils_post_to_folder),
+	(em_utils_post_to_url), (edit_message), (forward_attached),
+	(forward_non_attached), (em_utils_redirect_message),
+	(em_utils_reply_to_message), (post_reply_to_message):
+	Use the above helper function.
+	* em-composer-utils.c: (reply_get_composer), (composer_set_body):
+	Do not drop undo in the editor multiple times, do that only once.
+
+2008-06-02  Lucian Langa  <lucilanga@gnome.org>
+
+	** Fix for bug #535689
+
+	* mail-send-recv.c: (build_dialog): Transmit
+	gd data to hook's event target data
+
+2008-06-02  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #534312
+
+	* em-composer-utils.c: (create_new_composer),
+	(em_utils_compose_new_message), (struct forward_attached_data),
+	(real_update_forwarded_flag), (update_forwarded_flags_cb),
+	(composer_destroy_fad_cb), (setup_forward_attached_callbacks),
+	(forward_attached), (forward_attached_cb), (em_utils_forward_attached),
+	(forward_non_attached), (forward_quoted), (em_utils_forward_message):
+	Set new CAMEL_MESSAGE_FORWARDED flag on forwarded messages.
+	* message-list.c: (ml_value_to_string), (message_list_create_extras),
+	(ml_tree_value_at), (create_composite_cell), (struct states_pixmaps):
+	Draw mail-forward icon on forwarded messages.
+
+2008-05-30  Lucian Langa  <lucilanga@gnome.org>
+
+	** Fix for bug #535670
+
+	* em-format-quote.c: (type_builtin_table):
+	Add x-evolution/evolution-feed-rss as internal mime
+	for evolution-rss artiles.
+	* em-format.c: (em_format_is_attachment): prevent
+	evolution-rss articles being formatted as attachments.
+
+2008-05-26  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #317755
+
+	* mail-send-recv.c: (refresh_folders_exec):
+	* mail-ops.c: (refresh_folder_desc):
+	Also sync with a server when refreshing folder.
+	* evolution-mail.schemas.in:
+	* mail-config.h: (mail_config_get_sync_timeout):
+	* mail-config.c: (mail_config_get_sync_timeout):
+	Use int value of /apps/evolution/mail/sync_interval where is set
+	how often propagate local changes to server.
+	* mail-component.c: (struct _MailComponentPrivate), (impl_dispose),
+	(mc_sync_store_done), (mc_sync_store), (call_mail_sync),
+	(mail_component_init): Upload local changes to server on some interval.
+	* mail-component.c: (impl_quit):
+	Do not quit until we are done with mail sync.
+
+2008-05-26  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #322553
+
+	* mail-config.h: (mail_config_scripts_disabled):
+	* mail-config.c: (struct MailConfig), (mail_config_init),
+	(mail_config_scripts_disabled): New helper function.
+	* em-composer-prefs.c: (sig_load_preview):
+	Write to html stream at least one character.
+	* em-composer-prefs.c: (em_composer_prefs_construct): Disable
+	signature's Add Script button when not approved running scripts.
+	* mail-config.c: (mail_config_get_gconf_client): Ensure init.
+	* mail-config.c: (mail_config_signature_run_script): Do not run
+	script when disabled in /desktop/gnome/lockdown/disable_command_line.
+
+2008-05-23  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534476
+
+	* em-utils.c (em_utils_snoop_type):
+	* em-popup.c (emp_standard_menu_factory):
+	Remove the special check for "winmail.dat".  GIO correctly
+	identifies it as "application/ms-tnef".
+
+2008-05-23  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* mail-mt.c: (mail_msg_check_error): Convert the the warning to a
+	message.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* em-format-html.c (efh_message_external):
+	Fix a typo in checking for an empty 'mode' string.
+
+	* message-list.c (subtree_size):
+	Remove this function.  Looks like it hasn't been used in years.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* em-account-prefs.h:
+	* em-filter-editor.c:
+	* em-filter-editor.h:
+	* em-folder-selector.h:
+	* em-format-html-display.c:
+	* em-mailer-prefs.c:
+	* em-mailer-prefs.h:
+	* em-utils.c:
+	* em-vfolder-editor.c:
+	* em-vfolder-editor.h:
+	* em-vfolder-rule.c:
+	* mail-vfolder.c:
+	* meessage-tag-editor.h:
+	* message-list.h:
+	* message-tag-followup.h:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-05-19  Matthew Barnes  <mbarnes@redhat.com>
+
+	* message-list.c (regen_list_done):
+	Use a bit more direct English when informing the user of no messages
+	in the currently selected folder.
+
+2008-05-19  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #533465, patch from Ritesh Khadgaray
+
+	* em-account-editor.c (emae_url_set_hostport):
+	Strip whitespace from user-entered hostname.
+
+2008-05-19  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* mail/em-folder-view.c: Make non junk learn work again.
+
+2008-05-16  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #514383
+
+	* mail.error.xml: Remove the "ask-mark-read" error.
+
+2008-05-14  Jeffrey Stedfast  <fejj@novell.com>
+
+	Needed so that IMAP4 can allow users to configure cache
+	expiration per-folder.
+
+	* em-folder-properties.c (emfp_get_folder_item): Add support for
+	CAMEL_ARG_INT and CAMEL_ARG_DBL.
+	(emfp_commit): Same.
+
+2008-05-14  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #463040, Patch by Milan Crha
+
+	* em-folder-browser.c (emfb_list_message_selectedi), (emfb_set_folder):
+	Forget former selected uid as soon as we know we moved to other.
+
+2008-05-09  Sankar P  <psankar@novell.com>
+
+	** Fix for bug #531519
+
+	* em-format-html-display.c: (efhd_message_update_bar):
+	Evolution crashes on print-preview.
+
+	** Committed on behalf of Srinivasa Ragavan <sragavan@novell.com>
+
+2008-05-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #424744
+
+	* em-composer-prefs.c:
+	* em-format-html.c:
+	* em-format-quote.c:
+	* em-mailer-prefs.c:
+	Use camel-iconv.c instead of e-iconv.h (now deprecated).
+
+2008-05-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	* mail-component.c (mail_component_show_logger):
+	Use the GtkCellRendererText's "markup" property for error messages.
+
+2008-05-05  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #531426
+
+	* em-format-html.c (efh_format_headers):
+	Display face header images at 48x48 instead of 64x64.
+	Patch from Roland Clobus.
+
+2008-05-04  Matthew Barnes  <mbarnes@redhat.com>
+
+	* mail-component.c (mail_component_show_logger):
+	Fix up the Debug Logs window a bit:
+	- Add a Close button.
+	- Fix some spacing issues (HIG compliance).
+	- Just show the log level icon.  Add a tooltip for the icon showing
+	  a description of the log level (Error/Warning/Debug).  Also, avoid
+	  using e-icon-factory.  Set the GtkCellRendererPixbuf's "stock-id"
+	  and "stock-size" properties instead.
+	- Use GConfBridge to track the user's log level preference.
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #528288
+
+	* em-folder-browser.c: (emfb_init), (em_folder_browser_show_wide):
+	Ensure minimum size for preview and message list.
+	* em-folder-browser.c: (get_view_query):
+	Distinguish between no filter and custom filter.
+	* message-list.c: (regen_list_done):
+	Set info message to tree when no message shown in a list.
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #530245
+
+	* searchtypes.xml: Let searches work with labels again.
+
+2008-04-30  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #467892
+
+	* em-folder-view.c: (em_folder_view_open_selected):
+	Do not inherit search filters when opening messages in new window.
+	* message-list.c: (regen_list_exec):
+	If we are called from folder_changed even, then keep the actually
+	selected message so it will not disappear when user reads it and
+	it doesn't belong to actual filter anymore.
+
+2008-04-30  Shuai Liu  <shuai.liu@sun.com>
+
+	** Fix for bug #530672
+	Evolution crashes when viewing pgp-signed message
+
+	* em-format-html-display.c: Modify the array of smime_sign_colour 
+	from 4 to 5 to ensure the input by data-server is right
+
+2008-04-29  Milan Crha  <mcrha@redhat.com>
+
+	* em-utils.c: (em_utils_snoop_type):
+	Fixes compiler warning (unused variable).
+
+2008-04-29  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #511337
+
+	* em-format-html.h: (EMFormatHTMLState), (struct _EMFormatHTML):
+	* em-format-html.c: (efh_init), (efh_format_done),
+	(efh_format_timeout): Track state of the object to recognize
+	whether rendering new content or doing nothing.
+	* em-format-html-display.c: (efhd_can_process_attachment),
+	(efhd_attachment_show), (efhd_attachment_popup),
+	(efhd_attachment_image), (efhd_attachment_button):
+	Do nothing when EMFormatHTML object's state is RENDERING,
+	the puri object instance is not valid anyway.
+
+2008-04-28  Johan Euphrosine  <proppy@aminche.com>
+
+	** Fix for bug #529247
+
+	* em-format-html.h (struct _EMFormatHTML): Add header_colour.
+
+	* em-format-html-display.c (efhd_gtkhtml_realise): Use bg style
+	properties for body_colour, fg for header_colour, darken for
+	frame_colour, bg for content_colour.
+
+	* em-format-html.c (efh_init), (efh_format_exec), (efh_init),
+	(efh_text_plain), (efh_text_enriched), (efh_text_html),
+	(efh_message_deliverystatus): Use header_colour for text color of
+	the message header, body_colour for background color of the
+	message header, text_colour for text color of the message content,
+	base_colour for background color of the message content.
+
+2008-04-28  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* mail/em-utils.c: Avoid crash while detecting mime types.
+
+2008-04-28  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* mail/em-format-html.c: Fix the Mailer header display
+
+2008-04-25  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #273041
+
+	* mail.error.xml: (junk-check-error), (junk-report-error),
+	(junk-not-report-error): New error messages added.
+	* em-junk-hook.h: (struct _EMJunkHookTarget), (em_junk_error_quark):
+	* em-junk-hook.c: (manage_error), (em_junk_check_junk),
+	(em_junk_report_junk), (em_junk_report_non_junk):
+	Allow propagation of the error from the plugin in the hook target.
+
+2008-04-23  Milan Crha  <mcrha@redhat.com>
+
+	* em-format-html-display.c: (efhd_update_bar):
+	Compiler warning fix.
+
+2008-04-23  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #529375
+
+	* evolution-mail.schemas.in:
+	* mail-config.glade:
+	* em-utils.h: (em_utils_in_addressbook):
+	* em-utils.c: (em_utils_in_addressbook):
+	* em-format-html.c: (emfh_gethttp):
+	* mail-session.c: (lookup_addressbook):
+	* mail-config.h: (mail_config_get_lookup_book_local_only):
+	* mail-config.c: (struct MailConfig), (mail_config_init),
+	(mail_config_get_lookup_book_local_only):
+	* em-mailer-prefs.h: (struct _EMMailerPrefs):
+	* em-mailer-prefs.c: (junk_book_lookup_button_toggled),
+	(em_mailer_prefs_construct): Add new option
+	/apps/evolution/mail/junk/lookup_addressbook_local_only
+	to determine whether check for address in a local address book only.
+
+2008-04-23  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #529179
+
+	* em-folder-browser.c: (struct _EMFolderBrowserPrivate),
+	(labels_changed_idle_cb), (gconf_labels_changed), (emfb_destroy):
+	Rebuild search menu rather on idle, then immediately after the change
+	in gconf, because other parts may not have this change propagated yet.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #458505
+
+	* mail-config.glade:
+	One space between "Sender" and "Photograph".
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #529462
+
+	* evolution-mail.schemas.in:
+	Fix wording of "custom_header" GConf key description.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #494171
+
+	* mail-send-recv.c (build_dialog):
+	Make the "Send & Receive Mail" window dimensions persistent.
+
+	* evolution-mail.schemas.in:
+	Add keys for storing "Send & Receive Mail" window dimensions:
+		/apps/evolution/mail/send_recv_height
+		/apps/evolution/mail/send_recv_maximized
+		/apps/evolution/mail/send_recv_width
+	Note the "maximized" key is required by GConfBridge but is not
+	actually used since the window cannot be maximized.
+
+2008-04-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	* em-composer-prefs.c:
+	gconf-bridge.h moved to e-util.
+
+2008-04-21  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #323402
+
+	* em-folder-tree.c: (folder_tree_new):
+	* evolution-mail.schemas.in: Be able to disable ellipsizing of folder
+	names with hidden option /apps/evolution/mail/display/no_folder_dots.
+
+2008-04-20  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for bug #334444
+
+	* em-format-html-display.c: (efhd_attachment_button),
+	(efhd_update_bar), (efhd_message_update_bar),
+	(efhd_message_add_bar):
+	* em-format-html.c: (efh_format_exec):
+
+2008-04-17  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #526739
+
+	* Makefile.am:
+	* em-vfs-stream.h:
+	* em-vfs-stream.c: Removed from project, not used anywhere.
+	* em-menu.c:
+	* em-config.c: Do not include gnome-vfs.
+	* mail-ops.c: (save_messages_exec), (save_part_exec):
+	Changes related to Data Server change of CamelStreamVFS.
+	* em-format.c: (em_format_describe_part):
+	* em-format-html-display.c: (efhd_bonobo_object), (efhd_find_handler),
+	(efhd_use_component), (efhd_bonobo_unknown), (efhd_check_server_prop),
+	(efhd_format_attachment): Drop use of deprecated gnome-vfs functions.
+	* em-utils.c: (em_utils_snoop_type): Use gio to guess the mime_type.
+	* em-popup.c: (emp_apps_open_in), (emp_apps_popup_free),
+	(emp_standard_menu_factory): Use gio to fill popup and launch app.
+
+2008-04-16  Shuai Liu  <shuai.liu@sun.com>
+
+	** Fix for bug #528358
+
+	* em-utils.c: (em_utils_save_messages): Use message subject as default
+	filename when attempting to 'save message'. 
+
 2008-04-14  Milan Crha  <mcrha@redhat.com>
 
 	** Fix for bug #270406

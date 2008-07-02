@@ -6,7 +6,7 @@
  *  Rodrigo Moya <rodrigo@ximian.com>
  *  Nathan Owens <pianocomp81@yahoo.com>
  *
- * Copyright 2000, 2001, 2002, 2003 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -34,10 +34,10 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
-#include <glib.h>
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
-#include <gnome.h>
+#include <gdk/gdkkeysyms.h>
+#include <libgnome/gnome-url.h>
 #include <widgets/misc/e-gui-utils.h>
 #include <table/e-cell-checkbox.h>
 #include <table/e-cell-toggle.h>

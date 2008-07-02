@@ -4,7 +4,7 @@
  *  JP Rosevear <jpr@ximian.com>
  *  Nathan Owens <pianocomp81@yahoo.com>
  *
- * Copyright 2003, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -28,9 +28,9 @@
 
 G_BEGIN_DECLS
 
-#define E_MEMO_TABLE_CONFIG(obj)          GTK_CHECK_CAST (obj, e_memo_table_config_get_type (), EMemoTableConfig)
-#define E_MEMO_TABLE_CONFIG_CLASS(klass)  GTK_CHECK_CLASS_CAST (klass, e_memo_table_config_get_type (), EMemoTableConfigClass)
-#define E_IS_MEMO_TABLE_CONFIG(obj)       GTK_CHECK_TYPE (obj, e_memo_table_config_get_type ())
+#define E_MEMO_TABLE_CONFIG(obj)          G_TYPE_CHECK_INSTANCE_CAST (obj, e_memo_table_config_get_type (), EMemoTableConfig)
+#define E_MEMO_TABLE_CONFIG_CLASS(klass)  G_TYPE_CHECK_CLASS_CAST (klass, e_memo_table_config_get_type (), EMemoTableConfigClass)
+#define E_IS_MEMO_TABLE_CONFIG(obj)       G_TYPE_CHECK_INSTANCE_TYPE (obj, e_memo_table_config_get_type ())
 
 typedef struct _EMemoTableConfig        EMemoTableConfig;
 typedef struct _EMemoTableConfigClass   EMemoTableConfigClass;

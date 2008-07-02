@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-contact-editor-im.c
- * Copyright (C) 2003  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author: Christian Hammond <chipx86@gnupdate.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -23,15 +23,6 @@
 #include "e-contact-editor-im.h"
 #include <libgnome/gnome-util.h>
 #include <glib/gi18n.h>
-#include <gtk/gtkbox.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmenuitem.h>
-#include <gtk/gtkoptionmenu.h>
-#include <gtk/gtksizegroup.h>
-#include <gtk/gtkstock.h>
 #include <string.h>
 #include <e-util/e-icon-factory.h>
 #include <e-util/e-util-private.h>

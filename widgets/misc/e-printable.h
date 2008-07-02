@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * e-printable.h
- * Copyright 2000, 2001, Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors:
  *   Chris Lahey <clahey@ximian.com>
@@ -24,7 +24,6 @@
 #ifndef _E_PRINTABLE_H_
 #define _E_PRINTABLE_H_
 
-#include <gtk/gtkobject.h>
 #include <gtk/gtk.h>
 
 G_BEGIN_DECLS
@@ -61,7 +60,7 @@ typedef struct {
 	gboolean    (*will_fit)    (EPrintable *etm, GtkPrintContext *context, gdouble width, gdouble max_height, gboolean quantized);
 } EPrintableClass;
 
-GtkType     e_printable_get_type (void);
+GType       e_printable_get_type (void);
 
 EPrintable *e_printable_new                 (void);
 

@@ -2,7 +2,7 @@
 
 /* EAlarmList - list of calendar alarms with GtkTreeModel interface.
  *
- * Copyright (C) 2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -22,11 +22,7 @@
 
 #include <config.h>
 #include <string.h>
-#include <gtk/gtktreemodel.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktreednd.h>
 #include <glib/gi18n.h>
-#include <glib.h>
 #include <libecal/e-cal-time-util.h>
 #include <libedataserver/e-time-utils.h>
 #include "calendar-config.h"
@@ -75,7 +71,7 @@ static gboolean     e_alarm_list_iter_parent     (GtkTreeModel       *tree_model
 
 static GObjectClass *parent_class = NULL;
 
-GtkType
+GType
 e_alarm_list_get_type (void)
 {
 	static GType alarm_list_type = 0;

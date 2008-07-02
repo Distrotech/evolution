@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-combo-button.c
  *
- * Copyright (C) 2001  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -27,14 +27,6 @@
 #include "e-combo-button.h"
 #include "ea-widgets.h"
 #include <e-util/e-icon-factory.h>
-
-#include <gtk/gtkarrow.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtkimage.h>
-#include <gtk/gtksignal.h>
 
 struct _EComboButtonPrivate {
 	GdkPixbuf *icon;
@@ -391,7 +383,7 @@ impl_released (GtkButton *button)
 			gtk_button_clicked (button);
 
 			if (! priv->menu_popped_up)
-				gtk_signal_emit (GTK_OBJECT (button), signals[ACTIVATE_DEFAULT]);
+				g_signal_emit (button, signals[ACTIVATE_DEFAULT], 0);
 		}
 
 		new_state = (button->in_button ? GTK_STATE_PRELIGHT : GTK_STATE_NORMAL);
@@ -429,12 +421,13 @@ e_combo_button_class_init (EComboButtonClass *combo_button_class)
 	button_class = GTK_BUTTON_CLASS (object_class);
 	button_class->released = impl_released;
 
-	signals[ACTIVATE_DEFAULT] = gtk_signal_new ("activate_default",
-						    GTK_RUN_FIRST,
-						    GTK_CLASS_TYPE (object_class),
-						    G_STRUCT_OFFSET (EComboButtonClass, activate_default),
-						    gtk_marshal_NONE__NONE,
-						    GTK_TYPE_NONE, 0);
+	signals[ACTIVATE_DEFAULT] = g_signal_new ("activate_default",
+						  G_TYPE_FROM_CLASS (object_class),
+						  G_SIGNAL_RUN_FIRST,
+						  G_STRUCT_OFFSET (EComboButtonClass, activate_default),
+						  NULL, NULL,
+						  g_cclosure_marshal_VOID__VOID,
+						  G_TYPE_NONE, 0);
 
 	e_combo_button_a11y_init ();
 }

@@ -1,3 +1,31 @@
+2008-05-29  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #535459
+
+	* itip-formatter.c: (extract_itip_data):
+	Do not use component when sanity check fails.
+
+2008-05-22  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #534360
+
+	* itip-view.c:
+	Migrate from deprecated GtkObject symbols to GObject equivalents.
+
+2008-04-30  Chenthill Palanisamy  <pchenthill@novell.com>
+
+        ** Fixes #338330 (bnc)
+           Internet Based Calendar Events Are Declined By Evolution/GroupWise
+
+	* itip-formatter.c: (view_response_cb):
+
+2008-04-28  Srinivasa Ragavan  <sragavan@novell.com>
+
+	** Fix for BNC bug #382687
+
+	* plugins/itip-formatter/itip-formatter.c: Don't download contents in
+	main thread, which causes deadlock
+
 2008-03-27  Milan Crha  <mcrha@redhat.com>
 
 	** Fix for bug #523541

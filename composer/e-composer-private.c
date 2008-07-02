@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * Copyright (C) 2008 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU Lesser General Public
@@ -314,7 +314,7 @@ e_composer_get_default_charset (void)
 	g_object_unref (client);
 
 	if (charset == NULL)
-		charset = g_strdup (e_iconv_locale_charset ());
+		charset = g_strdup (camel_iconv_locale_charset ());
 
 	if (charset == NULL)
 		charset = g_strdup ("us-ascii");

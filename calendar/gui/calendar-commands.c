@@ -2,8 +2,8 @@
 /* Evolution calendar - Commands for the calendar GUI control
  *
  * Copyright (C) 1998 The Free Software Foundation
- * Copyright (C) 2000 Ximian, Inc.
- * Copyright (C) 2000 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Miguel de Icaza <miguel@ximian.com>
  *          Federico Mena-Quintero <federico@ximian.com>
@@ -35,14 +35,7 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <gdk-pixbuf/gdk-pixbuf.h>
-#include <gtk/gtkfilesel.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkmain.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkspinbutton.h>
-#include <gtk/gtkmessagedialog.h>
-#include <libgnome/gnome-util.h>
+#include <gtk/gtk.h>
 #include <libgnomeui/gnome-dialog-util.h>
 #include <libgnomeui/gnome-messagebox.h>
 #include <libgnomeui/gnome-stock-icons.h>
@@ -522,9 +515,8 @@ gcal_calendar_focus_change_cb (GnomeCalendar *gcal, gboolean in, gpointer data)
 		calendar_control_sensitize_calendar_commands (control, gcal, TRUE);
 		focus->calendar_focused = TRUE;
 	} else if (focus->calendar_focused) {
-		gtk_signal_disconnect_by_func (GTK_OBJECT (gcal),
-					       G_CALLBACK (gcal_calendar_selection_changed_cb),
-					       control);
+		g_signal_handlers_disconnect_by_func (
+			gcal, G_CALLBACK (gcal_calendar_selection_changed_cb), control);
 		calendar_control_sensitize_calendar_commands (control, gcal, FALSE);
 		focus->calendar_focused = FALSE;
 	}
@@ -553,9 +545,8 @@ gcal_taskpad_focus_change_cb (GnomeCalendar *gcal, gboolean in, gpointer data)
 		 * of blindly assumming that we are getting this event because
 		 * the taskpad was in fact focused.
 		 */
-		gtk_signal_disconnect_by_func (GTK_OBJECT (gcal),
-					       G_CALLBACK (gcal_taskpad_selection_changed_cb),
-					       control);
+		g_signal_handlers_disconnect_by_func (
+			gcal, G_CALLBACK (gcal_taskpad_selection_changed_cb), control);
 		sensitize_taskpad_commands (gcal, control, FALSE);
 		focus->taskpad_focused = FALSE;
 	}

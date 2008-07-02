@@ -4,7 +4,7 @@
  *           Jeffrey Stedfast <fejj@ximian.com>
  *	     Srinivasa Ragavan <sragavan@novell.com>
  *
- *  Copyright 1999-2005 Novell, Inc. (www.novell.com)
+ *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,17 +33,21 @@
 #include <gconf/gconf.h>
 #include <gconf/gconf-client.h>
 #include <gdk/gdkkeysyms.h>
-#include <libgnomevfs/gnome-vfs-mime-handlers.h>
 #include <glib/gi18n.h>
+#include <glib/gstdio.h>
 #include <libgnome/libgnome.h>
+
+#ifdef HAVE_LIBGNOMEUI_GNOME_THUMBNAIL_H
+#include <libgnomeui/gnome-thumbnail.h>
+#endif
 
 #include "e-attachment.h"
 #include "e-attachment-bar.h"
 
-#include <libedataserver/e-iconv.h>
 #include <libedataserver/e-data-server-util.h>
 
 #include <camel/camel-data-wrapper.h>
+#include <camel/camel-iconv.h>
 #include <camel/camel-mime-message.h>
 #include <camel/camel-stream-fs.h>
 #include <camel/camel-stream-null.h>
@@ -95,15 +99,31 @@ static void update (EAttachmentBar *bar);
 static char *
 size_to_string (gulong size)
 {
-	char *size_string;
+	/* code copied from gnome-vfs */
+	#define KILOBYTE_FACTOR  1024.0
+	#define MEGABYTE_FACTOR (1024.0 * 1024.0)
+	#define GIGABYTE_FACTOR (1024.0 * 1024.0 * 1024.0)
 
-	/* FIXME: The following should probably go into a separate module, as
-           we might have to do the same thing in other places as well.  Also,
-	   I am not sure this will be OK for all the languages.  */
+	if (size < (gulong) KILOBYTE_FACTOR) {
+		return g_strdup_printf (ngettext ("%u byte", "%u bytes",(guint) size), (guint) size);
+	} else {
+		gdouble displayed_size;
 
-	size_string = gnome_vfs_format_file_size_for_display (size);
+		if (size < (gulong) MEGABYTE_FACTOR) {
+			displayed_size = (gdouble) size / KILOBYTE_FACTOR;
+			return g_strdup_printf (_("%.1f KB"), displayed_size);
+		} else if (size < (gulong) GIGABYTE_FACTOR) {
+			displayed_size = (gdouble) size / MEGABYTE_FACTOR;
+			return g_strdup_printf (_("%.1f MB"), displayed_size);
+		} else {
+			displayed_size = (gdouble) size / GIGABYTE_FACTOR;
+			return g_strdup_printf (_("%.1f GB"), displayed_size);
+		}
+	}
 
-	return size_string;
+	#undef KILOBYTE_FACTOR
+	#undef MEGABYTE_FACTOR
+	#undef GIGABYTE_FACTOR
 }
 
 /* Attachment handling functions.  */
@@ -165,6 +185,149 @@ add_from_file (EAttachmentBar *bar, const char *file_name, const char *dispositi
 	}
 }
 
+/* get_system_thumbnail:
+ * If filled store_uri, then creating thumbnail for it, otherwise, if is_available_local,
+ * and attachment is not an application, then save to temp and create a thumbnail for the body.
+ * Otherwise returns NULL (or if something goes wrong/library not available).
+ */
+static GdkPixbuf *
+get_system_thumbnail (EAttachment *attachment, CamelContentType *content_type)
+{
+	GdkPixbuf *pixbuf = NULL;
+#ifdef HAVE_LIBGNOMEUI_GNOME_THUMBNAIL_H
+	struct stat file_stat;
+	char *file_uri = NULL;
+	gboolean is_tmp = FALSE;
+
+	if (!attachment || !attachment->is_available_local)
+		return NULL;
+
+	if (attachment->store_uri && g_str_has_prefix (attachment->store_uri, "file://"))
+		file_uri = attachment->store_uri;
+	else if (attachment->body) {
+		/* save part to the temp directory */
+		char *tmp_file;
+
+		is_tmp = TRUE;
+
+		tmp_file = e_mktemp ("tmp-XXXXXX");
+		if (tmp_file) {
+			CamelStream *stream;
+			char *mfilename = NULL;
+			const char * filename;
+
+			filename = camel_mime_part_get_filename (attachment->body);
+			if (filename == NULL)
+				filename = "unknown";
+			else {
+				char *utf8_mfilename;
+
+				utf8_mfilename = g_strdup (filename);
+				e_filename_make_safe (utf8_mfilename);
+				mfilename = g_filename_from_utf8 ((const char *) utf8_mfilename, -1, NULL, NULL, NULL);
+				g_free (utf8_mfilename);
+
+				filename = (const char *) mfilename;
+			}
+
+			file_uri = g_strjoin (NULL, "file://", tmp_file, "-", filename, NULL);
+
+			stream = camel_stream_fs_new_with_name (file_uri + 7, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+			if (stream) {
+				CamelDataWrapper *content;
+
+				content = camel_medium_get_content_object (CAMEL_MEDIUM (attachment->body));
+
+				if (camel_data_wrapper_decode_to_stream (content, stream) == -1
+				    || camel_stream_flush (stream) == -1) {
+					g_free (file_uri);
+					file_uri = NULL;
+				}
+
+				camel_object_unref (stream);
+			} else {
+				g_free (file_uri);
+				file_uri = NULL;
+			}
+
+			g_free (mfilename);
+			g_free (tmp_file);
+		}
+	}
+
+	if (!file_uri || !g_str_has_prefix (file_uri, "file://")) {
+		if (is_tmp)
+			g_free (file_uri);
+
+		return NULL;
+	}
+
+	if (stat (file_uri + 7, &file_stat) != -1 && S_ISREG (file_stat.st_mode)) {
+		GnomeThumbnailFactory *th_factory;
+		char *th_file;
+
+		th_factory = gnome_thumbnail_factory_new (GNOME_THUMBNAIL_SIZE_NORMAL);
+		th_file = gnome_thumbnail_factory_lookup (th_factory, file_uri, file_stat.st_mtime);
+
+		if (th_file) {
+			pixbuf = gdk_pixbuf_new_from_file (th_file, NULL);
+			g_free (th_file);
+		} else if (content_type) {
+			char *mime = camel_content_type_simple (content_type);
+
+			if (gnome_thumbnail_factory_can_thumbnail (th_factory, file_uri, mime, file_stat.st_mtime)) {
+				pixbuf = gnome_thumbnail_factory_generate_thumbnail (th_factory, file_uri, mime);
+				
+				if (pixbuf && !is_tmp)
+					gnome_thumbnail_factory_save_thumbnail (th_factory, pixbuf, file_uri, file_stat.st_mtime);
+			}
+
+			g_free (mime);
+		}
+
+		g_object_unref (th_factory);
+	}
+
+	if (is_tmp) {
+		/* clear the temp */
+		g_remove (file_uri + 7);
+		g_free (file_uri);
+	}
+#endif
+
+	return pixbuf;
+}
+
+static GdkPixbuf *
+scale_pixbuf (GdkPixbuf *pixbuf)
+{
+	int ratio, width, height;
+
+	if (!pixbuf)
+		return NULL;
+
+	width = gdk_pixbuf_get_width (pixbuf);
+	height = gdk_pixbuf_get_height (pixbuf);
+	if (width >= height) {
+		if (width > 48) {
+			ratio = width / 48;
+			width = 48;
+			height = height / ratio;
+			if (height == 0)
+				height = 1;
+		}
+	} else {
+		if (height > 48) {
+			ratio = height / 48;
+			height = 48;
+			width = width / ratio;
+			if (width == 0)
+				width = 1;
+		}
+	}
+
+	return e_icon_factory_pixbuf_scale (pixbuf, width, height);
+}
 
 /* Icon list contents handling.  */
 
@@ -221,31 +384,8 @@ e_attachment_bar_create_attachment_cache (EAttachment *attachment)
 		gdk_pixbuf_loader_close (loader, NULL);
 
 		if (!error) {
-			int ratio, width, height;
-
-			/* Shrink pixbuf */
 			pixbuf = gdk_pixbuf_loader_get_pixbuf (loader);
-			width = gdk_pixbuf_get_width (pixbuf);
-			height = gdk_pixbuf_get_height (pixbuf);
-			if (width >= height) {
-				if (width > 48) {
-					ratio = width / 48;
-					width = 48;
-					height = height / ratio;
-					if (height == 0)
-						height = 1;
-				}
-			} else {
-				if (height > 48) {
-					ratio = height / 48;
-					height = 48;
-					width = width / ratio;
-					if (width == 0)
-						width = 1;
-				}
-			}
-
-			attachment->pixbuf_cache = e_icon_factory_pixbuf_scale (pixbuf, width, height);
+			attachment->pixbuf_cache = scale_pixbuf (pixbuf);
 			pixbuf = attachment->pixbuf_cache;
 			g_object_ref(pixbuf);
 		} else {
@@ -314,31 +454,8 @@ update (EAttachmentBar *bar)
 			gdk_pixbuf_loader_close (loader, NULL);
 
 			if (!error) {
-				int ratio, width, height;
-
-				/* Shrink pixbuf */
 				pixbuf = gdk_pixbuf_loader_get_pixbuf (loader);
-				width = gdk_pixbuf_get_width (pixbuf);
-				height = gdk_pixbuf_get_height (pixbuf);
-				if (width >= height) {
-					if (width > 48) {
-						ratio = width / 48;
-						width = 48;
-						height = height / ratio;
-						if (height == 0)
-							height = 1;
-					}
-				} else {
-					if (height > 48) {
-						ratio = height / 48;
-						height = 48;
-						width = width / ratio;
-						if (width == 0)
-							width = 1;
-					}
-				}
-
-				attachment->pixbuf_cache = e_icon_factory_pixbuf_scale (pixbuf, width, height);
+				attachment->pixbuf_cache = scale_pixbuf (pixbuf);
 				pixbuf = attachment->pixbuf_cache;
 				g_object_ref (pixbuf);
 			} else {
@@ -349,6 +466,10 @@ update (EAttachmentBar *bar)
 			/* Destroy everything */
 			g_object_unref (loader);
 			camel_object_unref (mstream);
+		} else if (!bar->expand && (pixbuf = get_system_thumbnail (attachment, content_type))) {
+			attachment->pixbuf_cache = scale_pixbuf (pixbuf);
+			pixbuf = attachment->pixbuf_cache;
+			g_object_ref (pixbuf);
 		}
 
 		desc = camel_mime_part_get_description (attachment->body);
@@ -378,6 +499,10 @@ update (EAttachmentBar *bar)
 				pixbuf = e_icon_factory_get_icon("mail-attachment", E_ICON_SIZE_DIALOG);
 			}
 			g_free (mime_type);
+
+			/* remember this picture and use it later again */
+			if (pixbuf)
+				attachment->pixbuf_cache = g_object_ref (pixbuf);
 		}
 
 		if (pixbuf) {
@@ -1071,7 +1196,7 @@ get_default_charset (void)
 
 	g_object_unref (gconf);
 
-	if (!charset && (locale = e_iconv_locale_charset ()))
+	if (!charset && (locale = camel_iconv_locale_charset ()))
 		charset = g_strdup (locale);
 
 	return charset ? charset : g_strdup ("us-ascii");
@@ -1190,6 +1315,27 @@ e_attachment_bar_add_attachment (EAttachmentBar *bar, EAttachment *attachment)
 	g_return_if_fail (E_IS_ATTACHMENT_BAR (bar));
 
 	add_common (bar, attachment);
+}
+
+void
+e_attachment_bar_add_attachment_silent (EAttachmentBar *bar, EAttachment *attachment)
+{
+	g_return_if_fail (E_IS_ATTACHMENT_BAR (bar));
+	g_return_if_fail (attachment != NULL);
+
+	g_ptr_array_add (bar->priv->attachments, attachment);
+	g_object_weak_ref ((GObject *) attachment, (GWeakNotify) attachment_destroy, bar);
+	g_signal_connect (attachment, "changed", G_CALLBACK (attachment_changed_cb), bar);
+
+
+	g_signal_emit (bar, signals[CHANGED], 0);
+}
+
+void
+e_attachment_bar_refresh (EAttachmentBar *bar)
+{
+	update (bar);
+
 }
 
 int

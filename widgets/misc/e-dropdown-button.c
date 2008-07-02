@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-dropdown-menu.c
  *
- * Copyright (C) 2001 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -29,11 +29,6 @@
 #include "e-dropdown-button.h"
 
 #include <stdio.h>
-#include <gtk/gtkarrow.h>
-#include <gtk/gtkhbox.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtkwidget.h>
 #include <libgnomeui/gnome-popup-menu.h>
 
 struct _EDropdownButtonPrivate {
@@ -207,9 +202,9 @@ e_dropdown_button_construct (EDropdownButton *dropdown_button,
 
 	priv->menu = GTK_WIDGET (menu);
 
-	gtk_signal_connect_while_alive (GTK_OBJECT (priv->menu), "deactivate",
-					G_CALLBACK (menu_deactivate_cb),
-					dropdown_button, GTK_OBJECT (dropdown_button));
+	g_signal_connect_object (priv->menu, "deactivate",
+				 G_CALLBACK (menu_deactivate_cb),
+				 dropdown_button, 0);
 }
 
 /**

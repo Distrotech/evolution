@@ -4,7 +4,7 @@
  * Authors :
  *  Rodrigo Moya <rodrigo@ximian.com>
  *
- * Copyright 2003, Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -26,7 +26,7 @@
 #endif
 
 #include <string.h>
-#include <bonobo/bonobo-i18n.h>
+#include <glib/gi18n.h>
 #include <libedataserver/e-source.h>
 #include <libedataserverui/e-passwords.h>
 #include "authentication.h"

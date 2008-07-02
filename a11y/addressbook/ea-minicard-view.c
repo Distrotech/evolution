@@ -1,7 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * ea-minicard-view.c
- * Copyright (C) 2000  Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  * Author:  Leon Zhang < leon.zhang@sun.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -21,8 +21,7 @@
 
 #include <config.h>
 #include <string.h>
-#include <gtk/gtkaccessible.h>
-#include <glib/gstrfuncs.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include "ea-minicard.h"
 #include "ea-minicard-view.h"

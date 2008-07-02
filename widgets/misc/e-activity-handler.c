@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /* e-activity-handler.c
  *
- * Copyright (C) 2001, 2002, 2003 Novell, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -381,6 +381,7 @@ cancel_wrapper (gpointer pdata)
 	if (data->info->error) {
 		/* Hide the error */
 		EActivityHandler *handler = data->handler;
+		ActivityInfo *info;
 		int order, len;
 		GSList *sp;
 		GList *p = lookup_activity (handler->priv->activity_infos, data->id, &order);
@@ -388,13 +389,14 @@ cancel_wrapper (gpointer pdata)
 						    g_object_get_data (data->info->error, "secondary"));
 		gtk_widget_destroy (data->info->error);
 		data->info->error = NULL;
+		info = data->info;
 		for (sp = handler->priv->task_bars; sp != NULL; sp = sp->next) {
 			ETaskBar *task_bar;
 
 			task_bar = E_TASK_BAR (sp->data);
-			e_task_bar_remove_task_from_id (task_bar, data->info->id);	
+			e_task_bar_remove_task_from_id (task_bar, info->id);	
 		}
-		activity_info_free (data->info);
+		activity_info_free (info);
 		len = g_list_length (handler->priv->activity_infos);
 		handler->priv->activity_infos = g_list_remove_link (handler->priv->activity_infos, p);
 		if (len == 1)
@@ -551,9 +553,9 @@ e_activity_handler_make_error (EActivityHandler *activity_handler,
 	unsigned int activity_id;
 	GSList *p;
 	char *information = g_object_get_data((GObject *) error, "primary");
-	priv = activity_handler->priv;
 	const char *img;
 
+	priv = activity_handler->priv;
 	activity_id = get_new_activity_id (activity_handler);
 
 	activity_info = activity_info_new (component_id, activity_id, NULL, information, TRUE);

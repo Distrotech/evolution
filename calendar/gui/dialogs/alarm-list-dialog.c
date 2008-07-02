@@ -2,7 +2,7 @@
 
 /* Evolution calendar - Alarm page of the calendar component dialogs
  *
- * Copyright (C) 2001-2003 Ximian, Inc.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  * Authors: Federico Mena-Quintero <federico@ximian.com>
  *          Miguel de Icaza <miguel@ximian.com>
@@ -29,13 +29,7 @@
 #endif
 
 #include <string.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkcellrenderertext.h>
-#include <gtk/gtkdialog.h>
-#include <gtk/gtksignal.h>
-#include <gtk/gtktreeview.h>
-#include <gtk/gtktreeselection.h>
-#include <gtk/gtkoptionmenu.h>
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <glade/glade.h>
 #include <libedataserver/e-time-utils.h>
