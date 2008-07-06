@@ -287,7 +287,7 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 
 		e_source_group_add_source (group, source, -1);
 
-		if (source_selection_key) {
+		if (source_selection_key && folder->is_default) {
 			ids = gconf_client_get_list (client, source_selection_key , GCONF_VALUE_STRING, NULL);
 			ids = g_slist_append (ids, g_strdup (e_source_peek_uid (source)));
 			gconf_client_set_list (client,  source_selection_key, GCONF_VALUE_STRING, ids, NULL);
