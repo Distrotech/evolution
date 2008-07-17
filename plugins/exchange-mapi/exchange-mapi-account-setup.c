@@ -754,6 +754,20 @@ exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 	e_source_set_property (source, "folder-id", tmp);
 	g_free (tmp);
 
+	/* Delegatees can never create folders for delegators. So we can copy safely. */
+	tmp = e_source_group_get_property (grp, "acl-user-name");
+	e_source_set_property (source, "acl-user-name", tmp);
+	g_free (tmp);
+	tmp = e_source_group_get_property (grp, "acl-user-email");
+	e_source_set_property (source, "acl-user-email", tmp);
+	g_free (tmp);
+	tmp = e_source_group_get_property (grp, "acl-owner-name");
+	e_source_set_property (source, "acl-owner-name", tmp);
+	g_free (tmp);
+	tmp = e_source_group_get_property (grp, "acl-owner-email");
+	e_source_set_property (source, "acl-owner-email", tmp);
+	g_free (tmp);
+
 	// Update the folder list in the plugin and ExchangeMAPIFolder
 	return;
 }

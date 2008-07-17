@@ -245,6 +245,12 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 	e_source_group_set_property (group, "profile", camel_url_get_param (url, "profile"));
 	e_source_group_set_property (group, "domain", camel_url_get_param (url, "domain"));
 
+	/* We set these because on new folder creation - these are required. */
+	e_source_group_set_property (group, "acl-user-name", account->id->name);
+	e_source_group_set_property (group, "acl-user-email", account->id->address);
+	e_source_group_set_property (group, "acl-owner-name", account->id->name);
+	e_source_group_set_property (group, "acl-owner-email", account->id->address);
+
 	for (temp_list = folders; temp_list != NULL; temp_list = g_slist_next (temp_list)) {
  		ExchangeMAPIFolder *folder = temp_list->data;
 		ESource *source = NULL;
