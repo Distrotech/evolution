@@ -211,7 +211,7 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 {
 	ESourceList *source_list = NULL;
 	ESourceGroup *group = NULL;
-	const gchar *conf_key = NULL, *source_selection_key = NULL, *primary_source_name = NULL;
+	const gchar *conf_key = NULL, *source_selection_key = NULL;
  	GSList *temp_list = NULL;
 	GConfClient* client;
 	GSList *ids, *temp ;
@@ -220,15 +220,12 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 	if (folder_type ==  MAPI_FOLDER_TYPE_APPOINTMENT) { 
 		conf_key = CALENDAR_SOURCES;
 		source_selection_key = SELECTED_CALENDARS;
-//		primary_source_name = "Calendar";
 	} else if (folder_type == MAPI_FOLDER_TYPE_TASK) { 
 		conf_key = TASK_SOURCES;
 		source_selection_key = SELECTED_TASKS;
-//		primary_source_name = "Tasks";
 	} else if (folder_type == MAPI_FOLDER_TYPE_MEMO) {
 		conf_key = JOURNAL_SOURCES;
 		source_selection_key = SELECTED_JOURNALS;
-//		primary_source_name = "Notes";
 	} else {
 		g_warning ("%s(%d): %s: Unknown ExchangeMAPIFolderType\n", __FILE__, __LINE__, __PRETTY_FUNCTION__);
 		return;
@@ -274,11 +271,9 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 		e_source_set_property (source, "offline_sync", 
 					       camel_url_get_param (url, "offline_sync") ? "1" : "0");
 
-		/* FIXME: The primary folders cannot be deleted */
-#if 0
-		if (strcmp (folder->folder_name, primary_source_name) == 0) 
+		if (folder->is_default) 
 			e_source_set_property (source, "delete", "no");
-#endif
+
 		if (folder->parent_folder_id) {
 			gchar *tmp = exchange_mapi_util_mapi_id_to_string (folder->parent_folder_id);
 			e_source_set_property (source, "parent-fid", tmp);
@@ -311,6 +306,7 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 
 	if (!e_source_list_add_group (source_list, group, -1))
 		return;
+
 	if (!e_source_list_sync (source_list, NULL))
 		return;
 

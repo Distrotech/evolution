@@ -719,16 +719,12 @@ exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 	exchange_mapi_util_mapi_id_from_string (sfid, &pfid);
 
 	fid = exchange_mapi_create_folder (type, pfid, e_source_peek_name (source));
-	printf("Created %016llX\n", fid);
-
-	grp = e_source_peek_group (source);
 
 	e_source_set_property (source, "auth", "1");
 	e_source_set_property (source, "auth-domain", E_PASSWORD_COMPONENT);
+	e_source_set_property (source, "auth-type", "plain/password");
 
-	tmp = e_source_group_get_property (grp, "use_ssl");
-	e_source_set_property (source, "use_ssl", tmp);
-	g_free (tmp);
+	grp = e_source_peek_group (source);
 
 	tmp = e_source_group_get_property (grp, "username");
 	e_source_set_property (source, "username", tmp);
@@ -737,9 +733,6 @@ exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 	tmp = e_source_group_get_property (grp, "host");
 	e_source_set_property (source, "host", tmp);
 	g_free (tmp);
-
-//	e_source_set_property (source, "offline_sync", 
-//				       camel_url_get_param (url, "offline_sync") ? "1" : "0");
 
 	tmp = e_source_group_get_property (grp, "profile");
 	e_source_set_property (source, "profile", tmp);
@@ -753,6 +746,12 @@ exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 	e_source_set_relative_uri (source, tmp);
 	e_source_set_property (source, "folder-id", tmp);
 	g_free (tmp);
+
+	tmp = e_source_group_get_property (grp, "use_ssl");
+	e_source_set_property (source, "use_ssl", tmp);
+	g_free (tmp);
+
+	e_source_set_property (source, "offline_sync", "0");
 
 	/* Delegatees can never create folders for delegators. So we can copy safely. */
 	tmp = e_source_group_get_property (grp, "acl-user-name");

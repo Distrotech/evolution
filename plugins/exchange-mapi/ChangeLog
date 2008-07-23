@@ -1,3 +1,10 @@
+2008-07-23  Suman Manjunath  <msuman@novell.com>
+
+	* exchange-account-listener.c (add_cal_esource): Default folders 
+	should not be deletable. 
+	* exchange-mapi-account-setup.c (exchange_mapi_cal_commit): Set 
+	"auth-type" on newly created folders. 
+
 2008-07-17  Suman Manjunath  <msuman@novell.com>
 
 	* exchange-account-listener.c (add_cal_esource):
