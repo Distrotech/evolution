@@ -267,7 +267,6 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 		e_source_set_property (source, "profile", camel_url_get_param (url, "profile"));
 		e_source_set_property (source, "domain", camel_url_get_param (url, "domain"));
 		e_source_set_property (source, "folder-id", fid);
-		e_source_set_property (source, "use_ssl", camel_url_get_param (url, "use_ssl"));
 		e_source_set_property (source, "offline_sync", 
 					       camel_url_get_param (url, "offline_sync") ? "1" : "0");
 
@@ -493,7 +492,6 @@ add_addressbook_sources (EAccount *account, GSList *folders)
        	char *base_uri;
 	GSList *books_list, *temp_list;
 	GConfClient* client;
-	const char* use_ssl;
 	gboolean is_frequent_contacts = FALSE, is_writable = FALSE;
 
         url = camel_url_new (account->source->url, NULL);

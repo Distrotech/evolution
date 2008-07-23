@@ -657,24 +657,16 @@ exchange_mapi_cal_check (EPlugin *epl, EConfigHookPageCheckData *data)
 	ESource *source = t->source;
 	char *uri_text = e_source_get_uri (source);
 
-	if (!uri_text)
-		return TRUE;
+	if (!uri_text || g_ascii_strncasecmp (uri_text, "mapi://", 7))
+		return FALSE;
+	g_free (uri_text);
 
 	/* FIXME: Offline handling */
 
-	/* not a MAPI account */
-	if (g_ascii_strncasecmp (uri_text, "mapi", 4)) {
-		g_free (uri_text);
-		return TRUE;
-	}
-
 	/* does not have a parent-fid which is needed for folder creation on server */
-	if (!e_source_get_property (source, "parent-fid")) {
-		g_free (uri_text);
+	if (!e_source_get_property (source, "parent-fid"))
 		return FALSE;
-	}
 
-	g_free (uri_text);
 	return TRUE;
 }
 
@@ -682,93 +674,87 @@ void
 exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 {
 	ECalConfigTargetSource *t = (ECalConfigTargetSource *) target;
+	ESourceGroup *group;
 	ESource *source = t->source;
-	gchar *uri_text, *tmp;
+	gchar *tmp, *sfid;
 	mapi_id_t fid, pfid;
-	ESourceGroup *grp;
-	int type;
-	const gchar *source_selection_key = NULL, *sfid;
+	uint32_t type;
+	char *uri_text = e_source_get_uri (source);
 
-	uri_text = e_source_get_uri (source);
-	if (uri_text && g_ascii_strncasecmp (uri_text, "mapi://", 7))
+	if (!uri_text || g_ascii_strncasecmp (uri_text, "mapi://", 7))
 		return;
 	g_free (uri_text);
 
 	switch (t->source_type) {
 		case E_CAL_SOURCE_TYPE_EVENT: 
 			type = olFolderCalendar; 
-			source_selection_key = "/apps/evolution/calendar/display/selected_calendars";
 			break;
 		case E_CAL_SOURCE_TYPE_TODO: 
 			type = olFolderTasks; 
-			source_selection_key = "/apps/evolution/calendar/tasks/selected_tasks";
 			break;
 		case E_CAL_SOURCE_TYPE_JOURNAL: 
 			type = olFolderNotes; 
-			source_selection_key = "/apps/evolution/calendar/memos/selected_memos";
 			break;
 		default: 
-			type = olFolderCalendar; 
-			source_selection_key = "/apps/evolution/calendar/display/selected_calendars";
-			break;
+			g_warning ("%s(%d): %s: Unknown ExchangeMAPIFolderType\n", __FILE__, __LINE__, __PRETTY_FUNCTION__);
+			return;
 	}
 
-	//FIXME: Offline handling
+	/* FIXME: Offline handling */
 
-	sfid = e_source_get_property (source, "parent-fid");
-	exchange_mapi_util_mapi_id_from_string (sfid, &pfid);
+	exchange_mapi_util_mapi_id_from_string (e_source_get_property (source, "parent-fid"), &pfid);
 
 	fid = exchange_mapi_create_folder (type, pfid, e_source_peek_name (source));
+
+	sfid = exchange_mapi_util_mapi_id_to_string (fid);
+	tmp = g_strconcat (";", sfid, NULL);
+	e_source_set_relative_uri (source, tmp);
+	g_free (tmp);
+	g_free (sfid);
 
 	e_source_set_property (source, "auth", "1");
 	e_source_set_property (source, "auth-domain", E_PASSWORD_COMPONENT);
 	e_source_set_property (source, "auth-type", "plain/password");
 
-	grp = e_source_peek_group (source);
+	group = e_source_peek_group (source);
 
-	tmp = e_source_group_get_property (grp, "username");
+	tmp = e_source_group_get_property (group, "username");
 	e_source_set_property (source, "username", tmp);
 	g_free (tmp);
 	
-	tmp = e_source_group_get_property (grp, "host");
+	tmp = e_source_group_get_property (group, "host");
 	e_source_set_property (source, "host", tmp);
 	g_free (tmp);
 
-	tmp = e_source_group_get_property (grp, "profile");
+	tmp = e_source_group_get_property (group, "profile");
 	e_source_set_property (source, "profile", tmp);
 	g_free (tmp);
 
-	tmp = e_source_group_get_property (grp, "domain");
+	tmp = e_source_group_get_property (group, "domain");
 	e_source_set_property (source, "domain", tmp);
 	g_free (tmp);
 
 	tmp = exchange_mapi_util_mapi_id_to_string (fid);
-	e_source_set_relative_uri (source, tmp);
 	e_source_set_property (source, "folder-id", tmp);
-	g_free (tmp);
-
-	tmp = e_source_group_get_property (grp, "use_ssl");
-	e_source_set_property (source, "use_ssl", tmp);
 	g_free (tmp);
 
 	e_source_set_property (source, "offline_sync", "0");
 
 	/* Delegatees can never create folders for delegators. So we can copy safely. */
-	tmp = e_source_group_get_property (grp, "acl-user-name");
+	tmp = e_source_group_get_property (group, "acl-user-name");
 	e_source_set_property (source, "acl-user-name", tmp);
 	g_free (tmp);
-	tmp = e_source_group_get_property (grp, "acl-user-email");
+	tmp = e_source_group_get_property (group, "acl-user-email");
 	e_source_set_property (source, "acl-user-email", tmp);
 	g_free (tmp);
-	tmp = e_source_group_get_property (grp, "acl-owner-name");
+	tmp = e_source_group_get_property (group, "acl-owner-name");
 	e_source_set_property (source, "acl-owner-name", tmp);
 	g_free (tmp);
-	tmp = e_source_group_get_property (grp, "acl-owner-email");
+	tmp = e_source_group_get_property (group, "acl-owner-email");
 	e_source_set_property (source, "acl-owner-email", tmp);
 	g_free (tmp);
 
 	// Update the folder list in the plugin and ExchangeMAPIFolder
 	return;
 }
-
 
