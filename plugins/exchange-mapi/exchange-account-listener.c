@@ -188,6 +188,7 @@ lookup_account_info (const char *key)
 #define SELECTED_TASKS 		"/apps/evolution/calendar/tasks/selected_tasks"
 #define SELECTED_JOURNALS 	"/apps/evolution/calendar/memos/selected_memos"
 
+#define ITIP_MESSAGE_HANDLING 	"/apps/evolution/itip/delete_processed"
 
 GSList *
 exchange_account_listener_peek_folder_list ()
@@ -232,6 +233,7 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 	} 
 
 	client = gconf_client_get_default ();
+	gconf_client_set_bool (client, ITIP_MESSAGE_HANDLING, TRUE, NULL);
 	source_list = e_source_list_new_for_gconf (client, conf_key);
 	base_uri = g_strdup_printf ("%s%s@%s/", MAPI_URI_PREFIX, url->user, url->host);
 	group = e_source_group_new (account->name, base_uri);
@@ -319,7 +321,7 @@ remove_cal_esource (EAccount *existing_account_info, ExchangeMAPIFolderType fold
 {
 	ESourceList *list;
 	const gchar *conf_key = NULL, *source_selection_key = NULL;
-        GSList *groups;
+	GSList *groups;
 	gboolean found_group;
 	GConfClient* client;
 	GSList *ids;
@@ -340,8 +342,9 @@ remove_cal_esource (EAccount *existing_account_info, ExchangeMAPIFolderType fold
 		return;
 	} 
 
-        client = gconf_client_get_default();
-        list = e_source_list_new_for_gconf (client, conf_key);
+	client = gconf_client_get_default();
+	gconf_client_set_bool (client, ITIP_MESSAGE_HANDLING, FALSE, NULL);
+	list = e_source_list_new_for_gconf (client, conf_key);
 	groups = e_source_list_peek_groups (list); 
 
 	base_uri = g_strdup_printf ("mapi://%s@%s/", url->user, url->host);
