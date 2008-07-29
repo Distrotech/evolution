@@ -1158,7 +1158,7 @@ itip_send_comp (ECalComponentItipMethod method, ECalComponent *send_comp,
 	}
 
 	/* check whether backend could handle sending requests/updates */
-	if (method != E_CAL_COMPONENT_METHOD_PUBLISH && e_cal_get_create_messages (client)) {
+	if (method != E_CAL_COMPONENT_METHOD_PUBLISH && e_cal_get_static_capability (client, CAL_STATIC_CAPABILITY_CREATE_MESSAGES)) {
 		if (users) {
 			g_list_foreach (users, (GFunc) g_free, NULL);
 			g_list_free (users);

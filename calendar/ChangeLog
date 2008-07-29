@@ -1,8 +1,3 @@
-2008-07-18  Suman Manjunath  <msuman@novell.com>
-
-	* gui/itip-utils.c (itip_send_comp): 
-	Use the CAL_STATIC_CAPABILITY_CREATE_MESSAGES.
-
 2008-06-16  Maciej Piechotka <uzytkownik2@gmail.com>
 
 	* gui/caltypes.xml:
