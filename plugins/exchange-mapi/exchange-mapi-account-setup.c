@@ -293,9 +293,9 @@ validate_credentials (GtkWidget *widget, EConfig *config)
 						     E_PASSWORDS_REMEMBER_FOREVER|E_PASSWORDS_SECRET,
 						     &remember, NULL);
 		g_free (title);
-		g_free (key);
 
 		if (!password) {
+			g_free (key);
 			camel_url_free (url);
 			return;
 		}
