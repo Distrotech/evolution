@@ -1,3 +1,8 @@
+2008-08-13  Suman Manjunath  <msuman@novell.com>
+
+	* gui/dialogs/comp-editor.c (real_send_comp): Don't replace attachment
+	list if backend can CREATE_MESSAGES
+
 2008-06-16  Maciej Piechotka <uzytkownik2@gmail.com>
 
 	* gui/caltypes.xml:
