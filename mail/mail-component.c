@@ -230,11 +230,13 @@ mc_add_store_done(CamelObjectRemote *store, CamelFolderInfo *info, void *data)
 
 	if (!si->removed) {
 		/* let the counters know about the already opened junk/trash folders */
+
+/* Fix these first thing in the morning. Migrate everything to ObjectRemote		
 		if (si->vtrash)
 			mail_note_folder(si->vtrash);
 		if (si->vjunk)
 			mail_note_folder(si->vjunk);
-	}
+*/	}
 
 	store_info_unref(si);
 
