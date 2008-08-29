@@ -384,19 +384,20 @@ mail_tools_x_evolution_message_parse (char *in, unsigned int inlen, GPtrArray **
 
 /* FIXME: This should be a property on CamelFolder */
 char *
-mail_tools_folder_to_url (CamelFolder *folder)
+mail_tools_folder_to_url (CamelObjectRemote *folder)
 {
 	CamelURL *url;
 	char *out;
+	CamelObjectRemote *store = camel_folder_remote_get_parent_store (folder);
+	char *full_name = camel_folder_remote_get_full_name (folder);
 
-	url = camel_url_new ();
-	url = camel_url_copy(((CamelService *)folder->parent_store)->url);
-	if (((CamelService *)folder->parent_store)->provider->url_flags  & CAMEL_URL_FRAGMENT_IS_PATH) {
-		camel_url_set_fragment(url, folder->full_name);
+	url = camel_url_new (camel_store_get_url_remote (store), NULL);
+	if (camel_store_get_url_flags_remote(store)  & CAMEL_URL_FRAGMENT_IS_PATH) {
+		camel_url_set_fragment(url, full_name);
 	} else {
-		char *name = g_alloca(strlen(folder->full_name)+2);
+		char *name = g_alloca(strlen(full_name)+2);
 
-		sprintf(name, "/%s", folder->full_name);
+		sprintf(name, "/%s", full_name);
 		camel_url_set_path(url, name);
 	}
 

@@ -24,7 +24,7 @@
 #define MAIL_TOOLS_H
 
 #include <glib.h>
-
+#include "camel-object-remote.h"
 struct _CamelFolder;
 struct _CamelException;
 struct _CamelMimeMessage;
@@ -57,6 +57,6 @@ GHashTable *mail_lookup_url_table (struct _CamelMimeMessage *mime_message);
 
 struct _CamelFolder *mail_tools_x_evolution_message_parse (char *in, unsigned int inlen, GPtrArray **uids);
 
-char *mail_tools_folder_to_url (struct _CamelFolder *folder);
+char *mail_tools_folder_to_url (CamelObjectRemote *folder);
 
 #endif
