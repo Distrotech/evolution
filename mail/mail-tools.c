@@ -389,8 +389,7 @@ mail_tools_folder_to_url (CamelFolder *folder)
 	CamelURL *url;
 	char *out;
 
-	g_return_val_if_fail (CAMEL_IS_FOLDER (folder), NULL);
-
+	url = camel_url_new ();
 	url = camel_url_copy(((CamelService *)folder->parent_store)->url);
 	if (((CamelService *)folder->parent_store)->provider->url_flags  & CAMEL_URL_FRAGMENT_IS_PATH) {
 		camel_url_set_fragment(url, folder->full_name);
