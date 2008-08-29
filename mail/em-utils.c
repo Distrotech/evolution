@@ -786,7 +786,7 @@ tag_editor_response (GtkWidget *dialog, int button, struct ted_t *ted)
 		folder = ted->folder;
 		uids = ted->uids;
 
-		camel_folder_freeze (folder);
+		camel_folder_remote_freeze (folder);
 		for (i = 0; i < uids->len; i++) {
 			CamelMessageInfo *mi = camel_folder_get_message_info(folder, uids->pdata[i]);
 
@@ -798,7 +798,7 @@ tag_editor_response (GtkWidget *dialog, int button, struct ted_t *ted)
 			}
 		}
 
-		camel_folder_thaw (folder);
+		camel_folder_remote_thaw (folder);
 		camel_tag_list_free (&tags);
 
 		if (ted->emfv->preview)
@@ -889,7 +889,7 @@ em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrAr
 	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 	g_return_if_fail (uids != NULL);
 
-	camel_folder_freeze (folder);
+	camel_folder_remote_freeze (folder);
 	for (i = 0; i < uids->len; i++) {
 		CamelMessageInfo *mi = camel_folder_get_message_info(folder, uids->pdata[i]);
 
@@ -900,7 +900,7 @@ em_utils_flag_for_followup_clear (GtkWidget *parent, CamelFolder *folder, GPtrAr
 			camel_message_info_free(mi);
 		}
 	}
-	camel_folder_thaw (folder);
+	camel_folder_remote_thaw (folder);
 
 	em_utils_uids_free (uids);
 }
@@ -926,7 +926,7 @@ em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GP
 
 	now = camel_header_format_date (time (NULL), 0);
 
-	camel_folder_freeze (folder);
+	camel_folder_remote_freeze (folder);
 	for (i = 0; i < uids->len; i++) {
 		const char *tag;
 		CamelMessageInfo *mi = camel_folder_get_message_info(folder, uids->pdata[i]);
@@ -938,7 +938,7 @@ em_utils_flag_for_followup_completed (GtkWidget *parent, CamelFolder *folder, GP
 			camel_message_info_free(mi);
 		}
 	}
-	camel_folder_thaw (folder);
+	camel_folder_remote_thaw (folder);
 
 	g_free (now);
 
@@ -1221,7 +1221,7 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 	/* TODO: Handle conflicts? */
 	if (file == NULL) {
 		/* Drop filename for messages from a mailbox */
-		file = g_strdup_printf(_("Messages from %s"), folder->name);
+		file = g_strdup_printf(_("Messages from %s"), camel_folder_remote_get_name(folder));
 	}
 
 	e_filename_make_safe(file);

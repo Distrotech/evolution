@@ -822,7 +822,7 @@ message_list_copy(MessageList *ml, gboolean cut)
 
 			camel_folder_remote_freeze(ml->folder);
 			for (i=0;i<uids->len;i++)
-				camel_folder_set_message_flags(ml->folder, uids->pdata[i],
+				camel_folder_remote_set_message_flags(ml->folder, uids->pdata[i],
 							       CAMEL_MESSAGE_SEEN | CAMEL_MESSAGE_DELETED,
 							       CAMEL_MESSAGE_SEEN | CAMEL_MESSAGE_DELETED);
 
@@ -3467,7 +3467,7 @@ on_click (ETree *tree, gint row, ETreePath path, gint col, GdkEvent *event, Mess
 			flag |= CAMEL_MESSAGE_DELETED;
 	}
 
-	camel_folder_set_message_flags (list->folder, camel_message_info_uid (info), flag, ~flags);
+	camel_folder_remote_set_message_flags (list->folder, camel_message_info_uid (info), flag, ~flags);
 
 	if (flag == CAMEL_MESSAGE_SEEN && list->seen_id) {
 		g_source_remove (list->seen_id);
@@ -3935,7 +3935,7 @@ regen_list_exec (struct _regen_list_msg *m)
 	e_profile_event_emit("list.getuids", camel_folder_remote_get_name (m->folder), 0);
 
 	/* if we have hidedeleted on, use a search to find it out, merge with existing search if set */
-	if (!camel_folder_has_search_capability(m->folder)) {
+	if (!camel_folder_remote_has_search_capability(m->folder)) {
 		/* if we have no search capability, dont let search or hide deleted work */
 		expr = NULL;
 	} else if (m->hidedel) {
@@ -3986,7 +3986,7 @@ regen_list_exec (struct _regen_list_msg *m)
 
 			/* cursor_uid has been filtered out */
 			if (i == uids->len) {
-				gboolean was_deleted = (camel_folder_get_message_flags (m->folder, looking_for) & CAMEL_MESSAGE_DELETED) != 0;
+				gboolean was_deleted = (camel_folder_remote_get_message_flags (m->folder, looking_for) & CAMEL_MESSAGE_DELETED) != 0;
 
 				/* I would really like to check for CAMEL_MESSAGE_FOLDER_FLAGGED on a message,
 				   so I would know whether it was changed locally, and then just check the changes
@@ -4004,7 +4004,7 @@ regen_list_exec (struct _regen_list_msg *m)
 		return;
 
 	/* perform hiding */
-	if (m->hideexpr && camel_folder_has_search_capability(m->folder)) {
+	if (m->hideexpr && camel_folder_remote_has_search_capability(m->folder)) {
 		uidnew = camel_folder_search_by_expression (m->ml->folder, m->hideexpr, &m->base.ex);
 		/* well, lets not abort just because this faileld ... */
 		camel_exception_clear (&m->base.ex);

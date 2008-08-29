@@ -177,7 +177,7 @@ emft_copy_folders__exec (struct _EMCopyFolders *m)
 					camel_folder_free_uids (fromfolder, uids);
 
 					if (m->delete)
-						camel_folder_sync(fromfolder, TRUE, NULL);
+						camel_folder_remote_sync(fromfolder, TRUE, NULL);
 
 					camel_object_unref (fromfolder);
 					camel_object_unref (tofolder);
@@ -394,14 +394,14 @@ emfu_delete_rec (CamelObjectRemote *store, CamelFolderInfo *fi, CamelException *
 			GPtrArray *uids = camel_folder_get_uids (folder);
 			int i;
 
-			camel_folder_freeze (folder);
+			camel_folder_remote_freeze (folder);
 			for (i = 0; i < uids->len; i++)
 				camel_folder_delete_message (folder, uids->pdata[i]);
 
 			camel_folder_free_uids (folder, uids);
 
-			camel_folder_sync (folder, TRUE, NULL);
-			camel_folder_thaw (folder);
+			camel_folder_remote_sync (folder, TRUE, NULL);
+			camel_folder_remote_thaw (folder);
 		}
 
 		camel_store_delete_folder_remote (store, fi->full_name, ex);
@@ -459,19 +459,18 @@ em_folder_utils_delete_folder (CamelFolder *folder)
 
 	local = mail_component_peek_local_store (NULL);
 
-	if (folder->parent_store == local && emfu_is_special_local_folder (folder->full_name)) {
-		dialog = e_error_new (NULL, "mail:no-delete-special-folder", folder->full_name, NULL);
+	if (camel_folder_remote_get_parent_store(folder) == local && emfu_is_special_local_folder (camel_folder_remote_get_full_name(folder))) {
+		dialog = e_error_new (NULL, "mail:no-delete-special-folder", camel_folder_remote_get_full_name(folder), NULL);
 		em_utils_show_error_silent (dialog);
 		return;
 	}
 
-	camel_object_ref (folder->parent_store);
+	camel_object_ref (camel_folder_remote_get_parent_store(folder));
 
 	dialog = e_error_new(NULL,
-			     (folder->parent_store && CAMEL_IS_VEE_STORE(folder->parent_store))?"mail:ask-delete-vfolder":"mail:ask-delete-folder",
-			     folder->full_name, NULL);
-	g_object_set_data_full ((GObject *) dialog, "full_name", g_strdup (folder->full_name), g_free);
-	g_object_set_data_full ((GObject *) dialog, "store", folder->parent_store, camel_object_unref);
+			     (camel_folder_remote_get_parent_store(folder) && CAMEL_IS_VEE_STORE(camel_folder_remote_get_parent_store(folder)))?"mail:ask-delete-vfolder":"mail:ask-delete-folder", camel_folder_remote_get_full_name(folder), NULL);
+	g_object_set_data_full ((GObject *) dialog, "full_name", g_strdup (camel_folder_remote_get_full_name(folder)), g_free);
+	g_object_set_data_full ((GObject *) dialog, "store", camel_folder_remote_get_parent_store(folder), camel_object_unref);
 	g_signal_connect (dialog, "response", G_CALLBACK (emfu_delete_response), NULL);
 	gtk_widget_show (dialog);
 }
@@ -490,26 +489,26 @@ em_folder_utils_rename_folder (CamelFolder *folder)
 	local = mail_component_peek_local_store (NULL);
 
 	/* don't allow user to rename one of the special local folders */
-	if (folder->parent_store == local && emfu_is_special_local_folder (folder->full_name)) {
+	if (camel_folder_remote_get_parent_store(folder) == local && emfu_is_special_local_folder (camel_folder_remote_get_full_name(folder))) {
 		e_error_run(NULL,
-			    "mail:no-rename-special-folder", folder->full_name, NULL);
+			    "mail:no-rename-special-folder", camel_folder_remote_get_full_name(folder), NULL);
 		return;
 	}
 
-	if ((p = strrchr (folder->full_name, '/')))
-		base_len = (size_t) (p - folder->full_name);
+	if ((p = strrchr (camel_folder_remote_get_full_name(folder), '/')))
+		base_len = (size_t) (p - camel_folder_remote_get_full_name(folder));
 	else
 		base_len = 0;
 
-	prompt = g_strdup_printf (_("Rename the \"%s\" folder to:"), folder->name);
+	prompt = g_strdup_printf (_("Rename the \"%s\" folder to:"), camel_folder_remote_get_name(folder));
 	while (!done) {
-		new_name = e_request_string (NULL, _("Rename Folder"), prompt, folder->name);
-		if (new_name == NULL || !strcmp (folder->name, new_name)) {
+		new_name = e_request_string (NULL, _("Rename Folder"), prompt, camel_folder_remote_get_name(folder));
+		if (new_name == NULL || !strcmp (camel_folder_remote_get_name(folder), new_name)) {
 			/* old name == new name */
 			done = TRUE;
 		} else if (strchr(new_name, '/') != NULL) {
 			e_error_run(NULL,
-				    "mail:no-rename-folder", folder->name, new_name, _("Folder names cannot contain '/'"), NULL);
+				    "mail:no-rename-folder", camel_folder_remote_get_name(folder), new_name, _("Folder names cannot contain '/'"), NULL);
 			done = TRUE;
 		} else {
 			CamelFolderInfo *fi;
@@ -518,7 +517,7 @@ em_folder_utils_rename_folder (CamelFolder *folder)
 
 			if (base_len > 0) {
 				path = g_malloc (base_len + strlen (new_name) + 2);
-				memcpy (path, folder->full_name, base_len);
+				memcpy (path, camel_folder_remote_get_full_name(folder), base_len);
 				tmp = path + base_len;
 				*tmp++ = '/';
 				strcpy (tmp, new_name);
@@ -527,20 +526,20 @@ em_folder_utils_rename_folder (CamelFolder *folder)
 			}
 
 			camel_exception_init (&ex);
-			if ((fi = camel_store_get_folder_info (folder->parent_store, path, CAMEL_STORE_FOLDER_INFO_FAST, &ex)) != NULL) {
-				camel_store_free_folder_info (folder->parent_store, fi);
+			if ((fi = camel_store_get_folder_info (camel_folder_remote_get_parent_store(folder), path, CAMEL_STORE_FOLDER_INFO_FAST, &ex)) != NULL) {
+				camel_store_free_folder_info (camel_folder_remote_get_parent_store(folder), fi);
 				e_error_run(NULL,
-					    "mail:no-rename-folder-exists", folder->name, new_name, NULL);
+					    "mail:no-rename-folder-exists", camel_folder_remote_get_name(folder), new_name, NULL);
 			} else {
 				const char *oldpath, *newpath;
 
-				oldpath = folder->full_name;
+				oldpath = camel_folder_remote_get_full_name(folder);
 				newpath = path;
 
 				d(printf ("renaming %s to %s\n", oldpath, newpath));
 
 				camel_exception_clear (&ex);
-				camel_store_rename_folder_remote (folder->parent_store, oldpath, newpath, &ex);
+				camel_store_rename_folder_remote (camel_folder_remote_get_parent_store(folder), oldpath, newpath, &ex);
 				if (camel_exception_is_set (&ex)) {
 					e_error_run(NULL,
 						    "mail:no-rename-folder", oldpath, newpath, ex.desc, NULL);

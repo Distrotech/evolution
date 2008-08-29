@@ -306,7 +306,7 @@ emfp_dialog_got_folder_quota (CamelFolder *folder, CamelFolderQuotaInfo *quota, 
 		return;
 	}
 
-	store = folder->parent_store;
+	store = camel_folder_remote_get_parent_store(folder);
 
 	prop_data = g_malloc0 (sizeof (*prop_data));
 	prop_data->object = folder;

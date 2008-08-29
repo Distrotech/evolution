@@ -476,6 +476,33 @@ camel_folder_remote_get_message_flags (CamelFolderRemote *folder, const char *ui
 	return message_flags;
 }
 
+int 
+camel_folder_remote_get_unread_message_count (CamelFolderRemote *folder)
+{
+	gboolean ret;
+	DBusError error;
+	int unread;
+
+	dbus_error_init (&error);
+	/* Invoke the appropriate dbind call to MailSessionRemoteImpl */
+	ret = dbind_context_method_call (evolution_dbus_peek_context(), 
+			CAMEL_DBUS_NAME,
+			CAMEL_FOLDER_OBJECT_PATH,
+			CAMEL_FOLDER_INTERFACE,
+			"camel_folder_get_unread_message_count",
+			&error, 
+			"s=>i", folder->object_id, &unread); 
+
+	if (!ret) {
+		g_warning ("Error: Camel folder get unread message count: %s\n", error.message);
+		return 0;
+	}
+
+	d(printf("Camel folder get unread message count remotely\n"));
+	
+	return unread;
+}
+
 void
 camel_folder_remote_set_vee_folder_expression (CamelFolderRemote *folder, const char *query)
 {

@@ -45,6 +45,8 @@ gboolean camel_folder_remote_has_search_capability (CamelFolderRemote *folder);
 
 guint32 camel_folder_remote_get_message_flags (CamelFolderRemote *folder, const char *uid);
 
+int camel_folder_remote_get_unread_message_count (CamelFolderRemote *folder);
+
 #define camel_folder_remote_delete_message(folder, uid) \
 	camel_folder_remote_set_message_flags (folder, uid, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN)
 

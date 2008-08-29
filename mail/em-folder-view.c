@@ -478,13 +478,13 @@ em_folder_view_mark_selected(EMFolderView *emfv, guint32 mask, guint32 set)
 		return 0;
 
 	uids = message_list_get_selected(emfv->list);
-	camel_folder_freeze(emfv->folder);
+	camel_folder_remote_freeze(emfv->folder);
 
 	for (i=0; i<uids->len; i++)
-		camel_folder_set_message_flags(emfv->folder, uids->pdata[i], mask, set);
+		camel_folder_remote_set_message_flags(emfv->folder, uids->pdata[i], mask, set);
 
 	message_list_free_uids(emfv->list, uids);
-	camel_folder_thaw(emfv->folder);
+	camel_folder_remote_thaw(emfv->folder);
 
 	return i;
 }
@@ -1079,10 +1079,10 @@ emfv_delete_msg_response (GtkWidget *dialog, int response, gpointer data)
 		}
 
 		uids = message_list_get_selected(emfv->list);
-		camel_folder_freeze(emfv->folder);
+		camel_folder_remote_freeze(emfv->folder);
 
 		for (count=0; count < uids->len; count++) {
-			if (camel_folder_get_message_flags (emfv->folder, uids->pdata[count]) & CAMEL_MESSAGE_USER_NOT_DELETABLE) {
+			if (camel_folder_remote_get_message_flags (emfv->folder, uids->pdata[count]) & CAMEL_MESSAGE_USER_NOT_DELETABLE) {
 				if (emfv->preview_active) {
 					GtkHTMLStream *hstream = gtk_html_begin(((EMFormatHTML *)emfv->preview)->html);
 
@@ -1098,11 +1098,11 @@ emfv_delete_msg_response (GtkWidget *dialog, int response, gpointer data)
 				count = -1;
 				break;
 			} else
-				camel_folder_set_message_flags(emfv->folder, uids->pdata[count], CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED );
+				camel_folder_remote_set_message_flags(emfv->folder, uids->pdata[count], CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED, CAMEL_MESSAGE_SEEN|CAMEL_MESSAGE_DELETED );
 		}
 
 		message_list_free_uids(emfv->list, uids);
-		camel_folder_thaw(emfv->folder);
+		camel_folder_remote_thaw(emfv->folder);
 
 		emfv_select_next_message (emfv, count, FALSE);
 	}
@@ -1117,11 +1117,11 @@ emfv_popup_delete (EPopup *ep, EPopupItem *pitem, void *data)
 	EMFolderView *emfv = data;
 	GConfClient *gconf = gconf_client_get_default ();
 
-	if (emfv->folder && emfv->folder->parent_store && CAMEL_IS_VEE_STORE (emfv->folder->parent_store)
+	if (emfv->folder && camel_folder_remote_get_parent_store(emfv->folder) && CAMEL_IS_VEE_STORE(camel_folder_remote_get_parent_store(emfv->folder))
 	    && !gconf_client_get_bool (gconf, DelInVFolderKey, NULL)) {
 		GtkWidget *dialog, *checkbox, *align;
 
-		dialog = e_error_new (NULL, "mail:ask-delete-vfolder-msg", emfv->folder->full_name, NULL);
+		dialog = e_error_new (NULL, "mail:ask-delete-vfolder-msg", camel_folder_remote_get_full_name(emfv->folder), NULL);
 		g_signal_connect (dialog, "response", G_CALLBACK (emfv_delete_msg_response), emfv);
 		checkbox = gtk_check_button_new_with_label (_("Do not ask me again."));
 		gtk_widget_set_name (checkbox, DelInVFolderCheckName);
@@ -1208,7 +1208,7 @@ emfv_set_label (EMFolderView *emfv, const char *label)
 	int i;
 
 	for (i = 0; i < uids->len; i++)
-		camel_folder_set_message_user_flag (emfv->folder, uids->pdata[i], label, TRUE);
+		camel_folder_remote_set_message_user_flag (emfv->folder, uids->pdata[i], label, TRUE);
 
 	message_list_free_uids (emfv->list, uids);
 }
@@ -1220,8 +1220,8 @@ emfv_unset_label (EMFolderView *emfv, const char *label)
 	int i;
 
 	for (i = 0; i < uids->len; i++) {
-		camel_folder_set_message_user_flag (emfv->folder, uids->pdata[i], label, FALSE);
-		camel_folder_set_message_user_tag (emfv->folder, uids->pdata[i], "label", NULL);
+		camel_folder_remote_set_message_user_flag (emfv->folder, uids->pdata[i], label, FALSE);
+		camel_folder_remote_set_message_user_tag (emfv->folder, uids->pdata[i], "label", NULL);
 	}
 
 	message_list_free_uids (emfv->list, uids);
@@ -1391,10 +1391,10 @@ emfv_popup_labels_get_state_for_tag (EMFolderView *emfv, GPtrArray *uids, const 
 	g_return_val_if_fail (label_tag != NULL, state);
 
 	for (i = 0; i < uids->len && (!exists || !not_exists); i++) {
-		if (camel_folder_get_message_user_flag (emfv->folder, uids->pdata[i], label_tag))
+		if (camel_folder_remote_get_message_user_flag (emfv->folder, uids->pdata[i], label_tag))
 			exists = TRUE;
 		else {
-			const char *label = e_util_labels_get_new_tag (camel_folder_get_message_user_tag (emfv->folder, uids->pdata[i], "label"));
+			const char *label = e_util_labels_get_new_tag (camel_folder_remote_get_message_user_tag (emfv->folder, uids->pdata[i], "label"));
 
 			/* backward compatibility... */
 			if (label && !strcmp (label, label_tag))
@@ -2418,7 +2418,7 @@ em_folder_view_set_statusbar (EMFolderView *emfv, gboolean statusbar)
 void
 em_folder_view_set_hide_deleted(EMFolderView *emfv, gboolean status)
 {
-	if (emfv->folder && (emfv->folder->folder_flags & CAMEL_FOLDER_IS_TRASH))
+	if (emfv->folder && (camel_folder_remote_get_folder_flags(emfv->folder) & CAMEL_FOLDER_IS_TRASH))
 		status = FALSE;
 
 	emfv->hide_deleted = status;
@@ -2673,15 +2673,15 @@ emfv_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev,
 	case '!':
 		uids = message_list_get_selected(emfv->list);
 
-		camel_folder_freeze(emfv->folder);
+		camel_folder_remote_freeze(emfv->folder);
 		for (i = 0; i < uids->len; i++) {
-			flags = camel_folder_get_message_flags(emfv->folder, uids->pdata[i]) ^ CAMEL_MESSAGE_FLAGGED;
+			flags = camel_folder_remote_get_message_flags(emfv->folder, uids->pdata[i]) ^ CAMEL_MESSAGE_FLAGGED;
 			if (flags & CAMEL_MESSAGE_FLAGGED)
 				flags &= ~CAMEL_MESSAGE_DELETED;
-			camel_folder_set_message_flags(emfv->folder, uids->pdata[i],
+			camel_folder_remote_set_message_flags(emfv->folder, uids->pdata[i],
 						       CAMEL_MESSAGE_FLAGGED|CAMEL_MESSAGE_DELETED, flags);
 		}
-		camel_folder_thaw(emfv->folder);
+		camel_folder_remote_thaw(emfv->folder);
 
 		message_list_free_uids(emfv->list, uids);
 		break;
@@ -3004,13 +3004,13 @@ emfv_format_popup_event(EMFormatHTMLDisplay *efhd, GdkEventButton *event, const 
 static void
 emfv_set_seen(EMFolderView *emfv, const char *uid)
 {
-	guint32 old_flags = camel_folder_get_message_flags(emfv->folder, uid);
+	guint32 old_flags = camel_folder_remote_get_message_flags(emfv->folder, uid);
 
 	/* If we're setting the SEEN flag on a message, handle receipt requests */
 	if (!(old_flags & CAMEL_MESSAGE_SEEN))
 		em_utils_handle_receipt(emfv->folder, uid, (CamelMimeMessage *)((EMFormat *)emfv->preview)->message);
 
-	camel_folder_set_message_flags(emfv->folder, uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+	camel_folder_remote_set_message_flags(emfv->folder, uid, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 }
 
 /* keep these two tables in sync */

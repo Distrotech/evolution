@@ -146,7 +146,7 @@ em_filter_folder_element_exec (struct _filter_mail_msg *m)
 
 	/* sync our source folder */
 	if (!m->cache)
-		camel_folder_sync (folder, FALSE, camel_exception_is_set (&m->base.ex) ? NULL : &m->base.ex);
+		camel_folder_remote_sync (folder, FALSE, camel_exception_is_set (&m->base.ex) ? NULL : &m->base.ex);
 	camel_folder_remote_thaw (folder);
 
 	if (m->destination)
@@ -340,13 +340,13 @@ fetch_mail_exec (struct _fetch_mail_msg *m)
 					/* not keep on server - just delete all the actual messages on the server */
 					for (i=0;i<folder_uids->len;i++) {
 						d(printf("force delete uid '%s'\n", (char *)folder_uids->pdata[i]));
-						camel_folder_delete_message(folder, folder_uids->pdata[i]);
+						camel_folder_remote_delete_message(folder, folder_uids->pdata[i]);
 					}
 				}
 
 				if (fm->delete || cache_uids) {
 					/* expunge messages (downloaded so far) */
-					camel_folder_sync(folder, fm->delete, NULL);
+					camel_folder_remote_sync(folder, fm->delete, NULL);
 				}
 
 				camel_uid_cache_destroy (cache);
@@ -628,7 +628,7 @@ mail_send_message(CamelFolderRemote *queue, const char *uid, const char *destina
 		}
 	}
 	if (!camel_exception_is_set(ex))
-		camel_folder_set_message_flags (queue, uid, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
+		camel_folder_remote_set_message_flags (queue, uid, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, ~0);
 
 	if (err->len) {
 		/* set the culmulative exception report */
@@ -637,7 +637,7 @@ mail_send_message(CamelFolderRemote *queue, const char *uid, const char *destina
 
 exit:
 	if (folder) {
-		camel_folder_sync(folder, FALSE, NULL);
+		camel_folder_remote_sync(folder, FALSE, NULL);
 		camel_object_unref(folder);
 	}
 	if (info)
@@ -779,11 +779,11 @@ send_queue_exec (struct _send_queue_msg *m)
 	camel_folder_free_uids (m->queue, uids);
 	g_ptr_array_free (send_uids, TRUE);
 
-	camel_folder_sync (m->queue, TRUE, &ex);
+	camel_folder_remote_sync (m->queue, TRUE, &ex);
 	camel_exception_clear (&ex);
 
 	if (sent_folder) {
-		camel_folder_sync (sent_folder, FALSE, &ex);
+		camel_folder_remote_sync (sent_folder, FALSE, &ex);
 		camel_exception_clear (&ex);
 	}
  
@@ -982,13 +982,13 @@ transfer_messages_exec (struct _transfer_msg *m)
 		int i;
 
 		for (i = 0; i < m->uids->len; i++)
-			camel_folder_set_message_flags (m->source, m->uids->pdata[i],
+			camel_folder_remote_set_message_flags (m->source, m->uids->pdata[i],
 							CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 	}
 
 	camel_folder_remote_thaw (m->source);
 	camel_folder_remote_thaw (dest);
-	camel_folder_sync (dest, FALSE, NULL);
+	camel_folder_remote_sync (dest, FALSE, NULL);
 	camel_object_unref (dest);
 }
 
@@ -1274,7 +1274,7 @@ struct _get_quota_msg {
 static gchar *
 get_quota_desc (struct _get_quota_msg *m)
 {
-	return g_strdup_printf(_("Retrieving quota information for folder %s"), camel_folder_get_name(m->folder));
+	return g_strdup_printf(_("Retrieving quota information for folder %s"), camel_folder_remote_get_name(m->folder));
 }
 
 static void
@@ -1437,8 +1437,8 @@ remove_folder_exec (struct _remove_folder_msg *m)
 	uids = camel_folder_get_uids (folder);
 	camel_folder_remote_freeze(folder);
 	for (i = 0; i < uids->len; i++)
-		camel_folder_delete_message (folder, uids->pdata[i]);
-	camel_folder_sync (folder, TRUE, NULL);
+		camel_folder_remote_delete_message (folder, uids->pdata[i]);
+	camel_folder_remote_sync (folder, TRUE, NULL);
 	camel_folder_remote_thaw(folder);
 	camel_folder_free_uids (folder, uids);
 
@@ -1510,7 +1510,7 @@ sync_folder_desc (struct _sync_folder_msg *m)
 static void
 sync_folder_exec (struct _sync_folder_msg *m)
 {
-	camel_folder_sync(m->folder, FALSE, &m->base.ex);
+	camel_folder_remote_sync(m->folder, FALSE, &m->base.ex);
 }
 
 static void
@@ -1672,7 +1672,7 @@ expunge_folder_desc (struct _sync_folder_msg *m)
 static void
 expunge_folder_exec (struct _sync_folder_msg *m)
 {
-	camel_folder_expunge(m->folder, &m->base.ex);
+	camel_folder_remote_expunge(m->folder, &m->base.ex);
 }
 
 /* we just use the sync stuff where we can, since it would be the same */
@@ -1737,7 +1737,7 @@ empty_trash_exec (struct _empty_trash_msg *m)
 	}
 
 	if (trash)
-		camel_folder_expunge (trash, &m->base.ex);
+		camel_folder_remote_expunge (trash, &m->base.ex);
 
 	camel_object_unref (trash);
 }
@@ -2257,7 +2257,7 @@ prep_offline_exec (struct _prep_offline_msg *m)
 		}
 		/* prepare_for_offline should do this? */
 		/* of course it should all be atomic, but ... */
-		camel_folder_sync(folder, FALSE, NULL);
+		camel_folder_remote_sync(folder, FALSE, NULL);
 		camel_object_unref(folder);
 	}
 

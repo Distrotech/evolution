@@ -200,7 +200,7 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 	if (queued) {
 		if (emcs && emcs->drafts_folder) {
 			/* delete the old draft message */
-			camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
+			camel_folder_remote_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
 							CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
 							CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
 			camel_object_unref (emcs->drafts_folder);
@@ -211,8 +211,8 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 
 		if (emcs && emcs->folder) {
 			/* set any replied flags etc */
-			camel_folder_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
-			camel_folder_set_message_user_flag (emcs->folder, emcs->uid, "receipt-handled", TRUE);
+			camel_folder_remote_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
+			camel_folder_remote_set_message_user_flag (emcs->folder, emcs->uid, "receipt-handled", TRUE);
 			camel_object_unref (emcs->folder);
 			emcs->folder = NULL;
 			g_free (emcs->uid);
@@ -506,7 +506,7 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 
 	if (emcs->drafts_folder) {
 		/* delete the original draft message */
-		camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
+		camel_folder_remote_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
 						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
 						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
 		camel_object_unref (emcs->drafts_folder);
@@ -517,7 +517,7 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 
 	if (emcs->folder) {
 		/* set the replied flags etc */
-		camel_folder_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
+		camel_folder_remote_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
 		camel_object_unref (emcs->folder);
 		emcs->folder = NULL;
 		g_free (emcs->uid);
@@ -748,13 +748,18 @@ em_utils_post_to_folder (CamelFolder *folder)
 	if (folder != NULL) {
 		char *url = mail_tools_folder_to_url (folder);
 		GList *list = g_list_prepend (NULL, url);
+		CamelURL *camel_url;
+		CamelObjectRemote *store;
 
 		e_composer_header_table_set_post_to_list (table, list);
 
 		g_list_free (list);
 		g_free (url);
 
-		url = camel_url_to_string (CAMEL_SERVICE (folder->parent_store)->url, CAMEL_URL_HIDE_ALL);
+		store = camel_folder_remote_get_parent_store(folder);
+		camel_url = camel_url_new (camel_store_get_url_remote (store), NULL);
+		url = camel_url_to_string (camel_url, CAMEL_URL_HIDE_ALL);
+
 		account = mail_config_get_account_by_source_url (url);
 		g_free (url);
 
@@ -1020,7 +1025,7 @@ static void
 real_update_forwarded_flag (gpointer uid, gpointer folder)
 {
 	if (uid && folder)
-		camel_folder_set_message_flags (folder, uid, CAMEL_MESSAGE_FORWARDED, CAMEL_MESSAGE_FORWARDED);
+		camel_folder_remote_set_message_flags (folder, uid, CAMEL_MESSAGE_FORWARDED, CAMEL_MESSAGE_FORWARDED);
 }
 
 static void
@@ -1695,11 +1700,15 @@ reply_get_composer (CamelMimeMessage *message, EAccount *account,
 
 	/* add post-to, if nessecary */
 	if (postto && camel_address_length((CamelAddress *)postto)) {
+		CamelURL *camel_url; 
 		char *store_url = NULL;
 		char *post;
+		CamelObjectRemote *store;
 
 		if (folder) {
-			store_url = camel_url_to_string (CAMEL_SERVICE (folder->parent_store)->url, CAMEL_URL_HIDE_ALL);
+			store = camel_folder_remote_get_parent_store(folder);
+			camel_url = camel_url_new (camel_store_get_url_remote (store), NULL);
+			store_url = camel_url_to_string (camel_url, CAMEL_URL_HIDE_ALL);
 			if (store_url[strlen (store_url) - 1] == '/')
 				store_url[strlen (store_url)-1] = '\0';
 		}
@@ -1738,8 +1747,13 @@ guess_account_folder(CamelFolder *folder)
 {
 	EAccount *account;
 	char *tmp;
+	CamelURL *camel_url;
+	CamelObjectRemote *store;
 
-	tmp = camel_url_to_string(CAMEL_SERVICE(folder->parent_store)->url, CAMEL_URL_HIDE_ALL);
+	store = camel_folder_remote_get_parent_store(folder);
+	camel_url = camel_url_new (camel_store_get_url_remote (store), NULL);
+
+	tmp = camel_url_to_string(camel_url, CAMEL_URL_HIDE_ALL);
 	account = mail_config_get_account_by_source_url(tmp);
 	g_free(tmp);
 

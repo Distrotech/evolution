@@ -992,7 +992,7 @@ vfolder_setup_exec(struct _setup_msg *m)
 	if (m->cancel)
 		camel_operation_register (m->cancel);
 
-	d(printf("Setting up Search Folder: %s\n", m->folder->full_name));
+	d(printf("Setting up Search Folder: %s\n", camel_folder_remote_get_full_name(m->folder)));
 
 	camel_folder_remote_set_vee_folder_expression (m->folder, m->query);
 
@@ -1156,7 +1156,7 @@ emfb_search_search_activated(ESearchBar *esb, EMFolderBrowser *emfb)
 		    g_signal_emit (emfb, folder_browser_signals [ACCOUNT_SEARCH_ACTIVATED], 0);
 
 		    if (!efb->account_search_vf) {
-			    store = camel_object_remote_from_camel_store (emfv->folder->parent_store);
+			    store = camel_object_remote_from_camel_store (camel_folder_remote_get_parent_store(emfv->folder));
 				#warning DAMN WRONG. You must be a moron to leave this. Fix it soon.
 				/*
 			    if (store->folders) {
@@ -1499,8 +1499,8 @@ emfb_folder_copy(BonoboUIComponent *uid, void *data, const char *path)
 
 	camel_exception_init (&ex);
 
-	if ((fi = camel_store_get_folder_info (emfb->view.folder->parent_store,
-					       emfb->view.folder->full_name,
+	if ((fi = camel_store_get_folder_info (camel_folder_remote_get_parent_store(emfb->view.folder),
+					       camel_folder_remote_get_full_name(emfb->view.folder),
 					       CAMEL_STORE_FOLDER_INFO_FAST,
 					       &ex)) != NULL)
 		em_folder_utils_copy_folder(fi, FALSE);
@@ -1522,8 +1522,8 @@ emfb_folder_move(BonoboUIComponent *uid, void *data, const char *path)
 	/* FIXME: This function MUST become multi-threaded.
 	   FIXME: This interface should NOT use a folderinfo */
 
-	if ((fi = camel_store_get_folder_info (emfb->view.folder->parent_store,
-					       emfb->view.folder->full_name,
+	if ((fi = camel_store_get_folder_info (camel_folder_remote_get_parent_store(emfb->view.folder),
+					       camel_folder_remote_get_full_name(emfb->view.folder),
 					       CAMEL_STORE_FOLDER_INFO_FAST,
 					       &ex)) != NULL)
 		em_folder_utils_copy_folder(fi, TRUE);
@@ -1607,10 +1607,10 @@ emfb_mark_all_read(BonoboUIComponent *uid, void *data, const char *path)
 		return;
 	if( em_utils_prompt_user((GtkWindow *)emfv, "/apps/evolution/mail/prompts/mark_all_read","mail:ask-mark-all-read", NULL)){
 		uids = message_list_get_uids(emfv->list);
-		camel_folder_freeze(emfv->folder);
+		camel_folder_remote_freeze(emfv->folder);
 		for (i=0;i<uids->len;i++)
-			camel_folder_set_message_flags(emfv->folder, uids->pdata[i], CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
-		camel_folder_thaw(emfv->folder);
+			camel_folder_remote_set_message_flags(emfv->folder, uids->pdata[i], CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
+		camel_folder_remote_thaw(emfv->folder);
 		message_list_free_uids(emfv->list, uids);
 	}
 }
@@ -2084,7 +2084,7 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 		}
 
 		if (emfv->uic) {
-			state = (folder->folder_flags & CAMEL_FOLDER_IS_TRASH) == 0;
+			state = (camel_folder_remote_get_folder_flags(folder) & CAMEL_FOLDER_IS_TRASH) == 0;
 			bonobo_ui_component_set_prop(emfv->uic, "/commands/HideDeleted", "sensitive", state?"1":"0", NULL);
 		}
 
@@ -2183,7 +2183,7 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 
 		/* HideDeleted */
 		state = !gconf_client_get_bool(gconf, "/apps/evolution/mail/display/show_deleted", NULL);
-		if (emfv->folder && (emfv->folder->folder_flags & CAMEL_FOLDER_IS_TRASH)) {
+		if (emfv->folder && (camel_folder_remote_get_folder_flags(emfv->folder) & CAMEL_FOLDER_IS_TRASH)) {
 			state = FALSE;
 			bonobo_ui_component_set_prop(uic, "/commands/HideDeleted", "sensitive", "0", NULL);
 		} else

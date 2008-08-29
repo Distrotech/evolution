@@ -282,6 +282,17 @@ dbus_listener_message_handler(DBusConnection * connection,
 
 		message_flags = camel_folder_get_message_flags(folder, uid);
 		dbus_message_append_args (return_val, DBUS_TYPE_UINT32, &message_flags, DBUS_TYPE_INVALID);
+	} else if (strcmp(method, "camel_folder_get_unread_message_count") == 0) {
+		gboolean ret;
+		int unread;
+
+		ret = dbus_message_get_args (message, NULL,
+				DBUS_TYPE_STRING, &folder_hash_key,
+				DBUS_TYPE_INVALID);
+		folder = g_hash_table_lookup (folder_hash, folder_hash_key);
+
+		unread = camel_folder_get_unread_message_count(folder);
+		dbus_message_append_args (return_val, DBUS_TYPE_INT32, &unread, DBUS_TYPE_INVALID);
 	} else if (strcmp (method, "camel_vee_folder_set_expression") == 0) {
 			gboolean ret;
 			const char *query; 

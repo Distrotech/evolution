@@ -25,6 +25,7 @@
 
 #include <gtk/gtk.h>
 #include "mail/em-popup.h"
+#include "camel-object-remote.h"
 
 /* Standard GObject macros */
 #define EM_TYPE_FOLDER_VIEW \
@@ -84,7 +85,7 @@ struct _EMFolderView {
 
 	struct _EMFormatHTMLDisplay *preview;
 
-	struct _CamelFolder *folder;
+	CamelObjectRemote *folder;
 	char *folder_uri;
 
 	char *displayed_uid;	/* only used to stop re-loads, don't use it to represent any selection state */

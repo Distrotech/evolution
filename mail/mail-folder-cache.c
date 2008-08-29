@@ -292,18 +292,18 @@ update_1folder(struct _folder_info *mfi, int new, CamelFolderInfo *info)
 
 	folder = mfi->folder;
 	if (folder) {
-		d(printf("update 1 folder '%s'\n", folder->full_name));
+		d(printf("update 1 folder '%s'\n", camel_folder_remote_get_full_name(folder)));
 		if ((count_trash && (CAMEL_IS_VTRASH_FOLDER (folder)))
 		    || folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX)
 		    || folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_DRAFTS)
 		    || (count_sent && folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_SENT))) {
 			d(printf(" total count\n"));
-			unread = camel_folder_get_message_count (folder);
+			unread = camel_folder_remote_get_message_count (folder);
 			if (folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX)
 					|| folder == mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_DRAFTS)) {
 				guint32 junked = 0;
 
-				if ((deleted = camel_folder_get_deleted_message_count (folder)) > 0)
+				if ((deleted = camel_folder_remote_get_deleted_message_count (folder)) > 0)
 					unread -= deleted;
 
 				camel_object_get (folder, NULL, CAMEL_FOLDER_JUNKED, &junked, NULL);
@@ -316,7 +316,7 @@ update_1folder(struct _folder_info *mfi, int new, CamelFolderInfo *info)
 			if (info)
 				unread = info->unread;
 			else
-				unread = camel_folder_get_unread_message_count (folder);
+				unread = camel_folder_remote_get_unread_message_count (folder);
 		}
 	} else if (info)
 		unread = info->unread;
@@ -393,7 +393,7 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	static time_t last_newmail = 0;
 	CamelFolderChangeInfo *changes = event_data;
 	CamelFolder *folder = (CamelFolder *)o;
-	CamelObjectRemote *store = folder->parent_store;
+	CamelObjectRemote *store = camel_folder_remote_get_parent_store(folder);
 	CamelMessageInfo *info;
 	struct _store_info *si;
 	struct _folder_info *mfi;
@@ -401,7 +401,7 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	int i;
 	guint32 flags;
 
-	d(printf("folder '%s' changed\n", folder->full_name));
+	d(printf("folder '%s' changed\n", camel_folder_remote_get_full_name(folder)));
 
 	if (!CAMEL_IS_VEE_FOLDER(folder)
 	    && folder != mail_component_get_folder(NULL, MAIL_COMPONENT_FOLDER_OUTBOX)
@@ -429,7 +429,7 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	LOCK(info_lock);
 	if (stores != NULL
 	    && (si = g_hash_table_lookup(stores, store)) != NULL
-	    && (mfi = g_hash_table_lookup(si->folders, folder->full_name)) != NULL
+	    && (mfi = g_hash_table_lookup(si->folders, camel_folder_remote_get_full_name(folder))) != NULL
 	    && mfi->folder == folder) {
 		update_1folder(mfi, new, NULL);
 	}
@@ -440,7 +440,7 @@ static void
 folder_finalised(CamelObject *o, gpointer event_data, gpointer user_data)
 {
 	CamelFolder *folder = (CamelFolder *)o;
-	CamelObjectRemote *store = folder->parent_store;
+	CamelObjectRemote *store = camel_folder_remote_get_parent_store(folder);
 	struct _store_info *si;
 	struct _folder_info *mfi;
 
@@ -448,7 +448,7 @@ folder_finalised(CamelObject *o, gpointer event_data, gpointer user_data)
 	LOCK(info_lock);
 	if (stores != NULL
 	    && (si = g_hash_table_lookup(stores, store)) != NULL
-	    && (mfi = g_hash_table_lookup(si->folders, folder->full_name)) != NULL
+	    && (mfi = g_hash_table_lookup(si->folders, camel_folder_remote_get_full_name(folder))) != NULL
 	    && mfi->folder == folder) {
 		mfi->folder = NULL;
 	}
@@ -461,7 +461,7 @@ folder_renamed(CamelObject *o, gpointer event_data, gpointer user_data)
 	CamelFolder *folder = (CamelFolder *)o;
 	char *old = event_data;
 
-	d(printf("Folder renamed from '%s' to '%s'\n", old, folder->full_name));
+	d(printf("Folder renamed from '%s' to '%s'\n", old, camel_folder_remote_get_full_name(folder)));
 
 	old = old;
 	folder = folder;
@@ -470,16 +470,16 @@ folder_renamed(CamelObject *o, gpointer event_data, gpointer user_data)
 
 void mail_note_folder(CamelFolder *folder)
 {
-	CamelObjectRemote *store = folder->parent_store;
+	CamelObjectRemote *store = camel_folder_remote_get_parent_store(folder);
 	struct _store_info *si;
 	struct _folder_info *mfi;
 
-	d(printf("noting folder '%s'\n", folder->full_name));
+	d(printf("noting folder '%s'\n", camel_folder_remote_get_full_name(folder)));
 
 	LOCK(info_lock);
 	if (stores == NULL
 	    || (si = g_hash_table_lookup(stores, store)) == NULL
-	    || (mfi = g_hash_table_lookup(si->folders, folder->full_name)) == NULL) {
+	    || (mfi = g_hash_table_lookup(si->folders, camel_folder_remote_get_full_name(folder))) == NULL) {
 		w(g_warning("Noting folder before store initialised"));
 		UNLOCK(info_lock);
 		return;

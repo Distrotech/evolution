@@ -114,7 +114,7 @@ emmb_set_message (EMFolderView *emfv,
 
 	/* Well we don't know if it got displayed (yet) ... but whatever ... */
 	if (!nomarkseen)
-		camel_folder_set_message_flags (
+		camel_folder_remote_set_message_flags (
 			emfv->folder, uid,
 			CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 }

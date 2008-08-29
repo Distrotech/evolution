@@ -750,7 +750,7 @@ rule_changed(FilterRule *rule, CamelFolderRemote *folder)
 		g_free(oldname);
 	}
 
-	d(printf("Filter rule changed? for folder '%s'!!\n", folder->name));
+	d(printf("Filter rule changed? for folder '%s'!!\n", camel_folder_remote_get_name(folder)));
 
 	/* find any (currently available) folders, and add them to the ones to open */
 	rule_add_sources(((EMVFolderRule *)rule)->sources, &sources_folder, &sources_uri);

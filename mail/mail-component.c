@@ -552,6 +552,9 @@ view_changed(EMFolderView *emfv, EComponentView *component_view)
 
 		selected = message_list_get_selected(emfv->list);
 
+/* Lets do this for now. Implement it in the right way later */
+		name = camel_folder_remote_get_name (emfv->folder);
+
 		/* This is so that if any of these are
 		 * shared/reused, we fallback to the standard
 		 * display behaviour */
@@ -586,7 +589,7 @@ view_changed(EMFolderView *emfv, EComponentView *component_view)
 
 		message_list_free_uids(emfv->list, selected);
 
-		if (emfv->folder->parent_store == mail_component_peek_local_store(NULL)
+		if (camel_folder_remote_get_parent_store(emfv->folder) == mail_component_peek_local_store(NULL)
 		    && (!strcmp (name, "Drafts") || !strcmp (name, "Inbox")
 			|| !strcmp (name, "Outbox") || !strcmp (name, "Sent")))
 			use_name = _(name);
@@ -708,7 +711,7 @@ enable_folder_tree (GtkWidget *emfb, GtkWidget *emft)
 
 		g_signal_emit_by_name (
 			emft, "folder-selected", emft, uri,
-			selected_folder->full_name, uri, selected_folder->folder_flags);
+			camel_folder_remote_get_full_name(selected_folder), uri, camel_folder_remote_get_folder_flags(selected_folder));
 	}
 
 	gtk_widget_set_sensitive (emft, TRUE);
@@ -852,10 +855,10 @@ mc_quit_delete (CamelObjectRemote *store, struct _store_info *si, MailComponent 
 		int i;
 
 		uids =  camel_folder_get_uids (folder);
-		camel_folder_freeze(folder);
+		camel_folder_remote_freeze(folder);
 		for (i=0;i<uids->len;i++)
-			camel_folder_set_message_flags(folder, uids->pdata[i], CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN);
-		camel_folder_thaw(folder);
+			camel_folder_remote_set_message_flags(folder, uids->pdata[i], CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_DELETED|CAMEL_MESSAGE_SEEN);
+		camel_folder_remote_thaw(folder);
 		camel_folder_free_uids (folder, uids);
 	}
 }
