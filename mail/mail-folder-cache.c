@@ -571,7 +571,7 @@ folder_to_url(CamelObjectRemote *store, const char *full_name)
 	CamelURL *url;
 	char *out;
 
-	url = camel_url_copy(camel_store_get_url_remote (store));
+	url = camel_url_new(camel_store_get_url_remote (store), NULL);
 	if (camel_store_get_url_flags_remote (store)  & CAMEL_URL_FRAGMENT_IS_PATH) {
 		camel_url_set_fragment(url, full_name);
 	} else {
