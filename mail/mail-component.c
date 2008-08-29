@@ -695,11 +695,12 @@ enable_folder_tree (GtkWidget *emfb, GtkWidget *emft)
 	/* Get the currently displayed folder. */
 	uri = mail_tools_folder_to_url (emfv->list->folder);
 	current_curl = uri ? camel_url_new (uri, NULL) : NULL;
-	g_free (uri);
+	g_free (uri);uri = NULL;
 
 	/* Get the selected folder in the folder tree. */
 	selected_folder = em_folder_tree_get_selected_folder(EM_FOLDER_TREE (emft));
-	uri = mail_tools_folder_to_url (selected_folder);
+	if (selected_folder)
+		uri = mail_tools_folder_to_url (selected_folder);
 
 	selected_curl = uri ? camel_url_new (uri, NULL) : NULL;
 
