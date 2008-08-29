@@ -2510,8 +2510,9 @@ em_folder_tree_get_selected_folder (EMFolderTree *emft)
 	if (gtk_tree_selection_get_selected(selection, &model, &iter))
 		gtk_tree_model_get (model, &iter, COL_POINTER_CAMEL_STORE, &store,
 				    COL_STRING_FULL_NAME, &full_name, -1);
-
-	folder = camel_store_get_folder_remote (store, full_name, CAMEL_STORE_FOLDER_INFO_FAST, &ex);
+	#warning "Donno why, but on start up store is null, fix it rightly"
+	if (store)
+		folder = camel_store_get_folder_remote (store, full_name, CAMEL_STORE_FOLDER_INFO_FAST, &ex);
 
 	camel_exception_clear (&ex);
 
