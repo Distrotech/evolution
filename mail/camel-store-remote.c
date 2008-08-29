@@ -34,7 +34,7 @@ CamelObjectRemote *camel_store_get_folder_remote(CamelStoreRemote * store,
 				      "camel_store_get_folder",
 				      &error,
 				      "ssu=>ss", store->object_id, folder_name,
-				      flags, &shash, &err))
+				      flags, &shash, &err)) {
 		object = g_hash_table_lookup (folder_rhash, shash);
 		if (!object) {
 			object = g_new0(CamelObjectRemote, 1);
@@ -42,7 +42,7 @@ CamelObjectRemote *camel_store_get_folder_remote(CamelStoreRemote * store,
 			object->type = CAMEL_RO_FOLDER;
 			g_hash_table_insert (folder_rhash, shash, object);
 		}
-	else {
+	} else {
 		g_warning ("camel_store_get_folder error: %s\n", error.message);
 		dbus_error_free (&error);
 	}
@@ -75,7 +75,7 @@ static CamelObjectRemote *camel_store_get_specific_folder_remote(CamelStoreRemot
 					"s=>ss", store->object_id, &fhash,
 					&err);
 
-	if (ret != DBUS_HANDLER_RESULT_HANDLED) {
+	if (!ret) {
 		return NULL;
 	} else {
 		CamelObjectRemote *object = g_hash_table_lookup (folder_rhash, fhash);
