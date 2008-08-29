@@ -13,7 +13,7 @@
 #include "camel-object-remote-impl.h"
 
 #define CAMEL_SESSION_OBJECT_PATH "/org/gnome/evolution/camel/session"
-
+#define d(x)
 static gboolean session_setup = FALSE;
 
 GHashTable *store_hash = NULL;
@@ -37,11 +37,11 @@ dbus_listener_message_handler (DBusConnection *connection,
 	CamelStore *store;
 	char *store_not_found = _("Store not found");
 
-  	printf ("MAILDBUS: SESSION D-Bus message: obj_path = '%s' interface = '%s' method = '%s' destination = '%s'\n",
+  	d(printf ("MAILDBUS: SESSION D-Bus message: obj_path = '%s' interface = '%s' method = '%s' destination = '%s'\n",
            dbus_message_get_path (message),
            dbus_message_get_interface (message),
            dbus_message_get_member (message),
-           dbus_message_get_destination (message));
+           dbus_message_get_destination (message)));
 	
 	
 	return_val = dbus_message_new_method_return (message);

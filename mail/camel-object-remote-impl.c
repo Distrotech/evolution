@@ -17,7 +17,7 @@
 extern GHashTable *store_hash;
 extern GHashTable *folder_hash;
 extern CamelSession *session;
-
+#define d(x)
 /* Session */
 static void 
 object_signal_cb (CamelObject *sess, gpointer ev_data, gpointer data)
@@ -50,7 +50,7 @@ camel_object_signal_handler (DBusConnection *connection,
 	gboolean added = FALSE;
 	CamelObject *object;
 
-	printf("Handling session/co functions : %s\n", dbus_message_get_sender(message));
+	d(printf("Handling session/co functions : %s\n", dbus_message_get_sender(message)));
 	return_val = dbus_message_new_method_return (message);
 
 	if (strcmp(method, "camel_object_hook_event") == 0) {
