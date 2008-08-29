@@ -47,6 +47,7 @@ dbind_context_free (DBindContext *ctx)
 {
     if (!ctx)
         return;
+    dbus_connection_close (ctx->cnx);
     dbus_connection_unref (ctx->cnx);
     g_free (ctx);
 }

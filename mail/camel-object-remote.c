@@ -33,7 +33,7 @@ static int
 register_handler (const char *object_path, DBusObjectPathMessageFunction reg, DBusObjectPathUnregisterFunction unreg)
 {
 	DBusObjectPathVTable *dbus_listener_vtable;
-	DBindContext *ctx = evolution_dbus_peek_context ();
+	DBindContext *ctx = evolution_dbus_peek_main_context ();
 	DBusError err; int ret;
 	char *rule;
 
