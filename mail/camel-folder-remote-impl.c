@@ -109,7 +109,7 @@ dbus_listener_message_handler(DBusConnection * connection,
 		store_hash_key = e_dbus_get_store_hash (store_url);
 
 		dbus_message_append_args (return_val, DBUS_TYPE_STRING, &store_hash_key, DBUS_TYPE_INVALID);
-		printf("%s: Success. store_hash_key:%s\n", method, store_hash_key);
+		d(printf("%s: Success. store_hash_key:%s\n", method, store_hash_key));
 	} else if (strcmp(method, "camel_folder_get_name") == 0) {
 		gboolean ret;
 		const char *name; 

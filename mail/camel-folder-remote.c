@@ -5,7 +5,7 @@
 #include "camel-folder-remote.h"
 
 
-#define d(x) x
+#define d(x) 
 
 extern GHashTable *folder_hash;
 extern GHashTable *store_rhash;
