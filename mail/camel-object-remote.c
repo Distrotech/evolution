@@ -173,7 +173,7 @@ camel_object_remote_meta_set (CamelObjectRemote *object, char *name, char *value
 									  obj_if[object->type],
 									  "camel_object_meta_set",
 									  &error, 
-									  "sss=>i", object->object_id, name, value, &ret_val);
+									  "sss=>i", object->object_id, name, value ? value : "", &ret_val);
 
 	 if (!ret) {
 		  g_warning ("Error: camel_object_remote_meta_set : %s\n", error.message);
