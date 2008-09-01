@@ -144,7 +144,7 @@ camel_folder_remote_get_parent_store (CamelFolderRemote *folder)
 {
 	gboolean ret;
 	DBusError error;
-	char *store_hash_key;
+	char *store_hash_key = NULL;
 	CamelObjectRemote *rstore=NULL;
 
 	dbus_error_init (&error);
@@ -158,7 +158,7 @@ camel_folder_remote_get_parent_store (CamelFolderRemote *folder)
 			"s=>s", folder->object_id, &store_hash_key); 
 
 	if (!ret) {
-		g_warning ("Error: Get parent store from camel folder remote: %s\n", error.message);
+		 g_warning ("Error: Get parent store from camel folder remote: %s %s\n", error.message, store_hash_key);
 		return NULL;
 	}
 
@@ -502,6 +502,64 @@ camel_folder_remote_get_unread_message_count (CamelFolderRemote *folder)
 	
 	return unread;
 }
+
+gpointer
+camel_folder_crude_get_summary (CamelFolderRemote *folder)
+{
+	gboolean ret;
+	DBusError error;
+	int ptr;
+	gpointer summary;
+	
+	dbus_error_init (&error);
+	/* Invoke the appropriate dbind call to MailSessionRemoteImpl */
+	ret = dbind_context_method_call (evolution_dbus_peek_context(), 
+			CAMEL_DBUS_NAME,
+			CAMEL_FOLDER_OBJECT_PATH,
+			CAMEL_FOLDER_INTERFACE,
+			"camel_folder_get_summary_ptr",
+			&error, 
+			"s=>i", folder->object_id, &ptr); 
+
+	if (!ret) {
+		g_warning ("Error: Camel folder get unread message count: %s\n", error.message);
+		return 0;
+	}
+
+	summary = (gpointer) ptr;
+	d(printf("Camel folder get unread message count remotely\n"));
+	
+	return summary;
+}
+
+gpointer
+camel_folder_remote_search_by_expression (CamelFolderRemote *folder, char *exp, CamelException *ex)
+{
+	gboolean ret;
+	DBusError error;
+	int ptr;
+	gpointer uids;
+
+	dbus_error_init (&error);
+	/* Invoke the appropriate dbind call to MailSessionRemoteImpl */
+	ret = dbind_context_method_call (evolution_dbus_peek_context(), 
+			CAMEL_DBUS_NAME,
+			CAMEL_FOLDER_OBJECT_PATH,
+			CAMEL_FOLDER_INTERFACE,
+			"camel_folder_search_by_expression",
+			&error, "ss=>i", folder->object_id, exp, &ptr); 
+
+	if (!ret) {
+		g_warning ("Error: Camel folder get unread message count: %s\n", error.message);
+		return 0;
+	}
+
+	uids = (gpointer) ptr;
+	d(printf("Camel folder get unread message count remotely\n"));
+	
+	return uids;
+}
+
 
 void
 camel_folder_remote_set_vee_folder_expression (CamelFolderRemote *folder, const char *query)

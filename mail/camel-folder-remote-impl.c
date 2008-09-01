@@ -293,6 +293,32 @@ dbus_listener_message_handler(DBusConnection * connection,
 
 		unread = camel_folder_get_unread_message_count(folder);
 		dbus_message_append_args (return_val, DBUS_TYPE_INT32, &unread, DBUS_TYPE_INVALID);
+	} else if (strcmp(method, "camel_folder_get_summary_ptr") == 0) {
+		gboolean ret;
+		int ptr;
+
+		ret = dbus_message_get_args (message, NULL,
+				DBUS_TYPE_STRING, &folder_hash_key,
+				DBUS_TYPE_INVALID);
+		folder = g_hash_table_lookup (folder_hash, folder_hash_key);
+
+		ptr = folder->summary;
+		dbus_message_append_args (return_val, DBUS_TYPE_INT32, &ptr, DBUS_TYPE_INVALID);
+	} else if (strcmp(method, "camel_folder_search_by_expression") == 0) {
+		gboolean ret;
+		char *exp;
+		gpointer uids;
+		CamelException ex;
+
+		camel_exception_init(&ex);
+		ret = dbus_message_get_args (message, NULL,
+				DBUS_TYPE_STRING, &folder_hash_key,									 
+				DBUS_TYPE_STRING, &exp,
+				DBUS_TYPE_INVALID);
+		folder = g_hash_table_lookup (folder_hash, folder_hash_key);
+
+		uids = camel_folder_search_by_expression (folder, exp,  &ex);
+		dbus_message_append_args (return_val, DBUS_TYPE_INT32, &uids, DBUS_TYPE_INVALID);
 	} else if (strcmp (method, "camel_vee_folder_set_expression") == 0) {
 			gboolean ret;
 			const char *query; 
