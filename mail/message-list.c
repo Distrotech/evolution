@@ -3924,6 +3924,7 @@ regen_list_exec (struct _regen_list_msg *m)
 	ETreePath cursor;
 	int i;
 	char *expr = NULL;
+	CamelFolderSummary *summary;
 
 	if (m->folder != m->ml->folder)
 		return;
@@ -3964,10 +3965,11 @@ regen_list_exec (struct _regen_list_msg *m)
 		}
 	}
 
+	summary = camel_folder_crude_get_summary(m->folder);
 	if (expr == NULL) {
 		uids = camel_folder_get_uids (m->folder);
 	} else {
-		searchuids = uids = camel_folder_search_by_expression (m->folder, expr, &m->base.ex);
+		searchuids = uids = camel_folder_remote_search_by_expression (m->folder, expr, &m->base.ex);
 
 		/* If m->changes is not NULL, then it means we are called from folder_changed event,
 		   thus we will keep the selected message to be sure it doesn't disappear because
@@ -4104,10 +4106,10 @@ regen_list_exec (struct _regen_list_msg *m)
 				m->tree = camel_folder_thread_messages_new (m->folder, showuids, m->thread_subject);
 		} else {
 			m->summary = g_ptr_array_new ();
-			if (showuids->len > camel_folder_summary_cache_size (camel_folder_remote_get_summary (m->folder)) ) {
+			if (showuids->len > camel_folder_summary_cache_size (summary) ) {
 				CamelException ex;
 				camel_exception_init (&ex);
-				camel_folder_summary_reload_from_db (camel_folder_remote_get_summary (m->folder), &ex);
+				camel_folder_summary_reload_from_db (summary, &ex);
 				if (camel_exception_is_set (&ex)) {
 					g_warning ("Exception while reloading: %s\n", camel_exception_get_description (&ex));
 					camel_exception_clear (&ex);
@@ -4115,7 +4117,7 @@ regen_list_exec (struct _regen_list_msg *m)
 
 			}
 			for (i = 0; i < showuids->len; i++) {
-				info = camel_folder_get_message_info (m->folder, showuids->pdata[i]);
+				info = camel_folder_summary_uid (summary, showuids->pdata[i]);
 				if (info)
 					g_ptr_array_add(m->summary, info);
 			}
