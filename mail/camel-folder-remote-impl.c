@@ -331,6 +331,50 @@ dbus_listener_message_handler(DBusConnection * connection,
 
 			camel_vee_folder_set_expression ((CamelVeeFolder *) folder, query);
 			dbus_message_append_args (return_val, DBUS_TYPE_INVALID);
+	} else if (strcmp (method, "camel_folder_get_message") == 0) {
+		gboolean ret;
+		char *uid;
+		CamelMimeMessage *msg;
+		CamelStreamMem *mstream;
+		CamelDataWrapper *wrapper;
+		char *enc_ms;
+
+		ret = dbus_message_get_args (message, NULL,
+						DBUS_TYPE_STRING, &folder_hash_key,
+						DBUS_TYPE_STRING, &uid,
+						DBUS_TYPE_INVALID);
+		folder = g_hash_table_lookup (folder_hash, folder_hash_key);
+		msg = camel_folder_get_message (folder, uid, NULL);
+		if (msg) {
+		
+			char *fromline = camel_mime_message_build_mbox_from(msg);
+			CamelMimeFilter *filter_from;
+			CamelStream *filter_stream;
+
+			mstream = (CamelStreamMem *) camel_stream_mem_new ();
+			camel_stream_write(mstream, fromline, strlen(fromline));
+
+			filter_stream = (CamelStream *) camel_stream_filter_new_with_stream(mstream);
+			filter_from = (CamelMimeFilter *) camel_mime_filter_from_new();
+			camel_stream_filter_add((CamelStreamFilter *) filter_stream, filter_from);
+			camel_object_unref (filter_from);
+	
+			camel_data_wrapper_write_to_stream ((CamelDataWrapper *) msg, filter_stream);
+			camel_stream_write (filter_stream, "\n", 1);
+	    		camel_stream_flush (filter_stream);
+	
+			/* filter stream ref's the output stream itself, so we need to unref it too */
+			camel_object_unref (filter_stream);
+			g_free(fromline);
+			
+			enc_ms = g_base64_encode (mstream->buffer->data, mstream->buffer->len);
+			camel_object_unref (mstream);
+		} else
+			enc_ms = g_strdup(" ");
+
+		dbus_message_append_args (return_val, DBUS_TYPE_STRING, &enc_ms, DBUS_TYPE_INVALID);
+		g_free(enc_ms);
+		camel_object_unref (msg);
 	} else if (strncmp (method, "camel_object", 12) == 0) {
 		return camel_object_signal_handler (connection, message, user_data, CAMEL_ROT_FOLDER);
 	} else

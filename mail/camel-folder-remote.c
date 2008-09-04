@@ -533,6 +533,51 @@ camel_folder_crude_get_summary (CamelFolderRemote *folder)
 }
 
 gpointer
+camel_folder_remote_get_message (CamelFolderRemote *folder, char *uid, CamelException *ex)
+{
+	gboolean ret;
+	DBusError error;
+	int ptr;
+	gpointer uids;
+	char *mem, *dmem;
+	CamelMimeMessage *msg;
+	CamelStreamMem *mstream;
+	CamelMimeParser *mp = camel_mime_parser_new();
+	int len = 0;
+
+	dbus_error_init (&error);
+	/* Invoke the appropriate dbind call to MailSessionRemoteImpl */
+	ret = dbind_context_method_call (evolution_dbus_peek_context(), 
+			CAMEL_DBUS_NAME,
+			CAMEL_FOLDER_OBJECT_PATH,
+			CAMEL_FOLDER_INTERFACE,
+			"camel_folder_get_message",
+			&error, "ss=>s", folder->object_id, uid, &mem); 
+
+	if (!ret) {
+		g_warning ("Error: Camel folder get unread message count: %s\n", error.message);
+		return 0;
+	}
+	if (strcmp(mem, " ")) {
+		dmem = g_base64_decode (mem, &len);
+		printf("%s\n", dmem);
+		mstream = camel_stream_mem_new_with_buffer (mem, len);
+
+		camel_mime_parser_scan_from(mp, TRUE);
+		camel_mime_parser_init_with_stream(mp, mstream);
+		msg = camel_mime_message_new();
+		if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp) == -1) {
+			g_warning ("error while parsing\n");
+		}
+		camel_object_unref(mp);
+	} else
+		msg = NULL;
+	d(printf("Camel folder get unread message count remotely\n"));
+	
+	return msg;
+}
+
+gpointer
 camel_folder_remote_search_by_expression (CamelFolderRemote *folder, char *exp, CamelException *ex)
 {
 	gboolean ret;
