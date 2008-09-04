@@ -4354,7 +4354,7 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 	m->search = g_strdup (search);
 	m->hideexpr = g_strdup (hideexpr);
 	m->changes = changes;
-	m->dotree = ml->threaded;
+	m->dotree = 0;//ml->threaded;
 	m->hidedel = ml->hidedeleted;
 	m->hidejunk = ml->hidejunk;
 	m->thread_subject = gconf_client_get_bool (gconf, "/apps/evolution/mail/display/thread_subject", NULL);

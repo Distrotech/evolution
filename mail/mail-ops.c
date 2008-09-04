@@ -1803,7 +1803,7 @@ get_message_desc (struct _get_message_msg *m)
 static void
 get_message_exec (struct _get_message_msg *m)
 {
-	m->message = camel_folder_get_message(m->folder, m->uid, &m->base.ex);
+	m->message = camel_folder_remote_get_message(m->folder, m->uid, &m->base.ex);
 }
 
 static void
@@ -1918,7 +1918,7 @@ get_messages_exec (struct _get_messages_msg *m)
 	for (i=0; i<m->uids->len; i++) {
 		int pc = ((i+1) * 100) / m->uids->len;
 
-		message = camel_folder_get_message(m->folder, m->uids->pdata[i], &m->base.ex);
+		message = camel_folder_remote_get_message(m->folder, m->uids->pdata[i], &m->base.ex);
 		camel_operation_progress(m->base.cancel, pc);
 		if (message == NULL)
 			break;
