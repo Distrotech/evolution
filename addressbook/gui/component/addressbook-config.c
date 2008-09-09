@@ -111,6 +111,7 @@ struct _AddressbookSourceDialog {
 	GtkWidget *search_filter;
 	GtkWidget *timeout_scale;
 	GtkWidget *limit_spinbutton;
+	GtkWidget *canbrowsecheck;
 
 	/* display name page fields */
 	GtkWidget *display_name;
@@ -735,6 +736,7 @@ eabc_general_host(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, str
 	tmp = e_source_get_property (sdialog->source, "ssl");
 	sdialog->ssl = tmp ? ldap_parse_ssl (tmp) : ADDRESSBOOK_LDAP_SSL_WHENEVER_POSSIBLE;
 	gtk_option_menu_set_history (GTK_OPTION_MENU(sdialog->ssl_optionmenu), sdialog->ssl);
+	gtk_widget_set_sensitive (sdialog->ssl_optionmenu, strcmp (port, LDAPS_PORT_STRING) != 0);
 	g_signal_connect(sdialog->ssl_optionmenu, "changed", G_CALLBACK(ssl_optionmenu_changed_cb), sdialog);
 
 	g_object_unref(gui);
@@ -925,6 +927,15 @@ limit_changed_cb(GtkWidget *w, AddressbookSourceDialog *sdialog)
 	e_source_set_property(sdialog->source, "limit", limit);
 }
 
+static void
+canbrowse_toggled_cb (GtkWidget *toggle_button, ESource *source)
+{
+	if (!source || !toggle_button)
+		return;
+
+	e_source_set_property (source, "can-browse", gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (toggle_button)) ? "1" : NULL);
+}
+
 static GtkWidget *
 eabc_details_limit(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, struct _GtkWidget *old, void *data)
 {
@@ -955,6 +966,10 @@ eabc_details_limit(EConfig *ec, EConfigItem *item, struct _GtkWidget *parent, st
 	tmp = e_source_get_property(sdialog->source, "limit");
 	gtk_spin_button_set_value((GtkSpinButton *)sdialog->limit_spinbutton, tmp?g_strtod(tmp, NULL):100.0);
 	g_signal_connect (sdialog->limit_spinbutton, "value_changed", G_CALLBACK (limit_changed_cb), sdialog);
+
+	sdialog->canbrowsecheck = glade_xml_get_widget (gui, "canbrowsecheck");
+	gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sdialog->canbrowsecheck), e_source_get_property (sdialog->source, "can-browse") && strcmp (e_source_get_property (sdialog->source, "can-browse"), "1") == 0);
+	g_signal_connect (sdialog->canbrowsecheck, "toggled", G_CALLBACK (canbrowse_toggled_cb), sdialog->source);
 
 	g_object_unref(gui);
 

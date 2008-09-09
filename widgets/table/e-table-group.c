@@ -1,24 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * e-table-group.c
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
  *
  * Authors:
- *   Chris Lahey <clahey@ximian.com>
+ *		Chris Lahey <clahey@ximian.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License, version 2, as published by the Free Software Foundation.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
- * This library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #include <config.h>
@@ -382,6 +381,16 @@ e_table_group_compute_location (ETableGroup *etg, int *x, int *y, int *row, int 
 	ETG_CLASS (etg)->compute_location (etg, x, y, row, col);
 }
 
+void
+e_table_group_compute_mouse_over (ETableGroup *etg, int x, int y, int *row, int *col)
+{
+	g_return_if_fail (etg != NULL);
+	g_return_if_fail (E_IS_TABLE_GROUP (etg));
+
+	g_return_if_fail (ETG_CLASS (etg)->compute_mouse_over != NULL);
+	ETG_CLASS (etg)->compute_mouse_over (etg, x, y, row, col);
+}
+
 /**
  * e_table_group_get_position
  * @eti: %ETableGroup to look in.
@@ -639,6 +648,7 @@ etg_class_init (ETableGroupClass *klass)
 	klass->get_focus = etg_get_focus;
 	klass->get_printable = NULL;
 	klass->compute_location = NULL;
+	klass->compute_mouse_over = NULL;
 	klass->get_cell_geometry = NULL;
 
 	etg_signals [CURSOR_CHANGE] =

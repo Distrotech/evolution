@@ -1,25 +1,24 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * e-tree-table-adapter.h
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
  *
  * Authors:
- *   Chris Lahey <clahey@ximian.com>
- *   Chris Toshok <toshok@ximian.com>
+ *		Chris Lahey <clahey@ximian.com>
+ *		Chris Toshok <toshok@ximian.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License, version 2, as published by the Free Software Foundation.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
- * This library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #ifndef _E_TREE_TABLE_ADAPTER_H_
@@ -30,6 +29,7 @@
 #include <table/e-tree-model.h>
 #include <table/e-table-sort-info.h>
 #include <table/e-table-header.h>
+#include <libxml/tree.h>
 
 G_BEGIN_DECLS
 
@@ -71,8 +71,8 @@ void         e_tree_table_adapter_node_set_expanded          (ETreeTableAdapter 
 void         e_tree_table_adapter_node_set_expanded_recurse  (ETreeTableAdapter *etta,
 							      ETreePath          path,
 							      gboolean           expanded);
-void         e_tree_table_adapter_load_all_expanded_state    (ETreeTableAdapter *etta,
-							      gboolean state);
+void         e_tree_table_adapter_force_expanded_state       (ETreeTableAdapter *etta,
+							      int state);
 void         e_tree_table_adapter_root_node_set_visible      (ETreeTableAdapter *etta,
 							      gboolean           visible);
 ETreePath    e_tree_table_adapter_node_at_row                (ETreeTableAdapter *etta,
@@ -88,6 +88,9 @@ void         e_tree_table_adapter_save_expanded_state        (ETreeTableAdapter 
 							      const char        *filename);
 void         e_tree_table_adapter_load_expanded_state        (ETreeTableAdapter *etta,
 							      const char        *filename);
+
+xmlDoc      *e_tree_table_adapter_save_expanded_state_xml    (ETreeTableAdapter *etta);
+void         e_tree_table_adapter_load_expanded_state_xml    (ETreeTableAdapter *etta, xmlDoc *doc);
 
 void         e_tree_table_adapter_set_sort_info              (ETreeTableAdapter *etta,
 							      ETableSortInfo    *sort_info);

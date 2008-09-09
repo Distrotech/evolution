@@ -110,7 +110,6 @@
 #include "e-composer-header-table.h"
 
 #include "evolution-shell-component-utils.h"
-#include <e-util/e-icon-factory.h>
 
 #ifdef HAVE_XFREE
 #include <X11/XF86keysym.h>
@@ -4595,6 +4594,14 @@ e_msg_composer_set_enable_autosave (EMsgComposer *composer,
                                     gboolean enabled)
 {
 	e_composer_autosave_set_enabled (composer, enabled);
+}
+
+gboolean
+e_msg_composer_is_exiting (EMsgComposer *composer)
+{
+	g_return_val_if_fail (composer != NULL, FALSE);
+
+	return composer->priv->application_exiting;
 }
 
 gboolean

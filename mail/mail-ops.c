@@ -337,7 +337,7 @@ fetch_mail_exec (struct _fetch_mail_msg *m)
 					}
 				}
 
-				if (fm->delete || cache_uids) {
+				if ((fm->delete || cache_uids) && !camel_exception_is_set (&fm->base.ex)) {
 					/* expunge messages (downloaded so far) */
 					camel_folder_sync(folder, fm->delete, NULL);
 				}
@@ -772,8 +772,10 @@ send_queue_exec (struct _send_queue_msg *m)
 	camel_folder_free_uids (m->queue, uids);
 	g_ptr_array_free (send_uids, TRUE);
 
-	camel_folder_sync (m->queue, TRUE, &ex);
-	camel_exception_clear (&ex);
+	if (j <= 0 && !camel_exception_is_set (&m->base.ex)) {
+		camel_folder_sync (m->queue, TRUE, &ex);
+		camel_exception_clear (&ex);
+	}
 
 	if (sent_folder) {
 		camel_folder_sync (sent_folder, FALSE, &ex);
@@ -1620,9 +1622,9 @@ refresh_folder_desc (struct _sync_folder_msg *m)
 static void
 refresh_folder_exec (struct _sync_folder_msg *m)
 {
-	camel_folder_sync (m->folder, FALSE, &m->base.ex);
+	//camel_folder_sync (m->folder, FALSE, &m->base.ex);
 
-	if (!camel_exception_is_set (&m->base.ex))
+	//if (!camel_exception_is_set (&m->base.ex))
 		camel_folder_refresh_info(m->folder, &m->base.ex);
 }
 
@@ -1976,7 +1978,7 @@ static gchar *
 save_messages_desc (struct _save_messages_msg *m)
 {
 	return g_strdup_printf(ngettext("Saving %d message",
-					"Saving %d messsages", m->uids->len),
+					"Saving %d messages", m->uids->len),
 			       m->uids->len);
 }
 

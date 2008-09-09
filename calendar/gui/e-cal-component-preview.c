@@ -39,6 +39,7 @@
 #include <e-util/e-categories-config.h>
 #include "calendar-config.h"
 #include "e-cal-component-preview.h"
+#include <camel/camel-mime-filter-tohtml.h>
 
 struct _ECalComponentPreviewPrivate {
 	GtkWidget *html;
@@ -289,30 +290,21 @@ write_html (GtkHTMLStream *stream, ECal *ecal, ECalComponent *comp, icaltimezone
 
 		gtk_html_stream_printf (stream, "<TR><TD VALIGN=\"TOP\" ALIGN=\"RIGHT\"><B>%s</B></TD>", _("Description:"));
 
-		gtk_html_stream_printf (stream, "<TD><PRE>");
+		gtk_html_stream_printf (stream, "<TD><TT>");
 
 		for (node = l; node != NULL; node = node->next) {
-			gint i, len;
-			GString *string = g_string_new (NULL);;
+			char *html;
 
 			text = * (ECalComponentText *) node->data;
-			len =  text.value ? strlen (text.value) : 0;
-			for (i = 0; i <len ; i++) {
-				if (text.value[i] == '\n')
-					string = g_string_append_len (string, "<BR>", 4);
-				else if (text.value[i] == '<')
-					string = g_string_append_len (string, "&lt;", 4);
-				else if (text.value[i] == '>')
-					string = g_string_append_len (string, "&gt;", 4);
-				else
-					string = g_string_append_c (string, text.value[i]);
-			}
+			html = camel_text_to_html (text.value ? text.value : "", CAMEL_MIME_FILTER_TOHTML_CONVERT_NL | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES | CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS | CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES, 0);
 
-			gtk_html_stream_printf (stream, "%s", string->str);
-			g_string_free (string, TRUE);
+			if (html)
+				gtk_html_stream_printf (stream, "%s", html);
+
+			g_free (html);
 		}
 
-		gtk_html_stream_printf (stream, "</PRE></TD></TR>");
+		gtk_html_stream_printf (stream, "</TT></TD></TR>");
 
 		e_cal_component_free_text_list (l);
 	}

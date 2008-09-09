@@ -1,22 +1,25 @@
-/* Evolution calendar - alarm notification dialog
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
- * Author: Federico Mena-Quintero <federico@ximian.com>
+/*
+ * Evolution calendar - alarm notification dialog
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Federico Mena-Quintero <federico@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #include <config.h>
@@ -32,7 +35,6 @@
 #include "alarm-notify-dialog.h"
 #include "config-data.h"
 #include "util.h"
-#include "e-util/e-icon-factory.h"
 #include "e-util/e-util-private.h"
 
 
@@ -212,8 +214,6 @@ notified_alarms_dialog_new (void)
 	GtkWidget *edit_btn;
 	GtkWidget *snooze_btn;
 	GtkWidget *image;
-	char *icon_path;
-	GList *icon_list;
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new ();
 	AlarmNotificationsDialog *na = NULL;
 	AlarmNotify *an = g_new0 (AlarmNotify, 1);
@@ -286,10 +286,9 @@ notified_alarms_dialog_new (void)
 	gtk_widget_realize (an->dialog);
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (an->dialog)->vbox), 0);
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (an->dialog)->action_area), 12);
-		image = glade_xml_get_widget (an->xml, "alarm-image");
-	icon_path = e_icon_factory_get_icon_filename ("stock_alarm", E_ICON_SIZE_DIALOG);
-	gtk_image_set_from_file (GTK_IMAGE (image), icon_path);
-	g_free (icon_path);
+	image = glade_xml_get_widget (an->xml, "alarm-image");
+	gtk_image_set_from_icon_name (
+		GTK_IMAGE (image), "stock_alarm", GTK_ICON_SIZE_DIALOG);
 
 	g_signal_connect (edit_btn, "clicked", G_CALLBACK (edit_pressed_cb), an);
 	g_signal_connect (snooze_btn, "clicked", G_CALLBACK (snooze_pressed_cb), an);
@@ -298,12 +297,8 @@ notified_alarms_dialog_new (void)
 
 	if (!GTK_WIDGET_REALIZED (an->dialog))
 	gtk_widget_realize (an->dialog);
-		icon_list = e_icon_factory_get_icon_list ("stock_alarm");
-	if (icon_list) {
-		gtk_window_set_icon_list (GTK_WINDOW (an->dialog), icon_list);
-		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
-		g_list_free (icon_list);
-	}
+
+	gtk_window_set_icon_name (GTK_WINDOW (an->dialog), "stock_alarm");
 
 	/* Set callback for updating the snooze "minutes" label */
 	g_signal_connect (G_OBJECT (an->snooze_time_min), "value_changed",

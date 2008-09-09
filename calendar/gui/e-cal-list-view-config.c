@@ -1,24 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-
 /*
- * Author :
- *  Rodrigo Moya <rodrigo@ximian.com>
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
- * USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Rodrigo Moya <rodrigo@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #include "calendar-config.h"
@@ -145,26 +144,6 @@ e_cal_list_view_config_get_view (ECalListViewConfig *view_config)
 }
 
 static void
-set_timezone (ECalListView *list_view)
-{
-	icaltimezone *zone;
-
-	zone = calendar_config_get_icaltimezone ();
-	e_calendar_view_set_timezone (E_CALENDAR_VIEW (list_view), zone);
-}
-
-static void
-timezone_changed_cb (GConfClient *client, guint id, GConfEntry *entry, gpointer data)
-{
-	ECalListViewConfig *view_config = data;
-	ECalListViewConfigPrivate *priv;
-
-	priv = view_config->priv;
-
-	set_timezone (priv->view);
-}
-
-static void
 set_twentyfour_hour (ECalListView *list_view)
 {
 	gboolean use_24_hour;
@@ -213,12 +192,6 @@ e_cal_list_view_config_set_view (ECalListViewConfig *view_config, ECalListView *
 		return;
 
 	priv->view = g_object_ref (list_view);
-
-	/* Time zone */
-	set_timezone (list_view);
-
-	not = calendar_config_add_notification_timezone (timezone_changed_cb, view_config);
-	priv->notifications = g_list_prepend (priv->notifications, GUINT_TO_POINTER (not));
 
 	/* 24 Hour format */
 	set_twentyfour_hour (list_view);

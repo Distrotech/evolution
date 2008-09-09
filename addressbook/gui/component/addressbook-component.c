@@ -193,6 +193,7 @@ view_destroyed_cb (gpointer data, GObject *where_the_object_was)
 static GNOME_Evolution_ComponentView
 impl_createView (PortableServer_Servant servant,
 		 GNOME_Evolution_ShellView parent,
+		 CORBA_boolean select_item,
 		 CORBA_Environment *ev)
 {
 	AddressbookComponent *addressbook_component = ADDRESSBOOK_COMPONENT (bonobo_object_from_servant (servant));
@@ -226,7 +227,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[0].id = "contact";
 	list->_buffer[0].description = _("New Contact");
-	list->_buffer[0].menuDescription = _("_Contact");
+	list->_buffer[0].menuDescription = (char *) C_("New", "_Contact");
 	list->_buffer[0].tooltip = _("Create a new contact");
 	list->_buffer[0].menuShortcut = 'c';
 	list->_buffer[0].iconName = "contact-new";
@@ -234,7 +235,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[1].id = "contact_list";
 	list->_buffer[1].description = _("New Contact List");
-	list->_buffer[1].menuDescription = _("Contact _List");
+	list->_buffer[1].menuDescription = (char *) C_("New", "Contact _List");
 	list->_buffer[1].tooltip = _("Create a new contact list");
 	list->_buffer[1].menuShortcut = 'l';
 	list->_buffer[1].iconName = "stock_contact-list";
@@ -242,7 +243,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[2].id = "address_book";
 	list->_buffer[2].description = _("New Address Book");
-	list->_buffer[2].menuDescription = _("Address _Book");
+	list->_buffer[2].menuDescription = (char *) C_("New", "Address _Book");
 	list->_buffer[2].tooltip = _("Create a new address book");
 	list->_buffer[2].menuShortcut = '\0';
 	list->_buffer[2].iconName = "address-book-new";

@@ -122,6 +122,7 @@ struct _EMFolderBrowserPrivate {
 	guint folder_changed_id;
 
 	guint show_wide:1;
+	guint suppress_message_selection:1;
 	gboolean scope_restricted;
 
 	EMMenu *menu;		/* toplevel menu manager */
@@ -293,10 +294,19 @@ generate_viewoption_menu (GtkWidget *emfv)
 	for (i = 0; emfb_view_items[i].search.id != -1; ++i) {
 		if (emfb_view_items[i].search.text) {
 			char *str;
+
 			str = e_str_without_underscores (_(emfb_view_items[i].search.text));
 			menu_item = gtk_image_menu_item_new_with_label (str);
- 			if (emfb_view_items[i].image)
- 				gtk_image_menu_item_set_image ((GtkImageMenuItem *)menu_item, e_icon_factory_get_image (emfb_view_items[i].image, E_ICON_SIZE_MENU));
+ 			if (emfb_view_items[i].image) {
+				GtkWidget *image;
+
+				image = gtk_image_new_from_icon_name (
+					emfb_view_items[i].image,
+					GTK_ICON_SIZE_MENU);
+				gtk_image_menu_item_set_image (
+					GTK_IMAGE_MENU_ITEM (menu_item),
+					image);
+			}
 			g_free (str);
 		} else {
 			menu_item = gtk_menu_item_new ();
@@ -351,8 +361,16 @@ generate_viewoption_menu (GtkWidget *emfv)
 			char *str;
 			str = e_str_without_underscores (_(temp_view_items[i].search.text));
 			menu_item = gtk_image_menu_item_new_with_label (str);
-			if (temp_view_items[i].image)
-				gtk_image_menu_item_set_image ((GtkImageMenuItem *)menu_item, e_icon_factory_get_image (temp_view_items[i].image, E_ICON_SIZE_MENU));
+			if (temp_view_items[i].image) {
+				GtkWidget *image;
+
+				image = gtk_image_new_from_icon_name (
+					temp_view_items[i].image,
+					GTK_ICON_SIZE_MENU);
+				gtk_image_menu_item_set_image (
+					GTK_IMAGE_MENU_ITEM (menu_item),
+					image);
+			}
 			g_free (str);
 		} else {
 			menu_item = gtk_menu_item_new ();
@@ -873,11 +891,15 @@ get_view_query (ESearchBar *esb, CamelFolder *folder, const char *folder_uri)
 		view_sexp = " ";
 		break;
 
+	/* README: All the sexp below are not rocket science but it is not straightforward as well.
+	I believe it is better to document the assumptions and the conventions followed for the sexp,
+	before I forget so that no one else again needs to read through the code  -- Sankar */
+
 	case VIEW_UNREAD_MESSAGES:
 		view_sexp = "(match-all (not (system-flag  \"Seen\")))";
 		break;
 	case VIEW_READ_MESSAGES:
-		view_sexp = "(match-all (system-flag  \"Seen\"))";
+		view_sexp = "(match-all (system-flag  \"Seen\" ))";
 		break;
         case VIEW_RECENT_MESSAGES:
 		if (!em_utils_folder_is_sent (folder, folder_uri))
@@ -892,7 +914,7 @@ get_view_query (ESearchBar *esb, CamelFolder *folder, const char *folder_uri)
 			view_sexp = " (match-all (> (get-sent-date) (- (get-current-date) 432000)))";
 		break;
         case VIEW_WITH_ATTACHMENTS:
-		view_sexp = "(match-all (system-flag \"Attachments\"))";
+		view_sexp = "(match-all (system-flag \"Attachments\" ))";
 		break;
 	case VIEW_NOT_JUNK:
 		view_sexp = "(match-all (not (system-flag \"junk\")))";
@@ -911,6 +933,8 @@ get_view_query (ESearchBar *esb, CamelFolder *folder, const char *folder_uri)
 					tag += 6;
 
 				g_string_append_printf (s, " (match-all (not (or (= (user-tag \"label\") \"%s\") (user-flag \"$Label%s\") (user-flag \"%s\"))))", tag, tag, tag);
+				/* FIXME: I dont see a way of mapping this kind of sexp into sql atm. I guess this option could be kicked out */
+				/* May be we should copy what I did for system flags -- Sankar */
 			}
 		}
 
@@ -925,7 +949,7 @@ get_view_query (ESearchBar *esb, CamelFolder *folder, const char *folder_uri)
 		duplicate = FALSE;
 		break;
 	case VIEW_MESSAGES_MARKED_AS_IMPORTANT:
-		view_sexp = "(match-all (system-flag  \"Flagged\"))";
+		view_sexp = "(match-all (system-flag  \"Flagged\" ))";
 		break;
 	case VIEW_ANY_FIELD_CONTAINS:
 		break;
@@ -1984,6 +2008,7 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 {
 	EMFolderBrowser *emfb = (EMFolderBrowser *) emfv;
 	struct _EMFolderBrowserPrivate *p = emfb->priv;
+	gboolean different_folder;
 
 	message_list_freeze(emfv->list);
 
@@ -2001,6 +2026,10 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 		camel_object_remove_event(emfb->view.folder, emfb->priv->folder_changed_id);
 		emfb->priv->folder_changed_id = 0;
 	}
+
+	different_folder =
+		emfb->view.folder != NULL &&
+		folder != emfb->view.folder;
 
 	emfb_parent->set_folder(emfv, folder, uri);
 
@@ -2085,15 +2114,20 @@ emfb_set_folder(EMFolderView *emfv, CamelFolder *folder, const char *uri)
 			e_search_bar_paint ((ESearchBar *)emfb->search);
 		}
 
-		/* set the query manually, so we dont pop up advanced or saved search stuff */
+		/* This function gets triggered several times at startup,
+		 * so we don't want to reset the message suppression state
+		 * unless we're actually switching to a different folder. */
+		if (different_folder)
+			p->suppress_message_selection = FALSE;
 
-		if ((sstate = camel_object_meta_get (folder, "evolution:selected_uid"))) {
-			g_free (emfb->priv->select_uid);
-			emfb->priv->select_uid = sstate;
-		} else {
-			g_free(p->select_uid);
-			p->select_uid = NULL;
-		}
+		if (!p->suppress_message_selection)
+			sstate = camel_object_meta_get (
+				folder, "evolution:selected_uid");
+		else
+			sstate = NULL;
+
+		g_free (p->select_uid);
+		p->select_uid = sstate;
 
 		if (emfv->list->cursor_uid == NULL && emfb->priv->list_built_id == 0)
 			p->list_built_id = g_signal_connect(emfv->list, "message_list_built", G_CALLBACK (emfb_list_built), emfv);
@@ -2204,4 +2238,10 @@ emfb_activate(EMFolderView *emfv, BonoboUIComponent *uic, int act)
 
 		emfb_parent->activate(emfv, uic, act);
 	}
+}
+
+void
+em_folder_browser_suppress_message_selection (EMFolderBrowser *emfb)
+{
+	emfb->priv->suppress_message_selection = TRUE;
 }

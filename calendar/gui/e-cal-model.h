@@ -1,22 +1,26 @@
-/* Evolution calendar - Data model for ETable
+/*
  *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
- * Authors: Rodrigo Moya <rodrigo@ximian.com>
+ * Evolution calendar - Data model for ETable
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Rodrigo Moya <rodrigo@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifndef E_CAL_MODEL_H
@@ -57,19 +61,39 @@ typedef enum {
 	E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES = 0x01
 } ECalModelFlags;
 
-typedef struct {
+#define E_TYPE_CAL_MODEL_COMPONENT            (e_cal_model_component_get_type ())
+#define E_CAL_MODEL_COMPONENT(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), E_TYPE_CAL_MODEL_COMPONENT, ECalModelComponent))
+#define E_CAL_MODEL_COMPONENT_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), E_TYPE_CAL_MODEL_COMPONENT,	\
+				       ECalComponentClass))
+#define E_IS_CAL_MODEL_COMPONENT(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), E_TYPE_CAL_MODEL_COMPONENT))
+#define E_IS_CAL_MODEL_COMPONENT_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), E_TYPE_CAL_MODEL_COMPONENT))
+
+typedef struct _ECalModelComponent ECalModelComponent;
+typedef struct _ECalModelComponentClass ECalModelComponentClass;
+typedef struct _ECalModelComponentPrivate ECalModelComponentPrivate;
+
+struct _ECalModelComponent {
+	GObject object;
+
 	ECal *client;
 	icalcomponent *icalcomp;
 	time_t instance_start;
 	time_t instance_end;
-
-	/* private data */
+	
+	/* Private data used by ECalModelCalendar and ECalModelTasks */
+	/* keep these public to avoid many accessor functions */
 	ECellDateEditValue *dtstart;
 	ECellDateEditValue *dtend;
 	ECellDateEditValue *due;
 	ECellDateEditValue *completed;
 	gchar *color;
-} ECalModelComponent;
+
+	ECalModelComponentPrivate *priv;
+};
+
+struct _ECalModelComponentClass {
+	GObjectClass parent_class;
+};
 
 typedef struct {
 	ECalModelComponent *comp_data;
@@ -92,11 +116,13 @@ typedef struct {
 	/* Signals */
 	void (* time_range_changed) (ECalModel *model, time_t start, time_t end);
 	void (* row_appended) (ECalModel *model);
+	void (* comps_deleted) (ECalModel *model, gpointer list);
 	void (* cal_view_progress) (ECalModel *model, const char *message, int progress, ECalSourceType type);
 	void (* cal_view_done) (ECalModel *model, ECalendarStatus status, ECalSourceType type);
 } ECalModelClass;
 
 GType               e_cal_model_get_type                       (void);
+GType 		    e_cal_model_component_get_type 	       (void);
 icalcomponent_kind  e_cal_model_get_component_kind             (ECalModel           *model);
 void                e_cal_model_set_component_kind             (ECalModel           *model,
 								icalcomponent_kind   kind);

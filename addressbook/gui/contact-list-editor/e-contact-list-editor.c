@@ -1,21 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-/* e-contact-list-editor.c
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- * Author: Chris Toshok <toshok@ximian.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Chris Toshok <toshok@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #include <config.h>
@@ -1334,6 +1336,7 @@ e_contact_list_editor_get_contact (EContactListEditor *editor)
 	GtkTreeIter iter;
 	gboolean iter_valid;
 	const gchar *text;
+	GSList *attrs = NULL, *a;
 
 	g_return_val_if_fail (E_IS_CONTACT_LIST_EDITOR (editor), NULL);
 
@@ -1367,11 +1370,18 @@ e_contact_list_editor_get_contact (EContactListEditor *editor)
 
 		gtk_tree_model_get (model, &iter, 0, &dest, -1);
 		attr = e_vcard_attribute_new (NULL, EVC_EMAIL);
-		e_vcard_add_attribute (E_VCARD (contact), attr);
+		attrs = g_slist_prepend (attrs, attr);
 		e_destination_export_to_vcard_attribute (dest, attr);
 		g_object_unref (dest);
 
 		iter_valid = gtk_tree_model_iter_next (model, &iter);
+	}
+
+	/* Put it in reverse order because e_vcard_add_attribute also uses prepend,
+	   but we want to keep order of mails there. Hopefully noone will change
+	   the behaviour of the e_vcard_add_attribute. */
+	for (a = attrs; a; a = a->next) {
+		e_vcard_add_attribute (E_VCARD (contact), a->data);
 	}
 
 	return contact;

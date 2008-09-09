@@ -1,22 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: Jeffrey Stedfast <fejj@ximian.com>
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Authors:
+ *		Jeffrey Stedfast <fejj@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -35,7 +36,6 @@
 #include <libgnomeui/gnome-pixmap.h>
 #include <glib/gi18n.h>
 
-#include "e-util/e-icon-factory.h"
 #include "e-util/e-util-private.h"
 
 #include "misc/e-dateedit.h"
@@ -271,19 +271,13 @@ construct (MessageTagEditor *editor)
 	GtkWidget *widget;
 	GList *strings;
 	GladeXML *gui;
-	GList *icon_list;
-	GdkPixbuf *pixbuf;
 	int i;
 	char *gladefile;
 
 	gtk_window_set_title (GTK_WINDOW (editor), _("Flag to Follow Up"));
 
-	icon_list = e_icon_factory_get_icon_list ("stock_mail-flag-for-followup");
-	if (icon_list) {
-		gtk_window_set_icon_list (GTK_WINDOW (editor), icon_list);
-		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
-		g_list_free (icon_list);
-	}
+	gtk_window_set_icon_name (
+		GTK_WINDOW (editor), "stock_mail-flag-for-followup");
 
 	gtk_dialog_set_has_separator (GTK_DIALOG (editor), FALSE);
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (editor)->vbox), 0);
@@ -302,9 +296,9 @@ construct (MessageTagEditor *editor)
 	gtk_box_set_child_packing (GTK_BOX (GTK_DIALOG (editor)->vbox), widget, TRUE, TRUE, 6, GTK_PACK_START);
 
 	widget = glade_xml_get_widget (gui, "pixmap");
-	pixbuf = e_icon_factory_get_icon ("stock_mail-flag-for-followup", E_ICON_SIZE_DIALOG);
-	gtk_image_set_from_pixbuf ((GtkImage *)widget, pixbuf);
-	g_object_unref (pixbuf);
+	gtk_image_set_from_icon_name (
+		GTK_IMAGE (widget), "stock_mail-flag-for-followup",
+		GTK_ICON_SIZE_DIALOG);
 
 	followup->message_list = GTK_TREE_VIEW (glade_xml_get_widget (gui, "message_list"));
 	model = gtk_list_store_new (2, G_TYPE_STRING, G_TYPE_STRING);

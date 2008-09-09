@@ -321,9 +321,13 @@ xml_encode (FilterRule *fr)
 	}
 
 	if (fr->name) {
+		char *escaped = g_markup_escape_text (fr->name, -1);
+
 		work = xmlNewNode (NULL, (const unsigned char *)"title");
-		xmlNodeSetContent (work, (unsigned char *)fr->name);
+		xmlNodeSetContent (work, (unsigned char *)escaped);
 		xmlAddChild (node, work);
+
+		g_free (escaped);
 	}
 
 	set = xmlNewNode (NULL, (const unsigned char *)"partset");
@@ -440,12 +444,13 @@ xml_decode (FilterRule *fr, xmlNodePtr node, RuleContext *f)
 			load_set (work, fr, f);
 		} else if (!strcmp ((char *)work->name, "title") || !strcmp ((char *)work->name, "_title")) {
 			if (!fr->name) {
-				char *str, *decstr;
+				char *str, *decstr = NULL;
 
 				str = (char *)xmlNodeGetContent (work);
-				decstr = g_strdup (str);
-				if (str)
+				if (str) {
+					decstr = g_strdup (_(str));
 					xmlFree (str);
+				}
 				fr->name = decstr;
 			}
 		}

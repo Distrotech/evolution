@@ -85,7 +85,6 @@ typedef struct _ImportDialogImporterPage {
 } ImportDialogImporterPage;
 
 typedef struct _ImportData {
-	EShell *shell;
 	EShellWindow *window;
 
 	GladeXML *wizard;
@@ -133,9 +132,7 @@ static struct {
 	},
 	{ "file_html",
 	  N_("Choose the file that you want to import into Evolution, "
-	     "and select what type of file it is from the list.\n\n"
-	     "You can select \"Automatic\" if you do not know, and "
-	     "Evolution will attempt to work it out.")
+	     "and select what type of file it is from the list.")
 	},
 	{ "dest_html",
 	  N_("Choose the destination for this import")
@@ -678,7 +675,6 @@ e_shell_importer_start_import (EShellWindow *shell_window)
 
 	dialog_open = TRUE;
 	data->window = shell_window;
-	data->shell = e_shell_window_peek_shell (data->window);
 
 	gladefile = g_build_filename (EVOLUTION_GLADEDIR, "import.glade", NULL);
 	data->wizard = glade_xml_new (gladefile, NULL, NULL);

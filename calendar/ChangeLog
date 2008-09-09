@@ -1,7 +1,541 @@
+2008-09-08  Chenthill Palanisamy  <pchenthill@novell.com>
+
+	Fixes #544187
+	* calendar/gui/e-cal-model.c:
+	* calendar/gui/e-cal-model.h:
+	* calendar/gui/e-day-view.c:
+	* calendar/gui/e-week-view.c: Added a new signal
+	handler to update the views on comp deletion.
+
+2008-09-06  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #549968
+
+	* gui/dialogs/comp-editor.c (comp_editor_init):
+	Use the same mnemonic for "Recent Documents" as composer.
+
+2008-09-04  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/alarm-notify/util.c:
+	* gui/dialogs/calendar-setup.c:
+	* gui/e-day-view-time-item.c:
+	* gui/e-meeting-list-view.c:
+	* gui/misc.c:
+
+2008-09-02  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* conduits/common/libecalendar-common-conduit.c:
+	* gui/alarm-notify/alarm-notify-dialog.c:
+	* gui/alarm-notify/alarm-notify-dialog.h:
+	* gui/alarm-notify/alarm-notify.c:
+	* gui/calendar-component.h:
+	* gui/calendar-view-factory.c:
+	* gui/calendar-view.c:
+	* gui/comp-editor-factory.h:
+	* gui/control-factory.c:
+	* gui/dialogs/alarm-dialog.c:
+	* gui/dialogs/alarm-list-dialog.c:
+	* gui/dialogs/cal-attachment-select-file.c:
+	* gui/dialogs/cancel-comp.c:
+	* gui/dialogs/changed-comp.h:
+	* gui/dialogs/comp-editor-page.h:
+	* gui/dialogs/comp-editor-util.c:
+	* gui/dialogs/comp-editor-util.h:
+	* gui/dialogs/comp-editor.h:
+	* gui/dialogs/e-delegate-dialog.c:
+	* gui/dialogs/e-send-options-utils.h:
+	* gui/dialogs/event-editor.c:
+	* gui/dialogs/event-editor.h:
+	* gui/dialogs/event-page.h:
+	* gui/dialogs/memo-editor.c:
+	* gui/dialogs/recur-comp.h:
+	* gui/dialogs/schedule-page.c:
+	* gui/dialogs/schedule-page.h:
+	* gui/dialogs/send-comp.c:
+	* gui/dialogs/task-details-page.c:
+	* gui/dialogs/task-editor.c:
+	* gui/dialogs/task-editor.h:
+	* gui/e-cal-component-memo-preview.h:
+	* gui/e-cal-config.c:
+	* gui/e-cal-event.c:
+	* gui/e-cal-list-view-config.c:
+	* gui/e-cal-list-view.c:
+	* gui/e-cal-menu.c:
+	* gui/e-cal-model-calendar.c:
+	* gui/e-cal-model-memos.c:
+	* gui/e-cal-model.c:
+	* gui/e-calendar-table-config.c:
+	* gui/e-calendar-table.h:
+	* gui/e-calendar-view.h:
+	* gui/e-cell-date-edit-config.c:
+	* gui/e-cell-date-edit-text.c:
+	* gui/e-cell-date-edit-text.h:
+	* gui/e-comp-editor-registry.c:
+	* gui/e-comp-editor-registry.h:
+	* gui/e-date-edit-config.c:
+	* gui/e-date-time-list.c:
+	* gui/e-day-view-config.c:
+	* gui/e-day-view-main-item.h:
+	* gui/e-meeting-attendee.c:
+	* gui/e-meeting-time-sel-item.c:
+	* gui/e-memo-table-config.c:
+	* gui/e-memo-table-config.h:
+	* gui/e-memos.c:
+	* gui/e-memos.h:
+	* gui/e-mini-calendar-config.c:
+	* gui/e-mini-calendar-config.h:
+	* gui/e-select-names-editable.c:
+	* gui/e-select-names-renderer.c:
+	* gui/e-tasks.c:
+	* gui/e-tasks.h:
+	* gui/e-week-view-config.c:
+	* gui/e-week-view-config.h:
+	* gui/e-week-view-layout.c:
+	* gui/e-week-view-main-item.c:
+	* gui/e-week-view-titles-item.c:
+	* gui/goto.h:
+	* gui/itip-bonobo-control.c:
+	* gui/memos-component.h:
+	* gui/tasks-component.h:
+	* gui/weekday-picker.c:
+	* importers/main.c:
+
+2008-08-28  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Related to bug #547822
+
+	* gui/print.c (print_table_draw_page), (print_table):
+	Use g_malloc() and g_free() instead of malloc() and free().
+	Also fix an "assignment discards qualifiers" compiler warning.
+
+2008-08-27  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* common/authentication.c:
+	* common/authentication.h:
+	* conduits/common/libecalendar-common-conduit.h:
+	* gui/alarm-notify/alarm-notify.h:
+	* gui/alarm-notify/alarm-queue.h:
+	* gui/alarm-notify/config-data.h:
+	* gui/alarm-notify/util.h:
+	* gui/cal-search-bar.h:
+	* gui/calendar-view-factory.h:
+	* gui/calendar-view.h:
+	* gui/control-factory.h:
+	* gui/dialogs/alarm-dialog.h:
+	* gui/dialogs/alarm-list-dialog.h:
+	* gui/dialogs/cal-attachment-select-file.h:
+	* gui/dialogs/calendar-setup.h:
+	* gui/dialogs/cancel-comp.h:
+	* gui/dialogs/comp-editor-page.c:
+	* gui/dialogs/copy-source-dialog.h:
+	* gui/dialogs/delete-comp.h:
+	* gui/dialogs/delete-error.h:
+	* gui/dialogs/e-delegate-dialog.h:
+	* gui/dialogs/memo-editor.h:
+	* gui/dialogs/memo-page.h:
+	* gui/dialogs/recurrence-page.h:
+	* gui/dialogs/save-comp.c:
+	* gui/dialogs/save-comp.h:
+	* gui/dialogs/select-source-dialog.c:
+	* gui/dialogs/select-source-dialog.h:
+	* gui/dialogs/send-comp.h:
+	* gui/dialogs/task-details-page.h:
+	* gui/dialogs/task-page.h:
+	* gui/e-alarm-list.h:
+	* gui/e-cal-component-preview.h:
+	* gui/e-cal-config.h:
+	* gui/e-cal-event.h:
+	* gui/e-cal-list-view-config.h:
+	* gui/e-cal-list-view.h:
+	* gui/e-cal-menu.h:
+	* gui/e-cal-model-calendar.h:
+	* gui/e-cal-model-memos.h:
+	* gui/e-cal-model-tasks.h:
+	* gui/e-cal-model.h:
+	* gui/e-cal-popup.h:
+	* gui/e-calendar-table-config.h:
+	* gui/e-cell-date-edit-config.h:
+	* gui/e-date-edit-config.h:
+	* gui/e-date-time-list.h:
+	* gui/e-day-view-config.h:
+	* gui/e-day-view-layout.c:
+	* gui/e-day-view-layout.h:
+	* gui/e-day-view-time-item.h:
+	* gui/e-day-view-top-item.h:
+	* gui/e-day-view.h:
+	* gui/e-meeting-attendee.h:
+	* gui/e-meeting-list-view.h:
+	* gui/e-meeting-time-sel-item.h:
+	* gui/e-meeting-types.h:
+	* gui/e-meeting-utils.c:
+	* gui/e-meeting-utils.h:
+	* gui/e-memo-table.h:
+	* gui/e-select-names-editable.h:
+	* gui/e-select-names-renderer.h:
+	* gui/e-timezone-entry.h:
+	* gui/e-week-view-event-item.h:
+	* gui/e-week-view-layout.h:
+	* gui/e-week-view-main-item.h:
+	* gui/e-week-view-titles-item.h:
+	* gui/itip-bonobo-control.h:
+	* gui/memos-control.c:
+	* gui/memos-control.h:
+	* gui/migration.h:
+	* gui/misc.h:
+	* gui/print.h:
+	* gui/tag-calendar.c:
+	* gui/tag-calendar.h:
+	* gui/tasks-control.h:
+	* gui/weekday-picker.h:
+	* importers/evolution-calendar-importer.h:
+	* zones.h:
+
+2008-08-27  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #523327
+
+	* gui/e-cal-component-preview.c: (write_html):
+	* gui/e-cal-component-memo-preview.c: (write_html):
+	Show description in monospace font and wrap lines too.
+
+2008-08-22  Tobias Mueller  <tobiasmue@svn.gnome.org>
+
+	* gui/print.c (print_table_draw_page):
+	Make it show "Tasks" for printing tasks list and "Calendar" for
+	printing a calendar. Patch by
+	Rouslan Solomakhin <rouslan@solomakhin.net>
+	
+	** Fixes bug 547822
+
+2008-08-18  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #462242
+
+	* gui/gnome-cal.c: (default_client_cal_opened_cb):
+	Do not unref NULL pointers.
+
+2008-08-18  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #508732
+
+	* gui/calendar-component.c (impl_createView):
+	* gui/memos-component.c (impl_createView):
+	* gui/tasks-component.c (impl_createView):
+	Add a "select_item" argument for crash recovery, which these
+	components do not use.
+
+2008-08-04  Paul Bolle  <pebolle@tiscali.nl>
+
+	* gui/gui/calendar-component.c: (set_info):
+	Use "Calendars" as label for component, not "Calendar", for
+	consistency.
+
+2008-08-14  Sebastien Bacher  <seb128@ubuntu.com>
+
+	** Fix for bug #547805
+
+	* gui/e-cal-popup.c: (ecalp_standard_menu_factory):
+	don't filter applications using g_app_info_should_show()
+
+2008-08-14  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gui/dialogs/comp-editor.c:
+	Use e_display_help() for displaying help.
+
+2008-08-17  Chenthill Palanisamy  <pchenthill@novell.com>
+
+	* gui/dialogs/event-page.c: (source_changed_cb):
+	* gui/dialogs/memo-page.c: (source_changed_cb):
+	* gui/e-cal-model.c: (e_cal_model_set_timezone),
+	(e_cal_view_done_cb):
+	* gui/e-day-view-config.c: Fixed some warnings.
+
+2008-08-15  Chenthill Palanisamy  <pchenthill@novell.com>
+
+	Fixes #347287
+	* gui/e-cal-list-view-config.c: (e_cal_list_view_config_set_view):
+	* gui/e-cal-list-view.c: (e_cal_list_view_new):
+	* gui/e-cal-list-view.h:
+	* gui/e-cal-model.c: (e_cal_model_set_timezone), (add_instance_cb),
+	(e_cal_view_objects_added_cb), (e_cal_view_done_cb),
+	(update_e_cal_view_for_client), (cal_opened_cb), (add_new_client),
+	(e_cal_model_component_class_init),
+	(e_cal_model_component_finalize), (e_cal_model_component_init),
+	(e_cal_model_component_get_type),
+	(e_cal_model_copy_component_data),
+	(e_cal_model_free_component_data):
+	* gui/e-cal-model.h:
+	* gui/e-calendar-view.c: (e_calendar_view_init),
+	(e_calendar_view_set_model):
+	* gui/e-calendar-view.h:
+	* gui/e-day-view-config.c: (e_day_view_config_set_view):
+	* gui/e-day-view.c: (time_range_changed_cb),
+	(model_row_changed_cb), (model_cell_changed_cb),
+	(model_rows_inserted_cb), (model_rows_deleted_cb),
+	(timezone_changed_cb), (e_day_view_init), (init_model),
+	(e_day_view_new), (e_day_view_set_mins_per_row),
+	(e_day_view_add_event), (e_day_view_check_layout):
+	* gui/e-day-view.h:
+	* gui/e-week-view-config.c: (e_week_view_config_set_view):
+	* gui/e-week-view.c: (time_range_changed_cb),
+	(model_row_changed_cb), (model_cell_changed_cb),
+	(model_rows_inserted_cb), (model_rows_deleted_cb),
+	(timezone_changed_cb), (e_week_view_init), (init_model),
+	(e_week_view_new), (e_week_view_add_event),
+	(e_week_view_check_layout):
+	* gui/e-week-view.h:
+	* gui/gnome-cal.c: (message_proxy), (create_thread_pool),
+	(message_push), (update_query_async), (update_query),
+	(set_search_query), (set_timezone), (setup_widgets),
+	(update_view_times), (display_view), (display_view_cb),
+	(add_mclient_async), (add_mclient), (client_cal_opened_cb),
+	(default_client_cal_opened_cb),
+	(gnome_calendar_remove_source_by_uid),
+	(gnome_calendar_on_date_navigator_selection_changed): Use a
+	single model for all the views.			
+
 2008-08-13  Suman Manjunath  <msuman@novell.com>
 
-	* gui/dialogs/comp-editor.c (real_send_comp): Don't replace attachment
-	list if backend can CREATE_MESSAGES
+        * gui/dialogs/comp-editor.c (real_send_comp): Don't replace
+        attachment list if backend can CREATE_MESSAGES
+
+2008-08-12  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gui/migration.c:
+	Fix TeX-style quotes.  (#547372)
+
+2008-08-12  Dmitrijs Ledkovs  <dmitrij.ledkov@gmail.com>
+
+	** Fixes bug #498095
+
+	* gui/dialogs/event-page.glade: "D_escription" -> "_Description"
+	* gui/dialogs/task-page.glade: As above and "_Due Date" -> "D_ue Date"
+	Change mnemonics to resolve clash with "_Edit".
+	* gui/dialogs/memo-page.glade:
+	Set proper mnemonic widget for description label.
+
+2008-08-11  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #546892
+
+	* gui/alarm-notify/alarm-notify-dialog.c:
+	* gui/dialogs/alarm-dialog.c:
+	* gui/dialogs/alarm-list-dialog.c:
+	* gui/dialogs/cal-attachment-select-file.c:
+	* gui/dialogs/changed-comp.c:
+	* gui/dialogs/delete-error.c:
+	* gui/dialogs/select-source-dialog.c:
+	Prefer gtk_window_set_icon_name() over gtk_window_set_icon_list().
+
+	* gui/dialogs/event-page.c:
+	* gui/e-timezone-entry.c:
+	Prefer gtk_image_new_from_icon_name() over e_icon_factory_get_image().
+
+	* gui/alarm-notify/alarm-queue.c:
+	Prefer gtk_status_icon_set_from_icon_name() over
+	gtk_status_icon_set_from_pixbuf().
+
+	* gui/e-calendar-table.c:
+	* gui/e-calendar-view.c:
+	* gui/e-memo-table.c:
+	e_activity_handler_operation_started() no longer takes a GdkPixbuf.
+	It was ignoring the pixbuf anyway ever since we added a spinner icon.
+
+2008-08-08  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #544117
+
+	* gui/itip-utils.c: (itip_send_comp): Initialize variables to NULL,
+	to not free uninitialized memory in the cleanup part on the error.
+
+2008-08-06  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #249844
+
+	* gui/tasks-component.c: (impl__get_userCreatableItems):
+	* gui/memos-component.c: (impl__get_userCreatableItems):
+	Do not let compiler claim.
+	* gui/calendar-component.c: (impl__get_userCreatableItems):
+	Use C_() macro instead of Q_() macro.
+	Use fully qualified names for "New" submenu entries.
+
+2008-08-04  Paul Bolle  <pebolle@tiscali.nl>
+
+	** Fix for bug #544157
+
+	* gui/GNOME_Evolution_Calendar.server.in.in:
+	Sort View / Window (sub)menu in shortcut order.
+
+2008-08-04  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #249844
+
+	* gui/memos-component.c (impl__get_userCreatableItems):
+	* gui/tasks-component.c (impl__get_userCreatableItems):
+	Use C_() macro instead of Q_() macro. 
+	Use fully qualified names for "New" submenu entries. 
+
+2008-08-02  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #546057
+
+	* gui/GNOME_Evolution_Calendar.server.in.in:
+	* gui/calendar-component.c:
+	* gui/e-calendar-view.c:
+	* gui/dialogs/alarm-dialog.c:
+	* gui/dialogs/alarm-list-dialog.c:
+	* gui/dialogs/changed-comp.c:
+	* gui/dialogs/comp-editor.c:
+	* gui/dialogs/delete-error.c:
+	* gui/dialogs/select-source-dialog.c:
+	Use "x-office-calendar" icon name instead of "stock_calendar".
+
+2008-08-01  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #544857
+
+	* gui/memotypes.xml: Fix a typo.
+
+2008-08-01  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #353927
+
+	* gui/alarm-notify/alarm-queue.c: (tray_icon_blink_cb),
+	(display_notification): Do not blink the icon more than 15 seconds.
+
+2008-07-30  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #211267
+
+	* gui/print.c: (bound_text), (print_attendees), (print_day_event),
+	(print_todo_details), (print_comp_draw_real), (print_comp_draw_page),
+	(print_comp_begin_print), (print_comp): When printing only one event,
+	then divide it to more pages if required, also word-wrap description
+	text if necessary to fit the page.
+
+2008-07-29  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #329821
+
+	* gui/e-calendar-table.c: (query_tooltip_cb):
+	Recalculate returned row to the model row, if we are sorting.
+
+2008-07-20  Andre Klapper  <a9016009@gmx.de>
+
+	* calendar.error.xml: Fix some strings. See bug #543753.
+
+2008-07-18  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #542125
+
+	** This set of changes migrates CompEditor, CompEditorPage and the
+	   various subclasses from using BonoboUI to GtkUIManager for menus
+	   and toolbars.  It also substantially cleans up the code and
+	   streamlines the CompEditorPage API, making more effective use
+	   of GObject properties.
+
+	Core changes:
+	* gui/dialogs/comp-editor-page.c:
+	* gui/dialogs/comp-editor-page.h:
+	* gui/dialogs/comp-editor.c:
+	* gui/dialogs/comp-editor.h:
+	* gui/dialogs/event-editor.c:
+	* gui/dialogs/event-editor.h:
+	* gui/dialogs/event-page.c:
+	* gui/dialogs/event-page.h:
+	* gui/dialogs/memo-editor.c:
+	* gui/dialogs/memo-editor.h:
+	* gui/dialogs/memo-page.c:
+	* gui/dialogs/memo-page.h:
+	* gui/dialogs/recurrence-page.c:
+	* gui/dialogs/recurrence-page.h:
+	* gui/dialogs/schedule-page.c:
+	* gui/dialogs/schedule-page.h:
+	* gui/dialogs/task-details-page.c:
+	* gui/dialogs/task-details-page.h:
+	* gui/dialogs/task-editor.c:
+	* gui/dialogs/task-editor.h:
+	* gui/dialogs/task-page.c:
+	* gui/dialogs/task-page.h:
+
+	Supporting changes:
+	* gui/calendar-component.c:
+	* gui/comp-editor-factory.c:
+	* gui/e-cal-popup.c:
+	* gui/e-calendar-table.c:
+	* gui/e-calendar-view.c:
+	* gui/e-comp-editor-registry.c:
+	* gui/e-memo-table.c:
+	* gui/e-tasks.c:
+	* gui/gnome-cal.c:
+	* gui/memos-component.c:
+	* gui/tasks-component.c:
+	* gui/dialogs/alarm-dialog.c:
+	* gui/dialogs/comp-editor-util.c:
+
+2008-07-15  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #329821
+
+	* gui/e-calendar-table.c: (get_time_as_text), (query_tooltip_cb),
+	(e_calendar_table_init): Show tooltips over task's table.
+
+2008-17-14  Paolo Borelli  <pborelli@katamail.com>
+
+	** Fix for bug #542889
+
+	* gui/dialogs/event-page.c:
+	* gui/alarm-notify/alarm-queue.c:
+	Port to the new gtk tooltip api.
+
+2008-07-13  Paul Bolle  <pebolle@tiscali.nl>
+
+	** Fix for bug #542101
+
+	* gui/e-calendar-view.c: (e_calendar_view_get_tooltips):
+	Escape PlaceOfTheMeeting in the Location: line of the tooltip.
+
+2008-07-13  Keith Packard  <keithp@keithp.com>
+
+	** Fix for bug #541355
+
+	* conduits/calendar/calendar-conduit.c:
+	* conduits/memo/memo-conduit.c:
+	* conduits/todo/todo-conduit.c:
+	The pilot link code does call free_match on data returned from the 
+	for_each method, which the evolution conduits aren't prepared to 
+	handle. This patch removes any freed objects from the 'locals' list in 
+	each conduit which otherwise frees them again when the conduit is closed.
+
+2008-07-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #524130
+
+	* gui/e-cal-component-preview.c: (write_html):
+	* gui/e-cal-component-memo-preview.c: (write_html): Pass description
+	text through 'camel_text_to_html' to have links clickable in a preview.
+
+2008-07-04  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #368038
+
+	* gui/calendar-component.c: (ensure_sources):
+	Ensure only one Birthdays & Anniversaries source.
+
+2008-07-03  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #540152
+
+	* gui/calendar-component.c: (ensure_sources):
+	Unref sources only when we created it - the list owns the pointer now.
+	* gui/tasks-component.c: (ensure_sources):
+	* gui/memos-component.c: (ensure_sources): Do not leak ESource.
 
 2008-06-16  Maciej Piechotka <uzytkownik2@gmail.com>
 

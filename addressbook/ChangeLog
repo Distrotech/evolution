@@ -1,3 +1,287 @@
+2008-09-08  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #361413
+
+	* gui/widgets/eab-gui-util.c: (eab_load_error_dialog):
+	Print detailed error also for LDAP backends.
+
+2008-09-06  Michael Meeks  <michael.meeks@novell.com>
+
+	* gui/component/openldap-extract.h: License fixes.
+
+2008-09-04  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/widgets/e-minicard-view.c:
+	* gui/widgets/eab-popup-control.c:
+
+2008-09-02  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/component/addressbook-config.h:
+	* gui/component/addressbook.h:
+	* gui/component/autocompletion-config.c:
+	* gui/component/autocompletion-config.h:
+	* gui/component/component-factory.c:
+	* gui/contact-editor/e-contact-editor-address.c:
+	* gui/contact-editor/e-contact-editor-address.h:
+	* gui/contact-editor/e-contact-editor-fullname.c:
+	* gui/contact-editor/e-contact-editor-fullname.h:
+	* gui/contact-editor/e-contact-editor-im.c:
+	* gui/contact-editor/e-contact-editor-im.h:
+	* gui/contact-editor/e-contact-editor.h:
+	* gui/contact-editor/e-contact-quick-add.h:
+	* gui/contact-editor/test-editor.c:
+	* gui/contact-list-editor/e-contact-list-editor.c:
+	* gui/contact-list-editor/e-contact-list-editor.h:
+	* gui/contact-list-editor/e-contact-list-model.c:
+	* gui/merging/eab-contact-compare.c:
+	* gui/merging/eab-contact-merging.c:
+	* gui/merging/eab-contact-merging.h:
+	* gui/widgets/e-addressbook-reflow-adapter.c:
+	* gui/widgets/e-addressbook-table-adapter.c:
+	* gui/widgets/e-addressbook-view.h:
+	* gui/widgets/e-minicard-label.h:
+	* gui/widgets/e-minicard-view-widget.c:
+	* gui/widgets/e-minicard-view-widget.h:
+	* gui/widgets/e-minicard.h:
+	* gui/widgets/eab-config.c:
+	* gui/widgets/eab-contact-display.h:
+	* gui/widgets/eab-menu.c:
+	* gui/widgets/eab-popup.c:
+	* gui/widgets/gal-view-factory-minicard.c:
+	* gui/widgets/gal-view-minicard.h:
+	* importers/evolution-csv-importer.c:
+	* printing/e-contact-print-style-editor.c:
+	* printing/e-contact-print-style-editor.h:
+	* printing/e-contact-print-types.h:
+	* printing/e-contact-print.c:
+	* printing/e-contact-print.h:
+	* printing/test-contact-print-style-editor.c:
+	* printing/test-print.c:
+	* tools/evolution-addressbook-export-list-cards.c:
+	* util/eab-book-util.c:
+	* util/eab-book-util.h:
+
+2008-09-01  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #448435
+
+	* gui/component/addressbook-config.c: (eabc_general_host):
+	Keep UI consistent, disable SSL method for 636 port.
+
+2008-09-01  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #548827
+
+	* gui/widgets/eab-gui-util.c: (eab_error_dialog):
+	Check bounds of the string array before accessing elements.
+	* gui/widgets/e-addressbook-view.c: (delete_contacts_cb):
+	Show more detailed error message if available.
+
+2008-08-30  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #548348
+
+	* printing/Makefile.am:
+	Add a libecontactprint_la_LIBADD stanza so we link to the
+	correct libemiscwidgets and libeutil.
+
+2008-08-27  Philip Withnall  <philip@tecnocode.co.uk>
+
+	** Fix for bug #534762
+
+	* addressbook.error.xml:
+	* conduit/address-conduit.c:
+	* gui/widgets/eab-gui-util.c: (eab_load_error_dialog),
+	(eab_search_result_dialog):
+	* gui/widgets/eab-vcard-control.c: (eab_vcard_control_new):
+	* tools/evolution-addressbook-export-list-folders.c:
+	(action_list_folders_init):
+	* tools/evolution-addressbook-export.c: Change "addressbook" to
+	"address book" in translatable strings.
+
+2008-08-27  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/component/addressbook-component.h:
+	* gui/component/addressbook-migrate.h:
+	* gui/component/addressbook-view.h:
+	* gui/component/openldap-extract.h:
+	* gui/contact-editor/eab-editor.h:
+	* gui/contact-list-editor/e-contact-list-model.h:
+	* gui/merging/eab-contact-compare.h:
+	* gui/widgets/e-addressbook-model.h:
+	* gui/widgets/e-addressbook-reflow-adapter.h:
+	* gui/widgets/e-addressbook-table-adapter.h:
+	* gui/widgets/e-minicard-view.h:
+	* gui/widgets/eab-config.h:
+	* gui/widgets/eab-gui-util.h:
+	* gui/widgets/eab-menu.h:
+	* gui/widgets/eab-popup-control.h:
+	* gui/widgets/eab-popup.h:
+	* gui/widgets/eab-vcard-control.h:
+	* gui/widgets/gal-view-factory-minicard.h:
+	* gui/widgets/gal-view-minicard.c:
+	* importers/evolution-addressbook-importers.h:
+	* tools/evolution-addressbook-export-list-folders.c:
+	* tools/evolution-addressbook-export.h:
+
+2008-08-18  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #508732
+
+	* gui/component/addressbook-component.c (impl_createView):
+	Add a "select_item" argument for crash recovery, which the
+	addressbook component does not use.
+
+2008-08-14  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gui/contact-editor/e-contact-editor.c:
+	Use e_display_help() for displaying help.
+
+2008-08-12  Matthew Barnes  <mbarnes@redhat.com>
+
+	* gui/component/GNOME_Evolution_Addressbook.server.in.in:
+	Fix a typo.  (#547369)
+
+	* gui/component/addressbook-migrate.c:
+	Fix TeX-style quotes.  (#547372)
+
+2008-08-12  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #547308
+
+	* gui/component/addressbook.c: (load_source_auth_cb):
+	Do not try to authenticate to the server more than twice when knows
+	the password and it didn't fail because of wrong user name/password.
+	* gui/widgets/eab-gui-util.c: (const char *status_to_string[]):
+	New string for new status code.
+	* gui/widgets/eab-gui-util.c: (eab_load_error_dialog):
+	Include detailed error in generic failure error, if available and is
+	not a repository offline error.
+
+2008-08-11  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #546892
+
+	* gui/contact-editor/e-contact-editor-fullname.c:
+	* gui/contact-editor/e-contact-editor-im.c:
+	* gui/contact-editor/e-contact-editor-address.c:
+	Prefer gtk_window_set_icon_name() over gtk_window_set_icon_list().
+
+	* gui/contact-editor/e-contact-editor-im.c:
+	Prefer gtk_image_new_from_icon_name() over e_icon_factory_get_image().
+
+	* gui/component/addressbook-view.c:
+	e_activity_handler_operation_started() no longer takes a GdkPixbuf.
+	It was ignoring the pixbuf anyway ever since we added a spinner icon.
+
+2008-08-07  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #324203
+
+	* gui/component/ldap-config.glade:
+	* gui/component/addressbook-config.c: (canbrowse_toggled_cb),
+	(eabc_details_limit): New check box to be able to set LDAP
+	address books browseable until reaches given limits.
+
+2008-08-06  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #249844
+
+	* gui/component/addressbook-component.c:
+	(impl__get_userCreatableItems): Do not let compiler claim.
+
+2008-08-06  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #546263
+
+	* gui/widgets/e-minicard.c: (add_field), (add_email_field), (remodel):
+	Add 'width' property as the last one for 'new' item, thus it will know
+	all the information to properly calculate column widths. Also don't
+	set field names for the contact-lists. Both changes prevents messing
+	of minicard painting for changed contact-lists.
+
+2008-08-04  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #249844
+
+	* gui/component/addressbook-component.c
+	(impl__get_userCreatableItems): 
+	Use C_() macro instead of Q_() macro. 
+	Use fully qualified names for "New" submenu entries. 
+
+2008-08-02  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #546057
+
+	* gui/component/GNOME_Evolution_Addressbook.server.in.in:
+	* gui/contact-list-editor/contact-list-editor.glade:
+	Use "x-office-address-book" icon name instead of "stock_addressbook".
+
+2008-07-30  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #211267
+
+	* printing/e-contact-print.c: (struct _EContactPrintContext),
+	(e_contact_print_letter_heading), (e_contact_start_new_page),
+	(e_contact_print_contact), (contact_draw_page),
+	(e_contact_print): Report correct number of pages to print
+	and print them as requested.
+
+2008-07-30  Takao Fujiwara  <takao.fujiwara@sun.com>
+
+	Reviewed by Andre Klapper <a9016009@gmx.de>
+
+	** Fix for bug #545300
+
+	* gui/merging/eab-contact-duplicate-detected.glade:
+	Add a translatable tag in "_Merge" string.
+
+2008-07-28  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #544383
+
+	* gui/contact-list-editor/e-contact-list-editor.c:
+	(e_contact_list_editor_get_contact): Put list members in reverse order,
+	because 'e_vcard_add_attribute' uses prepend, thus changes order on
+	every single save of the contact list.
+
+2008-07-20  Andre Klapper  <a9016009@gmx.de>
+
+	* addressbook.error.xml: Fix some strings. See bug #543753.
+
+2008-07-13  Keith Packard  <keithp@keithp.com>
+
+	** Fix for bug #541355
+
+	* conduit/address-conduit.c:
+	The pilot link code does call free_match on data returned from the 
+	for_each method, which the evolution conduits aren't prepared to 
+	handle. This patch removes any freed objects from the 'locals' list in 
+	each conduit which otherwise frees them again when the conduit is closed.
+
+2008-07-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #228725
+
+	* gui/widgets/e-minicard-view.h: (struct _EMinicardView):
+	* gui/widgets/e-minicard-view.c: (set_empty_message),
+	(stop_state_changed), (e_minicard_view_set_property),
+	(e_minicard_view_dispose), (e_minicard_view_init):
+	Show different message in a view when searching.
+
+2008-07-03  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #540152
+
+	* gui/component/addressbook-component.c: (ensure_sources):
+	Unref source only when we created it - the list owns the pointer now.
+
 2008-06-24  Milan Crha  <mcrha@redhat.com>
 
 	** Fix for bug #539755

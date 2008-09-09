@@ -30,6 +30,7 @@
 #include "Evolution.h"
 
 #include "e-util/e-util-private.h"
+#include "widgets/misc/e-online-button.h"
 
 #include "e-component-registry.h"
 #include "e-shell-window-commands.h"
@@ -53,10 +54,10 @@
 #include <string.h>
 
 #ifdef NM_SUPPORT_GLIB
-void e_shell_nm_glib_initialise (EShellWindow *window);
+gboolean e_shell_nm_glib_initialise (EShellWindow *window);
 void e_shell_nm_glib_dispose (EShellWindow *window);
 #elif NM_SUPPORT
-void e_shell_dbus_initialise (EShellWindow *window);
+gboolean e_shell_dbus_initialise (EShellWindow *window);
 void e_shell_dbus_dispose (EShellWindow *window);
 #endif
 
@@ -112,13 +113,9 @@ struct _EShellWindowPrivate {
 	/* The current view (can be NULL initially).  */
 	ComponentView *current_view;
 
-	/* Tooltips.  */
-	GtkTooltips *tooltips;
-
 	/* The status bar widgetry.  */
 	GtkWidget *status_bar;
 	GtkWidget *offline_toggle;
-	GtkWidget *offline_toggle_image;
 	GtkWidget *menu_hint_label;
 
 	/* The timeout for saving the window size */
@@ -135,10 +132,6 @@ enum {
 static guint signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_TYPE (EShellWindow, e_shell_window, BONOBO_TYPE_WINDOW)
-
-/* The icons for the offline/online status.  */
-#define OFFLINE_ICON "offline.png"
-#define ONLINE_ICON  "online.png"
 
 static gboolean store_window_size (GtkWidget* widget);
 
@@ -217,6 +210,7 @@ init_view (EShellWindow *window,
 	Bonobo_Control sidebar_control;
 	Bonobo_Control view_control;
 	Bonobo_Control statusbar_control;
+	CORBA_boolean select_item;
 	CORBA_Environment ev;
 	int sidebar_notebook_page_num;
 	int view_notebook_page_num;
@@ -224,6 +218,9 @@ init_view (EShellWindow *window,
 	g_return_if_fail (view->view_widget == NULL);
 	g_return_if_fail (view->sidebar_widget == NULL);
 	g_return_if_fail (view->notebook_page_num == -1);
+
+	select_item = !e_shell_get_crash_recovery (priv->shell.eshell);
+	e_shell_set_crash_recovery (priv->shell.eshell, FALSE);
 
 	CORBA_exception_init (&ev);
 
@@ -245,7 +242,7 @@ init_view (EShellWindow *window,
 	   (e.g. methods not implemented)...  So handle it as if there was no
 	   component at all.  */
 
-	component_view = GNOME_Evolution_Component_createView(component_iface, BONOBO_OBJREF(priv->shell_view), &ev);
+	component_view = GNOME_Evolution_Component_createView(component_iface, BONOBO_OBJREF(priv->shell_view), select_item, &ev);
 	if (component_view == NULL || BONOBO_EX (&ev)) {
 		g_warning ("Cannot create view for %s", view->component_id);
 		bonobo_object_release_unref (component_iface, NULL);
@@ -338,8 +335,8 @@ switch_view (EShellWindow *window, ComponentView *component_view)
 	} else
 		gtk_window_set_title (GTK_WINDOW (window), component_view->title);
 
-	if (info->button_icon)
-		gtk_window_set_icon (GTK_WINDOW (window), info->button_icon);
+	if (info->icon_name)
+		gtk_window_set_icon_name (GTK_WINDOW (window), info->icon_name);
 
 	gconf_client_set_string (gconf_client, "/apps/evolution/shell/view_defaults/component_id",
 				 (component_view->component_alias != NULL
@@ -368,9 +365,9 @@ static void
 update_offline_toggle_status (EShellWindow *window)
 {
 	EShellWindowPrivate *priv;
-	const char *icon;
-	char *icon_file;
-	const char *tooltip;
+	GtkWidget *widget;
+	const gchar *tooltip;
+	gboolean online;
 	gboolean sensitive;
 	guint32 flags = 0;
 	ESMenuTargetShell *t;
@@ -379,23 +376,23 @@ update_offline_toggle_status (EShellWindow *window)
 
 	switch (e_shell_get_line_status (priv->shell.eshell)) {
 	case E_SHELL_LINE_STATUS_ONLINE:
-		icon        = ONLINE_ICON;
+		online      = TRUE;
 		sensitive   = TRUE;
-		tooltip     = _("Evolution is currently online. "
+		tooltip     = _("Evolution is currently online.\n"
 				"Click on this button to work offline.");
 		flags = ES_MENU_SHELL_ONLINE;
 		break;
 	case E_SHELL_LINE_STATUS_GOING_OFFLINE:
-		icon        = ONLINE_ICON;
+		online      = TRUE;
 		sensitive   = FALSE;
 		tooltip     = _("Evolution is in the process of going offline.");
 		flags = ES_MENU_SHELL_OFFLINE;
 		break;
 	case E_SHELL_LINE_STATUS_OFFLINE:
 	case E_SHELL_LINE_STATUS_FORCED_OFFLINE:
-		icon        = OFFLINE_ICON;
+		online      = FALSE;
 		sensitive   = TRUE;
-		tooltip     = _("Evolution is currently offline. "
+		tooltip     = _("Evolution is currently offline.\n"
 				"Click on this button to work online.");
 		flags = ES_MENU_SHELL_OFFLINE;
 		break;
@@ -403,11 +400,10 @@ update_offline_toggle_status (EShellWindow *window)
 		g_return_if_reached ();
 	}
 
-	icon_file = g_build_filename (EVOLUTION_IMAGESDIR, icon, NULL);
-	gtk_image_set_from_file (GTK_IMAGE (priv->offline_toggle_image), icon_file);
-	g_free (icon_file);
-	gtk_widget_set_sensitive (priv->offline_toggle, sensitive);
-	gtk_tooltips_set_tip (priv->tooltips, priv->offline_toggle, tooltip, NULL);
+        widget = window->priv->offline_toggle;
+        gtk_widget_set_sensitive (widget, sensitive);
+        gtk_widget_set_tooltip_text (widget, tooltip);
+        e_online_button_set_online (E_ONLINE_BUTTON (widget), online);
 
 	/* TODO: If we get more shell flags, this should be centralised */
 	t = es_menu_target_new_shell(priv->menu, flags);
@@ -479,8 +475,7 @@ sidebar_button_pressed_callback (ESidebar       *sidebar,
 }
 
 static void
-offline_toggle_clicked_callback (GtkButton *button,
-				 EShellWindow *window)
+offline_toggle_clicked_cb (EShellWindow *window)
 {
 	EShellWindowPrivate *priv = window->priv;
 
@@ -530,39 +525,21 @@ ui_engine_remove_hint_callback (BonoboUIEngine *engine,
 static void
 setup_offline_toggle (EShellWindow *window)
 {
-	EShellWindowPrivate *priv;
-	GtkWidget *toggle;
-	GtkWidget *image;
-	GtkWidget *label;
-	GtkWidget *hbox;
+	GtkWidget *widget;
 
-	priv = window->priv;
+	g_return_if_fail (window->priv->status_bar != NULL);
 
-	toggle = gtk_button_new ();
-	GTK_WIDGET_UNSET_FLAGS (toggle, GTK_CAN_FOCUS);
-	gtk_button_set_relief (GTK_BUTTON (toggle), GTK_RELIEF_NONE);
-
-	g_signal_connect (toggle, "clicked",
-			  G_CALLBACK (offline_toggle_clicked_callback), window);
-	hbox = gtk_hbox_new (FALSE, 0);
-	gtk_container_add (GTK_CONTAINER (toggle), hbox);
-
-	image = gtk_image_new ();
-	gtk_box_pack_start (GTK_BOX (hbox), image, FALSE, FALSE, 0);
-
-	label = gtk_label_new ("");
-	gtk_box_pack_start (GTK_BOX (hbox), label, FALSE, FALSE, 0);
-
-	gtk_widget_show_all (toggle);
-
-	priv->offline_toggle       = toggle;
-	priv->offline_toggle_image = image;
+	widget = e_online_button_new ();
+	g_signal_connect_swapped (
+		widget, "clicked",
+		G_CALLBACK (offline_toggle_clicked_cb), window);
+	gtk_box_pack_start (
+		GTK_BOX (window->priv->status_bar),
+		widget, FALSE, TRUE, 0);
+	window->priv->offline_toggle = widget;
+	gtk_widget_show (widget);
 
 	update_offline_toggle_status (window);
-
-	g_return_if_fail (priv->status_bar != NULL);
-
-	gtk_box_pack_start (GTK_BOX (priv->status_bar), priv->offline_toggle, FALSE, TRUE, 0);
 }
 
 static void
@@ -783,12 +760,14 @@ setup_widgets (EShellWindow *window)
 		char *tmp, *tmp2;
 		EComponentInfo *info = p->data;
 		ComponentView *view = component_view_new (info->id, info->alias, button_id);
+		GtkIconInfo *icon_info;
+		gint width;
 
 		window->priv->component_views = g_slist_prepend (window->priv->component_views, view);
 
 		if (!info->button_label || !info->menu_label)
 			continue;
-		e_sidebar_add_button (E_SIDEBAR (priv->sidebar), info->button_label, info->button_tooltips, info->button_icon, button_id);
+		e_sidebar_add_button (E_SIDEBAR (priv->sidebar), info->button_label, info->button_tooltips, info->icon_name, button_id);
 
 		g_string_printf(xml, "SwitchComponent-%s", info->alias);
 		bonobo_ui_component_add_verb (e_shell_window_peek_bonobo_ui_component (window),
@@ -810,11 +789,14 @@ setup_widgets (EShellWindow *window)
 		g_free (tmp2);
 		g_free (tmp);
 
-		tmp = bonobo_ui_util_pixbuf_to_xml (info->menu_icon),
-		g_string_append_printf(xml, "\" pixtype=\"pixbuf\" pixname=\"%s\"/>"
+		gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &width, NULL);
+		icon_info = gtk_icon_theme_lookup_icon (
+			gtk_icon_theme_get_default (),
+			info->icon_name, width, 0);
+		g_string_append_printf(xml, "\" pixtype=\"filename\" pixname=\"%s\"/>"
 				       "</placeholder></submenu></submenu>\n",
-				       tmp);
-		g_free(tmp);
+				       gtk_icon_info_get_filename (icon_info));
+		gtk_icon_info_free (icon_info);
 		bonobo_ui_component_set_translate (e_shell_window_peek_bonobo_ui_component (window),
 						   "/menu",
 						   xml->str,
@@ -861,11 +843,6 @@ impl_dispose (GObject *object)
 	if (priv->ui_component != NULL) {
 		bonobo_object_unref (BONOBO_OBJECT (priv->ui_component));
 		priv->ui_component = NULL;
-	}
-
-	if (priv->tooltips != NULL) {
-		gtk_object_destroy (GTK_OBJECT (priv->tooltips));
-		priv->tooltips = NULL;
 	}
 
 	if (priv->store_window_size_timer) {
@@ -992,7 +969,6 @@ e_shell_window_init (EShellWindow *shell_window)
 {
 	EShellWindowPrivate *priv = g_new0 (EShellWindowPrivate, 1);
 
-	priv->tooltips = gtk_tooltips_new ();
 	priv->shell_view = e_shell_view_new(shell_window);
 	priv->destroyed = FALSE;
 
@@ -1279,7 +1255,7 @@ e_shell_window_set_title(EShellWindow *window, const char *component_id, const c
  * @param icon Icon buffer.
  **/
 void
-e_shell_window_change_component_button_icon (EShellWindow *window, const char *component_id, GdkPixbuf *icon)
+e_shell_window_change_component_button_icon (EShellWindow *window, const char *component_id, const char *icon_name)
 {
 	EShellWindowPrivate *priv;
 	GSList *p;
@@ -1298,7 +1274,7 @@ e_shell_window_change_component_button_icon (EShellWindow *window, const char *c
 		if (strcmp (this_view->component_id, component_id) == 0
 		    || (this_view->component_alias != NULL
 			&& strcmp (this_view->component_alias, component_id) == 0)) {
-			e_sidebar_change_button_icon (E_SIDEBAR (priv->sidebar), icon, this_view->button_id);
+			e_sidebar_change_button_icon (E_SIDEBAR (priv->sidebar), icon_name, this_view->button_id);
 			break;
 		}
 	}

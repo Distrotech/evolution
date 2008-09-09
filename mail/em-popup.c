@@ -35,7 +35,6 @@
 
 #include "em-popup.h"
 #include "libedataserver/e-msgport.h"
-#include <e-util/e-icon-factory.h>
 #include "em-utils.h"
 #include "em-composer-utils.h"
 
@@ -825,12 +824,6 @@ emp_standard_menu_factory(EPopup *emp, void *data)
 			for (l = apps, i = 0; l; l = l->next, i++) {
 				GAppInfo *app = l->data;
 				EPopupItem *item;
-
-				if (!g_app_info_should_show (app)) {
-					g_object_unref (app);
-					l->data = NULL;
-					continue;
-				}
 
 				item = g_malloc0(sizeof(*item));
 				item->type = E_POPUP_ITEM;

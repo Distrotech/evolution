@@ -1,21 +1,25 @@
-/* Evolution calendar - Main page of the Groupwise send options Dialog
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
- * Authors: Chenthill Palanisamy <pchenthill@novell.com>
+/*
+ * Evolution calendar - Main page of the Groupwise send options Dialog
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Chenthill Palanisamy <pchenthill@novell.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -23,11 +27,11 @@
 #endif
 
 #include <string.h>
-#include <libgnome/libgnome.h>
 #include <glib/gi18n.h>
 #include <glade/glade.h>
 #include <time.h>
 
+#include "e-util/e-util.h"
 #include "e-util/e-util-private.h"
 
 #include "e-dateedit.h"
@@ -586,7 +590,6 @@ static void e_send_options_cb (GtkDialog *dialog, gint state, gpointer func_data
 {
 	ESendOptionsDialogPrivate *priv;
 	ESendOptionsDialog *sod;
-	GError *error = NULL;
 
 	sod = func_data;
 	priv = sod->priv;
@@ -600,12 +603,9 @@ static void e_send_options_cb (GtkDialog *dialog, gint state, gpointer func_data
 			g_object_unref (priv->xml);
 			break;
 		case GTK_RESPONSE_HELP:
-			gnome_help_display (
-				"evolution.xml", priv->help_section, &error);
-			if (error != NULL) {
-				g_warning ("%s", error->message);
-				g_error_free (error);
-			}
+			e_display_help (
+				GTK_WINDOW (priv->main),
+				priv->help_section);
     			break;
 	}
 

@@ -1,22 +1,22 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
 /*
- *  Authors: Harish Krishnaswamy <kharish@novell.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Harish Krishnaswamy <kharish@novell.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -36,7 +36,6 @@
 #include <glib/gi18n.h>
 
 #include "cal-attachment-select-file.h"
-#include <e-util/e-icon-factory.h>
 
 enum {
 	SELECTOR_MODE_MULTI    = (1 << 0),
@@ -49,7 +48,6 @@ run_selector(CompEditor *editor, const char *title, guint32 flags, gboolean *sho
 	GtkWidget *selection;
 	GtkWidget *showinline = NULL;
 	char *path;
-	GList *icon_list;
 
 	path = g_object_get_data ((GObject *) editor, "attach_path");
 
@@ -90,12 +88,7 @@ run_selector(CompEditor *editor, const char *title, guint32 flags, gboolean *sho
 	gtk_window_set_wmclass ((GtkWindow *) selection, "fileselection", "Evolution:editor");
 	gtk_window_set_modal ((GtkWindow *) selection, TRUE);
 
-	icon_list = e_icon_factory_get_icon_list ("mail-message-new");
-	if (icon_list) {
-		gtk_window_set_icon_list (GTK_WINDOW (selection), icon_list);
-		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
-		g_list_free (icon_list);
-	}
+	gtk_window_set_icon_name (GTK_WINDOW (selection), "mail-message-new");
 
 	if (gtk_dialog_run ((GtkDialog *) selection) == GTK_RESPONSE_OK) {
 		if (showinline_p)

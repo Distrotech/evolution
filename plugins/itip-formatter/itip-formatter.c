@@ -50,7 +50,6 @@
 #include <mail/mail-tools.h>
 #include <mail/mail-mt.h>
 #include <libedataserver/e-account-list.h>
-#include <e-util/e-icon-factory.h>
 #include <e-util/e-error.h>
 #include <calendar/gui/calendar-config.h>
 #include <calendar/gui/itip-utils.h>
@@ -1674,6 +1673,7 @@ view_response_cb (GtkWidget *widget, ItipViewResponse response, gpointer data)
 		icalcomponent_add_property (pitip->ical_comp, prop);
 	}
 
+	/*FIXME Save schedules is misused here, remove it */
 	save_schedules = e_cal_get_save_schedules (pitip->current_ecal);
 
 	switch (response) {
@@ -1735,6 +1735,7 @@ view_response_cb (GtkWidget *widget, ItipViewResponse response, gpointer data)
 			break;
 	}
 
+	/* FIXME Remove this and handle this at the groupwise mail provider */
 	if (delete_invitation_from_cache) {
 		CamelFolderChangeInfo *changes = NULL;
 		const char *tag = NULL;
@@ -1763,7 +1764,7 @@ view_response_cb (GtkWidget *widget, ItipViewResponse response, gpointer data)
 						}
 						camel_message_info_free (mi);
 					}
-					camel_folder_summary_array_free (pitip->folder->summary, summary_array);
+					camel_folder_free_summary (pitip->folder, summary_array);
 				}
 			} else {
 				/* Either not a recurring appointment or "apply-to-all" is not selected. So just delete this instance alone */

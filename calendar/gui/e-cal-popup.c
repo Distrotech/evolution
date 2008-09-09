@@ -422,12 +422,6 @@ ecalp_standard_menu_factory (EPopup *ecalp, void *data)
 				GAppInfo *app = l->data;
 				EPopupItem *item;
 
-				if (!g_app_info_should_show (app)) {
-					g_object_unref (app);
-					l->data = NULL;
-					continue;
-				}
-
 				item = g_malloc0(sizeof(*item));
 				item->type = E_POPUP_ITEM;
 				item->path = g_strdup_printf("99.object.%02d", i);
@@ -775,7 +769,7 @@ e_cal_popup_target_new_attachments(ECalPopup *ecp, CompEditor *editor, GSList *a
 	ECalPopupTargetAttachments *t = e_popup_target_new(&ecp->popup, E_CAL_POPUP_TARGET_ATTACHMENTS, sizeof(*t));
 	guint32 mask = ~0;
 	int len = g_slist_length(attachments);
-	ECal *client = comp_editor_get_e_cal (editor);
+	ECal *client = comp_editor_get_client (editor);
 	CompEditorFlags flags = comp_editor_get_flags (editor);
 	gboolean read_only = FALSE;
 	GError *error = NULL;

@@ -1,3 +1,23 @@
+2008-09-02  Paul Bolle <pebolle@tiscali.nl>
+
+	** Fixes bug #550415
+
+	* mark-all-read.c (mar_got_folder): Do not leak an CamelFolderInfo.
+	Slightly change handling of CamelException.
+
+2008-08-27  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* mark-all-read.c:
+
+2008-08-07  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #530402
+
+	* mark-all-read.c (prompt_user):
+	Improve dialog wording, and don't use a window title (HIG).
+
 2008-05-16  Matthew Barnes  <mbarnes@redhat.com>
 
 	** Fixes bug #514383

@@ -1,15 +1,27 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
  * GUI utility functions
  *
- * Authors:
- *   Miguel de Icaza (miguel@ximian.com)
- *   Chris Toshok (toshok@ximian.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- * Copyright (C) 1999 Miguel de Icaza
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Miguel de Icaza (miguel@ximian.com)
+ *		Chris Toshok (toshok@ximian.com)
+ *
  * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
-
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -18,7 +30,6 @@
 #include <string.h>
 
 #include "e-gui-utils.h"
-#include <e-util/e-icon-factory.h>
 
 #include <libgnome/gnome-program.h>
 #include <libgnomeui/gnome-icon-lookup.h>
@@ -52,30 +63,4 @@ e_icon_for_mime_type (const char *mime_type, int size_hint)
 	}
 
 	return pixbuf;
-}
-
-GtkWidget *e_create_image_widget(gchar *name,
-				 gchar *string1, gchar *string2,
-				 gint int1, gint int2)
-{
-	GtkWidget *alignment = NULL;
-	GtkWidget *w;
-
-	if (string1) {
-		w = e_icon_factory_get_image (string1, E_ICON_SIZE_DIALOG);
-
-		gtk_misc_set_alignment (GTK_MISC (w), 0.5, 0.5);
-
-		alignment = gtk_widget_new(gtk_alignment_get_type(),
-					   "child", w,
-					   "xalign", (double) 0,
-					   "yalign", (double) 0,
-					   "xscale", (double) 0,
-					   "yscale", (double) 0,
-					   NULL);
-
-		gtk_widget_show_all (alignment);
-	}
-
-	return alignment;
 }

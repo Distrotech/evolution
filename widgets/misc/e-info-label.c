@@ -1,21 +1,22 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: Michael Zucchi <notzed@ximian.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of version 2 of the GNU General Public
- *  License as published by the Free Software Foundation.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Michael Zucchi <notzed@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -26,8 +27,6 @@
 #include <string.h>
 
 #include "e-info-label.h"
-
-#include <e-util/e-icon-factory.h>
 
 static GtkHBoxClass *el_parent;
 
@@ -184,10 +183,8 @@ e_info_label_new(const char *icon)
 {
 	EInfoLabel *el = g_object_new(e_info_label_get_type(), NULL);
 	GtkWidget *image;
-	char *name = e_icon_factory_get_icon_filename (icon, E_ICON_SIZE_MENU);
 
-	image = gtk_image_new_from_file(name);
-	g_free(name);
+	image = gtk_image_new_from_icon_name (icon, GTK_ICON_SIZE_MENU);
 	gtk_misc_set_padding((GtkMisc *)image, 6, 6);
 	gtk_box_pack_start((GtkBox *)el, image, FALSE, TRUE, 0);
 	gtk_widget_show(image);
@@ -219,11 +216,11 @@ e_info_label_set_info(EInfoLabel *el, const char *location, const char *info)
 		el->info = gtk_label_new (NULL);
 
 		gtk_label_set_ellipsize (GTK_LABEL (el->location), PANGO_ELLIPSIZE_END);
-		gtk_misc_set_alignment (GTK_MISC (el->location), 0.0, 0.0);
+		gtk_misc_set_alignment (GTK_MISC (el->location), 0.0, 0.5);
 		gtk_misc_set_padding (GTK_MISC (el->location), 0, 6);
 
 		gtk_label_set_ellipsize (GTK_LABEL (el->info), PANGO_ELLIPSIZE_MIDDLE);
-		gtk_misc_set_alignment (GTK_MISC (el->info), 1.0, 1.0);
+		gtk_misc_set_alignment (GTK_MISC (el->info), 1.0, 0.5);
 		gtk_misc_set_padding (GTK_MISC (el->info), 0, 6);
 
 		gtk_widget_show (el->location);

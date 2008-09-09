@@ -1,28 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-
 /*
- * Authors:
- *  Hans Petter Jansson  <hpj@ximian.com>
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * ECalListView - display calendar events in an ETable.
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
- * USA
- */
-
-/*
- * ECalListView - display calendar events in an ETable.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ * Authors:
+ *		Hans Petter Jansson  <hpj@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  */
 
 #ifdef HAVE_CONFIG_H
@@ -314,13 +309,9 @@ e_cal_list_view_construct (ECalListView *cal_list_view)
  * Creates a new #ECalListView.
  **/
 GtkWidget *
-e_cal_list_view_new (void)
+e_cal_list_view_new (ECalModel *model)
 {
 	ECalListView *cal_list_view;
-	ECalModel *model;
-
-	model = E_CAL_MODEL (e_cal_model_calendar_new ());
-	e_cal_model_set_flags (model, E_CAL_MODEL_FLAGS_EXPAND_RECURRENCES);
 
 	cal_list_view = g_object_new (e_cal_list_view_get_type (), "model", model, NULL);
 	if (!e_cal_list_view_construct (cal_list_view)) {

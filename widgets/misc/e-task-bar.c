@@ -1,23 +1,23 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
-/* e-task-bar.c
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
+/*
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- * Author: Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Authors:
+ *		Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -82,9 +82,15 @@ reduce_displayed_activities_per_component (ETaskBar *task_bar)
 }
 #endif 
 
+
+static void impl_finalize (GObject *object);
+
 static void
 e_task_bar_class_init (ETaskBarClass *klass)
 {
+	GObjectClass *object_class = G_OBJECT_CLASS (klass);
+
+	object_class->finalize = impl_finalize;
 }
 
 static void
@@ -112,6 +118,20 @@ e_task_bar_init (ETaskBar *task_bar)
 	 *     The true value is probably buried in a style property. */
 	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, NULL, &height);
 	gtk_widget_set_size_request (GTK_WIDGET (task_bar), -1, height * 2);
+}
+
+static void
+impl_finalize (GObject *object)
+{
+	ETaskBar *task_bar;
+	ETaskBarPrivate *priv;
+
+	task_bar = E_TASK_BAR (object);
+	priv = task_bar->priv;
+
+	g_free (priv);
+
+	(* G_OBJECT_CLASS (e_task_bar_parent_class)->finalize) (object);
 }
 
 

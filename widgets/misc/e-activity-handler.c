@@ -1,23 +1,23 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
-/* e-activity-handler.c
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
+/*
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- * Author: Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Authors:
+ *		Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -39,7 +39,6 @@
 
 struct _ActivityInfo {
 	char *component_id;
-	GdkPixbuf *icon_pixbuf;
 	int error_type;
 	guint id;
 	char *information;
@@ -64,7 +63,7 @@ struct _EActivityHandlerPrivate {
 };
 
 /* In the status bar, we show only errors and info. Errors are pictured as warnings. */
-const char *icon_data [] = {"stock_dialog-warning", "stock_dialog-info"};
+const char *icon_data [] = {"dialog-warning", "dialog-information"};
 
 G_DEFINE_TYPE (EActivityHandler, e_activity_handler, G_TYPE_OBJECT)
 
@@ -131,7 +130,6 @@ task_widget_button_press_event_callback (GtkWidget *widget,
 static ActivityInfo *
 activity_info_new (const char *component_id,
 		   guint id,
-		   GdkPixbuf *icon,
 		   const char *information,
 		   gboolean cancellable)
 {
@@ -140,7 +138,6 @@ activity_info_new (const char *component_id,
 	info = g_new (ActivityInfo, 1);
 	info->component_id   = g_strdup (component_id);
 	info->id             = id;
-	info->icon_pixbuf    = icon ? g_object_ref (icon): NULL;
 	info->information    = g_strdup (information);
 	info->cancellable    = cancellable;
 	info->progress       = -1.0; /* (Unknown) */
@@ -155,9 +152,6 @@ static void
 activity_info_free (ActivityInfo *info)
 {
 	g_free (info->component_id);
-
-	if (info->icon_pixbuf)
-		g_object_unref (info->icon_pixbuf);
 	g_free (info->information);
 
 	if (info->menu != NULL)
@@ -172,9 +166,11 @@ task_widget_new_from_activity_info (ActivityInfo *activity_info)
 	GtkWidget *widget;
 	ETaskWidget *etw;
 
-	widget = e_task_widget_new_with_cancel (activity_info->icon_pixbuf,
-				    activity_info->component_id,
-				    activity_info->information, activity_info->cancel_func, activity_info->data);
+	widget = e_task_widget_new_with_cancel (
+		activity_info->component_id,
+		activity_info->information,
+		activity_info->cancel_func,
+		activity_info->data);
 	etw = (ETaskWidget *) widget;
 	etw->id = activity_info->id;
 	gtk_widget_show (widget);
@@ -411,7 +407,6 @@ cancel_wrapper (gpointer pdata)
 /* CORBA methods.  */
 guint  e_activity_handler_cancelable_operation_started  (EActivityHandler *activity_handler,
 						      const char       *component_id,
-						      GdkPixbuf        *icon_pixbuf,
 					      	      const char       *information,
 					      	      gboolean          cancellable,
 						      void (*cancel_func)(gpointer),
@@ -426,7 +421,7 @@ guint  e_activity_handler_cancelable_operation_started  (EActivityHandler *activ
 	priv = activity_handler->priv;
 
 	activity_id = get_new_activity_id (activity_handler);
-	activity_info = activity_info_new (component_id, activity_id, icon_pixbuf, information, cancellable);
+	activity_info = activity_info_new (component_id, activity_id, information, cancellable);
 
 	data = g_new(struct _cancel_wdata, 1);
 	data->handler = activity_handler;
@@ -457,7 +452,6 @@ guint  e_activity_handler_cancelable_operation_started  (EActivityHandler *activ
 guint
 e_activity_handler_operation_started (EActivityHandler *activity_handler,
 				      const char *component_id,
-				      GdkPixbuf *icon_pixbuf,
 				      const char *information,
 				      gboolean cancellable)
 {
@@ -470,7 +464,7 @@ e_activity_handler_operation_started (EActivityHandler *activity_handler,
 
 	activity_id = get_new_activity_id (activity_handler);
 
-	activity_info = activity_info_new (component_id, activity_id, icon_pixbuf, information, cancellable);
+	activity_info = activity_info_new (component_id, activity_id, information, cancellable);
 
 	for (p = priv->task_bars; p != NULL; p = p->next) {
 		ETaskWidget *tw = task_widget_new_from_activity_info (activity_info);
@@ -558,7 +552,7 @@ e_activity_handler_make_error (EActivityHandler *activity_handler,
 	priv = activity_handler->priv;
 	activity_id = get_new_activity_id (activity_handler);
 
-	activity_info = activity_info_new (component_id, activity_id, NULL, information, TRUE);
+	activity_info = activity_info_new (component_id, activity_id, information, TRUE);
 	activity_info->error = error;
 	activity_info->error_time = time (NULL);
 	activity_info->error_type = error_type;
@@ -612,6 +606,7 @@ e_activity_handler_operation_set_error(EActivityHandler *activity_handler,
 	activity_info->error = error;
 	activity_info->error_time = time (NULL);
 	activity_info->error_type = E_LOG_ERROR;
+	g_free (activity_info->information);
 	activity_info->information = g_strdup (g_object_get_data ((GObject *) error, "primary"));
 	for (sp = priv->task_bars; sp != NULL; sp = sp->next) {
 		ETaskBar *task_bar;

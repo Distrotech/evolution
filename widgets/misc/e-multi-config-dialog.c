@@ -1,23 +1,23 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
-/* e-multi-config-dialog.c
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
+/*
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- * Author: Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Authors:
+ *		Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -26,13 +26,12 @@
 
 #include "e-multi-config-dialog.h"
 
+#include <e-util/e-util.h>
 #include <table/e-table-scrolled.h>
 #include <table/e-table-memory-store.h>
 #include <table/e-cell-pixbuf.h>
 #include <table/e-cell-vbox.h>
 #include <table/e-cell-text.h>
-
-#include <libgnome/gnome-help.h>
 
 #define SWITCH_PAGE_INTERVAL 250
 
@@ -172,18 +171,12 @@ static void
 impl_response (GtkDialog *dialog, int response_id)
 {
 	EMultiConfigDialog *multi_config_dialog;
-	GError *error = NULL;
 
 	multi_config_dialog = E_MULTI_CONFIG_DIALOG (dialog);
 
 	switch (response_id) {
 	case GTK_RESPONSE_HELP:
-		gnome_help_display (
-			"evolution.xml", "config-prefs", &error);
-		if (error != NULL) {
-			g_warning ("%s", error->message);
-			g_error_free (error);
-		}
+		e_display_help (GTK_WINDOW (dialog), "config-prefs");
 		break;
 	case GTK_RESPONSE_CLOSE:
 	default:

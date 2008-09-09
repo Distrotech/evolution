@@ -161,6 +161,7 @@ static struct {
 	{ N_("Drafts"), },
 	{ N_("Outbox"), },
 	{ N_("Sent"), },
+	{ N_("Templates"), },
 	{ "Inbox", },		/* 'always local' inbox */
 };
 
@@ -489,8 +490,6 @@ impl_finalize (GObject *object)
 
 	g_free (priv->base_directory);
 
-	mail_async_event_destroy (priv->async_event);
-
 	g_hash_table_destroy (priv->store_hash);
 
 	if (mail_async_event_destroy (priv->async_event) == -1) {
@@ -578,6 +577,8 @@ view_changed(EMFolderView *emfv, EComponentView *component_view)
 		    && (!strcmp (name, "Drafts") || !strcmp (name, "Inbox")
 			|| !strcmp (name, "Outbox") || !strcmp (name, "Sent")))
 			use_name = _(name);
+		else if (!strcmp (name, "INBOX"))
+ 			use_name = _("Inbox");
 		else
 			use_name = name;
 
@@ -708,6 +709,7 @@ enable_folder_tree (GtkWidget *emfb, GtkWidget *emft)
 static GNOME_Evolution_ComponentView
 impl_createView (PortableServer_Servant servant,
 		 GNOME_Evolution_ShellView parent,
+		 CORBA_boolean select_item,
 		 CORBA_Environment *ev)
 {
 	MailComponent *mail_component = MAIL_COMPONENT (bonobo_object_from_servant (servant));
@@ -722,6 +724,10 @@ impl_createView (PortableServer_Servant servant,
 	mc_startup(mail_component);
 
 	view_widget = em_folder_browser_new ();
+
+	if (!select_item)
+		em_folder_browser_suppress_message_selection (
+			(EMFolderBrowser *) view_widget);
 
 	tree_widget = (GtkWidget *) em_folder_tree_new_with_model (priv->model);
 	em_folder_tree_set_excluded ((EMFolderTree *) tree_widget, 0);
@@ -753,7 +759,7 @@ impl_createView (PortableServer_Servant servant,
 	gtk_widget_show (statusbar_widget);
 
 	vbox = gtk_vbox_new(FALSE, 0);
-	info = e_info_label_new("stock_mail");
+	info = e_info_label_new("evolution-mail");
 	e_info_label_set_info((EInfoLabel *)info, _("Mail"), "");
 	gtk_box_pack_start((GtkBox *)vbox, info, FALSE, TRUE, 0);
 	gtk_box_pack_start((GtkBox *)vbox, tree_widget, TRUE, TRUE, 0);
@@ -892,7 +898,11 @@ impl_quit(PortableServer_Servant servant, CORBA_Environment *ev)
 		/* Falls through */
 	case MC_QUIT_THREADS:
 		/* should we keep cancelling? */
-		return !mail_msg_active((unsigned int)-1);
+		if (mail_msg_active((unsigned int)-1))
+			return FALSE;
+
+		mail_session_shutdown ();
+		return TRUE;
 	}
 
 	return TRUE;
@@ -911,7 +921,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant, CORBA_Environment 
 
 	list->_buffer[0].id = "message";
 	list->_buffer[0].description = _("New Mail Message");
-	list->_buffer[0].menuDescription = _("_Mail Message");
+	list->_buffer[0].menuDescription = (char *) C_("New", "_Mail Message");
 	list->_buffer[0].tooltip = _("Compose a new mail message");
 	list->_buffer[0].menuShortcut = 'm';
 	list->_buffer[0].iconName = "mail-message-new";
@@ -919,7 +929,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant, CORBA_Environment 
 
 	list->_buffer[1].id = "folder";
 	list->_buffer[1].description = _("New Mail Folder");
-	list->_buffer[1].menuDescription = _("Mail _Folder");
+	list->_buffer[1].menuDescription = (char *) C_("New", "Mail _Folder");
 	list->_buffer[1].tooltip = _("Create a new mail folder");
 	list->_buffer[1].menuShortcut = '\0';
 	list->_buffer[1].iconName = "folder-new";
@@ -1291,10 +1301,13 @@ mail_component_init (MailComponent *component)
 		(GDestroyNotify) NULL,
 		(GDestroyNotify) store_hash_free);
 
-	mail_autoreceive_init();
+	mail_autoreceive_init (session);
 
 	priv->mail_sync_in_progress = 0;
-	priv->mail_sync_id = g_timeout_add_seconds (mail_config_get_sync_timeout (), call_mail_sync, component);
+	if (g_getenv("CAMEL_FLUSH_CHANGES"))
+		priv->mail_sync_id = g_timeout_add_seconds (mail_config_get_sync_timeout (), call_mail_sync, component);
+	else 
+		priv->mail_sync_id = 0;
 }
 
 /* Public API.  */

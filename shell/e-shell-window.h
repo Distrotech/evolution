@@ -1,23 +1,24 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
-/* e-shell-window.h
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+/*
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- * Author: Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Authors:
+ *		Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifndef _E_SHELL_WINDOW_H_
@@ -73,6 +74,6 @@ void e_shell_window_set_title(EShellWindow *window, const char *component_id, co
 void  e_shell_window_save_defaults  (EShellWindow *window);
 void  e_shell_window_show_settings  (EShellWindow *window);
 
-void e_shell_window_change_component_button_icon (EShellWindow *window, const char *component_id, GdkPixbuf *icon);
+void e_shell_window_change_component_button_icon (EShellWindow *window, const char *component_id, const char *icon_name);
 
 #endif /* _E_SHELL_WINDOW_H_ */

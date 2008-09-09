@@ -1,27 +1,27 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * eab-contact-editor-phones.c
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- * Author: Chris Toshok <toshok@ximian.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Chris Toshok <toshok@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #include <config.h>
 #include "e-contact-editor-fullname.h"
-#include <e-util/e-icon-factory.h>
 #include <e-util/e-util-private.h>
 #include <libgnome/gnome-util.h>
 #include <glib/gi18n.h>
@@ -100,7 +100,6 @@ e_contact_editor_fullname_init (EContactEditorFullname *e_contact_editor_fullnam
 {
 	GladeXML *gui;
 	GtkWidget *widget;
-	GList *icon_list;
 	char *gladefile;
 
 	gtk_widget_realize (GTK_WIDGET (e_contact_editor_fullname));
@@ -136,12 +135,8 @@ e_contact_editor_fullname_init (EContactEditorFullname *e_contact_editor_fullnam
 	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (e_contact_editor_fullname)->vbox), widget, TRUE, TRUE, 0);
 	g_object_unref(widget);
 
-	icon_list = e_icon_factory_get_icon_list ("contact-new");
-	if (icon_list) {
-		gtk_window_set_icon_list (GTK_WINDOW (e_contact_editor_fullname), icon_list);
-		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
-		g_list_free (icon_list);
-	}
+	gtk_window_set_icon_name (
+		GTK_WINDOW (e_contact_editor_fullname), "contact-new");
 }
 
 static void

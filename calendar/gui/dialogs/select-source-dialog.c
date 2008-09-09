@@ -1,21 +1,24 @@
-/* Evolution calendar - Select source dialog
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
- * Author: Rodrigo Moya <rodrigo@ximian.com>
+/*
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Rodrigo Moya <rodrigo@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -23,7 +26,6 @@
 #endif
 
 #include <glib/gi18n.h>
-#include <e-util/e-icon-factory.h>
 #include <libedataserverui/e-source-selector-dialog.h>
 #include "select-source-dialog.h"
 
@@ -40,7 +42,7 @@ select_source_dialog (GtkWindow *parent, ECalSourceType obj_type)
 	ESource *selected_source = NULL;
 	const char *gconf_key;
 	GConfClient *conf_client;
-	GList *icon_list = NULL;
+	const gchar *icon_name = NULL;
 
 	if (obj_type == E_CAL_SOURCE_TYPE_EVENT)
 		gconf_key = "/apps/evolution/calendar/sources";
@@ -58,17 +60,14 @@ select_source_dialog (GtkWindow *parent, ECalSourceType obj_type)
 	dialog = e_source_selector_dialog_new (parent, source_list);
 
 	if (obj_type == E_CAL_SOURCE_TYPE_EVENT)
-		icon_list = e_icon_factory_get_icon_list ("stock_calendar");
+		icon_name = "x-office-calendar";
 	else if (obj_type == E_CAL_SOURCE_TYPE_TODO)
-		icon_list = e_icon_factory_get_icon_list ("stock_todo");
+		icon_name = "stock_todo";
         else if (obj_type == E_CAL_SOURCE_TYPE_JOURNAL)
-                icon_list = e_icon_factory_get_icon_list ("stock_journal");
+                icon_name = "stock_journal";
 
-	if (icon_list) {
-		gtk_window_set_icon_list (GTK_WINDOW (dialog), icon_list);
-		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
-		g_list_free (icon_list);
-	}
+	if (icon_name)
+		gtk_window_set_icon_name (GTK_WINDOW (dialog), icon_name);
 
 	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK) {
 		selected_source = e_source_selector_dialog_peek_primary_selection (E_SOURCE_SELECTOR_DIALOG (dialog));

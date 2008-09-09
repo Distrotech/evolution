@@ -25,6 +25,7 @@
 #include <e-util/e-error.h>
 #include <mail/em-event.h>
 #include <mail/em-format-html-print.h>
+#include <mail/em-composer-utils.h>
 
 #include "misc/e-charset-picker.h"
 
@@ -126,9 +127,8 @@ action_close_cb (GtkAction *action,
 	editor = GTKHTML_EDITOR (composer);
 	widget = GTK_WIDGET (composer);
 
-	if (!gtkhtml_editor_get_changed (editor) &&
-		e_composer_autosave_get_saved (composer)) {
-
+	if (!gtkhtml_editor_get_changed (editor) ||
+	    e_msg_composer_is_exiting (composer)) {
 		gtk_widget_destroy (widget);
 		return;
 	}
@@ -340,6 +340,13 @@ action_send_options_cb (GtkAction *action,
 }
 
 static void
+action_new_message_cb (GtkAction *action,
+                        EMsgComposer *composer)
+{
+	em_utils_compose_new_message (NULL);
+}
+
+static void
 action_smime_encrypt_cb (GtkToggleAction *action,
                          EMsgComposer *composer)
 {
@@ -521,6 +528,13 @@ static GtkActionEntry entries[] = {
 	  NULL,
 	  N_("Insert Send options"),
 	  G_CALLBACK (action_send_options_cb) },
+
+	{ "new-message",
+	  "mail-message-new",
+	  N_("New _Message"),
+	  "<Control>n",
+	  N_("Open New Message window"),
+	  G_CALLBACK (action_new_message_cb) },
 
 	/* Menus */
 

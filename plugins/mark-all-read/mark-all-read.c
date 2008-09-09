@@ -1,21 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+/*
  *
- *  Authors: Chenthill Palanisamy (pchenthill@novell.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of version 2 of the GNU General Public
- *  License as published by the Free Software Foundation.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Chenthill Palanisamy <pchenthill@novell.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -34,9 +36,10 @@
 #include "e-util/e-error.h"
 
 #define PRIMARY_TEXT \
-	N_("Mark all messages in this folder and subfolders as read?")
+	N_("Also mark messages in subfolders?")
 #define SECONDARY_TEXT \
-	N_("Do you want the operation to be performed also in the subfolders?")
+	N_("Do you want to mark messages as read in the current folder " \
+	   "only, or in the current folder as well as all subfolders?")
 
 void org_gnome_mark_all_read (EPlugin *ep, EMPopupTargetFolder *target);
 static void mar_got_folder (char *uri, CamelFolder *folder, void *data);
@@ -81,8 +84,7 @@ prompt_user (void)
 	dialog = gtk_dialog_new ();
 	gtk_widget_hide (GTK_DIALOG (dialog)->action_area);
 	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
-	gtk_window_set_title (
-		GTK_WINDOW (dialog), _("Mark All Messages as Read"));
+	gtk_window_set_title (GTK_WINDOW (dialog), "");
 	g_signal_connect (
 		dialog, "map",
 		G_CALLBACK (gtk_widget_queue_resize), NULL);
@@ -221,19 +223,17 @@ mar_got_folder (char *uri, CamelFolder *folder, void *data)
 	gint response;
 	guint32 flags = CAMEL_STORE_FOLDER_INFO_RECURSIVE | CAMEL_STORE_FOLDER_INFO_FAST;
 
-	camel_exception_init (&ex);
-
 	/* FIXME we have to disable the menu item */
 	if (!folder)
 		return;
 
+	camel_exception_init (&ex);
+
 	store = folder->parent_store;
 	info = camel_store_get_folder_info (store, folder->full_name, flags, &ex);
 
-	if (camel_exception_is_set (&ex)) {
-		camel_exception_clear (&ex);
-		return;
-	}
+	if (camel_exception_is_set (&ex))
+		goto out;
 
 	if (info && (info->child || info->next))
 		response = prompt_user ();
@@ -244,6 +244,8 @@ mar_got_folder (char *uri, CamelFolder *folder, void *data)
 		mark_all_as_read (folder);
 	else if (response == GTK_RESPONSE_YES)
 		mar_all_sub_folders (store, info, &ex);
+out:
+	camel_store_free_folder_info(store, info);
 }
 
 static void

@@ -1,22 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+/*
  *
- *  Authors: Michel Zucchi <notzed@ximian.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Michel Zucchi <notzed@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -46,6 +47,7 @@ enum _em_event_target_t {
 	EM_EVENT_TARGET_MESSAGE,
 	EM_EVENT_TARGET_COMPOSER,
 	EM_EVENT_TARGET_SEND_RECEIVE,
+	EM_EVENT_TARGET_CUSTOM_ICON,
 };
 
 /* Flags that describe TARGET_FOLDER */
@@ -66,6 +68,11 @@ enum {
 /* Flags that describe TARGET_SEND_RECEIVE*/
 enum {
 	EM_EVENT_SEND_RECEIVE = 1<< 0,
+};
+
+/* Flags that describe TARGET_CUSTOM_ICON*/
+enum {
+	EM_EVENT_CUSTOM_ICON = 1<< 0,
 };
 
 typedef struct _EMEventTargetFolder EMEventTargetFolder;
@@ -105,6 +112,14 @@ struct _EMEventTargetSendReceive {
 	int row;
 };
 
+typedef struct _EMEventTargetCustomIcon EMEventTargetCustomIcon;
+
+struct _EMEventTargetCustomIcon {
+	EEventTarget target;
+
+	GtkCellRenderer *renderer;
+	const char 	*folder_name;
+};
 
 typedef struct _EEventItem EMEventItem;
 
@@ -127,6 +142,7 @@ EMEventTargetFolder *em_event_target_new_folder(EMEvent *emp, const char *uri, g
 EMEventTargetComposer *em_event_target_new_composer(EMEvent *emp, const struct _EMsgComposer *composer, guint32 flags);
 EMEventTargetMessage *em_event_target_new_message(EMEvent *emp, struct _CamelFolder *folder, struct _CamelMimeMessage *message, const char *uid, guint32 flags);
 EMEventTargetSendReceive * em_event_target_new_send_receive(EMEvent *eme, struct _GtkWidget *table, gpointer data, int row, guint32 flags);
+EMEventTargetCustomIcon * em_event_target_new_custom_icon(EMEvent *eme, GtkCellRenderer *renderer, const char *uri, guint32 flags);
 
 /* ********************************************************************** */
 

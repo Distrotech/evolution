@@ -50,7 +50,7 @@
         <oaf_attribute name="evolution:button_label" type="string" _value="Contacts"/>
 		<oaf_attribute name="evolution:button_tooltips" type="string" _value="Contacts"/>
         <oaf_attribute name="evolution:button_sort_order" type="string" value="-9"/>
-        <oaf_attribute name="evolution:button_icon" type="string" value="stock_addressbook"/>
+        <oaf_attribute name="evolution:button_icon" type="string" value="x-office-address-book"/>
 
 </oaf_server>
 
@@ -102,7 +102,7 @@
         <oaf_attribute name="evolution2:config_item:priority" type="string" value="-6"/>
                                                                                           
         <oaf_attribute name="name" type="string"
-                       _value="Evolution S/Mime Certificate Management Control"/>
+                       _value="Evolution S/MIME Certificate Management Control"/>
                                                                                           
 </oaf_server>
 

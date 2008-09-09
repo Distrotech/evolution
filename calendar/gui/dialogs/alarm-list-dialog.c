@@ -1,27 +1,29 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-
-/* Evolution calendar - Alarm page of the calendar component dialogs
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
- * Authors: Federico Mena-Quintero <federico@ximian.com>
- *          Miguel de Icaza <miguel@ximian.com>
- *          Seth Alves <alves@hungry.com>
- *          JP Rosevear <jpr@ximian.com>
- *          Hans Petter Jansson <hpj@ximian.com>
+/*
+ * Evolution calendar - Alarm page of the calendar component dialogs
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Federico Mena-Quintero <federico@ximian.com>
+ *      Miguel de Icaza <miguel@ximian.com>
+ *      Seth Alves <alves@hungry.com>
+ *      JP Rosevear <jpr@ximian.com>
+ *      Hans Petter Jansson <hpj@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -37,7 +39,6 @@
 #include <libecal/e-cal-util.h>
 #include <libecal/e-cal-time-util.h>
 #include "e-util/e-dialog-widgets.h"
-#include "e-util/e-icon-factory.h"
 #include "e-util/e-util-private.h"
 #include "alarm-dialog.h"
 #include "alarm-list-dialog.h"
@@ -263,7 +264,6 @@ alarm_list_dialog_run (GtkWidget *parent, ECal *ecal, EAlarmList *list_store)
 {
 	Dialog dialog;
 	int response_id;
-	GList *icon_list;
 	char *gladefile;
 
 	dialog.ecal = ecal;
@@ -293,12 +293,8 @@ alarm_list_dialog_run (GtkWidget *parent, ECal *ecal, EAlarmList *list_store)
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (dialog.toplevel)->vbox), 0);
 	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (dialog.toplevel)->action_area), 12);
 
-	icon_list = e_icon_factory_get_icon_list ("stock_calendar");
-	if (icon_list) {
-		gtk_window_set_icon_list (GTK_WINDOW (dialog.toplevel), icon_list);
-		g_list_foreach (icon_list, (GFunc) g_object_unref, NULL);
-		g_list_free (icon_list);
-	}
+	gtk_window_set_icon_name (
+		GTK_WINDOW (dialog.toplevel), "x-office-calendar");
 
 	gtk_window_set_transient_for (GTK_WINDOW (dialog.toplevel),
 				      GTK_WINDOW (parent));

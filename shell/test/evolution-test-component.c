@@ -73,11 +73,11 @@ impl_finalize (GObject *object)
 
 /* Evolution::Component CORBA methods */
 
-static CORBA_boolean
+static void
 impl_upgradeFromVersion (PortableServer_Servant servant,
-			 CORBA_short major,
-			 CORBA_short minor,
-			 CORBA_short revision,
+			 const CORBA_short major,
+			 const CORBA_short minor,
+			 const CORBA_short revision,
 			 CORBA_Environment *ev)
 {
 	EvolutionTestComponent *component = EVOLUTION_TEST_COMPONENT (bonobo_object_from_servant (servant));
@@ -86,8 +86,6 @@ impl_upgradeFromVersion (PortableServer_Servant servant,
 	priv = component->priv;
 
 	g_message ("Upgrading from %d.%d.%d", major, minor, revision);
-
-	return CORBA_TRUE;
 }
 
 
@@ -105,7 +103,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[0].id = CREATE_TEST_ID;
 	list->_buffer[0].description = _("New Test");
-	list->_buffer[0].menuDescription = _("_Test");
+	list->_buffer[0].menuDescription = (char *) C_("New", "_Test");
 	list->_buffer[0].tooltip = _("Create a new test item");
 	list->_buffer[0].menuShortcut = 'i';
 	list->_buffer[0].iconName = "";

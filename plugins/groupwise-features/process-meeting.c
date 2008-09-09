@@ -1,23 +1,26 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+/*
  *
- *  Authors: Chenthill Palanisamy (pchenthill@novell.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of version 2 of the GNU General Public
- *  License as published by the Free Software Foundation.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Chenthill Palanisamy (pchenthill@novell.com)
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -221,14 +224,14 @@ process_meeting (ECalendarView *cal_view, icalparameter_partstat status)
 
 		if (recurring) {
 			gint response;
-			const char *arg;
+			const char *msg;
 
 			if (status == ICAL_PARTSTAT_ACCEPTED || status == ICAL_PARTSTAT_TENTATIVE)
-				arg = "accept";
+				msg = "org.gnome.evolution.mail_shared_folder:recurrence-accept";
 			else
-				arg = "decline";
+				msg = "org.gnome.evolution.mail_shared_folder:recurrence-decline";
 
-			response = e_error_run (NULL, "org.gnome.evolution.mail_shared_folder:recurrence", arg, NULL);
+			response = e_error_run (NULL, msg, NULL);
 			if (response == GTK_RESPONSE_YES) {
 				icalproperty *prop;
 				const char *uid = icalcomponent_get_uid (r_data->icalcomp);

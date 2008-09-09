@@ -1317,8 +1317,8 @@ pre_sync (GnomePilotConduit *conduit,
 				  G_CALLBACK (addressbook_authenticate), ctxt->cfg->source);
 	}
 	if (!ctxt->ebook || !e_book_open (ctxt->ebook, TRUE, NULL)) {
-		WARN(_("Could not load addressbook"));
-		gnome_pilot_conduit_error (conduit, _("Could not load addressbook"));
+		WARN(_("Could not load address book"));
+		gnome_pilot_conduit_error (conduit, _("Could not load address book"));
 
 		return -1;
 	}
@@ -1773,6 +1773,8 @@ free_match (GnomePilotConduitSyncAbs *conduit,
 	LOG (g_message ( "free_match: freeing\n" ));
 
 	g_return_val_if_fail (local != NULL, -1);
+
+	ctxt->locals = g_list_remove (ctxt->locals, local);
 
 	addrconduit_destroy_record (local);
 

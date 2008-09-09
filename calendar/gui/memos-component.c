@@ -51,7 +51,6 @@
 #include "dialogs/copy-source-dialog.h"
 #include "dialogs/memo-editor.h"
 #include "widgets/misc/e-info-label.h"
-#include "e-util/e-icon-factory.h"
 #include "e-util/e-error.h"
 #include "calendar-component.h"
 
@@ -988,7 +987,7 @@ object_created_cb (CompEditor *ce, EMemoTable *memo_table)
 {
 	g_return_if_fail (memo_table != NULL);
 
-	memo_table->user_created_cal = comp_editor_get_e_cal (ce);
+	memo_table->user_created_cal = comp_editor_get_client (ce);
 	g_signal_emit_by_name (memo_table, "user_created");
 	memo_table->user_created_cal = NULL;
 }
@@ -998,7 +997,7 @@ create_new_memo (MemosComponent *memo_component, gboolean is_assigned, MemosComp
 {
 	ECal *ecal;
 	ECalComponent *comp;
-	MemoEditor *editor;
+	CompEditor *editor;
 	CompEditorFlags flags = 0;
 
 	ecal = setup_create_ecal (memo_component, component_view);
@@ -1017,10 +1016,10 @@ create_new_memo (MemosComponent *memo_component, gboolean is_assigned, MemosComp
 	if (component_view)
 		g_signal_connect (editor, "object_created", G_CALLBACK (object_created_cb), e_memos_get_calendar_table (component_view->memos));
 
-	comp_editor_edit_comp (COMP_EDITOR (editor), comp);
-	comp_editor_focus (COMP_EDITOR (editor));
+	comp_editor_edit_comp (editor, comp);
+	gtk_window_present (GTK_WINDOW (editor));
 
-	e_comp_editor_registry_add (comp_editor_registry, COMP_EDITOR (editor), TRUE);
+	e_comp_editor_registry_add (comp_editor_registry, editor, TRUE);
 
 	return TRUE;
 }
@@ -1098,7 +1097,7 @@ create_component_view (MemosComponent *memos_component)
 					     GTK_SHADOW_IN);
 	gtk_widget_show (selector_scrolled_window);
 
-	component_view->info_label = (EInfoLabel *)e_info_label_new("stock_insert-note");
+	component_view->info_label = (EInfoLabel *)e_info_label_new("evolution-memos");
 	e_info_label_set_info(component_view->info_label, _("Memos"), "");
 	gtk_widget_show (GTK_WIDGET (component_view->info_label));
 
@@ -1216,6 +1215,7 @@ view_destroyed_cb (gpointer data, GObject *where_the_object_was)
 static GNOME_Evolution_ComponentView
 impl_createView (PortableServer_Servant servant,
 		 GNOME_Evolution_ShellView parent,
+		 CORBA_boolean select_item,
 		 CORBA_Environment *ev)
 {
 	MemosComponent *component = MEMOS_COMPONENT (bonobo_object_from_servant (servant));
@@ -1258,7 +1258,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[0].id = CREATE_MEMO_ID;
 	list->_buffer[0].description = _("New memo");
-	list->_buffer[0].menuDescription = _("Mem_o");
+	list->_buffer[0].menuDescription = (char *) C_("New", "Mem_o");
 	list->_buffer[0].tooltip = _("Create a new memo");
 	list->_buffer[0].menuShortcut = 'o';
 	list->_buffer[0].iconName = "stock_insert-note";
@@ -1266,7 +1266,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[1].id = CREATE_SHARED_MEMO_ID;
 	list->_buffer[1].description = _("New shared memo");
-	list->_buffer[1].menuDescription = _("_Shared memo");
+	list->_buffer[1].menuDescription = (char *) C_("New", "_Shared memo");
 	list->_buffer[1].tooltip = _("Create a shared new memo");
 	list->_buffer[1].menuShortcut = 'h';
 	list->_buffer[1].iconName = "stock_insert-note";
@@ -1274,7 +1274,7 @@ impl__get_userCreatableItems (PortableServer_Servant servant,
 
 	list->_buffer[2].id = CREATE_MEMO_LIST_ID;
 	list->_buffer[2].description = _("New memo list");
-	list->_buffer[2].menuDescription = _("Memo li_st");
+	list->_buffer[2].menuDescription = (char *) C_("New", "Memo li_st");
 	list->_buffer[2].tooltip = _("Create a new memo list");
 	list->_buffer[2].menuShortcut = '\0';
 	list->_buffer[2].iconName = "stock_notes";

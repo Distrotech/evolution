@@ -1,22 +1,22 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: Michael Zucchi <notzed@ximian.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Michael Zucchi <notzed@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -32,7 +32,6 @@
 #include "em-event.h"
 #include "composer/e-msg-composer.h"
 #include "libedataserver/e-msgport.h"
-#include <e-util/e-icon-factory.h>
 
 #include <camel/camel-store.h>
 #include <camel/camel-folder.h>
@@ -189,6 +188,18 @@ em_event_target_new_send_receive(EMEvent *eme, GtkWidget *table, gpointer data, 
 	return t;
 }
 
+EMEventTargetCustomIcon *
+em_event_target_new_custom_icon(EMEvent *eme, GtkCellRenderer *renderer, const char *folder_name, guint32 flags)
+{
+	EMEventTargetCustomIcon *t = e_event_target_new(&eme->popup, EM_EVENT_TARGET_CUSTOM_ICON, sizeof(*t));
+
+	t->renderer = renderer;
+	t->folder_name = folder_name;
+	t->target.mask = ~flags;
+
+	return t;
+}
+
 /* ********************************************************************** */
 
 static void *emeh_parent_class;
@@ -215,11 +226,16 @@ static const EEventHookTargetMask emeh_send_receive_masks[] = {
 	{ NULL }
 };
 
+static const EEventHookTargetMask emeh_custom_icon_masks[] = {
+	{ "customicon", EM_EVENT_CUSTOM_ICON },
+	{ NULL }
+};
 static const EEventHookTargetMap emeh_targets[] = {
 	{ "folder", EM_EVENT_TARGET_FOLDER, emeh_folder_masks },
 	{ "message", EM_EVENT_TARGET_MESSAGE, emeh_message_masks },
 	{ "composer", EM_EVENT_TARGET_COMPOSER, emeh_composer_masks},
 	{ "sendreceive", EM_EVENT_TARGET_SEND_RECEIVE, emeh_send_receive_masks},
+	{ "customicon", EM_EVENT_TARGET_CUSTOM_ICON, emeh_custom_icon_masks},
 	{ NULL }
 };
 

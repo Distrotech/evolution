@@ -1,25 +1,24 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * e-tree-table-adapter.c
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
  *
  * Authors:
- *   Chris Lahey <clahey@ximian.com>
- *   Chris Toshok <toshok@ximian.com>
+ *		Chris Lahey <clahey@ximian.com>
+ *		Chris Toshok <toshok@ximian.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License, version 2, as published by the Free Software Foundation.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
- * This library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #include <config.h>
@@ -82,6 +81,8 @@ struct ETreeTableAdapterPriv {
 	int          sort_info_changed_id;
 
 	guint        resort_idle_id;
+
+	int          force_expanded_state; /* use this instead of model's default if not 0; <0 ... collapse, >0 ... expand */
 };
 
 static void etta_sort_info_changed (ETableSortInfo *sort_info, ETreeTableAdapter *etta);
@@ -322,7 +323,7 @@ create_gnode(ETreeTableAdapter *etta, ETreePath path)
 	node = g_new0(node_t, 1);
 	node->path = path;
 	node->index = -1;
-	node->expanded = e_tree_model_get_expanded_default(etta->priv->source);
+	node->expanded = etta->priv->force_expanded_state == 0 ? e_tree_model_get_expanded_default (etta->priv->source) : etta->priv->force_expanded_state > 0;
 	node->expandable = e_tree_model_node_is_expandable(etta->priv->source, path);
 	node->expandable_set = 1;
 	node->num_visible_children = 0;
@@ -737,6 +738,7 @@ etta_init (ETreeTableAdapter *etta)
 	etta->priv->node_request_collapse_id = 0;
 
 	etta->priv->resort_idle_id           = 0;
+	etta->priv->force_expanded_state     = 0;
 }
 
 static void
@@ -912,14 +914,14 @@ save_expanded_state_func (gpointer keyp, gpointer value, gpointer data)
 	}
 }
 
-void
-e_tree_table_adapter_save_expanded_state (ETreeTableAdapter *etta, const char *filename)
+xmlDoc *
+e_tree_table_adapter_save_expanded_state_xml (ETreeTableAdapter *etta)
 {
 	TreeAndRoot tar;
 	xmlDocPtr doc;
 	xmlNode *root;
 
-	g_return_if_fail(etta != NULL);
+	g_return_val_if_fail (etta != NULL, NULL);
 
 	doc = xmlNewDoc ((const unsigned char *)"1.0");
 	root = xmlNewDocNode (doc, NULL, (const unsigned char *)"expanded_state", NULL);
@@ -934,8 +936,21 @@ e_tree_table_adapter_save_expanded_state (ETreeTableAdapter *etta, const char *f
 
 	g_hash_table_foreach (etta->priv->nodes, save_expanded_state_func, &tar);
 
-	e_xml_save_file (filename, doc);
-	xmlFreeDoc (doc);
+	return doc;
+}
+
+void
+e_tree_table_adapter_save_expanded_state (ETreeTableAdapter *etta, const char *filename)
+{
+	xmlDoc *doc;
+
+	g_return_if_fail (etta != NULL);
+
+	doc = e_tree_table_adapter_save_expanded_state_xml (etta);
+	if (doc) {
+		e_xml_save_file (filename, doc);
+		xmlFreeDoc (doc);
+	}
 }
 
 static xmlDoc *
@@ -983,57 +998,24 @@ open_file (ETreeTableAdapter *etta, const char *filename)
 	return doc;
 }
 
-static void
-set_expanded_state_func (gpointer keyp, gpointer value, gpointer data)
+/* state: <0 ... collapse;  0 ... use default; >0 ... expand */
+void
+e_tree_table_adapter_force_expanded_state (ETreeTableAdapter *etta, int state)
 {
-	ETreePath path = keyp;
-	node_t *node = ((GNode *)value)->data;
-	ETreeTableAdapter *etta = (ETreeTableAdapter *) data;
+	g_return_if_fail (etta != NULL);
 
-	if (node->expanded != TRUE) {
-		e_tree_table_adapter_node_set_expanded_recurse (etta, path, TRUE);
-		node->expanded = TRUE;
-	}
-}
-
-static void
-set_collapsed_state_func (gpointer keyp, gpointer value, gpointer data)
-{
-	ETreePath path = keyp;
-	node_t *node = ((GNode *)value)->data;
-	ETreeTableAdapter *etta = (ETreeTableAdapter *) data;
-
-	if (node->expanded != FALSE) {
-		e_tree_table_adapter_node_set_expanded_recurse (etta, path, FALSE);
-		node->expanded = FALSE;
-	}
+	etta->priv->force_expanded_state = state;
 }
 
 void
-e_tree_table_adapter_load_all_expanded_state (ETreeTableAdapter *etta, gboolean state)
+e_tree_table_adapter_load_expanded_state_xml (ETreeTableAdapter *etta, xmlDoc *doc)
 {
-
-	g_return_if_fail(etta != NULL);
-
-	if (state)
-		g_hash_table_foreach (etta->priv->nodes, set_expanded_state_func, etta);
-	else
-		g_hash_table_foreach (etta->priv->nodes, set_collapsed_state_func, etta);
-}
-
-void
-e_tree_table_adapter_load_expanded_state (ETreeTableAdapter *etta, const char *filename)
-{
-	xmlDoc *doc;
 	xmlNode *root, *child;
 	gboolean model_default;
 	gboolean file_default = FALSE;
 
-	g_return_if_fail(etta != NULL);
-
-	doc = open_file(etta, filename);
-	if (!doc)
-		return;
+	g_return_if_fail (etta != NULL);
+	g_return_if_fail (doc != NULL);
 
 	root = xmlDocGetRootElement (doc);
 
@@ -1084,9 +1066,23 @@ e_tree_table_adapter_load_expanded_state (ETreeTableAdapter *etta, const char *f
 		g_free (id);
 	}
 
-	xmlFreeDoc (doc);
-
 	e_table_model_changed (E_TABLE_MODEL (etta));
+}
+
+void
+e_tree_table_adapter_load_expanded_state (ETreeTableAdapter *etta, const char *filename)
+{
+	xmlDoc *doc;
+
+	g_return_if_fail(etta != NULL);
+
+	doc = open_file(etta, filename);
+	if (!doc)
+		return;
+
+	e_tree_table_adapter_load_expanded_state_xml  (etta, doc);
+
+	xmlFreeDoc (doc);
 }
 
 void

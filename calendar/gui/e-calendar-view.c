@@ -61,10 +61,6 @@
 #include "e-cal-popup.h"
 #include "misc.h"
 
-/* Used for the status bar messages */
-#define EVOLUTION_CALENDAR_PROGRESS_IMAGE "stock_calendar"
-static GdkPixbuf *progress_icon = NULL;
-
 struct _ECalendarViewPrivate {
 	/* The GnomeCalendar we are associated to */
 	GnomeCalendar *calendar;
@@ -397,8 +393,6 @@ static void
 e_calendar_view_init (ECalendarView *cal_view)
 {
 	cal_view->priv = g_new0 (ECalendarViewPrivate, 1);
-
-	cal_view->priv->model = (ECalModel *) e_cal_model_calendar_new ();
 }
 
 static void
@@ -467,7 +461,6 @@ e_calendar_view_set_model (ECalendarView *cal_view, ECalModel *model)
 	}
 
 	cal_view->priv->model = g_object_ref (model);
-	e_calendar_view_update_query (cal_view);
 }
 
 icaltimezone *
@@ -582,10 +575,8 @@ e_calendar_view_set_status_message (ECalendarView *cal_view, const gchar *messag
 	} else if (priv->activity_id == 0) {
 		char *client_id = g_strdup_printf ("%p", cal_view);
 
-		if (progress_icon == NULL)
-			progress_icon = e_icon_factory_get_icon (EVOLUTION_CALENDAR_PROGRESS_IMAGE, E_ICON_SIZE_STATUS);
-
-		priv->activity_id = e_activity_handler_operation_started (priv->activity_handler, client_id, progress_icon, message, TRUE);
+		priv->activity_id = e_activity_handler_operation_started (
+			priv->activity_handler, client_id, message, TRUE);
 
 		g_free (client_id);
 	} else {
@@ -1966,7 +1957,7 @@ e_calendar_view_new_appointment (ECalendarView *cal_view)
 static void
 object_created_cb (CompEditor *ce, ECalendarView *cal_view)
 {
-	gnome_calendar_emit_user_created_signal (cal_view, e_calendar_view_get_calendar (cal_view), comp_editor_get_e_cal (ce));
+	gnome_calendar_emit_user_created_signal (cal_view, e_calendar_view_get_calendar (cal_view), comp_editor_get_client (ce));
 }
 
 static void
@@ -1981,10 +1972,7 @@ open_event_with_flags (ECalendarView *cal_view, ECal *client, icalcomponent *ica
 
 	ce = e_comp_editor_registry_find (comp_editor_registry, uid);
 	if (!ce) {
-		EventEditor *ee;
-
-		ee = event_editor_new (client, flags);
-		ce = COMP_EDITOR (ee);
+		ce = event_editor_new (client, flags);
 
 		g_signal_connect (ce, "object_created", G_CALLBACK (object_created_cb), cal_view);
 
@@ -1992,14 +1980,14 @@ open_event_with_flags (ECalendarView *cal_view, ECal *client, icalcomponent *ica
 		e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (icalcomp));
 		comp_editor_edit_comp (ce, comp);
 		if (flags & COMP_EDITOR_MEETING)
-			event_editor_show_meeting (ee);
+			event_editor_show_meeting (EVENT_EDITOR (ce));
 
 		e_comp_editor_registry_add (comp_editor_registry, ce, FALSE);
 
 		g_object_unref (comp);
 	}
 
-	comp_editor_focus (ce);
+	gtk_window_present (GTK_WINDOW (ce));
 
 }
 
@@ -2244,7 +2232,7 @@ e_calendar_view_get_tooltips (ECalendarViewEventData *data)
 
 	if (str) {
 		/* To Translators: It will display "Location: PlaceOfTheMeeting" */
-		tmp = g_strdup_printf (_("Location: %s"), str);
+		tmp = g_markup_printf_escaped (_("Location: %s"), str);
 		label = gtk_label_new (NULL);
 		gtk_label_set_markup ((GtkLabel *)label, tmp);
 		hbox = gtk_hbox_new (FALSE, 0);

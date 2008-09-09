@@ -1,23 +1,23 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
-/* e-task-widget.h
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
+/*
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- * Author: Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Authors:
+ *		Ettore Perazzoli <ettore@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifndef _E_TASK_WIDGET_H_
@@ -53,34 +53,27 @@ struct _ETaskWidgetClass {
 };
 
 
-GType      e_task_widget_get_type   (void);
-void       e_task_widget_construct  (ETaskWidget *task_widget,
-				     GdkPixbuf   *icon_pixbuf,
-				     const char  *component_id,
-				     const char  *information,
-				     void (*cancel_func) (gpointer data),
-				     gpointer data);
-GtkWidget *e_task_widget_new        (GdkPixbuf   *icon_pixbuf,
-				     const char  *component_id,
-				     const char  *information);
-GtkWidget *
-e_task_widget_new_with_cancel (GdkPixbuf *icon_pixbuf,
-		   const char *component_id,
-		   const char *information,
-		   void (*cancel_func) (gpointer data),
-		   gpointer data);
-
-void  e_task_widget_update  (ETaskWidget *task_widget,
-			     const char  *information,
-			     double       completion);
-GtkWidget *
-e_task_widget_update_image (ETaskWidget *task_widget,
-			    const char *stock, const char *text);
-
-void  e_task_wiget_alert    (ETaskWidget *task_widget);
-void  e_task_wiget_unalert  (ETaskWidget *task_widget);
-
-const char *e_task_widget_get_component_id  (ETaskWidget *task_widget);
+GType		e_task_widget_get_type		(void);
+void		e_task_widget_construct		(ETaskWidget *task_widget,
+						 const char *component_id,
+						 const char *information,
+						 void (*cancel_func) (gpointer data),
+						 gpointer data);
+GtkWidget *	e_task_widget_new		(const char *component_id,
+						 const char *information);
+GtkWidget *	e_task_widget_new_with_cancel	(const char *component_id,
+						 const char *information,
+						 void (*cancel_func) (gpointer data),
+						 gpointer data);
+void		e_task_widget_update		(ETaskWidget *task_widget,
+						 const char *information,
+						 double completion);
+GtkWidget *	e_task_widget_update_image	(ETaskWidget *task_widget,
+						 const char *stock,
+						 const char *text);
+void		e_task_wiget_alert		(ETaskWidget *task_widget);
+void		e_task_wiget_unalert		(ETaskWidget *task_widget);
+const char *	e_task_widget_get_component_id	(ETaskWidget *task_widget);
 
 #ifdef __cplusplus
 }

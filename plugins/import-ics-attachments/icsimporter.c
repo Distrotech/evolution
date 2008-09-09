@@ -1,21 +1,22 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Authors: Johnny Jacob <johnnyjacob@gmail.com>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is free software; you can redistribute it and/or
- *  modify it under the terms of version 2 of the GNU General Public
- *  License as published by the Free Software Foundation.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Authors:
+ *		Johnny Jacob <johnnyjacob@gmail.com>
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -38,7 +39,6 @@
 #include "e-attachment-bar.h"
 #include <camel/camel-vee-folder.h>
 #include "e-util/e-error.h"
-#include "e-util/e-icon-factory.h"
 #include <libedataserverui/e-source-selector.h>
 #include <libecal/e-cal.h>
 #include <libical/icalvcal.h>
@@ -254,7 +254,8 @@ init_widgets(char *path)
 
 	g_object_unref (source_list);
 	hbox = gtk_hbox_new (FALSE, FALSE);
-	icon = e_icon_factory_get_image ("stock_mail-import", E_ICON_SIZE_MENU);
+	icon = gtk_image_new_from_icon_name (
+		"stock_mail-import", GTK_ICON_SIZE_MENU);
 	gtk_box_pack_start (GTK_BOX(hbox), icon, FALSE, FALSE, 6);
 	label = gtk_label_new_with_mnemonic (_("_Import"));
 	gtk_box_pack_start (GTK_BOX(hbox), label, FALSE, FALSE, 6);

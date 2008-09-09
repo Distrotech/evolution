@@ -1,22 +1,22 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: Michael Zucchi <notzed@ximian.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Michael Zucchi <notzed@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -30,8 +30,6 @@
 #include <gtk/gtk.h>
 
 #include "e-popup.h"
-
-#include <e-util/e-icon-factory.h>
 
 #include <glib/gi18n.h>
 
@@ -357,12 +355,8 @@ ep_build_tree(struct _item_node *inode, guint32 mask)
 			if (item->image) {
 				GtkWidget *image;
 
-				/* work-around e-icon-factory not doing GTK_STOCK stuff */
-				if (strncmp((char *)item->image, "gtk-", 4) == 0)
-					image = gtk_image_new_from_stock((char *)item->image, GTK_ICON_SIZE_MENU);
-				else
-					image = e_icon_factory_get_image((char *)item->image, E_ICON_SIZE_MENU);
-
+				image = gtk_image_new_from_icon_name (
+					(gchar *) item->image, GTK_ICON_SIZE_MENU);
 				gtk_widget_show(image);
 				menuitem = (GtkMenuItem *)gtk_image_menu_item_new();
 				gtk_image_menu_item_set_image((GtkImageMenuItem *)menuitem, image);

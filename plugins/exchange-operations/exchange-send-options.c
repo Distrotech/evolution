@@ -1,21 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
- *
- * Authors: R.Raghavendran <raghavguru7@gmail.com>
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
+/*
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, MA 02110-1301.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		R.Raghavendran <raghavguru7@gmail.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -26,9 +28,8 @@
 #include <libedataserverui/e-name-selector.h>
 #include <libedataserverui/e-contact-store.h>
 #include "exchange-operations.h"
+#include <e-util/e-util.h>
 #include <e-util/e-error.h>
-#include <libgnome/libgnome.h>
-#include <libgnome/gnome-i18n.h>
 #include <glade/glade.h>
 
 #include "e-util/e-util-private.h"
@@ -280,7 +281,6 @@ static void exchange_send_options_cb (GtkDialog *dialog, gint state, gpointer fu
 {
    	ExchangeSendOptionsDialogPrivate *priv;
    	ExchangeSendOptionsDialog *sod;
-        GError *error = NULL;
 
 	sod = func_data;
         priv = sod->priv;
@@ -295,12 +295,9 @@ static void exchange_send_options_cb (GtkDialog *dialog, gint state, gpointer fu
 	           	g_object_unref (priv->xml);
 	             	break;
 		case GTK_RESPONSE_HELP:
-		     	gnome_help_display (
-				"evolution.xml", priv->help_section, &error);
-			if (error != NULL) {
-				g_warning ("%s", error->message);
-				g_error_free (error);
-			}
+			e_display_help (
+				GTK_WINDOW (priv->main),
+				priv->help_section);
 	    	    	break;
 	}
 	g_signal_emit (G_OBJECT (func_data), signals[SOD_RESPONSE], 0, state);

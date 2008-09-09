@@ -1,24 +1,24 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * e-table-group-leaf.c
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
  *
  * Authors:
- *   Chris Lahey <clahey@ximian.com>
+ *		Chris Lahey <clahey@ximian.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License, version 2, as published by the Free Software Foundation.
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
- * This library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #include <config.h>
@@ -408,6 +408,14 @@ etgl_compute_location (ETableGroup *etg, int *x, int *y, int *row, int *col)
 }
 
 static void
+etgl_compute_mouse_over (ETableGroup *etg, int x, int y, int *row, int *col)
+{
+	ETableGroupLeaf *etgl = E_TABLE_GROUP_LEAF (etg);
+
+	e_table_item_compute_mouse_over (etgl->item, x, y, row, col);
+}
+
+static void
 etgl_get_cell_geometry (ETableGroup *etg, int *row, int *col, int *x, int *y, int *width, int *height)
 {
 	ETableGroupLeaf *etgl = E_TABLE_GROUP_LEAF (etg);
@@ -565,6 +573,7 @@ etgl_class_init (ETableGroupLeafClass *klass)
 	e_group_class->get_focus_column = etgl_get_focus_column;
 	e_group_class->get_printable = etgl_get_printable;
 	e_group_class->compute_location = etgl_compute_location;
+	e_group_class->compute_mouse_over = etgl_compute_mouse_over;
 	e_group_class->get_cell_geometry = etgl_get_cell_geometry;
 
 	g_object_class_install_property (object_class, PROP_TABLE_ALTERNATING_ROW_COLORS,

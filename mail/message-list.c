@@ -40,6 +40,7 @@
 #include <camel/camel-file-utils.h>
 #include <camel/camel-folder.h>
 #include <camel/camel-folder-thread.h>
+#include <camel/camel-folder-summary.h>
 #include <camel/camel-vee-folder.h>
 
 #include <libedataserver/e-memory.h>
@@ -110,6 +111,7 @@ struct _MessageListPrivate {
 	gboolean destroyed;
 
 	gboolean thread_latest;
+	gboolean any_row_changed; /* save state before regen list when this is set to true */
 };
 
 static struct {
@@ -1797,31 +1799,28 @@ save_tree_state(MessageList *ml)
 	filename = mail_config_folder_to_cachename(ml->folder, "et-expanded-");
 	e_tree_save_expanded_state(ml->tree, filename);
 	g_free(filename);
+
+	ml->priv->any_row_changed = FALSE;
 }
 
 static void
-load_tree_expand_all (MessageList *ml, gboolean state)
+load_tree_state (MessageList *ml, xmlDoc *expand_state)
 {
-
 	if (ml->folder == NULL || ml->tree == NULL)
 		return;
 
-	e_tree_load_all_expanded_state (ml->tree, state);
-	save_tree_state (ml);
+	if (expand_state) {
+		e_tree_load_expanded_state_xml (ml->tree, expand_state);
+	} else {
+		char *filename;
+
+		filename = mail_config_folder_to_cachename (ml->folder, "et-expanded-");
+		e_tree_load_expanded_state (ml->tree, filename);
+		g_free (filename);
+	}
+
+	ml->priv->any_row_changed = FALSE;
 }
-static void
-load_tree_state (MessageList *ml)
-{
-	char *filename;
-
-	if (ml->folder == NULL || ml->tree == NULL)
-		return;
-
-	filename = mail_config_folder_to_cachename (ml->folder, "et-expanded-");
-	e_tree_load_expanded_state (ml->tree, filename);
-	g_free (filename);
-}
-
 
 void
 message_list_save_state (MessageList *ml)
@@ -2100,11 +2099,49 @@ ml_tree_drag_data_received (ETree *tree, int row, ETreePath path, int col,
 	}
 }
 
+struct search_child_struct {
+	gboolean found;
+	gconstpointer looking_for;
+};
+
+static void
+search_child_cb (GtkWidget *widget, gpointer data)
+{
+	struct search_child_struct *search = (struct search_child_struct *) data;
+
+	search->found = search->found || g_direct_equal (widget, search->looking_for);
+}
+
+static gboolean
+is_tree_widget_children (ETree *tree, gconstpointer widget)
+{
+	struct search_child_struct search;
+
+	search.found = FALSE;
+	search.looking_for = widget;
+
+	gtk_container_foreach (GTK_CONTAINER (tree), search_child_cb, &search);
+
+	return search.found;
+}
+
 static gboolean
 ml_tree_drag_motion(ETree *tree, GdkDragContext *context, gint x, gint y, guint time, MessageList *ml)
 {
 	GList *targets;
 	GdkDragAction action, actions = 0;
+
+	/* If drop target is name of the account/store and not actual folder, don't allow any action */
+	if (!ml->folder) {
+		gdk_drag_status (context, 0, time);
+		return TRUE;
+	}
+
+	/* If source widget is packed under 'tree', don't allow any action */
+	if (is_tree_widget_children (tree, gtk_drag_get_source_widget (context))) {
+		gdk_drag_status (context, 0, time);
+		return TRUE;
+	}
 
 	for (targets = context->targets; targets; targets = targets->next) {
 		int i;
@@ -2132,6 +2169,12 @@ static void
 ml_scrolled (GtkAdjustment *adj, MessageList *ml)
 {
 	g_signal_emit (ml, message_list_signals[MESSAGE_LIST_SCROLLED], 0);
+}
+
+static void
+on_model_row_changed (ETableModel *model, int row, MessageList *ml)
+{
+	ml->priv->any_row_changed = TRUE;
 }
 
 /*
@@ -2174,6 +2217,7 @@ message_list_init (MessageList *message_list)
 	p->invisible = gtk_invisible_new();
 	p->destroyed = FALSE;
 	g_object_ref_sink(p->invisible);
+	p->any_row_changed = FALSE;
 
 	matom = gdk_atom_intern ("x-uid-list", FALSE);
 	gtk_selection_add_target(p->invisible, GDK_SELECTION_CLIPBOARD, matom, 0);
@@ -2329,6 +2373,25 @@ message_list_class_init (MessageListClass *message_list_class)
 	message_list_init_images ();
 }
 
+static gboolean
+read_boolean_with_default (GConfClient *gconf, const char *key, gboolean def_value)
+{
+	GConfValue *value;
+	gboolean res;
+
+	g_return_val_if_fail (gconf != NULL, def_value);
+	g_return_val_if_fail (key != NULL, def_value);
+
+	value = gconf_client_get (gconf, key, NULL);
+	if (!value)
+		return def_value;
+
+	res = gconf_value_get_bool (value);
+	gconf_value_free (value);
+
+	return res;
+}
+
 static void
 message_list_construct (MessageList *message_list)
 {
@@ -2362,11 +2425,11 @@ message_list_construct (MessageList *message_list)
 					     message_list);
 
 	e_tree_memory_set_expanded_default(E_TREE_MEMORY(message_list->model),
-					   gconf_client_get_bool (gconf,
-					   			  "/apps/evolution/mail/display/thread_expand",
-								  NULL));
+					   read_boolean_with_default (gconf,
+					   			      "/apps/evolution/mail/display/thread_expand",
+								      TRUE));
 
-	message_list->priv->thread_latest = gconf_client_get_bool (gconf, "/apps/evolution/mail/display/thread_latest", NULL);
+	message_list->priv->thread_latest = read_boolean_with_default (gconf, "/apps/evolution/mail/display/thread_latest", TRUE);
 
 	/*
 	 * The etree
@@ -2390,6 +2453,8 @@ message_list_construct (MessageList *message_list)
 		a11y = gtk_widget_get_accessible((GtkWidget *)message_list->tree);
 		atk_object_set_name(a11y, _("Messages"));
 	}
+
+	g_signal_connect (e_tree_get_table_adapter (message_list->tree), "model_row_changed", G_CALLBACK (on_model_row_changed), message_list);
 
 	g_signal_connect((message_list->tree), "cursor_activated",
 			 G_CALLBACK (on_cursor_activated_cmd),
@@ -2551,7 +2616,7 @@ find_next_selectable (MessageList *ml)
 		return NULL;
 
 	info = get_message_info (ml, node);
-	if (is_node_selectable (ml, info))
+	if (info && is_node_selectable (ml, info))
 		return NULL;
 
 	last = e_tree_row_count (ml->tree);
@@ -2565,7 +2630,7 @@ find_next_selectable (MessageList *ml)
 	while (vrow < last) {
 		node = e_tree_node_at_row (et, vrow);
 		info = get_message_info (ml, node);
-		if (is_node_selectable (ml, info))
+		if (info && is_node_selectable (ml, info))
 			return g_strdup (camel_message_info_uid (info));
 		vrow ++;
 	}
@@ -2577,7 +2642,7 @@ find_next_selectable (MessageList *ml)
 	while (vrow >= 0) {
 		node = e_tree_node_at_row (et, vrow);
 		info = get_message_info (ml, node);
-		if (is_node_selectable (ml, info))
+		if (info && is_node_selectable (ml, info))
 			return g_strdup (camel_message_info_uid (info));
 		vrow --;
 	}
@@ -3438,8 +3503,11 @@ message_list_get_uids(MessageList *ml)
 		ml,
 		g_ptr_array_new()
 	};
-
+	
 	e_tree_path_foreach(ml->tree, ml_getselected_cb, &data);
+
+	if (ml->folder && data.uids->len)
+		camel_folder_sort_uids (ml->folder, data.uids);
 
 	return data.uids;
 }
@@ -3451,8 +3519,11 @@ message_list_get_selected(MessageList *ml)
 		ml,
 		g_ptr_array_new()
 	};
-
+	
 	e_tree_selected_path_foreach(ml->tree, ml_getselected_cb, &data);
+
+	if (ml->folder && data.uids->len)
+		camel_folder_sort_uids (ml->folder, data.uids);	
 
 	return data.uids;
 }
@@ -3600,6 +3671,9 @@ glib_crapback(void *key, void *data, void *x)
 	struct _glibsuxcrap *y = x;
 	CamelMessageInfo *mi;
 
+	if(y->count)
+		return;
+
 	mi = camel_folder_get_message_info(y->folder, key);
 	if (mi) {
 		y->count++;
@@ -3607,7 +3681,7 @@ glib_crapback(void *key, void *data, void *x)
 	}
 }
 
-/* returns number of hidden messages */
+/* returns 0 or 1 depending if there are hidden messages */
 unsigned int
 message_list_hidden(MessageList *ml)
 {
@@ -3822,6 +3896,8 @@ struct _regen_list_msg {
 	GPtrArray *summary;
 
 	int last_row; /* last selected (cursor) row */
+
+	xmlDoc *expand_state; /* stored expanded state of the previous view */
 };
 
 /*
@@ -4018,6 +4094,7 @@ regen_list_exec (struct _regen_list_msg *m)
 
 	e_profile_event_emit("list.threaduids", m->folder->full_name, 0);
 
+	//camel_folder_summary_reload_from_db (m->folder->summary, NULL);
 	if (!camel_operation_cancel_check(m->base.cancel)) {
 		/* update/build a new tree */
 		if (m->dotree) {
@@ -4027,6 +4104,16 @@ regen_list_exec (struct _regen_list_msg *m)
 				m->tree = camel_folder_thread_messages_new (m->folder, showuids, m->thread_subject);
 		} else {
 			m->summary = g_ptr_array_new ();
+			if (showuids->len > camel_folder_summary_cache_size (m->folder->summary) ) {
+				CamelException ex;
+				camel_exception_init (&ex);
+				camel_folder_summary_reload_from_db (m->folder->summary, &ex);
+				if (camel_exception_is_set (&ex)) {
+					g_warning ("Exception while reloading: %s\n", camel_exception_get_description (&ex));
+					camel_exception_clear (&ex);
+				}
+
+			}
 			for (i = 0; i < showuids->len; i++) {
 				info = camel_folder_get_message_info (m->folder, showuids->pdata[i]);
 				if (info)
@@ -4069,10 +4156,19 @@ regen_list_done (struct _regen_list_msg *m)
 	e_profile_event_emit("list.buildtree", m->folder->full_name, 0);
 
 	if (m->dotree) {
-		if (m->ml->just_set_folder)
+		gboolean forcing_expand_state = m->ml->expand_all || m->ml->collapse_all;
+
+		if (m->ml->just_set_folder) {
 			m->ml->just_set_folder = FALSE;
-		else /* Saving the tree state causes bug 352695 but fixes bug 387312 */
-			save_tree_state (m->ml);
+			if (m->expand_state) {
+				/* rather load state from disk than use the memory data when changing folders */
+				xmlFreeDoc (m->expand_state);
+				m->expand_state = NULL;
+			}
+		}
+
+		if (forcing_expand_state)
+			e_tree_force_expanded_state (m->ml->tree, m->ml->expand_all ? 1 : -1);
 
 		build_tree (m->ml, m->tree, m->changes);
 		if (m->ml->thread_tree)
@@ -4080,12 +4176,13 @@ regen_list_done (struct _regen_list_msg *m)
 		m->ml->thread_tree = m->tree;
 		m->tree = NULL;
 
-		if (m->ml->expand_all)
-			load_tree_expand_all (m->ml, TRUE);
-		else if (m->ml->collapse_all)
-			load_tree_expand_all (m->ml, FALSE);
-		else
-			load_tree_state (m->ml);
+		if (forcing_expand_state) {
+			if (m->ml->folder != NULL && m->ml->tree != NULL)
+				save_tree_state (m->ml);
+			/* do not forget to set this back to use the default value... */
+			e_tree_force_expanded_state (m->ml->tree, 0);
+		} else
+			load_tree_state (m->ml, m->expand_state);
 
 		m->ml->expand_all = 0;
 		m->ml->collapse_all = 0;
@@ -4120,16 +4217,19 @@ regen_list_done (struct _regen_list_msg *m)
 		}
 	}
 
-	if (message_list_length (m->ml) <= 0) {
-		/* space is used to indicate no search too */
-		if (m->ml->search && strcmp (m->ml->search, " ") != 0)
-			e_tree_set_info_message (m->ml->tree, _("No message satisfies your search criteria. Either clear search with Search->Clear menu item or change it."));
-		else
-			e_tree_set_info_message (m->ml->tree, _("There are no messages in this folder."));
-	} else
-		e_tree_set_info_message (m->ml->tree, NULL);
+	if (GTK_WIDGET_VISIBLE (GTK_WIDGET (m->ml))) {
+		if (message_list_length (m->ml) <= 0) {
+			/* space is used to indicate no search too */
+			if (m->ml->search && strcmp (m->ml->search, " ") != 0)
+				e_tree_set_info_message (m->ml->tree, _("No message satisfies your search criteria. Either clear search with Search->Clear menu item or change it."));
+			else
+				e_tree_set_info_message (m->ml->tree, _("There are no messages in this folder."));
+		} else
+			e_tree_set_info_message (m->ml->tree, NULL);
+	}
 
 	g_signal_emit (m->ml, message_list_signals[MESSAGE_LIST_BUILT], 0);
+	m->ml->priv->any_row_changed = FALSE;
 }
 
 static void
@@ -4158,6 +4258,9 @@ regen_list_free (struct _regen_list_msg *m)
 
 	/* we have to poke this here as well since we might've been cancelled and regened wont get called */
 	m->ml->regen = g_list_remove(m->ml->regen, m);
+
+	if (m->expand_state)
+		xmlFreeDoc (m->expand_state);
 
 	g_object_unref(m->ml);
 }
@@ -4257,6 +4360,7 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 	m->folder = ml->folder;
 	camel_object_ref(m->folder);
 	m->last_row = -1;
+	m->expand_state = NULL;
 
 	if ((!m->hidedel || !m->dotree) && ml->thread_tree) {
 		camel_folder_thread_messages_unref(ml->thread_tree);
@@ -4264,6 +4368,24 @@ mail_regen_list (MessageList *ml, const char *search, const char *hideexpr, Came
 	} else if (ml->thread_tree) {
 		m->tree = ml->thread_tree;
 		camel_folder_thread_messages_ref(m->tree);
+	}
+
+	if (message_list_length (ml) <= 0) {
+		if (GTK_WIDGET_VISIBLE (GTK_WIDGET (ml))) {
+			/* there is some info why the message list is empty, let it be something useful */
+			char *txt = g_strconcat (_("Generating message list"), "..." , NULL);
+
+			e_tree_set_info_message (m->ml->tree, txt);
+
+			g_free (txt);
+		}
+	} else if (ml->priv->any_row_changed && m->dotree && !ml->just_set_folder && (!ml->search || g_str_equal (ml->search, " "))) {
+		/* there has been some change on any row, if it was an expand state change,
+		   then let it save; if not, then nothing happen. */
+		message_list_save_state (ml);
+	} else if (m->dotree && !ml->just_set_folder) {
+		/* remember actual expand state and restore it after regen */
+		m->expand_state = e_tree_save_expanded_state_xml (ml->tree);
 	}
 
 	/* if we're busy already kick off timeout processing, so normal updates are immediate */

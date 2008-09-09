@@ -1,3 +1,81 @@
+2008-09-04  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* exchange-calendar.c:
+
+2008-09-02  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* exchange-config-listener.c:
+	* exchange-delegates.c:
+	* exchange-folder-size-display.c:
+	* exchange-folder.c:
+	* exchange-mail-send-options.c:
+	* exchange-permissions-dialog.c:
+	* exchange-permissions-dialog.h:
+	* exchange-send-options.c:
+	* exchange-user-dialog.h:
+
+2008-08-28  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes bug #458512
+
+	* exchange-send-options.glade:
+	Delete the accessibility tag from the User button.
+
+2008-08-27  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* exchange-change-password.c:
+	* exchange-change-password.h:
+	* exchange-config-listener.h:
+	* exchange-delegates-user.h:
+	* exchange-delegates.h:
+	* exchange-folder-permission.c:
+	* exchange-folder-size-display.h:
+	* exchange-folder-subscription.c:
+	* exchange-folder-subscription.h:
+	* exchange-send-options.h:
+
+2008-08-14  Matthew Barnes  <mbarnes@redhat.com>
+
+	* exchange-send-options.c:
+	Use e_display_help() for displaying help.
+
+2008-08-06  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #435969
+
+	* org-gnome-exchange-operations.eplug.xml:
+	Show authentication section in an account druid too.
+
+2008-07-31  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #545568
+
+	* org-gnome-exchange-operations.eplug.xml:
+	Add "system_plugin=true" so it's not shown in the Plugin Manager.
+	This plugin is not designed to be disabled by the user.
+
+2008-07-30  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #500389
+
+	* exchange-account-setup.c: (gal_auth_to_string),
+	(owa_authenticate_user): Use default authentication for GAL.
+
+2008-07-11  Bharath Acharya  <abharath@novell.com>
+
+	** Fix for bug #542149
+
+	* exchange-folder-subscription.c: (subscribe_to_folder): Display an 
+	error message to restart if user tries to subscribe to other's mailbox.
+	* org-gnome-exchange-operations.error.xml: Added the corresponding 
+	error message.
+
 2008-06-16  Milan Crha  <mcrha@redhat.com>
 
 	** Fix for bug #273627
