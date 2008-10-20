@@ -86,7 +86,7 @@ action_attach_cb (GtkAction *action,
 		if (!g_ascii_strcasecmp (url->protocol, "file"))
 			e_attachment_bar_attach (bar, url->path, disposition);
 		else
-			e_attachment_bar_attach (bar, iter->data, disposition);
+			e_attachment_bar_attach_remote_file (bar, iter->data, disposition);
 
 		camel_url_free (url);
 	}
@@ -246,7 +246,7 @@ action_save_cb (GtkAction *action,
 			e_error_run (
 				GTK_WINDOW (composer),
 				E_ERROR_NO_SAVE_FILE, filename,
-				g_strerror (errno_saved));
+				g_strerror (errno_saved), NULL);
 			return;
 		}
 	} else
@@ -256,7 +256,7 @@ action_save_cb (GtkAction *action,
 		e_error_run (
 			GTK_WINDOW (composer),
 			E_ERROR_NO_SAVE_FILE,
-			filename, error->message);
+			filename, error->message, NULL);
 		g_error_free (error);
 		return;
 	}
@@ -698,7 +698,7 @@ e_composer_actions_init (EMsgComposer *composer)
 		G_OBJECT (ACTION (ATTACH)),
 		"short-label", _("Attach"), NULL);
 
-#if defined (HAVE_NSS) && defined (SMIME_SUPPORTED)
+#if defined (HAVE_NSS)
 	visible = TRUE;
 #else
 	visible = FALSE;

@@ -1,23 +1,23 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: Michael Zucchi <notzed@ximian.com>
- *           Jeffrey Stedfast <fejj@ximian.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Michael Zucchi <notzed@ximian.com>
+ *      Jeffrey Stedfast <fejj@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -148,6 +148,8 @@ static void emfb_search_search_cleared(ESearchBar *esb);
 
 static int emfb_list_key_press(ETree *tree, int row, ETreePath path, int col, GdkEvent *ev, EMFolderBrowser *emfb);
 static void emfb_list_message_selected (MessageList *ml, const char *uid, EMFolderBrowser *emfb);
+
+static void emfb_expand_all_threads(BonoboUIComponent *uid, void *data, const char *path);
 
 static const EMFolderViewEnable emfb_enable_map[] = {
 	{ "EditInvertSelection", EM_POPUP_SELECT_FOLDER },
@@ -1432,13 +1434,35 @@ emfb_edit_invert_selection(BonoboUIComponent *uid, void *data, const char *path)
 	message_list_invert_selection(emfv->list);
 }
 
+static gboolean
+emfb_select_all_daemon (MessageList *ml)
+{
+		message_list_select_all(ml);
+		gtk_widget_grab_focus ((GtkWidget *)ml);
+		return FALSE;
+}
+
 static void
 emfb_edit_select_all(BonoboUIComponent *uid, void *data, const char *path)
 {
-	EMFolderView *emfv = data;
+		EMFolderView *emfv = data;
 
-	message_list_select_all(emfv->list);
-	gtk_widget_grab_focus ((GtkWidget *)emfv->list);
+		if (emfv->list->threaded) {
+
+				emfb_expand_all_threads (uid, data, path);
+
+				/* The time out below is added so that the execution thread to 
+				   expand all conversations threads would've completed. 
+
+				   The timeout 505 is just to ensure that the value is a small delta
+				   more than the timeout value in expand_all_threads thread. */
+
+				g_timeout_add (505, (GSourceFunc) emfb_select_all_daemon, emfv->list);
+
+		} else {
+				/* If there is no threading, just select-all immediately */
+				emfb_select_all_daemon (emfv->list);
+		}
 }
 
 static void

@@ -1,22 +1,22 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: JP Rosevear <jpr@novell.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		JP Rosevear <jpr@novell.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -152,7 +152,7 @@ format_date_and_time_x		(struct tm	*date_tm,
 	/* Calculate a normalized "tomorrow" */
 	tomorrow_tm = *current_tm;
 	/* Don't need this if date is in the past. Also, year assumption won't fail. */
-	if (date_tm->tm_year >= current_tm->tm_year && tomorrow_tm.tm_mday == time_days_in_month (date_tm->tm_year + 1900, date_tm->tm_mon)) {
+	if (date_tm->tm_year >= current_tm->tm_year && tomorrow_tm.tm_mday == time_days_in_month (current_tm->tm_year + 1900, current_tm->tm_mon)) {
 		tomorrow_tm.tm_mday = 1;
 		if (tomorrow_tm.tm_mon == 11) {
 			tomorrow_tm.tm_mon = 1;
@@ -1194,6 +1194,24 @@ itip_view_get_item_type (ItipView *view)
 	return priv->type;
 }
 
+/* ensures the returned text will be valid UTF-8 text, thus gtk functions expecting
+   only valid UTF-8 texts will not crash. Returned pointer should be freed with g_free. */
+static gchar *
+ensure_utf8 (const char *text)
+{
+	gchar *res = g_strdup (text), *p;
+
+	if (!text)
+		return res;
+
+	p = res;
+	while (!g_utf8_validate (p, -1, (const gchar **) &p)) {
+		/* make all invalid characters appear as question marks */
+		*p = '?';
+	}
+
+	return res;
+}
 
 void
 itip_view_set_organizer (ItipView *view, const char *organizer)
@@ -1208,7 +1226,7 @@ itip_view_set_organizer (ItipView *view, const char *organizer)
 	if (priv->organizer)
 		g_free (priv->organizer);
 
-	priv->organizer = g_strdup (organizer);
+	priv->organizer = ensure_utf8 (organizer);
 
 	set_sender_text (view);
 }
@@ -1239,7 +1257,7 @@ itip_view_set_organizer_sentby (ItipView *view, const char *sentby)
 	if (priv->organizer_sentby)
 		g_free (priv->organizer_sentby);
 
-	priv->organizer_sentby = g_strdup (sentby);
+	priv->organizer_sentby = ensure_utf8 (sentby);
 
 	set_sender_text (view);
 }
@@ -1270,7 +1288,7 @@ itip_view_set_attendee (ItipView *view, const char *attendee)
 	if (priv->attendee)
 		g_free (priv->attendee);
 
-	priv->attendee = g_strdup (attendee);
+	priv->attendee = ensure_utf8 (attendee);
 
 	set_sender_text (view);
 }
@@ -1301,7 +1319,7 @@ itip_view_set_attendee_sentby (ItipView *view, const char *sentby)
 	if (priv->attendee_sentby)
 		g_free (priv->attendee_sentby);
 
-	priv->attendee_sentby = g_strdup (sentby);
+	priv->attendee_sentby = ensure_utf8 (sentby);
 
 	set_sender_text (view);
 }
@@ -1332,7 +1350,7 @@ itip_view_set_proxy (ItipView *view, const char *proxy)
 	if (priv->proxy)
 		g_free (priv->proxy);
 
-	priv->proxy = g_strdup (proxy);
+	priv->proxy = ensure_utf8 (proxy);
 
 	set_sender_text (view);
 }
@@ -1363,7 +1381,7 @@ itip_view_set_delegator (ItipView *view, const char *delegator)
 	if (priv->delegator)
 		g_free (priv->delegator);
 
-	priv->delegator = g_strdup (delegator);
+	priv->delegator = ensure_utf8 (delegator);
 
 	set_sender_text (view);
 }
@@ -1394,7 +1412,7 @@ itip_view_set_summary (ItipView *view, const char *summary)
 	if (priv->summary)
 		g_free (priv->summary);
 
-	priv->summary = summary ? g_strstrip (g_strdup (summary)) : NULL;
+	priv->summary = summary ? g_strstrip (ensure_utf8 (summary)) : NULL;
 
 	set_summary_text (view);
 }
@@ -1425,7 +1443,7 @@ itip_view_set_location (ItipView *view, const char *location)
 	if (priv->location)
 		g_free (priv->location);
 
-	priv->location = location ? g_strstrip (g_strdup (location)) : NULL;
+	priv->location = location ? g_strstrip (ensure_utf8 (location)) : NULL;
 
 	set_location_text (view);
 }
@@ -1456,7 +1474,7 @@ itip_view_set_status (ItipView *view, const char *status)
 	if (priv->status)
 		g_free (priv->status);
 
-	priv->status = status ? g_strstrip (g_strdup (status)) : NULL;
+	priv->status = status ? g_strstrip (ensure_utf8 (status)) : NULL;
 
 	set_status_text (view);
 }
@@ -1487,7 +1505,7 @@ itip_view_set_comment (ItipView *view, const char *comment)
 	if (priv->comment)
 		g_free (priv->comment);
 
-	priv->comment = comment ? g_strstrip (g_strdup (comment)) : NULL;
+	priv->comment = comment ? g_strstrip (ensure_utf8 (comment)) : NULL;
 
 	set_comment_text (view);
 }
@@ -1519,7 +1537,7 @@ itip_view_set_description (ItipView *view, const char *description)
 	if (priv->description)
 		g_free (priv->description);
 
-	priv->description = description ? g_strstrip (g_strdup (description)) : NULL;
+	priv->description = description ? g_strstrip (ensure_utf8 (description)) : NULL;
 
 	set_description_text (view);
 }
@@ -1624,7 +1642,7 @@ itip_view_add_upper_info_item (ItipView *view, ItipViewInfoItemType type, const 
 	item = g_new0 (ItipViewInfoItem, 1);
 
 	item->type = type;
-	item->message = g_strdup (message);
+	item->message = ensure_utf8 (message);
 	item->id = priv->next_info_item_id++;
 
 	priv->upper_info_items = g_slist_append (priv->upper_info_items, item);
@@ -1719,7 +1737,7 @@ itip_view_add_lower_info_item (ItipView *view, ItipViewInfoItemType type, const 
 	item = g_new0 (ItipViewInfoItem, 1);
 
 	item->type = type;
-	item->message = g_strdup (message);
+	item->message = ensure_utf8 (message);
 	item->id = priv->next_info_item_id++;
 
 	priv->lower_info_items = g_slist_append (priv->lower_info_items, item);

@@ -1,23 +1,24 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- * Authors: Peter Williams <peterw@ximian.com>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Peter Williams <peterw@ximian.com>
  *	    Michael Zucchi <notzed@ximian.com>
  *
  * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
- * USA
  */
 
 #ifdef HAVE_CONFIG_H
@@ -204,19 +205,6 @@ real_flush_updates(void *o, void *event_data, void *data)
 			 * UPDATE: We tell the number of new UIDs added rather than the new mails received
 			 */
 			e_event_emit((EEvent *)e, "folder.changed", (EEventTarget *)t);
-		}
-
-		if (CAMEL_IS_VEE_STORE (up->store) && !up->remove) {
-			/* Normally the vfolder store takes care of the folder_opened event itself,
-			   but we add folder to the noting system later, thus we do not know about
-			   search folders to update them in a tree, thus ensure their changes will
-			   be tracked correctly. */
-			CamelFolder *folder = camel_store_get_folder (up->store, up->full_name, 0, NULL);
-
-			if (folder) {
-				mail_note_folder (folder);
-				camel_object_unref (folder);
-			}
 		}
 
 		free_update(up);

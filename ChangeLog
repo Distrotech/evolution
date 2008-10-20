@@ -1,3 +1,69 @@
+2008-10-14	Sankar P  <psankar@novell.com>
+
+		* calendar/gui/gnome-cal.h
+		* calendar/gui/gnome-cal.c
+		* calendar/gui/calendar-commands.h
+		* calendar/gui/calendar-commands.c
+		* calendar/conduits/memo/memo-conduit.c
+		* calendar/conduits/calendar/calendar-conduit.c
+		* calendar/conduits/todo/todo-conduit.c
+		* addressbook/conduit/address-conduit.c :
+		
+		* Remove improper FSF copyright statements; was never signed
+		over to them and was incorrectly added to this file due to a
+		mistake made by the original developer.
+
+2008-09-22  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* configure.in: Fix 'cs' Makefile issue
+
+2008-09-22  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* COPYING.LGPL2: Adding license header to svn
+	* COPYING.LGPL3:
+
+2008-09-22  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* NEWS, configure.in: Evolution 2.24.0 release.
+
+2008-09-22  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* configure.in: Fix for build break. 
+
+2008-09-22  Luca Ferretti  <elle.uca@libero.it>
+
+	* configure.in: 
+	Add mail/default/it/Makefile to AC_OUTPUT.
+
+2008-09-17  Gabor Kelemen  <kelemeng@gnome.hu>
+
+	* configure.in:
+	Add mail/default/hu/Makefile to AC_OUTPUT.
+
+2008-09-16  Matthew Barnes  <mbarnes@redhat.com>
+
+	* configure.in:
+	Add mail/default/sr@latin/Makefile to AC_OUTPUT.
+
+2008-09-16  Matthew Barnes  <mbarnes@redhat.com>
+
+	* configure.in:
+	Add mail/default/sr/Makefile to AC_OUTPUT (bug #552508).
+
+2008-09-12  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* iconv-detect.c:
+
+2008-09-10  Michael Meeks  <michael.meeks@novell.com>
+
+	* server.mk: use top_builddir for config.h #551560
+
+2008-09-08  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* NEWS: Evolution 2.23.92 release.
+
 2008-09-01  Srinivasa Ragavan  <sragavan@novell.com>
 
 	* NEWS: Evolution 2.23.91 release and version bump

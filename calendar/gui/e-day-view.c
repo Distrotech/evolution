@@ -1,30 +1,26 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * Authors :
- *  Damon Chaplin <damon@ximian.com>
- *  Rodrigo Moya <rodrigo@ximian.com>
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * EDayView - displays the Day & Work-Week views of the calendar.
  *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
- * USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ * Authors:
+ *      Damon Chaplin <damon@ximian.com>
+ *      Rodrigo Moya <rodrigo@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  */
-
-/*
- * EDayView - displays the Day & Work-Week views of the calendar.
- */
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -215,11 +211,9 @@ static gboolean e_day_view_on_top_canvas_scroll (GtkWidget *widget,
 static gboolean e_day_view_on_main_canvas_scroll (GtkWidget *widget,
 						  GdkEventScroll *scroll,
 						  EDayView *day_view);
-
 static gboolean e_day_view_on_time_canvas_scroll (GtkWidget *widget,
 						  GdkEventScroll *scroll,
 						  EDayView *day_view);
-
 static gboolean e_day_view_on_main_canvas_motion (GtkWidget *widget,
 						  GdkEventMotion *event,
 						  EDayView *day_view);
@@ -555,12 +549,30 @@ update_row (EDayView *day_view, int row)
 {
 	ECalModelComponent *comp_data;
 	ECalModel *model;
+	gint day, event_num;
+	const char *uid = NULL;
+	char *rid = NULL;
 
 	e_day_view_stop_editing_event (day_view);
 
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
 	comp_data = e_cal_model_get_component_at (model, row);
 	g_return_if_fail (comp_data != NULL);
+
+	uid = icalcomponent_get_uid (comp_data->icalcomp);
+	if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
+		icalproperty *prop;
+
+		prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_RECURRENCEID_PROPERTY);
+		if (prop)
+			rid = icaltime_as_ical_string (icalcomponent_get_recurrenceid (comp_data->icalcomp));
+	}
+
+	if (e_day_view_find_event_from_uid (day_view, comp_data->client, uid, rid, &day, &event_num))
+		e_day_view_remove_event_cb (day_view, day, event_num, NULL);
+
+	g_free (rid);
+
 	process_component (day_view, comp_data);
 
 	gtk_widget_queue_draw (day_view->top_canvas);
@@ -640,7 +652,6 @@ model_comps_deleted_cb (ETableModel *etm, gpointer data, gpointer user_data)
 		gint day, event_num;
 		const char *uid = NULL;
 		char *rid = NULL;
-
 
 		uid = icalcomponent_get_uid (comp_data->icalcomp);
 		if (e_cal_util_component_is_instance (comp_data->icalcomp)) {
@@ -2982,10 +2993,8 @@ e_day_view_on_top_canvas_scroll (GtkWidget *widget,
 		e_day_view_top_scroll (day_view, -E_DAY_VIEW_WHEEL_MOUSE_STEP_SIZE);
 		return TRUE;
 	default:
-		break;
+		return FALSE;
 	}
-
-	return FALSE;
 }
 
 static gboolean
@@ -3008,13 +3017,11 @@ e_day_view_on_time_canvas_scroll (GtkWidget      *widget,
 		e_day_view_scroll (day_view, -E_DAY_VIEW_WHEEL_MOUSE_STEP_SIZE);
 		return TRUE;
 	default:
-		break;
-	}
-
-	return FALSE;
-}
-
-static gboolean
+		return FALSE;
+	} 
+} 
+ 
+static gboolean 
 e_day_view_on_long_event_button_press (EDayView		*day_view,
 				       gint		 event_num,
 				       GdkEventButton	*event,
@@ -6304,6 +6311,9 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 
 				if (mod == CALOBJ_MOD_THIS) {
 					ECalComponentDateTime olddt, dt;
+					icaltimetype itt;
+
+					dt.value = &itt;
 
 					e_cal_component_get_dtstart (comp, &olddt);
 					if (olddt.value->zone) {

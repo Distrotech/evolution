@@ -1,22 +1,22 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- *  Authors: Jeffrey Stedfast <fejj@ximian.com>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
- *  Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ * Authors:
+ *		Jeffrey Stedfast <fejj@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -64,6 +64,7 @@
 #include "message-tag-followup.h"
 
 #include <libedataserver/e-data-server-util.h>
+#include <libedataserver/e-flag.h>
 #include "e-util/e-util.h"
 #include "e-util/e-util-private.h"
 #include "e-util/e-mktemp.h"
@@ -2025,6 +2026,72 @@ emu_addr_cancel_book(void *data)
 	g_clear_error(&err);
 }
 
+struct TryOpenEBookStruct {
+	GError **error;
+	EFlag *flag;
+	gboolean result;
+};
+
+static void
+try_open_e_book_cb (EBook *book, EBookStatus status, gpointer closure)
+{
+	struct TryOpenEBookStruct *data = (struct TryOpenEBookStruct *)closure;
+
+	if (!data)
+		return;
+
+	data->result = status == E_BOOK_ERROR_OK;
+
+	if (!data->result)
+		g_set_error (data->error, E_BOOK_ERROR, status, "EBookStatus returned %d", status);
+
+	e_flag_set (data->flag);
+}
+
+/**
+ * try_open_e_book:
+ * Tries to open address book asynchronously, but acts as synchronous.
+ * The advantage is it checks periodically whether the camel_operation
+ * has been canceled or not, and if so, then stops immediately, with
+ * result FALSE. Otherwise returns same as e_book_open
+ **/
+static gboolean
+try_open_e_book (EBook *book, gboolean only_if_exists, GError **error)
+{
+	struct TryOpenEBookStruct data;
+	gboolean canceled = FALSE;
+	EFlag *flag = e_flag_new ();
+
+	data.error = error;
+	data.flag = flag;
+	data.result = FALSE;
+
+	if (e_book_async_open (book, only_if_exists, try_open_e_book_cb, &data) != FALSE) {
+		e_flag_free (flag);
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_OTHER_ERROR, "Failed to call e_book_async_open.");
+		return FALSE;
+	}
+
+	while (canceled = camel_operation_cancel_check (NULL), !canceled && !e_flag_is_set (flag)) {
+		GTimeVal wait;
+
+		g_get_current_time (&wait);
+		g_time_val_add (&wait, 250000); /* waits 250ms */
+
+		e_flag_timed_wait (flag, &wait);
+	}
+
+	e_flag_free (flag);
+
+	if (canceled) {
+		g_set_error (error, E_BOOK_ERROR, E_BOOK_ERROR_CANCELLED, "Operation has been canceled.");
+		e_book_cancel_async_op (book, NULL);
+		return FALSE;
+	}
+
+	return data.result;
+}
+
 gboolean
 em_utils_in_addressbook (CamelInternetAddress *iaddr, gboolean local_only)
 {
@@ -2111,9 +2178,9 @@ em_utils_in_addressbook (CamelInternetAddress *iaddr, gboolean local_only)
 		hook = mail_cancel_hook_add(emu_addr_cancel_book, book);
 
 		/* ignore errors, but cancellation errors we don't try to go further either */
-		if (!e_book_open(book, TRUE, &err)
+		if (!try_open_e_book (book, TRUE, &err)
 		    || !e_book_get_contacts(book, query, &contacts, &err)) {
-			stop = err->domain == E_BOOK_ERROR && err->code == E_BOOK_ERROR_CANCELLED;
+			stop = err && err->domain == E_BOOK_ERROR && err->code == E_BOOK_ERROR_CANCELLED;
 			mail_cancel_hook_remove(hook);
 			g_object_unref(book);
 			d(g_warning("Can't get contacts: %s", err->message));
@@ -2128,6 +2195,8 @@ em_utils_in_addressbook (CamelInternetAddress *iaddr, gboolean local_only)
 			g_list_foreach(contacts, (GFunc)g_object_unref, NULL);
 			g_list_free(contacts);
 		}
+
+		stop = stop || camel_operation_cancel_check (NULL);
 
 		d(printf(" %s\n", stop?"found":"not found"));
 
@@ -2194,9 +2263,9 @@ em_utils_contact_photo (struct _CamelInternetAddress *cia, gboolean local)
 		source = s->data;
 
 		book = e_book_new(source, &err);
-		if (!e_book_open(book, TRUE, &err)
+		if (!try_open_e_book (book, TRUE, &err)
 		    || !e_book_get_contacts(book, query, &contacts, &err)) {
-			stop = err->domain == E_BOOK_ERROR && err->code == E_BOOK_ERROR_CANCELLED;
+			stop = err && err->domain == E_BOOK_ERROR && err->code == E_BOOK_ERROR_CANCELLED;
 			g_object_unref(book);
 			d(g_warning("Can't get contacts: %s", err->message));
 			g_clear_error(&err);
@@ -2214,6 +2283,9 @@ em_utils_contact_photo (struct _CamelInternetAddress *cia, gboolean local)
 			g_list_foreach (contacts, (GFunc)g_object_unref, NULL);
 			g_list_free (contacts);
 		}
+
+		stop = stop || camel_operation_cancel_check (NULL);
+
 		g_object_unref (source); /* Is it? */
 		g_object_unref(book);
 	}
@@ -2260,7 +2332,7 @@ em_utils_snoop_type(CamelMimePart *part)
 
 	filename = camel_mime_part_get_filename (part);
 	if (filename != NULL)
-		name_type = e_util_guess_mime_type (filename);
+		name_type = e_util_guess_mime_type (filename, FALSE);
 
 	dw = camel_medium_get_content_object((CamelMedium *)part);
 	if (!camel_data_wrapper_is_offline(dw)) {

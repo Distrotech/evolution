@@ -102,6 +102,13 @@ vfolder_setup_exec (struct _setup_msg *m)
 	l = m->sources_uri;
 	while (l && !shutdown) {
 		d(printf(" Adding uri: %s\n", (char *)l->data));
+		if (strncmp((char *)l->data, "vfolder:/", 9) == 0 ||
+			strncmp((char *)l->data, "email://vfolder@local", 21) == 0) {
+			g_warning ("VFolder of VFolders not supporting. Ignoring loading this vfolder as a subfolder\n");
+			l=l->next;
+			continue;
+		}
+
 		folder = mail_tool_uri_to_folder (l->data, 0, &m->base.ex);
 		if (folder) {
 			list = g_list_append(list, folder);
@@ -698,6 +705,14 @@ rule_add_sources(GList *l, GList **sources_folderp, GList **sources_urip)
 	while (l) {
 		char *curi = em_uri_to_camel(l->data);
 
+		if (strncmp((char *)l->data, "vfolder:/", 9) == 0 ||
+			strncmp((char *)l->data, "email://vfolder@local", 21) == 0) {
+			g_warning ("VFolder of VFolders not supporting. Ignoring loading this vfolder as a subfolder\n");
+			l=l->next;
+			g_free(curi);
+			continue;
+		}
+
 		if (mail_note_get_folder_from_uri(curi, &newfolder)) {
 			if (newfolder)
 				sources_folder = g_list_append(sources_folder, newfolder);
@@ -956,6 +971,9 @@ vfolder_load_storage(void)
 	g_signal_connect(context, "rule_added", G_CALLBACK(context_rule_added), context);
 	g_signal_connect(context, "rule_removed", G_CALLBACK(context_rule_removed), context);
 
+	/* load store to mail component */
+	mail_component_load_store_by_uri (mail_component_peek (), storeuri, _("Search Folders"));
+
 	/* and setup the rules we have */
 	rule = NULL;
 	while ( (rule = rule_context_next_rule((RuleContext *)context, rule, NULL)) ) {
@@ -965,9 +983,6 @@ vfolder_load_storage(void)
 		} else
 			d(printf("invalid rule (%p) encountered: rule->name is NULL\n", rule));
 	}
-
-	/* load store to mail component at the end, when everything is loaded */
-	mail_component_load_store_by_uri (mail_component_peek (), storeuri, _("Search Folders"));
 
 	g_free(storeuri);
 

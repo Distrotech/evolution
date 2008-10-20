@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.52)
 
-AC_INIT(evolution, 2.23.92, http://bugzilla.gnome.org/enter_bug.cgi?product=Evolution)
+AC_INIT(evolution, 2.24.0, http://bugzilla.gnome.org/enter_bug.cgi?product=Evolution)
 AC_CONFIG_SRCDIR(README)
 
 # Some requirements have versioned package names
@@ -81,7 +81,7 @@ dnl The controls whether things like the development warning in shell/main.c are
 dnl
 dnl This should be set to 0 for stable releases and 1 for unstable releases
 dnl *************************************************************************************************
-AC_DEFINE(DEVELOPMENT, 1, [If we are in development mode or not])
+AC_DEFINE(DEVELOPMENT, 0, [If we are in development mode or not])
 AC_SUBST(DEVELOPMENT)
 
 AC_ISC_POSIX
@@ -2019,10 +2019,12 @@ composer/Makefile
 mail/Makefile
 mail/default/Makefile
 mail/default/C/Makefile
+mail/default/cs/Makefile
 mail/default/de/Makefile
 mail/default/es/Makefile
 mail/default/fi/Makefile
 mail/default/fr/Makefile
+mail/default/it/Makefile
 mail/default/lt/Makefile
 mail/default/mk/Makefile
 mail/default/zh_CN/Makefile
@@ -2031,7 +2033,10 @@ mail/default/ko/Makefile
 mail/default/nl/Makefile
 mail/default/pl/Makefile
 mail/default/pt/Makefile
+mail/default/sr/Makefile
+mail/default/sr@latin/Makefile
 mail/default/sv/Makefile
+mail/default/hu/Makefile
 mail/importers/Makefile
 plugins/Makefile
 plugins/mark-all-read/Makefile

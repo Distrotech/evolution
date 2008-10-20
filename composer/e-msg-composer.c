@@ -1,28 +1,25 @@
-/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 8; tab-width: 8 -*- */
-/* e-msg-composer.c
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
+/*
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * published by the Free Software Foundation; either version 2 of the
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
  *
  * Authors:
- *   Ettore Perazzoli (ettore@ximian.com)
- *   Jeffrey Stedfast (fejj@ximian.com)
- *   Miguel de Icaza  (miguel@ximian.com)
- *   Radek Doulik     (rodo@ximian.com)
+ *		Ettore Perazzoli (ettore@ximian.com)
+ *		Jeffrey Stedfast (fejj@ximian.com)
+ *		Miguel de Icaza  (miguel@ximian.com)
+ *		Radek Doulik     (rodo@ximian.com)
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
 
@@ -40,8 +37,6 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#define SMIME_SUPPORTED 1
 
 #include <stdlib.h>
 #include <string.h>
@@ -87,7 +82,7 @@
 #include <camel/camel-multipart-encrypted.h>
 #include <camel/camel-string-utils.h>
 #include <camel/camel-cipher-context.h>
-#if defined (HAVE_NSS) && defined (SMIME_SUPPORTED)
+#if defined (HAVE_NSS)
 #include <camel/camel-smime-context.h>
 #endif
 
@@ -759,7 +754,7 @@ build_message (EMsgComposer *composer,
 	action = GTK_TOGGLE_ACTION (ACTION (PGP_ENCRYPT));
 	pgp_encrypt = gtk_toggle_action_get_active (action);
 
-#if defined (HAVE_NSS) && defined (SMIME_SUPPORTED)
+#if defined (HAVE_NSS)
 	action = GTK_TOGGLE_ACTION (ACTION (SMIME_SIGN));
 	smime_sign = gtk_toggle_action_get_active (action);
 
@@ -855,7 +850,7 @@ build_message (EMsgComposer *composer,
 		camel_object_unref (part);
 	}
 
-#if defined (HAVE_NSS) && defined (SMIME_SUPPORTED)
+#if defined (HAVE_NSS)
 	if (smime_sign || smime_encrypt) {
 		CamelInternetAddress *from = NULL;
 		CamelCipherContext *cipher;
@@ -943,7 +938,7 @@ build_message (EMsgComposer *composer,
 		camel_mime_part_set_encoding (CAMEL_MIME_PART (new), plain_encoding);
 	camel_object_unref (current);
 
-#if defined (HAVE_NSS) && defined (SMIME_SUPPORTED)
+#if defined (HAVE_NSS)
 skip_content:
 #endif
 	if (recipients) {
@@ -3973,7 +3968,7 @@ handle_uri (EMsgComposer *composer,
 			return;
 
 		if (!g_ascii_strcasecmp (url->protocol, "file")) {
-			type = e_util_guess_mime_type (uri + strlen ("file://"));
+			type = e_util_guess_mime_type (uri + strlen ("file://"), TRUE);
 			if (!type)
 				return;
 
@@ -4205,7 +4200,7 @@ e_msg_composer_add_inline_image_from_file (EMsgComposer *composer,
 	camel_data_wrapper_construct_from_stream (wrapper, stream);
 	camel_object_unref (CAMEL_OBJECT (stream));
 
-	mime_type = e_util_guess_mime_type (dec_file_name);
+	mime_type = e_util_guess_mime_type (dec_file_name, TRUE);
 	if (mime_type == NULL)
 		mime_type = g_strdup ("application/octet-stream");
 	camel_data_wrapper_set_mime_type (wrapper, mime_type);

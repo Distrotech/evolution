@@ -1,3 +1,229 @@
+2008-10-20  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #553715
+
+	* gui/e-week-view.c: (e_week_view_on_editing_stopped):
+	Set end time for the event properly, not same as start time.
+
+2008-10-20  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #528816
+
+	* importers/icalendar-importer.c: (vcal_supported): We do not support
+	vCalendar importer when we can parse the iCalendar from the file,
+	because the latter holds more information, like timezones.
+
+2008-10-17   Matt Davey  <mcdavey@mrao.cam.ac.uk>
+
+	** Fix for bug #556059
+
+	* conduits/common/Makefile.am:
+	* conduits/common/libecalendar-common-conduit.c: Allow building outside
+	the source tree.
+
+2008-10-17  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #553609
+
+	* gui/e-week-view.c: (e_week_view_set_selected_time_range):
+	Do not do any changes when the view has not been shown yet.
+
+2008-10-17  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #530872
+
+	* gui/e-calendar-table.c: (e_calendar_table_on_open_task):
+	Check for NULL soon enough to not crash.
+
+2008-10-14  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* conduits/calendar/calendar-conduit.c:
+	* conduits/memo/memo-conduit.c:
+	* conduits/todo/todo-conduit.c:
+	* gui/calendar-commands.c:
+	* gui/calendar-commands.h:
+	* gui/gnome-cal.c:
+	* gui/gnome-cal.h:
+
+2008-10-13  Suman Manjunath  <msuman@novell.com>
+
+	** Fix for bug #424818 (bugzilla.novell.com)
+
+	* gui/dialogs/calendar-setup.c (eccp_general_offline): Don't show offline
+	availability option for B&A calendars. 
+	* gui/e-cal-popup.c (e_cal_popup_target_new_source): Check for the correct 
+	property ("offline_sync" instead of "offline") while setting the GUI mask. 
+	* gui/tasks-component.c (ensure_sources): Fixed a minor typo. 
+
+2008-10-09  Matthew Barnes  <mbarnes@redhat.com>
+
+	** Fixes part of bug #555494
+
+	* gui/cal-search-bar.c (generate_viewoption_menu):
+	Category icons are not themed.  Load by file, not by icon name.
+
+2008-10-08  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/alarm-notify/alarm.c:
+	* gui/dialogs/comp-editor.c:
+
+2008-10-01  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #554418
+
+	* gui/dialogs/comp-editor.c: (set_attachment_list):
+	* gui/e-cal-popup.c: (ecalp_standard_menu_factory):
+	Allow/disallow guessing of the mime_type based on the file content.
+
+2008-10-01  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/dialogs/recurrence-page.c:
+	* importers/icalendar-importer.c:
+
+2008-09-30  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/e-week-view.c:
+	* gui/goto.c:
+
+2008-09-29  Gabor Kelemen  <kelemeng@gnome.hu>
+
+	* shell.error.xml: Unbreak build, sorry for the inconvenience.
+
+2008-09-29  Gabor Kelemen  <kelemeng@gnome.hu>
+
+	* calendar.error.xml: Mark some forgotten strings for translation. Fixes bug #553105
+
+2008-09-26  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #553297
+
+	* gui/e-day-view.c: (e_day_view_on_editing_stopped):
+	Do not try to access uninitialized variables.
+
+2008-09-25  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/e-itip-control.c:
+	* gui/e-itip-control.h:
+	* gui/itip-utils.c:
+	* gui/itip-utils.h:
+	* gui/main.c:
+
+2008-09-24  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/alarm-notify/config-data.c:
+	* gui/cal-search-bar.c:
+	* gui/calendar-component.c:
+	* gui/comp-util.c:
+	* gui/comp-util.h:
+	* gui/dialogs/cal-prefs-dialog.c:
+	* gui/dialogs/e-send-options-utils.c:
+	* gui/dialogs/event-page.c:
+	* gui/dialogs/memo-page.c:
+	* gui/dialogs/task-page.c:
+	* gui/e-cal-component-memo-preview.c:
+	* gui/e-cal-component-preview.c:
+	* gui/e-day-view-main-item.c:
+	* gui/e-day-view-top-item.c:
+	* gui/e-week-view-event-item.c:
+	* gui/e-week-view.h:
+	* gui/memos-component.c:
+	* gui/tasks-component.c:
+
+2008-09-24  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/dialogs/delete-comp.c:
+	* gui/e-alarm-list.c:
+
+2008-09-23  Milan Crha  <mcrha@redhat.com>
+
+	** Part of fix for bug #553273
+
+	* gui/alarm-notify/alarm-queue.c: (edit_component):
+	* gui/tasks-component.c: (delete_task_list_cb):
+	* gui/calendar-component.c: (delete_calendar_cb):
+	* gui/memos-component.c: (delete_memo_list_cb):
+	Always end e_error_run/e_error_new calls with NULL parameter.
+
+2008-09-19  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/alarm-notify/alarm-queue.c:
+	* gui/e-calendar-view.c:
+
+2008-09-16  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/alarm-notify/alarm.h:
+	* gui/comp-editor-factory.c:
+	* gui/dialogs/changed-comp.c:
+	* gui/dialogs/copy-source-dialog.c:
+	* gui/dialogs/delete-error.c:
+	* gui/e-cal-model-tasks.c:
+	* gui/e-cal-popup.c:
+	* gui/e-calendar-table.c:
+	* gui/e-memo-table.c:
+	* gui/e-timezone-entry.c:
+	* gui/print.c:
+	* gui/tasks-control.c:
+
+2008-09-14  Chenthill Palanisamy  <pchenthill@novell.com>
+
+	** Fix for bug #551628
+
+	* gui/e-cal-model.c: (e_cal_view_objects_modified_cb):
+	* gui/e-day-view.c: (update_row), (model_comps_deleted_cb):
+	* gui/e-week-view.c: (update_row): Remove old events from the 
+	view when objects are modified. 
+
+2008-09-12  Paul Bolle  <pebolle@tiscali.nl>
+
+	** Fix for bug #551895
+
+	* gui/dialogs/alarm-list-dialog.c: (edit_clicked_cb):
+	Copy paste error.
+
+2008-09-12  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* gui/alarm-notify/notify-main.c:
+	* gui/calendar-config-keys.h:
+	* gui/calendar-config.c:
+	* gui/calendar-config.h:
+	* gui/dialogs/cal-prefs-dialog.h:
+	* gui/dialogs/recur-comp.c:
+	* gui/e-meeting-store.c:
+	* gui/e-meeting-store.h:
+	* gui/e-meeting-time-sel.c:
+	* gui/e-meeting-time-sel.h:
+	* gui/migration.c:
+
+2008-09-09  Milan Crha  <mcrha@redhat.com>
+
+	** Fix for bug #551382
+
+	* gui/e-week-view.c: (model_comps_deleted_cb):
+	* gui/e-cal-model.c: (redo_queries):
+	Get rid of unused variables.
+	* gui/e-cal-model.c: (e_cal_view_objects_modified_cb):
+	Use result of g_list_prepend, thus report changes properly.
+
 2008-09-08  Chenthill Palanisamy  <pchenthill@novell.com>
 
 	Fixes #544187

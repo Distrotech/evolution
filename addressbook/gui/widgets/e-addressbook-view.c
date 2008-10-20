@@ -1,23 +1,24 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 /*
- * e-addressbook-view.c
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- * Author: Chris Lahey <clahey@ximian.com>
- *         Chris Toshok <toshok@ximian.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Chris Lahey <clahey@ximian.com>
+ *      Chris Toshok <toshok@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 #include <config.h>
@@ -1478,9 +1479,8 @@ generate_viewoption_menu (EABSearchBarItem *subitems)
                         if (subitems[i].image) {
                                 GtkWidget *image;
 
-                                image = gtk_image_new_from_icon_name (
-                                        subitems[i].image,
-                                        GTK_ICON_SIZE_MENU);
+                                image = gtk_image_new_from_file (
+                                        subitems[i].image);
                                 gtk_image_menu_item_set_image (
                                         GTK_IMAGE_MENU_ITEM (menu_item),
                                         image);

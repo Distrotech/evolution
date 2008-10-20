@@ -1,25 +1,24 @@
-/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
-
 /*
- * Authors :
- *  Damon Chaplin <damon@ximian.com>
- *  Rodrigo Moya <rodrigo@ximian.com>
- *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
- *
  * This program is free software; you can redistribute it and/or
- * modify it under the terms of version 2 of the GNU General Public
- * License as published by the Free Software Foundation.
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
- * USA
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>  
+ *
+ *
+ * Authors:
+ *		Damon Chaplin <damon@ximian.com>
+ *		Rodrigo Moya <rodrigo@ximian.com>
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
  */
 
 /*
@@ -1328,9 +1327,12 @@ e_calendar_table_on_open_task (EPopup *ep, EPopupItem *pitem, void *data)
 	icalproperty *prop;
 
 	comp_data = e_calendar_table_get_selected_comp (cal_table);
+
+	if (!comp_data)
+		return;
+
 	prop = icalcomponent_get_first_property (comp_data->icalcomp, ICAL_ATTENDEE_PROPERTY);
-	if (comp_data)
-		e_calendar_table_open_task (cal_table, comp_data->client, comp_data->icalcomp, prop ? TRUE : FALSE);
+	e_calendar_table_open_task (cal_table, comp_data->client, comp_data->icalcomp, prop ? TRUE : FALSE);
 }
 
 static void

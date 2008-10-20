@@ -1,3 +1,94 @@
+2008-10-17  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-cell-tree.c:
+	* e-cell-tree.h:
+
+2008-10-08  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-table-header-item.c:
+
+2008-10-06  Sankar P  <psankar@novell.com>
+
+	* Makefile.am:
+	* e-cell-float.c:
+	* e-cell-float.h:
+	Remove obsolete files
+
+2008-10-03  Sankar P  <psankar@novell.com>
+
+License Changes And:
+
+	* e-table-item.c (eti_event): remove obsolete check for
+	buttons 4/5 in 2BUTTON_PRESS; cf. gdk_event_translate /
+	_gdk_event_button_generate that turn this into a scroll
+	event these days.
+
+2008-10-03  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-table-item.c (eti_event):
+
+2008-10-03  Sankar P  <psankar@novell.com>
+
+	* e-cell-progress.c:
+	* e-cell-progress.h:
+	Removed obsolete files
+
+2008-10-03  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* table-test.c:
+	* test-table.c:
+
+2008-09-30  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-table.c:
+
+2008-09-29  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-cell-float.c:
+	* e-cell-float.h:
+	* e-table-col.c:
+
+2008-09-29  Srinivasa Ragavan  <sragavan@novell.com>
+
+	* Makefile.am: Delete unused files.
+	* e-cell-spin-button.c:
+	* e-cell-spin-button.h:
+
+2008-09-24  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-cell-text.c:
+
+2008-09-16  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-table-field-chooser-item.c:
+	* e-table-field-chooser.c:
+	* e-tree-selection-model.c:
+
+2008-09-12  Sankar P  <psankar@novell.com>
+
+License Changes
+
+	* e-table-scrolled.c:
+	* e-table-sorting-utils.c:
+	* e-tree-model.c:
+	* e-tree.c:
+
 2008-09-04  Sankar P  <psankar@novell.com>
 
 License Changes

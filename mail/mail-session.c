@@ -171,13 +171,15 @@ get_password (CamelSession *session, CamelService *service, const char *domain,
 	char *ret = NULL;
 	EAccount *account = NULL;
 
-	url = service?camel_url_to_string(service->url, CAMEL_URL_HIDE_ALL):NULL;
+        url = service?camel_url_to_string(service->url, CAMEL_URL_HIDE_ALL):NULL;
 
 	if (!strcmp(item, "popb4smtp_uri")) {
 		/* not 100% mt safe, but should be ok */
 		if (url
 		    && (account = mail_config_get_account_by_transport_url(url)))
 			ret = g_strdup(account->source->url);
+		else
+			ret = g_strdup(url);
 	} else {
 		char *key = make_key(service, item);
 		EAccountService *config_service = NULL;
@@ -286,19 +288,12 @@ struct _user_message_msg {
 
 static void user_message_exec (struct _user_message_msg *m);
 
-/* clicked, send back the reply */
 static void
-user_message_response (GtkDialog *dialog, int button, struct _user_message_msg *m)
+user_message_response_free (GtkDialog *dialog, int button, struct _user_message_msg *m)
 {
 	gtk_widget_destroy ((GtkWidget *) dialog);
 
 	user_message_dialog = NULL;
-
-	/* if !allow_cancel, then we've already replied */
-	if (m->allow_cancel) {
-		m->result = button == GTK_RESPONSE_OK;
-		e_flag_set (m->done);
-	}
 
 	/* check for pendings */
 	if (!g_queue_is_empty (&user_message_queue)) {
@@ -306,6 +301,19 @@ user_message_response (GtkDialog *dialog, int button, struct _user_message_msg *
 		user_message_exec (m);
 		mail_msg_unref (m);
 	}
+}
+
+/* clicked, send back the reply */
+static void
+user_message_response (GtkDialog *dialog, int button, struct _user_message_msg *m)
+{
+	/* if !allow_cancel, then we've already replied */
+	if (m->allow_cancel) {
+		m->result = button == GTK_RESPONSE_OK;
+		e_flag_set (m->done);
+	}
+
+	user_message_response_free (dialog, button, m);
 }
 
 static void
@@ -364,7 +372,7 @@ user_message_exec (struct _user_message_msg *m)
 	} else {
 		g_signal_connect (
 			user_message_dialog, "response",
-			G_CALLBACK (user_message_response), m);
+			G_CALLBACK (user_message_response_free), m);
 		g_object_set_data (
 			user_message_dialog, "response-handled",
 			GINT_TO_POINTER (TRUE));
@@ -375,8 +383,8 @@ user_message_exec (struct _user_message_msg *m)
 static void
 user_message_free (struct _user_message_msg *m)
 {
-	g_free(m->prompt);
-	e_flag_free(m->done);
+	g_free (m->prompt);
+	e_flag_free (m->done);
 }
 
 static MailMsgInfo user_message_info = {
