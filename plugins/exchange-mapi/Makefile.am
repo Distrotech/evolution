@@ -6,7 +6,7 @@ INCLUDES = -I .						\
 	-I$(top_builddir)/mail 				\
 	-DEVOLUTION_GLADEDIR=\""$(gladedir)"\" 		\
 	-DCONNECTOR_GLADEDIR=\""$(gladedir)"\" 		\
-	-DLIBAMPI_LDIF_DIR=\""$(libmapi_ldif_dir)"\"	\
+	-DLIBMAPI_LDIF_DIR=\""$(libmapi_ldif_dir)"\"	\
 	$(CAMEL_CFLAGS)					\
 	$(EVOLUTION_CALENDAR_CFLAGS) \
 	$(EVOLUTION_ADDRESSBOOK_CFLAGS) \
@@ -21,7 +21,9 @@ plugin_LTLIBRARIES = liborg-gnome-exchange-mapi.la
 
 liborg_gnome_exchange_mapi_la_SOURCES = 		\
 	exchange-mapi-account-setup.c			\
-	exchange-account-listener.c
+	exchange-mapi-account-setup.h			\
+	exchange-account-listener.c			\
+	exchange-account-listener.h
 
 liborg_gnome_exchange_mapi_la_LIBADD = 			\
 	$(top_builddir)/e-util/libeutil.la 			\

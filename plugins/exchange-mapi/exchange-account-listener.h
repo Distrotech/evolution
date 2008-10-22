@@ -23,11 +23,9 @@
 #ifndef EXCHANGE_ACCOUNT_LISTENER_H
 #define EXCHANGE_ACCOUNT_LISTENER_H
 
-#include <libedataserver/e-account-list.h>
-#include <libedataserver/e-source.h>
-#include <libedataserver/e-source-list.h>
-#include <camel/camel-url.h>
-                         
+#include <glib.h>
+#include <glib-object.h>
+
 G_BEGIN_DECLS
 
 #define EXCHANGE_TYPE_ACCOUNT_LISTENER            (exchange_account_listener_get_type ())
@@ -39,20 +37,21 @@ G_BEGIN_DECLS
 typedef struct _ExchangeAccountListener ExchangeAccountListener;
 typedef struct _ExchangeAccountListenerClass ExchangeAccountListenerClass;
 typedef struct _ExchangeAccountListenerPrivate ExchangeAccountListenerPrivate;
+
 struct _ExchangeAccountListener {
        GObject parent;
-                                                                                                                        
        ExchangeAccountListenerPrivate *priv;
 };
 
 struct _ExchangeAccountListenerClass {
-       GObjectClass parent_class;     
+       GObjectClass parent_class;
 };
 
-void 			exchange_account_listener_get_folder_list (void);
 GType                   exchange_account_listener_get_type (void);
 ExchangeAccountListener *exchange_account_listener_new (void);
-void                    exchange_account_listener_free_folder_list ();
+GSList 			*exchange_account_listener_peek_folder_list (void); 
+void 			exchange_account_listener_get_folder_list (void);
+void                    exchange_account_listener_free_folder_list (void);
 
 G_END_DECLS
 

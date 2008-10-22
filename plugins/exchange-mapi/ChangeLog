@@ -1,3 +1,22 @@
+2008-10-22  Suman Manjunath  <msuman@novell.com>
+
+	* Makefile.am:
+	* exchange-account-listener.c
+	(exchange_account_listener_class_init),
+	(exchange_account_listener_init),
+	(exchange_account_listener_peek_folder_list),
+	(exchange_account_listener_get_folder_list),
+	(exchange_account_listener_free_folder_list), (is_mapi_account),
+	(lookup_account_info), (add_addressbook_sources), (account_added),
+	(account_removed), (exchange_account_listener_construct):
+	* exchange-account-listener.h:
+	* exchange-mapi-account-setup.c (e_plugin_lib_enable),
+	(exchange_mapi_delete_profile), (exchange_mapi_create_profile),
+	(org_gnome_exchange_mapi_account_setup), (check_node),
+	(add_folders), (exchange_mapi_create), (exchange_mapi_book_commit):
+	* exchange-mapi-account-setup.h:
+	Loads of code cleanup, remove most compilation warnings. 
+
 2008-08-12  Suman Manjunath  <msuman@novell.com>
 
 	* exchange-mapi-account-setup.c (validate_credentials): 

@@ -25,14 +25,19 @@
 #include <config.h>
 #endif
 
-#include <exchange-account-listener.h>
+#include "exchange-account-listener.h"
+#include "exchange-mapi-account-setup.h"
 #include <string.h>
 #include <camel/camel-i18n.h>
 #include <libedataserverui/e-passwords.h>
 #include "e-util/e-error.h"
 #include <libedataserver/e-account.h>
 #include <libecal/e-cal.h>
-
+#include <libedataserver/e-account-list.h>
+#include <libedataserver/e-source.h>
+#include <libedataserver/e-source-list.h>
+#include <camel/camel-url.h>
+  
 #include <libmapi/libmapi.h>
 
 
@@ -48,23 +53,23 @@ LIMBAPI_CFLAGS or something is going wrong */
 
 #define d(x) x
 
-static 	GList *mapi_accounts = NULL;
-static	GSList *folders_list = NULL;
 struct _ExchangeAccountListenerPrivate {
 	GConfClient *gconf_client;
 	/* we get notification about mail account changes from this object */
-	EAccountList *account_list;                  
+	EAccountList *account_list;
 };
 
-/*stores some info about all currently existing mapi accounts 
-  list of ExchangeAccountInfo structures */
+typedef struct _ExchangeAccountInfo ExchangeAccountInfo;
+
+/* stores some info about all currently existing mapi accounts */
 struct _ExchangeAccountInfo {
 	char *uid;
 	char *name;
 	char *source_url;
 };
 
-typedef struct _ExchangeAccountInfo ExchangeAccountInfo;
+/* list of ExchangeAccountInfo structures */
+static 	GList *mapi_accounts = NULL;
 
 #define MAPI_URI_PREFIX   "mapi://" 
 #define MAPI_PREFIX_LENGTH 7
@@ -72,37 +77,6 @@ typedef struct _ExchangeAccountInfo ExchangeAccountInfo;
 #define PARENT_TYPE G_TYPE_OBJECT
 
 static GObjectClass *parent_class = NULL;
-
-static void dispose (GObject *object);
-static void finalize (GObject *object);
-
-void
-exchange_account_listener_get_folder_list (void)
-{
-	if (folders_list)
-		return;
-
-	folders_list = exchange_mapi_peek_folder_list ();
-}
-
-static void 
-exchange_account_listener_class_init (ExchangeAccountListenerClass *class)
-{
-	GObjectClass *object_class;
-	
-	parent_class =  g_type_class_ref (PARENT_TYPE);
-	object_class = G_OBJECT_CLASS (class);
-	
-	/* virtual method override */
-	object_class->dispose = dispose;
-	object_class->finalize = finalize;
-}
-
-static void 
-exchange_account_listener_init (ExchangeAccountListener *config_listener,  ExchangeAccountListenerClass *class)
-{
-	config_listener->priv = g_new0 (ExchangeAccountListenerPrivate, 1);	
-}
 
 static void 
 dispose (GObject *object)
@@ -143,13 +117,60 @@ finalize (GObject *object)
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
+static void 
+exchange_account_listener_class_init (ExchangeAccountListenerClass *class)
+{
+	GObjectClass *object_class;
+	
+	parent_class =  g_type_class_ref (PARENT_TYPE);
+	object_class = G_OBJECT_CLASS (class);
+	
+	/* virtual method override */
+	object_class->dispose = dispose;
+	object_class->finalize = finalize;
+}
+
+static void 
+exchange_account_listener_init (ExchangeAccountListener *config_listener,  ExchangeAccountListenerClass *class)
+{
+	config_listener->priv = g_new0 (ExchangeAccountListenerPrivate, 1);
+}
+
+
+static	GSList *folders_list = NULL;
+
+GSList *
+exchange_account_listener_peek_folder_list (void)
+{
+	if (!folders_list)
+		folders_list = exchange_mapi_peek_folder_list ();
+	
+	return folders_list;
+}
+
+void
+exchange_account_listener_get_folder_list (void)
+{
+	if (folders_list)
+		return;
+
+	folders_list = exchange_mapi_peek_folder_list ();
+}
+
+void
+exchange_account_listener_free_folder_list (void)
+{
+	exchange_mapi_folder_list_free ();
+	folders_list = NULL;
+}
+
 /*determines whehter the passed in account is exchange or not by looking at source url */
 
 static gboolean
 is_mapi_account (EAccount *account)
 {
 	if (account->source->url != NULL) {
-		return (strncmp (account->source->url,  MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH ) == 0);
+		return (strncmp (account->source->url, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH) == 0);
 	} else {
 		return FALSE;
 	}
@@ -161,15 +182,12 @@ static ExchangeAccountInfo*
 lookup_account_info (const char *key)
 {
 	GList *list;
-        ExchangeAccountInfo *info ;
+        ExchangeAccountInfo *info = NULL;
 	int found = 0;
-                                                                      
-        if (!key)
-                return NULL;
+        
+	g_return_val_if_fail (key != NULL, NULL); 
 
-	info = NULL;
-
-        for (list = g_list_first (mapi_accounts);  list;  list = g_list_next (list)) {
+        for (list = g_list_first (mapi_accounts); list; list = g_list_next (list)) {
                 info = (ExchangeAccountInfo *) (list->data);
                 found = (strcmp (info->uid, key) == 0);
 		if (found)
@@ -190,23 +208,6 @@ lookup_account_info (const char *key)
 #define SELECTED_JOURNALS 	"/apps/evolution/calendar/memos/selected_memos"
 
 #define ITIP_MESSAGE_HANDLING 	"/apps/evolution/itip/delete_processed"
-
-GSList *
-exchange_account_listener_peek_folder_list ()
-{
-	if (!folders_list)
-		folders_list = exchange_mapi_peek_folder_list ();
-	
-	return folders_list;
-}
-
-void
-exchange_account_listener_free_folder_list ()
-{
-	
-	exchange_mapi_folder_list_free ();
-	folders_list = NULL;
-}
 
 static void
 add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType folder_type, CamelURL *url)
@@ -494,9 +495,8 @@ add_addressbook_sources (EAccount *account, GSList *folders)
         ESourceGroup *group;
         ESource *source;
        	char *base_uri;
-	GSList *books_list, *temp_list;
+	GSList *temp_list;
 	GConfClient* client;
-	gboolean is_frequent_contacts = FALSE, is_writable = FALSE;
 
         url = camel_url_new (account->source->url, NULL);
 	if (url == NULL) {
@@ -648,9 +648,6 @@ static void
 account_added (EAccountList *account_listener, EAccount *account)
 {
 	ExchangeAccountInfo *info;
-	EAccount *parent;
-	gboolean status;
-	CamelURL *parent_url;
 	
 	d(printf("account added\n"));
 	if (!is_mapi_account (account))
@@ -695,7 +692,7 @@ account_removed (EAccountList *account_listener, EAccount *account)
 	mapi_accounts = g_list_remove (mapi_accounts, info);
         url = camel_url_new (info->source_url, NULL);
 	if (url != NULL) {
-		char *profile = camel_url_get_param (url, "profile");
+		const char *profile = camel_url_get_param (url, "profile");
 		exchange_mapi_delete_profile (profile);
 		camel_url_free (url);
 	}
@@ -831,7 +828,7 @@ exchange_account_listener_construct (ExchangeAccountListener *config_listener)
 			
 	}
 
-	printf ("\n\alistener is constructed \n\a");
+	printf ("MAPI listener is constructed \n");
 
 	g_signal_connect (config_listener->priv->account_list, "account_added", G_CALLBACK (account_added), NULL);
 	g_signal_connect (config_listener->priv->account_list, "account_changed", G_CALLBACK (account_changed), NULL);
@@ -841,7 +838,7 @@ exchange_account_listener_construct (ExchangeAccountListener *config_listener)
 GType
 exchange_account_listener_get_type (void)
 {
-	static GType exchange_account_listener_type  = 0;
+	static GType exchange_account_listener_type = 0;
 
 	if (!exchange_account_listener_type) {
 		static GTypeInfo info = {

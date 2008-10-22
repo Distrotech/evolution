@@ -41,6 +41,7 @@
 #include <libmapi/libmapi.h>
 #include "mail/em-account-editor.h"
 #include "mail/em-config.h"
+#include "exchange-mapi-account-setup.h"
 #include "exchange-account-listener.h"
 #include <addressbook/gui/widgets/eab-config.h>
 #include <calendar/gui/e-cal-config.h>
@@ -49,6 +50,8 @@
 #include <mapi/exchange-mapi-utils.h>
 
 #define d(x) x
+
+int e_plugin_lib_enable (EPluginLib *ep, int enable);
 
 /* Account Setup */
 GtkWidget *org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData *data);
@@ -85,7 +88,8 @@ free_mapi_listener ( void )
 int
 e_plugin_lib_enable (EPluginLib *ep, int enable)
 {
-	printf("Loading Exchange MAPI Plugin\n");
+	g_print ("Loading Exchange MAPI Plugin \n");
+
 	if (!config_listener) {
 		config_listener = exchange_account_listener_new ();	
 	 	g_atexit ( free_mapi_listener );
@@ -95,95 +99,86 @@ e_plugin_lib_enable (EPluginLib *ep, int enable)
 }
 
 gboolean
-exchange_mapi_delete_profile (char *profile)
+exchange_mapi_delete_profile (const char *profile)
 {
 	enum MAPISTATUS	retval;
-	gchar *profname = NULL, *profpath = NULL;
+	gboolean result = FALSE; 
+	gchar *profpath = NULL;
 
-	exchange_mapi_connection_close ();
-
-	profpath = g_build_filename (g_getenv("HOME"), DEFAULT_PROF_PATH, NULL);
+	profpath = g_build_filename (g_get_home_dir(), DEFAULT_PROF_PATH, NULL);
 	if (!g_file_test (profpath, G_FILE_TEST_EXISTS)) {
-		g_warning ("No need to delete profile. DB itself is missing\n");
-		return TRUE;
+		g_warning ("No need to delete profile. DB itself is missing \n");
+		result = TRUE;
+		goto cleanup; 
 	}
 
-	if (MAPIInitialize(profpath) != MAPI_E_SUCCESS){
-		retval = GetLastError();
+	retval = MAPIInitialize(profpath); 
+	if (retval == MAPI_E_SESSION_LIMIT)
+	/* do nothing, the profile store is already initialized */
+		; 
+	else if (retval != MAPI_E_SUCCESS) {
 		mapi_errstr("MAPIInitialize", GetLastError());
-
-		if (retval == MAPI_E_SESSION_LIMIT)
-			d(printf("%s(%d):%s:%s \n", __FILE__, __LINE__, __PRETTY_FUNCTION__, "Unable to init profile store"));
-
-		g_free(profpath);
-		exchange_mapi_connection_close ();
-		return FALSE;
+		goto cleanup; 
 	}
 
-	g_free(profpath);
-
-	if ((retval = DeleteProfile(profile)) != MAPI_E_SUCCESS) {
-		mapi_errstr("DeleteProfile: Unable to delete: ", GetLastError());
-		exchange_mapi_connection_close ();
-		return FALSE;
+	retval = DeleteProfile(profile); 
+	if (retval != MAPI_E_SUCCESS) {
+		mapi_errstr("DeleteProfile", GetLastError());
+		goto cleanup; 
 	}	
 
 	exchange_mapi_connection_close ();
+	result = TRUE; 
 
-	return TRUE;
+cleanup: 
+	g_free(profpath);
+
+	return result;
 }
 
 gboolean 
 exchange_mapi_create_profile(const char *username, const char *password, const char *domain, const char *server)
 {
 	enum MAPISTATUS	retval;
-	enum MAPISTATUS status;
-	gchar *workstation;
+	gboolean result = FALSE; 
+	const gchar *workstation = "localhost";
 	gchar *profname = NULL, *profpath = NULL;
 	struct mapi_session *session = NULL;
 
-	/* Drop Any previsous connection */
-	exchange_mapi_connection_close ();
 
-	d(printf("Create profile with %s %s (****) %s %s\n", username, password, domain, server));
-	workstation = "localhost";
-	profpath = g_build_filename (g_getenv("HOME"), DEFAULT_PROF_PATH, NULL);
-	if (!g_file_test (profpath, G_FILE_TEST_EXISTS)) {
-		/* Create MAPI Profile */
-		if (CreateProfileStore (profpath, LIBAMPI_LDIF_DIR) != MAPI_E_SUCCESS) {
-			g_warning ("Profile Database creation failed\n");
-			g_free (profpath);
-			return FALSE;
-		}
-	}
+	d(g_print ("Create profile with %s %s (****) %s %s\n", username, password, domain, server));
 
-	d(printf("profpath %s\n", profpath));
-	if (MAPIInitialize(profpath) != MAPI_E_SUCCESS){
-		status = GetLastError();
-		if (status == MAPI_E_SESSION_LIMIT){
-			d(printf("%s(%d):%s:%s \n", __FILE__, __LINE__, __PRETTY_FUNCTION__, "[exchange_mapi_plugin] Still connected"));
-			mapi_errstr("MAPIInitialize", GetLastError());
-		} else {
- 			g_free(profpath);
-  			return FALSE;
- 		}
-	}
-
-	d(printf("[exchange_mapi_plugin] Profile creation\n"));
-
+	profpath = g_build_filename (g_get_home_dir(), DEFAULT_PROF_PATH, NULL);
 	profname = g_strdup_printf("%s@%s", username, domain);
-	while(CreateProfile(profname, username, password, 0) == -1){
-		retval = GetLastError();
-		if(retval ==  MAPI_E_NO_ACCESS){
-			d(printf("The profile alderly exist !. Deleting it and will recreate\n"));
-			if (DeleteProfile(profname) == -1) {
-				retval = GetLastError();
-				mapi_errstr("[exchange_mapi_plugin] DeleteProfile() ", retval);
-				return FALSE;
-			}
+
+	if (!g_file_test (profpath, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)) {
+		/* Create a ProfileStore */
+		retval = CreateProfileStore (profpath, LIBMAPI_LDIF_DIR); 
+		if (retval != MAPI_E_SUCCESS) {
+			mapi_errstr("CreateProfileStore", GetLastError());
+			goto cleanup; 
 		}
 	}
-	
+
+	retval = MAPIInitialize(profpath); 
+	if (retval == MAPI_E_SESSION_LIMIT)
+	/* do nothing, the profile store is already initialized */
+		mapi_errstr("MAPIInitialize", GetLastError()); 
+	else if (retval != MAPI_E_SUCCESS) {
+		mapi_errstr("MAPIInitialize", GetLastError());
+		goto cleanup; 
+	}
+
+	/* Delete any existing profiles with the same profilename */
+	retval = DeleteProfile(profname); 
+	/* don't bother to check error - it would be valid if we got an error */
+
+	retval = CreateProfile(profname, username, password, 0); 
+	if (retval != MAPI_E_SUCCESS) {
+		mapi_errstr("CreateProfile", GetLastError());
+		goto cleanup; 
+	}
+
 	mapi_profile_add_string_attr(profname, "binding", server);
 	mapi_profile_add_string_attr(profname, "workstation", workstation);
 	mapi_profile_add_string_attr(profname, "domain", domain);
@@ -193,63 +188,43 @@ exchange_mapi_create_profile(const char *username, const char *password, const c
 	mapi_profile_add_string_attr(profname, "language", "0x40c");
 	mapi_profile_add_string_attr(profname, "method", "0x409");
 	
-	
 	/* Login now */
-	d(printf("Logging into the server\n"));
-	if (MapiLogonProvider(&session, profname, NULL, PROVIDER_ID_NSPI) == -1){
-		retval = GetLastError();
-		mapi_errstr("[exchange_mapi_plugin] Error ", retval);
-		if (retval == MAPI_E_NETWORK_ERROR){
-			g_warning ("MAPI Login: Network error\n");
-			return FALSE;
-		}
-		if (retval == MAPI_E_LOGON_FAILED){
-			g_warning ("MAPI Login: LOGIN Failed\n");
-			return FALSE;
-		}
-		g_warning ("MAPI Login: Generic error\n");
-		return FALSE;
+	d(printf("Logging into the server \n"));
+	retval = MapiLogonProvider(&session, profname, NULL, PROVIDER_ID_NSPI); 
+	if (retval != MAPI_E_SUCCESS) {
+		mapi_errstr("MapiLogonProvider", GetLastError());
+		goto cleanup; 
+	}
+	d(printf("Login succeeded: Yeh \n"));
+
+	retval = ProcessNetworkProfile(session, username, NULL, NULL); 
+	if (retval != MAPI_E_SUCCESS) {
+		mapi_errstr("ProcessNetworkProfile", GetLastError());
+		goto cleanup; 
 	}
 
+	/* Set it as the default profile. Is this needed? */
+	retval = SetDefaultProfile(profname); 
+	if (retval != MAPI_E_SUCCESS) {
+		mapi_errstr("SetDefaultProfile", GetLastError());
+		goto cleanup; 
+	}
 
-	
-	d(printf("Login succeeded: Yeh\n"));
-	if (ProcessNetworkProfile(session, username, NULL, NULL) == -1){
-		retval = GetLastError();
-		mapi_errstr("[exchange_mapi_plugin] : ProcessNetworkProfile", retval);
-		if (retval != MAPI_E_SUCCESS && retval != 0x1){
-			mapi_errstr("[exchange_mapi_plugin] ProcessNetworkProfile() ", retval);
-			if (retval == MAPI_E_NOT_FOUND){
-				g_warning ("Bad user\n");
-			}
-			if (DeleteProfile(profname) == -1){
-				retval = GetLastError();
-				mapi_errstr("[exchange_mapi_plugin] DeleteProfile() ", retval);
-			}
-			return FALSE;
-		}
-	}
-	
-	if ((retval = SetDefaultProfile(profname)) != MAPI_E_SUCCESS){
-		mapi_errstr("[exchange_mapi_plugin] SetDefaultProfile() ", GetLastError());
-		return FALSE;
-	}
-	
 	/* Close the connection, so that we can login with what we created */
 	exchange_mapi_connection_close ();
+
+	/* Initialize a global connection */
+	//FIXME: Dont get the password from profile
+	if (exchange_mapi_connection_new (profname, password)) {
+		result = TRUE;
+		exchange_account_listener_get_folder_list ();
+	}
+
+cleanup: 
+	g_free (profname);
 	g_free (profpath);
 
-	/*Initialize a global connection */
-	//FIXME: Dont get the password from profile
-	if (!exchange_mapi_connection_new(profname, NULL))
-			return FALSE;
-
-	g_free (profname);
-
-	exchange_account_listener_get_folder_list ();
-
 	return TRUE;
-  
 }
 
 static void
@@ -358,23 +333,20 @@ org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData 
 	const char *source_url;
 	GtkWidget *hbox = NULL;
 
-	GtkWidget *label;
-	GtkWidget *domain_name;
-	GtkWidget *auth_button;
-	char *domain;
-
-	int row = 0;
-
 	target_account = (EMConfigTargetAccount *)data->config->target;
 	source_url = e_account_get_string(target_account->account, E_ACCOUNT_SOURCE_URL);
 	url = camel_url_new(source_url, NULL);
-	
+
 	if (url == NULL)
 		return NULL;
-	
+
 	if (!g_ascii_strcasecmp (url->protocol, "mapi")) {
 		d(printf("%s(%d):%s:Creating Widgets for MAPI Setup \n", __FILE__, __LINE__, __PRETTY_FUNCTION__);)
-		row = ((GtkTable *)data->parent)->nrows;		
+		GtkWidget *label;
+		GtkWidget *domain_name;
+		GtkWidget *auth_button;
+		const char *domain;
+		int row = ((GtkTable *)data->parent)->nrows;		
 
 		/* Domain name & Authenticate Button*/
 		hbox = gtk_hbox_new (FALSE, 6);
@@ -385,7 +357,7 @@ org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData 
 		gtk_label_set_mnemonic_widget (GTK_LABEL (label), domain_name);
 		gtk_box_pack_start (GTK_BOX (hbox), domain_name, FALSE, FALSE, 0);
 		g_signal_connect (domain_name, "changed", G_CALLBACK(domain_entry_changed), data->config);
-		
+
 		auth_button = gtk_button_new_with_mnemonic (_("_Authenticate"));
 		gtk_box_pack_start (GTK_BOX (hbox), auth_button, FALSE, FALSE, 0);
 
@@ -429,7 +401,7 @@ org_gnome_exchange_mapi_check_options(EPlugin *epl, EConfigHookPageCheckData *da
 		
 		if (url)
 			camel_url_free(url);
-		
+
 	} else
 		return TRUE;
 	
@@ -449,7 +421,6 @@ check_node (GtkTreeStore *ts, ExchangeMAPIFolder *folder, GtkTreeIter *iter)
 {
 	mapi_id_t fid;
 	gboolean status = FALSE;
-	GtkTreeIter parent;
 	
 	gtk_tree_model_get (GTK_TREE_MODEL (ts), iter, 1, &fid, -1);
 	if (fid && folder->parent_folder_id == fid) {
@@ -469,7 +440,7 @@ check_node (GtkTreeStore *ts, ExchangeMAPIFolder *folder, GtkTreeIter *iter)
 	while (gtk_tree_model_iter_next (ts, iter) && !status) {
 		status = check_node (ts, folder, iter);
 	}
-	
+
 	return status;
 }
 
@@ -493,7 +464,6 @@ add_folders (GSList *folders, GtkTreeStore *ts)
 	GSList *tmp = folders;
 	GtkTreeIter iter;
 	char *node = _("Personal Folders");
-	mapi_id_t last = 0;
 	
 	gtk_tree_store_append (ts, &iter, NULL);
 	gtk_tree_store_set (ts, &iter, 0, node, -1);
@@ -533,11 +503,8 @@ exchange_mapi_create (EPlugin *epl, EConfigHookItemFactoryData *data)
 	GtkCellRenderer *rcell;
 	GtkTreeStore *ts;
 	GtkTreeViewColumn *tvc;
-	GtkListStore *model;
-	char *acc;
+	const char *acc;
 	GSList *folders = exchange_account_listener_peek_folder_list ();
-	int type;
-	GtkWidget *parent;
 
 	uri_text = e_source_get_uri (source);
 	if (uri_text && g_ascii_strncasecmp (uri_text, "mapi", 4)) {
@@ -618,7 +585,8 @@ exchange_mapi_book_commit (EPlugin *epl, EConfigTarget *target)
 {
 	EABConfigTargetSource *t = (EABConfigTargetSource *) target;
 	ESource *source = t->source;
-	char *uri_text, *sfid, *tmp;
+	char *uri_text, *tmp;
+	const char *sfid; 
 	mapi_id_t fid, pfid;
 	ESourceGroup *grp;
 	
