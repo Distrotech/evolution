@@ -42,7 +42,7 @@
 #include "mail/em-account-editor.h"
 #include "mail/em-config.h"
 #include "exchange-mapi-account-setup.h"
-#include "exchange-account-listener.h"
+#include "exchange-mapi-account-listener.h"
 #include <addressbook/gui/widgets/eab-config.h>
 #include <calendar/gui/e-cal-config.h>
 #include <mapi/exchange-mapi-folder.h>
@@ -70,14 +70,7 @@ gboolean exchange_mapi_cal_check (EPlugin *epl, EConfigHookPageCheckData *data);
 void exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target);
 
 
-#define DEFAULT_PROF_PATH ".evolution/mapi-profiles.ldb"
-
-/* This definition should be in-sync with those in exchange-account-listener.c and camel-mapi-store.c */
-#define E_PASSWORD_COMPONENT "ExchangeMAPI"
-
-static void  validate_credentials (GtkWidget *widget, EConfig *config);
-
-static ExchangeAccountListener *config_listener = NULL;
+static ExchangeMAPIAccountListener *config_listener = NULL;
 
 static void 
 free_mapi_listener ( void )
@@ -88,10 +81,10 @@ free_mapi_listener ( void )
 int
 e_plugin_lib_enable (EPluginLib *ep, int enable)
 {
-	g_print ("Loading Exchange MAPI Plugin \n");
+	g_debug ("Loading Exchange MAPI Plugin \n");
 
 	if (!config_listener) {
-		config_listener = exchange_account_listener_new ();	
+		config_listener = exchange_mapi_account_listener_new ();
 	 	g_atexit ( free_mapi_listener );
 	}
 
@@ -121,11 +114,12 @@ exchange_mapi_delete_profile (const char *profile)
 		goto cleanup; 
 	}
 
+	g_debug ("Deleting profile %s ", profile); 
 	retval = DeleteProfile(profile); 
 	if (retval != MAPI_E_SUCCESS) {
 		mapi_errstr("DeleteProfile", GetLastError());
 		goto cleanup; 
-	}	
+	}
 
 	exchange_mapi_connection_close ();
 	result = TRUE; 
@@ -144,7 +138,6 @@ exchange_mapi_create_profile(const char *username, const char *password, const c
 	const gchar *workstation = "localhost";
 	gchar *profname = NULL, *profpath = NULL;
 	struct mapi_session *session = NULL;
-
 
 	d(g_print ("Create profile with %s %s (****) %s %s\n", username, password, domain, server));
 
@@ -189,13 +182,17 @@ exchange_mapi_create_profile(const char *username, const char *password, const c
 	mapi_profile_add_string_attr(profname, "method", "0x409");
 	
 	/* Login now */
-	d(printf("Logging into the server \n"));
+	d(g_print("Logging into the server... "));
 	retval = MapiLogonProvider(&session, profname, NULL, PROVIDER_ID_NSPI); 
 	if (retval != MAPI_E_SUCCESS) {
 		mapi_errstr("MapiLogonProvider", GetLastError());
+		g_debug ("Deleting profile %s ", profname); 
+		retval = DeleteProfile(profname); 
+		if (retval != MAPI_E_SUCCESS)
+			mapi_errstr("DeleteProfile", GetLastError());
 		goto cleanup; 
 	}
-	d(printf("Login succeeded: Yeh \n"));
+	d(g_print("succeeded \n"));
 
 	retval = ProcessNetworkProfile(session, username, NULL, NULL); 
 	if (retval != MAPI_E_SUCCESS) {
@@ -214,141 +211,110 @@ exchange_mapi_create_profile(const char *username, const char *password, const c
 	exchange_mapi_connection_close ();
 
 	/* Initialize a global connection */
-	//FIXME: Dont get the password from profile
 	if (exchange_mapi_connection_new (profname, password)) {
 		result = TRUE;
-		exchange_account_listener_get_folder_list ();
+		exchange_mapi_account_listener_get_folder_list ();
 	}
 
 cleanup: 
+	if (!result)
+		MAPIUninitialize ();
+
 	g_free (profname);
 	g_free (profpath);
 
-	return TRUE;
+	return result;
 }
+
 
 static void
 validate_credentials (GtkWidget *widget, EConfig *config)
 {
-	EMConfigTargetAccount *target_account = (EMConfigTargetAccount *)config->target;
-	const gchar *source_url = NULL;
+	EMConfigTargetAccount *target_account = (EMConfigTargetAccount *)(config->target);
 	CamelURL *url = NULL;
- 	gchar *key = NULL;
- 	gchar *password = NULL;
- 	const gchar *domain_name = NULL;
- 	const gchar *id_name = NULL;
- 	gchar *at = NULL;
- 	gchar *user = NULL;
-	gboolean status;
+ 	gchar *key = NULL, *password = NULL;
 
-	source_url = e_account_get_string (target_account->account, E_ACCOUNT_SOURCE_URL);
-
-	url = camel_url_new(source_url, NULL);
-	if (url && url->user == NULL) {
-		id_name = e_account_get_string (target_account->account, E_ACCOUNT_ID_ADDRESS);
-		if (id_name && *id_name) {
-			at = strchr(id_name, '@');
-			user = g_alloca(at-id_name+1);
-			memcpy(user, id_name, at-id_name);
-			user[at-id_name] = 0; 
-			camel_url_set_user (url, user);
-			g_free (user);
-			user = NULL;
-		}
-	}
-
-	domain_name = camel_url_get_param (url, "domain");
-	
+	url = camel_url_new (e_account_get_string (target_account->account, E_ACCOUNT_SOURCE_URL), NULL);
 	key = camel_url_to_string (url, CAMEL_URL_HIDE_PASSWORD | CAMEL_URL_HIDE_PARAMS);
-	password = e_passwords_get_password (E_PASSWORD_COMPONENT, key);
+	password = e_passwords_get_password (EXCHANGE_MAPI_PASSWORD_COMPONENT, key);
 	if (!password) {
 		gboolean remember = FALSE;
 		gchar *title;
-		
+
 		title = g_strdup_printf (_("Enter Password for %s"), url->user);
-		password = e_passwords_ask_password (title, E_PASSWORD_COMPONENT, key, title,
+		password = e_passwords_ask_password (title, EXCHANGE_MAPI_PASSWORD_COMPONENT, key, title,
 						     E_PASSWORDS_REMEMBER_FOREVER|E_PASSWORDS_SECRET,
 						     &remember, NULL);
 		g_free (title);
-
-		if (!password) {
-			g_free (key);
-			camel_url_free (url);
-			return;
-		}
-	} 
-	/* Yah, we have the username, password, domain and server. Lets create everything. */
-
-	status = exchange_mapi_create_profile (url->user, password, domain_name, url->host);
-
-	if (status) {
-		/* Things are successful.*/
-		char *profname = g_strdup_printf("%s@%s", url->user, domain_name);
-		char *uri;
-		
-		camel_url_set_param(url, "profile", profname);
-		uri = camel_url_to_string(url, 0);
-		e_account_set_string(target_account->account, E_ACCOUNT_SOURCE_URL, uri);
-
-		g_free (uri);
-		g_free (profname);
-	} else {
-		e_passwords_forget_password (E_PASSWORD_COMPONENT, key);
 	}
 
-	g_free (key);
+	if (password) {
+		const gchar *domain_name = camel_url_get_param (url, "domain");
+		gboolean status = exchange_mapi_create_profile (url->user, password, domain_name, url->host);
+		if (status) {
+			/* Things are successful */
+			gchar *profname = NULL, *uri = NULL; 
+
+			profname = g_strdup_printf("%s@%s", url->user, domain_name);
+			camel_url_set_param(url, "profile", profname);
+			g_free (profname);
+
+			uri = camel_url_to_string(url, 0);
+			e_account_set_string(target_account->account, E_ACCOUNT_SOURCE_URL, uri);
+			g_free (uri);
+		} else {
+			e_passwords_forget_password (EXCHANGE_MAPI_PASSWORD_COMPONENT, key);
+			/* FIXME: Run an error dialog here */
+		}
+	}
+
 	g_free (password);
+	g_free (key);
 	camel_url_free (url);
 }
 
 static void
 domain_entry_changed(GtkWidget *entry, EConfig *config)
 {
-	const char *domain = NULL;
+	EMConfigTargetAccount *target = (EMConfigTargetAccount *)(config->target);
 	CamelURL *url = NULL;
-	char *url_string;
-	EMConfigTargetAccount *target = (EMConfigTargetAccount *)config->target;
+	const char *domain = NULL;
+	char *url_string = NULL;
 
-	url = camel_url_new(e_account_get_string(target->account, E_ACCOUNT_SOURCE_URL), NULL);
+	url = camel_url_new (e_account_get_string(target->account, E_ACCOUNT_SOURCE_URL), NULL);
+	domain = gtk_entry_get_text (GTK_ENTRY(entry));
 
-	domain = gtk_entry_get_text((GtkEntry *)entry);
 	if (domain && domain[0])
-		camel_url_set_param(url, "domain", domain);
+		camel_url_set_param (url, "domain", domain);
 	else
-		camel_url_set_param(url, "domain", NULL);
+		camel_url_set_param (url, "domain", NULL);
 
-	url_string = camel_url_to_string(url, 0);
-	e_account_set_string(target->account, E_ACCOUNT_SOURCE_URL, url_string);
+	url_string = camel_url_to_string (url, 0);
+	e_account_set_string (target->account, E_ACCOUNT_SOURCE_URL, url_string);
+	g_free (url_string);
 
-	g_free(url_string);
 	camel_url_free (url);
 }
-
 
 GtkWidget *
 org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData *data)
 {
 	EMConfigTargetAccount *target_account;
 	CamelURL *url;
-	const char *source_url;
 	GtkWidget *hbox = NULL;
 
 	target_account = (EMConfigTargetAccount *)data->config->target;
-	source_url = e_account_get_string(target_account->account, E_ACCOUNT_SOURCE_URL);
-	url = camel_url_new(source_url, NULL);
+	url = camel_url_new(e_account_get_string(target_account->account, E_ACCOUNT_SOURCE_URL), NULL);
 
-	if (url == NULL)
-		return NULL;
+	g_return_val_if_fail (url != NULL, NULL); 
 
 	if (!g_ascii_strcasecmp (url->protocol, "mapi")) {
-		d(printf("%s(%d):%s:Creating Widgets for MAPI Setup \n", __FILE__, __LINE__, __PRETTY_FUNCTION__);)
 		GtkWidget *label;
 		GtkWidget *domain_name;
 		GtkWidget *auth_button;
-		const char *domain;
-		int row = ((GtkTable *)data->parent)->nrows;		
+		int row = ((GtkTable *)data->parent)->nrows;
 
-		/* Domain name & Authenticate Button*/
+		/* Domain name & Authenticate Button */
 		hbox = gtk_hbox_new (FALSE, 6);
 		label = gtk_label_new_with_mnemonic (_("_Domain name:"));
 		gtk_widget_show (label);
@@ -360,19 +326,12 @@ org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData 
 
 		auth_button = gtk_button_new_with_mnemonic (_("_Authenticate"));
 		gtk_box_pack_start (GTK_BOX (hbox), auth_button, FALSE, FALSE, 0);
+		g_signal_connect(GTK_OBJECT(auth_button), "clicked",  G_CALLBACK(validate_credentials), data->config);
 
 		gtk_table_attach (GTK_TABLE (data->parent), label, 0, 1, row, row+1, 0, 0, 0, 0);
 		gtk_widget_show_all (GTK_WIDGET (hbox));
 		gtk_table_attach (GTK_TABLE (data->parent), GTK_WIDGET (hbox), 1, 2, row, row+1, GTK_FILL|GTK_EXPAND, GTK_FILL, 0, 0); 
-
-		gtk_signal_connect(GTK_OBJECT(auth_button), "clicked",  GTK_SIGNAL_FUNC(validate_credentials), data->config);
-
-		domain = camel_url_get_param (url, "domain");
-		if (domain)
-			gtk_entry_set_text (domain_name, domain);
 	}
-
-	d(printf("%s(%d):%s:Called for URL->Protocol : %s \n", __FILE__, __LINE__, __PRETTY_FUNCTION__, url->protocol);)
 
 	camel_url_free (url);
 	return GTK_WIDGET (hbox);
@@ -381,14 +340,12 @@ org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData 
 gboolean
 org_gnome_exchange_mapi_check_options(EPlugin *epl, EConfigHookPageCheckData *data)
 {
-	EMConfigTargetAccount *target = (EMConfigTargetAccount *)data->config->target;
-	int status = FALSE;
+	EMConfigTargetAccount *target = (EMConfigTargetAccount *)(data->config->target);
+	gboolean status = FALSE;
 
-	if (data->pageid != NULL && g_strcasecmp (data->pageid, "10.receive") == 0) {
-		CamelURL *url = NULL;
-
-		url = camel_url_new (e_account_get_string(target->account,  E_ACCOUNT_SOURCE_URL), NULL);
-		if (url && url->protocol && !g_ascii_strcasecmp (url->protocol, "mapi")) {
+	if (data->pageid != NULL && g_ascii_strcasecmp (data->pageid, "10.receive") == 0) {
+		CamelURL *url = camel_url_new (e_account_get_string(target->account,  E_ACCOUNT_SOURCE_URL), NULL);
+		if (url && url->protocol && g_ascii_strcasecmp (url->protocol, "mapi") == 0) {
 			const gchar *prof = NULL;
 
 			/* We assume that if the profile is set, then the setting is valid. */
@@ -396,15 +353,14 @@ org_gnome_exchange_mapi_check_options(EPlugin *epl, EConfigHookPageCheckData *da
 
 			if (prof && *prof)
 				status = TRUE;
-		} else
-			status = TRUE;
-		
+		}
 		if (url)
 			camel_url_free(url);
+	}
 
-	} else
-		return TRUE;
-	
+	/* FIXME: don't know why we should always return TRUE */
+	return TRUE;
+
 	return status;
 }
 
@@ -469,7 +425,7 @@ add_folders (GSList *folders, GtkTreeStore *ts)
 	gtk_tree_store_set (ts, &iter, 0, node, -1);
 	while (tmp) {
 		ExchangeMAPIFolder *folder = tmp->data;
-		printf("%s\n", folder->folder_name);
+		g_print("%s\n", folder->folder_name);
 		add_to_store (ts, folder);
 		tmp = tmp->next;
 	}
@@ -504,7 +460,7 @@ exchange_mapi_create (EPlugin *epl, EConfigHookItemFactoryData *data)
 	GtkTreeStore *ts;
 	GtkTreeViewColumn *tvc;
 	const char *acc;
-	GSList *folders = exchange_account_listener_peek_folder_list ();
+	GSList *folders = exchange_mapi_account_listener_peek_folder_list ();
 
 	uri_text = e_source_get_uri (source);
 	if (uri_text && g_ascii_strncasecmp (uri_text, "mapi", 4)) {
@@ -591,7 +547,7 @@ exchange_mapi_book_commit (EPlugin *epl, EConfigTarget *target)
 	ESourceGroup *grp;
 	
 	uri_text = e_source_get_uri (source);
-	if (uri_text && g_ascii_strncasecmp (uri_text, "mapi", 4))
+	if (uri_text && g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH))
 		return;
 	
 	//FIXME: Offline handling
@@ -599,10 +555,10 @@ exchange_mapi_book_commit (EPlugin *epl, EConfigTarget *target)
 	exchange_mapi_util_mapi_id_from_string (sfid, &pfid);
 
 	fid = exchange_mapi_create_folder (olFolderContacts, pfid, e_source_peek_name (source));
-	printf("Created %016llX\n", fid);
+	g_print("Created %016llX\n", fid);
 	grp = e_source_peek_group (source);
 	e_source_set_property (source, "auth", "plain/password");
-	e_source_set_property (source, "auth-domain", E_PASSWORD_COMPONENT);
+	e_source_set_property (source, "auth-domain", EXCHANGE_MAPI_PASSWORD_COMPONENT);
 	e_source_set_property(source, "user", e_source_group_get_property (grp, "user"));
 	e_source_set_property(source, "host", e_source_group_get_property (grp, "host"));
 	e_source_set_property(source, "profile", e_source_group_get_property (grp, "profile"));
@@ -627,7 +583,7 @@ exchange_mapi_cal_check (EPlugin *epl, EConfigHookPageCheckData *data)
 	ESource *source = t->source;
 	char *uri_text = e_source_get_uri (source);
 
-	if (!uri_text || g_ascii_strncasecmp (uri_text, "mapi://", 7))
+	if (!uri_text || g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH))
 		return FALSE;
 	g_free (uri_text);
 
@@ -651,7 +607,7 @@ exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 	uint32_t type;
 	char *uri_text = e_source_get_uri (source);
 
-	if (!uri_text || g_ascii_strncasecmp (uri_text, "mapi://", 7))
+	if (!uri_text || g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH))
 		return;
 	g_free (uri_text);
 
@@ -683,7 +639,7 @@ exchange_mapi_cal_commit (EPlugin *epl, EConfigTarget *target)
 	g_free (sfid);
 
 	e_source_set_property (source, "auth", "1");
-	e_source_set_property (source, "auth-domain", E_PASSWORD_COMPONENT);
+	e_source_set_property (source, "auth-domain", EXCHANGE_MAPI_PASSWORD_COMPONENT);
 	e_source_set_property (source, "auth-type", "plain/password");
 
 	group = e_source_peek_group (source);

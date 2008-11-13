@@ -25,7 +25,7 @@
 #include <config.h>
 #endif
 
-#include "exchange-account-listener.h"
+#include "exchange-mapi-account-listener.h"
 #include "exchange-mapi-account-setup.h"
 #include <string.h>
 #include <camel/camel-i18n.h>
@@ -48,31 +48,25 @@ LIMBAPI_CFLAGS or something is going wrong */
 #include <mapi/exchange-mapi-connection.h>
 #include <mapi/exchange-mapi-utils.h>
 
-/* This definition should be in-sync with those in exchange-mapi-account-setup.c and camel-mapi-store.c */
-#define E_PASSWORD_COMPONENT "ExchangeMAPI"
-
 #define d(x) x
 
-struct _ExchangeAccountListenerPrivate {
+struct _ExchangeMAPIAccountListenerPrivate {
 	GConfClient *gconf_client;
 	/* we get notification about mail account changes from this object */
 	EAccountList *account_list;
 };
 
-typedef struct _ExchangeAccountInfo ExchangeAccountInfo;
+typedef struct _ExchangeMAPIAccountInfo ExchangeMAPIAccountInfo;
 
 /* stores some info about all currently existing mapi accounts */
-struct _ExchangeAccountInfo {
+struct _ExchangeMAPIAccountInfo {
 	char *uid;
 	char *name;
 	char *source_url;
 };
 
-/* list of ExchangeAccountInfo structures */
+/* list of ExchangeMAPIAccountInfo structures */
 static 	GList *mapi_accounts = NULL;
-
-#define MAPI_URI_PREFIX   "mapi://" 
-#define MAPI_PREFIX_LENGTH 7
 
 #define PARENT_TYPE G_TYPE_OBJECT
 
@@ -81,7 +75,7 @@ static GObjectClass *parent_class = NULL;
 static void 
 dispose (GObject *object)
 {
-	ExchangeAccountListener *config_listener = EXCHANGE_ACCOUNT_LISTENER (object);
+	ExchangeMAPIAccountListener *config_listener = EXCHANGE_MAPI_ACCOUNT_LISTENER (object);
 	
 	g_object_unref (config_listener->priv->gconf_client);
 	g_object_unref (config_listener->priv->account_list);
@@ -92,18 +86,15 @@ dispose (GObject *object)
 static void 
 finalize (GObject *object)
 {
-	ExchangeAccountListener *config_listener = EXCHANGE_ACCOUNT_LISTENER (object);
+	ExchangeMAPIAccountListener *config_listener = EXCHANGE_MAPI_ACCOUNT_LISTENER (object);
 	GList *list;
-	ExchangeAccountInfo *info;
 
 	if (config_listener->priv) {
 		g_free (config_listener->priv);
 	}
 
 	for (list = g_list_first (mapi_accounts); list ; list = g_list_next (list)) {
-	       
-		info = (ExchangeAccountInfo *) (list->data);
-
+		ExchangeMAPIAccountInfo *info = (ExchangeMAPIAccountInfo *)(list->data);
 		if (info) {
 			g_free (info->uid);
 			g_free (info->name);
@@ -118,7 +109,7 @@ finalize (GObject *object)
 }
 
 static void 
-exchange_account_listener_class_init (ExchangeAccountListenerClass *class)
+exchange_mapi_account_listener_class_init (ExchangeMAPIAccountListenerClass *class)
 {
 	GObjectClass *object_class;
 	
@@ -131,16 +122,16 @@ exchange_account_listener_class_init (ExchangeAccountListenerClass *class)
 }
 
 static void 
-exchange_account_listener_init (ExchangeAccountListener *config_listener,  ExchangeAccountListenerClass *class)
+exchange_mapi_account_listener_init (ExchangeMAPIAccountListener *config_listener,  ExchangeMAPIAccountListenerClass *class)
 {
-	config_listener->priv = g_new0 (ExchangeAccountListenerPrivate, 1);
+	config_listener->priv = g_new0 (ExchangeMAPIAccountListenerPrivate, 1);
 }
 
 
 static	GSList *folders_list = NULL;
 
 GSList *
-exchange_account_listener_peek_folder_list (void)
+exchange_mapi_account_listener_peek_folder_list (void)
 {
 	if (!folders_list)
 		folders_list = exchange_mapi_peek_folder_list ();
@@ -149,7 +140,7 @@ exchange_account_listener_peek_folder_list (void)
 }
 
 void
-exchange_account_listener_get_folder_list (void)
+exchange_mapi_account_listener_get_folder_list (void)
 {
 	if (folders_list)
 		return;
@@ -158,7 +149,7 @@ exchange_account_listener_get_folder_list (void)
 }
 
 void
-exchange_account_listener_free_folder_list (void)
+exchange_mapi_account_listener_free_folder_list (void)
 {
 	exchange_mapi_folder_list_free ();
 	folders_list = NULL;
@@ -169,33 +160,23 @@ exchange_account_listener_free_folder_list (void)
 static gboolean
 is_mapi_account (EAccount *account)
 {
-	if (account->source->url != NULL) {
-		return (strncmp (account->source->url, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH) == 0);
-	} else {
-		return FALSE;
-	}
+	return (account->source->url && (g_ascii_strncasecmp (account->source->url, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH) == 0));
 }
 
 /* looks up for an existing exchange account info in the mapi_accounts list based on uid */
 
-static ExchangeAccountInfo* 
+static ExchangeMAPIAccountInfo* 
 lookup_account_info (const char *key)
 {
 	GList *list;
-        ExchangeAccountInfo *info = NULL;
-	int found = 0;
-        
+
 	g_return_val_if_fail (key != NULL, NULL); 
 
         for (list = g_list_first (mapi_accounts); list; list = g_list_next (list)) {
-                info = (ExchangeAccountInfo *) (list->data);
-                found = (strcmp (info->uid, key) == 0);
-		if (found)
-			break;
+                ExchangeMAPIAccountInfo *info = (ExchangeMAPIAccountInfo *)(list->data);
+                if (g_ascii_strcasecmp (info->uid, key) == 0)
+			return info; 
 	}
-
-	if (found)
-		return info;
 
 	return NULL;
 }
@@ -264,7 +245,7 @@ add_cal_esource (EAccount *account, GSList *folders, ExchangeMAPIFolderType fold
 		relative_uri = g_strconcat (";", fid, NULL);
 		source = e_source_new (folder->folder_name, relative_uri);
 		e_source_set_property (source, "auth", "1");
-		e_source_set_property (source, "auth-domain", E_PASSWORD_COMPONENT);
+		e_source_set_property (source, "auth-domain", EXCHANGE_MAPI_PASSWORD_COMPONENT);
 		e_source_set_property (source, "auth-type", "plain/password");
 		e_source_set_property (source, "username", url->user);
 		e_source_set_property (source, "host", url->host);
@@ -388,7 +369,7 @@ remove_cal_esource (EAccount *existing_account_info, ExchangeMAPIFolderType fold
 }
 
 static void 
-modify_cal_esource (EAccount *account, ExchangeMAPIFolderType folder_type, CamelURL *url, ExchangeAccountInfo *existing_account_info)
+modify_cal_esource (EAccount *account, ExchangeMAPIFolderType folder_type, CamelURL *url, ExchangeMAPIAccountInfo *existing_account_info)
 {
 	ESourceList *list;
         GSList *groups;
@@ -436,7 +417,7 @@ modify_cal_esource (EAccount *account, ExchangeMAPIFolderType folder_type, Camel
    adds the new account info to  mapi_accounts list */
 
 static void 
-add_calendar_sources (EAccount *account, GSList *folders, ExchangeAccountInfo *info)
+add_calendar_sources (EAccount *account, GSList *folders, ExchangeMAPIAccountInfo *info)
 {
 	CamelURL *url;
 
@@ -455,7 +436,7 @@ add_calendar_sources (EAccount *account, GSList *folders, ExchangeAccountInfo *i
    removes the the account info from mapi_account list */
 
 static void 
-remove_calendar_sources (EAccount *account, ExchangeAccountInfo *info)
+remove_calendar_sources (EAccount *account, ExchangeMAPIAccountInfo *info)
 {
 	CamelURL *url;
 
@@ -472,7 +453,7 @@ remove_calendar_sources (EAccount *account, ExchangeAccountInfo *info)
 
 /* This is called only when the source-group name is to be changed */
 static void 
-modify_calendar_sources (EAccount *account, ExchangeAccountInfo *existing_account_info)
+modify_calendar_sources (EAccount *account, ExchangeMAPIAccountInfo *existing_account_info)
 {
 	CamelURL *url;
 
@@ -520,7 +501,7 @@ add_addressbook_sources (EAccount *account, GSList *folders)
 
 		source = e_source_new (folder->folder_name, g_strconcat (";",folder->folder_name, NULL));
 		e_source_set_property (source, "auth", "plain/password");
-		e_source_set_property (source, "auth-domain", E_PASSWORD_COMPONENT);
+		e_source_set_property (source, "auth-domain", EXCHANGE_MAPI_PASSWORD_COMPONENT);
 		e_source_set_property(source, "user", url->user);
 		e_source_set_property(source, "host", url->host);
 		e_source_set_property(source, "profile", camel_url_get_param (url, "profile"));
@@ -566,7 +547,7 @@ add_addressbook_sources (EAccount *account, GSList *folders)
 }
 
 static void 
-remove_addressbook_sources (ExchangeAccountInfo *existing_account_info)
+remove_addressbook_sources (ExchangeMAPIAccountInfo *existing_account_info)
 {
 	ESourceList *list;
         ESourceGroup *group;
@@ -606,7 +587,7 @@ remove_addressbook_sources (ExchangeAccountInfo *existing_account_info)
 }
 
 static void 
-modify_addressbook_sources (EAccount *account, ExchangeAccountInfo *existing_account_info)
+modify_addressbook_sources (EAccount *account, ExchangeMAPIAccountInfo *existing_account_info)
 {
 	CamelURL *url;
 	ESourceList *list;
@@ -647,19 +628,19 @@ modify_addressbook_sources (EAccount *account, ExchangeAccountInfo *existing_acc
 static void
 account_added (EAccountList *account_listener, EAccount *account)
 {
-	ExchangeAccountInfo *info;
+	ExchangeMAPIAccountInfo *info;
 	
-	d(printf("account added\n"));
+	d(g_print("account added\n"));
 	if (!is_mapi_account (account))
 		return;
 	
-	info = g_new0 (ExchangeAccountInfo, 1);
+	info = g_new0 (ExchangeMAPIAccountInfo, 1);
 	info->uid = g_strdup (account->uid);
 	info->name = g_strdup (account->name);
 	info->source_url = g_strdup (account->source->url);
 
 	/* Fetch the folders into a global list for future use.*/
-	exchange_account_listener_get_folder_list ();
+	exchange_mapi_account_listener_get_folder_list ();
 
 	add_addressbook_sources (account, folders_list);
 	add_calendar_sources (account, folders_list, info);
@@ -671,10 +652,10 @@ account_added (EAccountList *account_listener, EAccount *account)
 static void 
 account_removed (EAccountList *account_listener, EAccount *account)
 {
-       	ExchangeAccountInfo *info;
+       	ExchangeMAPIAccountInfo *info;
 	CamelURL *url;
 	
-	d(printf("Account removed\n"));
+	d(g_print("Account removed\n"));
 	if (!is_mapi_account (account))
 		return;
 	
@@ -682,7 +663,7 @@ account_removed (EAccountList *account_listener, EAccount *account)
 	if (info == NULL) 
 		return;
 
-	exchange_account_listener_get_folder_list ();
+	exchange_mapi_account_listener_get_folder_list ();
 
 	/* This foo needs a lotta work.. at present, using this to remove calendar sources */
 
@@ -710,14 +691,14 @@ account_changed (EAccountList *account_listener, EAccount *account)
 {
 	gboolean bis_mapi_account;
 	CamelURL *old_url, *new_url;
-	ExchangeAccountInfo *existing_account_info;
+	ExchangeMAPIAccountInfo *existing_account_info;
 
-	d(printf("account changed\n"));
+	d(g_print("account changed\n"));
 	bis_mapi_account = is_mapi_account (account);
 	
 	existing_account_info = lookup_account_info (account->uid);
        
-	exchange_account_listener_get_folder_list ();
+	exchange_mapi_account_listener_get_folder_list ();
 
 	if (existing_account_info == NULL && bis_mapi_account) {
 		if (!account->enabled)
@@ -747,13 +728,13 @@ account_changed (EAccountList *account_listener, EAccount *account)
 			gboolean status;
 
 			key = camel_url_to_string (new_url, CAMEL_URL_HIDE_PASSWORD | CAMEL_URL_HIDE_PARAMS);
-			password = e_passwords_get_password (E_PASSWORD_COMPONENT, key);
+			password = e_passwords_get_password (EXCHANGE_MAPI_PASSWORD_COMPONENT, key);
 			if (!password) {
 				gboolean remember = FALSE;
 				gchar *title;
 		
 				title = g_strdup_printf (_("Enter Password for %s"), new_url->user);
-				password = e_passwords_ask_password (title, E_PASSWORD_COMPONENT, key, title,
+				password = e_passwords_ask_password (title, EXCHANGE_MAPI_PASSWORD_COMPONENT, key, title,
 								     E_PASSWORDS_REMEMBER_FOREVER|E_PASSWORDS_SECRET,
 								     &remember, NULL);
 				g_free (title);
@@ -791,8 +772,8 @@ account_changed (EAccountList *account_listener, EAccount *account)
 		existing_account_info->source_url = g_strdup (account->source->url);
 		if (bnew || !modified) {
 			/* Free the old folderlist and get a new one */
-			exchange_account_listener_free_folder_list ();
-			exchange_account_listener_peek_folder_list ();
+			exchange_mapi_account_listener_free_folder_list ();
+			exchange_mapi_account_listener_peek_folder_list ();
 			add_addressbook_sources (account, folders_list);
 			add_calendar_sources (account, folders_list, existing_account_info);
 		}
@@ -804,11 +785,11 @@ account_changed (EAccountList *account_listener, EAccount *account)
 } 
 
 static void
-exchange_account_listener_construct (ExchangeAccountListener *config_listener)
+exchange_mapi_account_listener_construct (ExchangeMAPIAccountListener *config_listener)
 {
 	EIterator *iter;
 	EAccount *account;
-	ExchangeAccountInfo *info ;
+	ExchangeMAPIAccountInfo *info ;
 
        	config_listener->priv->account_list = e_account_list_new (config_listener->priv->gconf_client);
 
@@ -818,7 +799,7 @@ exchange_account_listener_construct (ExchangeAccountListener *config_listener)
 
 		if ( is_mapi_account (account) && account->enabled) {
 			
-		        info = g_new0 (ExchangeAccountInfo, 1);
+		        info = g_new0 (ExchangeMAPIAccountInfo, 1);
 			info->uid = g_strdup (account->uid);
 			info->name = g_strdup (account->name);
 			info->source_url = g_strdup (account->source->url);
@@ -828,7 +809,7 @@ exchange_account_listener_construct (ExchangeAccountListener *config_listener)
 			
 	}
 
-	printf ("MAPI listener is constructed \n");
+	g_print ("MAPI listener is constructed \n");
 
 	g_signal_connect (config_listener->priv->account_list, "account_added", G_CALLBACK (account_added), NULL);
 	g_signal_connect (config_listener->priv->account_list, "account_changed", G_CALLBACK (account_changed), NULL);
@@ -836,36 +817,36 @@ exchange_account_listener_construct (ExchangeAccountListener *config_listener)
 }
 
 GType
-exchange_account_listener_get_type (void)
+exchange_mapi_account_listener_get_type (void)
 {
-	static GType exchange_account_listener_type = 0;
+	static GType exchange_mapi_account_listener_type = 0;
 
-	if (!exchange_account_listener_type) {
+	if (!exchange_mapi_account_listener_type) {
 		static GTypeInfo info = {
-                        sizeof (ExchangeAccountListenerClass),
+                        sizeof (ExchangeMAPIAccountListenerClass),
                         (GBaseInitFunc) NULL,
                         (GBaseFinalizeFunc) NULL,
-                        (GClassInitFunc) exchange_account_listener_class_init,
+                        (GClassInitFunc) exchange_mapi_account_listener_class_init,
                         NULL, NULL,
-                        sizeof (ExchangeAccountListener),
+                        sizeof (ExchangeMAPIAccountListener),
                         0,
-                        (GInstanceInitFunc) exchange_account_listener_init
+                        (GInstanceInitFunc) exchange_mapi_account_listener_init
                 };
-		exchange_account_listener_type = g_type_register_static (PARENT_TYPE, "ExchangeAccountListener", &info, 0);
+		exchange_mapi_account_listener_type = g_type_register_static (PARENT_TYPE, "ExchangeMAPIAccountListener", &info, 0);
 	}
 
-	return exchange_account_listener_type;
+	return exchange_mapi_account_listener_type;
 }
 
-ExchangeAccountListener*
-exchange_account_listener_new ()
+ExchangeMAPIAccountListener *
+exchange_mapi_account_listener_new ()
 {
-	ExchangeAccountListener *config_listener;
+	ExchangeMAPIAccountListener *config_listener;
        
-	config_listener = g_object_new (EXCHANGE_TYPE_ACCOUNT_LISTENER, NULL);
+	config_listener = g_object_new (EXCHANGE_MAPI_ACCOUNT_LISTENER_TYPE, NULL);
 	config_listener->priv->gconf_client = gconf_client_get_default();
 	
-	exchange_account_listener_construct (config_listener);
+	exchange_mapi_account_listener_construct (config_listener);
 
 	return config_listener;
 }

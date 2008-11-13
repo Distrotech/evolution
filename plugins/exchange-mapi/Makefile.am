@@ -22,8 +22,8 @@ plugin_LTLIBRARIES = liborg-gnome-exchange-mapi.la
 liborg_gnome_exchange_mapi_la_SOURCES = 		\
 	exchange-mapi-account-setup.c			\
 	exchange-mapi-account-setup.h			\
-	exchange-account-listener.c			\
-	exchange-account-listener.h
+	exchange-mapi-account-listener.c		\
+	exchange-mapi-account-listener.h
 
 liborg_gnome_exchange_mapi_la_LIBADD = 			\
 	$(top_builddir)/e-util/libeutil.la 			\
@@ -38,9 +38,6 @@ liborg_gnome_exchange_mapi_la_LIBADD = 			\
 
 liborg_gnome_exchange_mapi_la_LDFLAGS = -module -avoid-version -lmapi $(NO_UNDEFINED)
 liborg_gnome_exchange_mapi_la_CFLAGS = -I/usr/local/samba/include/
-
-#error_DATA = org-gnome-exchange-operations.error
-#errordir = $(privdatadir)/errors
 
 EXTRA_DIST = 							\
 	org-gnome-exchange-mapi.eplug.xml

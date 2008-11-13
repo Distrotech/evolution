@@ -1,3 +1,35 @@
+2008-11-13  Suman Manjunath  <msuman@novell.com>
+
+	* Makefile.am:
+	* exchange-account-listener.c: Removed from source control
+	* exchange-account-listener.h: Removed from source control
+	* exchange-mapi-account-listener.c (dispose), (finalize),
+	(exchange_mapi_account_listener_class_init),
+	(exchange_mapi_account_listener_init),
+	(exchange_mapi_account_listener_peek_folder_list),
+	(exchange_mapi_account_listener_get_folder_list),
+	(exchange_mapi_account_listener_free_folder_list),
+	(is_mapi_account), (lookup_account_info), (add_cal_esource),
+	(remove_cal_esource), (modify_cal_esource), (add_calendar_sources),
+	(remove_calendar_sources), (modify_calendar_sources),
+	(add_addressbook_sources), (remove_addressbook_sources),
+	(modify_addressbook_sources), (account_added), (account_removed),
+	(account_changed), (exchange_mapi_account_listener_construct),
+	(exchange_mapi_account_listener_get_type),
+	(exchange_mapi_account_listener_new):
+	Added to source control
+	* exchange-mapi-account-listener.h: Added to source control
+	* exchange-mapi-account-setup.c (e_plugin_lib_enable),
+	(exchange_mapi_delete_profile), (exchange_mapi_create_profile),
+	(validate_credentials), (domain_entry_changed),
+	(org_gnome_exchange_mapi_account_setup),
+	(org_gnome_exchange_mapi_check_options), (add_folders),
+	(exchange_mapi_create), (exchange_mapi_book_commit),
+	(exchange_mapi_cal_check), (exchange_mapi_cal_commit):
+	* exchange-mapi-account-setup.h:
+	* org-gnome-exchange-mapi.eplug.xml:
+	Code cleanup.
+
 2008-10-22  Suman Manjunath  <msuman@novell.com>
 
 	* Makefile.am:
