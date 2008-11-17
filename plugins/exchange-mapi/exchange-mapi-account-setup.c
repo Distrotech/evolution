@@ -42,7 +42,6 @@
 #include "mail/em-account-editor.h"
 #include "mail/em-config.h"
 #include "exchange-mapi-account-setup.h"
-#include "exchange-mapi-account-listener.h"
 #include <addressbook/gui/widgets/eab-config.h>
 #include <calendar/gui/e-cal-config.h>
 #include <mapi/exchange-mapi-folder.h>
@@ -56,7 +55,6 @@ int e_plugin_lib_enable (EPluginLib *ep, int enable);
 /* Account Setup */
 GtkWidget *org_gnome_exchange_mapi_account_setup (EPlugin *epl, EConfigHookItemFactoryData *data);
 gboolean org_gnome_exchange_mapi_check_options(EPlugin *epl, EConfigHookPageCheckData *data);
-void org_gnome_exchange_mapi_commit (EPlugin *epl, EConfigHookItemFactoryData *data);
 
 /* New Addressbook/CAL */
 GtkWidget *exchange_mapi_create (EPlugin *epl, EConfigHookItemFactoryData *data);
@@ -89,6 +87,12 @@ e_plugin_lib_enable (EPluginLib *ep, int enable)
 	}
 
 	return 0;
+}
+
+ExchangeMAPIAccountListener *
+exchange_mapi_accounts_peek_config_listener ()
+{
+	return config_listener; 
 }
 
 gboolean
@@ -241,7 +245,7 @@ validate_credentials (GtkWidget *widget, EConfig *config)
 		gboolean remember = FALSE;
 		gchar *title;
 
-		title = g_strdup_printf (_("Enter Password for %s"), url->user);
+		title = g_strdup_printf (_("Enter Password for %s@%s"), url->user, url->host);
 		password = e_passwords_ask_password (title, EXCHANGE_MAPI_PASSWORD_COMPONENT, key, title,
 						     E_PASSWORDS_REMEMBER_FOREVER|E_PASSWORDS_SECRET,
 						     &remember, NULL);
@@ -463,7 +467,7 @@ exchange_mapi_create (EPlugin *epl, EConfigHookItemFactoryData *data)
 	GSList *folders = exchange_mapi_account_listener_peek_folder_list ();
 
 	uri_text = e_source_get_uri (source);
-	if (uri_text && g_ascii_strncasecmp (uri_text, "mapi", 4)) {
+	if (uri_text && g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH)) {
 		return NULL;
 	}
 
@@ -521,7 +525,7 @@ exchange_mapi_book_check (EPlugin *epl, EConfigHookPageCheckData *data)
 	/* FIXME: Offline handling */
 
 	/* not a MAPI account */
-	if (g_ascii_strncasecmp (uri_text, "mapi", 4)) {
+	if (g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH)) {
 		g_free (uri_text);
 		return TRUE;
 	}
@@ -583,8 +587,17 @@ exchange_mapi_cal_check (EPlugin *epl, EConfigHookPageCheckData *data)
 	ESource *source = t->source;
 	char *uri_text = e_source_get_uri (source);
 
-	if (!uri_text || g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH))
-		return FALSE;
+	if (!uri_text)
+		return TRUE; 
+
+	/* FIXME: Offline handling */
+
+	/* not a MAPI account */
+	if (g_ascii_strncasecmp (uri_text, MAPI_URI_PREFIX, MAPI_PREFIX_LENGTH)) {
+		g_free (uri_text); 
+		return TRUE; 
+	}
+
 	g_free (uri_text);
 
 	/* FIXME: Offline handling */

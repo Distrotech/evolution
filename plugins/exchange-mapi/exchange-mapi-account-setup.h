@@ -22,6 +22,11 @@
  */
 
 
+#ifndef EXCHANGE_MAPI_ACCOUNT_SETUP_H
+#define EXCHANGE_MAPI_ACCOUNT_SETUP_H
+
+#include "exchange-mapi-account-listener.h"
+
 /* This definition should be in-sync with the definition in camel-mapi-store.c */
 #define EXCHANGE_MAPI_PASSWORD_COMPONENT "ExchangeMAPI"
 
@@ -30,9 +35,13 @@
 #define MAPI_URI_PREFIX   "mapi://" 
 #define MAPI_PREFIX_LENGTH 7
 
+ExchangeMAPIAccountListener *
+exchange_mapi_accounts_peek_config_listener (void); 
+
 gboolean 
 exchange_mapi_create_profile(const char *username, const char *password, const char *domain, const char *server);
 
 gboolean
 exchange_mapi_delete_profile (const char *profile); 
 
+#endif /* EXCHANGE_MAPI_ACCOUNT_SETUP_H */
