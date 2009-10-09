@@ -27,6 +27,7 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 #include <libecal/e-cal-time-util.h>
 #include <libedataserver/e-categories.h>
 #include <gtkhtml/gtkhtml-stream.h>
@@ -34,7 +35,6 @@
 #include <e-util/e-util.h>
 #include <e-util/e-categories-config.h>
 #include "calendar-config.h"
-#include <camel/camel-mime-filter-tohtml.h>
 
 #define E_CAL_COMPONENT_PREVIEW_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \

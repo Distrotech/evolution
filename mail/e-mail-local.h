@@ -22,9 +22,7 @@
 #ifndef E_MAIL_LOCAL_H
 #define E_MAIL_LOCAL_H
 
-#include <glib.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-store.h>
+#include <camel/camel.h>
 
 G_BEGIN_DECLS
 

@@ -36,12 +36,11 @@
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
 
+#include <camel/camel.h>
 #include <gconf/gconf-client.h>
 
 #include <libebook/e-book.h>
 #include <libebook/e-destination.h>
-
-#include <camel/camel-operation.h>
 
 #include "mail-importer.h"
 

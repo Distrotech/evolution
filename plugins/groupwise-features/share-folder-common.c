@@ -28,6 +28,8 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
+
 #include <e-util/e-config.h>
 #include <mail/em-config.h>
 #include <mail/em-folder-properties.h>
@@ -38,11 +40,6 @@
 #include <mail/mail-vfolder.h>
 #include <mail/em-vfolder-rule.h>
 #include <filter/e-filter-rule.h>
-#include <camel/camel-store.h>
-#include <camel/camel-session.h>
-#include <camel/camel-store.h>
-#include <camel/camel-vee-store.h>
-#include <camel/camel-folder.h>
 #include <e-gw-container.h>
 #include <e-gw-connection.h>
 #include <shell/e-shell-sidebar.h>

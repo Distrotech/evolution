@@ -23,10 +23,8 @@
 
 #include <config.h>
 #include <string.h>
+#include <camel/camel.h>
 #include <glib/gi18n-lib.h>
-
-#include <camel/camel-internet-address.h>
-#include <camel/camel-url.h>
 
 #include "e-util/e-util.h"
 #include "e-util/e-binding.h"

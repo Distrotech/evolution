@@ -26,12 +26,13 @@
 #include <config.h>
 #endif
 
+#include <camel/camel.h>
+
 #include <mail/em-config.h>
 #include <mail/em-composer-utils.h>
 #include <mail/mail-config.h>
 #include <e-util/e-error.h>
 #include <e-msg-composer.h>
-#include <camel/camel-mime-filter-tohtml.h>
 
 #include <glib/gi18n-lib.h>
 #include <glib-object.h>

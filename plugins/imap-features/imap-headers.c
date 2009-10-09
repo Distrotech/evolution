@@ -26,18 +26,13 @@
 
 #include <string.h>
 
-#include <mail/em-config.h>
-#include <mail/mail-config.h>
-
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
 
 #include <e-util/e-util.h>
 #include <e-util/e-account-utils.h>
 
-#include <camel/camel-url.h>
-#include <camel/camel-exception.h>
-
-#include <glib/gi18n.h>
+#include <camel/camel.h>
 
 typedef struct _epif_data EPImapFeaturesData;
 struct _epif_data {

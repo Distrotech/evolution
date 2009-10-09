@@ -21,8 +21,8 @@
  *
  */
 
-#include "camel-hula-listener.h"
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 #include "mail/em-config.h"
 
 static CamelHulaListener *config_listener = NULL;

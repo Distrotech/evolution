@@ -27,14 +27,13 @@
 
 #include <string.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 
 #include <libedataserverui/e-passwords.h>
 #include <mail/em-folder-tree.h>
 #include <mail/mail-config.h>
 #include <mail/em-folder-selector.h>
 #include <mail/em-account-editor.h>
-#include <camel/camel-url.h>
-#include <camel/camel-store.h>
 #include <mail/mail-ops.h>
 #include <libedataserver/e-account.h>
 #include <e-util/e-util.h>

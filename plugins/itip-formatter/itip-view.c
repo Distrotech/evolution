@@ -26,11 +26,8 @@
 
 #include <string.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 #include <gconf/gconf-client.h>
-#include <camel/camel-stream.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-message.h>
 #include <libedataserver/e-time-utils.h>
 #include <libedataserver/e-data-server-util.h>
 #include <libedataserverui/e-source-combo-box.h>

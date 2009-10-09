@@ -27,9 +27,10 @@
 
 #include <string.h>
 #include <gtk/gtk.h>
+#include <camel/camel.h>
+#include <glib/gi18n-lib.h>
 #include <gtkhtml/gtkhtml.h>
 
-#include <camel/camel-i18n.h>
 #include "mail-ops.h"
 #include "mail-mt.h"
 #include "em-format-html-print.h"

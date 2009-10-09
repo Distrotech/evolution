@@ -25,15 +25,16 @@
 #endif
 
 #include <string.h>
-#include <glib/gi18n.h>
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
+#include <camel/camel.h>
+
 #include "mail/em-account-editor.h"
 #include "mail/em-config.h"
 #include "libedataserver/e-account.h"
 #include <misc/e-send-options.h>
 #include <mail/em-config.h>
 #include <e-gw-connection.h>
-#include <camel/camel-url.h>
 #include <libecal/e-cal-time-util.h>
 #include <libedataserver/e-source-list.h>
 #include <libedataserverui/e-passwords.h>

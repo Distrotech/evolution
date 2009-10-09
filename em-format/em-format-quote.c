@@ -26,17 +26,8 @@
 #endif
 
 #include <string.h>
-
-#include <camel/camel-iconv.h>
-#include <camel/camel-stream-filter.h>
-#include <camel/camel-mime-filter-linewrap.h>
-#include <camel/camel-mime-filter-tohtml.h>
-#include <camel/camel-mime-filter-enriched.h>
-#include <camel/camel-string-utils.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-url.h>
-
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 #include <gconf/gconf-client.h>
 
 #include "em-stripsig-filter.h"
@@ -477,11 +468,6 @@ emfq_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 		handle->handler(emf, stream, part, handle);
 	}
 }
-
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-url.h>
 
 static void
 emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)

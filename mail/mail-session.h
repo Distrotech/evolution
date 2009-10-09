@@ -24,7 +24,7 @@
 #define MAIL_SESSION_H
 
 #include <glib.h>
-#include <camel/camel-session.h>
+#include <camel/camel.h>
 #include <shell/e-shell-backend.h>
 
 G_BEGIN_DECLS

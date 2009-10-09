@@ -40,16 +40,13 @@
 #  include <windows.h>
 #endif
 
-#include <glib/gi18n.h>
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
+#include <camel/camel.h>
+
 #include <e-util/e-plugin.h>
 #include "mail/em-config.h"
 #include <mail/em-junk.h>
-#include <camel/camel-data-wrapper.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-mime-parser.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-debug.h>
 #include <gconf/gconf-client.h>
 
 #ifndef BOGOFILTER_BINARY

@@ -24,8 +24,7 @@
 
 #include <shell/e-shell-backend.h>
 
-#include <camel/camel-folder.h>
-#include <camel/camel-store.h>
+#include <camel/camel.h>
 #include <e-util/e-signature-list.h>
 #include <libedataserver/e-account-list.h>
 

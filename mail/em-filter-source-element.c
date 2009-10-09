@@ -30,9 +30,9 @@
 #include "em-filter-source-element.h"
 
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 #include <libedataserver/e-sexp.h>
 #include <libedataserver/e-account-list.h>
-#include <camel/camel-url.h>
 
 #include "filter/e-filter-part.h"
 

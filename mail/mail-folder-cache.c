@@ -34,15 +34,10 @@
 #include <time.h>
 
 #include <glib.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
-#include <glib/gi18n.h>
-#include <camel/camel-store.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-vtrash-folder.h>
-#include <camel/camel-vee-store.h>
-#include <camel/camel-offline-store.h>
-#include <camel/camel-disco-store.h>
+#include <camel/camel.h>
 
 #include <libedataserver/e-data-server-util.h>
 #include "e-util/e-util.h"

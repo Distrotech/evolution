@@ -39,6 +39,7 @@
 #include <glib/gstdio.h>
 #include <glib/gi18n-lib.h>
 
+#include <camel/camel.h>
 #include <gtkhtml/gtkhtml.h>
 
 #include <libxml/tree.h>
@@ -49,12 +50,6 @@
 #include <misc/e-gui-utils.h>
 #include "e-util/e-account-utils.h"
 #include "e-util/e-signature-utils.h"
-
-#include <camel/camel-service.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-mime-filter-charset.h>
-#include <camel/camel-stream-filter.h>
 
 #include <libedataserverui/e-passwords.h>
 

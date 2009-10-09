@@ -23,7 +23,7 @@
 
 #include <string.h>
 #include <glib/gi18n.h>
-#include <camel/camel-folder.h>
+#include <camel/camel.h>
 
 #include "e-util/e-util.h"
 #include "e-util/e-plugin-ui.h"

@@ -25,7 +25,7 @@
 #define __JUNK_SETTINGS_H__
 
 #include <gtk/gtk.h>
-#include <camel/camel-store.h>
+#include <camel/camel.h>
 #include <e-gw-connection.h>
 
 #define _JUNK_SETTINGS_TYPE	      (junk_settings_get_type ())

@@ -28,6 +28,7 @@
 
 #include <string.h>
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 
 #include <libedataserver/e-data-server-util.h>
 #include <glib/gi18n.h>
@@ -58,13 +59,6 @@
 #include "em-format-html-print.h"
 #include "em-format-quote.h"
 #include "em-event.h"
-
-#include <camel/camel-folder.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-string-utils.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-nntp-address.h>
-#include <camel/camel-vee-folder.h>
 
 #ifdef G_OS_WIN32
 /* Undef the similar macro from pthread.h, it doesn't check if

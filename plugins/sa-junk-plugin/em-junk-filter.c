@@ -34,18 +34,13 @@
 #include <signal.h>
 #include <time.h>
 
-#include <camel/camel-mime-message.h>
-#include <camel/camel-debug.h>
-#include <camel/camel-file-utils.h>
-#include <camel/camel-data-wrapper.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-i18n.h>
+#include <gtk/gtk.h>
+#include <camel/camel.h>
+
 #include <mail/em-junk.h>
 #include <mail/em-utils.h>
 #include <e-util/e-mktemp.h>
 
-#include <gtk/gtk.h>
 #include "mail/em-config.h"
 
 #include <gconf/gconf-client.h>

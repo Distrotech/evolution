@@ -29,6 +29,7 @@
 
 #include <glib.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 
 #include "mail-vfolder.h"
 #include "mail-autofilter.h"
@@ -44,9 +45,6 @@
 #include "em-filter-rule.h"
 #include "em-filter-editor.h"
 #include "filter/e-filter-option.h"
-
-#include <camel/camel-internet-address.h>
-#include <camel/camel-mime-message.h>
 
 #define d(x)
 

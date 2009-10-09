@@ -30,8 +30,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <camel/camel-multipart.h>
-#include <camel/camel-mime-part.h>
+#include <camel/camel.h>
 
 #include <em-format/em-format.h>
 #include <mail/em-config.h>

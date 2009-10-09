@@ -27,6 +27,7 @@
 #include <glib/gi18n.h>
 #include <libedataserver/e-time-utils.h>
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 #include <libical/ical.h>
 #include <e-util/e-dialog-utils.h>
 #include <libecal/e-cal-time-util.h>
@@ -38,7 +39,6 @@
 #include "dialogs/comp-editor-util.h"
 
 #include <composer/e-msg-composer.h>
-#include <camel/camel-mime-filter-tohtml.h>
 
 static const gchar *itip_methods[] = {
 	"PUBLISH",

@@ -29,6 +29,7 @@
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 #include <libedataserver/e-data-server-util.h>
 #include <libedataserverui/e-source-selector.h>
 #include <e-util/e-util.h>
@@ -41,9 +42,6 @@
 #include "misc/e-image-chooser.h"
 #include <e-util/e-icon-factory.h>
 #include "eab-contact-merging.h"
-
-/* we link to camel for decoding quoted printable email addresses */
-#include <camel/camel-mime-utils.h>
 
 #include "addressbook/util/addressbook.h"
 

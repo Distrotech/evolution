@@ -32,17 +32,13 @@
 #include <string.h>
 
 #include <glib.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
 #include <gconf/gconf.h>
 #include <gconf/gconf-client.h>
 
-#include <glib/gi18n.h>
-
-#include <camel/camel-file-utils.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-movemail.h>
-#include <camel/camel-vee-folder.h>
+#include <camel/camel.h>
 
 #include "filter/e-filter-option.h"
 #include "filter/e-filter-input.h"

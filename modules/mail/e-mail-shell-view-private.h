@@ -25,11 +25,8 @@
 #include "e-mail-shell-view.h"
 
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 #include <gtkhtml/gtkhtml.h>
-#include <camel/camel-disco-store.h>
-#include <camel/camel-offline-store.h>
-#include <camel/camel-vtrash-folder.h>
-#include <camel/camel-search-private.h>  /* for camel_search_word */
 
 #include "e-util/e-util.h"
 #include "e-util/e-binding.h"

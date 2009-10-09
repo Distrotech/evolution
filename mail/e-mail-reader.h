@@ -23,7 +23,8 @@
 #define E_MAIL_READER_H
 
 #include <gtk/gtk.h>
-#include <camel/camel-folder.h>
+#include <camel/camel.h>
+
 #include <mail/em-format-html-display.h>
 #include <mail/message-list.h>
 #include <shell/e-shell-backend.h>

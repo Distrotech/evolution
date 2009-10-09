@@ -30,11 +30,8 @@
 
 #include <gconf/gconf-client.h>
 
-#include <camel/camel-store.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-vtrash-folder.h>
-#include <camel/camel-vee-folder.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 
 #include "em-folder-properties.h"
 #include "em-config.h"

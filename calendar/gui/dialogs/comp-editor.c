@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <camel/camel.h>
 #include <glib/gi18n-lib.h>
 #include <glib/gstdio.h>
 #include <gdk/gdkkeysyms.h>
@@ -40,14 +41,6 @@
 #include <e-util/e-util-private.h>
 #include <e-util/gconf-bridge.h>
 #include <shell/e-shell.h>
-
-#include <camel/camel-url.h>
-#include <camel/camel-exception.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-file-utils.h>
-#include <camel/camel-stream-fs.h>
 
 #include "mail/mail-tools.h"
 

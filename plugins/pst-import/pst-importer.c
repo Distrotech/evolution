@@ -34,11 +34,12 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <glib/gi18n-lib.h>
 #include <glib/gstdio.h>
 #include <glib/gprintf.h>
+#include <glib/gi18n-lib.h>
 
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 
 #include <e-util/e-import.h>
 #include <e-util/e-plugin.h>
@@ -51,16 +52,6 @@
 
 #include <libedataserver/e-data-server-util.h>
 #include <libedataserverui/e-source-selector-dialog.h>
-
-#include <camel/camel-folder.h>
-#include <camel/camel-store.h>
-#include <camel/camel-exception.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-data-wrapper.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-file-utils.h>
 
 #include <mail/e-mail-local.h>
 #include <mail/mail-mt.h>

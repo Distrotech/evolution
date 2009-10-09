@@ -30,8 +30,7 @@
 #include <libedataserver/e-data-server-util.h>
 #include <libedataserver/e-flag.h>
 
-#include <camel/camel-url.h>
-#include <camel/camel-operation.h>
+#include <camel/camel.h>
 
 #include "shell/e-shell.h"
 #include "misc/e-gui-utils.h"

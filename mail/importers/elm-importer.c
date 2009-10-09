@@ -38,7 +38,7 @@
 
 #include <gconf/gconf-client.h>
 
-#include <camel/camel-operation.h>
+#include <camel/camel.h>
 
 #include "mail-importer.h"
 

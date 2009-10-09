@@ -32,6 +32,7 @@
 #include <time.h>
 
 #include <glib.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
 #ifdef G_OS_WIN32
@@ -42,15 +43,11 @@
 #undef interface
 #endif
 
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-url-scanner.h>
-#include <camel/camel-file-utils.h>
+#include <camel/camel.h>
 
 #include <libebook/e-book.h>
 
 #include "em-filter-editor.h"
-
-#include <glib/gi18n.h>
 
 #include <gio/gio.h>
 
@@ -532,10 +529,6 @@ em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GP
 
 	em_utils_uids_free (uids);
 }
-
-#include "camel/camel-stream-mem.h"
-#include "camel/camel-stream-filter.h"
-#include "camel/camel-mime-filter-from.h"
 
 /* This kind of sucks, because for various reasons most callers need to run synchronously
    in the gui thread, however this could take a long, blocking time, to run */

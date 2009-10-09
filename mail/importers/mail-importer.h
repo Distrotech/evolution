@@ -24,8 +24,8 @@
 #ifndef __MAIL_IMPORTER_H__
 #define __MAIL_IMPORTER_H__
 
+#include <camel/camel.h>
 #include <e-util/e-import.h>
-#include <camel/camel-folder.h>
 
 EImportImporter *mbox_importer_peek(void);
 

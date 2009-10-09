@@ -34,15 +34,8 @@
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
+#include <camel/camel.h>
 #include <gconf/gconf-client.h>
-
-#include <camel/camel-exception.h>
-#include <camel/camel-file-utils.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-folder-thread.h>
-#include <camel/camel-folder-summary.h>
-#include <camel/camel-vee-folder.h>
-#include <camel/camel-string-utils.h>
 
 #include <libedataserver/e-memory.h>
 

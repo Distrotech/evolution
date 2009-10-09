@@ -28,14 +28,12 @@
 #ifndef EM_FORMAT_HTML_H
 #define EM_FORMAT_HTML_H
 
-#include <em-format/em-format.h>
-#include <mail/mail-config.h>
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-stream.h>
-#include <camel/camel-url.h>
+#include <camel/camel.h>
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-embedded.h>
+
+#include <em-format/em-format.h>
+#include <mail/mail-config.h>
 
 /* Standard GObject macros */
 #define EM_TYPE_FORMAT_HTML \

@@ -38,7 +38,7 @@
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
-#include <camel/camel-exception.h>
+#include <camel/camel.h>
 
 #include "shell/e-shell.h"
 #include "shell/e-shell-window.h"

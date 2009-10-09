@@ -27,21 +27,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <glib.h>
+#include <camel/camel.h>
 
 #include "em-event.h"
 #include "composer/e-msg-composer.h"
-
-#include <camel/camel-store.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-string-utils.h>
-#include <camel/camel-mime-utils.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-url.h>
-
-#include <camel/camel-vee-folder.h>
-#include <camel/camel-vtrash-folder.h>
 
 static GObjectClass *eme_parent;
 static EMEvent *em_event;

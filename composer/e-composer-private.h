@@ -25,8 +25,6 @@
 #include <glib/gi18n-lib.h>
 #include <glib/gstdio.h>
 
-#include <camel/camel-iconv.h>
-
 #include "e-composer-actions.h"
 #include "e-composer-autosave.h"
 #include "e-composer-header-table.h"

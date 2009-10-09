@@ -38,14 +38,8 @@
 #include <glib/gstdio.h>
 
 #include <gtk/gtk.h>
-
-#include <gconf/gconf-client.h>
-
 #include <camel/camel.h>
-#include <camel/camel-store.h>
-#include <camel/camel-session.h>
-#include <camel/camel-file-utils.h>
-#include <camel/camel-disco-folder.h>
+#include <gconf/gconf-client.h>
 
 #include <libxml/tree.h>
 #include <libxml/parser.h>

@@ -25,11 +25,9 @@
 #endif
 
 #include <string.h>
+#include <camel/camel.h>
 
 #include "em-inline-filter.h"
-#include <camel/camel-mime-part.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-stream-mem.h>
 
 #include "em-utils.h"
 #include "em-format/em-format.h"

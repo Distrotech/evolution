@@ -46,6 +46,8 @@
 #include <gconf/gconf.h>
 #include <gconf/gconf-client.h>
 
+#include <camel/camel.h>
+
 #include "e-util/e-dialog-utils.h"
 #include "e-util/e-error.h"
 #include "e-util/e-mktemp.h"
@@ -57,25 +59,6 @@
 #include "shell/e-shell.h"
 #include "em-format/em-format.h"
 #include "em-format/em-format-quote.h"
-
-#include <camel/camel-charset-map.h>
-#include <camel/camel-cipher-context.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-gpg-context.h>
-#include <camel/camel-iconv.h>
-#include <camel/camel-mime-filter-basic.h>
-#include <camel/camel-mime-filter-canon.h>
-#include <camel/camel-mime-filter-charset.h>
-#include <camel/camel-mime-filter-tohtml.h>
-#include <camel/camel-multipart-encrypted.h>
-#include <camel/camel-multipart-signed.h>
-#include <camel/camel-stream-filter.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-string-utils.h>
-#if defined (HAVE_NSS)
-#include <camel/camel-smime-context.h>
-#endif
 
 #include "e-msg-composer.h"
 #include "e-attachment.h"

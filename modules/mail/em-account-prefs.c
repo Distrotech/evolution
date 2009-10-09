@@ -30,9 +30,8 @@
 #include <config.h>
 #endif
 
-#include <camel/camel-url.h>
-
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 
 #include "e-util/e-error.h"
 

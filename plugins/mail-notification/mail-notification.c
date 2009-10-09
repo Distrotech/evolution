@@ -28,6 +28,7 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 #include <gconf/gconf-client.h>
 
 #ifdef HAVE_CANBERRA
@@ -38,8 +39,6 @@
 #include <dbus/dbus-glib-lowlevel.h>
 
 #include <time.h>
-
-#include <camel/camel-folder.h>
 
 #include <e-util/e-binding.h>
 #include <e-util/e-config.h>

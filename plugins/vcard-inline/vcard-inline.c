@@ -21,12 +21,10 @@
 #endif
 
 #include <gtk/gtk.h>
+#include <camel/camel.h>
 #include <glib/gi18n-lib.h>
 #include <libebook/e-book.h>
 #include <libebook/e-contact.h>
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-stream-mem.h>
 #include <gtkhtml/gtkhtml-embedded.h>
 
 #include "addressbook/gui/merging/eab-contact-merging.h"

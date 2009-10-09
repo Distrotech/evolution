@@ -24,9 +24,10 @@
 #include <config.h>
 #endif
 
+#include <string.h>
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
-#include <string.h>
+#include <camel/camel.h>
 
 #include <libebook/e-book.h>
 #include <libedataserverui/e-source-combo-box.h>
@@ -34,7 +35,6 @@
 #include <e-util/e-config.h>
 #include <mail/em-config.h>
 #include <mail/em-event.h>
-#include <camel/camel-mime-message.h>
 #include <composer/e-msg-composer.h>
 
 #include "bbdb.h"

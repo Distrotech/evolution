@@ -23,9 +23,7 @@
 #ifndef MAIL_TOOLS_H
 #define MAIL_TOOLS_H
 
-#include <glib.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-mime-message.h>
+#include <camel/camel.h>
 
 /* Get the "inbox" for a url (uses global session) */
 CamelFolder *mail_tool_get_inbox (const gchar *url, CamelException *ex);

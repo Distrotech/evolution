@@ -26,16 +26,13 @@
 #include "config.h"
 #endif
 
-#include <glib/gi18n-lib.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
-#include <gtk/gtk.h>
 
-#include <camel/camel-folder.h>
-#include <camel/camel-mime-utils.h>
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-message.h>
+#include <gtk/gtk.h>
+#include <camel/camel.h>
+#include <glib/gi18n-lib.h>
 
 #include <mail/e-mail-reader.h>
 

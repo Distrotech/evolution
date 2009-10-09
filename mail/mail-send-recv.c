@@ -28,14 +28,11 @@
 #include <string.h>
 
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 
 #include "libedataserver/e-account-list.h"
 
 #include "em-filter-rule.h"
-#include "camel/camel-filter-driver.h"
-#include "camel/camel-folder.h"
-#include "camel/camel-operation.h"
-#include "camel/camel-store.h"
 
 #include "mail-mt.h"
 #include "mail-config.h"

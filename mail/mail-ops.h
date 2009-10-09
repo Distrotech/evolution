@@ -28,12 +28,6 @@ G_BEGIN_DECLS
 
 #include "mail-mt.h"
 
-#include "camel/camel-store.h"
-#include "camel/camel-folder.h"
-#include "camel/camel-filter-driver.h"
-#include "camel/camel-mime-message.h"
-#include "camel/camel-operation.h"
-
 #include "libedataserver/e-account.h"
 
 void mail_append_mail (CamelFolder *folder, CamelMimeMessage *message, CamelMessageInfo *info,

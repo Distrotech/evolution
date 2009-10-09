@@ -26,7 +26,7 @@
 #ifndef _MAIL_FOLDER_CACHE_H
 #define _MAIL_FOLDER_CACHE_H
 
-#include <camel/camel-store.h>
+#include <camel/camel.h>
 
 /* Add a store whose folders should appear in the shell
    The folders are scanned from the store, and/or added at

@@ -21,11 +21,10 @@
 #include <sys/stat.h>
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
+#include <camel/camel.h>
 
 #include <e-util/e-error.h>
 #include <e-util/e-util.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-stream-mem.h>
 
 #define AUTOSAVE_PREFIX		".evolution-composer.autosave"
 #define AUTOSAVE_SEED		AUTOSAVE_PREFIX "-XXXXXX"

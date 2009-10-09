@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <gdk/gdkkeysyms.h>
 
@@ -41,20 +42,7 @@
 #include <gtkhtml/gtkhtml.h>
 #include <gtkhtml/gtkhtml-embedded.h>
 
-#include <glib/gi18n.h>
-
-#include <camel/camel-stream.h>
-#include <camel/camel-stream-filter.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-mime-filter-tohtml.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-internet-address.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-cipher-context.h>
-#include <camel/camel-folder.h>
-#include <camel/camel-string-utils.h>
-#include <camel/camel-operation.h>
+#include <camel/camel.h>
 
 #include <e-util/e-util.h>
 #include <e-util/e-util-private.h>

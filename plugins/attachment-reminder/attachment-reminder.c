@@ -24,6 +24,7 @@
 #include <glib/gi18n.h>
 #include <string.h>
 
+#include <camel/camel.h>
 #include <glade/glade-xml.h>
 #include <gconf/gconf-client.h>
 
@@ -31,14 +32,6 @@
 #include <e-util/e-config.h>
 #include <mail/em-config.h>
 #include <mail/em-event.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-multipart.h>
-#include <camel/camel-stream.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-multipart.h>
 
 #include <e-util/e-error.h>
 #include <e-util/e-plugin.h>

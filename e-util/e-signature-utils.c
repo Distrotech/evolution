@@ -20,9 +20,9 @@
 #include "e-signature-utils.h"
 
 #include <errno.h>
+#include <camel/camel.h>
 #include <glib/gstdio.h>
 #include <gconf/gconf-client.h>
-#include <camel.h>
 
 #ifndef G_OS_WIN32
 #include <sys/wait.h>

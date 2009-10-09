@@ -28,11 +28,12 @@
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
+
 #include <e-util/e-plugin-ui.h>
 #include <mail/em-folder-tree.h>
 #include <mail/mail-ops.h>
 #include <mail/mail-mt.h>
-#include <camel/camel-vee-folder.h>
 #include "e-util/e-error.h"
 
 #include <shell/e-shell-sidebar.h>

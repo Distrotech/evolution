@@ -24,8 +24,7 @@
 #ifndef __EM_COMPOSER_UTILS_H__
 #define __EM_COMPOSER_UTILS_H__
 
-#include <glib.h>
-#include <camel/camel-nntp-address.h>
+#include <camel/camel.h>
 
 #include <em-format/em-format.h>
 #include <composer/e-msg-composer.h>

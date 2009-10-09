@@ -31,6 +31,7 @@
 
 #include <gtk/gtk.h>
 
+#include <camel/camel.h>
 #include <gconf/gconf-client.h>
 
 #ifdef HAVE_CANBERRA
@@ -39,10 +40,6 @@
 
 #include <libedataserverui/e-passwords.h>
 #include <libedataserver/e-flag.h>
-
-#include <camel/camel.h>	/* FIXME: this is where camel_init is defined, it shouldn't include everything else */
-#include <camel/camel-filter-driver.h>
-#include <camel/camel-i18n.h>
 
 #include "e-util/e-util.h"
 #include "e-util/e-error.h"

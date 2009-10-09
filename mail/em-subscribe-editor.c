@@ -26,13 +26,12 @@
 
 #include <string.h>
 
+#include <camel/camel.h>
+
 #include "mail-tools.h"
 #include "mail-ops.h"
 #include "mail-mt.h"
 /*#include "mail-folder-cache.h"*/
-#include "camel/camel-exception.h"
-#include "camel/camel-store.h"
-#include "camel/camel-session.h"
 
 #include "e-util/e-util.h"
 #include "e-util/e-account-utils.h"

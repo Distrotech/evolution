@@ -24,10 +24,8 @@
 #include "e-mail-reader-utils.h"
 
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 #include <gtkhtml/gtkhtml.h>
-#include <camel/camel-mime-message.h>
-#include <camel/camel-vee-folder.h>
-#include <camel/camel-vee-store.h>
 
 #include "e-util/e-error.h"
 #include "filter/e-filter-rule.h"

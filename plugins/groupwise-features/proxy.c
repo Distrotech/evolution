@@ -45,8 +45,7 @@
 #include <libedataserver/e-account-list.h>
 #include <e-util/e-icon-factory.h>
 
-#include <camel/camel-url.h>
-#include <camel/camel-offline-store.h>
+#include <camel/camel.h>
 #include <libedataserverui/e-passwords.h>
 #include <libedataserverui/e-name-selector.h>
 #include <proxy.h>
