@@ -105,10 +105,10 @@ org_gnome_format_tnef(gpointer ep, EMFormatHookTarget *t)
 		goto fail;
 	if (camel_data_wrapper_decode_to_stream(content, out) == -1
 	    || camel_stream_close(out) == -1) {
-		camel_object_unref(out);
+		g_object_unref(out);
 		goto fail;
 	}
-	camel_object_unref(out);
+	g_object_unref(out);
 
 	/* Extracting the winmail.dat */
         TNEFInitialize(tnef);
@@ -150,13 +150,13 @@ org_gnome_format_tnef(gpointer ep, EMFormatHookTarget *t)
 		stream = camel_stream_fs_new_with_name(path, O_RDONLY, 0);
 		content = camel_data_wrapper_new();
 		camel_data_wrapper_construct_from_stream(content, stream);
-		camel_object_unref(stream);
+		g_object_unref(stream);
 
 		part = camel_mime_part_new();
 		camel_mime_part_set_encoding(part, CAMEL_TRANSFER_ENCODING_BINARY);
 
 		camel_medium_set_content_object((CamelMedium *)part, content);
-		camel_object_unref(content);
+		g_object_unref(content);
 
 		type = em_format_snoop_type(part);
 		if (type)
@@ -181,7 +181,7 @@ org_gnome_format_tnef(gpointer ep, EMFormatHookTarget *t)
 
 	g_string_truncate(t->format->part_id, len);
 
-	camel_object_unref(mainpart);
+	g_object_unref(mainpart);
 
 	goto ok;
  fail:

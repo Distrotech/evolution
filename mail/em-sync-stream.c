@@ -107,7 +107,7 @@ emss_sync_op (EMSyncStream *emss, enum _write_msg_t op,
 	msg.string = string;
 	msg.len = len;
 
-	camel_object_ref (emss);
+	g_object_ref (emss);
 
 	if (emss->idle_id)
 		g_source_remove (emss->idle_id);
@@ -116,7 +116,7 @@ emss_sync_op (EMSyncStream *emss, enum _write_msg_t op,
 	e_flag_wait (msg.done);
 	e_flag_free (msg.done);
 
-	camel_object_unref (emss);
+	g_object_unref (emss);
 }
 
 static gssize

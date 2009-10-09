@@ -2941,7 +2941,7 @@ comp_editor_get_mime_attach_list (CompEditor *editor)
 
 		attach_list = g_slist_append (attach_list, cal_mime_attach);
 
-		camel_object_unref (mstream);
+		g_object_unref (mstream);
 
 	}
 

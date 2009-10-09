@@ -1710,7 +1710,7 @@ em_migrate_folder(EMMigrateSession *session, const gchar *dirname, const gchar *
 
 			camel_folder_append_message (new_folder, message, info, NULL, &ex);
 			camel_folder_free_message_info (old_folder, info);
-			camel_object_unref (message);
+			g_object_unref (message);
 
 			if (camel_exception_is_set (&ex))
 				break;
@@ -1730,11 +1730,11 @@ fatal:
 	g_string_free(src, TRUE);
 	g_string_free(dest, TRUE);
 	if (local_store)
-		camel_object_unref(local_store);
+		g_object_unref(local_store);
 	if (old_folder)
-		camel_object_unref(old_folder);
+		g_object_unref(old_folder);
 	if (new_folder)
-		camel_object_unref(new_folder);
+		g_object_unref(new_folder);
 
 	if (camel_exception_is_set (&ex)) {
 		g_set_error (
@@ -2541,7 +2541,7 @@ em_migrate_1_4 (const gchar *data_dir, xmlDocPtr filters, xmlDocPtr vfolders, GE
 				_("Failed to create local mail storage "
 				  "`%s': %s"), path + 5, g_strerror (errno));
 			g_free (session->srcdir);
-			camel_object_unref (session);
+			g_object_unref (session);
 			g_free (path);
 			return FALSE;
 		}
@@ -2555,7 +2555,7 @@ em_migrate_1_4 (const gchar *data_dir, xmlDocPtr filters, xmlDocPtr vfolders, GE
 			_("Failed to create local mail storage `%s': %s"),
 			path, lex.desc);
 		g_free (session->srcdir);
-		camel_object_unref (session);
+		g_object_unref (session);
 		camel_exception_clear (&lex);
 		g_free (path);
 		return FALSE;
@@ -2565,10 +2565,10 @@ em_migrate_1_4 (const gchar *data_dir, xmlDocPtr filters, xmlDocPtr vfolders, GE
 	if (!em_migrate_local_folders_1_4 (session, error))
 		return FALSE;
 
-	camel_object_unref (session->store);
+	g_object_unref (session->store);
 	g_free (session->srcdir);
 
-	camel_object_unref (session);
+	g_object_unref (session);
 
 	em_upgrade_accounts_1_4();
 

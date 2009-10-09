@@ -1061,7 +1061,7 @@ action_search_folder_recipient_cb (GtkAction *action,
 		inet_addr = camel_internet_address_new ();
 		camel_address_decode (CAMEL_ADDRESS (inet_addr), curl->path);
 		vfolder_gui_add_from_address (inet_addr, AUTO_TO, folder_uri);
-		camel_object_unref (inet_addr);
+		g_object_unref (inet_addr);
 	}
 
 	camel_url_free (curl);
@@ -1102,7 +1102,7 @@ action_search_folder_sender_cb (GtkAction *action,
 		inet_addr = camel_internet_address_new ();
 		camel_address_decode (CAMEL_ADDRESS (inet_addr), curl->path);
 		vfolder_gui_add_from_address (inet_addr, AUTO_FROM, folder_uri);
-		camel_object_unref (inet_addr);
+		g_object_unref (inet_addr);
 	}
 
 	camel_url_free (curl);

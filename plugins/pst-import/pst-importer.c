@@ -671,7 +671,7 @@ pst_process_folder (PstImporter *m, pst_item *item)
 	m->folder_uri = uri;
 
 	if (m->folder) {
-		camel_object_unref (m->folder);
+		g_object_unref (m->folder);
 		m->folder = NULL;
 	}
 
@@ -708,7 +708,7 @@ pst_create_folder (PstImporter *m)
 			*pos = '\0';
 
 			folder = mail_tool_uri_to_folder (dest, CAMEL_STORE_FOLDER_CREATE, &m->base.ex);
-			camel_object_unref(folder);
+			g_object_unref(folder);
 			*pos = '/';
 		}
 	}
@@ -716,7 +716,7 @@ pst_create_folder (PstImporter *m)
 	g_free (dest);
 
 	if (m->folder) {
-		camel_object_unref (m->folder);
+		g_object_unref (m->folder);
 	}
 
 	m->folder = mail_tool_uri_to_folder (m->folder_uri, CAMEL_STORE_FOLDER_CREATE, &m->base.ex);
@@ -808,7 +808,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 	}
 
 	camel_mime_message_set_from (msg, addr);
-	camel_object_unref (addr);
+	g_object_unref (addr);
 
 	if (item->email->sent_date != NULL) {
 		camel_mime_message_set_date (msg, pst_fileTimeToUnixTime (item->email->sent_date), 0);
@@ -836,7 +836,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 			if (camel_address_decode (CAMEL_ADDRESS (addr), item->email->sentto_address.str) > 0)
 				camel_mime_message_set_recipients (msg, "To", addr);
 
-			camel_object_unref (addr);
+			g_object_unref (addr);
 		}
 
 		if (item->email->cc_address.str != NULL) {
@@ -845,7 +845,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 			if (camel_address_decode (CAMEL_ADDRESS (addr), item->email->cc_address.str) > 0)
 				camel_mime_message_set_recipients (msg, "CC", addr);
 
-			camel_object_unref (addr);
+			g_object_unref (addr);
 		}
 	}
 
@@ -876,7 +876,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 		part = camel_mime_part_new ();
 		camel_mime_part_set_content (part, item->body.str, strlen (item->body.str), "text/plain");
 		camel_multipart_add_part (mp, part);
-		camel_object_unref (part);
+		g_object_unref (part);
 	}
 
 	if (item->email->htmlbody.str != NULL) {
@@ -884,14 +884,14 @@ pst_process_email (PstImporter *m, pst_item *item)
 		part = camel_mime_part_new ();
 		camel_mime_part_set_content (part, item->email->htmlbody.str, strlen (item->email->htmlbody.str), "text/html");
 		camel_multipart_add_part (mp, part);
-		camel_object_unref (part);
+		g_object_unref (part);
 	}
 
 	for (attach = item->attach; attach; attach = attach->next) {
 		if (attach->data.data || attach->i_id) {
 			part = attachment_to_part(m, attach);
 			camel_multipart_add_part (mp, part);
-			camel_object_unref (part);
+			g_object_unref (part);
 		}
 	}
 
@@ -921,7 +921,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 
 	camel_folder_append_message (m->folder, msg, info, NULL, &m->ex);
 	camel_message_info_free (info);
-	camel_object_unref (msg);
+	g_object_unref (msg);
 
 	camel_folder_sync (m->folder, FALSE, NULL);
 	camel_folder_thaw (m->folder);
@@ -1247,18 +1247,18 @@ set_cal_attachments (ECal *cal, ECalComponent *ec, PstImporter *m, pst_item_atta
 			|| camel_stream_flush (stream) == -1)
 		{
 			g_warning ("Could not write attachment to %s: %s", path, g_strerror (errno));
-			camel_object_unref (stream);
+			g_object_unref (stream);
 			attach = attach->next;
 			continue;
 		}
 
-		camel_object_unref (stream);
+		g_object_unref (stream);
 
 		uri = g_filename_to_uri (path, NULL, NULL);
 		list = g_slist_append (list, g_strdup (uri));
 		g_free (uri);
 
-		camel_object_unref (part);
+		g_object_unref (part);
 		g_free (path);
 
 		attach = attach->next;

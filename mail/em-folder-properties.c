@@ -118,7 +118,7 @@ emfp_free(EConfig *ec, GSList *items, gpointer data)
 	camel_object_free (prop_data->object, CAMEL_FOLDER_PROPERTIES, prop_data->properties);
 	camel_object_free (prop_data->object, CAMEL_FOLDER_NAME, prop_data->name);
 
-	camel_object_unref (prop_data->object);
+	g_object_unref (prop_data->object);
 	g_free (prop_data->argv);
 
 	camel_folder_quota_info_free (prop_data->quota);
@@ -318,8 +318,7 @@ emfp_dialog_got_folder_quota (CamelFolder *folder,
 	local_store = e_mail_local_get_store ();
 
 	prop_data = g_malloc0 (sizeof (*prop_data));
-	prop_data->object = folder;
-	camel_object_ref (folder);
+	prop_data->object = g_object_ref (folder);
 	prop_data->quota = camel_folder_quota_info_clone (quota);
 
 	/*

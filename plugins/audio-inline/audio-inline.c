@@ -78,7 +78,7 @@ org_gnome_audio_inline_pobject_free (EMFormatHTMLPObject *o)
 	}
 
 	if (po->part) {
-		camel_object_unref (po->part);
+		g_object_unref (po->part);
 		po->part = NULL;
 	}
 	if (po->filename) {
@@ -208,7 +208,7 @@ org_gnome_audio_inline_play_clicked (GtkWidget *button, EMFormatHTMLPObject *pob
 		data = camel_medium_get_content_object (CAMEL_MEDIUM (po->part));
 		camel_data_wrapper_decode_to_stream (data, stream);
 		camel_stream_flush (stream);
-		camel_object_unref (stream);
+		g_object_unref (stream);
 
 		d(printf ("audio inline formatter: init gst playbin\n"));
 
@@ -297,8 +297,7 @@ org_gnome_audio_inline_format (gpointer ep, EMFormatHookTarget *t)
 
 	pobj = (struct _org_gnome_audio_inline_pobject *) em_format_html_add_pobject ((EMFormatHTML *) t->format, sizeof(*pobj), classid,
 										      t->part, org_gnome_audio_inline_button_panel);
-	camel_object_ref (t->part);
-	pobj->part = t->part;
+	pobj->part = g_object_ref (t->part);
 	pobj->filename = NULL;
 	pobj->playbin = NULL;
 	pobj->play_button = NULL;

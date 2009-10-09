@@ -413,7 +413,7 @@ lookup_addressbook(CamelSession *session, const gchar *name)
 	addr = camel_internet_address_new ();
 	camel_address_decode ((CamelAddress *)addr, name);
 	ret = em_utils_in_addressbook (addr, mail_config_get_lookup_book_local_only ());
-	camel_object_unref (addr);
+	g_object_unref (addr);
 
 	return ret;
 }
@@ -474,7 +474,7 @@ main_play_sound (CamelFilterDriver *driver, gchar *filename, gpointer user_data)
 		gdk_beep ();
 
 	g_free (filename);
-	camel_object_unref (session);
+	g_object_unref (session);
 }
 
 static void
@@ -482,7 +482,7 @@ session_play_sound (CamelFilterDriver *driver, const gchar *filename, gpointer u
 {
 	MailSession *ms = (MailSession *) session;
 
-	camel_object_ref (session);
+	g_object_ref (session);
 
 	mail_async_event_emit (ms->async, MAIL_ASYNC_GUI, (MailAsyncFunc) main_play_sound,
 			       driver, g_strdup (filename), user_data);
@@ -492,7 +492,7 @@ static void
 main_system_beep (CamelFilterDriver *driver, gpointer user_data)
 {
 	gdk_beep ();
-	camel_object_unref (session);
+	g_object_unref (session);
 }
 
 static void
@@ -500,7 +500,7 @@ session_system_beep (CamelFilterDriver *driver, gpointer user_data)
 {
 	MailSession *ms = (MailSession *) session;
 
-	camel_object_ref (session);
+	g_object_ref (session);
 
 	mail_async_event_emit (ms->async, MAIL_ASYNC_GUI, (MailAsyncFunc) main_system_beep,
 			       driver, user_data, NULL);

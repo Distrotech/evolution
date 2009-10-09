@@ -710,7 +710,7 @@ org_gnome_proxy (EPlugin *epl, EConfigHookItemFactoryData *data)
 		}
 	}
 
-	camel_object_unref (store);
+	g_object_unref (store);
 	camel_exception_clear (&ex);
 	return NULL;
 }

@@ -142,7 +142,7 @@ free_update(struct _folder_update *up)
 	g_free (up->full_name);
 	g_free (up->uri);
 	if (up->store)
-		camel_object_unref(up->store);
+		g_object_unref(up->store);
 	g_free (up->oldfull);
 	g_free (up->olduri);
 	g_free (up->msg_uid);
@@ -224,7 +224,7 @@ real_flush_updates (void)
 
 			if (folder) {
 				mail_note_folder (folder);
-				camel_object_unref (folder);
+				g_object_unref (folder);
 			}
 		}
 
@@ -267,9 +267,8 @@ unset_folder_info(struct _folder_info *mfi, gint delete, gint unsub)
 		up->remove = TRUE;
 		up->delete = delete;
 		up->unsub = unsub;
-		up->store = mfi->store_info->store;
+		up->store = g_object_ref (mfi->store_info->store);
 		up->full_name = g_strdup (mfi->full_name);
-		camel_object_ref(up->store);
 		up->uri = g_strdup(mfi->uri);
 
 		g_queue_push_head (&updates, up);
@@ -356,12 +355,11 @@ update_1folder(struct _folder_info *mfi, gint new, const gchar *msg_uid, const g
 	up->full_name = g_strdup(mfi->full_name);
 	up->unread = unread;
 	up->new = new;
-	up->store = mfi->store_info->store;
+	up->store = g_object_ref (mfi->store_info->store);
 	up->uri = g_strdup(mfi->uri);
 	up->msg_uid = g_strdup (msg_uid);
 	up->msg_sender = g_strdup (msg_sender);
 	up->msg_subject = g_strdup (msg_subject);
-	camel_object_ref(up->store);
 	g_queue_push_head (&updates, up);
 	flush_updates();
 }
@@ -390,8 +388,7 @@ setup_folder(CamelFolderInfo *fi, struct _store_info *si)
 		up->full_name = g_strdup(mfi->full_name);
 		up->uri = g_strdup(fi->uri);
 		up->unread = fi->unread;
-		up->store = si->store;
-		camel_object_ref(up->store);
+		up->store = g_object_ref (si->store);
 
 		if ((fi->flags & CAMEL_FOLDER_NOSELECT) == 0)
 			up->add = TRUE;
@@ -689,8 +686,7 @@ rename_folders(struct _store_info *si, const gchar *oldbase, const gchar *newbas
 	up->full_name = g_strdup(mfi->full_name);
 	up->uri = g_strdup(mfi->uri);
 	up->unread = fi->unread==-1?0:fi->unread;
-	up->store = si->store;
-	camel_object_ref(up->store);
+	up->store = g_object_ref (si->store);
 
 	if ((fi->flags & CAMEL_FOLDER_NOSELECT) == 0)
 		up->add = TRUE;
@@ -837,7 +833,7 @@ mail_note_store_remove(CamelStore *store)
 			link = g_list_next (link);
 		}
 
-		camel_object_unref(si->store);
+		g_object_unref(si->store);
 		g_hash_table_foreach(si->folders, (GHFunc)free_folder_info_hash, NULL);
 		g_hash_table_destroy(si->folders);
 		g_hash_table_destroy(si->folders_uri);
@@ -913,7 +909,7 @@ ping_store_exec (struct _ping_store_msg *m)
 static void
 ping_store_free (struct _ping_store_msg *m)
 {
-	camel_object_unref (m->store);
+	g_object_unref (m->store);
 }
 
 static MailMsgInfo ping_store_info = {
@@ -934,8 +930,7 @@ ping_store (gpointer key, gpointer val, gpointer user_data)
 		return;
 
 	m = mail_msg_new (&ping_store_info);
-	m->store = store;
-	camel_object_ref (store);
+	m->store = g_object_ref (store);
 
 	mail_msg_slow_ordered_push (m);
 }
@@ -1003,8 +998,7 @@ mail_note_store(CamelStore *store, CamelOperation *op,
 		si->folders = g_hash_table_new(g_str_hash, g_str_equal);
 		si->folders_uri = g_hash_table_new(CAMEL_STORE_CLASS(CAMEL_OBJECT_GET_CLASS(store))->hash_folder_name,
 						   CAMEL_STORE_CLASS(CAMEL_OBJECT_GET_CLASS(store))->compare_folder_name);
-		si->store = store;
-		camel_object_ref((CamelObject *)store);
+		si->store = g_object_ref (store);
 		g_hash_table_insert(stores, store, si);
 		g_queue_init (&si->folderinfo_updates);
 		hook = TRUE;
@@ -1087,8 +1081,7 @@ gint mail_note_get_folder_from_uri(const gchar *uri, CamelFolder **folderp)
 	g_hash_table_foreach(stores, (GHFunc)storeinfo_find_folder_info, &fi);
 	if (folderp) {
 		if (fi.fi && fi.fi->folder) {
-			*folderp = fi.fi->folder;
-			camel_object_ref(*folderp);
+			*folderp = g_object_ref (fi.fi->folder);
 		} else {
 			*folderp = NULL;
 		}

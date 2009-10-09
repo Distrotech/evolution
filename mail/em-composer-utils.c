@@ -115,11 +115,10 @@ emcs_set_drafts_info (struct emcs_t *emcs,
 	g_return_if_fail (drafts_uid != NULL);
 
 	if (emcs->drafts_folder != NULL)
-		camel_object_unref (emcs->drafts_folder);
+		g_object_unref (emcs->drafts_folder);
 	g_free (emcs->drafts_uid);
 
-	camel_object_ref (drafts_folder);
-	emcs->drafts_folder = drafts_folder;
+	emcs->drafts_folder = g_object_ref (drafts_folder);
 	emcs->drafts_uid = g_strdup (drafts_uid);
 }
 
@@ -135,11 +134,10 @@ emcs_set_folder_info (struct emcs_t *emcs,
 	g_return_if_fail (uid != NULL);
 
 	if (emcs->folder != NULL)
-		camel_object_unref (emcs->folder);
+		g_object_unref (emcs->folder);
 	g_free (emcs->uid);
 
-	camel_object_ref (folder);
-	emcs->folder = folder;
+	emcs->folder = g_object_ref (folder);
 	emcs->uid = g_strdup (uid);
 	emcs->flags = flags;
 	emcs->set = set;
@@ -149,11 +147,11 @@ static void
 free_emcs (struct emcs_t *emcs)
 {
 	if (emcs->drafts_folder != NULL)
-		camel_object_unref (emcs->drafts_folder);
+		g_object_unref (emcs->drafts_folder);
 	g_free (emcs->drafts_uid);
 
 	if (emcs->folder != NULL)
-		camel_object_unref (emcs->folder);
+		g_object_unref (emcs->folder);
 	g_free (emcs->uid);
 
 	g_free (emcs);
@@ -243,7 +241,7 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 			camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
 							CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
 							CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
-			camel_object_unref (emcs->drafts_folder);
+			g_object_unref (emcs->drafts_folder);
 			emcs->drafts_folder = NULL;
 			g_free (emcs->drafts_uid);
 			emcs->drafts_uid = NULL;
@@ -253,7 +251,7 @@ composer_send_queued_cb (CamelFolder *folder, CamelMimeMessage *msg, CamelMessag
 			/* set any replied flags etc */
 			camel_folder_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
 			camel_folder_set_message_user_flag (emcs->folder, emcs->uid, "receipt-handled", TRUE);
-			camel_object_unref (emcs->folder);
+			g_object_unref (emcs->folder);
 			emcs->folder = NULL;
 			g_free (emcs->uid);
 			emcs->uid = NULL;
@@ -396,7 +394,7 @@ composer_get_message (EMsgComposer *composer, gboolean save_html_object_data)
 		e_destination_freev (recipients_bcc);
 	}
 
-	camel_object_unref (cia);
+	g_object_unref (cia);
 
 	post_to_header = e_composer_header_table_get_header (table, E_COMPOSER_HEADER_POST_TO);
 	if (e_composer_header_get_visible (post_to_header)) {
@@ -531,7 +529,7 @@ em_utils_composer_send_cb (EMsgComposer *composer)
 		return;
 
 	folder = e_mail_local_get_folder (E_MAIL_FOLDER_OUTBOX);
-	camel_object_ref (folder);
+	g_object_ref (folder);
 
 	/* mail the message */
 	e_msg_composer_set_mail_sent (composer, TRUE);
@@ -551,8 +549,8 @@ em_utils_composer_send_cb (EMsgComposer *composer)
 	mail_append_mail (
 		folder, message, info, composer_send_queued_cb, send);
 
-	camel_object_unref (folder);
-	camel_object_unref (message);
+	g_object_unref (folder);
+	g_object_unref (message);
 }
 
 struct _save_draft_info {
@@ -597,7 +595,7 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 		camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
 						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
 						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
-		camel_object_unref (emcs->drafts_folder);
+		g_object_unref (emcs->drafts_folder);
 		emcs->drafts_folder = NULL;
 		g_free (emcs->drafts_uid);
 		emcs->drafts_uid = NULL;
@@ -606,15 +604,14 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 	if (emcs->folder) {
 		/* set the replied flags etc */
 		camel_folder_set_message_flags (emcs->folder, emcs->uid, emcs->flags, emcs->set);
-		camel_object_unref (emcs->folder);
+		g_object_unref (emcs->folder);
 		emcs->folder = NULL;
 		g_free (emcs->uid);
 		emcs->uid = NULL;
 	}
 
 	if (appended_uid) {
-		camel_object_ref (folder);
-		emcs->drafts_folder = folder;
+		emcs->drafts_folder = g_object_ref (folder);
 		emcs->drafts_uid = g_strdup (appended_uid);
 	}
 
@@ -634,10 +631,8 @@ save_draft_folder (gchar *uri, CamelFolder *folder, gpointer data)
 {
 	CamelFolder **save = data;
 
-	if (folder) {
-		*save = folder;
-		camel_object_ref (folder);
-	}
+	if (folder)
+		*save = g_object_ref (folder);
 }
 
 static void
@@ -682,27 +677,24 @@ em_utils_composer_save_draft_cb (EMsgComposer *composer)
 		if (!folder || !account->enabled) {
 			if (e_error_run((GtkWindow *)composer, "mail:ask-default-drafts", NULL) != GTK_RESPONSE_YES) {
 				g_object_unref(composer);
-				camel_object_unref(msg);
+				g_object_unref(msg);
 				if (sdi->emcs)
 					emcs_unref(sdi->emcs);
 				g_free(sdi);
 				return;
 			}
 
-			folder = local_drafts_folder;
-			camel_object_ref (local_drafts_folder);
+			folder = g_object_ref (local_drafts_folder);
 		}
-	} else {
-		folder = local_drafts_folder;
-		camel_object_ref (folder);
-	}
+	} else
+		folder = g_object_ref (local_drafts_folder);
 
 	info = camel_message_info_new(NULL);
 	camel_message_info_set_flags(info, CAMEL_MESSAGE_DRAFT | CAMEL_MESSAGE_SEEN, ~0);
 
 	mail_append_mail (folder, msg, info, save_draft_done, sdi);
-	camel_object_unref (folder);
-	camel_object_unref (msg);
+	g_object_unref (folder);
+	g_object_unref (msg);
 }
 
 static void
@@ -1116,7 +1108,7 @@ composer_destroy_fad_cb (gpointer user_data, GObject *deadbeef)
 	struct forward_attached_data *fad = (struct forward_attached_data*) user_data;
 
 	if (fad) {
-		camel_object_unref (fad->folder);
+		g_object_unref (fad->folder);
 		em_utils_uids_free (fad->uids);
 		g_free (fad);
 	}
@@ -1130,10 +1122,8 @@ setup_forward_attached_callbacks (EMsgComposer *composer, CamelFolder *folder, G
 	if (!composer || !folder || !uids || !uids->len)
 		return;
 
-	camel_object_ref (folder);
-
 	fad = g_new0 (struct forward_attached_data, 1);
-	fad->folder = folder;
+	fad->folder = g_object_ref (folder);
 	fad->uids = em_utils_uids_copy (uids);
 
 	g_signal_connect (composer, "send", G_CALLBACK (update_forwarded_flags_cb), fad);
@@ -1338,7 +1328,7 @@ em_utils_forward_message (CamelMimeMessage *message, const gchar *fromuri)
 		subject = mail_tool_generate_forward_subject (message);
 
 		composer = forward_attached (NULL, NULL, messages, part, subject, fromuri);
-		camel_object_unref (part);
+		g_object_unref (part);
 		g_free (subject);
 		break;
 	case MAIL_CONFIG_FORWARD_INLINE:
@@ -1575,14 +1565,14 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 			     "Your message to %s about \"%s\" on %s has been read.",
 			     self_address, message_subject, message_date);
 	camel_data_wrapper_construct_from_stream (receipt_text, stream);
-	camel_object_unref (stream);
+	g_object_unref (stream);
 
 	part = camel_mime_part_new ();
 	camel_medium_set_content_object (CAMEL_MEDIUM (part), receipt_text);
 	camel_mime_part_set_encoding (part, CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE);
-	camel_object_unref (receipt_text);
+	g_object_unref (receipt_text);
 	camel_multipart_add_part (body, part);
-	camel_object_unref (part);
+	g_object_unref (part);
 
 	/* Create the machine-readable receipt */
 	receipt_data = camel_data_wrapper_new ();
@@ -1603,7 +1593,7 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 			     "Disposition: manual-action/MDN-sent-manually; displayed\n",
 			     ua, recipient, message_id);
 	camel_data_wrapper_construct_from_stream (receipt_data, stream);
-	camel_object_unref (stream);
+	g_object_unref (stream);
 
 	g_free (ua);
 	g_free (recipient);
@@ -1611,13 +1601,13 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 
 	camel_medium_set_content_object (CAMEL_MEDIUM (part), receipt_data);
 	camel_mime_part_set_encoding (part, CAMEL_TRANSFER_ENCODING_7BIT);
-	camel_object_unref (receipt_data);
+	g_object_unref (receipt_data);
 	camel_multipart_add_part (body, part);
-	camel_object_unref (part);
+	g_object_unref (part);
 
 	/* Finish creating the message */
 	camel_medium_set_content_object (CAMEL_MEDIUM (receipt), CAMEL_DATA_WRAPPER (body));
-	camel_object_unref (body);
+	g_object_unref (body);
 
 	receipt_subject = g_strdup_printf ("Delivery Notification for: \"%s\"", message_subject);
 	camel_mime_message_set_subject (receipt, receipt_subject);
@@ -1626,12 +1616,12 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	addr = camel_internet_address_new ();
 	camel_address_decode (CAMEL_ADDRESS (addr), self_address);
 	camel_mime_message_set_from (receipt, addr);
-	camel_object_unref (addr);
+	g_object_unref (addr);
 
 	addr = camel_internet_address_new ();
 	camel_address_decode (CAMEL_ADDRESS (addr), receipt_address);
 	camel_mime_message_set_recipients (receipt, CAMEL_RECIPIENT_TYPE_TO, addr);
-	camel_object_unref (addr);
+	g_object_unref (addr);
 
 	camel_medium_set_header (CAMEL_MEDIUM (receipt), "Return-Path", "<>");
 	if (account) {
@@ -1701,7 +1691,7 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 	camel_data_wrapper_write_to_stream ((CamelDataWrapper *)message, mem);
 	camel_seekable_stream_seek (CAMEL_SEEKABLE_STREAM (mem), 0, CAMEL_STREAM_SET);
 	camel_data_wrapper_construct_from_stream ((CamelDataWrapper *)forward, mem);
-	camel_object_unref (mem);
+	g_object_unref (mem);
 
 	/* clear previous recipients */
 	camel_mime_message_set_recipients (forward, CAMEL_RECIPIENT_TYPE_TO, NULL);
@@ -1726,13 +1716,13 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 	addr = camel_internet_address_new ();
 	camel_internet_address_add (addr, account->id->name, account->id->address);
 	camel_mime_message_set_from (forward, addr);
-	camel_object_unref (addr);
+	g_object_unref (addr);
 
 	/* to */
 	addr = camel_internet_address_new ();
 	camel_address_decode (CAMEL_ADDRESS (addr), address);
 	camel_mime_message_set_recipients (forward, CAMEL_RECIPIENT_TYPE_TO, addr);
-	camel_object_unref (addr);
+	g_object_unref (addr);
 
 	/* subject */
 	subject = mail_tool_generate_forward_subject (message);
@@ -2321,7 +2311,7 @@ composer_set_body (EMsgComposer *composer, CamelMimeMessage *message, EMFormat *
 		/* attach the original message as an attachment */
 		part = mail_tool_make_message_attachment (message);
 		e_msg_composer_attach (composer, part);
-		camel_object_unref (part);
+		g_object_unref (part);
 		break;
 	case MAIL_CONFIG_REPLY_OUTLOOK:
 		text = em_utils_message_to_html (message, _("-----Original Message-----"), EM_FORMAT_QUOTE_HEADERS, &len, source, start_bottom ? "<BR>" : NULL, &validity_found);
@@ -2463,9 +2453,9 @@ em_utils_reply_to_message(CamelFolder *folder, const gchar *uid, CamelMimeMessag
 	e_msg_composer_add_message_attachments (composer, message, TRUE);
 
 	if (postto)
-		camel_object_unref(postto);
-	camel_object_unref(to);
-	camel_object_unref(cc);
+		g_object_unref(postto);
+	g_object_unref(to);
+	g_object_unref(cc);
 
 	composer_set_body (composer, message, source);
 

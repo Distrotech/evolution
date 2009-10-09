@@ -91,7 +91,7 @@ refresh_folder_tree (EMFolderTreeModel *model, CamelStore *store)
 	if (!(provider->flags & CAMEL_PROVIDER_IS_STORAGE))
 		return;
 	em_folder_tree_model_add_store (model, store, account->name);
-	/* camel_object_unref (store); */
+	/* g_object_unref (store); */
 }
 
 void
@@ -176,7 +176,7 @@ static void
 create_folder_free (struct _EMCreateFolder *m)
 {
 	camel_store_free_folder_info (m->store, m->fi);
-	camel_object_unref (m->store);
+	g_object_unref (m->store);
 	g_free (m->full_name);
 	g_free (m->parent);
 	g_free (m->name);
@@ -222,8 +222,7 @@ create_folder (CamelStore *store, const gchar *full_name, void (* done) (struct 
 	}
 
 	m = mail_msg_new (&create_folder_info);
-	camel_object_ref (store);
-	m->store = store;
+	m->store = g_object_ref (store);
 	m->full_name = g_strdup (full_name);
 	m->parent = g_strdup (parent);
 	m->name = g_strdup (name);
@@ -264,7 +263,7 @@ users_dialog_response(GtkWidget *dialog, gint response, struct ShareInfo *ssi)
 
 	if (!(si = em_folder_tree_model_lookup_store_info (ssi->model, store))) {
 		g_assert_not_reached ();
-		camel_object_unref (store);
+		g_object_unref (store);
 		return;
 	}
 
@@ -284,7 +283,7 @@ users_dialog_response(GtkWidget *dialog, gint response, struct ShareInfo *ssi)
 		create_folder (si->store, path, new_folder_created_cb, ssi);
 
 	}
-	camel_object_unref (store);
+	g_object_unref (store);
 }
 
 static void
@@ -328,7 +327,7 @@ new_folder_response (EMFolderSelector *emfs, gint response, EMFolderTreeModel *m
 	gtk_widget_show(users_dialog);
 	g_signal_connect (users_dialog, "response", G_CALLBACK (users_dialog_response), ssi);
 
-	camel_object_unref (store);
+	g_object_unref (store);
 	return;
 
 }

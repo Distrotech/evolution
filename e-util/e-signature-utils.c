@@ -22,12 +22,7 @@
 #include <errno.h>
 #include <glib/gstdio.h>
 #include <gconf/gconf-client.h>
-#include <camel/camel-stream.h>
-#include <camel/camel-stream-fs.h>
-#include <camel/camel-stream-mem.h>
-#include <camel/camel-stream-filter.h>
-#include <camel/camel-mime-filter-charset.h>
-#include <camel/camel-mime-filter-tohtml.h>
+#include <camel.h>
 
 #ifndef G_OS_WIN32
 #include <sys/wait.h>
@@ -180,9 +175,8 @@ e_read_signature_file (ESignature *signature,
 		CamelMimeFilter *filter;
 		gint32 flags;
 
-		filtered_stream =
-			camel_stream_filter_new_with_stream (input_stream);
-		camel_object_unref (input_stream);
+		filtered_stream = camel_stream_filter_new (input_stream);
+		g_object_unref (input_stream);
 
 		flags =
 			CAMEL_MIME_FILTER_TOHTML_PRESERVE_8BIT |
@@ -191,7 +185,7 @@ e_read_signature_file (ESignature *signature,
 			CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES;
 		filter = camel_mime_filter_tohtml_new (flags, 0);
 		camel_stream_filter_add (filtered_stream, filter);
-		camel_object_unref (filter);
+		g_object_unref (filter);
 
 		input_stream = (CamelStream *) filtered_stream;
 	}
@@ -201,8 +195,8 @@ e_read_signature_file (ESignature *signature,
 	camel_stream_mem_set_byte_array (
 		CAMEL_STREAM_MEM (output_stream), buffer);
 	camel_stream_write_to_stream (input_stream, output_stream);
-	camel_object_unref (output_stream);
-	camel_object_unref (input_stream);
+	g_object_unref (output_stream);
+	g_object_unref (input_stream);
 
 	/* Make sure the buffer is nul-terminated. */
 	length = (gsize) buffer->len;
@@ -295,9 +289,9 @@ e_run_signature_script (const gchar *filename)
 
 		input_stream = camel_stream_fs_new_with_fd (in_fds[0]);
 		camel_stream_write_to_stream (input_stream, output_stream);
-		camel_object_unref (input_stream);
+		g_object_unref (input_stream);
 
-		camel_object_unref (output_stream);
+		g_object_unref (output_stream);
 
 		/* Make sure the buffer is nul-terminated. */
 		length = (gsize) buffer->len;

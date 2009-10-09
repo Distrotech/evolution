@@ -115,7 +115,7 @@ vfolder_setup_exec (struct _setup_msg *m)
 	l = m->sources_folder;
 	while (l && !shutdown) {
 		d(printf(" Adding folder: %s\n", ((CamelFolder *)l->data)->full_name));
-		camel_object_ref(l->data);
+		g_object_ref(l->data);
 		list = g_list_append(list, l->data);
 		l = l->next;
 	}
@@ -125,7 +125,7 @@ vfolder_setup_exec (struct _setup_msg *m)
 
 	l = list;
 	while (l) {
-		camel_object_unref(l->data);
+		g_object_unref(l->data);
 		l = l->next;
 	}
 	g_list_free(list);
@@ -141,7 +141,7 @@ vfolder_setup_free (struct _setup_msg *m)
 {
 	GList *l;
 
-	camel_object_unref(m->folder);
+	g_object_unref(m->folder);
 	g_free(m->query);
 
 	l = m->sources_uri;
@@ -153,7 +153,7 @@ vfolder_setup_free (struct _setup_msg *m)
 
 	l = m->sources_folder;
 	while (l) {
-		camel_object_unref(l->data);
+		g_object_unref(l->data);
 		l = l->next;
 	}
 	g_list_free(m->sources_folder);
@@ -175,8 +175,7 @@ vfolder_setup(CamelFolder *folder, const gchar *query, GList *sources_uri, GList
 	gint id;
 
 	m = mail_msg_new(&vfolder_setup_info);
-	m->folder = folder;
-	camel_object_ref(folder);
+	m->folder = g_object_ref (folder);
 	m->query = g_strdup(query);
 	m->sources_uri = sources_uri;
 	m->sources_folder = sources_folder;
@@ -272,7 +271,7 @@ vfolder_adduri_exec (struct _adduri_msg *m)
 				camel_vee_folder_add_folder((CamelVeeFolder *)l->data, folder);
 			l = l->next;
 		}
-		camel_object_unref(folder);
+		g_object_unref(folder);
 	}
 }
 
@@ -284,7 +283,7 @@ vfolder_adduri_done(struct _adduri_msg *m)
 static void
 vfolder_adduri_free (struct _adduri_msg *m)
 {
-	g_list_foreach(m->folders, (GFunc)camel_object_unref, NULL);
+	g_list_foreach(m->folders, (GFunc)g_object_unref, NULL);
 	g_list_free(m->folders);
 	g_free(m->uri);
 }
@@ -509,7 +508,7 @@ mail_vfolder_add_uri(CamelStore *store, const gchar *curi, gint remove)
 				g_warning ("vf is NULL for %s\n", rule->name);
 				continue;
 			}
-			camel_object_ref(vf);
+			g_object_ref(vf);
 			folders = g_list_prepend(folders, vf);
 		}
 	}
@@ -809,7 +808,7 @@ static void context_rule_removed(ERuleContext *ctx, EFilterRule *rule)
 	camel_store_delete_folder(vfolder_store, rule->name, NULL);
 	/* this must be unref'd after its deleted */
 	if (folder)
-		camel_object_unref ((CamelFolder *) folder);
+		g_object_unref ((CamelFolder *) folder);
 }
 
 static void
@@ -1217,7 +1216,7 @@ vfolder_foreach_cb (gpointer key, gpointer data, gpointer user_data)
 	CamelFolder *folder = CAMEL_FOLDER (data);
 
 	if (folder)
-		camel_object_unref(folder);
+		g_object_unref(folder);
 
 	g_free (key);
 }
@@ -1234,7 +1233,7 @@ mail_vfolder_shutdown (void)
 	}
 
 	if (vfolder_store) {
-		camel_object_unref (vfolder_store);
+		g_object_unref (vfolder_store);
 		vfolder_store = NULL;
 	}
 

@@ -519,7 +519,7 @@ create_new_message (CamelFolder *folder, const gchar *uid, CamelMimeMessage *mes
 	/* Create the composer */
 	em_utils_edit_message (new, folder);
 
-	camel_object_unref(new);
+	g_object_unref(new);
 }
 
 static void
@@ -610,7 +610,7 @@ build_template_menus_recurse (GtkUIManager *ui_manager,
 				continue;
 
 			template = camel_folder_get_message (folder, uid, NULL);
-			camel_object_ref (template);
+			g_object_ref (template);
 
 			action_label =
 				camel_mime_message_get_subject (template);
@@ -625,7 +625,7 @@ build_template_menus_recurse (GtkUIManager *ui_manager,
 				action_name, action_label, NULL, NULL);
 
 			muid = camel_pstring_strdup (message_uid);
-			camel_object_ref (message_folder);
+			g_object_ref (message_folder);
 
 			g_object_set_data_full (
 				G_OBJECT (action), "message_uid", (gpointer) muid,
@@ -633,11 +633,11 @@ build_template_menus_recurse (GtkUIManager *ui_manager,
 
 			g_object_set_data_full (
 				G_OBJECT (action), "message_folder", message_folder,
-				(GDestroyNotify) camel_object_unref);
+				(GDestroyNotify) g_object_unref);
 
 			g_object_set_data_full (
 				G_OBJECT (action), "template", template,
-				(GDestroyNotify) camel_object_unref);
+				(GDestroyNotify) g_object_unref);
 
 			g_signal_connect (
 				action, "activate",

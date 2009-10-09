@@ -162,7 +162,7 @@ emft_copy_folders__exec (struct _EMCopyFolders *m)
 						goto exception;
 
 					if (!(tofolder = camel_store_get_folder (m->tostore, toname->str, CAMEL_STORE_FOLDER_CREATE, &m->base.ex))) {
-						camel_object_unref (fromfolder);
+						g_object_unref (fromfolder);
 						goto exception;
 					}
 
@@ -173,8 +173,8 @@ emft_copy_folders__exec (struct _EMCopyFolders *m)
 					if (m->delete && !camel_exception_is_set (&m->base.ex))
 						camel_folder_sync(fromfolder, TRUE, NULL);
 
-					camel_object_unref (fromfolder);
-					camel_object_unref (tofolder);
+					g_object_unref (fromfolder);
+					g_object_unref (tofolder);
 				}
 			}
 
@@ -221,8 +221,8 @@ emft_copy_folders__exec (struct _EMCopyFolders *m)
 static void
 emft_copy_folders__free (struct _EMCopyFolders *m)
 {
-	camel_object_unref (m->fromstore);
-	camel_object_unref (m->tostore);
+	g_object_unref (m->fromstore);
+	g_object_unref (m->tostore);
 
 	g_free (m->frombase);
 	g_free (m->tobase);
@@ -243,10 +243,8 @@ em_folder_utils_copy_folders(CamelStore *fromstore, const gchar *frombase, Camel
 	gint seq;
 
 	m = mail_msg_new (&copy_folders_info);
-	camel_object_ref (fromstore);
-	m->fromstore = fromstore;
-	camel_object_ref (tostore);
-	m->tostore = tostore;
+	m->fromstore = g_object_ref (fromstore);
+	m->tostore = g_object_ref (tostore);
 	m->frombase = g_strdup (frombase);
 	m->tobase = g_strdup (tobase);
 	m->delete = delete;
@@ -316,9 +314,9 @@ emfu_copy_folder_selected (const gchar *uri, gpointer data)
 	camel_url_free (url);
 fail:
 	if (fromstore)
-		camel_object_unref(fromstore);
+		g_object_unref(fromstore);
 	if (tostore)
-		camel_object_unref(tostore);
+		g_object_unref(tostore);
 	camel_exception_clear (&ex);
 	g_free (cfd);
 }
@@ -454,12 +452,12 @@ em_folder_utils_delete_folder (CamelFolder *folder)
 		return;
 	}
 
-	camel_object_ref (folder);
+	g_object_ref (folder);
 
 	dialog = e_error_new (parent,
 			     (folder->parent_store && CAMEL_IS_VEE_STORE(folder->parent_store))?"mail:ask-delete-vfolder":"mail:ask-delete-folder",
 			     folder->full_name, NULL);
-	g_object_set_data_full ((GObject *) dialog, "folder", folder, camel_object_unref);
+	g_object_set_data_full ((GObject *) dialog, "folder", folder, g_object_unref);
 	g_signal_connect (dialog, "response", G_CALLBACK (emfu_delete_response), NULL);
 	gtk_widget_show (dialog);
 }
@@ -517,7 +515,7 @@ static void
 emfu_create_folder__free (struct _EMCreateFolder *m)
 {
 	camel_store_free_folder_info (m->store, m->fi);
-	camel_object_unref (m->store);
+	g_object_unref (m->store);
 	g_free (m->full_name);
 	g_free (m->parent);
 	g_free (m->name);
@@ -549,8 +547,7 @@ emfu_create_folder_real (CamelStore *store, const gchar *full_name, void (* done
 	}
 
 	m = mail_msg_new (&create_folder_info);
-	camel_object_ref (store);
-	m->store = store;
+	m->store = g_object_ref (store);
 	m->full_name = g_strdup (full_name);
 	m->parent = g_strdup (parent);
 	m->name = g_strdup (name);
@@ -613,7 +610,7 @@ emfu_popup_new_folder_response (EMFolderSelector *emfs, gint response, gpointer 
 	si = em_folder_tree_model_lookup_store_info (
 		EM_FOLDER_TREE_MODEL (model), store);
 	if (si == NULL) {
-		camel_object_unref (store);
+		g_object_unref (store);
 		g_return_if_reached();
 	}
 
@@ -639,7 +636,7 @@ emfu_popup_new_folder_response (EMFolderSelector *emfs, gint response, gpointer 
 		emfu_create_folder_real (si->store, path, new_folder_created_cb, emcftd);
 	}
 
-	camel_object_unref (store);
+	g_object_unref (store);
 	camel_exception_clear (&ex);
 }
 

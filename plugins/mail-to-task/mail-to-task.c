@@ -211,7 +211,7 @@ set_description (ECalComponent *comp, CamelMimeMessage *message)
 	camel_data_wrapper_decode_to_stream (content, mem);
 
 	str = g_strndup ((const gchar *)((CamelStreamMem *) mem)->buffer->data, ((CamelStreamMem *) mem)->buffer->len);
-	camel_object_unref (mem);
+	g_object_unref (mem);
 
 	/* convert to UTF-8 string */
 	if (str && content->mime_type->params && content->mime_type->params->value) {

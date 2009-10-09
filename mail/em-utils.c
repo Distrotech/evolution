@@ -549,7 +549,7 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 	from_filter = camel_mime_filter_from_new();
 	filtered_stream = camel_stream_filter_new_with_stream(stream);
 	camel_stream_filter_add(filtered_stream, (CamelMimeFilter *)from_filter);
-	camel_object_unref(from_filter);
+	g_object_unref(from_filter);
 
 	for (i=0; i<uids->len; i++) {
 		CamelMimeMessage *message;
@@ -571,13 +571,13 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 			res = -1;
 
 		g_free(from);
-		camel_object_unref(message);
+		g_object_unref(message);
 
 		if (res == -1)
 			break;
 	}
 
-	camel_object_unref(filtered_stream);
+	g_object_unref(filtered_stream);
 
 	return res;
 }
@@ -600,12 +600,12 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 		/* NB: de-from filter, once written */
 		msg = camel_mime_message_new();
 		if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp) == -1) {
-			camel_object_unref(msg);
+			g_object_unref(msg);
 			break;
 		}
 
 		camel_folder_append_message(folder, msg, NULL, NULL, ex);
-		camel_object_unref(msg);
+		g_object_unref(msg);
 
 		if (camel_exception_is_set (ex))
 			break;
@@ -613,7 +613,7 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 		camel_mime_parser_step(mp, NULL, NULL);
 	}
 
-	camel_object_unref(mp);
+	g_object_unref(mp);
 	if (!camel_exception_is_set(ex))
 		res = 0;
 	camel_exception_free(ex);
@@ -642,7 +642,7 @@ em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtr
 				       ((CamelStreamMem *)stream)->buffer->data,
 				       ((CamelStreamMem *)stream)->buffer->len);
 
-	camel_object_unref(stream);
+	g_object_unref(stream);
 }
 
 /**
@@ -667,7 +667,7 @@ em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder)
 	/* NB: Although copying would let us run this async ... which it should */
 	stream = (CamelStream *)camel_stream_mem_new_with_buffer((gchar *)data->data, data->length);
 	em_utils_read_messages_from_stream(folder, stream);
-	camel_object_unref(stream);
+	g_object_unref(stream);
 }
 
 /**
@@ -692,8 +692,8 @@ em_utils_selection_get_message(GtkSelectionData *data, CamelFolder *folder)
 	msg = camel_mime_message_new();
 	if (camel_data_wrapper_construct_from_stream((CamelDataWrapper *)msg, stream) == 0)
 		camel_folder_append_message(folder, msg, NULL, NULL, ex);
-	camel_object_unref(msg);
-	camel_object_unref(stream);
+	g_object_unref(msg);
+	g_object_unref(stream);
 	camel_exception_free(ex);
 }
 
@@ -768,7 +768,7 @@ em_utils_selection_get_uidlist(GtkSelectionData *data, CamelFolder *dest, gint m
 	folder = mail_tool_uri_to_folder((gchar *)data->data, 0, ex);
 	if (folder) {
 		camel_folder_transfer_messages_to(folder, uids, dest, NULL, move, ex);
-		camel_object_unref(folder);
+		g_object_unref(folder);
 	}
 
 	em_utils_uids_free(uids);
@@ -836,7 +836,7 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 			g_free(uri_crlf);
 		}
 
-		camel_object_unref(fstream);
+		g_object_unref(fstream);
 	} else
 		close(fd);
 
@@ -880,7 +880,7 @@ em_utils_selection_get_urilist(GtkSelectionData *data, CamelFolder *folder)
 			stream = camel_stream_fs_new_with_fd(fd);
 			if (stream) {
 				res = em_utils_read_messages_from_stream(folder, stream);
-				camel_object_unref(stream);
+				g_object_unref(stream);
 			} else
 				close(fd);
 		}
@@ -1259,7 +1259,7 @@ em_utils_message_to_html (CamelMimeMessage *message, const gchar *credits, guint
 		camel_stream_write ((CamelStream*)mem, append, strlen (append));
 
 	camel_stream_write((CamelStream *)mem, "", 1);
-	camel_object_unref(mem);
+	g_object_unref(mem);
 
 	text = (gchar *)buf->data;
 	if (len)

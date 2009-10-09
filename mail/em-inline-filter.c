@@ -145,7 +145,7 @@ emif_add_part(EMInlineFilter *emif, const gchar *data, gint len)
 
 	dw = camel_data_wrapper_new();
 	camel_data_wrapper_construct_from_stream(dw, mem);
-	camel_object_unref(mem);
+	g_object_unref(mem);
 
 	if (emif_types[emif->state].plain && emif->base_type) {
 		camel_content_type_ref (emif->base_type);
@@ -169,7 +169,7 @@ emif_add_part(EMInlineFilter *emif, const gchar *data, gint len)
 	part = camel_mime_part_new();
 	camel_medium_set_content_object((CamelMedium *)part, dw);
 	camel_mime_part_set_encoding(part, encoding);
-	camel_object_unref(dw);
+	g_object_unref(dw);
 
 	if (emif->filename)
 		camel_mime_part_set_filename(part, emif->filename);
@@ -366,7 +366,7 @@ emif_reset(CamelMimeFilter *f)
 	while (l) {
 		GSList *n = l->next;
 
-		camel_object_unref(l->data);
+		g_object_unref(l->data);
 		g_slist_free_1(l);
 
 		l = n;

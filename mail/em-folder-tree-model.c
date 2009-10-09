@@ -108,7 +108,7 @@ store_info_free (EMFolderTreeModelStoreInfo *si)
 	camel_object_remove_event (si->store, si->unsubscribed_id);
 
 	g_free (si->display_name);
-	camel_object_unref (si->store);
+	g_object_unref (si->store);
 	gtk_tree_row_reference_free (si->row);
 	g_hash_table_destroy (si->full_hash);
 	g_free (si);
@@ -215,7 +215,7 @@ account_changed_cb (EAccountList *accounts,
 	}
 
 	em_folder_tree_model_add_store (model, store, account->name);
-	camel_object_unref (store);
+	g_object_unref (store);
 }
 
 static void
@@ -566,7 +566,7 @@ em_folder_tree_model_set_folder_info (EMFolderTreeModel *model,
 			unread = total > 0 ? total : 0;
 		}
 
-		camel_object_unref(folder);
+		g_object_unref(folder);
 	}
 
 	/* TODO: maybe this should be handled by mail_get_folderinfo (except em-folder-tree doesn't use it, duh) */
@@ -743,7 +743,7 @@ folder_subscribed (CamelStore *store,
 	g_signal_emit (model, signals[FOLDER_ADDED], 0, fi->full_name, fi->uri);
 
 done:
-	camel_object_unref (store);
+	g_object_unref (store);
 	camel_folder_info_free (fi);
 }
 
@@ -754,7 +754,7 @@ folder_subscribed_cb (CamelStore *store,
 {
 	CamelFolderInfo *fi;
 
-	camel_object_ref (store);
+	g_object_ref (store);
 	fi = camel_folder_info_clone (event_data);
 
 	mail_async_event_emit (
@@ -787,7 +787,7 @@ folder_unsubscribed (CamelStore *store,
 	em_folder_tree_model_remove_folders (model, si, &iter);
 
 done:
-	camel_object_unref (store);
+	g_object_unref (store);
 	camel_folder_info_free (fi);
 }
 
@@ -798,7 +798,7 @@ folder_unsubscribed_cb (CamelStore *store,
 {
 	CamelFolderInfo *fi;
 
-	camel_object_ref (store);
+	g_object_ref (store);
 	fi = camel_folder_info_clone (event_data);
 
 	mail_async_event_emit (
@@ -818,7 +818,7 @@ folder_created_cb (CamelStore *store,
 	if (camel_store_supports_subscriptions (store))
 		return;
 
-	camel_object_ref (store);
+	g_object_ref (store);
 	fi = camel_folder_info_clone (event_data);
 
 	mail_async_event_emit (
@@ -838,7 +838,7 @@ folder_deleted_cb (CamelStore *store,
 	if (camel_store_supports_subscriptions (store))
 		return;
 
-	camel_object_ref (store);
+	g_object_ref (store);
 	fi = camel_folder_info_clone (event_data);
 
 	mail_async_event_emit (
@@ -894,7 +894,7 @@ folder_renamed (CamelStore *store,
 	em_folder_tree_model_set_folder_info (model, &iter, si, info->new, TRUE);
 
 done:
-	camel_object_unref (store);
+	g_object_unref (store);
 
 	g_free (info->old_base);
 	camel_folder_info_free (info->new);
@@ -908,7 +908,7 @@ folder_renamed_cb (CamelStore *store,
 {
 	CamelRenameInfo *rinfo, *info = event_data;
 
-	camel_object_ref (store);
+	g_object_ref (store);
 
 	rinfo = g_new0 (CamelRenameInfo, 1);
 	rinfo->old_base = g_strdup (info->old_base);
@@ -963,8 +963,7 @@ em_folder_tree_model_add_store (EMFolderTreeModel *model,
 
 	si = g_new (EMFolderTreeModelStoreInfo, 1);
 	si->display_name = g_strdup (display_name);
-	camel_object_ref (store);
-	si->store = store;
+	si->store = g_object_ref (store);
 	si->account = account;
 	si->row = gtk_tree_row_reference_copy (reference);
 	si->full_hash = g_hash_table_new_full (
