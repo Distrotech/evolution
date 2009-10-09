@@ -25,9 +25,8 @@
 
 #include <gtk/gtk.h>
 #include <glib/gi18n-lib.h>
-#include <camel/camel-medium.h>
-#include <camel/camel-mime-part.h>
-#include <camel/camel-stream-mem.h>
+
+#include <camel/camel.h>
 #include <gtkhtml/gtkhtml-embedded.h>
 #include <gtkimageview/gtkimagescrollwin.h>
 
@@ -189,7 +188,7 @@ org_gnome_image_inline_pobject_free (EMFormatHTMLPObject *object)
 	image_object = (ImageInlinePObject *) object;
 
 	if (image_object->mime_part != NULL) {
-		camel_object_unref (image_object->mime_part);
+		g_object_unref (image_object->mime_part);
 		image_object->mime_part = NULL;
 	}
 
@@ -222,7 +221,7 @@ org_gnome_image_inline_decode (ImageInlinePObject *image_object)
 
 	/* Stream takes ownership of the byte array. */
 	stream = camel_stream_mem_new_with_byte_array (array);
-	data_wrapper = camel_medium_get_content_object (medium);
+	data_wrapper = camel_medium_get_content (medium);
 	camel_data_wrapper_decode_to_stream (data_wrapper, stream);
 
 	/* Don't trust the content type in the MIME part.  It could
@@ -250,7 +249,7 @@ org_gnome_image_inline_decode (ImageInlinePObject *image_object)
 	}
 
 exit:
-	camel_object_unref (stream);
+	g_object_unref (stream);
 	g_object_unref (loader);
 }
 
@@ -315,7 +314,7 @@ org_gnome_image_inline_format (gpointer ep, EMFormatHookTarget *target)
 			classid, target->part,
 			org_gnome_image_inline_embed);
 
-	camel_object_ref (target->part);
+	g_object_ref (target->part);
 	image_object->mime_part = target->part;
 
 	image_object->object.free = org_gnome_image_inline_pobject_free;

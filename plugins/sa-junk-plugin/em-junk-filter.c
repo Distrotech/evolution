@@ -36,6 +36,7 @@
 
 #include <gtk/gtk.h>
 #include <camel/camel.h>
+#include <glib/gi18n-lib.h>
 
 #include <mail/em-junk.h>
 #include <mail/em-utils.h>

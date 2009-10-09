@@ -28,11 +28,12 @@
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
+#include <camel/camel.h>
 
 #include <e-util/e-util.h>
 #include <e-util/e-account-utils.h>
-
-#include <camel/camel.h>
+#include <mail/em-config.h>
+#include <mail/mail-config.h>
 
 typedef struct _epif_data EPImapFeaturesData;
 struct _epif_data {

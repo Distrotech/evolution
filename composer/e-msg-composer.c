@@ -185,22 +185,6 @@ emcu_prompt_user (GtkWindow *parent, const gchar *promptkey, const gchar *tag, c
 	return button == GTK_RESPONSE_YES;
 }
 
-/* copy of mail_tool_remove_xevolution_headers */
-static struct _camel_header_raw *
-emcu_remove_xevolution_headers (CamelMimeMessage *message)
-{
-	struct _camel_header_raw *scan, *list = NULL;
-
-	for (scan = ((CamelMimePart *)message)->headers;scan;scan=scan->next)
-		if (!strncmp(scan->name, "X-Evolution", 11))
-			camel_header_raw_append(&list, scan->name, scan->value, scan->offset);
-
-	for (scan=list;scan;scan=scan->next)
-		camel_medium_remove_header((CamelMedium *)message, scan->name);
-
-	return list;
-}
-
 static EDestination**
 destination_list_to_vector_sized (GList *list, gint n)
 {
@@ -653,38 +637,38 @@ build_message (EMsgComposer *composer,
 
 	/* convert the stream to the appropriate charset */
 	if (iconv_charset && g_ascii_strcasecmp (iconv_charset, "UTF-8") != 0) {
-		CamelStreamFilter *filter_stream;
-		CamelMimeFilterCharset *filter;
+		CamelStream *filter_stream;
+		CamelMimeFilter *filter;
 
-		filter_stream = camel_stream_filter_new_with_stream (stream);
+		filter_stream = camel_stream_filter_new (stream);
 		g_object_unref (stream);
 
-		stream = (CamelStream *) filter_stream;
-		filter = camel_mime_filter_charset_new_convert ("UTF-8", iconv_charset);
-		camel_stream_filter_add (filter_stream, (CamelMimeFilter *) filter);
+		stream = filter_stream;
+		filter = camel_mime_filter_charset_new ("UTF-8", iconv_charset);
+		camel_stream_filter_add (
+			CAMEL_STREAM_FILTER (filter_stream), filter);
 		g_object_unref (filter);
 	}
 
 	if (plain_encoding == CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE) {
 		/* encode to quoted-printable by ourself, together with
 		   taking care of "\nFrom " text */
-		CamelStreamFilter *filter_stream;
+		CamelStream *filter_stream;
 		CamelMimeFilter *mf, *qp;
 
 		if (!CAMEL_IS_STREAM_FILTER (stream)) {
-			filter_stream = camel_stream_filter_new_with_stream (stream);
-			camel_object_unref (stream);
-
-			stream = (CamelStream *) filter_stream;
+			filter_stream = camel_stream_filter_new (stream);
+			g_object_unref (stream);
+			stream = filter_stream;
 		}
 
-		qp = (CamelMimeFilter *) camel_mime_filter_basic_new_type (CAMEL_MIME_FILTER_BASIC_QP_ENC);
+		qp = (CamelMimeFilter *) camel_mime_filter_basic_new (CAMEL_MIME_FILTER_BASIC_QP_ENC);
 		camel_stream_filter_add (CAMEL_STREAM_FILTER (stream), qp);
-		camel_object_unref (qp);
+		g_object_unref (qp);
 
 		mf = camel_mime_filter_canon_new (CAMEL_MIME_FILTER_CANON_FROM);
 		camel_stream_filter_add (CAMEL_STREAM_FILTER (stream), mf);
-		camel_object_unref (mf);
+		g_object_unref (mf);
 	}
 
 	/* construct the content object */
@@ -726,23 +710,22 @@ build_message (EMsgComposer *composer,
 		if (pre_encode) {
 			/* encode to quoted-printable by ourself, together with
 			   taking care of "\nFrom " text */
-			CamelStreamFilter *filter_stream;
+			CamelStream *filter_stream;
 			CamelMimeFilter *mf, *qp;
 
 			if (!CAMEL_IS_STREAM_FILTER (stream)) {
-				filter_stream = camel_stream_filter_new_with_stream (stream);
-				camel_object_unref (stream);
-
-				stream = (CamelStream *) filter_stream;
+				filter_stream = camel_stream_filter_new (stream);
+				g_object_unref (stream);
+				stream = filter_stream;
 			}
 
-			qp = (CamelMimeFilter *) camel_mime_filter_basic_new_type (CAMEL_MIME_FILTER_BASIC_QP_ENC);
+			qp = (CamelMimeFilter *) camel_mime_filter_basic_new (CAMEL_MIME_FILTER_BASIC_QP_ENC);
 			camel_stream_filter_add (CAMEL_STREAM_FILTER (stream), qp);
-			camel_object_unref (qp);
+			g_object_unref (qp);
 
 			mf = camel_mime_filter_canon_new (CAMEL_MIME_FILTER_CANON_FROM);
 			camel_stream_filter_add (CAMEL_STREAM_FILTER (stream), mf);
-			camel_object_unref (mf);
+			g_object_unref (mf);
 		}
 
 		camel_data_wrapper_construct_from_stream (html, stream);
@@ -761,14 +744,14 @@ build_message (EMsgComposer *composer,
 		camel_multipart_set_boundary (body, NULL);
 
 		part = camel_mime_part_new ();
-		camel_medium_set_content_object (CAMEL_MEDIUM (part), plain);
+		camel_medium_set_content (CAMEL_MEDIUM (part), plain);
 		g_object_unref (plain);
 		camel_mime_part_set_encoding (part, plain_encoding);
 		camel_multipart_add_part (body, part);
 		g_object_unref (part);
 
 		part = camel_mime_part_new ();
-		camel_medium_set_content_object (CAMEL_MEDIUM (part), html);
+		camel_medium_set_content (CAMEL_MEDIUM (part), html);
 		g_object_unref (html);
 		camel_mime_part_set_encoding (part, CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE);
 		camel_multipart_add_part (body, part);
@@ -788,7 +771,7 @@ build_message (EMsgComposer *composer,
 			camel_multipart_set_boundary (html_with_images, NULL);
 
 			part = camel_mime_part_new ();
-			camel_medium_set_content_object (CAMEL_MEDIUM (part), CAMEL_DATA_WRAPPER (body));
+			camel_medium_set_content (CAMEL_MEDIUM (part), CAMEL_DATA_WRAPPER (body));
 			g_object_unref (body);
 			camel_multipart_add_part (html_with_images, part);
 			g_object_unref (part);
@@ -814,7 +797,7 @@ build_message (EMsgComposer *composer,
 		camel_multipart_set_boundary (multipart, NULL);
 
 		part = camel_mime_part_new ();
-		camel_medium_set_content_object (CAMEL_MEDIUM (part), current);
+		camel_medium_set_content (CAMEL_MEDIUM (part), current);
 		if (current == plain)
 			camel_mime_part_set_encoding (part, plain_encoding);
 		g_object_unref (current);
@@ -877,7 +860,7 @@ build_message (EMsgComposer *composer,
 		EAccount *account;
 
 		part = camel_mime_part_new ();
-		camel_medium_set_content_object (CAMEL_MEDIUM (part), current);
+		camel_medium_set_content (CAMEL_MEDIUM (part), current);
 		if (current == plain)
 			camel_mime_part_set_encoding (part, plain_encoding);
 		g_object_unref (current);
@@ -945,7 +928,7 @@ build_message (EMsgComposer *composer,
 		if (from)
 			g_object_unref (from);
 
-		current = camel_medium_get_content_object (CAMEL_MEDIUM (part));
+		current = camel_medium_get_content (CAMEL_MEDIUM (part));
 		g_object_ref (current);
 		g_object_unref (part);
 	}
@@ -956,7 +939,7 @@ build_message (EMsgComposer *composer,
 		CamelCipherContext *cipher;
 
 		part = camel_mime_part_new ();
-		camel_medium_set_content_object ((CamelMedium *)part, current);
+		camel_medium_set_content ((CamelMedium *)part, current);
 		if (current == plain)
 			camel_mime_part_set_encoding (part, plain_encoding);
 		g_object_unref (current);
@@ -1027,14 +1010,14 @@ build_message (EMsgComposer *composer,
 			g_object_unref (part);
 			goto skip_content;
 		} else {
-			current = camel_medium_get_content_object ((CamelMedium *)part);
+			current = camel_medium_get_content ((CamelMedium *)part);
 			g_object_ref (current);
 			g_object_unref (part);
 		}
 	}
 #endif /* HAVE_NSS */
 
-	camel_medium_set_content_object (CAMEL_MEDIUM (new), current);
+	camel_medium_set_content (CAMEL_MEDIUM (new), current);
 	if (current == plain)
 		camel_mime_part_set_encoding (CAMEL_MIME_PART (new), plain_encoding);
 	g_object_unref (current);
@@ -2044,7 +2027,7 @@ msg_composer_uri_requested (GtkhtmlEditor *editor,
 
 	array = g_byte_array_new ();
 	camel_stream = camel_stream_mem_new_with_byte_array (array);
-	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (part));
+	wrapper = camel_medium_get_content (CAMEL_MEDIUM (part));
 	camel_data_wrapper_decode_to_stream (wrapper, camel_stream);
 
 	gtk_html_write (
@@ -2340,7 +2323,7 @@ add_attachments_handle_mime_part (EMsgComposer *composer,
 		return;
 
 	content_type = camel_mime_part_get_content_type (mime_part);
-	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+	wrapper = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 
 	if (CAMEL_IS_MULTIPART (wrapper)) {
 		/* another layer of multipartness... */
@@ -2412,7 +2395,7 @@ e_msg_composer_add_message_attachments (EMsgComposer *composer,
 {
 	CamelDataWrapper *wrapper;
 
-	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (message));
+	wrapper = camel_medium_get_content (CAMEL_MEDIUM (message));
 	if (!CAMEL_IS_MULTIPART (wrapper))
 		return;
 
@@ -2450,7 +2433,7 @@ handle_multipart_signed (EMsgComposer *composer,
 
 	content_type = camel_mime_part_get_content_type (mime_part);
 
-	content = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+	content = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 
 	if (CAMEL_IS_MULTIPART (content)) {
 		multipart = CAMEL_MULTIPART (content);
@@ -2525,7 +2508,7 @@ handle_multipart_encrypted (EMsgComposer *composer,
 
 	content_type = camel_mime_part_get_content_type (mime_part);
 
-	content = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+	content = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 
 	if (CAMEL_IS_MULTIPART (content)) {
 		CamelMultipart *content_multipart = CAMEL_MULTIPART (content);
@@ -2583,7 +2566,7 @@ handle_multipart_alternative (EMsgComposer *composer,
 			continue;
 
 		content_type = camel_mime_part_get_content_type (mime_part);
-		content = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+		content = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 
 		if (CAMEL_IS_MULTIPART (content)) {
 			CamelMultipart *mp;
@@ -2643,7 +2626,7 @@ handle_multipart (EMsgComposer *composer,
 			continue;
 
 		content_type = camel_mime_part_get_content_type (mime_part);
-		content = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+		content = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 
 		if (CAMEL_IS_MULTIPART (content)) {
 			CamelMultipart *mp;
@@ -2729,20 +2712,36 @@ e_msg_composer_new_with_message (CamelMimeMessage *message)
 	EDestination **Tov, **Ccv, **Bccv;
 	GHashTable *auto_cc, *auto_bcc;
 	CamelContentType *content_type;
-	struct _camel_header_raw *headers;
 	CamelDataWrapper *content;
+	CamelMimePart *mime_part;
 	EAccount *account = NULL;
 	gchar *account_name;
 	EMsgComposer *composer;
 	EMsgComposerPrivate *priv;
 	EComposerHeaderTable *table;
 	GtkToggleAction *action;
-	struct _camel_header_raw *xev;
+	GQueue *header_queue;
+	GQueue trash;
+	GList *link;
 	gint len, i;
 
-	for (headers = CAMEL_MIME_PART (message)->headers;headers;headers = headers->next) {
-		if (!strcmp (headers->name, "X-Evolution-PostTo"))
-			postto = g_list_append (postto, g_strstrip (g_strdup (headers->value)));
+	mime_part = CAMEL_MIME_PART (message);
+	header_queue = camel_mime_part_get_raw_headers (mime_part);
+
+	link = g_queue_peek_head_link (header_queue);
+
+	while (link != NULL) {
+		CamelHeaderRaw *raw_header = link->data;
+		const gchar *name, *value;
+
+		name = camel_header_raw_get_name (raw_header);
+		value = camel_header_raw_get_value (raw_header);
+
+		if (strcmp (name, "X-Evolution-PostTo") == 0)
+			postto = g_list_append (
+				postto, g_strstrip (g_strdup (value)));
+
+		link = g_list_next (link);
 	}
 
 	composer = e_msg_composer_new ();
@@ -2930,8 +2929,9 @@ e_msg_composer_new_with_message (CamelMimeMessage *message)
 	}
 
 	/* Remove any other X-Evolution-* headers that may have been set */
-	xev = emcu_remove_xevolution_headers (message);
-	camel_header_raw_clear (&xev);
+	g_queue_init (&trash);
+	camel_header_raw_extract_prefix (header_queue, &trash, "X-Evolution");
+	camel_header_raw_clear (&trash);
 
 	/* Check for receipt request */
 	if (camel_medium_get_header (CAMEL_MEDIUM (message), "Disposition-Notification-To")) {
@@ -2946,23 +2946,30 @@ e_msg_composer_new_with_message (CamelMimeMessage *message)
 	}
 
 	/* set extra headers */
-	headers = CAMEL_MIME_PART (message)->headers;
-	while (headers) {
-		if (g_ascii_strcasecmp (headers->name, "References") == 0 ||
-		    g_ascii_strcasecmp (headers->name, "In-Reply-To") == 0) {
+	link = g_queue_peek_head_link (header_queue);
+
+	while (link != NULL) {
+		CamelHeaderRaw *raw_header = link->data;
+		const gchar *name, *value;
+
+		name = camel_header_raw_get_name (raw_header);
+		value = camel_header_raw_get_value (raw_header);
+
+		if (g_ascii_strcasecmp (name, "References") == 0 ||
+		    g_ascii_strcasecmp (name, "In-Reply-To") == 0) {
 			g_ptr_array_add (
 				composer->priv->extra_hdr_names,
-				g_strdup (headers->name));
+				g_strdup (name));
 			g_ptr_array_add (
 				composer->priv->extra_hdr_values,
-				g_strdup (headers->value));
+				g_strdup (value));
 		}
 
-		headers = headers->next;
+		link = g_list_next (link);
 	}
 
 	/* Restore the attachments and body text */
-	content = camel_medium_get_content_object (CAMEL_MEDIUM (message));
+	content = camel_medium_get_content (CAMEL_MEDIUM (message));
 	if (CAMEL_IS_MULTIPART (content)) {
 		CamelMultipart *multipart;
 
@@ -3552,7 +3559,7 @@ e_msg_composer_add_inline_image_from_file (EMsgComposer *composer,
 	g_free (mime_type);
 
 	part = camel_mime_part_new ();
-	camel_medium_set_content_object (CAMEL_MEDIUM (part), wrapper);
+	camel_medium_set_content (CAMEL_MEDIUM (part), wrapper);
 	g_object_unref (wrapper);
 
 	cid = camel_header_msgid_generate ();

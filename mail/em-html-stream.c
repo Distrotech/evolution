@@ -56,6 +56,20 @@ emhs_gtkhtml_destroy (GtkHTML *html,
 	emhs_cleanup (emhs);
 }
 
+static void
+em_html_stream_dispose (GObject *object)
+{
+	EMHTMLStream *emhs = EM_HTML_STREAM (object);
+
+	if (emhs->html_stream != NULL) {
+		/* set 'in finalise' flag */
+		camel_stream_close (CAMEL_STREAM (emhs));
+	}
+
+	/* Chain up to parent's dispose() method. */
+	G_OBJECT_CLASS (parent_class)->dispose (object);
+}
+
 static gssize
 emhs_sync_write (CamelStream *stream,
                  const gchar *buffer,
@@ -105,9 +119,13 @@ emhs_sync_close (CamelStream *stream)
 static void
 em_html_stream_class_init (EMHTMLStreamClass *class)
 {
+	GObjectClass *object_class;
 	EMSyncStreamClass *sync_stream_class;
 
-	parent_class = (EMSyncStreamClass *)em_sync_stream_get_type();
+	parent_class = g_type_class_peek_parent (class);
+
+	object_class = G_OBJECT_CLASS (class);
+	object_class->dispose = em_html_stream_dispose;
 
 	sync_stream_class = EM_SYNC_STREAM_CLASS (class);
 	sync_stream_class->sync_write = emhs_sync_write;
@@ -115,35 +133,20 @@ em_html_stream_class_init (EMHTMLStreamClass *class)
 	sync_stream_class->sync_close = emhs_sync_close;
 }
 
-static void
-em_html_stream_init (EMHTMLStream *emhs)
-{
-}
-
-static void
-em_html_stream_finalize (EMHTMLStream *emhs)
-{
-	if (emhs->html_stream) {
-		/* set 'in finalise' flag */
-		camel_stream_close (CAMEL_STREAM (emhs));
-	}
-}
-
-CamelType
+GType
 em_html_stream_get_type (void)
 {
-	static CamelType type = CAMEL_INVALID_TYPE;
+	static GType type = G_TYPE_INVALID;
 
-	if (G_UNLIKELY (type == CAMEL_INVALID_TYPE)) {
-		type = camel_type_register (
-			em_sync_stream_get_type(),
+	if (G_UNLIKELY (type == G_TYPE_INVALID)) {
+		type = g_type_register_static_simple (
+			EM_TYPE_SYNC_STREAM,
 			"EMHTMLStream",
-			sizeof (EMHTMLStream),
 			sizeof (EMHTMLStreamClass),
-			(CamelObjectClassInitFunc) em_html_stream_class_init,
-			NULL,
-			(CamelObjectInitFunc) em_html_stream_init,
-			(CamelObjectFinalizeFunc) em_html_stream_finalize);
+			(GClassInitFunc) em_html_stream_class_init,
+			sizeof (EMHTMLStream),
+			(GInstanceInitFunc) NULL,
+			0);
 	}
 
 	return type;
@@ -159,7 +162,7 @@ em_html_stream_new (GtkHTML *html,
 
 	g_return_val_if_fail (GTK_IS_HTML (html), NULL);
 
-	new = EM_HTML_STREAM (camel_object_new (EM_HTML_STREAM_TYPE));
+	new = g_object_new (EM_TYPE_HTML_STREAM, NULL);
 	new->html_stream = html_stream;
 	new->html = g_object_ref (html);
 	new->flags = 0;

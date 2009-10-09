@@ -187,8 +187,9 @@ org_gnome_popup_wizard (EPlugin *ep, EMEventTargetMessage *target)
 	const gchar *name;
 	const gchar *email;
 	CamelMimeMessage *msg = (CamelMimeMessage *) target->message;
-	CamelStreamMem *content;
+	CamelStream *content;
 	CamelDataWrapper *dw;
+	GByteArray *byte_array;
 	gchar *start_message;
 
 	if (!msg)
@@ -197,18 +198,19 @@ org_gnome_popup_wizard (EPlugin *ep, EMEventTargetMessage *target)
 	if (((gchar *)camel_medium_get_header (CAMEL_MEDIUM(msg),"X-notification")) == NULL
 	    || (from_addr = camel_mime_message_get_from ((CamelMimeMessage *)target->message)) == NULL
 	    || !camel_internet_address_get(from_addr, 0, &name, &email)
-	    || (dw = camel_medium_get_content_object (CAMEL_MEDIUM (msg))) == NULL) {
+	    || (dw = camel_medium_get_content (CAMEL_MEDIUM (msg))) == NULL) {
 		return;
 	} else {
 		if (CAMEL_IS_MULTIPART (dw)) {
-			dw = camel_medium_get_content_object((CamelMedium *)camel_multipart_get_part((CamelMultipart *)dw, 0));
+			dw = camel_medium_get_content((CamelMedium *)camel_multipart_get_part((CamelMultipart *)dw, 0));
 			if (dw == NULL)
 				return;
 		}
 
-		content = (CamelStreamMem *)camel_stream_mem_new();
-		camel_data_wrapper_write_to_stream(dw, (CamelStream *)content);
-		camel_stream_write((CamelStream *)content, "", 1);
+		byte_array = g_byte_array_new ();
+		content = camel_stream_mem_new_with_byte_array (byte_array);
+		camel_data_wrapper_write_to_stream(dw, content);
+		camel_stream_write(content, "", 1);
 
 		from_addr = camel_mime_message_get_from ((CamelMimeMessage *)target->message);
 		if (from_addr && camel_internet_address_get(from_addr, 0, &name, &email)) {
@@ -219,7 +221,7 @@ org_gnome_popup_wizard (EPlugin *ep, EMEventTargetMessage *target)
 							   "Message from '%s'\n\n\n"
 							   "%s\n\n\n"
 							   "Click 'Apply' to install the shared folder\n\n"),
-							   name, name, content->buffer->data);
+							   name, name, byte_array->data);
 
 			page = gtk_label_new (start_message);
 			gtk_label_set_line_wrap (GTK_LABEL (page), TRUE);

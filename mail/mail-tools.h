@@ -35,8 +35,12 @@ CamelFolder *mail_tool_get_trash (const gchar *url, gint connect, CamelException
  * and returns the path to the new movemail folder that was created. which shoudl be freed later */
 gchar *mail_tool_do_movemail (const gchar *source_url, CamelException *ex);
 
-struct _camel_header_raw *mail_tool_remove_xevolution_headers (CamelMimeMessage *message);
-void mail_tool_restore_xevolution_headers (CamelMimeMessage *message, struct _camel_header_raw *);
+void		mail_tool_remove_xevolution_headers
+						(CamelMimeMessage *message,
+						 GQueue *destination_queue);
+void		mail_tool_restore_xevolution_headers
+						(CamelMimeMessage *message,
+						 GQueue *source_queue);
 
 /* Generates the subject for a message forwarding @msg */
 gchar *mail_tool_generate_forward_subject (CamelMimeMessage *msg);

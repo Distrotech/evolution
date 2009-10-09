@@ -470,8 +470,9 @@ mail_send_message (struct _send_queue_msg *m, CamelFolder *queue, const gchar *u
 	const gchar *resent_from, *tmp;
 	CamelFolder *folder = NULL;
 	GString *err = NULL;
-	struct _camel_header_raw *xev, *header;
 	CamelMimeMessage *message;
+	GQueue evo_headers = G_QUEUE_INIT;
+	GList *link;
 	gint i;
 
 	message = camel_folder_get_message(queue, uid, ex);
@@ -481,9 +482,9 @@ mail_send_message (struct _send_queue_msg *m, CamelFolder *queue, const gchar *u
 	camel_medium_set_header (CAMEL_MEDIUM (message), "X-Mailer", x_mailer);
 
 	err = g_string_new("");
-	xev = mail_tool_remove_xevolution_headers (message);
+	mail_tool_remove_xevolution_headers (message, &evo_headers);
 
-	tmp = camel_header_raw_find(&xev, "X-Evolution-Account", NULL);
+	tmp = camel_header_raw_find (&evo_headers, "X-Evolution-Account", NULL);
 	if (tmp) {
 		gchar *name;
 
@@ -501,11 +502,11 @@ mail_send_message (struct _send_queue_msg *m, CamelFolder *queue, const gchar *u
 
 	if (!account) {
 		/* default back to these headers */
-		tmp = camel_header_raw_find(&xev, "X-Evolution-Transport", NULL);
+		tmp = camel_header_raw_find (&evo_headers, "X-Evolution-Transport", NULL);
 		if (tmp)
 			transport_url = g_strstrip(g_strdup(tmp));
 
-		tmp = camel_header_raw_find(&xev, "X-Evolution-Fcc", NULL);
+		tmp = camel_header_raw_find (&evo_headers, "X-Evolution-Fcc", NULL);
 		if (tmp)
 			sent_folder_uri = g_strstrip(g_strdup(tmp));
 	}
@@ -553,16 +554,22 @@ mail_send_message (struct _send_queue_msg *m, CamelFolder *queue, const gchar *u
 	camel_message_info_set_flags(info, CAMEL_MESSAGE_SEEN, ~0);
 	camel_mime_message_set_date(message, CAMEL_MESSAGE_DATE_CURRENT, 0);
 
-	for (header = xev;header;header=header->next) {
+	link = g_queue_peek_head (&evo_headers);
+	for (; link != NULL; link = g_list_next (link)) {
+		CamelHeaderRaw *raw_header = link->data;
+		const gchar *name, *value;
 		gchar *uri;
 
-		if (strcmp(header->name, "X-Evolution-PostTo") != 0)
+		name = camel_header_raw_get_name (raw_header);
+		value = camel_header_raw_get_value (raw_header);
+
+		if (strcmp (name, "X-Evolution-PostTo") != 0)
 			continue;
 
 		/* TODO: don't lose errors */
 
-		uri = g_strstrip(g_strdup(header->value));
-		folder = mail_tool_uri_to_folder(uri, 0, NULL);
+		uri = g_strstrip (g_strdup (value));
+		folder = mail_tool_uri_to_folder (uri, 0, NULL);
 		if (folder) {
 			camel_folder_append_message(folder, message, info, NULL, NULL);
 			g_object_unref(folder);
@@ -572,7 +579,7 @@ mail_send_message (struct _send_queue_msg *m, CamelFolder *queue, const gchar *u
 	}
 
 	/* post process */
-	mail_tool_restore_xevolution_headers (message, xev);
+	mail_tool_restore_xevolution_headers (message, &evo_headers);
 
 	if (driver) {
 		camel_filter_driver_filter_message (driver, message, info,
@@ -668,7 +675,7 @@ exit:
 		g_object_unref(xport);
 	g_free(sent_folder_uri);
 	g_free(transport_url);
-	camel_header_raw_clear(&xev);
+	camel_header_raw_clear(&evo_headers);
 	g_string_free(err, TRUE);
 	g_object_unref(message);
 
@@ -1189,7 +1196,7 @@ do_build_attachment (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages, 
 			g_object_unref(part);
 		}
 		part = camel_mime_part_new();
-		camel_medium_set_content_object(CAMEL_MEDIUM (part), CAMEL_DATA_WRAPPER(multipart));
+		camel_medium_set_content(CAMEL_MEDIUM (part), CAMEL_DATA_WRAPPER(multipart));
 		g_object_unref(multipart);
 
 		camel_mime_part_set_description(part, _("Forwarded messages"));
@@ -2050,7 +2057,7 @@ save_prepare_part (CamelMimePart *mime_part)
 	CamelDataWrapper *wrapper;
 	gint parts, i;
 
-	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+	wrapper = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 	if (!wrapper)
 		return;
 
@@ -2079,8 +2086,8 @@ save_prepare_part (CamelMimePart *mime_part)
 static void
 save_messages_exec (struct _save_messages_msg *m)
 {
-	CamelStreamFilter *filtered_stream;
-	CamelMimeFilterFrom *from_filter;
+	CamelStream *filtered_stream;
+	CamelMimeFilter *from_filter;
 	CamelStream *stream;
 	gint i;
 	gchar *from, *path;
@@ -2092,8 +2099,9 @@ save_messages_exec (struct _save_messages_msg *m)
 
 	stream = camel_stream_vfs_new_with_uri (path, CAMEL_STREAM_VFS_CREATE);
 	from_filter = camel_mime_filter_from_new();
-	filtered_stream = camel_stream_filter_new_with_stream(stream);
-	camel_stream_filter_add(filtered_stream, (CamelMimeFilter *)from_filter);
+	filtered_stream = camel_stream_filter_new (stream);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), from_filter);
 	g_object_unref(from_filter);
 
 	if (path != m->path)
@@ -2114,8 +2122,8 @@ save_messages_exec (struct _save_messages_msg *m)
 		from = camel_mime_message_build_mbox_from(message);
 		if (camel_stream_write_string(stream, from) == -1
 		    || camel_stream_flush(stream) == -1
-		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, (CamelStream *)filtered_stream) == -1
-		    || camel_stream_flush((CamelStream *)filtered_stream) == -1
+		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, filtered_stream) == -1
+		    || camel_stream_flush(filtered_stream) == -1
 		    || camel_stream_write_string(stream, "\n") == -1
 		    || camel_stream_flush(stream) == -1) {
 			camel_exception_setv(&m->base.ex, CAMEL_EXCEPTION_SYSTEM,
@@ -2226,7 +2234,7 @@ save_part_exec (struct _save_part_msg *m)
 	if (path != m->path)
 		g_free (path);
 
-	content = camel_medium_get_content_object (CAMEL_MEDIUM (m->part));
+	content = camel_medium_get_content (CAMEL_MEDIUM (m->part));
 
 	if (camel_data_wrapper_decode_to_stream (content, stream) == -1
 	    || camel_stream_flush (stream) == -1)

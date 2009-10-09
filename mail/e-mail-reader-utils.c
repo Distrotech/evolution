@@ -378,7 +378,8 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	CamelFolder *folder;
 	GtkWindow *window;
 	GtkHTML *html;
-	struct _camel_header_raw *header;
+	GQueue *queue;
+	GList *link;
 	const gchar *uid;
 	gchar *selection = NULL;
 	gint length;
@@ -413,15 +414,23 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 		CAMEL_MIME_MESSAGE (((EMFormat *) html_display)->message);
 	new_message = camel_mime_message_new ();
 
-	/* Filter out "content-*" headers. */
-	header = CAMEL_MIME_PART (src_message)->headers;
-	while (header != NULL) {
-		if (g_ascii_strncasecmp (header->name, "content-", 8) != 0)
-			camel_medium_add_header (
-				CAMEL_MEDIUM (new_message),
-				header->name, header->value);
+	/* Filter out "Content-*" headers. */
+	queue = camel_mime_part_get_raw_headers (
+		CAMEL_MIME_PART (src_message));
+	link = g_queue_peek_head_link (queue);
 
-		header = header->next;
+	while (link != NULL) {
+		CamelHeaderRaw *raw_header = link->data;
+		const gchar *name, *value;
+
+		name = camel_header_raw_get_name (raw_header);
+		value = camel_header_raw_get_value (raw_header);
+
+		if (g_ascii_strncasecmp (name, "Content-", 8) != 0)
+			camel_medium_add_header (
+				CAMEL_MEDIUM (new_message), name, value);
+
+		link = g_list_next (link);
 	}
 
 	camel_mime_part_set_encoding (

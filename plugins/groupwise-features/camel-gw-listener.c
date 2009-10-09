@@ -24,6 +24,8 @@
 #include <config.h>
 #endif
 
+#include <glib/gi18n-lib.h>
+
 #include "camel-gw-listener.h"
 #include <string.h>
 #include <e-gw-connection.h>

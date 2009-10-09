@@ -24,11 +24,14 @@
 #include <config.h>
 #endif
 
+#include "camel-hula-listener.h"
+
 #include <string.h>
-#include <camel/camel.h>
+#include <glib/gi18n-lib.h>
 #include <libedataserverui/e-passwords.h>
 #include <e-util/e-error.h>
 #include <libedataserver/e-account.h>
+#include <gconf/gconf-client.h>
 
 static	GList *hula_accounts = NULL;
 

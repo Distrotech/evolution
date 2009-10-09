@@ -889,7 +889,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 	/*camel_mime_message_dump (msg, TRUE);*/
 
 	if (item->email->htmlbody.str || item->attach) {
-		camel_medium_set_content_object (CAMEL_MEDIUM (msg), CAMEL_DATA_WRAPPER (mp));
+		camel_medium_set_content (CAMEL_MEDIUM (msg), CAMEL_DATA_WRAPPER (mp));
 	} else if (item->body.str) {
 		camel_mime_part_set_content (CAMEL_MIME_PART (msg), item->body.str, strlen (item->body.str), "text/plain");
 	} else {
@@ -1232,7 +1232,7 @@ set_cal_attachments (ECal *cal, ECalComponent *ec, PstImporter *m, pst_item_atta
 			continue;
 		}
 
-		content = camel_medium_get_content_object (CAMEL_MEDIUM (part));
+		content = camel_medium_get_content (CAMEL_MEDIUM (part));
 
 		if (camel_data_wrapper_decode_to_stream (content, stream) == -1
 			|| camel_stream_flush (stream) == -1)

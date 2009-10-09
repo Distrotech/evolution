@@ -464,11 +464,13 @@ efhd_format_optional (EMFormat *emf,
 {
 	gchar *classid, *html;
 	struct _attach_puri *info;
-	CamelStream *stream;
+	CamelStream *stream = NULL;
 
-	if (CAMEL_IS_STREAM_FILTER (fstream) && ((CamelStreamFilter *) fstream)->source)
-		stream = ((CamelStreamFilter *) fstream)->source;
-	else
+	if (CAMEL_IS_STREAM_FILTER (fstream))
+		stream = camel_stream_filter_get_source (
+			CAMEL_STREAM_FILTER (fstream));
+
+	if (stream == NULL)
 		stream = fstream;
 
 	classid = g_strdup_printf ("optional%s", emf->part_id->str);
@@ -669,7 +671,7 @@ efhd_builtin_init(EMFormatHTMLDisplayClass *efhc)
 static void
 efhd_write_image(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
 {
-	CamelDataWrapper *dw = camel_medium_get_content_object((CamelMedium *)puri->part);
+	CamelDataWrapper *dw = camel_medium_get_content((CamelMedium *)puri->part);
 
 	/* TODO: identical to efh_write_image */
 	d(printf("writing image '%s'\n", puri->cid));
@@ -933,6 +935,7 @@ efhd_attachment_optional(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPOb
 	AtkObject *a11y;
 	GtkWidget *view;
 	GtkTextBuffer *buffer;
+	GByteArray *byte_array;
 
 	/* FIXME: handle default shown case */
 	d(printf("adding attachment button/content for optional rendering\n"));
@@ -990,7 +993,8 @@ efhd_attachment_optional(EMFormatHTML *efh, GtkHTMLEmbedded *eb, EMFormatHTMLPOb
 	gtk_text_view_set_editable (GTK_TEXT_VIEW (view), FALSE);
 	gtk_text_view_set_cursor_visible (GTK_TEXT_VIEW (view), FALSE);
 	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW (view));
-	gtk_text_buffer_set_text (buffer, (gchar *)info->mstream->buffer->data, info->mstream->buffer->len);
+	byte_array = camel_stream_mem_get_byte_array (info->mstream);
+	gtk_text_buffer_set_text (buffer, (gchar *)byte_array->data, byte_array->len);
 	g_object_unref(info->mstream);
 	info->mstream = NULL;
 	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll),

@@ -34,64 +34,67 @@
 
 #define d(x)
 
-static void em_inline_filter_class_init (EMInlineFilterClass *klass);
-static void em_inline_filter_init (CamelObject *object);
-static void em_inline_filter_finalize (CamelObject *object);
-
 static void emif_filter(CamelMimeFilter *f, const gchar *in, gsize len, gsize prespace, gchar **out, gsize *outlen, gsize *outprespace);
 static void emif_complete(CamelMimeFilter *f, const gchar *in, gsize len, gsize prespace, gchar **out, gsize *outlen, gsize *outprespace);
 static void emif_reset(CamelMimeFilter *f);
 
-static CamelMimeFilterClass *parent_class = NULL;
-
-CamelType
-em_inline_filter_get_type (void)
-{
-	static CamelType type = CAMEL_INVALID_TYPE;
-
-	if (type == CAMEL_INVALID_TYPE) {
-		parent_class = (CamelMimeFilterClass *)camel_mime_filter_get_type();
-
-		type = camel_type_register(camel_mime_filter_get_type(),
-					   "EMInlineFilter",
-					   sizeof (EMInlineFilter),
-					   sizeof (EMInlineFilterClass),
-					   (CamelObjectClassInitFunc) em_inline_filter_class_init,
-					   NULL,
-					   (CamelObjectInitFunc) em_inline_filter_init,
-					   (CamelObjectFinalizeFunc) em_inline_filter_finalize);
-	}
-
-	return type;
-}
+static gpointer parent_class;
 
 static void
-em_inline_filter_class_init (EMInlineFilterClass *klass)
+em_inline_filter_finalize (GObject *object)
 {
-	((CamelMimeFilterClass *)klass)->filter = emif_filter;
-	((CamelMimeFilterClass *)klass)->complete = emif_complete;
-	((CamelMimeFilterClass *)klass)->reset = emif_reset;
-}
-
-static void
-em_inline_filter_init (CamelObject *object)
-{
-	EMInlineFilter *emif = (EMInlineFilter *)object;
-
-	emif->data = g_byte_array_new();
-}
-
-static void
-em_inline_filter_finalize (CamelObject *object)
-{
-	EMInlineFilter *emif = (EMInlineFilter *)object;
+	EMInlineFilter *emif = EM_INLINE_FILTER (object);
 
 	if (emif->base_type)
 		camel_content_type_unref(emif->base_type);
 
-	emif_reset((CamelMimeFilter *)emif);
-	g_byte_array_free(emif->data, TRUE);
-	g_free(emif->filename);
+	emif_reset (CAMEL_MIME_FILTER (emif));
+	g_byte_array_free (emif->data, TRUE);
+	g_free (emif->filename);
+
+	/* Chain up to parent's finalize() method. */
+	G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
+static void
+em_inline_filter_class_init (EMInlineFilterClass *class)
+{
+	GObjectClass *object_class;
+	CamelMimeFilterClass *mime_filter_class;
+
+	parent_class = g_type_class_peek_parent (class);
+
+	object_class = G_OBJECT_CLASS (class);
+	object_class->finalize = em_inline_filter_finalize;
+
+	mime_filter_class = CAMEL_MIME_FILTER_CLASS (class);
+	mime_filter_class->filter = emif_filter;
+	mime_filter_class->complete = emif_complete;
+	mime_filter_class->reset = emif_reset;
+}
+
+static void
+em_inline_filter_init (EMInlineFilter *emif)
+{
+	emif->data = g_byte_array_new();
+}
+
+GType
+em_inline_filter_get_type (void)
+{
+	static GType type = G_TYPE_INVALID;
+
+	if (type == G_TYPE_INVALID)
+		type = g_type_register_static_simple (
+			CAMEL_TYPE_MIME_FILTER,
+			"EMInlineFilter",
+			sizeof (EMInlineFilterClass),
+			(GClassInitFunc) em_inline_filter_class_init,
+			sizeof (EMInlineFilter),
+			(GInstanceInitFunc) em_inline_filter_init,
+			0);
+
+	return type;
 }
 
 enum {
@@ -165,7 +168,7 @@ emif_add_part(EMInlineFilter *emif, const gchar *data, gint len)
 	dw->encoding = encoding;
 
 	part = camel_mime_part_new();
-	camel_medium_set_content_object((CamelMedium *)part, dw);
+	camel_medium_set_content((CamelMedium *)part, dw);
 	camel_mime_part_set_encoding(part, encoding);
 	g_object_unref(dw);
 
@@ -391,7 +394,7 @@ em_inline_filter_new(CamelTransferEncoding base_encoding, CamelContentType *base
 {
 	EMInlineFilter *emif;
 
-	emif = (EMInlineFilter *)camel_object_new(em_inline_filter_get_type());
+	emif = g_object_new (EM_TYPE_INLINE_FILTER, NULL);
 	emif->base_encoding = base_encoding;
 	if (base_type) {
 		emif->base_type = base_type;

@@ -777,7 +777,7 @@ attachment_class_init (EAttachmentClass *class)
 	g_object_class_install_property (
 		object_class,
 		PROP_MIME_PART,
-		g_param_spec_boxed (
+		g_param_spec_object (
 			"mime-part",
 			"MIME Part",
 			NULL,
@@ -987,7 +987,7 @@ e_attachment_new_for_message (CamelMimeMessage *message)
 	g_string_free (description, TRUE);
 
 	wrapper = CAMEL_DATA_WRAPPER (message);
-	camel_medium_set_content_object (CAMEL_MEDIUM (mime_part), wrapper);
+	camel_medium_set_content (CAMEL_MEDIUM (mime_part), wrapper);
 	camel_mime_part_set_content_type (mime_part, "message/rfc822");
 
 	attachment = e_attachment_new ();
@@ -1017,7 +1017,7 @@ e_attachment_add_to_multipart (EAttachment *attachment,
 		return;
 
 	content_type = camel_mime_part_get_content_type (mime_part);
-	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+	wrapper = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 
 	if (CAMEL_IS_MULTIPART (wrapper))
 		goto exit;
@@ -1025,8 +1025,8 @@ e_attachment_add_to_multipart (EAttachment *attachment,
 	/* For text content, determine the best encoding and character set. */
 	if (camel_content_type_is (content_type, "text", "*")) {
 		CamelTransferEncoding encoding;
-		CamelStreamFilter *filtered_stream;
-		CamelMimeFilterBestenc *filter;
+		CamelStream *filtered_stream;
+		CamelMimeFilter *filter;
 		CamelStream *stream;
 		const gchar *charset;
 
@@ -1035,19 +1035,19 @@ e_attachment_add_to_multipart (EAttachment *attachment,
 		/* Determine the best encoding by writing the MIME
 		 * part to a NULL stream with a "bestenc" filter. */
 		stream = camel_stream_null_new ();
-		filtered_stream = camel_stream_filter_new_with_stream (stream);
+		filtered_stream = camel_stream_filter_new (stream);
 		filter = camel_mime_filter_bestenc_new (
 			CAMEL_BESTENC_GET_ENCODING);
 		camel_stream_filter_add (
-			filtered_stream, CAMEL_MIME_FILTER (filter));
-		camel_data_wrapper_decode_to_stream (
-			wrapper, CAMEL_STREAM (filtered_stream));
+			CAMEL_STREAM_FILTER (filtered_stream), filter);
+		camel_data_wrapper_decode_to_stream (wrapper, filtered_stream);
 		g_object_unref (filtered_stream);
 		g_object_unref (stream);
 
 		/* Retrieve the best encoding from the filter. */
 		encoding = camel_mime_filter_bestenc_get_best_encoding (
-			filter, CAMEL_BESTENC_8BIT);
+			CAMEL_MIME_FILTER_BESTENC (filter),
+			CAMEL_BESTENC_8BIT);
 		camel_mime_part_set_encoding (mime_part, encoding);
 		g_object_unref (filter);
 
@@ -1526,7 +1526,7 @@ attachment_load_finish (LoadContext *load_context)
 	g_object_unref (stream);
 
 	mime_part = camel_mime_part_new ();
-	camel_medium_set_content_object (CAMEL_MEDIUM (mime_part), wrapper);
+	camel_medium_set_content (CAMEL_MEDIUM (mime_part), wrapper);
 
 	g_object_unref (wrapper);
 	g_free (mime_type);
@@ -2457,7 +2457,7 @@ attachment_save_got_output_stream (SaveContext *save_context)
 	buffer = g_byte_array_new ();
 	stream = camel_stream_mem_new ();
 	camel_stream_mem_set_byte_array (CAMEL_STREAM_MEM (stream), buffer);
-	wrapper = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+	wrapper = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 	camel_data_wrapper_decode_to_stream (wrapper, stream);
 	g_object_unref (stream);
 

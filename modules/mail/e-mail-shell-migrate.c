@@ -1028,10 +1028,8 @@ em_migrate_1_2(const gchar *data_dir, xmlDocPtr config_xmldb, xmlDocPtr filters,
 
 /* 1.4 upgrade functions */
 
-#define EM_MIGRATE_SESSION_TYPE     (em_migrate_session_get_type ())
-#define EM_MIGRATE_SESSION(obj)     (CAMEL_CHECK_CAST((obj), EM_MIGRATE_SESSION_TYPE, EMMigrateSession))
-#define EM_MIGRATE_SESSION_CLASS(k) (CAMEL_CHECK_CLASS_CAST ((k), EM_MIGRATE_SESSION_TYPE, EMMigrateSessionClass))
-#define EM_MIGRATE_IS_SESSION(o)    (CAMEL_CHECK_TYPE((o), EM_MIGRATE_SESSION_TYPE))
+#define EM_TYPE_MIGRATE_SESSION \
+	(em_migrate_session_get_type ())
 
 typedef struct _EMMigrateSession {
 	CamelSession parent_object;
@@ -1045,30 +1043,23 @@ typedef struct _EMMigrateSessionClass {
 
 } EMMigrateSessionClass;
 
-static CamelType em_migrate_session_get_type (void);
+static GType em_migrate_session_get_type (void);
 static CamelSession *em_migrate_session_new (const gchar *path);
 
-static void
-class_init (EMMigrateSessionClass *klass)
-{
-	;
-}
-
-static CamelType
+static GType
 em_migrate_session_get_type (void)
 {
-	static CamelType type = CAMEL_INVALID_TYPE;
+	static GType type = G_TYPE_INVALID;
 
-	if (type == CAMEL_INVALID_TYPE) {
-		type = camel_type_register (
-			camel_session_get_type (),
+	if (type == G_TYPE_INVALID) {
+		type = g_type_register_static_simple (
+			CAMEL_TYPE_SESSION,
 			"EMMigrateSession",
-			sizeof (EMMigrateSession),
 			sizeof (EMMigrateSessionClass),
-			(CamelObjectClassInitFunc) class_init,
-			NULL,
-			NULL,
-			NULL);
+			(GClassInitFunc) NULL,
+			sizeof (EMMigrateSession),
+			(GInstanceInitFunc) NULL,
+			0);
 	}
 
 	return type;
@@ -1079,7 +1070,7 @@ em_migrate_session_new (const gchar *path)
 {
 	CamelSession *session;
 
-	session = CAMEL_SESSION (camel_object_new (EM_MIGRATE_SESSION_TYPE));
+	session = g_object_new (EM_TYPE_MIGRATE_SESSION, NULL);
 
 	camel_session_construct (session, path);
 

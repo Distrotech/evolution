@@ -26,9 +26,46 @@
 #include <glib.h>
 #include <camel/camel.h>
 #include <shell/e-shell-backend.h>
+#include <mail/mail-mt.h>
+
+#define MAIL_TYPE_SESSION \
+	(mail_session_get_type ())
+#define MAIL_SESSION(obj) \
+	(G_TYPE_CHECK_INSTANCE_CAST \
+	((obj), MAIL_TYPE_SESSION, MailSession))
+#define MAIL_SESSION_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_CAST \
+	((cls), MAIL_TYPE_SESSION, MailSessionClass))
+#define MAIL_IS_SESSION(obj) \
+	(G_TYPE_CHECK_INSTANCE_TYPE \
+	((obj), MAIL_TYPE_SESSION))
+#define MAIL_IS_SESSION_CLASS(cls) \
+	(G_TYPE_CHECK_CLASS_TYPE \
+	((cls), MAIL_TYPE_SESSION))
+#define MAIL_SESSION_GET_CLASS(obj) \
+	(G_TYPE_INSTANCE_GET_CLASS \
+	((obj), MAIL_TYPE_SESSION, MailSessionClass))
 
 G_BEGIN_DECLS
 
+typedef struct _MailSession MailSession;
+typedef struct _MailSessionClass MailSessionClass;
+
+struct _MailSession {
+	CamelSession parent;
+
+	gboolean interactive;
+	FILE *filter_logfile;
+	GList *junk_plugins;
+
+	MailAsyncEvent *async;
+};
+
+struct _MailSessionClass {
+	CamelSessionClass parent_class;
+};
+
+GType mail_session_get_type (void);
 void mail_session_init (EShellBackend *shell_backend);
 void mail_session_shutdown (void);
 gboolean mail_session_get_interactive (void);

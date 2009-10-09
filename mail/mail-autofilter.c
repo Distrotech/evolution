@@ -282,9 +282,13 @@ rule_from_message (EFilterRule *rule, ERuleContext *context, CamelMimeMessage *m
 			rule_match_recipients (context, rule, addr);
 	}
 	if (flags & AUTO_MLIST) {
+		CamelMimePart *mime_part;
+		GQueue *header_queue;
 		gchar *name, *mlist;
 
-		mlist = camel_header_raw_check_mailing_list (&((CamelMimePart *)msg)->headers);
+		mime_part = CAMEL_MIME_PART (msg);
+		header_queue = camel_mime_part_get_raw_headers (mime_part);
+		mlist = camel_header_raw_check_mailing_list (header_queue);
 		if (mlist) {
 			rule_match_mlist(context, rule, mlist);
 			name = g_strdup_printf (_("%s mailing list"), mlist);

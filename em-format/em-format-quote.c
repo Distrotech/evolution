@@ -433,17 +433,18 @@ emfq_format_message(EMFormat *emf, CamelStream *stream, CamelMimePart *part, con
 static void
 emfq_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
 {
-	CamelStreamFilter *filtered_stream;
+	CamelStream *filtered_stream;
 	CamelMimeFilter *html_filter;
 
-	filtered_stream = camel_stream_filter_new_with_stream ((CamelStream *) stream);
+	filtered_stream = camel_stream_filter_new ((CamelStream *) stream);
 	html_filter = camel_mime_filter_tohtml_new (CAMEL_MIME_FILTER_TOHTML_CONVERT_NL
 						    | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
 						    | CAMEL_MIME_FILTER_TOHTML_ESCAPE_8BIT, 0);
-	camel_stream_filter_add(filtered_stream, html_filter);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), html_filter);
 	g_object_unref(html_filter);
 
-	em_format_format_text(emf, (CamelStream *)filtered_stream, (CamelDataWrapper *)part);
+	em_format_format_text(emf, filtered_stream, (CamelDataWrapper *)part);
 	g_object_unref(filtered_stream);
 }
 
@@ -472,7 +473,7 @@ emfq_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, 
 static void
 emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
 {
-	CamelStreamFilter *filtered_stream;
+	CamelStream *filtered_stream;
 	CamelMimeFilter *html_filter;
 	CamelMimeFilter *sig_strip;
 	CamelMimeFilter *wrap_filter;
@@ -492,36 +493,39 @@ emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, E
 	    && !g_ascii_strcasecmp(format, "flowed"))
 		flags |= CAMEL_MIME_FILTER_TOHTML_FORMAT_FLOWED;
 
-	filtered_stream = camel_stream_filter_new_with_stream(stream);
+	filtered_stream = camel_stream_filter_new (stream);
 
 	if ((emfq->flags & EM_FORMAT_QUOTE_KEEP_SIG) == 0) {
 		sig_strip = em_stripsig_filter_new ();
-		camel_stream_filter_add (filtered_stream, sig_strip);
+		camel_stream_filter_add (
+			CAMEL_STREAM_FILTER (filtered_stream), sig_strip);
 		g_object_unref (sig_strip);
 	}
 
 	wrap_filter = camel_mime_filter_linewrap_new (70, 70, 0, CAMEL_MIME_FILTER_LINEWRAP_WORD);
-	camel_stream_filter_add (filtered_stream, wrap_filter);
-	camel_object_unref (wrap_filter);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), wrap_filter);
+	g_object_unref (wrap_filter);
 
 	html_filter = camel_mime_filter_tohtml_new(flags, rgb);
-	camel_stream_filter_add(filtered_stream, html_filter);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), html_filter);
 	g_object_unref(html_filter);
 
-	em_format_format_text((EMFormat *)emfq, (CamelStream *)filtered_stream, (CamelDataWrapper *)part);
-	camel_stream_flush((CamelStream *)filtered_stream);
+	em_format_format_text((EMFormat *)emfq, filtered_stream, (CamelDataWrapper *)part);
+	camel_stream_flush(filtered_stream);
 	g_object_unref(filtered_stream);
 }
 
 static void
 emfq_text_enriched(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
 {
-	CamelStreamFilter *filtered_stream;
+	CamelStream *filtered_stream;
 	CamelMimeFilter *enriched;
 	CamelDataWrapper *dw;
 	guint32 flags = 0;
 
-	dw = camel_medium_get_content_object((CamelMedium *)part);
+	dw = camel_medium_get_content((CamelMedium *)part);
 
 	if (!strcmp(info->mime_type, "text/richtext")) {
 		flags = CAMEL_MIME_FILTER_ENRICHED_IS_RICHTEXT;
@@ -531,12 +535,13 @@ emfq_text_enriched(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part
 	}
 
 	enriched = camel_mime_filter_enriched_new(flags);
-	filtered_stream = camel_stream_filter_new_with_stream (stream);
-	camel_stream_filter_add(filtered_stream, enriched);
+	filtered_stream = camel_stream_filter_new (stream);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), enriched);
 	g_object_unref(enriched);
 
 	camel_stream_write_string(stream, "<br><hr><br>");
-	em_format_format_text((EMFormat *)emfq, (CamelStream *)filtered_stream, (CamelDataWrapper *)part);
+	em_format_format_text((EMFormat *)emfq, filtered_stream, (CamelDataWrapper *)part);
 	g_object_unref(filtered_stream);
 }
 

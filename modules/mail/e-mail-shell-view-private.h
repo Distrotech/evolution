@@ -27,6 +27,7 @@
 #include <glib/gi18n.h>
 #include <camel/camel.h>
 #include <gtkhtml/gtkhtml.h>
+#include <camel/camel-search-private.h>
 
 #include "e-util/e-util.h"
 #include "e-util/e-binding.h"

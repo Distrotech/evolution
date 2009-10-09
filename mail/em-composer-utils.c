@@ -916,11 +916,12 @@ traverse_parts (GSList *clues, CamelMimeMessage *message, CamelDataWrapper *cont
 		}
 	} else if (CAMEL_IS_MIME_PART (content)) {
 		CamelMimePart *part = CAMEL_MIME_PART (content);
+		GByteArray *byte_array;
 		CamelContentType *type;
 		CamelStream *mem;
 		gchar *str;
 
-		content = camel_medium_get_content_object (CAMEL_MEDIUM (part));
+		content = camel_medium_get_content (CAMEL_MEDIUM (part));
 		if (!content)
 			return;
 
@@ -933,17 +934,20 @@ traverse_parts (GSList *clues, CamelMimeMessage *message, CamelDataWrapper *cont
 		if (!camel_content_type_is (type, "text", "*"))
 			return;
 
-		mem = camel_stream_mem_new ();
+		byte_array = g_byte_array_new ();
+		mem = camel_stream_mem_new_with_byte_array (byte_array);
 		camel_data_wrapper_decode_to_stream (content, mem);
 
-		str = g_strndup ((const gchar *)((CamelStreamMem *) mem)->buffer->data, ((CamelStreamMem *) mem)->buffer->len);
-		camel_object_unref (mem);
+		str = g_strndup (
+			(const gchar *) byte_array->data,
+			byte_array->len);
+		g_object_unref (mem);
 
 		if (replace_variables (clues, message, &str)) {
 			mem = camel_stream_mem_new_with_buffer (str, strlen (str));
 			camel_stream_reset (mem);
 			camel_data_wrapper_construct_from_stream (content, mem);
-			camel_object_unref (mem);
+			g_object_unref (mem);
 		}
 
 		g_free (str);
@@ -967,7 +971,7 @@ edit_message (CamelMimeMessage *message, CamelFolder *drafts, const gchar *uid)
 		clue_list = gconf_client_get_list ( gconf, GCONF_KEY_TEMPLATE_PLACEHOLDERS, GCONF_VALUE_STRING, NULL );
 		g_object_unref (gconf);
 
-		traverse_parts (clue_list, message, camel_medium_get_content_object (CAMEL_MEDIUM (message)));
+		traverse_parts (clue_list, message, camel_medium_get_content (CAMEL_MEDIUM (message)));
 
 		g_slist_foreach (clue_list, (GFunc) g_free, NULL);
 		g_slist_free (clue_list);
@@ -1216,7 +1220,7 @@ forward_non_attached (CamelFolder *folder, GPtrArray *uids, GPtrArray *messages,
 			composer = create_new_composer (subject, fromuri, FALSE);
 
 			if (composer) {
-				if (CAMEL_IS_MULTIPART(camel_medium_get_content_object((CamelMedium *)message)))
+				if (CAMEL_IS_MULTIPART(camel_medium_get_content((CamelMedium *)message)))
 					e_msg_composer_add_message_attachments(composer, message, FALSE);
 
 				e_msg_composer_set_body_text (composer, text, len);
@@ -1562,7 +1566,7 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	g_object_unref (stream);
 
 	part = camel_mime_part_new ();
-	camel_medium_set_content_object (CAMEL_MEDIUM (part), receipt_text);
+	camel_medium_set_content (CAMEL_MEDIUM (part), receipt_text);
 	camel_mime_part_set_encoding (part, CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE);
 	g_object_unref (receipt_text);
 	camel_multipart_add_part (body, part);
@@ -1593,14 +1597,14 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	g_free (recipient);
 	g_free (fake_msgid);
 
-	camel_medium_set_content_object (CAMEL_MEDIUM (part), receipt_data);
+	camel_medium_set_content (CAMEL_MEDIUM (part), receipt_data);
 	camel_mime_part_set_encoding (part, CAMEL_TRANSFER_ENCODING_7BIT);
 	g_object_unref (receipt_data);
 	camel_multipart_add_part (body, part);
 	g_object_unref (part);
 
 	/* Finish creating the message */
-	camel_medium_set_content_object (CAMEL_MEDIUM (receipt), CAMEL_DATA_WRAPPER (body));
+	camel_medium_set_content (CAMEL_MEDIUM (receipt), CAMEL_DATA_WRAPPER (body));
 	g_object_unref (body);
 
 	receipt_subject = g_strdup_printf ("Delivery Notification for: \"%s\"", message_subject);
@@ -1656,11 +1660,11 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 {
 	EAccount *account;
 	CamelMimeMessage *forward;
-	CamelStream *mem;
+	CamelStream *stream;
 	CamelInternetAddress *addr;
 	CamelFolder *out_folder;
 	CamelMessageInfo *info;
-	struct _camel_header_raw *xev;
+	GQueue trash = G_QUEUE_INIT;
 	gchar *subject;
 
 	g_return_if_fail (folder != NULL);
@@ -1681,11 +1685,11 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 	forward = camel_mime_message_new ();
 
 	/* make copy of the message, because we are going to modify it */
-	mem = camel_stream_mem_new ();
-	camel_data_wrapper_write_to_stream ((CamelDataWrapper *)message, mem);
-	camel_seekable_stream_seek (CAMEL_SEEKABLE_STREAM (mem), 0, CAMEL_STREAM_SET);
-	camel_data_wrapper_construct_from_stream ((CamelDataWrapper *)forward, mem);
-	g_object_unref (mem);
+	stream = camel_stream_mem_new ();
+	camel_data_wrapper_write_to_stream ((CamelDataWrapper *)message, stream);
+	camel_seekable_stream_seek (CAMEL_SEEKABLE_STREAM (stream), 0, CAMEL_STREAM_SET);
+	camel_data_wrapper_construct_from_stream ((CamelDataWrapper *)forward, stream);
+	g_object_unref (stream);
 
 	/* clear previous recipients */
 	camel_mime_message_set_recipients (forward, CAMEL_RECIPIENT_TYPE_TO, NULL);
@@ -1703,8 +1707,8 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 		camel_medium_remove_header (CAMEL_MEDIUM (forward), "Delivered-To");
 
 	/* remove any X-Evolution-* headers that may have been set */
-	xev = mail_tool_remove_xevolution_headers (forward);
-	camel_header_raw_clear (&xev);
+	mail_tool_remove_xevolution_headers (forward, &trash);
+	camel_header_raw_clear (&trash);
 
 	/* from */
 	addr = camel_internet_address_new ();

@@ -171,16 +171,17 @@ static void
 set_description (ECalComponent *comp, CamelMimeMessage *message)
 {
 	CamelDataWrapper *content;
-	CamelStream *mem;
+	CamelStream *stream;
 	CamelContentType *type;
 	CamelMimePart *mime_part = CAMEL_MIME_PART (message);
 	ECalComponentText text;
+	GByteArray *byte_array;
 	GSList sl;
 	gchar *str, *convert_str = NULL;
 	gsize bytes_read, bytes_written;
 	gint count = 2;
 
-	content = camel_medium_get_content_object ((CamelMedium *) message);
+	content = camel_medium_get_content ((CamelMedium *) message);
 	if (!content)
 		return;
 
@@ -189,7 +190,7 @@ set_description (ECalComponent *comp, CamelMimeMessage *message)
 	 */
 	while (CAMEL_IS_MULTIPART (content) && count > 0) {
 		mime_part = camel_multipart_get_part (CAMEL_MULTIPART (content), 0);
-		content = camel_medium_get_content_object (CAMEL_MEDIUM (mime_part));
+		content = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
 		count--;
 	}
 
@@ -200,11 +201,12 @@ set_description (ECalComponent *comp, CamelMimeMessage *message)
 	if (!camel_content_type_is (type, "text", "plain"))
 		return;
 
-	mem = camel_stream_mem_new ();
-	camel_data_wrapper_decode_to_stream (content, mem);
+	byte_array = g_byte_array_new ();
+	stream = camel_stream_mem_new_with_byte_array (byte_array);
+	camel_data_wrapper_decode_to_stream (content, stream);
 
-	str = g_strndup ((const gchar *)((CamelStreamMem *) mem)->buffer->data, ((CamelStreamMem *) mem)->buffer->len);
-	g_object_unref (mem);
+	str = g_strndup ((const gchar *)byte_array->data, byte_array->len);
+	g_object_unref (stream);
 
 	/* convert to UTF-8 string */
 	if (str && content->mime_type->params && content->mime_type->params->value) {
@@ -311,7 +313,7 @@ set_attachments (ECal *client, ECalComponent *comp, CamelMimeMessage *message)
 		gboolean done;
 	} status;
 
-	content = camel_medium_get_content_object ((CamelMedium *) message);
+	content = camel_medium_get_content ((CamelMedium *) message);
 	if (!content || !CAMEL_IS_MULTIPART (content))
 		return;
 
@@ -385,14 +387,16 @@ set_attachments (ECal *client, ECalComponent *comp, CamelMimeMessage *message)
 }
 
 static void
-set_priority (ECalComponent *comp, CamelMimePart *part)
+set_priority (ECalComponent *comp, CamelMimePart *mime_part)
 {
+	GQueue *raw_headers;
 	const gchar *prio;
 
 	g_return_if_fail (comp != NULL);
-	g_return_if_fail (part != NULL);
+	g_return_if_fail (CAMEL_IS_MIME_PART (mime_part));
 
-	prio = camel_header_raw_find (& (part->headers), "X-Priority", NULL);
+	raw_headers = camel_mime_part_get_raw_headers (mime_part);
+	prio = camel_header_raw_find (raw_headers, "X-Priority", NULL);
 	if (prio && atoi (prio) > 0) {
 		gint priority = 1;
 

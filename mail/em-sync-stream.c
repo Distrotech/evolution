@@ -34,8 +34,6 @@
 
 #include "mail-mt.h"
 
-#define EMSS_CLASS(x) ((EMSyncStreamClass *)(((CamelObject *)(x))->klass))
-
 enum _write_msg_t {
 	EMSS_WRITE,
 	EMSS_FLUSH,
@@ -52,7 +50,7 @@ struct _write_msg {
 	gsize len;
 };
 
-static CamelStreamClass *parent_class = NULL;
+static gpointer parent_class;
 
 static gboolean
 emss_process_message (struct _write_msg *msg)
@@ -68,7 +66,7 @@ emss_process_message (struct _write_msg *msg)
 
 	/* Force out any pending data before doing anything else. */
 	if (emss->buffer != NULL && emss->buffer->len > 0) {
-		EMSS_CLASS (emss)->sync_write (
+		EM_SYNC_STREAM_GET_CLASS (emss)->sync_write (
 			CAMEL_STREAM (emss), emss->buffer->str,
 			emss->buffer->len);
 		g_string_set_size (emss->buffer, 0);
@@ -76,15 +74,15 @@ emss_process_message (struct _write_msg *msg)
 
 	switch (msg->op) {
 		case EMSS_WRITE:
-			EMSS_CLASS (emss)->sync_write (
+			EM_SYNC_STREAM_GET_CLASS (emss)->sync_write (
 				CAMEL_STREAM (emss), msg->string, msg->len);
 			break;
 		case EMSS_FLUSH:
-			EMSS_CLASS (emss)->sync_flush (
+			EM_SYNC_STREAM_GET_CLASS (emss)->sync_flush (
 				CAMEL_STREAM (emss));
 			break;
 		case EMSS_CLOSE:
-			EMSS_CLASS (emss)->sync_close (
+			EM_SYNC_STREAM_GET_CLASS (emss)->sync_close (
 				CAMEL_STREAM (emss));
 			break;
 	}
@@ -119,6 +117,20 @@ emss_sync_op (EMSyncStream *emss, enum _write_msg_t op,
 	g_object_unref (emss);
 }
 
+static void
+em_sync_stream_finalize (GObject *object)
+{
+	EMSyncStream *emss = EM_SYNC_STREAM (object);
+
+	if (emss->buffer != NULL)
+		g_string_free (emss->buffer, TRUE);
+	if (emss->idle_id)
+		g_source_remove (emss->idle_id);
+
+	/* Chain up to parent's finalize() method. */
+	G_OBJECT_CLASS (parent_class)->finalize (object);
+}
+
 static gssize
 emss_stream_write (CamelStream *stream, const gchar *string, gsize len)
 {
@@ -128,7 +140,7 @@ emss_stream_write (CamelStream *stream, const gchar *string, gsize len)
 		return -1;
 
 	if (mail_in_main_thread ()) {
-		EMSS_CLASS (emss)->sync_write (stream, string, len);
+		EM_SYNC_STREAM_GET_CLASS (emss)->sync_write (stream, string, len);
 	} else if (emss->buffer != NULL) {
 		if (len < (emss->buffer->allocated_len - emss->buffer->len))
 			g_string_append_len (emss->buffer, string, len);
@@ -150,7 +162,7 @@ emss_stream_flush (CamelStream *stream)
 		return -1;
 
 	if (mail_in_main_thread ())
-		return EMSS_CLASS (emss)->sync_flush (stream);
+		return EM_SYNC_STREAM_GET_CLASS (emss)->sync_flush (stream);
 	else
 		emss_sync_op (emss, EMSS_FLUSH, NULL, 0);
 
@@ -168,7 +180,7 @@ emss_stream_close (CamelStream *stream)
 	emss->idle_id = 0;
 
 	if (mail_in_main_thread ())
-		return EMSS_CLASS (emss)->sync_close (stream);
+		return EM_SYNC_STREAM_GET_CLASS (emss)->sync_close (stream);
 	else
 		emss_sync_op (emss, EMSS_CLOSE, NULL, 0);
 
@@ -178,39 +190,34 @@ emss_stream_close (CamelStream *stream)
 static void
 em_sync_stream_class_init (EMSyncStreamClass *class)
 {
-	CamelStreamClass *stream_class = CAMEL_STREAM_CLASS (class);
+	GObjectClass *object_class;
+	CamelStreamClass *stream_class;
 
-	parent_class = (CamelStreamClass *) CAMEL_STREAM_TYPE;
+	parent_class = g_type_class_peek_parent (class);
 
+	object_class = G_OBJECT_CLASS (class);
+	object_class->finalize = em_sync_stream_finalize;
+
+	stream_class = CAMEL_STREAM_CLASS (class);
 	stream_class->write = emss_stream_write;
 	stream_class->flush = emss_stream_flush;
 	stream_class->close = emss_stream_close;
 }
 
-static void
-em_sync_stream_finalize (EMSyncStream *emss)
-{
-	if (emss->buffer != NULL)
-		g_string_free (emss->buffer, TRUE);
-	if (emss->idle_id)
-		g_source_remove (emss->idle_id);
-}
-
-CamelType
+GType
 em_sync_stream_get_type (void)
 {
-	static CamelType type = CAMEL_INVALID_TYPE;
+	static GType type = G_TYPE_INVALID;
 
-	if (G_UNLIKELY (type == CAMEL_INVALID_TYPE))
-		type = camel_type_register (
-			CAMEL_STREAM_TYPE,
+	if (G_UNLIKELY (type == G_TYPE_INVALID))
+		type = g_type_register_static_simple (
+			CAMEL_TYPE_STREAM,
 			"EMSyncStream",
-			sizeof (EMSyncStream),
 			sizeof (EMSyncStreamClass),
-			(CamelObjectClassInitFunc) em_sync_stream_class_init,
-			NULL,
-			(CamelObjectInitFunc) NULL,
-			(CamelObjectFinalizeFunc) em_sync_stream_finalize);
+			(GClassInitFunc) em_sync_stream_class_init,
+			sizeof (EMSyncStream),
+			(GInstanceInitFunc) NULL,
+			0);
 
 	return type;
 }

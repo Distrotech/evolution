@@ -535,13 +535,14 @@ em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GP
 static gint
 em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStream *stream)
 {
-	CamelStreamFilter *filtered_stream;
-	CamelMimeFilterFrom *from_filter;
+	CamelStream *filtered_stream;
+	CamelMimeFilter *from_filter;
 	gint i, res = 0;
 
 	from_filter = camel_mime_filter_from_new();
-	filtered_stream = camel_stream_filter_new_with_stream(stream);
-	camel_stream_filter_add(filtered_stream, (CamelMimeFilter *)from_filter);
+	filtered_stream = camel_stream_filter_new (stream);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), from_filter);
 	g_object_unref(from_filter);
 
 	for (i=0; i<uids->len; i++) {
@@ -559,8 +560,8 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 
 		if (camel_stream_write_string(stream, from) == -1
 		    || camel_stream_flush(stream) == -1
-		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, (CamelStream *)filtered_stream) == -1
-		    || camel_stream_flush((CamelStream *)filtered_stream) == -1)
+		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, filtered_stream) == -1
+		    || camel_stream_flush(filtered_stream) == -1)
 			res = -1;
 
 		g_free(from);
@@ -625,17 +626,22 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
  * Warning: This could block the ui for an extended period.
  **/
 void
-em_utils_selection_set_mailbox(GtkSelectionData *data, CamelFolder *folder, GPtrArray *uids)
+em_utils_selection_set_mailbox (GtkSelectionData *data,
+                                CamelFolder *folder,
+                                GPtrArray *uids)
 {
 	CamelStream *stream;
+	GByteArray *buffer;
 
-	stream = camel_stream_mem_new();
-	if (em_utils_write_messages_to_stream(folder, uids, stream) == 0)
-		gtk_selection_data_set(data, data->target, 8,
-				       ((CamelStreamMem *)stream)->buffer->data,
-				       ((CamelStreamMem *)stream)->buffer->len);
+	buffer = g_byte_array_new ();
+	stream = camel_stream_mem_new_with_byte_array (buffer);
 
-	g_object_unref(stream);
+	if (em_utils_write_messages_to_stream (folder, uids, stream) == 0)
+		gtk_selection_data_set (
+			data, data->target, 8,
+			buffer->data, buffer->len);
+
+	g_object_unref (stream);
 }
 
 /**
@@ -1932,7 +1938,7 @@ emu_remove_from_mail_cache (const GSList *addresses)
 		}
 	}
 
-	camel_object_unref (cia);
+	g_object_unref (cia);
 }
 
 void

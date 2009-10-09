@@ -470,8 +470,11 @@ create_new_message (CamelFolder *folder, const gchar *uid, CamelMimeMessage *mes
 {
 	GtkAction *action = data;
 	CamelMimeMessage *new, *template;
-	struct _camel_header_raw *header;
+	CamelMimePart *mime_part;
 	CamelStream *mem;
+	GQueue *header_queue;
+	GList *link;
+	gchar *cont;
 
 	g_return_if_fail (data != NULL);
 	g_return_if_fail (message != NULL);
@@ -488,18 +491,26 @@ create_new_message (CamelFolder *folder, const gchar *uid, CamelMimeMessage *mes
 	camel_data_wrapper_write_to_stream (CAMEL_DATA_WRAPPER (template), mem);
 	camel_stream_reset (mem);
 	camel_data_wrapper_construct_from_stream (CAMEL_DATA_WRAPPER (new), mem);
-	camel_object_unref (mem);
+	g_object_unref (mem);
 
 	/* Add the headers from the message we are replying to, so CC and that
 	 * stuff is preserved. */
-	header = ((CamelMimePart *)message)->headers;
-	while (header) {
-		if (g_ascii_strncasecmp (header->name, "content-", 8) != 0) {
-			camel_medium_add_header((CamelMedium *) new,
-					header->name,
-					header->value);
-		}
-		header = header->next;
+	mime_part = CAMEL_MIME_PART (message);
+	header_queue = camel_mime_part_get_raw_headers (mime_part);
+	link = g_queue_peek_head_link (header_queue);
+
+	while (link != NULL) {
+		CamelHeaderRaw *raw_header = link->data;
+		const gchar *name, *value;
+
+		name = camel_header_raw_get_name (raw_header);
+		value = camel_header_raw_get_value (raw_header);
+
+		if (g_ascii_strncasecmp (name, "Content-", 8) != 0)
+			camel_medium_add_header (
+				CAMEL_MEDIUM (new), name, value);
+
+		link = g_list_next (link);
 	}
 
 	/* Set the To: field to the same To: field of the message we are replying to. */

@@ -25,6 +25,8 @@
 #include <camel/camel.h>
 #include "mail/em-config.h"
 
+#include "camel-hula-listener.h"
+
 static CamelHulaListener *config_listener = NULL;
 
 gint e_plugin_lib_enable (EPlugin *ep, gint enable);
