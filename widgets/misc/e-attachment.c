@@ -781,7 +781,7 @@ attachment_class_init (EAttachmentClass *class)
 			"mime-part",
 			"MIME Part",
 			NULL,
-			E_TYPE_CAMEL_OBJECT,
+			CAMEL_TYPE_MIME_PART,
 			G_PARAM_READWRITE));
 
 	g_object_class_install_property (
