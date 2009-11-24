@@ -1858,6 +1858,18 @@ intelligent
 @revision: 
 @Returns: 
 
+<!-- ##### FUNCTION e_icon_factory_init ##### -->
+<para>
+
+</para>
+
+
+<!-- ##### FUNCTION e_icon_factory_shutdown ##### -->
+<para>
+
+</para>
+
+
 <!-- ##### FUNCTION e_shell_backend_get_filename ##### -->
 <para>
 
@@ -2252,6 +2264,18 @@ intelligent
 </para>
 
 @filename: 
+@Returns: 
+
+<!-- ##### FUNCTION e_util_read_file ##### -->
+<para>
+
+</para>
+
+@filename: 
+@filename_is_uri: 
+@buffer: 
+@read: 
+@error: 
 @Returns: 
 
 <!-- ##### FUNCTION e_util_uri_to_filename ##### -->

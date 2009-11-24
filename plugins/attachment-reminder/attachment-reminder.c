@@ -25,7 +25,6 @@
 #include <string.h>
 
 #include <camel/camel.h>
-#include <glade/glade-xml.h>
 #include <gconf/gconf-client.h>
 
 #include <e-util/e-util.h>
