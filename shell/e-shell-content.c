@@ -57,6 +57,7 @@ struct _EShellContentPrivate {
 	GtkWidget *filter_combo_box;
 	GtkWidget *search_label;
 	GtkWidget *search_entry;
+	GtkWidget *search_entry_box;
 	GtkWidget *scope_label;
 	GtkWidget *scope_combo_box;
 };
@@ -78,6 +79,7 @@ enum {
 };
 
 static gpointer parent_class;
+static void shell_content_construct_search_bar (EShellContent *shell_content);
 
 static void
 shell_content_dialog_rule_changed (GtkWidget *dialog,
@@ -551,7 +553,7 @@ shell_content_constructed (GObject *object)
 		shell_content);
 
 	widget = shell_content->priv->search_entry;
-
+	if (widget) {
 	action = E_SHELL_WINDOW_ACTION_SEARCH_CLEAR (shell_window);
 	e_binding_new (
 		action, "sensitive",
@@ -576,7 +578,7 @@ shell_content_constructed (GObject *object)
 
 	widget = shell_content->priv->search_bar;
 	gtk_size_group_add_widget (size_group, widget);
-
+	}
 	shell_content_init_search_context (shell_content);
 }
 
@@ -615,7 +617,8 @@ shell_content_size_request (GtkWidget *widget,
 	requisition->height = 0;
 
 	child = gtk_bin_get_child (GTK_BIN (widget));
-	gtk_widget_size_request (child, requisition);
+	if (child)
+		gtk_widget_size_request (child, requisition);
 
 	child = priv->search_bar;
 	gtk_widget_size_request (child, &child_requisition);
@@ -665,7 +668,7 @@ shell_content_forall (GtkContainer *container,
 
 	priv = E_SHELL_CONTENT_GET_PRIVATE (container);
 
-	if (include_internals)
+	if (include_internals && priv->search_bar)
 		callback (priv->search_bar, callback_data);
 
 	/* Chain up to parent's forall() method. */
@@ -702,7 +705,7 @@ shell_content_class_init (EShellContentClass *class)
 	container_class->forall = shell_content_forall;
 
 	class->new_search_context = e_rule_context_new;
-
+	class->construct_search_bar = NULL; //shell_content_construct_search_bar;
 	g_object_class_install_property (
 		object_class,
 		PROP_FILTER_ACTION,
@@ -837,16 +840,63 @@ shell_content_class_init (EShellContentClass *class)
 			G_PARAM_CONSTRUCT_ONLY));
 }
 
+void
+e_shell_content_show_search_bar (EShellContent *shell_content, gboolean show)
+{
+	if (show)
+		gtk_widget_show (shell_content->priv->search_bar);
+	else
+		gtk_widget_hide (shell_content->priv->search_bar);
+}
+
+void
+e_shell_content_set_search_entry (EShellContent *shell_content, GtkEntry *search_entry, gboolean pack)
+{
+	GtkWidget *widget;
+
+	widget = (GtkWidget *)search_entry;
+	if (pack) {
+		gtk_label_set_mnemonic_widget ((GtkLabel *)shell_content->priv->search_label, widget);
+		gtk_box_pack_start ((GtkBox *)shell_content->priv->search_entry_box, widget, TRUE, TRUE, 0);
+	}
+	if (shell_content->priv->search_entry)
+		gtk_widget_destroy (shell_content->priv->search_entry);
+	shell_content->priv->search_entry = widget;
+	gtk_widget_show (widget);
+
+	g_signal_connect_swapped (
+		widget, "activate",
+		G_CALLBACK (shell_content_entry_activate_cb),
+		shell_content);
+
+	g_signal_connect_swapped (
+		widget, "changed",
+		G_CALLBACK (shell_content_entry_changed_cb),
+		shell_content);
+
+	g_signal_connect_swapped (
+		widget, "icon-press",
+		G_CALLBACK (shell_content_entry_icon_press_cb),
+		shell_content);
+
+	g_signal_connect_swapped (
+		widget, "icon-release",
+		G_CALLBACK (shell_content_entry_icon_release_cb),
+		shell_content);
+
+	g_signal_connect_swapped (
+		widget, "key-press-event",
+		G_CALLBACK (shell_content_entry_key_press_cb),
+		shell_content);
+
+}
+
 static void
-shell_content_init (EShellContent *shell_content)
+shell_content_construct_search_bar (EShellContent *shell_content)
 {
 	GtkBox *box;
 	GtkLabel *label;
 	GtkWidget *widget;
-
-	shell_content->priv = E_SHELL_CONTENT_GET_PRIVATE (shell_content);
-
-	GTK_WIDGET_SET_FLAGS (shell_content, GTK_NO_WINDOW);
 
 	/*** Build the Search Bar ***/
 
@@ -900,37 +950,15 @@ shell_content_init (EShellContent *shell_content)
 	gtk_widget_show (widget);
 
 	label = GTK_LABEL (widget);
-
-	widget = e_hinted_entry_new ();
-	gtk_label_set_mnemonic_widget (label, widget);
-	gtk_box_pack_start (box, widget, TRUE, TRUE, 0);
-	shell_content->priv->search_entry = widget;
+	
+	/* Place holder for the search Entry */
+	widget = gtk_hbox_new (FALSE, 0);
+	gtk_box_pack_start (box, widget, TRUE, TRUE, 0);;
+	shell_content->priv->search_entry_box = widget;
 	gtk_widget_show (widget);
-
-	g_signal_connect_swapped (
-		widget, "activate",
-		G_CALLBACK (shell_content_entry_activate_cb),
-		shell_content);
-
-	g_signal_connect_swapped (
-		widget, "changed",
-		G_CALLBACK (shell_content_entry_changed_cb),
-		shell_content);
-
-	g_signal_connect_swapped (
-		widget, "icon-press",
-		G_CALLBACK (shell_content_entry_icon_press_cb),
-		shell_content);
-
-	g_signal_connect_swapped (
-		widget, "icon-release",
-		G_CALLBACK (shell_content_entry_icon_release_cb),
-		shell_content);
-
-	g_signal_connect_swapped (
-		widget, "key-press-event",
-		G_CALLBACK (shell_content_entry_key_press_cb),
-		shell_content);
+	widget = e_hinted_entry_new ();
+	gtk_widget_show (widget);
+	e_shell_content_set_search_entry (shell_content, (GtkEntry *)widget, TRUE);
 
 	/* Scope Combo Widgets */
 
@@ -948,6 +976,20 @@ shell_content_init (EShellContent *shell_content)
 	gtk_box_pack_start (box, widget, FALSE, FALSE, 0);
 	shell_content->priv->scope_combo_box = widget;
 	gtk_widget_show (widget);
+
+}
+
+static void
+shell_content_init (EShellContent *shell_content)
+{
+	shell_content->priv = E_SHELL_CONTENT_GET_PRIVATE (shell_content);
+
+	GTK_WIDGET_SET_FLAGS (shell_content, GTK_NO_WINDOW);
+
+	shell_content_construct_search_bar (shell_content);
+	if (E_SHELL_CONTENT_GET_CLASS(shell_content)->construct_search_bar)
+		E_SHELL_CONTENT_GET_CLASS(shell_content)->construct_search_bar (shell_content);
+
 }
 
 GType
@@ -1054,6 +1096,8 @@ e_shell_content_set_filter_action (EShellContent *shell_content,
 	EActionComboBox *combo_box;
 
 	g_return_if_fail (E_IS_SHELL_CONTENT (shell_content));
+	if (!shell_content->priv->filter_combo_box)
+		return;
 
 	combo_box = E_ACTION_COMBO_BOX (shell_content->priv->filter_combo_box);
 
@@ -1102,6 +1146,8 @@ e_shell_content_set_filter_visible (EShellContent *shell_content,
                                     gboolean filter_visible)
 {
 	g_return_if_fail (E_IS_SHELL_CONTENT (shell_content));
+	if (!shell_content->priv->filter_label || !shell_content->priv->filter_combo_box)
+		return;
 
 	if (filter_visible) {
 		gtk_widget_show (shell_content->priv->filter_label);
@@ -1240,6 +1286,8 @@ e_shell_content_set_search_visible (EShellContent *shell_content,
                                     gboolean search_visible)
 {
 	g_return_if_fail (E_IS_SHELL_CONTENT (shell_content));
+	if (!shell_content->priv->search_label || !shell_content->priv->search_entry)
+		return;
 
 	if (search_visible) {
 		gtk_widget_show (shell_content->priv->search_label);
@@ -1269,6 +1317,8 @@ e_shell_content_set_scope_action (EShellContent *shell_content,
 	EActionComboBox *combo_box;
 
 	g_return_if_fail (E_IS_SHELL_CONTENT (shell_content));
+	if (!shell_content->priv->scope_combo_box)
+		return;
 
 	combo_box = E_ACTION_COMBO_BOX (shell_content->priv->scope_combo_box);
 
@@ -1317,6 +1367,8 @@ e_shell_content_set_scope_visible (EShellContent *shell_content,
                                    gboolean scope_visible)
 {
 	g_return_if_fail (E_IS_SHELL_CONTENT (shell_content));
+	if (!shell_content->priv->scope_label || shell_content->priv->scope_combo_box)
+		return;
 
 	if (scope_visible) {
 		gtk_widget_show (shell_content->priv->scope_label);

@@ -71,6 +71,9 @@ struct _EShellWindow {
 
 struct _EShellWindowClass {
 	GtkWindowClass parent_class;
+
+	void (*construct_toolbar)         (EShellWindow *, GtkWidget *container);	
+	void (*construct_content_area)         (EShellWindow *);	
 };
 
 GType		e_shell_window_get_type		(void);
@@ -112,6 +115,7 @@ void		e_shell_window_register_new_source_actions
 						 const gchar *backend_name,
 						 GtkActionEntry *entries,
 						 guint n_entries);
+GtkWidget *	e_shell_window_get_status_area 	(EShellWindow *shell_window);
 
 G_END_DECLS
 

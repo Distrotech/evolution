@@ -364,6 +364,7 @@ mail_shell_sidebar_selection_changed_cb (EShellSidebar *shell_sidebar,
 	g_free (uri);
 }
 
+#if 0 /* This shouldn't be done like this. */
 static void
 tree_hidden_key_event_cb (EMFolderTree *emft, GdkEvent *event, EShellView *shell_view)
 {
@@ -386,6 +387,7 @@ tree_hidden_key_event_cb (EMFolderTree *emft, GdkEvent *event, EShellView *shell
 		}
 	}
 }
+#endif
 
 static void
 mail_shell_sidebar_get_property (GObject *object,
@@ -483,8 +485,10 @@ mail_shell_sidebar_constructed (GObject *object)
 	e_binding_new (
 		shell_settings, "mail-side-bar-search",
 		widget, "enable-search");
-
+#if 0
+	/* NOTE: Commented, it shouldn't be done like this. */
 	g_signal_connect (widget, "hidden-key-event", G_CALLBACK (tree_hidden_key_event_cb), shell_view);
+#endif
 
 	tree_view = GTK_TREE_VIEW (mail_shell_sidebar->priv->folder_tree);
 	selection = gtk_tree_view_get_selection (tree_view);

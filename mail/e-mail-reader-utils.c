@@ -40,6 +40,7 @@
 #include "mail/mail-ops.h"
 #include "mail/mail-tools.h"
 #include "mail/mail-vfolder.h"
+#include "mail/message-list.h"
 
 void
 e_mail_reader_activate (EMailReader *reader,

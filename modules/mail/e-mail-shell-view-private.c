@@ -20,6 +20,7 @@
  */
 
 #include "e-mail-shell-view-private.h"
+#include "message-list.h"
 
 #include "widgets/menus/gal-view-factory-etable.h"
 

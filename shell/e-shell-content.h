@@ -78,6 +78,7 @@ struct _EShellContentClass {
 	ERuleContext *	(*new_search_context)	(void);
 
 	guint32		(*check_state)		(EShellContent *shell_content);
+	void		(*construct_search_bar) (EShellContent *shell_content);
 };
 
 GType		e_shell_content_get_type	(void);
@@ -142,6 +143,11 @@ void		e_shell_content_run_save_search_dialog
 						(EShellContent *shell_content);
 void		e_shell_content_restore_state	(EShellContent *shell_content,
 						 const gchar *group_name);
+void		e_shell_content_set_search_entry(EShellContent *shell_content, 
+						 GtkEntry *search_entry, 
+						 gboolean pack);
+void		e_shell_content_show_search_bar (EShellContent *shell_content, 
+						 gboolean show);
 
 G_END_DECLS
 

@@ -89,7 +89,8 @@ mailinclude_HEADERS =					\
 	mail-session.h					\
 	mail-tools.h					\
 	mail-vfolder.h					\
-	message-list.h
+	message-list.h					\
+	anjal-mail-view.h
 
 libevolution_mail_la_SOURCES =				\
 	e-mail-attachment-bar.c				\
@@ -145,7 +146,9 @@ libevolution_mail_la_SOURCES =				\
 	mail-session.c					\
 	mail-tools.c					\
 	mail-vfolder.c					\
-	message-list.c
+	message-list.c					\
+	anjal-mail-view.c				\
+	anjal-mail-view.h				
 
 if ENABLE_SMIME
 SMIME_LIBS =						\

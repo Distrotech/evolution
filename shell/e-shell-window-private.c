@@ -165,13 +165,83 @@ shell_window_online_button_clicked_cb (EOnlineButton *button,
 }
 
 void
+e_shell_window_private_pack_switcher (EShellWindow *shell_window)
+{
+	EShellWindowPrivate *priv = shell_window->priv;
+	GtkWidget *container;
+	GtkWidget *widget;
+
+	container = priv->content_pane;
+
+	widget = e_shell_switcher_new ();
+	gtk_paned_pack1 (GTK_PANED (container), widget, FALSE, FALSE);
+	priv->switcher = g_object_ref (widget);
+	gtk_widget_show (widget);
+
+	widget = gtk_notebook_new ();
+	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (widget), FALSE);
+	gtk_notebook_set_show_border (GTK_NOTEBOOK (widget), FALSE);
+	gtk_paned_pack2 (GTK_PANED (container), widget, TRUE, FALSE);
+	priv->content_notebook = g_object_ref (widget);
+	gtk_widget_show (widget);
+
+	container = priv->switcher;
+
+	widget = gtk_notebook_new ();
+	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (widget), FALSE);
+	gtk_notebook_set_show_border (GTK_NOTEBOOK (widget), FALSE);
+	gtk_container_add (GTK_CONTAINER (container), widget);
+	priv->sidebar_notebook = g_object_ref (widget);
+	gtk_widget_show (widget);
+
+}
+
+void
+e_shell_window_private_pack_toolbar (EShellWindow *shell_window, GtkWidget *container)
+{
+	GtkWidget *widget;
+	EShellWindowPrivate *priv = shell_window->priv;
+	GtkToolItem *item;
+
+	widget = e_shell_window_get_managed_widget (
+		shell_window, "/main-toolbar");
+	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
+	priv->main_toolbar = g_object_ref (widget);
+	gtk_widget_show (widget);
+
+	/* XXX Having this separator in the UI definition doesn't work
+	 *     because GtkUIManager is unaware of the "New" button, so
+	 *     it makes the separator invisible.  One possibility is to
+	 *     define a GtkAction subclass for which create_tool_item()
+	 *     returns an EMenuToolButton.  Then both this separator
+	 *     and the "New" button could be added to the UI definition.
+	 *     Tempting, but the "New" button and its dynamically
+	 *     generated menu is already a complex beast, and I'm not
+	 *     convinced having it proxy some new type of GtkAction
+	 *     is worth the extra effort. */
+	item = gtk_separator_tool_item_new ();
+	gtk_toolbar_insert (GTK_TOOLBAR (widget), item, 0);
+	gtk_widget_show (GTK_WIDGET (item));
+
+	item = e_menu_tool_button_new (_("New"));
+	gtk_tool_item_set_is_important (GTK_TOOL_ITEM (item), TRUE);
+	gtk_widget_add_accelerator (
+		GTK_WIDGET (item), "clicked",
+		gtk_ui_manager_get_accel_group (priv->ui_manager),
+		GDK_N, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+	gtk_toolbar_insert (GTK_TOOLBAR (widget), item, 0);
+	priv->menu_tool_button = g_object_ref (item);
+	gtk_widget_show (GTK_WIDGET (item));
+
+}
+
+void
 e_shell_window_private_init (EShellWindow *shell_window)
 {
 	EShellWindowPrivate *priv = shell_window->priv;
 	GHashTable *loaded_views;
 	GArray *signal_handler_ids;
 	GtkAccelGroup *accel_group;
-	GtkToolItem *item;
 	GtkWidget *container;
 	GtkWidget *widget;
 	guint merge_id;
@@ -231,35 +301,8 @@ e_shell_window_private_init (EShellWindow *shell_window)
 	priv->main_menu = g_object_ref (widget);
 	gtk_widget_show (widget);
 
-	widget = e_shell_window_get_managed_widget (
-		shell_window, "/main-toolbar");
-	gtk_box_pack_start (GTK_BOX (container), widget, FALSE, FALSE, 0);
-	priv->main_toolbar = g_object_ref (widget);
-	gtk_widget_show (widget);
+	E_SHELL_WINDOW_GET_CLASS(shell_window)->construct_toolbar (shell_window, container);
 
-	/* XXX Having this separator in the UI definition doesn't work
-	 *     because GtkUIManager is unaware of the "New" button, so
-	 *     it makes the separator invisible.  One possibility is to
-	 *     define a GtkAction subclass for which create_tool_item()
-	 *     returns an EMenuToolButton.  Then both this separator
-	 *     and the "New" button could be added to the UI definition.
-	 *     Tempting, but the "New" button and its dynamically
-	 *     generated menu is already a complex beast, and I'm not
-	 *     convinced having it proxy some new type of GtkAction
-	 *     is worth the extra effort. */
-	item = gtk_separator_tool_item_new ();
-	gtk_toolbar_insert (GTK_TOOLBAR (widget), item, 0);
-	gtk_widget_show (GTK_WIDGET (item));
-
-	item = e_menu_tool_button_new (_("New"));
-	gtk_tool_item_set_is_important (GTK_TOOL_ITEM (item), TRUE);
-	gtk_widget_add_accelerator (
-		GTK_WIDGET (item), "clicked",
-		gtk_ui_manager_get_accel_group (priv->ui_manager),
-		GDK_N, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
-	gtk_toolbar_insert (GTK_TOOLBAR (widget), item, 0);
-	priv->menu_tool_button = g_object_ref (item);
-	gtk_widget_show (GTK_WIDGET (item));
 
 	widget = gtk_hpaned_new ();
 	gtk_box_pack_start (GTK_BOX (container), widget, TRUE, TRUE, 0);
@@ -276,28 +319,8 @@ e_shell_window_private_init (EShellWindow *shell_window)
 	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, NULL, &height);
 	gtk_widget_set_size_request (widget, -1, (height * 2) + 6);
 
-	container = priv->content_pane;
-
-	widget = e_shell_switcher_new ();
-	gtk_paned_pack1 (GTK_PANED (container), widget, FALSE, FALSE);
-	priv->switcher = g_object_ref (widget);
-	gtk_widget_show (widget);
-
-	widget = gtk_notebook_new ();
-	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (widget), FALSE);
-	gtk_notebook_set_show_border (GTK_NOTEBOOK (widget), FALSE);
-	gtk_paned_pack2 (GTK_PANED (container), widget, TRUE, FALSE);
-	priv->content_notebook = g_object_ref (widget);
-	gtk_widget_show (widget);
-
-	container = priv->switcher;
-
-	widget = gtk_notebook_new ();
-	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (widget), FALSE);
-	gtk_notebook_set_show_border (GTK_NOTEBOOK (widget), FALSE);
-	gtk_container_add (GTK_CONTAINER (container), widget);
-	priv->sidebar_notebook = g_object_ref (widget);
-	gtk_widget_show (widget);
+	/* Pack the content area */
+	E_SHELL_WINDOW_GET_CLASS(shell_window)->construct_content_area (shell_window);
 
 	container = priv->status_area;
 
@@ -581,7 +604,8 @@ e_shell_window_update_new_menu (EShellWindow *shell_window)
 	const gchar *path;
 
 	g_return_if_fail (E_IS_SHELL_WINDOW (shell_window));
-
+	if (!shell_window->priv->menu_tool_button)
+		return;
 	/* Update the "File -> New" submenu. */
 	path = "/main-menu/file-menu/new-menu";
 	menu = e_shell_window_create_new_menu (shell_window);

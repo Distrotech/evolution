@@ -37,6 +37,8 @@
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), E_TYPE_SHELL, EShellPrivate))
 
+const char *shell_moduledir = EVOLUTION_MODULEDIR;
+
 struct _EShellPrivate {
 	GList *watched_windows;
 	EShellSettings *settings;
@@ -364,7 +366,7 @@ shell_load_modules (EShell *shell)
 	GList *modules;
 
 	/* Load all shared library modules. */
-	modules = e_module_load_all_in_directory (EVOLUTION_MODULEDIR);
+	modules = e_module_load_all_in_directory (shell_moduledir);
 
 	while (modules != NULL) {
 		g_type_module_unuse (G_TYPE_MODULE (modules->data));

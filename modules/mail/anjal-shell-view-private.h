@@ -1,0 +1,181 @@
+/*
+ * anjal-shell-view-private.h
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with the program; if not, see <http://www.gnu.org/licenses/>
+ *
+ *
+ * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ *
+ */
+
+#ifndef ANJAL_SHELL_VIEW_PRIVATE_H
+#define ANJAL_SHELL_VIEW_PRIVATE_H
+
+#include "anjal-shell-view.h"
+#include "anjal-mail-view.h"
+
+#include <glib/gi18n.h>
+#include <gtkhtml/gtkhtml.h>
+#include <camel/camel-disco-store.h>
+#include <camel/camel-offline-store.h>
+#include <camel/camel-vtrash-folder.h>
+#include <camel/camel-search-private.h>  /* for camel_search_word */
+
+#include "e-util/e-util.h"
+#include "e-util/e-binding.h"
+#include "e-util/gconf-bridge.h"
+#include "e-util/e-account-utils.h"
+#include "filter/e-filter-part.h"
+#include "widgets/misc/e-web-view.h"
+#include "widgets/misc/e-popup-action.h"
+#include "widgets/menus/gal-view-instance.h"
+
+#include "e-mail-label-action.h"
+#include "e-mail-label-dialog.h"
+#include "e-mail-label-list-store.h"
+#include "e-mail-local.h"
+#include "e-mail-reader.h"
+#include "e-mail-store.h"
+#include "em-composer-utils.h"
+#include "em-folder-properties.h"
+#include "em-folder-selector.h"
+#include "em-folder-utils.h"
+#include "em-subscribe-editor.h"
+#include "em-utils.h"
+#include "mail-autofilter.h"
+#include "mail-config.h"
+#include "mail-ops.h"
+#include "mail-send-recv.h"
+#include "mail-vfolder.h"
+
+#include "anjal-shell-backend.h"
+#include "anjal-shell-content.h"
+#include "e-mail-shell-sidebar.h"
+#include "anjal-shell-view-actions.h"
+
+#define ANJAL_SHELL_VIEW_GET_PRIVATE(obj) \
+	(G_TYPE_INSTANCE_GET_PRIVATE \
+	((obj), ANJAL_TYPE_SHELL_VIEW, AnjalShellViewPrivate))
+
+/* Shorthand, requires a variable named "shell_window". */
+#define ACTION(name) \
+	(E_SHELL_WINDOW_ACTION_##name (shell_window))
+#define ACTION_GROUP(name) \
+	(E_SHELL_WINDOW_ACTION_GROUP_##name (shell_window))
+
+/* For use in dispose() methods. */
+#define DISPOSE(obj) \
+	G_STMT_START { \
+	if ((obj) != NULL) { g_object_unref (obj); (obj) = NULL; } \
+	} G_STMT_END
+
+/* ETable Specifications */
+#define ETSPEC_FILENAME		"message-list.etspec"
+
+/* State File Keys */
+#define STATE_KEY_SEARCH_FILTER		"SearchFilter"
+#define STATE_KEY_SEARCH_SCOPE		"SearchScope"
+#define STATE_KEY_SEARCH_TEXT		"SearchText"
+
+G_BEGIN_DECLS
+
+/* Filter items are displayed in ascending order.
+ * Labels are numbered from zero, so subsequent items must have
+ * sufficiently large values.  Unfortunately this introduces an
+ * arbitrary upper bound on labels. */
+enum {
+	MAIL_FILTER_ALL_MESSAGES		= -3,
+	MAIL_FILTER_UNREAD_MESSAGES		= -2,
+	MAIL_FILTER_NO_LABEL			= -1,
+	/* Labels go here */
+	MAIL_FILTER_READ_MESSAGES		= 5000,
+	MAIL_FILTER_RECENT_MESSAGES		= 5001,
+	MAIL_FILTER_LAST_5_DAYS_MESSAGES	= 5002,
+	MAIL_FILTER_MESSAGES_WITH_ATTACHMENTS	= 5003,
+	MAIL_FILTER_IMPORTANT_MESSAGES		= 5004,
+	MAIL_FILTER_MESSAGES_NOT_JUNK		= 5005
+};
+
+/* Search items are displayed in ascending order. */
+enum {
+	MAIL_SEARCH_SUBJECT_OR_ADDRESSES_CONTAIN,
+	MAIL_SEARCH_RECIPIENTS_CONTAIN,
+	MAIL_SEARCH_MESSAGE_CONTAINS,
+	MAIL_SEARCH_SUBJECT_CONTAINS,
+	MAIL_SEARCH_SENDER_CONTAINS,
+	MAIL_SEARCH_BODY_CONTAINS,
+	MAIL_NUM_SEARCH_RULES
+};
+
+/* Scope items are displayed in ascending order. */
+enum {
+	MAIL_SCOPE_CURRENT_FOLDER,
+	MAIL_SCOPE_CURRENT_ACCOUNT,
+	MAIL_SCOPE_ALL_ACCOUNTS
+};
+
+struct _AnjalShellViewPrivate {
+
+	/*** Other Stuff ***/
+
+	/* These are just for convenience. */
+	AnjalShellBackend *mail_shell_backend;
+	AnjalShellContent *mail_shell_content;
+	EMailShellSidebar *mail_shell_sidebar;
+
+	/* For UI merging and unmerging. */
+	guint merge_id;
+	guint label_merge_id;
+
+	/* Filter rules correspond to the search entry menu. */
+	EFilterRule *search_rules[MAIL_NUM_SEARCH_RULES];
+
+	guint show_deleted : 1;
+
+	AnjalMailView *view;
+};
+
+void		anjal_shell_view_private_init
+					(AnjalShellView *mail_shell_view,
+					 EShellViewClass *shell_view_class);
+void		anjal_shell_view_private_constructed
+					(AnjalShellView *mail_shell_view);
+void		anjal_shell_view_private_dispose
+					(AnjalShellView *mail_shell_view);
+void		anjal_shell_view_private_finalize
+					(AnjalShellView *mail_shell_view);
+
+/* Private Utilities */
+
+void		anjal_shell_view_actions_init
+					(AnjalShellView *mail_shell_view);
+void		anjal_shell_view_restore_state
+					(AnjalShellView *mail_shell_view,
+					 const char *uri);
+void		anjal_shell_view_create_filter_from_selected
+					(AnjalShellView *mail_shell_view,
+					 gint filter_type);
+void		anjal_shell_view_create_vfolder_from_selected
+					(AnjalShellView *mail_shell_view,
+					 gint vfolder_type);
+void		anjal_shell_view_update_popup_labels
+					(AnjalShellView *mail_shell_view);
+void		anjal_shell_view_update_search_filter
+					(AnjalShellView *mail_shell_view);
+void		anjal_shell_view_update_sidebar
+					(AnjalShellView *mail_shell_view);
+
+G_END_DECLS
+
+#endif /* ANJAL_SHELL_VIEW_PRIVATE_H */

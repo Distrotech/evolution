@@ -1399,6 +1399,8 @@ AC_SUBST(componentdir)
 
 moduledir="$privlibdir/modules"
 AC_SUBST(moduledir)
+anjalmoduledir="$privlibdir/anjal"
+AC_SUBST(anjalmoduledir)
 
 uidir="$privdatadir/ui"
 AC_SUBST(uidir)

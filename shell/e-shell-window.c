@@ -48,7 +48,7 @@ shell_window_new_view (EShellBackend *shell_backend,
 	GtkWidget *widget;
 	const gchar *name;
 	const gchar *id;
-	gint page_num;
+	gint page_num=0;
 	GType type;
 
 	name = E_SHELL_BACKEND_GET_CLASS (shell_backend)->name;
@@ -58,8 +58,10 @@ shell_window_new_view (EShellBackend *shell_backend,
 	e_shell_backend_start (shell_backend);
 
 	/* Determine the page number for the new shell view. */
-	notebook = GTK_NOTEBOOK (shell_window->priv->content_notebook);
-	page_num = gtk_notebook_get_n_pages (notebook);
+	if (shell_window->priv->content_notebook) {
+		notebook = GTK_NOTEBOOK (shell_window->priv->content_notebook);
+		page_num = gtk_notebook_get_n_pages (notebook);
+	}
 
 	/* Get the switcher action for this view. */
 	action = e_shell_window_get_shell_view_action (shell_window, name);
@@ -265,6 +267,18 @@ shell_window_constructed (GObject *object)
 }
 
 static void
+shell_construct_content_area (EShellWindow *shell_window)
+{
+	e_shell_window_private_pack_switcher(shell_window);
+}
+
+static void
+shell_construct_toolbar (EShellWindow *shell_window, GtkWidget *container)
+{
+	e_shell_window_private_pack_toolbar(shell_window, container);
+}
+
+static void
 shell_window_class_init (EShellWindowClass *class)
 {
 	GObjectClass *object_class;
@@ -278,6 +292,10 @@ shell_window_class_init (EShellWindowClass *class)
 	object_class->dispose = shell_window_dispose;
 	object_class->finalize = shell_window_finalize;
 	object_class->constructed = shell_window_constructed;
+
+	class->construct_content_area = shell_construct_content_area;
+	class->construct_toolbar = shell_construct_toolbar;
+
 
 	/**
 	 * EShellWindow:active-view
@@ -346,7 +364,7 @@ static void
 shell_window_init (EShellWindow *shell_window)
 {
 	shell_window->priv = E_SHELL_WINDOW_GET_PRIVATE (shell_window);
-
+	
 	e_shell_window_private_init (shell_window);
 }
 
@@ -880,4 +898,10 @@ e_shell_window_register_new_source_actions (EShellWindow *shell_window,
 	}
 
 	e_shell_window_update_new_menu (shell_window);
+}
+
+GtkWidget *
+e_shell_window_get_status_area (EShellWindow *shell_window)
+{
+	return shell_window->priv->status_area;
 }

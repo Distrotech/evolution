@@ -1,5 +1,5 @@
 /*
- * e-mail-shell-view.c
+ * anjal-shell-view.c
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,101 +19,83 @@
  *
  */
 
-#include "e-mail-shell-view-private.h"
-#include "message-list.h"
+#include "anjal-shell-view-private.h"
 
 static gpointer parent_class;
-static GType mail_shell_view_type;
+static GType anjal_shell_view_type;
 
 static void
-mail_shell_view_dispose (GObject *object)
+anjal_shell_view_dispose (GObject *object)
 {
-	e_mail_shell_view_private_dispose (E_MAIL_SHELL_VIEW (object));
+	anjal_shell_view_private_dispose (ANJAL_SHELL_VIEW (object));
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
 static void
-mail_shell_view_finalize (GObject *object)
+anjal_shell_view_finalize (GObject *object)
 {
-	e_mail_shell_view_private_finalize (E_MAIL_SHELL_VIEW (object));
+	anjal_shell_view_private_finalize (ANJAL_SHELL_VIEW (object));
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 static void
-mail_shell_view_constructed (GObject *object)
+anjal_shell_view_constructed (GObject *object)
 {
 	/* Chain up to parent's constructed() method. */
 	G_OBJECT_CLASS (parent_class)->constructed (object);
 
-	e_mail_shell_view_private_constructed (E_MAIL_SHELL_VIEW (object));
+	anjal_shell_view_private_constructed (ANJAL_SHELL_VIEW (object));
 }
 
 static void
-mail_shell_view_toggled (EShellView *shell_view)
+anjal_shell_view_toggled (EShellView *shell_view)
 {
-	EMailShellViewPrivate *priv;
-	EShellWindow *shell_window;
-	GtkUIManager *ui_manager;
-	const gchar *basename;
-	gboolean view_is_active;
+	AnjalShellViewPrivate *priv;
 
-	priv = E_MAIL_SHELL_VIEW_GET_PRIVATE (shell_view);
-
-	shell_window = e_shell_view_get_shell_window (shell_view);
-	ui_manager = e_shell_window_get_ui_manager (shell_window);
-	view_is_active = e_shell_view_is_active (shell_view);
-	basename = E_MAIL_READER_UI_DEFINITION;
-
-	if (view_is_active && priv->merge_id == 0) {
-		priv->merge_id = e_load_ui_manager_definition (
-			ui_manager, basename);
-		e_mail_reader_create_charset_menu (
-			E_MAIL_READER (priv->mail_shell_content),
-			ui_manager, priv->merge_id);
-	} else if (!view_is_active && priv->merge_id != 0) {
-		gtk_ui_manager_remove_ui (ui_manager, priv->merge_id);
-		priv->merge_id = 0;
-	}
+	priv = ANJAL_SHELL_VIEW_GET_PRIVATE(shell_view);
 
 	/* Chain up to parent's toggled() method. */
 	E_SHELL_VIEW_CLASS (parent_class)->toggled (shell_view);
 }
 
 static void
-mail_shell_view_execute_search (EShellView *shell_view)
+anjal_shell_view_execute_search (EShellView *shell_view)
 {
-	EMailShellViewPrivate *priv;
+	AnjalShellViewPrivate *priv;
 	EShell *shell;
 	EShellWindow *shell_window;
 	EShellContent *shell_content;
 	EShellSettings *shell_settings;
-	EMFormatHTMLDisplay *html_display;
-	EMailShellContent *mail_shell_content;
-	MessageList *message_list;
+	AnjalShellContent *mail_shell_content;
 	EFilterRule *rule;
 	EFilterRule *search_rule;
-	EMailReader *reader;
-	CamelFolder *folder;
 	GtkAction *action;
 	GtkTreeModel *model;
-	GtkTreePath *path;
-	GtkTreeIter tree_iter;
 	GString *string;
 	GList *iter;
 	GSList *search_strings = NULL;
 	const gchar *folder_uri;
 	const gchar *text;
-	gboolean valid;
 	gchar *query;
 	gchar *temp;
-	gchar *tag;
 	gint value;
+	AnjalShellView *anjal_shell_view = (AnjalShellView *)shell_view;
+	EShellSidebar *shell_sidebar;
+	EMailShellSidebar *mail_shell_sidebar;
+	EMFolderTree *folder_tree;
 
-	priv = E_MAIL_SHELL_VIEW_GET_PRIVATE (shell_view);
+	mail_shell_sidebar = anjal_shell_view->priv->mail_shell_sidebar;
+	folder_tree = e_mail_shell_sidebar_get_folder_tree (mail_shell_sidebar);
+
+	shell_sidebar = e_shell_view_get_shell_sidebar (shell_view);
+
+	folder_uri = em_folder_tree_get_selected_uri (folder_tree);
+
+	priv = ANJAL_SHELL_VIEW_GET_PRIVATE (shell_view);
 
 	shell_window = e_shell_view_get_shell_window (shell_view);
 	shell_content = e_shell_view_get_shell_content (shell_view);
@@ -121,14 +103,7 @@ mail_shell_view_execute_search (EShellView *shell_view)
 	shell = e_shell_window_get_shell (shell_window);
 	shell_settings = e_shell_get_shell_settings (shell);
 
-	mail_shell_content = E_MAIL_SHELL_CONTENT (shell_content);
-
-	reader = E_MAIL_READER (shell_content);
-	html_display = e_mail_reader_get_html_display (reader);
-	message_list = e_mail_reader_get_message_list (reader);
-
-	folder_uri = message_list->folder_uri;
-	folder = message_list->folder;
+	mail_shell_content = ANJAL_SHELL_CONTENT (shell_content);
 
 	if (folder_uri != NULL) {
 		GKeyFile *key_file;
@@ -149,9 +124,10 @@ mail_shell_view_execute_search (EShellView *shell_view)
 			g_key_file_remove_key (
 				key_file, group_name, key, NULL);
 		e_shell_view_set_state_dirty (shell_view);
-
+		printf("SAVE %s %s\n", group_name, string ? string : NULL);
 		g_free (group_name);
-	}
+	} else 
+		printf ("NOTHING \n");
 
 	/* This returns a new object reference. */
 	model = e_shell_settings_get_object (
@@ -207,7 +183,7 @@ mail_shell_view_execute_search (EShellView *shell_view)
 	query = g_string_free (string, FALSE);
 
 filter:
-
+#if 0
 	/* Apply selected filter. */
 
 	value = e_shell_content_get_filter_value (shell_content);
@@ -337,6 +313,7 @@ filter:
 			query = temp;
 			break;
 	}
+#endif
 
 	search_rule = e_shell_content_get_search_rule (shell_content);
 	if (search_rule != NULL) {
@@ -350,10 +327,8 @@ filter:
 		g_string_free (string, TRUE);
 	}
 
-	message_list_set_search (message_list, query);
-
-	e_mail_shell_content_set_search_strings (
-		mail_shell_content, search_strings);
+	if (anjal_shell_view->priv->view)
+		anjal_mail_view_set_search (anjal_shell_view->priv->view, query);
 
 	g_slist_foreach (search_strings, (GFunc) g_free, NULL);
 	g_slist_free (search_strings);
@@ -411,15 +386,14 @@ has_unread_mail (GtkTreeModel *model, GtkTreeIter *parent, gboolean is_root, gbo
 }
 
 static void
-mail_shell_view_update_actions (EShellView *shell_view)
+anjal_shell_view_update_actions (EShellView *shell_view)
 {
-	EMailShellView *mail_shell_view;
-	EMailShellContent *mail_shell_content;
+	AnjalShellView *mail_shell_view;
+	AnjalShellContent *mail_shell_content;
 	EMailShellSidebar *mail_shell_sidebar;
 	EShellSidebar *shell_sidebar;
 	EShellWindow *shell_window;
 	EMFolderTree *folder_tree;
-	EMailReader *reader;
 	EAccount *account = NULL;
 	GtkAction *action;
 	const gchar *label;
@@ -438,13 +412,11 @@ mail_shell_view_update_actions (EShellView *shell_view)
 	gboolean folder_has_unread_rec = FALSE;
 	gboolean folder_tree_and_message_list_agree = TRUE;
 
-	mail_shell_view = E_MAIL_SHELL_VIEW (shell_view);
+	mail_shell_view = ANJAL_SHELL_VIEW (shell_view);
 
 	shell_window = e_shell_view_get_shell_window (shell_view);
 
 	mail_shell_content = mail_shell_view->priv->mail_shell_content;
-	reader = E_MAIL_READER (mail_shell_content);
-	e_mail_reader_update_actions (reader);
 
 	mail_shell_sidebar = mail_shell_view->priv->mail_shell_sidebar;
 	folder_tree = e_mail_shell_sidebar_get_folder_tree (mail_shell_sidebar);
@@ -468,7 +440,6 @@ mail_shell_view_update_actions (EShellView *shell_view)
 	uri = em_folder_tree_get_selected_uri (folder_tree);
 	if (uri != NULL) {
 		EMFolderTreeModel *model;
-		MessageList *message_list;
 
 		/* XXX If the user right-clicks on a folder other than what
 		 *     the message list is showing, disable folder rename.
@@ -477,9 +448,6 @@ mail_shell_view_update_actions (EShellView *shell_view)
 		 *     back to where it was to avoid cancelling the inline
 		 *     folder tree editing, it's just too hairy to try to
 		 *     get right.  So we're punting. */
-		message_list = e_mail_reader_get_message_list (reader);
-		folder_tree_and_message_list_agree =
-			(g_strcmp0 (uri, message_list->folder_uri) == 0);
 
 		account = mail_config_get_account_by_source_url (uri);
 
@@ -551,43 +519,43 @@ mail_shell_view_update_actions (EShellView *shell_view)
 		folder_tree_and_message_list_agree;
 	gtk_action_set_sensitive (action, sensitive);
 
-	action = ACTION (MAIL_FOLDER_SELECT_ALL);
-	sensitive = !folder_is_store;
-	gtk_action_set_sensitive (action, sensitive);
+//	action = ACTION (MAIL_FOLDER_SELECT_ALL);
+//	sensitive = !folder_is_store;
+//	gtk_action_set_sensitive (action, sensitive);
 
-	action = ACTION (MAIL_FOLDER_SELECT_THREAD);
-	sensitive = !folder_is_store;
-	gtk_action_set_sensitive (action, sensitive);
+//	action = ACTION (MAIL_FOLDER_SELECT_THREAD);
+//	sensitive = !folder_is_store;
+//	gtk_action_set_sensitive (action, sensitive);
 
-	action = ACTION (MAIL_FOLDER_SELECT_SUBTHREAD);
-	sensitive = !folder_is_store;
-	gtk_action_set_sensitive (action, sensitive);
+//	action = ACTION (MAIL_FOLDER_SELECT_SUBTHREAD);
+//	sensitive = !folder_is_store;
+//	gtk_action_set_sensitive (action, sensitive);
 
 	action = ACTION (MAIL_FOLDER_UNSUBSCRIBE);
 	sensitive = !folder_is_store && folder_can_be_deleted;
 	gtk_action_set_sensitive (action, sensitive);
 
-	action = ACTION (MAIL_FOLDER_MARK_ALL_AS_READ);
-	sensitive = folder_has_unread_rec && !folder_is_store;
-	gtk_action_set_sensitive (action, sensitive);
+//	action = ACTION (MAIL_FOLDER_MARK_ALL_AS_READ);
+//	sensitive = folder_has_unread_rec && !folder_is_store;
+//	gtk_action_set_sensitive (action, sensitive);
 
-	e_mail_shell_view_update_popup_labels (mail_shell_view);
+	anjal_shell_view_update_popup_labels (mail_shell_view);
 }
 
 static void
-mail_shell_view_class_init (EMailShellViewClass *class,
+anjal_shell_view_class_init (AnjalShellViewClass *class,
                             GTypeModule *type_module)
 {
 	GObjectClass *object_class;
 	EShellViewClass *shell_view_class;
 
 	parent_class = g_type_class_peek_parent (class);
-	g_type_class_add_private (class, sizeof (EMailShellViewPrivate));
+	g_type_class_add_private (class, sizeof (AnjalShellViewPrivate));
 
 	object_class = G_OBJECT_CLASS (class);
-	object_class->dispose = mail_shell_view_dispose;
-	object_class->finalize = mail_shell_view_finalize;
-	object_class->constructed = mail_shell_view_constructed;
+	object_class->dispose = anjal_shell_view_dispose;
+	object_class->finalize = anjal_shell_view_finalize;
+	object_class->constructed = anjal_shell_view_constructed;
 
 	shell_view_class = E_SHELL_VIEW_CLASS (class);
 	shell_view_class->label = _("Mail");
@@ -596,46 +564,46 @@ mail_shell_view_class_init (EMailShellViewClass *class,
 	shell_view_class->ui_manager_id = "org.gnome.evolution.mail";
 	shell_view_class->search_options = "/mail-search-options";
 	shell_view_class->search_rules = "searchtypes.xml";
-	shell_view_class->new_shell_content = e_mail_shell_content_new;
+	shell_view_class->new_shell_content = anjal_shell_content_new;
 	shell_view_class->new_shell_sidebar = e_mail_shell_sidebar_new;
-	shell_view_class->toggled = mail_shell_view_toggled;
-	shell_view_class->execute_search = mail_shell_view_execute_search;
-	shell_view_class->update_actions = mail_shell_view_update_actions;
+	shell_view_class->toggled = anjal_shell_view_toggled;
+	shell_view_class->execute_search = anjal_shell_view_execute_search;
+	shell_view_class->update_actions = anjal_shell_view_update_actions;
 }
 
 static void
-mail_shell_view_init (EMailShellView *mail_shell_view,
+anjal_shell_view_init (AnjalShellView *mail_shell_view,
                       EShellViewClass *shell_view_class)
 {
 	mail_shell_view->priv =
-		E_MAIL_SHELL_VIEW_GET_PRIVATE (mail_shell_view);
+		ANJAL_SHELL_VIEW_GET_PRIVATE (mail_shell_view);
 
-	e_mail_shell_view_private_init (mail_shell_view, shell_view_class);
+	anjal_shell_view_private_init (mail_shell_view, shell_view_class);
 }
 
 GType
-e_mail_shell_view_get_type (void)
+anjal_shell_view_get_type (void)
 {
-	return mail_shell_view_type;
+	return anjal_shell_view_type;
 }
 
 void
-e_mail_shell_view_register_type (GTypeModule *type_module)
+anjal_shell_view_register_type (GTypeModule *type_module)
 {
 	const GTypeInfo type_info = {
-		sizeof (EMailShellViewClass),
+		sizeof (AnjalShellViewClass),
 		(GBaseInitFunc) NULL,
 		(GBaseFinalizeFunc) NULL,
-		(GClassInitFunc) mail_shell_view_class_init,
+		(GClassInitFunc) anjal_shell_view_class_init,
 		(GClassFinalizeFunc) NULL,
 		NULL,  /* class_data */
-		sizeof (EMailShellView),
+		sizeof (AnjalShellView),
 		0,     /* n_preallocs */
-		(GInstanceInitFunc) mail_shell_view_init,
+		(GInstanceInitFunc) anjal_shell_view_init,
 		NULL   /* value_table */
 	};
 
-	mail_shell_view_type = g_type_module_register_type (
+	anjal_shell_view_type = g_type_module_register_type (
 		type_module, E_TYPE_SHELL_VIEW,
-		"EMailShellView", &type_info, 0);
+		"AnjalShellView", &type_info, 0);
 }

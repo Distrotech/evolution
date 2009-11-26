@@ -1,5 +1,5 @@
 /*
- * e-mail-shell-backend.c
+ * anjal-shell-backend.c
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,7 +19,7 @@
  *
  */
 
-#include "e-mail-shell-backend.h"
+#include "anjal-shell-backend.h"
 
 #include <glib/gi18n.h>
 #include <camel/camel-disco-store.h>
@@ -40,7 +40,7 @@
 #include "e-mail-shell-migrate.h"
 #include "e-mail-shell-settings.h"
 #include "e-mail-shell-sidebar.h"
-#include "e-mail-shell-view.h"
+#include "anjal-shell-view.h"
 
 #include "e-mail-browser.h"
 #include "e-mail-local.h"
@@ -63,76 +63,76 @@
 #include "mail-vfolder.h"
 #include "importers/mail-importer.h"
 
-#define E_MAIL_SHELL_BACKEND_GET_PRIVATE(obj) \
+#define ANJAL_SHELL_BACKEND_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
-	((obj), E_TYPE_MAIL_SHELL_BACKEND, EMailShellBackendPrivate))
+	((obj), ANJAL_TYPE_SHELL_BACKEND, AnjalShellBackendPrivate))
 
-#define BACKEND_NAME "mail"
+#define BACKEND_NAME "anjal"
 #define QUIT_POLL_INTERVAL 1  /* seconds */
 
-struct _EMailShellBackendPrivate {
+struct _AnjalShellBackendPrivate {
 	gint mail_sync_in_progress;
 	guint mail_sync_timeout_source_id;
 };
 
 static gpointer parent_class;
-static GType mail_shell_backend_type;
+static GType anjal_shell_backend_type;
 
 extern gint camel_application_is_exiting;
 
 #include "e-mail-anjal-shared.c"
 
 static void
-mail_shell_backend_sync_store_done_cb (CamelStore *store,
+anjal_shell_backend_sync_store_done_cb (CamelStore *store,
                                        gpointer user_data)
 {
-	EMailShellBackend *mail_shell_backend = user_data;
+	AnjalShellBackend *anjal_shell_backend = user_data;
 
-	mail_shell_backend->priv->mail_sync_in_progress--;
+	anjal_shell_backend->priv->mail_sync_in_progress--;
 }
 
 static void
-mail_shell_backend_sync_store_cb (CamelStore *store,
-                                  EMailShellBackend *mail_shell_backend)
+anjal_shell_backend_sync_store_cb (CamelStore *store,
+                                  AnjalShellBackend *anjal_shell_backend)
 {
 	if (!camel_application_is_exiting) {
-		mail_shell_backend->priv->mail_sync_in_progress++;
+		anjal_shell_backend->priv->mail_sync_in_progress++;
 		mail_sync_store (
 			store, FALSE,
-			mail_shell_backend_sync_store_done_cb,
-			mail_shell_backend);
+			anjal_shell_backend_sync_store_done_cb,
+			anjal_shell_backend);
 	}
 }
 
 static gboolean
-mail_shell_backend_mail_sync (EMailShellBackend *mail_shell_backend)
+anjal_shell_backend_mail_sync (AnjalShellBackend *anjal_shell_backend)
 {
 	if (camel_application_is_exiting)
 		return FALSE;
 
-	if (mail_shell_backend->priv->mail_sync_in_progress)
+	if (anjal_shell_backend->priv->mail_sync_in_progress)
 		goto exit;
 
 	if (session == NULL || !camel_session_is_online (session))
 		goto exit;
 
 	e_mail_store_foreach (
-		(GHFunc) mail_shell_backend_sync_store_cb,
-		mail_shell_backend);
+		(GHFunc) anjal_shell_backend_sync_store_cb,
+		anjal_shell_backend);
 
 exit:
 	return !camel_application_is_exiting;
 }
 
 static void
-mail_shell_backend_constructed (GObject *object)
+anjal_shell_backend_constructed (GObject *object)
 {
-	EMailShellBackendPrivate *priv;
+	AnjalShellBackendPrivate *priv;
 	EShell *shell;
 	EShellBackend *shell_backend;
-	const gchar *data_dir;
+	char *custom_dir;
 
-	priv = E_MAIL_SHELL_BACKEND_GET_PRIVATE (object);
+	priv = ANJAL_SHELL_BACKEND_GET_PRIVATE (object);
 
 	shell_backend = E_SHELL_BACKEND (object);
 	shell = e_shell_backend_get_shell (shell_backend);
@@ -142,8 +142,8 @@ mail_shell_backend_constructed (GObject *object)
 
 	/* Register format types for EMFormatHook. */
 	em_format_hook_register_type (em_format_get_type ());
-	em_format_hook_register_type (em_format_html_get_type ());
-	em_format_hook_register_type (em_format_html_display_get_type ());
+	//em_format_hook_register_type (em_format_html_get_type ());
+	//em_format_hook_register_type (em_format_html_display_get_type ());
 
 	/* Register plugin hook types. */
 	em_format_hook_get_type ();
@@ -193,9 +193,9 @@ mail_shell_backend_constructed (GObject *object)
 	mail_config_init ();
 	mail_msg_init ();
 
-	data_dir = e_shell_backend_get_data_dir (shell_backend);
-	e_mail_store_init (data_dir);
-
+	custom_dir = g_build_filename (e_get_user_data_dir (), "mail", NULL);
+	e_mail_store_init (custom_dir);
+	g_free (custom_dir);
 	e_mail_shell_settings_init (shell);
 
 	/* Initialize preferences after the main loop starts so
@@ -204,14 +204,14 @@ mail_shell_backend_constructed (GObject *object)
 }
 
 static void
-mail_shell_backend_start (EShellBackend *shell_backend)
+anjal_shell_backend_start (EShellBackend *shell_backend)
 {
-	EMailShellBackendPrivate *priv;
+	AnjalShellBackendPrivate *priv;
 	EShell *shell;
 	EShellSettings *shell_settings;
 	gboolean enable_search_folders;
 
-	priv = E_MAIL_SHELL_BACKEND_GET_PRIVATE (shell_backend);
+	priv = ANJAL_SHELL_BACKEND_GET_PRIVATE (shell_backend);
 
 	shell = e_shell_backend_get_shell (shell_backend);
 	shell_settings = e_shell_get_shell_settings (shell);
@@ -229,64 +229,64 @@ mail_shell_backend_start (EShellBackend *shell_backend)
 	if (g_getenv ("CAMEL_FLUSH_CHANGES") != NULL)
 		priv->mail_sync_timeout_source_id = g_timeout_add_seconds (
 			mail_config_get_sync_timeout (),
-			(GSourceFunc) mail_shell_backend_mail_sync,
+			(GSourceFunc) anjal_shell_backend_mail_sync,
 			shell_backend);
 }
 
 static void
-mail_shell_backend_class_init (EMailShellBackendClass *class)
+anjal_shell_backend_class_init (AnjalShellBackendClass *class)
 {
 	GObjectClass *object_class;
 	EShellBackendClass *shell_backend_class;
 
 	parent_class = g_type_class_peek_parent (class);
-	g_type_class_add_private (class, sizeof (EMailShellBackendPrivate));
+	g_type_class_add_private (class, sizeof (AnjalShellBackendPrivate));
 
 	object_class = G_OBJECT_CLASS (class);
-	object_class->constructed = mail_shell_backend_constructed;
+	object_class->constructed = anjal_shell_backend_constructed;
 
 	shell_backend_class = E_SHELL_BACKEND_CLASS (class);
-	shell_backend_class->shell_view_type = E_TYPE_MAIL_SHELL_VIEW;
+	shell_backend_class->shell_view_type = ANJAL_TYPE_SHELL_VIEW;
 	shell_backend_class->name = BACKEND_NAME;
 	shell_backend_class->aliases = "";
 	shell_backend_class->schemes = "mailto:email";
 	shell_backend_class->sort_order = 200;
 	shell_backend_class->preferences_page = "mail-accounts";
-	shell_backend_class->start = mail_shell_backend_start;
+	shell_backend_class->start = anjal_shell_backend_start;
 	shell_backend_class->migrate = e_mail_shell_migrate;
 }
 
 static void
-mail_shell_backend_init (EMailShellBackend *mail_shell_backend)
+anjal_shell_backend_init (AnjalShellBackend *mail_shell_backend)
 {
 	mail_shell_backend->priv =
-		E_MAIL_SHELL_BACKEND_GET_PRIVATE (mail_shell_backend);
+		ANJAL_SHELL_BACKEND_GET_PRIVATE (mail_shell_backend);
 }
 
 GType
-e_mail_shell_backend_get_type (void)
+anjal_shell_backend_get_type (void)
 {
-	return mail_shell_backend_type;
+	return anjal_shell_backend_type;
 }
 
 void
-e_mail_shell_backend_register_type (GTypeModule *type_module)
+anjal_shell_backend_register_type (GTypeModule *type_module)
 {
 	const GTypeInfo type_info = {
-		sizeof (EMailShellBackendClass),
+		sizeof (AnjalShellBackendClass),
 		(GBaseInitFunc) NULL,
 		(GBaseFinalizeFunc) NULL,
-		(GClassInitFunc) mail_shell_backend_class_init,
+		(GClassInitFunc) anjal_shell_backend_class_init,
 		(GClassFinalizeFunc) NULL,
 		NULL,  /* class_data */
-		sizeof (EMailShellBackend),
+		sizeof (AnjalShellBackend),
 		0,     /* n_preallocs */
-		(GInstanceInitFunc) mail_shell_backend_init,
+		(GInstanceInitFunc) anjal_shell_backend_init,
 		NULL   /* value_table */
 	};
 
-	mail_shell_backend_type = g_type_module_register_type (
+	anjal_shell_backend_type = g_type_module_register_type (
 		type_module, E_TYPE_SHELL_BACKEND,
-		"EMailShellBackend", &type_info, 0);
+		"AnjalShellBackend", &type_info, 0);
 }
 

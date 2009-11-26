@@ -20,6 +20,7 @@
  */
 
 #include "e-mail-shell-view-private.h"
+#include "message-list.h"
 
 static void
 action_gal_save_custom_view_cb (GtkAction *action,

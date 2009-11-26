@@ -264,7 +264,8 @@ e_mail_store_init (const gchar *data_dir)
 {
 	static gboolean initialized = FALSE;
 
-	g_return_if_fail (!initialized);
+	if (initialized)
+		return;
 	g_return_if_fail (data_dir != NULL);
 
 	/* Initialize global variables. */

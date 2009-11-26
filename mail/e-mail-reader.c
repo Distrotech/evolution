@@ -50,7 +50,7 @@
 #include "mail/mail-config.h"
 #include "mail/mail-ops.h"
 #include "mail/mail-vfolder.h"
-
+#include "mail/message-list.h"
 enum {
 	CHANGED,
 	FOLDER_LOADED,

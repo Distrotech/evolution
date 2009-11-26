@@ -123,6 +123,10 @@ void		e_shell_window_update_new_menu	(EShellWindow *shell_window);
 void		e_shell_window_update_view_menu	(EShellWindow *shell_window);
 void		e_shell_window_update_search_menu
 						(EShellWindow *shell_window);
+void		e_shell_window_private_pack_switcher
+						(EShellWindow *shell_window);
+void		e_shell_window_private_pack_toolbar 
+						(EShellWindow *shell_window, GtkWidget *container);
 
 G_END_DECLS
 

@@ -435,3 +435,9 @@ e_shell_taskbar_unset_message (EShellTaskbar *shell_taskbar)
 
 	e_shell_taskbar_set_message (shell_taskbar, NULL);
 }
+
+int
+e_shell_taskbar_get_task_count (EShellTaskbar *shell_taskbar)
+{
+	return g_hash_table_size(shell_taskbar->priv->proxy_table);
+}

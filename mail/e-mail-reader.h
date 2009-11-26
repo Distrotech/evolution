@@ -25,7 +25,6 @@
 #include <gtk/gtk.h>
 #include <camel/camel-folder.h>
 #include <mail/em-format-html-display.h>
-#include <mail/message-list.h>
 #include <shell/e-shell-backend.h>
 
 /* Standard GObject macros */
@@ -54,6 +53,7 @@ G_BEGIN_DECLS
 
 typedef struct _EMailReader EMailReader;
 typedef struct _EMailReaderIface EMailReaderIface;
+struct _MessageList;
 
 enum {
 	E_MAIL_READER_HAVE_ACCOUNT			= 1 << 0,
@@ -82,7 +82,7 @@ struct _EMailReaderIface {
 	gboolean	(*get_hide_deleted)	(EMailReader *reader);
 	EMFormatHTMLDisplay *
 			(*get_html_display)	(EMailReader *reader);
-	MessageList *	(*get_message_list)	(EMailReader *reader);
+	struct _MessageList *	(*get_message_list)	(EMailReader *reader);
 	GtkMenu *	(*get_popup_menu)	(EMailReader *reader);
 	EShellBackend *	(*get_shell_backend)	(EMailReader *reader);
 	GtkWindow *	(*get_window)		(EMailReader *reader);
@@ -110,7 +110,7 @@ GtkActionGroup *
 gboolean	e_mail_reader_get_hide_deleted	(EMailReader *reader);
 EMFormatHTMLDisplay *
 		e_mail_reader_get_html_display	(EMailReader *reader);
-MessageList *	e_mail_reader_get_message_list	(EMailReader *reader);
+struct _MessageList *	e_mail_reader_get_message_list	(EMailReader *reader);
 GtkMenu *	e_mail_reader_get_popup_menu	(EMailReader *reader);
 EShellBackend *	e_mail_reader_get_shell_backend	(EMailReader *reader);
 GtkWindow *	e_mail_reader_get_window	(EMailReader *reader);
