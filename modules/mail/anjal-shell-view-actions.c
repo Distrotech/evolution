@@ -822,7 +822,7 @@ anjal_shell_view_update_search_filter (AnjalShellView *mail_shell_view)
 		MAIL_FILTER_ALL_MESSAGES,
 		G_CALLBACK (action_search_filter_cb),
 		mail_shell_view);
-#endif
+
 	/* Retrieve the radio group from an action we just added. */
 	list = gtk_action_group_list_actions (action_group);
 	radio_action = GTK_RADIO_ACTION (list->data);
@@ -861,7 +861,7 @@ anjal_shell_view_update_search_filter (AnjalShellView *mail_shell_view)
 		valid = gtk_tree_model_iter_next (tree_model, &iter);
 		ii++;
 	}
-#if 0
+
 	/* Use any action in the group; doesn't matter which. */
 	e_shell_content_set_filter_action (shell_content, radio_action);
 
