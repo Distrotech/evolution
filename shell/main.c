@@ -87,8 +87,9 @@ static gboolean force_migrate = FALSE;
 static gboolean disable_eplugin = FALSE;
 static gboolean disable_preview = FALSE;
 static gboolean import_uris = FALSE;
-static gboolean idle_cb (gchar **uris);
+static gboolean quit = FALSE;
 
+static gchar *geometry = NULL;
 static gchar *requested_view = NULL;
 static gchar *evolution_debug_log = NULL;
 static gchar **remaining_args;
@@ -236,7 +237,9 @@ idle_cb (gchar **uris)
 
 	/* These calls do the right thing when another Evolution
 	 * process is running. */
-	if (uris != NULL && *uris != NULL) {
+	if (quit)
+		e_shell_quit (shell);
+	else if (uris != NULL && *uris != NULL) {
 		if (e_shell_handle_uris (shell, uris, import_uris) == 0)
 			gtk_main_quit ();
 	} else
@@ -309,6 +312,8 @@ setup_segv_redirect (void)
 static GOptionEntry entries[] = {
 	{ "component", 'c', 0, G_OPTION_ARG_STRING, &requested_view,
 	  N_("Start Evolution activating the specified component"), NULL },
+	{ "geometry", 'g', 0, G_OPTION_ARG_STRING, &geometry,
+	  N_("Apply the given geometry to the main window"), "GEOMETRY" },
 	{ "offline", '\0', 0, G_OPTION_ARG_NONE, &start_offline,
 	  N_("Start in offline mode"), NULL },
 	{ "online", '\0', 0, G_OPTION_ARG_NONE, &start_online,
@@ -331,6 +336,8 @@ static GOptionEntry entries[] = {
 	  &setup_only, NULL, NULL },
 	{ "import", 'i', 0, G_OPTION_ARG_NONE, &import_uris,
 	  N_("Import URIs or file names given as rest of arguments."), NULL },
+	{ "quit", 'q', 0, G_OPTION_ARG_NONE, &quit,
+	  N_("Request a running Evolution process to quit"), NULL },
 	{ G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_STRING_ARRAY, &remaining_args, NULL, NULL },
 	{ NULL }
 };
@@ -383,35 +390,12 @@ set_paths (void)
 static void G_GNUC_NORETURN
 shell_force_shutdown (void)
 {
-	gchar *program;
+	gchar *filename;
 
-	/* This is not as destructive as it was in the Bonobo era.
-	 * The Evolution-Data-Server D-Bus services should not be killed
-	 * because other programs may be using them.  The alarm daemon is
-	 * an autostart program now and Evolution no longer spawns it, so
-	 * that should not be killed either.  The only thing left to do
-	 * really is shoot ourselves. */
-
-	/* XXX Maybe --force-shutdown should be deprecated. */
-
-	program = g_find_program_in_path ("pkill");
-
-	if (program == NULL) {
-		g_printerr ("Could not find `pkill' program in path.\n");
-		exit (1);
-	}
-
-	/* This does not return. */
-	execl (program, "pkill", "evolution", NULL);
+	filename = g_build_filename (EVOLUTION_TOOLSDIR, "killev", NULL);
+	execl (filename, "killev", NULL);
 
 	g_assert_not_reached ();
-}
-
-static void
-shell_window_destroyed_cb (EShell *shell)
-{
-	if (e_shell_get_watched_windows (shell) == NULL)
-		gtk_main_quit ();
 }
 
 static void
@@ -451,12 +435,9 @@ create_default_shell (void)
 	shell = g_object_new (
 		E_TYPE_SHELL,
 		"name", "org.gnome.Evolution",
+		"geometry", geometry,
 		"online", online,
 		NULL);
-
-	g_signal_connect (
-		shell, "window-destroyed",
-		G_CALLBACK (shell_window_destroyed_cb), NULL);
 
 	g_object_unref (client);
 

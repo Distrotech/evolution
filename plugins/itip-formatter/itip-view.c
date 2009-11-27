@@ -82,10 +82,12 @@ struct _ItipViewPrivate {
 	GtkWidget *start_header;
 	GtkWidget *start_label;
 	struct tm *start_tm;
+	gboolean start_tm_is_date;
 
 	GtkWidget *end_header;
 	GtkWidget *end_label;
 	struct tm *end_tm;
+	gboolean end_tm_is_date;
 
 	GtkWidget *upper_info_box;
 	GSList *upper_info_items;
@@ -142,6 +144,7 @@ format_date_and_time_x		(struct tm	*date_tm,
 				 gboolean	 use_24_hour_format,
 				 gboolean	 show_midnight,
 				 gboolean	 show_zero_seconds,
+				 gboolean	 is_date,
 				 gchar		*buffer,
 				 gint		 buffer_size)
 {
@@ -182,8 +185,8 @@ format_date_and_time_x		(struct tm	*date_tm,
 	if (date_tm->tm_mday == current_tm->tm_mday &&
 	    date_tm->tm_mon == current_tm->tm_mon &&
 	    date_tm->tm_year == current_tm->tm_year) {
-		if (!show_midnight && date_tm->tm_hour == 0
-		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0) {
+		if (is_date || (!show_midnight && date_tm->tm_hour == 0
+		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0)) {
 			/* strftime format of a weekday and a date. */
 			format = _("Today");
 		} else if (use_24_hour_format) {
@@ -210,8 +213,8 @@ format_date_and_time_x		(struct tm	*date_tm,
 	} else if (date_tm->tm_mday == tomorrow_tm.tm_mday &&
 		   date_tm->tm_mon == tomorrow_tm.tm_mon &&
 		   date_tm->tm_year == tomorrow_tm.tm_year) {
-		if (!show_midnight && date_tm->tm_hour == 0
-		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0) {
+		if (is_date || (!show_midnight && date_tm->tm_hour == 0
+		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0)) {
 			/* strftime format of a weekday and a date. */
 			format = _("Tomorrow");
 		} else if (use_24_hour_format) {
@@ -247,8 +250,8 @@ format_date_and_time_x		(struct tm	*date_tm,
 		   (date_tm->tm_year == week_tm.tm_year &&
 		    date_tm->tm_mon == week_tm.tm_mon &&
 		    date_tm->tm_mday < week_tm.tm_mday))) {
-		if (!show_midnight && date_tm->tm_hour == 0
-		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0) {
+		if (is_date || (!show_midnight && date_tm->tm_hour == 0
+		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0)) {
 			/* strftime format of a weekday. */
 			format = _("%A");
 		} else if (use_24_hour_format) {
@@ -273,8 +276,8 @@ format_date_and_time_x		(struct tm	*date_tm,
 
 	/* This Year */
 	} else if (date_tm->tm_year == current_tm->tm_year) {
-		if (!show_midnight && date_tm->tm_hour == 0
-		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0) {
+		if (is_date || (!show_midnight && date_tm->tm_hour == 0
+		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0)) {
 			/* strftime format of a weekday and a date
 			   without a year. */
 			format = _("%A, %B %e");
@@ -299,8 +302,8 @@ format_date_and_time_x		(struct tm	*date_tm,
 				format = _("%A, %B %e %l:%M:%S %p");
 		}
 	} else {
-		if (!show_midnight && date_tm->tm_hour == 0
-		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0) {
+		if (is_date || (!show_midnight && date_tm->tm_hour == 0
+		    && date_tm->tm_min == 0 && date_tm->tm_sec == 0)) {
 			/* strftime format of a weekday and a date. */
 			format = _("%A, %B %e, %Y");
 		} else if (use_24_hour_format) {
@@ -649,7 +652,7 @@ set_description_text (ItipView *view)
 }
 
 static void
-set_start_text (ItipView *view)
+update_start_end_times (ItipView *view)
 {
 	ItipViewPrivate *priv;
 	gchar buffer[256];
@@ -661,39 +664,45 @@ set_start_text (ItipView *view)
 	now = time (NULL);
 	now_tm = localtime (&now);
 
-	if (priv->start_tm) {
-		format_date_and_time_x (priv->start_tm, now_tm, FALSE, TRUE, FALSE, buffer, 256);
+	#define is_same(_member) (priv->start_tm->_member == priv->end_tm->_member)
+	if (priv->start_tm && priv->end_tm && priv->start_tm_is_date && priv->end_tm_is_date
+	    && is_same (tm_mday) && is_same (tm_mon) && is_same (tm_year)) {
+		/* it's an all day event in one particular day */
+		format_date_and_time_x (priv->start_tm, now_tm, FALSE, TRUE, FALSE, priv->start_tm_is_date, buffer, 256);
 		gtk_label_set_text (GTK_LABEL (priv->start_label), buffer);
+		gtk_label_set_text (GTK_LABEL (priv->start_header), _("All day:"));
+
+		gtk_widget_show (priv->start_header);
+		gtk_widget_show (priv->start_label);
+		gtk_widget_hide (priv->end_header);
+		gtk_widget_hide (priv->end_label);
 	} else {
-		gtk_label_set_text (GTK_LABEL (priv->start_label), NULL);
+		if (priv->start_tm) {
+			format_date_and_time_x (priv->start_tm, now_tm, FALSE, TRUE, FALSE, priv->start_tm_is_date, buffer, 256);
+			gtk_label_set_text (GTK_LABEL (priv->start_label), buffer);
+			gtk_label_set_text (GTK_LABEL (priv->start_header), priv->start_tm_is_date ? _("Start day:") : _("Start time:"));
+			gtk_widget_show (priv->start_header);
+			gtk_widget_show (priv->start_label);
+		} else {
+			gtk_label_set_text (GTK_LABEL (priv->start_label), NULL);
+			gtk_widget_hide (priv->start_header);
+			gtk_widget_hide (priv->start_label);
+		}
+
+		if (priv->end_tm) {
+			format_date_and_time_x (priv->end_tm, now_tm, FALSE, TRUE, FALSE, priv->end_tm_is_date, buffer, 256);
+			gtk_label_set_text (GTK_LABEL (priv->end_label), buffer);
+			gtk_label_set_text (GTK_LABEL (priv->end_header), priv->end_tm_is_date ? _("End day:") : _("End time:"));
+			gtk_widget_show (priv->end_header);
+			gtk_widget_show (priv->end_label);
+		} else {
+			gtk_label_set_text (GTK_LABEL (priv->end_label), NULL);
+			gtk_widget_hide (priv->end_header);
+			gtk_widget_hide (priv->end_label);
+		}
 	}
 
-	priv->start_tm ? gtk_widget_show (priv->start_header) : gtk_widget_hide (priv->start_header);
-	priv->start_tm ? gtk_widget_show (priv->start_label) : gtk_widget_hide (priv->start_label);
-}
-
-static void
-set_end_text (ItipView *view)
-{
-	ItipViewPrivate *priv;
-	gchar buffer[256];
-	time_t now;
-	struct tm *now_tm;
-
-	priv = view->priv;
-
-	now = time (NULL);
-	now_tm = localtime (&now);
-
-	if (priv->end_tm) {
-		format_date_and_time_x (priv->end_tm, now_tm, FALSE, TRUE, FALSE, buffer, 256);
-		gtk_label_set_text (GTK_LABEL (priv->end_label), buffer);
-	} else {
-		gtk_label_set_text (GTK_LABEL (priv->end_label), NULL);
-	}
-
-	priv->end_tm ? gtk_widget_show (priv->end_header) : gtk_widget_hide (priv->end_header);
-	priv->end_tm ? gtk_widget_show (priv->end_label) : gtk_widget_hide (priv->end_label);
+	#undef is_same
 }
 
 static void
@@ -1595,7 +1604,7 @@ itip_view_get_description (ItipView *view)
 }
 
 void
-itip_view_set_start (ItipView *view, struct tm *start)
+itip_view_set_start (ItipView *view, struct tm *start, gboolean is_date)
 {
 	ItipViewPrivate *priv;
 
@@ -1614,11 +1623,13 @@ itip_view_set_start (ItipView *view, struct tm *start)
 		*priv->start_tm = *start;
 	}
 
-	set_start_text (view);
+	priv->start_tm_is_date = is_date && start;
+
+	update_start_end_times (view);
 }
 
 const struct tm *
-itip_view_get_start (ItipView *view)
+itip_view_get_start (ItipView *view, gboolean *is_date)
 {
 	ItipViewPrivate *priv;
 
@@ -1627,11 +1638,14 @@ itip_view_get_start (ItipView *view)
 
 	priv = view->priv;
 
+	if (is_date)
+		*is_date = priv->start_tm_is_date;
+
 	return priv->start_tm;
 }
 
 void
-itip_view_set_end (ItipView *view, struct tm *end)
+itip_view_set_end (ItipView *view, struct tm *end, gboolean is_date)
 {
 	ItipViewPrivate *priv;
 
@@ -1650,11 +1664,13 @@ itip_view_set_end (ItipView *view, struct tm *end)
 		*priv->end_tm = *end;
 	}
 
-	set_end_text (view);
+	priv->end_tm_is_date = is_date && end;
+
+	update_start_end_times (view);
 }
 
 const struct tm *
-itip_view_get_end (ItipView *view)
+itip_view_get_end (ItipView *view, gboolean *is_date)
 {
 	ItipViewPrivate *priv;
 
@@ -1662,6 +1678,9 @@ itip_view_get_end (ItipView *view)
 	g_return_val_if_fail (ITIP_IS_VIEW (view), NULL);
 
 	priv = view->priv;
+
+	if (is_date)
+		*is_date = priv->end_tm_is_date;
 
 	return priv->end_tm;
 }

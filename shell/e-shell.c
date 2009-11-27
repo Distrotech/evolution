@@ -51,6 +51,8 @@ struct _EShellPrivate {
 	gpointer preparing_for_line_change;  /* weak pointer */
 	gpointer preparing_for_quit;         /* weak pointer */
 
+	gchar *geometry;
+
 	guint auto_reconnect	: 1;
 	guint network_available	: 1;
 	guint online		: 1;
@@ -60,6 +62,7 @@ struct _EShellPrivate {
 
 enum {
 	PROP_0,
+	PROP_GEOMETRY,
 	PROP_NETWORK_AVAILABLE,
 	PROP_ONLINE,
 	PROP_SHELL_SETTINGS
@@ -301,6 +304,15 @@ shell_ready_for_quit (EShell *shell,
 
 	g_message ("Quit preparations complete.");
 
+	/* This handles a strange corner case where --quit is given on
+	 * the command-line but no other Evolution process is running.
+	 * We bring all the shell backends up and then immediately run
+	 * the shutdown procedure, which gets us here.  But because no
+	 * windows have been shown yet, the usual "main loop ends when
+	 * the last window is destroyed" trick won't work. */
+	if (e_shell_get_watched_windows (shell) == NULL)
+		gtk_main_quit ();
+
 	/* Destroy all watched windows.  Note, we iterate over a -copy-
 	 * of the watched windows list because the act of destroying a
 	 * watched window will modify the watched windows list, which
@@ -459,12 +471,27 @@ shell_sm_quit_cb (EShell *shell,
 }
 
 static void
+shell_set_geometry (EShell *shell,
+                    const gchar *geometry)
+{
+	g_return_if_fail (shell->priv->geometry == NULL);
+
+	shell->priv->geometry = g_strdup (geometry);
+}
+
+static void
 shell_set_property (GObject *object,
                     guint property_id,
                     const GValue *value,
                     GParamSpec *pspec)
 {
 	switch (property_id) {
+		case PROP_GEOMETRY:
+			shell_set_geometry (
+				E_SHELL (object),
+				g_value_get_string (value));
+			return;
+
 		case PROP_NETWORK_AVAILABLE:
 			e_shell_set_network_available (
 				E_SHELL (object),
@@ -560,6 +587,8 @@ shell_finalize (GObject *object)
 	if (!unique_app_is_running (UNIQUE_APP (object)))
 		e_file_lock_destroy ();
 
+	g_free (priv->geometry);
+
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -586,7 +615,7 @@ shell_constructed (GObject *object)
 		shell_add_backend, object);
 }
 
-static gboolean
+static UniqueResponse
 shell_message_handle_new (EShell *shell,
                           UniqueMessageData *data)
 {
@@ -596,10 +625,10 @@ shell_message_handle_new (EShell *shell,
 	e_shell_create_shell_window (shell, view_name);
 	g_free (view_name);
 
-	return TRUE;
+	return UNIQUE_RESPONSE_OK;
 }
 
-static gboolean
+static UniqueResponse
 shell_message_handle_open (EShell *shell,
                            UniqueMessageData *data)
 {
@@ -625,16 +654,21 @@ shell_message_handle_open (EShell *shell,
 	}
 	g_strfreev (uris);
 
-	return TRUE;
+	return UNIQUE_RESPONSE_OK;
 }
 
-static gboolean
+static UniqueResponse
 shell_message_handle_close (EShell *shell,
                             UniqueMessageData *data)
 {
-	e_shell_quit (shell);
+	UniqueResponse response;
 
-	return TRUE;
+	if (e_shell_quit (shell))
+		response = UNIQUE_RESPONSE_OK;
+	else
+		response = UNIQUE_RESPONSE_CANCEL;
+
+	return response;
 }
 
 static UniqueResponse
@@ -650,19 +684,13 @@ shell_message_received (UniqueApp *app,
 			break;  /* use the default behavior */
 
 		case UNIQUE_NEW:
-			if (shell_message_handle_new (shell, data))
-				return UNIQUE_RESPONSE_OK;
-			break;
+			return shell_message_handle_new (shell, data);
 
 		case UNIQUE_OPEN:
-			if (shell_message_handle_open (shell, data))
-				return UNIQUE_RESPONSE_OK;
-			break;
+			return shell_message_handle_open (shell, data);
 
 		case UNIQUE_CLOSE:
-			if (shell_message_handle_close (shell, data))
-				return UNIQUE_RESPONSE_OK;
-			break;
+			return shell_message_handle_close (shell, data);
 
 		default:
 			break;
@@ -671,6 +699,13 @@ shell_message_received (UniqueApp *app,
 	/* Chain up to parent's message_received() method. */
 	return UNIQUE_APP_CLASS (parent_class)->
 		message_received (app, command, data, time_);
+}
+
+static void
+shell_window_destroyed (EShell *shell)
+{
+	if (e_shell_get_watched_windows (shell) == NULL)
+		gtk_main_quit ();
 }
 
 static void
@@ -691,6 +726,25 @@ shell_class_init (EShellClass *class)
 
 	unique_app_class = UNIQUE_APP_CLASS (class);
 	unique_app_class->message_received = shell_message_received;
+
+	class->window_destroyed = shell_window_destroyed;
+
+	/**
+	 * EShell:geometry
+	 *
+	 * User-specified initial window geometry string to apply
+	 * to the first #EShellWindow created.
+	 **/
+	g_object_class_install_property (
+		object_class,
+		PROP_GEOMETRY,
+		g_param_spec_string (
+			"geometry",
+			_("Geometry"),
+			_("Initial window geometry string"),
+			NULL,
+			G_PARAM_WRITABLE |
+			G_PARAM_CONSTRUCT_ONLY));
 
 	/**
 	 * EShell:network-available
@@ -773,7 +827,8 @@ shell_class_init (EShellClass *class)
 		"handle-uri",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		0, g_signal_accumulator_true_handled, NULL,
+		G_STRUCT_OFFSET (EShellClass, handle_uri),
+		g_signal_accumulator_true_handled, NULL,
 		e_marshal_BOOLEAN__STRING,
 		G_TYPE_BOOLEAN, 1,
 		G_TYPE_STRING);
@@ -798,7 +853,8 @@ shell_class_init (EShellClass *class)
 		"prepare-for-offline",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_FIRST,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, prepare_for_offline),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__OBJECT,
 		G_TYPE_NONE, 1,
 		E_TYPE_ACTIVITY);
@@ -823,7 +879,8 @@ shell_class_init (EShellClass *class)
 		"prepare-for-online",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_FIRST,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, prepare_for_online),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__OBJECT,
 		G_TYPE_NONE, 1,
 		E_TYPE_ACTIVITY);
@@ -848,7 +905,8 @@ shell_class_init (EShellClass *class)
 		"prepare-for-quit",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_FIRST,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, prepare_for_quit),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__OBJECT,
 		G_TYPE_NONE, 1,
 		E_TYPE_ACTIVITY);
@@ -870,7 +928,8 @@ shell_class_init (EShellClass *class)
 		"quit-requested",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_FIRST,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, quit_requested),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__VOID,
 		G_TYPE_NONE, 0);
 
@@ -886,7 +945,8 @@ shell_class_init (EShellClass *class)
 		"send-receive",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, send_receive),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__OBJECT,
 		G_TYPE_NONE, 1,
 		GTK_TYPE_WINDOW);
@@ -902,7 +962,8 @@ shell_class_init (EShellClass *class)
 		"window-created",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_LAST,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, window_created),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__OBJECT,
 		G_TYPE_NONE, 1,
 		GTK_TYPE_WINDOW);
@@ -917,7 +978,8 @@ shell_class_init (EShellClass *class)
 		"window-destroyed",
 		G_OBJECT_CLASS_TYPE (object_class),
 		G_SIGNAL_RUN_LAST,
-		0, NULL, NULL,
+		G_STRUCT_OFFSET (EShellClass, window_destroyed),
+		NULL, NULL,
 		g_cclosure_marshal_VOID__VOID,
 		G_TYPE_NONE, 0);
 }
@@ -1221,7 +1283,15 @@ e_shell_create_shell_window (EShell *shell,
 		}
 	}
 
-	shell_window = e_shell_window_new (shell, shell->priv->safe_mode);
+	shell_window = e_shell_window_new (
+		shell,
+		shell->priv->safe_mode,
+		shell->priv->geometry);
+
+	/* Clear the first-time-only options. */
+	shell->priv->safe_mode = FALSE;
+	g_free (shell->priv->geometry);
+	shell->priv->geometry = NULL;
 
 	gtk_widget_show (shell_window);
 
@@ -1566,15 +1636,53 @@ e_shell_event (EShell *shell,
 	g_signal_emit (shell, signals[EVENT], detail, event_data);
 }
 
-void
+/**
+ * e_shell_quit:
+ * @shell: an #EShell
+ *
+ * Requests an application shutdown.  This happens in two phases: the
+ * first is synchronous, the second is asynchronous.
+ *
+ * In the first phase, the @shell emits a #EShell::quit-requested signal
+ * to potentially give the user a chance to cancel shutdown.  If the user
+ * cancels shutdown, the function returns %FALSE.  Otherwise it proceeds
+ * into the second phase.
+ *
+ * In the second phase, the @shell emits a #EShell::prepare-for-quit
+ * signal and immediately returns %TRUE.  Signal handlers may delay the
+ * actual application shutdown while they clean up resources, but there
+ * is no way to cancel shutdown at this point.
+ *
+ * Consult the documentation for these two signals for details on how
+ * to handle them.
+ *
+ * Returns: %TRUE if shutdown is underway, %FALSE if it was cancelled
+ **/
+gboolean
 e_shell_quit (EShell *shell)
 {
-	g_return_if_fail (E_IS_SHELL (shell));
+	UniqueApp *app;
+	UniqueResponse response;
+
+	g_return_val_if_fail (E_IS_SHELL (shell), FALSE);
+
+	app = UNIQUE_APP (shell);
+
+	if (unique_app_is_running (app))
+		goto unique;
 
 	if (!shell_request_quit (shell))
-		return;
+		return FALSE;
 
 	shell_prepare_for_quit (shell);
+
+	return TRUE;
+
+unique:  /* Send a message to the other Evolution process. */
+
+	response = unique_app_send_message (app, UNIQUE_CLOSE, NULL);
+
+	return (response == UNIQUE_RESPONSE_OK);
 }
 
 /**
