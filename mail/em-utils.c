@@ -604,9 +604,8 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 static gint
 em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 {
-	CamelException *ex = camel_exception_new();
 	CamelMimeParser *mp = camel_mime_parser_new();
-	gint res = -1;
+	gboolean success = FALSE;
 
 	camel_mime_parser_scan_from(mp, TRUE);
 	camel_mime_parser_init_with_stream(mp, stream);
@@ -621,21 +620,19 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 			break;
 		}
 
-		camel_folder_append_message(folder, msg, NULL, NULL, ex);
+		success = camel_folder_append_message (
+			folder, msg, NULL, NULL, NULL);
 		g_object_unref(msg);
 
-		if (camel_exception_is_set (ex))
+		if (!success)
 			break;
 
 		camel_mime_parser_step(mp, NULL, NULL);
 	}
 
 	g_object_unref(mp);
-	if (!camel_exception_is_set(ex))
-		res = 0;
-	camel_exception_free(ex);
 
-	return res;
+	return success ? 0 : -1;
 }
 
 /**
@@ -703,20 +700,17 @@ void
 em_utils_selection_get_message(GtkSelectionData *data, CamelFolder *folder)
 {
 	CamelStream *stream;
-	CamelException *ex;
 	CamelMimeMessage *msg;
 
 	if (data->data == NULL || data->length == -1)
 		return;
 
-	ex = camel_exception_new();
 	stream = (CamelStream *)camel_stream_mem_new_with_buffer((gchar *)data->data, data->length);
 	msg = camel_mime_message_new();
 	if (camel_data_wrapper_construct_from_stream((CamelDataWrapper *)msg, stream) == 0)
-		camel_folder_append_message(folder, msg, NULL, NULL, ex);
+		camel_folder_append_message(folder, msg, NULL, NULL, NULL);
 	g_object_unref(msg);
 	g_object_unref(stream);
-	camel_exception_free(ex);
 }
 
 /**
@@ -756,7 +750,7 @@ em_utils_selection_set_uidlist(GtkSelectionData *data, const gchar *uri, GPtrArr
  * Warning: Could take some time to run.
  **/
 void
-em_utils_selection_get_uidlist(GtkSelectionData *data, CamelFolder *dest, gint move, CamelException *ex)
+em_utils_selection_get_uidlist(GtkSelectionData *data, CamelFolder *dest, gint move, GError **error)
 {
 	/* format: "uri\0uid1\0uid2\0uid3\0...\0uidn" */
 	gchar *inptr, *inend;
@@ -787,9 +781,9 @@ em_utils_selection_get_uidlist(GtkSelectionData *data, CamelFolder *dest, gint m
 		return;
 	}
 
-	folder = mail_tool_uri_to_folder((gchar *)data->data, 0, ex);
+	folder = mail_tool_uri_to_folder((gchar *)data->data, 0, error);
 	if (folder) {
-		camel_folder_transfer_messages_to(folder, uids, dest, NULL, move, ex);
+		camel_folder_transfer_messages_to(folder, uids, dest, NULL, move, error);
 		g_object_unref(folder);
 	}
 
@@ -1326,12 +1320,9 @@ em_utils_empty_trash (GtkWidget *parent)
 	EAccountList *accounts;
 	EAccount *account;
 	EIterator *iter;
-	CamelException ex;
 
 	if (!em_utils_prompt_user((GtkWindow *) parent, "/apps/evolution/mail/prompts/empty_trash", "mail:ask-empty-trash", NULL))
 		return;
-
-	camel_exception_init (&ex);
 
 	accounts = e_get_account_list ();
 	iter = e_list_get_iterator ((EList *) accounts);
@@ -1340,16 +1331,13 @@ em_utils_empty_trash (GtkWidget *parent)
 
 		/* make sure this is a valid source */
 		if (account->enabled && account->source->url) {
-			provider = camel_provider_get(account->source->url, &ex);
+			provider = camel_provider_get(account->source->url, NULL);
 			if (provider) {
 				/* make sure this store is a remote store */
 				if (provider->flags & CAMEL_PROVIDER_IS_STORAGE) {
 					mail_empty_trash (account, NULL, NULL);
 				}
 			}
-
-			/* clear the exception for the next round */
-			camel_exception_clear (&ex);
 		}
 
 		e_iterator_next (iter);
@@ -1401,22 +1389,18 @@ gchar *em_uri_from_camel(const gchar *curi)
 	const gchar *uid, *path;
 	gchar *euri, *tmp;
 	CamelProvider *provider;
-	CamelException ex;
 
 	/* Easiest solution to code that shouldnt be calling us */
 	if (!strncmp(curi, "email:", 6))
 		return g_strdup(curi);
 
-	camel_exception_init(&ex);
-	provider = camel_provider_get(curi, &ex);
+	provider = camel_provider_get(curi, NULL);
 	if (provider == NULL) {
-		camel_exception_clear(&ex);
 		d(printf("em uri from camel failed '%s'\n", curi));
 		return g_strdup(curi);
 	}
 
-	curl = camel_url_new(curi, &ex);
-	camel_exception_clear(&ex);
+	curl = camel_url_new(curi, NULL);
 	if (curl == NULL)
 		return g_strdup(curi);
 

@@ -222,7 +222,6 @@ mail_attachment_handler_x_uid_list (EAttachmentView *view,
                                     guint time)
 {
 	static GdkAtom atom = GDK_NONE;
-	CamelException ex = CAMEL_EXCEPTION_INITIALISER;
 	CamelDataWrapper *wrapper;
 	CamelMimeMessage *message;
 	CamelMultipart *multipart;
@@ -237,6 +236,7 @@ mail_attachment_handler_x_uid_list (EAttachmentView *view,
 	gpointer parent;
 	gint length;
 	guint ii;
+	GError *error = NULL;
 
 	if (G_UNLIKELY (atom == GDK_NONE))
 		atom = gdk_atom_intern_static_string ("x-uid-list");
@@ -277,14 +277,14 @@ mail_attachment_handler_x_uid_list (EAttachmentView *view,
 		goto exit;
 
 	/* The first string is the folder URI. */
-	folder = mail_tool_uri_to_folder (data, 0, &ex);
+	folder = mail_tool_uri_to_folder (data, 0, &error);
 	if (folder == NULL)
 		goto exit;
 
 	/* Handle one message. */
 	if (uids->len == 1) {
 		message = camel_folder_get_message (
-			folder, uids->pdata[0], &ex);
+			folder, uids->pdata[0], &error);
 		if (message == NULL)
 			goto exit;
 
@@ -308,7 +308,7 @@ mail_attachment_handler_x_uid_list (EAttachmentView *view,
 
 	for (ii = 0; ii < uids->len; ii++) {
 		message = camel_folder_get_message (
-			folder, uids->pdata[ii], &ex);
+			folder, uids->pdata[ii], &error);
 		if (message == NULL) {
 			g_object_unref (multipart);
 			goto exit;
@@ -347,7 +347,7 @@ mail_attachment_handler_x_uid_list (EAttachmentView *view,
 	g_object_unref (multipart);
 
 exit:
-	if (camel_exception_is_set (&ex)) {
+	if (error != NULL) {
 		gchar *folder_name;
 
 		if (folder != NULL)
@@ -359,8 +359,7 @@ exit:
 
 		e_error_run (
 			parent, "mail-composer:attach-nomessages",
-			folder_name, camel_exception_get_description (&ex),
-			NULL);
+			folder_name, error->message, NULL);
 
 		if (folder != NULL)
 			camel_object_free (
@@ -368,7 +367,7 @@ exit:
 		else
 			g_free (folder_name);
 
-		camel_exception_clear (&ex);
+		g_error_free (error);
 	}
 
 	if (folder != NULL)

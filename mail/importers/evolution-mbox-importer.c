@@ -200,7 +200,7 @@ mbox_status_timeout(gpointer data)
 }
 
 static void
-mbox_import_done(gpointer data, CamelException *ex)
+mbox_import_done (gpointer data, GError *error)
 {
 	MboxImporter *importer = data;
 

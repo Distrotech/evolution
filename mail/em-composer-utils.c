@@ -1442,13 +1442,17 @@ em_utils_redirect_message_by_uid (CamelFolder *folder, const gchar *uid)
 }
 
 static void
-emu_handle_receipt_message(CamelFolder *folder, const gchar *uid, CamelMimeMessage *msg, gpointer data, CamelException *ex)
+emu_handle_receipt_message (CamelFolder *folder,
+                            const gchar *uid,
+                            CamelMimeMessage *msg,
+                            gpointer data,
+                            GError **error)
 {
 	if (msg)
 		em_utils_handle_receipt(folder, uid, msg);
 
 	/* we dont care really if we can't get the message */
-	camel_exception_clear(ex);
+	g_clear_error (error);
 }
 
 /* Message disposition notifications, rfc 2298 */
@@ -1655,8 +1659,11 @@ emu_forward_raw_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageIn
  * @param ex Exception.
  * Forwards message to the address, in very similar way as redirect does.
  **/
-void
-em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, const gchar *address, CamelException *ex)
+gboolean
+em_utils_forward_message_raw (CamelFolder *folder,
+                              CamelMimeMessage *message,
+                              const gchar *address,
+                              GError **error)
 {
 	EAccount *account;
 	CamelMimeMessage *forward;
@@ -1667,19 +1674,25 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 	GQueue trash = G_QUEUE_INIT;
 	gchar *subject;
 
-	g_return_if_fail (folder != NULL);
-	g_return_if_fail (message != NULL);
-	g_return_if_fail (address != NULL);
+	g_return_val_if_fail (folder != NULL, FALSE);
+	g_return_val_if_fail (message != NULL, FALSE);
+	g_return_val_if_fail (address != NULL, FALSE);
 
 	if (!*address) {
-		camel_exception_set (ex, CAMEL_EXCEPTION_SYSTEM, _("No destination address provided, forward of the message has been cancelled."));
-		return;
+		g_set_error (
+			error, CAMEL_ERROR, CAMEL_ERROR_SYSTEM,
+			_("No destination address provided, "
+			  "forward of the message has been cancelled."));
+		return FALSE;
 	}
 
 	account = guess_account (message, folder);
 	if (!account) {
-		camel_exception_set (ex, CAMEL_EXCEPTION_SYSTEM, _("No account found to use, forward of the message has been cancelled."));
-		return;
+		g_set_error (
+			error, CAMEL_ERROR, CAMEL_ERROR_SYSTEM,
+			_("No account found to use, forward of "
+			  "the message has been cancelled."));
+		return FALSE;
 	}
 
 	forward = camel_mime_message_new ();
@@ -1732,6 +1745,8 @@ em_utils_forward_message_raw (CamelFolder *folder, CamelMimeMessage *message, co
 	out_folder = e_mail_local_get_folder (E_MAIL_FOLDER_OUTBOX);
 	camel_message_info_set_flags (info, CAMEL_MESSAGE_SEEN, CAMEL_MESSAGE_SEEN);
 	mail_append_mail (out_folder, forward, info, emu_forward_raw_done, NULL);
+
+	return TRUE;
 }
 
 /* Replying to messages... */

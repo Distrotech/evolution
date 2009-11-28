@@ -65,16 +65,16 @@ static gint session_check_junk_notify_id = -1;
 static EShellBackend *session_shell_backend;
 static gpointer parent_class;
 
-static gchar *get_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *prompt, const gchar *item, guint32 flags, CamelException *ex);
-static void forget_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *item, CamelException *ex);
+static gchar *get_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *prompt, const gchar *item, guint32 flags, GError **error);
+static void forget_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *item, GError **error);
 static gboolean alert_user(CamelSession *session, CamelSessionAlertType type, const gchar *prompt, gboolean cancel);
-static CamelFilterDriver *get_filter_driver(CamelSession *session, const gchar *type, CamelException *ex);
+static CamelFilterDriver *get_filter_driver(CamelSession *session, const gchar *type, GError **error);
 static gboolean lookup_addressbook(CamelSession *session, const gchar *name);
 
 static void ms_thread_status(CamelSession *session, CamelSessionThreadMsg *msg, const gchar *text, gint pc);
 static gpointer ms_thread_msg_new(CamelSession *session, CamelSessionThreadOps *ops, guint size);
 static void ms_thread_msg_free(CamelSession *session, CamelSessionThreadMsg *m);
-static void ms_forward_to (CamelSession *session, CamelFolder *folder, CamelMimeMessage *message, const gchar *address, CamelException *ex);
+static void ms_forward_to (CamelSession *session, CamelFolder *folder, CamelMimeMessage *message, const gchar *address, GError **error);
 
 static void
 session_finalize (GObject *object)
@@ -154,8 +154,13 @@ make_key (CamelService *service, const gchar *item)
 /* ********************************************************************** */
 
 static gchar *
-get_password (CamelSession *session, CamelService *service, const gchar *domain,
-	      const gchar *prompt, const gchar *item, guint32 flags, CamelException *ex)
+get_password (CamelSession *session,
+              CamelService *service,
+              const gchar *domain,
+              const gchar *prompt,
+              const gchar *item,
+              guint32 flags,
+              GError **error)
 {
 	gchar *url;
 	gchar *ret = NULL;
@@ -245,13 +250,20 @@ get_password (CamelSession *session, CamelService *service, const gchar *domain,
 	g_free(url);
 
 	if (ret == NULL)
-		camel_exception_set(ex, CAMEL_EXCEPTION_USER_CANCEL, _("User canceled operation."));
+		g_set_error (
+			error, CAMEL_ERROR,
+			CAMEL_ERROR_USER_CANCEL,
+			_("User canceled operation."));
 
 	return ret;
 }
 
 static void
-forget_password (CamelSession *session, CamelService *service, const gchar *domain, const gchar *item, CamelException *ex)
+forget_password (CamelSession *session,
+                 CamelService *service,
+                 const gchar *domain,
+                 const gchar *item,
+                 GError **error)
 {
 	gchar *key = make_key (service, item);
 
@@ -441,9 +453,12 @@ alert_user(CamelSession *session, CamelSessionAlertType type, const gchar *promp
 }
 
 static CamelFolder *
-get_folder (CamelFilterDriver *d, const gchar *uri, gpointer data, CamelException *ex)
+get_folder (CamelFilterDriver *d,
+            const gchar *uri,
+            gpointer data,
+            GError **error)
 {
-	return mail_tool_uri_to_folder(uri, 0, ex);
+	return mail_tool_uri_to_folder(uri, 0, error);
 }
 
 static void
@@ -492,7 +507,9 @@ session_system_beep (CamelFilterDriver *driver, gpointer user_data)
 }
 
 static CamelFilterDriver *
-main_get_filter_driver (CamelSession *session, const gchar *type, CamelException *ex)
+main_get_filter_driver (CamelSession *session,
+                        const gchar *type,
+                        GError **error)
 {
 	CamelFilterDriver *driver;
 	EFilterRule *rule = NULL;
@@ -574,10 +591,13 @@ main_get_filter_driver (CamelSession *session, const gchar *type, CamelException
 }
 
 static CamelFilterDriver *
-get_filter_driver (CamelSession *session, const gchar *type, CamelException *ex)
+get_filter_driver (CamelSession *session,
+                   const gchar *type,
+                   GError **error)
 {
-	return (CamelFilterDriver *) mail_call_main (MAIL_CALL_p_ppp, (MailMainFunc) main_get_filter_driver,
-						     session, type, ex);
+	return (CamelFilterDriver *) mail_call_main (
+		MAIL_CALL_p_ppp, (MailMainFunc)
+		main_get_filter_driver, session, type, error);
 }
 
 /* TODO: This is very temporary, until we have a better way to do the progress reporting,
@@ -616,13 +636,17 @@ static void ms_thread_status(CamelSession *session, CamelSessionThreadMsg *msg, 
 }
 
 static void
-ms_forward_to (CamelSession *session, CamelFolder *folder, CamelMimeMessage *message, const gchar *address, CamelException *ex)
+ms_forward_to (CamelSession *session,
+               CamelFolder *folder,
+               CamelMimeMessage *message,
+               const gchar *address,
+               GError **error)
 {
 	g_return_if_fail (session != NULL);
 	g_return_if_fail (message != NULL);
 	g_return_if_fail (address != NULL);
 
-	em_utils_forward_message_raw (folder, message, address, ex);
+	em_utils_forward_message_raw (folder, message, address, error);
 }
 
 gchar *

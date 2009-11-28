@@ -548,7 +548,6 @@ build_message (EMsgComposer *composer,
 	CamelSession *session;
 	CamelStream *stream;
 	CamelMimePart *part;
-	CamelException ex;
 	GByteArray *data;
 	EAccount *account;
 	gchar *charset;
@@ -557,6 +556,7 @@ build_message (EMsgComposer *composer,
 	gboolean smime_sign;
 	gboolean smime_encrypt;
 	gint i;
+	GError *error = NULL;
 
 	g_return_val_if_fail (E_IS_MSG_COMPOSER (composer), NULL);
 
@@ -817,8 +817,6 @@ build_message (EMsgComposer *composer,
 		current = CAMEL_DATA_WRAPPER (multipart);
 	}
 
-	camel_exception_init (&ex);
-
 	action = GTK_TOGGLE_ACTION (ACTION (PGP_SIGN));
 	pgp_sign = gtk_toggle_action_get_active (action);
 
@@ -876,18 +874,19 @@ build_message (EMsgComposer *composer,
 
 		if (pgp_sign) {
 			CamelMimePart *npart = camel_mime_part_new ();
+			gint retval;  /* 0 is success */
 
 			cipher = camel_gpg_context_new (session);
 			if (account != NULL)
 				camel_gpg_context_set_always_trust (
 					CAMEL_GPG_CONTEXT (cipher),
 					account->pgp_always_trust);
-			camel_cipher_sign (
+			retval = camel_cipher_sign (
 				cipher, pgp_userid, CAMEL_CIPHER_HASH_SHA1,
-				part, npart, &ex);
+				part, npart, &error);
 			g_object_unref (cipher);
 
-			if (camel_exception_is_set (&ex)) {
+			if (retval != 0) {
 				g_object_unref (npart);
 				goto exception;
 			}
@@ -898,6 +897,7 @@ build_message (EMsgComposer *composer,
 
 		if (pgp_encrypt) {
 			CamelMimePart *npart = camel_mime_part_new ();
+			gboolean retval;  /* 0 is success */
 
 			/* check to see if we should encrypt to self, NB gets removed immediately after use */
 			if (account && account->pgp_encrypt_to_self && pgp_userid)
@@ -908,15 +908,15 @@ build_message (EMsgComposer *composer,
 				camel_gpg_context_set_always_trust (
 					CAMEL_GPG_CONTEXT (cipher),
 					account->pgp_always_trust);
-			camel_cipher_encrypt (
+			retval = camel_cipher_encrypt (
 				cipher, pgp_userid, recipients,
-				part, npart, &ex);
+				part, npart, &error);
 			g_object_unref (cipher);
 
 			if (account && account->pgp_encrypt_to_self && pgp_userid)
 				g_ptr_array_set_size (recipients, recipients->len - 1);
 
-			if (camel_exception_is_set (&ex)) {
+			if (retval != 0) {
 				g_object_unref (npart);
 				goto exception;
 			}
@@ -946,20 +946,23 @@ build_message (EMsgComposer *composer,
 
 		if (smime_sign
 		    && (account == NULL || account->smime_sign_key == NULL || account->smime_sign_key[0] == 0)) {
-			camel_exception_set (&ex, CAMEL_EXCEPTION_SYSTEM,
-					     _("Cannot sign outgoing message: No signing certificate set for this account"));
+			g_set_error (
+				&error, CAMEL_ERROR, CAMEL_ERROR_SYSTEM,
+				_("Cannot sign outgoing message: No signing certificate set for this account"));
 			goto exception;
 		}
 
 		if (smime_encrypt
 		    && (account == NULL || account->smime_sign_key == NULL || account->smime_sign_key[0] == 0)) {
-			camel_exception_set (&ex, CAMEL_EXCEPTION_SYSTEM,
-					     _("Cannot encrypt outgoing message: No encryption certificate set for this account"));
+			g_set_error (
+				&error, CAMEL_ERROR, CAMEL_ERROR_SYSTEM,
+				_("Cannot encrypt outgoing message: No encryption certificate set for this account"));
 			goto exception;
 		}
 
 		if (smime_sign) {
 			CamelMimePart *npart = camel_mime_part_new ();
+			gint retval;  /* 0 is success */
 
 			cipher = camel_smime_context_new (session);
 
@@ -971,10 +974,12 @@ build_message (EMsgComposer *composer,
 				camel_smime_context_set_encrypt_key ((CamelSMIMEContext *)cipher, TRUE, account->smime_encrypt_key);
 			}
 
-			camel_cipher_sign (cipher, account->smime_sign_key, CAMEL_CIPHER_HASH_SHA1, part, npart, &ex);
+			retval = camel_cipher_sign (
+				cipher, account->smime_sign_key,
+				CAMEL_CIPHER_HASH_SHA1, part, npart, &error);
 			g_object_unref (cipher);
 
-			if (camel_exception_is_set (&ex)) {
+			if (retval != 0) {
 				g_object_unref (npart);
 				goto exception;
 			}
@@ -984,6 +989,7 @@ build_message (EMsgComposer *composer,
 		}
 
 		if (smime_encrypt) {
+			gint retval;  /* 0 is success */
 
 			/* check to see if we should encrypt to self, NB removed after use */
 			if (account->smime_encrypt_to_self)
@@ -992,10 +998,12 @@ build_message (EMsgComposer *composer,
 			cipher = camel_smime_context_new (session);
 			camel_smime_context_set_encrypt_key ((CamelSMIMEContext *)cipher, TRUE, account->smime_encrypt_key);
 
-			camel_cipher_encrypt (cipher, NULL, recipients, part, (CamelMimePart *)new, &ex);
+			retval = camel_cipher_encrypt (
+				cipher, NULL, recipients, part,
+				(CamelMimePart *) new, &error);
 			g_object_unref (cipher);
 
-			if (camel_exception_is_set (&ex))
+			if (retval != 0)
 				goto exception;
 
 			if (account->smime_encrypt_to_self)
@@ -1045,12 +1053,14 @@ skip_content:
 
 	g_object_unref (new);
 
-	if (ex.id != CAMEL_EXCEPTION_USER_CANCEL) {
-		e_error_run ((GtkWindow *)composer, "mail-composer:no-build-message",
-			    camel_exception_get_description (&ex), NULL);
+	if (!g_error_matches (error, CAMEL_ERROR, CAMEL_ERROR_USER_CANCEL)) {
+		e_error_run (
+			GTK_WINDOW (composer),
+			"mail-composer:no-build-message",
+			error->message, NULL);
 	}
 
-	camel_exception_clear (&ex);
+	g_error_free (error);
 
 	if (recipients) {
 		for (i=0; i<recipients->len; i++)
@@ -2477,7 +2487,6 @@ handle_multipart_encrypted (EMsgComposer *composer,
 	CamelDataWrapper *content;
 	CamelMimePart *mime_part;
 	CamelSession *session;
-	CamelException ex;
 	CamelCipherValidity *valid;
 	GtkToggleAction *action = NULL;
 	const gchar *protocol;
@@ -2495,13 +2504,11 @@ handle_multipart_encrypted (EMsgComposer *composer,
 	if (action)
 		gtk_toggle_action_set_active (action, TRUE);
 
-	camel_exception_init (&ex);
 	session = e_msg_composer_get_session (composer);
 	cipher = camel_gpg_context_new (session);
 	mime_part = camel_mime_part_new ();
-	valid = camel_cipher_decrypt (cipher, multipart, mime_part, &ex);
+	valid = camel_cipher_decrypt (cipher, multipart, mime_part, NULL);
 	g_object_unref (cipher);
-	camel_exception_clear (&ex);
 	if (valid == NULL)
 		return;
 	camel_cipher_validity_free (valid);

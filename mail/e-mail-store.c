@@ -294,17 +294,15 @@ e_mail_store_add_by_uri (const gchar *uri,
 {
 	CamelService *service;
 	CamelProvider *provider;
-	CamelException ex;
+	GError *error = NULL;
 
 	g_return_val_if_fail (uri != NULL, NULL);
 	g_return_val_if_fail (display_name != NULL, NULL);
 
-	camel_exception_init (&ex);
-
 	/* Load the service, but don't connect.  Check its provider,
 	 * and if this belongs in the folder tree model, add it. */
 
-	provider = camel_provider_get (uri, &ex);
+	provider = camel_provider_get (uri, &error);
 	if (provider == NULL)
 		goto fail;
 
@@ -312,7 +310,7 @@ e_mail_store_add_by_uri (const gchar *uri,
 		return NULL;
 
 	service = camel_session_get_service (
-		session, uri, CAMEL_PROVIDER_STORE, &ex);
+		session, uri, CAMEL_PROVIDER_STORE, &error);
 	if (service == NULL)
 		goto fail;
 
@@ -324,10 +322,8 @@ e_mail_store_add_by_uri (const gchar *uri,
 
 fail:
 	/* FIXME: Show an error dialog. */
-	g_warning (
-		"Couldn't get service: %s: %s", uri,
-		camel_exception_get_description (&ex));
-	camel_exception_clear (&ex);
+	g_warning ("Couldn't get service: %s: %s", uri, error->message);
+	g_error_free (error);
 
 	return NULL;
 }

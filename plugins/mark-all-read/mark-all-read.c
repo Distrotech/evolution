@@ -50,7 +50,7 @@ gboolean	e_plugin_ui_init		(GtkUIManager *ui_manager,
 						 EShellView *shell_view);
 
 static void mar_got_folder (gchar *uri, CamelFolder *folder, gpointer data);
-static void mar_all_sub_folders (CamelStore *store, CamelFolderInfo *fi, CamelException *ex);
+static gboolean mar_all_sub_folders (CamelStore *store, CamelFolderInfo *fi, GError **error);
 
 static void
 button_clicked_cb (GtkButton *button,
@@ -216,11 +216,12 @@ mark_all_as_read (CamelFolder *folder)
 }
 
 static void
-mar_got_folder (gchar *uri, CamelFolder *folder, gpointer data)
+mar_got_folder (gchar *uri,
+                CamelFolder *folder,
+                gpointer data)
 {
 	CamelFolderInfo *info;
 	CamelStore *store;
-	CamelException ex;
 	gint response;
 	guint32 flags = CAMEL_STORE_FOLDER_INFO_RECURSIVE | CAMEL_STORE_FOLDER_INFO_FAST;
 
@@ -228,12 +229,10 @@ mar_got_folder (gchar *uri, CamelFolder *folder, gpointer data)
 	if (!folder)
 		return;
 
-	camel_exception_init (&ex);
-
 	store = folder->parent_store;
-	info = camel_store_get_folder_info (store, folder->full_name, flags, &ex);
-
-	if (camel_exception_is_set (&ex))
+	info = camel_store_get_folder_info (
+		store, folder->full_name, flags, NULL);
+	if (info == NULL)
 		goto out;
 
 	if (info && (info->child || info->next))
@@ -244,36 +243,43 @@ mar_got_folder (gchar *uri, CamelFolder *folder, gpointer data)
 	if (response == GTK_RESPONSE_NO)
 		mark_all_as_read (folder);
 	else if (response == GTK_RESPONSE_YES)
-		mar_all_sub_folders (store, info, &ex);
+		mar_all_sub_folders (store, info, NULL);
 out:
 	camel_store_free_folder_info(store, info);
 }
 
-static void
-mar_all_sub_folders (CamelStore *store, CamelFolderInfo *fi, CamelException *ex)
+static gboolean
+mar_all_sub_folders (CamelStore *store,
+                     CamelFolderInfo *fi,
+                     GError **error)
 {
 	while (fi) {
 		CamelFolder *folder;
 
-		if (fi->child) {
-			mar_all_sub_folders (store, fi->child, ex);
-			if (camel_exception_is_set (ex))
-				return;
-		}
+		if (fi->child)
+			if (!mar_all_sub_folders (store, fi->child, error))
+				return FALSE;
 
-		if (!(folder = camel_store_get_folder (store, fi->full_name, 0, ex)))
-			return;
+		folder = camel_store_get_folder (
+			store, fi->full_name, 0, error);
+		if (folder == NULL)
+			return FALSE;
 
-		if (!CAMEL_IS_VEE_FOLDER (folder)) {
+		if (!CAMEL_IS_VEE_FOLDER (folder))
 			mark_all_as_read (folder);
-		}
 
 		fi = fi->next;
 	}
+
+	return TRUE;
 }
 
 static void
-has_unread_mail (GtkTreeModel *model, GtkTreeIter *parent, gboolean is_root, gboolean *has_unread, gboolean *applicable)
+has_unread_mail (GtkTreeModel *model,
+                 GtkTreeIter *parent,
+                 gboolean is_root,
+                 gboolean *has_unread,
+                 gboolean *applicable)
 {
 	guint unread = 0;
 	GtkTreeIter iter, child;
@@ -348,7 +354,7 @@ static GtkActionEntry entries[] = {
 };
 
 static void
-update_actions_cb (EShellView *shell_view, gpointer user_data)
+update_actions_cb (EShellView *shell_view)
 {
 	GtkActionGroup *action_group;
 	EShellWindow *shell_window;

@@ -159,7 +159,7 @@ org_gnome_format_tnef(gpointer ep, EMFormatHookTarget *t)
 		g_free(path);
 
 		camel_multipart_add_part(mp, part);
-		camel_object_unref(part);
+		g_object_unref(part);
 	}
 
 	closedir(dir);

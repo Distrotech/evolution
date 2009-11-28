@@ -110,7 +110,6 @@ struct _PstImporter {
 	gint status_pc;
 	gint status_timeout_id;
 	CamelOperation *status;
-	CamelException ex;
 
 	pst_file pst;
 
@@ -447,7 +446,7 @@ pst_import_file (PstImporter *m)
 	camel_operation_start (NULL, _("Importing `%s'"), filename);
 
 	if (GPOINTER_TO_INT (g_datalist_get_data (&m->target->data, "pst-do-mail"))) {
-		mail_tool_uri_to_folder (m->parent_uri, CAMEL_STORE_FOLDER_CREATE, &m->base.ex);
+		mail_tool_uri_to_folder (m->parent_uri, CAMEL_STORE_FOLDER_CREATE, &m->base.error);
 	}
 
 	ret = pst_init (&m->pst, filename);
@@ -698,7 +697,7 @@ pst_create_folder (PstImporter *m)
 
 			*pos = '\0';
 
-			folder = mail_tool_uri_to_folder (dest, CAMEL_STORE_FOLDER_CREATE, &m->base.ex);
+			folder = mail_tool_uri_to_folder (dest, CAMEL_STORE_FOLDER_CREATE, &m->base.error);
 			g_object_unref(folder);
 			*pos = '/';
 		}
@@ -710,7 +709,7 @@ pst_create_folder (PstImporter *m)
 		g_object_unref (m->folder);
 	}
 
-	m->folder = mail_tool_uri_to_folder (m->folder_uri, CAMEL_STORE_FOLDER_CREATE, &m->base.ex);
+	m->folder = mail_tool_uri_to_folder (m->folder_uri, CAMEL_STORE_FOLDER_CREATE, &m->base.error);
 
 }
 
@@ -910,19 +909,12 @@ pst_process_email (PstImporter *m, pst_item *item)
 	if (item->flags & 0x08)
 		camel_message_info_set_flags (info, CAMEL_MESSAGE_DRAFT, ~0);
 
-	camel_folder_append_message (m->folder, msg, info, NULL, &m->ex);
+	camel_folder_append_message (m->folder, msg, info, NULL, NULL);
 	camel_message_info_free (info);
 	g_object_unref (msg);
 
 	camel_folder_sync (m->folder, FALSE, NULL);
 	camel_folder_thaw (m->folder);
-
-	if (camel_exception_is_set (&m->ex)) {
-		g_critical ("Exception!");
-		camel_exception_clear (&m->ex);
-		return;
-	}
-
 }
 
 static void

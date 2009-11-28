@@ -100,12 +100,11 @@ vfolder_setup_exec (struct _setup_msg *m)
 	while (l && !vfolder_shutdown) {
 		d(printf(" Adding uri: %s\n", (gchar *)l->data));
 
-		folder = mail_tool_uri_to_folder (l->data, 0, &m->base.ex);
+		folder = mail_tool_uri_to_folder (l->data, 0, NULL);
 		if (folder) {
 			list = g_list_append(list, folder);
 		} else {
 			g_warning("Could not open vfolder source: %s", (gchar *)l->data);
-			camel_exception_clear(&m->base.ex);
 		}
 		l = l->next;
 	}
@@ -258,7 +257,7 @@ vfolder_adduri_exec (struct _adduri_msg *m)
 	}
 
 	if (folder == NULL)
-		folder = mail_tool_uri_to_folder (m->uri, 0, &m->base.ex);
+		folder = mail_tool_uri_to_folder (m->uri, 0, &m->base.error);
 
 	if (folder != NULL) {
 		l = m->folders;

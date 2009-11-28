@@ -75,7 +75,6 @@ mail_msg_new (MailMsgInfo *info)
 	msg->ref_count = 1;
 	msg->seq = mail_msg_seq++;
 	msg->cancel = camel_operation_new(mail_operation_status, GINT_TO_POINTER(msg->seq));
-	camel_exception_init(&msg->ex);
 	msg->priv = g_slice_new0 (MailMsgPrivate);
 	msg->priv->cancelable = TRUE;
 
@@ -144,7 +143,9 @@ mail_msg_free (MailMsg *mail_msg)
 		camel_operation_unref (mail_msg->cancel);
 	}
 
-	camel_exception_clear (&mail_msg->ex);
+	if (mail_msg->error != NULL)
+		g_error_free (mail_msg->error);
+
 	g_slice_free (MailMsgPrivate, mail_msg->priv);
 	g_slice_free1 (mail_msg->info->size, mail_msg);
 }
@@ -247,9 +248,9 @@ mail_msg_check_error (gpointer msg)
 	if (!mail_session_get_interactive ())
 		return;
 
-	if (!camel_exception_is_set(&m->ex)
-	    || m->ex.id == CAMEL_EXCEPTION_USER_CANCEL
-	    || m->ex.id == CAMEL_EXCEPTION_FOLDER_INVALID_UID
+	if (m->error == NULL
+	    || g_error_matches (m->error, CAMEL_ERROR, CAMEL_ERROR_USER_CANCEL)
+	    || g_error_matches (m->error, CAMEL_FOLDER_ERROR, CAMEL_FOLDER_ERROR_INVALID_UID)
 	    || (m->cancel && camel_operation_cancel_check (m->cancel)))
 		return;
 
@@ -260,7 +261,9 @@ mail_msg_check_error (gpointer msg)
 	/* we key on the operation pointer, which is at least accurate enough
 	   for the operation type, although it could be on a different object. */
 	if (g_hash_table_lookup(active_errors, m->info)) {
-		g_message("Error occurred while existing dialogue active:\n%s", camel_exception_get_description(&m->ex));
+		g_message (
+			"Error occurred while existing dialogue active:\n%s",
+			m->error->message);
 		return;
 	}
 
@@ -268,10 +271,14 @@ mail_msg_check_error (gpointer msg)
 
 	if (m->info->desc
 	    && (what = m->info->desc (m))) {
-		gd = (GtkDialog *)e_error_new(parent, "mail:async-error", what, camel_exception_get_description(&m->ex), NULL);
+		gd = (GtkDialog *) e_error_new (
+			parent, "mail:async-error", what,
+			m->error->message, NULL);
 		g_free(what);
 	} else
-		gd = (GtkDialog *)e_error_new(parent, "mail:async-error-nodescribe", camel_exception_get_description(&m->ex), NULL);
+		gd = (GtkDialog *) e_error_new (
+			parent, "mail:async-error-nodescribe",
+			m->error->message, NULL);
 
 	g_hash_table_insert(active_errors, m->info, gd);
 	g_signal_connect(gd, "response", G_CALLBACK(error_response), m->info);

@@ -1809,7 +1809,7 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
                                const gchar *message_uid,
                                CamelMimeMessage *message,
                                gpointer user_data,
-                               CamelException *ex)
+                               GError **error)
 {
 	EMailReader *reader = user_data;
 	EMFormatHTMLDisplay *html_display;
@@ -1871,7 +1871,10 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
 			timeout_interval, (GSourceFunc)
 			mail_reader_message_read_cb, reader);
 
-	} else if (camel_exception_is_set (ex)) {
+	/* XXX Kind of strange for a GError to be pushed to a callback
+	 *     function.  Might want to reconsider.  Maybe just push
+	 *     the error message? */
+	} else if (error != NULL && *error != NULL) {
 		EWebView *web_view;
 		gchar *string;
 
@@ -1881,11 +1884,11 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
 		string = g_strdup_printf (
 			"<h2>%s</h2><p>%s</p>",
 			_("Unable to retrieve message"),
-			ex->desc);
+			(*error)->message);
 		e_web_view_load_string (web_view, string);
 		g_free (string);
 
-		camel_exception_clear (ex);
+		g_clear_error (error);
 	}
 
 	/* We referenced this in the call to mail_get_messagex(). */
