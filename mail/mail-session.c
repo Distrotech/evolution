@@ -66,7 +66,7 @@ static EShellBackend *session_shell_backend;
 static gpointer parent_class;
 
 static gchar *get_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *prompt, const gchar *item, guint32 flags, GError **error);
-static void forget_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *item, GError **error);
+static gboolean forget_password(CamelSession *session, CamelService *service, const gchar *domain, const gchar *item, GError **error);
 static gboolean alert_user(CamelSession *session, CamelSessionAlertType type, const gchar *prompt, gboolean cancel);
 static CamelFilterDriver *get_filter_driver(CamelSession *session, const gchar *type, GError **error);
 static gboolean lookup_addressbook(CamelSession *session, const gchar *name);
@@ -258,7 +258,7 @@ get_password (CamelSession *session,
 	return ret;
 }
 
-static void
+static gboolean
 forget_password (CamelSession *session,
                  CamelService *service,
                  const gchar *domain,
@@ -267,8 +267,11 @@ forget_password (CamelSession *session,
 {
 	gchar *key = make_key (service, item);
 
+	/* XXX No way to report an error. */
 	e_passwords_forget_password (domain?domain:"Mail", key);
 	g_free (key);
+
+	return TRUE;
 }
 
 /* ********************************************************************** */
