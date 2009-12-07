@@ -124,10 +124,8 @@ anjal_shell_view_execute_search (EShellView *shell_view)
 			g_key_file_remove_key (
 				key_file, group_name, key, NULL);
 		e_shell_view_set_state_dirty (shell_view);
-		printf("SAVE %s %s\n", group_name, string ? string : NULL);
 		g_free (group_name);
-	} else 
-		printf ("NOTHING \n");
+	} 
 
 	/* This returns a new object reference. */
 	model = e_shell_settings_get_object (
