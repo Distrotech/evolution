@@ -422,6 +422,13 @@ static GtkActionEntry mail_entries[] = {
 	  N_("Disable this account"),
 	  G_CALLBACK (action_mail_account_disable_cb) },
 
+	{ "mail-create-search-folder",
+	  NULL,
+	  N_("C_reate Search Folder From Search..."),
+	  NULL,
+	  NULL,  /* XXX Add a tooltip! */
+	  NULL },
+
 	{ "mail-download",
 	  NULL,
 	  N_("_Download Messages for Offline Usage"),
@@ -471,6 +478,13 @@ static GtkActionEntry mail_entries[] = {
 	  N_("Permanently remove all deleted messages from this folder"),
 	  G_CALLBACK (action_mail_folder_expunge_cb) },
 
+	{ "mail-folder-mark-all-as-read",
+	  "mail-read",
+	  N_("Mar_k All Messages as Read"),
+	  NULL,
+	  N_("Mark all messages in the folder as read"),
+	  NULL },
+
 	{ "mail-folder-move",
 	  "folder-move",
 	  N_("_Move Folder To..."),
@@ -506,6 +520,27 @@ static GtkActionEntry mail_entries[] = {
 	  N_("Change the name of this folder"),
 	  G_CALLBACK (action_mail_folder_rename_cb) },
 
+	{ "mail-folder-select-all",
+	  NULL,
+	  N_("Select _All Messages"),
+	  "<Control>a",
+	  N_("Select all visible messages"),
+	  NULL },
+
+	{ "mail-folder-select-thread",
+	  NULL,
+	  N_("Select Message _Thread"),
+	  "<Control>h",
+	  N_("Select all messages in the same thread as the selected message"),
+	  NULL },
+
+	{ "mail-folder-select-subthread",
+	  NULL,
+	  N_("Select Message S_ubthread"),
+	  "<Shift><Control>h",
+	  N_("Select all replies to the currently selected message"),
+	  NULL },
+
 	{ "mail-folder-unsubscribe",
 	  NULL,
 	  N_("_Unsubscribe"),
@@ -513,12 +548,61 @@ static GtkActionEntry mail_entries[] = {
 	  N_("Unsubscribe from the selected folder"),
 	  G_CALLBACK (action_mail_folder_unsubscribe_cb) },
 
+	{ "mail-label-new",
+	  NULL,
+	  N_("_New Label"),
+	  NULL,
+	  NULL,  /* XXX Add a tooltip! */
+	  NULL },
+
+	{ "mail-label-none",
+	  NULL,
+	  N_("N_one"),
+	  NULL,
+	  NULL,  /* XXX Add a tooltip! */
+	  NULL },
+
+	{ "mail-hide-read",
+	  NULL,
+	  N_("Hide _Read Messages"),
+	  NULL,
+	  N_("Temporarily hide all messages that have already been read"),
+	  NULL },
+
+	{ "mail-hide-selected",
+	  NULL,
+	  N_("Hide S_elected Messages"),
+	  NULL,
+	  N_("Temporarily hide the selected messages"),
+	  NULL },
+
+	{ "mail-show-hidden",
+	  NULL,
+	  N_("Show Hidde_n Messages"),
+	  NULL,
+	  N_("Show messages that have been temporarily hidden"),
+	  NULL },
+	
 	{ "mail-stop",
 	  GTK_STOCK_STOP,
 	  N_("Cancel"),
 	  NULL,
 	  N_("Cancel the current mail operation"),
 	  G_CALLBACK (action_mail_stop_cb) },
+
+	{ "mail-threads-collapse-all",
+	  NULL,
+	  N_("Collapse All _Threads"),
+	  "<Shift><Control>b",
+	  N_("Collapse all message threads"),
+	  NULL},
+
+	{ "mail-threads-expand-all",
+	  NULL,
+	  N_("E_xpand All Threads"),
+	  NULL,
+	  N_("Expand all message threads"),
+	  NULL },
 
 	{ "mail-tools-filters",
 	  NULL,
@@ -562,7 +646,147 @@ static GtkActionEntry mail_entries[] = {
 	  N_("_Preview"),
 	  NULL,
 	  NULL,
-	  NULL }
+	  NULL },
+
+	{ "mail-popup-delete",
+	  NULL,
+	  N_("Delete"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-undelete",
+	  NULL,
+	  N_("Undelete"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-copy",
+	  NULL,
+	  N_("Copy"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-move",
+	  NULL,
+	  N_("Move"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-mark-read",
+	  NULL,
+	  N_("Read"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-mark-unread",
+	  NULL,
+	  N_("Unread"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-mark-important",
+	  NULL,
+	  N_("Important"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-mark-unimportant",
+	  NULL,
+	  N_("Unimportant"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-mark-junk",
+	  NULL,
+	  N_("Junk"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-mark-notjunk",
+	  NULL,
+	  N_("Not Junk"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-popup-flag-for-followup",
+	  NULL,
+	  N_("Followup"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-filter-on-subject",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },	
+
+	{ "mail-create-rule-menu",
+	  NULL,
+	  N_("Rule"),
+	  NULL,
+	  NULL,
+	  NULL },	
+
+	{ "mail-filter-on-sender",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-filter-on-recipients",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-filter-on-mailing-list",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-search-folder-from-subject",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-search-folder-from-sender",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-search-folder-from-recipients",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
+
+	{ "mail-search-folder-from-mailing-list",
+	  NULL,
+	  N_("Filter"),
+	  NULL,
+	  NULL,
+	  NULL },
 };
 
 static EPopupActionEntry mail_popup_entries[] = {
@@ -610,6 +834,61 @@ static EPopupActionEntry mail_popup_entries[] = {
 	{ "mail-popup-folder-unsubscribe",
 	  NULL,
 	  "mail-folder-unsubscribe" }
+};
+
+static GtkToggleActionEntry mail_toggle_entries[] = {
+
+	{ "mail-hide-deleted",
+	  NULL,
+	  N_("Hide _Deleted Messages"),
+	  NULL,
+	  N_("Hide deleted messages rather than displaying "
+	     "them with a line through them"),
+	  NULL,
+	  TRUE },
+
+	{ "mail-preview",
+	  NULL,
+	  N_("Show Message _Preview"),
+	  "<Control>m",
+	  N_("Show message preview pane"),
+	  NULL,  /* Handled by property bindings */
+	  TRUE },
+
+	{ "mail-threads-group-by",
+	  NULL,
+	  N_("_Group By Threads"),
+	  "<Control>t",
+	  N_("Threaded message list"),
+	  NULL,
+	  FALSE }
+};
+
+static GtkRadioActionEntry mail_view_entries[] = {
+
+	/* This action represents the initial active mail view.
+	 * It should not be visible in the UI, nor should it be
+	 * possible to switch to it from another shell view. */
+	{ "mail-view-initial",
+	  NULL,
+	  NULL,
+	  NULL,
+	  NULL,
+	  -1 },
+
+	{ "mail-view-classic",
+	  NULL,
+	  N_("_Classic View"),
+	  NULL,
+	  N_("Show message preview below the message list"),
+	  0 },
+
+	{ "mail-view-vertical",
+	  NULL,
+	  N_("_Vertical View"),
+	  NULL,
+	  N_("Show message preview alongside the message list"),
+	  1 }
 };
 
 static GtkRadioActionEntry mail_filter_entries[] = {
@@ -756,6 +1035,13 @@ anjal_shell_view_actions_init (AnjalShellView *mail_shell_view)
 	e_action_group_add_popup_actions (
 		action_group, mail_popup_entries,
 		G_N_ELEMENTS (mail_popup_entries));
+	gtk_action_group_add_toggle_actions (
+		action_group, mail_toggle_entries,
+		G_N_ELEMENTS (mail_toggle_entries), mail_shell_view);	
+	gtk_action_group_add_radio_actions (
+		action_group, mail_view_entries,
+		G_N_ELEMENTS (mail_view_entries), -1,
+		NULL, mail_shell_view);	
 	gtk_action_group_add_radio_actions (
 		action_group, mail_search_entries,
 		G_N_ELEMENTS (mail_search_entries),
@@ -769,8 +1055,10 @@ anjal_shell_view_actions_init (AnjalShellView *mail_shell_view)
 		G_CALLBACK (action_search_scope_cb), mail_shell_view);
 #endif
 
+	/*
 	radio_action = GTK_RADIO_ACTION (ACTION (MAIL_SCOPE_CURRENT_FOLDER));
 	e_shell_content_set_scope_action (shell_content, radio_action);
+	*/
 	e_shell_content_set_scope_visible (shell_content, FALSE);
 
 }
