@@ -190,6 +190,7 @@ test_calendar_LDADD = 				\
 	libemiscwidgets.la			\
 	$(top_builddir)/e-util/libeutil.la	\
 	$(top_builddir)/filter/libfilter.la	\
+	$(GNOME_PLATFORM_LIBS)			\
 	$(E_WIDGETS_LIBS)
 
 # test-dateedit
@@ -203,6 +204,7 @@ test_dateedit_LDADD = 				\
 	libemiscwidgets.la			\
 	$(top_builddir)/e-util/libeutil.la	\
 	$(top_builddir)/filter/libfilter.la	\
+	$(GNOME_PLATFORM_LIBS)			\
 	$(E_WIDGETS_LIBS)
 
 # test-preferences-window
@@ -216,6 +218,7 @@ test_preferences_window_LDADD = 		\
 	libemiscwidgets.la			\
 	$(top_builddir)/e-util/libeutil.la	\
 	$(top_builddir)/filter/libfilter.la	\
+	$(GNOME_PLATFORM_LIBS)			\
 	$(E_WIDGETS_LIBS)
 
 

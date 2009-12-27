@@ -54,6 +54,7 @@ libeshell_la_CPPFLAGS =						\
 	-DDATADIR=\""$(datadir)"\"				\
 	-DLIBDIR=\""$(datadir)"\"				\
 	-DG_LOG_DOMAIN=\"evolution-shell\"			\
+	$(GNOME_PLATFORM_CFLAGS)				\
 	$(TZDIALOG_CFLAGS)					\
 	$(SHELL_CFLAGS)
 
@@ -135,7 +136,8 @@ evolution_LDADD =							\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la			\
 	$(top_builddir)/e-util/libeutil.la				\
 	$(TZDIALOG_LIBS)						\
-	$(SHELL_LIBS) \
+	$(SHELL_LIBS)							\
+	$(GNOME_PLATFORM_LIBS)						\
 	$(EVOLUTIONICONRC)
 
 if OS_WIN32

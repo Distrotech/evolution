@@ -13,6 +13,7 @@ liborg_gnome_publish_calendar_la_CPPFLAGS =		\
 	-I$(top_srcdir)					\
 	-I$(top_srcdir)/widgets				\
 	-I$(top_builddir)/shell				\
+	$(GNOME_PLATFORM_CFLAGS)			\
 	$(E_UTIL_CFLAGS)				\
 	$(EVOLUTION_CALENDAR_CFLAGS)			\
 	-DEVOLUTION_PLUGINDIR="\"$(plugindir)\""	\
@@ -36,7 +37,8 @@ liborg_gnome_publish_calendar_la_LIBADD =			\
 	$(top_builddir)/shell/libeshell.la			\
 	$(top_builddir)/calendar/gui/libevolution-calendar.la	\
 	$(E_UTIL_LIBS)						\
-	$(EVOLUTION_CALENDAR_LIBS)
+	$(EVOLUTION_CALENDAR_LIBS)				\
+	$(GNOME_PLATFORM_LIBS)
 
 EXTRA_DIST =					\
 	org-gnome-publish-calendar.eplug.xml	\

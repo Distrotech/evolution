@@ -1,6 +1,7 @@
 AM_CPPFLAGS =						\
 	-I$(top_srcdir)					\
 	-I$(top_srcdir)/widgets				\
+	$(GNOME_PLATFORM_CFLAGS)			\
 	$(EVOLUTION_ADDRESSBOOK_CFLAGS)			\
 	$(CHAMPLAIN_CFLAGS)				\
 	$(GEOCLUE_CFLAGS)
@@ -21,7 +22,8 @@ liborg_gnome_contacts_map_la_LIBADD =	\
 	$(top_builddir)/shell/libeshell.la	\
 	$(CHAMPLAIN_LIBS)		\
 	$(GEOCLUE_LIBS)			\
-	$(EVOLUTION_ADDRESSBOOK_LIBS)
+	$(EVOLUTION_ADDRESSBOOK_LIBS)	\
+	$(GNOME_PLATFORM_LIBS)
 
 EXTRA_DIST = org-gnome-contacts-maps.eplug.xml
 

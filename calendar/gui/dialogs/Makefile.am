@@ -50,8 +50,8 @@ ecalendarinclude_HEADERS =	\
 
 libcal_dialogs_la_LIBADD =					\
 	$(top_builddir)/addressbook/util/libeabutil.la		\
-	$(GNOME_PLATFORM_LIBS)					\
-	$(CAMEL_LIBS)
+	$(CAMEL_LIBS)						\
+	$(GNOME_PLATFORM_LIBS)
 
 libcal_dialogs_la_SOURCES =	\
 	$(IDL_GENERATED)	\
