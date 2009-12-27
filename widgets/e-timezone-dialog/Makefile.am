@@ -17,7 +17,7 @@ libetimezonedialog_la_LDFLAGS = $(NO_UNDEFINED)
 libetimezonedialog_la_LIBADD =				\
 	$(top_builddir)/e-util/libeutil.la		\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la	\
-	$(EVOLUTION_CALENDAR_LIBS)
+	$(TZDIALOG_LIBS)
 
 ui_DATA = e-timezone-dialog.ui
 

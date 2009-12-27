@@ -9,6 +9,7 @@ evolution_alarm_notify_CPPFLAGS = 			\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"		\
 	-DEVOLUTION_LOCALEDIR=\""$(localedir)"\"	\
 	-DEVOLUTION_LIBEXECDIR=\""$(privlibexecdir)"\"	\
+	$(CAMEL_CFLAGS)					\
 	$(EVOLUTION_CALENDAR_CFLAGS)			\
 	$(CANBERRA_CFLAGS)
 

@@ -69,6 +69,7 @@ libevolution_calendar_la_CPPFLAGS =			\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"		\
 	-DPREFIX=\""$(prefix)"\"			\
 	$(GNOME_PLATFORM_CFLAGS)			\
+	$(CAMEL_CFLAGS)					\
 	$(LIBSOUP_CFLAGS)				\
 	$(EVOLUTION_CALENDAR_CFLAGS)
 
@@ -225,8 +226,8 @@ libevolution_calendar_la_LIBADD =					\
 	$(top_builddir)/filter/libfilter.la				\
 	$(top_builddir)/e-util/libeutil.la				\
 	$(GNOME_PLATFORM_LIBS)						\
-	$(LIBSOUP_LIBS)							\
 	$(CAMEL_LIBS)							\
+	$(LIBSOUP_LIBS)							\
 	$(EVOLUTION_CALENDAR_LIBS)
 
 libevolution_calendar_la_LDFLAGS = $(NO_UNDEFINED)

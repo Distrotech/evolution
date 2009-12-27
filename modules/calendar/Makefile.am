@@ -8,6 +8,7 @@ libevolution_module_calendar_la_CPPFLAGS =		\
 	-I$(top_srcdir)/widgets				\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
 	$(GNOME_PLATFORM_CFLAGS)			\
+	$(CAMEL_CFLAGS)					\
 	$(EVOLUTION_CALENDAR_CFLAGS)
 
 libevolution_module_calendar_la_SOURCES =		\
