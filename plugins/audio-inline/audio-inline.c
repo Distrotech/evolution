@@ -202,10 +202,10 @@ org_gnome_audio_inline_play_clicked (GtkWidget *button, EMFormatHTMLPObject *pob
 
 		d(printf ("audio inline formatter: write to temp file %s\n", po->filename));
 
-		stream = camel_stream_fs_new_with_name (po->filename, O_RDWR | O_CREAT | O_TRUNC, 0600);
+		stream = camel_stream_fs_new_with_name (po->filename, O_RDWR | O_CREAT | O_TRUNC, 0600, NULL);
 		data = camel_medium_get_content (CAMEL_MEDIUM (po->part));
-		camel_data_wrapper_decode_to_stream (data, stream);
-		camel_stream_flush (stream);
+		camel_data_wrapper_decode_to_stream (data, stream, NULL);
+		camel_stream_flush (stream, NULL);
 		g_object_unref (stream);
 
 		d(printf ("audio inline formatter: init gst playbin\n"));
@@ -305,5 +305,5 @@ org_gnome_audio_inline_format (gpointer ep, EMFormatHookTarget *t)
 	pobj->object.free = org_gnome_audio_inline_pobject_free;
 	pobj->target_state = GST_STATE_NULL;
 
-	camel_stream_printf (t->stream, "<object classid=%s></object>\n", classid);
+	camel_stream_printf (t->stream, NULL, "<object classid=%s></object>\n", classid);
 }

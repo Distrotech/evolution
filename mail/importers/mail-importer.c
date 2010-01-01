@@ -161,7 +161,7 @@ import_mbox_exec (struct _import_mbox_msg *m)
 			camel_operation_progress(NULL, pc);
 
 			msg = camel_mime_message_new();
-			if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp) == -1) {
+			if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp, NULL) == -1) {
 				/* set exception? */
 				g_object_unref(msg);
 				break;

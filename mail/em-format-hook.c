@@ -62,20 +62,28 @@ static const EPluginHookTargetKey emfh_flag_map[] = {
 	{ NULL }
 };
 
-static void
-emfh_format_format(EMFormat *md, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
+static gboolean
+emfh_format_format (EMFormat *emf,
+                    CamelStream *stream,
+                    CamelMimePart *part,
+                    const EMFormatHandler *info,
+                    GError **error)
 {
 	struct _EMFormatHookItem *item = (EMFormatHookItem *)info;
 
 	if (item->hook->hook.plugin->enabled) {
 		EMFormatHookTarget target = {
-			md, stream, part, item
+			emf, stream, part, item
 		};
 
+		/* FIXME No way for plugins to report errors. */
 		e_plugin_invoke(item->hook->hook.plugin, item->format, &target);
+		return TRUE;
 	} else if (info->old) {
-		info->old->handler(md, stream, part, info->old);
+		return info->old->handler(emf, stream, part, info->old, error);
 	}
+
+	return TRUE;
 }
 
 static void

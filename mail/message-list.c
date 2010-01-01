@@ -1985,7 +1985,7 @@ ml_selection_get(GtkWidget *widget, GtkSelectionData *data, guint info, guint ti
 	if (info & 2) {
 		/* text/plain */
 		d(printf("setting text/plain selection for uids\n"));
-		em_utils_selection_set_mailbox(data, selection->folder, selection->uids);
+		em_utils_selection_set_mailbox(data, selection->folder, selection->uids, NULL);
 	} else {
 		/* x-uid-list */
 		d(printf("setting x-uid-list selection for uids\n"));

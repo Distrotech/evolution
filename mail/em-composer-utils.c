@@ -936,7 +936,7 @@ traverse_parts (GSList *clues, CamelMimeMessage *message, CamelDataWrapper *cont
 
 		byte_array = g_byte_array_new ();
 		mem = camel_stream_mem_new_with_byte_array (byte_array);
-		camel_data_wrapper_decode_to_stream (content, mem);
+		camel_data_wrapper_decode_to_stream (content, mem, NULL);
 
 		str = g_strndup (
 			(const gchar *) byte_array->data,
@@ -945,8 +945,9 @@ traverse_parts (GSList *clues, CamelMimeMessage *message, CamelDataWrapper *cont
 
 		if (replace_variables (clues, message, &str)) {
 			mem = camel_stream_mem_new_with_buffer (str, strlen (str));
-			camel_stream_reset (mem);
-			camel_data_wrapper_construct_from_stream (content, mem);
+			camel_stream_reset (mem, NULL);
+			camel_data_wrapper_construct_from_stream (
+				content, mem, NULL);
 			g_object_unref (mem);
 		}
 
@@ -1563,10 +1564,10 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	camel_data_wrapper_set_mime_type_field (receipt_text, type);
 	camel_content_type_unref (type);
 	stream = camel_stream_mem_new ();
-	camel_stream_printf (stream,
-			     "Your message to %s about \"%s\" on %s has been read.",
-			     self_address, message_subject, message_date);
-	camel_data_wrapper_construct_from_stream (receipt_text, stream);
+	camel_stream_printf (
+		stream, NULL, "Your message to %s about \"%s\" on %s "
+		"has been read.", self_address, message_subject, message_date);
+	camel_data_wrapper_construct_from_stream (receipt_text, stream, NULL);
 	g_object_unref (stream);
 
 	part = camel_mime_part_new ();
@@ -1588,13 +1589,14 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	camel_content_type_unref (type);
 
 	stream = camel_stream_mem_new ();
-	camel_stream_printf (stream,
-			     "Reporting-UA: %s\n"
-			     "Final-Recipient: %s\n"
-			     "Original-Message-ID: %s\n"
-			     "Disposition: manual-action/MDN-sent-manually; displayed\n",
-			     ua, recipient, message_id);
-	camel_data_wrapper_construct_from_stream (receipt_data, stream);
+	camel_stream_printf (
+		stream, NULL,
+		"Reporting-UA: %s\n"
+		"Final-Recipient: %s\n"
+		"Original-Message-ID: %s\n"
+		"Disposition: manual-action/MDN-sent-manually; displayed\n",
+		ua, recipient, message_id);
+	camel_data_wrapper_construct_from_stream (receipt_data, stream, NULL);
 	g_object_unref (stream);
 
 	g_free (ua);
@@ -1699,9 +1701,12 @@ em_utils_forward_message_raw (CamelFolder *folder,
 
 	/* make copy of the message, because we are going to modify it */
 	stream = camel_stream_mem_new ();
-	camel_data_wrapper_write_to_stream ((CamelDataWrapper *)message, stream);
-	camel_seekable_stream_seek (CAMEL_SEEKABLE_STREAM (stream), 0, CAMEL_STREAM_SET);
-	camel_data_wrapper_construct_from_stream ((CamelDataWrapper *)forward, stream);
+	camel_data_wrapper_write_to_stream (
+		CAMEL_DATA_WRAPPER (message), stream, NULL);
+	camel_seekable_stream_seek (
+		CAMEL_SEEKABLE_STREAM (stream), 0, CAMEL_STREAM_SET, NULL);
+	camel_data_wrapper_construct_from_stream (
+		CAMEL_DATA_WRAPPER (forward), stream, NULL);
 	g_object_unref (stream);
 
 	/* clear previous recipients */

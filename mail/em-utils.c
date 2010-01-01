@@ -556,7 +556,10 @@ em_utils_flag_for_followup_completed (GtkWindow *parent, CamelFolder *folder, GP
 /* This kind of sucks, because for various reasons most callers need to run synchronously
    in the gui thread, however this could take a long, blocking time, to run */
 static gint
-em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStream *stream)
+em_utils_write_messages_to_stream (CamelFolder *folder,
+                                   GPtrArray *uids,
+                                   CamelStream *stream,
+                                   GError **error)
 {
 	CamelStream *filtered_stream;
 	CamelMimeFilter *from_filter;
@@ -581,10 +584,10 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 		/* we need to flush after each stream write since we are writing to the same stream */
 		from = camel_mime_message_build_mbox_from(message);
 
-		if (camel_stream_write_string(stream, from) == -1
-		    || camel_stream_flush(stream) == -1
-		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, filtered_stream) == -1
-		    || camel_stream_flush(filtered_stream) == -1)
+		if (camel_stream_write_string(stream, from, error) == -1
+		    || camel_stream_flush(stream, error) == -1
+		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, filtered_stream, error) == -1
+		    || camel_stream_flush(filtered_stream, error) == -1)
 			res = -1;
 
 		g_free(from);
@@ -601,21 +604,24 @@ em_utils_write_messages_to_stream(CamelFolder *folder, GPtrArray *uids, CamelStr
 
 /* This kind of sucks, because for various reasons most callers need to run synchronously
    in the gui thread, however this could take a long, blocking time, to run */
-static gint
-em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
+static gboolean
+em_utils_read_messages_from_stream (CamelFolder *folder,
+                                    CamelStream *stream,
+                                    GError **error)
 {
 	CamelMimeParser *mp = camel_mime_parser_new();
 	gboolean success = FALSE;
 
-	camel_mime_parser_scan_from(mp, TRUE);
-	camel_mime_parser_init_with_stream(mp, stream);
+	camel_mime_parser_scan_from (mp, TRUE);
+	if (camel_mime_parser_init_with_stream (mp, stream, error) == -1)
+		return FALSE;
 
 	while (camel_mime_parser_step(mp, NULL, NULL) == CAMEL_MIME_PARSER_STATE_FROM) {
 		CamelMimeMessage *msg;
 
 		/* NB: de-from filter, once written */
 		msg = camel_mime_message_new();
-		if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp) == -1) {
+		if (camel_mime_part_construct_from_parser((CamelMimePart *)msg, mp, error) == -1) {
 			g_object_unref(msg);
 			break;
 		}
@@ -632,7 +638,7 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
 
 	g_object_unref(mp);
 
-	return success ? 0 : -1;
+	return success;
 }
 
 /**
@@ -640,53 +646,68 @@ em_utils_read_messages_from_stream(CamelFolder *folder, CamelStream *stream)
  * @data: selection data
  * @folder: folder containign messages to copy into the selection
  * @uids: uids of the messages to copy into the selection
+ * @error: return location for a #GError, or %NULL
  *
  * Creates a mailbox-format selection.
  * Warning: Could be BIG!
  * Warning: This could block the ui for an extended period.
  **/
-void
+gboolean
 em_utils_selection_set_mailbox (GtkSelectionData *data,
                                 CamelFolder *folder,
-                                GPtrArray *uids)
+                                GPtrArray *uids,
+                                GError **error)
 {
 	CamelStream *stream;
 	GByteArray *buffer;
+	gint retval;
 
 	buffer = g_byte_array_new ();
 	stream = camel_stream_mem_new_with_byte_array (buffer);
 
-	if (em_utils_write_messages_to_stream (folder, uids, stream) == 0)
+	retval = em_utils_write_messages_to_stream (
+		folder, uids, stream, error);
+
+	if (retval == 0)
 		gtk_selection_data_set (
 			data, data->target, 8,
 			buffer->data, buffer->len);
 
 	g_object_unref (stream);
+
+	return (retval == 0);
 }
 
 /**
  * em_utils_selection_get_mailbox:
  * @data: selection data
  * @folder:
+ * @error: return location for a #GError, or %NULL
  *
  * Receive a mailbox selection/dnd
  * Warning: Could be BIG!
  * Warning: This could block the ui for an extended period.
  * FIXME: Exceptions?
  **/
-void
-em_utils_selection_get_mailbox(GtkSelectionData *data, CamelFolder *folder)
+gboolean
+em_utils_selection_get_mailbox (GtkSelectionData *data,
+                                CamelFolder *folder,
+                                GError **error)
 {
 	CamelStream *stream;
+	gboolean success;
 
 	if (data->data == NULL || data->length == -1)
-		return;
+		return TRUE;
 
 	/* TODO: a stream mem with read-only access to existing data? */
 	/* NB: Although copying would let us run this async ... which it should */
-	stream = (CamelStream *)camel_stream_mem_new_with_buffer((gchar *)data->data, data->length);
-	em_utils_read_messages_from_stream(folder, stream);
-	g_object_unref(stream);
+	stream = camel_stream_mem_new_with_buffer (
+		(gchar *)data->data, data->length);
+	success = em_utils_read_messages_from_stream (folder, stream, error);
+	g_object_unref (stream);
+
+	return success;
 }
 
 /**
@@ -707,7 +728,7 @@ em_utils_selection_get_message(GtkSelectionData *data, CamelFolder *folder)
 
 	stream = (CamelStream *)camel_stream_mem_new_with_buffer((gchar *)data->data, data->length);
 	msg = camel_mime_message_new();
-	if (camel_data_wrapper_construct_from_stream((CamelDataWrapper *)msg, stream) == 0)
+	if (camel_data_wrapper_construct_from_stream((CamelDataWrapper *)msg, stream, NULL) == 0)
 		camel_folder_append_message(folder, msg, NULL, NULL, NULL);
 	g_object_unref(msg);
 	g_object_unref(stream);
@@ -844,7 +865,7 @@ em_utils_selection_set_urilist(GtkSelectionData *data, CamelFolder *folder, GPtr
 	g_free(tmpfile);
 	fstream = camel_stream_fs_new_with_fd(fd);
 	if (fstream) {
-		if (em_utils_write_messages_to_stream(folder, uids, fstream) == 0) {
+		if (em_utils_write_messages_to_stream(folder, uids, fstream, NULL) == 0) {
 			/* terminate with \r\n to be compliant with the spec */
 			gchar *uri_crlf = g_strconcat(uri, "\r\n", NULL);
 
@@ -874,7 +895,8 @@ em_utils_selection_get_urilist(GtkSelectionData *data, CamelFolder *folder)
 {
 	CamelStream *stream;
 	CamelURL *url;
-	gint fd, i, res = 0;
+	gint fd, i;
+	gboolean success = TRUE;
 	gchar *tmp, **uris;
 
 	d(printf(" * drop uri list\n"));
@@ -882,7 +904,7 @@ em_utils_selection_get_urilist(GtkSelectionData *data, CamelFolder *folder)
 	tmp = g_strndup((gchar *)data->data, data->length);
 	uris = g_strsplit(tmp, "\n", 0);
 	g_free(tmp);
-	for (i=0;res == 0 && uris[i];i++) {
+	for (i=0;success && uris[i];i++) {
 		g_strstrip(uris[i]);
 		if (uris[i][0] == '#')
 			continue;
@@ -895,7 +917,7 @@ em_utils_selection_get_urilist(GtkSelectionData *data, CamelFolder *folder)
 		    && (fd = g_open(url->path, O_RDONLY | O_BINARY, 0)) != -1) {
 			stream = camel_stream_fs_new_with_fd(fd);
 			if (stream) {
-				res = em_utils_read_messages_from_stream(folder, stream);
+				success = em_utils_read_messages_from_stream(folder, stream, NULL);
 				g_object_unref(stream);
 			} else
 				close(fd);
@@ -1243,15 +1265,15 @@ gchar *
 em_utils_message_to_html (CamelMimeMessage *message, const gchar *credits, guint32 flags, gssize *len, EMFormat *source, const gchar *append, guint32 *validity_found)
 {
 	EMFormatQuote *emfq;
-	CamelStreamMem *mem;
+	CamelStream *stream;
 	GByteArray *buf;
 	gchar *text;
 
 	buf = g_byte_array_new ();
-	mem = (CamelStreamMem *) camel_stream_mem_new ();
-	camel_stream_mem_set_byte_array (mem, buf);
+	stream = camel_stream_mem_new ();
+	camel_stream_mem_set_byte_array (CAMEL_STREAM_MEM (stream), buf);
 
-	emfq = em_format_quote_new(credits, (CamelStream *)mem, flags);
+	emfq = em_format_quote_new (credits, stream, flags);
 	((EMFormat *) emfq)->composer = TRUE;
 
 	if (!source) {
@@ -1272,10 +1294,10 @@ em_utils_message_to_html (CamelMimeMessage *message, const gchar *credits, guint
 	g_object_unref (emfq);
 
 	if (append && *append)
-		camel_stream_write ((CamelStream*)mem, append, strlen (append));
+		camel_stream_write (stream, append, strlen (append), NULL);
 
-	camel_stream_write((CamelStream *)mem, "", 1);
-	g_object_unref(mem);
+	camel_stream_write (stream, "", 1, NULL);
+	g_object_unref (stream);
 
 	text = (gchar *)buf->data;
 	if (len)

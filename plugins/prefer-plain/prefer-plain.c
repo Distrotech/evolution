@@ -68,9 +68,9 @@ make_part_attachment (EMFormat *format, CamelStream *stream, CamelMimePart *part
 			g_free (str);
 		}
 
-		em_format_part_as (format, stream, part, "application/octet-stream");
+		em_format_part_as (format, stream, part, "application/octet-stream", NULL);
 	} else
-		em_format_part (format, stream, part);
+		em_format_part (format, stream, part, NULL);
 
 	g_string_truncate (format->part_id, partidlen);
 }
@@ -82,7 +82,7 @@ org_gnome_prefer_plain_text_html (gpointer ep, EMFormatHookTarget *t)
 	if (epp_mode != EPP_TEXT
 	    || strstr (t->format->part_id->str, ".alternative-prefer-plain.") != NULL
 	    || em_format_is_inline (t->format, t->format->part_id->str, t->part, &(t->item->handler)))
-		t->item->handler.old->handler (t->format, t->stream, t->part, t->item->handler.old);
+		t->item->handler.old->handler (t->format, t->stream, t->part, t->item->handler.old, NULL);
 	else if (epp_show_suppressed)
 		make_part_attachment (t->format, t->stream, t->part, -1);
 }
@@ -157,14 +157,14 @@ org_gnome_prefer_plain_multipart_alternative(gpointer ep, EMFormatHookTarget *t)
 
 		if (display_part && have_plain && nparts == 2) {
 			g_string_append_printf (t->format->part_id, ".alternative-prefer-plain.%d", displayid);
-			em_format_part_as (t->format, t->stream, display_part, "text/html");
+			em_format_part_as (t->format, t->stream, display_part, "text/html", NULL);
 			g_string_truncate (t->format->part_id, partidlen);
 		} else {
-			t->item->handler.old->handler (t->format, t->stream, t->part, t->item->handler.old);
+			t->item->handler.old->handler (t->format, t->stream, t->part, t->item->handler.old, NULL);
 		}
 		return;
 	} else if (!CAMEL_IS_MULTIPART(mp)) {
-		em_format_format_source(t->format, t->stream, t->part);
+		em_format_format_source(t->format, t->stream, t->part, NULL);
 		return;
 	}
 
@@ -181,7 +181,7 @@ org_gnome_prefer_plain_multipart_alternative(gpointer ep, EMFormatHookTarget *t)
 	/* if we found a text part, show it */
 	if (display_part) {
 		g_string_append_printf(t->format->part_id, ".alternative-prefer-plain.%d", displayid);
-		em_format_part_as(t->format, t->stream, display_part, "text/plain");
+		em_format_part_as(t->format, t->stream, display_part, "text/plain", NULL);
 		g_string_truncate(t->format->part_id, partidlen);
 	}
 

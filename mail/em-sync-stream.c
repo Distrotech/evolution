@@ -132,7 +132,10 @@ em_sync_stream_finalize (GObject *object)
 }
 
 static gssize
-emss_stream_write (CamelStream *stream, const gchar *string, gsize len)
+emss_stream_write (CamelStream *stream,
+                   const gchar *string,
+                   gsize len,
+                   GError **error)
 {
 	EMSyncStream *emss = EM_SYNC_STREAM (stream);
 
@@ -154,7 +157,8 @@ emss_stream_write (CamelStream *stream, const gchar *string, gsize len)
 }
 
 static gint
-emss_stream_flush (CamelStream *stream)
+emss_stream_flush (CamelStream *stream,
+                   GError **error)
 {
 	EMSyncStream *emss = EM_SYNC_STREAM (stream);
 
@@ -170,7 +174,8 @@ emss_stream_flush (CamelStream *stream)
 }
 
 static gint
-emss_stream_close (CamelStream *stream)
+emss_stream_close (CamelStream *stream,
+                   GError **error)
 {
 	EMSyncStream *emss = EM_SYNC_STREAM (stream);
 

@@ -93,7 +93,7 @@ org_gnome_vcard_inline_decode (VCardInlinePObject *vcard_object,
 	/* Stream takes ownership of the byte array. */
 	stream = camel_stream_mem_new_with_byte_array (array);
 	data_wrapper = camel_medium_get_content (medium);
-	camel_data_wrapper_decode_to_stream (data_wrapper, stream);
+	camel_data_wrapper_decode_to_stream (data_wrapper, stream, NULL);
 
 	/* because the result is not NULL-terminated */
 	g_byte_array_append (array, padding, 2);
@@ -284,7 +284,8 @@ org_gnome_vcard_inline_format (gpointer ep, EMFormatHookTarget *target)
 	org_gnome_vcard_inline_decode (vcard_object, target->part);
 
 	camel_stream_printf (
-		target->stream, "<object classid=%s></object>", classid);
+		target->stream, NULL,
+		"<object classid=%s></object>", classid);
 
 	g_free (classid);
 }

@@ -133,7 +133,7 @@ struct _itip_puri {
 
 void format_itip (EPlugin *ep, EMFormatHookTarget *target);
 GtkWidget *itip_formatter_page_factory (EPlugin *ep, EConfigHookItemFactoryData *hook_data);
-static void itip_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri);
+static gboolean itip_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri, GError **error);
 
 typedef struct {
 	struct _itip_puri *puri;
@@ -2539,7 +2539,7 @@ format_itip (EPlugin *ep, EMFormatHookTarget *target)
 	content = camel_medium_get_content ((CamelMedium *) target->part);
 	byte_array = g_byte_array_new ();
 	stream = camel_stream_mem_new_with_byte_array (byte_array);
-	camel_data_wrapper_decode_to_stream (content, stream);
+	camel_data_wrapper_decode_to_stream (content, stream, NULL);
 
 	if (byte_array->len == 0)
 		puri->vcalendar = NULL;
@@ -2547,9 +2547,9 @@ format_itip (EPlugin *ep, EMFormatHookTarget *target)
 		puri->vcalendar = g_strndup ((gchar *)byte_array->data, byte_array->len);
 	g_object_unref (stream);
 
-	camel_stream_printf (target->stream, "<table border=0 width=\"100%%\" cellpadding=3><tr>");
-	camel_stream_printf (target->stream, "<td valign=top><object classid=\"%s\"></object></td><td width=100%% valign=top>", classid);
-	camel_stream_printf (target->stream, "</td></tr></table>");
+	camel_stream_printf (target->stream, NULL, "<table border=0 width=\"100%%\" cellpadding=3><tr>");
+	camel_stream_printf (target->stream, NULL, "<td valign=top><object classid=\"%s\"></object></td><td width=100%% valign=top>", classid);
+	camel_stream_printf (target->stream, NULL, "</td></tr></table>");
 
 	g_free (classid);
 }
@@ -2712,13 +2712,21 @@ itip_formatter_page_factory (EPlugin *ep, EConfigHookItemFactoryData *hook_data)
 	return page;
 }
 
-static void
-itip_attachment_frame(EMFormat *emf, CamelStream *stream, EMFormatPURI *puri)
+static gboolean
+itip_attachment_frame (EMFormat *emf,
+                       CamelStream *stream,
+                       EMFormatPURI *puri,
+                       GError **error)
 {
 	struct _itip_puri *info = (struct _itip_puri *)puri;
+	gboolean success;
 
 	d(printf("writing to frame content, handler is '%s'\n", info->handle->mime_type));
-	info->handle->handler(emf, stream, info->puri.part, info->handle);
-	camel_stream_close(stream);
+	success = info->handle->handler (
+		emf, stream, info->puri.part, info->handle, error);
+
+	camel_stream_close (stream, NULL);
+
+	return success;
 }
 

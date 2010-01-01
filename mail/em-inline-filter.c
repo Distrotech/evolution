@@ -145,7 +145,7 @@ emif_add_part(EMInlineFilter *emif, const gchar *data, gint len)
 	emif->data = g_byte_array_new();
 
 	dw = camel_data_wrapper_new();
-	camel_data_wrapper_construct_from_stream(dw, mem);
+	camel_data_wrapper_construct_from_stream(dw, mem, NULL);
 	g_object_unref(mem);
 
 	if (emif_types[emif->state].plain && emif->base_type) {

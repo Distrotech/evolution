@@ -37,12 +37,6 @@ struct _EMFormatQuotePrivate {
 	gint dummy;
 };
 
-static void emfq_format_clone(EMFormat *, CamelFolder *, const gchar *, CamelMimeMessage *, EMFormat *);
-static void emfq_format_error(EMFormat *emf, CamelStream *stream, const gchar *txt);
-static void emfq_format_message(EMFormat *, CamelStream *, CamelMimePart *, const EMFormatHandler *);
-static void emfq_format_source(EMFormat *, CamelStream *, CamelMimePart *);
-static void emfq_format_attachment(EMFormat *, CamelStream *, CamelMimePart *, const gchar *, const EMFormatHandler *);
-
 static void emfq_builtin_init(EMFormatQuoteClass *efhc);
 
 static gpointer parent_class;
@@ -71,9 +65,127 @@ emfq_finalize (GObject *object)
 }
 
 static void
-emfq_base_init(EMFormatQuoteClass *emfqclass)
+emfq_format_clone (EMFormat *emf,
+                   CamelFolder *folder,
+                   const gchar *uid,
+                   CamelMimeMessage *msg,
+                   EMFormat *src)
 {
-	emfq_builtin_init(emfqclass);
+	EMFormatClass *format_class;
+	EMFormatQuote *emfq = (EMFormatQuote *) emf;
+	const EMFormatHandler *handle;
+	CamelStream *stream;
+	GConfClient *gconf;
+
+	/* Chain up to parent's format_clone() method. */
+	format_class = EM_FORMAT_CLASS (parent_class);
+	format_class->format_clone (emf, folder, uid, msg, src);
+
+	stream = emfq->stream;
+
+	/* For the top-posters... */
+	gconf = gconf_client_get_default ();
+	camel_stream_reset (stream, NULL);
+	if (gconf_client_get_bool(gconf, "/apps/evolution/mail/composer/top_signature", NULL))
+		camel_stream_write (stream, "<br>\n", 5, NULL);
+	g_object_unref (gconf);
+
+	handle = em_format_find_handler(emf, "x-evolution/message/prefix");
+	g_return_if_fail (handle != NULL);
+
+	/* XXX Pass an error. */
+	handle->handler (emf, stream, CAMEL_MIME_PART (msg), handle, NULL);
+
+	handle = em_format_find_handler(emf, "x-evolution/message/rfc822");
+	g_return_if_fail (handle != NULL);
+
+	/* XXX Here too. */
+	handle->handler (emf, stream, CAMEL_MIME_PART (msg), handle, NULL);
+
+	camel_stream_flush (stream, NULL);
+
+	g_signal_emit_by_name (emf, "complete");
+}
+
+static gboolean
+emfq_format_error (EMFormat *emf,
+                   CamelStream *stream,
+                   const gchar *txt,
+                   GError **error)
+{
+	/* XXX Should we even bother writing error
+	 *     text for quoting?  Probably not. */
+
+	return TRUE;
+}
+
+static gboolean
+emfq_format_source (EMFormat *emf,
+                    CamelStream *stream,
+                    CamelMimePart *part,
+                    GError **error)
+{
+	CamelStream *filtered_stream;
+	CamelMimeFilter *html_filter;
+	gboolean success;
+
+	filtered_stream = camel_stream_filter_new (stream);
+
+	html_filter = camel_mime_filter_tohtml_new (
+		CAMEL_MIME_FILTER_TOHTML_CONVERT_NL |
+		CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES |
+		CAMEL_MIME_FILTER_TOHTML_ESCAPE_8BIT, 0);
+	camel_stream_filter_add (
+		CAMEL_STREAM_FILTER (filtered_stream), html_filter);
+	g_object_unref (html_filter);
+
+	success = em_format_format_text (
+		emf, filtered_stream, CAMEL_DATA_WRAPPER (part), error);
+
+	g_object_unref (filtered_stream);
+
+	return success;
+}
+
+static gboolean
+emfq_format_attachment (EMFormat *emf,
+                        CamelStream *stream,
+                        CamelMimePart *part,
+                        const gchar *mime_type,
+                        const EMFormatHandler *handle,
+                        GError **error)
+{
+	gchar *text, *html;
+
+	/* XXX Emit a warning too? */
+	if (handle == NULL)
+		return TRUE;
+
+	if (!em_format_is_inline (emf, emf->part_id->str, part, handle))
+		return TRUE;
+
+	camel_stream_write_string (
+		stream, "<table border=1 cellspacing=0 cellpadding=0>"
+		"<tr><td><font size=-1>\n", NULL);
+
+	/* output some info about it */
+	text = em_format_describe_part (part, mime_type);
+	html = camel_text_to_html (
+		text, EM_FORMAT_QUOTE (emf)->text_html_flags &
+		CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
+	camel_stream_write_string (stream, html, NULL);
+	g_free (html);
+	g_free (text);
+
+	camel_stream_write_string (stream, "</font></td></tr></table>", NULL);
+
+	return handle->handler (emf, stream, part, handle, error);
+}
+
+static void
+emfq_base_init (EMFormatQuoteClass *emfqclass)
+{
+	emfq_builtin_init (emfqclass);
 }
 
 static void
@@ -137,53 +249,20 @@ em_format_quote_new (const gchar *credits,
 	return emfq;
 }
 
-static void
-emfq_format_empty_line(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
-{
-	camel_stream_printf(stream, "<br>\n");
-}
-
-static void
-emfq_format_clone(EMFormat *emf, CamelFolder *folder, const gchar *uid, CamelMimeMessage *msg, EMFormat *src)
-{
-	EMFormatQuote *emfq = (EMFormatQuote *) emf;
-	const EMFormatHandler *handle;
-	GConfClient *gconf;
-
-	/* Chain up to parent's format_clone() method. */
-	EM_FORMAT_CLASS (parent_class)->format_clone (emf, folder, uid, msg, src);
-
-	gconf = gconf_client_get_default ();
-	camel_stream_reset(emfq->stream);
-	if (gconf_client_get_bool(gconf, "/apps/evolution/mail/composer/top_signature", NULL))
-		emfq_format_empty_line(emf, emfq->stream, (CamelMimePart *)msg, NULL);
-	g_object_unref (gconf);
-	handle = em_format_find_handler(emf, "x-evolution/message/prefix");
-	if (handle)
-		handle->handler(emf, emfq->stream, (CamelMimePart *)msg, handle);
-	handle = em_format_find_handler(emf, "x-evolution/message/rfc822");
-	if (handle)
-		handle->handler(emf, emfq->stream, (CamelMimePart *)msg, handle);
-
-	camel_stream_flush(emfq->stream);
-
-	g_signal_emit_by_name(emf, "complete");
-}
-
-static void
-emfq_format_error(EMFormat *emf, CamelStream *stream, const gchar *txt)
-{
-	/* FIXME: should we even bother writing error text for quoting? probably not... */
-}
-
-static void
-emfq_format_text_header (EMFormatQuote *emfq, CamelStream *stream, const gchar *label, const gchar *value, guint32 flags, gint is_html)
+static gboolean
+emfq_format_text_header (EMFormatQuote *emfq,
+                         CamelStream *stream,
+                         const gchar *label,
+                         const gchar *value,
+                         guint32 flags,
+                         gboolean is_html,
+                         GError **error)
 {
 	const gchar *html;
 	gchar *mhtml = NULL;
 
 	if (value == NULL)
-		return;
+		return TRUE;
 
 	while (*value == ' ')
 		value++;
@@ -194,11 +273,15 @@ emfq_format_text_header (EMFormatQuote *emfq, CamelStream *stream, const gchar *
 		html = value;
 
 	if (flags & EM_FORMAT_HEADER_BOLD)
-		camel_stream_printf (stream, "<b>%s</b>: %s<br>", label, html);
+		camel_stream_printf (
+			stream, NULL, "<b>%s</b>: %s<br>", label, html);
 	else
-		camel_stream_printf (stream, "%s: %s<br>", label, html);
+		camel_stream_printf (
+			stream, NULL, "%s: %s<br>", label, html);
 
 	g_free (mhtml);
+
+	return TRUE;
 }
 
 static const gchar *addrspec_hdrs[] = {
@@ -295,16 +378,23 @@ canon_header_name (gchar *name)
 	}
 }
 
-static void
-emfq_format_header (EMFormat *emf, CamelStream *stream, CamelMedium *part, const gchar *namein, guint32 flags, const gchar *charset)
+static gboolean
+emfq_format_header (EMFormat *emf,
+                    CamelStream *stream,
+                    CamelMedium *part,
+                    const gchar *namein,
+                    guint32 flags,
+                    const gchar *charset,
+                    GError **error)
 {
 	CamelMimeMessage *msg = (CamelMimeMessage *) part;
 	EMFormatQuote *emfq = (EMFormatQuote *) emf;
 	gchar *name, *buf, *value = NULL;
 	const gchar *txt, *label;
 	gboolean addrspec = FALSE;
-	gint is_html = FALSE;
+	gboolean is_html = FALSE;
 	gint i;
+	gboolean success;
 
 	name = g_alloca (strlen (namein) + 1);
 	strcpy (name, namein);
@@ -324,12 +414,12 @@ emfq_format_header (EMFormat *emf, CamelStream *stream, CamelMedium *part, const
 		GString *html;
 
 		if (!(txt = camel_medium_get_header (part, name)))
-			return;
+			return TRUE;
 
 		buf = camel_header_unfold (txt);
 		if (!(addrs = camel_header_address_decode (txt, emf->charset ? emf->charset : emf->default_charset))) {
 			g_free (buf);
-			return;
+			return TRUE;
 		}
 
 		g_free (buf);
@@ -350,7 +440,7 @@ emfq_format_header (EMFormat *emf, CamelStream *stream, CamelMedium *part, const
 			if (!(txt = camel_medium_get_header (part, "user-agent")))
 				if (!(txt = camel_medium_get_header (part, "x-newsreader")))
 					if (!(txt = camel_medium_get_header (part, "x-mimeole")))
-						return;
+						return TRUE;
 
 		txt = value = camel_header_format_ctext (txt, charset);
 
@@ -358,7 +448,7 @@ emfq_format_header (EMFormat *emf, CamelStream *stream, CamelMedium *part, const
 		flags |= EM_FORMAT_HEADER_BOLD;
 	} else if (!strcmp (name, "Date") || !strcmp (name, "Resent-Date")) {
 		if (!(txt = camel_medium_get_header (part, name)))
-			return;
+			return TRUE;
 
 		flags |= EM_FORMAT_HEADER_BOLD;
 	} else {
@@ -368,21 +458,28 @@ emfq_format_header (EMFormat *emf, CamelStream *stream, CamelMedium *part, const
 		g_free (buf);
 	}
 
-	emfq_format_text_header (emfq, stream, label, txt, flags, is_html);
+	success = emfq_format_text_header (
+		emfq, stream, label, txt, flags, is_html, error);
 
 	g_free (value);
+
+	return success;
 }
 
-static void
-emfq_format_headers (EMFormatQuote *emfq, CamelStream *stream, CamelMedium *part)
+static gboolean
+emfq_format_headers (EMFormatQuote *emfq,
+                     CamelStream *stream,
+                     CamelMedium *part,
+                     GError **error)
 {
 	EMFormat *emf = (EMFormat *) emfq;
 	CamelContentType *ct;
 	const gchar *charset;
 	GList *link;
+	gboolean success = TRUE;
 
 	if (!part)
-		return;
+		return TRUE;
 
 	ct = camel_mime_part_get_content_type ((CamelMimePart *) part);
 	charset = camel_content_type_param (ct, "charset");
@@ -390,88 +487,75 @@ emfq_format_headers (EMFormatQuote *emfq, CamelStream *stream, CamelMedium *part
 
 	/* dump selected headers */
 	link = g_queue_peek_head_link (&emf->header_list);
-	while (link != NULL) {
+	while (link != NULL && success) {
 		EMFormatHeader *h = link->data;
-		emfq_format_header (
-			emf, stream, part, h->name, h->flags, charset);
+		success = emfq_format_header (
+			emf, stream, part, h->name, h->flags, charset, error);
 		link = g_list_next (link);
 	}
 
-	camel_stream_printf(stream, "<br>\n");
+	camel_stream_printf (stream, NULL, "<br>\n");
+
+	return success;
 }
 
 static void
-emfq_format_message_prefix(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
+emfq_format_message_prefix (EMFormat *emf,
+                            CamelStream *stream,
+                            CamelMimePart *part,
+                            const EMFormatHandler *info)
 {
 	EMFormatQuote *emfq = (EMFormatQuote *) emf;
 
 	if (emfq->credits)
-		camel_stream_printf(stream, "%s<br>\n", emfq->credits);
+		camel_stream_printf (stream, NULL, "%s<br>\n", emfq->credits);
 }
 
-static void
-emfq_format_message(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info)
+static gboolean
+emfq_format_message (EMFormat *emf,
+                     CamelStream *stream,
+                     CamelMimePart *part,
+                     const EMFormatHandler *info,
+                     GError **error)
 {
 	EMFormatQuote *emfq = (EMFormatQuote *) emf;
+	gboolean success = TRUE;
 
 	if (emfq->flags & EM_FORMAT_QUOTE_CITE)
-		camel_stream_printf(stream, "<!--+GtkHTML:<DATA class=\"ClueFlow\" key=\"orig\" value=\"1\">-->\n"
-				    "<blockquote type=cite>\n");
+		camel_stream_printf (
+			stream, NULL,
+			"<!--+GtkHTML:<DATA class=\"ClueFlow\" "
+			"key=\"orig\" value=\"1\">-->\n"
+			"<blockquote type=cite>\n");
 
-	if (((CamelMimePart *)emf->message) != part) {
-		camel_stream_printf(stream,  "%s</br>\n", _("-------- Forwarded Message --------"));
-		emfq_format_headers (emfq, stream, (CamelMedium *)part);
+	if (CAMEL_MIME_PART (emf->message) != part) {
+		camel_stream_printf (
+			stream, NULL, "%s</br>\n",
+			_("-------- Forwarded Message --------"));
+		success = emfq_format_headers (
+			emfq, stream, CAMEL_MEDIUM (part), error);
 	} else if (emfq->flags & EM_FORMAT_QUOTE_HEADERS)
-		emfq_format_headers (emfq, stream, (CamelMedium *)part);
+		success = emfq_format_headers (
+			emfq, stream, CAMEL_MEDIUM (part), error);
 
-	em_format_part (emf, stream, part);
+	if (success)
+		success = em_format_part (emf, stream, part, error);
 
 	if (emfq->flags & EM_FORMAT_QUOTE_CITE)
-		camel_stream_write_string(stream, "</blockquote><!--+GtkHTML:<DATA class=\"ClueFlow\" clear=\"orig\">-->");
+		camel_stream_write_string (
+			stream, "</blockquote>"
+			"<!--+GtkHTML:<DATA class=\"ClueFlow\" "
+			"clear=\"orig\">-->", NULL);
+
+	return success;
 }
 
-static void
-emfq_format_source(EMFormat *emf, CamelStream *stream, CamelMimePart *part)
-{
-	CamelStream *filtered_stream;
-	CamelMimeFilter *html_filter;
-
-	filtered_stream = camel_stream_filter_new ((CamelStream *) stream);
-	html_filter = camel_mime_filter_tohtml_new (CAMEL_MIME_FILTER_TOHTML_CONVERT_NL
-						    | CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES
-						    | CAMEL_MIME_FILTER_TOHTML_ESCAPE_8BIT, 0);
-	camel_stream_filter_add (
-		CAMEL_STREAM_FILTER (filtered_stream), html_filter);
-	g_object_unref(html_filter);
-
-	em_format_format_text(emf, filtered_stream, (CamelDataWrapper *)part);
-	g_object_unref(filtered_stream);
-}
-
-static void
-emfq_format_attachment(EMFormat *emf, CamelStream *stream, CamelMimePart *part, const gchar *mime_type, const EMFormatHandler *handle)
-{
-	if (handle && em_format_is_inline(emf, emf->part_id->str, part, handle)) {
-		gchar *text, *html;
-
-		camel_stream_write_string(stream,
-					  "<table border=1 cellspacing=0 cellpadding=0><tr><td><font size=-1>\n");
-
-		/* output some info about it */
-		text = em_format_describe_part(part, mime_type);
-		html = camel_text_to_html(text, ((EMFormatQuote *)emf)->text_html_flags & CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
-		camel_stream_write_string(stream, html);
-		g_free(html);
-		g_free(text);
-
-		camel_stream_write_string(stream, "</font></td></tr></table>");
-
-		handle->handler(emf, stream, part, handle);
-	}
-}
-
-static void
-emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
+static gboolean
+emfq_text_plain (EMFormatQuote *emfq,
+                 CamelStream *stream,
+                 CamelMimePart *part,
+                 EMFormatHandler *info,
+                 GError **error)
 {
 	CamelStream *filtered_stream;
 	CamelMimeFilter *html_filter;
@@ -480,9 +564,11 @@ emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, E
 	CamelContentType *type;
 	const gchar *format;
 	guint32 rgb = 0x737373, flags;
+	gboolean success;
 
+	/* XXX Emit a warning? */
 	if (!part)
-		return;
+		return TRUE;
 
 	flags = emfq->text_html_flags;
 
@@ -502,60 +588,89 @@ emfq_text_plain(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, E
 		g_object_unref (sig_strip);
 	}
 
-	wrap_filter = camel_mime_filter_linewrap_new (70, 70, 0, CAMEL_MIME_FILTER_LINEWRAP_WORD);
+	wrap_filter = camel_mime_filter_linewrap_new (
+		70, 70, 0, CAMEL_MIME_FILTER_LINEWRAP_WORD);
 	camel_stream_filter_add (
 		CAMEL_STREAM_FILTER (filtered_stream), wrap_filter);
 	g_object_unref (wrap_filter);
 
-	html_filter = camel_mime_filter_tohtml_new(flags, rgb);
+	html_filter = camel_mime_filter_tohtml_new (flags, rgb);
 	camel_stream_filter_add (
 		CAMEL_STREAM_FILTER (filtered_stream), html_filter);
-	g_object_unref(html_filter);
+	g_object_unref (html_filter);
 
-	em_format_format_text((EMFormat *)emfq, filtered_stream, (CamelDataWrapper *)part);
-	camel_stream_flush(filtered_stream);
-	g_object_unref(filtered_stream);
+	success = em_format_format_text (
+		EM_FORMAT (emfq), filtered_stream,
+		CAMEL_DATA_WRAPPER (part), error);
+
+	camel_stream_flush (filtered_stream, NULL);
+	g_object_unref (filtered_stream);
+
+	return success;
 }
 
-static void
-emfq_text_enriched(EMFormatQuote *emfq, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
+static gboolean
+emfq_text_enriched (EMFormatQuote *emfq,
+                    CamelStream *stream,
+                    CamelMimePart *part,
+                    EMFormatHandler *info,
+                    GError **error)
 {
 	CamelStream *filtered_stream;
 	CamelMimeFilter *enriched;
 	CamelDataWrapper *dw;
 	guint32 flags = 0;
+	gboolean success;
 
 	dw = camel_medium_get_content((CamelMedium *)part);
 
 	if (!strcmp(info->mime_type, "text/richtext")) {
 		flags = CAMEL_MIME_FILTER_ENRICHED_IS_RICHTEXT;
-		camel_stream_write_string(stream, "\n<!-- text/richtext -->\n");
+		camel_stream_write_string (
+			stream, "\n<!-- text/richtext -->\n", NULL);
 	} else {
-		camel_stream_write_string(stream, "\n<!-- text/enriched -->\n");
+		camel_stream_write_string (
+			stream, "\n<!-- text/enriched -->\n", NULL);
 	}
 
-	enriched = camel_mime_filter_enriched_new(flags);
+	enriched = camel_mime_filter_enriched_new (flags);
 	filtered_stream = camel_stream_filter_new (stream);
 	camel_stream_filter_add (
 		CAMEL_STREAM_FILTER (filtered_stream), enriched);
-	g_object_unref(enriched);
+	g_object_unref (enriched);
 
-	camel_stream_write_string(stream, "<br><hr><br>");
-	em_format_format_text((EMFormat *)emfq, filtered_stream, (CamelDataWrapper *)part);
-	g_object_unref(filtered_stream);
+	camel_stream_write_string (stream, "<br><hr><br>", NULL);
+
+	success = em_format_format_text (
+		EM_FORMAT (emfq), filtered_stream,
+		CAMEL_DATA_WRAPPER (part), error);
+
+	g_object_unref (filtered_stream);
+
+	return success;
 }
 
-static void
-emfq_text_html(EMFormat *emf, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
+static gboolean
+emfq_text_html (EMFormat *emf,
+                CamelStream *stream,
+                CamelMimePart *part,
+                EMFormatHandler *info,
+                GError **error)
 {
-	camel_stream_write_string(stream, "\n<!-- text/html -->\n");
-	em_format_format_text(emf, stream, (CamelDataWrapper *)part);
+	camel_stream_write_string (stream, "\n<!-- text/html -->\n", NULL);
+
+	return em_format_format_text (
+		emf, stream, CAMEL_DATA_WRAPPER (part), error);
 }
 
-static void
-emfq_ignore(EMFormat *emf, CamelStream *stream, CamelMimePart *part, EMFormatHandler *info)
+static gboolean
+emfq_ignore (EMFormat *emf,
+             CamelStream *stream,
+             CamelMimePart *part,
+             EMFormatHandler *info,
+             GError **error)
 {
-	/* NOOP */
+	return TRUE;
 }
 
 static EMFormatHandler type_builtin_table[] = {

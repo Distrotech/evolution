@@ -2146,17 +2146,16 @@ save_messages_exec (struct _save_messages_msg *m)
 
 		/* we need to flush after each stream write since we are writing to the same fd */
 		from = camel_mime_message_build_mbox_from(message);
-		if (camel_stream_write_string(stream, from) == -1
-		    || camel_stream_flush(stream) == -1
-		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, filtered_stream) == -1
-		    || camel_stream_flush(filtered_stream) == -1
-		    || camel_stream_write_string(stream, "\n") == -1
-		    || camel_stream_flush(stream) == -1) {
-			g_set_error (
+		if (camel_stream_write_string(stream, from, &m->base.error) == -1
+		    || camel_stream_flush(stream, &m->base.error) == -1
+		    || camel_data_wrapper_write_to_stream((CamelDataWrapper *)message, filtered_stream, &m->base.error) == -1
+		    || camel_stream_flush(filtered_stream, &m->base.error) == -1
+		    || camel_stream_write_string(stream, "\n", &m->base.error) == -1
+		    || camel_stream_flush(stream, &m->base.error) == -1) {
+			g_prefix_error (
 				&m->base.error,
-				CAMEL_ERROR, CAMEL_ERROR_SYSTEM,
-				_("Error saving messages to: %s:\n %s"),
-				m->path, g_strerror (errno));
+				_("Error saving messages to: %s:\n "),
+				m->path);
 			g_free(from);
 			g_object_unref((CamelObject *)message);
 			break;
@@ -2269,13 +2268,9 @@ save_part_exec (struct _save_part_msg *m)
 
 	content = camel_medium_get_content (CAMEL_MEDIUM (m->part));
 
-	if (camel_data_wrapper_decode_to_stream (content, stream) == -1
-	    || camel_stream_flush (stream) == -1)
-		g_set_error (
-			&m->base.error,
-			CAMEL_ERROR, CAMEL_ERROR_SYSTEM,
-			_("Could not write data: %s"),
-			g_strerror (errno));
+	if (camel_data_wrapper_decode_to_stream (content, stream, &m->base.error) == -1
+	    || camel_stream_flush (stream, &m->base.error) == -1)
+		g_prefix_error (&m->base.error, _("Could not write data: "));
 
 	g_object_unref (stream);
 }

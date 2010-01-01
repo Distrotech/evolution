@@ -2910,7 +2910,7 @@ comp_editor_get_mime_attach_list (CompEditor *editor)
 
 		byte_array = g_byte_array_new ();
 		mstream = camel_stream_mem_new_with_byte_array (byte_array);
-		camel_data_wrapper_decode_to_stream (wrapper, mstream);
+		camel_data_wrapper_decode_to_stream (wrapper, mstream, NULL);
 		buffer = g_memdup (byte_array->data, byte_array->len);
 
 		camel_mime_part_set_content_id (mime_part, NULL);

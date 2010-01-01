@@ -118,30 +118,37 @@ static gchar *
 emcu_part_to_html (CamelMimePart *part, gssize *len, EMFormat *source)
 {
 	EMFormatQuote *emfq;
-	CamelStreamMem *mem;
+	CamelStream *stream;
 	GByteArray *buf;
 	gchar *text;
 
 	buf = g_byte_array_new ();
-	mem = (CamelStreamMem *) camel_stream_mem_new ();
-	camel_stream_mem_set_byte_array (mem, buf);
+	stream = camel_stream_mem_new_with_byte_array (buf);
 
-	emfq = em_format_quote_new (NULL, (CamelStream *)mem, EM_FORMAT_QUOTE_KEEP_SIG);
+	emfq = em_format_quote_new (
+		NULL, stream, EM_FORMAT_QUOTE_KEEP_SIG);
 	((EMFormat *) emfq)->composer = TRUE;
-	if (source) {
-		/* copy over things we can, other things are internal, perhaps need different api than 'clone' */
+
+	if (source != NULL) {
+		/* copy over things we can, other things are internal,
+		 * perhaps need different api than 'clone' */
 		if (source->default_charset)
-			em_format_set_default_charset((EMFormat *)emfq, source->default_charset);
+			em_format_set_default_charset (
+				EM_FORMAT (emfq), source->default_charset);
 		if (source->charset)
-			em_format_set_default_charset((EMFormat *)emfq, source->charset);
+			em_format_set_default_charset (
+				EM_FORMAT (emfq), source->charset);
 	}
-	em_format_part((EMFormat *) emfq, (CamelStream *)mem, part);
-	g_object_unref(emfq);
 
-	camel_stream_write((CamelStream *) mem, "", 1);
-	g_object_unref(mem);
+	/* XXX Not handling errors. */
+	em_format_part (EM_FORMAT (emfq), stream, part, NULL);
 
-	text = (gchar *)buf->data;
+	g_object_unref (emfq);
+
+	camel_stream_write (stream, "", 1, NULL);
+	g_object_unref (stream);
+
+	text = (gchar *) buf->data;
 	if (len)
 		*len = buf->len-1;
 	g_byte_array_free (buf, FALSE);
@@ -673,7 +680,7 @@ build_message (EMsgComposer *composer,
 
 	/* construct the content object */
 	plain = camel_data_wrapper_new ();
-	camel_data_wrapper_construct_from_stream (plain, stream);
+	camel_data_wrapper_construct_from_stream (plain, stream, NULL);
 	g_object_unref (stream);
 
 	if (plain_encoding == CAMEL_TRANSFER_ENCODING_QUOTEDPRINTABLE) {
@@ -728,7 +735,7 @@ build_message (EMsgComposer *composer,
 			g_object_unref (mf);
 		}
 
-		camel_data_wrapper_construct_from_stream (html, stream);
+		camel_data_wrapper_construct_from_stream (html, stream, NULL);
 		g_object_unref (stream);
 		camel_data_wrapper_set_mime_type (html, "text/html; charset=utf-8");
 
@@ -1372,12 +1379,12 @@ autosave_load_draft (const gchar *filename)
 
 	g_return_val_if_fail (filename != NULL, NULL);
 
-	if (!(stream = camel_stream_fs_new_with_name (filename, O_RDONLY, 0)))
+	if (!(stream = camel_stream_fs_new_with_name (filename, O_RDONLY, 0, NULL)))
 		return NULL;
 
 	msg = camel_mime_message_new ();
 	camel_data_wrapper_construct_from_stream (
-		CAMEL_DATA_WRAPPER (msg), stream);
+		CAMEL_DATA_WRAPPER (msg), stream, NULL);
 	g_object_unref (stream);
 
 	composer = e_msg_composer_new_with_message (msg);
@@ -2038,7 +2045,7 @@ msg_composer_uri_requested (GtkhtmlEditor *editor,
 	array = g_byte_array_new ();
 	camel_stream = camel_stream_mem_new_with_byte_array (array);
 	wrapper = camel_medium_get_content (CAMEL_MEDIUM (part));
-	camel_data_wrapper_decode_to_stream (wrapper, camel_stream);
+	camel_data_wrapper_decode_to_stream (wrapper, camel_stream, NULL);
 
 	gtk_html_write (
 		gtkhtml_editor_get_html (editor), stream,
@@ -3551,12 +3558,13 @@ e_msg_composer_add_inline_image_from_file (EMsgComposer *composer,
 	if (!g_file_test (dec_file_name, G_FILE_TEST_IS_REGULAR))
 		return NULL;
 
-	stream = camel_stream_fs_new_with_name (dec_file_name, O_RDONLY, 0);
+	stream = camel_stream_fs_new_with_name (
+		dec_file_name, O_RDONLY, 0, NULL);
 	if (!stream)
 		return NULL;
 
 	wrapper = camel_data_wrapper_new ();
-	camel_data_wrapper_construct_from_stream (wrapper, stream);
+	camel_data_wrapper_construct_from_stream (wrapper, stream, NULL);
 	g_object_unref (CAMEL_OBJECT (stream));
 
 	mime_type = e_util_guess_mime_type (dec_file_name, TRUE);
@@ -3977,13 +3985,13 @@ e_msg_composer_load_from_file (const gchar *filename)
 
 	g_return_val_if_fail (filename != NULL, NULL);
 
-	stream = camel_stream_fs_new_with_name (filename, O_RDONLY, 0);
+	stream = camel_stream_fs_new_with_name (filename, O_RDONLY, 0, NULL);
 	if (stream == NULL)
 		return NULL;
 
 	msg = camel_mime_message_new ();
 	camel_data_wrapper_construct_from_stream (
-		CAMEL_DATA_WRAPPER (msg), stream);
+		CAMEL_DATA_WRAPPER (msg), stream, NULL);
 	g_object_unref (stream);
 
 	composer = e_msg_composer_new_with_message (msg);

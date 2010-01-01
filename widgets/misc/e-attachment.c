@@ -1040,7 +1040,8 @@ e_attachment_add_to_multipart (EAttachment *attachment,
 			CAMEL_BESTENC_GET_ENCODING);
 		camel_stream_filter_add (
 			CAMEL_STREAM_FILTER (filtered_stream), filter);
-		camel_data_wrapper_decode_to_stream (wrapper, filtered_stream);
+		camel_data_wrapper_decode_to_stream (
+			wrapper, filtered_stream, NULL);
 		g_object_unref (filtered_stream);
 		g_object_unref (stream);
 
@@ -1515,9 +1516,9 @@ attachment_load_finish (LoadContext *load_context)
 	size = g_memory_output_stream_get_data_size (output_stream);
 
 	stream = camel_stream_mem_new_with_buffer (data, size);
-	camel_data_wrapper_construct_from_stream (wrapper, stream);
+	camel_data_wrapper_construct_from_stream (wrapper, stream, NULL);
 	camel_data_wrapper_set_mime_type (wrapper, mime_type);
-	camel_stream_close (stream);
+	camel_stream_close (stream, NULL);
 	g_object_unref (stream);
 
 	mime_part = camel_mime_part_new ();
@@ -2435,7 +2436,7 @@ attachment_save_got_output_stream (SaveContext *save_context)
 	stream = camel_stream_mem_new ();
 	camel_stream_mem_set_byte_array (CAMEL_STREAM_MEM (stream), buffer);
 	wrapper = camel_medium_get_content (CAMEL_MEDIUM (mime_part));
-	camel_data_wrapper_decode_to_stream (wrapper, stream);
+	camel_data_wrapper_decode_to_stream (wrapper, stream, NULL);
 	g_object_unref (stream);
 
 	/* Load the buffer into a GMemoryInputStream.

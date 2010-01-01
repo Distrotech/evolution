@@ -63,7 +63,7 @@ em_html_stream_dispose (GObject *object)
 
 	if (emhs->html_stream != NULL) {
 		/* set 'in finalise' flag */
-		camel_stream_close (CAMEL_STREAM (emhs));
+		camel_stream_close (CAMEL_STREAM (emhs), NULL);
 	}
 
 	/* Chain up to parent's dispose() method. */

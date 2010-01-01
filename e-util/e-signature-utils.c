@@ -152,6 +152,7 @@ e_read_signature_file (ESignature *signature,
 	gboolean is_html;
 	gchar *content;
 	gsize length;
+	gint retval;
 	gint fd;
 
 	g_return_val_if_fail (E_IS_SIGNATURE (signature), NULL);
@@ -195,9 +196,13 @@ e_read_signature_file (ESignature *signature,
 	output_stream = camel_stream_mem_new ();
 	camel_stream_mem_set_byte_array (
 		CAMEL_STREAM_MEM (output_stream), buffer);
-	camel_stream_write_to_stream (input_stream, output_stream);
+	retval = camel_stream_write_to_stream (
+		input_stream, output_stream, error);
 	g_object_unref (output_stream);
 	g_object_unref (input_stream);
+
+	if (retval == -1)
+		return NULL;
 
 	/* Make sure the buffer is nul-terminated. */
 	length = (gsize) buffer->len;
@@ -288,8 +293,10 @@ e_run_signature_script (const gchar *filename)
 		camel_stream_mem_set_byte_array (
 			CAMEL_STREAM_MEM (output_stream), buffer);
 
+		/* XXX Improve error checking here. */
 		input_stream = camel_stream_fs_new_with_fd (in_fds[0]);
-		camel_stream_write_to_stream (input_stream, output_stream);
+		camel_stream_write_to_stream (
+			input_stream, output_stream, NULL);
 		g_object_unref (input_stream);
 
 		g_object_unref (output_stream);

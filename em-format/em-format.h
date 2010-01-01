@@ -59,7 +59,11 @@ typedef struct _EMFormatPrivate EMFormatPrivate;
 typedef struct _EMFormatHandler EMFormatHandler;
 typedef struct _EMFormatHeader EMFormatHeader;
 
-typedef void (*EMFormatFunc) (EMFormat *md, CamelStream *stream, CamelMimePart *part, const EMFormatHandler *info);
+typedef gboolean	(*EMFormatFunc)		(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 const EMFormatHandler *info,
+						 GError **error);
 
 typedef enum _em_format_mode_t {
 	EM_FORMAT_NORMAL,
@@ -100,7 +104,10 @@ enum _em_format_handler_t {
 };
 
 typedef struct _EMFormatPURI EMFormatPURI;
-typedef void (*EMFormatPURIFunc)(EMFormat *md, CamelStream *stream, EMFormatPURI *puri);
+typedef gboolean	(*EMFormatPURIFunc)	(EMFormat *emf,
+						 CamelStream *stream,
+						 EMFormatPURI *puri,
+						 GError **error);
 
 /**
  * struct _EMFormatPURI - Pending URI object.
@@ -235,21 +242,41 @@ struct _EMFormatClass {
 	void (*format_clone)(EMFormat *, CamelFolder *, const gchar *uid, CamelMimeMessage *, EMFormat *);
 
 	/* some internel error/inconsistency */
-	void (*format_error)(EMFormat *, CamelStream *, const gchar *msg);
+	gboolean	(*format_error)		(EMFormat *emf,
+						 CamelStream *stream,
+						 const gchar *msg,
+						 GError **error);
 
 	/* use for external structured parts */
-	void (*format_attachment)(EMFormat *, CamelStream *, CamelMimePart *, const gchar *mime_type, const EMFormatHandler *info);
+	gboolean	(*format_attachment)	(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 const gchar *mime_type,
+						 const EMFormatHandler *info,
+						 GError **error);
 
 	/* use for unparsable content */
-	void (*format_source)(EMFormat *, CamelStream *, CamelMimePart *);
+	gboolean	(*format_source)	(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 GError **error);
+
 	/* for outputing secure(d) content */
-	void (*format_secure)(EMFormat *, CamelStream *, CamelMimePart *, CamelCipherValidity *);
+	gboolean	(*format_secure)	(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 CamelCipherValidity *valid,
+						 GError **error);
 
 	/* returns true if the formatter is still busy with pending stuff */
 	gboolean (*busy)(EMFormat *);
 
 	/* Shows optional way to open messages  */
-	void (*format_optional)(EMFormat *, CamelStream *, CamelMimePart *, CamelStream* );
+	gboolean	(*format_optional)	(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 CamelStream *mem_stream,
+						 GError **error);
 
 	/* signals */
 	/* complete, alternative to polling busy, for asynchronous work */
@@ -329,42 +356,50 @@ void		em_format_format		(EMFormat *emf,
 						 const gchar *uid,
 						 CamelMimeMessage *message);
 void		em_format_redraw		(EMFormat *emf);
-void		em_format_format_attachment	(EMFormat *emf,
+gboolean	em_format_format_attachment	(EMFormat *emf,
 						 CamelStream *stream,
 						 CamelMimePart *mime_part,
 						 const gchar *mime_type,
-						 const EMFormatHandler *info);
-void		em_format_format_error		(EMFormat *emf,
+						 const EMFormatHandler *info,
+						 GError **error);
+gboolean	em_format_format_error		(EMFormat *emf,
 						 CamelStream *stream,
+						 GError **error,
 						 const gchar *format,
-						 ...) G_GNUC_PRINTF (3, 4);
-void		em_format_format_secure		(EMFormat *emf,
+						 ...) G_GNUC_PRINTF (4, 5);
+gboolean	em_format_format_secure		(EMFormat *emf,
 						 CamelStream *stream,
 						 CamelMimePart *mime_part,
-						 CamelCipherValidity *valid);
-void		em_format_format_source		(EMFormat *emf,
+						 CamelCipherValidity *valid,
+						 GError **error);
+gboolean	em_format_format_source		(EMFormat *emf,
 						 CamelStream *stream,
-						 CamelMimePart *mime_part);
+						 CamelMimePart *mime_part,
+						 GError **error);
 
 gboolean	em_format_busy			(EMFormat *emf);
 
 /* raw content only */
-void		em_format_format_content	(EMFormat *emf,
-						 CamelStream *stream,
-						 CamelMimePart *part);
-
-/* raw content text parts - should this just be checked/done by above? */
-void		em_format_format_text		(EMFormat *emf,
-						 CamelStream *stream,
-						 CamelDataWrapper *part);
-
-void		em_format_part_as		(EMFormat *emf,
+gboolean	em_format_format_content	(EMFormat *emf,
 						 CamelStream *stream,
 						 CamelMimePart *part,
-						 const gchar *mime_type);
-void		em_format_part			(EMFormat *emf,
+						 GError **error);
+
+/* raw content text parts - should this just be checked/done by above? */
+gboolean	em_format_format_text		(EMFormat *emf,
 						 CamelStream *stream,
-						 CamelMimePart *part);
+						 CamelDataWrapper *part,
+						 GError **error);
+
+gboolean	em_format_part_as		(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 const gchar *mime_type,
+						 GError **error);
+gboolean	em_format_part			(EMFormat *emf,
+						 CamelStream *stream,
+						 CamelMimePart *part,
+						 GError **error);
 void		em_format_merge_handler		(EMFormat *new,
 						 EMFormat *old);
 

@@ -815,7 +815,7 @@ pst_process_email (PstImporter *m, pst_item *item)
 		/*g_message ("  Email headers... %s...", item->email->header);*/
 
 		stream = camel_stream_mem_new_with_buffer (item->email->header.str, strlen (item->email->header.str));
-		if (camel_data_wrapper_construct_from_stream ((CamelDataWrapper *)msg, stream) == -1)
+		if (camel_data_wrapper_construct_from_stream ((CamelDataWrapper *)msg, stream, NULL) == -1)
 			g_warning ("Error reading headers, skipped");
 
 	} else {
@@ -1218,7 +1218,7 @@ set_cal_attachments (ECal *cal, ECalComponent *ec, PstImporter *m, pst_item_atta
 			continue;
 		}
 
-		if (!(stream = camel_stream_fs_new_with_name (path, O_WRONLY | O_CREAT | O_TRUNC, 0666))) {
+		if (!(stream = camel_stream_fs_new_with_name (path, O_WRONLY | O_CREAT | O_TRUNC, 0666, NULL))) {
 			g_warning ("Could not create stream for file %s - %s", path, g_strerror (errno));
 			attach = attach->next;
 			continue;
@@ -1226,8 +1226,8 @@ set_cal_attachments (ECal *cal, ECalComponent *ec, PstImporter *m, pst_item_atta
 
 		content = camel_medium_get_content (CAMEL_MEDIUM (part));
 
-		if (camel_data_wrapper_decode_to_stream (content, stream) == -1
-			|| camel_stream_flush (stream) == -1)
+		if (camel_data_wrapper_decode_to_stream (content, stream, NULL) == -1
+			|| camel_stream_flush (stream, NULL) == -1)
 		{
 			g_warning ("Could not write attachment to %s: %s", path, g_strerror (errno));
 			g_object_unref (stream);

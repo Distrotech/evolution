@@ -207,8 +207,8 @@ org_gnome_popup_wizard (EPlugin *ep, EMEventTargetMessage *target)
 
 		byte_array = g_byte_array_new ();
 		content = camel_stream_mem_new_with_byte_array (byte_array);
-		camel_data_wrapper_write_to_stream(dw, content);
-		camel_stream_write(content, "", 1);
+		camel_data_wrapper_write_to_stream(dw, content, NULL);
+		camel_stream_write(content, "", 1, NULL);
 
 		from_addr = camel_mime_message_get_from ((CamelMimeMessage *)target->message);
 		if (from_addr && camel_internet_address_get(from_addr, 0, &name, &email)) {
