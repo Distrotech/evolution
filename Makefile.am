@@ -66,6 +66,7 @@ SUBDIRS = 			\
 	views			\
 	po			\
 	sounds			\
+	capplet			\
 	$(HELP_SUBDIR)
 
 DISTCLEANFILES = 			\
