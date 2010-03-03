@@ -1580,7 +1580,7 @@ comp_editor_init (CompEditor *editor)
 	GtkAction *action;
 	GtkWidget *container;
 	GtkWidget *widget;
-	GtkWidget *scroll;
+	GtkWidget *scroll = NULL;
 	GtkWindow *window;
 	EShell *shell;
 	gint n_targets;
