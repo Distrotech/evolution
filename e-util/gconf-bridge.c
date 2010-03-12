@@ -24,6 +24,7 @@
 #include <gtk/gtk.h>
 #include <glib/gi18n-lib.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "gconf-bridge.h"
 
@@ -737,6 +738,10 @@ window_binding_unmap_cb (GtkWindow     *window,
         /* Force sync */
         if (binding->sync_timeout_id > 0)
                 g_source_remove (binding->sync_timeout_id);
+
+        /* XXX It's too late to record the window position.
+         *     gtk_window_get_position() will report (0, 0). */
+        binding->bind_pos = FALSE;
 
         window_binding_perform_scheduled_sync (binding);
 

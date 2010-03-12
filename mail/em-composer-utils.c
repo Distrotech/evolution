@@ -1574,7 +1574,8 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	camel_content_type_unref (type);
 	stream = camel_stream_mem_new ();
 	camel_stream_printf (stream,
-			     "Your message to %s about \"%s\" on %s has been read.",
+	/* Translators: First %s is an email address, second %s is the subject of the email, third %s is the date */
+			     _("Your message to %s about \"%s\" on %s has been read."),
 			     self_address, message_subject, message_date);
 	camel_data_wrapper_construct_from_stream (receipt_text, stream);
 	camel_object_unref (stream);
@@ -1621,7 +1622,8 @@ em_utils_send_receipt (CamelFolder *folder, CamelMimeMessage *message)
 	camel_medium_set_content_object (CAMEL_MEDIUM (receipt), CAMEL_DATA_WRAPPER (body));
 	camel_object_unref (body);
 
-	receipt_subject = g_strdup_printf ("Delivery Notification for: \"%s\"", message_subject);
+	/* Translators: %s is the subject of the email message */
+	receipt_subject = g_strdup_printf (_("Delivery Notification for: \"%s\""), message_subject);
 	camel_mime_message_set_subject (receipt, receipt_subject);
 	g_free (receipt_subject);
 
@@ -1892,12 +1894,6 @@ get_reply_all (CamelMimeMessage *message, CamelInternetAddress *to, CamelInterne
 
 	concat_unique_addrs (cc, to_addrs, rcpt_hash);
 	concat_unique_addrs (cc, cc_addrs, rcpt_hash);
-
-	/* use reply_to for an empty To: */
-	if (reply_to && camel_address_length ((CamelAddress *) to) == 0) {
-		camel_internet_address_get (reply_to, 0, &name, &addr);
-		camel_internet_address_add (to, name, addr);
-	}
 
 	/* promote the first Cc: address to To: if To: is empty */
 	if (camel_address_length ((CamelAddress *) to) == 0 && camel_address_length ((CamelAddress *)cc) > 0) {

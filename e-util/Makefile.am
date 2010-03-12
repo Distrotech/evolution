@@ -62,17 +62,17 @@ libeutil_la_CPPFLAGS =							\
 	-I$(top_srcdir)							\
 	-I$(top_builddir)						\
 	-I$(top_srcdir)/widgets						\
-	-DEVOLUTION_CATEGORY_ICONS=\""$(imagesdir)/categories"\"	\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"				\
 	-DEVOLUTION_ECPSDIR=\""$(ecpsdir)"\"				\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"			\
 	-DEVOLUTION_GALVIEWSDIR=\""$(viewsdir)"\"			\
 	-DEVOLUTION_HELPDIR=\""$(evolutionhelpdir)"\"			\
-	-DEVOLUTION_ICONSDIR=\""$(imagesdir)"\"				\
+	-DEVOLUTION_ICONDIR=\""$(icondir)"\"				\
 	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"			\
 	-DEVOLUTION_LIBDIR=\""$(datadir)"\"				\
 	-DEVOLUTION_LIBEXECDIR=\""$(privlibexecdir)"\"			\
 	-DEVOLUTION_LOCALEDIR=\""$(localedir)"\"			\
+	-DEVOLUTION_MODULEDIR=\""$(moduledir)"\"		\
 	-DEVOLUTION_PLUGINDIR=\""$(plugindir)"\"			\
 	-DEVOLUTION_PREFIX=\""$(prefix)"\"				\
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"			\
@@ -80,7 +80,7 @@ libeutil_la_CPPFLAGS =							\
 	-DEVOLUTION_SYSCONFDIR=\""$(sysconfdir)"\"			\
 	-DEVOLUTION_TOOLSDIR=\""$(privlibexecdir)"\"			\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"				\
-	-DSEARCH_RULE_DIR=\"$(ruledir)\"				\
+	-DEVOLUTION_RULEDIR=\"$(ruledir)\"				\
 	-DG_LOG_DOMAIN=\"e-utils\"					\
 	$(GNOME_PLATFORM_CFLAGS)					\
 	$(GNOME_PILOT_CFLAGS)						\
@@ -168,13 +168,12 @@ libeconduit_la_CPPFLAGS =							\
 	-I$(top_srcdir)							\
 	-I$(top_builddir)						\
 	-I$(top_srcdir)/widgets						\
-	-DEVOLUTION_CATEGORY_ICONS=\""$(imagesdir)/categories"\"	\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"				\
 	-DEVOLUTION_ECPSDIR=\""$(ecpsdir)"\"				\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"			\
 	-DEVOLUTION_GALVIEWSDIR=\""$(viewsdir)"\"			\
 	-DEVOLUTION_HELPDIR=\""$(evolutionhelpdir)"\"			\
-	-DEVOLUTION_ICONSDIR=\""$(imagesdir)"\"				\
+	-DEVOLUTION_ICONDIR=\""$(icondir)"\"				\
 	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"			\
 	-DEVOLUTION_LIBDIR=\""$(datadir)"\"				\
 	-DEVOLUTION_LIBEXECDIR=\""$(privlibexecdir)"\"			\
@@ -186,7 +185,7 @@ libeconduit_la_CPPFLAGS =							\
 	-DEVOLUTION_SYSCONFDIR=\""$(sysconfdir)"\"			\
 	-DEVOLUTION_TOOLSDIR=\""$(privlibexecdir)"\"			\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"				\
-	-DSEARCH_RULE_DIR=\"$(ruledir)\"				\
+	-DEVOLUTION_RULEDIR=\"$(ruledir)\"				\
 	-DG_LOG_DOMAIN=\"e-utils\"					\
 	$(GNOME_PILOT_CFLAGS)						\
 	$(E_UTIL_CFLAGS)

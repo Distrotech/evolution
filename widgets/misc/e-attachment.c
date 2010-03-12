@@ -55,7 +55,7 @@
 #define EMBLEM_ENCRYPT_WEAK	"security-low"
 #define EMBLEM_ENCRYPT_STRONG	"security-high"
 #define EMBLEM_ENCRYPT_UNKNOWN	"security-medium"
-#define EMBLEM_SIGN_BAD		"stock_signature_bad"
+#define EMBLEM_SIGN_BAD		"stock_signature-bad"
 #define EMBLEM_SIGN_GOOD	"stock_signature-ok"
 #define EMBLEM_SIGN_UNKNOWN	"stock_signature"
 
@@ -2066,8 +2066,10 @@ attachment_open_save_finished_cb (EAttachment *attachment,
 	 *     which is obviously not portable.
 	 */
 	path = g_file_get_path (file);
+#ifndef G_OS_WIN32
 	if (g_chmod (path, S_IRUSR | S_IRGRP | S_IROTH) < 0)
 		g_warning ("%s", g_strerror (errno));
+#endif
 	g_free (path);
 
 	attachment_open_file (file, open_context);

@@ -1,7 +1,7 @@
 dnl Evolution Versions
 m4_define([evo_major_version], [2])
-m4_define([evo_minor_version], [29])
-m4_define([evo_micro_version], [92])
+m4_define([evo_minor_version], [30])
+m4_define([evo_micro_version], [0])
 m4_define([evo_version],
 	[evo_major_version.evo_minor_version.evo_micro_version])
 m4_define([evo_stable_version],
@@ -217,6 +217,7 @@ dnl Check for base dependencies early.
 dnl **********************************
 PKG_CHECK_MODULES([GNOME_PLATFORM],
 	[glib-2.0 >= glib_minimum_version
+	 gthread-2.0 >= glib_minimum_version
 	 gtk+-2.0 >= gtk_minimum_version
 	 gconf-2.0 >= gconf_minimum_version
 	 libgnomecanvas-2.0 >= libgnomecanvas_minimum_version
@@ -1598,7 +1599,6 @@ AC_SUBST(EVOLUTION_DIR)
 
 AC_CONFIG_FILES([ po/Makefile.in
 Makefile
-win32/Makefile
 a11y/Makefile
 addressbook/Makefile
 addressbook/conduit/Makefile

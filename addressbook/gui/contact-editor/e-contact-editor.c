@@ -775,7 +775,8 @@ extract_email_record (EContactEditor *editor, gint record, gchar **address, gint
 {
 	GtkWidget *location_combo_box;
 	GtkWidget *email_entry;
-	gchar     *widget_name;
+	gchar *widget_name;
+	const gchar *text;
 
 	widget_name = g_strdup_printf ("combobox-email-%d", record);
 	location_combo_box = e_builder_get_widget (editor->builder, widget_name);
@@ -785,7 +786,8 @@ extract_email_record (EContactEditor *editor, gint record, gchar **address, gint
 	email_entry = e_builder_get_widget (editor->builder, widget_name);
 	g_free (widget_name);
 
-	*address  = g_strdup (gtk_entry_get_text (GTK_ENTRY (email_entry)));
+	text = gtk_entry_get_text (GTK_ENTRY (email_entry));
+	*address  = g_strstrip (g_strdup (text));
 	*location = gtk_combo_box_get_active (GTK_COMBO_BOX (location_combo_box));
 }
 
@@ -3375,7 +3377,11 @@ expand_phone_toggle (EContactEditor *ce)
 	GtkWidget *phone_ext_table;
 
 	phone_ext_table = e_builder_get_widget (ce->builder, "table-phone-extended");
+#if GTK_CHECK_VERSION(2,19,7)
+	expand_phone (ce, gtk_widget_get_visible (phone_ext_table) ? FALSE : TRUE);
+#else
 	expand_phone (ce, GTK_WIDGET_VISIBLE (phone_ext_table) ? FALSE : TRUE);
+#endif
 }
 
 static void

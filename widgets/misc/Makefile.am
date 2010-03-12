@@ -1,7 +1,3 @@
-if OS_WIN32
-WIN32_BOOTSTRAP_LIBS = $(top_builddir)/win32/libfilter.la
-endif
-
 privsolib_LTLIBRARIES = libemiscwidgets.la
 
 widgetsincludedir = $(privincludedir)/misc
@@ -87,7 +83,7 @@ libemiscwidgets_la_CPPFLAGS =						\
 	-I$(top_srcdir)							\
 	-I$(top_srcdir)/filter						\
 	-I$(top_srcdir)/widgets						\
-	-DEVOLUTION_IMAGES=\""$(imagesdir)"\"				\
+	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"				\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"				\
 	-DG_LOG_DOMAIN=__FILE__						\
 	$(EVOLUTION_MAIL_CFLAGS)					\
@@ -179,8 +175,7 @@ test_widgets_misc_CPPFLAGS=						\
 	-I$(top_srcdir)							\
 	-I$(top_srcdir)/filter						\
 	-I$(top_srcdir)/widgets						\
-	-DEVOLUTION_IMAGES=\""$(imagesdir)"\"				\
-	-DEVOLUTION_GLADEDIR=\""$(gladedir)"\"				\
+	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"				\
 	-DG_LOG_DOMAIN=__FILE__						\
 	$(EVOLUTION_MAIL_CFLAGS)					\
 	$(GNOME_PLATFORM_CFLAGS)
