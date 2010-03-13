@@ -30,16 +30,15 @@
 #include "e-util/gconf-bridge.h"
 #include "widgets/menus/gal-view-etable.h"
 #include "widgets/menus/gal-view-instance.h"
-#include "widgets/misc/e-paned.h"
-#include "widgets/misc/e-preview-pane.h"
-#include "widgets/misc/e-search-bar.h"
 
 #include "em-utils.h"
 #include "mail-config.h"
 #include "mail-ops.h"
 #include "message-list.h"
 
+#include "e-mail-paned.h"
 #include "e-mail-reader.h"
+#include "e-mail-reader-utils.h"
 #include "e-mail-shell-backend.h"
 #include "e-mail-shell-view-actions.h"
 
@@ -53,11 +52,7 @@
 
 struct _EMailShellContentPrivate {
 	GtkWidget *paned;
-	GtkWidget *scrolled_window;
-	GtkWidget *message_list;
-	GtkWidget *search_bar;
 
-	EMFormatHTMLDisplay *html_display;
 	GalViewInstance *view_instance;
 	GtkOrientation orientation;
 
@@ -327,26 +322,6 @@ mail_shell_content_dispose (GObject *object)
 		priv->paned = NULL;
 	}
 
-	if (priv->scrolled_window != NULL) {
-		g_object_unref (priv->scrolled_window);
-		priv->scrolled_window = NULL;
-	}
-
-	if (priv->message_list != NULL) {
-		g_object_unref (priv->message_list);
-		priv->message_list = NULL;
-	}
-
-	if (priv->search_bar != NULL) {
-		g_object_unref (priv->search_bar);
-		priv->search_bar = NULL;
-	}
-
-	if (priv->html_display != NULL) {
-		g_object_unref (priv->html_display);
-		priv->html_display = NULL;
-	}
-
 	if (priv->view_instance != NULL) {
 		g_object_unref (priv->view_instance);
 		priv->view_instance = NULL;
@@ -363,17 +338,16 @@ mail_shell_content_constructed (GObject *object)
 	EShellContent *shell_content;
 	EShellBackend *shell_backend;
 	EShellView *shell_view;
-	ESearchBar *search_bar;
+	EShellSettings *shell_settings;
+	EShell *shell;
 	EMailReader *reader;
 	GtkWidget *message_list;
 	GConfBridge *bridge;
 	GtkWidget *container;
 	GtkWidget *widget;
-	EWebView *web_view;
 	const gchar *key;
 
 	priv = E_MAIL_SHELL_CONTENT_GET_PRIVATE (object);
-	priv->html_display = em_format_html_display_new ();
 
 	/* Chain up to parent's constructed() method. */
 	G_OBJECT_CLASS (parent_class)->constructed (object);
@@ -382,54 +356,37 @@ mail_shell_content_constructed (GObject *object)
 	shell_view = e_shell_content_get_shell_view (shell_content);
 	shell_backend = e_shell_view_get_shell_backend (shell_view);
 
-	web_view = E_WEB_VIEW (EM_FORMAT_HTML (priv->html_display)->html);
+	shell = e_shell_backend_get_shell (shell_backend);
+	shell_settings = e_shell_get_shell_settings (shell);
 
 	/* Build content widgets. */
 
 	container = GTK_WIDGET (object);
 
-	widget = e_paned_new (GTK_ORIENTATION_VERTICAL);
+	widget = e_mail_paned_new (shell_backend);
 	gtk_container_add (GTK_CONTAINER (container), widget);
 	priv->paned = g_object_ref (widget);
 	gtk_widget_show (widget);
 
-	e_binding_new (object, "orientation", widget, "orientation");
+	g_signal_connect_swapped (
+		priv->paned, "mark-as-read",
+		G_CALLBACK (e_mail_reader_mark_as_read), object);
 
-	container = priv->paned;
+	e_binding_new (
+		object, "orientation",
+		widget, "orientation");
 
-	widget = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (
-		GTK_SCROLLED_WINDOW (widget),
-		GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
-	gtk_scrolled_window_set_shadow_type (
-		GTK_SCROLLED_WINDOW (widget), GTK_SHADOW_IN);
-	priv->scrolled_window = g_object_ref (widget);
-	gtk_paned_pack1 (GTK_PANED (container), widget, TRUE, FALSE);
-	gtk_widget_show (widget);
+	e_binding_new (
+		shell_settings, "mail-mark-seen",
+		widget, "mark-as-read-enabled");
 
-	container = widget;
+	e_binding_new (
+		shell_settings, "mail-mark-seen-timeout",
+		widget, "mark-as-read-delay");
 
-	widget = message_list_new (shell_backend);
-	gtk_container_add (GTK_CONTAINER (container), widget);
-	priv->message_list = g_object_ref (widget);
-	gtk_widget_show (widget);
-
-	container = priv->paned;
-
-	gtk_widget_show (GTK_WIDGET (web_view));
-
-	widget = e_preview_pane_new (web_view);
-	gtk_paned_pack2 (GTK_PANED (container), widget, FALSE, FALSE);
-	gtk_widget_show (widget);
+	widget = gtk_paned_get_child2 (GTK_PANED (priv->paned));
 
 	e_binding_new (object, "preview-visible", widget, "visible");
-
-	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));
-	priv->search_bar = g_object_ref (search_bar);
-
-	g_signal_connect_swapped (
-		search_bar, "changed",
-		G_CALLBACK (em_format_redraw), priv->html_display);
 
 	/* Load the view instance. */
 
@@ -497,20 +454,34 @@ static EMFormatHTMLDisplay *
 mail_shell_content_get_html_display (EMailReader *reader)
 {
 	EMailShellContentPrivate *priv;
+	EMailMessagePane *message_pane;
+	EMFormatHTML *formatter;
+	EMailDisplay *display;
+	EMailPaned *paned;
 
 	priv = E_MAIL_SHELL_CONTENT_GET_PRIVATE (reader);
 
-	return priv->html_display;
+	paned = E_MAIL_PANED (priv->paned);
+	message_pane = e_mail_paned_get_message_pane (paned);
+	display = e_mail_message_pane_get_display (message_pane);
+	formatter = e_mail_display_get_formatter (display);
+
+	return EM_FORMAT_HTML_DISPLAY (formatter);
 }
 
 static GtkWidget *
 mail_shell_content_get_message_list (EMailReader *reader)
 {
 	EMailShellContentPrivate *priv;
+	EMailFolderPane *folder_pane;
+	EMailPaned *paned;
 
 	priv = E_MAIL_SHELL_CONTENT_GET_PRIVATE (reader);
 
-	return priv->message_list;
+	paned = E_MAIL_PANED (priv->paned);
+	folder_pane = e_mail_paned_get_folder_pane (paned);
+
+	return e_mail_folder_pane_get_message_list (folder_pane);
 }
 
 static GtkMenu *
@@ -567,6 +538,8 @@ mail_shell_content_set_folder (EMailReader *reader,
 	EShellContent *shell_content;
 	EMailShellContentPrivate *priv;
 	EMailReaderIface *default_iface;
+	EMailPaned *paned;
+	EMailFolderPane *folder_pane;
 	GtkWidget *message_list;
 	CamelFolder *old_folder;
 	GKeyFile *key_file;
@@ -589,6 +562,11 @@ mail_shell_content_set_folder (EMailReader *reader,
 	/* Chain up to interface's default set_folder() method. */
 	default_iface = g_type_default_interface_peek (E_TYPE_MAIL_READER);
 	default_iface->set_folder (reader, folder, folder_uri);
+
+	paned = E_MAIL_PANED (priv->paned);
+	folder_pane = e_mail_paned_get_folder_pane (paned);
+
+	e_mail_folder_pane_set_folder (folder_pane, folder, folder_uri);
 
 	if (folder == NULL)
 		goto exit;
@@ -647,10 +625,15 @@ static void
 mail_shell_content_show_search_bar (EMailReader *reader)
 {
 	EMailShellContentPrivate *priv;
+	EMailMessagePane *message_pane;
+	EMailPaned *paned;
 
 	priv = E_MAIL_SHELL_CONTENT_GET_PRIVATE (reader);
 
-	gtk_widget_show (priv->search_bar);
+	paned = E_MAIL_PANED (priv->paned);
+	message_pane = e_mail_paned_get_message_pane (paned);
+
+	e_preview_pane_show_search_bar (E_PREVIEW_PANE (message_pane));
 }
 
 static void
@@ -914,12 +897,19 @@ void
 e_mail_shell_content_set_search_strings (EMailShellContent *mail_shell_content,
                                          GSList *search_strings)
 {
+	EMailPaned *paned;
 	ESearchBar *search_bar;
+	EPreviewPane *preview_pane;
+	EMailMessagePane *message_pane;
 	ESearchingTokenizer *tokenizer;
 
 	g_return_if_fail (E_IS_MAIL_SHELL_CONTENT (mail_shell_content));
 
-	search_bar = E_SEARCH_BAR (mail_shell_content->priv->search_bar);
+	paned = E_MAIL_PANED (mail_shell_content->priv->paned);
+	message_pane = e_mail_paned_get_message_pane (paned);
+
+	preview_pane = E_PREVIEW_PANE (message_pane);
+	search_bar = e_preview_pane_get_search_bar (preview_pane);
 	tokenizer = e_search_bar_get_tokenizer (search_bar);
 
 	e_searching_tokenizer_set_secondary_case_sensitivity (tokenizer, FALSE);

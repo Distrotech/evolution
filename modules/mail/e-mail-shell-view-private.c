@@ -249,8 +249,7 @@ mail_shell_view_popup_event_cb (EMailShellView *mail_shell_view,
 }
 
 static void
-mail_shell_view_reader_changed_cb (EMailShellView *mail_shell_view,
-                                   EMailReader *reader)
+mail_shell_view_update (EMailShellView *mail_shell_view)
 {
 	e_shell_view_update_actions (E_SHELL_VIEW (mail_shell_view));
 	e_mail_shell_view_update_sidebar (mail_shell_view);
@@ -510,6 +509,11 @@ e_mail_shell_view_private_constructed (EMailShellView *mail_shell_view)
 		mail_shell_view);
 
 	g_signal_connect_swapped (
+		message_list, "message-selected",
+		G_CALLBACK (mail_shell_view_update),
+		mail_shell_view);
+
+	g_signal_connect_swapped (
 		message_list, "popup-menu",
 		G_CALLBACK (mail_shell_view_message_list_popup_menu_cb),
 		mail_shell_view);
@@ -520,8 +524,8 @@ e_mail_shell_view_private_constructed (EMailShellView *mail_shell_view)
 		mail_shell_view);
 
 	g_signal_connect_swapped (
-		reader, "changed",
-		G_CALLBACK (mail_shell_view_reader_changed_cb),
+		message_list, "selection-change",
+		G_CALLBACK (mail_shell_view_update),
 		mail_shell_view);
 
 	g_signal_connect_swapped (
@@ -532,7 +536,7 @@ e_mail_shell_view_private_constructed (EMailShellView *mail_shell_view)
 	/* Use the same callback as "changed". */
 	g_signal_connect_swapped (
 		reader, "folder-loaded",
-		G_CALLBACK (mail_shell_view_reader_changed_cb),
+		G_CALLBACK (mail_shell_view_update),
 		mail_shell_view);
 
 	g_signal_connect_swapped (

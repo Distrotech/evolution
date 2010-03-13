@@ -133,7 +133,7 @@ preview_pane_constructed (GObject *object)
 		GTK_SCROLLED_WINDOW (widget), GTK_SHADOW_IN);
 	gtk_box_pack_start (GTK_BOX (object), widget, TRUE, TRUE, 0);
 	gtk_container_add (GTK_CONTAINER (widget), priv->web_view);
-	gtk_widget_show (widget);
+	gtk_widget_show_all (widget);
 
 	widget = e_search_bar_new (E_WEB_VIEW (priv->web_view));
 	gtk_box_pack_start (GTK_BOX (object), widget, FALSE, FALSE, 0);

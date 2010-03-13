@@ -75,7 +75,7 @@ gboolean	e_mail_shell_content_get_preview_visible
 					(EMailShellContent *mail_shell_content);
 void		e_mail_shell_content_set_preview_visible
 					(EMailShellContent *mail_shell_content,
-						 gboolean preview_visible);
+					 gboolean preview_visible);
 EShellSearchbar *
 		e_mail_shell_content_get_searchbar
 					(EMailShellContent *mail_shell_content);

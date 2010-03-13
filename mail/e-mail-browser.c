@@ -26,6 +26,7 @@
 #include <camel/camel-folder.h>
 
 #include "e-util/e-util.h"
+#include "e-util/e-binding.h"
 #include "e-util/e-plugin-ui.h"
 #include "e-util/gconf-bridge.h"
 #include "shell/e-shell.h"
@@ -33,6 +34,7 @@
 #include "widgets/misc/e-popup-action.h"
 #include "widgets/misc/e-preview-pane.h"
 
+#include "mail/e-mail-paned.h"
 #include "mail/e-mail-reader.h"
 #include "mail/e-mail-reader-utils.h"
 #include "mail/em-folder-tree-model.h"
@@ -50,12 +52,10 @@ struct _EMailBrowserPrivate {
 	EFocusTracker *focus_tracker;
 	EShellBackend *shell_backend;
 	GtkActionGroup *action_group;
-	EMFormatHTMLDisplay *html_display;
 
 	GtkWidget *main_menu;
 	GtkWidget *main_toolbar;
-	GtkWidget *message_list;
-	GtkWidget *search_bar;
+	GtkWidget *paned;
 	GtkWidget *statusbar;
 
 	guint show_deleted : 1;
@@ -405,11 +405,6 @@ mail_browser_dispose (GObject *object)
 		priv->action_group = NULL;
 	}
 
-	if (priv->html_display != NULL) {
-		g_object_unref (priv->html_display);
-		priv->html_display = NULL;
-	}
-
 	if (priv->main_menu != NULL) {
 		g_object_unref (priv->main_menu);
 		priv->main_menu = NULL;
@@ -420,14 +415,9 @@ mail_browser_dispose (GObject *object)
 		priv->main_toolbar = NULL;
 	}
 
-	if (priv->message_list != NULL) {
-		g_object_unref (priv->message_list);
-		priv->message_list = NULL;
-	}
-
-	if (priv->search_bar != NULL) {
-		g_object_unref (priv->search_bar);
-		priv->search_bar = NULL;
+	if (priv->paned != NULL) {
+		g_object_unref (priv->paned);
+		priv->paned = NULL;
 	}
 
 	if (priv->statusbar != NULL) {
@@ -442,21 +432,23 @@ mail_browser_dispose (GObject *object)
 static void
 mail_browser_constructed (GObject *object)
 {
-	EMFormatHTMLDisplay *html_display;
 	EMailBrowserPrivate *priv;
 	EMailReader *reader;
 	EShellBackend *shell_backend;
 	EShell *shell;
+	EMailPaned *paned;
+	EMailDisplay *display;
+	EMailFolderPane *folder_pane;
+	EMailMessagePane *message_pane;
 	EFocusTracker *focus_tracker;
-	ESearchBar *search_bar;
 	GConfBridge *bridge;
 	GtkAccelGroup *accel_group;
 	GtkActionGroup *action_group;
 	GtkAction *action;
 	GtkUIManager *ui_manager;
+	GtkWidget *message_list;
 	GtkWidget *container;
 	GtkWidget *widget;
-	EWebView *web_view;
 	const gchar *domain;
 	const gchar *key;
 	const gchar *id;
@@ -468,33 +460,12 @@ mail_browser_constructed (GObject *object)
 	ui_manager = priv->ui_manager;
 	domain = GETTEXT_PACKAGE;
 
-	html_display = e_mail_reader_get_html_display (reader);
 	shell_backend = e_mail_reader_get_shell_backend (reader);
 
 	shell = e_shell_backend_get_shell (shell_backend);
 	e_shell_watch_window (shell, GTK_WINDOW (object));
 
-	web_view = E_WEB_VIEW (EM_FORMAT_HTML (html_display)->html);
-
-	/* The message list is a widget, but it is not shown in the browser.
-	 * Unfortunately, the widget is inseparable from its model, and the
-	 * model is all we need. */
-	priv->message_list = message_list_new (shell_backend);
-	g_object_ref_sink (priv->message_list);
-
-	g_signal_connect_swapped (
-		priv->message_list, "message-selected",
-		G_CALLBACK (mail_browser_message_selected_cb), object);
-
-	g_signal_connect_swapped (
-		web_view, "popup-event",
-		G_CALLBACK (mail_browser_popup_event_cb), object);
-
-	g_signal_connect_swapped (
-		web_view, "status-message",
-		G_CALLBACK (mail_browser_status_message_cb), object);
-
-	e_mail_reader_init (reader);
+	e_shell_configure_ui_manager (shell, E_UI_MANAGER (ui_manager));
 
 	action_group = priv->action_group;
 	gtk_action_group_set_translation_domain (action_group, domain);
@@ -511,15 +482,21 @@ mail_browser_constructed (GObject *object)
 	e_ui_manager_add_ui_from_string (
 		E_UI_MANAGER (ui_manager), ui, NULL);
 
-	merge_id = gtk_ui_manager_new_merge_id (GTK_UI_MANAGER (ui_manager));
-	e_mail_reader_create_charset_menu (reader, ui_manager, merge_id);
-
 	accel_group = gtk_ui_manager_get_accel_group (ui_manager);
 	gtk_window_add_accel_group (GTK_WINDOW (object), accel_group);
 
 	g_signal_connect_swapped (
 		ui_manager, "connect-proxy",
 		G_CALLBACK (mail_browser_connect_proxy_cb), object);
+
+	/* Initialize the EMailReader interface.  We have to create the
+	 * EMailPaned widget early because e_mail_reader_init() needs its
+	 * EMFormatHTMLDisplay. */
+
+	priv->paned = e_mail_paned_new (shell_backend);
+	g_object_ref_sink (priv->paned);
+
+	e_mail_reader_init (reader);
 
 	/* Configure an EFocusTracker to manage selection actions. */
 
@@ -558,18 +535,45 @@ mail_browser_constructed (GObject *object)
 	priv->main_toolbar = g_object_ref (widget);
 	gtk_widget_show (widget);
 
-	gtk_widget_show (GTK_WIDGET (web_view));
-
-	widget = e_preview_pane_new (web_view);
+	widget = priv->paned;
 	gtk_box_pack_start (GTK_BOX (container), widget, TRUE, TRUE, 0);
 	gtk_widget_show (widget);
 
-	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));
-	priv->search_bar = g_object_ref (search_bar);
+	/* Do this after the statusbar is created. */
+	merge_id = gtk_ui_manager_new_merge_id (GTK_UI_MANAGER (ui_manager));
+	e_mail_reader_create_charset_menu (reader, ui_manager, merge_id);
+
+	/* Configure internal widgets. */
+
+	paned = E_MAIL_PANED (priv->paned);
+	folder_pane = e_mail_paned_get_folder_pane (paned);
+	message_pane = e_mail_paned_get_message_pane (paned);
+
+	message_list = e_mail_folder_pane_get_message_list (folder_pane);
+	display = e_mail_message_pane_get_display (message_pane);
+
+	/* We only show the message pane. */
+	gtk_widget_hide (GTK_WIDGET (folder_pane));
 
 	g_signal_connect_swapped (
-		search_bar, "changed",
-		G_CALLBACK (em_format_redraw), priv->html_display);
+		priv->paned, "mark-as-read",
+		G_CALLBACK (e_mail_reader_mark_as_read), object);
+
+	g_signal_connect_swapped (
+		message_list, "message-selected",
+		G_CALLBACK (mail_browser_message_selected_cb), object);
+
+	g_signal_connect_swapped (
+		display, "popup-event",
+		G_CALLBACK (mail_browser_popup_event_cb), object);
+
+	g_signal_connect_swapped (
+		display, "status-message",
+		G_CALLBACK (mail_browser_status_message_cb), object);
+
+	e_mutual_binding_new_with_negation (
+		reader, "show-deleted",
+		folder_pane, "hide-deleted");
 
 	/* Bind GObject properties to GConf keys. */
 
@@ -622,20 +626,34 @@ static EMFormatHTMLDisplay *
 mail_browser_get_html_display (EMailReader *reader)
 {
 	EMailBrowserPrivate *priv;
+	EMailMessagePane *message_pane;
+	EMFormatHTML *formatter;
+	EMailDisplay *display;
+	EMailPaned *paned;
 
 	priv = E_MAIL_BROWSER_GET_PRIVATE (reader);
 
-	return priv->html_display;
+	paned = E_MAIL_PANED (priv->paned);
+	message_pane = e_mail_paned_get_message_pane (paned);
+	display = e_mail_message_pane_get_display (message_pane);
+	formatter = e_mail_display_get_formatter (display);
+
+	return EM_FORMAT_HTML_DISPLAY (formatter);
 }
 
 static GtkWidget *
 mail_browser_get_message_list (EMailReader *reader)
 {
 	EMailBrowserPrivate *priv;
+	EMailFolderPane *folder_pane;
+	EMailPaned *paned;
 
 	priv = E_MAIL_BROWSER_GET_PRIVATE (reader);
 
-	return priv->message_list;
+	paned = E_MAIL_PANED (priv->paned);
+	folder_pane = e_mail_paned_get_folder_pane (paned);
+
+	return e_mail_folder_pane_get_message_list (folder_pane);
 }
 
 static GtkMenu *
@@ -666,6 +684,28 @@ static GtkWindow *
 mail_browser_get_window (EMailReader *reader)
 {
 	return GTK_WINDOW (reader);
+}
+
+static void
+mail_browser_set_folder (EMailReader *reader,
+                         CamelFolder *folder,
+                         const gchar *folder_uri)
+{
+	EMailBrowserPrivate *priv;
+	EMailFolderPane *folder_pane;
+	EMailReaderIface *iface;
+	EMailPaned *paned;
+
+	priv = E_MAIL_BROWSER_GET_PRIVATE (reader);
+
+	/* Chain up to parent's set_folder() method. */
+	iface = g_type_default_interface_peek (E_TYPE_MAIL_READER);
+	iface->set_folder (reader, folder, folder_uri);
+
+	paned = E_MAIL_PANED (priv->paned);
+	folder_pane = e_mail_paned_get_folder_pane (paned);
+
+	e_mail_folder_pane_set_folder (folder_pane, folder, folder_uri);
 }
 
 static void
@@ -700,10 +740,15 @@ static void
 mail_browser_show_search_bar (EMailReader *reader)
 {
 	EMailBrowserPrivate *priv;
+	EMailMessagePane *message_pane;
+	EMailPaned *paned;
 
 	priv = E_MAIL_BROWSER_GET_PRIVATE (reader);
 
-	gtk_widget_show (priv->search_bar);
+	paned = E_MAIL_PANED (priv->paned);
+	message_pane = e_mail_paned_get_message_pane (paned);
+
+	e_preview_pane_show_search_bar (E_PREVIEW_PANE (message_pane));
 }
 
 static void
@@ -766,6 +811,7 @@ mail_browser_iface_init (EMailReaderIface *iface)
 	iface->get_popup_menu = mail_browser_get_popup_menu;
 	iface->get_shell_backend = mail_browser_get_shell_backend;
 	iface->get_window = mail_browser_get_window;
+	iface->set_folder = mail_browser_set_folder;
 	iface->set_message = mail_browser_set_message;
 	iface->show_search_bar = mail_browser_show_search_bar;
 }
@@ -773,9 +819,6 @@ mail_browser_iface_init (EMailReaderIface *iface)
 static void
 mail_browser_init (EMailBrowser *browser)
 {
-	EShell *shell;
-	EShellBackend *shell_backend;
-	GtkUIManager *ui_manager;
 	EMailReader *reader;
 	GConfBridge *bridge;
 	const gchar *prefix;
@@ -783,15 +826,9 @@ mail_browser_init (EMailBrowser *browser)
 	browser->priv = E_MAIL_BROWSER_GET_PRIVATE (browser);
 
 	reader = E_MAIL_READER (browser);
-	shell_backend = e_mail_reader_get_shell_backend (reader);
-	shell = e_shell_backend_get_shell (shell_backend);
 
-	ui_manager = e_ui_manager_new ();
-	e_shell_configure_ui_manager (shell, E_UI_MANAGER (ui_manager));
-
-	browser->priv->ui_manager = ui_manager;
+	browser->priv->ui_manager = e_ui_manager_new ();
 	browser->priv->action_group = gtk_action_group_new ("mail-browser");
-	browser->priv->html_display = em_format_html_display_new ();
 
 	bridge = gconf_bridge_get ();
 	prefix = "/apps/evolution/mail/mail_browser";

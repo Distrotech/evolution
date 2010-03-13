@@ -39,13 +39,16 @@ mailinclude_HEADERS =					\
 	e-mail-backend.h				\
 	e-mail-browser.h				\
 	e-mail-display.h				\
+	e-mail-folder-pane.h				\
 	e-mail-label-action.h				\
 	e-mail-label-dialog.h				\
 	e-mail-label-list-store.h			\
 	e-mail-label-manager.h				\
 	e-mail-label-tree-view.h			\
 	e-mail-local.h					\
+	e-mail-message-pane.h				\
 	e-mail-migrate.h				\
+	e-mail-paned.h					\
 	e-mail-reader.h					\
 	e-mail-reader-utils.h				\
 	e-mail-sidebar.h				\
@@ -96,13 +99,16 @@ libevolution_mail_la_SOURCES =				\
 	e-mail-backend.c				\
 	e-mail-browser.c				\
 	e-mail-display.c				\
+	e-mail-folder-pane.c				\
 	e-mail-label-action.c				\
 	e-mail-label-dialog.c				\
 	e-mail-label-list-store.c			\
 	e-mail-label-manager.c				\
 	e-mail-label-tree-view.c			\
 	e-mail-local.c					\
+	e-mail-message-pane.c				\
 	e-mail-migrate.c				\
+	e-mail-paned.c					\
 	e-mail-reader.c					\
 	e-mail-reader-utils.c				\
 	e-mail-sidebar.c				\

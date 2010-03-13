@@ -107,7 +107,6 @@ struct _EMailReaderIface {
 
 GType		e_mail_reader_get_type		(void);
 void		e_mail_reader_init		(EMailReader *reader);
-void		e_mail_reader_changed		(EMailReader *reader);
 guint32		e_mail_reader_check_state	(EMailReader *reader);
 void		e_mail_reader_update_actions	(EMailReader *reader);
 GtkAction *	e_mail_reader_get_action	(EMailReader *reader,
