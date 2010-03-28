@@ -749,7 +749,7 @@ static void
 mail_paned_view_set_search_strings (EMailView *view,
                                     GSList *search_strings)
 {
-	EMailReader *reader;
+#if 0  /* WEBKIT */
 	EPreviewPane *preview_pane;
 	ESearchBar *search_bar;
 	ESearchingTokenizer *tokenizer;
@@ -769,6 +769,7 @@ mail_paned_view_set_search_strings (EMailView *view,
 	}
 
 	e_search_bar_changed (search_bar);
+#endif
 }
 
 static GalViewInstance *
