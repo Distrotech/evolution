@@ -482,6 +482,9 @@ mail_browser_constructed (GObject *object)
 	e_ui_manager_add_ui_from_string (
 		E_UI_MANAGER (ui_manager), ui, NULL);
 
+	merge_id = gtk_ui_manager_new_merge_id (GTK_UI_MANAGER (ui_manager));
+	e_mail_reader_create_charset_menu (reader, ui_manager, merge_id);
+
 	accel_group = gtk_ui_manager_get_accel_group (ui_manager);
 	gtk_window_add_accel_group (GTK_WINDOW (object), accel_group);
 
@@ -819,6 +822,9 @@ mail_browser_iface_init (EMailReaderIface *iface)
 static void
 mail_browser_init (EMailBrowser *browser)
 {
+	EShell *shell;
+	EShellBackend *shell_backend;
+	GtkUIManager *ui_manager;
 	EMailReader *reader;
 	GConfBridge *bridge;
 	const gchar *prefix;
@@ -826,8 +832,13 @@ mail_browser_init (EMailBrowser *browser)
 	browser->priv = E_MAIL_BROWSER_GET_PRIVATE (browser);
 
 	reader = E_MAIL_READER (browser);
+	shell_backend = e_mail_reader_get_shell_backend (reader);
+	shell = e_shell_backend_get_shell (shell_backend);
 
-	browser->priv->ui_manager = e_ui_manager_new ();
+	ui_manager = e_ui_manager_new ();
+	e_shell_configure_ui_manager (shell, E_UI_MANAGER (ui_manager));
+
+	browser->priv->ui_manager = ui_manager;
 	browser->priv->action_group = gtk_action_group_new ("mail-browser");
 
 	bridge = gconf_bridge_get ();

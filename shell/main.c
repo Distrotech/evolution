@@ -49,10 +49,8 @@
 
 #include "e-shell.h"
 #include "e-shell-migrate.h"
-#include "e-config-upgrade.h"
 #include "es-event.h"
 
-#include "e-util/e-bconf-map.h"
 #include "e-util/e-dialog-utils.h"
 #include "e-util/e-import.h"
 #include "e-util/e-plugin.h"
@@ -82,9 +80,6 @@ static gboolean start_online = FALSE;
 static gboolean start_offline = FALSE;
 static gboolean setup_only = FALSE;
 static gboolean force_shutdown = FALSE;
-#ifdef DEVELOPMENT
-static gboolean force_migrate = FALSE;
-#endif
 static gboolean disable_eplugin = FALSE;
 static gboolean disable_preview = FALSE;
 static gboolean import_uris = FALSE;
@@ -214,21 +209,6 @@ show_development_warning(void)
 	return skip;
 }
 
-static void
-destroy_config (GConfClient *client)
-{
-	/* Unset the source stuff */
-	gconf_client_unset (client, "/apps/evolution/calendar/sources", NULL);
-	gconf_client_unset (client, "/apps/evolution/tasks/sources", NULL);
-	gconf_client_unset (client, "/apps/evolution/addressbook/sources", NULL);
-
-	/* Reset the version */
-	gconf_client_set_string (client, "/apps/evolution/version", "1.4.0", NULL);
-
-	/* Clear the dir */
-	system ("rm -Rf ~/.evolution");
-}
-
 #endif /* DEVELOPMENT */
 
 /* This is for doing stuff that requires the GTK+ loop to be running already.  */
@@ -247,8 +227,11 @@ idle_cb (gchar **uris)
 	else if (uris != NULL && *uris != NULL) {
 		if (e_shell_handle_uris (shell, uris, import_uris) == 0)
 			gtk_main_quit ();
-	} else
+	} else {
+		if (express_mode && requested_view == NULL)
+			requested_view = (gchar *) "mail";
 		e_shell_create_shell_window (shell, requested_view);
+	}
 
 	/* If another Evolution process is running, we're done. */
 	if (unique_app_is_running (UNIQUE_APP (shell)))
@@ -329,10 +312,6 @@ static GOptionEntry entries[] = {
 	{ "force-shutdown", '\0', 0, G_OPTION_ARG_NONE, &force_shutdown,
 	  N_("Forcibly shut down Evolution"), NULL },
 #endif
-#ifdef DEVELOPMENT
-	{ "force-migrate", '\0', 0, G_OPTION_ARG_NONE, &force_migrate,
-	  N_("Forcibly re-migrate from Evolution 1.4"), NULL },
-#endif
 	{ "debug", '\0', 0, G_OPTION_ARG_STRING, &evolution_debug_log,
 	  N_("Send the debugging output of all components to a file."), "FILE" },
 	{ "disable-eplugin", '\0', 0, G_OPTION_ARG_NONE, &disable_eplugin,
@@ -348,51 +327,6 @@ static GOptionEntry entries[] = {
 	{ G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_STRING_ARRAY, &remaining_args, NULL, NULL },
 	{ NULL }
 };
-
-#ifdef G_OS_WIN32
-static void
-set_paths (void)
-{
-	/* Set PATH to include the Evolution executable's folder
-	 * and the lib/evolution/$(BASE_VERSION)/components folder. */
-	wchar_t exe_filename[MAX_PATH];
-	wchar_t *p;
-	gchar *exe_folder_utf8;
-	gchar *components_folder_utf8;
-	gchar *top_folder_utf8;
-	gchar *path;
-
-	GetModuleFileNameW (NULL, exe_filename, G_N_ELEMENTS (exe_filename));
-
-	p = wcsrchr (exe_filename, L'\\');
-	g_assert (p != NULL);
-
-	*p = L'\0';
-	exe_folder_utf8 = g_utf16_to_utf8 (exe_filename, -1, NULL, NULL, NULL);
-
-	p = wcsrchr (exe_filename, L'\\');
-	g_assert (p != NULL);
-
-	*p = L'\0';
-	top_folder_utf8 = g_utf16_to_utf8 (exe_filename, -1, NULL, NULL, NULL);
-	components_folder_utf8 = g_strconcat (
-		top_folder_utf8, "/lib/evolution/"
-		BASE_VERSION "/components", NULL);
-
-	path = g_build_path (
-		";", exe_folder_utf8,
-		components_folder_utf8, g_getenv ("PATH"), NULL);
-	if (!g_setenv ("PATH", path, TRUE))
-		g_warning ("Could not set PATH for Evolution "
-			   "and its child processes");
-
-	g_free (path);
-	g_free (exe_folder_utf8);
-	g_free (components_folder_utf8);
-
-	g_free (top_folder_utf8);
-}
-#endif
 
 static void G_GNUC_NORETURN
 shell_force_shutdown (void)
@@ -486,7 +420,7 @@ main (gint argc, gchar **argv)
 			(AttachConsole_t) GetProcAddress (
 			GetModuleHandle ("kernel32.dll"), "AttachConsole");
 
-		if (p_AttachConsole != NULL && p_AttachConsole (ATTACH_PARENT_PROCESS)) {
+		if (p_AttachConsole && p_AttachConsole (ATTACH_PARENT_PROCESS)) {
 			freopen ("CONOUT$", "w", stdout);
 			dup2 (fileno (stdout), 1);
 			freopen ("CONOUT$", "w", stderr);
@@ -501,10 +435,6 @@ main (gint argc, gchar **argv)
 	bindtextdomain (GETTEXT_PACKAGE, EVOLUTION_LOCALEDIR);
 	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
 	textdomain (GETTEXT_PACKAGE);
-
-#ifdef G_OS_WIN32
-	set_paths ();
-#endif
 
 	gtk_init_with_args (
 		&argc, &argv,
@@ -544,11 +474,6 @@ main (gint argc, gchar **argv)
 		shell_force_shutdown ();
 
 	client = gconf_client_get_default ();
-
-#ifdef DEVELOPMENT
-	if (force_migrate)
-		destroy_config (client);
-#endif
 
 	if (disable_preview) {
 		const gchar *key;

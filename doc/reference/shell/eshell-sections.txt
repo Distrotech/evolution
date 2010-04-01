@@ -70,12 +70,11 @@ EShellBackendPrivate
 <TITLE>EShellContent</TITLE>
 EShellContent
 e_shell_content_new
-e_shell_content_get_searchbar
+e_shell_content_set_searchbar
 e_shell_content_check_state
 e_shell_content_get_shell_view
 e_shell_content_get_view_id
 e_shell_content_set_view_id
-e_shell_content_get_search_name
 e_shell_content_run_advanced_search_dialog
 e_shell_content_run_edit_searches_dialog
 e_shell_content_run_save_search_dialog
@@ -98,11 +97,13 @@ EShellContentPrivate
 EShellSearchbar
 e_shell_searchbar_new
 e_shell_searchbar_get_shell_view
+e_shell_searchbar_get_express_mode
+e_shell_searchbar_set_express_mode
 e_shell_searchbar_get_filter_combo_box
 e_shell_searchbar_get_filter_visible
 e_shell_searchbar_set_filter_visible
-e_shell_searchbar_get_label_visible
-e_shell_searchbar_set_label_visible
+e_shell_searchbar_get_labels_visible
+e_shell_searchbar_set_labels_visible
 e_shell_searchbar_get_search_hint
 e_shell_searchbar_set_search_hint
 e_shell_searchbar_get_search_option
@@ -260,6 +261,8 @@ e_shell_view_set_view_id
 e_shell_view_is_active
 e_shell_view_get_page_num
 e_shell_view_set_page_num
+e_shell_view_get_searchbar
+e_shell_view_get_search_name
 e_shell_view_get_search_rule
 e_shell_view_set_search_rule
 e_shell_view_get_search_query
@@ -441,6 +444,41 @@ e_dialog_combo_box_get
 </SECTION>
 
 <SECTION>
+<FILE>e-extensible</FILE>
+<TITLE>EExtensible</TITLE>
+EExtensible
+e_extensible_load_extensions
+e_extensible_list_extensions
+<SUBSECTION Standard>
+E_EXTENSIBLE
+E_IS_EXTENSIBLE
+E_TYPE_EXTENSIBLE
+E_EXTENSIBLE_INTERFACE
+E_IS_EXTENSIBLE_INTERFACE
+E_EXTENSIBLE_GET_INTERFACE
+EExtensibleInterface
+e_extensible_get_type
+</SECTION>
+
+<SECTION>
+<FILE>e-extension</FILE>
+<TITLE>EExtension</TITLE>
+EExtension
+e_extension_get_extensible
+<SUBSECTION Standard>
+E_EXTENSION
+E_IS_EXTENSION
+E_TYPE_EXTENSION
+E_EXTENSION_CLASS
+E_IS_EXTENSION_CLASS
+E_EXTENSION_GET_CLASS
+EExtensionClass
+e_extension_get_type
+<SUBSECTION Private>
+EExtensionPrivate
+</SECTION>
+
+<SECTION>
 <FILE>e-html-utils</FILE>
 <TITLE>Text to HTML Conversion</TITLE>
 E_TEXT_TO_HTML_PRE
@@ -489,7 +527,7 @@ ELoggerPrivate
 
 <SECTION>
 <FILE>e-module</FILE>
-<TITLE>Generic Module Loader</TITLE>
+<TITLE>EModule</TITLE>
 EModule
 e_module_new
 e_module_get_filename
@@ -505,6 +543,16 @@ EModuleClass
 e_module_get_type
 <SUBSECTION Private>
 EModulePrivate
+</SECTION>
+
+<SECTION>
+<FILE>e-poolv</FILE>
+<TITLE>EPoolv</TITLE>
+EPoolv
+e_poolv_new
+e_poolv_set
+e_poolv_get
+e_poolv_destroy
 </SECTION>
 
 <SECTION>
@@ -610,6 +658,7 @@ e_run_signature_script
 <FILE>e-util</FILE>
 <TITLE>Miscellaneous Utilities</TITLE>
 e_get_user_data_dir
+e_get_gnome2_user_dir
 e_get_accels_filename
 e_show_uri
 e_display_help
@@ -642,11 +691,8 @@ e_file_lock_exists
 e_util_guess_mime_type
 e_util_get_category_filter_options
 e_charset_add_radio_actions
-e_folder_map_local_folders
 e_file_replace_contents_async
 e_file_replace_contents_finish
-e_fsutils_usage
-e_fsutils_avail
 e_mktemp
 e_mkstemp
 e_mkdtemp

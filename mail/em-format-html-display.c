@@ -463,7 +463,7 @@ efhd_format_attachment (EMFormat *emf,
 		EM_FORMAT_HTML_VPAD);
 
 	if (handle && info->shown)
-		handle->handler (emf, stream, part, handle);
+		handle->handler (emf, stream, part, handle, FALSE);
 
 	g_free (classid);
 }
@@ -713,7 +713,7 @@ efhd_message_prefix(EMFormat *emf, CamelStream *stream, CamelMimePart *part, EMF
 	camel_stream_printf(stream, "<table border=1 width=\"100%%\" cellspacing=2 cellpadding=2><tr>");
 
 	comp = camel_folder_get_message_user_tag(emf->folder, emf->uid, "completed-on");
-	iconpath = e_icon_factory_get_icon_filename (comp && comp[0] ? "stock_flag-for-followup-done" : "stock_flag-for-followup", GTK_ICON_SIZE_MENU);
+	iconpath = e_icon_factory_get_icon_filename (comp && comp[0] ? "stock_mail-flag-for-followup-done" : "stock_mail-flag-for-followup", GTK_ICON_SIZE_MENU);
 	if (iconpath) {
 		CamelMimePart *iconpart;
 
@@ -877,7 +877,7 @@ efhd_attachment_frame (EMFormat *emf,
 
 	if (info->shown)
 		info->handle->handler (
-			emf, stream, info->puri.part, info->handle);
+			emf, stream, info->puri.part, info->handle, FALSE);
 
 	camel_stream_close (stream);
 }

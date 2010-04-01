@@ -191,6 +191,7 @@ mail/e-mail-label-manager.c
 mail/e-mail-label-tree-view.c
 mail/e-mail-local.c
 mail/e-mail-migrate.c
+mail/e-mail-paned.c
 mail/e-mail-reader-utils.c
 mail/e-mail-reader.c
 mail/e-mail-store.c
@@ -407,7 +408,6 @@ plugins/vcard-inline/vcard-inline.c
 plugins/webdav-account-setup/org-gnome-evolution-webdav.eplug.xml
 plugins/webdav-account-setup/webdav-contacts-source.c
 shell/apps_evolution_shell.schemas.in
-shell/e-config-upgrade.c
 shell/e-shell-backend.c
 shell/e-shell-content.c
 shell/e-shell-migrate.c

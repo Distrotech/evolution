@@ -1,9 +1,13 @@
 SUBDIRS = mail-autoconfig
 
-AM_CPPFLAGS = \
+privsolib_LTLIBRARIES = libevolution-mail-settings.la
+
+libevolution_mail_settings_la_CPPFLAGS =		\
+	$(AM_CPPFLAGS)					\
 	-I$(top_srcdir)/widgets				\
 	-I$(top_srcdir)/widgets/misc			\
 	-I$(top_srcdir)					\
+	-I$(top_srcdir)/e-util				\
 	-I$(top_srcdir)/em-format			\
 	-I$(top_srcdir)/mail				\
 	-I$(top_srcdir)/composer			\
@@ -16,6 +20,7 @@ AM_CPPFLAGS = \
 	$(EVOLUTION_MAIL_CFLAGS)			\
 	$(CERT_UI_CFLAGS)				\
 	$(CANBERRA_CFLAGS)				\
+	-DANJAL_SETTINGS				\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"		\
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"	\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
@@ -30,12 +35,6 @@ AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"evolution-mail\"		\
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" 
-
-AM_CFLAGS =\
-	 -Wall\
-	 -g -O0 
-
-privsolib_LTLIBRARIES = libevolution-mail-settings.la
 
 libevolution_mail_settings_la_SOURCES = \
 	mail-settings-view.c \
@@ -53,8 +52,6 @@ libevolution_mail_settings_la_SOURCES = \
 	mail-guess-servers.c \
 	mail-guess-servers.h
 
-libevolution_mail_settings_la_CFLAGS = -DANJAL_SETTINGS
-
 libevolution_mail_settings_la_LIBADD = 				\
 	$(EVOLUTION_MAIL_LIBS)				\
 	$(CERT_UI_LIBS)					\
@@ -65,6 +62,9 @@ libevolution_mail_settings_la_LIBADD = 				\
 	$(GNOME_PLATFORM_LIBS)				\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la	\
 	$(top_builddir)/filter/libfilter.la		\
-	$(top_builddir)/mail/libevolution-mail.la	
+	$(top_builddir)/mail/libevolution-mail.la	\
+	$(top_builddir)/shell/libeshell.la		\
+	$(top_builddir)/e-util/libeutil.la
 
+libevolution_mail_settings_la_LDFLAGS =  $(NO_UNDEFINED)
 

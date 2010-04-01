@@ -16,10 +16,53 @@
  *
  */
 
+/**
+ * SECTION: e-extensible
+ * @short_description: an interface for extending objects
+ * @include: e-util/e-extensible.h
+ *
+ * #EExtension objects can be tacked on to any #GObject instance that
+ * implements the #EExtensible interface.  A #GObject type can be made
+ * extensible in two steps:
+ *
+ * 1. Add the #EExtensible interface when registering the #GType.
+ *    There are no methods to implement.
+ *
+ * <informalexample>
+ * <programlisting>
+ * #include <e-util/e-extensible.h>
+ *
+ * G_DEFINE_TYPE_WITH_CODE (
+ *         ECustomWidget, e_custom_widget, GTK_TYPE_WIDGET,
+ *         G_IMPLEMENT_INTERFACE (E_TYPE_EXTENSIBLE, NULL))
+ * </programlisting>
+ * </informalexample>
+ *
+ * 2. Load extensions for the class at some point during #GObject
+ *    initialization.  Generally this should be done toward the end of
+ *    the initialization code, so extensions get a fully initialized
+ *    object to work with.
+ *
+ * <informalexample>
+ * <programlisting>
+ * static void
+ * e_custom_widget_init (ECustomWidget *widget)
+ * {
+ *         Initialization code goes here...
+ *
+ *         e_extensible_load_extensions (E_EXTENSIBLE (widget));
+ * }
+ * </programlisting>
+ * </informalexample>
+ **/
+
 #include "e-extensible.h"
 
 #include <e-util/e-util.h>
 #include <e-util/e-extension.h>
+
+#define IS_AN_EXTENSION_TYPE(type) \
+	(g_type_is_a ((type), E_TYPE_EXTENSION))
 
 static GQuark extensible_quark;
 
@@ -89,6 +132,15 @@ e_extensible_get_type (void)
 	return type;
 }
 
+/**
+ * e_extensible_load_extensions:
+ * @extensible: an #EExtensible
+ *
+ * Creates an instance of all instantiable subtypes of #EExtension which
+ * target the class of @extensible.  The lifetimes of these newly created
+ * #EExtension objects are bound to @extensible such that they are finalized
+ * when @extensible is finalized.
+ **/
 void
 e_extensible_load_extensions (EExtensible *extensible)
 {
@@ -109,4 +161,45 @@ e_extensible_load_extensions (EExtensible *extensible)
 	e_type_traverse (
 		E_TYPE_EXTENSION, (ETypeFunc)
 		extensible_load_extension, extensible);
+}
+
+/**
+ * e_extensible_list_extensions:
+ * @extensible: an #EExtensible
+ * @extension_type: the type of extensions to list
+ *
+ * Returns a list of #EExtension objects bound to @extensible whose
+ * types are ancestors of @extension_type.  For a complete list of
+ * extension objects bound to @extensible, pass %E_TYPE_EXTENSION.
+ *
+ * The list itself should be freed with g_list_free().  The extension
+ * objects are owned by @extensible and should not be unreferenced.
+ *
+ * Returns: a list of extension objects derived from @extension_type
+ **/
+GList *
+e_extensible_list_extensions (EExtensible *extensible,
+                              GType extension_type)
+{
+	GPtrArray *extensions;
+	GList *list = NULL;
+	guint ii;
+
+	g_return_val_if_fail (E_IS_EXTENSIBLE (extensible), NULL);
+	g_return_val_if_fail (IS_AN_EXTENSION_TYPE (extension_type), NULL);
+
+	e_extensible_load_extensions (extensible);
+
+	extensions = extensible_get_extensions (extensible);
+	g_return_val_if_fail (extensions != NULL, NULL);
+
+	for (ii = 0; ii < extensions->len; ii++) {
+		GObject *object;
+
+		object = g_ptr_array_index (extensions, ii);
+		if (g_type_is_a (G_OBJECT_TYPE (object), extension_type))
+			list = g_list_prepend (list, object);
+	}
+
+	return g_list_reverse (list);
 }

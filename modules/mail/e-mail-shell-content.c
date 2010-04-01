@@ -405,10 +405,6 @@ mail_shell_content_constructed (GObject *object)
 	key = "/apps/evolution/mail/display/paned_size";
 	gconf_bridge_bind_property (bridge, key, object, "vposition");
 
-	object = G_OBJECT (shell_content);
-	key = "/apps/evolution/mail/display/show_deleted";
-	gconf_bridge_bind_property (bridge, key, object, "show-deleted");
-
 	/* Message list customizations. */
 
 	reader = E_MAIL_READER (shell_content);
@@ -852,6 +848,7 @@ e_mail_shell_content_set_preview_visible (EMailShellContent *mail_shell_content,
 EShellSearchbar *
 e_mail_shell_content_get_searchbar (EMailShellContent *mail_shell_content)
 {
+	EShellView *shell_view;
 	EShellContent *shell_content;
 	GtkWidget *widget;
 
@@ -859,7 +856,8 @@ e_mail_shell_content_get_searchbar (EMailShellContent *mail_shell_content)
 		E_IS_MAIL_SHELL_CONTENT (mail_shell_content), NULL);
 
 	shell_content = E_SHELL_CONTENT (mail_shell_content);
-	widget = e_shell_content_get_searchbar (shell_content);
+	shell_view = e_shell_content_get_shell_view (shell_content);
+	widget = e_shell_view_get_searchbar (shell_view);
 
 	return E_SHELL_SEARCHBAR (widget);
 }

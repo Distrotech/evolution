@@ -1,6 +1,9 @@
 SUBDIRS = settings
 
-AM_CPPFLAGS = \
+bin_PROGRAMS = evolution-settings
+
+evolution_settings_CPPFLAGS = \
+	$(AM_CPPFLAGS)					\
 	-I$(top_srcdir)/widgets				\
 	-I$(top_srcdir)/widgets/misc			\
 	-I$(top_srcdir)					\
@@ -30,19 +33,13 @@ AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"evolution-mail\"		\
 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" 
-	
-AM_CFLAGS =\
-	 -Wall\
-	 -g -O0 
-
-bin_PROGRAMS = evolution-settings
-
 
 evolution_settings_SOURCES  = \
 	anjal-settings-main.c 
 
-evolution_settings_LDFLAGS = \
-	-Wl,--export-dynamic
+if OS_WIN32
+evolution_settings_LDFLAGS = -mwindows
+endif
 
 evolution_settings_LDADD = 				\
 	$(EVOLUTION_MAIL_LIBS)				\
@@ -55,6 +52,7 @@ evolution_settings_LDADD = 				\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la	\
 	$(top_builddir)/filter/libfilter.la		\
 	$(top_builddir)/mail/libevolution-mail.la	\
-	$(top_builddir)/capplet/settings/libevolution-mail-settings.la
-
+	$(top_builddir)/capplet/settings/libevolution-mail-settings.la \
+	$(top_builddir)/shell/libeshell.la		\
+	$(top_builddir)/e-util/libeutil.la
 

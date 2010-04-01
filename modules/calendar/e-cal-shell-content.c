@@ -204,6 +204,7 @@ cal_shell_content_dispose (GObject *object)
 	}
 
 	if (priv->calendar != NULL) {
+		gnome_calendar_dispose (GNOME_CALENDAR (priv->calendar));
 		g_object_unref (priv->calendar);
 		priv->calendar = NULL;
 	}
@@ -246,8 +247,8 @@ cal_shell_content_constructed (GObject *object)
 {
 	ECalShellContentPrivate *priv;
 	ECalendarView *calendar_view;
-	ECalModel *memo_model;
-	ECalModel *task_model;
+	ECalModel *memo_model=NULL;
+	ECalModel *task_model=NULL;
 	EShell *shell;
 	EShellContent *shell_content;
 	EShellBackend *shell_backend;
@@ -282,50 +283,54 @@ cal_shell_content_constructed (GObject *object)
 
 	/* We borrow the memopad and taskpad models from the memo
 	 * and task views, loading the views if necessary. */
-
-	foreign_view = e_shell_window_get_shell_view (shell_window, "memos");
-	foreign_content = e_shell_view_get_shell_content (foreign_view);
-	g_object_get (foreign_content, "model", &memo_model, NULL);
-
-	foreign_view = e_shell_window_get_shell_view (shell_window, "tasks");
-	foreign_content = e_shell_view_get_shell_content (foreign_view);
-	g_object_get (foreign_content, "model", &task_model, NULL);
-
+	if(!e_shell_get_express_mode(e_shell_get_default())) {
+		foreign_view = e_shell_window_get_shell_view (shell_window, "memos");
+		foreign_content = e_shell_view_get_shell_content (foreign_view);
+		g_object_get (foreign_content, "model", &memo_model, NULL);
+	
+		foreign_view = e_shell_window_get_shell_view (shell_window, "tasks");
+		foreign_content = e_shell_view_get_shell_content (foreign_view);
+		g_object_get (foreign_content, "model", &task_model, NULL);
+	}
 	/* Build content widgets. */
 
 	container = GTK_WIDGET (object);
+	
+	if (!e_shell_get_express_mode(e_shell_get_default())) {
+		widget = e_paned_new (GTK_ORIENTATION_HORIZONTAL);
+		gtk_container_add (GTK_CONTAINER (container), widget);
+		priv->hpaned = g_object_ref (widget);
+		gtk_widget_show (widget);
 
-	widget = e_paned_new (GTK_ORIENTATION_HORIZONTAL);
-	gtk_container_add (GTK_CONTAINER (container), widget);
-	priv->hpaned = g_object_ref (widget);
-	gtk_widget_show (widget);
-
-	container = priv->hpaned;
+		container = priv->hpaned;
+	}
 
 	widget = gtk_notebook_new ();
 	gtk_notebook_set_show_tabs (GTK_NOTEBOOK (widget), FALSE);
 	gtk_notebook_set_show_border (GTK_NOTEBOOK (widget), FALSE);
-	gtk_paned_pack1 (GTK_PANED (container), widget, TRUE, FALSE);
+	if (!e_shell_get_express_mode(e_shell_get_default()))	
+		gtk_paned_pack1 (GTK_PANED (container), widget, TRUE, FALSE);
+	else
+		gtk_container_add (GTK_CONTAINER (container), widget);
 	priv->notebook = g_object_ref (widget);
 	gtk_widget_show (widget);
 
-	/* FIXME Need to deal with saving and restoring the position.
-	 *       Month view has its own position. */
-	widget = e_paned_new (GTK_ORIENTATION_VERTICAL);
-	e_paned_set_fixed_resize (E_PANED (widget), FALSE);
-	gtk_paned_pack2 (GTK_PANED (container), widget, FALSE, TRUE);
-	priv->vpaned = g_object_ref (widget);
-	gtk_widget_show (widget);
+	if (!e_shell_get_express_mode(e_shell_get_default())) {
+		/* FIXME Need to deal with saving and restoring the position.
+		 *       Month view has its own position. */
+		widget = e_paned_new (GTK_ORIENTATION_VERTICAL);
+		e_paned_set_fixed_resize (E_PANED (widget), FALSE);
+		gtk_paned_pack2 (GTK_PANED (container), widget, FALSE, TRUE);
+		priv->vpaned = g_object_ref (widget);
+		gtk_widget_show (widget);
+	}
 
 	container = priv->notebook;
 
 	/* Add views in the order defined by GnomeCalendarViewType, such
 	 * that the notebook page number corresponds to the view type. */
 
-	/* XXX GnomeCalendar is a widget, but we don't pack it.
-	 *     Maybe it should just be a GObject instead? */
 	priv->calendar = gnome_calendar_new ();
-	g_object_ref_sink (priv->calendar);
 	calendar = GNOME_CALENDAR (priv->calendar);
 
 	for (ii = 0; ii < GNOME_CAL_LAST_VIEW; ii++) {
@@ -342,7 +347,7 @@ cal_shell_content_constructed (GObject *object)
 		priv->notebook, "page");
 
 	container = priv->vpaned;
-
+if(!e_shell_get_express_mode(e_shell_get_default())) {
 	widget = gtk_vbox_new (FALSE, 0);
 	gtk_paned_pack1 (GTK_PANED (container), widget, TRUE, TRUE);
 	gtk_widget_show (widget);
@@ -427,7 +432,7 @@ cal_shell_content_constructed (GObject *object)
 		widget, "open-component",
 		G_CALLBACK (e_cal_shell_view_memopad_open_memo),
 		shell_view);
-
+}
 	/* Load the view instance. */
 
 	view_instance = e_shell_view_new_view_instance (shell_view, NULL);
@@ -439,21 +444,23 @@ cal_shell_content_constructed (GObject *object)
 	 *     The GtkWidget::map() callback below explains why. */
 	priv->view_instance = view_instance;
 
-	g_signal_connect_swapped (
-		shell_view, "notify::view-id",
-		G_CALLBACK (cal_shell_content_notify_view_id_cb),
-		object);
+	if (!e_shell_get_express_mode(e_shell_get_default())) {	
+		g_signal_connect_swapped (
+			shell_view, "notify::view-id",
+			G_CALLBACK (cal_shell_content_notify_view_id_cb),
+			object);
 
-	/* Bind GObject properties to GConf keys. */
+		bridge = gconf_bridge_get ();
 
-	bridge = gconf_bridge_get ();
+		object = G_OBJECT (priv->vpaned);
+		key = "/apps/evolution/calendar/display/tag_vpane_position";
+		gconf_bridge_bind_property_delayed (bridge, key, object, "proportion");
+	}
 
-	object = G_OBJECT (priv->vpaned);
-	key = "/apps/evolution/calendar/display/tag_vpane_position";
-	gconf_bridge_bind_property_delayed (bridge, key, object, "proportion");
-
-	g_object_unref (memo_model);
-	g_object_unref (task_model);
+	if (memo_model)
+		g_object_unref (memo_model);
+	if (task_model)
+		g_object_unref (task_model);
 }
 
 static void
@@ -488,7 +495,7 @@ cal_shell_content_class_init (ECalShellContentClass *class)
 	object_class->get_property = cal_shell_content_get_property;
 	object_class->dispose = cal_shell_content_dispose;
 	object_class->constructed = cal_shell_content_constructed;
-
+	
 	widget_class = GTK_WIDGET_CLASS (class);
 	widget_class->map = cal_shell_content_map;
 
@@ -612,6 +619,7 @@ e_cal_shell_content_get_task_table (ECalShellContent *cal_shell_content)
 EShellSearchbar *
 e_cal_shell_content_get_searchbar (ECalShellContent *cal_shell_content)
 {
+	EShellView *shell_view;
 	EShellContent *shell_content;
 	GtkWidget *widget;
 
@@ -619,7 +627,8 @@ e_cal_shell_content_get_searchbar (ECalShellContent *cal_shell_content)
 		E_IS_CAL_SHELL_CONTENT (cal_shell_content), NULL);
 
 	shell_content = E_SHELL_CONTENT (cal_shell_content);
-	widget = e_shell_content_get_searchbar (shell_content);
+	shell_view = e_shell_content_get_shell_view (shell_content);
+	widget = e_shell_view_get_searchbar (shell_view);
 
 	return E_SHELL_SEARCHBAR (widget);
 }

@@ -84,12 +84,12 @@ typedef enum {
 } GnomeCalendarGotoDateType;
 
 struct _GnomeCalendar {
-	GtkVBox vbox;
+	GObject parent;
 	GnomeCalendarPrivate *priv;
 };
 
 struct _GnomeCalendarClass {
-	GtkVBoxClass parent_class;
+	GObjectClass parent_class;
 
 	/* Notification signals */
 	void	(*dates_shown_changed)		(GnomeCalendar *gcal);
@@ -113,6 +113,7 @@ struct _GnomeCalendarClass {
 
 GType		gnome_calendar_get_type		(void);
 GtkWidget *	gnome_calendar_new		(void);
+void		gnome_calendar_dispose          (GnomeCalendar *gcal);
 ECalendar *	gnome_calendar_get_date_navigator
 						(GnomeCalendar *gcal);
 void		gnome_calendar_set_date_navigator

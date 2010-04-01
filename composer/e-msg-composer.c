@@ -381,7 +381,7 @@ add_inlined_images (EMsgComposer *composer, CamelMultipart *multipart)
 }
 
 /* These functions builds a CamelMimeMessage for the message that the user has
- * composed in `composer'.
+ * composed in 'composer'.
  */
 
 static void
@@ -1660,10 +1660,6 @@ msg_composer_constructed (GObject *object)
 	g_array_append_val (array, binding_id);
 
 	/* Honor User Preferences */
-
-	active = e_shell_settings_get_boolean (
-		shell_settings, "composer-format-html");
-	gtkhtml_editor_set_html_mode (GTKHTML_EDITOR (composer), active);
 
 	action = GTK_TOGGLE_ACTION (ACTION (REQUEST_READ_RECEIPT));
 	active = e_shell_settings_get_boolean (

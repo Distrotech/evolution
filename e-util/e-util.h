@@ -20,11 +20,6 @@
  *
  */
 
-/**
- * SECTION: e-util
- * @include: e-util/e-util.h
- **/
-
 #ifndef E_UTIL_H
 #define E_UTIL_H
 
@@ -54,6 +49,7 @@ typedef enum {
 typedef void (*ETypeFunc) (GType type, gpointer user_data);
 
 const gchar *	e_get_user_data_dir		(void);
+const gchar *	e_get_gnome2_user_dir		(void);
 const gchar *	e_get_accels_filename		(void);
 void		e_show_uri			(GtkWindow *parent,
 						 const gchar *uri);

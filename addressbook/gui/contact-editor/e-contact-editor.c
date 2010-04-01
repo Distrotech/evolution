@@ -742,15 +742,6 @@ init_email_record_location (EContactEditor *editor, gint record)
 }
 
 static void
-init_email (EContactEditor *editor)
-{
-	gint i;
-
-	for (i = 1; i <= EMAIL_SLOTS; i++)
-		init_email_record_location (editor, i);
-}
-
-static void
 fill_in_email_record (EContactEditor *editor, gint record, const gchar *address, gint location)
 {
 	GtkWidget *location_combo_box;
@@ -1144,21 +1135,80 @@ set_attributes_named (EVCard *vcard, const gchar *attr_name, GList *attr_list)
 }
 
 static void
+set_arrow_image (EContactEditor *editor,
+		 const char *arrow_widget,
+		 gboolean expanded)
+{
+	GtkWidget *arrow;
+
+	arrow  = e_builder_get_widget (editor->builder, arrow_widget);
+	if (expanded)
+		gtk_arrow_set (GTK_ARROW (arrow), GTK_ARROW_DOWN, GTK_SHADOW_NONE);
+	else
+		gtk_arrow_set (GTK_ARROW (arrow), GTK_ARROW_RIGHT, GTK_SHADOW_NONE);
+}
+
+static void
+expand_widget_list (EContactEditor *editor,
+		    const char **widget_names,
+		    gboolean expanded)
+{
+	int i;
+	for (i = 0; widget_names[i]; i++)
+		gtk_widget_set_visible (
+			e_builder_get_widget (editor->builder, widget_names[i]),
+			expanded);
+}
+
+static void
 expand_phone (EContactEditor *editor, gboolean expanded)
 {
-	GtkWidget *phone_ext_table;
-	GtkWidget *phone_ext_arrow;
+	const char *names[] = { 
+		"entry-phone-2", "combobox-phone-2",
+		"entry-phone-4", "combobox-phone-4",
+		"table-phone-extended", NULL
+	};
+	set_arrow_image (editor, "arrow-phone-expand", expanded);
+	expand_widget_list (editor, names, expanded);
+}
 
-	phone_ext_table = e_builder_get_widget (editor->builder, "table-phone-extended");
-	phone_ext_arrow = e_builder_get_widget (editor->builder, "arrow-phone-expand");
+static void
+expand_mail (EContactEditor *editor, gboolean expanded)
+{
+	GtkTable  *table;
+	GtkWidget *check;
+	const char *names[] = { 
+		"entry-email-2", "combobox-email-2",
+		"entry-email-3", "combobox-email-3",
+		"entry-email-4", "combobox-email-4",
+		NULL
+	};
+	set_arrow_image (editor, "arrow-mail-expand", expanded);
+	expand_widget_list (editor, names, expanded);
 
-	if (expanded) {
-		gtk_arrow_set (GTK_ARROW (phone_ext_arrow), GTK_ARROW_DOWN, GTK_SHADOW_NONE);
-		gtk_widget_show (phone_ext_table);
-	} else {
-		gtk_arrow_set (GTK_ARROW (phone_ext_arrow), GTK_ARROW_RIGHT, GTK_SHADOW_NONE);
-		gtk_widget_hide (phone_ext_table);
+	/* move 'use html mail' into position */
+	check = e_builder_get_widget (editor->builder, "checkbutton-htmlmail");
+	table = GTK_TABLE (e_builder_get_widget (editor->builder, "email-table"));
+	if (check != NULL && table != NULL) {
+		g_object_ref (G_OBJECT (check));
+		gtk_container_remove (GTK_CONTAINER (check->parent), check);
+		if (expanded)
+			gtk_table_attach_defaults (table, check, 0, 4, 2, 3);
+		else
+			gtk_table_attach_defaults (table, check, 2, 4, 0, 1);
+		g_object_unref (G_OBJECT (check));
 	}
+}
+
+static void
+init_email (EContactEditor *editor)
+{
+	gint i;
+
+	for (i = 1; i <= EMAIL_SLOTS; i++)
+		init_email_record_location (editor, i);
+
+	expand_mail (editor, !editor->compress_ui);
 }
 
 static void
@@ -1458,6 +1508,11 @@ init_im_record_service (EContactEditor *editor, gint record)
 	service_combo_box = e_builder_get_widget (editor->builder, widget_name);
 	g_free (widget_name);
 
+	if (editor->compress_ui && record > 2) {
+		gtk_widget_hide (name_entry);
+		gtk_widget_hide (service_combo_box);
+	}
+
 	init_item_sensitiveable_combo_box (GTK_COMBO_BOX (service_combo_box));
 
 	store = GTK_LIST_STORE (gtk_combo_box_get_model (GTK_COMBO_BOX (service_combo_box)));
@@ -1739,6 +1794,15 @@ sensitize_im (EContactEditor *editor)
 }
 
 static void
+init_personal (EContactEditor *editor)
+{
+	gtk_expander_set_expanded (
+		GTK_EXPANDER (e_builder_get_widget (editor->builder,
+						    "expander-personal-misc")),
+		!editor->compress_ui);
+}
+
+static void
 init_address_textview (EContactEditor *editor, gint record)
 {
 	gchar         *textview_name;
@@ -1785,6 +1849,11 @@ init_address (EContactEditor *editor)
 
 	for (i = 0; i < ADDRESS_SLOTS; i++)
 		init_address_record (editor, i);
+
+	gtk_expander_set_expanded (
+		GTK_EXPANDER (e_builder_get_widget (editor->builder,
+						    "expander-address-other")),
+		!editor->compress_ui);
 }
 
 static void
@@ -2586,11 +2655,22 @@ sensitize_all (EContactEditor *editor)
 static void
 init_all (EContactEditor *editor)
 {
-	init_simple  (editor);
-	init_email   (editor);
-	init_phone   (editor);
-	init_im      (editor);
-	init_address (editor);
+	GtkRequisition tab_req;
+
+	init_simple   (editor);
+	init_email    (editor);
+	init_phone    (editor);
+	init_im       (editor);
+	init_personal (editor);
+	init_address  (editor);
+
+	/* with so many scrolled windows, we need to
+	   do some manual sizing */
+	gtk_widget_size_request (
+		e_builder_get_widget (editor->builder, "vbox-size-leader"), &tab_req);
+	gtk_widget_set_size_request (
+		e_builder_get_widget (editor->builder, "scrolledwindow-size-leader"),
+		tab_req.width, tab_req.height + 8);
 }
 
 static void
@@ -3378,9 +3458,22 @@ expand_phone_toggle (EContactEditor *ce)
 
 	phone_ext_table = e_builder_get_widget (ce->builder, "table-phone-extended");
 #if GTK_CHECK_VERSION(2,19,7)
-	expand_phone (ce, gtk_widget_get_visible (phone_ext_table) ? FALSE : TRUE);
+	expand_phone (ce, !gtk_widget_get_visible (phone_ext_table));
 #else
-	expand_phone (ce, GTK_WIDGET_VISIBLE (phone_ext_table) ? FALSE : TRUE);
+	expand_phone (ce, !GTK_WIDGET_VISIBLE (phone_ext_table));
+#endif
+}
+
+static void
+expand_mail_toggle (EContactEditor *ce)
+{
+	GtkWidget *mail;
+
+	mail = e_builder_get_widget (ce->builder, "entry-email-4");
+#if GTK_CHECK_VERSION(2,19,7)
+	expand_mail (ce, !gtk_widget_get_visible (mail));
+#else
+	expand_mail (ce, !GTK_WIDGET_VISIBLE (mail));
 #endif
 }
 
@@ -3402,6 +3495,7 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 	e_contact_editor->target_editable = TRUE;
 	e_contact_editor->fullname_dialog = NULL;
 	e_contact_editor->categories_dialog = NULL;
+	e_contact_editor->compress_ui = e_shell_get_express_mode (e_shell_get_default ());
 
 	e_contact_editor->load_source_id = 0;
 	e_contact_editor->load_book = NULL;
@@ -3443,6 +3537,8 @@ e_contact_editor_init (EContactEditor *e_contact_editor)
 	g_signal_connect (widget, "clicked", G_CALLBACK (show_help_cb), e_contact_editor);
 	widget = e_builder_get_widget (e_contact_editor->builder, "button-phone-expand");
 	g_signal_connect_swapped (widget, "clicked", G_CALLBACK (expand_phone_toggle), e_contact_editor);
+	widget = e_builder_get_widget (e_contact_editor->builder, "button-mail-expand");
+	g_signal_connect_swapped (widget, "clicked", G_CALLBACK (expand_mail_toggle), e_contact_editor);
 
 	widget = e_builder_get_widget (e_contact_editor->builder, "entry-fullname");
 	if (widget)

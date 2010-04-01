@@ -19,12 +19,6 @@
  *
  */
 
-/**
- * SECTION: e-shell-view
- * @short_description: views within the main window
- * @include: shell/e-shell-view.h
- **/
-
 #ifndef E_SHELL_VIEW_H
 #define E_SHELL_VIEW_H
 
@@ -172,6 +166,10 @@ struct _EShellViewClass {
 	GtkWidget *	(*new_shell_sidebar)	(EShellView *shell_view);
 	GtkWidget *	(*new_shell_taskbar)	(EShellView *shell_view);
 
+	/* Create, configure and pack a search bar widget. */
+	GtkWidget *	(*construct_searchbar)	(EShellView *shell_view);
+	gchar *		(*get_search_name)	(EShellView *shell_view);
+
 	/* Signals */
 	void		(*toggled)		(EShellView *shell_view);
 	void		(*clear_search)		(EShellView *shell_view);
@@ -194,6 +192,8 @@ gboolean	e_shell_view_is_active		(EShellView *shell_view);
 gint		e_shell_view_get_page_num	(EShellView *shell_view);
 void		e_shell_view_set_page_num	(EShellView *shell_view,
 						 gint page_num);
+GtkWidget *	e_shell_view_get_searchbar	(EShellView *shell_view);
+gchar *		e_shell_view_get_search_name	(EShellView *shell_view);
 EFilterRule *	e_shell_view_get_search_rule	(EShellView *shell_view);
 void		e_shell_view_set_search_rule	(EShellView *shell_view,
 						 EFilterRule *search_rule);

@@ -1,7 +1,7 @@
 dnl Evolution Versions
 m4_define([evo_major_version], [2])
-m4_define([evo_minor_version], [30])
-m4_define([evo_micro_version], [0])
+m4_define([evo_minor_version], [31])
+m4_define([evo_micro_version], [1])
 m4_define([evo_version],
 	[evo_major_version.evo_minor_version.evo_micro_version])
 m4_define([evo_stable_version],
@@ -13,8 +13,8 @@ dnl Base Version: This is for API/version tracking for things like
 dnl Bonobo server files.  This should always be the major/minor of
 dnl the stable version or stable version to be.  Note, this is set
 dnl the way it is so that GETTEXT_PACKAGE will be parsed correctly.
-BASE_VERSION=2.30
-m4_define([base_version], [2.30])
+BASE_VERSION=3.0
+m4_define([base_version], [3.0])
 
 dnl Upgrade Revision: This is for triggering migration calls between
 dnl varying versions. Reset to 0 whenever BASE_VERSION changes.
@@ -59,6 +59,7 @@ m4_define([libnotify_minimum_version], [0.3.0])
 m4_define([gnome_pilot_minimum_version], [2.0.16])
 m4_define([gweather_minimum_version], [2.25.3])
 m4_define([gtkimageview_minimum_version], [1.6])
+m4_define([gladeui_minimum_version], [3.0.0])
 
 dnl ******************************
 dnl Compiler Warning Flags
@@ -69,6 +70,7 @@ AS_COMPILER_FLAGS(WARNING_FLAGS,
 	-DGDK_PIXBUF_DISABLE_DEPRECATED
 	-DGDK_DISABLE_DEPRECATED
 	-DGTK_DISABLE_DEPRECATED
+	-DEDS_DISABLE_DEPRECATED
 	-DG_DISABLE_SINGLE_INCLUDES
 	-DGTK_DISABLE_SINGLE_INCLUDES
 	-Wall -Wextra
@@ -1139,8 +1141,55 @@ if test "$enable_nm" = yes; then
 	AC_SUBST(HAVE_NM)
 	AC_SUBST(NM_CFLAGS)
 fi
-
 AM_CONDITIONAL([ENABLE_NETWORK_MANAGER], [test "$enable_nm" = yes])
+
+dnl ******************************
+dnl Check for Windows SENS API
+dnl ******************************
+AC_ARG_ENABLE([sens],
+	[AS_HELP_STRING([--enable-sens],
+	[enable Windows SENS support (default=yes)])],
+	[enable_sens=$enableval],[enable_sens=yes])
+if test "x$os_win32" = xyes; then
+	if test "x$enable_sens" = xyes; then
+		AC_CHECK_HEADER([rpc.h],[ enable_sens="yes" ],[ enable_sens="no" ])
+	fi
+else
+	enable_sens="no"
+fi
+AC_MSG_CHECKING([if Windows SENS support is enabled])
+AC_MSG_RESULT([$enable_sens])
+if test "$enable_sens" = yes; then
+	SENS_LIBS="-lole32 -loleaut32 -luuid -lrpcrt4"
+	AC_CHECK_HEADER([eventsys.h],
+		[AC_DEFINE([HAVE_EVENTSYS_H], 1, [Have <eventsys.h>])],,
+		[[	#if HAVE_EVENTSYS_H
+			#include <eventsys.h>
+			#endif
+		]])
+	AC_CHECK_HEADER([sensevts.h],
+		[AC_DEFINE([HAVE_SENSEVTS_H], 1, [Have <sensevts.h>])],,
+		[[	#if HAVE_SENSEVTS_H
+			#include <sensevts.h>
+			#endif
+		]])
+	AC_SUBST(HAVE_SENS)
+	AC_SUBST(SENS_LIBS)
+fi
+
+AM_CONDITIONAL([ENABLE_WINDOWS_SENS], [test "$enable_sens" = yes])
+
+dnl ******************************
+dnl Enable ConnMan support ?
+dnl ******************************
+AC_ARG_ENABLE([connman],
+	[AS_HELP_STRING([--enable-connman],
+	[enable ConnMan support (default=no)])],
+	[enable_connman=$enableval],[enable_connman=no])
+if test "x$enable_nm$enable_connman" = "xyesyes"; then
+	AC_MSG_ERROR([It is not possible to enable both ConnMan and NetworkManager])
+fi
+AM_CONDITIONAL([ENABLE_CONNMAN], [test "$enable_connman" = yes])
 
 dnl ******************************
 dnl Camel Flags
@@ -1581,6 +1630,19 @@ fi
 AM_CONDITIONAL(HAVE_KDE_APPLNK, test x"$KDE_APPLNK_DIR" != x)
 AC_SUBST(KDE_APPLNK_DIR)
 
+dnl ********************************************
+dnl Glade 3 catalog files (for maintainers only)
+dnl ********************************************
+AC_ARG_WITH([glade-catalog],
+	[AS_HELP_STRING([--with-glade-catalog],
+	[Install the catalog files for Glade 3 ]
+	[(for maintainers only) [default=no]])],
+	[with_catalog="$withval"], [with_catalog="no"])
+if test "$with_catalog" = "yes"; then
+	PKG_CHECK_MODULES(GLADEUI, [gladeui-1.0 >= gladeui_minimum_version])
+fi
+AM_CONDITIONAL(GLADE_CATALOG, test "x$with_catalog" != "xno")
+
 dnl ******************************
 dnl Makefiles
 dnl ******************************
@@ -1685,14 +1747,17 @@ mail/default/sr@latin/Makefile
 mail/default/sv/Makefile
 mail/default/zh_CN/Makefile
 mail/importers/Makefile
+maint/Makefile
 modules/Makefile
 modules/addressbook/Makefile
 modules/calendar/Makefile
 modules/mail/Makefile
 modules/network-manager/Makefile
+modules/connman/Makefile
 modules/plugin-lib/Makefile
 modules/plugin-mono/Makefile
 modules/plugin-python/Makefile
+modules/windows-sens/Makefile
 plugins/Makefile
 plugins/addressbook-file/Makefile
 plugins/attachment-reminder/Makefile
@@ -1761,6 +1826,7 @@ fi
 echo "
 	LDAP support:		$msg_ldap
 	NetworkManager:		$enable_nm
+	Windows SENS:           $enable_sens
 	Pilot conduits:		$msg_pilot
 	Libnotify:		$HAVE_LIBNOTIFY
 	Kerberos 5:		$msg_krb5
