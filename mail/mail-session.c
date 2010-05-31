@@ -65,7 +65,8 @@
 #define d(x)
 
 CamelSession *session;
-static gint session_check_junk_notify_id = -1;
+static guint session_check_junk_notify_id;
+static guint session_gconf_proxy_id;
 
 #define MAIL_SESSION_TYPE     (mail_session_get_type ())
 #define MAIL_SESSION(obj)     (CAMEL_CHECK_CAST((obj), MAIL_SESSION_TYPE, MailSession))
@@ -112,8 +113,19 @@ init (MailSession *session)
 static void
 finalise (MailSession *session)
 {
-	if (session_check_junk_notify_id != -1)
-		gconf_client_notify_remove (mail_config_get_gconf_client (), session_check_junk_notify_id);
+	GConfClient *client;
+
+	client = mail_config_get_gconf_client ();
+
+	if (session_check_junk_notify_id != 0) {
+		gconf_client_notify_remove (client, session_check_junk_notify_id);
+		session_check_junk_notify_id = 0;
+	}
+
+	if (session_gconf_proxy_id != 0) {
+		gconf_client_notify_remove (client, session_gconf_proxy_id);
+		session_gconf_proxy_id = 0;
+	}
 
 	mail_async_event_destroy(session->async);
 
@@ -793,6 +805,56 @@ mail_session_check_junk_notify (GConfClient *gconf, guint id, GConfEntry *entry,
 	}
 }
 
+#define DIR_PROXY "/system/proxy"
+#define KEY_SOCKS_HOST "/system/proxy/socks_host"
+#define KEY_SOCKS_PORT "/system/proxy/socks_port"
+
+static void
+set_socks_proxy_from_gconf (void)
+{
+	GConfClient *client;
+	gchar *host;
+	gint port;
+
+	client = mail_config_get_gconf_client ();
+
+	host = gconf_client_get_string (client, KEY_SOCKS_HOST, NULL); /* NULL-GError */
+	port = gconf_client_get_int (client, KEY_SOCKS_PORT, NULL); /* NULL-GError */
+	camel_session_set_socks_proxy (session, host, port);
+
+	g_free (host);
+}
+
+static void
+proxy_gconf_notify_cb (GConfClient* client, guint cnxn_id, GConfEntry *entry, gpointer user_data)
+{
+	const gchar *key;
+
+	key = gconf_entry_get_key (entry);
+
+	if (strcmp (entry->key, KEY_SOCKS_HOST) == 0
+	    || strcmp (entry->key, KEY_SOCKS_PORT) == 0)
+		set_socks_proxy_from_gconf ();
+}
+
+static void
+set_socks_proxy_gconf_watch (void)
+{
+	GConfClient *client;
+
+	client = mail_config_get_gconf_client ();
+
+	gconf_client_add_dir (client, DIR_PROXY, GCONF_CLIENT_PRELOAD_ONELEVEL, NULL); /* NULL-GError */
+	session_gconf_proxy_id = gconf_client_notify_add (client, DIR_PROXY, proxy_gconf_notify_cb, NULL, NULL, NULL); /* NULL-GError */
+}
+
+static void
+init_socks_proxy (void)
+{
+	set_socks_proxy_gconf_watch ();
+	set_socks_proxy_from_gconf ();
+}
+
 void
 mail_session_init (void)
 {
@@ -817,6 +879,8 @@ mail_session_init (void)
 	session->junk_plugin = NULL;
 
 	mail_config_reload_junk_headers ();
+
+	init_socks_proxy ();
 }
 
 void
