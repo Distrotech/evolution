@@ -79,6 +79,7 @@
 
 /* Command-line options.  */
 static gboolean express_mode = FALSE;
+static gboolean daemon_mode = FALSE;
 static gboolean start_online = FALSE;
 static gboolean start_offline = FALSE;
 static gboolean setup_only = FALSE;
@@ -95,6 +96,8 @@ static gchar *geometry = NULL;
 static gchar *requested_view = NULL;
 static gchar *evolution_debug_log = NULL;
 static gchar **remaining_args;
+
+static GtkWidget * daemon_shell;
 
 static void
 categories_icon_theme_hack (void)
@@ -249,9 +252,14 @@ idle_cb (gchar **uris)
 		if (e_shell_handle_uris (shell, uris, import_uris) == 0)
 			gtk_main_quit ();
 	} else {
-		if (express_mode && requested_view == NULL)
+		if ((express_mode && requested_view == NULL) || daemon_mode)
 			requested_view = "mail";
-		e_shell_create_shell_window (shell, requested_view);
+
+		if (daemon_mode) {
+			daemon_shell = e_shell_create_shell_window (shell, requested_view);
+			gtk_widget_hide (daemon_shell);
+		} else 
+			e_shell_create_shell_window (shell, requested_view);
 	}
 
 	/* If another Evolution process is running, we're done. */
@@ -329,6 +337,8 @@ static GOptionEntry entries[] = {
 	  N_("Start in online mode"), NULL },
 	{ "express", '\0', 0, G_OPTION_ARG_NONE, &express_mode,
 	  N_("Start in \"express\" mode"), NULL },
+	{ "daemon", '\0', 0, G_OPTION_ARG_NONE, &daemon_mode,
+	  N_("Start in \"daemon\" mode"), NULL },
 #ifdef KILL_PROCESS_CMD
 	{ "force-shutdown", '\0', 0, G_OPTION_ARG_NONE, &force_shutdown,
 	  N_("Forcibly shut down Evolution"), NULL },
@@ -422,6 +432,7 @@ create_default_shell (void)
 		"module-directory", EVOLUTION_MODULEDIR,
 		"meego-mode", is_meego,
 		"express-mode", express_mode,
+		"daemon-mode", daemon_mode,
 		"small-screen-mode", small_screen,
 		"online", online,
 		NULL);
@@ -578,7 +589,7 @@ main (gint argc, gchar **argv)
 
 	if (requested_view)
 		e_shell_set_startup_view(shell, requested_view);
-	else if (express_mode)
+	else if (express_mode || daemon_mode)
 		e_shell_set_startup_view(shell, "mail");
 
 	/* Attempt migration -after- loading all modules and plugins,

@@ -72,10 +72,13 @@ struct _EShellPrivate {
 	guint express_mode	: 1;
 	guint meego_mode	: 1;
 	guint small_screen_mode	: 1;
+	guint daemon_mode	: 1;
+
 };
 
 enum {
 	PROP_0,
+	PROP_DAEMON_MODE,
 	PROP_EXPRESS_MODE,
 	PROP_MEEGO_MODE,
 	PROP_SMALL_SCREEN_MODE,
@@ -108,6 +111,7 @@ static GDebugKey debug_keys[] = {
 };
 
 static gpointer default_shell;
+static GtkWidget *daemon_shell = NULL;
 static guint signals[LAST_SIGNAL];
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -141,8 +145,9 @@ shell_window_delete_event_cb (EShell *shell,
                               GtkWindow *window)
 {
 	/* If other windows are open we can safely close this one. */
-	if (g_list_length (shell->priv->watched_windows) > 1)
+	if (g_list_length (shell->priv->watched_windows) > 1) {
 		return FALSE;
+	}
 
 	/* Otherwise we initiate application quit. */
 	e_shell_quit (shell);
@@ -477,6 +482,13 @@ shell_set_express_mode (EShell *shell,
 }
 
 static void
+shell_set_daemon_mode (EShell *shell,
+                        gboolean daemon_mode)
+{
+	shell->priv->daemon_mode = daemon_mode;
+}
+
+static void
 shell_set_meego_mode (EShell *shell, gboolean is_meego)
 {
 	shell->priv->meego_mode = is_meego;
@@ -513,6 +525,12 @@ shell_set_property (GObject *object,
                     GParamSpec *pspec)
 {
 	switch (property_id) {
+		case PROP_DAEMON_MODE:
+			shell_set_daemon_mode (
+				E_SHELL (object),
+				g_value_get_boolean (value));
+			return;
+	
 		case PROP_EXPRESS_MODE:
 			shell_set_express_mode (
 				E_SHELL (object),
@@ -566,6 +584,12 @@ shell_get_property (GObject *object,
                     GParamSpec *pspec)
 {
 	switch (property_id) {
+		case PROP_DAEMON_MODE:
+			g_value_set_boolean (
+				value, e_shell_get_daemon_mode (
+				E_SHELL (object)));
+			return;
+	
 		case PROP_EXPRESS_MODE:
 			g_value_set_boolean (
 				value, e_shell_get_express_mode (
@@ -831,6 +855,23 @@ e_shell_class_init (EShellClass *class)
 			"express-mode",
 			"Express Mode",
 			"Whether express mode is enabled",
+			FALSE,
+			G_PARAM_READWRITE |
+			G_PARAM_CONSTRUCT_ONLY));
+
+	/**
+	 * EShell:daemon-mode
+	 *
+	 * Daemon mode alters Evolution's user interface to be more
+	 * usable as a daemon runs in the background.
+	 **/
+	g_object_class_install_property (
+		object_class,
+		PROP_DAEMON_MODE,
+		g_param_spec_boolean (
+			"daemon-mode",
+			"Daemon Mode",
+			"Whether daemon mode is enabled",
 			FALSE,
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT_ONLY));
@@ -1542,6 +1583,14 @@ e_shell_watch_window (EShell *shell,
 	g_return_if_fail (E_IS_SHELL (shell));
 	g_return_if_fail (GTK_IS_WINDOW (window));
 
+
+	if (shell->priv->daemon_mode && daemon_shell == NULL) {
+		/* We don't watch the daemon shell */
+		daemon_shell = (GtkWidget *)window;
+	} else 
+		unique_app_watch_window (UNIQUE_APP (shell), window);
+
+
 	list = shell->priv->watched_windows;
 
 	/* Ignore duplicates. */
@@ -1551,7 +1600,6 @@ e_shell_watch_window (EShell *shell,
 	list = g_list_prepend (list, window);
 	shell->priv->watched_windows = list;
 
-	unique_app_watch_window (UNIQUE_APP (shell), window);
 
 	/* We use the window's own type name and memory
 	 * address to form a unique window role for X11. */
@@ -1644,6 +1692,22 @@ e_shell_send_receive (EShell *shell,
 	g_return_if_fail (GTK_IS_WINDOW (parent));
 
 	g_signal_emit (shell, signals[SEND_RECEIVE], 0, parent);
+}
+
+/**
+ * e_shell_get_daemon_mode:
+ * @shell: an #EShell
+ *
+ * Returns %TRUE if Evolution is in daemon mode.
+ *
+ * Returns: %TRUE if Evolution is in daemon mode
+ **/
+gboolean
+e_shell_get_daemon_mode (EShell *shell)
+{
+	g_return_val_if_fail (E_IS_SHELL (shell), FALSE);
+
+	return shell->priv->daemon_mode;
 }
 
 /**
