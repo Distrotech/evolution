@@ -78,6 +78,7 @@ void mail_folder_cache_note_store_remove (MailFolderCache *self, CamelStore *sto
 void mail_folder_cache_note_folder (MailFolderCache *self, CamelFolder *folder);
 gboolean mail_folder_cache_get_folder_from_uri (MailFolderCache *self, const gchar *uri, CamelFolder **folderp);
 gboolean mail_folder_cache_get_folder_info_flags (MailFolderCache *self, CamelFolder *folder, gint *flags);
+char * mail_folder_cache_get_folder_uri (MailFolderCache *self, CamelFolder *folder);
 
 G_END_DECLS
 #endif

@@ -296,12 +296,13 @@ free_folder_info(struct _folder_info *mfi)
  * it's correct.  */
 
 static void
-update_1folder(MailFolderCache *self, struct _folder_info *mfi, gint new, const gchar *msg_uid, const gchar *msg_sender, const gchar *msg_subject, CamelFolderInfo *info)
+update_1folder(MailFolderCache *self, struct _folder_info *mfi, gint new, GPtrArray *msg_uid, GPtrArray *msg_sender, GPtrArray *msg_subject, CamelFolderInfo *info)
 {
 	struct _folder_update *up;
 	CamelFolder *folder;
 	gint unread = -1;
 	gint deleted;
+	int i;
 
 	folder = mfi->folder;
 	if (folder) {
@@ -340,17 +341,20 @@ update_1folder(MailFolderCache *self, struct _folder_info *mfi, gint new, const 
 	if (unread == -1)
 		return;
 
-	up = g_malloc0(sizeof(*up));
-	up->full_name = g_strdup(mfi->full_name);
-	up->unread = unread;
-	up->new = new;
-	up->store = mfi->store_info->store;
-	up->uri = g_strdup(mfi->uri);
-	up->msg_uid = g_strdup (msg_uid);
-	up->msg_sender = g_strdup (msg_sender);
-	up->msg_subject = g_strdup (msg_subject);
-	camel_object_ref(up->store);
-	g_queue_push_head (&self->priv->updates, up);
+	for (i=0; i< new; i++) {
+		up = g_malloc0(sizeof(*up));
+		up->full_name = g_strdup(mfi->full_name);
+		up->unread = unread;
+		up->new = 1;
+		up->store = mfi->store_info->store;
+		up->uri = g_strdup(mfi->uri);
+		up->msg_uid = g_strdup (msg_uid->pdata[i]);
+		up->msg_sender = g_strdup (msg_sender->pdata[i]);
+		up->msg_subject = g_strdup (msg_subject->pdata[i]);
+		camel_object_ref(up->store);
+		g_queue_push_head (&self->priv->updates, up);
+	}
+
 	flush_updates(self);
 }
 
@@ -420,8 +424,12 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	gint new = 0;
 	gint i;
 	guint32 flags;
-	gchar *uid = NULL, *sender = NULL, *subject = NULL;
+	GPtrArray *uid = NULL, *sender = NULL, *subject = NULL;
 	MailFolderCache *self = (MailFolderCache*) user_data;
+
+	uid = g_ptr_array_new ();
+	sender = g_ptr_array_new ();
+	subject = g_ptr_array_new ();
 
 	d(printf("folder '%s' changed\n", folder->full_name));
 
@@ -445,19 +453,9 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 				    ((flags & CAMEL_MESSAGE_DELETED) == 0) &&
 				    (camel_message_info_date_received (info) > last_newmail)) {
 					new++;
-					if (new == 1) {
-						uid = g_strdup (camel_message_info_uid (info));
-						sender = g_strdup (camel_message_info_from (info));
-						subject = g_strdup (camel_message_info_subject (info));
-					} else {
-						g_free (uid);
-						g_free (sender);
-						g_free (subject);
-
-						uid = NULL;
-						sender = NULL;
-						subject = NULL;
-					}
+					g_ptr_array_add(uid, g_strdup (camel_message_info_uid (info)));
+					g_ptr_array_add (sender, g_strdup (camel_message_info_from (info)));
+					g_ptr_array_add (subject, g_strdup (camel_message_info_subject (info)));
 				}
 				camel_message_info_free (info);
 			}
@@ -476,9 +474,13 @@ folder_changed (CamelObject *o, gpointer event_data, gpointer user_data)
 	}
 	g_mutex_unlock (self->priv->stores_mutex);
 
-	g_free (uid);
-	g_free (sender);
-	g_free (subject);
+	g_ptr_array_foreach (uid, (GFunc) g_free, NULL);
+	g_ptr_array_foreach (sender, (GFunc) g_free, NULL);
+	g_ptr_array_foreach (subject, (GFunc) g_free, NULL);
+
+	g_ptr_array_free (uid, TRUE);
+	g_ptr_array_free (sender, TRUE);
+	g_ptr_array_free (subject, TRUE);
 }
 
 static void
@@ -553,6 +555,26 @@ void mail_folder_cache_note_folder(MailFolderCache *self, CamelFolder *folder)
 	camel_object_hook_event(folder, "folder_changed", folder_changed, self);
 	camel_object_hook_event(folder, "renamed", folder_renamed, self);
 	camel_object_hook_event(folder, "finalize", folder_finalised, self);
+}
+
+char *
+mail_folder_cache_get_folder_uri (MailFolderCache *self, CamelFolder *folder)
+{
+	CamelStore *store = folder->parent_store;
+	struct _store_info *si;
+	struct _folder_info *mfi;
+
+	g_mutex_lock (self->priv->stores_mutex);
+	if (self->priv->stores == NULL
+	    || (si = g_hash_table_lookup(self->priv->stores, store)) == NULL
+	    || (mfi = g_hash_table_lookup(si->folders, folder->full_name)) == NULL) {
+		g_mutex_unlock (self->priv->stores_mutex);
+		return NULL;
+	}
+
+	g_mutex_unlock (self->priv->stores_mutex);
+
+	return g_strdup(mfi->uri);
 }
 
 static void
