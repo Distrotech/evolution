@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<e-plugin-list>
+	  <e-plugin
+	    type="shlib"
+	    id="org.gnome.evolution.plugin.dbus-ipc-events"
+	    location="@PLUGINDIR@/liborg-gnome-evolution-dbus-ipc-events@SOEXT@"
+	    _name="DBus IPC/Events handler">
+	     <author name="Srinivasa Ragavan" email="srini@linux.intel.com"/>
+	     <_description>DBus IPC and Events handler</_description>
+		<hook class="org.gnome.evolution.shell.events:1.0">
+			<event
+			   id="upgrade.done"
+			   handle="dbus_ipc_events"
+			   target="upgrade"/>
+		</hook>    
+		<hook class="org.gnome.evolution.mail.events:1.0">
+			<event id="draft.saved"
+			enable="newmail"
+			handle="org_gnome_mail_draft_saved"
+			target="folder"/>
+		</hook>
+		<hook class="org.gnome.evolution.mail.events:1.0">
+			<event id="draft.deleted"
+			enable="newmail"
+			handle="org_gnome_mail_draft_deleted"
+			target="folder"/>
+		</hook>
+		<hook class="org.gnome.evolution.mail.events:1.0">
+			<event id="mail.note"
+			enable="newmail"
+			handle="org_gnome_mail_note"
+			target="folder"/>
+		</hook>
+	  </e-plugin>
+</e-plugin-list>
