@@ -108,6 +108,7 @@
     <separator/>
     <menuitem action='mail-popup-mark-read'/>
     <menuitem action='mail-popup-mark-unread'/>
+    <menuitem action='mail-popup-pin-myzone'/>
     <menuitem action='mail-popup-mark-important'/>
     <menuitem action='mail-popup-mark-unimportant'/>
     <menuitem action='mail-popup-mark-junk'/>
