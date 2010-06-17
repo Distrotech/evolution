@@ -582,6 +582,8 @@ create_review (MailAccountView *view)
 }
 
 #define IDENTITY_DETAIL N_("To use the email application you'll need to setup an account. Put your email address and password in below and we'll try and work out all the settings. If we can't do it automatically you'll need your server details as well.")
+#define IDENTITY_DETAIL_EDIT N_("To use the email application you'll need to setup an account. Put your email address below and we'll try and work out all the settings. If we can't do it automatically you'll need your server details as well.")
+
 
 #define RECEIVE_DETAIL N_("Sorry, we can't work out the settings to get your mail automatically. Please enter them below. We've tried to make a start with the details you just entered but you may need to change them.")
 
@@ -598,20 +600,21 @@ struct _page_text {
 	const gchar *next_edit;
 	const gchar *prev_edit;
 	const gchar *detail;
+	const gchar *detail_edit;
 	const gchar *path;
 	GtkWidget * (*create_page) (MailAccountView *view);
 	void (*fill_page) (MailAccountView *view);
 	void (*save_page) (MailAccountView *view);
 	gint (*validate_page) (MailAccountView *view);
 } mail_account_pages[] = {
-	{ MAV_IDENTITY_PAGE, N_("Identity"), N_("Next - Receiving mail"), NULL, N_("Next - Receiving mail"), NULL, IDENTITY_DETAIL, "00.identity",NULL, NULL, save_identity, validate_identity},
-	{ MAV_RECV_PAGE, N_("Receiving mail"), N_("Next - Sending mail"), N_("Back - Identity"), N_("Next - Receiving options"), N_("Back - Identity"), RECEIVE_DETAIL, "10.receive", NULL, NULL, NULL, NULL },
-	{ MAV_RECV_OPT_PAGE, N_("Receiving options"),  NULL, NULL, N_("Next - Sending mail"), N_("Back - Receiving mail"), RECEIVE_OPT_DETAIL, "10.receive", NULL, NULL, NULL, NULL },
+	{ MAV_IDENTITY_PAGE, N_("Identity"), N_("Next - Receiving mail"), NULL, N_("Next - Receiving mail"), NULL, IDENTITY_DETAIL, IDENTITY_DETAIL_EDIT, "00.identity",NULL, NULL, save_identity, validate_identity},
+	{ MAV_RECV_PAGE, N_("Receiving mail"), N_("Next - Sending mail"), N_("Back - Identity"), N_("Next - Receiving options"), N_("Back - Identity"), RECEIVE_DETAIL, NULL, "10.receive", NULL, NULL, NULL, NULL },
+	{ MAV_RECV_OPT_PAGE, N_("Receiving options"),  NULL, NULL, N_("Next - Sending mail"), N_("Back - Receiving mail"), RECEIVE_OPT_DETAIL, NULL, "10.receive", NULL, NULL, NULL, NULL },
 
-	{ MAV_SEND_PAGE, N_("Sending mail"), N_("Next - Review account"), N_("Back - Receiving mail"), N_("Next - Defaults"), N_("Back - Receiving options"), SEND_DETAIL, "30.send", NULL, NULL, NULL, NULL},
-	{ MAV_DEFAULTS_PAGE, N_("Defaults"), NULL, NULL, N_("Next - Review account"), N_("Back - Sending mail"), DEFAULTS_DETAIL, "40.defaults", NULL, NULL, NULL, NULL},
+	{ MAV_SEND_PAGE, N_("Sending mail"), N_("Next - Review account"), N_("Back - Receiving mail"), N_("Next - Defaults"), N_("Back - Receiving options"), SEND_DETAIL, NULL, "30.send", NULL, NULL, NULL, NULL},
+	{ MAV_DEFAULTS_PAGE, N_("Defaults"), NULL, NULL, N_("Next - Review account"), N_("Back - Sending mail"), DEFAULTS_DETAIL, NULL, "40.defaults", NULL, NULL, NULL, NULL},
 
-	{ MAV_REVIEW_PAGE, N_("Review account"), N_("Finish"), N_("Back - Sending"), N_("Finish"), N_("Back - Sending"), REVIEW_DETAIL, NULL, create_review, NULL, NULL},
+	{ MAV_REVIEW_PAGE, N_("Review account"), N_("Finish"), N_("Back - Sending"), N_("Finish"), N_("Back - Sending"), REVIEW_DETAIL, NULL, NULL, create_review, NULL, NULL},
 };
 
 static void
@@ -851,7 +854,8 @@ mav_construct_page(MailAccountView *view, MAVPageType type)
 	box = gtk_hbox_new (FALSE, 12);
 	gtk_widget_show(box);
 	gtk_box_pack_start((GtkBox *)page->box, box, FALSE, FALSE, 12);
-	tmp = gtk_label_new (_(mail_account_pages[type].detail));
+
+	tmp = gtk_label_new ((view->original && mail_account_pages[type].detail_edit) ? _(mail_account_pages[type].detail_edit) :_(mail_account_pages[type].detail));
 	gtk_widget_set_size_request (tmp, 600, -1);
 	gtk_label_set_line_wrap ((GtkLabel *)tmp, TRUE);
 	gtk_label_set_line_wrap_mode ((GtkLabel *)tmp, PANGO_WRAP_WORD);
