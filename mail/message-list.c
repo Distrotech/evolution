@@ -4623,10 +4623,12 @@ regen_list_exec (struct _regen_list_msg *m)
 
 	/* camel_folder_summary_reload_from_db (m->folder->summary, NULL); */
 	if (!camel_operation_cancel_check(m->base.cancel)) {
+		if (e_shell_get_express_mode(e_shell_get_default()))
+	 		camel_folder_summary_set_need_preview (m->folder->summary, TRUE);
+
 		/* update/build a new tree */
 		if (m->dotree) {
 			ml_sort_uids_by_tree (m->ml, showuids);
-
 			if (m->tree)
 				camel_folder_thread_messages_apply (m->tree, showuids);
 			else
