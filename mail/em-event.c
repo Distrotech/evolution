@@ -139,13 +139,14 @@ EMEvent *em_event_peek(void)
 }
 
 EMEventTargetFolder *
-em_event_target_new_folder (EMEvent *eme, const gchar *uri, guint new, const gchar *msg_uid, const gchar *msg_sender, const gchar *msg_subject)
+em_event_target_new_folder (EMEvent *eme, CamelFolder *folder, const gchar *uri, guint new, const gchar *msg_uid, const gchar *msg_sender, const gchar *msg_subject)
 {
 	EMEventTargetFolder *t = e_event_target_new(&eme->popup, EM_EVENT_TARGET_FOLDER, sizeof(*t));
 	guint32 flags = new ? EM_EVENT_FOLDER_NEWMAIL : 0;
 
 	t->uri = g_strdup (uri);
 	t->target.mask = ~flags;
+	t->folder = folder;
 	t->new = new;
 	t->msg_uid = g_strdup (msg_uid);
 	t->msg_sender = g_strdup (msg_sender);

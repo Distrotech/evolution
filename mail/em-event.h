@@ -73,6 +73,7 @@ typedef struct _EMEventTargetFolder EMEventTargetFolder;
 
 struct _EMEventTargetFolder {
 	EEventTarget target;
+	CamelFolder *folder;
 	gchar *uri;
 	guint  new;
 	gboolean is_inbox;
@@ -139,7 +140,7 @@ GType em_event_get_type(void);
 
 EMEvent *em_event_peek(void);
 
-EMEventTargetFolder *em_event_target_new_folder (EMEvent *emp, const gchar *uri, guint32 count_new_msgs, const gchar *msg_uid, const gchar *msg_sender, const gchar *msg_subject);
+EMEventTargetFolder *em_event_target_new_folder (EMEvent *emp, CamelFolder *folder, const gchar *uri, guint32 count_new_msgs, const gchar *msg_uid, const gchar *msg_sender, const gchar *msg_subject);
 EMEventTargetComposer *em_event_target_new_composer(EMEvent *emp, const EMsgComposer *composer, guint32 flags);
 EMEventTargetMessage *em_event_target_new_message(EMEvent *emp, CamelFolder *folder, CamelMimeMessage *message, const gchar *uid, guint32 flags,
 							EMsgComposer *composer);
