@@ -38,6 +38,7 @@
 #include "mail-config.h"
 #include "mail-session.h"
 #include "mail-send-recv.h"
+#include "mail-folder-cache.h"
 
 #include "e-util/e-account-utils.h"
 #include "e-util/e-alert-dialog.h"
@@ -581,6 +582,10 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 {
 	struct _save_draft_info *sdi = user_data;
 	struct emcs_t *emcs;
+	EMEvent *event = em_event_peek ();
+	EMEventTargetFolder *target;
+	CamelMessageInfo *minfo;
+	char *uri;
 
 	if (!ok)
 		goto done;
@@ -595,6 +600,25 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 		camel_folder_set_message_flags (emcs->drafts_folder, emcs->drafts_uid,
 						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN,
 						CAMEL_MESSAGE_DELETED | CAMEL_MESSAGE_SEEN);
+
+		minfo = camel_folder_summary_uid (emcs->drafts_folder->summary, emcs->drafts_uid);
+		uri = mail_folder_cache_get_folder_uri (mail_folder_cache_get_default(), emcs->drafts_folder);
+		target = em_event_target_new_folder (event, emcs->drafts_folder, uri, 1,
+			emcs->drafts_uid, camel_message_info_to(minfo), camel_message_info_subject(minfo));
+
+		/** @Event: draft.deleted
+		 * @Title: Draft deleted
+		 * @Target: EMEventTargetFolder
+		 *
+		 * draft.deleted is emitted whenever a draft is delted.
+		 */
+		e_event_emit (
+			(EEvent *) event, "draft.deleted",
+			(EEventTarget *) target);
+		g_free(uri);
+	
+		camel_message_info_free (minfo);
+
 		camel_object_unref (emcs->drafts_folder);
 		emcs->drafts_folder = NULL;
 		g_free (emcs->drafts_uid);
@@ -618,7 +642,26 @@ save_draft_done (CamelFolder *folder, CamelMimeMessage *msg, CamelMessageInfo *i
 
 	if (e_msg_composer_is_exiting (sdi->composer))
 		gtk_widget_destroy (GTK_WIDGET (sdi->composer));
+	
+	minfo = camel_folder_summary_uid (folder->summary, appended_uid);
+	uri = mail_folder_cache_get_folder_uri (mail_folder_cache_get_default(), folder);
+	target = em_event_target_new_folder (
+		event, folder, uri, 1,
+		appended_uid, camel_message_info_to(minfo), camel_message_info_subject(minfo));
 
+	/** @Event: draft.saved
+	 * @Title: Draft saved
+	 * @Target: EMEventTargetFolder
+	 *
+	 * draft.saved is emitted whenever a draft is saved.
+	 */
+	e_event_emit (
+		(EEvent *) event, "draft.saved",
+		(EEventTarget *) target);
+	
+	g_free(uri);
+	camel_message_info_free (minfo);
+	
  done:
 	g_object_unref (sdi->composer);
 	if (sdi->emcs)

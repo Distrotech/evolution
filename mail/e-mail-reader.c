@@ -46,6 +46,7 @@
 #include "mail/em-utils.h"
 #include "mail/mail-autofilter.h"
 #include "mail/mail-config.h"
+#include "mail/mail-folder-cache.h"
 #include "mail/mail-ops.h"
 #include "mail/mail-mt.h"
 #include "mail/mail-vfolder.h"
@@ -117,6 +118,55 @@ mail_reader_get_private (GObject *object)
 	}
 
 	return priv;
+}
+
+static void
+action_mail_pin_myzone_cb (GtkAction *action,
+                           EMailReader *reader)
+{
+	EShellBackend *shell_backend;
+	CamelMessageInfo *info;
+	CamelFolder *folder;
+	GPtrArray *uids;
+	const gchar *address;
+	EMEvent *event = em_event_peek ();
+	EMEventTargetFolder *target;
+	char *uri;
+
+	folder = e_mail_reader_get_folder (reader);
+	shell_backend = e_mail_reader_get_shell_backend (reader);
+	uids = e_mail_reader_get_selected_uids (reader);
+
+	if (uids->len != 1)
+		goto exit;
+
+	info = camel_folder_get_message_info (folder, uids->pdata[0]);
+	if (info == NULL)
+		goto exit;
+
+	address = camel_message_info_from (info);
+	if (address == NULL || *address == '\0')
+		goto exit;
+	
+	uri = mail_folder_cache_get_folder_uri (mail_folder_cache_get_default(), folder);
+	
+	target = em_event_target_new_folder (event, folder, uri, 1,
+			uids->pdata[0], camel_message_info_from(info), camel_message_info_subject(info));
+	
+	/** @Event: mail.note
+	 *  @Title: Mail Pin to Myzone
+	 *  @Target: EMEventTargetFolder
+	 *
+	 * mail.note is emitted whenever a message wants to be pinned to Myzone.
+	 */
+	e_event_emit (
+		(EEvent *) event, "mail.note",
+		(EEventTarget *) target);
+
+	g_free (uri);
+	camel_message_info_free(info);
+exit:
+	em_utils_uids_free (uids);
 }
 
 static void
@@ -1145,6 +1195,13 @@ static GtkActionEntry mail_reader_entries[] = {
 	  N_("Add sender to address book"),
 	  G_CALLBACK (action_mail_add_sender_cb) },
 
+	{ "mail-pin-myzone",
+	  NULL,
+	  N_("Pin to Myzone"),
+	  NULL,
+	  N_("Pin to Myzone"),
+	  G_CALLBACK (action_mail_pin_myzone_cb) },	
+
 	{ "mail-check-for-junk",
 	  "mail-mark-junk",
 	  N_("Check for _Junk"),
@@ -1572,7 +1629,11 @@ static EPopupActionEntry mail_reader_popup_entries[] = {
 
 	{ "mail-popup-copy",
 	  NULL,
-	  "mail-copy" },
+	  "mail-copy" }, 
+
+	{ "mail-popup-pin-myzone",
+	  NULL,
+	  "mail-pin-myzone" }, 
 
 	{ "mail-popup-delete",
 	  NULL,

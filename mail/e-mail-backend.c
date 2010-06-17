@@ -352,7 +352,7 @@ mail_backend_folder_changed_cb (MailFolderCache *folder_cache,
 			g_return_if_reached ();
 
 	target = em_event_target_new_folder (
-		event, folder_uri, new_messages,
+		event, folder, folder_uri, new_messages,
 		msg_uid, msg_sender, msg_subject);
 
 	folder_type = (flags & CAMEL_FOLDER_TYPE_MASK);
