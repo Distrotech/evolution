@@ -52,6 +52,14 @@
 #include "mail/mail-vfolder.h"
 #include "mail/message-list.h"
 
+
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
+
+
 #define E_MAIL_READER_GET_PRIVATE(obj) \
 	(mail_reader_get_private (G_OBJECT (obj)))
 
@@ -1942,8 +1950,9 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
 			string = g_strdup_printf (
 				_("Retrieving message '%s'"), cursor_uid);
 		}
-
-		e_web_view_load_string (web_view, string);
+		
+		if (!e_shell_get_express_mode(e_shell_get_default()))
+			e_web_view_load_string (web_view, string);
 		g_free (string);
 
 		camel_exception_clear (ex);
@@ -2002,7 +2011,8 @@ mail_reader_message_selected_timeout_cb (EMailReader *reader)
 
 			string = g_strdup_printf (
 				_("Retrieving message '%s'"), cursor_uid);
-			e_web_view_load_string (web_view, string);
+			if (!e_shell_get_express_mode(e_shell_get_default()))
+				e_web_view_load_string (web_view, string);
 			g_free (string);
 
 			store_async = folder->parent_store->flags & CAMEL_STORE_ASYNC;
@@ -2128,11 +2138,13 @@ mail_reader_set_folder (EMailReader *reader,
 	GtkWidget *message_list;
 	const gchar *previous_folder_uri;
 	gboolean outgoing;
+	EWebView *web_view;
 
 	priv = E_MAIL_READER_GET_PRIVATE (reader);
 
 	html_display = e_mail_reader_get_html_display (reader);
 	message_list = e_mail_reader_get_message_list (reader);
+	web_view = E_WEB_VIEW (EM_FORMAT_HTML (html_display)->html);
 
 	previous_folder = e_mail_reader_get_folder (reader);
 	previous_folder_uri = e_mail_reader_get_folder_uri (reader);
@@ -2153,6 +2165,18 @@ mail_reader_set_folder (EMailReader *reader,
 
 	priv->folder_was_just_selected = (folder != NULL);
 
+#if HAVE_CLUTTER
+	{
+		ClutterActor *pane = g_object_get_data ((GObject *)web_view, "list-actor");
+		if (pane) {
+			clutter_actor_set_opacity (pane, 0);
+			clutter_actor_animate (pane, CLUTTER_LINEAR, 500,
+								"opacity", 255,
+								NULL);
+		}
+	}
+#endif	
+	
 	message_list_set_folder (
 		MESSAGE_LIST (message_list), folder, folder_uri, outgoing);
 

@@ -18,8 +18,14 @@
  * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
  *
  */
-
+#include <config.h>
 #include "e-shell-window-private.h"
+
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
 
 static void
 shell_window_save_switcher_style_cb (GtkRadioAction *action,
@@ -255,6 +261,61 @@ e_shell_window_private_init (EShellWindow *shell_window)
 		G_CALLBACK (shell_window_connect_proxy_cb), shell_window);
 }
 
+#if HAVE_CLUTTER
+
+static ClutterActor *
+create_gtk_actor (GtkWidget *vbox)
+{
+  GtkWidget       *bin;
+  ClutterActor    *gtk_actor;
+
+  gtk_actor = gtk_clutter_actor_new ();
+  bin = gtk_clutter_actor_get_widget (GTK_CLUTTER_ACTOR (gtk_actor));
+
+  gtk_container_add (GTK_CONTAINER (bin), vbox);
+  
+  gtk_widget_show (bin);
+  gtk_widget_show(vbox);
+  return gtk_actor;
+}
+
+
+
+static void
+fix_clutter_embed_width (GtkWidget *widget, GtkAllocation *allocation, ClutterActor *actor)
+{
+	GtkWidget *embed = (GtkWidget *)g_object_get_data ((GObject *)actor, "embed");
+	clutter_actor_set_size (actor, allocation->width-1, embed->allocation.height);
+}
+
+static GtkWidget *
+create_under_clutter (GtkWidget *widget, GtkWidget *paned)
+{
+	GtkWidget *embed;
+	ClutterActor *stage, *actor;
+
+	embed = gtk_clutter_embed_new ();
+	gtk_widget_show (embed);
+
+	actor = create_gtk_actor (widget);
+	clutter_actor_show (actor);
+	stage = gtk_clutter_embed_get_stage ((GtkClutterEmbed *)embed);
+	clutter_container_add_actor ((ClutterContainer *)stage, actor);
+	
+	g_object_set_data ((GObject *)actor, "embed", embed);
+	g_object_set_data ((GObject *)actor, "stage", stage);
+	g_object_set_data ((GObject *)actor, "widget", widget);
+	g_object_set_data ((GObject *)widget, "actor", actor);
+	g_object_set_data ((GObject *)embed, "actor", actor);
+
+	g_signal_connect (paned, "size-allocate", G_CALLBACK(fix_clutter_embed_width), actor);
+	clutter_actor_show(stage);
+	
+	return embed;
+}
+
+#endif
+
 void
 e_shell_window_private_constructed (EShellWindow *shell_window)
 {
@@ -327,7 +388,11 @@ e_shell_window_private_constructed (EShellWindow *shell_window)
 
 	paned = GTK_PANED (priv->content_pane);
 
+#if HAVE_CLUTTER	
+	widget = create_under_clutter(shell_window_construct_sidebar (shell_window), (GtkWidget *)paned);
+#else
 	widget = shell_window_construct_sidebar (shell_window);
+#endif
 	if (widget != NULL)
 		gtk_paned_pack1 (paned, widget, FALSE, FALSE);
 

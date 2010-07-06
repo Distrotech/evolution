@@ -44,6 +44,12 @@
 #include "e-mail-shell-backend.h"
 #include "e-mail-shell-view-actions.h"
 
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
+
 #define E_MAIL_SHELL_CONTENT_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), E_TYPE_MAIL_SHELL_CONTENT, EMailShellContentPrivate))
@@ -74,6 +80,14 @@ struct _EMailShellContentPrivate {
 	guint preview_visible			: 1;
 	guint suppress_message_selection	: 1;
 	guint show_deleted			: 1;
+#if HAVE_CLUTTER
+	GtkWidget *list_embed;
+	GtkWidget *preview_embed;
+	ClutterActor *preview_stage;
+	ClutterActor *list_stage;
+	ClutterActor *list_actor;
+	ClutterActor *preview_actor;
+#endif	
 };
 
 enum {
@@ -86,6 +100,59 @@ enum {
 
 static gpointer parent_class;
 static GType mail_shell_content_type;
+
+#if HAVE_CLUTTER
+
+static ClutterActor *
+create_gtk_actor (GtkWidget *vbox)
+{
+  GtkWidget       *bin;
+  ClutterActor    *gtk_actor;
+
+  gtk_actor = gtk_clutter_actor_new ();
+  bin = gtk_clutter_actor_get_widget (GTK_CLUTTER_ACTOR (gtk_actor));
+
+  gtk_container_add (GTK_CONTAINER (bin), vbox);
+  
+  gtk_widget_show (bin);
+  gtk_widget_show(vbox);
+  return gtk_actor;
+}
+
+static void
+fix_clutter_embed_width (GtkWidget *widget, GtkAllocation *allocation, ClutterActor *actor)
+{
+	GtkWidget *embed = (GtkWidget *)g_object_get_data ((GObject *)actor, "embed");
+	clutter_actor_set_size (actor, allocation->width-1, embed->allocation.height);
+}
+
+static GtkWidget *
+create_under_clutter (GtkWidget *widget, GtkWidget *paned)
+{
+	GtkWidget *embed;
+	ClutterActor *stage, *actor;
+
+	embed = gtk_clutter_embed_new ();
+	gtk_widget_show (embed);
+
+	actor = create_gtk_actor (widget);
+	clutter_actor_show (actor);
+	stage = gtk_clutter_embed_get_stage ((GtkClutterEmbed *)embed);
+	clutter_container_add_actor ((ClutterContainer *)stage, actor);
+	
+	g_object_set_data ((GObject *)actor, "embed", embed);
+	g_object_set_data ((GObject *)actor, "stage", stage);
+	g_object_set_data ((GObject *)actor, "widget", widget);
+	g_object_set_data ((GObject *)widget, "actor", actor);
+	g_object_set_data ((GObject *)embed, "actor", actor);
+
+	g_signal_connect (paned, "size-allocate", G_CALLBACK(fix_clutter_embed_width), actor);
+	clutter_actor_show(stage);
+	
+	return embed;
+}
+
+#endif
 
 static void
 mail_shell_content_save_boolean (EMailShellContent *mail_shell_content,
@@ -200,6 +267,7 @@ mail_shell_content_message_selected_cb (EMailShellContent *mail_shell_content,
 	const gchar *folder_uri;
 	const gchar *key;
 	gchar *group_name;
+	EMailShellContentPrivate *priv = E_MAIL_SHELL_CONTENT_GET_PRIVATE(mail_shell_content);
 
 	folder_uri = message_list->folder_uri;
 
@@ -223,6 +291,15 @@ mail_shell_content_message_selected_cb (EMailShellContent *mail_shell_content,
 	e_shell_view_set_state_dirty (shell_view);
 
 	g_free (group_name);
+	
+#if HAVE_CLUTTER	
+  	clutter_actor_set_opacity (priv->preview_actor, 0);
+  	clutter_actor_animate (priv->preview_actor, CLUTTER_EASE_OUT_SINE, 500,
+       	                  	"opacity", 255,
+       	                  	NULL);
+
+#endif
+
 }
 
 static GtkOrientation
@@ -405,9 +482,18 @@ mail_shell_content_constructed (GObject *object)
 	gtk_scrolled_window_set_shadow_type (
 		GTK_SCROLLED_WINDOW (widget), GTK_SHADOW_IN);
 	priv->scrolled_window = g_object_ref (widget);
-	gtk_paned_pack1 (GTK_PANED (container), widget, TRUE, FALSE);
+#if HAVE_CLUTTER
+	priv->list_embed = create_under_clutter (widget, (GtkWidget *)container);
+	gtk_paned_pack1 (GTK_PANED (container), priv->list_embed, TRUE, FALSE);
 	gtk_widget_show (widget);
 
+	priv->list_actor = g_object_get_data((GObject *)priv->list_embed, "actor");
+	priv->list_stage = g_object_get_data((GObject *)priv->list_actor, "stage");
+	
+#else	
+	gtk_paned_pack1 (GTK_PANED (container), widget, TRUE, FALSE);
+	gtk_widget_show (widget);
+#endif
 	container = widget;
 
 	widget = message_list_new (shell_backend);
@@ -420,8 +506,32 @@ mail_shell_content_constructed (GObject *object)
 	gtk_widget_show (GTK_WIDGET (web_view));
 
 	widget = e_preview_pane_new (web_view);
+#if HAVE_CLUTTER
+	priv->preview_embed = create_under_clutter (widget, container);
+	priv->preview_actor = g_object_get_data((GObject *)priv->preview_embed, "actor");
+	priv->preview_stage = g_object_get_data((GObject *)priv->preview_actor, "stage");
+
+	gtk_paned_pack2 (GTK_PANED (container), priv->preview_embed, FALSE, FALSE);
+	gtk_widget_show (widget);
+
+	e_binding_new (widget, "visible", priv->preview_actor, "visible");
+
+	g_object_set_data ((GObject *)web_view, "list-actor", (gpointer) priv->list_actor);
+	g_object_set_data ((GObject *)web_view, "list-stage", (gpointer) priv->list_stage);
+	g_object_set_data ((GObject *)web_view, "preview-stage", (gpointer) priv->preview_stage);
+	
+	g_object_set_data ((GObject *)web_view, "preview-actor", (gpointer) priv->preview_actor);
+
+	g_object_set_data ((GObject *)priv->message_list, "list-actor", (gpointer) priv->list_actor);
+	g_object_set_data ((GObject *)priv->message_list, "list-stage", (gpointer) priv->list_stage);
+	g_object_set_data ((GObject *)priv->message_list, "preview-stage", (gpointer) priv->preview_stage);
+	g_object_set_data ((GObject *)priv->message_list, "preview-actor", (gpointer) priv->preview_actor);
+	
+#else	
+
 	gtk_paned_pack2 (GTK_PANED (container), widget, FALSE, FALSE);
 	gtk_widget_show (widget);
+#endif
 
 	e_binding_new (object, "preview-visible", widget, "visible");
 

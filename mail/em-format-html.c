@@ -80,6 +80,8 @@
 #include "em-html-stream.h"
 #include "em-utils.h"
 
+#include "shell/e-shell.h"
+
 #define d(x)
 
 #define EM_FORMAT_HTML_GET_PRIVATE(obj) \
@@ -352,7 +354,7 @@ efh_format_timeout(struct _format_msg *m)
 	} else {
 		efh->state = EM_FORMAT_HTML_STATE_RENDERING;
 
-		if (p->last_part != m->message) {
+		if (p->last_part != m->message && !e_shell_get_express_mode(e_shell_get_default())) {
 			hstream = gtk_html_begin (efh->html);
 			gtk_html_stream_printf (hstream, "<h5>%s</h5>", _("Formatting Message..."));
 			gtk_html_stream_close (hstream, GTK_HTML_STREAM_OK);

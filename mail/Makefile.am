@@ -21,6 +21,7 @@ libevolution_mail_la_CPPFLAGS =				\
 	$(EVOLUTION_MAIL_CFLAGS)			\
 	$(CERT_UI_CFLAGS)				\
 	$(CANBERRA_CFLAGS)				\
+	$(CLUTTER_CFLAGS)				\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"		\
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"	\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
@@ -168,6 +169,7 @@ libevolution_mail_la_LIBADD =				\
 	$(EVOLUTION_MAIL_LIBS)				\
 	$(CERT_UI_LIBS)					\
 	$(CANBERRA_LIBS)				\
+	$(CLUTTER_LIBS)					\
 	$(GTKHTML_LIBS)					\
 	$(E_WIDGETS_LIBS)				\
 	$(SMIME_LIBS)					\

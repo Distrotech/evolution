@@ -55,6 +55,9 @@
 
 #include "shell/e-shell.h"
 #include "shell/e-shell-settings.h"
+#include "shell/e-shell-window.h"
+#include "shell/e-shell-content.h"
+#include "shell/e-shell-view.h"
 
 #include "table/e-cell-checkbox.h"
 #include "table/e-cell-hbox.h"
@@ -75,6 +78,12 @@
 #include "mail-ops.h"
 #include "mail-tools.h"
 #include "message-list.h"
+
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
 
 /*#define TIMEIT */
 
@@ -119,6 +128,11 @@ struct _MessageListPrivate {
 
 	GtkTargetList *copy_target_list;
 	GtkTargetList *paste_target_list;
+
+#if HAVE_CLUTTER
+	ClutterActor *search_texture;
+	ClutterTimeline *timeline;
+#endif
 };
 
 enum {
@@ -2301,6 +2315,10 @@ message_list_init (MessageList *message_list)
 
 	message_list->priv = MESSAGE_LIST_GET_PRIVATE (message_list);
 
+#if HAVE_CLUTTER
+	message_list->priv->timeline = NULL;
+	message_list->priv->search_texture = NULL;
+#endif
 	message_list->normalised_hash = g_hash_table_new_full (
 		g_str_hash, g_str_equal,
 		(GDestroyNotify) NULL,
@@ -3972,9 +3990,63 @@ message_list_set_hidedeleted (MessageList *ml, gboolean hidedeleted)
 	}
 }
 
+#if HAVE_CLUTTER
+static void
+on_timeline_started (ClutterTimeline *timeline, ClutterActor *actor)
+{
+	clutter_actor_show(actor);
+}
+
+static void
+on_timeline_stopped (ClutterTimeline *timeline, ClutterActor *actor)
+{
+	clutter_actor_hide(actor);
+}
+#endif
+
 void
 message_list_set_search (MessageList *ml, const gchar *search)
 {
+#if HAVE_CLUTTER	
+	if (ml->priv->timeline == NULL) {
+		ClutterActor *stage = g_object_get_data ((GObject *)ml, "list-stage");
+		
+		if (stage) {
+			ClutterActor *texture;
+			ClutterPath *path;
+			ClutterBehaviour *behaviour;
+			ClutterAlpha *alpha;
+
+			texture = clutter_texture_new_from_file ("/tmp/search.png", NULL);
+			clutter_container_add_actor ((ClutterContainer *)stage, texture);
+			ml->priv->search_texture = texture;
+
+			ml->priv->timeline = clutter_timeline_new (2 * 1000);
+			alpha = clutter_alpha_new_full (ml->priv->timeline, CLUTTER_LINEAR);
+			path = clutter_path_new();
+			behaviour = clutter_behaviour_path_new (alpha, path);
+			clutter_actor_hide (texture);
+			clutter_path_clear (path);
+			clutter_path_add_move_to (path, 100, 50);
+			clutter_path_add_line_to (path, 200, 50);
+			clutter_path_add_line_to (path, 200, 100);
+			clutter_path_add_line_to (path, 100, 100);
+			clutter_path_add_line_to (path, 100, 50);
+
+			clutter_behaviour_apply (behaviour, texture);
+			clutter_timeline_set_loop (ml->priv->timeline, TRUE);
+			
+			g_signal_connect(ml->priv->timeline, "started", G_CALLBACK(on_timeline_started), texture);
+			g_signal_connect(ml->priv->timeline, "paused", G_CALLBACK(on_timeline_stopped), texture);
+			//g_signal_connect(ml->priv->timeline, "completed", G_CALLBACK(on_timeline_stopped), texture);
+			
+			clutter_timeline_pause (ml->priv->timeline);			
+			clutter_timeline_stop (ml->priv->timeline);
+
+		}
+	}
+#endif
+
 	if (search == NULL || search[0] == '\0')
 		if (ml->search == NULL || ml->search[0] == '\0')
 			return;
@@ -3986,6 +4058,10 @@ message_list_set_search (MessageList *ml, const gchar *search)
 		camel_folder_thread_messages_unref(ml->thread_tree);
 		ml->thread_tree = NULL;
 	}
+
+#if HAVE_CLUTTER	
+	clutter_timeline_start (ml->priv->timeline);
+#endif
 
 	if (ml->frozen == 0)
 		mail_regen_list (ml, search, NULL, NULL);
@@ -4767,14 +4843,31 @@ regen_list_done (struct _regen_list_msg *m)
 				e_tree_set_info_message (tree, _("There are only hidden messages in this folder. Use View->Show Hidden Messages to show them."));
 			else
 				e_tree_set_info_message (tree, _("There are no messages in this folder."));
-		} else
+		} else {
 			e_tree_set_info_message (tree, NULL);
+		}
 	}
+
 
 	g_signal_handlers_unblock_by_func (e_tree_get_table_adapter (tree), ml_tree_sorting_changed, m->ml);
 
 	g_signal_emit (m->ml, message_list_signals[MESSAGE_LIST_BUILT], 0);
 	m->ml->priv->any_row_changed = FALSE;
+
+#if HAVE_CLUTTER
+	if (clutter_timeline_is_playing(m->ml->priv->timeline)) {
+		clutter_timeline_stop (m->ml->priv->timeline);
+	} else {
+		ClutterActor *pane = g_object_get_data ((GObject *)m->ml, "list-actor");
+		
+		if (pane) {
+  			clutter_actor_set_opacity (pane, 0);
+  			clutter_actor_animate (pane, CLUTTER_EASE_OUT_SINE, 500,
+       	                 	 	"opacity", 255,
+       	                  		NULL);
+		}
+	}
+#endif		
 }
 
 static void

@@ -39,6 +39,12 @@
 #include "mail/em-format-html-display.h"
 #include "mail/message-list.h"
 
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
+
 #define E_MAIL_BROWSER_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), E_TYPE_MAIL_BROWSER, EMailBrowserPrivate))
@@ -59,6 +65,12 @@ struct _EMailBrowserPrivate {
 	GtkWidget *statusbar;
 
 	guint show_deleted : 1;
+#if HAVE_CLUTTER
+	GtkWidget *embed;
+	ClutterActor *preview_stage;
+	ClutterActor *preview_actor;
+	ClutterAnimation *anim;
+#endif	
 };
 
 enum {
@@ -270,6 +282,13 @@ mail_browser_message_selected_cb (EMailBrowser *browser,
 		GTK_WIDGET (((EMFormatHTML *) html_display)->html));
 
 	camel_folder_free_message_info (folder, info);
+#if HAVE_CLUTTER	
+  	clutter_actor_set_opacity (browser->priv->preview_actor, 0);
+  	clutter_actor_animate (browser->priv->preview_actor, CLUTTER_EASE_OUT_SINE, 500,
+       	                  	"opacity", 255,
+       	                  	NULL);
+#endif
+	
 }
 
 static gboolean
@@ -464,6 +483,59 @@ mail_browser_dispose (GObject *object)
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
+#if HAVE_CLUTTER
+
+static ClutterActor *
+create_gtk_actor (GtkWidget *vbox)
+{
+  GtkWidget       *bin;
+  ClutterActor    *gtk_actor;
+
+  gtk_actor = gtk_clutter_actor_new ();
+  bin = gtk_clutter_actor_get_widget (GTK_CLUTTER_ACTOR (gtk_actor));
+
+  gtk_container_add (GTK_CONTAINER (bin), vbox);
+  
+  gtk_widget_show (bin);
+  gtk_widget_show(vbox);
+  return gtk_actor;
+}
+
+static void
+fix_clutter_embed_width (GtkWidget *widget, GtkAllocation *allocation, ClutterActor *actor)
+{
+	GtkWidget *embed = (GtkWidget *)g_object_get_data ((GObject *)actor, "embed");
+	clutter_actor_set_size (actor, allocation->width-1, embed->allocation.height);
+}
+
+static GtkWidget *
+create_under_clutter (GtkWidget *widget, GtkWidget *paned)
+{
+	GtkWidget *embed;
+	ClutterActor *stage, *actor;
+
+	embed = gtk_clutter_embed_new ();
+	gtk_widget_show (embed);
+
+	actor = create_gtk_actor (widget);
+	clutter_actor_show (actor);
+	stage = gtk_clutter_embed_get_stage ((GtkClutterEmbed *)embed);
+	clutter_container_add_actor ((ClutterContainer *)stage, actor);
+	
+	g_object_set_data ((GObject *)actor, "embed", embed);
+	g_object_set_data ((GObject *)actor, "stage", stage);
+	g_object_set_data ((GObject *)actor, "widget", widget);
+	g_object_set_data ((GObject *)widget, "actor", actor);
+	g_object_set_data ((GObject *)embed, "actor", actor);
+
+	g_signal_connect (paned, "size-allocate", G_CALLBACK(fix_clutter_embed_width), actor);
+	clutter_actor_show(stage);
+	
+	return embed;
+}
+
+#endif
+
 static void
 mail_browser_constructed (GObject *object)
 {
@@ -598,7 +670,15 @@ mail_browser_constructed (GObject *object)
 	gtk_widget_show (GTK_WIDGET (web_view));
 
 	widget = e_preview_pane_new (web_view);
+#if HAVE_CLUTTER
+	priv->embed = create_under_clutter (widget, container);
+	gtk_box_pack_start (GTK_BOX (container), priv->embed, TRUE, TRUE, 0);
+	priv->preview_actor = g_object_get_data((GObject *)priv->embed, "actor");
+	priv->preview_stage = g_object_get_data((GObject *)priv->preview_actor, "stage");
+
+#else
 	gtk_box_pack_start (GTK_BOX (container), widget, TRUE, TRUE, 0);
+#endif	
 	gtk_widget_show (widget);
 
 	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));

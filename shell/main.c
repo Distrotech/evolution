@@ -69,6 +69,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#if HAVE_CLUTTER
+ #include <clutter-gtk/clutter-gtk.h>
+#endif
+
 #define SKIP_WARNING_DIALOG_KEY \
 	"/apps/evolution/shell/skip_warning_dialog"
 
@@ -478,10 +482,17 @@ main (gint argc, gchar **argv)
 	bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
 	textdomain (GETTEXT_PACKAGE);
 
+#if HAVE_CLUTTER
+	gtk_clutter_init_with_args (
+		&argc, &argv, 
+		_("- The Evolution PIM and Email Client"), 
+		entries, (gchar *) GETTEXT_PACKAGE, &error);
+#else
 	gtk_init_with_args (
 		&argc, &argv,
 		_("- The Evolution PIM and Email Client"),
 		entries, (gchar *) GETTEXT_PACKAGE, &error);
+#endif
 	if (error != NULL) {
 		g_printerr ("%s\n", error->message);
 		g_error_free (error);

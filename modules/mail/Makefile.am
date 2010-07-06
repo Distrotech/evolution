@@ -8,6 +8,7 @@ libevolution_module_mail_la_CPPFLAGS =					\
 	$(GNOME_PLATFORM_CFLAGS)					\
 	$(EVOLUTION_MAIL_CFLAGS)					\
 	$(CAMEL_CFLAGS)							\
+	$(CLUTTER_CFLAGS)						\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"			\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"				\
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"			\
@@ -68,6 +69,7 @@ libevolution_module_mail_la_LIBADD =					\
 	$(top_builddir)/capplet/settings/libevolution-mail-settings.la	\
 	$(EVOLUTION_MAIL_LIBS)						\
 	$(CAMEL_LIBS)							\
+	$(CLUTTER_LIBS)							\
 	$(GTKHTML_LIBS)							\
 	$(E_WIDGETS_LIBS)						\
 	$(GNOME_PLATFORM_LIBS)
