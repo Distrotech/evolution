@@ -58,6 +58,7 @@ libeshell_la_CPPFLAGS =						\
 	-DLIBDIR=\""$(datadir)"\"				\
 	-DG_LOG_DOMAIN=\"evolution-shell\"			\
 	$(GNOME_PLATFORM_CFLAGS)				\
+	$(CLUTTER_CFLAGS)					\
 	$(TZDIALOG_CFLAGS)					\
 	$(SHELL_CFLAGS)
 
@@ -93,6 +94,7 @@ libeshell_la_LIBADD =					\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la	\
 	$(top_builddir)/widgets/menus/libmenus.la	\
 	$(GNOME_PLATFORM_LIBS)				\
+	$(CLUTTER_LIBS)					\
 	$(SHELL_LIBS)
 
 # Evolution executable
@@ -120,11 +122,13 @@ evolution_CPPFLAGS =						\
 	-DEVOLUTION_TOOLSDIR=\""$(privlibexecdir)"\"		\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"			\
 	-DPREFIX=\""$(prefix)"\"				\
+	-DEVOLUTION_MX_THEMEDIR=\"$(privdatadir)/theme\" 	\
 	-DSYSCONFDIR=\""$(sysconfdir)"\"			\
 	-DDATADIR=\""$(datadir)"\"				\
 	-DLIBDIR=\""$(datadir)"\"				\
 	$(GNOME_PLATFORM_CFLAGS)				\
 	$(TZDIALOG_CFLAGS)					\
+	$(CLUTTER_CFLAGS)					\
 	$(SHELL_CFLAGS)
 
 evolution_SOURCES =				\
@@ -140,6 +144,7 @@ evolution_LDADD =							\
 	$(TZDIALOG_LIBS)						\
 	$(SHELL_LIBS)							\
 	$(GNOME_PLATFORM_LIBS)						\
+	$(CLUTTER_LIBS)							\
 	$(EVOLUTIONICON)
 
 if OS_WIN32
