@@ -30,6 +30,10 @@
 
 #include "e-day-view.h"
 
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+
 /* Standard GObject macros */
 #define E_TYPE_DAY_VIEW_MAIN_ITEM \
 	(e_day_view_main_item_get_type ())
@@ -56,12 +60,12 @@ typedef struct _EDayViewMainItemClass EDayViewMainItemClass;
 typedef struct _EDayViewMainItemPrivate EDayViewMainItemPrivate;
 
 struct _EDayViewMainItem {
-	GnomeCanvasItem parent;
+	ClutterCairoTexture parent;
 	EDayViewMainItemPrivate *priv;
 };
 
 struct _EDayViewMainItemClass {
-	GnomeCanvasItemClass parent_class;
+	ClutterCairoTextureClass parent_class;
 };
 
 GType		e_day_view_main_item_get_type	(void);
@@ -70,6 +74,11 @@ EDayView *	e_day_view_main_item_get_day_view
 void		e_day_view_main_item_set_day_view
 						(EDayViewMainItem *main_item,
 						 EDayView *day_view);
+void		e_day_view_main_item_set_size 	(EDayViewMainItem *item, 
+						 int width, 
+						 int height);
+void		e_day_view_main_item_draw (EDayViewMainItem *item);
+void		e_day_view_main_item_redraw (EDayViewMainItem *item);
 
 G_END_DECLS
 

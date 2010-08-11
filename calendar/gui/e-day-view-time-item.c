@@ -25,6 +25,10 @@
 #include <config.h>
 #endif
 
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+
 #include <string.h>
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -76,16 +80,14 @@ struct _EDayViewTimeItemPrivate {
 static void e_day_view_time_item_update (GnomeCanvasItem *item,
 					 double *affine,
 					 ArtSVP *clip_path, gint flags);
-static void e_day_view_time_item_draw (GnomeCanvasItem *item,
+static void e_day_view_time_item_draw (ClutterActor *actor);/*
 				       GdkDrawable *drawable,
 				       gint x, gint y,
-				       gint width, gint height);
+				       gint width, gint height);*/
 static double e_day_view_time_item_point (GnomeCanvasItem *item,
 					  double x, double y,
 					  gint cx, gint cy,
 					  GnomeCanvasItem **actual_item);
-static gint e_day_view_time_item_event (GnomeCanvasItem *item,
-					GdkEvent *event);
 static void e_day_view_time_item_increment_time	(gint	*hour,
 						 gint	*minute,
 						 gint	 mins_per_row);
@@ -180,7 +182,7 @@ static void
 day_view_time_item_class_init (EDayViewTimeItemClass *class)
 {
 	GObjectClass *object_class;
-	GnomeCanvasItemClass *item_class;
+	ClutterCairoTextureClass *item_class;
 
 	parent_class = g_type_class_peek_parent (class);
 	g_type_class_add_private (class, sizeof (EDayViewTimeItemPrivate));
@@ -191,11 +193,10 @@ day_view_time_item_class_init (EDayViewTimeItemClass *class)
 	object_class->dispose = day_view_time_item_dispose;
 	object_class->finalize = day_view_time_item_finalize;
 
-	item_class = GNOME_CANVAS_ITEM_CLASS (class);
-	item_class->update = e_day_view_time_item_update;
-	item_class->draw = e_day_view_time_item_draw;
-	item_class->point = e_day_view_time_item_point;
-	item_class->event = e_day_view_time_item_event;
+	item_class = CLUTTER_CAIRO_TEXTURE_CLASS (class);
+//	item_class->update = e_day_view_time_item_update;
+//	item_class->point = e_day_view_time_item_point;
+//	CLUTTER_ACTOR_CLASS(item_class)->event = e_day_view_time_item_event;
 
 	g_object_class_install_property (
 		object_class,
@@ -229,6 +230,36 @@ day_view_time_item_init (EDayViewTimeItem *time_item)
 	time_item->priv->second_zone_changed_id = calendar_config_add_notification_day_second_zone (edvti_second_zone_changed_cb, time_item);
 }
 
+EDayViewTimeItem *
+e_day_view_time_item_new (EDayView *day_view, gint width, gint height)
+{
+	EDayViewTimeItem *item;
+
+	item =  g_object_new (
+			E_TYPE_DAY_VIEW_TIME_ITEM,
+			"EDayViewTimeItem::day_view", day_view,
+                       "surface-width", 50,
+                       "surface-height", 300,			
+			NULL); 
+
+	e_day_view_time_item_draw ((ClutterActor *)item);
+}
+
+void
+e_day_view_time_item_set_size (EDayViewTimeItem *item, int width, int height)
+{
+	clutter_cairo_texture_set_surface_size (item, width, height);
+	clutter_cairo_texture_clear (item);
+	e_day_view_time_item_draw ((ClutterActor *)item);
+}
+
+void
+e_day_view_time_item_redraw (EDayViewTimeItem *item)
+{
+	clutter_cairo_texture_clear (item);
+	e_day_view_time_item_draw ((ClutterActor *)item);
+}
+
 GType
 e_day_view_time_item_get_type (void)
 {
@@ -249,13 +280,13 @@ e_day_view_time_item_get_type (void)
 		};
 
 		type = g_type_register_static (
-			GNOME_TYPE_CANVAS_ITEM, "EDayViewTimeItem",
+			CLUTTER_TYPE_CAIRO_TEXTURE, "EDayViewTimeItem",
 			&type_info, 0);
 	}
 
 	return type;
 }
-
+#if 0
 static void
 e_day_view_time_item_update (GnomeCanvasItem *item,
 			    double *affine,
@@ -271,13 +302,13 @@ e_day_view_time_item_update (GnomeCanvasItem *item,
 	item->x2 = INT_MAX;
 	item->y2 = INT_MAX;
 }
-
+#endif
 /*
  * DRAWING ROUTINES - functions to paint the canvas item.
  */
 static void
-edvti_draw_zone (GnomeCanvasItem   *canvas_item,
-		GdkDrawable	   *drawable,
+edvti_draw_zone (ClutterActor *actor,
+	//	GdkDrawable	   *drawable,
 		gint		    x,
 		gint		    y,
 		gint		    width,
@@ -305,9 +336,9 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 	GdkColor fg, dark;
 	GdkColor mb_color;
 
-	cr = gdk_cairo_create (drawable);
+	cr = clutter_cairo_texture_create (actor);
 
-	time_item = E_DAY_VIEW_TIME_ITEM (canvas_item);
+	time_item = E_DAY_VIEW_TIME_ITEM (actor);
 	day_view = e_day_view_time_item_get_day_view (time_item);
 	g_return_if_fail (day_view != NULL);
 
@@ -427,6 +458,7 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 
 		cairo_save (cr);
 		gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_MARCUS_BAINS_LINE]);
+	cairo_set_source_rgba (cr, 0.3, 0.2, 0.4, 1.0);
 
 		if (day_view->marcus_bains_time_bar_color && gdk_color_parse (day_view->marcus_bains_time_bar_color, &mb_color)) {
 			GdkColormap *colormap;
@@ -453,7 +485,9 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 
 			colormap = gtk_widget_get_colormap (GTK_WIDGET (day_view));
 			if (gdk_colormap_alloc_color (colormap, &mb_color, TRUE, TRUE)) {
-				gdk_cairo_set_source_color (cr, &mb_color);
+	cairo_set_source_rgba (cr, 0.3, 0.2, 0.4, 1.0);
+
+//				gdk_cairo_set_source_color (cr, &mb_color);
 			}
 		}
 	}
@@ -484,7 +518,9 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 			   between hours and display as one long string,
 			   e.g. "14:00" or "2 pm". */
 			cairo_save (cr);
-			gdk_cairo_set_source_color (cr, &dark);
+	//		gdk_cairo_set_source_color (cr, &dark);
+	cairo_set_source_rgba (cr, 0.3, 0.2, 0.4, 1.0);
+	
 			cairo_save (cr);
 			cairo_set_line_width (cr, 0.7);
 			cairo_move_to (cr, long_line_x1, row_y);
@@ -505,10 +541,12 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 			}
 
 			cairo_save (cr);
-			if (show_midnight_date)
-				gdk_cairo_set_source_color (cr, &mb_color);
-			else
-				gdk_cairo_set_source_color (cr, &fg);
+	cairo_set_source_rgba (cr, 0.3, 0.2, 0.4, 1.0);
+
+	//		if (show_midnight_date)
+	//			gdk_cairo_set_source_color (cr, &mb_color);
+	//		else
+	//			gdk_cairo_set_source_color (cr, &fg);
 			layout = pango_cairo_create_layout (cr);
 			pango_layout_set_text (layout, buffer, -1);
 			pango_layout_get_pixel_size (layout, &minute_width, NULL);
@@ -527,7 +565,9 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 				   large font. */
 
 				cairo_save (cr);
-				gdk_cairo_set_source_color (cr, &dark);
+	cairo_set_source_rgba (cr, 0.3, 0.2, 0.4, 1.0);
+
+//				gdk_cairo_set_source_color (cr, &dark);
 				if (show_midnight_date)
 					strcpy (buffer, midnight_day);
 				else
@@ -545,6 +585,8 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 					gdk_cairo_set_source_color (cr, &mb_color);
 				else
 					gdk_cairo_set_source_color (cr, &fg);
+	cairo_set_source_rgba (cr, 0.3, 0.2, 0.4, 1.0);
+
 				layout = pango_cairo_create_layout (cr);
 				pango_layout_set_text (layout, buffer, -1);
 				pango_layout_set_font_description (layout, day_view->large_font_desc);
@@ -614,22 +656,27 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 }
 
 static void
-e_day_view_time_item_draw (GnomeCanvasItem *canvas_item,
-			   GdkDrawable	   *drawable,
+e_day_view_time_item_draw (ClutterActor *actor)
+/*			   GdkDrawable	   *drawable,
 			   gint		    x,
 			   gint		    y,
 			   gint		    width,
-			   gint		    height)
+			   gint		    height)*/
 {
 	EDayViewTimeItem *time_item;
+	gint x = 0;
+	gint y =0;
+	gint width; //=  clutter_actor_get_width (actor);
+	gint height;// = clutter_actor_get_height (actor);
 
-	time_item = E_DAY_VIEW_TIME_ITEM (canvas_item);
+	clutter_cairo_texture_get_surface_size (actor, &width, &height);
+	time_item = E_DAY_VIEW_TIME_ITEM (actor);
 	g_return_if_fail (time_item != NULL);
 
-	edvti_draw_zone (canvas_item, drawable, x, y, width, height, 0, NULL);
+	edvti_draw_zone (actor, x, y, width, height, 0, NULL);
 
 	if (time_item->priv->second_zone)
-		edvti_draw_zone (canvas_item, drawable, x, y, width, height, time_item->priv->column_width, time_item->priv->second_zone);
+		edvti_draw_zone (actor, x, y, width, height, time_item->priv->column_width, time_item->priv->second_zone);
 }
 
 /* Increment the time by the 5/10/15/30/60 minute interval.
@@ -648,7 +695,7 @@ e_day_view_time_item_increment_time	(gint	*hour,
 		*hour = (*hour + 1) % 24;
 	}
 }
-
+#if 0
 static double
 e_day_view_time_item_point (GnomeCanvasItem *item, double x, double y,
 			    gint cx, gint cy,
@@ -657,9 +704,11 @@ e_day_view_time_item_point (GnomeCanvasItem *item, double x, double y,
 	*actual_item = item;
 	return 0.0;
 }
+#endif
 
-static gint
-e_day_view_time_item_event (GnomeCanvasItem *item,
+
+gint
+e_day_view_time_item_event (EDayViewTimeItem *item,
 			    GdkEvent *event)
 {
 	EDayViewTimeItem *time_item;
@@ -692,6 +741,7 @@ e_day_view_time_item_event (GnomeCanvasItem *item,
 	return FALSE;
 }
 
+
 static void
 edvti_second_zone_changed_cb (GConfClient *client, guint cnxn_id, GConfEntry *entry, gpointer user_data)
 {
@@ -708,7 +758,8 @@ edvti_second_zone_changed_cb (GConfClient *client, guint cnxn_id, GConfEntry *en
 
 	day_view = e_day_view_time_item_get_day_view (time_item);
 	gtk_widget_set_size_request (day_view->time_canvas, e_day_view_time_item_get_column_width (time_item), -1);
-	gtk_widget_queue_draw (day_view->time_canvas);
+	e_day_view_time_item_redraw (time_item);
+	//gtk_widget_queue_draw (day_view->time_canvas);
 }
 
 static void
@@ -872,7 +923,7 @@ e_day_view_time_item_on_button_press (EDayViewTimeItem *time_item,
 	if (!gtk_widget_has_focus (GTK_WIDGET (day_view)))
 		gtk_widget_grab_focus (GTK_WIDGET (day_view));
 
-	window = gtk_layout_get_bin_window (GTK_LAYOUT (canvas));
+	window = gtk_layout_get_bin_window (GTK_LAYOUT (day_view->time_canvas));
 
 	if (gdk_pointer_grab (window, FALSE,
 			      GDK_POINTER_MOTION_MASK
@@ -906,7 +957,7 @@ e_day_view_time_item_on_motion_notify (EDayViewTimeItem *time_item,
 				       GdkEvent *event)
 {
 	EDayView *day_view;
-	GnomeCanvas *canvas;
+	//GnomeCanvas *canvas;
 	gdouble window_y;
 	gint y, row;
 
@@ -916,16 +967,17 @@ e_day_view_time_item_on_motion_notify (EDayViewTimeItem *time_item,
 	day_view = e_day_view_time_item_get_day_view (time_item);
 	g_return_if_fail (day_view != NULL);
 
-	canvas = GNOME_CANVAS_ITEM (time_item)->canvas;
+	//canvas = GNOME_CANVAS_ITEM (time_item)->canvas;
 
 	y = event->motion.y;
 	row = e_day_view_time_item_convert_position_to_row (time_item, y);
 
 	if (row != -1) {
-		gnome_canvas_world_to_window (canvas, 0, event->motion.y,
-					      NULL, &window_y);
+		//gnome_canvas_world_to_window (canvas, 0, event->motion.y,
+		//			      NULL, &window_y);
 		e_day_view_update_selection (day_view, -1, row);
-		e_day_view_check_auto_scroll (day_view, -1, (gint) window_y);
+		e_day_view_check_auto_scroll (day_view, -1, (gint) event->motion.y);
+		//e_day_view_check_auto_scroll (day_view, -1, (gint) window_y);
 	}
 }
 

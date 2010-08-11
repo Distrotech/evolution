@@ -105,6 +105,7 @@ struct _EMailReaderIface {
 	void		(*show_search_bar)	(EMailReader *reader);
 	void		(*update_actions)	(EMailReader *reader,
 						 guint32 state);
+	int 		(*enable_show_folder)	(EMailReader *reader);
 };
 
 GType		e_mail_reader_get_type		(void);
@@ -150,6 +151,9 @@ void		e_mail_reader_create_charset_menu
 						 GtkUIManager *ui_manager,
 						 guint merge_id);
 void		e_mail_reader_show_search_bar	(EMailReader *reader);
+gboolean	e_mail_reader_get_enable_show_folder
+						(EMailReader *reader);
+void 		e_mail_reader_enable_show_folder(EMailReader *reader);
 
 G_END_DECLS
 

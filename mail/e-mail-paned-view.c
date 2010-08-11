@@ -72,6 +72,7 @@ struct _EMailPanedViewPrivate {
 
 	guint preview_visible	: 1;
 	guint show_deleted	: 1;
+	guint enable_show_folder : 1;
 };
 
 enum {
@@ -568,6 +569,16 @@ mail_paned_view_open_selected_mail (EMailReader *reader)
 	E_MAIL_PANED_VIEW_CLASS(G_OBJECT_GET_CLASS (reader))->open_selected_mail (E_MAIL_PANED_VIEW(reader));
 }
 
+static gboolean
+mail_paned_view_enable_show_folder (EMailReader *reader)
+{
+	EMailPanedViewPrivate *priv;
+
+	priv = E_MAIL_PANED_VIEW (reader)->priv;
+	
+	return priv->enable_show_folder ? TRUE : FALSE;
+}
+
 static void
 mail_paned_view_constructed (GObject *object)
 {
@@ -685,6 +696,7 @@ mail_paned_view_init (EMailPanedView  *shell)
 	shell->priv = g_new0(EMailPanedViewPrivate, 1);
 
 	shell->priv->preview_visible = TRUE;
+	shell->priv->enable_show_folder = FALSE;
 
 	g_signal_connect (
 		shell, "notify::group-by-threads",
@@ -761,6 +773,8 @@ mail_paned_view_reader_init (EMailReaderIface *iface)
 	iface->set_folder = mail_paned_view_set_folder;
 	iface->show_search_bar = mail_paned_view_show_search_bar;
 	iface->open_selected_mail = mail_paned_view_open_selected_mail;
+	iface->enable_show_folder = mail_paned_view_enable_show_folder;
+	
 }
 
 GType
@@ -1122,3 +1136,11 @@ e_mail_paned_view_get_preview (EMailPanedView *view)
 {
 	return view->priv->preview;
 }
+
+void
+e_mail_paned_view_set_enable_show_folder (EMailPanedView *view, gboolean set)
+{
+	printf("Set %p: %d\n", view, set);
+	view->priv->enable_show_folder = set ? 1 : 0;
+}
+

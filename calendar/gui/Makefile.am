@@ -72,6 +72,7 @@ libevolution_calendar_la_CPPFLAGS =			\
 	$(GNOME_PLATFORM_CFLAGS)			\
 	$(LIBSOUP_CFLAGS)				\
 	$(EVOLUTION_CALENDAR_CFLAGS)			\
+	$(CLUTTER_CFLAGS)				\
 	$(CAMEL_CFLAGS)
 
 ui_DATA = 					\
@@ -229,6 +230,7 @@ libevolution_calendar_la_LIBADD =					\
 	$(CAMEL_LIBS)							\
 	$(LIBSOUP_LIBS)							\
 	$(EVOLUTION_CALENDAR_LIBS)					\
+	$(CLUTTER_LIBS)							\
 	$(GNOME_PLATFORM_LIBS)
 
 libevolution_calendar_la_LDFLAGS = $(NO_UNDEFINED)

@@ -181,11 +181,17 @@ e_mail_message_pane_get_type (void)
 GtkWidget *
 e_mail_message_pane_new (EShellContent *content)
 {
+	GtkWidget *widget;
+
 	g_return_val_if_fail (E_IS_SHELL_CONTENT (content), NULL);
 
-	return g_object_new (
+	widget = g_object_new (
 		E_TYPE_MAIL_MESSAGE_PANE,
 		"shell-content", content, 
 		"preview-visible", TRUE,
 		NULL);
+
+	e_mail_paned_view_set_enable_show_folder (E_MAIL_PANED_VIEW(widget), TRUE);
+
+	return widget;
 }

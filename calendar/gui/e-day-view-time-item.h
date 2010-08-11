@@ -31,6 +31,11 @@
 
 #include "e-day-view.h"
 
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+
+
 /* Standard GObject macros */
 #define E_TYPE_DAY_VIEW_TIME_ITEM \
 	(e_day_view_time_item_get_type ())
@@ -57,12 +62,14 @@ typedef struct _EDayViewTimeItemClass EDayViewTimeItemClass;
 typedef struct _EDayViewTimeItemPrivate EDayViewTimeItemPrivate;
 
 struct _EDayViewTimeItem {
-	GnomeCanvasItem parent;
+	//GnomeCanvasItem parent;
+	ClutterCairoTexture parent;
 	EDayViewTimeItemPrivate *priv;
 };
 
 struct _EDayViewTimeItemClass {
-	GnomeCanvasItemClass parent_class;
+//	GnomeCanvasItemClass parent_class;
+	ClutterCairoTextureClass parent_class;
 };
 
 GType		e_day_view_time_item_get_type	(void);
@@ -75,7 +82,12 @@ gint		e_day_view_time_item_get_column_width
 						(EDayViewTimeItem *time_item);
 icaltimezone *	e_day_view_time_item_get_second_zone
 						(EDayViewTimeItem *time_item);
-
+void		e_day_view_time_item_set_size   (EDayViewTimeItem *item, 
+						 int width, 
+						 int height);
+void 		e_day_view_time_item_redraw 	(EDayViewTimeItem *item);
+gint		e_day_view_time_item_event 	(EDayViewTimeItem *item,
+			    			 GdkEvent *event);
 G_END_DECLS
 
 #endif /* E_DAY_VIEW_TIME_ITEM_H */

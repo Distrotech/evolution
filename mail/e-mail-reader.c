@@ -95,6 +95,7 @@ enum {
 	FOLDER_LOADED,
 	SHOW_SEARCH_BAR,
 	UPDATE_ACTIONS,
+	SHOW_FOLDER,
 	LAST_SIGNAL
 };
 
@@ -670,6 +671,13 @@ exit:
 		em_utils_uids_free (uids);
 
 	gtk_widget_destroy (dialog);
+}
+
+static void
+action_mail_folder_cb (GtkAction *action,
+                     EMailReader *reader)
+{
+	g_signal_emit (reader, signals[SHOW_FOLDER], 0);	
 }
 
 static void
@@ -1590,6 +1598,13 @@ static GtkActionEntry mail_reader_entries[] = {
 	  N_("Move selected messages to another folder"),
 	  G_CALLBACK (action_mail_move_cb) },
 
+	{ "mail-goto-folder",
+	  NULL,
+	  N_("_Switch to Folder"),
+	  "<Control>Up",
+	  N_("Display the next message"),
+	  G_CALLBACK (action_mail_folder_cb) },
+	
 	{ "mail-next",
 	  GTK_STOCK_GO_FORWARD,
 	  N_("_Next Message"),
@@ -2315,6 +2330,13 @@ mail_reader_get_folder_uri (EMailReader *reader)
 	return MESSAGE_LIST (message_list)->folder_uri;
 }
 
+static gboolean
+mail_reader_get_enable_show_folder (EMailReader *reader)
+{
+	printf("Oops %p FALSe\n", reader);
+	return FALSE;
+}
+
 static void
 mail_reader_set_folder (EMailReader *reader,
                         CamelFolder *folder,
@@ -2378,6 +2400,7 @@ mail_reader_update_actions (EMailReader *reader,
 	GtkAction *action;
 	const gchar *action_name;
 	gboolean sensitive;
+	EMailReaderPrivate *priv;
 
 	/* Be descriptive. */
 	gboolean any_messages_selected;
@@ -2397,6 +2420,8 @@ mail_reader_update_actions (EMailReader *reader,
 	gboolean selection_has_unread_messages;
 	gboolean selection_is_mailing_list;
 	gboolean single_message_selected;
+
+	priv = E_MAIL_READER_GET_PRIVATE ( reader);
 
 	shell_backend = e_mail_reader_get_shell_backend (reader);
 	shell = e_shell_backend_get_shell (shell_backend);
@@ -2596,6 +2621,10 @@ mail_reader_update_actions (EMailReader *reader,
 	action = e_mail_reader_get_action (reader, action_name);
 	gtk_action_set_sensitive (action, sensitive);
 
+	action_name = "mail-goto-folder";
+	action = e_mail_reader_get_action (reader, action_name);
+	g_object_set (action, "visible", e_mail_reader_get_enable_show_folder (reader), NULL);
+
 	action_name = "mail-move";
 	sensitive = any_messages_selected;
 	action = e_mail_reader_get_action (reader, action_name);
@@ -2745,6 +2774,7 @@ mail_reader_class_init (EMailReaderIface *iface)
 	iface->get_selected_uids = mail_reader_get_selected_uids;
 	iface->get_folder = mail_reader_get_folder;
 	iface->get_folder_uri = mail_reader_get_folder_uri;
+	iface->enable_show_folder = mail_reader_get_enable_show_folder;
 	iface->set_folder = mail_reader_set_folder;
 	iface->set_message = mail_reader_set_message;
 	iface->open_selected_mail = e_mail_reader_open_selected;
@@ -2792,6 +2822,15 @@ mail_reader_class_init (EMailReaderIface *iface)
 		NULL, NULL,
 		g_cclosure_marshal_VOID__VOID,
 		G_TYPE_NONE, 0);
+
+	signals[SHOW_FOLDER] = g_signal_new (
+		"show-folder",
+		G_OBJECT_CLASS_TYPE (iface),
+		G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION,
+		0,
+		NULL, NULL,
+		g_cclosure_marshal_VOID__VOID,
+		G_TYPE_NONE, 0);	
 
 	signals[UPDATE_ACTIONS] = g_signal_new (
 		"update-actions",
@@ -2938,6 +2977,10 @@ e_mail_reader_init (EMailReader *reader)
 	action_name = "mail-reply-group";
 	action = e_mail_reader_get_action (reader, action_name);
 	g_object_set (action, "is-important", TRUE, NULL);
+
+	action_name = "mail-goto-folder";
+	action = e_mail_reader_get_action (reader, action_name);
+	g_object_set (action, "visible", FALSE, NULL);
 
 	action_name = "mail-next";
 	action = e_mail_reader_get_action (reader, action_name);
@@ -3313,6 +3356,19 @@ e_mail_reader_get_hide_deleted (EMailReader *reader)
 	return iface->get_hide_deleted (reader);
 }
 
+gboolean
+e_mail_reader_get_enable_show_folder (EMailReader *reader)
+{
+	EMailReaderIface *iface;
+
+	g_return_val_if_fail (E_IS_MAIL_READER (reader), FALSE);
+
+	iface = E_MAIL_READER_GET_IFACE (reader);
+	g_return_val_if_fail (iface->enable_show_folder != NULL, FALSE);
+
+	return iface->enable_show_folder (reader);
+}
+
 GtkWidget *
 e_mail_reader_get_message_list (EMailReader *reader)
 {
@@ -3582,3 +3638,28 @@ e_mail_reader_show_search_bar (EMailReader *reader)
 
 	g_signal_emit (reader, signals[SHOW_SEARCH_BAR], 0);
 }
+
+void 
+e_mail_reader_enable_show_folder (EMailReader *reader)
+{
+	GtkAction *action;
+	const gchar *action_name;
+	EMailReaderPrivate *priv;
+	CamelFolder *folder;
+	char *label;
+
+	g_return_if_fail (E_IS_MAIL_READER (reader));
+
+	priv = E_MAIL_READER_GET_PRIVATE (reader);
+	folder = e_mail_reader_get_folder (reader);
+
+	label = g_strdup_printf (_("Folder '%s'"), camel_folder_get_full_name(folder));
+
+	action_name = "mail-goto-folder";
+	action = e_mail_reader_get_action (reader, action_name);
+	g_object_set (action, "visible", TRUE, 
+		 	"label", label, NULL);
+
+	g_free (label);
+}
+

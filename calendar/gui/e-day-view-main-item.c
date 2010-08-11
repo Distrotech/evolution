@@ -90,7 +90,7 @@ icalcomp_is_transparent (icalcomponent *icalcomp)
 
 static void
 day_view_main_item_draw_long_events_in_vbars (EDayViewMainItem *main_item,
-                                              GdkDrawable *drawable,
+                                              cairo_t *cr,
                                               gint x,
                                               gint y,
                                               gint width,
@@ -100,10 +100,12 @@ day_view_main_item_draw_long_events_in_vbars (EDayViewMainItem *main_item,
 	EDayView *day_view;
 	EDayViewEvent *event;
 	gint event_num, start_day, end_day, day, bar_y1, bar_y2, grid_x;
-	cairo_t *cr = NULL;
 	GdkColor bg_color;
 
 	day_view = e_day_view_main_item_get_day_view (main_item);
+
+	cairo_save (cr);
+	gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
 
 	for (event_num = 0; event_num < day_view->long_events->len; event_num++) {
 		gboolean first = TRUE;
@@ -146,9 +148,9 @@ day_view_main_item_draw_long_events_in_vbars (EDayViewMainItem *main_item,
 
 			if (bar_y1 < height && bar_y2 > 0 && bar_y2 > bar_y1 && can_draw_in_region (draw_region, grid_x, bar_y1, E_DAY_VIEW_BAR_WIDTH - 2, bar_y2 - bar_y1)) {
 				if (!cr) {
-					cr = gdk_cairo_create (drawable);
-					cairo_save (cr);
-					gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
+				//	cr = gdk_cairo_create (drawable);
+				//	cairo_save (cr);
+				//	gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
 				}
 
 				if (first) {
@@ -172,13 +174,21 @@ day_view_main_item_draw_long_events_in_vbars (EDayViewMainItem *main_item,
 
 	if (cr) {
 		cairo_restore (cr);
-		cairo_destroy (cr);
+		//cairo_destroy (cr);
 	}
 }
 
 static void
+hide_drag (ClutterAnimation *anim,
+		EDayView *day_view)
+{
+	clutter_actor_destroy (day_view->dragged);
+	day_view->dragged = NULL;
+}
+
+static void
 day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
-                                   GdkDrawable *drawable,
+                                   cairo_t *cr,
                                    gint x,
                                    gint y,
                                    gint width,
@@ -199,7 +209,6 @@ day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
 	gboolean draw_reminder_icon, draw_recurrence_icon, draw_timezone_icon, draw_meeting_icon;
 	gboolean draw_attach_icon;
 	ECalComponentTransparency transparency;
-	cairo_t *cr;
 	cairo_pattern_t *pat;
 	cairo_font_options_t *font_options;
 	guint16 red, green, blue;
@@ -221,7 +230,13 @@ day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
 	gchar *text = NULL;
 	gint scroll_flag = 0;
 	gint row_y;
-
+	ClutterActor *actor;
+	char *tmp;
+	ClutterActor *stage = g_object_get_data (main_item, "stage");
+	gboolean new = TRUE;
+	gboolean dragged = FALSE;
+	gboolean drag_end = FALSE;
+	gboolean resize = FALSE;
 	day_view = e_day_view_main_item_get_day_view (main_item);
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
 
@@ -236,13 +251,89 @@ day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
 					    &item_w, &item_h))
 		return;
 
+	if (!is_array_index_in_bounds (day_view->events[day], event_num))
+		return;
+
+	event = &g_array_index (day_view->events[day], EDayViewEvent,
+				event_num);	
+
 	item_x -= x;
 	item_y -= y;
 
 	if (!can_draw_in_region (draw_region, item_x, item_y, item_w, item_h))
 		return;
 
-	cr = gdk_cairo_create (drawable);
+	tmp = g_strdup_printf("%d-%d", day, event_num);
+	actor = g_object_get_data (day_view, tmp);
+
+	dragged = (GPOINTER_TO_INT(g_object_get_data (event->canvas_item, "drag-is-actor"))) ? TRUE : FALSE;
+	drag_end = (GPOINTER_TO_INT(g_object_get_data (event->canvas_item, "drag-end"))) ? TRUE : FALSE;
+	resize = (GPOINTER_TO_INT(g_object_get_data (event->canvas_item, "resize-event"))) ? TRUE : FALSE;
+	
+	g_object_set_data (event->canvas_item, "resize-event", GINT_TO_POINTER(FALSE));
+
+	//del = (GPOINTER_TO_INT(g_object_get_data (actor, "mark-delete"))) ? TRUE : FALSE;
+	if (actor && !dragged && !resize) {
+		double x,y;
+		if (clutter_actor_is_scaled (actor)) {
+			clutter_actor_animate (actor,          /* the actor to animate */
+                	       CLUTTER_LINEAR, /* the easing mode */
+                       		200,           /* the duration of the animation */
+                       		"scale-x", 1.0, /* final horizontal scaling factor */
+                       		"scale-y", 1.0, /* final vertical scaling factor */
+				"opacity", 0,
+				"signal::completed", clutter_actor_destroy, actor,
+                       		NULL);
+
+		} else
+			clutter_actor_destroy (actor);
+		new = FALSE;
+	}
+
+	if (!dragged && !resize) {
+		actor  = clutter_cairo_texture_new (item_w, item_h);
+		if (new) {
+			clutter_actor_set_opacity (actor, 0);
+			clutter_actor_set_scale (actor, 5.0, 5.0);
+		}
+		clutter_actor_show (actor);
+		clutter_actor_set_size (actor, item_w, item_h);
+		clutter_container_add_actor (stage, actor);
+		clutter_actor_set_position (actor, item_x, item_y);
+	} else {
+		gfloat nx, ny;
+		clutter_actor_get_position (actor, &nx, &ny);
+		clutter_actor_set_scale (actor, 1.0, 1.0);
+		printf("from %lf,%lf to %d,%d\n", nx, ny, item_x, item_y);
+		//clutter_actor_set_anchor_point (actor, 0, 0);
+		//clutter_actor_set_position (actor, item_x, item_y);
+		clutter_actor_show (actor);
+		clutter_actor_raise_top (actor);
+		if (drag_end) {
+			g_object_set_data (event->canvas_item, "drag-is-actor", GINT_TO_POINTER(FALSE));
+			g_object_set_data (event->canvas_item, "drag-end", GINT_TO_POINTER(FALSE));	
+		}
+		clutter_actor_raise_top (event->canvas_item);
+		
+		
+		clutter_actor_animate (actor,
+				CLUTTER_LINEAR, 200,
+				"x", (float)item_x + (item_w/2),
+				"y", (float)item_y + (item_h/2),
+				"opacity", 255, 
+				"signal::completed", hide_drag, day_view,					
+				NULL);
+
+		return;
+	}
+
+	item_x = 0;
+	item_y = 0;
+	clutter_actor_raise (actor, main_item);
+	g_object_set_data (day_view, tmp, actor);
+	g_free (tmp);
+	cr = clutter_cairo_texture_create (actor);
+
 	gdk_cairo_set_source_color (cr,
 			&day_view->colors[E_DAY_VIEW_COLOR_EVENT_VBAR]);
 
@@ -253,11 +344,7 @@ day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
 
 	font_options = get_font_options ();
 
-	if (!is_array_index_in_bounds (day_view->events[day], event_num))
-		return;
 
-	event = &g_array_index (day_view->events[day], EDayViewEvent,
-				event_num);
 
 	if (!is_comp_data_valid (event))
 		return;
@@ -285,12 +372,47 @@ day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
 	}
 
 	is_editing = day_view->editing_event_day == day && day_view->editing_event_num == event_num;
+	clutter_actor_move_anchor_point (actor, item_w/2, item_h/2);
+	
+	if (is_editing) {
+		printf("EDITING %d %d\n", day_view->editing_event_day, day_view->editing_event_num);
+		clutter_actor_raise_top (actor);
+		clutter_actor_move_anchor_point (actor, item_w/2, item_h/2);
+		clutter_actor_animate (actor,          /* the actor to animate */
+                       CLUTTER_LINEAR, /* the easing mode */
+                       200,           /* the duration of the animation */
+                       "scale-x", 1.2, /* final horizontal scaling factor */
+                       "scale-y", 1.2, /* final vertical scaling factor */
+                       NULL);
+		if (event->canvas_item) {
+			clutter_actor_raise_top (event->canvas_item);
+			//clutter_actor_move_anchor_point (event->canvas_item, item_w/2, item_h/2);
 
+			//clutter_actor_set_scale (event->canvas_item, 1.5, 1.5);
+		}
+	}  else if  (event->canvas_item)
+		clutter_actor_set_scale (event->canvas_item, 1.0, 1.0);
+
+	if (new) {
+		clutter_actor_raise_top (actor);
+		clutter_actor_move_anchor_point (actor, item_w/2, item_h/2);
+		clutter_actor_animate (actor,          /* the actor to animate */
+                       CLUTTER_LINEAR, /* the easing mode */
+                       200,           /* the duration of the animation */
+                       "scale-x", 1.0, /* final horizontal scaling factor */
+                       "scale-y", 1.0, /* final vertical scaling factor */
+		       "opacity", 255,
+                       NULL);
+		clutter_actor_raise_top (event->canvas_item);		
+		
+	}
+		
 	if (event->canvas_item)
-		g_object_get (G_OBJECT (event->canvas_item), "x_offset", &text_x_offset, NULL);
+		text_x_offset = (gdouble)GPOINTER_TO_INT(g_object_get_data (event->canvas_item, "x_offset"));
+		//g_object_get (G_OBJECT (event->canvas_item), "x_offset", &text_x_offset, NULL);
 
 	/* Draw shadow around the event when selected */
-	if (is_editing && (gtk_widget_has_focus (day_view->main_canvas))) {
+	if (is_editing && 0 && (gtk_widget_has_focus (day_view->main_canvas))) {
 		/* For embossing Item selection */
 		item_x -= 1;
 		item_y -= 2;
@@ -832,7 +954,7 @@ day_view_main_item_draw_day_event (EDayViewMainItem *main_item,
 
 static void
 day_view_main_item_draw_day_events (EDayViewMainItem *main_item,
-                                    GdkDrawable *drawable,
+                                    cairo_t *cr,
                                     gint x,
                                     gint y,
                                     gint width,
@@ -848,14 +970,14 @@ day_view_main_item_draw_day_events (EDayViewMainItem *main_item,
 	for (event_num = 0; event_num < day_view->events[day]->len;
 	     event_num++) {
 		day_view_main_item_draw_day_event (
-			main_item, drawable, x, y, width, height,
+			main_item, cr, x, y, width, height,
 			day, event_num, draw_region);
 	}
 }
 
 static void
 day_view_main_item_draw_events_in_vbars (EDayViewMainItem *main_item,
-                                         GdkDrawable *drawable,
+                                         cairo_t *cr,
                                          gint x,
                                          gint y,
                                          gint width,
@@ -866,12 +988,15 @@ day_view_main_item_draw_events_in_vbars (EDayViewMainItem *main_item,
 	EDayView *day_view;
 	EDayViewEvent *event;
 	gint grid_x, event_num, bar_y, bar_h;
-	cairo_t *cr = NULL;
+	//cairo_t *cr = NULL;
 	GdkColor bg_color;
 
 	day_view = e_day_view_main_item_get_day_view (main_item);
 
 	grid_x = day_view->day_offsets[day] + 1 - x;
+	
+	cairo_save (cr);
+			gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
 
 	/* Draw the busy times corresponding to the events in the day. */
 	for (event_num = 0; event_num < day_view->events[day]->len; event_num++) {
@@ -901,10 +1026,10 @@ day_view_main_item_draw_events_in_vbars (EDayViewMainItem *main_item,
 		}
 
 		if (!cr) {
-			cr = gdk_cairo_create (drawable);
-			cairo_save (cr);
+		//	//cr = gdk_cairo_create (drawable);
+		//	cairo_save (cr);
 
-			gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
+		//	gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
 		}
 
 		if (gdk_color_parse (e_cal_model_get_color_for_component (e_calendar_view_get_model (E_CALENDAR_VIEW (day_view)), event->comp_data), &bg_color)) {
@@ -923,7 +1048,7 @@ day_view_main_item_draw_events_in_vbars (EDayViewMainItem *main_item,
 
 	if (cr) {
 		cairo_restore (cr);
-		cairo_destroy (cr);
+		//cairo_destroy (cr);
 	}
 }
 
@@ -977,6 +1102,7 @@ day_view_main_item_dispose (GObject *object)
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
+#if 0
 static void
 day_view_main_item_update (GnomeCanvasItem *item,
 			   gdouble *affine,
@@ -995,14 +1121,15 @@ day_view_main_item_update (GnomeCanvasItem *item,
 	item->x2 = INT_MAX;
 	item->y2 = INT_MAX;
 }
+#endif
 
-static void
-day_view_main_item_draw (GnomeCanvasItem *canvas_item,
-                         GdkDrawable *drawable,
+void
+e_day_view_main_item_draw (EDayViewMainItem *canvas_item)
+ /*                        GdkDrawable *drawable,
                          gint x,
                          gint y,
                          gint width,
-                         gint height)
+                         gint height) */
 {
 	EDayViewMainItem *main_item;
 	EDayView *day_view;
@@ -1017,8 +1144,13 @@ day_view_main_item_draw (GnomeCanvasItem *canvas_item,
 	gboolean today = FALSE;
 	GdkRegion *draw_region;
 	GdkRectangle rect;
+	int x=0, y=0;
+	int width, height;
 
-	cr = gdk_cairo_create (drawable);
+	clutter_cairo_texture_get_surface_size (canvas_item, &width, &height);
+	
+	cr = clutter_cairo_texture_create (canvas_item);
+	//cr = gdk_cairo_create (drawable);
 
 	main_item = E_DAY_VIEW_MAIN_ITEM (canvas_item);
 	day_view = e_day_view_main_item_get_day_view (main_item);
@@ -1173,23 +1305,22 @@ day_view_main_item_draw (GnomeCanvasItem *canvas_item,
 		cairo_fill (cr);
 
 		cairo_restore (cr);
-
 		/* Fill in the bars when the user is busy. */
 		day_view_main_item_draw_events_in_vbars (
-			main_item, drawable, x, y,
+			main_item, cr, x, y,
 			width, height, day, draw_region);
 	}
 
 	/* Fill in the vertical bars corresponding to the busy times from the
 	   long events. */
 	day_view_main_item_draw_long_events_in_vbars (
-		main_item, drawable, x, y, width, height, draw_region);
+		main_item, cr, x, y, width, height, draw_region);
 
 	/* Draw the event borders and backgrounds, and the vertical bars
 	   down the left edges. */
 	for (day = 0; day < day_view->days_shown; day++)
 		day_view_main_item_draw_day_events (
-			main_item, drawable, x, y,
+			main_item, cr, x, y,
 			width, height, day, draw_region);
 
 	if (e_day_view_marcus_bains_get_show_line (day_view)) {
@@ -1234,6 +1365,7 @@ day_view_main_item_draw (GnomeCanvasItem *canvas_item,
 	gdk_region_destroy (draw_region);
 }
 
+#if 0
 static gdouble
 day_view_main_item_point (GnomeCanvasItem *item,
                           gdouble x,
@@ -1250,12 +1382,13 @@ day_view_main_item_point (GnomeCanvasItem *item,
 
 	return 0.0;
 }
+#endif
 
 static void
 day_view_main_item_class_init (EDayViewMainItemClass *class)
 {
 	GObjectClass *object_class;
-	GnomeCanvasItemClass *item_class;
+	ClutterCairoTextureClass *item_class;
 
 	parent_class = g_type_class_peek_parent (class);
 	g_type_class_add_private (class, sizeof (EDayViewMainItemPrivate));
@@ -1265,10 +1398,10 @@ day_view_main_item_class_init (EDayViewMainItemClass *class)
 	object_class->get_property = day_view_main_item_get_property;
 	object_class->dispose = day_view_main_item_dispose;
 
-	item_class = GNOME_CANVAS_ITEM_CLASS (class);
-	item_class->update = day_view_main_item_update;
-	item_class->draw = day_view_main_item_draw;
-	item_class->point = day_view_main_item_point;
+	item_class = CLUTTER_CAIRO_TEXTURE_CLASS (class);
+//	item_class->update = day_view_main_item_update;
+//	item_class->draw = day_view_main_item_draw;
+//	item_class->point = day_view_main_item_point;
 
 	g_object_class_install_property (
 		object_class,
@@ -1310,7 +1443,7 @@ e_day_view_main_item_get_type (void)
 		};
 
 		type = g_type_register_static (
-			GNOME_TYPE_CANVAS_ITEM, "EDayViewMainItem",
+			CLUTTER_TYPE_CAIRO_TEXTURE, "EDayViewMainItem",
 			&type_info, 0);
 	}
 
@@ -1338,4 +1471,19 @@ e_day_view_main_item_set_day_view (EDayViewMainItem *main_item,
 	main_item->priv->day_view = g_object_ref (day_view);
 
 	g_object_notify (G_OBJECT (main_item), "day-view");
+}
+
+void
+e_day_view_main_item_set_size (EDayViewMainItem *item, int width, int height)
+{
+	clutter_cairo_texture_set_surface_size (item, width, height);
+	clutter_cairo_texture_clear (item);
+	e_day_view_main_item_draw (item);
+}
+
+void
+e_day_view_main_item_redraw (EDayViewMainItem *item)
+{
+	clutter_cairo_texture_clear (item);
+	e_day_view_main_item_draw ((ClutterActor *)item);
 }

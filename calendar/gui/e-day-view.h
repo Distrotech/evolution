@@ -30,7 +30,7 @@
 
 #include "e-calendar-view.h"
 #include "gnome-cal.h"
-
+#include <clutter/clutter.h>
 G_BEGIN_DECLS
 
 /*
@@ -473,7 +473,11 @@ struct _EDayView {
 	GnomeCanvasItem *drag_rect_item;
 	GnomeCanvasItem *drag_bar_item;
 	GnomeCanvasItem *drag_item;
-
+	ClutterActor *dragged;
+	ClutterActor *drag_move;
+	ClutterActor *drag_actor;
+	ClutterActor *resize_actor;
+	ClutterActor *resize_draw_actor;
 	/* "am" and "pm" in the current locale, and their widths. */
 	gchar *am_string;
 	gchar *pm_string;
