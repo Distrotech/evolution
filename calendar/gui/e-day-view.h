@@ -31,6 +31,12 @@
 #include "e-calendar-view.h"
 #include "gnome-cal.h"
 
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
+
 G_BEGIN_DECLS
 
 /*
@@ -215,7 +221,9 @@ struct _EDayView {
 	/* The top canvas where the dates and long appointments are shown. */
 	GtkWidget *top_canvas;
 	GnomeCanvasItem *top_canvas_item;
-
+#if HAVE_CLUTTER
+	ClutterActor *top_canvas_actor;
+#endif
 	/* scrollbar for top_canvas */
 	GtkWidget *tc_vscrollbar;
 
@@ -225,10 +233,19 @@ struct _EDayView {
 	/* The main canvas where the rest of the appointments are shown. */
 	GtkWidget *main_canvas;
 	GnomeCanvasItem *main_canvas_item;
-
+#if HAVE_CLUTTER
+	ClutterActor *main_canvas_actor;
+	GtkWidget *main_canvas_embed;
+	ClutterActor *main_canvas_stage;
+#endif
 	/* The canvas displaying the times of the day. */
 	GtkWidget *time_canvas;
 	GnomeCanvasItem *time_canvas_item;
+#if HAVE_CLUTTER
+	GtkWidget *time_canvas_embed;
+	ClutterActor *time_canvas_stage;
+	ClutterActor *time_canvas_actor;
+#endif
 
 	GtkWidget *vscrollbar;
 

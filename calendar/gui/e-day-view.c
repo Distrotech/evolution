@@ -55,6 +55,9 @@
 #include "calendar-config.h"
 #include "goto.h"
 #include "e-cal-model-calendar.h"
+#if HAVE_CLUTTER
+#include "e-day-view-clutter-time-item.h"
+#endif
 #include "e-day-view-time-item.h"
 #include "e-day-view-top-item.h"
 #include "e-day-view-layout.h"
@@ -97,6 +100,7 @@
    caption item and DnD space */
 #define E_DAY_VIEW_MAX_ROWS_AT_TOP     6
 
+#define WITHOUT_CLUTTER (g_getenv("WITHOUT_CLUTTER") != NULL)
 typedef struct {
 	EDayView *day_view;
 	ECalModelComponent *comp_data;
@@ -780,9 +784,19 @@ time_range_changed_cb (ECalModel *model, time_t start_time, time_t end_time, gpo
 		e_day_view_ensure_rows_visible (day_view, day_view->selection_start_row, day_view->selection_start_row);
 
 	/* update the time canvas to show proper date in it */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	eti = E_DAY_VIEW_TIME_ITEM (day_view->time_canvas_item);
 	if (eti && e_day_view_time_item_get_second_zone (eti))
 		gtk_widget_queue_draw (day_view->time_canvas);
+#if HAVE_CLUTTER
+	} else {
+		
+	if (day_view->time_canvas_actor && e_day_view_clutter_time_item_get_second_zone (day_view->time_canvas_actor))
+		e_day_view_clutter_time_item_redraw (day_view->time_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -977,6 +991,25 @@ timezone_changed_cb (ECalModel *cal_model, icaltimezone *old_zone,
 
 	e_day_view_recalc_day_starts (day_view, lower);
 	e_day_view_update_query (day_view);
+}
+
+static void                
+time_canvas_set_canvas_size (GtkWidget     *widget,
+		 GtkAllocation *allocation,
+		  EDayView *day_view)
+{
+	ClutterActor *stage = day_view->time_canvas_stage;
+	GtkWidget *embed = day_view->time_canvas_embed;
+	guint w,h;
+
+	gtk_layout_get_size ((GtkLayout *)day_view->main_canvas, &w, &h);
+
+	gtk_widget_set_size_request (embed, allocation->width, h);
+	gtk_layout_set_size ((GtkLayout *)widget, allocation->width, h);
+	
+	clutter_actor_set_size (stage, allocation->width, h);
+	clutter_actor_set_size ((ClutterActor *)day_view->time_canvas_actor, allocation->width, h);
+	e_day_view_clutter_time_item_set_size ((EDayViewClutterTimeItem *)day_view->time_canvas_actor, allocation->width, h);
 }
 
 static void
@@ -1243,11 +1276,26 @@ e_day_view_init (EDayView *day_view)
 	/*
 	 * Times Canvas
 	 */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	day_view->time_canvas = e_canvas_new ();
 	layout = GTK_LAYOUT (day_view->main_canvas);
 	adjustment = gtk_layout_get_vadjustment (layout);
 	layout = GTK_LAYOUT (day_view->time_canvas);
 	gtk_layout_set_vadjustment (layout, adjustment);
+#if HAVE_CLUTTER
+	} else {
+	layout = GTK_LAYOUT (day_view->main_canvas);
+	adjustment = gtk_layout_get_vadjustment (layout);		
+	day_view->time_canvas = gtk_layout_new (NULL, adjustment);
+	day_view->time_canvas_embed = gtk_clutter_embed_new ();
+	gtk_widget_show (day_view->time_canvas_embed);
+	gtk_container_add ((GtkContainer *)day_view->time_canvas, day_view->time_canvas_embed);
+	day_view->time_canvas_stage = gtk_clutter_embed_get_stage ((GtkClutterEmbed *) day_view->time_canvas_embed);
+	g_signal_connect (day_view->time_canvas, "size-allocate", G_CALLBACK(time_canvas_set_canvas_size), day_view);
+	}
+#endif	
 	gtk_table_attach (GTK_TABLE (day_view), day_view->time_canvas,
 			  0, 1, 1, 2,
 			  GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
@@ -1255,14 +1303,29 @@ e_day_view_init (EDayView *day_view)
 	g_signal_connect_after (day_view->time_canvas, "scroll_event",
 				G_CALLBACK (e_day_view_on_time_canvas_scroll), day_view);
 
+#if HAVE_CLUTTER	
+	if (WITHOUT_CLUTTER) {	
+#endif		
 	canvas_group = GNOME_CANVAS_GROUP (GNOME_CANVAS (day_view->time_canvas)->root);
-
 	day_view->time_canvas_item =
 		gnome_canvas_item_new (canvas_group,
 				       e_day_view_time_item_get_type (),
 				       "EDayViewTimeItem::day_view", day_view,
 				       NULL);
-
+#if HAVE_CLUTTER
+	} else {
+	day_view->time_canvas_actor = g_object_new (
+			E_TYPE_DAY_VIEW_CLUTTER_TIME_ITEM,
+			"EDayViewClutterTimeItem::day_view", day_view,
+                       "surface-width", 64,
+                       "surface-height", 600,			
+			NULL);
+	clutter_actor_set_reactive ((ClutterActor *)day_view->time_canvas_actor, TRUE);
+	((EDayViewClutterTimeItem *)day_view->time_canvas_actor)->stage = day_view->time_canvas_stage;
+	clutter_container_add_actor ((ClutterContainer *)day_view->time_canvas_stage, (ClutterActor *)day_view->time_canvas_actor);
+	clutter_actor_show ((ClutterActor *)day_view->time_canvas_actor);
+	}
+#endif	
 	/*
 	 * Scrollbar.
 	 */
@@ -1764,7 +1827,15 @@ e_day_view_style_set (GtkWidget *widget,
 	pango_layout_get_pixel_size (layout, &day_view->pm_string_width, NULL);
 
 	/* Calculate the width of the time column. */
+#if HAVE_CLUTTER
+	if(WITHOUT_CLUTTER) {
+#endif		
 	times_width = e_day_view_time_item_get_column_width (E_DAY_VIEW_TIME_ITEM (day_view->time_canvas_item));
+#if HAVE_CLUTTER
+	} else {
+	times_width = e_day_view_clutter_time_item_get_column_width (E_DAY_VIEW_CLUTTER_TIME_ITEM (day_view->time_canvas_actor));
+	}
+#endif	
 	gtk_widget_set_size_request (day_view->time_canvas, times_width, -1);
 
 	g_object_unref (layout);
@@ -2751,10 +2822,32 @@ e_day_view_set_mins_per_row (EDayView *day_view,
 	/* We must layout the events before updating the scroll region, since
 	   that will result in a redraw which would crash otherwise. */
 	e_day_view_check_layout (day_view);
-	gtk_widget_queue_draw (day_view->time_canvas);
+
 	gtk_widget_queue_draw (day_view->main_canvas);
 
 	e_day_view_update_scroll_regions (day_view);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
+	gtk_widget_queue_draw (day_view->time_canvas);
+#if HAVE_CLUTTER
+	} else {
+		ClutterActor *stage = day_view->time_canvas_stage;
+		GtkWidget *embed = day_view->time_canvas_embed;
+		guint w,h;
+		guint cw, ch;
+
+		gtk_layout_get_size ((GtkLayout *)day_view->main_canvas, &w, &h);
+		gtk_layout_get_size ((GtkLayout *)day_view->time_canvas, &cw, &ch);
+
+		gtk_widget_set_size_request (embed, cw, h);
+		gtk_layout_set_size ((GtkLayout *)day_view->time_canvas, cw, h);
+	
+		clutter_actor_set_size (stage, cw, h);
+		clutter_actor_set_size ((ClutterActor *)day_view->time_canvas_actor, cw, h);
+		e_day_view_clutter_time_item_set_size ((EDayViewClutterTimeItem *)day_view->time_canvas_actor, cw, h);
+	}
+#endif	
 }
 
 /* This specifies the working days in the week. The value is a bitwise
@@ -2920,7 +3013,15 @@ e_day_view_marcus_bains_update (EDayView *day_view)
 {
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
 	gtk_widget_queue_draw (day_view->main_canvas);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gtk_widget_queue_draw (day_view->time_canvas);
+#if HAVE_CLUTTER
+	} else {
+	e_day_view_clutter_time_item_update (day_view->time_canvas_actor);
+	}
+#endif	
 }
 
 gboolean

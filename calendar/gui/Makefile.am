@@ -71,6 +71,7 @@ libevolution_calendar_la_CPPFLAGS =			\
 	-DPREFIX=\""$(prefix)"\"			\
 	$(GNOME_PLATFORM_CFLAGS)			\
 	$(LIBSOUP_CFLAGS)				\
+	$(CLUTTER_CFLAGS)				\
 	$(EVOLUTION_CALENDAR_CFLAGS)			\
 	$(CAMEL_CFLAGS)
 
@@ -85,6 +86,8 @@ etspec_DATA =				\
 	e-memo-table.etspec
 
 libevolution_calendar_la_SOURCES = \
+	e-day-view-clutter-time-item.c		\
+	e-day-view-clutter-time-item.h		\
 	cal-editor-utils.c			\
 	cal-editor-utils.h			\
 	calendar-config.c			\
@@ -227,6 +230,7 @@ libevolution_calendar_la_LIBADD =					\
 	$(top_builddir)/filter/libfilter.la				\
 	$(top_builddir)/e-util/libeutil.la				\
 	$(CAMEL_LIBS)							\
+	$(CLUTTER_LIBS)							\
 	$(LIBSOUP_LIBS)							\
 	$(EVOLUTION_CALENDAR_LIBS)					\
 	$(GNOME_PLATFORM_LIBS)
