@@ -216,6 +216,8 @@ day_view_clutter_time_item_init (EDayViewClutterTimeItem *time_item)
 
 	time_item->priv->dragging_selection = FALSE;
 	time_item->priv->second_zone = NULL;
+	time_item->priv->mb_line_alt = NULL;
+	time_item->priv->mb_line = NULL;
 
 	last = calendar_config_get_day_second_zone ();
 
@@ -286,7 +288,7 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 
 	if ((use_zone && !time_item->priv->mb_line_alt) ||
 			(!use_zone && !time_item->priv->mb_line)) {
-		mb = clutter_cairo_texture_new (long_line_x2-long_line_x1, (int)time_item->priv->line_width);
+		mb = clutter_cairo_texture_new (long_line_x2, (int)5);
 		clutter_container_add_actor ((ClutterContainer *)stage, mb);
 		clutter_actor_show (mb);
 
@@ -318,14 +320,15 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 	time_now = icaltime_current_time_with_zone (e_calendar_view_get_timezone (E_CALENDAR_VIEW (day_view)));
 	marcus_bains_y = (time_now.hour * 60 + time_now.minute) * day_view->row_height / day_view->mins_per_row - y;
 	cairo_set_line_width (cr, 1.5);
-	cairo_move_to (cr, long_line_x1 - (use_zone ? E_DVTMI_TIME_GRID_X_PAD : 0), 0);
-	cairo_line_to (cr, long_line_x2, 0);
+	cairo_move_to (cr, long_line_x1 - (use_zone ? E_DVTMI_TIME_GRID_X_PAD : 0), 1);
+	cairo_line_to (cr, long_line_x2, 1);
 	cairo_stroke (cr);
 	cairo_restore (cr);
 
 	cairo_destroy (cr);
 
-	clutter_actor_set_position (mb, long_line_x1, y);
+	clutter_actor_set_position (mb, 0, marcus_bains_y);
+	clutter_actor_raise_top (mb);
 }
 
 /*
@@ -366,7 +369,7 @@ edvti_draw_zone (ClutterActor   *canvas_item,
 	day_view = e_day_view_clutter_time_item_get_day_view (time_item);
 	g_return_if_fail (day_view != NULL);
 
-	time_item->priv->line_width = cairo_get_line_width (cr);
+	time_item->priv->line_width = 2;
 
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
 
@@ -649,6 +652,11 @@ edvti_draw_zone (ClutterActor   *canvas_item,
 
 	g_free (midnight_day);
 	g_free (midnight_month);
+	
+	if (use_zone)
+		clutter_actor_raise_top (time_item->priv->mb_line_alt);
+	else
+		clutter_actor_raise_top (time_item->priv->mb_line);	
 }
 
 static void
@@ -700,12 +708,15 @@ e_day_view_clutter_time_item_update (EDayViewClutterTimeItem *item)
 				CLUTTER_LINEAR, 200,
 				"y", (float) marcus_bains_y,
 				NULL);
+		clutter_actor_raise_top (item->priv->mb_line);
 	}
 	if (item->priv->mb_line_alt) {
 		clutter_actor_animate (item->priv->mb_line_alt,
 				CLUTTER_LINEAR, 200,
 				"y", (float) marcus_bains_y,
 				NULL);
+		clutter_actor_raise_top (item->priv->mb_line_alt);
+		
 	}
 }
 
