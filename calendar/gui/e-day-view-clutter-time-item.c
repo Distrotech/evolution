@@ -69,10 +69,10 @@ struct _EDayViewClutterTimeItemPrivate {
 	/* The second timezone if shown, or else NULL. */
 	guint second_zone_changed_id;
 	icaltimezone *second_zone;
-
-	gdouble line_width;
+#if HAVE_CLUTTER
 	ClutterActor *mb_line;
 	ClutterActor *mb_line_alt;
+#endif
 };
 
 static void e_day_view_clutter_time_item_draw (ClutterActor *item);
@@ -368,8 +368,6 @@ edvti_draw_zone (ClutterActor   *canvas_item,
 	time_item = E_DAY_VIEW_CLUTTER_TIME_ITEM (canvas_item);
 	day_view = e_day_view_clutter_time_item_get_day_view (time_item);
 	g_return_if_fail (day_view != NULL);
-
-	time_item->priv->line_width = 2;
 
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
 

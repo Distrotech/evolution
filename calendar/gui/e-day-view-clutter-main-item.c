@@ -49,6 +49,10 @@
 
 struct _EDayViewClutterMainItemPrivate {
 	EDayView *day_view;
+#if HAVE_CLUTTER
+	ClutterActor *mb_line;
+	ClutterActor *selection_actor;
+#endif		
 };
 
 enum {
@@ -997,6 +1001,146 @@ day_view_clutter_main_item_update (GnomeCanvasItem *item,
 }
 
 static void
+day_view_clutter_main_item_draw_marcus_bains (EDayViewClutterMainItem *canvas_item)
+{
+	EDayViewClutterMainItem *main_item;
+	EDayView *day_view;
+	cairo_t *cr;
+	gint grid_x1, grid_x2;
+	gint day;
+	gint x=0, y=0;
+
+	main_item = E_DAY_VIEW_CLUTTER_MAIN_ITEM (canvas_item);
+	day_view = e_day_view_clutter_main_item_get_day_view (main_item);
+
+
+	if (e_day_view_marcus_bains_get_show_line (day_view)) {
+		icaltimezone *zone;
+		struct icaltimetype time_now, day_start;
+		gint marcus_bains_y;
+		GdkColor mb_color;
+
+		zone = e_calendar_view_get_timezone (E_CALENDAR_VIEW (day_view));
+		time_now = icaltime_current_time_with_zone (zone);
+
+		for (day = 0; day < day_view->days_shown; day++) {
+			day_start = icaltime_from_timet_with_zone (day_view->day_starts[day], FALSE, zone);
+
+			if ((day_start.year  == time_now.year) &&
+			    (day_start.month == time_now.month) &&
+			    (day_start.day   == time_now.day)) {
+
+				grid_x1 = day_view->day_offsets[day] - x + E_DAY_VIEW_BAR_WIDTH;
+				grid_x2 = day_view->day_offsets[day + 1] - x - 1;
+				
+				if (grid_x2-grid_x1 <= 0)
+					continue;
+				if (!main_item->priv->mb_line) { 
+					main_item->priv->mb_line = clutter_cairo_texture_new (grid_x2-grid_x1, 5);
+					clutter_container_add_actor (day_view->main_canvas_stage, main_item->priv->mb_line);
+				}
+				clutter_cairo_texture_clear (main_item->priv->mb_line);
+				cr = clutter_cairo_texture_create (main_item->priv->mb_line);
+				cairo_save (cr);
+				gdk_cairo_set_source_color (cr,
+						&day_view->colors[E_DAY_VIEW_COLOR_MARCUS_BAINS_LINE]);
+
+				if (day_view->marcus_bains_day_view_color && gdk_color_parse (day_view->marcus_bains_day_view_color, &mb_color)) {
+					GdkColormap *colormap;
+
+					colormap = gtk_widget_get_colormap (GTK_WIDGET (day_view));
+					if (gdk_colormap_alloc_color (colormap, &mb_color, TRUE, TRUE))
+						gdk_cairo_set_source_color (cr, &mb_color);
+				}
+
+				marcus_bains_y = (time_now.hour * 60 + time_now.minute) * day_view->row_height / day_view->mins_per_row - y;
+				cairo_set_line_width (cr, 1.5);
+				cairo_move_to (cr, 1, 1);
+				cairo_line_to (cr, grid_x2-grid_x1, 1);
+				cairo_stroke (cr);
+				
+				cairo_restore (cr);
+				cairo_destroy (cr);
+				clutter_actor_set_position (main_item->priv->mb_line, grid_x1, marcus_bains_y);
+				clutter_actor_show (main_item->priv->mb_line);
+			}
+		}
+
+		
+	}	
+}
+
+static void
+day_view_clutter_main_item_draw_selection (EDayViewClutterMainItem *canvas_item)
+{
+	EDayViewClutterMainItem *main_item;
+	EDayView *day_view;
+	gint day;
+	gint start_row, end_row, rect_x, rect_y, rect_width, rect_height;
+	cairo_t *cr;
+	GdkRectangle rect;
+	guint width, height;
+	int x=0, y=0;
+	GdkRegion *draw_region;
+
+	main_item = E_DAY_VIEW_CLUTTER_MAIN_ITEM (canvas_item);
+	day_view = e_day_view_clutter_main_item_get_day_view (main_item);
+
+	clutter_cairo_texture_get_surface_size ((ClutterCairoTexture *)canvas_item, &width, &height);	
+	rect.x = 0;
+	rect.y = 0;
+	rect.width = width;
+	rect.height = height;
+	draw_region = gdk_region_rectangle (&rect);
+
+	if (!main_item->priv->selection_actor) {
+		main_item->priv->selection_actor = clutter_cairo_texture_new (width, height);
+		clutter_actor_set_opacity (main_item->priv->selection_actor, 155);
+		clutter_container_add_actor (day_view->main_canvas_stage, main_item->priv->selection_actor);
+		clutter_actor_show (main_item->priv->selection_actor);
+		clutter_actor_raise (main_item->priv->selection_actor, (ClutterActor *)canvas_item);
+	}
+
+	clutter_cairo_texture_clear (main_item->priv->selection_actor);
+	cr = clutter_cairo_texture_create (main_item->priv->selection_actor);
+
+	/* Paint the selection background. */
+	if (day_view->selection_start_day != -1
+	    && !day_view->selection_in_top_canvas) {
+		for (day = day_view->selection_start_day;
+		     day <= day_view->selection_end_day;
+		     day++) {
+			if (day == day_view->selection_start_day
+			    && day_view->selection_start_row != -1)
+				start_row = day_view->selection_start_row;
+			else
+				start_row = 0;
+			if (day == day_view->selection_end_day
+			    && day_view->selection_end_row != -1)
+				end_row = day_view->selection_end_row;
+			else
+				end_row = day_view->rows - 1;
+
+			rect_x = day_view->day_offsets[day] - x;
+			rect_width = day_view->day_widths[day];
+			rect_y = start_row * day_view->row_height - y;
+			rect_height = (end_row - start_row + 1) * day_view->row_height;
+
+			if (can_draw_in_region (draw_region, rect_x, rect_y, rect_width, rect_height)) {
+				cairo_save (cr);
+				gdk_cairo_set_source_color (cr, &day_view->colors[gtk_widget_has_focus (GTK_WIDGET (day_view)) ? E_DAY_VIEW_COLOR_BG_SELECTED : E_DAY_VIEW_COLOR_BG_SELECTED_UNFOCUSSED]);
+				cairo_rectangle (cr, rect_x, rect_y, rect_width, rect_height);
+				cairo_fill (cr);
+				cairo_restore (cr);
+			}
+		}
+	}
+
+	cairo_destroy (cr);
+	gdk_region_destroy (draw_region);	
+}
+
+static void
 day_view_clutter_main_item_draw (EDayViewClutterMainItem *canvas_item)
 {
 	EDayViewClutterMainItem *main_item;
@@ -1087,37 +1231,8 @@ day_view_clutter_main_item_draw (EDayViewClutterMainItem *canvas_item)
 		}
 	}
 
-	/* Paint the selection background. */
-	if (day_view->selection_start_day != -1
-	    && !day_view->selection_in_top_canvas) {
-		for (day = day_view->selection_start_day;
-		     day <= day_view->selection_end_day;
-		     day++) {
-			if (day == day_view->selection_start_day
-			    && day_view->selection_start_row != -1)
-				start_row = day_view->selection_start_row;
-			else
-				start_row = 0;
-			if (day == day_view->selection_end_day
-			    && day_view->selection_end_row != -1)
-				end_row = day_view->selection_end_row;
-			else
-				end_row = day_view->rows - 1;
-
-			rect_x = day_view->day_offsets[day] - x;
-			rect_width = day_view->day_widths[day];
-			rect_y = start_row * day_view->row_height - y;
-			rect_height = (end_row - start_row + 1) * day_view->row_height;
-
-			if (can_draw_in_region (draw_region, rect_x, rect_y, rect_width, rect_height)) {
-				cairo_save (cr);
-				gdk_cairo_set_source_color (cr, &day_view->colors[gtk_widget_has_focus (GTK_WIDGET (day_view)) ? E_DAY_VIEW_COLOR_BG_SELECTED : E_DAY_VIEW_COLOR_BG_SELECTED_UNFOCUSSED]);
-				cairo_rectangle (cr, rect_x, rect_y, rect_width, rect_height);
-				cairo_fill (cr);
-				cairo_restore (cr);
-			}
-		}
-	}
+	/* Draw the selection */
+	day_view_clutter_main_item_draw_selection (canvas_item);
 
 	/* Drawing the horizontal grid lines. */
 	grid_x1 = day_view->day_offsets[0] - x;
@@ -1192,44 +1307,9 @@ day_view_clutter_main_item_draw (EDayViewClutterMainItem *canvas_item)
 			width, height, day, draw_region);
 #endif
 
-	if (e_day_view_marcus_bains_get_show_line (day_view)) {
-		icaltimezone *zone;
-		struct icaltimetype time_now, day_start;
-		gint marcus_bains_y;
-		GdkColor mb_color;
+	/* Draw the Marcus bains lines */
+	day_view_clutter_main_item_draw_marcus_bains (canvas_item);
 
-		cairo_save (cr);
-		gdk_cairo_set_source_color (cr,
-				&day_view->colors[E_DAY_VIEW_COLOR_MARCUS_BAINS_LINE]);
-
-		if (day_view->marcus_bains_day_view_color && gdk_color_parse (day_view->marcus_bains_day_view_color, &mb_color)) {
-			GdkColormap *colormap;
-
-			colormap = gtk_widget_get_colormap (GTK_WIDGET (day_view));
-			if (gdk_colormap_alloc_color (colormap, &mb_color, TRUE, TRUE))
-				gdk_cairo_set_source_color (cr, &mb_color);
-		}
-		zone = e_calendar_view_get_timezone (E_CALENDAR_VIEW (day_view));
-		time_now = icaltime_current_time_with_zone (zone);
-
-		for (day = 0; day < day_view->days_shown; day++) {
-			day_start = icaltime_from_timet_with_zone (day_view->day_starts[day], FALSE, zone);
-
-			if ((day_start.year  == time_now.year) &&
-			    (day_start.month == time_now.month) &&
-			    (day_start.day   == time_now.day)) {
-
-				grid_x1 = day_view->day_offsets[day] - x + E_DAY_VIEW_BAR_WIDTH;
-				grid_x2 = day_view->day_offsets[day + 1] - x - 1;
-				marcus_bains_y = (time_now.hour * 60 + time_now.minute) * day_view->row_height / day_view->mins_per_row - y;
-				cairo_set_line_width (cr, 1.5);
-				cairo_move_to (cr, grid_x1, marcus_bains_y);
-				cairo_line_to (cr, grid_x2, marcus_bains_y);
-				cairo_stroke (cr);
-			}
-		}
-		cairo_restore (cr);
-	}
 	cairo_destroy (cr);
 	gdk_region_destroy (draw_region);
 }
@@ -1346,6 +1426,14 @@ e_day_view_clutter_main_item_set_day_view (EDayViewClutterMainItem *main_item,
 void
 e_day_view_clutter_main_item_set_size (EDayViewClutterMainItem *item, int width, int height)
 {
+	if (item->priv->mb_line) {
+		clutter_actor_destroy(item->priv->mb_line);
+		item->priv->mb_line = NULL;
+	}
+	if (item->priv->selection_actor) {
+		clutter_actor_destroy (item->priv->selection_actor);
+		item->priv->selection_actor = NULL;	
+	}	
 	clutter_cairo_texture_set_surface_size ((ClutterCairoTexture *)item, width, height);
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
 	day_view_clutter_main_item_draw (item);
@@ -1354,6 +1442,14 @@ e_day_view_clutter_main_item_set_size (EDayViewClutterMainItem *item, int width,
 void
 e_day_view_clutter_main_item_redraw (EDayViewClutterMainItem *item)
 {
+	if (item->priv->mb_line) {
+		clutter_actor_destroy(item->priv->mb_line);
+		item->priv->mb_line = NULL;
+	}
+	if (item->priv->selection_actor) {
+		clutter_actor_destroy (item->priv->selection_actor);
+		item->priv->selection_actor = NULL;	
+	}
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
 	day_view_clutter_main_item_draw (item);
 }
@@ -1361,11 +1457,52 @@ e_day_view_clutter_main_item_redraw (EDayViewClutterMainItem *item)
 void
 e_day_view_clutter_main_item_update_marcus_bains (EDayViewClutterMainItem *item)
 {
+	EDayViewClutterMainItem *main_item;
+	EDayView *day_view;
+	cairo_t *cr;
+	gint grid_x1, grid_x2;
+	gint day;
+	gint x=0, y=0;
+
+	main_item = E_DAY_VIEW_CLUTTER_MAIN_ITEM (item);
+	day_view = e_day_view_clutter_main_item_get_day_view (main_item);
+
+	if (e_day_view_marcus_bains_get_show_line (day_view)) {
+		icaltimezone *zone;
+		struct icaltimetype time_now, day_start;
+		gint marcus_bains_y;
+
+		zone = e_calendar_view_get_timezone (E_CALENDAR_VIEW (day_view));
+		time_now = icaltime_current_time_with_zone (zone);
+
+		for (day = 0; day < day_view->days_shown; day++) {
+			day_start = icaltime_from_timet_with_zone (day_view->day_starts[day], FALSE, zone);
+
+			if ((day_start.year  == time_now.year) &&
+			    (day_start.month == time_now.month) &&
+			    (day_start.day   == time_now.day)) {
+
+				grid_x1 = day_view->day_offsets[day] - x + E_DAY_VIEW_BAR_WIDTH;
+				
+				if (grid_x2-grid_x1 <= 0)
+					continue;
+	
+				marcus_bains_y = (time_now.hour * 60 + time_now.minute) * day_view->row_height / day_view->mins_per_row - y;
+				clutter_actor_animate (main_item->priv->mb_line,
+						CLUTTER_LINEAR, 200,
+						"y", (float) marcus_bains_y,
+						"x", (float) grid_x1,						
+						NULL);
+			}
+		}
+
+		
+	}	
 
 }
 
 void
 e_day_view_clutter_main_item_update_selection (EDayViewClutterMainItem *item)
 {
-
+	day_view_clutter_main_item_draw_selection (item);
 }
