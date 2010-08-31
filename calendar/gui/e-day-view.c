@@ -2557,7 +2557,7 @@ e_day_view_set_selected_time_range_in_top_visible	(EDayView	*day_view,
 	gtk_widget_queue_draw (day_view->main_canvas);
 #if HAVE_CLUTTER
 	} else {
-	e_day_view_clutter_main_item_redraw ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
+	e_day_view_clutter_main_item_update_selection ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
 	}
 #endif	
 		
@@ -2621,7 +2621,7 @@ e_day_view_set_selected_time_range_visible	(EDayView	*day_view,
 	gtk_widget_queue_draw (day_view->main_canvas);
 #if HAVE_CLUTTER
 	} else {
-	e_day_view_clutter_main_item_redraw ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
+	e_day_view_clutter_main_item_update_selection ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
 	}
 #endif	
 		
@@ -2736,7 +2736,7 @@ e_day_view_set_selected_time_range	(ECalendarView	*cal_view,
 	gtk_widget_queue_draw (day_view->main_canvas);
 #if HAVE_CLUTTER
 	} else {
-	e_day_view_clutter_main_item_redraw ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
+	e_day_view_clutter_main_item_update_selection ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
 	}
 #endif	
 		
@@ -5831,7 +5831,7 @@ e_day_view_goto_start_of_work_day (EDayView *day_view)
 	gtk_widget_queue_draw (day_view->main_canvas);
 #if HAVE_CLUTTER
 	} else {
-	e_day_view_clutter_main_item_redraw ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
+	e_day_view_clutter_main_item_update_selection ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -5863,7 +5863,7 @@ e_day_view_goto_end_of_work_day (EDayView *day_view)
 	gtk_widget_queue_draw (day_view->main_canvas);
 #if HAVE_CLUTTER
 	} else {
-	e_day_view_clutter_main_item_redraw ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
+	e_day_view_clutter_main_item_update_selection ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
 	}
 #endif	
 }
