@@ -1483,6 +1483,7 @@ e_day_view_clutter_main_item_update_marcus_bains (EDayViewClutterMainItem *item)
 			    (day_start.day   == time_now.day)) {
 
 				grid_x1 = day_view->day_offsets[day] - x + E_DAY_VIEW_BAR_WIDTH;
+				grid_x2 = day_view->day_offsets[day + 1] - x - 1;
 				
 				if (grid_x2-grid_x1 <= 0)
 					continue;
