@@ -14,14 +14,14 @@
  *
  *
  * Authors:
- *		Damon Chaplin <damon@ximian.com>
+ *		Srinivasa Ragavan <sragavan@gnome.com>
  *
- * Copyright (C) 1999-2008 Novell, Inc. (www.novell.com)
+ * Copyright (C) 2010 Intel Corporation. (www.intel.com)
  *
  */
 
 /*
- * EDayViewTopItem - displays the top part of the Day/Work Week calendar view.
+ * EDayViewClutterTopItem - displays the top part of the Day/Work Week calendar view.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -36,18 +36,23 @@
 #include <libedataserver/e-categories.h>
 #include "calendar-config.h"
 #include "e-calendar-view.h"
-#include "e-day-view-top-item.h"
+#include "e-day-view-clutter-top-item.h"
 
-#define E_DAY_VIEW_TOP_ITEM_GET_PRIVATE(obj) \
+#define E_DAY_VIEW_CLUTTER_TOP_ITEM_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
-	((obj), E_TYPE_DAY_VIEW_TOP_ITEM, EDayViewTopItemPrivate))
+	((obj), E_TYPE_DAY_VIEW_CLUTTER_TOP_ITEM, EDayViewClutterTopItemPrivate))
 
-struct _EDayViewTopItemPrivate {
+struct _EDayViewClutterTopItemPrivate {
 	/* The parent EDayView widget. */
 	EDayView *day_view;
 
 	/* Show dates or events. */
 	gboolean show_dates;
+
+#if HAVE_CLUTTER
+	/* Selection Actor*/
+	ClutterActor *selection_actor;
+#endif
 };
 
 enum {
@@ -61,7 +66,7 @@ static gpointer parent_class;
 /* This draws a little triangle to indicate that an event extends past
    the days visible on screen. */
 static void
-day_view_top_item_draw_triangle (EDayViewTopItem *top_item,
+day_view_clutter_top_item_draw_triangle (EDayViewClutterTopItem *top_item,
                                  GdkDrawable *drawable,
                                  gint x,
                                  gint y,
@@ -78,7 +83,7 @@ day_view_top_item_draw_triangle (EDayViewTopItem *top_item,
 
 	cr = gdk_cairo_create (drawable);
 
-	day_view = e_day_view_top_item_get_day_view (top_item);
+	day_view = e_day_view_clutter_top_item_get_day_view (top_item);
 
 	points[0].x = x;
 	points[0].y = y;
@@ -146,7 +151,7 @@ day_view_top_item_draw_triangle (EDayViewTopItem *top_item,
 
 /* This draws one event in the top canvas. */
 static void
-day_view_top_item_draw_long_event (EDayViewTopItem *top_item,
+day_view_clutter_top_item_draw_long_event (EDayViewClutterTopItem *top_item,
                                    gint event_num,
                                    GdkDrawable *drawable,
                                    gint x,
@@ -180,7 +185,7 @@ day_view_top_item_draw_long_event (EDayViewTopItem *top_item,
 	gfloat alpha;
 	gdouble x0, y0, rect_height, rect_width, radius;
 
-	day_view = e_day_view_top_item_get_day_view (top_item);
+	day_view = e_day_view_clutter_top_item_get_day_view (top_item);
 	model = e_calendar_view_get_model (E_CALENDAR_VIEW (day_view));
 
 	cr = gdk_cairo_create (drawable);
@@ -317,7 +322,7 @@ day_view_top_item_draw_long_event (EDayViewTopItem *top_item,
 	/* If the event starts before the first day shown, draw a triangle */
 	if (draw_start_triangle
 	    && event->start < day_view->day_starts[start_day]) {
-		day_view_top_item_draw_triangle (
+		day_view_clutter_top_item_draw_triangle (
 			top_item, drawable, item_x - x + 4, item_y - y,
 			-E_DAY_VIEW_BAR_WIDTH, item_h, event_num);
 	}
@@ -325,7 +330,7 @@ day_view_top_item_draw_long_event (EDayViewTopItem *top_item,
 	/* Similar for the event end. */
 	if (draw_end_triangle
 	    && event->end > day_view->day_starts[end_day + 1]) {
-		day_view_top_item_draw_triangle (
+		day_view_clutter_top_item_draw_triangle (
 			top_item, drawable, item_x + item_w - 4 - x,
 			item_y - y, E_DAY_VIEW_BAR_WIDTH, item_h,
 			event_num);
@@ -513,21 +518,21 @@ day_view_top_item_draw_long_event (EDayViewTopItem *top_item,
 }
 
 static void
-day_view_top_item_set_property (GObject *object,
+day_view_clutter_top_item_set_property (GObject *object,
                                 guint property_id,
                                 const GValue *value,
                                 GParamSpec *pspec)
 {
 	switch (property_id) {
 		case PROP_DAY_VIEW:
-			e_day_view_top_item_set_day_view (
-				E_DAY_VIEW_TOP_ITEM (object),
+			e_day_view_clutter_top_item_set_day_view (
+				E_DAY_VIEW_CLUTTER_TOP_ITEM (object),
 				g_value_get_object (value));
 			return;
 
 		case PROP_SHOW_DATES:
-			e_day_view_top_item_set_show_dates (
-				E_DAY_VIEW_TOP_ITEM (object),
+			e_day_view_clutter_top_item_set_show_dates (
+				E_DAY_VIEW_CLUTTER_TOP_ITEM (object),
 				g_value_get_boolean (value));
 			return;
 	}
@@ -536,7 +541,7 @@ day_view_top_item_set_property (GObject *object,
 }
 
 static void
-day_view_top_item_get_property (GObject *object,
+day_view_clutter_top_item_get_property (GObject *object,
                                 guint property_id,
                                 GValue *value,
                                 GParamSpec *pspec)
@@ -544,14 +549,14 @@ day_view_top_item_get_property (GObject *object,
 	switch (property_id) {
 		case PROP_DAY_VIEW:
 			g_value_set_object (
-				value, e_day_view_top_item_get_day_view (
-				E_DAY_VIEW_TOP_ITEM (object)));
+				value, e_day_view_clutter_top_item_get_day_view (
+				E_DAY_VIEW_CLUTTER_TOP_ITEM (object)));
 			return;
 
 		case PROP_SHOW_DATES:
 			g_value_set_boolean (
-				value, e_day_view_top_item_get_show_dates (
-				E_DAY_VIEW_TOP_ITEM (object)));
+				value, e_day_view_clutter_top_item_get_show_dates (
+				E_DAY_VIEW_CLUTTER_TOP_ITEM (object)));
 			return;
 	}
 
@@ -559,11 +564,11 @@ day_view_top_item_get_property (GObject *object,
 }
 
 static void
-day_view_top_item_dispose (GObject *object)
+day_view_clutter_top_item_dispose (GObject *object)
 {
-	EDayViewTopItemPrivate *priv;
+	EDayViewClutterTopItemPrivate *priv;
 
-	priv = E_DAY_VIEW_TOP_ITEM_GET_PRIVATE (object);
+	priv = E_DAY_VIEW_CLUTTER_TOP_ITEM_GET_PRIVATE (object);
 
 	if (priv->day_view != NULL) {
 		g_object_unref (priv->day_view);
@@ -575,36 +580,77 @@ day_view_top_item_dispose (GObject *object)
 }
 
 static void
-day_view_top_item_update (GnomeCanvasItem *item,
-                          gdouble *affine,
-                          ArtSVP *clip_path,
-                          gint flags)
+day_view_clutter_top_item_draw_selection (ClutterCairoTexture *canvas_item)
 {
-	GnomeCanvasItemClass *canvas_item_class;
+	EDayViewClutterTopItem *top_item;
+	EDayView *day_view;
+	cairo_t *cr;
+	int x=0, y=0;
+	guint width, height;
+	gboolean show_dates;
+	gint canvas_height;
 
-	/* Chain up to parent's update() method. */
-	canvas_item_class = GNOME_CANVAS_ITEM_CLASS (parent_class);
-	canvas_item_class->update (item, affine, clip_path, flags);
+	clutter_cairo_texture_get_surface_size (canvas_item, &width, &height);	
+	
+	top_item = E_DAY_VIEW_CLUTTER_TOP_ITEM (canvas_item);
+	day_view = e_day_view_clutter_top_item_get_day_view (top_item);
+	show_dates = top_item->priv->show_dates;
 
-	/* The item covers the entire canvas area. */
-	item->x1 = 0;
-	item->y1 = 0;
-	item->x2 = INT_MAX;
-	item->y2 = INT_MAX;
+	canvas_height =
+		(show_dates ? 1 :
+		(MAX (1, day_view->rows_in_top_display) + 1)) *
+		day_view->top_row_height;
+
+	if (!top_item->priv->selection_actor) {
+		top_item->priv->selection_actor = clutter_cairo_texture_new (width, height);
+		clutter_actor_set_opacity (top_item->priv->selection_actor, 155);
+		clutter_container_add_actor (day_view->top_canvas_stage, top_item->priv->selection_actor);
+		clutter_actor_show (top_item->priv->selection_actor);
+		clutter_actor_raise (top_item->priv->selection_actor, (ClutterActor *)canvas_item);
+
+	}
+
+	if (!show_dates) {
+		if (gtk_widget_has_focus (GTK_WIDGET (day_view))
+			&& day_view->selection_start_day != -1) {
+			gint start_col, end_col, rect_x, rect_y, rect_w, rect_h;
+
+			start_col = day_view->selection_start_day;
+			end_col = day_view->selection_end_day;
+			
+			clutter_cairo_texture_clear (top_item->priv->selection_actor);
+			cr = clutter_cairo_texture_create (top_item->priv->selection_actor);
+
+			if (end_col > start_col
+			    || day_view->selection_start_row == -1
+			    || day_view->selection_end_row == -1) {
+				rect_x = day_view->day_offsets[start_col];
+				rect_y = 0;
+				rect_w = day_view->day_offsets[end_col + 1] - rect_x;
+				rect_h = canvas_height - 1 - rect_y;
+				
+				cairo_save (cr);
+				gdk_cairo_set_source_color (
+					cr, &day_view->colors
+					[E_DAY_VIEW_COLOR_BG_TOP_CANVAS_SELECTED]);
+				cairo_rectangle (cr, rect_x - x, rect_y - y,
+						 rect_w, rect_h);
+				cairo_fill (cr);
+				cairo_restore (cr);
+			}
+
+			cairo_destroy (cr);
+		}
+	}
+	
 }
 
 static void
-day_view_top_item_draw (GnomeCanvasItem *canvas_item,
-                        GdkDrawable *drawable,
-                        gint x,
-                        gint y,
-                        gint width,
-                        gint height)
+day_view_clutter_top_item_draw (ClutterCairoTexture *canvas_item)
 {
-	EDayViewTopItem *top_item;
+	EDayViewClutterTopItem *top_item;
 	EDayView *day_view;
 	GtkStyle *style;
-	GdkGC *fg_gc;
 	gchar buffer[128];
 	GtkAllocation allocation;
 	GdkRectangle clip_rect;
@@ -614,19 +660,19 @@ day_view_top_item_draw (GnomeCanvasItem *canvas_item,
 	cairo_t *cr;
 	GdkColor bg, light, dark;
 	gboolean show_dates;
+	int x=0, y=0;
+	guint width, height;
 
-	top_item = E_DAY_VIEW_TOP_ITEM (canvas_item);
-	day_view = e_day_view_top_item_get_day_view (top_item);
+	clutter_cairo_texture_get_surface_size (canvas_item, &width, &height);	
+	cr = clutter_cairo_texture_create ((ClutterCairoTexture *)canvas_item);
+	
+	top_item = E_DAY_VIEW_CLUTTER_TOP_ITEM (canvas_item);
+	day_view = e_day_view_clutter_top_item_get_day_view (top_item);
 	g_return_if_fail (day_view != NULL);
 	show_dates = top_item->priv->show_dates;
 
-	cr = gdk_cairo_create (drawable);
-
 	style = gtk_widget_get_style (GTK_WIDGET (day_view));
-	fg_gc = style->fg_gc[GTK_STATE_NORMAL];
-	gtk_widget_get_allocation (
-		GTK_WIDGET (canvas_item->canvas), &allocation);
-	canvas_width = allocation.width;
+	canvas_width = width;
 	canvas_height =
 		(show_dates ? 1 :
 		(MAX (1, day_view->rows_in_top_display) + 1)) *
@@ -678,8 +724,10 @@ day_view_top_item_draw (GnomeCanvasItem *canvas_item,
 		cairo_fill (cr);
 		cairo_restore (cr);
 
+		day_view_clutter_top_item_draw_selection (canvas_item);
+#if 0
 		/* Draw the selection background. */
-		if ((1 ||gtk_widget_has_focus (GTK_WIDGET (day_view)))
+		if (gtk_widget_has_focus (GTK_WIDGET (day_view))
 			&& day_view->selection_start_day != -1) {
 			gint start_col, end_col, rect_x, rect_y, rect_w, rect_h;
 
@@ -704,13 +752,14 @@ day_view_top_item_draw (GnomeCanvasItem *canvas_item,
 				cairo_restore (cr);
 			}
 		}
+#endif		
 	}
 
 	if (show_dates) {
 		/* Draw the date. Set a clipping rectangle so we don't draw over the
 		   next day. */
 		for (day = 0; day < day_view->days_shown; day++) {
-			e_day_view_top_item_get_day_label (day_view, day, buffer, sizeof (buffer));
+			e_day_view_clutter_top_item_get_day_label (day_view, day, buffer, sizeof (buffer));
 			clip_rect.x = day_view->day_offsets[day] - x;
 			clip_rect.y = 2 - y;
 			if (day_view->days_shown == 1) {
@@ -720,20 +769,21 @@ day_view_top_item_draw (GnomeCanvasItem *canvas_item,
 			} else
 				clip_rect.width = day_view->day_widths[day];
 			clip_rect.height = item_height - 2;
+			
+			cairo_save (cr);
+			cairo_rectangle (cr, (double)clip_rect.x , (double)clip_rect.y, (double)clip_rect.width, (double)clip_rect.height);
+			cairo_clip(cr);
 
-			gdk_gc_set_clip_rectangle (fg_gc, &clip_rect);
 
 			layout = gtk_widget_create_pango_layout (GTK_WIDGET (day_view), buffer);
 			pango_layout_get_pixel_size (layout, &date_width, NULL);
 			date_x = day_view->day_offsets[day] + (clip_rect.width - date_width) / 2;
 
-			gdk_draw_layout (drawable, fg_gc,
-					 date_x - x,
-					 3 - y,
-					 layout);
+			cairo_move_to (cr, date_x - x, 3 - y);
+			pango_cairo_show_layout (cr, layout);
+			cairo_stroke(cr);
+			cairo_restore(cr);
 			g_object_unref (layout);
-
-			gdk_gc_set_clip_rectangle (fg_gc, NULL);
 
 			/* Draw the lines down the left and right of the date cols. */
 			if (day != 0) {
@@ -768,54 +818,35 @@ day_view_top_item_draw (GnomeCanvasItem *canvas_item,
 			}
 		}
 	}
-
+#if 0
 	if (!show_dates) {
 		/* Draw the long events. */
 		for (event_num = 0; event_num < day_view->long_events->len; event_num++) {
-			day_view_top_item_draw_long_event (
+			day_view_clutter_top_item_draw_long_event (
 				top_item, event_num, drawable,
 				x, y, width, height);
 		}
 	}
-
+#endif
 	cairo_destroy (cr);
 }
 
-static double
-day_view_top_item_point (GnomeCanvasItem *item,
-                         gdouble x,
-                         gdouble y,
-                         gint cx,
-                         gint cy,
-                         GnomeCanvasItem **actual_item)
-{
-	/* This is supposed to return the nearest item the the point
-	 * and the distance.  Since we are the only item we just return
-	 * ourself and 0 for the distance.  This is needed so that we
-	 * get button/motion events. */
-	*actual_item = item;
-
-	return 0.0;
-}
 
 static void
-day_view_top_item_class_init (EDayViewTopItemClass *class)
+day_view_clutter_top_item_class_init (EDayViewClutterTopItemClass *class)
 {
 	GObjectClass *object_class;
-	GnomeCanvasItemClass *item_class;
+	ClutterCairoTextureClass *item_class;
 
 	parent_class = g_type_class_peek_parent (class);
-	g_type_class_add_private (class, sizeof (EDayViewTopItemPrivate));
+	g_type_class_add_private (class, sizeof (EDayViewClutterTopItemPrivate));
 
 	object_class = G_OBJECT_CLASS (class);
-	object_class->set_property = day_view_top_item_set_property;
-	object_class->get_property = day_view_top_item_get_property;
-	object_class->dispose = day_view_top_item_dispose;
+	object_class->set_property = day_view_clutter_top_item_set_property;
+	object_class->get_property = day_view_clutter_top_item_get_property;
+	object_class->dispose = day_view_clutter_top_item_dispose;
 
-	item_class = GNOME_CANVAS_ITEM_CLASS (class);
-	item_class->update = day_view_top_item_update;
-	item_class->draw = day_view_top_item_draw;
-	item_class->point = day_view_top_item_point;
+	item_class = CLUTTER_CAIRO_TEXTURE_CLASS (class);
 
 	g_object_class_install_property (
 		object_class,
@@ -839,32 +870,32 @@ day_view_top_item_class_init (EDayViewTopItemClass *class)
 }
 
 static void
-day_view_top_item_init (EDayViewTopItem *top_item)
+day_view_clutter_top_item_init (EDayViewClutterTopItem *top_item)
 {
-	top_item->priv = E_DAY_VIEW_TOP_ITEM_GET_PRIVATE (top_item);
+	top_item->priv = E_DAY_VIEW_CLUTTER_TOP_ITEM_GET_PRIVATE (top_item);
 }
 
 GType
-e_day_view_top_item_get_type (void)
+e_day_view_clutter_top_item_get_type (void)
 {
 	static GType type = 0;
 
 	if (G_UNLIKELY (type == 0)) {
 		const GTypeInfo type_info = {
-			sizeof (EDayViewTopItemClass),
+			sizeof (EDayViewClutterTopItemClass),
 			(GBaseInitFunc) NULL,
 			(GBaseFinalizeFunc) NULL,
-			(GClassInitFunc) day_view_top_item_class_init,
+			(GClassInitFunc) day_view_clutter_top_item_class_init,
 			(GClassFinalizeFunc) NULL,
 			NULL,  /* class_data */
-			sizeof (EDayViewTopItem),
+			sizeof (EDayViewClutterTopItem),
 			0,     /* n_preallocs */
-			(GInstanceInitFunc) day_view_top_item_init,
+			(GInstanceInitFunc) day_view_clutter_top_item_init,
 			NULL   /* value_table */
 		};
 
 		type = g_type_register_static (
-			GNOME_TYPE_CANVAS_ITEM, "EDayViewTopItem",
+			CLUTTER_TYPE_CAIRO_TEXTURE, "EDayViewClutterTopItem",
 			&type_info, 0);
 	}
 
@@ -872,7 +903,7 @@ e_day_view_top_item_get_type (void)
 }
 
 void
-e_day_view_top_item_get_day_label (EDayView *day_view, gint day,
+e_day_view_clutter_top_item_get_day_label (EDayView *day_view, gint day,
 				   gchar *buffer, gint buffer_len)
 {
 	struct icaltimetype day_start_tt;
@@ -910,18 +941,18 @@ e_day_view_top_item_get_day_label (EDayView *day_view, gint day,
 }
 
 EDayView *
-e_day_view_top_item_get_day_view (EDayViewTopItem *top_item)
+e_day_view_clutter_top_item_get_day_view (EDayViewClutterTopItem *top_item)
 {
-	g_return_val_if_fail (E_IS_DAY_VIEW_TOP_ITEM (top_item), NULL);
+	g_return_val_if_fail (E_IS_DAY_VIEW_CLUTTER_TOP_ITEM (top_item), NULL);
 
 	return top_item->priv->day_view;
 }
 
 void
-e_day_view_top_item_set_day_view (EDayViewTopItem *top_item,
+e_day_view_clutter_top_item_set_day_view (EDayViewClutterTopItem *top_item,
                                   EDayView *day_view)
 {
-	g_return_if_fail (E_IS_DAY_VIEW_TOP_ITEM (top_item));
+	g_return_if_fail (E_IS_DAY_VIEW_CLUTTER_TOP_ITEM (top_item));
 	g_return_if_fail (E_IS_DAY_VIEW (day_view));
 
 	if (top_item->priv->day_view != NULL)
@@ -933,20 +964,53 @@ e_day_view_top_item_set_day_view (EDayViewTopItem *top_item,
 }
 
 gboolean
-e_day_view_top_item_get_show_dates (EDayViewTopItem *top_item)
+e_day_view_clutter_top_item_get_show_dates (EDayViewClutterTopItem *top_item)
 {
-	g_return_val_if_fail (E_IS_DAY_VIEW_TOP_ITEM (top_item), FALSE);
+	g_return_val_if_fail (E_IS_DAY_VIEW_CLUTTER_TOP_ITEM (top_item), FALSE);
 
 	return top_item->priv->show_dates;
 }
 
 void
-e_day_view_top_item_set_show_dates (EDayViewTopItem *top_item,
+e_day_view_clutter_top_item_set_show_dates (EDayViewClutterTopItem *top_item,
                                     gboolean show_dates)
 {
-	g_return_if_fail (E_IS_DAY_VIEW_TOP_ITEM (top_item));
+	g_return_if_fail (E_IS_DAY_VIEW_CLUTTER_TOP_ITEM (top_item));
 
 	top_item->priv->show_dates = show_dates;
 
 	g_object_notify (G_OBJECT (top_item), "show-dates");
+}
+
+void
+e_day_view_clutter_top_item_set_size (EDayViewClutterTopItem *item, int width, int height)
+{
+	guint owidth, oheight;
+
+	clutter_cairo_texture_get_surface_size (item, &owidth, &oheight);	
+
+	clutter_cairo_texture_set_surface_size ((ClutterCairoTexture *)item, width > 0 ? width : owidth, height > 0 ? height : oheight);
+	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
+	if (item->priv->selection_actor) {
+		clutter_actor_destroy (item->priv->selection_actor);
+		item->priv->selection_actor = NULL;	
+	}	
+	day_view_clutter_top_item_draw (item);
+}
+
+void
+e_day_view_clutter_top_item_redraw (EDayViewClutterTopItem *item)
+{
+	if (item->priv->selection_actor) {
+		clutter_actor_destroy (item->priv->selection_actor);
+		item->priv->selection_actor = NULL;	
+	}		
+	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
+	day_view_clutter_top_item_draw (item);
+}
+
+void
+e_day_view_clutter_top_item_update_selection (EDayViewClutterTopItem *item)
+{
+	day_view_clutter_top_item_draw_selection (item);
 }

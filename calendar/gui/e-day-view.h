@@ -217,12 +217,19 @@ struct _EDayView {
 	/* The top canvas where the dates are shown. */
 	GtkWidget *top_dates_canvas;
 	GnomeCanvasItem *top_dates_canvas_item;
+#if HAVE_CLUTTER
+	ClutterActor *top_dates_canvas_actor;
+	GtkWidget *top_dates_canvas_embed;
+	ClutterActor *top_dates_canvas_stage;
+#endif
 
 	/* The top canvas where the dates and long appointments are shown. */
 	GtkWidget *top_canvas;
 	GnomeCanvasItem *top_canvas_item;
 #if HAVE_CLUTTER
 	ClutterActor *top_canvas_actor;
+	GtkWidget *top_canvas_embed;
+	ClutterActor *top_canvas_stage;
 #endif
 	/* scrollbar for top_canvas */
 	GtkWidget *tc_vscrollbar;
