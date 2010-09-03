@@ -684,7 +684,8 @@ day_view_clutter_top_item_draw (ClutterCairoTexture *canvas_item)
 	light = style->light[GTK_STATE_NORMAL];
 	dark = style->dark[GTK_STATE_NORMAL];
 
-	if (show_dates) {
+	/*TEST: We now paint that through a MxWidget's css. */
+	if (show_dates && 0) {
 		/* Draw the shadow around the dates. */
 		cairo_save (cr);
 		gdk_cairo_set_source_color (cr, &light);
@@ -725,34 +726,6 @@ day_view_clutter_top_item_draw (ClutterCairoTexture *canvas_item)
 		cairo_restore (cr);
 
 		day_view_clutter_top_item_draw_selection (canvas_item);
-#if 0
-		/* Draw the selection background. */
-		if (gtk_widget_has_focus (GTK_WIDGET (day_view))
-			&& day_view->selection_start_day != -1) {
-			gint start_col, end_col, rect_x, rect_y, rect_w, rect_h;
-
-			start_col = day_view->selection_start_day;
-			end_col = day_view->selection_end_day;
-
-			if (end_col > start_col
-			    || day_view->selection_start_row == -1
-			    || day_view->selection_end_row == -1) {
-				rect_x = day_view->day_offsets[start_col];
-				rect_y = 0;
-				rect_w = day_view->day_offsets[end_col + 1] - rect_x;
-				rect_h = canvas_height - 1 - rect_y;
-
-				cairo_save (cr);
-				gdk_cairo_set_source_color (
-					cr, &day_view->colors
-					[E_DAY_VIEW_COLOR_BG_TOP_CANVAS_SELECTED]);
-				cairo_rectangle (cr, rect_x - x, rect_y - y,
-						 rect_w, rect_h);
-				cairo_fill (cr);
-				cairo_restore (cr);
-			}
-		}
-#endif		
 	}
 
 	if (show_dates) {

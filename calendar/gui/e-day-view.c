@@ -1267,6 +1267,8 @@ e_day_view_init (EDayView *day_view)
 				       NULL);
 #if HAVE_CLUTTER
 	} else {
+	ClutterActor *abox;
+
 	day_view->top_dates_canvas_embed = gtk_clutter_embed_new ();
 	gtk_widget_show (day_view->top_dates_canvas_embed);
 	gtk_container_add ((GtkContainer *)day_view->top_dates_canvas, (GtkWidget *)day_view->top_dates_canvas_embed);
@@ -1283,7 +1285,21 @@ e_day_view_init (EDayView *day_view)
 			NULL);
 	clutter_actor_set_reactive (day_view->top_dates_canvas_actor, FALSE);
 	((EDayViewClutterMainItem *)day_view->top_dates_canvas_actor)->stage = day_view->top_dates_canvas_stage;
-	clutter_container_add_actor ((ClutterContainer *)day_view->top_dates_canvas_stage, (ClutterActor *)day_view->top_dates_canvas_actor);
+
+	abox = mx_box_layout_new ();
+	clutter_actor_set_name (abox, "CalendarTitleBox");
+	mx_box_layout_set_orientation ((MxBoxLayout *)abox, MX_ORIENTATION_VERTICAL);
+
+   	mx_box_layout_add_actor (MX_BOX_LAYOUT (abox),
+                               day_view->top_dates_canvas_actor, -1);
+	clutter_container_child_set (CLUTTER_CONTAINER (abox),
+                               day_view->top_dates_canvas_actor,
+			       "expand", TRUE,
+			       "x-fill", TRUE,
+			       "y-fill", TRUE,			       
+                               NULL);
+	clutter_actor_show (abox);
+	clutter_container_add_actor ((ClutterContainer *)day_view->top_dates_canvas_stage, (ClutterActor *)abox);
 	clutter_actor_show ((ClutterActor *)day_view->top_dates_canvas_actor);
 	gtk_widget_set_size_request (day_view->top_dates_canvas, -1, day_view->top_row_height);
 
@@ -1478,6 +1494,7 @@ e_day_view_init (EDayView *day_view)
 				       NULL);
 #if HAVE_CLUTTER
 	} else {
+	ClutterActor *abox = mx_box_layout_new ();
 	day_view->time_canvas_actor = g_object_new (
 			E_TYPE_DAY_VIEW_CLUTTER_TIME_ITEM,
 			"EDayViewClutterTimeItem::day_view", day_view,
@@ -1486,7 +1503,21 @@ e_day_view_init (EDayView *day_view)
 			NULL);
 	clutter_actor_set_reactive ((ClutterActor *)day_view->time_canvas_actor, TRUE);
 	((EDayViewClutterTimeItem *)day_view->time_canvas_actor)->stage = day_view->time_canvas_stage;
-	clutter_container_add_actor ((ClutterContainer *)day_view->time_canvas_stage, (ClutterActor *)day_view->time_canvas_actor);
+	
+
+	clutter_actor_set_name (abox, "CalendarTimeBox");
+	mx_box_layout_set_orientation ((MxBoxLayout *)abox, MX_ORIENTATION_VERTICAL);
+
+   	mx_box_layout_add_actor (MX_BOX_LAYOUT (abox),
+                               day_view->time_canvas_actor, -1);
+	clutter_container_child_set (CLUTTER_CONTAINER (abox),
+                               day_view->time_canvas_actor,
+			       "expand", TRUE,
+			       "x-fill", TRUE,
+			       "y-fill", TRUE,			       
+                               NULL);
+	clutter_actor_show (abox);
+	clutter_container_add_actor ((ClutterContainer *)day_view->time_canvas_stage, (ClutterActor *)abox);
 	clutter_actor_show ((ClutterActor *)day_view->time_canvas_actor);
 	}
 #endif	

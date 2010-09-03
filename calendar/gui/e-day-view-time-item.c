@@ -483,7 +483,7 @@ edvti_draw_zone (GnomeCanvasItem   *canvas_item,
 			/* 60 minute intervals - draw a long horizontal line
 			   between hours and display as one long string,
 			   e.g. "14:00" or "2 pm". */
-			cairo_save (cr);
+			//cairo_save (cr);
 			gdk_cairo_set_source_color (cr, &dark);
 			cairo_save (cr);
 			cairo_set_line_width (cr, 0.7);
