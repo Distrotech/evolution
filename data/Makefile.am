@@ -16,6 +16,7 @@ dist_mime_DATA = evolution.mime
 themedir = $(privdatadir)/theme
 dist_theme_DATA =	\
 	default.css	\
+	calendar-title-bg.png	\
 	tab-bar-background.png \
 	tab-switcher.png 	\
 	tab-switcher-hover.png	\

@@ -4,6 +4,14 @@ EMailTabPicker {
   padding: 0 0 0 3;
 }
 
+*#CalendarTitleBox {
+  border-image: url('calendar-title-bg.png') 7 7 0 7;
+}
+
+*#CalendarTimeBox {
+  border-image: url('calendar-title-bg.png') 7 7 0 7;
+}
+
 *#chooser-button {
   border-image: url('tab-switcher.png') 9 6 5;
   padding: 35 34 0 0;
