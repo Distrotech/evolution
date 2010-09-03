@@ -9,7 +9,7 @@ EMailTabPicker {
 }
 
 *#CalendarTimeBox {
-  border-image: url('calendar-title-bg.png') 7 7 0 7;
+  border-image: url('calendar-title-bg.png') 7 7 7 0;
 }
 
 *#chooser-button {
