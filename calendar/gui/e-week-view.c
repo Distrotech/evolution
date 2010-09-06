@@ -62,6 +62,12 @@
 #include "misc.h"
 #include <e-util/e-icon-factory.h>
 
+#if HAVE_CLUTTER
+#include "e-week-view-clutter-titles-item.h"
+#endif
+
+#define WITHOUT_CLUTTER (g_getenv("WITHOUT_CLUTTER") != NULL)
+
 /* Images */
 #include "art/jump.xpm"
 
@@ -688,6 +694,21 @@ e_week_view_class_init (EWeekViewClass *class)
 	e_week_view_a11y_init ();
 }
 
+static void                
+titles_canvas_set_canvas_size (GtkWidget     *widget,
+		 GtkAllocation *allocation,
+		  EWeekView *week_view)
+{
+	ClutterActor *stage = week_view->titles_canvas_stage;
+	GtkWidget *embed = week_view->titles_canvas_embed;
+	guint w,h;
+
+	gtk_widget_set_size_request (embed, allocation->width, allocation->height);
+	clutter_actor_set_size (stage, allocation->width, allocation->height);
+	clutter_actor_set_size (week_view->titles_canvas_actor, allocation->width, allocation->height);
+	e_week_view_clutter_titles_item_set_size ((EWeekViewClutterTitlesItem *)week_view->titles_canvas_actor, allocation->width, allocation->height);
+}
+
 static void
 e_week_view_init (EWeekView *week_view)
 {
@@ -759,10 +780,21 @@ e_week_view_init (EWeekView *week_view)
 	 * Titles Canvas. Note that we don't show it is only shown in the
 	 * Month view.
 	 */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	week_view->titles_canvas = e_canvas_new ();
+#if HAVE_CLUTTER
+	} else {
+	week_view->titles_canvas = gtk_layout_new (NULL, NULL);
+	}
+#endif	
 	gtk_table_attach (GTK_TABLE (week_view), week_view->titles_canvas,
 			  1, 2, 0, 1, GTK_EXPAND | GTK_FILL, GTK_FILL, 0, 0);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	canvas_group = GNOME_CANVAS_GROUP (GNOME_CANVAS (week_view->titles_canvas)->root);
 
 	week_view->titles_canvas_item =
@@ -770,6 +802,41 @@ e_week_view_init (EWeekView *week_view)
 				       e_week_view_titles_item_get_type (),
 				       "EWeekViewTitlesItem::week_view", week_view,
 				       NULL);
+#if HAVE_CLUTTER
+	} else {
+	ClutterActor *abox;
+
+	week_view->titles_canvas_embed = gtk_clutter_embed_new ();
+	gtk_widget_show (week_view->titles_canvas_embed);
+	gtk_container_add ((GtkContainer *)week_view->titles_canvas , (GtkWidget *)week_view->titles_canvas_embed);
+	g_signal_connect (week_view->titles_canvas, "size-allocate", G_CALLBACK(titles_canvas_set_canvas_size), week_view);
+
+	week_view->titles_canvas_stage = gtk_clutter_embed_get_stage ((GtkClutterEmbed *) week_view->titles_canvas_embed);
+
+	week_view->titles_canvas_actor = g_object_new (
+			E_TYPE_WEEK_VIEW_CLUTTER_TITLES_ITEM,
+			"EWeekViewClutterTitlesItem::week_view", week_view,
+                       "surface-width", 300,
+                       "surface-height", 50,	
+		       NULL);
+	clutter_actor_set_reactive (week_view->titles_canvas_actor, FALSE);
+	abox = mx_box_layout_new ();
+	//clutter_actor_set_name (abox, "CalendarTitleBox");
+	mx_box_layout_set_orientation ((MxBoxLayout *)abox, MX_ORIENTATION_VERTICAL);
+
+   	mx_box_layout_add_actor (MX_BOX_LAYOUT (abox),
+                               week_view->titles_canvas_actor, -1);
+	clutter_container_child_set (CLUTTER_CONTAINER (abox),
+                               week_view->titles_canvas_actor,
+			       "expand", TRUE,
+			       "x-fill", TRUE,
+			       "y-fill", TRUE,			       
+                               NULL);
+	clutter_actor_show (abox);
+	clutter_container_add_actor ((ClutterContainer *)week_view->titles_canvas_stage, (ClutterActor *)abox);
+	clutter_actor_show ((ClutterActor *)week_view->titles_canvas_actor);
+	}
+#endif	
 
 	/*
 	 * Main Canvas

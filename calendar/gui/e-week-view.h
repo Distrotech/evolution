@@ -29,6 +29,12 @@
 #include "e-calendar-view.h"
 #include "gnome-cal.h"
 
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#include <mx/mx.h>
+#include <clutter-gtk/clutter-gtk.h>
+#endif
+
 /*
  * EWeekView - displays the Week & Month views of the calendar.
  */
@@ -175,10 +181,20 @@ struct _EWeekView {
 	/* The top canvas where the dates are shown. */
 	GtkWidget *titles_canvas;
 	GnomeCanvasItem *titles_canvas_item;
+#if HAVE_CLUTTER
+	ClutterActor *titles_canvas_actor;
+	GtkWidget *titles_canvas_embed;
+	ClutterActor *titles_canvas_stage;
+#endif
 
 	/* The main canvas where the appointments are shown. */
 	GtkWidget *main_canvas;
 	GnomeCanvasItem *main_canvas_item;
+#if HAVE_CLUTTER
+	ClutterActor *main_canvas_actor;
+	GtkWidget *main_canvas_embed;
+	ClutterActor *main_canvas_stage;
+#endif
 
 	GnomeCanvasItem *jump_buttons[E_WEEK_VIEW_MAX_WEEKS * 7];
 	gint focused_jump_button;
