@@ -70,6 +70,7 @@ struct _EDayViewClutterTimeItemPrivate {
 	guint second_zone_changed_id;
 	icaltimezone *second_zone;
 #if HAVE_CLUTTER
+	ClutterActor *mb_icon;
 	ClutterActor *mb_line;
 	ClutterActor *mb_line_alt;
 #endif
@@ -218,6 +219,7 @@ day_view_clutter_time_item_init (EDayViewClutterTimeItem *time_item)
 	time_item->priv->second_zone = NULL;
 	time_item->priv->mb_line_alt = NULL;
 	time_item->priv->mb_line = NULL;
+	time_item->priv->mb_icon = NULL;
 
 	last = calendar_config_get_day_second_zone ();
 
@@ -277,6 +279,7 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 	gint long_line_x1, long_line_x2;
 	ClutterActor *stage;
 	GdkColor mb_color;
+	gboolean icon_inited = FALSE;
 
 	time_item = E_DAY_VIEW_CLUTTER_TIME_ITEM (canvas_item);
 	day_view = e_day_view_clutter_time_item_get_day_view (time_item);
@@ -286,6 +289,22 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 	long_line_x1 = (use_zone ? 0 : E_DVTMI_TIME_GRID_X_PAD) - x + x_offset;
 	long_line_x2 = time_item->priv->column_width - E_DVTMI_TIME_GRID_X_PAD - x - (use_zone ? E_DVTMI_TIME_GRID_X_PAD : 0) + x_offset;
 
+	if (!time_item->priv->mb_icon) {
+		GtkIconInfo *info;
+
+		info = gtk_icon_theme_lookup_icon (gtk_icon_theme_get_default(),
+						"forward",
+						24,
+						GTK_ICON_LOOKUP_NO_SVG);
+		if (info) {
+			time_item->priv->mb_icon = clutter_texture_new_from_file (gtk_icon_info_get_filename(info), NULL);
+			gtk_icon_info_free(info);
+			icon_inited = TRUE;
+			clutter_container_add_actor ((ClutterContainer *)stage, time_item->priv->mb_icon);
+			clutter_actor_show (time_item->priv->mb_icon);
+		}
+	
+	}
 	if ((use_zone && !time_item->priv->mb_line_alt) ||
 			(!use_zone && !time_item->priv->mb_line)) {
 		mb = clutter_cairo_texture_new (long_line_x2, (int)5);
@@ -327,6 +346,9 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 
 	cairo_destroy (cr);
 
+	if (icon_inited) {
+		clutter_actor_set_position (time_item->priv->mb_icon, 0, marcus_bains_y -12);
+	}
 	clutter_actor_set_position (mb, 0, marcus_bains_y);
 	clutter_actor_raise_top (mb);
 }
@@ -655,6 +677,7 @@ edvti_draw_zone (ClutterActor   *canvas_item,
 		clutter_actor_raise_top (time_item->priv->mb_line_alt);
 	else
 		clutter_actor_raise_top (time_item->priv->mb_line);	
+	clutter_actor_raise_top (time_item->priv->mb_icon);
 }
 
 static void
@@ -706,15 +729,19 @@ e_day_view_clutter_time_item_update (EDayViewClutterTimeItem *item)
 				CLUTTER_LINEAR, 200,
 				"y", (float) marcus_bains_y,
 				NULL);
-		clutter_actor_raise_top (item->priv->mb_line);
 	}
 	if (item->priv->mb_line_alt) {
 		clutter_actor_animate (item->priv->mb_line_alt,
 				CLUTTER_LINEAR, 200,
 				"y", (float) marcus_bains_y,
 				NULL);
-		clutter_actor_raise_top (item->priv->mb_line_alt);
 		
+	}
+	if (item->priv->mb_icon) {
+		clutter_actor_animate (item->priv->mb_icon,
+				CLUTTER_LINEAR, 200,
+				"y", (float) marcus_bains_y-12,
+				NULL);
 	}
 }
 
