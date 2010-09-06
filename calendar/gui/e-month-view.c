@@ -21,6 +21,13 @@
 
 #include "e-month-view.h"
 
+#if HAVE_CLUTTER
+#include "e-week-view-clutter-titles-item.h"
+#include "e-week-view-clutter-main-item.h"
+#endif
+
+#define WITHOUT_CLUTTER (g_getenv("WITHOUT_CLUTTER") != NULL)
+
 #include <libecal/e-cal-time-util.h>
 
 #define E_MONTH_VIEW_GET_PRIVATE(obj) \
@@ -59,7 +66,15 @@ month_view_cursor_key_up (EWeekView *week_view)
 	}
 
 	g_signal_emit_by_name (week_view, "selected-time-changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -92,7 +107,15 @@ month_view_cursor_key_down (EWeekView *week_view)
 	}
 
 	g_signal_emit_by_name (week_view, "selected-time-changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -121,7 +144,15 @@ month_view_cursor_key_left (EWeekView *week_view)
 	}
 
 	g_signal_emit_by_name (week_view, "selected-time-changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -154,7 +185,15 @@ month_view_cursor_key_right (EWeekView *week_view)
 	}
 
 	g_signal_emit_by_name (week_view, "selected-time-changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void

@@ -64,6 +64,7 @@
 
 #if HAVE_CLUTTER
 #include "e-week-view-clutter-titles-item.h"
+#include "e-week-view-clutter-main-item.h"
 #endif
 
 #define WITHOUT_CLUTTER (g_getenv("WITHOUT_CLUTTER") != NULL)
@@ -273,8 +274,15 @@ week_view_update_row (EWeekView *week_view, gint row)
 	g_free (rid);
 
 	week_view_process_component (week_view, comp_data);
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	e_week_view_queue_layout (week_view);
 }
 
@@ -318,8 +326,15 @@ week_view_model_comps_deleted_cb (EWeekView *week_view,
 			e_week_view_remove_event_cb (week_view, event_num, NULL);
 		g_free (rid);
 	}
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	e_week_view_queue_layout (week_view);
 }
 
@@ -356,8 +371,15 @@ week_view_model_rows_inserted_cb (EWeekView *week_view,
 		}
 		week_view_process_component (week_view, comp_data);
 	}
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	e_week_view_queue_layout (week_view);
 }
 
@@ -424,9 +446,15 @@ week_view_time_range_changed_cb (EWeekView *week_view,
 		e_week_view_free_events (week_view);
 		return;
 	}
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
-
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	/* FIXME Preserve selection if possible */
 	if (week_view->selection_start_day == -1 ||
 	    (week_view->multi_week_view ? week_view->weeks_shown * 7 : 7) <= week_view->selection_start_day)
@@ -478,8 +506,17 @@ week_view_notify_week_start_day_cb (EWeekView *week_view)
 	if (g_date_valid (first_day_shown))
 		e_week_view_set_first_day_shown (week_view, first_day_shown);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif	
 	gtk_widget_queue_draw (week_view->titles_canvas);
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_titles_item_redraw (week_view->titles_canvas_actor);
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -583,7 +620,15 @@ week_view_cursor_key_up (EWeekView *week_view)
 
 	week_view->selection_end_day = week_view->selection_start_day;
 	g_signal_emit_by_name (week_view, "selected_time_changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -601,7 +646,15 @@ week_view_cursor_key_down (EWeekView *week_view)
 
 	week_view->selection_end_day = week_view->selection_start_day;
 	g_signal_emit_by_name (week_view, "selected_time_changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -613,7 +666,15 @@ week_view_cursor_key_left (EWeekView *week_view)
 	week_view->selection_start_day = map_left[week_view->selection_start_day];
 	week_view->selection_end_day = week_view->selection_start_day;
 	g_signal_emit_by_name (week_view, "selected_time_changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -625,7 +686,15 @@ week_view_cursor_key_right (EWeekView *week_view)
 	week_view->selection_start_day = map_right[week_view->selection_start_day];
 	week_view->selection_end_day = week_view->selection_start_day;
 	g_signal_emit_by_name (week_view, "selected_time_changed");
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 static void
@@ -695,6 +764,21 @@ e_week_view_class_init (EWeekViewClass *class)
 }
 
 static void                
+main_canvas_set_canvas_size (GtkWidget     *widget,
+		 GtkAllocation *allocation,
+		  EWeekView *week_view)
+{
+	ClutterActor *stage = week_view->main_canvas_stage;
+	GtkWidget *embed = week_view->main_canvas_embed;
+	guint w,h;
+
+	gtk_widget_set_size_request (embed, allocation->width, allocation->height);
+	clutter_actor_set_size (stage, allocation->width, allocation->height);
+	clutter_actor_set_size (week_view->main_canvas_actor, allocation->width, allocation->height);
+	e_week_view_clutter_main_item_set_size ((EWeekViewClutterMainItem *)week_view->main_canvas_actor, allocation->width, allocation->height);
+}
+
+static void                
 titles_canvas_set_canvas_size (GtkWidget     *widget,
 		 GtkAllocation *allocation,
 		  EWeekView *week_view)
@@ -712,7 +796,7 @@ titles_canvas_set_canvas_size (GtkWidget     *widget,
 static void
 e_week_view_init (EWeekView *week_view)
 {
-	GnomeCanvasGroup *canvas_group;
+	GnomeCanvasGroup *canvas_group=NULL;
 	GtkObject *adjustment;
 	GdkPixbuf *pixbuf;
 	gint i;
@@ -821,7 +905,7 @@ e_week_view_init (EWeekView *week_view)
 		       NULL);
 	clutter_actor_set_reactive (week_view->titles_canvas_actor, FALSE);
 	abox = mx_box_layout_new ();
-	//clutter_actor_set_name (abox, "CalendarTitleBox");
+	clutter_actor_set_name (abox, "CalendarTitleBox");
 	mx_box_layout_set_orientation ((MxBoxLayout *)abox, MX_ORIENTATION_VERTICAL);
 
    	mx_box_layout_add_actor (MX_BOX_LAYOUT (abox),
@@ -841,12 +925,23 @@ e_week_view_init (EWeekView *week_view)
 	/*
 	 * Main Canvas
 	 */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif	
 	week_view->main_canvas = e_canvas_new ();
+#if HAVE_CLUTTER 
+	} else {
+	week_view->main_canvas = gtk_layout_new (NULL, NULL);
+	}
+#endif	
 	gtk_table_attach (GTK_TABLE (week_view), week_view->main_canvas,
 			  1, 2, 1, 2,
 			  GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 1, 1);
 	gtk_widget_show (week_view->main_canvas);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	canvas_group = GNOME_CANVAS_GROUP (GNOME_CANVAS (week_view->main_canvas)->root);
 
 	week_view->main_canvas_item =
@@ -854,7 +949,27 @@ e_week_view_init (EWeekView *week_view)
 				       e_week_view_main_item_get_type (),
 				       "EWeekViewMainItem::week_view", week_view,
 				       NULL);
+#if HAVE_CLUTTER
+	} else {
+	week_view->main_canvas_embed = gtk_clutter_embed_new ();
+	gtk_widget_show (week_view->main_canvas_embed);
+	gtk_container_add ((GtkContainer *)week_view->main_canvas , (GtkWidget *)week_view->main_canvas_embed);
+	g_signal_connect (week_view->main_canvas, "size-allocate", G_CALLBACK(main_canvas_set_canvas_size), week_view);
 
+	week_view->main_canvas_stage = gtk_clutter_embed_get_stage ((GtkClutterEmbed *) week_view->main_canvas_embed);
+
+	week_view->main_canvas_actor = g_object_new (
+			E_TYPE_WEEK_VIEW_CLUTTER_MAIN_ITEM,
+			"EWeekViewClutterMainItem::week_view", week_view,
+                       "surface-width", 300,
+                       "surface-height", 50,	
+		       NULL);
+	clutter_actor_set_reactive (week_view->main_canvas_actor, FALSE);
+	clutter_container_add_actor ((ClutterContainer *)week_view->main_canvas_stage, (ClutterActor *)week_view->main_canvas_actor);
+	clutter_actor_show ((ClutterActor *)week_view->main_canvas_actor);
+
+	}
+#endif	
 	g_signal_connect_after (week_view->main_canvas, "button_press_event",
 				G_CALLBACK (e_week_view_on_button_press), week_view);
 	g_signal_connect (week_view->main_canvas, "button_release_event",
@@ -1435,9 +1550,15 @@ e_week_view_focus_in (GtkWidget *widget, GdkEventFocus *event)
 #if 0
 	GTK_WIDGET_SET_FLAGS (widget, GTK_HAS_FOCUS);
 #endif
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
-
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	return FALSE;
 }
 
@@ -1457,9 +1578,15 @@ e_week_view_focus_out (GtkWidget *widget, GdkEventFocus *event)
 #if 0
 	GTK_WIDGET_UNSET_FLAGS (widget, GTK_HAS_FOCUS);
 #endif
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
-
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	return FALSE;
 }
 
@@ -1663,8 +1790,15 @@ e_week_view_update_query (EWeekView *week_view)
 
 	if (!E_CALENDAR_VIEW (week_view)->in_focus)
 		return;
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	e_week_view_free_events (week_view);
 	e_week_view_queue_layout (week_view);
 
@@ -1764,8 +1898,15 @@ e_week_view_set_selected_time_range	(ECalendarView	*cal_view,
 		adjustment = gtk_range_get_adjustment (range);
 		gtk_adjustment_set_value (adjustment, 0);
 	}
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 void
@@ -1801,8 +1942,15 @@ e_week_view_set_selected_time_range_visible	(EWeekView	*week_view,
 	week_view->selection_end_day = CLAMP (week_view->selection_end_day,
 					      week_view->selection_start_day,
 					      num_days);
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 /* Returns the selected time range. */
@@ -1951,7 +2099,15 @@ e_week_view_set_first_day_shown		(EWeekView	*week_view,
 	}
 
 	e_week_view_update_query (week_view);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif	
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 }
 
 /* Recalculates the time_t corresponding to the start of each day. */
@@ -2151,9 +2307,17 @@ e_week_view_set_compress_weekend (EWeekView *week_view,
 		e_week_view_check_layout (week_view);
 	}
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gtk_widget_queue_draw (week_view->titles_canvas);
 	gtk_widget_queue_draw (week_view->main_canvas);
-
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_titles_item_redraw (week_view->titles_canvas_actor);
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	g_object_notify (G_OBJECT (week_view), "compress-weekend");
 }
 
@@ -2536,7 +2700,15 @@ e_week_view_on_button_press (GtkWidget *widget,
 			g_signal_emit_by_name (week_view, "selected_time_changed");
 
 			/* FIXME: Optimise? */
+#if HAVE_CLUTTER
+			if (WITHOUT_CLUTTER) {
+#endif
 			gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+			} else {
+			e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+			}
+#endif	
 		}
 	} else if (event->button == 3) {
 		if (!gtk_widget_has_focus (GTK_WIDGET (week_view)))
@@ -2548,7 +2720,15 @@ e_week_view_on_button_press (GtkWidget *widget,
 			week_view->selection_drag_pos = E_WEEK_VIEW_DRAG_NONE;
 
 			/* FIXME: Optimise? */
+#if HAVE_CLUTTER
+			if (WITHOUT_CLUTTER) {
+#endif				
 			gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+			} else {
+			e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+			}
+#endif			
 		}
 
 		e_week_view_show_popup_menu (week_view, event, -1);
@@ -2752,7 +2932,15 @@ e_week_view_update_selection (EWeekView *week_view,
 
 	/* FIXME: Optimise? */
 	if (need_redraw) {
+#if HAVE_CLUTTER
+		if (WITHOUT_CLUTTER) {
+#endif			
 		gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+		} else {
+		e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+		}
+#endif	
 	}
 }
 
@@ -3930,7 +4118,15 @@ e_week_view_change_event_time (EWeekView *week_view, time_t start_dt, time_t end
 
 	if (e_cal_component_has_recurrences (comp)) {
 		if (!recur_component_dialog (client, comp, &mod, NULL, FALSE)) {
+#if HAVE_CLUTTER
+			if (WITHOUT_CLUTTER) {
+#endif				
 			gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+			} else {
+			e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+			}
+#endif		
 			goto out;
 		}
 
@@ -4043,7 +4239,15 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 		e_week_view_foreach_event_with_uid (week_view, uid,
 						    e_week_view_remove_event_cb, NULL);
 		week_view->event_destroyed = TRUE;
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif			
 		gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+		} else {
+		e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+		}
+#endif		
 		e_week_view_check_layout (week_view);
 		goto out;
 	}
@@ -4374,8 +4578,15 @@ e_week_view_add_new_event_in_selected_range (EWeekView *week_view, const gchar *
 	add_event_data.comp_data = NULL;
 	e_week_view_add_event (comp, dtstart, dtend, TRUE, &add_event_data);
 	e_week_view_check_layout (week_view);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif	
 	gtk_widget_queue_draw (week_view->main_canvas);
-
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	if (!e_week_view_find_event_from_uid (week_view, ecal, uid, NULL, &event_num)) {
 		g_warning ("Couldn't find event to start editing.\n");
 		g_object_unref (comp);
@@ -4729,7 +4940,15 @@ e_week_view_layout_timeout_cb (gpointer data)
 {
 	EWeekView *week_view = E_WEEK_VIEW (data);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gtk_widget_queue_draw (week_view->main_canvas);
+#if HAVE_CLUTTER 
+	} else {
+	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	}
+#endif	
 	e_week_view_check_layout (week_view);
 
 	week_view->layout_timeout_id = 0;
