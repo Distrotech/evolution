@@ -39,6 +39,9 @@
 
 struct _EWeekViewClutterMainItemPrivate {
 	EWeekView *week_view;
+#if HAVE_CLUTTER
+	ClutterActor *selection_actor;
+#endif	
 };
 
 enum {
@@ -63,6 +66,234 @@ gdate_to_cal_weekdays (GDateWeekday wd)
 	}
 
 	return 0;
+}
+
+static void
+week_view_clutter_main_item_draw_day_selection (EWeekViewClutterMainItem *main_item,
+                              gint day,
+                              GDate *date,
+                              cairo_t *cr,
+                              gint x,
+                              gint y,
+                              gint width,
+                              gint height)
+{
+	EWeekView *week_view;
+	GtkStyle *style;
+	gint right_edge, bottom_edge, date_width, date_x, line_y;
+	gboolean show_day_name, show_month_name, selected;
+	gchar buffer[128], *format_string;
+	gint day_of_week, month, day_of_month, max_width;
+	GdkColor *bg_color;
+	PangoFontDescription *font_desc;
+	PangoContext *pango_context;
+	PangoFontMetrics *font_metrics;
+	PangoLayout *layout;
+	gboolean today = FALSE;
+	CalWeekdays working_days;
+
+	week_view = e_week_view_clutter_main_item_get_week_view (main_item);
+	style = gtk_widget_get_style (GTK_WIDGET (week_view));
+
+	/* Set up Pango prerequisites */
+	font_desc = pango_font_description_copy (style->font_desc);
+	pango_context = gtk_widget_get_pango_context (GTK_WIDGET (week_view));
+	font_metrics = pango_context_get_metrics (pango_context, font_desc,
+						  pango_context_get_language (pango_context));
+
+	day_of_week = gdate_to_cal_weekdays (g_date_get_weekday (date));
+	month = g_date_get_month (date);
+	day_of_month = g_date_get_day (date);
+	line_y = y + E_WEEK_VIEW_DATE_T_PAD +
+		PANGO_PIXELS (pango_font_metrics_get_ascent (font_metrics)) +
+		PANGO_PIXELS (pango_font_metrics_get_descent (font_metrics)) +
+		E_WEEK_VIEW_DATE_LINE_T_PAD;
+
+	if (!today) {
+		struct icaltimetype tt;
+
+		/* Check if we are drawing today */
+		tt = icaltime_from_timet_with_zone (time (NULL), FALSE,
+						    e_calendar_view_get_timezone (E_CALENDAR_VIEW (week_view)));
+		today = g_date_get_year (date) == tt.year
+			&& g_date_get_month (date) == tt.month
+			&& g_date_get_day (date) == tt.day;
+	}
+
+	working_days = calendar_config_get_working_days ();
+
+	cairo_save (cr);
+	gdk_cairo_set_source_color (cr, &week_view->colors[E_WEEK_VIEW_COLOR_SELECTED]);
+	cairo_rectangle (cr, x, y, width-2, height-2);
+	cairo_stroke (cr);
+	cairo_restore (cr);
+
+	/* If the day is selected, draw the blue background. */
+	cairo_save (cr);
+	selected = TRUE;
+
+	if (selected) {
+		if (gtk_widget_has_focus (GTK_WIDGET (week_view))) {
+			gdk_cairo_set_source_color (cr, &week_view->colors[E_WEEK_VIEW_COLOR_SELECTED]);
+		} else {
+			gdk_cairo_set_source_color (cr, &week_view->colors[E_WEEK_VIEW_COLOR_SELECTED]);
+		}
+
+		if (week_view->multi_week_view) {
+			cairo_rectangle (cr, x , y + 1,
+					    width -1,
+					    E_WEEK_VIEW_DATE_T_PAD - 1 +
+				PANGO_PIXELS (pango_font_metrics_get_ascent (font_metrics)) +
+				PANGO_PIXELS (pango_font_metrics_get_descent (font_metrics)));
+			cairo_fill (cr);
+		} else {
+			cairo_rectangle (cr, x , y + 1,
+				    width -1, line_y - y);
+			cairo_fill (cr);
+		}
+	}
+	cairo_restore (cr);
+
+	/* Display the date in the top of the cell.
+	   In the week view, display the long format "10 January" in all cells,
+	   or abbreviate it to "10 Jan" or "10" if that doesn't fit.
+	   In the month view, only use the long format for the first cell and
+	   the 1st of each month, otherwise use "10". */
+	show_day_name = FALSE;
+	show_month_name = FALSE;
+	if (!week_view->multi_week_view) {
+		show_day_name = TRUE;
+		show_month_name = TRUE;
+	} else if (day == 0 || day_of_month == 1) {
+		show_month_name = TRUE;
+	}
+
+	/* Now find the longest form of the date that will fit. */
+	max_width = width - 4;
+	format_string = NULL;
+	if (show_day_name) {
+		if (week_view->max_day_width + week_view->digit_width * 2
+		    + week_view->space_width * 2
+		    + week_view->month_widths[month - 1] < max_width)
+			/* strftime format %A = full weekday name, %d = day of
+			   month, %B = full month name. You can change the
+			   order but don't change the specifiers or add
+			   anything. */
+			format_string = _("%A %d %B");
+		else if (week_view->max_abbr_day_width
+			 + week_view->digit_width * 2
+			 + week_view->space_width * 2
+			 + week_view->abbr_month_widths[month - 1] < max_width)
+			/* strftime format %a = abbreviated weekday name,
+			   %d = day of month, %b = abbreviated month name.
+			   You can change the order but don't change the
+			   specifiers or add anything. */
+			format_string = _("%a %d %b");
+	}
+	if (!format_string && show_month_name) {
+		if (week_view->digit_width * 2 + week_view->space_width
+		    + week_view->month_widths[month - 1] < max_width)
+			/* strftime format %d = day of month, %B = full
+			   month name. You can change the order but don't
+			   change the specifiers or add anything. */
+			format_string = _("%d %B");
+		else if (week_view->digit_width * 2 + week_view->space_width
+		    + week_view->abbr_month_widths[month - 1] < max_width)
+			/* strftime format %d = day of month, %b = abbreviated
+			   month name. You can change the order but don't
+			   change the specifiers or add anything. */
+			format_string = _("%d %b");
+	}
+
+	cairo_save (cr);
+	if (selected) {
+		gdk_cairo_set_source_color (
+			cr, &week_view->colors[E_WEEK_VIEW_COLOR_DATES_SELECTED]);
+	} 
+
+	if (today) {
+		g_date_strftime (
+			buffer, sizeof (buffer),
+			 format_string ? format_string : "<b>%d</b>", date);
+		pango_cairo_update_context (cr, pango_context);
+		layout = pango_cairo_create_layout (cr);
+		pango_layout_set_font_description (layout, font_desc);
+		pango_layout_set_text (layout, buffer, -1);
+		pango_layout_set_markup (layout, buffer, strlen(buffer));
+	} else {
+		g_date_strftime (buffer, sizeof (buffer),
+				 format_string ? format_string : "%d", date);
+		pango_cairo_update_context (cr, pango_context);
+		layout = pango_cairo_create_layout (cr);
+		pango_layout_set_font_description (layout, font_desc);
+		pango_layout_set_text (layout, buffer, -1);
+	}
+
+	pango_layout_get_pixel_size (layout, &date_width, NULL);
+	date_x = x + width - date_width - E_WEEK_VIEW_DATE_R_PAD;
+	date_x = MAX (date_x, x + 1);
+
+	cairo_translate (cr, date_x, y + E_WEEK_VIEW_DATE_T_PAD);
+	pango_cairo_update_layout (cr, layout);
+	pango_cairo_show_layout (cr, layout);
+	cairo_restore (cr);
+	g_object_unref (layout);
+
+	pango_font_metrics_unref (font_metrics);
+	pango_font_description_free (font_desc);
+}
+
+static void
+week_view_clutter_main_item_draw_selection (EWeekViewClutterMainItem *main_item)
+{
+	cairo_t *cr;
+	gint day_x, day_y;
+	gint day_w, day_h;
+	gint width;
+	gint height;
+	gint x=0, y=0;
+	gint day = 0;
+       	EWeekView *week_view;
+	GDate date;
+
+	week_view = e_week_view_clutter_main_item_get_week_view (main_item);
+	clutter_cairo_texture_get_surface_size ((ClutterCairoTexture *)main_item, &width, &height);
+       
+	if (!main_item->priv->selection_actor) {
+		main_item->priv->selection_actor = clutter_cairo_texture_new (width, height);
+		clutter_container_add_actor (week_view->main_canvas_stage, main_item->priv->selection_actor);
+		clutter_actor_show (main_item->priv->selection_actor);
+		clutter_actor_raise (main_item->priv->selection_actor, (ClutterActor *)main_item);
+	}
+	
+	clutter_cairo_texture_clear (main_item->priv->selection_actor);
+	cr = clutter_cairo_texture_create (main_item->priv->selection_actor);
+	
+	/* Step through each of the days. */
+	date = week_view->first_day_shown;
+
+	/* If no date has been set, we just use Dec 1999/January 2000. */
+	if (!g_date_valid (&date))
+		g_date_set_dmy (&date, 27, 12, 1999);
+
+	if (week_view->selection_start_day != -1)
+		g_date_add_days (&date, week_view->selection_start_day);
+
+	for (day = week_view->selection_start_day; day <= week_view->selection_end_day && day != -1; day++) {
+		e_week_view_get_day_position (week_view, day,
+					      &day_x, &day_y,
+					      &day_w, &day_h);
+
+		/* Skip any days which are outside the area. */
+		if (day_x < x + width && day_x + day_w >= x
+		    && day_y < y + height && day_y + day_h >= y) {
+			week_view_clutter_main_item_draw_day_selection (
+				main_item, day, &date, cr,
+				day_x - x, day_y - y, day_w, day_h);
+		}
+		g_date_add_days (&date, 1);
+	}
+	cairo_destroy (cr);
 }
 
 static void
@@ -157,11 +388,12 @@ week_view_clutter_main_item_draw_day (EWeekViewClutterMainItem *main_item,
 
 	/* If the day is selected, draw the blue background. */
 	cairo_save (cr);
-	selected = TRUE;
+	selected = FALSE;
 	if (week_view->selection_start_day == -1
 	    || week_view->selection_start_day > day
 	    || week_view->selection_end_day < day)
 		selected = FALSE;
+
 	if (selected) {
 		if (gtk_widget_has_focus (GTK_WIDGET (week_view))) {
 			gdk_cairo_set_source_color (cr, &week_view->colors[E_WEEK_VIEW_COLOR_SELECTED]);
@@ -386,6 +618,8 @@ week_view_clutter_main_item_draw (ClutterCairoTexture *canvas_item)
 		g_date_add_days (&date, 1);
 	}
 
+	week_view_clutter_main_item_draw_selection (main_item);
+
 	cairo_destroy (cr);
 }
 
@@ -423,6 +657,7 @@ static void
 week_view_clutter_main_item_init (EWeekViewClutterMainItem *main_item)
 {
 	main_item->priv = E_WEEK_VIEW_CLUTTER_MAIN_ITEM_GET_PRIVATE (main_item);
+	main_item->priv->selection_actor = NULL;
 }
 
 GType
@@ -478,6 +713,10 @@ e_week_view_clutter_main_item_set_week_view (EWeekViewClutterMainItem *main_item
 void
 e_week_view_clutter_main_item_redraw (EWeekViewClutterMainItem *item)
 {
+	if (item->priv->selection_actor) {
+		clutter_actor_destroy (item->priv->selection_actor);
+		item->priv->selection_actor = NULL;
+	}
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
 	week_view_clutter_main_item_draw ((ClutterActor *)item);
 }
@@ -487,6 +726,16 @@ e_week_view_clutter_main_item_set_size (EWeekViewClutterMainItem *item,
 					  int width, 
 					  int height)
 {
+	if (item->priv->selection_actor) {
+		clutter_actor_destroy (item->priv->selection_actor);
+		item->priv->selection_actor = NULL;
+	}	
 	clutter_cairo_texture_set_surface_size ((ClutterCairoTexture *)item, width, height);
 	week_view_clutter_main_item_draw (item);
+}
+
+void
+e_week_view_clutter_main_item_update_selection (EWeekViewClutterMainItem *item)
+{
+	week_view_clutter_main_item_draw_selection (item);
 }

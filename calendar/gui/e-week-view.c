@@ -626,7 +626,7 @@ week_view_cursor_key_up (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -652,7 +652,7 @@ week_view_cursor_key_down (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -672,7 +672,7 @@ week_view_cursor_key_left (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -692,7 +692,7 @@ week_view_cursor_key_right (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -1556,7 +1556,7 @@ e_week_view_focus_in (GtkWidget *widget, GdkEventFocus *event)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
 	return FALSE;
@@ -1584,7 +1584,7 @@ e_week_view_focus_out (GtkWidget *widget, GdkEventFocus *event)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
 	return FALSE;
@@ -2706,7 +2706,7 @@ e_week_view_on_button_press (GtkWidget *widget,
 			gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 			} else {
-			e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+			e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 			}
 #endif	
 		}
@@ -2938,7 +2938,7 @@ e_week_view_update_selection (EWeekView *week_view,
 		gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 		} else {
-		e_week_view_clutter_main_item_redraw (week_view->main_canvas_actor);
+		e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 		}
 #endif	
 	}
