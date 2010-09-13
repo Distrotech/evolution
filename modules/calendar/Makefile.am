@@ -8,6 +8,7 @@ libevolution_module_calendar_la_CPPFLAGS =		\
 	-I$(top_srcdir)/widgets				\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
 	$(CAMEL_CFLAGS)					\
+	$(CLUTTER_CFLAGS)				\
 	$(GNOME_PLATFORM_CFLAGS)			\
 	$(EVOLUTION_CALENDAR_CFLAGS)
 
@@ -91,6 +92,7 @@ libevolution_module_calendar_la_LIBADD =		\
 	$(top_builddir)/widgets/misc/libemiscwidgets.la			\
 	$(top_builddir)/widgets/table/libetable.la			\
 	$(CAMEL_LIBS)							\
+	$(CLUTTER_LIBS)							\
 	$(EVOLUTION_CALENDAR_LIBS)					\
 	$(GNOME_PLATFORM_LIBS)
 
