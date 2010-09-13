@@ -91,6 +91,7 @@ week_view_clutter_main_item_draw_day_selection (EWeekViewClutterMainItem *main_i
 	PangoLayout *layout;
 	gboolean today = FALSE;
 	CalWeekdays working_days;
+	GdkColor *selcolor;
 
 	week_view = e_week_view_clutter_main_item_get_week_view (main_item);
 	style = gtk_widget_get_style (GTK_WIDGET (week_view));
@@ -126,6 +127,17 @@ week_view_clutter_main_item_draw_day_selection (EWeekViewClutterMainItem *main_i
 	gdk_cairo_set_source_color (cr, &week_view->colors[E_WEEK_VIEW_COLOR_SELECTED]);
 	cairo_rectangle (cr, x, y, width-2, height-2);
 	cairo_stroke (cr);
+	cairo_restore (cr);
+
+	/* Draw the selection area with a might/transparent hint */
+	cairo_save (cr);
+	selcolor = &week_view->colors[E_WEEK_VIEW_COLOR_SELECTED];
+	cairo_set_source_rgba (cr, (double)selcolor->red/65535.0, 
+			(double)selcolor->green/65535.0, 
+			(double)selcolor->blue/65535.0,
+			0.2);
+	cairo_rectangle (cr, x, y, width-2, height-2);
+	cairo_fill (cr);
 	cairo_restore (cr);
 
 	/* If the day is selected, draw the blue background. */
