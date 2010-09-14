@@ -96,6 +96,8 @@ libevolution_calendar_la_SOURCES = \
 	e-week-view-clutter-titles-item.h	\
 	e-week-view-clutter-main-item.c		\
 	e-week-view-clutter-main-item.h		\
+	e-week-view-clutter-event-item.c	\
+	e-week-view-clutter-event-item.h	\
 	cal-editor-utils.c			\
 	cal-editor-utils.h			\
 	calendar-config.c			\

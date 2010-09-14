@@ -65,6 +65,7 @@
 #if HAVE_CLUTTER
 #include "e-week-view-clutter-titles-item.h"
 #include "e-week-view-clutter-main-item.h"
+#include "e-week-view-clutter-event-item.h"
 #endif
 
 #define WITHOUT_CLUTTER (g_getenv("WITHOUT_CLUTTER") != NULL)
@@ -122,15 +123,31 @@ static void e_week_view_paste_text (ECalendarView *week_view);
 static void e_week_view_update_query (EWeekView *week_view);
 static void e_week_view_draw_shadow (EWeekView *week_view);
 
+#if HAVE_CLUTTER
+static gboolean
+week_view_clutter_button_press (ClutterActor *actor, 
+				ClutterEvent *event,
+				EWeekView *week_view);
+#endif
 static gboolean e_week_view_on_button_press (GtkWidget *widget,
 					     GdkEventButton *event,
 					     EWeekView *week_view);
+#if HAVE_CLUTTER
+static gboolean e_week_view_on_clutter_button_release (ClutterActor *actor,
+					       ClutterButtonEvent *event,
+					       EWeekView *week_view);
+#endif
 static gboolean e_week_view_on_button_release (GtkWidget *widget,
 					       GdkEventButton *event,
 					       EWeekView *week_view);
 static gboolean e_week_view_on_scroll (GtkWidget *widget,
 				       GdkEventScroll *scroll,
 				       EWeekView *week_view);
+#if HAVE_CLUTTER
+static gboolean e_week_view_on_clutter_motion (ClutterActor *actor,
+				       ClutterMotionEvent *event,
+				       EWeekView *week_view);
+#endif
 static gboolean e_week_view_on_motion (GtkWidget *widget,
 				       GdkEventMotion *event,
 				       EWeekView *week_view);
@@ -949,6 +966,12 @@ e_week_view_init (EWeekView *week_view)
 				       e_week_view_main_item_get_type (),
 				       "EWeekViewMainItem::week_view", week_view,
 				       NULL);
+	g_signal_connect_after (week_view->main_canvas, "button_press_event",
+				G_CALLBACK (e_week_view_on_button_press), week_view);
+	g_signal_connect (week_view->main_canvas, "button_release_event",
+			  G_CALLBACK (e_week_view_on_button_release), week_view);
+	g_signal_connect (week_view->main_canvas, "motion_notify_event",
+			  G_CALLBACK (e_week_view_on_motion), week_view);
 #if HAVE_CLUTTER
 	} else {
 	week_view->main_canvas_embed = gtk_clutter_embed_new ();
@@ -964,20 +987,21 @@ e_week_view_init (EWeekView *week_view)
                        "surface-width", 300,
                        "surface-height", 50,	
 		       NULL);
-	clutter_actor_set_reactive (week_view->main_canvas_actor, FALSE);
+	clutter_actor_set_reactive (week_view->main_canvas_actor, TRUE);
 	clutter_container_add_actor ((ClutterContainer *)week_view->main_canvas_stage, (ClutterActor *)week_view->main_canvas_actor);
 	clutter_actor_show ((ClutterActor *)week_view->main_canvas_actor);
-
+	g_signal_connect_after (week_view->main_canvas_actor, "button-press-event",
+				G_CALLBACK (week_view_clutter_button_press), week_view);
+	g_signal_connect (week_view->main_canvas_actor, "button-release-event",
+			  G_CALLBACK (e_week_view_on_clutter_button_release), week_view);
+	g_signal_connect (week_view->main_canvas_actor, "motion-event",
+			  G_CALLBACK (e_week_view_on_clutter_motion), week_view);
+	
 	}
 #endif	
-	g_signal_connect_after (week_view->main_canvas, "button_press_event",
-				G_CALLBACK (e_week_view_on_button_press), week_view);
-	g_signal_connect (week_view->main_canvas, "button_release_event",
-			  G_CALLBACK (e_week_view_on_button_release), week_view);
+
 	g_signal_connect (week_view->main_canvas, "scroll_event",
 			  G_CALLBACK (e_week_view_on_scroll), week_view);
-	g_signal_connect (week_view->main_canvas, "motion_notify_event",
-			  G_CALLBACK (e_week_view_on_motion), week_view);
 
 	/* Create the buttons to jump to each days. */
 	pixbuf = gdk_pixbuf_new_from_xpm_data ((const gchar **) jump_xpm);
@@ -1215,7 +1239,7 @@ get_digit_width (PangoLayout *layout)
 	return max_digit_width;
 }
 
-static GdkColor
+GdkColor
 e_week_view_get_text_color (EWeekView *week_view, EWeekViewEvent *event, GtkWidget *widget)
 {
 	GtkStyle *style;
@@ -2687,7 +2711,7 @@ e_week_view_on_button_press (GtkWidget *widget,
 
 		window = gtk_layout_get_bin_window (GTK_LAYOUT (widget));
 
-		if (gdk_pointer_grab (window, FALSE,
+		if (!WITHOUT_CLUTTER ||  gdk_pointer_grab (window, FALSE,
 				      GDK_POINTER_MOTION_MASK
 				      | GDK_BUTTON_RELEASE_MASK,
 				      NULL, NULL, event->time) == 0) {
@@ -2736,6 +2760,56 @@ e_week_view_on_button_press (GtkWidget *widget,
 
 	return TRUE;
 }
+
+#if HAVE_CLUTTER
+static gboolean
+week_view_clutter_button_press (ClutterActor *actor, 
+				ClutterEvent *event,
+				EWeekView *week_view)
+{
+	GdkEventButton *bevent;
+	gboolean ret;
+
+	if (event->button.click_count > 1 )
+		bevent = gdk_event_new (GDK_2BUTTON_PRESS);
+	else
+		bevent = gdk_event_new (GDK_BUTTON_PRESS);
+
+	bevent->time = event->button.time;
+	bevent->button = event->button.button;
+	bevent->x = (gfloat) event->button.x;
+	bevent->y = (gfloat) event->button.y;
+	ret = e_week_view_on_button_press (week_view->main_canvas, bevent, week_view);
+
+	gdk_event_free (bevent);
+	
+	return ret;
+}
+#endif
+
+#if HAVE_CLUTTER
+static gboolean
+e_week_view_on_clutter_button_release (ClutterActor *actor,
+			       ClutterButtonEvent *event,
+			       EWeekView *week_view)
+{
+	GdkEventButton *bevent;
+	gboolean ret;
+
+	bevent = gdk_event_new (GDK_BUTTON_RELEASE);
+
+	bevent->time = event->time;
+	bevent->button = event->button;
+	bevent->x = (gfloat) event->x;
+	bevent->y = (gfloat) event->y;
+	ret = e_week_view_on_button_release (week_view->main_canvas, bevent, week_view);
+
+	gdk_event_free (bevent);
+	
+	return ret;	
+}
+
+#endif
 
 static gboolean
 e_week_view_on_button_release (GtkWidget *widget,
@@ -2809,6 +2883,27 @@ e_week_view_on_scroll (GtkWidget *widget,
 	return TRUE;
 }
 
+#if HAVE_CLUTTER
+static gboolean
+e_week_view_on_clutter_motion (ClutterActor *actor,
+		       ClutterMotionEvent *event,
+		       EWeekView *week_view)
+{
+	GdkEventButton *bevent;
+	gboolean ret;
+
+	bevent = gdk_event_new (GDK_MOTION_NOTIFY);
+
+	bevent->time = event->time;
+	bevent->x = (gfloat) event->x;
+	bevent->y = (gfloat) event->y;
+	ret = e_week_view_on_motion (week_view->main_canvas, bevent, week_view);
+
+	gdk_event_free (bevent);
+	
+	return ret;	
+}
+#endif
 static gboolean
 e_week_view_on_motion (GtkWidget *widget,
 		       GdkEventMotion *mevent,
@@ -3306,7 +3401,7 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 	gboolean one_day_event;
 	ECalComponent *comp;
 	gdouble text_x, text_y, text_w, text_h;
-	gchar *text, *end_of_line;
+	gchar *text=NULL, *end_of_line;
 	gint line_len, text_width;
 	PangoFontDescription *font_desc;
 	PangoContext *pango_context;
@@ -3377,14 +3472,16 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 		num_icons += cal_comp_util_get_n_icons (comp, NULL);
 	}
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	/* Create the background canvas item if necessary. */
 	if (!span->background_item) {
 		span->background_item =
 			gnome_canvas_item_new (GNOME_CANVAS_GROUP (GNOME_CANVAS (week_view->main_canvas)->root),
 					       e_week_view_event_item_get_type (),
 					       NULL);
-	}
-
+		
 	g_object_set_data ((GObject *)span->background_item, "event-num", GINT_TO_POINTER (event_num));
 	g_signal_connect (span->background_item, "event",
 			  G_CALLBACK (tooltip_event_cb),
@@ -3394,9 +3491,48 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 			       "event_num", event_num,
 			       "span_num", span_num,
 			       NULL);
+	}
+#if HAVE_CLUTTER
+	} else {
+	char *summary;
+	gboolean free_text = FALSE;
+
+	summary = e_calendar_view_get_icalcomponent_summary (event->comp_data->client, event->comp_data->icalcomp, &free_text);
+
+	/* Create the background canvas item if necessary. */
+	if (!span->actor_item) {
+		span->actor_item = e_week_view_clutter_event_item_new (week_view);
+		
+	//g_object_set_data ((GObject *)span->background_item, "event-num", GINT_TO_POINTER (event_num));
+	//g_signal_connect (span->background_item, "event",
+	//		  G_CALLBACK (tooltip_event_cb),
+	//		  week_view);
+
+	g_object_set (span->actor_item,
+			       "event_num", event_num,
+			       "span_num", span_num,
+			       "text", summary ? summary : "",
+			       NULL);
+	e_week_view_clutter_event_item_redraw (span->actor_item);
+	clutter_container_add_actor (week_view->main_canvas_stage, span->actor_item);
+	clutter_actor_raise_top (span->actor_item);
+	} else {
+		g_object_set (span->actor_item,
+			       "event_num", event_num,
+			       "span_num", span_num,
+			       "text", summary ? summary : "",
+			       NULL);		
+		e_week_view_clutter_event_item_redraw (span->actor_item);
+	}
+	if (free_text)
+		g_free ((gchar *)summary);
+		
+	}
+#endif	
+	
 
 	/* Create the text item if necessary. */
-	if (!span->text_item) {
+	if (!span->text_item && 0) {
 		const gchar *summary;
 		GtkWidget *widget;
 		GdkColor color;

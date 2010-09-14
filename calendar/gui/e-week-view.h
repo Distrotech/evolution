@@ -162,6 +162,9 @@ struct _EWeekViewEventSpan {
 	guint row : 7;
 	GnomeCanvasItem *background_item;
 	GnomeCanvasItem *text_item;
+#if HAVE_CLUTTER
+	ClutterActor *actor_item;
+#endif	
 };
 
 typedef struct _EWeekViewEvent EWeekViewEvent;
@@ -485,6 +488,9 @@ void		e_week_view_jump_to_button_item	(EWeekView *week_view,
 						 GnomeCanvasItem *item);
 void		e_week_view_scroll_a_step	(EWeekView *week_view,
 						 ECalViewMoveDirection direction);
+GdkColor	e_week_view_get_text_color 	(EWeekView *week_view, 
+						 EWeekViewEvent *event, 
+						 GtkWidget *widget);
 
 G_END_DECLS
 

@@ -187,6 +187,9 @@ e_week_view_layout_event	(EWeekViewEvent	*event,
 			span.num_days = span_end_day - span_start_day + 1;
 			span.row = free_row;
 			span.background_item = NULL;
+#if HAVE_CLUTTER
+			span.actor_item = NULL;
+#endif			
 			span.text_item = NULL;
 			if (event->num_spans > span_num) {
 				old_span = &g_array_index (
