@@ -184,7 +184,8 @@ ea_calendar_focus_watcher (GSignalInvocationHint *ihint,
 		if (event->type == GDK_FOCUS_CHANGE) {
 			if (event->focus_change.in) {
 				/* give main item chance to emit focus */
-				gnome_canvas_item_grab_focus (week_view->main_canvas_item);
+				if (week_view->main_canvas_item)
+					gnome_canvas_item_grab_focus (week_view->main_canvas_item);
 			}
 		}
 	}
