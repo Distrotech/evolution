@@ -77,6 +77,7 @@ void		e_week_view_clutter_titles_item_set_size
 						(EWeekViewClutterTitlesItem *item, 
 						 int width, 
 						 int height);
+
 G_END_DECLS
 
 #endif /* E_WEEK_VIEW_CLUTTER_TITLES_ITEM_H */

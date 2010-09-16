@@ -68,6 +68,8 @@ struct _EWeekViewClutterEventItemPrivate {
 	int y2;
 	int spanx;
 	int spany;
+
+	ClutterActor *text_item;
 };
 
 enum {
@@ -273,11 +275,19 @@ week_view_clutter_event_item_button_release (EWeekViewClutterEventItem *event_it
 	if (week_view->pressed_event_num != -1
 	    && week_view->pressed_event_num == event_item->priv->event_num
 	    && week_view->pressed_span_num == event_item->priv->span_num) {
+		if (week_view->editing_event_num != -1) {
+			e_week_view_cancel_editing (event_item->priv->week_view);
+			e_week_view_on_editing_stopped (event_item->priv->week_view, NULL, TRUE);
+		}
 		e_week_view_start_editing_event (week_view,
 						 event_item->priv->event_num,
 						 event_item->priv->span_num,
 						 NULL);
 		week_view->pressed_event_num = -1;
+
+		week_view->editing_event_num = event_item->priv->event_num;
+		week_view->editing_span_num = event_item->priv->span_num;
+
 		return TRUE;
 	}
 
@@ -516,7 +526,7 @@ week_view_clutter_event_item_draw_icons (EWeekViewClutterEventItem *event_item,
 
 	g_object_unref(comp);
 
-	return icon_x;
+	return num_icons ? icon_x : -1;
 }
 
 /* This draws a little triangle to indicate that an event extends past
@@ -633,6 +643,7 @@ week_view_clutter_event_item_set_property (GObject *object,
 			e_week_view_clutter_event_item_set_span_num (
 				E_WEEK_VIEW_CLUTTER_EVENT_ITEM (object),
 				g_value_get_int (value));
+			return;
 		case PROP_TEXT:
 			e_week_view_clutter_event_item_set_text (
 				E_WEEK_VIEW_CLUTTER_EVENT_ITEM (object),
@@ -662,6 +673,7 @@ week_view_clutter_event_item_get_property (GObject *object,
 				value,
 				e_week_view_clutter_event_item_get_span_num (
 				E_WEEK_VIEW_CLUTTER_EVENT_ITEM (object)));
+			return;
 		case PROP_TEXT:
 			g_value_set_string (
 				value,
@@ -763,6 +775,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 	x1 = 0; y1 = 0;
 	x2 = rect.width;
 	clutter_cairo_texture_set_surface_size (event_item->priv->texture, rect.width, rect.height);
+	clutter_actor_set_size (event_item->priv->text_item, rect.width, rect.height);
 	clutter_actor_set_position (event_item, span_x, span_y);
 	if (!can_draw_in_region (draw_region, x1, y1, x2 - x1, y2 - y1)) {
 		gdk_region_destroy (draw_region);
@@ -810,6 +823,8 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 	blue = bg_color.blue;
 
 	if (one_day_event) {
+		gint val;
+
 		time_x = x1 + E_WEEK_VIEW_EVENT_L_PAD + 1;
 		rect_x = x1 + E_WEEK_VIEW_EVENT_L_PAD;
 		rect_w = x2 - x1 - E_WEEK_VIEW_EVENT_L_PAD - E_WEEK_VIEW_EVENT_R_PAD + 1;
@@ -906,9 +921,10 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 			icon_x += E_WEEK_VIEW_EVENT_TIME_X_PAD;
 
 		/* Draw the icons. */
-		icon_x = week_view_clutter_event_item_draw_icons (
+		val = week_view_clutter_event_item_draw_icons (
 			event_item, cr, icon_x,
 			icon_y, x2, FALSE, draw_region);
+		icon_x = (val == -1) ? icon_x : val;
 
 		/* Draw text */
 		if (icon_x < x2) {
@@ -923,7 +939,8 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 			cairo_rectangle (cr, icon_x , 0, x2-icon_x, week_view->row_height);
 			cairo_clip (cr);
 			layout = gtk_widget_create_pango_layout (GTK_WIDGET (week_view), NULL);
-			pango_layout_set_text (layout, event_item->priv->text, -1);
+			if (event_item->priv->text)
+				pango_layout_set_text (layout, event_item->priv->text, -1);
 			cairo_move_to (cr,
 				       icon_x, 
 				       E_WEEK_VIEW_EVENT_BORDER_HEIGHT + E_WEEK_VIEW_ICON_Y_PAD);
@@ -1092,8 +1109,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 		
 		time_x = x2 + 1 - E_WEEK_VIEW_EVENT_R_PAD
 				- E_WEEK_VIEW_EVENT_BORDER_WIDTH
-				- E_WEEK_VIEW_EVENT_EDGE_X_PAD
-				- time_width;
+				- E_WEEK_VIEW_EVENT_EDGE_X_PAD;
 		if (!editing_span
 		    && event->end < week_view->day_starts[span->start_day
 							 + span->num_days]) {
@@ -1114,16 +1130,25 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 			}
 		}
 		
-		icon_x = min_end_time_x;
+		icon_x = x1 + E_WEEK_VIEW_EVENT_L_PAD
+			+ E_WEEK_VIEW_EVENT_BORDER_WIDTH;
+
 		/* Draw the icons. */
 		if ( 
 		     (week_view->editing_event_num != event_item->priv->event_num
 			|| week_view->editing_span_num != event_item->priv->span_num)) {
+			gint val;
 			icon_x = min_end_time_x;
 			icon_x += E_WEEK_VIEW_EVENT_TIME_X_PAD;
-			icon_x = week_view_clutter_event_item_draw_icons (
+			val = week_view_clutter_event_item_draw_icons (
 				event_item, cr, icon_x,
 				icon_y, max_icon_x, FALSE, draw_region);
+		
+			if (val == -1)
+				icon_x = x1 + E_WEEK_VIEW_EVENT_L_PAD
+					+ E_WEEK_VIEW_EVENT_BORDER_WIDTH;
+			else 
+				icon_x = val;
 		}
 
 		/* Draw text */
@@ -1139,7 +1164,8 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 			cairo_rectangle (cr, icon_x , 0, time_x-icon_x, week_view->row_height);
 			cairo_clip (cr);
 			layout = gtk_widget_create_pango_layout (GTK_WIDGET (week_view), NULL);
-			pango_layout_set_text (layout, event_item->priv->text, -1);
+			if (event_item->priv->text)
+				pango_layout_set_text (layout, event_item->priv->text, -1);
 			cairo_move_to (cr,
 				       icon_x, 
 				       E_WEEK_VIEW_EVENT_BORDER_HEIGHT + E_WEEK_VIEW_ICON_Y_PAD);
@@ -1335,6 +1361,50 @@ e_week_view_clutter_event_item_set_span_num (EWeekViewClutterEventItem *event_it
 	g_object_notify (G_OBJECT (event_item), "span-num");
 }
 
+static void
+handle_activate (ClutterActor *actor, 
+		 EWeekViewClutterEventItem *item)
+{
+	gtk_widget_grab_focus (item->priv->week_view);
+	e_week_view_cancel_editing (item->priv->week_view);
+	e_week_view_on_editing_stopped (item->priv->week_view, NULL, TRUE);	
+}
+
+static gboolean
+handle_text_item_event (ClutterActor *actor, 	
+			ClutterEvent *event,
+			EWeekViewClutterEventItem *item)
+{
+	EWeekView *week_view = item->priv->week_view;
+
+	switch (event->type) {
+	case CLUTTER_BUTTON_PRESS:
+		if (event->button.button == 3) {
+			e_week_view_cancel_editing (item->priv->week_view);
+			e_week_view_on_editing_stopped (item->priv->week_view, NULL, TRUE);	
+			gtk_widget_grab_focus (week_view);
+			return FALSE;
+		}
+		return FALSE;
+	case CLUTTER_KEY_PRESS:
+		if (event->key.keyval == GDK_Escape) {
+			e_week_view_cancel_editing (item->priv->week_view);
+			if (e_week_view_on_editing_stopped (item->priv->week_view, NULL, FALSE)) {
+				item->priv->week_view->editing_event_num = -1;
+				item->priv->week_view->editing_span_num = -1;
+			}
+			gtk_widget_grab_focus (week_view);
+			return TRUE;
+		}
+		
+		return FALSE;
+	default:
+		break;
+	}
+
+	return FALSE;
+}
+
 EWeekViewClutterEventItem *
 e_week_view_clutter_event_item_new (EWeekView *view)
 {
@@ -1357,6 +1427,26 @@ e_week_view_clutter_event_item_new (EWeekView *view)
 	clutter_actor_show_all (box);
 	clutter_actor_set_reactive (box, TRUE);
 
+	item->priv->text_item = clutter_text_new ();
+	g_signal_connect (item->priv->text_item, "event", G_CALLBACK(handle_text_item_event), item);
+	clutter_text_set_activatable (item->priv->text_item, TRUE);
+	clutter_text_set_single_line_mode (item->priv->text_item, TRUE);
+	g_signal_connect (item->priv->text_item, "activate", G_CALLBACK(handle_activate), item);
+	clutter_text_set_line_wrap   (item->priv->text_item, FALSE);
+	clutter_text_set_editable (item->priv->text_item, TRUE);
+	clutter_actor_set_reactive (item->priv->text_item, TRUE);
+	clutter_actor_hide (item->priv->text_item);
+
+	mx_box_layout_add_actor (box,
+                               item->priv->text_item, -1);
+	clutter_container_child_set (CLUTTER_CONTAINER (box),
+                               item->priv->text_item,
+			       "expand", FALSE,
+			       "x-fill", FALSE,
+			       "y-fill", FALSE,			       
+                               NULL);
+
+	
 	return item;
 }
 
@@ -1364,5 +1454,236 @@ void
 e_week_view_clutter_event_item_redraw  (EWeekViewClutterEventItem *item)
 {
 	week_view_clutter_event_item_draw (item);
+}
+
+static void
+reset_gravity (ClutterAnimation *amim, ClutterActor *item)
+{
+	float height=0, width=0;
+	clutter_actor_get_size (item, &width, &height);
+	
+	clutter_actor_set_anchor_point (item, 0.0, 0.0);
+	clutter_actor_move_by (item, 0, -height/2);
+	clutter_actor_set_rotation (item,
+                          CLUTTER_X_AXIS,  /* or CLUTTER_Y_AXIS */
+                          0.0,             /* set the rotation to this angle */
+                          0.0,
+			  0.0,
+                          0);
+}
+
+
+struct _anim_data {
+	ClutterActor *item;
+	void (*cb1) (gpointer);
+	gpointer data1;
+	void (*cb2) (gpointer);
+	gpointer data2;
+};
+
+static void
+rotate_stage2 (ClutterAnimation *amim, struct _anim_data *data)
+{
+	float height=0, width=0;
+	ClutterActor *item = data->item;
+
+	clutter_actor_get_size (item, &width, &height);
+
+	clutter_actor_set_anchor_point (item, 0.0, 0.0);
+	clutter_actor_move_by (item, 0, -height/2);
+
+	clutter_actor_set_rotation (data->item,
+                          CLUTTER_X_AXIS,  /* or CLUTTER_Y_AXIS */
+                          0.0,             /* set the rotation to this angle */
+                          0.0,
+			  0.0,
+                          0.0);
+
+	data->cb2 (data->data2);	
+	
+}
+
+static void
+rotate_stage1 (ClutterAnimation *amim, struct _anim_data *data)
+{
+	data->cb1 (data->data1);
+
+	clutter_actor_set_rotation (data->item,
+                          CLUTTER_X_AXIS,  /* or CLUTTER_Y_AXIS */
+                          270.0,             /* set the rotation to this angle */
+                          0.0,
+			  0.0,
+                          0.0);
+
+	clutter_actor_animate (data->item, CLUTTER_EASE_IN_SINE,
+				200,
+				"rotation-angle-x", 360.0,
+				"signal-after::completed", rotate_stage2, data,
+				NULL);
+	
+
+}
+
+static void
+wvce_animate_rotate (ClutterActor *item,
+		     void (*cb1) (gpointer),
+		     gpointer data1,
+		     void (*cb2) (gpointer),
+		     gpointer data2)
+		     
+{
+	float height=0, width=0;
+	struct _anim_data *data= g_new0 (struct _anim_data, 1);
+
+	data->item = item;
+	data->cb1 = cb1;
+	data->data1 = data1;
+	data->cb2 = cb2;
+	data->data2 = data2;
+
+	clutter_actor_get_size (item, &width, &height);
+
+	clutter_actor_set_anchor_point (item, 0, (float)height/2);
+	clutter_actor_move_by (item, 0, height/2);
+
+	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
+				200,
+				"rotation-angle-x", 90.0,
+				"signal-after::completed", rotate_stage1, data,
+				NULL);
+}
+
+static void
+wvce_set_view_editing_1 (EWeekViewClutterEventItem *item)
+{
+	clutter_actor_hide (item->priv->texture);
+	clutter_actor_show (item->priv->text_item);
+}
+static void
+wvce_set_view_editing_2 (EWeekViewClutterEventItem *item)
+{
+	clutter_grab_keyboard (item->priv->text_item);
+	clutter_actor_grab_key_focus (item->priv->text_item);	
+}
+
+void 
+e_week_view_clutter_event_item_switch_editing_mode (EWeekViewClutterEventItem *item)
+{
+	float height=0, width=0;
+
+	clutter_text_set_text (item->priv->text_item, item->priv->text);
+
+	wvce_animate_rotate (item, wvce_set_view_editing_1, item,
+				wvce_set_view_editing_2, item);
+	//wvce_set_view_editing_1 (item);
+	//wvce_set_view_editing_2 (item);
+#if 0	
+	clutter_actor_get_size (item, &width, &height);
+	//clutter_actor_set_name (item, "MonthEventTile");
+	clutter_text_set_text (item->priv->text_item, item->priv->text);
+	clutter_actor_hide (item->priv->texture);
+	clutter_actor_set_anchor_point (item, 0, (float)height/2);
+	clutter_actor_move_by (item, 0, height/2);
+
+	clutter_actor_set_rotation (item,
+                          CLUTTER_X_AXIS,  /* or CLUTTER_Y_AXIS */
+                          180.0,             /* set the rotation to this angle */
+                          0.0,
+			  0.0,
+                          0);
+	clutter_actor_animate (item, CLUTTER_LINEAR,
+				500,
+				"rotation-angle-x", 360.0,
+				"signal::completed", reset_gravity, item,
+				NULL);
+
+	clutter_actor_show (item->priv->text_item);
+	clutter_grab_keyboard (item->priv->text_item);
+	clutter_actor_grab_key_focus (item->priv->text_item);
+#endif
+}
+
+static void
+scale_stage2 (ClutterAnimation *amim, struct _anim_data *data)
+{
+
+	data->cb2 (data->data2);	
+	
+}
+
+static void
+scale_stage1 (ClutterAnimation *amim, struct _anim_data *data)
+{
+	data->cb1 (data->data1);
+
+	clutter_actor_animate (data->item, CLUTTER_EASE_IN_SINE,
+				200,
+				"scale-x", 1.0,
+				"signal-after::completed", scale_stage2, data,
+				NULL);
+	
+
+}
+
+static void
+wvce_animate_scale (ClutterActor *item,
+		     void (*cb1) (gpointer),
+		     gpointer data1,
+		     void (*cb2) (gpointer),
+		     gpointer data2)
+		     
+{
+	float height=0, width=0;
+	struct _anim_data *data= g_new0 (struct _anim_data, 1);
+
+	data->item = item;
+	data->cb1 = cb1;
+	data->data1 = data1;
+	data->cb2 = cb2;
+	data->data2 = data2;
+
+	clutter_actor_get_size (item, &width, &height);
+
+	g_object_set (item, "scale-center-x", width/2, "scale-center-y", height/2, NULL);
+
+	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
+				200,
+				"scale-x", 0.0,
+				"signal-after::completed", scale_stage1, data,
+				NULL);
+}
+
+static void
+wvce_set_view_normal_1 (EWeekViewClutterEventItem *item)
+{
+	clutter_actor_hide (item->priv->text_item);
+	clutter_actor_show (item->priv->texture);	
+}
+static void
+wvce_set_view_normal_2 (EWeekViewClutterEventItem *item)
+{
+	/* Do nothing */
+}
+
+void 
+e_week_view_clutter_event_item_switch_normal_mode (EWeekViewClutterEventItem *item)
+{
+
+	wvce_animate_scale (item, wvce_set_view_normal_1, item,
+				wvce_set_view_normal_2, item);
+
+	//clutter_actor_hide (item->priv->text_item);
+	//clutter_actor_show (item->priv->texture);	
+}
+
+void 
+e_week_view_clutter_event_item_switch_viewing_mode (EWeekViewClutterEventItem *item)
+{
+}
+
+const char *
+e_week_view_clutter_event_item_get_edit_text (EWeekViewClutterEventItem *item)
+{
+	return clutter_text_get_text (item->priv->text_item);
 }
 

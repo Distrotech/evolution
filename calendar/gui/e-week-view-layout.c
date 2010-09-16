@@ -100,6 +100,10 @@ e_week_view_layout_events	(GArray		*events,
 				gtk_object_destroy (GTK_OBJECT (span->background_item));
 			if (span->text_item)
 				gtk_object_destroy (GTK_OBJECT (span->text_item));
+#if HAVE_CLUTTER			
+			if (span->actor_item)
+				clutter_actor_destroy (span->actor_item);
+#endif
 		}
 		g_array_free (old_spans, TRUE);
 	}
@@ -199,6 +203,7 @@ e_week_view_layout_event	(EWeekViewEvent	*event,
 				span.text_item = old_span->text_item;
 				old_span->background_item = NULL;
 				old_span->text_item = NULL;
+				old_span->actor_item = NULL;
 			}
 
 			g_array_append_val (spans, span);

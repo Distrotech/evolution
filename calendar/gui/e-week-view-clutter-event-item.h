@@ -84,6 +84,14 @@ const char *	e_week_view_clutter_event_item_get_text
 void		e_week_view_clutter_event_item_set_text 
 						(EWeekViewClutterEventItem *event_item,
 				 	 	 const char *txt);
+void 		e_week_view_clutter_event_item_switch_editing_mode 
+						(EWeekViewClutterEventItem *item);
+void 		e_week_view_clutter_event_item_switch_normal_mode 
+						(EWeekViewClutterEventItem *item);
+void 		e_week_view_clutter_event_item_switch_viewing_mode 
+						(EWeekViewClutterEventItem *item);
+const char *	e_week_view_clutter_event_item_get_edit_text 
+						(EWeekViewClutterEventItem *item);
 
 EWeekViewClutterEventItem * e_week_view_clutter_event_item_new (EWeekView *view);
 
