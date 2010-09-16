@@ -95,6 +95,10 @@ const char *	e_week_view_clutter_event_item_get_edit_text
 
 EWeekViewClutterEventItem * e_week_view_clutter_event_item_new (EWeekView *view);
 
+void		e_week_view_clutter_event_item_scale_destroy 
+						(EWeekViewClutterEventItem *item);
+void		e_week_view_clutter_event_item_fade_destroy 
+						(EWeekViewClutterEventItem *item);
 
 G_END_DECLS
 

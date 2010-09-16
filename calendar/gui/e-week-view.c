@@ -2473,6 +2473,7 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 	EWeekViewEvent *event;
 	EWeekViewEventSpan *span;
 	gint span_num;
+	gboolean delete_from_cal = data != NULL ? TRUE : FALSE;
 
 	if (!is_array_index_in_bounds (week_view->events, event_num))
 		return TRUE;
@@ -2514,7 +2515,10 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 			}
 #if HAVE_CLUTTER			
 			if (span->actor_item) {
-				clutter_actor_destroy (span->actor_item);
+				if (delete_from_cal)
+					e_week_view_clutter_event_item_scale_destroy (span->actor_item);
+				else
+					e_week_view_clutter_event_item_fade_destroy (span->actor_item);
 				span->actor_item = NULL;
 			}
 #endif			
@@ -4447,7 +4451,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 		e_cal_component_get_uid (comp, &uid);
 		g_signal_handlers_disconnect_by_func(item, e_week_view_on_text_item_event, week_view);
 		e_week_view_foreach_event_with_uid (week_view, uid,
-						    e_week_view_remove_event_cb, NULL);
+						    e_week_view_remove_event_cb, TRUE);
 		week_view->event_destroyed = TRUE;
 #if HAVE_CLUTTER
 	if (WITHOUT_CLUTTER) {
@@ -4488,7 +4492,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 					E_CALENDAR_VIEW (week_view));
 
 			/* we remove the object since we either got the update from the server or failed */
-			e_week_view_remove_event_cb (week_view, event_num, NULL);
+			e_week_view_remove_event_cb (week_view, event_num, TRUE);
 		} else {
 			CalObjModType mod = CALOBJ_MOD_ALL;
 			GtkWindow *toplevel;

@@ -201,6 +201,7 @@ e_week_view_layout_event	(EWeekViewEvent	*event,
 					event->spans_index + span_num);
 				span.background_item = old_span->background_item;
 				span.text_item = old_span->text_item;
+				span.actor_item = old_span->actor_item;
 				old_span->background_item = NULL;
 				old_span->text_item = NULL;
 				old_span->actor_item = NULL;

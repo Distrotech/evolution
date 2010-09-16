@@ -1687,3 +1687,61 @@ e_week_view_clutter_event_item_get_edit_text (EWeekViewClutterEventItem *item)
 	return clutter_text_get_text (item->priv->text_item);
 }
 
+
+static void
+scale_delete_stage2 (ClutterAnimation *amim, ClutterActor *actor)
+{
+	clutter_actor_destroy (actor);
+}
+
+static void
+scale_delete_stage1 (ClutterAnimation *amim, ClutterActor *item)
+{
+	clutter_actor_animate (item, CLUTTER_EASE_IN_SINE,
+				200,
+				"scale-x", 0.1,
+				"signal-after::completed", scale_delete_stage2, item,
+				NULL);
+	
+
+}
+
+static void
+wvce_animate_scale_delete (ClutterActor *item)
+{
+	float height=0, width=0;
+
+	clutter_actor_get_size (item, &width, &height);
+
+	g_object_set (item, "scale-center-x", width/2, "scale-center-y", height/2, NULL);
+
+	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
+				200,
+				"scale-y", 0.1,
+				"signal-after::completed", scale_delete_stage1, item,
+				NULL);
+}
+
+void
+e_week_view_clutter_event_item_scale_destroy (EWeekViewClutterEventItem *item)
+{
+	wvce_animate_scale_delete (item);
+}
+
+
+static void
+fade_delete_stage1 (ClutterAnimation *amim, ClutterActor *actor)
+{
+	clutter_actor_destroy (actor);
+}
+
+void
+e_week_view_clutter_event_item_fade_destroy (EWeekViewClutterEventItem *item)
+{
+	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
+				200,
+				"opacity", 0.0,
+				"signal-after::completed", fade_delete_stage1, item,
+				NULL);	
+}
+
