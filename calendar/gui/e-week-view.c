@@ -173,8 +173,6 @@ static void e_week_view_recalc_day_starts (EWeekView *week_view,
 					   time_t lower);
 static void e_week_view_on_editing_started (EWeekView *week_view,
 					    GnomeCanvasItem *item);
-static void e_week_view_on_editing_stopped (EWeekView *week_view,
-					    GnomeCanvasItem *item);
 static gboolean e_week_view_find_event_from_uid (EWeekView	  *week_view,
 						 ECal             *client,
 						 const gchar	  *uid,
@@ -1768,7 +1766,8 @@ e_week_view_focus (GtkWidget *widget, GtkDirectionType direction)
 
 				/* focus go to the jump button */
 				e_week_view_stop_editing_event (week_view);
-				gnome_canvas_item_grab_focus (week_view->jump_buttons[current_day]);
+				if (week_view->jump_buttons[current_day])
+					gnome_canvas_item_grab_focus (week_view->jump_buttons[current_day]);
 				return TRUE;
 			}
 		}
@@ -2486,6 +2485,7 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 	   on_editing_stopped doesn't try to update the event. */
 	if (week_view->editing_event_num == event_num)
 		week_view->editing_event_num = -1;
+	
 
 	if (week_view->popup_event_num == event_num)
 		week_view->popup_event_num = -1;
@@ -2512,6 +2512,12 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 				gtk_object_destroy (GTK_OBJECT (span->background_item));
 				span->background_item = NULL;
 			}
+#if HAVE_CLUTTER			
+			if (span->actor_item) {
+				clutter_actor_destroy (span->actor_item);
+				span->actor_item = NULL;
+			}
+#endif			
 		}
 
 		/* Update event_num numbers for already created spans with event_num higher than our event_num */
@@ -2769,6 +2775,12 @@ week_view_clutter_button_press (ClutterActor *actor,
 {
 	GdkEventButton *bevent;
 	gboolean ret;
+
+	if (week_view->editing_event_num != -1) {
+		/* cancel_editing */
+		e_week_view_cancel_editing (week_view);
+		e_week_view_on_editing_stopped (week_view, NULL, TRUE);
+	}
 
 	if (event->button.click_count > 1 )
 		bevent = gdk_event_new (GDK_2BUTTON_PRESS);
@@ -3073,6 +3085,10 @@ e_week_view_free_events (EWeekView *week_view)
 				gtk_object_destroy (GTK_OBJECT (span->background_item));
 			if (span->text_item)
 				gtk_object_destroy (GTK_OBJECT (span->text_item));
+#if HAVE_CLUTTER			
+			if (span->actor_item)
+				clutter_actor_destroy (span->actor_item);
+#endif			
 		}
 		g_array_free (week_view->spans, TRUE);
 		week_view->spans = NULL;
@@ -3086,7 +3102,8 @@ e_week_view_free_events (EWeekView *week_view)
 
 	/* Hide all the jump buttons. */
 	for (day = 0; day < E_WEEK_VIEW_MAX_WEEKS * 7; day++) {
-		gnome_canvas_item_hide (week_view->jump_buttons[day]);
+		if (week_view->jump_buttons[day])
+			gnome_canvas_item_hide (week_view->jump_buttons[day]);
 	}
 }
 
@@ -3260,7 +3277,9 @@ e_week_view_reshape_events (EWeekView *week_view)
 				}
 
 				span = &g_array_index (week_view->spans, EWeekViewEventSpan, event->spans_index + span_num);
-				e_canvas_item_grab_focus (span->text_item, TRUE);
+				
+				if (span->text_item)
+					e_canvas_item_grab_focus (span->text_item, TRUE);
 				g_free (week_view->last_edited_comp_string);
 				week_view->last_edited_comp_string = NULL;
 			}
@@ -3281,24 +3300,29 @@ e_week_view_reshape_events (EWeekView *week_view)
 
 		/* Determine whether the jump button should be shown. */
 		if (week_view->rows_per_day[day] <= max_rows) {
-			gnome_canvas_item_hide (week_view->jump_buttons[day]);
+			if (week_view->jump_buttons[day])
+				gnome_canvas_item_hide (week_view->jump_buttons[day]);
 		} else {
 			e_week_view_get_day_position (week_view, day,
 						      &day_x, &day_y,
 						      &day_w, &day_h);
 
-			gnome_canvas_item_set (week_view->jump_buttons[day],
+			if (week_view->jump_buttons[day]) {
+				gnome_canvas_item_set (week_view->jump_buttons[day],
 					       "GnomeCanvasPixbuf::x", (gdouble) (day_x + day_w - E_WEEK_VIEW_JUMP_BUTTON_X_PAD - E_WEEK_VIEW_JUMP_BUTTON_WIDTH),
 					       "GnomeCanvasPixbuf::y", (gdouble) (day_y + day_h - E_WEEK_VIEW_JUMP_BUTTON_Y_PAD - E_WEEK_VIEW_JUMP_BUTTON_HEIGHT),
 					       NULL);
 
-			gnome_canvas_item_show (week_view->jump_buttons[day]);
-			gnome_canvas_item_raise_to_top (week_view->jump_buttons[day]);
+				gnome_canvas_item_show (week_view->jump_buttons[day]);
+				gnome_canvas_item_raise_to_top (week_view->jump_buttons[day]);
+		
+			}
 		}
 	}
 
 	for (day = num_days; day < E_WEEK_VIEW_MAX_WEEKS * 7; day++) {
-		gnome_canvas_item_hide (week_view->jump_buttons[day]);
+		if (week_view->jump_buttons[day])
+			gnome_canvas_item_hide (week_view->jump_buttons[day]);
 	}
 }
 
@@ -3434,6 +3458,11 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 			gtk_object_destroy (GTK_OBJECT (span->background_item));
 		if (span->text_item)
 			gtk_object_destroy (GTK_OBJECT (span->text_item));
+#if HAVE_CLUTTER		
+		if (span->actor_item)
+			clutter_actor_destroy (span->actor_item);
+		span->actor_item = NULL;
+#endif		
 		span->background_item = NULL;
 		span->text_item = NULL;
 
@@ -3642,7 +3671,16 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 			/* Get the width of the text of the event. This is a
 			   bit of a hack. It would be better if EText could
 			   tell us this. */
+#if HAVE_CLUTTER
+			if (WITHOUT_CLUTTER) {
+#endif				
 			g_object_get (G_OBJECT (span->text_item), "text", &text, NULL);
+#if HAVE_CLUTTER
+			} else {
+			g_object_get (G_OBJECT (span->actor_item), "text", &text, NULL);			
+			}
+
+#endif			
 			text_width = 0;
 			if (text) {
 				/* It should only have one line of text in it.
@@ -3700,12 +3738,18 @@ e_week_view_reshape_event_span (EWeekView *week_view,
 	/* Make sure we don't try to use a negative width. */
 	text_w = MAX (text_w, 0);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_item_set (span->text_item,
 			       "clip_width", (gdouble) text_w,
 			       "clip_height", (gdouble) text_h,
 			       NULL);
 	e_canvas_item_move_absolute (span->text_item, text_x, text_y);
-
+#if HAVE_CLUTTER
+	} else {
+	}
+#endif	
 	g_object_unref (comp);
 	g_object_unref (layout);
 	pango_font_metrics_unref (font_metrics);
@@ -3745,7 +3789,12 @@ e_week_view_start_editing_event (EWeekView *week_view,
 
 	if (!e_cal_is_read_only (event->comp_data->client, &read_only, NULL) || read_only)
 		return FALSE;
-
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+	gtk_widget_grab_focus (week_view->main_canvas_embed);
+	e_week_view_clutter_event_item_switch_editing_mode (span->actor_item);
+	}
+#endif	
 	/* If the event is not shown, don't try to edit it. */
 	if (!span->text_item)
 		return FALSE;
@@ -3762,6 +3811,8 @@ e_week_view_start_editing_event (EWeekView *week_view,
 		if (editing && event && editing->comp_data == event->comp_data)
 			return FALSE;
 	}
+
+
 
 	if (initial_text) {
 		gnome_canvas_item_set (span->text_item,
@@ -3857,13 +3908,26 @@ cancel_editing (EWeekView *week_view)
 	/* Reset the text to what was in the component */
 
 	summary = e_calendar_view_get_icalcomponent_summary (event->comp_data->client, event->comp_data->icalcomp, &free_text);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	g_object_set (G_OBJECT (span->text_item), "text", summary ? summary : "", NULL);
-
+#if HAVE_CLUTTER
+	} else {
+	e_week_view_clutter_event_item_switch_normal_mode (span->actor_item);
+	}
+#endif	
 	if (free_text)
 		g_free ((gchar *)summary);
 
 	/* Stop editing */
 	e_week_view_stop_editing_event (week_view);
+}
+
+void
+e_week_view_cancel_editing (EWeekView *week_view)
+{
+	cancel_editing (week_view);
 }
 
 static gboolean
@@ -4055,7 +4119,7 @@ e_week_view_on_text_item_event (GnomeCanvasItem *item,
 		if (gdkevent->focus_change.in) {
 			e_week_view_on_editing_started (week_view, item);
 		} else {
-			e_week_view_on_editing_stopped (week_view, item);
+			e_week_view_on_editing_stopped (week_view, item, TRUE);
 		}
 
 		return FALSE;
@@ -4314,9 +4378,10 @@ e_week_view_on_editing_started (EWeekView *week_view,
 	g_signal_emit_by_name (week_view, "selection_changed");
 }
 
-static void
+gboolean
 e_week_view_on_editing_stopped (EWeekView *week_view,
-				GnomeCanvasItem *item)
+				GnomeCanvasItem *item,
+				gboolean create)
 {
 	gint event_num, span_num;
 	EWeekViewEvent *event;
@@ -4327,6 +4392,7 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	ECal *client;
 	const gchar *uid;
 	gboolean on_server;
+	gboolean ret = TRUE;
 
 	/* Note: the item we are passed here isn't reliable, so we just stop
 	   the edit of whatever item was being edited. We also receive this
@@ -4336,18 +4402,18 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 
 	/* If no item is being edited, just return. */
 	if (event_num == -1)
-		return;
+		return TRUE;
 
 	if (!is_array_index_in_bounds (week_view->events, event_num))
-		return;
+		return TRUE;
 
 	event = &g_array_index (week_view->events, EWeekViewEvent, event_num);
 
 	if (!is_comp_data_valid (event))
-		return;
+		return TRUE;
 
 	if (!is_array_index_in_bounds (week_view->spans, event->spans_index + span_num))
-		return;
+		return TRUE;
 
 	span = &g_array_index (week_view->spans, EWeekViewEventSpan,
 			       event->spans_index + span_num);
@@ -4358,18 +4424,26 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	/* Check that the event is still valid. */
 	uid = icalcomponent_get_uid (event->comp_data->icalcomp);
 	if (!uid)
-		return;
+		return TRUE;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	g_object_set (span->text_item, "handle_popup", FALSE, NULL);
 	g_object_get (G_OBJECT (span->text_item), "text", &text, NULL);
-
+#if HAVE_CLUTTER
+	} else {
+	e_week_view_clutter_event_item_switch_normal_mode (span->actor_item);
+	text = g_strdup(e_week_view_clutter_event_item_get_edit_text (span->actor_item));
+	}
+#endif	
 	comp = e_cal_component_new ();
 	e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
 
 	client = event->comp_data->client;
 	on_server = cal_comp_is_on_server (comp, client);
 
-	if (string_is_empty (text) && !on_server) {
+	if ((string_is_empty (text)|| !create) && !on_server) {
 		e_cal_component_get_uid (comp, &uid);
 		g_signal_handlers_disconnect_by_func(item, e_week_view_on_text_item_event, week_view);
 		e_week_view_foreach_event_with_uid (week_view, uid,
@@ -4385,8 +4459,12 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 		}
 #endif		
 		e_week_view_check_layout (week_view);
+		ret = FALSE;
 		goto out;
 	}
+	
+	if (!create)
+		goto out;
 
 	/* Only update the summary if necessary. */
 	e_cal_component_get_summary (comp, &summary);
@@ -4488,6 +4566,8 @@ e_week_view_on_editing_stopped (EWeekView *week_view,
 	g_object_unref (comp);
 
 	g_signal_emit_by_name (week_view, "selection_changed");
+
+	return ret;
 }
 
 gboolean
@@ -4742,6 +4822,9 @@ e_week_view_add_new_event_in_selected_range (EWeekView *week_view, const gchar *
 			       wvevent->spans_index + 0);
 
 	/* If the event can't be fit on the screen, don't try to edit it. */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (!span->text_item) {
 		e_week_view_foreach_event_with_uid (week_view, uid,
 				e_week_view_remove_event_cb, NULL);
@@ -4751,6 +4834,15 @@ e_week_view_add_new_event_in_selected_range (EWeekView *week_view, const gchar *
 		e_week_view_start_editing_event (week_view, event_num, 0,
 				(gchar *) initial_text);
 	}
+#if HAVE_CLUTTER
+	} else {
+		e_week_view_start_editing_event (week_view, event_num, 0,
+				(gchar *) initial_text);	
+		week_view->editing_event_num = event_num;
+		week_view->editing_span_num = 0;
+
+	}
+#endif	
 
 	g_object_unref (comp);
 
@@ -4782,7 +4874,14 @@ e_week_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 		return FALSE;
 	}
 #endif
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER && week_view->editing_event_num != -1) {
 
+		return TRUE;
+
+	}
+#endif	
+	
 	/* Handle the cursor keys for moving the selection */
 	stop_emission = FALSE;
 	if (!(event->state & GDK_SHIFT_MASK)

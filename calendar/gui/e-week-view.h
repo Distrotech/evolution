@@ -164,6 +164,7 @@ struct _EWeekViewEventSpan {
 	GnomeCanvasItem *text_item;
 #if HAVE_CLUTTER
 	ClutterActor *actor_item;
+	ClutterActor *actor_text;
 #endif	
 };
 
@@ -492,6 +493,10 @@ GdkColor	e_week_view_get_text_color 	(EWeekView *week_view,
 						 EWeekViewEvent *event, 
 						 GtkWidget *widget);
 
+void		e_week_view_cancel_editing 	(EWeekView *week_view);
+gboolean	e_week_view_on_editing_stopped  (EWeekView *week_view,
+						 GnomeCanvasItem *item,
+						 gboolean create);
 G_END_DECLS
 
 #endif /* E_WEEK_VIEW_H */
