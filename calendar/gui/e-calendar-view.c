@@ -735,6 +735,7 @@ calendar_view_delete_selection (ESelectable *selectable)
 		if (event == NULL)
 			continue;
 
+		event->marked_for_delete = TRUE;
 		calendar_view_delete_event (cal_view, event);
 	}
 

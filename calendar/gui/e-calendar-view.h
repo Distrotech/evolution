@@ -81,6 +81,7 @@ typedef enum {
 	GtkWidget *tooltip; \
 	gint	timeout; \
 	GdkColor *color; \
+	gboolean marked_for_delete; \
 	gint x,y;
 
 typedef struct {

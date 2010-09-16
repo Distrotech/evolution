@@ -124,6 +124,9 @@ static void e_week_view_update_query (EWeekView *week_view);
 static void e_week_view_draw_shadow (EWeekView *week_view);
 
 #if HAVE_CLUTTER
+static void
+e_week_view_jump_to_actor_item (ClutterActor *item, ClutterEvent *event, EWeekView *week_view);
+
 static gboolean
 week_view_clutter_button_press (ClutterActor *actor, 
 				ClutterEvent *event,
@@ -1003,7 +1006,9 @@ e_week_view_init (EWeekView *week_view)
 
 	/* Create the buttons to jump to each days. */
 	pixbuf = gdk_pixbuf_new_from_xpm_data ((const gchar **) jump_xpm);
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	for (i = 0; i < E_WEEK_VIEW_MAX_WEEKS * 7; i++) {
 		week_view->jump_buttons[i] = gnome_canvas_item_new
 			(canvas_group,
@@ -1014,6 +1019,18 @@ e_week_view_init (EWeekView *week_view)
 		g_signal_connect (week_view->jump_buttons[i], "event",
 				  G_CALLBACK (e_week_view_on_jump_button_event), week_view);
 	}
+#if HAVE_CLUTTER
+	} else {
+	for (i = 0; i < E_WEEK_VIEW_MAX_WEEKS * 7; i++) {
+		week_view->jump_actors[i] = gtk_clutter_texture_new_from_pixbuf (pixbuf);
+		clutter_actor_set_reactive (week_view->jump_actors[i], TRUE);
+		clutter_container_add_actor (week_view->main_canvas_stage, week_view->jump_actors[i]);
+		g_signal_connect (week_view->jump_actors[i], "button-press-event",
+				  G_CALLBACK (e_week_view_jump_to_actor_item), week_view);
+	}
+	
+	}
+#endif	
 	week_view->focused_jump_button = E_WEEK_VIEW_JUMP_BUTTON_NO_FOCUS;
 
 	g_object_unref (pixbuf);
@@ -2515,7 +2532,7 @@ e_week_view_remove_event_cb (EWeekView *week_view,
 			}
 #if HAVE_CLUTTER			
 			if (span->actor_item) {
-				if (delete_from_cal)
+				if (delete_from_cal||event->marked_for_delete)
 					e_week_view_clutter_event_item_scale_destroy (span->actor_item);
 				else
 					e_week_view_clutter_event_item_fade_destroy (span->actor_item);
@@ -3106,8 +3123,17 @@ e_week_view_free_events (EWeekView *week_view)
 
 	/* Hide all the jump buttons. */
 	for (day = 0; day < E_WEEK_VIEW_MAX_WEEKS * 7; day++) {
+#if HAVE_CLUTTER
+		if (WITHOUT_CLUTTER) {
+#endif			
 		if (week_view->jump_buttons[day])
 			gnome_canvas_item_hide (week_view->jump_buttons[day]);
+#if HAVE_CLUTTER
+		} else {
+		if (week_view->jump_actors[day])
+			clutter_actor_hide (week_view->jump_actors[day]);
+		}
+#endif		
 	}
 }
 
@@ -3165,6 +3191,7 @@ e_week_view_add_event (ECalComponent *comp,
 	event.num_spans = 0;
 	event.comp_data->instance_start = start;
 	event.comp_data->instance_end = end;
+	event.marked_for_delete = FALSE;
 
 	event.start_minute = start_tt.hour * 60 + start_tt.minute;
 	event.end_minute = end_tt.hour * 60 + end_tt.minute;
@@ -3304,13 +3331,24 @@ e_week_view_reshape_events (EWeekView *week_view)
 
 		/* Determine whether the jump button should be shown. */
 		if (week_view->rows_per_day[day] <= max_rows) {
+#if HAVE_CLUTTER
+			if (WITHOUT_CLUTTER) {
+#endif				
 			if (week_view->jump_buttons[day])
 				gnome_canvas_item_hide (week_view->jump_buttons[day]);
+#if HAVE_CLUTTER
+			} else {
+			if (week_view->jump_actors[day])
+				clutter_actor_hide (week_view->jump_actors[day]);
+			}
+#endif			
 		} else {
 			e_week_view_get_day_position (week_view, day,
 						      &day_x, &day_y,
 						      &day_w, &day_h);
-
+#if HAVE_CLUTTER
+			if (WITHOUT_CLUTTER) {
+#endif				
 			if (week_view->jump_buttons[day]) {
 				gnome_canvas_item_set (week_view->jump_buttons[day],
 					       "GnomeCanvasPixbuf::x", (gdouble) (day_x + day_w - E_WEEK_VIEW_JUMP_BUTTON_X_PAD - E_WEEK_VIEW_JUMP_BUTTON_WIDTH),
@@ -3321,12 +3359,34 @@ e_week_view_reshape_events (EWeekView *week_view)
 				gnome_canvas_item_raise_to_top (week_view->jump_buttons[day]);
 		
 			}
+#if HAVE_CLUTTER
+			} else {
+			if (week_view->jump_actors[day]) {
+				clutter_actor_set_position (week_view->jump_actors[day], 
+							(gdouble) (day_x + day_w - E_WEEK_VIEW_JUMP_BUTTON_X_PAD - E_WEEK_VIEW_JUMP_BUTTON_WIDTH),
+							(gdouble) (day_y + day_h - E_WEEK_VIEW_JUMP_BUTTON_Y_PAD - E_WEEK_VIEW_JUMP_BUTTON_HEIGHT));
+							
+				clutter_actor_show (week_view->jump_actors[day]);
+				clutter_actor_raise_top (week_view->jump_actors[day]);
+			}
+			}
+#endif			
+			
 		}
 	}
 
 	for (day = num_days; day < E_WEEK_VIEW_MAX_WEEKS * 7; day++) {
+#if HAVE_CLUTTER
+		if (WITHOUT_CLUTTER) {
+#endif				
 		if (week_view->jump_buttons[day])
 			gnome_canvas_item_hide (week_view->jump_buttons[day]);
+#if HAVE_CLUTTER
+		} else {
+		if (week_view->jump_actors[day])
+			clutter_actor_hide (week_view->jump_actors[day]);
+		}
+#endif			
 	}
 }
 
@@ -5022,6 +5082,28 @@ e_week_view_popup_menu (GtkWidget *widget)
 	return TRUE;
 }
 
+#if HAVE_CLUTTER
+static void
+e_week_view_jump_to_actor_item (ClutterActor *item, ClutterEvent *event, EWeekView *week_view)
+{
+	gint day;
+	GnomeCalendar *calendar;
+
+	for (day = 0; day < E_WEEK_VIEW_MAX_WEEKS * 7; ++day) {
+		if (item == week_view->jump_actors[day]) {
+			calendar = e_calendar_view_get_calendar (E_CALENDAR_VIEW (week_view));
+			if (calendar)
+				gnome_calendar_dayjump
+					(calendar,
+					 week_view->day_starts[day]);
+			else
+				g_warning ("Calendar not set");
+			return;
+		}
+	}
+}
+#endif
+
 void
 e_week_view_jump_to_button_item (EWeekView *week_view, GnomeCanvasItem *item)
 {
@@ -5208,8 +5290,17 @@ e_week_view_is_jump_button_visible (EWeekView *week_view, gint day)
 {
 	g_return_val_if_fail (E_IS_WEEK_VIEW (week_view), FALSE);
 
-	if ((day >= 0) && (day < E_WEEK_VIEW_MAX_WEEKS * 7))
+	if ((day >= 0) && (day < E_WEEK_VIEW_MAX_WEEKS * 7)) {
+#if HAVE_CLUTTER		
+		if (WITHOUT_CLUTTER) {
+#endif
 		return week_view->jump_buttons[day]->flags & GNOME_CANVAS_ITEM_VISIBLE;
+#if HAVE_CLUTTER 
+		} else {
+		return CLUTTER_ACTOR_IS_VISIBLE(week_view->jump_actors[day]);	
+		}
+#endif
+	}
 	return FALSE;
 }
 

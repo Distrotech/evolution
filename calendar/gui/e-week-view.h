@@ -201,6 +201,9 @@ struct _EWeekView {
 #endif
 
 	GnomeCanvasItem *jump_buttons[E_WEEK_VIEW_MAX_WEEKS * 7];
+#if HAVE_CLUTTER
+	ClutterActor *jump_actors [E_WEEK_VIEW_MAX_WEEKS * 7];
+#endif	
 	gint focused_jump_button;
 
 	GtkWidget *vscrollbar;
