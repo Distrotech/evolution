@@ -82,6 +82,7 @@ typedef enum {
 	gint	timeout; \
 	GdkColor *color; \
 	gboolean marked_for_delete; \
+	gboolean just_added;	\
 	gint x,y;
 
 typedef struct {

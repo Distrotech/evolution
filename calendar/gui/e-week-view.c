@@ -1595,6 +1595,13 @@ e_week_view_focus_in (GtkWidget *widget, GdkEventFocus *event)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
+	clutter_actor_set_opacity (week_view->main_canvas_stage, 0);
+	//clutter_actor_set_opacity (week_view->titles_canvas_actor, 0);
+	clutter_actor_animate (week_view->main_canvas_stage, CLUTTER_LINEAR,
+				1000, "opacity", 255, NULL);
+	//clutter_actor_animate (week_view->titles_canvas_actor, CLUTTER_LINEAR,
+	//			1000, "opacity", 255, NULL);
+
 	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
 	}
 #endif	
@@ -3192,6 +3199,7 @@ e_week_view_add_event (ECalComponent *comp,
 	event.comp_data->instance_start = start;
 	event.comp_data->instance_end = end;
 	event.marked_for_delete = FALSE;
+	event.just_added = TRUE;
 
 	event.start_minute = start_tt.hour * 60 + start_tt.minute;
 	event.end_minute = end_tt.hour * 60 + end_tt.minute;

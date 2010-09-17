@@ -782,6 +782,9 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 		return;
 	}
 
+	if (event->just_added)
+		clutter_actor_set_opacity (event_item, 0);
+
 	clutter_cairo_texture_clear (event_item->priv->texture);	
 	cr = clutter_cairo_texture_create (event_item->priv->texture);
 	gradient = calendar_config_get_display_events_gradient ();
@@ -1181,6 +1184,13 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 	cairo_destroy (cr);
 
 	gdk_region_destroy (draw_region);
+
+	if (event->just_added) {
+		event->just_added = FALSE;
+		clutter_actor_animate (event_item, CLUTTER_LINEAR,
+					400, "opacity", 255, NULL);
+	}
+		
 }
 
 static gint
