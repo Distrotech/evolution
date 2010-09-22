@@ -649,6 +649,9 @@ void e_day_view_update_calendar_selection_time (EDayView *day_view);
 void e_day_view_ensure_rows_visible (EDayView *day_view,
 				     gint start_row,
 				     gint end_row);
+GdkColor   e_day_view_get_text_color 		(EDayView *day_view, 
+						 EDayViewEvent *event, 
+						 GtkWidget *widget);
 
 G_END_DECLS
 

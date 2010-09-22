@@ -29,6 +29,10 @@
 #include "gnome-cal.h"
 #include "dialogs/comp-editor.h"
 
+#if HAVE_CLUTTER
+#include <clutter/clutter.h>
+#endif
+
 /* Standard GObject macros */
 #define E_TYPE_CALENDAR_VIEW \
 	(e_calendar_view_get_type ())
@@ -69,6 +73,25 @@ typedef enum {
 	E_CAL_VIEW_MOVE_PAGE_DOWN
 } ECalViewMoveDirection;
 
+#if HAVE_CLUTTER
+#define E_CALENDAR_VIEW_EVENT_FIELDS \
+	GnomeCanvasItem *canvas_item; \
+	ClutterActor *actor;	\
+	ECalModelComponent *comp_data; \
+	time_t start; \
+	time_t end; \
+	guint16 start_minute; \
+	guint16 end_minute; \
+	guint different_timezone : 1; \
+	gboolean is_editable;	\
+	GtkWidget *tooltip; \
+	gint	timeout; \
+	GdkColor *color; \
+	gboolean marked_for_delete; \
+	gboolean just_added;	\
+	gint x,y;
+#else
+
 #define E_CALENDAR_VIEW_EVENT_FIELDS \
 	GnomeCanvasItem *canvas_item; \
 	ECalModelComponent *comp_data; \
@@ -84,6 +107,7 @@ typedef enum {
 	gboolean marked_for_delete; \
 	gboolean just_added;	\
 	gint x,y;
+#endif
 
 typedef struct {
 	E_CALENDAR_VIEW_EVENT_FIELDS

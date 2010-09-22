@@ -859,7 +859,7 @@ day_view_clutter_main_item_draw_day_events (EDayViewClutterMainItem *main_item,
 
 static void
 day_view_clutter_main_item_draw_events_in_vbars (EDayViewClutterMainItem *main_item,
-                                         GdkDrawable *drawable,
+                                         cairo_t *cr,
                                          gint x,
                                          gint y,
                                          gint width,
@@ -870,12 +870,14 @@ day_view_clutter_main_item_draw_events_in_vbars (EDayViewClutterMainItem *main_i
 	EDayView *day_view;
 	EDayViewEvent *event;
 	gint grid_x, event_num, bar_y, bar_h;
-	cairo_t *cr = NULL;
 	GdkColor bg_color;
 
 	day_view = e_day_view_clutter_main_item_get_day_view (main_item);
 
 	grid_x = day_view->day_offsets[day] + 1 - x;
+	
+	cairo_save (cr);
+	gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
 
 	/* Draw the busy times corresponding to the events in the day. */
 	for (event_num = 0; event_num < day_view->events[day]->len; event_num++) {
@@ -904,13 +906,6 @@ day_view_clutter_main_item_draw_events_in_vbars (EDayViewClutterMainItem *main_i
 			continue;
 		}
 
-		if (!cr) {
-			cr = gdk_cairo_create (drawable);
-			cairo_save (cr);
-
-			gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
-		}
-
 		if (gdk_color_parse (e_cal_model_get_color_for_component (e_calendar_view_get_model (E_CALENDAR_VIEW (day_view)), event->comp_data), &bg_color)) {
 			GdkColormap *colormap;
 
@@ -925,10 +920,7 @@ day_view_clutter_main_item_draw_events_in_vbars (EDayViewClutterMainItem *main_i
 		cairo_fill (cr);
 	}
 
-	if (cr) {
-		cairo_restore (cr);
-		cairo_destroy (cr);
-	}
+	cairo_restore (cr);
 }
 
 static void
@@ -1286,12 +1278,12 @@ day_view_clutter_main_item_draw (EDayViewClutterMainItem *canvas_item)
 		cairo_fill (cr);
 
 		cairo_restore (cr);
-#if 0
+
 		/* Fill in the bars when the user is busy. */
 		day_view_clutter_main_item_draw_events_in_vbars (
-			main_item, drawable, x, y,
+			main_item, cr, x, y,
 			width, height, day, draw_region);
-#endif
+
 	}
 #if 0
 	/* Fill in the vertical bars corresponding to the busy times from the

@@ -59,6 +59,7 @@
 #include "e-day-view-clutter-time-item.h"
 #include "e-day-view-clutter-main-item.h"
 #include "e-day-view-clutter-top-item.h"
+#include "e-day-view-clutter-event-item.h"
 #endif
 #include "e-day-view-time-item.h"
 #include "e-day-view-top-item.h"
@@ -307,7 +308,7 @@ static gint e_day_view_add_event (ECalComponent *comp,
 				 time_t	  start,
 				 time_t	  end,
 				 gpointer data);
-static void e_day_view_update_event_label (EDayView *day_view,
+void e_day_view_update_event_label (EDayView *day_view,
 					   gint day,
 					   gint event_num);
 static void e_day_view_update_long_event_label (EDayView *day_view,
@@ -1362,7 +1363,7 @@ e_day_view_init (EDayView *day_view)
 	g_signal_connect (day_view->main_canvas, "realize",
 			  G_CALLBACK (e_day_view_on_canvas_realized), day_view);
 
-	g_signal_connect (day_view->main_canvas,
+	g_signal_connect_after (day_view->main_canvas,
 			  "button_press_event",
 			  G_CALLBACK (e_day_view_on_main_canvas_button_press),
 			  day_view);
@@ -1771,7 +1772,7 @@ e_day_view_unrealize (GtkWidget *widget)
 		(*GTK_WIDGET_CLASS (e_day_view_parent_class)->unrealize)(widget);
 }
 
-static GdkColor
+GdkColor
 e_day_view_get_text_color (EDayView *day_view, EDayViewEvent *event, GtkWidget *widget)
 {
 	GtkStyle *style;
@@ -2371,6 +2372,10 @@ e_day_view_remove_event_cb (EDayView *day_view,
 	if (event->canvas_item)
 		gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 
+	if (event->actor)
+		clutter_actor_destroy (event->actor);
+	event->actor = NULL;
+
 	if (is_comp_data_valid (event))
 		g_object_unref (event->comp_data);
 	event->comp_data = NULL;
@@ -2426,7 +2431,7 @@ set_text_as_bold (EDayViewEvent *event)
 
 /* This updates the text shown for an event. If the event start or end do not
    lie on a row boundary, the time is displayed before the summary. */
-static void
+void
 e_day_view_update_event_label (EDayView *day_view,
 			       gint day,
 			       gint event_num)
@@ -2443,9 +2448,17 @@ e_day_view_update_event_label (EDayView *day_view,
 	event = &g_array_index (day_view->events[day], EDayViewEvent, event_num);
 
 	/* If the event isn't visible just return. */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (!event->canvas_item || !is_comp_data_valid (event))
 		return;
-
+#if HAVE_CLUTTER
+	} else {
+	if (!event->actor || !is_comp_data_valid (event))
+		return;		
+	}
+#endif
 	summary = icalcomponent_get_summary (event->comp_data->icalcomp);
 	text = summary ? (gchar *) summary : (gchar *) "";
 
@@ -2471,10 +2484,17 @@ e_day_view_update_event_label (EDayView *day_view,
 		}
 	}
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_item_set (event->canvas_item,
 			       "text", text,
 			       NULL);
-
+#if HAVE_CLUTTER
+	} else {
+	e_day_view_clutter_event_item_set_text (event->actor, text);
+	}
+#endif	
 	if (e_cal_get_static_capability (event->comp_data->client, CAL_STATIC_CAPABILITY_HAS_UNACCEPTED_MEETING)
 				&& e_cal_util_component_has_attendee (event->comp_data->icalcomp))
 		set_text_as_bold (event);
@@ -3767,10 +3787,19 @@ e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 	if (pos == E_CALENDAR_VIEW_POS_OUTSIDE)
 		return FALSE;
 
-	if (pos != E_CALENDAR_VIEW_POS_NONE)
+	if (pos != E_CALENDAR_VIEW_POS_NONE) {
+#if HAVE_CLUTTER
+		if (WITHOUT_CLUTTER) {
+#endif			
 		return e_day_view_on_event_button_press (day_view, day,
 							 event_num, event, pos,
 							 event_x, event_y);
+#if HAVE_CLUTTER
+		} else {
+		return FALSE;
+		}
+#endif		
+	}
 
 	e_day_view_stop_editing_event (day_view);
 
@@ -5133,7 +5162,10 @@ e_day_view_free_event_array (EDayView *day_view,
 		event = &g_array_index (array, EDayViewEvent, event_num);
 		if (event->canvas_item)
 			gtk_object_destroy (GTK_OBJECT (event->canvas_item));
-
+		if (event->actor) {
+			clutter_actor_destroy (event->actor);
+			event->actor = NULL;
+		}
 		if (is_comp_data_valid (event))
 			g_object_unref (event->comp_data);
 	}
@@ -5190,6 +5222,9 @@ e_day_view_add_event (ECalComponent *comp,
 	event.timeout = -1;
 	event.end = end;
 	event.canvas_item = NULL;
+#if HAVE_CLUTTER
+	event.actor = NULL;
+#endif	
 	event.comp_data->instance_start = start;
 	event.comp_data->instance_end = end;
 
@@ -5328,6 +5363,11 @@ e_day_view_reshape_long_events (EDayView *day_view)
 				gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 				event->canvas_item = NULL;
 			}
+
+			if (event->actor) {
+				clutter_actor_destroy (event->actor);
+				event->actor = NULL;
+			}
 		} else {
 			e_day_view_reshape_long_event (day_view, event_num);
 		}
@@ -5361,6 +5401,10 @@ e_day_view_reshape_long_event (EDayView *day_view,
 		if (event->canvas_item) {
 			gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 			event->canvas_item = NULL;
+		}
+		if (event->actor) {
+			clutter_actor_destroy (event->actor);
+			event->actor = NULL;
 		}
 		return;
 	}
@@ -5554,6 +5598,10 @@ e_day_view_reshape_day_event (EDayView *day_view,
 			gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 			event->canvas_item = NULL;
 		}
+		if (event->actor) {
+			clutter_actor_destroy (event->actor);
+			event->actor = NULL;
+		}
 	} else {
 		/* Skip the border and padding. */
 		item_x += E_DAY_VIEW_BAR_WIDTH + E_DAY_VIEW_EVENT_X_PAD;
@@ -5597,6 +5645,9 @@ e_day_view_reshape_day_event (EDayView *day_view,
 				icons_offset = E_DAY_VIEW_ICON_X_PAD;
 		}
 
+#if HAVE_CLUTTER
+		if (WITHOUT_CLUTTER) {
+#endif			
 		if (!event->canvas_item) {
 			GtkWidget *widget;
 			GdkColor color;
@@ -5635,6 +5686,26 @@ e_day_view_reshape_day_event (EDayView *day_view,
 				       NULL);
 		e_canvas_item_move_absolute(event->canvas_item,
 					    item_x, item_y);
+#if HAVE_CLUTTER
+		} else {
+
+		if (event->actor) {
+			clutter_actor_destroy (event->actor);
+			event->actor = NULL;
+		}		
+		if (!event->actor) {
+			event->actor = e_day_view_clutter_event_item_new (day_view, day, event_num);
+			g_signal_emit_by_name (G_OBJECT(day_view),
+					       "event_added", event);
+			clutter_container_add_actor (day_view->main_canvas_stage, event->actor);
+			clutter_actor_raise_top (event->actor);
+			clutter_actor_set_position (event->actor, item_x, item_y);
+			clutter_actor_show (event->actor);
+			e_day_view_update_event_label (day_view, day, event_num);
+
+		}
+		}
+#endif		
 	}
 }
 
@@ -7863,8 +7934,17 @@ e_day_view_get_event_position (EDayView *day_view,
 
 	*item_x = day_view->day_offsets[day]
 		+ day_view->day_widths[day] * start_col / cols_in_row;
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	*item_w = day_view->day_widths[day] * num_columns / cols_in_row
 		- E_DAY_VIEW_GAP_WIDTH;
+#if HAVE_CLUTTER
+	} else {
+	*item_w = day_view->day_widths[day] * num_columns / cols_in_row
+		- E_DAY_VIEW_GAP_WIDTH- (2 * E_DAY_VIEW_BAR_WIDTH);
+	}
+#endif	
 	*item_w = MAX (*item_w, 0);
 	*item_y = start_row * day_view->row_height;
 #if 0
@@ -8080,7 +8160,10 @@ e_day_view_convert_position_in_main_canvas (EDayView *day_view,
 						    &item_x, &item_y,
 						    &item_w, &item_h))
 			continue;
-
+#if HAVE_CLUTTER
+		if (!WITHOUT_CLUTTER)
+			item_x += E_DAY_VIEW_BAR_WIDTH;
+#endif
 		if (x < item_x || x >= item_x + item_w
 		    || y < item_y || y >= item_y + item_h)
 			continue;

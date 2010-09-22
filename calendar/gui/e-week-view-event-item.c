@@ -734,7 +734,7 @@ week_view_event_item_draw (GnomeCanvasItem *canvas_item,
 	cairo_pattern_t *pat;
 	guint16 red, green, blue;
 	gdouble radius, cx0, cy0, rect_height, rect_width;
-	gboolean gradient;
+	gboolean gradient = FALSE;
 	gdouble cc = 65535.0;
 	GdkRegion *draw_region;
 	GdkRectangle rect;
@@ -795,7 +795,7 @@ week_view_event_item_draw (GnomeCanvasItem *canvas_item,
 	}
 
 	cr = gdk_cairo_create (drawable);
-	gradient = calendar_config_get_display_events_gradient ();
+	//gradient = calendar_config_get_display_events_gradient ();
 
 	icon_y = y1 + E_WEEK_VIEW_EVENT_BORDER_HEIGHT + E_WEEK_VIEW_ICON_Y_PAD;
 
