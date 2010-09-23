@@ -1050,11 +1050,12 @@ top_canvas_set_canvas_size (GtkWidget     *widget,
 	guint w,h;
 
 	gtk_layout_get_size ((GtkLayout *)day_view->top_canvas, &w, &h);
+	gtk_layout_set_size ((GtkLayout *)day_view->top_canvas, w, allocation->height);
 
-	gtk_widget_set_size_request (embed, allocation->width, h);
-	clutter_actor_set_size (stage, allocation->width, h);
-	clutter_actor_set_size (day_view->top_canvas_actor, allocation->width, h);
-	e_day_view_clutter_top_item_set_size ((EDayViewClutterTopItem *)day_view->top_canvas_actor, allocation->width, h);
+	gtk_widget_set_size_request (embed, allocation->width, allocation->height);
+	clutter_actor_set_size (stage, allocation->width, allocation->height);
+	clutter_actor_set_size (day_view->top_canvas_actor, allocation->width, allocation->height);
+	e_day_view_clutter_top_item_set_size ((EDayViewClutterTopItem *)day_view->top_canvas_actor, allocation->width, allocation->height);
 }
 
 static void                
@@ -2518,15 +2519,30 @@ e_day_view_update_long_event_label (EDayView *day_view,
 				event_num);
 
 	/* If the event isn't visible just return. */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (!event->canvas_item || !is_comp_data_valid (event))
 		return;
-
+#if HAVE_CLUTTER
+	} else {
+	if (!event->actor || !is_comp_data_valid (event))
+		return;		
+	}
+#endif	
 	summary = e_calendar_view_get_icalcomponent_summary (event->comp_data->client, event->comp_data->icalcomp, &free_text);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif			
 	gnome_canvas_item_set (event->canvas_item,
 			       "text", summary ? summary : "",
 			       NULL);
-
+#if HAVE_CLUTTER
+	} else {
+	e_day_view_clutter_event_item_set_text (event->actor, summary);
+	}
+#endif	
 	if (free_text)
 		g_free ((gchar *)summary);
 
@@ -3644,13 +3660,21 @@ e_day_view_on_top_canvas_button_press (GtkWidget *widget,
 	if (pos == E_CALENDAR_VIEW_POS_OUTSIDE)
 		return FALSE;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (pos != E_CALENDAR_VIEW_POS_NONE)
 		return e_day_view_on_long_event_button_press (day_view,
 							      event_num,
 							      event, pos,
 							      event_x,
 							      event_y);
-
+#if HAVE_CLUTTER 
+	} else {
+	if (pos != E_CALENDAR_VIEW_POS_NONE)	
+		return FALSE;
+	}
+#endif	
 	e_day_view_stop_editing_event (day_view);
 
 	if (event->button == 1) {
@@ -5453,7 +5477,9 @@ e_day_view_reshape_long_event (EDayView *day_view,
 			num_icons++;
 		num_icons += cal_comp_util_get_n_icons (comp, NULL);
 	}
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (!event->canvas_item) {
 		GtkWidget *widget;
 		GdkColor color;
@@ -5483,7 +5509,26 @@ e_day_view_reshape_long_event (EDayView *day_view,
 
 		e_day_view_update_long_event_label (day_view, event_num);
 	}
+#if HAVE_CLUTTER
+	} else {
 
+	if (event->actor) {	
+		clutter_actor_destroy (event->actor);
+		event->actor = NULL;
+	}		
+	if (!event->actor) {
+		event->actor = e_day_view_clutter_event_item_new (day_view, E_DAY_VIEW_LONG_EVENT, event_num, TRUE);
+		g_signal_emit_by_name (G_OBJECT(day_view),
+				       "event_added", event);
+		clutter_container_add_actor (day_view->top_canvas_stage, event->actor);
+		clutter_actor_raise_top (event->actor);
+		clutter_actor_set_position (event->actor, item_x, item_y);
+		clutter_actor_show (event->actor);
+		e_day_view_update_long_event_label (day_view, event_num);
+
+	}
+	}
+#endif	
 	/* Calculate its position. We first calculate the ideal position which
 	   is centered with the icons. We then make sure we haven't gone off
 	   the left edge of the available space. Finally we make sure we don't
@@ -5694,7 +5739,7 @@ e_day_view_reshape_day_event (EDayView *day_view,
 			event->actor = NULL;
 		}		
 		if (!event->actor) {
-			event->actor = e_day_view_clutter_event_item_new (day_view, day, event_num);
+			event->actor = e_day_view_clutter_event_item_new (day_view, day, event_num, FALSE);
 			g_signal_emit_by_name (G_OBJECT(day_view),
 					       "event_added", event);
 			clutter_container_add_actor (day_view->main_canvas_stage, event->actor);

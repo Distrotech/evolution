@@ -94,7 +94,7 @@ icalcomp_is_transparent (icalcomponent *icalcomp)
 
 static void
 day_view_clutter_main_item_draw_long_events_in_vbars (EDayViewClutterMainItem *main_item,
-                                              GdkDrawable *drawable,
+                                              cairo_t *cr,
                                               gint x,
                                               gint y,
                                               gint width,
@@ -104,10 +104,12 @@ day_view_clutter_main_item_draw_long_events_in_vbars (EDayViewClutterMainItem *m
 	EDayView *day_view;
 	EDayViewEvent *event;
 	gint event_num, start_day, end_day, day, bar_y1, bar_y2, grid_x;
-	cairo_t *cr = NULL;
 	GdkColor bg_color;
 
 	day_view = e_day_view_clutter_main_item_get_day_view (main_item);
+
+	cairo_save (cr);
+	gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
 
 	for (event_num = 0; event_num < day_view->long_events->len; event_num++) {
 		gboolean first = TRUE;
@@ -149,11 +151,6 @@ day_view_clutter_main_item_draw_long_events_in_vbars (EDayViewClutterMainItem *m
 			}
 
 			if (bar_y1 < height && bar_y2 > 0 && bar_y2 > bar_y1 && can_draw_in_region (draw_region, grid_x, bar_y1, E_DAY_VIEW_BAR_WIDTH - 2, bar_y2 - bar_y1)) {
-				if (!cr) {
-					cr = gdk_cairo_create (drawable);
-					cairo_save (cr);
-					gdk_cairo_set_source_color (cr, &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND]);
-				}
 
 				if (first) {
 					first = FALSE;
@@ -174,10 +171,7 @@ day_view_clutter_main_item_draw_long_events_in_vbars (EDayViewClutterMainItem *m
 		}
 	}
 
-	if (cr) {
-		cairo_restore (cr);
-		cairo_destroy (cr);
-	}
+	cairo_restore (cr);
 }
 
 static void
@@ -1285,12 +1279,13 @@ day_view_clutter_main_item_draw (EDayViewClutterMainItem *canvas_item)
 			width, height, day, draw_region);
 
 	}
-#if 0
+
 	/* Fill in the vertical bars corresponding to the busy times from the
 	   long events. */
 	day_view_clutter_main_item_draw_long_events_in_vbars (
-		main_item, drawable, x, y, width, height, draw_region);
+		main_item, cr, x, y, width, height, draw_region);
 
+#if 0
 	/* Draw the event borders and backgrounds, and the vertical bars
 	   down the left edges. */
 	for (day = 0; day < day_view->days_shown; day++)

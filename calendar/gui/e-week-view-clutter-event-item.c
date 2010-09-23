@@ -1133,8 +1133,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 			}
 		}
 		
-		icon_x = x1 + E_WEEK_VIEW_EVENT_L_PAD
-			+ E_WEEK_VIEW_EVENT_BORDER_WIDTH;
+		icon_x = min_end_time_x;
 
 		/* Draw the icons. */
 		if ( 
@@ -1148,8 +1147,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 				icon_y, max_icon_x, FALSE, draw_region);
 		
 			if (val == -1)
-				icon_x = x1 + E_WEEK_VIEW_EVENT_L_PAD
-					+ E_WEEK_VIEW_EVENT_BORDER_WIDTH;
+				icon_x = min_end_time_x + E_WEEK_VIEW_EVENT_TIME_X_PAD;
 			else 
 				icon_x = val;
 		}

@@ -96,7 +96,8 @@ const char *	e_day_view_clutter_event_item_get_edit_text
 EDayViewClutterEventItem * e_day_view_clutter_event_item_new 
 						(EDayView *view,
 						 gint day,
-						 gint event_num);
+						 gint event_num,
+						 gboolean long_event);
 
 void		e_day_view_clutter_event_item_scale_destroy 
 						(EDayViewClutterEventItem *item);
