@@ -63,6 +63,7 @@ struct _EDayViewClutterEventItemPrivate {
 	EDayView *day_view;
 
 	gboolean long_event;
+	gboolean short_event;
 
 	int x1;
 	int y1;
@@ -193,7 +194,31 @@ day_view_clutter_event_item_button_press (EDayViewClutterEventItem *event_item,
 {
 	EDayView *day_view;
 	ECalendarViewPosition pos;
-	EDayViewEvent *event;
+	//EDayViewEvent *event;
+	int day = event_item->priv->day_num;
+
+	GdkEventButton *event;
+	gboolean ret;
+
+	day_view = event_item->priv->day_view;
+
+	if (bevent->button.click_count > 1 )
+		event = gdk_event_new (GDK_2BUTTON_PRESS);
+	else
+		event = gdk_event_new (GDK_BUTTON_PRESS);
+
+	event->time = bevent->button.time;
+	event->button = bevent->button.button;
+	event->x = (gfloat) bevent->button.x;
+	event->y = (gfloat) bevent->button.y;
+
+	if (event_item->priv->day_num == E_DAY_VIEW_LONG_EVENT)
+		ret = e_day_view_on_top_canvas_button_press (day_view->top_canvas, event, day_view);
+	else
+		ret = e_day_view_on_main_canvas_button_press (day_view->main_canvas, event, day_view);
+	gdk_event_free (event);
+
+	return ret;
 
 #if 0
 	day_view = event_item->priv->day_view;
@@ -274,6 +299,27 @@ day_view_clutter_event_item_button_release (EDayViewClutterEventItem *event_item
                                      ClutterEvent *event)
 {
 	EDayView *day_view;
+
+	GdkEventButton *bevent;
+	gboolean ret;
+
+	day_view = event_item->priv->day_view;
+
+	bevent = gdk_event_new (GDK_BUTTON_RELEASE);
+
+	bevent->time = event->button.time;
+	bevent->button = event->button.button;
+	bevent->x = (gfloat) event->button.x;
+	bevent->y = (gfloat) event->button.y;
+
+	ret = e_day_view_on_main_canvas_button_release (day_view->main_canvas, bevent, day_view);
+	gdk_event_free (bevent);
+	day_view->pressed_event_num = -1;
+
+	day_view->editing_event_num = event_item->priv->event_num;
+	day_view->editing_event_day = event_item->priv->day_num;
+	printf("Setting %d %d\n", event_item->priv->event_num, event_item->priv->day_num);
+	return ret;
 
 #if 0
 	day_view = event_item->priv->day_view;
@@ -506,6 +552,11 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 
 	clutter_cairo_texture_set_surface_size (main_item->priv->texture, item_w, item_h);
 	clutter_cairo_texture_clear (main_item->priv->texture);
+	clutter_actor_set_size (main_item->priv->text_item, item_w, item_h);
+	clutter_actor_set_size (main_item, item_w, item_h);
+
+	if (event->just_added)
+		clutter_actor_set_opacity (main_item, 0);
 
 	cr = clutter_cairo_texture_create (main_item->priv->texture);
 	event_x = item_x;
@@ -843,6 +894,12 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 
 	g_object_unref (comp);
 	cairo_destroy (cr);
+
+	if (event->just_added) {
+		event->just_added = FALSE;
+		clutter_actor_animate (main_item, CLUTTER_LINEAR,
+					400, "opacity", 255, NULL);
+	}	
 }
 
 static void
@@ -926,6 +983,9 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 		return;
 
 	clutter_cairo_texture_set_surface_size (main_item->priv->texture, item_w, item_h);
+	clutter_actor_set_size (main_item->priv->text_item, item_w, item_h);
+	clutter_actor_set_size (main_item, item_w, item_h);
+
 	clutter_cairo_texture_clear (main_item->priv->texture);
 
 	cr = clutter_cairo_texture_create (main_item->priv->texture);
@@ -945,6 +1005,9 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 
 	if (!is_comp_data_valid (event))
 		return;
+
+	if (event->just_added)
+		clutter_actor_set_opacity (main_item, 0);
 
 	/* Fill in the event background. Note that for events in the first
 	   column of the day, we might not want to paint over the vertical bar,
@@ -1171,6 +1234,8 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 
 	if (is_editing)
 		short_event = TRUE;
+
+	main_item->priv->short_event = short_event;
 
 	if (gradient) {
 		pat = cairo_pattern_create_linear (item_x + E_DAY_VIEW_BAR_WIDTH + 1.75, item_y + 7.75,
@@ -1513,14 +1578,15 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 	if (icon_x < item_w) {
 		PangoLayout *layout;
 		GdkColor col = e_day_view_get_text_color (day_view, event, day_view);
-		
+		int ypad = short_event ? 0 : (E_DAY_VIEW_ICON_HEIGHT + E_DAY_VIEW_ICON_Y_PAD);
+
 		cairo_save (cr);
 		gdk_cairo_set_source_color (cr, &col);
 		
 		icon_x += E_DAY_VIEW_EVENT_X_PAD;
 
-		cairo_rectangle (cr, icon_x , 2, item_w-icon_x, item_h - 2 - (2 *E_DAY_VIEW_EVENT_BORDER_HEIGHT) 
-					- (2 *E_DAY_VIEW_ICON_Y_PAD));
+		cairo_rectangle (cr, icon_x , 2 + ypad, item_w-icon_x, item_h - 2 - (2 *E_DAY_VIEW_EVENT_BORDER_HEIGHT) 
+					- (2 *E_DAY_VIEW_ICON_Y_PAD) - ypad);
 		cairo_clip (cr);
 		layout = gtk_widget_create_pango_layout (GTK_WIDGET (day_view), NULL);
 		pango_layout_set_width (layout, (item_w - icon_x - 1) * PANGO_SCALE);
@@ -1530,7 +1596,7 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 			pango_layout_set_text (layout, main_item->priv->text, -1);
 				cairo_move_to (cr,
 			       icon_x,
-			       2);
+			       2+ypad);
 			
 		pango_cairo_show_layout (cr, layout);
 
@@ -1546,6 +1612,12 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 	g_free (text);
 	g_object_unref (comp);
 	cairo_destroy (cr);
+
+	if (event->just_added) {
+		event->just_added = FALSE;
+		clutter_actor_animate (main_item, CLUTTER_LINEAR,
+					400, "opacity", 255, NULL);
+	}
 }
 
 
@@ -1741,11 +1813,9 @@ static void
 handle_activate (ClutterActor *actor, 
 		 EDayViewClutterEventItem *item)
 {
-#if 0	
 	gtk_widget_grab_focus (item->priv->day_view);
 	e_day_view_cancel_editing (item->priv->day_view);
 	e_day_view_on_editing_stopped (item->priv->day_view, NULL, TRUE);	
-#endif
 }
 
 static gboolean
@@ -1756,7 +1826,7 @@ handle_text_item_event (ClutterActor *actor,
 	EDayView *day_view = item->priv->day_view;
 
 	switch (event->type) {
-#if 0		
+
 	case CLUTTER_BUTTON_PRESS:
 		if (event->button.button == 3) {
 			e_day_view_cancel_editing (item->priv->day_view);
@@ -1777,7 +1847,7 @@ handle_text_item_event (ClutterActor *actor,
 		}
 		
 		return FALSE;
-#endif		
+
 	default:
 		break;
 	}
@@ -1816,9 +1886,11 @@ e_day_view_clutter_event_item_new (EDayView *view, gint day, gint event_num, gbo
 	item->priv->text_item = clutter_text_new ();
 	g_signal_connect (item->priv->text_item, "event", G_CALLBACK(handle_text_item_event), item);
 	clutter_text_set_activatable (item->priv->text_item, TRUE);
-	clutter_text_set_single_line_mode (item->priv->text_item, TRUE);
+	clutter_text_set_single_line_mode (item->priv->text_item, long_event ? TRUE: FALSE);
+	if (!long_event)
+		clutter_text_set_line_wrap_mode (item->priv->text_item, PANGO_WRAP_CHAR);
 	g_signal_connect (item->priv->text_item, "activate", G_CALLBACK(handle_activate), item);
-	clutter_text_set_line_wrap   (item->priv->text_item, FALSE);
+	clutter_text_set_line_wrap   (item->priv->text_item, !long_event ? TRUE: FALSE);
 	clutter_text_set_editable (item->priv->text_item, TRUE);
 	clutter_actor_set_reactive (item->priv->text_item, TRUE);
 	clutter_actor_hide (item->priv->text_item);
@@ -1868,7 +1940,7 @@ struct _anim_data {
 };
 
 static void
-rotate_stage2 (ClutterAnimation *amim, struct _anim_data *data)
+rotate_xstage2 (ClutterAnimation *amim, struct _anim_data *data)
 {
 	float height=0, width=0;
 	ClutterActor *item = data->item;
@@ -1890,7 +1962,7 @@ rotate_stage2 (ClutterAnimation *amim, struct _anim_data *data)
 }
 
 static void
-rotate_stage1 (ClutterAnimation *amim, struct _anim_data *data)
+rotate_xstage1 (ClutterAnimation *amim, struct _anim_data *data)
 {
 	data->cb1 (data->data1);
 
@@ -1904,14 +1976,14 @@ rotate_stage1 (ClutterAnimation *amim, struct _anim_data *data)
 	clutter_actor_animate (data->item, CLUTTER_EASE_IN_SINE,
 				200,
 				"rotation-angle-x", 360.0,
-				"signal-after::completed", rotate_stage2, data,
+				"signal-after::completed", rotate_xstage2, data,
 				NULL);
 	
 
 }
 
 static void
-wvce_animate_rotate (ClutterActor *item,
+wvce_animate_rotate_x (ClutterActor *item,
 		     void (*cb1) (gpointer),
 		     gpointer data1,
 		     void (*cb2) (gpointer),
@@ -1935,7 +2007,79 @@ wvce_animate_rotate (ClutterActor *item,
 	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
 				200,
 				"rotation-angle-x", 90.0,
-				"signal-after::completed", rotate_stage1, data,
+				"signal-after::completed", rotate_xstage1, data,
+				NULL);
+}
+
+static void
+rotate_ystage2 (ClutterAnimation *amim, struct _anim_data *data)
+{
+	float height=0, width=0;
+	ClutterActor *item = data->item;
+
+	clutter_actor_get_size (item, &width, &height);
+
+	clutter_actor_set_anchor_point (item, 0.0, 0.0);
+	clutter_actor_move_by (item, -width/2, 0);
+
+	clutter_actor_set_rotation (data->item,
+                          CLUTTER_Y_AXIS,  /* or CLUTTER_Y_AXIS */
+                          0.0,             /* set the rotation to this angle */
+                          0.0,
+			  0.0,
+                          0.0);
+
+	data->cb2 (data->data2);	
+	
+}
+
+static void
+rotate_ystage1 (ClutterAnimation *amim, struct _anim_data *data)
+{
+	data->cb1 (data->data1);
+
+	clutter_actor_set_rotation (data->item,
+                          CLUTTER_Y_AXIS,  /* or CLUTTER_Y_AXIS */
+                          270.0,             /* set the rotation to this angle */
+                          0.0,
+			  0.0,
+                          0.0);
+
+	clutter_actor_animate (data->item, CLUTTER_EASE_IN_SINE,
+				200,
+				"rotation-angle-y", 360.0,
+				"signal-after::completed", rotate_ystage2, data,
+				NULL);
+	
+
+}
+
+static void
+wvce_animate_rotate_y (ClutterActor *item,
+		     void (*cb1) (gpointer),
+		     gpointer data1,
+		     void (*cb2) (gpointer),
+		     gpointer data2)
+		     
+{
+	float height=0, width=0;
+	struct _anim_data *data= g_new0 (struct _anim_data, 1);
+
+	data->item = item;
+	data->cb1 = cb1;
+	data->data1 = data1;
+	data->cb2 = cb2;
+	data->data2 = data2;
+
+	clutter_actor_get_size (item, &width, &height);
+
+	clutter_actor_set_anchor_point (item, (float)width/2, 0);
+	clutter_actor_move_by (item, width/2, 0);
+
+	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
+				200,
+				"rotation-angle-y", 90.0,
+				"signal-after::completed", rotate_ystage1, data,
 				NULL);
 }
 
@@ -1955,12 +2099,30 @@ wvce_set_view_editing_2 (EDayViewClutterEventItem *item)
 void 
 e_day_view_clutter_event_item_switch_editing_mode (EDayViewClutterEventItem *item)
 {
-	float height=0, width=0;
+	float height=0, width=0,x,y;
+	gint w=0, h=0;
+	
+	clutter_cairo_texture_get_surface_size (item->priv->texture, &w, &h);
 
 	clutter_text_set_text (item->priv->text_item, item->priv->text);
+	clutter_grab_keyboard (item->priv->text_item);
+	clutter_actor_grab_key_focus (item->priv->text_item);	
+//	clutter_actor_hide (item->priv->texture);
+//	clutter_actor_show (item->priv->text_item);
 
-	wvce_animate_rotate (item, wvce_set_view_editing_1, item,
-				wvce_set_view_editing_2, item);
+//	clutter_actor_set_size (item->priv->text_item, w, h);
+//	clutter_actor_get_position (item->priv->text_item, &x, &y);
+//	clutter_actor_set_clip              (item->priv->text_item,
+//						x,y,
+//						(float)w, (float)h);
+	
+	if (!item->priv->long_event && !item->priv->short_event)
+		wvce_animate_rotate_y (item, wvce_set_view_editing_1, item,
+					wvce_set_view_editing_2, item);
+	else
+		wvce_animate_rotate_x (item, wvce_set_view_editing_1, item,
+					wvce_set_view_editing_2, item);
+
 
 }
 
@@ -1975,11 +2137,14 @@ scale_stage2 (ClutterAnimation *amim, struct _anim_data *data)
 static void
 scale_stage1 (ClutterAnimation *amim, struct _anim_data *data)
 {
-	data->cb1 (data->data1);
+	EDayViewClutterEventItem *eitem = (EDayViewClutterEventItem *)data->item;
+	gboolean se = eitem->priv->long_event || eitem->priv->short_event;
 
+	data->cb1 (data->data1);
+	
 	clutter_actor_animate (data->item, CLUTTER_EASE_IN_SINE,
 				200,
-				"scale-x", 1.0,
+				se ? "scale-y" : "scale-x", 1.0,
 				"signal-after::completed", scale_stage2, data,
 				NULL);
 	
@@ -1996,7 +2161,8 @@ wvce_animate_scale (ClutterActor *item,
 {
 	float height=0, width=0;
 	struct _anim_data *data= g_new0 (struct _anim_data, 1);
-
+	EDayViewClutterEventItem *eitem = (EDayViewClutterEventItem *)item;
+	gboolean se = eitem->priv->long_event || eitem->priv->short_event;
 	data->item = item;
 	data->cb1 = cb1;
 	data->data1 = data1;
@@ -2009,7 +2175,7 @@ wvce_animate_scale (ClutterActor *item,
 
 	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
 				200,
-				"scale-x", 0.0,
+				se ? "scale-y" : "scale-x", 0.0,
 				"signal-after::completed", scale_stage1, data,
 				NULL);
 }
@@ -2029,6 +2195,8 @@ wvce_set_view_normal_2 (EDayViewClutterEventItem *item)
 void 
 e_day_view_clutter_event_item_switch_normal_mode (EDayViewClutterEventItem *item)
 {
+	//clutter_actor_hide (item->priv->text_item);
+	//clutter_actor_show (item->priv->texture);	
 
 	wvce_animate_scale (item, wvce_set_view_normal_1, item,
 				wvce_set_view_normal_2, item);

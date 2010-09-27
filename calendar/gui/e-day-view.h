@@ -652,6 +652,25 @@ void e_day_view_ensure_rows_visible (EDayView *day_view,
 GdkColor   e_day_view_get_text_color 		(EDayView *day_view, 
 						 EDayViewEvent *event, 
 						 GtkWidget *widget);
+void	   e_day_view_cancel_editing 		(EDayView *day_view);
+gboolean   e_day_view_on_editing_stopped 	(EDayView *day_view,
+			       			 GnomeCanvasItem *item,
+						 gboolean create);
+void	   e_day_view_start_editing_event 	(EDayView *day_view,
+						 gint	  day,
+						 gint	  event_num,
+						 GdkEventKey *key_event);
+gboolean
+e_day_view_on_main_canvas_button_press (GtkWidget *widget,
+					GdkEventButton *event,
+					EDayView *day_view);
+gboolean
+e_day_view_on_main_canvas_button_release (GtkWidget *widget,
+					  GdkEventButton *event,
+					  EDayView *day_view);
+gboolean e_day_view_on_top_canvas_button_press (GtkWidget *widget,
+						       GdkEventButton *event,
+						       EDayView *day_view);
 
 G_END_DECLS
 

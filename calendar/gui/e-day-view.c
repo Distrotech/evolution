@@ -184,22 +184,12 @@ static void e_day_view_update_top_scroll (EDayView *day_view, gboolean scroll_to
 static void e_day_view_on_canvas_realized (GtkWidget *widget,
 					   EDayView *day_view);
 
-static gboolean e_day_view_on_top_canvas_button_press (GtkWidget *widget,
-						       GdkEventButton *event,
-						       EDayView *day_view);
 static gboolean e_day_view_on_top_canvas_button_release (GtkWidget *widget,
 							 GdkEventButton *event,
 							 EDayView *day_view);
 static gboolean e_day_view_on_top_canvas_motion (GtkWidget *widget,
 						 GdkEventMotion *event,
 						 EDayView *day_view);
-
-static gboolean e_day_view_on_main_canvas_button_press (GtkWidget *widget,
-							GdkEventButton *event,
-							EDayView *day_view);
-static gboolean e_day_view_on_main_canvas_button_release (GtkWidget *widget,
-							  GdkEventButton *event,
-							  EDayView *day_view);
 
 static gboolean e_day_view_on_top_canvas_scroll (GtkWidget *widget,
 						 GdkEventScroll *scroll,
@@ -326,10 +316,6 @@ static void e_day_view_reshape_main_canvas_resize_bars (EDayView *day_view);
 
 static void e_day_view_ensure_events_sorted (EDayView *day_view);
 
-static void e_day_view_start_editing_event (EDayView *day_view,
-					    gint day,
-					    gint event_num,
-					    GdkEventKey *key_event);
 static void e_day_view_stop_editing_event (EDayView *day_view);
 static gboolean e_day_view_on_text_item_event (GnomeCanvasItem *item,
 					       GdkEvent *event,
@@ -340,8 +326,6 @@ time_t end_dt);
 static void e_day_view_change_event_end_time_up (EDayView *day_view);
 static void e_day_view_change_event_end_time_down (EDayView *day_view);
 static void e_day_view_on_editing_started (EDayView *day_view,
-					   GnomeCanvasItem *item);
-static void e_day_view_on_editing_stopped (EDayView *day_view,
 					   GnomeCanvasItem *item);
 
 static time_t e_day_view_convert_grid_position_to_time (EDayView *day_view,
@@ -2335,6 +2319,7 @@ e_day_view_remove_event_cb (EDayView *day_view,
 			    gpointer data)
 {
 	EDayViewEvent *event;
+	gboolean delete_from_cal = data != NULL ? TRUE : FALSE;
 
 #if 0
 	g_print ("In e_day_view_remove_event_cb day:%i event_num:%i\n",
@@ -2373,8 +2358,12 @@ e_day_view_remove_event_cb (EDayView *day_view,
 	if (event->canvas_item)
 		gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 
-	if (event->actor)
-		clutter_actor_destroy (event->actor);
+	if (event->actor) {
+		if (delete_from_cal||event->marked_for_delete)
+			e_day_view_clutter_event_item_scale_destroy (event->actor);
+		else
+			e_day_view_clutter_event_item_fade_destroy (event->actor);
+	}
 	event->actor = NULL;
 
 	if (is_comp_data_valid (event))
@@ -2478,12 +2467,18 @@ e_day_view_update_event_label (EDayView *day_view,
 	} else
 		short_event = FALSE;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (!editing_event) {
 		if (!short_event) {
 			text = g_strdup_printf (" \n%s", text);
 			free_text = TRUE;
 		}
 	}
+#if HAVE_CLUTTER
+	}
+#endif
 
 #if HAVE_CLUTTER
 	if (WITHOUT_CLUTTER) {
@@ -3628,7 +3623,7 @@ e_day_view_convert_time_to_position (EDayView	*day_view,
 	return offset * day_view->row_height / day_view->mins_per_row;
 }
 
-static gboolean
+gboolean
 e_day_view_on_top_canvas_button_press (GtkWidget *widget,
 				       GdkEventButton *event,
 				       EDayView *day_view)
@@ -3657,24 +3652,33 @@ e_day_view_on_top_canvas_button_press (GtkWidget *widget,
 							 event_x, event_y,
 							 &day, &event_num);
 
-	if (pos == E_CALENDAR_VIEW_POS_OUTSIDE)
-		return FALSE;
-
+	if (pos == E_CALENDAR_VIEW_POS_OUTSIDE) {
 #if HAVE_CLUTTER
-	if (WITHOUT_CLUTTER) {
-#endif		
+		if (!WITHOUT_CLUTTER) {
+			e_day_view_cancel_editing (day_view);
+			if (e_day_view_on_editing_stopped (day_view, NULL, FALSE)) {
+				day_view->editing_event_num = -1;
+				day_view->editing_event_day = -1;
+			}
+			gtk_widget_grab_focus (day_view);			
+		}
+#endif				
+		return FALSE;
+	}
+
 	if (pos != E_CALENDAR_VIEW_POS_NONE)
 		return e_day_view_on_long_event_button_press (day_view,
 							      event_num,
 							      event, pos,
 							      event_x,
 							      event_y);
-#if HAVE_CLUTTER 
-	} else {
-	if (pos != E_CALENDAR_VIEW_POS_NONE)	
-		return FALSE;
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		e_day_view_cancel_editing (day_view);
+		e_day_view_on_editing_stopped (day_view, NULL, TRUE);	
+		gtk_widget_grab_focus (day_view);
 	}
-#endif	
+#endif			
 	e_day_view_stop_editing_event (day_view);
 
 	if (event->button == 1) {
@@ -3767,13 +3771,21 @@ e_day_view_convert_event_coords (EDayView *day_view,
 	*x_return = event_x;
 	*y_return = event_y;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	if (event_window != window)
 		g_warning ("Couldn't find event window\n");
 
 	return (event_window == window) ? TRUE : FALSE;
+#if HAVE_CLUTTER
+	} else {
+	return TRUE;
+	}
+#endif	
 }
 
-static gboolean
+gboolean
 e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 					GdkEventButton *event,
 					EDayView *day_view)
@@ -3808,23 +3820,33 @@ e_day_view_on_main_canvas_button_press (GtkWidget *widget,
 							  &day, &row,
 							  &event_num);
 
-	if (pos == E_CALENDAR_VIEW_POS_OUTSIDE)
-		return FALSE;
-
-	if (pos != E_CALENDAR_VIEW_POS_NONE) {
+	if (pos == E_CALENDAR_VIEW_POS_OUTSIDE) {
 #if HAVE_CLUTTER
-		if (WITHOUT_CLUTTER) {
-#endif			
+		if (!WITHOUT_CLUTTER) {
+			e_day_view_cancel_editing (day_view);
+			if (e_day_view_on_editing_stopped (day_view, NULL, FALSE)) {
+				day_view->editing_event_num = -1;
+				day_view->editing_event_day = -1;
+			}
+			gtk_widget_grab_focus (day_view);			
+		}
+#endif		
+
+		return FALSE;
+	}
+	if (pos != E_CALENDAR_VIEW_POS_NONE) {
 		return e_day_view_on_event_button_press (day_view, day,
 							 event_num, event, pos,
 							 event_x, event_y);
-#if HAVE_CLUTTER
-		} else {
-		return FALSE;
-		}
-#endif		
 	}
 
+#if HAVE_CLUTTER
+		if (!WITHOUT_CLUTTER) {
+			e_day_view_cancel_editing (day_view);
+			e_day_view_on_editing_stopped (day_view, NULL, TRUE);	
+			gtk_widget_grab_focus (day_view);
+		}
+#endif			
 	e_day_view_stop_editing_event (day_view);
 
 	/* Start the selection drag. */
@@ -4037,7 +4059,7 @@ e_day_view_on_long_event_click (EDayView *day_view,
 		return;
 
 	/* Ignore clicks on the EText while editing. */
-	if (pos == E_CALENDAR_VIEW_POS_EVENT
+	if (pos == E_CALENDAR_VIEW_POS_EVENT && event->canvas_item
 	    && E_TEXT (event->canvas_item)->editing) {
 		GNOME_CANVAS_ITEM_GET_CLASS (event->canvas_item)->event (event->canvas_item, (GdkEvent*)bevent);
 		return;
@@ -4118,7 +4140,7 @@ e_day_view_on_event_click (EDayView *day_view,
 		return;
 
 	/* Ignore clicks on the EText while editing. */
-	if (pos == E_CALENDAR_VIEW_POS_EVENT
+	if (pos == E_CALENDAR_VIEW_POS_EVENT && event->canvas_item
 	    && E_TEXT (event->canvas_item)->editing) {
 		GNOME_CANVAS_ITEM_GET_CLASS (event->canvas_item)->event (event->canvas_item, (GdkEvent*)bevent);
 		return;
@@ -4344,10 +4366,20 @@ e_day_view_on_top_canvas_button_release (GtkWidget *widget,
 		gdk_pointer_ungrab (event->time);
 		e_day_view_finish_long_event_resize (day_view);
 	} else if (day_view->pressed_event_day != -1) {
+		if (day_view->editing_event_num != -1) {
+			e_day_view_cancel_editing (day_view);
+			e_day_view_on_editing_stopped (day_view, NULL, TRUE);
+		}		
 		e_day_view_start_editing_event (day_view,
 						day_view->pressed_event_day,
 						day_view->pressed_event_num,
 						NULL);
+#if HAVE_CLUTTER
+		if (!WITHOUT_CLUTTER) {
+			day_view->editing_event_num = day_view->pressed_event_num;
+			day_view->editing_event_day = day_view->pressed_event_day;
+		}
+#endif				
 	}
 
 	day_view->pressed_event_day = -1;
@@ -4355,7 +4387,7 @@ e_day_view_on_top_canvas_button_release (GtkWidget *widget,
 	return FALSE;
 }
 
-static gboolean
+gboolean
 e_day_view_on_main_canvas_button_release (GtkWidget *widget,
 					  GdkEventButton *event,
 					  EDayView *day_view)
@@ -4373,10 +4405,21 @@ e_day_view_on_main_canvas_button_release (GtkWidget *widget,
 		e_day_view_finish_resize (day_view);
 		e_day_view_stop_auto_scroll (day_view);
 	} else if (day_view->pressed_event_day != -1) {
+		if (day_view->editing_event_num != -1) {
+			e_day_view_cancel_editing (day_view);
+			e_day_view_on_editing_stopped (day_view, NULL, TRUE);
+		}
+		
 		e_day_view_start_editing_event (day_view,
 						day_view->pressed_event_day,
 						day_view->pressed_event_num,
 						NULL);
+#if HAVE_CLUTTER
+		if (!WITHOUT_CLUTTER) {
+			day_view->editing_event_num = day_view->pressed_event_num;
+			day_view->editing_event_day = day_view->pressed_event_day;
+		}
+#endif		
 	}
 
 	day_view->pressed_event_day = -1;
@@ -5246,6 +5289,8 @@ e_day_view_add_event (ECalComponent *comp,
 	event.timeout = -1;
 	event.end = end;
 	event.canvas_item = NULL;
+	event.marked_for_delete = FALSE;
+	event.just_added = TRUE;
 #if HAVE_CLUTTER
 	event.actor = NULL;
 #endif	
@@ -5954,6 +5999,13 @@ e_day_view_do_key_press (GtkWidget *widget, GdkEventKey *event)
 	day_view = E_DAY_VIEW (widget);
 	keyval = event->keyval;
 
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER && day_view->editing_event_num != -1) {
+
+		return TRUE;
+
+	}
+#endif		
 	/* The Escape key aborts a resize operation. */
 	if (day_view->resize_drag_pos != E_CALENDAR_VIEW_POS_NONE) {
 		if (keyval == GDK_Escape) {
@@ -6859,7 +6911,7 @@ e_day_view_ensure_rows_visible (EDayView *day_view,
 	gtk_adjustment_set_value (adjustment, value);
 }
 
-static void
+void
 e_day_view_start_editing_event (EDayView *day_view,
 				gint	  day,
 				gint	  event_num,
@@ -6899,6 +6951,14 @@ e_day_view_start_editing_event (EDayView *day_view,
 	if (!e_cal_is_read_only (event->comp_data->client, &read_only, NULL) || read_only)
 		return;
 
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+	gtk_widget_grab_focus (day_view->main_canvas_embed);
+	e_day_view_clutter_event_item_switch_editing_mode (event->actor);
+	day_view->editing_event_num = event_num;
+	day_view->editing_event_day = day;
+	}
+#endif		
 	/* If the event is not shown, don't try to edit it. */
 	if (!event->canvas_item)
 		return;
@@ -6985,12 +7045,25 @@ cancel_editing (EDayView *day_view)
 	/* Reset the text to what was in the component */
 
 	summary = icalcomponent_get_summary (event->comp_data->icalcomp);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif			
 	g_object_set (G_OBJECT (event->canvas_item),
 		      "text", summary ? summary : "",
 		      NULL);
-
+#if HAVE_CLUTTER
+	} else {
+	e_day_view_clutter_event_item_switch_normal_mode (event->actor);
+	}
+#endif	
 	/* Stop editing */
 	e_day_view_stop_editing_event (day_view);
+}
+
+void
+e_day_view_cancel_editing (EDayView *day_view)
+{
+	cancel_editing (day_view);
 }
 
 static EDayViewEvent *
@@ -7100,7 +7173,7 @@ e_day_view_on_text_item_event (GnomeCanvasItem *item,
 		if (event->focus_change.in)
 			e_day_view_on_editing_started (day_view, item);
 		else
-			e_day_view_on_editing_stopped (day_view, item);
+			e_day_view_on_editing_stopped (day_view, item, TRUE);
 
 		return FALSE;
 	case GDK_ENTER_NOTIFY:
@@ -7513,9 +7586,10 @@ e_day_view_on_editing_started (EDayView *day_view,
 	g_signal_emit_by_name (day_view, "selection_changed");
 }
 
-static void
+gboolean
 e_day_view_on_editing_stopped (EDayView *day_view,
-			       GnomeCanvasItem *item)
+			       GnomeCanvasItem *item,
+			       gboolean create)
 {
 	gint day, event_num;
 	EDayViewEvent *event;
@@ -7524,6 +7598,7 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 	ECalComponent *comp;
 	ECal *client;
 	gboolean on_server;
+	gboolean ret = TRUE;
 
 	/* Note: the item we are passed here isn't reliable, so we just stop
 	   the edit of whatever item was being edited. We also receive this
@@ -7538,17 +7613,17 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 
 	/* If no item is being edited, just return. */
 	if (day == -1)
-		return;
+		return TRUE;
 
 	if (day == E_DAY_VIEW_LONG_EVENT) {
 		if (!is_array_index_in_bounds (day_view->long_events, event_num))
-			return;
+			return TRUE;
 
 		event = &g_array_index (day_view->long_events, EDayViewEvent,
 					event_num);
 	} else {
 		if (!is_array_index_in_bounds (day_view->events[day], event_num))
-			return;
+			return TRUE;
 
 		event = &g_array_index (day_view->events[day], EDayViewEvent,
 					event_num);
@@ -7556,7 +7631,7 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 	}
 
 	if (!is_comp_data_valid (event))
-		return;
+		return TRUE;
 
 	/* Reset the edit fields. */
 	day_view->editing_event_day = -1;
@@ -7565,11 +7640,20 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 	day_view->resize_bars_event_day = -1;
 	day_view->resize_bars_event_num = -1;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	g_object_set (event->canvas_item, "handle_popup", FALSE, NULL);
 	g_object_get (G_OBJECT (event->canvas_item),
 		      "text", &text,
 		      NULL);
-	g_return_if_fail (text != NULL);
+#if HAVE_CLUTTER
+	} else {
+	e_day_view_clutter_event_item_switch_normal_mode (event->actor);
+	text = g_strdup(e_day_view_clutter_event_item_get_edit_text (event->actor));
+	}
+#endif		
+	g_return_val_if_fail (text != NULL, TRUE);
 
 	comp = e_cal_component_new ();
 	e_cal_component_set_icalcomponent (comp, icalcomponent_new_clone (event->comp_data->icalcomp));
@@ -7583,7 +7667,7 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 		e_cal_component_get_uid (comp, &uid);
 
 		e_day_view_foreach_event_with_uid (day_view, uid,
-						   e_day_view_remove_event_cb, NULL);
+						   e_day_view_remove_event_cb, TRUE);
 		e_day_view_check_layout (day_view);
 #if HAVE_CLUTTER
 	if (WITHOUT_CLUTTER) {
@@ -7596,6 +7680,7 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 	e_day_view_clutter_top_item_redraw ((EDayViewClutterTopItem *)day_view->top_canvas_actor);
 	}
 #endif			
+		ret = FALSE;
 		goto out;
 	}
 
@@ -7623,7 +7708,7 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 					E_CALENDAR_VIEW (day_view));
 
 			/* we remove the object since we either got the update from the server or failed */
-			e_day_view_remove_event_cb (day_view, day, event_num, NULL);
+			e_day_view_remove_event_cb (day_view, day, event_num, TRUE);
 		} else {
 			CalObjModType mod = CALOBJ_MOD_ALL;
 			GtkWindow *toplevel;
@@ -7707,6 +7792,7 @@ e_day_view_on_editing_stopped (EDayView *day_view,
 	g_free (text);
 
 	g_signal_emit_by_name (day_view, "selection_changed");
+	return ret;
 }
 
 /* FIXME: It is possible that we may produce an invalid time due to daylight
