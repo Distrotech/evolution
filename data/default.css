@@ -8,6 +8,9 @@ EMailTabPicker {
   border-image: url('calendar-title-bg.png') 7 7 0 7;
 }
 
+*#MonthEventTile {
+  border-image: url('event.png') 0;
+}
 *#CalendarTimeBox {
   border-image: url('calendar-title-bg.png') 7 7 7 0;
 }

@@ -37,7 +37,9 @@ dist_theme_DATA =	\
 	preview-tab-active-private.png	\
 	preview-tab-hover-private.png	\
 	tab-add.png	\
-	tab-add-hover.png
+	tab-add-hover.png	\
+	current-time.png	\
+	event.png
 
 if HAVE_KDE_APPLNK
 
