@@ -1626,7 +1626,7 @@ scale_stage1 (ClutterAnimation *amim, struct _anim_data *data)
 
 	clutter_actor_animate (data->item, CLUTTER_EASE_IN_SINE,
 				200,
-				"scale-x", 1.0,
+				"scale-y", 1.0,
 				"signal-after::completed", scale_stage2, data,
 				NULL);
 	
@@ -1656,7 +1656,7 @@ wvce_animate_scale (ClutterActor *item,
 
 	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
 				200,
-				"scale-x", 0.0,
+				"scale-y", 0.0,
 				"signal-after::completed", scale_stage1, data,
 				NULL);
 }

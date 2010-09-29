@@ -119,7 +119,7 @@ day_view_clutter_main_item_draw_long_events_in_vbars (EDayViewClutterMainItem *m
 			continue;
 
 		/* If the event is TRANSPARENT, skip it. */
-		if (icalcomp_is_transparent (event->comp_data->icalcomp)) {
+		if (0 && icalcomp_is_transparent (event->comp_data->icalcomp)) {
 			continue;
 		}
 
@@ -882,7 +882,8 @@ day_view_clutter_main_item_draw_events_in_vbars (EDayViewClutterMainItem *main_i
 
 		/* We can skip the events in the first column since they will
 		   draw over this anyway. */
-		if (event->num_columns > 0 && event->start_row_or_col == 0) {
+		
+		if (0 && event->num_columns > 0 && event->start_row_or_col == 0) {
 			continue;
 		}
 

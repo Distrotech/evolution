@@ -639,7 +639,8 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 	if (gradient) {
 		pat = cairo_pattern_create_linear (item_x - x + 5.5, item_y + 2.5 - y,
 						item_x - x + 5, item_y - y + item_h + 7.5);
-		cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.8);
+		//cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.8);		
+		cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.4);
 		cairo_pattern_add_color_stop_rgba (pat, 0, red/cc, green/cc, blue/cc, 0.4);
 		cairo_set_source (cr, pat);
 		cairo_fill_preserve (cr);
@@ -1241,13 +1242,17 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 		pat = cairo_pattern_create_linear (item_x + E_DAY_VIEW_BAR_WIDTH + 1.75, item_y + 7.75,
 							item_x + E_DAY_VIEW_BAR_WIDTH + 1.75, item_y + item_h - 7.75);
 		if (!short_event) {
-			cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.8);
-			cairo_pattern_add_color_stop_rgba (pat, 1/(date_fraction + (rect_height/18)), red/cc, green/cc, blue/cc, 0.8);
+			float midpoint = (1 - 1/(date_fraction + (rect_height/18)))/2;
+			cairo_pattern_add_color_stop_rgba (pat, 0, red/cc, green/cc, blue/cc, 0.8);
+			cairo_pattern_add_color_stop_rgba (pat, (1/(date_fraction + (rect_height/18))) - 0.0001, red/cc, green/cc, blue/cc, 0.8);			
 			cairo_pattern_add_color_stop_rgba (pat, 1/(date_fraction + (rect_height/18)), red/cc, green/cc, blue/cc, 0.4);
-			cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.8);
+			//cairo_pattern_add_color_stop_rgba (pat, midpoint, red/cc, green/cc, blue/cc, 0.8);
+			cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.4);
 		} else {
-			cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.8);
-			cairo_pattern_add_color_stop_rgba (pat, 0, red/cc, green/cc, blue/cc, 0.4);
+			cairo_pattern_add_color_stop_rgba (pat, 0, red/cc, green/cc, blue/cc, 0.4);			
+			//cairo_pattern_add_color_stop_rgba (pat, 0.25, red/cc, green/cc, blue/cc, 0.8);
+			//cairo_pattern_add_color_stop_rgba (pat, 0.75, red/cc, green/cc, blue/cc, 0.8);			
+			cairo_pattern_add_color_stop_rgba (pat, 1, red/cc, green/cc, blue/cc, 0.4);
 		}
 		cairo_set_source (cr, pat);
 		cairo_fill_preserve (cr);
