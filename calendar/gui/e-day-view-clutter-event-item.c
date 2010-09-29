@@ -318,7 +318,7 @@ day_view_clutter_event_item_button_release (EDayViewClutterEventItem *event_item
 
 	day_view->editing_event_num = event_item->priv->event_num;
 	day_view->editing_event_day = event_item->priv->day_num;
-	printf("Setting %d %d\n", event_item->priv->event_num, event_item->priv->day_num);
+
 	return ret;
 
 #if 0

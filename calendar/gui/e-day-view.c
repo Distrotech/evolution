@@ -1420,6 +1420,10 @@ e_day_view_init (EDayView *day_view)
 				       NULL);
 	gnome_canvas_item_hide (day_view->drag_rect_item);
 
+#if HAVE_CLUTTER	
+	day_view->drag_actor = NULL;
+#endif
+
 	day_view->drag_bar_item =
 		gnome_canvas_item_new (canvas_group,
 				       gnome_canvas_rect_get_type (),
@@ -2358,7 +2362,7 @@ e_day_view_remove_event_cb (EDayView *day_view,
 	if (event->canvas_item)
 		gtk_object_destroy (GTK_OBJECT (event->canvas_item));
 
-	if (event->actor) {
+	if (event->actor && !(event->being_dragged && day_view->drag_success)) {
 		if (delete_from_cal||event->marked_for_delete)
 			e_day_view_clutter_event_item_scale_destroy (event->actor);
 		else
@@ -4108,6 +4112,8 @@ e_day_view_on_long_event_click (EDayView *day_view,
 
 		day_view->drag_event_x = event_x;
 		day_view->drag_event_y = event_y;
+		day_view->drag_x_offset = event_x;
+		day_view->drag_y_offset = event_y;
 
 		e_day_view_convert_position_in_top_canvas (day_view,
 							   event_x, event_y,
@@ -4194,6 +4200,8 @@ e_day_view_on_event_click (EDayView *day_view,
 
 		day_view->drag_event_x = event_x;
 		day_view->drag_event_y = event_y;
+		day_view->drag_x_offset = event_x;
+		day_view->drag_y_offset = event_y;
 
 		e_day_view_convert_position_in_main_canvas (day_view,
 							    event_x, event_y,
@@ -5291,8 +5299,13 @@ e_day_view_add_event (ECalComponent *comp,
 	event.canvas_item = NULL;
 	event.marked_for_delete = FALSE;
 	event.just_added = TRUE;
+	event.being_dragged = FALSE;
 #if HAVE_CLUTTER
-	event.actor = NULL;
+	if (add_event_data->day_view->drag_preserve && add_event_data->day_view->drag_success) {
+		event.actor = add_event_data->day_view->drag_preserve;
+		add_event_data->day_view->drag_preserve = NULL;
+	} else
+		event.actor = NULL;
 #endif	
 	event.comp_data->instance_start = start;
 	event.comp_data->instance_end = end;
@@ -5556,11 +5569,18 @@ e_day_view_reshape_long_event (EDayView *day_view,
 	}
 #if HAVE_CLUTTER
 	} else {
-
-	if (event->actor) {	
+	ClutterActor *anim_actor = NULL;
+		
+	if (event->actor && !event->just_added) {	
 		clutter_actor_destroy (event->actor);
 		event->actor = NULL;
 	}		
+
+	if (event->just_added && event->actor) {
+		anim_actor = event->actor;
+		event->actor = NULL;
+	}
+	
 	if (!event->actor) {
 		event->actor = e_day_view_clutter_event_item_new (day_view, E_DAY_VIEW_LONG_EVENT, event_num, TRUE);
 		g_signal_emit_by_name (G_OBJECT(day_view),
@@ -5572,6 +5592,24 @@ e_day_view_reshape_long_event (EDayView *day_view,
 		e_day_view_update_long_event_label (day_view, event_num);
 
 	}
+	if (anim_actor) {
+		gfloat w,h;
+
+		event->just_added = FALSE;
+		clutter_actor_get_size (event->actor, &w, &h);
+
+		clutter_actor_raise_top (anim_actor);
+		clutter_actor_show (anim_actor);
+		clutter_actor_animate (anim_actor,
+			CLUTTER_LINEAR, 200,
+			"x", (float)item_x,
+			"y", (float)item_y,
+			"width", w,
+			"height", h,
+			"opacity", 255,
+			"signal-swapped::completed", clutter_actor_destroy, anim_actor,
+			NULL);
+	}	
 	}
 #endif	
 	/* Calculate its position. We first calculate the ideal position which
@@ -5778,11 +5816,17 @@ e_day_view_reshape_day_event (EDayView *day_view,
 					    item_x, item_y);
 #if HAVE_CLUTTER
 		} else {
+		ClutterActor *anim_actor = NULL;
 
-		if (event->actor) {
+		if (event->actor && !event->just_added) {
 			clutter_actor_destroy (event->actor);
 			event->actor = NULL;
-		}		
+		}
+
+		if (event->just_added && event->actor) {
+			anim_actor = event->actor;
+			event->actor = NULL;
+		}
 		if (!event->actor) {
 			event->actor = e_day_view_clutter_event_item_new (day_view, day, event_num, FALSE);
 			g_signal_emit_by_name (G_OBJECT(day_view),
@@ -5793,6 +5837,24 @@ e_day_view_reshape_day_event (EDayView *day_view,
 			clutter_actor_show (event->actor);
 			e_day_view_update_event_label (day_view, day, event_num);
 
+		} 
+		
+		if (anim_actor) {
+			gfloat w,h;
+			event->just_added = FALSE;
+			clutter_actor_get_size (event->actor, &w, &h);
+
+			clutter_actor_raise_top (anim_actor);
+			clutter_actor_show (anim_actor);
+			clutter_actor_animate (anim_actor,
+				CLUTTER_LINEAR, 200,
+				"x", (float)item_x,
+				"y", (float)item_y,
+				"width", w,
+				"height", h,
+				"opacity", 255,
+				"signal-swapped::completed", clutter_actor_destroy, anim_actor,
+				NULL);
 		}
 		}
 #endif		
@@ -7984,7 +8046,7 @@ e_day_view_auto_scroll_handler (gpointer data)
 			e_day_view_update_selection (day_view, day, row);
 		} else if (day_view->resize_drag_pos != E_CALENDAR_VIEW_POS_NONE) {
 			e_day_view_update_resize (day_view, row);
-		} else if (day_view->drag_item->flags & GNOME_CANVAS_ITEM_VISIBLE) {
+		} else if (day_view->drag_item && day_view->drag_item->flags & GNOME_CANVAS_ITEM_VISIBLE) {
 			e_day_view_update_main_canvas_drag (day_view, row, day);
 		}
 	}
@@ -8327,14 +8389,36 @@ e_day_view_on_top_canvas_drag_motion (GtkWidget      *widget,
 				      EDayView	     *day_view)
 {
 	gint scroll_x, scroll_y;
+	GtkAdjustment *adj = gtk_layout_get_vadjustment (day_view->main_canvas);
+	int offset_y = gtk_adjustment_get_value (adj);
 
+#if HAVE_CLUTTER	
+	if (day_view->drag_hidden) {
+		day_view->drag_hidden = FALSE;
+		clutter_container_add_actor (day_view->top_canvas_stage, day_view->drag_actor);
+		clutter_actor_show (day_view->drag_actor);
+		g_object_unref (day_view->drag_actor);
+	}
+#endif
+
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
 	gnome_canvas_get_scroll_offsets (GNOME_CANVAS (widget),
 					 &scroll_x, &scroll_y);
 	day_view->drag_event_x = x + scroll_x;
 	day_view->drag_event_y = y + scroll_y;
+#if HAVE_CLUTTER 
+	}
+#endif	
 
 	e_day_view_reshape_top_canvas_drag_item (day_view);
 
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		clutter_actor_set_position (day_view->drag_actor, (float) (x-day_view->drag_x_offset), (float)(y-day_view->drag_y_offset + offset_y)); 
+	}
+#endif	
 	return TRUE;
 }
 
@@ -8404,7 +8488,7 @@ e_day_view_update_top_canvas_drag (EDayView *day_view,
 	}
 
 	/* If the position hasn't changed, just return. */
-	if (day_view->drag_last_day == day
+	if (day_view->drag_long_event_item && day_view->drag_last_day == day
 	    && (day_view->drag_long_event_item->flags & GNOME_CANVAS_ITEM_VISIBLE))
 		return;
 
@@ -8432,7 +8516,7 @@ e_day_view_update_top_canvas_drag (EDayView *day_view,
 				     item_x + E_DAY_VIEW_LONG_EVENT_BORDER_WIDTH + E_DAY_VIEW_LONG_EVENT_X_PAD,
 				     item_y + E_DAY_VIEW_LONG_EVENT_BORDER_HEIGHT + E_DAY_VIEW_LONG_EVENT_Y_PAD);
 
-	if (!(day_view->drag_long_event_rect_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
+	if (day_view->drag_long_event_rect_item && !(day_view->drag_long_event_rect_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
 		gnome_canvas_item_raise_to_top (day_view->drag_long_event_rect_item);
 		gnome_canvas_item_show (day_view->drag_long_event_rect_item);
 	}
@@ -8440,7 +8524,7 @@ e_day_view_update_top_canvas_drag (EDayView *day_view,
 	/* Set the text, if necessary. We don't want to set the text every
 	   time it moves, so we check if it is currently invisible and only
 	   set the text then. */
-	if (!(day_view->drag_long_event_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
+	if (day_view->drag_long_event_rect_item && !(day_view->drag_long_event_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
 		const gchar *summary;
 
 		if (event && is_comp_data_valid (event)) {
@@ -8469,18 +8553,39 @@ e_day_view_on_main_canvas_drag_motion (GtkWidget      *widget,
 				       EDayView	      *day_view)
 {
 	gint scroll_x, scroll_y;
+	GtkAdjustment *adj = gtk_layout_get_vadjustment (day_view->main_canvas);
+	int offset_y = gtk_adjustment_get_value (adj);
 
+#if HAVE_CLUTTER	
+	if (day_view->drag_hidden) {
+		day_view->drag_hidden = FALSE;
+		clutter_container_add_actor (day_view->main_canvas_stage, day_view->drag_actor);
+		clutter_actor_show (day_view->drag_actor);
+		g_object_unref (day_view->drag_actor);
+	}
+#endif
+
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_get_scroll_offsets (GNOME_CANVAS (widget),
 					 &scroll_x, &scroll_y);
 
 	day_view->drag_event_x = x + scroll_x;
 	day_view->drag_event_y = y + scroll_y;
-
+#if HAVE_CLUTTER 
+	}
+#endif	
 	e_day_view_reshape_main_canvas_drag_item (day_view);
 	e_day_view_reshape_main_canvas_resize_bars (day_view);
 
 	e_day_view_check_auto_scroll (day_view, day_view->drag_event_x, day_view->drag_event_y);
 
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		clutter_actor_set_position (day_view->drag_actor, (float) (x-day_view->drag_x_offset), (float)(y-day_view->drag_y_offset + offset_y)); 
+	}
+#endif	
 	return TRUE;
 }
 
@@ -8521,6 +8626,7 @@ e_day_view_update_main_canvas_drag (EDayView *day_view,
 	/* If the position hasn't changed, just return. */
 	if (day_view->drag_last_day == day
 	    && day_view->drag_last_row == row
+	    && day_view->drag_item
 	    && (day_view->drag_item->flags & GNOME_CANVAS_ITEM_VISIBLE))
 		return;
 
@@ -8592,12 +8698,12 @@ e_day_view_update_main_canvas_drag (EDayView *day_view,
 				     item_x + E_DAY_VIEW_BAR_WIDTH + E_DAY_VIEW_EVENT_X_PAD,
 				     item_y + E_DAY_VIEW_EVENT_BORDER_HEIGHT + E_DAY_VIEW_EVENT_Y_PAD);
 
-	if (!(day_view->drag_bar_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
+	if (day_view->drag_bar_item && !(day_view->drag_bar_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
 		gnome_canvas_item_raise_to_top (day_view->drag_bar_item);
 		gnome_canvas_item_show (day_view->drag_bar_item);
 	}
 
-	if (!(day_view->drag_rect_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
+	if (day_view->drag_rect_item && !(day_view->drag_rect_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
 		gnome_canvas_item_raise_to_top (day_view->drag_rect_item);
 		gnome_canvas_item_show (day_view->drag_rect_item);
 	}
@@ -8605,7 +8711,7 @@ e_day_view_update_main_canvas_drag (EDayView *day_view,
 	/* Set the text, if necessary. We don't want to set the text every
 	   time it moves, so we check if it is currently invisible and only
 	   set the text then. */
-	if (!(day_view->drag_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
+	if (day_view->drag_item && !(day_view->drag_item->flags & GNOME_CANVAS_ITEM_VISIBLE)) {
 		const gchar *summary;
 
 		if (event && is_comp_data_valid (event)) {
@@ -8633,6 +8739,14 @@ e_day_view_on_top_canvas_drag_leave (GtkWidget      *widget,
 {
 	day_view->drag_last_day = -1;
 
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		day_view->drag_hidden = TRUE;		
+		g_object_ref(day_view->drag_actor);
+		clutter_container_remove_actor (day_view->top_canvas_stage, day_view->drag_actor);
+	}
+#endif	
+	
 	gnome_canvas_item_hide (day_view->drag_long_event_rect_item);
 	gnome_canvas_item_hide (day_view->drag_long_event_item);
 }
@@ -8650,7 +8764,13 @@ e_day_view_on_main_canvas_drag_leave (GtkWidget      *widget,
 	gnome_canvas_item_hide (day_view->drag_rect_item);
 	gnome_canvas_item_hide (day_view->drag_bar_item);
 	gnome_canvas_item_hide (day_view->drag_item);
-
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		day_view->drag_hidden = TRUE;
+		g_object_ref(day_view->drag_actor);
+		clutter_container_remove_actor (day_view->main_canvas_stage, day_view->drag_actor);
+	}
+#endif	
 	/* Hide the resize bars if they are being used in the drag. */
 	if (day_view->drag_event_day == day_view->resize_bars_event_day
 	    && day_view->drag_event_num == day_view->resize_bars_event_num) {
@@ -8685,7 +8805,29 @@ e_day_view_on_drag_begin (GtkWidget      *widget,
 		event = &g_array_index (day_view->events[day], EDayViewEvent,
 					event_num);
 	}
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		float x,y;
+		
+		event->being_dragged = TRUE;
+		day_view->drag_success = FALSE;
+		clutter_actor_get_position (event->actor, &x, &y);
+		day_view->drag_x_offset = day_view->drag_x_offset - (int)x;
+		day_view->drag_y_offset = day_view->drag_y_offset - (int)y;
 
+		day_view->drag_actor = clutter_clone_new (event->actor);
+		day_view->drag_preserve = event->actor;
+		day_view->drag_hidden = FALSE;
+		day_view->drag_success = FALSE;
+		clutter_container_add_actor (day == E_DAY_VIEW_LONG_EVENT ? day_view->top_canvas_stage : day_view->main_canvas_stage, day_view->drag_actor);
+		clutter_actor_set_position (day_view->drag_actor, x, y);
+		clutter_actor_show (day_view->drag_actor);
+		clutter_actor_raise_top (day_view->drag_actor);
+		clutter_actor_set_opacity (day_view->drag_actor, 125);
+		clutter_actor_set_opacity (event->actor, 125);
+		
+	}
+#endif	
 	/* Hide the text item, since it will be shown in the special drag
 	   items. */
 	gnome_canvas_item_hide (event->canvas_item);
@@ -8719,6 +8861,8 @@ e_day_view_on_drag_end (GtkWidget      *widget,
 		gtk_widget_queue_draw (day_view->top_canvas);
 #if HAVE_CLUTTER
 	} else {
+		event->being_dragged = FALSE;
+		clutter_actor_set_opacity (event->actor, 255);
 		e_day_view_clutter_top_item_redraw ((EDayViewClutterTopItem *)day_view->top_canvas_actor);
 	}
 #endif	
@@ -8734,11 +8878,24 @@ e_day_view_on_drag_end (GtkWidget      *widget,
 	gtk_widget_queue_draw (day_view->main_canvas);
 #if HAVE_CLUTTER
 	} else {
+	event->being_dragged = FALSE;
+
+	clutter_actor_set_opacity (event->actor, 255);
+
 	e_day_view_clutter_main_item_redraw ((EDayViewClutterMainItem *)day_view->main_canvas_actor);
 	}
 #endif			
 	}
 
+#if HAVE_CLUTTER
+	if (!WITHOUT_CLUTTER) {
+		clutter_actor_destroy (day_view->drag_actor);
+		day_view->drag_actor = NULL;
+		day_view->drag_y_offset = 0;
+		day_view->drag_x_offset = 0;
+	}
+#endif
+	
 	/* Show the text item again. */
 	gnome_canvas_item_show (event->canvas_item);
 
@@ -8861,7 +9018,9 @@ e_day_view_on_top_canvas_drag_data_received  (GtkWidget          *widget,
 			num_days = 1;
 			start_offset = 0;
 			end_offset = 0;
-
+#if HAVE_CLUTTER
+			day_view->drag_success = TRUE;
+#endif			
 			if (day_view->drag_event_day == E_DAY_VIEW_LONG_EVENT) {
 				if (!is_array_index_in_bounds (day_view->long_events, day_view->drag_event_num))
 					return;
@@ -9086,11 +9245,21 @@ e_day_view_on_main_canvas_drag_data_received  (GtkWidget          *widget,
 
 	client = e_cal_model_get_default_client (e_calendar_view_get_model (E_CALENDAR_VIEW (day_view)));
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_get_scroll_offsets (GNOME_CANVAS (widget),
 					 &scroll_x, &scroll_y);
 	x += scroll_x;
 	y += scroll_y;
+#if HAVE_CLUTTER
+	} else {
+	GtkAdjustment *adj = gtk_layout_get_vadjustment (day_view->main_canvas);
+	int offset_y = gtk_adjustment_get_value (adj);
 
+	y+= offset_y;
+	}
+#endif	
 	/* Note that we only support DnD within the EDayView at present. */
 	if (length >= 0 && format == 8 && (day_view->drag_event_day != -1)) {
 		/* We are dragging in the same window */
@@ -9106,6 +9275,9 @@ e_day_view_on_main_canvas_drag_data_received  (GtkWidget          *widget,
 			start_offset = 0;
 			end_offset = 0;
 
+#if HAVE_CLUTTER
+			day_view->drag_success = TRUE;
+#endif			
 			if (day_view->drag_event_day == E_DAY_VIEW_LONG_EVENT) {
 				if (!is_array_index_in_bounds (day_view->long_events, day_view->drag_event_num))
 					return;

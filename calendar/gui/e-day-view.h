@@ -187,6 +187,7 @@ struct _EDayViewEvent {
 	   i.e. it couldn't fit into the display. Currently long events are
 	   always shown as we just increase the height of the top canvas. */
 	guint8 num_columns;
+	gboolean being_dragged;
 };
 
 /* Standard GObject macros */
@@ -498,6 +499,14 @@ struct _EDayView {
 	GnomeCanvasItem *drag_bar_item;
 	GnomeCanvasItem *drag_item;
 
+#if HAVE_CLUTTER
+	ClutterActor *drag_actor;
+	gint drag_x_offset;
+	gint drag_y_offset;
+	gboolean drag_hidden;
+	ClutterActor *drag_preserve;
+	gboolean drag_success;
+#endif	
 	/* "am" and "pm" in the current locale, and their widths. */
 	gchar *am_string;
 	gchar *pm_string;

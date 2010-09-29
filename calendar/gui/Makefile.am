@@ -68,6 +68,7 @@ libevolution_calendar_la_CPPFLAGS =			\
 	-DEVOLUTION_GALVIEWSDIR=\""$(viewsdir)"\"	\
 	-DEVOLUTION_LOCALEDIR=\""$(localedir)"\"	\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"		\
+	-DEVOLUTION_MX_THEMEDIR=\"$(privdatadir)/theme\" 	\
 	-DPREFIX=\""$(prefix)"\"			\
 	$(GNOME_PLATFORM_CFLAGS)			\
 	$(LIBSOUP_CFLAGS)				\

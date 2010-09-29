@@ -290,20 +290,10 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 	long_line_x2 = time_item->priv->column_width - E_DVTMI_TIME_GRID_X_PAD - x - (use_zone ? E_DVTMI_TIME_GRID_X_PAD : 0) + x_offset;
 
 	if (!time_item->priv->mb_icon) {
-		GtkIconInfo *info;
-
-		info = gtk_icon_theme_lookup_icon (gtk_icon_theme_get_default(),
-						"forward",
-						24,
-						GTK_ICON_LOOKUP_NO_SVG);
-		if (info) {
-			time_item->priv->mb_icon = clutter_texture_new_from_file (gtk_icon_info_get_filename(info), NULL);
-			gtk_icon_info_free(info);
-			icon_inited = TRUE;
-			clutter_container_add_actor ((ClutterContainer *)stage, time_item->priv->mb_icon);
-			clutter_actor_show (time_item->priv->mb_icon);
-		}
-	
+		time_item->priv->mb_icon = clutter_texture_new_from_file (EVOLUTION_MX_THEMEDIR "/current-time.png", NULL);
+		icon_inited = TRUE;
+		clutter_container_add_actor ((ClutterContainer *)stage, time_item->priv->mb_icon);
+		clutter_actor_show (time_item->priv->mb_icon);
 	}
 	if ((use_zone && !time_item->priv->mb_line_alt) ||
 			(!use_zone && !time_item->priv->mb_line)) {
@@ -347,7 +337,7 @@ edvti_draw_marcus_bains (ClutterActor *canvas_item,
 	cairo_destroy (cr);
 
 	if (icon_inited) {
-		clutter_actor_set_position (time_item->priv->mb_icon, 0, marcus_bains_y -12);
+		clutter_actor_set_position (time_item->priv->mb_icon, 3, marcus_bains_y -5);
 	}
 	clutter_actor_set_position (mb, 0, marcus_bains_y);
 	clutter_actor_raise_top (mb);
@@ -740,7 +730,7 @@ e_day_view_clutter_time_item_update (EDayViewClutterTimeItem *item)
 	if (item->priv->mb_icon) {
 		clutter_actor_animate (item->priv->mb_icon,
 				CLUTTER_LINEAR, 200,
-				"y", (float) marcus_bains_y-12,
+				"y", (float) marcus_bains_y-5,
 				NULL);
 	}
 }
