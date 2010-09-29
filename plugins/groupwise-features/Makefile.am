@@ -20,6 +20,7 @@ liborg_gnome_groupwise_features_la_CPPFLAGS =		\
 	$(EVOLUTION_ADDRESSBOOK_CFLAGS)			\
 	$(CAMEL_GROUPWISE_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
+	$(CLUTTER_CFLAGS)				\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"		\
 	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"	
 
@@ -59,6 +60,7 @@ liborg_gnome_groupwise_features_la_LIBADD=			\
 	$(EVOLUTION_CALENDAR_LIBS)				\
 	$(EVOLUTION_MAIL_LIBS)					\
 	$(CAMEL_GROUPWISE_LIBS)					\
+	$(CLUTTER_LIBS)						\
 	$(GNOME_PLATFORM_LIBS)
 
 liborg_gnome_groupwise_features_la_LDFLAGS = -module -avoid-version $(NO_UNDEFINED)
