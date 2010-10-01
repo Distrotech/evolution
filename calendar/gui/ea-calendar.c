@@ -159,7 +159,7 @@ ea_calendar_focus_watcher (GSignalInvocationHint *ihint,
 	else if (E_IS_DAY_VIEW (object)) {
 		EDayView *day_view = E_DAY_VIEW (object);
 		if (event->type == GDK_FOCUS_CHANGE) {
-			if (event->focus_change.in) {
+			if (event->focus_change.in && day_view->main_canvas_item) {
 				/* give main item chance to emit focus */
 				gnome_canvas_item_grab_focus (day_view->main_canvas_item);
 			}

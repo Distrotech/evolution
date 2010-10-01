@@ -1024,10 +1024,10 @@ day_view_clutter_main_item_draw_marcus_bains (EDayViewClutterMainItem *canvas_it
 					continue;
 				if (!main_item->priv->mb_line) { 
 					main_item->priv->mb_line = clutter_cairo_texture_new (grid_x2-grid_x1, 5);
-					clutter_container_add_actor (day_view->main_canvas_stage, main_item->priv->mb_line);
+					clutter_container_add_actor ((ClutterContainer *)day_view->main_canvas_stage, main_item->priv->mb_line);
 				}
-				clutter_cairo_texture_clear (main_item->priv->mb_line);
-				cr = clutter_cairo_texture_create (main_item->priv->mb_line);
+				clutter_cairo_texture_clear ((ClutterCairoTexture *)main_item->priv->mb_line);
+				cr = clutter_cairo_texture_create ((ClutterCairoTexture *)main_item->priv->mb_line);
 				cairo_save (cr);
 				gdk_cairo_set_source_color (cr,
 						&day_view->colors[E_DAY_VIEW_COLOR_MARCUS_BAINS_LINE]);
@@ -1083,13 +1083,13 @@ day_view_clutter_main_item_draw_selection (EDayViewClutterMainItem *canvas_item)
 	if (!main_item->priv->selection_actor) {
 		main_item->priv->selection_actor = clutter_cairo_texture_new (width, height);
 		clutter_actor_set_opacity (main_item->priv->selection_actor, 155);
-		clutter_container_add_actor (day_view->main_canvas_stage, main_item->priv->selection_actor);
+		clutter_container_add_actor ((ClutterContainer *)day_view->main_canvas_stage, main_item->priv->selection_actor);
 		clutter_actor_show (main_item->priv->selection_actor);
 		clutter_actor_raise (main_item->priv->selection_actor, (ClutterActor *)canvas_item);
 	}
 
-	clutter_cairo_texture_clear (main_item->priv->selection_actor);
-	cr = clutter_cairo_texture_create (main_item->priv->selection_actor);
+	clutter_cairo_texture_clear ((ClutterCairoTexture *)main_item->priv->selection_actor);
+	cr = clutter_cairo_texture_create ((ClutterCairoTexture *)main_item->priv->selection_actor);
 
 	/* Paint the selection background. */
 	if (day_view->selection_start_day != -1
@@ -1136,7 +1136,6 @@ day_view_clutter_main_item_draw (EDayViewClutterMainItem *canvas_item)
 	gint day, grid_y1, grid_y2;
 	gint work_day_start_y, work_day_end_y;
 	gint day_x, day_w, work_day;
-	gint start_row, end_row, rect_x, rect_y, rect_width, rect_height;
 	struct icaltimetype day_start_tt, today_tt;
 	gint weekday;
 	cairo_t *cr;
@@ -1447,7 +1446,6 @@ e_day_view_clutter_main_item_update_marcus_bains (EDayViewClutterMainItem *item)
 {
 	EDayViewClutterMainItem *main_item;
 	EDayView *day_view;
-	cairo_t *cr;
 	gint grid_x1, grid_x2;
 	gint day;
 	gint x=0, y=0;

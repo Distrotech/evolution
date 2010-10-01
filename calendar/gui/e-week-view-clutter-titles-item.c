@@ -109,7 +109,7 @@ week_view_clutter_titles_item_draw (ClutterCairoTexture *canvas_item)
 	gint weekday;
 	PangoLayout *layout;
 	gint x=0, y=0;
-	gint width, height;
+	guint width, height;
 	cairo_t *cr;
 
 	clutter_cairo_texture_clear (canvas_item);
@@ -369,7 +369,7 @@ void
 e_week_view_clutter_titles_item_redraw (EWeekViewClutterTitlesItem *item)
 {
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
-	week_view_clutter_titles_item_draw ((ClutterActor *)item);
+	week_view_clutter_titles_item_draw ((ClutterCairoTexture *)item);
 }
 
 void
@@ -378,5 +378,5 @@ e_week_view_clutter_titles_item_set_size (EWeekViewClutterTitlesItem *item,
 					  int height)
 {
 	clutter_cairo_texture_set_surface_size ((ClutterCairoTexture *)item, width, height);
-	week_view_clutter_titles_item_draw (item);
+	week_view_clutter_titles_item_draw ((ClutterCairoTexture *) item);
 }

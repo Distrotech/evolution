@@ -141,8 +141,6 @@ day_view_clutter_event_item_double_click (EDayViewClutterEventItem *event_item,
                                    ClutterEvent *bevent)
 {
 	EDayView *day_view;
-	EDayViewEvent *event;
-	GnomeCanvasItem *item;
 
 	day_view = event_item->priv->day_view;
 #if 0
@@ -188,14 +186,11 @@ day_view_clutter_event_item_double_click (EDayViewClutterEventItem *event_item,
 	return TRUE;
 }
 
-gboolean
+static gboolean
 day_view_clutter_event_item_button_press (EDayViewClutterEventItem *event_item,
                                    ClutterEvent *bevent)
 {
 	EDayView *day_view;
-	ECalendarViewPosition pos;
-	//EDayViewEvent *event;
-	int day = event_item->priv->day_num;
 
 	GdkEventButton *event;
 	gboolean ret;
@@ -203,9 +198,9 @@ day_view_clutter_event_item_button_press (EDayViewClutterEventItem *event_item,
 	day_view = event_item->priv->day_view;
 
 	if (bevent->button.click_count > 1 )
-		event = gdk_event_new (GDK_2BUTTON_PRESS);
+		event = (GdkEventButton *)gdk_event_new (GDK_2BUTTON_PRESS);
 	else
-		event = gdk_event_new (GDK_BUTTON_PRESS);
+		event = (GdkEventButton *)gdk_event_new (GDK_BUTTON_PRESS);
 
 	event->time = bevent->button.time;
 	event->button = bevent->button.button;
@@ -216,7 +211,7 @@ day_view_clutter_event_item_button_press (EDayViewClutterEventItem *event_item,
 		ret = e_day_view_on_top_canvas_button_press (day_view->top_canvas, event, day_view);
 	else
 		ret = e_day_view_on_main_canvas_button_press (day_view->main_canvas, event, day_view);
-	gdk_event_free (event);
+	gdk_event_free ((GdkEvent *)event);
 
 	return ret;
 
@@ -305,7 +300,7 @@ day_view_clutter_event_item_button_release (EDayViewClutterEventItem *event_item
 
 	day_view = event_item->priv->day_view;
 
-	bevent = gdk_event_new (GDK_BUTTON_RELEASE);
+	bevent = (GdkEventButton *)gdk_event_new (GDK_BUTTON_RELEASE);
 
 	bevent->time = event->button.time;
 	bevent->button = event->button.button;
@@ -313,7 +308,7 @@ day_view_clutter_event_item_button_release (EDayViewClutterEventItem *event_item
 	bevent->y = (gfloat) event->button.y;
 
 	ret = e_day_view_on_main_canvas_button_release (day_view->main_canvas, bevent, day_view);
-	gdk_event_free (bevent);
+	gdk_event_free ((GdkEvent *)bevent);
 	day_view->pressed_event_num = -1;
 
 	day_view->editing_event_num = event_item->priv->event_num;
@@ -494,8 +489,6 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 	cairo_t *cr;
 	gint x=0;
 	gint y=0;
-	gint width;
-	gint height;	
 	EDayView *day_view;
 	EDayViewEvent *event;
 	GtkStyle *style;
@@ -553,10 +546,10 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 	clutter_cairo_texture_set_surface_size (main_item->priv->texture, item_w, item_h);
 	clutter_cairo_texture_clear (main_item->priv->texture);
 	clutter_actor_set_size (main_item->priv->text_item, item_w, item_h);
-	clutter_actor_set_size (main_item, item_w, item_h);
+	clutter_actor_set_size ((ClutterActor *)main_item, item_w, item_h);
 
 	if (event->just_added)
-		clutter_actor_set_opacity (main_item, 0);
+		clutter_actor_set_opacity ((ClutterActor *)main_item, 0);
 
 	cr = clutter_cairo_texture_create (main_item->priv->texture);
 	event_x = item_x;
@@ -865,7 +858,7 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 	/* Draw text */
 	if (icon_x < max_icon_x) {
 		PangoLayout *layout;
-		GdkColor col = e_day_view_get_text_color (day_view, event, day_view);
+		GdkColor col = e_day_view_get_text_color (day_view, event, (GtkWidget *)day_view);
 		
 		cairo_save (cr);
 		gdk_cairo_set_source_color (cr, &col);
@@ -898,7 +891,7 @@ day_view_clutter_event_item_draw_long (EDayViewClutterEventItem *main_item)
 
 	if (event->just_added) {
 		event->just_added = FALSE;
-		clutter_actor_animate (main_item, CLUTTER_LINEAR,
+		clutter_actor_animate ((ClutterActor *)main_item, CLUTTER_LINEAR,
 					400, "opacity", 255, NULL);
 	}	
 }
@@ -907,10 +900,7 @@ static void
 day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 {
 	cairo_t *cr;
-	gint x=0;
 	gint y=0;
-	gint width;
-	gint height;
 	gint day;
 	gint event_num;
 	GdkRegion *draw_region;	
@@ -985,8 +975,7 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 
 	clutter_cairo_texture_set_surface_size (main_item->priv->texture, item_w, item_h);
 	clutter_actor_set_size (main_item->priv->text_item, item_w, item_h);
-	clutter_actor_set_size (main_item, item_w, item_h);
-
+	clutter_actor_set_size ((ClutterActor *)main_item, item_w, item_h);
 	clutter_cairo_texture_clear (main_item->priv->texture);
 
 	cr = clutter_cairo_texture_create (main_item->priv->texture);
@@ -1008,7 +997,7 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 		return;
 
 	if (event->just_added)
-		clutter_actor_set_opacity (main_item, 0);
+		clutter_actor_set_opacity ((ClutterActor *)main_item, 0);
 
 	/* Fill in the event background. Note that for events in the first
 	   column of the day, we might not want to paint over the vertical bar,
@@ -1242,7 +1231,6 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 		pat = cairo_pattern_create_linear (item_x + E_DAY_VIEW_BAR_WIDTH + 1.75, item_y + 7.75,
 							item_x + E_DAY_VIEW_BAR_WIDTH + 1.75, item_y + item_h - 7.75);
 		if (!short_event) {
-			float midpoint = (1 - 1/(date_fraction + (rect_height/18)))/2;
 			cairo_pattern_add_color_stop_rgba (pat, 0, red/cc, green/cc, blue/cc, 0.8);
 			cairo_pattern_add_color_stop_rgba (pat, (1/(date_fraction + (rect_height/18))) - 0.0001, red/cc, green/cc, blue/cc, 0.8);			
 			cairo_pattern_add_color_stop_rgba (pat, 1/(date_fraction + (rect_height/18)), red/cc, green/cc, blue/cc, 0.4);
@@ -1582,7 +1570,7 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 	/* Draw text */
 	if (icon_x < item_w) {
 		PangoLayout *layout;
-		GdkColor col = e_day_view_get_text_color (day_view, event, day_view);
+		GdkColor col = e_day_view_get_text_color (day_view, event, (GtkWidget *)day_view);
 		int ypad = short_event ? 0 : (E_DAY_VIEW_ICON_HEIGHT + E_DAY_VIEW_ICON_Y_PAD);
 
 		cairo_save (cr);
@@ -1620,7 +1608,7 @@ day_view_clutter_event_item_draw_normal (EDayViewClutterEventItem *main_item)
 
 	if (event->just_added) {
 		event->just_added = FALSE;
-		clutter_actor_animate (main_item, CLUTTER_LINEAR,
+		clutter_actor_animate ((ClutterActor *)main_item, CLUTTER_LINEAR,
 					400, "opacity", 255, NULL);
 	}
 }
@@ -1637,7 +1625,7 @@ day_view_clutter_event_item_draw (EDayViewClutterEventItem *main_item)
 }
 
 static gint
-day_view_clutter_event_item_event (GnomeCanvasItem *item,
+day_view_clutter_event_item_event (ClutterActor *item,
                             ClutterEvent *event)
 {
 	EDayViewClutterEventItem *event_item;
@@ -1666,7 +1654,6 @@ day_view_clutter_event_item_class_init (EDayViewClutterEventItemClass *class)
 {
 	GObjectClass *object_class;
 	MxBoxLayoutClass *item_class;
-	ClutterActorClass *widget_class;
 
 	parent_class = g_type_class_peek_parent (class);
 	g_type_class_add_private (class, sizeof (EDayViewClutterEventItemPrivate));
@@ -1774,9 +1761,9 @@ e_day_view_clutter_event_item_set_event_num (EDayViewClutterEventItem *event_ite
 const char *
 e_day_view_clutter_event_item_get_text (EDayViewClutterEventItem *event_item)
 {
-	g_return_val_if_fail (E_IS_WEEK_VIEW_CLUTTER_EVENT_ITEM (event_item), -1);
+	g_return_val_if_fail (E_IS_WEEK_VIEW_CLUTTER_EVENT_ITEM (event_item), NULL);
 
-	return event_item->priv->text;
+	return (const char *)event_item->priv->text;
 }
 
 void
@@ -1818,7 +1805,7 @@ static void
 handle_activate (ClutterActor *actor, 
 		 EDayViewClutterEventItem *item)
 {
-	gtk_widget_grab_focus (item->priv->day_view);
+	gtk_widget_grab_focus ((GtkWidget *)item->priv->day_view);
 	e_day_view_cancel_editing (item->priv->day_view);
 	e_day_view_on_editing_stopped (item->priv->day_view, NULL, TRUE);	
 }
@@ -1836,7 +1823,7 @@ handle_text_item_event (ClutterActor *actor,
 		if (event->button.button == 3) {
 			e_day_view_cancel_editing (item->priv->day_view);
 			e_day_view_on_editing_stopped (item->priv->day_view, NULL, TRUE);	
-			gtk_widget_grab_focus (day_view);
+			gtk_widget_grab_focus ((GtkWidget *)day_view);
 			return FALSE;
 		}
 		return FALSE;
@@ -1847,7 +1834,7 @@ handle_text_item_event (ClutterActor *actor,
 				item->priv->day_view->editing_event_num = -1;
 				item->priv->day_view->editing_event_day = -1;
 			}
-			gtk_widget_grab_focus (day_view);
+			gtk_widget_grab_focus ((GtkWidget *)day_view);
 			return TRUE;
 		}
 		
@@ -1870,33 +1857,33 @@ e_day_view_clutter_event_item_new (EDayView *view, gint day, gint event_num, gbo
 
 	item->priv->long_event = long_event;
 	item->priv->day_view = view;
-	item->priv->texture = clutter_cairo_texture_new (10, 10);
+	item->priv->texture = (ClutterCairoTexture *)clutter_cairo_texture_new (10, 10);
 	item->priv->day_num = day;
 	item->priv->event_num = event_num;
 
-	clutter_actor_set_reactive (item->priv->texture, TRUE);
+	clutter_actor_set_reactive ((ClutterActor *)item->priv->texture, TRUE);
 	
 	mx_box_layout_set_orientation (box, MX_ORIENTATION_VERTICAL);
 	mx_box_layout_add_actor (box,
-                               item->priv->texture, -1);
+                               (ClutterActor *)item->priv->texture, -1);
 	clutter_container_child_set (CLUTTER_CONTAINER (box),
-                               item->priv->texture,
+                               (ClutterActor *)item->priv->texture,
 			       "expand", TRUE,
 			       "x-fill", TRUE,
 			       "y-fill", TRUE,			       
                                NULL);
-	clutter_actor_show_all (box);
-	clutter_actor_set_reactive (box, TRUE);
+	clutter_actor_show_all ((ClutterActor *)box);
+	clutter_actor_set_reactive ((ClutterActor *)box, TRUE);
 
 	item->priv->text_item = clutter_text_new ();
 	g_signal_connect (item->priv->text_item, "event", G_CALLBACK(handle_text_item_event), item);
-	clutter_text_set_activatable (item->priv->text_item, TRUE);
-	clutter_text_set_single_line_mode (item->priv->text_item, long_event ? TRUE: FALSE);
+	clutter_text_set_activatable ((ClutterText *)item->priv->text_item, TRUE);
+	clutter_text_set_single_line_mode ((ClutterText *)item->priv->text_item, long_event ? TRUE: FALSE);
 	if (!long_event)
-		clutter_text_set_line_wrap_mode (item->priv->text_item, PANGO_WRAP_CHAR);
+		clutter_text_set_line_wrap_mode ((ClutterText *)item->priv->text_item, PANGO_WRAP_CHAR);
 	g_signal_connect (item->priv->text_item, "activate", G_CALLBACK(handle_activate), item);
-	clutter_text_set_line_wrap   (item->priv->text_item, !long_event ? TRUE: FALSE);
-	clutter_text_set_editable (item->priv->text_item, TRUE);
+	clutter_text_set_line_wrap   ((ClutterText *)item->priv->text_item, !long_event ? TRUE: FALSE);
+	clutter_text_set_editable ((ClutterText *)item->priv->text_item, TRUE);
 	clutter_actor_set_reactive (item->priv->text_item, TRUE);
 	clutter_actor_hide (item->priv->text_item);
 
@@ -2089,14 +2076,18 @@ wvce_animate_rotate_y (ClutterActor *item,
 }
 
 static void
-wvce_set_view_editing_1 (EDayViewClutterEventItem *item)
+wvce_set_view_editing_1 (gpointer gp)
 {
-	clutter_actor_hide (item->priv->texture);
+	EDayViewClutterEventItem *item  = (EDayViewClutterEventItem *)gp;
+
+	clutter_actor_destroy ((ClutterActor *)item->priv->texture);
 	clutter_actor_show (item->priv->text_item);
 }
 static void
-wvce_set_view_editing_2 (EDayViewClutterEventItem *item)
+wvce_set_view_editing_2 (gpointer gp)
 {
+	EDayViewClutterEventItem *item  = (EDayViewClutterEventItem *)gp;
+
 	clutter_grab_keyboard (item->priv->text_item);
 	clutter_actor_grab_key_focus (item->priv->text_item);	
 }
@@ -2104,12 +2095,11 @@ wvce_set_view_editing_2 (EDayViewClutterEventItem *item)
 void 
 e_day_view_clutter_event_item_switch_editing_mode (EDayViewClutterEventItem *item)
 {
-	float height=0, width=0,x,y;
-	gint w=0, h=0;
+	guint w=0, h=0;
 	
 	clutter_cairo_texture_get_surface_size (item->priv->texture, &w, &h);
 
-	clutter_text_set_text (item->priv->text_item, item->priv->text);
+	clutter_text_set_text ((ClutterText *)item->priv->text_item, item->priv->text);
 	clutter_grab_keyboard (item->priv->text_item);
 	clutter_actor_grab_key_focus (item->priv->text_item);	
 //	clutter_actor_hide (item->priv->texture);
@@ -2122,10 +2112,10 @@ e_day_view_clutter_event_item_switch_editing_mode (EDayViewClutterEventItem *ite
 //						(float)w, (float)h);
 	
 	if (!item->priv->long_event && !item->priv->short_event)
-		wvce_animate_rotate_y (item, wvce_set_view_editing_1, item,
+		wvce_animate_rotate_y ((ClutterActor *)item, wvce_set_view_editing_1, item,
 					wvce_set_view_editing_2, item);
 	else
-		wvce_animate_rotate_x (item, wvce_set_view_editing_1, item,
+		wvce_animate_rotate_x ((ClutterActor *)item, wvce_set_view_editing_1, item,
 					wvce_set_view_editing_2, item);
 
 
@@ -2186,14 +2176,18 @@ wvce_animate_scale (ClutterActor *item,
 }
 
 static void
-wvce_set_view_normal_1 (EDayViewClutterEventItem *item)
+wvce_set_view_normal_1 (gpointer gp)
 {
+	EDayViewClutterEventItem *item  = (EDayViewClutterEventItem *)gp;
+
 	clutter_actor_hide (item->priv->text_item);
-	clutter_actor_show (item->priv->texture);	
+	clutter_actor_show ((ClutterActor *)item->priv->texture);	
 }
 static void
-wvce_set_view_normal_2 (EDayViewClutterEventItem *item)
+wvce_set_view_normal_2 (gpointer gp)
 {
+	//EDayViewClutterEventItem *item  = (EDayViewClutterEventItem *)gp;
+
 	/* Do nothing */
 }
 
@@ -2203,7 +2197,7 @@ e_day_view_clutter_event_item_switch_normal_mode (EDayViewClutterEventItem *item
 	//clutter_actor_hide (item->priv->text_item);
 	//clutter_actor_show (item->priv->texture);	
 
-	wvce_animate_scale (item, wvce_set_view_normal_1, item,
+	wvce_animate_scale ((ClutterActor *)item, wvce_set_view_normal_1, item,
 				wvce_set_view_normal_2, item);
 
 }
@@ -2216,7 +2210,7 @@ e_day_view_clutter_event_item_switch_viewing_mode (EDayViewClutterEventItem *ite
 const char *
 e_day_view_clutter_event_item_get_edit_text (EDayViewClutterEventItem *item)
 {
-	return clutter_text_get_text (item->priv->text_item);
+	return clutter_text_get_text ((ClutterText *)item->priv->text_item);
 }
 
 
@@ -2241,7 +2235,7 @@ wvce_animate_scale_delete (ClutterActor *item)
 
 	g_object_set (item, "scale-center-x", width/2, "scale-center-y", height/2, NULL);
 
-	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE,
+	clutter_actor_animate ((ClutterActor *)item, CLUTTER_EASE_OUT_SINE,
 				200,
 				"scale-y", 0.1,
 				"signal-after::completed", scale_delete_stage1, item,
@@ -2251,14 +2245,14 @@ wvce_animate_scale_delete (ClutterActor *item)
 void
 e_day_view_clutter_event_item_scale_destroy (EDayViewClutterEventItem *item)
 {
-	wvce_animate_scale_delete (item);
+	wvce_animate_scale_delete ((ClutterActor *)item);
 }
 
 
 void
 e_day_view_clutter_event_item_fade_destroy (EDayViewClutterEventItem *item)
 {
-	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE, 200,
+	clutter_actor_animate ((ClutterActor *)item, CLUTTER_EASE_OUT_SINE, 200,
 				"opacity", 0,
 				"signal-swapped-after::completed", clutter_actor_destroy, item,
 				NULL);	

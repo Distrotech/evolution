@@ -72,7 +72,7 @@ month_view_cursor_key_up (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection ((EWeekViewClutterMainItem *)week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -113,7 +113,7 @@ month_view_cursor_key_down (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection ((EWeekViewClutterMainItem *) week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -150,7 +150,7 @@ month_view_cursor_key_left (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection ((EWeekViewClutterMainItem *) week_view->main_canvas_actor);
 	}
 #endif	
 }
@@ -191,7 +191,7 @@ month_view_cursor_key_right (EWeekView *week_view)
 	gtk_widget_queue_draw (week_view->main_canvas);
 #if HAVE_CLUTTER 
 	} else {
-	e_week_view_clutter_main_item_update_selection (week_view->main_canvas_actor);
+	e_week_view_clutter_main_item_update_selection ((EWeekViewClutterMainItem *) week_view->main_canvas_actor);
 	}
 #endif	
 }

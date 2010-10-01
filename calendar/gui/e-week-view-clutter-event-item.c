@@ -107,7 +107,6 @@ week_view_clutter_event_item_get_position (EWeekViewClutterEventItem *event_item
                                    gdouble y)
 {
 	EWeekView *week_view;
-	GnomeCanvasItem *item;
 
 	week_view = event_item->priv->week_view;
 
@@ -137,7 +136,6 @@ week_view_clutter_event_item_double_click (EWeekViewClutterEventItem *event_item
 {
 	EWeekView *week_view;
 	EWeekViewEvent *event;
-	GnomeCanvasItem *item;
 
 	week_view = event_item->priv->week_view;
 
@@ -183,7 +181,7 @@ week_view_clutter_event_item_double_click (EWeekViewClutterEventItem *event_item
 	return TRUE;
 }
 
-gboolean
+static gboolean
 week_view_clutter_event_item_button_press (EWeekViewClutterEventItem *event_item,
                                    ClutterEvent *bevent)
 {
@@ -253,7 +251,7 @@ week_view_clutter_event_item_button_press (EWeekViewClutterEventItem *event_item
 		e_week_view_show_popup_menu (
 			week_view, (GdkEventButton*) gevent,
 			event_item->priv->event_num);
-		gdk_event_free (gevent);
+		gdk_event_free ((GdkEvent *)gevent);
 		//g_signal_stop_emission_by_name (
 		//	event_item->canvas, "button_press_event");
 
@@ -336,7 +334,7 @@ week_view_draw_time (EWeekView *week_view,
 
 
 		cairo_save (cr);
-		gdk_cairo_set_source_color (cr, &fg);
+		gdk_cairo_set_source_color (cr, fg);
 		/* Draw the hour. */
 		if (hour_to_display < 10) {
 			pango_layout_set_text (layout, buffer + 1, 1);
@@ -357,7 +355,7 @@ week_view_draw_time (EWeekView *week_view,
 		time_x += week_view->digit_width * 2;
 
 		cairo_save (cr);
-		gdk_cairo_set_source_color (cr, &fg);
+		gdk_cairo_set_source_color (cr, fg);
 		/* Draw the start minute, in the small font. */
 		pango_layout_set_font_description (layout, week_view->small_font_desc);
 		pango_layout_set_text (layout, buffer + 3, 2);
@@ -370,7 +368,7 @@ week_view_draw_time (EWeekView *week_view,
 
 
 		cairo_save (cr);
-		gdk_cairo_set_source_color (cr, &fg);
+		gdk_cairo_set_source_color (cr, fg);
 		pango_layout_set_font_description (layout, style->font_desc);
 
 		time_x += week_view->small_digit_width * 2;
@@ -389,7 +387,7 @@ week_view_draw_time (EWeekView *week_view,
 	} else {
 
 		cairo_save (cr);
-		gdk_cairo_set_source_color (cr, &fg);
+		gdk_cairo_set_source_color (cr, fg);
 		/* Draw the start time in one go. */
 		g_snprintf (buffer, sizeof (buffer), "%2i:%02i%s",
 			    hour_to_display, minute, suffix);
@@ -425,7 +423,6 @@ week_view_clutter_event_item_draw_icons (EWeekViewClutterEventItem *event_item,
 	EWeekView *week_view;
 	EWeekViewEvent *event;
 	ECalComponent *comp;
-	GnomeCanvas *canvas;
 	gint num_icons = 0, icon_x_inc;
 	gboolean draw_reminder_icon = FALSE, draw_recurrence_icon = FALSE;
 	gboolean draw_timezone_icon = FALSE, draw_attach_icon = FALSE;
@@ -694,7 +691,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 	EWeekViewEventSpan *span;
 	ECalModel *model;
 	GdkGC *gc;
-	gint x1, y1, x2, y2, time_x, time_y;
+	gint x1, y1, x2=0, y2=0, time_x, time_y;
 	gint icon_x, icon_y, time_width, min_end_time_x, max_icon_x;
 	gint rect_x, rect_w, rect_x2 = 0;
 	gboolean one_day_event, editing_span = FALSE;
@@ -712,8 +709,6 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 	GdkRegion *draw_region;
 	GdkRectangle rect;
 	const gchar *color_spec;
-	int x=0,y=0;
-	int width, height;
 	gint span_x, span_y, span_w;
 
 	event_item = E_WEEK_VIEW_CLUTTER_EVENT_ITEM (canvas_item);
@@ -776,14 +771,14 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 	x2 = rect.width;
 	clutter_cairo_texture_set_surface_size (event_item->priv->texture, rect.width, rect.height);
 	clutter_actor_set_size (event_item->priv->text_item, rect.width, rect.height);
-	clutter_actor_set_position (event_item, span_x, span_y);
+	clutter_actor_set_position ((ClutterActor *)event_item, span_x, span_y);
 	if (!can_draw_in_region (draw_region, x1, y1, x2 - x1, y2 - y1)) {
 		gdk_region_destroy (draw_region);
 		return;
 	}
 
 	if (event->just_added)
-		clutter_actor_set_opacity (event_item, 0);
+		clutter_actor_set_opacity ((ClutterActor *) event_item, 0);
 
 	clutter_cairo_texture_clear (event_item->priv->texture);	
 	cr = clutter_cairo_texture_create (event_item->priv->texture);
@@ -932,7 +927,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 		/* Draw text */
 		if (icon_x < x2) {
 			PangoLayout *layout;
-			GdkColor col = e_week_view_get_text_color (week_view, event, week_view);
+			GdkColor col = e_week_view_get_text_color (week_view, event, (GtkWidget *)week_view);
 			
 			cairo_save (cr);
 			gdk_cairo_set_source_color (cr, &col);
@@ -1155,7 +1150,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 		/* Draw text */
 		if (icon_x < time_x) {
 			PangoLayout *layout;
-			GdkColor col = e_week_view_get_text_color (week_view, event, week_view);
+			GdkColor col = e_week_view_get_text_color (week_view, event, (GtkWidget *)week_view);
 			
 			cairo_save (cr);
 			gdk_cairo_set_source_color (cr, &col);
@@ -1185,7 +1180,7 @@ week_view_clutter_event_item_draw (EWeekViewClutterEventItem *canvas_item)
 
 	if (event->just_added) {
 		event->just_added = FALSE;
-		clutter_actor_animate (event_item, CLUTTER_LINEAR,
+		clutter_actor_animate ((ClutterActor *)event_item, CLUTTER_LINEAR,
 					400, "opacity", 255, NULL);
 	}
 		
@@ -1331,7 +1326,7 @@ e_week_view_clutter_event_item_get_text (EWeekViewClutterEventItem *event_item)
 {
 	g_return_val_if_fail (E_IS_WEEK_VIEW_CLUTTER_EVENT_ITEM (event_item), -1);
 
-	return event_item->priv->text;
+	return (const char *)event_item->priv->text;
 }
 
 void
@@ -1373,7 +1368,7 @@ static void
 handle_activate (ClutterActor *actor, 
 		 EWeekViewClutterEventItem *item)
 {
-	gtk_widget_grab_focus (item->priv->week_view);
+	gtk_widget_grab_focus ((GtkWidget *)item->priv->week_view);
 	e_week_view_cancel_editing (item->priv->week_view);
 	e_week_view_on_editing_stopped (item->priv->week_view, NULL, TRUE);	
 }
@@ -1390,7 +1385,7 @@ handle_text_item_event (ClutterActor *actor,
 		if (event->button.button == 3) {
 			e_week_view_cancel_editing (item->priv->week_view);
 			e_week_view_on_editing_stopped (item->priv->week_view, NULL, TRUE);	
-			gtk_widget_grab_focus (week_view);
+			gtk_widget_grab_focus ((GtkWidget *)week_view);
 			return FALSE;
 		}
 		return FALSE;
@@ -1401,7 +1396,7 @@ handle_text_item_event (ClutterActor *actor,
 				item->priv->week_view->editing_event_num = -1;
 				item->priv->week_view->editing_span_num = -1;
 			}
-			gtk_widget_grab_focus (week_view);
+			gtk_widget_grab_focus ((GtkWidget *)week_view);
 			return TRUE;
 		}
 		
@@ -1420,28 +1415,28 @@ e_week_view_clutter_event_item_new (EWeekView *view)
 	MxBoxLayout *box = (MxBoxLayout *)item;
 
 	item->priv->week_view = view;
-	item->priv->texture = clutter_cairo_texture_new (10, view->row_height);
-	clutter_actor_set_reactive (item->priv->texture, TRUE);
+	item->priv->texture = (ClutterCairoTexture *) clutter_cairo_texture_new (10, view->row_height);
+	clutter_actor_set_reactive ((ClutterActor *)item->priv->texture, TRUE);
 	
 	mx_box_layout_set_orientation (box, MX_ORIENTATION_VERTICAL);
 	mx_box_layout_add_actor (box,
-                               item->priv->texture, -1);
+                               (ClutterActor *)item->priv->texture, -1);
 	clutter_container_child_set (CLUTTER_CONTAINER (box),
-                               item->priv->texture,
+                               (ClutterActor *)item->priv->texture,
 			       "expand", TRUE,
 			       "x-fill", TRUE,
 			       "y-fill", TRUE,			       
                                NULL);
-	clutter_actor_show_all (box);
-	clutter_actor_set_reactive (box, TRUE);
+	clutter_actor_show_all ((ClutterActor *)box);
+	clutter_actor_set_reactive ((ClutterActor *)box, TRUE);
 
 	item->priv->text_item = clutter_text_new ();
 	g_signal_connect (item->priv->text_item, "event", G_CALLBACK(handle_text_item_event), item);
-	clutter_text_set_activatable (item->priv->text_item, TRUE);
-	clutter_text_set_single_line_mode (item->priv->text_item, TRUE);
+	clutter_text_set_activatable ((ClutterText *)item->priv->text_item, TRUE);
+	clutter_text_set_single_line_mode ((ClutterText *)item->priv->text_item, TRUE);
 	g_signal_connect (item->priv->text_item, "activate", G_CALLBACK(handle_activate), item);
-	clutter_text_set_line_wrap   (item->priv->text_item, FALSE);
-	clutter_text_set_editable (item->priv->text_item, TRUE);
+	clutter_text_set_line_wrap   ((ClutterText *)item->priv->text_item, FALSE);
+	clutter_text_set_editable ((ClutterText *)item->priv->text_item, TRUE);
 	clutter_actor_set_reactive (item->priv->text_item, TRUE);
 	clutter_actor_hide (item->priv->text_item);
 
@@ -1562,14 +1557,18 @@ wvce_animate_rotate (ClutterActor *item,
 }
 
 static void
-wvce_set_view_editing_1 (EWeekViewClutterEventItem *item)
-{
-	clutter_actor_hide (item->priv->texture);
+wvce_set_view_editing_1 (gpointer gp)
+{		
+	EWeekViewClutterEventItem *item = (EWeekViewClutterEventItem *)gp;
+
+	clutter_actor_hide ((ClutterActor *)item->priv->texture);
 	clutter_actor_show (item->priv->text_item);
 }
 static void
-wvce_set_view_editing_2 (EWeekViewClutterEventItem *item)
-{
+wvce_set_view_editing_2 (gpointer gp)
+{		
+	EWeekViewClutterEventItem *item = (EWeekViewClutterEventItem *)gp;
+
 	clutter_grab_keyboard (item->priv->text_item);
 	clutter_actor_grab_key_focus (item->priv->text_item);	
 }
@@ -1577,11 +1576,9 @@ wvce_set_view_editing_2 (EWeekViewClutterEventItem *item)
 void 
 e_week_view_clutter_event_item_switch_editing_mode (EWeekViewClutterEventItem *item)
 {
-	float height=0, width=0;
+	clutter_text_set_text ((ClutterText *)item->priv->text_item, item->priv->text);
 
-	clutter_text_set_text (item->priv->text_item, item->priv->text);
-
-	wvce_animate_rotate (item, wvce_set_view_editing_1, item,
+	wvce_animate_rotate ((ClutterActor *)item, wvce_set_view_editing_1, item,
 				wvce_set_view_editing_2, item);
 	//wvce_set_view_editing_1 (item);
 	//wvce_set_view_editing_2 (item);
@@ -1662,14 +1659,18 @@ wvce_animate_scale (ClutterActor *item,
 }
 
 static void
-wvce_set_view_normal_1 (EWeekViewClutterEventItem *item)
-{
+wvce_set_view_normal_1 (gpointer gp)
+{		
+	EWeekViewClutterEventItem *item = (EWeekViewClutterEventItem *)gp;
+
 	clutter_actor_hide (item->priv->text_item);
-	clutter_actor_show (item->priv->texture);	
+	clutter_actor_show ((ClutterActor *)item->priv->texture);	
 }
 static void
-wvce_set_view_normal_2 (EWeekViewClutterEventItem *item)
-{
+wvce_set_view_normal_2 (gpointer gp)
+{		
+	EWeekViewClutterEventItem *item = (EWeekViewClutterEventItem *)gp;
+
 	/* Do nothing */
 }
 
@@ -1677,7 +1678,7 @@ void
 e_week_view_clutter_event_item_switch_normal_mode (EWeekViewClutterEventItem *item)
 {
 
-	wvce_animate_scale (item, wvce_set_view_normal_1, item,
+	wvce_animate_scale ((ClutterActor *)item, wvce_set_view_normal_1, item,
 				wvce_set_view_normal_2, item);
 
 	//clutter_actor_hide (item->priv->text_item);
@@ -1692,7 +1693,7 @@ e_week_view_clutter_event_item_switch_viewing_mode (EWeekViewClutterEventItem *i
 const char *
 e_week_view_clutter_event_item_get_edit_text (EWeekViewClutterEventItem *item)
 {
-	return clutter_text_get_text (item->priv->text_item);
+	return clutter_text_get_text ((ClutterText *)item->priv->text_item);
 }
 
 
@@ -1727,14 +1728,14 @@ wvce_animate_scale_delete (ClutterActor *item)
 void
 e_week_view_clutter_event_item_scale_destroy (EWeekViewClutterEventItem *item)
 {
-	wvce_animate_scale_delete (item);
+	wvce_animate_scale_delete ((ClutterActor *)item);
 }
 
 
 void
 e_week_view_clutter_event_item_fade_destroy (EWeekViewClutterEventItem *item)
 {
-	clutter_actor_animate (item, CLUTTER_EASE_OUT_SINE, 200,
+	clutter_actor_animate ((ClutterActor *)item, CLUTTER_EASE_OUT_SINE, 200,
 				"opacity", 0,
 				"signal-swapped-after::completed", clutter_actor_destroy, item,
 				NULL);	

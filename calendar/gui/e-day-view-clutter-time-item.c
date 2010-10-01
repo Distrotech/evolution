@@ -811,7 +811,7 @@ edvti_second_zone_changed_cb (GConfClient *client, guint cnxn_id, GConfEntry *en
 
 	day_view = e_day_view_clutter_time_item_get_day_view (time_item);
 	gtk_widget_set_size_request (day_view->time_canvas, e_day_view_clutter_time_item_get_column_width (time_item), -1);
-	e_day_view_clutter_time_item_redraw (day_view->time_canvas_actor);
+	e_day_view_clutter_time_item_redraw ((EDayViewClutterTimeItem *)day_view->time_canvas_actor);
 }
 
 static void

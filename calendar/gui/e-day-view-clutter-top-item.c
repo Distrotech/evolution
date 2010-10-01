@@ -604,7 +604,7 @@ day_view_clutter_top_item_draw_selection (ClutterCairoTexture *canvas_item)
 	if (!top_item->priv->selection_actor) {
 		top_item->priv->selection_actor = clutter_cairo_texture_new (width, height);
 		clutter_actor_set_opacity (top_item->priv->selection_actor, 155);
-		clutter_container_add_actor (day_view->top_canvas_stage, top_item->priv->selection_actor);
+		clutter_container_add_actor ((ClutterContainer *)day_view->top_canvas_stage, top_item->priv->selection_actor);
 		clutter_actor_show (top_item->priv->selection_actor);
 		clutter_actor_raise (top_item->priv->selection_actor, (ClutterActor *)canvas_item);
 
@@ -618,8 +618,8 @@ day_view_clutter_top_item_draw_selection (ClutterCairoTexture *canvas_item)
 			start_col = day_view->selection_start_day;
 			end_col = day_view->selection_end_day;
 			
-			clutter_cairo_texture_clear (top_item->priv->selection_actor);
-			cr = clutter_cairo_texture_create (top_item->priv->selection_actor);
+			clutter_cairo_texture_clear ((ClutterCairoTexture *)top_item->priv->selection_actor);
+			cr = clutter_cairo_texture_create ((ClutterCairoTexture *)top_item->priv->selection_actor);
 
 			if (end_col > start_col
 			    || day_view->selection_start_row == -1
@@ -655,7 +655,7 @@ day_view_clutter_top_item_draw (ClutterCairoTexture *canvas_item)
 	GtkAllocation allocation;
 	GdkRectangle clip_rect;
 	gint canvas_width, canvas_height, left_edge, day, date_width, date_x;
-	gint item_height, event_num;
+	gint item_height;
 	PangoLayout *layout;
 	cairo_t *cr;
 	GdkColor bg, light, dark;
@@ -960,7 +960,7 @@ e_day_view_clutter_top_item_set_size (EDayViewClutterTopItem *item, int width, i
 {
 	guint owidth, oheight;
 
-	clutter_cairo_texture_get_surface_size (item, &owidth, &oheight);	
+	clutter_cairo_texture_get_surface_size ((ClutterCairoTexture *)item, &owidth, &oheight);	
 
 	clutter_cairo_texture_set_surface_size ((ClutterCairoTexture *)item, width > 0 ? width : owidth, height > 0 ? height : oheight);
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
@@ -968,7 +968,7 @@ e_day_view_clutter_top_item_set_size (EDayViewClutterTopItem *item, int width, i
 		clutter_actor_destroy (item->priv->selection_actor);
 		item->priv->selection_actor = NULL;	
 	}	
-	day_view_clutter_top_item_draw (item);
+	day_view_clutter_top_item_draw ((ClutterCairoTexture *)item);
 }
 
 void
@@ -979,11 +979,11 @@ e_day_view_clutter_top_item_redraw (EDayViewClutterTopItem *item)
 		item->priv->selection_actor = NULL;	
 	}		
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
-	day_view_clutter_top_item_draw (item);
+	day_view_clutter_top_item_draw ((ClutterCairoTexture *) item);
 }
 
 void
 e_day_view_clutter_top_item_update_selection (EDayViewClutterTopItem *item)
 {
-	day_view_clutter_top_item_draw_selection (item);
+	day_view_clutter_top_item_draw_selection ((ClutterCairoTexture *) item);
 }

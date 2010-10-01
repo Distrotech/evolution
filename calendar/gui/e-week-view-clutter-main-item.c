@@ -80,11 +80,10 @@ week_view_clutter_main_item_draw_day_selection (EWeekViewClutterMainItem *main_i
 {
 	EWeekView *week_view;
 	GtkStyle *style;
-	gint right_edge, bottom_edge, date_width, date_x, line_y;
+	gint date_width, date_x, line_y;
 	gboolean show_day_name, show_month_name, selected;
 	gchar buffer[128], *format_string;
 	gint day_of_week, month, day_of_month, max_width;
-	GdkColor *bg_color;
 	PangoFontDescription *font_desc;
 	PangoContext *pango_context;
 	PangoFontMetrics *font_metrics;
@@ -261,8 +260,8 @@ week_view_clutter_main_item_draw_selection (EWeekViewClutterMainItem *main_item)
 	cairo_t *cr;
 	gint day_x, day_y;
 	gint day_w, day_h;
-	gint width;
-	gint height;
+	guint width;
+	guint height;
 	gint x=0, y=0;
 	gint day = 0;
        	EWeekView *week_view;
@@ -273,13 +272,13 @@ week_view_clutter_main_item_draw_selection (EWeekViewClutterMainItem *main_item)
        
 	if (!main_item->priv->selection_actor) {
 		main_item->priv->selection_actor = clutter_cairo_texture_new (width, height);
-		clutter_container_add_actor (week_view->main_canvas_stage, main_item->priv->selection_actor);
+		clutter_container_add_actor ((ClutterContainer *)week_view->main_canvas_stage, main_item->priv->selection_actor);
 		clutter_actor_show (main_item->priv->selection_actor);
 		clutter_actor_raise (main_item->priv->selection_actor, (ClutterActor *)main_item);
 	}
 	
-	clutter_cairo_texture_clear (main_item->priv->selection_actor);
-	cr = clutter_cairo_texture_create (main_item->priv->selection_actor);
+	clutter_cairo_texture_clear ((ClutterCairoTexture *)main_item->priv->selection_actor);
+	cr = clutter_cairo_texture_create ((ClutterCairoTexture *)main_item->priv->selection_actor);
 	
 	/* Step through each of the days. */
 	date = week_view->first_day_shown;
@@ -597,7 +596,7 @@ week_view_clutter_main_item_draw (ClutterCairoTexture *canvas_item)
 	GDate date;
 	gint num_days, day, day_x, day_y, day_w, day_h;
 	gint x=0, y=0;
-	gint width, height;
+	guint width, height;
 	cairo_t *cr;
 
 	clutter_cairo_texture_clear (canvas_item);
@@ -730,7 +729,7 @@ e_week_view_clutter_main_item_redraw (EWeekViewClutterMainItem *item)
 		item->priv->selection_actor = NULL;
 	}
 	clutter_cairo_texture_clear ((ClutterCairoTexture *)item);
-	week_view_clutter_main_item_draw ((ClutterActor *)item);
+	week_view_clutter_main_item_draw ((ClutterCairoTexture *)item);
 }
 
 void
@@ -743,7 +742,7 @@ e_week_view_clutter_main_item_set_size (EWeekViewClutterMainItem *item,
 		item->priv->selection_actor = NULL;
 	}	
 	clutter_cairo_texture_set_surface_size ((ClutterCairoTexture *)item, width, height);
-	week_view_clutter_main_item_draw (item);
+	week_view_clutter_main_item_draw ((ClutterCairoTexture *)item);
 }
 
 void
