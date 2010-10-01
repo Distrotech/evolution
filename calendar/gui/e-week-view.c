@@ -1417,6 +1417,9 @@ e_week_view_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 	e_week_view_recalc_cell_sizes (week_view);
 
 	/* Set the scroll region of the top canvas to its allocated size. */
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_get_scroll_region (
 		GNOME_CANVAS (week_view->titles_canvas),
 		NULL, NULL, &old_x2, &old_y2);
@@ -1442,7 +1445,34 @@ e_week_view_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 		gnome_canvas_set_scroll_region (
 			GNOME_CANVAS (week_view->main_canvas),
 			0, 0, new_x2, new_y2);
+#if HAVE_CLUTTER
+	} else {
+	guint w=0,h=0;
 
+	gtk_layout_get_size (week_view->titles_canvas, &w, &h);
+	gtk_widget_get_allocation (
+		week_view->titles_canvas, &canvas_allocation);
+	old_x2 = (gdouble)w;
+	old_y2 = (gdouble)h;
+	new_x2 = canvas_allocation.width - 1;
+	new_y2 = canvas_allocation.height - 1;
+	if (old_x2 != new_x2 || old_y2 != new_y2)
+		gtk_layout_set_size (week_view->titles_canvas, new_x2, new_y2);
+
+	/* Set the scroll region of the main canvas to its allocated width,
+	   but with the height depending on the number of rows needed. */
+	gtk_layout_get_size (week_view->main_canvas, &w, &h);
+	gtk_widget_get_allocation (
+		week_view->main_canvas, &canvas_allocation);
+	old_x2 = (gdouble)w;
+	old_y2 = (gdouble)h;	
+	new_x2 = canvas_allocation.width - 1;
+	new_y2 = canvas_allocation.height - 1;
+	if (old_x2 != new_x2 || old_y2 != new_y2)
+		gtk_layout_set_size (week_view->main_canvas,
+				     new_x2, new_y2);		
+	}
+#endif	
 	/* Flag that we need to reshape the events. */
 	if (old_x2 != new_x2 || old_y2 != new_y2) {
 		week_view->events_need_reshape = TRUE;

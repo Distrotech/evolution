@@ -1308,6 +1308,10 @@ e_day_view_init (EDayView *day_view)
 	clutter_container_add_actor ((ClutterContainer *)day_view->top_canvas_stage, (ClutterActor *)day_view->top_canvas_actor);
 	clutter_actor_show ((ClutterActor *)day_view->top_canvas_actor);	
 	}
+#endif
+
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
 #endif	
 	day_view->drag_long_event_rect_item =
 		gnome_canvas_item_new (canvas_group,
@@ -1332,9 +1336,7 @@ e_day_view_init (EDayView *day_view)
 	/*
 	 * Main Canvas
 	 */
-#if HAVE_CLUTTER
-	if (WITHOUT_CLUTTER) {
-#endif	
+
 	day_view->main_canvas = e_canvas_new ();
 #if HAVE_CLUTTER
 	} else {
@@ -1413,16 +1415,18 @@ e_day_view_init (EDayView *day_view)
 	clutter_actor_show ((ClutterActor *)day_view->main_canvas_actor);
 	}
 #endif	
+
+#if HAVE_CLUTTER
+	day_view->drag_actor = NULL;
+
+	if (WITHOUT_CLUTTER) {
+#endif	
 	day_view->drag_rect_item =
 		gnome_canvas_item_new (canvas_group,
 				       gnome_canvas_rect_get_type (),
 				       "width_pixels", 1,
 				       NULL);
 	gnome_canvas_item_hide (day_view->drag_rect_item);
-
-#if HAVE_CLUTTER	
-	day_view->drag_actor = NULL;
-#endif
 
 	day_view->drag_bar_item =
 		gnome_canvas_item_new (canvas_group,
@@ -1446,9 +1450,7 @@ e_day_view_init (EDayView *day_view)
 	/*
 	 * Times Canvas
 	 */
-#if HAVE_CLUTTER
-	if (WITHOUT_CLUTTER) {
-#endif
+
 	day_view->time_canvas = e_canvas_new ();
 	layout = GTK_LAYOUT (day_view->main_canvas);
 	adjustment = gtk_layout_get_vadjustment (layout);
@@ -1691,6 +1693,9 @@ e_day_view_realize (GtkWidget *widget)
 	day_view->meeting_icon = e_icon_factory_get_icon ("stock_people", GTK_ICON_SIZE_MENU);
 	day_view->attach_icon = e_icon_factory_get_icon ("mail-attachment", GTK_ICON_SIZE_MENU);
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	/* Set the canvas item colors. */
 	gnome_canvas_item_set (day_view->drag_long_event_rect_item,
 			       "fill_color_gdk", &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BACKGROUND],
@@ -1706,6 +1711,9 @@ e_day_view_realize (GtkWidget *widget)
 			       "fill_color_gdk", &day_view->colors[E_DAY_VIEW_COLOR_EVENT_VBAR],
 			       "outline_color_gdk", &day_view->colors[E_DAY_VIEW_COLOR_EVENT_BORDER],
 			       NULL);
+#if HAVE_CLUTTER
+	}
+#endif	
 }
 
 static void
@@ -2050,8 +2058,14 @@ e_day_view_recalc_main_canvas_size (EDayView *day_view)
 	   allocation. */
 	if (day_view->scroll_to_work_day) {
 		scroll_y = e_day_view_convert_time_to_position (day_view, day_view->work_day_start_hour, day_view->work_day_start_minute);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 		gnome_canvas_scroll_to (GNOME_CANVAS (day_view->main_canvas),
 					0, scroll_y);
+#if HAVE_CLUTTER
+	}
+#endif
 		day_view->scroll_to_work_day = FALSE;
 	}
 
@@ -5631,7 +5645,8 @@ e_day_view_reshape_long_event (EDayView *day_view,
 		text_w = item_w;
 	} else {
 		/* Get the requested size of the label. */
-		g_object_get (G_OBJECT (event->canvas_item), "text", &text, NULL);
+		if (event->canvas_item) 
+			g_object_get (G_OBJECT (event->canvas_item), "text", &text, NULL);
 		text_width = 0;
 		if (text) {
 			end_of_line = strchr (text, '\n');
@@ -5665,13 +5680,18 @@ e_day_view_reshape_long_event (EDayView *day_view,
 	}
 
 	text_w = MAX (text_w, 0);
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_item_set (event->canvas_item,
 			       "clip_width", (gdouble) text_w,
 			       "clip_height", (gdouble) item_h,
 			       NULL);
 	e_canvas_item_move_absolute(event->canvas_item,
 				    text_x, item_y);
-
+#if HAVE_CLUTTER
+	}
+#endif	
 	g_object_unref (layout);
 	g_object_unref (comp);
 }
@@ -7948,9 +7968,18 @@ e_day_view_check_auto_scroll (EDayView *day_view,
 	GtkAllocation allocation;
 	gint scroll_x, scroll_y;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_get_scroll_offsets (GNOME_CANVAS (day_view->main_canvas),
 					 &scroll_x, &scroll_y);
-
+#if HAVE_CLUTTER
+	} else {
+	GtkAdjustment *adj = gtk_layout_get_vadjustment ((GtkLayout *)day_view->main_canvas);
+	scroll_y = gtk_adjustment_get_value (adj);
+		
+	}
+#endif
 	event_x -= scroll_x;
 	event_y -= scroll_y;
 
@@ -8510,6 +8539,9 @@ e_day_view_update_top_canvas_drag (EDayView *day_view,
 	item_y = row * day_view->top_row_height;
 	item_h = day_view->top_row_height - E_DAY_VIEW_TOP_CANVAS_Y_GAP;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	/* Set the positions of the event & associated items. */
 	gnome_canvas_item_set (day_view->drag_long_event_rect_item,
 			       "x1", item_x,
@@ -8552,6 +8584,9 @@ e_day_view_update_top_canvas_drag (EDayView *day_view,
 
 		g_free (text);
 	}
+#if HAVE_CLUTTER
+	}
+#endif	
 }
 
 static gboolean
@@ -8685,6 +8720,9 @@ e_day_view_update_main_canvas_drag (EDayView *day_view,
 	item_y = row * day_view->row_height;
 	item_h = num_rows * day_view->row_height;
 
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	/* Set the positions of the event & associated items. */
 	gnome_canvas_item_set (day_view->drag_rect_item,
 			       "x1", item_x + E_DAY_VIEW_BAR_WIDTH - 1,
@@ -8739,6 +8777,9 @@ e_day_view_update_main_canvas_drag (EDayView *day_view,
 
 		g_free (text);
 	}
+#if HAVE_CLUTTER
+	}
+#endif	
 }
 
 static void
@@ -8757,8 +8798,14 @@ e_day_view_on_top_canvas_drag_leave (GtkWidget      *widget,
 	}
 #endif	
 	
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif	
 	gnome_canvas_item_hide (day_view->drag_long_event_rect_item);
 	gnome_canvas_item_hide (day_view->drag_long_event_item);
+#if HAVE_CLUTTER
+	}
+#endif	
 }
 
 static void
@@ -8770,10 +8817,16 @@ e_day_view_on_main_canvas_drag_leave (GtkWidget      *widget,
 	day_view->drag_last_day = -1;
 
 	e_day_view_stop_auto_scroll (day_view);
-
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	gnome_canvas_item_hide (day_view->drag_rect_item);
 	gnome_canvas_item_hide (day_view->drag_bar_item);
 	gnome_canvas_item_hide (day_view->drag_item);
+#if HAVE_CLUTTER
+	}
+#endif
+
 #if HAVE_CLUTTER
 	if (!WITHOUT_CLUTTER) {
 		day_view->drag_hidden = TRUE;
@@ -8838,9 +8891,16 @@ e_day_view_on_drag_begin (GtkWidget      *widget,
 		
 	}
 #endif	
+
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif		
 	/* Hide the text item, since it will be shown in the special drag
 	   items. */
 	gnome_canvas_item_hide (event->canvas_item);
+#if HAVE_CLUTTER
+	}
+#endif
 }
 
 static void
@@ -8906,9 +8966,15 @@ e_day_view_on_drag_end (GtkWidget      *widget,
 	}
 #endif
 	
+#if HAVE_CLUTTER
+	if (WITHOUT_CLUTTER) {
+#endif
+	
 	/* Show the text item again. */
 	gnome_canvas_item_show (event->canvas_item);
-
+#if HAVE_CLUTTER
+	} 
+#endif	
 	day_view->drag_event_day = -1;
 	day_view->drag_event_num = -1;
 }
