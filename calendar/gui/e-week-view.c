@@ -781,6 +781,7 @@ e_week_view_class_init (EWeekViewClass *class)
 	e_week_view_a11y_init ();
 }
 
+#if HAVE_CLUTTER
 static void                
 main_canvas_set_canvas_size (GtkWidget     *widget,
 		 GtkAllocation *allocation,
@@ -808,6 +809,7 @@ titles_canvas_set_canvas_size (GtkWidget     *widget,
 	clutter_actor_set_size (week_view->titles_canvas_actor, allocation->width, allocation->height);
 	e_week_view_clutter_titles_item_set_size ((EWeekViewClutterTitlesItem *)week_view->titles_canvas_actor, allocation->width, allocation->height);
 }
+#endif
 
 static void
 e_week_view_init (EWeekView *week_view)

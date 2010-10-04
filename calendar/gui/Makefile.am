@@ -87,20 +87,6 @@ etspec_DATA =				\
 	e-memo-table.etspec
 
 libevolution_calendar_la_SOURCES = \
-	e-day-view-clutter-time-item.c		\
-	e-day-view-clutter-time-item.h		\
-	e-day-view-clutter-main-item.c		\
-	e-day-view-clutter-main-item.h		\
-	e-day-view-clutter-top-item.c		\
-	e-day-view-clutter-top-item.h		\
-	e-day-view-clutter-event-item.c		\
-	e-day-view-clutter-event-item.h		\
-	e-week-view-clutter-titles-item.c	\
-	e-week-view-clutter-titles-item.h	\
-	e-week-view-clutter-main-item.c		\
-	e-week-view-clutter-main-item.h		\
-	e-week-view-clutter-event-item.c	\
-	e-week-view-clutter-event-item.h	\
 	cal-editor-utils.c			\
 	cal-editor-utils.h			\
 	calendar-config.c			\
@@ -227,6 +213,25 @@ libevolution_calendar_la_SOURCES = \
 	ea-jump-button.h			\
 	ea-gnome-calendar.c			\
 	ea-gnome-calendar.h
+
+if ENABLE_CLUTTER
+
+libevolution_calendar_la_SOURCES += \
+	e-day-view-clutter-time-item.c		\
+	e-day-view-clutter-time-item.h		\
+	e-day-view-clutter-main-item.c		\
+	e-day-view-clutter-main-item.h		\
+	e-day-view-clutter-top-item.c		\
+	e-day-view-clutter-top-item.h		\
+	e-day-view-clutter-event-item.c		\
+	e-day-view-clutter-event-item.h		\
+	e-week-view-clutter-titles-item.c	\
+	e-week-view-clutter-titles-item.h	\
+	e-week-view-clutter-main-item.c		\
+	e-week-view-clutter-main-item.h		\
+	e-week-view-clutter-event-item.c	\
+	e-week-view-clutter-event-item.h	
+endif
 
 libevolution_calendar_la_LIBADD =					\
 	$(top_builddir)/composer/libcomposer.la				\

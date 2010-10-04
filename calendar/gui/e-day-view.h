@@ -187,7 +187,9 @@ struct _EDayViewEvent {
 	   i.e. it couldn't fit into the display. Currently long events are
 	   always shown as we just increase the height of the top canvas. */
 	guint8 num_columns;
+#if HAVE_CLUTTER	
 	gboolean being_dragged;
+#endif	
 };
 
 /* Standard GObject macros */
