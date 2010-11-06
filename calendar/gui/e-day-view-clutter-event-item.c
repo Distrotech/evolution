@@ -2080,7 +2080,7 @@ wvce_set_view_editing_1 (gpointer gp)
 {
 	EDayViewClutterEventItem *item  = (EDayViewClutterEventItem *)gp;
 
-	clutter_actor_destroy ((ClutterActor *)item->priv->texture);
+	clutter_actor_hide ((ClutterActor *)item->priv->texture);
 	clutter_actor_show (item->priv->text_item);
 }
 static void
