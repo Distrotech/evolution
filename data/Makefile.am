@@ -39,6 +39,7 @@ convert_DATA = evolution.convert
 themedir = $(privdatadir)/theme
 dist_theme_DATA =	\
 	default.css	\
+	webview.css	\
 	tab-bar-background.png \
 	tab-switcher.png 	\
 	tab-switcher-hover.png	\
