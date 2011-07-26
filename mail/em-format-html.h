@@ -30,7 +30,6 @@
 
 #include <em-format/em-format.h>
 #include <misc/e-web-view.h>
-#include <gtkhtml/gtkhtml-embedded.h>
 #include <libemail-engine/e-mail-enums.h>
 
 /* Standard GObject macros */
@@ -136,9 +135,8 @@ struct _EMFormatHTMLJob {
 /* Pending object (classid: url) */
 typedef struct _EMFormatHTMLPObject EMFormatHTMLPObject;
 
-typedef gboolean
+typedef GtkWidget*
 		(*EMFormatHTMLPObjectFunc)	(EMFormatHTML *md,
-						 GtkHTMLEmbedded *eb,
 						 EMFormatHTMLPObject *pobject);
 
 /**
@@ -204,7 +202,7 @@ struct _EMFormatHTMLPObject {
  * Most of these fields are private or read-only.
  *
  * The base HTML formatter object.  This object drives HTML generation
- * into a GtkHTML parser.  It also handles text to HTML conversion,
+ * into a WebKit parser.  It also handles text to HTML conversion,
  * multipart/related objects and inline images.
  **/
 struct _EMFormatHTML {
