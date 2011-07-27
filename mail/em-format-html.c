@@ -919,7 +919,7 @@ efh_class_init (EMFormatHTMLClass *class)
 			"show-sender-photo",
 			"Show Sender Photo",
 			NULL,
-			TRUE,
+			FALSE,
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT));
 
@@ -968,7 +968,7 @@ efh_class_init (EMFormatHTMLClass *class)
 
 	g_object_class_install_property (
 		object_class,
-		PROP_HEADERS_STATE,
+		PROP_HEADERS_COLLAPSABLE,
 		g_param_spec_boolean (
 			"headers-collapsable",
 			NULL,
