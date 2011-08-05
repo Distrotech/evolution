@@ -221,20 +221,12 @@ em_format_html_print_message (EMFormatHTMLPrint *efhp,
 		EM_FORMAT_HTML_HEADER_CC |
 		EM_FORMAT_HTML_HEADER_BCC;
 
-	if (efhp->async) {
-		g_signal_connect (
-			efhp, "complete", G_CALLBACK (emfhp_complete), efhp);
+	g_signal_connect (
+		efhp, "complete", G_CALLBACK (emfhp_complete), efhp);
 
-		/* FIXME Not passing a GCancellable here. */
-		em_format_format_clone (
-			(EMFormat *) efhp,
-			folder, message_uid, message,
-			(EMFormat *) efhp->source, NULL);
-	} else {
-		em_format_html_clone_sync (
-			folder, message_uid, message,
-			(EMFormatHTML *) efhp,
-			(EMFormat *) efhp->source);
-		emfhp_complete (efhp);
-	}
+	/* FIXME Not passing a GCancellable here. */
+	em_format_format_clone (
+		(EMFormat *) efhp,
+		folder, message_uid, message,
+		(EMFormat *) efhp->source, NULL);
 }
