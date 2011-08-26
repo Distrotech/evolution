@@ -412,7 +412,8 @@ e_mail_reader_open_selected (EMailReader *reader)
 		const gchar *uid = views->pdata[ii];
 		GtkWidget *browser;
 
-		browser = e_mail_browser_new (backend);
+		browser = e_mail_browser_new (backend, folder, uid,
+				E_MAIL_DISPLAY_MODE_NORMAL);
 		e_mail_reader_set_folder (E_MAIL_READER (browser), folder);
 		e_mail_reader_set_message (E_MAIL_READER (browser), uid);
 		copy_tree_state (reader, E_MAIL_READER (browser));
@@ -438,6 +439,7 @@ mail_reader_print_cb (CamelFolder *folder,
 {
 	EAlertSink *alert_sink;
 	CamelMimeMessage *message;
+	EMailDisplay *display;
 	EMFormatHTML *formatter;
 	EMFormatHTMLPrint *html_print;
 	GError *error = NULL;
@@ -464,12 +466,15 @@ mail_reader_print_cb (CamelFolder *folder,
 
 	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
 
-	formatter = e_mail_reader_get_formatter (context->reader);
+	display = e_mail_reader_get_mail_display (context->reader);
+	formatter = e_mail_display_get_formatter (display);
 
 	html_print = em_format_html_print_new (
 		formatter, context->print_action);
+	/* FIXME WEBKIT
 	em_format_merge_handler (
 		EM_FORMAT (html_print), EM_FORMAT (formatter));
+	*/
 	em_format_html_print_message (
 		html_print, message, folder, context->message_uid);
 	g_object_unref (html_print);
@@ -763,6 +768,7 @@ mail_reader_get_message_ready_cb (CamelFolder *folder,
 	EMailBackend *backend;
 	EAlertSink *alert_sink;
 	EMFormatHTML *formatter;
+	EMailDisplay *display;
 	CamelMimeMessage *message;
 	GError *error = NULL;
 
@@ -791,7 +797,8 @@ mail_reader_get_message_ready_cb (CamelFolder *folder,
 	backend = e_mail_reader_get_backend (context->reader);
 	shell = e_shell_backend_get_shell (E_SHELL_BACKEND (backend));
 
-	formatter = e_mail_reader_get_formatter (context->reader);
+	display = e_mail_reader_get_mail_display (context->reader);
+	formatter = e_mail_display_get_formatter (display);
 
 	em_utils_reply_to_message (
 		shell, message,
@@ -814,6 +821,7 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	EShell *shell;
 	EMailBackend *backend;
 	EShellBackend *shell_backend;
+	EMailDisplay *display;
 	EMFormatHTML *formatter;
 	GtkWidget *message_list;
 	CamelMimeMessage *new_message;
@@ -834,14 +842,15 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 
 	backend = e_mail_reader_get_backend (reader);
 	folder = e_mail_reader_get_folder (reader);
-	formatter = e_mail_reader_get_formatter (reader);
+	display = e_mail_reader_get_mail_display (reader);
+	formatter = e_mail_display_get_formatter (display);
 	message_list = e_mail_reader_get_message_list (reader);
 	reply_style = e_mail_reader_get_reply_style (reader);
 
 	shell_backend = E_SHELL_BACKEND (backend);
 	shell = e_shell_backend_get_shell (shell_backend);
 
-	web_view = em_format_html_get_web_view (formatter);
+	web_view = e_mail_display_get_current_web_view (display);
 
 	if (reply_type == E_MAIL_REPLY_TO_RECIPIENT) {
 		const gchar *uri;
@@ -1399,18 +1408,23 @@ headers_changed_cb (GConfClient *client,
                     GConfEntry *entry,
                     EMailReader *reader)
 {
+	EMailDisplay *display;
 	EMFormatHTML *formatter;
-	EWebView *web_view;
 	GSList *header_config_list, *p;
 
 	g_return_if_fail (client != NULL);
 	g_return_if_fail (reader != NULL);
 
-	formatter = e_mail_reader_get_formatter (reader);
+	display = e_mail_reader_get_mail_display (reader);
+	formatter = e_mail_display_get_formatter (display);
+
+	if (!formatter)
+		return;
 
 	header_config_list = gconf_client_get_list (
 		client, "/apps/evolution/mail/display/headers",
 		GCONF_VALUE_STRING, NULL);
+	/* FIXME WEBKIT
 	em_format_clear_headers (EM_FORMAT (formatter));
 	for (p = header_config_list; p; p = g_slist_next (p)) {
 		EMailReaderHeader *h;
@@ -1430,11 +1444,11 @@ headers_changed_cb (GConfClient *client,
 
 	g_slist_foreach (header_config_list, (GFunc) g_free, NULL);
 	g_slist_free (header_config_list);
+	*/
 
 	/* force a redraw */
 	if (EM_FORMAT (formatter)->message) {
-		web_view = em_format_html_get_web_view (formatter);
-		e_web_view_reload (web_view);
+		e_mail_display_reload (display);
 	}
 }
 

@@ -37,10 +37,7 @@
 
 #include "em-format-html-print.h"
 
-G_DEFINE_TYPE (
-	EMFormatHTMLPrint,
-	em_format_html_print,
-	EM_TYPE_FORMAT_HTML)
+static gpointer parent_class = NULL;
 
 static void
 efhp_finalize (GObject *object)
@@ -54,7 +51,7 @@ efhp_finalize (GObject *object)
 		g_object_unref (efhp->source);
 
 	/* Chain up to parent's finalize() method. */
-	G_OBJECT_CLASS (em_format_html_print_parent_class)->finalize (object);
+	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 static gboolean
@@ -68,10 +65,12 @@ efhp_is_inline (EMFormat *emf,
 }
 
 static void
-em_format_html_print_class_init (EMFormatHTMLPrintClass *class)
+efhp_class_init (EMFormatHTMLPrintClass *class)
 {
 	GObjectClass *object_class;
 	EMFormatClass *format_class;
+
+	parent_class = g_type_class_peek_parent (class);
 
 	object_class = G_OBJECT_CLASS (class);
 	object_class->finalize = efhp_finalize;
@@ -81,15 +80,17 @@ em_format_html_print_class_init (EMFormatHTMLPrintClass *class)
 }
 
 static void
-em_format_html_print_init (EMFormatHTMLPrint *efhp)
+efhp_init (EMFormatHTMLPrint *efhp)
 {
 	EWebView *web_view;
 
 	/* FIXME WEBKIT: this ain't gonna work
 	web_view = em_format_html_get_web_view (EM_FORMAT_HTML (efhp));
+	*/
 
 	/* gtk widgets don't like to be realized outside top level widget
 	 * so we put new html widget into gtk window */
+	/* FIXME WEBKIT: this ain't gonna work
 	efhp->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_container_add (GTK_CONTAINER (efhp->window), GTK_WIDGET (web_view));
 	gtk_widget_realize (GTK_WIDGET (web_view));
@@ -101,6 +102,32 @@ em_format_html_print_init (EMFormatHTMLPrint *efhp)
 
 	efhp->export_filename = NULL;
 	efhp->async = TRUE;
+}
+
+GType
+em_format_html_print_get_type (void)
+{
+	static GType type = 0;
+
+	if (G_UNLIKELY (type == 0)) {
+		static const GTypeInfo type_info = {
+			sizeof (EMFormatHTMLPrintClass),
+			(GBaseInitFunc) NULL,
+			(GBaseFinalizeFunc) NULL,
+			(GClassInitFunc) efhp_class_init,
+			(GClassFinalizeFunc) NULL,
+			NULL,  /* class_data */
+			sizeof (EMFormatHTMLPrint),
+			0,     /* n_preallocs */
+			(GInstanceInitFunc) efhp_init
+		};
+
+		type = g_type_register_static (
+			EM_TYPE_FORMAT_HTML, "EMFormatHTMLPrint",
+			&type_info, 0);
+	}
+
+	return type;
 }
 
 EMFormatHTMLPrint *
@@ -227,8 +254,5 @@ em_format_html_print_message (EMFormatHTMLPrint *efhp,
 		efhp, "complete", G_CALLBACK (emfhp_complete), efhp);
 
 	/* FIXME Not passing a GCancellable here. */
-	em_format_parse (EM_FORMAT (efhp), message, folder, NULL);
-		(EMFormat *) efhp,
-		folder, message_uid, message,
-		(EMFormat *) efhp->source, NULL);
+	em_format_parse ((EMFormat *) efhp, message, folder, NULL);
 }

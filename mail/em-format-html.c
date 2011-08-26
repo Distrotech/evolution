@@ -2409,10 +2409,12 @@ em_format_html_get_cached_image (EMFormatHTML *efh,
 	g_return_val_if_fail (efh != NULL, NULL);
 	g_return_val_if_fail (image_uri != NULL, NULL);
 
+	/* FIXME WEBKIT This has not been ported yet
 	if (!emfh_http_cache)
 		return NULL;
 
 	return camel_data_cache_get (
 		emfh_http_cache, EMFH_HTTP_CACHE_PATH, image_uri, NULL);
+	*/
+	return NULL;
 }
-

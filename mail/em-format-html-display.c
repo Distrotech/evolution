@@ -114,10 +114,7 @@ static void efhd_message_prefix (EMFormat *emf, CamelMimePart *part, GString *pa
 
 static void efhd_builtin_init (EMFormatHTMLDisplayClass *efhc);
 
-G_DEFINE_TYPE (
-	EMFormatHTMLDisplay,
-	em_format_html_display,
-	EM_TYPE_FORMAT_HTML)
+static gpointer parent_class;
 
 static void
 efhd_xpkcs7mime_free (EMFormatPURI *puri)
@@ -391,7 +388,7 @@ static void
 efhd_parse (EMFormat *emf,
 	    CamelMimeMessage *msg,
 	    CamelFolder *folder,
-	    Cancellable *cancellable)
+	    GCancellable *cancellable)
 {
 	EMFormatHTMLDisplay *efhd;
 
@@ -407,8 +404,7 @@ efhd_parse (EMFormat *emf,
 	 */
 
 	/* Chain up to parent's format_clone() method. */
-	EM_FORMAT_CLASS (em_format_html_display_parent_class)->
-		parse (emf, msg, folder, cancellable);
+	EM_FORMAT_CLASS (parent_class)->parse (emf, msg, folder, cancellable);
 }
 
 static void
@@ -582,10 +578,12 @@ attachment_load_finish (EAttachment *attachment,
 	g_object_unref (file);
 }
 
+
 static void
 action_image_save_cb (GtkAction *action,
                       EMFormatHTMLDisplay *efhd)
 {
+#if 0 /* FIXME WEBKIT */
 	EWebView *web_view;
 	EMFormat *emf;
 	const gchar *image_src;
@@ -661,6 +659,7 @@ action_image_save_cb (GtkAction *action,
 		attachment_load_finish, file);
 
 	g_object_unref (part);
+#endif
 }
 
 static void
@@ -726,17 +725,17 @@ efhd_finalize (GObject *object)
 	}
 
 	/* Chain up to parent's finalize() method. */
-	G_OBJECT_CLASS (em_format_html_display_parent_class)->
-		finalize (object);
+	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 static void
-em_format_html_display_class_init (EMFormatHTMLDisplayClass *class)
+efhd_class_init (EMFormatHTMLDisplayClass *class)
 {
 	GObjectClass *object_class;
 	EMFormatClass *format_class;
 	EMFormatHTMLClass *format_html_class;
 
+	parent_class = g_type_class_peek_parent (class);
 	g_type_class_add_private (class, sizeof (EMFormatHTMLDisplayPrivate));
 
 	object_class = G_OBJECT_CLASS (class);
@@ -755,8 +754,13 @@ em_format_html_display_class_init (EMFormatHTMLDisplayClass *class)
 }
 
 static void
-em_format_html_display_init (EMFormatHTMLDisplay *efhd)
+efhd_init (EMFormatHTMLDisplay *efhd)
 {
+	EWebView *web_view;
+	GtkActionGroup *image_actions;
+	GtkUIManager *ui_manager;
+	GError *error = NULL;
+
 	efhd->priv = EM_FORMAT_HTML_DISPLAY_GET_PRIVATE (efhd);
 	efhd->priv->attachment_views = g_hash_table_new_full (
 		g_str_hash, g_str_equal, g_free, NULL);
@@ -766,16 +770,18 @@ em_format_html_display_init (EMFormatHTMLDisplay *efhd)
 		CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS |
 		CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES;
 
+/* FIXME WEBKIT There's no way how to get web_view from EFHD for now...
 	image_actions = e_web_view_get_action_group (web_view, "image");
 	g_return_if_fail (image_actions != NULL);
 
 	gtk_action_group_add_actions (
 		image_actions, image_entries,
 		G_N_ELEMENTS (image_entries), efhd);
-
+*/
 	/* Because we are loading from a hard-coded string, there is
 	 * no chance of I/O errors.  Failure here implies a malformed
 	 * UI definition.  Full stop. */
+/* FIXME WEBKIT There's no way how to get web_view from EFHD for now...
 	ui_manager = e_web_view_get_ui_manager (web_view);
 	gtk_ui_manager_add_ui_from_string (ui_manager, image_ui, -1, &error);
 	if (error != NULL)
@@ -784,6 +790,34 @@ em_format_html_display_init (EMFormatHTMLDisplay *efhd)
 	g_signal_connect (
 		web_view, "update-actions",
 		G_CALLBACK (efhd_web_view_update_actions_cb), efhd);
+*/
+}
+
+GType
+em_format_html_display_get_type (void)
+{
+	static GType type = 0;
+
+	if (G_UNLIKELY (type == 0)) {
+		static const GTypeInfo type_info = {
+			sizeof (EMFormatHTMLDisplayClass),
+			(GBaseInitFunc) NULL,
+			(GBaseFinalizeFunc) NULL,
+			(GClassInitFunc) efhd_class_init,
+			(GClassFinalizeFunc) NULL,
+			NULL,  /* class_data */
+			sizeof (EMFormatHTMLDisplay),
+			0,     /* n_preallocs */
+			(GInstanceInitFunc) efhd_init,
+			NULL   /* value_table */
+		};
+
+		type = g_type_register_static (
+			EM_TYPE_FORMAT_HTML, "EMFormatHTMLDisplay",
+			&type_info, 0);
+	}
+
+	return type;
 }
 
 EMFormatHTMLDisplay *
@@ -929,7 +963,7 @@ efhd_attachment_button (EMFormat *emf,
 	if (emf->folder && emf->folder->summary && emf->message_uid) {
 		CamelMessageInfo *mi;
 
-		mi = camel_folder_summary_get (emf->folder->summary, emf->uid);
+		mi = camel_folder_summary_get (emf->folder->summary, emf->message_uid);
 		if (mi) {
 			const CamelMessageContentInfo *ci;
 
