@@ -58,7 +58,7 @@
 
 #include "itip-view.h"
 
-#define CLASSID "itip://"
+#define CLASSID "mail://itip."
 #define CONF_KEY_DELETE "delete-processed"
 
 #define d(x)
@@ -2189,9 +2189,9 @@ save_vcalendar_cb (GtkWidget *button,
 
 static GtkWidget *
 set_itip_error (struct _itip_puri *pitip,
-                GtkContainer *container,
-                const gchar *primary,
-                const gchar *secondary)
+				GtkWidget *container,
+				const gchar *primary,
+				const gchar *secondary)
 {
 	GtkWidget *vbox, *label;
 	gchar *message;
@@ -2212,15 +2212,14 @@ set_itip_error (struct _itip_puri *pitip,
 	gtk_widget_show (label);
 	gtk_box_pack_start (GTK_BOX (vbox), label, FALSE, FALSE, 0);
 
-	gtk_container_add (container, vbox);
+	gtk_container_add (GTK_CONTAINER (container), vbox);
 
 	return vbox;
 }
 
-static gboolean
+static GtkWidget*
 extract_itip_data (struct _itip_puri *pitip,
-                   GtkContainer *container,
-                   gboolean *have_alarms)
+				   gboolean *have_alarms)
 {
 	EShell *shell;
 	EShellSettings *shell_settings;
@@ -2232,16 +2231,19 @@ extract_itip_data (struct _itip_puri *pitip,
 	icalcompiter alarm_iter;
 	ECalComponent *comp;
 	gboolean use_default_reminder;
+	GtkWidget *container;
 
 	shell = e_shell_get_default ();
 	shell_settings = e_shell_get_shell_settings (shell);
+
+	container = gtk_vbox_new (FALSE, 5);
 
 	if (!pitip->vcalendar) {
 		set_itip_error (pitip, container,
 				_("The calendar attached is not valid"),
 				_("The message claims to contain a calendar, but the calendar is not a valid iCalendar."));
 
-		return FALSE;
+		return container;
 	}
 
 	pitip->top_level = e_cal_util_new_top_level ();
@@ -2257,7 +2259,7 @@ extract_itip_data (struct _itip_puri *pitip,
 			pitip->main_comp = NULL;
 		}
 
-		return FALSE;
+		return container;
 	}
 
 	prop = icalcomponent_get_first_property (pitip->main_comp, ICAL_METHOD_PROPERTY);
@@ -2293,7 +2295,7 @@ extract_itip_data (struct _itip_puri *pitip,
 				_("The item in the calendar is not valid"),
 				_("The message does contain a calendar, but the calendar contains no events, tasks or free/busy information"));
 
-		return FALSE;
+		return container;
 	}
 
 	switch (icalcomponent_isa (pitip->ical_comp)) {
@@ -2320,7 +2322,7 @@ extract_itip_data (struct _itip_puri *pitip,
 		set_itip_error (pitip, container,
 				_("The item in the calendar is not valid"),
 				_("The message does contain a calendar, but the calendar contains no events, tasks or free/busy information"));
-		return FALSE;
+		return container;
 	}
 
 	pitip->total = icalcomponent_count_components (pitip->main_comp, ICAL_VEVENT_COMPONENT);
@@ -2349,7 +2351,6 @@ extract_itip_data (struct _itip_puri *pitip,
 		g_signal_connect (
 			save, "clicked",
 			G_CALLBACK (save_vcalendar_cb), pitip);
-		return FALSE;
 	} if (pitip->total > 0) {
 		pitip->current = 1;
 	} else {
@@ -2432,7 +2433,7 @@ extract_itip_data (struct _itip_puri *pitip,
 				_("The item in the calendar is not valid"),
 				_("The message does contain a calendar, but the calendar contains no events, tasks or free/busy information"));
 
-		return FALSE;
+		return container;
 	};
 
 	/* Add default reminder if the config says so */
@@ -2483,7 +2484,9 @@ extract_itip_data (struct _itip_puri *pitip,
 	find_from_address (pitip, pitip->ical_comp);
 	find_to_address (pitip, pitip->ical_comp, NULL);
 
-	return TRUE;
+	gtk_widget_destroy (container);
+
+	return NULL;
 }
 
 struct _opencal_msg {
@@ -2698,8 +2701,9 @@ in_proper_folder (CamelFolder *folder)
 }
 
 static GtkWidget*
-format_itip_object (EMFormatHTML *efh,
-					EMFormatHTMLPObject *pobject)
+format_itip_object (EMFormat *emf,
+				    EMFormatPURI *puri,
+				    GCancellable *cancellable)
 {
 	EShell *shell;
 	EShellSettings *shell_settings;
@@ -2715,11 +2719,13 @@ format_itip_object (EMFormatHTML *efh,
 	gint i;
 	gboolean response_enabled;
 	gboolean have_alarms = FALSE;
+	GtkWidget *err_widget;
+	EMFormatHTML *efh = (EMFormatHTML *) emf;
 
 	shell = e_shell_get_default ();
 	shell_settings = e_shell_get_shell_settings (shell);
 
-	info = (struct _itip_puri *) em_format_find_puri ((EMFormat *) efh, pobject->classid);
+	info = (struct _itip_puri *) puri;
 
 	/* Accounts */
 	info->accounts = e_get_account_list ();
@@ -2735,10 +2741,8 @@ format_itip_object (EMFormatHTML *efh,
 	}
 
 	/* FIXME Handle multiple VEVENTS with the same UID, ie detached instances */
-#if 0  /* WEBKIT - FIXME!! */
-	if (!extract_itip_data (info, GTK_CONTAINER (eb), &have_alarms))
-		return TRUE;
-#endif
+	if ((err_widget = extract_itip_data (info, &have_alarms)) != NULL)
+		return err_widget;
 
 	info->view = itip_view_new ();
 	gtk_widget_show (info->view);
@@ -3086,35 +3090,34 @@ format_itip (EPlugin *ep,
              EMFormatHookTarget *target)
 {
 	GSettings *settings;
-	gchar *classid;
 	struct _itip_puri *puri;
 	CamelDataWrapper *content;
 	CamelStream *stream;
 	GByteArray *byte_array;
-	gchar *string;
+	gint len;
 
-	classid = g_strdup_printf("itip:///%s", ((EMFormat *) target->format)->part_id->str);
+	len = target->part_id->len;
+	g_string_append_printf (target->part_id, ".itip");
 
 	/* mark message as containing calendar, thus it will show the icon in message list now on */
-	if (target->format->uid && target->format->folder &&
-	    !camel_folder_get_message_user_flag (target->format->folder, target->format->uid, "$has_cal"))
-		camel_folder_set_message_user_flag (target->format->folder, target->format->uid, "$has_cal", TRUE);
-
-	puri = (struct _itip_puri *) em_format_add_puri (target->format, sizeof (struct _itip_puri), classid, target->part, itip_attachment_frame);
-
-	em_format_html_add_pobject ((EMFormatHTML *) target->format, sizeof (EMFormatHTMLPObject), classid, target->part, format_itip_object);
+	if (target->format->message_uid && target->format->folder &&
+	    !camel_folder_get_message_user_flag (target->format->folder, target->format->message_uid, "$has_cal"))
+		camel_folder_set_message_user_flag (target->format->folder, target->format->message_uid, "$has_cal", TRUE);
 
 	settings = g_settings_new ("org.gnome.evolution.plugin.itip");
+
+	puri = (struct _itip_puri *) em_format_puri_new (target->format, sizeof (struct _itip_puri), target->part, target->part_id->str);
+	puri->puri.widget_func = format_itip_object;
+	puri->puri.free = puri_free;
 	puri->delete_message = g_settings_get_boolean (settings, CONF_KEY_DELETE);
 	puri->has_organizer = FALSE;
 	puri->no_reply_wanted = FALSE;
 	puri->folder = ((EMFormat *) target->format)->folder;
-	puri->uid = g_strdup (((EMFormat *) target->format)->uid);
+	puri->uid = g_strdup (((EMFormat *) target->format)->message_uid);
 	puri->msg = ((EMFormat *) target->format)->message;
 	puri->part = target->part;
 	puri->cancellable = g_cancellable_new ();
 	puri->real_comps = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
-	puri->puri.free = puri_free;
 
 	g_object_unref (settings);
 
@@ -3132,16 +3135,7 @@ format_itip (EPlugin *ep,
 			(gchar *) byte_array->data, byte_array->len);
 
 	g_object_unref (stream);
-
-	string = g_strdup_printf (
-		"<table border=0 width=\"100%%\" cellpadding=3><tr>"
-		"<td valign=top><object classid=\"%s\"></object></td>"
-		"<td width=100%% valign=top></td></tr></table>",
-		classid);
-	camel_stream_write_string (target->stream, string, NULL, NULL);
-	g_free (string);
-
-	g_free (classid);
+	g_string_truncate (target->part_id, len);
 }
 
 static void
@@ -3322,6 +3316,7 @@ itip_attachment_frame (EMFormat *emf,
                        EMFormatPURI *puri,
                        GCancellable *cancellable)
 {
+	/* FIXME WEBKIT: I have no idea what these _frame functions are supposed to do
 	struct _itip_puri *info = (struct _itip_puri *) puri;
 
 	info->handle->handler (
@@ -3329,5 +3324,6 @@ itip_attachment_frame (EMFormat *emf,
 		info->handle, cancellable, FALSE);
 
 	camel_stream_close (stream, cancellable, NULL);
+	*/
 }
 
