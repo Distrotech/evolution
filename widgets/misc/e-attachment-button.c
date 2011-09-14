@@ -27,6 +27,8 @@
 
 #include "e-attachment-button.h"
 
+#include <glib/gi18n.h>
+
 #define E_ATTACHMENT_BUTTON_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), E_TYPE_ATTACHMENT_BUTTON, EAttachmentButtonPrivate))
@@ -44,6 +46,7 @@ struct _EAttachmentButtonPrivate {
 	GtkWidget *toggle_button;
 	GtkWidget *cell_view;
 	GtkWidget *popup_menu;
+	GtkWidget *label;
 
 	guint expandable : 1;
 	guint expanded   : 1;
@@ -619,6 +622,11 @@ e_attachment_button_init (EAttachmentButton *button)
 	gtk_container_add (GTK_CONTAINER (container), widget);
 	gtk_widget_show (widget);
 
+	widget = gtk_label_new ("");
+	gtk_box_pack_start (GTK_BOX (button), widget, FALSE, FALSE, 10);
+	gtk_widget_show (widget);
+	button->priv->label = widget;
+
 	/* Configure Renderers */
 
 	cell_layout = GTK_CELL_LAYOUT (button->priv->cell_view);
@@ -757,6 +765,8 @@ e_attachment_button_set_attachment (EAttachmentButton *button,
 	if (attachment != NULL) {
 		GBinding *binding;
 		gulong handler_id;
+		GFileInfo *finfo;
+		const gchar *name;
 
 		binding = g_object_bind_property (
 			attachment, "can-show",
@@ -780,6 +790,13 @@ e_attachment_button_set_attachment (EAttachmentButton *button,
 
 		attachment_button_update_cell_view (button);
 		attachment_button_update_pixbufs (button);
+
+   		finfo = e_attachment_get_file_info (attachment);
+   		name = g_file_info_get_display_name (finfo);
+		if (name &&  *name)
+			gtk_label_set_text (GTK_LABEL (button->priv->label), name);
+		else
+			gtk_label_set_text (GTK_LABEL (button->priv->label), _("attachment.dat"));
 	}
 
 	/* update drag sources */
