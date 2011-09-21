@@ -525,7 +525,7 @@ mail_display_class_init (EMailDisplayClass *class)
 }
 
 static void
-e_mail_display_init (EMailDisplay *display)
+mail_display_init (EMailDisplay *display)
 {
 	SoupSession *session;
 	SoupSessionFeature *feature;
@@ -562,12 +562,12 @@ e_mail_display_get_type (void)
 			sizeof (EMailDisplayClass),
 			(GBaseInitFunc) NULL,
 			(GBaseFinalizeFunc) NULL,
-			(GClassInitFunc) e_mail_display_class_init,
+			(GClassInitFunc) mail_display_class_init,
 			(GClassFinalizeFunc) NULL,
 			NULL,  /* class_data */
 			sizeof (EMailDisplay),
 			0,     /* n_preallocs */
-			(GInstanceInitFunc) e_mail_display_init,
+			(GInstanceInitFunc) mail_display_init,
 			NULL   /* value_table */
 		};
 

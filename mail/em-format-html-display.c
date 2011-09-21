@@ -565,8 +565,12 @@ action_image_save_cb (GtkAction *action,
 	EAttachment *attachment;
 	GFile *file;
 
+	/* FIXME WEBKIT At this moment there's no way how to get EMailDisplay from
+	   EMFormat(HTML)
 	web_view = em_format_html_get_web_view (EM_FORMAT_HTML (efhd));
 	g_return_if_fail (web_view != NULL);
+	*/
+	return;
 
 	image_src = e_web_view_get_cursor_image_src (web_view);
 	if (!image_src)
@@ -734,8 +738,9 @@ efhd_init (EMFormatHTMLDisplay *efhd)
 	GtkUIManager *ui_manager;
 	GError *error = NULL;
 
+
 	efhd->priv = EM_FORMAT_HTML_DISPLAY_GET_PRIVATE (efhd);
-	efhd->priv->attachment_views = g_hash_table_new_full (
+	efhd->priv->attachment_view = g_hash_table_new_full (
 		g_str_hash, g_str_equal, g_free, NULL);
 
 	/* we want to convert url's etc */
@@ -754,7 +759,7 @@ efhd_init (EMFormatHTMLDisplay *efhd)
 	/* Because we are loading from a hard-coded string, there is
 	 * no chance of I/O errors.  Failure here implies a malformed
 	 * UI definition.  Full stop. */
-/* FIXME WEBKIT There's no way how to get web_view from EFHD for now...
+/* FIXME WEBKIT There 's no way how to get web_view from EFHD for now...
 	ui_manager = e_web_view_get_ui_manager (web_view);
 	gtk_ui_manager_add_ui_from_string (ui_manager, image_ui, -1, &error);
 	if (error != NULL)

@@ -89,7 +89,7 @@ efhp_init (EMFormatHTMLPrint *efhp)
 	*/
 
 	/* gtk widgets don't like to be realized outside top level widget
-	 * so we put new html widget into gtk window */
+	 * so we put new html widget into gtk window
 	/* FIXME WEBKIT: this ain't gonna work
 	efhp->window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
 	gtk_container_add (GTK_CONTAINER (efhp->window), GTK_WIDGET (web_view));

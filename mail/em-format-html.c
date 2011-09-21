@@ -2408,10 +2408,10 @@ efh_format_full_headers (EMFormatHTML *efh,
 
 void
 em_format_html_format_headers (EMFormatHTML *efh,
-							   CamelStream *stream,
-							   CamelMedium *part,
-							   gboolean all_headers,
-							   GCancellable *cancellable)
+			       CamelStream *stream,
+			       CamelMedium *part,
+			       gboolean all_headers,
+			       GCancellable *cancellable)
 {
 	GString *buffer;
 

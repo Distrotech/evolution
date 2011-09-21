@@ -796,7 +796,6 @@ mail_reader_get_message_ready_cb (CamelFolder *folder,
 
 	backend = e_mail_reader_get_backend (context->reader);
 	shell = e_shell_backend_get_shell (E_SHELL_BACKEND (backend));
-
 	display = e_mail_reader_get_mail_display (context->reader);
 	formatter = e_mail_display_get_formatter (display);
 
