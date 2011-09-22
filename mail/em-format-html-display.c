@@ -130,7 +130,8 @@ efhd_xpkcs7mime_free (EMFormatPURI *puri)
 	if (sp->description)
 		g_free (sp->description);
 
-	camel_cipher_validity_free (sp->valid);
+	if (sp->valid)
+		camel_cipher_validity_free (sp->valid);
 }
 
 static void
