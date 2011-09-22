@@ -360,11 +360,6 @@ mail_paned_view_dispose (GObject *object)
 		priv->preview_pane = NULL;
 	}
 
-	if (priv->display != NULL) {
-		g_object_unref (priv->display);
-		priv->display = NULL;
-	}
-
 	if (priv->view_instance != NULL) {
 		g_object_unref (priv->view_instance);
 		priv->view_instance = NULL;
