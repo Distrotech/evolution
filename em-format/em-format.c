@@ -81,7 +81,6 @@ static void emf_parse_message			(EMFormat *emf, CamelMimePart *part, GString *pa
 static void emf_parse_headers			(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 static void emf_parse_post_headers		(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 static void emf_parse_source			(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
-static void emf_parse_attachment		(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 
 /* WRITERS */
 static void emf_write_text			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, GCancellable *cancellable) {};
@@ -1066,21 +1065,6 @@ emf_parse_source (EMFormat *emf,
 	em_format_add_puri (emf, puri);
 }
 
-static void
-emf_parse_attachment (EMFormat *emf,
-		      CamelMimePart *part,
-		      GString *part_id,
-		      EMFormatParserInfo *info,
-		      GCancellable *cancellable)
-{
-	EMFormatPURI *puri;
-
-	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
-	puri->is_attachment = TRUE;
-
-	em_format_add_puri (emf, puri);
-}
-
 /**************************************************************************/
 
 void
@@ -1213,7 +1197,6 @@ static EMFormatHandler type_handlers[] = {
 		{ (gchar *) "x-evolution/message/headers", emf_parse_headers, },
 		{ (gchar *) "x-evolution/message/post-headers", emf_parse_post_headers, },
 		{ (gchar *) "x-evolution/message/source", emf_parse_source, },
-		{ (gchar *) "x-evolution/message/attachment", emf_parse_attachment, },
 };
 
 /* note: also copied in em-mailer-prefs.c */
