@@ -60,7 +60,8 @@ static gpointer parent_class;
 /* Decodes inline encoded parts of 'part'. The returned pointer,
  * if not NULL, should be unreffed with g_object_unref(). */
 static CamelMimePart *
-decode_inline_parts (CamelMimePart *part, GCancellable *cancellable)
+decode_inline_parts (CamelMimePart *part,
+		     GCancellable *cancellable)
 {
 	CamelMultipart *mp;
 	CamelStream *null;
@@ -651,9 +652,9 @@ emfq_write_message_rfc822 (EMFormat *emf,
 
 static void
 emfq_write_text_plain (EMFormat *emf,
-					   EMFormatPURI *puri,
-					   CamelStream *stream,
-					   GCancellable *cancellable)
+		       EMFormatPURI *puri,
+		       CamelStream *stream,
+		       GCancellable *cancellable)
 {
 	EMFormatQuote *emfq = EM_FORMAT_QUOTE (emf);
 	CamelStream *filtered_stream;
@@ -714,7 +715,7 @@ emfq_write_text_plain (EMFormat *emf,
 
 static void
 emfq_write_text_enriched (EMFormat *emf,
-						  EMFormatPURI *puri,
+			  EMFormatPURI *puri,
                     	  CamelStream *stream,
                     	  GCancellable *cancellable)
 {
