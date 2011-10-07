@@ -22,6 +22,7 @@ libevolution_mail_la_CPPFLAGS =				\
 	$(CERT_UI_CFLAGS)				\
 	$(CANBERRA_CFLAGS)				\
 	$(CLUTTER_CFLAGS)				\
+	$(GTKHTML_CFLAGS)                               \
 	$(LIBSOUP_CFLAGS)				\
 	$(GTKHTML_CFLAGS)				\
 	-DEVOLUTION_DATADIR=\""$(datadir)"\"		\

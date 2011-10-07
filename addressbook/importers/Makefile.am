@@ -10,7 +10,7 @@ libevolution_addressbook_importers_la_CPPFLAGS =	\
 	-I$(top_srcdir)/widgets				\
 	-I$(top_builddir)/addressbook			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
-	$(WEBKITGTK_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 libevolution_addressbook_importers_la_SOURCES = \
 	evolution-ldif-importer.c		\
