@@ -1463,8 +1463,9 @@ em_format_init (EMFormat *emf)
 	emf->folder = NULL;
 	emf->mail_part_list = NULL;
 	emf->mail_part_table = g_hash_table_new_full (g_str_hash, g_str_equal,
-			(GDestroyNotify) g_free, (GDestroyNotify) em_format_puri_free);
-
+			NULL, (GDestroyNotify) em_format_puri_free);
+	/* No need to free the key, because it's owned and free'd by the PURI */
+	
 	shell = e_shell_get_default ();
 	shell_settings = e_shell_get_shell_settings (shell);
 

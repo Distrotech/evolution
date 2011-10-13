@@ -767,10 +767,12 @@ e_mail_display_set_formatter (EMailDisplay *display,
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 	g_return_if_fail (EM_IS_FORMAT_HTML (formatter));
 
+	g_object_ref (formatter);
+	
 	if (display->priv->formatter != NULL)
 		g_object_unref (display->priv->formatter);
 
-	display->priv->formatter = g_object_ref (formatter);
+	display->priv->formatter = formatter;
 
 	mail_display_update_formatter_colors (display);
 

@@ -2602,7 +2602,6 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
 	GtkWidget *message_list;
 	const gchar *message_uid;
 	GError *error = NULL;
-	GHashTable *formatters;
 
 	reader = closure->reader;
 	message_uid = closure->message_uid;
@@ -2917,6 +2916,27 @@ mail_reader_folder_loaded (EMailReader *reader)
 	e_mail_reader_update_actions (reader, state);
 }
 
+struct _formatter_weak_ref_closure {
+	GHashTable *formatters;
+	gchar *mail_uri;
+};
+
+static void
+formatter_weak_ref_cb (struct _formatter_weak_ref_closure *data,
+		       EMFormat *formatter)
+{
+	/* When this callback is called, the formatter is being finalized
+	 * so we only remove it from the formatters table. */
+	g_hash_table_remove (data->formatters,
+		data->mail_uri);
+
+	/* Destroying the formatter will prevent this callback
+	 * being called, so we can remove the closure data as well */
+	g_hash_table_unref (data->formatters);
+	g_free (data->mail_uri);
+	g_free (data);
+}
+
 static void
 mail_reader_message_loaded (EMailReader *reader,
                             const gchar *message_uid,
@@ -2972,20 +2992,43 @@ mail_reader_message_loaded (EMailReader *reader,
 	formatters = g_object_get_data (G_OBJECT (session), "formatters");
 	if (!formatters) {
 		formatters = g_hash_table_new_full (g_str_hash, g_str_equal,
-			(GDestroyNotify) g_free, (GDestroyNotify) g_object_unref);
+			(GDestroyNotify) g_free, NULL);
 		g_object_set_data (G_OBJECT (session), "formatters", formatters);
 	}
 
 
 	if ((formatter = g_hash_table_lookup (formatters, mail_uri)) == NULL) {
+		struct _formatter_weak_ref_closure *formatter_data =
+			g_new0 (struct _formatter_weak_ref_closure, 1);
+
+		formatter_data->formatters = g_hash_table_ref (formatters);
+		formatter_data->mail_uri = g_strdup (mail_uri);
+
 		formatter = em_format_html_display_new ();
+		/* When no EMailDisplay holds reference to the f ormatter, then
+		 * the formatter can be destroyed. */
+		 g_object_weak_ref (formatter, (GWeakNotify) formatter_weak_ref_cb,
+		 		    formatter_data);
+
 		EM_FORMAT (formatter)->message_uid = g_strdup (message_uid);
+
+		/* Parse the message.
+		 * FIXME WEBKIT: This should probably be asynchronous since it
+		 * can block for some time...*/
 		em_format_parse (EM_FORMAT (formatter), message, folder, NULL);
 		g_hash_table_insert (formatters, mail_uri, formatter);
+	} else {
+		/* Add reference that would be otherwise added when
+		 * the formatter is created. */
+		 g_object_ref (formatter);
 	}
 
 	e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
 	e_mail_display_load (display, mail_uri);
+
+	/* Remove the reference added when formatter was created,
+	 * so that only owners are EMailDisplays */
+	g_object_unref (formatter);
 
 	/* Reset the shell view icon. */
 	e_shell_event (shell, "mail-icon", (gpointer) "evolution-mail");
