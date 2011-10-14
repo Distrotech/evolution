@@ -2218,6 +2218,16 @@ em_format_snoop_type (CamelMimePart *part)
 	   see bug #211778 for some discussion */
 }
 
+/**
+ * Construct a URI for message.
+ * 
+ * The URI can contain multiple query parameters. The list of parameters must be
+ * NULL-terminated. Each query must contain name, GType of value and value.
+ * 
+ * @param folder Folder wit the message
+ * @param message_uid ID of message within the \p folder
+ * @param first_param_name Name of first query parameter followed by GType of it's value and value.
+ */
 gchar*
 em_format_build_mail_uri (CamelFolder *folder,
 			  const gchar *message_uid,
