@@ -1342,6 +1342,11 @@ em_format_finalize (GObject *object)
 {
 	EMFormat *emf = EM_FORMAT (object);
 
+	if (emf->message_uid) {
+		g_free (emf->message_uid);
+		emf->message_uid = NULL;
+	}
+
 	if (emf->message) {
 		g_object_unref (emf->message);
 		emf->message = NULL;
