@@ -568,8 +568,8 @@ efhd_format_optional (EMFormat *emf,
 	info->attachment = e_attachment_new ();
 	e_attachment_set_mime_part (info->attachment, info->puri.part);
 	info->description = g_strdup(_("Evolution cannot render this email as it is too "
-			  	  	  	  	  	   "large to process. You can view it unformatted or "
-			  	  	  	  	  	   "with an external text editor."));
+				       "large to process. You can view it unformatted or "
+				       "with an external text editor."));
 
 	/* MStream holds content of the 'attachment' to be displayed */
 	info->mstream = (CamelStreamMem *) g_object_ref (mstream);
@@ -1045,7 +1045,6 @@ efhd_attachment_bar (EMFormat *emf,
 	GtkWidget *widget;
 
 	widget = e_mail_attachment_bar_new (abp->store);
-	printf("Create bar for PURI %p", puri);
 
 	return widget;
 }
@@ -1257,6 +1256,13 @@ efhd_free_attach_puri_data (EMFormatPURI *puri)
 		info->attachment = NULL;
 	}
 
-	g_free (info->attachment_view_part_id);
-	info->attachment_view_part_id = NULL;
+	if (info->description) {
+		g_free (info->description);
+		info->description = NULL;
+	}
+
+	if (info->attachment_view_part_id) {
+		g_free (info->attachment_view_part_id);
+		info->attachment_view_part_id = NULL;
+	}
 }

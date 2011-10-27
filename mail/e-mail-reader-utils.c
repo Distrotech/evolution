@@ -431,59 +431,50 @@ e_mail_reader_open_selected (EMailReader *reader)
 	return ii;
 }
 
-/* Helper for e_mail_reader_print() */
 static void
-mail_reader_print_cb (CamelFolder *folder,
-                      GAsyncResult *result,
-                      AsyncContext *context)
+mail_reader_print_finished (GtkPrintOperation *operation,
+			    GtkPrintOperationResult result,
+			    EActivity *activity)
 {
-	EAlertSink *alert_sink;
-	CamelMimeMessage *message;
-	EMailDisplay *display;
-	EMFormatHTML *formatter;
-	EMFormatHTMLPrint *html_print;
-	GError *error = NULL;
+	WebKitWebView *webview;
 
-	alert_sink = e_activity_get_alert_sink (context->activity);
+	webview = g_object_get_data (G_OBJECT (activity), "webview");
 
-	message = camel_folder_get_message_finish (folder, result, &error);
+	/* Destroy the webview */
+	g_object_unref (webview);
 
-	if (e_activity_handle_cancellation (context->activity, error)) {
-		g_warn_if_fail (message == NULL);
-		async_context_free (context);
-		g_error_free (error);
+	e_activity_set_state (activity, E_ACTIVITY_COMPLETED);
+}
+
+
+static void
+webview_document_load_finished_cb (WebKitWebView *webview,
+				   GParamSpec *pspec,
+				   EActivity *activity)
+{
+	GtkPrintOperation *operation;
+	GtkPrintOperationAction action;
+	EMFormatHTMLPrint *efhp;
+	WebKitWebFrame *frame;
+
+	WebKitLoadStatus status = webkit_web_view_get_load_status (webview);
+
+	if (status != WEBKIT_LOAD_FINISHED)
 		return;
+	
+	frame = webkit_web_view_get_main_frame (webview);
+	efhp = g_object_get_data (G_OBJECT (activity), "efhp");
+	action = em_format_html_print_get_action (efhp);
+	operation = gtk_print_operation_new ();
+	g_object_set_data (G_OBJECT (operation), "webview", webview);
+	g_signal_connect (operation, "done",
+		G_CALLBACK (mail_reader_print_finished), activity);
 
-	} else if (error != NULL) {
-		g_warn_if_fail (message == NULL);
-		e_alert_submit (
-			alert_sink, "mail:no-retrieve-message",
-			error->message, NULL);
-		async_context_free (context);
-		g_error_free (error);
-		return;
-	}
+	action = em_format_html_print_get_action (efhp);
+	webkit_web_frame_print_full (frame, 
+		operation, action, NULL);
 
-	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
-
-	display = e_mail_reader_get_mail_display (context->reader);
-	formatter = e_mail_display_get_formatter (display);
-
-	html_print = em_format_html_print_new (
-		formatter, context->print_action);
-	/* FIXME WEBKIT
-	em_format_merge_handler (
-		EM_FORMAT (html_print), EM_FORMAT (formatter));
-	*/
-	em_format_html_print_message (
-		html_print, message, folder, context->message_uid);
-	g_object_unref (html_print);
-
-	g_object_unref (message);
-
-	e_activity_set_state (context->activity, E_ACTIVITY_COMPLETED);
-
-	async_context_free (context);
+	g_object_unref (efhp);
 }
 
 void
@@ -491,37 +482,48 @@ e_mail_reader_print (EMailReader *reader,
                      GtkPrintOperationAction action)
 {
 	EActivity *activity;
-	AsyncContext *context;
-	GCancellable *cancellable;
-	CamelFolder *folder;
-	GPtrArray *uids;
-	const gchar *message_uid;
+	EMailDisplay *display;
+	EMFormatHTML *formatter;
+	EMFormatHTMLPrint *efhp;
+	gchar *mail_uri, *tmp;
+	SoupSession *session;
+	GHashTable *formatters;
+	GtkWidget *webview;
+	WebKitWebSettings *settings;
+	GtkPrintOperation *operation;
 
 	g_return_if_fail (E_IS_MAIL_READER (reader));
 
-	folder = e_mail_reader_get_folder (reader);
-	g_return_if_fail (CAMEL_IS_FOLDER (folder));
+	display = e_mail_reader_get_mail_display (reader);
+	formatter = e_mail_display_get_formatter (display);
+	
+	mail_uri = em_format_build_mail_uri(EM_FORMAT (formatter)->folder, 
+			EM_FORMAT (formatter)->message_uid, NULL, NULL);
+	
+	/* Clone EMFormatHTMLDisplay */
+	efhp = em_format_html_print_new (formatter, action);
 
-	/* XXX Learn to handle len > 1. */
-	uids = e_mail_reader_get_selected_uids (reader);
-	g_return_if_fail (uids != NULL && uids->len == 1);
-	message_uid = g_ptr_array_index (uids, 0);
-
+	/* It's safe to assume that session exists and contains formatters table,
+	 * because at least the message we are about to print now must be already
+	 * there */
+	session = webkit_get_default_session ();
+	formatters = g_object_get_data (G_OBJECT (session), "formatters");
+	g_hash_table_insert (formatters, g_strdup (mail_uri), efhp);
+	
 	activity = e_mail_reader_new_activity (reader);
-	cancellable = e_activity_get_cancellable (activity);
+	g_object_set_data (G_OBJECT (activity), "efhp", efhp);
+	
+	/* Print_layout is a special PURI created by EMFormatHTMLPrint */
+	tmp = g_strconcat (mail_uri, "?part_id=print_layout", NULL);
+	webview = webkit_web_view_new ();
+	settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (webview));
+	g_object_set (G_OBJECT (settings), "enable-frame-flattening", TRUE, NULL);
+	webkit_web_view_set_settings (WEBKIT_WEB_VIEW (webview), settings);
 
-	context = g_slice_new0 (AsyncContext);
-	context->activity = activity;
-	context->reader = g_object_ref (reader);
-	context->message_uid = g_strdup (message_uid);
-	context->print_action = action;
-
-	camel_folder_get_message (
-		folder, message_uid, G_PRIORITY_DEFAULT,
-		cancellable, (GAsyncReadyCallback)
-		mail_reader_print_cb, context);
-
-	em_utils_uids_free (uids);
+	g_signal_connect (webview, "notify::load-status",
+		G_CALLBACK (webview_document_load_finished_cb), activity);
+	webkit_web_view_load_uri (WEBKIT_WEB_VIEW (webview), tmp);
+	g_free (tmp);
 }
 
 static void

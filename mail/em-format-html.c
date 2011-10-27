@@ -98,16 +98,8 @@ enum {
 	PROP_TEXT_COLOR,
 };
 
-#define EFM_MESSAGE_START_ANAME "evolution_message_start"
-#define EFH_MESSAGE_START "<A name=\"" EFM_MESSAGE_START_ANAME "\"></A>"
-#define EFH_HTML_HEADER "<!DOCTYPE HTML>\n<html>\n"  \
-		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n" \
-		"<title>Evolution Mail Display</title>\n" \
-		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n" \
-		"<style type=\"text/css\">\n" \
-		"  table th { color: #000; font-weight: bold; }\n" \
-		"</style>\n" \
-		"<script type=\"text/javascript\">\n" \
+/*
+ * 		"<script type=\"text/javascript\">\n" \
 		"function body_loaded() { window.location.hash='" EFM_MESSAGE_START_ANAME "'; }\n" \
 		"function collapse_addresses(field) {\n" \
 		"  var e=window.document.getElementById(\"moreaddr-\"+field).style;\n" \
@@ -126,8 +118,20 @@ enum {
 		"	 i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n" \
 		"}\n" \
 		"</script>\n" \
+		*/
+
+#define EFM_MESSAGE_START_ANAME "evolution_message_start"
+#define EFH_MESSAGE_START "<A name=\"" EFM_MESSAGE_START_ANAME "\"></A>"
+#define EFH_HTML_HEADER "<!DOCTYPE HTML>\n<html>\n"  \
+		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n" \
+		"<title>Evolution Mail Display</title>\n" \
+		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n" \
+		"<style type=\"text/css\">\n" \
+		"  table th { color: #000; font-weight: bold; }\n" \
+		"</style>\n" \
 		"</head>\n" \
-		"<body style=\"background: #%06x; color: #%06x;\" onLoad=\"body_loaded();\">"
+		"<body style=\"background: #%06x; color: #%06x;\">"
+//		"<body style=\"background: #%06x; color: #%06x;\" onLoad=\"body_loaded();\">"
 #define EFH_HTML_FOOTER "</body></html>"
 
 static void efh_parse_image			(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
@@ -790,17 +794,23 @@ efh_write_headers (EMFormat *emf,
 {
 	GString *buffer;
 	EMFormatHTML *efh = (EMFormatHTML *) emf;
+	gint bg_color;
 
 	if (!puri->part)
 		return;
 
 	buffer = g_string_new ("");
 
+	if (info->mode & EM_FORMAT_WRITE_MODE_PRINTING) {
+		GdkColor white = { 0, G_MAXUINT16, G_MAXUINT16, G_MAXUINT16 };
+		bg_color = e_color_to_value(&white);
+	} else {
+		bg_color = e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_BODY]);
+	}
+
 	g_string_append_printf (
 		buffer, EFH_HTML_HEADER,
-		e_color_to_value (
-			&efh->priv->colors[
-			EM_FORMAT_HTML_COLOR_BODY]),
+		bg_color,
 		e_color_to_value (
 			&efh->priv->colors[
 			EM_FORMAT_HTML_COLOR_HEADER]));

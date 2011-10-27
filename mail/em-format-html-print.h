@@ -45,17 +45,11 @@ G_BEGIN_DECLS
 
 typedef struct _EMFormatHTMLPrint EMFormatHTMLPrint;
 typedef struct _EMFormatHTMLPrintClass EMFormatHTMLPrintClass;
+typedef struct _EMFormatHTMLPrintPrivate EMFormatHTMLPrintPrivate;
 
 struct _EMFormatHTMLPrint {
 	EMFormatHTML parent;
-
-	/* Used to realize the gtkhtml in a toplevel. */
-	GtkWidget *window;
-
-	/* Used for print_message. */
-	EMFormatHTML *source;
-
-	GtkPrintOperationAction action;
+	EMFormatHTMLPrintPrivate *priv;
 	gchar *export_filename;
 
 	gboolean async;
@@ -73,6 +67,8 @@ void		em_format_html_print_message	(EMFormatHTMLPrint *efhp,
 						 CamelMimeMessage *message,
 						 CamelFolder *folder,
 						 const gchar *uid);
+GtkPrintOperationAction
+		em_format_html_print_get_action	(EMFormatHTMLPrint *efhp);
 
 G_END_DECLS
 

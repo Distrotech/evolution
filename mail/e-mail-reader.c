@@ -70,6 +70,8 @@
 	((EMailReaderPrivate *) g_object_get_qdata \
 	(G_OBJECT (obj), quark_private))
 
+#define d(x) x
+
 typedef struct _EMailReaderClosure EMailReaderClosure;
 typedef struct _EMailReaderPrivate EMailReaderPrivate;
 
@@ -1603,7 +1605,6 @@ action_mail_show_source_cb (GtkAction *action,
 	CamelFolder *folder;
 	GtkWidget *browser;
 	GPtrArray *uids;
-	EMFormatWriteMode mode;
 	const gchar *message_uid;
 
 	backend = e_mail_reader_get_backend (reader);
@@ -2531,9 +2532,8 @@ schedule_timeout_mark_seen (EMailReader *reader)
 	gboolean schedule_timeout;
 	gint timeout_interval;
 	const gchar *message_uid;
-
-	backend = e_mail_reader_get_backend (reader);
-	message_list = MESSAGE_LIST (e_mail_reader_get_message_list (reader));
+        backend = e_mail_reader_get_backend (reader);
+        message_list = MESSAGE_LIST (e_mail_reader_get_message_list (reader));	
 	shell_backend = E_SHELL_BACKEND (backend);
 	shell = e_shell_backend_get_shell (shell_backend);
 	shell_settings = e_shell_get_shell_settings (shell);
