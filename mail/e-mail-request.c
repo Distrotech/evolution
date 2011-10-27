@@ -63,6 +63,12 @@ start_mail_formatting (GSimpleAsyncResult *res,
 			if (val)
 				info.mode = atoi (val);
 
+			val = g_hash_table_lookup (request->priv->uri_query, "with_html_headers");
+			if (val)
+				info.with_html_header = atoi (val);
+			else
+				info.with_html_header = TRUE; /* By default this is TRUE!! */
+
 			em_format_puri_write (request->priv->puri, request->priv->output_stream, &info, NULL);
 		} else {
 			g_warning ("Failed to lookup requested part '%s' - this should not happen!", part_id);

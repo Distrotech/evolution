@@ -60,7 +60,7 @@ enum {
 	PROP_PRINT_ACTION
 };
 
-static void efhp_write_print_layout (EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void efhp_write_print_layout	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 static void
 attachment_bar_html (EMFormatPURI *puri,
@@ -283,7 +283,6 @@ efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
 	em_format_add_puri (EM_FORMAT (efhp), puri);		
 	efhp->priv->top_level_puri = puri;	
 }
-
 
 static void
 efhp_set_property (GObject *object,

@@ -119,6 +119,10 @@ struct _EMFormatWriterInfo {
 	EMFormatWriteMode mode;
 	gboolean headers_collapsable;
 	gboolean headers_collapsed;
+	
+	/* When TRUE, EMFormatWriteFunc's will put the content of the PURI part
+	   between EFH_HTML_HEADER and EFH_HTML_FOOTER */
+	gboolean with_html_header;
 };
 
 struct _EMFormatHeader {
