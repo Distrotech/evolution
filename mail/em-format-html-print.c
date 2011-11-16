@@ -52,7 +52,7 @@ struct _EMFormatHTMLPrintPrivate {
 G_DEFINE_TYPE (
 	EMFormatHTMLPrint, 
 	em_format_html_print, 
-	EM_TYPE_FORMAT_HTML)
+	EM_TYPE_FORMAT_HTML);
 
 enum {
 	PROP_0,
@@ -121,34 +121,29 @@ efhp_write_print_layout (EMFormat *emf,
 			 GCancellable *cancellable)
 {
 	GList *iter;
-	GString *str = g_string_new ("");
 	GString *mail_uri;
-	gint len;
+	EMFormatWriterInfo print_info = {
+		EM_FORMAT_WRITE_MODE_PRINTING, FALSE, FALSE, FALSE };
 
-	g_string_append (str,
+	camel_stream_write_string (stream,
 		"<!DOCTYPE HTML>\n<html>\n"  \
 		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n" \
 		"<title>Evolution Mail Display</title>\n" \
 		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n" \
 		"</head>\n" \
-		"<body style=\"background: #FFF; color: #000;\">");
+		"<body style=\"background: #FFF; color: #000;\">", cancellable, NULL);
 
-	mail_uri = g_string_new ("");
-	g_string_assign (mail_uri, em_format_build_mail_uri (emf->folder,
-				emf->message_uid, NULL, NULL));
-	len = mail_uri->len;
-
-	int height;
-	int i = 0;
 	for (iter = emf->mail_part_list; iter != NULL; iter = iter->next) {
 
 		EMFormatPURI *puri = iter->data;
 
 		/* Convert attachment bar to fancy HTML */
+		/* FIXME WEBKIT
 		if (g_str_has_suffix (puri->uri, ".attachment-bar")) {
 			attachment_bar_html (puri, str, cancellable);
 			continue;
 		}
+		*/
 
 		/* Skip widget-parts. We either don't want them displayed
 		 * or we will handle them manually */
@@ -171,6 +166,7 @@ efhp_write_print_layout (EMFormat *emf,
 			if (!em_format_is_inline (puri->emf,  puri->uri, puri->part, handler))
 				continue;
 
+			/* FIXME WEBKIT
 			attachment = ((EMFormatAttachmentPURI *) puri)->attachment;
 			fi = e_attachment_get_file_info (attachment);
 			g_string_append_printf (str, "<table border=\"0\" width=\"100%%\"><tr>" \
@@ -180,40 +176,13 @@ efhp_write_print_layout (EMFormat *emf,
 			   	e_attachment_get_description (attachment),
 				e_attachment_get_mime_type (attachment),
 				g_file_info_get_size (fi));
+			*/
 		}
 
-		if (i == 0)
-			height = 120;
-		else if (i == 1)
-			height = 360;
-		else if (i == 2)
-			height = 250;
-		else if (i == 3)
-			height = 150;
-		else if (i == 4)
-			height = 600;
-		else 
-			height = 600;
-		
-		i++;
-		
-
-		g_string_append_printf (mail_uri, "?part_id=%s&mode=%d", puri->uri,
-			EM_FORMAT_WRITE_MODE_PRINTING);
-		g_message ("%s", mail_uri->str);
-		
-		g_string_append_printf (str, 
-			"<iframe frameborder=\"0\" width=\"100%%\" "
-			"src=\"%s\" height=\"%d\"></iframe>\n", mail_uri->str, height); 
-
-		g_string_truncate (mail_uri, len);
+		puri->write_func(puri->emf, puri, stream, &print_info, cancellable);
 	}
-	g_string_append (str, "</body></html>");
 
-	camel_stream_write_string (stream, str->str, cancellable, NULL);
-
-	g_string_free (mail_uri, TRUE);
-	g_string_free (str, TRUE);
+	camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
 }
 
 
@@ -402,78 +371,6 @@ em_format_html_print_new (EMFormatHTML *source,
 		NULL);
 
 	return efhp;
-}
-
-
-static gint
-efhp_calc_footer_height (//GtkHTML *html,
-                         GtkPrintOperation *operation,
-                         GtkPrintContext *context)
-{
-/* FIXME WEBKIT
-	PangoContext *pango_context;
-	PangoFontDescription *desc;
-	PangoFontMetrics *metrics;
-	gint footer_height;
-
-	pango_context = gtk_print_context_create_pango_context (context);
-	desc = pango_font_description_from_string ("Sans Regular 10");
-
-	metrics = pango_context_get_metrics (
-		pango_context, desc, pango_language_get_default ());
-	footer_height =
-		pango_font_metrics_get_ascent (metrics) +
-		pango_font_metrics_get_descent (metrics);
-	pango_font_metrics_unref (metrics);
-
-	pango_font_description_free (desc);
-	g_object_unref (pango_context);
-
-	return footer_height;
-*/
-}
-
-static void
-efhp_draw_footer (//GtkHTML *html,
-                  GtkPrintOperation *operation,
-                  GtkPrintContext *context,
-                  gint page_nr,
-                  PangoRectangle *rec)
-{
-/* FIXME WEBKIT
-	PangoFontDescription *desc;
-	PangoLayout *layout;
-	gdouble x, y;
-	gint n_pages;
-	gchar *text;
-	cairo_t *cr;
-
-	g_object_get (operation, "n-pages", &n_pages, NULL);
-	text = g_strdup_printf (_("Page %d of %d"), page_nr + 1, n_pages);
-
-	desc = pango_font_description_from_string ("Sans Regular 10");
-	layout = gtk_print_context_create_pango_layout (context);
-	pango_layout_set_alignment (layout, PANGO_ALIGN_CENTER);
-	pango_layout_set_font_description (layout, desc);
-	pango_layout_set_text (layout, text, -1);
-	pango_layout_set_width (layout, rec->width);
-
-	x = pango_units_to_double (rec->x);
-	y = pango_units_to_double (rec->y);
-
-	cr = gtk_print_context_get_cairo_context (context);
-
-	cairo_save (cr);
-	cairo_set_source_rgb (cr, .0, .0, .0);
-	cairo_move_to (cr, x, y);
-	pango_cairo_show_layout (cr, layout);
-	cairo_restore (cr);
-
-	g_object_unref (layout);
-	pango_font_description_free (desc);
-
-	g_free (text);
-*/
 }
 
 static void

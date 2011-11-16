@@ -895,7 +895,7 @@ efh_write_headers (EMFormat *emf,
 		"}\n" \
 		"</script>\n" \
 		"<table border=\"0\" width=\"100%\" height=\"100%\" style=\"background: #%06x; color: #%06x;\">\n" \
-		"<tr><td valign=\"top\" width=\"16\">\n");
+		"<tr><td valign=\"top\" width=\"16\">\n",
 		bg_color,
 		e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_HEADER]));
 

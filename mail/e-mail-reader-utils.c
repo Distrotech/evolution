@@ -44,6 +44,7 @@
 
 #include "mail/e-mail-backend.h"
 #include "mail/e-mail-browser.h"
+#include "mail/e-mail-printer.h"
 #include "mail/em-composer-utils.h"
 #include "mail/em-format-html-print.h"
 #include "mail/em-utils.h"
@@ -432,9 +433,9 @@ e_mail_reader_open_selected (EMailReader *reader)
 }
 
 static void
-mail_reader_print_finished (GtkPrintOperation *operation,
-			    GtkPrintOperationResult result,
-			    EActivity *activity)
+mail_reader_printing_finished (GtkPrintOperation *operation,
+			       GtkPrintOperationResult result,
+			       EActivity *activity)
 {
 	WebKitWebView *webview;
 
@@ -461,14 +462,17 @@ webview_document_load_finished_cb (WebKitWebView *webview,
 
 	if (status != WEBKIT_LOAD_FINISHED)
 		return;
-	
+
 	frame = webkit_web_view_get_main_frame (webview);
 	efhp = g_object_get_data (G_OBJECT (activity), "efhp");
 	action = em_format_html_print_get_action (efhp);
+
 	operation = gtk_print_operation_new ();
+	gtk_print_operation_set_show_progress (operation, TRUE);
+
 	g_object_set_data (G_OBJECT (operation), "webview", webview);
 	g_signal_connect (operation, "done",
-		G_CALLBACK (mail_reader_print_finished), activity);
+		G_CALLBACK (mail_reader_printing_finished), activity);
 
 	action = em_format_html_print_get_action (efhp);
 	webkit_web_frame_print_full (frame, 
@@ -477,53 +481,66 @@ webview_document_load_finished_cb (WebKitWebView *webview,
 	g_object_unref (efhp);
 }
 
+static void
+printing_done_cb (EMailPrinter *printer,
+		  GtkPrintOperation *operation,
+		  GtkPrintOperationResult result,
+		  gpointer user_data)
+{
+	EActivity *activity = user_data;
+
+	if (result == GTK_PRINT_OPERATION_RESULT_ERROR) {
+
+		EAlertSink *alert_sink;
+		GError *error = NULL;
+
+		alert_sink = e_activity_get_alert_sink (activity);
+		gtk_print_operation_get_error (operation, &error);
+
+		if (error != NULL) {
+			e_alert_submit (alert_sink, "mail:printing-failed",
+				error->message, NULL);
+			g_error_free (error);
+		}
+
+		g_object_unref (activity);
+		g_object_unref (printer);
+		return;
+	}
+
+	/* Set activity as completed, and keep it displayed for a few seconds
+	   so that user can actually see the the printing was sucesfully finished. */
+	e_activity_set_state (activity, E_ACTIVITY_COMPLETED);
+	g_timeout_add_seconds_full (G_PRIORITY_DEFAULT, 3, 
+		(GSourceFunc) g_object_unref, activity, NULL);
+
+	g_object_unref (printer);
+}
+
 void
 e_mail_reader_print (EMailReader *reader,
                      GtkPrintOperationAction action)
 {
-	EActivity *activity;
 	EMailDisplay *display;
+	EMailPrinter *printer;
 	EMFormatHTML *formatter;
-	EMFormatHTMLPrint *efhp;
-	gchar *mail_uri, *tmp;
-	SoupSession *session;
-	GHashTable *formatters;
-	GtkWidget *webview;
-	WebKitWebSettings *settings;
-	GtkPrintOperation *operation;
+	EActivity *activity;
+	GCancellable *cancellable;
 
 	g_return_if_fail (E_IS_MAIL_READER (reader));
 
 	display = e_mail_reader_get_mail_display (reader);
 	formatter = e_mail_display_get_formatter (display);
-	
-	mail_uri = em_format_build_mail_uri(EM_FORMAT (formatter)->folder, 
-			EM_FORMAT (formatter)->message_uid, NULL, NULL);
-	
-	/* Clone EMFormatHTMLDisplay */
-	efhp = em_format_html_print_new (formatter, action);
 
-	/* It's safe to assume that session exists and contains formatters table,
-	 * because at least the message we are about to print now must be already
-	 * there */
-	session = webkit_get_default_session ();
-	formatters = g_object_get_data (G_OBJECT (session), "formatters");
-	g_hash_table_insert (formatters, g_strdup (mail_uri), efhp);
-	
 	activity = e_mail_reader_new_activity (reader);
-	g_object_set_data (G_OBJECT (activity), "efhp", efhp);
-	
-	/* Print_layout is a special PURI created by EMFormatHTMLPrint */
-	tmp = g_strconcat (mail_uri, "?part_id=print_layout", NULL);
-	webview = webkit_web_view_new ();
-	settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (webview));
-	g_object_set (G_OBJECT (settings), "enable-frame-flattening", TRUE, NULL);
-	webkit_web_view_set_settings (WEBKIT_WEB_VIEW (webview), settings);
+	e_activity_set_text (activity, _("Printing"));
+	e_activity_set_state (activity, E_ACTIVITY_RUNNING);
+	cancellable = e_activity_get_cancellable (activity);
 
-	g_signal_connect (webview, "notify::load-status",
-		G_CALLBACK (webview_document_load_finished_cb), activity);
-	webkit_web_view_load_uri (WEBKIT_WEB_VIEW (webview), tmp);
-	g_free (tmp);
+	printer = e_mail_printer_new (formatter, action);
+	g_signal_connect (printer, "done",
+		G_CALLBACK (printing_done_cb), activity);
+	e_mail_printer_print (printer, cancellable);
 }
 
 static void

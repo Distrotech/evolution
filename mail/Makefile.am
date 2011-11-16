@@ -58,6 +58,7 @@ mailinclude_HEADERS =					\
 	e-mail-migrate.h				\
 	e-mail-notebook-view.h				\
 	e-mail-paned-view.h				\
+	e-mail-printer.h				\
 	e-mail-reader-utils.h				\
 	e-mail-reader.h					\
 	e-mail-request.h				\
@@ -122,6 +123,7 @@ libevolution_mail_la_SOURCES =				\
 	e-mail-migrate.c				\
 	e-mail-notebook-view.c				\
 	e-mail-paned-view.c				\
+	e-mail-printer.c				\
 	e-mail-reader-utils.c				\
 	e-mail-reader.c					\
 	e-mail-request.c				\
