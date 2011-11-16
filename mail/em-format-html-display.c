@@ -122,7 +122,7 @@ static gpointer parent_class;
 static EAttachmentStore*
 find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
 {
-	EMFormat *emf = (EMFormatHTML *) efhd;
+	EMFormat *emf = (EMFormat *) efhd;
 	EMFormatAttachmentBarPURI *abp;
 	EMFormatPURI *puri;
 	gchar *tmp, *pos;
