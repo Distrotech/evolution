@@ -35,6 +35,7 @@ struct _EMailPrinterPrivate {
 	EMFormatHTMLPrint *efhp;
 
 	GtkListStore *headers;
+	GtkTreeModel *sortable_headers;
 	
 	WebKitWebView *webview; /* WebView to print from */
 };
@@ -58,10 +59,27 @@ enum {
 	COLUMN_ACTIVE,
 	COLUMN_HEADER_NAME,
 	COLUMN_HEADER_VALUE,
+	COLUMN_HEADER_STRUCT,
+	COLUMN_HEADER_SORT,
 	LAST_COLUMN
 };
 
 static guint signals[LAST_SIGNAL]; 
+
+static gint
+emp_header_name_equal (const EMFormatHeader *h1,
+		       const EMFormatHeader *h2)
+{
+	if ((h2->value == NULL) || (h1->value == NULL)) {
+		return g_strcmp0 (h1->name, h2->name);
+	} else {
+		if ((g_strcmp0 (h1->name, h2->name) == 0) && 
+	    	    (g_strcmp0 (h1->value, h2->value) == 0))
+			return 0;
+		else
+			return 1;
+	}
+}
 
 static void
 emp_draw_footer (GtkPrintOperation *operation,
@@ -110,6 +128,7 @@ emp_printing_done (GtkPrintOperation *operation,
 	g_signal_emit (emp, signals[SIGNAL_DONE], 0, operation, result);
 }
 
+
 static void
 emp_run_print_operation (EMailPrinter *emp,
 		      	 GtkPrintOperation *operation)
@@ -117,8 +136,8 @@ emp_run_print_operation (EMailPrinter *emp,
 	EMFormat *emf;
 	SoupSession *session;
 	GHashTable *formatters;
+	WebKitWebFrame *frame;	
 	gchar *mail_uri, *tmp;
-	WebKitWebFrame *frame;
 
 	emf = EM_FORMAT (emp->priv->efhp);
 	mail_uri = em_format_build_mail_uri (emf->folder, emf->message_uid, NULL, NULL);
@@ -129,11 +148,6 @@ emp_run_print_operation (EMailPrinter *emp,
 	session = webkit_get_default_session ();
 	formatters = g_object_get_data (G_OBJECT (session), "formatters");
 	g_hash_table_insert (formatters, g_strdup (mail_uri), emp->priv->efhp);
-
-	/* FIXME: We want an EActivity, but how?
-	activity = e_mail_reader_new_activity (reader);
-	g_object_set_data (G_OBJECT (activity), "efhp", efhp);
-	*/
 
 	/* Print_layout is a special PURI created by EMFormatHTMLPrint */
 	tmp = g_strconcat (mail_uri, "?part_id=print_layout", NULL);
@@ -146,7 +160,7 @@ emp_run_print_operation (EMailPrinter *emp,
 
 	frame = webkit_web_view_get_main_frame (emp->priv->webview);
 	webkit_web_frame_print_full (frame, operation, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, NULL);
-
+	
 	g_free (tmp);	
 	g_free (mail_uri);
 }
@@ -157,15 +171,33 @@ header_active_renderer_toggled_cb (GtkCellRendererToggle *renderer,
 				   gchar *path,
 				   EMailPrinter *emp)
 {
-	GtkTreeIter iter;
+	EMFormat *emf = (EMFormat *)emp->priv->efhp;
+	GtkTreeIter sorted_iter, iter;
 	gboolean active;
+	EMFormatHeader *header;
 
-	gtk_tree_model_get_iter_from_string (GTK_TREE_MODEL (emp->priv->headers),
-		&iter, path);
+	gtk_tree_model_get_iter_from_string (GTK_TREE_MODEL (emp->priv->sortable_headers),
+		&sorted_iter, path);
+	gtk_tree_model_sort_convert_iter_to_child_iter (
+		GTK_TREE_MODEL_SORT (emp->priv->sortable_headers),
+		&iter, &sorted_iter);
+
 	gtk_tree_model_get (GTK_TREE_MODEL (emp->priv->headers), &iter,
 		COLUMN_ACTIVE, &active, -1);
-	gtk_list_store_set (GTK_LIST_STORE (emp->priv->headers),
-		&iter, COLUMN_ACTIVE, !active, -1);		
+	gtk_tree_model_get (GTK_TREE_MODEL (emp->priv->headers), &iter, 
+		COLUMN_HEADER_STRUCT, &header, -1);
+	gtk_list_store_set (GTK_LIST_STORE (emp->priv->headers), &iter, 
+		COLUMN_ACTIVE, !active, -1);
+	
+	/* If the new state is active */
+	if ((!active) == TRUE) {
+		em_format_add_header_struct (emf, header);
+
+		gtk_list_store_set (GTK_LIST_STORE (emp->priv->headers), &iter,
+			COLUMN_HEADER_SORT, g_queue_index (&emf->header_list, header), -1);
+	} else {
+		em_format_remove_header_struct (emf, header);
+	}
 }
 
 static GtkWidget*
@@ -182,8 +214,12 @@ emp_get_headers_tab (GtkPrintOperation *operation,
 	label = gtk_label_new (_("Select headers you want to print"));
 	gtk_box_pack_start (GTK_BOX (box), label, FALSE, FALSE, 5);
 
-	view = GTK_TREE_VIEW (gtk_tree_view_new_with_model (
-		GTK_TREE_MODEL (emp->priv->headers)));
+	emp->priv->sortable_headers = gtk_tree_model_sort_new_with_model (
+		GTK_TREE_MODEL (emp->priv->headers));
+	gtk_tree_sortable_set_sort_column_id (
+		GTK_TREE_SORTABLE (emp->priv->sortable_headers), COLUMN_HEADER_SORT,
+		GTK_SORT_ASCENDING);
+	view = GTK_TREE_VIEW (gtk_tree_view_new_with_model (emp->priv->sortable_headers));
 
 	renderer = gtk_cell_renderer_toggle_new ();
 	g_signal_connect (renderer, "toggled",
@@ -214,18 +250,12 @@ emp_get_headers_tab (GtkPrintOperation *operation,
 	return box;
 }
 
-static gint
-emf_header_name_equal (const EMFormatHeader *header,
-		       const gchar *name)
-{
-	return g_strcmp0 (name, header->name);
-}
-
 static void
 emp_set_formatter (EMailPrinter *emp,
 		   EMFormatHTMLPrint *formatter)
 {
-	CamelMedium *msg;
+	EMFormat *emf = (EMFormat *) formatter;
+	CamelMediumHeader *header;
 	GArray *headers;
 	gint i;
 
@@ -240,27 +270,39 @@ emp_set_formatter (EMailPrinter *emp,
 
 	if (emp->priv->headers)
 		g_object_unref (emp->priv->headers);
-	emp->priv->headers = gtk_list_store_new (3, 
-		G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING);
+	emp->priv->headers = gtk_list_store_new (5, 
+		G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_POINTER, G_TYPE_INT);
 
-	msg = CAMEL_MEDIUM (EM_FORMAT (formatter)->message);
-	headers = camel_medium_get_headers (msg);
+	headers = camel_medium_get_headers (CAMEL_MEDIUM (emf->message));
 	for (i = 0; i < headers->len; i++) {
-		CamelMediumHeader *header;
 		GtkTreeIter iter;
-		gboolean active = false;
+		GList *found_header;
+		EMFormatHeader *emfh;
+		gint index;
 
 		header = &g_array_index (headers, CamelMediumHeader, i);
+		emfh = em_format_header_new (header->name, header->value);
+		
+		found_header = g_queue_find_custom (&EM_FORMAT (formatter)->header_list,
+				emfh, (GCompareFunc) emp_header_name_equal);
 
-		active = (g_queue_find_custom (&EM_FORMAT (formatter)->header_list,
-				header->name, (GCompareFunc) emf_header_name_equal) != NULL);
-
+		if (found_header) {
+			index = g_queue_link_index (&EM_FORMAT (formatter)->header_list, 
+				found_header);
+		} else {
+			index = G_MAXINT;
+		}
 		gtk_list_store_append (emp->priv->headers, &iter);
+
 		gtk_list_store_set (emp->priv->headers, &iter,
-			COLUMN_ACTIVE, active,
-			COLUMN_HEADER_NAME, header->name,
-			COLUMN_HEADER_VALUE, header->value, -1);
+			COLUMN_ACTIVE, (found_header != NULL),
+			COLUMN_HEADER_NAME, emfh->name,
+			COLUMN_HEADER_VALUE, emfh->value,
+			COLUMN_HEADER_STRUCT, emfh,
+		      	COLUMN_HEADER_SORT, index, -1);
 	}
+
+	camel_medium_free_headers (CAMEL_MEDIUM (emf->message), headers);
 }
 
 static void
@@ -310,7 +352,21 @@ emp_finalize (GObject *object)
 		priv->efhp = NULL;
 	}
 
+	if (priv->sortable_headers) {
+		g_object_unref (priv->sortable_headers);
+		priv->sortable_headers = NULL;
+	}
+
 	if (priv->headers) {
+		GtkTreeIter iter;
+		
+		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (priv->headers), &iter);
+		while (gtk_tree_model_iter_next (GTK_TREE_MODEL (priv->headers), &iter)) {
+			EMFormatHeader *header = NULL;
+			gtk_tree_model_get (GTK_TREE_MODEL (priv->headers), &iter,
+				COLUMN_HEADER_STRUCT, &header, -1);
+			em_format_header_free (header);
+		}
 		g_object_unref (priv->headers);
 		priv->headers = NULL;
 	}
@@ -325,14 +381,14 @@ emp_finalize (GObject *object)
 }
 
 static void
-e_mail_printer_class_init (EMailPrinterClass *class)
+e_mail_printer_class_init (EMailPrinterClass *klass)
 {
 	GObjectClass *object_class;
 
-	parent_class = g_type_class_peek_parent (class);
-	g_type_class_add_private (class, sizeof (EMailPrinterPrivate));
+	parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (EMailPrinterPrivate));
 
-	object_class = G_OBJECT_CLASS (class);
+	object_class = G_OBJECT_CLASS (klass);
 	object_class->set_property = emp_set_property;
 	object_class->get_property = emp_get_property;
 	object_class->finalize = emp_finalize;
@@ -348,7 +404,7 @@ e_mail_printer_class_init (EMailPrinterClass *class)
 		        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
 	signals[SIGNAL_DONE] =	g_signal_new ("done",
-		G_TYPE_FROM_CLASS (class),
+		G_TYPE_FROM_CLASS (klass),
 		G_SIGNAL_RUN_FIRST,
 		G_STRUCT_OFFSET (EMailPrinterClass, done),
 		NULL, NULL,
