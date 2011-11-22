@@ -833,6 +833,8 @@ emf_parse_message_deliverystatus (EMFormat *emf,
 	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
 	puri->write_func = emf_write_text;
 	puri->mime_type = g_strdup ("text/html");
+	puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
+	puri->validity_type = info->validity_type;	
 
 	g_string_truncate (part_id, len);
 
