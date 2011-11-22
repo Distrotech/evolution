@@ -79,6 +79,7 @@ typedef enum {
 /* header already in html format */
 #define EM_FORMAT_HTML_HEADER_HTML (EM_FORMAT_HEADER_LAST<<1)
 #define EM_FORMAT_HTML_HEADER_NODEC (EM_FORMAT_HEADER_LAST<<2)
+#define EM_FORMAT_HTML_HEADER_NOLINKS (EM_FORMAT_HEADER_LAST<<3)
 
 #define EM_FORMAT_HTML_HEADER_LAST (EM_FORMAT_HEADER_LAST<<8)
 
@@ -202,6 +203,13 @@ void		em_format_html_format_headers	(EMFormatHTML *efh,
 						 CamelMedium *part,
 						 gboolean all_headers,
 						 GCancellable *cancellable);
+void		em_format_html_format_header	(EMFormat *emf,
+						 GString *buffer,
+						 CamelMedium *part,
+						 struct _camel_header_raw *header,
+						 guint32 flags,	
+						 const gchar *charset);
+
 
 G_END_DECLS
 

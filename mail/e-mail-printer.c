@@ -136,7 +136,7 @@ emp_run_print_operation (EMailPrinter *emp,
 	EMFormat *emf;
 	SoupSession *session;
 	GHashTable *formatters;
-	WebKitWebFrame *frame;	
+	WebKitWebFrame *frame;
 	gchar *mail_uri, *tmp;
 
 	emf = EM_FORMAT (emp->priv->efhp);
@@ -159,9 +159,15 @@ emp_run_print_operation (EMailPrinter *emp,
 	webkit_web_view_load_uri (emp->priv->webview, tmp);
 
 	frame = webkit_web_view_get_main_frame (emp->priv->webview);
-	webkit_web_frame_print_full (frame, operation, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, NULL);
-	
-	g_free (tmp);	
+
+	if (em_format_html_print_get_action (emp->priv->efhp) == GTK_PRINT_OPERATION_ACTION_EXPORT) {
+		gtk_print_operation_set_export_filename (operation, emp->priv->efhp->export_filename);
+		webkit_web_frame_print_full (frame, operation, GTK_PRINT_OPERATION_ACTION_EXPORT, NULL);
+	} else {
+		webkit_web_frame_print_full (frame, operation, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, NULL);
+	}
+
+	g_free (tmp);
 	g_free (mail_uri);
 }
 
@@ -359,7 +365,7 @@ emp_finalize (GObject *object)
 
 	if (priv->headers) {
 		GtkTreeIter iter;
-		
+
 		gtk_tree_model_get_iter_first (GTK_TREE_MODEL (priv->headers), &iter);
 		while (gtk_tree_model_iter_next (GTK_TREE_MODEL (priv->headers), &iter)) {
 			EMFormatHeader *header = NULL;
@@ -424,7 +430,7 @@ e_mail_printer_init (EMailPrinter *emp)
 	emp->priv->webview = NULL;
 }
 
-EMailPrinter* 
+EMailPrinter*
 e_mail_printer_new (EMFormatHTML* source,
 		    GtkPrintOperationAction action)
 {
@@ -445,7 +451,7 @@ void
 e_mail_printer_print (EMailPrinter *emp,
 		      GCancellable *cancellable)
 {
-	GtkPrintOperation *operation;	
+	GtkPrintOperation *operation;
 
 	g_return_if_fail (E_IS_MAIL_PRINTER (emp));
 

@@ -1849,7 +1849,8 @@ static gchar *
 efh_format_address (EMFormatHTML *efh,
                     GString *out,
                     struct _camel_header_address *a,
-                    gchar *field)
+                    gchar *field,
+		    gboolean no_links)
 {
 	guint32 flags = CAMEL_MIME_FILTER_TOHTML_CONVERT_SPACES;
 	gchar *name, *mailto, *addr;
@@ -1888,7 +1889,10 @@ efh_format_address (EMFormatHTML *efh,
 				mailto = camel_url_encode (a->v.addr, "?=&()");
 			}
 			addr = camel_text_to_html (a->v.addr, flags, 0);
-			g_string_append_printf (out, "<a href=\"mailto:%s\">%s</a>", mailto, addr);
+			if (no_links)
+				g_string_append_printf (out, "%s", addr);
+			else
+				g_string_append_printf (out, "<a href=\"mailto:%s\">%s</a>", mailto, addr);
 			g_free (mailto);
 			g_free (addr);
 
@@ -1897,7 +1901,7 @@ efh_format_address (EMFormatHTML *efh,
 			break;
 		case CAMEL_HEADER_ADDRESS_GROUP:
 			g_string_append_printf (out, "%s: ", name);
-			efh_format_address (efh, out, a->v.members, field);
+			efh_format_address (efh, out, a->v.members, field, no_links);
 			g_string_append_printf (out, ";");
 			break;
 		default:
@@ -1977,13 +1981,13 @@ canon_header_name (gchar *name)
 	}
 }
 
-static void
-efh_format_header (EMFormat *emf,
-                   GString *buffer,
-                   CamelMedium *part,
-                   struct _camel_header_raw *header,
-                   guint32 flags,
-                   const gchar *charset)
+void
+em_format_html_format_header (EMFormat *emf,
+			      GString *buffer,
+			      CamelMedium *part,
+			      struct _camel_header_raw *header,
+			      guint32 flags,
+			      const gchar *charset)
 {
 	EMFormatHTML *efh = EM_FORMAT_HTML (emf);
 	gchar *name, *buf, *value = NULL;
@@ -2021,7 +2025,8 @@ efh_format_header (EMFormat *emf,
 		g_free (buf);
 
 		html = g_string_new("");
-		img = efh_format_address (efh, html, addrs, (gchar *) label);
+		img = efh_format_address (efh, html, addrs, (gchar *) label,
+			(flags & EM_FORMAT_HTML_HEADER_NOLINKS));
 
 		if (img) {
 			str_field = g_strdup_printf ("%s%s:", img, label);
@@ -2107,7 +2112,11 @@ efh_format_header (EMFormat *emf,
 		html = g_string_new("");
 		scan = ng;
 		while (scan) {
-			g_string_append_printf(html, "<a href=\"news:%s\">%s</a>", scan->newsgroup, scan->newsgroup);
+			if (flags & EM_FORMAT_HTML_HEADER_NOLINKS)
+				g_string_append_printf (html, "%s", scan->newsgroup);
+			else
+				g_string_append_printf(html, "<a href=\"news:%s\">%s</a>",
+					scan->newsgroup, scan->newsgroup);
 			scan = scan->next;
 			if (scan)
 				g_string_append_printf(html, ", ");
@@ -2175,7 +2184,7 @@ efh_format_short_headers (EMFormatHTML *efh,
 				continue;
 			}
 			tmp = g_string_new ("");
-			efh_format_address (efh, tmp, addrs, header->name);
+			efh_format_address (efh, tmp, addrs, header->name, FALSE);
 
 			if (tmp->len)
 				g_string_printf (from, _("From: %s"), tmp->str);
@@ -2254,7 +2263,7 @@ efh_format_full_headers (EMFormatHTML *efh,
 				break;
 
 			html = g_string_new("");
-			name = efh_format_address (efh, html, addrs, header->name);
+			name = efh_format_address (efh, html, addrs, header->name, FALSE);
 
 			header_sender = html->str;
 			camel_header_address_list_clear (&addrs);
@@ -2269,7 +2278,7 @@ efh_format_full_headers (EMFormatHTML *efh,
 				break;
 
 			html = g_string_new("");
-			name = efh_format_address (efh, html, addrs, header->name);
+			name = efh_format_address (efh, html, addrs, header->name, FALSE);
 
 			header_from = html->str;
 			camel_header_address_list_clear (&addrs);
@@ -2321,7 +2330,7 @@ efh_format_full_headers (EMFormatHTML *efh,
 	if (all_headers) {
 		header = ((CamelMimePart *) part)->headers;
 		while (header) {
-			efh_format_header (
+			em_format_html_format_header (
 				emf, buffer, part, header,
 				EM_FORMAT_HTML_HEADER_NOCOLUMNS, charset);
 			header = header->next;
@@ -2370,7 +2379,7 @@ efh_format_full_headers (EMFormatHTML *efh,
 					xmailer.value = use_header->value;
 					mailer_shown = TRUE;
 
-					efh_format_header (
+					em_format_html_format_header (
 						emf, buffer, part,
 						&xmailer, h->flags, charset);
 					if (strstr(use_header->value, "Evolution"))
@@ -2391,7 +2400,7 @@ efh_format_full_headers (EMFormatHTML *efh,
 					face_decoded = TRUE;
 				/* Showing an encoded "Face" header makes little sense */
 				} else if (!g_ascii_strcasecmp (header->name, h->name) && !face) {
-					efh_format_header (
+					em_format_html_format_header (
 						emf, buffer, part,
 						header, h->flags, charset);
 				}

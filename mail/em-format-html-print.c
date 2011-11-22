@@ -49,11 +49,6 @@ struct _EMFormatHTMLPrintPrivate {
 
 };
 
-G_DEFINE_TYPE (
-	EMFormatHTMLPrint, 
-	em_format_html_print, 
-	EM_TYPE_FORMAT_HTML);
-
 enum {
 	PROP_0,
 	PROP_ORIGINAL_FORMATTER,
@@ -61,57 +56,133 @@ enum {
 };
 
 static void efhp_write_print_layout	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void efhp_write_headers		(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 static void
-attachment_bar_html (EMFormatPURI *puri,
-		     GString *buffer,
-		     GCancellable *cancellable)
+efhp_write_headers (EMFormat *emf,
+		    EMFormatPURI *puri,
+		    CamelStream *stream,
+		    EMFormatWriterInfo *info,
+		    GCancellable *cancellable)
 {
-	EAttachmentStore *store;
-	EMailAttachmentBar *bar;
-	GList *attachments, *iter;
-	GtkIconTheme *icon_theme;
+	struct _camel_header_raw raw_header;
+	GString *str, *tmp;
+	gchar *subject;
+	const gchar *buf;
+	EMFormatPURI *p;
+	GList *iter;
+	gint attachments_count;
 
-	bar = E_MAIL_ATTACHMENT_BAR (
-		puri->widget_func (puri->emf, puri, cancellable));
-	store = e_mail_attachment_bar_get_store (bar);
+	buf = camel_medium_get_header (CAMEL_MEDIUM (puri->part), "subject");
+	subject = camel_header_decode_string (buf, "UTF-8");
+	str = g_string_new ("<table border=\"0\" width=\"100%\" " \
+		"cellspacing=\"5\" cellpadding=\"0\" class=\"printing-header\">\n");
+	g_string_append_printf (str, "<tr><td colspan=\"2\"><h1>%s</h1></td></tr>\n",
+		subject);
+	g_free (subject);
 
-	g_string_append_printf (buffer, 
-		"<fieldset class=\"attachments\"><legend>%s</legend>",
-		_("Attachments"));
+	for (iter = g_queue_peek_head_link (&emf->header_list); 
+	     iter->next != NULL; iter = iter->next) {
 
-	icon_theme = gtk_icon_theme_get_default ();
-	attachments = e_attachment_store_get_attachments (store);
-	for (iter = attachments; iter != NULL; iter = iter->next) {
-		EAttachment *attachment = iter->data;
-		GFileInfo *finfo = e_attachment_get_file_info (attachment);
-		GIcon *icon;
-		GtkIconInfo *icon_info;
+		EMFormatHeader *header = iter->data;
+		raw_header.name = header->name;
 
-		icon = g_file_info_get_icon (finfo);
-		if (icon) {
-			icon_info = gtk_icon_theme_lookup_by_gicon (icon_theme,
-				icon, 48, 0);
-		} 
+		/* Skip 'Subject' header, it's already displayed. */
+		if (g_ascii_strncasecmp (header->name, "Subject", 7) == 0)
+			continue;
 
-		if (!icon || !icon_info) {
-			icon_info = gtk_icon_theme_lookup_icon (icon_theme,
-				"gtk-file", 48, 0);
+		if (header->value && *header->value) {
+			raw_header.value = header->value;
+			em_format_html_format_header (emf, str,
+				CAMEL_MEDIUM (puri->part), &raw_header,
+				header->flags | EM_FORMAT_HTML_HEADER_NOLINKS,
+				"UTF-8");
+		} else {
+			raw_header.value = g_strdup (camel_medium_get_header (
+				CAMEL_MEDIUM (emf->message), header->name));
+			
+			if (raw_header.value && *raw_header.value) {
+				em_format_html_format_header (emf, str,
+					CAMEL_MEDIUM (puri->part), &raw_header,
+					header->flags | EM_FORMAT_HTML_HEADER_NOLINKS,
+					"UTF-8");
+			}
+
+			if (raw_header.value)
+				g_free (raw_header.value);
 		}
-
-		g_string_append_printf (buffer,
-			"<div class=\"attachment\" >" \
-			"<img src=\"evo-file://%s\" width=\"64\" height=\"64\" />"
-			"<br>%s</div>",
-			gtk_icon_info_get_filename (icon_info),
-			g_file_info_get_display_name (finfo));
 	}
 
-	g_string_append (buffer, "<div style=\"clear: both; width: 100%\"></div></fieldset>");
+	/* Add encryption/signature header */
+	raw_header.name = _("Security");
+	tmp = g_string_new ("");
+	/* Find first secured part. */
+	for (iter = g_list_find (emf->mail_part_list, puri)->next; iter->next != NULL; iter = iter->next) {
 
-	g_list_free (attachments);
+		p = iter->data;
+
+		/* Let that particular headers handle the encryption */
+		if (g_str_has_suffix (p->uri, ".headers"))
+			break;
+
+		if (p->validity_type == 0)
+			continue;
+
+	
+		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_PGP) &&
+		    (p->validity_type & EM_FORMAT_VALIDITY_FOUND_SIGNED)) {
+			g_string_append (tmp, _("GPG signed"));
+		}
+		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_PGP) &&
+		    (p->validity_type & EM_FORMAT_VALIDITY_FOUND_ENCRYPTED)) {
+			if (tmp->len > 0) g_string_append (tmp, ", ");
+			g_string_append (tmp, _("GPG encrpyted"));
+		}
+		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_SMIME) &&
+		    (p->validity_type & EM_FORMAT_VALIDITY_FOUND_SIGNED)) {
+
+			if (tmp->len > 0) g_string_append (tmp, ", ");		
+			g_string_append (tmp, _("S/MIME signed"));
+		}
+		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_SMIME) &&
+		    (p->validity_type & EM_FORMAT_VALIDITY_FOUND_ENCRYPTED)) {
+
+			if (tmp->len > 0) g_string_append (tmp, ", ");
+			g_string_append (tmp, _("S/MIME encrpyted"));
+		}
+
+		break;
+	}
+
+	if (tmp->len > 0) {
+		raw_header.value = tmp->str;
+		em_format_html_format_header (emf, str, CAMEL_MEDIUM (p->part),
+			&raw_header, EM_FORMAT_HEADER_BOLD | EM_FORMAT_HTML_HEADER_NOLINKS, "UTF-8");
+	}
+	g_string_free (tmp, TRUE);	
+
+	/* Count attachments and display the number as a header */
+	attachments_count = 0;
+	for (iter = emf->mail_part_list; iter->next != NULL; iter = iter->next) {
+
+		p = iter->data;
+
+		if (p->is_attachment || g_str_has_suffix(p->uri, ".attachment"))
+			attachments_count++;
+	}
+	if (attachments_count > 0) {
+		raw_header.name = _("Attachments");
+		raw_header.value = g_strdup_printf ("%d", attachments_count);
+		em_format_html_format_header (emf, str, CAMEL_MEDIUM (puri->part),
+			&raw_header, EM_FORMAT_HEADER_BOLD | EM_FORMAT_HTML_HEADER_NOLINKS, "UTF-8");
+		g_free (raw_header.value);
+	}
+
+	g_string_append (str, "</table>");
+
+	camel_stream_write_string (stream, str->str, cancellable, NULL);
+	g_string_free (str, TRUE);
 }
-
 
 static void
 efhp_write_print_layout (EMFormat *emf,
@@ -137,19 +208,18 @@ efhp_write_print_layout (EMFormat *emf,
 
 		EMFormatPURI *puri = iter->data;
 
-		/* Convert attachment bar to fancy HTML */
-		/* FIXME WEBKIT
-		if (g_str_has_suffix (puri->uri, ".attachment-bar")) {
-			attachment_bar_html (puri, str, cancellable);
-			continue;
-		}
-		*/
-
 		/* Skip widget-parts. We either don't want them displayed
 		 * or we will handle them manually */
 		if (puri->write_func == NULL ||
-		    g_str_has_prefix (puri->uri, "print_layout"))
+		    g_str_has_suffix (puri->uri, "print_layout"))
 			continue;
+
+		/* To late to change .headers writer_func, do it manually. */
+		if (g_str_has_suffix (puri->uri, ".headers")) {
+			efhp_write_headers (emf, puri, stream, info, cancellable);
+			continue;
+		}
+			
 
 		if (puri->is_attachment || g_str_has_suffix (puri->uri, ".attachment")) {
 			const EMFormatHandler *handler;
@@ -249,8 +319,25 @@ efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
 		sizeof (EMFormatPURI), NULL, "print_layout");
 	puri->write_func = efhp_write_print_layout;
 	puri->mime_type = g_strdup ("text/html");
-	em_format_add_puri (EM_FORMAT (efhp), puri);		
-	efhp->priv->top_level_puri = puri;	
+	em_format_add_puri (EM_FORMAT (efhp), puri);
+	efhp->priv->top_level_puri = puri;
+}
+
+static EMFormatHandler type_builtin_table[] = {
+	//{ (gchar *) "x-evolution/message/headers", 0, efhp_write_headers, },
+};
+
+static void
+efhp_builtin_init (EMFormatHTMLPrintClass *efhc)
+{
+	EMFormatClass *emfc;
+	gint ii;
+
+	emfc = (EMFormatClass *) efhc;
+
+	for (ii = 0; ii < G_N_ELEMENTS (type_builtin_table); ii++)
+		em_format_class_add_handler (
+			emfc, &type_builtin_table[ii]);
 }
 
 static void
@@ -308,20 +395,26 @@ efhp_get_property (GObject *object,
 }
 
 static void
-em_format_html_print_class_init (EMFormatHTMLPrintClass *class)
+em_format_html_print_base_init (EMFormatHTMLPrintClass *klass)
+{
+	efhp_builtin_init (klass);
+}
+
+static void
+em_format_html_print_class_init (EMFormatHTMLPrintClass *klass)
 {
 	GObjectClass *object_class;
 	EMFormatClass *format_class;
 
-	parent_class = g_type_class_peek_parent (class);
-	g_type_class_add_private (class, sizeof (EMFormatHTMLPrintPrivate));
+	parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (EMFormatHTMLPrintPrivate));
 
-	object_class = G_OBJECT_CLASS (class);
+	object_class = G_OBJECT_CLASS (klass);
 	object_class->finalize = efhp_finalize;
 	object_class->set_property = efhp_set_property;
 	object_class->get_property = efhp_get_property;
 
-	format_class = EM_FORMAT_CLASS (class);
+	format_class = EM_FORMAT_CLASS (klass);
 	format_class->is_inline = efhp_is_inline;
 
 	g_object_class_install_property (
@@ -359,44 +452,45 @@ em_format_html_print_init (EMFormatHTMLPrint *efhp)
 	efhp->async = TRUE;		
 }
 
+GType
+em_format_html_print_get_type (void)
+{
+	static GType type = 0;
+
+	if (G_UNLIKELY (type == 0)) {
+		static const GTypeInfo type_info = {
+			sizeof (EMFormatHTMLPrintClass),
+			(GBaseInitFunc) em_format_html_print_base_init,
+			(GBaseFinalizeFunc) NULL,
+			(GClassInitFunc) em_format_html_print_class_init,
+			(GClassFinalizeFunc) NULL,
+			NULL,  /* class_data */
+			sizeof (EMFormatHTMLPrint),
+			0,     /* n_preallocs */
+			(GInstanceInitFunc) em_format_html_print_init,
+			NULL   /* value_table */
+		};
+
+		type = g_type_register_static (
+			em_format_html_get_type(), "EMFormatHTMLPrint",
+			&type_info, 0);
+	}
+
+	return type;
+}
+
 EMFormatHTMLPrint *
 em_format_html_print_new (EMFormatHTML *source,
                           GtkPrintOperationAction action)
 {
 	EMFormatHTMLPrint *efhp;
 
-	efhp = g_object_new (EM_TYPE_FORMAT_HTML_PRINT, 
+	efhp = g_object_new (EM_TYPE_FORMAT_HTML_PRINT,
 		"original-formatter", source,
 		"print-action", action,
 		NULL);
 
 	return efhp;
-}
-
-static void
-emfhp_complete (EMFormatHTMLPrint *efhp)
-{
-/* FIXME WEBKIT
-	GtkPrintOperation *operation;
-	EWebView *web_view;
-	GError *error = NULL;
-
-	operation = e_print_operation_new ();
-// FIXME WEBKIT: Port to webkit's API, probably from outside
-	if (efhp->action == GTK_PRINT_OPERATION_ACTION_EXPORT)
-		gtk_print_operation_set_export_filename (operation, efhp->export_filename);
-
-	gtk_html_print_operation_run (
-		GTK_HTML (web_view),
-		operation, efhp->action, NULL,
-		(GtkHTMLPrintCalcHeight) NULL,
-		(GtkHTMLPrintCalcHeight) efhp_calc_footer_height,
-		(GtkHTMLPrintDrawFunc) NULL,
-		(GtkHTMLPrintDrawFunc) efhp_draw_footer,
-		NULL, &error);
-
-	g_object_unref (operation);
-*/
 }
 
 void
@@ -414,9 +508,6 @@ em_format_html_print_message (EMFormatHTMLPrint *efhp,
 		EM_FORMAT_HTML_HEADER_CC |
 		EM_FORMAT_HTML_HEADER_BCC;
 
-	g_signal_connect (
-		efhp, "complete", G_CALLBACK (emfhp_complete), efhp);
-
 	/* FIXME Not passing a GCancellable here. */
 	em_format_parse ((EMFormat *) efhp, message, folder, NULL);
 }
@@ -424,8 +515,8 @@ em_format_html_print_message (EMFormatHTMLPrint *efhp,
 GtkPrintOperationAction
 em_format_html_print_get_action (EMFormatHTMLPrint *efhp)
 {
-	g_return_val_if_fail (EM_IS_FORMAT_HTML_PRINT (efhp), 
+	g_return_val_if_fail (EM_IS_FORMAT_HTML_PRINT (efhp),
 		GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG);
-	
+
 	return efhp->priv->print_action;
 }
