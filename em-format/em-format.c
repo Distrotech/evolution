@@ -1487,7 +1487,7 @@ em_format_init (EMFormat *emf)
 	em_format_clear_headers (emf);
 	for (ii = 0; ii < G_N_ELEMENTS (default_headers); ii++)
 		em_format_add_header (
-			emf, default_headers[ii].name,
+			emf, default_headers[ii].name, NULL,
 			default_headers[ii].flags);
 }
 
@@ -1643,14 +1643,17 @@ em_format_clear_headers (EMFormat *emf)
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
-	while ((eh = g_queue_pop_head (&emf->header_list)) != NULL)
-		g_free (eh);
+	while ((eh = g_queue_pop_head (&emf->header_list)) != NULL) {
+		em_format_header_free (eh);
+	}
+
 }
 
 /**
  * em_format_add_header:
  * @emf:
  * @name: The name of the header, as it will appear during output.
+ * @value: Value of the header. Can be NULL.
  * @flags: EM_FORMAT_HEAD_* defines to control display attributes.
  *
  * Add a specific header to show.  If any headers are set, they will
@@ -1661,6 +1664,7 @@ em_format_clear_headers (EMFormat *emf)
 void
 em_format_add_header (EMFormat *emf,
                       const gchar *name,
+		      const gchar *value,
                       guint32 flags)
 {
 	EMFormatHeader *h;
@@ -1668,10 +1672,19 @@ em_format_add_header (EMFormat *emf,
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (name && *name);
 
-	h = g_malloc (sizeof (*h) + strlen (name));
+	h = em_format_header_new (name, value);
 	h->flags = flags;
-	strcpy (h->name, name);
 	g_queue_push_tail (&emf->header_list, h);
+}
+
+void
+em_format_add_header_struct (EMFormat *emf,
+			     EMFormatHeader *header)
+{
+	g_return_if_fail (EM_IS_FORMAT (emf));
+	g_return_if_fail (header && header->name);
+
+	g_queue_push_tail (&emf->header_list, header);
 }
 
 void
@@ -1688,6 +1701,51 @@ em_format_add_puri (EMFormat *emf,
 
 	d(printf("Added PURI %s\n", puri->uri));
 }
+
+EMFormatHeader*
+em_format_remove_header (EMFormat* emf,
+			 const gchar* name,
+			 const gchar* value)
+{
+	GList *iter = NULL;
+
+	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
+	g_return_val_if_fail (name && *name, NULL);
+
+	for (iter = g_queue_peek_head_link (&emf->header_list); iter->next != NULL; iter = iter->next) {
+
+		EMFormatHeader *header = iter->data;
+
+		if (value && *value) {
+			if ((strcmp (name, header->name) == 0) &&
+			    (strcmp (value, header->value) == 0))
+				break;
+		} else {
+			if (strcmp (name, header->name) == 0)
+				break;
+		}
+	}
+
+	if (iter) {
+		EMFormatHeader *header = iter->data;
+		g_queue_delete_link (&emf->header_list, iter);
+
+		return header;
+	}
+
+	return NULL;
+}
+
+EMFormatHeader*
+em_format_remove_header_struct (EMFormat* emf,
+				const EMFormatHeader* header)
+{
+	g_return_val_if_fail (header, NULL);
+
+	return em_format_remove_header (emf, header->name, header->value);
+}
+
+
 
 EMFormatPURI*
 em_format_find_puri (EMFormat *emf,
@@ -2400,4 +2458,38 @@ em_format_puri_write (EMFormatPURI *puri,
 					puri, stream, info, cancellable);
 		}
 	}
+}
+
+EMFormatHeader*
+em_format_header_new (const gchar *name,
+		      const gchar *value)
+{
+	EMFormatHeader *header;
+
+	g_return_val_if_fail (name && *name, NULL);
+
+	header = g_new0 (EMFormatHeader, 1);
+	header->name = g_strdup (name);
+	if (value && *value)
+		header->value = g_strdup (value);
+
+	return header;
+}
+
+void
+em_format_header_free (EMFormatHeader* header)
+{
+	g_return_if_fail (header != NULL);
+
+	if (header->name) {
+		g_free (header->name);
+		header->name = NULL;
+	}
+
+	if (header->value) {
+		g_free (header->value);
+		header->value = NULL;
+	}
+
+	g_free (header);
 }

@@ -127,7 +127,8 @@ struct _EMFormatWriterInfo {
 
 struct _EMFormatHeader {
 	guint32 flags;		/* E_FORMAT_HEADER_ * */
-	gchar name[1];
+	gchar *name;
+	gchar *value;
 };
 
 #define EM_FORMAT_HEADER_BOLD (1<<0)
@@ -226,9 +227,18 @@ CamelURL*		em_format_get_base_url		(EMFormat *emf);
 
 void			em_format_clear_headers		(EMFormat *emf);
 
-void			em_format_add_header 		(EMFormat *emf,
+void			em_format_add_header		(EMFormat *emf,
 							 const gchar *name,
+							 const gchar *value,
 							 guint32 flags);
+void			em_format_add_header_struct	(EMFormat *emf,
+							 EMFormatHeader *header);
+EMFormatHeader*		em_format_remove_header		(EMFormat *emf,
+							 const gchar *name,
+							 const gchar *value);
+EMFormatHeader*		em_format_remove_header_struct	(EMFormat *emf,
+							 const EMFormatHeader *header);
+
 void			em_format_add_puri		(EMFormat *emf,
 							 EMFormatPURI *puri);
 EMFormatPURI*		em_format_find_puri		(EMFormat *emf,
@@ -314,5 +324,9 @@ void			em_format_puri_write 		(EMFormatPURI *puri,
 							 CamelStream *stream,
 							 EMFormatWriterInfo *info,
 							 GCancellable *cancellable);
+
+EMFormatHeader*		em_format_header_new		(const gchar *name,
+							 const gchar *value);
+void			em_format_header_free		(EMFormatHeader *header);
 
 #endif /* EM_FORMAT_H */
