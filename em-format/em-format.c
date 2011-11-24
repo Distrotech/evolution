@@ -1248,6 +1248,9 @@ static EMFormatHandler type_handlers[] = {
 		{ (gchar *) "multipart/digest", emf_parse_multipart_digest, },
 		{ (gchar *) "multipart/*", emf_parse_multipart_mixed, },
 
+		/* Ignore PGP signature part */
+		{ (gchar *) "application/pgp-signature", em_format_empty_parser, },
+
 		/* Insert brokenly-named parts here */
 #ifdef ENABLE_SMIME
 		{ (gchar *) "application/pkcs7-mime", emf_parse_application_xpkcs7mime, 0, EM_FORMAT_HANDLER_INLINE_DISPOSITION },
