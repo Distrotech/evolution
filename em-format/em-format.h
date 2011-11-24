@@ -113,6 +113,9 @@ struct _EMFormatParserInfo {
 	/* EM_FORMAT_VALIDITY_* flags */
 	guint32 validity_type;
 	CamelCipherValidity *validity;
+
+        gint is_attachment : 1;
+        gint force_handler: 1;
 };
 
 struct _EMFormatWriterInfo {

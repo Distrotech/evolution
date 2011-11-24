@@ -150,7 +150,10 @@ find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
 
 	abp = (EMFormatAttachmentBarPURI *) puri;
 
-	return abp->store;
+        if (abp)
+	        return abp->store;
+        else
+                return NULL;
 }
 
 static void
@@ -457,10 +460,10 @@ efhd_parse_attachment (EMFormat *emf,
 	len = part_id->len;
 	g_string_append (part_id, ".attachment");
 
+        /* Try to find handler for the mime part */
 	ct = camel_mime_part_get_content_type (part);
 	if (ct) {
 		mime_type = camel_content_type_simple (ct);
-
 		handler = em_format_find_handler (emf, mime_type);
 	}
 
@@ -476,7 +479,7 @@ efhd_parse_attachment (EMFormat *emf,
 			emf, sizeof (EMFormatAttachmentPURI), part, part_id->str);
 	puri->puri.free = efhd_free_attach_puri_data;
 	puri->puri.widget_func = efhd_attachment_button;
-	puri->shown = em_format_is_inline (emf, part_id->str, part, info->handler);
+	puri->shown = em_format_is_inline (emf, part_id->str, part, handler);
 	puri->snoop_mime_type = em_format_snoop_type (part);
 	puri->attachment = e_attachment_new ();
 	puri->attachment_view_part_id = g_strdup (part_id->str);

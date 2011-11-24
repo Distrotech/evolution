@@ -199,6 +199,7 @@ efh_parse_text_enriched (EMFormat *emf,
 	puri->write_func = efh_write_text_enriched;
 	puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
 	puri->validity_type = info->validity_type;
+        puri->is_attachment = info->is_attachment;
 
 	em_format_add_puri (emf, puri);
 	g_string_truncate (part_id, len);
@@ -312,6 +313,7 @@ efh_parse_text_plain (EMFormat *emf,
 			puri->mime_type = g_strdup ("text/html");
 			puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
 			puri->validity_type = info->validity_type;
+                        puri->is_attachment = info->is_attachment;
 			g_string_truncate (part_id, s_len);
 			em_format_add_puri (emf, puri);
 		} else {
@@ -365,7 +367,8 @@ efh_parse_text_html (EMFormat *emf,
 	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
 	puri->write_func = efh_write_text_html;
 	puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
-	puri->validity_type = info->validity_type;	
+	puri->validity_type = info->validity_type;
+        puri->is_attachment = info->is_attachment;
 
 	em_format_add_puri (emf, puri);
 	g_string_truncate (part_id, len);
@@ -510,7 +513,8 @@ efh_parse_message_deliverystatus (EMFormat *emf,
 	puri->write_func = efh_write_source;
 	puri->mime_type = g_strdup ("text/html");
 	puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
-	puri->validity_type = info->validity_type;	
+	puri->validity_type = info->validity_type;
+        puri->is_attachment = info->is_attachment;
 
 	em_format_add_puri (emf, puri);
 	g_string_truncate (part_id, len);

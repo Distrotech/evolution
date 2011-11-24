@@ -1052,14 +1052,17 @@ emf_parse_message (EMFormat *emf,
 		   GCancellable *cancellable)
 {
 	/* Headers */
+        info->force_handler = TRUE;
 	em_format_parse_part_as (emf, part, part_id, info,
 			"x-evolution/message/headers", cancellable);
 
 	/* Anything that comes between headers and message body */
+        info->force_handler = TRUE;
 	em_format_parse_part_as (emf, part, part_id, info,
 			"x-evolution/message/post-headers", cancellable);
 
 	/* Begin parsing the message */
+        info->force_handler = FALSE;
 	em_format_parse_part (emf, part, part_id, info, cancellable);
 }
 
@@ -1092,6 +1095,7 @@ emf_parse_post_headers (EMFormat *emf,
 		        GCancellable *cancellable)
 {
 	/* Add attachment bar */
+        info->force_handler = TRUE;
 	em_format_parse_part_as (emf, part, part_id, info,
 		"x-evolution/message/attachment-bar", cancellable);
 }
@@ -1195,6 +1199,7 @@ emf_parse (EMFormat *emf,
 	puri->mime_type = g_strdup ("text/html");
 	em_format_add_puri (emf, puri);
 
+        info.force_handler = TRUE;
 	em_format_parse_part_as (emf, CAMEL_MIME_PART (message), part_id, &info,
 			"x-evolution/message", cancellable);
 
@@ -1891,11 +1896,26 @@ em_format_parse_part_as (EMFormat *emf,
 			 GCancellable *cancellable)
 {
 	const EMFormatHandler *handler;
+        const CamelContentDisposition *disposition;
 	EMFormatParserInfo ninfo = {
 		0,
 		info ? info->validity_type : 0,
-		info ? info->validity : 0
+		info ? info->validity : 0,
+                0,
 	};
+
+        /* Let everything that claims to be an attachment or inlined part to be parsed 
+         * as an attachment. The parser will decide how to display it. */
+        disposition = camel_mime_part_get_content_disposition (part);
+        if (!info->force_handler && disposition && 
+            ((g_strcmp0 (disposition->disposition, "attachment") == 0) ||
+             (g_strcmp0 (disposition->disposition, "inline") == 0))) {
+                ninfo.is_attachment = TRUE;
+                handler = em_format_find_handler (emf, "x-evolution/message/attachment");
+                ninfo.handler = handler;
+                handler->parse_func (emf, part, part_id, &ninfo, cancellable);
+                return;
+        }
 
 	handler = em_format_find_handler (emf, mime_type);
 	if (handler) {

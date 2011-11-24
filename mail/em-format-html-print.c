@@ -256,7 +256,13 @@ efhp_write_inline_attachment (EMFormat *emf,
                               EMFormatWriterInfo *info,
                               GCancellable *cancellable)
 {
-        
+        GString *str;
+
+        str = g_string_new ("<div style=\"border: 1px solid #000; width: 100%\">");
+        g_string_append_printf (str, "<p>Inlining PURI <code>%s</code></p></div>", puri->uri);
+
+        camel_stream_write_string (stream, str->str, cancellable, NULL);
+        g_string_free (str, TRUE);
 }
 
 static void
@@ -302,7 +308,9 @@ efhp_write_print_layout (EMFormat *emf,
 			gchar *mime_type = camel_content_type_simple (ct);
 
 			handler = em_format_find_handler (puri->emf, mime_type);
-			g_free (mime_type);
+                        g_message ("Handler for PURI %s (%s): %s", puri->uri, mime_type,
+                                 handler ? handler->mime_type : "(null)");
+                        g_free (mime_type);
 
                         efhp->priv->attachments = 
                                 g_list_append (efhp->priv->attachments, puri);
