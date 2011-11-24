@@ -1712,18 +1712,29 @@ em_format_remove_header (EMFormat* emf,
 	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
 	g_return_val_if_fail (name && *name, NULL);
 
-	for (iter = g_queue_peek_head_link (&emf->header_list); iter->next != NULL; iter = iter->next) {
-
+        iter = g_queue_peek_head_link (&emf->header_list);
+        while (iter) {
 		EMFormatHeader *header = iter->data;
 
+                if (!header->value || !*header->value) {
+                        GList *next = iter->next;
+                        if (g_strcmp0 (name, header->name) == 0)
+                                g_queue_delete_link (&emf->header_list, iter);
+
+                        iter = next;
+                        continue;
+                }
+
 		if (value && *value) {
-			if ((strcmp (name, header->name) == 0) &&
-			    (strcmp (value, header->value) == 0))
+			if ((g_strcmp0 (name, header->name) == 0) &&
+			    (g_strcmp0 (value, header->value) == 0))
 				break;
 		} else {
-			if (strcmp (name, header->name) == 0)
+			if (g_strcmp0 (name, header->name) == 0)
 				break;
 		}
+
+		iter = iter->next;
 	}
 
 	if (iter) {
