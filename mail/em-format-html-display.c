@@ -495,6 +495,11 @@ efhd_parse_attachment (EMFormat *emf,
 
 	em_format_add_puri (emf, (EMFormatPURI *) puri);
 
+        /* Though it is an attachment, we still might be able to parse it and
+         * so discover some parts that we might be event able to display. */
+        if (handler && handler->parse_func && (handler->flags & EM_FORMAT_HANDLER_COMPOUND_TYPE))
+                handler->parse_func (emf, puri->puri.part, part_id, info, cancellable);
+
 	e_attachment_set_mime_part (puri->attachment, part);
 	e_attachment_set_shown (puri->attachment, puri->shown);
 	e_attachment_set_signed (puri->attachment, puri->sign);

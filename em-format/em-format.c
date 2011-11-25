@@ -1243,15 +1243,15 @@ static EMFormatHandler type_handlers[] = {
 #ifdef ENABLE_SMIME
 		{ (gchar *) "application/x-pkcs7-mime", emf_parse_application_xpkcs7mime, 0, EM_FORMAT_HANDLER_INLINE_DISPOSITION },
 #endif
-		{ (gchar *) "application/mbox", emf_parse_application_mbox, 0, EM_FORMAT_HANDLER_INLINE },
+		{ (gchar *) "application/mbox", emf_parse_application_mbox, 0, EM_FORMAT_HANDLER_INLINE | EM_FORMAT_HANDLER_COMPOUND_TYPE },
 		{ (gchar *) "multipart/alternative", emf_parse_multipart_alternative, },
 		{ (gchar *) "multipart/appledouble", emf_parse_multipart_appledouble, },
 		{ (gchar *) "multipart/encrypted", emf_parse_multipart_encrypted, },
 		{ (gchar *) "multipart/mixed", emf_parse_multipart_mixed, },
 		{ (gchar *) "multipart/signed", emf_parse_multipart_signed, },
 		{ (gchar *) "multipart/related", emf_parse_multipart_related, },
-		{ (gchar *) "multipart/digest", emf_parse_multipart_digest, },
-		{ (gchar *) "multipart/*", emf_parse_multipart_mixed, },
+		{ (gchar *) "multipart/digest", emf_parse_multipart_digest, EM_FORMAT_HANDLER_COMPOUND_TYPE },
+		{ (gchar *) "multipart/*", emf_parse_multipart_mixed, 0, EM_FORMAT_HANDLER_COMPOUND_TYPE },
 
 		/* Ignore PGP signature part */
 		{ (gchar *) "application/pgp-signature", em_format_empty_parser, },
@@ -1264,7 +1264,7 @@ static EMFormatHandler type_handlers[] = {
 		/* internal types */
 		{ (gchar *) "application/x-inlinepgp-signed", emf_parse_inlinepgp_signed, },
 		{ (gchar *) "application/x-inlinepgp-encrypted", emf_parse_inlinepgp_encrypted, },
-		{ (gchar *) "x-evolution/message", emf_parse_message, },
+		{ (gchar *) "x-evolution/message", emf_parse_message, 0, EM_FORMAT_HANDLER_COMPOUND_TYPE },
 		{ (gchar *) "x-evolution/message/headers", emf_parse_headers, },
 		{ (gchar *) "x-evolution/message/post-headers", emf_parse_post_headers, },
 		{ (gchar *) "x-evolution/message/source", emf_parse_source, emf_write_source },

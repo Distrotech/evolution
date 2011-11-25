@@ -83,7 +83,8 @@ typedef GtkWidget*	(*EMFormatWidgetFunc)	(EMFormat *emf,
 
 typedef enum {
 	EM_FORMAT_HANDLER_INLINE = 1 << 0,
-	EM_FORMAT_HANDLER_INLINE_DISPOSITION = 1 << 1
+	EM_FORMAT_HANDLER_INLINE_DISPOSITION = 1 << 1,
+	EM_FORMAT_HANDLER_COMPOUND_TYPE = 1 << 2
 } EMFormatHandlerFlags;
 
 typedef enum {
