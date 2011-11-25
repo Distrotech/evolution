@@ -41,6 +41,8 @@
 #include <libsoup/soup.h>
 #include <libsoup/soup-requester.h>
 
+#define d(x)
+
 #define E_MAIL_DISPLAY_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), E_TYPE_MAIL_DISPLAY, EMailDisplayPrivate))
@@ -626,8 +628,8 @@ mail_display_load_normal (EMailDisplay *display,
                         gboolean expandible = FALSE;
 
 			widget = puri->widget_func (emf, puri, NULL);
-                        fprintf (stderr, "%p: added %s for PURI %s\n", 
-                                   display, G_OBJECT_TYPE_NAME (widget), puri->uri);
+                        d(printf("%p: added %s for PURI %s\n", 
+                                   display, G_OBJECT_TYPE_NAME (widget), puri->uri));
 
 			if (!GTK_IS_WIDGET (widget)) {
 				g_message ("Part %s didn't provide a valid widget, skipping!", puri->uri);
@@ -699,8 +701,7 @@ mail_display_load_normal (EMailDisplay *display,
                                 attachment_button = NULL;
 			}
 
-                        fprintf (stderr, "%p: added EWebView for PURI %s\n", 
-                                   display, puri->uri);
+                        d(printf("%p: added EWebView for PURI %s\n", display, puri->uri));
 
 
 		}
