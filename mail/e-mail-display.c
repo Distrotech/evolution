@@ -555,16 +555,17 @@ mail_display_load_as_source (EMailDisplay *display,
 
 static void
 mail_display_load_normal (EMailDisplay *display,
-			  const gchar *msg_uid)
+			  const gchar *msg_uri)
 {
 	EWebView *web_view;
 	EMFormatPURI *puri;
 	EMFormat *emf = (EMFormat *) display->priv->formatter;
-	EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay *) emf;
 	EAttachmentView *attachment_view;
 	gchar *uri;
 	GList *iter;
 	GtkContainer *grid;
+        gchar *start_part_id;
+        GtkWidget *attachment_button;
 
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
@@ -577,16 +578,43 @@ mail_display_load_normal (EMailDisplay *display,
 
 	/* First remove all widgets left after previous message */
 	e_mail_display_clear (display);
-
+        attachment_view = NULL;
+        attachment_button = NULL;
 
 	grid = GTK_CONTAINER (display->priv->grid);
 	gtk_widget_show (display->priv->grid);
 
-	attachment_view = NULL;
-	for (iter = emf->mail_part_list; iter; iter = iter->next) {
+        /* If msg_uri contains part_id, then find it and start 'writing' from
+         * this part_id. When there's no part_id or it's invalid, start from first
+         * PURI in the list. */
+        if ((start_part_id = strstr (msg_uri, "part_id=")) != NULL) {
+                gchar *end_part_id;
+                start_part_id = start_part_id + strlen("part_id=");
+                end_part_id = strstr (start_part_id, "&");
+                if (!end_part_id)
+                        start_part_id = g_strdup (start_part_id);
+                else
+                        start_part_id = g_strndup (start_part_id, end_part_id - start_part_id);
+
+                iter = g_hash_table_lookup (emf->mail_part_table, start_part_id);
+                if (!iter)
+                        iter = emf->mail_part_list;
+                else
+                        iter = iter->next; /* Prevent endless recursion */
+        } else {
+                iter = emf->mail_part_list;
+        }
+
+        g_free (start_part_id);
+
+        for (iter = iter; iter; iter = iter->next) {
 		GtkWidget *widget = NULL;
 
 		puri = iter->data;
+
+                if (g_str_has_suffix (puri->uri, ".end"))
+                        break;
+
 		uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
 			"part_id", G_TYPE_STRING, puri->uri,
 			"mode", G_TYPE_INT, display->priv->mode,
@@ -595,18 +623,34 @@ mail_display_load_normal (EMailDisplay *display,
 			NULL);
 
 		if (puri->widget_func) {
+                        gboolean expandible = FALSE;
 
 			widget = puri->widget_func (emf, puri, NULL);
+                        fprintf (stderr, "%p: added %s for PURI %s\n", 
+                                   display, G_OBJECT_TYPE_NAME (widget), puri->uri);
+
 			if (!GTK_IS_WIDGET (widget)) {
 				g_message ("Part %s didn't provide a valid widget, skipping!", puri->uri);
+                                g_free (uri);
 				continue;
 			}
 
-			if (E_IS_ATTACHMENT_BUTTON (widget) && attachment_view)
+                        gtk_container_add (grid, widget);
+			
+			if (attachment_button) {
+                                g_object_bind_property (attachment_button, "expanded",
+                                        widget, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
+                                e_attachment_button_set_expandable (
+                                        E_ATTACHMENT_BUTTON (attachment_button), TRUE);
+                                attachment_button = NULL;
+                                expandible = TRUE;
+                        }
+
+			if (E_IS_ATTACHMENT_BUTTON (widget) && attachment_view) {
 				e_attachment_button_set_view (E_ATTACHMENT_BUTTON (widget),
 					attachment_view);
-
-			gtk_container_add (grid, widget);
+                                attachment_button = widget;
+                        }
 
 			if (E_IS_ATTACHMENT_VIEW (widget)) {
 				EAttachmentStore *store;
@@ -618,20 +662,46 @@ mail_display_load_normal (EMailDisplay *display,
 					gtk_widget_show (widget);
 				else
 					gtk_widget_hide (widget);
-			} else {
-				gtk_widget_show (widget);
-			}
+                                g_free (uri);
+                                continue;
+
+                        } else if (E_IS_MAIL_DISPLAY (widget)) {
+                                EMFormatPURI *iter_puri;
+
+                                if (!expandible)
+                                        gtk_widget_show (widget);
+
+                                /* Find the PURI with ".end" suffix and continue writing
+                                the message from following PURI */
+                                do {
+                                        iter = iter->next;
+                                        if (iter)
+                                                iter_puri = iter->data;
+                                } while (iter && (!g_str_has_suffix (iter_puri->uri, ".end")));
+
+                                g_free (uri);
+                                continue;
+
+                        } else {
+                                gtk_widget_show (widget);
+                        }
 		}
 
 		if ((!puri->is_attachment && puri->write_func) || (puri->is_attachment && puri->write_func && puri->widget_func)) {
+
 			web_view = mail_display_setup_webview (display);
 			mail_display_insert_web_view (display, web_view);
 			e_web_view_load_uri (web_view, uri);
 
-			if (widget) {
+			if (attachment_button) {
 				g_object_bind_property (widget, "expanded",
 					web_view, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
+                                attachment_button = NULL;
 			}
+
+                        fprintf (stderr, "%p: added EWebView for PURI %s\n", 
+                                   display, puri->uri);
+
 
 		}
 

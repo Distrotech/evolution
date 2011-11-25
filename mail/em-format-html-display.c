@@ -480,7 +480,7 @@ efhd_parse_attachment (EMFormat *emf,
 			emf, sizeof (EMFormatAttachmentPURI), part, part_id->str);
 	puri->puri.free = efhd_free_attach_puri_data;
 	puri->puri.widget_func = efhd_attachment_button;
-	puri->shown = em_format_is_inline (emf, part_id->str, part, handler);
+	puri->shown = (handler && em_format_is_inline (emf, part_id->str, part, handler));
 	puri->snoop_mime_type = em_format_snoop_type (part);
 	puri->attachment = e_attachment_new ();
 	puri->attachment_view_part_id = g_strdup (part_id->str);
@@ -491,8 +491,20 @@ efhd_parse_attachment (EMFormat *emf,
 	if (cid)
 		puri->puri.cid = g_strdup_printf ("cid:%s", cid);
 
-	if (handler)
-		puri->puri.write_func = handler->write_func;
+	if (handler) {
+                CamelContentType *ct;
+                puri->puri.write_func = handler->write_func;
+
+                /* This mime_type is important for WebKit to determine content type.
+                 * We have converted text/* to text/html, other (binary) formats remained
+                 * untouched. */
+                ct = camel_content_type_decode (handler->mime_type);
+                if (g_strcmp0 (ct->type, "text") == 0)
+                        puri->puri.mime_type = g_strdup ("text/html");
+                else
+                        puri->puri.mime_type = camel_content_type_simple (ct);
+                camel_content_type_unref (ct);
+        }
 
 	em_format_add_puri (emf, (EMFormatPURI *) puri);
 
