@@ -126,6 +126,7 @@ find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
 	EMFormatAttachmentBarPURI *abp;
 	EMFormatPURI *puri;
 	gchar *tmp, *pos;
+        GList *item;
 
 	tmp = g_strdup (part_id->str);
 
@@ -140,15 +141,15 @@ find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
 		tmp = g_strndup (part_id->str, pos - tmp);
 		id = g_strdup_printf ("%s.attachment-bar", tmp);
 
-		puri = g_hash_table_lookup (emf->mail_part_table, id);
+		item = g_hash_table_lookup (emf->mail_part_table, id);
 
 		g_free (id);
 
-	} while (pos && !puri);
+	} while (pos && !item);
 
 	g_free (tmp);
 
-	abp = (EMFormatAttachmentBarPURI *) puri;
+	abp = (EMFormatAttachmentBarPURI *) item->data;
 
         if (abp)
 	        return abp->store;

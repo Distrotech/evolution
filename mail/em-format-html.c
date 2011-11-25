@@ -65,6 +65,7 @@
 
 #include "em-format-html.h"
 #include "em-utils.h"
+#include "e-mail-display.h"
 #include <em-format/em-inline-filter.h>
 
 #define EM_FORMAT_HTML_GET_PRIVATE(obj) \
@@ -125,11 +126,34 @@ static void efh_write_text_enriched		(EMFormat *emf, EMFormatPURI *puri, CamelSt
 static void efh_write_text_plain		(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 static void efh_write_text_html			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 static void efh_write_source			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-static void efh_write_message_rfc822		(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 static void efh_write_headers			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+
+static GtkWidget* efh_widget_message_rfc822     (EMFormat *emf, EMFormatPURI *puri, GCancellable *cancellable);
 
 static void efh_format_full_headers 		(EMFormatHTML *efh, GString *buffer, CamelMedium *part, gboolean all_headers, gboolean visible, GCancellable *cancellable);
 static void efh_format_short_headers 		(EMFormatHTML *efh, GString *buffer, CamelMedium *part, gboolean visible, GCancellable *cancellable);
+
+/*****************************************************************************/
+static GtkWidget*
+efh_widget_message_rfc822 (EMFormat* emf,
+                           EMFormatPURI* puri,
+                           GCancellable* cancellable)
+{
+        EMailDisplay *display;
+        gchar *msg_uri;
+
+        msg_uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
+                "part_id", G_TYPE_STRING, puri->uri, NULL);
+
+        display = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
+        e_mail_display_set_formatter (display, EM_FORMAT_HTML (emf));
+        e_mail_display_load (display, msg_uri);
+
+        g_free (msg_uri);
+
+        return GTK_WIDGET (display);
+}
+
 
 /*****************************************************************************/
 static void
@@ -250,9 +274,10 @@ efh_parse_text_plain (EMFormat *emf,
 		CamelStream *null;
 		CamelContentType *ct;
 		gboolean charset_added = FALSE;
-		const gchar *snoop_type;
+		const gchar *snoop_type = NULL;
 
-		snoop_type = em_format_snoop_type (part);
+                if (!dw->mime_type)
+                        snoop_type = em_format_snoop_type (part);
 
 		/* if we had to snoop the part type to get here, then
 		 * use that as the base type, yuck */
@@ -333,7 +358,6 @@ efh_parse_text_html (EMFormat *emf,
 		     EMFormatParserInfo *info,
 		     GCancellable *cancellable)
 {
-	EMFormatHTML *efh = EM_FORMAT_HTML (emf);
 	EMFormatPURI *puri;
 	const gchar *location;
 	gchar *cid = NULL;
@@ -531,14 +555,20 @@ efh_parse_message_rfc822 (EMFormat *emf,
 	CamelMimePart *opart;
 	CamelStream *stream;
 	CamelMimeParser *parser;
-	CamelContentType *ct;
-	gchar *cts;
 	gint len;
 	EMFormatParserInfo oinfo = *info;
+        EMFormatPURI *puri;
 
 	len = part_id->len;
 	g_string_append (part_id, ".rfc822");
 
+        /* Create an empty PURI that will represent start of the RFC message */
+        puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
+        puri->widget_func = efh_widget_message_rfc822;
+        puri->write_func = em_format_empty_writer;
+        em_format_add_puri (emf, puri);
+
+        /* Now parse the message, creating multiple sub-PURIs */
 	stream = camel_stream_mem_new ();
 	dw = camel_medium_get_content ((CamelMedium *) part);
 	camel_data_wrapper_write_to_stream_sync (dw, stream, cancellable, NULL);
@@ -552,6 +582,15 @@ efh_parse_message_rfc822 (EMFormat *emf,
 
 	em_format_parse_part_as (emf, opart, part_id, &oinfo,
 		"x-evolution/message", cancellable);
+
+        /* Add another generic PURI that represents end of the RFC message.
+         * This is required for every PURI that has EMailDisplay widget_func.
+         * The parent EMailDisplay then skips all PURIs between the ".rfc822" PURI
+         * ".rfc822.end" PURI (they were displayed by the child EMailDisplay called
+         * from ".rfc822"'s widget_func) and continues with the following PURI. */
+        g_string_append (part_id, ".end");
+        puri = em_format_puri_new (emf, sizeof (EMFormatPURI), NULL, part_id->str);
+        em_format_add_puri (emf, puri);
 
 	g_string_truncate (part_id, len);
 
@@ -1181,7 +1220,6 @@ static void
 efh_finalize (GObject *object)
 {
 	EMFormatHTML *efh = EM_FORMAT_HTML (object);
-	EMFormatHTMLPrivate *priv = efh->priv;
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -1195,7 +1233,6 @@ efh_format_error (EMFormat *emf,
 	CamelMimePart *part;
 	GString *buffer;
 	gchar *html;
-	gchar *part_id;
 
 	buffer = g_string_new ("<em><font color=\"red\">");
 

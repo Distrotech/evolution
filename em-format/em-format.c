@@ -320,8 +320,8 @@ emf_parse_application_mbox (EMFormat *emf,
 		}
 
 		g_string_append_printf (part_id, ".mbox.%d", messages);
-		em_format_parse_part (emf, CAMEL_MIME_PART (message),
-				part_id, info, cancellable);
+		em_format_parse_part_as (emf, CAMEL_MIME_PART (message),
+				part_id, info, "message/rfc822", cancellable);
 		g_string_truncate (part_id, old_len);
 
 		g_object_unref (message);
@@ -1191,11 +1191,11 @@ emf_parse (EMFormat *emf,
 	g_return_if_fail (emf->message);
 	g_return_if_fail (emf->folder);
 
-	part_id = g_string_new ("");
+	part_id = g_string_new (".message");
 
 	/* Create a special PURI with entire message */
 	puri = em_format_puri_new (emf, sizeof (EMFormatPURI),
-		(CamelMimePart *) message, ".message");
+		(CamelMimePart *) message, part_id->str);
 	puri->mime_type = g_strdup ("text/html");
 	em_format_add_puri (emf, puri);
 
@@ -1465,6 +1465,15 @@ em_format_class_init (EMFormatClass *class)
 }
 
 static void
+mail_part_table_item_free (gpointer data)
+{
+	GList *iter = data;
+	EMFormatPURI *puri = iter->data;
+
+	em_format_puri_free (puri);
+}
+
+static void
 em_format_init (EMFormat *emf)
 {
 	EShell *shell;
@@ -1478,7 +1487,7 @@ em_format_init (EMFormat *emf)
 	emf->folder = NULL;
 	emf->mail_part_list = NULL;
 	emf->mail_part_table = g_hash_table_new_full (g_str_hash, g_str_equal,
-			NULL, (GDestroyNotify) em_format_puri_free);
+			NULL, (GDestroyNotify) mail_part_table_item_free);
 	/* No need to free the key, because it's owned and free'd by the PURI */
 	
 	shell = e_shell_get_default ();
@@ -1749,13 +1758,16 @@ void
 em_format_add_puri (EMFormat *emf,
                     EMFormatPURI *puri)
 {
+        GList *item;
+
         g_return_if_fail (EM_IS_FORMAT (emf));
         g_return_if_fail (puri != NULL);
 
         emf->mail_part_list = g_list_append (emf->mail_part_list, puri);
+        item = g_list_last (emf->mail_part_list);
 
         g_hash_table_insert (emf->mail_part_table,
-                        puri->uri, puri);
+                        puri->uri, item);
 
         d(printf("Added PURI %s\n", puri->uri));
 }
@@ -1764,6 +1776,8 @@ EMFormatPURI*
 em_format_find_puri (EMFormat *emf,
 		     const gchar *id)
 {
+	GList *list_iter;
+
 	/* First handle CIDs... */
 	if (g_str_has_prefix (id, "CID:") || g_str_has_prefix (id, "cid:")) {
 		GHashTableIter iter;
@@ -1771,7 +1785,7 @@ em_format_find_puri (EMFormat *emf,
 
 		g_hash_table_iter_init (&iter, emf->mail_part_table);
 		while (g_hash_table_iter_next (&iter, &key, &value)) {
-			EMFormatPURI *puri = value;
+			EMFormatPURI *puri = ((GList *) value)->data;
 			if (g_strcmp0 (puri->cid, id) == 0)
 				return puri;
 		}
@@ -1779,8 +1793,11 @@ em_format_find_puri (EMFormat *emf,
 		return NULL;
 	}
 
+	list_iter = g_hash_table_lookup (emf->mail_part_table, id);
+	if (list_iter)
+		return list_iter->data;
 
-	return g_hash_table_lookup (emf->mail_part_table, id);
+	return NULL;
 }
 
 void
