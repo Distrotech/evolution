@@ -55,7 +55,7 @@ struct _EMailBrowserPrivate {
 	EMailBackend *backend;
 	GtkUIManager *ui_manager;
 	EFocusTracker *focus_tracker;
-	EMailDisplay *display;
+        EMailDisplay *display;
 
 	EMFormatWriteMode mode;
 
@@ -64,6 +64,7 @@ struct _EMailBrowserPrivate {
 	GtkWidget *message_list;
 	GtkWidget *preview_pane;
 	GtkWidget *statusbar;
+        GtkWidget *scrolled_window;        
 
 	guint show_deleted : 1;
 };
@@ -679,8 +680,12 @@ mail_browser_constructed (GObject *object)
 		gtk_widget_get_style_context (widget),
 		GTK_STYLE_CLASS_PRIMARY_TOOLBAR);
 
+        priv->scrolled_window = gtk_scrolled_window_new (NULL, NULL);
+        gtk_box_pack_start (GTK_BOX (container), priv->scrolled_window, TRUE, TRUE, 0);
+        gtk_widget_show (priv->scrolled_window);
+
 	widget = GTK_WIDGET (priv->display);
-	gtk_box_pack_start (GTK_BOX (container), widget, TRUE, TRUE, 0);
+	gtk_container_add (GTK_CONTAINER (priv->scrolled_window), widget);
 	browser->priv->preview_pane = g_object_ref (widget);
 	gtk_widget_show (widget);
 
