@@ -93,7 +93,8 @@ efhp_write_attachments_list (EMFormatHTMLPrint *efhp,
                 if (!fi)
                         continue;
 
-                if (e_attachment_get_description (attachment)) {
+                if (e_attachment_get_description (attachment) &&
+                    *e_attachment_get_description (attachment)) {
                         name = g_strdup_printf ("%s (%s)",
                                 e_attachment_get_description (attachment),
                                 g_file_info_get_display_name (fi));
@@ -256,13 +257,28 @@ efhp_write_inline_attachment (EMFormat *emf,
                               EMFormatWriterInfo *info,
                               GCancellable *cancellable)
 {
-        GString *str;
+        gchar *name;
+        EMFormatAttachmentPURI *att_puri = (EMFormatAttachmentPURI *) puri;
+        EAttachment *attachment;
+        GFileInfo *fi;
 
-        str = g_string_new ("<div style=\"border: 1px solid #000; width: 100%\">");
-        g_string_append_printf (str, "<p>Inlining PURI <code>%s</code></p></div>", puri->uri);
+        attachment = att_puri->attachment;
+        fi = e_attachment_get_file_info (attachment);
 
-        camel_stream_write_string (stream, str->str, cancellable, NULL);
-        g_string_free (str, TRUE);
+        if (e_attachment_get_description (attachment) &&
+            *e_attachment_get_description (attachment)) {
+                name = g_strdup_printf ("<h2>Attachment: %s (%s)</h2>\n",
+                        e_attachment_get_description (attachment),
+                        g_file_info_get_display_name (fi));
+        } else {
+                name = g_strdup_printf ("<h2>Attachment: %s</h2>\n",
+                        g_file_info_get_display_name (fi));
+        }
+
+        camel_stream_write_string (stream, name, cancellable, NULL);
+        g_free (name);
+
+        puri->write_func (emf, puri, stream, info, cancellable);
 }
 
 static void
@@ -316,7 +332,7 @@ efhp_write_print_layout (EMFormat *emf,
                                 g_list_append (efhp->priv->attachments, puri);
 
 			/* If we can't inline this attachment, skip it */
-			if (handler && em_format_is_inline (puri->emf,  puri->uri, puri->part, handler)) {
+			if (handler && puri->write_func) {
                                 efhp_write_inline_attachment (puri->emf, puri, 
                                         stream, &print_info, cancellable);
                         }
