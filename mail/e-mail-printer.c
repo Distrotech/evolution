@@ -531,6 +531,9 @@ emp_set_formatter (EMailPrinter *emp,
 		G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_POINTER, G_TYPE_INT);
 
 	headers = camel_medium_get_headers (CAMEL_MEDIUM (emf->message));
+        if (!headers)
+                return;
+
 	for (i = 0; i < headers->len; i++) {
 		GtkTreeIter iter;
 		GList *found_header;

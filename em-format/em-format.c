@@ -2348,15 +2348,20 @@ em_format_build_mail_uri (CamelFolder *folder,
 	gchar *uri, *tmp;
 	va_list ap;
 	const gchar *name;
+        const gchar *service_uid;
 	char separator;
 
 	g_return_val_if_fail (CAMEL_IS_FOLDER (folder), NULL);
 	g_return_val_if_fail (message_uid && *message_uid, NULL);
 
 	store = camel_folder_get_parent_store (folder);
+        if (store)
+                service_uid = camel_service_get_uid (CAMEL_SERVICE (store));
+        else
+                service_uid = "generic";
 
 	tmp = g_strdup_printf ("mail://%s/%s/%s",
-			camel_service_get_uid (CAMEL_SERVICE (store)),
+			service_uid,
 			camel_folder_get_full_name (folder),
 			message_uid);
 
