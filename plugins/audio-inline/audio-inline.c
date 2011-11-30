@@ -318,8 +318,8 @@ org_gnome_audio_inline_format (gpointer ep,
 
 	d(printf ("audio inline formatter: format classid %s\n", classid));
 
-	pobj = (EMFormatInlineAudioPURI *)	em_format_puri_new (
-			t->format, sizeof (EMFormatInlineAudioPURI), t->part, classid);
+	pobj = (EMFormatInlineAudioPURI *) em_format_puri_new (
+                        t->format, sizeof (EMFormatInlineAudioPURI), t->part, classid);
 	pobj->puri.widget_func = org_gnome_audio_inline_button_panel;
 	pobj->puri.part = g_object_ref (t->part);
 	pobj->filename = NULL;
@@ -330,4 +330,6 @@ org_gnome_audio_inline_format (gpointer ep,
 	pobj->bus_id = 0;
 	pobj->puri.free = org_gnome_audio_inline_pobject_free;
 	pobj->target_state = GST_STATE_NULL;
+
+        em_format_add_puri (t->format, (EMFormatPURI *) pobj);
 }
