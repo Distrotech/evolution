@@ -408,7 +408,8 @@ efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
 	while (g_hash_table_iter_next (&iter, &key, &value))
 		g_hash_table_insert (emfp->mail_part_table, key, value);
 
-	emfp->folder = g_object_ref (emfs->folder);
+        if (emfs->folder)
+	        emfp->folder = g_object_ref (emfs->folder);
 	emfp->message_uid = g_strdup (emfs->message_uid);
 	emfp->message = g_object_ref (emfs->message);
 

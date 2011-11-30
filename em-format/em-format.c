@@ -1188,9 +1188,6 @@ emf_parse (EMFormat *emf,
 		emf->folder = g_object_ref (folder);
 	}
 
-	g_return_if_fail (emf->message);
-	g_return_if_fail (emf->folder);
-
 	part_id = g_string_new (".message");
 
 	/* Create a special PURI with entire message */
@@ -1250,7 +1247,7 @@ static EMFormatHandler type_handlers[] = {
 		{ (gchar *) "multipart/mixed", emf_parse_multipart_mixed, },
 		{ (gchar *) "multipart/signed", emf_parse_multipart_signed, },
 		{ (gchar *) "multipart/related", emf_parse_multipart_related, },
-		{ (gchar *) "multipart/digest", emf_parse_multipart_digest, EM_FORMAT_HANDLER_COMPOUND_TYPE },
+		{ (gchar *) "multipart/digest", emf_parse_multipart_digest, 0, EM_FORMAT_HANDLER_COMPOUND_TYPE },
 		{ (gchar *) "multipart/*", emf_parse_multipart_mixed, 0, EM_FORMAT_HANDLER_COMPOUND_TYPE },
 
 		/* Ignore PGP signature part */
@@ -1896,7 +1893,6 @@ em_format_parse (EMFormat *emf,
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
-	g_return_if_fail (CAMEL_IS_FOLDER (folder));
 
 	class = EM_FORMAT_GET_CLASS (emf);
 	g_return_if_fail (class->parse != NULL);
@@ -2348,21 +2344,26 @@ em_format_build_mail_uri (CamelFolder *folder,
 	gchar *uri, *tmp;
 	va_list ap;
 	const gchar *name;
-        const gchar *service_uid;
+        const gchar *service_uid, *folder_name;
 	char separator;
 
-	g_return_val_if_fail (CAMEL_IS_FOLDER (folder), NULL);
 	g_return_val_if_fail (message_uid && *message_uid, NULL);
 
-	store = camel_folder_get_parent_store (folder);
-        if (store)
-                service_uid = camel_service_get_uid (CAMEL_SERVICE (store));
-        else
+        if (!folder) {
+                folder_name = "generic";
                 service_uid = "generic";
+        } else {
+                folder_name = camel_folder_get_full_name (folder);
+	        store = camel_folder_get_parent_store (folder);
+                if (store)
+                        service_uid = camel_service_get_uid (CAMEL_SERVICE (store));
+                else
+                        service_uid = "generic";
+        }
 
 	tmp = g_strdup_printf ("mail://%s/%s/%s",
 			service_uid,
-			camel_folder_get_full_name (folder),
+			folder_name,
 			message_uid);
 
 	va_start (ap, first_param_name);

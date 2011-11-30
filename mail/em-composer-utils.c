@@ -937,12 +937,8 @@ composer_print_done_cb (EMailPrinter *emp,
                         gpointer user_data)
 {
         EMFormat *emf = user_data;
-
-        g_object_unref (emf->folder);
         g_object_unref (emf);
-
         g_object_unref (emp);
-       
 }
 
 static void
@@ -954,20 +950,12 @@ em_utils_composer_print_cb (EMsgComposer *composer,
 {
         EMailPrinter *emp;
         EMFormatHTMLDisplay *efhd;
-        CamelFolder *folder;
-
-        /* Create a virtual temporary camel folder */
-        /* FIXME WEBKIT This throws a warning about null parent-store. 
-         * Find a better way. */
-        folder = g_object_new (CAMEL_TYPE_OFFLINE_FOLDER, 
-                        "full-name", "composer",
-                        "parent-store", NULL, NULL);
 
         efhd = g_object_new (EM_TYPE_FORMAT_HTML_DISPLAY, NULL);
         ((EMFormat *) efhd)->message_uid = g_strdup (camel_mime_message_get_message_id (message));
 
         /* Parse the message */
-        em_format_parse ((EMFormat *) efhd, message, folder, NULL);
+        em_format_parse ((EMFormat *) efhd, message, NULL, NULL);
 
         /* Use EMailPrinter and WebKit to print the message */
         emp = e_mail_printer_new ((EMFormatHTML *) efhd, action);

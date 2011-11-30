@@ -723,10 +723,12 @@ e_mail_printer_print (EMailPrinter *emp,
                 G_CALLBACK (emp_headers_tab_apply), emp);
 	g_signal_connect (emp->priv->operation, "done",
 		G_CALLBACK (emp_printing_done), emp);
-	g_signal_connect_swapped (cancellable, "cancelled",
-		G_CALLBACK (gtk_print_operation_cancel), emp->priv->operation);
-	g_signal_connect (emp->priv->operation, "draw-page",
-		G_CALLBACK (emp_draw_footer), NULL);
+        g_signal_connect (emp->priv->operation, "draw-page",
+                G_CALLBACK (emp_draw_footer), NULL);
+
+        if (cancellable)
+                g_signal_connect_swapped (cancellable, "cancelled",
+		        G_CALLBACK (gtk_print_operation_cancel), emp->priv->operation);
 
 	emp_run_print_operation (emp);
 }
