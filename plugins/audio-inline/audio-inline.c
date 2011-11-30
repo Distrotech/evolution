@@ -52,7 +52,6 @@ typedef struct _EMFormatInlineAudioPURI EMFormatInlineAudioPURI;
 struct _EMFormatInlineAudioPURI {
 	EMFormatPURI puri;
 
-	CamelMimePart *part;
 	gchar *filename;
 	GstElement *playbin;
 	gulong      bus_id;
@@ -84,10 +83,6 @@ org_gnome_audio_inline_pobject_free (EMFormatPURI *o)
 		po->stop_button = NULL;
 	}
 
-	if (po->part) {
-		g_object_unref (po->part);
-		po->part = NULL;
-	}
 	if (po->filename) {
 		g_unlink (po->filename);
 		g_free (po->filename);
@@ -217,7 +212,7 @@ org_gnome_audio_inline_play_clicked (GtkWidget *button,
 		d(printf ("audio inline formatter: write to temp file %s\n", po->filename));
 
 		stream = camel_stream_fs_new_with_name (po->filename, O_RDWR | O_CREAT | O_TRUNC, 0600, NULL);
-		data = camel_medium_get_content (CAMEL_MEDIUM (po->part));
+		data = camel_medium_get_content (CAMEL_MEDIUM (po->puri.part));
 		camel_data_wrapper_decode_to_stream_sync (
 			data, stream, NULL, NULL);
 		camel_stream_flush (stream, NULL, NULL);
