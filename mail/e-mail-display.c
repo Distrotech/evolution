@@ -520,7 +520,7 @@ mail_display_insert_web_view (EMailDisplay *display,
 			  G_CALLBACK (mail_display_on_web_view_vadjustment_changed), scrolled_window);
 	gtk_container_add (GTK_CONTAINER (scrolled_window), GTK_WIDGET (web_view));
 
-        gtk_box_pack_start (GTK_BOX (display->priv->box), scrolled_window, TRUE, TRUE, 0);
+        gtk_box_pack_start (GTK_BOX (display->priv->box), scrolled_window, FALSE, TRUE, 0);
 	gtk_widget_show_all (scrolled_window);
 
         return scrolled_window;
@@ -632,15 +632,24 @@ mail_display_load_normal (EMailDisplay *display,
 				continue;
 			}
 
-                        gtk_box_pack_start (box, widget, TRUE, TRUE, 0);
-			
+                        gtk_box_pack_start (box, widget, FALSE, TRUE, 0);
 			if (attachment_button) {
-                                g_object_bind_property (attachment_button, "expanded",
-                                        widget, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
-                                e_attachment_button_set_expandable (
-                                        E_ATTACHMENT_BUTTON (attachment_button), TRUE);
-                                attachment_button = NULL;
-                                expandible = TRUE;
+
+                                /* If attachment_button is set and it was followed by
+                                 * another attachment button, then something is wrong.
+                                 * Make the previous button unexpandable and continue */
+                                if (E_IS_ATTACHMENT_BUTTON (widget)) {
+                                        e_attachment_button_set_expandable (
+                                                E_ATTACHMENT_BUTTON (attachment_button), FALSE);
+
+                                } else {
+                                        g_object_bind_property (attachment_button, "expanded",
+                                                widget, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
+                                        e_attachment_button_set_expandable (
+                                                E_ATTACHMENT_BUTTON (attachment_button), TRUE);
+                                        attachment_button = NULL;
+                                        expandible = TRUE;
+                                }
                         }
 
 			if (E_IS_ATTACHMENT_BUTTON (widget) && attachment_view) {
@@ -685,25 +694,30 @@ mail_display_load_normal (EMailDisplay *display,
 		}
 
 		if ((!puri->is_attachment && puri->write_func) || (puri->is_attachment && puri->write_func && puri->widget_func)) {
-
                         GtkWidget *container;
 			web_view = mail_display_setup_webview (display);
 			container = mail_display_insert_web_view (display, web_view);
-			e_web_view_load_uri (web_view, uri);
 
-			if (attachment_button) {
+                        e_web_view_load_uri (web_view, uri);
+
+                        if (attachment_button) {
 				g_object_bind_property (widget, "expanded",
 					container, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
                                 attachment_button = NULL;
 			}
 
                         d(printf("%p: added EWebView for PURI %s\n", display, puri->uri));
-
-
 		}
 
 		g_free (uri);
 	}
+
+	/* If we created an attachment_button but didn't attach any widget to it,
+         * then make sure it's not expandable. */
+	if (attachment_button) {
+                e_attachment_button_set_expandable (
+                        E_ATTACHMENT_BUTTON (attachment_button), FALSE);
+        }
 }
 
 static void
