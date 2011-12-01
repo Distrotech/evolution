@@ -72,9 +72,9 @@
 
 #include "e-mail-tag-editor.h"
 #include "em-composer-utils.h"
-#include "em-format-quote.h"
 #include "em-format-html-print.h"
 #include "em-utils.h"
+#include "em-format/em-format-quote.h"
 
 /* XXX This is a dirty hack on a dirty hack.  We really need
  *     to rework or get rid of the functions that use this. */
@@ -1193,8 +1193,11 @@ em_utils_message_to_html (CamelMimeMessage *message,
 	/* FIXME WEBKIT The validity is now per-part, not global :(
 	if (validity_found)
 		*validity_found = ((EMFormat *)emfq)->validity_type;
+        */
+
+        em_format_quote_write (emfq, mem, NULL);
+
 	g_object_unref (emfq);
-	*/
 
 	if (append && *append)
 		camel_stream_write_string (mem, append, NULL, NULL);

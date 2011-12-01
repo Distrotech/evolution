@@ -558,6 +558,7 @@ efh_parse_message_rfc822 (EMFormat *emf,
 	gint len;
 	EMFormatParserInfo oinfo = *info;
         EMFormatPURI *puri;
+        EMFormatWriteFunc write_func;
 
 	len = part_id->len;
 	g_string_append (part_id, ".rfc822");
@@ -565,7 +566,7 @@ efh_parse_message_rfc822 (EMFormat *emf,
         /* Create an empty PURI that will represent start of the RFC message */
         puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
         puri->widget_func = efh_widget_message_rfc822;
-        puri->write_func = em_format_empty_writer;
+        puri->write_func = info->handler->write_func ? info->handler->write_func : em_format_empty_writer;
         em_format_add_puri (emf, puri);
 
         /* Now parse the message, creating multiple sub-PURIs */
