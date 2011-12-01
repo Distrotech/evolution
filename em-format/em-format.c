@@ -34,11 +34,12 @@
 #include "shell/e-shell.h"
 #include "shell/e-shell-settings.h"
 
+#define d(x) x
+
 #define EM_FORMAT_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), EM_TYPE_FORMAT, EMFormatPrivate))
 
-#define d(x)
 
 struct _EMFormatPrivate {
 	GNode *current_node;
@@ -1392,6 +1393,8 @@ em_format_finalize (GObject *object)
 		emf->priv->charset = NULL;
 	}
 
+        em_format_clear_headers (emf);
+
 	/* Chain up to parent's finalize() method */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -1926,18 +1929,24 @@ em_format_parse_part_as (EMFormat *emf,
                 ninfo.is_attachment = TRUE;
                 handler = em_format_find_handler (emf, "x-evolution/message/attachment");
                 ninfo.handler = handler;
-                handler->parse_func (emf, part, part_id, &ninfo, cancellable);
+
+                if (handler && handler->parse_func)
+                        handler->parse_func (emf, part, part_id, &ninfo, cancellable);
+
                 return;
         }
 
 	handler = em_format_find_handler (emf, mime_type);
-	if (handler) {
+	if (handler && handler->parse_func) {
 		ninfo.handler = handler;
 		handler->parse_func (emf, part, part_id, &ninfo, cancellable);
 	} else {
 		handler = em_format_find_handler (emf, "x-evolution/message/attachment");
 		ninfo.handler = handler;
-		handler->parse_func (emf, part, part_id, &ninfo, cancellable);
+
+                /* When this fails, something is probably very wrong...*/
+                if (handler && handler->parse_func)
+		        handler->parse_func (emf, part, part_id, &ninfo, cancellable);
 	}
 }
 
