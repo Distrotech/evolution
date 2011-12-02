@@ -637,7 +637,7 @@ efh_write_image (EMFormat *emf,
 		
 		/* The image is already base64-encrypted so we can directly 
 		   paste it to the output */
-		buffer = g_strdup_printf ("<img src=\"data:%s;base64,%s\" />",
+		buffer = g_strdup_printf ("<img src=\"data:%s;base64,%s\" style=\"max-width: 100%%;\" />",
 			puri->mime_type, content);
 		
 		camel_stream_write_string (stream, buffer, cancellable, NULL);
