@@ -1190,12 +1190,28 @@ em_utils_message_to_html (CamelMimeMessage *message,
 
 	/* FIXME Not passing a GCancellable here. */
 	em_format_parse (EM_FORMAT (emfq), message, NULL, NULL);
-	/* FIXME WEBKIT The validity is now per-part, not global :(
-	if (validity_found)
-		*validity_found = ((EMFormat *)emfq)->validity_type;
-        */
 
-        em_format_quote_write (emfq, mem, NULL);
+	if (validity_found) {
+		GList *iter;
+		EMFormat *emf = (EMFormat *) emfq;
+
+		if (validity_found)
+			*validity_found = 0;
+
+		/* Return all found validities */
+		for (iter = emf->mail_part_list; iter; iter = iter->next) {
+			
+			EMFormatPURI *puri = iter->data;
+			if (!puri)
+				continue;
+
+			if (*validity_found && puri->validity_type)
+				*validity_found |= puri->validity_type;
+		}
+
+	}
+
+	em_format_quote_write (emfq, mem, NULL);
 
 	g_object_unref (emfq);
 
