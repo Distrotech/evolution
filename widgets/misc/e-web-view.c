@@ -2038,6 +2038,40 @@ e_web_view_set_disable_save_to_disk (EWebView *web_view,
 }
 
 gboolean
+e_web_view_get_enable_frame_flattening (EWebView* web_view)
+{
+        WebKitWebSettings *settings;
+        gboolean flattening;
+
+        /* Return TRUE with fail since it's default value we set in _init(). */
+        g_return_val_if_fail (E_IS_WEB_VIEW (web_view), TRUE);
+
+        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+        g_return_val_if_fail (settings != NULL, TRUE);
+
+        g_object_get (G_OBJECT (settings), "enable-frame-flattening", &flattening, NULL);
+
+        return flattening;
+}
+
+void
+e_web_view_set_enable_frame_flattening (EWebView* web_view,
+                                        gboolean enable_frame_flattening)
+{
+        WebKitWebSettings *settings;
+
+        g_return_if_fail (E_IS_WEB_VIEW (web_view));
+
+        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+        g_return_if_fail (settings != NULL);
+
+        g_object_set (G_OBJECT (settings), "enable-frame-flattening",
+                &enable_frame_flattening, NULL);
+}
+
+
+
+gboolean
 e_web_view_get_editable (EWebView *web_view)
 {
 	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), FALSE);

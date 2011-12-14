@@ -148,6 +148,11 @@ gboolean	e_web_view_get_disable_save_to_disk
 void		e_web_view_set_disable_save_to_disk
 						(EWebView *web_view,
 						 gboolean disable_save_to_disk);
+gboolean        e_web_view_get_enable_frame_flattening
+                                                (EWebView *web_view);
+void            e_web_view_set_enable_frame_flattening
+                                                (EWebView *web_view,
+                                                 gboolean enable_frame_flattening);
 gboolean	e_web_view_get_editable		(EWebView *web_view);
 void		e_web_view_set_editable		(EWebView *web_view,
 						 gboolean editable);
