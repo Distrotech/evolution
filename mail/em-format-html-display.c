@@ -466,6 +466,8 @@ efhd_parse_attachment (EMFormat *emf,
 	puri->attachment_view_part_id = g_strdup (part_id->str);
 	puri->description = html;
 	puri->handle = handler;
+        if (info->validity)
+                puri->puri.validity = camel_cipher_validity_clone (info->validity);
 
 	cid = camel_mime_part_get_content_id (part);
 	if (cid)
@@ -500,8 +502,10 @@ efhd_parse_attachment (EMFormat *emf,
 
 	e_attachment_set_mime_part (puri->attachment, part);
 	e_attachment_set_shown (puri->attachment, puri->shown);
-	e_attachment_set_signed (puri->attachment, puri->sign);
-	e_attachment_set_encrypted (puri->attachment, puri->encrypt);
+        if (puri->puri.validity) {
+	        e_attachment_set_signed (puri->attachment, puri->puri.validity->sign.status);
+	        e_attachment_set_encrypted (puri->attachment, puri->puri.validity->encrypt.status);
+        }
 	e_attachment_set_can_show (puri->attachment, puri->handle != NULL && puri->handle->write_func);
 
 	/* FIXME: Try to find a better way? */

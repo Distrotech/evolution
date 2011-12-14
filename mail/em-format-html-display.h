@@ -86,10 +86,6 @@ struct _EMFormatAttachmentPURI {
 
 	/* Optional Text Mem Stream */
 	CamelStreamMem *mstream;
-
-	/* Signed / Encrypted */
-	camel_cipher_validity_sign_t sign;
-	camel_cipher_validity_encrypt_t encrypt;
 };
 
 struct _EMFormatSMIMEPURI {
