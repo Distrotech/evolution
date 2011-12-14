@@ -378,60 +378,6 @@ emfq_finalize (GObject *object)
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
-static void
-emfq_parse (EMFormat *emf,
-	    CamelMimeMessage *msg,
-	    CamelFolder *folder,
-	    GCancellable *cancellable)
-{
-        EM_FORMAT_CLASS (parent_class)->parse (emf, msg, folder, cancellable);
-
-        /* emfq_parse parses only body part, not the whole message. */
-        /*
-        CamelMimePart *part;
-        const EMFormatHandler *handler;
-        CamelContentType *ct;
-        gchar *mime_type;
-        EMFormatParserInfo info = { 0 };
-        GString *part_id;
-
-        part = CAMEL_MIME_PART (msg);
-
-        ct = camel_mime_part_get_content_type (part);
-        if (!ct) {
-                mime_type = g_strdup (em_format_snoop_type (part));
-                if (!mime_type)
-                        return;
-        } else {
-                mime_type = camel_content_type_simple (ct);
-        }
-
-        part_id = g_string_new (".part");
-        handler = em_format_find_handler (emf, mime_type);
-        if (handler && handler->parse_func) {
-                info.handler = handler;
-                handler->parse_func (emf, part, part_id, &info, cancellable);
-
-        } else {
-                handler = em_format_find_handler (emf, "x-evolution/message/attachment");
-                info.handler = handler;
-
-                if (handler && handler->parse_func)
-                        handler->parse_func (emf, part, part_id, &info, cancellable);
-        }
-
-        g_string_free (part_id, TRUE);
-        g_free (mime_type);
-        */
-}
-
-static void
-emfq_format_error (EMFormat *emf,
-                   const gchar *errmsg)
-{
-	/* Nothing to do. */
-}
-
 /******************************************************************************/
 static void
 emfq_parse_text_plain (EMFormat* emf,
@@ -441,10 +387,21 @@ emfq_parse_text_plain (EMFormat* emf,
                        GCancellable* cancellable)
 {
         EMFormatPURI *puri;
+		CamelMimePart *mp;
         gint len;
 
         len = part_id->len;
         g_string_append (part_id, ".text_plain");
+
+		mp = decode_inline_parts (part, cancellable);
+		if (mp) {
+
+			if (CAMEL_IS_MULTIPART (camel_medium_get_content (CAMEL_MEDIUM (mp)))) {
+				em_format_parse_part (emf, mp, part_id, info, cancellable);
+			}
+
+			g_object_unref (mp);
+		}
 
         puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
         puri->write_func = emfq_write_text_plain;
@@ -580,7 +537,6 @@ static void
 emfq_class_init (EMFormatQuoteClass *klass)
 {
 	GObjectClass *object_class;
-	EMFormatClass *format_class;
 
 	parent_class = g_type_class_peek_parent (klass);
 	g_type_class_add_private (klass, sizeof (EMFormatQuotePrivate));
@@ -588,11 +544,6 @@ emfq_class_init (EMFormatQuoteClass *klass)
 	object_class = G_OBJECT_CLASS (klass);
 	object_class->dispose = emfq_dispose;
 	object_class->finalize = emfq_finalize;
-
-	format_class = EM_FORMAT_CLASS (klass);
-	format_class->parse = emfq_parse;
-
-        format_class->format_error = emfq_format_error;
 }
 
 static void

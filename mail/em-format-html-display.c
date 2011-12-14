@@ -109,6 +109,7 @@ static void efhd_message_prefix 	(EMFormat *emf, CamelMimePart *part, GString *p
 static void efhd_message_add_bar	(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 static void efhd_parse_attachment	(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 static void efhd_parse_secure		(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
+static void efhd_parse_optional		(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 
 static GtkWidget* efhd_attachment_bar		(EMFormat *emf, EMFormatPURI *puri, GCancellable *cancellable);
 static GtkWidget* efhd_attachment_button	(EMFormat *emf, EMFormatPURI *puri, GCancellable *cancellable);
@@ -124,7 +125,6 @@ find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
 {
 	EMFormat *emf = (EMFormat *) efhd;
 	EMFormatAttachmentBarPURI *abp;
-	EMFormatPURI *puri;
 	gchar *tmp, *pos;
         GList *item;
 
@@ -415,26 +415,6 @@ efhd_xpkcs7mime_button (EMFormat *emf,
 }
 
 static void
-efhd_parse (EMFormat *emf,
-	    CamelMimeMessage *msg,
-	    CamelFolder *folder,
-	    GCancellable *cancellable)
-{
-	EMFormatHTMLDisplay *efhd;
-
-	efhd = EM_FORMAT_HTML_DISPLAY (emf);
-	g_return_if_fail (efhd != NULL);
-
-	/* FIXME WEBKIT Duh?
-	if (emf != src)
-		EM_FORMAT_HTML (emf)->header_wrap_flags = 0;
-	 */
-
-	/* Chain up to parent's format_clone() method. */
-	EM_FORMAT_CLASS (parent_class)->parse (emf, msg, folder, cancellable);
-}
-
-static void
 efhd_parse_attachment (EMFormat *emf,
                        CamelMimePart *part,
                        GString *part_id,
@@ -496,7 +476,7 @@ efhd_parse_attachment (EMFormat *emf,
                 puri->puri.write_func = handler->write_func;
 
                 /* This mime_type is important for WebKit to determine content type.
-                 * We have converted text/* to text/html, other (binary) formats remained
+                 * We have converted text/ * to text/html, other (binary) formats remained
                  * untouched. */
                 ct = camel_content_type_decode (handler->mime_type);
                 if (g_strcmp0 (ct->type, "text") == 0)
@@ -565,49 +545,46 @@ efhd_parse_attachment (EMFormat *emf,
 		e_attachment_set_file_info (puri->attachment, fileinfo);
 	}
 
-	if (info->validity) {
-		puri->sign = info->validity->sign.status;
-		puri->encrypt = info->validity->encrypt.status;
-	}
-
 	g_string_truncate (part_id, len);
 }
 
 static void
-efhd_format_optional (EMFormat *emf,
-                      EMFormatPURI *puri,
-                      CamelStream *mstream,
-                      GCancellable *cancellable)
+efhd_parse_optional (EMFormat *emf,
+                     CamelMimePart *part,
+                     GString *part_id,
+                     EMFormatParserInfo *info,
+                     GCancellable *cancellable)
 {
-	gchar *classid;
-	EMFormatAttachmentPURI *info;
+	EMFormatAttachmentPURI *puri;
+        gint len;
 
-	classid = g_strdup_printf ("optional%s", puri->uri);
+        len = part_id->len;
+        g_string_append (part_id, ".optional");
 
-	info = (EMFormatAttachmentPURI *) em_format_puri_new (
-			emf, sizeof (EMFormatAttachmentPURI), puri->part, classid);
-	info->puri.free = efhd_free_attach_puri_data;
-	info->attachment_view_part_id = g_strdup (puri->uri);
-	info->handle = em_format_find_handler (emf, "text/plain");
-	info->shown = FALSE;
-	info->snoop_mime_type = "text/plain";
-	info->attachment = e_attachment_new ();
-	e_attachment_set_mime_part (info->attachment, info->puri.part);
-	info->description = g_strdup(_("Evolution cannot render this email as it is too "
+	puri = (EMFormatAttachmentPURI *) em_format_puri_new (
+			emf, sizeof (EMFormatAttachmentPURI), part, part_id->str);
+	puri->puri.free = efhd_free_attach_puri_data;
+	puri->attachment_view_part_id = g_strdup (part_id->str);
+	puri->handle = em_format_find_handler (emf, "text/plain");
+	puri->shown = FALSE;
+	puri->snoop_mime_type = "text/plain";
+	puri->attachment = e_attachment_new ();
+	e_attachment_set_mime_part (puri->attachment, puri->puri.part);
+	puri->description = g_strdup(_("Evolution cannot render this email as it is too "
 				       "large to process. You can view it unformatted or "
 				       "with an external text editor."));
+	
+	puri->mstream = CAMEL_STREAM_MEM (camel_stream_mem_new ());
+	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) part, 
+		(CamelStream *) puri->mstream, cancellable, NULL);
 
-	/* MStream holds content of the 'attachment' to be displayed */
-	info->mstream = (CamelStreamMem *) g_object_ref (mstream);
-
-	if (puri->validity) {
-		info->sign = puri->validity->sign.status;
-		info->encrypt = puri->validity->encrypt.status;
+	if (info->validity) {
+		puri->puri.validity = camel_cipher_validity_clone (info->validity);
 	}
 
-	em_format_add_puri (emf, (EMFormatPURI *) info);
+	em_format_add_puri (emf, (EMFormatPURI *) puri);
 
-	g_free (classid);
+	g_string_truncate (part_id, len);
 }
 
 static void
@@ -832,7 +809,6 @@ static void
 efhd_class_init (EMFormatHTMLDisplayClass *class)
 {
 	GObjectClass *object_class;
-	EMFormatClass *format_class;
 	EMFormatHTMLClass *format_html_class;
 
 	parent_class = g_type_class_peek_parent (class);
@@ -840,13 +816,6 @@ efhd_class_init (EMFormatHTMLDisplayClass *class)
 
 	object_class = G_OBJECT_CLASS (class);
 	object_class->finalize = efhd_finalize;
-
-	format_class = EM_FORMAT_CLASS (class);
-	format_class->parse = efhd_parse;
-/* FIXME WEBKIT format attachment?
-	format_class->format_attachment = efhd_format_attachment;
-*/
-	format_class->format_optional = efhd_format_optional;
 
 	format_html_class = EM_FORMAT_HTML_CLASS (class);
 	format_html_class->html_widget_type = E_TYPE_MAIL_DISPLAY;
@@ -933,6 +902,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ (gchar *) "x-evolution/message/attachment-bar", (EMFormatParseFunc) efhd_message_add_bar, },
 	{ (gchar *) "x-evolution/message/attachment", efhd_parse_attachment, },
 	{ (gchar *) "x-evolution/message/x-secure-button", efhd_parse_secure, },
+	{ (gchar *) "x-evolution/message/optional", efhd_parse_optional, },
 };
 
 static void
@@ -1051,12 +1021,6 @@ efhd_attachment_button (EMFormat *emf,
 		E_ATTACHMENT_BUTTON (widget), info->attachment);
 	gtk_widget_set_can_focus (widget, TRUE);
 	gtk_widget_show (widget);
-
-	/* FIXME Not sure why the expanded callback can't just use
-	 *       info->puri.format, but there seems to be lifecycle
-	 *       issues with the PURI struct.  Maybe it should have
-	 *       a reference count? */
-	g_object_set_data (G_OBJECT (widget), "efh", efh);
 
 	return widget;
 }
@@ -1290,5 +1254,10 @@ efhd_free_attach_puri_data (EMFormatPURI *puri)
 	if (info->attachment_view_part_id) {
 		g_free (info->attachment_view_part_id);
 		info->attachment_view_part_id = NULL;
+	}
+
+	if (info->mstream) {
+		g_object_unref (info->mstream);
+		info->mstream = NULL;
 	}
 }

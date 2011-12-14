@@ -34,7 +34,7 @@
 #include "shell/e-shell.h"
 #include "shell/e-shell-settings.h"
 
-#define d(x) x
+#define d(x)
 
 #define EM_FORMAT_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
@@ -84,11 +84,9 @@ static void emf_parse_post_headers		(EMFormat *emf, CamelMimePart *part, GString
 static void emf_parse_source			(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 
 /* WRITERS */
-static void emf_write_text			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable) {};
-static void emf_write_source			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable) {};
-
-static void emf_error				(EMFormat *emf, const gchar *message) {};
-static void emf_source				(EMFormat *emf, CamelStream *stream, GCancellable *cancellable);
+static void emf_write_text			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emf_write_source			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emf_write_error			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 /**************************************************************************/
 
@@ -369,7 +367,7 @@ emf_parse_multipart_alternative (EMFormat *emf,
 		CamelStream *null_stream;
 		gchar *mime_type;
 		gsize content_size;
-		/* GByteArray *ba; */
+		 GByteArray *ba;
 
 		if (g_cancellable_is_cancelled (cancellable))
 			return;
@@ -393,14 +391,10 @@ emf_parse_multipart_alternative (EMFormat *emf,
 		if (content_size == 0)
 			continue;
 
-		/* FIXME WEBKIT: This SHOULD do the same as the previous block of
-		 * code, thought it seems to somehow corrupt/disable/remove the
-		 * other mime part, so that has no content
 		data_wrapper = camel_medium_get_content ((CamelMedium *) mpart);
 		ba = camel_data_wrapper_get_byte_array (data_wrapper);
 		if (ba->len == 0)
 			continue;
-		*/
 
 		type = camel_mime_part_get_content_type (mpart);
 		mime_type = camel_content_type_simple (type);
@@ -479,18 +473,6 @@ emf_parse_multipart_encrypted (EMFormat *emf,
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
-
-	/* should this perhaps run off a key of ".secured" ? */
-	/* FIXME WEBKIT what do we do about this?
-	emfc = g_hash_table_lookup (emf->inline_table, emf->part_id->str);
-	if (emfc && emfc->valid) {
-		em_format_format_secure (
-			emf, stream, emfc->secured,
-			camel_cipher_validity_clone (emfc->valid),
-			cancellable);
-		return;
-	}
-	*/
 
 	mpe = (CamelMultipartEncrypted*) camel_medium_get_content ((CamelMedium *) part);
 	if (!CAMEL_IS_MULTIPART_ENCRYPTED (mpe)) {
@@ -607,18 +589,6 @@ emf_parse_multipart_signed (EMFormat *emf,
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
-
-	/* should this perhaps run off a key of ".secured" ? */
-	/* FIXME WEBKIT: What do we do with this?
-	emfc = g_hash_table_lookup (emf->inline_table, emf->part_id->str);
-	if (emfc && emfc->valid) {
-		em_format_format_secure (
-			emf, stream, emfc->secured,
-			camel_cipher_validity_clone (emfc->valid),
-			cancellable);
-		return;
-	}
-	*/
 
 	mps = (CamelMultipartSigned *) camel_medium_get_content ((CamelMedium *) part);
 	if (!CAMEL_IS_MULTIPART_SIGNED (mps)
@@ -835,7 +805,7 @@ emf_parse_message_deliverystatus (EMFormat *emf,
 	puri->write_func = emf_write_text;
 	puri->mime_type = g_strdup ("text/html");
 	puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
-	puri->validity_type = info->validity_type;	
+	puri->validity_type = info->validity_type;
 
 	g_string_truncate (part_id, len);
 
@@ -1137,19 +1107,50 @@ em_format_empty_writer (EMFormat *emf,
 	/* DO NOTHING */
 }
 
-/**************************************************************************/
+static void
+emf_write_error (EMFormat* emf,
+		 EMFormatPURI* puri,
+		 CamelStream* stream,
+		 EMFormatWriterInfo* info,
+		 GCancellable* cancellable)
+{
+	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) puri->part,
+		stream, cancellable, NULL);
+}
 
 static void
-emf_source (EMFormat *emf,
-	    CamelStream *stream,
-	    GCancellable *cancellable)
+emf_write_text (EMFormat *emf,
+		EMFormatPURI *puri,
+		CamelStream *stream,
+		EMFormatWriterInfo *info,
+		GCancellable *cancellable)
+{
+	CamelContentType *ct;
+
+	ct = camel_mime_part_get_content_type (puri->part);
+	if (!camel_content_type_is (ct, "text", "plain")) {
+		camel_stream_write_string (stream, _("Cannot proccess non-text mime/part"),
+			cancellable, NULL);
+		return;
+	}
+
+	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) puri->part,
+		stream, cancellable, NULL);
+}
+
+static void
+emf_write_source (EMFormat *emf,
+		  EMFormatPURI *puri,
+		  CamelStream *stream,
+		  EMFormatWriterInfo *info,
+		  GCancellable *cancellable)
 {
 	GByteArray *ba;
 	gchar *data;
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
-	ba = camel_data_wrapper_get_byte_array ((CamelDataWrapper *) emf->message);
+	ba = camel_data_wrapper_get_byte_array ((CamelDataWrapper *) puri->part);
 
 	data = g_strndup ((gchar *) ba->data, ba->len);
 	camel_stream_write_string (stream, data, cancellable, NULL);
@@ -1157,52 +1158,6 @@ emf_source (EMFormat *emf,
 }
 
 /**************************************************************************/
-
-static void
-emf_parse (EMFormat *emf,
-	   CamelMimeMessage *message,
-	   CamelFolder *folder,
-	   GCancellable *cancellable)
-{
-	GString *part_id;
-	EMFormatPURI *puri;
-	EMFormatParserInfo info = { 0 };
-
-	g_return_if_fail (EM_IS_FORMAT (emf));
-
-	if (g_cancellable_is_cancelled (cancellable))
-		return;
-
-	if (message) {
-		g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
-
-		if (emf->message)
-			g_object_unref (emf->message);
-		emf->message = g_object_ref (message);
-	}
-
-	if (folder) {
-		g_return_if_fail (CAMEL_IS_FOLDER  (folder));
-
-		if (emf->folder)
-			g_object_unref (emf->folder);
-		emf->folder = g_object_ref (folder);
-	}
-
-	part_id = g_string_new (".message");
-
-	/* Create a special PURI with entire message */
-	puri = em_format_puri_new (emf, sizeof (EMFormatPURI),
-		(CamelMimePart *) message, part_id->str);
-	puri->mime_type = g_strdup ("text/html");
-	em_format_add_puri (emf, puri);
-
-        info.force_handler = TRUE;
-	em_format_parse_part_as (emf, CAMEL_MIME_PART (message), part_id, &info,
-			"x-evolution/message", cancellable);
-
-	g_string_free (part_id, TRUE);
-}
 
 static gboolean
 emf_is_inline (EMFormat *emf,
@@ -1215,12 +1170,6 @@ emf_is_inline (EMFormat *emf,
 
 	if (handle == NULL)
 		return FALSE;
-
-	/* WEBKIT FIXME
-	emfc = g_hash_table_lookup (emf->inline_table, part_id);
-	if (emfc && emfc->state != INLINE_UNSET)
-		return emfc->state & 1;
-	*/
 
 	/* Some types need to override the disposition.
 	 * e.g. application/x-pkcs7-mime */
@@ -1250,6 +1199,7 @@ static EMFormatHandler type_handlers[] = {
 		{ (gchar *) "multipart/related", emf_parse_multipart_related, },
 		{ (gchar *) "multipart/digest", emf_parse_multipart_digest, 0, EM_FORMAT_HANDLER_COMPOUND_TYPE },
 		{ (gchar *) "multipart/*", emf_parse_multipart_mixed, 0, EM_FORMAT_HANDLER_COMPOUND_TYPE },
+		{ (gchar *) "message/deliverystatus", emf_parse_message_deliverystatus, 0, },
 
 		/* Ignore PGP signature part */
 		{ (gchar *) "application/pgp-signature", em_format_empty_parser, },
@@ -1422,9 +1372,6 @@ em_format_class_init (EMFormatClass *class)
 
 	g_type_class_add_private (class, sizeof (EMFormatPrivate));
 
-	class->format_error = emf_error;
-	class->format_source = emf_source;
-	class->parse = emf_parse;
 	class->is_inline = emf_is_inline;
 
 	object_class = G_OBJECT_CLASS (class);
@@ -1892,15 +1839,44 @@ em_format_parse (EMFormat *emf,
 		 CamelFolder *folder,
 		 GCancellable *cancellable)
 {
-	EMFormatClass *class;
+	GString *part_id;
+	EMFormatPURI *puri;
+	EMFormatParserInfo info = { 0 };
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
-	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
 
-	class = EM_FORMAT_GET_CLASS (emf);
-	g_return_if_fail (class->parse != NULL);
+	if (g_cancellable_is_cancelled (cancellable))
+		return;
 
-	class->parse (emf, message, folder, cancellable);
+	if (message) {
+		g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
+
+		if (emf->message)
+			g_object_unref (emf->message);
+		emf->message = g_object_ref (message);
+	}
+
+	if (folder) {
+		g_return_if_fail (CAMEL_IS_FOLDER  (folder));
+
+		if (emf->folder)
+			g_object_unref (emf->folder);
+		emf->folder = g_object_ref (folder);
+	}
+
+	part_id = g_string_new (".message");
+
+	/* Create a special PURI with entire message */
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI),
+		(CamelMimePart *) message, part_id->str);
+	puri->mime_type = g_strdup ("text/html");
+	em_format_add_puri (emf, puri);
+
+        info.force_handler = TRUE;
+	em_format_parse_part_as (emf, CAMEL_MIME_PART (message), part_id, &info,
+			"x-evolution/message", cancellable);
+
+	g_string_free (part_id, TRUE);
 }
 
 void
@@ -1994,51 +1970,44 @@ em_format_is_inline (EMFormat *emf,
 
 }
 
-gchar*
-em_format_get_error_id (EMFormat *emf)
-{
-	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
-
-	emf->priv->last_error++;
-	return g_strdup_printf (".error.%d", emf->priv->last_error);
-}
-
 void
 em_format_format_error (EMFormat *emf,
                         const gchar *format,
                         ...)
 {
-	EMFormatClass *class;
+	EMFormatPURI *puri;
+	CamelMimePart *part;
+	const EMFormatHandler *handler;
 	gchar *errmsg;
+	gchar *uri;
 	va_list ap;
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (format != NULL);
 
-	class = EM_FORMAT_GET_CLASS (emf);
-	g_return_if_fail (class->format_error != NULL);
-
 	va_start (ap, format);
 	errmsg = g_strdup_vprintf (format, ap);
-	class->format_error (emf, errmsg);
+
+	part = camel_mime_part_new ();
+	camel_mime_part_set_content (part, errmsg, strlen (errmsg), "text/plain");
 	g_free (errmsg);
 	va_end (ap);
-}
 
-void
-em_format_format_source (EMFormat *emf,
-			 CamelStream *stream,
-			 GCancellable *cancellable)
-{
-	EMFormatClass *class;
+	handler = em_format_find_handler (emf, "x-evolution/error");
 
-	g_return_if_fail (EM_IS_FORMAT (emf));
-	g_return_if_fail (CAMEL_IS_STREAM (stream));
+	emf->priv->last_error++;
+	uri = g_strdup_printf (".error.%d", emf->priv->last_error);
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, uri);
+	puri->mime_type = g_strdup ("text/html");
+	if (handler && handler->write_func)
+		puri->write_func = handler->write_func;
+	else
+		puri->write_func = emf_write_error;
 
-	class = EM_FORMAT_GET_CLASS (emf);
-	g_return_if_fail (class->format_source != NULL);
+	em_format_add_puri (emf, puri);
 
-	class->format_source (emf, stream, cancellable);
+	g_free (uri);
+	g_object_unref (part);
 }
 
 /**
@@ -2132,11 +2101,7 @@ em_format_format_text (EMFormat *emf,
 			mem_stream, (CamelStream *) stream, cancellable, NULL);
 		camel_stream_flush ((CamelStream *) mem_stream, cancellable, NULL);
 	} else {
-		/* FIXME WEBKIT
-		EM_FORMAT_GET_CLASS (emf)->format_optional (
-			emf, stream, (CamelMimePart *) dw,
-			mem_stream, cancellable);
-		*/
+		/* FIXME WEBKIT */
 	}
 
 	if (windows)
@@ -2335,10 +2300,10 @@ em_format_snoop_type (CamelMimePart *part)
 
 /**
  * Construct a URI for message.
- * 
+ *
  * The URI can contain multiple query parameters. The list of parameters must be
  * NULL-terminated. Each query must contain name, GType of value and value.
- * 
+ *
  * @param folder Folder wit the message
  * @param message_uid ID of message within the \p folder
  * @param first_param_name Name of first query parameter followed by GType of it's value and value.

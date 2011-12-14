@@ -123,7 +123,7 @@ struct _EMFormatWriterInfo {
 	EMFormatWriteMode mode;
 	gboolean headers_collapsable;
 	gboolean headers_collapsed;
-	
+
 	/* When TRUE, EMFormatWriteFunc's will put the content of the PURI part
 	   between EFH_HTML_HEADER and EFH_HTML_FOOTER */
 	gboolean with_html_header;
@@ -182,29 +182,10 @@ struct _EMFormatClass {
 
 	GHashTable *type_handlers;
 
-	void 		(*format_error) 		(EMFormat *emf,
-							 const gchar *message);
-	void		(*parse)			(EMFormat *emf,
-							 CamelMimeMessage *message,
-							 CamelFolder *folder,
-							 GCancellable *cancellable);
 	gboolean 	(*is_inline)			(EMFormat *emf,
 							 const gchar *part_id,
 							 CamelMimePart *part,
 							 const EMFormatHandler *handler);
-	void		(*format_attachment)		(EMFormat *emf,
-							 EMFormatPURI *puri,
-							 GCancellable *cancellable);
-	void		(*format_optional)		(EMFormat *emf,
-							 EMFormatPURI *puri,
-							 CamelStream *mstream,
-							 GCancellable *cancellable);
-	void		(*format_secure)		(EMFormat *emf,
-						 	 EMFormatPURI *puri,
-							 GCancellable *cancellable);
-	void		(*format_source)		(EMFormat *emf,
-				 			 CamelStream *stream,
-							 GCancellable *cancellable);
 };
 
 EMFormat*		em_format_new 			(void);
@@ -286,9 +267,6 @@ void			em_format_format_error		(EMFormat *emf,
 void			em_format_format_text		(EMFormat *emf,
 							 CamelStream *stream,
 							 CamelDataWrapper *dw,
-							 GCancellable *cancellable);
-void			em_format_format_source		(EMFormat *emf,
-							 CamelStream *stream,
 							 GCancellable *cancellable);
 gchar*			em_format_describe_part		(CamelMimePart *part,
 							 const gchar *mime_type);

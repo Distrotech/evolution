@@ -2066,7 +2066,7 @@ e_web_view_set_enable_frame_flattening (EWebView* web_view,
         g_return_if_fail (settings != NULL);
 
         g_object_set (G_OBJECT (settings), "enable-frame-flattening",
-                &enable_frame_flattening, NULL);
+                enable_frame_flattening, NULL);
 }
 
 
