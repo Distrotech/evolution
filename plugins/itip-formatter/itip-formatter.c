@@ -148,7 +148,6 @@ struct _itip_puri {
 
 void format_itip (EPlugin *ep, EMFormatHookTarget *target);
 GtkWidget *itip_formatter_page_factory (EPlugin *ep, EConfigHookItemFactoryData *hook_data);
-static void itip_attachment_frame (EMFormat *emf, CamelStream *stream, EMFormatPURI *puri, GCancellable *cancellable);
 gint e_plugin_lib_enable (EPlugin *ep, gint enable);
 
 typedef struct {
@@ -3309,21 +3308,3 @@ itip_formatter_page_factory (EPlugin *ep,
 
 	return page;
 }
-
-static void
-itip_attachment_frame (EMFormat *emf,
-                       CamelStream *stream,
-                       EMFormatPURI *puri,
-                       GCancellable *cancellable)
-{
-	/* FIXME WEBKIT: I have no idea what these _frame functions are supposed to do
-	struct _itip_puri *info = (struct _itip_puri *) puri;
-
-	info->handle->handler (
-		emf, stream, info->puri.part,
-		info->handle, cancellable, FALSE);
-
-	camel_stream_close (stream, cancellable, NULL);
-	*/
-}
-

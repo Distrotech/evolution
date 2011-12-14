@@ -320,7 +320,6 @@ org_gnome_vcard_inline_format (gpointer ep,
 {
 	VCardInlinePURI *vcard_object;
 	gchar *classid;
-	gchar *content;
 
 	classid = g_strdup_printf (
 		"org-gnome-vcard-inline-display-%d",
@@ -337,12 +336,6 @@ org_gnome_vcard_inline_format (gpointer ep,
 	org_gnome_vcard_inline_decode (vcard_object, target->part);
 
 	e_book_client_get_sources (&vcard_object->source_list, NULL);
-
-	/* FIXME WEBKIT: No streams, right?
-	content = g_strdup_printf ("<object classid=%s></object>", classid);
-	camel_stream_write_string (target->stream, content, NULL, NULL);
-	g_free (content);
-	*/
 
 	g_free (classid);
 }
