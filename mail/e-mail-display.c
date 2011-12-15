@@ -407,6 +407,9 @@ add_resource_to_cache (WebKitWebResource *resource)
 
 		/* Write content of the resource to the cache */
 		data = webkit_web_resource_get_data (resource);
+		if (!data)
+			return;
+
 		len = camel_stream_write_string (stream, data->str, NULL, NULL);
 
 		/* Don't store invalid data in cache */
@@ -428,6 +431,7 @@ mail_display_webkit_finished (GObject *object,
 	WebKitWebDataSource *data_source;
 	WebKitWebResource *subresource;
 	GList *iter, *subresources;
+	const gchar *uri;
 
 	/* Wait until all resources in webview are fully downloaded. */
 	g_object_get (object, "load-status", &status, NULL);
@@ -440,13 +444,21 @@ mail_display_webkit_finished (GObject *object,
 
 	/* Store in cache the main resource, content of the frame itself */
 	subresource = webkit_web_data_source_get_main_resource (data_source);
-	add_resource_to_cache (subresource);
+	if (subresource) {
+		uri = webkit_web_resource_get_uri (subresource);
+		if (g_str_has_prefix (uri, "http") || g_str_has_prefix (uri, "https"))
+			add_resource_to_cache (subresource);
+	}
 
 	/* Store all subresources (images, subframes, ...) */
 	subresources = webkit_web_data_source_get_subresources (data_source);
 	for (iter = subresources; iter; iter = iter->next) {
 		subresource = iter->data;
-		add_resource_to_cache (subresource);
+		if (subresource) {
+			uri = webkit_web_resource_get_uri (subresource);
+			if (g_str_has_prefix (uri, "http") || g_str_has_prefix (uri, "https"))
+				add_resource_to_cache (subresource);	
+		}
 	}
 }
 
@@ -489,13 +501,13 @@ mail_display_resource_requested (WebKitWebView *web_view,
 		/* Try to lookup content of any http(s) request in camel cache. */
         } else if (g_str_has_prefix (uri, "http:") || g_str_has_prefix (uri, "https")) {
 
-		gchar *path = camel_data_cache_get_filename (emd_global_http_cache,
-			"http", uri, NULL);
+			gchar *path = camel_data_cache_get_filename (emd_global_http_cache,
+				"http", uri, NULL);
 
-		/* Found cache file, load the request from cache. */
-		if (path) {
-			webkit_request_load_from_file (request, path);
-			g_free (path);
+			/* Found cache file, load the request from cache. */
+			if (path) {
+				webkit_request_load_from_file (request, path);
+				g_free (path);
 		}
 	}
 }
