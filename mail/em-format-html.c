@@ -1425,16 +1425,7 @@ efh_class_init (EMFormatHTMLClass *class)
 			GDK_TYPE_COLOR,
 			G_PARAM_READWRITE));
 
-	/* cache expiry - 2 hour access, 1 day max */
 
-	/* FIXME WEBKIT - this emfh_http_cache is not used anywhere - remove?
-	user_cache_dir = e_get_user_cache_dir ();
-	emfh_http_cache = camel_data_cache_new (user_cache_dir, NULL);
-	if (emfh_http_cache) {
-		camel_data_cache_set_expire_age (emfh_http_cache, 24*60*60);
-		camel_data_cache_set_expire_access (emfh_http_cache, 2*60*60);
-	}
-	*/
 }
 
 static void
@@ -2504,21 +2495,3 @@ efh_format_full_headers (EMFormatHTML *efh,
 			g_string_append (output_buffer, cinfo->email);
 		}
 	}
-
-/* unref returned pointer with g_object_unref(), if not NULL */
-CamelStream *
-em_format_html_get_cached_image (EMFormatHTML *efh,
-                                 const gchar *image_uri)
-{
-	g_return_val_if_fail (efh != NULL, NULL);
-	g_return_val_if_fail (image_uri != NULL, NULL);
-
-	/* FIXME WEBKIT This has not been ported yet
-	if (!emfh_http_cache)
-		return NULL;
-
-	return camel_data_cache_get (
-		emfh_http_cache, EMFH_HTTP_CACHE_PATH, image_uri, NULL);
-	*/
-	return NULL;
-}

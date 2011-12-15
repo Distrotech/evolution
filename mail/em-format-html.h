@@ -184,10 +184,6 @@ CamelMimePart *	em_format_html_file_part	(EMFormatHTML *efh,
 gchar *		em_format_html_format_cert_infos
 						(CamelCipherCertInfo *first_cinfo);
 
-CamelStream *
-		em_format_html_get_cached_image	(EMFormatHTML *efh,
-						 const gchar *image_uri);
-
 void		em_format_html_format_message	(EMFormatHTML *efh,
 						 CamelStream *stream,
 						 GCancellable *cancellable);

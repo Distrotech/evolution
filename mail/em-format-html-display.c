@@ -700,12 +700,18 @@ action_image_save_cb (GtkAction *action,
 	} else {
 		CamelStream *image_stream;
 		CamelDataWrapper *dw;
+		CamelDataCache *cache;
 		const gchar *filename;
+		const gchar *user_cache_dir;
 
-		image_stream = em_format_html_get_cached_image (
-			EM_FORMAT_HTML (efhd), image_src);
-		if (!image_stream)
+		/* Open cache and find the file there */
+		user_cache_dir = e_get_user_cache_dir ();
+		cache = camel_data_cache_new (user_cache_dir, NULL);
+		image_stream = camel_data_cache_get (cache, "http", image_src, NULL);
+		if (!image_stream) {
+			g_object_unref (cache);
 			return;
+		}
 
 		filename = strrchr (image_src, '/');
 		if (filename && strchr (filename, '?'))
@@ -729,6 +735,7 @@ action_image_save_cb (GtkAction *action,
 			part, CAMEL_TRANSFER_ENCODING_BASE64);
 
 		g_object_unref (image_stream);
+		g_object_unref (cache);
 	}
 
 	file = e_shell_run_save_dialog (
@@ -764,14 +771,20 @@ efhd_web_view_update_actions_cb (EWebView *web_view,
 	image_src = e_web_view_get_cursor_image_src (web_view);
 	visible = image_src && g_str_has_prefix (image_src, "cid:");
 	if (!visible && image_src) {
+		CamelDataCache *cache;
 		CamelStream *image_stream;
+		const gchar *user_cache_dir;
 
-		image_stream = em_format_html_get_cached_image (
-			EM_FORMAT_HTML (efhd), image_src);
+		user_cache_dir = e_get_user_cache_dir ();
+		cache = camel_data_cache_new (user_cache_dir, NULL);
+		image_stream = camel_data_cache_get (cache, "http", image_src, NULL);
+
 		visible = image_stream != NULL;
 
 		if (image_stream)
 			g_object_unref (image_stream);
+
+		g_object_unref (cache);
 	}
 
 	action = e_web_view_get_action (web_view, "efhd-image-save");
@@ -1005,8 +1018,6 @@ efhd_attachment_button (EMFormat *emf,
 			GCancellable *cancellable)
 {
 	EMFormatAttachmentPURI *info = (EMFormatAttachmentPURI *) puri;
-	EMFormatHTML *efh = (EMFormatHTML *) emf;
-	EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay *) efh;
 	GtkWidget *widget;
 
 	/* FIXME: handle default shown case */
@@ -1034,7 +1045,6 @@ efhd_attachment_bar (EMFormat *emf,
 		     EMFormatPURI *puri,
 		     GCancellable *cancellable)
 {
-	EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay*) emf;
 	EMFormatAttachmentBarPURI *abp = (EMFormatAttachmentBarPURI *) puri;
 	GtkWidget *widget;
 
@@ -1083,7 +1093,6 @@ efhd_message_add_bar (EMFormat *emf,
                       EMFormatParserInfo *info,
                       GCancellable *cancellable)
 {
-	gchar *classid;
 	EMFormatAttachmentBarPURI *puri;
 	gint len;
 

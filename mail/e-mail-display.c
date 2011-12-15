@@ -38,6 +38,8 @@
 #include "mail/e-mail-attachment-bar.h"
 #include "widgets/misc/e-attachment-button.h"
 
+#include <camel/camel.h>
+
 #include <libsoup/soup.h>
 #include <libsoup/soup-requester.h>
 
@@ -69,6 +71,8 @@ enum {
 };
 
 static gpointer parent_class;
+
+static CamelDataCache *emd_global_http_cache = 0;
 
 typedef void (*WebViewActionFunc) (EWebView *web_view);
 
@@ -358,6 +362,96 @@ mail_display_link_clicked (WebKitWebView *web_view,
 }
 
 static void
+webkit_request_load_from_file (WebKitNetworkRequest *request,
+			       const gchar *path)
+{
+	gchar *data = NULL;
+	gsize length = 0;
+	gboolean status;
+	gchar *b64, *new_uri;
+	gchar *ct;
+
+	status = g_file_get_contents (path, &data, &length, NULL);
+	if (!status)
+		return;
+
+	b64 = g_base64_encode ((guchar*) data, length);
+	ct = g_content_type_guess (path, NULL, 0, NULL);
+
+	new_uri =  g_strdup_printf ("data:%s;base64,%s", ct, b64);
+	webkit_network_request_set_uri (request, new_uri);
+
+	g_free (b64);
+	g_free (new_uri);
+	g_free (ct);
+	g_free (data);
+}
+
+static void
+add_resource_to_cache (WebKitWebResource *resource)
+{
+
+	/* Make sure this URI is not yet in cache */
+	if (!camel_data_cache_get (emd_global_http_cache, "http",
+		webkit_web_resource_get_uri (resource), NULL)) {
+
+		CamelStream *stream;
+		GString *data;
+		gssize len = 0;
+
+		/* Create cache item */
+		stream = camel_data_cache_add (emd_global_http_cache, "http",
+			webkit_web_resource_get_uri (resource), NULL);
+		if (!stream)
+			return;
+
+		/* Write content of the resource to the cache */
+		data = webkit_web_resource_get_data (resource);
+		len = camel_stream_write_string (stream, data->str, NULL, NULL);
+
+		/* Don't store invalid data in cache */
+		if (len != data->len) {
+			camel_data_cache_remove (emd_global_http_cache, "http",
+				webkit_web_resource_get_uri (resource), NULL);
+		}
+	}
+}
+
+static void
+mail_display_webkit_finished (GObject *object,
+			      GParamSpec *pspec,
+			      gpointer user_data)
+{
+	WebKitLoadStatus status;
+	WebKitWebView *web_view;
+	WebKitWebFrame *frame;
+	WebKitWebDataSource *data_source;
+	WebKitWebResource *subresource;
+	GList *iter, *subresources;
+
+	/* Wait until all resources in webview are fully downloaded. */
+	g_object_get (object, "load-status", &status, NULL);
+	if (status != WEBKIT_LOAD_FINISHED)
+		return;
+
+	web_view = WEBKIT_WEB_VIEW (object);
+	frame = webkit_web_view_get_main_frame (web_view);
+	data_source = webkit_web_frame_get_data_source (frame);
+
+	/* Store in cache the main resource, content of the frame itself */
+	subresource = webkit_web_data_source_get_main_resource (data_source);
+	add_resource_to_cache (subresource);
+
+	/* Store all subresources (images, subframes, ...) */
+	subresources = webkit_web_data_source_get_subresources (data_source);
+	for (iter = subresources; iter; iter = iter->next) {
+		subresource = iter->data;
+		add_resource_to_cache (subresource);
+	}
+}
+
+
+static void
 mail_display_resource_requested (WebKitWebView *web_view,
 				 WebKitWebFrame *frame,
 				 WebKitWebResource *resource,
@@ -371,7 +465,7 @@ mail_display_resource_requested (WebKitWebView *web_view,
 
         /* Redirect cid:part_id to mail://mail_id/cid:part_id */
         if (g_str_has_prefix (uri, "cid:")) {
-		gchar *new_uri = em_format_build_mail_uri (EM_FORMAT (formatter)->folder, 
+		gchar *new_uri = em_format_build_mail_uri (EM_FORMAT (formatter)->folder,
 			EM_FORMAT (formatter)->message_uid,
 			"part_id", G_TYPE_STRING, uri, NULL);
 
@@ -382,33 +476,28 @@ mail_display_resource_requested (WebKitWebView *web_view,
         /* WebKit won't allow to load a local file when displaing "remote" mail://,
            protocol, so we need to handle this manually */
         } else if (g_str_has_prefix (uri, "file:")) {
-                gchar *data = NULL;
-                gsize length = 0;
-                gboolean status;
-                gchar *path;
+		gchar *path;
 
-                path = g_filename_from_uri (uri, NULL, NULL);
-                if (!path)
-                        return;
+		path = g_filename_from_uri (uri, NULL, NULL);
+		if (!path)
+			return;
 
-		status = g_file_get_contents (path, &data, &length, NULL);
-                if (status) {
-                        gchar *b64, *new_uri;
-                        gchar *ct;
+		webkit_request_load_from_file (request, path);
 
-                        b64 = g_base64_encode ((guchar*) data, length);
-                        ct = g_content_type_guess (path, NULL, 0, NULL);
+		g_free (path);
 
-                        new_uri =  g_strdup_printf ("data:%s;base64,%s", ct, b64);
-                        webkit_network_request_set_uri (request, new_uri);
+		/* Try to lookup content of any http(s) request in camel cache. */
+        } else if (g_str_has_prefix (uri, "http:") || g_str_has_prefix (uri, "https")) {
 
-                        g_free (b64);
-                        g_free (new_uri);
-                        g_free (ct);
-                }
-                g_free (data);
-                g_free (path);
-        }
+		gchar *path = camel_data_cache_get_filename (emd_global_http_cache,
+			"http", uri, NULL);
+
+		/* Found cache file, load the request from cache. */
+		if (path) {
+			webkit_request_load_from_file (request, path);
+			g_free (path);
+		}
+	}
 }
 
 static void
@@ -455,6 +544,8 @@ mail_display_setup_webview (EMailDisplay *display)
 		G_CALLBACK (mail_display_resource_requested), display);
 	g_signal_connect (web_view, "process-mailto",
 		G_CALLBACK (mail_display_process_mailto), display);
+	g_signal_connect (web_view, "notify::load-status",
+		G_CALLBACK (mail_display_webkit_finished), NULL);
 
 	/* EWebView's action groups are added during its instance
 	 * initialization function (like what we're in now), so it
@@ -786,6 +877,7 @@ mail_display_init (EMailDisplay *display)
 {
 	SoupSession *session;
 	SoupSessionFeature *feature;
+	const gchar *user_cache_dir;
 
 	display->priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
 
@@ -804,6 +896,14 @@ mail_display_init (EMailDisplay *display)
 	soup_session_feature_add_feature (feature, E_TYPE_MAIL_REQUEST);
 	soup_session_add_feature (session, feature);
 	g_object_unref (feature);
+
+	/* cache expiry - 2 hour access, 1 day max */
+	user_cache_dir = e_get_user_cache_dir ();
+	emd_global_http_cache = camel_data_cache_new (user_cache_dir, NULL);
+	if (emd_global_http_cache) {
+		camel_data_cache_set_expire_age (emd_global_http_cache, 24*60*60);
+		camel_data_cache_set_expire_access (emd_global_http_cache, 2*60*60);
+	}
 }
 
 GType
