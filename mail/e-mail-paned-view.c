@@ -617,6 +617,8 @@ mail_paned_view_constructed (GObject *object)
 	EShellBackend *shell_backend;
 	EShellWindow *shell_window;
 	EShellView *shell_view;
+	EShell *shell;
+	EShellSettings *shell_settings;
 	ESearchBar *search_bar;
 	EMailReader *reader;
 	EMailBackend *backend;
@@ -628,7 +630,9 @@ mail_paned_view_constructed (GObject *object)
 
 	priv = E_MAIL_PANED_VIEW_GET_PRIVATE (object);
 
-	priv->display = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
+	priv->display = g_object_new (E_TYPE_MAIL_DISPLAY,
+		"headers-collapsable", TRUE, NULL);
+
 	widget = gtk_scrolled_window_new (NULL, NULL);
 	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (widget),
 		GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
@@ -643,19 +647,15 @@ mail_paned_view_constructed (GObject *object)
 	shell_view = e_mail_view_get_shell_view (view);
 	shell_window = e_shell_view_get_shell_window (shell_view);
 	shell_backend = e_shell_view_get_shell_backend (shell_view);
+	shell = e_shell_window_get_shell (shell_window);
+	shell_settings = e_shell_get_shell_settings (shell);
 
 	backend = E_MAIL_BACKEND (shell_backend);
 	session = e_mail_backend_get_session (backend);
 
-	/* Make headers collapsable and store state of headers in config file */
-	/* FIXME WEBKIT */
-	/*em_format_html_set_headers_collapsable (EM_FORMAT_HTML (priv->formatter), TRUE);
-	g_object_bind_property (
-		shell_settings, "paned-view-headers-state",
-		priv->formatter, "headers-state",
-		G_BINDING_BIDIRECTIONAL |
-		G_BINDING_SYNC_CREATE);
-	*/
+	g_object_bind_property (shell_settings, "paned-view-headers-state",
+				priv->display, "headers-collapsed",
+				G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
 
 	/* Build content widgets. */
 

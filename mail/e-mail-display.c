@@ -521,7 +521,7 @@ mail_display_headers_collapsed_state_changed (EWebView *web_view,
 	EMailDisplay *display = user_data;
 	JSGlobalContextRef ctx = e_web_view_get_global_context (web_view);
 
-	display->priv->headers_collapsed = JSValueToBoolean (ctx, args[0]);
+	e_mail_display_set_headers_collapsed (display, JSValueToBoolean (ctx, args[0]));
 }
 
 static void
@@ -877,7 +877,7 @@ mail_display_class_init (EMailDisplayClass *class)
 		object_class,
 		PROP_HEADERS_COLLAPSED,
 		g_param_spec_boolean (
-			"header-collapsed",
+			"headers-collapsed",
 			"Headers Collapsed",
 			NULL,
 			FALSE,
