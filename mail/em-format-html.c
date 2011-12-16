@@ -928,6 +928,22 @@ efh_write_headers (EMFormat *emf,
 		"  else { f.display=\"block\"; s.display=\"none\";\n"
 		"	 i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n"
 		"}\n"
+                "function set_header_visible(header,value,visible) {\n}"
+                "  var hdrs=window.document.getElementsByClassName('header-item');\n"
+                "  for (var i = 0; i < hdrs.length; i++) { \n"
+                "    var hdr = hdrs[i]; \n"
+                "    if (hdr.className.indexOf('rtl') == -1) { \n"
+                "      if ((hdr.firstChild.textContent == header) && \n"
+                "          (hdr.firstChild.nextSibling.textContent == value)) { \n"
+                "        hdr.style.display=(visible ? 'block' : 'none');\n"
+                "      }\n"
+                "    } else { \n"
+                "      if ((hdr.firstChild.textContent == value) && \n"
+                "          (hdr.firstChild.nextSibling.textContent == header)) { \n"
+                "        hdr.style.display=(visible ? 'block' : 'none');\n"
+                "      }\n"
+                "  }\n"
+                "}\n"
 		"</script>\n"
 		"<style type=\"text/css\">body { background: #%06x; }</style>"
 		"<table border=\"0\" width=\"100%%\" height=\"100%%\" style=\"color: #%06x;\">\n"
@@ -1791,30 +1807,31 @@ efh_format_text_header (EMFormatHTML *emfh,
 
 	if (flags & EM_FORMAT_HTML_HEADER_NOCOLUMNS) {
 		if (flags & EM_FORMAT_HEADER_BOLD) {
-			fmt = "<tr><td><b>%s:</b> %s</td></tr>";
+			fmt = "<tr class=\"header-item\" style=\"display: %s\"><td><b>%s:</b> %s</td></tr>";
 		} else {
-			fmt = "<tr><td>%s: %s</td></tr>";
+                        fmt = "<tr class=\"header-item\" style=\"display: %s\"><td>%s: %s</td></tr>";
 		}
 	} else if (flags & EM_FORMAT_HTML_HEADER_NODEC) {
 		if (is_rtl)
-			fmt = "<tr><td align=\"right\" valign=\"top\" width=\"100%%\">%2$s</td><th valign=top align=\"left\" nowrap>%1$s<b>&nbsp;</b></th></tr>";
+                        fmt = "<tr class=\"header-item rtl\" style=\"display: %s\"><td align=\"right\" valign=\"top\" width=\"100%%\">%2$s</td><th valign=top align=\"left\" nowrap>%1$s<b>&nbsp;</b></th></tr>";
 		else
-			fmt = "<tr><th align=\"right\" valign=\"top\" nowrap>%s<b>&nbsp;</b></th><td valign=top>%s</td></tr>";
+                        fmt = "<tr class=\"header-item\" style=\"display: %s\"><th align=\"right\" valign=\"top\" nowrap>%s<b>&nbsp;</b></th><td valign=top>%s</td></tr>";
 	} else {
 		if (flags & EM_FORMAT_HEADER_BOLD) {
 			if (is_rtl)
-				fmt = "<tr><td align=\"right\" valign=\"top\" width=\"100%%\">%2$s</td><th align=\"left\" nowrap>%1$s:<b>&nbsp;</b></th></tr>";
+                                fmt = "<tr class=\"header-item rtl\" style=\"display: %s\"><td align=\"right\" valign=\"top\" width=\"100%%\">%2$s</td><th align=\"left\" nowrap>%1$s:<b>&nbsp;</b></th></tr>";
 			else
-				fmt = "<tr><th align=\"right\" valign=\"top\" nowrap>%s:<b>&nbsp;</b></th><td>%s</td></tr>";
+                                fmt = "<tr class=\"header-item\" style=\"display: %s\"><th align=\"right\" valign=\"top\" nowrap>%s:<b>&nbsp;</b></th><td>%s</td></tr>";
 		} else {
 			if (is_rtl)
-				fmt = "<tr><td align=\"right\" valign=\"top\" width=\"100%\">%2$s</td><td align=\"left\" nowrap>%1$s:<b>&nbsp;</b></td></tr>";
+                                fmt = "<tr class=\"header-item rtl\" style=\"display: %s\"><td align=\"right\" valign=\"top\" width=\"100%\">%2$s</td><td align=\"left\" nowrap>%1$s:<b>&nbsp;</b></td></tr>";
 			else
-				fmt = "<tr><td align=\"right\" valign=\"top\" nowrap>%s:<b>&nbsp;</b></td><td>%s</td></tr>";
+                                fmt = "<tr class=\"header-item\" style=\"display: %s\"><td align=\"right\" valign=\"top\" nowrap>%s:<b>&nbsp;</b></td><td>%s</td></tr>";
 		}
 	}
 
-	g_string_append_printf (buffer, fmt, label, html);
+	g_string_append_printf (buffer, fmt, 
+                (flags & EM_FORMAT_HTML_HEADER_HIDDEN ? "none" : "table-row"), label, html);
 
 	g_free (mhtml);
 }

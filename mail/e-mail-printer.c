@@ -24,7 +24,10 @@
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
 
+#include <e-util/e-print.h>
 #include <e-util/e-marshal.h>
+
+#include <webkit/webkitdom.h>
 
 #include "e-mail-printer.h"
 #include "em-format-html-print.h"
@@ -45,13 +48,13 @@ struct _EMailPrinterPrivate {
 	EMFormatHTMLPrint *efhp;
 
 	GtkListStore *headers;
-	
+
 	WebKitWebView *webview; /* WebView to print from */
 	gchar *uri;
-        GtkWidget *buttons[BUTTONS_COUNT];
-        GtkWidget *treeview;
+	GtkWidget *buttons[BUTTONS_COUNT];
+	GtkWidget *treeview;
 
-        GtkPrintOperation *operation;
+	GtkPrintOperation *operation;
 };
 
 G_DEFINE_TYPE (
@@ -142,7 +145,8 @@ emp_printing_done (GtkPrintOperation *operation,
 }
 
 static void
-emp_run_print_operation (EMailPrinter *emp)
+emp_run_print_operation (EMailPrinter *emp,
+			 gboolean export)
 {
 	EMFormat *emf;
 	SoupSession *session;
@@ -166,17 +170,16 @@ emp_run_print_operation (EMailPrinter *emp)
         emp->priv->uri = g_strconcat (mail_uri, "?part_id=print_layout", NULL);
 
         if (emp->priv->webview == NULL) {
-		emp->priv->webview = WEBKIT_WEB_VIEW (webkit_web_view_new ());
-		g_object_ref_sink (emp->priv->webview);
-                g_signal_connect_swapped (emp->priv->operation, "begin-print",
-                        G_CALLBACK (webkit_web_view_reload), emp->priv->webview);
+		emp->priv->webview = WEBKIT_WEB_VIEW (e_web_view_new ());
+                e_web_view_set_enable_frame_flattening (E_WEB_VIEW (emp->priv->webview), FALSE);
+                g_object_ref_sink (emp->priv->webview);
 	}
 
         webkit_web_view_load_uri (emp->priv->webview, emp->priv->uri);
 
 	frame = webkit_web_view_get_main_frame (emp->priv->webview);
 
-	if (em_format_html_print_get_action (emp->priv->efhp) == GTK_PRINT_OPERATION_ACTION_EXPORT) {
+	if (export) {
 		gtk_print_operation_set_export_filename (emp->priv->operation, emp->priv->efhp->export_filename);
 		webkit_web_frame_print_full (frame, emp->priv->operation, GTK_PRINT_OPERATION_ACTION_EXPORT, NULL);
 	} else {
@@ -186,16 +189,38 @@ emp_run_print_operation (EMailPrinter *emp)
 	g_free (mail_uri);
 }
 
+static void
+set_header_visible (EMailPrinter *emp,
+                    EMFormatHeader *header,
+                    gint index,
+                    gboolean visible)
+{
+        WebKitDOMDocument *document;
+        WebKitDOMNodeList *headers;
+        WebKitDOMElement *element;
+        WebKitDOMCSSStyleDeclaration *style;
+
+        document = webkit_web_view_get_dom_document (emp->priv->webview);
+        headers = webkit_dom_document_get_elements_by_class_name (document, "header-item");
+
+        g_return_if_fail (index < webkit_dom_node_list_get_length (headers));
+
+        element = WEBKIT_DOM_ELEMENT (webkit_dom_node_list_item (headers, index));
+        style = webkit_dom_element_get_style (element);
+        webkit_dom_css_style_declaration_set_property (style,
+                "display", (visible ? "table-row" : "none"), "", NULL);
+}
 
 static void
 header_active_renderer_toggled_cb (GtkCellRendererToggle *renderer,
 				   gchar *path,
 				   EMailPrinter *emp)
 {
-	EMFormat *emf = (EMFormat *)emp->priv->efhp;
 	GtkTreeIter iter;
+	GtkTreePath *p;
 	gboolean active;
 	EMFormatHeader *header;
+	gint *indices;
 
 	gtk_tree_model_get_iter_from_string (GTK_TREE_MODEL (emp->priv->headers),
 		&iter, path);
@@ -206,13 +231,11 @@ header_active_renderer_toggled_cb (GtkCellRendererToggle *renderer,
 		COLUMN_HEADER_STRUCT, &header, -1);
 	gtk_list_store_set (GTK_LIST_STORE (emp->priv->headers), &iter, 
 		COLUMN_ACTIVE, !active, -1);
-	
-	/* If the new state is active */
-	if ((!active) == TRUE) {
-		em_format_add_header_struct (emf, header);
-	} else {
-		em_format_remove_header_struct (emf, header);
-	}
+
+        p = gtk_tree_path_new_from_string (path);
+        indices = gtk_tree_path_get_indices (p);
+        set_header_visible (emp, header, indices[0], !active);
+        gtk_tree_path_free (p);
 }
 
 static void
@@ -220,7 +243,6 @@ emp_headers_tab_toggle_selection (GtkWidget *button,
                                   gpointer user_data)
 {
         EMailPrinter *emp = user_data;
-        EMFormat *emf = (EMFormat *) emp->priv->efhp;
         GtkTreeIter iter;
         gboolean select;
 
@@ -236,16 +258,18 @@ emp_headers_tab_toggle_selection (GtkWidget *button,
 
         do {
                 EMFormatHeader *header;
+                GtkTreePath *path;
+                gint *indices;
 
                 gtk_tree_model_get (GTK_TREE_MODEL (emp->priv->headers), &iter,
                         COLUMN_HEADER_STRUCT, &header, -1);
                 gtk_list_store_set (GTK_LIST_STORE (emp->priv->headers), &iter, 
                         COLUMN_ACTIVE, select, -1);
 
-                if (select)
-                        em_format_add_header_struct (emf, header);
-                else
-                        em_format_remove_header_struct (emf, header);
+                path = gtk_tree_model_get_path (GTK_TREE_MODEL (emp->priv->headers), &iter);
+                indices = gtk_tree_path_get_indices (path);
+                set_header_visible (emp, header, indices[0], select);
+                gtk_tree_path_free (path);
 
         } while (gtk_tree_model_iter_next (GTK_TREE_MODEL (emp->priv->headers), &iter));
 }
@@ -299,77 +323,127 @@ emp_headers_tab_move (GtkWidget *button,
         GtkTreeModel *model;
         GtkTreeIter iter;
         GtkTreeRowReference *selection_middle;
+        gint *indices;
+
+        WebKitDOMDocument *document;
+        WebKitDOMNodeList *headers;
+        WebKitDOMNode *header, *parent;
 
         model = GTK_TREE_MODEL (emp->priv->headers);
         selection = gtk_tree_view_get_selection  (GTK_TREE_VIEW (emp->priv->treeview));
         selected_rows = gtk_tree_selection_get_selected_rows (selection, &model);
 
+        /* The order of header rows in the HMTL document should be in sync with
+           order of headers in the listview and in efhp->headers_list */
+        document = webkit_web_view_get_dom_document (emp->priv->webview);
+        headers = webkit_dom_document_get_elements_by_class_name (document, "header-item");
+
         l = g_list_nth (selected_rows, g_list_length (selected_rows) / 2);
         selection_middle = gtk_tree_row_reference_new (model, l->data);
 
-        references = NULL;
+        for (l = selected_rows; l; l = l->next) {
+                references = g_list_prepend (references,
+                        gtk_tree_row_reference_new (model, l->data));
+        }
 
         if (button == emp->priv->buttons[BUTTON_TOP]) {
 
-                for (l = selected_rows; l; l = l->next) {
-                        references = g_list_prepend (references,
-                                gtk_tree_row_reference_new (model, l->data));
-                }
-
                 for (l = references; l; l = l->next) {
+                        /* Move the rows in the view  */
                         path = gtk_tree_row_reference_get_path (l->data);
                         gtk_tree_model_get_iter (model, &iter, path);
                         gtk_list_store_move_after (emp->priv->headers, &iter, NULL);
+
+                        /* Move the header row in HTML document */
+                        indices = gtk_tree_path_get_indices (path);
+                        header = webkit_dom_node_list_item (headers, indices[0]);
+                        parent = webkit_dom_node_get_parent_node (header);
+                        webkit_dom_node_remove_child (parent, header, NULL);
+                        webkit_dom_node_insert_before (parent, header,
+                                webkit_dom_node_get_first_child (parent), NULL);
+
                         gtk_tree_path_free (path);
                 }
 
-                g_list_foreach (references, (GFunc) gtk_tree_row_reference_free, NULL);
-                g_list_free (references);
+       } else if (button == emp->priv->buttons[BUTTON_UP]) {
 
-        } else if (button == emp->priv->buttons[BUTTON_UP]) {
+                GtkTreeIter *iter_prev;
+                WebKitDOMNode *node2;
 
-                GtkTreeIter iter_last;
+                references = g_list_reverse (references);
 
-                gtk_tree_model_get_iter (model, &iter, selected_rows->data);
-                gtk_tree_model_iter_previous (model, &iter);
+                for (l = references; l; l = l->next) {
 
-                gtk_tree_model_get_iter (model, &iter_last,
-                        g_list_last (selected_rows)->data);
+                        path = gtk_tree_row_reference_get_path (l->data);
+                        gtk_tree_model_get_iter (model, &iter, path);
+                        iter_prev = gtk_tree_iter_copy (&iter);
+                        gtk_tree_model_iter_previous (model, iter_prev);
 
-                gtk_list_store_move_after (emp->priv->headers, &iter, &iter_last);
+                        gtk_list_store_move_before (emp->priv->headers, &iter, iter_prev);
+
+                        indices = gtk_tree_path_get_indices (path);
+                        header = webkit_dom_node_list_item (headers, indices[0]);
+                        node2 = webkit_dom_node_get_previous_sibling (header);
+                        parent = webkit_dom_node_get_parent_node (header);
+
+                        webkit_dom_node_remove_child (parent, header, NULL);
+                        webkit_dom_node_insert_before (parent, header, node2, NULL);
+
+                        gtk_tree_path_free (path);
+                        gtk_tree_iter_free (iter_prev);
+                }
 
         } else if (button == emp->priv->buttons[BUTTON_DOWN]) {
 
-                GtkTreeIter iter_last;
+                GtkTreeIter *iter_next;
+                WebKitDOMNode *node2;
 
-                gtk_tree_model_get_iter (model, &iter, selected_rows->data);
+                for (l = references; l; l = l->next) {
 
-                gtk_tree_model_get_iter (model, &iter_last,
-                        g_list_last (selected_rows)->data);
-                gtk_tree_model_iter_next (model, &iter_last);
+                        path = gtk_tree_row_reference_get_path (l->data);
+                        gtk_tree_model_get_iter (model, &iter, path);
+                        iter_next = gtk_tree_iter_copy (&iter);
+                        gtk_tree_model_iter_next (model, iter_next);
 
-                gtk_list_store_move_before (emp->priv->headers, &iter_last, &iter);
+                        gtk_list_store_move_after (emp->priv->headers, &iter, iter_next);
+
+                        indices = gtk_tree_path_get_indices (path);
+                        header = webkit_dom_node_list_item (headers, indices[0]);
+                        node2 = webkit_dom_node_get_next_sibling (header);
+                        parent = webkit_dom_node_get_parent_node (header);
+
+                        webkit_dom_node_remove_child (parent, header, NULL);
+                        webkit_dom_node_insert_before (parent, header,
+                                webkit_dom_node_get_next_sibling (node2), NULL);
+
+                        gtk_tree_path_free (path);
+                        gtk_tree_iter_free (iter_next);
+                }
 
         } else if (button == emp->priv->buttons[BUTTON_BOTTOM]) {
 
-                for (l = selected_rows; l; l = l->next) {
-                        references = g_list_prepend (references,
-                                gtk_tree_row_reference_new (model, l->data));
-                }
                 references = g_list_reverse (references);
 
                 for (l = references; l; l = l->next) {
                         path = gtk_tree_row_reference_get_path (l->data);
                         gtk_tree_model_get_iter (model, &iter, path);
                         gtk_list_store_move_before (emp->priv->headers, &iter, NULL);
+
+                        /* Move the header row in HTML document */
+                        indices = gtk_tree_path_get_indices (path);
+                        header = webkit_dom_node_list_item (headers, indices[0]);
+                        parent = webkit_dom_node_get_parent_node (header);
+                        webkit_dom_node_remove_child (parent, header, NULL);
+                        webkit_dom_node_append_child (parent, header, NULL);
+
                         gtk_tree_path_free (path);
                 }
-
-                g_list_foreach (references, (GFunc) gtk_tree_row_reference_free, NULL);
-                g_list_free (references);
-
         };
 
+        g_list_foreach (references, (GFunc) gtk_tree_row_reference_free, NULL);
+        g_list_free (references);
+
+        /* Keep the selection in middle of the screen */
         path = gtk_tree_row_reference_get_path (selection_middle);
         gtk_tree_view_scroll_to_cell (GTK_TREE_VIEW (emp->priv->treeview),
                 path, COLUMN_ACTIVE, TRUE, 0.5, 0.5);
@@ -386,7 +460,7 @@ static GtkWidget*
 emp_create_headers_tab (GtkPrintOperation *operation,
                         EMailPrinter *emp)
 {
-	GtkWidget *vbox, *hbox, *label, *scw, *button;
+	GtkWidget *vbox, *hbox, *scw, *button;
 	GtkTreeView *view;
         GtkTreeSelection *selection;
 	GtkTreeViewColumn *column;
@@ -395,11 +469,8 @@ emp_create_headers_tab (GtkPrintOperation *operation,
         hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 5);
         vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 5);
         gtk_box_pack_end (GTK_BOX (hbox), vbox, FALSE, FALSE, 5);
-/*
-	label = gtk_label_new (_("Select headers you want to print"));
-        gtk_grid_attach (GTK_GRID (grid), label, 0, 0, 2, 1);
-*/
-	emp->priv->treeview = gtk_tree_view_new_with_model (
+
+        emp->priv->treeview = gtk_tree_view_new_with_model (
                 GTK_TREE_MODEL (emp->priv->headers));
         view = GTK_TREE_VIEW (emp->priv->treeview);
         selection = gtk_tree_view_get_selection (view);
@@ -437,7 +508,7 @@ emp_create_headers_tab (GtkPrintOperation *operation,
                 G_CALLBACK (emp_headers_tab_toggle_selection), emp);
         gtk_box_pack_start (GTK_BOX (vbox), button, FALSE, TRUE, 5);
 
-        button = gtk_button_new_with_label (_("Unselect All"));
+        button = gtk_button_new_from_stock (GTK_STOCK_CLEAR);
         emp->priv->buttons[BUTTON_SELECT_NONE] = button;
         g_signal_connect (button, "clicked",
                 G_CALLBACK (emp_headers_tab_toggle_selection), emp);
@@ -478,36 +549,6 @@ emp_create_headers_tab (GtkPrintOperation *operation,
 }
 
 static void
-emp_headers_tab_apply (GtkPrintOperation *operation,
-                       GtkWidget *widget,
-                       gpointer user_data)
-{
-        EMailPrinter *emp = user_data;
-        GtkTreeIter iter;
-        GtkTreeModel *model;
-        EMFormat *emf;
-
-        emf = EM_FORMAT (emp->priv->efhp);
-        model = GTK_TREE_MODEL (emp->priv->headers);
-
-        g_queue_clear (&emf->header_list);
-        gtk_tree_model_get_iter_first (model, &iter);
-        do {
-                gboolean active;
-                EMFormatHeader *header;
-
-                gtk_tree_model_get (model, &iter,
-                        COLUMN_ACTIVE, &active,
-                        COLUMN_HEADER_STRUCT, &header, -1);
-
-                if (active)
-                        em_format_add_header_struct (emf, header);
-
-        } while (gtk_tree_model_iter_next (model, &iter));
-
-}
-
-static void
 emp_set_formatter (EMailPrinter *emp,
 		   EMFormatHTMLPrint *formatter)
 {
@@ -515,6 +556,7 @@ emp_set_formatter (EMailPrinter *emp,
 	CamelMediumHeader *header;
 	GArray *headers;
 	gint i;
+        GtkTreeIter last_known;
 
 	g_return_if_fail (EM_IS_FORMAT_HTML_PRINT (formatter));
 
@@ -538,27 +580,31 @@ emp_set_formatter (EMailPrinter *emp,
 		GtkTreeIter iter;
 		GList *found_header;
 		EMFormatHeader *emfh;
-		gint index = G_MAXINT;
 
 		header = &g_array_index (headers, CamelMediumHeader, i);
 		emfh = em_format_header_new (header->name, header->value);
-		
+
 		found_header = g_queue_find_custom (&EM_FORMAT (formatter)->header_list,
 				emfh, (GCompareFunc) emp_header_name_equal);
 
-		if (found_header) {
-			index = g_queue_link_index (&EM_FORMAT (formatter)->header_list, 
-				found_header);
-		}
+                if (!found_header) {
+                        emfh->flags |= EM_FORMAT_HTML_HEADER_HIDDEN;
+                        em_format_add_header_struct (EM_FORMAT (formatter), emfh);
+                        gtk_list_store_append (emp->priv->headers, &iter);
+                } else {
+                        if (gtk_list_store_iter_is_valid (emp->priv->headers, &last_known))
+                                gtk_list_store_insert_after (emp->priv->headers, &iter, &last_known);
+                        else
+                                gtk_list_store_insert_after (emp->priv->headers, &iter, NULL);
 
-		gtk_list_store_insert (emp->priv->headers, &iter, index);
+                        last_known = iter;
+                }
 
 		gtk_list_store_set (emp->priv->headers, &iter,
 			COLUMN_ACTIVE, (found_header != NULL),
 			COLUMN_HEADER_NAME, emfh->name,
 			COLUMN_HEADER_VALUE, emfh->value,
 			COLUMN_HEADER_STRUCT, emfh, -1);
-
 	}
 
 	camel_medium_free_headers (CAMEL_MEDIUM (emf->message), headers);
@@ -690,13 +736,12 @@ e_mail_printer_init (EMailPrinter *emp)
 }
 
 EMailPrinter*
-e_mail_printer_new (EMFormatHTML* source,
-		    GtkPrintOperationAction action)
+e_mail_printer_new (EMFormatHTML* source)
 {
 	EMailPrinter *emp;
 	EMFormatHTMLPrint *efhp;
 
-	efhp = em_format_html_print_new (source, action);
+	efhp = em_format_html_print_new (source);
 
 	emp = g_object_new (E_TYPE_MAIL_PRINTER,
 		"print-formatter", efhp, NULL);
@@ -708,19 +753,19 @@ e_mail_printer_new (EMFormatHTML* source,
 
 void
 e_mail_printer_print (EMailPrinter *emp,
+		      gboolean export,
 		      GCancellable *cancellable)
 {
 	g_return_if_fail (E_IS_MAIL_PRINTER (emp));
 
         if (emp->priv->operation)
                 g_object_unref (emp->priv->operation);
-	emp->priv->operation = gtk_print_operation_new ();
+        emp->priv->operation = e_print_operation_new ();
+        gtk_print_operation_set_unit (emp->priv->operation, GTK_UNIT_PIXEL);
 
 	gtk_print_operation_set_show_progress (emp->priv->operation, TRUE);
 	g_signal_connect (emp->priv->operation, "create-custom-widget",
 		G_CALLBACK (emp_create_headers_tab), emp);
-        g_signal_connect (emp->priv->operation, "custom-widget-apply",
-                G_CALLBACK (emp_headers_tab_apply), emp);
 	g_signal_connect (emp->priv->operation, "done",
 		G_CALLBACK (emp_printing_done), emp);
         g_signal_connect (emp->priv->operation, "draw-page",
@@ -730,7 +775,7 @@ e_mail_printer_print (EMailPrinter *emp,
                 g_signal_connect_swapped (cancellable, "cancelled",
 		        G_CALLBACK (gtk_print_operation_cancel), emp->priv->operation);
 
-	emp_run_print_operation (emp);
+	emp_run_print_operation (emp, export);
 }
 
 EMFormatHTMLPrint*

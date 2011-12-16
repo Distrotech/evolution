@@ -63,10 +63,10 @@ struct _EMailPrinterClass {
 
 GType		e_mail_printer_get_type	(void);
 
-EMailPrinter *	e_mail_printer_new	(EMFormatHTML *source,
-					 GtkPrintOperationAction action);
+EMailPrinter *  e_mail_printer_new	(EMFormatHTML *source);
 
 void		e_mail_printer_print	(EMailPrinter *printer,
+					 gboolean export,
 					 GCancellable *cancellable);
 
 EMFormatHTMLPrint *

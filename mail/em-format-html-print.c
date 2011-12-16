@@ -45,7 +45,6 @@ struct _EMFormatHTMLPrintPrivate {
 
 	EMFormatHTML *original_formatter;
 	EMFormatPURI *top_level_puri;
-	GtkPrintOperationAction print_action;
 
         /* List of attachment PURIs */
         GList *attachments;
@@ -54,8 +53,7 @@ struct _EMFormatHTMLPrintPrivate {
 
 enum {
 	PROP_0,
-	PROP_ORIGINAL_FORMATTER,
-	PROP_PRINT_ACTION
+	PROP_ORIGINAL_FORMATTER
 };
 
 static void efhp_write_print_layout	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
@@ -139,7 +137,7 @@ efhp_write_headers (EMFormat *emf,
 	subject = camel_header_decode_string (buf, "UTF-8");
 	str = g_string_new ("<table border=\"0\" cellspacing=\"5\" " \
                             "cellpadding=\"0\" class=\"printing-header\">\n");
-	g_string_append_printf (str, "<tr><td colspan=\"2\"><h1>%s</h1></td></tr>\n",
+	g_string_append_printf (str, "<tr class='header-item'><td colspan=\"2\"><h1>%s</h1></td></tr>\n",
 		subject);
 	g_free (subject);
 
@@ -161,7 +159,7 @@ efhp_write_headers (EMFormat *emf,
 		} else {
 			raw_header.value = g_strdup (camel_medium_get_header (
 				CAMEL_MEDIUM (emf->message), header->name));
-			
+
 			if (raw_header.value && *raw_header.value) {
 				em_format_html_format_header (emf, str,
 					CAMEL_MEDIUM (puri->part), &raw_header,
@@ -176,7 +174,7 @@ efhp_write_headers (EMFormat *emf,
 
         /* Get prefix of this PURI */
         puri_prefix = g_strndup (puri->uri, g_strrstr (puri->uri, ".") - puri->uri);
-	
+
 	/* Add encryption/signature header */
 	raw_header.name = _("Security");
 	tmp = g_string_new ("");
@@ -203,7 +201,7 @@ efhp_write_headers (EMFormat *emf,
 		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_SMIME) &&
 		    (p->validity_type & EM_FORMAT_VALIDITY_FOUND_SIGNED)) {
 
-			if (tmp->len > 0) g_string_append (tmp, ", ");		
+			if (tmp->len > 0) g_string_append (tmp, ", ");
 			g_string_append (tmp, _("S/MIME signed"));
 		}
 		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_SMIME) &&
@@ -221,7 +219,7 @@ efhp_write_headers (EMFormat *emf,
 		em_format_html_format_header (emf, str, CAMEL_MEDIUM (p->part),
 			&raw_header, EM_FORMAT_HEADER_BOLD | EM_FORMAT_HTML_HEADER_NOLINKS, "UTF-8");
 	}
-	g_string_free (tmp, TRUE);	
+	g_string_free (tmp, TRUE);
 
 	/* Count attachments and display the number as a header */
 	attachments_count = 0;
@@ -329,12 +327,12 @@ efhp_write_print_layout (EMFormat *emf,
                                  handler ? handler->mime_type : "(null)");
                         g_free (mime_type);
 
-                        efhp->priv->attachments = 
+                        efhp->priv->attachments =
                                 g_list_append (efhp->priv->attachments, puri);
 
 			/* If we can't inline this attachment, skip it */
 			if (handler && puri->write_func) {
-                                efhp_write_inline_attachment (puri->emf, puri, 
+                                efhp_write_inline_attachment (puri->emf, puri,
                                         stream, &print_info, cancellable);
                         }
 
@@ -344,7 +342,7 @@ efhp_write_print_layout (EMFormat *emf,
 		/* Ignore widget parts and unwritable non-attachment parts */
                 if (puri->write_func == NULL)
                         continue;
-		
+
                 /* Passed all tests, probably a regular part - display it */
                 puri->write_func(puri->emf, puri, stream, &print_info, cancellable);
 
@@ -454,23 +452,13 @@ efhp_set_property (GObject *object,
 		   const GValue *value,
 		   GParamSpec *pspec)
 {
-	EMFormatHTMLPrintPrivate *priv;
-
-	priv = EM_FORMAT_HTML_PRINT (object)->priv;
-
 	switch (prop_id) {
-		
+
 		case PROP_ORIGINAL_FORMATTER:
 			efhp_set_orig_formatter (
 				EM_FORMAT_HTML_PRINT (object),
 				(EMFormat *) g_value_get_object (value));
 			return;
-
-		case PROP_PRINT_ACTION:
-			priv->print_action = 
-				g_value_get_int (value);
-			return;
-		
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -487,15 +475,10 @@ efhp_get_property (GObject *object,
 	priv = EM_FORMAT_HTML_PRINT (object)->priv;
 
 	switch (prop_id) {
-		
+
 		case PROP_ORIGINAL_FORMATTER:
 			g_value_set_pointer (value,
 				priv->original_formatter);
-			return;
-
-		case PROP_PRINT_ACTION:
-			g_value_set_int (value,
-				priv->print_action);
 			return;
 	}
 
@@ -534,19 +517,6 @@ em_format_html_print_class_init (EMFormatHTMLPrintClass *klass)
 			NULL,
 			EM_TYPE_FORMAT,
 			G_PARAM_WRITABLE |
-			G_PARAM_CONSTRUCT_ONLY));
-
-	g_object_class_install_property (
-		object_class,
-		PROP_PRINT_ACTION,
-		g_param_spec_int (
-			"print-action",
-			NULL,
-			NULL,
-			GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG,
-			GTK_PRINT_OPERATION_ACTION_EXPORT,
-			GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG,
-			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT_ONLY));
 }
 
@@ -588,14 +558,12 @@ em_format_html_print_get_type (void)
 }
 
 EMFormatHTMLPrint *
-em_format_html_print_new (EMFormatHTML *source,
-                          GtkPrintOperationAction action)
+em_format_html_print_new (EMFormatHTML *source)
 {
 	EMFormatHTMLPrint *efhp;
 
 	efhp = g_object_new (EM_TYPE_FORMAT_HTML_PRINT,
 		"original-formatter", source,
-		"print-action", action,
 		NULL);
 
 	return efhp;
@@ -618,13 +586,4 @@ em_format_html_print_message (EMFormatHTMLPrint *efhp,
 
 	/* FIXME Not passing a GCancellable here. */
 	em_format_parse ((EMFormat *) efhp, message, folder, NULL);
-}
-
-GtkPrintOperationAction
-em_format_html_print_get_action (EMFormatHTMLPrint *efhp)
-{
-	g_return_val_if_fail (EM_IS_FORMAT_HTML_PRINT (efhp),
-		GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG);
-
-	return efhp->priv->print_action;
 }

@@ -628,7 +628,7 @@ em_utils_print_messages_to_file (CamelFolder *folder,
 	if (message == NULL)
 		return FALSE;
 
-	efhp = em_format_html_print_new (NULL, GTK_PRINT_OPERATION_ACTION_EXPORT);
+	efhp = em_format_html_print_new (NULL);
 	efhp->export_filename = g_strdup (filename);
 	efhp->async = FALSE;
 

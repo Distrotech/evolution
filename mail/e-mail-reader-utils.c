@@ -433,55 +433,6 @@ e_mail_reader_open_selected (EMailReader *reader)
 }
 
 static void
-mail_reader_printing_finished (GtkPrintOperation *operation,
-			       GtkPrintOperationResult result,
-			       EActivity *activity)
-{
-	WebKitWebView *webview;
-
-	webview = g_object_get_data (G_OBJECT (activity), "webview");
-
-	/* Destroy the webview */
-	g_object_unref (webview);
-
-	e_activity_set_state (activity, E_ACTIVITY_COMPLETED);
-}
-
-
-static void
-webview_document_load_finished_cb (WebKitWebView *webview,
-				   GParamSpec *pspec,
-				   EActivity *activity)
-{
-	GtkPrintOperation *operation;
-	GtkPrintOperationAction action;
-	EMFormatHTMLPrint *efhp;
-	WebKitWebFrame *frame;
-
-	WebKitLoadStatus status = webkit_web_view_get_load_status (webview);
-
-	if (status != WEBKIT_LOAD_FINISHED)
-		return;
-
-	frame = webkit_web_view_get_main_frame (webview);
-	efhp = g_object_get_data (G_OBJECT (activity), "efhp");
-	action = em_format_html_print_get_action (efhp);
-
-	operation = gtk_print_operation_new ();
-	gtk_print_operation_set_show_progress (operation, TRUE);
-
-	g_object_set_data (G_OBJECT (operation), "webview", webview);
-	g_signal_connect (operation, "done",
-		G_CALLBACK (mail_reader_printing_finished), activity);
-
-	action = em_format_html_print_get_action (efhp);
-	webkit_web_frame_print_full (frame, 
-		operation, action, NULL);
-
-	g_object_unref (efhp);
-}
-
-static void
 printing_done_cb (EMailPrinter *printer,
 		  GtkPrintOperation *operation,
 		  GtkPrintOperationResult result,
@@ -537,10 +488,10 @@ e_mail_reader_print (EMailReader *reader,
 	e_activity_set_state (activity, E_ACTIVITY_RUNNING);
 	cancellable = e_activity_get_cancellable (activity);
 
-	printer = e_mail_printer_new (formatter, action);
+	printer = e_mail_printer_new (formatter);
 	g_signal_connect (printer, "done",
 		G_CALLBACK (printing_done_cb), activity);
-	e_mail_printer_print (printer, cancellable);
+	e_mail_printer_print (printer, FALSE, cancellable);
 }
 
 static void
