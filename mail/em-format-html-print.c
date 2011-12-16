@@ -248,6 +248,7 @@ efhp_write_headers (EMFormat *emf,
 
 	camel_stream_write_string (stream, str->str, cancellable, NULL);
 	g_string_free (str, TRUE);
+        g_free (puri_prefix);
 }
 
 static void
@@ -370,6 +371,11 @@ efhp_finalize (GObject *object)
 		efhp->priv->top_level_puri = NULL;
 	}
 
+	if (efhp->priv->attachments) {
+                g_list_free (efhp->priv->attachments);
+                efhp->priv->attachments = NULL;
+        }
+
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -402,8 +408,10 @@ efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
 
 	/* Make a shallow copy of the table. This table will NOT destroy
 	 * the PURIs when free'd! */
-	emfp->mail_part_table = 
-		g_hash_table_new (g_str_hash, g_str_equal);
+        if (emfp->mail_part_table)
+                g_hash_table_unref (emfp->mail_part_table);
+
+	emfp->mail_part_table = g_hash_table_new (g_str_hash, g_str_equal);
 	g_hash_table_iter_init (&iter, emfs->mail_part_table);
 	while (g_hash_table_iter_next (&iter, &key, &value))
 		g_hash_table_insert (emfp->mail_part_table, key, value);

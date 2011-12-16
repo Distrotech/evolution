@@ -1,6 +1,7 @@
 #define LIBSOUP_USE_UNSTABLE_REQUEST_API
 
 #include "e-mail-request.h"
+
 #include <libsoup/soup.h>
 #include <glib/gi18n.h>
 #include <camel/camel.h>
@@ -8,6 +9,7 @@
 #include "em-format-html.h"
 
 #define d(x)
+#define dd(x)
 
 G_DEFINE_TYPE (EMailRequest, e_mail_request, SOUP_TYPE_REQUEST)
 
@@ -21,6 +23,9 @@ struct _EMailRequestPrivate {
 	gint content_length;
 
 	GHashTable *uri_query;
+
+        gchar *ret_data;
+        gchar *ret_mime_type;
 };
 
 static void
@@ -38,8 +43,9 @@ start_mail_formatting (GSimpleAsyncResult *res,
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
 
-	if (request->priv->output_stream != NULL)
+	if (request->priv->output_stream != NULL) {
 		g_object_unref (request->priv->output_stream);
+	}
 
 	request->priv->output_stream = camel_stream_mem_new ();
 
@@ -77,11 +83,13 @@ start_mail_formatting (GSimpleAsyncResult *res,
 
 	/* Convert the GString to GInputStream and send it back to WebKit */
 	ba = camel_stream_mem_get_byte_array (CAMEL_STREAM_MEM (request->priv->output_stream));
-
 	if (!ba->data) {
 		gchar *data = g_strdup_printf(_("Failed to load part '%s'"), part_id);
+		dd(printf("%s", data));
 		g_byte_array_append (ba, (guchar*) data, strlen (data));
 		g_free (data);
+	} else {
+		dd(printf("%s", ba->data));
 	}
 
 	stream = g_memory_input_stream_new_from_data ((gchar*) ba->data, ba->len, NULL);
@@ -112,9 +120,7 @@ get_file_content (GSimpleAsyncResult *res,
 		stream = g_memory_input_stream_new_from_data (contents, length, NULL);
 		g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
 
-		/* FIXME - Freeing the data empties the result stream, but without it
-		   the #contents leaks memory */
-		//g_free (contents);
+                request->priv->ret_data = contents;
 	}
 }
 
@@ -122,7 +128,7 @@ static void
 e_mail_request_init (EMailRequest *request)
 {
 	request->priv = G_TYPE_INSTANCE_GET_PRIVATE (
-		request, E_TYPE_MAIL_REQUEST, EMailRequestPrivate);
+	        request, E_TYPE_MAIL_REQUEST, EMailRequestPrivate);
 
 	request->priv->efh = NULL;
 	request->priv->output_stream = NULL;
@@ -152,6 +158,16 @@ mail_request_finalize (GObject *object)
 		request->priv->uri_query = NULL;
 	}
 
+	if (request->priv->ret_mime_type) {
+                g_free (request->priv->ret_mime_type);
+                request->priv->ret_mime_type = NULL;
+        }
+
+        if (request->priv->ret_data) {
+                g_free (request->priv->ret_data);
+                request->priv->ret_data = NULL;
+        }
+
 	G_OBJECT_CLASS (e_mail_request_parent_class)->finalize (object);
 }
 
@@ -168,7 +184,7 @@ static void
 mail_request_send_async (SoupRequest *request,
 			 GCancellable *cancellable,
 			 GAsyncReadyCallback callback,
-			 gpointer	user_data)
+			 gpointer user_data)
 {
 	SoupSession *session;
 	EMailRequest *emr = E_MAIL_REQUEST (request);
@@ -245,19 +261,21 @@ static const gchar*
 mail_request_get_content_type (SoupRequest *request)
 {
 	EMailRequest *emr = E_MAIL_REQUEST (request);
-	const gchar *mime_type;
+	gchar *mime_type;
 
-	if (emr->priv->mime_type)
-		mime_type = emr->priv->mime_type;
-	else if (!emr->priv->puri)
-		mime_type = "text/html";
-	else if (!emr->priv->puri->mime_type) {
+	if (emr->priv->mime_type) {
+		mime_type = g_strdup (emr->priv->mime_type);
+	} else if (!emr->priv->puri) {
+		mime_type = g_strdup ("text/html");
+	} else if (!emr->priv->puri->mime_type) {
 		CamelContentType *ct = camel_mime_part_get_content_type (emr->priv->puri->part);
 		mime_type = camel_content_type_format (ct);
-	} else
-		mime_type = emr->priv->puri->mime_type;
+	} else {
+		mime_type = g_strdup (emr->priv->puri->mime_type);
+	}
 
 	d(printf("Content-Type: %s\n", mime_type));
+        emr->priv->ret_mime_type = mime_type;
 	return mime_type;
 }
 

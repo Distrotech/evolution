@@ -460,6 +460,7 @@ mail_display_webkit_finished (GObject *object,
 				add_resource_to_cache (subresource);	
 		}
 	}
+	g_list_free (subresources);
 }
 
 
@@ -1018,7 +1019,7 @@ e_mail_display_set_headers_collapsable (EMailDisplay *display,
 	display->priv->headers_collapsable = collapsable;
 	e_mail_display_reload (display);
 
-	g_object_notify (G_OBJECT (display), "header-collapsable");
+	g_object_notify (G_OBJECT (display), "headers-collapsable");
 }
 
 gboolean
