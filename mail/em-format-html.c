@@ -78,7 +78,7 @@ struct _EMFormatHTMLPrivate {
 	GdkColor colors[EM_FORMAT_HTML_NUM_COLOR_TYPES];
 	EMailImageLoadingPolicy image_loading_policy;
 
-	guint load_images_now	: 1;
+	guint can_load_images	: 1;
 	guint only_local_photos	: 1;
 	guint show_sender_photo	: 1;
 	guint show_real_date	: 1;
@@ -1308,20 +1308,35 @@ efh_write_attachment (EMFormat *emf,
 }
 
 static void
-efh_base_init (EMFormatHTMLClass *class)
+efh_preparse (EMFormat *emf)
 {
-	efh_builtin_init (class);
+        CamelInternetAddress *addr;
+
+        EMFormatHTML *efh = EM_FORMAT_HTML (emf);
+
+        addr = camel_mime_message_get_from (emf->message);
+        efh->priv->can_load_images = em_utils_in_addressbook (addr, FALSE);
 }
 
 static void
-efh_class_init (EMFormatHTMLClass *class)
+efh_base_init (EMFormatHTMLClass *klass)
+{
+	efh_builtin_init (klass);
+}
+
+static void
+efh_class_init (EMFormatHTMLClass *klass)
 {
 	GObjectClass *object_class;
+        EMFormatClass *emf_class;
 
-	parent_class = g_type_class_peek_parent (class);
-	g_type_class_add_private (class, sizeof (EMFormatHTMLPrivate));
+	parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (EMFormatHTMLPrivate));
 
-	object_class = G_OBJECT_CLASS (class);
+        emf_class = EM_FORMAT_CLASS (klass);
+        emf_class->preparse = efh_preparse;
+
+	object_class = G_OBJECT_CLASS (klass);
 	object_class->set_property = efh_set_property;
 	object_class->get_property = efh_get_property;
 	object_class->finalize = efh_finalize;
@@ -1446,7 +1461,7 @@ efh_class_init (EMFormatHTMLClass *class)
 
 static void
 efh_init (EMFormatHTML *efh,
-	  EMFormatHTMLClass *class)
+	  EMFormatHTMLClass *klass)
 {
 	GdkColor *color;
 

@@ -187,6 +187,8 @@ struct _EMFormatClass {
 							 const gchar *part_id,
 							 CamelMimePart *part,
 							 const EMFormatHandler *handler);
+
+        void            (*preparse)                     (EMFormat *emf);
 };
 
 EMFormat*		em_format_new 			(void);
