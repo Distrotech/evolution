@@ -2602,6 +2602,7 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
 	GtkWidget *message_list;
 	const gchar *message_uid;
 	GError *error = NULL;
+        GCancellable *cancellable;
 
 	reader = closure->reader;
 	message_uid = closure->message_uid;
@@ -2938,6 +2939,25 @@ formatter_weak_ref_cb (struct _formatter_weak_ref_closure *data,
 }
 
 static void
+format_parser_async_done_cb (GObject *source,
+                             GAsyncResult *result,
+                             gpointer user_data)
+{
+        EMFormat *emf = EM_FORMAT (source);
+        EMailReader *reader = user_data;
+        EMailDisplay *display;
+
+        display = e_mail_reader_get_mail_display (reader);
+
+        e_mail_display_set_formatter (display, EM_FORMAT_HTML (emf));
+        e_mail_display_load (display, emf->uri_base);
+
+        /* Remove the reference added when formatter was created,
+         * so that only owners are EMailDisplays */
+        g_object_unref (emf);
+}
+
+static void
 mail_reader_message_loaded (EMailReader *reader,
                             const gchar *message_uid,
                             CamelMimeMessage *message)
@@ -2958,7 +2978,6 @@ mail_reader_message_loaded (EMailReader *reader,
 	gchar *mail_uri;
 	SoupSession *session;
 	GHashTable *formatters;
-	GCancellable *cancellable;
 
 	priv = E_MAIL_READER_GET_PRIVATE (reader);
 
@@ -3011,24 +3030,18 @@ mail_reader_message_loaded (EMailReader *reader,
 		 		    formatter_data);
 
 		EM_FORMAT (formatter)->message_uid = g_strdup (message_uid);
+		EM_FORMAT (formatter)->uri_base = g_strdup (mail_uri);
 
-		/* Parse the message.
-		 * FIXME WEBKIT: This should probably be asynchronous since it
-		 * can block for some time...*/
-		em_format_parse (EM_FORMAT (formatter), message, folder, NULL);
+		/* FIXME WEBKIT Not passing GCancellable */
+		em_format_parse_async (EM_FORMAT (formatter), message, folder,
+			NULL, format_parser_async_done_cb, reader);
+
 		g_hash_table_insert (formatters, mail_uri, formatter);
 	} else {
 		/* Add reference that would be otherwise added when
 		 * the formatter is created. */
 		 g_object_ref (formatter);
 	}
-
-	e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
-	e_mail_display_load (display, mail_uri);
-
-	/* Remove the reference added when formatter was created,
-	 * so that only owners are EMailDisplays */
-	g_object_unref (formatter);
 
 	/* Reset the shell view icon. */
 	e_shell_event (shell, "mail-icon", (gpointer) "evolution-mail");

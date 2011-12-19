@@ -1305,6 +1305,11 @@ em_format_finalize (GObject *object)
 		emf->message_uid = NULL;
 	}
 
+	if (emf->uri_base) {
+                g_free (emf->uri_base);
+                emf->uri_base = NULL;
+        }
+
 	if (emf->message) {
 		g_object_unref (emf->message);
 		emf->message = NULL;
@@ -1868,16 +1873,62 @@ em_format_parse (EMFormat *emf,
 
 	/* Create a special PURI with entire message */
 	puri = em_format_puri_new (emf, sizeof (EMFormatPURI),
-		(CamelMimePart *) message, part_id->str);
+		(CamelMimePart *) emf->message, part_id->str);
 	puri->mime_type = g_strdup ("text/html");
 	em_format_add_puri (emf, puri);
 
         info.force_handler = TRUE;
-	em_format_parse_part_as (emf, CAMEL_MIME_PART (message), part_id, &info,
+	em_format_parse_part_as (emf, CAMEL_MIME_PART (emf->message), part_id, &info,
 			"x-evolution/message", cancellable);
 
 	g_string_free (part_id, TRUE);
 }
+
+static void
+emf_start_async_parser (GSimpleAsyncResult *result,
+                        GObject *object,
+                        GCancellable *cancellable)
+{
+        em_format_parse (EM_FORMAT (object), NULL, NULL, cancellable);
+}
+
+void
+em_format_parse_async (EMFormat *emf,
+                       CamelMimeMessage *message,
+                       CamelFolder *folder,
+                       GCancellable *cancellable,
+                       GAsyncReadyCallback callback,
+                       gpointer user_data)
+{
+        GSimpleAsyncResult *result;
+
+        g_return_if_fail (EM_IS_FORMAT (emf));
+
+        if (g_cancellable_is_cancelled (cancellable))
+          return;
+
+        if (message) {
+          g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
+
+          if (emf->message)
+            g_object_unref (emf->message);
+          emf->message = g_object_ref (message);
+        }
+
+        if (folder) {
+          g_return_if_fail (CAMEL_IS_FOLDER  (folder));
+
+          if (emf->folder)
+            g_object_unref (emf->folder);
+          emf->folder = g_object_ref (folder);
+        }
+
+        result = g_simple_async_result_new (G_OBJECT (emf), callback, 
+                user_data, em_format_parse_async);
+        g_simple_async_result_run_in_thread (result, emf_start_async_parser,
+                G_PRIORITY_DEFAULT, cancellable);
+}
+
 
 void
 em_format_parse_part_as (EMFormat *emf,

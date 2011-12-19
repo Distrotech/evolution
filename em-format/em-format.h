@@ -167,6 +167,7 @@ struct _EMFormat {
 	CamelMimeMessage *message;
 	CamelFolder *folder;
 	gchar *message_uid;
+        gchar *uri_base;
 
 	/* Defines order in which parts should be displayed */
 	GList *mail_part_list;
@@ -243,6 +244,14 @@ void			em_format_parse			(EMFormat *emf,
 							 CamelMimeMessage *message,
 							 CamelFolder *folder,
 							 GCancellable *cancellable);
+
+void                    em_format_parse_async           (EMFormat *emf,
+                                                         CamelMimeMessage *message,
+                                                         CamelFolder *folder,
+                                                         GCancellable *cancellable,
+                                                         GAsyncReadyCallback callback,
+                                                         gpointer user_data);
+
 void 			em_format_parse_part		(EMFormat *emf,
 							 CamelMimePart *part,
 							 GString *part_id,
