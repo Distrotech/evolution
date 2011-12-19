@@ -1530,21 +1530,6 @@ em_format_html_get_type (void)
 }
 
 /*****************************************************************************/
-
-/* FIXME: This goes to EMailDisplay! */
-void
-em_format_html_load_images (EMFormatHTML *efh)
-{
-	g_return_if_fail (EM_IS_FORMAT_HTML (efh));
-
-	if (efh->priv->image_loading_policy == E_MAIL_IMAGE_LOADING_POLICY_ALWAYS)
-		return;
-
-	/* This will remain set while we're still
-	 * rendering the same message, then it wont be. */
-	efh->priv->load_images_now = TRUE;
-}
-
 void
 em_format_html_get_color (EMFormatHTML *efh,
                           EMFormatHTMLColorType type,
@@ -2514,16 +2499,12 @@ efh_format_full_headers (EMFormatHTML *efh,
 	g_string_append (buffer, "</tr></table>");
 }
 
-	for (link = head; link != NULL; link = g_list_next (link)) {
-		CamelCipherCertInfo *cinfo = link->data;
-			g_queue_push_tail (&valid, cinfo);
-	}
-			g_string_append (output_buffer, cinfo->name);
+gboolean
+em_format_html_can_load_images (EMFormatHTML *efh)
+{
+        g_return_val_if_fail (EM_IS_FORMAT_HTML (efh), FALSE);
 
-			if (cinfo->email != NULL && *cinfo->email != '\0') {
-				g_string_append (output_buffer, " &lt;");
-				g_string_append (output_buffer, cinfo->email);
-				g_string_append (output_buffer, "&gt;");
-			g_string_append (output_buffer, cinfo->email);
-		}
-	}
+        return ((efh->priv->image_loading_policy == E_MAIL_IMAGE_LOADING_POLICY_ALWAYS) ||
+                ((efh->priv->image_loading_policy == E_MAIL_IMAGE_LOADING_POLICY_SOMETIMES) &&
+                  efh->priv->can_load_images));
+}

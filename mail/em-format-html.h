@@ -136,7 +136,6 @@ struct _EMFormatHTMLClass {
 };
 
 GType		em_format_html_get_type		(void);
-void		em_format_html_load_images	(EMFormatHTML *efh);
 void		em_format_html_get_color	(EMFormatHTML *efh,
 						 EMFormatHTMLColorType type,
 						 GdkColor *color);
@@ -207,6 +206,7 @@ void		em_format_html_format_header	(EMFormat *emf,
 						 guint32 flags,	
 						 const gchar *charset);
 
+gboolean        em_format_html_can_load_images  (EMFormatHTML *efh);
 
 G_END_DECLS
 

@@ -671,12 +671,10 @@ action_mail_load_images_cb (GtkAction *action,
                             EMailReader *reader)
 {
 	EMailDisplay *display;
-	EMFormatHTML *formatter;
 
 	display = e_mail_reader_get_mail_display (reader);
-	formatter = e_mail_display_get_formatter (display);
 
-	em_format_html_load_images (formatter);
+        e_mail_display_load_images (display);
 }
 
 static void

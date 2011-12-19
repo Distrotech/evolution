@@ -106,6 +106,8 @@ void			e_mail_display_zoom_100		(EMailDisplay *display);
 void			e_mail_display_zoom_in		(EMailDisplay *display);
 void			e_mail_display_zoom_out		(EMailDisplay *display);
 
+void                    e_mail_display_load_images      (EMailDisplay *display);
+
 G_END_DECLS
 
 #endif /* E_MAIL_DISPLAY_H */

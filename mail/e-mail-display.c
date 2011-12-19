@@ -134,6 +134,16 @@ static GtkActionEntry mailto_entries[] = {
 };
 
 static void
+formatter_image_loading_policy_changed_cb (GObject *object,
+                                           GParamSpec *pspec,
+                                           gpointer user_data)
+{
+        EMailDisplay *display = user_data;
+
+        e_mail_display_load_images (display);
+}
+
+static void
 mail_display_update_formatter_colors (EMailDisplay *display)
 {
 	EMFormatHTMLColorType type;
@@ -543,9 +553,12 @@ static EWebView*
 mail_display_setup_webview (EMailDisplay *display)
 {
 	EWebView *web_view;
+        WebKitWebSettings *settings;
 	GtkUIManager *ui_manager;
 	GtkActionGroup *action_group;
 	GError *error = NULL;
+        guint merge_id;
+        EMailImageLoadingPolicy policy;
 
 	web_view = E_WEB_VIEW (e_web_view_new ());
 
@@ -559,6 +572,12 @@ mail_display_setup_webview (EMailDisplay *display)
 		G_CALLBACK (mail_display_process_mailto), display);
 	g_signal_connect (web_view, "notify::load-status",
 		G_CALLBACK (mail_display_webkit_finished), NULL);
+
+        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+        if (em_format_html_can_load_images (display->priv->formatter))
+                g_object_set (G_OBJECT (settings), "auto-load-images", TRUE, NULL);
+        else
+                g_object_set (G_OBJECT (settings), "auto-load-images", FALSE, NULL);
 
 	/* EWebView's action groups are added during its instance
 	 * initialization function (like what we're in now), so it
@@ -969,6 +988,9 @@ e_mail_display_set_formatter (EMailDisplay *display,
 
 	mail_display_update_formatter_colors (display);
 
+        g_signal_connect (formatter, "notify::image-loading-policy",
+                G_CALLBACK (formatter_image_loading_policy_changed_cb), display);
+
 	g_object_notify (G_OBJECT (display), "formatter");
 }
 
@@ -1257,4 +1279,36 @@ e_mail_display_zoom_out (EMailDisplay *display)
 
 	gtk_container_foreach (GTK_CONTAINER (display),
 			(GtkCallback) webview_action, e_web_view_zoom_out);
+}
+
+static void
+load_images (GtkWidget *widget,
+             gpointer user_data)
+{
+        if (GTK_IS_SCROLLED_WINDOW (widget)) {
+
+                WebKitWebSettings *settings;
+                WebKitWebView *web_view;
+
+                if (!E_IS_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget))))
+                  return;
+
+                web_view = WEBKIT_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget)));
+                settings = webkit_web_view_get_settings (web_view);
+                g_object_set (G_OBJECT (settings), "auto-load-images", TRUE, NULL);
+
+        } else if (E_IS_MAIL_DISPLAY (widget)) {
+
+                e_mail_display_load_images (E_MAIL_DISPLAY (widget));
+
+        }
+}
+
+void
+e_mail_display_load_images (EMailDisplay * display)
+{
+        g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+
+        gtk_container_foreach (GTK_CONTAINER (display->priv->box),
+                        (GtkCallback) load_images, NULL);
 }
