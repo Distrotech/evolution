@@ -492,7 +492,7 @@ efhd_parse_attachment (EMFormat *emf,
 
         /* Though it is an attachment, we still might be able to parse it and
          * so discover some parts that we might be event able to display. */
-        if (handler && handler->parse_func && 
+        if (handler && handler->parse_func && (handler->parse_func != efhd_parse_attachment) &&
             ((handler->flags & EM_FORMAT_HANDLER_COMPOUND_TYPE) ||
              (handler->flags & EM_FORMAT_HANDLER_INLINE_DISPOSITION))) {
                 EMFormatParserInfo attachment_info = { .handler = handler,

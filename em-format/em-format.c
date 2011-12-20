@@ -226,8 +226,6 @@ emf_parse_application_xpkcs7mime (EMFormat *emf,
 			local_error->message ? local_error->message :
 			_("Could not parse S/MIME message: Unknown error"));
 		g_clear_error (&local_error);
-
-		em_format_parse_part_as (emf, part, part_id, info, NULL, cancellable);
 	} else {
 		EMFormatParserInfo encinfo = {
 				info->handler,
@@ -1946,10 +1944,10 @@ em_format_parse_part_as (EMFormat *emf,
 	const EMFormatHandler *handler;
         const CamelContentDisposition *disposition;
 	EMFormatParserInfo ninfo = {
-		0,
-		info ? info->validity_type : 0,
-		info ? info->validity : 0,
-                0,
+		.handler = 0,
+		.validity_type = info ? info->validity_type : 0,
+		.validity = info ? info->validity : 0,
+                .force_handler = 0
 	};
 
         /* Let everything that claims to be an attachment or inlined part to be parsed 
