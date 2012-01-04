@@ -189,6 +189,9 @@ struct _EMFormatClass {
 							 const EMFormatHandler *handler);
 
         void            (*preparse)                     (EMFormat *emf);
+
+	/* signals */
+	void		(*redraw_requested)		(EMFormat *emf);
 };
 
 EMFormat*		em_format_new 			(void);
@@ -214,6 +217,8 @@ void			em_format_set_base_url_string	(EMFormat *emf,
 CamelURL*		em_format_get_base_url		(EMFormat *emf);
 
 void			em_format_clear_headers		(EMFormat *emf);
+
+void			em_format_default_headers	(EMFormat *emf);
 
 void			em_format_add_header		(EMFormat *emf,
 							 const gchar *name,
@@ -305,6 +310,8 @@ void			em_format_empty_writer 		(EMFormat *emf,
 							 CamelStream *stream,
 							 EMFormatWriterInfo *info,
 							 GCancellable *cancellable);
+
+void			em_format_redraw		(EMFormat *emf);
 
 
 EMFormatPURI*		em_format_puri_new 		(EMFormat *emf,

@@ -1069,13 +1069,18 @@ void
 e_mail_display_set_formatter (EMailDisplay *display,
                               EMFormatHTML *formatter)
 {
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+        g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 	g_return_if_fail (EM_IS_FORMAT_HTML (formatter));
 
 	g_object_ref (formatter);
 	
-	if (display->priv->formatter != NULL)
+	if (display->priv->formatter != NULL) {
+		/* The formatter might still exist after unrefing it, so 
+		 * we need to stop listening to it's request for redrawing */
+		g_signal_handlers_disconnect_by_func (
+			display->priv->formatter, e_mail_display_reload, display);
 		g_object_unref (display->priv->formatter);
+	}
 
 	display->priv->formatter = formatter;
 
@@ -1083,6 +1088,8 @@ e_mail_display_set_formatter (EMailDisplay *display,
 
         g_signal_connect (formatter, "notify::image-loading-policy",
                 G_CALLBACK (formatter_image_loading_policy_changed_cb), display);
+	g_signal_connect_swapped (formatter, "redraw-requested",
+		G_CALLBACK (e_mail_display_reload), display);
 
 	g_object_notify (G_OBJECT (display), "formatter");
 }

@@ -63,6 +63,13 @@ enum {
 	PROP_BASE_URL
 };
 
+enum {
+	REDRAW_REQUESTED,
+	LAST_SIGNAL
+};
+
+gint signals[LAST_SIGNAL];
+
 static gpointer parent_class;
 
 /* PARSERS */
@@ -1413,6 +1420,15 @@ em_format_class_init (EMFormatClass *klass)
 					NULL,
 					NULL,
 					G_PARAM_READWRITE));
+
+	signals[REDRAW_REQUESTED] = g_signal_new (
+		"redraw-requested",
+		G_TYPE_FROM_CLASS (klass),
+		G_SIGNAL_RUN_LAST,
+		G_STRUCT_OFFSET (EMFormatClass, redraw_requested),
+		NULL, NULL,
+		g_cclosure_marshal_VOID__VOID,
+		G_TYPE_NONE,0);
 }
 
 static void
@@ -1429,7 +1445,6 @@ em_format_init (EMFormat *emf)
 {
 	EShell *shell;
 	EShellSettings *shell_settings;
-	gint ii;
 
 	emf->priv = G_TYPE_INSTANCE_GET_PRIVATE (emf,
 			EM_TYPE_FORMAT, EMFormatPrivate);
@@ -1451,12 +1466,7 @@ em_format_init (EMFormat *emf)
 
 	g_object_ref (emf->priv->session);
 
-	/* Set the default headers */
-	em_format_clear_headers (emf);
-	for (ii = 0; ii < G_N_ELEMENTS (default_headers); ii++)
-		em_format_add_header (
-			emf, default_headers[ii].name, NULL,
-			default_headers[ii].flags);
+	em_format_default_headers (emf);
 }
 
 EMFormat*
@@ -1615,6 +1625,21 @@ em_format_clear_headers (EMFormat *emf)
 		em_format_header_free (eh);
 	}
 
+}
+
+void
+em_format_default_headers (EMFormat *emf)
+{
+	gint ii;
+
+	g_return_if_fail (EM_IS_FORMAT (emf));
+
+	/* Set the default headers */
+	em_format_clear_headers (emf);
+	for (ii = 0; ii < G_N_ELEMENTS (default_headers); ii++)
+		em_format_add_header (
+			emf, default_headers[ii].name, NULL,
+			default_headers[ii].flags);
 }
 
 /**
@@ -2453,6 +2478,16 @@ em_format_build_mail_uri (CamelFolder *folder,
 
 	return uri;
 }
+
+void
+em_format_redraw (EMFormat *emf)
+{
+	g_return_if_fail (EM_IS_FORMAT (emf));
+
+	g_signal_emit (emf, signals[REDRAW_REQUESTED], 0);
+}
+
+
 
 
 /**************************************************************************/
