@@ -1314,6 +1314,11 @@ efh_preparse (EMFormat *emf)
 
         EMFormatHTML *efh = EM_FORMAT_HTML (emf);
 
+	if (!emf->message) {
+		efh->priv->can_load_images = FALSE;
+		return;
+	}
+
         addr = camel_mime_message_get_from (emf->message);
         efh->priv->can_load_images = em_utils_in_addressbook (addr, FALSE);
 }
