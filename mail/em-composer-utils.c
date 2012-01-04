@@ -951,7 +951,7 @@ em_utils_composer_print_cb (EMsgComposer *composer,
         EMailPrinter *emp;
         EMFormatHTMLDisplay *efhd;
 
-        efhd = g_object_new (EM_TYPE_FORMAT_HTML_DISPLAY, NULL);
+	efhd = em_format_html_display_new ();
         ((EMFormat *) efhd)->message_uid = g_strdup (camel_mime_message_get_message_id (message));
 
         /* Parse the message */

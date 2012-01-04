@@ -69,6 +69,14 @@ void		e_mail_printer_print	(EMailPrinter *printer,
 					 gboolean export,
 					 GCancellable *cancellable);
 
+void            e_mail_printer_set_export_filename 
+                                        (EMailPrinter *printer,
+                                         const gchar *filename);
+
+const gchar*    e_mail_printer_get_export_filename
+                                        (EMailPrinter *printer);
+
+
 EMFormatHTMLPrint *
 		e_mail_printer_get_print_formatter
 					(EMailPrinter *printer);

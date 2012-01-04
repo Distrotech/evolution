@@ -778,6 +778,32 @@ e_mail_printer_print (EMailPrinter *emp,
 	emp_run_print_operation (emp, export);
 }
 
+const gchar*
+e_mail_printer_get_export_filename (EMailPrinter * printer)
+{
+        g_return_val_if_fail (E_IS_MAIL_PRINTER (printer), NULL);
+
+        if (!printer->priv->efhp)
+          return NULL;
+
+        return printer->priv->efhp->export_filename;
+}
+
+void
+e_mail_printer_set_export_filename (EMailPrinter * printer,
+                                    const gchar * filename)
+{
+        g_return_if_fail (E_IS_MAIL_PRINTER (printer));
+        g_return_if_fail (printer->priv->efhp != NULL);
+
+        if (printer->priv->efhp->export_filename && *printer->priv->efhp->export_filename)
+          g_free (printer->priv->efhp->export_filename);
+
+        printer->priv->efhp->export_filename = g_strdup (filename);
+}
+
+
+
 EMFormatHTMLPrint*
 e_mail_printer_get_print_formatter (EMailPrinter *emp)
 {
