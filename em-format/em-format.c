@@ -1893,43 +1893,49 @@ emf_start_async_parser (GSimpleAsyncResult *result,
                         GCancellable *cancellable)
 {
         em_format_parse (EM_FORMAT (object), NULL, NULL, cancellable);
+
+	g_simple_async_result_complete_in_idle (result);
 }
 
 void
 em_format_parse_async (EMFormat *emf,
-                       CamelMimeMessage *message,
-                       CamelFolder *folder,
-                       GCancellable *cancellable,
-                       GAsyncReadyCallback callback,
-                       gpointer user_data)
+		       CamelMimeMessage *message,
+		       CamelFolder *folder,
+		       GCancellable *cancellable,
+		       GAsyncReadyCallback callback,
+		       gpointer user_data)
 {
-        GSimpleAsyncResult *result;
+	GSimpleAsyncResult *result;
 
-        g_return_if_fail (EM_IS_FORMAT (emf));
+	g_return_if_fail (EM_IS_FORMAT (emf));
 
-        if (g_cancellable_is_cancelled (cancellable))
-          return;
+	if (g_cancellable_is_cancelled (cancellable))
+		return;
 
-        if (message) {
-          g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
+	if (message) {
+		g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
 
-          if (emf->message)
-            g_object_unref (emf->message);
-          emf->message = g_object_ref (message);
-        }
+		if (emf->message)
+			g_object_unref (emf->message);
 
-        if (folder) {
-          g_return_if_fail (CAMEL_IS_FOLDER  (folder));
+		emf->message = g_object_ref (message);
 
-          if (emf->folder)
-            g_object_unref (emf->folder);
-          emf->folder = g_object_ref (folder);
-        }
+	}
 
-        result = g_simple_async_result_new (G_OBJECT (emf), callback, 
-                user_data, em_format_parse_async);
-        g_simple_async_result_run_in_thread (result, emf_start_async_parser,
-                G_PRIORITY_DEFAULT, cancellable);
+	if (folder) {
+		g_return_if_fail (CAMEL_IS_FOLDER (folder));
+
+		if (emf->folder)
+			g_object_unref (emf->folder);
+
+		emf->folder = g_object_ref (folder);
+
+	}
+
+	result = g_simple_async_result_new (G_OBJECT (emf), callback,
+					    user_data, em_format_parse_async);
+	g_simple_async_result_run_in_thread (result, emf_start_async_parser,
+					     G_PRIORITY_DEFAULT, cancellable);
 }
 
 
