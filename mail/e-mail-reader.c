@@ -3036,9 +3036,12 @@ mail_reader_message_loaded (EMailReader *reader,
 
 		g_hash_table_insert (formatters, mail_uri, formatter);
 	} else {
-		/* Add reference that would be otherwise added when
-		 * the formatter is created. */
-		 g_object_ref (formatter);
+		EMailDisplay *display;
+
+		display = e_mail_reader_get_mail_display (reader);
+
+		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
+		e_mail_display_load (display, EM_FORMAT (formatter)->uri_base);
 	}
 
 	/* Reset the shell view icon. */
