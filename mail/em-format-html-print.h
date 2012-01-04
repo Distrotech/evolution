@@ -51,8 +51,6 @@ struct _EMFormatHTMLPrint {
 	EMFormatHTML parent;
 	EMFormatHTMLPrintPrivate *priv;
 	gchar *export_filename;
-
-	gboolean async;
 };
 
 struct _EMFormatHTMLPrintClass {

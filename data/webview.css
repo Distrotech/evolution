@@ -59,11 +59,16 @@ img.navigable {
   margin-bottom: 20px;
 }
 
-.printing-header h1 {
+.printing-header h1,
+.attachments-list h1 {
   font-size: 20px;
 }
 
 .printing-header th {
   text-align: right;
+  font-weight: bold;
+}
+
+.attachments-list th {
   font-weight: bold;
 }
