@@ -922,9 +922,7 @@ action_mail_smart_backward_cb (GtkAction *action,
 	toggle_action = GTK_TOGGLE_ACTION (ACTION (MAIL_CARET_MODE));
 	caret_mode = gtk_toggle_action_get_active (toggle_action);
 
-	/* FIXME WEBKIT FUCKING IMPLEMENT
-	gtk_scrolled_window_scroll (display, GTK_MOVEMENT_PAGES, -1);
-	*/
+        e_mail_display_scroll (display, GDK_SCROLL_UP);
 
 	if (caret_mode || !magic_spacebar)
 		return;
@@ -960,7 +958,6 @@ action_mail_smart_forward_cb (GtkAction *action,
 	EMailShellContent *mail_shell_content;
 	EMailShellSidebar *mail_shell_sidebar;
 	EMFolderTree *folder_tree;
-	EMFormatHTML *formatter;
 	EMailReader *reader;
 	EMailView *mail_view;
 	GtkWidget *message_list;
@@ -992,9 +989,7 @@ action_mail_smart_forward_cb (GtkAction *action,
 	toggle_action = GTK_TOGGLE_ACTION (ACTION (MAIL_CARET_MODE));
 	caret_mode = gtk_toggle_action_get_active (toggle_action);
 
-	/* FIXME WEBKIT: Fucking implement
-	gtk_scolled_window_scroll (display, GTK_MOVEMENT_PAGES, 1);
-	*/
+        e_mail_display_scroll (display, GDK_SCROLL_DOWN);
 
 
 	if (caret_mode || !magic_spacebar)

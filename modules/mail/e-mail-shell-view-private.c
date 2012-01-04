@@ -344,7 +344,6 @@ mail_shell_view_popup_event_cb (EMailShellView *mail_shell_view,
 	mail_shell_content = mail_shell_view->priv->mail_shell_content;
 	mail_view = e_mail_shell_content_get_mail_view (mail_shell_content);
 
-	/* FIXME WEBKIT: Probably does not do what we want it to */
 	reader = E_MAIL_READER (mail_view);
 	display = e_mail_reader_get_mail_display (reader);
 	web_view = e_mail_display_get_current_web_view (display);
@@ -462,7 +461,6 @@ mail_shell_view_reader_changed_cb (EMailShellView *mail_shell_view,
 		G_CALLBACK (mail_shell_view_message_list_right_click_cb),
 		mail_shell_view, G_CONNECT_SWAPPED);
 
-	/* FIXME WEBKIT EMailDisplay does not have these signals (yet)
 	g_signal_connect_object (
 		display, "key-press-event",
 		G_CALLBACK (mail_shell_view_key_press_event_cb),
@@ -473,17 +471,19 @@ mail_shell_view_reader_changed_cb (EMailShellView *mail_shell_view,
 		G_CALLBACK (mail_shell_view_popup_event_cb),
 		mail_shell_view, G_CONNECT_SWAPPED);
 
+        /* FIXME WEBKIT: Not sure if this event has ever worked
+         *      (GtkHTML does not seem to emit the signal at all)
 	g_signal_connect_object (
-		display, "scroll",
+                display, "scroll",
 		G_CALLBACK (mail_shell_view_scroll_cb),
 		mail_shell_view,
-		G_CONNECT_AFTER | G_CONNECT_SWAPPED);
+                G_CONNECT_AFTER | G_CONNECT_SWAPPED);
+        */
 
 	g_signal_connect_object (
 		display, "status-message",
 		G_CALLBACK (e_shell_taskbar_set_message),
 		shell_taskbar, G_CONNECT_SWAPPED);
-	*/
 }
 
 static void
@@ -781,7 +781,6 @@ e_mail_shell_view_private_constructed (EMailShellView *mail_shell_view)
 		G_CALLBACK (e_mail_shell_view_update_search_filter),
 		mail_shell_view, G_CONNECT_SWAPPED);
 
-	/* FIXME WEBKIT: EMailDisplay does no have these signals (for now)
 	g_signal_connect_object (
 		display, "key-press-event",
 		G_CALLBACK (mail_shell_view_key_press_event_cb),
@@ -792,17 +791,20 @@ e_mail_shell_view_private_constructed (EMailShellView *mail_shell_view)
 		G_CALLBACK (mail_shell_view_popup_event_cb),
 		mail_shell_view, G_CONNECT_SWAPPED);
 
+        /* FIXME WEBKIT: Not sure if this event has ever worked
+         *      (GtkHTML does not seem to emit the signal at all)
 	g_signal_connect_object (
 		display, "scroll",
 		G_CALLBACK (mail_shell_view_scroll_cb),
 		mail_shell_view,
 		G_CONNECT_AFTER | G_CONNECT_SWAPPED);
+	*/
 
 	g_signal_connect_object (
 		display, "status-message",
 		G_CALLBACK (e_shell_taskbar_set_message),
 		shell_taskbar, G_CONNECT_SWAPPED);
-	*/
+
 	g_signal_connect_object (
 		mail_shell_view, "toggled",
 		G_CALLBACK (e_mail_shell_view_update_send_receive_menus),

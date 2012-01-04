@@ -28,7 +28,9 @@
 #include "e-mail-display.h"
 
 #include <glib/gi18n.h>
+#include <gdk/gdk.h>
 
+#include "e-util/e-marshal.h"
 #include "e-util/e-util.h"
 #include "e-util/e-plugin-ui.h"
 #include "mail/em-composer-utils.h"
@@ -60,6 +62,8 @@ struct _EMailDisplayPrivate {
 	gboolean headers_collapsed;
 
 	GList *webviews;
+
+        GtkWidget *current_webview;
 };
 
 enum {
@@ -67,8 +71,16 @@ enum {
 	PROP_FORMATTER,
 	PROP_MODE,
 	PROP_HEADERS_COLLAPSABLE,
-	PROP_HEADERS_COLLAPSED
+	PROP_HEADERS_COLLAPSED,
 };
+
+enum {
+	POPUP_EVENT,
+	STATUS_MESSAGE,
+        LAST_SIGNAL
+};
+
+static gint signals[LAST_SIGNAL];
 
 static gpointer parent_class;
 
@@ -132,6 +144,23 @@ static GtkActionEntry mailto_entries[] = {
 	  NULL,
 	  NULL }
 };
+
+static gboolean
+mail_display_webview_enter_notify_event (GtkWidget *widget,
+                                         GdkEvent *event,
+                                         gpointer user_data)
+{
+      EMailDisplay *display = user_data;
+
+      /* This handler should always be connected to EWebView
+       * signals only! */
+      g_return_val_if_fail (E_IS_WEB_VIEW (widget), FALSE);
+
+      if (event->crossing.mode == GDK_CROSSING_NORMAL)
+              display->priv->current_webview = widget;
+
+      return FALSE;
+}
 
 static void
 formatter_image_loading_policy_changed_cb (GObject *object,
@@ -298,6 +327,30 @@ mail_display_style_set (GtkWidget *widget,
 	mail_display_update_formatter_colors (display);
 
 	e_mail_display_reload (display);
+}
+
+static void
+mail_display_emit_status_message (EWebView *web_view,
+				  const gchar *message,
+				  gpointer user_data)
+{
+	EMailDisplay *display = user_data;
+
+	g_signal_emit (display, signals[STATUS_MESSAGE], 0, message);
+}
+
+static gboolean
+mail_display_emit_popup_event (EWebView *web_view,
+			       GdkEventButton *event,
+			       const gchar *uri,
+			       gpointer user_data)
+{
+	EMailDisplay *display = user_data;
+	gboolean event_handled;
+
+	g_signal_emit (display, signals[POPUP_EVENT], 0, event, uri, &event_handled);
+
+	return event_handled;
 }
 
 static gboolean
@@ -573,6 +626,13 @@ mail_display_setup_webview (EMailDisplay *display,
 		G_CALLBACK (mail_display_process_mailto), display);
 	g_signal_connect (web_view, "notify::load-status",
 		G_CALLBACK (mail_display_webkit_finished), NULL);
+	g_signal_connect (web_view, "status-message",
+		G_CALLBACK (mail_display_emit_status_message), display);
+	g_signal_connect (web_view, "popup-event",
+		G_CALLBACK (mail_display_emit_popup_event), display);
+        g_signal_connect (web_view, "enter-notify-event",
+                G_CALLBACK (mail_display_webview_enter_notify_event), display);
+
 
         settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
         /* When webviews holds headers or attached image then the can_load_images option
@@ -591,7 +651,7 @@ mail_display_setup_webview (EMailDisplay *display,
 	 * EMailReader handles them.  How devious is that? */
 	gtk_action_group_add_actions (
 		action_group, mailto_entries,
-		G_N_ELEMENTS (mailto_entries), display);
+		G_N_ELEMENTS (mailto_entries), web_view);
 
 	/* Because we are loading from a hard-coded string, there is
 	 * no chance of I/O errors.  Failure here implies a malformed
@@ -626,6 +686,7 @@ mail_display_insert_web_view (EMailDisplay *display,
 {
 	GtkWidget *scrolled_window;
 	GtkAdjustment *web_view_vadjustment;
+        GdkWindow *window;
 
 	display->priv->webviews = g_list_append (display->priv->webviews, web_view);
 	scrolled_window = gtk_scrolled_window_new (NULL, NULL);
@@ -648,6 +709,13 @@ mail_display_insert_web_view (EMailDisplay *display,
 
         gtk_box_pack_start (GTK_BOX (display->priv->box), scrolled_window, FALSE, TRUE, 0);
 	gtk_widget_show_all (scrolled_window);
+
+        /* Enable enter-notify event */
+        window = gtk_widget_get_window (GTK_WIDGET (web_view));
+        if (!(gdk_window_get_events (window) & GDK_ENTER_NOTIFY_MASK)) {
+              gdk_window_set_events (window,
+                      gdk_window_get_events (window) | GDK_ENTER_NOTIFY_MASK);
+        }
 
         return scrolled_window;
 }
@@ -906,6 +974,27 @@ mail_display_class_init (EMailDisplayClass *class)
 			NULL,
 			FALSE,
 			G_PARAM_READWRITE));
+
+	signals[POPUP_EVENT] = g_signal_new (
+		"popup-event",
+		G_TYPE_FROM_CLASS (class),
+		G_SIGNAL_RUN_LAST,
+		G_STRUCT_OFFSET (EMailDisplayClass, popup_event),
+		g_signal_accumulator_true_handled, NULL,
+		e_marshal_BOOLEAN__BOXED_STRING,
+		G_TYPE_BOOLEAN, 2,
+		GDK_TYPE_EVENT | G_SIGNAL_TYPE_STATIC_SCOPE,
+		G_TYPE_STRING);
+
+	signals[STATUS_MESSAGE] = g_signal_new (
+		"status-message",
+		G_TYPE_FROM_CLASS (class),
+		G_SIGNAL_RUN_LAST,
+		G_STRUCT_OFFSET (EMailDisplayClass, status_message),
+		NULL, NULL,
+		g_cclosure_marshal_VOID__STRING,
+		G_TYPE_NONE, 1,
+		G_TYPE_STRING);
 }
 
 static void
@@ -1141,16 +1230,9 @@ e_mail_display_reload (EMailDisplay *display)
 EWebView*
 e_mail_display_get_current_web_view (EMailDisplay *display)
 {
-	GtkWidget *widget;
-
 	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
 
-	widget = gtk_container_get_focus_child (GTK_CONTAINER (display));
-
-	if (E_IS_WEB_VIEW (widget))
-		return E_WEB_VIEW (widget);
-	else
-		return NULL;
+        return E_WEB_VIEW (display->priv->current_webview);
 }
 
 void
@@ -1315,4 +1397,27 @@ e_mail_display_load_images (EMailDisplay * display)
 
         gtk_container_foreach (GTK_CONTAINER (display->priv->box),
                         (GtkCallback) load_images, NULL);
+}
+
+
+void
+e_mail_display_scroll (EMailDisplay* display,
+                       GdkScrollDirection direction)
+{
+        GtkAdjustment *vadjustment;
+        gint d;
+        gdouble step;
+
+        g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+        g_return_if_fail ((direction == GDK_SCROLL_UP) || (direction == GDK_SCROLL_DOWN));
+
+        vadjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (display));
+
+        if (gtk_adjustment_get_upper (vadjustment) == 0)
+                return;
+
+        d = (direction == GDK_SCROLL_DOWN) ? 1 : -1;
+        step = d * gtk_adjustment_get_page_increment (vadjustment);
+        gtk_adjustment_set_value (vadjustment,
+                gtk_adjustment_get_value (vadjustment) + step);
 }

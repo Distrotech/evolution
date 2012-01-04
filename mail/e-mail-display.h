@@ -59,11 +59,15 @@ struct _EMailDisplay {
 struct _EMailDisplayClass {
 	GtkViewportClass parent_class;
 
-	/* TODO WEBKIT: popup-event signal */
-	/* TODO WEBKIT: status-message signal */
+	void		(*status_message)		(EMailDisplay *display,
+							 const gchar *message);
+
+	gboolean	(*popup_event)			(EMailDisplay *display,
+							 GdkEventButton *event,
+							 const gchar *uri);
 };
 
-GType			e_mail_display_get_type			(void);
+GType			e_mail_display_get_type		(void);
 EMFormatHTML *		e_mail_display_get_formatter	(EMailDisplay *display);
 void			e_mail_display_set_formatter	(EMailDisplay *display,
 						 	 EMFormatHTML *formatter);
@@ -107,6 +111,9 @@ void			e_mail_display_zoom_in		(EMailDisplay *display);
 void			e_mail_display_zoom_out		(EMailDisplay *display);
 
 void                    e_mail_display_load_images      (EMailDisplay *display);
+
+void                    e_mail_display_scroll           (EMailDisplay *display,
+                                                         GdkScrollDirection direction);
 
 G_END_DECLS
 
