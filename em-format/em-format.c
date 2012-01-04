@@ -1684,33 +1684,18 @@ em_format_add_header_struct (EMFormat *emf,
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (header && header->name);
 
-	g_queue_push_tail (&emf->header_list, header);
+	em_format_add_header (emf, header->name, header->value, header->flags);
 }
 
 void
-em_format_add_puri (EMFormat *emf,
-		    EMFormatPURI *puri)
-{
-	g_return_if_fail (EM_IS_FORMAT (emf));
-	g_return_if_fail (puri != NULL);
-
-	emf->mail_part_list = g_list_append (emf->mail_part_list, puri);
-
-	g_hash_table_insert (emf->mail_part_table,
-			puri->uri, puri);
-
-	d(printf("Added PURI %s\n", puri->uri));
-}
-
-EMFormatHeader*
 em_format_remove_header (EMFormat* emf,
 			 const gchar* name,
 			 const gchar* value)
 {
 	GList *iter = NULL;
 
-	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
-	g_return_val_if_fail (name && *name, NULL);
+	g_return_if_fail (EM_IS_FORMAT (emf));
+	g_return_if_fail (name && *name);
 
         iter = g_queue_peek_head_link (&emf->header_list);
         while (iter) {
@@ -1738,25 +1723,34 @@ em_format_remove_header (EMFormat* emf,
 	}
 
 	if (iter) {
-		EMFormatHeader *header = iter->data;
+                em_format_header_free (iter->data);
 		g_queue_delete_link (&emf->header_list, iter);
-
-		return header;
 	}
-
-	return NULL;
 }
 
-EMFormatHeader*
+void
 em_format_remove_header_struct (EMFormat* emf,
 				const EMFormatHeader* header)
 {
-	g_return_val_if_fail (header, NULL);
+	g_return_if_fail (header);
 
-	return em_format_remove_header (emf, header->name, header->value);
+	em_format_remove_header (emf, header->name, header->value);
 }
 
+void
+em_format_add_puri (EMFormat *emf,
+                    EMFormatPURI *puri)
+{
+        g_return_if_fail (EM_IS_FORMAT (emf));
+        g_return_if_fail (puri != NULL);
 
+        emf->mail_part_list = g_list_append (emf->mail_part_list, puri);
+
+        g_hash_table_insert (emf->mail_part_table,
+                        puri->uri, puri);
+
+        d(printf("Added PURI %s\n", puri->uri));
+}
 
 EMFormatPURI*
 em_format_find_puri (EMFormat *emf,

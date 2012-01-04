@@ -81,8 +81,7 @@ efhp_write_headers (EMFormat *emf,
 		subject);
 	g_free (subject);
 
-	for (iter = g_queue_peek_head_link (&emf->header_list); 
-	     iter->next != NULL; iter = iter->next) {
+	for (iter = g_queue_peek_head_link (&emf->header_list); iter; iter = iter->next) {
 
 		EMFormatHeader *header = iter->data;
 		raw_header.name = header->name;
@@ -117,7 +116,7 @@ efhp_write_headers (EMFormat *emf,
 	raw_header.name = _("Security");
 	tmp = g_string_new ("");
 	/* Find first secured part. */
-	for (iter = g_list_find (emf->mail_part_list, puri)->next; iter->next != NULL; iter = iter->next) {
+	for (iter = emf->mail_part_list, puri; iter; iter = iter->next) {
 
 		p = iter->data;
 
@@ -163,7 +162,8 @@ efhp_write_headers (EMFormat *emf,
 
 	/* Count attachments and display the number as a header */
 	attachments_count = 0;
-	for (iter = emf->mail_part_list; iter->next != NULL; iter = iter->next) {
+
+	for (iter = emf->mail_part_list; iter; iter = iter->next) {
 
 		p = iter->data;
 

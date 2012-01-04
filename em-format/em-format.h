@@ -233,10 +233,10 @@ void			em_format_add_header		(EMFormat *emf,
 							 guint32 flags);
 void			em_format_add_header_struct	(EMFormat *emf,
 							 EMFormatHeader *header);
-EMFormatHeader*		em_format_remove_header		(EMFormat *emf,
+void	        	em_format_remove_header		(EMFormat *emf,
 							 const gchar *name,
 							 const gchar *value);
-EMFormatHeader*		em_format_remove_header_struct	(EMFormat *emf,
+void                    em_format_remove_header_struct	(EMFormat *emf,
 							 const EMFormatHeader *header);
 
 void			em_format_add_puri		(EMFormat *emf,

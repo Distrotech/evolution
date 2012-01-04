@@ -168,7 +168,11 @@ emp_run_print_operation (EMailPrinter *emp)
         if (emp->priv->webview == NULL) {
 		emp->priv->webview = WEBKIT_WEB_VIEW (webkit_web_view_new ());
 		g_object_ref_sink (emp->priv->webview);
+                g_signal_connect_swapped (emp->priv->operation, "begin-print",
+                        G_CALLBACK (webkit_web_view_reload), emp->priv->webview);
 	}
+
+        webkit_web_view_load_uri (emp->priv->webview, emp->priv->uri);
 
 	frame = webkit_web_view_get_main_frame (emp->priv->webview);
 
@@ -379,8 +383,8 @@ emp_headers_tab_move (GtkWidget *button,
 }
 
 static GtkWidget*
-emp_get_headers_tab (GtkPrintOperation *operation,
-		     EMailPrinter *emp)
+emp_create_headers_tab (GtkPrintOperation *operation,
+                        EMailPrinter *emp)
 {
 	GtkWidget *vbox, *hbox, *label, *scw, *button;
 	GtkTreeView *view;
@@ -471,6 +475,36 @@ emp_get_headers_tab (GtkPrintOperation *operation,
         gtk_widget_show_all (hbox);
 
         return hbox;
+}
+
+static void
+emp_headers_tab_apply (GtkPrintOperation *operation,
+                       GtkWidget *widget,
+                       gpointer user_data)
+{
+        EMailPrinter *emp = user_data;
+        GtkTreeIter iter;
+        GtkTreeModel *model;
+        EMFormat *emf;
+
+        emf = EM_FORMAT (emp->priv->efhp);
+        model = GTK_TREE_MODEL (emp->priv->headers);
+
+        g_queue_clear (&emf->header_list);
+        gtk_tree_model_get_iter_first (model, &iter);
+        do {
+                gboolean active;
+                EMFormatHeader *header;
+
+                gtk_tree_model_get (model, &iter,
+                        COLUMN_ACTIVE, &active,
+                        COLUMN_HEADER_STRUCT, &header, -1);
+
+                if (active)
+                        em_format_add_header_struct (emf, header);
+
+        } while (gtk_tree_model_iter_next (model, &iter));
+
 }
 
 static void
@@ -681,7 +715,9 @@ e_mail_printer_print (EMailPrinter *emp,
 
 	gtk_print_operation_set_show_progress (emp->priv->operation, TRUE);
 	g_signal_connect (emp->priv->operation, "create-custom-widget",
-		G_CALLBACK (emp_get_headers_tab), emp);
+		G_CALLBACK (emp_create_headers_tab), emp);
+        g_signal_connect (emp->priv->operation, "custom-widget-apply",
+                G_CALLBACK (emp_headers_tab_apply), emp);
 	g_signal_connect (emp->priv->operation, "done",
 		G_CALLBACK (emp_printing_done), emp);
 	g_signal_connect_swapped (cancellable, "cancelled",
