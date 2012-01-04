@@ -1375,26 +1375,18 @@ static void
 headers_changed_cb (GConfClient *client,
                     guint cnxn_id,
                     GConfEntry *entry,
-                    EMailReader *reader)
+                    EMFormat *emf)
 {
-	EMailDisplay *display;
-	EMFormatHTML *formatter;
 	GSList *header_config_list, *p;
 
 	g_return_if_fail (client != NULL);
-	g_return_if_fail (reader != NULL);
-
-	display = e_mail_reader_get_mail_display (reader);
-	formatter = e_mail_display_get_formatter (display);
-
-	if (!formatter)
-		return;
+	g_return_if_fail (EM_IS_FORMAT (emf));
 
 	header_config_list = gconf_client_get_list (
 		client, "/apps/evolution/mail/display/headers",
 		GCONF_VALUE_STRING, NULL);
-	/* FIXME WEBKIT
-	em_format_clear_headers (EM_FORMAT (formatter));
+
+	em_format_clear_headers (emf);
 	for (p = header_config_list; p; p = g_slist_next (p)) {
 		EMailReaderHeader *h;
 		gchar *xml = (gchar *) p->data;
@@ -1402,23 +1394,20 @@ headers_changed_cb (GConfClient *client,
 		h = e_mail_reader_header_from_xml (xml);
 		if (h && h->enabled)
 			em_format_add_header (
-				EM_FORMAT (formatter),
-				h->name, EM_FORMAT_HEADER_BOLD);
+				emf, h->name, NULL, EM_FORMAT_HEADER_BOLD);
 
 		e_mail_reader_header_free (h);
 	}
 
 	if (!header_config_list)
-		em_format_default_headers (EM_FORMAT (formatter));
+		em_format_default_headers (emf);
 
 	g_slist_foreach (header_config_list, (GFunc) g_free, NULL);
 	g_slist_free (header_config_list);
-	*/
 
 	/* force a redraw */
-	if (EM_FORMAT (formatter)->message) {
-		e_mail_display_reload (display);
-	}
+	if (emf->message)
+		em_format_redraw (emf);
 }
 
 static void
@@ -1444,7 +1433,8 @@ remove_header_notify_cb (gpointer data)
  * updates the EMFormat whenever it changes and on this call too.
  **/
 void
-e_mail_reader_connect_headers (EMailReader *reader)
+e_mail_reader_connect_headers (EMailReader *reader,
+			       EMFormat *emf)
 {
 	GConfClient *client;
 	guint notify_id;
@@ -1457,13 +1447,13 @@ e_mail_reader_connect_headers (EMailReader *reader)
 	notify_id = gconf_client_notify_add (
 		client, "/apps/evolution/mail/display/headers",
 		(GConfClientNotifyFunc) headers_changed_cb,
-		reader, NULL, NULL);
+		emf, NULL, NULL);
 
 	g_object_set_data_full (
-		G_OBJECT (reader), "reader-header-notify-id",
+		G_OBJECT (emf), "reader-header-notify-id",
 		GINT_TO_POINTER (notify_id), remove_header_notify_cb);
 
-	headers_changed_cb (client, 0, NULL, reader);
+	headers_changed_cb (client, 0, NULL, emf);
 
 	g_object_unref (client);
 }

@@ -3030,6 +3030,8 @@ mail_reader_message_loaded (EMailReader *reader,
 		EM_FORMAT (formatter)->message_uid = g_strdup (message_uid);
 		EM_FORMAT (formatter)->uri_base = g_strdup (mail_uri);
 
+		e_mail_reader_connect_headers (reader, EM_FORMAT (formatter));
+
 		/* FIXME WEBKIT Not passing GCancellable */
 		em_format_parse_async (EM_FORMAT (formatter), message, folder,
 			NULL, format_parser_async_done_cb, reader);

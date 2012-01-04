@@ -711,8 +711,6 @@ mail_browser_constructed (GObject *object)
 	e_plugin_ui_register_manager (ui_manager, id, object);
 	e_plugin_ui_enable_manager (ui_manager, id);
 
-	e_mail_reader_connect_headers (E_MAIL_READER (reader));
-
 	e_extensible_load_extensions (E_EXTENSIBLE (object));
 }
 

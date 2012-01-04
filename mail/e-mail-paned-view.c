@@ -735,8 +735,6 @@ mail_paned_view_constructed (GObject *object)
 		G_CALLBACK (mail_paned_view_restore_state_cb),
 		object);
 
-	e_mail_reader_connect_headers (reader);
-
 	/* Do this after creating the message list.  Our
 	 * set_preview_visible() method relies on it. */
 	e_mail_view_set_preview_visible (view, TRUE);
