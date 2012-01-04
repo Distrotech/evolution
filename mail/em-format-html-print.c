@@ -568,22 +568,3 @@ em_format_html_print_new (EMFormatHTML *source)
 
 	return efhp;
 }
-
-void
-em_format_html_print_message (EMFormatHTMLPrint *efhp,
-                              CamelMimeMessage *message,
-                              CamelFolder *folder,
-                              const gchar *message_uid)
-{
-	g_return_if_fail (EM_IS_FORMAT_HTML_PRINT (efhp));
-	g_return_if_fail (CAMEL_IS_MIME_MESSAGE (message));
-
-	/* Wrap flags to display all entries by default.*/
-	EM_FORMAT_HTML (efhp)->header_wrap_flags |=
-		EM_FORMAT_HTML_HEADER_TO |
-		EM_FORMAT_HTML_HEADER_CC |
-		EM_FORMAT_HTML_HEADER_BCC;
-
-	/* FIXME Not passing a GCancellable here. */
-	em_format_parse ((EMFormat *) efhp, message, folder, NULL);
-}

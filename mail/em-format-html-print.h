@@ -60,10 +60,6 @@ struct _EMFormatHTMLPrintClass {
 GType		em_format_html_print_get_type	(void);
 EMFormatHTMLPrint *
 		em_format_html_print_new	(EMFormatHTML *source);
-void		em_format_html_print_message	(EMFormatHTMLPrint *efhp,
-						 CamelMimeMessage *message,
-						 CamelFolder *folder,
-						 const gchar *uid);
 
 G_END_DECLS
 
