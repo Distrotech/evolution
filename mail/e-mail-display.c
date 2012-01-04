@@ -550,7 +550,8 @@ mail_display_install_js_callbacks (WebKitWebView *web_view,
 }
 
 static EWebView*
-mail_display_setup_webview (EMailDisplay *display)
+mail_display_setup_webview (EMailDisplay *display,
+			    gboolean is_header)
 {
 	EWebView *web_view;
         WebKitWebSettings *settings;
@@ -574,7 +575,9 @@ mail_display_setup_webview (EMailDisplay *display)
 		G_CALLBACK (mail_display_webkit_finished), NULL);
 
         settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
-        if (em_format_html_can_load_images (display->priv->formatter))
+        /* When webviews holds headers or attached image then the can_load_images option
+           does not apply */
+        if (em_format_html_can_load_images (display->priv->formatter) || is_header)
                 g_object_set (G_OBJECT (settings), "auto-load-images", TRUE, NULL);
         else
                 g_object_set (G_OBJECT (settings), "auto-load-images", FALSE, NULL);
@@ -661,7 +664,7 @@ mail_display_load_as_source (EMailDisplay *display,
 
 	e_mail_display_clear (display);
 
-	web_view = mail_display_setup_webview (display);
+	web_view = mail_display_setup_webview (display, TRUE);
 	mail_display_insert_web_view (display, web_view);
 
 	uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
@@ -818,7 +821,8 @@ mail_display_load_normal (EMailDisplay *display,
 
 		if ((!puri->is_attachment && puri->write_func) || (puri->is_attachment && puri->write_func && puri->widget_func)) {
                         GtkWidget *container;
-			web_view = mail_display_setup_webview (display);
+
+                        web_view = mail_display_setup_webview (display, g_str_has_suffix (puri->uri, ".headers"));
 			container = mail_display_insert_web_view (display, web_view);
 
                         e_web_view_load_uri (web_view, uri);
