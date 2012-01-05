@@ -50,6 +50,8 @@
 #include <shell/e-shell.h>
 #include <shell/e-shell-utils.h>
 
+#include <libedataserver/e-flag.h>
+
 #if defined (HAVE_NSS) && defined (ENABLE_SMIME)
 #include "certificate-viewer.h"
 #include "e-cert-db.h"
@@ -76,7 +78,7 @@
 	((obj), EM_TYPE_FORMAT_HTML_DISPLAY, EMFormatHTMLDisplayPrivate))
 
 struct _EMFormatHTMLDisplayPrivate {
-		void *dummy;
+		EFlag *attachment_loaded;
 };
 
 /* TODO: move the dialogue elsehwere */
@@ -414,6 +416,43 @@ efhd_xpkcs7mime_button (EMFormat *emf,
 	return box;
 }
 
+struct attachment_load_data {
+	EAttachment *attachment;
+	EMFormatHTMLDisplay *efhd;
+};
+
+static void
+attachment_loaded (EAttachment *attachment,
+		   GAsyncResult *res,
+		   gpointer user_data)
+{
+	struct attachment_load_data *data = user_data;
+	EShell *shell;
+	GtkWindow *window;
+	
+	shell = e_shell_get_default ();
+	window = e_shell_get_active_window (shell);
+	if (!E_IS_SHELL_WINDOW (window))
+		window = NULL;
+	
+	e_attachment_load_handle_error (data->attachment, res, window);
+
+	e_flag_set (data->efhd->priv->attachment_loaded);
+
+	g_object_unref (data->attachment);
+	g_object_unref (data->efhd);
+	g_free (data);
+}
+
+/* Idle callback */
+static void
+load_attachment_idle (struct attachment_load_data *data)
+{
+	e_attachment_load_async (data->attachment,
+		(GAsyncReadyCallback) attachment_loaded, data);
+}
+
+
 static void
 efhd_parse_attachment (EMFormat *emf,
                        CamelMimePart *part,
@@ -425,15 +464,13 @@ efhd_parse_attachment (EMFormat *emf,
 	EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay *) emf;
 	EMFormatAttachmentPURI *puri;
 	EAttachmentStore *store;
-	EShell *shell;
-	GtkWindow *window;
-	GtkWidget *parent;
 	const EMFormatHandler *handler;
 	CamelContentType *ct;
 	gchar *mime_type;
 	gint len;
 	const gchar *cid;
 	guint32 size;
+	struct attachment_load_data *load_data;
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
@@ -508,14 +545,6 @@ efhd_parse_attachment (EMFormat *emf,
         }
 	e_attachment_set_can_show (puri->attachment, puri->handle != NULL && puri->handle->write_func);
 
-	/* FIXME: Try to find a better way? */
-	shell = e_shell_get_default ();
-	window = e_shell_get_active_window (shell);
-	if (E_IS_SHELL_WINDOW (window))
-		parent = GTK_WIDGET (window);
-	else
-		parent = NULL;
-
 	store = find_parent_attachment_store (efhd, part_id);
 	e_attachment_store_add_attachment (store, puri->attachment);
 
@@ -538,9 +567,17 @@ efhd_parse_attachment (EMFormat *emf,
 		}
 	}
 
-	e_attachment_load_async (
-		puri->attachment, (GAsyncReadyCallback)
-		e_attachment_load_handle_error, parent);
+	e_flag_clear (efhd->priv->attachment_loaded);
+
+	load_data = g_new0 (struct attachment_load_data, 1);
+	load_data->attachment = g_object_ref (puri->attachment);
+	load_data->efhd = g_object_ref (efhd);
+
+	/* e_attachment_load_async must be called from main thread */
+        g_idle_add ((GSourceFunc) load_attachment_idle, load_data);
+
+	e_flag_wait (efhd->priv->attachment_loaded);
+
 	if (size != 0) {
 		GFileInfo *fileinfo;
 
@@ -818,6 +855,11 @@ efhd_finalize (GObject *object)
 	efhd = EM_FORMAT_HTML_DISPLAY (object);
 	g_return_if_fail (efhd != NULL);
 
+	if (efhd->priv->attachment_loaded) {
+		e_flag_free (efhd->priv->attachment_loaded);
+		efhd->priv->attachment_loaded = NULL;
+	}
+
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -850,6 +892,8 @@ efhd_init (EMFormatHTMLDisplay *efhd)
 
 
 	efhd->priv = EM_FORMAT_HTML_DISPLAY_GET_PRIVATE (efhd);
+
+	efhd->priv->attachment_loaded = e_flag_new ();
 
 	/* we want to convert url's etc */
 	EM_FORMAT_HTML (efhd)->text_html_flags |=
