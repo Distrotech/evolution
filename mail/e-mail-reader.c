@@ -2600,7 +2600,6 @@ mail_reader_message_loaded_cb (CamelFolder *folder,
 	GtkWidget *message_list;
 	const gchar *message_uid;
 	GError *error = NULL;
-        GCancellable *cancellable;
 
 	reader = closure->reader;
 	message_uid = closure->message_uid;
@@ -2666,10 +2665,10 @@ mail_reader_message_selected_timeout_cb (EMailReader *reader)
 	EMailReaderPrivate *priv;
 	EMailDisplay *display;
 	GtkWidget *message_list;
-	EPreviewPane *preview_pane;
 	CamelFolder *folder;
 	const gchar *cursor_uid;
 	const gchar *format_uid;
+	EMFormat *formatter;
 
 	priv = E_MAIL_READER_GET_PRIVATE (reader);
 
@@ -2677,26 +2676,23 @@ mail_reader_message_selected_timeout_cb (EMailReader *reader)
 
 	message_list = e_mail_reader_get_message_list (reader);
 	display = e_mail_reader_get_mail_display (reader);
+	formatter = EM_FORMAT (e_mail_display_get_formatter (display));
 
 	cursor_uid = MESSAGE_LIST (message_list)->cursor_uid;
-	//format_uid = EM_FORMAT (formatter)->message_uid;
+	format_uid = formatter ? formatter->message_uid : NULL;
 
 	if (MESSAGE_LIST (message_list)->last_sel_single) {
 		GtkWidget *widget;
-		gboolean preview_visible;
 		gboolean display_visible;
 		gboolean selected_uid_changed;
 
 		/* Decide whether to download the full message now. */
 		widget = GTK_WIDGET (display);
-
 		display_visible = gtk_widget_get_mapped (widget);
 
-		/* FIXME WEBKIT */
-		//selected_uid_changed = g_strcmp0 (cursor_uid, format_uid);
+		selected_uid_changed = (g_strcmp0 (cursor_uid, format_uid) != 0);
 
-		//if (display_visible && selected_uid_changed) {
-		if (display_visible) {
+		if (display_visible && selected_uid_changed) {
 			EMailReaderClosure *closure;
 			GCancellable *cancellable;
 			EActivity *activity;
@@ -2961,13 +2957,12 @@ mail_reader_message_loaded (EMailReader *reader,
                             CamelMimeMessage *message)
 {
 	EMailReaderPrivate *priv;
-	EMFormatHTML *formatter;
+	EMFormat *formatter;
 	GtkWidget *message_list;
 	EMailBackend *backend;
 	CamelFolder *folder;
 	EMailDisplay *display;
 	EWebView *web_view;
-	EPreviewPane *preview_pane;
 	EShellBackend *shell_backend;
 	EShell *shell;
 	EMEvent *event;
@@ -2983,8 +2978,6 @@ mail_reader_message_loaded (EMailReader *reader,
 	backend = e_mail_reader_get_backend (reader);
 	display = e_mail_reader_get_mail_display (reader);
 	message_list = e_mail_reader_get_message_list (reader);
-	preview_pane = e_mail_reader_get_preview_pane (reader);
-	formatter = e_mail_display_get_formatter (display);
 
 	shell_backend = E_SHELL_BACKEND (backend);
 	shell = e_shell_backend_get_shell (shell_backend);
@@ -3021,19 +3014,19 @@ mail_reader_message_loaded (EMailReader *reader,
 		formatter_data->formatters = g_hash_table_ref (formatters);
 		formatter_data->mail_uri = g_strdup (mail_uri);
 
-		formatter = em_format_html_display_new ();
+		formatter = EM_FORMAT (em_format_html_display_new ());
 		/* When no EMailDisplay holds reference to the f ormatter, then
 		 * the formatter can be destroyed. */
-		 g_object_weak_ref (formatter, (GWeakNotify) formatter_weak_ref_cb,
+		 g_object_weak_ref (G_OBJECT (formatter), (GWeakNotify) formatter_weak_ref_cb,
 		 		    formatter_data);
 
-		EM_FORMAT (formatter)->message_uid = g_strdup (message_uid);
-		EM_FORMAT (formatter)->uri_base = g_strdup (mail_uri);
+		formatter->message_uid = g_strdup (message_uid);
+		formatter->uri_base = g_strdup (mail_uri);
 
-		e_mail_reader_connect_headers (reader, EM_FORMAT (formatter));
+		e_mail_reader_connect_headers (reader, formatter);
 
 		/* FIXME WEBKIT Not passing GCancellable */
-		em_format_parse_async (EM_FORMAT (formatter), message, folder,
+		em_format_parse_async (formatter, message, folder,
 			NULL, format_parser_async_done_cb, reader);
 
 		g_hash_table_insert (formatters, mail_uri, formatter);
@@ -3043,7 +3036,7 @@ mail_reader_message_loaded (EMailReader *reader,
 		display = e_mail_reader_get_mail_display (reader);
 
 		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
-		e_mail_display_load (display, EM_FORMAT (formatter)->uri_base);
+		e_mail_display_load (display, formatter->uri_base);
 	}
 
 	/* Reset the shell view icon. */
@@ -3061,6 +3054,7 @@ mail_reader_message_loaded (EMailReader *reader,
 	    schedule_timeout_mark_seen (reader)) {
 		g_clear_error (&error);
 	} else if (error != NULL) {
+		web_view = e_mail_display_get_current_web_view (display);
 		e_alert_submit (
 			E_ALERT_SINK (web_view),
 			"mail:no-retrieve-message",
