@@ -64,6 +64,8 @@ struct _EMailDisplayPrivate {
 	GList *webviews;
 
         GtkWidget *current_webview;
+
+	GtkActionGroup *actions;
 };
 
 enum {
@@ -101,7 +103,6 @@ static const gchar *ui =
 "        <menuitem action='search-folder-sender'/>"
 "      </menu>"
 "    </placeholder>"
-"    <placeholder name='inspect' />"
 "  </popup>"
 "</ui>";
 
@@ -370,7 +371,7 @@ mail_display_process_mailto (EWebView *web_view,
 		CamelFolder *folder = NULL;
 		EShell *shell;
 
-		priv = E_MAIL_DISPLAY_GET_PRIVATE (web_view);
+		priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
 		g_return_val_if_fail (priv->formatter != NULL, FALSE);
 
 		format = EM_FORMAT (priv->formatter);
@@ -609,10 +610,7 @@ mail_display_setup_webview (EMailDisplay *display,
 	EWebView *web_view;
         WebKitWebSettings *settings;
 	GtkUIManager *ui_manager;
-	GtkActionGroup *action_group;
 	GError *error = NULL;
-        guint merge_id;
-        EMailImageLoadingPolicy policy;
 
 	web_view = E_WEB_VIEW (e_web_view_new ());
 
@@ -642,24 +640,18 @@ mail_display_setup_webview (EMailDisplay *display,
         else
                 g_object_set (G_OBJECT (settings), "auto-load-images", FALSE, NULL);
 
-	/* EWebView's action groups are added during its instance
-	 * initialization function (like what we're in now), so it
-	 * is safe to fetch them this early in construction. */
-	action_group = e_web_view_get_action_group (web_view, "mailto");
-
-	/* We don't actually handle the actions we're adding.
-	 * EMailReader handles them.  How devious is that? */
-	gtk_action_group_add_actions (
-		action_group, mailto_entries,
-		G_N_ELEMENTS (mailto_entries), web_view);
 
 	/* Because we are loading from a hard-coded string, there is
 	 * no chance of I/O errors.  Failure here implies a malformed
 	 * UI definition.  Full stop. */
 	ui_manager = e_web_view_get_ui_manager (web_view);
+	gtk_ui_manager_insert_action_group (ui_manager, display->priv->actions, 0);
 	gtk_ui_manager_add_ui_from_string (ui_manager, ui, -1, &error);
-	if (error != NULL)
+
+	if (error != NULL) {
 		g_error ("%s", error->message);
+                g_error_free (error);
+        }
 
 	return web_view;
 }
@@ -1012,8 +1004,12 @@ mail_display_init (EMailDisplay *display)
 
 	display->priv->webviews = NULL;
 
-	/* WEBKIT TODO: ESearchBar */
+	display->priv->actions = gtk_action_group_new ("mailto");
+	gtk_action_group_add_actions (display->priv->actions, mailto_entries, 
+		G_N_ELEMENTS (mailto_entries), NULL);
 
+
+	/* WEBKIT TODO: ESearchBar */
 
 	/* Register our own handler for our own mail:// protocol */
 	session = webkit_get_default_session ();
@@ -1240,6 +1236,16 @@ e_mail_display_get_current_web_view (EMailDisplay *display)
 	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
 
         return E_WEB_VIEW (display->priv->current_webview);
+}
+
+GtkAction*
+e_mail_display_get_action (EMailDisplay *display,
+			   const gchar *action_name)
+{
+	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
+	g_return_val_if_fail (action_name != NULL, NULL);
+
+	return gtk_action_group_get_action (display->priv->actions, action_name);
 }
 
 void

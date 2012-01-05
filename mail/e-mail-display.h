@@ -93,6 +93,9 @@ void			e_mail_display_reload		(EMailDisplay *display);
 EWebView *		e_mail_display_get_current_web_view
 							(EMailDisplay *display);
 
+GtkAction *		e_mail_display_get_action	(EMailDisplay *display,
+							 const gchar *action_name);
+
 void			e_mail_display_set_status	(EMailDisplay *display,
 							 const gchar *status);
 void			e_mail_display_clear		(EMailDisplay *display);

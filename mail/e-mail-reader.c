@@ -205,7 +205,7 @@ action_add_to_address_book_cb (GtkAction *action,
 	EShellBackend *shell_backend;
 	EMailDisplay *display;
 	CamelInternetAddress *cia;
-	GtkWidget *web_view;
+	EWebView *web_view;
 	CamelURL *curl;
 	const gchar *uri;
 	gchar *email;
@@ -215,11 +215,11 @@ action_add_to_address_book_cb (GtkAction *action,
 	backend = e_mail_reader_get_backend (reader);
 	display = e_mail_reader_get_mail_display (reader);
 
-	web_view = gtk_container_get_focus_child (GTK_CONTAINER  (display));
+	web_view = e_mail_display_get_current_web_view (display);
 	if (!E_IS_WEB_VIEW (web_view))
 		return;
 
-	uri = e_web_view_get_selected_uri (E_WEB_VIEW (web_view));
+	uri = e_web_view_get_selected_uri (web_view);
 	g_return_if_fail (uri != NULL);
 
 	curl = camel_url_new (uri, NULL);
@@ -3669,6 +3669,7 @@ e_mail_reader_init (EMailReader *reader,
 	GtkAction *action;
 	gboolean sensitive;
 	const gchar *action_name;
+	EMailDisplay *display;
 
 #ifndef G_OS_WIN32
 	GSettings *settings;
@@ -3816,31 +3817,32 @@ e_mail_reader_init (EMailReader *reader,
 	gtk_action_set_is_important (action, TRUE);
 	gtk_action_set_short_label (action, _("Reply"));
 
-	/* FIXME WEBKIT
+	display = e_mail_reader_get_mail_display (reader);
+
 	action_name = "add-to-address-book";
-	action = e_web_view_get_action (web_view, action_name);
+	action = e_mail_display_get_action (display, action_name);
 	g_signal_connect (
 		action, "activate",
 		G_CALLBACK (action_add_to_address_book_cb), reader);
 
 	action_name = "send-reply";
-	action = e_web_view_get_action (web_view, action_name);
+	action = e_mail_display_get_action (display, action_name);
 	g_signal_connect (
 		action, "activate",
 		G_CALLBACK (action_mail_reply_recipient_cb), reader);
 
 	action_name = "search-folder-recipient";
-	action = e_web_view_get_action (web_view, action_name);
+	action = e_mail_display_get_action (display, action_name);
 	g_signal_connect (
 		action, "activate",
 		G_CALLBACK (action_search_folder_recipient_cb), reader);
 
 	action_name = "search-folder-sender";
-	action = e_web_view_get_action (web_view, action_name);
+	action = e_mail_display_get_action (display, action_name);
 	g_signal_connect (
 		action, "activate",
 		G_CALLBACK (action_search_folder_sender_cb), reader);
-	*/
+
 #ifndef G_OS_WIN32
 	/* Lockdown integration. */
 
