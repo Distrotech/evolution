@@ -78,7 +78,7 @@
 	((obj), EM_TYPE_FORMAT_HTML_DISPLAY, EMFormatHTMLDisplayPrivate))
 
 struct _EMFormatHTMLDisplayPrivate {
-		EFlag *attachment_loaded;
+                gint dummy;
 };
 
 /* TODO: move the dialogue elsehwere */
@@ -418,7 +418,7 @@ efhd_xpkcs7mime_button (EMFormat *emf,
 
 struct attachment_load_data {
 	EAttachment *attachment;
-	EMFormatHTMLDisplay *efhd;
+	EFlag *flag;
 };
 
 static void
@@ -435,21 +435,19 @@ attachment_loaded (EAttachment *attachment,
 	if (!E_IS_SHELL_WINDOW (window))
 		window = NULL;
 	
-	e_attachment_load_handle_error (data->attachment, res, window);
+        e_attachment_load_handle_error (data->attachment, res, window);
 
-	e_flag_set (data->efhd->priv->attachment_loaded);
-
-	g_object_unref (data->attachment);
-	g_object_unref (data->efhd);
-	g_free (data);
+	e_flag_set (data->flag);
 }
 
 /* Idle callback */
-static void
+static gboolean
 load_attachment_idle (struct attachment_load_data *data)
 {
 	e_attachment_load_async (data->attachment,
 		(GAsyncReadyCallback) attachment_loaded, data);
+
+        return FALSE;
 }
 
 
@@ -567,16 +565,20 @@ efhd_parse_attachment (EMFormat *emf,
 		}
 	}
 
-	e_flag_clear (efhd->priv->attachment_loaded);
-
 	load_data = g_new0 (struct attachment_load_data, 1);
 	load_data->attachment = g_object_ref (puri->attachment);
-	load_data->efhd = g_object_ref (efhd);
+	load_data->flag = e_flag_new ();
+
+        e_flag_clear (load_data->flag);
 
 	/* e_attachment_load_async must be called from main thread */
         g_idle_add ((GSourceFunc) load_attachment_idle, load_data);
 
-	e_flag_wait (efhd->priv->attachment_loaded);
+	e_flag_wait (load_data->flag);
+
+        e_flag_free (load_data->flag);
+        g_object_unref (load_data->attachment);
+        g_free (load_data);
 
 	if (size != 0) {
 		GFileInfo *fileinfo;
@@ -855,11 +857,6 @@ efhd_finalize (GObject *object)
 	efhd = EM_FORMAT_HTML_DISPLAY (object);
 	g_return_if_fail (efhd != NULL);
 
-	if (efhd->priv->attachment_loaded) {
-		e_flag_free (efhd->priv->attachment_loaded);
-		efhd->priv->attachment_loaded = NULL;
-	}
-
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
@@ -893,9 +890,7 @@ efhd_init (EMFormatHTMLDisplay *efhd)
 
 	efhd->priv = EM_FORMAT_HTML_DISPLAY_GET_PRIVATE (efhd);
 
-	efhd->priv->attachment_loaded = e_flag_new ();
-
-	/* we want to convert url's etc */
+        /* we want to convert url's etc */
 	EM_FORMAT_HTML (efhd)->text_html_flags |=
 		CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS |
 		CAMEL_MIME_FILTER_TOHTML_CONVERT_ADDRESSES;
