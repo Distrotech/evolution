@@ -251,6 +251,118 @@ exit:
 }
 
 static void
+attachment_load_finish (EAttachment *attachment,
+                        GAsyncResult *result,
+                        GFile *file)
+{
+        EShell *shell;
+        GtkWindow *parent;
+
+        e_attachment_load_finish (attachment, result, NULL);
+
+        shell = e_shell_get_default ();
+        parent = e_shell_get_active_window (shell);
+
+        e_attachment_save_async (
+                attachment, file, (GAsyncReadyCallback)
+                e_attachment_save_handle_error, parent);
+
+        g_object_unref (file);
+}
+
+static void
+action_mail_image_save_cb (GtkAction *action,
+                           EMailReader *reader)
+{
+        EMailDisplay *display;
+        EWebView *web_view;
+        EMFormat *emf;
+        const gchar *image_src;
+        CamelMimePart *part;
+        EAttachment *attachment;
+        GFile *file;
+
+        display = e_mail_reader_get_mail_display (reader);
+        web_view = e_mail_display_get_current_web_view (display);
+
+        if (!E_IS_WEB_VIEW (web_view))
+                return;
+
+        image_src = e_web_view_get_cursor_image_src (web_view);
+        if (!image_src)
+                return;
+
+        emf = EM_FORMAT (e_mail_display_get_formatter (display));
+        g_return_if_fail (emf != NULL);
+        g_return_if_fail (emf->message != NULL);
+
+        if (g_str_has_prefix (image_src, "cid:")) {
+                part = camel_mime_message_get_part_by_content_id (
+                        emf->message, image_src + 4);
+                g_return_if_fail (part != NULL);
+
+                g_object_ref (part);
+        } else {
+                CamelStream *image_stream;
+                CamelDataWrapper *dw;
+                CamelDataCache *cache;
+                const gchar *filename;
+                const gchar *user_cache_dir;
+
+                /* Open cache and find the file there */
+                user_cache_dir = e_get_user_cache_dir ();
+                cache = camel_data_cache_new (user_cache_dir, NULL);
+                image_stream = camel_data_cache_get (cache, "http", image_src, NULL);
+                if (!image_stream) {
+                        g_object_unref (cache);
+                        return;
+                }
+
+                filename = strrchr (image_src, '/');
+                if (filename && strchr (filename, '?'))
+                        filename = NULL;
+                else if (filename)
+                        filename = filename + 1;
+
+                part = camel_mime_part_new ();
+                if (filename)
+                        camel_mime_part_set_filename (part, filename);
+
+                dw = camel_data_wrapper_new ();
+                camel_data_wrapper_set_mime_type (
+                        dw, "application/octet-stream");
+                camel_data_wrapper_construct_from_stream_sync (
+                        dw, image_stream, NULL, NULL);
+                camel_medium_set_content (CAMEL_MEDIUM (part), dw);
+                g_object_unref (dw);
+
+                camel_mime_part_set_encoding (
+                        part, CAMEL_TRANSFER_ENCODING_BASE64);
+
+                g_object_unref (image_stream);
+                g_object_unref (cache);
+        }
+
+        file = e_shell_run_save_dialog (
+                e_shell_get_default (),
+                _("Save Image"), camel_mime_part_get_filename (part),
+                NULL, NULL, NULL);
+        if (file == NULL) {
+                g_object_unref (part);
+                return;
+        }
+
+        attachment = e_attachment_new ();
+        e_attachment_set_mime_part (attachment, part);
+
+        e_attachment_load_async (
+                attachment, (GAsyncReadyCallback)
+                attachment_load_finish, file);
+
+        g_object_unref (part);
+}
+
+static void
 action_mail_charset_cb (GtkRadioAction *action,
                         GtkRadioAction *current,
                         EMailReader *reader)
@@ -3030,11 +3142,8 @@ mail_reader_message_loaded (EMailReader *reader,
 			NULL, format_parser_async_done_cb, reader);
 
 		g_hash_table_insert (formatters, mail_uri, formatter);
+		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
 	} else {
-		EMailDisplay *display;
-
-		display = e_mail_reader_get_mail_display (reader);
-
 		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
 		e_mail_display_load (display, formatter->uri_base);
 	}
@@ -3836,6 +3945,12 @@ e_mail_reader_init (EMailReader *reader,
 	g_signal_connect (
 		action, "activate",
 		G_CALLBACK (action_search_folder_sender_cb), reader);
+
+        action_name = "image-save";
+        action = e_mail_display_get_action (display, action_name);
+        g_signal_connect (
+                action, "activate",
+                G_CALLBACK (action_mail_image_save_cb), reader);
 
 #ifndef G_OS_WIN32
 	/* Lockdown integration. */

@@ -65,7 +65,8 @@ struct _EMailDisplayPrivate {
 
         GtkWidget *current_webview;
 
-	GtkActionGroup *actions;
+	GtkActionGroup *mailto_actions;
+        GtkActionGroup *images_actions;
 };
 
 enum {
@@ -102,6 +103,15 @@ static const gchar *ui =
 "        <menuitem action='search-folder-recipient'/>"
 "        <menuitem action='search-folder-sender'/>"
 "      </menu>"
+"    </placeholder>"
+"  </popup>"
+"</ui>";
+
+static const gchar *image_ui =
+"<ui>"
+"  <popup name='context'>"
+"    <placeholder name='custom-actions-2'>"
+"      <menuitem action='image-save'/>"
 "    </placeholder>"
 "  </popup>"
 "</ui>";
@@ -146,6 +156,19 @@ static GtkActionEntry mailto_entries[] = {
 	  NULL }
 };
 
+
+static GtkActionEntry image_entries[] = {
+
+        { "image-save",
+        GTK_STOCK_SAVE,
+        N_("Save _Image..."),
+        NULL,
+        N_("Save the image to a file"),
+        NULL    /* Handled by EMailReader */ },
+
+};
+
+
 static gboolean
 mail_display_webview_enter_notify_event (GtkWidget *widget,
                                          GdkEvent *event,
@@ -162,6 +185,38 @@ mail_display_webview_enter_notify_event (GtkWidget *widget,
 
       return FALSE;
 }
+
+static void
+mail_display_webview_update_actions (EWebView *web_view,
+                                     gpointer user_data)
+{
+        EMailDisplay *display = user_data;
+
+        const gchar *image_src;
+        gboolean visible;
+        GtkAction *action;
+
+        g_return_if_fail (web_view != NULL);
+
+        image_src = e_web_view_get_cursor_image_src (web_view);
+        visible = image_src && g_str_has_prefix (image_src, "cid:");
+        if (!visible && image_src) {
+                CamelStream *image_stream;
+
+                image_stream = camel_data_cache_get (emd_global_http_cache, "http", image_src, NULL);
+
+                visible = image_stream != NULL;
+
+                if (image_stream)
+                        g_object_unref (image_stream);
+        }
+
+        action = e_web_view_get_action (web_view, "image-save");
+        if (action)
+                gtk_action_set_visible (action, visible);
+}
+
+
 
 static void
 formatter_image_loading_policy_changed_cb (GObject *object,
@@ -630,7 +685,8 @@ mail_display_setup_webview (EMailDisplay *display,
 		G_CALLBACK (mail_display_emit_popup_event), display);
         g_signal_connect (web_view, "enter-notify-event",
                 G_CALLBACK (mail_display_webview_enter_notify_event), display);
-
+        g_signal_connect (web_view, "update-actions",
+                G_CALLBACK (mail_display_webview_update_actions), display);
 
         settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
         /* When webviews holds headers or attached image then the can_load_images option
@@ -645,8 +701,17 @@ mail_display_setup_webview (EMailDisplay *display,
 	 * no chance of I/O errors.  Failure here implies a malformed
 	 * UI definition.  Full stop. */
 	ui_manager = e_web_view_get_ui_manager (web_view);
-	gtk_ui_manager_insert_action_group (ui_manager, display->priv->actions, 0);
+	gtk_ui_manager_insert_action_group (ui_manager, display->priv->mailto_actions, 0);
 	gtk_ui_manager_add_ui_from_string (ui_manager, ui, -1, &error);
+
+        if (error != NULL) {
+                g_error ("%s", error->message);
+                g_error_free (error);
+        }
+
+        error = NULL;
+        gtk_ui_manager_insert_action_group (ui_manager, display->priv->images_actions, 0);
+        gtk_ui_manager_add_ui_from_string (ui_manager, image_ui, -1, &error);
 
 	if (error != NULL) {
 		g_error ("%s", error->message);
@@ -1004,9 +1069,13 @@ mail_display_init (EMailDisplay *display)
 
 	display->priv->webviews = NULL;
 
-	display->priv->actions = gtk_action_group_new ("mailto");
-	gtk_action_group_add_actions (display->priv->actions, mailto_entries, 
+	display->priv->mailto_actions = gtk_action_group_new ("mailto");
+	gtk_action_group_add_actions (display->priv->mailto_actions, mailto_entries, 
 		G_N_ELEMENTS (mailto_entries), NULL);
+
+        display->priv->images_actions = gtk_action_group_new ("image");
+        gtk_action_group_add_actions (display->priv->images_actions, image_entries,
+                G_N_ELEMENTS (image_entries), NULL);
 
 
 	/* WEBKIT TODO: ESearchBar */
@@ -1242,10 +1311,16 @@ GtkAction*
 e_mail_display_get_action (EMailDisplay *display,
 			   const gchar *action_name)
 {
+        GtkAction *action;
+
 	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
 	g_return_val_if_fail (action_name != NULL, NULL);
 
-	return gtk_action_group_get_action (display->priv->actions, action_name);
+	action = gtk_action_group_get_action (display->priv->mailto_actions, action_name);
+        if (!action)
+                action = gtk_action_group_get_action (display->priv->images_actions, action_name);
+
+        return action;
 }
 
 void

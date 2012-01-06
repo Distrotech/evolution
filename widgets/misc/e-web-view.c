@@ -719,6 +719,66 @@ web_view_button_press_event (GtkWidget *widget,
 
 	web_view = E_WEB_VIEW (widget);
 
+        if (event) {
+                WebKitHitTestResult *test;
+                WebKitHitTestResultContext context;
+
+                test = webkit_web_view_get_hit_test_result (WEBKIT_WEB_VIEW (web_view), event);
+
+                if (!test)
+                        goto chainup;
+
+                g_object_get (G_OBJECT (test), "context", &context, NULL);
+                if (context & WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE) {
+                        WebKitWebDataSource *data_source;
+                        WebKitWebFrame *frame;
+                        GList *subresources, *res;
+
+                        g_object_get (G_OBJECT (test), "image-uri", &uri, NULL);
+
+                        if (!uri)
+                                goto chainup;
+
+                        if (web_view->priv->cursor_image_src)
+                                g_free (web_view->priv->cursor_image_src);
+                        web_view->priv->cursor_image_src = uri;
+
+                        /* Iterate through all resources of the loaded webpage and
+                           try to find resource with URI matching cursor_image_src */
+                        frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (web_view));
+                        data_source = webkit_web_frame_get_data_source (frame);
+                        subresources = webkit_web_data_source_get_subresources (data_source);
+                        for (res = subresources; res; res = res->next) {
+                                WebKitWebResource *src = res->data;
+                                GdkPixbufLoader *loader;
+                                GString *data;
+
+                                if (g_strcmp0 (webkit_web_resource_get_uri (src),
+                                        web_view->priv->cursor_image_src) != 0)
+                                        continue;
+
+                                data = webkit_web_resource_get_data (src);
+
+                                loader = gdk_pixbuf_loader_new ();
+                                if (!gdk_pixbuf_loader_write (loader,
+                                        (guchar *) data->str, data->len, NULL)) {
+                                        g_object_unref (loader);
+                                        break;
+                                }
+                                gdk_pixbuf_loader_close (loader, NULL);
+
+                                if (web_view->priv->cursor_image)
+                                        g_object_unref (web_view->priv->cursor_image);
+
+                                web_view->priv->cursor_image =
+                                        g_object_ref (gdk_pixbuf_loader_get_animation (loader));
+
+                                g_object_unref (loader);
+                                break;
+                        }
+                }
+        }
+
 	if (event != NULL && event->button != 3)
 		goto chainup;
 
