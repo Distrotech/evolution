@@ -80,6 +80,7 @@ libemiscwidgets_la_CPPFLAGS =						\
 	-DG_LOG_DOMAIN=__FILE__						\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)					\
 	$(GNOME_PLATFORM_CFLAGS)					\
+	$(GTKHTML_CFLAGS)						\
 	$(CHAMPLAIN_CFLAGS)						\
 	$(GEOCLUE_CFLAGS)						\
 	$(CLUTTER_CFLAGS)
