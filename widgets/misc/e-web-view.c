@@ -2608,3 +2608,39 @@ e_web_view_update_actions (EWebView *web_view)
 
 	g_signal_emit (web_view, signals[UPDATE_ACTIONS], 0);
 }
+
+gchar*
+e_web_view_get_selection_html (EWebView *web_view)
+{
+        WebKitDOMDocument *document;
+        WebKitDOMDOMWindow *window;
+        WebKitDOMDOMSelection *selection;
+        WebKitDOMRange *range;
+        WebKitDOMDocumentFragment *fragment;
+        WebKitDOMHTMLElement *element;
+
+        g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
+
+        if (!webkit_web_view_has_selection (WEBKIT_WEB_VIEW (web_view)))
+                return NULL;
+
+        document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (web_view));
+        window = webkit_dom_document_get_default_view (document);
+        selection = webkit_dom_dom_window_get_selection (window);
+        if (!selection)
+                return NULL;
+
+        range = webkit_dom_dom_selection_get_range_at (selection, 0, NULL);
+        if (!range)
+                return NULL;
+
+        fragment = webkit_dom_range_clone_contents (range, NULL);
+        if (!fragment)
+                return NULL;
+
+        element = WEBKIT_DOM_HTML_ELEMENT (webkit_dom_document_create_element (document, "div", NULL));
+        webkit_dom_node_append_child (WEBKIT_DOM_NODE (element),
+                WEBKIT_DOM_NODE (fragment), NULL);
+
+        return webkit_dom_html_element_get_inner_html (element);
+}

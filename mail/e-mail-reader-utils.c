@@ -863,7 +863,8 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	if (!e_web_view_is_selection_active (web_view))
 		goto whole_message;
 
-	selection = gtk_html_get_selection_html (GTK_HTML (web_view), &length);
+        selection = e_web_view_get_selection_html (web_view);
+        length = strlen (selection);
 	if (selection == NULL || *selection == '\0')
 		goto whole_message;
 

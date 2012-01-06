@@ -214,6 +214,8 @@ void		e_web_view_status_message	(EWebView *web_view,
 void		e_web_view_stop_loading		(EWebView *web_view);
 void		e_web_view_update_actions	(EWebView *web_view);
 
+gchar*          e_web_view_get_selection_html   (EWebView *web_view);
+
 G_END_DECLS
 
 #endif /* E_WEB_VIEW_H */
