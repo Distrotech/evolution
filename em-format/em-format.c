@@ -372,7 +372,6 @@ emf_parse_multipart_alternative (EMFormat *emf,
 		CamelStream *null_stream;
 		gchar *mime_type;
 		gsize content_size;
-		 GByteArray *ba;
 
 		if (g_cancellable_is_cancelled (cancellable))
 			return;
@@ -2181,7 +2180,18 @@ em_format_format_text (EMFormat *emf,
 			mem_stream, (CamelStream *) stream, cancellable, NULL);
 		camel_stream_flush ((CamelStream *) mem_stream, cancellable, NULL);
 	} else {
-		/* FIXME WEBKIT */
+		/* Parse it as an attachment */
+		CamelMimePart *part = camel_mime_part_new ();
+		EMFormatParserInfo info = { 0 };
+		GString *part_id = g_string_new (".attachment");
+		camel_medium_set_content ((CamelMedium *) part, dw);
+
+		info.is_attachment = TRUE;
+		em_format_parse_part_as (emf, part, part_id, &info,
+			"x-evolution/message/attachment", cancellable);
+
+		g_string_free (part_id, TRUE);
+		g_object_unref (part);
 	}
 
 	if (windows)
