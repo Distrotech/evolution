@@ -103,8 +103,8 @@ static const struct {
 	{ "stock_lock-ok", N_("Encrypted, strong"), N_("This message is encrypted, with a strong encryption algorithm. It would be very difficult for an outsider to view the content of this message in a practical amount of time.") },
 };
 
-static const gchar *smime_sign_colour[5] = {
-	"", " bgcolor=\"#88bb88\"", " bgcolor=\"#bb8888\"", " bgcolor=\"#e8d122\"",""
+static const GdkRGBA smime_sign_colour[5] = {
+	{ 0 }, { 0.53, 0.73, 0.53, 1 }, { 0.73, 0.53, 0.53, 1 }, { 0.91, 0.82, 0.13, 1 }, { 0 },
 };
 
 static void efhd_message_prefix 	(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
@@ -386,7 +386,7 @@ efhd_xpkcs7mime_button (EMFormat *emf,
                         EMFormatPURI *puri,
                         GCancellable *cancellable)
 {
-	GtkWidget *box, *button, *widget;
+	GtkWidget *box, *button, *layout, *widget;
 	EMFormatSMIMEPURI *po = (EMFormatSMIMEPURI *) puri;
 	const gchar *icon_name;
 
@@ -396,12 +396,17 @@ efhd_xpkcs7mime_button (EMFormat *emf,
 	else
 		icon_name = smime_encrypt_table[po->valid->encrypt.status].icon;
 
-	box = gtk_hbox_new (FALSE, 5);
+	box = gtk_event_box_new ();
+	if (po->valid->sign.status != 0)
+		gtk_widget_override_background_color (box, GTK_STATE_FLAG_NORMAL,
+			&smime_sign_colour[po->valid->sign.status]);
+
+	layout = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 5);
+	gtk_container_add (GTK_CONTAINER (box), layout);
 
 	button = gtk_button_new ();
-	gtk_box_pack_start (GTK_BOX (box), button, FALSE, FALSE, 0);
-	g_signal_connect (
-		button, "clicked",
+	gtk_box_pack_start (GTK_BOX (layout), button, FALSE, FALSE, 0);
+	g_signal_connect (button, "clicked",
 		G_CALLBACK (efhd_xpkcs7mime_validity_clicked), puri);
 
 	widget = gtk_image_new_from_icon_name (
@@ -409,7 +414,7 @@ efhd_xpkcs7mime_button (EMFormat *emf,
 	gtk_button_set_image (GTK_BUTTON (button), widget);
 
 	widget = gtk_label_new (po->description);
-	gtk_box_pack_start (GTK_BOX (box), widget, FALSE, FALSE, 0);
+	gtk_box_pack_start (GTK_BOX (layout), widget, FALSE, FALSE, 0);
 
 	gtk_widget_show_all (box);
 
