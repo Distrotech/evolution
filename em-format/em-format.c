@@ -34,7 +34,7 @@
 #include "shell/e-shell.h"
 #include "shell/e-shell-settings.h"
 
-#define d(x)
+#define d(x) x
 
 #define EM_FORMAT_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
@@ -394,11 +394,6 @@ emf_parse_multipart_alternative (EMFormat *emf,
 		g_object_unref (null_stream);
 
 		if (content_size == 0)
-			continue;
-
-		data_wrapper = camel_medium_get_content ((CamelMedium *) mpart);
-		ba = camel_data_wrapper_get_byte_array (data_wrapper);
-		if (ba->len == 0)
 			continue;
 
 		type = camel_mime_part_get_content_type (mpart);
