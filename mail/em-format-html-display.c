@@ -608,6 +608,7 @@ efhd_parse_optional (EMFormat *emf,
 	puri = (EMFormatAttachmentPURI *) em_format_puri_new (
 			emf, sizeof (EMFormatAttachmentPURI), part, part_id->str);
 	puri->puri.free = efhd_free_attach_puri_data;
+	puri->puri.widget_func = efhd_attachment_optional;
 	puri->attachment_view_part_id = g_strdup (part_id->str);
 	puri->handle = em_format_find_handler (emf, "text/plain");
 	puri->shown = FALSE;
@@ -900,39 +901,6 @@ efhd_attachment_bar (EMFormat *emf,
 }
 
 static void
-set_size_request_cb (gpointer message_part_id,
-                     gpointer widget,
-                     gpointer width)
-{
-	gtk_widget_set_size_request (widget, GPOINTER_TO_INT (width), -1);
-}
-
-static void
-efhd_bar_resize (EMFormatHTML *efh,
-                 GtkAllocation *event)
-{
-	EMFormatHTMLDisplayPrivate *priv;
-	GtkAllocation allocation;
-	EWebView *web_view;
-	GtkWidget *widget;
-	gint width;
-
-	priv = EM_FORMAT_HTML_DISPLAY_GET_PRIVATE (efh);
-
-	/* FIXME WEBKIT: Ehm :)
-	web_view = em_format_html_get_web_view (efh);
-
-	widget = GTK_WIDGET (web_view);
-	gtk_widget_get_allocation (widget, &allocation);
-	width = allocation.width - 12;
-
-	if (width > 0) {
-		g_hash_table_foreach (priv->attachment_views, set_size_request_cb, GINT_TO_POINTER (width));
-	}
-	*/
-}
-
-static void
 efhd_message_add_bar (EMFormat *emf,
                       CamelMimePart *part,
                       GString *part_id,
@@ -973,26 +941,12 @@ efhd_optional_button_show (GtkWidget *widget,
 	}
 }
 
-static void
-efhd_resize (GtkWidget *w,
-             GtkAllocation *event,
-             EMFormatHTML *efh)
-{
-	EWebView *web_view;
-	GtkAllocation allocation;
-
-	/* FIXME WEBKIT: Emh...
-	web_view = em_format_html_get_web_view (efh);
-	gtk_widget_get_allocation (GTK_WIDGET (web_view), &allocation);
-	gtk_widget_set_size_request (w, allocation.width - 48, 250);
-	*/
-}
 
 /* optional render attachment button callback */
 static GtkWidget*
 efhd_attachment_optional (EMFormat *efh,
-						  EMFormatPURI *puri,
-						  GCancellable *cancellable)
+			  EMFormatPURI *puri,
+			  GCancellable *cancellable)
 {
 	GtkWidget *hbox, *vbox, *button, *mainbox, *scroll, *label, *img;
 	AtkObject *a11y;
@@ -1073,16 +1027,6 @@ efhd_attachment_optional (EMFormat *efh,
 	gtk_container_add (GTK_CONTAINER (scroll), GTK_WIDGET (view));
 	gtk_box_pack_start (GTK_BOX (vbox), scroll, TRUE, TRUE, 6);
 	gtk_widget_show (GTK_WIDGET (view));
-
-	/* FIXME WEBKIT hmm, what to do?
-	web_view = em_format_html_get_web_view (efh);
-	gtk_widget_get_allocation (GTK_WIDGET (web_view), &allocation);
-	gtk_widget_set_size_request (scroll, allocation.width - 48, 250);
-	g_signal_connect (
-		scroll, "size_allocate",
-		G_CALLBACK (efhd_resize), efh);
-	gtk_widget_show (scroll);
-	*/
 
 	if (!info->shown)
 		gtk_widget_hide (scroll);
