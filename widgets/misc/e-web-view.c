@@ -125,6 +125,7 @@ static const gchar *ui =
 "    <placeholder name='custom-actions-3'/>"
 "    <separator/>"
 "    <menuitem action='select-all'/>"
+"    <placeholder name='inspect-menu' />"
 "  </popup>"
 "</ui>";
 
@@ -723,6 +724,16 @@ web_view_button_press_event (GtkWidget *widget,
                 WebKitHitTestResult *test;
                 WebKitHitTestResultContext context;
 
+                if (web_view->priv->cursor_image) {
+                        g_object_unref (web_view->priv->cursor_image);
+                        web_view->priv->cursor_image = NULL;
+                }
+
+                if (web_view->priv->cursor_image_src) {
+                        g_free (web_view->priv->cursor_image_src);
+                        web_view->priv->cursor_image_src = NULL;
+                }
+
                 test = webkit_web_view_get_hit_test_result (WEBKIT_WEB_VIEW (web_view), event);
 
                 if (!test)
@@ -758,6 +769,8 @@ web_view_button_press_event (GtkWidget *widget,
                                         continue;
 
                                 data = webkit_web_resource_get_data (src);
+                                if (!data)
+                                        break;
 
                                 loader = gdk_pixbuf_loader_new ();
                                 if (!gdk_pixbuf_loader_write (loader,
