@@ -67,6 +67,8 @@ struct _EMailDisplayPrivate {
 
 	GtkActionGroup *mailto_actions;
         GtkActionGroup *images_actions;
+
+        guint caret_mode:1;
 };
 
 enum {
@@ -75,6 +77,7 @@ enum {
 	PROP_MODE,
 	PROP_HEADERS_COLLAPSABLE,
 	PROP_HEADERS_COLLAPSED,
+        PROP_CARET_MODE,
 };
 
 enum {
@@ -190,8 +193,6 @@ static void
 mail_display_webview_update_actions (EWebView *web_view,
                                      gpointer user_data)
 {
-        EMailDisplay *display = user_data;
-
         const gchar *image_src;
         gboolean visible;
         GtkAction *action;
@@ -299,6 +300,11 @@ mail_display_set_property (GObject *object,
 				E_MAIL_DISPLAY (object),
 				g_value_get_boolean (value));
 			return;
+                case PROP_CARET_MODE:
+                        e_mail_display_set_caret_mode (
+                                E_MAIL_DISPLAY (object),
+                                g_value_get_boolean (value));
+                        return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -331,6 +337,11 @@ mail_display_get_property (GObject *object,
 				value, e_mail_display_get_headers_collapsed (
 				E_MAIL_DISPLAY (object)));
 			return;
+                case PROP_CARET_MODE:
+                        g_value_set_boolean (
+                                value, e_mail_display_get_caret_mode(
+                                E_MAIL_DISPLAY (object)));
+                        return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -688,6 +699,9 @@ mail_display_setup_webview (EMailDisplay *display,
         g_signal_connect (web_view, "update-actions",
                 G_CALLBACK (mail_display_webview_update_actions), display);
 
+	g_object_bind_property (web_view, "caret-mode",
+		display, "caret-mode", G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
+
         settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
         /* When webviews holds headers or attached image then the can_load_images option
            does not apply */
@@ -1031,6 +1045,16 @@ mail_display_class_init (EMailDisplayClass *class)
 			NULL,
 			FALSE,
 			G_PARAM_READWRITE));
+
+        g_object_class_install_property (
+                object_class,
+                PROP_CARET_MODE,
+                g_param_spec_boolean (
+                        "caret-mode",
+                        "Caret Mode",
+                        NULL,
+                        FALSE,
+                        G_PARAM_READWRITE));
 
 	signals[POPUP_EVENT] = g_signal_new (
 		"popup-event",
@@ -1415,6 +1439,30 @@ e_mail_display_get_selection_plain_text (EMailDisplay *display,
 
 	return g_strdup (str);
 }
+
+void
+e_mail_display_set_caret_mode (EMailDisplay *display,
+			       gboolean caret_mode)
+{
+	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+
+	if (display->priv->caret_mode == caret_mode)
+		return;
+
+	display->priv->caret_mode = caret_mode;
+
+	g_object_notify (G_OBJECT (display), "caret-mode");
+}
+
+gboolean
+e_mail_display_get_caret_mode (EMailDisplay *display)
+{
+	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), FALSE);
+
+	return display->priv->caret_mode;
+}
+
+
 
 static void
 webview_action (GtkWidget *widget, WebViewActionFunc func)

@@ -106,8 +106,12 @@ gboolean		e_mail_display_is_selection_active
 							(EMailDisplay *display);
 
 gchar*			e_mail_display_get_selection_plain_text
-							(EMailDisplay *display, gint *len);
+							(EMailDisplay *display,
+							 gint *len);
 
+void                    e_mail_display_set_caret_mode   (EMailDisplay *display,
+                                                         gboolean caret_mode);
+gboolean                e_mail_display_get_caret_mode   (EMailDisplay *display);
 
 void			e_mail_display_zoom_100		(EMailDisplay *display);
 void			e_mail_display_zoom_in		(EMailDisplay *display);
