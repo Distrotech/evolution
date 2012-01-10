@@ -1289,7 +1289,6 @@ e_mail_display_set_headers_collapsed (EMailDisplay *display,
 		return;
 
 	display->priv->headers_collapsed = collapsed;
-	e_mail_display_reload (display);
 
 	g_object_notify (G_OBJECT (display), "headers-collapsed");
 }
