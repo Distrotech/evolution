@@ -216,6 +216,12 @@ void		e_web_view_update_actions	(EWebView *web_view);
 
 gchar*          e_web_view_get_selection_html   (EWebView *web_view);
 
+void		e_web_view_set_settings		(EWebView *web_view,
+						 WebKitWebSettings *settings);
+
+WebKitWebSettings*
+		e_web_view_get_default_settings ();
+
 G_END_DECLS
 
 #endif /* E_WEB_VIEW_H */

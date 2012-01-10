@@ -3992,13 +3992,12 @@ e_mail_reader_init (EMailReader *reader,
 	action_name = "mail-caret-mode";
 	action = e_mail_reader_get_action (reader, action_name);
 
-	/* FIXME WEBKIT
 	g_object_bind_property (
 		action, "active",
-		web_view, "caret-mode",
+		display, "caret-mode",
 		G_BINDING_BIDIRECTIONAL |
 		G_BINDING_SYNC_CREATE);
-	*/
+
 connect_signals:
 
 	if (!connect_signals)

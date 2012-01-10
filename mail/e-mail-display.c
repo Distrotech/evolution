@@ -69,6 +69,9 @@ struct _EMailDisplayPrivate {
         GtkActionGroup *images_actions;
 
         guint caret_mode:1;
+	gfloat zoom_level;
+
+	WebKitWebSettings *settings;
 };
 
 enum {
@@ -78,6 +81,7 @@ enum {
 	PROP_HEADERS_COLLAPSABLE,
 	PROP_HEADERS_COLLAPSED,
         PROP_CARET_MODE,
+	PROP_ZOOM_LEVEL
 };
 
 enum {
@@ -91,8 +95,6 @@ static gint signals[LAST_SIGNAL];
 static gpointer parent_class;
 
 static CamelDataCache *emd_global_http_cache = 0;
-
-typedef void (*WebViewActionFunc) (EWebView *web_view);
 
 static const gchar *ui =
 "<ui>"
@@ -279,6 +281,8 @@ mail_display_set_property (GObject *object,
                            const GValue *value,
                            GParamSpec *pspec)
 {
+	EMailDisplayPrivate *priv = E_MAIL_DISPLAY (object)->priv;
+
 	switch (property_id) {
 		case PROP_FORMATTER:
 			e_mail_display_set_formatter (
@@ -301,10 +305,11 @@ mail_display_set_property (GObject *object,
 				g_value_get_boolean (value));
 			return;
                 case PROP_CARET_MODE:
-                        e_mail_display_set_caret_mode (
-                                E_MAIL_DISPLAY (object),
-                                g_value_get_boolean (value));
+			priv->caret_mode = g_value_get_boolean (value);
                         return;
+		case PROP_ZOOM_LEVEL:
+			priv->zoom_level = g_value_get_float (value);
+			return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -316,6 +321,8 @@ mail_display_get_property (GObject *object,
                            GValue *value,
                            GParamSpec *pspec)
 {
+	EMailDisplayPrivate *priv = E_MAIL_DISPLAY (object)->priv;
+
 	switch (property_id) {
 		case PROP_FORMATTER:
 			g_value_set_object (
@@ -338,10 +345,11 @@ mail_display_get_property (GObject *object,
 				E_MAIL_DISPLAY (object)));
 			return;
                 case PROP_CARET_MODE:
-                        g_value_set_boolean (
-                                value, e_mail_display_get_caret_mode(
-                                E_MAIL_DISPLAY (object)));
+                        g_value_set_boolean (value, priv->caret_mode);
                         return;
+		case PROP_ZOOM_LEVEL:
+			g_value_set_float (value, priv->zoom_level);
+			return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -367,6 +375,11 @@ mail_display_dispose (GObject *object)
 	if (priv->webviews) {
 		g_list_free (priv->webviews);
 		priv->webviews = NULL;
+	}
+
+	if (priv->settings) {
+		g_object_unref (priv->settings);
+		priv->settings = NULL;
 	}
 
 	/* Chain up to parent's dispose() method. */
@@ -679,6 +692,7 @@ mail_display_setup_webview (EMailDisplay *display,
 	GError *error = NULL;
 
 	web_view = E_WEB_VIEW (e_web_view_new ());
+	e_web_view_set_settings (web_view, display->priv->settings);
 
 	g_signal_connect (web_view, "navigation-policy-decision-requested",
 		G_CALLBACK (mail_display_link_clicked), display);
@@ -699,17 +713,19 @@ mail_display_setup_webview (EMailDisplay *display,
         g_signal_connect (web_view, "update-actions",
                 G_CALLBACK (mail_display_webview_update_actions), display);
 
-	g_object_bind_property (web_view, "caret-mode",
-		display, "caret-mode", G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
+	g_object_bind_property (web_view, "zoom-level", display, "zoom-level", 
+		G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
 
-        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+
+//        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
         /* When webviews holds headers or attached image then the can_load_images option
            does not apply */
+/*
         if (em_format_html_can_load_images (display->priv->formatter) || is_header)
                 g_object_set (G_OBJECT (settings), "auto-load-images", TRUE, NULL);
         else
                 g_object_set (G_OBJECT (settings), "auto-load-images", FALSE, NULL);
-
+*/
 
 	/* Because we are loading from a hard-coded string, there is
 	 * no chance of I/O errors.  Failure here implies a malformed
@@ -1056,6 +1072,19 @@ mail_display_class_init (EMailDisplayClass *class)
                         FALSE,
                         G_PARAM_READWRITE));
 
+	g_object_class_install_property (
+		object_class,
+		PROP_ZOOM_LEVEL,
+		g_param_spec_float (
+			"zoom-level",
+			"Zoom Level",
+			NULL,
+			G_MINFLOAT,
+			G_MAXFLOAT,
+			1.0,
+			G_PARAM_READWRITE));
+			
+
 	signals[POPUP_EVENT] = g_signal_new (
 		"popup-event",
 		G_TYPE_FROM_CLASS (class),
@@ -1086,6 +1115,12 @@ mail_display_init (EMailDisplay *display)
 	const gchar *user_cache_dir;
 
 	display->priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
+
+	display->priv->settings = e_web_view_get_default_settings (GTK_WIDGET (display));
+	g_object_bind_property (display, "caret-mode",
+		display->priv->settings, "enable-caret-browsing", 
+		G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
+	
 
 	display->priv->box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 10);
         gtk_container_set_reallocate_redraws (GTK_CONTAINER (display->priv->box), TRUE);
@@ -1441,66 +1476,43 @@ e_mail_display_get_selection_plain_text (EMailDisplay *display,
 }
 
 void
-e_mail_display_set_caret_mode (EMailDisplay *display,
-			       gboolean caret_mode)
-{
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	if (display->priv->caret_mode == caret_mode)
-		return;
-
-	display->priv->caret_mode = caret_mode;
-
-	g_object_notify (G_OBJECT (display), "caret-mode");
-}
-
-gboolean
-e_mail_display_get_caret_mode (EMailDisplay *display)
-{
-	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), FALSE);
-
-	return display->priv->caret_mode;
-}
-
-
-
-static void
-webview_action (GtkWidget *widget, WebViewActionFunc func)
-{
-	/*
-	 * It's not a critical error to pass other then EWebView
-	 * widgets.
-	 */
-	if (E_IS_WEB_VIEW (widget)) {
-		func (E_WEB_VIEW (widget));
-	}
-}
-
-void
 e_mail_display_zoom_100 (EMailDisplay *display)
 {
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
-	gtk_container_foreach (GTK_CONTAINER (display),
-			(GtkCallback) webview_action, e_web_view_zoom_100);
+	display->priv->zoom_level = 1.0;
+
+	g_object_notify (G_OBJECT (display), "zoom-level");
 }
 
 void
 e_mail_display_zoom_in (EMailDisplay *display)
 {
+	gfloat step;
+
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
-	gtk_container_foreach (GTK_CONTAINER (display),
-			(GtkCallback) webview_action, e_web_view_zoom_in);
+	g_object_get (G_OBJECT (display->priv->settings), 
+		"zoom-step", &step, NULL);
+
+	display->priv->zoom_level += step;
+
+	g_object_notify (G_OBJECT (display), "zoom-level");
 }
 
 void
 e_mail_display_zoom_out (EMailDisplay *display)
 {
+	float step;
+
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
-	gtk_container_foreach (GTK_CONTAINER (display),
-			(GtkCallback) webview_action, e_web_view_zoom_out);
+	g_object_get (G_OBJECT (display->priv->settings),
+		"zoom-step", &step, NULL);
+
+	display->priv->zoom_level -= step;
+
+	g_object_notify (G_OBJECT (display), "zoom-level");
 }
 
 static void

@@ -1540,8 +1540,6 @@ e_web_view_init (EWebView *web_view)
 	WebKitWebSettings *web_settings;
 	const gchar *domain = GETTEXT_PACKAGE;
 	const gchar *id;
-	GtkStyleContext *context;
-	const PangoFontDescription *font;
 	GError *error = NULL;
 
 	web_view->priv = E_WEB_VIEW_GET_PRIVATE (web_view);
@@ -1569,26 +1567,9 @@ e_web_view_init (EWebView *web_view)
 		ui_manager, "connect-proxy",
 		G_CALLBACK (web_view_connect_proxy_cb), web_view);
 
-	web_settings = webkit_web_view_get_settings (
-		WEBKIT_WEB_VIEW (web_view));
-
-	/* Use same font-size as rest of Evolution */
-	context = gtk_widget_get_style_context (GTK_WIDGET (web_view));
-	font = gtk_style_context_get_font (context, GTK_STATE_FLAG_NORMAL);
-	g_object_set (G_OBJECT (web_settings),
-		"default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
-		"default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
-		NULL);
-
-	/* Force frames to be as high as their content (e.g. no scrolling) */
-	g_object_set (G_OBJECT (web_settings), "enable-frame-flattening",
-		TRUE, NULL);
-
-	g_object_bind_property (
-		web_view, "caret-mode",
-		web_settings, "enable-caret-browsing",
-		G_BINDING_BIDIRECTIONAL |
-		G_BINDING_SYNC_CREATE);
+	web_settings = e_web_view_get_default_settings (GTK_WIDGET (web_view));
+	e_web_view_set_settings (web_view, web_settings);
+	g_object_unref (web_settings);
 
 	action_group = gtk_action_group_new ("uri");
 	gtk_action_group_set_translation_domain (action_group, domain);
@@ -2656,4 +2637,43 @@ e_web_view_get_selection_html (EWebView *web_view)
                 WEBKIT_DOM_NODE (fragment), NULL);
 
         return webkit_dom_html_element_get_inner_html (element);
+}
+
+void
+e_web_view_set_settings (EWebView *web_view,
+			 WebKitWebSettings *settings)
+{
+	g_return_if_fail (E_IS_WEB_VIEW (web_view));
+
+	if (settings == webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view)))
+		return;
+
+	g_object_bind_property (settings, "enable-caret-browsing", web_view, "caret-mode",
+		G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
+
+	webkit_web_view_set_settings (WEBKIT_WEB_VIEW (web_view), settings);
+}
+
+
+WebKitWebSettings*
+e_web_view_get_default_settings(GtkWidget *parent_widget)
+{
+	GtkStyleContext *context;
+	const PangoFontDescription *font;
+	WebKitWebSettings *settings;
+
+	g_return_val_if_fail (GTK_IS_WIDGET (parent_widget), NULL);
+
+	settings = webkit_web_settings_new ();
+
+	/* Use same font-size as rest of Evolution */
+	context = gtk_widget_get_style_context (parent_widget);
+	font = gtk_style_context_get_font (context, GTK_STATE_FLAG_NORMAL);
+
+	g_object_set (G_OBJECT (settings),
+		      "default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
+		      "default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
+		      "enable-frame-flattening", TRUE, NULL);
+
+	return settings;	
 }
