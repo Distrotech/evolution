@@ -3118,6 +3118,8 @@ format_itip (EPlugin *ep,
 	puri->cancellable = g_cancellable_new ();
 	puri->real_comps = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 
+	em_format_add_puri (target->format, (EMFormatPURI *) puri);
+
 	g_object_unref (settings);
 
 	/* This is non-gui thread. Download the part for using in the main thread */
