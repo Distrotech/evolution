@@ -692,6 +692,7 @@ mail_display_setup_webview (EMailDisplay *display,
 	GError *error = NULL;
 
 	web_view = E_WEB_VIEW (e_web_view_new ());
+	webkit_web_view_set_full_content_zoom (WEBKIT_WEB_VIEW (web_view), TRUE);
 	e_web_view_set_settings (web_view, display->priv->settings);
 
 	g_signal_connect (web_view, "navigation-policy-decision-requested",
@@ -752,19 +753,29 @@ mail_display_setup_webview (EMailDisplay *display,
 }
 
 static void
-mail_display_on_web_view_vadjustment_changed (GtkAdjustment* adjustment,
-					      gpointer user_data)
+mail_display_on_web_view_sw_vadjustment_changed (GtkAdjustment* adjustment,
+						 gpointer user_data)
 {
-	GtkWidget *widget = user_data;
-	int upper = gtk_adjustment_get_upper (GTK_ADJUSTMENT (adjustment));
-	int page_size = gtk_adjustment_get_page_size (GTK_ADJUSTMENT (adjustment));
-	int widget_height = gtk_widget_get_allocated_height (widget);
+	GtkWidget *scrolled_window = user_data;
+	GtkWidget *hscrollbar;
+	GtkWidget *web_view;
+	gint new_height;
 
-	if (page_size < upper) {
-		gtk_widget_set_size_request (GTK_WIDGET (widget), -1, upper + (widget_height - page_size));
-		gtk_widget_queue_resize (GTK_WIDGET (widget));
+	web_view = gtk_bin_get_child (GTK_BIN (scrolled_window));
+	gtk_widget_get_preferred_height (web_view, &new_height, NULL);
+
+	/* We now have height of the webview's view, but to correctly resize the
+	 * parent scrolled window we need to add height of horizontal scrollbar (if visible) */
+	hscrollbar = gtk_scrolled_window_get_hscrollbar (GTK_SCROLLED_WINDOW (scrolled_window));
+	if (hscrollbar && gtk_widget_get_visible (hscrollbar)) {
+		gint scrollbar_height;
+		gtk_widget_get_preferred_height (hscrollbar, &scrollbar_height, NULL);
+		new_height += scrollbar_height;
 	}
-	
+
+	g_message ("WebView want height %d", new_height);
+
+	gtk_widget_set_size_request (scrolled_window, -1, new_height);
 }
 
 static GtkWidget*
@@ -772,26 +783,23 @@ mail_display_insert_web_view (EMailDisplay *display,
 			      EWebView *web_view)
 {
 	GtkWidget *scrolled_window;
-	GtkAdjustment *web_view_vadjustment;
+	GtkAdjustment *vadjustment;
         GdkWindow *window;
 
 	display->priv->webviews = g_list_append (display->priv->webviews, web_view);
 	scrolled_window = gtk_scrolled_window_new (NULL, NULL);
 	g_object_set (G_OBJECT (scrolled_window),
-		"hscrollbar-policy", GTK_POLICY_AUTOMATIC,
-		"vscrollbar-policy", GTK_POLICY_AUTOMATIC,
+		"vexpand", FALSE,
+		"vexpand-set", TRUE,
 		"shadow-type", GTK_SHADOW_NONE,
-		"hexpand", TRUE,
-		      "vexpand", FALSE,
-		      "vexpand-set", TRUE,
 		NULL);
-	g_object_set (G_OBJECT (web_view),
-		      "vscroll-policy", GTK_SCROLL_NATURAL,
-		      NULL);
-		//"min-content-height", 300, NULL);
-	web_view_vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
-	g_signal_connect (G_OBJECT (web_view_vadjustment), "changed",
-			  G_CALLBACK (mail_display_on_web_view_vadjustment_changed), scrolled_window);
+
+	vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
+	g_signal_connect (G_OBJECT (vadjustment), "changed",
+		G_CALLBACK (mail_display_on_web_view_sw_vadjustment_changed), scrolled_window);
+	g_signal_connect (G_OBJECT (vadjustment), "value-changed",
+		G_CALLBACK (mail_display_on_web_view_sw_vadjustment_changed), scrolled_window);
+	
 	gtk_container_add (GTK_CONTAINER (scrolled_window), GTK_WIDGET (web_view));
 
         gtk_box_pack_start (GTK_BOX (display->priv->box), scrolled_window, FALSE, TRUE, 0);

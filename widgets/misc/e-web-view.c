@@ -22,6 +22,8 @@
 
 #include "e-web-view.h"
 
+#include <math.h>
+
 #include <JavaScriptCore/JavaScript.h>
 
 #include <string.h>
@@ -39,6 +41,7 @@
 
 #include "e-popup-action.h"
 #include "e-selectable.h"
+#include <stdlib.h>
 
 #define E_WEB_VIEW_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
@@ -837,6 +840,73 @@ web_view_scroll_event (GtkWidget *widget,
 	return FALSE;
 }
 
+static void
+web_view_get_preferred_height (GtkWidget *widget,
+			       gint *minimum_height,
+			       gint *natural_height)
+{
+	WebKitWebView *web_view;
+	WebKitDOMDocument *document;
+	WebKitDOMElement *body, *last_el;
+	gint doc_height;
+
+	if (!minimum_height && !natural_height)
+		return;
+
+	web_view = WEBKIT_WEB_VIEW (widget);
+	document = webkit_web_view_get_dom_document (web_view);
+	if (!document)
+		goto chainup;
+
+	body = WEBKIT_DOM_ELEMENT (webkit_dom_document_get_body (document));
+	if (!body)
+		goto chainup;
+
+	/* Last element in DOM != the undermost element displayed.
+	 * Thus we create our own element which is guaranteed to be displayed
+	 * at the very bottom */
+	last_el = webkit_dom_document_get_element_by_id (document, "_evo_bottom_element");
+	if (!last_el) {
+		last_el = webkit_dom_document_create_element (document, "DIV", NULL);
+		webkit_dom_html_element_set_id (WEBKIT_DOM_HTML_ELEMENT (last_el),
+			"_evo_bottom_element");
+		webkit_dom_node_append_child (WEBKIT_DOM_NODE (body),
+			WEBKIT_DOM_NODE (last_el), NULL);
+	}
+
+	/* The _actual_ height of page content is top + height of the
+	 * very last element in body */
+	/* FIXME: This seems to throw warnings, but it's the only method that
+	 * actually works */
+	doc_height = webkit_dom_element_get_offset_top (last_el) +
+			webkit_dom_element_get_offset_height (last_el);
+
+
+	/* Hardcoded bottom padding */
+	doc_height += 8;
+
+	/* When full content zoom is enabled then the elements are not resized
+	 * but rather scaled (thus they still claim their original height),
+	 * but we need to know the real current height */
+	if (webkit_web_view_get_full_content_zoom (web_view)) {
+		doc_height = ceil((gfloat) doc_height * webkit_web_view_get_zoom_level (web_view));
+	}
+
+	if (minimum_height)
+		*minimum_height = doc_height;
+
+	if (natural_height)
+		*natural_height = doc_height;
+
+	return;
+
+chainup:
+	if (GTK_WIDGET_CLASS (widget)->get_preferred_height) {
+		GTK_WIDGET_CLASS(widget)->get_preferred_height(widget,
+			minimum_height, natural_height);
+	}
+}
+
 static GtkWidget *
 web_view_create_plugin_widget (EWebView *web_view,
                                const gchar *mime_type,
@@ -1315,6 +1385,7 @@ e_web_view_class_init (EWebViewClass *class)
 	widget_class = GTK_WIDGET_CLASS (class);
 	widget_class->button_press_event = web_view_button_press_event;
 	widget_class->scroll_event = web_view_scroll_event;
+	widget_class->get_preferred_height = web_view_get_preferred_height;
 
 #if 0  /* WEBKIT */
 	html_class = GTK_HTML_CLASS (class);
@@ -2661,6 +2732,7 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
 	GtkStyleContext *context;
 	const PangoFontDescription *font;
 	WebKitWebSettings *settings;
+	const gchar *stylesheet;
 
 	g_return_val_if_fail (GTK_IS_WIDGET (parent_widget), NULL);
 
@@ -2670,10 +2742,13 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
 	context = gtk_widget_get_style_context (parent_widget);
 	font = gtk_style_context_get_font (context, GTK_STATE_FLAG_NORMAL);
 
+	stylesheet = EVOLUTION_PRIVDATADIR "/theme/webview.css";
+
 	g_object_set (G_OBJECT (settings),
 		      "default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
 		      "default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
-		      "enable-frame-flattening", TRUE, NULL);
+		      "enable-frame-flattening", TRUE,
+		      "user-stylesheet-uri", stylesheet, NULL);
 
 	return settings;	
 }

@@ -77,6 +77,7 @@ libemiscwidgets_la_CPPFLAGS =						\
 	-I$(top_srcdir)/widgets						\
 	-DEVOLUTION_IMAGESDIR=\""$(imagesdir)"\"			\
 	-DEVOLUTION_UIDIR=\""$(uidir)"\"				\
+	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"    		\
 	-DG_LOG_DOMAIN=__FILE__						\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)					\
 	$(GNOME_PLATFORM_CFLAGS)					\

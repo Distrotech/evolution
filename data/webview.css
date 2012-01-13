@@ -72,3 +72,9 @@ img.navigable {
 .attachments-list th {
   font-weight: bold;
 }
+
+#_evo_bottom_element {
+  clear: both;
+  width: 100%;
+  height: 2px;
+}
