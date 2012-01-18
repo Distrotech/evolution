@@ -2194,10 +2194,11 @@ efh_format_short_headers (EMFormatHTML *efh,
 
 		} else if (!g_ascii_strcasecmp (header->name, "Subject")) {
 			gchar *buf = NULL;
-			buf = camel_header_unfold (header->value);
+			subject = camel_header_unfold (header->value);
+			buf = camel_header_decode_string (subject, hdr_charset);
 			g_free (subject);
-			subject = camel_header_decode_string (buf, hdr_charset);
-			g_free (buf);
+                        subject = camel_text_to_html (buf, CAMEL_MIME_FILTER_TOHTML_PRESERVE_8BIT, 0);
+                        g_free (buf);
 		}
 		header = header->next;
 	}
