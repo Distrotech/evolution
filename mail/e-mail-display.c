@@ -773,8 +773,6 @@ mail_display_on_web_view_sw_vadjustment_changed (GtkAdjustment* adjustment,
 		new_height += scrollbar_height;
 	}
 
-	g_message ("WebView want height %d", new_height);
-
 	gtk_widget_set_size_request (scrolled_window, -1, new_height);
 }
 
