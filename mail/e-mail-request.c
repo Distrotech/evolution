@@ -269,14 +269,21 @@ mail_request_get_content_type (SoupRequest *request)
 		mime_type = g_strdup ("text/html");
 	} else if (!emr->priv->puri->mime_type) {
 		CamelContentType *ct = camel_mime_part_get_content_type (emr->priv->puri->part);
-		mime_type = camel_content_type_format (ct);
+		mime_type = camel_content_type_simple (ct);
 	} else {
 		mime_type = g_strdup (emr->priv->puri->mime_type);
 	}
 
-	d(printf("Content-Type: %s\n", mime_type));
-        emr->priv->ret_mime_type = mime_type;
-	return mime_type;
+	if (g_strcmp0 (mime_type, "text/html") == 0) {
+                emr->priv->ret_mime_type = g_strconcat (mime_type, "; charset=\"UTF-8\"", NULL);
+                g_free (mime_type);
+        } else {
+                emr->priv->ret_mime_type = mime_type;
+        }
+
+        d(printf("Content-Type: %s\n", emr->priv->ret_mime_type));
+
+        return emr->priv->ret_mime_type;
 }
 
 static const char *data_schemes[] = { "mail", "evo-file", NULL };
