@@ -2161,6 +2161,7 @@ efh_format_short_headers (EMFormatHTML *efh,
 	struct _camel_header_address *addrs = NULL;
 	struct _camel_header_raw *header;
 	GString *from;
+        gboolean is_rtl;
 
 	if (cancellable && g_cancellable_is_cancelled (cancellable))
 		return;
@@ -2203,11 +2204,20 @@ efh_format_short_headers (EMFormatHTML *efh,
 		header = header->next;
 	}
 
-	g_string_append_printf (
-		buffer,
-		"<tr><td><strong>%s</strong> %s%s%s</td></tr>",
-		subject ? subject : _("(no subject)"),
-		from->len ? "(" : "", from->str, from->len ? ")" : "");
+	is_rtl = gtk_widget_get_default_direction () == GTK_TEXT_DIR_RTL;
+        if (is_rtl) {
+                g_string_append_printf (
+                        buffer,
+                        "<tr><td width=\"100%%\" align=\"right\">%s%s%s <strong>%s</strong></td></tr>",
+                        from->len ? "(" : "", from->str, from->len ? ")" : "",
+                        subject ? subject : _("(no subject)"));
+        } else {
+                g_string_append_printf (
+                        buffer,
+                        "<tr><td><strong>%s</strong> %s%s%s</td></tr>",
+                        subject ? subject : _("(no subject)"),
+                        from->len ? "(" : "", from->str, from->len ? ")" : "");
+        }
 
 	g_string_append (buffer, "</table>");
 
