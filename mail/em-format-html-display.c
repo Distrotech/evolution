@@ -552,22 +552,15 @@ efhd_parse_attachment (EMFormat *emf,
 	e_attachment_store_add_attachment (store, puri->attachment);
 
 	if (emf->folder && emf->folder->summary && emf->message_uid) {
-		CamelMessageInfo *mi;
+                CamelDataWrapper *dw = camel_medium_get_content (CAMEL_MEDIUM (puri->puri.part));
+                GByteArray *ba;
+                ba = camel_data_wrapper_get_byte_array (dw);
+                if (ba) {
+                        size = ba->len;
 
-		mi = camel_folder_summary_get (emf->folder->summary, emf->message_uid);
-		if (mi) {
-			const CamelMessageContentInfo *ci;
-
-			ci = camel_folder_summary_guess_content_info (mi,
-					camel_mime_part_get_content_type (puri->puri.part));
-			if (ci) {
-				size = ci->size;
-				/* what if its not encoded in base64 ? is it a case to consider? */
-				if (ci->encoding && !g_ascii_strcasecmp (ci->encoding, "base64"))
-					size = size / 1.37;
-			}
-			camel_message_info_free (mi);
-		}
+                        if (camel_mime_part_get_encoding (puri->puri.part) == CAMEL_TRANSFER_ENCODING_BASE64)
+                                size = size / 1.37;
+                }
 	}
 
 	load_data = g_new0 (struct attachment_load_data, 1);
