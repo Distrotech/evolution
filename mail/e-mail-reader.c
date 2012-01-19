@@ -2616,8 +2616,6 @@ mail_reader_message_seen_cb (EMailReaderClosure *closure)
 	if (e_tree_is_dragging (E_TREE (message_list)))
 		return FALSE;
 
-	uid_is_current &= (g_strcmp0 (current_uid, message_uid) == 0);
-
 	current_uid = MESSAGE_LIST (message_list)->cursor_uid;
 	uid_is_current &= (g_strcmp0 (current_uid, message_uid) == 0);
 

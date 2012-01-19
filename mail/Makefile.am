@@ -64,6 +64,7 @@ mailinclude_HEADERS =					\
 	e-mail-request.h				\
 	e-mail-sidebar.h				\
 	e-mail-tag-editor.h				\
+	e-mail-ui-session.h				\
 	e-mail-view.h					\
 	em-account-editor.h				\
 	em-composer-utils.h				\
@@ -129,6 +130,7 @@ libevolution_mail_la_SOURCES =				\
 	e-mail-request.c				\
 	e-mail-sidebar.c				\
 	e-mail-tag-editor.c				\
+	e-mail-ui-session.c				\
 	e-mail-view.c					\
 	em-account-editor.c				\
 	em-composer-utils.c				\
