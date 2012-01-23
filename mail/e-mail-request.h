@@ -1,7 +1,7 @@
 #ifndef E_MAIL_REQUEST_H
 #define E_MAIL_REQUEST_H
 
-#ifdef LIBSOUP_USE_UNSTABLE_REQUEST_API
+#define LIBSOUP_USE_UNSTABLE_REQUEST_API
 
 #include <libsoup/soup.h>
 #include <libsoup/soup-request.h>
@@ -32,7 +32,5 @@ struct _EMailRequestClass {
 GType e_mail_request_get_type (void);
 
 G_END_DECLS
-
-#endif /* LIBSOUP_USE_UNSTABLE_REQUEST_API */
 
 #endif /* E_MAIL_REQUEST_H */

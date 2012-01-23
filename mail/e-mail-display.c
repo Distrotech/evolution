@@ -45,6 +45,8 @@
 #include <libsoup/soup.h>
 #include <libsoup/soup-requester.h>
 
+#include <JavaScriptCore/JavaScript.h>
+
 #define d(x)
 
 #define E_MAIL_DISPLAY_GET_PRIVATE(obj) \
@@ -69,6 +71,7 @@ struct _EMailDisplayPrivate {
         GtkActionGroup *images_actions;
 
         guint caret_mode:1;
+        guint force_image_load:1;
 	gfloat zoom_level;
 
 	WebKitWebSettings *settings;
@@ -531,83 +534,6 @@ webkit_request_load_from_file (WebKitNetworkRequest *request,
 }
 
 static void
-add_resource_to_cache (WebKitWebResource *resource)
-{
-
-	/* Make sure this URI is not yet in cache */
-	if (!camel_data_cache_get (emd_global_http_cache, "http",
-		webkit_web_resource_get_uri (resource), NULL)) {
-
-		CamelStream *stream;
-		GString *data;
-		gssize len = 0;
-
-		/* Create cache item */
-		stream = camel_data_cache_add (emd_global_http_cache, "http",
-			webkit_web_resource_get_uri (resource), NULL);
-		if (!stream)
-			return;
-
-		/* Write content of the resource to the cache */
-		data = webkit_web_resource_get_data (resource);
-		if (!data)
-			return;
-
-		len = camel_stream_write_string (stream, data->str, NULL, NULL);
-
-		/* Don't store invalid data in cache */
-		if (len != data->len) {
-			camel_data_cache_remove (emd_global_http_cache, "http",
-				webkit_web_resource_get_uri (resource), NULL);
-		}
-	}
-}
-
-static void
-mail_display_webkit_finished (GObject *object,
-			      GParamSpec *pspec,
-			      gpointer user_data)
-{
-	WebKitLoadStatus status;
-	WebKitWebView *web_view;
-	WebKitWebFrame *frame;
-	WebKitWebDataSource *data_source;
-	WebKitWebResource *subresource;
-	GList *iter, *subresources;
-	const gchar *uri;
-
-	/* Wait until all resources in webview are fully downloaded. */
-	g_object_get (object, "load-status", &status, NULL);
-	if (status != WEBKIT_LOAD_FINISHED)
-		return;
-
-	web_view = WEBKIT_WEB_VIEW (object);
-	frame = webkit_web_view_get_main_frame (web_view);
-	data_source = webkit_web_frame_get_data_source (frame);
-
-	/* Store in cache the main resource, content of the frame itself */
-	subresource = webkit_web_data_source_get_main_resource (data_source);
-	if (subresource) {
-		uri = webkit_web_resource_get_uri (subresource);
-		if (g_str_has_prefix (uri, "http") || g_str_has_prefix (uri, "https"))
-			add_resource_to_cache (subresource);
-	}
-
-	/* Store all subresources (images, subframes, ...) */
-	subresources = webkit_web_data_source_get_subresources (data_source);
-	for (iter = subresources; iter; iter = iter->next) {
-		subresource = iter->data;
-		if (subresource) {
-			uri = webkit_web_resource_get_uri (subresource);
-			if (g_str_has_prefix (uri, "http") || g_str_has_prefix (uri, "https"))
-				add_resource_to_cache (subresource);	
-		}
-	}
-	g_list_free (subresources);
-}
-
-
-static void
 mail_display_resource_requested (WebKitWebView *web_view,
 				 WebKitWebFrame *frame,
 				 WebKitWebResource *resource,
@@ -616,14 +542,13 @@ mail_display_resource_requested (WebKitWebView *web_view,
 				 gpointer user_data)
 {
 	EMailDisplay *display = user_data;
-	EMFormatHTML *formatter = display->priv->formatter;
+	EMFormat *formatter = EM_FORMAT (display->priv->formatter);
 	const gchar *uri = webkit_network_request_get_uri (request);
 
         /* Redirect cid:part_id to mail://mail_id/cid:part_id */
         if (g_str_has_prefix (uri, "cid:")) {
-		gchar *new_uri = em_format_build_mail_uri (EM_FORMAT (formatter)->folder,
-			EM_FORMAT (formatter)->message_uid,
-			"part_id", G_TYPE_STRING, uri, NULL);
+		gchar *new_uri = em_format_build_mail_uri (formatter->folder,
+			formatter->message_uid, "part_id", G_TYPE_STRING, uri, NULL);
 
                 webkit_network_request_set_uri (request, new_uri);
 
@@ -642,18 +567,42 @@ mail_display_resource_requested (WebKitWebView *web_view,
 
 		g_free (path);
 
-		/* Try to lookup content of any http(s) request in camel cache. */
+        /* Redirect http(s) request to evo-http(s) protocol. See EMailRequest for
+         * further details about this. */
         } else if (g_str_has_prefix (uri, "http:") || g_str_has_prefix (uri, "https")) {
 
-			gchar *path = camel_data_cache_get_filename (emd_global_http_cache,
-				"http", uri, NULL);
+                gchar *new_uri, *mail_uri, *enc;
+                SoupURI *soup_uri;
+                GHashTable *query;
 
-			/* Found cache file, load the request from cache. */
-			if (path) {
-				webkit_request_load_from_file (request, path);
-				g_free (path);
-		}
-	}
+                new_uri = g_strconcat ("evo-", uri, NULL);
+                /* Don't free, will be freed when the hash table is destroyed */
+                mail_uri = em_format_build_mail_uri (formatter->folder,
+                                formatter->message_uid, NULL, NULL);
+
+                query = soup_form_decode (new_uri);
+                enc = soup_uri_encode (mail_uri, NULL);
+                g_hash_table_insert (query, g_strdup ("__evo-mail"), enc);
+
+                if (display->priv->force_image_load) {
+                        g_hash_table_insert (query,
+                                g_strdup ("__evo-load-images"),
+                                             g_strdup ("true"));
+                }
+
+                g_free (mail_uri);
+
+                soup_uri = soup_uri_new (new_uri);
+                soup_uri_set_query_from_form (soup_uri, query);
+                g_free (new_uri);
+
+                new_uri = soup_uri_to_string (soup_uri, FALSE);
+                webkit_network_request_set_uri (request, new_uri);
+
+                g_free (new_uri);
+                soup_uri_free (soup_uri);
+                g_hash_table_unref (query);
+        }
 }
 
 static void
@@ -687,7 +636,6 @@ mail_display_setup_webview (EMailDisplay *display,
 			    gboolean is_header)
 {
 	EWebView *web_view;
-        WebKitWebSettings *settings;
 	GtkUIManager *ui_manager;
 	GError *error = NULL;
 
@@ -703,8 +651,6 @@ mail_display_setup_webview (EMailDisplay *display,
 		G_CALLBACK (mail_display_resource_requested), display);
 	g_signal_connect (web_view, "process-mailto",
 		G_CALLBACK (mail_display_process_mailto), display);
-	g_signal_connect (web_view, "notify::load-status",
-		G_CALLBACK (mail_display_webkit_finished), NULL);
 	g_signal_connect (web_view, "status-message",
 		G_CALLBACK (mail_display_emit_status_message), display);
 	g_signal_connect (web_view, "popup-event",
@@ -716,17 +662,6 @@ mail_display_setup_webview (EMailDisplay *display,
 
 	g_object_bind_property (web_view, "zoom-level", display, "zoom-level", 
 		G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
-
-
-//        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
-        /* When webviews holds headers or attached image then the can_load_images option
-           does not apply */
-/*
-        if (em_format_html_can_load_images (display->priv->formatter) || is_header)
-                g_object_set (G_OBJECT (settings), "auto-load-images", TRUE, NULL);
-        else
-                g_object_set (G_OBJECT (settings), "auto-load-images", FALSE, NULL);
-*/
 
 	/* Because we are loading from a hard-coded string, there is
 	 * no chance of I/O errors.  Failure here implies a malformed
@@ -1134,6 +1069,7 @@ mail_display_init (EMailDisplay *display)
 
 	display->priv->webviews = NULL;
 
+        display->priv->force_image_load = FALSE;
 	display->priv->mailto_actions = gtk_action_group_new ("mailto");
 	gtk_action_group_add_actions (display->priv->mailto_actions, mailto_entries, 
 		G_N_ELEMENTS (mailto_entries), NULL);
@@ -1303,6 +1239,8 @@ void
 e_mail_display_load (EMailDisplay *display,
 		     const gchar *msg_uri)
 {
+        display->priv->force_image_load = FALSE;
+
 	if (display->priv->mode == EM_FORMAT_WRITE_MODE_SOURCE)
 		mail_display_load_as_source  (display, msg_uri);
 	else
@@ -1526,15 +1464,13 @@ load_images (GtkWidget *widget,
 {
         if (GTK_IS_SCROLLED_WINDOW (widget)) {
 
-                WebKitWebSettings *settings;
-                WebKitWebView *web_view;
+                EWebView *web_view;
 
                 if (!E_IS_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget))))
                   return;
 
-                web_view = WEBKIT_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget)));
-                settings = webkit_web_view_get_settings (web_view);
-                g_object_set (G_OBJECT (settings), "auto-load-images", TRUE, NULL);
+                web_view = E_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget)));
+                e_web_view_reload (web_view);
 
         } else if (E_IS_MAIL_DISPLAY (widget)) {
 
@@ -1547,6 +1483,8 @@ void
 e_mail_display_load_images (EMailDisplay * display)
 {
         g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+
+        display->priv->force_image_load = TRUE;
 
         gtk_container_foreach (GTK_CONTAINER (display->priv->box),
                         (GtkCallback) load_images, NULL);

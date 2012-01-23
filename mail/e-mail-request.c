@@ -3,10 +3,16 @@
 #include "e-mail-request.h"
 
 #include <libsoup/soup.h>
+#include <libsoup/soup-requester.h>
+#include <libsoup/soup-request-http.h>
+
 #include <glib/gi18n.h>
 #include <camel/camel.h>
 
 #include "em-format-html.h"
+
+#include <e-util/e-icon-factory.h>
+#include <e-util/e-util.h>
 
 #define d(x)
 #define dd(x)
@@ -29,9 +35,9 @@ struct _EMailRequestPrivate {
 };
 
 static void
-start_mail_formatting (GSimpleAsyncResult *res,
-		       GObject *object,
-		       GCancellable *cancellable)
+handle_mail_request (GSimpleAsyncResult *res,
+                     GObject *object,
+		     GCancellable *cancellable)
 {
 	EMailRequest *request = E_MAIL_REQUEST (object);
 	EMFormatHTML *efh = request->priv->efh;
@@ -97,9 +103,9 @@ start_mail_formatting (GSimpleAsyncResult *res,
 }
 
 static void
-get_file_content (GSimpleAsyncResult *res,
-	       	  GObject *object,
-		  GCancellable *cancellable)
+handle_file_request (GSimpleAsyncResult *res,
+                     GObject *object,
+                     GCancellable *cancellable)
 {
 	EMailRequest *request = E_MAIL_REQUEST (object);
 	SoupURI *uri;
@@ -122,6 +128,287 @@ get_file_content (GSimpleAsyncResult *res,
 
                 request->priv->ret_data = contents;
 	}
+}
+
+struct http_request_async_data {
+        GMainLoop *loop;
+        GCancellable *cancellable;
+        CamelDataCache *cache;
+        gchar *uri;
+
+        GInputStream *stream;
+        CamelStream *cache_stream;
+        gchar *content_type;
+        goffset content_length;
+
+        gchar *buff;
+};
+
+static void
+http_request_write_to_cache (GInputStream *stream,
+                             GAsyncResult *res,
+                             struct http_request_async_data *data)
+{
+        GError *error;
+        gssize len;
+
+        error = NULL;
+        len = g_input_stream_read_finish (stream, res, &error);
+
+        /* Error while reading data */
+        if (len == -1) {
+                g_message ("Error while reading input stream: %s",
+                        error ? error->message : "Unknown error");
+                if (error)
+                        g_error_free (error);
+
+                g_main_loop_quit(data->loop);
+                g_free (data->buff);
+
+                /* Don't keep broken data in cache */
+                camel_data_cache_remove (data->cache, "http", data->uri, NULL);
+                return;
+        }
+
+        /* EOF */
+        if (len == 0) {
+                camel_stream_close (data->cache_stream, data->cancellable, NULL);
+                g_free (data->buff);
+                g_main_loop_quit (data->loop);
+                return;
+        }
+
+        /* Write chunk to cache and read another block of data. */
+        camel_stream_write (data->cache_stream, data->buff, len,
+                data->cancellable, NULL);
+
+        g_input_stream_read_async (stream, data->buff, 4096,
+                G_PRIORITY_DEFAULT, data->cancellable,
+                (GAsyncReadyCallback) http_request_write_to_cache, data);
+}
+
+static void
+http_request_finished (SoupRequest *request,
+                       GAsyncResult *res,
+                       struct http_request_async_data *data)
+{
+        GError *error;
+        SoupMessage *message;
+
+        error = NULL;
+        data->stream = soup_request_send_finish (request, res, &error);
+
+        if (!data->stream) {
+                g_warning("HTTP request failed: %s", error->message);
+                g_error_free (error);
+                g_main_loop_quit (data->loop);
+                return;
+        }
+
+        message = soup_request_http_get_message (SOUP_REQUEST_HTTP (request));
+        if (!SOUP_STATUS_IS_SUCCESSFUL (message->status_code)) {
+                g_warning ("HTTP request failed: HTTP code %d", message->status_code);
+                g_main_loop_quit (data->loop);
+                g_object_unref (message);
+                return;
+        }
+
+        g_object_unref (message);
+
+        data->content_length = soup_request_get_content_length (request);
+        data->content_type = g_strdup (soup_request_get_content_type (request));
+
+        data->buff = g_malloc (4096);
+        g_input_stream_read_async (data->stream, data->buff, 4096,
+                G_PRIORITY_DEFAULT, data->cancellable,
+                (GAsyncReadyCallback) http_request_write_to_cache, data);
+
+}
+
+static void
+handle_http_request (GSimpleAsyncResult *res,
+                     GObject *object,
+                     GCancellable *cancellable)
+{
+        EMailRequest *request = E_MAIL_REQUEST (object);
+        SoupURI *soup_uri;
+        gchar *evo_uri, *uri;
+        GInputStream *stream;
+        gboolean force_load_images = FALSE;
+
+        const gchar *user_cache_dir;
+        CamelDataCache *cache;
+        CamelStream *cache_stream;
+
+        gssize len;
+        gchar *buff;
+
+        GHashTable *query;
+
+        /* Remove the __evo-mail query */
+        soup_uri = soup_request_get_uri (SOUP_REQUEST (request));
+        query = soup_form_decode (soup_uri->query);
+        g_hash_table_remove (query, "__evo-mail");
+
+        /* Remove __evo-load-images if present (and in such case set
+         * force_load_images to TRUE) */
+        force_load_images = g_hash_table_remove (query, "__evo-load-images");
+
+        soup_uri_set_query_from_form (soup_uri, query);
+        g_hash_table_unref (query);
+
+        evo_uri = soup_uri_to_string (soup_uri, FALSE);
+
+        /* Remove the "evo-" prefix from scheme */
+        if (evo_uri && (strlen (evo_uri) > 5)) {
+                uri = g_strdup (&evo_uri[4]);
+                g_free (evo_uri);
+        }
+
+        g_return_if_fail (uri && *uri);
+
+        /* Open Evolution's cache */
+        user_cache_dir = e_get_user_cache_dir ();
+        cache = camel_data_cache_new (user_cache_dir, NULL);
+        if (cache) {
+                camel_data_cache_set_expire_age (cache, 24*60*60);
+                camel_data_cache_set_expire_access (cache, 2*60*60);
+        }
+
+        /* Found item in cache! */
+        cache_stream = camel_data_cache_get (cache, "http", uri, NULL);
+        if (cache_stream) {
+
+                stream = g_memory_input_stream_new ();
+
+                request->priv->content_length = 0;
+
+                buff = g_malloc (4096);
+                while ((len = camel_stream_read (cache_stream, buff, 4096,
+                                cancellable, NULL)) > 0) {
+
+                        g_memory_input_stream_add_data (G_MEMORY_INPUT_STREAM (stream),
+                                buff, len, g_free);
+                        request->priv->content_length += len;
+
+                        buff = g_malloc (4096);
+                }
+
+                g_object_unref (cache_stream);
+
+                /* When succesfully read some data from cache then
+                 * get mimetype and return the stream to WebKit.
+                 * Otherwise try to fetch the resource again from the network. */
+                if ((len != -1) && (request->priv->content_length > 0)) {
+                        GFile *file;
+                        GFileInfo *info;
+                        gchar *path;
+
+                        path = camel_data_cache_get_filename (cache, "http", uri, NULL);
+                        file = g_file_new_for_path (path);
+                        info = g_file_query_info (file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
+                                        0, cancellable, NULL);
+                        request->priv->mime_type = g_strdup (
+                                g_file_info_get_content_type (info));
+
+                        d(printf ("'%s' found in cache (%d bytes, %s)\n",
+                                uri, request->priv->content_length,
+                                request->priv->mime_type));
+
+                        g_object_unref (info);
+                        g_object_unref (file);
+                        g_free (path);
+
+                        /* Set result and quit the thread */
+                        g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
+
+                        goto cleanup;
+                } else {
+                        d(printf("Failed to load '%s' from cache.\n", uri));
+                }
+        }
+
+        /* Item not found in cache, but image loading policy allows us to fetch
+         * it from the interwebs */
+        if (force_load_images || em_format_html_can_load_images (request->priv->efh)) {
+
+                SoupRequester *requester;
+                SoupRequest *http_request;
+                SoupSession *session;
+                GMainContext *context;
+
+                struct http_request_async_data data;
+
+                context = g_main_context_get_thread_default ();
+                session = soup_session_async_new_with_options (
+                                        SOUP_SESSION_ASYNC_CONTEXT, context, NULL);
+
+                requester = soup_requester_new ();
+                soup_session_add_feature (session, SOUP_SESSION_FEATURE (requester));
+
+                http_request = soup_requester_request (requester, uri, NULL);
+
+                data.loop = g_main_loop_new (context, TRUE);
+                data.cancellable = cancellable;
+                data.cache = cache;
+                data.uri = uri;
+                data.cache_stream = camel_data_cache_add (cache, "http", uri, NULL);
+
+                /* Send the request and waint in mainloop until it's finished
+                 * and copied to cache */
+                d(printf(" '%s' not in cache, sending HTTP request\n", uri));
+                soup_request_send_async (http_request, cancellable,
+                        (GAsyncReadyCallback) http_request_finished, &data);
+
+                g_main_loop_run (data.loop);
+                d(printf (" '%s' fetched from internet and (hopefully) stored in"
+                          " cache\n", uri));
+
+                g_main_loop_unref (data.loop);
+
+                soup_session_abort (session);
+                g_object_unref (session);
+
+                g_object_unref (http_request);
+                g_object_unref (requester);
+
+                stream = data.stream;
+                if (!stream)
+                        goto cleanup;
+
+                request->priv->content_length = data.content_length;
+                request->priv->mime_type = data.content_type;
+
+                g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
+
+                goto cleanup;
+
+        /* Item not found in cache and image loading policy forbids us from fetching
+         * the resource from network, so we only send GTK_STOCK_MISSING_IMAGE */
+        } else {
+
+                GFile *icon;
+                gchar *icon_path;
+                gchar *data;
+
+                d(printf (" '%s' not in cache and image loading policy prevents "
+                          "us from loading it; returing GTK_STOCK_MISSING_IMAGE\n",
+                          uri));
+
+                icon_path = e_icon_factory_get_icon_filename (GTK_STOCK_MISSING_IMAGE,
+                                        GTK_ICON_SIZE_LARGE_TOOLBAR);
+
+                icon = g_file_new_for_path (icon_path);
+                g_file_load_contents (icon, cancellable, &data, (gsize *) &len, NULL, NULL);
+
+                stream = g_memory_input_stream_new_from_data (data, len, NULL);
+                g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
+
+                g_free (data);
+        }
+
+cleanup:
+        g_free (uri);
 }
 
 static void
@@ -177,7 +464,9 @@ mail_request_check_uri(SoupRequest *request,
 		       GError **error)
 {
 	return ((strcmp (uri->scheme, "mail") == 0) ||
-		(strcmp (uri->scheme, "evo-file") == 0));
+		(strcmp (uri->scheme, "evo-file") == 0) ||
+                (strcmp (uri->scheme, "evo-http") == 0) ||
+                (strcmp (uri->scheme, "evo-https") == 0));
 }
 
 static void
@@ -190,38 +479,79 @@ mail_request_send_async (SoupRequest *request,
 	EMailRequest *emr = E_MAIL_REQUEST (request);
 	GSimpleAsyncResult *result;
 	SoupURI *uri;
+        GHashTable *formatters;
 
 	session = soup_request_get_session (request);
 	uri = soup_request_get_uri (request);
 
 	d(printf("received request for %s\n", soup_uri_to_string (uri, FALSE)));
 
-	if (g_strcmp0 (uri->scheme, "mail") == 0) {
-		GHashTable *formatters;
-		gchar *uri_str;
+        /* WebKit won't allow us to load data through local file:// protocol
+         * when using "remote" mail:// protocol, so we have evo-file://
+         * which WebKit thinks it's remote, but in fact it behaves like
+         * oridnary file:// */
+        if (g_strcmp0 (uri->scheme, "evo-file") == 0) {
 
-		if (!uri->query) {
-			g_warning ("No query in URI %s", soup_uri_to_string (uri, FALSE));
-			g_return_if_fail (uri->query);
-		}
+                result = g_simple_async_result_new (G_OBJECT (request), callback,
+                                user_data, mail_request_send_async);
+                g_simple_async_result_run_in_thread (result, handle_file_request,
+                                G_PRIORITY_DEFAULT, cancellable);
 
-		formatters = g_object_get_data (G_OBJECT (session), "formatters");
-		g_return_if_fail (formatters != NULL);
+                return;
+        }
 
-		uri_str = g_strdup_printf ("%s://%s%s", uri->scheme, uri->host, uri->path);
-		emr->priv->efh = g_hash_table_lookup (formatters, uri_str);
-		g_free (uri_str);
-		g_return_if_fail (emr->priv->efh);
+        if (!uri->query) {
+                g_warning ("No query in URI %s", soup_uri_to_string (uri, FALSE));
+                g_return_if_fail (uri->query);
+        }
 
-		emr->priv->uri_query = soup_form_decode (uri->query);
-		result = g_simple_async_result_new (G_OBJECT (request), callback, user_data, mail_request_send_async);
-		g_simple_async_result_run_in_thread (result, start_mail_formatting, G_PRIORITY_DEFAULT, cancellable);
-	} else if (g_strcmp0 (uri->scheme, "evo-file") == 0) {
-		/* WebKit won't allow us to load data through local file:// protocol, when using "remote" mail://
-		   protocol, so we have evo-file:// which WebKit thinks it's remote, but in fact it behaves like file:// */
-		result = g_simple_async_result_new (G_OBJECT (request), callback, user_data, mail_request_send_async);
-		g_simple_async_result_run_in_thread (result, get_file_content, G_PRIORITY_DEFAULT, cancellable);
-	}
+        emr->priv->uri_query = soup_form_decode (uri->query);
+
+        formatters = g_object_get_data (G_OBJECT (session), "formatters");
+                                        g_return_if_fail (formatters != NULL);
+
+        /* Get HTML content of given PURI part */
+        if (g_strcmp0 (uri->scheme, "mail") == 0) {
+                gchar *uri_str;
+
+                uri_str = g_strdup_printf ("%s://%s%s", uri->scheme, uri->host, uri->path);
+                emr->priv->efh = g_hash_table_lookup (formatters, uri_str);
+                g_free (uri_str);
+
+                g_return_if_fail (emr->priv->efh);
+
+		result = g_simple_async_result_new (G_OBJECT (request), callback,
+                                user_data, mail_request_send_async);
+		g_simple_async_result_run_in_thread (result, handle_mail_request,
+                                G_PRIORITY_DEFAULT, cancellable);
+
+                return;
+
+        /* For http and https requests we have this evo-http(s) protocol. We first
+         * try to lookup the data in local cache and when not found, we send standard
+         * http(s) request to fetch them. But only when image loading policy allows us.
+         */
+	} else if ((g_strcmp0 (uri->scheme, "evo-http") == 0) ||
+                   (g_strcmp0 (uri->scheme, "evo-https") == 0)) {
+
+                gchar *mail_uri;
+                const gchar *enc = g_hash_table_lookup (emr->priv->uri_query,
+                                        "__evo-mail");
+
+                g_return_if_fail (enc && *enc);
+
+                mail_uri = soup_uri_decode (enc);
+
+                emr->priv->efh = g_hash_table_lookup (formatters, mail_uri);
+                g_free (mail_uri);
+
+                g_return_if_fail (emr->priv->efh);
+
+                result = g_simple_async_result_new (G_OBJECT (request), callback,
+                                user_data, mail_request_send_async);
+                g_simple_async_result_run_in_thread (result, handle_http_request,
+                                G_PRIORITY_DEFAULT, cancellable);
+        }
 }
 
 static GInputStream*
@@ -233,6 +563,9 @@ mail_request_send_finish (SoupRequest *request,
 
 	stream = g_simple_async_result_get_op_res_gpointer (G_SIMPLE_ASYNC_RESULT (result));
 	g_object_unref (result);
+
+        /* Reset the stream before passing it back to webkit */
+        g_seekable_seek (G_SEEKABLE (stream), 0, G_SEEK_SET, NULL, NULL);
 
 	return stream;
 }
@@ -286,7 +619,7 @@ mail_request_get_content_type (SoupRequest *request)
         return emr->priv->ret_mime_type;
 }
 
-static const char *data_schemes[] = { "mail", "evo-file", NULL };
+static const char *data_schemes[] = { "mail", "evo-file", "evo-http", "evo-https", NULL };
 
 static void
 e_mail_request_class_init (EMailRequestClass *class)
