@@ -69,15 +69,6 @@ struct _EWebViewPrivate {
 	guint caret_mode : 1;
 };
 
-struct _EWebViewRequest {
-	GFile *file;
-	EWebView *web_view;
-	GCancellable *cancellable;
-	GInputStream *input_stream;
-	GString *output_buffer;
-	gchar buffer[4096];
-};
-
 enum {
 	PROP_0,
 	PROP_ANIMATE,
@@ -847,7 +838,7 @@ web_view_get_preferred_height (GtkWidget *widget,
 {
 	WebKitWebView *web_view;
 	WebKitDOMDocument *document;
-	WebKitDOMElement *body, *last_el;
+	WebKitDOMElement *body, *last_el, *style_el;
 	gint doc_height;
 
 	if (!minimum_height && !natural_height)
@@ -856,15 +847,56 @@ web_view_get_preferred_height (GtkWidget *widget,
 	web_view = WEBKIT_WEB_VIEW (widget);
 	document = webkit_web_view_get_dom_document (web_view);
 	if (!document)
-		goto chainup;
+		return;
 
 	body = WEBKIT_DOM_ELEMENT (webkit_dom_document_get_body (document));
 	if (!body)
-		goto chainup;
+		return;
+
+	/* Make sure our Evo CSS stylesheet is loaded.
+	 * Note: there's 'user-stylesheet-uri' property of WebKitWebSettings but
+	 * it does not seem to be loaded in webviews with native text/html emails. */
+	style_el = webkit_dom_document_get_element_by_id (document, "_evo_stylesheet");
+	if (!style_el) {
+		WebKitDOMNodeList *list;
+		WebKitDOMNode *head;
+		style_el = webkit_dom_document_create_element (document, "LINK", NULL);
+		webkit_dom_html_link_element_set_rel (
+			WEBKIT_DOM_HTML_LINK_ELEMENT (style_el), "stylesheet");
+		webkit_dom_html_link_element_set_href(
+			WEBKIT_DOM_HTML_LINK_ELEMENT (style_el),
+			"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css");
+		webkit_dom_element_set_attribute (style_el, "type", "text/css", NULL);
+		webkit_dom_html_element_set_id (
+			WEBKIT_DOM_HTML_ELEMENT (style_el), "_evo_stylesheet");
+
+		list = webkit_dom_document_get_elements_by_tag_name (document, "head");
+		/* Broken HTML! Try to add head */
+		if (webkit_dom_node_list_get_length (list) == 0) {
+			WebKitDOMNodeList *body;
+			head = WEBKIT_DOM_NODE (
+				webkit_dom_document_create_element (
+					document, "HEAD", NULL));
+			body = webkit_dom_document_get_elements_by_tag_name (document, "body");
+			if (webkit_dom_node_list_get_length(body) == 0) {
+				/* The document is totally screwed up, there's
+				 * nothing more we can do. */
+				return;
+			}
+
+			webkit_dom_node_insert_before(WEBKIT_DOM_NODE (document),
+				head, webkit_dom_node_list_item (body, 0), NULL);
+
+		} else {
+			head = webkit_dom_node_list_item (list, 0);
+		}
+
+		webkit_dom_node_append_child (head, WEBKIT_DOM_NODE (style_el), NULL);
+	}
 
 	/* Last element in DOM != the undermost element displayed.
 	 * Thus we create our own element which is guaranteed to be displayed
-	 * at the very bottom */
+	 * at the very bottom (via CSS in webview.css) */
 	last_el = webkit_dom_document_get_element_by_id (document, "_evo_bottom_element");
 	if (!last_el) {
 		last_el = webkit_dom_document_create_element (document, "DIV", NULL);
@@ -872,24 +904,36 @@ web_view_get_preferred_height (GtkWidget *widget,
 			"_evo_bottom_element");
 		webkit_dom_node_append_child (WEBKIT_DOM_NODE (body),
 			WEBKIT_DOM_NODE (last_el), NULL);
+
+		/* When the _evo_bottom_element is inserted to the DOM, the
+		 * subsequent call of webkit_dom_element_get_offset_top() makes
+		 * WebKit to recalculate layout and invoke content size change
+		 * which results in a recursive call of this function.
+		 * Gtk would prevent the recursion to happen but it would
+		 * throw an ugly warning, therefor we won't be doing any math now.
+		 * When the email is being rendered, the _get_preferred_height()
+		 * gets called multiple times, so we will calculate the actual
+		 * height next time, when WebKit will not be trying to update the
+		 * layout. */
+
+		return;
 	}
 
 	/* The _actual_ height of page content is top + height of the
-	 * very last element in body */
-	/* FIXME: This seems to throw warnings, but it's the only method that
-	 * actually works */
-	doc_height = webkit_dom_element_get_offset_top (last_el) +
-			webkit_dom_element_get_offset_height (last_el);
+	 * very last element in body. The 2px height is hardocded in
+	 * webview.ccs in #_evo_bottom_element */
+	doc_height = webkit_dom_element_get_offset_top (last_el) + 2;
 
 
-	/* Hardcoded bottom padding */
-	doc_height += 8;
+	/* Hardcoded padding */
+	doc_height += 18;
 
 	/* When full content zoom is enabled then the elements are not resized
-	 * but rather scaled (thus they still claim their original height),
-	 * but we need to know the real current height */
+	 * but rather scaled and thus they still report their original height
+	 * instead of their actual display height. */
 	if (webkit_web_view_get_full_content_zoom (web_view)) {
-		doc_height = ceil((gfloat) doc_height * webkit_web_view_get_zoom_level (web_view));
+		doc_height = ceil((gfloat) doc_height * 
+				webkit_web_view_get_zoom_level (web_view));
 	}
 
 	if (minimum_height)
@@ -898,13 +942,6 @@ web_view_get_preferred_height (GtkWidget *widget,
 	if (natural_height)
 		*natural_height = doc_height;
 
-	return;
-
-chainup:
-	if (GTK_WIDGET_CLASS (widget)->get_preferred_height) {
-		GTK_WIDGET_CLASS(widget)->get_preferred_height(widget,
-			minimum_height, natural_height);
-	}
 }
 
 static GtkWidget *
@@ -2732,7 +2769,6 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
 	GtkStyleContext *context;
 	const PangoFontDescription *font;
 	WebKitWebSettings *settings;
-	const gchar *stylesheet;
 
 	g_return_val_if_fail (GTK_IS_WIDGET (parent_widget), NULL);
 
@@ -2742,13 +2778,10 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
 	context = gtk_widget_get_style_context (parent_widget);
 	font = gtk_style_context_get_font (context, GTK_STATE_FLAG_NORMAL);
 
-	stylesheet = EVOLUTION_PRIVDATADIR "/theme/webview.css";
-
 	g_object_set (G_OBJECT (settings),
 		      "default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
 		      "default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
-		      "enable-frame-flattening", TRUE,
-		      "user-stylesheet-uri", stylesheet, NULL);
+		      "enable-frame-flattening", TRUE, NULL);
 
 	return settings;	
 }
