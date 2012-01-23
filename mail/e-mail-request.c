@@ -134,7 +134,7 @@ struct http_request_async_data {
         GMainLoop *loop;
         GCancellable *cancellable;
         CamelDataCache *cache;
-        gchar *uri;
+        gchar *cache_key;
 
         GInputStream *stream;
         CamelStream *cache_stream;
@@ -159,24 +159,37 @@ http_request_write_to_cache (GInputStream *stream,
         if (len == -1) {
                 g_message ("Error while reading input stream: %s",
                         error ? error->message : "Unknown error");
-                if (error)
-                        g_error_free (error);
+                g_clear_error (&error);
 
                 g_main_loop_quit(data->loop);
-                g_free (data->buff);
+
+		if (data->buff)
+                	g_free (data->buff);
 
                 /* Don't keep broken data in cache */
-                camel_data_cache_remove (data->cache, "http", data->uri, NULL);
+                camel_data_cache_remove (data->cache, "http", data->cache_key, NULL);
                 return;
         }
 
         /* EOF */
         if (len == 0) {
                 camel_stream_close (data->cache_stream, data->cancellable, NULL);
-                g_free (data->buff);
-                g_main_loop_quit (data->loop);
+
+                if (data->buff)
+			g_free (data->buff);
+
+		g_main_loop_quit (data->loop);
                 return;
         }
+
+        if (!data->cache_stream) {
+
+		if (data->buff)
+			g_free (data->buff);
+
+		g_main_loop_quit (data->loop);
+		return;
+	}
 
         /* Write chunk to cache and read another block of data. */
         camel_stream_write (data->cache_stream, data->buff, len,
@@ -199,8 +212,8 @@ http_request_finished (SoupRequest *request,
         data->stream = soup_request_send_finish (request, res, &error);
 
         if (!data->stream) {
-                g_warning("HTTP request failed: %s", error->message);
-                g_error_free (error);
+                g_warning("HTTP request failed: %s", error ? error->message: "Unknown error");
+                g_clear_error (&error);
                 g_main_loop_quit (data->loop);
                 return;
         }
@@ -217,6 +230,11 @@ http_request_finished (SoupRequest *request,
 
         data->content_length = soup_request_get_content_length (request);
         data->content_type = g_strdup (soup_request_get_content_type (request));
+
+	if (!data->cache_stream) {
+		g_main_loop_quit (data->loop);
+		return;
+	}
 
         data->buff = g_malloc (4096);
         g_input_stream_read_async (data->stream, data->buff, 4096,
@@ -235,6 +253,7 @@ handle_http_request (GSimpleAsyncResult *res,
         gchar *evo_uri, *uri;
         GInputStream *stream;
         gboolean force_load_images = FALSE;
+	gchar *uri_md5;
 
         const gchar *user_cache_dir;
         CamelDataCache *cache;
@@ -267,6 +286,11 @@ handle_http_request (GSimpleAsyncResult *res,
 
         g_return_if_fail (uri && *uri);
 
+	/* Use MD5 hash of the URI as a filname of the resourec cache file.
+	 * We were previously using the URI as a filename but the URI is
+	 * sometimes too long for a filename. */
+	uri_md5 = g_compute_checksum_for_string (G_CHECKSUM_MD5, uri, -1);
+
         /* Open Evolution's cache */
         user_cache_dir = e_get_user_cache_dir ();
         cache = camel_data_cache_new (user_cache_dir, NULL);
@@ -276,7 +300,7 @@ handle_http_request (GSimpleAsyncResult *res,
         }
 
         /* Found item in cache! */
-        cache_stream = camel_data_cache_get (cache, "http", uri, NULL);
+        cache_stream = camel_data_cache_get (cache, "http", uri_md5, NULL);
         if (cache_stream) {
 
                 stream = g_memory_input_stream_new ();
@@ -304,10 +328,11 @@ handle_http_request (GSimpleAsyncResult *res,
                         GFileInfo *info;
                         gchar *path;
 
-                        path = camel_data_cache_get_filename (cache, "http", uri, NULL);
+                        path = camel_data_cache_get_filename (cache, "http", uri_md5, NULL);
                         file = g_file_new_for_path (path);
                         info = g_file_query_info (file, G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
-                                        0, cancellable, NULL);
+                                	0, cancellable, NULL);
+
                         request->priv->mime_type = g_strdup (
                                 g_file_info_get_content_type (info));
 
@@ -336,6 +361,7 @@ handle_http_request (GSimpleAsyncResult *res,
                 SoupRequest *http_request;
                 SoupSession *session;
                 GMainContext *context;
+		GError *error;
 
                 struct http_request_async_data data;
 
@@ -348,11 +374,18 @@ handle_http_request (GSimpleAsyncResult *res,
 
                 http_request = soup_requester_request (requester, uri, NULL);
 
+		error = NULL;
                 data.loop = g_main_loop_new (context, TRUE);
                 data.cancellable = cancellable;
                 data.cache = cache;
-                data.uri = uri;
-                data.cache_stream = camel_data_cache_add (cache, "http", uri, NULL);
+                data.cache_key = uri_md5;
+                data.cache_stream = camel_data_cache_add (cache, "http", uri_md5, &error);
+
+		if (!data.cache_stream) {
+			g_warning ("Failed to create cache file for '%s': %s",
+				uri, error ? error->message : "Unknown error");
+			g_clear_error (&error);
+		}
 
                 /* Send the request and waint in mainloop until it's finished
                  * and copied to cache */
@@ -409,6 +442,7 @@ handle_http_request (GSimpleAsyncResult *res,
 
 cleanup:
         g_free (uri);
+	g_free (uri_md5);
 }
 
 static void
@@ -527,10 +561,10 @@ mail_request_send_async (SoupRequest *request,
 
                 return;
 
-        /* For http and https requests we have this evo-http(s) protocol. We first
-         * try to lookup the data in local cache and when not found, we send standard
-         * http(s) request to fetch them. But only when image loading policy allows us.
-         */
+        /* For http and https requests we have this evo-http(s) protocol.
+	 * We first try to lookup the data in local cache and when not found,
+	 * we send standard  http(s) request to fetch them. But only when image 
+	 * loading policy allows us. */
 	} else if ((g_strcmp0 (uri->scheme, "evo-http") == 0) ||
                    (g_strcmp0 (uri->scheme, "evo-https") == 0)) {
 
@@ -565,7 +599,10 @@ mail_request_send_finish (SoupRequest *request,
 	g_object_unref (result);
 
         /* Reset the stream before passing it back to webkit */
-        g_seekable_seek (G_SEEKABLE (stream), 0, G_SEEK_SET, NULL, NULL);
+	if (stream)
+        	g_seekable_seek (G_SEEKABLE (stream), 0, G_SEEK_SET, NULL, NULL);
+	else /* We must always return something */
+		stream = g_memory_input_stream_new ();
 
 	return stream;
 }
