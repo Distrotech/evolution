@@ -580,7 +580,13 @@ mail_display_resource_requested (WebKitWebView *web_view,
                 mail_uri = em_format_build_mail_uri (formatter->folder,
                                 formatter->message_uid, NULL, NULL);
 
-                query = soup_form_decode (new_uri);
+                soup_uri = soup_uri_new (new_uri);
+                if (soup_uri->query) {
+                        query = soup_form_decode (soup_uri->query);
+                } else {
+                        query = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                       g_free, g_free);
+                }
                 enc = soup_uri_encode (mail_uri, NULL);
                 g_hash_table_insert (query, g_strdup ("__evo-mail"), enc);
 
@@ -592,7 +598,6 @@ mail_display_resource_requested (WebKitWebView *web_view,
 
                 g_free (mail_uri);
 
-                soup_uri = soup_uri_new (new_uri);
                 soup_uri_set_query_from_form (soup_uri, query);
                 g_free (new_uri);
 

@@ -399,7 +399,6 @@ handle_http_request (GSimpleAsyncResult *res,
 
                 g_main_loop_unref (data.loop);
 
-                soup_session_abort (session);
                 g_object_unref (session);
 
                 g_object_unref (http_request);
