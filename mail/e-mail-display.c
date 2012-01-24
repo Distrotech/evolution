@@ -1161,6 +1161,8 @@ e_mail_display_set_formatter (EMailDisplay *display,
                 G_CALLBACK (formatter_image_loading_policy_changed_cb), display);
 	g_signal_connect_swapped (formatter, "redraw-requested",
 		G_CALLBACK (e_mail_display_reload), display);
+        g_signal_connect_swapped (formatter, "notify::charset",
+                G_CALLBACK (e_mail_display_reload), display);
 
 	g_object_notify (G_OBJECT (display), "formatter");
 }
