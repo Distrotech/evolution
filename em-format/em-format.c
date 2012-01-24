@@ -1979,8 +1979,7 @@ em_format_parse_part_as (EMFormat *emf,
          * as an attachment. The parser will decide how to display it. */
         disposition = camel_mime_part_get_content_disposition (part);
         if (!info->force_handler && disposition && 
-            ((g_strcmp0 (disposition->disposition, "attachment") == 0) ||
-             (g_strcmp0 (disposition->disposition, "inline") == 0))) {
+            (g_strcmp0 (disposition->disposition, "attachment") == 0)) {
                 ninfo.is_attachment = TRUE;
                 handler = em_format_find_handler (emf, "x-evolution/message/attachment");
                 ninfo.handler = handler;
