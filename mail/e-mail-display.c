@@ -75,6 +75,7 @@ struct _EMailDisplayPrivate {
 	gfloat zoom_level;
 
 	WebKitWebSettings *settings;
+        WebKitWebSettings *headers_settings;
 };
 
 enum {
@@ -385,6 +386,11 @@ mail_display_dispose (GObject *object)
 		priv->settings = NULL;
 	}
 
+	if (priv->headers_settings) {
+                g_object_unref (priv->headers_settings);
+                priv->headers_settings = NULL;
+        }
+
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
@@ -663,7 +669,12 @@ mail_display_setup_webview (EMailDisplay *display,
 
 	web_view = E_WEB_VIEW (e_web_view_new ());
 	webkit_web_view_set_full_content_zoom (WEBKIT_WEB_VIEW (web_view), TRUE);
-	e_web_view_set_settings (web_view, display->priv->settings);
+
+        if (is_header) {
+                e_web_view_set_settings (web_view, display->priv->headers_settings);
+        } else {
+	        e_web_view_set_settings (web_view, display->priv->settings);
+        }
 
 	g_signal_connect (web_view, "navigation-policy-decision-requested",
 		G_CALLBACK (mail_display_link_clicked), display);
@@ -1111,7 +1122,15 @@ mail_display_init (EMailDisplay *display)
 	display->priv->settings = e_web_view_get_default_settings (GTK_WIDGET (display));
 	g_object_bind_property (display, "caret-mode",
 		display->priv->settings, "enable-caret-browsing", 
-		G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
+		G_BINDING_SYNC_CREATE);
+        g_object_set (display->priv->settings,
+                "enable-scripts", FALSE, NULL);
+
+        display->priv->headers_settings = e_web_view_get_default_settings (GTK_WIDGET (display));
+        g_object_bind_property (display, "caret-mode",
+                display->priv->settings, "enable-caret-browsing",
+                G_BINDING_SYNC_CREATE);
+
 	
 
 	display->priv->box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 10);

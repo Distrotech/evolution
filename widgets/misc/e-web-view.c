@@ -2779,9 +2779,16 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
 	font = gtk_style_context_get_font (context, GTK_STATE_FLAG_NORMAL);
 
 	g_object_set (G_OBJECT (settings),
-		      "default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
-		      "default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
-		      "enable-frame-flattening", TRUE, NULL);
+                "default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
+                "default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
+                "enable-frame-flattening", TRUE, 
+                "enable-plugins", FALSE,
+                "enable-java-applet", FALSE,
+                "enable-html5-database", FALSE,
+                "enable-html5-local-storage", FALSE,
+                "enable-offline-web-application-cache", FALSE,
+                "enable-site-specific-quirks", TRUE,
+                NULL);
 
 	return settings;	
 }
