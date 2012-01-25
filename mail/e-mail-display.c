@@ -710,13 +710,37 @@ mail_display_setup_webview (EMailDisplay *display,
 }
 
 static void
+mail_display_on_web_view_sw_hadjustment_changed (GtkAdjustment* adjustment,
+                                                 gpointer user_data)
+{
+        GtkWidget *scrolled_window = user_data;
+        GtkWidget *vscrollbar;
+        GtkWidget *web_view;
+        gint new_width, height;
+
+        web_view = gtk_bin_get_child (GTK_BIN (scrolled_window));
+        gtk_widget_get_preferred_width (web_view, NULL, &new_width);
+
+        vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (scrolled_window));
+        if (vscrollbar && gtk_widget_get_visible (vscrollbar)) {
+                gint scrollbar_width;
+                gtk_widget_get_preferred_width (vscrollbar, &scrollbar_width, NULL);
+                new_width += scrollbar_width;
+        }
+
+        gtk_widget_get_size_request (scrolled_window, NULL, &height);
+        gtk_widget_set_size_request (scrolled_window, new_width, height);
+}
+
+
+static void
 mail_display_on_web_view_sw_vadjustment_changed (GtkAdjustment* adjustment,
 						 gpointer user_data)
 {
 	GtkWidget *scrolled_window = user_data;
 	GtkWidget *hscrollbar;
 	GtkWidget *web_view;
-	gint new_height;
+	gint new_height, width;
 
 	web_view = gtk_bin_get_child (GTK_BIN (scrolled_window));
 	gtk_widget_get_preferred_height (web_view, &new_height, NULL);
@@ -730,7 +754,8 @@ mail_display_on_web_view_sw_vadjustment_changed (GtkAdjustment* adjustment,
 		new_height += scrollbar_height;
 	}
 
-	gtk_widget_set_size_request (scrolled_window, -1, new_height);
+	gtk_widget_get_size_request (scrolled_window, &width, NULL);
+	gtk_widget_set_size_request (scrolled_window, width, new_height);
 }
 
 static GtkWidget*
@@ -738,7 +763,7 @@ mail_display_insert_web_view (EMailDisplay *display,
 			      EWebView *web_view)
 {
 	GtkWidget *scrolled_window;
-	GtkAdjustment *vadjustment;
+	GtkAdjustment *adjustment;
         GdkWindow *window;
 
 	display->priv->webviews = g_list_append (display->priv->webviews, web_view);
@@ -746,14 +771,18 @@ mail_display_insert_web_view (EMailDisplay *display,
 	g_object_set (G_OBJECT (scrolled_window),
 		"vexpand", FALSE,
 		"vexpand-set", TRUE,
-		"shadow-type", GTK_SHADOW_NONE,
+                "hexpand", FALSE,
+                "hexpand-set", TRUE,
+                "shadow-type", GTK_SHADOW_NONE,
 		NULL);
 
-	vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
-	g_signal_connect (G_OBJECT (vadjustment), "changed",
+	adjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
+	g_signal_connect (G_OBJECT (adjustment), "changed",
 		G_CALLBACK (mail_display_on_web_view_sw_vadjustment_changed), scrolled_window);
-	g_signal_connect (G_OBJECT (vadjustment), "value-changed",
-		G_CALLBACK (mail_display_on_web_view_sw_vadjustment_changed), scrolled_window);
+
+        adjustment = gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
+        g_signal_connect (G_OBJECT (adjustment), "changed",
+                G_CALLBACK (mail_display_on_web_view_sw_hadjustment_changed), scrolled_window);
 	
 	gtk_container_add (GTK_CONTAINER (scrolled_window), GTK_WIDGET (web_view));
 

@@ -634,8 +634,6 @@ mail_paned_view_constructed (GObject *object)
 		"headers-collapsable", TRUE, NULL);
 
 	widget = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (widget),
-		GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
 	gtk_scrolled_window_set_shadow_type (
 		GTK_SCROLLED_WINDOW (widget), GTK_SHADOW_NONE);
 	gtk_container_add (GTK_CONTAINER (widget), GTK_WIDGET (priv->display));
