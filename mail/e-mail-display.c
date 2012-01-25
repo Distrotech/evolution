@@ -574,6 +574,23 @@ mail_display_resource_requested (WebKitWebView *web_view,
                 gchar *new_uri, *mail_uri, *enc;
                 SoupURI *soup_uri;
                 GHashTable *query;
+                gchar *uri_md5;
+                CamelStream *stream;
+
+                /* Open Evolution's cache */
+                uri_md5 = g_compute_checksum_for_string (G_CHECKSUM_MD5, uri, -1);
+                stream = camel_data_cache_get (
+                                emd_global_http_cache, "http", uri_md5, NULL);
+                g_free (uri_md5);
+
+                /* If the URI is not cached and we are not allowed to load it
+                 * then redirect to invalid URI, so that webkit would display
+                 * a native placeholder for it. */
+                if (!stream && !display->priv->force_image_load &&
+                    !em_format_html_can_load_images (display->priv->formatter)) {
+                        webkit_network_request_set_uri (request, "invalid://protocol");
+                        return;
+                }
 
                 new_uri = g_strconcat ("evo-", uri, NULL);
                 /* Don't free, will be freed when the hash table is destroyed */

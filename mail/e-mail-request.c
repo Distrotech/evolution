@@ -415,28 +415,6 @@ handle_http_request (GSimpleAsyncResult *res,
 
                 goto cleanup;
 
-        /* Item not found in cache and image loading policy forbids us from fetching
-         * the resource from network, so we only send GTK_STOCK_MISSING_IMAGE */
-        } else {
-
-                GFile *icon;
-                gchar *icon_path;
-                gchar *data;
-
-                d(printf (" '%s' not in cache and image loading policy prevents "
-                          "us from loading it; returing GTK_STOCK_MISSING_IMAGE\n",
-                          uri));
-
-                icon_path = e_icon_factory_get_icon_filename (GTK_STOCK_MISSING_IMAGE,
-                                        GTK_ICON_SIZE_LARGE_TOOLBAR);
-
-                icon = g_file_new_for_path (icon_path);
-                g_file_load_contents (icon, cancellable, &data, (gsize *) &len, NULL, NULL);
-
-                stream = g_memory_input_stream_new_from_data (data, len, NULL);
-                g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
-
-                g_free (data);
         }
 
 cleanup:
