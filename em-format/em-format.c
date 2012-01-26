@@ -1813,17 +1813,25 @@ em_format_class_remove_handler (EMFormatClass *emfc,
 
 const EMFormatHandler *
 em_format_find_handler (EMFormat *emf,
-						const gchar *mime_type)
+                        const gchar *mime_type)
 {
 	EMFormatClass *emfc;
+        gchar *s;
+        const EMFormatHandler *handler;
 
 	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
 	g_return_val_if_fail (mime_type && *mime_type, NULL);
 
 	emfc = (EMFormatClass *) G_OBJECT_GET_CLASS (emf);
 
-	return g_hash_table_lookup (
-			emfc->type_handlers, mime_type);
+        s = g_ascii_strdown (mime_type, -1);
+
+        handler = g_hash_table_lookup (
+			emfc->type_handlers, s);
+
+        g_free (s);
+
+        return handler;
 }
 
 /**
