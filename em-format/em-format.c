@@ -28,6 +28,7 @@
 #include <string.h>
 #include <gio/gio.h>
 #include <glib/gi18n-lib.h>
+#include <libsoup/soup-uri.h>
 
 #include "em-format.h"
 #include "e-util/e-util.h"
@@ -2439,18 +2440,23 @@ em_format_build_mail_uri (CamelFolder *folder,
 			case G_TYPE_INT:
 			case G_TYPE_BOOLEAN: {
 				gint val = va_arg (ap, int);
-				tmp2 = g_strdup_printf ("%s%c%s=%d", tmp, separator, name, val);
+				tmp2 = g_strdup_printf ("%s%c%s=%d", tmp,
+                                                separator, name, val);
 				break;
 			}
 			case G_TYPE_FLOAT:
 			case G_TYPE_DOUBLE: {
 				gdouble val = va_arg (ap, double);
-				tmp2 = g_strdup_printf ("%s%c%s=%f", tmp, separator, name, val);
+				tmp2 = g_strdup_printf ("%s%c%s=%f", tmp,
+                                                separator, name, val);
 				break;
 			}
 			case G_TYPE_STRING: {
 				gchar *val = va_arg (ap, char *);
-				tmp2 = g_strdup_printf ("%s%c%s=%s", tmp, separator, name, val);
+                                gchar *escaped = soup_uri_encode (val, NULL);
+				tmp2 = g_strdup_printf ("%s%c%s=%s", tmp,
+                                                separator, name, escaped);
+                                g_free (escaped);
 				break;
 			}
 			default:

@@ -58,7 +58,10 @@ handle_mail_request (GSimpleAsyncResult *res,
 	part_id = g_hash_table_lookup (request->priv->uri_query, "part_id");
 
 	if (part_id) {
+                /* original part_id is owned by the GHashTable */
+                part_id = soup_uri_decode (part_id);
 		request->priv->puri = em_format_find_puri (emf, part_id);
+
 		if (request->priv->puri) {
 			EMFormatWriterInfo info = {0};
 			gchar *val;
@@ -85,6 +88,8 @@ handle_mail_request (GSimpleAsyncResult *res,
 		} else {
 			g_warning ("Failed to lookup requested part '%s' - this should not happen!", part_id);
 		}
+
+		g_free (part_id);
 	}
 
 	/* Convert the GString to GInputStream and send it back to WebKit */
