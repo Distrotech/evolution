@@ -656,9 +656,35 @@ render_contact_column (GString *buffer,
 	g_string_free (email, TRUE);
 }
 
+
+static void
+accum_address_map (GString *buffer,
+                   EContact *contact,
+                   gint map_type)
+{
+#ifdef WITH_CONTACT_MAPS
+
+        g_string_append (buffer, "<tr><td colspan=\"3\">");
+
+        if (map_type == E_CONTACT_ADDRESS_WORK) {
+                g_string_append (buffer,
+                        "<object type=\"application/x-work-map-widget\" "
+                                "width=\"250\" height=\"250\"></object>");
+        } else {
+                g_string_append (buffer,
+                        "<object type=\"application/x-home-map-widget\" "
+                                "width=\"250\" height=\"250\"></object>");
+        }
+
+        g_string_append (buffer, "</td></tr>");
+
+#endif
+}
+
 static void
 render_work_column (GString *buffer,
-                    EContact *contact)
+                    EContact *contact,
+                    EABContactDisplay *display)
 {
 	GString *accum = g_string_new ("");
 
@@ -674,6 +700,8 @@ render_work_column (GString *buffer,
 	accum_attribute (accum, contact, _("Phone"), E_CONTACT_PHONE_BUSINESS, NULL, 0);
 	accum_attribute (accum, contact, _("Fax"), E_CONTACT_PHONE_BUSINESS_FAX, NULL, 0);
 	accum_address   (accum, contact, _("Address"), E_CONTACT_ADDRESS_WORK, E_CONTACT_ADDRESS_LABEL_WORK);
+        if (display->priv->show_maps)
+                accum_address_map (accum, contact, E_CONTACT_ADDRESS_WORK);
 
 	if (accum->len > 0) {
 		g_string_append_printf (buffer,
@@ -688,7 +716,8 @@ render_work_column (GString *buffer,
 
 static void
 render_personal_column (GString *buffer,
-	                    EContact *contact)
+                        EContact *contact,
+                        EABContactDisplay *display)
 {
 	GString *accum = g_string_new ("");
 
@@ -701,7 +730,9 @@ render_personal_column (GString *buffer,
 	accum_time_attribute (accum, contact, _("Birthday"), E_CONTACT_BIRTH_DATE, NULL, 0);
 	accum_time_attribute (accum, contact, _("Anniversary"), E_CONTACT_ANNIVERSARY, NULL, 0);
 	accum_attribute (accum, contact, _("Spouse"), E_CONTACT_SPOUSE, NULL, 0);
-
+        if (display->priv->show_maps)
+                accum_address_map (accum, contact, E_CONTACT_ADDRESS_HOME);
+        
 	if (accum->len > 0) {
 		g_string_append_printf (buffer,
 			"<div class=\"column\" id=\"contact-personal\">"
@@ -731,19 +762,6 @@ render_footer (GString *buffer,
 	g_string_append (buffer, "</table></div>");
 }
 
-static void
-render_address_map (GString *buffer,
-                    EContact *contact,
-                    gint map_type)
-{
-#ifdef WITH_CONTACT_MAPS
-	if (map_type == E_CONTACT_ADDRESS_WORK) {
-		g_string_append (buffer, "<object type=\"application/x-map-widget\" data=\"work\"></object>");
-	 } else {
- 		g_string_append (buffer, "<object type=\"application/x-map-widget\" data=\"home\"></object>");
-	 }
-#endif
-}
 
 static void
 render_contact (GString *buffer,
@@ -754,8 +772,8 @@ render_contact (GString *buffer,
 
 	g_string_append (buffer, "<div id=\"columns\">");
 	render_contact_column (buffer, contact);
-	render_work_column (buffer, contact);
-	render_personal_column (buffer, contact);
+	render_work_column (buffer, contact, display);
+	render_personal_column (buffer, contact, display);
 	g_string_append (buffer, "</div>");
 
 	render_footer (buffer, contact);
@@ -1076,22 +1094,6 @@ contact_display_dispose (GObject *object)
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
-static GtkWidget *
-contact_display_create_plugin_widget (EWebView *web_view,
-                                      const gchar *mime_type,
-                                      const gchar *uri,
-                                      GHashTable *param)
-{
-	EWebViewClass *web_view_class;
-
-#warning FIXME: contact_display_create_plugin_widget is not WebKit-ready
-
-
-	/* Chain up to parent's create_plugin_widget() method. */
-	web_view_class = E_WEB_VIEW_CLASS (parent_class);
-	return web_view_class->create_plugin_widget (web_view, mime_type, uri, param);
-}
-
 static void
 contact_display_hovering_over_link (EWebView *web_view,
                                     const gchar *title,
@@ -1163,10 +1165,11 @@ handle_map_scroll_event (GtkWidget *widget,
 	return TRUE;
 }
 
-#if 0
-static void
-contact_display_object_requested (GtkHTML *html,
-                                  GtkHTMLEmbedded *eb,
+static GtkWidget*
+contact_display_object_requested (WebKitWebView *web_view,
+				  gchar *mime_type,
+				  gchar *uri,
+				  GHashTable *param,
                                   EABContactDisplay *display)
 {
 	EContact *contact = display->priv->contact;
@@ -1174,19 +1177,19 @@ contact_display_object_requested (GtkHTML *html,
 	const gchar *contact_uid = e_contact_get_const (contact, E_CONTACT_UID);
 	gchar *full_name;
 	EContactAddress *address;
+	GtkWidget *map = NULL;
 
-	if (g_ascii_strcasecmp (eb->classid, "address-map-work") == 0) {
+	if (strstr (mime_type, "work") != NULL) {
 		address = e_contact_get (contact, E_CONTACT_ADDRESS_WORK);
 		full_name = g_strconcat (name, " (", _("Work"), ")", NULL);
-	} else {
+	} else if (strstr (mime_type, "home") != NULL) {
 		address = e_contact_get (contact, E_CONTACT_ADDRESS_HOME);
 		full_name = g_strconcat (name, " (", _("Home"), ")", NULL);
 	}
 
 	if (address) {
-		GtkWidget *map = e_contact_map_new ();
-		gtk_container_add (GTK_CONTAINER (eb), map);
-		gtk_widget_set_size_request (map, 250, 250);
+		map = e_contact_map_new ();
+                gtk_widget_set_size_request (map, 250, 250);
 		g_signal_connect (
 			E_CONTACT_MAP (map), "contact-added",
 			G_CALLBACK (e_contact_map_zoom_on_marker), NULL);
@@ -1201,12 +1204,15 @@ contact_display_object_requested (GtkHTML *html,
 		e_contact_map_add_marker (
 			E_CONTACT_MAP (map), full_name,
 			contact_uid, address, NULL);
-	}
+
+                gtk_widget_show_all (map);
+        }
 
 	g_free (full_name);
 	e_contact_address_free (address);
+
+        return map;
 }
-#endif
 #endif
 
 static void
@@ -1254,7 +1260,6 @@ eab_contact_display_class_init (EABContactDisplayClass *class)
 	object_class->dispose = contact_display_dispose;
 
 	web_view_class = E_WEB_VIEW_CLASS (class);
-	web_view_class->create_plugin_widget = contact_display_create_plugin_widget;
 	web_view_class->hovering_over_link = contact_display_hovering_over_link;
 	web_view_class->link_clicked = contact_display_link_clicked;
 	web_view_class->update_actions = contact_display_update_actions;
@@ -1319,12 +1324,10 @@ eab_contact_display_init (EABContactDisplay *display)
 	web_view = E_WEB_VIEW (display);
 	ui_manager = e_web_view_get_ui_manager (web_view);
 
+
 #ifdef WITH_CONTACT_MAPS
-#if 0
-	g_signal_connect (
-		web_view, "object-requested",
+	g_signal_connect (web_view, "create-plugin-widget",
 		G_CALLBACK (contact_display_object_requested), display);
-#endif
 #endif
 
 	action_group = gtk_action_group_new ("internal-mailto");
