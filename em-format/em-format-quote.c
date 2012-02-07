@@ -32,6 +32,7 @@
 #include "em-inline-filter.h"
 #include "em-stripsig-filter.h"
 #include "em-format-quote.h"
+#include "em-part.h"
 
 #define EM_FORMAT_QUOTE_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
@@ -53,9 +54,9 @@ static void emfq_parse_text_enriched    (EMFormat *emf, CamelMimePart *part, GSt
 static void emfq_parse_text_html        (EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 static void emfq_parse_attachment       (EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 
-static void emfq_write_text_plain	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-static void emfq_write_text_enriched	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-static void emfq_write_text_html	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emfq_write_text_plain	(EMFormat *emf, EMPart *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emfq_write_text_enriched	(EMFormat *emf, EMPart *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emfq_write_text_html	(EMFormat *emf, EMPart *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 static gpointer parent_class;
 
@@ -386,8 +387,8 @@ emfq_parse_text_plain (EMFormat* emf,
                        EMFormatParserInfo* info,
                        GCancellable* cancellable)
 {
-        EMFormatPURI *puri;
-		CamelMimePart *mp;
+        EMPart *emp;
+	CamelMimePart *mp;
         gint len;
 
         len = part_id->len;
@@ -403,10 +404,9 @@ emfq_parse_text_plain (EMFormat* emf,
 			g_object_unref (mp);
 		}
 
-        puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
-        puri->write_func = emfq_write_text_plain;
-        puri->mime_type = g_strdup ("text/html");
-        em_format_add_puri (emf, puri);
+	emp = em_part_new (emf, part, part_id->str, emfq_write_text_plain);
+        em_part_set_mime_type (emp, "text/html");
+	em_format_add_part_object (emf, emp);
 
         g_string_truncate (part_id, len);
 }
@@ -418,16 +418,15 @@ emfq_parse_text_html (EMFormat* emf,
                       EMFormatParserInfo* info,
                       GCancellable* cancellable)
 {
-        EMFormatPURI *puri;
+        EMPart *emp;
         gint len;
 
         len = part_id->len;
         g_string_append (part_id, ".text_html");
 
-        puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
-        puri->write_func = emfq_write_text_html;
-        puri->mime_type = g_strdup ("text/html");
-        em_format_add_puri (emf, puri);
+	emp = em_part_new (emf, part, part_id->str, emfq_write_text_html);
+        em_part_set_mime_type (emp, "text/html");
+	em_format_add_part_object (emf, emp);
 
         g_string_truncate (part_id, len);
 }
@@ -439,16 +438,15 @@ emfq_parse_text_enriched (EMFormat* emf,
                           EMFormatParserInfo* info,
                           GCancellable* cancellable)
 {
-        EMFormatPURI *puri;
+        EMPart *emp;
         gint len;
 
         len = part_id->len;
         g_string_append (part_id, ".text_enriched");
 
-        puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
-        puri->write_func = emfq_write_text_enriched;
-        puri->mime_type = g_strdup ("text/html");
-        em_format_add_puri (emf, puri);
+	emp = em_part_new (emf, part, part_id->str, emfq_write_text_enriched);
+	em_part_set_mime_type (emp, "text/html");
+	em_format_add_part_object (emf, emp);
 
         g_string_truncate (part_id, len);
 }
@@ -460,17 +458,16 @@ emfq_parse_attachment (EMFormat* emf,
                        EMFormatParserInfo* info,
                        GCancellable* cancellable)
 {
-        EMFormatPURI *puri;
+        EMPart *emp;
         gint len;
 
         len = part_id->len;
         g_string_append (part_id, ".attachment");
 
-        puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
-        puri->write_func = emfq_write_text_html;
-        puri->mime_type = g_strdup ("text/html");
-        puri->is_attachment = TRUE;
-        em_format_add_puri (emf, puri);
+	emp = em_part_new (emf, part, part_id->str, emfq_write_text_html);
+        em_part_set_mime_type (emp, "text/html");
+        em_part_set_is_attachment (emp, TRUE);
+        em_format_add_part_object (emf, emp);
 
         g_string_truncate (part_id, len);
 }
@@ -483,7 +480,7 @@ emfq_parse_attachment (EMFormat* emf,
 
 static void
 emfq_write_attachment (EMFormat *emf,
-		       EMFormatPURI *puri,
+		       EMPart *emp,
                        CamelStream *stream,
                        EMFormatWriterInfo *info,
                        GCancellable *cancellable)
@@ -492,9 +489,13 @@ emfq_write_attachment (EMFormat *emf,
 	const EMFormatHandler *handler;
 	gchar *text, *html;
 	CamelContentType *ct;
+	CamelMimePart *part;
 	const gchar *mime_type;
+	gchar *uri;
 
-	ct = camel_mime_part_get_content_type (puri->part);
+	part = em_part_get_mime_part (emp);
+	uri = em_part_get_uri (emp);
+	ct = camel_mime_part_get_content_type (part);
 	if (ct) {
 		mime_type = camel_content_type_simple (ct);
 		camel_content_type_unref (ct);
@@ -504,15 +505,18 @@ emfq_write_attachment (EMFormat *emf,
 
 	handler = em_format_find_handler (emf, mime_type);
 
-	if (!em_format_is_inline (emf, puri->uri, puri->part, handler))
+	if (!em_format_is_inline (emf, uri, part, handler)) {
+		g_free (uri);
+		g_object_unref (part);
 		return;
+	}
 
 	camel_stream_write_string (
 		stream, "<table border=1 cellspacing=0 cellpadding=0>"
 		"<tr><td><font size=-1>\n", cancellable, NULL);
 
 	/* output some info about it */
-	text = em_format_describe_part (puri->part, mime_type);
+	text = em_format_describe_part (part, mime_type);
 	html = camel_text_to_html (
 		text, emfq->priv->text_html_flags &
 		CAMEL_MIME_FILTER_TOHTML_CONVERT_URLS, 0);
@@ -524,7 +528,10 @@ emfq_write_attachment (EMFormat *emf,
 		stream, "</font></td></tr></table>", cancellable, NULL);
 
 	if (handler && handler->write_func)
-		handler->write_func (emf, puri, stream, info, cancellable);
+		handler->write_func (emf, emp, stream, info, cancellable);
+
+	g_object_unref (part);
+	g_free (uri);
 }
 
 static void
@@ -627,7 +634,7 @@ em_format_quote_write (EMFormatQuote* emfq,
 		camel_stream_write_string (
 			stream, "<br>\n", cancellable, NULL);
 	g_object_unref (settings);
-       
+
         if (emfq->priv->credits && *emfq->priv->credits) {
                 gchar *credits = g_strdup_printf ("%s<br/>", emfq->priv->credits);
                 camel_stream_write_string (stream, credits, cancellable, NULL);
@@ -643,21 +650,26 @@ em_format_quote_write (EMFormatQuote* emfq,
                         "<blockquote type=cite>\n", cancellable, NULL);
 
         for (iter = emf->mail_part_list; iter; iter = iter->next) {
-                EMFormatPURI *puri = iter->data;
-
-                if (puri->is_attachment || !puri->write_func)
+                EMPart *emp = iter->data;
+		EMPartObjectWriteFunc write_func;
+		
+		write_func = em_part_get_write_func (emp);
+		if (em_part_get_is_attachment (emp) || !write_func)
                         continue;
 
-                puri = iter->data;
-
-                if (emfq->priv->flags & EM_FORMAT_QUOTE_HEADERS) {
+		if (emfq->priv->flags & EM_FORMAT_QUOTE_HEADERS) {
                         GString *buffer = g_string_new ("");
-                        emfq_format_headers (emfq, buffer, (CamelMedium *) puri->part);
+			CamelMimePart *part;
+
+			part = em_part_get_mime_part (emp);
+                        emfq_format_headers (emfq, buffer, (CamelMedium *) part);
                         camel_stream_write_string (stream, buffer->str, cancellable, NULL);
+
                         g_string_free (buffer, TRUE);
+			g_object_unref (part);
                 }
 
-                puri->write_func (emf, puri, stream, &info, cancellable);
+                em_part_write (emp, stream, &info, cancellable);
         }
 
         if (emfq->priv->flags & EM_FORMAT_QUOTE_CITE)
@@ -669,7 +681,7 @@ em_format_quote_write (EMFormatQuote* emfq,
 
 static void
 emfq_write_text_plain (EMFormat *emf,
-		       EMFormatPURI *puri,
+		       EMPart *emp,
 		       CamelStream *stream,
 		       EMFormatWriterInfo *info,
 		       GCancellable *cancellable)
@@ -679,16 +691,16 @@ emfq_write_text_plain (EMFormat *emf,
 	CamelMimeFilter *html_filter;
 	CamelMimeFilter *sig_strip;
 	CamelContentType *type;
+	CamelMimePart *part;
 	const gchar *format;
 	guint32 rgb = 0x737373, flags;
 
-	if (!puri->part)
-		return;
-
 	flags = emfq->priv->text_html_flags;
 
+	part = em_part_get_mime_part (emp);
+
 	/* Check for RFC 2646 flowed text. */
-	type = camel_mime_part_get_content_type (puri->part);
+	type = camel_mime_part_get_content_type (part);
 	if (camel_content_type_is(type, "text", "plain")
 	    && (format = camel_content_type_param(type, "format"))
 	    && !g_ascii_strcasecmp(format, "flowed"))
@@ -710,15 +722,17 @@ emfq_write_text_plain (EMFormat *emf,
 
 	em_format_format_text (
 		EM_FORMAT (emfq), filtered_stream,
-		CAMEL_DATA_WRAPPER (puri->part), cancellable);
+		CAMEL_DATA_WRAPPER (part), cancellable);
 
 	camel_stream_flush (filtered_stream, cancellable, NULL);
 	g_object_unref (filtered_stream);
+
+	g_object_unref (part);
 }
 
 static void
 emfq_write_text_enriched (EMFormat *emf,
-			  EMFormatPURI *puri,
+			  EMPart *emp,
                     	  CamelStream *stream,
                     	  EMFormatWriterInfo *info,
                     	  GCancellable *cancellable)
@@ -727,9 +741,12 @@ emfq_write_text_enriched (EMFormat *emf,
 	CamelMimeFilter *enriched;
 	guint32 flags = 0;
 	CamelContentType *ct;
+	CamelMimePart *part;
 	const gchar *mime_type = NULL;
 
-	ct = camel_mime_part_get_content_type (puri->part);
+	part = em_part_get_mime_part (emp);
+
+	ct = camel_mime_part_get_content_type (part);
 	if (ct) {
 		mime_type = camel_content_type_simple (ct);
 		camel_content_type_unref (ct);
@@ -754,21 +771,25 @@ emfq_write_text_enriched (EMFormat *emf,
 
 	camel_stream_write_string (stream, "<br><hr><br>", cancellable, NULL);
 	em_format_format_text (
-		emf, filtered_stream, CAMEL_DATA_WRAPPER (puri->part), cancellable);
+		emf, filtered_stream, CAMEL_DATA_WRAPPER (part), cancellable);
 	camel_stream_flush (filtered_stream, cancellable, NULL);
 	g_object_unref (filtered_stream);
+
+	g_object_unref (part);
 }
 
 static void
 emfq_write_text_html (EMFormat *emf,
-		      EMFormatPURI *puri,
+		      EMPart *emp,
 	              CamelStream *stream,
 	              EMFormatWriterInfo *info,
 	              GCancellable *cancellable)
 {
 	EMFormatQuotePrivate *priv;
+	CamelMimePart *part;
 
 	priv = EM_FORMAT_QUOTE_GET_PRIVATE (emf);
+	part = em_part_get_mime_part (emp);
 
 	camel_stream_write_string (
 		stream, "\n<!-- text/html -->\n", cancellable, NULL);
@@ -786,14 +807,16 @@ emfq_write_text_html (EMFormat *emf,
 
 		em_format_format_text (
 			emf, filtered_stream,
-			(CamelDataWrapper *) puri->part, cancellable);
+			(CamelDataWrapper *) part, cancellable);
 		camel_stream_flush (filtered_stream, cancellable, NULL);
 		g_object_unref (filtered_stream);
 	} else {
 		em_format_format_text (
 			emf, stream,
-			(CamelDataWrapper *) puri->part, cancellable);
+			(CamelDataWrapper *) part, cancellable);
 	}
+
+	g_object_unref (part);
 }
 
 /****************************************************************************/

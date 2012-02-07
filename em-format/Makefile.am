@@ -6,6 +6,7 @@ emformatinclude_HEADERS =				\
 	em-format.h					\
 	em-format-quote.h				\
 	em-inline-filter.h				\
+	em-part.h					\
 	em-stripsig-filter.h
 
 libemformat_la_CPPFLAGS =				\
@@ -21,6 +22,7 @@ libemformat_la_SOURCES =				\
 	em-format.c					\
 	em-format-quote.c				\
 	em-inline-filter.c				\
+	em-part.c					\
 	em-stripsig-filter.c
 
 libemformat_la_LDFLAGS = -avoid-version $(NO_UNDEFINED)

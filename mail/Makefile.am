@@ -83,6 +83,7 @@ mailinclude_HEADERS =					\
 	em-folder-utils.h				\
 	em-format-hook.h				\
 	em-format-html-display.h			\
+	em-format-html-display-parts.h			\
 	em-format-html-print.h				\
 	em-format-html.h				\
 	em-search-context.h				\
@@ -149,6 +150,7 @@ libevolution_mail_la_SOURCES =				\
 	em-folder-utils.c				\
 	em-format-hook.c				\
 	em-format-html-display.c			\
+	em-format-html-display-parts.c			\
 	em-format-html-print.c				\
 	em-format-html.c				\
 	em-search-context.c				\

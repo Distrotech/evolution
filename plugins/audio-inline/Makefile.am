@@ -20,7 +20,9 @@ liborg_gnome_audio_inline_la_CPPFLAGS =			\
 	$(GSTREAMER_CFLAGS)				\
 	$(GTKHTML_CFLAGS)
 
-liborg_gnome_audio_inline_la_SOURCES = audio-inline.c
+liborg_gnome_audio_inline_la_SOURCES = 			\
+	audio-inline.c					\
+	em-part-audio.c
 
 liborg_gnome_audio_inline_la_LDFLAGS = -module -avoid-version $(NO_UNDEFINED)
 

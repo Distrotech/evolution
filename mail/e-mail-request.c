@@ -11,6 +11,8 @@
 
 #include "em-format-html.h"
 
+#include <em-format/em-part.h>
+
 #include <e-util/e-icon-factory.h>
 #include <e-util/e-util.h>
 
@@ -23,7 +25,7 @@ struct _EMailRequestPrivate {
 	EMFormatHTML *efh;
 
 	CamelStream *output_stream;
-	EMFormatPURI *puri;
+	EMPart *emp;
 	gchar *mime_type;
 
 	gint content_length;
@@ -45,6 +47,8 @@ handle_mail_request (GSimpleAsyncResult *res,
 	GInputStream *stream;
 	GByteArray *ba;
 	gchar *part_id;
+        EMFormatWriterInfo info = {0};
+        gchar *val;
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
@@ -57,34 +61,33 @@ handle_mail_request (GSimpleAsyncResult *res,
 
 	part_id = g_hash_table_lookup (request->priv->uri_query, "part_id");
 
+        val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsed");
+        if (val)
+                info.headers_collapsed = atoi (val);
+
+        val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsable");
+        if (val)
+                info.headers_collapsable = atoi (val);
+
+        val = g_hash_table_lookup (request->priv->uri_query, "mode");
+        if (val)
+                info.mode = atoi (val);
+
+        val = g_hash_table_lookup (request->priv->uri_query, "with_html_headers");
+        if (val)
+                info.with_html_header = atoi (val);
+        else
+                info.with_html_header = FALSE; /* By default this is TRUE!! */
+
+
 	if (part_id) {
                 /* original part_id is owned by the GHashTable */
                 part_id = soup_uri_decode (part_id);
-		request->priv->puri = em_format_find_puri (emf, part_id);
+                request->priv->emp = em_format_find_part_object (emf, part_id);
 
-		if (request->priv->puri) {
-			EMFormatWriterInfo info = {0};
-			gchar *val;
-
-			val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsed");
-			if (val)
-				info.headers_collapsed = atoi (val);
-
-			val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsable");
-			if (val)
-				info.headers_collapsable = atoi (val);
-
-			val = g_hash_table_lookup (request->priv->uri_query, "mode");
-			if (val)
-				info.mode = atoi (val);
-
-			val = g_hash_table_lookup (request->priv->uri_query, "with_html_headers");
-			if (val)
-				info.with_html_header = atoi (val);
-			else
-				info.with_html_header = TRUE; /* By default this is TRUE!! */
-
-			em_format_puri_write (request->priv->puri, request->priv->output_stream, &info, NULL);
+		if (request->priv->emp) {
+                        em_part_write (request->priv->emp, request->priv->output_stream,
+                                &info, NULL);
 		} else {
 			g_warning ("Failed to lookup requested part '%s' - this should not happen!", part_id);
 		}
@@ -436,7 +439,7 @@ e_mail_request_init (EMailRequest *request)
 	request->priv->efh = NULL;
 	request->priv->output_stream = NULL;
 	request->priv->uri_query = NULL;
-	request->priv->puri = NULL;
+	request->priv->emp = NULL;
 	request->priv->mime_type = NULL;
 	request->priv->content_length = 0;
 }
@@ -470,6 +473,11 @@ mail_request_finalize (GObject *object)
                 g_free (request->priv->ret_data);
                 request->priv->ret_data = NULL;
         }
+
+        if (request->priv->emp) {
+		g_object_unref (request->priv->emp);
+		request->priv->emp = NULL;
+	}
 
 	G_OBJECT_CLASS (e_mail_request_parent_class)->finalize (object);
 }
@@ -526,7 +534,7 @@ mail_request_send_async (SoupRequest *request,
         formatters = g_object_get_data (G_OBJECT (session), "formatters");
                                         g_return_if_fail (formatters != NULL);
 
-        /* Get HTML content of given PURI part */
+        /* Get HTML content of given EMPart */
         if (g_strcmp0 (uri->scheme, "mail") == 0) {
                 gchar *uri_str;
 
@@ -613,17 +621,27 @@ static const gchar*
 mail_request_get_content_type (SoupRequest *request)
 {
 	EMailRequest *emr = E_MAIL_REQUEST (request);
-	gchar *mime_type;
+	gchar *mime_type, *part_mime_type;
+
+	if (emr->priv->emp)
+		part_mime_type = em_part_get_mime_type (emr->priv->emp);
+	else
+		part_mime_type = NULL;
 
 	if (emr->priv->mime_type) {
 		mime_type = g_strdup (emr->priv->mime_type);
-	} else if (!emr->priv->puri) {
+	} else if (!emr->priv->emp) {
 		mime_type = g_strdup ("text/html");
-	} else if (!emr->priv->puri->mime_type) {
-		CamelContentType *ct = camel_mime_part_get_content_type (emr->priv->puri->part);
+	} else if (!part_mime_type) {
+		CamelMimePart *part;
+		CamelContentType *ct;
+		
+		part = em_part_get_mime_part (emr->priv->emp);
+		ct = camel_mime_part_get_content_type (part);
 		mime_type = camel_content_type_simple (ct);
+		g_object_unref (part);
 	} else {
-		mime_type = g_strdup (emr->priv->puri->mime_type);
+		mime_type = em_part_get_mime_type (emr->priv->emp);
 	}
 
 	if (g_strcmp0 (mime_type, "text/html") == 0) {
