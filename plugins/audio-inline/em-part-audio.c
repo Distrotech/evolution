@@ -34,6 +34,8 @@ struct _EMPartAudioPrivate {
 	GtkWidget *play_button;
 	GtkWidget *pause_button;
 	GtkWidget *stop_button;
+
+	GMutex *mutex;
 };
 
 static void
@@ -41,7 +43,7 @@ em_part_audio_finalize (GObject *object)
 {
 	EMPartAudioPrivate *priv = EM_PART_AUDIO (object)->priv;
 
-	em_part_mutex_lock (EM_PART (object));
+	g_mutex_lock (priv->mutex);
 
 	if (priv->filename) {
 		g_free (priv->filename);
@@ -68,7 +70,8 @@ em_part_audio_finalize (GObject *object)
 		priv->stop_button = NULL;
 	}
 
-	em_part_mutex_unlock (EM_PART (object));
+	g_mutex_unlock (priv->mutex);
+	g_mutex_free (priv->mutex);
 }
 
 static void
@@ -88,6 +91,7 @@ em_part_audio_init (EMPartAudio *empa)
 	empa->priv = G_TYPE_INSTANCE_GET_PRIVATE (empa,
 			EM_TYPE_PART_AUDIO, EMPartAudioPrivate);
 	
+	empa->priv->mutex = g_mutex_new ();
 	empa->priv->filename = NULL;
 	empa->priv->pause_button = NULL;
 	empa->priv->play_button = NULL;
@@ -101,7 +105,7 @@ EMPart *
 em_part_audio_new (EMFormat *emf,
 		   CamelMimePart *part,
 		   const gchar *uri,
-		   EMPartWriteFunc write_func)
+		   EMPartWidgetFunc widget_func)
 {
 	EMPart *emp;
 	
@@ -114,8 +118,8 @@ em_part_audio_new (EMFormat *emf,
 	em_part_set_formatter (emp, emf);
 	em_part_set_uri (emp, uri);
 	
-	if (write_func)
-		em_part_set_write_func (emp, write_func);
+	if (widget_func)
+		em_part_set_widget_func (emp, widget_func);
 	
 	return emp;
 }
@@ -126,7 +130,7 @@ em_part_audio_set_filename (EMPartAudio *empa,
 {
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	if (empa->priv->filename)
 		g_free (empa->priv->filename);
 
@@ -135,7 +139,7 @@ em_part_audio_set_filename (EMPartAudio *empa,
 	else
 		empa->priv->filename = NULL;
 
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 gchar*
@@ -145,10 +149,10 @@ em_part_audio_get_filename (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), NULL);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	if (empa->priv->filename)
 		filename = g_strdup (empa->priv->filename);
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 
 	return filename;
 }
@@ -159,7 +163,7 @@ void em_part_audio_set_playbin (EMPartAudio *empa,
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 	g_return_if_fail (playbin == NULL || GST_IS_ELEMENT (playbin));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 
 	if (playbin)
 		g_object_ref (playbin);
@@ -169,7 +173,7 @@ void em_part_audio_set_playbin (EMPartAudio *empa,
 
 	empa->priv->playbin = playbin;
 
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 GstElement*
@@ -179,10 +183,10 @@ em_part_audio_get_playbin (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), NULL);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	if (empa->priv->playbin)
 		element = g_object_ref (empa->priv->playbin);
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 
 	return element;	
 }
@@ -192,9 +196,9 @@ void em_part_audio_set_bus_id (EMPartAudio *empa,
 {
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	empa->priv->bus_id = bus_id;
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 gulong
@@ -204,9 +208,9 @@ em_part_audio_get_bus_id (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), 0);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	bus_id = empa->priv->bus_id;
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 
 	return bus_id;
 }
@@ -217,9 +221,9 @@ em_part_audio_set_target_state (EMPartAudio *empa,
 {
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	empa->priv->target_state = state;
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 GstState
@@ -229,9 +233,9 @@ em_part_audio_get_target_state (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), GST_STATE_NULL);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	state = empa->priv->target_state;
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 
 	return state;	
 }
@@ -243,7 +247,7 @@ em_part_audio_set_play_button (EMPartAudio *empa,
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 	g_return_if_fail (button == NULL || GTK_IS_WIDGET (button));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 
 	if (button)
 		g_object_ref (button);
@@ -253,7 +257,7 @@ em_part_audio_set_play_button (EMPartAudio *empa,
 
 	empa->priv->play_button = button;
 
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 GtkWidget*
@@ -263,10 +267,10 @@ em_part_audio_get_play_button (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), NULL);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	if (empa->priv->play_button)
 		widget = g_object_ref (empa->priv->play_button);
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 
 	return widget;
 }
@@ -278,7 +282,7 @@ em_part_audio_set_pause_button (EMPartAudio *empa,
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 	g_return_if_fail (button == NULL || GTK_IS_WIDGET (button));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 
 	if (button)
 		g_object_ref (button);
@@ -288,7 +292,7 @@ em_part_audio_set_pause_button (EMPartAudio *empa,
 
 	empa->priv->pause_button = button;
 
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 GtkWidget*
@@ -298,10 +302,10 @@ em_part_audio_get_pause_button (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), NULL);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	if (empa->priv->pause_button)
 		widget = g_object_ref (empa->priv->pause_button);
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 
 	return widget;
 }
@@ -313,7 +317,7 @@ em_part_audio_set_stop_button (EMPartAudio *empa,
 	g_return_if_fail (EM_IS_PART_AUDIO (empa));
 	g_return_if_fail (button == NULL || GTK_IS_WIDGET (button));
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 
 	if (button)
 		g_object_ref (button);
@@ -323,7 +327,7 @@ em_part_audio_set_stop_button (EMPartAudio *empa,
 
 	empa->priv->stop_button = button;
 
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->mutex);
 }
 
 GtkWidget*
@@ -333,10 +337,10 @@ em_part_audio_get_stop_button (EMPartAudio *empa)
 
 	g_return_val_if_fail (EM_IS_PART_AUDIO (empa), NULL);
 
-	em_part_mutex_lock ((EMPart *) empa);
+	g_mutex_lock (empa->priv->mutex);
 	if (empa->priv->stop_button)
 		widget = g_object_ref (empa->priv->stop_button);
-	em_part_mutex_unlock ((EMPart *) empa);
+	g_mutex_unlock (empa->priv->stop_button);
 
 	return widget;
 }

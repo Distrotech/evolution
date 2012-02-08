@@ -20,7 +20,7 @@
 #include <camel/camel.h>
 #include <glib-object.h>
 
-#include <em-format/em-format.h>
+#include <em-format.h>
 
 /* Standard GObject macros */
 #define EM_TYPE_PART \
@@ -66,7 +66,6 @@ struct _EMPart {
 struct _EMPartClass {
         GObjectClass parent_class;
 
-        GMutex *mutex;
 };
 
 EMPart*			em_part_new      	(EMFormat *emf,
@@ -135,11 +134,6 @@ void                    em_part_write		(EMPart *emp,
                                                  CamelStream *stream,
                                                  EMFormatWriterInfo *info,
                                                  GCancellable *cancellable);
-
-void                    em_part_mutex_lock	(EMPart *emp);
-
-void                    em_part_mutex_unlock    (EMPart *emp);
-
 
 G_END_DECLS
 
