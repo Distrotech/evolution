@@ -77,7 +77,6 @@
 #include "em-utils.h"
 #include "e-mail-printer.h"
 #include "em-format/em-format-quote.h"
-#include "em-format/em-part.h"
 
 /* XXX This is a dirty hack on a dirty hack.  We really need
  *     to rework or get rid of the functions that use this. */
@@ -1222,15 +1221,12 @@ em_utils_message_to_html (CamelMimeMessage *message,
 		/* Return all found validities */
 		for (iter = emf->mail_part_list; iter; iter = iter->next) {
 			
-			EMPart *emp = iter->data;
-			gint32 validity_type;
-
-			if (!emp)
+			EMFormatPURI *puri = iter->data;
+			if (!puri)
 				continue;
 
-			validity_type = em_part_get_validity_type (emp);
-			if (*validity_found && validity_type)
-				*validity_found |= validity_type;
+			if (*validity_found && puri->validity_type)
+				*validity_found |= puri->validity_type;
 		}
 
 	}

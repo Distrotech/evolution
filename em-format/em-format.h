@@ -60,29 +60,26 @@ typedef struct _EMFormat EMFormat;
 typedef struct _EMFormatClass EMFormatClass;
 typedef struct _EMFormatPrivate EMFormatPrivate;
 
+typedef struct _EMFormatPURI EMFormatPURI;
 typedef struct _EMFormatHeader EMFormatHeader;
 typedef struct _EMFormatHandler EMFormatHandler;
 typedef struct _EMFormatParserInfo EMFormatParserInfo;
 typedef struct _EMFormatWriterInfo EMFormatWriterInfo;
-
-typedef struct _EMPart EMPart;
 
 typedef void		(*EMFormatParseFunc)	(EMFormat *emf,
 					 	 CamelMimePart *part,
 					 	 GString *part_id,
 					 	 EMFormatParserInfo *info,
 					 	 GCancellable *cancellable);
-/* FIXME: Redeclared in em-part-object.h */
-typedef void            (*EMPartObjectWriteFunc)
-                                                (EMFormat *emf,
-                                                 EMPart *empo,
-                                                 CamelStream *stream,
-                                                 EMFormatWriterInfo *info,
-                                                 GCancellable *cancellable);
-typedef GtkWidget*      (*EMPartObjectWidgetFunc)
-                                                (EMFormat *emf,
-                                                 EMPart *empo,
-                                                 GCancellable *cancellable);
+typedef void		(*EMFormatWriteFunc)	(EMFormat *emf,
+					 	 EMFormatPURI *puri,
+					 	 CamelStream *stream,
+					 	 EMFormatWriterInfo *info,
+					 	 GCancellable *cancellable);
+typedef GtkWidget*	(*EMFormatWidgetFunc)	(EMFormat *emf,
+					 	 EMFormatPURI *puri,
+					 	 GCancellable *cancellable);
+
 
 typedef enum {
 	EM_FORMAT_HANDLER_INLINE = 1 << 0,
@@ -100,7 +97,7 @@ typedef enum {
 struct _EMFormatHandler {
 	gchar *mime_type;
 	EMFormatParseFunc parse_func;
-	EMPartObjectWriteFunc write_func;
+	EMFormatWriteFunc write_func;
 	EMFormatHandlerFlags flags;
 
 	EMFormatHandler *old;
@@ -127,7 +124,7 @@ struct _EMFormatWriterInfo {
 	gboolean headers_collapsable;
 	gboolean headers_collapsed;
 
-	/* When TRUE, EMPartObjectWriteFunc's will put the content of the EMPart
+	/* When TRUE, EMFormatWriteFunc's will put the content of the PURI part
 	   between EFH_HTML_HEADER and EFH_HTML_FOOTER */
 	gboolean with_html_header;
 };
@@ -140,6 +137,28 @@ struct _EMFormatHeader {
 
 #define EM_FORMAT_HEADER_BOLD (1<<0)
 #define EM_FORMAT_HEADER_LAST (1<<4) /* reserve 4 slots */
+
+
+struct _EMFormatPURI {
+	CamelMimePart *part;
+
+	EMFormat *emf;
+	EMFormatWriteFunc write_func;
+	EMFormatWidgetFunc widget_func;
+
+	gchar *uri;
+	gchar *cid;
+	gchar *mime_type;
+
+	/* EM_FORMAT_VALIDITY_* flags */
+	guint32 validity_type;
+	CamelCipherValidity *validity;
+	CamelCipherValidity *validity_parent;
+
+	gboolean is_attachment;
+
+	void (*free)(EMFormatPURI *puri); /* optional callback for freeing user-fields */
+};
 
 struct _EMFormat {
 	GObject parent;
@@ -213,9 +232,9 @@ void	        	em_format_remove_header		(EMFormat *emf,
 void                    em_format_remove_header_struct	(EMFormat *emf,
 							 const EMFormatHeader *header);
 
-void			em_format_add_part_object	(EMFormat *emf,
-							 EMPart *empo);
-EMPart*			em_format_find_part_object	(EMFormat *emf,
+void			em_format_add_puri		(EMFormat *emf,
+							 EMFormatPURI *puri);
+EMFormatPURI*		em_format_find_puri		(EMFormat *emf,
 							 const gchar *id);
 
 void			em_format_class_add_handler	(EMFormatClass *emfc,
@@ -232,11 +251,6 @@ void			em_format_parse			(EMFormat *emf,
 							 CamelMimeMessage *message,
 							 CamelFolder *folder,
 							 GCancellable *cancellable);
-
-void                    em_format_write                 (EMFormat *emf,
-                                                         CamelStream *stream,
-                                                         EMFormatWriterInfo *info,
-                                                         GCancellable *cancellable);
 
 void                    em_format_parse_async           (EMFormat *emf,
                                                          CamelMimeMessage *message,
@@ -289,16 +303,27 @@ void			em_format_empty_parser 		(EMFormat *emf,
 							 EMFormatParserInfo *info,
 							 GCancellable *cancellable);
 
-/* EMPartObjectWriteFunc that does nothing. Use it to disable
+/* EMFormatWriteFunc that does nothing. Use it to disable
  * writing of a specific mime type parts */
 void			em_format_empty_writer 		(EMFormat *emf,
-							 EMPart *empo,
+							 EMFormatPURI *puri,
 							 CamelStream *stream,
 							 EMFormatWriterInfo *info,
 							 GCancellable *cancellable);
 
 void			em_format_redraw		(EMFormat *emf);
 
+
+EMFormatPURI*		em_format_puri_new 		(EMFormat *emf,
+							 gsize puri_size,
+							 CamelMimePart *part,
+							 const gchar *uri);
+void			em_format_puri_free 		(EMFormatPURI *puri);
+
+void			em_format_puri_write 		(EMFormatPURI *puri,
+							 CamelStream *stream,
+							 EMFormatWriterInfo *info,
+							 GCancellable *cancellable);
 
 EMFormatHeader*		em_format_header_new		(const gchar *name,
 							 const gchar *value);

@@ -56,6 +56,7 @@ G_BEGIN_DECLS
 typedef struct _EMFormatHTML EMFormatHTML;
 typedef struct _EMFormatHTMLClass EMFormatHTMLClass;
 typedef struct _EMFormatHTMLPrivate EMFormatHTMLPrivate;
+typedef struct _EMFormatWidgetPURI EMFormatWidgetPURI;
 
 enum _em_format_html_header_flags {
 	EM_FORMAT_HTML_HEADER_TO = 1 << 0,

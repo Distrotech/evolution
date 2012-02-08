@@ -92,9 +92,9 @@ static void emf_parse_post_headers		(EMFormat *emf, CamelMimePart *part, GString
 static void emf_parse_source			(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 
 /* WRITERS */
-static void emf_write_text			(EMFormat *emf, EMPart *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-static void emf_write_source			(EMFormat *emf, EMPart *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-static void emf_write_error			(EMFormat *emf, EMPart *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emf_write_text			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emf_write_source			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void emf_write_error			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 /**************************************************************************/
 
@@ -636,7 +636,7 @@ emf_parse_multipart_signed (EMFormat *emf,
 					emf, "%s",
 					local_error->message);
 			g_clear_error (&local_error);
-			emf_parse_multipart_mixed (emf, part, part_id, info, cancellable);
+			emf_parse_multipart_mixed (emf, part, part_id,info,  cancellable);
 		} else {
 			gint i, nparts, len = part_id->len;
 			gboolean secured;
@@ -792,7 +792,7 @@ emf_parse_message_deliverystatus (EMFormat *emf,
                             	  EMFormatParserInfo *info,
                             	  GCancellable *cancellable)
 {
-	EMPart *emp;
+	EMFormatPURI *puri;
 	gint len;
 
 	if (g_cancellable_is_cancelled (cancellable))
@@ -801,14 +801,15 @@ emf_parse_message_deliverystatus (EMFormat *emf,
 	len = part_id->len;
 	g_string_append (part_id, ".deliverystatus");
 
-        emp = em_part_new (emf, part, part_id->str, emf_write_text);
-        em_part_set_mime_type (emp, "text/html");
-        em_part_set_validity (emp, info->validity);
-	em_part_set_validity_type (emp, info->validity_type);
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
+	puri->write_func = emf_write_text;
+	puri->mime_type = g_strdup ("text/html");
+	puri->validity = info->validity ? camel_cipher_validity_clone (info->validity) : NULL;
+	puri->validity_type = info->validity_type;
 
 	g_string_truncate (part_id, len);
 
-	em_format_add_part_object (emf, emp);
+	em_format_add_puri (emf, puri);
 }
 
 static void
@@ -1043,15 +1044,16 @@ emf_parse_headers (EMFormat *emf,
 		   EMFormatParserInfo *info,
 		   GCancellable *cancellable)
 {
-	EMPart *emp;
+	EMFormatPURI *puri;
 	gint len;
 
 	len = part_id->len;
 	g_string_append (part_id, ".headers");
 
-        emp = em_part_new (emf, part, part_id->str, info->handler->write_func);
-	em_part_set_mime_type (emp, "text/html");
-        em_format_add_part_object (emf, emp);
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
+	puri->write_func = info->handler->write_func;
+	puri->mime_type = g_strdup ("text/html");
+	em_format_add_puri (emf, puri);
 
 	g_string_truncate (part_id, len);
 }
@@ -1076,7 +1078,7 @@ emf_parse_source (EMFormat *emf,
 		  EMFormatParserInfo *info,
 		  GCancellable *cancellable)
 {
-	EMPart *emp;
+	EMFormatPURI *puri;
 	gint len;
 
 	if (g_cancellable_is_cancelled (cancellable))
@@ -1085,18 +1087,19 @@ emf_parse_source (EMFormat *emf,
 	len = part_id->len;
 	g_string_append (part_id, ".source");
 
-        emp = em_part_new (emf, part, part_id->str, info->handler->write_func);
-	em_part_set_mime_type (emp, "text/html");
-        em_format_add_part_object (emf, emp);
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
+	puri->write_func = info->handler->write_func;
+	puri->mime_type = g_strdup ("text/html");
+	g_string_truncate (part_id, len);
 
-        g_string_truncate (part_id, len);
+	em_format_add_puri (emf, puri);
 }
 
 /**************************************************************************/
 
 void
 em_format_empty_writer (EMFormat *emf,
-			EMPart *emp,
+			EMFormatPURI *puri,
 			CamelStream *stream,
 			EMFormatWriterInfo *info,
 			GCancellable *cancellable)
@@ -1106,62 +1109,48 @@ em_format_empty_writer (EMFormat *emf,
 
 static void
 emf_write_error (EMFormat* emf,
-		 EMPart *emp,
+		 EMFormatPURI* puri,
 		 CamelStream* stream,
 		 EMFormatWriterInfo* info,
 		 GCancellable* cancellable)
 {
-        CamelMimePart *part;
-
-        part = em_part_get_mime_part (emp);
-	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) part,
+	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) puri->part,
 		stream, cancellable, NULL);
-
-        g_object_unref (part);
 }
 
 static void
 emf_write_text (EMFormat *emf,
-		EMPart *emp,
+		EMFormatPURI *puri,
 		CamelStream *stream,
 		EMFormatWriterInfo *info,
 		GCancellable *cancellable)
 {
 	CamelContentType *ct;
-        CamelMimePart *part;
 
-        part = em_part_get_mime_part (emp);
-	ct = camel_mime_part_get_content_type (part);
+	ct = camel_mime_part_get_content_type (puri->part);
 	if (!camel_content_type_is (ct, "text", "plain")) {
 		camel_stream_write_string (stream, _("Cannot proccess non-text mime/part"),
 			cancellable, NULL);
-
-                g_object_unref (part);
 		return;
 	}
-	
-	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) part,
-		stream, cancellable, NULL);
 
-        g_object_unref (part);
+	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) puri->part,
+		stream, cancellable, NULL);
 }
 
 static void
 emf_write_source (EMFormat *emf,
-		  EMPart *emp,
+		  EMFormatPURI *puri,
 		  CamelStream *stream,
 		  EMFormatWriterInfo *info,
 		  GCancellable *cancellable)
 {
-        CamelMimePart *part;
 	GByteArray *ba;
 	gchar *data;
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
-        part = em_part_get_mime_part (emp);
-	ba = camel_data_wrapper_get_byte_array ((CamelDataWrapper *) part);
-        g_object_unref (part);
+	ba = camel_data_wrapper_get_byte_array ((CamelDataWrapper *) puri->part);
 
 	data = g_strndup ((gchar *) ba->data, ba->len);
 	camel_stream_write_string (stream, data, cancellable, NULL);
@@ -1333,7 +1322,8 @@ em_format_finalize (GObject *object)
 	}
 
 	if (emf->mail_part_table) {
-		/* This will destroy all the EMPartObjects stored inside!!!! */
+		/* This will destroy all the EMFormatPURI objects stored
+		 * inside!!!! */
 		g_hash_table_destroy (emf->mail_part_table);
 		emf->mail_part_table = NULL;
 	}
@@ -1440,9 +1430,9 @@ static void
 mail_part_table_item_free (gpointer data)
 {
 	GList *iter = data;
-	EMPart *emp = iter->data;
+	EMFormatPURI *puri = iter->data;
 
-	g_object_unref (emp);
+	em_format_puri_free (puri);
 }
 
 static void
@@ -1458,7 +1448,8 @@ em_format_init (EMFormat *emf)
 	emf->folder = NULL;
 	emf->mail_part_list = NULL;
 	emf->mail_part_table = g_hash_table_new_full (g_str_hash, g_str_equal,
-			                g_free, mail_part_table_item_free);
+			NULL, (GDestroyNotify) mail_part_table_item_free);
+	/* No need to free the key, because it's owned and free'd by the PURI */
 	
 	shell = e_shell_get_default ();
 	shell_settings = e_shell_get_shell_settings (shell);
@@ -1734,48 +1725,27 @@ em_format_remove_header_struct (EMFormat* emf,
 	em_format_remove_header (emf, header->name, header->value);
 }
 
-/**
- * em_format_add_part_object:
- * 
- * @emf: an #EMFormat
- * @emp: an #EMPart to be added
- * 
- * Reference count of @emp is not increased, the #EMFormat takes
- * ownership from caller.
- */
 void
-em_format_add_part_object (EMFormat *emf,
-                           EMPart *emp)
+em_format_add_puri (EMFormat *emf,
+                    EMFormatPURI *puri)
 {
         GList *item;
-        gchar *uri;
 
         g_return_if_fail (EM_IS_FORMAT (emf));
-        g_return_if_fail (EM_IS_PART (emp));
+        g_return_if_fail (puri != NULL);
 
-        emf->mail_part_list = g_list_append (emf->mail_part_list, emp);
+        emf->mail_part_list = g_list_append (emf->mail_part_list, puri);
         item = g_list_last (emf->mail_part_list);
 
-        uri = em_part_get_uri (emp);
-        g_hash_table_insert (emf->mail_part_table, uri, item);
+        g_hash_table_insert (emf->mail_part_table,
+                        puri->uri, item);
 
-        d(printf("Added EMPart %s\n", uri));
+        d(printf("Added PURI %s\n", puri->uri));
 }
 
-/**
- * em_format_find_part_object:
- *
- * @emf: an #EMFormat object
- * @id: an part URI or CID.
- *
- * Looks up EMPartObject by it's URI or CID.
- *
- * Returns: Referenced #EMPart that has to be unreferenced when no
- *          longer needed, or %NULL when no part with such %id is found.
- */
-EMPart *
-em_format_find_part_object (EMFormat *emf,
-                            const gchar *id)
+EMFormatPURI*
+em_format_find_puri (EMFormat *emf,
+		     const gchar *id)
 {
 	GList *list_iter;
 
@@ -1786,11 +1756,9 @@ em_format_find_part_object (EMFormat *emf,
 
 		g_hash_table_iter_init (&iter, emf->mail_part_table);
 		while (g_hash_table_iter_next (&iter, &key, &value)) {
-                        EMPart *emp = ((GList *) value)->data;
-                        gchar *cid = em_part_get_cid (emp);
-
-			if (g_strcmp0 (cid, id) == 0)
-				return g_object_ref (emp);
+			EMFormatPURI *puri = ((GList *) value)->data;
+			if (g_strcmp0 (puri->cid, id) == 0)
+				return puri;
 		}
 
 		return NULL;
@@ -1798,7 +1766,7 @@ em_format_find_part_object (EMFormat *emf,
 
 	list_iter = g_hash_table_lookup (emf->mail_part_table, id);
 	if (list_iter)
-		return g_object_ref (list_iter->data);
+		return list_iter->data;
 
 	return NULL;
 }
@@ -1904,7 +1872,7 @@ em_format_parse (EMFormat *emf,
 		 GCancellable *cancellable)
 {
 	GString *part_id;
-	EMPart *emp;
+	EMFormatPURI *puri;
 	EMFormatParserInfo info = { 0 };
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
@@ -1934,10 +1902,11 @@ em_format_parse (EMFormat *emf,
 
 	part_id = g_string_new (".message");
 
-        /* Create a special EMPart with entire message */
-        emp = em_part_new (emf, (CamelMimePart *) emf->message, part_id->str, NULL);
-        em_part_set_mime_type (emp, "text/plain");
-        em_format_add_part_object (emf, emp);
+	/* Create a special PURI with entire message */
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI),
+		(CamelMimePart *) emf->message, part_id->str);
+	puri->mime_type = g_strdup ("text/html");
+	em_format_add_puri (emf, puri);
 
         info.force_handler = TRUE;
 	em_format_parse_part_as (emf, CAMEL_MIME_PART (emf->message), part_id, &info,
@@ -1993,7 +1962,6 @@ em_format_parse_async (EMFormat *emf,
 
 	result = g_simple_async_result_new (G_OBJECT (emf), callback,
 					    user_data, em_format_parse_async);
-
 	g_simple_async_result_run_in_thread (result, emf_start_async_parser,
 					     G_PRIORITY_DEFAULT, cancellable);
 }
@@ -2094,7 +2062,7 @@ em_format_format_error (EMFormat *emf,
                         const gchar *format,
                         ...)
 {
-	EMPart *emp;
+	EMFormatPURI *puri;
 	CamelMimePart *part;
 	const EMFormatHandler *handler;
 	gchar *errmsg;
@@ -2116,16 +2084,14 @@ em_format_format_error (EMFormat *emf,
 
 	emf->priv->last_error++;
 	uri = g_strdup_printf (".error.%d", emf->priv->last_error);
-
-        emp = em_part_new (emf, part, uri, NULL);
-	em_part_set_mime_type (emp, "text/html");
-
+	puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, uri);
+	puri->mime_type = g_strdup ("text/html");
 	if (handler && handler->write_func)
-		em_part_set_write_func (emp, handler->write_func);
+		puri->write_func = handler->write_func;
 	else
-		em_part_set_write_func (emp, emf_write_error);
+		puri->write_func = emf_write_error;
 
-	em_format_add_part_object (emf, emp);
+	em_format_add_puri (emf, puri);
 
 	g_free (uri);
 	g_object_unref (part);
@@ -2543,6 +2509,95 @@ em_format_redraw (EMFormat *emf)
 
 
 /**************************************************************************/
+EMFormatPURI*
+em_format_puri_new (EMFormat *emf,
+		    gsize puri_size,
+		    CamelMimePart *part,
+		    const gchar *uri)
+{
+	EMFormatPURI *puri;
+
+	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
+	g_return_val_if_fail (puri_size >= sizeof (EMFormatPURI), NULL);
+
+	puri = (EMFormatPURI *) g_malloc0 (puri_size);
+	puri->emf = emf;
+
+	if (part)
+		puri->part = g_object_ref (part);
+
+	if (uri)
+		puri->uri = g_strdup (uri);
+
+	return puri;
+}
+
+void
+em_format_puri_free (EMFormatPURI *puri)
+{
+	g_return_if_fail (puri);
+
+	if (puri->part)
+		g_object_unref (puri->part);
+
+	if (puri->uri)
+		g_free (puri->uri);
+
+	if (puri->cid)
+		g_free (puri->cid);
+
+	if (puri->mime_type)
+		g_free (puri->mime_type);
+
+	if (puri->validity)
+		camel_cipher_validity_free (puri->validity);
+
+	if (puri->validity_parent)
+		camel_cipher_validity_free (puri->validity_parent);
+
+	if (puri->free)
+		puri->free(puri);
+
+	g_free (puri);
+}
+
+
+void
+em_format_puri_write (EMFormatPURI *puri,
+		      CamelStream *stream,
+		      EMFormatWriterInfo *info,
+		      GCancellable *cancellable)
+{
+	g_return_if_fail (puri);
+	g_return_if_fail (CAMEL_IS_STREAM (stream));
+
+	if (info->mode == EM_FORMAT_WRITE_MODE_SOURCE) {
+		const EMFormatHandler *handler;
+		handler = em_format_find_handler (puri->emf, "x-evolution/message/source");
+		handler->write_func (puri->emf, puri, stream, info, cancellable);
+		return;
+	}
+
+	if (puri->write_func) {
+		puri->write_func (puri->emf, puri, stream, info, cancellable);
+	} else {
+		const EMFormatHandler *handler;
+		const gchar *mime_type;
+
+		if (puri->mime_type) {
+			mime_type = puri->mime_type;
+		} else {
+			mime_type = (gchar *) "plain/text";
+		}
+
+		handler = em_format_find_handler (puri->emf, mime_type);
+		if (handler && handler->write_func) {
+			handler->write_func (puri->emf,
+					puri, stream, info, cancellable);
+		}
+	}
+}
+
 EMFormatHeader*
 em_format_header_new (const gchar *name,
 		      const gchar *value)
