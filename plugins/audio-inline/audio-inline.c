@@ -227,8 +227,6 @@ org_gnome_audio_inline_play_clicked (GtkWidget *button,
 		}
 
 		g_free (filename);
-	} else {
-		playbin = em_part_audio_get_playbin (empa);
 	}
 
 	gst_element_get_state (playbin, &cur_state, NULL, 0);
@@ -287,10 +285,7 @@ org_gnome_audio_inline_button_panel (EMFormat *emf,
                         G_CALLBACK (org_gnome_audio_inline_stop_clicked),
                         empa, FALSE));
 
-	g_signal_connect (box, "unrealize",
-		G_CALLBACK (org_gnome_audio_inline_stop_clicked), empa);
-
-	gtk_widget_show_all (box);
+	gtk_widget_show (box);
 
 	return box;
 }
@@ -303,18 +298,15 @@ org_gnome_audio_inline_format (gpointer ep,
 	gchar *classid;
 
 	classid = g_strdup_printf (
-		"%s.org-gnome-audio-inline-button-panel-%d",
-		t->part_id->str,
+		"org-gnome-audio-inline-button-panel-%d",
 		org_gnome_audio_class_id_counter);
 
 	org_gnome_audio_class_id_counter++;
 
 	d(printf ("audio inline formatter: format classid %s\n", classid));
 
-        emp = em_part_audio_new (t->format, t->part, classid, NULL);
-        em_part_set_widget_func (emp, (EMPartWidgetFunc) org_gnome_audio_inline_button_panel);
+        emp = em_part_audio_new (t->format, t->part, t->part_id, NULL);
+        em_part_set_widget_func (emp, org_gnome_audio_inline_button_panel);
 
         em_format_add_part_object (t->format, emp);
-
-	g_free (classid);
 }
