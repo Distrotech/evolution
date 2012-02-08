@@ -20,8 +20,6 @@
 
 struct _EMPartAttachmentBarPrivate {
 	EAttachmentStore *store;
-	
-	GMutex *mutex;
 };
 
 G_DEFINE_TYPE (EMPartAttachmentBar, em_part_attachment_bar, EM_TYPE_PART);
@@ -32,15 +30,14 @@ em_part_attachment_bar_finalize (GObject *object)
 	EMPartAttachmentBarPrivate *priv =
 		EM_PART_ATTACHMENT_BAR (object)->priv;
 
-	g_mutex_lock (priv->mutex);
+	em_part_mutex_lock (EM_PART (object));
 
 	if (priv->store) {
 		g_object_unref (priv->store);
 		priv->store = NULL;
 	}
 
-	g_mutex_unlock (priv->mutex);
-	g_mutex_free (priv->mutex);
+	em_part_mutex_unlock (EM_PART (object));
 }
 
 static void
@@ -63,8 +60,6 @@ em_part_attachment_bar_init (EMPartAttachmentBar *empab)
 			EM_TYPE_PART_ATTACHMENT_BAR, EMPartAttachmentBarPrivate);
 
 	empab->priv->store = NULL;
-
-	empab->priv->mutex = g_mutex_new ();
 }
 
 EMPart*
@@ -95,7 +90,7 @@ em_part_attachment_bar_set_store (EMPartAttachmentBar *empab,
 	g_return_if_fail (EM_IS_PART_ATTACHMENT_BAR (empab));
 	g_return_if_fail ((store == NULL) || E_IS_ATTACHMENT_STORE (store));
 
-	g_mutex_lock (empab->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empab);
 
 	if (store)
 		g_object_ref (store);
@@ -105,7 +100,7 @@ em_part_attachment_bar_set_store (EMPartAttachmentBar *empab,
 
 	empab->priv->store = store;
 
-	g_mutex_unlock (empab->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empab);
 }
 
 
@@ -116,10 +111,10 @@ em_part_attachment_bar_get_store (EMPartAttachmentBar *empab)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT_BAR (empab), NULL);
 
-	g_mutex_lock (empab->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empab);
 	if (empab->priv->store)
 		store = g_object_ref (empab->priv->store);
-	g_mutex_unlock (empab->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empab);
 
 	return store;
 }
@@ -142,8 +137,6 @@ struct _EMPartAttachmentPrivate {
 	CamelStream *mstream;
 
 	const EMFormatHandler *handler;
-
-	GMutex *mutex;
 };
 
 G_DEFINE_TYPE (EMPartAttachment, em_part_attachment, EM_TYPE_PART);
@@ -153,7 +146,7 @@ em_part_attachment_finalize (GObject *object)
 {
 	EMPartAttachmentPrivate *priv = EM_PART_ATTACHMENT (object)->priv;
 
-	g_mutex_lock (priv->mutex);
+	em_part_mutex_lock (EM_PART (object));
 
 	if (priv->attachment) {
 		g_object_unref (priv->attachment);
@@ -190,8 +183,7 @@ em_part_attachment_finalize (GObject *object)
 		priv->view_part_id = NULL;
 	}
 
-	g_mutex_unlock (priv->mutex);
-	g_mutex_free (priv->mutex);
+	em_part_mutex_unlock (EM_PART (object));
 }
 
 static void
@@ -220,8 +212,6 @@ em_part_attachment_init (EMPartAttachment *empa)
 	empa->priv->snoop_mime_type = NULL;
 	empa->priv->view_part_id = NULL;
 	empa->priv->handler = NULL;
-	
-	empa->priv->mutex = g_mutex_new ();	
 }
 
 EMPart*
@@ -251,7 +241,7 @@ em_part_attachment_set_snoop_mime_type (EMPartAttachment *empa,
 {
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 
 	if (empa->priv->snoop_mime_type)
 		g_free (empa->priv->snoop_mime_type);
@@ -261,7 +251,7 @@ em_part_attachment_set_snoop_mime_type (EMPartAttachment *empa,
 	else
 		empa->priv->snoop_mime_type = NULL;
 
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 gchar*
@@ -271,10 +261,10 @@ em_part_attachment_get_snoop_mime_part (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (empa->priv->snoop_mime_type)
 		mime_type = g_strdup (empa->priv->snoop_mime_type);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return mime_type;
 }
@@ -286,7 +276,7 @@ em_part_attachment_set_forward_widget (EMPartAttachment *empa,
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 	g_return_if_fail ((forward == NULL) || GTK_IS_WIDGET (forward));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	
 	if (forward)
 		g_object_ref (forward);
@@ -299,7 +289,7 @@ em_part_attachment_set_forward_widget (EMPartAttachment *empa,
 	else
 		empa->priv->forward = NULL;
 
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 GtkWidget*
@@ -309,10 +299,10 @@ em_part_attachment_get_forward_widget (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (empa->priv->down)
 		widget = g_object_ref (empa->priv->down);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return widget;
 }
@@ -325,7 +315,7 @@ em_part_attachment_set_down_widget (EMPartAttachment *empa,
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 	g_return_if_fail ((down == NULL) || GTK_IS_WIDGET (down));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 
 	if (down)
 		g_object_ref (down);
@@ -338,7 +328,7 @@ em_part_attachment_set_down_widget (EMPartAttachment *empa,
 	else
 		empa->priv->down = NULL;
 
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 GtkWidget*
@@ -348,10 +338,10 @@ em_part_attachment_get_down_widget (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (empa->priv->down)
 		widget = g_object_ref (empa->priv->down);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return widget;
 }
@@ -362,9 +352,9 @@ em_part_attachment_set_is_shown (EMPartAttachment *empa,
 {
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	empa->priv->shown = is_shown;
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 gboolean
@@ -374,9 +364,9 @@ em_part_attachment_get_is_shown (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), FALSE);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	is_shown = empa->priv->shown;
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return is_shown;
 }
@@ -391,7 +381,7 @@ em_part_attachment_set_attachment (EMPartAttachment *empa,
 	if (attachment)
 		g_object_ref (attachment);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 
 	if (empa->priv->attachment)
 		g_object_unref (empa->priv->attachment);
@@ -401,7 +391,7 @@ em_part_attachment_set_attachment (EMPartAttachment *empa,
 	else
 		empa->priv->attachment = NULL;
 
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 EAttachment*
@@ -411,10 +401,10 @@ em_part_attachment_get_attachment (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
-	if (empa->priv->mutex)
+	em_part_mutex_lock ((EMPart *) empa);
+	if (empa->priv->attachment)
 		attachment = g_object_ref (empa->priv->attachment);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return attachment;
 }
@@ -425,7 +415,7 @@ em_part_attachment_set_view_part_id (EMPartAttachment *empa,
 {
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 
 	if (empa->priv->view_part_id)
 		g_free (empa->priv->view_part_id);
@@ -435,7 +425,7 @@ em_part_attachment_set_view_part_id (EMPartAttachment *empa,
 	else
 		empa->priv->view_part_id = NULL;
 
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 gchar*
@@ -445,10 +435,10 @@ em_part_attachment_get_view_part_id (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 	
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (empa->priv->view_part_id)
 		view_part_id = g_strdup (view_part_id);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return view_part_id;	
 }
@@ -459,7 +449,7 @@ em_part_attachment_set_description (EMPartAttachment *empa,
 {
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 
 	if (empa->priv->description)
 		g_free (empa->priv->description);
@@ -469,7 +459,7 @@ em_part_attachment_set_description (EMPartAttachment *empa,
 	else
 		empa->priv->description = NULL;
 
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 gchar*
@@ -479,10 +469,10 @@ em_part_attachment_get_description (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (empa->priv->description)
 		description = g_strdup (empa->priv->description);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return description;
 }
@@ -494,7 +484,7 @@ em_part_attachment_set_mstream (EMPartAttachment *empa,
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 	g_return_if_fail ((mstream == NULL) || CAMEL_IS_STREAM (mstream));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (mstream)
 		g_object_ref (mstream);
 
@@ -503,7 +493,7 @@ em_part_attachment_set_mstream (EMPartAttachment *empa,
 
 	empa->priv->mstream = mstream;
 		
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 CamelStream*
@@ -513,10 +503,10 @@ em_part_attachment_get_mstream (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	if (empa->priv->mstream)
 		stream = g_object_ref (empa->priv->mstream);
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return stream;
 }
@@ -527,9 +517,9 @@ em_part_attachment_set_handler (EMPartAttachment *empa,
 {
 	g_return_if_fail (EM_IS_PART_ATTACHMENT (empa));
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	empa->priv->handler = handler;
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 }
 
 const EMFormatHandler*
@@ -539,9 +529,9 @@ em_part_attachment_get_handler (EMPartAttachment *empa)
 
 	g_return_val_if_fail (EM_IS_PART_ATTACHMENT (empa), NULL);
 
-	g_mutex_lock (empa->priv->mutex);
+	em_part_mutex_lock ((EMPart *) empa);
 	handler = empa->priv->handler;
-	g_mutex_unlock (empa->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) empa);
 
 	return handler;
 }
@@ -554,8 +544,6 @@ struct _EMPartSMIMEPrivate {
 	gchar *description;
 	gint signature;
 	GtkWidget *widget;
-
-	GMutex *mutex;
 };
 
 G_DEFINE_TYPE (EMPartSMIME, em_part_smime, EM_TYPE_PART);
@@ -566,7 +554,7 @@ em_part_smime_finalize (GObject *object)
 {
 	EMPartSMIMEPrivate *priv = EM_PART_SMIME (object)->priv;
 	
-	g_mutex_lock (priv->mutex);
+	em_part_mutex_lock (EM_PART (object));
 	
 	if (priv->description) {
 		g_free (priv->description);
@@ -578,8 +566,7 @@ em_part_smime_finalize (GObject *object)
 		priv->widget = NULL;
 	}
 	
-	g_mutex_unlock (priv->mutex);
-	g_mutex_free (priv->mutex);
+	em_part_mutex_lock (EM_PART (object));
 }
 
 static void
@@ -602,8 +589,6 @@ em_part_smime_init (EMPartSMIME *emps)
 	emps->priv->description = NULL;
 	emps->priv->signature = 0;
 	emps->priv->widget = NULL;
-	
-	emps->priv->mutex = g_mutex_new ();	
 }
 
 EMPart*
@@ -633,7 +618,7 @@ em_part_smime_set_description (EMPartSMIME *emps,
 {
 	g_return_if_fail (EM_IS_PART_SMIME (emps));
 
-	g_mutex_lock (emps->priv->mutex);
+	em_part_mutex_lock ((EMPart *) emps);
 
 	if (emps->priv->description)
 		g_free (emps->priv->description);
@@ -643,7 +628,7 @@ em_part_smime_set_description (EMPartSMIME *emps,
 	else
 		emps->priv->description = NULL;
 
-	g_mutex_unlock (emps->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) emps);
 }
 
 gchar*
@@ -653,10 +638,10 @@ em_part_smime_get_description (EMPartSMIME *emps)
 
 	g_return_val_if_fail (EM_IS_PART_SMIME (emps), NULL);
 
-	g_mutex_lock (emps->priv->mutex);
+	em_part_mutex_lock ((EMPart *) emps);
 	if (emps->priv->description)
 		description = g_strdup (emps->priv->description);
-	g_mutex_unlock (emps->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) emps);
 
 	return description;
 }
@@ -667,9 +652,9 @@ em_part_smime_set_signature (EMPartSMIME *emps,
 {
 	g_return_if_fail (EM_IS_PART_SMIME (emps));
 
-	g_mutex_lock (emps->priv->mutex);
+	em_part_mutex_lock ((EMPart *) emps);
 	emps->priv->signature = signature;
-	g_mutex_unlock (emps->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) emps);
 }
 
 gint
@@ -679,9 +664,9 @@ em_part_smime_get_signature (EMPartSMIME *emps)
 
 	g_return_val_if_fail (EM_IS_PART_SMIME (emps), 0);
 
-	g_mutex_lock (emps->priv->mutex);
+	em_part_mutex_lock ((EMPart *) emps);
 	signature = emps->priv->signature;
-	g_mutex_unlock (emps->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) emps);
 
 	return signature;
 }
@@ -696,14 +681,14 @@ em_part_smime_set_widget (EMPartSMIME *emps,
 	if (widget)
 		g_object_ref (widget);
 
-	g_mutex_lock (emps->priv->mutex);
+	em_part_mutex_lock ((EMPart *) emps);
 
 	if (emps->priv->widget)
 		g_object_unref (emps->priv->widget);
 
 	emps->priv->widget = widget;
 
-	g_mutex_unlock (emps->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) emps);
 }
 
 GtkWidget*
@@ -713,10 +698,10 @@ em_part_smime_get_widget (EMPartSMIME *emps)
 
 	g_return_val_if_fail (EM_IS_PART_SMIME (emps), NULL);
 
-	g_mutex_lock (emps->priv->mutex);
+	em_part_mutex_lock ((EMPart *) emps);
 	if (emps->priv->widget)
 		widget = g_object_ref (emps->priv->widget);
-	g_mutex_unlock (emps->priv->mutex);
+	em_part_mutex_unlock ((EMPart *) emps);
 
 	return widget;
 }

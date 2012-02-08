@@ -53,8 +53,7 @@ struct _EMPartAudio {
 };
 
 struct _EMPartAudioClass {
-	GObjectClass parent_class;
-	
+	EMPartClass parent_class;
 };
 
 EMPart*			em_part_audio_new      	(EMFormat *emf,

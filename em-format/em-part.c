@@ -41,8 +41,6 @@ struct _EMPartPrivate {
 	CamelCipherValidity *validity_parent;
 
 	gboolean is_attachment;
-
-	GMutex *mutex;
 };
 
 static void
@@ -50,7 +48,7 @@ em_part_finalize (GObject *object)
 {
 	EMPartPrivate *priv = EM_PART (object)->priv;
 
-	g_mutex_lock (priv->mutex);
+	em_part_mutex_lock (EM_PART (object));
 
 	if (priv->cid) {
 		g_free (priv->cid);
@@ -87,8 +85,21 @@ em_part_finalize (GObject *object)
 		priv->validity_parent = NULL;
 	}
 
-	g_mutex_unlock (priv->mutex);
-	g_mutex_free (priv->mutex);
+	em_part_mutex_unlock (EM_PART (object));
+}
+
+static void
+em_part_dispose (GObject *object)
+{
+	EMPartClass *klass;
+
+	klass = EM_PART_GET_CLASS (EM_PART (object));
+
+	/* Make sure the mutex is unlocked */
+	g_mutex_lock (klass->mutex);
+	g_mutex_unlock (klass->mutex);
+
+	g_mutex_free (klass->mutex);
 }
 
 static void
@@ -96,9 +107,12 @@ em_part_class_init (EMPartClass *klass)
 {
 	GObjectClass *object_class;
 
+	klass->mutex = g_mutex_new ();
+
 	g_type_class_add_private (klass, sizeof (EMPartPrivate));
 
 	object_class = G_OBJECT_CLASS (klass);
+	object_class->dispose = em_part_dispose;
 	object_class->finalize = em_part_finalize;
 
 }
@@ -109,7 +123,6 @@ em_part_init (EMPart *emp)
 	emp->priv = G_TYPE_INSTANCE_GET_PRIVATE (emp,
 			EM_TYPE_PART, EMPartPrivate);
 
-	emp->priv->mutex = g_mutex_new ();
 	emp->priv->cid = NULL;
 	emp->priv->formatter = NULL;
 	emp->priv->is_attachment = FALSE;
@@ -166,7 +179,7 @@ em_part_set_formatter (EMPart *emp,
 	g_return_if_fail (EM_IS_PART (emp));
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	g_object_ref (emf);
 
@@ -175,7 +188,7 @@ em_part_set_formatter (EMPart *emp,
 
 	emp->priv->formatter = emf;
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 /**
@@ -192,12 +205,12 @@ em_part_get_formatter (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->formatter)
 		formatter = g_object_ref (emp->priv->formatter);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return formatter;
 }
@@ -216,7 +229,7 @@ em_part_set_mime_part (EMPart *emp,
 	g_return_if_fail (EM_IS_PART (emp));
 	g_return_if_fail ((part == NULL) || CAMEL_IS_MIME_PART (part));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (part)
 		g_object_ref (part);
@@ -226,7 +239,7 @@ em_part_set_mime_part (EMPart *emp,
 
 	emp->priv->part = part;
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 /**
@@ -243,12 +256,12 @@ em_part_get_mime_part (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->part)
 		part = g_object_ref (emp->priv->part);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return part;
 }
@@ -265,9 +278,9 @@ em_part_set_write_func (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	emp->priv->write_func = write_func;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 EMPartWriteFunc
@@ -277,9 +290,9 @@ em_part_get_write_func (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	write_func = emp->priv->write_func;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return write_func;
 }
@@ -296,9 +309,9 @@ em_part_set_widget_func (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	emp->priv->widget_func = widget_func;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 EMPartWidgetFunc
@@ -308,9 +321,9 @@ em_part_get_widget_func (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	widget_func = emp->priv->widget_func;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return widget_func;
 }
@@ -322,14 +335,14 @@ em_part_set_uri (EMPart *emp,
 	g_return_if_fail (EM_IS_PART (emp));
 	g_return_if_fail (uri && *uri);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->uri)
 		g_free (emp->priv->uri);
 
 	emp->priv->uri = g_strdup (uri);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 gchar *
@@ -339,12 +352,12 @@ em_part_get_uri (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->uri)
 		uri = g_strdup (emp->priv->uri);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return uri;
 }
@@ -361,7 +374,7 @@ em_part_set_cid (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->cid)
 		g_free (emp->priv->cid);
@@ -371,7 +384,7 @@ em_part_set_cid (EMPart *emp,
 	else
 		emp->priv->cid = NULL;
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 gchar *
@@ -381,12 +394,12 @@ em_part_get_cid (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (cid)
 		cid = g_strdup (emp->priv->cid);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return cid;
 }
@@ -398,14 +411,14 @@ em_part_set_mime_type (EMPart *emp,
 	g_return_if_fail (EM_IS_PART (emp));
 	g_return_if_fail (mime_type && *mime_type);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->mime_type)
 		g_free (emp->priv->mime_type);
 
 	emp->priv->mime_type = g_strdup (mime_type);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 gchar *
@@ -415,12 +428,12 @@ em_part_get_mime_type (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (mime_type)
 		mime_type = g_strdup (emp->priv->mime_type);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return mime_type;
 }
@@ -433,9 +446,9 @@ em_part_set_validity_type (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	emp->priv->validity_type = validity_type;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 guint32
@@ -445,9 +458,9 @@ em_part_get_validity_type (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), 0);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	validity_type = emp->priv->validity_type;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return validity_type;
 }
@@ -464,7 +477,7 @@ em_part_set_validity (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->validity)
 		camel_cipher_validity_free (emp->priv->validity);
@@ -474,7 +487,7 @@ em_part_set_validity (EMPart *emp,
 	else
 		emp->priv->validity = NULL;
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 /**
@@ -491,12 +504,12 @@ em_part_get_validity (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->validity)
 		validity = camel_cipher_validity_clone (emp->priv->validity);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return validity;
 }
@@ -513,7 +526,7 @@ em_part_set_validity_parent (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->validity_parent)
 		camel_cipher_validity_free (emp->priv->validity_parent);
@@ -523,7 +536,7 @@ em_part_set_validity_parent (EMPart *emp,
 	else
 		emp->priv->validity_parent = NULL;
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 /**
@@ -540,12 +553,12 @@ em_part_get_validity_parent (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 
 	if (emp->priv->validity_parent)
 		validity = camel_cipher_validity_clone (emp->priv->validity_parent);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return validity;
 }
@@ -556,9 +569,9 @@ em_part_set_is_attachment (EMPart *emp,
 {
 	g_return_if_fail (EM_IS_PART (emp));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	emp->priv->is_attachment = is_attachment;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 }
 
 gboolean
@@ -568,9 +581,9 @@ em_part_get_is_attachment (EMPart *emp)
 
 	g_return_val_if_fail (EM_IS_PART (emp), FALSE);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	is_attachment = emp->priv->is_attachment;
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	return is_attachment;
 }
@@ -596,10 +609,10 @@ em_part_get_widget (EMPart *emp,
 
 	g_return_val_if_fail (EM_IS_PART (emp), NULL);
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	widget_func = emp->priv->widget_func;
 	formatter = g_object_ref (emp->priv->formatter);
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	if (!widget_func)
 		return NULL;
@@ -635,14 +648,14 @@ em_part_write (EMPart *emp,
 	g_return_if_fail (EM_IS_PART (emp));
 	g_return_if_fail (CAMEL_IS_STREAM (stream));
 
-	g_mutex_lock (emp->priv->mutex);
+	em_part_mutex_lock (emp);
 	write_func = emp->priv->write_func;
 	formatter = g_object_ref (emp->priv->formatter);
 
 	if (emp->priv->mime_type)
 		mime_type = g_strdup (emp->priv->mime_type);
 
-	g_mutex_unlock (emp->priv->mutex);
+	em_part_mutex_unlock (emp);
 
 	g_object_ref (emp);
 
@@ -675,4 +688,19 @@ em_part_write (EMPart *emp,
 
 	if (mime_type)
 		g_free (mime_type);
+}
+
+void
+em_part_mutex_lock (EMPart *emp)
+{
+        g_return_if_fail (EM_IS_PART (emp));
+
+        g_mutex_lock (EM_PART_GET_CLASS (emp)->mutex);
+}
+
+void em_part_mutex_unlock (EMPart *emp)
+{
+        g_return_if_fail (EM_IS_PART (emp));
+
+        g_mutex_unlock (EM_PART_GET_CLASS (emp)->mutex);
 }
