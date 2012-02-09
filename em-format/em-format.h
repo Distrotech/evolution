@@ -91,7 +91,8 @@ typedef enum {
 	EM_FORMAT_WRITE_MODE_NORMAL= 1 << 0,
 	EM_FORMAT_WRITE_MODE_ALL_HEADERS = 1 << 1,
 	EM_FORMAT_WRITE_MODE_SOURCE = 1 << 2,
-	EM_FORMAT_WRITE_MODE_PRINTING = 1 << 3
+	EM_FORMAT_WRITE_MODE_PRINTING = 1 << 3,
+	EM_FORMAT_WRITE_MODE_RAW = 1 << 4
 } EMFormatWriteMode;
 
 struct _EMFormatHandler {
@@ -123,10 +124,6 @@ struct _EMFormatWriterInfo {
 	EMFormatWriteMode mode;
 	gboolean headers_collapsable;
 	gboolean headers_collapsed;
-
-	/* When TRUE, EMFormatWriteFunc's will put the content of the PURI part
-	   between EFH_HTML_HEADER and EFH_HTML_FOOTER */
-	gboolean with_html_header;
 };
 
 struct _EMFormatHeader {
@@ -188,10 +185,17 @@ struct _EMFormatClass {
 							 CamelMimePart *part,
 							 const EMFormatHandler *handler);
 
+	/* Write the entire message to stream */
+	void		(*write)			(EMFormat *emf,
+							 CamelStream *stream,
+							 EMFormatWriterInfo *info,
+							 GCancellable *cancellable);
+
         void            (*preparse)                     (EMFormat *emf);
 
 	/* signals */
 	void		(*redraw_requested)		(EMFormat *emf);
+
 };
 
 EMFormat*		em_format_new 			(void);
@@ -250,6 +254,11 @@ const EMFormatHandler* 	em_format_fallback_handler	(EMFormat *emf,
 void			em_format_parse			(EMFormat *emf,
 							 CamelMimeMessage *message,
 							 CamelFolder *folder,
+							 GCancellable *cancellable);
+
+void			em_format_write			(EMFormat *emf,
+							 CamelStream *stream,
+							 EMFormatWriterInfo *info,
 							 GCancellable *cancellable);
 
 void                    em_format_parse_async           (EMFormat *emf,

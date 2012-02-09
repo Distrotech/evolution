@@ -72,7 +72,7 @@
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), EM_TYPE_FORMAT_HTML, EMFormatHTMLPrivate))
 
-#define d(x)
+#define d(x) x
 
 struct _EMFormatHTMLPrivate {
 	GdkColor colors[EM_FORMAT_HTML_NUM_COLOR_TYPES];
@@ -103,15 +103,6 @@ enum {
 
 #define EFM_MESSAGE_START_ANAME "evolution_message_start"
 #define EFH_MESSAGE_START "<A name=\"" EFM_MESSAGE_START_ANAME "\"></A>"
-#define EFH_HTML_HEADER "<!DOCTYPE HTML>\n<html>\n"  \
-		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n" \
-		"<title>Evolution Mail Display</title>\n" \
-		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n" \
-		"<style type=\"text/css\">\n" \
-		"  table th { color: #000; font-weight: bold; }\n" \
-		"</style>\n" \
-		"</head><body>"
-#define EFH_HTML_FOOTER "</body></html>"
 
 static void efh_parse_image			(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
 static void efh_parse_text_enriched		(EMFormat *emf, CamelMimePart *part, GString *part_id, EMFormatParserInfo *info, GCancellable *cancellable);
@@ -606,27 +597,7 @@ efh_write_image (EMFormat *emf,
 	ba = camel_data_wrapper_get_byte_array (dw);
 	content = g_strndup ((gchar *) ba->data, ba->len);
 
-	/* SPECIAL CASE!
-	   When inf->with_html_header is FALSE, assume we want HTML code of the image
-	   (with the image data - e.g. <img src="data:base64;....." />), otherwise
-	   we want only binary content of the image!
-	   This is because when rendering emails the normal way (=TRUE), images are always embedded
-	   either in <img> or in their own webview. When printing (=FALSE), we want the entire
-	   image. */
-	if (!info->with_html_header) {
-		gchar *buffer;
-
-		/* The image is already base64-encrypted so we can directly
-		   paste it to the output */
-		buffer = g_strdup_printf ("<img src=\"data:%s;base64,%s\" style=\"max-width: 100%%;\" />",
-			puri->mime_type, content);
-
-		camel_stream_write_string (stream, buffer, cancellable, NULL);
-
-		g_free (buffer);
-
-	} else {
-
+	if (info->mode == EM_FORMAT_WRITE_MODE_RAW) {
 		CamelStream *stream_filter;
 		CamelMimeFilter *filter;
 
@@ -638,6 +609,18 @@ efh_write_image (EMFormat *emf,
 
 		g_object_unref (filter);
 		g_object_unref (stream_filter);
+
+	} else {
+		gchar *buffer;
+
+		/* The image is already base64-encrypted so we can directly
+		   paste it to the output */
+		buffer = g_strdup_printf (
+			"<img src=\"data:%s;base64,%s\" style=\"max-width: 100%%;\" />",
+			puri->mime_type ? puri->mime_type : "image/*", content);
+
+		camel_stream_write_string (stream, buffer, cancellable, NULL);
+		g_free (buffer);
 	}
 
 	g_free (content);
@@ -687,22 +670,16 @@ efh_write_text_enriched (EMFormat *emf,
 	g_object_unref (enriched);
 
 	buffer = g_string_new ("");
-	if (info->with_html_header) {
-		g_string_append (buffer, EFH_HTML_HEADER);
-	}
 
 	g_string_append_printf (buffer,
-		"<div style=\"border: solid #%06x 1px; "
-		"background-color: #%06x; padding: 10px; "
-		"color: #%06x;\">\n",
-		e_color_to_value (
-			&efh->priv->colors[
+		"<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+		"background-color: #%06x; color: #%06x;\">"
+		"<div class=\"part-container-inner-margin\">\n",
+		e_color_to_value (&efh->priv->colors[
 			EM_FORMAT_HTML_COLOR_FRAME]),
-		e_color_to_value (
-			&efh->priv->colors[
+		e_color_to_value (&efh->priv->colors[
 			EM_FORMAT_HTML_COLOR_CONTENT]),
-		e_color_to_value (
-			&efh->priv->colors[
+		e_color_to_value (&efh->priv->colors[
 			EM_FORMAT_HTML_COLOR_TEXT]));
 
 	camel_stream_write_string (stream, buffer->str, cancellable, NULL);
@@ -713,11 +690,7 @@ efh_write_text_enriched (EMFormat *emf,
 		(CamelDataWrapper *) puri->part, cancellable);
 
 	g_object_unref (filtered_stream);
-	camel_stream_write_string (stream, "</div>", cancellable, NULL);
-
-	if (info->with_html_header)
-		camel_stream_write_string (stream, EFH_HTML_FOOTER,
-			cancellable, NULL);
+	camel_stream_write_string (stream, "</div></div>", cancellable, NULL);
 }
 
 static void
@@ -757,15 +730,16 @@ efh_write_text_plain (EMFormat *emf,
 		CAMEL_STREAM_FILTER (filtered_stream), html_filter);
 	g_object_unref (html_filter);
 
-	if (info->with_html_header)
-		camel_stream_write_string (stream, EFH_HTML_HEADER, cancellable, NULL);
-
 	content = g_strdup_printf (
-			"<div class=\"part-container\" style=\"background: #%06x; color: #%06x;\" >" \
-			"<div id=\"pre\" style=\"background: #%06x; padding: 10px;\">\n",
-			e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_BODY]),
-			e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_HEADER]),
-			e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_CONTENT]));
+		"<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+		"background-color: #%06x; color: #%06x;\">"
+		"<div class=\"part-container-inner-margin\">\n",
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_FRAME]),
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_CONTENT]),
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_TEXT]));
 
 	camel_stream_write_string (stream, content, cancellable, NULL);
 	em_format_format_text (emf, filtered_stream, (CamelDataWrapper *) puri->part, cancellable);
@@ -774,9 +748,6 @@ efh_write_text_plain (EMFormat *emf,
 	g_free (content);
 
 	camel_stream_write_string (stream, "</div></div>\n", cancellable, NULL);
-
-	if (info->with_html_header)
-		camel_stream_write_string (stream, EFH_HTML_FOOTER, cancellable, NULL);
 }
 
 static void
@@ -786,48 +757,57 @@ efh_write_text_html (EMFormat *emf,
 		     EMFormatWriterInfo *info,
 		     GCancellable *cancellable)
 {
+	EMFormatHTML *efh;
+	CamelStream *format_stream;
+	GString *str;
+	GByteArray *ba;
+	gchar *pos, *header;
+
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
 
-	if (info->with_html_header) {
-		em_format_format_text (emf, stream,
-			(CamelDataWrapper *) puri->part, cancellable);
+	efh = (EMFormatHTML *) emf;
 
-	} else {
-		CamelStream *format_stream;
-		GString *str;
-		GByteArray *ba;
-		gchar *pos;
+	format_stream = camel_stream_mem_new ();
+	em_format_format_text (
+		emf, format_stream, (CamelDataWrapper *) puri->part, cancellable);
 
-		format_stream = camel_stream_mem_new ();
-		em_format_format_text (
-			emf, format_stream, (CamelDataWrapper *) puri->part, cancellable);
+	str  = g_string_new ("");
+	ba = camel_stream_mem_get_byte_array (CAMEL_STREAM_MEM (format_stream));
+	g_string_append_len (str, (gchar *) ba->data, ba->len);
 
-		str  = g_string_new ("");
-		ba = camel_stream_mem_get_byte_array (CAMEL_STREAM_MEM (format_stream));
-		g_string_append_len (str, (gchar *) ba->data, ba->len);
+	/* Here we remove the <head>...</head> part and replace
+	 <body...>...</body> by <div...>...</div> so that we can embed this
+	 part simply into the rest of the email */
+	pos = strcasestr (str->str, "<body");
+	if (pos)
+		g_string_erase (str, 0, (pos - str->str) + 5);
 
-		/* Now we are going to remove the <head>...</head> part and replace 
-	   	<body...>...</body> for <div...>...</div> so that we can embed this 
-	   	part simply into the rest of the email */
-		pos = strcasestr (str->str, "<body");
-		if (pos)
-			g_string_erase (str, 0, (pos - str->str) + 5);
+	/* The second <div> is unclosed because we want to keep all
+	 * attributes from the <body> element */
+	header = g_strdup_printf (
+		"<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+		"background-color: #%06x; color: #%06x;\" >"
+		"<div class=\"part-container-inner-margin\" ",
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_FRAME]),
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_CONTENT]),
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_TEXT]));
+	g_string_prepend (str, header);
+	g_free (header);
 
-		/* The second <div> is unclosed because we want to keep all
-		 * attributes from the <body> element */
-		g_string_prepend (str, "<div class=\"part-container\"><div ");
+	/* Remove </body> */
+	pos = strcasestr (str->str, "</body>");
+	if (pos)
+		g_string_truncate (str, (pos - str->str));
 
-		pos = strcasestr (str->str, "</body>");
-		if (pos)
-			g_string_truncate (str, (pos - str->str));
+	g_string_append (str, "</div></div>");
 
-		g_string_append (str, "</div></div>");
+	camel_stream_write_string (stream, str->str, cancellable, NULL);
 
-		camel_stream_write_string (stream, str->str, cancellable, NULL);
-
-		g_string_free (str, TRUE);
-	}
+	g_string_free (str, TRUE);
 }
 
 static void
@@ -854,8 +834,6 @@ efh_write_source (EMFormat *emf,
 	g_object_unref (filter);
 
 	buffer = g_string_new ("");
-	if (info->with_html_header)
-		g_string_append (buffer, EFH_HTML_HEADER);
 
 	g_string_append_printf (
 		buffer, "<div class=\"part-container\" style=\"background: #%06x; color: #%06x;\" >",
@@ -874,9 +852,6 @@ efh_write_source (EMFormat *emf,
 		cancellable, NULL);
 	camel_stream_write_string (
 		stream, "</code>", cancellable, NULL);
-
-	if (info->with_html_header)
-		camel_stream_write_string (stream, EFH_HTML_FOOTER, cancellable, NULL);
 
 	g_object_unref (filtered_stream);
 	g_string_free (buffer, TRUE);
@@ -905,47 +880,10 @@ efh_write_headers (EMFormat *emf,
 		bg_color = e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_BODY]);
 	}
 
-	if (info->with_html_header)
-		g_string_append_printf (buffer, EFH_HTML_HEADER);
-
 	/* Headers need some fancy JavaScript */
 	g_string_append_printf (
 		buffer,
-		"<script type=\"text/javascript\">\n"
-		"function collapse_addresses(field) {\n"
-		"  var e=window.document.getElementById(\"moreaddr-\"+field).style;\n"
-		"  var f=window.document.getElementById(\"moreaddr-ellipsis-\"+field).style;\n"
-		"  var g=window.document.getElementById(\"moreaddr-img-\"+field);\n"
-		"  if (e.display==\"inline\") { e.display=\"none\"; f.display=\"inline\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/plus.png\"; }\n"
-		"  else { e.display=\"inline\"; f.display=\"none\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/minus.png\"; }\n"
-		"}\n"
-		"function collapse_headers() {\n"
-		"  var f=window.document.getElementById(\"full-headers\").style;\n"
-		"  var s=window.document.getElementById(\"short-headers\").style;\n"
-		"  var i=window.document.getElementById(\"collapse-headers-img\");\n"
-		"  if (f.display==\"block\") { f.display=\"none\"; s.display=\"block\";\n"
-		"	i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/plus.png\"; window.headers_collapsed(true, window.em_format_html); }\n"
-		"  else { f.display=\"block\"; s.display=\"none\";\n"
-		"	 i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n"
-		"}\n"
-                "function set_header_visible(header,value,visible) {\n}"
-                "  var hdrs=window.document.getElementsByClassName('header-item');\n"
-                "  for (var i = 0; i < hdrs.length; i++) { \n"
-                "    var hdr = hdrs[i]; \n"
-                "    if (hdr.className.indexOf('rtl') == -1) { \n"
-                "      if ((hdr.firstChild.textContent == header) && \n"
-                "          (hdr.firstChild.nextSibling.textContent == value)) { \n"
-                "        hdr.style.display=(visible ? 'block' : 'none');\n"
-                "      }\n"
-                "    } else { \n"
-                "      if ((hdr.firstChild.textContent == value) && \n"
-                "          (hdr.firstChild.nextSibling.textContent == header)) { \n"
-                "        hdr.style.display=(visible ? 'block' : 'none');\n"
-                "      }\n"
-                "  }\n"
-                "}\n"
-		"</script>\n"
-		"<style type=\"text/css\">body { background: #%06x; }</style>"
+		"<div class=\"headers\" style=\"background: #%06x;\">"
 		"<table border=\"0\" width=\"100%%\" height=\"100%%\" style=\"color: #%06x;\">\n"
 		"<tr><td valign=\"top\" width=\"16\">\n",
 		bg_color,
@@ -967,10 +905,7 @@ efh_write_headers (EMFormat *emf,
 		!info->headers_collapsed,
 		cancellable);
 
-	g_string_append (buffer, "</td></tr></table>");
-
-	if (info->with_html_header)
-		g_string_append (buffer, EFH_HTML_FOOTER);
+	g_string_append (buffer, "</td></tr></table></div>");
 
 	camel_stream_write_string (stream, buffer->str, cancellable, NULL);
 
@@ -988,9 +923,6 @@ efh_write_error (EMFormat *emf,
 	CamelMimeFilter *filter;
 	CamelDataWrapper *dw;
 
-	if (info->with_html_header)
-		camel_stream_write_string (stream, EFH_HTML_HEADER, cancellable, NULL);
-
 	dw = camel_medium_get_content ((CamelMedium *) puri->part);
 
 	camel_stream_write_string (stream, "<em><font color=\"red\">", cancellable, NULL);
@@ -1006,9 +938,6 @@ efh_write_error (EMFormat *emf,
 	g_object_unref (filtered_stream);
 
 	camel_stream_write_string (stream, "</font></em><br>", cancellable, NULL);
-
-	if (info->with_html_header)
-		camel_stream_write_string (stream, EFH_HTML_FOOTER, cancellable, NULL);
 }
 
 /*****************************************************************************/
@@ -1324,6 +1253,84 @@ efh_preparse (EMFormat *emf)
 }
 
 static void
+efh_write (EMFormat *emf,
+	   CamelStream *stream,
+	   EMFormatWriterInfo *info,
+	   GCancellable *cancellable)
+{
+	GList *iter;
+	EMFormatHTML *efh;
+	gchar *header;
+
+	efh = (EMFormatHTML *) emf;
+
+	header = g_strdup_printf (
+		"<!DOCTYPE HTML>\n<html>\n"
+		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n"
+		"<title>Evolution Mail Display</title>\n"
+		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n"
+		"<style type=\"text/css\">\n"
+		"  table th { color: #000; font-weight: bold; }\n"
+		"</style>\n"
+		"<script type=\"text/javascript\">\n"
+		"function collapse_addresses(field) {\n"
+		"  var e=window.document.getElementById(\"moreaddr-\"+field).style;\n"
+		"  var f=window.document.getElementById(\"moreaddr-ellipsis-\"+field).style;\n"
+		"  var g=window.document.getElementById(\"moreaddr-img-\"+field);\n"
+		"  if (e.display==\"inline\") { e.display=\"none\"; f.display=\"inline\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/plus.png\"; }\n"
+		"  else { e.display=\"inline\"; f.display=\"none\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/minus.png\"; }\n"
+		"}\n"
+		"function collapse_headers() {\n"
+		"  var f=window.document.getElementById(\"full-headers\").style;\n"
+		"  var s=window.document.getElementById(\"short-headers\").style;\n"
+		"  var i=window.document.getElementById(\"collapse-headers-img\");\n"
+		"  if (f.display==\"block\") { f.display=\"none\"; s.display=\"block\";\n"
+		"	i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/plus.png\"; window.headers_collapsed(true, window.em_format_html); }\n"
+		"  else { f.display=\"block\"; s.display=\"none\";\n"
+		"	 i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n"
+		"}\n"
+		"function set_header_visible(header,value,visible) { // Printing\n"
+		"  var hdrs=window.document.getElementsByClassName('header-item');\n"
+		"  for (var i = 0; i < hdrs.length; i++) { \n"
+		"    var hdr = hdrs[i]; \n"
+		"    if (hdr.className.indexOf('rtl') == -1) { \n"
+		"      if ((hdr.firstChild.textContent == header) && \n"
+		"          (hdr.firstChild.nextSibling.textContent == value)) { \n"
+		"        hdr.style.display=(visible ? 'block' : 'none');\n"
+		"      }\n"
+		"    } else { \n"
+		"      if ((hdr.firstChild.textContent == value) && \n"
+		"          (hdr.firstChild.nextSibling.textContent == header)) { \n"
+		"        hdr.style.display=(visible ? 'block' : 'none');\n"
+		"      }\n"
+		"    }\n"
+		"  }\n"
+		"}\n"
+		"</script>\n"
+		"</head><body bgcolor=\"%06x\">",
+		e_color_to_value (&efh->priv->colors[
+			EM_FORMAT_HTML_COLOR_BODY]));
+
+	camel_stream_write_string (stream, header, cancellable, NULL);
+	g_free (header);
+
+	for (iter = emf->mail_part_list; iter; iter = iter->next) {
+
+		EMFormatPURI *puri = iter->data;
+
+		if ((puri->write_func && !puri->is_attachment) ||
+		    (puri->write_func && puri->widget_func && puri->is_attachment)) {
+			puri->write_func (emf, puri, stream, info, cancellable);
+			d(printf("Writing PURI %s\n", puri->uri));
+		} else {
+			d(printf("Skipping PURI %s\n", puri->uri));
+		}
+	}
+
+	camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
+}
+
+static void
 efh_base_init (EMFormatHTMLClass *klass)
 {
 	efh_builtin_init (klass);
@@ -1340,6 +1347,7 @@ efh_class_init (EMFormatHTMLClass *klass)
 
         emf_class = EM_FORMAT_CLASS (klass);
         emf_class->preparse = efh_preparse;
+	emf_class->write = efh_write;
 
 	object_class = G_OBJECT_CLASS (klass);
 	object_class->set_property = efh_set_property;

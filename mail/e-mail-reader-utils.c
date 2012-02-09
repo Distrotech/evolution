@@ -819,7 +819,7 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	shell_backend = E_SHELL_BACKEND (backend);
 	shell = e_shell_backend_get_shell (shell_backend);
 
-	web_view = e_mail_display_get_current_web_view (display);
+	web_view = E_WEB_VIEW (display);
 
 	if (reply_type == E_MAIL_REPLY_TO_RECIPIENT) {
 		const gchar *uri;

@@ -203,7 +203,6 @@ action_add_to_address_book_cb (GtkAction *action,
 	EShell *shell;
 	EMailBackend *backend;
 	EShellBackend *shell_backend;
-	EMailDisplay *display;
 	CamelInternetAddress *cia;
 	EWebView *web_view;
 	CamelURL *curl;
@@ -213,10 +212,9 @@ action_add_to_address_book_cb (GtkAction *action,
 	/* This action is defined in EMailDisplay. */
 
 	backend = e_mail_reader_get_backend (reader);
-	display = e_mail_reader_get_mail_display (reader);
 
-	web_view = e_mail_display_get_current_web_view (display);
-	if (!E_IS_WEB_VIEW (web_view))
+	web_view = E_WEB_VIEW (e_mail_reader_get_mail_display (reader));
+        if (!web_view)
 		return;
 
 	uri = e_web_view_get_selected_uri (web_view);
@@ -283,7 +281,7 @@ action_mail_image_save_cb (GtkAction *action,
         GFile *file;
 
         display = e_mail_reader_get_mail_display (reader);
-        web_view = e_mail_display_get_current_web_view (display);
+        web_view = E_WEB_VIEW (display);
 
         if (!E_IS_WEB_VIEW (web_view))
                 return;
@@ -1788,7 +1786,7 @@ action_mail_zoom_100_cb (GtkAction *action,
 
 	display = e_mail_reader_get_mail_display (reader);
 
-	e_mail_display_zoom_100 (display);
+	webkit_web_view_set_zoom_level (WEBKIT_WEB_VIEW (display), 1.0);
 }
 
 static void
@@ -1799,7 +1797,7 @@ action_mail_zoom_in_cb (GtkAction *action,
 
 	display = e_mail_reader_get_mail_display (reader);
 
-	e_mail_display_zoom_in (display);
+        webkit_web_view_zoom_in (WEBKIT_WEB_VIEW (display));
 }
 
 static void
@@ -1810,7 +1808,7 @@ action_mail_zoom_out_cb (GtkAction *action,
 
 	display = e_mail_reader_get_mail_display (reader);
 
-	e_mail_display_zoom_out (display);
+        webkit_web_view_zoom_out (WEBKIT_WEB_VIEW (display));
 }
 
 static void
@@ -1819,7 +1817,6 @@ action_search_folder_recipient_cb (GtkAction *action,
 {
 	EMailBackend *backend;
 	EMailSession *session;
-	EMailDisplay *display;
 	EWebView *web_view;
 	CamelFolder *folder;
 	CamelURL *curl;
@@ -1828,8 +1825,7 @@ action_search_folder_recipient_cb (GtkAction *action,
 	/* This action is defined in EMailDisplay. */
 
 	folder = e_mail_reader_get_folder (reader);
-	display = e_mail_reader_get_mail_display (reader);
-	web_view = e_mail_display_get_current_web_view (display);
+	web_view = E_WEB_VIEW (e_mail_reader_get_mail_display (reader));
 
 	uri = e_web_view_get_selected_uri (web_view);
 	g_return_if_fail (uri != NULL);
@@ -1859,7 +1855,6 @@ action_search_folder_sender_cb (GtkAction *action,
 {
 	EMailBackend *backend;
 	EMailSession *session;
-	EMailDisplay *display;
 	EWebView *web_view;
 	CamelFolder *folder;
 	CamelURL *curl;
@@ -1868,8 +1863,7 @@ action_search_folder_sender_cb (GtkAction *action,
 	/* This action is defined in EMailDisplay. */
 
 	folder = e_mail_reader_get_folder (reader);
-	display = e_mail_reader_get_mail_display (reader);
-	web_view = e_mail_display_get_current_web_view (display);
+	web_view = E_WEB_VIEW (e_mail_reader_get_mail_display (reader));
 
 	uri = e_web_view_get_selected_uri (web_view);
 	g_return_if_fail (uri != NULL);
@@ -2619,7 +2613,10 @@ mail_reader_message_seen_cb (EMailReaderClosure *closure)
 	current_uid = MESSAGE_LIST (message_list)->cursor_uid;
 	uid_is_current &= (g_strcmp0 (current_uid, message_uid) == 0);
 
-	message = EM_FORMAT (formatter)->message;
+        if (formatter)
+        	message = EM_FORMAT (formatter)->message;
+        else
+                message = NULL;
 
 	if (uid_is_current && message != NULL)
 		g_signal_emit (
@@ -2813,6 +2810,7 @@ mail_reader_message_selected_timeout_cb (EMailReader *reader)
 			g_free (string);
 
 			activity = e_mail_reader_new_activity (reader);
+                        e_activity_set_text (activity, _("Retrieving message"));
 			cancellable = e_activity_get_cancellable (activity);
 
 			closure = g_slice_new0 (EMailReaderClosure);
@@ -2990,7 +2988,7 @@ mail_reader_set_folder (EMailReader *reader,
 		em_utils_folder_is_outbox (folder) ||
 		em_utils_folder_is_sent (folder));
 
-	e_mail_display_clear (display);
+	e_web_view_clear (E_WEB_VIEW (display));
 
 	priv->folder_was_just_selected = (folder != NULL);
 
@@ -3042,19 +3040,27 @@ formatter_weak_ref_cb (struct _formatter_weak_ref_closure *data,
 	g_free (data);
 }
 
+struct format_parser_async_closure_ {
+        EMailDisplay *display;
+        EActivity *activity;
+};
+
 static void
 format_parser_async_done_cb (GObject *source,
                              GAsyncResult *result,
                              gpointer user_data)
 {
         EMFormat *emf = EM_FORMAT (source);
-        EMailReader *reader = user_data;
-        EMailDisplay *display;
+        struct format_parser_async_closure_ *closure = user_data;
 
-        display = e_mail_reader_get_mail_display (reader);
+        g_message ("format_parser_async_done for result %p", result);
 
-        e_mail_display_set_formatter (display, EM_FORMAT_HTML (emf));
-        e_mail_display_load (display, emf->uri_base);
+        e_mail_display_set_formatter (closure->display, EM_FORMAT_HTML (emf));
+        e_mail_display_load (closure->display, emf->uri_base);
+
+        g_object_unref (closure->activity);
+        g_object_unref (closure->display);
+        g_free (closure);
 
         /* Remove the reference added when formatter was created,
          * so that only owners are EMailDisplays */
@@ -3072,7 +3078,6 @@ mail_reader_message_loaded (EMailReader *reader,
 	EMailBackend *backend;
 	CamelFolder *folder;
 	EMailDisplay *display;
-	EWebView *web_view;
 	EShellBackend *shell_backend;
 	EShell *shell;
 	EMEvent *event;
@@ -3121,6 +3126,8 @@ mail_reader_message_loaded (EMailReader *reader,
 		struct _formatter_weak_ref_closure *formatter_data =
 			g_new0 (struct _formatter_weak_ref_closure, 1);
 
+                struct format_parser_async_closure_ *closure;
+
 		formatter_data->formatters = g_hash_table_ref (formatters);
 		formatter_data->mail_uri = g_strdup (mail_uri);
 
@@ -3135,9 +3142,14 @@ mail_reader_message_loaded (EMailReader *reader,
 
 		e_mail_reader_connect_headers (reader, formatter);
 
-		/* FIXME WEBKIT Not passing GCancellable */
+                closure = g_new0 (struct format_parser_async_closure_, 1);
+                closure->activity = e_mail_reader_new_activity (reader);
+                e_activity_set_text (closure->activity, _("Parsing message"));
+                closure->display = g_object_ref (display);
+
 		em_format_parse_async (formatter, message, folder,
-			NULL, format_parser_async_done_cb, reader);
+			e_activity_get_cancellable (closure->activity),
+                        format_parser_async_done_cb, closure);
 
 		g_hash_table_insert (formatters, mail_uri, formatter);
 		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
@@ -3161,9 +3173,8 @@ mail_reader_message_loaded (EMailReader *reader,
 	    schedule_timeout_mark_seen (reader)) {
 		g_clear_error (&error);
 	} else if (error != NULL) {
-		web_view = e_mail_display_get_current_web_view (display);
 		e_alert_submit (
-			E_ALERT_SINK (web_view),
+			E_ALERT_SINK (display),
 			"mail:no-retrieve-message",
 			error->message, NULL);
 		g_error_free (error);

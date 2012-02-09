@@ -117,7 +117,12 @@ static GtkWidget* efhd_attachment_bar		(EMFormat *emf, EMFormatPURI *puri, GCanc
 static GtkWidget* efhd_attachment_button	(EMFormat *emf, EMFormatPURI *puri, GCancellable *cancellable);
 static GtkWidget* efhd_attachment_optional	(EMFormat *emf, EMFormatPURI *puri, GCancellable *cancellable);
 
+static void efhd_write_attachment_bar   (EMFormat *emf, EMFormatPURI *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void efhd_write_attachment       (EMFormat *emf, EMFormatPURI *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void efhd_write_secure_button    (EMFormat *emf, EMFormatPURI *emp, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+
 static void efhd_free_attach_puri_data (EMFormatPURI *puri);
+
 static void efhd_builtin_init (EMFormatHTMLDisplayClass *efhc);
 
 static gpointer parent_class;
@@ -501,6 +506,7 @@ efhd_parse_attachment (EMFormat *emf,
 	puri = (EMFormatAttachmentPURI*) em_format_puri_new (
 			emf, sizeof (EMFormatAttachmentPURI), part, part_id->str);
 	puri->puri.free = efhd_free_attach_puri_data;
+	puri->puri.write_func = efhd_write_attachment;
 	puri->puri.widget_func = efhd_attachment_button;
 	puri->shown = (handler && em_format_is_inline (emf, part_id->str, part, handler));
 	puri->snoop_mime_type = em_format_snoop_type (part);
@@ -607,6 +613,7 @@ efhd_parse_optional (EMFormat *emf,
 	puri = (EMFormatAttachmentPURI *) em_format_puri_new (
 			emf, sizeof (EMFormatAttachmentPURI), part, part_id->str);
 	puri->puri.free = efhd_free_attach_puri_data;
+	puri->puri.write_func = efhd_write_attachment;
 	puri->puri.widget_func = efhd_attachment_optional;
 	puri->attachment_view_part_id = g_strdup (part_id->str);
 	puri->handle = em_format_find_handler (emf, "text/plain");
@@ -649,6 +656,7 @@ efhd_parse_secure (EMFormat *emf,
 		pobj->puri.free = efhd_xpkcs7mime_free;
 		pobj->valid = camel_cipher_validity_clone (info->validity);
 		pobj->puri.widget_func = efhd_xpkcs7mime_button;
+		pobj->puri.write_func = efhd_write_secure_button;
 
 		em_format_add_puri (emf, (EMFormatPURI*) pobj);
 
@@ -681,6 +689,64 @@ efhd_parse_secure (EMFormat *emf,
 
 		pobj->description = g_string_free (buffer, FALSE);
 	}
+}
+
+/******************************************************************************/
+static void
+efhd_write_attachment_bar (EMFormat *emf,
+			   EMFormatPURI *puri,
+                           CamelStream *stream,
+                           EMFormatWriterInfo *info,
+                           GCancellable *cancellable)
+{
+        gchar *str;
+
+	str = g_strdup_printf (
+                "<object type=\"application/x-attachment-bar\" "
+			"height=\"20\" width=\"100%%\" "
+                        "data=\"%s\"></object>", puri->uri);
+
+	camel_stream_write_string (stream, str, cancellable, NULL);
+
+        g_free (str);
+}
+
+static void
+efhd_write_attachment (EMFormat *emf,
+		       EMFormatPURI *puri,
+                       CamelStream *stream,
+                       EMFormatWriterInfo *info,
+                       GCancellable *cancellable)
+{
+        gchar *str;
+
+	str = g_strdup_printf (
+                "<object type=\"application/x-attachment\" "
+		"height=\"20\" width=\"100%%\" "
+                "data=\"%s\"></object>", puri->uri);
+
+        camel_stream_write_string (stream, str, cancellable, NULL);
+
+        g_free (str);
+}
+
+static void
+efhd_write_secure_button (EMFormat *emf,
+			  EMFormatPURI *puri,
+                          CamelStream *stream,
+                          EMFormatWriterInfo *info,
+                          GCancellable *cancellable)
+{
+        gchar *str;
+
+        str = g_strdup_printf (
+                "<object type=\"application/x-secure-button\" "
+                "height=\"20\" width=\"100%%\" "
+                "data=\"%s\"></object>", puri->uri);
+
+        camel_stream_write_string (stream, str, cancellable, NULL);
+
+        g_free (str);
 }
 
 static void
@@ -762,9 +828,9 @@ em_format_html_display_new (void)
 
 static EMFormatHandler type_builtin_table[] = {
 	{ (gchar *) "x-evolution/message/prefix", efhd_message_prefix, },
-	{ (gchar *) "x-evolution/message/attachment-bar", (EMFormatParseFunc) efhd_message_add_bar, },
-	{ (gchar *) "x-evolution/message/attachment", efhd_parse_attachment, },
-	{ (gchar *) "x-evolution/message/x-secure-button", efhd_parse_secure, },
+	{ (gchar *) "x-evolution/message/attachment-bar", (EMFormatParseFunc) efhd_message_add_bar, efhd_write_attachment_bar, },
+	{ (gchar *) "x-evolution/message/attachment", efhd_parse_attachment, efhd_write_attachment, },
+	{ (gchar *) "x-evolution/message/x-secure-button", efhd_parse_secure, efhd_write_secure_button, },
 	{ (gchar *) "x-evolution/message/optional", efhd_parse_optional, },
 };
 
@@ -894,6 +960,14 @@ efhd_attachment_bar (EMFormat *emf,
 	EMFormatAttachmentBarPURI *abp = (EMFormatAttachmentBarPURI *) puri;
 	GtkWidget *widget;
 
+	/* Don't display the attachment bar if it's empty.
+	 * At this point the parsing is done so we can be pretty much sure that
+	 * no new attachments will be added.
+	 * Returning NULL would however display "Missing Plugin" message, so
+	 * let's hack it this way. */
+	if (e_attachment_store_get_num_attachments (abp->store) == 0)
+		return gtk_label_new ("");
+
 	widget = e_mail_attachment_bar_new (abp->store);
 
 	return widget;
@@ -916,6 +990,7 @@ efhd_message_add_bar (EMFormat *emf,
 	g_string_append (part_id, ".attachment-bar");
 	puri = (EMFormatAttachmentBarPURI *) em_format_puri_new (
 			emf, sizeof (EMFormatAttachmentBarPURI), part, part_id->str);
+	puri->puri.write_func = efhd_write_attachment_bar;
 	puri->puri.widget_func = efhd_attachment_bar;
 	puri->puri.free = efhd_attachment_bar_puri_free;
 	puri->store = E_ATTACHMENT_STORE (e_attachment_store_new ());

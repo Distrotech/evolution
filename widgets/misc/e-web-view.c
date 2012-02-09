@@ -831,119 +831,6 @@ web_view_scroll_event (GtkWidget *widget,
 	return FALSE;
 }
 
-static void
-web_view_get_preferred_height (GtkWidget *widget,
-			       gint *minimum_height,
-			       gint *natural_height)
-{
-	WebKitWebView *web_view;
-	WebKitDOMDocument *document;
-	WebKitDOMElement *body, *last_el, *style_el;
-	gint doc_height;
-
-	if (!minimum_height && !natural_height)
-		return;
-
-	web_view = WEBKIT_WEB_VIEW (widget);
-	document = webkit_web_view_get_dom_document (web_view);
-	if (!document)
-		return;
-
-	body = WEBKIT_DOM_ELEMENT (webkit_dom_document_get_body (document));
-	if (!body)
-		return;
-
-	/* Make sure our Evo CSS stylesheet is loaded.
-	 * Note: there's 'user-stylesheet-uri' property of WebKitWebSettings but
-	 * it does not seem to be loaded in webviews with native text/html emails. */
-	style_el = webkit_dom_document_get_element_by_id (document, "_evo_stylesheet");
-	if (!style_el) {
-		WebKitDOMNodeList *list;
-		WebKitDOMNode *head;
-		style_el = webkit_dom_document_create_element (document, "LINK", NULL);
-		webkit_dom_html_link_element_set_rel (
-			WEBKIT_DOM_HTML_LINK_ELEMENT (style_el), "stylesheet");
-		webkit_dom_html_link_element_set_href(
-			WEBKIT_DOM_HTML_LINK_ELEMENT (style_el),
-			"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css");
-		webkit_dom_element_set_attribute (style_el, "type", "text/css", NULL);
-		webkit_dom_html_element_set_id (
-			WEBKIT_DOM_HTML_ELEMENT (style_el), "_evo_stylesheet");
-
-		list = webkit_dom_document_get_elements_by_tag_name (document, "head");
-		/* Broken HTML! Try to add head */
-		if (webkit_dom_node_list_get_length (list) == 0) {
-			WebKitDOMNodeList *body;
-			head = WEBKIT_DOM_NODE (
-				webkit_dom_document_create_element (
-					document, "HEAD", NULL));
-			body = webkit_dom_document_get_elements_by_tag_name (document, "body");
-			if (webkit_dom_node_list_get_length(body) == 0) {
-				/* The document is totally screwed up, there's
-				 * nothing more we can do. */
-				return;
-			}
-
-			webkit_dom_node_insert_before(WEBKIT_DOM_NODE (document),
-				head, webkit_dom_node_list_item (body, 0), NULL);
-
-		} else {
-			head = webkit_dom_node_list_item (list, 0);
-		}
-
-		webkit_dom_node_append_child (head, WEBKIT_DOM_NODE (style_el), NULL);
-	}
-
-	/* Last element in DOM != the undermost element displayed.
-	 * Thus we create our own element which is guaranteed to be displayed
-	 * at the very bottom (via CSS in webview.css) */
-	last_el = webkit_dom_document_get_element_by_id (document, "_evo_bottom_element");
-	if (!last_el) {
-		last_el = webkit_dom_document_create_element (document, "DIV", NULL);
-		webkit_dom_html_element_set_id (WEBKIT_DOM_HTML_ELEMENT (last_el),
-			"_evo_bottom_element");
-		webkit_dom_node_append_child (WEBKIT_DOM_NODE (body),
-			WEBKIT_DOM_NODE (last_el), NULL);
-
-		/* When the _evo_bottom_element is inserted to the DOM, the
-		 * subsequent call of webkit_dom_element_get_offset_top() makes
-		 * WebKit to recalculate layout and invoke content size change
-		 * which results in a recursive call of this function.
-		 * Gtk would prevent the recursion to happen but it would
-		 * throw an ugly warning, therefor we won't be doing any math now.
-		 * When the email is being rendered, the _get_preferred_height()
-		 * gets called multiple times, so we will calculate the actual
-		 * height next time, when WebKit will not be trying to update the
-		 * layout. */
-
-		return;
-	}
-
-	/* The _actual_ height of page content is top + height of the
-	 * very last element in body. The 2px height is hardocded in
-	 * webview.ccs in #_evo_bottom_element */
-	doc_height = webkit_dom_element_get_offset_top (last_el) + 2;
-
-
-	/* Hardcoded padding */
-	doc_height += 18;
-
-	/* When full content zoom is enabled then the elements are not resized
-	 * but rather scaled and thus they still report their original height
-	 * instead of their actual display height. */
-	if (webkit_web_view_get_full_content_zoom (web_view)) {
-		doc_height = ceil((gfloat) doc_height * 
-				webkit_web_view_get_zoom_level (web_view));
-	}
-
-	if (minimum_height)
-		*minimum_height = doc_height;
-
-	if (natural_height)
-		*natural_height = doc_height;
-
-}
-
 static GtkWidget *
 web_view_create_plugin_widget (EWebView *web_view,
                                const gchar *mime_type,
@@ -1422,7 +1309,6 @@ e_web_view_class_init (EWebViewClass *class)
 	widget_class = GTK_WIDGET_CLASS (class);
 	widget_class->button_press_event = web_view_button_press_event;
 	widget_class->scroll_event = web_view_scroll_event;
-	widget_class->get_preferred_height = web_view_get_preferred_height;
 
 #if 0  /* WEBKIT */
 	html_class = GTK_HTML_CLASS (class);
@@ -2782,7 +2668,6 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
                 "default-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
                 "default-monospace-font-size", (pango_font_description_get_size (font) / PANGO_SCALE),
                 "enable-frame-flattening", TRUE, 
-                "enable-plugins", FALSE,
                 "enable-java-applet", FALSE,
                 "enable-html5-database", FALSE,
                 "enable-html5-local-storage", FALSE,

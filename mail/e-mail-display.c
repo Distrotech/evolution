@@ -40,6 +40,7 @@
 #include "mail/e-mail-attachment-bar.h"
 #include "widgets/misc/e-attachment-button.h"
 
+
 #include <camel/camel.h>
 
 #include <libsoup/soup.h>
@@ -49,33 +50,23 @@
 
 #define d(x)
 
+G_DEFINE_TYPE (EMailDisplay, e_mail_display, E_TYPE_WEB_VIEW)
+
 #define E_MAIL_DISPLAY_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), E_TYPE_MAIL_DISPLAY, EMailDisplayPrivate))
 
 struct _EMailDisplayPrivate {
-	GtkWidget *box;
-
-	ESearchBar *searchbar;
 	EMFormatHTML *formatter;
 
 	EMFormatWriteMode mode;
 	gboolean headers_collapsable;
 	gboolean headers_collapsed;
 
-	GList *webviews;
-
-        GtkWidget *current_webview;
-
 	GtkActionGroup *mailto_actions;
         GtkActionGroup *images_actions;
 
-        guint caret_mode:1;
-        guint force_image_load:1;
-	gfloat zoom_level;
-
-	WebKitWebSettings *settings;
-        WebKitWebSettings *headers_settings;
+        gint force_image_load: 1;
 };
 
 enum {
@@ -84,17 +75,7 @@ enum {
 	PROP_MODE,
 	PROP_HEADERS_COLLAPSABLE,
 	PROP_HEADERS_COLLAPSED,
-        PROP_CARET_MODE,
-	PROP_ZOOM_LEVEL
 };
-
-enum {
-	POPUP_EVENT,
-	STATUS_MESSAGE,
-        LAST_SIGNAL
-};
-
-static gint signals[LAST_SIGNAL];
 
 static gpointer parent_class;
 
@@ -178,23 +159,6 @@ static GtkActionEntry image_entries[] = {
 };
 
 
-static gboolean
-mail_display_webview_enter_notify_event (GtkWidget *widget,
-                                         GdkEvent *event,
-                                         gpointer user_data)
-{
-      EMailDisplay *display = user_data;
-
-      /* This handler should always be connected to EWebView
-       * signals only! */
-      g_return_val_if_fail (E_IS_WEB_VIEW (widget), FALSE);
-
-      if (event->crossing.mode == GDK_CROSSING_NORMAL)
-              display->priv->current_webview = widget;
-
-      return FALSE;
-}
-
 static void
 mail_display_webview_update_actions (EWebView *web_view,
                                      gpointer user_data)
@@ -222,8 +186,6 @@ mail_display_webview_update_actions (EWebView *web_view,
         if (action)
                 gtk_action_set_visible (action, visible);
 }
-
-
 
 static void
 formatter_image_loading_policy_changed_cb (GObject *object,
@@ -285,8 +247,6 @@ mail_display_set_property (GObject *object,
                            const GValue *value,
                            GParamSpec *pspec)
 {
-	EMailDisplayPrivate *priv = E_MAIL_DISPLAY (object)->priv;
-
 	switch (property_id) {
 		case PROP_FORMATTER:
 			e_mail_display_set_formatter (
@@ -308,12 +268,6 @@ mail_display_set_property (GObject *object,
 				E_MAIL_DISPLAY (object),
 				g_value_get_boolean (value));
 			return;
-                case PROP_CARET_MODE:
-			priv->caret_mode = g_value_get_boolean (value);
-                        return;
-		case PROP_ZOOM_LEVEL:
-			priv->zoom_level = g_value_get_float (value);
-			return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -325,8 +279,6 @@ mail_display_get_property (GObject *object,
                            GValue *value,
                            GParamSpec *pspec)
 {
-	EMailDisplayPrivate *priv = E_MAIL_DISPLAY (object)->priv;
-
 	switch (property_id) {
 		case PROP_FORMATTER:
 			g_value_set_object (
@@ -348,12 +300,6 @@ mail_display_get_property (GObject *object,
 				value, e_mail_display_get_headers_collapsed (
 				E_MAIL_DISPLAY (object)));
 			return;
-                case PROP_CARET_MODE:
-                        g_value_set_boolean (value, priv->caret_mode);
-                        return;
-		case PROP_ZOOM_LEVEL:
-			g_value_set_float (value, priv->zoom_level);
-			return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -370,26 +316,6 @@ mail_display_dispose (GObject *object)
 		g_object_unref (priv->formatter);
 		priv->formatter = NULL;
 	}
-
-	if (priv->searchbar) {
-		g_object_unref (priv->searchbar);
-		priv->searchbar = NULL;
-	}
-
-	if (priv->webviews) {
-		g_list_free (priv->webviews);
-		priv->webviews = NULL;
-	}
-
-	if (priv->settings) {
-		g_object_unref (priv->settings);
-		priv->settings = NULL;
-	}
-
-	if (priv->headers_settings) {
-                g_object_unref (priv->headers_settings);
-                priv->headers_settings = NULL;
-        }
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -418,51 +344,20 @@ mail_display_style_set (GtkWidget *widget,
 	e_mail_display_reload (display);
 }
 
-static void
-mail_display_emit_status_message (EWebView *web_view,
-				  const gchar *message,
-				  gpointer user_data)
-{
-	EMailDisplay *display = user_data;
-
-	g_signal_emit (display, signals[STATUS_MESSAGE], 0, message);
-}
-
-static gboolean
-mail_display_emit_popup_event (EWebView *web_view,
-			       GdkEventButton *event,
-			       const gchar *uri,
-			       gpointer user_data)
-{
-	EMailDisplay *display = user_data;
-	gboolean event_handled;
-
-	g_signal_emit (display, signals[POPUP_EVENT], 0, event, uri, &event_handled);
-
-	return event_handled;
-}
-
 static gboolean
 mail_display_process_mailto (EWebView *web_view,
                              const gchar *mailto_uri,
                              gpointer user_data)
 {
-	EMailDisplay *display = user_data;
-
-	g_return_val_if_fail (web_view != NULL, FALSE);
+	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), FALSE);
 	g_return_val_if_fail (mailto_uri != NULL, FALSE);
-	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), FALSE);
 
 	if (g_ascii_strncasecmp (mailto_uri, "mailto:", 7) == 0) {
-		EMailDisplayPrivate *priv;
 		EMFormat *format;
 		CamelFolder *folder = NULL;
 		EShell *shell;
 
-		priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
-		g_return_val_if_fail (priv->formatter != NULL, FALSE);
-
-		format = EM_FORMAT (priv->formatter);
+                format = (EMFormat *) E_MAIL_DISPLAY (web_view)->priv->formatter;
 
 		if (format != NULL && format->folder != NULL)
 			folder = format->folder;
@@ -485,14 +380,14 @@ mail_display_link_clicked (WebKitWebView *web_view,
 			   WebKitWebPolicyDecision *policy_decision,
 			   gpointer user_data)
 {
-	EMailDisplay *display = user_data;
-	EMailDisplayPrivate *priv;
+        EMailDisplay *display;
 	const gchar *uri = webkit_network_request_get_uri (request);
 
-	priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
-	g_return_val_if_fail (priv->formatter != NULL, FALSE);
+	display = E_MAIL_DISPLAY (web_view);
+	if (display->priv->formatter == NULL)
+                return FALSE;
 
-	if (mail_display_process_mailto (E_WEB_VIEW (web_view), uri, display)) {
+	if (mail_display_process_mailto (E_WEB_VIEW (web_view), uri, NULL)) {
 		/* do nothing, function handled the "mailto:" uri already */
 		webkit_web_policy_decision_ignore (policy_decision);
 		return TRUE;
@@ -547,14 +442,18 @@ mail_display_resource_requested (WebKitWebView *web_view,
 				 WebKitNetworkResponse *response,
 				 gpointer user_data)
 {
-	EMailDisplay *display = user_data;
+	EMailDisplay *display = E_MAIL_DISPLAY (web_view);
 	EMFormat *formatter = EM_FORMAT (display->priv->formatter);
 	const gchar *uri = webkit_network_request_get_uri (request);
 
         /* Redirect cid:part_id to mail://mail_id/cid:part_id */
         if (g_str_has_prefix (uri, "cid:")) {
+
+		/* Always write raw content of CID object */
 		gchar *new_uri = em_format_build_mail_uri (formatter->folder,
-			formatter->message_uid, "part_id", G_TYPE_STRING, uri, NULL);
+			formatter->message_uid,
+			"part_id", G_TYPE_STRING, uri,
+			"mode", G_TYPE_INT, EM_FORMAT_WRITE_MODE_RAW, NULL);
 
                 webkit_network_request_set_uri (request, new_uri);
 
@@ -634,15 +533,119 @@ mail_display_resource_requested (WebKitWebView *web_view,
 }
 
 static void
+mail_display_plugin_widget_resize (GtkWidget *widget,
+				   GdkRectangle *event,
+				   EMailDisplay *display)
+{
+	GtkAllocation allocation;
+	WebKitDOMDocument *document;
+	WebKitDOMNodeList *nodes;
+	gint i;
+	gchar *puri_uri;
+	gint height;
+
+	//gtk_widget_get_allocation (widget, &allocation);
+	gtk_widget_get_preferred_height (widget, &height, NULL);
+	//height = allocation.height;
+
+	puri_uri = g_object_get_data (G_OBJECT (widget), "uri");
+
+	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
+	nodes = webkit_dom_document_get_elements_by_tag_name (document, "object");
+
+	for (i = 0; i < webkit_dom_node_list_get_length (nodes); i++) {
+
+		WebKitDOMNode *node = webkit_dom_node_list_item (nodes, i);
+
+		gchar *uri =webkit_dom_element_get_attribute (WEBKIT_DOM_ELEMENT (node), "data");
+
+		if (g_strcmp0 (uri, puri_uri) == 0) {
+
+			gchar *dim;
+
+			dim = g_strdup_printf ("%d", height);
+			webkit_dom_html_object_element_set_height (
+				WEBKIT_DOM_HTML_OBJECT_ELEMENT (node), dim);
+			g_free (dim);
+
+			g_free (uri);
+
+			gtk_widget_queue_draw (GTK_WIDGET (display));
+			gtk_widget_queue_draw (widget);
+
+			return;
+		}
+
+		g_free (uri);
+	}
+}
+
+
+static void
+mail_display_plugin_widget_realized (GtkWidget *widget,
+				     gpointer user_data)
+{
+	mail_display_plugin_widget_resize (widget, NULL, user_data);
+}
+
+static GtkWidget*
+mail_display_plugin_widget_requested (WebKitWebView *web_view,
+                                      gchar *mime_type,
+                                      gchar *uri,
+                                      GHashTable *param,
+                                      gpointer user_data)
+{
+        EMFormat *emf;
+        EMailDisplay *display;
+        EMFormatPURI *puri;
+        GtkWidget *widget;
+        gchar *puri_uri;
+
+        puri_uri = g_hash_table_lookup (param, "data");
+        if (!puri_uri || !g_str_has_prefix (uri, "mail://"))
+                return NULL;
+
+        d(printf("Created widget %s\n", puri_uri));
+
+        display = E_MAIL_DISPLAY (web_view);
+        emf = (EMFormat *) display->priv->formatter;
+
+	puri = em_format_find_puri (emf, puri_uri);
+        if (!puri) {
+                return NULL;
+	}
+
+        if (puri->widget_func)
+		widget = puri->widget_func (emf, puri, NULL);
+	else
+		widget = NULL;
+
+	if (widget) {
+		gtk_widget_show (widget);
+		g_object_set_data_full (G_OBJECT (widget), "uri",
+			g_strdup (puri_uri), (GDestroyNotify) g_free);
+
+		/* Ensure that WebKit will resize <object> element by calling
+		 * gtk_widget_set_size_request() of the widget. */
+		g_signal_connect (widget, "size-allocate",
+			G_CALLBACK (mail_display_plugin_widget_resize), display);
+		g_signal_connect (widget, "realize",
+			G_CALLBACK (mail_display_plugin_widget_realized), display);
+	}
+
+        return widget;
+}
+
+static void
 mail_display_headers_collapsed_state_changed (EWebView *web_view,
 					      size_t arg_count,
 					      const JSValueRef args[],
 					      gpointer user_data)
 {
-	EMailDisplay *display = user_data;
 	JSGlobalContextRef ctx = e_web_view_get_global_context (web_view);
 
-	e_mail_display_set_headers_collapsed (display, JSValueToBoolean (ctx, args[0]));
+	e_mail_display_set_headers_collapsed (E_MAIL_DISPLAY (web_view),
+                JSValueToBoolean (ctx, args[0]));
 }
 
 static void
@@ -659,354 +662,8 @@ mail_display_install_js_callbacks (WebKitWebView *web_view,
 		(EWebViewJSFunctionCallback) mail_display_headers_collapsed_state_changed, user_data);
 }
 
-static EWebView*
-mail_display_setup_webview (EMailDisplay *display,
-			    gboolean is_header)
-{
-	EWebView *web_view;
-	GtkUIManager *ui_manager;
-	GError *error = NULL;
-
-	web_view = E_WEB_VIEW (e_web_view_new ());
-	webkit_web_view_set_full_content_zoom (WEBKIT_WEB_VIEW (web_view), TRUE);
-
-        if (is_header) {
-                e_web_view_set_settings (web_view, display->priv->headers_settings);
-        } else {
-	        e_web_view_set_settings (web_view, display->priv->settings);
-        }
-
-	g_signal_connect (web_view, "navigation-policy-decision-requested",
-		G_CALLBACK (mail_display_link_clicked), display);
-	g_signal_connect (web_view, "window-object-cleared",
-		G_CALLBACK (mail_display_install_js_callbacks), display);
-	g_signal_connect (web_view, "resource-request-starting",
-		G_CALLBACK (mail_display_resource_requested), display);
-	g_signal_connect (web_view, "process-mailto",
-		G_CALLBACK (mail_display_process_mailto), display);
-	g_signal_connect (web_view, "status-message",
-		G_CALLBACK (mail_display_emit_status_message), display);
-	g_signal_connect (web_view, "popup-event",
-		G_CALLBACK (mail_display_emit_popup_event), display);
-        g_signal_connect (web_view, "enter-notify-event",
-                G_CALLBACK (mail_display_webview_enter_notify_event), display);
-        g_signal_connect (web_view, "update-actions",
-                G_CALLBACK (mail_display_webview_update_actions), display);
-
-	g_object_bind_property (web_view, "zoom-level", display, "zoom-level", 
-		G_BINDING_BIDIRECTIONAL | G_BINDING_SYNC_CREATE);
-
-	/* Because we are loading from a hard-coded string, there is
-	 * no chance of I/O errors.  Failure here implies a malformed
-	 * UI definition.  Full stop. */
-	ui_manager = e_web_view_get_ui_manager (web_view);
-	gtk_ui_manager_insert_action_group (ui_manager, display->priv->mailto_actions, 0);
-	gtk_ui_manager_add_ui_from_string (ui_manager, ui, -1, &error);
-
-        if (error != NULL) {
-                g_error ("%s", error->message);
-                g_error_free (error);
-        }
-
-        error = NULL;
-        gtk_ui_manager_insert_action_group (ui_manager, display->priv->images_actions, 0);
-        gtk_ui_manager_add_ui_from_string (ui_manager, image_ui, -1, &error);
-
-	if (error != NULL) {
-		g_error ("%s", error->message);
-                g_error_free (error);
-        }
-
-	return web_view;
-}
-
 static void
-mail_display_on_web_view_sw_hadjustment_changed (GtkAdjustment* adjustment,
-                                                 gpointer user_data)
-{
-        GtkWidget *scrolled_window = user_data;
-        GtkWidget *vscrollbar;
-        GtkWidget *web_view;
-        gint new_width, height;
-
-        web_view = gtk_bin_get_child (GTK_BIN (scrolled_window));
-        gtk_widget_get_preferred_width (web_view, NULL, &new_width);
-
-        vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (scrolled_window));
-        if (vscrollbar && gtk_widget_get_visible (vscrollbar)) {
-                gint scrollbar_width;
-                gtk_widget_get_preferred_width (vscrollbar, &scrollbar_width, NULL);
-                new_width += scrollbar_width;
-        }
-
-        gtk_widget_get_size_request (scrolled_window, NULL, &height);
-        gtk_widget_set_size_request (scrolled_window, new_width, height);
-}
-
-
-static void
-mail_display_on_web_view_sw_vadjustment_changed (GtkAdjustment* adjustment,
-						 gpointer user_data)
-{
-	GtkWidget *scrolled_window = user_data;
-	GtkWidget *hscrollbar;
-	GtkWidget *web_view;
-	gint new_height, width;
-
-	web_view = gtk_bin_get_child (GTK_BIN (scrolled_window));
-	gtk_widget_get_preferred_height (web_view, &new_height, NULL);
-
-	/* We now have height of the webview's view, but to correctly resize the
-	 * parent scrolled window we need to add height of horizontal scrollbar (if visible) */
-	hscrollbar = gtk_scrolled_window_get_hscrollbar (GTK_SCROLLED_WINDOW (scrolled_window));
-	if (hscrollbar && gtk_widget_get_visible (hscrollbar)) {
-		gint scrollbar_height;
-		gtk_widget_get_preferred_height (hscrollbar, &scrollbar_height, NULL);
-		new_height += scrollbar_height;
-	}
-
-	gtk_widget_get_size_request (scrolled_window, &width, NULL);
-	gtk_widget_set_size_request (scrolled_window, width, new_height);
-}
-
-static GtkWidget*
-mail_display_insert_web_view (EMailDisplay *display,
-			      EWebView *web_view)
-{
-	GtkWidget *scrolled_window;
-	GtkAdjustment *adjustment;
-        GdkWindow *window;
-
-	display->priv->webviews = g_list_append (display->priv->webviews, web_view);
-	scrolled_window = gtk_scrolled_window_new (NULL, NULL);
-	g_object_set (G_OBJECT (scrolled_window),
-		"vexpand", FALSE,
-		"vexpand-set", TRUE,
-                "hexpand", FALSE,
-                "hexpand-set", TRUE,
-                "shadow-type", GTK_SHADOW_NONE,
-		NULL);
-
-	adjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
-	g_signal_connect (G_OBJECT (adjustment), "changed",
-		G_CALLBACK (mail_display_on_web_view_sw_vadjustment_changed), scrolled_window);
-
-        adjustment = gtk_scrolled_window_get_hadjustment (GTK_SCROLLED_WINDOW (scrolled_window));
-        g_signal_connect (G_OBJECT (adjustment), "changed",
-                G_CALLBACK (mail_display_on_web_view_sw_hadjustment_changed), scrolled_window);
-	
-	gtk_container_add (GTK_CONTAINER (scrolled_window), GTK_WIDGET (web_view));
-
-        gtk_box_pack_start (GTK_BOX (display->priv->box), scrolled_window, FALSE, TRUE, 0);
-	gtk_widget_show_all (scrolled_window);
-
-        /* Enable enter-notify event */
-        window = gtk_widget_get_window (GTK_WIDGET (web_view));
-        if (!(gdk_window_get_events (window) & GDK_ENTER_NOTIFY_MASK)) {
-              gdk_window_set_events (window,
-                      gdk_window_get_events (window) | GDK_ENTER_NOTIFY_MASK);
-        }
-
-        return scrolled_window;
-}
-
-static void
-mail_display_load_as_source (EMailDisplay *display,
-			     const gchar *msg_uid)
-{
-	EWebView *web_view;
-	EMFormat *emf = (EMFormat *) display->priv->formatter;
-	gchar *uri;
-
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	e_mail_display_clear (display);
-
-	web_view = mail_display_setup_webview (display, TRUE);
-	mail_display_insert_web_view (display, web_view);
-
-	uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
-		"part_id", G_TYPE_STRING, ".message",
-		"mode", G_TYPE_INT, display->priv->mode,
-		NULL);
-	e_web_view_load_uri (web_view, uri);
-
-	gtk_widget_show_all (display->priv->box);
-}
-
-static void
-mail_display_load_normal (EMailDisplay *display,
-			  const gchar *msg_uri)
-{
-	EWebView *web_view;
-	EMFormatPURI *puri;
-	EMFormat *emf = (EMFormat *) display->priv->formatter;
-	EAttachmentView *attachment_view;
-	gchar *uri;
-	GList *iter;
-	GtkBox *box;
-        gchar *start_part_id;
-        GtkWidget *attachment_button;
-
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	/* Don't use gtk_widget_show_all() to display all widgets at once,
-	   it makes all parts of EMailAttachmentBar visible and that's not
-	   what we want.
-	   FIXME: Maybe using gtk_widget_set_no_show_all() in EAttachmentView
-	          could help...
-	*/
-
-	/* First remove all widgets left after previous message */
-	e_mail_display_clear (display);
-        attachment_view = NULL;
-        attachment_button = NULL;
-
-	box = GTK_BOX (display->priv->box);
-	gtk_widget_show (display->priv->box);
-
-        /* If msg_uri contains part_id, then find it and start 'writing' from
-         * this part_id. When there's no part_id or it's invalid, start from first
-         * PURI in the list. */
-        if ((start_part_id = strstr (msg_uri, "part_id=")) != NULL) {
-                gchar *end_part_id;
-                start_part_id = start_part_id + strlen("part_id=");
-                end_part_id = strstr (start_part_id, "&");
-                if (!end_part_id)
-                        start_part_id = g_strdup (start_part_id);
-                else
-                        start_part_id = g_strndup (start_part_id, end_part_id - start_part_id);
-
-                iter = g_hash_table_lookup (emf->mail_part_table, start_part_id);
-                if (!iter)
-                        iter = emf->mail_part_list;
-                else
-                        iter = iter->next; /* Prevent endless recursion */
-        } else {
-                iter = emf->mail_part_list;
-        }
-
-        g_free (start_part_id);
-
-        for (iter = iter; iter; iter = iter->next) {
-		GtkWidget *widget = NULL;
-
-		puri = iter->data;
-
-                if (g_str_has_suffix (puri->uri, ".end"))
-                        break;
-
-		uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
-			"part_id", G_TYPE_STRING, puri->uri,
-			"mode", G_TYPE_INT, display->priv->mode,
-			"headers_collapsable", G_TYPE_BOOLEAN, display->priv->headers_collapsable,
-			"headers_collapsed", G_TYPE_BOOLEAN, display->priv->headers_collapsed,
-			NULL);
-
-		if (puri->widget_func) {
-                        gboolean expandible = FALSE;
-
-			widget = puri->widget_func (emf, puri, NULL);
-                        d(printf("%p: added %s for PURI %s\n", 
-                                   display, G_OBJECT_TYPE_NAME (widget), puri->uri));
-
-			if (!GTK_IS_WIDGET (widget)) {
-				g_message ("Part %s didn't provide a valid widget, skipping!", puri->uri);
-                                g_free (uri);
-				continue;
-			}
-
-                        gtk_box_pack_start (box, widget, FALSE, TRUE, 0);
-			if (attachment_button) {
-
-                                /* If attachment_button is set and it was followed by
-                                 * another attachment button, then something is wrong.
-                                 * Make the previous button unexpandable and continue */
-                                if (E_IS_ATTACHMENT_BUTTON (widget)) {
-                                        e_attachment_button_set_expandable (
-                                                E_ATTACHMENT_BUTTON (attachment_button), FALSE);
-
-                                } else {
-                                        g_object_bind_property (attachment_button, "expanded",
-                                                widget, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
-                                        e_attachment_button_set_expandable (
-                                                E_ATTACHMENT_BUTTON (attachment_button), TRUE);
-                                        attachment_button = NULL;
-                                        expandible = TRUE;
-                                }
-                        }
-
-			if (E_IS_ATTACHMENT_BUTTON (widget) && attachment_view) {
-				e_attachment_button_set_view (E_ATTACHMENT_BUTTON (widget),
-					attachment_view);
-                                attachment_button = widget;
-                        }
-
-			if (E_IS_ATTACHMENT_VIEW (widget)) {
-				EAttachmentStore *store;
-
-				attachment_view = E_ATTACHMENT_VIEW (widget);
-				store = e_attachment_view_get_store (attachment_view);
-
-				if (e_attachment_store_get_num_attachments (store) > 0)
-					gtk_widget_show (widget);
-				else
-					gtk_widget_hide (widget);
-                                g_free (uri);
-                                continue;
-
-                        } else if (E_IS_MAIL_DISPLAY (widget)) {
-                                EMFormatPURI *iter_puri;
-
-                                if (!expandible)
-                                        gtk_widget_show (widget);
-
-                                /* Find the PURI with ".end" suffix and continue writing
-                                the message from following PURI */
-                                do {
-                                        iter = iter->next;
-                                        if (iter)
-                                                iter_puri = iter->data;
-                                } while (iter && (!g_str_has_suffix (iter_puri->uri, ".end")));
-
-                                g_free (uri);
-                                continue;
-
-                        } else {
-                                gtk_widget_show (widget);
-                        }
-		}
-
-		if ((!puri->is_attachment && puri->write_func) || (puri->is_attachment && puri->write_func && puri->widget_func)) {
-                        GtkWidget *container;
-
-                        web_view = mail_display_setup_webview (display, g_str_has_suffix (puri->uri, ".headers"));
-			container = mail_display_insert_web_view (display, web_view);
-
-                        e_web_view_load_uri (web_view, uri);
-
-                        if (attachment_button) {
-				g_object_bind_property (widget, "expanded",
-					container, "visible", G_BINDING_DEFAULT | G_BINDING_SYNC_CREATE);
-                                attachment_button = NULL;
-			}
-
-                        d(printf("%p: added EWebView for PURI %s\n", display, puri->uri));
-		}
-
-		g_free (uri);
-	}
-
-	/* If we created an attachment_button but didn't attach any widget to it,
-         * then make sure it's not expandable. */
-	if (attachment_button) {
-                e_attachment_button_set_expandable (
-                        E_ATTACHMENT_BUTTON (attachment_button), FALSE);
-        }
-}
-
-static void
-mail_display_class_init (EMailDisplayClass *class)
+e_mail_display_class_init (EMailDisplayClass *class)
 {
 	GObjectClass *object_class;
 	GtkWidgetClass *widget_class;
@@ -1064,80 +721,18 @@ mail_display_class_init (EMailDisplayClass *class)
 			NULL,
 			FALSE,
 			G_PARAM_READWRITE));
-
-        g_object_class_install_property (
-                object_class,
-                PROP_CARET_MODE,
-                g_param_spec_boolean (
-                        "caret-mode",
-                        "Caret Mode",
-                        NULL,
-                        FALSE,
-                        G_PARAM_READWRITE));
-
-	g_object_class_install_property (
-		object_class,
-		PROP_ZOOM_LEVEL,
-		g_param_spec_float (
-			"zoom-level",
-			"Zoom Level",
-			NULL,
-			G_MINFLOAT,
-			G_MAXFLOAT,
-			1.0,
-			G_PARAM_READWRITE));
-			
-
-	signals[POPUP_EVENT] = g_signal_new (
-		"popup-event",
-		G_TYPE_FROM_CLASS (class),
-		G_SIGNAL_RUN_LAST,
-		G_STRUCT_OFFSET (EMailDisplayClass, popup_event),
-		g_signal_accumulator_true_handled, NULL,
-		e_marshal_BOOLEAN__BOXED_STRING,
-		G_TYPE_BOOLEAN, 2,
-		GDK_TYPE_EVENT | G_SIGNAL_TYPE_STATIC_SCOPE,
-		G_TYPE_STRING);
-
-	signals[STATUS_MESSAGE] = g_signal_new (
-		"status-message",
-		G_TYPE_FROM_CLASS (class),
-		G_SIGNAL_RUN_LAST,
-		G_STRUCT_OFFSET (EMailDisplayClass, status_message),
-		NULL, NULL,
-		g_cclosure_marshal_VOID__STRING,
-		G_TYPE_NONE, 1,
-		G_TYPE_STRING);
 }
 
 static void
-mail_display_init (EMailDisplay *display)
+e_mail_display_init (EMailDisplay *display)
 {
-	SoupSession *session;
+        GtkUIManager *ui_manager;
+        GError *error = NULL;
+        SoupSession *session;
 	SoupSessionFeature *feature;
 	const gchar *user_cache_dir;
 
 	display->priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
-
-	display->priv->settings = e_web_view_get_default_settings (GTK_WIDGET (display));
-	g_object_bind_property (display, "caret-mode",
-		display->priv->settings, "enable-caret-browsing", 
-		G_BINDING_SYNC_CREATE);
-        g_object_set (display->priv->settings,
-                "enable-scripts", FALSE, NULL);
-
-        display->priv->headers_settings = e_web_view_get_default_settings (GTK_WIDGET (display));
-        g_object_bind_property (display, "caret-mode",
-                display->priv->settings, "enable-caret-browsing",
-                G_BINDING_SYNC_CREATE);
-
-	
-
-	display->priv->box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 10);
-        gtk_container_set_reallocate_redraws (GTK_CONTAINER (display->priv->box), TRUE);
-	gtk_container_add (GTK_CONTAINER (display), display->priv->box);
-
-	display->priv->webviews = NULL;
 
         display->priv->force_image_load = FALSE;
 	display->priv->mailto_actions = gtk_action_group_new ("mailto");
@@ -1148,8 +743,41 @@ mail_display_init (EMailDisplay *display)
         gtk_action_group_add_actions (display->priv->images_actions, image_entries,
                 G_N_ELEMENTS (image_entries), NULL);
 
+        webkit_web_view_set_full_content_zoom (WEBKIT_WEB_VIEW (display), TRUE);
 
-	/* WEBKIT TODO: ESearchBar */
+        g_signal_connect (display, "navigation-policy-decision-requested",
+                          G_CALLBACK (mail_display_link_clicked), NULL);
+        g_signal_connect (display, "window-object-cleared",
+                          G_CALLBACK (mail_display_install_js_callbacks), NULL);
+        g_signal_connect (display, "resource-request-starting",
+                          G_CALLBACK (mail_display_resource_requested), NULL);
+        g_signal_connect (display, "process-mailto",
+                          G_CALLBACK (mail_display_process_mailto), NULL);
+        g_signal_connect (display, "update-actions",
+                          G_CALLBACK (mail_display_webview_update_actions), NULL);
+        g_signal_connect (display, "create-plugin-widget",
+                          G_CALLBACK (mail_display_plugin_widget_requested), NULL);
+
+        /* Because we are loading from a hard-coded string, there is
+         * no chance of I/O errors.  Failure here implies a malformed
+         * UI definition.  Full stop. */
+        ui_manager = e_web_view_get_ui_manager (E_WEB_VIEW (display));
+        gtk_ui_manager_insert_action_group (ui_manager, display->priv->mailto_actions, 0);
+        gtk_ui_manager_add_ui_from_string (ui_manager, ui, -1, &error);
+
+        if (error != NULL) {
+                g_error ("%s", error->message);
+                g_error_free (error);
+        }
+
+        error = NULL;
+        gtk_ui_manager_insert_action_group (ui_manager, display->priv->images_actions, 0);
+        gtk_ui_manager_add_ui_from_string (ui_manager, image_ui, -1, &error);
+
+        if (error != NULL) {
+                g_error ("%s", error->message);
+                g_error_free (error);
+        }
 
 	/* Register our own handler for our own mail:// protocol */
 	session = webkit_get_default_session ();
@@ -1165,32 +793,6 @@ mail_display_init (EMailDisplay *display)
 		camel_data_cache_set_expire_age (emd_global_http_cache, 24*60*60);
 		camel_data_cache_set_expire_access (emd_global_http_cache, 2*60*60);
 	}
-}
-
-GType
-e_mail_display_get_type (void)
-{
-	static GType type = 0;
-
-	if (G_UNLIKELY (type == 0)) {
-		static const GTypeInfo type_info = {
-			sizeof (EMailDisplayClass),
-			(GBaseInitFunc) NULL,
-			(GBaseFinalizeFunc) NULL,
-			(GClassInitFunc) mail_display_class_init,
-			(GClassFinalizeFunc) NULL,
-			NULL,  /* class_data */
-			sizeof (EMailDisplay),
-			0,     /* n_preallocs */
-			(GInstanceInitFunc) mail_display_init,
-			NULL   /* value_table */
-		};
-
-		type = g_type_register_static (
-			GTK_TYPE_VIEWPORT, "EMailDisplay", &type_info, 0);
-	}
-
-	return type;
 }
 
 EMFormatHTML *
@@ -1251,10 +853,7 @@ e_mail_display_set_mode (EMailDisplay *display,
 		return;
 
 	display->priv->mode = mode;
-	if (mode == EM_FORMAT_WRITE_MODE_SOURCE)
-		mail_display_load_as_source (display, NULL);
-	else
-		e_mail_display_reload (display);
+        e_mail_display_reload (display);
 
 	g_object_notify (G_OBJECT (display), "mode");
 }
@@ -1311,74 +910,72 @@ void
 e_mail_display_load (EMailDisplay *display,
 		     const gchar *msg_uri)
 {
+        EMFormat *emf;
+        gchar *uri;
+
+        g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+
         display->priv->force_image_load = FALSE;
 
-	if (display->priv->mode == EM_FORMAT_WRITE_MODE_SOURCE)
-		mail_display_load_as_source  (display, msg_uri);
-	else
-		mail_display_load_normal (display, msg_uri);
+        emf = EM_FORMAT (display->priv->formatter);
+
+        uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
+                "mode", G_TYPE_INT, display->priv->mode,
+                "headers_collapsable", G_TYPE_BOOLEAN, display->priv->headers_collapsable,
+                "headers_collapsed", G_TYPE_BOOLEAN, display->priv->headers_collapsed,
+                NULL);
+
+        e_web_view_load_uri (E_WEB_VIEW (display), uri);
 }
 
 void
 e_mail_display_reload (EMailDisplay *display)
 {
-	GList *iter;
+        EWebView *web_view;
+        const gchar *uri;
+        gchar *base;
+        GString *new_uri;
+        GHashTable *table;
+        GHashTableIter table_iter;
+        gpointer key, val;
+        char separator;
 
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
-	/* We can't just call e_web_view_reload() here, we need the URI queries
-	   to reflect possible changes in write mode and headers properties.
-	   Unfortunatelly, nothing provides API good enough to do this more
-	   simple way... */
+	web_view = E_WEB_VIEW (display);
+	uri = e_web_view_get_uri (web_view);
 
-	for (iter = display->priv->webviews; iter; iter = iter->next) {
-		EWebView *web_view;
-		const gchar *uri;
-		gchar *base;
-		GString *new_uri;
-		GHashTable *table;
-		GHashTableIter table_iter;
-		gpointer key, val;
-		char separator;
+	if (!uri)
+		return;
 
-		web_view = (EWebView *) iter->data;
-		uri = e_web_view_get_uri (web_view);
-
-		if (!uri)
-			continue;
-
-		base = g_strndup (uri, strstr (uri, "?") - uri);
-		new_uri = g_string_new (base);
-		g_free (base);
-
-		table = soup_form_decode (strstr (uri, "?") + 1);
-		g_hash_table_insert (table, g_strdup ("mode"), g_strdup_printf ("%d", display->priv->mode));
-		g_hash_table_insert (table, g_strdup ("headers_collapsable"), g_strdup_printf ("%d", display->priv->headers_collapsable));
-		g_hash_table_insert (table, g_strdup ("headers_collapsed"), g_strdup_printf ("%d", display->priv->headers_collapsed));
-
-		g_hash_table_iter_init (&table_iter, table);
-		separator = '?';
-		while (g_hash_table_iter_next (&table_iter, &key, &val)) {
-			g_string_append_printf (new_uri, "%c%s=%s", separator,
-				(gchar *) key, (gchar *) val);
-
-			if (separator == '?')
-				separator = '&';
-		}
-
-		e_web_view_load_uri (web_view, new_uri->str);
-
-		g_string_free (new_uri, TRUE);
-		g_hash_table_destroy (table);
+	if (strstr(uri, "?") == NULL) {
+		e_web_view_reload (web_view);
+		return;
 	}
-}
 
-EWebView*
-e_mail_display_get_current_web_view (EMailDisplay *display)
-{
-	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
+	base = g_strndup (uri, strstr (uri, "?") - uri);
+	new_uri = g_string_new (base);
+	g_free (base);
 
-        return E_WEB_VIEW (display->priv->current_webview);
+        table = soup_form_decode (strstr (uri, "?") + 1);
+	g_hash_table_insert (table, g_strdup ("mode"), g_strdup_printf ("%d", display->priv->mode));
+	g_hash_table_insert (table, g_strdup ("headers_collapsable"), g_strdup_printf ("%d", display->priv->headers_collapsable));
+	g_hash_table_insert (table, g_strdup ("headers_collapsed"), g_strdup_printf ("%d", display->priv->headers_collapsed));
+
+	g_hash_table_iter_init (&table_iter, table);
+	separator = '?';
+	while (g_hash_table_iter_next (&table_iter, &key, &val)) {
+		g_string_append_printf (new_uri, "%c%s=%s", separator,
+			(gchar *) key, (gchar *) val);
+
+        if (separator == '?')
+		separator = '&';
+	}
+
+	e_web_view_load_uri (web_view, new_uri->str);
+
+	g_string_free (new_uri, TRUE);
+	g_hash_table_destroy (table);
 }
 
 GtkAction*
@@ -1401,62 +998,29 @@ void
 e_mail_display_set_status (EMailDisplay *display,
 			   const gchar *status)
 {
-	GtkWidget *label;
+        gchar *str;
 
 	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
-	e_mail_display_clear (display);
+        str = g_strdup_printf(
+                "<!DOCTYPE>"
+                "<html>"
+                  "<head><title>Evolution Mail Display</title></head>"
+                  "<body>"
+                    "<table border=\"0\" width=\"100%%\" height=\"100%%\">"
+                      "<tr height=\"100%%\" valign=\"middle\">"
+                        "<td width=\"100%%\" align=\"center\">"
+                          "<strong>%s</strong>"
+                        "</td>"
+                      "</tr>"
+                    "</table>"
+                  "</body>"
+                "</html>", status);
 
-	label = gtk_label_new (status);
-        gtk_box_pack_start (GTK_BOX (display->priv->box), label, TRUE, TRUE, 0);
-	gtk_widget_show_all (display->priv->box);
-}
+        e_web_view_load_string (E_WEB_VIEW (display), str);
+        g_free (str);
 
-static void
-remove_widget (GtkWidget *widget, gpointer user_data)
-{
-	EMailDisplay *display = user_data;
-
-	if (!GTK_IS_WIDGET (widget))
-		return;
-
-	gtk_container_remove  (GTK_CONTAINER (display->priv->box), widget);
-}
-
-void
-e_mail_display_clear (EMailDisplay *display)
-{
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	gtk_widget_hide (display->priv->box);
-
-	gtk_container_foreach (GTK_CONTAINER (display->priv->box),
-		(GtkCallback) remove_widget, display);
-
-	g_list_free (display->priv->webviews);
-	display->priv->webviews = NULL;
-}
-
-ESearchBar*
-e_mail_display_get_search_bar (EMailDisplay *display)
-{
-	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
-
-	return display->priv->searchbar;
-}
-
-gboolean
-e_mail_display_is_selection_active (EMailDisplay *display)
-{
-	EWebView *web_view;
-
-	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), FALSE);
-
-	web_view = e_mail_display_get_current_web_view (display);
-	if (!web_view)
-		return FALSE;
-	else
-		return e_web_view_is_selection_active (web_view);
+	gtk_widget_show_all (GTK_WIDGET (display));
 }
 
 gchar*
@@ -1472,10 +1036,7 @@ e_mail_display_get_selection_plain_text (EMailDisplay *display,
 
 	g_return_val_if_fail (E_IS_MAIL_DISPLAY (display), NULL);
 
-	web_view = e_mail_display_get_current_web_view (display);
-	if (!web_view)
-		return NULL;
-
+	web_view = E_WEB_VIEW (display);
 	frame = webkit_web_view_get_focused_frame (WEBKIT_WEB_VIEW (web_view));
 	frame_name = webkit_web_frame_get_name (frame);
 
@@ -1491,96 +1052,10 @@ e_mail_display_get_selection_plain_text (EMailDisplay *display,
 }
 
 void
-e_mail_display_zoom_100 (EMailDisplay *display)
-{
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	display->priv->zoom_level = 1.0;
-
-	g_object_notify (G_OBJECT (display), "zoom-level");
-}
-
-void
-e_mail_display_zoom_in (EMailDisplay *display)
-{
-	gfloat step;
-
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	g_object_get (G_OBJECT (display->priv->settings), 
-		"zoom-step", &step, NULL);
-
-	display->priv->zoom_level += step;
-
-	g_object_notify (G_OBJECT (display), "zoom-level");
-}
-
-void
-e_mail_display_zoom_out (EMailDisplay *display)
-{
-	float step;
-
-	g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-
-	g_object_get (G_OBJECT (display->priv->settings),
-		"zoom-step", &step, NULL);
-
-	display->priv->zoom_level -= step;
-
-	g_object_notify (G_OBJECT (display), "zoom-level");
-}
-
-static void
-load_images (GtkWidget *widget,
-             gpointer user_data)
-{
-        if (GTK_IS_SCROLLED_WINDOW (widget)) {
-
-                EWebView *web_view;
-
-                if (!E_IS_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget))))
-                  return;
-
-                web_view = E_WEB_VIEW (gtk_bin_get_child (GTK_BIN (widget)));
-                e_web_view_reload (web_view);
-
-        } else if (E_IS_MAIL_DISPLAY (widget)) {
-
-                e_mail_display_load_images (E_MAIL_DISPLAY (widget));
-
-        }
-}
-
-void
 e_mail_display_load_images (EMailDisplay * display)
 {
         g_return_if_fail (E_IS_MAIL_DISPLAY (display));
 
         display->priv->force_image_load = TRUE;
-
-        gtk_container_foreach (GTK_CONTAINER (display->priv->box),
-                        (GtkCallback) load_images, NULL);
-}
-
-
-void
-e_mail_display_scroll (EMailDisplay* display,
-                       GdkScrollDirection direction)
-{
-        GtkAdjustment *vadjustment;
-        gint d;
-        gdouble step;
-
-        g_return_if_fail (E_IS_MAIL_DISPLAY (display));
-        g_return_if_fail ((direction == GDK_SCROLL_UP) || (direction == GDK_SCROLL_DOWN));
-
-        vadjustment = gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (display));
-
-        if (gtk_adjustment_get_upper (vadjustment) == 0)
-                return;
-
-        d = (direction == GDK_SCROLL_DOWN) ? 1 : -1;
-        step = d * gtk_adjustment_get_page_increment (vadjustment);
-        gtk_adjustment_set_value (vadjustment,
-                gtk_adjustment_get_value (vadjustment) + step);
+        e_web_view_reload (E_WEB_VIEW (display));
 }

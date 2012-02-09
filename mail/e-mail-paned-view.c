@@ -61,7 +61,6 @@ struct _EMailPanedViewPrivate {
 	GtkWidget *preview_pane;
 	GtkWidget *search_bar;
 
-	GtkWidget *display_scrolled_window;
 	EMailDisplay *display;
 	GalViewInstance *view_instance;
 
@@ -633,14 +632,6 @@ mail_paned_view_constructed (GObject *object)
 	priv->display = g_object_new (E_TYPE_MAIL_DISPLAY,
 		"headers-collapsable", TRUE, NULL);
 
-	widget = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_shadow_type (
-		GTK_SCROLLED_WINDOW (widget), GTK_SHADOW_NONE);
-	gtk_container_add (GTK_CONTAINER (widget), GTK_WIDGET (priv->display));
-	priv->display_scrolled_window = widget;
-	gtk_widget_show (GTK_WIDGET (priv->display));
-
-
 	view = E_MAIL_VIEW (object);
 	shell_view = e_mail_view_get_shell_view (view);
 	shell_window = e_shell_view_get_shell_window (shell_view);
@@ -690,9 +681,10 @@ mail_paned_view_constructed (GObject *object)
 
 	container = priv->paned;
 
-	widget = GTK_WIDGET (priv->display_scrolled_window);
+        widget = e_preview_pane_new (E_WEB_VIEW (priv->display));
 	gtk_paned_pack2 (GTK_PANED (container), widget, FALSE, FALSE);
 	priv->preview_pane = g_object_ref (widget);
+        gtk_widget_show (GTK_WIDGET (priv->display));
 	gtk_widget_show (widget);
 
 	g_object_bind_property (
@@ -700,15 +692,10 @@ mail_paned_view_constructed (GObject *object)
 		widget, "visible",
 		G_BINDING_SYNC_CREATE);
 
-	/* FIXME WEBKIT: Searchbar!!! */
-	search_bar = e_mail_display_get_search_bar (priv->display);
-	if (search_bar) {
-		priv->search_bar = g_object_ref (search_bar);
-
-		g_signal_connect_swapped (
-				search_bar, "changed",
-				G_CALLBACK (e_mail_display_reload), priv->display);
-	}
+	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));
+	g_signal_connect_swapped (
+		search_bar, "changed",
+		G_CALLBACK (e_mail_display_reload), priv->display);
 
 	/* Load the view instance. */
 

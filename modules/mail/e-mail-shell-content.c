@@ -311,7 +311,6 @@ static EMailDisplay *
 mail_shell_content_get_mail_display(EMailReader *reader)
 {
 	EMailShellContent *mail_shell_content;
-	EMailDisplay *display;
 
 	mail_shell_content = E_MAIL_SHELL_CONTENT (reader);
 

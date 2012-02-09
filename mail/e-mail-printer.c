@@ -164,7 +164,7 @@ emp_run_print_operation (EMailPrinter *emp,
 	formatters = g_object_get_data (G_OBJECT (session), "formatters");
 	g_hash_table_insert (formatters, g_strdup (mail_uri), emp->priv->efhp);
 
-	/* Print_layout is a special PURI created by EMFormatHTMLPrint */
+	/* Print_layout is a special EMPart created by EMFormatHTMLPrint */
         if (emp->priv->uri)
                 g_free (emp->priv->uri);
         emp->priv->uri = g_strconcat (mail_uri, "?part_id=print_layout", NULL);

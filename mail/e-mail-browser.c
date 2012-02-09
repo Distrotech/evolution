@@ -55,7 +55,6 @@ struct _EMailBrowserPrivate {
 	EMailBackend *backend;
 	GtkUIManager *ui_manager;
 	EFocusTracker *focus_tracker;
-        EMailDisplay *display;
 
 	EMFormatWriteMode mode;
 
@@ -64,7 +63,6 @@ struct _EMailBrowserPrivate {
 	GtkWidget *message_list;
 	GtkWidget *preview_pane;
 	GtkWidget *statusbar;
-        GtkWidget *scrolled_window;        
 
 	guint show_deleted : 1;
 };
@@ -320,7 +318,6 @@ mail_browser_popup_event_cb (EMailBrowser *browser,
                              GdkEventButton *event,
                              const gchar *uri)
 {
-	EMailDisplay *display;
 	EMailReader *reader;
 	EWebView *web_view;
 	GtkMenu *menu;
@@ -330,8 +327,7 @@ mail_browser_popup_event_cb (EMailBrowser *browser,
 		return FALSE;
 
 	reader = E_MAIL_READER (browser);
-	display = e_mail_reader_get_mail_display (reader);
-	web_view = e_mail_display_get_current_web_view (display);
+	web_view = E_WEB_VIEW (e_mail_reader_get_mail_display (reader));
 
 	if (e_web_view_get_cursor_image (web_view) != NULL)
 		return FALSE;
@@ -529,11 +525,11 @@ mail_browser_dispose (GObject *object)
 static void
 mail_browser_constructed (GObject *object)
 {
-	EMailBrowserPrivate *priv;
 	EMailBrowser *browser;
 	EMailReader *reader;
 	EMailBackend *backend;
 	EMailSession *session;
+        EMailDisplay *display;
 	EShellBackend *shell_backend;
 	EShell *shell;
 	EFocusTracker *focus_tracker;
@@ -553,8 +549,6 @@ mail_browser_constructed (GObject *object)
 	G_OBJECT_CLASS (parent_class)->constructed (object);
 
 	browser = E_MAIL_BROWSER (object);
-	priv = E_MAIL_BROWSER_GET_PRIVATE (browser);
-
 	reader = E_MAIL_READER (object);
 	backend = e_mail_reader_get_backend (reader);
 	session = e_mail_backend_get_session (backend);
@@ -571,9 +565,6 @@ mail_browser_constructed (GObject *object)
 	gtk_application_add_window (
 		GTK_APPLICATION (shell), GTK_WINDOW (object));
 
-	//priv->display = e_mail_reader_get_mail_display (reader);
-	e_mail_display_set_mode (priv->display, E_MAIL_BROWSER (object)->priv->mode);
-
 	/* The message list is a widget, but it is not shown in the browser.
 	 * Unfortunately, the widget is inseparable from its model, and the
 	 * model is all we need. */
@@ -588,12 +579,15 @@ mail_browser_constructed (GObject *object)
 		browser->priv->message_list, "message-list-built",
 		G_CALLBACK (mail_browser_message_list_built_cb), object);
 
+        display = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
+        e_mail_display_set_mode (display, E_MAIL_BROWSER (object)->priv->mode);
+
 	g_signal_connect_swapped (
-		priv->display, "popup-event",
+		display, "popup-event",
 		G_CALLBACK (mail_browser_popup_event_cb), object);
 
 	g_signal_connect_swapped (
-		priv->display, "status-message",
+		display, "status-message",
 		G_CALLBACK (mail_browser_status_message_cb), object);
 
 	/* Add action groups before initializing the reader interface. */
@@ -680,21 +674,16 @@ mail_browser_constructed (GObject *object)
 		gtk_widget_get_style_context (widget),
 		GTK_STYLE_CLASS_PRIMARY_TOOLBAR);
 
-        priv->scrolled_window = gtk_scrolled_window_new (NULL, NULL);
-        gtk_box_pack_start (GTK_BOX (container), priv->scrolled_window, TRUE, TRUE, 0);
-        gtk_widget_show (priv->scrolled_window);
-
-	widget = GTK_WIDGET (priv->display);
-	gtk_container_add (GTK_CONTAINER (priv->scrolled_window), widget);
+	widget = e_preview_pane_new (E_WEB_VIEW (display));
+	gtk_container_add (GTK_CONTAINER (container), widget);
 	browser->priv->preview_pane = g_object_ref (widget);
 	gtk_widget_show (widget);
 
-	search_bar = e_mail_display_get_search_bar (priv->display);
+	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));
 
 	g_signal_connect_swapped (
 		search_bar, "changed",
-		G_CALLBACK (e_mail_display_reload),
-		priv->display);
+		G_CALLBACK (e_mail_display_reload), display);
 
 	/* Bind GObject properties to GSettings keys. */
 
@@ -775,7 +764,8 @@ mail_browser_get_mail_display (EMailReader *reader)
 
 	priv = E_MAIL_BROWSER_GET_PRIVATE (E_MAIL_BROWSER (reader));
 
-	return priv->display;
+	return E_MAIL_DISPLAY (e_preview_pane_get_web_view (
+                                        E_PREVIEW_PANE (priv->preview_pane)));
 }
 
 static GtkWidget *
@@ -933,7 +923,6 @@ static void
 e_mail_browser_init (EMailBrowser *browser)
 {
 	browser->priv = E_MAIL_BROWSER_GET_PRIVATE (browser);
-	browser->priv->display = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
 
 	gtk_window_set_title (GTK_WINDOW (browser), _("Evolution"));
 	gtk_window_set_default_size (GTK_WINDOW (browser), 600, 400);

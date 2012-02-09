@@ -14,7 +14,7 @@
 #include <e-util/e-icon-factory.h>
 #include <e-util/e-util.h>
 
-#define d(x)
+#define d(x) x
 #define dd(x)
 
 G_DEFINE_TYPE (EMailRequest, e_mail_request, SOUP_TYPE_REQUEST)
@@ -45,6 +45,8 @@ handle_mail_request (GSimpleAsyncResult *res,
 	GInputStream *stream;
 	GByteArray *ba;
 	gchar *part_id;
+	EMFormatWriterInfo info = {0};
+	gchar *val;
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
@@ -55,42 +57,36 @@ handle_mail_request (GSimpleAsyncResult *res,
 
 	request->priv->output_stream = camel_stream_mem_new ();
 
-	part_id = g_hash_table_lookup (request->priv->uri_query, "part_id");
+	val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsed");
+	if (val)
+		info.headers_collapsed = atoi (val);
 
+	val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsable");
+	if (val)
+		info.headers_collapsable = atoi (val);
+
+	val = g_hash_table_lookup (request->priv->uri_query, "mode");
+	if (val)
+		info.mode = atoi (val);
+
+	part_id = g_hash_table_lookup (request->priv->uri_query, "part_id");
 	if (part_id) {
                 /* original part_id is owned by the GHashTable */
                 part_id = soup_uri_decode (part_id);
 		request->priv->puri = em_format_find_puri (emf, part_id);
 
 		if (request->priv->puri) {
-			EMFormatWriterInfo info = {0};
-			gchar *val;
-
-			val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsed");
-			if (val)
-				info.headers_collapsed = atoi (val);
-
-			val = g_hash_table_lookup (request->priv->uri_query, "headers_collapsable");
-			if (val)
-				info.headers_collapsable = atoi (val);
-
-			val = g_hash_table_lookup (request->priv->uri_query, "mode");
-			if (val)
-				info.mode = atoi (val);
-
-			val = g_hash_table_lookup (request->priv->uri_query, "with_html_headers");
-			if (val)
-				info.with_html_header = atoi (val);
-			else
-				info.with_html_header = TRUE; /* By default this is TRUE!! */
-
-			em_format_puri_write (request->priv->puri, request->priv->output_stream, &info, NULL);
+			em_format_puri_write (request->priv->puri,
+				request->priv->output_stream, &info, NULL);
 		} else {
 			g_warning ("Failed to lookup requested part '%s' - this should not happen!", part_id);
 		}
 
 		g_free (part_id);
-	}
+	} else {
+
+                em_format_write (emf, request->priv->output_stream, &info, NULL);
+        }
 
 	/* Convert the GString to GInputStream and send it back to WebKit */
 	ba = camel_stream_mem_get_byte_array (CAMEL_STREAM_MEM (request->priv->output_stream));

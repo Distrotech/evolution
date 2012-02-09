@@ -52,19 +52,13 @@ typedef struct _EMailDisplayClass EMailDisplayClass;
 typedef struct _EMailDisplayPrivate EMailDisplayPrivate;
 
 struct _EMailDisplay {
-	GtkViewport parent;
+	EWebView web_view;
 	EMailDisplayPrivate *priv;
 };
 
 struct _EMailDisplayClass {
-	GtkViewportClass parent_class;
+	EWebViewClass parent_class;
 
-	void		(*status_message)		(EMailDisplay *display,
-							 const gchar *message);
-
-	gboolean	(*popup_event)			(EMailDisplay *display,
-							 GdkEventButton *event,
-							 const gchar *uri);
 };
 
 GType			e_mail_display_get_type		(void);
@@ -90,37 +84,17 @@ void			e_mail_display_load		(EMailDisplay *display,
 						 	 const gchar *msg_uri);
 void			e_mail_display_reload		(EMailDisplay *display);
 
-EWebView *		e_mail_display_get_current_web_view
-							(EMailDisplay *display);
-
 GtkAction *		e_mail_display_get_action	(EMailDisplay *display,
 							 const gchar *action_name);
 
 void			e_mail_display_set_status	(EMailDisplay *display,
 							 const gchar *status);
-void			e_mail_display_clear		(EMailDisplay *display);
-
-ESearchBar*		e_mail_display_get_search_bar	(EMailDisplay *display);
-
-gboolean		e_mail_display_is_selection_active
-							(EMailDisplay *display);
 
 gchar*			e_mail_display_get_selection_plain_text
 							(EMailDisplay *display,
 							 gint *len);
 
-void                    e_mail_display_set_caret_mode   (EMailDisplay *display,
-                                                         gboolean caret_mode);
-gboolean                e_mail_display_get_caret_mode   (EMailDisplay *display);
-
-void			e_mail_display_zoom_100		(EMailDisplay *display);
-void			e_mail_display_zoom_in		(EMailDisplay *display);
-void			e_mail_display_zoom_out		(EMailDisplay *display);
-
 void                    e_mail_display_load_images      (EMailDisplay *display);
-
-void                    e_mail_display_scroll           (EMailDisplay *display,
-                                                         GdkScrollDirection direction);
 
 G_END_DECLS
 

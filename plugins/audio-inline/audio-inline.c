@@ -278,10 +278,28 @@ org_gnome_audio_inline_add_button (GtkWidget *box,
 	return button;
 }
 
+static void
+write_button_panel (EMFormat *emf,
+		    EMFormatPURI *puri,
+		    CamelStream *stream,
+		    EMFormatWriterInfo *info,
+		    GCancellable *cancellable)
+{
+	gchar *str;
+
+	str = g_strdup_printf (
+		"<object type=\"application/x-org-gnome-audio-inline-button-panel\" "
+			"width=\"100%%\" height=\"auto\" data=\"%s\"></object>",
+		puri->uri);
+	camel_stream_write_string (stream, str, cancellable, NULL);
+
+	g_free (str);
+}
+
 static GtkWidget*
 org_gnome_audio_inline_button_panel (EMFormat *emf,
-									 EMFormatPURI *puri,
-									 GCancellable *cancellable)
+				     EMFormatPURI *puri,
+				     GCancellable *cancellable)
 {
 	GtkWidget *box;
 	EMFormatInlineAudioPURI *po = (EMFormatInlineAudioPURI *) puri;

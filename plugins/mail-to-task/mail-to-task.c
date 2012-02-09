@@ -1068,7 +1068,7 @@ get_selected_text (EMailReader *reader)
 
 	display = e_mail_reader_get_mail_display (reader);
 
-	if (!e_mail_display_is_selection_active (display))
+	if (!e_web_view_is_selection_active (E_WEB_VIEW (display)))
 		return NULL;
 
 	text = e_mail_display_get_selection_plain_text (display, &len);

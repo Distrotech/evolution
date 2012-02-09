@@ -35,7 +35,7 @@
 #include "shell/e-shell.h"
 #include "shell/e-shell-settings.h"
 
-#define d(x) x
+#define d(x)
 
 #define EM_FORMAT_GET_PRIVATE(obj) \
 	(G_TYPE_INSTANCE_GET_PRIVATE \
@@ -1915,14 +1915,28 @@ em_format_parse (EMFormat *emf,
 	g_string_free (part_id, TRUE);
 }
 
+void
+em_format_write (EMFormat *emf,
+                 CamelStream *stream,
+                 EMFormatWriterInfo *info,
+                 GCancellable *cancellable)
+{
+	EMFormatClass *emf_class;
+
+	g_return_if_fail (EM_IS_FORMAT (emf));
+	g_return_if_fail (CAMEL_IS_STREAM (stream));
+
+	emf_class = EM_FORMAT_GET_CLASS (emf);
+	if (emf_class->write)
+		emf_class->write (emf, stream, info, cancellable);
+}
+
 static void
 emf_start_async_parser (GSimpleAsyncResult *result,
                         GObject *object,
                         GCancellable *cancellable)
 {
         em_format_parse (EM_FORMAT (object), NULL, NULL, cancellable);
-
-	g_simple_async_result_complete_in_idle (result);
 }
 
 void

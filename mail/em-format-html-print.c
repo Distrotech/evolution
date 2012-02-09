@@ -289,7 +289,7 @@ efhp_write_print_layout (EMFormat *emf,
 {
 	GList *iter;
 	EMFormatWriterInfo print_info = {
-		EM_FORMAT_WRITE_MODE_PRINTING, FALSE, FALSE, FALSE };
+		EM_FORMAT_WRITE_MODE_PRINTING, FALSE, FALSE };
         EMFormatHTMLPrint *efhp = EM_FORMAT_HTML_PRINT (emf);
 
         g_list_free (efhp->priv->attachments);

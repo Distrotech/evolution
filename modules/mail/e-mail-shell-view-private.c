@@ -335,7 +335,6 @@ mail_shell_view_popup_event_cb (EMailShellView *mail_shell_view,
 	EShellView *shell_view;
 	EMailReader *reader;
 	EMailView *mail_view;
-	EWebView *web_view;
 	GtkMenu *menu;
 
 	if (uri != NULL)
@@ -346,9 +345,8 @@ mail_shell_view_popup_event_cb (EMailShellView *mail_shell_view,
 
 	reader = E_MAIL_READER (mail_view);
 	display = e_mail_reader_get_mail_display (reader);
-	web_view = e_mail_display_get_current_web_view (display);
 
-	if (e_web_view_get_cursor_image (web_view) != NULL)
+	if (e_web_view_get_cursor_image (E_WEB_VIEW (display)) != NULL)
 		return FALSE;
 
 	menu = e_mail_reader_get_popup_menu (reader);

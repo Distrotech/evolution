@@ -43,7 +43,9 @@ struct _EWebInspectorClass {
 static const gchar *ui =
 "<ui>"
 "  <popup name='context'>"
-"    <menuitem action='inspect'/>"
+"    <placeholder name='inspect-menu' >"
+"      <menuitem action='inspect'/>"
+"    </placeholder>"
 "  </popup>"
 "</ui>";
 

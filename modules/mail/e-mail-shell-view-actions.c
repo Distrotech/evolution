@@ -895,6 +895,8 @@ action_mail_smart_backward_cb (GtkAction *action,
 	EMailView *mail_view;
 	GtkWidget *message_list;
 	GtkToggleAction *toggle_action;
+        GtkWidget *window;
+        GtkAdjustment *adj;
 	EMailDisplay *display;
 	gboolean caret_mode;
 	gboolean magic_spacebar;
@@ -922,7 +924,14 @@ action_mail_smart_backward_cb (GtkAction *action,
 	toggle_action = GTK_TOGGLE_ACTION (ACTION (MAIL_CARET_MODE));
 	caret_mode = gtk_toggle_action_get_active (toggle_action);
 
-        e_mail_display_scroll (display, GDK_SCROLL_UP);
+        window = gtk_widget_get_parent (GTK_WIDGET (display));
+        if (!GTK_IS_SCROLLED_WINDOW (window))
+                return;
+
+        adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (window));
+        gtk_adjustment_set_value (adj,
+                gtk_adjustment_get_value(adj) - gtk_adjustment_get_page_increment(adj));
+
 
 	if (caret_mode || !magic_spacebar)
 		return;
@@ -961,6 +970,8 @@ action_mail_smart_forward_cb (GtkAction *action,
 	EMailReader *reader;
 	EMailView *mail_view;
 	GtkWidget *message_list;
+        GtkWidget *window;
+        GtkAdjustment *adj;
 	GtkToggleAction *toggle_action;
 	EMailDisplay *display;
 	gboolean caret_mode;
@@ -989,9 +1000,15 @@ action_mail_smart_forward_cb (GtkAction *action,
 	toggle_action = GTK_TOGGLE_ACTION (ACTION (MAIL_CARET_MODE));
 	caret_mode = gtk_toggle_action_get_active (toggle_action);
 
-        e_mail_display_scroll (display, GDK_SCROLL_DOWN);
-
-
+        window = gtk_widget_get_parent (GTK_WIDGET (display));
+        if (!GTK_IS_SCROLLED_WINDOW (window))
+                return;
+        
+        adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (window));
+        gtk_adjustment_set_value (adj,
+                gtk_adjustment_get_value(adj) + gtk_adjustment_get_page_increment(adj));
+        
+        
 	if (caret_mode || !magic_spacebar)
 		return;
 

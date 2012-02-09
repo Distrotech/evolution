@@ -3084,6 +3084,26 @@ puri_free (EMFormatPURI *puri)
 	g_hash_table_destroy (pitip->real_comps);
 }
 
+static void
+write_itip_object (EMFormat *emf,
+		   EMFormatPURI *puri,
+		   CamelStream *stream,
+		   EMFormatWriterInfo *info,
+		   GCancellable *cancellable)
+{
+	gchar *str;
+
+	str = g_strdup_printf (
+		"<object type=\"application/x-itip-widget\" "
+		"height=\"100\" width=\"100%%\" "
+		"data=\"%s\"></object>", puri->uri);
+
+	camel_stream_write_string (stream, str, cancellable, NULL);
+
+	g_free (str);
+}
+
+
 void
 format_itip (EPlugin *ep,
              EMFormatHookTarget *target)
@@ -3106,6 +3126,7 @@ format_itip (EPlugin *ep,
 	settings = g_settings_new ("org.gnome.evolution.plugin.itip");
 
 	puri = (struct _itip_puri *) em_format_puri_new (target->format, sizeof (struct _itip_puri), target->part, target->part_id->str);
+	puri->puri.write_func = write_itip_object;
 	puri->puri.widget_func = format_itip_object;
 	puri->puri.free = puri_free;
 	puri->delete_message = g_settings_get_boolean (settings, CONF_KEY_DELETE);
