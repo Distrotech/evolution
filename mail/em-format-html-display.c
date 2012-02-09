@@ -672,7 +672,7 @@ efhd_parse_secure (EMFormat *emf,
 			g_string_append (buffer, gettext (desc));
 
 			em_format_html_format_cert_infos (
-				(CamelCipherCertInfo *) info->validity->sign.signers.head);
+				&info->validity->sign.signers, buffer);
 		}
 
 		if (info->validity->encrypt.status != CAMEL_CIPHER_VALIDITY_ENCRYPT_NONE) {

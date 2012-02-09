@@ -517,6 +517,7 @@ emf_parse_multipart_encrypted (EMFormat *emf,
 
 		if (info->validity)
 			camel_cipher_validity_envelope (valid, info->validity);
+
 		encinfo.validity = valid;
 
 		g_string_append (part_id, ".encrypted");

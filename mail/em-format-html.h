@@ -181,8 +181,9 @@ CamelMimePart *	em_format_html_file_part	(EMFormatHTML *efh,
 						 const gchar *filename,
 						 GCancellable *cancellable);
 
-gchar *		em_format_html_format_cert_infos
-						(CamelCipherCertInfo *first_cinfo);
+void		em_format_html_format_cert_infos
+						(GQueue *cert_infos,
+						 GString *output_buffer);
 
 void		em_format_html_format_message	(EMFormatHTML *efh,
 						 CamelStream *stream,
