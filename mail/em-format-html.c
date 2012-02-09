@@ -1314,6 +1314,15 @@ efh_write (EMFormat *emf,
 	camel_stream_write_string (stream, header, cancellable, NULL);
 	g_free (header);
 
+	if (info->mode == EM_FORMAT_WRITE_MODE_SOURCE) {
+
+		efh_write_source (emf, emf->mail_part_list->data,
+			stream, info, cancellable);
+
+		camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
+		return;
+	}
+
 	for (iter = emf->mail_part_list; iter; iter = iter->next) {
 
 		EMFormatPURI *puri = iter->data;

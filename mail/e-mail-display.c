@@ -697,8 +697,8 @@ e_mail_display_class_init (EMailDisplayClass *class)
 			"mode",
 			"Display Mode",
 			NULL,
-			EM_FORMAT_WRITE_MODE_NORMAL,
-			EM_FORMAT_WRITE_MODE_SOURCE,
+			0,
+			G_MAXINT,
 			EM_FORMAT_WRITE_MODE_NORMAL,
 			G_PARAM_READWRITE));
 
@@ -853,6 +853,7 @@ e_mail_display_set_mode (EMailDisplay *display,
 		return;
 
 	display->priv->mode = mode;
+
         e_mail_display_reload (display);
 
 	g_object_notify (G_OBJECT (display), "mode");
@@ -945,7 +946,7 @@ e_mail_display_reload (EMailDisplay *display)
 	web_view = E_WEB_VIEW (display);
 	uri = e_web_view_get_uri (web_view);
 
-	if (!uri)
+	if (!uri || !*uri)
 		return;
 
 	if (strstr(uri, "?") == NULL) {

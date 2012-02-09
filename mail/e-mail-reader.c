@@ -127,6 +127,13 @@ static guint signals[LAST_SIGNAL];
 G_DEFINE_INTERFACE (EMailReader, e_mail_reader, G_TYPE_INITIALLY_UNOWNED)
 
 static void
+mail_reader_set_display_formatter_for_message (EMailReader *reader,
+					       EMailDisplay *display,
+					       const gchar *message_uid,
+					       CamelMimeMessage *message,
+					       CamelFolder *folder);
+
+static void
 mail_reader_closure_free (EMailReaderClosure *closure)
 {
 	if (closure->reader != NULL)
@@ -1709,28 +1716,29 @@ action_mail_show_source_cb (GtkAction *action,
 {
 	EMailBackend *backend;
 	EMailDisplay *display;
-	EMFormatHTML *formatter;
 	CamelFolder *folder;
+	CamelMimeMessage *message;
 	GtkWidget *browser;
 	GPtrArray *uids;
 	const gchar *message_uid;
 
 	backend = e_mail_reader_get_backend (reader);
 	folder = e_mail_reader_get_folder (reader);
-	display = e_mail_reader_get_mail_display (reader);
-	formatter = e_mail_display_get_formatter (display);
 
 	uids = e_mail_reader_get_selected_uids (reader);
 	g_return_if_fail (uids != NULL && uids->len == 1);
 	message_uid = g_ptr_array_index (uids, 0);
+
+	message = camel_folder_get_message_sync (folder, message_uid, NULL, NULL);
 
 	browser = e_mail_browser_new (backend, NULL, NULL, EM_FORMAT_WRITE_MODE_SOURCE);
 	e_mail_reader_set_folder (E_MAIL_READER (browser), folder);
 	e_mail_reader_set_message (E_MAIL_READER (browser), message_uid);
 
 	display = e_mail_reader_get_mail_display (E_MAIL_READER (browser));
-	e_mail_display_set_formatter (display, formatter);
-	e_mail_display_set_mode (display, EM_FORMAT_WRITE_MODE_SOURCE);
+	mail_reader_set_display_formatter_for_message (
+		E_MAIL_READER (browser), display, message_uid, message, folder);
+
 	gtk_widget_show (browser);
 
 	em_utils_uids_free (uids);
@@ -3053,8 +3061,6 @@ format_parser_async_done_cb (GObject *source,
         EMFormat *emf = EM_FORMAT (source);
         struct format_parser_async_closure_ *closure = user_data;
 
-        g_message ("format_parser_async_done for result %p", result);
-
         e_mail_display_set_formatter (closure->display, EM_FORMAT_HTML (emf));
         e_mail_display_load (closure->display, emf->uri_base);
 
@@ -3068,12 +3074,73 @@ format_parser_async_done_cb (GObject *source,
 }
 
 static void
+mail_reader_set_display_formatter_for_message (EMailReader *reader,
+					       EMailDisplay *display,
+					       const gchar *message_uid,
+					       CamelMimeMessage *message,
+					       CamelFolder *folder)
+{
+	SoupSession *session;
+	GHashTable *formatters;
+	EMFormat *formatter;
+	gchar *mail_uri;
+
+	mail_uri = em_format_build_mail_uri (folder, message_uid, NULL, NULL);
+
+	session = webkit_get_default_session ();
+	formatters = g_object_get_data (G_OBJECT (session), "formatters");
+	if (!formatters) {
+		formatters = g_hash_table_new_full (g_str_hash, g_str_equal,
+				(GDestroyNotify) g_free, NULL);
+		g_object_set_data (G_OBJECT (session), "formatters", formatters);
+	}
+
+	if ((formatter = g_hash_table_lookup (formatters, mail_uri)) == NULL) {
+		struct _formatter_weak_ref_closure *formatter_data =
+				g_new0 (struct _formatter_weak_ref_closure, 1);
+
+		struct format_parser_async_closure_ *closure;
+
+		formatter_data->formatters = g_hash_table_ref (formatters);
+		formatter_data->mail_uri = g_strdup (mail_uri);
+
+		formatter = EM_FORMAT (em_format_html_display_new ());
+
+		/* When no EMailDisplay holds reference to the formatter, then
+		 * the formatter can be destroyed. */
+		g_object_weak_ref (G_OBJECT (formatter),
+			(GWeakNotify) formatter_weak_ref_cb, formatter_data);
+
+		formatter->message_uid = g_strdup (message_uid);
+		formatter->uri_base = g_strdup (mail_uri);
+
+		e_mail_reader_connect_headers (reader, formatter);
+
+		closure = g_new0 (struct format_parser_async_closure_, 1);
+		closure->activity = e_mail_reader_new_activity (reader);
+		e_activity_set_text (closure->activity, _("Parsing message"));
+		closure->display = g_object_ref (display);
+
+		em_format_parse_async (formatter, message, folder,
+			e_activity_get_cancellable (closure->activity),
+			format_parser_async_done_cb, closure);
+
+		/* Don't free the mail_uri!! */
+		g_hash_table_insert (formatters, mail_uri, formatter);
+	} else {
+		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
+		e_mail_display_load (display, formatter->uri_base);
+
+		g_free (mail_uri);
+	}
+}
+
+static void
 mail_reader_message_loaded (EMailReader *reader,
                             const gchar *message_uid,
                             CamelMimeMessage *message)
 {
 	EMailReaderPrivate *priv;
-	EMFormat *formatter;
 	GtkWidget *message_list;
 	EMailBackend *backend;
 	CamelFolder *folder;
@@ -3083,9 +3150,6 @@ mail_reader_message_loaded (EMailReader *reader,
 	EMEvent *event;
 	EMEventTargetMessage *target;
 	GError *error = NULL;
-	gchar *mail_uri;
-	SoupSession *session;
-	GHashTable *formatters;
 
 	priv = E_MAIL_READER_GET_PRIVATE (reader);
 
@@ -3111,52 +3175,8 @@ mail_reader_message_loaded (EMailReader *reader,
 		(EEventTarget *) target);
 
 
-	mail_uri = em_format_build_mail_uri (folder, message_uid, NULL, NULL);
-
-	session = webkit_get_default_session ();
-	formatters = g_object_get_data (G_OBJECT (session), "formatters");
-	if (!formatters) {
-		formatters = g_hash_table_new_full (g_str_hash, g_str_equal,
-			(GDestroyNotify) g_free, NULL);
-		g_object_set_data (G_OBJECT (session), "formatters", formatters);
-	}
-
-
-	if ((formatter = g_hash_table_lookup (formatters, mail_uri)) == NULL) {
-		struct _formatter_weak_ref_closure *formatter_data =
-			g_new0 (struct _formatter_weak_ref_closure, 1);
-
-                struct format_parser_async_closure_ *closure;
-
-		formatter_data->formatters = g_hash_table_ref (formatters);
-		formatter_data->mail_uri = g_strdup (mail_uri);
-
-		formatter = EM_FORMAT (em_format_html_display_new ());
-		/* When no EMailDisplay holds reference to the f ormatter, then
-		 * the formatter can be destroyed. */
-		 g_object_weak_ref (G_OBJECT (formatter), (GWeakNotify) formatter_weak_ref_cb,
-		 		    formatter_data);
-
-		formatter->message_uid = g_strdup (message_uid);
-		formatter->uri_base = g_strdup (mail_uri);
-
-		e_mail_reader_connect_headers (reader, formatter);
-
-                closure = g_new0 (struct format_parser_async_closure_, 1);
-                closure->activity = e_mail_reader_new_activity (reader);
-                e_activity_set_text (closure->activity, _("Parsing message"));
-                closure->display = g_object_ref (display);
-
-		em_format_parse_async (formatter, message, folder,
-			e_activity_get_cancellable (closure->activity),
-                        format_parser_async_done_cb, closure);
-
-		g_hash_table_insert (formatters, mail_uri, formatter);
-		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
-	} else {
-		e_mail_display_set_formatter (display, EM_FORMAT_HTML (formatter));
-		e_mail_display_load (display, formatter->uri_base);
-	}
+	mail_reader_set_display_formatter_for_message (
+		reader, display, message_uid, message, folder);
 
 	/* Reset the shell view icon. */
 	e_shell_event (shell, "mail-icon", (gpointer) "evolution-mail");

@@ -76,6 +76,7 @@ enum {
 	PROP_SHOW_DELETED,
 	PROP_REPLY_STYLE,
 	PROP_UI_MANAGER,
+	PROP_DISPLAY_MODE,
 };
 
 static gpointer parent_class;
@@ -412,6 +413,11 @@ mail_browser_set_property (GObject *object,
 				E_MAIL_BROWSER (object),
 				g_value_get_boolean (value));
 			return;
+
+		case PROP_DISPLAY_MODE:
+			E_MAIL_BROWSER (object)->priv->mode =
+				g_value_get_int (value);
+			return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -464,6 +470,11 @@ mail_browser_get_property (GObject *object,
 			g_value_set_object (
 				value, e_mail_browser_get_ui_manager (
 				E_MAIL_BROWSER (object)));
+			return;
+
+		case PROP_DISPLAY_MODE:
+			g_value_set_int (
+				value, E_MAIL_BROWSER (object)->priv->mode);
 			return;
 	}
 
@@ -579,8 +590,9 @@ mail_browser_constructed (GObject *object)
 		browser->priv->message_list, "message-list-built",
 		G_CALLBACK (mail_browser_message_list_built_cb), object);
 
-        display = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
-        e_mail_display_set_mode (display, E_MAIL_BROWSER (object)->priv->mode);
+
+        display = g_object_new (E_TYPE_MAIL_DISPLAY,
+			"mode", E_MAIL_BROWSER (object)->priv->mode, NULL);
 
 	g_signal_connect_swapped (
 		display, "popup-event",
@@ -590,7 +602,9 @@ mail_browser_constructed (GObject *object)
 		display, "status-message",
 		G_CALLBACK (mail_browser_status_message_cb), object);
 
-	/* Add action groups before initializing the reader interface. */
+	widget = e_preview_pane_new (E_WEB_VIEW (display));
+	browser->priv->preview_pane = g_object_ref (widget);
+	gtk_widget_show (widget);
 
 	action_group = gtk_action_group_new (ACTION_GROUP_STANDARD);
 	gtk_action_group_set_translation_domain (action_group, domain);
@@ -603,6 +617,7 @@ mail_browser_constructed (GObject *object)
 	gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
 
 	/* For easy access.  Takes ownership of the reference. */
+
 	g_object_set_data_full (
 		object, ACTION_GROUP_STANDARD,
 		action_group, (GDestroyNotify) g_object_unref);
@@ -654,7 +669,6 @@ mail_browser_constructed (GObject *object)
 
 	container = widget;
 
-	/* Create the status bar before connecting proxy widgets. */
 	widget = gtk_statusbar_new ();
 	gtk_box_pack_end (GTK_BOX (container), widget, FALSE, FALSE, 0);
 	browser->priv->statusbar = g_object_ref (widget);
@@ -672,14 +686,11 @@ mail_browser_constructed (GObject *object)
 
 	gtk_style_context_add_class (
 		gtk_widget_get_style_context (widget),
-		GTK_STYLE_CLASS_PRIMARY_TOOLBAR);
+				     GTK_STYLE_CLASS_PRIMARY_TOOLBAR);
 
-	widget = e_preview_pane_new (E_WEB_VIEW (display));
-	gtk_container_add (GTK_CONTAINER (container), widget);
-	browser->priv->preview_pane = g_object_ref (widget);
-	gtk_widget_show (widget);
-
-	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));
+	gtk_container_add (GTK_CONTAINER (container), browser->priv->preview_pane);
+	search_bar = e_preview_pane_get_search_bar (
+		E_PREVIEW_PANE (browser->priv->preview_pane));
 
 	g_signal_connect_swapped (
 		search_bar, "changed",
@@ -903,6 +914,17 @@ e_mail_browser_class_init (EMailBrowserClass *class)
 			FALSE,
 			G_PARAM_READWRITE));
 
+	g_object_class_install_property (
+		object_class,
+		PROP_DISPLAY_MODE,
+		g_param_spec_int (
+			"display-mode",
+			"Display Mode",
+			NULL,
+			0,
+			G_MAXINT,
+			EM_FORMAT_WRITE_MODE_NORMAL,
+			G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 }
 
 static void
@@ -946,9 +968,8 @@ e_mail_browser_new (EMailBackend *backend,
 	widget= g_object_new (
 		E_TYPE_MAIL_BROWSER,
 		"backend", backend,
+		"display-mode", mode,
 		NULL);
-
-	E_MAIL_BROWSER (widget)->priv->mode = mode;
 
 	return widget;
 }
