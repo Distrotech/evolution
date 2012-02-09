@@ -699,7 +699,11 @@ efhd_write_attachment_bar (EMFormat *emf,
                            EMFormatWriterInfo *info,
                            GCancellable *cancellable)
 {
+        EMFormatAttachmentBarPURI *efab = (EMFormatAttachmentBarPURI *) puri;
         gchar *str;
+
+        if (e_attachment_store_get_num_attachments (efab->store) == 0)
+                return;
 
 	str = g_strdup_printf (
                 "<object type=\"application/x-attachment-bar\" "
@@ -959,14 +963,6 @@ efhd_attachment_bar (EMFormat *emf,
 {
 	EMFormatAttachmentBarPURI *abp = (EMFormatAttachmentBarPURI *) puri;
 	GtkWidget *widget;
-
-	/* Don't display the attachment bar if it's empty.
-	 * At this point the parsing is done so we can be pretty much sure that
-	 * no new attachments will be added.
-	 * Returning NULL would however display "Missing Plugin" message, so
-	 * let's hack it this way. */
-	if (e_attachment_store_get_num_attachments (abp->store) == 0)
-		return gtk_label_new ("");
 
 	widget = e_mail_attachment_bar_new (abp->store);
 
