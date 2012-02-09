@@ -544,7 +544,6 @@ mail_browser_constructed (GObject *object)
 	EShellBackend *shell_backend;
 	EShell *shell;
 	EFocusTracker *focus_tracker;
-	ESearchBar *search_bar;
 	GSettings *settings;
 	GtkAccelGroup *accel_group;
 	GtkActionGroup *action_group;
@@ -689,12 +688,6 @@ mail_browser_constructed (GObject *object)
 				     GTK_STYLE_CLASS_PRIMARY_TOOLBAR);
 
 	gtk_container_add (GTK_CONTAINER (container), browser->priv->preview_pane);
-	search_bar = e_preview_pane_get_search_bar (
-		E_PREVIEW_PANE (browser->priv->preview_pane));
-
-	g_signal_connect_swapped (
-		search_bar, "changed",
-		G_CALLBACK (e_mail_display_reload), display);
 
 	/* Bind GObject properties to GSettings keys. */
 

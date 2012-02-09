@@ -127,6 +127,8 @@ search_bar_find (ESearchBar *search_bar,
 	if (new_search) {
 		guint matches;
 
+		webkit_web_view_unmark_text_matches (
+			WEBKIT_WEB_VIEW (web_view));
 		matches = webkit_web_view_mark_text_matches (
 			WEBKIT_WEB_VIEW (web_view),
 			text, case_sensitive, 0);

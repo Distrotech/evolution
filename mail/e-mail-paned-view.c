@@ -618,7 +618,6 @@ mail_paned_view_constructed (GObject *object)
 	EShellView *shell_view;
 	EShell *shell;
 	EShellSettings *shell_settings;
-	ESearchBar *search_bar;
 	EMailReader *reader;
 	EMailBackend *backend;
 	EMailSession *session;
@@ -691,11 +690,6 @@ mail_paned_view_constructed (GObject *object)
 		object, "preview-visible",
 		widget, "visible",
 		G_BINDING_SYNC_CREATE);
-
-	search_bar = e_preview_pane_get_search_bar (E_PREVIEW_PANE (widget));
-	g_signal_connect_swapped (
-		search_bar, "changed",
-		G_CALLBACK (e_mail_display_reload), priv->display);
 
 	/* Load the view instance. */
 
