@@ -336,12 +336,10 @@ mail_display_style_set (GtkWidget *widget,
 {
 	EMailDisplay *display = E_MAIL_DISPLAY (widget);
 
-	/* Chain up to parent's style_set() method. */
-	GTK_WIDGET_CLASS (parent_class)->style_set (widget, previous_style);
-
 	mail_display_update_formatter_colors (display);
 
-	e_mail_display_reload (display);
+	/* Chain up to parent's style_set() method. */
+	GTK_WIDGET_CLASS (parent_class)->style_set (widget, previous_style);
 }
 
 static gboolean
