@@ -78,7 +78,9 @@
 	((obj), EM_TYPE_FORMAT_HTML_DISPLAY, EMFormatHTMLDisplayPrivate))
 
 struct _EMFormatHTMLDisplayPrivate {
-                gint dummy;
+
+        EAttachmentView *last_view;
+
 };
 
 /* TODO: move the dialogue elsehwere */
@@ -128,14 +130,14 @@ static void efhd_builtin_init (EMFormatHTMLDisplayClass *efhc);
 static gpointer parent_class;
 
 static EAttachmentStore*
-find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
+find_parent_attachment_store (EMFormatHTMLDisplay *efhd, const gchar *part_id)
 {
 	EMFormat *emf = (EMFormat *) efhd;
 	EMFormatAttachmentBarPURI *abp;
 	gchar *tmp, *pos;
         GList *item;
 
-	tmp = g_strdup (part_id->str);
+	tmp = g_strdup (part_id);
 
 	do {
 		gchar *id;
@@ -145,7 +147,7 @@ find_parent_attachment_store (EMFormatHTMLDisplay *efhd, GString *part_id)
 			break;
 
 		g_free (tmp);
-		tmp = g_strndup (part_id->str, pos - tmp);
+		tmp = g_strndup (part_id, pos - tmp);
 		id = g_strdup_printf ("%s.attachment-bar", tmp);
 
 		item = g_hash_table_lookup (emf->mail_part_table, id);
@@ -523,7 +525,6 @@ efhd_parse_attachment (EMFormat *emf,
 
 	if (handler) {
                 CamelContentType *ct;
-                puri->puri.write_func = handler->write_func;
 
                 /* This mime_type is important for WebKit to determine content type.
                  * We have converted text/ * to text/html, other (binary) formats remained
@@ -556,7 +557,7 @@ efhd_parse_attachment (EMFormat *emf,
         }
 	e_attachment_set_can_show (puri->attachment, puri->handle != NULL && puri->handle->write_func);
 
-	store = find_parent_attachment_store (efhd, part_id);
+	store = find_parent_attachment_store (efhd, part_id->str);
 	e_attachment_store_add_attachment (store, puri->attachment);
 
 	if (emf->folder && emf->folder->summary && emf->message_uid) {
@@ -722,16 +723,45 @@ efhd_write_attachment (EMFormat *emf,
                        EMFormatWriterInfo *info,
                        GCancellable *cancellable)
 {
-        gchar *str;
+        gchar *str, *desc;
+        const gchar *mime_type;
 
+        EMFormatAttachmentPURI *efa = (EMFormatAttachmentPURI *) puri;
+
+        if (efa->handle)
+                mime_type = efa->handle->mime_type;
+        else
+                mime_type = efa->snoop_mime_type;
+
+        desc = em_format_describe_part (puri->part, mime_type);
 	str = g_strdup_printf (
-                "<object type=\"application/x-attachment\" "
-		"height=\"20\" width=\"100%%\" "
-                "data=\"%s\"></object>", puri->uri);
+                "<table width=\"100%%\" border=\"0\">"
+                "<tr valign=\"middle\">"
+                "<td align=\"left\" width=\"100\">"
+                "<object type=\"application/x-attachment-button\" "
+		"height=\"20\" width=\"100\" data=\"%s\"></object>"
+                "</td>"
+                "<td align=\"left\">%s</td>"
+                "</tr>"
+                "</table>", puri->uri, desc);
 
         camel_stream_write_string (stream, str, cancellable, NULL);
+        g_free (desc);
 
-        g_free (str);
+        /* If we know how to write the attachment, then do it */
+        if (efa->handle && efa->handle->write_func) {
+
+                str = g_strdup_printf (
+                        "<div class=\"attachment-wrapper\" id=\"%s\">",
+                        puri->uri);
+
+                camel_stream_write_string (stream, str, cancellable, NULL);
+                g_free (str);
+
+                efa->handle->write_func (emf, puri, stream, info, cancellable);
+
+                camel_stream_write_string (stream, "</div>", cancellable, NULL);
+        }
 }
 
 static void
@@ -766,10 +796,19 @@ efhd_finalize (GObject *object)
 }
 
 static void
+efhd_preparse (EMFormat *emf)
+{
+        EMFormatHTMLDisplay *efhd = (EMFormatHTMLDisplay *) emf;
+
+        efhd->priv->last_view = NULL;
+}
+
+static void
 efhd_class_init (EMFormatHTMLDisplayClass *class)
 {
 	GObjectClass *object_class;
 	EMFormatHTMLClass *format_html_class;
+        EMFormatClass *format_class;
 
 	parent_class = g_type_class_peek_parent (class);
 	g_type_class_add_private (class, sizeof (EMFormatHTMLDisplayPrivate));
@@ -779,6 +818,9 @@ efhd_class_init (EMFormatHTMLDisplayClass *class)
 
 	format_html_class = EM_FORMAT_HTML_CLASS (class);
 	format_html_class->html_widget_type = E_TYPE_MAIL_DISPLAY;
+
+        format_class = EM_FORMAT_CLASS (class);
+        format_class->preparse = efhd_preparse;
 
 	efhd_builtin_init (class);
 }
@@ -950,6 +992,10 @@ efhd_attachment_button (EMFormat *emf,
 	widget = e_attachment_button_new ();
 	e_attachment_button_set_attachment (
 		E_ATTACHMENT_BUTTON (widget), info->attachment);
+        e_attachment_button_set_view (
+                E_ATTACHMENT_BUTTON (widget),
+                EM_FORMAT_HTML_DISPLAY (emf)->priv->last_view);
+
 	gtk_widget_set_can_focus (widget, TRUE);
 	gtk_widget_show (widget);
 
@@ -964,7 +1010,8 @@ efhd_attachment_bar (EMFormat *emf,
 	EMFormatAttachmentBarPURI *abp = (EMFormatAttachmentBarPURI *) puri;
 	GtkWidget *widget;
 
-	widget = e_mail_attachment_bar_new (abp->store);
+        widget = e_mail_attachment_bar_new (abp->store);
+        EM_FORMAT_HTML_DISPLAY (emf)->priv->last_view = (EAttachmentView *) widget;
 
 	return widget;
 }
