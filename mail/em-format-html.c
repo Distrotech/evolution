@@ -57,6 +57,7 @@
 #include <glib/gi18n.h>
 
 #include <JavaScriptCore/JavaScript.h>
+#include <webkit/webkit.h>
 
 #include <libemail-utils/mail-mt.h>
 #include <libemail-engine/e-mail-enumtypes.h>
@@ -757,57 +758,40 @@ efh_write_text_html (EMFormat *emf,
 		     EMFormatWriterInfo *info,
 		     GCancellable *cancellable)
 {
-	EMFormatHTML *efh;
-	CamelStream *format_stream;
-	GString *str;
-	GByteArray *ba;
-	gchar *pos, *header;
+        EMFormatHTML *efh = (EMFormatHTML *) emf;
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
 
-	efh = (EMFormatHTML *) emf;
+        if (info->mode == EM_FORMAT_WRITE_MODE_RAW) {
+                em_format_format_text (emf, stream,
+                        (CamelDataWrapper *) puri->part, cancellable);
 
-	format_stream = camel_stream_mem_new ();
-	em_format_format_text (
-		emf, format_stream, (CamelDataWrapper *) puri->part, cancellable);
+        } else {
+                gchar *str;
+                gchar *uri;
 
-	str  = g_string_new ("");
-	ba = camel_stream_mem_get_byte_array (CAMEL_STREAM_MEM (format_stream));
-	g_string_append_len (str, (gchar *) ba->data, ba->len);
+                uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
+                        "part_id", G_TYPE_STRING, puri->uri,
+                        "mode", G_TYPE_INT, EM_FORMAT_WRITE_MODE_RAW,
+                        NULL);
 
-	/* Here we remove the <head>...</head> part and replace
-	 <body...>...</body> by <div...>...</div> so that we can embed this
-	 part simply into the rest of the email */
-	pos = strcasestr (str->str, "<body");
-	if (pos)
-		g_string_erase (str, 0, (pos - str->str) + 5);
+                str = g_strdup_printf (
+                        "<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+                        "background-color: #%06x;\">"
+                        "<div class=\"part-container-inner-margin\">\n"
+                        "<iframe width=\"100%%\" height=\"auto\""
+                        " frameborder=\"0\" src=\"%s\"></iframe>"
+                        "</div></div>",
+                        e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_FRAME]),
+                        e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_CONTENT]),
+                        uri);
 
-	/* The second <div> is unclosed because we want to keep all
-	 * attributes from the <body> element */
-	header = g_strdup_printf (
-		"<div class=\"part-container\" style=\"border: solid #%06x 1px; "
-		"background-color: #%06x; color: #%06x;\" >"
-		"<div class=\"part-container-inner-margin\" ",
-		e_color_to_value (&efh->priv->colors[
-			EM_FORMAT_HTML_COLOR_FRAME]),
-		e_color_to_value (&efh->priv->colors[
-			EM_FORMAT_HTML_COLOR_CONTENT]),
-		e_color_to_value (&efh->priv->colors[
-			EM_FORMAT_HTML_COLOR_TEXT]));
-	g_string_prepend (str, header);
-	g_free (header);
+                camel_stream_write_string (stream, str, cancellable, NULL);
 
-	/* Remove </body> */
-	pos = strcasestr (str->str, "</body>");
-	if (pos)
-		g_string_truncate (str, (pos - str->str));
-
-	g_string_append (str, "</div></div>");
-
-	camel_stream_write_string (stream, str->str, cancellable, NULL);
-
-	g_string_free (str, TRUE);
+                g_free (str);
+                g_free (uri);
+        }
 }
 
 static void

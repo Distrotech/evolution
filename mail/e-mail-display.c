@@ -745,6 +745,7 @@ e_mail_display_init (EMailDisplay *display)
         SoupSession *session;
 	SoupSessionFeature *feature;
 	const gchar *user_cache_dir;
+        WebKitWebSettings *settings;
 
 	display->priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
 
@@ -758,6 +759,9 @@ e_mail_display_init (EMailDisplay *display)
                 G_N_ELEMENTS (image_entries), NULL);
 
         webkit_web_view_set_full_content_zoom (WEBKIT_WEB_VIEW (display), TRUE);
+
+        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (display));
+        g_object_set (settings, "enable-frame-flattening", TRUE, NULL);
 
         g_signal_connect (display, "navigation-policy-decision-requested",
                           G_CALLBACK (mail_display_link_clicked), NULL);
