@@ -106,7 +106,7 @@ attachment_button_menu_position (GtkMenu *menu,
 		monitor_num = 0;
 	gdk_screen_get_monitor_geometry (screen, monitor_num, &monitor);
 
-	gtk_widget_get_allocation (button->priv->expand_button, &allocation);
+	gtk_widget_get_allocation (widget, &allocation);
 
 	gdk_window_get_origin (window, x, y);
 	*x += allocation.x;
