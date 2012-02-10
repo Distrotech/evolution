@@ -531,26 +531,26 @@ mail_display_resource_requested (WebKitWebView *web_view,
 }
 
 static void
-mail_display_plugin_widget_resize (GtkWidget *widget,
-				   GdkRectangle *event,
+mail_display_plugin_widget_resize (GObject *object,
+                                   gpointer dummy,
 				   EMailDisplay *display)
 {
-	GtkAllocation allocation;
+        GtkWidget *widget;
 	WebKitDOMDocument *document;
 	WebKitDOMNodeList *nodes;
 	gint i;
 	gchar *puri_uri;
 	gint height;
 
-	//gtk_widget_get_allocation (widget, &allocation);
+        widget = GTK_WIDGET (object);
 	gtk_widget_get_preferred_height (widget, &height, NULL);
-	//height = allocation.height;
 
 	puri_uri = g_object_get_data (G_OBJECT (widget), "uri");
 
 	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
 	nodes = webkit_dom_document_get_elements_by_tag_name (document, "object");
 
+        /* Find <object> with matching URI and resize it */
 	for (i = 0; i < webkit_dom_node_list_get_length (nodes); i++) {
 
 		WebKitDOMNode *node = webkit_dom_node_list_item (nodes, i);
@@ -578,12 +578,11 @@ mail_display_plugin_widget_resize (GtkWidget *widget,
 	}
 }
 
-
 static void
-mail_display_plugin_widget_realized (GtkWidget *widget,
-				     gpointer user_data)
+mail_display_plugin_widget_realize_cb (GtkWidget *widget,
+                                       gpointer user_data)
 {
-	mail_display_plugin_widget_resize (widget, NULL, user_data);
+        mail_display_plugin_widget_resize (G_OBJECT (widget), NULL, user_data);
 }
 
 static GtkWidget*
@@ -623,12 +622,29 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
 		g_object_set_data_full (G_OBJECT (widget), "uri",
 			g_strdup (puri_uri), (GDestroyNotify) g_free);
 
-		/* Ensure that WebKit will resize <object> element by calling
-		 * gtk_widget_set_size_request() of the widget. */
-		g_signal_connect (widget, "size-allocate",
-			G_CALLBACK (mail_display_plugin_widget_resize), display);
-		g_signal_connect (widget, "realize",
-			G_CALLBACK (mail_display_plugin_widget_realized), display);
+                g_signal_connect (widget, "realize",
+                        G_CALLBACK (mail_display_plugin_widget_realize_cb), display);
+                g_signal_connect (widget, "size-allocate",
+                        G_CALLBACK (mail_display_plugin_widget_resize), display);
+
+                /* Some special handling of resizing of attachment bar. */
+                if (E_IS_MAIL_ATTACHMENT_BAR (widget)) {
+                        GtkWidget *box = NULL;
+
+                        /* Only when packed in box, EMailAttachmentBar reports
+                         * correct height */
+                        box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+                        gtk_box_pack_start (GTK_BOX (box), widget, FALSE, FALSE, 0);
+
+                        /* Change <object> height whenever height of
+                         * the attachment bar changes */
+                        g_signal_connect (widget, "notify::expanded",
+                                G_CALLBACK (mail_display_plugin_widget_resize), display);
+                        g_signal_connect (widget, "notify::active-view",
+                                G_CALLBACK (mail_display_plugin_widget_resize), display);
+
+                        widget = box;
+                }
 	}
 
         return widget;
