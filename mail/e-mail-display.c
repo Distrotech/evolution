@@ -496,7 +496,6 @@ mail_display_resource_requested (WebKitWebView *web_view,
                 }
 
                 new_uri = g_strconcat ("evo-", uri, NULL);
-                /* Don't free, will be freed when the hash table is destroyed */
                 mail_uri = em_format_build_mail_uri (formatter->folder,
                                 formatter->message_uid, NULL, NULL);
 
@@ -530,52 +529,91 @@ mail_display_resource_requested (WebKitWebView *web_view,
         }
 }
 
+static WebKitDOMElement*
+find_element_by_id (WebKitDOMDocument *document,
+                    const gchar *id)
+{
+        WebKitDOMNodeList *frames;
+        WebKitDOMElement *element;
+        gulong i;
+
+        /* Try to look up the element in this DOM document */
+        element = webkit_dom_document_get_element_by_id (document, id);
+        if (element)
+                return element;
+
+        /* If the element is not here then recursively scan all frames */
+        frames = webkit_dom_document_get_elements_by_tag_name(document, "iframe");
+        for (i = 0; i < webkit_dom_node_list_get_length (frames); i++)
+        {
+                WebKitDOMHTMLIFrameElement *iframe =
+                        WEBKIT_DOM_HTML_IFRAME_ELEMENT (
+                                webkit_dom_node_list_item (frames, i));
+
+                WebKitDOMDocument *frame_doc =
+                        webkit_dom_html_iframe_element_get_content_document (iframe);
+
+                WebKitDOMElement *el =
+                        find_element_by_id (frame_doc, id);
+
+                if (el)
+                        return el;
+        }
+
+        return NULL;
+}
+
 static void
 mail_display_plugin_widget_resize (GObject *object,
                                    gpointer dummy,
 				   EMailDisplay *display)
 {
         GtkWidget *widget;
-	WebKitDOMDocument *document;
-	WebKitDOMNodeList *nodes;
-	gint i;
-	gchar *puri_uri;
+        WebKitDOMElement *parent_element;
+	const gchar *uri;
+        gchar *dim;
 	gint height;
 
         widget = GTK_WIDGET (object);
 	gtk_widget_get_preferred_height (widget, &height, NULL);
+	uri = g_object_get_data (object, "uri");
+        parent_element = g_object_get_data (object, "parent_element");
 
-	puri_uri = g_object_get_data (G_OBJECT (widget), "uri");
+        if (!parent_element) {
+                WebKitDOMDocument *document;
+                WebKitDOMElement *doc_element;
 
-	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
-	nodes = webkit_dom_document_get_elements_by_tag_name (document, "object");
+                document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
+                parent_element = find_element_by_id (document, uri);
 
-        /* Find <object> with matching URI and resize it */
-	for (i = 0; i < webkit_dom_node_list_get_length (nodes); i++) {
+                if (!parent_element) {
+                        g_warning ("No parent <object> for widget %s", uri);
+                        return;
+                }
 
-		WebKitDOMNode *node = webkit_dom_node_list_item (nodes, i);
+                /* Store the parent element in the object so that we don't have
+                 * to look it up every time */
+                g_object_set_data_full (object, "parent_element",
+                        g_object_ref (parent_element),
+                        (GDestroyNotify) g_object_unref);
 
-		gchar *uri =webkit_dom_element_get_attribute (WEBKIT_DOM_ELEMENT (node), "data");
+                /* Hide the widget when the document itself gets
+                 * invisible (usually when parent <iframe> is hidden) */
+                doc_element = webkit_dom_document_get_document_element (document);
+                g_object_bind_property (
+                        doc_element, "hidden",
+                        widget, "visible",
+                        G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
+        }
 
-		if (g_strcmp0 (uri, puri_uri) == 0) {
+        /* Int -> Str */
+	dim = g_strdup_printf ("%d", height);
+        webkit_dom_html_object_element_set_height (
+                WEBKIT_DOM_HTML_OBJECT_ELEMENT (parent_element), dim);
+        g_free (dim);
 
-			gchar *dim;
-
-			dim = g_strdup_printf ("%d", height);
-			webkit_dom_html_object_element_set_height (
-				WEBKIT_DOM_HTML_OBJECT_ELEMENT (node), dim);
-			g_free (dim);
-
-			g_free (uri);
-
-			gtk_widget_queue_draw (GTK_WIDGET (display));
-			gtk_widget_queue_draw (widget);
-
-			return;
-		}
-
-		g_free (uri);
-	}
+	gtk_widget_queue_draw (GTK_WIDGET (display));
+	gtk_widget_queue_draw (widget);
 }
 
 static void
@@ -583,6 +621,28 @@ mail_display_plugin_widget_realize_cb (GtkWidget *widget,
                                        gpointer user_data)
 {
         mail_display_plugin_widget_resize (G_OBJECT (widget), NULL, user_data);
+}
+
+static void
+bind_iframe_document_visibility (GObject *object,
+                                 GParamSpec *pspec,
+                                 gpointer user_data)
+{
+        /* Change in visibility of <iframe> does not change "hidden" property
+         * of DOM document it contains, thus we have to bind it manually. */
+        WebKitDOMHTMLIFrameElement *iframe =
+                WEBKIT_DOM_HTML_IFRAME_ELEMENT (object);
+
+        WebKitDOMDocument *document =
+                webkit_dom_html_iframe_element_get_content_document (iframe);
+
+        WebKitDOMElement *doc_element = 
+                webkit_dom_document_get_document_element (document);
+
+        g_object_bind_property (
+                iframe, "hidden",
+                doc_element, "hidden",
+                G_BINDING_SYNC_CREATE);
 }
 
 static GtkWidget*
@@ -602,8 +662,6 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
         if (!puri_uri || !g_str_has_prefix (uri, "mail://"))
                 return NULL;
 
-        d(printf("Created widget %s\n", puri_uri));
-
         display = E_MAIL_DISPLAY (web_view);
         emf = (EMFormat *) display->priv->formatter;
 
@@ -617,38 +675,114 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
 	else
 		widget = NULL;
 
-	if (widget) {
-		gtk_widget_show (widget);
-		g_object_set_data_full (G_OBJECT (widget), "uri",
-			g_strdup (puri_uri), (GDestroyNotify) g_free);
+	if (!widget)
+                return NULL;
 
-                g_signal_connect (widget, "realize",
-                        G_CALLBACK (mail_display_plugin_widget_realize_cb), display);
-                g_signal_connect (widget, "size-allocate",
+        d(printf("Created widget %s\n", puri_uri));
+
+        if (E_IS_ATTACHMENT_BUTTON (widget)) {
+                /* Attachment button has URI different then the actual PURI because
+                 * that URI identifies the attachment itself */
+                gchar *button_uri = g_strconcat (puri_uri, ".attachment_button", NULL);
+                g_object_set_data_full (G_OBJECT (widget), "uri",
+                        button_uri, (GDestroyNotify) g_free);
+        } else {
+                g_object_set_data_full (G_OBJECT (widget), "uri",
+                        g_strdup (puri_uri), (GDestroyNotify) g_free);
+        }
+
+
+        /* Resizing a GtkWidget requires changing size of parent
+         * <object> HTML element in DOM. */
+        g_signal_connect (widget, "realize",
+                G_CALLBACK (mail_display_plugin_widget_realize_cb), display);
+        g_signal_connect (widget, "size-allocate",
+                G_CALLBACK (mail_display_plugin_widget_resize), display);
+
+        if (E_IS_MAIL_ATTACHMENT_BAR (widget)) {
+
+                /* When EMailAttachmentBar is expanded/collapsed it does not
+                 * emit size-allocate signal despite it changes it's height. */
+                GtkWidget *box = NULL;
+
+                /* Only when packed in box, EMailAttachmentBar reports correct 
+                 * height */
+                box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+                gtk_box_pack_start (GTK_BOX (box), widget, FALSE, FALSE, 0);
+
+                g_signal_connect (widget, "notify::expanded",
+                        G_CALLBACK (mail_display_plugin_widget_resize), display);
+                g_signal_connect (widget, "notify::active-view",
                         G_CALLBACK (mail_display_plugin_widget_resize), display);
 
-                /* Some special handling of resizing of attachment bar. */
-                if (E_IS_MAIL_ATTACHMENT_BAR (widget)) {
-                        GtkWidget *box = NULL;
+                widget = box;
 
-                        /* Only when packed in box, EMailAttachmentBar reports
-                         * correct height */
-                        box = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
-                        gtk_box_pack_start (GTK_BOX (box), widget, FALSE, FALSE, 0);
+        } else if (E_IS_ATTACHMENT_BUTTON (widget)) {
 
-                        /* Change <object> height whenever height of
-                         * the attachment bar changes */
-                        g_signal_connect (widget, "notify::expanded",
-                                G_CALLBACK (mail_display_plugin_widget_resize), display);
-                        g_signal_connect (widget, "notify::active-view",
-                                G_CALLBACK (mail_display_plugin_widget_resize), display);
+                /* Bind visibility of DOM element containing related
+                 * attachment with 'expanded' property of this
+                 * attachment button. */
+                WebKitDOMElement *attachment;
+                WebKitDOMDocument *document;
 
-                        widget = box;
+                document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
+                attachment = find_element_by_id (document, puri_uri);
+                if (!attachment) {
+                        e_attachment_button_set_expandable (
+                                E_ATTACHMENT_BUTTON (widget), FALSE);
+                } else {
+                        WebKitDOMNodeList *children;
+                        const CamelContentDisposition *disposition;
+                        gulong i;
+
+                        g_object_bind_property (
+                                widget, "expanded",
+                                attachment, "hidden",
+                                G_BINDING_SYNC_CREATE |
+                                G_BINDING_INVERT_BOOLEAN);
+
+                        children =
+                                webkit_dom_element_get_elements_by_tag_name(
+                                        attachment, "iframe");
+
+                        /* Try to find an <iframe> within the attachment (usually
+                         * embedded message) and bind it's "hidden" property with
+                         * it's inner DOM document "hidden" property. */
+                        for (i = 0; i < webkit_dom_node_list_get_length (children); i++) {
+
+                                WebKitDOMElement *child =
+                                        WEBKIT_DOM_ELEMENT (
+                                                webkit_dom_node_list_item (children, i));
+
+                                if (!WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (child))
+                                        continue;
+
+                                /* Re-bind whenever content of the iframe changes */
+                                g_signal_connect (child, "notify::src",
+                                        G_CALLBACK (bind_iframe_document_visibility),
+                                        NULL);
+
+                                /* Create initial binding */
+                                bind_iframe_document_visibility (
+                                        G_OBJECT (child), NULL, NULL);
+                        }
+
+                        /* Expand inlined attachments */
+                        disposition =
+                                camel_mime_part_get_content_disposition (puri->part);
+                        if (disposition &&
+                            g_ascii_strncasecmp (
+                                disposition->disposition, "inline", 6) == 0) {
+
+                                e_attachment_button_set_expanded (
+                                        E_ATTACHMENT_BUTTON (widget), TRUE);
+                        }
                 }
-	}
+        }
 
         return widget;
 }
+
 
 static void
 mail_display_headers_collapsed_state_changed (EWebView *web_view,
@@ -674,6 +808,7 @@ mail_display_install_js_callbacks (WebKitWebView *web_view,
 
 	e_web_view_install_js_callback (E_WEB_VIEW (web_view), "headers_collapsed",
 		(EWebViewJSFunctionCallback) mail_display_headers_collapsed_state_changed, user_data);
+
 }
 
 static void

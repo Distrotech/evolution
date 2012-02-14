@@ -14,7 +14,7 @@
 #include <e-util/e-icon-factory.h>
 #include <e-util/e-util.h>
 
-#define d(x) x
+#define d(x)
 #define dd(x)
 
 G_DEFINE_TYPE (EMailRequest, e_mail_request, SOUP_TYPE_REQUEST)
@@ -96,7 +96,11 @@ handle_mail_request (GSimpleAsyncResult *res,
 		g_byte_array_append (ba, (guchar*) data, strlen (data));
 		g_free (data);
 	} else {
-		dd(printf("%s", ba->data));
+		dd({
+                        gchar *d = g_strndup ((gchar *) ba->data, ba->len);
+                        printf("%s", d);
+                        g_free (d);
+                });
 	}
 
 	stream = g_memory_input_stream_new_from_data ((gchar*) ba->data, ba->len, NULL);
