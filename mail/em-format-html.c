@@ -73,7 +73,7 @@
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), EM_TYPE_FORMAT_HTML, EMFormatHTMLPrivate))
 
-#define d(x) x
+#define d(x)
 
 struct _EMFormatHTMLPrivate {
 	GdkColor colors[EM_FORMAT_HTML_NUM_COLOR_TYPES];
@@ -121,33 +121,12 @@ static void efh_write_source			(EMFormat *emf, EMFormatPURI *puri, CamelStream *
 static void efh_write_headers			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 static void efh_write_attachment		(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 static void efh_write_error			(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-
-static GtkWidget* efh_widget_message_rfc822     (EMFormat *emf, EMFormatPURI *puri, GCancellable *cancellable);
+static void efh_write_message_rfc822            (EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 static void efh_format_full_headers 		(EMFormatHTML *efh, GString *buffer, CamelMedium *part, gboolean all_headers, gboolean visible, GCancellable *cancellable);
 static void efh_format_short_headers 		(EMFormatHTML *efh, GString *buffer, CamelMedium *part, gboolean visible, GCancellable *cancellable);
 
-/*****************************************************************************/
-static GtkWidget*
-efh_widget_message_rfc822 (EMFormat* emf,
-                           EMFormatPURI* puri,
-                           GCancellable* cancellable)
-{
-        EMailDisplay *display;
-        gchar *msg_uri;
-
-        msg_uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
-                "part_id", G_TYPE_STRING, puri->uri, NULL);
-
-        display = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
-        e_mail_display_set_formatter (display, EM_FORMAT_HTML (emf));
-        e_mail_display_load (display, msg_uri);
-
-        g_free (msg_uri);
-
-        return GTK_WIDGET (display);
-}
-
+static void efh_write_message                   (EMFormat *emf, GList *puris, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 /*****************************************************************************/
 static void
@@ -168,7 +147,8 @@ efh_parse_image (EMFormat *emf,
 
 	tmp = camel_mime_part_get_content_id (part);
 	if (!tmp) {
-		em_format_parse_part_as (emf, part, part_id, info, "x-evolution/message/attachment", cancellable);
+		em_format_parse_part_as (emf, part, part_id, info, 
+                                "x-evolution/message/attachment", cancellable);
 		return;
 	}
 
@@ -540,8 +520,9 @@ efh_parse_message_rfc822 (EMFormat *emf,
 
         /* Create an empty PURI that will represent start of the RFC message */
         puri = em_format_puri_new (emf, sizeof (EMFormatPURI), part, part_id->str);
-        puri->widget_func = efh_widget_message_rfc822;
-        puri->write_func = info->handler->write_func ? info->handler->write_func : em_format_empty_writer;
+        puri->write_func = efh_write_message_rfc822;
+        puri->mime_type = g_strdup ("text/html");
+        puri->is_attachment = info->is_attachment;
         em_format_add_puri (emf, puri);
 
         /* Now parse the message, creating multiple sub-PURIs */
@@ -560,10 +541,8 @@ efh_parse_message_rfc822 (EMFormat *emf,
 		"x-evolution/message", cancellable);
 
         /* Add another generic PURI that represents end of the RFC message.
-         * This is required for every PURI that has EMailDisplay widget_func.
-         * The parent EMailDisplay then skips all PURIs between the ".rfc822" PURI
-         * ".rfc822.end" PURI (they were displayed by the child EMailDisplay called
-         * from ".rfc822"'s widget_func) and continues with the following PURI. */
+         * The em_format_write() function will skip all PURIs between the ".rfc822" 
+         * PURI and ".rfc822.end" PURI as they will be rendered in an <iframe> */
         g_string_append (part_id, ".end");
         puri = em_format_puri_new (emf, sizeof (EMFormatPURI), NULL, part_id->str);
         em_format_add_puri (emf, puri);
@@ -924,6 +903,82 @@ efh_write_error (EMFormat *emf,
 	camel_stream_write_string (stream, "</font></em><br>", cancellable, NULL);
 }
 
+static void
+efh_write_message_rfc822 (EMFormat *emf,
+                          EMFormatPURI *puri,
+                          CamelStream *stream,
+                          EMFormatWriterInfo *info,
+                          GCancellable *cancellable)
+{
+        if (info->mode == EM_FORMAT_WRITE_MODE_RAW) {
+
+                GList *puris;
+                GList *iter;
+
+                /* Create a new fake list of PURIs which will contain only
+                 * PURIs from this message. */
+                iter = g_hash_table_lookup (emf->mail_part_table, puri->uri);
+                if (!iter || !iter->next)
+                        return;
+
+                iter = iter->next;
+                puris = NULL;
+                while (iter) {
+
+                        EMFormatPURI *p;
+                        p = iter->data;
+
+                        if (g_str_has_suffix (p->uri, ".rfc822.end"))
+                                break;
+
+                        puris = g_list_append (puris, p);
+                        iter = iter->next;
+
+                };
+
+                efh_write_message (emf, puris, stream, info, cancellable);
+
+                g_list_free (puris);
+
+        } else {
+                gchar *str;
+                gchar *uri;
+
+                EMFormatHTML *efh = (EMFormatHTML *) emf;
+                EMFormatPURI *p;
+                GList *iter;
+
+                iter = g_hash_table_lookup (emf->mail_part_table, puri->uri);
+                if (!iter || !iter->next)
+                        return;
+
+                iter = iter->next;
+                p = iter->data;
+
+                uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
+                        "part_id", G_TYPE_STRING, p->uri,
+                        "mode", G_TYPE_INT, EM_FORMAT_WRITE_MODE_RAW,
+                        NULL);
+
+                str = g_strdup_printf (
+                        "<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+                        "background-color: #%06x;\">"
+                        "<div class=\"part-container-inner-margin\">\n"
+                        "<iframe width=\"100%%\" height=\"auto\""
+                        " frameborder=\"0\" src=\"%s\"></iframe>"
+                        "</div></div>",
+                        e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_FRAME]),
+                        e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_CONTENT]),
+                        uri);
+
+                camel_stream_write_string (stream, str, cancellable, NULL);
+
+                g_free (str);
+                g_free (uri);
+        }
+
+}
+
 /*****************************************************************************/
 
 /* Notes:
@@ -956,7 +1011,7 @@ static EMFormatHandler type_builtin_table[] = {
 	{ (gchar *) "text/html", efh_parse_text_html, efh_write_text_html, },
 	{ (gchar *) "text/richtext", efh_parse_text_enriched, efh_write_text_enriched, },
 	{ (gchar *) "text/*", efh_parse_text_plain, efh_write_text_plain, },
-        { (gchar *) "message/rfc822", efh_parse_message_rfc822, 0, EM_FORMAT_HANDLER_INLINE | EM_FORMAT_HANDLER_COMPOUND_TYPE }, 
+        { (gchar *) "message/rfc822", efh_parse_message_rfc822, efh_write_message_rfc822, EM_FORMAT_HANDLER_INLINE | EM_FORMAT_HANDLER_COMPOUND_TYPE }, 
         { (gchar *) "message/news", efh_parse_message_rfc822, 0, EM_FORMAT_HANDLER_INLINE | EM_FORMAT_HANDLER_COMPOUND_TYPE },
         { (gchar *) "message/delivery-status", efh_parse_message_deliverystatus, efh_write_text_plain, },
 	{ (gchar *) "message/external-body", efh_parse_message_external, efh_write_text_plain, },
@@ -1237,90 +1292,135 @@ efh_preparse (EMFormat *emf)
 }
 
 static void
+efh_write_message (EMFormat *emf,
+                   GList *puris,
+                   CamelStream *stream,
+                   EMFormatWriterInfo *info,
+                   GCancellable *cancellable)
+{
+        GList *iter;
+        EMFormatHTML *efh;
+        gchar *header;
+
+        efh = (EMFormatHTML *) emf;
+
+        header = g_strdup_printf (
+                "<!DOCTYPE HTML>\n<html>\n"
+                "<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n"
+                "<title>Evolution Mail Display</title>\n"
+                "<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n"
+                "<style type=\"text/css\">\n"
+                "  table th { color: #000; font-weight: bold; }\n"
+                "</style>\n"
+                "<script type=\"text/javascript\">\n"
+                "function collapse_addresses(field) {\n"
+                "  var e=window.document.getElementById(\"moreaddr-\"+field).style;\n"
+                "  var f=window.document.getElementById(\"moreaddr-ellipsis-\"+field).style;\n"
+                "  var g=window.document.getElementById(\"moreaddr-img-\"+field);\n"
+                "  if (e.display==\"inline\") { e.display=\"none\"; f.display=\"inline\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/plus.png\"; }\n"
+                "  else { e.display=\"inline\"; f.display=\"none\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/minus.png\"; }\n"
+                "}\n"
+                "function collapse_headers() {\n"
+                "  var f=window.document.getElementById(\"full-headers\").style;\n"
+                "  var s=window.document.getElementById(\"short-headers\").style;\n"
+                "  var i=window.document.getElementById(\"collapse-headers-img\");\n"
+                "  if (f.display==\"block\") { f.display=\"none\"; s.display=\"block\";\n"
+                "       i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/plus.png\"; window.headers_collapsed(true, window.em_format_html); }\n"
+                "  else { f.display=\"block\"; s.display=\"none\";\n"
+                "        i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n"
+                "}\n"
+                "function set_header_visible(header,value,visible) { // Printing\n"
+                "  var hdrs=window.document.getElementsByClassName('header-item');\n"
+                "  for (var i = 0; i < hdrs.length; i++) { \n"
+                "    var hdr = hdrs[i]; \n"
+                "    if (hdr.className.indexOf('rtl') == -1) { \n"
+                "      if ((hdr.firstChild.textContent == header) && \n"
+                "          (hdr.firstChild.nextSibling.textContent == value)) { \n"
+                "        hdr.style.display=(visible ? 'block' : 'none');\n"
+                "      }\n"
+                "    } else { \n"
+                "      if ((hdr.firstChild.textContent == value) && \n"
+                "          (hdr.firstChild.nextSibling.textContent == header)) { \n"
+                "        hdr.style.display=(visible ? 'block' : 'none');\n"
+                "      }\n"
+                "    }\n"
+                "  }\n"
+                "}\n"
+                "</script>\n"
+                "</head><body bgcolor=\"%06x\">",
+                e_color_to_value (&efh->priv->colors[
+                EM_FORMAT_HTML_COLOR_BODY]));
+
+        camel_stream_write_string (stream, header, cancellable, NULL);
+        g_free (header);
+
+        if (info->mode == EM_FORMAT_WRITE_MODE_SOURCE) {
+
+                efh_write_source (emf, emf->mail_part_list->data,
+                                  stream, info, cancellable);
+
+                camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
+                return;
+        }
+
+        for (iter = puris; iter; iter = iter->next) {
+
+                EMFormatPURI *puri = iter->data;
+
+                if (!puri)
+                        continue;
+
+                /* If current PURI has suffix .rfc822 then iterate through all
+                 * subsequent PURIs until PURI with suffix .rfc822.end is found.
+                 * These skipped PURIs contain entire RFC message which will
+                 * be written in <iframe> as attachment.
+                 */
+                if (g_str_has_suffix (puri->uri, ".rfc822")) {
+
+                        /* If the PURI is not an attachment, then we must
+                         * inline it here otherwise it would not be displayed. */
+                        if (!puri->is_attachment && puri->write_func) {
+                                /* efh_write_message_rfc822 starts parsing _after_
+                                 * the passed PURI, so we must give it previous PURI here */
+                                EMFormatPURI *p = iter->prev->data;
+                                puri->write_func (emf, p, stream, info, cancellable);
+                        }
+
+                        while (iter && !g_str_has_suffix (puri->uri, ".rfc822.end")) {
+
+                                iter = iter->next;
+                                if (iter)
+                                        puri = iter->data;
+
+                                d(printf(".rfc822 - skipping %s\n", puri->uri));
+                        }
+
+                        /* Skip the .rfc822.end PURI as well. */
+                        if (!iter)
+                                break;
+
+                        continue;
+                }
+
+                if ((puri->write_func && !puri->is_attachment) ||
+                        (puri->write_func && puri->widget_func && puri->is_attachment)) {
+                        puri->write_func (emf, puri, stream, info, cancellable);
+                                d(printf("Writing PURI %s\n", puri->uri));
+                        } else {
+                                d(printf("Skipping PURI %s\n", puri->uri));
+                        }
+        }
+
+        camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
+}
+
+static void
 efh_write (EMFormat *emf,
 	   CamelStream *stream,
 	   EMFormatWriterInfo *info,
 	   GCancellable *cancellable)
 {
-	GList *iter;
-	EMFormatHTML *efh;
-	gchar *header;
-
-	efh = (EMFormatHTML *) emf;
-
-	header = g_strdup_printf (
-		"<!DOCTYPE HTML>\n<html>\n"
-		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n"
-		"<title>Evolution Mail Display</title>\n"
-		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n"
-		"<style type=\"text/css\">\n"
-		"  table th { color: #000; font-weight: bold; }\n"
-		"</style>\n"
-		"<script type=\"text/javascript\">\n"
-		"function collapse_addresses(field) {\n"
-		"  var e=window.document.getElementById(\"moreaddr-\"+field).style;\n"
-		"  var f=window.document.getElementById(\"moreaddr-ellipsis-\"+field).style;\n"
-		"  var g=window.document.getElementById(\"moreaddr-img-\"+field);\n"
-		"  if (e.display==\"inline\") { e.display=\"none\"; f.display=\"inline\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/plus.png\"; }\n"
-		"  else { e.display=\"inline\"; f.display=\"none\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/minus.png\"; }\n"
-		"}\n"
-		"function collapse_headers() {\n"
-		"  var f=window.document.getElementById(\"full-headers\").style;\n"
-		"  var s=window.document.getElementById(\"short-headers\").style;\n"
-		"  var i=window.document.getElementById(\"collapse-headers-img\");\n"
-		"  if (f.display==\"block\") { f.display=\"none\"; s.display=\"block\";\n"
-		"	i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/plus.png\"; window.headers_collapsed(true, window.em_format_html); }\n"
-		"  else { f.display=\"block\"; s.display=\"none\";\n"
-		"	 i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n"
-		"}\n"
-		"function set_header_visible(header,value,visible) { // Printing\n"
-		"  var hdrs=window.document.getElementsByClassName('header-item');\n"
-		"  for (var i = 0; i < hdrs.length; i++) { \n"
-		"    var hdr = hdrs[i]; \n"
-		"    if (hdr.className.indexOf('rtl') == -1) { \n"
-		"      if ((hdr.firstChild.textContent == header) && \n"
-		"          (hdr.firstChild.nextSibling.textContent == value)) { \n"
-		"        hdr.style.display=(visible ? 'block' : 'none');\n"
-		"      }\n"
-		"    } else { \n"
-		"      if ((hdr.firstChild.textContent == value) && \n"
-		"          (hdr.firstChild.nextSibling.textContent == header)) { \n"
-		"        hdr.style.display=(visible ? 'block' : 'none');\n"
-		"      }\n"
-		"    }\n"
-		"  }\n"
-		"}\n"
-		"</script>\n"
-		"</head><body bgcolor=\"%06x\">",
-		e_color_to_value (&efh->priv->colors[
-			EM_FORMAT_HTML_COLOR_BODY]));
-
-	camel_stream_write_string (stream, header, cancellable, NULL);
-	g_free (header);
-
-	if (info->mode == EM_FORMAT_WRITE_MODE_SOURCE) {
-
-		efh_write_source (emf, emf->mail_part_list->data,
-			stream, info, cancellable);
-
-		camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
-		return;
-	}
-
-	for (iter = emf->mail_part_list; iter; iter = iter->next) {
-
-		EMFormatPURI *puri = iter->data;
-
-		if ((puri->write_func && !puri->is_attachment) ||
-		    (puri->write_func && puri->widget_func && puri->is_attachment)) {
-			puri->write_func (emf, puri, stream, info, cancellable);
-			d(printf("Writing PURI %s\n", puri->uri));
-		} else {
-			d(printf("Skipping PURI %s\n", puri->uri));
-		}
-	}
-
-	camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
+        efh_write_message (emf, emf->mail_part_list, stream, info, cancellable);
 }
 
 static void
