@@ -1080,6 +1080,8 @@ e_mail_display_load (EMailDisplay *display,
                 NULL);
 
         e_web_view_load_uri (E_WEB_VIEW (display), uri);
+
+        g_free (uri);
 }
 
 void

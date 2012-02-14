@@ -751,6 +751,7 @@ efhd_write_attachment (EMFormat *emf,
         camel_stream_write_string (stream, str, cancellable, NULL);
         g_free (desc);
         g_free (button_id);
+        g_free (str);
 
         /* If we know how to write the attachment, then do it */
         if (efa->handle && efa->handle->write_func) {
