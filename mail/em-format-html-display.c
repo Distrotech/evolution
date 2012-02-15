@@ -729,6 +729,15 @@ efhd_write_attachment (EMFormat *emf,
 
         EMFormatAttachmentPURI *efa = (EMFormatAttachmentPURI *) puri;
 
+        /* If the attachment is requested as RAW, then call the handler directly
+         * and do not append any other code. */
+        if ((info->mode == EM_FORMAT_WRITE_MODE_RAW) &&
+            efa->handle && efa->handle->write_func) {
+
+                efa->handle->write_func (emf, puri, stream, info, cancellable);
+                return;
+        }
+
         if (efa->handle)
                 mime_type = efa->handle->mime_type;
         else
