@@ -809,8 +809,6 @@ static void
 eab_contact_display_render_compact (EABContactDisplay *display,
                                     EContact *contact)
 {
-#warning FIXME: eab_contact_display_render_compact is not WebKit-ready
-
 	GString *buffer;
 
 
@@ -908,12 +906,18 @@ eab_contact_display_render_compact (EABContactDisplay *display,
 					buffer,
 					"<img width=\"%d\" height=\"%d\" src=\"%s\">",
 					calced_width, calced_height, photo->data.uri);
-			else
-				g_string_append_printf (
-					buffer,
-				"<object width=\"%d\" height=\"%d\" "
-				"type=\"image/x-contact-photo\"/>",
+			else {
+				gchar *photo_data = g_base64_encode (
+					photo->data.inlined.data,
+					photo->data.inlined.length);
+				g_string_append_printf (buffer,
+					"<img border=\"1\" src=\"data:%s;base64,%s\" "
+					     "width=\"%d\" height=\"%d\">",
+					photo->data.inlined.mime_type,
+					photo_data,
 					calced_width, calced_height);
+				g_free (photo_data);
+			}
 
 			e_contact_photo_free (photo);
 		}
@@ -1206,10 +1210,11 @@ contact_display_object_requested (WebKitWebView *web_view,
 			contact_uid, address, NULL);
 
                 gtk_widget_show_all (map);
+
+		e_contact_address_free (address);
         }
 
 	g_free (full_name);
-	e_contact_address_free (address);
 
         return map;
 }

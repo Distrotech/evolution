@@ -24,7 +24,6 @@
 #include <glib/gi18n-lib.h>
 #include <libebook/e-book-client.h>
 #include <libebook/e-contact.h>
-#include <gtkhtml/gtkhtml-embedded.h>
 #include <libedataserverui/e-client-utils.h>
 #include <libedataserverui/e-source-selector-dialog.h>
 
@@ -314,6 +313,25 @@ org_gnome_vcard_inline_embed (EMFormat *emf,
 	return layout;
 }
 
+static void
+write_vcard_inline_display (EMFormat *emf,
+			    EMFormatPURI *puri,
+			    CamelStream *stream,
+			    EMFormatWriterInfo *info,
+			    GCancellable *cancellable)
+{
+	gchar *str;
+
+	str = g_strdup_printf (
+		"<object type=\"application/x-org-gnome-vcard-display\" "
+		"height=\"100\" width=\"100%%\" "
+		"data=\"%s\" id=\"%s\"></object>", puri->uri, puri->uri);
+
+	camel_stream_write_string (stream, str, cancellable, NULL);
+
+	g_free (str);
+}
+
 void
 org_gnome_vcard_inline_format (gpointer ep,
                                EMFormatHookTarget *target)
@@ -328,6 +346,7 @@ org_gnome_vcard_inline_format (gpointer ep,
 	vcard_object = (VCardInlinePURI *) em_format_puri_new (
 			target->format, sizeof(VCardInlinePURI), target->part, classid);
 	vcard_object->puri.widget_func = org_gnome_vcard_inline_embed;
+	vcard_object->puri.write_func = write_vcard_inline_display;
 	vcard_object->puri.free = org_gnome_vcard_inline_pobject_free;
 
 	em_format_add_puri (target->format, (EMFormatPURI *) vcard_object);
