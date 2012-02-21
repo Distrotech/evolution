@@ -2673,6 +2673,7 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
                 "enable-html5-local-storage", FALSE,
                 "enable-offline-web-application-cache", FALSE,
                 "enable-site-specific-quirks", TRUE,
+                "enable-scripts", FALSE,
                 NULL);
 
 	return settings;	
