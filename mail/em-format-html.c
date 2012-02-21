@@ -1382,7 +1382,11 @@ efh_write_message (EMFormat *emf,
                         if (!puri->is_attachment && puri->write_func) {
                                 /* efh_write_message_rfc822 starts parsing _after_
                                  * the passed PURI, so we must give it previous PURI here */
-                                EMFormatPURI *p = iter->prev->data;
+                                EMFormatPURI *p;
+				if (!iter->prev)
+					continue;
+
+				p = iter->prev->data;
                                 puri->write_func (emf, p, stream, info, cancellable);
                         }
 
