@@ -3096,7 +3096,7 @@ write_itip_object (EMFormat *emf,
 	str = g_strdup_printf (
 		"<object type=\"application/x-itip-widget\" "
 		"height=\"100\" width=\"100%%\" "
-		"data=\"%s\"></object>", puri->uri);
+		"data=\"%s\" id=\"%s\"></object>", puri->uri, puri->uri);
 
 	camel_stream_write_string (stream, str, cancellable, NULL);
 
