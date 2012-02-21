@@ -1315,13 +1315,6 @@ efh_write_message (EMFormat *emf,
                 "  table th { color: #000; font-weight: bold; }\n"
                 "</style>\n"
                 "<script type=\"text/javascript\">\n"
-                "function collapse_addresses(field) {\n"
-                "  var e=window.document.getElementById(\"moreaddr-\"+field).style;\n"
-                "  var f=window.document.getElementById(\"moreaddr-ellipsis-\"+field).style;\n"
-                "  var g=window.document.getElementById(\"moreaddr-img-\"+field);\n"
-                "  if (e.display==\"inline\") { e.display=\"none\"; f.display=\"inline\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/plus.png\"; }\n"
-                "  else { e.display=\"inline\"; f.display=\"none\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/minus.png\"; }\n"
-                "}\n"
                 "function set_header_visible(header,value,visible) { // Printing\n"
                 "  var hdrs=window.document.getElementsByClassName('header-item');\n"
                 "  for (var i = 0; i < hdrs.length; i++) { \n"
@@ -2038,9 +2031,13 @@ efh_format_address (EMFormatHTML *efh,
 			}
 
 			if (id) {
-				g_string_append_printf (out, "<span id=\"moreaddr-%s\" style=\"display: none;\">", id);
-				str = g_strdup_printf ("<img src=\"evo-file://%s/plus.png\" onClick=\"collapse_addresses('%s');\" id=\"moreaddr-img-%s\" class=\"navigable\">  ",
-					EVOLUTION_IMAGESDIR, id, id);
+				g_string_append_printf (out,
+					"<span id=\"__evo-moreaddr-%s\" "
+					      "style=\"display: none;\">", id);
+				str = g_strdup_printf (
+					"<img src=\"evo-file://%s/plus.png\" "
+					     "id=\"__evo-moreaddr-img-%s\" class=\"navigable\">",
+					EVOLUTION_IMAGESDIR, id);
 			}
 		}
 	}
@@ -2057,9 +2054,12 @@ efh_format_address (EMFormatHTML *efh,
 		}
 
 		if (id) {
-			g_string_append_printf (out, "</span><span class=\"navigable\" onClick=\"collapse_addresses('%s');\" " \
-				"id=\"moreaddr-ellipsis-%s\" style=\"display: inline;\">...</span>",
-				id, id);
+			g_string_append_printf (out,
+				"</span>"
+				"<span class=\"navigable\" "
+					"id=\"__evo-moreaddr-ellipsis-%s\" "
+					"style=\"display: inline;\">...</span>",
+				id);
 		}
 	}
 

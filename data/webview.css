@@ -28,13 +28,14 @@ th {
 }
 
 span.navigable, div.navigable, p.navigable {
-  cursor: hand;
+  cursor: pointer;
   text-decoration: underline;
   color: #003399;
 }
 
 img.navigable {
-  cursor: hand;
+  cursor: pointer;
+  margin-right: 4px;
 }
 
 .attachments {

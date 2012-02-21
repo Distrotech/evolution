@@ -971,16 +971,80 @@ toggle_headers_visibility (WebKitDOMElement *button,
         d(printf("Headers %s!\n", expanded ? "collapsed" : "expanded"));
 }
 
+static const gchar* addresses[] = { "to", "cc", "bcc" };
+
 static void
-bind_collapsable_headers (GObject *object,
-                          GParamSpec *pspec,
-                          gpointer user_data)
+toggle_address_visibility (WebKitDOMElement *button,
+                           WebKitDOMEvent *event,
+                           const gchar *address)
+{
+        WebKitDOMElement *full_addr, *ellipsis;
+        WebKitDOMCSSStyleDeclaration *css_full, *css_ellipsis;
+        WebKitDOMDocument *document;
+        gchar *id;
+        const gchar *path;
+        gboolean expanded;
+
+        document = webkit_dom_node_get_owner_document (WEBKIT_DOM_NODE (button));
+
+        id = g_strconcat ("__evo-moreaddr-", address, NULL);
+        full_addr = webkit_dom_document_get_element_by_id (document, id);
+        g_free (id);
+
+        if (!full_addr)
+                return;
+
+        css_full = webkit_dom_element_get_style (full_addr);
+
+        id = g_strconcat ("__evo-moreaddr-ellipsis-", address, NULL);
+        ellipsis = webkit_dom_document_get_element_by_id (document, id);
+        g_free (id);
+
+        if (!ellipsis)
+                return;
+
+        css_ellipsis = webkit_dom_element_get_style (ellipsis);
+
+        expanded = (g_strcmp0 (
+                webkit_dom_css_style_declaration_get_property_value (
+                css_full, "display"), "inline") == 0);
+
+        webkit_dom_css_style_declaration_set_property(
+                css_full, "display", (expanded ? "none" : "inline"), "", NULL);
+        webkit_dom_css_style_declaration_set_property (
+                css_ellipsis, "display", (expanded ? "inline" : "none"), "", NULL);
+
+        if (expanded) {
+                path = "evo-file://" EVOLUTION_IMAGESDIR "/plus.png";
+        } else {
+                path = "evo-file://" EVOLUTION_IMAGESDIR "/minus.png";
+        }
+
+        if (!WEBKIT_DOM_IS_HTML_IMAGE_ELEMENT (button)) {
+                id = g_strconcat ("__evo-moreaddr-img-", address, NULL);
+                button = webkit_dom_document_get_element_by_id (document, id);
+                g_free (id);
+
+                if (!button)
+                        return;
+        }
+
+        webkit_dom_html_image_element_set_src (
+                WEBKIT_DOM_HTML_IMAGE_ELEMENT (button), path);
+
+}
+
+static void
+setup_DOM_bindings (GObject *object,
+                    GParamSpec *pspec,
+                    gpointer user_data)
 {
         WebKitWebView *web_view;
         WebKitWebFrame *frame;
         WebKitLoadStatus load_status;
         WebKitDOMDocument *document;
         WebKitDOMElement *button;
+        gint i = 0;
 
         frame = WEBKIT_WEB_FRAME (object);
         load_status = webkit_web_frame_get_load_status (frame);
@@ -1000,6 +1064,33 @@ bind_collapsable_headers (GObject *object,
         webkit_dom_event_target_add_event_listener (
                 WEBKIT_DOM_EVENT_TARGET (button), "click",
                 G_CALLBACK (toggle_headers_visibility), FALSE, web_view);
+
+        for (i = 0; i < 3; i++) {
+                gchar *id;
+                id = g_strconcat ("__evo-moreaddr-img-", addresses[i], NULL);
+                button = webkit_dom_document_get_element_by_id (document, id);
+                g_free (id);
+
+                if (!button)
+                        continue;
+
+                webkit_dom_event_target_add_event_listener(
+                        WEBKIT_DOM_EVENT_TARGET (button), "click",
+                        G_CALLBACK (toggle_address_visibility), FALSE,
+                        (gpointer) addresses[i]);
+
+                id = g_strconcat ("__evo-moreaddr-ellipsis-", addresses[i], NULL);
+                button = webkit_dom_document_get_element_by_id (document, id);
+                g_free (id);
+
+                if (!button)
+                        continue;
+
+                webkit_dom_event_target_add_event_listener (
+                        WEBKIT_DOM_EVENT_TARGET (button), "click",
+                        G_CALLBACK (toggle_address_visibility), FALSE,
+                        (gpointer) addresses[i]);
+        }
 }
 
 static void
@@ -1118,7 +1209,7 @@ e_mail_display_init (EMailDisplay *display)
 
         main_frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (display));
         g_signal_connect (main_frame, "notify::load-status",
-                G_CALLBACK (bind_collapsable_headers), NULL);
+                G_CALLBACK (setup_DOM_bindings), NULL);
 
         /* Because we are loading from a hard-coded string, there is
          * no chance of I/O errors.  Failure here implies a malformed
