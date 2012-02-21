@@ -965,11 +965,11 @@ efh_write_message_rfc822 (EMFormat *emf,
                         "background-color: #%06x;\">"
                         "<div class=\"part-container-inner-margin\">\n"
                         "<iframe width=\"100%%\" height=\"auto\""
-                        " frameborder=\"0\" src=\"%s\"></iframe>"
+                        " frameborder=\"0\" src=\"%s\" name=\"%s\"></iframe>"
                         "</div></div>",
                         e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_FRAME]),
                         e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_CONTENT]),
-                        uri);
+                        uri, puri->uri);
 
                 camel_stream_write_string (stream, str, cancellable, NULL);
 

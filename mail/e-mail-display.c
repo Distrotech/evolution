@@ -535,7 +535,7 @@ find_element_by_id (WebKitDOMDocument *document,
 {
         WebKitDOMNodeList *frames;
         WebKitDOMElement *element;
-        gulong i;
+        gulong i, length;
 
         /* Try to look up the element in this DOM document */
         element = webkit_dom_document_get_element_by_id (document, id);
@@ -544,8 +544,9 @@ find_element_by_id (WebKitDOMDocument *document,
 
         /* If the element is not here then recursively scan all frames */
         frames = webkit_dom_document_get_elements_by_tag_name(document, "iframe");
-        for (i = 0; i < webkit_dom_node_list_get_length (frames); i++)
-        {
+        length = webkit_dom_node_list_get_length (frames);
+        for (i = 0; i < length; i++){
+
                 WebKitDOMHTMLIFrameElement *iframe =
                         WEBKIT_DOM_HTML_IFRAME_ELEMENT (
                                 webkit_dom_node_list_item (frames, i));
@@ -570,44 +571,21 @@ mail_display_plugin_widget_resize (GObject *object,
 {
         GtkWidget *widget;
         WebKitDOMElement *parent_element;
-	const gchar *uri;
         gchar *dim;
 	gint height;
 
         widget = GTK_WIDGET (object);
 	gtk_widget_get_preferred_height (widget, &height, NULL);
-	uri = g_object_get_data (object, "uri");
         parent_element = g_object_get_data (object, "parent_element");
 
-        if (!parent_element) {
-                WebKitDOMDocument *document;
-                WebKitDOMElement *doc_element;
-
-                document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
-                parent_element = find_element_by_id (document, uri);
-
-                if (!parent_element) {
-                        g_warning ("No parent <object> for widget %s", uri);
-                        return;
-                }
-
-                /* Store the parent element in the object so that we don't have
-                 * to look it up every time */
-                g_object_set_data_full (object, "parent_element",
-                        g_object_ref (parent_element),
-                        (GDestroyNotify) g_object_unref);
-
-                /* Hide the widget when the document itself gets
-                 * invisible (usually when parent <iframe> is hidden) */
-                doc_element = webkit_dom_document_get_document_element (document);
-                g_object_bind_property (
-                        doc_element, "hidden",
-                        widget, "visible",
-                        G_BINDING_SYNC_CREATE | G_BINDING_INVERT_BOOLEAN);
-        }
+        if (!parent_element)
+                return;
 
         /* Int -> Str */
 	dim = g_strdup_printf ("%d", height);
+
+        /* Set height of the containment <object> to match height of the
+         * GtkWidget it contains */
         webkit_dom_html_object_element_set_height (
                 WEBKIT_DOM_HTML_OBJECT_ELEMENT (parent_element), dim);
         g_free (dim);
@@ -620,29 +598,187 @@ static void
 mail_display_plugin_widget_realize_cb (GtkWidget *widget,
                                        gpointer user_data)
 {
+        /* Initial resize of the <object> element when the widget
+         * is displayed for the first time. */
         mail_display_plugin_widget_resize (G_OBJECT (widget), NULL, user_data);
 }
 
 static void
-bind_iframe_document_visibility (GObject *object,
-                                 GParamSpec *pspec,
-                                 gpointer user_data)
+plugin_widget_set_parent_element (GtkWidget *widget,
+                                  EMailDisplay *display)
 {
-        /* Change in visibility of <iframe> does not change "hidden" property
-         * of DOM document it contains, thus we have to bind it manually. */
-        WebKitDOMHTMLIFrameElement *iframe =
-                WEBKIT_DOM_HTML_IFRAME_ELEMENT (object);
+        const gchar *uri;
+        WebKitDOMDocument *document;
+        WebKitDOMElement *element;
 
-        WebKitDOMDocument *document =
-                webkit_dom_html_iframe_element_get_content_document (iframe);
+        uri = g_object_get_data (G_OBJECT (widget), "uri");
+        if (!uri || !*uri)
+                return;
 
-        WebKitDOMElement *doc_element = 
-                webkit_dom_document_get_document_element (document);
+        document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
+        element = find_element_by_id (document, uri);
 
-        g_object_bind_property (
-                iframe, "hidden",
-                doc_element, "hidden",
-                G_BINDING_SYNC_CREATE);
+        if (!element) {
+                g_warning ("Failed to find parent <object> for '%s' - no ID set?", uri);
+                return;
+        }
+
+        /* Assign the WebKitDOMElement to "parent_element" data of the GtkWidget
+         * and the GtkWidget to "widget" data of the DOM Element */
+        g_object_set_data_full (G_OBJECT (widget), "parent_element",
+                g_object_ref (element), (GDestroyNotify) g_object_unref);
+        g_object_set_data_full (G_OBJECT (element), "widget",
+                g_object_ref (widget), (GDestroyNotify) g_object_unref);
+}
+
+static void
+attachment_button_expanded (GObject *object,
+                            GParamSpec *pspec,
+                            gpointer user_data)
+{
+        EAttachmentButton *button = E_ATTACHMENT_BUTTON (object);
+        WebKitDOMElement *attachment = user_data;
+        WebKitDOMCSSStyleDeclaration *css;
+        gboolean expanded;
+
+        expanded = e_attachment_button_get_expanded (button) &&
+                        gtk_widget_get_visible (GTK_WIDGET (button));
+
+        /* Show or hide the DIV which contains the attachment (iframe, image...) */
+        css = webkit_dom_element_get_style (attachment);
+        webkit_dom_css_style_declaration_set_property (
+                css, "display", expanded ? "block" : "none", "", NULL);
+}
+
+static void
+constraint_widget_visibility (GObject *object,
+                              GParamSpec *pspec,
+                              gpointer user_data)
+{
+        GtkWidget *widget = GTK_WIDGET (object);
+        EAttachmentButton *button = user_data;
+
+        gboolean can_show = e_attachment_button_get_expanded (button);
+        gboolean is_visible = gtk_widget_get_visible (widget);
+
+        if (is_visible && !can_show)
+                gtk_widget_hide (widget);
+        else if (!is_visible && can_show)
+                gtk_widget_show (widget);
+
+        /* Otherwise it's OK */
+}
+
+static void
+bind_iframe_content_visibility (EAttachmentButton *button,
+                                WebKitDOMElement *iframe)
+{
+        WebKitDOMDocument *document;
+        WebKitDOMNodeList *nodes;
+        gulong i, length;
+
+        if (!WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (iframe))
+                return;
+
+        document = webkit_dom_html_iframe_element_get_content_document(
+                        WEBKIT_DOM_HTML_IFRAME_ELEMENT (iframe));
+        nodes = webkit_dom_document_get_elements_by_tag_name (document, "object");
+        length = webkit_dom_node_list_get_length (nodes);
+        d(printf("Found %ld objects within iframe %s\n", length,
+                webkit_dom_html_iframe_element_get_name (
+                        WEBKIT_DOM_HTML_IFRAME_ELEMENT (iframe))));
+
+        /* Iterate through all <object>s and bind visibility of their widget
+         * with expanded-state of related attachment button */
+        for (i = 0; i < length; i++) {
+
+                WebKitDOMNode *node = webkit_dom_node_list_item (nodes, i);
+                GtkWidget *widget;
+
+                widget = g_object_get_data (G_OBJECT (node), "widget");
+                if (!widget)
+                        continue;
+
+                d(printf("Binding visibility of widget %s with button %s\n",
+                        (gchar *) g_object_get_data (G_OBJECT (widget), "uri"),
+                        (gchar *) g_object_get_data (G_OBJECT (button), "uri")));
+
+                g_object_bind_property (
+                        button, "expanded",
+                        widget, "visible",
+                        G_BINDING_SYNC_CREATE);
+
+                /* Ensure that someone won't attempt to _show() the widget when
+                 * it is supposed to be hidden and vice versa. */
+                g_signal_connect (widget, "notify::visible",
+                        G_CALLBACK (constraint_widget_visibility), button);
+        }
+}
+
+static void
+bind_attachment_iframe_visibility (GObject *object,
+                                   GParamSpec *pspec,
+                                   gpointer user_data)
+{
+        WebKitWebFrame *webframe;
+        const gchar *frame_name;
+        gchar *button_uri;
+        WebKitDOMDocument *document;
+        WebKitDOMElement *attachment;
+        WebKitDOMElement *button_element;
+        WebKitDOMNodeList *nodes;
+        gulong i, length;
+        GtkWidget *button;
+
+        /* Whenever an <iframe> is loaded, bind visibility of all GtkWidgets
+         * the document within the <iframe> contains with "expanded" property
+         * of the EAttachmentButton */
+
+        webframe = WEBKIT_WEB_FRAME (object);
+        if (webkit_web_frame_get_load_status (webframe) != WEBKIT_LOAD_FINISHED)
+                return;
+
+        frame_name = webkit_web_frame_get_name (webframe);
+
+        d(printf("Rebinding visibility of frame %s because it's URL changed\n",
+                 frame_name));
+
+        /* Get DOMDocument of the main document */
+        document = webkit_web_view_get_dom_document (
+                webkit_web_frame_get_web_view (webframe));
+        if (!document)
+                return;
+
+        /* Find the <DIV> containing the <iframe> and related EAttachmentButton
+         * within the DOM */
+        attachment = find_element_by_id (document, frame_name);
+        if (!attachment)
+                return;
+
+        button_uri = g_strconcat (frame_name, ".attachment_button", NULL);
+        button_element = find_element_by_id (document, button_uri);
+        if (!button_element)
+                return;
+
+        button = g_object_get_data (G_OBJECT (button_element), "widget");
+
+        /* Get <iframe> representing the attachment content */
+        nodes = webkit_dom_element_get_elements_by_tag_name (attachment, "iframe");
+        length = webkit_dom_node_list_get_length (nodes);
+        for (i = 0; i < length; i++) {
+
+                WebKitDOMNode *node =
+                        webkit_dom_node_list_item (nodes, i);
+
+                if (!WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (node))
+                        continue;
+
+                /* Bind visibility of all GtkWidget within the
+                 * iframe with "expanded" property of the button */
+                bind_iframe_content_visibility(
+                        E_ATTACHMENT_BUTTON (button),
+                        WEBKIT_DOM_ELEMENT (node));
+        }
 }
 
 static GtkWidget*
@@ -691,6 +827,8 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                         g_strdup (puri_uri), (GDestroyNotify) g_free);
         }
 
+        /* Set widget's <object> container as GObject data "parent_element" */
+        plugin_widget_set_parent_element (widget, display);
 
         /* Resizing a GtkWidget requires changing size of parent
          * <object> HTML element in DOM. */
@@ -715,6 +853,9 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                 g_signal_connect (widget, "notify::active-view",
                         G_CALLBACK (mail_display_plugin_widget_resize), display);
 
+                /* Show the EAttachmentBar but not the containing layout */
+                gtk_widget_show (widget);
+
                 widget = box;
 
         } else if (E_IS_ATTACHMENT_BUTTON (widget)) {
@@ -731,40 +872,38 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                         e_attachment_button_set_expandable (
                                 E_ATTACHMENT_BUTTON (widget), FALSE);
                 } else {
-                        WebKitDOMNodeList *children;
                         const CamelContentDisposition *disposition;
-                        gulong i;
+                        WebKitDOMNodeList *nodes;
+                        gulong i, length;
 
-                        g_object_bind_property (
-                                widget, "expanded",
-                                attachment, "hidden",
-                                G_BINDING_SYNC_CREATE |
-                                G_BINDING_INVERT_BOOLEAN);
+                        /* Show/hide the attachment when the EAttachmentButton
+                         * is expanded/collapsed or shown/hidden */
+                        g_signal_connect (widget, "notify::expanded",
+                                G_CALLBACK (attachment_button_expanded),
+                                attachment);
+                        g_signal_connect (widget, "notify::visible",
+                                G_CALLBACK (attachment_button_expanded),
+                                attachment);
+                        /* Initial synchronization */
+                        attachment_button_expanded (G_OBJECT (widget),
+                                NULL, attachment);
 
-                        children =
-                                webkit_dom_element_get_elements_by_tag_name(
+                        /* Find all <iframes> within the attachment and bind
+                         * it's visiblity to expanded state of the attachment btn */
+                        nodes = webkit_dom_element_get_elements_by_tag_name (
                                         attachment, "iframe");
+                        length = webkit_dom_node_list_get_length (nodes);
+                        for (i = 0; i < length; i++) {
 
-                        /* Try to find an <iframe> within the attachment (usually
-                         * embedded message) and bind it's "hidden" property with
-                         * it's inner DOM document "hidden" property. */
-                        for (i = 0; i < webkit_dom_node_list_get_length (children); i++) {
+                                WebKitDOMNode *node =
+                                        webkit_dom_node_list_item (nodes, i);
 
-                                WebKitDOMElement *child =
-                                        WEBKIT_DOM_ELEMENT (
-                                                webkit_dom_node_list_item (children, i));
-
-                                if (!WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (child))
+                                if (!WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (node))
                                         continue;
 
-                                /* Re-bind whenever content of the iframe changes */
-                                g_signal_connect (child, "notify::src",
-                                        G_CALLBACK (bind_iframe_document_visibility),
-                                        NULL);
-
-                                /* Create initial binding */
-                                bind_iframe_document_visibility (
-                                        G_OBJECT (child), NULL, NULL);
+                                bind_iframe_content_visibility (
+                                        E_ATTACHMENT_BUTTON (widget),
+                                        WEBKIT_DOM_ELEMENT (node));
                         }
 
                         /* Expand inlined attachments */
@@ -781,6 +920,19 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
         }
 
         return widget;
+}
+
+static void
+mail_display_frame_created (WebKitWebView *web_view,
+                            WebKitWebFrame *frame,
+                            gpointer user_data)
+{
+        /* Re-bind visibility of this newly created <iframe> with
+         * related EAttachmentButton whenever content of this <iframe> is
+         * (re)loaded */
+
+        g_signal_connect (frame, "notify::load-status",
+                G_CALLBACK (bind_attachment_iframe_visibility), NULL);
 }
 
 
@@ -910,6 +1062,8 @@ e_mail_display_init (EMailDisplay *display)
                           G_CALLBACK (mail_display_webview_update_actions), NULL);
         g_signal_connect (display, "create-plugin-widget",
                           G_CALLBACK (mail_display_plugin_widget_requested), NULL);
+        g_signal_connect (display, "frame-created",
+                          G_CALLBACK (mail_display_frame_created), NULL);
 
         /* Because we are loading from a hard-coded string, there is
          * no chance of I/O errors.  Failure here implies a malformed
