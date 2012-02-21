@@ -289,8 +289,8 @@ write_button_panel (EMFormat *emf,
 
 	str = g_strdup_printf (
 		"<object type=\"application/x-org-gnome-audio-inline-button-panel\" "
-			"width=\"100%%\" height=\"auto\" data=\"%s\"></object>",
-		puri->uri);
+			"width=\"100%%\" height=\"auto\" data=\"%s\" id=\"%s\"></object>",
+		puri->uri, puri->uri);
 	camel_stream_write_string (stream, str, cancellable, NULL);
 
 	g_free (str);
@@ -334,6 +334,7 @@ org_gnome_audio_inline_format (gpointer ep,
 	pobj = (EMFormatInlineAudioPURI *) em_format_puri_new (
                         t->format, sizeof (EMFormatInlineAudioPURI), t->part, classid);
 	pobj->puri.widget_func = org_gnome_audio_inline_button_panel;
+	pobj->puri.write_func = write_button_panel;
 	pobj->puri.part = g_object_ref (t->part);
 	pobj->filename = NULL;
 	pobj->playbin = NULL;
