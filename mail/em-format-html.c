@@ -854,8 +854,8 @@ efh_write_headers (EMFormat *emf,
 
 	if (info->headers_collapsable) {
 		g_string_append_printf (buffer,
-			"<img src=\"evo-file://%s/%s\" onClick=\"collapse_headers();\" "
-                             "class=\"navigable\" id=\"__evo-collapse-headers-img\" />"
+			"<img src=\"evo-file://%s/%s\" class=\"navigable\" "
+			     "id=\"__evo-collapse-headers-img\" />"
                         "</td><td>",
 			EVOLUTION_IMAGESDIR,
 			(info->headers_collapsed) ? "plus.png" : "minus.png");

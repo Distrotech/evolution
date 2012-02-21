@@ -966,7 +966,7 @@ toggle_headers_visibility (WebKitDOMElement *button,
         webkit_dom_html_image_element_set_src (
                 WEBKIT_DOM_HTML_IMAGE_ELEMENT (button), path);
 
-        e_mail_display_set_headers_collapsed (E_MAIL_DISPLAY (web_view), !expanded);
+        e_mail_display_set_headers_collapsed (E_MAIL_DISPLAY (web_view), expanded);
 
         d(printf("Headers %s!\n", expanded ? "collapsed" : "expanded"));
 }
