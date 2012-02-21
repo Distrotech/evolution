@@ -923,44 +923,96 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
 }
 
 static void
+toggle_headers_visibility (WebKitDOMElement *button,
+                           WebKitDOMEvent *event,
+                           WebKitWebView *web_view)
+{
+        WebKitDOMDocument *document;
+        WebKitDOMElement *short_headers, *full_headers;
+        WebKitDOMCSSStyleDeclaration *css_short, *css_full;
+        gboolean expanded;
+        const gchar *path;
+
+        document = webkit_web_view_get_dom_document (web_view);
+
+        short_headers = webkit_dom_document_get_element_by_id (
+                document, "__evo-short-headers");
+        if (!short_headers)
+                return;
+
+        css_short = webkit_dom_element_get_style (short_headers);
+
+        full_headers = webkit_dom_document_get_element_by_id (
+                document, "__evo-full-headers");
+        if (!full_headers)
+                return;
+
+        css_full = webkit_dom_element_get_style (full_headers);
+
+
+        expanded = (g_strcmp0(webkit_dom_css_style_declaration_get_property_value (
+                        css_full, "display"), "block") == 0);
+
+        webkit_dom_css_style_declaration_set_property (css_full, "display",
+                expanded ? "none" : "block", "", NULL);
+        webkit_dom_css_style_declaration_set_property (css_short, "display",
+                expanded ? "block" : "none", "", NULL);
+
+        if (expanded)
+                path = "evo-file://" EVOLUTION_IMAGESDIR "/plus.png";
+        else
+                path = "evo-file://" EVOLUTION_IMAGESDIR "/minus.png";
+
+        webkit_dom_html_image_element_set_src (
+                WEBKIT_DOM_HTML_IMAGE_ELEMENT (button), path);
+
+        e_mail_display_set_headers_collapsed (E_MAIL_DISPLAY (web_view), !expanded);
+
+        d(printf("Headers %s!\n", expanded ? "collapsed" : "expanded"));
+}
+
+static void
+bind_collapsable_headers (GObject *object,
+                          GParamSpec *pspec,
+                          gpointer user_data)
+{
+        WebKitWebView *web_view;
+        WebKitWebFrame *frame;
+        WebKitLoadStatus load_status;
+        WebKitDOMDocument *document;
+        WebKitDOMElement *button;
+
+        frame = WEBKIT_WEB_FRAME (object);
+        load_status = webkit_web_frame_get_load_status (frame);
+        if (load_status != WEBKIT_LOAD_FINISHED)
+                return;
+
+        web_view = webkit_web_frame_get_web_view (frame);
+        document = webkit_web_view_get_dom_document (web_view);
+
+        button = webkit_dom_document_get_element_by_id (
+                        document, "__evo-collapse-headers-img");
+        if (!button)
+                return;
+
+        d(printf("Conntecting to __evo-collapsable-headers-img::click event\n"));
+
+        webkit_dom_event_target_add_event_listener (
+                WEBKIT_DOM_EVENT_TARGET (button), "click",
+                G_CALLBACK (toggle_headers_visibility), FALSE, web_view);
+}
+
+static void
 mail_display_frame_created (WebKitWebView *web_view,
                             WebKitWebFrame *frame,
                             gpointer user_data)
 {
+        d(printf("Frame %s created!\n", webkit_web_frame_get_name (frame)));
         /* Re-bind visibility of this newly created <iframe> with
          * related EAttachmentButton whenever content of this <iframe> is
          * (re)loaded */
-
         g_signal_connect (frame, "notify::load-status",
                 G_CALLBACK (bind_attachment_iframe_visibility), NULL);
-}
-
-
-static void
-mail_display_headers_collapsed_state_changed (EWebView *web_view,
-					      size_t arg_count,
-					      const JSValueRef args[],
-					      gpointer user_data)
-{
-	JSGlobalContextRef ctx = e_web_view_get_global_context (web_view);
-
-	e_mail_display_set_headers_collapsed (E_MAIL_DISPLAY (web_view),
-                JSValueToBoolean (ctx, args[0]));
-}
-
-static void
-mail_display_install_js_callbacks (WebKitWebView *web_view,
-			           WebKitWebFrame *frame,
-				   gpointer context,
-				   gpointer window_object,
-				   gpointer user_data)
-{
-	if (frame != webkit_web_view_get_main_frame (web_view))
-		return;
-
-	e_web_view_install_js_callback (E_WEB_VIEW (web_view), "headers_collapsed",
-		(EWebViewJSFunctionCallback) mail_display_headers_collapsed_state_changed, user_data);
-
 }
 
 static void
@@ -1033,6 +1085,7 @@ e_mail_display_init (EMailDisplay *display)
 	SoupSessionFeature *feature;
 	const gchar *user_cache_dir;
         WebKitWebSettings *settings;
+        WebKitWebFrame *main_frame;
 
 	display->priv = E_MAIL_DISPLAY_GET_PRIVATE (display);
 
@@ -1052,8 +1105,6 @@ e_mail_display_init (EMailDisplay *display)
 
         g_signal_connect (display, "navigation-policy-decision-requested",
                           G_CALLBACK (mail_display_link_clicked), NULL);
-        g_signal_connect (display, "window-object-cleared",
-                          G_CALLBACK (mail_display_install_js_callbacks), NULL);
         g_signal_connect (display, "resource-request-starting",
                           G_CALLBACK (mail_display_resource_requested), NULL);
         g_signal_connect (display, "process-mailto",
@@ -1064,6 +1115,10 @@ e_mail_display_init (EMailDisplay *display)
                           G_CALLBACK (mail_display_plugin_widget_requested), NULL);
         g_signal_connect (display, "frame-created",
                           G_CALLBACK (mail_display_frame_created), NULL);
+
+        main_frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (display));
+        g_signal_connect (main_frame, "notify::load-status",
+                G_CALLBACK (bind_collapsable_headers), NULL);
 
         /* Because we are loading from a hard-coded string, there is
          * no chance of I/O errors.  Failure here implies a malformed

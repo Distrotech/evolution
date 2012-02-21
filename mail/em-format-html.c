@@ -854,7 +854,9 @@ efh_write_headers (EMFormat *emf,
 
 	if (info->headers_collapsable) {
 		g_string_append_printf (buffer,
-			"<img src=\"evo-file://%s/%s\" onClick=\"collapse_headers();\" class=\"navigable\" id=\"collapse-headers-img\" /></td><td>",
+			"<img src=\"evo-file://%s/%s\" onClick=\"collapse_headers();\" "
+                             "class=\"navigable\" id=\"__evo-collapse-headers-img\" />"
+                        "</td><td>",
 			EVOLUTION_IMAGESDIR,
 			(info->headers_collapsed) ? "plus.png" : "minus.png");
 
@@ -1319,15 +1321,6 @@ efh_write_message (EMFormat *emf,
                 "  var g=window.document.getElementById(\"moreaddr-img-\"+field);\n"
                 "  if (e.display==\"inline\") { e.display=\"none\"; f.display=\"inline\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/plus.png\"; }\n"
                 "  else { e.display=\"inline\"; f.display=\"none\"; g.src=g.src.substr(0,g.src.lastIndexOf(\"/\"))+\"/minus.png\"; }\n"
-                "}\n"
-                "function collapse_headers() {\n"
-                "  var f=window.document.getElementById(\"full-headers\").style;\n"
-                "  var s=window.document.getElementById(\"short-headers\").style;\n"
-                "  var i=window.document.getElementById(\"collapse-headers-img\");\n"
-                "  if (f.display==\"block\") { f.display=\"none\"; s.display=\"block\";\n"
-                "       i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/plus.png\"; window.headers_collapsed(true, window.em_format_html); }\n"
-                "  else { f.display=\"block\"; s.display=\"none\";\n"
-                "        i.src=i.src.substr(0,i.src.lastIndexOf(\"/\"))+\"/minus.png\"; window.headers_collapsed(false, window.em_format_html); }\n"
                 "}\n"
                 "function set_header_visible(header,value,visible) { // Printing\n"
                 "  var hdrs=window.document.getElementsByClassName('header-item');\n"
@@ -2289,7 +2282,9 @@ efh_format_short_headers (EMFormatHTML *efh,
 	evolution_imagesdir = g_filename_to_uri (EVOLUTION_IMAGESDIR, NULL, NULL);
 	from = g_string_new ("");
 
-	g_string_append_printf (buffer, "<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" id=\"short-headers\" style=\"display: %s\">",
+	g_string_append_printf (buffer,
+                "<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" "
+                       "id=\"__evo-short-headers\" style=\"display: %s\">",
 		visible ? "block" : "none");
 
 	header = ((CamelMimePart *) part)->headers;
@@ -2377,7 +2372,9 @@ efh_format_full_headers (EMFormatHTML *efh,
 
 	evolution_imagesdir = g_filename_to_uri (EVOLUTION_IMAGESDIR, NULL, NULL);
 
-	g_string_append_printf (buffer, "<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" id=\"full-headers\" style=\"display: %s\" width=\"100%%\">",
+	g_string_append_printf (buffer,
+                "<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" "
+                       "id=\"__evo-full-headers\" style=\"display: %s\" width=\"100%%\">",
 		visible ? "block" : "none");
 
 	header = ((CamelMimePart *) part)->headers;
