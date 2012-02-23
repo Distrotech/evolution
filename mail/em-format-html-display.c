@@ -382,12 +382,10 @@ efhd_xpkcs7mime_validity_clicked (GtkWidget *button,
 	g_object_unref (builder);
 
 	g_signal_connect (
-	        part_widget, "response", 
-		G_CALLBACK(efhd_xpkcs7mime_info_response), emps);
-	gtk_widget_show (part_widget);
+	        po->widget, "response",
+		G_CALLBACK(efhd_xpkcs7mime_info_response), po);
 
-	g_object_unref (part_widget);
-	camel_cipher_validity_free (validity);
+	gtk_widget_show (po->widget);
 }
 
 static GtkWidget*
