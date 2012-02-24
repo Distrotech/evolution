@@ -65,6 +65,7 @@ typedef struct _EMFormatHeader EMFormatHeader;
 typedef struct _EMFormatHandler EMFormatHandler;
 typedef struct _EMFormatParserInfo EMFormatParserInfo;
 typedef struct _EMFormatWriterInfo EMFormatWriterInfo;
+typedef struct _EMailDisplay EMailDisplay;
 
 typedef void		(*EMFormatParseFunc)	(EMFormat *emf,
 					 	 CamelMimePart *part,
@@ -79,7 +80,8 @@ typedef void		(*EMFormatWriteFunc)	(EMFormat *emf,
 typedef GtkWidget*	(*EMFormatWidgetFunc)	(EMFormat *emf,
 					 	 EMFormatPURI *puri,
 					 	 GCancellable *cancellable);
-
+typedef void		(*EMailDisplayBindFunc)	(EMailDisplay *display,
+						 EMFormatPURI *puri);
 
 typedef enum {
 	EM_FORMAT_HANDLER_INLINE = 1 << 0,
@@ -142,6 +144,13 @@ struct _EMFormatPURI {
 	EMFormat *emf;
 	EMFormatWriteFunc write_func;
 	EMFormatWidgetFunc widget_func;
+
+	/**
+	 * Called by #EMailDisplay whenever document/frame is reloaded.
+	 * Modules and plugins can create bindings to events of DOM
+	 * objects they created.
+	 */
+	EMailDisplayBindFunc bind_func;
 
 	gchar *uri;
 	gchar *cid;

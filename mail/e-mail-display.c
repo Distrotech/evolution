@@ -866,6 +866,7 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                 WebKitDOMElement *attachment;
                 WebKitDOMDocument *document;
 
+		g_message ("Searching for puri %s", puri_uri);
                 document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
                 attachment = find_element_by_id (document, puri_uri);
                 if (!attachment) {
@@ -1094,16 +1095,70 @@ setup_DOM_bindings (GObject *object,
 }
 
 static void
+puri_bind_dom (GObject *object,
+	       GParamSpec *pspec,
+	       gpointer user_data)
+{
+	WebKitWebFrame *frame;
+	WebKitLoadStatus load_status;
+	WebKitWebView *web_view;
+	EMailDisplay *display;
+	GList *iter;
+	EMFormat *emf;
+	const gchar *frame_puri;
+
+	frame = WEBKIT_WEB_FRAME (object);
+	load_status = webkit_web_frame_get_load_status (frame);
+
+	if (load_status != WEBKIT_LOAD_FINISHED)
+		return;
+
+	frame_puri = webkit_web_frame_get_name (frame);
+	web_view = webkit_web_frame_get_web_view (frame);
+	display = E_MAIL_DISPLAY (web_view);
+
+	emf = EM_FORMAT (display->priv->formatter);
+	iter = g_hash_table_lookup (
+			emf->mail_part_table,
+			webkit_web_frame_get_name (frame));
+
+	while (iter) {
+
+		EMFormatPURI *puri = iter->data;
+
+		if (!puri)
+			continue;
+
+		/* Iterate the PURI rendered in the frame and all it's "subPURIs" */
+		if (!g_str_has_prefix (puri->uri, frame_puri))
+			break;
+
+		if (puri->bind_func) {
+			d(printf("bind_func for %s", puri->uri));
+			puri->bind_func (display, puri);
+		}
+
+		iter = iter->next;
+	}
+}
+
+
+static void
 mail_display_frame_created (WebKitWebView *web_view,
                             WebKitWebFrame *frame,
                             gpointer user_data)
 {
         d(printf("Frame %s created!\n", webkit_web_frame_get_name (frame)));
+
         /* Re-bind visibility of this newly created <iframe> with
          * related EAttachmentButton whenever content of this <iframe> is
          * (re)loaded */
         g_signal_connect (frame, "notify::load-status",
                 G_CALLBACK (bind_attachment_iframe_visibility), NULL);
+
+	/* Call bind_func of all PURIs written in this frame */
+	g_signal_connect (frame, "notify::load-status",
+		G_CALLBACK (puri_bind_dom), NULL);
 }
 
 static void
@@ -1210,6 +1265,9 @@ e_mail_display_init (EMailDisplay *display)
         main_frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (display));
         g_signal_connect (main_frame, "notify::load-status",
                 G_CALLBACK (setup_DOM_bindings), NULL);
+	main_frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (display));
+	g_signal_connect (main_frame, "notify::load-status",
+			  G_CALLBACK (puri_bind_dom), NULL);
 
         /* Because we are loading from a hard-coded string, there is
          * no chance of I/O errors.  Failure here implies a malformed
