@@ -1118,6 +1118,9 @@ puri_bind_dom (GObject *object,
 	display = E_MAIL_DISPLAY (web_view);
 
 	emf = EM_FORMAT (display->priv->formatter);
+	if (!emf)
+		return;
+
 	iter = g_hash_table_lookup (
 			emf->mail_part_table,
 			webkit_web_frame_get_name (frame));
