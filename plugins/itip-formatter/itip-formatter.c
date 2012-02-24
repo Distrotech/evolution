@@ -3129,6 +3129,7 @@ format_itip (EPlugin *ep,
 	puri->puri.write_func = write_itip_object;
 	puri->puri.widget_func = format_itip_object;
 	puri->puri.free = puri_free;
+	puri->puri.is_attachment = FALSE;
 	puri->delete_message = g_settings_get_boolean (settings, CONF_KEY_DELETE);
 	puri->has_organizer = FALSE;
 	puri->no_reply_wanted = FALSE;

@@ -1373,13 +1373,12 @@ efh_write_message (EMFormat *emf,
                         continue;
                 }
 
-                if ((puri->write_func && !puri->is_attachment) ||
-                        (puri->write_func && puri->widget_func && puri->is_attachment)) {
-                        puri->write_func (emf, puri, stream, info, cancellable);
-                                d(printf("Writing PURI %s\n", puri->uri));
-                        } else {
-                                d(printf("Skipping PURI %s\n", puri->uri));
-                        }
+                if (puri->write_func && !puri->is_attachment) {
+			puri->write_func (emf, puri, stream, info, cancellable);
+			d(printf("Writing PURI %s\n", puri->uri));
+		} else {
+			d(printf("Skipping PURI %s\n", puri->uri));
+		}
         }
 
         camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
