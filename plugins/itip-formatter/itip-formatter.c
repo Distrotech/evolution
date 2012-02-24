@@ -33,7 +33,6 @@
 #include <libedataserver/e-account-list.h>
 #include <libedataserverui/e-source-selector.h>
 #include <libedataserverui/e-client-utils.h>
-#include <gtkhtml/gtkhtml-embedded.h>
 
 #include <libevolution-utils/e-alert-dialog.h>
 #include <e-util/e-mktemp.h>

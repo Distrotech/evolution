@@ -31,7 +31,6 @@
 #include <libedataserverui/e-source-combo-box.h>
 #include <libecal/e-cal-client.h>
 #include <libecal/e-cal-time-util.h>
-#include <gtkhtml/gtkhtml-embedded.h>
 #include <mail/em-format-hook.h>
 #include <mail/em-format-html.h>
 #include <libedataserver/e-account-list.h>

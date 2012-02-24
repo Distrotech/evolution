@@ -17,8 +17,7 @@ liborg_gnome_audio_inline_la_CPPFLAGS =			\
 	-I$(top_srcdir)/widgets				\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GSTREAMER_CFLAGS)				\
-	$(GTKHTML_CFLAGS)
+	$(GSTREAMER_CFLAGS)
 
 liborg_gnome_audio_inline_la_SOURCES = audio-inline.c
 
@@ -30,8 +29,7 @@ liborg_gnome_audio_inline_la_LIBADD =			\
 	$(top_builddir)/em-format/libemformat.la	\
 	$(EVOLUTION_DATA_SERVER_LIBS)			\
 	$(GNOME_PLATFORM_LIBS)				\
-	$(GSTREAMER_LIBS)				\
-	$(GTKHTML_LIBS)
+	$(GSTREAMER_LIBS)
 
 EXTRA_DIST = org-gnome-audio-inline.eplug.xml
 

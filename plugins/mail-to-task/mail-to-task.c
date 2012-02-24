@@ -32,7 +32,6 @@
 #include <string.h>
 #include <glib/gi18n-lib.h>
 
-#include <gtkhtml/gtkhtml.h>
 #include <libecal/e-cal-client.h>
 #include <libecal/e-cal-component.h>
 #include <libedataserver/e-account.h>

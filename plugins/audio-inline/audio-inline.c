@@ -29,7 +29,6 @@
 #include "e-util/e-mktemp.h"
 #include "mail/em-format-hook.h"
 #include "mail/em-format-html.h"
-#include "gtkhtml/gtkhtml-embedded.h"
 #include "gst/gst.h"
 
 #define d(x)
@@ -44,8 +43,6 @@ e_plugin_lib_enable (EPlugin *ep,
 }
 
 void org_gnome_audio_inline_format (gpointer ep, EMFormatHookTarget *t);
-
-static volatile gint org_gnome_audio_class_id_counter = 0;
 
 typedef struct _EMFormatInlineAudioPURI EMFormatInlineAudioPURI;
 
@@ -321,21 +318,20 @@ org_gnome_audio_inline_format (gpointer ep,
                                EMFormatHookTarget *t)
 {
 	EMFormatInlineAudioPURI *pobj;
-	gchar *classid;
+	gint len;
 
-	classid = g_strdup_printf (
-		"org-gnome-audio-inline-button-panel-%d",
-		org_gnome_audio_class_id_counter);
+	len = t->part_id->len;
+	g_string_append (t->part_id, ".org-gnome-audio-inline-button-panel");
 
-	org_gnome_audio_class_id_counter++;
-
-	d(printf ("audio inline formatter: format classid %s\n", classid));
+	d(printf ("audio inline formatter: format classid %s\n", t->part_id->str));
 
 	pobj = (EMFormatInlineAudioPURI *) em_format_puri_new (
-                        t->format, sizeof (EMFormatInlineAudioPURI), t->part, classid);
+                        t->format, sizeof (EMFormatInlineAudioPURI),
+			t->part, t->part_id->str);
 	pobj->puri.widget_func = org_gnome_audio_inline_button_panel;
 	pobj->puri.write_func = write_button_panel;
 	pobj->puri.part = g_object_ref (t->part);
+	pobj->puri.is_attachment = TRUE;
 	pobj->filename = NULL;
 	pobj->playbin = NULL;
 	pobj->play_button = NULL;
@@ -346,4 +342,6 @@ org_gnome_audio_inline_format (gpointer ep,
 	pobj->target_state = GST_STATE_NULL;
 
         em_format_add_puri (t->format, (EMFormatPURI *) pobj);
+
+	g_string_truncate (t->part_id, len);
 }
