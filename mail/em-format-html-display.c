@@ -481,6 +481,7 @@ efhd_parse_attachment (EMFormat *emf,
 	const gchar *cid;
 	guint32 size;
 	struct attachment_load_data *load_data;
+	gboolean can_show = FALSE;
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
@@ -511,7 +512,7 @@ efhd_parse_attachment (EMFormat *emf,
 	puri->shown = (handler && em_format_is_inline (emf, part_id->str, part, handler));
 	puri->snoop_mime_type = em_format_snoop_type (part);
 	puri->attachment = e_attachment_new ();
-	puri->attachment_view_part_id = g_strdup (part_id->str);
+	puri->attachment_view_part_id = NULL;
 	puri->description = html;
 	puri->handle = handler;
         if (info->validity)
@@ -538,13 +539,21 @@ efhd_parse_attachment (EMFormat *emf,
 	em_format_add_puri (emf, (EMFormatPURI *) puri);
 
         /* Though it is an attachment, we still might be able to parse it and
-         * so discover some parts that we might be event able to display. */
+         * so discover some parts that we might be even able to display. */
         if (handler && handler->parse_func && (handler->parse_func != efhd_parse_attachment)&&
             ((handler->flags & EM_FORMAT_HANDLER_COMPOUND_TYPE) ||
              (handler->flags & EM_FORMAT_HANDLER_INLINE_DISPOSITION))) {
+		GList *i;
                 EMFormatParserInfo attachment_info = { .handler = handler,
                                                        .is_attachment = TRUE };
                 handler->parse_func (emf, puri->puri.part, part_id, &attachment_info, cancellable);
+
+		i = g_hash_table_lookup (emf->mail_part_table, part_id->str);
+		if (i->next && i->next->data) {
+			EMFormatPURI *p = i->next->data;
+			puri->attachment_view_part_id = p->uri;
+			can_show = TRUE;
+		}
         }
 
 	e_attachment_set_mime_part (puri->attachment, part);
@@ -553,7 +562,8 @@ efhd_parse_attachment (EMFormat *emf,
 	        e_attachment_set_signed (puri->attachment, puri->puri.validity->sign.status);
 	        e_attachment_set_encrypted (puri->attachment, puri->puri.validity->encrypt.status);
         }
-	e_attachment_set_can_show (puri->attachment, puri->handle != NULL && puri->handle->write_func);
+	e_attachment_set_can_show (puri->attachment,
+		can_show || (puri->handle && puri->handle->write_func));
 
 	store = find_parent_attachment_store (efhd, part_id->str);
 	e_attachment_store_add_attachment (store, puri->attachment);
@@ -761,7 +771,8 @@ efhd_write_attachment (EMFormat *emf,
         g_free (str);
 
         /* If we know how to write the attachment, then do it */
-        if (efa->handle && efa->handle->write_func) {
+        if ((efa->handle && efa->handle->write_func) ||
+	    (efa->attachment_view_part_id)) {
 
                 str = g_strdup_printf (
                         "<tr><td colspan=\"2\">"
@@ -771,7 +782,17 @@ efhd_write_attachment (EMFormat *emf,
                 camel_stream_write_string (stream, str, cancellable, NULL);
                 g_free (str);
 
-                efa->handle->write_func (emf, puri, stream, info, cancellable);
+		if (efa->handle->write_func) {
+			efa->handle->write_func (
+				emf, puri, stream, info, cancellable);
+		} else if (efa->attachment_view_part_id) {
+			EMFormatPURI *p;
+
+			p = em_format_find_puri (
+				emf, efa->attachment_view_part_id);
+			if (p && p->write_func)
+				p->write_func (emf, p, stream, info, cancellable);
+		}
 
                 camel_stream_write_string (stream, "</div></td></tr>", cancellable, NULL);
         }
