@@ -711,6 +711,9 @@ efhd_write_attachment_bar (EMFormat *emf,
         EMFormatAttachmentBarPURI *efab = (EMFormatAttachmentBarPURI *) puri;
         gchar *str;
 
+        if (info->mode == EM_FORMAT_WRITE_MODE_PRINTING)
+                return;
+
         if (e_attachment_store_get_num_attachments (efab->store) == 0)
                 return;
 
@@ -743,6 +746,14 @@ efhd_write_attachment (EMFormat *emf,
             efa->handle && efa->handle->write_func) {
 
                 efa->handle->write_func (emf, puri, stream, info, cancellable);
+                return;
+        }
+
+        if (info->mode == EM_FORMAT_WRITE_MODE_PRINTING) {
+
+                if (efa->handle && efa->handle->write_func)
+                        efa->handle->write_func (emf, puri, stream, info, cancellable);
+
                 return;
         }
 
@@ -808,6 +819,10 @@ efhd_write_secure_button (EMFormat *emf,
                           GCancellable *cancellable)
 {
         gchar *str;
+
+        if ((info->mode != EM_FORMAT_WRITE_MODE_NORMAL) &&
+            (info->mode != EM_FORMAT_WRITE_MODE_RAW))
+                return;
 
         str = g_strdup_printf (
                 "<object type=\"application/x-secure-button\" "

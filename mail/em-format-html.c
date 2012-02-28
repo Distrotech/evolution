@@ -652,7 +652,7 @@ efh_write_text_enriched (EMFormat *emf,
 	buffer = g_string_new ("");
 
 	g_string_append_printf (buffer,
-		"<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+		"<div class=\"part-container\" style=\"border-color: #%06x; "
 		"background-color: #%06x; color: #%06x;\">"
 		"<div class=\"part-container-inner-margin\">\n",
 		e_color_to_value (&efh->priv->colors[
@@ -711,7 +711,7 @@ efh_write_text_plain (EMFormat *emf,
 	g_object_unref (html_filter);
 
 	content = g_strdup_printf (
-		"<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+		"<div class=\"part-container\" style=\"border-color: #%06x; "
 		"background-color: #%06x; color: #%06x;\">"
 		"<div class=\"part-container-inner-margin\">\n",
 		e_color_to_value (&efh->priv->colors[
@@ -843,11 +843,10 @@ efh_write_headers (EMFormat *emf,
 		bg_color = e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_BODY]);
 	}
 
-	/* Headers need some fancy JavaScript */
 	g_string_append_printf (
 		buffer,
 		"<div class=\"headers\" style=\"background: #%06x;\">"
-		"<table border=\"0\" width=\"100%%\" height=\"100%%\" style=\"color: #%06x;\">\n"
+		"<table border=\"0\" width=\"100%%\" style=\"color: #%06x;\">\n"
 		"<tr><td valign=\"top\" width=\"16\">\n",
 		bg_color,
 		e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_HEADER]));
@@ -942,6 +941,50 @@ efh_write_message_rfc822 (EMFormat *emf,
 
                 g_list_free (puris);
 
+        } else if (info->mode == EM_FORMAT_WRITE_MODE_PRINTING) {
+
+                GList *iter;
+                gboolean can_write = FALSE;
+
+                iter = g_hash_table_lookup (emf->mail_part_table, puri->uri);
+                if (!iter || !iter->next)
+                        return;
+
+                /* Skip everything before attachment bar, inclusive */\
+                iter = iter->next;
+                while (iter) {
+
+                        EMFormatPURI *p = iter->data;
+
+                        /* EMFormatHTMLPrint has registered a special writer
+                         * for headers, try to find it and use it. */
+                        if (g_str_has_suffix (p->uri, ".headers")) {
+
+                                const EMFormatHandler *handler;
+
+                                handler = em_format_find_handler(
+                                        emf, "x-evolution/message/headers");
+                                if (handler && handler->write_func)
+                                        handler->write_func (emf, p, stream, info, cancellable);
+
+                                iter = iter->next;
+                                continue;
+                        }
+
+                        if (g_str_has_suffix (p->uri, ".rfc822.end"))
+                                break;
+
+                        if (g_str_has_suffix (p->uri, ".attachment-bar"))
+                                can_write = TRUE;
+
+                        if (can_write && p->write_func) {
+                                p->write_func (
+                                        emf, p, stream, info, cancellable);
+                        }
+
+                        iter = iter->next;
+                }
+
         } else {
                 gchar *str;
                 gchar *uri;
@@ -963,7 +1006,7 @@ efh_write_message_rfc822 (EMFormat *emf,
                         NULL);
 
                 str = g_strdup_printf (
-                        "<div class=\"part-container\" style=\"border: solid #%06x 1px; "
+                        "<div class=\"part-container\" style=\"border-color: #%06x; "
                         "background-color: #%06x;\">"
                         "<div class=\"part-container-inner-margin\">\n"
                         "<iframe width=\"100%%\" height=\"auto\""
@@ -1314,7 +1357,7 @@ efh_write_message (EMFormat *emf,
                 "<style type=\"text/css\">\n"
                 "  table th { color: #000; font-weight: bold; }\n"
                 "</style>\n"
-                "</head><body bgcolor=\"%06x\">",
+                "</head><body bgcolor=\"#%06x\">",
                 e_color_to_value (&efh->priv->colors[
                 EM_FORMAT_HTML_COLOR_BODY]));
 

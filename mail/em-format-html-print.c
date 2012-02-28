@@ -39,6 +39,8 @@
 
 #include "em-format-html-print.h"
 
+#define d(x)
+
 static gpointer parent_class = NULL;
 
 struct _EMFormatHTMLPrintPrivate {
@@ -72,9 +74,11 @@ efhp_write_attachments_list (EMFormatHTMLPrint *efhp,
         if (!efhp->priv->attachments)
                 return;
 
-        str = g_string_new ("<table border=\"0\" cellspacing=\"5\" cellpadding=\"0\" "\
-                            "class=\"attachments-list\" >\n");
-        g_string_append_printf (str, "<tr><th colspan=\"2\"><h1>%s</h1></td></tr>\n" \
+        str = g_string_new (
+                "<table border=\"0\" cellspacing=\"5\" cellpadding=\"0\" "
+                       "class=\"attachments-list\" >\n");
+        g_string_append_printf (str,
+                "<tr><th colspan=\"2\"><h1>%s</h1></td></tr>\n"
                 "<tr><th>%s</th><th>%s</th></tr>\n",
                 _("Attachments"), _("Name"), _("Size"));
 
@@ -137,7 +141,11 @@ efhp_write_headers (EMFormat *emf,
 	subject = camel_header_decode_string (buf, "UTF-8");
 	str = g_string_new ("<table border=\"0\" cellspacing=\"5\" " \
                             "cellpadding=\"0\" class=\"printing-header\">\n");
-	g_string_append_printf (str, "<tr class='header-item'><td colspan=\"2\"><h1>%s</h1></td></tr>\n",
+	g_string_append_printf (
+                str,
+                "<tr class=\"header-item\">"
+                "<td colspan=\"2\"><h1>%s</h1></td>"
+                "</tr>\n",
 		subject);
 	g_free (subject);
 
@@ -296,12 +304,14 @@ efhp_write_print_layout (EMFormat *emf,
         efhp->priv->attachments = NULL;
 
 	camel_stream_write_string (stream,
-		"<!DOCTYPE HTML>\n<html>\n"  \
-		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n" \
-		"<title>Evolution Mail Display</title>\n" \
-		"<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\" />\n" \
-		"</head>\n" \
-		"<body style=\"background: #FFF; color: #000;\">", cancellable, NULL);
+		"<!DOCTYPE HTML>\n<html>\n"
+		"<head>\n<meta name=\"generator\" content=\"Evolution Mail Component\" />\n"
+		"<title>Evolution Mail Display</title>\n"
+		"<link type=\"text/css\" rel=\"stylesheet\" media=\"print\" "
+                      "href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview-print.css\" />\n"
+		"</head>\n"
+		"<body style=\"background: #FFF; color: #000;\">",
+                cancellable, NULL);
 
 	for (iter = emf->mail_part_list; iter != NULL; iter = iter->next) {
 
@@ -312,9 +322,25 @@ efhp_write_print_layout (EMFormat *emf,
 
 		/* To late to change .headers writer_func, do it manually. */
 		if (g_str_has_suffix (puri->uri, ".headers")) {
-			efhp_write_headers (emf, puri, stream, info, cancellable);
+			efhp_write_headers (emf, puri, stream, &print_info, cancellable);
 			continue;
 		}
+
+		if (g_str_has_suffix (puri->uri, ".rfc822")) {
+
+                        while (iter && !g_str_has_suffix (puri->uri, ".rfc822.end")) {
+
+                                iter = iter->next;
+                                if (iter)
+                                        puri = iter->data;
+                        }
+
+                        if (!iter)
+                                break;
+
+                        continue;
+
+                }
 
 		if (puri->is_attachment || g_str_has_suffix (puri->uri, ".attachment")) {
 			const EMFormatHandler *handler;
@@ -323,8 +349,8 @@ efhp_write_print_layout (EMFormat *emf,
 			gchar *mime_type = camel_content_type_simple (ct);
 
 			handler = em_format_find_handler (puri->emf, mime_type);
-                        g_message ("Handler for PURI %s (%s): %s", puri->uri, mime_type,
-                                 handler ? handler->mime_type : "(null)");
+                        d(printf("Handler for PURI %s (%s): %s", puri->uri, mime_type,
+                                 handler ? handler->mime_type : "(null)"));
                         g_free (mime_type);
 
                         efhp->priv->attachments =
@@ -430,7 +456,7 @@ efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
 }
 
 static EMFormatHandler type_builtin_table[] = {
-	//{ (gchar *) "x-evolution/message/headers", 0, efhp_write_headers, },
+        { (gchar *) "x-evolution/message/headers", 0, efhp_write_headers, },
 };
 
 static void

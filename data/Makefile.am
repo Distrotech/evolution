@@ -40,6 +40,7 @@ themedir = $(privdatadir)/theme
 dist_theme_DATA =	\
 	default.css	\
 	webview.css	\
+	webview-print.css \
 	tab-bar-background.png \
 	tab-switcher.png 	\
 	tab-switcher-hover.png	\

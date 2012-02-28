@@ -44,6 +44,8 @@ enum {
         BUTTONS_COUNT
 };
 
+#define w(x)
+
 struct _EMailPrinterPrivate {
 	EMFormatHTMLPrint *efhp;
 
@@ -173,6 +175,15 @@ emp_run_print_operation (EMailPrinter *emp,
 		emp->priv->webview = WEBKIT_WEB_VIEW (e_web_view_new ());
                 e_web_view_set_enable_frame_flattening (E_WEB_VIEW (emp->priv->webview), FALSE);
                 g_object_ref_sink (emp->priv->webview);
+
+                w({
+                        GtkWidget *window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+                        GtkWidget *sw = gtk_scrolled_window_new (NULL, NULL);
+                        gtk_container_add (GTK_CONTAINER (window), sw);
+                        gtk_container_add (GTK_CONTAINER (sw),
+                                           GTK_WIDGET (emp->priv->webview));
+                        gtk_widget_show_all (window);
+                });
 	}
 
         webkit_web_view_load_uri (emp->priv->webview, emp->priv->uri);
