@@ -444,6 +444,11 @@ mail_display_resource_requested (WebKitWebView *web_view,
 	EMFormat *formatter = EM_FORMAT (display->priv->formatter);
 	const gchar *uri = webkit_network_request_get_uri (request);
 
+        if (!formatter) {
+                webkit_network_request_set_uri (request, "invalid://uri");
+                return;
+        }
+
         /* Redirect cid:part_id to mail://mail_id/cid:part_id */
         if (g_str_has_prefix (uri, "cid:")) {
 
