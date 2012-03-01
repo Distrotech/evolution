@@ -96,6 +96,10 @@ gchar*			e_mail_display_get_selection_plain_text
 
 void                    e_mail_display_load_images      (EMailDisplay *display);
 
+void                    e_mail_display_set_force_load_images
+                                                        (EMailDisplay *display,
+                                                         gboolean force_load_images);
+
 G_END_DECLS
 
 #endif /* E_MAIL_DISPLAY_H */

@@ -730,6 +730,65 @@ efh_write_text_plain (EMFormat *emf,
 	camel_stream_write_string (stream, "</div></div>\n", cancellable, NULL);
 }
 
+static gchar*
+get_tag (const gchar *tag_name,
+	 gchar *opening,
+	 gchar *closing)
+{
+	gchar *t;
+	gboolean has_end;
+
+	for (t = closing - 1; t != opening; t--) {
+		if (*t != ' ')
+			break;
+	}
+
+	/* Not a pair tag */
+	if (*t == '/')
+		return g_strndup (opening, closing - opening + 1);
+
+	for (t = closing; t && *t; t++) {
+		if (*t == '<')
+			break;
+	}
+
+	do {
+		if (*t == '/') {
+			has_end = TRUE;
+			break;
+		}
+
+		if (*t == '>') {
+			has_end = FALSE;
+			break;
+		}
+
+		t++;
+
+	} while (t && *t);
+
+	/* Broken HTML? */
+	if (!has_end)
+		return g_strndup (opening, closing - opening + 1);
+
+	do {
+		if ((*t != ' ') && (*t != '/'))
+			break;
+
+                t++;
+	} while (t && *t);
+
+	if (g_strncasecmp (t, tag_name, strlen (tag_name)) == 0) {
+
+		closing = strstr (t, ">");
+
+		return g_strndup (opening, closing - opening + strlen(tag_name));
+	}
+
+	/* Broken HTML? */
+	return g_strndup (opening, closing - opening + 1);
+}
+
 static void
 efh_write_text_html (EMFormat *emf,
 		     EMFormatPURI *puri,
@@ -746,31 +805,136 @@ efh_write_text_html (EMFormat *emf,
                 em_format_format_text (emf, stream,
                         (CamelDataWrapper *) puri->part, cancellable);
 
-        } else {
-                gchar *str;
-                gchar *uri;
+        } else if (info->mode == EM_FORMAT_WRITE_MODE_PRINTING) {
+		GString *string;
+		CamelDataWrapper *dw;
+		GByteArray *ba;
+		gchar *pos;
+		GList *tags, *iter;
+		gboolean valid;
+		gchar *tag;
+		const gchar *document_end;
+		gint length;
+		gint i;
 
-                uri = em_format_build_mail_uri (emf->folder, emf->message_uid,
-                        "part_id", G_TYPE_STRING, puri->uri,
-                        "mode", G_TYPE_INT, EM_FORMAT_WRITE_MODE_RAW,
-                        NULL);
+		dw = camel_medium_get_content ((CamelMedium *) puri->part);
+		ba = camel_data_wrapper_get_byte_array (dw);
 
-                str = g_strdup_printf (
-                        "<div class=\"part-container\" style=\"border: solid #%06x 1px; "
-                        "background-color: #%06x;\">"
-                        "<div class=\"part-container-inner-margin\">\n"
-                        "<iframe width=\"100%%\" height=\"auto\""
-                        " frameborder=\"0\" src=\"%s\"></iframe>"
+		string = g_string_new_len ((gchar *) ba->data, ba->len);
+
+		tags = NULL;
+		pos = string->str;
+		valid = FALSE;
+		do {
+			gchar *closing;
+			gchar *opening;
+
+			pos = strstr (pos + 1, "<");
+			if (!pos)
+				break;
+
+			opening = pos;
+			closing = strstr (pos, ">");
+
+			/* Find where the actual tag name begins */
+			for (tag = pos + 1; tag && *tag; tag++) {
+				if (*tag != ' ')
+					break;
+			}
+
+			if (g_ascii_strncasecmp (tag, "style", 5) == 0) {
+				tags = g_list_append (
+					tags,
+					get_tag ("style", opening, closing));
+			} else if (g_ascii_strncasecmp (tag, "script", 6) == 0) {
+				tags = g_list_append (
+					tags,
+                                        get_tag ("script", opening, closing));
+			} else if (g_ascii_strncasecmp (tag, "link", 4) == 0) {
+				tags = g_list_append (
+					tags,
+                                        get_tag ("link", opening, closing));
+			} else if (g_ascii_strncasecmp (tag, "body", 4) == 0) {
+				valid = TRUE;
+				break;
+			}
+
+		} while (TRUE);
+
+		/* Something's wrong, let's write the entire HTML and hope
+		 * that WebKit can handle it */
+		if (!valid) {
+			EMFormatWriterInfo i = *info;
+			i.mode = EM_FORMAT_WRITE_MODE_RAW;
+			efh_write_text_html (emf, puri, stream, &i, cancellable);
+			return;
+		}
+
+		/*	        include the "body" as well -----v */
+		g_string_erase (string, 0, tag - string->str + 4);
+		g_string_prepend (string, "<div ");
+
+		for (iter = tags; iter; iter = iter->next) {
+			g_string_prepend (string, iter->data);
+		}
+
+		g_list_free_full (tags, g_free);
+
+		/* that's reversed </body></html>... */
+		document_end = ">lmth/<>ydob/<";
+		length = strlen (document_end);
+		tag = string->str + string->len - 1;
+		i = 0;
+		valid = FALSE;
+		while (i < length - 1) {
+
+			if (g_ascii_isspace (*tag)) {
+				tag--;
+				continue;
+			}
+
+			if (*tag == document_end[i]) {
+				tag--;
+				i++;
+				valid = TRUE;
+				continue;
+			}
+
+			valid = FALSE;
+		}
+
+		if (valid)
+			g_string_truncate (string, tag - string->str);
+
+		camel_stream_write_string (stream, string->str, cancellable, NULL);
+
+		g_string_free (string, TRUE);
+	} else {
+		gchar *str;
+		gchar *uri;
+
+		uri = em_format_build_mail_uri (
+                                emf->folder, emf->message_uid,
+				"part_id", G_TYPE_STRING, puri->uri,
+				"mode", G_TYPE_INT, EM_FORMAT_WRITE_MODE_RAW,
+                                NULL);
+
+		str = g_strdup_printf (
+			"<div class=\"part-container\" style=\"border-color: #%06x; "
+			"background-color: #%06x;\">"
+			"<div class=\"part-container-inner-margin\">\n"
+			"<iframe width=\"100%%\" height=\"auto\""
+			" frameborder=\"0\" src=\"%s\"></iframe>"
                         "</div></div>",
                         e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_FRAME]),
                         e_color_to_value (&efh->priv->colors[EM_FORMAT_HTML_COLOR_CONTENT]),
-                        uri);
+			uri);
 
-                camel_stream_write_string (stream, str, cancellable, NULL);
+		camel_stream_write_string (stream, str, cancellable, NULL);
 
-                g_free (str);
-                g_free (uri);
-        }
+		g_free (str);
+		g_free (uri);
+	}
 }
 
 static void

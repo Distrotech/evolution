@@ -31,6 +31,7 @@
 
 #include "e-mail-printer.h"
 #include "em-format-html-print.h"
+#include "e-mail-display.h"
 
 static gpointer parent_class = NULL;
 
@@ -48,6 +49,8 @@ enum {
 
 struct _EMailPrinterPrivate {
 	EMFormatHTMLPrint *efhp;
+
+        gboolean export_mode;
 
 	GtkListStore *headers;
 
@@ -147,13 +150,44 @@ emp_printing_done (GtkPrintOperation *operation,
 }
 
 static void
-emp_run_print_operation (EMailPrinter *emp,
-			 gboolean export)
+emp_start_printing (GObject *object,
+                    GParamSpec *pspec,
+                    gpointer user_data)
+{
+        WebKitWebView *web_view;
+        WebKitWebFrame *frame;
+        WebKitLoadStatus load_status;
+        EMailPrinter *emp = user_data;
+
+        web_view = WEBKIT_WEB_VIEW (object);
+        load_status = webkit_web_view_get_load_status (web_view);
+
+        if (load_status != WEBKIT_LOAD_FINISHED)
+                return;
+
+        frame = webkit_web_view_get_main_frame (web_view);
+
+        if (emp->priv->export_mode) {
+                gtk_print_operation_set_export_filename (
+                        emp->priv->operation,
+                        emp->priv->efhp->export_filename);
+                webkit_web_frame_print_full (
+                        frame, emp->priv->operation,
+                        GTK_PRINT_OPERATION_ACTION_EXPORT, NULL);
+        } else {
+                webkit_web_frame_print_full
+                (frame, emp->priv->operation,
+                 GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, NULL);
+        }
+
+}
+
+static void
+emp_run_print_operation (EMailPrinter *emp)
 {
 	EMFormat *emf;
 	SoupSession *session;
 	GHashTable *formatters;
-	WebKitWebFrame *frame;
 	gchar *mail_uri;
 
 	emf = EM_FORMAT (emp->priv->efhp);
@@ -169,12 +203,17 @@ emp_run_print_operation (EMailPrinter *emp,
 	/* Print_layout is a special EMPart created by EMFormatHTMLPrint */
         if (emp->priv->uri)
                 g_free (emp->priv->uri);
-        emp->priv->uri = g_strconcat (mail_uri, "?part_id=print_layout", NULL);
+
+        emp->priv->uri = g_strconcat (mail_uri, "?part_id=print_layout&__evo-load-images=1", NULL);
 
         if (emp->priv->webview == NULL) {
-		emp->priv->webview = WEBKIT_WEB_VIEW (e_web_view_new ());
+		emp->priv->webview = g_object_new (E_TYPE_MAIL_DISPLAY, NULL);
                 e_web_view_set_enable_frame_flattening (E_WEB_VIEW (emp->priv->webview), FALSE);
+                e_mail_display_set_force_load_images (
+                                E_MAIL_DISPLAY (emp->priv->webview), TRUE);
                 g_object_ref_sink (emp->priv->webview);
+                g_signal_connect (emp->priv->webview, "notify::load-status",
+                        G_CALLBACK (emp_start_printing), emp);
 
                 w({
                         GtkWidget *window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
@@ -186,16 +225,10 @@ emp_run_print_operation (EMailPrinter *emp,
                 });
 	}
 
+	e_mail_display_set_formatter (E_MAIL_DISPLAY (emp->priv->webview),
+                                      (EMFormatHTML *) emp->priv->efhp);
+
         webkit_web_view_load_uri (emp->priv->webview, emp->priv->uri);
-
-	frame = webkit_web_view_get_main_frame (emp->priv->webview);
-
-	if (export) {
-		gtk_print_operation_set_export_filename (emp->priv->operation, emp->priv->efhp->export_filename);
-		webkit_web_frame_print_full (frame, emp->priv->operation, GTK_PRINT_OPERATION_ACTION_EXPORT, NULL);
-	} else {
-		webkit_web_frame_print_full (frame, emp->priv->operation, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG, NULL);
-	}
 
 	g_free (mail_uri);
 }
@@ -764,7 +797,7 @@ e_mail_printer_new (EMFormatHTML* source)
 
 void
 e_mail_printer_print (EMailPrinter *emp,
-		      gboolean export,
+		      gboolean export_mode,
 		      GCancellable *cancellable)
 {
 	g_return_if_fail (E_IS_MAIL_PRINTER (emp));
@@ -782,11 +815,13 @@ e_mail_printer_print (EMailPrinter *emp,
         g_signal_connect (emp->priv->operation, "draw-page",
                 G_CALLBACK (emp_draw_footer), NULL);
 
+        emp->priv->export_mode = export_mode;
+
         if (cancellable)
                 g_signal_connect_swapped (cancellable, "cancelled",
 		        G_CALLBACK (gtk_print_operation_cancel), emp->priv->operation);
 
-	emp_run_print_operation (emp, export);
+	emp_run_print_operation (emp);
 }
 
 const gchar*

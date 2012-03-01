@@ -1581,3 +1581,12 @@ e_mail_display_load_images (EMailDisplay * display)
         display->priv->force_image_load = TRUE;
         e_web_view_reload (E_WEB_VIEW (display));
 }
+
+void
+e_mail_display_set_force_load_images (EMailDisplay *display,
+                                      gboolean force_load_images)
+{
+        g_return_if_fail (E_IS_MAIL_DISPLAY (display));
+
+        display->priv->force_image_load = force_load_images;
+}
