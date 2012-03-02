@@ -900,6 +900,7 @@ action_mail_smart_backward_cb (GtkAction *action,
 	EMailDisplay *display;
 	gboolean caret_mode;
 	gboolean magic_spacebar;
+        gdouble value;
 
 	/* This implements the so-called "Magic Backspace". */
 
@@ -929,31 +930,38 @@ action_mail_smart_backward_cb (GtkAction *action,
                 return;
 
         adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (window));
-        gtk_adjustment_set_value (adj,
-                gtk_adjustment_get_value(adj) - gtk_adjustment_get_page_increment(adj));
+        value = gtk_adjustment_get_value (adj);
+        if (value == 0) {
 
+                if (caret_mode || !magic_spacebar)
+                        return;
 
-	if (caret_mode || !magic_spacebar)
-		return;
+                /* XXX Are two separate calls really necessary? */
 
-	/* XXX Are two separate calls really necessary? */
+                if (message_list_select (
+                    MESSAGE_LIST (message_list),
+                    MESSAGE_LIST_SELECT_PREVIOUS,
+                    0, CAMEL_MESSAGE_SEEN))
+                        return;
 
-	if (message_list_select (
-		MESSAGE_LIST (message_list),
-		MESSAGE_LIST_SELECT_PREVIOUS,
-		0, CAMEL_MESSAGE_SEEN))
-		return;
+                if (message_list_select (
+                    MESSAGE_LIST (message_list),
+                    MESSAGE_LIST_SELECT_PREVIOUS |
+                    MESSAGE_LIST_SELECT_WRAP,
+                    0, CAMEL_MESSAGE_SEEN))
+                        return;
 
-	if (message_list_select (
-		MESSAGE_LIST (message_list),
-		MESSAGE_LIST_SELECT_PREVIOUS |
-		MESSAGE_LIST_SELECT_WRAP, 0,
-		CAMEL_MESSAGE_SEEN))
-		return;
+                em_folder_tree_select_next_path (folder_tree, TRUE);
 
-	em_folder_tree_select_prev_path (folder_tree, TRUE);
+                gtk_widget_grab_focus (message_list);
 
-	gtk_widget_grab_focus (message_list);
+        } else {
+
+                gtk_adjustment_set_value (adj,
+                        value - gtk_adjustment_get_page_increment (adj));
+
+                return;
+        }
 }
 
 static void
@@ -976,6 +984,8 @@ action_mail_smart_forward_cb (GtkAction *action,
 	EMailDisplay *display;
 	gboolean caret_mode;
 	gboolean magic_spacebar;
+        gdouble value;
+        gdouble upper;
 
 	/* This implements the so-called "Magic Spacebar". */
 
@@ -1003,33 +1013,41 @@ action_mail_smart_forward_cb (GtkAction *action,
         window = gtk_widget_get_parent (GTK_WIDGET (display));
         if (!GTK_IS_SCROLLED_WINDOW (window))
                 return;
-        
+
         adj = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (window));
-        gtk_adjustment_set_value (adj,
-                gtk_adjustment_get_value(adj) + gtk_adjustment_get_page_increment(adj));
-        
-        
-	if (caret_mode || !magic_spacebar)
-		return;
+        value = gtk_adjustment_get_value (adj);
+        upper = gtk_adjustment_get_upper (adj);
+        if (value + gtk_adjustment_get_page_size (adj) >= upper) {
 
-	/* XXX Are two separate calls really necessary? */
+                if (caret_mode || !magic_spacebar)
+                        return;
 
-	if (message_list_select (
-		MESSAGE_LIST (message_list),
-		MESSAGE_LIST_SELECT_NEXT,
-		0, CAMEL_MESSAGE_SEEN))
-		return;
+                /* XXX Are two separate calls really necessary? */
 
-	if (message_list_select (
-		MESSAGE_LIST (message_list),
-		MESSAGE_LIST_SELECT_NEXT |
-		MESSAGE_LIST_SELECT_WRAP,
-		0, CAMEL_MESSAGE_SEEN))
-		return;
+                if (message_list_select (
+                    MESSAGE_LIST (message_list),
+                    MESSAGE_LIST_SELECT_NEXT,
+                    0, CAMEL_MESSAGE_SEEN))
+                        return;
 
-	em_folder_tree_select_next_path (folder_tree, TRUE);
+                if (message_list_select (
+                    MESSAGE_LIST (message_list),
+                    MESSAGE_LIST_SELECT_NEXT |
+                    MESSAGE_LIST_SELECT_WRAP,
+                    0, CAMEL_MESSAGE_SEEN))
+                        return;
 
-	gtk_widget_grab_focus (message_list);
+                em_folder_tree_select_next_path (folder_tree, TRUE);
+
+                gtk_widget_grab_focus (message_list);
+
+        } else {
+
+                gtk_adjustment_set_value (adj,
+                        value + gtk_adjustment_get_page_increment (adj));
+
+                return;
+        }
 }
 
 static void
