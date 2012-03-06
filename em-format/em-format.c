@@ -730,7 +730,8 @@ emf_parse_multipart_digest (EMFormat *emf,
 		}
 
 		handler = em_format_find_handler (emf, "message/rfc822");
-		handler->parse_func (emf, subpart, part_id, info, cancellable);
+		if (handler && handler->parse_func)
+			handler->parse_func (emf, subpart, part_id, info, cancellable);
 
 		g_string_truncate (part_id, len);
 	}
