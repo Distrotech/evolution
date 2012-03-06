@@ -3810,6 +3810,7 @@ e_mail_reader_init (EMailReader *reader,
 	g_return_if_fail (E_IS_MAIL_READER (reader));
 
 	message_list = e_mail_reader_get_message_list (reader);
+        display = e_mail_reader_get_mail_display (reader);
 
 	if (!init_actions)
 		goto connect_signals;
@@ -4033,11 +4034,9 @@ connect_signals:
 		goto init_private;
 
 	/* Connect signals. */
-	/* WEBKIT FIXME
 	g_signal_connect_swapped (
-		web_view, "key-press-event",
+		display, "key-press-event",
 		G_CALLBACK (mail_reader_key_press_event_cb), reader);
-	 */
 
 	g_signal_connect_swapped (
 		message_list, "message-selected",
