@@ -728,27 +728,23 @@ static void
 mail_paned_view_set_search_strings (EMailView *view,
                                     GSList *search_strings)
 {
-#if 0  /* WEBKIT */
-	EPreviewPane *preview_pane;
-	ESearchBar *search_bar;
-	ESearchingTokenizer *tokenizer;
+	EMailDisplay *display;
+        EWebView *web_view;
+        EMailReader *reader;
 
 	reader = E_MAIL_READER (view);
-	preview_pane = e_mail_reader_get_preview_pane (reader);
-	search_bar = e_preview_pane_get_search_bar (preview_pane);
-	tokenizer = e_search_bar_get_tokenizer (search_bar);
+	display = e_mail_reader_get_mail_display (reader);
+        if (!display)
+                return;
 
-	e_searching_tokenizer_set_secondary_case_sensitivity (tokenizer, FALSE);
-	e_searching_tokenizer_set_secondary_search_string (tokenizer, NULL);
+        web_view = E_WEB_VIEW (display);
+
+        e_web_view_clear_highlights (web_view);
 
 	while (search_strings != NULL) {
-		e_searching_tokenizer_add_secondary_search_string (
-			tokenizer, search_strings->data);
+		e_web_view_add_highlight (web_view, search_strings->data);
 		search_strings = g_slist_next (search_strings);
 	}
-
-	e_search_bar_changed (search_bar);
-#endif
 }
 
 static GalViewInstance *

@@ -76,6 +76,11 @@ object { /* GtkWidgets */
   margin-bottom: 2px;
 }
 
+.__evo-highlight {
+  color: purple;
+  font-weight: bold;
+}
+
 /***** PRINTING *******/
 
 .printing-header {

@@ -510,12 +510,6 @@ e_search_bar_init (ESearchBar *search_bar)
 
 	search_bar->priv = E_SEARCH_BAR_GET_PRIVATE (search_bar);
 
-#if 0  /* WEBKIT */
-	g_signal_connect_swapped (
-		search_bar->priv->tokenizer, "match",
-		G_CALLBACK (search_bar_update_matches), search_bar);
-#endif
-
 	gtk_box_set_spacing (GTK_BOX (search_bar), 12);
 
 	container = GTK_WIDGET (search_bar);

@@ -49,7 +49,6 @@ widgetsinclude_HEADERS =			\
 	e-preview-pane.h			\
 	e-printable.h				\
 	e-search-bar.h				\
-	e-searching-tokenizer.h			\
 	e-selectable.h				\
 	e-selection-model.h			\
 	e-selection-model-array.h		\
@@ -132,7 +131,6 @@ libemiscwidgets_la_SOURCES =			\
 	e-preview-pane.c			\
 	e-printable.c				\
 	e-search-bar.c				\
-	e-searching-tokenizer.c			\
 	e-selectable.c				\
 	e-selection-model.c			\
 	e-selection-model-array.c		\

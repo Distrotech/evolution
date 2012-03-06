@@ -58,6 +58,8 @@ struct _EWebViewPrivate {
 
 	GHashTable *js_callbacks;
 
+        GSList *highlights;
+
 	GtkAction *open_proxy;
 	GtkAction *print_proxy;
 	GtkAction *save_as_proxy;
@@ -349,6 +351,135 @@ web_view_menu_item_select_cb (EWebView *web_view,
 }
 
 static void
+replace_text (WebKitDOMNode *node,
+              const gchar *text,
+              WebKitDOMNode *replacement)
+{
+        /* NodeType 3 = TEXT_NODE */
+        if (webkit_dom_node_get_node_type (node) == 3) {
+
+                gint text_length = strlen (text);
+
+                while (node) {
+
+                        WebKitDOMNode *current_node, *replacement_node;
+                        const gchar *node_data, *offset;
+                        goffset split_offset;
+                        gint data_length;
+
+                        current_node = node;
+
+                        /* Don't use the WEBKIT_DOM_CHARACTER_DATA macro for
+                         * casting. WebKit lies about type of the object and
+                         * GLib will throw runtime warning about node not being
+                         * WebKitDOMCharacterData, but the function will return
+                         * correct and valid data.
+                         * IMO it's bug in the Gtk bindings and WebKit internally
+                         * handles it by the nodeType so therefor it works
+                         * event for "invalid" objects. But really, who knows..?
+                         */
+                        node_data = webkit_dom_character_data_get_data (
+                                        (WebKitDOMCharacterData *) node);
+
+                        offset = strstr (node_data, text);
+                        if (!offset) {
+                                node = NULL;
+                                continue;
+                        }
+
+                        split_offset = offset - node_data + text_length;
+                        replacement_node =
+                                webkit_dom_node_clone_node (replacement, TRUE);
+
+                        data_length = webkit_dom_character_data_get_length(
+                                        (WebKitDOMCharacterData *) node);
+                        if (split_offset < data_length) {
+
+                                WebKitDOMNode *parent_node;
+
+                                node = WEBKIT_DOM_NODE (
+                                        webkit_dom_text_split_text (
+                                                (WebKitDOMText *) node,
+                                                offset - node_data + text_length,
+                                                NULL));
+                                parent_node = webkit_dom_node_get_parent_node(node);
+                                webkit_dom_node_insert_before (
+                                        parent_node, replacement_node,
+                                        node, NULL);
+
+                        } else {
+                                WebKitDOMNode *parent_node;
+
+                                parent_node = webkit_dom_node_get_parent_node (node);
+                                webkit_dom_node_append_child (
+                                        parent_node,
+                                        replacement_node, NULL);
+                        }
+
+                        webkit_dom_character_data_delete_data (
+                                (WebKitDOMCharacterData *) (current_node),
+                                offset - node_data, text_length, NULL);
+                }
+
+        } else {
+
+                WebKitDOMNode *child, *next_child;
+
+                /* Iframe? Let's traverse inside! */
+                if (WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (node)) {
+
+                        WebKitDOMDocument *frame_document;
+
+                        frame_document =
+                                webkit_dom_html_iframe_element_get_content_document(
+                                        WEBKIT_DOM_HTML_IFRAME_ELEMENT (node));
+                        replace_text (WEBKIT_DOM_NODE (frame_document),
+                                      text, replacement);
+
+                } else {
+
+                        child = webkit_dom_node_get_first_child (node);
+                        while (child) {
+                                next_child = webkit_dom_node_get_next_sibling (child);
+                                replace_text (child, text, replacement);
+                                child = next_child;
+                        }
+                }
+        }
+
+}
+
+
+static void
+web_view_update_document_highlights (EWebView *web_view)
+{
+        WebKitDOMDocument *document;
+        GSList *iter;
+
+        document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (web_view));
+
+        for (iter = web_view->priv->highlights; iter; iter = iter->next) {
+
+                WebKitDOMDocumentFragment *frag;
+                WebKitDOMElement *span;
+
+                span = webkit_dom_document_create_element (document, "span", NULL);
+                webkit_dom_html_element_set_class_name (
+                        WEBKIT_DOM_HTML_ELEMENT (span), "__evo-highlight");
+                webkit_dom_html_element_set_inner_text (
+                        WEBKIT_DOM_HTML_ELEMENT (span), iter->data, NULL);
+
+                frag = webkit_dom_document_create_document_fragment (document);
+                webkit_dom_node_append_child (
+                        WEBKIT_DOM_NODE (frag), WEBKIT_DOM_NODE (span), NULL);
+
+                replace_text(WEBKIT_DOM_NODE (document),
+                        iter->data, WEBKIT_DOM_NODE (frag));
+        }
+}
+
+
+static void
 web_view_menu_item_deselect_cb (EWebView *web_view)
 {
 	e_web_view_status_message (web_view, NULL);
@@ -435,6 +566,20 @@ web_view_navigation_policy_decision_requested_cb (EWebView *web_view,
 	class->link_clicked (web_view, uri);
 
 	return TRUE;
+}
+
+static void
+web_view_load_status_changed_cb (WebKitWebView *web_view,
+                                 GParamSpec *pspec,
+                                 gpointer user_data)
+{
+        WebKitLoadStatus status;
+
+        status = webkit_web_view_get_load_status (web_view);
+        if (status != WEBKIT_LOAD_FINISHED)
+                return;
+
+        web_view_update_document_highlights (E_WEB_VIEW (web_view));
 }
 
 static void
@@ -656,6 +801,11 @@ web_view_dispose (GObject *object)
 		g_hash_table_destroy (priv->js_callbacks);
 		priv->js_callbacks = NULL;
 	}
+
+	if (priv->highlights != NULL) {
+                g_slist_free_full (priv->highlights, g_free);
+                priv->highlights = NULL;
+        }
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -1538,6 +1688,8 @@ e_web_view_init (EWebView *web_view)
 
 	web_view->priv = E_WEB_VIEW_GET_PRIVATE (web_view);
 
+        web_view->priv->highlights = NULL;
+
 	g_signal_connect (
 		web_view, "create-plugin-widget",
 		G_CALLBACK (web_view_create_plugin_widget_cb), NULL);
@@ -1550,6 +1702,10 @@ e_web_view_init (EWebView *web_view)
 		web_view, "navigation-policy-decision-requested",
 		G_CALLBACK (web_view_navigation_policy_decision_requested_cb),
 		NULL);
+
+        g_signal_connect (
+                web_view, "notify::load-status",
+                G_CALLBACK (web_view_load_status_changed_cb), NULL);
 
 	ui_manager = gtk_ui_manager_new ();
 	web_view->priv->ui_manager = ui_manager;
@@ -2385,6 +2541,40 @@ e_web_view_set_save_as_proxy (EWebView *web_view,
 	web_view->priv->save_as_proxy = save_as_proxy;
 
 	g_object_notify (G_OBJECT (web_view), "save-as-proxy");
+}
+
+GSList*
+e_web_view_get_highlights (EWebView *web_view)
+{
+        g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
+
+        return web_view->priv->highlights;
+}
+
+void
+e_web_view_add_highlight (EWebView *web_view,
+                          const gchar *highlight)
+{
+        g_return_if_fail (E_IS_WEB_VIEW (web_view));
+        g_return_if_fail (highlight && *highlight);
+
+        web_view->priv->highlights =
+                g_slist_append (web_view->priv->highlights, g_strdup (highlight));
+
+        web_view_update_document_highlights (web_view);
+}
+
+void e_web_view_clear_highlights (EWebView *web_view)
+{
+        g_return_if_fail (E_IS_WEB_VIEW (web_view));
+
+        if (!web_view->priv->highlights)
+                return;
+
+        g_slist_free_full (web_view->priv->highlights, g_free);
+        web_view->priv->highlights = NULL;
+
+        web_view_update_document_highlights (web_view);
 }
 
 GtkAction *
