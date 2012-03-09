@@ -73,7 +73,6 @@ struct _EWebViewPrivate {
 
 enum {
 	PROP_0,
-	PROP_ANIMATE,
 	PROP_CARET_MODE,
 	PROP_COPY_TARGET_LIST,
 	PROP_CURSOR_IMAGE,
@@ -589,12 +588,6 @@ web_view_set_property (GObject *object,
                        GParamSpec *pspec)
 {
 	switch (property_id) {
-		case PROP_ANIMATE:
-			e_web_view_set_animate (
-				E_WEB_VIEW (object),
-				g_value_get_boolean (value));
-			return;
-
 		case PROP_CARET_MODE:
 			e_web_view_set_caret_mode (
 				E_WEB_VIEW (object),
@@ -678,12 +671,6 @@ web_view_get_property (GObject *object,
                        GParamSpec *pspec)
 {
 	switch (property_id) {
-		case PROP_ANIMATE:
-			g_value_set_boolean (
-				value, e_web_view_get_animate (
-				E_WEB_VIEW (object)));
-			return;
-
 		case PROP_CARET_MODE:
 			g_value_set_boolean (
 				value, e_web_view_get_caret_mode (
@@ -1479,16 +1466,6 @@ e_web_view_class_init (EWebViewClass *class)
 
 	g_object_class_install_property (
 		object_class,
-		PROP_ANIMATE,
-		g_param_spec_boolean (
-			"animate",
-			"Animate Images",
-			NULL,
-			FALSE,
-			G_PARAM_READWRITE));
-
-	g_object_class_install_property (
-		object_class,
 		PROP_CARET_MODE,
 		g_param_spec_boolean (
 			"caret-mode",
@@ -2141,38 +2118,6 @@ e_web_view_install_js_callback (EWebView *web_view, const gchar *fnc_name, EWebV
 	JSStringRelease (js_fnc_name);
 
 	g_hash_table_insert (web_view->priv->js_callbacks, g_strdup (fnc_name), callback);
-}
-
-gboolean
-e_web_view_get_animate (EWebView *web_view)
-{
-#if 0  /* WEBKIT - XXX No equivalent property? */
-	/* XXX This is just here to maintain symmetry
-	 *     with e_web_view_set_animate(). */
-
-	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), FALSE);
-
-	return gtk_html_get_animate (GTK_HTML (web_view));
-#endif
-
-	return FALSE;
-}
-
-void
-e_web_view_set_animate (EWebView *web_view,
-                        gboolean animate)
-{
-#if 0  /* WEBKIT - XXX No equivalent property? */
-	/* XXX GtkHTML does not utilize GObject properties as well
-	 *     as it could.  This just wraps gtk_html_set_animate()
-	 *     so we can get a "notify::animate" signal. */
-
-	g_return_if_fail (E_IS_WEB_VIEW (web_view));
-
-	gtk_html_set_animate (GTK_HTML (web_view), animate);
-
-	g_object_notify (G_OBJECT (web_view), "animate");
-#endif
 }
 
 gboolean

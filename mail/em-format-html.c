@@ -83,6 +83,7 @@ struct _EMFormatHTMLPrivate {
 	guint only_local_photos	: 1;
 	guint show_sender_photo	: 1;
 	guint show_real_date	: 1;
+        guint animate_images    : 1;
 };
 
 static gpointer parent_class;
@@ -100,6 +101,7 @@ enum {
 	PROP_SHOW_SENDER_PHOTO,
 	PROP_SHOW_REAL_DATE,
 	PROP_TEXT_COLOR,
+        PROP_ANIMATE_IMAGES
 };
 
 #define EFM_MESSAGE_START_ANAME "evolution_message_start"
@@ -565,33 +567,81 @@ efh_write_image (EMFormat *emf,
 		 GCancellable *cancellable)
 {
 	gchar *content;
+        EMFormatHTML *efh;
 	CamelDataWrapper *dw;
 	GByteArray *ba;
 
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
 
+        efh = (EMFormatHTML *) emf;
+
 	dw = camel_medium_get_content (CAMEL_MEDIUM (puri->part));
 	g_return_if_fail (dw);
 
 	ba = camel_data_wrapper_get_byte_array (dw);
-	content = g_strndup ((gchar *) ba->data, ba->len);
 
 	if (info->mode == EM_FORMAT_WRITE_MODE_RAW) {
-		CamelStream *stream_filter;
-		CamelMimeFilter *filter;
 
-		filter = camel_mime_filter_basic_new (CAMEL_MIME_FILTER_BASIC_BASE64_DEC);
-		stream_filter = camel_stream_filter_new (stream);
-		camel_stream_filter_add ((CamelStreamFilter *) stream_filter, filter);
+                if (!efh->priv->animate_images) {
 
-		camel_stream_write_string (stream_filter, content, cancellable, NULL);
+                        gchar *buff;
+                        gsize len;
+                        gchar *data;
+                        GByteArray anim;
 
-		g_object_unref (filter);
-		g_object_unref (stream_filter);
+                        data = g_strndup ((gchar *) ba->data, (gsize) ba->len);
+                        anim.data = g_base64_decode (data, (gsize *) &(anim.len));
+                        g_free (data);
+
+                        em_format_html_animation_extract_frame (&anim, &buff, &len);
+
+                        camel_stream_write (stream, buff, len, cancellable, NULL);
+
+                        g_free (buff);
+                        g_free (anim.data);
+
+                } else {
+                        CamelStream *stream_filter;
+                        CamelMimeFilter *filter;
+
+                        stream_filter = camel_stream_filter_new (stream);
+                        filter = camel_mime_filter_basic_new (
+                                        CAMEL_MIME_FILTER_BASIC_BASE64_DEC);
+
+                        camel_stream_write (
+                                stream_filter,
+                                (gchar *) ba->data, ba->len,
+                                cancellable, NULL);
+                        g_object_unref (stream_filter);
+                        g_object_unref (filter);
+                }
 
 	} else {
+
 		gchar *buffer;
+
+                if (!efh->priv->animate_images) {
+
+                        gchar *buff;
+                        gsize len;
+                        gchar *data;
+                        GByteArray raw_data;
+
+                        data = g_strndup ((gchar *) ba->data, ba->len);
+                        raw_data.data =  (guint8 *) g_base64_decode (
+                                                data, (gsize *) &(raw_data.len));
+                        g_free (data);
+
+                        em_format_html_animation_extract_frame (&raw_data, &buff, &len);
+
+                        content = g_base64_encode ((guchar *) buff, len);
+                        g_free (buff);
+                        g_free (raw_data.data);
+
+                } else {
+                        content = g_strndup ((gchar *) ba->data, ba->len);
+                }
 
 		/* The image is already base64-encrypted so we can directly
 		   paste it to the output */
@@ -601,9 +651,8 @@ efh_write_image (EMFormat *emf,
 
 		camel_stream_write_string (stream, buffer, cancellable, NULL);
 		g_free (buffer);
+                g_free (content);
 	}
-
-	g_free (content);
 }
 
 static void
@@ -1331,6 +1380,12 @@ efh_set_property (GObject *object,
 				EM_FORMAT_HTML_COLOR_TEXT,
 				g_value_get_boxed (value));
 			return;
+
+                case PROP_ANIMATE_IMAGES:
+                        em_format_html_set_animate_images (
+                                EM_FORMAT_HTML (object),
+                                g_value_get_boolean (value));
+                        return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -1423,6 +1478,11 @@ efh_get_property (GObject *object,
 				&color);
 			g_value_set_boxed (value, &color);
 			return;
+                case PROP_ANIMATE_IMAGES:
+                        g_value_set_boolean (
+                                value, em_format_html_get_animate_images (
+                                EM_FORMAT_HTML (object)));
+                        return;
 	}
 
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -1739,7 +1799,15 @@ efh_class_init (EMFormatHTMLClass *klass)
 			GDK_TYPE_COLOR,
 			G_PARAM_READWRITE));
 
-
+        g_object_class_install_property (
+                object_class,
+                PROP_ANIMATE_IMAGES,
+                g_param_spec_boolean (
+                        "animate-images",
+                        "Animate images",
+                        NULL,
+                        FALSE,
+                        G_PARAM_READWRITE));
 }
 
 static void
@@ -1980,9 +2048,28 @@ em_format_html_set_show_real_date (EMFormatHTML *efh,
 {
 	g_return_if_fail (EM_IS_FORMAT_HTML (efh));
 
-	efh->priv->show_real_date =	show_real_date;
+	efh->priv->show_real_date = show_real_date;
 
 	g_object_notify (G_OBJECT (efh), "show-real-date");
+}
+
+gboolean
+em_format_html_get_animate_images (EMFormatHTML *efh)
+{
+        g_return_val_if_fail (EM_IS_FORMAT_HTML (efh), FALSE);
+
+        return efh->priv->animate_images;
+}
+
+void
+em_format_html_set_animate_images (EMFormatHTML *efh,
+                                   gboolean animate_images)
+{
+        g_return_if_fail (EM_IS_FORMAT_HTML (efh));
+
+        efh->priv->animate_images = animate_images;
+
+        g_object_notify (G_OBJECT (efh), "animate-images");
 }
 
 CamelMimePart *
@@ -2821,4 +2908,64 @@ em_format_html_can_load_images (EMFormatHTML *efh)
         return ((efh->priv->image_loading_policy == E_MAIL_IMAGE_LOADING_POLICY_ALWAYS) ||
                 ((efh->priv->image_loading_policy == E_MAIL_IMAGE_LOADING_POLICY_SOMETIMES) &&
                   efh->priv->can_load_images));
+}
+
+void
+em_format_html_animation_extract_frame (const GByteArray *anim,
+                                        gchar **frame,
+                                        gsize *len)
+{
+        GdkPixbufLoader *loader;
+        GdkPixbufAnimation *animation;
+        GdkPixbuf *frame_buf;
+
+        /* GIF89a (GIF image signature) */
+        const gchar GIF_HEADER[] = { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61 };
+        const int   GIF_HEADER_LEN = sizeof (GIF_HEADER);
+
+        /* NETSCAPE2.0 (extension describing animated GIF, starts on 0x310) */
+        const gchar GIF_APPEXT[] = { 0x4E, 0x45, 0x54, 0x53, 0x43, 0x41,
+                                     0x50, 0x45, 0x32, 0x2E, 0x30 };
+        const int   GIF_APPEXT_LEN = sizeof (GIF_APPEXT);
+
+        /* Check if the image is an animated GIF. We don't care about any
+         * other animated formats (APNG or MNG) as WebKit does not support them
+         * and displays only the first frame. */
+        if ((anim->len < 0x331)
+            || (memcmp (anim->data, GIF_HEADER, GIF_HEADER_LEN) != 0)
+            || (memcmp (&anim->data[0x310], GIF_APPEXT, GIF_APPEXT_LEN) != 0)) {
+
+                *frame = g_memdup (anim->data, anim->len);
+                *len = anim->len;
+                return;
+        }
+
+        loader = gdk_pixbuf_loader_new ();
+        gdk_pixbuf_loader_write (loader, (guchar *) anim->data, anim->len, NULL);
+        gdk_pixbuf_loader_close (loader, NULL);
+        animation = gdk_pixbuf_loader_get_animation (loader);
+        if (!animation) {
+
+                *frame = g_memdup (anim->data, anim->len);
+                *len = anim->len;
+                g_object_unref (loader);
+                return;
+        }
+
+        /* Extract first frame */
+        frame_buf = gdk_pixbuf_animation_get_static_image (animation);
+        if (!frame_buf) {
+                *frame = g_memdup (anim->data, anim->len);
+                *len = anim->len;
+                g_object_unref (loader);
+                g_object_unref (animation);
+                return;
+        }
+
+        /* Unforunatelly, GdkPixbuf cannot save to GIF, but WebKit does not
+         * have any trouble displaying PNG image despite the part having
+         * image/gif mime-type */
+        gdk_pixbuf_save_to_buffer (frame_buf, frame, len, "png", NULL, NULL);
+
+        g_object_unref (loader);
 }

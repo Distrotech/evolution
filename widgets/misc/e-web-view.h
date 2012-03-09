@@ -133,9 +133,6 @@ void		e_web_view_install_js_callback  (EWebView *web_view,
 						 EWebViewJSFunctionCallback callback,
 						 gpointer user_data);
 gchar *		e_web_view_get_html		(EWebView *web_view);
-gboolean	e_web_view_get_animate		(EWebView *web_view);
-void		e_web_view_set_animate		(EWebView *web_view,
-						 gboolean animate);
 gboolean	e_web_view_get_caret_mode	(EWebView *web_view);
 void		e_web_view_set_caret_mode	(EWebView *web_view,
 						 gboolean caret_mode);

@@ -163,7 +163,11 @@ gboolean	em_format_html_get_show_sender_photo
 void		em_format_html_set_show_sender_photo
 						(EMFormatHTML *efh,
 						 gboolean show_sender_photo);
-
+gboolean        em_format_html_get_animate_images
+                                                (EMFormatHTML *efh);
+void            em_format_html_set_animate_images
+                                                (EMFormatHTML *efh,
+                                                 gboolean animate_images);
 void		em_format_html_clone_sync	(CamelFolder *folder,
 						 const gchar *message_uid,
 						 CamelMimeMessage *message,
@@ -208,6 +212,11 @@ void		em_format_html_format_header	(EMFormat *emf,
 						 const gchar *charset);
 
 gboolean        em_format_html_can_load_images  (EMFormatHTML *efh);
+
+void            em_format_html_animation_extract_frame
+                                                (const GByteArray *anim,
+                                                 gchar **frame,
+                                                 gsize *len);
 
 G_END_DECLS
 
