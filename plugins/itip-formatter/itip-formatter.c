@@ -2699,9 +2699,9 @@ in_proper_folder (CamelFolder *folder)
 }
 
 static GtkWidget*
-format_itip_object (EMFormat *emf,
-				    EMFormatPURI *puri,
-				    GCancellable *cancellable)
+create_itip_widget (EMFormat *emf,
+                    EMFormatPURI *puri,
+                    GCancellable *cancellable)
 {
 	EShell *shell;
 	EShellSettings *shell_settings;
@@ -3126,7 +3126,7 @@ format_itip (EPlugin *ep,
 
 	puri = (struct _itip_puri *) em_format_puri_new (target->format, sizeof (struct _itip_puri), target->part, target->part_id->str);
 	puri->puri.write_func = write_itip_object;
-	puri->puri.widget_func = format_itip_object;
+        puri->puri.widget_func = create_itip_widget;
 	puri->puri.free = puri_free;
 	puri->puri.is_attachment = FALSE;
 	puri->delete_message = g_settings_get_boolean (settings, CONF_KEY_DELETE);
