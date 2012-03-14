@@ -583,8 +583,11 @@ mail_display_plugin_widget_resize (GObject *object,
 	gtk_widget_get_preferred_height (widget, &height, NULL);
         parent_element = g_object_get_data (object, "parent_element");
 
-        if (!parent_element)
+        if (!parent_element || !WEBKIT_DOM_IS_ELEMENT (parent_element)) {
+                d(printf("%s: %s does not have (valid) parent element!\n",
+                        G_STRFUNC, (gchar *) g_object_get_data (object, "uri")));
                 return;
+        }
 
         /* Int -> Str */
 	dim = g_strdup_printf ("%d", height);
@@ -594,9 +597,6 @@ mail_display_plugin_widget_resize (GObject *object,
         webkit_dom_html_object_element_set_height (
                 WEBKIT_DOM_HTML_OBJECT_ELEMENT (parent_element), dim);
         g_free (dim);
-
-	gtk_widget_queue_draw (GTK_WIDGET (display));
-	gtk_widget_queue_draw (widget);
 }
 
 static void
@@ -623,17 +623,15 @@ plugin_widget_set_parent_element (GtkWidget *widget,
         document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
         element = find_element_by_id (document, uri);
 
-        if (!element) {
+        if (!element || !WEBKIT_DOM_IS_ELEMENT (element)) {
                 g_warning ("Failed to find parent <object> for '%s' - no ID set?", uri);
                 return;
         }
 
         /* Assign the WebKitDOMElement to "parent_element" data of the GtkWidget
          * and the GtkWidget to "widget" data of the DOM Element */
-        g_object_set_data_full (G_OBJECT (widget), "parent_element",
-                g_object_ref (element), (GDestroyNotify) g_object_unref);
-        g_object_set_data_full (G_OBJECT (element), "widget",
-                g_object_ref (widget), (GDestroyNotify) g_object_unref);
+        g_object_set_data (G_OBJECT (widget), "parent_element", element);
+        g_object_set_data (G_OBJECT (element), "widget", widget);
 }
 
 static void
@@ -646,8 +644,17 @@ attachment_button_expanded (GObject *object,
         WebKitDOMCSSStyleDeclaration *css;
         gboolean expanded;
 
+        d(printf("Attachment button %s (%p) expansion state toggled!\n",
+                (gchar *) g_object_get_data (object, "uri"), object));
+
         expanded = e_attachment_button_get_expanded (button) &&
                         gtk_widget_get_visible (GTK_WIDGET (button));
+
+        if (!WEBKIT_DOM_IS_ELEMENT (attachment)) {
+                d(printf("%s: Parent element for button %s does not exist!\n",
+                        G_STRFUNC, (gchar *) g_object_get_data (object, "uri")));
+                return;
+        }
 
         /* Show or hide the DIV which contains the attachment (iframe, image...) */
         css = webkit_dom_element_get_style (attachment);
@@ -689,6 +696,7 @@ bind_iframe_content_visibility (EAttachmentButton *button,
                         WEBKIT_DOM_HTML_IFRAME_ELEMENT (iframe));
         nodes = webkit_dom_document_get_elements_by_tag_name (document, "object");
         length = webkit_dom_node_list_get_length (nodes);
+
         d(printf("Found %ld objects within iframe %s\n", length,
                 webkit_dom_html_iframe_element_get_name (
                         WEBKIT_DOM_HTML_IFRAME_ELEMENT (iframe))));
@@ -704,9 +712,9 @@ bind_iframe_content_visibility (EAttachmentButton *button,
                 if (!widget)
                         continue;
 
-                d(printf("Binding visibility of widget %s with button %s\n",
-                        (gchar *) g_object_get_data (G_OBJECT (widget), "uri"),
-                        (gchar *) g_object_get_data (G_OBJECT (button), "uri")));
+                d(printf("Binding visibility of widget %s (%p) with button %s (%p)\n",
+                        (gchar *) g_object_get_data (G_OBJECT (widget), "uri"), widget,
+                        (gchar *) g_object_get_data (G_OBJECT (button), "uri"), button));
 
                 g_object_bind_property (
                         button, "expanded",
@@ -819,8 +827,6 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
 	if (!widget)
                 return NULL;
 
-        d(printf("Created widget %s\n", puri_uri));
-
         if (E_IS_ATTACHMENT_BUTTON (widget)) {
                 /* Attachment button has URI different then the actual PURI because
                  * that URI identifies the attachment itself */
@@ -838,10 +844,12 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
         /* Resizing a GtkWidget requires changing size of parent
          * <object> HTML element in DOM. */
         g_signal_connect (widget, "realize",
-                G_CALLBACK (mail_display_plugin_widget_realize_cb), display);
+                          G_CALLBACK (mail_display_plugin_widget_realize_cb), display);
         g_signal_connect (widget, "size-allocate",
-                G_CALLBACK (mail_display_plugin_widget_resize), display);
+                          G_CALLBACK (mail_display_plugin_widget_resize), display);
 
+        /* Embed the attachment bar into the GtkBox before we do anything
+         * further with the widget. */
         if (E_IS_MAIL_ATTACHMENT_BAR (widget)) {
 
                 /* When EMailAttachmentBar is expanded/collapsed it does not
@@ -871,7 +879,6 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                 WebKitDOMElement *attachment;
                 WebKitDOMDocument *document;
 
-		g_message ("Searching for puri %s", puri_uri);
                 document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
                 attachment = find_element_by_id (document, puri_uri);
                 if (!attachment) {
@@ -884,12 +891,12 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
 
                         /* Show/hide the attachment when the EAttachmentButton
                          * is expanded/collapsed or shown/hidden */
-                        g_signal_connect (widget, "notify::expanded",
+                        g_signal_connect_data (widget, "notify::expanded",
                                 G_CALLBACK (attachment_button_expanded),
-                                attachment);
-                        g_signal_connect (widget, "notify::visible",
+                                g_object_ref (attachment), g_object_unref, 0);
+                        g_signal_connect_data (widget, "notify::visible",
                                 G_CALLBACK (attachment_button_expanded),
-                                attachment);
+                                g_object_ref (attachment), g_object_unref, 0);
                         /* Initial synchronization */
                         attachment_button_expanded (G_OBJECT (widget),
                                 NULL, attachment);
@@ -925,6 +932,7 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                 }
         }
 
+        d(printf("Created widget %s (%p)\n", puri_uri, widget));
         return widget;
 }
 
