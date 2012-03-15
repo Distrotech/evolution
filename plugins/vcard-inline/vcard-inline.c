@@ -257,22 +257,16 @@ org_gnome_vcard_inline_toggle_cb (WebKitDOMEventTarget *button,
 }
 
 static void
-org_gnome_vcard_inline_bind_dom (EMailDisplay *display,
+org_gnome_vcard_inline_bind_dom (WebKitDOMElement *attachment,
 				 EMFormatPURI *puri)
 {
-	WebKitDOMDocument *document;
-	WebKitDOMElement *attachment;
 	WebKitDOMNodeList *list;
 	WebKitDOMElement *iframe, *toggle_button, *save_button;
 	VCardInlinePURI *vcard_object;
 
 	vcard_object = (VCardInlinePURI *) puri;
-	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (display));
-	attachment = webkit_dom_document_get_element_by_id (document, puri->uri);
-	if (!attachment)
-		return;
 
-	/* IFRAME */
+        /* IFRAME */
 	list = webkit_dom_element_get_elements_by_tag_name (attachment, "iframe");
 	if (webkit_dom_node_list_get_length (list) != 1)
 		return;

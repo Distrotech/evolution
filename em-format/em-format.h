@@ -65,7 +65,7 @@ typedef struct _EMFormatHeader EMFormatHeader;
 typedef struct _EMFormatHandler EMFormatHandler;
 typedef struct _EMFormatParserInfo EMFormatParserInfo;
 typedef struct _EMFormatWriterInfo EMFormatWriterInfo;
-typedef struct _EMailDisplay EMailDisplay;
+typedef struct _WebKitDOMElement WebKitDOMElement;
 
 typedef void		(*EMFormatParseFunc)	(EMFormat *emf,
 					 	 CamelMimePart *part,
@@ -80,7 +80,7 @@ typedef void		(*EMFormatWriteFunc)	(EMFormat *emf,
 typedef GtkWidget*	(*EMFormatWidgetFunc)	(EMFormat *emf,
 					 	 EMFormatPURI *puri,
 					 	 GCancellable *cancellable);
-typedef void		(*EMailDisplayBindFunc)	(EMailDisplay *display,
+typedef void		(*EMailDisplayBindFunc)	(WebKitDOMElement *root,
 						 EMFormatPURI *puri);
 
 typedef enum {

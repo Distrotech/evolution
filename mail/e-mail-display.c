@@ -893,10 +893,10 @@ mail_display_plugin_widget_requested (WebKitWebView *web_view,
                          * is expanded/collapsed or shown/hidden */
                         g_signal_connect_data (widget, "notify::expanded",
                                 G_CALLBACK (attachment_button_expanded),
-                                g_object_ref (attachment), g_object_unref, 0);
+                                g_object_ref (attachment), (GClosureNotify) g_object_unref, 0);
                         g_signal_connect_data (widget, "notify::visible",
                                 G_CALLBACK (attachment_button_expanded),
-                                g_object_ref (attachment), g_object_unref, 0);
+                                g_object_ref (attachment), (GClosureNotify) g_object_unref, 0);
                         /* Initial synchronization */
                         attachment_button_expanded (G_OBJECT (widget),
                                 NULL, attachment);
@@ -1115,6 +1115,7 @@ puri_bind_dom (GObject *object,
 	WebKitWebFrame *frame;
 	WebKitLoadStatus load_status;
 	WebKitWebView *web_view;
+        WebKitDOMDocument *document;
 	EMailDisplay *display;
 	GList *iter;
 	EMFormat *emf;
@@ -1138,6 +1139,8 @@ puri_bind_dom (GObject *object,
 			emf->mail_part_table,
 			webkit_web_frame_get_name (frame));
 
+        document = webkit_web_view_get_dom_document (web_view);
+
 	while (iter) {
 
 		EMFormatPURI *puri = iter->data;
@@ -1145,13 +1148,16 @@ puri_bind_dom (GObject *object,
 		if (!puri)
 			continue;
 
-		/* Iterate the PURI rendered in the frame and all it's "subPURIs" */
+		/* Iterate only the PURI rendered in the frame and all it's "subPURIs" */
 		if (!g_str_has_prefix (puri->uri, frame_puri))
 			break;
 
 		if (puri->bind_func) {
-			d(printf("bind_func for %s", puri->uri));
-			puri->bind_func (display, puri);
+                        WebKitDOMElement *el = find_element_by_id (document, puri->uri);
+                        if (el) {
+                                d(printf("bind_func for %s\n", puri->uri));
+                                puri->bind_func (el, puri);
+                        }
 		}
 
 		iter = iter->next;
