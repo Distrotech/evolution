@@ -770,6 +770,7 @@ bind_attachment_iframe_visibility (GObject *object,
 
         button_uri = g_strconcat (frame_name, ".attachment_button", NULL);
         button_element = find_element_by_id (document, button_uri);
+        g_free (button_uri);
         if (!button_element)
                 return;
 

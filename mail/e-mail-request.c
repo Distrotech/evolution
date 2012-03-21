@@ -30,7 +30,6 @@ struct _EMailRequestPrivate {
 
 	GHashTable *uri_query;
 
-        gchar *ret_data;
         gchar *ret_mime_type;
 };
 
@@ -103,7 +102,8 @@ handle_mail_request (GSimpleAsyncResult *res,
                 });
 	}
 
-	stream = g_memory_input_stream_new_from_data ((gchar*) ba->data, ba->len, NULL);
+	stream = g_memory_input_stream_new_from_data (
+                        (gchar*) ba->data, ba->len, NULL);
 	g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
 }
 
@@ -128,10 +128,9 @@ handle_file_request (GSimpleAsyncResult *res,
 		request->priv->mime_type = g_content_type_guess (uri->path, NULL, 0, NULL);
 		request->priv->content_length = length;
 
-		stream = g_memory_input_stream_new_from_data (contents, length, NULL);
+		stream = g_memory_input_stream_new_from_data (
+                                contents, length, (GDestroyNotify) g_free);
 		g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
-
-                request->priv->ret_data = contents;
 	}
 }
 
@@ -464,11 +463,6 @@ mail_request_finalize (GObject *object)
 	if (request->priv->ret_mime_type) {
                 g_free (request->priv->ret_mime_type);
                 request->priv->ret_mime_type = NULL;
-        }
-
-        if (request->priv->ret_data) {
-                g_free (request->priv->ret_data);
-                request->priv->ret_data = NULL;
         }
 
 	G_OBJECT_CLASS (e_mail_request_parent_class)->finalize (object);

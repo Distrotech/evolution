@@ -3041,6 +3041,8 @@ formatter_weak_ref_cb (struct _formatter_weak_ref_closure *data,
 	g_hash_table_remove (data->formatters,
 		data->mail_uri);
 
+        d(printf("Destroying formatter %p (%s)\n", formatter, data->mail_uri));
+
 	/* Destroying the formatter will prevent this callback
 	 * being called, so we can remove the closure data as well */
 	g_hash_table_unref (data->formatters);
@@ -3067,6 +3069,8 @@ format_parser_async_done_cb (GObject *source,
         g_object_unref (closure->activity);
         g_object_unref (closure->display);
         g_free (closure);
+
+        g_object_unref (result);
 
         /* Remove the reference added when formatter was created,
          * so that only owners are EMailDisplays */
