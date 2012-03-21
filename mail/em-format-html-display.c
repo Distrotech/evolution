@@ -551,7 +551,7 @@ efhd_parse_attachment (EMFormat *emf,
 		i = g_hash_table_lookup (emf->mail_part_table, part_id->str);
 		if (i->next && i->next->data) {
 			EMFormatPURI *p = i->next->data;
-			puri->attachment_view_part_id = p->uri;
+			puri->attachment_view_part_id = g_strdup (p->uri);
 			can_show = TRUE;
 		}
         }
