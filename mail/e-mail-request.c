@@ -427,6 +427,113 @@ cleanup:
 }
 
 static void
+handle_stock_request (GSimpleAsyncResult *res,
+                      GObject *object,
+                      GCancellable *cancellable)
+{
+        EMailRequest *request;
+        SoupURI *uri;
+        GtkIconTheme *icon_theme;
+        GtkIconInfo *icon_info;
+        const gchar *file;
+        gchar *a_size;
+        gssize size;
+        gchar *buffer;
+        gsize buff_len;
+        GtkStyleContext *context;
+        GtkWidgetPath *path;
+        GtkIconSet *set;
+
+        request = E_MAIL_REQUEST (object);
+        uri = soup_request_get_uri (SOUP_REQUEST (object));
+
+        if (request->priv->uri_query) {
+                a_size = g_hash_table_lookup (request->priv->uri_query, "size");
+        } else {
+                a_size = NULL;
+        }
+
+        if (!a_size) {
+                size = GTK_ICON_SIZE_BUTTON;
+        } else {
+                size = atoi(a_size);
+        }
+
+        /* Try style context first */
+        context = gtk_style_context_new ();
+        path = gtk_widget_path_new ();
+        gtk_widget_path_append_type (path, GTK_TYPE_WINDOW);
+        gtk_widget_path_append_type (path, GTK_TYPE_BUTTON);
+        gtk_style_context_set_path (context, path);
+
+        set = gtk_style_context_lookup_icon_set (context, uri->host);
+        if (!set) {
+                /* Fallback to icon theme */
+                icon_theme = gtk_icon_theme_get_default ();
+                icon_info = gtk_icon_theme_lookup_icon (
+                                icon_theme, uri->host, size,
+                                GTK_ICON_LOOKUP_USE_BUILTIN);
+                if (!icon_info) {
+                        gtk_widget_path_free (path);
+                        g_object_unref (context);
+                        return;
+                }
+
+                file = gtk_icon_info_get_filename (icon_info);
+                buffer = NULL;
+                if (file) {
+                        if (g_file_get_contents (file, &buffer, &buff_len, NULL)) {
+
+                                request->priv->mime_type =
+                                        g_content_type_guess (file, NULL, 0, NULL);
+                                request->priv->content_length = buff_len;
+                        }
+
+                } else {
+                        GdkPixbuf *pixbuf;
+
+                        pixbuf = gtk_icon_info_get_builtin_pixbuf (icon_info);
+                        if (pixbuf) {
+                                gdk_pixbuf_save_to_buffer (
+                                        pixbuf, &buffer,
+                                        &buff_len, "png", NULL, NULL);
+
+                                request->priv->mime_type = g_strdup("image/png");
+                                request->priv->content_length = buff_len;
+
+                                g_object_unref (pixbuf);
+                        }
+                }
+
+                gtk_icon_info_free (icon_info);
+
+        } else {
+                GdkPixbuf *pixbuf;
+
+                pixbuf = gtk_icon_set_render_icon_pixbuf (set, context, size);
+                                gdk_pixbuf_save_to_buffer (
+                                        pixbuf, &buffer,
+                                        &buff_len, "png", NULL, NULL);
+
+                request->priv->mime_type = g_strdup("image/png");
+                request->priv->content_length = buff_len;
+
+                g_object_unref (pixbuf);
+        }
+
+        if (buffer) {
+                GInputStream *stream;
+                stream = g_memory_input_stream_new_from_data (
+                                buffer, buff_len, (GDestroyNotify) g_free);
+                g_simple_async_result_set_op_res_gpointer (res, stream, NULL);
+        }
+
+        gtk_widget_path_free (path);
+        g_object_unref (context);
+
+}
+
+static void
 e_mail_request_init (EMailRequest *request)
 {
 	request->priv = G_TYPE_INSTANCE_GET_PRIVATE (
@@ -476,7 +583,8 @@ mail_request_check_uri(SoupRequest *request,
 	return ((strcmp (uri->scheme, "mail") == 0) ||
 		(strcmp (uri->scheme, "evo-file") == 0) ||
                 (strcmp (uri->scheme, "evo-http") == 0) ||
-                (strcmp (uri->scheme, "evo-https") == 0));
+                (strcmp (uri->scheme, "evo-https") == 0) ||
+                (strcmp (uri->scheme, "gtk-stock") == 0));
 }
 
 static void
@@ -510,12 +618,13 @@ mail_request_send_async (SoupRequest *request,
                 return;
         }
 
-        if (!uri->query) {
-                g_warning ("No query in URI %s", soup_uri_to_string (uri, FALSE));
-                g_return_if_fail (uri->query);
+        if (uri->query) {
+                emr->priv->uri_query = soup_form_decode (uri->query);
+        } else {
+                emr->priv->uri_query = NULL;
         }
 
-        emr->priv->uri_query = soup_form_decode (uri->query);
+
 
         formatters = g_object_get_data (G_OBJECT (session), "formatters");
                                         g_return_if_fail (formatters != NULL);
@@ -561,6 +670,17 @@ mail_request_send_async (SoupRequest *request,
                                 user_data, mail_request_send_async);
                 g_simple_async_result_run_in_thread (result, handle_http_request,
                                 G_PRIORITY_DEFAULT, cancellable);
+
+                return;
+
+        } else if ((g_strcmp0 (uri->scheme, "gtk-stock") == 0)) {
+
+                result = g_simple_async_result_new (G_OBJECT (request), callback,
+                                user_data, mail_request_send_async);
+                g_simple_async_result_run_in_thread (result, handle_stock_request,
+                                G_PRIORITY_DEFAULT, cancellable);
+
+                return;
         }
 }
 
@@ -632,7 +752,7 @@ mail_request_get_content_type (SoupRequest *request)
         return emr->priv->ret_mime_type;
 }
 
-static const char *data_schemes[] = { "mail", "evo-file", "evo-http", "evo-https", NULL };
+static const char *data_schemes[] = { "mail", "evo-file", "evo-http", "evo-https", "gtk-stock", NULL };
 
 static void
 e_mail_request_class_init (EMailRequestClass *class)

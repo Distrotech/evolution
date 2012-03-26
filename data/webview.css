@@ -39,7 +39,7 @@ img.navigable {
 }
 
 .attachments {
-  backgound: #FFF;
+  background: #FFF;
   border: 1px solid silver;
   margin: 10px 10px 10px 10px;
   border-left: 0;
@@ -99,4 +99,49 @@ object { /* GtkWidgets */
 
 .attachments-list th {
   font-weight: bold;
+}
+
+/******* ITIP *********/
+.itip.icon {
+  float: left;
+  margin-right: 5px;
+}
+
+.itip.content {
+  float: left;
+  max-width: 90%;
+}
+
+.itip.description {
+  margin: 5px;
+}
+
+.itip tr {
+  vertical-align: middle;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.itip th {
+  color: #000;
+  vertical-align: middle;
+}
+
+#table_row_summary td {
+  font-weight: bold;
+}
+
+#table_row_buttons button {
+  line-height: 28px;
+  min-width: 150px;
+  white-space: nowrap;
+}
+
+#table_row_buttons img {
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+#text_row_buttons td {
+  text-align: center;
 }
