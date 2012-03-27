@@ -45,7 +45,7 @@ enum {
         BUTTONS_COUNT
 };
 
-#define w(x)
+#define w(x) x
 
 struct _EMailPrinterPrivate {
 	EMFormatHTMLPrint *efhp;

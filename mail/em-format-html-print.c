@@ -39,7 +39,7 @@
 
 #include "em-format-html-print.h"
 
-#define d(x)
+#define d(x) x
 
 static gpointer parent_class = NULL;
 
@@ -232,15 +232,23 @@ efhp_write_headers (EMFormat *emf,
 	/* Count attachments and display the number as a header */
 	attachments_count = 0;
 
-	for (iter = emf->mail_part_list; iter; iter = iter->next) {
+	for (iter = emf->mail_part_list; iter; iter = iter ? iter->next : iter) {
 
 		p = iter->data;
 
                 if (!g_str_has_prefix (p->uri, puri_prefix))
                         continue;
 
-		if (p->is_attachment || g_str_has_suffix(p->uri, ".attachment"))
+		if ((p->is_attachment || g_str_has_suffix(p->uri, ".attachment")) &&
+                    (!p->cid)) {
 			attachments_count++;
+                        /* EFHD sometimes creates two PURIs per attachment! */
+                        if (iter->next && iter->next->data) {
+                                EMFormatPURI *p2 = iter->next->data;
+                                if (g_str_has_prefix (p2->uri, p->uri))
+                                        iter = iter->next;
+                        }
+                }
 	}
 	if (attachments_count > 0) {
 		raw_header.name = _("Attachments");
@@ -284,8 +292,6 @@ efhp_write_inline_attachment (EMFormat *emf,
 
         camel_stream_write_string (stream, name, cancellable, NULL);
         g_free (name);
-
-        puri->write_func (emf, puri, stream, info, cancellable);
 }
 
 static void
@@ -313,7 +319,7 @@ efhp_write_print_layout (EMFormat *emf,
 		"<body style=\"background: #FFF; color: #000;\">",
                 cancellable, NULL);
 
-	for (iter = emf->mail_part_list; iter != NULL; iter = iter->next) {
+	for (iter = emf->mail_part_list; iter != NULL; iter = iter ? iter->next : iter) {
 
 		EMFormatPURI *puri = iter->data;
 
@@ -344,12 +350,17 @@ efhp_write_print_layout (EMFormat *emf,
 
 		if (puri->is_attachment || g_str_has_suffix (puri->uri, ".attachment")) {
 			const EMFormatHandler *handler;
+			CamelContentType *ct;
+			gchar *mime_type;
 
-			CamelContentType *ct = camel_mime_part_get_content_type (puri->part);
-			gchar *mime_type = camel_content_type_simple (ct);
+                        if (puri->cid && g_ascii_strncasecmp (puri->cid, "cid:", 4) == 0)
+                                continue;
+
+                        ct = camel_mime_part_get_content_type (puri->part);
+                        mime_type = camel_content_type_simple (ct);
 
 			handler = em_format_find_handler (puri->emf, mime_type);
-                        d(printf("Handler for PURI %s (%s): %s", puri->uri, mime_type,
+                        d(printf("Handler for PURI %s (%s): %s\n", puri->uri, mime_type,
                                  handler ? handler->mime_type : "(null)"));
                         g_free (mime_type);
 
@@ -360,6 +371,25 @@ efhp_write_print_layout (EMFormat *emf,
 			if (handler && puri->write_func) {
                                 efhp_write_inline_attachment (puri->emf, puri,
                                         stream, &print_info, cancellable);
+
+                                if (iter->next && iter->next->data) {
+                                        EMFormatPURI *p;
+                                        p = iter->next->data;
+
+                                        /* Has the next PURI the same prefix? */
+                                        if (p->write_func &&
+                                            g_str_has_prefix (p->uri, puri->uri)) {
+                                                p->write_func (emf, p, stream,
+                                                       &print_info, cancellable);
+                                                iter = iter->next;
+                                        } else {
+                                                if (puri->write_func) {
+                                                        puri->write_func (emf, puri,
+                                                                stream, &print_info,
+                                                                cancellable);
+                                                }
+                                        }
+                                }
                         }
 
                         continue;

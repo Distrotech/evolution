@@ -865,11 +865,17 @@ efh_write_text_html (EMFormat *emf,
 		const gchar *document_end;
 		gint length;
 		gint i;
+                CamelStream *decoded_stream;
 
-		dw = camel_medium_get_content ((CamelMedium *) puri->part);
-		ba = camel_data_wrapper_get_byte_array (dw);
+                decoded_stream = camel_stream_mem_new ();
+                em_format_format_text (emf, decoded_stream,
+                        (CamelDataWrapper *) puri->part, cancellable);
+                g_seekable_seek (G_SEEKABLE (decoded_stream), 0, G_SEEK_SET, cancellable, NULL);
 
+                ba = camel_stream_mem_get_byte_array (CAMEL_STREAM_MEM (decoded_stream));
 		string = g_string_new_len ((gchar *) ba->data, ba->len);
+
+                g_object_unref (decoded_stream);
 
 		tags = NULL;
 		pos = string->str;
@@ -936,13 +942,19 @@ efh_write_text_html (EMFormat *emf,
 		i = 0;
 		valid = FALSE;
 		while (i < length - 1) {
+                        gchar c;
 
 			if (g_ascii_isspace (*tag)) {
 				tag--;
 				continue;
 			}
 
-			if (*tag == document_end[i]) {
+			if ((*tag >= 'A') && (*tag <= 'Z'))
+                                c = *tag + 32;
+                        else
+                                c = *tag;
+
+			if (c == document_end[i]) {
 				tag--;
 				i++;
 				valid = TRUE;
