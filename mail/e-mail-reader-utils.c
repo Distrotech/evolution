@@ -432,6 +432,14 @@ e_mail_reader_open_selected (EMailReader *reader)
 	return ii;
 }
 
+static gboolean
+destroy_printing_activity (EActivity *activity)
+{
+        g_object_unref (activity);
+
+        return FALSE;
+}
+
 static void
 printing_done_cb (EMailPrinter *printer,
 		  GtkPrintOperation *operation,
@@ -463,7 +471,7 @@ printing_done_cb (EMailPrinter *printer,
 	   so that user can actually see the the printing was sucesfully finished. */
 	e_activity_set_state (activity, E_ACTIVITY_COMPLETED);
 	g_timeout_add_seconds_full (G_PRIORITY_DEFAULT, 3, 
-		(GSourceFunc) g_object_unref, activity, NULL);
+		(GSourceFunc) destroy_printing_activity, activity, NULL);
 
 	g_object_unref (printer);
 }
