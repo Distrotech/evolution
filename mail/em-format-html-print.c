@@ -39,7 +39,7 @@
 
 #include "em-format-html-print.h"
 
-#define d(x) x
+#define d(x)
 
 static gpointer parent_class = NULL;
 
@@ -333,6 +333,8 @@ efhp_write_print_layout (EMFormat *emf,
 		}
 
 		if (g_str_has_suffix (puri->uri, ".rfc822")) {
+
+			puri->write_func (emf, puri, stream, &print_info, cancellable);
 
                         while (iter && !g_str_has_suffix (puri->uri, ".rfc822.end")) {
 
