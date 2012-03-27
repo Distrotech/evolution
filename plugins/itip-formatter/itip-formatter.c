@@ -3236,7 +3236,7 @@ format_itip (EPlugin *ep,
 	puri->puri.write_func = write_itip_view;
         puri->puri.bind_func = bind_itip_view;
 	puri->puri.free = puri_free;
-	puri->puri.is_attachment = FALSE;
+	puri->puri.is_attachment = TRUE;
         puri->puri.mime_type = g_strdup ("text/html");
 	puri->delete_message = g_settings_get_boolean (settings, CONF_KEY_DELETE);
 	puri->has_organizer = FALSE;

@@ -37,13 +37,11 @@
 #include <e-util/e-util.h>
 #include <e-util/e-unicode.h>
 #include <calendar/gui/itip-utils.h>
+#include <webkit/webkitdom.h>
+
 #include "itip-view.h"
 
-#include <shell/e-shell-window.h>
-
-#include <webkit/webkit.h>
-
-#define d(x) x
+#define d(x)
 
 #define MEETING_ICON "stock_new-meeting"
 
@@ -935,7 +933,7 @@ append_info_item_row (ItipView *view,
                         icon_name = GTK_STOCK_DIALOG_ERROR;
                         break;
                 case ITIP_VIEW_INFO_ITEM_TYPE_PROGRESS:
-                        icon_name = "evolution-spinner"; /* FIXME WEBKIT */
+                        icon_name = GTK_STOCK_FIND;
                         break;
                 case ITIP_VIEW_INFO_ITEM_TYPE_NONE:
                         default:
