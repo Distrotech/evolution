@@ -2764,8 +2764,7 @@ in_proper_folder (CamelFolder *folder)
 
 static void
 init_itip_view (ItipPURI *info,
-                ItipView *view,
-                GString *buffer)
+                ItipView *view)
 {
         EShell *shell;
         EShellSettings *shell_settings;
@@ -3154,7 +3153,22 @@ write_itip_view (EMFormat *emf,
 {
         GString *buffer;
 
-        if (info->mode == EM_FORMAT_WRITE_MODE_RAW) {
+        if (info->mode == EM_FORMAT_WRITE_MODE_PRINTING) {
+                ItipView *view;
+                ItipPURI *ipuri;
+
+                buffer = g_string_sized_new (1024);
+
+                ipuri = (ItipPURI *) puri;
+                view = itip_view_new (ipuri);
+
+                init_itip_view (ipuri, view);
+                itip_view_write_for_printing (view, buffer);
+
+                /* Destroy the view when the formatter is destroyed */
+                g_object_weak_ref (G_OBJECT (emf), (GWeakNotify) g_object_unref, view);
+
+        } else if (info->mode == EM_FORMAT_WRITE_MODE_RAW) {
                 buffer = g_string_sized_new (2048);
 
                 itip_view_write (buffer);
@@ -3204,7 +3218,7 @@ bind_itip_view (WebKitDOMElement *element,
                 itip_view_create_dom_bindings (view,
                         webkit_dom_document_get_document_element (document));
 
-                init_itip_view ((ItipPURI *) puri, view, buffer);
+                init_itip_view ((ItipPURI *) puri, view);
                 g_string_free (buffer, TRUE);
         }
 }

@@ -100,6 +100,9 @@ ItipView*       itip_view_new                   (ItipPURI *puri);
 
 void            itip_view_write                 (GString *buffer);
 
+void            itip_view_write_for_printing    (ItipView *view,
+                                                 GString *buffer);
+
 void            itip_view_create_dom_bindings   (ItipView *view,
                                                  WebKitDOMElement *element);
 

@@ -62,6 +62,7 @@ struct _ItipViewPrivate {
 	ItipViewMode mode;
 	ECalClientSourceType type;
 
+        gchar *sender;
 	gchar *organizer;
 	gchar *organizer_sentby;
 	gchar *delegator;
@@ -77,9 +78,13 @@ struct _ItipViewPrivate {
 
 	struct tm *start_tm;
 	gint start_tm_is_date : 1;
+        gchar *start_label;
+        const gchar *start_header;
 
 	struct tm *end_tm;
 	gint end_tm_is_date : 1;
+        gchar *end_label;
+        const gchar *end_header;
 
 	GSList *upper_info_items;
 	GSList *lower_info_items;
@@ -98,6 +103,8 @@ struct _ItipViewPrivate {
 
         WebKitDOMDocument *dom_document;
         ItipPURI *puri;
+
+        gchar *error;
 };
 
 
@@ -592,34 +599,30 @@ static void
 set_sender_text (ItipView *view)
 {
 	ItipViewPrivate *priv;
-        gchar *sender = NULL;
-
 	priv = view->priv;
 
 	switch (priv->type) {
 	case E_CAL_CLIENT_SOURCE_TYPE_EVENTS:
-		sender = set_calendar_sender_text (view);
+		priv->sender = set_calendar_sender_text (view);
 		break;
 	case E_CAL_CLIENT_SOURCE_TYPE_TASKS:
-		sender = set_tasklist_sender_text (view);
+		priv->sender = set_tasklist_sender_text (view);
 		break;
 	case E_CAL_CLIENT_SOURCE_TYPE_MEMOS:
-		sender = set_journal_sender_text (view);
+		priv->sender = set_journal_sender_text (view);
 		break;
 	default:
-                sender = NULL;
+                priv->sender = NULL;
 		break;
 	}
 
-	if (sender) {
+	if (priv->sender && priv->dom_document) {
                 WebKitDOMElement *div;
 
                 div = webkit_dom_document_get_element_by_id (
-                        view->priv->dom_document, TEXT_ROW_SENDER);
+                        priv->dom_document, TEXT_ROW_SENDER);
                 webkit_dom_html_element_set_inner_html (
-                        WEBKIT_DOM_HTML_ELEMENT (div), sender, NULL);
-
-                g_free (sender);
+                        WEBKIT_DOM_HTML_ELEMENT (div), priv->sender, NULL);
         }
 }
 
@@ -631,82 +634,83 @@ update_start_end_times (ItipView *view)
 	gchar buffer[256];
 	time_t now;
 	struct tm *now_tm;
-        const gchar *start_header, *end_header;
-        gchar *start_label, *end_label;
 
 	priv = view->priv;
 
 	now = time (NULL);
 	now_tm = localtime (&now);
 
+        if (priv->start_label)
+                g_free (priv->start_label);
+        if (priv->end_label)
+                g_free (priv->end_label);
+
 	#define is_same(_member) (priv->start_tm->_member == priv->end_tm->_member)
 	if (priv->start_tm && priv->end_tm && priv->start_tm_is_date && priv->end_tm_is_date
 	    && is_same (tm_mday) && is_same (tm_mon) && is_same (tm_year)) {
 		/* it's an all day event in one particular day */
 		format_date_and_time_x (priv->start_tm, now_tm, FALSE, TRUE, FALSE, priv->start_tm_is_date, buffer, 256);
-                start_label = g_strdup (buffer);
-                start_header = _("All day:");
-                end_header = NULL;
-                end_label = NULL;
+                priv->start_label = g_strdup (buffer);
+                priv->start_header = _("All day:");
+                priv->end_header = NULL;
+                priv->end_label = NULL;
 	} else {
 		if (priv->start_tm) {
 			format_date_and_time_x (priv->start_tm, now_tm, FALSE, TRUE, FALSE, priv->start_tm_is_date, buffer, 256);
-                        start_header = priv->start_tm_is_date ? _("Start day:") : _("Start time:");
-                        start_label = g_strdup (buffer);
+                        priv->start_header = priv->start_tm_is_date ? _("Start day:") : _("Start time:");
+                        priv->start_label = g_strdup (buffer);
 		} else {
-                        start_header = NULL;
-                        start_label = NULL;
+                        priv->start_header = NULL;
+                        priv->start_label = NULL;
 		}
 
 		if (priv->end_tm) {
 			format_date_and_time_x (priv->end_tm, now_tm, FALSE, TRUE, FALSE, priv->end_tm_is_date, buffer, 256);
-                        end_header = priv->end_tm_is_date ? _("End day:") : _("End time:");
-                        end_label = g_strdup (buffer);
+                        priv->end_header = priv->end_tm_is_date ? _("End day:") : _("End time:");
+                        priv->end_label = g_strdup (buffer);
 		} else {
-                        end_header = NULL;
-                        end_label = NULL;
+                        priv->end_header = NULL;
+                        priv->end_label = NULL;
 		}
         }
 	#undef is_same
 
-        row = webkit_dom_document_get_element_by_id (
-                priv->dom_document, TABLE_ROW_START_DATE);
-	if (start_header && start_label) {
-                webkit_dom_html_element_set_hidden (
-                        WEBKIT_DOM_HTML_ELEMENT (row), FALSE);
+        if (priv->dom_document) {
+                row = webkit_dom_document_get_element_by_id (
+                        priv->dom_document, TABLE_ROW_START_DATE);
+                if (priv->start_header && priv->start_label) {
+                        webkit_dom_html_element_set_hidden (
+                                WEBKIT_DOM_HTML_ELEMENT (row), FALSE);
 
-                col = webkit_dom_element_get_first_element_child (row);
-                webkit_dom_html_element_set_inner_html (
-                        WEBKIT_DOM_HTML_ELEMENT (col), start_header, NULL);
+                        col = webkit_dom_element_get_first_element_child (row);
+                        webkit_dom_html_element_set_inner_html (
+                                WEBKIT_DOM_HTML_ELEMENT (col), priv->start_header, NULL);
 
-                col = webkit_dom_element_get_last_element_child (row);
-                webkit_dom_html_element_set_inner_html (
-                        WEBKIT_DOM_HTML_ELEMENT (col), start_label, NULL);
+                        col = webkit_dom_element_get_last_element_child (row);
+                        webkit_dom_html_element_set_inner_html (
+                                WEBKIT_DOM_HTML_ELEMENT (col), priv->start_label, NULL);
+                } else {
+                        webkit_dom_html_element_set_hidden (
+                                WEBKIT_DOM_HTML_ELEMENT (row), TRUE);
+                }
 
-                g_free (start_label);
-        } else {
-                webkit_dom_html_element_set_hidden (
-                        WEBKIT_DOM_HTML_ELEMENT (row), TRUE);
-        }
+                row = webkit_dom_document_get_element_by_id (
+                        priv->dom_document, TABLE_ROW_END_DATE);
+                if (priv->end_header && priv->end_label) {
+                        webkit_dom_html_element_set_hidden (
+                                WEBKIT_DOM_HTML_ELEMENT (row), FALSE);
 
-        row = webkit_dom_document_get_element_by_id (
-                priv->dom_document, TABLE_ROW_END_DATE);
-        if (end_header && end_label) {
-                webkit_dom_html_element_set_hidden (
-                        WEBKIT_DOM_HTML_ELEMENT (row), FALSE);
+                        col = webkit_dom_element_get_first_element_child (row);
+                        webkit_dom_html_element_set_inner_html (
+                                WEBKIT_DOM_HTML_ELEMENT (col), priv->end_header, NULL);
 
-                col = webkit_dom_element_get_first_element_child (row);
-                webkit_dom_html_element_set_inner_html (
-                        WEBKIT_DOM_HTML_ELEMENT (col), end_header, NULL);
-
-                col = webkit_dom_element_get_last_element_child (row);
-                webkit_dom_html_element_set_inner_html (
-                        WEBKIT_DOM_HTML_ELEMENT (col), end_label, NULL);
-
-                g_free (end_label);
-        } else {
-                webkit_dom_html_element_set_hidden (
-                        WEBKIT_DOM_HTML_ELEMENT (row), TRUE);
+                        col = webkit_dom_element_get_last_element_child (row);
+                        webkit_dom_html_element_set_inner_html (
+                                WEBKIT_DOM_HTML_ELEMENT (col), priv->end_label, NULL);
+                } else {
+                        webkit_dom_html_element_set_hidden (
+                                WEBKIT_DOM_HTML_ELEMENT (row), TRUE);
+                }
         }
 }
 
@@ -737,33 +741,110 @@ itip_view_finalize (GObject *object)
 
         d(printf("Itip view finalized!\n"));
 
-	g_free (priv->organizer);
-	g_free (priv->organizer_sentby);
-	g_free (priv->delegator);
-	g_free (priv->attendee);
-	g_free (priv->attendee_sentby);
-	g_free (priv->proxy);
-	g_free (priv->summary);
-	g_free (priv->location);
-	g_free (priv->status);
-	g_free (priv->comment);
-	g_free (priv->start_tm);
-	g_free (priv->end_tm);
-	g_free (priv->description);
+        if (priv->sender) {
+                g_free (priv->sender);
+                priv->sender = NULL;
+        }
+
+        if (priv->organizer) {
+	        g_free (priv->organizer);
+                priv->organizer = NULL;
+        }
+
+        if (priv->organizer_sentby) {
+	        g_free (priv->organizer_sentby);
+                priv->organizer_sentby = NULL;
+        }
+
+        if (priv->delegator) {
+                g_free (priv->delegator);
+                priv->delegator = NULL;
+        }
+
+        if (priv->attendee) {
+	        g_free (priv->attendee);
+                priv->attendee = NULL;
+        }
+
+        if (priv->attendee_sentby) {
+	        g_free (priv->attendee_sentby);
+                priv->attendee_sentby = NULL;
+        }
+
+        if (priv->proxy) {
+	        g_free (priv->proxy);
+                priv->proxy = NULL;
+        }
+
+        if (priv->summary) {
+	        g_free (priv->summary);
+                priv->summary = NULL;
+        }
+
+        if (priv->location) {
+	        g_free (priv->location);
+                priv->location = NULL;
+        }
+
+        if (priv->status) {
+	        g_free (priv->status);
+                priv->status = NULL;
+        }
+
+        if (priv->comment) {
+	        g_free (priv->comment);
+                priv->comment = NULL;
+        }
+
+        if (priv->start_tm) {
+	        g_free (priv->start_tm);
+                priv->start_tm = NULL;
+        }
+
+        if (priv->start_label) {
+                g_free (priv->start_label);
+                priv->start_label = NULL;
+        }
+
+        if (priv->end_tm) {
+	        g_free (priv->end_tm);
+                priv->end_tm = NULL;
+        }
+
+        if (priv->end_label) {
+                g_free (priv->end_label);
+                priv->end_label = NULL;
+        }
+
+        if (priv->description) {
+	        g_free (priv->description);
+                priv->description = NULL;
+        }
 
         for (iter = priv->lower_info_items; iter; iter = iter->next) {
                 ItipViewInfoItem *item = iter->data;
                 g_free (item->message);
                 g_free (item);
         }
-        g_slist_free (priv->lower_info_items);
+        if (priv->lower_info_items) {
+                g_slist_free (priv->lower_info_items);
+                priv->lower_info_items = NULL;
+        }
 
         for (iter = priv->upper_info_items; iter; iter = iter->next) {
                 ItipViewInfoItem *item = iter->data;
                 g_free (item->message);
                 g_free (item);
         }
-        g_slist_free (priv->upper_info_items);
+        if (priv->upper_info_items) {
+                g_slist_free (priv->upper_info_items);
+                priv->upper_info_items = NULL;
+        }
+
+        if (priv->error) {
+                g_free (priv->error);
+                priv->error = NULL;
+        }
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (itip_view_parent_class)->finalize (object);
@@ -885,13 +966,14 @@ append_checkbox_table_row (GString *buffer,
 static void
 append_text_table_row (GString *buffer,
                        const gchar *id,
-                       const gchar *label)
+                       const gchar *label,
+                       const gchar *value)
 {
         if (label && *label) {
 
                 g_string_append_printf (buffer,
-                        "<tr id=\"%s\" hidden=\"\"><th>%s</th><td></td></tr>\n",
-                        id, label);
+                        "<tr id=\"%s\" %s><th>%s</th><td>%s</td></tr>\n",
+                        id, (value && *value) ? "" : "hidden=\"\"", label, value);
 
         } else {
 
@@ -1080,12 +1162,12 @@ itip_view_write (GString *buffer)
                 "<table class=\"itip table\" border=\"0\" "
                        "cellspacing=\"5\" cellpadding=\"0\">\n");
 
-        append_text_table_row (buffer, TABLE_ROW_SUMMARY, NULL);
-        append_text_table_row (buffer, TABLE_ROW_LOCATION, _("Location:"));
-        append_text_table_row (buffer, TABLE_ROW_START_DATE, _("Start time:"));
-        append_text_table_row (buffer, TABLE_ROW_END_DATE, _("End time:"));
-        append_text_table_row (buffer, TABLE_ROW_STATUS, _("Status:"));
-        append_text_table_row (buffer, TABLE_ROW_COMMENT, _("Comment:"));
+        append_text_table_row (buffer, TABLE_ROW_SUMMARY, NULL, NULL);
+        append_text_table_row (buffer, TABLE_ROW_LOCATION, _("Location:"), NULL);
+        append_text_table_row (buffer, TABLE_ROW_START_DATE, _("Start time:"), NULL);
+        append_text_table_row (buffer, TABLE_ROW_END_DATE, _("End time:"), NULL);
+        append_text_table_row (buffer, TABLE_ROW_STATUS, _("Status:"), NULL);
+        append_text_table_row (buffer, TABLE_ROW_COMMENT, _("Comment:"), NULL);
 
         g_string_append (buffer, "</table>\n");
 
@@ -1151,6 +1233,63 @@ itip_view_write (GString *buffer)
 
         g_string_append (buffer, "</body></html>");
 }
+
+void
+itip_view_write_for_printing (ItipView *view,
+                              GString *buffer)
+{
+        if (view->priv->error && *view->priv->error) {
+                g_string_append (buffer, view->priv->error);
+                return;
+        }
+
+        g_string_append (buffer,
+                "<div class=\"itip print_content\" id=\"" DIV_ITIP_CONTENT "\">\n");
+
+        /* The first section listing the sender */
+        /* FIXME What to do if the send and organizer do not match */
+        g_string_append_printf (buffer,
+                "<div id=\"" TEXT_ROW_SENDER "\" class=\"itip sender\">%s</div>\n",
+                view->priv->sender ? view->priv->sender : "");
+
+        g_string_append (buffer, "<hr>\n");
+
+        /* Elementary event information */
+        g_string_append (buffer,
+                "<table class=\"itip table\" border=\"0\" "
+                       "cellspacing=\"5\" cellpadding=\"0\">\n");
+
+        append_text_table_row (
+                buffer, TABLE_ROW_SUMMARY,
+                NULL, view->priv->summary);
+        append_text_table_row (
+                buffer, TABLE_ROW_LOCATION,
+                _("Location:"), view->priv->location);
+        append_text_table_row (
+                buffer, TABLE_ROW_START_DATE,
+                view->priv->start_header, view->priv->start_label);
+        append_text_table_row (
+                buffer, TABLE_ROW_END_DATE,
+                view->priv->end_header, view->priv->end_label);
+        append_text_table_row (
+                buffer, TABLE_ROW_STATUS,
+                _("Status:"), view->priv->status);
+        append_text_table_row (
+                buffer, TABLE_ROW_COMMENT,
+                _("Comment:"), view->priv->comment);
+
+        g_string_append (buffer, "</table>\n");
+
+        /* Description */
+        g_string_append_printf (
+                buffer,
+                "<div id=\"" TABLE_ROW_DESCRIPTION "\" "
+                     "class=\"itip description\" %s>%s</div>\n",
+                view->priv->description ? "" : "hidden=\"\"", view->priv->description);
+
+        g_string_append (buffer, "</div>");
+}
+
 
 void
 itip_view_create_dom_bindings (ItipView *view,
@@ -1322,6 +1461,9 @@ itip_view_set_mode (ItipView *view,
 
 	set_sender_text (view);
 
+        if (!view->priv->dom_document)
+                return;
+
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_BUTTONS);
         cell = webkit_dom_element_get_first_element_child (row);
@@ -1394,6 +1536,8 @@ itip_view_set_item_type (ItipView *view,
 
 	view->priv->type = type;
 
+        if (!view->priv->dom_document)
+                return;
 
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_ESCB);
@@ -1574,6 +1718,9 @@ itip_view_set_summary (ItipView *view,
 
 	view->priv->summary = summary ? g_strstrip (e_utf8_ensure_valid (summary)) : NULL;
 
+        if (!view->priv->dom_document)
+                return;
+
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_SUMMARY);
         webkit_dom_html_element_set_hidden (
@@ -1606,6 +1753,9 @@ itip_view_set_location (ItipView *view,
 		g_free (view->priv->location);
 
 	view->priv->location = location ? g_strstrip (e_utf8_ensure_valid (location)) : NULL;
+
+        if (!view->priv->dom_document)
+                return;
 
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_LOCATION);
@@ -1640,6 +1790,9 @@ itip_view_set_status (ItipView *view,
 
 	view->priv->status = status ? g_strstrip (e_utf8_ensure_valid (status)) : NULL;
 
+        if (!view->priv->dom_document)
+                return;
+
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_STATUS);
         webkit_dom_html_element_set_hidden (
@@ -1673,6 +1826,9 @@ itip_view_set_comment (ItipView *view,
 
 	view->priv->comment = comment ? g_strstrip (e_utf8_ensure_valid (comment)) : NULL;
 
+        if (!view->priv->dom_document)
+                return;
+
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_COMMENT);
         webkit_dom_html_element_set_hidden (
@@ -1705,6 +1861,9 @@ itip_view_set_description (ItipView *view,
 		g_free (view->priv->description);
 
 	view->priv->description = description ? g_strstrip (e_utf8_ensure_valid (description)) : NULL;
+
+        if (!view->priv->dom_document)
+                return;
 
         div = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_DESCRIPTION);
@@ -1821,6 +1980,9 @@ itip_view_add_upper_info_item (ItipView *view,
 
 	priv->upper_info_items = g_slist_append (priv->upper_info_items, item);
 
+        if (!view->priv->dom_document)
+                return item->id;
+
         append_info_item_row (view, TABLE_UPPER_ITIP_INFO, item);
 
 	return item->id;
@@ -1868,7 +2030,8 @@ itip_view_remove_upper_info_item (ItipView *view,
                         g_free (item->message);
 			g_free (item);
 
-                        remove_info_item_row (view, TABLE_UPPER_ITIP_INFO, id);
+                        if (!view->priv->dom_document)
+                                remove_info_item_row (view, TABLE_UPPER_ITIP_INFO, id);
 
 			return;
 		}
@@ -1888,7 +2051,8 @@ itip_view_clear_upper_info_items (ItipView *view)
 	for (l = priv->upper_info_items; l; l = l->next) {
 		ItipViewInfoItem *item = l->data;
 
-                remove_info_item_row (view, TABLE_UPPER_ITIP_INFO, item->id);
+                if (view->priv->dom_document)
+                        remove_info_item_row (view, TABLE_UPPER_ITIP_INFO, item->id);
 
 		g_free (item->message);
 		g_free (item);
@@ -1917,6 +2081,9 @@ itip_view_add_lower_info_item (ItipView *view,
 	item->id = priv->next_info_item_id++;
 
 	priv->lower_info_items = g_slist_append (priv->lower_info_items, item);
+
+        if (!view->priv->dom_document)
+                return item->id;
 
         append_info_item_row (view, TABLE_LOWER_ITIP_INFO, item);
 
@@ -1965,7 +2132,8 @@ itip_view_remove_lower_info_item (ItipView *view,
 			g_free (item->message);
 			g_free (item);
 
-                        remove_info_item_row (view, TABLE_LOWER_ITIP_INFO, id);
+                        if (view->priv->dom_document)
+                                remove_info_item_row (view, TABLE_LOWER_ITIP_INFO, id);
 
 			return;
 		}
@@ -1985,7 +2153,8 @@ itip_view_clear_lower_info_items (ItipView *view)
 	for (l = priv->lower_info_items; l; l = l->next) {
 		ItipViewInfoItem *item = l->data;
 
-                remove_info_item_row (view, TABLE_LOWER_ITIP_INFO, item->id);
+                if (view->priv->dom_document)
+                        remove_info_item_row (view, TABLE_LOWER_ITIP_INFO, item->id);
 
 		g_free (item->message);
 		g_free (item);
@@ -2003,6 +2172,9 @@ source_list_changed_cb (ESourceList *source_list,
         WebKitDOMElement *select;
 
         d(printf("Assigning a new source list!\n"));
+
+        if (!view->priv->dom_document)
+                return;
 
         select = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, SELECT_ESOURCE);
@@ -2111,6 +2283,9 @@ itip_view_set_source (ItipView *view,
 
         d(printf("Settings default source '%s'\n", e_source_peek_name (source)));
 
+        if (!view->priv->dom_document)
+                return;
+
         row = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TABLE_ROW_ESCB);
         webkit_dom_html_element_set_hidden (
@@ -2170,6 +2345,9 @@ itip_view_get_source (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), NULL);
 
+        if (!view->priv->dom_document)
+                return NULL;
+
         select = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, SELECT_ESOURCE);
         if (webkit_dom_html_select_element_get_disabled (
@@ -2202,6 +2380,9 @@ itip_view_set_rsvp (ItipView *view,
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
 
+        if (!view->priv->dom_document)
+                return;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_RSVP);
         webkit_dom_html_input_element_set_checked (
@@ -2220,6 +2401,9 @@ itip_view_get_rsvp (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_UPDATE);
         return webkit_dom_html_input_element_get_checked (WEBKIT_DOM_HTML_INPUT_ELEMENT (el));
@@ -2233,6 +2417,9 @@ itip_view_set_show_rsvp_check (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, "table_row_" CHECKBOX_RSVP);
@@ -2261,6 +2448,9 @@ itip_view_get_show_rsvp_check (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_RSVP);
         return !webkit_dom_html_element_get_hidden (WEBKIT_DOM_HTML_ELEMENT (el));
@@ -2273,6 +2463,9 @@ itip_view_set_update (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_UPDATE);
@@ -2288,6 +2481,9 @@ itip_view_get_update (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_UPDATE);
 	return webkit_dom_html_input_element_get_checked (WEBKIT_DOM_HTML_INPUT_ELEMENT (el));
@@ -2301,6 +2497,9 @@ itip_view_set_show_update_check (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, "table_row_" CHECKBOX_UPDATE);
@@ -2324,6 +2523,9 @@ itip_view_get_show_update_check (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_UPDATE);
 	return !webkit_dom_html_element_get_hidden (WEBKIT_DOM_HTML_ELEMENT (el));
@@ -2336,6 +2538,9 @@ itip_view_set_rsvp_comment (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TEXTAREA_RSVP_COMMENT);
@@ -2354,6 +2559,9 @@ itip_view_get_rsvp_comment (ItipView *view)
         WebKitDOMElement *el;
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), NULL);
+
+        if (!view->priv->dom_document)
+                return NULL;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, TEXTAREA_RSVP_COMMENT);
@@ -2386,6 +2594,9 @@ itip_view_set_buttons_sensitive (ItipView *view,
         d(printf("Settings buttons %s\n", sensitive ? "sensitive" : "insensitive"));
 
 	view->priv->buttons_sensitive = sensitive;
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_UPDATE);
@@ -2456,6 +2667,9 @@ itip_view_get_recur_check_state (ItipView *view)
 
         g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_RECUR);
         return webkit_dom_html_input_element_get_checked (
@@ -2470,6 +2684,9 @@ itip_view_set_show_recur_check (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, "table_row_" CHECKBOX_RECUR);
@@ -2500,6 +2717,9 @@ itip_view_set_show_free_time_check (ItipView *view,
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
 
+        if (!view->priv->dom_document)
+                return;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, "table_row_" CHECKBOX_FREE_TIME);
         webkit_dom_html_element_set_hidden (WEBKIT_DOM_HTML_ELEMENT (el), !show);
@@ -2527,6 +2747,9 @@ itip_view_get_free_time_check_state (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_FREE_TIME);
         return webkit_dom_html_input_element_get_checked (
@@ -2541,6 +2764,9 @@ itip_view_set_show_keep_alarm_check (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, "table_row_" CHECKBOX_KEEP_ALARM);
@@ -2569,6 +2795,9 @@ itip_view_get_keep_alarm_check_state (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_KEEP_ALARM);
         return webkit_dom_html_input_element_get_checked (
@@ -2583,6 +2812,9 @@ itip_view_set_show_inherit_alarm_check (ItipView *view,
         WebKitDOMElement *el;
 
 	g_return_if_fail (ITIP_IS_VIEW (view));
+
+        if (!view->priv->dom_document)
+                return;
 
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, "table_row_" CHECKBOX_INHERIT_ALARM);
@@ -2611,6 +2843,9 @@ itip_view_get_inherit_alarm_check_state (ItipView *view)
 
 	g_return_val_if_fail (ITIP_IS_VIEW (view), FALSE);
 
+        if (!view->priv->dom_document)
+                return FALSE;
+
         el = webkit_dom_document_get_element_by_id (
                 view->priv->dom_document, CHECKBOX_INHERIT_ALARM);
 	return webkit_dom_html_input_element_get_checked (
@@ -2628,16 +2863,6 @@ itip_view_set_error (ItipView *view,
         g_return_if_fail (ITIP_IS_VIEW (view));
         g_return_if_fail (error_html);
 
-        content = webkit_dom_document_get_element_by_id (
-                view->priv->dom_document, DIV_ITIP_CONTENT);
-        webkit_dom_html_element_set_hidden (
-                WEBKIT_DOM_HTML_ELEMENT (content), TRUE);
-
-        error = webkit_dom_document_get_element_by_id (
-                view->priv->dom_document, DIV_ITIP_ERROR);
-        webkit_dom_html_element_set_hidden (
-                WEBKIT_DOM_HTML_ELEMENT (error), FALSE);
-
         str = g_string_new (error_html);
 
         if (show_save_btn) {
@@ -2652,10 +2877,26 @@ itip_view_set_error (ItipView *view,
                 g_string_append (str, "</tr></table>");
         }
 
-        webkit_dom_html_element_set_inner_html (
-                WEBKIT_DOM_HTML_ELEMENT (error), str->str, NULL);
+        view->priv->error = str->str;
+        g_string_free (str, FALSE);
 
-        g_string_free (str, TRUE);
+        if (!view->priv->dom_document)
+                return;
+
+        content = webkit_dom_document_get_element_by_id (
+                view->priv->dom_document, DIV_ITIP_CONTENT);
+        webkit_dom_html_element_set_hidden (
+                WEBKIT_DOM_HTML_ELEMENT (content), TRUE);
+
+        error = webkit_dom_document_get_element_by_id (
+                view->priv->dom_document, DIV_ITIP_ERROR);
+        webkit_dom_html_element_set_hidden (
+                WEBKIT_DOM_HTML_ELEMENT (error), FALSE);
+
+        webkit_dom_html_element_set_inner_html (
+                WEBKIT_DOM_HTML_ELEMENT (error), view->priv->error, NULL);
+
+
 
         if (show_save_btn) {
                 WebKitDOMElement *el;
