@@ -128,10 +128,10 @@ G_DEFINE_INTERFACE (EMailReader, e_mail_reader, G_TYPE_INITIALLY_UNOWNED)
 
 static void
 mail_reader_set_display_formatter_for_message (EMailReader *reader,
-					       EMailDisplay *display,
-					       const gchar *message_uid,
-					       CamelMimeMessage *message,
-					       CamelFolder *folder);
+                                               EMailDisplay *display,
+                                               const gchar *message_uid,
+                                               CamelMimeMessage *message,
+                                               CamelFolder *folder);
 
 static void
 mail_reader_closure_free (EMailReaderClosure *closure)
@@ -221,7 +221,7 @@ action_add_to_address_book_cb (GtkAction *action,
 	backend = e_mail_reader_get_backend (reader);
 
 	web_view = E_WEB_VIEW (e_mail_reader_get_mail_display (reader));
-        if (!web_view)
+	if (!web_view)
 		return;
 
 	uri = e_web_view_get_selected_uri (web_view);
@@ -260,111 +260,111 @@ attachment_load_finish (EAttachment *attachment,
                         GAsyncResult *result,
                         GFile *file)
 {
-        EShell *shell;
-        GtkWindow *parent;
+	EShell *shell;
+	GtkWindow *parent;
 
-        e_attachment_load_finish (attachment, result, NULL);
+	e_attachment_load_finish (attachment, result, NULL);
 
-        shell = e_shell_get_default ();
-        parent = e_shell_get_active_window (shell);
+	shell = e_shell_get_default ();
+	parent = e_shell_get_active_window (shell);
 
-        e_attachment_save_async (
-                attachment, file, (GAsyncReadyCallback)
-                e_attachment_save_handle_error, parent);
+	e_attachment_save_async (
+		attachment, file, (GAsyncReadyCallback)
+		e_attachment_save_handle_error, parent);
 
-        g_object_unref (file);
+	g_object_unref (file);
 }
 
 static void
 action_mail_image_save_cb (GtkAction *action,
                            EMailReader *reader)
 {
-        EMailDisplay *display;
-        EWebView *web_view;
-        EMFormat *emf;
-        const gchar *image_src;
-        CamelMimePart *part;
-        EAttachment *attachment;
-        GFile *file;
+	EMailDisplay *display;
+	EWebView *web_view;
+	EMFormat *emf;
+	const gchar *image_src;
+	CamelMimePart *part;
+	EAttachment *attachment;
+	GFile *file;
 
-        display = e_mail_reader_get_mail_display (reader);
-        web_view = E_WEB_VIEW (display);
+	display = e_mail_reader_get_mail_display (reader);
+	web_view = E_WEB_VIEW (display);
 
-        if (!E_IS_WEB_VIEW (web_view))
-                return;
+	if (!E_IS_WEB_VIEW (web_view))
+		return;
 
-        image_src = e_web_view_get_cursor_image_src (web_view);
-        if (!image_src)
-                return;
+	image_src = e_web_view_get_cursor_image_src (web_view);
+	if (!image_src)
+		return;
 
-        emf = EM_FORMAT (e_mail_display_get_formatter (display));
-        g_return_if_fail (emf != NULL);
-        g_return_if_fail (emf->message != NULL);
+	emf = EM_FORMAT (e_mail_display_get_formatter (display));
+	g_return_if_fail (emf != NULL);
+	g_return_if_fail (emf->message != NULL);
 
         if (g_str_has_prefix (image_src, "cid:")) {
-                part = camel_mime_message_get_part_by_content_id (
-                        emf->message, image_src + 4);
-                g_return_if_fail (part != NULL);
+		part = camel_mime_message_get_part_by_content_id (
+			emf->message, image_src + 4);
+		g_return_if_fail (part != NULL);
 
-                g_object_ref (part);
-        } else {
-                CamelStream *image_stream;
-                CamelDataWrapper *dw;
-                CamelDataCache *cache;
-                const gchar *filename;
-                const gchar *user_cache_dir;
+		g_object_ref (part);
+	} else {
+		CamelStream *image_stream;
+		CamelDataWrapper *dw;
+		CamelDataCache *cache;
+		const gchar *filename;
+		const gchar *user_cache_dir;
 
                 /* Open cache and find the file there */
-                user_cache_dir = e_get_user_cache_dir ();
-                cache = camel_data_cache_new (user_cache_dir, NULL);
+		user_cache_dir = e_get_user_cache_dir ();
+		cache = camel_data_cache_new (user_cache_dir, NULL);
                 image_stream = camel_data_cache_get (cache, "http", image_src, NULL);
-                if (!image_stream) {
-                        g_object_unref (cache);
-                        return;
-                }
+		if (!image_stream) {
+			g_object_unref (cache);
+			return;
+		}
 
-                filename = strrchr (image_src, '/');
-                if (filename && strchr (filename, '?'))
-                        filename = NULL;
-                else if (filename)
-                        filename = filename + 1;
+		filename = strrchr (image_src, '/');
+		if (filename && strchr (filename, '?'))
+			filename = NULL;
+		else if (filename)
+			filename = filename + 1;
 
-                part = camel_mime_part_new ();
-                if (filename)
-                        camel_mime_part_set_filename (part, filename);
+		part = camel_mime_part_new ();
+		if (filename)
+			camel_mime_part_set_filename (part, filename);
 
-                dw = camel_data_wrapper_new ();
-                camel_data_wrapper_set_mime_type (
+		dw = camel_data_wrapper_new ();
+		camel_data_wrapper_set_mime_type (
                         dw, "application/octet-stream");
-                camel_data_wrapper_construct_from_stream_sync (
-                        dw, image_stream, NULL, NULL);
-                camel_medium_set_content (CAMEL_MEDIUM (part), dw);
-                g_object_unref (dw);
+		camel_data_wrapper_construct_from_stream_sync (
+			dw, image_stream, NULL, NULL);
+		camel_medium_set_content (CAMEL_MEDIUM (part), dw);
+		g_object_unref (dw);
 
-                camel_mime_part_set_encoding (
-                        part, CAMEL_TRANSFER_ENCODING_BASE64);
+		camel_mime_part_set_encoding (
+			part, CAMEL_TRANSFER_ENCODING_BASE64);
 
-                g_object_unref (image_stream);
-                g_object_unref (cache);
-        }
+		g_object_unref (image_stream);
+		g_object_unref (cache);
+	}
 
-        file = e_shell_run_save_dialog (
-                e_shell_get_default (),
+	file = e_shell_run_save_dialog (
+		e_shell_get_default (),
                 _("Save Image"), camel_mime_part_get_filename (part),
-                NULL, NULL, NULL);
-        if (file == NULL) {
-                g_object_unref (part);
-                return;
-        }
+		NULL, NULL, NULL);
+	if (file == NULL) {
+		g_object_unref (part);
+		return;
+	}
 
-        attachment = e_attachment_new ();
-        e_attachment_set_mime_part (attachment, part);
+	attachment = e_attachment_new ();
+	e_attachment_set_mime_part (attachment, part);
 
-        e_attachment_load_async (
-                attachment, (GAsyncReadyCallback)
-                attachment_load_finish, file);
+	e_attachment_load_async (
+		attachment, (GAsyncReadyCallback)
+		attachment_load_finish, file);
 
-        g_object_unref (part);
+	g_object_unref (part);
 }
 
 static void
@@ -791,7 +791,7 @@ action_mail_load_images_cb (GtkAction *action,
 
 	display = e_mail_reader_get_mail_display (reader);
 
-        e_mail_display_load_images (display);
+	e_mail_display_load_images (display);
 }
 
 static void
@@ -1805,7 +1805,7 @@ action_mail_zoom_in_cb (GtkAction *action,
 
 	display = e_mail_reader_get_mail_display (reader);
 
-        webkit_web_view_zoom_in (WEBKIT_WEB_VIEW (display));
+	webkit_web_view_zoom_in (WEBKIT_WEB_VIEW (display));
 }
 
 static void
@@ -1816,7 +1816,7 @@ action_mail_zoom_out_cb (GtkAction *action,
 
 	display = e_mail_reader_get_mail_display (reader);
 
-        webkit_web_view_zoom_out (WEBKIT_WEB_VIEW (display));
+	webkit_web_view_zoom_out (WEBKIT_WEB_VIEW (display));
 }
 
 static void
@@ -2610,7 +2610,6 @@ mail_reader_message_seen_cb (EMailReaderClosure *closure)
 	reader = closure->reader;
 	message_uid = closure->message_uid;
 
-
 	display = e_mail_reader_get_mail_display (reader);
 	formatter = e_mail_display_get_formatter (display);
 	message_list = e_mail_reader_get_message_list (reader);
@@ -2621,10 +2620,10 @@ mail_reader_message_seen_cb (EMailReaderClosure *closure)
 	current_uid = MESSAGE_LIST (message_list)->cursor_uid;
 	uid_is_current &= (g_strcmp0 (current_uid, message_uid) == 0);
 
-        if (formatter)
-        	message = EM_FORMAT (formatter)->message;
-        else
-                message = NULL;
+	if (formatter)
+		message = EM_FORMAT (formatter)->message;
+	else
+		message = NULL;
 
 	if (uid_is_current && message != NULL)
 		g_signal_emit (
@@ -2645,8 +2644,8 @@ schedule_timeout_mark_seen (EMailReader *reader)
 	gboolean schedule_timeout;
 	gint timeout_interval;
 	const gchar *message_uid;
-        backend = e_mail_reader_get_backend (reader);
-        message_list = MESSAGE_LIST (e_mail_reader_get_message_list (reader));	
+	backend = e_mail_reader_get_backend (reader);
+	message_list = MESSAGE_LIST (e_mail_reader_get_message_list (reader));
 	shell_backend = E_SHELL_BACKEND (backend);
 	shell = e_shell_backend_get_shell (shell_backend);
 	shell_settings = e_shell_get_shell_settings (shell);
@@ -3034,7 +3033,7 @@ struct _formatter_weak_ref_closure {
 
 static void
 formatter_weak_ref_cb (struct _formatter_weak_ref_closure *data,
-		       EMFormat *formatter)
+                       EMFormat *formatter)
 {
 	/* When this callback is called, the formatter is being finalized
 	 * so we only remove it from the formatters table. */
@@ -3060,29 +3059,29 @@ format_parser_async_done_cb (GObject *source,
                              GAsyncResult *result,
                              gpointer user_data)
 {
-        EMFormat *emf = EM_FORMAT (source);
-        struct format_parser_async_closure_ *closure = user_data;
+	EMFormat *emf = EM_FORMAT (source);
+	struct format_parser_async_closure_ *closure = user_data;
 
-        e_mail_display_set_formatter (closure->display, EM_FORMAT_HTML (emf));
-        e_mail_display_load (closure->display, emf->uri_base);
+	e_mail_display_set_formatter (closure->display, EM_FORMAT_HTML (emf));
+	e_mail_display_load (closure->display, emf->uri_base);
 
-        g_object_unref (closure->activity);
-        g_object_unref (closure->display);
-        g_free (closure);
+	g_object_unref (closure->activity);
+	g_object_unref (closure->display);
+	g_free (closure);
 
-        g_object_unref (result);
+	g_object_unref (result);
 
         /* Remove the reference added when formatter was created,
          * so that only owners are EMailDisplays */
-        g_object_unref (emf);
+	g_object_unref (emf);
 }
 
 static void
 mail_reader_set_display_formatter_for_message (EMailReader *reader,
-					       EMailDisplay *display,
-					       const gchar *message_uid,
-					       CamelMimeMessage *message,
-					       CamelFolder *folder)
+                                               EMailDisplay *display,
+                                               const gchar *message_uid,
+                                               CamelMimeMessage *message,
+                                               CamelFolder *folder)
 {
 	SoupSession *session;
 	GHashTable *formatters;
@@ -3177,7 +3176,6 @@ mail_reader_message_loaded (EMailReader *reader,
 	e_event_emit (
 		(EEvent *) event, "message.reading",
 		(EEventTarget *) target);
-
 
 	mail_reader_set_display_formatter_for_message (
 		reader, display, message_uid, message, folder);
@@ -3814,7 +3812,7 @@ e_mail_reader_init (EMailReader *reader,
 	g_return_if_fail (E_IS_MAIL_READER (reader));
 
 	message_list = e_mail_reader_get_message_list (reader);
-        display = e_mail_reader_get_mail_display (reader);
+	display = e_mail_reader_get_mail_display (reader);
 
 	if (!init_actions)
 		goto connect_signals;
@@ -3981,10 +3979,10 @@ e_mail_reader_init (EMailReader *reader,
 		G_CALLBACK (action_search_folder_sender_cb), reader);
 
         action_name = "image-save";
-        action = e_mail_display_get_action (display, action_name);
-        g_signal_connect (
+	action = e_mail_display_get_action (display, action_name);
+	g_signal_connect (
                 action, "activate",
-                G_CALLBACK (action_mail_image_save_cb), reader);
+		G_CALLBACK (action_mail_image_save_cb), reader);
 
 #ifndef G_OS_WIN32
 	/* Lockdown integration. */

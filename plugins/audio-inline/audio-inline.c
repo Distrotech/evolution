@@ -100,7 +100,7 @@ org_gnome_audio_inline_pobject_free (EMFormatPURI *o)
 
 static void
 org_gnome_audio_inline_pause_clicked (GtkWidget *button,
-									  EMFormatPURI *puri)
+                                                                          EMFormatPURI *puri)
 {
 	EMFormatInlineAudioPURI *po = (EMFormatInlineAudioPURI *) puri;
 
@@ -112,7 +112,7 @@ org_gnome_audio_inline_pause_clicked (GtkWidget *button,
 
 static void
 org_gnome_audio_inline_stop_clicked (GtkWidget *button,
-									 EMFormatPURI *puri)
+                                                                         EMFormatPURI *puri)
 {
 	EMFormatInlineAudioPURI *po = (EMFormatInlineAudioPURI *) puri;
 
@@ -189,7 +189,7 @@ org_gnome_audio_inline_gst_callback (GstBus *bus,
 
 static void
 org_gnome_audio_inline_play_clicked (GtkWidget *button,
-									 EMFormatPURI *puri)
+                                                                         EMFormatPURI *puri)
 {
 	EMFormatInlineAudioPURI *po = (EMFormatInlineAudioPURI *) puri;
 	GstState cur_state;
@@ -277,10 +277,10 @@ org_gnome_audio_inline_add_button (GtkWidget *box,
 
 static void
 write_button_panel (EMFormat *emf,
-		    EMFormatPURI *puri,
-		    CamelStream *stream,
-		    EMFormatWriterInfo *info,
-		    GCancellable *cancellable)
+                    EMFormatPURI *puri,
+                    CamelStream *stream,
+                    EMFormatWriterInfo *info,
+                    GCancellable *cancellable)
 {
 	gchar *str;
 
@@ -293,10 +293,10 @@ write_button_panel (EMFormat *emf,
 	g_free (str);
 }
 
-static GtkWidget*
+static GtkWidget *
 org_gnome_audio_inline_button_panel (EMFormat *emf,
-				     EMFormatPURI *puri,
-				     GCancellable *cancellable)
+                                     EMFormatPURI *puri,
+                                     GCancellable *cancellable)
 {
 	GtkWidget *box;
 	EMFormatInlineAudioPURI *po = (EMFormatInlineAudioPURI *) puri;
@@ -326,7 +326,7 @@ org_gnome_audio_inline_format (gpointer ep,
 	d(printf ("audio inline formatter: format classid %s\n", t->part_id->str));
 
 	pobj = (EMFormatInlineAudioPURI *) em_format_puri_new (
-                        t->format, sizeof (EMFormatInlineAudioPURI),
+			t->format, sizeof (EMFormatInlineAudioPURI),
 			t->part, t->part_id->str);
 	pobj->puri.widget_func = org_gnome_audio_inline_button_panel;
 	pobj->puri.write_func = write_button_panel;
@@ -341,7 +341,7 @@ org_gnome_audio_inline_format (gpointer ep,
 	pobj->puri.free = org_gnome_audio_inline_pobject_free;
 	pobj->target_state = GST_STATE_NULL;
 
-        em_format_add_puri (t->format, (EMFormatPURI *) pobj);
+	em_format_add_puri (t->format, (EMFormatPURI *) pobj);
 
 	g_string_truncate (t->part_id, len);
 }

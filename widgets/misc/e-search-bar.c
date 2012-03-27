@@ -137,7 +137,6 @@ search_bar_find (ESearchBar *search_bar,
 		search_bar_update_matches (search_bar, matches);
 	}
 
-
 	success = webkit_web_view_search_text (
 		WEBKIT_WEB_VIEW (web_view),
 		text, case_sensitive, search_forward, FALSE);

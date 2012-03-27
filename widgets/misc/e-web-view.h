@@ -60,7 +60,7 @@ struct _EWebView {
 	EWebViewPrivate *priv;
 };
 
-typedef void (*EWebViewJSFunctionCallback) 	(EWebView *web_view,
+typedef void (*EWebViewJSFunctionCallback)	(EWebView *web_view,
 						 size_t arg_count,
 						 const JSValueRef args[],
 						 gpointer user_data);
@@ -109,7 +109,7 @@ void		e_web_view_load_string		(EWebView *web_view,
 						 const gchar *string);
 void		e_web_view_load_uri		(EWebView *web_view,
 						 const gchar *uri);
-const gchar*	e_web_view_get_uri		(EWebView *web_view);
+const gchar *	e_web_view_get_uri		(EWebView *web_view);
 void		e_web_view_reload		(EWebView *web_view);
 void		e_web_view_frame_load_string	(EWebView *web_view,
 						 const gchar *frame_name,
@@ -117,7 +117,7 @@ void		e_web_view_frame_load_string	(EWebView *web_view,
 void		e_web_view_frame_load_uri	(EWebView *web_view,
 						 const gchar *frame_name,
 						 const gchar *uri);
-const gchar*	e_web_view_frame_get_uri	(EWebView *web_view,
+const gchar *	e_web_view_frame_get_uri	(EWebView *web_view,
 						 const gchar *frame_name);
 JSGlobalContextRef
 		e_web_view_get_global_context	(EWebView *web_view);
@@ -183,7 +183,7 @@ void		e_web_view_set_print_proxy	(EWebView *web_view,
 GtkAction *	e_web_view_get_save_as_proxy	(EWebView *web_view);
 void		e_web_view_set_save_as_proxy	(EWebView *web_view,
 						 GtkAction *save_as_proxy);
-GSList*         e_web_view_get_highlights       (EWebView *web_view);
+GSList *         e_web_view_get_highlights       (EWebView *web_view);
 void            e_web_view_add_highlight        (EWebView *web_view,
                                                  const gchar *highlight);
 void            e_web_view_clear_highlights     (EWebView *web_view);
@@ -215,11 +215,11 @@ void		e_web_view_status_message	(EWebView *web_view,
 void		e_web_view_stop_loading		(EWebView *web_view);
 void		e_web_view_update_actions	(EWebView *web_view);
 
-gchar*          e_web_view_get_selection_html   (EWebView *web_view);
+gchar *          e_web_view_get_selection_html   (EWebView *web_view);
 
 void		e_web_view_set_settings		(EWebView *web_view,
 						 WebKitWebSettings *settings);
-WebKitWebSettings*
+WebKitWebSettings *
 		e_web_view_get_default_settings ();
 
 G_END_DECLS

@@ -181,8 +181,8 @@ org_gnome_vcard_inline_client_loaded_cb (ESource *source,
 
 static void
 org_gnome_vcard_inline_save_cb (WebKitDOMEventTarget *button,
-				WebKitDOMEvent *event,
-				VCardInlinePURI *vcard_object)
+                                WebKitDOMEvent *event,
+                                VCardInlinePURI *vcard_object)
 {
 	ESource *source;
 	GSList *contact_list;
@@ -218,8 +218,8 @@ org_gnome_vcard_inline_save_cb (WebKitDOMEventTarget *button,
 
 static void
 org_gnome_vcard_inline_toggle_cb (WebKitDOMEventTarget *button,
-				  WebKitDOMEvent *event,
-				  EMFormatPURI *puri)
+                                  WebKitDOMEvent *event,
+                                  EMFormatPURI *puri)
 {
 	VCardInlinePURI *vcard_object;
 	EABContactDisplayMode mode;
@@ -231,7 +231,7 @@ org_gnome_vcard_inline_toggle_cb (WebKitDOMEventTarget *button,
 	if (mode == EAB_CONTACT_DISPLAY_RENDER_NORMAL) {
 		mode = EAB_CONTACT_DISPLAY_RENDER_COMPACT;
 
-		webkit_dom_html_element_set_inner_text(
+		webkit_dom_html_element_set_inner_text (
 			WEBKIT_DOM_HTML_ELEMENT (button),
 			_("Show Full vCard"), NULL);
 
@@ -258,7 +258,7 @@ org_gnome_vcard_inline_toggle_cb (WebKitDOMEventTarget *button,
 
 static void
 org_gnome_vcard_inline_bind_dom (WebKitDOMElement *attachment,
-				 EMFormatPURI *puri)
+                                 EMFormatPURI *puri)
 {
 	WebKitDOMNodeList *list;
 	WebKitDOMElement *iframe, *toggle_button, *save_button;
@@ -276,7 +276,7 @@ org_gnome_vcard_inline_bind_dom (WebKitDOMElement *attachment,
 	vcard_object->iframe = g_object_ref (iframe);
 
 	/* TOGGLE DISPLAY MODE BUTTON */
-	list = webkit_dom_element_get_elements_by_class_name(
+	list = webkit_dom_element_get_elements_by_class_name (
 		attachment, "org-gnome-vcard-inline-display-mode-button");
 	if (webkit_dom_node_list_get_length (list) != 1)
 		return;
@@ -295,7 +295,6 @@ org_gnome_vcard_inline_bind_dom (WebKitDOMElement *attachment,
 		g_object_unref (vcard_object->save_button);
 	vcard_object->save_button = g_object_ref (save_button);
 
-
 	webkit_dom_event_target_add_event_listener (
 		WEBKIT_DOM_EVENT_TARGET (toggle_button),
 		"click", G_CALLBACK (org_gnome_vcard_inline_toggle_cb),
@@ -309,10 +308,10 @@ org_gnome_vcard_inline_bind_dom (WebKitDOMElement *attachment,
 
 static void
 org_gnome_vcard_inline_write (EMFormat *emf,
-			      EMFormatPURI *puri,
-			      CamelStream *stream,
-			      EMFormatWriterInfo *info,
-			      GCancellable *cancellable)
+                              EMFormatPURI *puri,
+                              CamelStream *stream,
+                              EMFormatWriterInfo *info,
+                              GCancellable *cancellable)
 {
 	VCardInlinePURI *vpuri;
 
@@ -416,7 +415,7 @@ org_gnome_vcard_inline_format (gpointer ep,
 	g_string_append (target->part_id, ".org-gnome-vcard-inline-display");
 
 	vcard_object = (VCardInlinePURI *) em_format_puri_new (
-			target->format, sizeof(VCardInlinePURI),
+			target->format, sizeof (VCardInlinePURI),
 			target->part, target->part_id->str);
 	vcard_object->puri.mime_type = g_strdup("text/html");
 	vcard_object->puri.write_func = org_gnome_vcard_inline_write;

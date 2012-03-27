@@ -71,7 +71,7 @@ struct _EMFormatAttachmentPURI {
 
 	/* for the > and V buttons */
 	GtkWidget *forward, *down;
-	guint shown:1;
+	guint shown : 1;
 
 	/* Attachment */
 	EAttachment *attachment;
@@ -97,7 +97,6 @@ struct _EMFormatSMIMEPURI {
 	CamelCipherValidity *valid;
 	GtkWidget *widget;
 };
-
 
 struct _EMFormatHTMLDisplay {
 	EMFormatHTML parent;

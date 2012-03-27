@@ -355,18 +355,18 @@ replace_text (WebKitDOMNode *node,
               WebKitDOMNode *replacement)
 {
         /* NodeType 3 = TEXT_NODE */
-        if (webkit_dom_node_get_node_type (node) == 3) {
+	if (webkit_dom_node_get_node_type (node) == 3) {
 
-                gint text_length = strlen (text);
+		gint text_length = strlen (text);
 
-                while (node) {
+		while (node) {
 
-                        WebKitDOMNode *current_node, *replacement_node;
-                        const gchar *node_data, *offset;
-                        goffset split_offset;
-                        gint data_length;
+			WebKitDOMNode *current_node, *replacement_node;
+			const gchar *node_data, *offset;
+			goffset split_offset;
+			gint data_length;
 
-                        current_node = node;
+			current_node = node;
 
                         /* Don't use the WEBKIT_DOM_CHARACTER_DATA macro for
                          * casting. WebKit lies about type of the object and
@@ -377,106 +377,104 @@ replace_text (WebKitDOMNode *node,
                          * handles it by the nodeType so therefor it works
                          * event for "invalid" objects. But really, who knows..?
                          */
-                        node_data = webkit_dom_character_data_get_data (
-                                        (WebKitDOMCharacterData *) node);
+			node_data = webkit_dom_character_data_get_data (
+					(WebKitDOMCharacterData *) node);
 
-                        offset = strstr (node_data, text);
-                        if (!offset) {
-                                node = NULL;
-                                continue;
-                        }
+			offset = strstr (node_data, text);
+			if (!offset) {
+				node = NULL;
+				continue;
+			}
 
-                        split_offset = offset - node_data + text_length;
-                        replacement_node =
-                                webkit_dom_node_clone_node (replacement, TRUE);
+			split_offset = offset - node_data + text_length;
+			replacement_node =
+				webkit_dom_node_clone_node (replacement, TRUE);
 
-                        data_length = webkit_dom_character_data_get_length(
-                                        (WebKitDOMCharacterData *) node);
-                        if (split_offset < data_length) {
+			data_length = webkit_dom_character_data_get_length (
+					(WebKitDOMCharacterData *) node);
+			if (split_offset < data_length) {
 
-                                WebKitDOMNode *parent_node;
+				WebKitDOMNode *parent_node;
 
-                                node = WEBKIT_DOM_NODE (
-                                        webkit_dom_text_split_text (
-                                                (WebKitDOMText *) node,
-                                                offset - node_data + text_length,
-                                                NULL));
-                                parent_node = webkit_dom_node_get_parent_node(node);
-                                webkit_dom_node_insert_before (
-                                        parent_node, replacement_node,
-                                        node, NULL);
+				node = WEBKIT_DOM_NODE (
+					webkit_dom_text_split_text (
+						(WebKitDOMText *) node,
+						offset - node_data + text_length,
+						NULL));
+				parent_node = webkit_dom_node_get_parent_node (node);
+				webkit_dom_node_insert_before (
+					parent_node, replacement_node,
+					node, NULL);
 
-                        } else {
-                                WebKitDOMNode *parent_node;
+			} else {
+				WebKitDOMNode *parent_node;
 
-                                parent_node = webkit_dom_node_get_parent_node (node);
-                                webkit_dom_node_append_child (
-                                        parent_node,
-                                        replacement_node, NULL);
-                        }
+				parent_node = webkit_dom_node_get_parent_node (node);
+				webkit_dom_node_append_child (
+					parent_node,
+					replacement_node, NULL);
+			}
 
-                        webkit_dom_character_data_delete_data (
-                                (WebKitDOMCharacterData *) (current_node),
-                                offset - node_data, text_length, NULL);
-                }
+			webkit_dom_character_data_delete_data (
+				(WebKitDOMCharacterData *) (current_node),
+				offset - node_data, text_length, NULL);
+		}
 
-        } else {
+	} else {
 
-                WebKitDOMNode *child, *next_child;
+		WebKitDOMNode *child, *next_child;
 
                 /* Iframe? Let's traverse inside! */
-                if (WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (node)) {
+		if (WEBKIT_DOM_IS_HTML_IFRAME_ELEMENT (node)) {
 
-                        WebKitDOMDocument *frame_document;
+			WebKitDOMDocument *frame_document;
 
-                        frame_document =
-                                webkit_dom_html_iframe_element_get_content_document(
-                                        WEBKIT_DOM_HTML_IFRAME_ELEMENT (node));
-                        replace_text (WEBKIT_DOM_NODE (frame_document),
-                                      text, replacement);
+			frame_document =
+				webkit_dom_html_iframe_element_get_content_document (
+					WEBKIT_DOM_HTML_IFRAME_ELEMENT (node));
+			replace_text (WEBKIT_DOM_NODE (frame_document),
+				      text, replacement);
 
-                } else {
+		} else {
 
-                        child = webkit_dom_node_get_first_child (node);
-                        while (child) {
-                                next_child = webkit_dom_node_get_next_sibling (child);
-                                replace_text (child, text, replacement);
-                                child = next_child;
-                        }
-                }
-        }
+			child = webkit_dom_node_get_first_child (node);
+			while (child) {
+				next_child = webkit_dom_node_get_next_sibling (child);
+				replace_text (child, text, replacement);
+				child = next_child;
+			}
+		}
+	}
 
 }
-
 
 static void
 web_view_update_document_highlights (EWebView *web_view)
 {
-        WebKitDOMDocument *document;
-        GSList *iter;
+	WebKitDOMDocument *document;
+	GSList *iter;
 
-        document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (web_view));
+	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (web_view));
 
-        for (iter = web_view->priv->highlights; iter; iter = iter->next) {
+	for (iter = web_view->priv->highlights; iter; iter = iter->next) {
 
-                WebKitDOMDocumentFragment *frag;
-                WebKitDOMElement *span;
+		WebKitDOMDocumentFragment *frag;
+		WebKitDOMElement *span;
 
                 span = webkit_dom_document_create_element (document, "span", NULL);
-                webkit_dom_html_element_set_class_name (
+		webkit_dom_html_element_set_class_name (
                         WEBKIT_DOM_HTML_ELEMENT (span), "__evo-highlight");
-                webkit_dom_html_element_set_inner_text (
-                        WEBKIT_DOM_HTML_ELEMENT (span), iter->data, NULL);
+		webkit_dom_html_element_set_inner_text (
+			WEBKIT_DOM_HTML_ELEMENT (span), iter->data, NULL);
 
-                frag = webkit_dom_document_create_document_fragment (document);
-                webkit_dom_node_append_child (
-                        WEBKIT_DOM_NODE (frag), WEBKIT_DOM_NODE (span), NULL);
+		frag = webkit_dom_document_create_document_fragment (document);
+		webkit_dom_node_append_child (
+			WEBKIT_DOM_NODE (frag), WEBKIT_DOM_NODE (span), NULL);
 
-                replace_text(WEBKIT_DOM_NODE (document),
-                        iter->data, WEBKIT_DOM_NODE (frag));
-        }
+		replace_text (WEBKIT_DOM_NODE (document),
+			iter->data, WEBKIT_DOM_NODE (frag));
+	}
 }
-
 
 static void
 web_view_menu_item_deselect_cb (EWebView *web_view)
@@ -572,13 +570,13 @@ web_view_load_status_changed_cb (WebKitWebView *web_view,
                                  GParamSpec *pspec,
                                  gpointer user_data)
 {
-        WebKitLoadStatus status;
+	WebKitLoadStatus status;
 
-        status = webkit_web_view_get_load_status (web_view);
-        if (status != WEBKIT_LOAD_FINISHED)
-                return;
+	status = webkit_web_view_get_load_status (web_view);
+	if (status != WEBKIT_LOAD_FINISHED)
+		return;
 
-        web_view_update_document_highlights (E_WEB_VIEW (web_view));
+	web_view_update_document_highlights (E_WEB_VIEW (web_view));
 }
 
 static void
@@ -790,9 +788,9 @@ web_view_dispose (GObject *object)
 	}
 
 	if (priv->highlights != NULL) {
-                g_slist_free_full (priv->highlights, g_free);
-                priv->highlights = NULL;
-        }
+		g_slist_free_full (priv->highlights, g_free);
+		priv->highlights = NULL;
+	}
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -851,77 +849,77 @@ web_view_button_press_event (GtkWidget *widget,
 
 	web_view = E_WEB_VIEW (widget);
 
-        if (event) {
-                WebKitHitTestResult *test;
-                WebKitHitTestResultContext context;
+	if (event) {
+		WebKitHitTestResult *test;
+		WebKitHitTestResultContext context;
 
-                if (web_view->priv->cursor_image) {
-                        g_object_unref (web_view->priv->cursor_image);
-                        web_view->priv->cursor_image = NULL;
-                }
+		if (web_view->priv->cursor_image) {
+			g_object_unref (web_view->priv->cursor_image);
+			web_view->priv->cursor_image = NULL;
+		}
 
-                if (web_view->priv->cursor_image_src) {
-                        g_free (web_view->priv->cursor_image_src);
-                        web_view->priv->cursor_image_src = NULL;
-                }
+		if (web_view->priv->cursor_image_src) {
+			g_free (web_view->priv->cursor_image_src);
+			web_view->priv->cursor_image_src = NULL;
+		}
 
-                test = webkit_web_view_get_hit_test_result (WEBKIT_WEB_VIEW (web_view), event);
+		test = webkit_web_view_get_hit_test_result (WEBKIT_WEB_VIEW (web_view), event);
 
-                if (!test)
-                        goto chainup;
+		if (!test)
+			goto chainup;
 
                 g_object_get (G_OBJECT (test), "context", &context, NULL);
-                if (context & WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE) {
-                        WebKitWebDataSource *data_source;
-                        WebKitWebFrame *frame;
-                        GList *subresources, *res;
+		if (context & WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE) {
+			WebKitWebDataSource *data_source;
+			WebKitWebFrame *frame;
+			GList *subresources, *res;
 
                         g_object_get (G_OBJECT (test), "image-uri", &uri, NULL);
 
-                        if (!uri)
-                                goto chainup;
+			if (!uri)
+				goto chainup;
 
-                        if (web_view->priv->cursor_image_src)
-                                g_free (web_view->priv->cursor_image_src);
-                        web_view->priv->cursor_image_src = uri;
+			if (web_view->priv->cursor_image_src)
+				g_free (web_view->priv->cursor_image_src);
+			web_view->priv->cursor_image_src = uri;
 
                         /* Iterate through all resources of the loaded webpage and
-                           try to find resource with URI matching cursor_image_src */
-                        frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (web_view));
-                        data_source = webkit_web_frame_get_data_source (frame);
-                        subresources = webkit_web_data_source_get_subresources (data_source);
-                        for (res = subresources; res; res = res->next) {
-                                WebKitWebResource *src = res->data;
-                                GdkPixbufLoader *loader;
-                                GString *data;
+			   try to find resource with URI matching cursor_image_src */
+			frame = webkit_web_view_get_main_frame (WEBKIT_WEB_VIEW (web_view));
+			data_source = webkit_web_frame_get_data_source (frame);
+			subresources = webkit_web_data_source_get_subresources (data_source);
+			for (res = subresources; res; res = res->next) {
+				WebKitWebResource *src = res->data;
+				GdkPixbufLoader *loader;
+				GString *data;
 
-                                if (g_strcmp0 (webkit_web_resource_get_uri (src),
-                                        web_view->priv->cursor_image_src) != 0)
-                                        continue;
+				if (g_strcmp0 (webkit_web_resource_get_uri (src),
+					web_view->priv->cursor_image_src) != 0)
+					continue;
 
-                                data = webkit_web_resource_get_data (src);
-                                if (!data)
-                                        break;
+				data = webkit_web_resource_get_data (src);
+				if (!data)
+					break;
 
-                                loader = gdk_pixbuf_loader_new ();
-                                if (!gdk_pixbuf_loader_write (loader,
-                                        (guchar *) data->str, data->len, NULL)) {
-                                        g_object_unref (loader);
-                                        break;
-                                }
-                                gdk_pixbuf_loader_close (loader, NULL);
+				loader = gdk_pixbuf_loader_new ();
+				if (!gdk_pixbuf_loader_write (loader,
+					(guchar *) data->str, data->len, NULL)) {
+					g_object_unref (loader);
+					break;
+				}
+				gdk_pixbuf_loader_close (loader, NULL);
 
-                                if (web_view->priv->cursor_image)
-                                        g_object_unref (web_view->priv->cursor_image);
+				if (web_view->priv->cursor_image)
+					g_object_unref (web_view->priv->cursor_image);
 
-                                web_view->priv->cursor_image =
-                                        g_object_ref (gdk_pixbuf_loader_get_animation (loader));
+				web_view->priv->cursor_image =
+					g_object_ref (gdk_pixbuf_loader_get_animation (loader));
 
-                                g_object_unref (loader);
-                                break;
-                        }
-                }
-        }
+				g_object_unref (loader);
+				break;
+			}
+		}
+	}
 
 	if (event != NULL && event->button != 3)
 		goto chainup;
@@ -1113,7 +1111,7 @@ web_view_load_string (EWebView *web_view,
 
 static void
 web_view_load_uri (EWebView *web_view,
-		   const gchar *uri)
+                   const gchar *uri)
 {
 	if (uri == NULL)
 		uri = "about:blank";
@@ -1124,8 +1122,8 @@ web_view_load_uri (EWebView *web_view,
 
 static void
 web_view_frame_load_string (EWebView *web_view,
-			    const gchar *frame_name,
-			    const gchar *string)
+                            const gchar *frame_name,
+                            const gchar *string)
 {
 	WebKitWebFrame *main_frame, *frame;
 
@@ -1144,8 +1142,8 @@ web_view_frame_load_string (EWebView *web_view,
 
 static void
 web_view_frame_load_uri (EWebView *web_view,
-			 const gchar *frame_name,
-			 const gchar *uri)
+                         const gchar *frame_name,
+                         const gchar *uri)
 {
 	WebKitWebFrame *main_frame, *frame;
 
@@ -1665,7 +1663,7 @@ e_web_view_init (EWebView *web_view)
 
 	web_view->priv = E_WEB_VIEW_GET_PRIVATE (web_view);
 
-        web_view->priv->highlights = NULL;
+	web_view->priv->highlights = NULL;
 
 	g_signal_connect (
 		web_view, "create-plugin-widget",
@@ -1680,9 +1678,9 @@ e_web_view_init (EWebView *web_view)
 		G_CALLBACK (web_view_navigation_policy_decision_requested_cb),
 		NULL);
 
-        g_signal_connect (
+	g_signal_connect (
                 web_view, "notify::load-status",
-                G_CALLBACK (web_view_load_status_changed_cb), NULL);
+		G_CALLBACK (web_view_load_status_changed_cb), NULL);
 
 	ui_manager = gtk_ui_manager_new ();
 	web_view->priv->ui_manager = ui_manager;
@@ -1839,7 +1837,7 @@ e_web_view_load_string (EWebView *web_view,
 
 void
 e_web_view_load_uri (EWebView *web_view,
-		     const gchar *uri)
+                     const gchar *uri)
 {
 	EWebViewClass *class;
 
@@ -1859,7 +1857,7 @@ e_web_view_reload (EWebView *web_view)
 	webkit_web_view_reload (WEBKIT_WEB_VIEW (web_view));
 }
 
-const gchar*
+const gchar *
 e_web_view_get_uri (EWebView *web_view)
 {
 	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
@@ -1869,8 +1867,8 @@ e_web_view_get_uri (EWebView *web_view)
 
 void
 e_web_view_frame_load_string (EWebView *web_view,
-			      const gchar *frame_name,
-			      const gchar *string)
+                              const gchar *frame_name,
+                              const gchar *string)
 {
 	EWebViewClass *class;
 
@@ -1885,8 +1883,8 @@ e_web_view_frame_load_string (EWebView *web_view,
 
 void
 e_web_view_frame_load_uri (EWebView *web_view,
-			   const gchar *frame_name,
-			   const gchar *uri)
+                           const gchar *frame_name,
+                           const gchar *uri)
 {
 	EWebViewClass *class;
 
@@ -1899,9 +1897,9 @@ e_web_view_frame_load_uri (EWebView *web_view,
 	class->frame_load_uri (web_view, frame_name, uri);
 }
 
-const gchar*
+const gchar *
 e_web_view_frame_get_uri (EWebView *web_view,
-			  const gchar *frame_name)
+                          const gchar *frame_name)
 {
 	WebKitWebFrame *main_frame, *frame;
 
@@ -1919,7 +1917,7 @@ e_web_view_frame_get_uri (EWebView *web_view,
 	return NULL;
 }
 
-gchar*
+gchar *
 e_web_view_get_html (EWebView *web_view)
 {
 	GValue html = {0};
@@ -1944,7 +1942,9 @@ e_web_view_get_global_context (EWebView *web_view)
 }
 
 GType
-e_web_view_exec_script (EWebView *web_view, const gchar *script, GValue *value)
+e_web_view_exec_script (EWebView *web_view,
+                        const gchar *script,
+                        GValue *value)
 {
 	WebKitWebFrame *main_frame;
 
@@ -1959,7 +1959,10 @@ e_web_view_exec_script (EWebView *web_view, const gchar *script, GValue *value)
 }
 
 GType
-e_web_view_frame_exec_script (EWebView *web_view, const gchar *frame_name, const gchar *script, GValue *value)
+e_web_view_frame_exec_script (EWebView *web_view,
+                              const gchar *frame_name,
+                              const gchar *script,
+                              GValue *value)
 {
 	WebKitWebFrame *main_frame, *frame;
 	JSGlobalContextRef context;
@@ -2008,7 +2011,7 @@ e_web_view_frame_exec_script (EWebView *web_view, const gchar *frame_name, const
 			break;
 		case kJSTypeNumber:
 			g_value_init (value, G_TYPE_DOUBLE);
-			g_value_set_double(value, JSValueToNumber (context, js_value, NULL));
+			g_value_set_double (value, JSValueToNumber (context, js_value, NULL));
 			break;
 		case kJSTypeString:
 			js_str = JSValueToStringCopy (context, js_value, NULL);
@@ -2036,8 +2039,12 @@ e_web_view_frame_exec_script (EWebView *web_view, const gchar *frame_name, const
 }
 
 static JSValueRef
-web_view_handle_js_callback (JSContextRef ctx, JSObjectRef function, JSObjectRef this_object,
-			     size_t argument_count, const JSValueRef arguments[], JSValueRef *exception)
+web_view_handle_js_callback (JSContextRef ctx,
+                             JSObjectRef function,
+                             JSObjectRef this_object,
+                             size_t argument_count,
+                             const JSValueRef arguments[],
+                             JSValueRef *exception)
 {
 	gpointer web_view;
 	gpointer user_data;
@@ -2055,8 +2062,8 @@ web_view_handle_js_callback (JSContextRef ctx, JSObjectRef function, JSObjectRef
 	JSValueRef js_userdata = JSObjectGetProperty (ctx, function, js_userdata_prop, NULL);
 	JSValueRef js_fncname = JSObjectGetProperty (ctx, function, js_fncname_prop, NULL);
 
-	web_view = GINT_TO_POINTER ((int) JSValueToNumber (ctx, js_webview, NULL));
-	user_data = GINT_TO_POINTER ((int) JSValueToNumber (ctx, js_userdata, NULL));
+	web_view = GINT_TO_POINTER ((gint) JSValueToNumber (ctx, js_webview, NULL));
+	user_data = GINT_TO_POINTER ((gint) JSValueToNumber (ctx, js_userdata, NULL));
 	js_fncname_str = JSValueToStringCopy (ctx, js_fncname, NULL);
 	fnc_name_len = JSStringGetLength (js_fncname_str);
 
@@ -2064,7 +2071,7 @@ web_view_handle_js_callback (JSContextRef ctx, JSObjectRef function, JSObjectRef
 
 	/* Convert fncname to gchar* and lookup the callback in hashtable */
 	fnc_name = g_malloc (fnc_name_len + 1);
-	JSStringGetUTF8CString (js_fncname_str, fnc_name, fnc_name_len+1);
+	JSStringGetUTF8CString (js_fncname_str, fnc_name, fnc_name_len + 1);
 	callback = g_hash_table_lookup (E_WEB_VIEW (web_view)->priv->js_callbacks, fnc_name);
 
 	g_return_val_if_fail (callback != NULL, 0);
@@ -2083,7 +2090,10 @@ web_view_handle_js_callback (JSContextRef ctx, JSObjectRef function, JSObjectRef
 }
 
 void
-e_web_view_install_js_callback (EWebView *web_view, const gchar *fnc_name, EWebViewJSFunctionCallback callback, gpointer user_data)
+e_web_view_install_js_callback (EWebView *web_view,
+                                const gchar *fnc_name,
+                                EWebViewJSFunctionCallback callback,
+                                gpointer user_data)
 {
 	WebKitWebFrame *frame;
 	JSGlobalContextRef ctx;
@@ -2187,38 +2197,36 @@ e_web_view_set_disable_save_to_disk (EWebView *web_view,
 }
 
 gboolean
-e_web_view_get_enable_frame_flattening (EWebView* web_view)
+e_web_view_get_enable_frame_flattening (EWebView * web_view)
 {
-        WebKitWebSettings *settings;
-        gboolean flattening;
+	WebKitWebSettings *settings;
+	gboolean flattening;
 
         /* Return TRUE with fail since it's default value we set in _init(). */
-        g_return_val_if_fail (E_IS_WEB_VIEW (web_view), TRUE);
+	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), TRUE);
 
-        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
-        g_return_val_if_fail (settings != NULL, TRUE);
+	settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+	g_return_val_if_fail (settings != NULL, TRUE);
 
         g_object_get (G_OBJECT (settings), "enable-frame-flattening", &flattening, NULL);
 
-        return flattening;
+	return flattening;
 }
 
 void
-e_web_view_set_enable_frame_flattening (EWebView* web_view,
+e_web_view_set_enable_frame_flattening (EWebView * web_view,
                                         gboolean enable_frame_flattening)
 {
-        WebKitWebSettings *settings;
+	WebKitWebSettings *settings;
 
-        g_return_if_fail (E_IS_WEB_VIEW (web_view));
+	g_return_if_fail (E_IS_WEB_VIEW (web_view));
 
-        settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
-        g_return_if_fail (settings != NULL);
+	settings = webkit_web_view_get_settings (WEBKIT_WEB_VIEW (web_view));
+	g_return_if_fail (settings != NULL);
 
         g_object_set (G_OBJECT (settings), "enable-frame-flattening",
-                enable_frame_flattening, NULL);
+		enable_frame_flattening, NULL);
 }
-
-
 
 gboolean
 e_web_view_get_editable (EWebView *web_view)
@@ -2488,38 +2496,38 @@ e_web_view_set_save_as_proxy (EWebView *web_view,
 	g_object_notify (G_OBJECT (web_view), "save-as-proxy");
 }
 
-GSList*
+GSList *
 e_web_view_get_highlights (EWebView *web_view)
 {
-        g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
+	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
 
-        return web_view->priv->highlights;
+	return web_view->priv->highlights;
 }
 
 void
 e_web_view_add_highlight (EWebView *web_view,
                           const gchar *highlight)
 {
-        g_return_if_fail (E_IS_WEB_VIEW (web_view));
-        g_return_if_fail (highlight && *highlight);
+	g_return_if_fail (E_IS_WEB_VIEW (web_view));
+	g_return_if_fail (highlight && *highlight);
 
-        web_view->priv->highlights =
-                g_slist_append (web_view->priv->highlights, g_strdup (highlight));
+	web_view->priv->highlights =
+		g_slist_append (web_view->priv->highlights, g_strdup (highlight));
 
-        web_view_update_document_highlights (web_view);
+	web_view_update_document_highlights (web_view);
 }
 
 void e_web_view_clear_highlights (EWebView *web_view)
 {
-        g_return_if_fail (E_IS_WEB_VIEW (web_view));
+	g_return_if_fail (E_IS_WEB_VIEW (web_view));
 
-        if (!web_view->priv->highlights)
-                return;
+	if (!web_view->priv->highlights)
+		return;
 
-        g_slist_free_full (web_view->priv->highlights, g_free);
-        web_view->priv->highlights = NULL;
+	g_slist_free_full (web_view->priv->highlights, g_free);
+	web_view->priv->highlights = NULL;
 
-        web_view_update_document_highlights (web_view);
+	web_view_update_document_highlights (web_view);
 }
 
 GtkAction *
@@ -2732,45 +2740,45 @@ e_web_view_update_actions (EWebView *web_view)
 	g_signal_emit (web_view, signals[UPDATE_ACTIONS], 0);
 }
 
-gchar*
+gchar *
 e_web_view_get_selection_html (EWebView *web_view)
 {
-        WebKitDOMDocument *document;
-        WebKitDOMDOMWindow *window;
-        WebKitDOMDOMSelection *selection;
-        WebKitDOMRange *range;
-        WebKitDOMDocumentFragment *fragment;
-        WebKitDOMHTMLElement *element;
+	WebKitDOMDocument *document;
+	WebKitDOMDOMWindow *window;
+	WebKitDOMDOMSelection *selection;
+	WebKitDOMRange *range;
+	WebKitDOMDocumentFragment *fragment;
+	WebKitDOMHTMLElement *element;
 
-        g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
+	g_return_val_if_fail (E_IS_WEB_VIEW (web_view), NULL);
 
-        if (!webkit_web_view_has_selection (WEBKIT_WEB_VIEW (web_view)))
-                return NULL;
+	if (!webkit_web_view_has_selection (WEBKIT_WEB_VIEW (web_view)))
+		return NULL;
 
-        document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (web_view));
-        window = webkit_dom_document_get_default_view (document);
-        selection = webkit_dom_dom_window_get_selection (window);
-        if (!selection)
-                return NULL;
+	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (web_view));
+	window = webkit_dom_document_get_default_view (document);
+	selection = webkit_dom_dom_window_get_selection (window);
+	if (!selection)
+		return NULL;
 
-        range = webkit_dom_dom_selection_get_range_at (selection, 0, NULL);
-        if (!range)
-                return NULL;
+	range = webkit_dom_dom_selection_get_range_at (selection, 0, NULL);
+	if (!range)
+		return NULL;
 
-        fragment = webkit_dom_range_clone_contents (range, NULL);
-        if (!fragment)
-                return NULL;
+	fragment = webkit_dom_range_clone_contents (range, NULL);
+	if (!fragment)
+		return NULL;
 
         element = WEBKIT_DOM_HTML_ELEMENT (webkit_dom_document_create_element (document, "div", NULL));
-        webkit_dom_node_append_child (WEBKIT_DOM_NODE (element),
-                WEBKIT_DOM_NODE (fragment), NULL);
+	webkit_dom_node_append_child (WEBKIT_DOM_NODE (element),
+		WEBKIT_DOM_NODE (fragment), NULL);
 
-        return webkit_dom_html_element_get_inner_html (element);
+	return webkit_dom_html_element_get_inner_html (element);
 }
 
 void
 e_web_view_set_settings (EWebView *web_view,
-			 WebKitWebSettings *settings)
+                         WebKitWebSettings *settings)
 {
 	g_return_if_fail (E_IS_WEB_VIEW (web_view));
 
@@ -2783,9 +2791,8 @@ e_web_view_set_settings (EWebView *web_view,
 	webkit_web_view_set_settings (WEBKIT_WEB_VIEW (web_view), settings);
 }
 
-
-WebKitWebSettings*
-e_web_view_get_default_settings(GtkWidget *parent_widget)
+WebKitWebSettings *
+e_web_view_get_default_settings (GtkWidget *parent_widget)
 {
 	GtkStyleContext *context;
 	const PangoFontDescription *font;
@@ -2809,7 +2816,7 @@ e_web_view_get_default_settings(GtkWidget *parent_widget)
                 "enable-offline-web-application-cache", FALSE,
                 "enable-site-specific-quirks", TRUE,
                 "enable-scripts", FALSE,
-                NULL);
+		NULL);
 
-	return settings;	
+	return settings;
 }

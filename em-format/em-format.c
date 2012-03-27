@@ -41,7 +41,6 @@
 	(G_TYPE_INSTANCE_GET_PRIVATE \
 	((obj), EM_TYPE_FORMAT, EMFormatPrivate))
 
-
 struct _EMFormatPrivate {
 	GNode *current_node;
 
@@ -141,7 +140,7 @@ preserve_charset_in_content_type (CamelMimePart *ipart,
 
 static CamelMimePart *
 get_related_display_part (CamelMimePart *part,
-  			  gint *out_displayid)
+                            gint *out_displayid)
 {
 	CamelMultipart *mp;
 	CamelMimePart *body_part, *display_part = NULL;
@@ -187,7 +186,7 @@ get_related_display_part (CamelMimePart *part,
 
 static gboolean
 related_display_part_is_attachment (EMFormat *emf,
-				    CamelMimePart *part)
+                                    CamelMimePart *part)
 {
 	CamelMimePart *display_part;
 
@@ -198,10 +197,10 @@ related_display_part_is_attachment (EMFormat *emf,
 /**************************************************************************/
 void
 em_format_empty_parser (EMFormat *emf,
-			CamelMimePart *part,
-			GString *part_id,
-			EMFormatParserInfo *info,
-			GCancellable *cancellable)
+                        CamelMimePart *part,
+                        GString *part_id,
+                        EMFormatParserInfo *info,
+                        GCancellable *cancellable)
 {
 	/* DO NOTHING */
 }
@@ -209,10 +208,10 @@ em_format_empty_parser (EMFormat *emf,
 #ifdef ENABLE_SMIME
 static void
 emf_parse_application_xpkcs7mime (EMFormat *emf,
-				  CamelMimePart *part,
-				  GString *part_id,
-				  EMFormatParserInfo *info,
-				  GCancellable *cancellable)
+                                  CamelMimePart *part,
+                                  GString *part_id,
+                                  EMFormatParserInfo *info,
+                                  GCancellable *cancellable)
 {
 	CamelCipherContext *context;
 	CamelMimePart *opart;
@@ -247,8 +246,8 @@ emf_parse_application_xpkcs7mime (EMFormat *emf,
 		g_string_truncate (part_id, len);
 
 		/* Add a widget with details about the encryption, but only when
-		   the encrypted isn't itself secured, in that case it has created
-		   the button itself */
+		 * the encrypted isn't itself secured, in that case it has created
+		 * the button itself */
 		if (!is_secured (opart)) {
 			g_string_append (part_id, ".encrypted.button");
 			em_format_parse_part_as (emf, part, part_id, &encinfo,
@@ -267,10 +266,10 @@ emf_parse_application_xpkcs7mime (EMFormat *emf,
 /* RFC 4155 */
 static void
 emf_parse_application_mbox (EMFormat *emf,
-                      	    CamelMimePart *mime_part,
-                      	    GString *part_id,
-                      	    EMFormatParserInfo *info,
-                      	    GCancellable *cancellable)
+                                  CamelMimePart *mime_part,
+                                  GString *part_id,
+                                  EMFormatParserInfo *info,
+                                  GCancellable *cancellable)
 {
 	CamelMimeParser *parser;
 	CamelStream *mem_stream;
@@ -345,10 +344,10 @@ emf_parse_application_mbox (EMFormat *emf,
 /* RFC 1740 */
 static void
 emf_parse_multipart_alternative (EMFormat *emf,
-                           	 CamelMimePart *part,
-	                         GString *part_id,
-    	                       	 EMFormatParserInfo *info,
-        	                 GCancellable *cancellable)
+                                    CamelMimePart *part,
+                                 GString *part_id,
+                                            EMFormatParserInfo *info,
+                                 GCancellable *cancellable)
 {
 	CamelMultipart *mp;
 	gint i, nparts, bestid = 0;
@@ -426,10 +425,10 @@ emf_parse_multipart_alternative (EMFormat *emf,
 /* RFC 1740 */
 static void
 emf_parse_multipart_appledouble (EMFormat *emf,
-                           	 CamelMimePart *part,
-	                         GString *part_id,
-    	                      	 EMFormatParserInfo *info,
-        	                 GCancellable *cancellable)
+                                    CamelMimePart *part,
+                                 GString *part_id,
+                                           EMFormatParserInfo *info,
+                                 GCancellable *cancellable)
 {
 	CamelMultipart *mp;
 	CamelMimePart *mime_part;
@@ -459,10 +458,10 @@ emf_parse_multipart_appledouble (EMFormat *emf,
 
 static void
 emf_parse_multipart_encrypted (EMFormat *emf,
-			       CamelMimePart *part,
+                               CamelMimePart *part,
                                GString *part_id,
-			       EMFormatParserInfo *info,
-			       GCancellable *cancellable)
+                               EMFormatParserInfo *info,
+                               GCancellable *cancellable)
 {
 	CamelCipherContext *context;
 	const gchar *protocol;
@@ -474,7 +473,7 @@ emf_parse_multipart_encrypted (EMFormat *emf,
 	if (g_cancellable_is_cancelled (cancellable))
 		return;
 
-	mpe = (CamelMultipartEncrypted*) camel_medium_get_content ((CamelMedium *) part);
+	mpe = (CamelMultipartEncrypted *) camel_medium_get_content ((CamelMedium *) part);
 	if (!CAMEL_IS_MULTIPART_ENCRYPTED (mpe)) {
 		em_format_format_error (
 			emf, _("Could not parse MIME message. "
@@ -525,8 +524,8 @@ emf_parse_multipart_encrypted (EMFormat *emf,
 		g_string_truncate (part_id, len);
 
 		/* Add a widget with details about the encryption, but only when
-		   the encrypted isn't itself secured, in that case it has created
-		   the button itself */
+		 * the encrypted isn't itself secured, in that case it has created
+		 * the button itself */
 		if (!is_secured (opart)) {
 			g_string_append (part_id, ".encrypted.button");
 			em_format_parse_part_as (emf, part, part_id, &encinfo,
@@ -545,10 +544,10 @@ emf_parse_multipart_encrypted (EMFormat *emf,
 /* RFC 2046 */
 static void
 emf_parse_multipart_mixed (EMFormat *emf,
-                     	   CamelMimePart *part,
-                     	   GString *part_id,
-                     	   EMFormatParserInfo *info,
-                     	   GCancellable *cancellable)
+                                CamelMimePart *part,
+                                GString *part_id,
+                                EMFormatParserInfo *info,
+                                GCancellable *cancellable)
 {
 	CamelMultipart *mp;
 	gint i, nparts, len;
@@ -578,10 +577,10 @@ emf_parse_multipart_mixed (EMFormat *emf,
 
 static void
 emf_parse_multipart_signed (EMFormat *emf,
-                      	    CamelMimePart *part,
-                      	    GString *part_id,
-                      	    EMFormatParserInfo *info,
-                      	    GCancellable *cancellable)
+                                  CamelMimePart *part,
+                                  GString *part_id,
+                                  EMFormatParserInfo *info,
+                                  GCancellable *cancellable)
 {
 	CamelMimePart *cpart;
 	CamelMultipartSigned *mps;
@@ -666,8 +665,8 @@ emf_parse_multipart_signed (EMFormat *emf,
 			}
 
 			/* Add a widget with details about the encryption, but only when
-			   the encrypted isn't itself secured, in that case it has created
-			   the button itself */
+			 * the encrypted isn't itself secured, in that case it has created
+			 * the button itself */
 			if (!secured) {
 				g_string_append (part_id, ".signed.button");
 				em_format_parse_part_as (emf, part, part_id, &signinfo,
@@ -682,14 +681,13 @@ emf_parse_multipart_signed (EMFormat *emf,
 	g_object_unref (cipher);
 }
 
-
 /* RFC 2046 */
 static void
 emf_parse_multipart_digest (EMFormat *emf,
-                     	    CamelMimePart *part,
-                     	    GString *part_id,
-                     	    EMFormatParserInfo *info,
-                     	    GCancellable *cancellable)
+                                 CamelMimePart *part,
+                                 GString *part_id,
+                                 EMFormatParserInfo *info,
+                                 GCancellable *cancellable)
 {
 	CamelMultipart *mp;
 	gint i, nparts, len;
@@ -740,10 +738,10 @@ emf_parse_multipart_digest (EMFormat *emf,
 /* RFC 2387 */
 static void
 emf_parse_multipart_related (EMFormat *emf,
-                       	     CamelMimePart *part,
-                       	     GString *part_id,
-                       	     EMFormatParserInfo *info,
-                       	     GCancellable *cancellable)
+                                    CamelMimePart *part,
+                                    GString *part_id,
+                                    EMFormatParserInfo *info,
+                                    GCancellable *cancellable)
 {
 	CamelMultipart *mp;
 	CamelMimePart *body_part, *display_part = NULL;
@@ -785,14 +783,12 @@ emf_parse_multipart_related (EMFormat *emf,
 	}
 }
 
-
-
 static void
 emf_parse_message_deliverystatus (EMFormat *emf,
-                            	  CamelMimePart *part,
-                            	  GString *part_id,
-                            	  EMFormatParserInfo *info,
-                            	  GCancellable *cancellable)
+                                      CamelMimePart *part,
+                                      GString *part_id,
+                                      EMFormatParserInfo *info,
+                                      GCancellable *cancellable)
 {
 	EMFormatPURI *puri;
 	gint len;
@@ -816,10 +812,10 @@ emf_parse_message_deliverystatus (EMFormat *emf,
 
 static void
 emf_parse_inlinepgp_signed (EMFormat *emf,
-                      	    CamelMimePart *ipart,
-                      	    GString *part_id,
-			    EMFormatParserInfo *info,
-			    GCancellable *cancellable)
+                                  CamelMimePart *ipart,
+                                  GString *part_id,
+                            EMFormatParserInfo *info,
+                            GCancellable *cancellable)
 {
 	CamelStream *filtered_stream;
 	CamelMimeFilterPgp *pgp_filter;
@@ -913,8 +909,8 @@ emf_parse_inlinepgp_signed (EMFormat *emf,
 	g_string_truncate (part_id, len);
 
 	/* Add a widget with details about the encryption, but only when
-	   the encrypted isn't itself secured, in that case it has created
-	   the button itself */
+	 * the encrypted isn't itself secured, in that case it has created
+	 * the button itself */
 	if (!is_secured (opart)) {
 		g_string_append (part_id, ".inlinepgp_signed.button");
 		em_format_parse_part_as (emf, opart, part_id, &signinfo,
@@ -932,10 +928,10 @@ emf_parse_inlinepgp_signed (EMFormat *emf,
 
 static void
 emf_parse_inlinepgp_encrypted (EMFormat *emf,
-			       CamelMimePart *ipart,
-			       GString *part_id,
-			       EMFormatParserInfo *info,
-			       GCancellable *cancellable)
+                               CamelMimePart *ipart,
+                               GString *part_id,
+                               EMFormatParserInfo *info,
+                               GCancellable *cancellable)
 {
 	CamelCipherContext *cipher;
 	CamelCipherValidity *valid;
@@ -1002,8 +998,8 @@ emf_parse_inlinepgp_encrypted (EMFormat *emf,
 	g_string_truncate (part_id, len);
 
 	/* Add a widget with details about the encryption, but only when
-	   the encrypted isn't itself secured, in that case it has created
-	   the button itself */
+	 * the encrypted isn't itself secured, in that case it has created
+	 * the button itself */
 	if (!is_secured (opart)) {
 		g_string_append (part_id, ".inlinepgp_encrypted.button");
 		em_format_parse_part_as (emf, opart, part_id, &encinfo,
@@ -1019,32 +1015,32 @@ emf_parse_inlinepgp_encrypted (EMFormat *emf,
 
 static void
 emf_parse_message (EMFormat *emf,
-		   CamelMimePart *part,
-		   GString *part_id,
-		   EMFormatParserInfo *info,
-		   GCancellable *cancellable)
+                   CamelMimePart *part,
+                   GString *part_id,
+                   EMFormatParserInfo *info,
+                   GCancellable *cancellable)
 {
 	/* Headers */
-        info->force_handler = TRUE;
+	info->force_handler = TRUE;
 	em_format_parse_part_as (emf, part, part_id, info,
 			"x-evolution/message/headers", cancellable);
 
 	/* Anything that comes between headers and message body */
-        info->force_handler = TRUE;
+	info->force_handler = TRUE;
 	em_format_parse_part_as (emf, part, part_id, info,
 			"x-evolution/message/post-headers", cancellable);
 
 	/* Begin parsing the message */
-        info->force_handler = FALSE;
+	info->force_handler = FALSE;
 	em_format_parse_part (emf, part, part_id, info, cancellable);
 }
 
 static void
 emf_parse_headers (EMFormat *emf,
-		   CamelMimePart *part,
-		   GString *part_id,
-		   EMFormatParserInfo *info,
-		   GCancellable *cancellable)
+                   CamelMimePart *part,
+                   GString *part_id,
+                   EMFormatParserInfo *info,
+                   GCancellable *cancellable)
 {
 	EMFormatPURI *puri;
 	gint len;
@@ -1062,23 +1058,23 @@ emf_parse_headers (EMFormat *emf,
 
 static void
 emf_parse_post_headers (EMFormat *emf,
-		        CamelMimePart *part,
-		        GString *part_id,
-		        EMFormatParserInfo *info,
-		        GCancellable *cancellable)
+                        CamelMimePart *part,
+                        GString *part_id,
+                        EMFormatParserInfo *info,
+                        GCancellable *cancellable)
 {
 	/* Add attachment bar */
-        info->force_handler = TRUE;
+	info->force_handler = TRUE;
 	em_format_parse_part_as (emf, part, part_id, info,
 		"x-evolution/message/attachment-bar", cancellable);
 }
 
 static void
 emf_parse_source (EMFormat *emf,
-		  CamelMimePart *part,
-		  GString *part_id,
-		  EMFormatParserInfo *info,
-		  GCancellable *cancellable)
+                  CamelMimePart *part,
+                  GString *part_id,
+                  EMFormatParserInfo *info,
+                  GCancellable *cancellable)
 {
 	EMFormatPURI *puri;
 	gint len;
@@ -1101,20 +1097,20 @@ emf_parse_source (EMFormat *emf,
 
 void
 em_format_empty_writer (EMFormat *emf,
-			EMFormatPURI *puri,
-			CamelStream *stream,
-			EMFormatWriterInfo *info,
-			GCancellable *cancellable)
+                        EMFormatPURI *puri,
+                        CamelStream *stream,
+                        EMFormatWriterInfo *info,
+                        GCancellable *cancellable)
 {
 	/* DO NOTHING */
 }
 
 static void
-emf_write_error (EMFormat* emf,
-		 EMFormatPURI* puri,
-		 CamelStream* stream,
-		 EMFormatWriterInfo* info,
-		 GCancellable* cancellable)
+emf_write_error (EMFormat * emf,
+                 EMFormatPURI * puri,
+                 CamelStream * stream,
+                 EMFormatWriterInfo * info,
+                 GCancellable * cancellable)
 {
 	camel_data_wrapper_decode_to_stream_sync ((CamelDataWrapper *) puri->part,
 		stream, cancellable, NULL);
@@ -1122,10 +1118,10 @@ emf_write_error (EMFormat* emf,
 
 static void
 emf_write_text (EMFormat *emf,
-		EMFormatPURI *puri,
-		CamelStream *stream,
-		EMFormatWriterInfo *info,
-		GCancellable *cancellable)
+                EMFormatPURI *puri,
+                CamelStream *stream,
+                EMFormatWriterInfo *info,
+                GCancellable *cancellable)
 {
 	CamelContentType *ct;
 
@@ -1142,10 +1138,10 @@ emf_write_text (EMFormat *emf,
 
 static void
 emf_write_source (EMFormat *emf,
-		  EMFormatPURI *puri,
-		  CamelStream *stream,
-		  EMFormatWriterInfo *info,
-		  GCancellable *cancellable)
+                  EMFormatPURI *puri,
+                  CamelStream *stream,
+                  EMFormatWriterInfo *info,
+                  GCancellable *cancellable)
 {
 	GByteArray *ba;
 	gchar *data;
@@ -1185,7 +1181,6 @@ emf_is_inline (EMFormat *emf,
 	/* Otherwise, use the default for this handler type. */
 	return (handle->flags & EM_FORMAT_HANDLER_INLINE) != 0;
 }
-
 
 /**************************************************************************/
 
@@ -1239,9 +1234,9 @@ static const struct {
 
 static void
 em_format_get_property (GObject *object,
-			guint property_id,
-			GValue *value,
-			GParamSpec *pspec)
+                        guint property_id,
+                        GValue *value,
+                        GParamSpec *pspec)
 {
 	EMFormat *emf = EM_FORMAT (object);
 
@@ -1269,9 +1264,9 @@ em_format_get_property (GObject *object,
 
 static void
 em_format_set_property (GObject *object,
-			guint property_id,
-			const GValue *value,
-			GParamSpec *pspec)
+                        guint property_id,
+                        const GValue *value,
+                        GParamSpec *pspec)
 {
 	EMFormat *emf = EM_FORMAT (object);
 
@@ -1309,9 +1304,9 @@ em_format_finalize (GObject *object)
 	}
 
 	if (emf->uri_base) {
-                g_free (emf->uri_base);
-                emf->uri_base = NULL;
-        }
+		g_free (emf->uri_base);
+		emf->uri_base = NULL;
+	}
 
 	if (emf->message) {
 		g_object_unref (emf->message);
@@ -1335,7 +1330,6 @@ em_format_finalize (GObject *object)
 		emf->mail_part_list = NULL;
 	}
 
-
 	if (emf->priv->base_url) {
 		camel_url_free (emf->priv->base_url);
 		emf->priv->base_url = NULL;
@@ -1351,7 +1345,7 @@ em_format_finalize (GObject *object)
 		emf->priv->charset = NULL;
 	}
 
-        em_format_clear_headers (emf);
+	em_format_clear_headers (emf);
 
 	/* Chain up to parent's finalize() method */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -1452,7 +1446,7 @@ em_format_init (EMFormat *emf)
 	emf->mail_part_table = g_hash_table_new_full (g_str_hash, g_str_equal,
 			NULL, (GDestroyNotify) mail_part_table_item_free);
 	/* No need to free the key, because it's owned and free'd by the PURI */
-	
+
 	shell = e_shell_get_default ();
 	shell_settings = e_shell_get_shell_settings (shell);
 
@@ -1466,7 +1460,7 @@ em_format_init (EMFormat *emf)
 	em_format_default_headers (emf);
 }
 
-EMFormat*
+EMFormat *
 em_format_new (void)
 {
 	EMFormat *emf = g_object_new (EM_TYPE_FORMAT, NULL);
@@ -1502,7 +1496,7 @@ em_format_get_type (void)
 
 void
 em_format_set_charset (EMFormat *emf,
-		       const gchar *charset)
+                       const gchar *charset)
 {
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
@@ -1514,7 +1508,7 @@ em_format_set_charset (EMFormat *emf,
 	g_object_notify (G_OBJECT (emf), "charset");
 }
 
-const gchar*
+const gchar *
 em_format_get_charset (EMFormat *emf)
 {
 	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
@@ -1524,7 +1518,7 @@ em_format_get_charset (EMFormat *emf)
 
 void
 em_format_set_default_charset (EMFormat *emf,
-			       const gchar *charset)
+                               const gchar *charset)
 {
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
@@ -1536,7 +1530,7 @@ em_format_set_default_charset (EMFormat *emf,
 	g_object_notify (G_OBJECT (emf), "default-charset");
 }
 
-const gchar*
+const gchar *
 em_format_get_default_charset (EMFormat *emf)
 {
 	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
@@ -1546,7 +1540,7 @@ em_format_get_default_charset (EMFormat *emf)
 
 void
 em_format_set_composer (EMFormat *emf,
-			gboolean composer)
+                        gboolean composer)
 {
 	g_return_if_fail (EM_IS_FORMAT (emf));
 
@@ -1568,7 +1562,7 @@ em_format_get_composer (EMFormat *emf)
 
 void
 em_format_set_base_url (EMFormat *emf,
-			CamelURL *url)
+                        CamelURL *url)
 {
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (url);
@@ -1583,7 +1577,7 @@ em_format_set_base_url (EMFormat *emf,
 
 void
 em_format_set_base_url_string (EMFormat *emf,
-			       const gchar *url_string)
+                               const gchar *url_string)
 {
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (url_string && *url_string);
@@ -1596,7 +1590,7 @@ em_format_set_base_url_string (EMFormat *emf,
 	g_object_notify (G_OBJECT (emf), "base-url");
 }
 
-CamelURL*
+CamelURL *
 em_format_get_base_url (EMFormat *emf)
 {
 	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
@@ -1654,7 +1648,7 @@ em_format_default_headers (EMFormat *emf)
 void
 em_format_add_header (EMFormat *emf,
                       const gchar *name,
-		      const gchar *value,
+                      const gchar *value,
                       guint32 flags)
 {
 	EMFormatHeader *h;
@@ -1669,7 +1663,7 @@ em_format_add_header (EMFormat *emf,
 
 void
 em_format_add_header_struct (EMFormat *emf,
-			     EMFormatHeader *header)
+                             EMFormatHeader *header)
 {
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (header && header->name);
@@ -1678,27 +1672,27 @@ em_format_add_header_struct (EMFormat *emf,
 }
 
 void
-em_format_remove_header (EMFormat* emf,
-			 const gchar* name,
-			 const gchar* value)
+em_format_remove_header (EMFormat * emf,
+                         const gchar *name,
+                         const gchar *value)
 {
 	GList *iter = NULL;
 
 	g_return_if_fail (EM_IS_FORMAT (emf));
 	g_return_if_fail (name && *name);
 
-        iter = g_queue_peek_head_link (&emf->header_list);
-        while (iter) {
+	iter = g_queue_peek_head_link (&emf->header_list);
+	while (iter) {
 		EMFormatHeader *header = iter->data;
 
-                if (!header->value || !*header->value) {
-                        GList *next = iter->next;
-                        if (g_strcmp0 (name, header->name) == 0)
-                                g_queue_delete_link (&emf->header_list, iter);
+		if (!header->value || !*header->value) {
+			GList *next = iter->next;
+			if (g_strcmp0 (name, header->name) == 0)
+				g_queue_delete_link (&emf->header_list, iter);
 
-                        iter = next;
-                        continue;
-                }
+			iter = next;
+			continue;
+		}
 
 		if (value && *value) {
 			if ((g_strcmp0 (name, header->name) == 0) &&
@@ -1713,14 +1707,14 @@ em_format_remove_header (EMFormat* emf,
 	}
 
 	if (iter) {
-                em_format_header_free (iter->data);
+		em_format_header_free (iter->data);
 		g_queue_delete_link (&emf->header_list, iter);
 	}
 }
 
 void
-em_format_remove_header_struct (EMFormat* emf,
-				const EMFormatHeader* header)
+em_format_remove_header_struct (EMFormat * emf,
+                                const EMFormatHeader * header)
 {
 	g_return_if_fail (header);
 
@@ -1731,23 +1725,23 @@ void
 em_format_add_puri (EMFormat *emf,
                     EMFormatPURI *puri)
 {
-        GList *item;
+	GList *item;
 
-        g_return_if_fail (EM_IS_FORMAT (emf));
-        g_return_if_fail (puri != NULL);
+	g_return_if_fail (EM_IS_FORMAT (emf));
+	g_return_if_fail (puri != NULL);
 
-        emf->mail_part_list = g_list_append (emf->mail_part_list, puri);
-        item = g_list_last (emf->mail_part_list);
+	emf->mail_part_list = g_list_append (emf->mail_part_list, puri);
+	item = g_list_last (emf->mail_part_list);
 
-        g_hash_table_insert (emf->mail_part_table,
-                        puri->uri, item);
+	g_hash_table_insert (emf->mail_part_table,
+			puri->uri, item);
 
         d(printf("Added PURI %s\n", puri->uri));
 }
 
-EMFormatPURI*
+EMFormatPURI *
 em_format_find_puri (EMFormat *emf,
-		     const gchar *id)
+                     const gchar *id)
 {
 	GList *list_iter;
 
@@ -1775,7 +1769,7 @@ em_format_find_puri (EMFormat *emf,
 
 void
 em_format_class_add_handler (EMFormatClass *emfc,
-		  	     EMFormatHandler *handler)
+                               EMFormatHandler *handler)
 {
 	EMFormatHandler *old_handler;
 
@@ -1805,7 +1799,7 @@ em_format_class_add_handler (EMFormatClass *emfc,
 
 void
 em_format_class_remove_handler (EMFormatClass *emfc,
-				EMFormatHandler *handler)
+                                EMFormatHandler *handler)
 {
 	g_return_if_fail (EM_IS_FORMAT_CLASS (emfc));
 	g_return_if_fail (handler);
@@ -1818,22 +1812,22 @@ em_format_find_handler (EMFormat *emf,
                         const gchar *mime_type)
 {
 	EMFormatClass *emfc;
-        gchar *s;
-        const EMFormatHandler *handler;
+	gchar *s;
+	const EMFormatHandler *handler;
 
 	g_return_val_if_fail (EM_IS_FORMAT (emf), NULL);
 	g_return_val_if_fail (mime_type && *mime_type, NULL);
 
 	emfc = (EMFormatClass *) G_OBJECT_GET_CLASS (emf);
 
-        s = g_ascii_strdown (mime_type, -1);
+	s = g_ascii_strdown (mime_type, -1);
 
-        handler = g_hash_table_lookup (
+	handler = g_hash_table_lookup (
 			emfc->type_handlers, s);
 
-        g_free (s);
+	g_free (s);
 
-        return handler;
+	return handler;
 }
 
 /**
@@ -1849,7 +1843,7 @@ em_format_find_handler (EMFormat *emf,
  **/
 const EMFormatHandler *
 em_format_fallback_handler (EMFormat *emf,
-			    const gchar *mime_type)
+                            const gchar *mime_type)
 {
 	gchar *mime, *s;
 
@@ -1857,9 +1851,9 @@ em_format_fallback_handler (EMFormat *emf,
 	if (s == NULL)
 		mime = (gchar *) mime_type;
 	else {
-		gsize len = (s-mime_type)+1;
+		gsize len = (s - mime_type) + 1;
 
-		mime = g_alloca (len+2);
+		mime = g_alloca (len + 2);
 		strncpy (mime, mime_type, len);
 		strcpy(mime+len, "*");
 	}
@@ -1869,9 +1863,9 @@ em_format_fallback_handler (EMFormat *emf,
 
 void
 em_format_parse (EMFormat *emf,
-		 CamelMimeMessage *message,
-		 CamelFolder *folder,
-		 GCancellable *cancellable)
+                 CamelMimeMessage *message,
+                 CamelFolder *folder,
+                 GCancellable *cancellable)
 {
 	GString *part_id;
 	EMFormatPURI *puri;
@@ -1899,8 +1893,8 @@ em_format_parse (EMFormat *emf,
 	}
 
         /* Before the actual parsing starts, let child classes prepare themselves. */
-        if (EM_FORMAT_GET_CLASS (emf)->preparse)
-                EM_FORMAT_GET_CLASS (emf)->preparse(emf);
+	if (EM_FORMAT_GET_CLASS (emf)->preparse)
+		EM_FORMAT_GET_CLASS (emf)->preparse (emf);
 
 	part_id = g_string_new (".message");
 
@@ -1910,7 +1904,7 @@ em_format_parse (EMFormat *emf,
 	puri->mime_type = g_strdup ("text/html");
 	em_format_add_puri (emf, puri);
 
-        info.force_handler = TRUE;
+	info.force_handler = TRUE;
 	em_format_parse_part_as (emf, CAMEL_MIME_PART (emf->message), part_id, &info,
 			"x-evolution/message", cancellable);
 
@@ -1938,16 +1932,16 @@ emf_start_async_parser (GSimpleAsyncResult *result,
                         GObject *object,
                         GCancellable *cancellable)
 {
-        em_format_parse (EM_FORMAT (object), NULL, NULL, cancellable);
+	em_format_parse (EM_FORMAT (object), NULL, NULL, cancellable);
 }
 
 void
 em_format_parse_async (EMFormat *emf,
-		       CamelMimeMessage *message,
-		       CamelFolder *folder,
-		       GCancellable *cancellable,
-		       GAsyncReadyCallback callback,
-		       gpointer user_data)
+                       CamelMimeMessage *message,
+                       CamelFolder *folder,
+                       GCancellable *cancellable,
+                       GAsyncReadyCallback callback,
+                       gpointer user_data)
 {
 	GSimpleAsyncResult *result;
 
@@ -1982,38 +1976,37 @@ em_format_parse_async (EMFormat *emf,
 					     G_PRIORITY_DEFAULT, cancellable);
 }
 
-
 void
 em_format_parse_part_as (EMFormat *emf,
-			 CamelMimePart *part,
-			 GString *part_id,
-			 EMFormatParserInfo *info,
-			 const gchar *mime_type,
-			 GCancellable *cancellable)
+                         CamelMimePart *part,
+                         GString *part_id,
+                         EMFormatParserInfo *info,
+                         const gchar *mime_type,
+                         GCancellable *cancellable)
 {
 	const EMFormatHandler *handler;
-        const CamelContentDisposition *disposition;
+	const CamelContentDisposition *disposition;
 	EMFormatParserInfo ninfo = {
 		.handler = 0,
 		.validity_type = info ? info->validity_type : 0,
 		.validity = info ? info->validity : 0,
-                .force_handler = 0
+		.force_handler = 0
 	};
 
         /* Let everything that claims to be an attachment or inlined part to be parsed 
          * as an attachment. The parser will decide how to display it. */
-        disposition = camel_mime_part_get_content_disposition (part);
-        if (!info->force_handler && disposition && 
+	disposition = camel_mime_part_get_content_disposition (part);
+	if (!info->force_handler && disposition &&
             (g_strcmp0 (disposition->disposition, "attachment") == 0)) {
-                ninfo.is_attachment = TRUE;
+		ninfo.is_attachment = TRUE;
                 handler = em_format_find_handler (emf, "x-evolution/message/attachment");
-                ninfo.handler = handler;
+		ninfo.handler = handler;
 
-                if (handler && handler->parse_func)
-                        handler->parse_func (emf, part, part_id, &ninfo, cancellable);
+		if (handler && handler->parse_func)
+			handler->parse_func (emf, part, part_id, &ninfo, cancellable);
 
-                return;
-        }
+		return;
+	}
 
 	handler = em_format_find_handler (emf, mime_type);
 	if (handler && handler->parse_func) {
@@ -2024,17 +2017,17 @@ em_format_parse_part_as (EMFormat *emf,
 		ninfo.handler = handler;
 
                 /* When this fails, something is probably very wrong...*/
-                if (handler && handler->parse_func)
-		        handler->parse_func (emf, part, part_id, &ninfo, cancellable);
+		if (handler && handler->parse_func)
+			handler->parse_func (emf, part, part_id, &ninfo, cancellable);
 	}
 }
 
 void
 em_format_parse_part (EMFormat *emf,
-		      CamelMimePart *part,
-		      GString *part_id,
-		      EMFormatParserInfo *info,
-		      GCancellable *cancellable)
+                      CamelMimePart *part,
+                      GString *part_id,
+                      EMFormatParserInfo *info,
+                      GCancellable *cancellable)
 {
 	CamelContentType *ct;
 	gchar *mime_type;
@@ -2052,12 +2045,11 @@ em_format_parse_part (EMFormat *emf,
 		g_free (mime_type);
 }
 
-
 gboolean
 em_format_is_inline (EMFormat *emf,
-		     const gchar *part_id,
-		     CamelMimePart *part,
-		     const EMFormatHandler *handler)
+                     const gchar *part_id,
+                     CamelMimePart *part,
+                     const EMFormatHandler *handler)
 {
 	EMFormatClass *klass;
 
@@ -2409,7 +2401,7 @@ em_format_snoop_type (CamelMimePart *part)
 	return res;
 
 	/* We used to load parts to check their type, we dont anymore,
-	   see bug #211778 for some discussion */
+	 * see bug #211778 for some discussion */
 }
 
 /**
@@ -2422,32 +2414,32 @@ em_format_snoop_type (CamelMimePart *part)
  * @param message_uid ID of message within the \p folder
  * @param first_param_name Name of first query parameter followed by GType of it's value and value.
  */
-gchar*
+gchar *
 em_format_build_mail_uri (CamelFolder *folder,
-			  const gchar *message_uid,
-			  const gchar *first_param_name,
-			  ...)
+                          const gchar *message_uid,
+                          const gchar *first_param_name,
+                          ...)
 {
 	CamelStore *store;
 	gchar *uri, *tmp;
 	va_list ap;
 	const gchar *name;
-        const gchar *service_uid, *folder_name;
-	char separator;
+	const gchar *service_uid, *folder_name;
+	gchar separator;
 
 	g_return_val_if_fail (message_uid && *message_uid, NULL);
 
-        if (!folder) {
+	if (!folder) {
                 folder_name = "generic";
                 service_uid = "generic";
-        } else {
-                folder_name = camel_folder_get_full_name (folder);
-	        store = camel_folder_get_parent_store (folder);
-                if (store)
-                        service_uid = camel_service_get_uid (CAMEL_SERVICE (store));
-                else
+	} else {
+		folder_name = camel_folder_get_full_name (folder);
+		store = camel_folder_get_parent_store (folder);
+		if (store)
+			service_uid = camel_service_get_uid (CAMEL_SERVICE (store));
+		else
                         service_uid = "generic";
-        }
+	}
 
 	tmp = g_strdup_printf ("mail://%s/%s/%s",
 			service_uid,
@@ -2459,28 +2451,28 @@ em_format_build_mail_uri (CamelFolder *folder,
 	separator = '?';
 	while (name) {
 		gchar *tmp2;
-		gint type = va_arg (ap, int);
+		gint type = va_arg (ap, gint);
 		switch (type) {
 			case G_TYPE_INT:
 			case G_TYPE_BOOLEAN: {
-				gint val = va_arg (ap, int);
+				gint val = va_arg (ap, gint);
 				tmp2 = g_strdup_printf ("%s%c%s=%d", tmp,
-                                                separator, name, val);
+						separator, name, val);
 				break;
 			}
 			case G_TYPE_FLOAT:
 			case G_TYPE_DOUBLE: {
 				gdouble val = va_arg (ap, double);
 				tmp2 = g_strdup_printf ("%s%c%s=%f", tmp,
-                                                separator, name, val);
+						separator, name, val);
 				break;
 			}
 			case G_TYPE_STRING: {
-				gchar *val = va_arg (ap, char *);
-                                gchar *escaped = soup_uri_encode (val, NULL);
+				gchar *val = va_arg (ap, gchar *);
+				gchar *escaped = soup_uri_encode (val, NULL);
 				tmp2 = g_strdup_printf ("%s%c%s=%s", tmp,
-                                                separator, name, escaped);
-                                g_free (escaped);
+						separator, name, escaped);
+				g_free (escaped);
 				break;
 			}
 			default:
@@ -2494,7 +2486,7 @@ em_format_build_mail_uri (CamelFolder *folder,
 		if (separator == '?')
 			separator = '&';
 
-		name = va_arg (ap, char *);
+		name = va_arg (ap, gchar *);
 	}
 	va_end (ap);
 
@@ -2521,15 +2513,12 @@ em_format_redraw (EMFormat *emf)
 	g_signal_emit (emf, signals[REDRAW_REQUESTED], 0);
 }
 
-
-
-
 /**************************************************************************/
-EMFormatPURI*
+EMFormatPURI *
 em_format_puri_new (EMFormat *emf,
-		    gsize puri_size,
-		    CamelMimePart *part,
-		    const gchar *uri)
+                    gsize puri_size,
+                    CamelMimePart *part,
+                    const gchar *uri)
 {
 	EMFormatPURI *puri;
 
@@ -2572,17 +2561,16 @@ em_format_puri_free (EMFormatPURI *puri)
 		camel_cipher_validity_free (puri->validity_parent);
 
 	if (puri->free)
-		puri->free(puri);
+		puri->free (puri);
 
 	g_free (puri);
 }
 
-
 void
 em_format_puri_write (EMFormatPURI *puri,
-		      CamelStream *stream,
-		      EMFormatWriterInfo *info,
-		      GCancellable *cancellable)
+                      CamelStream *stream,
+                      EMFormatWriterInfo *info,
+                      GCancellable *cancellable)
 {
 	g_return_if_fail (puri);
 	g_return_if_fail (CAMEL_IS_STREAM (stream));
@@ -2614,9 +2602,9 @@ em_format_puri_write (EMFormatPURI *puri,
 	}
 }
 
-EMFormatHeader*
+EMFormatHeader *
 em_format_header_new (const gchar *name,
-		      const gchar *value)
+                      const gchar *value)
 {
 	EMFormatHeader *header;
 
@@ -2631,7 +2619,7 @@ em_format_header_new (const gchar *name,
 }
 
 void
-em_format_header_free (EMFormatHeader* header)
+em_format_header_free (EMFormatHeader * header)
 {
 	g_return_if_fail (header != NULL);
 

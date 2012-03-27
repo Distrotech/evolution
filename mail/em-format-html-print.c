@@ -60,7 +60,7 @@ enum {
 
 static void efhp_write_print_layout	(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 static void efhp_write_headers		(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
-static void efhp_write_inline_attachment(EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
+static void efhp_write_inline_attachment (EMFormat *emf, EMFormatPURI *puri, CamelStream *stream, EMFormatWriterInfo *info, GCancellable *cancellable);
 
 static void
 efhp_write_attachments_list (EMFormatHTMLPrint *efhp,
@@ -68,65 +68,65 @@ efhp_write_attachments_list (EMFormatHTMLPrint *efhp,
                              EMFormatWriterInfo *info,
                              GCancellable *cancellable)
 {
-        GString *str;
-        GList *iter;
+	GString *str;
+	GList *iter;
 
-        if (!efhp->priv->attachments)
-                return;
+	if (!efhp->priv->attachments)
+		return;
 
-        str = g_string_new (
+	str = g_string_new (
                 "<table border=\"0\" cellspacing=\"5\" cellpadding=\"0\" "
                        "class=\"attachments-list\" >\n");
-        g_string_append_printf (str,
+	g_string_append_printf (str,
                 "<tr><th colspan=\"2\"><h1>%s</h1></td></tr>\n"
                 "<tr><th>%s</th><th>%s</th></tr>\n",
                 _("Attachments"), _("Name"), _("Size"));
 
-        for (iter = efhp->priv->attachments; iter; iter = iter->next) {
-                EMFormatPURI *puri = iter->data;
-                EAttachment *attachment;
-                GFileInfo *fi;
-                gchar *name, *size;
-                GByteArray *ba;
-                CamelDataWrapper *dw;
+	for (iter = efhp->priv->attachments; iter; iter = iter->next) {
+		EMFormatPURI *puri = iter->data;
+		EAttachment *attachment;
+		GFileInfo *fi;
+		gchar *name, *size;
+		GByteArray *ba;
+		CamelDataWrapper *dw;
 
-                attachment = ((EMFormatAttachmentPURI *) puri)->attachment;
-                fi = e_attachment_get_file_info (attachment);
-                if (!fi)
-                        continue;
+		attachment = ((EMFormatAttachmentPURI *) puri)->attachment;
+		fi = e_attachment_get_file_info (attachment);
+		if (!fi)
+			continue;
 
-                if (e_attachment_get_description (attachment) &&
+		if (e_attachment_get_description (attachment) &&
                     *e_attachment_get_description (attachment)) {
                         name = g_strdup_printf ("%s (%s)",
-                                e_attachment_get_description (attachment),
-                                g_file_info_get_display_name (fi));
-                } else {
-                        name = g_strdup (g_file_info_get_display_name (fi));
-                }
+				e_attachment_get_description (attachment),
+				g_file_info_get_display_name (fi));
+		} else {
+			name = g_strdup (g_file_info_get_display_name (fi));
+		}
 
-                dw = camel_medium_get_content ((CamelMedium *) puri->part);
-                ba = camel_data_wrapper_get_byte_array (dw);
-                size = g_format_size (ba->len);
+		dw = camel_medium_get_content ((CamelMedium *) puri->part);
+		ba = camel_data_wrapper_get_byte_array (dw);
+		size = g_format_size (ba->len);
 
                 g_string_append_printf (str, "<tr><td>%s</td><td>%s</td></tr>\n",
-                        name, size);
+			name, size);
 
-                g_free (name);
-                g_free (size);
-        }
+		g_free (name);
+		g_free (size);
+	}
 
         g_string_append (str, "</table>\n");
 
-        camel_stream_write_string (stream, str->str, cancellable, NULL);
-        g_string_free (str, TRUE);
+	camel_stream_write_string (stream, str->str, cancellable, NULL);
+	g_string_free (str, TRUE);
 }
 
 static void
 efhp_write_headers (EMFormat *emf,
-		    EMFormatPURI *puri,
-		    CamelStream *stream,
-		    EMFormatWriterInfo *info,
-		    GCancellable *cancellable)
+                    EMFormatPURI *puri,
+                    CamelStream *stream,
+                    EMFormatWriterInfo *info,
+                    GCancellable *cancellable)
 {
 	struct _camel_header_raw raw_header;
 	GString *str, *tmp;
@@ -135,14 +135,14 @@ efhp_write_headers (EMFormat *emf,
 	EMFormatPURI *p;
 	GList *iter;
 	gint attachments_count;
-        gchar *puri_prefix;
+	gchar *puri_prefix;
 
 	buf = camel_medium_get_header (CAMEL_MEDIUM (puri->part), "subject");
 	subject = camel_header_decode_string (buf, "UTF-8");
 	str = g_string_new ("<table border=\"0\" cellspacing=\"5\" " \
                             "cellpadding=\"0\" class=\"printing-header\">\n");
 	g_string_append_printf (
-                str,
+		str,
                 "<tr class=\"header-item\">"
                 "<td colspan=\"2\"><h1>%s</h1></td>"
                 "</tr>\n",
@@ -191,11 +191,11 @@ efhp_write_headers (EMFormat *emf,
 
 		p = iter->data;
 
-                if (p->validity_type == 0)
-                        continue;
+		if (p->validity_type == 0)
+			continue;
 
-                if (!g_str_has_prefix (p->uri, puri_prefix))
-                        continue;
+		if (!g_str_has_prefix (p->uri, puri_prefix))
+			continue;
 
 		if ((p->validity_type & EM_FORMAT_VALIDITY_FOUND_PGP) &&
 		    (p->validity_type & EM_FORMAT_VALIDITY_FOUND_SIGNED)) {
@@ -236,19 +236,19 @@ efhp_write_headers (EMFormat *emf,
 
 		p = iter->data;
 
-                if (!g_str_has_prefix (p->uri, puri_prefix))
-                        continue;
+		if (!g_str_has_prefix (p->uri, puri_prefix))
+			continue;
 
 		if ((p->is_attachment || g_str_has_suffix(p->uri, ".attachment")) &&
-                    (!p->cid)) {
+		    (!p->cid)) {
 			attachments_count++;
                         /* EFHD sometimes creates two PURIs per attachment! */
-                        if (iter->next && iter->next->data) {
-                                EMFormatPURI *p2 = iter->next->data;
-                                if (g_str_has_prefix (p2->uri, p->uri))
-                                        iter = iter->next;
-                        }
-                }
+			if (iter->next && iter->next->data) {
+				EMFormatPURI *p2 = iter->next->data;
+				if (g_str_has_prefix (p2->uri, p->uri))
+					iter = iter->next;
+			}
+		}
 	}
 	if (attachments_count > 0) {
 		raw_header.name = _("Attachments");
@@ -262,7 +262,7 @@ efhp_write_headers (EMFormat *emf,
 
 	camel_stream_write_string (stream, str->str, cancellable, NULL);
 	g_string_free (str, TRUE);
-        g_free (puri_prefix);
+	g_free (puri_prefix);
 }
 
 static void
@@ -272,42 +272,42 @@ efhp_write_inline_attachment (EMFormat *emf,
                               EMFormatWriterInfo *info,
                               GCancellable *cancellable)
 {
-        gchar *name;
-        EMFormatAttachmentPURI *att_puri = (EMFormatAttachmentPURI *) puri;
-        EAttachment *attachment;
-        GFileInfo *fi;
+	gchar *name;
+	EMFormatAttachmentPURI *att_puri = (EMFormatAttachmentPURI *) puri;
+	EAttachment *attachment;
+	GFileInfo *fi;
 
-        attachment = att_puri->attachment;
-        fi = e_attachment_get_file_info (attachment);
+	attachment = att_puri->attachment;
+	fi = e_attachment_get_file_info (attachment);
 
-        if (e_attachment_get_description (attachment) &&
+	if (e_attachment_get_description (attachment) &&
             *e_attachment_get_description (attachment)) {
                 name = g_strdup_printf ("<h2>Attachment: %s (%s)</h2>\n",
-                        e_attachment_get_description (attachment),
-                        g_file_info_get_display_name (fi));
-        } else {
+			e_attachment_get_description (attachment),
+			g_file_info_get_display_name (fi));
+	} else {
                 name = g_strdup_printf ("<h2>Attachment: %s</h2>\n",
-                        g_file_info_get_display_name (fi));
-        }
+			g_file_info_get_display_name (fi));
+	}
 
-        camel_stream_write_string (stream, name, cancellable, NULL);
-        g_free (name);
+	camel_stream_write_string (stream, name, cancellable, NULL);
+	g_free (name);
 }
 
 static void
 efhp_write_print_layout (EMFormat *emf,
-			 EMFormatPURI *puri,
-			 CamelStream *stream,
-			 EMFormatWriterInfo *info,
-			 GCancellable *cancellable)
+                         EMFormatPURI *puri,
+                         CamelStream *stream,
+                         EMFormatWriterInfo *info,
+                         GCancellable *cancellable)
 {
 	GList *iter;
 	EMFormatWriterInfo print_info = {
 		EM_FORMAT_WRITE_MODE_PRINTING, FALSE, FALSE };
-        EMFormatHTMLPrint *efhp = EM_FORMAT_HTML_PRINT (emf);
+	EMFormatHTMLPrint *efhp = EM_FORMAT_HTML_PRINT (emf);
 
-        g_list_free (efhp->priv->attachments);
-        efhp->priv->attachments = NULL;
+	g_list_free (efhp->priv->attachments);
+	efhp->priv->attachments = NULL;
 
 	camel_stream_write_string (stream,
 		"<!DOCTYPE HTML>\n<html>\n"
@@ -317,7 +317,7 @@ efhp_write_print_layout (EMFormat *emf,
                       "href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview-print.css\" />\n"
 		"</head>\n"
 		"<body style=\"background: #FFF; color: #000;\">",
-                cancellable, NULL);
+		cancellable, NULL);
 
 	for (iter = emf->mail_part_list; iter != NULL; iter = iter ? iter->next : iter) {
 
@@ -336,17 +336,17 @@ efhp_write_print_layout (EMFormat *emf,
 
                         while (iter && !g_str_has_suffix (puri->uri, ".rfc822.end")) {
 
-                                iter = iter->next;
-                                if (iter)
-                                        puri = iter->data;
-                        }
+				iter = iter->next;
+				if (iter)
+					puri = iter->data;
+			}
 
-                        if (!iter)
-                                break;
+			if (!iter)
+				break;
 
-                        continue;
+			continue;
 
-                }
+		}
 
 		if (puri->is_attachment || g_str_has_suffix (puri->uri, ".attachment")) {
 			const EMFormatHandler *handler;
@@ -354,61 +354,60 @@ efhp_write_print_layout (EMFormat *emf,
 			gchar *mime_type;
 
                         if (puri->cid && g_ascii_strncasecmp (puri->cid, "cid:", 4) == 0)
-                                continue;
+				continue;
 
-                        ct = camel_mime_part_get_content_type (puri->part);
-                        mime_type = camel_content_type_simple (ct);
+			ct = camel_mime_part_get_content_type (puri->part);
+			mime_type = camel_content_type_simple (ct);
 
 			handler = em_format_find_handler (puri->emf, mime_type);
                         d(printf("Handler for PURI %s (%s): %s\n", puri->uri, mime_type,
                                  handler ? handler->mime_type : "(null)"));
-                        g_free (mime_type);
+			g_free (mime_type);
 
-                        efhp->priv->attachments =
-                                g_list_append (efhp->priv->attachments, puri);
+			efhp->priv->attachments =
+				g_list_append (efhp->priv->attachments, puri);
 
 			/* If we can't inline this attachment, skip it */
 			if (handler && puri->write_func) {
-                                efhp_write_inline_attachment (puri->emf, puri,
-                                        stream, &print_info, cancellable);
+				efhp_write_inline_attachment (puri->emf, puri,
+					stream, &print_info, cancellable);
 
-                                if (iter->next && iter->next->data) {
-                                        EMFormatPURI *p;
-                                        p = iter->next->data;
+				if (iter->next && iter->next->data) {
+					EMFormatPURI *p;
+					p = iter->next->data;
 
                                         /* Has the next PURI the same prefix? */
-                                        if (p->write_func &&
-                                            g_str_has_prefix (p->uri, puri->uri)) {
-                                                p->write_func (emf, p, stream,
-                                                       &print_info, cancellable);
-                                                iter = iter->next;
-                                        } else {
-                                                if (puri->write_func) {
-                                                        puri->write_func (emf, puri,
-                                                                stream, &print_info,
-                                                                cancellable);
-                                                }
-                                        }
-                                }
-                        }
+					if (p->write_func &&
+					    g_str_has_prefix (p->uri, puri->uri)) {
+						p->write_func (emf, p, stream,
+						       &print_info, cancellable);
+						iter = iter->next;
+					} else {
+						if (puri->write_func) {
+							puri->write_func (emf, puri,
+								stream, &print_info,
+								cancellable);
+						}
+					}
+				}
+			}
 
-                        continue;
+			continue;
 		}
 
 		/* Ignore widget parts and unwritable non-attachment parts */
-                if (puri->write_func == NULL)
-                        continue;
+		if (puri->write_func == NULL)
+			continue;
 
                 /* Passed all tests, probably a regular part - display it */
-                puri->write_func(puri->emf, puri, stream, &print_info, cancellable);
+		puri->write_func (puri->emf, puri, stream, &print_info, cancellable);
 
-        }
+	}
 
-        efhp_write_attachments_list (efhp, stream, &print_info, cancellable);
+	efhp_write_attachments_list (efhp, stream, &print_info, cancellable);
 
 	camel_stream_write_string (stream, "</body></html>", cancellable, NULL);
 }
-
 
 static void
 efhp_finalize (GObject *object)
@@ -426,9 +425,9 @@ efhp_finalize (GObject *object)
 	}
 
 	if (efhp->priv->attachments) {
-                g_list_free (efhp->priv->attachments);
-                efhp->priv->attachments = NULL;
-        }
+		g_list_free (efhp->priv->attachments);
+		efhp->priv->attachments = NULL;
+	}
 
 	/* Chain up to parent's finalize() method. */
 	G_OBJECT_CLASS (parent_class)->finalize (object);
@@ -446,7 +445,7 @@ efhp_is_inline (EMFormat *emf,
 
 static void
 efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
-		    	 EMFormat *formatter)
+                             EMFormat *formatter)
 {
 	EMFormat *emfp, *emfs;
 	EMFormatPURI *puri;
@@ -462,21 +461,21 @@ efhp_set_orig_formatter (EMFormatHTMLPrint *efhp,
 
 	/* Make a shallow copy of the table. This table will NOT destroy
 	 * the PURIs when free'd! */
-        if (emfp->mail_part_table)
-                g_hash_table_unref (emfp->mail_part_table);
+	if (emfp->mail_part_table)
+		g_hash_table_unref (emfp->mail_part_table);
 
 	emfp->mail_part_table = g_hash_table_new (g_str_hash, g_str_equal);
 	g_hash_table_iter_init (&iter, emfs->mail_part_table);
 	while (g_hash_table_iter_next (&iter, &key, &value))
 		g_hash_table_insert (emfp->mail_part_table, key, value);
 
-        if (emfs->folder)
-	        emfp->folder = g_object_ref (emfs->folder);
+	if (emfs->folder)
+		emfp->folder = g_object_ref (emfs->folder);
 	emfp->message_uid = g_strdup (emfs->message_uid);
 	emfp->message = g_object_ref (emfs->message);
 
 	/* Add a generic PURI that will write a HTML layout
-	   for all the parts */
+	 * for all the parts */
 	puri = em_format_puri_new (EM_FORMAT (efhp),
 		sizeof (EMFormatPURI), NULL, "print_layout");
 	puri->write_func = efhp_write_print_layout;
@@ -504,9 +503,9 @@ efhp_builtin_init (EMFormatHTMLPrintClass *efhc)
 
 static void
 efhp_set_property (GObject *object,
-		   guint prop_id,
-		   const GValue *value,
-		   GParamSpec *pspec)
+                   guint prop_id,
+                   const GValue *value,
+                   GParamSpec *pspec)
 {
 	switch (prop_id) {
 
@@ -522,9 +521,9 @@ efhp_set_property (GObject *object,
 
 static void
 efhp_get_property (GObject *object,
-		   guint prop_id,
-		   GValue *value,
-		   GParamSpec *pspec)
+                   guint prop_id,
+                   GValue *value,
+                   GParamSpec *pspec)
 {
 	EMFormatHTMLPrintPrivate *priv;
 
@@ -582,7 +581,7 @@ em_format_html_print_init (EMFormatHTMLPrint *efhp)
 	efhp->priv = G_TYPE_INSTANCE_GET_PRIVATE (
 		efhp, EM_TYPE_FORMAT_HTML_PRINT, EMFormatHTMLPrintPrivate);
 
-        efhp->priv->attachments = NULL;
+	efhp->priv->attachments = NULL;
 	efhp->export_filename = NULL;
 }
 

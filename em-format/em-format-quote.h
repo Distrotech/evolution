@@ -73,7 +73,6 @@ void            em_format_quote_write           (EMFormatQuote *emfq,
                                                  CamelStream *stream,
                                                  GCancellable *cancellable);
 
-
 G_END_DECLS
 
 #endif /* EM_FORMAT_QUOTE_H */

@@ -49,10 +49,10 @@ static gboolean epp_show_suppressed = TRUE;
 
 static void
 make_part_attachment (EMFormat *format,
-				      CamelMimePart *part,
-				      GString *part_id,
-				      gboolean force_html,
-				      GCancellable *cancellable)
+                                      CamelMimePart *part,
+                                      GString *part_id,
+                                      gboolean force_html,
+                                      GCancellable *cancellable)
 {
 	EMFormatParserInfo info = {0};
 
@@ -106,9 +106,9 @@ org_gnome_prefer_plain_text_html (gpointer ep,
 
 static void
 export_as_attachments (CamelMultipart *mp,
-					   EMFormat *format,
-					   CamelMimePart *except,
-					   GString *part_id)
+                                           EMFormat *format,
+                                           CamelMimePart *except,
+                                           GString *part_id)
 {
 	gint i, nparts;
 	CamelMimePart *part;

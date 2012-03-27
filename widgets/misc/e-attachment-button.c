@@ -695,7 +695,7 @@ e_attachment_button_get_view (EAttachmentButton *button)
 
 void
 e_attachment_button_set_view (EAttachmentButton *button,
-			      EAttachmentView *view)
+                              EAttachmentView *view)
 {
 	GtkWidget *popup_menu;
 

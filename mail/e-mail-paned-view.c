@@ -680,10 +680,10 @@ mail_paned_view_constructed (GObject *object)
 
 	container = priv->paned;
 
-        widget = e_preview_pane_new (E_WEB_VIEW (priv->display));
+	widget = e_preview_pane_new (E_WEB_VIEW (priv->display));
 	gtk_paned_pack2 (GTK_PANED (container), widget, FALSE, FALSE);
 	priv->preview_pane = g_object_ref (widget);
-        gtk_widget_show (GTK_WIDGET (priv->display));
+	gtk_widget_show (GTK_WIDGET (priv->display));
 	gtk_widget_show (widget);
 
 	g_object_bind_property (
@@ -729,17 +729,17 @@ mail_paned_view_set_search_strings (EMailView *view,
                                     GSList *search_strings)
 {
 	EMailDisplay *display;
-        EWebView *web_view;
-        EMailReader *reader;
+	EWebView *web_view;
+	EMailReader *reader;
 
 	reader = E_MAIL_READER (view);
 	display = e_mail_reader_get_mail_display (reader);
-        if (!display)
-                return;
+	if (!display)
+		return;
 
-        web_view = E_WEB_VIEW (display);
+	web_view = E_WEB_VIEW (display);
 
-        e_web_view_clear_highlights (web_view);
+	e_web_view_clear_highlights (web_view);
 
 	while (search_strings != NULL) {
 		e_web_view_add_highlight (web_view, search_strings->data);

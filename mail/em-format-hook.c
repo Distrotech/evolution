@@ -62,10 +62,10 @@ G_DEFINE_TYPE (EMFormatHook, em_format_hook, E_TYPE_PLUGIN_HOOK)
 
 static void
 emfh_parse_part (EMFormat *emf,
-		 CamelMimePart *part,
-		 GString *part_id,
-		 EMFormatParserInfo *info,
-		 GCancellable *cancellable)
+                 CamelMimePart *part,
+                 GString *part_id,
+                 EMFormatParserInfo *info,
+                 GCancellable *cancellable)
 {
 	struct _EMFormatHookItem *item = (EMFormatHookItem *) info->handler;
 

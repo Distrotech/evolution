@@ -64,7 +64,7 @@ struct _EMailDisplayClass {
 GType			e_mail_display_get_type		(void);
 EMFormatHTML *		e_mail_display_get_formatter	(EMailDisplay *display);
 void			e_mail_display_set_formatter	(EMailDisplay *display,
-						 	 EMFormatHTML *formatter);
+							 EMFormatHTML *formatter);
 
 void			e_mail_display_set_mode		(EMailDisplay *display,
 							 EMFormatWriteMode mode);
@@ -81,7 +81,7 @@ gboolean		e_mail_display_get_headers_collapsed
 							(EMailDisplay *display);
 
 void			e_mail_display_load		(EMailDisplay *display,
-						 	 const gchar *msg_uri);
+							 const gchar *msg_uri);
 void			e_mail_display_reload		(EMailDisplay *display);
 
 GtkAction *		e_mail_display_get_action	(EMailDisplay *display,
@@ -90,7 +90,7 @@ GtkAction *		e_mail_display_get_action	(EMailDisplay *display,
 void			e_mail_display_set_status	(EMailDisplay *display,
 							 const gchar *status);
 
-gchar*			e_mail_display_get_selection_plain_text
+gchar *			e_mail_display_get_selection_plain_text
 							(EMailDisplay *display,
 							 gint *len);
 

@@ -435,16 +435,16 @@ e_mail_reader_open_selected (EMailReader *reader)
 static gboolean
 destroy_printing_activity (EActivity *activity)
 {
-        g_object_unref (activity);
+	g_object_unref (activity);
 
-        return FALSE;
+	return FALSE;
 }
 
 static void
 printing_done_cb (EMailPrinter *printer,
-		  GtkPrintOperation *operation,
-		  GtkPrintOperationResult result,
-		  gpointer user_data)
+                  GtkPrintOperation *operation,
+                  GtkPrintOperationResult result,
+                  gpointer user_data)
 {
 	EActivity *activity = user_data;
 
@@ -468,9 +468,9 @@ printing_done_cb (EMailPrinter *printer,
 	}
 
 	/* Set activity as completed, and keep it displayed for a few seconds
-	   so that user can actually see the the printing was sucesfully finished. */
+	 * so that user can actually see the the printing was sucesfully finished. */
 	e_activity_set_state (activity, E_ACTIVITY_COMPLETED);
-	g_timeout_add_seconds_full (G_PRIORITY_DEFAULT, 3, 
+	g_timeout_add_seconds_full (G_PRIORITY_DEFAULT, 3,
 		(GSourceFunc) destroy_printing_activity, activity, NULL);
 
 	g_object_unref (printer);
@@ -871,8 +871,8 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	if (!e_web_view_is_selection_active (web_view))
 		goto whole_message;
 
-        selection = e_web_view_get_selection_html (web_view);
-        length = strlen (selection);
+	selection = e_web_view_get_selection_html (web_view);
+	length = strlen (selection);
 	if (selection == NULL || *selection == '\0')
 		goto whole_message;
 
@@ -1443,7 +1443,7 @@ remove_header_notify_cb (gpointer data)
  **/
 void
 e_mail_reader_connect_headers (EMailReader *reader,
-			       EMFormat *emf)
+                               EMFormat *emf)
 {
 	GConfClient *client;
 	guint notify_id;

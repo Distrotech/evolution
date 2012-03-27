@@ -196,7 +196,7 @@ void		em_format_html_format_message	(EMFormatHTML *efh,
 void		em_format_html_format_message_part
 						(EMFormatHTML *efh,
 						 const gchar *part_id,
-    						 CamelStream *stream,
+						 CamelStream *stream,
 						 GCancellable *cancellable);
 
 void		em_format_html_format_headers	(EMFormatHTML *efh,
@@ -208,7 +208,7 @@ void		em_format_html_format_header	(EMFormat *emf,
 						 GString *buffer,
 						 CamelMedium *part,
 						 struct _camel_header_raw *header,
-						 guint32 flags,	
+						 guint32 flags,
 						 const gchar *charset);
 
 gboolean        em_format_html_can_load_images  (EMFormatHTML *efh);

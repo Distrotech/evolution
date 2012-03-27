@@ -68,18 +68,18 @@ typedef struct _EMFormatWriterInfo EMFormatWriterInfo;
 typedef struct _WebKitDOMElement WebKitDOMElement;
 
 typedef void		(*EMFormatParseFunc)	(EMFormat *emf,
-					 	 CamelMimePart *part,
-					 	 GString *part_id,
-					 	 EMFormatParserInfo *info,
-					 	 GCancellable *cancellable);
+						 CamelMimePart *part,
+						 GString *part_id,
+						 EMFormatParserInfo *info,
+						 GCancellable *cancellable);
 typedef void		(*EMFormatWriteFunc)	(EMFormat *emf,
-					 	 EMFormatPURI *puri,
-					 	 CamelStream *stream,
-					 	 EMFormatWriterInfo *info,
-					 	 GCancellable *cancellable);
-typedef GtkWidget*	(*EMFormatWidgetFunc)	(EMFormat *emf,
-					 	 EMFormatPURI *puri,
-					 	 GCancellable *cancellable);
+						 EMFormatPURI *puri,
+						 CamelStream *stream,
+						 EMFormatWriterInfo *info,
+						 GCancellable *cancellable);
+typedef GtkWidget *	(*EMFormatWidgetFunc)	(EMFormat *emf,
+						 EMFormatPURI *puri,
+						 GCancellable *cancellable);
 typedef void		(*EMailDisplayBindFunc)	(WebKitDOMElement *root,
 						 EMFormatPURI *puri);
 
@@ -137,7 +137,6 @@ struct _EMFormatHeader {
 #define EM_FORMAT_HEADER_BOLD (1<<0)
 #define EM_FORMAT_HEADER_LAST (1<<4) /* reserve 4 slots */
 
-
 struct _EMFormatPURI {
 	CamelMimePart *part;
 
@@ -189,7 +188,7 @@ struct _EMFormatClass {
 
 	GHashTable *type_handlers;
 
-	gboolean 	(*is_inline)			(EMFormat *emf,
+	gboolean	(*is_inline)			(EMFormat *emf,
 							 const gchar *part_id,
 							 CamelMimePart *part,
 							 const EMFormatHandler *handler);
@@ -207,27 +206,27 @@ struct _EMFormatClass {
 
 };
 
-EMFormat*		em_format_new 			(void);
+EMFormat *		em_format_new			(void);
 
-GType			em_format_get_type 		(void);
+GType			em_format_get_type		(void);
 
 void			em_format_set_charset		(EMFormat *emf,
 							 const gchar *charset);
-const gchar*		em_format_get_charset		(EMFormat *emf);
+const gchar *		em_format_get_charset		(EMFormat *emf);
 
 void			em_format_set_default_charset	(EMFormat *emf,
-						 	 const gchar *charset);
-const gchar*		em_format_get_default_charset	(EMFormat *emf);
+							 const gchar *charset);
+const gchar *		em_format_get_default_charset	(EMFormat *emf);
 
-void			em_format_set_composer 		(EMFormat *emf,
-			 				 gboolean composer);
+void			em_format_set_composer		(EMFormat *emf,
+							 gboolean composer);
 gboolean		em_format_get_composer		(EMFormat *emf);
 
 void			em_format_set_base_url		(EMFormat *emf,
-			 				 CamelURL *url);
+							 CamelURL *url);
 void			em_format_set_base_url_string	(EMFormat *emf,
 							 const gchar *url_string);
-CamelURL*		em_format_get_base_url		(EMFormat *emf);
+CamelURL *		em_format_get_base_url		(EMFormat *emf);
 
 void			em_format_clear_headers		(EMFormat *emf);
 
@@ -239,7 +238,7 @@ void			em_format_add_header		(EMFormat *emf,
 							 guint32 flags);
 void			em_format_add_header_struct	(EMFormat *emf,
 							 EMFormatHeader *header);
-void	        	em_format_remove_header		(EMFormat *emf,
+void			em_format_remove_header		(EMFormat *emf,
 							 const gchar *name,
 							 const gchar *value);
 void                    em_format_remove_header_struct	(EMFormat *emf,
@@ -247,18 +246,18 @@ void                    em_format_remove_header_struct	(EMFormat *emf,
 
 void			em_format_add_puri		(EMFormat *emf,
 							 EMFormatPURI *puri);
-EMFormatPURI*		em_format_find_puri		(EMFormat *emf,
+EMFormatPURI *		em_format_find_puri		(EMFormat *emf,
 							 const gchar *id);
 
 void			em_format_class_add_handler	(EMFormatClass *emfc,
 							 EMFormatHandler *handler);
-void			em_format_class_remove_handler 	(EMFormatClass *emfc,
+void			em_format_class_remove_handler	(EMFormatClass *emfc,
 							 EMFormatHandler *handler);
 
-const EMFormatHandler*	em_format_find_handler 		(EMFormat *emf,
+const EMFormatHandler *	em_format_find_handler		(EMFormat *emf,
 							 const gchar *mime_type);
-const EMFormatHandler* 	em_format_fallback_handler	(EMFormat *emf,
-		                            		 const gchar *mime_type);
+const EMFormatHandler *	em_format_fallback_handler	(EMFormat *emf,
+							 const gchar *mime_type);
 
 void			em_format_parse			(EMFormat *emf,
 							 CamelMimeMessage *message,
@@ -277,12 +276,12 @@ void                    em_format_parse_async           (EMFormat *emf,
                                                          GAsyncReadyCallback callback,
                                                          gpointer user_data);
 
-void 			em_format_parse_part		(EMFormat *emf,
+void			em_format_parse_part		(EMFormat *emf,
 							 CamelMimePart *part,
 							 GString *part_id,
 							 EMFormatParserInfo *info,
 							 GCancellable *cancellable);
-void 			em_format_parse_part_as		(EMFormat *emf,
+void			em_format_parse_part_as		(EMFormat *emf,
 							 CamelMimePart *part,
 							 GString *part_id,
 							 EMFormatParserInfo *info,
@@ -293,7 +292,7 @@ gboolean		em_format_is_inline		(EMFormat *emf,
 							 CamelMimePart *part,
 							 const EMFormatHandler *handler);
 
-gchar*			em_format_get_error_id		(EMFormat *emf);
+gchar *			em_format_get_error_id		(EMFormat *emf);
 
 void			em_format_format_error		(EMFormat *emf,
 							 const gchar *format,
@@ -302,11 +301,11 @@ void			em_format_format_text		(EMFormat *emf,
 							 CamelStream *stream,
 							 CamelDataWrapper *dw,
 							 GCancellable *cancellable);
-gchar*			em_format_describe_part		(CamelMimePart *part,
+gchar *			em_format_describe_part		(CamelMimePart *part,
 							 const gchar *mime_type);
-gint			em_format_is_attachment 	(EMFormat *emf,
-                	         	 	 	 CamelMimePart *part);
-const gchar*		em_format_snoop_type	 	(CamelMimePart *part);
+gint			em_format_is_attachment	(EMFormat *emf,
+							 CamelMimePart *part);
+const gchar *		em_format_snoop_type		(CamelMimePart *part);
 
 gchar *			em_format_build_mail_uri	(CamelFolder *folder,
 							 const gchar *message_uid,
@@ -315,7 +314,7 @@ gchar *			em_format_build_mail_uri	(CamelFolder *folder,
 
 /* EMFormatParseFunc that does nothing. Use it to disable
  * parsing of a specific mime type parts  */
-void			em_format_empty_parser 		(EMFormat *emf,
+void			em_format_empty_parser		(EMFormat *emf,
 							 CamelMimePart *part,
 							 GString *part_id,
 							 EMFormatParserInfo *info,
@@ -323,7 +322,7 @@ void			em_format_empty_parser 		(EMFormat *emf,
 
 /* EMFormatWriteFunc that does nothing. Use it to disable
  * writing of a specific mime type parts */
-void			em_format_empty_writer 		(EMFormat *emf,
+void			em_format_empty_writer		(EMFormat *emf,
 							 EMFormatPURI *puri,
 							 CamelStream *stream,
 							 EMFormatWriterInfo *info,
@@ -331,19 +330,18 @@ void			em_format_empty_writer 		(EMFormat *emf,
 
 void			em_format_redraw		(EMFormat *emf);
 
-
-EMFormatPURI*		em_format_puri_new 		(EMFormat *emf,
+EMFormatPURI *		em_format_puri_new		(EMFormat *emf,
 							 gsize puri_size,
 							 CamelMimePart *part,
 							 const gchar *uri);
-void			em_format_puri_free 		(EMFormatPURI *puri);
+void			em_format_puri_free		(EMFormatPURI *puri);
 
-void			em_format_puri_write 		(EMFormatPURI *puri,
+void			em_format_puri_write		(EMFormatPURI *puri,
 							 CamelStream *stream,
 							 EMFormatWriterInfo *info,
 							 GCancellable *cancellable);
 
-EMFormatHeader*		em_format_header_new		(const gchar *name,
+EMFormatHeader *		em_format_header_new		(const gchar *name,
 							 const gchar *value);
 void			em_format_header_free		(EMFormatHeader *header);
 

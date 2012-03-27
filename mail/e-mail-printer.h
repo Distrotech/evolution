@@ -55,10 +55,10 @@ struct _EMailPrinter {
 struct _EMailPrinterClass {
 	GObjectClass parent_class;
 
-	void 	(*done)			(EMailPrinter *printer,
+	void	(*done)			(EMailPrinter *printer,
 					 GtkPrintOperation *operation,
-		  			 GtkPrintOperationResult *result,
-		  			 gpointer user_data);
+					 GtkPrintOperationResult *result,
+					 gpointer user_data);
 };
 
 GType		e_mail_printer_get_type	(void);
@@ -69,13 +69,12 @@ void		e_mail_printer_print	(EMailPrinter *printer,
 					 gboolean export,
 					 GCancellable *cancellable);
 
-void            e_mail_printer_set_export_filename 
+void            e_mail_printer_set_export_filename
                                         (EMailPrinter *printer,
                                          const gchar *filename);
 
-const gchar*    e_mail_printer_get_export_filename
+const gchar *    e_mail_printer_get_export_filename
                                         (EMailPrinter *printer);
-
 
 EMFormatHTMLPrint *
 		e_mail_printer_get_print_formatter

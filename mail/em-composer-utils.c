@@ -936,9 +936,9 @@ composer_print_done_cb (EMailPrinter *emp,
                         GtkPrintOperationResult result,
                         gpointer user_data)
 {
-        EMFormat *emf = user_data;
-        g_object_unref (emf);
-        g_object_unref (emp);
+	EMFormat *emf = user_data;
+	g_object_unref (emf);
+	g_object_unref (emp);
 }
 
 static void
@@ -948,21 +948,21 @@ em_utils_composer_print_cb (EMsgComposer *composer,
                             EActivity *activity,
                             EMailSession *session)
 {
-        EMailPrinter *emp;
-        EMFormatHTMLDisplay *efhd;
+	EMailPrinter *emp;
+	EMFormatHTMLDisplay *efhd;
 
 	efhd = em_format_html_display_new ();
-        ((EMFormat *) efhd)->message_uid = g_strdup (camel_mime_message_get_message_id (message));
+	((EMFormat *) efhd)->message_uid = g_strdup (camel_mime_message_get_message_id (message));
 
         /* Parse the message */
-        em_format_parse ((EMFormat *) efhd, message, NULL, NULL);
+	em_format_parse ((EMFormat *) efhd, message, NULL, NULL);
 
         /* Use EMailPrinter and WebKit to print the message */
-        emp = e_mail_printer_new ((EMFormatHTML *) efhd);
+	emp = e_mail_printer_new ((EMFormatHTML *) efhd);
         g_signal_connect (emp, "done",
-                G_CALLBACK (composer_print_done_cb), efhd);
+		G_CALLBACK (composer_print_done_cb), efhd);
 
-        e_mail_printer_print (emp, FALSE, NULL);
+	e_mail_printer_print (emp, FALSE, NULL);
 }
 
 /* Composing messages... */

@@ -19,7 +19,6 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -93,7 +92,7 @@ org_gnome_format_tnef (gpointer ep,
 	CamelMultipart *mp;
 	CamelMimePart *mainpart;
 	CamelDataWrapper *content;
-        const EMFormatHandler *handler;
+	const EMFormatHandler *handler;
 	gint len;
 	TNEFStruct tnef;
 
@@ -105,25 +104,25 @@ org_gnome_format_tnef (gpointer ep,
 
 	out = camel_stream_fs_new_with_name (name, O_RDWR | O_CREAT, 0666, NULL);
 	if (out == NULL) {
-            g_free (name);
+	    g_free (name);
 	    return;
-        }
+	}
 	content = camel_medium_get_content ((CamelMedium *) t->part);
 	if (content == NULL) {
-                g_free (name);
-                g_object_unref (out);
+		g_free (name);
+		g_object_unref (out);
 		return;
-        }
+	}
 	if (camel_data_wrapper_decode_to_stream_sync (content, out, NULL, NULL) == -1
 	    || camel_stream_close (out, NULL, NULL) == -1) {
 		g_object_unref (out);
-                g_free (name);
+		g_free (name);
 		return;
 	}
 	g_object_unref (out);
 
 	/* Extracting the winmail.dat */
-        TNEFInitialize (&tnef);
+	TNEFInitialize (&tnef);
 	tnef.Debug = verbose;
 	if (TNEFParseFile (name, &tnef) == -1) {
             printf("ERROR processing file\n");
@@ -135,10 +134,10 @@ org_gnome_format_tnef (gpointer ep,
 
 	dir = opendir (tmpdir);
 	if (dir == NULL) {
-            g_object_unref (out);
-            g_free (name);
+	    g_object_unref (out);
+	    g_free (name);
 	    return;
-        }
+	}
 
 	mainpart = camel_mime_part_new ();
 
@@ -194,14 +193,14 @@ org_gnome_format_tnef (gpointer ep,
 	if (camel_multipart_get_number (mp) > 0) {
                 handler = em_format_find_handler (t->format, "multiplart/mixed");
                 /* FIXME Not passing a GCancellable here. */
-                if (handler && handler->parse_func) {
-                        CamelMimePart *part = camel_mime_part_new ();
-                        camel_medium_set_content ((CamelMedium *) part,
-                                CAMEL_DATA_WRAPPER (mp));
-                        handler->parse_func (t->format, part, t->part_id, t->info, NULL);
-                        g_object_unref (part);
-                }
-        }
+		if (handler && handler->parse_func) {
+			CamelMimePart *part = camel_mime_part_new ();
+			camel_medium_set_content ((CamelMedium *) part,
+				CAMEL_DATA_WRAPPER (mp));
+			handler->parse_func (t->format, part, t->part_id, t->info, NULL);
+			g_object_unref (part);
+		}
+	}
 
 	g_string_truncate (t->part_id, len);
 

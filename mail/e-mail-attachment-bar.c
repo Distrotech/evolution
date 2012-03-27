@@ -120,7 +120,7 @@ mail_attachment_bar_update_status (EMailAttachmentBar *bar)
 
 static void
 mail_attachment_bar_set_store (EMailAttachmentBar *bar,
-			       EAttachmentStore *store)
+                               EAttachmentStore *store)
 {
 	g_return_if_fail (E_IS_ATTACHMENT_STORE (store));
 
@@ -756,7 +756,7 @@ e_mail_attachment_bar_set_expanded (EMailAttachmentBar *bar,
 	g_object_notify (G_OBJECT (bar), "expanded");
 }
 
-EAttachmentStore*
+EAttachmentStore *
 e_mail_attachment_bar_get_store (EMailAttachmentBar *bar)
 {
 	g_return_val_if_fail (E_IS_MAIL_ATTACHMENT_BAR (bar), NULL);

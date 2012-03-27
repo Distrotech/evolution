@@ -170,19 +170,19 @@ contact_formatting_finished (GObject *object,
                              GSimpleAsyncResult *result,
                              gpointer user_data)
 {
-        EABContactDisplay *display = user_data;
-        CamelStreamMem *stream;
-        gchar *html;
-        GByteArray *ba;
+	EABContactDisplay *display = user_data;
+	CamelStreamMem *stream;
+	gchar *html;
+	GByteArray *ba;
 
-        stream = g_simple_async_result_get_op_res_gpointer (result);
-        ba = camel_stream_mem_get_byte_array (stream);
+	stream = g_simple_async_result_get_op_res_gpointer (result);
+	ba = camel_stream_mem_get_byte_array (stream);
 
-        html = g_strndup ((gchar *) ba->data, ba->len);
-        e_web_view_load_string (E_WEB_VIEW (display), html);
+	html = g_strndup ((gchar *) ba->data, ba->len);
+	e_web_view_load_string (E_WEB_VIEW (display), html);
 
-        g_free (html);
-        g_object_unref (stream);
+	g_free (html);
+	g_object_unref (stream);
 }
 
 static void
@@ -191,12 +191,12 @@ load_contact (EABContactDisplay *display)
 	if (!display->priv->contact)
 		return;
 
-        eab_contact_formatter_format_contact_async (
-                display->priv->formatter,
-                display->priv->contact,
-                NULL, 
-                (GAsyncReadyCallback) contact_formatting_finished,
-                display);
+	eab_contact_formatter_format_contact_async (
+		display->priv->formatter,
+		display->priv->contact,
+		NULL,
+		(GAsyncReadyCallback) contact_formatting_finished,
+		display);
 }
 
 static void
@@ -344,11 +344,11 @@ handle_map_scroll_event (GtkWidget *widget,
 	return TRUE;
 }
 
-static GtkWidget*
+static GtkWidget *
 contact_display_object_requested (WebKitWebView *web_view,
-				  gchar *mime_type,
-				  gchar *uri,
-				  GHashTable *param,
+                                  gchar *mime_type,
+                                  gchar *uri,
+                                  GHashTable *param,
                                   EABContactDisplay *display)
 {
 	EContact *contact = display->priv->contact;
@@ -368,7 +368,7 @@ contact_display_object_requested (WebKitWebView *web_view,
 
 	if (address) {
 		map = e_contact_map_new ();
-                gtk_widget_set_size_request (map, 250, 250);
+		gtk_widget_set_size_request (map, 250, 250);
 		g_signal_connect (
 			E_CONTACT_MAP (map), "contact-added",
 			G_CALLBACK (e_contact_map_zoom_on_marker), NULL);
@@ -384,14 +384,14 @@ contact_display_object_requested (WebKitWebView *web_view,
 			E_CONTACT_MAP (map), full_name,
 			contact_uid, address, NULL);
 
-                gtk_widget_show_all (map);
+		gtk_widget_show_all (map);
 
 		e_contact_address_free (address);
-        }
+	}
 
 	g_free (full_name);
 
-        return map;
+	return map;
 }
 #endif
 
@@ -499,8 +499,8 @@ eab_contact_display_init (EABContactDisplay *display)
 
 	display->priv = EAB_CONTACT_DISPLAY_GET_PRIVATE (display);
 
-        display->priv->formatter = g_object_new (
-                EAB_TYPE_CONTACT_FORMATTER,
+	display->priv->formatter = g_object_new (
+		EAB_TYPE_CONTACT_FORMATTER,
                 "display-mode", EAB_CONTACT_DISPLAY_RENDER_NORMAL,
                 "render-maps", FALSE, NULL);
 
@@ -557,7 +557,7 @@ eab_contact_display_set_contact (EABContactDisplay *display,
 
 	display->priv->contact = contact;
 
-        load_contact (display);
+	load_contact (display);
 
 	g_object_notify (G_OBJECT (display), "contact");
 }
@@ -576,16 +576,16 @@ eab_contact_display_set_mode (EABContactDisplay *display,
 {
 	g_return_if_fail (EAB_IS_CONTACT_DISPLAY (display));
 
-        if (eab_contact_formatter_get_display_mode (
-                display->priv->formatter) == mode) {
+	if (eab_contact_formatter_get_display_mode (
+		display->priv->formatter) == mode) {
 
-                return;
-        };
+		return;
+	};
 
-        eab_contact_formatter_set_display_mode (
-                display->priv->formatter, mode);
+	eab_contact_formatter_set_display_mode (
+		display->priv->formatter, mode);
 
-        load_contact (display);
+	load_contact (display);
 
 	g_object_notify (G_OBJECT (display), "mode");
 }
@@ -604,16 +604,16 @@ eab_contact_display_set_show_maps (EABContactDisplay *display,
 {
 	g_return_if_fail (EAB_IS_CONTACT_DISPLAY (display));
 
-        if (eab_contact_formatter_get_render_maps (
-                display->priv->formatter) == show_maps) {
+	if (eab_contact_formatter_get_render_maps (
+		display->priv->formatter) == show_maps) {
 
-                return;
-        }
+		return;
+	}
 
-        eab_contact_formatter_set_render_maps (
-                display->priv->formatter, show_maps);
+	eab_contact_formatter_set_render_maps (
+		display->priv->formatter, show_maps);
 
-        load_contact (display);
+	load_contact (display);
 
 	g_object_notify (G_OBJECT (display), "show-maps");
 }

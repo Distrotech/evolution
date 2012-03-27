@@ -620,8 +620,8 @@ em_utils_write_messages_to_stream (CamelFolder *folder,
 
 static void
 do_print_msg_to_file (GObject *source,
-		      GAsyncResult *result,
-		      gpointer user_data)
+                      GAsyncResult *result,
+                      gpointer user_data)
 {
 
 	EMFormatHTML *efh = EM_FORMAT_HTML (source);
@@ -630,11 +630,11 @@ do_print_msg_to_file (GObject *source,
 	EMailPrinter *printer;
 
 	printer = e_mail_printer_new (efh);
-        e_mail_printer_set_export_filename (printer, filename);
+	e_mail_printer_set_export_filename (printer, filename);
 	g_signal_connect_swapped (printer, "done",
 		G_CALLBACK (g_object_unref), printer);
 
-        e_mail_printer_print (printer, TRUE, NULL);
+	e_mail_printer_print (printer, TRUE, NULL);
 
 	g_object_unref (efh);
 }
@@ -1220,7 +1220,7 @@ em_utils_message_to_html (CamelMimeMessage *message,
 
 		/* Return all found validities */
 		for (iter = emf->mail_part_list; iter; iter = iter->next) {
-			
+
 			EMFormatPURI *puri = iter->data;
 			if (!puri)
 				continue;

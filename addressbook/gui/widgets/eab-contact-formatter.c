@@ -87,7 +87,6 @@ common_location[] =
 
 #define MAX_COMPACT_IMAGE_DIMENSION 48
 
-
 #define HTML_HEADER "<!doctype html public \"-//W3C//DTD HTML 4.0 TRANSITIONAL//EN\">\n<html>\n"  \
 "<head>\n<meta name=\"generator\" content=\"Evolution Addressbook Component\">\n" \
 "<link type=\"text/css\" rel=\"stylesheet\" href=\"evo-file://" EVOLUTION_PRIVDATADIR "/theme/webview.css\">" \
@@ -111,8 +110,7 @@ common_location[] =
 "</script>\n" \
 "</head>\n"
 
-
-static gchar*
+static gchar *
 get_icon_uri (const gchar *icon_name)
 {
 	GtkIconTheme *icon_theme;
@@ -120,22 +118,22 @@ get_icon_uri (const gchar *icon_name)
 	const gchar *filename;
 	gchar *icon_uri;
 	GError *error = NULL;
-	
+
 	icon_theme = gtk_icon_theme_get_default ();
 	icon_info = gtk_icon_theme_lookup_icon (
 		icon_theme, icon_name, GTK_ICON_SIZE_MENU, 0);
 	g_return_val_if_fail (icon_info != NULL, NULL);
-	
+
 	filename = gtk_icon_info_get_filename (icon_info);
 	icon_uri = g_filename_to_uri (filename, NULL, &error);
-	
+
 	if (error != NULL) {
 		g_warning ("%s", error->message);
 		g_error_free (error);
 	}
-	
+
 	gtk_icon_info_free (icon_info);
-	
+
 	return icon_uri;
 }
 
@@ -144,39 +142,39 @@ render_address_link (GString *buffer,
                      EContact *contact,
                      gint map_type)
 {
-        EContactAddress *adr;
+	EContactAddress *adr;
         GString *link = g_string_new ("");
 
-        adr = e_contact_get (contact, map_type);
-        if (adr &&
+	adr = e_contact_get (contact, map_type);
+	if (adr &&
 	    (adr->street || adr->locality || adr->region || adr->country)) {
 		gchar *escaped;
 
-        	if (adr->street && *adr->street)
+		if (adr->street && *adr->street)
 			g_string_append_printf (link, "%s, ", adr->street);
 
-        	if (adr->locality && *adr->locality)
+		if (adr->locality && *adr->locality)
 			g_string_append_printf (link, "%s, ", adr->locality);
 
-        	if (adr->region && *adr->region)
+		if (adr->region && *adr->region)
 			g_string_append_printf (link, "%s, ", adr->region);
 
-        	if (adr->country && *adr->country)
+		if (adr->country && *adr->country)
 			g_string_append_printf (link, "%s", adr->country);
 
-        	escaped = g_uri_escape_string (link->str, NULL, TRUE);
-        	g_string_assign (link, escaped);
-        	g_free (escaped);
+		escaped = g_uri_escape_string (link->str, NULL, TRUE);
+		g_string_assign (link, escaped);
+		g_free (escaped);
 
         	g_string_prepend (link, "<a href=\"http://maps.google.com?q=");
         	g_string_append_printf (link, "\">%s</a>", _("Open map"));
 	}
 
 	if (adr)
-        	e_contact_address_free (adr);
+		e_contact_address_free (adr);
 
 	g_string_append (buffer, link->str);
-        g_string_free (link, TRUE);
+	g_string_free (link, TRUE);
 }
 
 static void
@@ -186,18 +184,18 @@ accum_address (GString *buffer,
                EContactField adr_field,
                EContactField label_field)
 {
-        EContactAddress *adr;
-        const gchar *label;
+	EContactAddress *adr;
+	const gchar *label;
         GString *map_link = g_string_new ("<br>");
 
-        render_address_link (map_link, contact, adr_field);
+	render_address_link (map_link, contact, adr_field);
 
-        label = e_contact_get_const (contact, label_field);
-        if (label) {
-                gchar *html = e_text_to_html (label, E_TEXT_TO_HTML_CONVERT_NL);
+	label = e_contact_get_const (contact, label_field);
+	if (label) {
+		gchar *html = e_text_to_html (label, E_TEXT_TO_HTML_CONVERT_NL);
 
-                if (TEXT_IS_RIGHT_TO_LEFT) {
-                        g_string_append_printf (
+		if (TEXT_IS_RIGHT_TO_LEFT) {
+			g_string_append_printf (
 				buffer,
 				"<tr>"
 				"<td align=\"right\" valign=\"top\" nowrap>%s</td>"
@@ -206,7 +204,7 @@ accum_address (GString *buffer,
 				"</tr>",
 				html, html_label, map_link->str);
 		} else {
-                        g_string_append_printf (
+			g_string_append_printf (
 				buffer,
 				"<tr>"
 				"<td width=\"" IMAGE_COL_WIDTH "\"></td>"
@@ -216,21 +214,21 @@ accum_address (GString *buffer,
 				html_label, map_link->str, html);
 		}
 
-                g_free (html);
-                g_string_free (map_link, TRUE);
-                return;
-        }
+		g_free (html);
+		g_string_free (map_link, TRUE);
+		return;
+	}
 
-        adr = e_contact_get (contact, adr_field);
-        if (adr &&
-	   (adr->po || adr->ext || adr->street || adr->locality || 
+	adr = e_contact_get (contact, adr_field);
+	if (adr &&
+	   (adr->po || adr->ext || adr->street || adr->locality ||
 	    adr->region || adr->code || adr->country)) {
 
 		if (TEXT_IS_RIGHT_TO_LEFT) {
-                        g_string_append_printf (
+			g_string_append_printf (
 				buffer, "<tr><td align=\"right\" valign=\"top\" nowrap>");
 		} else {
-                        g_string_append_printf (
+			g_string_append_printf (
 				buffer,
 				"<tr>"
 				"<td valign=\"top\" width=\"" IMAGE_COL_WIDTH "\"></td>"
@@ -239,7 +237,7 @@ accum_address (GString *buffer,
 				html_label, map_link->str);
 		}
 
-                if (adr->po && *adr->po)
+		if (adr->po && *adr->po)
 			g_string_append_printf (buffer, "%s<br>", adr->po);
 
 		if (adr->ext && *adr->ext)
@@ -248,20 +246,20 @@ accum_address (GString *buffer,
 		if (adr->street && *adr->street)
 			g_string_append_printf (buffer, "%s<br>", adr->street);
 
-	        if (adr->locality && *adr->locality)
+		if (adr->locality && *adr->locality)
 			g_string_append_printf (buffer, "%s<br>", adr->locality);
 
-        	if (adr->region && *adr->region)
+		if (adr->region && *adr->region)
 			g_string_append_printf (buffer, "%s<br>", adr->region);
 
-        	if (adr->code && *adr->code)
+		if (adr->code && *adr->code)
 			g_string_append_printf (buffer, "%s<br>", adr->code);
 
-        	if (adr->country && *adr->country)
+		if (adr->country && *adr->country)
 			g_string_append_printf (buffer, "%s<br>", adr->country);
 
-        	if (TEXT_IS_RIGHT_TO_LEFT) {
-                	g_string_append_printf (
+		if (TEXT_IS_RIGHT_TO_LEFT) {
+			g_string_append_printf (
 				buffer,
 				"</td><th%s:<br>%s</th>"
 				"<td width=\"" IMAGE_COL_WIDTH "\"></td>"
@@ -285,42 +283,42 @@ render_table_row (GString *buffer,
                   const gchar *icon,
                   guint html_flags)
 {
-        const gchar *icon_html;
-        gchar *value;
+	const gchar *icon_html;
+	gchar *value;
 
-        if (html_flags)
-                value = e_text_to_html (str, html_flags);
-        else
-                value = (gchar*)str;
+	if (html_flags)
+		value = e_text_to_html (str, html_flags);
+	else
+		value = (gchar *) str;
 
-        if (icon) {
-                gchar *icon_uri = get_icon_uri (icon);
+	if (icon) {
+		gchar *icon_uri = get_icon_uri (icon);
                 icon_html = g_strdup_printf ("<img src=\"%s\" width=\"16\" height=\"16\" />", icon_uri);
-                g_free (icon_uri);
-        } else {
+		g_free (icon_uri);
+	} else {
                 icon_html = "";
-        }
+	}
 
-        if (TEXT_IS_RIGHT_TO_LEFT) {
-                g_string_append_printf (
+	if (TEXT_IS_RIGHT_TO_LEFT) {
+		g_string_append_printf (
                         buffer, "<tr>"
                         "<td valign=\"top\" align=\"right\">%s</td>"
                         "<th align=\"right\" valign=\"top\" width=\"100\" nowrap>:%s</th>"
                         "<td valign=\"top\" width=\"" IMAGE_COL_WIDTH "\">%s</td>"
                         "</tr>",
-                        value, label, icon_html);
-        } else {
-                g_string_append_printf (
+			value, label, icon_html);
+	} else {
+		g_string_append_printf (
                         buffer, "<tr>"
                         "<td valign=\"top\" width=\"" IMAGE_COL_WIDTH "\">%s</td>"
                         "<th valign=\"top\" width=\"100\" nowrap>%s:</th>"
                         "<td valign=\"top\">%s</td>"
                         "</tr>",
-                        icon_html, label, value);
-        }
+			icon_html, label, value);
+	}
 
-        if (html_flags)
-                g_free (value);
+	if (html_flags)
+		g_free (value);
 }
 
 static void
@@ -331,12 +329,12 @@ accum_attribute (GString *buffer,
                  const gchar *icon,
                  guint html_flags)
 {
-        const gchar *str;
+	const gchar *str;
 
-        str = e_contact_get_const (contact, field);
+	str = e_contact_get_const (contact, field);
 
-        if (str != NULL && *str != '\0')
-                render_table_row (buffer, html_label, str, icon, html_flags);
+	if (str != NULL && *str != '\0')
+		render_table_row (buffer, html_label, str, icon, html_flags);
 }
 
 static void
@@ -347,20 +345,20 @@ accum_time_attribute (GString *buffer,
                       const gchar *icon,
                       guint html_flags)
 {
-        EContactDate *date;
-        GDate *gdate = NULL;
-        gchar sdate[100];
+	EContactDate *date;
+	GDate *gdate = NULL;
+	gchar sdate[100];
 
-        date = e_contact_get (contact, field);
-        if (date) {
-                gdate = g_date_new_dmy ( date->day,
-                                         date->month,
-                                         date->year );
+	date = e_contact_get (contact, field);
+	if (date) {
+		gdate = g_date_new_dmy ( date->day,
+					 date->month,
+					 date->year );
                 g_date_strftime (sdate, 100, "%x", gdate);
-                g_date_free (gdate);
-                render_table_row (buffer, html_label, sdate, icon, html_flags);
-                e_contact_date_free (date);
-        }
+		g_date_free (gdate);
+		render_table_row (buffer, html_label, sdate, icon, html_flags);
+		e_contact_date_free (date);
+	}
 }
 
 static void
@@ -371,261 +369,261 @@ accum_attribute_multival (GString *buffer,
                           const gchar *icon,
                           guint html_flags)
 {
-        GList *val_list, *l;
+	GList *val_list, *l;
         GString *val = g_string_new ("");
 
-        val_list = e_contact_get (contact, field);
+	val_list = e_contact_get (contact, field);
 
-        for (l = val_list; l; l = l->next) {
-                if (l != val_list)
+	for (l = val_list; l; l = l->next) {
+		if (l != val_list)
                         g_string_append (val, "<br>");
 
-                g_string_append (val, l->data);
-        }
+		g_string_append (val, l->data);
+	}
 
-        if (val->str && *val->str)
-                render_table_row (buffer, html_label, val->str, icon, html_flags);
+	if (val->str && *val->str)
+		render_table_row (buffer, html_label, val->str, icon, html_flags);
 
-        g_string_free (val, TRUE);
-        g_list_foreach (val_list, (GFunc) g_free, NULL);
-        g_list_free (val_list);
+	g_string_free (val, TRUE);
+	g_list_foreach (val_list, (GFunc) g_free, NULL);
+	g_list_free (val_list);
 }
 
 static const gchar *
 get_email_location (EVCardAttribute *attr)
 {
-        gint i;
+	gint i;
 
-        for (i = 0; i < G_N_ELEMENTS (common_location); i++) {
-                if (e_vcard_attribute_has_type (attr, common_location[i].name))
-                        return _(common_location[i].pretty_name);
-        }
+	for (i = 0; i < G_N_ELEMENTS (common_location); i++) {
+		if (e_vcard_attribute_has_type (attr, common_location[i].name))
+			return _(common_location[i].pretty_name);
+	}
 
         return _("Other");
 }
 
 static void
 render_title_block (EABContactFormatter *formatter,
-		    GString *buffer)
+                    GString *buffer)
 {
-        const gchar *str;
-        gchar *html;
-        EContactPhoto *photo;
+	const gchar *str;
+	gchar *html;
+	EContactPhoto *photo;
 	EContact *contact;
 
 	contact = formatter->priv->contact;
 
-        g_string_append_printf (
-                buffer,
+	g_string_append_printf (
+		buffer,
 		"<table border=\"0\"><tr>"
                 "<td %s valign=\"middle\">", TEXT_IS_RIGHT_TO_LEFT ?
                 "align=\"right\"" : "");
 
-        photo = e_contact_get (contact, E_CONTACT_PHOTO);
-        if (!photo)
-                photo = e_contact_get (contact, E_CONTACT_LOGO);
+	photo = e_contact_get (contact, E_CONTACT_PHOTO);
+	if (!photo)
+		photo = e_contact_get (contact, E_CONTACT_LOGO);
 
-        if (photo && photo->type == E_CONTACT_PHOTO_TYPE_INLINED) {
-                gchar *photo_data;
+	if (photo && photo->type == E_CONTACT_PHOTO_TYPE_INLINED) {
+		gchar *photo_data;
 		photo_data = g_base64_encode (
 				photo->data.inlined.data,
 				photo->data.inlined.length);
-                g_string_append_printf (
+		g_string_append_printf (
 			buffer, "<img border=\"1\" src=\"data:%s;base64,%s\">",
-                        photo->data.inlined.mime_type,
-                        photo_data);
-        } else if (photo && photo->type == E_CONTACT_PHOTO_TYPE_URI && photo->data.uri && *photo->data.uri) {
-                g_string_append_printf (
+			photo->data.inlined.mime_type,
+			photo_data);
+	} else if (photo && photo->type == E_CONTACT_PHOTO_TYPE_URI && photo->data.uri && *photo->data.uri) {
+		g_string_append_printf (
 			buffer, "<img border=\"1\" src=\"%s\">", photo->data.uri);
-        }
+	}
 
-        if (photo)
-                e_contact_photo_free (photo);
+	if (photo)
+		e_contact_photo_free (photo);
 
-        if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
-                gchar *icon = get_icon_uri (CONTACT_LIST_ICON);
+	if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
+		gchar *icon = get_icon_uri (CONTACT_LIST_ICON);
                 g_string_append_printf (buffer, "<img src=\"%s\">", icon);
-                g_free (icon);
-        }
+		g_free (icon);
+	}
 
-        g_string_append_printf (
-                buffer,
+	g_string_append_printf (
+		buffer,
 		"</td><td width=\"20\"></td><td %s valign=\"top\">\n",
                 TEXT_IS_RIGHT_TO_LEFT ? "align=\"right\"" : "");
 
-        str = e_contact_get_const (contact, E_CONTACT_FILE_AS);
-        if (!str)
-                str = e_contact_get_const (contact, E_CONTACT_FULL_NAME);
+	str = e_contact_get_const (contact, E_CONTACT_FILE_AS);
+	if (!str)
+		str = e_contact_get_const (contact, E_CONTACT_FULL_NAME);
 
-        if (str) {
-                html = e_text_to_html (str, 0);
-                if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
-                        g_string_append_printf (
+	if (str) {
+		html = e_text_to_html (str, 0);
+		if (e_contact_get (contact, E_CONTACT_IS_LIST)) {
+			g_string_append_printf (
 				buffer,
 				"<h2><a href=\"internal-mailto:0\">%s</a></h2>",
 				html);
 		} else {
                         g_string_append_printf (buffer, "<h2>%s</h2>", html);
 		}
-                g_free (html);
-        }
+		g_free (html);
+	}
 
         g_string_append (buffer, "</td></tr></table>");
 }
 
 static void
 render_contact_list_row (EABContactFormatter *formatter,
-			 EDestination *destination,
-			 GString *buffer)
+                         EDestination *destination,
+                         GString *buffer)
 {
-        gchar *evolution_imagesdir;
-        gboolean list_collapsed = FALSE;
-        const gchar *textrep;
-        gchar *name = NULL, *email_addr = NULL;
+	gchar *evolution_imagesdir;
+	gboolean list_collapsed = FALSE;
+	const gchar *textrep;
+	gchar *name = NULL, *email_addr = NULL;
 
 	evolution_imagesdir = g_filename_to_uri (EVOLUTION_IMAGESDIR, NULL, NULL);
 
-        textrep = e_destination_get_textrep (destination, TRUE);
-        if (!eab_parse_qp_email (textrep, &name, &email_addr))
-                email_addr = g_strdup (textrep);
+	textrep = e_destination_get_textrep (destination, TRUE);
+	if (!eab_parse_qp_email (textrep, &name, &email_addr))
+		email_addr = g_strdup (textrep);
 
         g_string_append (buffer, "<tr>");
-        if (e_destination_is_evolution_list (destination)) {
-                g_string_append_printf (
+	if (e_destination_is_evolution_list (destination)) {
+		g_string_append_printf (
 			buffer,
                         "<td width=" IMAGE_COL_WIDTH " valign=\"top\">"
 			"<img src=\"%s/minus.png\" "
 			     "onClick=\"collapse_list(this, %s);\" "
 			     "class=\"navigable\">"
 			"</td><td width=\"100%%\">%s",
-                        evolution_imagesdir,
-                        e_destination_get_contact_uid (destination),
-                        name ? name : email_addr);
+			evolution_imagesdir,
+			e_destination_get_contact_uid (destination),
+			name ? name : email_addr);
 
-                if (!list_collapsed) {
-                        const GList *dest, *dests;
-                        g_string_append_printf (
+		if (!list_collapsed) {
+			const GList *dest, *dests;
+			g_string_append_printf (
 				buffer,
 				"<br><table cellspacing=\"1\" id=\"%s\">",
-                                e_destination_get_contact_uid (destination));
+				e_destination_get_contact_uid (destination));
 
-                        dests = e_destination_list_get_root_dests (destination);
-                        for (dest = dests; dest; dest = dest->next) {
-                                render_contact_list_row (
+			dests = e_destination_list_get_root_dests (destination);
+			for (dest = dests; dest; dest = dest->next) {
+				render_contact_list_row (
 					formatter, dest->data, buffer);
-                        }
+			}
 
                         g_string_append (buffer, "</table>");
-                }
+		}
 
                 g_string_append (buffer, "</td>");
 
-        } else {
-                if (name && *name) {
-                        g_string_append_printf (
+	} else {
+		if (name && *name) {
+			g_string_append_printf (
 				buffer,
 				"<td colspan=\"2\">%s &lt"
 				"<a href=\"mailto:%s\">%s</a>&gt;"
 				"</td>",
 				name, email_addr, email_addr);
-                } else {
-                        g_string_append_printf (
+		} else {
+			g_string_append_printf (
 				buffer,
 				"<td colspan=\"2\">"
 				"<a href=\"mailto:%s\">%s</a>"
 				"</td>",
 				email_addr, email_addr);
-                }
-        }
+		}
+	}
 
         g_string_append (buffer, "</tr>");
 
-        g_free (evolution_imagesdir);
-        g_free (name);
-        g_free (email_addr);
+	g_free (evolution_imagesdir);
+	g_free (name);
+	g_free (email_addr);
 }
 
 static void
 render_contact_list (EABContactFormatter *formatter,
-		     GString *buffer)
+                     GString *buffer)
 {
 	EContact *contact;
-        EDestination *destination;
-        const GList *dest, *dests;
+	EDestination *destination;
+	const GList *dest, *dests;
 
 	contact = formatter->priv->contact;
 
-        destination = e_destination_new ();
-        e_destination_set_contact (destination, contact, 0);
-        dests = e_destination_list_get_root_dests (destination);
+	destination = e_destination_new ();
+	e_destination_set_contact (destination, contact, 0);
+	dests = e_destination_list_get_root_dests (destination);
 
-        render_title_block (formatter, buffer);
+	render_title_block (formatter, buffer);
 
-        g_string_append_printf (
+	g_string_append_printf (
 		buffer,
 		"<table border=\"0\"><tr><th colspan=\"2\">%s</th></tr>"
 		"<tr><td with=" IMAGE_COL_WIDTH "></td><td>", _("List Members:"));
 
         g_string_append (buffer, "<table border=\"0\" cellspacing=\"1\">");
 
-        for (dest = dests; dest; dest = dest->next)
-                render_contact_list_row (formatter, dest->data, buffer);
+	for (dest = dests; dest; dest = dest->next)
+		render_contact_list_row (formatter, dest->data, buffer);
 
         g_string_append (buffer, "</table>");
         g_string_append (buffer, "</td></tr></table>");
 
-        g_object_unref (destination);
+	g_object_unref (destination);
 }
 
 static void
 render_contact_column (EABContactFormatter *formatter,
-		       GString *buffer)
+                       GString *buffer)
 {
 	EContact *contact;
-        GString *accum, *email;
-        GList *email_list, *l, *email_attr_list, *al;
-        gint email_num = 0;
-        const gchar *nl;
+	GString *accum, *email;
+	GList *email_list, *l, *email_attr_list, *al;
+	gint email_num = 0;
+	const gchar *nl;
 
 	contact = formatter->priv->contact;
         email = g_string_new ("");
         nl = "";
 
-        email_list = e_contact_get (contact, E_CONTACT_EMAIL);
-        email_attr_list = e_contact_get_attributes (contact, E_CONTACT_EMAIL);
+	email_list = e_contact_get (contact, E_CONTACT_EMAIL);
+	email_attr_list = e_contact_get_attributes (contact, E_CONTACT_EMAIL);
 
-        for (l = email_list, al = email_attr_list; l && al; l = l->next, al = al->next) {
-                gchar *name = NULL, *mail = NULL;
-                gchar *attr_str = (gchar *) get_email_location ((EVCardAttribute *) al->data);
+	for (l = email_list, al = email_attr_list; l && al; l = l->next, al = al->next) {
+		gchar *name = NULL, *mail = NULL;
+		gchar *attr_str = (gchar *) get_email_location ((EVCardAttribute *) al->data);
 
-                if (!eab_parse_qp_email (l->data, &name, &mail))
-                        mail = e_text_to_html (l->data, 0);
+		if (!eab_parse_qp_email (l->data, &name, &mail))
+			mail = e_text_to_html (l->data, 0);
 
-                g_string_append_printf (
+		g_string_append_printf (
 			email,
 			"%s%s%s<a href=\"internal-mailto:%d\">%s</a>%s "
 			"<span class=\"header\">(%s)</span>",
-                        nl,
+			nl,
                         name ? name : "",
                         name ? " &lt;" : "",
-                        email_num,
-                        mail,
+			email_num,
+			mail,
                         name ? "&gt;" : "",
                         attr_str ? attr_str : "");
-                email_num++;
+		email_num++;
                 nl = "<br>";
 
-                g_free (name);
-                g_free (mail);
-        }
-        g_list_foreach (email_list, (GFunc) g_free, NULL);
-        g_list_foreach (email_attr_list, (GFunc) e_vcard_attribute_free, NULL);
-        g_list_free (email_list);
-        g_list_free (email_attr_list);
+		g_free (name);
+		g_free (mail);
+	}
+	g_list_foreach (email_list, (GFunc) g_free, NULL);
+	g_list_foreach (email_attr_list, (GFunc) e_vcard_attribute_free, NULL);
+	g_list_free (email_list);
+	g_list_free (email_attr_list);
 
         accum = g_string_new ("");
 
-        if (email->len)
+	if (email->len)
                 render_table_row (accum, _("Email"), email->str, NULL, 0);
 
         accum_attribute (accum, contact, _("Nickname"), E_CONTACT_NICKNAME, NULL, 0);
@@ -638,17 +636,16 @@ render_contact_column (EABContactFormatter *formatter,
         accum_attribute_multival (accum, contact, _("Gadu-Gadu"), E_CONTACT_IM_GADUGADU, GADUGADU_ICON, 0);
         accum_attribute_multival (accum, contact, _("Skype"), E_CONTACT_IM_SKYPE, SKYPE_ICON, 0);
 
-        if (accum->len)
-                g_string_append_printf (
+	if (accum->len)
+		g_string_append_printf (
 			buffer,
                         "<div class=\"column\" id=\"contact-internet\">"
                         "<table border=\"0\" cellspacing=\"5\">%s</table>"
                         "</div>", accum->str);
 
 	g_string_free (accum, TRUE);
-        g_string_free (email, TRUE);
+	g_string_free (email, TRUE);
 }
-
 
 static void
 accum_address_map (GString *buffer,
@@ -659,15 +656,15 @@ accum_address_map (GString *buffer,
 
         g_string_append (buffer, "<tr><td colspan=\"3\">");
 
-        if (map_type == E_CONTACT_ADDRESS_WORK) {
-                g_string_append (buffer,
+	if (map_type == E_CONTACT_ADDRESS_WORK) {
+		g_string_append (buffer,
                                  "<object type=\"application/x-work-map-widget\" "
                                  "width=\"250\" height=\"250\"></object>");
-        } else {
-                g_string_append (buffer,
+	} else {
+		g_string_append (buffer,
                                  "<object type=\"application/x-home-map-widget\" "
                                  "width=\"250\" height=\"250\"></object>");
-        }
+	}
 
         g_string_append (buffer, "</td></tr>");
 
@@ -676,7 +673,7 @@ accum_address_map (GString *buffer,
 
 static void
 render_work_column (EABContactFormatter *formatter,
-		    GString *buffer)
+                    GString *buffer)
 {
 	EContact *contact = formatter->priv->contact;
         GString *accum = g_string_new ("");
@@ -693,24 +690,24 @@ render_work_column (EABContactFormatter *formatter,
         accum_attribute (accum, contact, _("Phone"), E_CONTACT_PHONE_BUSINESS, NULL, 0);
         accum_attribute (accum, contact, _("Fax"), E_CONTACT_PHONE_BUSINESS_FAX, NULL, 0);
         accum_address   (accum, contact, _("Address"), E_CONTACT_ADDRESS_WORK, E_CONTACT_ADDRESS_LABEL_WORK);
-        if (formatter->priv->render_maps)
-                accum_address_map (accum, contact, E_CONTACT_ADDRESS_WORK);
+	if (formatter->priv->render_maps)
+		accum_address_map (accum, contact, E_CONTACT_ADDRESS_WORK);
 
-        if (accum->len > 0) {
-                g_string_append_printf (
+	if (accum->len > 0) {
+		g_string_append_printf (
 			buffer,
                         "<div class=\"column\" id=\"contact-work\">"
                         "<h3>%s</h3>"
                         "<table border=\"0\" cellspacing=\"5\">%s</table>"
                         "</div>", _("Work"), accum->str);
-        }
+	}
 
-        g_string_free (accum, TRUE);
+	g_string_free (accum, TRUE);
 }
 
 static void
 render_personal_column (EABContactFormatter *formatter,
-			GString *buffer)
+                        GString *buffer)
 {
 	EContact *contact = formatter->priv->contact;
         GString *accum = g_string_new ("");
@@ -723,53 +720,52 @@ render_personal_column (EABContactFormatter *formatter,
         accum_time_attribute (accum, contact, _("Birthday"), E_CONTACT_BIRTH_DATE, NULL, 0);
         accum_time_attribute (accum, contact, _("Anniversary"), E_CONTACT_ANNIVERSARY, NULL, 0);
         accum_attribute (accum, contact, _("Spouse"), E_CONTACT_SPOUSE, NULL, 0);
-        if (formatter->priv->render_maps)
-                accum_address_map (accum, contact, E_CONTACT_ADDRESS_HOME);
+	if (formatter->priv->render_maps)
+		accum_address_map (accum, contact, E_CONTACT_ADDRESS_HOME);
 
-        if (accum->len > 0) {
-                g_string_append_printf (
+	if (accum->len > 0) {
+		g_string_append_printf (
 			buffer,
                         "<div class=\"column\" id=\"contact-personal\">"
                         "<h3>%s</h3>"
                         "<table border=\"0\" cellspacing=\"5\">%s</table>"
                         "</div>", _("Personal"), accum->str);
-        }
+	}
 
-        g_string_free (accum, TRUE);
+	g_string_free (accum, TRUE);
 }
 
 static void
 render_footer (EABContactFormatter *formatter,
-	       GString *buffer)
+               GString *buffer)
 {
 	EContact *contact;
-        const gchar *str;
+	const gchar *str;
 
 	contact = formatter->priv->contact;
 
-        str = e_contact_get_const (contact, E_CONTACT_NOTE);
-        if (!str || !*str)
-                return;
+	str = e_contact_get_const (contact, E_CONTACT_NOTE);
+	if (!str || !*str)
+		return;
 
-        g_string_append (
-		buffer, 
+	g_string_append (
+		buffer,
 		"<div id=\"footer\"><table border=\"0\" cellspacing=\"5\">");
 
-        render_table_row (
+	render_table_row (
 		buffer, _("Note"),
-                e_contact_get_const (contact, E_CONTACT_NOTE),
-                NULL,
-		E_TEXT_TO_HTML_CONVERT_ADDRESSES | 
-                E_TEXT_TO_HTML_CONVERT_URLS |
-                E_TEXT_TO_HTML_CONVERT_NL);
+		e_contact_get_const (contact, E_CONTACT_NOTE),
+		NULL,
+		E_TEXT_TO_HTML_CONVERT_ADDRESSES |
+		E_TEXT_TO_HTML_CONVERT_URLS |
+		E_TEXT_TO_HTML_CONVERT_NL);
 
         g_string_append (buffer, "</table></div>");
 }
 
-
 static void
 render_contact (EABContactFormatter *formatter,
-		GString *buffer)
+                GString *buffer)
 {
 	render_title_block (formatter, buffer);
 
@@ -784,37 +780,37 @@ render_contact (EABContactFormatter *formatter,
 
 static void
 render_normal (EABContactFormatter *formatter,
-	       GString *buffer)
+               GString *buffer)
 {
-        g_string_append (buffer, HTML_HEADER);
+	g_string_append (buffer, HTML_HEADER);
         g_string_append (buffer, "<body>");
 
-        if (formatter->priv->contact) {
+	if (formatter->priv->contact) {
 
-                if (e_contact_get (formatter->priv->contact, E_CONTACT_IS_LIST))
+		if (e_contact_get (formatter->priv->contact, E_CONTACT_IS_LIST))
 
-                        render_contact_list (
-                                formatter,
-                                buffer);
-                else
-                        render_contact (
-                                formatter,
-                                buffer);
+			render_contact_list (
+				formatter,
+				buffer);
+		else
+			render_contact (
+				formatter,
+				buffer);
 
-        }
+	}
 
         g_string_append (buffer, "</body></html>\n");
 }
 
 static void
 render_compact (EABContactFormatter *formatter,
-		GString *buffer)
+                GString *buffer)
 {
 	EContact *contact = formatter->priv->contact;
 	const gchar *str;
 	gchar *html;
 	EContactPhoto *photo;
-	
+
 	g_string_append (buffer, HTML_HEADER);
 	g_string_append (buffer, "<body>\n");
 
@@ -822,7 +818,7 @@ render_compact (EABContactFormatter *formatter,
 		g_string_append (buffer, "</body></html>");
 		return;
 	}
-	
+
 	g_string_append_printf (
 		buffer,
 		"<table><tr><td valign=\"top\">");
@@ -845,7 +841,7 @@ render_compact (EABContactFormatter *formatter,
 			gdk_pixbuf_loader_write (
 				loader, photo->data.inlined.data,
 				photo->data.inlined.length, NULL);
-		} else if (photo->type == E_CONTACT_PHOTO_TYPE_URI && 
+		} else if (photo->type == E_CONTACT_PHOTO_TYPE_URI &&
 				photo->data.uri &&
 				g_ascii_strncasecmp (photo->data.uri, "file://", 7) == 0) {
 			gchar *filename, *contents = NULL;
@@ -890,7 +886,7 @@ render_compact (EABContactFormatter *formatter,
 			g_object_unref (pixbuf);
 		}
 
-		if (photo->type == E_CONTACT_PHOTO_TYPE_URI && 
+		if (photo->type == E_CONTACT_PHOTO_TYPE_URI &&
 			photo->data.uri && *photo->data.uri)
 			g_string_append_printf (
 				buffer,
@@ -1025,7 +1021,7 @@ render_compact (EABContactFormatter *formatter,
 	g_string_append (buffer, "</body></html>\n");
 }
 
-static CamelStream*
+static CamelStream *
 format_contact (EABContactFormatter *formatter,
                 GCancellable *cancellable)
 {
@@ -1034,10 +1030,10 @@ format_contact (EABContactFormatter *formatter,
 
 	buffer = g_string_new ("");
 
-        if (formatter->priv->mode == EAB_CONTACT_DISPLAY_RENDER_NORMAL) {
-                render_normal (formatter, buffer);
+	if (formatter->priv->mode == EAB_CONTACT_DISPLAY_RENDER_NORMAL) {
+		render_normal (formatter, buffer);
 	} else {
-                render_compact (formatter, buffer);
+		render_compact (formatter, buffer);
 	}
 
 	stream = camel_stream_mem_new ();
@@ -1053,22 +1049,22 @@ do_start_async_formatter (GSimpleAsyncResult *result,
                           GObject *object,
                           GCancellable *cancellable)
 {
-        EABContactFormatter *formatter;
+	EABContactFormatter *formatter;
 	CamelStream *stream;
 
-        formatter = EAB_CONTACT_FORMATTER (object);
+	formatter = EAB_CONTACT_FORMATTER (object);
 
-        stream = format_contact (formatter, cancellable);
+	stream = format_contact (formatter, cancellable);
 
 	g_simple_async_result_set_op_res_gpointer (result, stream, NULL);
 }
 
 static void
 eab_contact_formatter_set_property (GObject *object,
-				    guint property_id,
-				    const GValue *value,
-				    GParamSpec *pspec)
-{				
+                                    guint property_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
+{
 	EABContactFormatter *formatter = EAB_CONTACT_FORMATTER (object);
 
 	switch (property_id) {
@@ -1087,9 +1083,9 @@ eab_contact_formatter_set_property (GObject *object,
 
 static void
 eab_contact_formatter_get_property (GObject *object,
-				    guint property_id,
-				    GValue *value,
-				    GParamSpec *pspec)
+                                    guint property_id,
+                                    GValue *value,
+                                    GParamSpec *pspec)
 {
 	EABContactFormatter *formatter = EAB_CONTACT_FORMATTER (object);
 
@@ -1109,8 +1105,6 @@ eab_contact_formatter_get_property (GObject *object,
 	G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
 }
 
-
-
 static void
 eab_contact_formatter_finalize (GObject *object)
 {
@@ -1118,70 +1112,70 @@ eab_contact_formatter_finalize (GObject *object)
 
 	formatter = EAB_CONTACT_FORMATTER (object);
 
-        if (formatter->priv->contact) {
-                g_object_unref (formatter->priv->contact);
-                formatter->priv->contact = NULL;
-        }
+	if (formatter->priv->contact) {
+		g_object_unref (formatter->priv->contact);
+		formatter->priv->contact = NULL;
+	}
 
-        G_OBJECT_CLASS (parent_class)->finalize (object);
+	G_OBJECT_CLASS (parent_class)->finalize (object);
 }
 
 static void
 eab_contact_formatter_class_init (EABContactFormatterClass *klass)
 {
-        GObjectClass *object_class;
+	GObjectClass *object_class;
 
-        parent_class = g_type_class_peek_parent (klass);
-        g_type_class_add_private (klass, sizeof (EABContactFormatterClass));
+	parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (EABContactFormatterClass));
 
-        object_class = G_OBJECT_CLASS (klass);
-        object_class->finalize = eab_contact_formatter_finalize;
+	object_class = G_OBJECT_CLASS (klass);
+	object_class->finalize = eab_contact_formatter_finalize;
 	object_class->set_property = eab_contact_formatter_set_property;
 	object_class->get_property = eab_contact_formatter_get_property;
 
-        g_object_class_install_property (
-                object_class,
-                PROP_DISPLAY_MODE,
-                g_param_spec_int (
+	g_object_class_install_property (
+		object_class,
+		PROP_DISPLAY_MODE,
+		g_param_spec_int (
                         "display-mode",
                         "",
                         "",
-                        EAB_CONTACT_DISPLAY_RENDER_NORMAL,
-                        EAB_CONTACT_DISPLAY_RENDER_COMPACT,
-                        EAB_CONTACT_DISPLAY_RENDER_NORMAL,
-                        G_PARAM_READWRITE));
+			EAB_CONTACT_DISPLAY_RENDER_NORMAL,
+			EAB_CONTACT_DISPLAY_RENDER_COMPACT,
+			EAB_CONTACT_DISPLAY_RENDER_NORMAL,
+			G_PARAM_READWRITE));
 
-        g_object_class_install_property (
-                object_class,
-                PROP_RENDER_MAPS,
-                g_param_spec_boolean (
+	g_object_class_install_property (
+		object_class,
+		PROP_RENDER_MAPS,
+		g_param_spec_boolean (
                         "render-maps",
                         "",
                         "",
-                        FALSE,
-                        G_PARAM_READWRITE));
+			FALSE,
+			G_PARAM_READWRITE));
 }
 
 static void
 eab_contact_formatter_init (EABContactFormatter *formatter)
 {
-        formatter->priv = EAB_CONTACT_FORMATTER_GET_PRIVATE (formatter);
+	formatter->priv = EAB_CONTACT_FORMATTER_GET_PRIVATE (formatter);
 
-        formatter->priv->contact = NULL;
-        formatter->priv->mode = EAB_CONTACT_DISPLAY_RENDER_NORMAL;
-        formatter->priv->render_maps = FALSE;
+	formatter->priv->contact = NULL;
+	formatter->priv->mode = EAB_CONTACT_DISPLAY_RENDER_NORMAL;
+	formatter->priv->render_maps = FALSE;
 }
 
 void
 eab_contact_formatter_set_display_mode (EABContactFormatter *formatter,
                                         EABContactDisplayMode mode)
 {
-        g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
+	g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
 
-        if (formatter->priv->mode == mode)
-                return;
+	if (formatter->priv->mode == mode)
+		return;
 
-        formatter->priv->mode = mode;
+	formatter->priv->mode = mode;
 
         g_object_notify (G_OBJECT (formatter), "display-mode");
 }
@@ -1189,22 +1183,22 @@ eab_contact_formatter_set_display_mode (EABContactFormatter *formatter,
 EABContactDisplayMode
 eab_contact_formatter_get_display_mode (EABContactFormatter *formatter)
 {
-        g_return_val_if_fail (EAB_IS_CONTACT_FORMATTER (formatter),
-                              EAB_CONTACT_DISPLAY_RENDER_NORMAL);
+	g_return_val_if_fail (EAB_IS_CONTACT_FORMATTER (formatter),
+			      EAB_CONTACT_DISPLAY_RENDER_NORMAL);
 
-        return formatter->priv->mode;
+	return formatter->priv->mode;
 }
 
 void
 eab_contact_formatter_set_render_maps (EABContactFormatter *formatter,
                                        gboolean render_maps)
 {
-        g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
+	g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
 
-        if (formatter->priv->render_maps == render_maps)
-                return;
+	if (formatter->priv->render_maps == render_maps)
+		return;
 
-        formatter->priv->render_maps = render_maps;
+	formatter->priv->render_maps = render_maps;
 
         g_object_notify (G_OBJECT (formatter), "render-maps");
 }
@@ -1212,37 +1206,36 @@ eab_contact_formatter_set_render_maps (EABContactFormatter *formatter,
 gboolean
 eab_contact_formatter_get_render_maps (EABContactFormatter *formatter)
 {
-        g_return_val_if_fail (EAB_IS_CONTACT_FORMATTER (formatter), FALSE);
+	g_return_val_if_fail (EAB_IS_CONTACT_FORMATTER (formatter), FALSE);
 
-        return formatter->priv->render_maps;
+	return formatter->priv->render_maps;
 }
 
 void
 eab_contact_formatter_format_contact_sync (EABContactFormatter *formatter,
                                            EContact *contact,
-					   CamelStream *stream,
+                                           CamelStream *stream,
                                            GCancellable *cancellable)
 {
 	CamelStream *out;
 
-        g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
-        g_return_if_fail (E_IS_CONTACT (contact));
+	g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
+	g_return_if_fail (E_IS_CONTACT (contact));
 
-        g_object_ref (contact);
+	g_object_ref (contact);
 
-        if (formatter->priv->contact)
-                g_object_unref (formatter->priv->contact);
+	if (formatter->priv->contact)
+		g_object_unref (formatter->priv->contact);
 
 	formatter->priv->contact = contact;
 
-        out = format_contact (formatter, cancellable);
+	out = format_contact (formatter, cancellable);
 
 	g_seekable_seek (G_SEEKABLE (out), 0, G_SEEK_SET, cancellable, NULL);
 	camel_stream_write_to_stream (out, stream, cancellable, NULL);
 
 	g_object_unref (out);
 }
-
 
 void
 eab_contact_formatter_format_contact_async (EABContactFormatter *formatter,
@@ -1251,25 +1244,24 @@ eab_contact_formatter_format_contact_async (EABContactFormatter *formatter,
                                             GAsyncReadyCallback callback,
                                             gpointer user_data)
 {
-        GSimpleAsyncResult *result;
+	GSimpleAsyncResult *result;
 
-        g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
-        g_return_if_fail (E_IS_CONTACT (contact));
-        g_return_if_fail (callback != NULL);
+	g_return_if_fail (EAB_IS_CONTACT_FORMATTER (formatter));
+	g_return_if_fail (E_IS_CONTACT (contact));
+	g_return_if_fail (callback != NULL);
 
-        g_object_ref (contact);
-        if (formatter->priv->contact)
-                g_object_unref (formatter->priv->contact);
+	g_object_ref (contact);
+	if (formatter->priv->contact)
+		g_object_unref (formatter->priv->contact);
 
-	formatter->priv->contact = contact;	
+	formatter->priv->contact = contact;
 
+	result = g_simple_async_result_new (
+			G_OBJECT (formatter),
+			callback, user_data,
+			eab_contact_formatter_format_contact_async);
 
-        result = g_simple_async_result_new (
-                        G_OBJECT (formatter),
-                        callback, user_data,
-                        eab_contact_formatter_format_contact_async);
-
-        g_simple_async_result_run_in_thread (
-                result, do_start_async_formatter,
+	g_simple_async_result_run_in_thread (
+		result, do_start_async_formatter,
 		G_PRIORITY_DEFAULT, cancellable);
 }

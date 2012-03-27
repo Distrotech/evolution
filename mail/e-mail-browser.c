@@ -540,7 +540,7 @@ mail_browser_constructed (GObject *object)
 	EMailReader *reader;
 	EMailBackend *backend;
 	EMailSession *session;
-        EMailDisplay *display;
+	EMailDisplay *display;
 	EShellBackend *shell_backend;
 	EShell *shell;
 	EFocusTracker *focus_tracker;
@@ -589,8 +589,7 @@ mail_browser_constructed (GObject *object)
 		browser->priv->message_list, "message-list-built",
 		G_CALLBACK (mail_browser_message_list_built_cb), object);
 
-
-        display = g_object_new (E_TYPE_MAIL_DISPLAY,
+	display = g_object_new (E_TYPE_MAIL_DISPLAY,
 			"mode", E_MAIL_BROWSER (object)->priv->mode, NULL);
 
 	g_signal_connect_swapped (
@@ -769,7 +768,7 @@ mail_browser_get_mail_display (EMailReader *reader)
 	priv = E_MAIL_BROWSER_GET_PRIVATE (E_MAIL_BROWSER (reader));
 
 	return E_MAIL_DISPLAY (e_preview_pane_get_web_view (
-                                        E_PREVIEW_PANE (priv->preview_pane)));
+					E_PREVIEW_PANE (priv->preview_pane)));
 }
 
 static GtkWidget *
@@ -950,9 +949,9 @@ e_mail_browser_init (EMailBrowser *browser)
 
 GtkWidget *
 e_mail_browser_new (EMailBackend *backend,
-		    CamelFolder *folder,
-		    const gchar *msg_uid,
-		    EMFormatWriteMode mode)
+                    CamelFolder *folder,
+                    const gchar *msg_uid,
+                    EMFormatWriteMode mode)
 {
 	GtkWidget *widget;
 

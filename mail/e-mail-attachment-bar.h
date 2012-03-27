@@ -71,7 +71,7 @@ gboolean	e_mail_attachment_bar_get_expanded
 void		e_mail_attachment_bar_set_expanded
 						(EMailAttachmentBar *bar,
 						 gboolean expanded);
-EAttachmentStore*
+EAttachmentStore *
 		e_mail_attachment_bar_get_store	(EMailAttachmentBar *bar);
 
 G_END_DECLS

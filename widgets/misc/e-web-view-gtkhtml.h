@@ -93,25 +93,25 @@ GType		e_web_view_gtkhtml_get_type		(void);
 GtkWidget *	e_web_view_gtkhtml_new			(void);
 void		e_web_view_gtkhtml_clear		(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_load_string		(EWebViewGtkHTML *web_view,
-						 	 const gchar *string);
+							 const gchar *string);
 gboolean	e_web_view_gtkhtml_get_animate		(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_animate		(EWebViewGtkHTML *web_view,
-						 	 gboolean animate);
+							 gboolean animate);
 gboolean	e_web_view_gtkhtml_get_caret_mode	(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_caret_mode	(EWebViewGtkHTML *web_view,
-						 	 gboolean caret_mode);
+							 gboolean caret_mode);
 GtkTargetList *	e_web_view_gtkhtml_get_copy_target_list	(EWebViewGtkHTML *web_view);
 gboolean	e_web_view_gtkhtml_get_disable_printing	(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_disable_printing	(EWebViewGtkHTML *web_view,
-						 	 gboolean disable_printing);
+							 gboolean disable_printing);
 gboolean	e_web_view_gtkhtml_get_disable_save_to_disk
 							(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_disable_save_to_disk
 							(EWebViewGtkHTML *web_view,
-						 	 gboolean disable_save_to_disk);
+							 gboolean disable_save_to_disk);
 gboolean	e_web_view_gtkhtml_get_editable		(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_editable		(EWebViewGtkHTML *web_view,
-						 	 gboolean editable);
+							 gboolean editable);
 gboolean	e_web_view_gtkhtml_get_inline_spelling	(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_inline_spelling	(EWebViewGtkHTML *web_view,
 							 gboolean inline_spelling);
@@ -135,10 +135,10 @@ GtkTargetList *	e_web_view_gtkhtml_get_paste_target_list
 							(EWebViewGtkHTML *web_view);
 GtkAction *	e_web_view_gtkhtml_get_print_proxy	(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_print_proxy	(EWebViewGtkHTML *web_view,
-						 	 GtkAction *print_proxy);
+							 GtkAction *print_proxy);
 GtkAction *	e_web_view_gtkhtml_get_save_as_proxy	(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_set_save_as_proxy	(EWebViewGtkHTML *web_view,
-						 	 GtkAction *save_as_proxy);
+							 GtkAction *save_as_proxy);
 GtkAction *	e_web_view_gtkhtml_get_action		(EWebViewGtkHTML *web_view,
 							 const gchar *action_name);
 GtkActionGroup *e_web_view_gtkhtml_get_action_group	(EWebViewGtkHTML *web_view,
@@ -164,7 +164,7 @@ void		e_web_view_gtkhtml_show_popup_menu	(EWebViewGtkHTML *web_view,
 							 GtkMenuPositionFunc func,
 							 gpointer user_data);
 void		e_web_view_gtkhtml_status_message	(EWebViewGtkHTML *web_view,
-						 	const gchar *status_message);
+							const gchar *status_message);
 void		e_web_view_gtkhtml_stop_loading		(EWebViewGtkHTML *web_view);
 void		e_web_view_gtkhtml_update_actions	(EWebViewGtkHTML *web_view);
 
