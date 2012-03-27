@@ -28,12 +28,11 @@
 #include <camel/camel.h>
 
 #include <e-util/e-util.h>
-#include <e-util/e-alert-dialog.h>
-#include <e-util/e-alert-sink.h>
 #include <e-util/e-plugin-ui.h>
+#include <libevolution-utils/e-alert-dialog.h>
+#include <libevolution-utils/e-alert-sink.h>
 
 #include <libebackend/e-extensible.h>
-
 
 #include "e-popup-action.h"
 #include "e-selectable.h"
