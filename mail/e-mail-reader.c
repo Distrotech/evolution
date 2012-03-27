@@ -70,7 +70,7 @@
 	((EMailReaderPrivate *) g_object_get_qdata \
 	(G_OBJECT (obj), quark_private))
 
-#define d(x) x
+#define d(x)
 
 typedef struct _EMailReaderClosure EMailReaderClosure;
 typedef struct _EMailReaderPrivate EMailReaderPrivate;
