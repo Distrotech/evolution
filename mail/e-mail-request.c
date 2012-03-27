@@ -367,7 +367,7 @@ handle_http_request (GSimpleAsyncResult *res,
 		GMainContext *context;
 		GError *error;
 
-		struct http_request_async_data data;
+		struct http_request_async_data data = { 0 };
 
 		context = g_main_context_get_thread_default ();
 		session = soup_session_async_new_with_options (
@@ -693,7 +693,7 @@ mail_request_send_finish (SoupRequest *request,
 	g_object_unref (result);
 
         /* Reset the stream before passing it back to webkit */
-	if (stream)
+	if (stream && G_IS_SEEKABLE (stream))
 		g_seekable_seek (G_SEEKABLE (stream), 0, G_SEEK_SET, NULL, NULL);
 	else /* We must always return something */
 		stream = g_memory_input_stream_new ();

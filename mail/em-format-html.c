@@ -854,7 +854,6 @@ efh_write_text_html (EMFormat *emf,
 
 	} else if (info->mode == EM_FORMAT_WRITE_MODE_PRINTING) {
 		GString *string;
-		CamelDataWrapper *dw;
 		GByteArray *ba;
 		gchar *pos;
 		GList *tags, *iter;
