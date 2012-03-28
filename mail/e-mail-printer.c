@@ -385,6 +385,7 @@ emp_headers_tab_move (GtkWidget *button,
 	l = g_list_nth (selected_rows, g_list_length (selected_rows) / 2);
 	selection_middle = gtk_tree_row_reference_new (model, l->data);
 
+	references = NULL;
 	for (l = selected_rows; l; l = l->next) {
 		references = g_list_prepend (references,
 			gtk_tree_row_reference_new (model, l->data));
