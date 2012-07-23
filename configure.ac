@@ -45,6 +45,7 @@ m4_define([soup_minimum_version], [2.40.3])
 m4_define([soup_encoded_version], [SOUP_VERSION_2_40])
 
 m4_define([eds_minimum_version], [evo_version])
+m4_define([enchant_minimum_version], [1.1.7])
 m4_define([gtkhtml_minimum_version], [4.5.2])
 m4_define([gnome_desktop_minimum_version], [2.91.3])
 m4_define([gnome_icon_theme_minimum_version], [2.30.2.1])
@@ -311,6 +312,15 @@ PKG_CHECK_MODULES([EVOLUTION_DATA_SERVER],
 	 libebackend-1.2 >= eds_minimum_version])
 AC_SUBST(EVOLUTION_DATA_SERVER_CFLAGS)
 AC_SUBST(EVOLUTION_DATA_SERVER_LIBS)
+
+
+dnl ****************
+dnl Enchant Library
+dnl ****************
+PKG_CHECK_MODULES([ENCHANT],
+	[enchant >= enchant_minimum_version])
+AC_SUBST(ENCHANT_CFLAGS)
+AC_SUBST(ENCHANT_LIBS)
 
 dnl ******************************
 dnl Canberra / Canberra-GTK Sound
