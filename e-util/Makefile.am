@@ -184,6 +184,7 @@ evolution_util_include_HEADERS =  \
 	e-editor-image-dialog.h \
 	e-editor-link-dialog.h \
 	e-editor-page-dialog.h \
+	e-editor-paragraph-dialog.h \
 	e-editor-replace-dialog.h \
 	e-editor-selection.h \
 	e-editor-table-dialog.h \
@@ -452,6 +453,7 @@ libevolution_util_la_SOURCES = \
 	e-editor-image-dialog.c \
 	e-editor-link-dialog.c \
 	e-editor-page-dialog.c \
+	e-editor-paragraph-dialog.c \
 	e-editor-private.h \
 	e-editor-replace-dialog.c \
 	e-editor-selection.c \
