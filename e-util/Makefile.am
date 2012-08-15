@@ -38,7 +38,6 @@ errordir = $(privdatadir)/errors
 @EVO_PLUGIN_RULE@
 
 ui_DATA = \
-	e-editor-builder.ui \
 	e-editor-manager.ui \
 	e-send-options.ui \
 	e-table-config.ui \
@@ -179,6 +178,7 @@ eutilinclude_HEADERS =  \
 	e-dialog-utils.h \
 	e-dialog-widgets.h \
 	e-editor-actions.h \
+	e-editor-cell-dialog.h \
 	e-editor-dialog.h \
 	e-editor-find-dialog.h \
 	e-editor-hrule-dialog.h \
@@ -450,6 +450,7 @@ libeutil_la_SOURCES = \
 	e-dialog-utils.c \
 	e-dialog-widgets.c \
 	e-editor-actions.c \
+	e-editor-cell-dialog.c \
 	e-editor-dialog.c \
 	e-editor-find-dialog.c \
 	e-editor-hrule-dialog.c \
