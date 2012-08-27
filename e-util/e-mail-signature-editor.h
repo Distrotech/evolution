@@ -23,9 +23,9 @@
 #ifndef E_MAIL_SIGNATURE_EDITOR_H
 #define E_MAIL_SIGNATURE_EDITOR_H
 
-#include <gtkhtml-editor.h>
 #include <libedataserver/libedataserver.h>
 
+#include <e-util/e-editor-widget.h>
 #include <e-util/e-focus-tracker.h>
 
 /* Standard GObject macros */
@@ -54,12 +54,12 @@ typedef struct _EMailSignatureEditorClass EMailSignatureEditorClass;
 typedef struct _EMailSignatureEditorPrivate EMailSignatureEditorPrivate;
 
 struct _EMailSignatureEditor {
-	GtkhtmlEditor parent;
+	GtkWindow parent;
 	EMailSignatureEditorPrivate *priv;
 };
 
 struct _EMailSignatureEditorClass {
-	GtkhtmlEditorClass parent_class;
+	GtkWindowClass parent_class;
 };
 
 GType		e_mail_signature_editor_get_type
@@ -81,6 +81,8 @@ gboolean	e_mail_signature_editor_commit_finish
 						(EMailSignatureEditor *editor,
 						 GAsyncResult *result,
 						 GError **error);
+EEditorWidget *	e_mail_signature_editor_get_editor_widget
+						(EMailSignatureEditor *editor);
 
 G_END_DECLS
 
