@@ -103,7 +103,7 @@ libeutil_la_CPPFLAGS = \
 	$(EVOLUTION_DATA_SERVER_CFLAGS) \
 	$(GNOME_PLATFORM_CFLAGS) \
 	$(GEO_CFLAGS) \
-	$(GTKHTML_CFLAGS) \
+	$(ENCHANT_CFLAGS) \
 	$(NULL)
 
 eutilinclude_HEADERS =  \
@@ -189,7 +189,6 @@ eutilinclude_HEADERS =  \
 	e-editor-replace-dialog.h \
 	e-editor-selection.h \
 	e-editor-spell-check-dialog.h \
-	e-editor-spell-checker.h \
 	e-editor-table-dialog.h \
 	e-editor-text-dialog.h \
 	e-editor-utils.h \
@@ -274,6 +273,8 @@ eutilinclude_HEADERS =  \
 	e-source-selector-dialog.h \
 	e-source-selector.h \
 	e-source-util.h \
+	e-spell-checker.h \
+	e-spell-dictionary.h \
 	e-spell-entry.h \
 	e-stock-request.h \
 	e-table-click-to-add.h \
@@ -463,7 +464,6 @@ libeutil_la_SOURCES = \
 	e-editor-replace-dialog.c \
 	e-editor-selection.c \
 	e-editor-spell-check-dialog.c \
-	e-editor-spell-checker.c \
 	e-editor-table-dialog.c \
 	e-editor-text-dialog.c \
 	e-editor-utils.c \
@@ -548,6 +548,8 @@ libeutil_la_SOURCES = \
 	e-source-selector-dialog.c \
 	e-source-selector.c \
 	e-source-util.c \
+	e-spell-checker.c \
+	e-spell-dictionary.c \
 	e-spell-entry.c \
 	e-stock-request.c \
 	e-table-click-to-add.c \
@@ -649,7 +651,7 @@ libeutil_la_LIBADD =  \
 	$(EVOLUTION_DATA_SERVER_LIBS) \
 	$(GNOME_PLATFORM_LIBS) \
 	$(GEO_LIBS) \
-	$(GTKHTML_LIBS) \
+	$(ENCHANT_LIBS) \
 	$(INTLLIBS) \
 	$(MATH_LIB) \
 	$(NULL)
