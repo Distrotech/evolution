@@ -102,7 +102,7 @@ libevolution_util_la_CPPFLAGS = \
 	$(GNOME_PLATFORM_CFLAGS) \
 	$(GEO_CFLAGS) \
 	$(GTKHTML_CFLAGS) \
-	$(GTKSPELL_CFLAGS) \
+	$(ENCHANT_CFLAGS) \
 	$(NULL)
 
 evolution_util_include_HEADERS =  \
@@ -188,7 +188,6 @@ evolution_util_include_HEADERS =  \
 	e-editor-replace-dialog.h \
 	e-editor-selection.h \
 	e-editor-spell-check-dialog.h \
-	e-editor-spell-checker.h \
 	e-editor-table-dialog.h \
 	e-editor-text-dialog.h \
 	e-editor-utils.h \
@@ -279,6 +278,8 @@ evolution_util_include_HEADERS =  \
 	e-source-selector-dialog.h \
 	e-source-selector.h \
 	e-source-util.h \
+	e-spell-checker.h \
+	e-spell-dictionary.h \
 	e-spell-entry.h \
 	e-spell-text-view.h \
 	e-stock-request.h \
@@ -460,7 +461,6 @@ libevolution_util_la_SOURCES = \
 	e-editor-replace-dialog.c \
 	e-editor-selection.c \
 	e-editor-spell-check-dialog.c \
-	e-editor-spell-checker.c \
 	e-editor-table-dialog.c \
 	e-editor-text-dialog.c \
 	e-editor-utils.c \
@@ -551,6 +551,8 @@ libevolution_util_la_SOURCES = \
 	e-source-selector-dialog.c \
 	e-source-selector.c \
 	e-source-util.c \
+	e-spell-checker.c \
+	e-spell-dictionary.c \
 	e-spell-entry.c \
 	e-spell-text-view.c \
 	e-stock-request.c \
@@ -645,7 +647,7 @@ libevolution_util_la_LIBADD =  \
 	$(GNOME_PLATFORM_LIBS) \
 	$(GEO_LIBS) \
 	$(GTKHTML_LIBS) \
-	$(GTKSPELL_LIBS) \
+	$(ENCHANT_LIBS) \
 	$(INTLLIBS) \
 	$(MATH_LIB) \
 	$(NULL)
