@@ -35,9 +35,6 @@
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
 
-#include <gtkhtml/gtkhtml.h>
-#include <editor/gtkhtml-spell-language.h>
-
 #include <composer/e-msg-composer.h>
 
 #include <shell/e-shell-utils.h>
@@ -103,10 +100,8 @@ composer_prefs_dispose (GObject *object)
 {
 	EMComposerPrefs *prefs = (EMComposerPrefs *) object;
 
-	if (prefs->builder != NULL) {
-		g_object_unref (prefs->builder);
-		prefs->builder = NULL;
-	}
+	g_clear_object (&prefs->builder);
+	g_clear_object (&prefs->spell_checker);
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (em_composer_prefs_parent_class)->dispose (object);
@@ -163,7 +158,7 @@ spell_language_save (EMComposerPrefs *prefs)
 	/* Build a list of active spell languages. */
 	valid = gtk_tree_model_get_iter_first (model, &iter);
 	while (valid) {
-		const GtkhtmlSpellLanguage *language;
+		ESpellDictionary *language;
 		gboolean active;
 
 		gtk_tree_model_get (
@@ -191,19 +186,21 @@ spell_setup (EMComposerPrefs *prefs)
 	GtkListStore *store;
 
 	store = GTK_LIST_STORE (prefs->language_model);
-	available_languages = gtkhtml_spell_language_get_available ();
 
-	active_languages = e_load_spell_languages ();
+	available_languages = e_spell_checker_list_available_dicts (
+						prefs->spell_checker);
+
+	active_languages = e_load_spell_languages (prefs->spell_checker);
 
 	/* Populate the GtkListStore. */
 	while (available_languages != NULL) {
-		const GtkhtmlSpellLanguage *language;
+		ESpellDictionary *language;
 		GtkTreeIter tree_iter;
 		const gchar *name;
 		gboolean active;
 
 		language = available_languages->data;
-		name = gtkhtml_spell_language_get_name (language);
+		name = e_spell_dictionary_get_name (language);
 		active = (g_list_find (active_languages, language) != NULL);
 
 		gtk_list_store_append (store, &tree_iter);
@@ -215,7 +212,7 @@ spell_setup (EMComposerPrefs *prefs)
 		available_languages = available_languages->next;
 	}
 
-	g_list_free (active_languages);
+	g_list_free_full (active_languages, g_object_unref);
 }
 
 static GtkWidget *
@@ -259,7 +256,17 @@ static EMConfigItem emcp_items[] = {
 	{ E_CONFIG_PAGE,
 	  (gchar *) "20.spellcheck",
 	  (gchar *) "vboxSpellChecking",
-	  emcp_widget_glade }
+	  emcp_widget_glade },
+
+	{ E_CONFIG_SECTION_TABLE,
+	  (gchar *) "20.spellcheck/00.languages",
+	  (gchar *) "languages-table",
+	  emcp_widget_glade },
+
+	{ E_CONFIG_SECTION,
+	  (gchar *) "20.spellcheck/00.options",
+	  (gchar *) "spell-options-vbox",
+	  emcp_widget_glade },
 };
 
 static void
@@ -299,6 +306,9 @@ em_composer_prefs_construct (EMComposerPrefs *prefs,
 
 	prefs->builder = gtk_builder_new ();
 	e_load_ui_builder_definition (prefs->builder, "mail-config.ui");
+
+
+	prefs->spell_checker = e_spell_checker_new ();
 
 	/** @HookPoint-EMConfig: Mail Composer Preferences
 	 * @Id: org.gnome.evolution.mail.composerPrefs

@@ -5,8 +5,7 @@ module_composer_autosave_la_CPPFLAGS = \
 	-I$(top_srcdir)						\
 	-DG_LOG_DOMAIN=\"evolution-composer-autosave\"		\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
-	$(GNOME_PLATFORM_CFLAGS)				\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 module_composer_autosave_la_SOURCES = \
 	evolution-composer-autosave.c				\
@@ -20,8 +19,7 @@ module_composer_autosave_la_LIBADD = \
 	$(top_builddir)/composer/libcomposer.la			\
 	$(top_builddir)/e-util/libeutil.la			\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
-	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 module_composer_autosave_la_LDFLAGS = \
 	-module -avoid-version $(NO_UNDEFINED)

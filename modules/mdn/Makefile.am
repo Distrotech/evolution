@@ -5,8 +5,7 @@ module_mdn_la_CPPFLAGS = \
 	-I$(top_srcdir)						\
 	-DG_LOG_DOMAIN=\"evolution-mdn\"			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
-	$(GNOME_PLATFORM_CFLAGS)				\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 module_mdn_la_SOURCES = \
 	evolution-mdn.c
@@ -17,8 +16,7 @@ module_mdn_la_LIBADD = \
 	$(top_builddir)/e-util/libeutil.la			\
 	$(top_builddir)/shell/libeshell.la			\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
-	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 module_mdn_la_LDFLAGS = \
 	-module -avoid-version $(NO_UNDEFINED)

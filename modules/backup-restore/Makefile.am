@@ -14,7 +14,6 @@ module_backup_restore_la_CPPFLAGS = \
 	-DLIBDIR=\""$(libdir)"\"				\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
 	$(GNOME_PLATFORM_CFLAGS)				\
-	$(GTKHTML_CFLAGS)					\
 	$(NULL)
 
 module_backup_restore_la_SOURCES = \
@@ -32,7 +31,6 @@ module_backup_restore_la_LIBADD = \
 	$(top_builddir)/libemail-engine/libemail-engine.la	\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
 	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)						\
 	$(NULL)
 
 module_backup_restore_la_LDFLAGS = \

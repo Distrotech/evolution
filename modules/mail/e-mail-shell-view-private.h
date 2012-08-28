@@ -25,7 +25,6 @@
 #include "e-mail-shell-view.h"
 
 #include <glib/gi18n.h>
-#include <gtkhtml/gtkhtml.h>
 #include <camel/camel-search-private.h>  /* for camel_search_word */
 
 #include <libemail-engine/e-mail-folder-utils.h>

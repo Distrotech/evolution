@@ -8,8 +8,7 @@ module_mail_la_CPPFLAGS = \
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"			\
 	-DG_LOG_DOMAIN=\"evolution-module-mail\"			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)					\
-	$(GNOME_PLATFORM_CFLAGS)					\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 module_mail_la_SOURCES = \
 	evolution-module-mail.c						\
@@ -50,8 +49,7 @@ module_mail_la_LIBADD = \
 	$(top_builddir)/mail/importers/libevolution-mail-importers.la	\
 	$(libevolution_mail_settings_la)				\
 	$(EVOLUTION_DATA_SERVER_LIBS)					\
-	$(GNOME_PLATFORM_LIBS)						\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 module_mail_la_LDFLAGS = \
 	-avoid-version -module $(NO_UNDEFINED)

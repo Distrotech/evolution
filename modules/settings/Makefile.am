@@ -8,7 +8,6 @@ module_settings_la_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"evolution-module-settings\" \
 	$(EVOLUTION_DATA_SERVER_CFLAGS) \
 	$(GNOME_PLATFORM_CFLAGS) \
-	$(GTKHTML_CFLAGS) \
 	$(NULL)
 
 module_settings_la_SOURCES = \
@@ -43,8 +42,6 @@ module_settings_la_SOURCES = \
 	e-settings-spell-entry.h \
 	e-settings-web-view.c \
 	e-settings-web-view.h \
-	e-settings-web-view-gtkhtml.c \
-	e-settings-web-view-gtkhtml.h \
 	e-settings-weekday-chooser.c \
 	e-settings-weekday-chooser.h \
 	$(NULL)
@@ -57,7 +54,6 @@ module_settings_la_LIBADD = \
 	$(top_builddir)/calendar/gui/libevolution-calendar.la \
 	$(EVOLUTION_DATA_SERVER_LIBS) \
 	$(GNOME_PLATFORM_LIBS) \
-	$(GTKHTML_LIBS) \
 	$(NULL)
 
 module_settings_la_LDFLAGS = \
