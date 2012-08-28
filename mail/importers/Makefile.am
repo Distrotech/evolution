@@ -8,8 +8,7 @@ libevolution_mail_importers_la_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"evolution-mail-importer\"	\
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\"	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
-	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 libevolution_mail_importers_la_SOURCES =	\
 	mail-importer.c				\
@@ -27,7 +26,6 @@ libevolution_mail_importers_la_LIBADD =				\
 	$(top_builddir)/shell/libeshell.la			\
 	$(top_builddir)/libemail-engine/libemail-engine.la \
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
-	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 -include $(top_srcdir)/git.mk

@@ -465,10 +465,12 @@ composer_presend_check_unwanted_html (EMsgComposer *composer,
                                       EMailSession *session)
 {
 	EDestination **recipients;
+	EEditor *editor;
+	EEditorWidget *editor_widget;
 	EComposerHeaderTable *table;
 	GSettings *settings;
 	gboolean check_passed = TRUE;
-	gboolean html_mode;
+	EEditorWidgetMode html_mode;
 	gboolean send_html;
 	gboolean confirm_html;
 	gint ii;
@@ -477,7 +479,9 @@ composer_presend_check_unwanted_html (EMsgComposer *composer,
 
 	table = e_msg_composer_get_header_table (composer);
 	recipients = e_composer_header_table_get_destinations (table);
-	html_mode = gtkhtml_editor_get_html_mode (GTKHTML_EDITOR (composer));
+	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (composer));
+	editor_widget = e_editor_get_editor_widget (editor);
+	html_mode = e_editor_widget_get_mode (editor_widget);
 
 	send_html = g_settings_get_boolean (settings, "composer-send-html");
 	confirm_html = g_settings_get_boolean (settings, "prompt-on-unwanted-html");
@@ -485,7 +489,8 @@ composer_presend_check_unwanted_html (EMsgComposer *composer,
 	/* Only show this warning if our default is to send html.  If it
 	 * isn't, we've manually switched into html mode in the composer
 	 * and (presumably) had a good reason for doing this. */
-	if (html_mode && send_html && confirm_html && recipients != NULL) {
+	if (html_mode == E_EDITOR_WIDGET_MODE_HTML && send_html &&
+	    confirm_html && recipients != NULL) {
 		gboolean html_problem = FALSE;
 
 		for (ii = 0; recipients[ii] != NULL; ii++) {
@@ -580,7 +585,12 @@ exit:
 	g_clear_error (&error);
 
 	if (set_changed) {
-		gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+		EEditor *editor;
+		EEditorWidget *editor_widget;
+
+		editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+		editor_widget = e_editor_get_editor_widget (editor);
+		e_editor_widget_set_changed (editor_widget, TRUE);
 		gtk_window_present (GTK_WINDOW (context->composer));
 	}
 
@@ -613,14 +623,15 @@ em_utils_composer_send_cb (EMsgComposer *composer,
 static void
 composer_set_no_change (EMsgComposer *composer)
 {
-	GtkhtmlEditor *editor;
+	EEditor *editor;
+	EEditorWidget *editor_widget;
 
 	g_return_if_fail (composer != NULL);
 
-	editor = GTKHTML_EDITOR (composer);
+	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (composer));
+	editor_widget = e_editor_get_editor_widget (editor);
 
-	gtkhtml_editor_drop_undo (editor);
-	gtkhtml_editor_set_changed (editor, FALSE);
+	e_editor_widget_set_changed (editor_widget, FALSE);
 }
 
 /* delete original messages from Outbox folder */
@@ -664,19 +675,23 @@ composer_save_to_drafts_complete (EMailSession *session,
                                   AsyncContext *context)
 {
 	GError *error = NULL;
+	EEditor *editor;
+	EEditorWidget *editor_widget;
+
+	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+	editor_widget = e_editor_get_editor_widget (editor);
 
 	/* We don't really care if this failed.  If something other than
 	 * cancellation happened, emit a runtime warning so the error is
 	 * not completely lost. */
-
 	e_mail_session_handle_draft_headers_finish (session, result, &error);
 
 	if (e_activity_handle_cancellation (context->activity, error)) {
-		gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+		e_editor_widget_set_changed (editor_widget, TRUE);
 		g_error_free (error);
 
 	} else if (error != NULL) {
-		gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+		e_editor_widget_set_changed (editor_widget, TRUE);
 		g_warning ("%s", error->message);
 		g_error_free (error);
 
@@ -701,18 +716,22 @@ composer_save_to_drafts_cleanup (CamelFolder *drafts_folder,
 {
 	CamelSession *session;
 	EAlertSink *alert_sink;
+	EEditor *editor;
+	EEditorWidget *editor_widget;
 	GCancellable *cancellable;
 	GError *error = NULL;
 
 	alert_sink = e_activity_get_alert_sink (context->activity);
 	cancellable = e_activity_get_cancellable (context->activity);
+	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+	editor_widget = e_editor_get_editor_widget (editor);
 
 	e_mail_folder_append_message_finish (
 		drafts_folder, result, &context->message_uid, &error);
 
 	if (e_activity_handle_cancellation (context->activity, error)) {
 		g_warn_if_fail (context->message_uid == NULL);
-		gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+		e_editor_widget_set_changed (editor_widget, TRUE);
 		async_context_free (context);
 		g_error_free (error);
 		return;
@@ -723,7 +742,7 @@ composer_save_to_drafts_cleanup (CamelFolder *drafts_folder,
 			alert_sink,
 			"mail-composer:save-to-drafts-error",
 			error->message, NULL);
-		gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+		e_editor_widget_set_changed (editor_widget, TRUE);
 		async_context_free (context);
 		g_error_free (error);
 		return;
@@ -785,13 +804,17 @@ composer_save_to_drafts_got_folder (EMailSession *session,
 {
 	CamelFolder *drafts_folder;
 	GError *error = NULL;
+	EEditor *editor;
+	EEditorWidget *editor_widget;
 
 	drafts_folder = e_mail_session_uri_to_folder_finish (
 		session, result, &error);
+	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+	editor_widget = e_editor_get_editor_widget (editor);
 
 	if (e_activity_handle_cancellation (context->activity, error)) {
 		g_warn_if_fail (drafts_folder == NULL);
-		gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+		e_editor_widget_set_changed (editor_widget, TRUE);
 		async_context_free (context);
 		g_error_free (error);
 		return;
@@ -811,7 +834,7 @@ composer_save_to_drafts_got_folder (EMailSession *session,
 			GTK_WINDOW (context->composer),
 			"mail:ask-default-drafts", NULL);
 		if (response != GTK_RESPONSE_YES) {
-			gtkhtml_editor_set_changed (GTKHTML_EDITOR (context->composer), TRUE);
+			e_editor_widget_set_changed (editor_widget, TRUE);
 			async_context_free (context);
 			return;
 		}
@@ -1535,11 +1558,14 @@ static void
 emu_update_composers_security (EMsgComposer *composer,
                                guint32 validity_found)
 {
+	EEditor *editor;
 	GtkAction *action;
 	GSettings *settings;
 	gboolean sign_by_default;
 
 	g_return_if_fail (composer != NULL);
+
+	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (composer));
 
 	settings = g_settings_new ("org.gnome.evolution.mail");
 
@@ -2931,14 +2957,15 @@ composer_set_body (EMsgComposer *composer,
 		break;
 	}
 
+	/* FIXME WEBKIT No signature yet...
 	if (has_body_text && start_bottom) {
 		GtkhtmlEditor *editor = GTKHTML_EDITOR (composer);
 		gboolean move_cursor_to_end;
 		gboolean top_signature;
 
-		/* If we are placing signature on top, then move cursor to the end,
-		 * otherwise try to find the signature place and place cursor just
-		 * before the signature. We added there an empty line already. */
+		// If we are placing signature on top, then move cursor to the end,
+		// otherwise try to find the signature place and place cursor just
+		// before the signature. We added there an empty line already.
 		gtkhtml_editor_run_command (editor, "block-selection");
 		gtkhtml_editor_run_command (editor, "cursor-bod");
 
@@ -2954,6 +2981,7 @@ composer_set_body (EMsgComposer *composer,
 			gtkhtml_editor_run_command (editor, "selection-move-left");
 		gtkhtml_editor_run_command (editor, "unblock-selection");
 	}
+	*/
 
 	g_object_unref (settings);
 

@@ -23,7 +23,6 @@ GTKDOC_CFLAGS= \
 	-I$(top_builddir)						\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)					\
 	$(GNOME_PLATFORM_CFLAGS)					\
-	$(GTKHTML_CFLAGS)						\
 	$(NULL)
 
 GTKDOC_LIBS=								\
@@ -32,7 +31,6 @@ GTKDOC_LIBS=								\
 	$(top_builddir)/e-util/libeutil.la				\
 	$(EVOLUTION_DATA_SERVER_LIBS)					\
 	$(GNOME_PLATFORM_LIBS)						\
-	$(GTKHTML_LIBS)							\
 	$(NULL)
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
