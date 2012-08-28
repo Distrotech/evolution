@@ -17,8 +17,7 @@ liborg_gnome_mail_notification_la_CPPFLAGS =	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)		\
 	$(GNOME_PLATFORM_CFLAGS)		\
 	$(LIBNOTIFY_CFLAGS)			\
-	$(CANBERRA_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(CANBERRA_CFLAGS)
 
 liborg_gnome_mail_notification_la_SOURCES = mail-notification.c
 
@@ -32,8 +31,7 @@ liborg_gnome_mail_notification_la_LIBADD = 			\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
 	$(GNOME_PLATFORM_LIBS)					\
 	$(LIBNOTIFY_LIBS)					\
-	$(CANBERRA_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(CANBERRA_LIBS)
 
 BUILT_SOURCES = $(plugin_DATA)
 

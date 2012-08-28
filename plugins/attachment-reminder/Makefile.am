@@ -15,8 +15,7 @@ liborg_gnome_evolution_attachment_reminder_la_CPPFLAGS = \
 	-I$(top_srcdir)					\
 	-DEVOLUTION_PLUGINDIR="\"$(plugindir)\""	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
-	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 liborg_gnome_evolution_attachment_reminder_la_SOURCES = attachment-reminder.c 
 
@@ -30,8 +29,7 @@ liborg_gnome_evolution_attachment_reminder_la_LIBADD =	\
 	$(top_builddir)/e-util/libeutil.la		\
 	$(top_builddir)/mail/libevolution-mail.la	\
 	$(EVOLUTION_DATA_SERVER_LIBS)			\
-	$(GNOME_PLATFORM_LIBS)				\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 EXTRA_DIST = org-gnome-evolution-attachment-reminder.eplug.xml \
 	org-gnome-attachment-reminder.error.xml

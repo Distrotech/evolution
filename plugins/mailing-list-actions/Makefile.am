@@ -8,8 +8,7 @@ liborg_gnome_mailing_list_actions_la_CPPFLAGS =		\
 	-I$(top_srcdir)					\
 	-I$(top_builddir)/composer 			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
-	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 liborg_gnome_mailing_list_actions_la_SOURCES = mailing-list-actions.c
 
@@ -22,8 +21,7 @@ liborg_gnome_mailing_list_actions_la_LIBADD =		\
 	$(top_builddir)/shell/libeshell.la		\
 	$(top_builddir)/libemail-engine/libemail-engine.la \
 	$(EVOLUTION_DATA_SERVER_LIBS)			\
-	$(GNOME_PLATFORM_LIBS)				\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 error_DATA = org-gnome-mailing-list-actions.error
 errordir = $(privdatadir)/errors
