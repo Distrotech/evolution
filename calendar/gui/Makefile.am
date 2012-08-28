@@ -68,7 +68,6 @@ libevolution_calendar_la_CPPFLAGS =			\
 	-DPREFIX=\""$(prefix)"\"			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)				\
 	$(LIBSOUP_CFLAGS)
 
 etspec_DATA =				\
@@ -209,7 +208,6 @@ libevolution_calendar_la_LIBADD =					\
 	$(top_builddir)/e-util/libeutil.la				\
 	$(EVOLUTION_DATA_SERVER_LIBS)					\
 	$(GNOME_PLATFORM_LIBS)						\
-	$(GTKHTML_LIBS)							\
 	$(LIBSOUP_LIBS)
 
 libevolution_calendar_la_LDFLAGS = -avoid-version $(NO_UNDEFINED)

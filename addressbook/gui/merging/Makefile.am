@@ -7,8 +7,7 @@ libeabbookmerging_la_CPPFLAGS =				\
 	-I$(top_srcdir)					\
 	-I$(top_srcdir)/addressbook			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
-	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 libeabbookmerging_la_SOURCES =			\
 	eab-contact-compare.c			\

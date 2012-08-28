@@ -8,8 +8,7 @@ module_calendar_la_CPPFLAGS = \
 	-I$(top_srcdir)					\
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
-	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(GNOME_PLATFORM_CFLAGS)
 
 module_calendar_la_SOURCES = \
 	evolution-module-calendar.c			\
@@ -75,8 +74,7 @@ module_calendar_la_LIBADD = \
 	$(top_builddir)/addressbook/gui/contact-list-editor/libecontactlisteditor.la \
 	$(top_builddir)/e-util/libeutil.la				\
 	$(EVOLUTION_DATA_SERVER_LIBS)					\
-	$(GNOME_PLATFORM_LIBS)						\
-	$(GTKHTML_LIBS)
+	$(GNOME_PLATFORM_LIBS)
 
 module_calendar_la_LDFLAGS = \
 	-module -avoid-version $(NO_UNDEFINED)
