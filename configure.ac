@@ -46,7 +46,6 @@ m4_define([soup_encoded_version], [SOUP_VERSION_2_40])
 
 m4_define([eds_minimum_version], [evo_version])
 m4_define([enchant_minimum_version], [1.1.7])
-m4_define([gtkhtml_minimum_version], [4.5.2])
 m4_define([gnome_desktop_minimum_version], [2.91.3])
 m4_define([gnome_icon_theme_minimum_version], [2.30.2.1])
 m4_define([gsettings_desktop_schemas_minimum_version], [2.91.92])
@@ -748,16 +747,6 @@ AC_CHECK_FUNCS(regexec,,[AC_CHECK_LIB(regex,regexec,
 			AC_DEFINE(HAVE_REGEXEC,1,[Define to 1 if you have the regexec function.])],
 			[AC_MSG_ERROR([No regex library found])])])
 AC_SUBST(REGEX_LIBS)
-
-dnl *************************
-dnl GTKHTML check
-dnl XXX Drop the version from the package name?
-dnl *************************
-PKG_CHECK_MODULES([GTKHTML],
-	[libgtkhtml-4.0 >= gtkhtml_minimum_version
-	 gtkhtml-editor-4.0])
-AC_SUBST(GTKHTML_CFLAGS)
-AC_SUBST(GTKHTML_LIBS)
 
 dnl ************
 dnl Kerberos 5
