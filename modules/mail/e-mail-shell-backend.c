@@ -382,7 +382,7 @@ mail_shell_backend_window_added_cb (GtkApplication *application,
 						editor_widget));
 
 		e_editor_widget_set_spell_languages (editor_widget, spell_languages);
-		g_list_free (spell_languages);
+		g_list_free_full (spell_languages, g_object_unref);
 
 		settings = g_settings_new ("org.gnome.evolution.mail");
 
