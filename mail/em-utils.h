@@ -71,6 +71,7 @@ gchar *		em_utils_message_to_html	(CamelSession *session,
 						 const gchar *credits,
 						 guint32 flags,
 						 struct _EMailPartList *parts_list,
+						 const gchar *prepend,
 						 const gchar *append,
 						 guint32 *validity_found);
 

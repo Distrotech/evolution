@@ -88,22 +88,13 @@ emfqe_attachment_format (EMailFormatterExtension *extension,
 	g_free (text);
 
 	camel_stream_write_string (
-		stream,
-		"<!--+GtkHTML:<DATA class=\"ClueFlow\" "
-		"key=\"orig\" value=\"1\">-->\n"
-		"<blockquote type=cite>\n", cancellable, NULL);
+		stream,	"<blockquote type=cite>\n", cancellable, NULL);
 
 	e_mail_formatter_format_as (
 		formatter, context, attachment_view_part,
 		stream, NULL, cancellable);
 
-	camel_stream_write_string (
-		stream,
-		"</blockquote><!--+GtkHTML:"
-		"<DATA class=\"ClueFlow\" clear=\"orig\">-->",
-		cancellable, NULL);
-
-	e_mail_part_unref (attachment_view_part);
+	camel_stream_write_string (stream, "</blockquote>", cancellable, NULL);
 
 	return TRUE;
 }

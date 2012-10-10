@@ -93,8 +93,6 @@ mail_formatter_quote_run (EMailFormatter *formatter,
 	if (qf->priv->flags & E_MAIL_FORMATTER_QUOTE_FLAG_CITE) {
 		camel_stream_write_string (
 			stream,
-			"<!--+GtkHTML:<DATA class=\"ClueFlow\" "
-			"key=\"orig\" value=\"1\">-->\n"
 			"<blockquote type=cite>\n", cancellable, NULL);
 	}
 
@@ -128,9 +126,7 @@ mail_formatter_quote_run (EMailFormatter *formatter,
 
 	if (qf->priv->flags & E_MAIL_FORMATTER_QUOTE_FLAG_CITE) {
 		camel_stream_write_string (
-			stream, "</blockquote><!--+GtkHTML:"
-			"<DATA class=\"ClueFlow\" clear=\"orig\">-->",
-			cancellable, NULL);
+			stream, "</blockquote>", cancellable, NULL);
 	}
 }
 

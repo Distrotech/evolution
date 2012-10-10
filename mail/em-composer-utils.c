@@ -1780,7 +1780,7 @@ forward_non_attached (EShell *shell,
 
 	forward = quoting_text (QUOTING_FORWARD);
 	text = em_utils_message_to_html (
-		session, message, forward, flags, NULL, NULL, &validity_found);
+		session, message, forward, flags, NULL, NULL, NULL, &validity_found);
 
 	if (text != NULL) {
 		CamelDataWrapper *content;
@@ -2934,7 +2934,8 @@ composer_set_body (EMsgComposer *composer,
 		original = quoting_text (QUOTING_ORIGINAL);
 		text = em_utils_message_to_html (
 			session, message, original, E_MAIL_FORMATTER_QUOTE_FLAG_HEADERS,
-			parts_list, start_bottom ? "<BR>" : NULL, &validity_found);
+			parts_list, "<span id=\"-x-evolution-reply-citation\">",
+			start_bottom ? "</span><br>" : "</span>", &validity_found);
 		e_msg_composer_set_body_text (composer, text, TRUE);
 		has_body_text = text && *text;
 		g_free (text);
@@ -2948,7 +2949,8 @@ composer_set_body (EMsgComposer *composer,
 		credits = attribution_format (message);
 		text = em_utils_message_to_html (
 			session, message, credits, E_MAIL_FORMATTER_QUOTE_FLAG_CITE,
-			parts_list, start_bottom ? "<BR>" : NULL, &validity_found);
+			parts_list, "<span id=\"-x-evolution-reply-citation\">",
+			start_bottom ? "</span><br>" : "</span>", &validity_found);
 		g_free (credits);
 		e_msg_composer_set_body_text (composer, text, TRUE);
 		has_body_text = text && *text;
@@ -2956,32 +2958,6 @@ composer_set_body (EMsgComposer *composer,
 		emu_update_composers_security (composer, validity_found);
 		break;
 	}
-
-	/* FIXME WEBKIT No signature yet...
-	if (has_body_text && start_bottom) {
-		GtkhtmlEditor *editor = GTKHTML_EDITOR (composer);
-		gboolean move_cursor_to_end;
-		gboolean top_signature;
-
-		// If we are placing signature on top, then move cursor to the end,
-		// otherwise try to find the signature place and place cursor just
-		// before the signature. We added there an empty line already.
-		gtkhtml_editor_run_command (editor, "block-selection");
-		gtkhtml_editor_run_command (editor, "cursor-bod");
-
-		top_signature = g_settings_get_boolean (settings, "composer-top-signature");
-
-		move_cursor_to_end = top_signature ||
-			!gtkhtml_editor_search_by_data (
-				editor, 1, "ClueFlow", "signature", "1");
-
-		if (move_cursor_to_end)
-			gtkhtml_editor_run_command (editor, "cursor-eod");
-		else
-			gtkhtml_editor_run_command (editor, "selection-move-left");
-		gtkhtml_editor_run_command (editor, "unblock-selection");
-	}
-	*/
 
 	g_object_unref (settings);
 
@@ -3001,7 +2977,7 @@ em_utils_construct_composer_text (CamelSession *session,
 	credits = attribution_format (message);
 	text = em_utils_message_to_html (
 		session, message, credits, E_MAIL_FORMATTER_QUOTE_FLAG_CITE,
-		parts_list, start_bottom ? "<BR>" : NULL, NULL);
+		parts_list, NULL, start_bottom ? "<BR>" : NULL, NULL);
 	g_free (credits);
 
 	return text;
