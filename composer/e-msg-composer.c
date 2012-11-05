@@ -3226,13 +3226,8 @@ e_msg_composer_new_with_message (EShell *shell,
 				e_destination_set_name (dest, name);
 				e_destination_set_email (dest, addr);
 
-<<<<<<< HEAD
 				if (g_hash_table_contains (auto_cc, addr))
-=======
-				if (g_hash_table_lookup (auto_cc, addr)) {
->>>>>>> Convert EEditorWidget::Mode property to boolean
 					e_destination_set_auto_recipient (dest, TRUE);
-				}
 
 				Cc = g_list_append (Cc, dest);
 			}
@@ -3251,13 +3246,8 @@ e_msg_composer_new_with_message (EShell *shell,
 				e_destination_set_name (dest, name);
 				e_destination_set_email (dest, addr);
 
-<<<<<<< HEAD
 				if (g_hash_table_contains (auto_bcc, addr))
-=======
-				if (g_hash_table_lookup (auto_bcc, addr)) {
->>>>>>> Convert EEditorWidget::Mode property to boolean
 					e_destination_set_auto_recipient (dest, TRUE);
-				}
 
 				Bcc = g_list_append (Bcc, dest);
 			}
