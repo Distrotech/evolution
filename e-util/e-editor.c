@@ -980,7 +980,6 @@ e_editor_set_filename (EEditor *editor,
  *
  * Returns: @TRUE when content is succesfully saved, @FALSE otherwise.
  */
- */
 gboolean
 e_editor_save (EEditor *editor,
 	       const gchar *filename,

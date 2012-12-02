@@ -487,9 +487,8 @@ editor_widget_key_press_event (GtkWidget *gtk_widget,
 		 * command to do it. */
 		EEditorSelection *selection = e_editor_widget_get_selection (E_EDITOR_WIDGET (gtk_widget));
 		if (e_editor_selection_is_citation (selection)) {
-			WebKitDOMDocument *document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (editor));
-			webkit_dom_document_exec_command (document,  "InsertNewlineInQuotedContent", FALSE, "");
-			return TRUE;
+			return e_editor_widget_exec_command (
+				editor, E_EDITOR_WIDGET_COMMAND_INSERT_NEW_LINE_IN_QUOTED_CONTENT, NULL);
 		}
 	}
 
@@ -941,7 +940,6 @@ e_editor_widget_init (EEditorWidget *editor)
 {
 	WebKitWebSettings *settings;
 	WebKitWebInspector *inspector;
-	WebKitDOMDocument *document;
 	GSettings *g_settings;
 	GSettingsSchema *settings_schema;
 	ESpellChecker *checker;
@@ -971,9 +969,8 @@ e_editor_widget_init (EEditorWidget *editor)
 
 	/* Don't use CSS when possible to preserve compatibility with older
 	 * versions of Evolution or other MUAs */
-	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (editor));
-	webkit_dom_document_exec_command (
-		document, "styleWithCSS", FALSE, "false");
+	e_editor_widget_exec_command (
+		editor, E_EDITOR_WIDGET_COMMAND_STYLE_WITH_CSS, "false");
 
 	g_signal_connect (editor, "user-changed-contents",
 		G_CALLBACK (editor_widget_user_changed_contents_cb), NULL);
@@ -1060,74 +1057,89 @@ e_editor_widget_get_selection (EEditorWidget *widget)
 /**
  * e_editor_widget_exec_command:
  * @widget: an #EEditorWidget
- * @command: a command to execute
- * @value: value of the command (or @NULL)
+ * @command: an #EEditorWidgetCommand to execute
+ * @value: value of the command (or @NULL if the command does not require value)
  *
- * Supported @command keywords are:
- *	"BackColor" - sets background color to @value
- *	"Bold" - toggles bold text, depending whether @value is "true" or "false"
- *	"Copy" - copies current selection to clipboard
- *	"CreateLink" - converts current selection to a link that points to URL in @value
- *	"Cut" - cuts current selection to clipboard
- *	"DefaultParagraphSeparator"
- *	"Delete" - deletes current selection
- *	"FindString" - highlights string passed in @value
- *	"FontName" - sets font name to @value
- *	"FontSize" - sets font point size to @value (no units, just number)
- *	"FontSizeDelta" - changes font size by delta passed in @value (no units, just number)
- *	"FontColor" - sets font color to @value
- *	"FormatBlock" - formats block to given formatting. Allowed formatting keywords are "BLOCKQUOTE",
- *			"H1", "H2", "H3", "H4", "H5", "H6", "P", "PRE" and "ADDRESS"
- *	"ForwardDelete"
- *	"HiliteColor" - sets color in which results of "FindString" command should be highlighted to @value
- *	"Indent" - indents current paragraph
- *	"InsertHTML" - inserts content of @value into document as an HTML code
- *	"InsertHorizontalRule" - inserts <HR> on current line
- *	"InsertImage" - inserts an image with URL contained in @value into document
- *	"InsertLineBreak" - breaks line at current cursor position
- *	"InsertNewlineInQuotedContent - breaks citation at current cursor position
- *	"InsertOrderedList - inserts <OL> environment
- *	"InsertParagraph - inserts <P> environment
- *	"InsertText - inserts content of @value as text
- *	"InsertUnorderedList" - inserts <UL> environment
- *	"Italic" - toggles italic format depending on whether @value is "true" or "false"
- *	"JustifyCenter" - aligns current paragraph to center
- *	"JustifyFull" - justifies current paragraph to block
- *	"JustifyLeft" - aligns current paragraph to left
- *	"JustifyNone" - cancels any justification or alignment of current paragraph
- *	"JustifyRight" - aligns current paragraph to right
- *	"Outdent" - outdents current paragraph
- *	"Paste" - pastes clipboard content at current cursor position
- *	"PasteAndMatchStyle" - pastes clipboard content and matches it's style to style at current cursor position
- *	"PasteAsPlainText" - pastes clipboard content at current cursor position removing any HTML formatting
- *	"Print" - initiates printing of current document
- *	"Redo"
- *	"RemoveFormat" - removes any formatting of current selection
- *	"SelectAll" - selects the entire document
- *	"Strikethrough" - toggles strikethrough formatting depending on whether @value is "true" or "false"
- *	"StyleWithCSS" - toggles whether style should be defined in CSS "style" attribute of elements or
- *			 whether to use deprecated <FONT> tags. Depends on whether @value is "true" or "false"
- *	"Subscript" - toggles subscript of current selection depending on whether @value is "true" or "false"
- *	"Superscript" - toggles superscript of current selection depending on whether @value is "true" or "false"
- *	"Transpose"
- *	"Underline" - toggles underline formatting of current selection depending on whether @value is "true" or "false"
- *	"Undo"
- *	"Unlink" - removes links (<A>) from current selection (if there's any)
- *	"Unselect" - cancels current selection
- *	"UseCSS" - whether to allow use of CSS or not depending on whether @value is "true" or "false"
+ * The function will fail when @value is @NULL or empty but the current @command
+ * requires a value to be passed. The @value is ignored when the @command does
+ * not expect any value.
+ *
+ * Returns: @TRUE when the command was succesfully executed, @FALSE otherwise.
  */
 gboolean
 e_editor_widget_exec_command (EEditorWidget* widget,
-			      const gchar* command,
+			      EEditorWidgetCommand command,
 			      const gchar* value)
 {
 	WebKitDOMDocument *document;
+	const gchar *cmd_str = 0;
+	gboolean has_value;
 
-	g_return_if_fail (E_IS_EDITOR_WIDGET (widget));
-	g_return_if_fail (command && *command);
+	g_return_val_if_fail (E_IS_EDITOR_WIDGET (widget), FALSE);
+
+#define CHECK_COMMAND(cmd,str,val) case cmd:\
+	if (val) {\
+		g_return_val_if_fail (value && *value, FALSE);\
+	}\
+	has_value = val; \
+	cmd_str = str;\
+	break;
+
+	switch (command) {
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_BACKGROUND_COLOR, "BackColor", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_BOLD, "Bold", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_COPY, "Copy", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_CREATE_LINK, "CreateLink", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_CUT, "Cut", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_DEFAULT_PARAGRAPH_SEPARATOR, "DefaultParagraphSeparator", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_DELETE, "Delete", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FIND_STRING, "FindString", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FONT_NAME, "FontName", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FONT_SIZE, "FontSize", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FONT_SIZE_DELTA, "FontSizeDelta", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FORE_COLOR, "ForeColor", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FORMAT_BLOCK, "FormatBlock", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_FORWARD_DELETE, "ForwardDelete", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_HILITE_COLOR, "HiliteColor", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INDENT, "Indent", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_HORIZONTAL_RULE, "InsertHorizontalRule", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_HTML, "InsertHTML", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_IMAGE, "InsertImage", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_LINE_BREAK, "InsertLineBreak", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_NEW_LINE_IN_QUOTED_CONTENT, "InsertNewlineInQuotedContent", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_ORDERED_LIST, "InsertOrderedList", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_PARAGRAPH, "InsertParagraph", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_TEXT, "InsertText", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_INSERT_UNORDERED_LIST, "InsertUnorderedList", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_ITALIC, "Italic", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_JUSTIFY_CENTER, "JustifyCenter", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_JUSTIFY_FULL, "JustifyFull", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_JUSTIFY_LEFT, "JustifyLeft", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_JUSTIFY_NONE, "JustifyNone", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_JUSTIFY_RIGHT, "JustifyRight", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_OUTDENT, "Outdent", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_PASTE, "Paste", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_PASTE_AND_MATCH_STYLE, "PasteAndMatchStyle", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_PASTE_AS_PLAIN_TEXT, "PasteAsPlainText", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_PRINT, "Print", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_REDO, "Redo", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_REMOVE_FORMAT, "RemoveFormat", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_SELECT_ALL, "SelectAll", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_STRIKETHROUGH, "Strikethrough", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_STYLE_WITH_CSS, "StyleWithCSS", TRUE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_SUBSCRIPT, "Subscript", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_SUPERSCRIPT, "Superscript", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_TRANSPOSE, "Transpose", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_UNDERLINE, "Underline", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_UNDO, "Undo", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_UNLINK, "Unlink", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_UNSELECT, "Unselect", FALSE)
+		CHECK_COMMAND(E_EDITOR_WIDGET_COMMAND_USE_CSS, "UseCSS", TRUE)
+	}
 
 	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (widget));
-	return webkit_dom_document_exec_command (document, command, FALSE, value ? value : "");
+	return webkit_dom_document_exec_command (
+		document, cmd_str, FALSE, has_value ? value : "" );
 }
 
 /**
@@ -1424,7 +1436,7 @@ e_editor_widget_set_spell_languages (EEditorWidget *widget,
 	g_return_if_fail (spell_languages);
 
 	g_list_free_full (widget->priv->spelling_langs, g_object_unref);
-	widget->priv->spelling_langs = g_list_copy (spell_languages);
+	widget->priv->spelling_langs = g_list_copy ((GList *) spell_languages);
 	g_list_foreach (widget->priv->spelling_langs, (GFunc) g_object_ref, NULL);
 
 	g_object_notify (G_OBJECT (widget), "spell-languages");
@@ -1595,13 +1607,8 @@ static void
 do_set_text_plain (EEditorWidget *widget,
 		   gpointer data)
 {
-	WebKitDOMDocument *document;
-
-	document =
-		webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (widget));
-
-	webkit_dom_document_exec_command (
-		document, "insertText", FALSE, data);
+	e_editor_widget_exec_command (
+		widget, E_EDITOR_WIDGET_COMMAND_INSERT_TEXT, data);
 }
 
 /**
@@ -1800,3 +1807,4 @@ e_editor_widget_update_fonts (EEditorWidget *widget)
 	pango_font_description_free (ms);
 	pango_font_description_free (vw);
 }
+

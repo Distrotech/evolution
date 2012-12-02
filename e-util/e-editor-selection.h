@@ -26,6 +26,7 @@
 #define E_EDITOR_SELECTION_H
 
 #include <glib-object.h>
+#include <gdk/gdk.h>
 
 /* Standard GObject macros */
 #define E_TYPE_EDITOR_SELECTION \

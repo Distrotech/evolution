@@ -25,6 +25,7 @@
 #include "e-editor-link-dialog.h"
 #include "e-editor-selection.h"
 #include "e-editor-utils.h"
+#include "e-editor-widget.h"
 
 #include <glib/gi18n-lib.h>
 
@@ -168,8 +169,8 @@ editor_link_dialog_ok (EEditorLinkDialog *dialog)
 				gtk_entry_get_text (
 					GTK_ENTRY (dialog->priv->label_edit)));
 
-			webkit_dom_document_exec_command (
-				document, "insertHTML", FALSE, html);
+			e_editor_widget_exec_command (
+				widget, E_EDITOR_WIDGET_COMMAND_INSERT_HTML, html);
 
 			g_free (html);
 
