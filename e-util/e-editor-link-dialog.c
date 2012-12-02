@@ -1,6 +1,8 @@
 /*
  * e-editor-link-dialog.h
  *
+ * Copyright (C) 2012 Dan Vrátil <dvratil@redhat.com>
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -334,7 +336,7 @@ e_editor_link_dialog_init (EEditorLinkDialog *dialog)
 		G_CALLBACK (editor_link_dialog_description_changed), dialog);
 	g_signal_connect_swapped (
 		widget, "key-press-event",
-		G_CALLBACK (editor_link_dialog_entry_key_pressed), dialog);	
+		G_CALLBACK (editor_link_dialog_entry_key_pressed), dialog);
 	dialog->priv->label_edit = widget;
 
 	widget = gtk_label_new_with_mnemonic (_("_Description:"));

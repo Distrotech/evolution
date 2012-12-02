@@ -1,6 +1,8 @@
 /*
  * e-editor-widget.h
  *
+ * Copyright (C) 2012 Dan Vrátil <dvratil@redhat.com>
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -82,6 +84,9 @@ EEditorWidget *	e_editor_widget_new		(void);
 EEditorSelection *
 		e_editor_widget_get_selection	(EEditorWidget *widget);
 
+gboolean	e_editor_widget_exec_command	(EEditorWidget *widget,
+						 const gchar *command,
+						 const gchar *value);
 
 gboolean	e_editor_widget_get_changed	(EEditorWidget *widget);
 void		e_editor_widget_set_changed	(EEditorWidget *widget,
@@ -109,7 +114,7 @@ GList *		e_editor_widget_get_spell_languages
 						(EEditorWidget *widget);
 void		e_editor_widget_set_spell_languages
 						(EEditorWidget *widget,
-						 GList *spell_languages);
+						 const GList *spell_languages);
 
 ESpellChecker *	e_editor_widget_get_spell_checker
 						(EEditorWidget *widget);

@@ -1,6 +1,8 @@
 /*
  * e-editor-widget.c
  *
+ * Copyright (C) 2012 Dan Vrátil <dvratil@redhat.com>
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -29,6 +31,20 @@
 #include <glib/gi18n-lib.h>
 #include <gdk/gdkkeysyms.h>
 
+G_DEFINE_TYPE (
+	EEditorWidget,
+	e_editor_widget,
+	WEBKIT_TYPE_WEB_VIEW);
+
+/**
+ * EEditorWidget:
+ *
+ * The #EEditorWidget is a WebKit-based rich text editor. The widget itself
+ * only provides means to configure global behavior of the editor. To work
+ * with the actual content, current cursor position or current selection,
+ * use #EEditorSelection object.
+ */
+
 struct _EEditorWidgetPrivate {
 	gint changed		: 1;
 	gint inline_spelling	: 1;
@@ -53,10 +69,6 @@ struct _EEditorWidgetPrivate {
 	GQueue *postreload_operations;
 };
 
-G_DEFINE_TYPE (
-	EEditorWidget,
-	e_editor_widget,
-	WEBKIT_TYPE_WEB_VIEW);
 
 enum {
 	PROP_0,
@@ -733,6 +745,11 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 
 	klass->paste_clipboard_quoted = editor_widget_paste_clipboard_quoted;
 
+	/**
+	 * EEditorWidget:html-mode
+	 *
+	 * Determines whether HTML or plain text mode is enabled.
+	 **/
 	g_object_class_install_property (
 		object_class,
 		PROP_HTML_MODE,
@@ -744,6 +761,11 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT));
 
+	/**
+	 * EEditorWidget::inline-spelling
+	 *
+	 * Determines whether automatic spellchecking is enabled.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_INLINE_SPELLING,
@@ -755,6 +777,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT));
 
+	/**
+	 * EEditorWidget:magic-links
+	 *
+	 * Determines whether automatic conversion of text links into
+	 * HTML links is enabled.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_MAGIC_LINKS,
@@ -766,6 +794,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT));
 
+	/**
+	 * EEditorWidget:magic-smileys
+	 *
+	 * Determines whether automatic conversion of text smileys into
+	 * images is enabled.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_MAGIC_SMILEYS,
@@ -777,6 +811,11 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			G_PARAM_READWRITE |
 			G_PARAM_CONSTRUCT));
 
+	/**
+	 * EEditorWidget:changed
+	 *
+	 * Determines whether document has been modified
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CHANGED,
@@ -787,6 +826,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			FALSE,
 			G_PARAM_READWRITE));
 
+	/**
+	 * EEditorWidget:can-copy
+	 *
+	 * Determines whether it's possible to copy to clipboard. The action
+	 * is usually disabled when there is no selection to copy.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CAN_COPY,
@@ -797,6 +842,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			FALSE,
 			G_PARAM_READABLE));
 
+	/**
+	 * EEditorWidget:can-cut
+	 *
+	 * Determines whether it's possible to cut to clipboard. The action
+	 * is usually disabled when there is no selection to cut.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CAN_CUT,
@@ -807,6 +858,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			FALSE,
 			G_PARAM_READABLE));
 
+	/**
+	 * EEditorWidget:can-paste
+	 *
+	 * Determines whether it's possible to paste from clipboard. The action
+	 * is usually disabled when there is no valid content in clipboard to paste.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CAN_PASTE,
@@ -817,6 +874,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			FALSE,
 			G_PARAM_READABLE));
 
+	/**
+	 * EEditorWidget:can-redu
+	 *
+	 * Determines whether it's possible to redo previous action. The action
+	 * is usually disabled when there is no action to redo.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CAN_REDO,
@@ -827,6 +890,12 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			FALSE,
 			G_PARAM_READABLE));
 
+	/**
+	 * EEditorWidget:can-undo
+	 *
+	 * Determines whether it's possible to undo last action. The action
+	 * is usually disabled when there is no previous action to undo.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_CAN_UNDO,
@@ -837,6 +906,11 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			FALSE,
 			G_PARAM_READABLE));
 
+	/**
+	 * EEditorWidget:spell-languages
+	 *
+	 * List of #ESpellDictionary objects used for spellchecking.
+	 */
 	g_object_class_install_property (
 		object_class,
 		PROP_SPELL_LANGUAGES,
@@ -846,6 +920,11 @@ e_editor_widget_class_init (EEditorWidgetClass *klass)
 			NULL,
 			G_PARAM_READWRITE));
 
+	/**
+	 * EEditorWidget:popup-event
+	 *
+	 * Emitted whenever a context menu is requested.
+	 */
 	signals[POPUP_EVENT] = g_signal_new (
 		"popup-event",
 		G_TYPE_FROM_CLASS (klass),
@@ -909,8 +988,10 @@ e_editor_widget_init (EEditorWidget *editor)
 	g_signal_connect (inspector, "inspect-web-view",
 		G_CALLBACK (editor_widget_open_inspector), NULL);
 
-	editor->priv->selection = e_editor_selection_new (
-					WEBKIT_WEB_VIEW (editor));
+	editor->priv->selection = g_object_new (
+					E_TYPE_EDITOR_SELECTION,
+					"editor-widget", editor,
+					NULL);
 
 	g_settings = g_settings_new ("org.gnome.desktop.interface");
 	g_signal_connect_swapped (
@@ -944,12 +1025,30 @@ e_editor_widget_init (EEditorWidget *editor)
 	editor_widget_set_links_active (editor, FALSE);
 }
 
+/**
+ * e_editor_widget_new:
+ *
+ * Returns a new instance of the editor.
+ *
+ * Returns: A newly created #EEditorWidget. [transfer-full]
+ */
 EEditorWidget *
 e_editor_widget_new (void)
 {
 	return g_object_new (E_TYPE_EDITOR_WIDGET, NULL);
 }
 
+/**
+ * e_editor_widget_get_selection:
+ * @widget: an #EEditorWidget
+ *
+ * Returns an #EEditorSelection object which represents current selection or
+ * cursor position within the editor document. The #EEditorSelection allows
+ * programmer to manipulate with formatting, selection, styles etc.
+ *
+ * Returns: An always valid #EEditorSelection object. The object is owned by
+ * the @widget and should never be free'd.
+ */
 EEditorSelection *
 e_editor_widget_get_selection (EEditorWidget *widget)
 {
@@ -958,6 +1057,87 @@ e_editor_widget_get_selection (EEditorWidget *widget)
 	return widget->priv->selection;
 }
 
+/**
+ * e_editor_widget_exec_command:
+ * @widget: an #EEditorWidget
+ * @command: a command to execute
+ * @value: value of the command (or @NULL)
+ *
+ * Supported @command keywords are:
+ *	"BackColor" - sets background color to @value
+ *	"Bold" - toggles bold text, depending whether @value is "true" or "false"
+ *	"Copy" - copies current selection to clipboard
+ *	"CreateLink" - converts current selection to a link that points to URL in @value
+ *	"Cut" - cuts current selection to clipboard
+ *	"DefaultParagraphSeparator"
+ *	"Delete" - deletes current selection
+ *	"FindString" - highlights string passed in @value
+ *	"FontName" - sets font name to @value
+ *	"FontSize" - sets font point size to @value (no units, just number)
+ *	"FontSizeDelta" - changes font size by delta passed in @value (no units, just number)
+ *	"FontColor" - sets font color to @value
+ *	"FormatBlock" - formats block to given formatting. Allowed formatting keywords are "BLOCKQUOTE",
+ *			"H1", "H2", "H3", "H4", "H5", "H6", "P", "PRE" and "ADDRESS"
+ *	"ForwardDelete"
+ *	"HiliteColor" - sets color in which results of "FindString" command should be highlighted to @value
+ *	"Indent" - indents current paragraph
+ *	"InsertHTML" - inserts content of @value into document as an HTML code
+ *	"InsertHorizontalRule" - inserts <HR> on current line
+ *	"InsertImage" - inserts an image with URL contained in @value into document
+ *	"InsertLineBreak" - breaks line at current cursor position
+ *	"InsertNewlineInQuotedContent - breaks citation at current cursor position
+ *	"InsertOrderedList - inserts <OL> environment
+ *	"InsertParagraph - inserts <P> environment
+ *	"InsertText - inserts content of @value as text
+ *	"InsertUnorderedList" - inserts <UL> environment
+ *	"Italic" - toggles italic format depending on whether @value is "true" or "false"
+ *	"JustifyCenter" - aligns current paragraph to center
+ *	"JustifyFull" - justifies current paragraph to block
+ *	"JustifyLeft" - aligns current paragraph to left
+ *	"JustifyNone" - cancels any justification or alignment of current paragraph
+ *	"JustifyRight" - aligns current paragraph to right
+ *	"Outdent" - outdents current paragraph
+ *	"Paste" - pastes clipboard content at current cursor position
+ *	"PasteAndMatchStyle" - pastes clipboard content and matches it's style to style at current cursor position
+ *	"PasteAsPlainText" - pastes clipboard content at current cursor position removing any HTML formatting
+ *	"Print" - initiates printing of current document
+ *	"Redo"
+ *	"RemoveFormat" - removes any formatting of current selection
+ *	"SelectAll" - selects the entire document
+ *	"Strikethrough" - toggles strikethrough formatting depending on whether @value is "true" or "false"
+ *	"StyleWithCSS" - toggles whether style should be defined in CSS "style" attribute of elements or
+ *			 whether to use deprecated <FONT> tags. Depends on whether @value is "true" or "false"
+ *	"Subscript" - toggles subscript of current selection depending on whether @value is "true" or "false"
+ *	"Superscript" - toggles superscript of current selection depending on whether @value is "true" or "false"
+ *	"Transpose"
+ *	"Underline" - toggles underline formatting of current selection depending on whether @value is "true" or "false"
+ *	"Undo"
+ *	"Unlink" - removes links (<A>) from current selection (if there's any)
+ *	"Unselect" - cancels current selection
+ *	"UseCSS" - whether to allow use of CSS or not depending on whether @value is "true" or "false"
+ */
+gboolean
+e_editor_widget_exec_command (EEditorWidget* widget,
+			      const gchar* command,
+			      const gchar* value)
+{
+	WebKitDOMDocument *document;
+
+	g_return_if_fail (E_IS_EDITOR_WIDGET (widget));
+	g_return_if_fail (command && *command);
+
+	document = webkit_web_view_get_dom_document (WEBKIT_WEB_VIEW (widget));
+	return webkit_dom_document_exec_command (document, command, FALSE, value ? value : "");
+}
+
+/**
+ * e_editor_widget_get_changed:
+ * @widget: an #EEditorWidget
+ *
+ * Whether content of the editor has been changed.
+ *
+ * Returns: @TRUE when document was changed, @FALSE otherwise.
+ */
 gboolean
 e_editor_widget_get_changed (EEditorWidget *widget)
 {
@@ -966,6 +1146,15 @@ e_editor_widget_get_changed (EEditorWidget *widget)
 	return widget->priv->changed;
 }
 
+/**
+ * e_editor_widget_set_changed:
+ * @widget: an #EEditorWidget
+ * @changed: whether document has been changed or not
+ *
+ * Sets whether document has been changed or not. The editor is tracking changes
+ * automatically, but sometimes it's necessary to change the dirty flag to force
+ * "Save changes" dialog for example.
+ */
 void
 e_editor_widget_set_changed (EEditorWidget *widget,
 			     gboolean changed)
@@ -980,6 +1169,16 @@ e_editor_widget_set_changed (EEditorWidget *widget,
 	g_object_notify (G_OBJECT (widget), "changed");
 }
 
+/**
+ * e_editor_widget_get_html_mode:
+ * @widget: an #EEditorWidget
+ *
+ * Whether the editor is in HTML mode or plain text mode. In HTML mode,
+ * more formatting options are avilable an the email is sent as
+ * multipart/alternative.
+ *
+ * Returns: @TRUE when HTML mode is enabled, @FALSE otherwise.
+ */
 gboolean
 e_editor_widget_get_html_mode (EEditorWidget *widget)
 {
@@ -988,6 +1187,16 @@ e_editor_widget_get_html_mode (EEditorWidget *widget)
 	return widget->priv->html_mode;
 }
 
+/**
+ * e_editor_widget_set_html_mode:
+ * @widget: an #EEditorWidget
+ * @html_mode: @TRUE to enable HTML mode, @FALSE to enable plain text mode
+ *
+ * When switching from HTML to plain text mode, user will be prompted whether
+ * he/she really wants to switch the mode and lose all formatting. When user
+ * declines, the property is not changed. When they accept, the all formatting
+ * is lost.
+ */
 void
 e_editor_widget_set_html_mode (EEditorWidget *widget,
 			       gboolean html_mode)
@@ -1065,6 +1274,16 @@ e_editor_widget_set_html_mode (EEditorWidget *widget,
 	g_object_notify (G_OBJECT (widget), "html-mode");
 }
 
+/**
+ * e_editor_widget_get_inline_spelling:
+ * @widget: an #EEditorWidget
+ *
+ * Returns whether automatic spellchecking is enabled or not. When enabled,
+ * editor will perform spellchecking as user is typing. Otherwise spellcheck
+ * has to be run manually from menu.
+ *
+ * Returns: @TRUE when automatic spellchecking is enabled, @FALSE otherwise.
+ */
 gboolean
 e_editor_widget_get_inline_spelling (EEditorWidget *widget)
 {
@@ -1073,6 +1292,13 @@ e_editor_widget_get_inline_spelling (EEditorWidget *widget)
 	return widget->priv->inline_spelling;
 }
 
+/**
+ * e_editor_widget_set_inline_spelling:
+ * @widget: an #EEditorWidget
+ * @inline_spelling: @TRUE to enable automatic spellchecking, @FALSE otherwise
+ *
+ * Enables or disables automatic spellchecking.
+ */
 void
 e_editor_widget_set_inline_spelling (EEditorWidget *widget,
 				     gboolean inline_spelling)
@@ -1087,6 +1313,15 @@ e_editor_widget_set_inline_spelling (EEditorWidget *widget,
 	g_object_notify (G_OBJECT (widget), "inline-spelling");
 }
 
+/**
+ * e_editor_widget_get_magic_links:
+ * @widget: an #EEditorWidget
+ *
+ * Returns whether automatic links conversion is enabled. When enabled, the editor
+ * will automatically convert any HTTP links into clickable HTML links.
+ *
+ * Returns: @TRUE when magic links are enabled, @FALSE otherwise.
+ */
 gboolean
 e_editor_widget_get_magic_links (EEditorWidget *widget)
 {
@@ -1095,6 +1330,13 @@ e_editor_widget_get_magic_links (EEditorWidget *widget)
 	return widget->priv->magic_links;
 }
 
+/**
+ * e_editor_widget_set_magic_links:
+ * @widget: an #EEditorWidget
+ * @magic_link: @TRUE to enable magic links, @FALSE to disable them
+ *
+ * Enables or disables automatic links conversion.
+ */
 void
 e_editor_widget_set_magic_links (EEditorWidget *widget,
 				 gboolean magic_links)
@@ -1109,6 +1351,16 @@ e_editor_widget_set_magic_links (EEditorWidget *widget,
 	g_object_notify (G_OBJECT (widget), "magic-links");
 }
 
+/**
+ * e_editor_widget_get_magic_smileys:
+ * @widget: an #EEditorWidget
+ *
+ * Returns whether automatic conversion of smileys is enabled or disabled. When
+ * enabled, the editor will automatically convert text smileys ( :-), ;-),...)
+ * into images.
+ *
+ * Returns: @TRUE when magic smileys are enabled, @FALSE otherwise.
+ */
 gboolean
 e_editor_widget_get_magic_smileys (EEditorWidget *widget)
 {
@@ -1117,6 +1369,13 @@ e_editor_widget_get_magic_smileys (EEditorWidget *widget)
 	return widget->priv->magic_smileys;
 }
 
+/**
+ * e_editor_widget_set_magic_smileys:
+ * @widget: an #EEditorWidget
+ * @magic_smileys: @TRUE to enable magic smileys, @FALSE to disable them
+ *
+ * Enables or disables magic smileys.
+ */
 void
 e_editor_widget_set_magic_smileys (EEditorWidget *widget,
 				   gboolean magic_smileys)
@@ -1131,6 +1390,16 @@ e_editor_widget_set_magic_smileys (EEditorWidget *widget,
 	g_object_notify (G_OBJECT (widget), "magic-smileys");
 }
 
+/**
+ * e_editor_widget_get_spell_languages:
+ * @widget: an #EEditorWidget
+ *
+ * Returns list of #ESpellDictionary objects that are used for spell checking.
+ *
+ * Returns: A newly allocated list of #ESpellDictionary objects. You should free
+ * the list by g_list_free() The objects are owned by #EEditorWidget.and should
+ * not be unref'ed or free'd. [element-type ESpellDictionary]
+ */
 GList *
 e_editor_widget_get_spell_languages (EEditorWidget *widget)
 {
@@ -1139,9 +1408,17 @@ e_editor_widget_get_spell_languages (EEditorWidget *widget)
 	return g_list_copy (widget->priv->spelling_langs);
 }
 
+/**
+ * e_editor_widget_set_spell_languages:
+ * @widget: an #EEditorWidget
+ * @spell_languages:[element-type ESpellDictionary][transfer-none] a list of
+ * #ESpellDictionary objects
+ *
+ * Sets list of #ESpellDictionary objects that will be used for spell checking.
+ */
 void
 e_editor_widget_set_spell_languages (EEditorWidget *widget,
-				     GList *spell_languages)
+				     const GList *spell_languages)
 {
 	g_return_if_fail (E_IS_EDITOR_WIDGET (widget));
 	g_return_if_fail (spell_languages);
@@ -1153,13 +1430,28 @@ e_editor_widget_set_spell_languages (EEditorWidget *widget,
 	g_object_notify (G_OBJECT (widget), "spell-languages");
 }
 
+/**
+ * e_editor_widget_get_spell_checker:
+ * @widget: an #EEditorWidget
+ *
+ * Returns an #ESpellChecker object that is used to perform spellchecking.
+ *
+ * Returns: An always-valid #ESpellChecker object
+ */
 ESpellChecker *
 e_editor_widget_get_spell_checker (EEditorWidget *widget)
 {
 	return E_SPELL_CHECKER (webkit_get_text_checker ());
 }
 
-
+/**
+ * e_editor_widget_get_text_html:
+ * @widget: an #EEditorWidget:
+ *
+ * Returns HTML content of the editor document.
+ *
+ * Returns: A newly allocated string
+ */
 gchar *
 e_editor_widget_get_text_html (EEditorWidget *widget)
 {
@@ -1256,6 +1548,15 @@ process_elements (WebKitDOMNode *node,
 	g_regex_unref (regex);
 }
 
+/**
+ * e_editor_widget_get_text_plain:
+ * @widget: an #EEditorWidget
+ *
+ * Returns plain text content of the @widget. The algorithm removes any formatting
+ * or styles from the document and keeps only the text and line breaks.
+ *
+ * Returns: A newly allocated string with plain text content of the document. [transfer-full]
+ */
 gchar *
 e_editor_widget_get_text_plain (EEditorWidget *widget)
 {
@@ -1273,6 +1574,13 @@ e_editor_widget_get_text_plain (EEditorWidget *widget)
 	return g_string_free (plain_text, FALSE);
 }
 
+/**
+ * e_editor_widget_set_text_html:
+ * @widget: an #EEditorWidget
+ * @text: HTML code to load into the editor
+ *
+ * Loads given @text into the editor, destroying any content already present.
+ */
 void
 e_editor_widget_set_text_html (EEditorWidget *widget,
 			       const gchar *text)
@@ -1296,6 +1604,13 @@ do_set_text_plain (EEditorWidget *widget,
 		document, "insertText", FALSE, data);
 }
 
+/**
+ * e_editor_widget_set_text_plain:
+ * @widget: an #EEditorWidget
+ * @text: A plain text to load into the editor
+ *
+ * Loads given @text into the editor, destryoing any content already present.
+ */
 void
 e_editor_widget_set_text_plain (EEditorWidget *widget,
 				const gchar *text)
@@ -1313,6 +1628,12 @@ e_editor_widget_set_text_plain (EEditorWidget *widget,
 		widget, do_set_text_plain, g_strdup (text), g_free);
 }
 
+/**
+ * e_editor_widget_paste_clipboard_quoted:
+ * @widget: an #EEditorWidget
+ *
+ * Pastes current content of clipboard into the editor as quoted text
+ */
 void
 e_editor_widget_paste_clipboard_quoted (EEditorWidget *widget)
 {
@@ -1326,6 +1647,13 @@ e_editor_widget_paste_clipboard_quoted (EEditorWidget *widget)
 	klass->paste_clipboard_quoted (widget);
 }
 
+/**
+ * e_editor_widget_update_fonts:
+ * @widget: an #EEditorWidget
+ *
+ * Forces the editor to reload font settings from WebKitWebSettings and apply
+ * it on the content of the editor document.
+ */
 void
 e_editor_widget_update_fonts (EEditorWidget *widget)
 {
