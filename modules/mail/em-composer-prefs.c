@@ -54,7 +54,6 @@ composer_prefs_dispose (GObject *object)
 	EMComposerPrefs *prefs = (EMComposerPrefs *) object;
 
 	g_clear_object (&prefs->builder);
-	g_clear_object (&prefs->spell_checker);
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (em_composer_prefs_parent_class)->dispose (object);
@@ -261,7 +260,7 @@ em_composer_prefs_construct (EMComposerPrefs *prefs,
 	e_load_ui_builder_definition (prefs->builder, "mail-config.ui");
 
 
-	prefs->spell_checker = e_spell_checker_new ();
+	prefs->spell_checker = e_spell_checker_instance();
 
 	/** @HookPoint-EMConfig: Mail Composer Preferences
 	 * @Id: org.gnome.evolution.mail.composerPrefs
