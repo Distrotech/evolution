@@ -1821,7 +1821,7 @@ editor_actions_init (EEditor *editor)
 		G_N_ELEMENTS (core_style_entries),
 		E_EDITOR_SELECTION_BLOCK_FORMAT_PARAGRAPH,
 		NULL, NULL);
-	gtk_ui_manager_insert_action_group (manager, action_group, 0);\
+	gtk_ui_manager_insert_action_group (manager, action_group, 0);
 
 	action = gtk_action_group_get_action (action_group, "mode-html");
 	g_object_bind_property (
