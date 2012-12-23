@@ -646,7 +646,7 @@ e_editor_spell_check_dialog_set_dictionaries (EEditorSpellCheckDialog *dialog,
 	store = gtk_list_store_new (2, G_TYPE_STRING, G_TYPE_POINTER);
 
 	while (list != NULL) {
-		EnchantDict *dictionary = list->data;
+		ESpellDictionary *dictionary = list->data;
 		GtkTreeIter iter;
 
 		gtk_list_store_append (store, &iter);
