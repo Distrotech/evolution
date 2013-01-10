@@ -1483,7 +1483,7 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 		GtkToggleAction *action;
 
 		if ((validity_pgp_sum & E_MAIL_PART_VALIDITY_PGP) != 0) {
-                        EEditor *editor = E_EDITOR (composer);
+			EEditor *editor = E_EDITOR (composer);
 			if ((validity_pgp_sum & E_MAIL_PART_VALIDITY_SIGNED) != 0) {
 				action = GTK_TOGGLE_ACTION (E_COMPOSER_ACTION_PGP_SIGN (composer));
 				gtk_toggle_action_set_active (action, TRUE);
@@ -1496,7 +1496,7 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 		}
 
 		if ((validity_smime_sum & E_MAIL_PART_VALIDITY_SMIME) != 0) {
-                        EEditor *editor = E_EDITOR (composer);
+			EEditor *editor = E_EDITOR (composer);
 			if ((validity_smime_sum & E_MAIL_PART_VALIDITY_SIGNED) != 0) {
 				action = GTK_TOGGLE_ACTION (E_COMPOSER_ACTION_SMIME_SIGN (composer));
 				gtk_toggle_action_set_active (action, TRUE);

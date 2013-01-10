@@ -53,7 +53,10 @@ composer_prefs_dispose (GObject *object)
 {
 	EMComposerPrefs *prefs = (EMComposerPrefs *) object;
 
-	g_clear_object (&prefs->builder);
+	if (prefs->builder != NULL) {
+		g_object_unref (prefs->builder);
+		prefs->builder = NULL;
+	}
 
 	/* Chain up to parent's dispose() method. */
 	G_OBJECT_CLASS (em_composer_prefs_parent_class)->dispose (object);
@@ -139,8 +142,8 @@ spell_setup (EMComposerPrefs *prefs)
 
 	store = GTK_LIST_STORE (prefs->language_model);
 
-	available_languages = e_spell_checker_list_available_dicts (
-						prefs->spell_checker);
+	available_languages =
+		e_spell_checker_list_available_dicts (prefs->spell_checker);
 
 	active_languages = e_load_spell_languages (prefs->spell_checker);
 
@@ -259,8 +262,7 @@ em_composer_prefs_construct (EMComposerPrefs *prefs,
 	prefs->builder = gtk_builder_new ();
 	e_load_ui_builder_definition (prefs->builder, "mail-config.ui");
 
-
-	prefs->spell_checker = e_spell_checker_instance();
+	prefs->spell_checker = e_spell_checker_instance ();
 
 	/** @HookPoint-EMConfig: Mail Composer Preferences
 	 * @Id: org.gnome.evolution.mail.composerPrefs
@@ -418,7 +420,6 @@ em_composer_prefs_construct (EMComposerPrefs *prefs,
 	g_signal_connect_swapped (
 		store, "row-changed",
 		G_CALLBACK (spell_language_save), prefs);
-
 
 	/* Forwards and Replies */
 	widget = e_builder_get_widget (prefs->builder, "comboboxForwardStyle");
