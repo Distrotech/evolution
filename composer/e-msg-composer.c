@@ -5009,7 +5009,7 @@ e_load_spell_languages (ESpellChecker *spell_checker)
 		gchar *language_code = strv[ii];
 		ESpellDictionary *dict;
 
-		dict = e_spell_checker_lookup_dictionary (
+		dict = e_spell_checker_ref_dictionary (
 			spell_checker, language_code);
 		if (dict != NULL)
 			spell_dicts = g_list_prepend (spell_dicts, dict);
@@ -5023,7 +5023,7 @@ e_load_spell_languages (ESpellChecker *spell_checker)
 	if (spell_dicts == NULL) {
 		ESpellDictionary *dict;
 
-		dict = e_spell_checker_lookup_dictionary (spell_checker, NULL);
+		dict = e_spell_checker_ref_dictionary (spell_checker, NULL);
 
 		if (dict != NULL)
 			spell_dicts = g_list_prepend (spell_dicts, dict);
