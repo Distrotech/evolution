@@ -129,10 +129,8 @@ ask_for_missing_attachment (EPlugin *ep,
 
 	gtk_widget_destroy (dialog);
 
-	if (response == GTK_RESPONSE_OK) {
-		EEditor *editor = e_editor_window_get_editor (E_EDITOR_WINDOW (window));
+	if (response == GTK_RESPONSE_OK)
 		gtk_action_activate (E_COMPOSER_ACTION_ATTACH (window));
-	}
 
 	return response == GTK_RESPONSE_YES;
 }
