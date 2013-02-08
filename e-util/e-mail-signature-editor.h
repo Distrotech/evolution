@@ -25,7 +25,6 @@
 
 #include <libedataserver/libedataserver.h>
 
-#include <e-util/e-editor-widget.h>
 #include <e-util/e-editor-window.h>
 #include <e-util/e-focus-tracker.h>
 
@@ -84,8 +83,6 @@ gboolean	e_mail_signature_editor_commit_finish
 						(EMailSignatureEditor *editor,
 						 GAsyncResult *result,
 						 GError **error);
-EEditorWidget *	e_mail_signature_editor_get_editor_widget
-						(EMailSignatureEditor *editor);
 
 G_END_DECLS
 
