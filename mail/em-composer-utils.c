@@ -477,11 +477,12 @@ composer_presend_check_unwanted_html (EMsgComposer *composer,
 
 	settings = g_settings_new ("org.gnome.evolution.mail");
 
-	table = e_msg_composer_get_header_table (composer);
-	recipients = e_composer_header_table_get_destinations (table);
-	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (composer));
+	editor = e_msg_composer_get_editor (composer);
 	editor_widget = e_editor_get_editor_widget (editor);
 	html_mode = e_editor_widget_get_html_mode (editor_widget);
+
+	table = e_msg_composer_get_header_table (composer);
+	recipients = e_composer_header_table_get_destinations (table);
 
 	send_html = g_settings_get_boolean (settings, "composer-send-html");
 	confirm_html = g_settings_get_boolean (settings, "prompt-on-unwanted-html");
@@ -587,7 +588,7 @@ exit:
 		EEditor *editor;
 		EEditorWidget *editor_widget;
 
-		editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+		editor = e_msg_composer_get_editor (context->composer);
 		editor_widget = e_editor_get_editor_widget (editor);
 		e_editor_widget_set_changed (editor_widget, TRUE);
 
@@ -628,7 +629,7 @@ composer_set_no_change (EMsgComposer *composer)
 
 	g_return_if_fail (composer != NULL);
 
-	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (composer));
+	editor = e_msg_composer_get_editor (composer);
 	editor_widget = e_editor_get_editor_widget (editor);
 
 	e_editor_widget_set_changed (editor_widget, FALSE);
@@ -678,7 +679,7 @@ composer_save_to_drafts_complete (EMailSession *session,
 	EEditor *editor;
 	EEditorWidget *editor_widget;
 
-	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+	editor = e_msg_composer_get_editor (context->composer);
 	editor_widget = e_editor_get_editor_widget (editor);
 
 	/* We don't really care if this failed.  If something other than
@@ -721,9 +722,10 @@ composer_save_to_drafts_cleanup (CamelFolder *drafts_folder,
 	GCancellable *cancellable;
 	GError *error = NULL;
 
+	editor = e_msg_composer_get_editor (context->composer);
 	alert_sink = e_activity_get_alert_sink (context->activity);
 	cancellable = e_activity_get_cancellable (context->activity);
-	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+
 	editor_widget = e_editor_get_editor_widget (editor);
 
 	e_mail_folder_append_message_finish (
@@ -809,7 +811,8 @@ composer_save_to_drafts_got_folder (EMailSession *session,
 
 	drafts_folder = e_mail_session_uri_to_folder_finish (
 		session, result, &error);
-	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (context->composer));
+
+	editor = e_msg_composer_get_editor (context->composer);
 	editor_widget = e_editor_get_editor_widget (editor);
 
 	if (e_activity_handle_cancellation (context->activity, error)) {
@@ -1558,14 +1561,11 @@ static void
 emu_update_composers_security (EMsgComposer *composer,
                                guint32 validity_found)
 {
-	EEditor *editor;
 	GtkAction *action;
 	GSettings *settings;
 	gboolean sign_by_default;
 
 	g_return_if_fail (composer != NULL);
-
-	editor = e_editor_window_get_editor (E_EDITOR_WINDOW (composer));
 
 	settings = g_settings_new ("org.gnome.evolution.mail");
 
