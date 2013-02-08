@@ -33,7 +33,6 @@
 #include <libebackend/libebackend.h>
 
 #include "e-composer-actions.h"
-#include "e-composer-activity.h"
 #include "e-composer-header-table.h"
 
 #ifdef HAVE_XFREE
