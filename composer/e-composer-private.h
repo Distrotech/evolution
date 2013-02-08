@@ -58,6 +58,8 @@ struct _EMsgComposerPrivate {
 
 	gpointer shell;  /* weak pointer */
 
+	EEditor *editor;
+
 	/*** UI Management ***/
 
 	GtkWidget *header_table;
