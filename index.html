@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>Evolution by Distrotech</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>Evolution</h1>
+          <h2>Mirror of git://git.gnome.org/evolution</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/Distrotech/evolution/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/Distrotech/evolution/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/Distrotech/evolution" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <p>Evolution is the integrated mail, calendar and address book suite from
+the Evolution Team.</p>
+
+<p>See <a href="http://www.gnome.org/projects/evolution">http://www.gnome.org/projects/evolution</a> for more information.</p>
+
+<p>If you are using Evolution, you may wish to subscribe to the Evolution
+users mailing list.  If you are interested in contributing to
+development on it, you should certainly subscribe to the Evolution
+Hackers mailing list.  Visit</p>
+
+<pre><code>http://lists.ximian.com
+</code></pre>
+
+<p>to subscribe or view archives of the Ximian mailing lists.</p>
+
+<p>If you are planning to work on any part of Evolution, please send mail
+to the mailing list first, to avoid duplicated effort (and to make
+sure that you aren't basing your work on interfaces that are expected
+to change).</p>
+
+<p>There is also a #evolution IRC channel on irc.gnome.org.</p>
+
+<p>Help for Evolution is available in the user manual (select "Help" from
+the menu after running the application), at the Novell knowledge base
+(<a href="http://support.novell.com">http://support.novell.com</a>), in the Evolution man page (run "man
+evolution" at the command line), and in the --help strings (run
+"evolution --help" at the command line).</p>
+
+<p>The rest of this file is dedicated to building Evolution.</p>
+
+<h2>
+<a name="dependencies" class="anchor" href="#dependencies"><span class="octicon octicon-link"></span></a>DEPENDENCIES</h2>
+
+<p>In order to build Evolution you need to have the full set of GNOME 2.6
+(or greater) development libraries installed.</p>
+
+<p>GNOME 2.6 or greater comes with most of the modern distributions, so
+in most cases it should be enough to just install all the devel
+packages from your distribution.</p>
+
+<p>Please make sure you have the most recent versions of the libraries
+installed, since bugs in the libraries can cause bugs in Evolution.</p>
+
+<p>Additional dependencies, besides the stock GNOME libraries (the
+dependencies should be compiled in the order they are listed here):</p>
+
+<pre><code>* gnome-icon-theme 1.2.0 or later
+
+* ORBit 2.9.8 or later
+
+     ftp://ftp.gnome.org/pub/gnome/sources/libsoup
+
+* libsoup 2.2.1 or later
+
+     ftp://ftp.gnome.org/pub/gnome/sources/libsoup
+
+* evolution-data-server 1.1.1 or later
+
+     ftp://ftp.gnome.org/pub/gnome/sources/evolution-data-server
+
+* gtkhtml 3.5.0 or later
+
+     ftp://ftp.gnome.org/pub/gnome/sources/gtkhtml
+
+* [Optional] Mozilla NSPR/NSS libraries
+
+  These are needed if you want to compile Evolution with SSL and S/MIME
+  support.
+
+     http://www.mozilla.org/
+
+      Many distributions ship these as Mozilla development
+      packages.
+
+* [Optional] gnome-spell 1.0.1 or later
+
+  This is only necessary if you want to have the spell
+  checking functionality in Evolution's message composer.
+
+     ftp://ftp.gnome.org/pub/gnome/sources/gnome-spell
+</code></pre>
+
+<h2>
+<a name="configuring-evolution" class="anchor" href="#configuring-evolution"><span class="octicon octicon-link"></span></a>CONFIGURING EVOLUTION</h2>
+
+<p>First you have to decide whether you want to install Evolution (and
+its dependencies) into the same prefix as the rest of your GNOME
+install, or into a new prefix.</p>
+
+<p>Installing everything into the same prefix as the rest of your GNOME
+install will make it much easier to build and run programs, and easier
+to switch between using packages and building it yourself, but it may
+also make it harder to uninstall later.  Also, it increases the chance
+that something goes wrong and your GNOME installation gets ruined.</p>
+
+<p>If you want to install in a different prefix, you need to do the
+following things:</p>
+
+<pre><code>* Set the PKG_CONFIG_PATH environment variable to contain a
+      colon-separated list of all the pkg-config directories that
+      will be involved in the build.  This basically means a list
+      of $prefix/lib/pkgconfig directory names, where $prefix is
+      the prefix where a library is installed.
+
+  For example, if you have GNOME installed in /usr and you
+      are installing Evolution and its dependencies in
+      /opt/evolution, you want to do something like the following
+      (assuming you are using Bash):
+
+      export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/opt/evolution/lib/pkgconfig
+
+* Edit the bonobo-activation-config.xml file (which is
+      normally found in /etc/bonobo-activation/) to include the
+      location where you are installing Evolution.
+
+  In the example given above (GNOME in /usr, Evolution and
+      dependencies in /opt/evolution), your
+      bonobo-activation-config.xml will have to look like this:
+
+      &lt;?xml version="1.0"?&gt;
+      &lt;oafconfig&gt;
+        &lt;searchpath&gt;
+          &lt;item&gt;/usr/lib/bonobo/servers&lt;/item&gt;
+          &lt;item&gt;/opt/evolution/lib/bonobo/servers&lt;/item&gt;
+        &lt;/searchpath&gt;
+      &lt;/oafconfig&gt;
+
+* Pass an appropriate --prefix parameter to the configure
+      scripts of Evolution and its dependencies, eg:
+
+      ./configure --prefix=/opt/evolution
+</code></pre>
+
+<p>More information on how to use the configure script is available in
+the INSTALL file which is part of the Evolution tarball.</p>
+
+<h2>
+<a name="optional-features" class="anchor" href="#optional-features"><span class="octicon octicon-link"></span></a>OPTIONAL FEATURES</h2>
+
+<p>Some optional features can be enabled at compilation time by passing
+appropriate flags to the configure script:</p>
+
+<pre><code>* SSL support.
+
+  Make sure you have Mozilla's NSS nad NSPR libraries
+  installed and pass the following flag:
+
+    --enable-nss
+</code></pre>
+        </section>
+
+        <footer>
+          Evolution is maintained by <a href="https://github.com/Distrotech">Distrotech</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="http://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>
