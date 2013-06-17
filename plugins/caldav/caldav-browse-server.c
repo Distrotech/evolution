@@ -979,7 +979,8 @@ send_xml_message (xmlDocPtr doc, gboolean depth_1, const gchar *url, GObject *di
 
 	soup_message_headers_append (message->request_headers, "User-Agent", "Evolution/" VERSION);
 	soup_message_headers_append (message->request_headers, "Depth", depth_1 ? "1" : "0");
-	soup_message_set_request (message, "application/xml", SOUP_MEMORY_COPY, (const gchar *) buf->buffer->content, buf->buffer->use);
+	soup_message_set_request (message, "application/xml", SOUP_MEMORY_COPY, 
+				  (const gchar *)xmlBufContent(buf->buffer), xmlBufUse(buf->buffer));
 
 	/* Clean up the memory */
 	xmlOutputBufferClose (buf);
