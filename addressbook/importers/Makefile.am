@@ -10,7 +10,7 @@ libevolution_addressbook_importers_la_CPPFLAGS =	\
 	-I$(top_builddir)/addressbook			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(NULL)
 
 libevolution_addressbook_importers_la_SOURCES = \
 	evolution-ldif-importer.c		\
@@ -26,7 +26,7 @@ libevolution_addressbook_importers_la_LIBADD = \
 	$(top_builddir)/addressbook/util/libeabutil.la			\
 	$(EVOLUTION_DATA_SERVER_LIBS)					\
 	$(GNOME_PLATFORM_LIBS)						\
-	$(GTKHTML_LIBS)							\
-	$(IMPORTERS_LIBS)
+	$(IMPORTERS_LIBS)						\
+	$(NULL)
 
 -include $(top_srcdir)/git.mk

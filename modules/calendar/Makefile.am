@@ -9,7 +9,7 @@ module_calendar_la_CPPFLAGS = \
 	-DEVOLUTION_ETSPECDIR=\""$(etspecdir)"\"	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(NULL)
 
 module_calendar_la_SOURCES = \
 	evolution-module-calendar.c			\
@@ -76,7 +76,7 @@ module_calendar_la_LIBADD = \
 	$(top_builddir)/e-util/libevolution-util.la			\
 	$(EVOLUTION_DATA_SERVER_LIBS)					\
 	$(GNOME_PLATFORM_LIBS)						\
-	$(GTKHTML_LIBS)
+	$(NULL)
 
 module_calendar_la_LDFLAGS = \
 	-module -avoid-version $(NO_UNDEFINED)

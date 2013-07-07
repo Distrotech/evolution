@@ -46,8 +46,8 @@ libevolution_mail_la_CPPFLAGS =				\
 	$(GNOME_PLATFORM_CFLAGS)			\
 	$(CERT_UI_CFLAGS)				\
 	$(CANBERRA_CFLAGS)				\
-	$(GTKHTML_CFLAGS)				\
-	$(LIBSOUP_CFLAGS)
+	$(LIBSOUP_CFLAGS)				\
+	$(NULL)
 
 mailinclude_HEADERS =					\
 	e-http-request.h				\
@@ -221,7 +221,6 @@ libevolution_mail_la_LIBADD =				\
 	$(GNOME_PLATFORM_LIBS)				\
 	$(CERT_UI_LIBS)					\
 	$(CANBERRA_LIBS)				\
-	$(GTKHTML_LIBS)					\
 	$(SMIME_LIBS)					\
 	$(LIBSOUP_LIBS)					\
 	$(NULL)

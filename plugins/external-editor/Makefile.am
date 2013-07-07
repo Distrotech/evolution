@@ -28,7 +28,7 @@ liborg_gnome_external_editor_la_CPPFLAGS =		\
 	-I$(top_srcdir)/composer			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(NULL)
 
 liborg_gnome_external_editor_la_SOURCES = 		\
 	external-editor.c
@@ -44,7 +44,7 @@ liborg_gnome_external_editor_la_LIBADD = 			\
 	$(top_builddir)/mail/libevolution-mail.la		\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
 	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(NULL)
 
 EXTRA_DIST = 					\
 	org-gnome-external-editor.eplug.xml	\

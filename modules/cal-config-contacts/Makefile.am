@@ -6,7 +6,7 @@ module_cal_config_contacts_la_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"evolution-cal-config-contacts\"	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
 	$(GNOME_PLATFORM_CFLAGS)				\
-	$(GTKHTML_CFLAGS)
+	$(NULL)
 
 module_cal_config_contacts_la_SOURCES = \
 	evolution-cal-config-contacts.c				\
@@ -19,7 +19,7 @@ module_cal_config_contacts_la_LIBADD = \
 	$(top_builddir)/e-util/libevolution-util.la		\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
 	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(NULL)
 
 module_cal_config_contacts_la_LDFLAGS = \
 	-module -avoid-version $(NO_UNDEFINED)
