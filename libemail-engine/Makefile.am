@@ -24,7 +24,6 @@ libemail_engine_la_CPPFLAGS = \
 	-DLIBEMAIL_ENGINE_COMPILATION \
 	$(EVOLUTION_DATA_SERVER_CFLAGS) \
 	$(GNOME_PLATFORM_CFLAGS) \
-	$(GTKHTML_CFLAGS) \
 	-DEVOLUTION_PRIVDATADIR=\""$(privdatadir)"\" \
 	$(NULL)
 
@@ -80,7 +79,6 @@ libemail_engine_la_LIBADD = \
 	$(top_builddir)/e-util/libevolution-util.la \
 	$(EVOLUTION_DATA_SERVER_LIBS) \
 	$(GNOME_PLATFORM_LIBS) \
-	$(GTKHTML_LIBS) \
 	$(NULL)
 
 libemail_engine_la_LDFLAGS = -avoid-version $(NO_UNDEFINED)

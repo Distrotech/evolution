@@ -13,7 +13,7 @@ libecontactprint_la_CPPFLAGS =			\
 	-DEVOLUTION_ECPSDIR=\""$(ecpsdir)"\"	\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)		\
 	$(GNOME_PLATFORM_CFLAGS)		\
-	$(GTKHTML_CFLAGS)
+	$(NULL)
 
 noinst_LTLIBRARIES = libecontactprint.la
 
@@ -27,7 +27,7 @@ libecontactprint_la_LIBADD =					\
 	$(top_builddir)/addressbook/util/libeabutil.la		\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
 	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(NULL)
 
 EXTRA_DIST = 		\
 	$(ecps_DATA)

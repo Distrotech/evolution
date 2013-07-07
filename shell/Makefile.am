@@ -61,8 +61,8 @@ libevolution_shell_la_CPPFLAGS =				\
 	-DG_LOG_DOMAIN=\"evolution-shell\"			\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
 	$(GNOME_PLATFORM_CFLAGS)				\
-	$(GTKHTML_CFLAGS)					\
-	$(CLUTTER_GTK_CFLAGS)
+	$(CLUTTER_GTK_CFLAGS)					\
+	$(NULL)
 
 libevolution_shell_la_SOURCES =			\
 	$(evolution_shell_include_HEADERS)	\
@@ -121,8 +121,8 @@ evolution_CPPFLAGS =						\
 	-DLIBDIR=\""$(datadir)"\"				\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
 	$(GNOME_PLATFORM_CFLAGS)				\
-	$(GTKHTML_CFLAGS)					\
-	$(CLUTTER_GTK_CFLAGS)
+	$(CLUTTER_GTK_CFLAGS)					\
+	$(NULL)
 
 evolution_SOURCES =				\
 	main.c					\

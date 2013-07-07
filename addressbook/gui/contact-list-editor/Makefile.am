@@ -11,7 +11,7 @@ libecontactlisteditor_la_CPPFLAGS =			\
 	-DG_LOG_DOMAIN=\"contact-list-editor\"		\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)			\
 	$(GNOME_PLATFORM_CFLAGS)			\
-	$(GTKHTML_CFLAGS)
+	$(NULL)
 
 libecontactlisteditor_la_SOURCES = 		\
 	e-contact-list-editor.c			\
@@ -28,7 +28,7 @@ libecontactlisteditor_la_LIBADD =				\
 	$(top_builddir)/shell/libevolution-shell.la		\
 	$(EVOLUTION_DATA_SERVER_LIBS)				\
 	$(GNOME_PLATFORM_LIBS)					\
-	$(GTKHTML_LIBS)
+	$(NULL)
 
 ui_DATA  = contact-list-editor.ui
 
