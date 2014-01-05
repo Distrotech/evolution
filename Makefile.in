@@ -85,8 +85,8 @@ DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(srcdir)/evolution-calendar.pc.in \
 	$(srcdir)/evolution-mail.pc.in $(srcdir)/evolution-shell.pc.in \
 	$(srcdir)/evolution-plugin.pc.in AUTHORS COPYING ChangeLog \
-	NEWS README compile config.guess config.sub install-sh missing \
-	ltmain.sh
+	NEWS README compile config.guess config.sub depcomp install-sh \
+	missing ltmain.sh
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/as-ac-expand.m4 \
 	$(top_srcdir)/m4/as-compiler-flag.m4 \

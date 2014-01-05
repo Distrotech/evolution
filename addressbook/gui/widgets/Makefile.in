@@ -115,7 +115,6 @@ am_libeabwidgets_la_OBJECTS = libeabwidgets_la-eab-config.lo \
 	libeabwidgets_la-eab-gui-util.lo \
 	libeabwidgets_la-e-contact-map.lo \
 	libeabwidgets_la-e-contact-map-window.lo \
-	libeabwidgets_la-e-contact-marker.lo \
 	libeabwidgets_la-e-minicard.lo \
 	libeabwidgets_la-e-minicard-label.lo \
 	libeabwidgets_la-e-minicard-view.lo \
@@ -506,8 +505,6 @@ libeabwidgets_la_SOURCES = \
 	e-contact-map.h				\
 	e-contact-map-window.c			\
 	e-contact-map-window.h			\
-	e-contact-marker.c			\
-	e-contact-marker.h			\
 	e-minicard.c				\
 	e-minicard.h				\
 	e-minicard-label.c			\
@@ -614,7 +611,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-addressbook-view.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-contact-map-window.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-contact-map.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-contact-marker.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-minicard-label.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-minicard-view-widget.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libeabwidgets_la-e-minicard-view.Plo@am__quote@
@@ -691,13 +687,6 @@ libeabwidgets_la-e-contact-map-window.lo: e-contact-map-window.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='e-contact-map-window.c' object='libeabwidgets_la-e-contact-map-window.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libeabwidgets_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libeabwidgets_la-e-contact-map-window.lo `test -f 'e-contact-map-window.c' || echo '$(srcdir)/'`e-contact-map-window.c
-
-libeabwidgets_la-e-contact-marker.lo: e-contact-marker.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libeabwidgets_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libeabwidgets_la-e-contact-marker.lo -MD -MP -MF $(DEPDIR)/libeabwidgets_la-e-contact-marker.Tpo -c -o libeabwidgets_la-e-contact-marker.lo `test -f 'e-contact-marker.c' || echo '$(srcdir)/'`e-contact-marker.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libeabwidgets_la-e-contact-marker.Tpo $(DEPDIR)/libeabwidgets_la-e-contact-marker.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='e-contact-marker.c' object='libeabwidgets_la-e-contact-marker.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libeabwidgets_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libeabwidgets_la-e-contact-marker.lo `test -f 'e-contact-marker.c' || echo '$(srcdir)/'`e-contact-marker.c
 
 libeabwidgets_la-e-minicard.lo: e-minicard.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libeabwidgets_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libeabwidgets_la-e-minicard.lo -MD -MP -MF $(DEPDIR)/libeabwidgets_la-e-minicard.Tpo -c -o libeabwidgets_la-e-minicard.lo `test -f 'e-minicard.c' || echo '$(srcdir)/'`e-minicard.c
