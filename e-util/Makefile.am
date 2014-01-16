@@ -102,6 +102,7 @@ libevolution_util_la_CPPFLAGS = \
 	$(GNOME_PLATFORM_CFLAGS) \
 	$(GEO_CFLAGS) \
 	$(ENCHANT_CFLAGS) \
+	$(GTKSPELL_CFLAGS) \
 	$(NULL)
 
 evolution_util_include_HEADERS =  \
@@ -644,6 +645,7 @@ libevolution_util_la_LIBADD =  \
 	$(GNOME_PLATFORM_LIBS) \
 	$(GEO_LIBS) \
 	$(ENCHANT_LIBS) \
+	$(GTKSPELL_LIBS) \
 	$(INTLLIBS) \
 	$(MATH_LIB) \
 	$(NULL)

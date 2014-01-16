@@ -1,33 +1,21 @@
-NULL =
-
 module_LTLIBRARIES = module-composer-autosave.la
 
 module_composer_autosave_la_CPPFLAGS = \
-<<<<<<< HEAD
-	$(AM_CPPFLAGS) \
-	-I$(top_srcdir) \
-	-DG_LOG_DOMAIN=\"evolution-composer-autosave\" \
-	$(EVOLUTION_DATA_SERVER_CFLAGS) \
-	$(GNOME_PLATFORM_CFLAGS) \
-	$(GTKHTML_CFLAGS) \
-=======
 	$(AM_CPPFLAGS)						\
 	-I$(top_srcdir)						\
 	-DG_LOG_DOMAIN=\"evolution-composer-autosave\"		\
 	$(EVOLUTION_DATA_SERVER_CFLAGS)				\
 	$(GNOME_PLATFORM_CFLAGS)				\
->>>>>>> Drop GtkHTML dependency.
 	$(NULL)
 
 module_composer_autosave_la_SOURCES = \
-	evolution-composer-autosave.c \
-	e-autosave-utils.c \
-	e-autosave-utils.h \
-	e-composer-autosave.c \
-	e-composer-autosave.h \
-	e-composer-registry.c \
-	e-composer-registry.h \
-	$(NULL)
+	evolution-composer-autosave.c				\
+	e-autosave-utils.c					\
+	e-autosave-utils.h					\
+	e-composer-autosave.c					\
+	e-composer-autosave.h					\
+	e-composer-registry.c					\
+	e-composer-registry.h
 
 module_composer_autosave_la_LIBADD = \
 	$(top_builddir)/shell/libevolution-shell.la		\
