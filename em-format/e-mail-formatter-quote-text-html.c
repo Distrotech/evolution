@@ -58,7 +58,7 @@ emqfe_text_html_format (EMailFormatterExtension *extension,
 	qf_context = (EMailFormatterQuoteContext *) context;
 
 	camel_stream_write_string (
-		stream, "\n<!-- text/html -->\n", cancellable, NULL);
+		stream, "<!-- text/html -->", cancellable, NULL);
 
 	if ((qf_context->qf_flags & E_MAIL_FORMATTER_QUOTE_FLAG_KEEP_SIG) == 0) {
 		CamelMimeFilter *sig_strip;
