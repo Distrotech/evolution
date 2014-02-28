@@ -3599,7 +3599,7 @@ e_editor_selection_save_caret_position (EEditorSelection *selection)
 
 	caret_node = e_editor_selection_get_caret_position_node (document);
 
-	if (WEBKIT_DOM_IS_TEXT (start_offset_node)) {
+	if (WEBKIT_DOM_IS_TEXT (start_offset_node) && start_offset != 0) {
 		WebKitDOMText *split_text;
 
 		split_text = webkit_dom_text_split_text (
@@ -3668,6 +3668,7 @@ e_editor_selection_restore_caret_position (EEditorSelection *selection)
 	WebKitDOMDocument *document;
 	WebKitDOMElement *element;
 	gboolean fix_after_quoting;
+	gboolean swap_direction = FALSE;
 
 	g_return_if_fail (E_IS_EDITOR_SELECTION (selection));
 
@@ -3687,6 +3688,9 @@ e_editor_selection_restore_caret_position (EEditorSelection *selection)
 		WebKitDOMDOMSelection *window_selection;
 		WebKitDOMNode *prev_sibling;
 		WebKitDOMNode *next_sibling;
+
+		if (!webkit_dom_node_get_previous_sibling (WEBKIT_DOM_NODE (element)))
+			swap_direction = TRUE;
 
 		window = webkit_dom_document_get_default_view (document);
 		window_selection = webkit_dom_dom_window_get_selection (window);
@@ -3741,10 +3745,17 @@ e_editor_selection_restore_caret_position (EEditorSelection *selection)
 		 * position is saved it is not on the place where it supposed
 		 * to be (it is in the beginning of parent's element. It can
 		 * be avoided by moving with the caret. */
-		webkit_dom_dom_selection_modify (
-			window_selection, "move", "backward", "character");
-		webkit_dom_dom_selection_modify (
-			window_selection, "move", "forward", "character");
+		if (swap_direction) {
+			webkit_dom_dom_selection_modify (
+				window_selection, "move", "forward", "character");
+			webkit_dom_dom_selection_modify (
+				window_selection, "move", "backward", "character");
+		} else {
+			webkit_dom_dom_selection_modify (
+				window_selection, "move", "backward", "character");
+			webkit_dom_dom_selection_modify (
+				window_selection, "move", "forward", "character");
+		}
 
 		webkit_dom_node_normalize (parent_node);
 	}
