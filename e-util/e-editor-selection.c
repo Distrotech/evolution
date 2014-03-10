@@ -1348,7 +1348,7 @@ put_selection_markers_around_element (WebKitDOMDocument *document,
 	WebKitDOMElement *marker;
 
 	marker = webkit_dom_document_create_element (document, "span", NULL);
-	webkit_dom_element_set_id (marker, "-x-evolution-selection-start-marker");
+	webkit_dom_element_set_id (marker, "-x-evo-selection-start-marker");
 	webkit_dom_node_insert_before (
 		webkit_dom_node_get_parent_node (WEBKIT_DOM_NODE (element)),
 		WEBKIT_DOM_NODE (marker),
@@ -1356,7 +1356,7 @@ put_selection_markers_around_element (WebKitDOMDocument *document,
 		NULL);
 
 	marker = webkit_dom_document_create_element (document, "span", NULL);
-	webkit_dom_element_set_id (marker, "-x-evolution-selection-end-marker");
+	webkit_dom_element_set_id (marker, "-x-evo-selection-end-marker");
 	webkit_dom_node_insert_before (
 		webkit_dom_node_get_parent_node (WEBKIT_DOM_NODE (element)),
 		WEBKIT_DOM_NODE (marker),
@@ -4543,7 +4543,7 @@ e_editor_selection_save (EEditorSelection *selection)
 
 	/* First remove all markers (if present) */
 	marker = webkit_dom_document_get_element_by_id (
-		document, "-x-evolution-selection-start-marker");
+		document, "-x-evo-selection-start-marker");
 	if (marker != NULL) {
 		WebKitDOMNode *marker_node;
 		WebKitDOMNode *parent_node;
@@ -4554,7 +4554,7 @@ e_editor_selection_save (EEditorSelection *selection)
 	}
 
 	marker = webkit_dom_document_get_element_by_id (
-		document, "-x-evolution-selection-end-marker");
+		document, "-x-evo-selection-end-marker");
 	if (marker != NULL) {
 		WebKitDOMNode *marker_node;
 		WebKitDOMNode *parent_node;
@@ -4577,7 +4577,7 @@ e_editor_selection_save (EEditorSelection *selection)
 		marker = webkit_dom_document_create_element (
 			document, "SPAN", NULL);
 		webkit_dom_element_set_id (
-			marker, "-x-evolution-selection-start-marker");
+			marker, "-x-evo-selection-start-marker");
 
 		container = webkit_dom_range_get_start_container (range, NULL);
 		if (WEBKIT_DOM_IS_TEXT (container) && start_offset != 0) {
@@ -4609,7 +4609,7 @@ e_editor_selection_save (EEditorSelection *selection)
 		marker = webkit_dom_document_create_element (
 			document, "SPAN", NULL);
 		webkit_dom_element_set_id (
-			marker, "-x-evolution-selection-end-marker");
+			marker, "-x-evo-selection-end-marker");
 
 		container = webkit_dom_range_get_end_container (range, NULL);
 		if (WEBKIT_DOM_IS_TEXT (container) && start_offset != 0) {
@@ -4680,10 +4680,10 @@ e_editor_selection_restore (EEditorSelection *selection)
 		WebKitDOMNode *parent_node;
 
 		marker = webkit_dom_document_get_element_by_id (
-			document, "-x-evolution-selection-start-marker");
+			document, "-x-evo-selection-start-marker");
 		if (!marker) {
 			marker = webkit_dom_document_get_element_by_id (
-				document, "-x-evolution-selection-end-marker");
+				document, "-x-evo-selection-end-marker");
 
 			if (marker) {
 				webkit_dom_node_remove_child (
@@ -4702,10 +4702,10 @@ e_editor_selection_restore (EEditorSelection *selection)
 		webkit_dom_node_remove_child (parent_node, marker_node, NULL);
 
 		marker = webkit_dom_document_get_element_by_id (
-			document, "-x-evolution-selection-end-marker");
+			document, "-x-evo-selection-end-marker");
 		if (!marker) {
 			marker = webkit_dom_document_get_element_by_id (
-				document, "-x-evolution-selection-start-marker");
+				document, "-x-evo-selection-start-marker");
 
 			if (marker) {
 				webkit_dom_node_remove_child (
