@@ -132,8 +132,7 @@ static void	handle_multipart		(EMsgComposer *composer,
 						 CamelMultipart *multipart,
 						 gboolean keep_signature,
 						 GCancellable *cancellable,
-						 gint depth,
-						 gboolean from_drafts);
+						 gint depth);
 static void	handle_multipart_alternative	(EMsgComposer *composer,
 						 CamelMultipart *multipart,
 						 gboolean keep_signature,
@@ -2668,7 +2667,7 @@ handle_multipart_signed (EMsgComposer *composer,
 		} else {
 			/* There must be attachments... */
 			handle_multipart (
-				composer, multipart, keep_signature, cancellable, depth, FALSE);
+				composer, multipart, keep_signature, cancellable, depth);
 		}
 
 	} else if (camel_content_type_is (content_type, "text", "*")) {
@@ -2760,7 +2759,7 @@ handle_multipart_encrypted (EMsgComposer *composer,
 		} else {
 			/* There must be attachments... */
 			handle_multipart (
-				composer, content_multipart, keep_signature, cancellable, depth, FALSE);
+				composer, content_multipart, keep_signature, cancellable, depth);
 		}
 
 	} else if (camel_content_type_is (content_type, "text", "*")) {
@@ -2827,7 +2826,7 @@ handle_multipart_alternative (EMsgComposer *composer,
 				/* Depth doesn't matter so long as we
 				 * don't pass 0. */
 				handle_multipart (
-					composer, mp, keep_signature, cancellable, depth + 1, FALSE);
+					composer, mp, keep_signature, cancellable, depth + 1);
 			}
 
 		} else if (camel_content_type_is (content_type, "text", "html")) {
@@ -2868,8 +2867,7 @@ handle_multipart (EMsgComposer *composer,
                   CamelMultipart *multipart,
                   gboolean keep_signature,
                   GCancellable *cancellable,
-                  gint depth,
-		  gboolean from_drafts)
+                  gint depth)
 {
 	gint i, nparts;
 
@@ -2915,7 +2913,7 @@ handle_multipart (EMsgComposer *composer,
 				/* Depth doesn't matter so long as we
 				 * don't pass 0. */
 				handle_multipart (
-					composer, mp, keep_signature, cancellable, depth + 1, from_drafts);
+					composer, mp, keep_signature, cancellable, depth + 1);
 			}
 
 		} else if (depth == 0 && i == 0) {
@@ -2926,7 +2924,7 @@ handle_multipart (EMsgComposer *composer,
 			 * this must be the body. */
 
 			/* If we are opening message from Drafts */
-			if (from_drafts) {
+			if (composer->priv->is_from_draft) {
 				/* Extract the body */
 				CamelDataWrapper *dw;
 
@@ -3094,7 +3092,6 @@ e_msg_composer_new_with_message (EShell *shell,
 	struct _camel_header_raw *xev;
 	gchar *identity_uid;
 	gint len, i;
-	gboolean from_drafts = FALSE;
 
 	g_return_val_if_fail (E_IS_SHELL (shell), NULL);
 
@@ -3238,7 +3235,7 @@ e_msg_composer_new_with_message (EShell *shell,
 		CAMEL_MEDIUM (message), "X-Evolution-Composer-Mode");
 
 	if (composer_mode && *composer_mode)
-		from_drafts = TRUE;
+		composer->priv->is_from_draft = TRUE;
 
 	if (format != NULL) {
 		gchar **flags;
@@ -3346,7 +3343,7 @@ e_msg_composer_new_with_message (EShell *shell,
 		} else {
 			/* There must be attachments... */
 			handle_multipart (
-				composer, multipart, keep_signature, cancellable, 0, from_drafts);
+				composer, multipart, keep_signature, cancellable, 0);
 		}
 	} else {
 		CamelMimePart *mime_part;
@@ -3368,7 +3365,7 @@ e_msg_composer_new_with_message (EShell *shell,
 		}
 
 		/* If we are opening message from Drafts */
-		if (from_drafts) {
+		if (composer->priv->is_from_draft) {
 			/* Extract the body */
 			CamelDataWrapper *dw;
 
