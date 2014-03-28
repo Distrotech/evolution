@@ -1210,7 +1210,7 @@ composer_build_message (EMsgComposer *composer,
 		gchar *text;
 		EHTMLEditor *editor;
 		EHTMLEditorView *view;
-		EEditorSelection *selection;
+		EHTMLEditorSelection *selection;
 
 		editor = e_msg_composer_get_editor (composer);
 		view = e_html_editor_get_view (editor);
@@ -1219,12 +1219,12 @@ composer_build_message (EMsgComposer *composer,
 		data = g_byte_array_new ();
 
 		e_html_editor_view_embed_styles (view);
-		e_editor_selection_save_caret_position (selection);
+		e_html_editor_selection_save_caret_position (selection);
 
 		text = e_html_editor_view_get_text_html_for_drafts (view);
 
 		e_html_editor_view_remove_embed_styles (view);
-		e_editor_selection_restore_caret_position (selection);
+		e_html_editor_selection_restore_caret_position (selection);
 
 		g_byte_array_append (data, (guint8 *) text, strlen (text));
 
@@ -1813,7 +1813,7 @@ msg_composer_drag_data_received_cb (GtkWidget *widget,
 	EAttachmentView *view;
 	EHTMLEditor *editor;
 	EHTMLEditorView *html_editor_view;
-	EEditorSelection *editor_selection;
+	EHTMLEditorSelection *editor_selection;
 
 	editor = e_msg_composer_get_editor (composer);
 	html_editor_view = e_html_editor_get_view (editor);
@@ -1845,7 +1845,7 @@ msg_composer_drag_data_received_cb (GtkWidget *widget,
 			list_len = length;
 			do {
 				uri = next_uri ((guchar **) &data, &len, &list_len);
-				e_editor_selection_insert_image (editor_selection, uri);
+				e_html_editor_selection_insert_image (editor_selection, uri);
 			} while (list_len);
 		}
 
@@ -1865,7 +1865,7 @@ msg_composer_drag_data_received_cb (GtkWidget *widget,
 			do {
 				uri = next_uri ((guchar **) &data, &len, &list_len);
 
-				e_editor_selection_insert_image (editor_selection, uri);
+				e_html_editor_selection_insert_image (editor_selection, uri);
 			} while (list_len);
 		}
 	} else {
@@ -5009,12 +5009,12 @@ e_msg_composer_save_focused_widget (EMsgComposer *composer)
 	composer->priv->focused_entry = widget;
 
 	if (E_IS_HTML_EDITOR_VIEW (widget)) {
-		EEditorSelection *selection;
+		EHTMLEditorSelection *selection;
 
 		selection = e_html_editor_view_get_selection (
 			E_HTML_EDITOR_VIEW (widget));
 
-		e_editor_selection_save (selection);
+		e_html_editor_selection_save (selection);
 	}
 
 	if (GTK_IS_EDITABLE (widget)) {
@@ -5045,14 +5045,14 @@ e_msg_composer_restore_focus_on_composer (EMsgComposer *composer)
 	}
 
 	if (E_IS_HTML_EDITOR_VIEW (widget)) {
-		EEditorSelection *selection;
+		EHTMLEditorSelection *selection;
 
 		e_html_editor_view_force_spell_check (E_HTML_EDITOR_VIEW (widget));
 
 		selection = e_html_editor_view_get_selection (
 			E_HTML_EDITOR_VIEW (widget));
 
-		e_editor_selection_restore (selection);
+		e_html_editor_selection_restore (selection);
 	}
 
 	composer->priv->focused_entry = NULL;
