@@ -77,7 +77,7 @@ print (EEditor *editor,
 	operation = gtk_print_operation_new ();
 
 	frame = webkit_web_view_get_main_frame (
-		WEBKIT_WEB_VIEW (e_editor_get_editor_widget (editor)));
+		WEBKIT_WEB_VIEW (e_editor_get_html_editor_view (editor)));
 	result = webkit_web_frame_print_full (frame, operation, action, NULL);
 
 	g_object_unref (operation);
@@ -165,11 +165,11 @@ view_source_dialog (EEditor *editor,
 	gtk_window_set_default_size (GTK_WINDOW (dialog), 400, 300);
 
 	if (plain_text) {
-		html = e_editor_widget_get_text_plain (
-				e_editor_get_editor_widget (editor));
+		html = e_html_editor_view_get_text_plain (
+				e_editor_get_html_editor_view (editor));
 	} else {
-		html = e_editor_widget_get_text_html (
-			e_editor_get_editor_widget (editor));
+		html = e_html_editor_view_get_text_html (
+			e_editor_get_html_editor_view (editor));
 	}
 
 	if (show_source || plain_text) {
@@ -227,7 +227,7 @@ action_save_cb (GtkAction *action,
 			return;
 
 	filename = e_editor_get_filename (editor);
-	as_html = (e_editor_widget_get_html_mode (e_editor_get_editor_widget (editor)));
+	as_html = (e_html_editor_view_get_html_mode (e_editor_get_html_editor_view (editor)));
 
 	e_editor_save (editor, filename, as_html, &error);
 	handle_error (&error);
@@ -245,7 +245,7 @@ action_save_as_cb (GtkAction *action,
 		return;
 
 	filename = e_editor_get_filename (editor);
-	as_html = (e_editor_widget_get_html_mode (e_editor_get_editor_widget (editor)));
+	as_html = (e_html_editor_view_get_html_mode (e_editor_get_html_editor_view (editor)));
 
 	e_editor_save (editor, filename, as_html, &error);
 	handle_error (&error);
@@ -255,12 +255,12 @@ static void
 action_toggle_editor (GtkAction *action,
                       EEditor *editor)
 {
-	EEditorWidget *widget;
+	EHTMLEditorView *view;
 
-	widget = e_editor_get_editor_widget (editor);
+	view = e_editor_get_html_editor_view (editor);
 	webkit_web_view_set_editable (
-		WEBKIT_WEB_VIEW (widget),
-		! webkit_web_view_get_editable (WEBKIT_WEB_VIEW (widget)));
+		WEBKIT_WEB_VIEW (view),
+		! webkit_web_view_get_editable (WEBKIT_WEB_VIEW (view)));
 }
 
 static void
@@ -289,10 +289,10 @@ action_view_inspector (GtkAction *action,
                        EEditor *editor)
 {
 	WebKitWebInspector *inspector;
-	EEditorWidget *widget;
+	EHTMLEditorView *view;
 
-	widget = e_editor_get_editor_widget (editor);
-	inspector = webkit_web_view_get_inspector (WEBKIT_WEB_VIEW (widget));
+	view = e_editor_get_html_editor_view (editor);
+	inspector = webkit_web_view_get_inspector (WEBKIT_WEB_VIEW (view));
 
 	webkit_web_inspector_show (inspector);
 }
@@ -415,7 +415,7 @@ main (gint argc,
 	GtkWidget *container;
 	GtkWidget *widget;
 	EEditor *editor;
-	EEditorWidget *editor_widget;
+	EHTMLEditorView *view;
 	WebKitWebInspector *inspector;
 
 	GError *error = NULL;
@@ -427,10 +427,10 @@ main (gint argc,
 	gtk_init (&argc, &argv);
 
 	editor = g_object_ref_sink (e_editor_new ());
-	editor_widget = e_editor_get_editor_widget (editor);
+	view = e_editor_get_html_editor_view (editor);
 
 	inspector = webkit_web_view_get_inspector (
-		WEBKIT_WEB_VIEW (editor_widget));
+		WEBKIT_WEB_VIEW (view));
 	g_signal_connect (
 		inspector, "inspect-web-view",
 		G_CALLBACK (open_inspector), NULL);
