@@ -33,7 +33,7 @@
 G_DEFINE_TYPE (
 	EEditorReplaceDialog,
 	e_editor_replace_dialog,
-	E_TYPE_EDITOR_DIALOG);
+	E_TYPE_HTML_EDITOR_DIALOG);
 
 struct _EEditorReplaceDialogPrivate {
 	GtkWidget *search_entry;
@@ -57,7 +57,7 @@ jump (EEditorReplaceDialog *dialog)
 	WebKitWebView *webview;
 	gboolean found;
 
-	editor = e_editor_dialog_get_editor (E_EDITOR_DIALOG (dialog));
+	editor = e_html_editor_dialog_get_editor (E_HTML_EDITOR_DIALOG (dialog));
 	webview = WEBKIT_WEB_VIEW (
 			e_html_editor_get_view (editor));
 
@@ -105,7 +105,7 @@ editor_replace_dialog_replace_cb (EEditorReplaceDialog *dialog)
 		gtk_widget_hide (dialog->priv->result_label);
 	}
 
-	editor = e_editor_dialog_get_editor (E_EDITOR_DIALOG (dialog));
+	editor = e_html_editor_dialog_get_editor (E_HTML_EDITOR_DIALOG (dialog));
 	view = e_html_editor_get_view (editor);
 	selection = e_html_editor_view_get_selection (view);
 
@@ -124,7 +124,7 @@ editor_replace_dialog_replace_all_cb (EEditorReplaceDialog *dialog)
 	EHTMLEditorSelection *selection;
 	const gchar *replacement;
 
-	editor = e_editor_dialog_get_editor (E_EDITOR_DIALOG (dialog));
+	editor = e_html_editor_dialog_get_editor (E_HTML_EDITOR_DIALOG (dialog));
 	view = e_html_editor_get_view (editor);
 	selection = e_html_editor_view_get_selection (view);
 	replacement = gtk_entry_get_text (GTK_ENTRY (dialog->priv->replace_entry));
@@ -190,7 +190,7 @@ e_editor_replace_dialog_init (EEditorReplaceDialog *dialog)
 
 	dialog->priv = E_EDITOR_REPLACE_DIALOG_GET_PRIVATE (dialog);
 
-	main_layout = e_editor_dialog_get_container (E_EDITOR_DIALOG (dialog));
+	main_layout = e_html_editor_dialog_get_container (E_HTML_EDITOR_DIALOG (dialog));
 
 	widget = gtk_entry_new ();
 	gtk_grid_attach (main_layout, widget, 1, 0, 2, 1);
@@ -235,7 +235,7 @@ e_editor_replace_dialog_init (EEditorReplaceDialog *dialog)
 	gtk_grid_attach (main_layout, widget, 0, 3, 2, 1);
 	dialog->priv->result_label = widget;
 
-	button_box = e_editor_dialog_get_button_box (E_EDITOR_DIALOG (dialog));
+	button_box = e_html_editor_dialog_get_button_box (E_HTML_EDITOR_DIALOG (dialog));
 
 	widget = gtk_button_new_with_mnemonic (_("_Skip"));
 	gtk_box_pack_start (button_box, widget, FALSE, FALSE, 5);
