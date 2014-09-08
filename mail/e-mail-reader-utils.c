@@ -1744,7 +1744,7 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	EWebView *web_view;
 	struct _camel_header_raw *header;
 	const gchar *uid;
-	gchar *selection = NULL;
+	const gchar *selection;
 	gint length;
 	gchar *mail_uri;
 	CamelObjectBag *registry;
@@ -1845,7 +1845,7 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	if (!e_web_view_is_selection_active (web_view))
 		goto whole_message;
 
-	selection = e_web_view_get_selection_html (web_view);
+	selection = e_web_view_get_selection_content_html_sync (web_view, NULL, NULL);
 	if (selection == NULL || *selection == '\0')
 		goto whole_message;
 
@@ -1908,8 +1908,6 @@ e_mail_reader_reply_to_message (EMailReader *reader,
 	e_mail_reader_composer_created (reader, composer, new_message);
 
 	g_object_unref (new_message);
-
-	g_free (selection);
 
 	goto exit;
 
