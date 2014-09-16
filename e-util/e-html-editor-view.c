@@ -1179,14 +1179,13 @@ register_input_event_listener_on_body (EHTMLEditorView *view)
 }
 
 static void
-html_editor_view_load_status_changed (EHTMLEditorView *view)
+html_editor_view_load_changed (EHTMLEditorView *view,
+                               WebKitLoadEvent load_event)
 {
 	WebKitDOMDocument *document;
 	WebKitDOMHTMLElement *body;
-	WebKitLoadStatus status;
 
-	status = webkit_web_view_get_load_status (WEBKIT_WEB_VIEW (view));
-	if (status != WEBKIT_LOAD_FINISHED)
+	if (load_event != WEBKIT_LOAD_FINISHED)
 		return;
 
 	view->priv->reload_in_progress = FALSE;
@@ -4722,13 +4721,13 @@ html_editor_view_insert_converted_html_into_selection (EHTMLEditorView *view,
 }
 
 static void
-html_plain_text_convertor_load_status_changed (WebKitWebView *web_view,
-                                               GParamSpec *pspec,
-                                               EHTMLEditorView *view)
+html_plain_text_convertor_load_changed (WebKitWebView *web_view,
+                                        WebKitLoadEvent event,
+                                        EHTMLEditorView *view)
 {
 	WebKitDOMDocument *document_convertor;
 
-	if (webkit_web_view_get_load_status (web_view) != WEBKIT_LOAD_FINISHED)
+	if (load_event != WEBKIT_LOAD_FINISHED)
 		return;
 
 	document_convertor = webkit_web_view_get_dom_document (web_view);
@@ -4817,8 +4816,8 @@ e_html_editor_view_init (EHTMLEditorView *view)
 		view, "resource-request-starting",
 		G_CALLBACK (html_editor_view_resource_requested), NULL);
 	g_signal_connect (
-		view, "notify::load-status",
-		G_CALLBACK (html_editor_view_load_status_changed), NULL);
+		view, "load-changed",
+		G_CALLBACK (html_editor_view_load_changed), NULL);
 
 	view->priv->selection = g_object_new (
 		E_TYPE_HTML_EDITOR_SELECTION,
@@ -4882,8 +4881,8 @@ e_html_editor_view_init (EHTMLEditorView *view)
 		NULL);
 
 	g_signal_connect (
-		view->priv->convertor_web_view, "notify::load-status",
-		G_CALLBACK (html_plain_text_convertor_load_status_changed), view);
+		view->priv->convertor_web_view, "load-changed",
+		G_CALLBACK (html_plain_text_convertor_load_changed), view);
 
 	/* Make WebKit think we are displaying a local file, so that it
 	 * does not block loading resources from file:// protocol */
