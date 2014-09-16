@@ -27,7 +27,6 @@
 #include <glib/gi18n-lib.h>
 
 #include "e-color-combo.h"
-#include "e-html-editor-utils.h"
 #include "e-image-chooser-dialog.h"
 #include "e-misc-utils.h"
 
