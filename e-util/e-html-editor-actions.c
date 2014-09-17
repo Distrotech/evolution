@@ -424,16 +424,18 @@ static void
 action_copy_cb (GtkAction *action,
                 EHTMLEditor *editor)
 {
-	webkit_web_view_copy_clipboard (
-		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)));
+	webkit_web_view_execute_editing_command (
+		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)),
+		WEBKIT_EDITING_COMMAND_COPY);
 }
 
 static void
 action_cut_cb (GtkAction *action,
                EHTMLEditor *editor)
 {
-	webkit_web_view_cut_clipboard (
-		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)));
+	webkit_web_view_execute_editing_command (
+		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)),
+		WEBKIT_EDITING_COMMAND_CUT);
 }
 
 static void
@@ -699,7 +701,9 @@ action_paste_cb (GtkAction *action,
 	if (gtk_widget_has_focus (GTK_WIDGET (view)))
 		gtk_widget_grab_focus (GTK_WIDGET (view));
 
-	webkit_web_view_paste_clipboard (WEBKIT_WEB_VIEW (view));
+	webkit_web_view_execute_editing_command (
+		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)),
+		WEBKIT_EDITING_COMMAND_PASTE);
 	e_html_editor_view_force_spell_check (view);
 }
 
@@ -827,16 +831,18 @@ static void
 action_redo_cb (GtkAction *action,
                 EHTMLEditor *editor)
 {
-	webkit_web_view_redo (
-		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)));
+	webkit_web_view_execute_editing_command (
+		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)),
+		WEBKIT_EDITING_COMMAND_REDO);
 }
 
 static void
 action_select_all_cb (GtkAction *action,
                       EHTMLEditor *editor)
 {
-	webkit_web_view_select_all (
-		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)));
+	webkit_web_view_execute_editing_command (
+		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)),
+		WEBKIT_EDITING_COMMAND_SELECT_ALL);
 }
 
 static void
@@ -891,8 +897,9 @@ static void
 action_undo_cb (GtkAction *action,
                 EHTMLEditor *editor)
 {
-	webkit_web_view_undo (
-		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)));
+	webkit_web_view_execute_editing_command (
+		WEBKIT_WEB_VIEW (e_html_editor_get_view (editor)),
+		WEBKIT_EDITING_COMMAND_UNDO);
 }
 
 static void
